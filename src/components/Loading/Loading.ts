@@ -6,7 +6,7 @@ export interface LoadingProps {
   text?: string
 }
 
-export const Loading: Component<LoadingProps> = (_init, _ctx) =>
+export const Loading: Component<LoadingProps> = async (_init, _ctx) =>
   (props) => {
   const { text = '加载中...' } = props
 

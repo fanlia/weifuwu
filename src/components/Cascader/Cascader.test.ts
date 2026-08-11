@@ -26,8 +26,8 @@ function makeCtx(): WfuiContext {
     } } }) as any
 }
 
-function mount(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
+async function mount(Comp: any, props: any, ctx: any) {
+  const result = await Comp(props, ctx)
   return typeof result === 'function' ? result : null
 }
 
@@ -57,24 +57,24 @@ function wrapOf(v: any): any {
 const triggerOf = (v: any) => wrapOf(v).props.children[0]
 
 describe('Cascader', () => {
-  it('renders trigger with placeholder', () => {
-    const render = mount(Cascader, { options }, makeCtx())!
+  it('renders trigger with placeholder', async () => {
+    const render = await mount(Cascader, { options }, makeCtx())!
     const v = render({ options })
     const trigger = triggerOf(v)
     assert.ok(trigger)
     assert.match(trigger.props.class, /wf-cascader-trigger/)
   })
 
-  it('shows selected path label', () => {
-    const render = mount(Cascader, { options, value: ['zj', 'hz', 'xh'] }, makeCtx())!
+  it('shows selected path label', async () => {
+    const render = await mount(Cascader, { options, value: ['zj', 'hz', 'xh'] }, makeCtx())!
     const v = render({ options, value: ['zj', 'hz', 'xh'] })
     const label = triggerOf(v).props.children.find((c: any) => c?.props?.class === 'wf-cascader-value')
     assert.equal(label.props.children, '浙江 / 杭州 / 西湖区')
   })
 
-  it('opens panel on click, shows first column', () => {
+  it('opens panel on click, shows first column', async () => {
     const ctx = makeCtx()
-    const render = mount(Cascader, { options }, ctx)!
+    const render = await mount(Cascader, { options }, ctx)!
     let v = render({ options })
     triggerOf(v).props.onClick()
     v = render({ options })
@@ -84,9 +84,9 @@ describe('Cascader', () => {
     assert.equal(col.props.children.length, 2) // 浙江 + 广东
   })
 
-  it('clicking parent advances to next column', () => {
+  it('clicking parent advances to next column', async () => {
     const ctx = makeCtx()
-    const render = mount(Cascader, { options }, ctx)!
+    const render = await mount(Cascader, { options }, ctx)!
     let v = render({ options })
     triggerOf(v).props.onClick()
     v = render({ options })
@@ -101,10 +101,10 @@ describe('Cascader', () => {
     assert.equal(col1.props.children.length, 2)
   })
 
-  it('clicking leaf completes selection', () => {
+  it('clicking leaf completes selection', async () => {
     let got: string[] = []
     const ctx = makeCtx()
-    const render = mount(Cascader, { options, onChange: (v: string[]) => { got = v } }, ctx)!
+    const render = await mount(Cascader, { options, onChange: (v: string[]) => { got = v } }, ctx)!
     let v = render({ options, onChange: (v: string[]) => { got = v } })
     triggerOf(v).props.onClick()
     v = render({ options, onChange: (v: string[]) => { got = v } })
@@ -116,10 +116,10 @@ describe('Cascader', () => {
     assert.deepEqual(got, ['gd', 'sz'])
   })
 
-  it('受控有 value 时从根重选：点广东路径必须从根算（闭包 path 快照）', () => {
+  it('受控有 value 时从根重选：点广东路径必须从根算（闭包 path 快照）', async () => {
     let got: string[] = []
     const ctx = makeCtx()
-    const render = mount(Cascader, { options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } }, ctx)!
+    const render = await mount(Cascader, { options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } }, ctx)!
     let v = render({ options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } })
     triggerOf(v).props.onClick()
     v = render({ options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } })
@@ -137,15 +137,15 @@ describe('Cascader', () => {
     assert.deepEqual(got, ['gd', 'sz'])
   })
 
-  it('disabled trigger not interactive', () => {
-    const render = mount(Cascader, { options, disabled: true }, makeCtx())!
+  it('disabled trigger not interactive', async () => {
+    const render = await mount(Cascader, { options, disabled: true }, makeCtx())!
     const v = render({ options, disabled: true })
     assert.equal(triggerOf(v).props.onClick, undefined)
   })
 
-  it('Escape closes panel（document 级，usePopup 接管）', () => {
+  it('Escape closes panel（document 级，usePopup 接管）', async () => {
     const ctx = makeCtx()
-    const render = mount(Cascader, { options }, ctx)!
+    const render = await mount(Cascader, { options }, ctx)!
     let v = render({ options })
     triggerOf(v).props.onClick()
     v = render({ options })
@@ -155,10 +155,10 @@ describe('Cascader', () => {
     assert.equal(panelOf(v), undefined)
   })
 
-  it('showSearch：关键词扁平过滤结果 + 选中提交路径', () => {
+  it('showSearch：关键词扁平过滤结果 + 选中提交路径', async () => {
     const ctx = makeCtx()
     let picked: string[] | undefined
-    const render = mount(Cascader, { options, showSearch: true, onChange: (v: string[]) => { picked = v } }, ctx)!
+    const render = await mount(Cascader, { options, showSearch: true, onChange: (v: string[]) => { picked = v } }, ctx)!
     let v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
     triggerOf(v).props.onClick()
     // 模拟输入「宁波」

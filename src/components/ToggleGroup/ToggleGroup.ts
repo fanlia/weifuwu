@@ -33,7 +33,7 @@ export interface ToggleGroupProps {
 }
 
 /** 单个切换按钮（对应 shadcn Toggle）：加粗/斜体/视图切换等 */
-export const Toggle: Component<ToggleProps> = (_init) =>
+export const Toggle: Component<ToggleProps> = async (_init) =>
   (props) => {
     const {
       pressed, onPressedChange, variant = 'default', size = 'md',
@@ -57,7 +57,7 @@ export const Toggle: Component<ToggleProps> = (_init) =>
   }
 
 /** 切换按钮组（对应 shadcn ToggleGroup）：type=single 单选 / multiple 多选 */
-export const ToggleGroup: Component<ToggleGroupProps> = (_init, ctx) =>
+export const ToggleGroup: Component<ToggleGroupProps> = async (_init, ctx) =>
   (props) => {
     const {
       type = 'single', options = [],

@@ -40,7 +40,7 @@ export interface CitationCardProps {
   onOpen?: (citation: Citation) => void
 }
 
-export const CitationCard: Component<CitationCardProps, WfuiContext> = (initProps, ctx) => {
+export const CitationCard: Component<CitationCardProps, WfuiContext> = async (initProps, ctx) => {
   let expanded = !!initProps.defaultExpanded
 
   return (props) => {

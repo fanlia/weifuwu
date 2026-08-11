@@ -3,9 +3,10 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Img } from './Img.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 
-function mockCtx(): WfuiContext {
+function mockCtx(){
   return { ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
     // mock 真注册（DOM 级 Escape 测试需要真实 window 监听路径）
@@ -13,24 +14,20 @@ function mockCtx(): WfuiContext {
   } } as any
 }
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 describe('Img preview 增强', () => {
   // preview 返回 wrap div > [button(img), portal]（单元素可能被 h 展开）
   const wrapChildren = (v: any) => Array.isArray(v.props.children) ? v.props.children : [v.props.children]
   const triggerOf = (v: any) => wrapChildren(v)[0]
 
-  it('renders img normally without preview', () => {
-    const vnode = renderVNode(Img, { src: 'a.png' }, mockCtx())!
+  it('renders img normally without preview', async () => {
+    const vnode = (await renderVNode(Img, { src: 'a.png' }, mockCtx())) as any
     assert.equal(vnode.type, 'img')
     assert.equal(vnode.props.src, 'a.png')
   })
 
-  it('preview wraps in button trigger', () => {
-    const vnode = renderVNode(Img, { src: 'a.png', preview: true }, mockCtx())!
+  it('preview wraps in button trigger', async () => {
+    const vnode = await renderVNode(Img, { src: 'a.png', preview: true }, mockCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-img-preview-wrap/)
     const trigger = triggerOf(vnode)
@@ -41,9 +38,9 @@ describe('Img preview 增强', () => {
     assert.equal(img.props.src, 'a.png')
   })
 
-  it('click trigger opens preview overlay', () => {
+  it('click trigger opens preview overlay', async () => {
     const ctx = mockCtx()
-    const render = Img({ src: 'a.png', preview: true }, ctx)
+    const render = await Img({ src: 'a.png', preview: true }, ctx)
     const r = render as any
     let v = r({ src: 'a.png', preview: true })
     triggerOf(v).props.onClick()
@@ -56,7 +53,7 @@ describe('Img preview 增强', () => {
 
   it('Escape closes preview（DOM 级：焦点在 portal overlay 内也生效）', async () => {
     const ctx = mockCtx()
-    const render = Img({ src: 'a.png', preview: true }, ctx)
+    const render = await Img({ src: 'a.png', preview: true }, ctx)
     const r = render as any
     // DOM 级：真实挂载 + 同树 patch（AGENTS.md：mountVNode 重挂会残留 portal 脏节点）
     const { mountVNode, patchValue } = await import('../../ui-dom/render.ts')
@@ -83,9 +80,9 @@ describe('Img preview 增强', () => {
     document.querySelectorAll('#__wf_portal').forEach(el => el.remove())
   })
 
-  it('click overlay closes preview', () => {
+  it('click overlay closes preview', async () => {
     const ctx = mockCtx()
-    const render = Img({ src: 'a.png', preview: true }, ctx)
+    const render = await Img({ src: 'a.png', preview: true }, ctx)
     const r = render as any
     let v = r({ src: 'a.png', preview: true })
     triggerOf(v).props.onClick()
@@ -96,8 +93,8 @@ describe('Img preview 增强', () => {
     assert.equal(wrapChildren(v).length, 1)
   })
 
-  it('fallback still works with preview', () => {
-    const vnode = renderVNode(Img, { src: 'broken.png', fallback: 'fallback.png', preview: true }, mockCtx())!
+  it('fallback still works with preview', async () => {
+    const vnode = await renderVNode(Img, { src: 'broken.png', fallback: 'fallback.png', preview: true }, mockCtx())!
     const img = triggerOf(vnode).props.children
     assert.equal(typeof img.props.onError, 'function')
   })

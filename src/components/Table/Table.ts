@@ -61,7 +61,7 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
   return sorted
 }
 
-export const Table: Component<TableProps> = (_init, _ctx) =>
+export const Table: Component<TableProps> = async (_init, _ctx) =>
   (props) => {
   const { data = [], columns, onRowClick, sortKey, sortOrder, onSort, emptyText, rowSelection } = props
 

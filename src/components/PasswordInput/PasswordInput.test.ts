@@ -20,14 +20,14 @@ function findEye(v: any): any {
 }
 
 describe('PasswordInput', () => {
-  it('默认 type=password', () => {
-    const vnode = renderVNode(PasswordInput, { value: 'secret' }, createTestCtx())!
+  it('默认 type=password', async () => {
+    const vnode = await renderVNode(PasswordInput, { value: 'secret' }, createTestCtx())!
     assert.equal(findInput(vnode).props.type, 'password')
   })
 
-  it('点击眼睛 → type=text（可见）+ aria-label 切换', () => {
+  it('点击眼睛 → type=text（可见）+ aria-label 切换', async () => {
     const ctx = createTestCtx()
-    const inner = PasswordInput({}, ctx) // mount 一次，闭包状态保持
+    const inner = await PasswordInput({}, ctx) // mount 一次，闭包状态保持
     let vnode = inner({ value: 'secret' })
     let eye = findEye(vnode)
     assert.ok(eye, '眼睛按钮存在')
@@ -39,9 +39,9 @@ describe('PasswordInput', () => {
     assert.equal(eye.props['aria-label'], '隐藏密码')
   })
 
-  it('再点眼睛 → 恢复 password', () => {
+  it('再点眼睛 → 恢复 password', async () => {
     const ctx = createTestCtx()
-    const inner = PasswordInput({}, ctx)
+    const inner = await PasswordInput({}, ctx)
     let vnode = inner({ value: 'x' })
     findEye(vnode).props.onClick()
     vnode = inner({ value: 'x' })
@@ -50,20 +50,20 @@ describe('PasswordInput', () => {
     assert.equal(findInput(vnode).props.type, 'password')
   })
 
-  it('value 透传输入框', () => {
-    const vnode = renderVNode(PasswordInput, { value: 'abc', label: '密码' }, createTestCtx())!
+  it('value 透传输入框', async () => {
+    const vnode = await renderVNode(PasswordInput, { value: 'abc', label: '密码' }, createTestCtx())!
     assert.equal(findInput(vnode).props.value, 'abc')
   })
 })
 
-it('默认 type=password', () => {
-  const vnode = renderVNode(PasswordInput, {}, createTestCtx())!
+it('默认 type=password', async () => {
+  const vnode = await renderVNode(PasswordInput, {}, createTestCtx())!
   assert.equal(findInput(vnode).props.type, 'password')
 })
 
-it('点击眼睛切换可见性（password → text）', () => {
+it('点击眼睛切换可见性（password → text）', async () => {
   const ctx = createTestCtx()
-  const factory = PasswordInput({}, ctx)
+  const factory = await PasswordInput({}, ctx)
   let vnode = factory({})
   assert.equal(findInput(vnode).props.type, 'password')
   const findToggle = (n: any): any => {
@@ -78,9 +78,9 @@ it('点击眼睛切换可见性（password → text）', () => {
   assert.equal(findInput(vnode).props.type, 'text', '切换后明文')
 })
 
-it('disabled 时切换无效', () => {
+it('disabled 时切换无效', async () => {
   const ctx = createTestCtx()
-  const factory = PasswordInput({}, ctx)
+  const factory = await PasswordInput({}, ctx)
   let vnode = factory({ disabled: true })
   const findToggle = (n: any): any => {
     if (!n || typeof n !== 'object') return null
@@ -95,7 +95,7 @@ it('disabled 时切换无效', () => {
   assert.equal(findInput(vnode).props.type, 'password', 'disabled 不切换')
 })
 
-it('error/hint 展示', () => {
-  const vnode = renderVNode(PasswordInput, { error: '太短', hint: undefined }, createTestCtx())!
+it('error/hint 展示', async () => {
+  const vnode = await renderVNode(PasswordInput, { error: '太短', hint: undefined }, createTestCtx())!
   assert.ok(JSON.stringify(vnode).includes('太短'))
 })

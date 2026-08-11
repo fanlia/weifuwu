@@ -37,7 +37,7 @@ export interface PopconfirmProps {
   children?: any
 }
 
-export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: WfuiContext) => {
+export const Popconfirm: Component<PopconfirmProps> = async (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
   let latestPosition: Placement = 'top'
   let latestOnConfirm: (() => void) | undefined

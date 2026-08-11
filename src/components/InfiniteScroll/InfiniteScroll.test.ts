@@ -33,47 +33,47 @@ function makeCtx(): WfuiContext {
   }) as any
 }
 
-function mount(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
+async function mount(Comp: any, props: any, ctx: any) {
+  const result = await Comp(props, ctx)
   return typeof result === 'function' ? result : null
 }
 
 describe('InfiniteScroll', () => {
   beforeEach(() => { inViewHandles = [] })
 
-  it('renders children content', () => {
-    const render = mount(InfiniteScroll, { children: '内容' }, makeCtx())!
+  it('renders children content', async () => {
+    const render = await mount(InfiniteScroll, { children: '内容' }, makeCtx())!
     const v = render({ children: '内容' })
     assert.match(v.props.class, /wf-infinite-scroll/)
     assert.equal(v.props.children[0], '内容')
   })
 
-  it('renders sentinel with observe ref', () => {
-    const render = mount(InfiniteScroll, { children: 'x' }, makeCtx())!
+  it('renders sentinel with observe ref', async () => {
+    const render = await mount(InfiniteScroll, { children: 'x' }, makeCtx())!
     const v = render({ children: 'x' })
     const sentinel = v.props.children[1]
     assert.equal(typeof sentinel.props.ref, 'function')
   })
 
-  it('shows loading indicator when loading', () => {
-    const render = mount(InfiniteScroll, { children: 'x', loading: true }, makeCtx())!
+  it('shows loading indicator when loading', async () => {
+    const render = await mount(InfiniteScroll, { children: 'x', loading: true }, makeCtx())!
     const v = render({ children: 'x', loading: true })
     const footer = v.props.children[1]
     assert.match(footer.props.class, /wf-infinite-scroll-loading/)
   })
 
-  it('shows end text when hasMore=false', () => {
-    const render = mount(InfiniteScroll, { children: 'x', hasMore: false, endText: '没有更多了' }, makeCtx())!
+  it('shows end text when hasMore=false', async () => {
+    const render = await mount(InfiniteScroll, { children: 'x', hasMore: false, endText: '没有更多了' }, makeCtx())!
     const v = render({ children: 'x', hasMore: false, endText: '没有更多了' })
     const footer = v.props.children[1]
     assert.match(footer.props.class, /wf-infinite-scroll-end/)
     assert.equal(footer.props.children, '没有更多了')
   })
 
-  it('sentinel entering viewport triggers onLoadMore（经 useInView onChange）', () => {
+  it('sentinel entering viewport triggers onLoadMore（经 useInView onChange）', async () => {
     let loads = 0
     const ctx = makeCtx()
-    const render = mount(InfiniteScroll, { children: 'x', hasMore: true, onLoadMore: () => { loads++ } }, ctx)!
+    const render = await mount(InfiniteScroll, { children: 'x', hasMore: true, onLoadMore: () => { loads++ } }, ctx)!
     render({ children: 'x', hasMore: true, onLoadMore: () => { loads++ } })
     const sentinel = render({ children: 'x', hasMore: true, onLoadMore: () => { loads++ } }).props.children[1]
     sentinel.props.ref(document.createElement('div'))
@@ -84,10 +84,10 @@ describe('InfiniteScroll', () => {
     assert.equal(loads, 1, '持续在视口内不重复触发')
   })
 
-  it('loading/hasMore=false 时渲染状态 footer 而非 sentinel（无 IO 触发路径）', () => {
+  it('loading/hasMore=false 时渲染状态 footer 而非 sentinel（无 IO 触发路径）', async () => {
     let loads = 0
     const ctx = makeCtx()
-    const render = mount(InfiniteScroll, { children: 'x', hasMore: false, onLoadMore: () => { loads++ } }, ctx)!
+    const render = await mount(InfiniteScroll, { children: 'x', hasMore: false, onLoadMore: () => { loads++ } }, ctx)!
     const v = render({ children: 'x', hasMore: false, onLoadMore: () => { loads++ } })
     assert.match(v.props.children[1].props.class, /wf-infinite-scroll-end/, 'end footer')
     // hasMore=false → 无 sentinel → 无 observe → 触发路径不存在
@@ -96,19 +96,19 @@ describe('InfiniteScroll', () => {
   })
 })
 
-it('loading 中重复进入视口不重复触发 onLoadMore（边界防重）', () => {
+it('loading 中重复进入视口不重复触发 onLoadMore（边界防重）', async () => {
   let loads = 0
   const ctx = makeCtx()
-  const factory = InfiniteScroll({ hasMore: true, loading: true, onLoadMore: () => loads++ }, ctx)
+  const factory = await InfiniteScroll({ hasMore: true, loading: true, onLoadMore: () => loads++ }, ctx)
   factory({ hasMore: true, loading: true, onLoadMore: () => loads++ })
   const handle = inViewHandles[inViewHandles.length - 1]
   handle?.trigger?.(true)
   assert.equal(loads, 0, 'loading 中不重复加载')
 })
 
-it('hasMore=false 后 sentinel 离开（footer 终态稳定）', () => {
+it('hasMore=false 后 sentinel 离开（footer 终态稳定）', async () => {
   const ctx = makeCtx()
-  const factory = InfiniteScroll({ hasMore: false, children: 'x' }, ctx)
+  const factory = await InfiniteScroll({ hasMore: false, children: 'x' }, ctx)
   const vnode = factory({ hasMore: false, children: 'x' })
   assert.ok(JSON.stringify(vnode).includes('wf-infinite'), '容器渲染')
 })

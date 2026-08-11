@@ -118,7 +118,7 @@ const PATHS: Record<IconName, string[]> = {
   layout: ['M3 3h18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M9 3v18', 'M3 9h18'],
 }
 
-export const Icon: Component<IconProps> = (_init, _ctx) =>
+export const Icon: Component<IconProps> = async (_init, _ctx) =>
   (props) => {
     const { name, size, className } = props
     return h('svg', {

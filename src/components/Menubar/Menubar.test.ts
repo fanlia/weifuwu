@@ -53,16 +53,16 @@ const menus = [
 ]
 
 describe('Menubar', () => {
-  it('renders menu triggers horizontally', () => {
-    const vnode = renderVNode(Menubar, { menus }, createTestCtx())!
+  it('renders menu triggers horizontally', async () => {
+    const vnode = await renderVNode(Menubar, { menus }, createTestCtx())!
     assert.match(vnode.props.class, /wf-menubar/)
     assert.equal(vnode.props.children.length, 2)
     assert.equal(vnode.props.children[0].props.children, '文件')
   })
 
-  it('click menu opens dropdown', () => {
+  it('click menu opens dropdown', async () => {
     const ctx = createTestCtx()
-    const result = Menubar({ menus }, ctx)
+    const result = await Menubar({ menus }, ctx)
     const render = result as any
     let v = render({ menus })
     v.props.children[0].props.onClick()
@@ -73,14 +73,14 @@ describe('Menubar', () => {
     assert.match(inner(portal).props.class, /wf-menubar-panel/)
   })
 
-  it('click item calls onSelect and closes', () => {
+  it('click item calls onSelect and closes', async () => {
     let selected: string | null = null
     const myMenus = [{
       key: 'm', label: '菜单',
       items: [{ key: 'a', label: 'A', onSelect: () => { selected = 'a' } }, { key: 'b', label: 'B', onSelect: () => { selected = 'b' } }],
     }]
     const ctx = createTestCtx()
-    const result = Menubar({ menus: myMenus }, ctx)
+    const result = await Menubar({ menus: myMenus }, ctx)
     const render = result as any
     let v = render({ menus: myMenus })
     v.props.children[0].props.onClick()
@@ -92,9 +92,9 @@ describe('Menubar', () => {
     assert.equal(v.props.children.length, 1) // 已关闭
   })
 
-  it('keyboard: ArrowRight moves to next menu', () => {
+  it('keyboard: ArrowRight moves to next menu', async () => {
     const ctx = createTestCtx()
-    const result = Menubar({ menus }, ctx)
+    const result = await Menubar({ menus }, ctx)
     const render = result as any
     let v = render({ menus })
     // 模拟焦点在第一个 trigger：按 ArrowRight → 打开第二个？简化：验证 handler + 不抛错
@@ -102,9 +102,9 @@ describe('Menubar', () => {
     assert.doesNotThrow(() => v.props.onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }))
   })
 
-  it('Escape closes open dropdown', () => {
+  it('Escape closes open dropdown', async () => {
     const ctx = createTestCtx()
-    const result = Menubar({ menus }, ctx)
+    const result = await Menubar({ menus }, ctx)
     const render = result as any
     let v = render({ menus })
     v.props.children[0].props.onClick()
@@ -115,17 +115,17 @@ describe('Menubar', () => {
     assert.equal(v.props.children.length, 2) // 只有 2 个 triggers
   })
 
-  it('disabled menu not clickable', () => {
+  it('disabled menu not clickable', async () => {
     const withDis = [{ key: 'd', label: '禁用', disabled: true, items: [] }]
-    const vnode = renderVNode(Menubar, { menus: withDis }, createTestCtx())!
+    const vnode = await renderVNode(Menubar, { menus: withDis }, createTestCtx())!
     assert.equal(vnode.props.children[0].props.onClick, undefined)
     assert.match(vnode.props.children[0].props.class, /--dis/)
   })
 })
 
-it('键盘：ArrowLeft/ArrowRight 方向键处理不抛错（焦点链）', () => {
+it('键盘：ArrowLeft/ArrowRight 方向键处理不抛错（焦点链）', async () => {
   const ctx = createTestCtx()
-  const factory = Menubar({ menus }, ctx)
+  const factory = await Menubar({ menus }, ctx)
   const vnode = factory({ menus })
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-menubar'), '菜单栏渲染')
@@ -133,9 +133,9 @@ it('键盘：ArrowLeft/ArrowRight 方向键处理不抛错（焦点链）', () =
   assert.ok(s.includes('"button"') || s.includes('tabIndex'), '触发器可聚焦')
 })
 
-it('菜单项 role=menuitem 可聚焦或原生 button（P1 键盘可达）', () => {
+it('菜单项 role=menuitem 可聚焦或原生 button（P1 键盘可达）', async () => {
   const ctx = createTestCtx()
-  const factory = Menubar({ menus }, ctx)
+  const factory = await Menubar({ menus }, ctx)
   const vnode = factory({ menus })
   const s = JSON.stringify(vnode)
   assert.ok(/tabindex|tabIndex|"button"/.test(s), '菜单项必须可聚焦')

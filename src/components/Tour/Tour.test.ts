@@ -26,13 +26,13 @@ const steps = [
 ]
 
 describe('Tour 组件', () => {
-  test('关闭时不渲染（null）', () => {
-    const vnode = renderVNode(Tour, { steps, open: false }, makeCtx())
+  test('关闭时不渲染（null）', async () => {
+    const vnode = await renderVNode(Tour, { steps, open: false }, makeCtx())
     assert.equal(vnode, null)
   })
 
-  test('打开渲染 Portal（遮罩 + 气泡）', () => {
-    const vnode = renderVNode(Tour, { steps, open: true }, makeCtx())
+  test('打开渲染 Portal（遮罩 + 气泡）', async () => {
+    const vnode = await renderVNode(Tour, { steps, open: true }, makeCtx())
     assert.ok(vnode, 'open 时非 null')
     // 检查遮罩元素（Portal vnode 的 props.children 内）
     const str = JSON.stringify(vnode)
@@ -40,17 +40,17 @@ describe('Tour 组件', () => {
     assert.match(str, /wf-tour-bubble/, '应有气泡')
   })
 
-  test('步骤内容渲染：第一步标题 + 进度', () => {
-    const vnode = renderVNode(Tour, { steps, open: true }, makeCtx())
+  test('步骤内容渲染：第一步标题 + 进度', async () => {
+    const vnode = await renderVNode(Tour, { steps, open: true }, makeCtx())
     const str = JSON.stringify(vnode)
     assert.match(str, /第一步/, '第一步标题')
     assert.match(str, /1 \/ 3|1\/3/, '进度 1/3')
   })
 
-  test('next 按钮 → onStepChange(1) 或内部推进', () => {
+  test('next 按钮 → onStepChange(1) 或内部推进', async () => {
     let step = 0
     const ctx = makeCtx()
-    const vnode = renderVNode(
+    const vnode = await renderVNode(
       Tour,
       { steps, open: true, onStepChange: (s: number) => { step = s } },
       ctx,
@@ -62,9 +62,9 @@ describe('Tour 组件', () => {
     assert.equal(step, 1, 'onStepChange 回调收到新步骤')
   })
 
-  test('最后一步 next → onFinish 回调', () => {
+  test('最后一步 next → onFinish 回调', async () => {
     let finished = false
-    const vnode = renderVNode(
+    const vnode = await renderVNode(
       Tour,
       { steps, open: true, current: 2, onFinish: () => { finished = true } },
       makeCtx(),
@@ -75,9 +75,9 @@ describe('Tour 组件', () => {
     assert.equal(finished, true)
   })
 
-  test('prev 按钮 → onStepChange(0)', () => {
+  test('prev 按钮 → onStepChange(0)', async () => {
     let step = 1
-    const vnode = renderVNode(
+    const vnode = await renderVNode(
       Tour,
       { steps, open: true, current: 1, onStepChange: (s: number) => { step = s } },
       makeCtx(),
@@ -88,10 +88,10 @@ describe('Tour 组件', () => {
     assert.equal(step, 0)
   })
 
-  test('Escape 关闭 → onChange(false)', () => {
+  test('Escape 关闭 → onChange(false)', async () => {
     let open = true
     const ctx = makeCtx()
-    renderVNode(
+    await renderVNode(
       Tour,
       { steps, open, onChange: (v: boolean) => { open = v } },
       ctx,
@@ -102,9 +102,9 @@ describe('Tour 组件', () => {
     assert.equal(open, false)
   })
 
-  test('跳过按钮 → onFinish（或 onChange false）', () => {
+  test('跳过按钮 → onFinish（或 onChange false）', async () => {
     let finished = false
-    const vnode = renderVNode(
+    const vnode = await renderVNode(
       Tour,
       { steps, open: true, onFinish: () => { finished = true } },
       makeCtx(),
@@ -115,16 +115,16 @@ describe('Tour 组件', () => {
     assert.equal(finished, true)
   })
 
-  test('受控 open 遵循 props（不内部开）', () => {
-    const vnode = renderVNode(Tour, { steps, open: true }, makeCtx())
+  test('受控 open 遵循 props（不内部开）', async () => {
+    const vnode = await renderVNode(Tour, { steps, open: true }, makeCtx())
     assert.notEqual(vnode, null)
     // 非受控（不传 open）默认关闭
-    const vnode2 = renderVNode(Tour, { steps }, makeCtx())
+    const vnode2 = await renderVNode(Tour, { steps }, makeCtx())
     assert.equal(vnode2, null)
   })
 
-  test('placement 传给气泡', () => {
-    const vnode = renderVNode(Tour, { steps, open: true }, makeCtx())
+  test('placement 传给气泡', async () => {
+    const vnode = await renderVNode(Tour, { steps, open: true }, makeCtx())
     const str = JSON.stringify(vnode)
     assert.match(str, /wf-tour-bubble--bottom/, '气泡带 placement 类')
   })

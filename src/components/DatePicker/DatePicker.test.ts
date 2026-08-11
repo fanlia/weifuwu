@@ -17,15 +17,15 @@ function makeCtx(): WfuiContext {
 }
 
 /** 两阶段组件：mount → 获取 renderFn，后续反复调用 renderFn(props) 获取 VNode */
-function mount(Comp: any, props: any, ctx: WfuiContext) {
-  const result = Comp(props, ctx)
+async function mount(Comp: any, props: any, ctx: WfuiContext) {
+  const result = await Comp(props, ctx)
   const renderFn = typeof result === 'function' ? result : null
   return (overrides?: any) => renderFn!(overrides ?? props)
 }
 
 describe('DatePicker', () => {
-  it('renders input with placeholder', () => {
-    const render = mount(DatePicker, { placeholder: '选择日期' }, makeCtx())
+  it('renders input with placeholder', async () => {
+    const render = await mount(DatePicker, { placeholder: '选择日期' }, makeCtx())
     const vnode = render()
     const input = vnode.props.children[0]
     assert.equal(input.props.type, 'text')
@@ -33,14 +33,14 @@ describe('DatePicker', () => {
     assert.ok(input.props.readonly)
   })
 
-  it('applies disabled class', () => {
-    const render = mount(DatePicker, { disabled: true }, makeCtx())
+  it('applies disabled class', async () => {
+    const render = await mount(DatePicker, { disabled: true }, makeCtx())
     const vnode = render()
     assert.match(vnode.props.class, /wf-datepicker--disabled/)
   })
 
-  it('mode=date shows calendar panel via portal when open', () => {
-    const render = mount(DatePicker, { mode: 'date', placeholder: '日期' }, makeCtx())
+  it('mode=date shows calendar panel via portal when open', async () => {
+    const render = await mount(DatePicker, { mode: 'date', placeholder: '日期' }, makeCtx())
     // 点击 input 触发打开
     let vnode = render()
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
@@ -53,8 +53,8 @@ describe('DatePicker', () => {
     assert.equal(panel?.props?.role, 'dialog')
   })
 
-  it('mode=time shows time picker', () => {
-    const render = mount(DatePicker, { mode: 'time', placeholder: '时间' }, makeCtx())
+  it('mode=time shows time picker', async () => {
+    const render = await mount(DatePicker, { mode: 'time', placeholder: '时间' }, makeCtx())
     let vnode = render()
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
     vnode = render()
@@ -63,8 +63,8 @@ describe('DatePicker', () => {
     assert.ok(timePanel, '时间选择面板应在 Portal 中')
   })
 
-  it('mode=range shows dual month panels', () => {
-    const render = mount(DatePicker, { mode: 'range', placeholder: '范围' }, makeCtx())
+  it('mode=range shows dual month panels', async () => {
+    const render = await mount(DatePicker, { mode: 'range', placeholder: '范围' }, makeCtx())
     let vnode = render()
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
     vnode = render()
@@ -75,15 +75,15 @@ describe('DatePicker', () => {
     assert.equal(rangeWrap?.props?.children?.length, 2)
   })
 
-  it('does not show panel when closed', () => {
-    const render = mount(DatePicker, { mode: 'date' }, makeCtx())
+  it('does not show panel when closed', async () => {
+    const render = await mount(DatePicker, { mode: 'date' }, makeCtx())
     const vnode = render()
     assert.equal(vnode.props.children.length, 1, '关闭状态下只有一个 input')
   })
 
-  it('calls onChange on date select', () => {
+  it('calls onChange on date select', async () => {
     let val = ''
-    const render = mount(DatePicker, { mode: 'date', onChange: (v: string) => { val = v } }, makeCtx())
+    const render = await mount(DatePicker, { mode: 'date', onChange: (v: string) => { val = v } }, makeCtx())
     let vnode = render()
     // 打开日历
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
@@ -104,7 +104,7 @@ describe('DatePicker', () => {
     assert.ok(val.length > 0, 'onChange 应被调用并返回日期字符串')
   })
 
-  it('日历方向键导航 + Escape 关闭（patch 管线）', () => {
+  it('日历方向键导航 + Escape 关闭（patch 管线）', async () => {
     let renderFn: (() => any) | null = null
     let prev: any = null
     const container = document.createElement('div')
@@ -122,7 +122,7 @@ describe('DatePicker', () => {
         useAnimationEnd: () => () => {},
       },
     }
-    const result = (DatePicker as any)({}, ctx)
+    const result = await (DatePicker as any)({}, ctx)
     renderFn = typeof result === 'function' ? () => result({}) : null
     prev = renderFn!()
     mountVNode(container, prev, ctx)

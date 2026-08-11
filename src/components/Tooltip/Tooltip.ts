@@ -19,7 +19,7 @@ export interface TooltipProps {
   disabled?: boolean
 }
 
-export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
+export const Tooltip: Component<TooltipProps> = async (_props, ctx) => {
   // ── mount（只一次）──
   let show = false
   let latestPosition: TooltipPosition = 'top'

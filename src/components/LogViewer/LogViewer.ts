@@ -62,7 +62,7 @@ export function parseAnsi(text: string): any[] {
   return nodes
 }
 
-export const LogViewer: Component<LogViewerProps> = (_init, ctx) => {
+export const LogViewer: Component<LogViewerProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let bodyEl: HTMLElement | null = null
   let lastLineCount = 0

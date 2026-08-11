@@ -7,8 +7,8 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 import { createTestCtx } from '../../ui-dom/testing.ts'
 
 
-function mount(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
+async function mount(Comp: any, props: any, ctx: any) {
+  const result = await Comp(props, ctx)
   return typeof result === 'function' ? result : null
 }
 
@@ -34,23 +34,23 @@ describe('Watermark', () => {
 
   beforeEach(() => { calls = mockCanvas() })
 
-  it('renders children with overlay', () => {
-    const render = mount(Watermark, { text: '机密', children: '内容' }, createTestCtx())!
+  it('renders children with overlay', async () => {
+    const render = await mount(Watermark, { text: '机密', children: '内容' }, createTestCtx())!
     const v = render({ text: '机密', children: '内容' })
     assert.match(v.props.class, /wf-watermark/)
     assert.equal(v.props.children[0], '内容') // children 是字符串
     assert.match(v.props.children[1].props.class, /wf-watermark-overlay/)
   })
 
-  it('draws watermark text on ref mount', () => {
-    const render = mount(Watermark, { text: '机密文件', children: 'x' }, createTestCtx())!
+  it('draws watermark text on ref mount', async () => {
+    const render = await mount(Watermark, { text: '机密文件', children: 'x' }, createTestCtx())!
     const v = render({ text: '机密文件', children: 'x' })
     v.props.children[1].props.ref(document.createElement('div'))
     assert.ok(calls.includes('fillText'), '应调用 canvas fillText 绘制水印')
   })
 
-  it('overlay has background image after draw', () => {
-    const render = mount(Watermark, { text: '内部资料', children: 'x' }, createTestCtx())!
+  it('overlay has background image after draw', async () => {
+    const render = await mount(Watermark, { text: '内部资料', children: 'x' }, createTestCtx())!
     const v = render({ text: '内部资料', children: 'x' })
     const overlay = v.props.children[1]
     overlay.props.ref(document.createElement('div'))
@@ -60,16 +60,16 @@ describe('Watermark', () => {
     assert.match(overlay2.props.style.backgroundImage, /data:image/)
   })
 
-  it('pointer-events none overlay', () => {
-    const render = mount(Watermark, { text: 'w', children: 'x' }, createTestCtx())!
+  it('pointer-events none overlay', async () => {
+    const render = await mount(Watermark, { text: 'w', children: 'x' }, createTestCtx())!
     const v = render({ text: 'w', children: 'x' })
     const overlay = v.props.children[1]
     assert.equal(overlay.props.style.pointerEvents, 'none')
     assert.match(overlay.props.class, /wf-watermark-overlay/)
   })
 
-  it('applies opacity prop', () => {
-    const render = mount(Watermark, { text: 'w', opacity: 0.2, children: 'x' }, createTestCtx())!
+  it('applies opacity prop', async () => {
+    const render = await mount(Watermark, { text: 'w', opacity: 0.2, children: 'x' }, createTestCtx())!
     const v = render({ text: 'w', opacity: 0.2, children: 'x' })
     const overlay = v.props.children[1]
     overlay.props.ref(document.createElement('div'))

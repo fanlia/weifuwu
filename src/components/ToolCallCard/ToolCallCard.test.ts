@@ -10,15 +10,15 @@ import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 describe('ToolCallCard', () => {
   const call = { id: 'tc_1', name: 'query_weather', args: { city: '北京' } }
 
-  it('running 状态：工具名 + 参数 + 无进度条', () => {
-    const vnode = renderVNode(ToolCallCard, { call }, createTestCtx())!
+  it('running 状态：工具名 + 参数 + 无进度条', async () => {
+    const vnode = await renderVNode(ToolCallCard, { call }, createTestCtx())!
     assert.match(vnode.props.class, /wf-toolcall--running/)
     const header = vnode.props.children[0]
     assert.equal(header.props.children[1].props.children, 'query_weather')
   })
 
-  it('progress 状态：显示进度条 + 消息', () => {
-    const vnode = renderVNode(ToolCallCard, {
+  it('progress 状态：显示进度条 + 消息', async () => {
+    const vnode = await renderVNode(ToolCallCard, {
       call,
       progress: { toolCallId: 'tc_1', step: 1, total: 2, message: '查询中…', status: 'running' },
     }, createTestCtx())!
@@ -31,13 +31,13 @@ describe('ToolCallCard', () => {
     assert.match(fill.props.style.width, /50%/)
   })
 
-  it('result ok → ok 终态', () => {
-    const vnode = renderVNode(ToolCallCard, { call, result: { id: 'tc_1', ok: true, output: { temp: 25 } } }, createTestCtx())!
+  it('result ok → ok 终态', async () => {
+    const vnode = await renderVNode(ToolCallCard, { call, result: { id: 'tc_1', ok: true, output: { temp: 25 } } }, createTestCtx())!
     assert.match(vnode.props.class, /wf-toolcall--ok/)
   })
 
-  it('result error → error 终态 + 错误信息', () => {
-    const vnode = renderVNode(ToolCallCard, {
+  it('result error → error 终态 + 错误信息', async () => {
+    const vnode = await renderVNode(ToolCallCard, {
       call,
       result: { id: 'tc_1', ok: false, error: { code: 'rejected', message: '预算不够' } },
     }, createTestCtx())!
@@ -47,8 +47,8 @@ describe('ToolCallCard', () => {
     assert.match(err.props.children, /预算不够/)
   })
 
-  it('renderArgs 自定义参数渲染', () => {
-    const vnode = renderVNode(ToolCallCard, {
+  it('renderArgs 自定义参数渲染', async () => {
+    const vnode = await renderVNode(ToolCallCard, {
       call,
       renderArgs: (a) => `城市=${a.city}`,
     }, createTestCtx())!
@@ -57,8 +57,8 @@ describe('ToolCallCard', () => {
   })
 })
 
-it('状态图标渲染 Icon 组件而非名称文本（P3——"settings"/"check" 曾以文本泄漏）', () => {
-  const vnode = renderVNode(ToolCallCard, { call: { id: '1', name: 'query', args: {} }, result: { id: '1', ok: true, output: {} } }, createTestCtx())!
+it('状态图标渲染 Icon 组件而非名称文本（P3——"settings"/"check" 曾以文本泄漏）', async () => {
+  const vnode = await renderVNode(ToolCallCard, { call: { id: '1', name: 'query', args: {} }, result: { id: '1', ok: true, output: {} } }, createTestCtx())!
   const iconSpan = vnode.props.children[0].props.children[0]
   assert.equal(iconSpan.props.class.includes('wf-toolcall-icon'), true)
   const icon = iconSpan.props.children

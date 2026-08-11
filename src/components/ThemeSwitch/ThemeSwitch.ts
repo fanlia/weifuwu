@@ -55,7 +55,7 @@ export function getTheme(): ThemeMode {
   return 'auto'
 }
 
-export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx) => {
+export const ThemeSwitch: Component<ThemeSwitchProps> = async (initProps, ctx) => {
   const storageKey = initProps.storageKey ?? DEFAULT_KEY
   // ── mount（只一次）：读取持久化设置并立即应用 ──
   let mode: ThemeMode = initProps.mode ?? readStored(storageKey) ?? 'auto'

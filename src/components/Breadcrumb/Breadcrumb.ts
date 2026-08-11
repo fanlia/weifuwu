@@ -11,7 +11,7 @@ export interface BreadcrumbProps {
   items: BreadcrumbItem[]
 }
 
-export const Breadcrumb: Component<BreadcrumbProps> = (_init, _ctx) =>
+export const Breadcrumb: Component<BreadcrumbProps> = async (_init, _ctx) =>
   (props) => {
     const { items } = props
 

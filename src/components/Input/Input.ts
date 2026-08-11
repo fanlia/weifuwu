@@ -22,7 +22,7 @@ export interface InputProps {
   [key: string]: any
 }
 
-export const Input: Component<InputProps> = (_init) =>
+export const Input: Component<InputProps> = async (_init) =>
   (props) => {
   const { label, name, type = 'text', value, placeholder, required, disabled, error, hint, variant = 'default', onInput, onChange } = props
 

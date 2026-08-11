@@ -19,7 +19,7 @@ export interface PinInputProps {
  * 验证码输入（对应 shadcn InputOTP / antd 无）：自动聚焦下一格、粘贴分派、
  * Backspace 回退、方向键移动。受控 value 为完整字符串。
  */
-export const PinInput: Component<PinInputProps> = (_init, ctx) => {
+export const PinInput: Component<PinInputProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let refs: (HTMLInputElement | null)[] = []
 

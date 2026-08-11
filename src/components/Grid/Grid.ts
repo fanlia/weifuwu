@@ -40,7 +40,7 @@ export function gridColumns(span: number): string {
   return `${(span / 24) * 100}%`
 }
 
-export const Grid: Component<GridProps> = (_init, _ctx: WfuiContext) =>
+export const Grid: Component<GridProps> = async (_init, _ctx: WfuiContext) =>
   (props) => {
     const { gutter, flex, gap, direction = 'row', align, children } = props
     const half = gutter ? gutter / 2 : 0
@@ -62,7 +62,7 @@ export const Grid: Component<GridProps> = (_init, _ctx: WfuiContext) =>
     }, kids)
   }
 
-export const Col: Component<ColProps> = (_init, _ctx: WfuiContext) =>
+export const Col: Component<ColProps> = async (_init, _ctx: WfuiContext) =>
   (props) => {
     const { span = 24, gutter, children } = props
     const half = gutter ? gutter / 2 : 0

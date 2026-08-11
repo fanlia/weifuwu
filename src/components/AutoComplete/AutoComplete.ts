@@ -48,7 +48,7 @@ export function filterOptions(options: AutoCompleteOption[], query: string): Aut
   })
 }
 
-export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiContext) => {
+export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
   // open 状态经 $（Proxy 自动 dirty → 重渲染，与 usePopup 集成）；
   // keyword/selected 由 useControlledInput 管理（render 层调用——C3 原语）

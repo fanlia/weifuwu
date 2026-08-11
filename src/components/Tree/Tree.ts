@@ -82,7 +82,7 @@ function buildParentMap(nodes: TreeNode[], map: Map<string, TreeNode | null>, pa
  * 树形（对应 antd/EP Tree）：递归节点 + 展开/折叠 + 单选 + 勾选（父子联动 +
  * indeterminate 半选态 + 搜索过滤 searchValue）。裁剪：拖拽、异步加载。
  */
-export const Tree: Component<TreeProps> = (_init, ctx) => {
+export const Tree: Component<TreeProps> = async (_init, ctx) => {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──

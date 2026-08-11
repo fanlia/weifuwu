@@ -18,7 +18,7 @@ export interface InViewProps {
   children?: any
 }
 
-export const InView: Component<InViewProps> = (_props, ctx) => {
+export const InView: Component<InViewProps> = async (_props, ctx) => {
   // ── mount（只一次）──
   let entered = false
 

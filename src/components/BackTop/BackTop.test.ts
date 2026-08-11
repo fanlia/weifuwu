@@ -13,8 +13,8 @@ function makeCtx(initialIsIn = true): { ctx: WfuiContext; inView: { isIn: boolea
   return { ctx, inView }
 }
 
-function mount(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
+async function mount(Comp: any, props: any, ctx: any) {
+  const result = await Comp(props, ctx)
   return typeof result === 'function' ? result : null
 }
 
@@ -32,49 +32,49 @@ describe('BackTop', () => {
     ;(window as any).scrollTo = (opts: any) => { scrolledTo = opts?.top ?? null }
   })
 
-  it('renders hidden by default (IO isIn=true = 未超过阈值)', () => {
+  it('renders hidden by default (IO isIn=true = 未超过阈值)', async () => {
     const { ctx } = makeCtx(true)
-    const render = mount(BackTop, {}, ctx)!
+    const render = await mount(BackTop, {}, ctx)!
     const vnode = render({})
     assert.equal(vnode.type, 'div') // host
     assert.match(buttonOf(vnode).props.class, /wf-backtop--hidden/)
   })
 
-  it('scroll past visibilityHeight shows button (IO isIn=false)', () => {
+  it('scroll past visibilityHeight shows button (IO isIn=false)', async () => {
     const { ctx, inView } = makeCtx(true)
-    const render = mount(BackTop, { visibilityHeight: 400 }, ctx)!
+    const render = await mount(BackTop, { visibilityHeight: 400 }, ctx)!
     inView.isIn = false // 模拟 IO：哨兵离开扩展区（滚动超 400px）
     const vnode = render({ visibilityHeight: 400 })
     assert.doesNotMatch(buttonOf(vnode).props.class, /--hidden/)
     assert.match(buttonOf(vnode).props.class, /wf-backtop/)
   })
 
-  it('stays hidden below threshold (IO isIn=true)', () => {
+  it('stays hidden below threshold (IO isIn=true)', async () => {
     const { ctx, inView } = makeCtx(true)
-    const render = mount(BackTop, { visibilityHeight: 400 }, ctx)!
+    const render = await mount(BackTop, { visibilityHeight: 400 }, ctx)!
     const vnode = render({ visibilityHeight: 400 })
     assert.match(buttonOf(vnode).props.class, /--hidden/)
     assert.equal(inView.isIn, true)
   })
 
-  it('click scrolls to top', () => {
+  it('click scrolls to top', async () => {
     const { ctx } = makeCtx(true)
-    const render = mount(BackTop, {}, ctx)!
+    const render = await mount(BackTop, {}, ctx)!
     const vnode = render({})
     buttonOf(vnode).props.onClick()
     assert.equal(scrolledTo, 0)
   })
 
-  it('renders custom children', () => {
+  it('renders custom children', async () => {
     const { ctx } = makeCtx(true)
-    const render = mount(BackTop, { children: 'TOP' }, ctx)!
+    const render = await mount(BackTop, { children: 'TOP' }, ctx)!
     const vnode = render({ children: 'TOP' })
     assert.equal(buttonOf(vnode).props.children, 'TOP')
   })
 
-  it('cleanup disconnects observer (sentinel ref null branch)', () => {
+  it('cleanup disconnects observer (sentinel ref null branch)', async () => {
     const { ctx } = makeCtx(true)
-    const render = mount(BackTop, {}, ctx)!
+    const render = await mount(BackTop, {}, ctx)!
     const vnode = render({})
     // sentinel ref：挂载 + 卸载（observe/disconnect，无异常即可）
     vnode.props.children[0].props.ref(document.createElement('div'))
@@ -82,18 +82,18 @@ describe('BackTop', () => {
   })
 })
 
-it('键盘可达：按钮原生可聚焦 + Enter 回顶（P1）', () => {
+it('键盘可达：按钮原生可聚焦 + Enter 回顶（P1）', async () => {
   const { ctx, inView } = makeCtx(false) // isIn=false → 显示
-  const factory = mount(BackTop, { visibilityHeight: 100 }, ctx)
+  const factory = await mount(BackTop, { visibilityHeight: 100 }, ctx)
   const vnode = factory({ visibilityHeight: 100 })
   const btn = buttonOf(vnode)
   assert.ok(btn, '按钮渲染')
   assert.ok(btn.props.type === 'button' || btn.type === 'button', '原生 button 可聚焦')
 })
 
-it('visibilityHeight 默认值存在（不传不抛错——边界）', () => {
+it('visibilityHeight 默认值存在（不传不抛错——边界）', async () => {
   const { ctx } = makeCtx()
-  const factory = mount(BackTop, {}, ctx)
+  const factory = await mount(BackTop, {}, ctx)
   const vnode = factory({})
   assert.ok(vnode, '默认参数渲染')
 })

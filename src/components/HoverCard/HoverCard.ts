@@ -25,7 +25,7 @@ export interface HoverCardProps {
 }
 
 /** 悬停富内容卡：hover 延迟显隐，支持任意 VNode 内容（移动端 tap 降级） */
-export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
+export const HoverCard: Component<HoverCardProps> = async (_props, ctx) => {
   // ── mount（只一次）──
   let latestPosition: HoverCardPosition = 'top'
   let disabled = false

@@ -12,8 +12,8 @@ function createTestCtx(): WfuiContext {
 }
 
 describe('CodeBlock', () => {
-  it('渲染代码内容（pre > code）', () => {
-    const vnode = renderVNode(CodeBlock, { code: 'const a = 1' }, createTestCtx())!
+  it('渲染代码内容（pre > code）', async () => {
+    const vnode = await renderVNode(CodeBlock, { code: 'const a = 1' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-codeblock/)
     // 子结构: header(标签+复制) + pre > code
     const pre = vnode.props.children.find((c: any) => c?.props?.class === 'wf-codeblock-pre')
@@ -28,8 +28,8 @@ describe('CodeBlock', () => {
     assert.equal(children.map((c: any) => typeof c === 'string' ? c : c.props.children).join(''), 'const a = 1')
   })
 
-  it('语言标签展示（标题区内）', () => {
-    const vnode = renderVNode(CodeBlock, { code: 'x', lang: 'ts' }, createTestCtx())!
+  it('语言标签展示（标题区内）', async () => {
+    const vnode = await renderVNode(CodeBlock, { code: 'x', lang: 'ts' }, createTestCtx())!
     const header = vnode.props.children.find((c: any) => c?.props?.class === 'wf-codeblock-header')
     const title = header.props.children.find((c: any) => c?.props?.class === 'wf-codeblock-title')
     const lang = title.props.children
@@ -37,8 +37,8 @@ describe('CodeBlock', () => {
     assert.equal(lang.props.children[1], 'ts')
   })
 
-  it('复制按钮存在（aria-label=复制）', () => {
-    const vnode = renderVNode(CodeBlock, { code: 'x' }, createTestCtx())!
+  it('复制按钮存在（aria-label=复制）', async () => {
+    const vnode = await renderVNode(CodeBlock, { code: 'x' }, createTestCtx())!
     const btn = vnode.props.children[0].props.children.find((c: any) => c?.props?.type === 'button')
     assert.equal(btn.props['aria-label'], '复制')
   })
@@ -47,27 +47,27 @@ describe('CodeBlock', () => {
     let copied = ''
     const ctx = { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true },
       browser: { copyText: async (t: string) => { copied = t; return true } } } as any
-    const vnode = renderVNode(CodeBlock, { code: 'const a = 1' }, ctx)!
+    const vnode = await renderVNode(CodeBlock, { code: 'const a = 1' }, ctx)!
     const btn = vnode.props.children[0].props.children.find((c: any) => c?.props?.type === 'button')
     await btn.props.onClick()
     assert.equal(copied, 'const a = 1')
   })
 
-  it('clipboard 不可用时 execCommand 兜底不抛错', () => {
+  it('clipboard 不可用时 execCommand 兜底不抛错', async () => {
     Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true, writable: true })
-    const vnode = renderVNode(CodeBlock, { code: 'x' }, createTestCtx())!
+    const vnode = await renderVNode(CodeBlock, { code: 'x' }, createTestCtx())!
     const btn = vnode.props.children[0].props.children.find((c: any) => c?.props?.type === 'button')
     assert.doesNotThrow(() => btn.props.onClick())
   })
 })
 
-it('title 渲染在标题区', () => {
-  const vnode = renderVNode(CodeBlock, { code: 'x', title: 'server.ts' }, createTestCtx())!
+it('title 渲染在标题区', async () => {
+  const vnode = await renderVNode(CodeBlock, { code: 'x', title: 'server.ts' }, createTestCtx())!
   assert.ok(JSON.stringify(vnode).includes('server.ts'))
 })
 
-it('无 lang 不渲染语言标签（边界）', () => {
-  const vnode = renderVNode(CodeBlock, { code: 'x' }, createTestCtx())!
+it('无 lang 不渲染语言标签（边界）', async () => {
+  const vnode = await renderVNode(CodeBlock, { code: 'x' }, createTestCtx())!
   assert.ok(!JSON.stringify(vnode).includes('wf-codeblock-lang'))
 })
 
@@ -75,7 +75,7 @@ it('复制跟随最新 code（props 更新后 latestCode 同步）', async () =>
   const copied: string[] = []
   const ctx = createTestCtx()
   ;(ctx as any).browser = { copyText: async (t: string) => { copied.push(t) } }
-  const factory = CodeBlock({ code: 'v1' }, ctx)
+  const factory = await CodeBlock({ code: 'v1' }, ctx)
   factory({ code: 'v1' })
   const vnode2 = factory({ code: 'v2' })
   const find = (n: any): any => {

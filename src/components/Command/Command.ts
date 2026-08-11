@@ -25,7 +25,7 @@ export interface CommandProps {
 }
 
 /** 命令面板（对应 shadcn Command）：全屏 overlay + 搜索 + 键盘流（↑↓ Enter Escape）+ Cmd+K 全局快捷键 */
-export const Command: Component<CommandProps> = (_init, ctx) => {
+export const Command: Component<CommandProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let query = ''
   let highlight = 0

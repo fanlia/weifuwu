@@ -29,7 +29,7 @@ export interface DatePickerProps {
   disabled?: boolean
 }
 
-export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
+export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let show = false

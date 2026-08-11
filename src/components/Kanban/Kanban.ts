@@ -38,7 +38,7 @@ interface DragState {
  * 卡片拖拽：dragstart 记录源 → 卡片/列 drop 触发 onMove（跨列 + 同列重排）。
  * 受控纪律：columns 受控 prop——无 onMove 时 warn（交互静默失效防护）。
  */
-export const Kanban: Component<KanbanProps> = (_init, ctx) => {
+export const Kanban: Component<KanbanProps> = async (_init, ctx) => {
   let drag: DragState | null = null
 
   // 内置 DnD 原语：drop 侧（列 drop zone）+ drag 侧基础（draggable/onDragEnd）

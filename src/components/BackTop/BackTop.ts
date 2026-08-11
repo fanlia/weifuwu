@@ -18,7 +18,7 @@ export interface BackTopProps {
 /** 回到顶部（对应 EP Backtop / antd FloatButton.BackTop）：滚动超阈值显示，点击回顶
  * 实现：ctx.ui.useInView（IO 封装）观察文档顶部哨兵——rootMargin 顶部向外扩展
  * visibilityHeight，哨兵离开扩展区（= 滚动超阈值）→ 显示。无 scroll 监听、无警告。 */
-export const BackTop: Component<BackTopProps> = (_init, ctx) => {
+export const BackTop: Component<BackTopProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let el: HTMLElement | null = null
 

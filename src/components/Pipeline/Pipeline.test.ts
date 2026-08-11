@@ -6,7 +6,7 @@ import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
 
 describe('computeLayers — 层级分配', () => {
-  test('线性链：逐层递增', () => {
+  test('线性链：逐层递增', async () => {
     const layers = computeLayers(
       [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
       [{ from: 'a', to: 'b' }, { from: 'b', to: 'c' }],
@@ -16,7 +16,7 @@ describe('computeLayers — 层级分配', () => {
     assert.equal(layers.get('c'), 2)
   })
 
-  test('菱形依赖：b/c 同层（最长路径）', () => {
+  test('菱形依赖：b/c 同层（最长路径）', async () => {
     const layers = computeLayers(
       [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }],
       [{ from: 'a', to: 'b' }, { from: 'a', to: 'c' }, { from: 'b', to: 'd' }, { from: 'c', to: 'd' }],
@@ -27,7 +27,7 @@ describe('computeLayers — 层级分配', () => {
     assert.equal(layers.get('d'), 2)
   })
 
-  test('无依赖节点独立成层（0）', () => {
+  test('无依赖节点独立成层（0）', async () => {
     const layers = computeLayers(
       [{ id: 'a' }, { id: 'x' }, { id: 'b' }],
       [{ from: 'a', to: 'b' }],
@@ -35,7 +35,7 @@ describe('computeLayers — 层级分配', () => {
     assert.equal(layers.get('x'), 0)
   })
 
-  test('分层结果覆盖所有节点', () => {
+  test('分层结果覆盖所有节点', async () => {
     const layers = computeLayers(
       [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
       [{ from: 'a', to: 'b' }],
@@ -45,21 +45,21 @@ describe('computeLayers — 层级分配', () => {
 })
 
 describe('detectCycle — 环检测', () => {
-  test('无环 → false', () => {
+  test('无环 → false', async () => {
     assert.equal(detectCycle(
       [{ id: 'a' }, { id: 'b' }],
       [{ from: 'a', to: 'b' }],
     ), false)
   })
 
-  test('自环 → true', () => {
+  test('自环 → true', async () => {
     assert.equal(detectCycle(
       [{ id: 'a' }],
       [{ from: 'a', to: 'a' }],
     ), true)
   })
 
-  test('多节点环 → true', () => {
+  test('多节点环 → true', async () => {
     assert.equal(detectCycle(
       [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
       [{ from: 'a', to: 'b' }, { from: 'b', to: 'c' }, { from: 'c', to: 'a' }],
@@ -68,7 +68,7 @@ describe('detectCycle — 环检测', () => {
 })
 
 describe('layoutGraph — 坐标布局', () => {
-  test('垂直布局：节点分布 + 边路径', () => {
+  test('垂直布局：节点分布 + 边路径', async () => {
     const { nodes, edges } = layoutGraph(
       [{ id: 'a' }, { id: 'b' }],
       [{ from: 'a', to: 'b' }],
@@ -81,7 +81,7 @@ describe('layoutGraph — 坐标布局', () => {
     assert.match(edges[0].d, /^M/, '边是 path')
   })
 
-  test('水平布局：a 在 b 左侧', () => {
+  test('水平布局：a 在 b 左侧', async () => {
     const { nodes, edges } = layoutGraph(
       [{ id: 'a' }, { id: 'b' }],
       [{ from: 'a', to: 'b' }],
@@ -93,8 +93,8 @@ describe('layoutGraph — 坐标布局', () => {
 })
 
 describe('Pipeline 组件', () => {
-  test('渲染节点 + 连线 + 状态色', () => {
-    const vnode = renderVNode(
+  test('渲染节点 + 连线 + 状态色', async () => {
+    const vnode = await renderVNode(
       Pipeline,
       {
         nodes: [
@@ -113,8 +113,8 @@ describe('Pipeline 组件', () => {
     assert.match(str, /wf-pipeline-node--running/, 'running 状态类')
   })
 
-  test('环检测：有环 → 渲染警告不崩溃', () => {
-    const vnode = renderVNode(
+  test('环检测：有环 → 渲染警告不崩溃', async () => {
+    const vnode = await renderVNode(
       Pipeline,
       {
         nodes: [{ id: 'a' }, { id: 'b' }],
@@ -125,8 +125,8 @@ describe('Pipeline 组件', () => {
     assert.ok(vnode, '不崩溃')
   })
 
-  test('节点标签渲染', () => {
-    const vnode = renderVNode(
+  test('节点标签渲染', async () => {
+    const vnode = await renderVNode(
       Pipeline,
       {
         nodes: [{ id: 'n1', label: 'Agent 调度' }],

@@ -24,7 +24,7 @@ export interface SparklineProps {
  * Sparkline — 迷你趋势线（SVG 自绘，零依赖）。
  * 归一化到 viewBox，等值/单点/空数据安全。
  */
-export const Sparkline: Component<SparklineProps> = (_init, ctx) =>
+export const Sparkline: Component<SparklineProps> = async (_init, ctx) =>
   (props) => {
     const {
       data,

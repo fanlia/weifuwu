@@ -29,7 +29,7 @@ const ICON: Record<ResultStatus, IconName> = {
   info: 'info',
 }
 
-export const Result: Component<ResultProps> = (_init, _ctx) =>
+export const Result: Component<ResultProps> = async (_init, _ctx) =>
   (props) => {
     const { status = 'info', title, desc, extra, className } = props
 

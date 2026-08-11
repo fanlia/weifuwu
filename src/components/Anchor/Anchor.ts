@@ -31,7 +31,7 @@ export interface AnchorProps {
   className?: string
 }
 
-export const Anchor: Component<AnchorProps> = (_init, ctx) => {
+export const Anchor: Component<AnchorProps> = async (_init, ctx) => {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──

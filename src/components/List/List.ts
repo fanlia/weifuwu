@@ -20,7 +20,7 @@ export interface ListProps<T = any> {
   className?: string
 }
 
-export const List: Component<ListProps> = (_init, _ctx) =>
+export const List: Component<ListProps> = async (_init, _ctx) =>
   (props) => {
     const { items, renderItem, divided, header, footer, emptyText = '暂无数据', emptyIcon, className } = props
 

@@ -10,7 +10,7 @@ export interface PaginationProps {
   onChange?: (page: number) => void
 }
 
-export const Pagination: Component<PaginationProps> = (_init, ctx) =>
+export const Pagination: Component<PaginationProps> = async (_init, ctx) =>
   (props) => {
   const { total, pageSize = 20 } = props
 

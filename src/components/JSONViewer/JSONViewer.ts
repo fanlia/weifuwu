@@ -38,7 +38,7 @@ function formatValue(v: unknown): string {
   return String(v)
 }
 
-export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
+export const JSONViewer: Component<JSONViewerProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   // $ Proxy 状态：path → 是否展开（赋值自动 dirty，绑定创建者组件——
   // 闭包 let + ctx.ui.render() 在事件回调里 selfId 不可靠，折叠/展开会静默失败）

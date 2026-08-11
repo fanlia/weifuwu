@@ -17,33 +17,33 @@ function collectText(v: any): string[] {
 }
 
 describe('Highlight', () => {
-  it('无命中词 → 原样文本', () => {
-    const vnode = renderVNode(Highlight, { text: '你好世界' }, createTestCtx())!
+  it('无命中词 → 原样文本', async () => {
+    const vnode = await renderVNode(Highlight, { text: '你好世界' }, createTestCtx())!
     assert.deepEqual(collectText(vnode), ['你好世界'])
   })
 
-  it('命中词包 <mark>', () => {
-    const vnode = renderVNode(Highlight, { text: '搜索 张三 的结果', query: ['张三'] }, createTestCtx())!
+  it('命中词包 <mark>', async () => {
+    const vnode = await renderVNode(Highlight, { text: '搜索 张三 的结果', query: ['张三'] }, createTestCtx())!
     const marks = vnode.props.children.filter((c: any) => c?.type === 'mark')
     assert.equal(marks.length, 1)
     assert.equal(marks[0].props.children, '张三')
     assert.match(marks[0].props.class, /wf-highlight/)
   })
 
-  it('多词命中', () => {
-    const vnode = renderVNode(Highlight, { text: '张三 和 李四', query: ['张三', '李四'] }, createTestCtx())!
+  it('多词命中', async () => {
+    const vnode = await renderVNode(Highlight, { text: '张三 和 李四', query: ['张三', '李四'] }, createTestCtx())!
     const marks = vnode.props.children.filter((c: any) => c?.type === 'mark')
     assert.equal(marks.length, 2)
   })
 
-  it('大小写不敏感', () => {
-    const vnode = renderVNode(Highlight, { text: 'Hello World', query: ['hello'] }, createTestCtx())!
+  it('大小写不敏感', async () => {
+    const vnode = await renderVNode(Highlight, { text: 'Hello World', query: ['hello'] }, createTestCtx())!
     const marks = vnode.props.children.filter((c: any) => c?.type === 'mark')
     assert.equal(marks[0].props.children, 'Hello')
   })
 
-  it('无命中词 → 无 mark', () => {
-    const vnode = renderVNode(Highlight, { text: '没有命中', query: ['xyz'] }, createTestCtx())!
+  it('无命中词 → 无 mark', async () => {
+    const vnode = await renderVNode(Highlight, { text: '没有命中', query: ['xyz'] }, createTestCtx())!
     assert.ok(!vnode.props.children.some((c: any) => c?.type === 'mark'))
   })
 })

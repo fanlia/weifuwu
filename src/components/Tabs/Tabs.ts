@@ -15,7 +15,7 @@ export interface TabsProps {
   onChange?: (key: string) => void
 }
 
-export const Tabs: Component<TabsProps> = (_init, ctx) => {
+export const Tabs: Component<TabsProps> = async (_init, ctx) => {
   const _browser = ctx?.browser ?? createClientBrowser()
   const $ = ctx.ui.$()
   $.inkLeft = 0

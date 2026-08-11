@@ -21,7 +21,7 @@ export interface StatCardProps {
   onFinish?: () => void
 }
 
-export const StatCard: Component<StatCardProps> = (_init, ctx) => {
+export const StatCard: Component<StatCardProps> = async (_init, ctx) => {
   // ── mount：数值动画经 ctx.ui.useTween（rAF + ease-out + reduced-motion 直落终值；
   // 幂等 reset——render 每帧调用安全，动画运行中同目标不重启）。
   // 偏好感知经 ctx.ui.useReducedMotion（JS 动画侧跳过，收敛手工 matchMedia）。

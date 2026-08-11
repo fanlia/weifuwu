@@ -25,7 +25,7 @@ export interface TransferProps {
 
 /** 穿梭框（对应 antd/EP Transfer）：双列表 + 中间穿梭按钮 + 可选搜索。
  * 裁剪：拖拽排序、自定义渲染。 */
-export const Transfer: Component<TransferProps> = (_init, ctx) => {
+export const Transfer: Component<TransferProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   const $ = ctx.ui.$()
   $.selLeft = [] as string[]

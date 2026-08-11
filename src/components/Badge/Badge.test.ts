@@ -12,53 +12,53 @@ function createTestCtx(): WfuiContext {
 }
 
 describe('Badge', () => {
-  it('renders text badge', () => {
-    const vnode = renderVNode(Badge, { children: '管理员' }, createTestCtx())!
+  it('renders text badge', async () => {
+    const vnode = await renderVNode(Badge, { children: '管理员' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-badge/)
     assert.equal(vnode.props.children, '管理员')
   })
 
-  it('renders all variants', () => {
+  it('renders all variants', async () => {
     for (const v of ['default', 'primary', 'success', 'warning', 'danger', 'info'] as const) {
-      const vnode = renderVNode(Badge, { variant: v, children: v }, createTestCtx())!
+      const vnode = await renderVNode(Badge, { variant: v, children: v }, createTestCtx())!
       assert.match(vnode.props.class, new RegExp(`wf-badge--${v}`))
     }
   })
 
-  it('renders dot variant', () => {
-    const vnode = renderVNode(Badge, { dot: true, variant: 'success' }, createTestCtx())!
+  it('renders dot variant', async () => {
+    const vnode = await renderVNode(Badge, { dot: true, variant: 'success' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-badge-dot/)
     assert.match(vnode.props.class, /wf-badge-dot--success/)
   })
 
-  it('renders dot with default variant', () => {
-    const vnode = renderVNode(Badge, { dot: true }, createTestCtx())!
+  it('renders dot with default variant', async () => {
+    const vnode = await renderVNode(Badge, { dot: true }, createTestCtx())!
     assert.match(vnode.props.class, /wf-badge-dot--default/)
   })
 
-  it('renders empty string when no children', () => {
-    const vnode = renderVNode(Badge, {}, createTestCtx())!
+  it('renders empty string when no children', async () => {
+    const vnode = await renderVNode(Badge, {}, createTestCtx())!
     assert.equal(vnode.props.children, '')
   })
 
-  it('renders each variant dot', () => {
+  it('renders each variant dot', async () => {
     for (const v of ['default', 'primary', 'success', 'warning', 'danger', 'info'] as const) {
-      const vnode = renderVNode(Badge, { dot: true, variant: v }, createTestCtx())!
+      const vnode = await renderVNode(Badge, { dot: true, variant: v }, createTestCtx())!
       assert.match(vnode.props.class, new RegExp(`wf-badge-dot--${v}`))
     }
   })
 })
 
-it('count 数值角标 + overflow 显示 N+', () => {
-  const v1 = renderVNode(Badge, { count: 5 }, createTestCtx())!
+it('count 数值角标 + overflow 显示 N+', async () => {
+  const v1 = await renderVNode(Badge, { count: 5 }, createTestCtx())!
   assert.equal(v1.props.children, '5')
   assert.ok(v1.props.class.includes('wf-badge--count'))
-  const v2 = renderVNode(Badge, { count: 150, overflowCount: 99 }, createTestCtx())!
+  const v2 = await renderVNode(Badge, { count: 150, overflowCount: 99 }, createTestCtx())!
   assert.equal(v2.props.children, '99+')
 })
 
-it('count=0 默认隐藏 + showZero 显示', () => {
-  assert.equal(renderVNode(Badge, { count: 0 }, createTestCtx()), null)
-  const v = renderVNode(Badge, { count: 0, showZero: true }, createTestCtx())!
+it('count=0 默认隐藏 + showZero 显示', async () => {
+  assert.equal(await renderVNode(Badge, { count: 0 }, createTestCtx()), null)
+  const v = await renderVNode(Badge, { count: 0, showZero: true }, createTestCtx())!
   assert.equal(v.props.children, '0')
 })

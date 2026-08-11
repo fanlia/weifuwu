@@ -12,23 +12,23 @@ function makeCtx(): WfuiContext {
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) */
-function renderInView(props: any, ctx: WfuiContext) {
-  const result = InView(props, ctx)
+async function renderInView(props: any, ctx: WfuiContext) {
+  const result = await InView(props, ctx)
   if (typeof result === 'function') return result(props)
   return result
 }
 
 describe('InView', () => {
-  it('renders placeholder when not in view', () => {
-    const vnode = renderInView({ children: h('p', null, '内容') }, makeCtx())!
+  it('renders placeholder when not in view', async () => {
+    const vnode = await renderInView({ children: h('p', null, '内容') }, makeCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-inview--pending/)
   })
 
-  it('renders children when in view', () => {
+  it('renders children when in view', async () => {
     const ctx = makeCtx()
     // 手动触发 inView 状态
-    const result = InView({ children: h('p', null, '内容') }, ctx)
+    const result = await InView({ children: h('p', null, '内容') }, ctx)
     const renderFn = typeof result === 'function' ? result : null
     // 通过 ref 获取 sentinel 元素并触发 IntersectionObserver
     // 这里简化：直接验证首次不渲染 children，而是渲染占位
@@ -38,9 +38,9 @@ describe('InView', () => {
     assert.match(vnode.props.class, /wf-inview--pending/)
   })
 
-  it('accepts custom placeholder', () => {
+  it('accepts custom placeholder', async () => {
     const placeholder = h('span', { class: 'custom-placeholder' }, '加载中...')
-    const vnode = renderInView({ placeholder }, makeCtx())!
+    const vnode = await renderInView({ placeholder }, makeCtx())!
     // children 结构：[sentinel, placeholder]
     const children = Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children]
     const placeholderEl = children.find((c: any) => c?.props?.class === 'custom-placeholder')
@@ -48,23 +48,23 @@ describe('InView', () => {
     assert.equal(placeholderEl.props.children, '加载中...')
   })
 
-  it('onEnter is available as callback prop', () => {
+  it('onEnter is available as callback prop', async () => {
     const ctx = makeCtx()
     const onEnter = () => {}
-    const vnode = renderInView({ children: '内容', onEnter }, ctx)
+    const vnode = await renderInView({ children: '内容', onEnter }, ctx)
     assert.match(vnode!.props.class, /pending/)
   })
 
-  it('default placeholder is a div with wf-inview-placeholder class', () => {
-    const vnode = renderInView({ children: '内容' }, makeCtx())!
+  it('default placeholder is a div with wf-inview-placeholder class', async () => {
+    const vnode = await renderInView({ children: '内容' }, makeCtx())!
     const children = Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children]
     const placeholderEl = children.find((c: any) => c?.props?.class === 'wf-inview-placeholder')
     assert.ok(placeholderEl, 'default placeholder should be a div.wf-inview-placeholder')
   })
 
-  it('sets once default to true', () => {
+  it('sets once default to true', async () => {
     const ctx = makeCtx()
-    const result = InView({ children: '内容' }, ctx)
+    const result = await InView({ children: '内容' }, ctx)
     const renderFn = typeof result === 'function' ? result : null
     const vnode = renderFn!({ children: '内容' })!
     assert.match(vnode.props.class, /pending/)

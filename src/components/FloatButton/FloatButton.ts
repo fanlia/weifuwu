@@ -31,7 +31,7 @@ export interface FloatButtonProps {
 }
 
 /** 单个悬浮按钮 */
-export const FloatButton: Component<FloatButtonProps> = (_init, _ctx: WfuiContext) =>
+export const FloatButton: Component<FloatButtonProps> = async (_init, _ctx: WfuiContext) =>
   (props) => {
     const { icon, badge, position = 'bottom-right', static: isStatic, disabled, onClick, children } = props
     return h('button', {
@@ -53,7 +53,7 @@ export interface FloatButtonGroupProps {
 }
 
 /** 悬浮按钮组：主按钮展开/收起子按钮 */
-export const FloatButtonGroup: Component<FloatButtonGroupProps> = (_init, ctx: WfuiContext) => {
+export const FloatButtonGroup: Component<FloatButtonGroupProps> = async (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
   let open = false
 

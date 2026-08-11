@@ -29,7 +29,7 @@ export interface AlertGroupProps {
 
 const THRESHOLD = 3
 
-export const AlertGroup: Component<AlertGroupProps> = (_init, ctx: WfuiContext) => {
+export const AlertGroup: Component<AlertGroupProps> = async (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
   let expanded = false
 

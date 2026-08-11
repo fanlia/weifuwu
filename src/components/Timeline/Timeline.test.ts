@@ -13,15 +13,15 @@ const items = [
 ]
 
 describe('Timeline', () => {
-  it('渲染容器 ul.wf-timeline', () => {
-    const vnode = renderVNode(Timeline, { items }, createTestCtx())!
+  it('渲染容器 ul.wf-timeline', async () => {
+    const vnode = await renderVNode(Timeline, { items }, createTestCtx())!
     assert.equal(vnode.type, 'ul')
     assert.match(vnode.props.class, /wf-timeline/)
     assert.equal(vnode.props.children.length, 3)
   })
 
-  it('每项渲染 li + 节点 + 内容（title/time/content）', () => {
-    const vnode = renderVNode(Timeline, { items }, createTestCtx())!
+  it('每项渲染 li + 节点 + 内容（title/time/content）', async () => {
+    const vnode = await renderVNode(Timeline, { items }, createTestCtx())!
     const li = vnode.props.children[0]
     assert.equal(li.type, 'li')
     // 结构: [节点列, 内容列]
@@ -32,8 +32,8 @@ describe('Timeline', () => {
     assert.ok(texts.includes('创建了 Agent'))
   })
 
-  it('状态类映射（success/error）', () => {
-    const vnode = renderVNode(Timeline, { items }, createTestCtx())!
+  it('状态类映射（success/error）', async () => {
+    const vnode = await renderVNode(Timeline, { items }, createTestCtx())!
     const li1 = vnode.props.children[1]
     const node = li1.props.children[0]
     assert.match(node.props.class, /wf-timeline-node--success/)
@@ -41,15 +41,15 @@ describe('Timeline', () => {
     assert.match(li2.props.children[0].props.class, /wf-timeline-node--error/)
   })
 
-  it('reverse 反转顺序', () => {
-    const vnode = renderVNode(Timeline, { items, reverse: true }, createTestCtx())!
+  it('reverse 反转顺序', async () => {
+    const vnode = await renderVNode(Timeline, { items, reverse: true }, createTestCtx())!
     const first = collectText(vnode.props.children[0])
     assert.ok(first.includes('失败'))
   })
 
-  it('可点击项：role=button + onClick', () => {
+  it('可点击项：role=button + onClick', async () => {
     let clicked = false
-    const vnode = renderVNode(Timeline, {
+    const vnode = await renderVNode(Timeline, {
       items: [{ key: 'x', title: '日志', onClick: () => { clicked = true } }],
     }, createTestCtx())!
     const li = vnode.props.children[0]
@@ -59,13 +59,13 @@ describe('Timeline', () => {
     assert.equal(clicked, true)
   })
 
-  it('不可点击项无 role=button（纯展示非 focusable）', () => {
-    const vnode = renderVNode(Timeline, { items: [{ key: 'x', title: '只读' }] }, createTestCtx())!
+  it('不可点击项无 role=button（纯展示非 focusable）', async () => {
+    const vnode = await renderVNode(Timeline, { items: [{ key: 'x', title: '只读' }] }, createTestCtx())!
     assert.equal(vnode.props.children[0].props.role, undefined)
   })
 
-  it('alternate 模式：奇偶项左右交替', () => {
-    const vnode = renderVNode(Timeline, { items, mode: 'alternate' }, createTestCtx())!
+  it('alternate 模式：奇偶项左右交替', async () => {
+    const vnode = await renderVNode(Timeline, { items, mode: 'alternate' }, createTestCtx())!
     const classes = vnode.props.children.map((li: any) => li.props.class)
     assert.match(classes[0], /wf-timeline-item--alt-left/)
     assert.match(classes[1], /wf-timeline-item--alt-right/)
@@ -84,24 +84,24 @@ function collectText(node: any): string[] {
   return out
 }
 
-it('reverse 反转顺序 + mode=alternate 类（边界/变体）', () => {
+it('reverse 反转顺序 + mode=alternate 类（边界/变体）', async () => {
   const items = [
     { key: '1', title: '先', time: '10:00' },
     { key: '2', title: '后', time: '11:00' },
   ]
-  const vnode = renderVNode(Timeline, { items, reverse: true, mode: 'alternate' }, createTestCtx())!
+  const vnode = await renderVNode(Timeline, { items, reverse: true, mode: 'alternate' }, createTestCtx())!
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('alt-left') || s.includes('alt-right'), 'alternate 模式类')
   assert.ok(s.indexOf('后') < s.indexOf('先'), 'reverse 后"后"在前')
 })
 
-it('horizontal 模式：横向类 + 水平连接线', () => {
+it('horizontal 模式：横向类 + 水平连接线', async () => {
   const items = [
     { key: '1', title: '提交', time: '10:00' },
     { key: '2', title: '审核', time: '11:00' },
     { key: '3', title: '完成', time: '12:00', status: 'success' as const },
   ]
-  const vnode = renderVNode(Timeline, { items, mode: 'horizontal' }, createTestCtx())!
+  const vnode = await renderVNode(Timeline, { items, mode: 'horizontal' }, createTestCtx())!
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-timeline--h'), '横向容器类')
   assert.ok(s.includes('wf-timeline-item--h'), '横向项类')

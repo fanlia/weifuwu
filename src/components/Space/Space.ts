@@ -24,7 +24,7 @@ const SIZE_MAP: Record<string, string> = {
   lg: 'var(--wf-space-lg, 24px)',
 }
 
-export const Space: Component<SpaceProps> = (_init, _ctx: WfuiContext) =>
+export const Space: Component<SpaceProps> = async (_init, _ctx: WfuiContext) =>
   (props) => {
     const { size = 'md', direction = 'horizontal', wrap, align, split, children } = props
     const gap = typeof size === 'number' ? `${size}px` : (SIZE_MAP[size] ?? 'var(--wf-space-md, 16px)')

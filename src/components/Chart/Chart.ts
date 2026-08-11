@@ -23,7 +23,7 @@ export interface ChartProps {
   className?: string
 }
 
-export const Chart: Component<ChartProps> = (_props, ctx) => {
+export const Chart: Component<ChartProps> = async (_props, ctx) => {
   // ── mount（只一次）──
   let tooltip: { label: string; value: number } | null = null
   let tooltipEl: Element | null = null

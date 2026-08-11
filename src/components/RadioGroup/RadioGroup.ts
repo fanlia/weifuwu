@@ -16,7 +16,7 @@ export interface RadioGroupProps {
   onChange?: (value: string) => void
 }
 
-export const RadioGroup: Component<RadioGroupProps> = (_init, ctx) =>
+export const RadioGroup: Component<RadioGroupProps> = async (_init, ctx) =>
   (props) => {
   const { name, options = [], inline } = props
 

@@ -21,31 +21,31 @@ const data = [
 ]
 
 describe('Transfer', () => {
-  it('renders two lists and actions', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: ['a'] }, createTestCtx())!
+  it('renders two lists and actions', async () => {
+    const vnode = await renderVNode(Transfer, { data, targetKeys: ['a'] }, createTestCtx())!
     assert.match(vnode.props.class, /wf-transfer/)
     // 结构：左列表 + 按钮区 + 右列表
     assert.equal(vnode.props.children.length, 3)
   })
 
-  it('left list excludes target keys', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, createTestCtx())!
+  it('left list excludes target keys', async () => {
+    const vnode = await renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, createTestCtx())!
     const leftItems = vnode.props.children[0].props.children[1].props.children
     const labels = leftItems.map((i: any) => i.props.children)
     assert.deepEqual(labels, ['选项B', '选项D'])
   })
 
-  it('right list shows target keys', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, createTestCtx())!
+  it('right list shows target keys', async () => {
+    const vnode = await renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, createTestCtx())!
     const rightItems = vnode.props.children[2].props.children[1].props.children
     const labels = rightItems.map((i: any) => i.props.children)
     assert.deepEqual(labels, ['选项A', '选项C'])
   })
 
-  it('selecting left item and moving adds to target', () => {
+  it('selecting left item and moving adds to target', async () => {
     let got: string[] = ['a']
     const ctx = createTestCtx()
-    const result = Transfer({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } }, ctx)
+    const result = await Transfer({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } }, ctx)
     const render = result as any
     let v = render({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } })
     // 左列点击 B（选中）→ 点击 → 按钮
@@ -57,10 +57,10 @@ describe('Transfer', () => {
     assert.deepEqual(got, ['a', 'b'])
   })
 
-  it('selecting right item and moving back removes', () => {
+  it('selecting right item and moving back removes', async () => {
     let got: string[] = ['a', 'b']
     const ctx = createTestCtx()
-    const result = Transfer({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } }, ctx)
+    const result = await Transfer({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } }, ctx)
     const render = result as any
     let v = render({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } })
     const rightItem = v.props.children[2].props.children[1].props.children[0]
@@ -71,30 +71,30 @@ describe('Transfer', () => {
     assert.deepEqual(got, ['b'])
   })
 
-  it('move button disabled when nothing selected', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: [] }, createTestCtx())!
+  it('move button disabled when nothing selected', async () => {
+    const vnode = await renderVNode(Transfer, { data, targetKeys: [] }, createTestCtx())!
     const rightBtn = vnode.props.children[1].props.children[1]
     assert.equal(rightBtn.props.disabled, true)
   })
 
-  it('renders titles', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: [], titles: ['源列表', '目标列表'] }, createTestCtx())!
+  it('renders titles', async () => {
+    const vnode = await renderVNode(Transfer, { data, targetKeys: [], titles: ['源列表', '目标列表'] }, createTestCtx())!
     assert.equal(vnode.props.children[0].props.children[0].props.children, '源列表')
     assert.equal(vnode.props.children[2].props.children[0].props.children, '目标列表')
   })
 
-  it('disabled items not selectable', () => {
+  it('disabled items not selectable', async () => {
     const withDis = [{ key: 'a', label: 'A', disabled: true }, { key: 'b', label: 'B' }]
-    const vnode = renderVNode(Transfer, { data: withDis, targetKeys: [] }, createTestCtx())!
+    const vnode = await renderVNode(Transfer, { data: withDis, targetKeys: [] }, createTestCtx())!
     const leftItem = vnode.props.children[0].props.children[1].props.children[0]
     assert.equal(leftItem.props.onClick, undefined)
     assert.match(leftItem.props.class, /--dis/)
   })
 })
 
-it('showSearch：输入过滤两侧列表 + 无匹配提示', () => {
+it('showSearch：输入过滤两侧列表 + 无匹配提示', async () => {
   const ctx = createTestCtx()
-  const factory = Transfer({}, ctx)
+  const factory = await Transfer({}, ctx)
   let vnode = factory({ data, targetKeys: ['a'], showSearch: true })
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-transfer-search'), '搜索框渲染')

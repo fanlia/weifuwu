@@ -24,7 +24,7 @@ export interface AvatarGroupProps {
   className?: string
 }
 
-export const AvatarGroup: Component<AvatarGroupProps> = (_init, _ctx) =>
+export const AvatarGroup: Component<AvatarGroupProps> = async (_init, _ctx) =>
   (props) => {
     const { items, max, size, className } = props
     if (!items || items.length === 0) return null

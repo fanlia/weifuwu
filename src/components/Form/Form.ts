@@ -64,7 +64,7 @@ export async function validateValues(
   return errors
 }
 
-export const Form: Component<FormProps> = (_init, _ctx) =>
+export const Form: Component<FormProps> = async (_init, _ctx) =>
   (props) => {
   const { validation, onSubmit, onError, children } = props
 

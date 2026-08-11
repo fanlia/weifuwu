@@ -12,61 +12,61 @@ function createTestCtx(): WfuiContext {
 }
 
 describe('Card', () => {
-  it('renders as a div', () => {
-    const vnode = renderVNode(Card, { children: '内容' }, createTestCtx())!
+  it('renders as a div', async () => {
+    const vnode = await renderVNode(Card, { children: '内容' }, createTestCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-card/)
   })
 
-  it('renders children', () => {
-    const vnode = renderVNode(Card, { children: '卡片内容' }, createTestCtx())!
+  it('renders children', async () => {
+    const vnode = await renderVNode(Card, { children: '卡片内容' }, createTestCtx())!
     assert.equal(vnode.props.children, '卡片内容')
   })
 
-  it('applies clickable class and cursor', () => {
-    const vnode = renderVNode(Card, { clickable: true, children: '点击' }, createTestCtx())!
+  it('applies clickable class and cursor', async () => {
+    const vnode = await renderVNode(Card, { clickable: true, children: '点击' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-card--clickable/)
     assert.equal(vnode.props.role, 'button')
   })
 
-  it('applies outlined variant', () => {
-    const vnode = renderVNode(Card, { variant: 'outlined', children: '内容' }, createTestCtx())!
+  it('applies outlined variant', async () => {
+    const vnode = await renderVNode(Card, { variant: 'outlined', children: '内容' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-card--outlined/)
   })
 
-  it('applies padding classes', () => {
-    const sm = renderVNode(Card, { padding: 'sm', children: '小' }, createTestCtx())!
-    const lg = renderVNode(Card, { padding: 'lg', children: '大' }, createTestCtx())!
+  it('applies padding classes', async () => {
+    const sm = await renderVNode(Card, { padding: 'sm', children: '小' }, createTestCtx())!
+    const lg = await renderVNode(Card, { padding: 'lg', children: '大' }, createTestCtx())!
     assert.match(sm.props.class, /wf-card--pad-sm/)
     assert.match(lg.props.class, /wf-card--pad-lg/)
   })
 
-  it('applies hover lift class', () => {
-    const vnode = renderVNode(Card, { hover: true, children: '悬停' }, createTestCtx())!
+  it('applies hover lift class', async () => {
+    const vnode = await renderVNode(Card, { hover: true, children: '悬停' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-card--hover/)
   })
 
-  it('clickable + hover can combine', () => {
-    const vnode = renderVNode(Card, { clickable: true, hover: true, children: 'x' }, createTestCtx())!
+  it('clickable + hover can combine', async () => {
+    const vnode = await renderVNode(Card, { clickable: true, hover: true, children: 'x' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-card--clickable/)
     assert.match(vnode.props.class, /wf-card--hover/)
   })
 
-  it('applies active selected state', () => {
-    const vnode = renderVNode(Card, { active: true, children: 'x' }, createTestCtx())!
+  it('applies active selected state', async () => {
+    const vnode = await renderVNode(Card, { active: true, children: 'x' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-card--active/)
   })
 
-  it('可点击卡片键盘 Enter/Space 触发 onClick（role=button 可操作红线）', () => {
+  it('可点击卡片键盘 Enter/Space 触发 onClick（role=button 可操作红线）', async () => {
     let clicks = 0
-    const vnode = renderVNode(Card, { clickable: true, onClick: () => clicks++ }, createTestCtx())!
+    const vnode = await renderVNode(Card, { clickable: true, onClick: () => clicks++ }, createTestCtx())!
     assert.equal(vnode.props.role, 'button')
     assert.equal(vnode.props.tabindex, 0)
     vnode.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
     vnode.props.onKeyDown({ key: ' ', preventDefault: () => {} })
     assert.equal(clicks, 2)
     // 不可点击卡片无键盘处理
-    const plain = renderVNode(Card, { children: 'x' }, createTestCtx())!
+    const plain = await renderVNode(Card, { children: 'x' }, createTestCtx())!
     assert.equal(plain.props.onKeyDown, undefined)
   })
 })

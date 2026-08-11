@@ -12,8 +12,8 @@ function makeCtx(scrollY = 0): { ctx: WfuiContext; setY: (y: number) => void } {
   return { ctx, setY: (y: number) => { scroll.y = y } }
 }
 
-function mount(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
+async function mount(Comp: any, props: any, ctx: any) {
+  const result = await Comp(props, ctx)
   return typeof result === 'function' ? result : null
 }
 
@@ -24,7 +24,7 @@ function getRows(v: any): any[] {
 }
 
 describe('parseAnsi（ANSI 转义解析）', () => {
-  it('解析前景色 \x1b[31m → red span', () => {
+  it('解析前景色 \x1b[31m → red span', async () => {
     const nodes = parseAnsi('\x1b[31m错误\x1b[0m 正常')
     assert.equal(nodes.length, 2)
     assert.equal(nodes[0].props.class, 'wf-log-ansi--31')
@@ -32,22 +32,22 @@ describe('parseAnsi（ANSI 转义解析）', () => {
     assert.equal(nodes[1], ' 正常')
   })
 
-  it('粗体 \x1b[1m → bold span', () => {
+  it('粗体 \x1b[1m → bold span', async () => {
     const nodes = parseAnsi('\x1b[1m加粗\x1b[0m')
     assert.equal(nodes[0].props.class, 'wf-log-ansi--bold')
   })
 
-  it('背景色 \x1b[41m → bg span', () => {
+  it('背景色 \x1b[41m → bg span', async () => {
     const nodes = parseAnsi('\x1b[41m红底\x1b[0m')
     assert.match(nodes[0].props.class, /41/)
   })
 
-  it('无转义 → 原样单节点', () => {
+  it('无转义 → 原样单节点', async () => {
     const nodes = parseAnsi('plain log line')
     assert.deepEqual(nodes, ['plain log line'])
   })
 
-  it('多段连续样式切换', () => {
+  it('多段连续样式切换', async () => {
     const nodes = parseAnsi('\x1b[32mA\x1b[33mB\x1b[0mC')
     assert.equal(nodes.length, 3)
     assert.match(nodes[0].props.class, /32/)
@@ -64,8 +64,8 @@ const lines = [
 ]
 
 describe('LogViewer', () => {
-  it('渲染行号 + 行内容', () => {
-    const render = mount(LogViewer, { lines, height: 200 }, makeCtx().ctx)!
+  it('渲染行号 + 行内容', async () => {
+    const render = await mount(LogViewer, { lines, height: 200 }, makeCtx().ctx)!
     const v = render({ lines, height: 200 })
     assert.match(v.props.class, /wf-log-viewer/)
     const rows = getRows(v)
@@ -74,9 +74,9 @@ describe('LogViewer', () => {
     assert.equal(rows[2].props.children[1].props.children[0].props.class, 'wf-log-ansi--31')
   })
 
-  it('maxLines 截断显示（只渲染尾部 N 行）', () => {
+  it('maxLines 截断显示（只渲染尾部 N 行）', async () => {
     const many = Array.from({ length: 20 }, (_, i) => `line-${i}`)
-    const render = mount(LogViewer, { lines: many, height: 400, maxLines: 5 }, makeCtx().ctx)!
+    const render = await mount(LogViewer, { lines: many, height: 400, maxLines: 5 }, makeCtx().ctx)!
     const v = render({ lines: many, height: 400, maxLines: 5 })
     const rows = getRows(v)
     assert.equal(rows.length, 5)
@@ -84,18 +84,18 @@ describe('LogViewer', () => {
     assert.equal(rows[0].props.children[0].props.children, '16')
   })
 
-  it('10k 行只渲染可见窗口', () => {
+  it('10k 行只渲染可见窗口', async () => {
     const many = Array.from({ length: 10000 }, (_, i) => `line-${i}`)
-    const render = mount(LogViewer, { lines: many, height: 300, lineHeight: 30 }, makeCtx().ctx)!
+    const render = await mount(LogViewer, { lines: many, height: 300, lineHeight: 30 }, makeCtx().ctx)!
     const v = render({ lines: many, height: 300, lineHeight: 30 })
     const rows = getRows(v)
     assert.ok(rows.length < 20, `应只渲染可见窗口，实际 ${rows.length}`)
   })
 
-  it('滚动后窗口更新（setY）', () => {
+  it('滚动后窗口更新（setY）', async () => {
     const { ctx, setY } = makeCtx()
     const many = Array.from({ length: 1000 }, (_, i) => `line-${i}`)
-    const render = mount(LogViewer, { lines: many, height: 300 }, ctx)!
+    const render = await mount(LogViewer, { lines: many, height: 300 }, ctx)!
     setY(9000)
     const v = render({ lines: many, height: 300 })
     const rows = getRows(v)
@@ -104,8 +104,8 @@ describe('LogViewer', () => {
     assert.match(first.props.style.top, /8880px/)
   })
 
-  it('复制按钮存在', () => {
-    const render = mount(LogViewer, { lines, height: 200, showCopy: true }, makeCtx().ctx)!
+  it('复制按钮存在', async () => {
+    const render = await mount(LogViewer, { lines, height: 200, showCopy: true }, makeCtx().ctx)!
     const v = render({ lines, height: 200, showCopy: true })
     const btn = v.props.children.find((c: any) => c?.props?.class?.includes('wf-log-copy'))
     assert.ok(btn, '复制按钮应存在')

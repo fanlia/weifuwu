@@ -1,14 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Table } from './Table.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function mockCtx(){
   return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
@@ -36,31 +33,31 @@ describe('Table 行选择增强', () => {
     return row.props.children[0].props.children
   }
 
-  it('renders selection column when rowSelection provided', () => {
-    const vnode = renderVNode(Table, { data, columns, rowSelection: { selectedRowKeys: [] } }, mockCtx())!
+  it('renders selection column when rowSelection provided', async () => {
+    const vnode = await renderVNode(Table, { data, columns, rowSelection: { selectedRowKeys: [] } }, mockCtx())!
     const thead = vnode.props.children.props.children[0]
     const ths = thead.props.children.props.children
     assert.match(ths[0].props.class, /--selection/)
     assert.equal(ths.length, 3) // checkbox + 2 columns
   })
 
-  it('no selection column without rowSelection', () => {
-    const vnode = renderVNode(Table, { data, columns }, mockCtx())!
+  it('no selection column without rowSelection', async () => {
+    const vnode = await renderVNode(Table, { data, columns }, mockCtx())!
     const thead = vnode.props.children.props.children[0]
     const ths = thead.props.children.props.children
     assert.equal(ths.length, 2)
   })
 
-  it('row checkbox checked for selected keys', () => {
-    const vnode = renderVNode(Table, { data, columns, rowSelection: { selectedRowKeys: [1, 3] } }, mockCtx())!
+  it('row checkbox checked for selected keys', async () => {
+    const vnode = await renderVNode(Table, { data, columns, rowSelection: { selectedRowKeys: [1, 3] } }, mockCtx())!
     assert.equal(rowSel(vnode, 0).props.checked, true)
     assert.equal(rowSel(vnode, 1).props.checked, undefined)
     assert.equal(rowSel(vnode, 2).props.checked, true)
   })
 
-  it('clicking row checkbox calls onChange with new keys', () => {
+  it('clicking row checkbox calls onChange with new keys', async () => {
     let got: (string | number)[] = []
-    const vnode = renderVNode(Table, {
+    const vnode = await renderVNode(Table, {
       data, columns,
       rowSelection: { selectedRowKeys: [1], onChange: (k: (string | number)[]) => { got = k } },
     }, mockCtx())!
@@ -68,9 +65,9 @@ describe('Table 行选择增强', () => {
     assert.deepEqual(got, [1, 2])
   })
 
-  it('unchecking row removes key', () => {
+  it('unchecking row removes key', async () => {
     let got: (string | number)[] = [1, 2]
-    const vnode = renderVNode(Table, {
+    const vnode = await renderVNode(Table, {
       data, columns,
       rowSelection: { selectedRowKeys: [1, 2], onChange: (k: (string | number)[]) => { got = k } },
     }, mockCtx())!
@@ -78,9 +75,9 @@ describe('Table 行选择增强', () => {
     assert.deepEqual(got, [2])
   })
 
-  it('select-all checkbox checks all', () => {
+  it('select-all checkbox checks all', async () => {
     let got: (string | number)[] = []
-    const vnode = renderVNode(Table, {
+    const vnode = await renderVNode(Table, {
       data, columns,
       rowSelection: { selectedRowKeys: [], onChange: (k: (string | number)[]) => { got = k } },
     }, mockCtx())!
@@ -88,9 +85,9 @@ describe('Table 行选择增强', () => {
     assert.deepEqual(got, [1, 2, 3])
   })
 
-  it('select-all unchecks when all selected', () => {
+  it('select-all unchecks when all selected', async () => {
     let got: (string | number)[] = [1, 2, 3]
-    const vnode = renderVNode(Table, {
+    const vnode = await renderVNode(Table, {
       data, columns,
       rowSelection: { selectedRowKeys: [1, 2, 3], onChange: (k: (string | number)[]) => { got = k } },
     }, mockCtx())!
@@ -98,9 +95,9 @@ describe('Table 行选择增强', () => {
     assert.deepEqual(got, [])
   })
 
-  it('uses custom rowKey', () => {
+  it('uses custom rowKey', async () => {
     const customData = [{ uid: 'a', name: 'A' }, { uid: 'b', name: 'B' }]
-    const vnode = renderVNode(Table, {
+    const vnode = await renderVNode(Table, {
       data: customData, columns: [{ key: 'name', label: '名称' }],
       rowSelection: { rowKey: 'uid', selectedRowKeys: ['a'] },
     }, mockCtx())!
@@ -108,8 +105,8 @@ describe('Table 行选择增强', () => {
     assert.equal(rowSel(vnode, 1).props.checked, undefined)
   })
 
-  it('indeterminate on partial selection', () => {
-    const vnode = renderVNode(Table, {
+  it('indeterminate on partial selection', async () => {
+    const vnode = await renderVNode(Table, {
       data, columns,
       rowSelection: { selectedRowKeys: [1] },
     }, mockCtx())!

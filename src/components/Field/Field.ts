@@ -10,7 +10,7 @@ export interface FieldProps {
   children?: any
 }
 
-export const Field: Component<FieldProps> = (_init, _ctx) =>
+export const Field: Component<FieldProps> = async (_init, _ctx) =>
   (props) => {
   const { label, required, error, hint, children } = props
 

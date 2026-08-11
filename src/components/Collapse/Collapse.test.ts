@@ -32,8 +32,8 @@ const items = [
 ]
 
 describe('Collapse', () => {
-  it('renders item headers', () => {
-    const vnode = renderVNode(Collapse, { items }, createTestCtx())!
+  it('renders item headers', async () => {
+    const vnode = await renderVNode(Collapse, { items }, createTestCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-collapse/)
     assert.equal(vnode.props.children.length, 2)
@@ -41,8 +41,8 @@ describe('Collapse', () => {
     assert.match(header.props.class, /wf-collapse-header/)
   })
 
-  it('renders content when active', () => {
-    const vnode = renderVNode(Collapse, { items, active: ['a'] }, createTestCtx())!
+  it('renders content when active', async () => {
+    const vnode = await renderVNode(Collapse, { items, active: ['a'] }, createTestCtx())!
     const itemA = vnode.props.children[0]
     // 展开：有 content 区
     const content = itemA.props.children[1]
@@ -53,9 +53,9 @@ describe('Collapse', () => {
     assert.equal(itemB.props.children.length, 1)
   })
 
-  it('click header toggles active', () => {
+  it('click header toggles active', async () => {
     let got: string[] | null = null
-    const vnode = renderVNode(Collapse, { items, active: ['a'], onChange: (k: string[]) => { got = k } }, createTestCtx())!
+    const vnode = await renderVNode(Collapse, { items, active: ['a'], onChange: (k: string[]) => { got = k } }, createTestCtx())!
     // 点击 A 的标题（active 中 → 收起）
     vnode.props.children[0].props.children[0].props.onClick()
     assert.deepEqual(got, [])
@@ -64,41 +64,41 @@ describe('Collapse', () => {
     assert.deepEqual(got, ['a', 'b'])
   })
 
-  it('single mode (multiple=false) replaces active', () => {
+  it('single mode (multiple=false) replaces active', async () => {
     let got: string[] | null = null
-    const vnode = renderVNode(Collapse, { items, active: ['a'], multiple: false, onChange: (k: string[]) => { got = k } }, createTestCtx())!
+    const vnode = await renderVNode(Collapse, { items, active: ['a'], multiple: false, onChange: (k: string[]) => { got = k } }, createTestCtx())!
     vnode.props.children[1].props.children[0].props.onClick()
     assert.deepEqual(got, ['b'])
   })
 
-  it('renders extra in header', () => {
+  it('renders extra in header', async () => {
     const withExtra = [{ key: 'a', title: 'A', extra: '操作' }]
-    const vnode = renderVNode(Collapse, { items: withExtra, active: [] }, createTestCtx())!
+    const vnode = await renderVNode(Collapse, { items: withExtra, active: [] }, createTestCtx())!
     const header = vnode.props.children[0].props.children[0]
     const extra = header.props.children.find((c: any) => c?.props?.class === 'wf-collapse-extra')
     assert.equal(extra.props.children, '操作')
   })
 
-  it('shows loading indicator when loading', () => {
+  it('shows loading indicator when loading', async () => {
     const withLoading = [{ key: 'a', title: 'A', loading: true }]
-    const vnode = renderVNode(Collapse, { items: withLoading, active: ['a'] }, createTestCtx())!
+    const vnode = await renderVNode(Collapse, { items: withLoading, active: ['a'] }, createTestCtx())!
     const item = vnode.props.children[0]
     const content = item.props.children[1]
     assert.match(content.props.class, /wf-collapse-content/)
     assert.match(content.props.children.props.class, /wf-collapse-loading/)
   })
 
-  it('keyboard: ArrowDown moves to next header', () => {
+  it('keyboard: ArrowDown moves to next header', async () => {
     const ctx = createTestCtx() as any
-    const vnode = renderVNode(Collapse, { items, active: [] }, ctx)!
+    const vnode = await renderVNode(Collapse, { items, active: [] }, ctx)!
     // 未挂载 DOM 时方向键无副作用，验证 handler 挂载 + 不抛错
     assert.equal(typeof vnode.props.onKeyDown, 'function')
     assert.doesNotThrow(() => vnode.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} }))
   })
 
-  it('uncontrolled mode keeps internal state', () => {
+  it('uncontrolled mode keeps internal state', async () => {
     const ctx = createTestCtx() as any
-    const result = Collapse({ items }, ctx)
+    const result = await Collapse({ items }, ctx)
     const render = result as any
     const v1 = render({ items })
     // 点击 A 标题 → 非受控：内部状态更新（useControlled 内部缓存）

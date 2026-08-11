@@ -12,20 +12,20 @@ function createTestCtx(): WfuiContext {
 }
 
 describe('Divider', () => {
-  it('renders horizontal divider', () => {
-    const vnode = renderVNode(Divider, {}, createTestCtx())!
+  it('renders horizontal divider', async () => {
+    const vnode = await renderVNode(Divider, {}, createTestCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-divider/)
     assert.equal(vnode.props.role, 'separator')
   })
 
-  it('renders vertical divider', () => {
-    const vnode = renderVNode(Divider, { vertical: true }, createTestCtx())!
+  it('renders vertical divider', async () => {
+    const vnode = await renderVNode(Divider, { vertical: true }, createTestCtx())!
     assert.match(vnode.props.class, /wf-divider--vertical/)
   })
 
-  it('renders divider with text', () => {
-    const vnode = renderVNode(Divider, { children: '或' }, createTestCtx())!
+  it('renders divider with text', async () => {
+    const vnode = await renderVNode(Divider, { children: '或' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-divider--with-text/)
     assert.equal(vnode.props.children.type, 'span')
     assert.equal(vnode.props.children.props.class, 'wf-divider-text')

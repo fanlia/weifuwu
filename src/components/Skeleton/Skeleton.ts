@@ -16,7 +16,7 @@ export interface SkeletonProps {
   className?: string
 }
 
-export const Skeleton: Component<SkeletonProps> = (_init) =>
+export const Skeleton: Component<SkeletonProps> = async (_init) =>
   (props) => {
     const { variant = 'text', lines = 1, cols = 3, width, height, className } = props
 

@@ -9,7 +9,7 @@ export interface SwitchProps {
   onChange?: (checked: boolean) => void
 }
 
-export const Switch: Component<SwitchProps> = (_init, ctx) =>
+export const Switch: Component<SwitchProps> = async (_init, ctx) =>
   (props) => {
   const { label, checked, disabled, onChange } = props
 

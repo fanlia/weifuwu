@@ -38,8 +38,8 @@ function makeCtx(): WfuiContext {
   } }) as any
 }
 
-function mount(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
+async function mount(Comp: any, props: any, ctx: any) {
+  const result = await Comp(props, ctx)
   return typeof result === 'function' ? result : null
 }
 
@@ -55,16 +55,16 @@ const panelOf = (v: any) => {
 }
 
 describe('Mentions', () => {
-  it('renders textarea', () => {
-    const render = mount(Mentions, { options, children: undefined }, makeCtx())!
+  it('renders textarea', async () => {
+    const render = await mount(Mentions, { options, children: undefined }, makeCtx())!
     const vnode = render({ options })
     const ta = vnode.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     assert.equal(ta.type, 'textarea')
   })
 
-  it('typing @ triggers mention panel', () => {
+  it('typing @ triggers mention panel', async () => {
     const ctx = makeCtx()
-    const render = mount(Mentions, { options }, ctx)!
+    const render = await mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '你好 @a', selectionStart: 7 } } as any)
@@ -74,9 +74,9 @@ describe('Mentions', () => {
     assert.match(panel.props.class, /wf-mentions-panel/)
   })
 
-  it('filters options by keyword', () => {
+  it('filters options by keyword', async () => {
     const ctx = makeCtx()
-    const render = mount(Mentions, { options }, ctx)!
+    const render = await mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '@ca', selectionStart: 3 } } as any)
@@ -87,9 +87,9 @@ describe('Mentions', () => {
     assert.match(items[0].props.children, /Carol/)
   })
 
-  it('no panel without @ prefix', () => {
+  it('no panel without @ prefix', async () => {
     const ctx = makeCtx()
-    const render = mount(Mentions, { options }, ctx)!
+    const render = await mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '你好 world', selectionStart: 5 } } as any)
@@ -97,10 +97,10 @@ describe('Mentions', () => {
     assert.equal(v.props.children.length, 1) // 无面板
   })
 
-  it('selecting option inserts mention', () => {
+  it('selecting option inserts mention', async () => {
     let got = ''
     const ctx = makeCtx()
-    const render = mount(Mentions, { options, onChange: (v: string) => { got = v } }, ctx)!
+    const render = await mount(Mentions, { options, onChange: (v: string) => { got = v } }, ctx)!
     let v = render({ options, onChange: (v: string) => { got = v } })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '你好 @a', selectionStart: 7 } } as any)
@@ -110,9 +110,9 @@ describe('Mentions', () => {
     assert.match(got, /@alice/)
   })
 
-  it('composition start suppresses panel', () => {
+  it('composition start suppresses panel', async () => {
     const ctx = makeCtx()
-    const render = mount(Mentions, { options }, ctx)!
+    const render = await mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onCompositionStart({})
@@ -121,9 +121,9 @@ describe('Mentions', () => {
     assert.equal(v.props.children.length, 1) // composition 中不弹
   })
 
-  it('composition end resumes', () => {
+  it('composition end resumes', async () => {
     const ctx = makeCtx()
-    const render = mount(Mentions, { options }, ctx)!
+    const render = await mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onCompositionStart({})
@@ -135,9 +135,9 @@ describe('Mentions', () => {
     assert.equal(panel.props.children.length, 1) // bob
   })
 
-  it('Escape closes panel', () => {
+  it('Escape closes panel', async () => {
     const ctx = makeCtx()
-    const render = mount(Mentions, { options }, ctx)!
+    const render = await mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '@a', selectionStart: 2 } } as any)
@@ -149,10 +149,10 @@ describe('Mentions', () => {
     assert.equal(v.props.children.length, 1)
   })
 
-  it('keyboard: ArrowDown + Enter selects', () => {
+  it('keyboard: ArrowDown + Enter selects', async () => {
     let got = ''
     const ctx = makeCtx()
-    const render = mount(Mentions, { options, onChange: (v: string) => { got = v } }, ctx)!
+    const render = await mount(Mentions, { options, onChange: (v: string) => { got = v } }, ctx)!
     let v = render({ options, onChange: (v: string) => { got = v } })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '@', selectionStart: 1 } } as any)
@@ -163,8 +163,8 @@ describe('Mentions', () => {
     assert.match(got, /@bob/) // ArrowDown 高亮第 2 项
   })
 
-  it('disabled textarea', () => {
-    const render = mount(Mentions, { options, disabled: true }, makeCtx())!
+  it('disabled textarea', async () => {
+    const render = await mount(Mentions, { options, disabled: true }, makeCtx())!
     const vnode = render({ options, disabled: true })
     const ta = vnode.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     assert.equal(ta.props.disabled, true)

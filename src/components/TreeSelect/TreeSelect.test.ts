@@ -30,8 +30,8 @@ function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
 }
 
 // 先 mount 拿 factory，再渲染——状态（open）保持
-function mount(Comp: any, props: any, ctx: any) {
-  const factory = Comp({}, ctx)
+async function mount(Comp: any, props: any, ctx: any) {
+  const factory = await Comp({}, ctx)
   return { render: () => factory(props) }
 }
 
@@ -51,15 +51,15 @@ const options = [
 ]
 
 describe('TreeSelect 组件', () => {
-  test('渲染触发框 + placeholder', () => {
-    const vnode = renderVNode(TreeSelect, { options, placeholder: '选择服务' }, makeCtx())
+  test('渲染触发框 + placeholder', async () => {
+    const vnode = await renderVNode(TreeSelect, { options, placeholder: '选择服务' }, makeCtx())
     assert.equal(vnode.props.class, 'wf-treeselect')
     assert.match(JSON.stringify(vnode), /选择服务/)
   })
 
-  test('打开下拉 → 渲染 Tree 子组件', () => {
+  test('打开下拉 → 渲染 Tree 子组件', async () => {
     const ctx = makeCtx()
-    const { render } = mount(TreeSelect, { options }, ctx)
+    const { render } = await mount(TreeSelect, { options }, ctx)
     let vnode = render()
     const trigger = triggerOf(vnode)
     assert.ok(trigger, '有触发框')
@@ -69,10 +69,10 @@ describe('TreeSelect 组件', () => {
     assert.ok(tree, '下拉内有 Tree')
   })
 
-  test('单选：选中 key → onChange', () => {
+  test('单选：选中 key → onChange', async () => {
     let value: any = null
     const ctx = makeCtx()
-    const { render } = mount(TreeSelect, { options, onChange: (v: any) => { value = v } }, ctx)
+    const { render } = await mount(TreeSelect, { options, onChange: (v: any) => { value = v } }, ctx)
     let vnode = render()
     triggerOf(vnode).props.onClick()
     vnode = render()
@@ -81,10 +81,10 @@ describe('TreeSelect 组件', () => {
     assert.equal(value, 'http')
   })
 
-  test('多选：checkable 模式 → onChange(keys[])', () => {
+  test('多选：checkable 模式 → onChange(keys[])', async () => {
     let value: any = null
     const ctx = makeCtx()
-    const { render } = mount(TreeSelect, { options, multiple: true, onChange: (v: any) => { value = v } }, ctx)
+    const { render } = await mount(TreeSelect, { options, multiple: true, onChange: (v: any) => { value = v } }, ctx)
     let vnode = render()
     triggerOf(vnode).props.onClick()
     vnode = render()
@@ -94,26 +94,26 @@ describe('TreeSelect 组件', () => {
     assert.deepEqual(value, ['http', 'pg'])
   })
 
-  test('受控 value 显示选中 label', () => {
-    const vnode = renderVNode(TreeSelect, { options, value: 'http' }, makeCtx())
+  test('受控 value 显示选中 label', async () => {
+    const vnode = await renderVNode(TreeSelect, { options, value: 'http' }, makeCtx())
     assert.match(JSON.stringify(vnode), /HTTP 服务/, '触发框显示选中 label')
   })
 
-  test('受控纪律：value 受控无 onChange → console.warn', () => {
+  test('受控纪律：value 受控无 onChange → console.warn', async () => {
     const warns: string[] = []
     const origWarn = console.warn
     console.warn = (...a: any[]) => { warns.push(a.join(' ')) }
     try {
-      renderVNode(TreeSelect, { options, value: 'http' }, makeCtx())
+      await renderVNode(TreeSelect, { options, value: 'http' }, makeCtx())
     } finally {
       console.warn = origWarn
     }
     assert.ok(warns.some(w => w.includes('onChange')), '应警告缺 onChange')
   })
 
-  test('关闭下拉：再次点击触发框 → 不渲染 Tree', () => {
+  test('关闭下拉：再次点击触发框 → 不渲染 Tree', async () => {
     const ctx = makeCtx()
-    const { render } = mount(TreeSelect, { options }, ctx)
+    const { render } = await mount(TreeSelect, { options }, ctx)
     let vnode = render()
     triggerOf(vnode).props.onClick()
     vnode = render()
@@ -124,9 +124,9 @@ describe('TreeSelect 组件', () => {
   })
 })
 
-test('trigger role=combobox 可聚焦（P1 键盘可达）', () => {
+test('trigger role=combobox 可聚焦（P1 键盘可达）', async () => {
   const data = [{ key: 'a', label: 'A' }]
-  const vnode = renderVNode(TreeSelect, { data }, makeCtx())!
+  const vnode = await renderVNode(TreeSelect, { data }, makeCtx())!
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('combobox'), 'trigger combobox 角色')
   assert.ok(/tabindex|tabIndex/.test(s), 'trigger 可聚焦')

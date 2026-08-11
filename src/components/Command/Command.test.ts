@@ -32,29 +32,29 @@ const items = [
 ]
 
 describe('Command', () => {
-  it('closed renders hidden host（保持全局快捷键监听）', () => {
-    const vnode = renderVNode(Command, { items, open: false }, createTestCtx())
+  it('closed renders hidden host（保持全局快捷键监听）', async () => {
+    const vnode = await renderVNode(Command, { items, open: false }, createTestCtx())
     assert.ok(vnode)
     assert.match(vnode.props.class, /wf-command-host/)
   })
 
-  it('renders panel when open', () => {
-    const vnode = inner(renderVNode(Command, { items, open: true }, createTestCtx())!)
+  it('renders panel when open', async () => {
+    const vnode = inner(await renderVNode(Command, { items, open: true }, createTestCtx())!)
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-command-overlay/)
   })
 
-  it('renders all items', () => {
-    const vnode = inner(renderVNode(Command, { items, open: true }, createTestCtx())!)
+  it('renders all items', async () => {
+    const vnode = inner(await renderVNode(Command, { items, open: true }, createTestCtx())!)
     const panel = vnode.props.children // overlay 直接子 = panel
     assert.match(panel.props.class, /wf-command-panel/)
     const list = panel.props.children[1] // [input-wrap, list]
     assert.equal(list.props.children.length, 3)
   })
 
-  it('filters items by query', () => {
+  it('filters items by query', async () => {
     const ctx = createTestCtx()
-    const render = Command({ items, open: true }, ctx)
+    const render = await Command({ items, open: true }, ctx)
     const r = render as any
     const v1 = r({ items, open: true })
     inputOf(v1).props.onInput({ target: { value: '设置' } })
@@ -64,14 +64,14 @@ describe('Command', () => {
     assert.equal(list[0].props.children[1].props.children, '设置')
   })
 
-  it('ArrowDown highlights, Enter selects', () => {
+  it('ArrowDown highlights, Enter selects', async () => {
     let selected: string | null = null
     const myItems = [
       { key: 'a', label: 'A', onSelect: () => { selected = 'a' } },
       { key: 'b', label: 'B', onSelect: () => { selected = 'b' } },
     ]
     const ctx = createTestCtx()
-    const render = Command({ items: myItems, open: true }, ctx)
+    const render = await Command({ items: myItems, open: true }, ctx)
     const r = render as any
     r({ items: myItems, open: true })
     const v = r({ items: myItems, open: true })
@@ -81,19 +81,19 @@ describe('Command', () => {
     assert.equal(selected, 'b')
   })
 
-  it('Escape triggers onOpenChange(false)', () => {
+  it('Escape triggers onOpenChange(false)', async () => {
     let closed = false
     const ctx = createTestCtx()
-    const render = Command({ items, open: true, onOpenChange: (o: boolean) => { closed = !o } }, ctx)
+    const render = await Command({ items, open: true, onOpenChange: (o: boolean) => { closed = !o } }, ctx)
     const r = render as any
     const v = r({ items, open: true, onOpenChange: (o: boolean) => { closed = !o } })
     inputOf(v).props.onKeyDown({ key: 'Escape' })
     assert.equal(closed, true)
   })
 
-  it('renders empty text when no match', () => {
+  it('renders empty text when no match', async () => {
     const ctx = createTestCtx()
-    const render = Command({ items, open: true, emptyText: '无结果' }, ctx)
+    const render = await Command({ items, open: true, emptyText: '无结果' }, ctx)
     const r = render as any
     const v1 = r({ items, open: true, emptyText: '无结果' })
     inputOf(v1).props.onInput({ target: { value: 'zzz' } })
@@ -102,10 +102,10 @@ describe('Command', () => {
     assert.equal(list[0].props.children, '无结果')
   })
 
-  it('global shortcut mod+k opens', () => {
+  it('global shortcut mod+k opens', async () => {
     let opened: boolean | null = null
     const ctx = createTestCtx()
-    const render = Command({ items, open: false, onOpenChange: (o: boolean) => { opened = o } }, ctx)
+    const render = await Command({ items, open: false, onOpenChange: (o: boolean) => { opened = o } }, ctx)
     const r = render as any
     const v = r({ items, open: false, onOpenChange: (o: boolean) => { opened = o } })
     void v

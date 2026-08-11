@@ -38,7 +38,7 @@ export interface ParagraphProps {
 }
 
 /** 标题（对应 antd/EP Typography.Title） */
-export const Title: Component<TitleProps> = (_init) =>
+export const Title: Component<TitleProps> = async (_init) =>
   (props) => {
     const { level = 1, children, className, style, ...rest } = props
     return h(`h${level}`, {
@@ -49,7 +49,7 @@ export const Title: Component<TitleProps> = (_init) =>
   }
 
 /** 行内文本（对应 antd/EP Typography.Text） */
-export const Text: Component<TextProps> = (_init) =>
+export const Text: Component<TextProps> = async (_init) =>
   (props) => {
     const {
       type, strong, underline, strikethrough, mark, code, size,
@@ -68,7 +68,7 @@ export const Text: Component<TextProps> = (_init) =>
   }
 
 /** 段落（对应 antd/EP Typography.Paragraph） */
-export const Paragraph: Component<ParagraphProps> = (_init) =>
+export const Paragraph: Component<ParagraphProps> = async (_init) =>
   (props) => {
     const { type, ellipsis, children, className, ...rest } = props
     const classes = ['wf-paragraph']

@@ -57,7 +57,7 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
   return sorted
 }
 
-export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
+export const VirtualTable: Component<VirtualTableProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let bodyEl: HTMLElement | null = null
   const scroll = ctx.ui.useScrollPosition({ getScroller: () => bodyEl ?? window })

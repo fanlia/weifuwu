@@ -10,7 +10,7 @@ export interface PageHeaderProps {
   children?: any
 }
 
-export const PageHeader: Component<PageHeaderProps> = (_init, _ctx) =>
+export const PageHeader: Component<PageHeaderProps> = async (_init, _ctx) =>
   (props) => {
   const { title, sub, display, children } = props
 

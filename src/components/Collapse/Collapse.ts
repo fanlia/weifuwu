@@ -32,7 +32,7 @@ export interface CollapseProps {
  * 标题行 + 行内展开区（无卡片边框，适配列表行内展开），支持异步 loading。
  * 与 Accordion 边界：Accordion = 整块卡片面板；Collapse = 行内展开。
  */
-export const Collapse: Component<CollapseProps> = (_init, ctx) => {
+export const Collapse: Component<CollapseProps> = async (_init, ctx) => {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──

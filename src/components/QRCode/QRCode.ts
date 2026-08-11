@@ -21,7 +21,7 @@ export interface QRCodeProps {
 
 /** 二维码（对应 antd QRCode）：自研 QR 编码器（版本 1-6，字节模式，8 掩码）→ SVG 渲染。
  * 零依赖（Reed-Solomon GF(256) 自实现）。 */
-export const QRCode: Component<QRCodeProps> = (_init, _ctx) =>
+export const QRCode: Component<QRCodeProps> = async (_init, _ctx) =>
   (props) => {
     const {
       value, ecLevel = 'M', size = 128, quietZone = 4,

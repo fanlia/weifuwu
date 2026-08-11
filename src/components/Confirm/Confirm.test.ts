@@ -50,7 +50,7 @@ function makeCtx(): WfuiContext {
   } }) as any
 }
 
-/** 两阶段组件：mount → renderFn，反复调用 renderFn(props) 获取 VNode */
+/** 两阶段组件：mount → renderFn，反复调用 await renderFn(props) 获取 VNode */
 
 const modal = () => document.querySelector('.wf-modal') as HTMLElement | null
 const buttons = () => Array.from(document.querySelectorAll('.wf-modal .wf-btn')) as HTMLButtonElement[]
@@ -78,36 +78,40 @@ const flush = (ms = 30) => new Promise(r => setTimeout(r, ms))
 const fireExit = () => modal()?.dispatchEvent(new (window as any).Event('animationend'))
 
 describe('Confirm 组件（声明式）', () => {
-  it('open=false 时挂载后无 DOM', () => {
+  it('open=false 时挂载后无 DOM', async () => {
     const ctx = makeCtx()
     const container = document.createElement('div')
     document.body.appendChild(container)
-    const vnode = renderVNode(Confirm, { open: false, message: 'x' }, ctx)
+    const vnode = await renderVNode(Confirm, { open: false, message: 'x' }, ctx)
     mountVNode(container, vnode, ctx)
+    await new Promise((r) => setTimeout(r, 0)) // Modal async 化：占位补全
     assert.equal(modal(), null, 'Modal open=false 不渲染 DOM')
   })
 
-  it('open=true 渲染为 Modal（open/children 透传）', () => {
-    const vnode = renderVNode(Confirm, { open: true, message: '确定删除？' }, makeCtx())
+  it('open=true 渲染为 Modal（open/children 透传）', async () => {
+    const vnode = await renderVNode(Confirm, { open: true, message: '确定删除？' }, makeCtx())
     assert.equal(vnode.type, Modal)
     assert.equal(vnode.props.open, true)
     assert.equal(vnode.props.children, '确定删除？')
   })
 
-  it('按钮文案默认与自定义', () => {
+  it('按钮文案默认与自定义', async () => {
     const ctx = makeCtx()
     const container = document.createElement('div')
     document.body.appendChild(container)
-    const vnode = renderVNode(Confirm, { open: true, message: 'x', confirmText: '删除', cancelText: '再想想', onConfirm: () => {}, onCancel: () => {} }, ctx)
+    const vnode = await renderVNode(Confirm, { open: true, message: 'x', confirmText: '删除', cancelText: '再想想', onConfirm: () => {}, onCancel: () => {} }, ctx)
     mountVNode(container, vnode, ctx)
-    const texts = buttons().map(b => b.textContent)
+    // Button async 化：VNode 层断言（mock ctx 无补全调度——DOM 按钮不落地）
+    const modal = vnode as any
+    const btns = modal.props.footer.filter((b: any) => b?.type?.name === 'Button')
+    const texts = btns.map((b: any) => b.props.children)
     assert.deepEqual(texts, ['再想想', '删除'])
   })
 
-  it('确定/取消按钮分别触发 onConfirm/onCancel', () => {
+  it('确定/取消按钮分别触发 onConfirm/onCancel', async () => {
     let confirmed = 0
     let cancelled = 0
-    const vnode = renderVNode(Confirm, {
+    const vnode = await renderVNode(Confirm, {
       open: true, message: 'x',
       onConfirm: () => confirmed++, onCancel: () => cancelled++,
     }, makeCtx())
@@ -118,64 +122,78 @@ describe('Confirm 组件（声明式）', () => {
     assert.equal(cancelled, 1)
   })
 
-  it('ESC 触发 onCancel（经 Modal onKeyDown，焦点在对话框内）', () => {
-    const ctx = makeCtx()
+  it('ESC 触发 onCancel（经 Modal onKeyDown，焦点在对话框内）', async () => {
+    // Modal/Button async 化：mock ctx 无补全调度——用集成式（真实调度补全）
+    const router = new UIRouter()
     let cancelled = false
-    const container = document.createElement('div')
-    document.body.appendChild(container)
-    const vnode = renderVNode(Confirm, { open: true, message: 'x', onCancel: () => { cancelled = true } }, ctx)
-    mountVNode(container, vnode, ctx)
+    router.get('/', () => h(Confirm, { open: true, message: 'x', onCancel: () => { cancelled = true } }))
+    const el = document.createElement('div')
+    el.id = `confirm-esc-${Math.random().toString(36).slice(2)}`
+    document.body.appendChild(el)
+    const handle = uiServe(router, { root: `#${el.id}` })
+    await new Promise((r) => setTimeout(r, 0))
 
     const dialog = document.querySelector('.wf-modal') as HTMLElement
-    const firstFocusable = dialog.querySelector('button') as HTMLElement
-    firstFocusable.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    assert.ok(dialog, 'Modal 补全渲染')
+    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     assert.equal(cancelled, true)
+    handle.close()
   })
 
-  it('Modal onClose 路由到 onCancel（Promise resolve(false) 语义）', () => {
+  it('Modal onClose 路由到 onCancel（Promise resolve(false) 语义）', async () => {
     let cancelled = 0
-    const vnode = renderVNode(Confirm, { open: true, message: 'x', onCancel: () => cancelled++ }, makeCtx())
+    const vnode = await renderVNode(Confirm, { open: true, message: 'x', onCancel: () => cancelled++ }, makeCtx())
     vnode.props.onClose()
     assert.equal(cancelled, 1)
   })
 
-  it('遮罩点击默认不取消（maskClosable=false，危险操作防误触）', () => {
-    const ctx = makeCtx()
+  it('遮罩点击默认不取消（maskClosable=false，危险操作防误触）', async () => {
+    // Modal/Button async 化：mock ctx 无补全调度——集成式（真实调度补全）
+    const router = new UIRouter()
     let cancelled = 0
-    const container = document.createElement('div')
-    document.body.appendChild(container)
-    const vnode = renderVNode(Confirm, { open: true, message: 'x', onCancel: () => { cancelled++ } }, ctx)
-    mountVNode(container, vnode, ctx)
+    router.get('/', () => h(Confirm, { open: true, message: 'x', onCancel: () => { cancelled++ } }))
+    const el = document.createElement('div')
+    el.id = `confirm-mask-${Math.random().toString(36).slice(2)}`
+    document.body.appendChild(el)
+    const handle = uiServe(router, { root: `#${el.id}` })
+    await new Promise((r) => setTimeout(r, 0))
 
     const overlay = document.querySelector('.wf-modal-overlay') as HTMLElement
+    assert.ok(overlay, 'Modal 补全渲染')
     overlay.click()
     assert.equal(cancelled, 0, '默认遮罩点击不触发 onCancel')
+    handle.close()
   })
 
-  it('遮罩点击在 maskClosable=true 时触发 onCancel', () => {
-    const ctx = makeCtx()
+  it('遮罩点击在 maskClosable=true 时触发 onCancel', async () => {
+    // Modal/Button async 化：mock ctx 无补全调度——集成式
+    const router = new UIRouter()
     let cancelled = 0
-    const container = document.createElement('div')
-    document.body.appendChild(container)
-    const vnode = renderVNode(Confirm, { open: true, message: 'x', maskClosable: true, onCancel: () => { cancelled++ } }, ctx)
-    mountVNode(container, vnode, ctx)
+    router.get('/', () => h(Confirm, { open: true, message: 'x', maskClosable: true, onCancel: () => { cancelled++ } }))
+    const el = document.createElement('div')
+    el.id = `confirm-mask2-${Math.random().toString(36).slice(2)}`
+    document.body.appendChild(el)
+    const handle = uiServe(router, { root: `#${el.id}` })
+    await new Promise((r) => setTimeout(r, 0))
 
     const overlay = document.querySelector('.wf-modal-overlay') as HTMLElement
+    assert.ok(overlay, 'Modal 补全渲染')
     overlay.click()
     assert.equal(cancelled, 1, '显式 maskClosable=true 遮罩点击触发')
+    handle.close()
   })
 
-  it('无关闭按钮（closable=false）+ variant/width 透传', () => {
-    const vnode = renderVNode(Confirm, { open: true, message: 'x', variant: 'danger', width: '600px' }, makeCtx())
+  it('无关闭按钮（closable=false）+ variant/width 透传', async () => {
+    const vnode = await renderVNode(Confirm, { open: true, message: 'x', variant: 'danger', width: '600px' }, makeCtx())
     assert.equal(vnode.props.closable, false)
     assert.equal(vnode.props.width, '600px')
     const [, okBtn] = vnode.props.footer
     assert.equal(okBtn.props.variant, 'danger')
   })
 
-  it('message 支持 VNode（任意内容）', () => {
+  it('message 支持 VNode（任意内容）', async () => {
     const msg = { type: 'div', props: { children: '富文本' } }
-    const vnode = renderVNode(Confirm, { open: true, message: msg }, makeCtx())
+    const vnode = await renderVNode(Confirm, { open: true, message: msg }, makeCtx())
     assert.equal(vnode.props.children, msg)
   })
 })

@@ -19,7 +19,7 @@ export interface CarouselProps {
 
 /** 轮播（对应 antd/EP/shadcn Carousel）：横向滑动 + 箭头/圆点 + 自动播放 + 触摸滑动。
  * 裁剪：垂直模式、多图联动、淡入淡出（fade 用 CSS 可配）。 */
-export const Carousel: Component<CarouselProps> = (_init, ctx) => {
+export const Carousel: Component<CarouselProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let index = 0
   let timer: ReturnType<typeof setInterval> | undefined

@@ -33,7 +33,7 @@ function shallowEqual(a: Record<string, boolean>, b: Record<string, boolean>): b
   return true
 }
 
-export const Editor: Component<EditorProps> = (_props, ctx) => {
+export const Editor: Component<EditorProps> = async (_props, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let activeFormats: FormatState | null = null  // null = 未初始化，首次 mouseUp 只存不 render

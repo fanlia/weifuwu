@@ -19,27 +19,27 @@ describe('Steps', () => {
     { key: 'c', label: '第三步' },
   ]
 
-  it('renders step items', () => {
-    const vnode = renderVNode(Steps, { items }, createTestCtx())!
+  it('renders step items', async () => {
+    const vnode = await renderVNode(Steps, { items }, createTestCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-steps/)
     assert.equal(vnode.props.children.length, 3)
   })
 
-  it('renders step labels', () => {
-    const vnode = renderVNode(Steps, { items }, createTestCtx())!
+  it('renders step labels', async () => {
+    const vnode = await renderVNode(Steps, { items }, createTestCtx())!
     assert.equal(vnode.props.children[0].props.children[1].props.children, '第一步')
   })
 
-  it('marks done steps with checkmark', () => {
-    const vnode = renderVNode(Steps, { items, current: 1 }, createTestCtx())!
+  it('marks done steps with checkmark', async () => {
+    const vnode = await renderVNode(Steps, { items, current: 1 }, createTestCtx())!
     // step 0 should be done (check icon)
     const num0 = vnode.props.children[0].props.children[0]
     assert.equal(num0.props.children.type, Icon, '完成步骤应渲染 check 图标')
   })
 
-  it('marks current step', () => {
-    const vnode = renderVNode(Steps, { items, active: 'b' }, createTestCtx())!
+  it('marks current step', async () => {
+    const vnode = await renderVNode(Steps, { items, active: 'b' }, createTestCtx())!
     assert.match(vnode.props.children[1].props.class, /wf-step--current/)
   })
 })

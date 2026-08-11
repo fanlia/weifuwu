@@ -40,8 +40,8 @@ function makeCtx(): WfuiContext {
   } }) as any
 }
 
-function mount(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
+async function mount(Comp: any, props: any, ctx: any) {
+  const result = await Comp(props, ctx)
   return typeof result === 'function' ? result : null
 }
 
@@ -53,22 +53,22 @@ const items = [
 ]
 
 describe('ContextMenu', () => {
-  it('renders trigger children', () => {
-    const render = mount(ContextMenu, { items, children: '区域' }, makeCtx())!
+  it('renders trigger children', async () => {
+    const render = await mount(ContextMenu, { items, children: '区域' }, makeCtx())!
     const vnode = render({ items, children: '区域' })
     assert.match(vnode.props.class, /wf-context-menu-trigger/)
     assert.equal(vnode.props.children[0], '区域')
   })
 
-  it('closed by default (no menu)', () => {
-    const render = mount(ContextMenu, { items, children: 'x' }, makeCtx())!
+  it('closed by default (no menu)', async () => {
+    const render = await mount(ContextMenu, { items, children: 'x' }, makeCtx())!
     const vnode = render({ items, children: 'x' })
     assert.equal(vnode.props.children.length, 1)
   })
 
-  it('contextmenu opens menu at mouse position（经 usePopup onTrigger + position）', () => {
+  it('contextmenu opens menu at mouse position（经 usePopup onTrigger + position）', async () => {
     const ctx = makeCtx()
-    const render = mount(ContextMenu, { items, children: 'x' }, ctx)!
+    const render = await mount(ContextMenu, { items, children: 'x' }, ctx)!
     const vnode = render({ items, children: 'x' })
     vnode.props.onContextMenu({ clientX: 100, clientY: 200, preventDefault: () => {} })
     const vnode2 = render({ items, children: 'x' })
@@ -79,9 +79,9 @@ describe('ContextMenu', () => {
     assert.equal(menu.props.style.top, '200px')
   })
 
-  it('renders all items in menu', () => {
+  it('renders all items in menu', async () => {
     const ctx = makeCtx()
-    const render = mount(ContextMenu, { items, children: 'x' }, ctx)!
+    const render = await mount(ContextMenu, { items, children: 'x' }, ctx)!
     const v = render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     const v2 = render({ items, children: 'x' })
@@ -89,14 +89,14 @@ describe('ContextMenu', () => {
     assert.equal(menuItems.length, 4)
   })
 
-  it('click item calls onClick and closes', () => {
+  it('click item calls onClick and closes', async () => {
     let clicked: string | null = null
     const ctx = makeCtx()
     const myItems = [
       { key: 'a', label: 'A', onClick: () => { clicked = 'a' } },
       { key: 'b', label: 'B', onClick: () => { clicked = 'b' } },
     ]
-    const render = mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
+    const render = await mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
     let v = render({ items: myItems, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items: myItems, children: 'x' })
@@ -108,11 +108,11 @@ describe('ContextMenu', () => {
     assert.equal(v.props.children.length, 1)
   })
 
-  it('disabled item not clickable', () => {
+  it('disabled item not clickable', async () => {
     let clicked = false
     const ctx = makeCtx()
     const myItems = [{ key: 'd', label: 'D', disabled: true, onClick: () => { clicked = true } }]
-    const render = mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
+    const render = await mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
     let v = render({ items: myItems, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items: myItems, children: 'x' })
@@ -121,9 +121,9 @@ describe('ContextMenu', () => {
     assert.match(item.props.class, /--dis/)
   })
 
-  it('danger variant class', () => {
+  it('danger variant class', async () => {
     const ctx = makeCtx()
-    const render = mount(ContextMenu, { items, children: 'x' }, ctx)!
+    const render = await mount(ContextMenu, { items, children: 'x' }, ctx)!
     let v = render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items, children: 'x' })
@@ -131,9 +131,9 @@ describe('ContextMenu', () => {
     assert.match(menuItems[2].props.class, /--danger/)
   })
 
-  it('Escape closes menu', () => {
+  it('Escape closes menu', async () => {
     const ctx = makeCtx()
-    const render = mount(ContextMenu, { items, children: 'x' }, ctx)!
+    const render = await mount(ContextMenu, { items, children: 'x' }, ctx)!
     let v = render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items, children: 'x' })
@@ -144,14 +144,14 @@ describe('ContextMenu', () => {
     assert.equal(v.props.children.length, 1)
   })
 
-  it('keyboard: ArrowDown navigates, Enter selects highlighted', () => {
+  it('keyboard: ArrowDown navigates, Enter selects highlighted', async () => {
     let clicked: string | null = null
     const ctx = makeCtx()
     const myItems = [
       { key: 'a', label: 'A', onClick: () => { clicked = 'a' } },
       { key: 'b', label: 'B', onClick: () => { clicked = 'b' } },
     ]
-    const render = mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
+    const render = await mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
     let v = render({ items: myItems, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items: myItems, children: 'x' })

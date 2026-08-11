@@ -14,40 +14,40 @@ function makeCtx(): WfuiContext {
   } }) as any
 }
 
-function mount(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
+async function mount(Comp: any, props: any, ctx: any) {
+  const result = await Comp(props, ctx)
   return typeof result === 'function' ? result : null
 }
 
 describe('Resizable', () => {
-  it('renders two panels and handle', () => {
-    const render = mount(Resizable, { children: ['左', '右'] }, makeCtx())!
+  it('renders two panels and handle', async () => {
+    const render = await mount(Resizable, { children: ['左', '右'] }, makeCtx())!
     const v = render({ children: ['左', '右'] })
     assert.match(v.props.class, /wf-resizable/)
     assert.equal(v.props.children.length, 3) // panel + handle + panel
   })
 
-  it('horizontal direction class', () => {
-    const render = mount(Resizable, { children: ['a', 'b'], direction: 'horizontal' }, makeCtx())!
+  it('horizontal direction class', async () => {
+    const render = await mount(Resizable, { children: ['a', 'b'], direction: 'horizontal' }, makeCtx())!
     const v = render({ children: ['a', 'b'], direction: 'horizontal' })
     assert.match(v.props.class, /wf-resizable--horizontal/)
   })
 
-  it('vertical direction class', () => {
-    const render = mount(Resizable, { children: ['a', 'b'], direction: 'vertical' }, makeCtx())!
+  it('vertical direction class', async () => {
+    const render = await mount(Resizable, { children: ['a', 'b'], direction: 'vertical' }, makeCtx())!
     const v = render({ children: ['a', 'b'], direction: 'vertical' })
     assert.match(v.props.class, /wf-resizable--vertical/)
   })
 
-  it('applies default size to first panel', () => {
-    const render = mount(Resizable, { children: ['a', 'b'], defaultSize: 300 }, makeCtx())!
+  it('applies default size to first panel', async () => {
+    const render = await mount(Resizable, { children: ['a', 'b'], defaultSize: 300 }, makeCtx())!
     const v = render({ children: ['a', 'b'], defaultSize: 300 })
     const first = v.props.children[0]
     assert.equal(first.props.style.flexBasis, '300px')
   })
 
-  it('handle has aria label and keyboard', () => {
-    const render = mount(Resizable, { children: ['a', 'b'] }, makeCtx())!
+  it('handle has aria label and keyboard', async () => {
+    const render = await mount(Resizable, { children: ['a', 'b'] }, makeCtx())!
     const v = render({ children: ['a', 'b'] })
     const handle = v.props.children[1]
     assert.equal(handle.props.role, 'separator')
@@ -55,18 +55,18 @@ describe('Resizable', () => {
     assert.equal(typeof handle.props.onPointerDown, 'function')
   })
 
-  it('handle spreads useDrag onPointerDown（拖拽由 useDrag 单测覆盖）', () => {
+  it('handle spreads useDrag onPointerDown（拖拽由 useDrag 单测覆盖）', async () => {
     const ctx = makeCtx()
-    const render = mount(Resizable, { children: ['a', 'b'], defaultSize: 200 }, ctx)!
+    const render = await mount(Resizable, { children: ['a', 'b'], defaultSize: 200 }, ctx)!
     const v = render({ children: ['a', 'b'], defaultSize: 200 })
     const handle = v.props.children[1]
     assert.equal(typeof handle.props.onPointerDown, 'function', 'onPointerDown 来自 useDrag spread')
   })
 
-  it('clamps to min/max（键盘路径仍生效）', () => {
+  it('clamps to min/max（键盘路径仍生效）', async () => {
     let got: number | null = null
     const ctx = makeCtx()
-    const render = mount(Resizable, { children: ['a', 'b'], defaultSize: 200, min: 100, max: 300, onResize: (s: number) => { got = s } }, ctx)!
+    const render = await mount(Resizable, { children: ['a', 'b'], defaultSize: 200, min: 100, max: 300, onResize: (s: number) => { got = s } }, ctx)!
     const v = render({ children: ['a', 'b'], defaultSize: 200, min: 100, max: 300, onResize: (s: number) => { got = s } })
     const handle = v.props.children[1]
     // 键盘步进从 200 加到 400 → clamp 300
@@ -77,10 +77,10 @@ describe('Resizable', () => {
     assert.equal(got, 100, 'min clamp')
   })
 
-  it('keyboard arrows resize', () => {
+  it('keyboard arrows resize', async () => {
     let got: number | null = null
     const ctx = makeCtx()
-    const render = mount(Resizable, { children: ['a', 'b'], defaultSize: 200, onResize: (s: number) => { got = s } }, ctx)!
+    const render = await mount(Resizable, { children: ['a', 'b'], defaultSize: 200, onResize: (s: number) => { got = s } }, ctx)!
     const v = render({ children: ['a', 'b'], defaultSize: 200, onResize: (s: number) => { got = s } })
     const handle = v.props.children[1]
     handle.props.onKeyDown({ key: 'ArrowRight', preventDefault: () => {} })

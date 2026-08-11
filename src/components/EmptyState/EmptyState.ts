@@ -11,7 +11,7 @@ export interface EmptyStateProps {
   children?: any
 }
 
-export const EmptyState: Component<EmptyStateProps> = (_init, _ctx) =>
+export const EmptyState: Component<EmptyStateProps> = async (_init, _ctx) =>
   (props) => {
   const { icon = h(Icon, { name: 'inbox' }), text = '暂无数据', hint, children } = props
 

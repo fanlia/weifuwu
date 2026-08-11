@@ -54,7 +54,7 @@ function positionClass(pos: ToastPosition): string {
   return map[pos] ?? 'wf-toast--tr'
 }
 
-export const Toast: Component<ToastProps> = (_init, ctx) =>
+export const Toast: Component<ToastProps> = async (_init, ctx) =>
   (props) => {
   const { toasts = [], onRemove, position = 'top-right', duration = 0, max = 0 } = props
 

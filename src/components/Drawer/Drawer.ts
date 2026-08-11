@@ -20,7 +20,7 @@ export interface DrawerProps {
   width?: string
 }
 
-export const Drawer: Component<DrawerProps> = (_props, ctx) => {
+export const Drawer: Component<DrawerProps> = async (_props, ctx) => {
   // useDialog：退场状态机（open → exit → closed）+ 滚动锁 + 焦点 trap + animationend 卸载
   const dialog = ctx.ui.useDialog({ name: 'Drawer' })
 

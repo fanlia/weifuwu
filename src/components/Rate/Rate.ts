@@ -19,7 +19,7 @@ export interface RateProps {
   'aria-label'?: string
 }
 
-export const Rate: Component<RateProps> = (_init, ctx) => {
+export const Rate: Component<RateProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let hover = -1 // -1 = 未悬停；键盘悬停态复用（聚焦跟随）
 

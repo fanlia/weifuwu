@@ -16,8 +16,8 @@ const items: Citation[] = [
 ]
 
 describe('CitationCard', () => {
-  it('默认折叠：头部显示「引用 N 条」，列表隐藏', () => {
-    const v = renderVNode(CitationCard, { items }, createTestCtx())!
+  it('默认折叠：头部显示「引用 N 条」，列表隐藏', async () => {
+    const v = await renderVNode(CitationCard, { items }, createTestCtx())!
     const header = findByClass(v, 'wf-citation-toggle')[0]
     assert.ok(header, '折叠头')
     assert.ok(String(header.props.children).includes('引用 2 条') || JSON.stringify(header.props.children).includes('2 条'))
@@ -26,8 +26,8 @@ describe('CitationCard', () => {
     assert.ok(body.props.hidden || !String(body.props.class).includes('open'), '列表隐藏')
   })
 
-  it('点击展开 → 列表显示（title/source/snippet + 序号）', () => {
-    const render = mountComponent(CitationCard, { items }, createTestCtx())
+  it('点击展开 → 列表显示（title/source/snippet + 序号）', async () => {
+    const render = await mountComponent(CitationCard, { items }, createTestCtx())
     let v = render()
     findByClass(v, 'wf-citation-toggle')[0].props.onClick()
     v = render()
@@ -39,9 +39,9 @@ describe('CitationCard', () => {
     assert.ok(JSON.stringify(rows[0].props.children).includes('docs/billing.md'))
   })
 
-  it('maxVisible：折叠只显示前 N 条 + 溢出计数', () => {
+  it('maxVisible：折叠只显示前 N 条 + 溢出计数', async () => {
     const many: Citation[] = [1, 2, 3, 4].map((i) => ({ id: `c${i}`, title: `条目 ${i}`, snippet: `片段 ${i}` }))
-    const render = mountComponent(CitationCard, { items: many, maxVisible: 2 }, createTestCtx())
+    const render = await mountComponent(CitationCard, { items: many, maxVisible: 2 }, createTestCtx())
     let v = render()
     findByClass(v, 'wf-citation-toggle')[0].props.onClick()
     v = render()
@@ -50,8 +50,8 @@ describe('CitationCard', () => {
     assert.ok(JSON.stringify(rows[2].props.children).includes('2'), '溢出条目显示 +N')
   })
 
-  it('url → 链接可点（a[href] + target=_blank + rel）；无 url → 非链接', () => {
-    const v = renderVNode(CitationCard, { items, defaultExpanded: true }, createTestCtx())!
+  it('url → 链接可点（a[href] + target=_blank + rel）；无 url → 非链接', async () => {
+    const v = await renderVNode(CitationCard, { items, defaultExpanded: true }, createTestCtx())!
     const links = collect(v, (n: any) => n?.type === 'a' || n?.props?.href)
     assert.equal(links.length, 1, '仅 c1 有 url')
     assert.equal(links[0].props.href, 'https://example.com/docs/billing')
@@ -59,9 +59,9 @@ describe('CitationCard', () => {
     assert.equal(links[0].props.rel, 'noopener')
   })
 
-  it('onOpen 回调优先（不跳转；onOpen 时所有条目均可点开）', () => {
+  it('onOpen 回调优先（不跳转；onOpen 时所有条目均可点开）', async () => {
     let opened: string | undefined
-    const v = renderVNode(CitationCard, { items, defaultExpanded: true, onOpen: (c: Citation) => { opened = c.id } }, createTestCtx())!
+    const v = await renderVNode(CitationCard, { items, defaultExpanded: true, onOpen: (c: Citation) => { opened = c.id } }, createTestCtx())!
     // onOpen 时渲染为链接按钮（无 href）而非 a[href]
     const btns = collect(v, (n: any) => typeof n?.props?.class === 'string' && n.props.class.includes('wf-citation-link'))
     assert.equal(btns.length, 2, 'onOpen 时全部条目可点')
@@ -70,21 +70,21 @@ describe('CitationCard', () => {
     assert.equal(opened, 'c1')
   })
 
-  it('空 items → 不渲染', () => {
-    const v = renderVNode(CitationCard, { items: [] }, createTestCtx())
+  it('空 items → 不渲染', async () => {
+    const v = await renderVNode(CitationCard, { items: [] }, createTestCtx())
     assert.equal(v, null)
   })
 
-  it('键盘可达：Enter/Space 切换展开', () => {
-    const render = mountComponent(CitationCard, { items }, createTestCtx())
+  it('键盘可达：Enter/Space 切换展开', async () => {
+    const render = await mountComponent(CitationCard, { items }, createTestCtx())
     let v = render()
     findByClass(v, 'wf-citation-toggle')[0].props.onKeyDown({ key: ' ', preventDefault: () => {} })
     v = render()
     assert.equal(findByClass(v, 'wf-citation-toggle')[0].props['aria-expanded'], true)
   })
 
-  it('defaultExpanded → 初始展开', () => {
-    const v = renderVNode(CitationCard, { items, defaultExpanded: true }, createTestCtx())!
+  it('defaultExpanded → 初始展开', async () => {
+    const v = await renderVNode(CitationCard, { items, defaultExpanded: true }, createTestCtx())!
     assert.equal(findByClass(v, 'wf-citation-toggle')[0].props['aria-expanded'], true)
   })
 })

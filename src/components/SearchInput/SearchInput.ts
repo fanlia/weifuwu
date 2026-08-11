@@ -10,7 +10,7 @@ export interface SearchInputProps {
   onClear?: () => void
 }
 
-export const SearchInput: Component<SearchInputProps> = (_init, _ctx) =>
+export const SearchInput: Component<SearchInputProps> = async (_init, _ctx) =>
   (props) => {
   const { value = '', placeholder = '搜索...', onInput, onClear } = props
 

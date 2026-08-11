@@ -17,7 +17,7 @@ export interface AffixProps {
  * mount 时算一次阈值（sentinel 文档位置 - offsetTop），滚动位置响应式驱动 fixed 判定。
  * 不用 IO：IO 只在交叉状态变化时回调，瞬间滚动后 sentinel 从视口外下方到视口外上方
  * isIntersecting 都是 false → 不回调（Affix 需要连续位置跟踪，IO 语义不匹配）。 */
-export const Affix: Component<AffixProps> = (_init, ctx) => {
+export const Affix: Component<AffixProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let wrapEl: HTMLElement | null = null
   let wrapWidth = 0

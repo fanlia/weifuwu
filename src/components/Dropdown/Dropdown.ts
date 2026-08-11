@@ -25,7 +25,7 @@ export interface DropdownProps {
   onOpenChange?: (open: boolean) => void
 }
 
-export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
+export const Dropdown: Component<DropdownProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { wrapEl = el }

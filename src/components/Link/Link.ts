@@ -24,7 +24,7 @@ export interface LinkProps {
   children?: any
 }
 
-export const Link: Component<LinkProps> = (_init, _ctx: WfuiContext) =>
+export const Link: Component<LinkProps> = async (_init, _ctx: WfuiContext) =>
   (props) => {
     const {
       href, variant = 'default', underline = true, disabled, target, icon, onClick, children,

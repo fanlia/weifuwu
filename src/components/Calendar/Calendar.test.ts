@@ -20,22 +20,22 @@ const events = [
 ]
 
 describe('Calendar', () => {
-  it('renders weekday headers', () => {
-    const vnode = renderVNode(Calendar, { events }, createTestCtx())!
+  it('renders weekday headers', async () => {
+    const vnode = await renderVNode(Calendar, { events }, createTestCtx())!
     assert.match(vnode.props.class, /wf-calendar/)
   })
 
-  it('renders current month grid', () => {
-    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025 }, createTestCtx())!
+  it('renders current month grid', async () => {
+    const vnode = await renderVNode(Calendar, { events, month: 5, year: 2025 }, createTestCtx())!
     const grid = vnode.props.children[1] // [header, grid]
     assert.equal(grid.props.children.length, 7) // 周头 + 6 行？grid 结构
   })
 
-  it('month navigation calls onMonthChange (受控)', () => {
+  it('month navigation calls onMonthChange (受控)', async () => {
     let gotMonth: number | null = null
     let gotYear: number | null = null
     const ctx = createTestCtx()
-    const result = Calendar({
+    const result = await Calendar({
       events, month: 5, year: 2025,
       onMonthChange: (m: number, y: number) => { gotMonth = m; gotYear = y },
     }, ctx)
@@ -52,8 +52,8 @@ describe('Calendar', () => {
     assert.equal(gotYear, 2025)
   })
 
-  it('shows events in matching cells', () => {
-    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025 }, createTestCtx())!
+  it('shows events in matching cells', async () => {
+    const vnode = await renderVNode(Calendar, { events, month: 5, year: 2025 }, createTestCtx())!
     // 找 6 月 10 日的 cell
     const cell = findCell(vnode, '10')
     assert.ok(cell, '应找到 10 日 cell')
@@ -61,16 +61,16 @@ describe('Calendar', () => {
     assert.equal(eventDots.length, 2)
   })
 
-  it('click date calls onSelectDate', () => {
+  it('click date calls onSelectDate', async () => {
     let got: string | null = null
-    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025, onSelectDate: (d: string) => { got = d } }, createTestCtx())!
+    const vnode = await renderVNode(Calendar, { events, month: 5, year: 2025, onSelectDate: (d: string) => { got = d } }, createTestCtx())!
     const cell = findCell(vnode, '10')
     cell.props.onClick()
     assert.equal(got, '2025-06-10')
   })
 
-  it('selected date highlighted', () => {
-    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025, selectedDate: '2025-06-15' }, createTestCtx())!
+  it('selected date highlighted', async () => {
+    const vnode = await renderVNode(Calendar, { events, month: 5, year: 2025, selectedDate: '2025-06-15' }, createTestCtx())!
     const cell = findCell(vnode, '15')
     assert.match(cell.props.class, /--selected/)
   })
@@ -89,9 +89,9 @@ function findCell(vnode: any, day: string): any {
   return null
 }
 
-it('受控 month/year：非受控时内部自管理（无 onMonthChange 也能翻月）', () => {
+it('受控 month/year：非受控时内部自管理（无 onMonthChange 也能翻月）', async () => {
   const ctx = createTestCtx()
-  const factory = Calendar({}, ctx)
+  const factory = await Calendar({}, ctx)
   const vnode = factory({})
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-calendar'), '非受控渲染日历')
@@ -99,8 +99,8 @@ it('受控 month/year：非受控时内部自管理（无 onMonthChange 也能�
   assert.ok(/prev|next|‹|›|chevron/.test(s), '翻月按钮存在')
 })
 
-it('键盘：日期格子可聚焦（tabIndex）+ 方向键处理（P1）', () => {
-  const vnode = renderVNode(Calendar, {}, createTestCtx())!
+it('键盘：日期格子可聚焦（tabIndex）+ 方向键处理（P1）', async () => {
+  const vnode = await renderVNode(Calendar, {}, createTestCtx())!
   const s = JSON.stringify(vnode)
   assert.ok(/tabindex|tabIndex/.test(s), '日期格子可聚焦')
 })

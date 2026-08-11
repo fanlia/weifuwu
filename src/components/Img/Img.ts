@@ -21,7 +21,7 @@ export interface ImgProps {
   previewScale?: number
 }
 
-export const Img: Component<ImgProps> = (_init, ctx) => {
+export const Img: Component<ImgProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let previewOpen = false
   let scale = 1

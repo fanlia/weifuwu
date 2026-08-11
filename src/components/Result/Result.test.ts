@@ -17,22 +17,22 @@ function collectText(v: any): string[] {
 }
 
 describe('Result', () => {
-  it('success 状态渲染标题/描述', () => {
-    const vnode = renderVNode(Result, { status: 'success', title: '操作成功', desc: '已保存' }, createTestCtx())!
+  it('success 状态渲染标题/描述', async () => {
+    const vnode = await renderVNode(Result, { status: 'success', title: '操作成功', desc: '已保存' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-result/)
     assert.ok(collectText(vnode).includes('操作成功'))
     assert.ok(collectText(vnode).includes('已保存'))
   })
 
-  it('各状态图标类', () => {
+  it('各状态图标类', async () => {
     for (const s of ['success', 'error', 'warning', 'info'] as const) {
-      const vnode = renderVNode(Result, { status: s, title: 't' }, createTestCtx())!
+      const vnode = await renderVNode(Result, { status: s, title: 't' }, createTestCtx())!
       assert.match(vnode.props.class, new RegExp(`wf-result--${s}`))
     }
   })
 
-  it('extra 操作区渲染', () => {
-    const vnode = renderVNode(Result, { status: 'success', title: 't', extra: '返回首页' }, createTestCtx())!
+  it('extra 操作区渲染', async () => {
+    const vnode = await renderVNode(Result, { status: 'success', title: 't', extra: '返回首页' }, createTestCtx())!
     assert.ok(collectText(vnode).includes('返回首页'))
   })
 })

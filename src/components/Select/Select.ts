@@ -295,7 +295,7 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
   }
 }
 
-export const Select: Component<SelectProps> = (_init, ctx) => {
+export const Select: Component<SelectProps> = async (_init, ctx) => {
   const nativeRender = SelectNative(_init, ctx) as (props: SelectProps) => any
   const searchableRender = SelectSearchable(_init, ctx) as (props: SelectProps) => any
   return (props) => props.searchable ? searchableRender(props) : nativeRender(props)

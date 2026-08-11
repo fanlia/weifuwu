@@ -31,7 +31,7 @@ export interface NavMenuProps {
   onSelect?: (key: string) => void
 }
 
-export const NavMenu: Component<NavMenuProps> = (_init, ctx: WfuiContext) => {
+export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
   let openKey: string | null = null
   let nestedKey: string | null = null

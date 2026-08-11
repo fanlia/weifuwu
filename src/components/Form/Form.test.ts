@@ -134,26 +134,26 @@ describe('validateValues', () => {
 })
 
 describe('Form', () => {
-  it('renders a form element', () => {
-    const vnode = renderVNode(Form, { children: '内容' }, createTestCtx())!
+  it('renders a form element', async () => {
+    const vnode = await renderVNode(Form, { children: '内容' }, createTestCtx())!
     assert.equal(vnode.type, 'form')
     assert.match(vnode.props.class, /wf-form/)
   })
 
-  it('renders children', () => {
-    const vnode = renderVNode(Form, { children: '表单字段' }, createTestCtx())!
+  it('renders children', async () => {
+    const vnode = await renderVNode(Form, { children: '表单字段' }, createTestCtx())!
     assert.equal(vnode.props.children, '表单字段')
   })
 
-  it('sets noValidate when validation is provided', () => {
-    const vnode = renderVNode(Form, {
+  it('sets noValidate when validation is provided', async () => {
+    const vnode = await renderVNode(Form, {
       validation: { email: [{ required: true, message: '必填' }] },
     }, createTestCtx())!
     assert.equal(vnode.props.noValidate, true)
   })
 
-  it('does not set noValidate without validation', () => {
-    const vnode = renderVNode(Form, {}, createTestCtx())!
+  it('does not set noValidate without validation', async () => {
+    const vnode = await renderVNode(Form, {}, createTestCtx())!
     assert.equal(vnode.props.noValidate, undefined)
   })
 })

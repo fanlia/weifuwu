@@ -48,8 +48,8 @@ function makeDragEvent(over: 'none' | 'copy' | 'move' = 'none') {
 }
 
 describe('Kanban 组件', () => {
-  test('渲染列 + 卡片', () => {
-    const vnode = renderVNode(Kanban, { columns }, makeCtx())
+  test('渲染列 + 卡片', async () => {
+    const vnode = await renderVNode(Kanban, { columns }, makeCtx())
     assert.equal(vnode.props.class, 'wf-kanban')
     const str = JSON.stringify(vnode)
     assert.match(str, /待办/)
@@ -57,9 +57,9 @@ describe('Kanban 组件', () => {
     assert.match(str, /已完成/)
   })
 
-  test('卡片 draggable + dragstart 记录源', () => {
+  test('卡片 draggable + dragstart 记录源', async () => {
     let moved = false
-    const vnode = renderVNode(Kanban, { columns, onMove: () => { moved = true } }, makeCtx())
+    const vnode = await renderVNode(Kanban, { columns, onMove: () => { moved = true } }, makeCtx())
     const card = findVNode(vnode, (v: any) => v.props?.['data-item'] === 'a1')
     assert.ok(card, '卡片存在')
     assert.equal(card.props.draggable, true, '卡片可拖拽')
@@ -67,10 +67,10 @@ describe('Kanban 组件', () => {
     assert.ok(card.props.onDragStart, '有 dragstart 处理')
   })
 
-  test('跨列拖放 → onMove 回调（源列 + 目标列）', () => {
+  test('跨列拖放 → onMove 回调（源列 + 目标列）', async () => {
     let from: any = null
     let to: any = null
-    const vnode = renderVNode(
+    const vnode = await renderVNode(
       Kanban,
       {
         columns,
@@ -90,10 +90,10 @@ describe('Kanban 组件', () => {
     assert.equal(to.columnKey, 'done')
   })
 
-  test('同列内重排 → onMove（卡片间 drop 带 index）', () => {
+  test('同列内重排 → onMove（卡片间 drop 带 index）', async () => {
     let from: any = null
     let to: any = null
-    const vnode = renderVNode(
+    const vnode = await renderVNode(
       Kanban,
       {
         columns,
@@ -112,18 +112,18 @@ describe('Kanban 组件', () => {
     assert.equal(to.index, 1)
   })
 
-  test('空列渲染（无卡片）', () => {
+  test('空列渲染（无卡片）', async () => {
     const cols = [{ key: 'empty', title: '空列', items: [] }]
-    const vnode = renderVNode(Kanban, { columns: cols }, makeCtx())
+    const vnode = await renderVNode(Kanban, { columns: cols }, makeCtx())
     assert.ok(JSON.stringify(vnode).includes('空列'))
   })
 
-  test('受控纪律：传 columns 无 onMove → console.warn', () => {
+  test('受控纪律：传 columns 无 onMove → console.warn', async () => {
     const warns: string[] = []
     const origWarn = console.warn
     console.warn = (...a: any[]) => { warns.push(a.join(' ')) }
     try {
-      renderVNode(Kanban, { columns }, makeCtx())
+      await renderVNode(Kanban, { columns }, makeCtx())
     } finally {
       console.warn = origWarn
     }

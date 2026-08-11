@@ -73,16 +73,16 @@ function switcherOf(row: any): any {
 }
 
 describe('Tree', () => {
-  it('renders root node', () => {
-    const vnode = renderVNode(Tree, { data }, createTestCtx())!
+  it('renders root node', async () => {
+    const vnode = await renderVNode(Tree, { data }, createTestCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-tree/)
     assert.equal(rows(vnode).length, 1) // 未展开只有 root
   })
 
-  it('collapsed by default, expand shows children', () => {
+  it('collapsed by default, expand shows children', async () => {
     const ctx = createTestCtx()
-    const result = Tree({ data }, ctx)
+    const result = await Tree({ data }, ctx)
     const render = result as any
     let v = render({ data })
     assert.equal(rows(v).length, 1)
@@ -93,15 +93,15 @@ describe('Tree', () => {
     assert.equal(rows(v).length, 3) // root + tech + mkt
   })
 
-  it('受控 expandedKeys 控制展开', () => {
-    const vnode = renderVNode(Tree, { data, expandedKeys: ['root', 'tech'] }, createTestCtx())!
+  it('受控 expandedKeys 控制展开', async () => {
+    const vnode = await renderVNode(Tree, { data, expandedKeys: ['root', 'tech'] }, createTestCtx())!
     assert.equal(rows(vnode).length, 5) // root + tech + mkt + fe + be
   })
 
-  it('expandOnClick：点击有子节点行 = 展开/折叠（不触发选中）', () => {
+  it('expandOnClick：点击有子节点行 = 展开/折叠（不触发选中）', async () => {
     const ctx = createTestCtx()
     let selected: string[] = []
-    const factory = Tree({ data }, ctx)
+    const factory = await Tree({ data }, ctx)
     let v = factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
     assert.equal(rows(v).length, 1)
     // 点击 root 行（有子节点）→ 展开而非选中
@@ -115,10 +115,10 @@ describe('Tree', () => {
     assert.equal(rows(v).length, 1, '再次点击折叠')
   })
 
-  it('expandOnClick：叶子行仍正常选中', () => {
+  it('expandOnClick：叶子行仍正常选中', async () => {
     let got: string[] = []
     const ctx = createTestCtx()
-    const factory = Tree({ data }, ctx)
+    const factory = await Tree({ data }, ctx)
     let v = factory({ data, expandOnClick: true, expandedKeys: ['root', 'tech'], onSelect: (k: string[]) => { got = k } })
     // 展开后点击叶子（技术部下 fe）
     const feRow = rows(v).find((r: any) => labelOf(r) === '前端组')
@@ -126,9 +126,9 @@ describe('Tree', () => {
     assert.deepEqual(got, ['fe'])
   })
 
-  it('selecting node calls onSelect', () => {
+  it('selecting node calls onSelect', async () => {
     let got: string[] = []
-    const vnode = renderVNode(Tree, {
+    const vnode = await renderVNode(Tree, {
       data, expandedKeys: ['root'], selectedKeys: [],
       onSelect: (k: string[]) => { got = k },
     }, createTestCtx())!
@@ -139,8 +139,8 @@ describe('Tree', () => {
     assert.deepEqual(got, ['tech'])
   })
 
-  it('selected node marked', () => {
-    const vnode = renderVNode(Tree, {
+  it('selected node marked', async () => {
+    const vnode = await renderVNode(Tree, {
       data, expandedKeys: ['root'], selectedKeys: ['tech'],
     }, createTestCtx())!
     const rs = rows(vnode)
@@ -148,9 +148,9 @@ describe('Tree', () => {
     assert.match(tech.props.class, /--selected/)
   })
 
-  it('checkable: checking leaf updates checkedKeys with parent linkage', () => {
+  it('checkable: checking leaf updates checkedKeys with parent linkage', async () => {
     let got: string[] = []
-    const vnode = renderVNode(Tree, {
+    const vnode = await renderVNode(Tree, {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: [], onCheck: (k: string[]) => { got = k },
     }, createTestCtx())!
@@ -163,9 +163,9 @@ describe('Tree', () => {
     assert.ok(got.includes('root'))
   })
 
-  it('checkable: unchecking all children removes parent', () => {
+  it('checkable: unchecking all children removes parent', async () => {
     let got: string[] = ['fe', 'be', 'tech', 'root']
-    const vnode = renderVNode(Tree, {
+    const vnode = await renderVNode(Tree, {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: ['fe', 'be', 'tech', 'root'],
       onCheck: (k: string[]) => { got = k },
@@ -177,8 +177,8 @@ describe('Tree', () => {
     assert.ok(got.includes('tech'))
   })
 
-  it('indeterminate checkbox rendered when partial children checked', () => {
-    const vnode = renderVNode(Tree, {
+  it('indeterminate checkbox rendered when partial children checked', async () => {
+    const vnode = await renderVNode(Tree, {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: ['fe'],
     }, createTestCtx())!
@@ -187,8 +187,8 @@ describe('Tree', () => {
     assert.match(checkboxOf(tech).props.class, /--half/)
   })
 
-  it('半选向上传播：子级部分选中时所有祖先都 indeterminate（前端✓→技术部◐→总部◐）', () => {
-    const vnode = renderVNode(Tree, {
+  it('半选向上传播：子级部分选中时所有祖先都 indeterminate（前端✓→技术部◐→总部◐）', async () => {
+    const vnode = await renderVNode(Tree, {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: ['fe'],
     }, createTestCtx())!
@@ -196,7 +196,7 @@ describe('Tree', () => {
     const root = rs.find((r: any) => labelOf(r) === '总部')
     assert.match(checkboxOf(root).props.class, /--half/, '总部应半选（孙代 fe 选中）')
     // 全选子树时祖先应变为 checked（非 half）
-    const vnode2 = renderVNode(Tree, {
+    const vnode2 = await renderVNode(Tree, {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: ['fe', 'be', 'mkt'],
     }, createTestCtx())!
@@ -206,23 +206,23 @@ describe('Tree', () => {
     assert.match(checkboxOf(root2).props.class, /--checked/, '子树全选时总部应 checked')
   })
 
-  it('键盘: row 可聚焦（tabindex=0）', () => {
-    const vnode = renderVNode(Tree, { data, expandedKeys: ['root'] }, createTestCtx())!
+  it('键盘: row 可聚焦（tabindex=0）', async () => {
+    const vnode = await renderVNode(Tree, { data, expandedKeys: ['root'] }, createTestCtx())!
     const rs = rows(vnode)
     assert.equal(rs[0].props.tabIndex, 0)
   })
 
-  it('disabled node not interactive', () => {
+  it('disabled node not interactive', async () => {
     const withDis = [{ key: 'a', label: 'A', disabled: true }]
-    const vnode = renderVNode(Tree, { data: withDis, expandedKeys: [] }, createTestCtx())!
+    const vnode = await renderVNode(Tree, { data: withDis, expandedKeys: [] }, createTestCtx())!
     const r = rows(vnode)[0]
     assert.equal(r.props.onClick, undefined)
   })
 })
 
-it('searchValue：过滤匹配节点 + 自动展开祖先路径', () => {
+it('searchValue：过滤匹配节点 + 自动展开祖先路径', async () => {
   const ctx = createTestCtx()
-  const factory = Tree({}, ctx)
+  const factory = await Tree({}, ctx)
   // 搜「前端」——应只显示 root > tech > fe（祖先自动展开）
   const vnode = factory({ data, searchValue: '前端' })
   const s = JSON.stringify(vnode)
@@ -234,9 +234,9 @@ it('searchValue：过滤匹配节点 + 自动展开祖先路径', () => {
   assert.ok(s.includes('技术部'), '祖先保留')
 })
 
-it('searchValue：高亮 mark + 无匹配空提示', () => {
+it('searchValue：高亮 mark + 无匹配空提示', async () => {
   const ctx = createTestCtx()
-  const factory = Tree({}, ctx)
+  const factory = await Tree({}, ctx)
   const vnode = factory({ data, searchValue: '前端' })
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-tree-match'), '高亮 mark 渲染')

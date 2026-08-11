@@ -22,7 +22,7 @@ export interface VirtualListProps {
  * 滚动跟随：ctx.ui.useScrollPosition（内置全局 scroll 监听 + rAF 节流）——
  * 像素级 scrollTop 响应式，无组件自建 scroll 监听。
  */
-export const VirtualList: Component<VirtualListProps> = (_init, ctx) => {
+export const VirtualList: Component<VirtualListProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let el: HTMLElement | null = null
 

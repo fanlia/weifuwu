@@ -55,7 +55,7 @@ function flattenLeafPaths(options: CascaderOption[], prefix: string[] = [], pref
 
 /** 级联选择（对应 antd/EP Cascader）：多列面板逐级选择，点击叶子完成 + 可选搜索。
  * 裁剪：hover 展开、任意层级配置、异步加载。 */
-export const Cascader: Component<CascaderProps> = (_init, ctx) => {
+export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   const $ = ctx.ui.$()
   $.open = false

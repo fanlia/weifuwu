@@ -23,7 +23,7 @@ export interface MessageBubbleProps {
   className?: string
 }
 
-export const MessageBubble: Component<MessageBubbleProps> = (_init, _ctx) =>
+export const MessageBubble: Component<MessageBubbleProps> = async (_init, _ctx) =>
   (props) => {
     const { content, role, status = 'complete', actions, className } = props
 

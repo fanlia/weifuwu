@@ -24,7 +24,7 @@ export interface PasswordInputProps {
   className?: string
 }
 
-export const PasswordInput: Component<PasswordInputProps> = (_init, ctx) => {
+export const PasswordInput: Component<PasswordInputProps> = async (_init, ctx) => {
   let show = false
 
   return (props: PasswordInputProps) => {

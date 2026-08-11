@@ -21,7 +21,7 @@ export interface ModalProps {
   maskClosable?: boolean
 }
 
-export const Modal: Component<ModalProps> = (_props, ctx) => {
+export const Modal: Component<ModalProps> = async (_props, ctx) => {
   // useDialog：退场状态机（open → exit → closed）+ 滚动锁 + 焦点 trap + animationend 卸载
   const dialog = ctx.ui.useDialog({ name: 'Modal' })
 

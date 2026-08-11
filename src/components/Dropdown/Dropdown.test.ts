@@ -63,19 +63,19 @@ const inner = (v: any) => v?.type === Portal ? v.props.children : v
 describe('Dropdown', () => {
   const trigger = { type: 'button', props: { children: '菜单' }, key: undefined }
 
-  it('renders trigger', () => {
-    const vnode = renderVNode(Dropdown, { trigger }, makeCtx())!
+  it('renders trigger', async () => {
+    const vnode = await renderVNode(Dropdown, { trigger }, makeCtx())!
     assert.equal(vnode.type, 'div')
     const firstChild = vnode.props.children[0]
     assert.equal(firstChild.props.children, '菜单')
   })
 
-  it('renders menu when open', () => {
+  it('renders menu when open', async () => {
     const items = [
       { label: '编辑', onClick: () => {} },
       { label: '删除', onClick: () => {} },
     ]
-    const vnode = renderVNode(Dropdown, { trigger, items, open: true }, makeCtx())!
+    const vnode = await renderVNode(Dropdown, { trigger, items, open: true }, makeCtx())!
     // children: [trigger, portalVNode]
     const portal = vnode.props.children.find((c: any) => c?.type === Portal)
     assert.ok(portal, '应有 Portal VNode')
@@ -86,28 +86,28 @@ describe('Dropdown', () => {
     assert.equal(menu.props.children.length, 2)
   })
 
-  it('does not render menu when not open', () => {
-    const vnode = renderVNode(Dropdown, { trigger, items: [{ label: '编辑', onClick: () => {} }] }, makeCtx())!
+  it('does not render menu when not open', async () => {
+    const vnode = await renderVNode(Dropdown, { trigger, items: [{ label: '编辑', onClick: () => {} }] }, makeCtx())!
     assert.equal(vnode.props.children.length, 1) // only trigger, no portal
   })
 
-  it('renders danger variant', () => {
+  it('renders danger variant', async () => {
     const items = [
       { label: '删除', variant: 'danger' as const, onClick: () => {} },
     ]
-    const vnode = renderVNode(Dropdown, { trigger, items, open: true }, makeCtx())!
+    const vnode = await renderVNode(Dropdown, { trigger, items, open: true }, makeCtx())!
     const portal = vnode.props.children.find((c: any) => c?.type === Portal)
     const menu = inner(portal)
     const btn = menu.props.children[0]
     assert.match(btn.props.class, /wf-dropdown-item--danger/)
   })
 
-  it('renders items with correct labels', () => {
+  it('renders items with correct labels', async () => {
     const items = [
       { label: '编辑', onClick: () => {} },
       { label: '删除', variant: 'danger' as const, onClick: () => {} },
     ]
-    const vnode = renderVNode(Dropdown, { trigger, items, open: true }, makeCtx())!
+    const vnode = await renderVNode(Dropdown, { trigger, items, open: true }, makeCtx())!
     const portal = vnode.props.children.find((c: any) => c?.type === Portal)
     const menu = inner(portal)
     assert.equal(menu.props.role, 'menu')
@@ -115,23 +115,23 @@ describe('Dropdown', () => {
     assert.equal(menu.props.children[0].props.children, '编辑')
   })
 
-  it('adds open class when open', () => {
-    const vnode = renderVNode(Dropdown, { trigger, open: true }, makeCtx())!
+  it('adds open class when open', async () => {
+    const vnode = await renderVNode(Dropdown, { trigger, open: true }, makeCtx())!
     assert.match(vnode.props.class, /wf-dropdown--open/)
   })
 
-  it('包装层带 aria-haspopup / aria-expanded', () => {
-    const closed = renderVNode(Dropdown, { trigger }, makeCtx())!
+  it('包装层带 aria-haspopup / aria-expanded', async () => {
+    const closed = await renderVNode(Dropdown, { trigger }, makeCtx())!
     assert.equal(closed.props['aria-haspopup'], 'menu')
     assert.equal(closed.props['aria-expanded'], 'false')
-    const opened = renderVNode(Dropdown, { trigger, open: true }, makeCtx())!
+    const opened = await renderVNode(Dropdown, { trigger, open: true }, makeCtx())!
     assert.equal(opened.props['aria-expanded'], 'true')
   })
 
-  it('Escape 触发 onOpenChange(false)（wrapProps，document 级语义）', () => {
+  it('Escape 触发 onOpenChange(false)（wrapProps，document 级语义）', async () => {
     const items = [{ label: '编辑' }, { label: '删除', variant: 'danger' as const }]
     let closed = 0
-    const vnode = renderVNode(Dropdown, { trigger, items, open: true, onOpenChange: (v: boolean) => { if (!v) closed++ } }, makeCtx())!
+    const vnode = await renderVNode(Dropdown, { trigger, items, open: true, onOpenChange: (v: boolean) => { if (!v) closed++ } }, makeCtx())!
     assert.equal(typeof vnode.props.onKeyDown, 'function')
     vnode.props.onKeyDown({ key: 'Escape' })
     assert.equal(closed, 1)

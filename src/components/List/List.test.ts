@@ -17,8 +17,8 @@ function collectText(v: any): string[] {
 }
 
 describe('List', () => {
-  it('items + renderItem 渲染列表项', () => {
-    const vnode = renderVNode(List, {
+  it('items + renderItem 渲染列表项', async () => {
+    const vnode = await renderVNode(List, {
       items: ['a', 'b'],
       renderItem: (item: string) => item,
     }, createTestCtx())!
@@ -28,18 +28,18 @@ describe('List', () => {
     assert.equal(ul.props.children[0].type, 'li')
   })
 
-  it('分隔线模式（divided）', () => {
-    const vnode = renderVNode(List, { items: [1, 2], renderItem: (i: number) => String(i), divided: true }, createTestCtx())!
+  it('分隔线模式（divided）', async () => {
+    const vnode = await renderVNode(List, { items: [1, 2], renderItem: (i: number) => String(i), divided: true }, createTestCtx())!
     assert.match(vnode.props.class, /wf-list--divided/)
   })
 
-  it('空 items → EmptyState 占位', () => {
-    const vnode = renderVNode(List, { items: [], renderItem: (i: any) => String(i), emptyText: '暂无数据' }, createTestCtx())!
+  it('空 items → EmptyState 占位', async () => {
+    const vnode = await renderVNode(List, { items: [], renderItem: (i: any) => String(i), emptyText: '暂无数据' }, createTestCtx())!
     assert.ok(collectText(vnode).includes('暂无数据'))
   })
 
-  it('header/footer 渲染', () => {
-    const vnode = renderVNode(List, { items: [1], renderItem: (i: number) => String(i), header: '标题', footer: '页脚' }, createTestCtx())!
+  it('header/footer 渲染', async () => {
+    const vnode = await renderVNode(List, { items: [1], renderItem: (i: number) => String(i), header: '标题', footer: '页脚' }, createTestCtx())!
     assert.ok(collectText(vnode).includes('标题'))
     assert.ok(collectText(vnode).includes('页脚'))
   })

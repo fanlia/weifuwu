@@ -18,7 +18,7 @@ function hashColor(name: string): string {
   return COLORS[Math.abs(hash) % COLORS.length]
 }
 
-export const Avatar: Component<AvatarProps> = (_init, _ctx) =>
+export const Avatar: Component<AvatarProps> = async (_init, _ctx) =>
   (props) => {
   const { name = '', src, size = 'md', color } = props
   // 按码点取首字符（Array.from 而非 name[0]）——emoji 是代理对，name[0]
