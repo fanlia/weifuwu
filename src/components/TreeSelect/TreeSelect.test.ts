@@ -2,14 +2,11 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { TreeSelect } from './TreeSelect.ts'
 import { Tree } from '../Tree/Tree.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-const mockCtx = () => ({
-  ui: {
+const makeCtx = () => createTestCtx({ ui: {
     $: () => ({}),
     render: () => {},
     dirty: () => {},
@@ -55,13 +52,13 @@ const options = [
 
 describe('TreeSelect 组件', () => {
   test('渲染触发框 + placeholder', () => {
-    const vnode = renderVNode(TreeSelect, { options, placeholder: '选择服务' }, mockCtx())
+    const vnode = renderVNode(TreeSelect, { options, placeholder: '选择服务' }, makeCtx())
     assert.equal(vnode.props.class, 'wf-treeselect')
     assert.match(JSON.stringify(vnode), /选择服务/)
   })
 
   test('打开下拉 → 渲染 Tree 子组件', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const { render } = mount(TreeSelect, { options }, ctx)
     let vnode = render()
     const trigger = triggerOf(vnode)
@@ -74,7 +71,7 @@ describe('TreeSelect 组件', () => {
 
   test('单选：选中 key → onChange', () => {
     let value: any = null
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const { render } = mount(TreeSelect, { options, onChange: (v: any) => { value = v } }, ctx)
     let vnode = render()
     triggerOf(vnode).props.onClick()
@@ -86,7 +83,7 @@ describe('TreeSelect 组件', () => {
 
   test('多选：checkable 模式 → onChange(keys[])', () => {
     let value: any = null
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const { render } = mount(TreeSelect, { options, multiple: true, onChange: (v: any) => { value = v } }, ctx)
     let vnode = render()
     triggerOf(vnode).props.onClick()
@@ -98,7 +95,7 @@ describe('TreeSelect 组件', () => {
   })
 
   test('受控 value 显示选中 label', () => {
-    const vnode = renderVNode(TreeSelect, { options, value: 'http' }, mockCtx())
+    const vnode = renderVNode(TreeSelect, { options, value: 'http' }, makeCtx())
     assert.match(JSON.stringify(vnode), /HTTP 服务/, '触发框显示选中 label')
   })
 
@@ -107,7 +104,7 @@ describe('TreeSelect 组件', () => {
     const origWarn = console.warn
     console.warn = (...a: any[]) => { warns.push(a.join(' ')) }
     try {
-      renderVNode(TreeSelect, { options, value: 'http' }, mockCtx())
+      renderVNode(TreeSelect, { options, value: 'http' }, makeCtx())
     } finally {
       console.warn = origWarn
     }
@@ -115,7 +112,7 @@ describe('TreeSelect 组件', () => {
   })
 
   test('关闭下拉：再次点击触发框 → 不渲染 Tree', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const { render } = mount(TreeSelect, { options }, ctx)
     let vnode = render()
     triggerOf(vnode).props.onClick()
@@ -129,7 +126,7 @@ describe('TreeSelect 组件', () => {
 
 test('trigger role=combobox 可聚焦（P1 键盘可达）', () => {
   const data = [{ key: 'a', label: 'A' }]
-  const vnode = renderVNode(TreeSelect, { data }, mockCtx())!
+  const vnode = renderVNode(TreeSelect, { data }, makeCtx())!
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('combobox'), 'trigger combobox 角色')
   assert.ok(/tabindex|tabIndex/.test(s), 'trigger 可聚焦')

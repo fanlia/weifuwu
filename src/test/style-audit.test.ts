@@ -547,6 +547,31 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(errors, [], `组件测试基线：\n${errors.join('\n')}`)
   })
 
+  it('组件测试禁止手抄 renderVNode/mockCtx（R-INFRA：测试脚手架收敛到 ui-dom/testing）', () => {
+    // 94 文件曾手抄 renderVNode（3 变体）、114 手抄 mockCtx——ui-dom/testing 原语落地后
+    // 新组件必须 import 官方工具；存量手抄文件登记在 LEGACY 表（迁移中，按批递减）——
+    // 未登记的手抄 = 违规（新组件手抄即红）；已迁移的从表移除（强一致校验）
+    const LEGACY: Record<string, string> = {
+      }
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+      .filter(d => d.isDirectory()).map(d => d.name)
+    const errors: string[] = []
+    const registered = new Set(Object.keys(LEGACY))
+    const seen = new Set<string>()
+    for (const d of dirs) {
+      let test: string
+      try { test = readFileSync(join(root, 'src/components', d, `${d}.test.ts`), 'utf-8') } catch { continue }
+      const handwritten = /function renderVNode\(/.test(test) || /function mockCtx\(/.test(test)
+      if (!handwritten) continue
+      seen.add(d)
+      if (registered.has(d)) continue // 存量迁移中：允许
+      errors.push(`${d}: 手抄 renderVNode/mockCtx——改用 import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'`)
+    }
+    // 已迁移但仍在登记表 → 移除（强一致：表与实际手抄集合必须一致）
+    for (const d of registered) if (!seen.has(d)) errors.push(`${d}: 已迁移——请从 LEGACY 表移除登记`)
+    assert.deepEqual(errors, [], `测试脚手架（R-INFRA）：\n${errors.join('\n')}`)
+  })
+
   it('受控 props 命名对称（P10-T1：受控 prop 必须配对称回调或登记豁免）', () => {
     // 受控 prop → 可接受的对称回调名
     const SYMMETRIC: Record<string, RegExp> = {

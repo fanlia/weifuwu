@@ -3,13 +3,12 @@ import assert from 'node:assert/strict'
 import { Tooltip } from './Tooltip.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
 /** usePopup mock：镜像真实语义（closed/disabled → portal null；open → Portal + wf-popup 前缀） */
-function mockCtx(show = false, disabled = false): WfuiContext {
-  return { ui: {
+function makeCtx(show = false, disabled = false): WfuiContext {
+  return createTestCtx({ ui: {
     $: { show },
-    render: () => {},
-    dirty: () => {},
     usePopup: () => {
       const portal = (content: any) => {
         if (disabled || !show) return null
@@ -34,31 +33,27 @@ function mockCtx(show = false, disabled = false): WfuiContext {
         refresh: () => {},
       }
     },
-  } } as any
+  } }) as any
 }
 
 /** Call component and get VNode (compatible with two-phase model) */
-function renderVNode(Comp: any, props: any, ctx: WfuiContext) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 const inner = (v: any) => v?.type === Portal ? v.props.children : v
 
 describe('Tooltip', () => {
   it('renders children', () => {
-    const vnode = renderVNode(Tooltip, { content: '保存', children: '按钮' }, mockCtx())!
+    const vnode = renderVNode(Tooltip, { content: '保存', children: '按钮' }, makeCtx())!
     assert.match(vnode.props.class, /wf-tooltip-wrap/)
     assert.equal(vnode.props.children[0], '按钮')
   })
 
   it('no portal when closed（usePopup 卸载语义，取代旧的 hidden 类）', () => {
-    const vnode = renderVNode(Tooltip, { content: '保存', children: '按钮' }, mockCtx(false))!
+    const vnode = renderVNode(Tooltip, { content: '保存', children: '按钮' }, makeCtx(false))!
     assert.equal(vnode.props.children.length, 1, '关闭时只有 trigger，无 portal')
   })
 
   it('tooltip visible when $.show is true', () => {
-    const vnode = renderVNode(Tooltip, { content: '保存', children: '按钮' }, mockCtx(true))!
+    const vnode = renderVNode(Tooltip, { content: '保存', children: '按钮' }, makeCtx(true))!
     const portal = vnode.props.children[1]
     assert.equal(portal.type, Portal)
     const tip = inner(portal)
@@ -68,7 +63,7 @@ describe('Tooltip', () => {
 
   it('renders with different positions', () => {
     for (const pos of ['top', 'bottom', 'left', 'right'] as const) {
-      const vnode = renderVNode(Tooltip, { content: '提示', children: 'x', position: pos }, mockCtx(true))!
+      const vnode = renderVNode(Tooltip, { content: '提示', children: 'x', position: pos }, makeCtx(true))!
       const portal = vnode.props.children[1]
       const tip = inner(portal)
       assert.match(tip.props.class, new RegExp(`wf-tooltip--${pos}`))
@@ -76,13 +71,13 @@ describe('Tooltip', () => {
   })
 
   it('does not render portal when disabled', () => {
-    const vnode = renderVNode(Tooltip, { content: '提示', children: 'x', disabled: true }, mockCtx(true, true))!
+    const vnode = renderVNode(Tooltip, { content: '提示', children: 'x', disabled: true }, makeCtx(true, true))!
     // children 只有 trigger，没有 portal
     assert.equal(vnode.props.children.length, 1)
   })
 
   it('has event handlers on wrapper（来自 usePopup.wrapProps）', () => {
-    const vnode = renderVNode(Tooltip, { content: '提示', children: 'x' }, mockCtx())!
+    const vnode = renderVNode(Tooltip, { content: '提示', children: 'x' }, makeCtx())!
     assert.equal(typeof vnode.props.onMouseEnter, 'function')
     assert.equal(typeof vnode.props.onMouseLeave, 'function')
     assert.equal(typeof vnode.props.onFocus, 'function')
@@ -92,7 +87,7 @@ describe('Tooltip', () => {
 })
 
 it('disabled 切换：同实例从可用到禁用（disabled 闭包捕获而非快照）', () => {
-  const ctx = mockCtx(false, false)
+  const ctx = makeCtx(false, false)
   const factory = Tooltip({ content: 'a', children: 'x' }, ctx)
   factory({ content: 'a', children: 'x' })
   // 禁用后渲染：portal 不出现
@@ -102,7 +97,7 @@ it('disabled 切换：同实例从可用到禁用（disabled 闭包捕获而非�
 })
 
 it('position 默认 top（未传时）', () => {
-  const vnode = renderVNode(Tooltip, { content: 'a', children: 'x' }, mockCtx(true))!
+  const vnode = renderVNode(Tooltip, { content: 'a', children: 'x' }, makeCtx(true))!
   const s = JSON.stringify(vnode)
   assert.match(s, /wf-tooltip--top/)
 })

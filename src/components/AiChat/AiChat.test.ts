@@ -10,13 +10,10 @@ import assert from 'node:assert'
 import { AiChat } from './AiChat.ts'
 import type { UseChatHandle, UiMessage } from '../../ui-dom/use-chat.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   let scrollY = 0
   return { ui: {
     useVisualViewport: () => ({ height: 800, offsetTop: 0, keyboardOpen: false }),
@@ -115,7 +112,7 @@ function buttons(vnode: any): any[] {
 describe('AiChat', () => {
   it('空会话：渲染 empty 提示', () => {
     const chat = mockChat()
-    const vnode = renderVNode(AiChat, { chat }, mockCtx())
+    const vnode = renderVNode(AiChat, { chat }, createTestCtx())
     const empty = find(vnode, 'wf-aichat-empty')
     assert.ok(empty, '应有空态提示')
   })
@@ -127,7 +124,7 @@ describe('AiChat', () => {
         { id: 'a1', role: 'assistant', content: '你好！', status: 'done' },
       ],
     })
-    const vnode = renderVNode(AiChat, { chat }, mockCtx())
+    const vnode = renderVNode(AiChat, { chat }, createTestCtx())
     const bubbles = [find(vnode, 'wf-aichat-bubble--user'), find(vnode, 'wf-aichat-bubble--assistant')]
     assert.ok(bubbles[0], '应有 user 气泡')
     assert.ok(bubbles[1], '应有 assistant 气泡')
@@ -146,12 +143,12 @@ describe('AiChat', () => {
         }],
       }],
     })
-    const vnode = renderVNode(AiChat, { chat }, mockCtx())
-    const card = find(vnode, 'wf-toolcall', mockCtx())
+    const vnode = renderVNode(AiChat, { chat }, createTestCtx())
+    const card = find(vnode, 'wf-toolcall', createTestCtx())
     assert.ok(card, '应渲染 ToolCallCard')
-    const name = find(card, 'wf-toolcall-name', mockCtx())
+    const name = find(card, 'wf-toolcall-name', createTestCtx())
     assert.equal(name.props.children, 'query_weather')
-    const bar = find(card, 'wf-toolcall-bar', mockCtx())
+    const bar = find(card, 'wf-toolcall-bar', createTestCtx())
     assert.ok(bar, 'progress 透传 → 进度条')
   })
 
@@ -162,8 +159,8 @@ describe('AiChat', () => {
         approval: { id: 'ap_1', toolCallId: 'tc_1', name: 'create_order', args: { qty: 2 } },
       }],
     })
-    const vnode = renderVNode(AiChat, { chat }, mockCtx())
-    const card = find(vnode, 'wf-approval', mockCtx())
+    const vnode = renderVNode(AiChat, { chat }, createTestCtx())
+    const card = find(vnode, 'wf-approval', createTestCtx())
     assert.ok(card, '应渲染 ApprovalCard')
     const approveBtn = buttons(card).find((b) => childText(b) === '允许')
     assert.ok(approveBtn, '应有允许按钮')
@@ -173,14 +170,14 @@ describe('AiChat', () => {
 
   it('输入条：非流式显示发送（onClick → send），流式显示停止（→ stop）', () => {
     const chat1 = mockChat()
-    const v1 = renderVNode(AiChat, { chat: chat1 }, mockCtx())
+    const v1 = renderVNode(AiChat, { chat: chat1 }, createTestCtx())
     const sendBtn = buttons(v1).find((b) => b.props.children === '发送')
     assert.ok(sendBtn)
     sendBtn.props.onClick()
     assert.equal((chat1 as any).calls.at(-1), 'send')
 
     const chat2 = mockChat({ streaming: true })
-    const v2 = renderVNode(AiChat, { chat: chat2 }, mockCtx())
+    const v2 = renderVNode(AiChat, { chat: chat2 }, createTestCtx())
     const stopBtn = buttons(v2).find((b) => b.props.children === '停止')
     assert.ok(stopBtn, '流式时应显示停止')
     stopBtn.props.onClick()
@@ -189,7 +186,7 @@ describe('AiChat', () => {
 
   it('Enter 键 → chat.send；输入框双向绑定 chat.input', () => {
     const chat = mockChat({ input: 'hi' })
-    const vnode = renderVNode(AiChat, { chat }, mockCtx())
+    const vnode = renderVNode(AiChat, { chat }, createTestCtx())
     const input = find(vnode, 'wf-aichat-input')
     assert.equal(input.props.value, 'hi')
     input.props.onKeyDown({ key: 'Enter' })
@@ -200,7 +197,7 @@ describe('AiChat', () => {
 
   it('错误态：非流式显示重试按钮（→ retry），流式时不显示', () => {
     const chat = mockChat({ error: { code: 'rate_limited', message: 'too fast' } })
-    const vnode = renderVNode(AiChat, { chat }, mockCtx())
+    const vnode = renderVNode(AiChat, { chat }, createTestCtx())
     const err = find(vnode, 'wf-aichat-error')
     assert.ok(err, '应显示错误条')
     assert.match(err.props.children, /rate_limited/)
@@ -210,7 +207,7 @@ describe('AiChat', () => {
     assert.equal((chat as any).calls.at(-1), 'retry')
 
     const streamingChat = mockChat({ streaming: true, error: { code: 'x', message: 'y' } })
-    const v2 = renderVNode(AiChat, { chat: streamingChat }, mockCtx())
+    const v2 = renderVNode(AiChat, { chat: streamingChat }, createTestCtx())
     assert.equal(buttons(v2).some((b) => b.props.children === '重试'), false)
   })
 
@@ -219,7 +216,7 @@ describe('AiChat', () => {
       step: { type: 'tool', name: 'query_weather' },
       usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
     })
-    const vnode = renderVNode(AiChat, { chat }, mockCtx())
+    const vnode = renderVNode(AiChat, { chat }, createTestCtx())
     const status = find(vnode, 'wf-aichat-status')
     assert.match(status.props.children, /query_weather/)
     const usage = find(vnode, 'wf-aichat-usage')
@@ -233,14 +230,14 @@ describe('AiChat', () => {
     const vnode = renderVNode(AiChat, {
       chat,
       renderMessage: (m: UiMessage) => `[自定义]${m.content}`,
-    }, mockCtx())
+    }, createTestCtx())
     const bubble = find(vnode, 'wf-aichat-bubble')
     assert.equal(bubble.props.children, '[自定义]x')
   })
 
   it('labels 覆盖：自定义发送按钮文案', () => {
     const chat = mockChat()
-    const vnode = renderVNode(AiChat, { chat, labels: { send: 'Submit' } }, mockCtx())
+    const vnode = renderVNode(AiChat, { chat, labels: { send: 'Submit' } }, createTestCtx())
     assert.ok(buttons(vnode).some((b) => b.props.children === 'Submit'))
   })
 })

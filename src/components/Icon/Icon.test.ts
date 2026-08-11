@@ -2,20 +2,17 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Icon } from './Icon.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
 describe('Icon', () => {
   it('renders svg with aria-hidden + currentColor', () => {
-    const vnode = renderVNode(Icon, { name: 'close' }, mockCtx())!
+    const vnode = renderVNode(Icon, { name: 'close' }, createTestCtx())!
     assert.equal(vnode.type, 'svg')
     assert.equal(vnode.props['aria-hidden'], 'true')
     assert.equal(vnode.props.stroke, 'currentColor')
@@ -23,13 +20,13 @@ describe('Icon', () => {
   })
 
   it('default size is 1em（随字号缩放）', () => {
-    const vnode = renderVNode(Icon, { name: 'check' }, mockCtx())!
+    const vnode = renderVNode(Icon, { name: 'check' }, createTestCtx())!
     assert.equal(vnode.props.width, '1em')
     assert.equal(vnode.props.height, '1em')
   })
 
   it('supports explicit size', () => {
-    const vnode = renderVNode(Icon, { name: 'check', size: 16 }, mockCtx())!
+    const vnode = renderVNode(Icon, { name: 'check', size: 16 }, createTestCtx())!
     assert.equal(vnode.props.width, 16)
   })
 
@@ -41,7 +38,7 @@ describe('Icon', () => {
       'search', 'send', 'stop', 'retry', 'upload', 'trash', 'edit', 'plus',
     ] as const
     for (const name of names) {
-      const vnode = renderVNode(Icon, { name }, mockCtx())!
+      const vnode = renderVNode(Icon, { name }, createTestCtx())!
       const paths = Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children]
       assert.ok(paths.length > 0, `${name} 应有 path`)
       assert.equal(vnode.type, 'svg')

@@ -16,6 +16,10 @@
       "types": "./dist/ui-dom/index.d.ts",
       "default": "./dist/ui-dom/jsx-runtime.js"
     },
+    "./ui-dom/testing": {
+      "types": "./dist/ui-dom/testing.d.ts",
+      "default": "./dist/ui-dom/testing.js"
+    },
     "./layout": "./dist/layout/weifuwu-layout.css",
     "./layout/style.css": "./dist/layout/weifuwu-layout.css",
     "./components": {

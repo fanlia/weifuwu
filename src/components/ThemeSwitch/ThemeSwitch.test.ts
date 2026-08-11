@@ -3,6 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 import { ThemeSwitch, applyTheme, getTheme } from './ThemeSwitch.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 before(setupJsdom)
 
@@ -12,12 +13,8 @@ beforeEach(() => {
 })
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   const renders: Array<() => void> = []
   return {
     ui: {
@@ -31,7 +28,7 @@ function mockCtx(): WfuiContext {
 
 describe('ThemeSwitch', () => {
   it('renders segmented control with 3 modes', () => {
-    const vnode = renderVNode(ThemeSwitch, {}, mockCtx())!
+    const vnode = renderVNode(ThemeSwitch, {}, createTestCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-theme-switch/)
     const segs = vnode.props.children as any[]
@@ -42,7 +39,7 @@ describe('ThemeSwitch', () => {
   })
 
   it('defaults to auto when nothing stored', () => {
-    const vnode = renderVNode(ThemeSwitch, {}, mockCtx())!
+    const vnode = renderVNode(ThemeSwitch, {}, createTestCtx())!
     const segs = vnode.props.children as any[]
     assert.match(segs[0].props.class, /wf-theme-seg--active/)
     assert.equal(document.documentElement.hasAttribute('data-theme'), false)
@@ -50,17 +47,17 @@ describe('ThemeSwitch', () => {
 
   it('applies stored theme on mount (persisted dark)', () => {
     localStorage.setItem('wf_theme', 'dark')
-    renderVNode(ThemeSwitch, {}, mockCtx())
+    renderVNode(ThemeSwitch, {}, createTestCtx())
     assert.equal(document.documentElement.getAttribute('data-theme'), 'dark')
     // 重新渲染时 active 段为暗色
-    const vnode = renderVNode(ThemeSwitch, {}, mockCtx())!
+    const vnode = renderVNode(ThemeSwitch, {}, createTestCtx())!
     const segs = vnode.props.children as any[]
     assert.match(segs[2].props.class, /wf-theme-seg--active/)
   })
 
   it('clicking a segment switches theme and persists', () => {
     let changed: any = null
-    const vnode = renderVNode(ThemeSwitch, { onChange: (m: any) => { changed = m } }, mockCtx())!
+    const vnode = renderVNode(ThemeSwitch, { onChange: (m: any) => { changed = m } }, createTestCtx())!
     const segs = vnode.props.children as any[]
     // 点击「暗色」
     segs[2].props.onClick()
@@ -75,7 +72,7 @@ describe('ThemeSwitch', () => {
   })
 
   it('clicking active segment is a no-op', () => {
-    const vnode = renderVNode(ThemeSwitch, { mode: 'light' }, mockCtx())!
+    const vnode = renderVNode(ThemeSwitch, { mode: 'light' }, createTestCtx())!
     const segs = vnode.props.children as any[]
     segs[1].props.onClick()
     // 无变化：仍是 light，且未触发 onChange（undefined 时不应报错）
@@ -83,7 +80,7 @@ describe('ThemeSwitch', () => {
   })
 
   it('respects custom storageKey', () => {
-    const vnode = renderVNode(ThemeSwitch, { storageKey: 'app_theme', mode: 'dark' }, mockCtx())!
+    const vnode = renderVNode(ThemeSwitch, { storageKey: 'app_theme', mode: 'dark' }, createTestCtx())!
     const segs = vnode.props.children as any[]
     // 点「亮色」触发真实切换
     segs[1].props.onClick()

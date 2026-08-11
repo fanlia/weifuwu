@@ -2,13 +2,8 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { computeLayers, layoutGraph, detectCycle } from './dag-utils.ts'
 import { Pipeline } from './Pipeline.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-
-const mockCtx = () => ({ ui: { $: () => ({}) } }) as any
 
 describe('computeLayers — 层级分配', () => {
   test('线性链：逐层递增', () => {
@@ -108,7 +103,7 @@ describe('Pipeline 组件', () => {
         ],
         edges: [{ from: 'n1', to: 'n2' }],
       },
-      mockCtx(),
+      createTestCtx(),
     )
     assert.equal(vnode.props.class, 'wf-pipeline')
     const str = JSON.stringify(vnode)
@@ -125,7 +120,7 @@ describe('Pipeline 组件', () => {
         nodes: [{ id: 'a' }, { id: 'b' }],
         edges: [{ from: 'a', to: 'b' }, { from: 'b', to: 'a' }],
       },
-      mockCtx(),
+      createTestCtx(),
     )
     assert.ok(vnode, '不崩溃')
   })
@@ -137,7 +132,7 @@ describe('Pipeline 组件', () => {
         nodes: [{ id: 'n1', label: 'Agent 调度' }],
         edges: [],
       },
-      mockCtx(),
+      createTestCtx(),
     )
     assert.match(JSON.stringify(vnode), /Agent 调度/)
   })

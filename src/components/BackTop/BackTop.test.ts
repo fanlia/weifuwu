@@ -4,11 +4,12 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { BackTop } from './BackTop.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
 // 可控 useInView mock：isIn=true = 哨兵仍在扩展区（未滚动超阈值）→ 按钮隐藏
-function mockCtx(initialIsIn = true): { ctx: WfuiContext; inView: { isIn: boolean } } {
+function makeCtx(initialIsIn = true): { ctx: WfuiContext; inView: { isIn: boolean } } {
   const inView = { isIn: initialIsIn, ready: true, observe: () => {}, refresh: () => {}, disconnect: () => {} }
-  const ctx = { ui: { $: {}, render: () => {}, dirty: () => {}, useInView: () => inView, ready: true } } as any
+  const ctx = createTestCtx({ ui: { useInView: () => inView } }) as any
   return { ctx, inView }
 }
 
@@ -32,7 +33,7 @@ describe('BackTop', () => {
   })
 
   it('renders hidden by default (IO isIn=true = 未超过阈值)', () => {
-    const { ctx } = mockCtx(true)
+    const { ctx } = makeCtx(true)
     const render = mount(BackTop, {}, ctx)!
     const vnode = render({})
     assert.equal(vnode.type, 'div') // host
@@ -40,7 +41,7 @@ describe('BackTop', () => {
   })
 
   it('scroll past visibilityHeight shows button (IO isIn=false)', () => {
-    const { ctx, inView } = mockCtx(true)
+    const { ctx, inView } = makeCtx(true)
     const render = mount(BackTop, { visibilityHeight: 400 }, ctx)!
     inView.isIn = false // 模拟 IO：哨兵离开扩展区（滚动超 400px）
     const vnode = render({ visibilityHeight: 400 })
@@ -49,7 +50,7 @@ describe('BackTop', () => {
   })
 
   it('stays hidden below threshold (IO isIn=true)', () => {
-    const { ctx, inView } = mockCtx(true)
+    const { ctx, inView } = makeCtx(true)
     const render = mount(BackTop, { visibilityHeight: 400 }, ctx)!
     const vnode = render({ visibilityHeight: 400 })
     assert.match(buttonOf(vnode).props.class, /--hidden/)
@@ -57,7 +58,7 @@ describe('BackTop', () => {
   })
 
   it('click scrolls to top', () => {
-    const { ctx } = mockCtx(true)
+    const { ctx } = makeCtx(true)
     const render = mount(BackTop, {}, ctx)!
     const vnode = render({})
     buttonOf(vnode).props.onClick()
@@ -65,14 +66,14 @@ describe('BackTop', () => {
   })
 
   it('renders custom children', () => {
-    const { ctx } = mockCtx(true)
+    const { ctx } = makeCtx(true)
     const render = mount(BackTop, { children: 'TOP' }, ctx)!
     const vnode = render({ children: 'TOP' })
     assert.equal(buttonOf(vnode).props.children, 'TOP')
   })
 
   it('cleanup disconnects observer (sentinel ref null branch)', () => {
-    const { ctx } = mockCtx(true)
+    const { ctx } = makeCtx(true)
     const render = mount(BackTop, {}, ctx)!
     const vnode = render({})
     // sentinel ref：挂载 + 卸载（observe/disconnect，无异常即可）
@@ -82,7 +83,7 @@ describe('BackTop', () => {
 })
 
 it('键盘可达：按钮原生可聚焦 + Enter 回顶（P1）', () => {
-  const { ctx, inView } = mockCtx(false) // isIn=false → 显示
+  const { ctx, inView } = makeCtx(false) // isIn=false → 显示
   const factory = mount(BackTop, { visibilityHeight: 100 }, ctx)
   const vnode = factory({ visibilityHeight: 100 })
   const btn = buttonOf(vnode)
@@ -91,7 +92,7 @@ it('键盘可达：按钮原生可聚焦 + Enter 回顶（P1）', () => {
 })
 
 it('visibilityHeight 默认值存在（不传不抛错——边界）', () => {
-  const { ctx } = mockCtx()
+  const { ctx } = makeCtx()
   const factory = mount(BackTop, {}, ctx)
   const vnode = factory({})
   assert.ok(vnode, '默认参数渲染')

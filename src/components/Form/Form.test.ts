@@ -2,13 +2,10 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Form, validateValues } from './Form.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
@@ -138,25 +135,25 @@ describe('validateValues', () => {
 
 describe('Form', () => {
   it('renders a form element', () => {
-    const vnode = renderVNode(Form, { children: '内容' }, mockCtx())!
+    const vnode = renderVNode(Form, { children: '内容' }, createTestCtx())!
     assert.equal(vnode.type, 'form')
     assert.match(vnode.props.class, /wf-form/)
   })
 
   it('renders children', () => {
-    const vnode = renderVNode(Form, { children: '表单字段' }, mockCtx())!
+    const vnode = renderVNode(Form, { children: '表单字段' }, createTestCtx())!
     assert.equal(vnode.props.children, '表单字段')
   })
 
   it('sets noValidate when validation is provided', () => {
     const vnode = renderVNode(Form, {
       validation: { email: [{ required: true, message: '必填' }] },
-    }, mockCtx())!
+    }, createTestCtx())!
     assert.equal(vnode.props.noValidate, true)
   })
 
   it('does not set noValidate without validation', () => {
-    const vnode = renderVNode(Form, {}, mockCtx())!
+    const vnode = renderVNode(Form, {}, createTestCtx())!
     assert.equal(vnode.props.noValidate, undefined)
   })
 })

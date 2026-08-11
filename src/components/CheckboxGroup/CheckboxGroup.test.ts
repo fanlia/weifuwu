@@ -3,14 +3,11 @@ import assert from 'node:assert'
 import { CheckboxGroup } from './CheckboxGroup.ts'
 import { Checkbox } from '../Checkbox/Checkbox.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   const uncontrolled = new Map<string, any>()
   return { ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
@@ -35,7 +32,7 @@ const opts = [
 
 describe('CheckboxGroup', () => {
   it('renders one Checkbox per option', () => {
-    const vnode = renderVNode(CheckboxGroup, { options: opts, value: [] }, mockCtx())!
+    const vnode = renderVNode(CheckboxGroup, { options: opts, value: [] }, createTestCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-checkbox-group/)
     assert.equal(vnode.props.children.length, 3)
@@ -43,7 +40,7 @@ describe('CheckboxGroup', () => {
   })
 
   it('marks selected options checked', () => {
-    const vnode = renderVNode(CheckboxGroup, { options: opts, value: ['a', 'c'] }, mockCtx())!
+    const vnode = renderVNode(CheckboxGroup, { options: opts, value: ['a', 'c'] }, createTestCtx())!
     assert.equal(vnode.props.children[0].props.checked, true)
     assert.equal(vnode.props.children[1].props.checked, false)
     assert.equal(vnode.props.children[2].props.checked, true)
@@ -51,25 +48,25 @@ describe('CheckboxGroup', () => {
 
   it('toggle adds value', () => {
     let got: string[] = []
-    const vnode = renderVNode(CheckboxGroup, { options: opts, value: ['a'], onChange: (v: string[]) => { got = v } }, mockCtx())!
+    const vnode = renderVNode(CheckboxGroup, { options: opts, value: ['a'], onChange: (v: string[]) => { got = v } }, createTestCtx())!
     vnode.props.children[1].props.onChange(true) // b
     assert.deepEqual(got, ['a', 'b'])
   })
 
   it('toggle removes value', () => {
     let got: string[] = []
-    const vnode = renderVNode(CheckboxGroup, { options: opts, value: ['a', 'b'], onChange: (v: string[]) => { got = v } }, mockCtx())!
+    const vnode = renderVNode(CheckboxGroup, { options: opts, value: ['a', 'b'], onChange: (v: string[]) => { got = v } }, createTestCtx())!
     vnode.props.children[0].props.onChange(false) // a
     assert.deepEqual(got, ['b'])
   })
 
   it('applies columns class', () => {
-    const vnode = renderVNode(CheckboxGroup, { options: opts, value: [], columns: 2 }, mockCtx())!
+    const vnode = renderVNode(CheckboxGroup, { options: opts, value: [], columns: 2 }, createTestCtx())!
     assert.match(vnode.props.class, /wf-checkbox-group--cols-2/)
   })
 
   it('disabled propagates to options', () => {
-    const vnode = renderVNode(CheckboxGroup, { options: opts, value: [], disabled: true }, mockCtx())!
+    const vnode = renderVNode(CheckboxGroup, { options: opts, value: [], disabled: true }, createTestCtx())!
     assert.equal(vnode.props.children[0].props.disabled, true)
   })
 
@@ -77,13 +74,13 @@ describe('CheckboxGroup', () => {
     const vnode = renderVNode(CheckboxGroup, {
       options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B', disabled: true }],
       value: [], disabled: false,
-    }, mockCtx())!
+    }, createTestCtx())!
     assert.equal(vnode.props.children[1].props.disabled, true)
     assert.notEqual(vnode.props.children[0].props.disabled, true) // undefined = 非禁用
   })
 
   it('renders group label when provided', () => {
-    const vnode = renderVNode(CheckboxGroup, { options: opts, value: [], label: '选择成员' }, mockCtx())!
+    const vnode = renderVNode(CheckboxGroup, { options: opts, value: [], label: '选择成员' }, createTestCtx())!
     // 第一个 children 是 label div，其 children 是字符串
     assert.equal(vnode.props.children[0].props.children, '选择成员')
   })

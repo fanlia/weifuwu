@@ -21,9 +21,10 @@ import { Modal } from '../Modal/Modal.ts'
 import { UIRouter, uiServe, jsx } from '../../ui-dom/index.ts'
 import { confirm as uiDomConfirm } from '../../ui-dom/Confirm.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
-  return { ui: {
+function makeCtx(): WfuiContext {
+  return createTestCtx({ ui: {
     render: () => {}, $: () => ({}), dirty: () => {},
     usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
     // useDialog mock：状态机 + rootRef 绑定 animationend（真实渲染管线需要）
@@ -46,14 +47,10 @@ function mockCtx(): WfuiContext {
         },
       }
     },
-  } } as any
+  } }) as any
 }
 
 /** 两阶段组件：mount → renderFn，反复调用 renderFn(props) 获取 VNode */
-function renderVNode(Comp: any, props: any, ctx: WfuiContext) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 const modal = () => document.querySelector('.wf-modal') as HTMLElement | null
 const buttons = () => Array.from(document.querySelectorAll('.wf-modal .wf-btn')) as HTMLButtonElement[]
@@ -82,7 +79,7 @@ const fireExit = () => modal()?.dispatchEvent(new (window as any).Event('animati
 
 describe('Confirm 组件（声明式）', () => {
   it('open=false 时挂载后无 DOM', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const container = document.createElement('div')
     document.body.appendChild(container)
     const vnode = renderVNode(Confirm, { open: false, message: 'x' }, ctx)
@@ -91,14 +88,14 @@ describe('Confirm 组件（声明式）', () => {
   })
 
   it('open=true 渲染为 Modal（open/children 透传）', () => {
-    const vnode = renderVNode(Confirm, { open: true, message: '确定删除？' }, mockCtx())
+    const vnode = renderVNode(Confirm, { open: true, message: '确定删除？' }, makeCtx())
     assert.equal(vnode.type, Modal)
     assert.equal(vnode.props.open, true)
     assert.equal(vnode.props.children, '确定删除？')
   })
 
   it('按钮文案默认与自定义', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const container = document.createElement('div')
     document.body.appendChild(container)
     const vnode = renderVNode(Confirm, { open: true, message: 'x', confirmText: '删除', cancelText: '再想想', onConfirm: () => {}, onCancel: () => {} }, ctx)
@@ -113,7 +110,7 @@ describe('Confirm 组件（声明式）', () => {
     const vnode = renderVNode(Confirm, {
       open: true, message: 'x',
       onConfirm: () => confirmed++, onCancel: () => cancelled++,
-    }, mockCtx())
+    }, makeCtx())
     const [cancelBtn, okBtn] = vnode.props.footer
     okBtn.props.onClick()
     cancelBtn.props.onClick()
@@ -122,7 +119,7 @@ describe('Confirm 组件（声明式）', () => {
   })
 
   it('ESC 触发 onCancel（经 Modal onKeyDown，焦点在对话框内）', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     let cancelled = false
     const container = document.createElement('div')
     document.body.appendChild(container)
@@ -137,13 +134,13 @@ describe('Confirm 组件（声明式）', () => {
 
   it('Modal onClose 路由到 onCancel（Promise resolve(false) 语义）', () => {
     let cancelled = 0
-    const vnode = renderVNode(Confirm, { open: true, message: 'x', onCancel: () => cancelled++ }, mockCtx())
+    const vnode = renderVNode(Confirm, { open: true, message: 'x', onCancel: () => cancelled++ }, makeCtx())
     vnode.props.onClose()
     assert.equal(cancelled, 1)
   })
 
   it('遮罩点击默认不取消（maskClosable=false，危险操作防误触）', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     let cancelled = 0
     const container = document.createElement('div')
     document.body.appendChild(container)
@@ -156,7 +153,7 @@ describe('Confirm 组件（声明式）', () => {
   })
 
   it('遮罩点击在 maskClosable=true 时触发 onCancel', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     let cancelled = 0
     const container = document.createElement('div')
     document.body.appendChild(container)
@@ -169,7 +166,7 @@ describe('Confirm 组件（声明式）', () => {
   })
 
   it('无关闭按钮（closable=false）+ variant/width 透传', () => {
-    const vnode = renderVNode(Confirm, { open: true, message: 'x', variant: 'danger', width: '600px' }, mockCtx())
+    const vnode = renderVNode(Confirm, { open: true, message: 'x', variant: 'danger', width: '600px' }, makeCtx())
     assert.equal(vnode.props.closable, false)
     assert.equal(vnode.props.width, '600px')
     const [, okBtn] = vnode.props.footer
@@ -178,7 +175,7 @@ describe('Confirm 组件（声明式）', () => {
 
   it('message 支持 VNode（任意内容）', () => {
     const msg = { type: 'div', props: { children: '富文本' } }
-    const vnode = renderVNode(Confirm, { open: true, message: msg }, mockCtx())
+    const vnode = renderVNode(Confirm, { open: true, message: msg }, makeCtx())
     assert.equal(vnode.props.children, msg)
   })
 })
@@ -186,7 +183,7 @@ describe('Confirm 组件（声明式）', () => {
 describe('confirm() 命令式中间件（真实 app ctx）', () => {
   it('注入 ctx.confirm', async () => {
     const mw = confirm()
-    const ctx = await mw(mockCtx())
+    const ctx = await mw(makeCtx())
     assert.equal(typeof (ctx as any).confirm, 'function')
   })
 

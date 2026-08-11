@@ -12,6 +12,7 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 import { h, Portal } from '../../ui-dom/vnode.ts'
 import { mountVNode, patchValue } from '../../ui-dom/render.ts'
 import { setupJsdom } from '../../test/client/setup.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 setupJsdom()
 
 /** usePopup mock：镜像真实语义（受控 isOpen + wf-popup 合并 + disabled/closed → portal null） */
@@ -68,10 +69,6 @@ function createMockCtx(): WfuiContext {
 }
 
 /** Call component and get VNode (compatible with two-phase model) */
-function renderVNode(Comp: any, props: any, ctx: WfuiContext) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 describe('Popover', () => {
   it('render children', () => {

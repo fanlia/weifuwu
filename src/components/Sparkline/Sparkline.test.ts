@@ -2,13 +2,8 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { computeSparklinePoints } from './sparkline-utils.ts'
 import { Sparkline } from './Sparkline.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-
-const mockCtx = () => ({ ui: { $: () => ({}) } }) as any
 
 describe('computeSparklinePoints — 归一化', () => {
   test('线性映射：data 值映射到 [padding, height-padding]', () => {
@@ -53,7 +48,7 @@ describe('computeSparklinePoints — 归一化', () => {
 
 describe('Sparkline 组件', () => {
   test('渲染 svg + polyline', () => {
-    const vnode = renderVNode(Sparkline, { data: [1, 3, 2, 5] }, mockCtx())
+    const vnode = renderVNode(Sparkline, { data: [1, 3, 2, 5] }, createTestCtx())
     assert.equal(vnode.type, 'svg')
     assert.ok(vnode.props.class.includes('wf-sparkline'))
     // children: polyline + 可能 area
@@ -62,38 +57,38 @@ describe('Sparkline 组件', () => {
   })
 
   test('polyline points 含归一化坐标', () => {
-    const vnode = renderVNode(Sparkline, { data: [0, 100], width: 100, height: 20 }, mockCtx())
+    const vnode = renderVNode(Sparkline, { data: [0, 100], width: 100, height: 20 }, createTestCtx())
     const kids = vnode.props.children as any[]
     const poly = kids.find(k => k.type === 'polyline')
     assert.match(poly.props.points, /^2,18 98,2$/)
   })
 
   test('空数据 → 渲染空 svg（无 polyline）', () => {
-    const vnode = renderVNode(Sparkline, { data: [] }, mockCtx())
+    const vnode = renderVNode(Sparkline, { data: [] }, createTestCtx())
     const kids = vnode.props.children as any[]
     assert.ok(!kids.some(k => k.type === 'polyline'), '空数据无 polyline')
   })
 
   test('smooth → 渲染 path 而非 polyline', () => {
-    const vnode = renderVNode(Sparkline, { data: [1, 2, 3], smooth: true }, mockCtx())
+    const vnode = renderVNode(Sparkline, { data: [1, 2, 3], smooth: true }, createTestCtx())
     const kids = vnode.props.children as any[]
     assert.ok(kids.some(k => k.type === 'path'), 'smooth 用 path')
     assert.ok(!kids.some(k => k.type === 'polyline'), 'smooth 不用 polyline')
   })
 
   test('fill 时渲染 area path', () => {
-    const vnode = renderVNode(Sparkline, { data: [1, 2, 3], fill: true }, mockCtx())
+    const vnode = renderVNode(Sparkline, { data: [1, 2, 3], fill: true }, createTestCtx())
     const kids = vnode.props.children as any[]
     assert.ok(kids.filter(k => k.type === 'path').length >= 1 || kids.some(k => k.type === 'polyline' && k.props.fill !== undefined), '有面积填充')
   })
 
   test('label 提供：role=img + aria-label（否则 aria-hidden）', () => {
-    const v1 = renderVNode(Sparkline, { data: [1, 2, 3], label: '七日趋势上升' }, mockCtx())!
+    const v1 = renderVNode(Sparkline, { data: [1, 2, 3], label: '七日趋势上升' }, createTestCtx())!
     const s1 = JSON.stringify(v1)
     assert.ok(s1.includes('"role":"img"'), 'role=img')
     assert.ok(s1.includes('七日趋势上升'), 'aria-label 文本')
     assert.ok(!s1.includes('"aria-hidden":true'), '有 label 不再 hidden')
-    const v2 = renderVNode(Sparkline, { data: [1, 2, 3] }, mockCtx())!
+    const v2 = renderVNode(Sparkline, { data: [1, 2, 3] }, createTestCtx())!
     assert.ok(JSON.stringify(v2).includes('"aria-hidden":true'), '无 label 装饰态')
   })
 })

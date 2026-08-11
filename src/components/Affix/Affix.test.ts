@@ -4,13 +4,13 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Affix } from './Affix.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
 // 可控 useScrollPosition mock：scrollY 响应式驱动 fixed 判定（fixed = scroll.y >= threshold）
-function mockCtx(scrollY = 0): { ctx: WfuiContext; setScrollY: (y: number) => void } {
+function makeCtx(scrollY = 0): { ctx: WfuiContext; setScrollY: (y: number) => void } {
   const scroll = { y: scrollY, refresh: () => {} }
-  const ctx = {
+  const ctx = createTestCtx({
     ui: {
-      $: {}, render: () => {}, dirty: () => {},
       useScrollPosition: () => scroll,
       usePopupPosition: (opts: any) => ({
         top: 0, left: 0,
@@ -19,9 +19,8 @@ function mockCtx(scrollY = 0): { ctx: WfuiContext; setScrollY: (y: number) => vo
           if (el) opts.compute(el.getBoundingClientRect())
         },
       }),
-      ready: true,
     },
-  } as any
+  }) as any
   return { ctx, setScrollY: (y: number) => { scroll.y = y } }
 }
 
@@ -39,7 +38,7 @@ function mockRect(el: any, top: number) {
 
 describe('Affix', () => {
   it('页面一打开不固定（scrollY=0 < threshold，sentinel 在页面深处）', async () => {
-    const { ctx } = mockCtx(0)
+    const { ctx } = makeCtx(0)
     const render = mount(Affix, { offsetTop: 80, children: '导航' }, ctx)!
     // 模拟 ref 挂载：sentinel 在文档 18500px 处（scrollY=0 时 rect.top=18500）
     const vnode = render({ offsetTop: 80, children: '导航' })
@@ -52,7 +51,7 @@ describe('Affix', () => {
   })
 
   it('renders wrapper with children', () => {
-    const { ctx } = mockCtx()
+    const { ctx } = makeCtx()
     const render = mount(Affix, { children: '内容' }, ctx)!
     const vnode = render({ children: '内容' })
     assert.equal(vnode.type, 'div')
@@ -61,7 +60,7 @@ describe('Affix', () => {
   })
 
   it('滚过阈值后固定（scrollY >= 文档位置 - offsetTop）', async () => {
-    const { ctx, setScrollY } = mockCtx(0)
+    const { ctx, setScrollY } = makeCtx(0)
     const render = mount(Affix, { offsetTop: 80, children: 'x' }, ctx)!
     const vnode = render({ offsetTop: 80, children: 'x' })
     mockRect(vnode.props.children[0], 18500) // 文档 18500，threshold = 18500-80 = 18420
@@ -76,7 +75,7 @@ describe('Affix', () => {
   })
 
   it('未滚到阈值时取消固定（scrollY < threshold）', async () => {
-    const { ctx, setScrollY } = mockCtx(0)
+    const { ctx, setScrollY } = makeCtx(0)
     const render = mount(Affix, { offsetTop: 80, children: 'x' }, ctx)!
     const vnode = render({ offsetTop: 80, children: 'x' })
     mockRect(vnode.props.children[0], 18500)
@@ -92,7 +91,7 @@ describe('Affix', () => {
   })
 
   it('offsetTop default is 0', async () => {
-    const { ctx, setScrollY } = mockCtx(0)
+    const { ctx, setScrollY } = makeCtx(0)
     const render = mount(Affix, { children: 'x' }, ctx)!
     const vnode = render({ children: 'x' })
     mockRect(vnode.props.children[0], 100) // threshold = 100-0 = 100
@@ -104,7 +103,7 @@ describe('Affix', () => {
   })
 
   it('fixed content keeps wrapper width', async () => {
-    const { ctx, setScrollY } = mockCtx(0)
+    const { ctx, setScrollY } = makeCtx(0)
     const render = mount(Affix, { offsetTop: 80, children: 'x' }, ctx)!
     const vnode = render({ offsetTop: 80, children: 'x' })
     mockRect(vnode.props.children[0], 18500)
@@ -117,7 +116,7 @@ describe('Affix', () => {
 })
 
 it('滚动过阈值 → fixed 吸附（setScrollY 驱动）', () => {
-  const { ctx, setScrollY } = mockCtx(0)
+  const { ctx, setScrollY } = makeCtx(0)
   const factory = Affix({ offsetTop: 100, children: 'x' }, ctx)
   let vnode = factory({ offsetTop: 100, children: 'x' })
   const s0 = JSON.stringify(vnode)
@@ -128,7 +127,7 @@ it('滚动过阈值 → fixed 吸附（setScrollY 驱动）', () => {
 })
 
 it('offsetTop 默认 0 + className 透传（边界）', () => {
-  const { ctx } = mockCtx(0)
+  const { ctx } = makeCtx(0)
   const factory = Affix({ children: 'x', className: 'my-affix' }, ctx)
   const vnode = factory({ children: 'x', className: 'my-affix' })
   assert.ok(JSON.stringify(vnode).includes('my-affix'))

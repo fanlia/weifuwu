@@ -2,13 +2,8 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { diffLines } from './diff-utils.ts'
 import { DiffView } from './DiffView.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-
-const mockCtx = () => ({ ui: { $: () => ({}) } }) as any
 
 describe('diffLines — LCS 行 diff 算法', () => {
   test('纯新增：所有新行标记 add', () => {
@@ -87,7 +82,7 @@ describe('DiffView 组件', () => {
     const vnode = renderVNode(
       DiffView,
       { oldCode: 'a\nx\nb', newCode: 'a\ny\nb' },
-      mockCtx(),
+      createTestCtx(),
     )
     // 容器
     assert.equal(vnode.type, 'div')
@@ -102,7 +97,7 @@ describe('DiffView 组件', () => {
     const vnode = renderVNode(
       DiffView,
       { oldCode, newCode, foldThreshold: 4 },
-      mockCtx(),
+      createTestCtx(),
     )
     const rows = vnode.props.children[1].props.children as any[]
     // 变化行 + 折叠块
@@ -113,7 +108,7 @@ describe('DiffView 组件', () => {
     const vnode = renderVNode(
       DiffView,
       { oldCode: 'a\nb\nc', newCode: 'a\nb\nc' },
-      mockCtx(),
+      createTestCtx(),
     )
     const rows = vnode.props.children[1].props.children as any[]
     assert.ok(!rows.some(r => r.props?.class?.includes('wf-diffview-fold')), '无变化不折叠')
@@ -123,7 +118,7 @@ describe('DiffView 组件', () => {
     const vnode = renderVNode(
       DiffView,
       { oldCode: 'a', newCode: 'b', oldTitle: '旧版', newTitle: '新版' },
-      mockCtx(),
+      createTestCtx(),
     )
     // 有标题区域
     const header = (vnode.props.children as any[]).find(c => c.props?.class?.includes('wf-diffview-header'))

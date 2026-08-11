@@ -1,11 +1,9 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { NavMenu } from './NavMenu.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   if (!vnode || typeof vnode !== 'object') return null
@@ -27,8 +25,7 @@ function mount(Comp: any, props: any, ctx: any) {
   return { render: (p: any = props) => factory(p) }
 }
 
-const mockCtx = () => ({
-  ui: {
+const makeCtx = () => createTestCtx({ ui: {
     $: () => ({}),
     render: () => {},
     dirty: () => {},
@@ -53,7 +50,7 @@ const items = [
 
 describe('NavMenu', () => {
   test('渲染顶部导航：水平 flex + 顶层项', () => {
-    const vnode = renderVNode(NavMenu, { items }, mockCtx())
+    const vnode = renderVNode(NavMenu, { items }, makeCtx())
     const nav = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-navmenu'))
     assert.ok(nav, '存在 nav 容器')
     const topItems = vnode.props.children
@@ -61,13 +58,13 @@ describe('NavMenu', () => {
   })
 
   test('含子菜单项显示展开箭头', () => {
-    const vnode = renderVNode(NavMenu, { items }, mockCtx())
+    const vnode = renderVNode(NavMenu, { items }, makeCtx())
     const arrow = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-navmenu-arrow'))
     assert.ok(arrow, '子菜单箭头')
   })
 
   test('hover 打开子菜单', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(NavMenu, { items }, ctx)
     let vnode = inst.render({ items })
     // 找到 docs 项（含箭头 = 有子菜单）
@@ -83,7 +80,7 @@ describe('NavMenu', () => {
 
   test('点击顶层项 → onSelect', () => {
     let selected = ''
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(NavMenu, { items, onSelect: (k: string) => { selected = k } }, ctx)
     const vnode = inst.render({ items, onSelect: (k: string) => { selected = k } })
     const first = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-navmenu-item'))
@@ -92,7 +89,7 @@ describe('NavMenu', () => {
   })
 
   test('键盘：→ 打开子菜单 / Escape 关闭', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(NavMenu, { items }, ctx)
     // → 键聚焦 docs → 打开
     let vnode = inst.render({ items, activeKey: 'docs' })
@@ -104,7 +101,7 @@ describe('NavMenu', () => {
   })
 
   test('嵌套子菜单：默认不渲染，hover 展开（不无条件拼接）', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(NavMenu, { items }, ctx)
     // 未展开：嵌套内容不在（防文字拼接 APIRESTWebSocket）
     let vnode = inst.render({ items })
@@ -135,7 +132,7 @@ describe('NavMenu', () => {
   })
 
   test('ref 稳定：同一 key 多次渲染 ref 引用不变（防内联 ref 重复执行）', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(NavMenu, { items }, ctx)
     const v1 = inst.render({ items })
     // 顶层 item refs
@@ -170,7 +167,7 @@ describe('NavMenu', () => {
   })
 
   test('点击叶子项关闭已展开子菜单', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     let openChanged = false
     const inst = mount(NavMenu, { items, onSelect: () => {} }, ctx)
     // hover 打开文档子菜单
@@ -192,7 +189,7 @@ describe('NavMenu', () => {
   })
 
   test('activeKey 受控高亮', () => {
-    const vnode = renderVNode(NavMenu, { items, activeKey: 'about' }, mockCtx())
+    const vnode = renderVNode(NavMenu, { items, activeKey: 'about' }, makeCtx())
     const active = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-item--active'))
     assert.ok(active, '受控高亮项')
   })
@@ -200,7 +197,7 @@ describe('NavMenu', () => {
 
 test('键盘可达（P1 红线）：menuitem 可聚焦 + Enter/Space 触发选择', () => {
   let selected = ''
-  const ctx = mockCtx()
+  const ctx = makeCtx()
   const onSelect = (k: string) => { selected = k }
   const inst = mount(NavMenu, { items, onSelect }, ctx)
   const vnode = inst.render({ items, onSelect })

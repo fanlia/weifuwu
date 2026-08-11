@@ -2,14 +2,11 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { ColorPicker } from './ColorPicker.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   const uncontrolled = new Map<string, any>()
   return { ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
@@ -28,7 +25,7 @@ function mockCtx(): WfuiContext {
 
 describe('ColorPicker', () => {
   it('renders trigger with current color swatch', () => {
-    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7' }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7' }, createTestCtx())!
     const trigger = vnode.props.children // Popover children = 触发元素
     assert.match(trigger.props.class, /wf-color-picker-trigger/)
     const swatch = trigger.props.children[0]
@@ -37,14 +34,14 @@ describe('ColorPicker', () => {
   })
 
   it('displays hex value in trigger', () => {
-    const vnode = renderVNode(ColorPicker, { value: '#22c55e' }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#22c55e' }, createTestCtx())!
     const trigger = vnode.props.children
     const text = trigger.props.children[1]
     assert.equal(text.props.children, '#22c55e')
   })
 
   it('renders preset swatches in panel', () => {
-    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7' }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7' }, createTestCtx())!
     const panel = vnode.props.content
     assert.match(panel.props.class, /wf-color-picker-panel/)
     const grid = panel.props.children[0]
@@ -54,7 +51,7 @@ describe('ColorPicker', () => {
 
   it('clicking swatch calls onChange', () => {
     let got: string | null = null
-    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', onChange: (v: string) => { got = v } }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', onChange: (v: string) => { got = v } }, createTestCtx())!
     const panel = vnode.props.content
     const swatches = panel.props.children[0].props.children
     const target = swatches.find((s: any) => s.props.style.background === '#22c55e')
@@ -63,7 +60,7 @@ describe('ColorPicker', () => {
   })
 
   it('selected swatch marked', () => {
-    const vnode = renderVNode(ColorPicker, { value: '#22c55e' }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#22c55e' }, createTestCtx())!
     const panel = vnode.props.content
     const swatches = panel.props.children[0].props.children
     const sel = swatches.filter((s: any) => s.props.class.includes('--sel'))
@@ -72,7 +69,7 @@ describe('ColorPicker', () => {
   })
 
   it('renders hex input when showInput', () => {
-    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', showInput: true }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', showInput: true }, createTestCtx())!
     const panel = vnode.props.content
     const input = panel.props.children[1]
     assert.equal(input.props.class, 'wf-color-picker-input')
@@ -81,7 +78,7 @@ describe('ColorPicker', () => {
 
   it('hex input commits valid color', () => {
     let got: string | null = null
-    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', showInput: true, onChange: (v: string) => { got = v } }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', showInput: true, onChange: (v: string) => { got = v } }, createTestCtx())!
     const input = vnode.props.content.props.children[1]
     input.props.onInput({ target: { value: '#ff0000' } } as any)
     assert.equal(got, '#ff0000')
@@ -89,20 +86,20 @@ describe('ColorPicker', () => {
 
   it('hex input ignores invalid color', () => {
     let got: string | null = null
-    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', showInput: true, onChange: (v: string) => { got = v } }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', showInput: true, onChange: (v: string) => { got = v } }, createTestCtx())!
     const input = vnode.props.content.props.children[1]
     input.props.onInput({ target: { value: 'not-a-color' } } as any)
     assert.equal(got, null)
   })
 
   it('disabled: no trigger interaction', () => {
-    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', disabled: true }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#4f6ef7', disabled: true }, createTestCtx())!
     assert.equal(vnode.props.disabled, true)
   })
 
   it('accepts custom color palette', () => {
     const colors = ['#111111', '#222222']
-    const vnode = renderVNode(ColorPicker, { value: '#111111', colors }, mockCtx())!
+    const vnode = renderVNode(ColorPicker, { value: '#111111', colors }, createTestCtx())!
     const swatches = vnode.props.content.props.children[0].props.children
     assert.equal(swatches.length, 2)
   })

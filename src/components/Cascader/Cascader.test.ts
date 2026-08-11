@@ -5,13 +5,14 @@ setupJsdom()
 import { Cascader } from './Cascader.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
+function makeCtx(): WfuiContext {
   const state = new Proxy({}, {
     set(t: any, k, v) { t[k] = v; return true },
     get(t: any, k) { return t[k] },
   })
-  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true, usePopup: (opts: any) => {
+  return createTestCtx({ ui: { $: () => state, usePopup: (opts: any) => {
       // 镜像 usePopup 的 document 级 Escape（portal 中按 Escape 也能关）
       const onDocKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && opts.isOpen?.()) opts.setOpen?.(false) }
       document.addEventListener('keydown', onDocKey)
@@ -22,7 +23,7 @@ function mockCtx(): WfuiContext {
         portal: (content: any) => opts.isOpen?.() ? { type: Portal, props: { children: { ...content, props: { ...content.props, class: ['wf-popup', content.props?.class].filter(Boolean).join(' '), style: { ...content.props?.style, position: 'fixed', top: '0px', left: '0px' } } }, portalKey: 'popover' }, key: undefined, _placement: 'remote' } : null,
         refresh: () => {},
       }
-    } } } as any
+    } } }) as any
 }
 
 function mount(Comp: any, props: any, ctx: any) {
@@ -57,7 +58,7 @@ const triggerOf = (v: any) => wrapOf(v).props.children[0]
 
 describe('Cascader', () => {
   it('renders trigger with placeholder', () => {
-    const render = mount(Cascader, { options }, mockCtx())!
+    const render = mount(Cascader, { options }, makeCtx())!
     const v = render({ options })
     const trigger = triggerOf(v)
     assert.ok(trigger)
@@ -65,14 +66,14 @@ describe('Cascader', () => {
   })
 
   it('shows selected path label', () => {
-    const render = mount(Cascader, { options, value: ['zj', 'hz', 'xh'] }, mockCtx())!
+    const render = mount(Cascader, { options, value: ['zj', 'hz', 'xh'] }, makeCtx())!
     const v = render({ options, value: ['zj', 'hz', 'xh'] })
     const label = triggerOf(v).props.children.find((c: any) => c?.props?.class === 'wf-cascader-value')
     assert.equal(label.props.children, '浙江 / 杭州 / 西湖区')
   })
 
   it('opens panel on click, shows first column', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Cascader, { options }, ctx)!
     let v = render({ options })
     triggerOf(v).props.onClick()
@@ -84,7 +85,7 @@ describe('Cascader', () => {
   })
 
   it('clicking parent advances to next column', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Cascader, { options }, ctx)!
     let v = render({ options })
     triggerOf(v).props.onClick()
@@ -102,7 +103,7 @@ describe('Cascader', () => {
 
   it('clicking leaf completes selection', () => {
     let got: string[] = []
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Cascader, { options, onChange: (v: string[]) => { got = v } }, ctx)!
     let v = render({ options, onChange: (v: string[]) => { got = v } })
     triggerOf(v).props.onClick()
@@ -117,7 +118,7 @@ describe('Cascader', () => {
 
   it('受控有 value 时从根重选：点广东路径必须从根算（闭包 path 快照）', () => {
     let got: string[] = []
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Cascader, { options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } }, ctx)!
     let v = render({ options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } })
     triggerOf(v).props.onClick()
@@ -137,13 +138,13 @@ describe('Cascader', () => {
   })
 
   it('disabled trigger not interactive', () => {
-    const render = mount(Cascader, { options, disabled: true }, mockCtx())!
+    const render = mount(Cascader, { options, disabled: true }, makeCtx())!
     const v = render({ options, disabled: true })
     assert.equal(triggerOf(v).props.onClick, undefined)
   })
 
   it('Escape closes panel（document 级，usePopup 接管）', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Cascader, { options }, ctx)!
     let v = render({ options })
     triggerOf(v).props.onClick()
@@ -155,7 +156,7 @@ describe('Cascader', () => {
   })
 
   it('showSearch：关键词扁平过滤结果 + 选中提交路径', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     let picked: string[] | undefined
     const render = mount(Cascader, { options, showSearch: true, onChange: (v: string[]) => { picked = v } }, ctx)!
     let v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })

@@ -4,10 +4,8 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Carousel } from './Carousel.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
-}
 
 function mount(Comp: any, props: any, ctx: any) {
   const result = Comp(props, ctx)
@@ -22,26 +20,26 @@ const trackOf = (v: any) =>
 
 describe('Carousel', () => {
   it('renders slides container', () => {
-    const render = mount(Carousel, { children: slides }, mockCtx())!
+    const render = mount(Carousel, { children: slides }, createTestCtx())!
     const v = render({ children: slides })
     assert.match(v.props.class, /wf-carousel/)
   })
 
   it('renders all slides in track', () => {
-    const render = mount(Carousel, { children: slides }, mockCtx())!
+    const render = mount(Carousel, { children: slides }, createTestCtx())!
     const v = render({ children: slides })
     const track = trackOf(v)
     assert.equal(track.props.children.length, 3)
   })
 
   it('starts at index 0', () => {
-    const render = mount(Carousel, { children: slides }, mockCtx())!
+    const render = mount(Carousel, { children: slides }, createTestCtx())!
     const v = render({ children: slides })
     assert.match(trackOf(v).props.style.transform, /0%/)
   })
 
   it('next button advances', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = mount(Carousel, { children: slides }, ctx)!
     let v = render({ children: slides })
     const next = v.props.children.find((c: any) => c?.props?.['aria-label'] === '下一张')
@@ -51,14 +49,14 @@ describe('Carousel', () => {
   })
 
   it('renders dots for each slide', () => {
-    const render = mount(Carousel, { children: slides }, mockCtx())!
+    const render = mount(Carousel, { children: slides }, createTestCtx())!
     const v = render({ children: slides })
     const dots = v.props.children.find((c: any) => c?.props?.class?.includes('wf-carousel-dots'))
     assert.equal(dots.props.children.length, 3)
   })
 
   it('dot click jumps to slide', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = mount(Carousel, { children: slides }, ctx)!
     let v = render({ children: slides })
     const dots = v.props.children.find((c: any) => c?.props?.class?.includes('wf-carousel-dots'))
@@ -68,7 +66,7 @@ describe('Carousel', () => {
   })
 
   it('active dot marked', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = mount(Carousel, { children: slides }, ctx)!
     let v = render({ children: slides })
     const dots = v.props.children.find((c: any) => c?.props?.class?.includes('wf-carousel-dots'))
@@ -79,7 +77,7 @@ describe('Carousel', () => {
   })
 
   it('loop wraps around', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = mount(Carousel, { children: slides, loop: true }, ctx)!
     let v = render({ children: slides, loop: true })
     // 从 0 → 2 → 再 next 回到 0
@@ -93,19 +91,19 @@ describe('Carousel', () => {
   })
 
   it('no dots when showDots=false', () => {
-    const render = mount(Carousel, { children: slides, showDots: false }, mockCtx())!
+    const render = mount(Carousel, { children: slides, showDots: false }, createTestCtx())!
     const v = render({ children: slides, showDots: false })
     assert.ok(!v.props.children.some((c: any) => c?.props?.class?.includes('wf-carousel-dots')))
   })
 
   it('no arrows when showArrows=false', () => {
-    const render = mount(Carousel, { children: slides, showArrows: false }, mockCtx())!
+    const render = mount(Carousel, { children: slides, showArrows: false }, createTestCtx())!
     const v = render({ children: slides, showArrows: false })
     assert.ok(!v.props.children.some((c: any) => c?.props?.['aria-label'] === '下一张'))
   })
 
   it('autoplay advances automatically at interval', async () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = mount(Carousel, { children: slides, autoplay: true, interval: 40 }, ctx)!
     let v = render({ children: slides, autoplay: true, interval: 40 })
     assert.match(trackOf(v).props.style.transform, /0%/)

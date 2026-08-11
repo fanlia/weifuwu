@@ -4,11 +4,12 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { VirtualList } from './VirtualList.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
 // 可控 useScrollPosition mock：y 驱动可见窗口（scrollTop 响应式）
-function mockCtx(scrollY = 0): { ctx: WfuiContext; setY: (y: number) => void } {
+function makeCtx(scrollY = 0): { ctx: WfuiContext; setY: (y: number) => void } {
   const scroll = { y: scrollY, refresh: () => {} }
-  const ctx = { ui: { $: {}, render: () => {}, dirty: () => {}, useScrollPosition: () => scroll, ready: true } } as any
+  const ctx = createTestCtx({ ui: { useScrollPosition: () => scroll } }) as any
   return { ctx, setY: (y: number) => { scroll.y = y } }
 }
 
@@ -23,7 +24,7 @@ const renderItem = (item: any) => ({ type: 'div' as const, props: { class: 'vit-
 
 describe('VirtualList', () => {
   it('renders only visible items, not all 100', () => {
-    const render = mount(VirtualList, { items, height: 400, itemHeight: 40, renderItem }, mockCtx().ctx)!
+    const render = mount(VirtualList, { items, height: 400, itemHeight: 40, renderItem }, makeCtx().ctx)!
     const v = render({ items, height: 400, itemHeight: 40, renderItem })
     const list = v.props.children[1] // [spacer, list]
     const visible = list.props.children
@@ -32,14 +33,14 @@ describe('VirtualList', () => {
   })
 
   it('spacer has total height', () => {
-    const render = mount(VirtualList, { items, height: 400, itemHeight: 40, renderItem }, mockCtx().ctx)!
+    const render = mount(VirtualList, { items, height: 400, itemHeight: 40, renderItem }, makeCtx().ctx)!
     const v = render({ items, height: 400, itemHeight: 40, renderItem })
     const spacer = v.props.children[0]
     assert.equal(spacer.props.style.height, '4000px') // 100 * 40
   })
 
   it('scrolling changes visible window', () => {
-    const { ctx } = mockCtx(0)
+    const { ctx } = makeCtx(0)
     const render = mount(VirtualList, { items, height: 400, itemHeight: 40, overscan: 0, renderItem }, ctx)!
     let v = render({ items, height: 400, itemHeight: 40, overscan: 0, renderItem })
     const container = document.createElement('div')
@@ -53,7 +54,7 @@ describe('VirtualList', () => {
   })
 
   it('item positions are absolute with top offset', () => {
-    const render = mount(VirtualList, { items, height: 400, itemHeight: 40, renderItem }, mockCtx().ctx)!
+    const render = mount(VirtualList, { items, height: 400, itemHeight: 40, renderItem }, makeCtx().ctx)!
     const v = render({ items, height: 400, itemHeight: 40, renderItem })
     const list = v.props.children[1]
     const first = list.props.children[0]
@@ -61,7 +62,7 @@ describe('VirtualList', () => {
   })
 
   it('container has fixed height and scroll', () => {
-    const render = mount(VirtualList, { items, height: 300, itemHeight: 40, renderItem }, mockCtx().ctx)!
+    const render = mount(VirtualList, { items, height: 300, itemHeight: 40, renderItem }, makeCtx().ctx)!
     const v = render({ items, height: 300, itemHeight: 40, renderItem })
     assert.match(v.props.class, /wf-virtual-list/)
     assert.equal(v.props.style.height, '300px')

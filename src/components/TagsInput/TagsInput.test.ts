@@ -2,12 +2,9 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { TagsInput } from './TagsInput.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   const uncontrolled = new Map<string, any>()
   return { ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
@@ -53,14 +50,14 @@ const findRemove = (v: any, tag: string) => {
 
 describe('TagsInput', () => {
   it('渲染已有标签 + 输入框', () => {
-    const vnode = renderVNode(TagsInput, { value: ['ts', 'js'] }, mockCtx())!
+    const vnode = renderVNode(TagsInput, { value: ['ts', 'js'] }, createTestCtx())!
     assert.equal(findTags(vnode).length, 2)
     assert.ok(findInput(vnode))
   })
 
   it('Enter 添加标签', () => {
     let tags: string[] = []
-    const vnode = renderVNode(TagsInput, { value: [], onChange: (t: string[]) => { tags = t } }, mockCtx())!
+    const vnode = renderVNode(TagsInput, { value: [], onChange: (t: string[]) => { tags = t } }, createTestCtx())!
     const input = findInput(vnode)
     input.props.onKeyDown({ key: 'Enter', target: { value: 'react' }, preventDefault: () => {} })
     assert.deepEqual(tags, ['react'])
@@ -68,7 +65,7 @@ describe('TagsInput', () => {
 
   it('逗号添加标签', () => {
     let tags: string[] = []
-    const vnode = renderVNode(TagsInput, { value: [], onChange: (t: string[]) => { tags = t } }, mockCtx())!
+    const vnode = renderVNode(TagsInput, { value: [], onChange: (t: string[]) => { tags = t } }, createTestCtx())!
     const input = findInput(vnode)
     input.props.onKeyDown({ key: ',', target: { value: 'vue,' }, preventDefault: () => {} })
     assert.deepEqual(tags, ['vue'])
@@ -76,7 +73,7 @@ describe('TagsInput', () => {
 
   it('去重（默认）', () => {
     let tags: string[] = ['react'] // 模拟父组件状态
-    const vnode = renderVNode(TagsInput, { value: ['react'], onChange: (t: string[]) => { tags = t } }, mockCtx())!
+    const vnode = renderVNode(TagsInput, { value: ['react'], onChange: (t: string[]) => { tags = t } }, createTestCtx())!
     const input = findInput(vnode)
     input.props.onKeyDown({ key: 'Enter', target: { value: 'react' }, preventDefault: () => {} })
     assert.deepEqual(tags, ['react'], '重复标签不触发 onChange')
@@ -84,7 +81,7 @@ describe('TagsInput', () => {
 
   it('空输入 Enter 不添加', () => {
     let tags: string[] = ['x']
-    const vnode = renderVNode(TagsInput, { value: ['x'], onChange: (t: string[]) => { tags = t } }, mockCtx())!
+    const vnode = renderVNode(TagsInput, { value: ['x'], onChange: (t: string[]) => { tags = t } }, createTestCtx())!
     const input = findInput(vnode)
     input.props.onKeyDown({ key: 'Enter', target: { value: '' }, preventDefault: () => {} })
     assert.deepEqual(tags, ['x'])
@@ -92,7 +89,7 @@ describe('TagsInput', () => {
 
   it('maxTags 限制', () => {
     let tags: string[] = ['a', 'b']
-    const vnode = renderVNode(TagsInput, { value: ['a', 'b'], maxTags: 2, onChange: (t: string[]) => { tags = t } }, mockCtx())!
+    const vnode = renderVNode(TagsInput, { value: ['a', 'b'], maxTags: 2, onChange: (t: string[]) => { tags = t } }, createTestCtx())!
     const input = findInput(vnode)
     input.props.onKeyDown({ key: 'Enter', target: { value: 'c' }, preventDefault: () => {} })
     assert.deepEqual(tags, ['a', 'b'])
@@ -100,7 +97,7 @@ describe('TagsInput', () => {
 
   it('Backspace 空输入删除最后一个', () => {
     let tags: string[] = ['a', 'b']
-    const vnode = renderVNode(TagsInput, { value: ['a', 'b'], onChange: (t: string[]) => { tags = t } }, mockCtx())!
+    const vnode = renderVNode(TagsInput, { value: ['a', 'b'], onChange: (t: string[]) => { tags = t } }, createTestCtx())!
     const input = findInput(vnode)
     input.props.onKeyDown({ key: 'Backspace', target: { value: '' }, preventDefault: () => {} })
     assert.deepEqual(tags, ['a'])
@@ -108,7 +105,7 @@ describe('TagsInput', () => {
 
   it('中文输入法 composition 期间 Enter 不添加', () => {
     let tags: string[] = []
-    const vnode = renderVNode(TagsInput, { value: [], onChange: (t: string[]) => { tags = t } }, mockCtx())!
+    const vnode = renderVNode(TagsInput, { value: [], onChange: (t: string[]) => { tags = t } }, createTestCtx())!
     const input = findInput(vnode)
     input.props.onCompositionStart?.()
     input.props.onKeyDown({ key: 'Enter', target: { value: '你' }, preventDefault: () => {} })
@@ -120,7 +117,7 @@ describe('TagsInput', () => {
 
   it('删除按钮移除标签', () => {
     let tags: string[] = ['a', 'b']
-    const vnode = renderVNode(TagsInput, { value: ['a', 'b'], onChange: (t: string[]) => { tags = t } }, mockCtx())!
+    const vnode = renderVNode(TagsInput, { value: ['a', 'b'], onChange: (t: string[]) => { tags = t } }, createTestCtx())!
     findRemove(vnode, 'a').props.onClick()
     assert.deepEqual(tags, ['b'])
   })

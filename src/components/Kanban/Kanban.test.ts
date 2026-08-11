@@ -1,14 +1,11 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Kanban } from './Kanban.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-const mockCtx = () => ({
-  ui: {
+const makeCtx = () => createTestCtx({ ui: {
     $: () => ({}),
     render: () => {},
     dirty: () => {},
@@ -52,7 +49,7 @@ function makeDragEvent(over: 'none' | 'copy' | 'move' = 'none') {
 
 describe('Kanban 组件', () => {
   test('渲染列 + 卡片', () => {
-    const vnode = renderVNode(Kanban, { columns }, mockCtx())
+    const vnode = renderVNode(Kanban, { columns }, makeCtx())
     assert.equal(vnode.props.class, 'wf-kanban')
     const str = JSON.stringify(vnode)
     assert.match(str, /待办/)
@@ -62,7 +59,7 @@ describe('Kanban 组件', () => {
 
   test('卡片 draggable + dragstart 记录源', () => {
     let moved = false
-    const vnode = renderVNode(Kanban, { columns, onMove: () => { moved = true } }, mockCtx())
+    const vnode = renderVNode(Kanban, { columns, onMove: () => { moved = true } }, makeCtx())
     const card = findVNode(vnode, (v: any) => v.props?.['data-item'] === 'a1')
     assert.ok(card, '卡片存在')
     assert.equal(card.props.draggable, true, '卡片可拖拽')
@@ -79,7 +76,7 @@ describe('Kanban 组件', () => {
         columns,
         onMove: (f: any, t: any) => { from = f; to = t },
       },
-      mockCtx(),
+      makeCtx(),
     )
     // 找到"任务A"卡片（todo 列）和 done 列
     const cardA = findVNode(vnode, (v: any) => v.props?.['data-item'] === 'a1')
@@ -102,7 +99,7 @@ describe('Kanban 组件', () => {
         columns,
         onMove: (f: any, t: any) => { from = f; to = t },
       },
-      mockCtx(),
+      makeCtx(),
     )
     const cardA = findVNode(vnode, (v: any) => v.props?.['data-item'] === 'a1')
     const cardB = findVNode(vnode, (v: any) => v.props?.['data-item'] === 'a2')
@@ -117,7 +114,7 @@ describe('Kanban 组件', () => {
 
   test('空列渲染（无卡片）', () => {
     const cols = [{ key: 'empty', title: '空列', items: [] }]
-    const vnode = renderVNode(Kanban, { columns: cols }, mockCtx())
+    const vnode = renderVNode(Kanban, { columns: cols }, makeCtx())
     assert.ok(JSON.stringify(vnode).includes('空列'))
   })
 
@@ -126,7 +123,7 @@ describe('Kanban 组件', () => {
     const origWarn = console.warn
     console.warn = (...a: any[]) => { warns.push(a.join(' ')) }
     try {
-      renderVNode(Kanban, { columns }, mockCtx())
+      renderVNode(Kanban, { columns }, makeCtx())
     } finally {
       console.warn = origWarn
     }

@@ -5,20 +5,17 @@ setupJsdom()
 import { Command } from './Command.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 // 捕获 useGlobalKey 注册的 handler（测试直接触发）
 const globalKeys: ((e: any) => void)[] = []
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
     useGlobalKey: (h: any) => { globalKeys.push(h); return () => {} },
   } } as any
 }
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 const inner = (v: any) => v?.type === Portal ? v.props.children : v
 
@@ -36,19 +33,19 @@ const items = [
 
 describe('Command', () => {
   it('closed renders hidden host（保持全局快捷键监听）', () => {
-    const vnode = renderVNode(Command, { items, open: false }, mockCtx())
+    const vnode = renderVNode(Command, { items, open: false }, createTestCtx())
     assert.ok(vnode)
     assert.match(vnode.props.class, /wf-command-host/)
   })
 
   it('renders panel when open', () => {
-    const vnode = inner(renderVNode(Command, { items, open: true }, mockCtx())!)
+    const vnode = inner(renderVNode(Command, { items, open: true }, createTestCtx())!)
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-command-overlay/)
   })
 
   it('renders all items', () => {
-    const vnode = inner(renderVNode(Command, { items, open: true }, mockCtx())!)
+    const vnode = inner(renderVNode(Command, { items, open: true }, createTestCtx())!)
     const panel = vnode.props.children // overlay 直接子 = panel
     assert.match(panel.props.class, /wf-command-panel/)
     const list = panel.props.children[1] // [input-wrap, list]
@@ -56,7 +53,7 @@ describe('Command', () => {
   })
 
   it('filters items by query', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = Command({ items, open: true }, ctx)
     const r = render as any
     const v1 = r({ items, open: true })
@@ -73,7 +70,7 @@ describe('Command', () => {
       { key: 'a', label: 'A', onSelect: () => { selected = 'a' } },
       { key: 'b', label: 'B', onSelect: () => { selected = 'b' } },
     ]
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = Command({ items: myItems, open: true }, ctx)
     const r = render as any
     r({ items: myItems, open: true })
@@ -86,7 +83,7 @@ describe('Command', () => {
 
   it('Escape triggers onOpenChange(false)', () => {
     let closed = false
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = Command({ items, open: true, onOpenChange: (o: boolean) => { closed = !o } }, ctx)
     const r = render as any
     const v = r({ items, open: true, onOpenChange: (o: boolean) => { closed = !o } })
@@ -95,7 +92,7 @@ describe('Command', () => {
   })
 
   it('renders empty text when no match', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = Command({ items, open: true, emptyText: '无结果' }, ctx)
     const r = render as any
     const v1 = r({ items, open: true, emptyText: '无结果' })
@@ -107,7 +104,7 @@ describe('Command', () => {
 
   it('global shortcut mod+k opens', () => {
     let opened: boolean | null = null
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = Command({ items, open: false, onOpenChange: (o: boolean) => { opened = o } }, ctx)
     const r = render as any
     const v = r({ items, open: false, onOpenChange: (o: boolean) => { opened = o } })

@@ -5,8 +5,9 @@ setupJsdom()
 import { Menubar } from './Menubar.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: { $: {}, render: () => {}, dirty: () => {},
     usePopup: (opts: any) => {
       const isOpen = () => !!opts.isOpen?.()
@@ -33,10 +34,6 @@ function mockCtx(): WfuiContext {
   } } as any
 }
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 const inner = (v: any) => v?.type === Portal ? v.props.children : v
 
@@ -57,14 +54,14 @@ const menus = [
 
 describe('Menubar', () => {
   it('renders menu triggers horizontally', () => {
-    const vnode = renderVNode(Menubar, { menus }, mockCtx())!
+    const vnode = renderVNode(Menubar, { menus }, createTestCtx())!
     assert.match(vnode.props.class, /wf-menubar/)
     assert.equal(vnode.props.children.length, 2)
     assert.equal(vnode.props.children[0].props.children, '文件')
   })
 
   it('click menu opens dropdown', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const result = Menubar({ menus }, ctx)
     const render = result as any
     let v = render({ menus })
@@ -82,7 +79,7 @@ describe('Menubar', () => {
       key: 'm', label: '菜单',
       items: [{ key: 'a', label: 'A', onSelect: () => { selected = 'a' } }, { key: 'b', label: 'B', onSelect: () => { selected = 'b' } }],
     }]
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const result = Menubar({ menus: myMenus }, ctx)
     const render = result as any
     let v = render({ menus: myMenus })
@@ -96,7 +93,7 @@ describe('Menubar', () => {
   })
 
   it('keyboard: ArrowRight moves to next menu', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const result = Menubar({ menus }, ctx)
     const render = result as any
     let v = render({ menus })
@@ -106,7 +103,7 @@ describe('Menubar', () => {
   })
 
   it('Escape closes open dropdown', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const result = Menubar({ menus }, ctx)
     const render = result as any
     let v = render({ menus })
@@ -120,14 +117,14 @@ describe('Menubar', () => {
 
   it('disabled menu not clickable', () => {
     const withDis = [{ key: 'd', label: '禁用', disabled: true, items: [] }]
-    const vnode = renderVNode(Menubar, { menus: withDis }, mockCtx())!
+    const vnode = renderVNode(Menubar, { menus: withDis }, createTestCtx())!
     assert.equal(vnode.props.children[0].props.onClick, undefined)
     assert.match(vnode.props.children[0].props.class, /--dis/)
   })
 })
 
 it('键盘：ArrowLeft/ArrowRight 方向键处理不抛错（焦点链）', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   const factory = Menubar({ menus }, ctx)
   const vnode = factory({ menus })
   const s = JSON.stringify(vnode)
@@ -137,7 +134,7 @@ it('键盘：ArrowLeft/ArrowRight 方向键处理不抛错（焦点链）', () =
 })
 
 it('菜单项 role=menuitem 可聚焦或原生 button（P1 键盘可达）', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   const factory = Menubar({ menus }, ctx)
   const vnode = factory({ menus })
   const s = JSON.stringify(vnode)

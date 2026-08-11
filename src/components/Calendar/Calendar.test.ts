@@ -2,8 +2,9 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Calendar } from './Calendar.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   const state = new Proxy({}, {
     set(t: any, k, v) { t[k] = v; return true },
     get(t: any, k) { return t[k] },
@@ -11,10 +12,6 @@ function mockCtx(): WfuiContext {
   return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 const events = [
   { key: 'e1', date: '2025-06-10', title: '产品评审' },
@@ -24,12 +21,12 @@ const events = [
 
 describe('Calendar', () => {
   it('renders weekday headers', () => {
-    const vnode = renderVNode(Calendar, { events }, mockCtx())!
+    const vnode = renderVNode(Calendar, { events }, createTestCtx())!
     assert.match(vnode.props.class, /wf-calendar/)
   })
 
   it('renders current month grid', () => {
-    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025 }, mockCtx())!
+    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025 }, createTestCtx())!
     const grid = vnode.props.children[1] // [header, grid]
     assert.equal(grid.props.children.length, 7) // 周头 + 6 行？grid 结构
   })
@@ -37,7 +34,7 @@ describe('Calendar', () => {
   it('month navigation calls onMonthChange (受控)', () => {
     let gotMonth: number | null = null
     let gotYear: number | null = null
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const result = Calendar({
       events, month: 5, year: 2025,
       onMonthChange: (m: number, y: number) => { gotMonth = m; gotYear = y },
@@ -56,7 +53,7 @@ describe('Calendar', () => {
   })
 
   it('shows events in matching cells', () => {
-    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025 }, mockCtx())!
+    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025 }, createTestCtx())!
     // 找 6 月 10 日的 cell
     const cell = findCell(vnode, '10')
     assert.ok(cell, '应找到 10 日 cell')
@@ -66,14 +63,14 @@ describe('Calendar', () => {
 
   it('click date calls onSelectDate', () => {
     let got: string | null = null
-    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025, onSelectDate: (d: string) => { got = d } }, mockCtx())!
+    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025, onSelectDate: (d: string) => { got = d } }, createTestCtx())!
     const cell = findCell(vnode, '10')
     cell.props.onClick()
     assert.equal(got, '2025-06-10')
   })
 
   it('selected date highlighted', () => {
-    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025, selectedDate: '2025-06-15' }, mockCtx())!
+    const vnode = renderVNode(Calendar, { events, month: 5, year: 2025, selectedDate: '2025-06-15' }, createTestCtx())!
     const cell = findCell(vnode, '15')
     assert.match(cell.props.class, /--selected/)
   })
@@ -93,7 +90,7 @@ function findCell(vnode: any, day: string): any {
 }
 
 it('受控 month/year：非受控时内部自管理（无 onMonthChange 也能翻月）', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   const factory = Calendar({}, ctx)
   const vnode = factory({})
   const s = JSON.stringify(vnode)
@@ -103,7 +100,7 @@ it('受控 month/year：非受控时内部自管理（无 onMonthChange 也能�
 })
 
 it('键盘：日期格子可聚焦（tabIndex）+ 方向键处理（P1）', () => {
-  const vnode = renderVNode(Calendar, {}, mockCtx())!
+  const vnode = renderVNode(Calendar, {}, createTestCtx())!
   const s = JSON.stringify(vnode)
   assert.ok(/tabindex|tabIndex/.test(s), '日期格子可聚焦')
 })

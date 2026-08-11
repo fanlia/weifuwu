@@ -2,12 +2,9 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Menu } from './Menu.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true, usePopup: () => ({ wrapProps: {}, portal: (c: any) => c }) } } as any
 }
 
@@ -19,7 +16,7 @@ const items = [
 
 describe('Menu', () => {
   it('渲染 nav + 导航项（role=menuitem）', () => {
-    const vnode = renderVNode(Menu, { items }, mockCtx())!
+    const vnode = renderVNode(Menu, { items }, createTestCtx())!
     assert.equal(vnode.type, 'nav')
     assert.match(vnode.props.class, /wf-menu/)
     const itemEls = vnode.props.children.filter((c: any) => c?.props?.role === 'menuitem')
@@ -28,7 +25,7 @@ describe('Menu', () => {
   })
 
   it('activeKey 高亮类', () => {
-    const vnode = renderVNode(Menu, { items, activeKey: 'users' }, mockCtx())!
+    const vnode = renderVNode(Menu, { items, activeKey: 'users' }, createTestCtx())!
     const item = vnode.props.children.find((c: any) => c?.props?.['data-key'] === 'users')
     assert.match(item.props.class, /wf-menu-item--active/)
     assert.equal(item.props['aria-current'], 'page')
@@ -40,7 +37,7 @@ describe('Menu', () => {
       { key: 'b', label: 'B', group: '管理' },
       { key: 'c', label: 'C', group: '管理' },
     ]
-    const vnode = renderVNode(Menu, { items: grouped }, mockCtx())!
+    const vnode = renderVNode(Menu, { items: grouped }, createTestCtx())!
     const texts = collectText(vnode)
     assert.ok(texts.includes('工作台'))
     assert.ok(texts.includes('管理'))
@@ -48,7 +45,7 @@ describe('Menu', () => {
 
   it('点击项 → onSelect(key)', () => {
     let picked = ''
-    const vnode = renderVNode(Menu, { items, onSelect: (k: string) => { picked = k } }, mockCtx())!
+    const vnode = renderVNode(Menu, { items, onSelect: (k: string) => { picked = k } }, createTestCtx())!
     const item = vnode.props.children.find((c: any) => c?.props?.['data-key'] === 'settings')
     item.props.onClick()
     assert.equal(picked, 'settings')
@@ -60,7 +57,7 @@ describe('Menu', () => {
     const vnode = renderVNode(Menu, {
       items: [{ key: 'x', label: 'X', onClick: () => { clicked = 'x' } }],
       onSelect: (k: string) => { picked = k },
-    }, mockCtx())!
+    }, createTestCtx())!
     const item = vnode.props.children.find((c: any) => c?.props?.['data-key'] === 'x')
     item.props.onClick()
     assert.equal(clicked, 'x')
@@ -109,7 +106,7 @@ function findV(vnode: any, pred: (n: any) => boolean): any {
 
 describe('Menu 子菜单', () => {
   it('渲染子菜单容器 + 子级项', () => {
-    const vnode = renderVNode(Menu, { items: submenuItems }, mockCtx())!
+    const vnode = renderVNode(Menu, { items: submenuItems }, createTestCtx())!
     const sub = findV(vnode, (n) => n.props?.class?.includes('wf-menu-submenu'))
     assert.ok(sub, '应有 .wf-menu-submenu 容器')
     const title = sub.props.children.find((c: any) => c.props?.class?.includes('wf-menu-submenu-title'))
@@ -125,7 +122,7 @@ describe('Menu 子菜单', () => {
 
   it('点击标题展开（非受控）：aria-expanded true + 子项可聚焦', () => {
     // 同一组件实例（mount 一次 render 多次）——内部闭包状态跨 render 保持
-    const factory = Menu({} as any, mockCtx())
+    const factory = Menu({} as any, createTestCtx())
     let vnode = factory({ items: submenuItems })!
     const sub = findV(vnode, (n) => n.props?.class?.includes('wf-menu-submenu'))
     const title = sub.props.children.find((c: any) => c.props?.class?.includes('wf-menu-submenu-title'))
@@ -144,7 +141,7 @@ describe('Menu 子菜单', () => {
       items: submenuItems,
       openKeys: ['sys'],
       onOpenChange: (keys: string[]) => { got = keys },
-    }, mockCtx())!
+    }, createTestCtx())!
     const sub = findV(vnode, (n) => n.props?.class?.includes('wf-menu-submenu'))
     assert.match(sub.props.class, /wf-menu-submenu--open/) // 受控已开
     const title = sub.props.children.find((c: any) => c.props?.class?.includes('wf-menu-submenu-title'))
@@ -153,7 +150,7 @@ describe('Menu 子菜单', () => {
   })
 
   it('键盘：标题 Enter 展开 / 再次 Enter 收起', () => {
-    const factory = Menu({} as any, mockCtx())
+    const factory = Menu({} as any, createTestCtx())
     let vnode = factory({ items: submenuItems })!
     const sub = findV(vnode, (n) => n.props?.class?.includes('wf-menu-submenu'))
     const title = sub.props.children.find((c: any) => c.props?.class?.includes('wf-menu-submenu-title'))
@@ -168,7 +165,7 @@ describe('Menu 子菜单', () => {
   })
 
   it('折叠模式：collapsed 隐藏 label 与子级', () => {
-    const vnode = renderVNode(Menu, { items: submenuItems, collapsible: true, collapsed: true }, mockCtx())!
+    const vnode = renderVNode(Menu, { items: submenuItems, collapsible: true, collapsed: true }, createTestCtx())!
     assert.match(vnode.props.class, /wf-menu--collapsed/)
     const label = findV(vnode, (n) => n.props?.class?.includes('wf-menu-label'))
     assert.equal(label, null) // 折叠时无 label
@@ -179,7 +176,7 @@ describe('Menu 子菜单', () => {
     const vnode = renderVNode(Menu, {
       items: submenuItems, collapsible: true, collapsed: false,
       onCollapseChange: (c: boolean) => { got = c },
-    }, mockCtx())!
+    }, createTestCtx())!
     const collapseBtn = findV(vnode, (n) => n.props?.class?.includes('wf-menu-collapse-btn'))
     assert.ok(collapseBtn, '折叠按钮存在')
     collapseBtn.props.onClick()
@@ -187,7 +184,7 @@ describe('Menu 子菜单', () => {
   })
 
   it('折叠态子菜单：点击标题弹出浮层（aria-expanded + popup portal）', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const render = renderVNode.bind(null, Menu) as any
     const factory = (Menu as any)({ items: submenuItems, collapsible: true, collapsed: true }, ctx)
     let v = factory({ items: submenuItems, collapsible: true, collapsed: true })

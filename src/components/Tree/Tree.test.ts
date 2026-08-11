@@ -4,14 +4,11 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Tree } from './Tree.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   const state = new Proxy({}, {
     set(t: any, k, v) { t[k] = v; return true },
     get(t: any, k) { return t[k] },
@@ -77,14 +74,14 @@ function switcherOf(row: any): any {
 
 describe('Tree', () => {
   it('renders root node', () => {
-    const vnode = renderVNode(Tree, { data }, mockCtx())!
+    const vnode = renderVNode(Tree, { data }, createTestCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-tree/)
     assert.equal(rows(vnode).length, 1) // 未展开只有 root
   })
 
   it('collapsed by default, expand shows children', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const result = Tree({ data }, ctx)
     const render = result as any
     let v = render({ data })
@@ -97,12 +94,12 @@ describe('Tree', () => {
   })
 
   it('受控 expandedKeys 控制展开', () => {
-    const vnode = renderVNode(Tree, { data, expandedKeys: ['root', 'tech'] }, mockCtx())!
+    const vnode = renderVNode(Tree, { data, expandedKeys: ['root', 'tech'] }, createTestCtx())!
     assert.equal(rows(vnode).length, 5) // root + tech + mkt + fe + be
   })
 
   it('expandOnClick：点击有子节点行 = 展开/折叠（不触发选中）', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     let selected: string[] = []
     const factory = Tree({ data }, ctx)
     let v = factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
@@ -120,7 +117,7 @@ describe('Tree', () => {
 
   it('expandOnClick：叶子行仍正常选中', () => {
     let got: string[] = []
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const factory = Tree({ data }, ctx)
     let v = factory({ data, expandOnClick: true, expandedKeys: ['root', 'tech'], onSelect: (k: string[]) => { got = k } })
     // 展开后点击叶子（技术部下 fe）
@@ -134,7 +131,7 @@ describe('Tree', () => {
     const vnode = renderVNode(Tree, {
       data, expandedKeys: ['root'], selectedKeys: [],
       onSelect: (k: string[]) => { got = k },
-    }, mockCtx())!
+    }, createTestCtx())!
     const rs = rows(vnode)
     // tech 行
     const tech = rs.find((r: any) => labelOf(r) === '技术部')
@@ -145,7 +142,7 @@ describe('Tree', () => {
   it('selected node marked', () => {
     const vnode = renderVNode(Tree, {
       data, expandedKeys: ['root'], selectedKeys: ['tech'],
-    }, mockCtx())!
+    }, createTestCtx())!
     const rs = rows(vnode)
     const tech = rs.find((r: any) => labelOf(r) === '技术部')
     assert.match(tech.props.class, /--selected/)
@@ -156,7 +153,7 @@ describe('Tree', () => {
     const vnode = renderVNode(Tree, {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: [], onCheck: (k: string[]) => { got = k },
-    }, mockCtx())!
+    }, createTestCtx())!
     const rs = rows(vnode)
     const fe = rs.find((r: any) => labelOf(r) === '前端组')
     // checkbox 点击 → 勾选 fe（含父节点联动 tech/root？antd 默认 cascade）
@@ -172,7 +169,7 @@ describe('Tree', () => {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: ['fe', 'be', 'tech', 'root'],
       onCheck: (k: string[]) => { got = k },
-    }, mockCtx())!
+    }, createTestCtx())!
     const rs = rows(vnode)
     const fe = rs.find((r: any) => labelOf(r) === '前端组')
     checkboxOf(fe).props.onClick({ stopPropagation: () => {} }) // 取消 fe → be 仍选中 → tech 保留
@@ -184,7 +181,7 @@ describe('Tree', () => {
     const vnode = renderVNode(Tree, {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: ['fe'],
-    }, mockCtx())!
+    }, createTestCtx())!
     const rs = rows(vnode)
     const tech = rs.find((r: any) => labelOf(r) === '技术部')
     assert.match(checkboxOf(tech).props.class, /--half/)
@@ -194,7 +191,7 @@ describe('Tree', () => {
     const vnode = renderVNode(Tree, {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: ['fe'],
-    }, mockCtx())!
+    }, createTestCtx())!
     const rs = rows(vnode)
     const root = rs.find((r: any) => labelOf(r) === '总部')
     assert.match(checkboxOf(root).props.class, /--half/, '总部应半选（孙代 fe 选中）')
@@ -202,7 +199,7 @@ describe('Tree', () => {
     const vnode2 = renderVNode(Tree, {
       data, expandedKeys: ['root', 'tech'], checkable: true,
       checkedKeys: ['fe', 'be', 'mkt'],
-    }, mockCtx())!
+    }, createTestCtx())!
     const rs2 = rows(vnode2)
     const root2 = rs2.find((r: any) => labelOf(r) === '总部')
     assert.doesNotMatch(checkboxOf(root2).props.class, /--half/, '子树全选时总部不应半选')
@@ -210,21 +207,21 @@ describe('Tree', () => {
   })
 
   it('键盘: row 可聚焦（tabindex=0）', () => {
-    const vnode = renderVNode(Tree, { data, expandedKeys: ['root'] }, mockCtx())!
+    const vnode = renderVNode(Tree, { data, expandedKeys: ['root'] }, createTestCtx())!
     const rs = rows(vnode)
     assert.equal(rs[0].props.tabIndex, 0)
   })
 
   it('disabled node not interactive', () => {
     const withDis = [{ key: 'a', label: 'A', disabled: true }]
-    const vnode = renderVNode(Tree, { data: withDis, expandedKeys: [] }, mockCtx())!
+    const vnode = renderVNode(Tree, { data: withDis, expandedKeys: [] }, createTestCtx())!
     const r = rows(vnode)[0]
     assert.equal(r.props.onClick, undefined)
   })
 })
 
 it('searchValue：过滤匹配节点 + 自动展开祖先路径', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   const factory = Tree({}, ctx)
   // 搜「前端」——应只显示 root > tech > fe（祖先自动展开）
   const vnode = factory({ data, searchValue: '前端' })
@@ -238,7 +235,7 @@ it('searchValue：过滤匹配节点 + 自动展开祖先路径', () => {
 })
 
 it('searchValue：高亮 mark + 无匹配空提示', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   const factory = Tree({}, ctx)
   const vnode = factory({ data, searchValue: '前端' })
   const s = JSON.stringify(vnode)

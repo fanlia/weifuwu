@@ -1,17 +1,12 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Link } from './Link.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-
-const mockCtx = () => ({ ui: { $: () => ({}), render: () => {}, dirty: () => {} } }) as any
 
 describe('Link', () => {
   test('渲染 a 标签 + href + 内容', () => {
-    const vnode = renderVNode(Link, { href: '/docs', children: '文档' }, mockCtx())
+    const vnode = renderVNode(Link, { href: '/docs', children: '文档' }, createTestCtx())
     assert.equal(vnode.type, 'a')
     assert.equal(vnode.props.href, '/docs')
     assert.equal(vnode.props.children, '文档')
@@ -19,33 +14,33 @@ describe('Link', () => {
   })
 
   test('variant：primary / danger / muted', () => {
-    const v1 = renderVNode(Link, { variant: 'primary', children: 'x' }, mockCtx())
+    const v1 = renderVNode(Link, { variant: 'primary', children: 'x' }, createTestCtx())
     assert.match(v1.props.class, /wf-link--primary/)
-    const v2 = renderVNode(Link, { variant: 'danger', children: 'x' }, mockCtx())
+    const v2 = renderVNode(Link, { variant: 'danger', children: 'x' }, createTestCtx())
     assert.match(v2.props.class, /wf-link--danger/)
   })
 
   test('underline=false 移除下划线', () => {
-    const vnode = renderVNode(Link, { underline: false, children: 'x' }, mockCtx())
+    const vnode = renderVNode(Link, { underline: false, children: 'x' }, createTestCtx())
     assert.match(vnode.props.class, /wf-link--no-underline/)
   })
 
   test('disabled：事件阻断 + aria-disabled', () => {
     let clicked = 0
-    const vnode = renderVNode(Link, { disabled: true, onClick: () => clicked++, children: 'x' }, mockCtx())
+    const vnode = renderVNode(Link, { disabled: true, onClick: () => clicked++, children: 'x' }, createTestCtx())
     vnode.props.onClick?.({ preventDefault: () => {}, stopPropagation: () => {} })
     assert.equal(clicked, 0, 'disabled 阻断点击')
     assert.equal(vnode.props['aria-disabled'], 'true')
   })
 
   test('target + rel 安全', () => {
-    const vnode = renderVNode(Link, { href: 'https://x.com', target: '_blank', children: 'x' }, mockCtx())
+    const vnode = renderVNode(Link, { href: 'https://x.com', target: '_blank', children: 'x' }, createTestCtx())
     assert.equal(vnode.props.target, '_blank')
     assert.equal(vnode.props.rel, 'noopener noreferrer')
   })
 
   test('icon 前置', () => {
-    const vnode = renderVNode(Link, { icon: '→', children: '去' }, mockCtx())
+    const vnode = renderVNode(Link, { icon: '→', children: '去' }, createTestCtx())
     const kids = vnode.props.children
     assert.ok(Array.isArray(kids) && kids[0] === '→')
   })
@@ -53,7 +48,7 @@ describe('Link', () => {
 
 test('disabled：无 href + aria-disabled + 点击阻止', () => {
   let clicked = 0
-  const vnode = renderVNode(Link, { href: '/x', disabled: true, onClick: () => clicked++, children: 'x' }, mockCtx())!
+  const vnode = renderVNode(Link, { href: '/x', disabled: true, onClick: () => clicked++, children: 'x' }, createTestCtx())!
   assert.equal(vnode.props.href, undefined, 'disabled 不输出 href')
   assert.equal(vnode.props['aria-disabled'], 'true')
   vnode.props.onClick({ preventDefault: () => {}, stopPropagation: () => {} })
@@ -61,6 +56,6 @@ test('disabled：无 href + aria-disabled + 点击阻止', () => {
 })
 
 test('target=_blank 自动补 rel=noopener noreferrer（安全）', () => {
-  const vnode = renderVNode(Link, { href: 'https://x.com', target: '_blank', children: 'x' }, mockCtx())!
+  const vnode = renderVNode(Link, { href: 'https://x.com', target: '_blank', children: 'x' }, createTestCtx())!
   assert.equal(vnode.props.rel, 'noopener noreferrer')
 })

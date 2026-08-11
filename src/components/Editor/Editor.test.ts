@@ -6,9 +6,10 @@ import { Editor } from './Editor.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { FileUpload } from '../FileUpload/FileUpload.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: false } } as any
+function makeCtx(): WfuiContext {
+  return createTestCtx() as any
 }
 
 /** 两阶段 Editor：mount 后每次修改状态后调用 renderFn(props) 获取最新 VNode */
@@ -43,7 +44,7 @@ function findAllButtons(vnode: any): any[] {
 
 describe('Editor', () => {
   it('renders an editor container', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     assert.ok(vnode, 'should render')
     assert.equal(vnode!.type, 'div')
@@ -51,7 +52,7 @@ describe('Editor', () => {
   })
 
   it('renders toolbar with all 18 default items', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     assert.ok(toolbar, 'should have a toolbar')
@@ -60,28 +61,28 @@ describe('Editor', () => {
   })
 
   it('renders contentEditable div in rich mode', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === true)
     assert.ok(editable, 'should have contentEditable div')
   })
 
   it('hides toolbar when disabled', () => {
-    const ed = makeEditor({ disabled: true }, mockCtx())
+    const ed = makeEditor({ disabled: true }, makeCtx())
     const vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     assert.ok(!toolbar, 'should not render toolbar when disabled')
   })
 
   it('sets contentEditable=false when disabled', () => {
-    const ed = makeEditor({ disabled: true }, mockCtx())
+    const ed = makeEditor({ disabled: true }, makeCtx())
     const vnode = ed.render()
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === false)
     assert.ok(editable, 'contentEditable should be false when disabled')
   })
 
   it('sets minHeight from props', () => {
-    const ed = makeEditor({ minHeight: '300px' }, mockCtx())
+    const ed = makeEditor({ minHeight: '300px' }, makeCtx())
     const vnode = ed.render()
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === true)
     assert.ok(editable, 'should have editable div')
@@ -89,7 +90,7 @@ describe('Editor', () => {
   })
 
   it('renders placeholder attribute', () => {
-    const ed = makeEditor({ placeholder: '请输入内容...' }, mockCtx())
+    const ed = makeEditor({ placeholder: '请输入内容...' }, makeCtx())
     const vnode = ed.render()
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === true)
     assert.ok(editable, 'should have editable div')
@@ -97,7 +98,7 @@ describe('Editor', () => {
   })
 
   it('accepts custom toolbar items', () => {
-    const ed = makeEditor({ toolbar: ['bold', 'italic', 'link', 'source'] }, mockCtx())
+    const ed = makeEditor({ toolbar: ['bold', 'italic', 'link', 'source'] }, makeCtx())
     const vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     assert.ok(toolbar, 'should have toolbar')
@@ -110,7 +111,7 @@ describe('Editor', () => {
   })
 
   it('renders hidden input with value', () => {
-    const ed = makeEditor({ value: '<p>Hello</p>' }, mockCtx())
+    const ed = makeEditor({ value: '<p>Hello</p>' }, makeCtx())
     const vnode = ed.render()
     const hidden = findAllByType(vnode, 'input').find((i: any) => i.props.type === 'hidden')
     assert.ok(hidden, 'should have hidden input')
@@ -118,7 +119,7 @@ describe('Editor', () => {
   })
 
   it('renders Modal when showLinkInput is true via toolbar click', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const ed = makeEditor({}, ctx)
     let vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
@@ -134,7 +135,7 @@ describe('Editor', () => {
 
   it('calls onChange when input event fires in rich mode', () => {
     const calls: string[] = []
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const ed = makeEditor({ value: '', onChange: (v) => calls.push(v) }, ctx)
     const vnode = ed.render({ value: '', onChange: (v) => calls.push(v) })
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === true)
@@ -145,14 +146,14 @@ describe('Editor', () => {
   })
 
   it('sets disabled class on container', () => {
-    const ed = makeEditor({ disabled: true }, mockCtx())
+    const ed = makeEditor({ disabled: true }, makeCtx())
     const vnode = ed.render()
     const cls = vnode!.props.class
     assert.ok(cls.includes('wf-editor--disabled'), 'should have disabled class')
   })
 
   it('toolbar buttons have correct aria labels', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
@@ -162,7 +163,7 @@ describe('Editor', () => {
   })
 
   it('renders textarea in source mode via toolbar click', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const ed = makeEditor({ value: '<p>source</p>' }, ctx)
     let vnode = ed.render({ value: '<p>source</p>' })
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
@@ -178,7 +179,7 @@ describe('Editor', () => {
 
   it('calls onChange when source textarea input fires', () => {
     const calls: string[] = []
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const ed = makeEditor({ value: '', onChange: (v) => calls.push(v) }, ctx)
     let vnode = ed.render({ value: '', onChange: (v) => calls.push(v) })
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
@@ -194,7 +195,7 @@ describe('Editor', () => {
   })
 
   it('toolbar includes blockquote', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
@@ -204,7 +205,7 @@ describe('Editor', () => {
   })
 
   it('toolbar includes alignment buttons', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
@@ -214,7 +215,7 @@ describe('Editor', () => {
   })
 
   it('toolbar includes hr button', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
@@ -223,7 +224,7 @@ describe('Editor', () => {
   })
 
   it('toolbar includes source button', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
@@ -233,7 +234,7 @@ describe('Editor', () => {
   })
 
   it('toolbar includes image button', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
@@ -243,7 +244,7 @@ describe('Editor', () => {
   })
 
   it('toolbar includes table button', () => {
-    const ed = makeEditor({}, mockCtx())
+    const ed = makeEditor({}, makeCtx())
     const vnode = ed.render()
     const allButtons = findAllButtons(vnode)
     const tblBtn = allButtons.find((b: any) => b.props['data-item'] === 'table')
@@ -252,7 +253,7 @@ describe('Editor', () => {
   })
 
   it('renders table grid inside Popover when table button clicked', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const ed = makeEditor({}, ctx)
     let vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
@@ -275,7 +276,7 @@ describe('Editor', () => {
   })
 
   it('renders Modal when image button clicked', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const ed = makeEditor({}, ctx)
     let vnode = ed.render()
     // 点击 image 按钮触发 Modal
@@ -289,7 +290,7 @@ describe('Editor', () => {
   })
 
   it('renders FileUpload inside image Modal when onUpload provided', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const ed = makeEditor({ value: '', onUpload: async (f: any) => f.name }, ctx)
     let vnode = ed.render({ value: '', onUpload: async (f: any) => f.name })
     // 点击 image 按钮
@@ -307,7 +308,7 @@ describe('Editor', () => {
   })
 
   it('switches to source mode via toolbar', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const ed = makeEditor({}, ctx)
     let vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))

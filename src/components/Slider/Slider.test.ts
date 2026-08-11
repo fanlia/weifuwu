@@ -2,55 +2,52 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Slider } from './Slider.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: { $: {}
 , render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
 describe('Slider', () => {
   it('renders range input', () => {
-    const vnode = renderVNode(Slider, {}, mockCtx())!
+    const vnode = renderVNode(Slider, {}, createTestCtx())!
     const input = vnode.props.children[0]
     assert.equal(input.props.type, 'range')
   })
 
   it('renders label when provided', () => {
-    const vnode = renderVNode(Slider, { label: '温度' }, mockCtx())!
+    const vnode = renderVNode(Slider, { label: '温度' }, createTestCtx())!
     assert.match(vnode.props.class, /wf-slider-wrap/)
     const label = vnode.props.children[0]
     assert.equal(label.props.children, '温度')
   })
 
   it('sets min, max, step', () => {
-    const vnode = renderVNode(Slider, { min: 0, max: 10, step: 0.5 }, mockCtx())!
+    const vnode = renderVNode(Slider, { min: 0, max: 10, step: 0.5 }, createTestCtx())!
     const input = vnode.props.children[0]
     assert.equal(input.props.type, 'range') 
     // check props from actual vnode structure
   })
 
   it('displays current value', () => {
-    const vnode = renderVNode(Slider, { value: 50 }, mockCtx())!
+    const vnode = renderVNode(Slider, { value: 50 }, createTestCtx())!
     const display = vnode.props.children[1]
     assert.equal(display.props.children, '50')
   })
 })
 
 it('min/max/step 传递到原生 range', () => {
-  const vnode = renderVNode(Slider, { value: 5, min: 0, max: 10, step: 1 }, mockCtx())!
+  const vnode = renderVNode(Slider, { value: 5, min: 0, max: 10, step: 1 }, createTestCtx())!
   const input = JSON.stringify(vnode)
   assert.ok(input.includes('"min":0') && input.includes('"max":10') && input.includes('"step":1'))
 })
 
 it('onChange 数值化（string → Number）', () => {
   let got: number | undefined
-  const vnode = renderVNode(Slider, { value: 0, onChange: (v: number) => { got = v } }, mockCtx())!
+  const vnode = renderVNode(Slider, { value: 0, onChange: (v: number) => { got = v } }, createTestCtx())!
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-slider-input'))
   // 找 input 调 onChange
@@ -67,13 +64,13 @@ it('onChange 数值化（string → Number）', () => {
 })
 
 it('轨道渐变百分比（value=50 → 50%）', () => {
-  const vnode = renderVNode(Slider, { value: 50, min: 0, max: 100 }, mockCtx())!
+  const vnode = renderVNode(Slider, { value: 50, min: 0, max: 100 }, createTestCtx())!
   assert.ok(JSON.stringify(vnode).includes('50%'), '渐变包含 50%')
 })
 
 it('label 渲染 + 无 label 精简结构（边界）', () => {
-  const withLabel = renderVNode(Slider, { label: '音量', value: 1 }, mockCtx())!
+  const withLabel = renderVNode(Slider, { label: '音量', value: 1 }, createTestCtx())!
   assert.ok(JSON.stringify(withLabel).includes('wf-slider-label'))
-  const noLabel = renderVNode(Slider, { value: 1 }, mockCtx())!
+  const noLabel = renderVNode(Slider, { value: 1 }, createTestCtx())!
   assert.ok(!JSON.stringify(noLabel).includes('wf-slider-label'))
 })

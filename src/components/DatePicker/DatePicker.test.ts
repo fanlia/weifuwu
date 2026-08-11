@@ -6,13 +6,14 @@ import { DatePicker } from './DatePicker.ts'
 import { Portal, h } from '../../ui-dom/vnode.ts'
 import { mountVNode, patchValue } from '../../ui-dom/render.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
-  return { ui: {
+function makeCtx(): WfuiContext {
+  return createTestCtx({ ui: {
     $: () => ({}), render: () => {}, dirty: () => {},
     usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
     useAnimationEnd: () => () => {},
-  } } as any
+  } }) as any
 }
 
 /** 两阶段组件：mount → 获取 renderFn，后续反复调用 renderFn(props) 获取 VNode */
@@ -24,7 +25,7 @@ function mount(Comp: any, props: any, ctx: WfuiContext) {
 
 describe('DatePicker', () => {
   it('renders input with placeholder', () => {
-    const render = mount(DatePicker, { placeholder: '选择日期' }, mockCtx())
+    const render = mount(DatePicker, { placeholder: '选择日期' }, makeCtx())
     const vnode = render()
     const input = vnode.props.children[0]
     assert.equal(input.props.type, 'text')
@@ -33,13 +34,13 @@ describe('DatePicker', () => {
   })
 
   it('applies disabled class', () => {
-    const render = mount(DatePicker, { disabled: true }, mockCtx())
+    const render = mount(DatePicker, { disabled: true }, makeCtx())
     const vnode = render()
     assert.match(vnode.props.class, /wf-datepicker--disabled/)
   })
 
   it('mode=date shows calendar panel via portal when open', () => {
-    const render = mount(DatePicker, { mode: 'date', placeholder: '日期' }, mockCtx())
+    const render = mount(DatePicker, { mode: 'date', placeholder: '日期' }, makeCtx())
     // 点击 input 触发打开
     let vnode = render()
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
@@ -53,7 +54,7 @@ describe('DatePicker', () => {
   })
 
   it('mode=time shows time picker', () => {
-    const render = mount(DatePicker, { mode: 'time', placeholder: '时间' }, mockCtx())
+    const render = mount(DatePicker, { mode: 'time', placeholder: '时间' }, makeCtx())
     let vnode = render()
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
     vnode = render()
@@ -63,7 +64,7 @@ describe('DatePicker', () => {
   })
 
   it('mode=range shows dual month panels', () => {
-    const render = mount(DatePicker, { mode: 'range', placeholder: '范围' }, mockCtx())
+    const render = mount(DatePicker, { mode: 'range', placeholder: '范围' }, makeCtx())
     let vnode = render()
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
     vnode = render()
@@ -75,14 +76,14 @@ describe('DatePicker', () => {
   })
 
   it('does not show panel when closed', () => {
-    const render = mount(DatePicker, { mode: 'date' }, mockCtx())
+    const render = mount(DatePicker, { mode: 'date' }, makeCtx())
     const vnode = render()
     assert.equal(vnode.props.children.length, 1, '关闭状态下只有一个 input')
   })
 
   it('calls onChange on date select', () => {
     let val = ''
-    const render = mount(DatePicker, { mode: 'date', onChange: (v: string) => { val = v } }, mockCtx())
+    const render = mount(DatePicker, { mode: 'date', onChange: (v: string) => { val = v } }, makeCtx())
     let vnode = render()
     // 打开日历
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })

@@ -2,11 +2,8 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { FloatButton, FloatButtonGroup } from './FloatButton.ts'
 import { h } from '../../ui-dom/vnode.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   if (!vnode || typeof vnode !== 'object') return null
@@ -28,15 +25,13 @@ function mount(Comp: any, props: any, ctx: any) {
   return { render: (p: any = props) => factory(p) }
 }
 
-const mockCtx = () => ({ ui: { $: () => ({}), render: () => {}, dirty: () => {} } }) as any
-
 describe('FloatButton', () => {
   test('渲染悬浮按钮 + fixed 定位 + 点击回调', () => {
     let clicked = 0
     const vnode = renderVNode(
       FloatButton,
       { icon: h('span', { class: 'plus' }), onClick: () => clicked++, 'aria-label': '新增' },
-      mockCtx(),
+      createTestCtx(),
     )
     const btn = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-float-btn'))
     assert.ok(btn, '存在按钮')
@@ -46,16 +41,16 @@ describe('FloatButton', () => {
   })
 
   test('位置：top-left / top-right / bottom-left / bottom-right', () => {
-    const v1 = renderVNode(FloatButton, { position: 'top-right', children: 'x' }, mockCtx())
+    const v1 = renderVNode(FloatButton, { position: 'top-right', children: 'x' }, createTestCtx())
     const b1 = findVNode(v1, (v: any) => v.props?.class?.includes('wf-float-btn'))
     assert.match(b1.props.class, /wf-float-btn--top-right/)
-    const v2 = renderVNode(FloatButton, { position: 'bottom-left', children: 'x' }, mockCtx())
+    const v2 = renderVNode(FloatButton, { position: 'bottom-left', children: 'x' }, createTestCtx())
     const b2 = findVNode(v2, (v: any) => v.props?.class?.includes('wf-float-btn'))
     assert.match(b2.props.class, /wf-float-btn--bottom-left/)
   })
 
   test('badge 显示', () => {
-    const vnode = renderVNode(FloatButton, { badge: 5, children: 'x' }, mockCtx())
+    const vnode = renderVNode(FloatButton, { badge: 5, children: 'x' }, createTestCtx())
     const badge = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-float-btn-badge'))
     assert.equal(badge.props.children, '5')
   })
@@ -65,7 +60,7 @@ describe('FloatButton', () => {
     const vnode = renderVNode(
       FloatButton,
       { disabled: true, onClick: () => clicked++, children: 'x' },
-      mockCtx(),
+      createTestCtx(),
     )
     const btn = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-float-btn'))
     assert.equal(btn.props.onClick, undefined, 'disabled 无 onClick')
@@ -74,7 +69,7 @@ describe('FloatButton', () => {
 
 describe('FloatButtonGroup', () => {
   test('组内子项注入 static（不 fixed——防重叠）', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const kids = [h(FloatButton, { icon: 'x' }), h(FloatButton, { icon: 'y' })]
     const inst = mount(FloatButtonGroup, { children: kids }, ctx)
     let vnode = inst.render({ children: kids })
@@ -90,7 +85,7 @@ describe('FloatButtonGroup', () => {
   })
 
   test('展开状态机：点击主按钮展开/收起', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const inst = mount(FloatButtonGroup, { children: ['a', 'b'] }, ctx)
     let vnode = inst.render({ children: ['a', 'b'] })
     const main = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group-main'))
@@ -110,13 +105,13 @@ describe('FloatButtonGroup', () => {
 })
 
 test('aria-label 透传（纯图标按钮的无障碍名）', () => {
-  const vnode = renderVNode(FloatButton, { icon: 'x', 'aria-label': '回到顶部' }, mockCtx())!
+  const vnode = renderVNode(FloatButton, { icon: 'x', 'aria-label': '回到顶部' }, createTestCtx())!
   const btn = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-float-btn'))
   assert.equal(btn.props['aria-label'], '回到顶部')
 })
 
 test('badge 为 0 时不显示（边界）', () => {
-  const vnode = renderVNode(FloatButton, { icon: 'x', badge: 0 }, mockCtx())!
+  const vnode = renderVNode(FloatButton, { icon: 'x', badge: 0 }, createTestCtx())!
   const s = JSON.stringify(vnode)
   assert.ok(!s.includes('wf-float-badge') || s.includes('"badge":0') === false, 'badge=0 不渲染徽章')
 })

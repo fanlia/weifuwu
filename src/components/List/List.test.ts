@@ -2,14 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { List } from './List.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
-}
 function collectText(v: any): string[] {
   const out: string[] = []
   const walk = (n: any) => {
@@ -27,7 +21,7 @@ describe('List', () => {
     const vnode = renderVNode(List, {
       items: ['a', 'b'],
       renderItem: (item: string) => item,
-    }, mockCtx())!
+    }, createTestCtx())!
     assert.match(vnode.props.class, /wf-list/)
     const ul = vnode.props.children.find((c: any) => c?.props?.class === 'wf-list-body')
     assert.equal(ul.props.children.length, 2)
@@ -35,17 +29,17 @@ describe('List', () => {
   })
 
   it('分隔线模式（divided）', () => {
-    const vnode = renderVNode(List, { items: [1, 2], renderItem: (i: number) => String(i), divided: true }, mockCtx())!
+    const vnode = renderVNode(List, { items: [1, 2], renderItem: (i: number) => String(i), divided: true }, createTestCtx())!
     assert.match(vnode.props.class, /wf-list--divided/)
   })
 
   it('空 items → EmptyState 占位', () => {
-    const vnode = renderVNode(List, { items: [], renderItem: (i: any) => String(i), emptyText: '暂无数据' }, mockCtx())!
+    const vnode = renderVNode(List, { items: [], renderItem: (i: any) => String(i), emptyText: '暂无数据' }, createTestCtx())!
     assert.ok(collectText(vnode).includes('暂无数据'))
   })
 
   it('header/footer 渲染', () => {
-    const vnode = renderVNode(List, { items: [1], renderItem: (i: number) => String(i), header: '标题', footer: '页脚' }, mockCtx())!
+    const vnode = renderVNode(List, { items: [1], renderItem: (i: number) => String(i), header: '标题', footer: '页脚' }, createTestCtx())!
     assert.ok(collectText(vnode).includes('标题'))
     assert.ok(collectText(vnode).includes('页脚'))
   })

@@ -1,19 +1,8 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter } from './Layout.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-
-const mockCtx = () => ({
-  ui: {
-    $: () => ({}),
-    render: () => {},
-    dirty: () => {},
-  },
-}) as any
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   if (!vnode || typeof vnode !== 'object') return null
@@ -35,7 +24,7 @@ const findClass = (vnode: any, cls: string) =>
 
 describe('Layout', () => {
   test('基础结构：flex column + wf-layout class', () => {
-    const vnode = renderVNode(Layout, { children: '内容' }, mockCtx())
+    const vnode = renderVNode(Layout, { children: '内容' }, createTestCtx())
     const layout = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-layout'))
     assert.ok(layout, '存在 wf-layout 根节点')
     assert.match(layout.props?.class, /^wf-layout( |$)/, '根 class 为 wf-layout 开头')
@@ -45,7 +34,7 @@ describe('Layout', () => {
     const vnode = renderVNode(
       Layout,
       { children: [{ type: LayoutSider, props: { children: '导航' } }, 'main'] },
-      mockCtx(),
+      createTestCtx(),
     )
     const layout = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-layout'))
     assert.match(layout.props?.class, /wf-layout--row/, '含 Sider 时 row 布局')
@@ -54,8 +43,8 @@ describe('Layout', () => {
   test('无 Sider → column 模式', () => {
     const vnode = renderVNode(
       Layout,
-      { children: [renderVNode(LayoutHeader, { children: '头' }, mockCtx()), 'main'] },
-      mockCtx(),
+      { children: [renderVNode(LayoutHeader, { children: '头' }, createTestCtx()), 'main'] },
+      createTestCtx(),
     )
     const layout = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-layout'))
     assert.match(layout.props?.class, /wf-layout--column/)
@@ -66,12 +55,12 @@ describe('Layout', () => {
       Layout,
       {
         children: [
-          renderVNode(LayoutHeader, { children: 'h' }, mockCtx()),
-          renderVNode(LayoutContent, { children: 'c' }, mockCtx()),
-          renderVNode(LayoutFooter, { children: 'f' }, mockCtx()),
+          renderVNode(LayoutHeader, { children: 'h' }, createTestCtx()),
+          renderVNode(LayoutContent, { children: 'c' }, createTestCtx()),
+          renderVNode(LayoutFooter, { children: 'f' }, createTestCtx()),
         ],
       },
-      mockCtx(),
+      createTestCtx(),
     )
     assert.ok(findClass(vnode, 'wf-layout-header'))
     assert.ok(findClass(vnode, 'wf-layout-content'))
@@ -79,13 +68,13 @@ describe('Layout', () => {
   })
 
   test('Sider 默认宽度 240（token 默认）', () => {
-    const vnode = renderVNode(LayoutSider, { children: '导航' }, mockCtx())
+    const vnode = renderVNode(LayoutSider, { children: '导航' }, createTestCtx())
     const sider = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-layout-sider'))
     assert.equal(sider.props?.style?.width, 'var(--wf-layout-sider-width, 240px)')
   })
 
   test('Sider collapsed → 折叠宽度 64', () => {
-    const vnode = renderVNode(LayoutSider, { collapsed: true, children: '导航' }, mockCtx())
+    const vnode = renderVNode(LayoutSider, { collapsed: true, children: '导航' }, createTestCtx())
     const sider = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-layout-sider'))
     assert.equal(sider.props?.style?.width, 'var(--wf-layout-sider-collapsed-width, 64px)')
     assert.match(sider.props?.class, /wf-layout-sider--collapsed/)
@@ -96,7 +85,7 @@ describe('Layout', () => {
     const vnode = renderVNode(
       LayoutSider,
       { collapsible: true, collapsed: false, onCollapse: (v: boolean) => { emitted = v }, children: 'x' },
-      mockCtx(),
+      createTestCtx(),
     )
     const trigger = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-layout-sider-trigger'))
     assert.ok(trigger, 'collapsible 显示触发按钮')
@@ -111,12 +100,12 @@ describe('Layout', () => {
         { type: LayoutHeader, props: { children: 'h' } },
         { type: LayoutContent, props: { children: 'c' } },
       ] },
-      mockCtx(),
+      createTestCtx(),
     )
     const vnode = renderVNode(
       Layout,
       { children: [{ type: LayoutSider, props: { children: 'nav' } }, inner] },
-      mockCtx(),
+      createTestCtx(),
     )
     const layouts = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-layout--row'))
     assert.ok(layouts, '外层 row')
@@ -126,7 +115,7 @@ describe('Layout', () => {
 })
 
 test('Layout 透传 style/className（与子组件 Header/Content/Footer 对齐）', () => {
-  const vnode = renderVNode(Layout, { style: { height: 360 }, className: 'my-shell', children: 'x' }, mockCtx())
+  const vnode = renderVNode(Layout, { style: { height: 360 }, className: 'my-shell', children: 'x' }, createTestCtx())
   assert.equal(vnode.props.style.height, 360)
   assert.ok(vnode.props.class.includes('my-shell'))
 })

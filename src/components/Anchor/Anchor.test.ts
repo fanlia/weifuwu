@@ -4,10 +4,11 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Anchor } from './Anchor.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function mockCtx(): { ctx: WfuiContext; setY: (y: number) => void } {
+function makeCtx(): { ctx: WfuiContext; setY: (y: number) => void } {
   const scroll = { y: 0, refresh: () => {} }
-  const ctx = { ui: { $: {}, render: () => {}, dirty: () => {}, useScrollPosition: () => scroll, ready: true } } as any
+  const ctx = createTestCtx({ ui: { useScrollPosition: () => scroll } }) as any
   return { ctx, setY: (y: number) => { scroll.y = y } }
 }
 
@@ -24,7 +25,7 @@ const items = [
 
 describe('Anchor', () => {
   it('渲染锚点列表（nav + 链接 href/title）', () => {
-    const render = mount(Anchor, { items }, mockCtx().ctx)!
+    const render = mount(Anchor, { items }, makeCtx().ctx)!
     const v = render({ items })
     assert.equal(v.type, 'nav')
     assert.match(v.props.class, /wf-anchor/)
@@ -36,7 +37,7 @@ describe('Anchor', () => {
 
   it('点击链接 → onAnchorChange 回调 + href', () => {
     let picked = ''
-    const render = mount(Anchor, { items, onAnchorChange: (h: string) => { picked = h } }, mockCtx().ctx)!
+    const render = mount(Anchor, { items, onAnchorChange: (h: string) => { picked = h } }, makeCtx().ctx)!
     const v = render({ items, onAnchorChange: (h: string) => { picked = h } })
     const links = v.props.children.filter((c: any) => c?.props?.role === 'link')
     links[1].props.onClick({ preventDefault: () => {} })
@@ -45,7 +46,7 @@ describe('Anchor', () => {
 
   it('useHash 点击经 ctx.browser.setHash 更新', () => {
     let hashed = ''
-    const ctx = mockCtx().ctx as any
+    const ctx = makeCtx().ctx as any
     ctx.browser = { setHash: (h: string) => { hashed = h }, byId: () => null }
     const render = mount(Anchor, { items, useHash: true }, ctx)!
     const v = render({ items, useHash: true })
@@ -55,7 +56,7 @@ describe('Anchor', () => {
   })
 
   it('activeKey 高亮类 + aria-current', () => {
-    const render = mount(Anchor, { items, activeKey: '#usage' }, mockCtx().ctx)!
+    const render = mount(Anchor, { items, activeKey: '#usage' }, makeCtx().ctx)!
     const v = render({ items, activeKey: '#usage' })
     const links = v.props.children.filter((c: any) => c?.props?.role === 'link')
     assert.match(links[1].props.class, /wf-anchor-link--active/)
@@ -64,7 +65,7 @@ describe('Anchor', () => {
   })
 
   it('键盘：方向键移动焦点高亮', () => {
-    const { ctx } = mockCtx()
+    const { ctx } = makeCtx()
     const render = mount(Anchor, { items }, ctx)!
     const v = render({ items })
     const links = v.props.children.filter((c: any) => c?.props?.role === 'link')
@@ -77,7 +78,7 @@ describe('Anchor', () => {
 })
 
 it('点击锚点更新内部激活态 + onAnchorChange 通知', () => {
-  const { ctx } = mockCtx()
+  const { ctx } = makeCtx()
   let notified: string | undefined
   const items = [{ href: '#a', title: 'A' }, { href: '#b', title: 'B' }]
   const factory = mount(Anchor, { items, onAnchorChange: (h: string) => { notified = h } }, ctx)
@@ -99,7 +100,7 @@ it('点击锚点更新内部激活态 + onAnchorChange 通知', () => {
 })
 
 it('键盘：Home/End 跳首尾（onKeyDown 存在）', () => {
-  const { ctx } = mockCtx()
+  const { ctx } = makeCtx()
   const items = [{ href: '#a', title: 'A' }, { href: '#b', title: 'B' }]
   const factory = mount(Anchor, { items }, ctx)
   const vnode = factory({ items })
@@ -107,7 +108,7 @@ it('键盘：Home/End 跳首尾（onKeyDown 存在）', () => {
 })
 
 it('useHash=false 默认不写 location.hash（点击仅滚动+回调）', () => {
-  const { ctx } = mockCtx()
+  const { ctx } = makeCtx()
   const items = [{ href: '#a', title: 'A' }]
   const factory = mount(Anchor, { items }, ctx)
   const vnode = factory({ items })

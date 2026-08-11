@@ -2,63 +2,60 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Avatar } from './Avatar.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: { $: {}
 , render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
 describe('Avatar', () => {
   it('renders initial when no src', () => {
-    const vnode = renderVNode(Avatar, { name: '张三' }, mockCtx())!
+    const vnode = renderVNode(Avatar, { name: '张三' }, createTestCtx())!
     assert.equal(vnode.type, 'div')
     assert.equal(vnode.props.children, '张')
   })
 
   it('renders fallback for empty name', () => {
-    const vnode = renderVNode(Avatar, {}, mockCtx())!
+    const vnode = renderVNode(Avatar, {}, createTestCtx())!
     assert.equal(vnode.props.children, '?')
   })
 
   it('renders img when src provided', () => {
-    const vnode = renderVNode(Avatar, { name: '张三', src: '/photo.jpg' }, mockCtx())!
+    const vnode = renderVNode(Avatar, { name: '张三', src: '/photo.jpg' }, createTestCtx())!
     assert.equal(vnode.type, 'img')
     assert.equal(vnode.props.src, '/photo.jpg')
     assert.equal(vnode.props.alt, '张三')
   })
 
   it('applies size classes', () => {
-    const sm = renderVNode(Avatar, { name: 'A', size: 'sm' }, mockCtx())!
-    const lg = renderVNode(Avatar, { name: 'B', size: 'lg' }, mockCtx())!
+    const sm = renderVNode(Avatar, { name: 'A', size: 'sm' }, createTestCtx())!
+    const lg = renderVNode(Avatar, { name: 'B', size: 'lg' }, createTestCtx())!
     assert.match(sm.props.class, /wf-avatar--sm/)
     assert.match(lg.props.class, /wf-avatar--lg/)
   })
 
   it('color prop overrides hashed background', () => {
-    const vnode = renderVNode(Avatar, { name: '张三', color: '#4f6ef7' }, mockCtx())!
+    const vnode = renderVNode(Avatar, { name: '张三', color: '#4f6ef7' }, createTestCtx())!
     assert.equal(vnode.props.style.background, '#4f6ef7')
   })
 })
 
   it('renders img with src', () => {
-    const vnode = renderVNode(Avatar, { name: '张三', src: '/photo.jpg' }, mockCtx())!
+    const vnode = renderVNode(Avatar, { name: '张三', src: '/photo.jpg' }, createTestCtx())!
     assert.equal(vnode.type, 'img')
     assert.equal(vnode.props.src, '/photo.jpg')
   })
 
   it('renders uppercase initial', () => {
-    const vnode = renderVNode(Avatar, { name: 'alice' }, mockCtx())!
+    const vnode = renderVNode(Avatar, { name: 'alice' }, createTestCtx())!
     assert.equal(vnode.props.children, 'A')
   })
 
   it('emoji name → 完整 emoji 首字符（禁止切出孤立代理项——Chrome AX 树挂死根因）', () => {
-    const vnode = renderVNode(Avatar, { name: '💬' }, mockCtx())!
+    const vnode = renderVNode(Avatar, { name: '💬' }, createTestCtx())!
     const initial = String(vnode.props.children)
     // 必须是完整码点（代理对成对出现——无孤立代理项）
     assert.equal(initial.length, 2) // surrogate pair
@@ -68,7 +65,7 @@ describe('Avatar', () => {
   })
 
   it('emoji+文本名 → 完整 emoji 首字符', () => {
-    const vnode = renderVNode(Avatar, { name: '🤖小悟' }, mockCtx())!
+    const vnode = renderVNode(Avatar, { name: '🤖小悟' }, createTestCtx())!
     assert.equal(vnode.props.children, '🤖')
     assert.equal([...String(vnode.props.children)].length, 1)
   })

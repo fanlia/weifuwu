@@ -5,11 +5,12 @@ setupJsdom()
 import { Mentions } from './Mentions.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
+function makeCtx(): WfuiContext {
   const states = new Map<string, { keyword: string; selectedLabel: string }>()
   const values = new Map<string, any>()
-  return { ui: {
+  return createTestCtx({ ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
     usePopup: (opts: any) => ({
       open: !!opts.isOpen?.(),
@@ -34,7 +35,7 @@ function mockCtx(): WfuiContext {
         setSelectedLabel: (v: string) => { st.selectedLabel = v },
       }
     },
-  } } as any
+  } }) as any
 }
 
 function mount(Comp: any, props: any, ctx: any) {
@@ -55,14 +56,14 @@ const panelOf = (v: any) => {
 
 describe('Mentions', () => {
   it('renders textarea', () => {
-    const render = mount(Mentions, { options, children: undefined }, mockCtx())!
+    const render = mount(Mentions, { options, children: undefined }, makeCtx())!
     const vnode = render({ options })
     const ta = vnode.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     assert.equal(ta.type, 'textarea')
   })
 
   it('typing @ triggers mention panel', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
@@ -74,7 +75,7 @@ describe('Mentions', () => {
   })
 
   it('filters options by keyword', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
@@ -87,7 +88,7 @@ describe('Mentions', () => {
   })
 
   it('no panel without @ prefix', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
@@ -98,7 +99,7 @@ describe('Mentions', () => {
 
   it('selecting option inserts mention', () => {
     let got = ''
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Mentions, { options, onChange: (v: string) => { got = v } }, ctx)!
     let v = render({ options, onChange: (v: string) => { got = v } })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
@@ -110,7 +111,7 @@ describe('Mentions', () => {
   })
 
   it('composition start suppresses panel', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
@@ -121,7 +122,7 @@ describe('Mentions', () => {
   })
 
   it('composition end resumes', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
@@ -135,7 +136,7 @@ describe('Mentions', () => {
   })
 
   it('Escape closes panel', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Mentions, { options }, ctx)!
     let v = render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
@@ -150,7 +151,7 @@ describe('Mentions', () => {
 
   it('keyboard: ArrowDown + Enter selects', () => {
     let got = ''
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Mentions, { options, onChange: (v: string) => { got = v } }, ctx)!
     let v = render({ options, onChange: (v: string) => { got = v } })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
@@ -163,7 +164,7 @@ describe('Mentions', () => {
   })
 
   it('disabled textarea', () => {
-    const render = mount(Mentions, { options, disabled: true }, mockCtx())!
+    const render = mount(Mentions, { options, disabled: true }, makeCtx())!
     const vnode = render({ options, disabled: true })
     const ta = vnode.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     assert.equal(ta.props.disabled, true)

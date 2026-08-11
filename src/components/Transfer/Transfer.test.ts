@@ -2,8 +2,9 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Transfer } from './Transfer.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   const state = new Proxy({}, {
     set(t: any, k, v) { t[k] = v; return true },
     get(t: any, k) { return t[k] },
@@ -11,10 +12,6 @@ function mockCtx(): WfuiContext {
   return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 const data = [
   { key: 'a', label: '选项A' },
@@ -25,21 +22,21 @@ const data = [
 
 describe('Transfer', () => {
   it('renders two lists and actions', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: ['a'] }, mockCtx())!
+    const vnode = renderVNode(Transfer, { data, targetKeys: ['a'] }, createTestCtx())!
     assert.match(vnode.props.class, /wf-transfer/)
     // 结构：左列表 + 按钮区 + 右列表
     assert.equal(vnode.props.children.length, 3)
   })
 
   it('left list excludes target keys', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, mockCtx())!
+    const vnode = renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, createTestCtx())!
     const leftItems = vnode.props.children[0].props.children[1].props.children
     const labels = leftItems.map((i: any) => i.props.children)
     assert.deepEqual(labels, ['选项B', '选项D'])
   })
 
   it('right list shows target keys', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, mockCtx())!
+    const vnode = renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, createTestCtx())!
     const rightItems = vnode.props.children[2].props.children[1].props.children
     const labels = rightItems.map((i: any) => i.props.children)
     assert.deepEqual(labels, ['选项A', '选项C'])
@@ -47,7 +44,7 @@ describe('Transfer', () => {
 
   it('selecting left item and moving adds to target', () => {
     let got: string[] = ['a']
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const result = Transfer({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } }, ctx)
     const render = result as any
     let v = render({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } })
@@ -62,7 +59,7 @@ describe('Transfer', () => {
 
   it('selecting right item and moving back removes', () => {
     let got: string[] = ['a', 'b']
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const result = Transfer({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } }, ctx)
     const render = result as any
     let v = render({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } })
@@ -75,20 +72,20 @@ describe('Transfer', () => {
   })
 
   it('move button disabled when nothing selected', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: [] }, mockCtx())!
+    const vnode = renderVNode(Transfer, { data, targetKeys: [] }, createTestCtx())!
     const rightBtn = vnode.props.children[1].props.children[1]
     assert.equal(rightBtn.props.disabled, true)
   })
 
   it('renders titles', () => {
-    const vnode = renderVNode(Transfer, { data, targetKeys: [], titles: ['源列表', '目标列表'] }, mockCtx())!
+    const vnode = renderVNode(Transfer, { data, targetKeys: [], titles: ['源列表', '目标列表'] }, createTestCtx())!
     assert.equal(vnode.props.children[0].props.children[0].props.children, '源列表')
     assert.equal(vnode.props.children[2].props.children[0].props.children, '目标列表')
   })
 
   it('disabled items not selectable', () => {
     const withDis = [{ key: 'a', label: 'A', disabled: true }, { key: 'b', label: 'B' }]
-    const vnode = renderVNode(Transfer, { data: withDis, targetKeys: [] }, mockCtx())!
+    const vnode = renderVNode(Transfer, { data: withDis, targetKeys: [] }, createTestCtx())!
     const leftItem = vnode.props.children[0].props.children[1].props.children[0]
     assert.equal(leftItem.props.onClick, undefined)
     assert.match(leftItem.props.class, /--dis/)
@@ -96,7 +93,7 @@ describe('Transfer', () => {
 })
 
 it('showSearch：输入过滤两侧列表 + 无匹配提示', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   const factory = Transfer({}, ctx)
   let vnode = factory({ data, targetKeys: ['a'], showSearch: true })
   const s = JSON.stringify(vnode)

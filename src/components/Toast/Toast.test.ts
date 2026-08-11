@@ -3,13 +3,10 @@ import assert from 'node:assert'
 import { Toast } from './Toast.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
@@ -17,7 +14,7 @@ const inner = (v: any) => v?.type === Portal ? v.props.children : v
 
 describe('Toast', () => {
   it('returns null when no toasts', () => {
-    const result = renderVNode(Toast, { toasts: [] }, mockCtx())
+    const result = renderVNode(Toast, { toasts: [] }, createTestCtx())
     assert.equal(result, null)
   })
 
@@ -26,7 +23,7 @@ describe('Toast', () => {
       { id: '1', type: 'success' as const, message: '操作成功' },
       { id: '2', type: 'error' as const, message: '网络错误' },
     ]
-    const vnode = inner(renderVNode(Toast, { toasts }, mockCtx())!)
+    const vnode = inner(renderVNode(Toast, { toasts }, createTestCtx())!)
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-toast-container/)
     const items = vnode.props.children
@@ -37,7 +34,7 @@ describe('Toast', () => {
 
   it('renders message text', () => {
     const toasts = [{ id: '1', type: 'info' as const, message: '提示信息' }]
-    const vnode = inner(renderVNode(Toast, { toasts }, mockCtx())!)
+    const vnode = inner(renderVNode(Toast, { toasts }, createTestCtx())!)
     const msg = vnode.props.children[0].props.children[1]
     assert.equal(msg.props.children, '提示信息')
   })
@@ -45,7 +42,7 @@ describe('Toast', () => {
   it('calls onRemove on click', () => {
     let removed = ''
     const toasts = [{ id: '1', type: 'info' as const, message: '提示' }]
-    const vnode = inner(renderVNode(Toast, { toasts, onRemove: (id: string) => { removed = id } }, mockCtx())!)
+    const vnode = inner(renderVNode(Toast, { toasts, onRemove: (id: string) => { removed = id } }, createTestCtx())!)
     const item = vnode.props.children[0]
     item.props.onClick()
     assert.equal(removed, '1')
@@ -53,13 +50,13 @@ describe('Toast', () => {
 
   it('renders with position class', () => {
     const toasts = [{ id: '1', type: 'info' as const, message: '提示' }]
-    const vnode = inner(renderVNode(Toast, { toasts, position: 'bottom-left' }, mockCtx())!)
+    const vnode = inner(renderVNode(Toast, { toasts, position: 'bottom-left' }, createTestCtx())!)
     assert.match(vnode.props.class, /wf-toast--bl/)
   })
 
   it('defaults to top-right position', () => {
     const toasts = [{ id: '1', type: 'info' as const, message: '提示' }]
-    const vnode = inner(renderVNode(Toast, { toasts }, mockCtx())!)
+    const vnode = inner(renderVNode(Toast, { toasts }, createTestCtx())!)
     assert.match(vnode.props.class, /wf-toast--tr/)
   })
 
@@ -69,7 +66,7 @@ describe('Toast', () => {
       { id: '2', type: 'info' as const, message: '2' },
       { id: '3', type: 'info' as const, message: '3' },
     ]
-    const vnode = inner(renderVNode(Toast, { toasts, max: 2 }, mockCtx())!)
+    const vnode = inner(renderVNode(Toast, { toasts, max: 2 }, createTestCtx())!)
     const items = vnode.props.children
     assert.equal(items.length, 2)
     // 保留最新的 2 条
@@ -79,7 +76,7 @@ describe('Toast', () => {
 
   it('sets data-duration attribute when duration provided', () => {
     const toasts = [{ id: '1', type: 'info' as const, message: '提示' }]
-    const vnode = inner(renderVNode(Toast, { toasts, duration: 3000 }, mockCtx())!)
+    const vnode = inner(renderVNode(Toast, { toasts, duration: 3000 }, createTestCtx())!)
     const item = vnode.props.children[0]
     assert.equal(item.props['data-duration'], 3000)
   })
@@ -89,7 +86,7 @@ describe('Toast', () => {
       { id: '1', type: 'info' as const, message: '短', duration: 1000 },
       { id: '2', type: 'info' as const, message: '长' },
     ]
-    const vnode = inner(renderVNode(Toast, { toasts, duration: 5000 }, mockCtx())!)
+    const vnode = inner(renderVNode(Toast, { toasts, duration: 5000 }, createTestCtx())!)
     const items = vnode.props.children
     assert.equal(items[0].props['data-duration'], 1000)
     assert.equal(items[1].props['data-duration'], 5000)

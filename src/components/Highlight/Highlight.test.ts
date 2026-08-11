@@ -2,14 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Highlight } from './Highlight.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
-}
 function collectText(v: any): string[] {
   const out: string[] = []
   const walk = (n: any) => {
@@ -24,12 +18,12 @@ function collectText(v: any): string[] {
 
 describe('Highlight', () => {
   it('无命中词 → 原样文本', () => {
-    const vnode = renderVNode(Highlight, { text: '你好世界' }, mockCtx())!
+    const vnode = renderVNode(Highlight, { text: '你好世界' }, createTestCtx())!
     assert.deepEqual(collectText(vnode), ['你好世界'])
   })
 
   it('命中词包 <mark>', () => {
-    const vnode = renderVNode(Highlight, { text: '搜索 张三 的结果', query: ['张三'] }, mockCtx())!
+    const vnode = renderVNode(Highlight, { text: '搜索 张三 的结果', query: ['张三'] }, createTestCtx())!
     const marks = vnode.props.children.filter((c: any) => c?.type === 'mark')
     assert.equal(marks.length, 1)
     assert.equal(marks[0].props.children, '张三')
@@ -37,19 +31,19 @@ describe('Highlight', () => {
   })
 
   it('多词命中', () => {
-    const vnode = renderVNode(Highlight, { text: '张三 和 李四', query: ['张三', '李四'] }, mockCtx())!
+    const vnode = renderVNode(Highlight, { text: '张三 和 李四', query: ['张三', '李四'] }, createTestCtx())!
     const marks = vnode.props.children.filter((c: any) => c?.type === 'mark')
     assert.equal(marks.length, 2)
   })
 
   it('大小写不敏感', () => {
-    const vnode = renderVNode(Highlight, { text: 'Hello World', query: ['hello'] }, mockCtx())!
+    const vnode = renderVNode(Highlight, { text: 'Hello World', query: ['hello'] }, createTestCtx())!
     const marks = vnode.props.children.filter((c: any) => c?.type === 'mark')
     assert.equal(marks[0].props.children, 'Hello')
   })
 
   it('无命中词 → 无 mark', () => {
-    const vnode = renderVNode(Highlight, { text: '没有命中', query: ['xyz'] }, mockCtx())!
+    const vnode = renderVNode(Highlight, { text: '没有命中', query: ['xyz'] }, createTestCtx())!
     assert.ok(!vnode.props.children.some((c: any) => c?.type === 'mark'))
   })
 })

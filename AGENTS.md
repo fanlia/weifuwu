@@ -529,16 +529,22 @@ const MyComp: Component = (_init, ctx) => {
 
 ### 7.2 UI 组件测试纪律（jsdom + VNode 断言）
 
-`renderVNode(Comp, props, ctx)` 获取 VNode：
+**官方测试原语 `weifuwu/ui-dom/testing`**（`src/ui-dom/testing.ts`）——禁止手抄
+`renderVNode`/`mockCtx`（audit R-INFRA 强制；存量 LEGACY 表迁移中）：
 
 ```tsx
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-// 无状态：const vnode = renderVNode(Button, { variant: 'primary' }, mockCtx)
-// 有状态：const ctx = mockCtx(); const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
-//          const $ = ctx.ui.$(); $.show = true; const vnode2 = renderVNode(Popover, {...}, ctx)
+import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, createPopupMock } from '../../ui-dom/testing.ts'
+
+// renderVNode：两阶段组件渲染到 VNode 层（**只一层**——子组件保留函数引用，断言 type 而非 DOM）
+// mountComponent：**同实例 re-render**（内部 let 状态流转测试）——renderVNode 每次是新 mount，状态会丢
+// findByClass：class token 精确匹配（split(' ')——includes 会误匹配 wf-a ⊃ wf-a-b）
+// createTestCtx(overrides)：标准 ctx（$ / render / dirty / ready）
+// createPopupMock(isOpen)：usePopup 标准 mock（portal 按 isOpen 条件渲染）
+
+// 无状态：const vnode = renderVNode(Button, { variant: 'primary' }, createTestCtx())
+// 有状态（VNode 层）：const ctx = createTestCtx(); const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
+//           const $ = ctx.ui.$(); $.show = true; const vnode2 = renderVNode(Popover, {...}, ctx)
+// 有状态（同实例，交互流转）：const render = mountComponent(Popover, {...}, ctx); render(); ...; render()
 ```
 
 - **renderVNode 只渲染一层**：子组件 VNode 的 `type` 是组件函数（断言 `=== Icon`），不是 `'svg'` 等标签名

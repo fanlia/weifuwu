@@ -6,13 +6,10 @@ import { Notification, notification } from './Notification.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
 import { createReactiveState } from '../../ui-dom/reactive.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
@@ -20,7 +17,7 @@ const inner = (v: any) => v?.type === Portal ? v.props.children : v
 
 describe('Notification', () => {
   it('returns null when no items', () => {
-    const result = renderVNode(Notification, { items: [] }, mockCtx())
+    const result = renderVNode(Notification, { items: [] }, createTestCtx())
     assert.equal(result, null)
   })
 
@@ -28,7 +25,7 @@ describe('Notification', () => {
     const items = [
       { id: '1', type: 'success' as const, title: '部署成功', description: 'v0.62.0 已上线' },
     ]
-    const vnode = inner(renderVNode(Notification, { items }, mockCtx())!)
+    const vnode = inner(renderVNode(Notification, { items }, createTestCtx())!)
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-notification-container/)
     const item = vnode.props.children[0]
@@ -41,7 +38,7 @@ describe('Notification', () => {
 
   it('renders type icon', () => {
     const items = [{ id: '1', type: 'warning' as const, title: '注意' }]
-    const vnode = inner(renderVNode(Notification, { items }, mockCtx())!)
+    const vnode = inner(renderVNode(Notification, { items }, createTestCtx())!)
     const icon = vnode.props.children[0].props.children.find((c: any) => c.props?.class === 'wf-notification-icon')
     assert.equal(icon.props.children.props.name, 'alert')
   })
@@ -49,7 +46,7 @@ describe('Notification', () => {
   it('calls onRemove when close button clicked', () => {
     let removed: string | null = null
     const items = [{ id: 'x', type: 'info' as const, title: '提示' }]
-    const vnode = inner(renderVNode(Notification, { items, onRemove: (id: string) => { removed = id } }, mockCtx())!)
+    const vnode = inner(renderVNode(Notification, { items, onRemove: (id: string) => { removed = id } }, createTestCtx())!)
     const close = vnode.props.children[0].props.children.find((c: any) => c.props?.class === 'wf-notification-close')
     close.props.onClick()
     assert.equal(removed, 'x')
@@ -57,7 +54,7 @@ describe('Notification', () => {
 
   it('renders position class', () => {
     const items = [{ id: '1', type: 'info' as const, title: 't' }]
-    const vnode = inner(renderVNode(Notification, { items, position: 'bottom-left' }, mockCtx())!)
+    const vnode = inner(renderVNode(Notification, { items, position: 'bottom-left' }, createTestCtx())!)
     assert.match(vnode.props.class, /wf-notification--bl/)
   })
 
@@ -67,7 +64,7 @@ describe('Notification', () => {
       { id: '2', type: 'info' as const, title: 'b' },
       { id: '3', type: 'info' as const, title: 'c' },
     ]
-    const vnode = inner(renderVNode(Notification, { items, max: 2 }, mockCtx())!)
+    const vnode = inner(renderVNode(Notification, { items, max: 2 }, createTestCtx())!)
     assert.equal(vnode.props.children.length, 2)
     assert.equal(vnode.props.children[0].props['data-id'], '2') // 保留最新
   })
@@ -75,7 +72,7 @@ describe('Notification', () => {
   it('renders action button', () => {
     let clicked = false
     const items = [{ id: '1', type: 'info' as const, title: 't', action: { label: '查看', onClick: () => { clicked = true } } }]
-    const vnode = inner(renderVNode(Notification, { items }, mockCtx())!)
+    const vnode = inner(renderVNode(Notification, { items }, createTestCtx())!)
     const body = vnode.props.children[0].props.children[1]
     const action = body.props.children.find((c: any) => c.props?.class === 'wf-notification-action')
     assert.equal(action.props.children, '查看')
@@ -86,7 +83,7 @@ describe('Notification', () => {
 
 describe('notification 命令式中间件', () => {
   it('injects ctx.notification with open/success/error/info/warning', () => {
-    const ctx = mockCtx() as any
+    const ctx = createTestCtx() as any
     const middleware = notification({ duration: 0 }) as any
     const injected = middleware(ctx)
     assert.equal(typeof injected.notification, 'function')
@@ -100,7 +97,7 @@ describe('notification 命令式中间件', () => {
     document.body.innerHTML = ''
     let dirtyCount = 0
     const state = createReactiveState(() => { dirtyCount++ })
-    const ctx = mockCtx() as any
+    const ctx = createTestCtx() as any
     ctx.ui.$ = () => state
     const middleware = notification({ duration: 0, max: 10 }) as any
     middleware(ctx)
@@ -114,7 +111,7 @@ describe('notification 命令式中间件', () => {
     document.body.innerHTML = ''
     let dirtyCount = 0
     const state = createReactiveState(() => { dirtyCount++ })
-    const ctx = mockCtx() as any
+    const ctx = createTestCtx() as any
     ctx.ui.$ = () => state
     const middleware = notification({ duration: 0 }) as any
     middleware(ctx)

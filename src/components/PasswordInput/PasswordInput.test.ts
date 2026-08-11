@@ -2,14 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { PasswordInput } from './PasswordInput.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
-function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
-}
 function findInput(v: any): any {
   if (v?.props?.type === 'password' || v?.props?.type === 'text') return v
   if (Array.isArray(v?.props?.children)) {
@@ -27,12 +21,12 @@ function findEye(v: any): any {
 
 describe('PasswordInput', () => {
   it('默认 type=password', () => {
-    const vnode = renderVNode(PasswordInput, { value: 'secret' }, mockCtx())!
+    const vnode = renderVNode(PasswordInput, { value: 'secret' }, createTestCtx())!
     assert.equal(findInput(vnode).props.type, 'password')
   })
 
   it('点击眼睛 → type=text（可见）+ aria-label 切换', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const inner = PasswordInput({}, ctx) // mount 一次，闭包状态保持
     let vnode = inner({ value: 'secret' })
     let eye = findEye(vnode)
@@ -46,7 +40,7 @@ describe('PasswordInput', () => {
   })
 
   it('再点眼睛 → 恢复 password', () => {
-    const ctx = mockCtx()
+    const ctx = createTestCtx()
     const inner = PasswordInput({}, ctx)
     let vnode = inner({ value: 'x' })
     findEye(vnode).props.onClick()
@@ -57,18 +51,18 @@ describe('PasswordInput', () => {
   })
 
   it('value 透传输入框', () => {
-    const vnode = renderVNode(PasswordInput, { value: 'abc', label: '密码' }, mockCtx())!
+    const vnode = renderVNode(PasswordInput, { value: 'abc', label: '密码' }, createTestCtx())!
     assert.equal(findInput(vnode).props.value, 'abc')
   })
 })
 
 it('默认 type=password', () => {
-  const vnode = renderVNode(PasswordInput, {}, mockCtx())!
+  const vnode = renderVNode(PasswordInput, {}, createTestCtx())!
   assert.equal(findInput(vnode).props.type, 'password')
 })
 
 it('点击眼睛切换可见性（password → text）', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   const factory = PasswordInput({}, ctx)
   let vnode = factory({})
   assert.equal(findInput(vnode).props.type, 'password')
@@ -85,7 +79,7 @@ it('点击眼睛切换可见性（password → text）', () => {
 })
 
 it('disabled 时切换无效', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   const factory = PasswordInput({}, ctx)
   let vnode = factory({ disabled: true })
   const findToggle = (n: any): any => {
@@ -102,6 +96,6 @@ it('disabled 时切换无效', () => {
 })
 
 it('error/hint 展示', () => {
-  const vnode = renderVNode(PasswordInput, { error: '太短', hint: undefined }, mockCtx())!
+  const vnode = renderVNode(PasswordInput, { error: '太短', hint: undefined }, createTestCtx())!
   assert.ok(JSON.stringify(vnode).includes('太短'))
 })

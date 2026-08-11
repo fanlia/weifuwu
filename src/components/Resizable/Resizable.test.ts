@@ -4,13 +4,14 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Resizable } from './Resizable.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function mockCtx(): WfuiContext {
-  return { ui: {
+function makeCtx(): WfuiContext {
+  return createTestCtx({ ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
     // useDrag mock：onPointerDown 透传（拖拽逻辑由 useDrag 单测覆盖，组件层测结构）
     useDrag: (opts: any) => ({ onPointerDown: (e: any) => { opts.onStart?.(e) } }),
-  } } as any
+  } }) as any
 }
 
 function mount(Comp: any, props: any, ctx: any) {
@@ -20,33 +21,33 @@ function mount(Comp: any, props: any, ctx: any) {
 
 describe('Resizable', () => {
   it('renders two panels and handle', () => {
-    const render = mount(Resizable, { children: ['左', '右'] }, mockCtx())!
+    const render = mount(Resizable, { children: ['左', '右'] }, makeCtx())!
     const v = render({ children: ['左', '右'] })
     assert.match(v.props.class, /wf-resizable/)
     assert.equal(v.props.children.length, 3) // panel + handle + panel
   })
 
   it('horizontal direction class', () => {
-    const render = mount(Resizable, { children: ['a', 'b'], direction: 'horizontal' }, mockCtx())!
+    const render = mount(Resizable, { children: ['a', 'b'], direction: 'horizontal' }, makeCtx())!
     const v = render({ children: ['a', 'b'], direction: 'horizontal' })
     assert.match(v.props.class, /wf-resizable--horizontal/)
   })
 
   it('vertical direction class', () => {
-    const render = mount(Resizable, { children: ['a', 'b'], direction: 'vertical' }, mockCtx())!
+    const render = mount(Resizable, { children: ['a', 'b'], direction: 'vertical' }, makeCtx())!
     const v = render({ children: ['a', 'b'], direction: 'vertical' })
     assert.match(v.props.class, /wf-resizable--vertical/)
   })
 
   it('applies default size to first panel', () => {
-    const render = mount(Resizable, { children: ['a', 'b'], defaultSize: 300 }, mockCtx())!
+    const render = mount(Resizable, { children: ['a', 'b'], defaultSize: 300 }, makeCtx())!
     const v = render({ children: ['a', 'b'], defaultSize: 300 })
     const first = v.props.children[0]
     assert.equal(first.props.style.flexBasis, '300px')
   })
 
   it('handle has aria label and keyboard', () => {
-    const render = mount(Resizable, { children: ['a', 'b'] }, mockCtx())!
+    const render = mount(Resizable, { children: ['a', 'b'] }, makeCtx())!
     const v = render({ children: ['a', 'b'] })
     const handle = v.props.children[1]
     assert.equal(handle.props.role, 'separator')
@@ -55,7 +56,7 @@ describe('Resizable', () => {
   })
 
   it('handle spreads useDrag onPointerDown（拖拽由 useDrag 单测覆盖）', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Resizable, { children: ['a', 'b'], defaultSize: 200 }, ctx)!
     const v = render({ children: ['a', 'b'], defaultSize: 200 })
     const handle = v.props.children[1]
@@ -64,7 +65,7 @@ describe('Resizable', () => {
 
   it('clamps to min/max（键盘路径仍生效）', () => {
     let got: number | null = null
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Resizable, { children: ['a', 'b'], defaultSize: 200, min: 100, max: 300, onResize: (s: number) => { got = s } }, ctx)!
     const v = render({ children: ['a', 'b'], defaultSize: 200, min: 100, max: 300, onResize: (s: number) => { got = s } })
     const handle = v.props.children[1]
@@ -78,7 +79,7 @@ describe('Resizable', () => {
 
   it('keyboard arrows resize', () => {
     let got: number | null = null
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(Resizable, { children: ['a', 'b'], defaultSize: 200, onResize: (s: number) => { got = s } }, ctx)!
     const v = render({ children: ['a', 'b'], defaultSize: 200, onResize: (s: number) => { got = s } })
     const handle = v.props.children[1]

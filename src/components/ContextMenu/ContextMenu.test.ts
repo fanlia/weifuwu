@@ -4,10 +4,11 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { ContextMenu } from './ContextMenu.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
 // mock ctx.ui.usePopup（组件层不跑真实弹层：onContextMenu 触发 + portal 定位简化）
-function mockCtx(): WfuiContext {
-  return { ui: {
+function makeCtx(): WfuiContext {
+  return createTestCtx({ ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
     usePopup: (opts: any) => {
       const wrapProps: any = {}
@@ -36,7 +37,7 @@ function mockCtx(): WfuiContext {
         refresh: () => {},
       }
     },
-  } } as any
+  } }) as any
 }
 
 function mount(Comp: any, props: any, ctx: any) {
@@ -53,20 +54,20 @@ const items = [
 
 describe('ContextMenu', () => {
   it('renders trigger children', () => {
-    const render = mount(ContextMenu, { items, children: '区域' }, mockCtx())!
+    const render = mount(ContextMenu, { items, children: '区域' }, makeCtx())!
     const vnode = render({ items, children: '区域' })
     assert.match(vnode.props.class, /wf-context-menu-trigger/)
     assert.equal(vnode.props.children[0], '区域')
   })
 
   it('closed by default (no menu)', () => {
-    const render = mount(ContextMenu, { items, children: 'x' }, mockCtx())!
+    const render = mount(ContextMenu, { items, children: 'x' }, makeCtx())!
     const vnode = render({ items, children: 'x' })
     assert.equal(vnode.props.children.length, 1)
   })
 
   it('contextmenu opens menu at mouse position（经 usePopup onTrigger + position）', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(ContextMenu, { items, children: 'x' }, ctx)!
     const vnode = render({ items, children: 'x' })
     vnode.props.onContextMenu({ clientX: 100, clientY: 200, preventDefault: () => {} })
@@ -79,7 +80,7 @@ describe('ContextMenu', () => {
   })
 
   it('renders all items in menu', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(ContextMenu, { items, children: 'x' }, ctx)!
     const v = render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
@@ -90,7 +91,7 @@ describe('ContextMenu', () => {
 
   it('click item calls onClick and closes', () => {
     let clicked: string | null = null
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const myItems = [
       { key: 'a', label: 'A', onClick: () => { clicked = 'a' } },
       { key: 'b', label: 'B', onClick: () => { clicked = 'b' } },
@@ -109,7 +110,7 @@ describe('ContextMenu', () => {
 
   it('disabled item not clickable', () => {
     let clicked = false
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const myItems = [{ key: 'd', label: 'D', disabled: true, onClick: () => { clicked = true } }]
     const render = mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
     let v = render({ items: myItems, children: 'x' })
@@ -121,7 +122,7 @@ describe('ContextMenu', () => {
   })
 
   it('danger variant class', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(ContextMenu, { items, children: 'x' }, ctx)!
     let v = render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
@@ -131,7 +132,7 @@ describe('ContextMenu', () => {
   })
 
   it('Escape closes menu', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const render = mount(ContextMenu, { items, children: 'x' }, ctx)!
     let v = render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
@@ -145,7 +146,7 @@ describe('ContextMenu', () => {
 
   it('keyboard: ArrowDown navigates, Enter selects highlighted', () => {
     let clicked: string | null = null
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const myItems = [
       { key: 'a', label: 'A', onClick: () => { clicked = 'a' } },
       { key: 'b', label: 'B', onClick: () => { clicked = 'b' } },

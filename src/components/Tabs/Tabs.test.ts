@@ -5,14 +5,11 @@ setupJsdom()
 import { Tabs } from './Tabs.ts'
 import { mountVNode } from '../../ui-dom/render.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   const uncontrolled = new Map<string, any>()
   const state: any = {}
   return { ui: { $: () => state
@@ -37,7 +34,7 @@ describe('Tabs', () => {
   ]
 
   it('renders tab buttons', () => {
-    const vnode = renderVNode(Tabs, { items }, mockCtx())!
+    const vnode = renderVNode(Tabs, { items }, createTestCtx())!
     const tabList = vnode.props.children[0]
     // tabList.children = [...tabButtons, inkBar]（末位为滑动指示器）
     const tabs = tabList.props.children.filter((c: any) => c.props?.role === 'tab')
@@ -49,33 +46,33 @@ describe('Tabs', () => {
   })
 
   it('returns null when no items', () => {
-    const result = renderVNode(Tabs, { items: [] }, mockCtx())
+    const result = renderVNode(Tabs, { items: [] }, createTestCtx())
     assert.equal(result, null)
   })
 
   it('activates first tab by default', () => {
-    const vnode = renderVNode(Tabs, { items }, mockCtx())!
+    const vnode = renderVNode(Tabs, { items }, createTestCtx())!
     const tabList = vnode.props.children[0]
     assert.match(tabList.props.children[0].props.class, /wf-tab--active/)
     assert.ok(!tabList.props.children[1].props.class?.includes('wf-tab--active'))
   })
 
   it('activates specified tab', () => {
-    const vnode = renderVNode(Tabs, { items, active: 'b' }, mockCtx())!
+    const vnode = renderVNode(Tabs, { items, active: 'b' }, createTestCtx())!
     const tabList = vnode.props.children[0]
     assert.ok(!tabList.props.children[0].props.class?.includes('wf-tab--active'))
     assert.match(tabList.props.children[1].props.class, /wf-tab--active/)
   })
 
   it('renders active tab content', () => {
-    const vnode = renderVNode(Tabs, { items }, mockCtx())!
+    const vnode = renderVNode(Tabs, { items }, createTestCtx())!
     const content = vnode.props.children[1]
     assert.equal(content.props.class, 'wf-tab-content')
     assert.equal(content.props.children, '内容A')
   })
 
   it('roving tabindex：仅激活 tab 可 Tab 聚焦', () => {
-    const vnode = renderVNode(Tabs, { items }, mockCtx())!
+    const vnode = renderVNode(Tabs, { items }, createTestCtx())!
     const tabs = vnode.props.children[0].props.children
     assert.equal(tabs[0].props.tabindex, 0)
     assert.equal(tabs[1].props.tabindex, -1)
@@ -87,8 +84,8 @@ describe('Tabs', () => {
     const container = document.createElement('div')
     document.body.appendChild(container) // jsdom：未连接文档的元素 .focus() 无效
     const changed: string[] = []
-    const vnode = renderVNode(Tabs, { items, onChange: (k: string) => changed.push(k) }, mockCtx())!
-    mountVNode(container, vnode, mockCtx())
+    const vnode = renderVNode(Tabs, { items, onChange: (k: string) => changed.push(k) }, createTestCtx())!
+    mountVNode(container, vnode, createTestCtx())
     const tabs = container.querySelectorAll<HTMLElement>('.wf-tab')
     assert.equal(tabs.length, 2)
     tabs[0].focus()
@@ -106,7 +103,7 @@ describe('Tabs', () => {
 it('受控 active + onChange（点击切换通知）', () => {
   let got: string | undefined
   const items = [{ key: 'a', label: 'A', children: 'ca' }, { key: 'b', label: 'B', children: 'cb' }]
-  const vnode = renderVNode(Tabs, { items, active: 'a', onChange: (k: string) => { got = k } }, mockCtx())!
+  const vnode = renderVNode(Tabs, { items, active: 'a', onChange: (k: string) => { got = k } }, createTestCtx())!
   const find = (n: any, acc: any[] = []): any[] => {
     if (!n || typeof n !== 'object') return acc
     if (n.props?.role === 'tab') acc.push(n)

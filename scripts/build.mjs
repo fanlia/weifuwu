@@ -74,6 +74,16 @@ await esbuild.build({
   minify: true,
 })
 
+// ui-dom/testing（组件测试原语子路径——vue/test-utils 模式；不污染主 index）
+await esbuild.build({
+  entryPoints: [join(srcDir, 'ui-dom', 'testing.ts')],
+  outfile: join(distDir, 'ui-dom', 'testing.js'),
+  format: 'esm',
+  platform: 'browser',
+  bundle: true,
+  minify: true,
+})
+
 // 编译组件 JS
 // 关键：把组件源码对 src/ui-dom/* 的相对导入外部化为 weifuwu/ui-dom——
 // 运行时与 ui-dom bundle 共享同一模块实例（registry/组件 id 等状态不重复）。

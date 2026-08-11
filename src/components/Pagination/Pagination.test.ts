@@ -3,14 +3,11 @@ import assert from 'node:assert'
 import { Pagination } from './Pagination.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   const uncontrolled = new Map<string, any>()
   return { ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
@@ -29,12 +26,12 @@ function mockCtx(): WfuiContext {
 
 describe('Pagination', () => {
   it('returns null when only one page', () => {
-    const result = renderVNode(Pagination, { total: 5 }, mockCtx())
+    const result = renderVNode(Pagination, { total: 5 }, createTestCtx())
     assert.equal(result, null)
   })
 
   it('renders page buttons', () => {
-    const vnode = renderVNode(Pagination, { total: 50, page: 1 }, mockCtx())!
+    const vnode = renderVNode(Pagination, { total: 50, page: 1 }, createTestCtx())!
     assert.equal(vnode.type, 'nav')
     assert.match(vnode.props.class, /wf-pagination/)
     // should have prev + pages + next
@@ -42,7 +39,7 @@ describe('Pagination', () => {
   })
 
   it('renders prev and next buttons', () => {
-    const vnode = renderVNode(Pagination, { total: 50, page: 2 }, mockCtx())!
+    const vnode = renderVNode(Pagination, { total: 50, page: 2 }, createTestCtx())!
     const children = vnode.props.children
     const first = children[0]
     const last = children[children.length - 1]
@@ -53,19 +50,19 @@ describe('Pagination', () => {
   })
 
   it('disables prev on first page', () => {
-    const vnode = renderVNode(Pagination, { total: 50, page: 1 }, mockCtx())!
+    const vnode = renderVNode(Pagination, { total: 50, page: 1 }, createTestCtx())!
     const prev = vnode.props.children[0]
     assert.ok(prev.props.disabled)
   })
 
   it('disables next on last page', () => {
-    const vnode = renderVNode(Pagination, { total: 50, page: 3, pageSize: 20 }, mockCtx())!
+    const vnode = renderVNode(Pagination, { total: 50, page: 3, pageSize: 20 }, createTestCtx())!
     const next = vnode.props.children[vnode.props.children.length - 1]
     assert.ok(next.props.disabled)
   })
 
   it('highlights current page', () => {
-    const vnode = renderVNode(Pagination, { total: 50, page: 2 }, mockCtx())!
+    const vnode = renderVNode(Pagination, { total: 50, page: 2 }, createTestCtx())!
     const activeBtns = vnode.props.children.filter((c: any) =>
       c.props.class?.includes('wf-page-btn--active')
     )
@@ -76,7 +73,7 @@ describe('Pagination', () => {
 
 it('受控 page + onChange（点击页码回调）', () => {
   let got: number | undefined
-  const vnode = renderVNode(Pagination, { total: 100, page: 1, pageSize: 10, onChange: (p: number) => { got = p } }, mockCtx())!
+  const vnode = renderVNode(Pagination, { total: 100, page: 1, pageSize: 10, onChange: (p: number) => { got = p } }, createTestCtx())!
   const find = (n: any): any => {
     if (!n || typeof n !== 'object') return null
     if (n.props?.class?.includes?.('wf-page-btn') && n.props?.children === '2') return n
@@ -91,6 +88,6 @@ it('受控 page + onChange（点击页码回调）', () => {
 })
 
 it('边界：total=0 → null（不渲染）', () => {
-  const vnode = renderVNode(Pagination, { total: 0, page: 1 }, mockCtx())
+  const vnode = renderVNode(Pagination, { total: 0, page: 1 }, createTestCtx())
   assert.equal(vnode === null || !vnode, true, 'total=0 返回 null')
 })

@@ -2,13 +2,10 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Table } from './Table.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
@@ -27,14 +24,14 @@ describe('Table', () => {
   ]
 
   it('renders table element', () => {
-    const vnode = renderVNode(Table, { columns, data: [] }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data: [] }, createTestCtx())!
     const table = tableOf(vnode)
     assert.equal(table.type, 'table')
     assert.match(table.props.class, /wf-table/)
   })
 
   it('renders headers from columns', () => {
-    const vnode = renderVNode(Table, { columns, data: [] }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data: [] }, createTestCtx())!
     const table = tableOf(vnode)
     const thead = table.props.children[0]
     assert.equal(thead.type, 'thead')
@@ -49,7 +46,7 @@ describe('Table', () => {
       { id: 1, name: '张三' },
       { id: 2, name: '李四' },
     ]
-    const vnode = renderVNode(Table, { columns, data }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data }, createTestCtx())!
     const table = tableOf(vnode)
     const tbody = table.props.children[1]
     assert.equal(tbody.type, 'tbody')
@@ -64,20 +61,20 @@ describe('Table', () => {
       { key: 'name', label: '名称', render: (v: string) => `★ ${v}` },
     ]
     const data = [{ name: '张三' }]
-    const vnode = renderVNode(Table, { columns: cols, data }, mockCtx())!
+    const vnode = renderVNode(Table, { columns: cols, data }, createTestCtx())!
     const table = tableOf(vnode)
     const cell = table.props.children[1].props.children[0].props.children[0]
     assert.equal(cell.props.children, '★ 张三')
   })
 
   it('renders empty data', () => {
-    const vnode = renderVNode(Table, { columns, data: [] }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data: [] }, createTestCtx())!
     const tbody = tableOf(vnode).props.children[1]
     assert.equal(tbody.props.children.length, 0)
   })
 
   it('shows empty text when no data', () => {
-    const vnode = renderVNode(Table, { columns, data: [], emptyText: '暂无数据' }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data: [], emptyText: '暂无数据' }, createTestCtx())!
     const tbody = tableOf(vnode).props.children[1]
     const cell = tbody.props.children[0].props.children
     assert.equal(cell.props.children, '暂无数据')
@@ -88,7 +85,7 @@ describe('Table', () => {
     const cols = [
       { key: 'name', label: '名称', sortable: true },
     ]
-    const vnode = renderVNode(Table, { columns: cols, data, sortKey: 'name', sortOrder: 'asc' }, mockCtx())!
+    const vnode = renderVNode(Table, { columns: cols, data, sortKey: 'name', sortOrder: 'asc' }, createTestCtx())!
     const rows = tableOf(vnode).props.children[1].props.children
     assert.equal(rows[0].props.children[0].props.children, '阿宝')
     assert.equal(rows[1].props.children[0].props.children, '李四')
@@ -98,7 +95,7 @@ describe('Table', () => {
   it('sorts data descending', () => {
     const data = [{ name: '阿宝' }, { name: '张三' }, { name: '李四' }]
     const cols = [{ key: 'name', label: '名称', sortable: true }]
-    const vnode = renderVNode(Table, { columns: cols, data, sortKey: 'name', sortOrder: 'desc' }, mockCtx())!
+    const vnode = renderVNode(Table, { columns: cols, data, sortKey: 'name', sortOrder: 'desc' }, createTestCtx())!
     const rows = tableOf(vnode).props.children[1].props.children
     assert.equal(rows[0].props.children[0].props.children, '张三')
     assert.equal(rows[1].props.children[0].props.children, '李四')
@@ -108,7 +105,7 @@ describe('Table', () => {
   it('uses custom sorter', () => {
     const data = [{ val: 10 }, { val: 5 }, { val: 20 }]
     const cols = [{ key: 'val', label: '值', sortable: true, sorter: (a: number, b: number) => a - b }]
-    const vnode = renderVNode(Table, { columns: cols, data, sortKey: 'val', sortOrder: 'asc' }, mockCtx())!
+    const vnode = renderVNode(Table, { columns: cols, data, sortKey: 'val', sortOrder: 'asc' }, createTestCtx())!
     const rows = tableOf(vnode).props.children[1].props.children
     assert.equal(rows[0].props.children[0].props.children, '5')
     assert.equal(rows[1].props.children[0].props.children, '10')
@@ -118,7 +115,7 @@ describe('Table', () => {
   it('calls onSort when clicking sortable header', () => {
     let captured: any = null
     const cols = [{ key: 'name', label: '名称', sortable: true }]
-    const vnode = renderVNode(Table, { columns: cols, data: [], onSort: (k: string, o: string) => { captured = { k, o } } }, mockCtx())!
+    const vnode = renderVNode(Table, { columns: cols, data: [], onSort: (k: string, o: string) => { captured = { k, o } } }, createTestCtx())!
     const headerCell = tableOf(vnode).props.children[0].props.children.props.children[0]
     headerCell.props.onClick()
     assert.deepEqual(captured, { k: 'name', o: 'asc' })
@@ -127,7 +124,7 @@ describe('Table', () => {
   it('toggles sort order on re-click', () => {
     let captured: any = null
     const cols = [{ key: 'name', label: '名称', sortable: true }]
-    const vnode = renderVNode(Table, { columns: cols, data: [], sortKey: 'name', sortOrder: 'asc', onSort: (k: string, o: string) => { captured = { k, o } } }, mockCtx())!
+    const vnode = renderVNode(Table, { columns: cols, data: [], sortKey: 'name', sortOrder: 'asc', onSort: (k: string, o: string) => { captured = { k, o } } }, createTestCtx())!
     const headerCell = tableOf(vnode).props.children[0].props.children.props.children[0]
     headerCell.props.onClick()
     assert.deepEqual(captured, { k: 'name', o: 'desc' })
@@ -138,7 +135,7 @@ describe('Table', () => {
       { key: 'id', label: 'ID', sortable: true },
       { key: 'name', label: '名称' },
     ]
-    const vnode = renderVNode(Table, { columns: cols, data: [] }, mockCtx())!
+    const vnode = renderVNode(Table, { columns: cols, data: [] }, createTestCtx())!
     const cells = tableOf(vnode).props.children[0].props.children.props.children
     assert.match(cells[0].props.class, /wf-table-th--sortable/)
     assert.doesNotMatch(cells[1].props.class, /wf-table-th--sortable/)
@@ -146,22 +143,22 @@ describe('Table', () => {
 
   it('adds sorted class to active sort column', () => {
     const cols = [{ key: 'name', label: '名称', sortable: true }]
-    const vnode = renderVNode(Table, { columns: cols, data: [], sortKey: 'name', sortOrder: 'asc' }, mockCtx())!
+    const vnode = renderVNode(Table, { columns: cols, data: [], sortKey: 'name', sortOrder: 'asc' }, createTestCtx())!
     const cell = tableOf(vnode).props.children[0].props.children.props.children[0]
     assert.match(cell.props.class, /wf-table-th--sorted/)
   })
 
   it('passes minWidth to table for responsive scroll', () => {
-    const vnode = renderVNode(Table, { columns, data: [], minWidth: '720px' }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data: [], minWidth: '720px' }, createTestCtx())!
     const table = tableOf(vnode)
     assert.equal(table.props.style.minWidth, '720px')
     // 未设置 minWidth 时不输出 style
-    const vnode2 = renderVNode(Table, { columns, data: [] }, mockCtx())!
+    const vnode2 = renderVNode(Table, { columns, data: [] }, createTestCtx())!
     assert.equal(tableOf(vnode2).props.style, undefined)
   })
 
   it('loading 时保留表头并渲染骨架行', () => {
-    const vnode = renderVNode(Table, { columns, data: [], loading: true }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data: [], loading: true }, createTestCtx())!
     const table = tableOf(vnode)
     const thead = table.props.children[0]
     const tbody = table.props.children[1]
@@ -171,7 +168,7 @@ describe('Table', () => {
     const firstCell = rows[0].props.children[0]
     assert.match(firstCell.props.children.props.class, /wf-skeleton/)
     // 自定义骨架行数
-    const vnode2 = renderVNode(Table, { columns, data: [], loading: true, loadingRows: 5 }, mockCtx())!
+    const vnode2 = renderVNode(Table, { columns, data: [], loading: true, loadingRows: 5 }, createTestCtx())!
     assert.equal(tableOf(vnode2).props.children[1].props.children.length, 5)
   })
 
@@ -185,7 +182,7 @@ describe('Table', () => {
     const vnode = renderVNode(Table, {
       columns: cols, data: [],
       onSort: (k: string, o: string) => { called = [k, o] },
-    }, mockCtx())!
+    }, createTestCtx())!
     const headerCells = tableOf(vnode).props.children[0].props.children.props.children
     const sortable = headerCells[0]
     const plain = headerCells[1]
@@ -199,7 +196,7 @@ describe('Table', () => {
     const vnode2 = renderVNode(Table, {
       columns: cols, data: [], sortKey: 'id', sortOrder: 'asc',
       onSort: (k: string, o: string) => { called = [k, o] },
-    }, mockCtx())!
+    }, createTestCtx())!
     const sortable2 = tableOf(vnode2).props.children[0].props.children.props.children[0]
     sortable2.props.onKeyDown({ key: ' ', preventDefault: () => {} })
     assert.deepEqual(called, ['id', 'desc'])

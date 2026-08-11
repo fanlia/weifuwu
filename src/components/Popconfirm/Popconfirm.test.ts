@@ -2,11 +2,9 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Popconfirm } from './Popconfirm.ts'
 import { Icon } from '../Icon/Icon.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
+import { createTestCtx } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   if (!vnode || typeof vnode !== 'object') return null
@@ -29,10 +27,9 @@ function mount(Comp: any, props: any, ctx: any) {
   return { render: (p: any = props) => factory(p) }
 }
 
-const mockCtx = () => {
+const makeCtx = () => {
   const openStates = new Map<string, boolean>()
-  return {
-    ui: {
+  return createTestCtx({ ui: {
       $: () => ({}),
       render: () => {},
       dirty: () => {},
@@ -56,7 +53,7 @@ const mockCtx = () => {
         isOpen: opts.isOpen,
       }),
     },
-  } as any
+  }) as any
 }
 
 describe('Popconfirm', () => {
@@ -64,7 +61,7 @@ describe('Popconfirm', () => {
     const vnode = renderVNode(
       Popconfirm,
       { title: '确定删除？', children: '删除' },
-      mockCtx(),
+      makeCtx(),
     )
     const wrap = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-popconfirm-wrap'))
     assert.ok(wrap, '存在 wrap')
@@ -86,7 +83,7 @@ describe('Popconfirm', () => {
     const vnode = renderVNode(
       Popconfirm,
       { title: 'x', danger: true, children: 'd' },
-      mockCtx(),
+      makeCtx(),
     )
     const ok = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-popconfirm-ok'))
     assert.match(ok.props.class, /danger/, 'danger 透传确认按钮')
@@ -95,7 +92,7 @@ describe('Popconfirm', () => {
   test('打开后：确认回调 + 受控关闭通知', () => {
     let confirmed = 0
     let closed = 0
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(Popconfirm, { title: 'x', onConfirm: () => confirmed++, children: 't' }, ctx)
     let vnode = inst.render({ title: 'x', onConfirm: () => confirmed++, children: 't', open: true, onOpenChange: () => { closed++ } })
     const ok = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-popconfirm-ok'))
@@ -106,7 +103,7 @@ describe('Popconfirm', () => {
 
   test('取消回调 + 关闭', () => {
     let cancelled = 0
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(Popconfirm, { title: 'x', onCancel: () => cancelled++, children: 't' }, ctx)
     const vnode = inst.render({ title: 'x', onCancel: () => cancelled++, children: 't', open: true })
     const cancel = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-popconfirm-cancel'))
@@ -115,7 +112,7 @@ describe('Popconfirm', () => {
   })
 
   test('icon 自定义（默认 Icon 组件）', () => {
-    const vnode = renderVNode(Popconfirm, { title: 'x', children: 't' }, mockCtx())
+    const vnode = renderVNode(Popconfirm, { title: 'x', children: 't' }, makeCtx())
     const title = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-popconfirm-title'))
     // 默认图标 + title 文本
     assert.ok(title.props.children, 'title 有内容')
@@ -127,7 +124,7 @@ describe('Popconfirm', () => {
 test('受控 open + onOpenChange 对称（§5.2 受控纪律）', () => {
   let notified: boolean | undefined
   const props = { title: 'x', open: false, onOpenChange: (v: boolean) => { notified = v } }
-  const ctx = mockCtx()
+  const ctx = makeCtx()
   const inst = mount(Popconfirm, props, ctx)
   const vnode = inst.render()
   // 受控 open=false：气泡挂 --exit（非 --enter）——open 由父层独占
@@ -141,7 +138,7 @@ test('受控 open + onOpenChange 对称（§5.2 受控纪律）', () => {
 })
 
 test('自定义 okText/cancelText', () => {
-  const ctx = mockCtx()
+  const ctx = makeCtx()
   const inst = mount(Popconfirm, { title: 'x', okText: '删掉', cancelText: '算了' }, ctx)
   const vnode = inst.render({ title: 'x', okText: '删掉', cancelText: '算了', open: true, onOpenChange: () => {} })
   const s = JSON.stringify(vnode)
@@ -149,7 +146,7 @@ test('自定义 okText/cancelText', () => {
 })
 
 test('边界：无 onConfirm/onCancel 点击不抛错', () => {
-  const ctx = mockCtx()
+  const ctx = makeCtx()
   const inst = mount(Popconfirm, { title: 'x', open: true, onOpenChange: () => {} }, ctx)
   const vnode = inst.render({ title: 'x', open: true, onOpenChange: () => {} })
   const s = JSON.stringify(vnode)

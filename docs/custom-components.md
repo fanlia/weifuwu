@@ -167,17 +167,23 @@ const Page: Component<{}, { api: ApiInjected['api'] }> = (_init, ctx) => {
 
 ## 7. 测试写法
 
-```tsx
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
+**官方测试原语 `weifuwu/ui-dom/testing`**（子路径，随包发布）——自研组件测试用官方工具，不手抄：
 
-const ctx = { ui: { $: () => ({}), render: () => {}, dirty: () => {}, useControlled: (o: any) => ({ value: o.value, setValue: o.onChange ?? (() => {}), controlled: o.value !== undefined }) } }
-const vnode = renderVNode(Toggle, {}, ctx)
+```tsx
+import { renderVNode, mountComponent, findByClass, createTestCtx } from 'weifuwu/ui-dom/testing'
+// 仓库内开发用相对路径：from '../../ui-dom/testing.ts'
+
+const vnode = renderVNode(Toggle, {}, createTestCtx())
 // 断言 vnode 结构（子组件 VNode.type 是组件函数，不是标签名）
+
+// 交互流转（内部 let 状态）用 mountComponent（同实例 re-render）：
+const render = mountComponent(Toggle, {}, createTestCtx())
+render() // 初始
+// ... 触发点击/输入 ...
+render() // 重渲染，状态保留
 ```
 
+- 弹层组件：`createPopupMock(isOpen)` 注入 `createTestCtx({ ui: { usePopup: () => popup } })`
 - 类型流测试：`@ts-expect-error` 负例（见 [type-flow.test.ts](../src/components/type-flow.test.ts)）
 - 组件测试跑在 node --test；DOM 事件级测试需 `document.body.appendChild(container)`
 

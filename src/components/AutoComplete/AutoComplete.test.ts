@@ -1,11 +1,8 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { AutoComplete, filterOptions } from './AutoComplete.ts'
+import { renderVNode, createTestCtx, createPopupMock } from '../../ui-dom/testing.ts'
 
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   if (!vnode || typeof vnode !== 'object') return null
@@ -27,21 +24,13 @@ function mount(Comp: any, props: any, ctx: any) {
   return { render: (p: any = props) => factory(p) }
 }
 
-const mockCtx = () => {
-  // useControlledInput 需要跨 render 保持内部态——mock 用 Map 缓存
+function makeCtx() {
+  // useControlledInput 需要跨 render 保持内部态——mock 用 Map 缓存（官方 createTestCtx + createPopupMock 组合）
   const states = new Map<string, { keyword: string; selectedLabel: string }>()
-  return {
+  return createTestCtx({
     ui: {
-      $: () => ({}),
-      render: () => {},
-      dirty: () => {},
-      usePopup: (opts: any) => ({
-        get open() { return opts.isOpen() },
-        setOpen: opts.setOpen,
-        refresh: () => {},
-        portal: (content: any) => (opts.isOpen() ? content : null),
-        wrapProps: {},
-      }),
+      // 弹层 open 由组件受控状态驱动（usePopup options.isOpen）——动态而非固定 false
+      usePopup: (opts: any) => createPopupMock(() => opts.isOpen(), opts.setOpen),
       useControlledInput: (opts: any) => {
         const key = opts.name ?? 'default'
         if (!states.has(key)) states.set(key, { keyword: '', selectedLabel: '' })
@@ -57,7 +46,7 @@ const mockCtx = () => {
         }
       },
     },
-  } as any
+  }) as any
 }
 
 function optionLabels(vnode: any): string[] {
@@ -94,7 +83,7 @@ describe('filterOptions（纯函数）', () => {
 
 describe('AutoComplete', () => {
   test('渲染输入框 + 下拉默认关闭', () => {
-    const vnode = renderVNode(AutoComplete, { options, value: '' }, mockCtx())
+    const vnode = renderVNode(AutoComplete, { options, value: '' }, makeCtx())
     const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
     assert.ok(input, '存在输入框')
     const dropdown = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-dropdown'))
@@ -102,7 +91,7 @@ describe('AutoComplete', () => {
   })
 
   test('value 驱动过滤渲染', () => {
-    const vnode = renderVNode(AutoComplete, { options, value: '支付', open: true }, mockCtx())
+    const vnode = renderVNode(AutoComplete, { options, value: '支付', open: true }, makeCtx())
     const labels = optionLabels(vnode)
     assert.equal(labels.length, 2, '过滤出 2 条')
     assert.ok(labels.includes('支付平台管理'))
@@ -110,7 +99,7 @@ describe('AutoComplete', () => {
 
   test('点击选项 → onChange + 回填', () => {
     let selected = ''
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(AutoComplete, { options, value: '', onChange: (v: string) => { selected = v } }, ctx)
     const vnode = inst.render({ options, value: '', open: true, onChange: (v: string) => { selected = v } })
     const opt = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-option'))
@@ -120,7 +109,7 @@ describe('AutoComplete', () => {
 
   test('键盘导航：↓ 高亮 → Enter 选中', () => {
     let selected = ''
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(AutoComplete, { options, value: '', onChange: (v: string) => { selected = v } }, ctx)
     const props = { options, value: '', open: true, onChange: (v: string) => { selected = v } }
     let vnode = inst.render(props)
@@ -135,7 +124,7 @@ describe('AutoComplete', () => {
   })
 
   test('选中后 input 回填选中 label（关闭状态）', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(AutoComplete, { options, value: '', onChange: () => {} }, ctx)
     // 打开 + 点击选项选中
     let vnode = inst.render({ options, value: '', open: true, onChange: () => {} })
@@ -149,7 +138,7 @@ describe('AutoComplete', () => {
 
   test('IME 组合期间不处理 onChange（中文输入不被重置打断）', () => {
     let changed = 0
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(AutoComplete, { options, value: '', onChange: () => { changed++ } }, ctx)
     const vnode = inst.render({ options, value: '', onChange: () => { changed++ } })
     const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
@@ -166,7 +155,7 @@ describe('AutoComplete', () => {
   })
 
   test('Escape 关闭下拉', () => {
-    const ctx = mockCtx()
+    const ctx = makeCtx()
     const inst = mount(AutoComplete, { options, value: '' }, ctx)
     let vnode = inst.render({ options, value: '', open: true })
     const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))

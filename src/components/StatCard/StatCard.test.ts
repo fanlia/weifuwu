@@ -3,12 +3,9 @@ import assert from 'node:assert'
 import { StatCard } from './StatCard.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
-function renderVNode(Comp: any, props: any, ctx: any) {
-  const result = Comp(props, ctx)
-  return typeof result === 'function' ? result(props) : result
-}
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   if (!vnode || typeof vnode !== 'object') return null
@@ -23,7 +20,7 @@ function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   return null
 }
 
-function mockCtx(): WfuiContext {
+function createTestCtx(): WfuiContext {
   return { ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
     useReducedMotion: () => false,
@@ -36,7 +33,7 @@ function mockCtx(): WfuiContext {
 
 describe('StatCard', () => {
   it('renders label and value', () => {
-    const vnode = renderVNode(StatCard, { label: '用户数', value: 128 }, mockCtx())!
+    const vnode = renderVNode(StatCard, { label: '用户数', value: 128 }, createTestCtx())!
     assert.match(vnode.props.class, /wf-stat/)
     const valueEl = vnode.props.children[0]
     const labelEl = vnode.props.children[1]
@@ -45,14 +42,14 @@ describe('StatCard', () => {
   })
 
   it('renders icon when provided', () => {
-    const vnode = renderVNode(StatCard, { label: '收入', value: '¥899', icon: '💰' }, mockCtx())!
+    const vnode = renderVNode(StatCard, { label: '收入', value: '¥899', icon: '💰' }, createTestCtx())!
     const icon = vnode.props.children[0]
     assert.equal(icon.props.class, 'wf-stat-icon')
     assert.equal(icon.props.children, '💰')
   })
 
   it('renders up trend', () => {
-    const vnode = renderVNode(StatCard, { label: '用户', value: '100', trend: 'up', trendLabel: '12%' }, mockCtx())!
+    const vnode = renderVNode(StatCard, { label: '用户', value: '100', trend: 'up', trendLabel: '12%' }, createTestCtx())!
     const trend = vnode.props.children[vnode.props.children.length - 1]
     assert.match(trend.props.class, /wf-stat-trend--up/)
     const arrow = trend.props.children[0]
@@ -60,7 +57,7 @@ describe('StatCard', () => {
   })
 
   it('renders down trend', () => {
-    const vnode = renderVNode(StatCard, { label: '用户', value: '100', trend: 'down' }, mockCtx())!
+    const vnode = renderVNode(StatCard, { label: '用户', value: '100', trend: 'down' }, createTestCtx())!
     const trend = vnode.props.children[vnode.props.children.length - 1]
     assert.match(trend.props.class, /wf-stat-trend--down/)
   })
@@ -69,7 +66,7 @@ describe('StatCard', () => {
     const orig = globalThis.matchMedia
     globalThis.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), addEventListener() {}, removeEventListener() {} })) as any
     try {
-      const vnode = renderVNode(StatCard, { label: 'x', value: 42, animate: true }, mockCtx())!
+      const vnode = renderVNode(StatCard, { label: 'x', value: 42, animate: true }, createTestCtx())!
       const valueEl = vnode.props.children[0]
       assert.equal(valueEl.props.children, '42', 'reduced-motion 直落终值')
       assert.match(valueEl.props.class, /wf-nums/, '数值用 tabular-nums')
@@ -79,13 +76,13 @@ describe('StatCard', () => {
   })
 
   it('非 animate 时字符串值原样渲染', () => {
-    const vnode = renderVNode(StatCard, { label: 'x', value: '1.2k' }, mockCtx())!
+    const vnode = renderVNode(StatCard, { label: 'x', value: '1.2k' }, createTestCtx())!
     assert.equal(vnode.props.children[0].props.children, '1.2k')
   })
 
   it('可点击 StatCard：Enter/Space 触发 onClick（键盘可达）', () => {
     let clicks = 0
-    const vnode = renderVNode(StatCard, { label: 'x', value: 1, onClick: () => clicks++ }, mockCtx())!
+    const vnode = renderVNode(StatCard, { label: 'x', value: 1, onClick: () => clicks++ }, createTestCtx())!
     assert.equal(vnode.props.role, 'button')
     assert.match(vnode.props.class, /wf-elevate/)
     vnode.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
@@ -172,7 +169,7 @@ describe('StatCard', () => {
 })
 
 test('countdown 模式：显示剩余 MM:SS 格式', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   ctx.ui.useTween = () => ({ value: 0, reset: () => {} })
   const future = Date.now() + 95 * 1000 // 95s → 01:35
   const factory = StatCard({}, ctx)
@@ -183,7 +180,7 @@ test('countdown 模式：显示剩余 MM:SS 格式', () => {
 })
 
 test('countdown 结束 → onFinish 回调 + 定时器清理', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   ctx.ui.useTween = () => ({ value: 0, reset: () => {} })
   let finished = 0
   const past = Date.now() - 1000 // 已过时 → 0
@@ -196,7 +193,7 @@ test('countdown 结束 → onFinish 回调 + 定时器清理', () => {
 })
 
 test('countdown 模式 value 可选；无 value 不渲染 undefined', () => {
-  const ctx = mockCtx()
+  const ctx = createTestCtx()
   ctx.ui.useTween = () => ({ value: 0, reset: () => {} })
   const factory = StatCard({}, ctx)
   // countdown 模式无需 value
