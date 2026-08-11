@@ -34,11 +34,15 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
   let highlight = 0
   let triggerEls: (HTMLElement | null)[] = []
 
-  // 稳定 ref：索引从 data-idx 读取（内联 ref 每次渲染换引用，会触发无谓的旧 ref(null)）
-  const triggerRef = (el: HTMLElement | null) => {
-    if (!el) return
-    const i = Number(el.dataset.idx)
-    if (!Number.isNaN(i)) triggerEls[i] = el
+  // 闭包捕获索引 + Map 缓存稳定（React useCallback 等价物）：不读 dataset（根治顺序依赖）
+  const triggerRefs = new Map<number, (el: HTMLElement | null) => void>()
+  const triggerRefFor = (i: number) => {
+    let fn = triggerRefs.get(i)
+    if (!fn) {
+      fn = (el) => { if (el) triggerEls[i] = el }
+      triggerRefs.set(i, fn)
+    }
+    return fn
   }
 
   // menus 由 render 阶段更新（闭包读最新）
@@ -103,8 +107,7 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
           menu.disabled ? 'wf-menubar-trigger--dis' : '',
         ].filter(Boolean).join(' '),
         key: menu.key,
-        'data-idx': String(i),
-        ref: triggerRef,
+        ref: triggerRefFor(i),
         'aria-haspopup': 'menu',
         'aria-expanded': open ? 'true' : 'false',
         onClick: menu.disabled ? undefined : () => toggle(menu.key),

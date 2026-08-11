@@ -31,11 +31,17 @@ export const PinInput: Component<PinInputProps> = async (_init, ctx) => {
     }
   }
 
-  // 稳定 ref（mount 作用域）：索引从 data-idx 读取（工厂模式每次渲染新建函数）
-  const inputRef = (el: HTMLInputElement | null) => {
-    if (!el) return
-    const i = Number(el.dataset.idx)
-    if (!Number.isNaN(i)) refs[i] = el
+  // 闭包捕获索引 + Map 缓存稳定（React useCallback 等价物）：
+  // ref 直接闭包捕获 i（不读 dataset——根治 data-idx 依赖 setProp 顺序的隐式契约）；
+  // 函数引用跨渲染缓存复用（不触发 ref-diff 误清理——§5.1 纪律）
+  const cellRefs = new Map<number, (el: HTMLInputElement | null) => void>()
+  const inputRefFor = (i: number) => {
+    let fn = cellRefs.get(i)
+    if (!fn) {
+      fn = (el) => { if (el) refs[i] = el }
+      cellRefs.set(i, fn)
+    }
+    return fn
   }
 
   return (props) => {
@@ -110,8 +116,7 @@ export const PinInput: Component<PinInputProps> = async (_init, ctx) => {
         pattern: isNumber ? '[0-9]' : undefined,
         'aria-label': `${ariaLabel ?? '验证码'}第 ${i + 1} 位`,
         disabled: disabled || undefined,
-        ref: inputRef,
-        'data-idx': String(i),
+        ref: inputRefFor(i),
         onInput: (e: any) => handleInput(i, e.target.value),
         onKeyDown: (e: any) => handleKeyDown(i, e),
         onPaste: handlePaste,

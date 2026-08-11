@@ -31,11 +31,15 @@ export const Accordion: Component<AccordionProps> = async (_init, ctx) => {
   let internalActive: string[] = []
 
   let summaryEls: (HTMLElement | null)[] = []
-  // 稳定 ref：索引从 data-idx 读取（工厂模式每次渲染新建函数 = 内联 ref 警告）
-  const summaryRef = (el: HTMLElement | null) => {
-    if (!el) return
-    const i = Number(el.dataset.idx)
-    if (!Number.isNaN(i)) summaryEls[i] = el
+  // 闭包捕获索引 + Map 缓存稳定（React useCallback 等价物）：不读 dataset（根治顺序依赖）
+  const summaryRefs = new Map<number, (el: HTMLElement | null) => void>()
+  const summaryRefFor = (i: number) => {
+    let fn = summaryRefs.get(i)
+    if (!fn) {
+      fn = (el) => { if (el) summaryEls[i] = el }
+      summaryRefs.set(i, fn)
+    }
+    return fn
   }
 
   return (props) => {
@@ -84,8 +88,7 @@ export const Accordion: Component<AccordionProps> = async (_init, ctx) => {
         h('button', {
           type: 'button',
           class: 'wf-accordion-summary',
-          ref: summaryRef,
-          'data-idx': String(i),
+          ref: summaryRefFor(i),
           disabled: item.disabled || undefined,
           'aria-expanded': open ? 'true' : 'false',
           onClick: item.disabled ? undefined : () => toggle(item.key),

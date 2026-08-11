@@ -37,11 +37,15 @@ export const Collapse: Component<CollapseProps> = async (_init, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let headerEls: (HTMLElement | null)[] = []
-  // 稳定 ref：索引从 data-idx 读取（makeHeaderRef 工厂每次渲染新建函数 = 内联 ref 警告）
-  const headerRef = (el: HTMLElement | null) => {
-    if (!el) return
-    const i = Number(el.dataset.idx)
-    if (!Number.isNaN(i)) headerEls[i] = el
+  // 闭包捕获索引 + Map 缓存稳定（React useCallback 等价物）：不读 dataset（根治顺序依赖）
+  const headerRefs = new Map<number, (el: HTMLElement | null) => void>()
+  const headerRefFor = (i: number) => {
+    let fn = headerRefs.get(i)
+    if (!fn) {
+      fn = (el) => { if (el) headerEls[i] = el }
+      headerRefs.set(i, fn)
+    }
+    return fn
   }
 
   return (props) => {
@@ -103,8 +107,7 @@ export const Collapse: Component<CollapseProps> = async (_init, ctx) => {
         h('button', {
           type: 'button',
           class: 'wf-collapse-header',
-          ref: headerRef,
-          'data-idx': String(i),
+          ref: headerRefFor(i),
           'aria-expanded': open ? 'true' : 'false',
           onClick: () => toggle(item.key),
         }, headerChildren),
