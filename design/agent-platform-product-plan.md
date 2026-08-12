@@ -1,6 +1,6 @@
 # agent-platform 产品化优化计划（8 角色评审）
 
-> **状态（2026-12）**：🔄 实施中——Wave 1-4 核心已落地（P0 阻断修复 / 群聊核心 / @ 定向+补全 / 消息搜索+分页 / 成本视图 / 注册引导 / webhook replay 防护 / 测试隔离根治），Wave 5 剩余低优先级项。
+> **状态（2026-12）**：🔄 实施中——Wave 1-4 全落地 + 模板运营位（使用计数/热门排序）；Wave 5 剩余低优先级项（页面状态类型化/埋点）。
 
 ## 0. 现状盘点（实测证据，2026-12）
 
@@ -156,7 +156,10 @@
 | P2 webhook replay 防护 | ✅ | X-Timestamp 参与签名 + 5 分钟新鲜度 + nonce 去重（兼容旧调用方） |
 | P2 注册引导 | ✅ | Dashboard 首启横幅「创建你的第一个 AI 同事」3 步引导（有 AI 后消失） |
 | 测试隔离根治 | ✅ | postgres() 参数修正（connection 字符串非 url——此前隔离无效根因）+ demo_test 确认独立 |
-| Wave 5（Chat 拆分/状态类型化/埋点/模板运营位） | ⏳ | 低优先级留后续——Chat.tsx 471 行已函数化清晰，拆分收益低风险高（裁剪） |
+| 模板运营位 | ✅ | ROLE_TEMPLATES usage_count（from-template 递增）+ GET 排序（热门优先）+ 前端 🔥 热门标记——实测 developer 计数 1 |
+| seed 演示环境 | ✅ | scripts/seed.mjs 完整工作（4 Agent/7 日志/10 消息/3 webhook 日志 + 体验引导） |
+| AuthPage 受控警告 | ✅ | 实测 reload 后消失——旧 bundle 缓存误报（非当前代码） |
+| Wave 5（Chat 拆分/状态类型化/埋点/页面测试） | ⏳ | 低优先级留后续——Chat.tsx 已函数化清晰；页面测试需 mock 大量 ctx（诚实裁剪） |
 
 ## 3. 实施计划（Wave 划分）
 

@@ -55,6 +55,8 @@ server.ts（中间件装配 + schema 迁移 + 优雅关闭）
 - **@ 补全浮层**：输入 @ 弹成员选择（ChatInput control 原语），选中后定向发送
 - **注册引导**：无 AI 机器人时 Dashboard 显示「创建你的第一个 AI 同事」3 步引导
 - **Webhook replay 防护**：X-Timestamp 签名 + 5 分钟新鲜度 + nonce 去重
+- **模板运营位**：from-template 使用计数 + 🔥 热门标记（热门优先排序）
+- **演示环境**：`node scripts/seed.mjs` 一键种子（admin@demo.com / admin123）
 - **测试隔离**：`TEST_DATABASE_URL`（默认 demo_test 独立库）——测试不再清 demo 产品数据
 
 ## 验证记录（agent-browser 实测，2026-12）

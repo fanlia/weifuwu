@@ -22,6 +22,8 @@ export interface RoleTemplate {
   default_allow_command_exec: boolean
   default_workspace_hint: string | null
   default_skills: string[]
+  /** 使用计数（内存——运营展示「热门模板」） */
+  usage_count?: number
 }
 
 const ROLE_TEMPLATES: RoleTemplate[] = [
@@ -164,7 +166,8 @@ const ROLE_TEMPLATES: RoleTemplate[] = [
 
 /** 获取所有角色模板（供 server.ts 公共路由使用） */
 export function getRoleTemplates(): RoleTemplate[] {
-  return ROLE_TEMPLATES
+  // 热门模板优先（usage_count 降序——运营位）
+  return [...ROLE_TEMPLATES].sort((a, b) => (b.usage_count ?? 0) - (a.usage_count ?? 0))
 }
 
 /**
@@ -215,6 +218,9 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
       )
       RETURNING id, name, type, created_at
     `
+
+    // 使用计数（内存递增——运营展示）
+    template.usage_count = (template.usage_count ?? 0) + 1
 
     // 绑定默认技能
     const defaultSkills: string[] = template.default_skills ?? []

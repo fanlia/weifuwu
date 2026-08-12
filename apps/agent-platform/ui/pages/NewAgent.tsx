@@ -8,6 +8,7 @@ interface RoleTemplate {
   default_temperature: number; default_max_tokens: number
   default_allow_file_tools: boolean; default_allow_command_exec: boolean
   default_workspace_hint: string | null; default_skills: string[]
+  usage_count?: number
 }
 
 const AGENT_TYPES = [
@@ -127,7 +128,10 @@ export const NewAgent: Component = async (_props, ctx) => {
             <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(240px, 1fr))">
               {cat.templates.map((t: RoleTemplate) => (
                 <Card key={t.slug} outlined hover clickable onClick={() => selectTemplate(t)}>
-                  <div class="wf-text-3xl wf-mb-xs">{t.icon}</div>
+                  <div class="wf-row wf-gap-sm">
+                    <span class="wf-text-3xl">{t.icon}</span>
+                    {(t.usage_count ?? 0) > 0 && <Badge variant="warning">🔥 热门 · {t.usage_count ?? 0}</Badge>}
+                  </div>
                   <div class="wf-text-base wf-text-semibold">{t.name}</div>
                   <div class="wf-text-xs wf-text-secondary wf-mt-xs">{t.description}</div>
                   <div class="wf-row wf-gap-xs wf-mt-sm">
