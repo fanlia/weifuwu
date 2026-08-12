@@ -34,6 +34,14 @@ app.use(api({
   baseURL: '',
   // 自动鉴权：请求自动带 Bearer token（apps 不再手写 Authorization 头）
   token: () => localStorage.getItem('agent_platform_token'),
+  // 401（token 过期/无效）：清理凭证 + 跳转登录——防「无效 token 渲染 Dashboard → 5 个无谓 401
+  // + 空数据不跳转」（真实事故 2026-12：isLoggedIn 只看 token 存在，过期 token 页面空白）
+  onUnauthorized: () => {
+    localStorage.removeItem('agent_platform_token')
+    localStorage.removeItem('agent_platform_user')
+    localStorage.removeItem('agent_platform_refresh')
+    if (!window.location.pathname.startsWith('/login')) window.location.href = '/login'
+  },
 }))
 app.use(auth({
   storage: localStorage,

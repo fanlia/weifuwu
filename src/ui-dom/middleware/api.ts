@@ -34,6 +34,8 @@ export interface ApiOptions {
   onResponse?: <T>(res: Response) => Promise<T>
   /** 请求超时(ms), 默认 0 = 无超时 */
   timeout?: number
+  /** 401 回调（token 过期/无效——清理凭证 + 跳转登录等；403 不触发——权限不足非认证问题） */
+  onUnauthorized?: () => void
 }
 
 export interface ApiClient {
@@ -129,6 +131,9 @@ export function api(options?: ApiOptions): AppMiddleware<{}, ApiInjected> {
 
     try {
       const res = await fetch(finalReq.url, finalReq.init)
+
+      // 401 未认证：调用 onUnauthorized（token 过期/无效——清理 + 跳转）——仍 throw 供调用方 catch
+      if (res.status === 401) options?.onUnauthorized?.()
 
       // 响应拦截器
       if (onResponse) {

@@ -133,3 +133,25 @@ describe('api', () => {
     assert.equal(result, 'raw text')
   })
 })
+
+  it('401 → 触发 onUnauthorized（token 过期/无效——清理 + 跳转）；仍抛 ApiError', async () => {
+    mockResponse = () => new Response('{"error":"invalid token"}', { status: 401, headers: { 'Content-Type': 'application/json' } })
+    let called = 0
+    const client = createClient({ onUnauthorized: () => { called++ } })
+    try {
+      await client.get('/api/stats')
+      assert.fail('should throw')
+    } catch (e) {
+      assert.ok(e instanceof ApiError)
+      assert.equal((e as ApiError).status, 401)
+      assert.equal(called, 1, 'onUnauthorized 触发一次')
+    }
+  })
+
+  it('403/404 不触发 onUnauthorized（权限不足非认证问题）', async () => {
+    mockResponse = () => new Response('forbidden', { status: 403 })
+    let called = 0
+    const client = createClient({ onUnauthorized: () => { called++ } })
+    try { await client.get('/x') } catch { /* 403 抛错但回调不触发 */ }
+    assert.equal(called, 0, '403 不触发 onUnauthorized')
+  })
