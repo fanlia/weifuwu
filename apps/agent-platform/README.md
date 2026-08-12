@@ -16,14 +16,43 @@ npm run dev        # node --watch server.ts → http://localhost:3000
 
 首次启动自动：schema 迁移（CREATE IF NOT EXISTS 绝不 DROP）→ 用户表迁移 → 内置工具注册 → 启动。
 
+## 沙盒执行环境（Docker node:24）
+
+启用文件工具（allow_file_tools）的 AI Agent，其 read/write/edit/grep/list_files/bash 工具**全部在 Docker 沙盒容器内执行**（安全边界 = 容器）：
+
+```
+宿主 data/workspaces/{agent_id}/ ← 状态真相源（卷，双向挂载）
+        ↓ bind mount
+常驻容器 ap-sandbox-{agent_id}（--network none · 内存 512MB · 1 CPU · pids 256 · 非 root node 用户）
+        ↓ docker exec ~20-50ms
+统一工具执行器 /opt/sandbox/tool-runner.js（stdin {tool,args} → stdout {ok,output}）
+```
+
+**生命周期（Heartbeat + 池上限）**：
+- 每次工具调用 `touch`（记录最后使用）→ 60s 扫描，超 `SANDBOX_IDLE_TIMEOUT`（默认 600s）无操作自动销毁容器
+- 池上限 `SANDBOX_MAX_CONTAINERS`（默认 20）——超限 LRU 驱逐最旧容器（即使刚用过也要让位）
+- 销毁/驱逐后下次调用**惰性重建**（无感）——容器无状态，文件永远在卷，销毁仅失容器内瞬态（环境变量/后台进程）
+- 服务启动清理孤儿容器（`ap-sandbox-*` 全删）；agent 删除联动销毁
+- 备选：`SANDBOX_MODE=ephemeral`（每次调用一次性容器，低资源环境）
+
+**诚实裁剪（CS-05）**：
+- `--network none` 默认——npm install/curl 等网络命令失败是**设计**；Agent 配置「允许网络访问」→ `--network bridge`
+- docker 不可用 / 镜像缺失 / `SANDBOX_DISABLE=1` → 工具返回「沙盒不可用，命令执行已禁用」——**绝不静默回退宿主执行**
+- 容器内文件操作限制在 `/ws`（卷）——路径穿越/资源/网络均受容器边界保护
+
+**残余风险**（记录，不静默）：docker.sock 权限是信任边界（沙盒保护 AI/租户而非管理员）；容器逃逸（内核漏洞）低概率——生产可选 gVisor（`SANDBOX_RUNTIME=runsc`，登记为后续强化项）；workspace 自定义路径指向敏感目录时管理员自担风险。
+
+**工作空间文件浏览器**：AgentDetail「工作空间文件」卡片——列目录/打开/编辑/保存（用户管理面，宿主直接 fs，与沙盒卷同一份数据双向可见）：AI 容器内写文件 → 浏览器刷新即可见；用户编辑保存 → AI 下次 read 读到。
+
 ## 架构
 
 ```
 server.ts（中间件装配 + schema 迁移 + 优雅关闭）
 ├── src/middleware/   租户隔离（tenantId 注入）/ auth-payload / workspace
-├── src/routes/       auth / companies / agents / departments / messages / knowledge / skills / role-templates
+├── src/routes/       auth / companies / agents / departments / messages / knowledge / skills / role-templates / workspace（文件浏览器 API）
 ├── src/services/     chat（AI 对话 + HITL 审批）/ webhook / agent-runner / embedding / skills（热重载）
 ├── src/tools/        builtin 工具 + registry + workspace（文件操作）
+├── src/sandbox/      docker.ts（常驻容器池：ensure/exec/heartbeat/池上限）+ tool-runner.js（容器内工具执行器）
 ├── src/ai/           协议类型
 ├── skills/builtin/   可发现技能（get-current-time / search-knowledge-base）
 └── ui/               14 页 SPA（UIRouter + uiServe + 组件复用）

@@ -26,8 +26,8 @@
 - [x] **T7.** 池上限驱逐：test/sandbox.test.ts（MAX=2 → 第 3 个驱逐 LRU 最旧 → 重建无感 → 池恒 ≤ 上限）✓
 
 ## 阶段 4：文档与登记（P2）
-- [ ] **D1.** README/AGENTS 沙盒架构 + 残余风险 + 诚实裁剪
-- [ ] **X1.** gVisor（runsc）强化登记（不实现）
+- [x] **D1.** README 沙盒架构章节（常驻容器池/heartbeat/池上限/诚实裁剪/残余风险/文件浏览器联动）+ 架构树补 src/sandbox
+- [x] **X1.** gVisor（runsc）强化登记：README 残余风险表「SANDBOX_RUNTIME=runsc 登记为后续强化项」（不实现）
 
 ## 阶段 5：工作空间文件浏览器（P1）
 - [x] **F1.** `GET /api/agents/:id/workspace/list?path=` 列目录（名称/类型/大小/mtime，目录在前）
