@@ -34,8 +34,9 @@ export interface ApiOptions {
   onResponse?: <T>(res: Response) => Promise<T>
   /** 请求超时(ms), 默认 0 = 无超时 */
   timeout?: number
-  /** 401 回调（token 过期/无效——清理凭证 + 跳转登录等；403 不触发——权限不足非认证问题） */
-  onUnauthorized?: () => void
+  /** 401 回调（token 过期/无效——刷新凭证或跳转登录；403 不触发——权限不足非认证问题）。
+   *   async 可返回 true = 已恢复（如 refresh 成功）→ 重试原请求一次；false/void = 未恢复 → 抛 ApiError */
+  onUnauthorized?: () => Promise<boolean> | boolean | void
 }
 
 export interface ApiClient {
@@ -86,6 +87,8 @@ export function api(options?: ApiOptions): AppMiddleware<{}, ApiInjected> {
     url: string,
     body?: unknown,
     reqOpts?: ApiRequestOptions,
+    /** 内部重试标记（401 经 onUnauthorized 恢复后重试一次——防递归） */
+    _retried = false,
   ): Promise<T> {
     const fullURL = opts.baseURL + url
     const init: RequestInit = {
@@ -132,8 +135,15 @@ export function api(options?: ApiOptions): AppMiddleware<{}, ApiInjected> {
     try {
       const res = await fetch(finalReq.url, finalReq.init)
 
-      // 401 未认证：调用 onUnauthorized（token 过期/无效——清理 + 跳转）——仍 throw 供调用方 catch
-      if (res.status === 401) options?.onUnauthorized?.()
+      // 401 未认证：onUnauthorized 处理（可 async 返回 true=已恢复→重试一次；
+      // 刷新页 token 过期场景：Dashboard 并发请求 401 → onUnauthorized 等 refresh 合并
+      // 完成 → 成功重试 / 失败清理跳转——避免「不等 refresh 直接跳登录」（真实事故 2026-12））
+      if (res.status === 401) {
+        const handled = await options?.onUnauthorized?.()
+        if (handled && !_retried) {
+          return request(method, url, body, reqOpts, true)
+        }
+      }
 
       // 响应拦截器
       if (onResponse) {

@@ -155,3 +155,33 @@ describe('api', () => {
     try { await client.get('/x') } catch { /* 403 抛错但回调不触发 */ }
     assert.equal(called, 0, '403 不触发 onUnauthorized')
   })
+
+  it('401 → onUnauthorized 返回 true → 重试原请求一次（刷新凭证后恢复）', async () => {
+    let calls = 0
+    mockResponse = (url, init) => {
+      calls++
+      // 第一次 401（token 过期）；重试（带新 token）200
+      return calls === 1 ? new Response('{"error":"expired"}', { status: 401 })
+        : new Response('{"ok":true}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    let unauthCalls = 0
+    const client = createClient({ onUnauthorized: () => { unauthCalls++; return true } })
+    const data = await client.get('/api/stats')
+    assert.equal(calls, 2, '重试一次')
+    assert.equal(unauthCalls, 1, 'onUnauthorized 只调一次（重试后 200 不再触发）')
+    assert.deepEqual(data, { ok: true })
+  })
+
+  it('401 → onUnauthorized 返回 true 但重试仍 401 → 不再无限递归（_retried 守卫）', async () => {
+    mockResponse = () => new Response('{"error":"still 401"}', { status: 401 })
+    let calls = 0
+    const client = createClient({ onUnauthorized: () => { calls++; return true } })
+    try {
+      await client.get('/x')
+      assert.fail('should throw')
+    } catch (e) {
+      assert.ok(e instanceof ApiError)
+      assert.equal((e as ApiError).status, 401)
+    }
+    assert.equal(calls, 2, 'onUnauthorized 最多调 2 次（原 401 + 重试 401）——不无限递归')
+  })

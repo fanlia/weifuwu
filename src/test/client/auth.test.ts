@@ -139,3 +139,20 @@ describe('auth', () => {
     assert.equal(localStorage.getItem('t'), null, '无竞态时 refresh 失败正常清理')
     assert.equal(res.auth.token, null)
   })
+
+  it('refresh in-flight 合并：并发调用共享同一请求（rt 轮换单次使用不双发）', async () => {
+    localStorage.setItem('t', 'T_old')
+    localStorage.setItem('r', 'rt')
+    let refreshCalls = 0
+    globalThis.fetch = (async () => {
+      refreshCalls++
+      await new Promise((r) => setTimeout(r, 15))
+      return new Response(JSON.stringify({ token: 'T_new', refreshToken: 'rt2' }), { status: 200 })
+    }) as typeof globalThis.fetch
+    const res = makeAuth({ refreshTokenKey: 'r', refreshEndpoint: '/refresh' })
+    const [a, b] = await Promise.all([res.auth.refresh(), res.auth.refresh()])
+    assert.equal(a, true)
+    assert.equal(b, true)
+    assert.equal(refreshCalls, 1, '并发 refresh 合并为一次请求')
+    assert.equal(localStorage.getItem('t'), 'T_new')
+  })

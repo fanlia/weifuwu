@@ -14,6 +14,8 @@ export interface AuthOptions {
   userKey?: string
   refreshTokenKey?: string
   refreshEndpoint?: string
+  /** 注入完成后回调（暴露 authClient——api 中间件 onUnauthorized 等需要调 refresh 的场景） */
+  onAuth?: (auth: AuthClient) => void
 }
 
 export interface AuthClient {
@@ -57,6 +59,11 @@ export function auth(options?: AuthOptions): AppMiddleware<{}, AuthInjected> {
     const savedToken = storage.getItem(tokenKey)
     const savedUserStr = storage.getItem(userKey)
 
+    // refresh in-flight 合并（并发 refresh 只发一次——刷新页 token 过期场景：auth 注入
+    // 发起 refresh 同时 Dashboard API 401 → onUnauthorized 也调 refresh——rt 轮换单次使用，
+    // 并发两次必有一次失败；合并为共享 Promise 根治）
+    let refreshingPromise: Promise<boolean> | null = null
+
     const authClient: AuthClient = {
       token: savedToken,
       user: savedUserStr ? JSON.parse(savedUserStr) : null,
@@ -84,36 +91,45 @@ export function auth(options?: AuthOptions): AppMiddleware<{}, AuthInjected> {
       },
 
       async refresh(): Promise<boolean> {
-        const rt = storage.getItem(refreshTokenKey)
-        if (!rt) return false
-        // 竞态防护（真实事故 2026-12：登录后跳回登录页）：refresh 是注入时异步发起的——
-        // 期间用户登录写入新 token——refresh 失败响应到达后 `logout()` 清掉新 token →
-        // 守卫跳回 /login。响应时若 storage 中 token 已不是发起时的值 → 放弃本次 refresh
-        const tokenAtStart = storage.getItem(tokenKey)
-        try {
-          const res = await fetch(refreshEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken: rt }),
-          })
-          if (storage.getItem(tokenKey) !== tokenAtStart) return false // 登录已发生——放弃
-          if (!res.ok) {
-            authClient.logout()
-            return false
-          }
-          const data = await res.json()
-          if (storage.getItem(tokenKey) !== tokenAtStart) return false // 竞态二次检查
-          authClient.token = data.token
-          storage.setItem(tokenKey, data.token)
-          if (data.refreshToken) storage.setItem(refreshTokenKey, data.refreshToken)
-          return true
-        } catch { return false }
+        if (refreshingPromise) return refreshingPromise
+        refreshingPromise = doRefresh()
+          .finally(() => { refreshingPromise = null })
+        return refreshingPromise
       },
+    }
+
+    async function doRefresh(): Promise<boolean> {
+      const rt = storage.getItem(refreshTokenKey)
+      if (!rt) return false
+      // 竞态防护（真实事故 2026-12：登录后跳回登录页）：refresh 是注入时异步发起的——
+      // 期间用户登录写入新 token——refresh 失败响应到达后 `logout()` 清掉新 token →
+      // 守卫跳回 /login。响应时若 storage 中 token 已不是发起时的值 → 放弃本次 refresh
+      const tokenAtStart = storage.getItem(tokenKey)
+      try {
+        const res = await fetch(refreshEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: rt }),
+        })
+        if (storage.getItem(tokenKey) !== tokenAtStart) return false // 登录已发生——放弃
+        if (!res.ok) {
+          authClient.logout()
+          return false
+        }
+        const data = await res.json()
+        if (storage.getItem(tokenKey) !== tokenAtStart) return false // 竞态二次检查
+        authClient.token = data.token
+        storage.setItem(tokenKey, data.token)
+        if (data.refreshToken) storage.setItem(refreshTokenKey, data.refreshToken)
+        return true
+      } catch { return false }
     }
 
     if (savedToken && isTokenExpired(savedToken)) {
       authClient.refresh().catch(() => {})
     }
+
+    options?.onAuth?.(authClient)
 
     return extendCtx(ctx, { auth: authClient })
   }

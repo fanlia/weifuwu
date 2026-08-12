@@ -29,18 +29,26 @@ import { Settings } from './pages/Settings'
 
 const app = new UIRouter()
 
+// auth 实例引用（api 中间件的 onUnauthorized 运行时调 refresh——auth 后注入，
+// 但请求发生晚于全部中间件注入——onAuth 回调已填充 ref）
+const authRef: { current: null | { refresh: () => Promise<boolean> } } = { current: null }
+
 // 中间件（api/auth/ws 为 client AppMiddleware——UIRouter.use 兼容注入 ctx）
 app.use(api({
   baseURL: '',
   // 自动鉴权：请求自动带 Bearer token（apps 不再手写 Authorization 头）
   token: () => localStorage.getItem('agent_platform_token'),
-  // 401（token 过期/无效）：清理凭证 + 跳转登录——防「无效 token 渲染 Dashboard → 5 个无谓 401
-  // + 空数据不跳转」（真实事故 2026-12：isLoggedIn 只看 token 存在，过期 token 页面空白）
-  onUnauthorized: () => {
+  // 401（token 过期/无效）：先尝试 refresh（成功→重试请求）——刷新页 token 过期场景：
+  // Dashboard 并发请求 401 不等 refresh 直接跳登录 = 一刷新就掉线（真实事故 2026-12）；
+  // refresh 失败才清理凭证 + 跳登录（防「无效 token 空数据不跳转」）
+  onUnauthorized: async () => {
+    const ok = await authRef.current?.refresh?.()
+    if (ok) return true // refresh 成功——重试原请求
     localStorage.removeItem('agent_platform_token')
     localStorage.removeItem('agent_platform_user')
     localStorage.removeItem('agent_platform_refresh')
     if (!window.location.pathname.startsWith('/login')) window.location.href = '/login'
+    return false
   },
 }))
 app.use(auth({
@@ -48,6 +56,7 @@ app.use(auth({
   tokenKey: 'agent_platform_token',
   userKey: 'agent_platform_user',
   refreshTokenKey: 'agent_platform_refresh',
+  onAuth: (authClient) => { authRef.current = authClient },
 }))
 app.use(ws({ url: '/ws' }))
 
