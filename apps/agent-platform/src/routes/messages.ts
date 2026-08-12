@@ -98,9 +98,8 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       SELECT 1 FROM department_members dm
       JOIN departments d ON d.id = dm.department_id
       WHERE d.app_id = ${appId}
-      WHERE dm.department_id = ${params.id}
+        AND dm.department_id = ${params.id}
         AND dm.agent_id = ${sender.id}
-        AND c.app_id = ${appId}
     `
     if (!membership) {
       return Response.json({ error: '你不是该部门的成员' }, { status: 403 })
@@ -168,9 +167,8 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       SELECT 1 FROM department_members dm
       JOIN departments d ON d.id = dm.department_id
       WHERE d.app_id = ${appId}
-      WHERE dm.department_id = ${params.id}
+        AND dm.department_id = ${params.id}
         AND dm.agent_id = ${sender.id}
-        AND c.app_id = ${appId}
     `
     if (!membership) {
       return Response.json({ error: '你不是该部门的成员' }, { status: 403 })

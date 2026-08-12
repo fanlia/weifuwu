@@ -317,7 +317,6 @@ async function main() {
     const [deptStats] = await sql`
       SELECT COUNT(*)::int as total FROM departments d
       WHERE d.app_id = ${appId}
-      WHERE c.app_id = ${appId}
     `
 
     const [msgStats] = await sql`
