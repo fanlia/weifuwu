@@ -8,8 +8,8 @@
  * 三态 skip：props 同 + 无 dirty + ctx 版本同 → 复用旧 _child（renderFn 不重跑）。
  */
 
-import type { VNode, VNodeChild } from './vnode.ts'
-import { Fragment, Portal, arrayChildren, isFrag, isComp, isNative, isPortal } from './vnode.ts'
+import type { VNode, VNodeChild } from '../vnode2.ts'
+import { Fragment, Portal, arrayChildren, isFrag, isComp, isNative, isPortal } from '../vnode2.ts'
 // re-export（v1 导入点兼容——arrayChildren 已移至 vnode.ts 统一）
 export { arrayChildren }
 import { createClientBrowser } from '../browser.ts'

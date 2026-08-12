@@ -11,8 +11,8 @@
  * - 事件 props 剥离（hydration 接线）；ref 剥离
  */
 
-import type { VNode, VNodeChild } from './vnode.ts'
-import { isFrag, isComp, isPortal, isNative, Fragment, Portal } from './vnode.ts'
+import type { VNode, VNodeChild } from '../vnode2.ts'
+import { isFrag, isComp, isPortal, isNative, Fragment, Portal } from '../vnode2.ts'
 import { classifyKind, type VKind } from './kind.ts'
 import { holeMarkup, ENUMERATED_VALUE_BASED } from './transform.ts'
 import { ensureArrayKeys } from './transform.ts'

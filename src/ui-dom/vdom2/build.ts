@@ -14,9 +14,9 @@
  * 已构建 native）同步返回——零微任务。调用方统一 await 吸收（同步值 await 仅 1 微任务）。
  */
 
-import type { VNode, VNodeChild, Component } from './vnode.ts'
+import type { VNode, VNodeChild, Component } from '../vnode2.ts'
 import type { WfuiContext } from '../types.ts'
-import { Fragment, arrayChildren, isFrag, isComp, isNative } from './vnode.ts'
+import { Fragment, arrayChildren, isFrag, isComp, isNative } from '../vnode2.ts'
 import { ensureId, type Registry } from './registry.ts'
 import { trace, traceEnabled, kidsSeq, vnDesc } from './trace.ts'
 
@@ -39,7 +39,7 @@ export async function mountAsyncComponent(
   reg: Registry,
   opts?: { reuse?: VNode },
 ): Promise<{ renderFn: (props: VNode['props']) => Promise<VNode | null>; childCtx: WfuiContext }> {
-  const comp = vnode as import('./vnode.ts').CompVNode
+  const comp = vnode as import('../vnode2.ts').CompVNode
   if (!comp._id) {
     // 旧树同位置同类型 → 复用旧 id（渲染定位锚点不漂移：剪枝新 vnode 若分配新 id，
     // 组件内部 render([selfId]) 会命中 registry 里的新 vnode——其 _parentNode 未设置 →

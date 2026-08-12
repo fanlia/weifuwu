@@ -10,8 +10,8 @@
  * ctx.ui.render：render-only（design/render-only-plan.md）——唯一渲染触发。
  */
 
-import type { VNode, VNodeChild, CompVNode } from './vnode.ts'
-import { isComp } from './vnode.ts'
+import type { VNode, VNodeChild, CompVNode } from '../vnode2.ts'
+import { isComp } from '../vnode2.ts'
 import { createRegistry, type Registry } from './registry.ts'
 import { buildVNode } from './build.ts'
 import { renderValue } from './render.ts'

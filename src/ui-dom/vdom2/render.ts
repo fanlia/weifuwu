@@ -11,9 +11,9 @@
  * - 数组项：fragment-start/end 标记（DOM 持久化）
  */
 
-import type { VNode, VNodeChild } from './vnode.ts'
+import type { VNode, VNodeChild } from '../vnode2.ts'
 import type { BrowserEnv } from '../types.ts'
-import { Fragment, Portal, arrayChildren, isNative, isFrag, isComp, isPortal } from './vnode.ts'
+import { Fragment, Portal, arrayChildren, isNative, isFrag, isComp, isPortal } from '../vnode2.ts'
 import { classifyKind } from './kind.ts'
 import { createClientBrowser } from '../browser.ts'
 import { holeMarkup, setProp, createHole as _createHole } from './transform.ts'

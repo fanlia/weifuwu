@@ -5,8 +5,8 @@
  * 属性通道判定收敛到此单一模块——buildVNode / renderValue / patchChildren / renderSsr /
  * hydrateVNode 全部调用，禁止各路径各自实现形态判定（同一语义多套实现 = 漂移 = 转化分叉）。
  */
-import type { VNode, VNodeChild } from './vnode.ts'
-import { Fragment, Portal } from './vnode.ts'
+import type { VNode, VNodeChild } from '../vnode2.ts'
+import { Fragment, Portal } from '../vnode2.ts'
 import type { BrowserEnv } from '../types.ts'
 
 /** wf-hole 值摘要（占位内容可见可审计：false/null/undefined/true/对象摘要/bad-vnode） */

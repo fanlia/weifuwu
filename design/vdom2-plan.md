@@ -46,11 +46,13 @@ vdom2/
 ## 4. 分层（context/hooks/middleware 与 vdom 引擎解耦）
 
 ```
+vnode2.ts         独立强类型（判别联合 + 守卫 + 必填显式 null——不兼容 vdom1；
+                   Fragment/Portal symbol 复用全局——判别兼容）
 vdom2/           纯渲染引擎——改 vdom 不影响其他（审计：不 import hooks/popup/context）
 ui-dom/context.ts 组装层——ctx.ui 完整能力（render/selfId/onUnmount/bumpCtxVersion +
                    24 个 hooks 转发 + popup tracker + media registry）——改 hooks/ctx 不动 vdom
+ui-dom/middleware/serve.ts  uiServe 迁移（vdom2 引擎——router 全局类型边界 cast，替换后消除）
 ui-dom/hooks/     hooks 实现（独立模块，已存在）
-ui-dom/middleware/ 中间件（uiServe 等——后续迁移）
 ```
 
 ## 5. 验收
@@ -58,13 +60,9 @@ ui-dom/middleware/ 中间件（uiServe 等——后续迁移）
 - [x] vdom2 9×9 全矩阵（数组 + 单值 children 上下文）零残留
 - [x] x2html（SSR）与客户端同构（占位/数组标记/组件）
 - [x] 分层：vdom2 纯引擎（无 hooks/popup/ctx 依赖）+ ui-dom/context.ts 组装层
-- [x] tsc 零错误 + client 170 全绿 + vdom2 矩阵全绿
-- [ ] 替换 vdom1：serve/hydration/audit 迁移到 vdom2 + 全量回归（components 1079 + 既有 137）
-- [ ] 删除 vdom1（vdom/ 目录）——完成后单一引擎
-
-## 6. 待办（替换 vdom1 前）
-
-- serve.ts（uiServe/SPA 导航）迁移到 vdom2 + ui-dom/middleware/
-- hydration.ts 迁移（vdom2 的 hydrate）
-- audit.ts 迁移（vdom2 结构校验）
-- 组件全量回归（1079）——测试辅助 ui-dom-mount 改指向 vdom2
+- [x] vnode2.ts 独立强类型（不兼容 vdom1——用户决策；Fragment/Portal symbol 复用全局）
+- [x] uiServe 迁移到 ui-dom/middleware/serve.ts（vdom2 引擎）
+- [x] tsc 零错误 + client 170 + components 1079 + vdom2 矩阵全绿
+- [ ] hydration.ts 迁移（vdom2 的 hydrate）
+- [ ] audit.ts 迁移（vdom2 结构校验）
+- [ ] 删除 vdom1（vdom/ 目录）——完成后单一引擎（vnode2.ts 成唯一类型源，serve cast 消除）

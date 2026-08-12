@@ -19,8 +19,8 @@
  * uiLog 是深度跟踪——两者独立开关、不冲突。
  */
 
-import type { VNodeChild, VNode } from './vnode.ts'
-import { Fragment } from './vnode.ts'
+import type { VNodeChild, VNode } from '../vnode2.ts'
+import { Fragment } from '../vnode2.ts'
 
 export type VdomStage = 'mount' | 'build' | 'render' | 'diff' | 'audit'
 export type VdomLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace'

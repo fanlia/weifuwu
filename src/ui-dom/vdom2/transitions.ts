@@ -13,8 +13,8 @@
  * 全量组合表显式列出——vdom2-matrix.test.ts 9×9 矩阵验证无遗漏。
  */
 
-import type { VNode, VNodeChild } from './vnode.ts'
-import { Fragment, Portal, isFrag, isComp, isNative, isPortal } from './vnode.ts'
+import type { VNode, VNodeChild } from '../vnode2.ts'
+import { Fragment, Portal, isFrag, isComp, isNative, isPortal } from '../vnode2.ts'
 import { classifyKind, getOutputRange, type PatchState, type VKind } from './kind.ts'
 import { renderValue, createHole } from './render.ts'
 import { removeOldOutput, patchChildren, patchProps, patchValue, disposeComponent, type PatchCtx } from './patch.ts'

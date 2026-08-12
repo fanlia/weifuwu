@@ -214,7 +214,7 @@ export function patchValue(
       newV._childNodes = fragNodes
       return fragNodes[0] ?? null
     }
-    const oldRange = oldV?._childNodes
+    const oldRange = oldV?._childNodes ?? undefined
     // oldInput 传旧 Fragment 的 props.children（旧 vnode 本身会导致 oldChildren 错位 1 项
     // ——[fragV] vs [b1,b2] → 替换路径新建节点 → 重复残留；diff-fragment 真实 bug）
     const range = patchChildren(parent, oldV?.props?.children ?? oldInput, newV.props?.children ?? null, ctx, oldRange)

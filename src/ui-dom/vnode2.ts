@@ -1,14 +1,15 @@
 /**
- * vdom2 VNode 强类型定义——**判别联合**（type 为判别式）+ 类型守卫收窄，
- * 特有字段**必填**（渲染前初始化为显式 null/[]——不用 `xxx?: type` 弱可选）。
+ * vdom2 独立 VNode 类型（vnode2）——强类型判别联合，不兼容 vdom1。
+ *
+ * 与全局 vnode.ts（vdom1 JSX 运行时）的关系：
+ * - Fragment/Portal **symbol 复用全局**（全局唯一协议——JSX 编译产物用全局 Fragment，
+ *   vdom2 引擎处理全局 h() 产物必须同 symbol 判别）
+ * - 类型（VNode/VNodeChild/Component）**独立**（vdom2 强类型；vdom1 替换后本文件成唯一类型源）
  *
  * 访问模式（强类型约束）：
  *   if (isFrag(vnode)) { vnode._childNodes ... }   // type === Fragment → TS 收窄为 FragVNode
  *   if (isComp(vnode)) { vnode._render ... }        // type 为函数 → 收窄为 CompVNode
- *   —— 无需散落 `as FragVNode` cast；字段访问由类型系统强制。
- *
- * 文本/数组/占位是 JSX 编译产物的**原生值**（string/Array/boolean/null）——非 VNode，
- * 由 classifyKind() 分类后走同一转换表（transitions x2y / 渲染分派）。
+ *   —— 无散落 cast；字段访问由类型系统强制。
  */
 
 export type VNodeType = string | Component | typeof Fragment | typeof Portal
@@ -22,9 +23,8 @@ export type VNodeChild =
   | undefined
   | VNodeChild[]
 
-// Fragment/Portal 复用全局 symbol（全局唯一协议——vdom2 引擎与全局 vnode.ts 的 h()/jsx 产物兼容；
-// 若重复定义 Symbol('Fragment') 会与全局 h() 创建的 Fragment vnode 判别失败）
-import { Fragment, Portal } from '../vnode.ts'
+// Fragment/Portal 复用全局 symbol（全局唯一协议——与全局 h()/JSX 编译产物判别一致）
+import { Fragment, Portal } from './vnode.ts'
 export { Fragment, Portal }
 
 /** 通用字段（所有 VNode 共有——构建元数据；渲染前为 null 的显式初始化） */
@@ -80,17 +80,17 @@ export type VNode = NativeVNode | FragVNode | CompVNode | PortalVNode
 
 // ── 类型守卫（判别式收窄——替代散落 cast） ──
 
-export function isNative(v: VNode | null | undefined): v is NativeVNode {
-  return v != null && typeof v.type === 'string'
+export function isNative(v: unknown): v is NativeVNode {
+  return v != null && typeof v === 'object' && typeof (v as any).type === 'string'
 }
-export function isFrag(v: VNode | null | undefined): v is FragVNode {
-  return v != null && v.type === Fragment
+export function isFrag(v: unknown): v is FragVNode {
+  return v != null && typeof v === 'object' && (v as any).type === Fragment
 }
-export function isComp(v: VNode | null | undefined): v is CompVNode {
-  return v != null && typeof v.type === 'function'
+export function isComp(v: unknown): v is CompVNode {
+  return v != null && typeof v === 'object' && typeof (v as any).type === 'function'
 }
-export function isPortal(v: VNode | null | undefined): v is PortalVNode {
-  return v != null && v.type === Portal
+export function isPortal(v: unknown): v is PortalVNode {
+  return v != null && typeof v === 'object' && (v as any).type === Portal
 }
 
 export type Component<P = {}, C extends object = {}> = (
