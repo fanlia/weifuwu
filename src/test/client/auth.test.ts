@@ -110,3 +110,32 @@ describe('auth', () => {
     assert.equal(res.auth.isLoggedIn, false)
   })
 })
+
+  it('refresh 竞态：响应时 token 已变（登录已发生）→ 不 logout 不清新 token', async () => {
+    // refresh 发起时 token=T_old、refreshToken=rt；期间 login(T_new)；refresh 失败到达
+    localStorage.setItem('t', 'T_old')
+    localStorage.setItem('r', 'rt')
+    // 延迟 resolve——模拟 refresh 请求期间发生 login
+    globalThis.fetch = (async () => {
+      await new Promise((r) => setTimeout(r, 20))
+      return new Response('{"error":"invalid refresh token"}', { status: 401 })
+    }) as typeof globalThis.fetch
+    const res = makeAuth({ refreshTokenKey: 'r', refreshEndpoint: '/refresh' })
+    // refresh 在注入时异步发起（savedToken 需过期才触发——这里手动调用验证竞态路径）
+    const p = res.auth.refresh()
+    await new Promise((r) => setTimeout(r, 5))
+    res.auth.login('T_new', { name: 'New' }) // 登录发生在 refresh 失败响应前
+    await p
+    assert.equal(localStorage.getItem('t'), 'T_new', '新 token 不被 logout 清掉（竞态防护）')
+    assert.equal(res.auth.token, 'T_new')
+  })
+
+  it('refresh 失败且 token 未变 → 正常 logout', async () => {
+    localStorage.setItem('t', 'T_old')
+    localStorage.setItem('r', 'rt')
+    globalThis.fetch = (async () => new Response('{"error":"bad"}', { status: 401 })) as typeof globalThis.fetch
+    const res = makeAuth({ refreshTokenKey: 'r', refreshEndpoint: '/refresh' })
+    await res.auth.refresh()
+    assert.equal(localStorage.getItem('t'), null, '无竞态时 refresh 失败正常清理')
+    assert.equal(res.auth.token, null)
+  })

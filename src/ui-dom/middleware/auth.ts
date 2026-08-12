@@ -86,17 +86,23 @@ export function auth(options?: AuthOptions): AppMiddleware<{}, AuthInjected> {
       async refresh(): Promise<boolean> {
         const rt = storage.getItem(refreshTokenKey)
         if (!rt) return false
+        // 竞态防护（真实事故 2026-12：登录后跳回登录页）：refresh 是注入时异步发起的——
+        // 期间用户登录写入新 token——refresh 失败响应到达后 `logout()` 清掉新 token →
+        // 守卫跳回 /login。响应时若 storage 中 token 已不是发起时的值 → 放弃本次 refresh
+        const tokenAtStart = storage.getItem(tokenKey)
         try {
           const res = await fetch(refreshEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken: rt }),
           })
+          if (storage.getItem(tokenKey) !== tokenAtStart) return false // 登录已发生——放弃
           if (!res.ok) {
             authClient.logout()
             return false
           }
           const data = await res.json()
+          if (storage.getItem(tokenKey) !== tokenAtStart) return false // 竞态二次检查
           authClient.token = data.token
           storage.setItem(tokenKey, data.token)
           if (data.refreshToken) storage.setItem(refreshTokenKey, data.refreshToken)
