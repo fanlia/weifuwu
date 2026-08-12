@@ -2,7 +2,7 @@
  * weifuwu AI — SSE 编码器
  *
  * 把 `wf:` 事件流编码成 text/event-stream Response（协议 §1.1）。
- * 与 design/ai-contract.md 对应。
+ * 与 docs/ai-contract.md 对应。
  *
  * - 错误即值：run 内部抛错 → 编码为 wf:error 事件，而非断流
  * - abort：客户端断开（cancel）→ onAbort 回调（用于取消 provider 请求）

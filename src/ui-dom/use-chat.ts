@@ -4,7 +4,7 @@
  * 在 aiStream（传输解码）之上加一层「一段对话」的语义：
  * 消息累积、工具调用内嵌、HITL 审批、错误恢复、stop/retry/clear。
  *
- * - 协议透明：消费 wf: 事件（design/ai-contract.md），页面不需要知道事件名
+ * - 协议透明：消费 wf: 事件（docs/ai-contract.md），页面不需要知道事件名
  * - 状态即共享 store（render-only 方案——design/render-only-plan.md）：
  *   state 是**普通对象**（非 Proxy），变化 → notify() → 订阅者（useExternal）重渲染；
  *   handle 带 subscribe——可被 useExternal 订阅（AiChat 等共享会话的子组件）

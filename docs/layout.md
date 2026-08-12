@@ -4,7 +4,7 @@
 
 纯 CSS 58 个布局原语 + 136 个工具类 + 167 个主题 Token。不绑定任何 JS 框架。
 
-> **学习路径与命名规范**：见 [`design/style-guide.md`](../design/style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
+> **学习路径与命名规范**：见 [`docs/style-guide.md`](style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
 
 > **全栈 weifuwu 项目**：`weifuwu/components/style.css` 已包含布局系统，一条 import 就够了，无需单独引用本页。
 > 本页仅适用于**非 weifuwu 项目**或**只需 CSS 布局**的场景。

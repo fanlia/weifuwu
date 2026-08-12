@@ -31,7 +31,7 @@ const Counter = async (initProps, ctx) => {
 ```
 
 - **没有 hooks 规则、没有依赖数组、没有闭包陷阱**。外层 = 初始化（一次），内层 = 渲染（每次变化）。
-- **render-only 确定性渲染**（design/render-only-plan.md）：渲染只发生在 `ctx.ui.render()` 调用处——改状态后显式 `render()`，行为可静态推导。无 `$` Proxy、无隐式触发；跨组件共享用 `createStore` + `ctx.ui.useExternal()`。
+- **render-only 确定性渲染**：渲染只发生在 `ctx.ui.render()` 调用处——改状态后显式 `render()`，行为可静态推导。无 `$` Proxy、无隐式触发；跨组件共享用 `createStore` + `ctx.ui.useExternal()`。
 
 ### 框架即纪律：浏览器环境抽象把常见坑变成编译期/审计期错误
 
@@ -42,7 +42,7 @@ const Counter = async (initProps, ctx) => {
 
 - **零 npm 运行时依赖**（对比 React + react-dom + react-router + 状态库 + SSR 工具 5+ 依赖）。
 - **自研 VDOM/diff**（keyed children、style diff、CSS 变量、Portal、hydration 游标收养）——每个算法都有对应测试与纪律条目（真实事故沉淀）。**读源码即可完全理解框架行为**。
-- **VDOM 对开发者透明（占位法 + 单一规则源）**：写 JSX → 看 DOM 即真相——`data-wf-key`（数组项身份，元素/组件一致）、`data-wf-id`（组件实例身份）、`<!--wf-hole: xxx-->`（条件渲染 false 的占位注释）直接在 DOM 可见；非法输入（对象/数字 type）→ 诊断占位 + warn，不崩溃不静默；`?vdom_debug=1` 开启 patch trace + 结构 audit。**转化路径唯一清晰、无 magic、可推导**（规则表：design/vdom-transform-rules.md）
+- **VDOM 对开发者透明（占位法 + 单一规则源）**：写 JSX → 看 DOM 即真相——`data-wf-key`（数组项身份，元素/组件一致）、`data-wf-id`（组件实例身份）、`<!--wf-hole: xxx-->`（条件渲染 false 的占位注释）直接在 DOM 可见；非法输入（对象/数字 type）→ 诊断占位 + warn，不崩溃不静默；`?vdom_debug=1` 开启 patch trace + 结构 audit。**转化路径唯一清晰、无 magic、可推导**（规则表为内部开发契约）
 - **零构建步骤**：`weifuwu/dev` loader + `ctx.ui.js/css` 动态编译，服务端直接跑 `.tsx`，改组件刷新即生效。
 
 ### 弹层/浮层体系：最难的 UI 类别变成复用的原语

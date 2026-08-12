@@ -131,7 +131,7 @@
 ## 第九批：AI 差异化（109 → 111 组件，2026-08）
 
 > 三库业务组件覆盖 ~100% 后的差异化期——补 AI **输入层 + 推理展示层**。
-> 完整设计/裁剪见 `design/ai-differentiation-plan.md`。
+> 完整设计/裁剪见组件裁剪登记（内部文档，仓库内可查）。
 
 | 组件 | 类型 | 三库等价 | 要点 |
 |------|------|---------|------|
@@ -139,7 +139,7 @@
 | **ReasoningBlock** | 新增 | 三库无 | CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲 |
 | **AiChat 集成** | 增强 | — | `WfDone.reasoning`（additive，收尾一次性下发）+ use-chat 聚合 + toChatMessages 回传 `reasoning_content`（thinking 模式闭环） |
 
-> 协议变更：`wf:done` 新增可选 `reasoning` 字段（向后兼容），见 `design/ai-contract.md` §3.4。
+> 协议变更：`wf:done` 新增可选 `reasoning` 字段（向后兼容），见 `docs/ai-contract.md` §3.4。
 
 ## 快速迁移路径（三库 → weifuwu）
 
@@ -173,7 +173,7 @@
 | **LogViewer** | 新增 | ANSI 着色 + 虚拟滚动 + follow 自动跟随 + maxLines |
 | **JSONViewer** | 新增 | 递归折叠 + 类型色 + 路径复制 + 懒展开（ToolCallCard 已接入） |
 
-> 三库共识覆盖度 ~100%（剩余均为已声明裁剪项，见 `design/components-roadmap.md` 第六批裁剪清单）。
+> 三库共识覆盖度 ~100%（剩余均为已声明裁剪项，见组件裁剪登记）。
 
 ## 第七批：AI 开发者工具深化（96 → 102 组件）
 
@@ -190,7 +190,7 @@
 
 > AI 开发者工具链成型：AiChat / Command / JSONViewer / LogViewer / DiffView /
 > Pipeline——三库差异化最深的完整工具线。
-> 裁剪声明见 `design/components-roadmap.md` 第七批。
+> 裁剪声明见组件裁剪登记（内部文档）。
 
 ## 第八批：三库并集缺口清零（102 → 113，2026-08）
 

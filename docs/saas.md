@@ -147,7 +147,7 @@ import { ai } from 'weifuwu'
 const a = ai()          // DEEPSEEK_API_KEY / BASE_URL / MODEL 自动读 env，默认 deepseek-v4-flash
 app.use(a)              // 注入 ctx.ai（worker/非请求场景也可直接 a.chat()）
 
-// 流式对话：路由一行返回 SSE（wf: 协议，详见 design/ai-contract.md）
+// 流式对话：路由一行返回 SSE（wf: 协议，详见 docs/ai-contract.md）
 app.post('/api/chat', async (req, ctx) => {
   const { messages } = await req.json()
   return ctx.ai.stream({ messages }, {
@@ -217,7 +217,7 @@ return () => <AiChat chat={$} />
 
 > 分层：`ctx.ai`（后端协议）→ `aiStream`（传输解码）→ `useChat`（会话语义）→ `AiChat`（标准界面）。要完全自定义 UI 的应用用 useChat + 自有渲染；要 5 分钟出界面用 AiChat。
 
-- **协议**：`wf:` 命名空间（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展 step/approval_request），SSE 下行 + POST 上行，错误即值、未知事件透传、`x:*` 自定义事件（详见 [design/ai-contract.md](../design/ai-contract.md)）
+- **协议**：`wf:` 命名空间（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展 step/approval_request），SSE 下行 + POST 上行，错误即值、未知事件透传、`x:*` 自定义事件（详见 [docs/ai-contract.md](ai-contract.md)）
 - **agent 引擎**：`a.agent({ systemPrompt, tools, humanInTheLoop })` 工具循环（LLM → tool_call → 执行 → 回喂 → 重复）；工具可 `emit` 进度/自定义事件、接收 `signal` 取消；HITL 审批（`ctx.ai.approve` 响应，拒绝≠终止、modified 改参、超时兜底）
 - **emitter 抽象**：`agent.stream(messages, { emit })`——`wf:*` 事件（step/token/tool_result/usage/done）可接任意通道（SSE/WS/回调），协议不焊死在传输层；`agent.runToResult(messages)` 返回结构化结果 `{ content, steps, usage }`（非流式/worker 场景）
 - **embedding**：`ctx.ai.embed(text)` / `embedMany(texts)` 向量化（默认 `DASHSCOPE_API_KEY` + `text-embedding-v4`，compatible-mode 端点）；未配置抛 `AiError('unsupported')`（惰性检查，不静默降级）——知识库/语义检索开箱即用

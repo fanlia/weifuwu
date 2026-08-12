@@ -251,7 +251,7 @@ const Popover = (_init, ctx) => {
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 自动重算 fixed 坐标 |
 | `ctx.ui.useInView()` | 注册监听 | IO 合成器线程评估 | 当前组件 | **可见性观察** — `isIn` 响应式变化自动重渲染；替代组件自建 scroll 监听 |
 | `ctx.ui.useScrollPosition()` | 注册监听 | 全局 scroll + rAF 节流 | 当前组件 | **滚动位置跟踪** — `y` 响应式（视口/内部容器通用）；Affix/VirtualList 使用 |
-| `ctx.ui.useChat()` | 事件驱动 | 流式事件 → notify（useExternal 订阅） | 当前组件 | **AI 对话会话** — 消息累积/工具调用/HITL 审批（见 design/ai-contract.md） |
+| `ctx.ui.useChat()` | 事件驱动 | 流式事件 → notify（useExternal 订阅） | 当前组件 | **AI 对话会话** — 消息累积/工具调用/HITL 审批（见 docs/ai-contract.md） |
 
 `render()` 无参 = 当前组件（闭包绑定，无 this 陷阱），传参 = 指定组件列表。hooks（useMedia/useInView 等）是**事件驱动**重渲染（浏览器事件 → render）——与 `$` 的"赋值自动"本质不同，保留合理。
 
@@ -675,15 +675,16 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 
 | 目录 | 用途 | 读者 | 发布 |
 |------|------|------|------|
-| `docs/` | **用户文档**：README 按角色拆分——后端（server/data/realtime/saas）、前端（frontend/frontend-middleware/components/layout/styling/components-map/mobile）、通用（examples/environment） | 框架使用者 | ✅ 随 npm 包 |
-| `design/` | **设计/计划文档**：阶段计划（components-*/db-clients-*/messager/scheduler/mobile-support）、协议契约（ai-contract）、设计系统（design-system-*/style-guide/token-layout）、指南（mobile/style-system） | 框架开发者/贡献者 | ❌ 仅仓库 |
+| `docs/` | **用户文档**：README 按角色拆分——后端（server/data/realtime/saas）、前端（frontend/frontend-middleware/components/layout/styling/components-map/mobile/ai-contract/style-guide）、通用（examples/environment） | 框架使用者 | ✅ 随 npm 包 |
+| `design/` | **内部设计理念/概念文档**：架构定稿（ui-architecture）、渲染不变量（render-only/vdom-consistency/vdom-transform-rules）、组件模型（async-mode-a）、裁剪登记（components-cuts）、设计 token（design-variables）、样式体系（style-system） | 框架开发者/贡献者 | ❌ 仅仓库 |
 
 **维护规则**：
 - 新增用户可见能力 → 写 `docs/`（按角色对号入座），README 文档导航同步
+- **`design/` 属内部文档——禁止在 README / `docs/` 中引用 `design/` 路径**（docs 随包发布而 design 不发布——引用必然断裂）。用户可见的设计内容（协议契约 ai-contract、命名规范 style-guide）直接放 `docs/`；裁剪清单等内部登记在 docs 里只描述概念不带路径；仅**源码注释/AGENTS.md** 可引用 `design/`（开发导向）
 - 新增 ctx.ui 原语 → 同步 `docs/custom-components.md`（自定义组件指南）+ `docs/frontend.md` 方法速查表
-- 新增实现计划/架构决策 → 写 `design/`（参考各 `*-plan.md` 的格式）
+- 新增设计决策/概念 → 写 `design/`；实施计划完成 → 归档删除（git 历史可追溯，不留残骸）
 - README 保持门面（~400 行）：简介/设计理念/快速开始/CDN/模块总览/核心概念 + 文档导航，不堆 API 细节
-- 改协议/裁剪清单 → `design/ai-contract.md` / `design/components-cuts.md`（源码注释引用同步）
+- 改协议 → `docs/ai-contract.md`；改裁剪清单 → `design/components-cuts.md`（源码注释引用同步）
 
 ## 11. 路由匹配 & 自研协议层
 

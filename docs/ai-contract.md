@@ -1,5 +1,4 @@
 # Weifuwu AI Stream Protocol (v1)
-> **状态（2026-12 确认）**：📄 文档——AI Stream Protocol 契约——活文档（协议已实现，随 ai 中间件演进）
 
 > **weifuwu 前后端之间的 LLM/agent 对话协议。** 定义"后端如何把一次对话/一次 agent run 流式地告诉前端，前端如何回传人工决策"。
 >

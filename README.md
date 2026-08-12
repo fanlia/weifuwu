@@ -72,7 +72,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **① 一个包，全栈一体。** 后端、前端、组件、样式装在一个 npm 包里，零配置、零构建、纯 link 可用：服务端 `--import weifuwu/dev` 直接跑 `.tsx`（Node loader + esbuild 同步编译）；浏览器 CDN import map 直接跑；CSS 一条 link 即得完整设计系统。
 
-**② 全自研，诚实裁剪。** VDOM、PG v3 / RESP2 协议、GraphQL schema、OpenAI 兼容流式协议——全部自研而非包装他人。动机不是炫技而是**确定性**：自研客户端输出确定、行为可预测、错误模型统一。配套纪律是诚实裁剪：**不支持的能力明确抛 `ProtocolError('unsupported')`，绝不静默降级或"尽量支持"**（已裁剪清单见 `design/components-cuts.md`）。
+**② 全自研，诚实裁剪。** VDOM、PG v3 / RESP2 协议、GraphQL schema、OpenAI 兼容流式协议——全部自研而非包装他人。动机不是炫技而是**确定性**：自研客户端输出确定、行为可预测、错误模型统一。配套纪律是诚实裁剪：**不支持的能力明确抛 `ProtocolError('unsupported')`，绝不静默降级或"尽量支持"**（已裁剪清单见组件裁剪登记）。
 
 **③ 消灭样板。** 框架的每一层都在消灭一类样板代码：
 
@@ -93,7 +93,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **render-only 确定性渲染** — 渲染唯一触发 `ctx.ui.render()`（闭包绑定组件），状态是普通对象（`let` + `render()`）；跨组件共享用 `createStore` + `ctx.ui.useExternal()`。行为可静态推导，无隐式触发（详见[组件库](docs/components.md)）。
 
-**VDOM 输出透明（写 JSX，看 DOM 即真相）** — VDOM 对用户输入零 magic：条件渲染的 false 在 DOM 里是诊断占位注释（`<!--wf-hole: false-->`），数组项 key 与组件实例 id 直接落 DOM（`data-wf-key` / `data-wf-id`）——devtools 看到的 DOM 就是引擎决策的可读输出；非法输入占位 + warn，不崩溃不静默。转化契约唯一清晰（design/vdom-transform-rules.md）：用户写什么，vnode 就是什么，DOM 就长什么样。
+**VDOM 输出透明（写 JSX，看 DOM 即真相）** — VDOM 对用户输入零 magic：条件渲染的 false 在 DOM 里是诊断占位注释（`<!--wf-hole: false-->`），数组项 key 与组件实例 id 直接落 DOM（`data-wf-key` / `data-wf-id`）——devtools 看到的 DOM 就是引擎决策的可读输出；非法输入占位 + warn，不崩溃不静默。转化契约唯一清晰：用户写什么，vnode 就是什么，DOM 就长什么样（规则表为内部开发契约）。
 
 **中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` / `ctx.limit` / `ctx.email` / `ctx.queue` / `ctx.ai` / `ctx.msg` 等），Handler/组件从 `ctx` 读取。
 
@@ -101,7 +101,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **SPA/SSR/Hydration 统一透明** — 同一份路由定义（`UIRouter`）一个组件三场景自动适配：后端 `ssrPage(router, { url })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `uiServe(router, { root, hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
 
-**AI 是一等公民** — 自研 OpenAI 兼容协议（`design/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批 + embedding 向量化。后端 `ctx.ai` 一个入口：`chat()` / `stream()` / `agent()`（`stream(messages, { emit })` emitter 抽象——事件可接任意通道，`runToResult()` 结构化结果）/ `approve()` / `embed()` / `embedMany()`；前端 `ctx.ui.useChat()`（会话语义）+ `AiChat` 组件（标准对话界面）——流式 token / 工具调用卡 / 审批卡开箱即用，协议对页面完全透明，不用 ai-sdk。
+**AI 是一等公民** — 自研 OpenAI 兼容协议（`docs/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批 + embedding 向量化。后端 `ctx.ai` 一个入口：`chat()` / `stream()` / `agent()`（`stream(messages, { emit })` emitter 抽象——事件可接任意通道，`runToResult()` 结构化结果）/ `approve()` / `embed()` / `embedMany()`；前端 `ctx.ui.useChat()`（会话语义）+ `AiChat` 组件（标准对话界面）——流式 token / 工具调用卡 / 审批卡开箱即用，协议对页面完全透明，不用 ai-sdk。
 
 **SaaS 地基随包内置** — rateLimit（限流）/ email（邮件）/ userSystem（用户认证）/ messager（消息系统）/ queue（可靠队列）以中间件形态随包提供，`app.use(...)` 一行接入（详见[SaaS 地基模块](docs/saas.md)）。互相咬合成协作基础：身份（userSystem）+ 消息（messager）的组合让「谁能跟谁说话、消息如何送达」天然对齐，不再需要第三套权限系统。
 
@@ -493,7 +493,7 @@ const UserProfile = async (_init, ctx) => {
 
 ## 文档导航
 
-README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模块总览）。完整 API 参考按**开发者角色**拆分在 `docs/`，设计与计划文档在 `design/`：
+README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模块总览）。完整 API 参考按**开发者角色**拆分在 `docs/`：
 
 ### 后端开发者
 
@@ -503,6 +503,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [docs/data.md](docs/data.md) | 数据层：postgres（PG v3 自研协议）/ redis（RESP2 自研协议）/ Query Language（AST 双后端）/ Memory 实现（零数据库）/ 测试零外部依赖 |
 | [docs/realtime.md](docs/realtime.md) | 实时与渲染：scheduler / ui（SSR + JS/CSS 编译）/ graphql / WebSocket |
 | [docs/saas.md](docs/saas.md) | SaaS 地基：rateLimit / email / userSystem / messager / queue / ai |
+| [docs/ai-contract.md](docs/ai-contract.md) | AI Stream Protocol：wf: 事件（SSE 下行 + POST 上行）——流式/工具/审批 |
 
 ### 前端开发者
 
@@ -513,6 +514,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [docs/frontend-middleware.md](docs/frontend-middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
 | [docs/components.md](docs/components.md) | 组件库（113 个组件 + 使用示例 + 组件列表） |
 | [docs/layout.md](docs/layout.md) | 布局系统：58 个布局原语 + 136 个工具类 + 167 个主题 Token |
+| [docs/style-guide.md](docs/style-guide.md) | 样式学习路径与命名规范：三档学习（组件 → 原语 → 速查）|
 | [docs/styling.md](docs/styling.md) | 样式定制指南：零自定义 CSS 模式 / 暗色 / 组件级覆盖 / 作用域主题 |
 
 ### 通用
@@ -524,6 +526,5 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [docs/mobile.md](docs/mobile.md) | 移动端开发指南：断点 / 44px 命中区 / usePopup / 手势 / safe-area |
 | [docs/components-map.md](docs/components-map.md) | 组件速查：weifuwu ↔ antd / Element Plus / shadcn 对应 + 迁移路径 |
 | [docs/custom-components.md](docs/custom-components.md) | 自定义组件开发指南：usePopup / useControlled / 动画 / AI 组件 / 类型纪律 |
-| [design/](design/) | 设计与计划文档（组件地图 / AI 协议契约 / 移动端指南 / 数据库客户端计划 / 设计系统 / 各阶段计划） |
 
-> `docs/` 用户文档随 npm 包发布（`files: ['dist/', 'README.md', 'docs/']`）——`node_modules/weifuwu/docs` 可离线查阅；`design/` 设计/计划文档仅仓库内。
+> `docs/` 用户文档随 npm 包发布（`files: ['dist/', 'README.md', 'docs/']`）——`node_modules/weifuwu/docs` 可离线查阅。

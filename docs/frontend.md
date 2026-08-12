@@ -233,7 +233,7 @@ const Counter: Component = async (_init, ctx) => {
 }
 ```
 
-**render-only 唯一规则**：渲染只发生在 `render()` 调用处（design/render-only-plan.md）——
+**render-only 唯一规则**：渲染只发生在 `render()` 调用处——
 状态是普通对象（`let` / `createStore`），**没有 `$` Proxy、没有赋值自动渲染**。改状态后必须显式 `ctx.ui.render()`。
 
 ### `createStore` + `ctx.ui.useExternal()` — 跨组件共享状态
@@ -448,7 +448,7 @@ ctx.ui.render(['stats'])
 
 #### `ctx.ui.useChat(options)` — AI 对话会话（AiChat 配套）
 
-会话语义的流式 AI 状态容器：消息累积 / 工具调用内嵌 / HITL 审批 / stop / retry，协议对页面完全透明（wf: 协议见 `design/ai-contract.md`）。返回 handle 带 `subscribe(cb)`——子组件用 `ctx.ui.useExternal(chat)` 订阅会话变化（render-only 共享状态原语）：
+会话语义的流式 AI 状态容器：消息累积 / 工具调用内嵌 / HITL 审批 / stop / retry，协议对页面完全透明（wf: 协议见 `docs/ai-contract.md`）。返回 handle 带 `subscribe(cb)`——子组件用 `ctx.ui.useExternal(chat)` 订阅会话变化（render-only 共享状态原语）：
 
 ```tsx
 // mount 阶段（服务端 `ai()` 中间件 + `AiChat` 组件配套）
