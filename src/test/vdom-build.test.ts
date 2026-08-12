@@ -123,7 +123,7 @@ test('动态挂载：未构建组件在 build 中 await（_render 设 + _child �
   const vnode = h(Slow, {})
   const building = buildVNode(vnode, ctx)
   // 构建中（工厂 await）：_render 未设——构建完成（await）后才设
-  assert.equal(typeof vnode._render, 'undefined', '构建中 _render 未设')
+  assert.equal(vnode._render, null, '构建中 _render 未设（vdom2 强类型：显式 null）')
   gate()
   await building
   const child = vnode._child as VNode

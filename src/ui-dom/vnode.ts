@@ -169,3 +169,21 @@ export function createPortal(children: VNodeChild, portalKey?: string): VNode {
   vnode.key = portalKey ?? null
   return vnode
 }
+
+/** JSX 类型声明（jsxImportSource: weifuwu/ui-dom——组件/用户 JSX 编译产物类型） */
+declare global {
+  namespace JSX {
+    type Element = import('./vnode.ts').VNode | null
+    type ElementType =
+      | string
+      | ((props: any, ctx: any) => any)
+      | typeof Fragment
+      | typeof Portal
+    interface IntrinsicElements {
+      [tag: string]: any
+    }
+    interface IntrinsicAttributes {
+      key?: string | number | null
+    }
+  }
+}

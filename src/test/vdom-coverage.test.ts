@@ -17,17 +17,18 @@ import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
-import { h, Fragment, Portal, createPortal, isNative, isComponent, isFragment, isPortal, type VNode } from '../ui-dom/vnode.ts'
+import { h, Fragment, Portal, createPortal, isNative, isFrag, isComp, isPortal, type VNode } from '../ui-dom/vnode.ts'
 import { buildVNode } from '../ui-dom/vdom2/build.ts'
-import { renderValue, setProp } from '../ui-dom/vdom2/render.ts'
+import { renderValue } from '../ui-dom/vdom2/render.ts'
+import { setProp } from '../ui-dom/vdom2/transform.ts'
 import { patchValue, patchProps } from '../ui-dom/vdom2/patch.ts'
-import { createRenderer, type Renderer } from '../ui-dom/context.ts'
+import { createRenderer, type Renderer } from '../ui-dom/vdom2/mount.ts'
 import { createRegistry, ensureId, safeCallRef } from '../ui-dom/vdom2/registry.ts'
 import { mountRoot, createCommandContainer, mountCommand, unmountCommand } from '../ui-dom/context.ts'
 import { createVdomContext } from '../ui-dom/context.ts'
 import { uiServe } from '../ui-dom/middleware/serve.ts'
-import { renderSsr } from '../ui-dom/vdom2/ssr.ts'
-import { hydrateVNode, ensureHydrationId } from '../ui-dom/vdom2/hydrate.ts'
+import { x2html as renderSsr } from '../ui-dom/vdom2/x2html.ts'
+import { hydrateVNode } from '../ui-dom/vdom2/hydrate.ts'
 import { UIRouter } from '../ui-dom/router.ts'
 
 before(setupJsdom)
@@ -244,18 +245,6 @@ test('hydration: 文本节点更新（服务端文本 → 客户端不同文本 
   assert.equal(el.querySelector('span')?.textContent, 'client', '文本更新')
 })
 
-test('hydration: ensureHydrationId 分配 id（注册表写入）', async () => {
-  const b = createClientBrowser()
-  const ctx = makeCtx()
-  const v = h('div', {}) as VNode
-  ensureHydrationId(v, ctx)
-  assert.ok(v._id, 'id 已分配')
-  assert.equal(ctx.__registry.idRegistry.get(v._id), v, '注册表写入')
-  // 已有 id 不重复
-  const id1 = v._id
-  ensureHydrationId(v, ctx)
-  assert.equal(v._id, id1, '复用 id')
-})
 
 test('hydration: 子组件 _parentNode 接线（hydrate 嵌套组件）', async () => {
   const b = createClientBrowser()
@@ -493,10 +482,10 @@ test('mount: createCommandContainer → body 下 div', () => {
 test('vnode: isNative/isComponent/isFragment/isPortal 断言', () => {
   assert.ok(isNative(h('div', {})))
   assert.ok(!isNative(h(() => null as any, {})))
-  assert.ok(isComponent(h(() => null as any, {})))
-  assert.ok(!isComponent(h('div', {})))
-  assert.ok(isFragment({ type: Fragment, props: {} } as VNode))
-  assert.ok(!isFragment(h('div', {})))
+  assert.ok(isComp(h(() => null as any, {})))
+  assert.ok(!isComp(h('div', {})))
+  assert.ok(isFrag({ type: Fragment, props: {} } as VNode))
+  assert.ok(!isFrag(h('div', {})))
   assert.ok(isPortal(createPortal('x', 'k')))
   assert.ok(!isPortal(h('div', {})))
   assert.equal((createPortal('x', 'k') as any)._placement, 'remote', 'portal remote 标记')

@@ -195,7 +195,7 @@ export function unmountCommand(container: HTMLElement, vnode: VNode | null, ctx:
       try { callRefCleanupFor(v, reg) } catch { /* noop */ }
     }
   }
-  container.innerHTML = ''
+  container.remove()
 }
 
 /** 命令式挂载容器（toast 等——body 下） */

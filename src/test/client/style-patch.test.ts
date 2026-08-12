@@ -7,6 +7,7 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setProp } from '../../ui-dom/vdom2/transform.ts'
 import { patchProps } from '../../ui-dom/vdom2/patch.ts'
 
@@ -36,4 +37,15 @@ test('style 值更新（字符串 + number）', () => {
   patchProps(el, { style: { width: '10px', opacity: 0.5 } }, { style: { width: '100px', opacity: 1 } })
   assert.equal(el.style.width, '100px')
   assert.equal(el.style.opacity, '1')
+})
+
+// ── enumerated 属性防线（Kanban 教训：setAttribute('draggable','') = false） ──
+test('setProp: enumerated 属性显式字符串（draggable 真值）', () => {
+  const b = createClientBrowser()
+  const el = b.createElement('div')
+  setProp(el, 'draggable', true)
+  assert.equal(el.getAttribute('draggable'), 'true', 'enumerated 属性显式 \'true\'（空字符串解析为 false）')
+  setProp(el, 'draggable', false)
+  assert.equal(el.getAttribute('draggable'), 'false', 'false 显式 \'false\'')
+  assert.equal(el.draggable, false, 'el.draggable 真值（空字符串会静默 false）')
 })
