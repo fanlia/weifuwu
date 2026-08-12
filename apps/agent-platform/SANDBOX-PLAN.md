@@ -87,13 +87,18 @@ docker run --rm -i \
 ## 三、任务清单
 
 ### 阶段 1：沙盒执行层（P0）
-- [ ] **S1. `src/sandbox/docker.ts`** — DockerSandbox 执行器：`run({ image, command, cwd, env, network, memory, cpus, timeout })` → `{ stdout, stderr, exitCode, timedOut, oomKilled }`；内部用 `docker run --rm -i` + JSON 输出解析；容器退出码/超时/资源被 kill 区分
-- [ ] **S2. 可用性探测 + 镜像管理** — 启动时探测 docker 可用性 + node:24 存在性；首次调用自动 `docker pull node:24`（幂等）；状态注入 `ctx.sandboxStatus`（available / imageMissing / unavailable）
-- [ ] **S3. 统一工具执行器（agent 的全部工具操作都在容器内）** — 容器内固定入口脚本 `/opt/tool-runner.js`（挂载或镜像内置），统一 JSON 协议：`echo '{"tool":"read","args":{"path":"x.ts"}}' \| docker run --rm -i -v {ws}:/ws node:24 node /opt/tool-runner.js` → 返回 JSON `{ok, output}`。**read/write/edit/grep/list_files/bash 全部经此入口**——agent 看到的是统一的容器内 /ws 文件系统视图（宿主路径 vs 容器路径无认知差异）
+- [ ] **S1. `src/sandbox/docker.ts`** — DockerSandbox 执行器（**agent 级常驻容器为主**）：
+  - `ensure(agentId, ws)` → 容器存在且健康则复用，否则 `docker run -d --name ap-sandbox-{id} -v {ws}:/ws -w /ws --network none -m 512m --cpus 1 --pids-limit 256 -u node node:24 sleep infinity`
+  - `exec(agentId, cmd)` → `docker exec ap-sandbox-{id} {cmd}`（~20-50ms）——工具调用主路径
+  - `dispose(agentId)` → 空闲回收/agent 删除联动 `docker rm -f`
+  - 孤儿清理：启动时扫描 `ap-sandbox-*` 全删（数据在卷，删除无损）
+  - `SANDBOX_MODE=ephemeral` 备选：每次调用一次性容器（低资源环境）
+- [ ] **S2. 可用性探测 + 镜像管理** — 启动时探测 docker 可用性 + node:24 存在性；首次调用自动 `docker pull node:24`（幂等）；状态注入 `ctx.sandboxStatus`（available / imageMissing / unavailable）；空闲回收定时器（LRU，10 分钟无调用 → dispose）
+- [ ] **S3. 统一工具执行器（agent 的全部工具操作都在容器内）** — 容器内固定入口脚本 `/opt/tool-runner.js`（镜像构建内置或首次 exec 时写入卷），统一 JSON 协议：`echo '{"tool":"read","args":{"path":"x.ts"}}' | docker exec -i ap-sandbox-{id} node /opt/tool-runner.js` → 返回 JSON `{ok, output}`。**read/write/edit/grep/list_files/bash 全部经此入口**——agent 看到的是统一的容器内 /ws 文件系统视图（宿主路径 vs 容器路径无认知差异）
 - [ ] **S4. 文件工具接入执行器** — `createWorkspaceHandlers` 的 read/write/edit/grep/list_files 改为走容器执行器（传工具名 + args）——路径穿越防护从「宿主代码」升级为「容器边界」（即使 resolveWorkspacePath 有 bug 也逃不出卷挂载）；安全 = 纵深防御
-- [ ] **S5. bash 工具接入执行器** — bash handler 同样走容器（allow_command_exec 时）：`docker run --rm -i -v {ws}:/ws -w /ws --network ... node:24 bash -c "{command}"`；`SANDBOX_DISABLE=1` 或探测失败 → 返回「沙盒不可用，命令执行已禁用」（诚实裁剪）
-- [ ] **S6. 资源限制落地** — `--network none --memory 512m --cpus 1 --pids-limit 256 --user node --ulimit nofile`；`allow_network` agent 字段 → `--network bridge`
-- [ ] **S7. 输出/错误处理** — 容器退出码/JSON 解析；exitCode 非 0 → 错误消息含 stderr + 退出码；超时 → 「命令执行超时（30s）」；OOM/pids 被 kill → 明确提示；输出截断 100KB（文件工具 50KB）
+- [ ] **S5. bash 工具接入执行器** — bash handler 同样走容器（allow_command_exec 时）：`docker exec ap-sandbox-{id} bash -c "{command}"`；`SANDBOX_DISABLE=1` 或探测失败 → 返回「沙盒不可用，命令执行已禁用」（诚实裁剪）
+- [ ] **S6. 资源限制落地** — 常驻容器创建参数：`--network none --memory 512m --cpus 1 --pids-limit 256 --user node --ulimit nofile`；`allow_network` agent 字段 → `--network bridge`；空闲回收定时器
+- [ ] **S7. 输出/错误处理** — 容器退出码/JSON 解析；exitCode 非 0 → 错误消息含 stderr + 退出码；超时 → 「命令执行超时（30s）」（docker exec 外层 timeout 兜底）；OOM/pids 被 kill → 明确提示；输出截断 100KB（文件工具 50KB）
 
 ### 阶段 2：配置与 UI（P1）
 - [ ] **U1. Agent 配置加「命令执行沙盒」说明** — allow_command_exec 的 hint 改为「在 Docker node:24 沙盒内执行（网络隔离、资源受限）——需服务端已安装 docker」
@@ -158,7 +163,20 @@ docker run --rm -i \
 | 用户/租户级长驻 | 同租户 agent 间**不隔离** | 同上 | 同上 | 在线用户数（高） | ✗ 跨 agent 污染（A agent 的 bash 能碰 B agent 的文件）+ 权限模型混乱 | ❌ |
 | **agent 级长驻**（升级路径） | agent 间隔离 | 会话间共享（与 workspace 一致） | 删除 agent 时清理 + 空闲回收 | 启用 agent 数（中） | ✅ 1:1 卷挂载对齐 | 🔄 需求出现时升级 |
 
-**推理链**：状态载体是 workspace（卷），不是容器 → 容器应无状态（一次性）→ 会话级/用户级都解决不了「多会话共享同一 agent workspace」的并发语义，反而引入容器数量爆炸 + 生命周期复杂度 → 唯一有意义的升级粒度是 **agent 级长驻**（容器与卷 1:1，等价 GitHub Codespaces 一个仓库一个环境）。
+**推理链**：状态载体是 workspace（卷），不是容器 → 容器无状态（一次性）→ 会话级/用户级都解决不了「多会话共享同一 agent workspace」的并发语义，反而引入容器数量爆炸 + 生命周期复杂度 → 唯一有意义的升级粒度是 **agent 级长驻**（容器与卷 1:1，等价 GitHub Codespaces 一个仓库一个环境）。
+
+**2026-08 修订：默认即 agent 级常驻容器**（用户确认方向）：全工具容器化后，一次性容器 264ms/工具调用 × AI 每轮 10-30 次调用 = 3-8s 附加延迟成为体验瓶颈——agent 级常驻（`docker exec` ~20-50ms）是正确默认。心智模型：**一个 agent = 一台开发机**（workspace 卷 + 常驻容器环境）。
+
+**常驻容器实现要点**：
+- 容器命名可推导：`ap-sandbox-{agent_id}`（前缀 + agent_id）——生命周期管理无需额外映射表
+- `ensureContainer(agentId)`：存在且健康 → 复用；不存在 → `docker run -d --name ap-sandbox-{id} -v {ws}:/ws -w /ws --network none -m 512m --cpus 1 --pids-limit 256 -u node node:24 sleep infinity`
+- 工具调用：`docker exec ap-sandbox-{id} node /opt/tool-runner.js <<< '{tool,args}'`（~20-50ms）
+- 空闲回收：LRU + 定时器（10 分钟无调用 → `docker rm -f`）——常驻容器每个 ~50-100MB，回收防资源累积
+- 孤儿清理：服务启动时 `docker ps -a --filter name=ap-sandbox-` → 全部 `docker rm -f`（容器无状态，删除无损——数据全在卷里）
+- agent 删除联动：DELETE /api/agents/:id → 同步销毁容器
+- **状态残留是副作用不是特性**：容器内环境变量/后台进程跨会话保留，但**不应依赖**（空闲回收/服务重启即丢）——文档明示；文件状态永远在卷（workspace）
+
+**诚实裁剪**：`SANDBOX_MODE=ephemeral`（每次调用一次性容器）作为低资源环境备选配置；默认 `persistent`（agent 级常驻）。docker 不可用 → 工具禁用（不静默回退宿主）。
 
 **升级触发条件**（当前不满足，记录）：AI 任务需要跨命令状态（长编译链/后台服务/npm install 后多次构建）且一次性容器往返延迟成为体验瓶颈时——实现 agent_id → container 映射 + 空闲回收（如 10 分钟无调用销毁）+ agent 删除联动清理。
 
