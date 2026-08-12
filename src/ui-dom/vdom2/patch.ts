@@ -211,40 +211,6 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
  * patchChildren — 数组 diff。
  * @returns 每个新子项的 DOM 范围（Fragment 展开对齐）
  */
-/** 数组项（隐式 Fragment）DOM 范围。
- *  锚点是 fragment-start 注释（数组项渲染时写入边界标记）→ 范围 = start..fragment-end 含标记；
- *  end 配对用同 depth（嵌套数组项 [c,d,[e,f]] 的 end 属于内层——外层 start 必须跳过内层
- *  end 找到自己的——否则移除/对齐切错范围）。非数组项（单节点锚点）→ 自身到下一锚点前。
- *  标记持久化让数组项边界在 DOM 可见——移动/移除/对齐精确（替代纯 nextSibling 链推导） */
-function rangeFor(anchors: (Node | null)[], i: number, parent: Node): Node[] {
-  const start = anchors[i]
-  if (!start) return []
-  if (start.nodeType === 8 && start.nodeValue?.includes('type=fragment-start')) {
-    const out: Node[] = [start]
-    // end 配对用同 fid（start/end 共享数组项唯一 id——嵌套数组项 fid 不同不干扰；
-    // 无 fid（旧标记）兜底取首个 end）
-    const startFid = /fid=([^\s"]+)/.exec(start.nodeValue)?.[1] ?? ''
-    let n: Node | null = start.nextSibling
-    while (n) {
-      out.push(n)
-      if (n.nodeType === 8 && n.nodeValue?.includes('type=fragment-end')) {
-        const endFid = /fid=([^\s"]+)/.exec(n.nodeValue)?.[1] ?? startFid
-        if (endFid === startFid) break
-      }
-      n = n.nextSibling
-    }
-    return out
-  }
-  const end = anchors[i + 1] ?? null
-  const out: Node[] = []
-  let n: Node | null = start
-  while (n && n !== end && n.parentNode === parent) {
-    out.push(n)
-    n = n.nextSibling
-  }
-  return out
-}
-
 export function patchChildren(
   parent: Node,
   oldInput: VNodeChild | null,
@@ -356,11 +322,11 @@ export function patchChildren(
         // 新数组没有该位置；占位法"长度恒定"只适用于数组内 false/null（长度不变时互转））
         if (i >= newChildren.length) {
           if (Array.isArray(oldC)) {
-            if (traceEnabled('diff')) trace('diff', 'trace', '', `remove-arr-item i=${i} range=[${rangeFor(oldNodes, i, parent).map(nodeDesc).join(' | ')}] before=${childNodesSeq(parent)}`)
+            if (traceEnabled('diff')) trace('diff', 'trace', '', `remove-arr-item i=${i} range=[${(getOutputRange(oldC, oldNodes[i]) ?? []).map(nodeDesc).join(' | ')}] before=${childNodesSeq(parent)}`)
 
             // 旧数组项（隐式 Fragment）整体移除：范围（含边界标记）+ 内层组件 dispose
-            const range = rangeFor(oldNodes, i, parent)
-            for (const n of range) n.parentNode?.removeChild(n)
+            const range = getOutputRange(oldC, oldNodes[i])
+            for (const n of range ?? []) n.parentNode?.removeChild(n)
             if (traceEnabled('diff')) trace('diff', 'trace', '', `remove-arr-item after=${childNodesSeq(parent)}`)
             for (const sub of oldC) {
               if (sub != null && typeof sub === 'object' && !Array.isArray(sub) && typeof (sub as VNode).type === 'function') {
@@ -415,12 +381,12 @@ export function patchChildren(
         }
         // 真实 → 占位：dispose/ref 清理 + replaceChild（不 removeChild——childNodes 长度恒定）
         // 但 Fragment/数组项是多节点输出——只替换锚点则其余节点残留（frag-hole-switch 定位 2026-12）
-        if (Array.isArray(oldC)) {
-          // 数组项（隐式 Fragment）→ 占位：移除整范围（start..end 标记 + 内容）+ 组件 dispose
-          const range = rangeFor(oldNodes, i, parent)
-          const ref = (range[range.length - 1] ?? on)?.nextSibling ?? null
-          for (const n of range) n.parentNode?.removeChild(n)
-          for (const sub of oldC) {
+        if (Array.isArray(oldC) || (oldC != null && typeof oldC === 'object' && isFrag(oldC))) {
+          // 多节点项（数组项/ Fragment）→ 占位：移除整范围（start..end 标记 + 内容）+ 组件 dispose
+          const range = getOutputRange(oldC, oldNodes[i])
+          const ref = ((range ?? [])[range?.length ? range.length - 1 : 0] ?? on)?.nextSibling ?? null
+          for (const n of range ?? []) n.parentNode?.removeChild(n)
+          for (const sub of arrayChildren((oldC as VNode)?.props?.children)) {
             if (sub != null && typeof sub === 'object' && !Array.isArray(sub) && typeof (sub as VNode).type === 'function') {
               disposeComponent(sub as VNode, ctx.registry)
             }
@@ -516,16 +482,22 @@ export function patchChildren(
         pushA(node)
         continue
       }
-      // ── 数组项（隐式 Fragment）配对 ──
-      // 数组项 = 隐式 Fragment：无 key 身份（默认位置语义）——外层位置配对，内层递归（层级独立）
-      if (Array.isArray(newC)) {
+      // ── 多节点项配对（数组项 = 隐式 Fragment / 显式 Fragment——2026-12 统一协议）──
+      // 无 key 场景：外层位置配对，内层递归（层级独立）；范围统一 = getOutputRange（标记 + fid 配对）
+      const newIsMulti = Array.isArray(newC) || (newC != null && typeof newC === 'object' && isFrag(newC))
+      if (newIsMulti) {
         const b = ctx.browser ?? createClientBrowser()
-        if (Array.isArray(oldC)) {
-          // 数组项 vs 数组项：递归（内层配对）——范围 = 锚点推导（锚点[i] 到锚点[i+1] 之间）
-          const range = rangeFor(oldNodes, i, parent)
-          const inner = patchChildren(parent, oldC, newC, ctx, range)
+        const oldIsMulti = Array.isArray(oldC) || (oldC != null && typeof oldC === 'object' && isFrag(oldC))
+        if (oldIsMulti) {
+          // 多节点 vs 多节点：递归——旧范围 = 标记范围（anchor = start 标记——oldNodes[i] 映射即标记）
+          const range = getOutputRange(oldC, oldNodes[i])
+          // Fragment 项展开 props.children（数组项传自身）——fragToFrag 同款
+          const oldCChildren = Array.isArray(oldC) ? oldC : (oldC as VNode)?.props?.children ?? null
+          const newCChildren = Array.isArray(newC) ? newC : (newC as VNode)?.props?.children ?? null
+          const inner = patchChildren(parent, oldCChildren, newCChildren, ctx, range)
           out.push(...inner)
-          pushA(inner[0] ?? null)
+          // 锚点 = 旧 start 标记（保留在 DOM——patchChildren 剥离首尾不触碰）；数组项首帧同款
+          pushA(oldNodes[i] ?? inner[0] ?? null)
           continue
         }
         // 新数组项 vs 旧非数组：替换——移除旧输出范围（引用驱动——旧项可能是 Fragment/组件
@@ -553,16 +525,16 @@ export function patchChildren(
         pushA(inner[0] ?? node)
         continue
       }
-      if (Array.isArray(oldC)) {
-        // 旧数组项 vs 新非数组：移除旧数组项范围（dispose 组件） + 渲染新
+      if (Array.isArray(oldC) || (oldC != null && typeof oldC === 'object' && isFrag(oldC))) {
+        // 旧多节点 vs 新非数组：移除旧范围（标记 + fid 配对——Frag/数组统一；dispose 组件） + 渲染新
         const b = ctx.browser ?? createClientBrowser()
-        const range = rangeFor(oldNodes, i, parent)
-        if (traceEnabled('diff')) trace('diff', 'debug', '', `arr-remove i=${i} range=[${range.map(nodeDesc).join(' | ')}]`)
-        for (const n of range) {
+        const range = getOutputRange(oldC, oldNodes[i])
+        if (traceEnabled('diff')) trace('diff', 'debug', '', `multi-remove i=${i} range=${range ? range.map(nodeDesc).join(' | ') : 'null'}`)
+        for (const n of range ?? []) {
           n.parentNode?.removeChild(n)
         }
-        // 数组项内组件 dispose（范围节点已移除——组件状态清理）
-        for (const sub of oldC) {
+        // 多节点内组件 dispose（范围节点已移除——组件状态清理）
+        for (const sub of arrayChildren((oldC as VNode)?.props?.children)) {
           if (sub != null && typeof sub === 'object' && !Array.isArray(sub) && typeof (sub as VNode).type === 'function') {
             disposeComponent(sub as VNode, ctx.registry)
           }
@@ -650,12 +622,12 @@ export function patchChildren(
         } else {
           // 真实 → 占位：dispose/ref 清理 + replaceChild（不 removeChild——长度恒定）
           // 但 Fragment/数组项是多节点输出——只替换锚点则其余节点残留（frag-hole-switch 定位 2026-12）
-          if (Array.isArray(oldC)) {
-            // 数组项（隐式 Fragment）→ 占位：移除整范围（start..end 标记 + 内容）+ 组件 dispose
-            const range = rangeFor(oldNodes, i, parent)
-            const ref = (range[range.length - 1] ?? on)?.nextSibling ?? null
-            for (const n of range) n.parentNode?.removeChild(n)
-            for (const sub of oldC) {
+          if (Array.isArray(oldC) || (oldC != null && typeof oldC === 'object' && isFrag(oldC))) {
+            // 多节点项（数组项/ Fragment）→ 占位：移除整范围（标记 + fid 配对）+ 组件 dispose
+            const range = getOutputRange(oldC, oldNodes[i])
+            const ref = ((range ?? [])[range?.length ? range.length - 1 : 0] ?? on)?.nextSibling ?? null
+            for (const n of range ?? []) n.parentNode?.removeChild(n)
+            for (const sub of arrayChildren((oldC as VNode)?.props?.children)) {
               if (sub != null && typeof sub === 'object' && !Array.isArray(sub) && typeof (sub as VNode).type === 'function') {
                 disposeComponent(sub as VNode, ctx.registry)
               }
