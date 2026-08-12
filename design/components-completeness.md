@@ -187,7 +187,20 @@ JSONViewer 深展开 / LogViewer 自定义日志 / DiffView 标题对比 / Infin
 **W2 走查结论**：剩余 17 组件无硬缺口——Highlight 已用 mark 语义（a11y ✓）、Descriptions dl/dt/dd（原生 ✓）、
 Avatar alt ✓、Timeline mode 三向 ✓、StatCard animate/countdown/trend ✓——F1 功能对照 100% + F4 audit 全绿
 
+### W3 弹层反馈族进度（2026-12）
+
+**agent-browser 实测验收**（真实浏览器——弹层交互三件套）：
+- ✅ Modal：role=dialog + 焦点进弹层（trapFocus）+ Escape 关闭 + 退场动画后消失
+- ✅ Drawer：role=dialog + 焦点进 close 按钮 + Escape 关闭
+- ✅ Toast：点击触发 → 显示 → 3s 自动消失
+- 实测发现：搜索框受控输入链 dispatchEvent 不完整触发（模拟方式问题，非引擎 bug）——
+  reload 后干净渲染与源码逐 card 一致（vdom 数组 diff 无重复/无缺失——顺带验证 C1 按位置复用）
+
+**W3 走查结论**：15 组件无硬缺口——Escape 全组件覆盖（Alert/Banner 静态无需）、
+Modal/Drawer trapFocus + 退场动画成对、Toast/Confirm/Popconfirm exit 动画 ✓、
+demo 覆盖（命令式 DemoConfirm/DemoNotification 已存在）✓
+
 **待办**：
-- W3 弹层反馈族（Popover/Tooltip/Toast/Notification/Modal/Drawer/Confirm/Tour/Command/
-  ContextMenu/Message/Alert/Banner/Skeleton/Progress 等）6 维 checklist
-- W2 demo ≥3 示例渐进（存量渐进）
+- W4 导航布局族（Menu/NavMenu/Tabs/Breadcrumb/Pagination/Affix/BackTop/Anchor/Steps/
+  Collapse/Carousel/Transfer 等）6 维 checklist
+- W3 剩余组件 demo 渐进
