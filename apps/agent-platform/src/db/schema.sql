@@ -10,15 +10,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- ── 用户 ───────────────────────────────────────────────────
 
 
--- ── 公司 ───────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS companies (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  app_id      UUID NOT NULL,
-  name        TEXT NOT NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- ── 部门/群组（直接挂 app——一个 app 就是一个产品/公司） ─────
 
 -- ── Agent — 四种类型单表继承 ─────────────────────────────
 
@@ -71,7 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_agents_type ON agents(type);
 
 CREATE TABLE IF NOT EXISTS departments (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id  UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  app_id      UUID NOT NULL,
   name        TEXT NOT NULL,
   is_dm       BOOLEAN NOT NULL DEFAULT FALSE,  -- 是否为单聊
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),

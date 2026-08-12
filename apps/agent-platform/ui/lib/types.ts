@@ -17,7 +17,6 @@ export interface TokenUsage {
 export interface Agent {
   id: string
   app_id?: string
-  company_id?: string | null
   type: AgentType
   name: string
   avatar_url?: string | null
@@ -59,7 +58,6 @@ export interface Member {
 
 export interface Department {
   id: string
-  company_id?: string
   app_id?: string
   name: string
   description?: string | null
@@ -71,16 +69,6 @@ export interface Department {
   members?: Member[]
   /** 部门列表附加 */
   is_dm?: boolean
-  company_name?: string | null
-}
-
-export interface Company {
-  id: string
-  name: string
-  description?: string | null
-  created_at?: string
-  agent_count?: number
-  department_count?: number
 }
 
 /** 消息工具调用卡 */
@@ -233,10 +221,6 @@ export interface DepartmentListResponse extends ApiList<Department> {
 
 export interface MessageListResponse {
   messages: Message[]
-}
-
-export interface CompanyListResponse extends ApiList<Company> {
-  companies: Company[]
 }
 
 export interface TemplateListResponse {

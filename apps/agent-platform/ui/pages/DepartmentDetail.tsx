@@ -87,7 +87,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
                 : <Badge variant="default">群聊</Badge>}
             </div>
             <div class="wf-text-sm wf-text-secondary">
-              {$.dept?.company_name ?? '未知公司'} · {$.members.length} 位成员
+              当前应用 · {$.members.length} 位成员
             </div>
           </div>
           <Button variant="primary" onClick={() => ctx.app?.navigate(`/chat/${deptId}`)}>进入聊天 →</Button>

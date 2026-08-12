@@ -38,8 +38,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     // 验证部门存在
     const [dept] = await sql`
       SELECT d.id FROM departments d
-      JOIN companies c ON c.id = d.company_id
-      WHERE d.id = ${params.id} AND c.app_id = ${appId}
+      WHERE d.id = ${params.id} AND d.app_id = ${appId}
     `
     if (!dept) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
@@ -98,7 +97,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [membership] = await sql`
       SELECT 1 FROM department_members dm
       JOIN departments d ON d.id = dm.department_id
-      JOIN companies c ON c.id = d.company_id
+      WHERE d.app_id = ${appId}
       WHERE dm.department_id = ${params.id}
         AND dm.agent_id = ${sender.id}
         AND c.app_id = ${appId}
@@ -168,7 +167,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [membership] = await sql`
       SELECT 1 FROM department_members dm
       JOIN departments d ON d.id = dm.department_id
-      JOIN companies c ON c.id = d.company_id
+      WHERE d.app_id = ${appId}
       WHERE dm.department_id = ${params.id}
         AND dm.agent_id = ${sender.id}
         AND c.app_id = ${appId}

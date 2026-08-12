@@ -16,7 +16,6 @@ import { readFileSync } from 'node:fs'
 
 // ── 路由 ──────────────────────────────────────────────────
 import { registerAuthRoutes } from './src/routes/auth.ts'
-import { registerCompanyRoutes } from './src/routes/companies.ts'
 import { registerAgentRoutes } from './src/routes/agents.ts'
 import { registerWorkspaceRoutes } from './src/routes/workspace.ts'
 import { registerDepartmentRoutes } from './src/routes/departments.ts'
@@ -136,6 +135,20 @@ async function main() {
         DROP TABLE IF EXISTS tenants;
       END IF;
     END $$;
+    -- 公司 → app 合并（独立条件：departments.company_id 列存在——不依赖 tenants 迁移）
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='departments' AND column_name='company_id') THEN
+        ALTER TABLE departments DROP CONSTRAINT IF EXISTS departments_company_id_fkey;
+        -- 数据搬移：先加 app_id → 映射 companies.app_id → 删 company_id
+        ALTER TABLE departments ADD COLUMN app_id UUID;
+        UPDATE departments d SET app_id = c.app_id
+        FROM companies c WHERE d.company_id = c.id;
+        ALTER TABLE departments DROP COLUMN company_id;
+      END IF;
+    END $$;
+    DROP TABLE IF EXISTS companies;
     -- 索引无条件幂等重建（新库直接建，旧库迁移后补）
     CREATE INDEX IF NOT EXISTS idx_agents_app ON agents(app_id);
     CREATE INDEX IF NOT EXISTS idx_agent_logs_app ON agent_logs(app_id, created_at DESC);
@@ -229,7 +242,6 @@ async function main() {
   })
 
   // 公司
-  registerCompanyRoutes(protectedRoutes)
   // Agent
   registerAgentRoutes(protectedRoutes)
   // 工作空间文件浏览器
@@ -304,7 +316,7 @@ async function main() {
 
     const [deptStats] = await sql`
       SELECT COUNT(*)::int as total FROM departments d
-      JOIN companies c ON c.id = d.company_id
+      WHERE d.app_id = ${appId}
       WHERE c.app_id = ${appId}
     `
 

@@ -1,27 +1,23 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { Alert, Button, Card, Checkbox, EmptyState, Field, Icon, Input, Select } from 'weifuwu/components'
+import { Alert, Button, Card, Checkbox, Field, Icon, Input } from 'weifuwu/components'
 import { PageHeader, Loading, TypeBadge, errMsg } from '../components/ui'
 import { inputValue } from '../lib/types'
-import type { Agent, AgentListResponse, Company, CompanyListResponse } from '../lib/types'
+import type { Agent, AgentListResponse } from '../lib/types'
 
 interface NewDepartmentState {
-  name: string; companyId: string; selected: string[]
+  name: string; selected: string[]
   submitting: boolean; error: string
-  companies: Company[]; agents: Agent[]; loading: boolean
+  agents: Agent[]; loading: boolean
 }
 
 export const NewDepartment: Component = async (_props, ctx) => {
   const $ = {} as NewDepartmentState
   const rerender = () => ctx.ui.render()
 
-  $.name = ''; $.companyId = ''; $.selected = []; $.submitting = false; $.error = ''
-  $.companies = []; $.agents = []; $.loading = true
-  Promise.all([
-    ctx.api!.get<CompanyListResponse>('/api/companies').then(d => d.companies ?? []).catch(() => []),
-    ctx.api!.get<AgentListResponse>('/api/agents').then(d => d.agents ?? []).catch(() => []),
-  ]).then(([companies, agents]) => {
-    $.companies = companies; $.agents = agents; $.loading = false; rerender()
-  }).catch(() => { $.loading = false; rerender() })
+  $.name = ''; $.selected = []; $.submitting = false; $.error = ''
+  $.agents = []; $.loading = true
+  ctx.api!.get<AgentListResponse>('/api/agents').then(d => d.agents ?? []).catch(() => [])
+    .then(agents => { $.agents = agents; $.loading = false; rerender() })
 
   function toggle(id: string) {
     const set = new Set($.selected)
@@ -33,42 +29,28 @@ export const NewDepartment: Component = async (_props, ctx) => {
   async function handleSubmit(e: Event) {
     e.preventDefault()
     if (!$.name.trim()) { $.error = '请输入部门名称'; rerender(); return }
-    const cid = $.companyId || $.companies?.[0]?.id
-    if (!cid) { $.error = '请先创建公司'; rerender(); return }
     $.submitting = true; $.error = ''
     rerender()
     try {
-      await ctx.api!.post('/api/departments', { company_id: cid, name: $.name.trim(), member_ids: $.selected })
+      await ctx.api!.post('/api/departments', { name: $.name.trim(), member_ids: $.selected })
       ctx.app?.navigate('/departments')
     } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }
   return async (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
       <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
-      <PageHeader title="创建部门" sub="选择公司并添加成员" />
+      <PageHeader title="创建部门" sub="在当前应用中创建群组并添加成员" />
 
       <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
 
       {$.loading && <Loading />}
 
-      {!$.loading && $.companies.length === 0 && (
-        <EmptyState icon={<Icon name="briefcase" />} text="还没有公司" hint="部门必须挂在公司下，先创建公司（1 分钟）">
-          <Button variant="primary" onClick={() => ctx.app?.navigate('/companies/new')}>＋ 创建公司</Button>
-          <Button variant="ghost" onClick={() => ctx.app?.navigate('/companies')}>查看公司</Button>
-        </EmptyState>
-      )}
-
-      {!$.loading && $.companies.length > 0 && (
+      {!$.loading && (
         <Card>
           <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
             <Field label="部门名称" required>
               <Input type="text" placeholder="如：技术部、市场部" value={$.name}
                 onInput={(e: Event) => { $.name = inputValue(e); rerender() }} />
-            </Field>
-
-            <Field label="所属公司">
-              <Select value={$.companyId} onChange={(v) => { $.companyId = v as string; rerender() }}
-                options={$.companies.map((c: Company) => ({ value: c.id, label: c.name }))} />
             </Field>
 
             <Field label={`添加成员（已选 ${$.selected.length} 个，可稍后添加）`}>

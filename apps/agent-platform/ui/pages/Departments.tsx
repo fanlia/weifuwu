@@ -46,7 +46,7 @@ export const Departments: Component = async (_props, ctx) => {
                 <div class="wf-fill wf-text-base wf-text-semibold wf-truncate">{d.name ?? '未命名'}</div>
                 <Badge variant={d.is_dm ? 'primary' : 'default'}>{d.is_dm ? '单聊' : '群聊'}</Badge>
               </div>
-              <div class="wf-text-sm wf-text-secondary wf-mt-sm">{d.company_name ? `所属公司：${d.company_name}` : '跨部门协作群组'}</div>
+              <div class="wf-text-sm wf-text-secondary wf-mt-sm">当前应用群组</div>
               <div class="wf-split wf-mt-md">
                 <span class="wf-text-xs wf-text-tertiary">{d.member_count ?? 0} 位成员</span>
                 <div class="wf-row wf-gap-sm">

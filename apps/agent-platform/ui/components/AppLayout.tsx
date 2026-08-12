@@ -14,7 +14,6 @@ interface NavDef {
 const NAV: NavDef[] = [
   { path: '/', icon: h(Icon, { name: 'grid' }), label: '概览', match: p => p === '/' || p === '/dashboard' },
   { path: '/agents', icon: h(Icon, { name: 'cpu' }), label: 'Agent', match: p => p.startsWith('/agents') },
-  { path: '/companies', icon: h(Icon, { name: 'briefcase' }), label: '公司', match: p => p.startsWith('/companies') },
   { path: '/departments', icon: h(Icon, { name: 'users' }), label: '部门', match: p => p.startsWith('/departments') },
   { path: '/chat/new', icon: h(Icon, { name: 'message' }), label: '聊天', match: p => p.startsWith('/chat') },
 ]

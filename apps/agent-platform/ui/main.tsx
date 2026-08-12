@@ -21,8 +21,6 @@ import { DepartmentDetail } from './pages/DepartmentDetail'
 import { NewChat } from './pages/NewChat'
 import { Approvals } from './pages/Approvals'
 import { Chat } from './pages/Chat'
-import { Companies } from './pages/Companies'
-import { NewCompany } from './pages/NewCompany'
 import { Settings } from './pages/Settings'
 
 // ── 应用 ─────────────────────────────────────────────────
@@ -84,8 +82,6 @@ main.get('dashboard', () => h(Dashboard, {}), { title: '概览 — Agent Platfor
 main.get('agents', () => h(Agents, {}), { title: 'Agent — Agent Platform' })
 main.get('agents/new', () => h(NewAgent, {}), { title: '创建 Agent' })
 main.get('agents/:id', () => h(AgentDetail, {}), { title: '编辑 Agent' })
-main.get('companies', () => h(Companies, {}), { title: '公司 — Agent Platform' })
-main.get('companies/new', () => h(NewCompany, {}), { title: '创建公司' })
 main.get('departments', () => h(Departments, {}), { title: '部门 — Agent Platform' })
 main.get('departments/new', () => h(NewDepartment, {}), { title: '创建部门' })
 main.get('departments/:id', () => h(DepartmentDetail, {}), { title: '部门详情' })

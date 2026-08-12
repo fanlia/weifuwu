@@ -100,15 +100,13 @@ before(async () => {
     DROP TABLE IF EXISTS department_members CASCADE;
     DROP TABLE IF EXISTS departments CASCADE;
     DROP TABLE IF EXISTS agents CASCADE;
-    DROP TABLE IF EXISTS companies CASCADE;
     DROP TABLE IF EXISTS users CASCADE;
     DROP TYPE IF EXISTS agent_type CASCADE;
   `)
   await pg.sql.unsafe(schema)
 
   // 插入测试数据（使用有效 UUID）
-  await pg.sql`INSERT INTO companies (id, app_id, name) VALUES ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Test Co')`
-  await pg.sql`INSERT INTO departments (id, company_id, name) VALUES ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000010', 'Test Dept')`
+  await pg.sql`INSERT INTO departments (id, app_id, name) VALUES ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000001', 'Test Dept')`
   await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', 'ai', 'AI Bot', '你是AI助手')`
   await pg.sql`INSERT INTO agents (id, app_id, type, name) VALUES ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', 'user', 'User')`
   await pg.sql`INSERT INTO department_members (department_id, agent_id) VALUES ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000030')`
@@ -200,7 +198,7 @@ describe('Services', () => {
 
     it('部门无 AI Agent 时插入系统提示（引导添加）', async () => {
       // 创建一个无 AI 成员的部门
-      await pg.sql`INSERT INTO departments (id, company_id, name) VALUES ('00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000010', 'Empty')`
+      await pg.sql`INSERT INTO departments (id, app_id, name) VALUES ('00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000001', 'Empty')`
       await pg.sql`INSERT INTO department_members (department_id, agent_id) VALUES ('00000000-0000-0000-0000-000000000022', ${USER_AGENT_ID})`
 
       const ctx = makeMockCtx({ sql: await pg.sql as any })
