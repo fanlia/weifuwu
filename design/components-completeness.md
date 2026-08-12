@@ -200,7 +200,13 @@ Avatar alt ✓、Timeline mode 三向 ✓、StatCard animate/countdown/trend ✓
 Modal/Drawer trapFocus + 退场动画成对、Toast/Confirm/Popconfirm exit 动画 ✓、
 demo 覆盖（命令式 DemoConfirm/DemoNotification 已存在）✓
 
+### W4 导航布局族进度（2026-12）
+
+**agent-browser 实测验收**（真实浏览器）：
+- ✅ Tabs：ArrowRight 焦点跟随 + 选中切换（设置←详情）+ Enter 触发
+- ✅ Pagination：初始页 3 → next → 4（onChange 受控回流）
+- 走查：demo 全覆盖（全 ≥2）+ 测试全 ≥3 + 键盘核心组件（Menu/NavMenu/Tabs/Anchor/Collapse/Accordion）✓
+
 **待办**：
-- W4 导航布局族（Menu/NavMenu/Tabs/Breadcrumb/Pagination/Affix/BackTop/Anchor/Steps/
-  Collapse/Carousel/Transfer 等）6 维 checklist
-- W3 剩余组件 demo 渐进
+- W5 AI 工具链族（AiChat/ChatInput/MessageBubble/useChat 会话等）6 维 checklist
+- W4 剩余组件 demo 渐进
