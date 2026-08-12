@@ -1,4 +1,4 @@
-import { test, describe } from 'node:test'
+import { test, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { AutoComplete, filterOptions } from './AutoComplete.ts'
 import { renderVNode, createTestCtx, createPopupMock } from '../../ui-dom/testing.ts'
@@ -163,5 +163,20 @@ describe('AutoComplete', () => {
     vnode = await inst.render({ options, value: '' })
     const dropdown = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-dropdown'))
     assert.equal(dropdown, null, 'Escape 关闭（portal 不渲染）')
+  })
+})
+
+describe('AutoComplete error（F2 状态矩阵）', () => {
+  it('error 时输入框错误样式类', async () => {
+    const render = await AutoComplete({ options: [{ value: 'a', label: 'A' }], error: '必填' }, makeCtx())
+    const v = await render({ options: [{ value: 'a', label: 'A' }], error: '必填' })
+    const input = findVNode(v, (x: any) => x?.props?.role === 'combobox')
+    assert.match(String(input.props.class), /--err/, '错误样式类')
+  })
+  it('无 error 无错误类', async () => {
+    const render = await AutoComplete({ options: [{ value: 'a', label: 'A' }] }, makeCtx())
+    const v = await render({ options: [{ value: 'a', label: 'A' }] })
+    const input = findVNode(v, (x: any) => x?.props?.role === 'combobox')
+    assert.ok(!String(input.props.class).includes('--err'), '无错误类')
   })
 })

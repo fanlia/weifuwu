@@ -313,3 +313,7 @@
 .wf-time-body {
   overflow-x: auto;
 }
+
+/* error（F2 状态矩阵） */
+.wf-datepicker-input--err { border-color: var(--wf-color-error); }
+.wf-datepicker-input--err:focus { box-shadow: 0 0 0 2px var(--wf-color-error-bg), 0 0 0 1px var(--wf-color-error); }

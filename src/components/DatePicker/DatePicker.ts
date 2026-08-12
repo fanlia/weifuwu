@@ -27,6 +27,8 @@ export interface DatePickerProps {
   onChange?: (value: string) => void
   placeholder?: string
   disabled?: boolean
+  /** 错误态（F2 状态矩阵——输入类基线） */
+  error?: string
 }
 
 export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
@@ -74,7 +76,7 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
 
   return async (props: DatePickerProps) => {
     const L = (ctx as any)?.i18n?.components?.DatePicker ?? {}
-    const { mode = 'date', value, onChange, placeholder = L.placeholder ?? '选择日期', disabled } = props
+    const { mode = 'date', value, onChange, placeholder = L.placeholder ?? '选择日期', disabled, error } = props
     latestMode = mode
 
     const isOpen = show
@@ -315,7 +317,8 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
 
     return h('div', { class: `wf-datepicker${disabled ? ' wf-datepicker--disabled' : ''}` }, [
       h('input', {
-        class: 'wf-datepicker-input',
+        class: ['wf-datepicker-input', error ? ' wf-datepicker-input--err' : ''].filter(Boolean).join(' '),
+        'aria-invalid': error ? 'true' : undefined,
         type: 'text',
         placeholder,
         value: displayValue || '',

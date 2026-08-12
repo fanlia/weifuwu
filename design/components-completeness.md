@@ -163,7 +163,10 @@ TagsInput 限制+错误 / PinInput 禁用 / FileUpload 禁用+accept / Form load
 - SearchInput disabled（透传 + 样式）——TDD 1
 - TreeSelect disabled + error（触发框状态类 + aria + 点击禁用）——TDD 3
 
+**F2 状态矩阵补缺（第二批）**：
+- AutoComplete error（输入框 --err + aria-invalid）——TDD 2
+- DatePicker error（同上）——TDD 1
+
 **待办**：
-- AutoComplete / DatePicker error 态（输入类基线——下一批）
 - W1 逐组件 6 维 checklist 继续（F1 功能/F2 状态/F3 变体/F4 a11y/F5 响应式/F6 demo）
 - 每组件 demo ≥3 示例渐进（R40 全局防线已建，Wave 内逐组件补）

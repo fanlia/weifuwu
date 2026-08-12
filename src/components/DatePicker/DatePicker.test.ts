@@ -6,7 +6,7 @@ import { DatePicker } from './DatePicker.ts'
 import { Portal, h } from '../../ui-dom/vnode.ts'
 import { mountToDom, patchToDom, buildToDom } from '../../ui-dom/testing.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import { createTestCtx, renderVNode } from '../../ui-dom/testing.ts'
 
 function makeCtx(): WfuiContext {
   return createTestCtx({ ui: {
@@ -26,6 +26,15 @@ async function mount(Comp: any, props: any, ctx: WfuiContext) {
   const result = await Comp(props, ctx)
   const renderFn = typeof result === 'function' ? result : null
   return (overrides?: any) => renderFn!(overrides ?? props)
+}
+
+function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
+  if (!vnode || typeof vnode !== 'object') return null
+  if (pred(vnode)) return vnode
+  const kids = vnode.props?.children
+  if (Array.isArray(kids)) { for (const k of kids) { const f = findVNode(k, pred); if (f) return f } }
+  else if (kids && typeof kids === 'object') return findVNode(kids, pred)
+  return null
 }
 
 describe('DatePicker', () => {
@@ -156,5 +165,13 @@ describe('DatePicker', () => {
     cells[4].dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await new Promise(r => setTimeout(r, 0))
     assert.ok(!document.querySelector('#__wf_portal .wf-datepicker-dropdown'), 'Escape 应关闭面板')
+  })
+})
+
+describe('DatePicker error（F2 状态矩阵）', () => {
+  it('error 时输入框错误样式类', async () => {
+    const vnode = await renderVNode(DatePicker, { error: '必选' }, makeCtx())
+    const input = findVNode(vnode, (v: any) => v?.props?.role === 'combobox')
+    assert.match(String(input.props.class), /--err/, '错误样式类')
   })
 })

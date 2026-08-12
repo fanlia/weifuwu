@@ -32,6 +32,8 @@ export interface AutoCompleteProps {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   disabled?: boolean
+  /** 错误态（F2 状态矩阵——输入类基线） */
+  error?: string
   /** 过滤函数（默认包含匹配） */
   filter?: (options: AutoCompleteOption[], query: string) => AutoCompleteOption[]
   renderOption?: (option: AutoCompleteOption) => any
@@ -96,7 +98,7 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
 
   // ── render（每次 dirty/props 变化）──
   return async (props: AutoCompleteProps) => {
-    const { options, value, placeholder = '输入搜索…', disabled, renderOption, onSelect } = props
+    const { options, value, placeholder = '输入搜索…', disabled, error, renderOption, onSelect } = props
     // C3 原语：受控 value + 内部输入态/选中态（render 阶段调用——读最新 props）
     inputCtrl = ctx.ui.useControlledInput({ value, onChange: props.onChange, name: 'AutoComplete' })
     const keyword = inputCtrl.keyword
@@ -177,7 +179,8 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
       h('input', {
         // C1 修复后：portal 内部 key 不算用户 keyed → allUnkeyed 按位置复用
         // input 不重建（此前需手动 key 防焦点丢失——现已治本）
-        class: 'wf-autocomplete-input wf-input',
+        class: ['wf-autocomplete-input wf-input', error ? ' wf-autocomplete-input--err' : ''].filter(Boolean).join(' '),
+        'aria-invalid': error ? 'true' : undefined,
         role: 'combobox',
         'aria-haspopup': 'listbox',
         'aria-expanded': String(open),
