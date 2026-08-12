@@ -176,6 +176,13 @@ TagsInput 限制+错误 / PinInput 禁用 / FileUpload 禁用+accept / Form load
 **W1 状态**：F2 状态矩阵（disabled/error 全链）+ a11y（核心键盘）+ demo 状态矩阵完成；
 F1 功能对照已 100%（三库）+ F4 audit 防线全绿
 
+### W2 数据展示族进度（2026-12）
+
+**demo 丰富度补充**（7 核心组件 ×1 变体——覆盖状态矩阵/性能/交互）：
+Table 行选择（rowSelection）/ VirtualTable 10 万行大数据 / Tree checkable 勾选联动 /
+JSONViewer 深展开 / LogViewer 自定义日志 / DiffView 标题对比 / InfiniteScroll 失败重试
+
 **待办**：
-- W2 数据展示族（24 组件——Table/VirtualTable/Tree/Chart 等）6 维 checklist
+- W2 剩余组件 6 维 checklist（Timeline/Tag/Badge/EmptyState/StatCard/Img/CodeBlock/
+  Skeleton/Highlight/Descriptions/List/Result/Avatar/AvatarGroup/Sparkline/Chart）
 - W1 剩余组件 demo ≥3 示例渐进

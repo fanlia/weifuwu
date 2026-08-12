@@ -1686,6 +1686,134 @@ const DemoFileUploadDis: Component = async (_p, ctx) => {
   )
 }
 
+const DemoTableRowSelect: Component = async (_props, ctx) => {
+  let keys: (string | number)[] = [1]
+  return async () => (
+    <div class="wf-w-full wf-stack wf-gap-sm">
+      <Table
+        rowSelection={{ selectedRowKeys: keys, onChange: (k: (string | number)[]) => { keys = k; ctx.ui.render() } }}
+        data={[
+          { id: 1, name: '张三', role: '管理员' },
+          { id: 2, name: '李四', role: '编辑' },
+          { id: 3, name: '王五', role: '访客' },
+        ]}
+        columns={[{ key: 'id', label: 'ID', width: 60 }, { key: 'name', label: '姓名' }, { key: 'role', label: '角色' }]} />
+      <div class="wf-text-xs wf-text-secondary">已选 {keys.length} 行——勾选列 + 受控 selectedRowKeys</div>
+    </div>
+  )
+}
+
+const DemoVirtualTableBig: Component = async (_props, ctx) => {
+  // 10 万行大数据（虚拟滚动只渲染可见窗口）
+  const big = Array.from({ length: 100000 }, (_, i) => ({ id: i, name: `条目-${i}`, value: i * 7 }))
+  return async () => (
+    <VirtualTable height={280} data={big}
+      columns={[{ key: 'id', label: 'ID', width: 80 }, { key: 'name', label: '名称' }, { key: 'value', label: '值', sortable: true }]} />
+  )
+}
+
+const DemoToggleTreeCheck: Component = async (_props, ctx) => {
+  let checked: string[] = ['a1']
+  const treeData = [
+    { key: 'a', label: '前端组', children: [{ key: 'a1', label: 'React' }, { key: 'a2', label: 'Vue' }] },
+    { key: 'b', label: '后端组', children: [{ key: 'b1', label: 'Node' }, { key: 'b2', label: 'Go' }] },
+  ]
+  return async () => (
+    <div class="wf-w-full wf-stack wf-gap-sm">
+      <Tree data={treeData} checkable checkedKeys={checked}
+        onCheck={(k: string[]) => { checked = k; ctx.ui.render() }} />
+      <div class="wf-text-xs wf-text-secondary">勾选：{checked.join(' / ') || '（无）'}——父子联动</div>
+    </div>
+  )
+}
+
+const DemoJSONViewerDeep: Component = async () => async () => (
+  <div class="wf-w-full">
+    <JSONViewer defaultExpandDepth={3} data={{
+      user: { name: '张三', roles: ['admin', 'editor'], profile: { age: 30, tags: ['前端', '全栈'], address: { city: '杭州', street: '文一西路' } } },
+      meta: { createdAt: '2025-06-10', version: 'v0.78.0' },
+    }} />
+    <div class="wf-text-xs wf-text-secondary">defaultExpandDepth=3 深展开——懒展开覆盖大对象</div>
+  </div>
+)
+
+const DemoLogViewerCustom: Component = async () => async () => {
+  const logs = [
+    '\x1b[32m[INFO]\x1b[0m 2025-06-10T10:00:01 服务启动',
+    '\x1b[33m[WARN]\x1b[0m 2025-06-10T10:00:02 缓存命中率下降',
+    '\x1b[31m[ERROR]\x1b[0m 2025-06-10T10:00:03 数据库连接超时',
+    '\x1b[32m[INFO]\x1b[0m 2025-06-10T10:00:04 重试成功',
+  ]
+  return (
+    <div class="wf-w-full">
+      <LogViewer height={140} lines={logs} showLineNumbers showCopy follow={false} />
+      <div class="wf-text-xs wf-text-secondary">ANSI 着色 + 行号 + 复制——自定义日志源</div>
+    </div>
+  )
+}
+
+const DemoDiffViewBig: Component = async () => async () => (
+  <div class="wf-w-full">
+    <DiffView oldTitle="旧实现" newTitle="新实现"
+      oldCode={`function add(a, b) {
+  const sum = a + b
+  return sum
+}
+
+function oldHelper(x) {
+  return x * 2
+}
+
+function untouched(a) {
+  return a
+}`}
+      newCode={`function add(a, b) {
+  const sum = a + b
+  return sum
+}
+
+function newHelper(x) {
+  return x * 3
+}
+
+function untouched(a) {
+  return a
+}`} />
+    <div class="wf-text-xs wf-text-secondary">LCS 行级对比——未变块折叠</div>
+  </div>
+)
+
+const DemoInfiniteScrollRetry: Component = async (_props, ctx) => {
+  let items = Array.from({ length: 8 }, (_, i) => `条目 ${i + 1}`)
+  let loading = false
+  let failed = false
+  let page = 1
+  return async () => (
+    <div class="wf-w-full wf-stack wf-gap-sm">
+      <InfiniteScroll
+        hasMore={items.length < 32}
+        loading={loading}
+        loadMoreText="加载中…"
+        endText="已全部加载"
+        onLoadMore={() => {
+          if (loading) return
+          loading = true; ctx.ui.render()
+          setTimeout(() => {
+            page++
+            // 第 2 页模拟失败（重试演示）
+            if (page === 2) { failed = true; loading = false; ctx.ui.render(); return }
+            failed = false
+            items = [...items, ...Array.from({ length: 8 }, (_, i) => `条目 ${items.length + i + 1}`)]
+            loading = false; ctx.ui.render()
+          }, 800)
+        }}>
+        {items.map(it => <div class="wf-surface wf-border wf-rounded-md wf-p-sm wf-mb-xs">{it}</div>)}
+        {failed && <div class="wf-text-sm wf-text-error wf-mb-xs">加载失败——再次滚动重试</div>}
+      </InfiniteScroll>
+    </div>
+  )
+}
+
 const DemoTransfer: Component = async (_props, ctx) => {
   let target = ['a']
   return async () => (
@@ -2644,6 +2772,15 @@ return () => <AiChat chat={chat} />
   formSubmit: `<Form validation={{name:[{required:true,minLength:2}]}}
   onSubmit={submit}><Field label="项目名称" required><Input name="name" /></Field>
   <Button type="submit" loading={loading}>提交</Button></Form>`,
+  tableRowSelect: `<Table rowSelection={{selectedRowKeys, onChange:setKeys}}
+  data={rows} columns={[{key:'name',label:'姓名'}]} />`,
+  virtualtableBig: `<VirtualTable height={280} data={100000行大数据} columns={[{key:'id',label:'ID'}]} />`,
+  treeCheck: `<Tree data={treeData} checkable checkedKeys={checked} onCheck={setChecked} />`,
+  jsonviewerDeep: `<JSONViewer defaultExpandDepth={3} data={大对象} />`,
+  logviewerCustom: `<LogViewer height={140} lines={ANSI日志} showLineNumbers showCopy />`,
+  diffviewBig: `<DiffView oldTitle="旧实现" newTitle="新实现" oldCode={...} newCode={...} />`,
+  infinitescrollRetry: `<InfiniteScroll hasMore loading onLoadMore={加载}
+  endText="已全部加载">...</InfiniteScroll>`,
   transfer: `<Transfer data={members}
   targetKeys={selected} onChange={setSelected} />`,
 
@@ -2817,6 +2954,7 @@ const App: Component = async (_props, ctx) => {
 
       <Section title="数据展示">
         <DemoCard title="Table" desc="可排序 + 自定义 render + 空状态" code={CODE.table}><DemoTable /></DemoCard>
+        <DemoCard title="Table 行选择" desc="rowSelection 勾选列 + 受控 keys（状态矩阵覆盖）" code={CODE.tableRowSelect}><DemoTableRowSelect /></DemoCard>
         <DemoCard title="Card" desc="容器，支持 default/outlined/clickable" code={CODE.card}><DemoCardShowcase /></DemoCard>
         <DemoCard title="Badge" desc="状态标签 + 圆点，6 种 variant" code={CODE.badge}><DemoBadge /></DemoCard>
         <DemoCard title="Tag" desc="标签，支持 closable/onClose" code={CODE.tag}><DemoTag /></DemoCard>
@@ -2829,8 +2967,11 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="Markdown" desc="AI 回复渲染：安全子集 parser + 代码块 + 链接白名单" code={CODE.markdown}><DemoMarkdown /></DemoCard>
         <DemoCard title="CodeBlock" desc="代码块：语言标签 + 复制按钮 + 横向滚动" code={CODE.codeblock}><DemoCodeBlock /></DemoCard>
         <DemoCard title="LogViewer" desc="日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制" code={CODE.logviewer}><DemoLogViewer /></DemoCard>
+        <DemoCard title="LogViewer 自定义" desc="自定义日志源 + 行号 + 复制（变体覆盖）" code={CODE.logviewerCustom}><DemoLogViewerCustom /></DemoCard>
         <DemoCard title="JSONViewer" desc="结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开" code={CODE.jsonviewer}><DemoJSONViewer /></DemoCard>
+        <DemoCard title="JSONViewer 深展开" desc="defaultExpandDepth 深度展开嵌套对象（变体覆盖）" code={CODE.jsonviewerDeep}><DemoJSONViewerDeep /></DemoCard>
         <DemoCard title="DiffView" desc="代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色" code={CODE.diffview}><DemoDiffView /></DemoCard>
+        <DemoCard title="DiffView 标题" desc="oldTitle/newTitle 标记版本对比（变体覆盖）" code={CODE.diffviewBig}><DemoDiffViewBig /></DemoCard>
         <DemoCard title="Sparkline" desc="迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充" code={CODE.sparkline}><DemoSparkline /></DemoCard>
         <DemoCard title="Tour" desc="新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape" code={CODE.tour}><DemoTour /></DemoCard>
         <DemoCard title="Kanban" desc="看板：原生 DnD 拖拽 + 跨列/重排 + 悬停高亮" code={CODE.kanban}><DemoKanban /></DemoCard>
@@ -2919,6 +3060,7 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="Mentions 禁用态" desc="disabled 时不可输入（状态矩阵覆盖）" code={CODE.mentionsDis}><DemoMentionsDis /></DemoCard>
         <DemoCard title="Collapse" desc="行内折叠：异步 loading + extra 操作区（区别于 Accordion）" code={CODE.collapse}><DemoCollapse /></DemoCard>
         <DemoCard title="Tree" desc="树形：递归模型 + 勾选父子联动 + indeterminate（antd/EP Tree）" code={CODE.tree}><DemoToggleTree /></DemoCard>
+        <DemoCard title="Tree 勾选" desc="checkable 父子联动 + 受控 checkedKeys（变体覆盖）" code={CODE.treeCheck}><DemoToggleTreeCheck /></DemoCard>
         <DemoCard title="Cascader" desc="级联选择：多列面板逐级推进（antd/EP Cascader）" code={CODE.cascader}><DemoCascader /></DemoCard>
         <DemoCard title="Cascader 禁用/错误" desc="disabled + error 校验态（状态矩阵覆盖）" code={CODE.cascaderDis}><DemoCascaderDis /></DemoCard>
         <DemoCard title="Transfer" desc="穿梭框：双列表 + 选中移动（antd/EP Transfer）" code={CODE.transfer}><DemoTransfer /></DemoCard>
@@ -2931,7 +3073,9 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="Watermark" desc="水印：canvas 平铺绘制 + overlay（antd Watermark）" code={CODE.watermark}><DemoWatermark /></DemoCard>
         <DemoCard title="VirtualList" desc="虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM" code={CODE.virtuallist}><DemoVirtualList /></DemoCard>
         <DemoCard title="VirtualTable" desc="虚拟表格：10k 行固定表头 + 可见窗口渲染 + 排序" code={CODE.virtualtable}><DemoVirtualTable /></DemoCard>
+        <DemoCard title="VirtualTable 大数据" desc="10 万行虚拟滚动（只渲染可见窗口——性能展示）" code={CODE.virtualtableBig}><DemoVirtualTableBig /></DemoCard>
         <DemoCard title="InfiniteScroll" desc="无限滚动：底部哨兵触底加载 + loading/end 态" code={CODE.infinitescroll}><DemoInfiniteScroll /></DemoCard>
+        <DemoCard title="InfiniteScroll 失败重试" desc="加载失败提示 + 滚动重试（状态矩阵覆盖）" code={CODE.infinitescrollRetry}><DemoInfiniteScrollRetry /></DemoCard>
         <DemoCard title="QRCode" desc="二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG" code={CODE.qrcode}><DemoQRCode /></DemoCard>
       </Section>
 
