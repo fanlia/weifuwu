@@ -8,7 +8,7 @@
 
 import type { VNode, VNodeChild } from '../vnode.ts'
 import type { BrowserEnv } from '../types.ts'
-import { Fragment, Portal, normalizeChildren } from '../vnode.ts'
+import { Fragment, Portal, arrayChildren } from '../vnode.ts'
 // 单一规则源（阶段 0）：children/属性判定从 transform.ts 导入——禁止各路径各自实现
 import { EVENT_RE, eventTarget, ENUMERATED_VALUE_BASED, holeDetail } from './transform.ts'
 // re-export（diff.ts 等消费方保持从 render.ts 导入的既有路径）
@@ -103,7 +103,7 @@ export function createHole(browser: BrowserEnv, v: unknown): Node | null {
 }
 
 /** 递归渲染（同步——组件必须已构建） */
-export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node | null {
+export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?: string | null, id?: string | null): Node | null {
   const b = (ctx?.browser ?? browser) as BrowserEnv
   if (!b) throw new Error('[vdom] renderValue requires browser env (ctx.browser)')
   if (v == null || typeof v === 'boolean') return null
@@ -111,11 +111,23 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
   if (Array.isArray(v)) {
     const frag = b.createDocumentFragment()
     if (!frag) return null
-    for (const c of v) {
-      // 数组上下文：无渲染值（false/null/true）→ 占位节点（childNodes 长度 = 数组长度）
-      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b)
+    // 数组项 = 隐式 Fragment（规则表 §1-20）：DOM 边界标记——数组项展开后边界在 DOM 持久化
+    // （fragment-start/end 注释，与占位注释 wf-hole 同族——不改变 DOM 结构，非用户内容）。
+    // 标记带数组项身份：key 必写（父数组下标/显式 key——规则表 §3-46 层级独立）；id 有则写
+    // （数组项无 vnode 身份时省略——组件/元素 id 走 data-wf-id 不重复）。diff 直接读注释定位
+    const keyAttr = key != null ? ` key="${key}"` : ''
+    const idAttr = id != null ? ` id="${id}"` : ''
+    const fragStart = b.createComment(`wf-hole:fragment-start${keyAttr}${idAttr}`)
+    const fragEnd = b.createComment(`wf-hole:fragment-end${keyAttr}${idAttr}`)
+    if (fragStart) frag.appendChild(fragStart)
+    for (let i = 0; i < v.length; i++) {
+      const c = v[i]
+      // 数组上下文：无渲染值（false/null/true）→ 占位节点（childNodes 长度 = 数组长度）；
+      // 内层项下标传给嵌套数组项（多层嵌套 key 层级独立）
+      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i))
       if (n != null) frag.appendChild(n)
     }
+    if (fragEnd) frag.appendChild(fragEnd)
     return frag
   }
   const vnode = v as VNode
@@ -154,8 +166,8 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
   if (vnode.type === Fragment) {
     const frag = b.createDocumentFragment()
     if (!frag) return null
-    // P-5：normalizeChildren 统一展开（替代 flat(Infinity) 重复展开）；数组上下文无渲染值 → 占位
-    for (const c of normalizeChildren(vnode.props?.children)) {
+    // P-5：arrayChildren 统一展开（替代 flat(Infinity) 重复展开）；数组上下文无渲染值 → 占位
+    for (const c of arrayChildren(vnode.props?.children)) {
       const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b)
       if (n != null) frag.appendChild(n)
     }
@@ -233,15 +245,22 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
     setProp(el, key, value)
   }
   if (!('innerHTML' in (vnode.props ?? {}))) {
-    // P-5：normalizeChildren 统一展开（替代 flat(Infinity) 重复展开）；数组上下文无渲染值 → 占位
+    // P-5：arrayChildren 统一展开（替代 flat(Infinity) 重复展开）；数组上下文无渲染值 → 占位
     // 阶段 B：记录 children 每位置的首 DOM 节点（_childAnchors——替代 source[i] 下标猜测，
     // fragment/数组项多节点展开后相邻项不错位——规则表 §5）
     const anchors: (Node | null)[] = []
-    for (const c of normalizeChildren(vnode.props?.children)) {
-      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b)
+    const elChildren = arrayChildren(vnode.props?.children)
+    for (let i = 0; i < elChildren.length; i++) {
+      const c = elChildren[i]
+      // 数组项（隐式 Fragment）边界标记带外层下标 key（规则表 §3-46 层级独立——data-wf-key
+      // 与 fragment 标记 key 同源；组件 id 由 renderValue 内部落 data-wf-id）
+      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i))
       if (n == null) { anchors.push(null); continue }
+      // appendChild 前记录锚点（数组项 = 隐式 Fragment：n 是 DocumentFragment——appendChild
+      // 展开子节点后 fragment 变空，firstChild 读不到——锚点必须是展开前首节点）
+      const anchorNode = n.nodeType === 11 ? (n.firstChild as Node | null) : n
       el.appendChild(n)
-      anchors.push(n.nodeType === 11 ? (n.firstChild as Node | null) : n)
+      anchors.push(anchorNode)
       // 子组件 DOM 锚点（精准刷新定位）
       if (c && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function') {
         const cv = c as VNode

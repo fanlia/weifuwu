@@ -98,7 +98,7 @@ test('render: 数组 → DocumentFragment（多 children 展开）', () => {
   const ctx = makeCtx()
   const frag = renderValue([h('span', {}, 'a'), h('span', {}, 'b')], ctx, ctx.browser)
   assert.ok(frag instanceof DocumentFragment)
-  assert.equal(frag?.childNodes.length, 2)
+  assert.equal(frag?.childNodes.length, 4, '数组项带边界标记（start + a + b + end）')
 })
 
 test('render: Portal body 缺失 → 返回 null（防御分支）', () => {

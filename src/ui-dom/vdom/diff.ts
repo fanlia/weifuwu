@@ -9,9 +9,9 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
-import { Fragment, Portal, normalizeChildren } from '../vnode.ts'
-// re-export（v1 导入点兼容——normalizeChildren 已移至 vnode.ts 统一）
-export { normalizeChildren }
+import { Fragment, Portal, arrayChildren } from '../vnode.ts'
+// re-export（v1 导入点兼容——arrayChildren 已移至 vnode.ts 统一）
+export { arrayChildren }
 import { createClientBrowser } from '../browser.ts'
 import { cleanupComponent, type Registry } from './registry.ts'
 import { callRefCleanupFor } from './registry.ts'
@@ -310,6 +310,33 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
  * patchChildren — 数组 diff。
  * @returns 每个新子项的 DOM 范围（Fragment 展开对齐）
  */
+/** 数组项（隐式 Fragment）DOM 范围。
+ *  锚点是 fragment-start 注释（数组项渲染时写入边界标记）→ 范围 = start..fragment-end 含标记；
+ *  非数组项（单节点锚点）→ 自身到下一锚点前（保留 nextSibling 推导——无标记的普通项）。
+ *  标记持久化让数组项边界在 DOM 可见——移动/移除/对齐精确（替代纯 nextSibling 链推导） */
+function rangeFor(anchors: (Node | null)[], i: number, parent: Node): Node[] {
+  const start = anchors[i]
+  if (!start) return []
+  if (start.nodeType === 8 && start.nodeValue?.startsWith('wf-hole:fragment-start')) {
+    const out: Node[] = [start]
+    let n: Node | null = start.nextSibling
+    while (n) {
+      out.push(n)
+      if (n.nodeType === 8 && n.nodeValue?.startsWith('wf-hole:fragment-end')) break
+      n = n.nextSibling
+    }
+    return out
+  }
+  const end = anchors[i + 1] ?? null
+  const out: Node[] = []
+  let n: Node | null = start
+  while (n && n !== end && n.parentNode === parent) {
+    out.push(n)
+    n = n.nextSibling
+  }
+  return out
+}
+
 export function patchChildren(
   parent: Node,
   oldInput: VNodeChild | null | undefined,
@@ -322,8 +349,10 @@ export function patchChildren(
   // 过滤已删除（占位法替代）：数组上下文的无渲染值（false/null/true）由 renderValue 建占位节点——
   // DOM childNodes 与 children 数组同构（长度恒等），数组项原样参与 diff（用户 vnode 零 magic，
   // 规则表 §1/§3）。
-  const oldChildren = normalizeChildren(oldInput)
-  const newChildren = normalizeChildren(newInput)
+  // 数组项 = 隐式 Fragment：保真用户结构（不展开——vnode 任何阶段以用户 JSX 为标准，规则表
+  // §1-20）。old/new children 是外层数组（含数组项原样）；数组项在下方配对分支递归处理
+  const oldChildren = arrayChildren(oldInput)
+  const newChildren = arrayChildren(newInput)
   const source = oldAnchors ?? oldRange ?? Array.from(parent.childNodes)
 
   // 混合 keyed 数组（部分项有用户 key）：给无 key 项自动分配位置 key——
@@ -337,6 +366,10 @@ export function patchChildren(
     const vn = c as VNode
     return vn._placement !== 'remote' && vn.key !== undefined
   })
+  // 数组项（隐式 Fragment）存在 → 外层位置配对（数组项无 key 身份——默认位置语义；内层数组
+  // 内部各自 keyed——层级独立。混合 keyed 的外层（列表 + 固定元素：items.map() + footer）中
+  // 数组项按位置、显式 key 项按位置——不混合 keyed 匹配）
+  const hasArrayItem = newChildren.some((c) => Array.isArray(c))
   if (hasUserKey) {
     for (let i = 0; i < newChildren.length; i++) {
       const c = newChildren[i]
@@ -361,7 +394,7 @@ export function patchChildren(
       })
 
   // C1：remote（portal）的 portalKey 不算用户 keyed——[input(无key), portal] 走 allUnkeyed 按位置复用
-  const allUnkeyed = !newChildren.some((c) => {
+  const allUnkeyed = hasArrayItem || !newChildren.some((c) => {
     if (c == null || typeof c !== 'object' || Array.isArray(c)) return false
     const vn = c as VNode
     return vn._placement !== 'remote' && vn.key !== undefined
@@ -450,6 +483,52 @@ export function patchChildren(
           }
         }
         if (next && next.parentNode === parent) parent.insertBefore(node, next)
+        else parent.appendChild(node)
+        out.push(node)
+        pushA(node)
+        continue
+      }
+      // ── 数组项（隐式 Fragment）配对 ──
+      // 数组项 = 隐式 Fragment：无 key 身份（默认位置语义）——外层位置配对，内层递归（层级独立）
+      if (Array.isArray(newC)) {
+        const b = ctx.browser ?? createClientBrowser()
+        if (Array.isArray(oldC)) {
+          // 数组项 vs 数组项：递归（内层配对）——范围 = 锚点推导（锚点[i] 到锚点[i+1] 之间）
+          const range = rangeFor(oldNodes, i, parent)
+          const inner = patchChildren(parent, oldC, newC, ctx, range)
+          out.push(...inner)
+          pushA(inner[0] ?? null)
+          continue
+        }
+        // 新数组项 vs 旧非数组：替换——移除旧节点 + 渲染数组项（renderValue 数组分支 → fragment 内联）
+        const node = renderValue(newC, ctx, b)
+        if (node == null) { out.push(null); pushA(null); continue }
+        const oldHole = oldNodes[i]
+        if (oldHole?.parentNode) oldHole.parentNode.replaceChild(node, oldHole)
+        else parent.appendChild(node)
+        const inner = node.nodeType === 11 ? Array.from(node.childNodes) : [node]
+        out.push(...inner)
+        pushA(inner[0] ?? node)
+        continue
+      }
+      if (Array.isArray(oldC)) {
+        // 旧数组项 vs 新非数组：移除旧数组项范围（dispose 组件） + 渲染新
+        const b = ctx.browser ?? createClientBrowser()
+        const range = rangeFor(oldNodes, i, parent)
+        for (const n of range) {
+          n.parentNode?.removeChild(n)
+        }
+        // 数组项内组件 dispose（范围节点已移除——组件状态清理）
+        for (const sub of oldC) {
+          if (sub != null && typeof sub === 'object' && !Array.isArray(sub) && typeof (sub as VNode).type === 'function') {
+            disposeComponent(sub as VNode, ctx.registry)
+          }
+        }
+        const node = renderValue(newC, ctx, b)
+        if (node == null) { out.push(null); pushA(null); continue }
+        // 插入到数组项范围后的位置（下一个锚点前）——数组项首节点已移除，用范围后首个节点作参考
+        const anchor = oldNodes[i + 1] ?? null
+        if (anchor?.parentNode) anchor.parentNode.insertBefore(node, anchor)
         else parent.appendChild(node)
         out.push(node)
         pushA(node)

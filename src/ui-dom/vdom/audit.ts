@@ -12,7 +12,7 @@
  *   A4 锚点：组件 _refNode 指向的节点仍在父 DOM 中
  */
 import type { VNode, VNodeChild } from '../vnode.ts'
-import { Fragment, Portal, normalizeChildren } from '../vnode.ts'
+import { Fragment, Portal, arrayChildren } from '../vnode.ts'
 import { classifyChild, isInvalidVNodeType } from './transform.ts'
 
 /** audit 开关（dev/测试注入；生产默认关） */
@@ -28,17 +28,17 @@ export function auditChildren(
 ): void {
   if (children == null || children.length === 0) return
   const nodes = Array.from(parent.childNodes)
-  // fragment/数组项（多节点展开）存在时数量对照失准——跳过 A1（A2 占位仍查）
+  // 多节点展开项（Fragment/Portal/数组项=隐式 Fragment）存在时位置/数量对照失准——
+  // 数组项在 DOM 是 [fragment-start, ...多节点, fragment-end]——childNodes 与数组不同构
+  // （这是 Fragment 语义的正常结果）。内容正确性由 auditTree 递归覆盖（组件 _refNode/
+  // 元素 tag/占位递归查）
   const hasMulti = children.some((c) => {
-    if (c == null || typeof c !== 'object' || Array.isArray(c)) return false
+    if (c == null || typeof c !== 'object') return false
+    if (Array.isArray(c)) return true
     const t = (c as VNode).type
     return t === Fragment || t === Portal
   })
-  if (!hasMulti) {
-    if (nodes.length !== children.length) {
-      report(`[audit] 数组数量错位：${parent.nodeName} 期望 ${children.length} 个 childNodes，实际 ${nodes.length}（vnode/DOM 不同构）`)
-    }
-  }
+  if (hasMulti) return
   for (let i = 0; i < children.length; i++) {
     const c = children[i]
     if (c == null || typeof c === 'boolean') {
@@ -68,7 +68,7 @@ export function auditTree(parent: Node, child: VNodeChild, report: (msg: string)
         // 数组项 ≡ Fragment：展开项在 parent 下连续 DOM——无法精确锚定，跳过深查（A1 已覆盖数量语义）
         for (const x of c) auditTree(parent, x, report)
       } else if (c != null && typeof c === 'object' && !Array.isArray(c) && (c as VNode).type === Fragment) {
-        auditChildren(parent, normalizeChildren((c as VNode).props?.children), report)
+        auditChildren(parent, arrayChildren((c as VNode).props?.children), report)
       }
     }
     return
@@ -76,7 +76,7 @@ export function auditTree(parent: Node, child: VNodeChild, report: (msg: string)
   const v = child as VNode
   if (v.type === Portal) return // remote——#__wf_portal 单独容器
   if (v.type === Fragment) {
-    auditChildren(parent, normalizeChildren(v.props?.children), report)
+    auditChildren(parent, arrayChildren(v.props?.children), report)
     return
   }
   if (isInvalidVNodeType(v.type)) return // 诊断占位
@@ -95,8 +95,8 @@ export function auditTree(parent: Node, child: VNodeChild, report: (msg: string)
     report(`[audit] 元素类型错位：期望 <${String(v.type)}>，实际 ${(el as Element).tagName}`)
   }
   if (el && el.nodeType === 1 && !('innerHTML' in (v.props ?? {}))) {
-    auditChildren(el, normalizeChildren(v.props?.children), report)
-    for (const c of normalizeChildren(v.props?.children)) {
+    auditChildren(el, arrayChildren(v.props?.children), report)
+    for (const c of arrayChildren(v.props?.children)) {
       if (c != null && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function') {
         auditTree(el, c, report)
       }

@@ -126,29 +126,13 @@ export function isNative(vnode: VNode): boolean {
 
 /** 递归文本/数组归一化（children 数组展开——嵌套数组扁平化，DOM 范围对齐）。
  *  栈展开（索引遍历替代 shift/unshift 头部操作——长数组 O(n) 而非 O(n²)）；逆序入栈 + pop 保持原顺序 */
-export function normalizeChildren(c: VNodeChild | undefined | null): VNodeChild[] {
+/** children 数组视图（保真用户结构——vnode 任何阶段以用户 JSX 为标准，规则表 §1-20）。
+ *  数组原样返回（零拷贝——嵌套数组不展开：数组项 ≡ 隐式 Fragment，渲染/diff 按嵌套递归，
+ *  key 层级独立 §3-46）；非数组包装成单元素数组。替代 v1 normalizeChildren（平铺展开——
+ *  消灭层级信息 → 内层/外层下标 key 撞车 → auth 切换字段残留）。 */
+export function arrayChildren(c: VNodeChild | undefined | null): VNodeChild[] {
   if (c == null || typeof c === 'boolean') return []
-  // V3-3b：已扁平数组（无嵌套数组项）→ 零拷贝返回原引用（patchChildren 每次调用都跑——
-  // 省数组重建 + 栈展开；嵌套数组仍展开）
-  if (Array.isArray(c)) {
-    let nested = false
-    for (let i = 0; i < c.length; i++) {
-      if (Array.isArray(c[i])) { nested = true; break }
-    }
-    if (!nested) return c
-    const out: VNodeChild[] = []
-    const stack: VNodeChild[] = [...c].reverse()
-    while (stack.length > 0) {
-      const item = stack.pop()!
-      if (Array.isArray(item)) {
-        for (let i = item.length - 1; i >= 0; i--) stack.push(item[i])
-      } else {
-        out.push(item)
-      }
-    }
-    return out
-  }
-  return [c]
+  return Array.isArray(c) ? c : [c]
 }
 
 export function isComponent(vnode: VNode): boolean {

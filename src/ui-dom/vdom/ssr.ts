@@ -54,13 +54,16 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
   if (typeof input === 'string' || typeof input === 'number') return escape(String(input))
   if (Array.isArray(input)) {
     // 阶段 A-3/K：与客户端 buildVNode/renderValue 对齐——数组项默认下标 key（字符串化）+
-    // 数组上下文无渲染值 → 占位注释（childNodes 与数组同构，hydration 不 mismatch）
+    // 数组上下文无渲染值 → 占位注释；数组项（隐式 Fragment）输出边界标记
+    // （fragment-start/end 注释——与客户端 renderValue 同族，hydration 不 mismatch）
     ensureArrayKeys(input)
     const parts = await Promise.all(input.map((c) => {
       if (c == null || typeof c === 'boolean') return Promise.resolve(`<!--wf-hole: ${holeDetail(c)}-->`)
       return renderSsr(c, ctx)
     }))
-    return parts.join('')
+    const fragStart = input.some(Array.isArray) ? '<!--wf-hole:fragment-start-->' : ''
+    const fragEnd = input.some(Array.isArray) ? '<!--wf-hole:fragment-end-->' : ''
+    return fragStart + parts.join('') + fragEnd
   }
 
   const vnode = input as VNode

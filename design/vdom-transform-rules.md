@@ -17,7 +17,7 @@
 | 文本 `{'hello'}` | string | 文本节点 |
 | 组件 `<Button/>` | 组件 vnode（实例 id → `data-wf-id`） | 其输出（递归应用本表推导） |
 | Fragment `<>a b</>` | Fragment vnode | 展开为兄弟节点（无容器） |
-| 数组项 `[xx, [yy, zz]]` | 原数组保留（透明） | 数组项 ≡ Fragment：展开为兄弟节点 |
+| 数组项 `[xx, [yy, zz]]` | 原数组保留（透明） | 数组项 ≡ 隐式 Fragment：**vnode 保持用户结构**（任何阶段不展开）——渲染/diff 按嵌套递归，展开为兄弟节点；DOM 边界持久化为 `<!--wf-hole:fragment-start/end-->` 注释（带数组项 key，id 有则写） |
 | Portal | Portal vnode | 渲染到 `#__wf_portal`（body 下独立容器，`data-portal` 标记）——非父树内 |
 | false/null/true | 保留 | `<!--wf-hole: false-->` 占位节点 |
 | 非法对象/非法 type | 原样 | `<!--wf-hole: object {...}-->` 占位 + warn（不崩溃） |
@@ -43,11 +43,11 @@
 | key 语义 | **显式 key = 身份匹配**（增删/重排时复用正确——项的身份跟随内容）；**默认下标 key = 位置身份**（项的身份跟随位置：原地修改正确；增删后各位置实例被复用/更新——React index key 同款「位置复用 + 状态继承」，动态/会重排的列表建议显式 key） |
 | 默认下标 key 计数 | **数组原始下标（含占位位置）**——与占位法对齐（childNodes 位置 = 数组位置）：`[A, false, C]` 的 key = A:'0'、C:'2'（false 占位豁免不参与 keyed） |
 | key 类型 | **key 统一为字符串**（唯一类型）——数字 key 自动字符串化（`key={1}` ≡ `key="1"`）；比较用字符串全等，无类型歧义 |
-| 嵌套数组项 | 数组项（隐式 Fragment）在父数组有 key（显式或默认下标）；其内部子项**各自独立分配默认下标**（子数组内从 0 起）——层级独立，key 不跨层 |
+| 嵌套数组项 | 数组项（隐式 Fragment）在父数组有 key（显式或默认下标）；其内部子项**各自独立分配默认下标**（子数组内从 0 起）——层级独立，key 不跨层；数组项 key 同时写入 DOM 边界标记 `fragment-start/end key="…"`（diff 精确定位范围——移动/移除/对齐） |
 | 豁免（无 key 概念） | 文本 / 占位值（false/null/true）——不参与 keyed 匹配（占位法处理） |
 | key → DOM | **所有数组项的 key 都落 DOM**（用户决策 2026-12——行为一致）：**元素项**写 `data-wf-key`（显式原文/默认下标值）；**组件项 key 穿透到输出每个顶层节点**（多根全部写，与 data-wf-id 同规则）——列表项身份在 DOM 完全可见，元素/组件无例外；SSR 同步输出 |
 | data-wf-key 层级语义 | **相对最近父层级**——元素项的 `data-wf-key` 是它在父 children 数组的 key；组件输出节点的 `data-wf-key` 是外层列表项的 key（组件输出被内层子元素数组项 key 的 data-wf-key 不冲突——不同层级同名属性含义不同，看 DOM 时注意父层级归属） |
-| diff 模型 | 统一 keyed diff（每项有 key：显式或默认下标）——无 key 位置匹配分支删除 |
+| diff 模型 | 外层位置配对 + 数组项递归（数组项 = 隐式 Fragment：无 key 身份——默认位置语义，内层各自 keyed——层级独立）；纯 vnode 列表（无数组项）走 keyed diff（显式/默认下标）；数组项范围用 fragment-start/end 标记定位 |
 
 ## 4. 组件 id 规则
 

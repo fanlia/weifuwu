@@ -16,7 +16,7 @@
 
 import type { VNode, VNodeChild, Component } from '../vnode.ts'
 import type { WfuiContext } from '../types.ts'
-import { Fragment } from '../vnode.ts'
+import { Fragment, arrayChildren } from '../vnode.ts'
 import { ensureId, type Registry } from './registry.ts'
 
 /** 组件 props 浅比较（三态 skip 判定） */
@@ -119,10 +119,8 @@ export function buildVNode(
     return input
   }
   if (Array.isArray(input)) {
-    const oldArr = Array.isArray(oldInput) ? oldInput : []
-    // 阶段 K（规则表 §3）：数组项必有 key——无显式 key 的元素/组件项赋默认下标 key（数组原始
-    // 下标含占位位置，统一字符串）；显式 key 统一字符串化（key={1} ≡ key="1"）。
-    // 文本/占位值（非 vnode）豁免；层级独立（嵌套数组各自从 0 起）。
+    // 数组项 = 隐式 Fragment：vnode 保持用户结构（不展开——层级独立 key，规则表 §3-46）。
+    // 外层数组项 key：元素/组件项赋外层下标；数组项（内层数组）递归构建时独立分配（不跨层）
     for (let i = 0; i < input.length; i++) {
       const c = input[i]
       if (c != null && typeof c === 'object' && !Array.isArray(c)) {
@@ -131,6 +129,7 @@ export function buildVNode(
         else v.key = String(v.key)
       }
     }
+    const oldArr = Array.isArray(oldInput) ? oldInput : []
     const jobs = input.map((c, i) => buildVNode(c, ctx, oldArr[i], reg, opts))
     // 全同步（剪枝/文本/已构建 native）→ 零微任务直接返回；含异步项 → Promise.all 并行
     let hasAsync = false

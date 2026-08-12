@@ -16,7 +16,7 @@ import { createClientBrowser } from '../ui-dom/browser.ts'
 import { h, type VNode } from '../ui-dom/vnode.ts'
 import { buildVNode } from '../ui-dom/vdom/build.ts'
 import { renderValue, setProp } from '../ui-dom/vdom/render.ts'
-import { patchValue, patchChildren, normalizeChildren, patchProps } from '../ui-dom/vdom/diff.ts'
+import { patchValue, patchChildren, arrayChildren, patchProps } from '../ui-dom/vdom/diff.ts'
 import { createRegistry } from '../ui-dom/vdom/registry.ts'
 
 before(setupJsdom)
@@ -233,7 +233,7 @@ test('diff 遇未构建组件 → throw（不调工厂）', async () => {
   assert.equal(factoryCalls, 0, '工厂不被调用')
 })
 
-// ── 7. setProp / normalizeChildren 工具 ──
+// ── 7. setProp / arrayChildren 工具 ──
 
 test('setProp: enumerated 属性显式字符串', () => {
   const el = document.createElement('div')
@@ -261,10 +261,12 @@ test('setProp: indeterminate 半选态用 property（setAttribute 无效）', ()
   assert.equal(el2.indeterminate, false)
 })
 
-test('normalizeChildren: null/数组/单值', () => {
-  assert.deepEqual(normalizeChildren(null), [])
-  assert.deepEqual(normalizeChildren([1, 2]), [1, 2])
-  assert.deepEqual(normalizeChildren('x'), ['x'])
+test('arrayChildren: null/数组/单值（保真用户结构——嵌套数组不展开）', () => {
+  assert.deepEqual(arrayChildren(null), [])
+  assert.deepEqual(arrayChildren([1, 2]), [1, 2])
+  assert.deepEqual(arrayChildren('x'), ['x'])
+  // 数组项 = 隐式 Fragment：嵌套数组原样保留（vnode 任何阶段以用户 JSX 为标准）
+  assert.deepEqual(arrayChildren([[1, 2], 3]), [[1, 2], 3])
 })
 
 test('patchProps: 事件函数引用变化 → 移除旧 handler（不重复绑定累积）', () => {
@@ -300,16 +302,24 @@ test('patchProps: on 开头非事件属性（once）不当事件处理', () => {
   assert.equal(el.getAttribute('once'), null, 'once 移除')
 })
 
-test('normalizeChildren: 嵌套数组扁平化顺序保持', () => {
+test('数组项 = 隐式 Fragment：vnode 保真嵌套——渲染展开为兄弟节点（带边界标记）', () => {
   const c1 = h('span', {}, 'a')
   const c2 = h('span', {}, 'b')
   const c3 = h('span', {}, 'c')
-  // 深层嵌套 + 混合——顺序必须保持（栈展开顺序正确性）
-  assert.deepEqual(
-    normalizeChildren([[c1, [c2]], c3, [null, 't']]),
-    [c1, c2, c3, null, 't'],
-  )
-  assert.deepEqual(normalizeChildren([[1, [2, [3]]], 4]), [1, 2, 3, 4])
+  // vnode 保持用户结构（arrayChildren 不展开——任何阶段以用户 JSX 为标准）
+  assert.deepEqual(arrayChildren([[c1, [c2]], c3, [null, 't']]), [[c1, [c2]], c3, [null, 't']])
+  // 渲染：嵌套数组展开为兄弟节点（数组项边界标记 fragment-start/end + 占位注释）
+  const frag = renderValue([[c1, c2], c3], { browser: createClientBrowser() }, createClientBrowser())
+  assert.ok(frag instanceof DocumentFragment)
+  const kids = [...(frag as DocumentFragment).childNodes]
+  // 结构：[start外, start内, a, b, end内, c, end外]——双层嵌套两层标记（层级独立）
+  assert.ok(kids[0].nodeValue?.includes('fragment-start'), `外层 start: ${kids[0].nodeValue}`)
+  assert.ok(kids[1].nodeValue?.includes('fragment-start'), `内层 start: ${kids[1].nodeValue}`)
+  assert.equal(kids[2].textContent, 'a')
+  assert.equal(kids[3].textContent, 'b')
+  assert.ok(kids[4].nodeValue?.includes('fragment-end'), `内层 end: ${kids[4].nodeValue}`)
+  assert.equal(kids[5].textContent, 'c')
+  assert.ok(kids[6].nodeValue?.includes('fragment-end'), `外层 end: ${kids[6].nodeValue}`)
 })
 
 test('patchProps: 键顺序不同但内容相同 → 回退全量（正确性无损，不丢属性）', () => {
