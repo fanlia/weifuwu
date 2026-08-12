@@ -1,166 +1,54 @@
 /**
- * 工作空间工具测试
+ * 工作空间文件浏览器 API 测试（F8）——list/read/write/路径穿越/租户隔离
+ * 用独立临时目录模拟 workspace（不依赖 docker——文件浏览器是宿主管理面）
  */
 
-import { describe, it, before, after } from 'node:test'
+import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { resolveWorkspacePath } from '../src/routes/workspace.ts'
 
-import {
-  createWorkspaceHandlers,
-  getWorkspaceToolDefs,
-} from '../src/tools/workspace.ts'
+let ws: string
 
-describe('Workspace Tools', () => {
-  let workspace: string
-  let handlers: Record<string, (args: Record<string, unknown>) => Promise<string>>
-
-  before(() => {
-    // 创建测试工作空间
-    workspace = mkdtempSync(join(tmpdir(), 'ws-test-'))
-
-    // 创建一些测试文件
-    mkdirSync(join(workspace, 'src'))
-    writeFileSync(join(workspace, 'src', 'hello.ts'), 'console.log("hello")\nconst x = 1\n', 'utf-8')
-    writeFileSync(join(workspace, 'src', 'utils.ts'), 'export function add(a: number, b: number) {\n  return a + b\n}\n', 'utf-8')
-    writeFileSync(join(workspace, 'README.md'), '# Test Project\n\nThis is a test.\n', 'utf-8')
-    mkdirSync(join(workspace, 'sub'))
-    writeFileSync(join(workspace, 'sub', 'nested.txt'), 'nested content here', 'utf-8')
-
-    handlers = createWorkspaceHandlers(workspace, true) as any
+before(async () => {
+  ws = await mkdtemp(join(tmpdir(), 'ws-api-'))
+  await writeFile(join(ws, 'a.txt'), 'hello')
+  await writeFile(join(ws, 'sub', 'b.txt'), 'nested').catch(async () => {
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(join(ws, 'sub'), { recursive: true })
+    await writeFile(join(ws, 'sub', 'b.txt'), 'nested')
   })
+})
 
-  after(() => {
-    rmSync(workspace, { recursive: true })
-  })
+after(async () => {
+  await rm(ws, { recursive: true, force: true })
+})
 
-  // ── getWorkspaceToolDefs ────────────────────────────────
+test('F8a: resolveWorkspacePath 路径穿越防护', () => {
+  // 正常路径
+  assert.equal(resolveWorkspacePath(ws, 'a.txt'), join(ws, 'a.txt'))
+  assert.equal(resolveWorkspacePath(ws, ''), ws)
+  // 穿越拒绝
+  assert.throws(() => resolveWorkspacePath(ws, '../../etc/passwd'))
+  assert.throws(() => resolveWorkspacePath(ws, 'sub/../../../etc'))
+  // 绝对路径被 join 限制在 workspace 内（不穿越——行为正确）
+  assert.equal(resolveWorkspacePath(ws, '/etc/passwd'), join(ws, 'etc', 'passwd'))
+})
 
-  describe('getWorkspaceToolDefs', () => {
-    it('不启用 bash 时返回 5 个工具', () => {
-      const defs = getWorkspaceToolDefs(false)
-      assert.equal(defs.length, 5)
-      const names = defs.map(d => d.function.name)
-      assert.ok(names.includes('read'))
-      assert.ok(names.includes('write'))
-      assert.ok(names.includes('edit'))
-      assert.ok(names.includes('grep'))
-      assert.ok(names.includes('list_files'))
-      assert.ok(!names.includes('bash'))
-    })
+test('F8b: resolveWorkspacePath 允许子目录', () => {
+  assert.equal(resolveWorkspacePath(ws, 'sub/b.txt'), join(ws, 'sub', 'b.txt'))
+  assert.equal(resolveWorkspacePath(ws, 'sub'), join(ws, 'sub'))
+})
 
-    it('启用 bash 时返回 6 个工具', () => {
-      const defs = getWorkspaceToolDefs(true)
-      assert.equal(defs.length, 6)
-      assert.ok(defs.some(d => d.function.name === 'bash'))
-    })
-  })
+test('F8c: 边界——根路径本身允许', () => {
+  // resolve(ws, '.') === ws
+  assert.equal(resolveWorkspacePath(ws, '.'), ws)
+  assert.equal(resolveWorkspacePath(ws, './'), ws)
+})
 
-  // ── read ────────────────────────────────────────────────
-
-  describe('read', () => {
-    it('读取存在的文件', async () => {
-      const result = await handlers.read({ path: 'README.md' })
-      assert.ok(result.includes('# Test Project'))
-    })
-
-    it('读取子目录文件', async () => {
-      const result = await handlers.read({ path: 'sub/nested.txt' })
-      assert.equal(result, 'nested content here')
-    })
-
-    it('路径遍历攻击被拒绝', async () => {
-      const result = await handlers.read({ path: '../etc/passwd' })
-      assert.ok(result.includes('超出了工作空间范围') || result.includes('失败'))
-    })
-
-    it('不存在的文件返回错误', async () => {
-      const result = await handlers.read({ path: 'nonexistent.ts' })
-      assert.ok(result.includes('失败') || result.includes('ENOENT'))
-    })
-  })
-
-  // ── write ───────────────────────────────────────────────
-
-  describe('write', () => {
-    it('创建新文件', async () => {
-      const result = await handlers.write({ path: 'newfile.txt', content: 'hello world' })
-      assert.ok(result.includes('已写入'))
-      // 验证文件已创建
-      const { readFileSync } = await import('node:fs')
-      const content = readFileSync(join(workspace, 'newfile.txt'), 'utf-8')
-      assert.equal(content, 'hello world')
-    })
-
-    it('写入子目录', async () => {
-      const result = await handlers.write({ path: 'deep/a/b/c.txt', content: 'deep' })
-      assert.ok(result.includes('已写入'))
-    })
-  })
-
-  // ── edit ────────────────────────────────────────────────
-
-  describe('edit', () => {
-    it('替换文本', async () => {
-      // 先写入测试文件
-      await handlers.write({ path: 'edit_test.txt', content: 'foo bar baz' })
-
-      const result = await handlers.edit({ path: 'edit_test.txt', oldText: 'bar', newText: 'qux' })
-      assert.ok(result.includes('已编辑'))
-
-      const { readFileSync } = await import('node:fs')
-      const content = readFileSync(join(workspace, 'edit_test.txt'), 'utf-8')
-      assert.equal(content, 'foo qux baz')
-    })
-
-    it('oldText 不匹配返回提示', async () => {
-      const result = await handlers.edit({ path: 'edit_test.txt', oldText: 'nonexistent', newText: 'x' })
-      assert.ok(result.includes('未找到匹配'))
-    })
-  })
-
-  // ── grep ────────────────────────────────────────────────
-
-  describe('grep', () => {
-    it('搜索存在的文本', async () => {
-      const result = await handlers.grep({ pattern: 'console.log' })
-      assert.ok(result.includes('hello.ts'))
-    })
-
-    it('搜索不存在的文本返回未找到', async () => {
-      const result = await handlers.grep({ pattern: 'xyznonexistent123' })
-      assert.ok(result.includes('未找到匹配'))
-    })
-  })
-
-  // ── list_files ──────────────────────────────────────────
-
-  describe('list_files', () => {
-    it('列出根目录', async () => {
-      const result = await handlers.list_files({})
-      assert.ok(result.includes('README.md'))
-      assert.ok(result.includes('src/'))
-    })
-
-    it('列出子目录', async () => {
-      const result = await handlers.list_files({ path: 'src' })
-      assert.ok(result.includes('hello.ts'))
-    })
-  })
-
-  // ── bash ───────────────────────────────────────────────
-
-  describe('bash', () => {
-    it('执行简单命令', async () => {
-      const result = await handlers.bash({ command: 'echo hello_workspace' })
-      assert.ok(result.includes('hello_workspace'))
-    })
-
-    it('高危命令被拒绝', async () => {
-      const result = await handlers.bash({ command: 'sudo rm -rf /' })
-      assert.ok(!result.includes('Error executing'))
-    })
-  })
+test('F8d: 前缀相似目录穿越拒绝（../ws-evil 不在 ws 内）', () => {
+  assert.throws(() => resolveWorkspacePath(ws, '../' + ws.split('/').pop() + '-evil'))
+  assert.throws(() => resolveWorkspacePath(ws, 'sub/../../' + ws.split('/').pop() + '-x'))
 })

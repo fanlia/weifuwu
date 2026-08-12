@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs'
 import { registerAuthRoutes } from './src/routes/auth.ts'
 import { registerCompanyRoutes } from './src/routes/companies.ts'
 import { registerAgentRoutes } from './src/routes/agents.ts'
+import { registerWorkspaceRoutes } from './src/routes/workspace.ts'
 import { registerDepartmentRoutes } from './src/routes/departments.ts'
 import { registerMessageRoutes } from './src/routes/messages.ts'
 import { registerKnowledgeRoutes } from './src/routes/knowledge.ts'
@@ -178,6 +179,8 @@ async function main() {
   registerCompanyRoutes(protectedRoutes)
   // Agent
   registerAgentRoutes(protectedRoutes)
+  // 工作空间文件浏览器
+  await registerWorkspaceRoutes(protectedRoutes)
   // 部门
   registerDepartmentRoutes(protectedRoutes)
   // 消息

@@ -30,17 +30,26 @@
 - [ ] **X1.** gVisor（runsc）强化登记（不实现）
 
 ## 阶段 5：工作空间文件浏览器（P1）
-- [ ] **F1.** `GET /api/agents/:id/workspace/list?path=` 列目录
-- [ ] **F2.** `GET /api/agents/:id/workspace/file?path=` 读文件（二进制/大文件只读）
-- [ ] **F3.** `PUT /api/agents/:id/workspace/file` 写文件（500KB/拒二进制）
-- [ ] **F4.** 安全防线：租户隔离 + 路径穿越防护 + 目录名防抖
-- [ ] **F5.** UI 文件列表（Breadcrumb + Icon + EmptyState + 刷新）
-- [ ] **F6.** UI 预览/编辑（CodeBlock/Textarea + 保存 toast）
-- [ ] **F7.** 沙盒联动说明（AI 写 → 用户可见）
-- [ ] **F8.** API 测试（list/read/write/穿越/租户隔离）
-- [ ] **F9.** 浏览器验收（端到端：AI bash 写 → 文件浏览器看）
+- [x] **F1.** `GET /api/agents/:id/workspace/list?path=` 列目录（名称/类型/大小/mtime，目录在前）
+- [x] **F2.** `GET /api/agents/:id/workspace/file?path=` 读文件（null 字节→二进制标记；200KB 截断）
+- [x] **F3.** `PUT /api/agents/:id/workspace/file` 写文件（500KB/拒二进制 null 字节）
+- [x] **F4.** 安全防线：租户隔离（WHERE id AND tenant_id）+ 路径穿越防护 + 目录覆盖拒绝
+- [x] **F5.** UI 文件列表（面包屑 + Icon folder/file-text + 大小/时间 + EmptyState + 刷新）
+- [x] **F6.** UI 预览/编辑（textarea + 保存 toast + 返回列表）
+- [x] **F7.** 沙盒联动说明（AI 写 → 用户可见）
+- [x] **F8.** API 测试（test/workspace.test.ts 4 个：穿越防护/子目录/边界/前缀穿越拒绝）
+- [x] **F9.** 浏览器验收（端到端：AI bash 容器内创建 report.txt → 文件浏览器可见）
 
 ## 验收状态
 | 项 | 状态 | 验证证据 |
 |----|------|---------|
-| （实施中） | | |
+| S1-S7 沙盒执行层 | ✅ | 真容器端到端（write/read/bash + 卷双向 + 网络隔离 + 穿越拒绝） |
+| U1-U3 配置 UI | ✅ | 浏览器：沙盒状态说明 + allow_network 勾选渲染 |
+| T1-T7 测试 | ✅ | sandbox.test.ts 4 个真 docker 集成测试全绿（T6 heartbeat/T7 池上限） |
+| F1-F9 文件浏览器 | ✅ | API 实测 + 浏览器编辑保存 + AI bash 写→浏览器看闭环 |
+| 回归 | ✅ | app 73 全绿 + tsc 零错误 |
+
+## 实施中抓出的真实问题
+1. **buildToolContext 默认 workspace 路径 bug**：只看自定义路径 → 默认目录工具不注册 → AI 无工具可用（对话实测）
+2. **ensure 卷挂载校验**：agent 换 workspace 后容器仍挂旧路径（T6b/T7 测试抓出）→ 不匹配重建
+3. **vdom 三元分支返回 Fragment 渲染空**（真实坑）：`{cond ? (<></>) : (<></>)}` 条件表达式分支返回 Fragment 时渲染结果为空——**用单 div 包裹替代 Fragment 解决**（文件浏览器编辑视图踩中——浏览器验证定位）
