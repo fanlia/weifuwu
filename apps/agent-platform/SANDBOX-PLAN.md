@@ -93,15 +93,16 @@ docker run --rm -i \
   - `dispose(agentId)` → 空闲回收/agent 删除联动 `docker rm -f`
   - 孤儿清理：启动时扫描 `ap-sandbox-*` 全删（数据在卷，删除无损）
   - `SANDBOX_MODE=ephemeral` 备选：每次调用一次性容器（低资源环境）
-- [ ] **S2. 可用性探测 + 镜像管理 + Heartbeat 回收** — 启动时探测 docker 可用性 + node:24 存在性；首次调用自动 `docker pull node:24`（幂等）；状态注入 `ctx.sandboxStatus`（available / imageMissing / unavailable）；**Heartbeat 机制**：
+- [ ] **S2. 可用性探测 + 镜像管理 + Heartbeat 回收 + 预热** — 启动时探测 docker 可用性 + node:24 存在性；首次调用自动 `docker pull node:24`（幂等）；状态注入 `ctx.sandboxStatus`（available / imageMissing / unavailable）；**Heartbeat 机制**：
   - `touch(agentId)`：每次工具调用前更新 `lastUsedAt`（内存 Map，单进程；多进程部署换 Redis——文档标注）
   - 回收定时器：`setInterval` 60s 扫描——超过 `SANDBOX_IDLE_TIMEOUT`（默认 600s = 10 分钟）无 heartbeat 的容器 → `docker rm -f` + 从 Map 移除
   - **惰性重建**：工具调用时容器不存在（被回收/服务重启/手动删除）→ `ensure` 自动重建（幂等，无感）——销毁与重建循环对 AI 透明
   - **池上限 + LRU 驱逐**：`SANDBOX_MAX_CONTAINERS`（默认 20）——ensure 创建前检查池大小，超限 → 驱逐 lastUsedAt 最旧的容器（`docker rm -f` + Map 移除）再创建新容器——即使刚用过也要让位（忙时峰值保护）；被驱逐容器无感（下次调用重建）
+  - **预热（可选优化）**：agent 启用文件工具（allow_file_tools 保存）时后台预拉镜像 + 预创建容器——消除首次工具调用 ~500ms 停顿（LLM 思考时间通常覆盖，故为可选）
   - 正在执行的 exec 安全：exec 同步阻塞且单次 ≤30s 超时，回收/驱逐扫描不会误杀活跃容器
-- [ ] **S3. 统一工具执行器（agent 的全部工具操作都在容器内）** — 容器内固定入口脚本 `/opt/tool-runner.js`（镜像构建内置或首次 exec 时写入卷），统一 JSON 协议：`echo '{"tool":"read","args":{"path":"x.ts"}}' | docker exec -i ap-sandbox-{id} node /opt/tool-runner.js` → 返回 JSON `{ok, output}`。**read/write/edit/grep/list_files/bash 全部经此入口**——agent 看到的是统一的容器内 /ws 文件系统视图（宿主路径 vs 容器路径无认知差异）
+- [ ] **S3. 统一工具执行器（agent 的全部工具操作都在容器内）** — 容器内固定入口脚本 `/opt/tool-runner.js`（镜像构建内置或首次 exec 时写入卷），统一 JSON 协议：`echo '{"tool":"read","args":{"path":"x.ts"}}' | docker exec -i ap-sandbox-{id} node /opt/tool-runner.js` → 返回 JSON `{ok, output}`。**read/write/edit/grep/list_files/bash 全部经此入口**——agent 看到的是统一的容器内 /ws 文件系统视图（宿主路径 vs 容器路径无认知差异）。**工具提示词引导**（体验关键）：文件工具描述注明「工作目录 /ws——所有文件/依赖放这里（容器重建后保留）；容器根目录为瞬态不保留」
 - [ ] **S4. 文件工具接入执行器** — `createWorkspaceHandlers` 的 read/write/edit/grep/list_files 改为走容器执行器（传工具名 + args）——路径穿越防护从「宿主代码」升级为「容器边界」（即使 resolveWorkspacePath 有 bug 也逃不出卷挂载）；安全 = 纵深防御
-- [ ] **S5. bash 工具接入执行器** — bash handler 同样走容器（allow_command_exec 时）：`docker exec ap-sandbox-{id} bash -c "{command}"`；`SANDBOX_DISABLE=1` 或探测失败 → 返回「沙盒不可用，命令执行已禁用」（诚实裁剪）
+- [ ] **S5. bash 工具接入执行器** — bash handler 同样走容器（allow_command_exec 时）：`docker exec ap-sandbox-{id} bash -c "{command}"`；`SANDBOX_DISABLE=1` 或探测失败 → 返回「沙盒不可用，命令执行已禁用」（诚实裁剪）。**网络限制前置到提示词**：bash 工具描述注明「沙盒默认无网络（--network none）——npm install/curl 等网络命令会失败；如需网络请管理员在 Agent 配置开启 allow_network」；网络类命令失败时错误消息附此说明（避免 AI 反复重试浪费 token）
 - [ ] **S6. 资源限制落地** — 常驻容器创建参数：`--network none --memory 512m --cpus 1 --pids-limit 256 --user node --ulimit nofile`；`allow_network` agent 字段 → `--network bridge`；空闲回收定时器
 - [ ] **S7. 输出/错误处理** — 容器退出码/JSON 解析；exitCode 非 0 → 错误消息含 stderr + 退出码；超时 → 「命令执行超时（30s）」（docker exec 外层 timeout 兜底）；OOM/pids 被 kill → 明确提示；输出截断 100KB（文件工具 50KB）
 
