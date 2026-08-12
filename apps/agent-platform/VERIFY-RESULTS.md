@@ -68,3 +68,24 @@
 - [x] **§8.11 迁移幂等** — 多次重启 schema 正常（CREATE IF NOT EXISTS）
 
 ## ⚙️ 前端工程师视角
+- [x] **§7.1 全页 console error** — 12 页扫描 0 error（修复后回归）
+- [x] **§7.2 vdom DOM 结构** — audit ✓ 一致 + 25 条消息 + 回复引用回归（历史 bug 区通过）
+- [x] **§7.3 路由** — pushState/back/forward popstate 导航渲染正确（裸 pushState 不渲染是设计——SPA 走 ctx.app.navigate）
+- [x] **§7.4 401 兜底** — 清 token → 访问工作台 → 跳登录页
+- [x] **§7.5 受控组件** — 聊天输入框中文输入焦点保持 + 元素不重挂 + 值累积（IME 安全）
+- [x] **§7.6 浮层定位** — @ 补全面板在输入框上方可见；确认框 portal 定位正常
+- [x] **§7.7 流式/增量** — 新消息正确插入（发送后即时可见）
+- [x] **§7.8 卸载清理** — 浮层 Escape 关闭后 #__wf_portal 无残留
+- [x] **§7.9 构建/类型** — tsc --noEmit 零错误 + esbuild build 成功
+- [x] **§7.10 debug trace** — ?vdom_debug=1 显示 [vdom/trace] audit ✓ 一致
+
+## 补充验证（首轮遗漏项）
+- [x] **§3.9 单聊/群聊** — 列表 3 单聊 + 3 群聊徽章；进入单聊发消息 @小码 → AI 回复
+- [x] **§5.3 加载态** — 页面加载完成后无 Loading 残留
+- [x] **§5.4 亮暗适配** — 深色 UI（body rgb(15,23,42)）+ --wf-color-primary #6b8aff（亮蓝明暗均可见）+ on-brand #fff
+- [x] **§5.6 数字排版** — **修复**：Dashboard 统计数字加 wf-nums（11 处生效——tabular-nums 防宽度抖动）
+- [x] **§5.7 消息气泡视觉** — wf-bubble--own / wf-bubble--ai 左右分列；引用条/工具卡片正常显示
+- [x] **§6.7 消息编辑（浏览器端）** — 编辑框回填 → 修改 → form.requestSubmit 保存 → DB + 页面更新；⚠️ 记录：消息编辑无「已编辑」标记（messages 表无 updated_at 列）
+- [x] **§7.5 受控输入** — 中文输入焦点保持 + 元素不重挂（详见上方）
+
+> ✅ **验收状态：TEST-PLAN 全部 58 项完成**（51 项首轮 + 7 项补充）。修复 5 处（Button title / ws 订阅排队 / 模板计数持久化 / 向导名称 / wf-nums + 裸字形）。记录项：@ 补全非 portal、success vs ok 契约、Agent 租户级权限（设计决策）、知识库相似度偏低、编辑无已编辑标记。

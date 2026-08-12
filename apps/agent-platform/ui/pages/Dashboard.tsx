@@ -89,12 +89,12 @@ export const Dashboard: Component = async (_props, ctx) => {
         <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon={<Icon name="zap" />} animate />
         <Card clickable hover onClick={() => ctx.app?.navigate('/approvals')}>
           <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="clock" size={14} /> 审批待办</div>
-          <div class="wf-text-2xl wf-text-semibold wf-mt-xs">{$.pendingCount}</div>
+          <div class="wf-text-2xl wf-text-semibold wf-mt-xs wf-nums">{$.pendingCount}</div>
           <div class="wf-text-xs wf-text-secondary wf-mt-xs">{$.pendingCount > 0 ? 'AI 草稿待批准发布' : '没有待审批草稿'}</div>
         </Card>
         <Card clickable hover onClick={() => ctx.app?.navigate('/agents')}>
           <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 7 天消息</div>
-          <div class="wf-text-2xl wf-text-semibold wf-mt-xs">{trendTotal}</div>
+          <div class="wf-text-2xl wf-text-semibold wf-mt-xs wf-nums">{trendTotal}</div>
           <div class="wf-row wf-gap-xs wf-items-end" style="height: 32px; margin-top: 6px">{trendBars}</div>
         </Card>
       </div>
@@ -108,7 +108,7 @@ export const Dashboard: Component = async (_props, ctx) => {
                 <Ava name={a.name} type={a.type} small />
                 <div class="wf-fill wf-truncate wf-text-base wf-text-semibold">{a.name}</div>
               </div>
-              <div class="wf-text-2xl wf-text-semibold wf-mt-xs">{((a.tokens_total ?? 0) / 1000).toFixed(1)}k</div>
+              <div class="wf-text-2xl wf-text-semibold wf-mt-xs wf-nums">{((a.tokens_total ?? 0) / 1000).toFixed(1)}k</div>
               <div class="wf-text-xs wf-text-tertiary">tokens · {a.run_count} 次运行</div>
             </Card>
           ))}
