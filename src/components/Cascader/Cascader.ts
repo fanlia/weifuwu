@@ -64,6 +64,10 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
   let triggerEl: HTMLElement | null = null
   const triggerRef = (el: HTMLElement | null) => { triggerEl = el }
 
+  // 键盘导航高亮（R43 W1：listbox 方向键 + Enter/Home/End/←→ 列推进）
+  let hl: { col: number; idx: number } = { col: 0, idx: 0 }
+  let hlSearch = 0
+
   // usePopup：借用外部点击/Escape 关闭 + 面板定位/视口 clamp + portal
   // （触发仍走 trigger 自身 onClick=toggleOpen，不 spread wrapProps）
   const popup = ctx.ui.usePopup({
@@ -90,6 +94,7 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       if (disabled) return
       open = !open
       activePath = Array.isArray(value) ? [...value] : []
+      if (open) { hl = { col: 0, idx: 0 }; hlSearch = 0 } // 打开重置键盘高亮
       ctx.ui.render()
     }
 
@@ -108,6 +113,7 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       const nextPath = [...path, opt.value]
       if (opt.children?.length) {
         activePath = nextPath
+        hl = { col: hl.col + 1, idx: 0 } // 键盘焦点跟随推进列（否则 Enter 后仍操作旧列）
         ctx.ui.render()
       } else {
         if (Array.isArray(value) && !onChange) {
@@ -120,7 +126,18 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       }
     }
 
-    // 弹层列
+    // 搜索态选择（键盘 Enter 与点击共用——受控提示/关闭/提交）
+    const pickMatched = (m: { path: string[]; labels: string[] }) => {
+      if (Array.isArray(value) && !onChange) {
+        console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。`)
+      }
+      open = false; kw = ''
+      ctx.ui.render()
+      onChange?.(m.path)
+    }
+
+    // 弹层列 + 列数据（colData 供键盘定位——path/options 快照与 columns 同步）
+    const colData: { path: string[]; options: typeof options }[] = []
     let columns: any[] = []
     let path: string[] = []
     let level = 0
@@ -132,19 +149,25 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       // 闭包陷阱：所有列 onClick 若捕获外层 path 变量，点击时读的是循环结束值。
       // 必须为每列快照当前 path（levelPath），否则从根重新选择时 path 错误。
       const levelPath = [...path]
+      colData.push({ path: levelPath, options: levelOptions })
+      // 键盘高亮钳制（列结构变化后不越界）
+      const curIdx = hl.col === level ? Math.min(hl.idx, Math.max(levelOptions.length - 1, 0)) : -1
       columns.push(h('div', {
         class: 'wf-cascader-col',
         key: level,
-      }, levelOptions.map(opt => {
+      }, levelOptions.map((opt, idx) => {
         const sel = activeOpt?.value === opt.value
+        const hlThis = hl.col === level && idx === curIdx
         return h('button', {
           type: 'button',
           class: [
             'wf-cascader-opt',
             sel ? 'wf-cascader-opt--active' : '',
+            hlThis ? 'wf-cascader-opt--hl' : '',
             opt.disabled ? 'wf-cascader-opt--dis' : '',
           ].filter(Boolean).join(' '),
           key: opt.value,
+          'aria-selected': String(hlThis || sel),
           onClick: () => pick(opt, levelPath),
         }, [
           h('span', { class: 'wf-cascader-opt-label' }, opt.label),
@@ -161,9 +184,10 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
     // 搜索态：扁平过滤结果列表
     const kwLower = kw.trim().toLowerCase()
     let panelBody: any
+    let matched: { path: string[]; labels: string[] }[] = []
     if (showSearch && kwLower) {
       const all = flattenLeafPaths(options)
-      const matched = all.filter(m => m.labels.some(lb => lb.toLowerCase().includes(kwLower)))
+      matched = all.filter(m => m.labels.some(lb => lb.toLowerCase().includes(kwLower)))
       panelBody = matched.length === 0
         ? h('div', { class: 'wf-cascader-empty' }, '无匹配')
         : h('div', { class: 'wf-cascader-search-results' }, matched.map(m =>
@@ -171,14 +195,8 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
               type: 'button',
               class: 'wf-cascader-search-item',
               key: m.path.join('/'),
-              onClick: () => {
-                if (Array.isArray(value) && !onChange) {
-                  console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。`)
-                }
-                open = false; kw = ''
-                ctx.ui.render()
-                onChange?.(m.path)
-              },
+              'aria-selected': String(hlSearch === matched.indexOf(m)),
+              onClick: () => pickMatched(m),
             }, m.labels.join(' / '))
           ))
     } else {
@@ -195,9 +213,58 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
         })
       : null
 
+    // 面板键盘导航（render 内定义——依赖最新 colData/matched；Escape 由 usePopup 处理）
+    const onPanelKeyDown = (e: any) => {
+      const k = e.key
+      if (k === 'Escape') return
+      // 搜索态：扁平结果 ↑↓/Home/End/Enter
+      if (showSearch && kwLower) {
+        const total = matched.length
+        if (!total) return
+        if (k === 'ArrowDown') { e.preventDefault(); hlSearch = Math.min(hlSearch + 1, total - 1); ctx.ui.render() }
+        else if (k === 'ArrowUp') { e.preventDefault(); hlSearch = Math.max(hlSearch - 1, 0); ctx.ui.render() }
+        else if (k === 'Home') { e.preventDefault(); hlSearch = 0; ctx.ui.render() }
+        else if (k === 'End') { e.preventDefault(); hlSearch = total - 1; ctx.ui.render() }
+        else if (k === 'Enter' && matched[hlSearch]) { e.preventDefault(); pickMatched(matched[hlSearch]) }
+        return
+      }
+      // 列态：当前列 ↑↓ 移动 / ←→ 推进回退 / Home/End / Enter 选择
+      const col = colData[hl.col]
+      if (!col || !col.options.length) return
+      const n = col.options.length
+      if (k === 'ArrowDown') { e.preventDefault(); hl = { col: hl.col, idx: Math.min(hl.idx + 1, n - 1) }; ctx.ui.render() }
+      else if (k === 'ArrowUp') { e.preventDefault(); hl = { col: hl.col, idx: Math.max(hl.idx - 1, 0) }; ctx.ui.render() }
+      else if (k === 'Home') { e.preventDefault(); hl = { col: hl.col, idx: 0 }; ctx.ui.render() }
+      else if (k === 'End') { e.preventDefault(); hl = { col: hl.col, idx: n - 1 }; ctx.ui.render() }
+      else if (k === 'ArrowRight') {
+        const opt = col.options[Math.min(hl.idx, n - 1)]
+        if (opt?.children?.length) {
+          e.preventDefault()
+          activePath = [...col.path, opt.value]
+          hl = { col: hl.col + 1, idx: 0 }
+          ctx.ui.render()
+        }
+      }
+      else if (k === 'ArrowLeft') {
+        if (hl.col > 0) {
+          e.preventDefault()
+          // 回退目标列路径（列由 activePath 驱动——只改 hl 不会减列）
+          const target = colData[hl.col - 1]
+          activePath = [...target.path]
+          hl = { col: hl.col - 1, idx: 0 }
+          ctx.ui.render()
+        }
+      }
+      else if (k === 'Enter' && !col.options[Math.min(hl.idx, n - 1)]?.disabled) {
+        e.preventDefault()
+        pick(col.options[Math.min(hl.idx, n - 1)], col.path)
+      }
+    }
+
     const panel = popup.portal(h('div', {
       class: 'wf-cascader-panel',
       role: 'listbox',
+      onKeyDown: onPanelKeyDown,
     }, showSearch ? [searchInput, panelBody].filter(Boolean) : panelBody), 'popover')
 
     const display = Array.isArray(value) && value.length

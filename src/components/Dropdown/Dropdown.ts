@@ -33,6 +33,10 @@ export const Dropdown: Component<DropdownProps> = async (_init, ctx) => {
   // useOpen：受控/非受控 open 统一（warn 缺回调——受控纪律自动化）
   let openCtrl: ReturnType<WfuiContext['ui']['useOpen']> | null = null
 
+  // 键盘导航高亮（R43 W1：menu 方向键 + Enter/Home/End + disabled 跳过）
+  let hl = 0
+  let prevOpen = false
+
   const popup = ctx.ui.usePopup({
     trigger: 'click',
     el: () => wrapEl,
@@ -45,16 +49,51 @@ export const Dropdown: Component<DropdownProps> = async (_init, ctx) => {
     const { trigger, items = [] } = props
     openCtrl = ctx.ui.useOpen({ open: props.open, onOpenChange: props.onOpenChange, name: 'Dropdown' })
 
+    // 打开时高亮重置第一项（prevOpen 边沿检测——重开不记忆旧位置）
+    const openNow = !!openCtrl?.open
+    if (openNow && !prevOpen) hl = 0
+    prevOpen = openNow
+
+    // 菜单键盘导航（render 内定义——依赖最新 items；Escape 由 usePopup 处理）
+    const onMenuKeyDown = (e: any) => {
+      const k = e.key
+      if (k === 'Escape') return
+      const enabled = items.map((it, i) => (it.disabled ? -1 : i)).filter(i => i >= 0)
+      if (!enabled.length) return
+      // 当前高亮在 enabled 中的位置（钳制：无效高亮归第一个可用项）
+      const pos = enabled.indexOf(hl)
+      const cur = pos >= 0 ? pos : 0
+      if (k === 'ArrowDown' || k === 'ArrowRight') {
+        e.preventDefault(); hl = enabled[Math.min(cur + 1, enabled.length - 1)]; ctx.ui.render()
+      } else if (k === 'ArrowUp' || k === 'ArrowLeft') {
+        e.preventDefault(); hl = enabled[Math.max(cur - 1, 0)]; ctx.ui.render()
+      } else if (k === 'Home') { e.preventDefault(); hl = enabled[0]; ctx.ui.render() }
+      else if (k === 'End') { e.preventDefault(); hl = enabled[enabled.length - 1]; ctx.ui.render() }
+      else if (k === 'Enter' || k === ' ') {
+        const item = items[hl]
+        if (item && !item.disabled) {
+          e.preventDefault()
+          item.onClick?.()
+          openCtrl?.setOpen(false)
+        }
+      }
+    }
+
     const menuItems = items.map((item, i) =>
       h('button', {
-        class: `wf-dropdown-item${item.variant === 'danger' ? ' wf-dropdown-item--danger' : ''}`,
+        class: [
+          'wf-dropdown-item',
+          item.variant === 'danger' ? ' wf-dropdown-item--danger' : '',
+          i === hl && openNow ? ' wf-dropdown-item--hl' : '',
+        ].filter(Boolean).join(' '),
         key: item.value ?? i, disabled: item.disabled || undefined,
-        role: 'menuitem', onClick: item.disabled ? undefined : () => { item.onClick?.() },
+        role: 'menuitem', 'aria-selected': String(i === hl && openNow),
+        onClick: item.disabled ? undefined : () => { item.onClick?.() },
       }, item.label)
     )
 
     const menu = h('div', {
-      class: 'wf-dropdown-menu', role: 'menu',
+      class: 'wf-dropdown-menu', role: 'menu', onKeyDown: onMenuKeyDown,
     }, menuItems)
 
     return h('div', {

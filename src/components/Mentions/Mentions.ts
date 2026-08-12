@@ -146,6 +146,9 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
       value,
       disabled: disabled || undefined,
       ref: taRef,
+      // R42：@提及建议面板语义（textarea 是 trigger——展开状态随面板）
+      'aria-haspopup': 'listbox',
+      'aria-expanded': String(open),
       onInput: handleInput,
       onKeyDown: handleKeyDown,
       onCompositionStart: () => { composing = true; close() },

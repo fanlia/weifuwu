@@ -183,3 +183,9 @@
   font-size: var(--wf-font-size-sm);
   text-align: center;
 }
+
+/* 键盘高亮（R43 W1）：与 hover 同视觉，但独立 class（键盘导航可见性） */
+.wf-cascader-opt--hl {
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary-text);
+}

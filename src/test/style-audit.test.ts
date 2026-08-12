@@ -846,8 +846,9 @@ describe('样式审计 — 设计约束', () => {
 
   it('P12-R42：弹层 trigger aria-expanded（ratchet——存量未带者登记 baseline，新组件必须带）', () => {
     // 豁免：命令式（无 trigger 锚定——Toast/Notification/Confirm）、会话级模态（Modal/Drawer positioning:none）、
-    // 全屏面板（Command）、轻量居中（Img preview）、右键触发（ContextMenu——无 trigger 按钮语义）
-    const EXEMPT = new Set(['Toast', 'Notification', 'Confirm', 'Modal', 'Drawer', 'Command', 'Img', 'ContextMenu'])
+    // 全屏面板（Command/Tour——open 外部受控无 trigger 按钮）、轻量居中（Img preview）、
+    // 右键触发（ContextMenu——无 trigger 按钮语义）
+    const EXEMPT = new Set(['Toast', 'Notification', 'Confirm', 'Modal', 'Drawer', 'Command', 'Img', 'ContextMenu', 'Tour'])
     const actual: Record<string, number> = {}
     const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
     for (const d of dirs) {
@@ -861,7 +862,7 @@ describe('样式审计 — 设计约束', () => {
     }
     // baseline：当前未带 aria 的锚定弹层组件（Wave 内 F4 a11y 修复后从本快照删除；归零 = 硬门）
     const baseline: Record<string, number> = {
-      Mentions: 1, Tour: 1,
+      // 已归零：Mentions（textarea aria-expanded ✓）/ Tour（豁免——无 trigger）
     }
     assert.deepEqual(actual, baseline, '弹层 aria 违规集合变化：存量只能递减（同步本快照）；新 usePopup 组件必须带 aria-expanded')
   })

@@ -195,3 +195,77 @@ describe('Cascader', () => {
     assert.deepEqual(picked, ['zj', 'nb'], '提交完整路径')
   })
 })
+
+describe('Cascader 键盘导航（R43 W1 兑现）', () => {
+  /** 打开弹层并返回 panel vnode（触发 toggleOpen） */
+  async function openPanel(render: any, props: any) {
+    let v = await render(props)
+    triggerOf(v).props.onClick()
+    v = await render(props)
+    return { v, panel: panelOf(v) }
+  }
+  const key = (k: string) => ({ key: k, preventDefault() {}, stopPropagation() {} })
+
+  it('ArrowDown 移动高亮 + Enter 推进 + 叶子 Enter 选择并关闭（非受控）', async () => {
+    let picked: string[] | null = null
+    const onChange = (path: string[]) => { picked = path }
+    const render = (await mount(Cascader, { options, onChange }, makeCtx()))!
+    const { panel } = await openPanel(render, { options, onChange })
+    // ArrowDown → 广东（第二项）
+    panel.props.onKeyDown(key('ArrowDown'))
+    let v2 = await render({ options, onChange })
+    const hl2 = [...panelOf(v2).props.children[0].props.children].find((c: any) => String(c.props?.class).includes('--hl'))
+    assert.equal(hl2?.props?.children?.[0]?.props?.children, '广东', `ArrowDown 高亮广东: ${hl2?.props?.class}`)
+    // Enter（广东有 children）→ 推进第二列（深圳）
+    panelOf(v2).props.onKeyDown(key('Enter'))
+    v2 = await render({ options, onChange })
+    assert.equal(panelOf(v2).props.children.length, 2, 'Enter 推进第二列')
+    // ArrowDown（第二列唯一项深圳）+ Enter → 选择 ['gd','sz'] + 关闭
+    panelOf(v2).props.onKeyDown(key('ArrowDown'))
+    v2 = await render({ options, onChange })
+    panelOf(v2).props.onKeyDown(key('Enter'))
+    assert.deepEqual(picked, ['gd', 'sz'], 'Enter 选择深圳路径')
+    const v3 = await render({ options, onChange })
+    assert.equal(panelOf(v3), null, '选择后关闭')
+  })
+
+  it('ArrowRight 推进子列（杭州 → 西湖区）+ ArrowLeft 回退', async () => {
+    const render = (await mount(Cascader, { options }, makeCtx()))!
+    const { panel } = await openPanel(render, { options })
+    // 第一列第一项浙江 → ArrowRight 推进第二列
+    panel.props.onKeyDown(key('ArrowRight'))
+    let v = await render({ options })
+    let cols = panelOf(v).props.children
+    assert.equal(cols.length, 2, '推进到第二列')
+    // 第二列第一项杭州 → ArrowRight → 第三列
+    panelOf(v).props.onKeyDown(key('ArrowRight'))
+    v = await render({ options })
+    cols = panelOf(v).props.children
+    assert.equal(cols.length, 3, '推进到第三列（杭州有子项）')
+    // 第三列第一项西湖区 → ArrowLeft 回退到第二列
+    panelOf(v).props.onKeyDown(key('ArrowLeft'))
+    v = await render({ options })
+    assert.equal(panelOf(v).props.children.length, 2, 'ArrowLeft 回退到第二列')
+  })
+
+  it('搜索态 ↑↓ 移动 + Enter 选择', async () => {
+    const render = (await mount(Cascader, { options, showSearch: true }, makeCtx()))!
+    let v = await render({ options, showSearch: true })
+    triggerOf(v).props.onClick()
+    v = await render({ options, showSearch: true })
+    // 输入搜索词
+    const input = v.props.children.find((c: any) => c?.props?.class === 'wf-cascader')!.props.children[0]
+    // 搜索输入在 panel 内
+    const search = panelOf(v)?.props?.children?.[0]
+    search.props.onInput({ target: { value: '西' } })
+    v = await render({ options, showSearch: true })
+    const panel = panelOf(v)
+    assert.ok(panel.props.children[1].props.children.length >= 1, '匹配结果存在')
+    const first = panel.props.children[1].props.children[0]
+    assert.equal(first.props.children, '浙江 / 杭州 / 西湖区', '搜索匹配西湖区')
+    // Enter 选择
+    panel.props.onKeyDown(key('Enter'))
+    const v2 = await render({ options, showSearch: true })
+    assert.equal(panelOf(v2), null, '搜索 Enter 选择后关闭')
+  })
+})
