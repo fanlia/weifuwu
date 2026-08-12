@@ -6,7 +6,7 @@
  * 2. 剪枝命中率（renderFn 执行次数 / 总组件数）——统一异步后唯一性能变量
  * 3. 耗时（相对基线——不断言死值，对比优化前后）
  *
- * 场景（对照 design/vdom-perf-plan.md v2）：
+ * 场景（对照 vdom render 优化计划 v2）：
  * 1. 首帧 1000 行 keyed 列表
  * 2. 更新单行（DOM 写 ≈ 1 次 textContent）
  * 3. 头部插入 1 行（DOM 写 = 插入数，无 append+insert 双写）
@@ -251,7 +251,7 @@ test('perf: 剪枝命中率——无关父状态变化 → 子组件 renderFn �
   handle2.unmount()
 })
 
-// ── v3 阶段 0：耗时分解基准（对照 design/vdom-perf-v3-plan.md——相对基线，不设死值） ──
+// ── v3 阶段 0：耗时分解基准（对照 vdom 优化计划 v3——相对基线，不设死值） ──
 
 /** 1000 行 native keyed 列表（无组件包裹——Table 行形态） */
 function nativeRows(start: number, n: number) {

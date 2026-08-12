@@ -1,7 +1,7 @@
 # 移动端开发指南（weifuwu）
 
 > 移动端友好由框架构造保证：**用对原语 + 守 audit 规则**，不靠每个组件"记得"。
-> 落地依据：`design/mobile-support-plan.md`（P0/P1 已完成，P2 进行中）。
+> 落地依据：移动端支持计划（P0-P3 全落地——usePopup 全系 + safe-area + 44px 命中区 + docs/mobile 指南）。
 
 ## 一、断点体系（布局原语）
 

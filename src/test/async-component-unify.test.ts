@@ -9,7 +9,7 @@
  * }
  * ```
  *
- * 关键决策（design/async-component-unify-plan.md）：
+ * 关键决策（async 组件统一计划）：
  *   D1 签名统一：AsyncComponent = (initProps, ctx) => Promise<Component>——判别改为返回值 instanceof Promise
  *   D2 缓存按实例：工厂结果存组件实例；ctx.data 兜底去重
  *   D3 占位/补全复用现有机制（mountComponent 返回 null + scheduleFullReRender）

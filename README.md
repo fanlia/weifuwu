@@ -72,7 +72,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **① 一个包，全栈一体。** 后端、前端、组件、样式装在一个 npm 包里，零配置、零构建、纯 link 可用：服务端 `--import weifuwu/dev` 直接跑 `.tsx`（Node loader + esbuild 同步编译）；浏览器 CDN import map 直接跑；CSS 一条 link 即得完整设计系统。
 
-**② 全自研，诚实裁剪。** VDOM、PG v3 / RESP2 协议、GraphQL schema、OpenAI 兼容流式协议——全部自研而非包装他人。动机不是炫技而是**确定性**：自研客户端输出确定、行为可预测、错误模型统一。配套纪律是诚实裁剪：**不支持的能力明确抛 `ProtocolError('unsupported')`，绝不静默降级或"尽量支持"**（已裁剪清单见 `design/db-clients-plan.md`）。
+**② 全自研，诚实裁剪。** VDOM、PG v3 / RESP2 协议、GraphQL schema、OpenAI 兼容流式协议——全部自研而非包装他人。动机不是炫技而是**确定性**：自研客户端输出确定、行为可预测、错误模型统一。配套纪律是诚实裁剪：**不支持的能力明确抛 `ProtocolError('unsupported')`，绝不静默降级或"尽量支持"**（已裁剪清单见 `design/components-cuts.md`）。
 
 **③ 消灭样板。** 框架的每一层都在消灭一类样板代码：
 

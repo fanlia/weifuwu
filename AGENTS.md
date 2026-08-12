@@ -683,7 +683,7 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 - 新增 ctx.ui 原语 → 同步 `docs/custom-components.md`（自定义组件指南）+ `docs/frontend.md` 方法速查表
 - 新增实现计划/架构决策 → 写 `design/`（参考各 `*-plan.md` 的格式）
 - README 保持门面（~400 行）：简介/设计理念/快速开始/CDN/模块总览/核心概念 + 文档导航，不堆 API 细节
-- 改协议/裁剪清单 → `design/ai-contract.md` / `design/db-clients-plan.md`（源码注释引用同步）
+- 改协议/裁剪清单 → `design/ai-contract.md` / `design/components-cuts.md`（源码注释引用同步）
 
 ## 11. 路由匹配 & 自研协议层
 
@@ -705,7 +705,7 @@ weifuwu 的 DB 客户端（`src/db/redis/`、`src/db/postgres/`）与 schema 工
 **2. 诚实裁剪（可预测失败）**
 - **不支持的能力明确抛 `ProtocolError('unsupported')`**，绝不静默降级或"尽量支持"
 - 已裁剪清单：逻辑复制/大对象/游标/二进制 COPY（PG）；集群/哨兵/自动管道（Redis）
-- 新增裁剪项：在 `design/db-clients-plan.md` 裁剪声明中登记
+- 新增裁剪项：在 `design/components-cuts.md` 裁剪声明中登记
 
 **3. 协议语义优先（真实库验证过的坑，不可回归）**
 - 错误响应是正常协议消息（`-ERR` → 连接保持，RespError 作为值）
