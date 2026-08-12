@@ -149,3 +149,58 @@ test('hydrate: 服务端多余节点清理', async () => {
   assert.equal(el.querySelectorAll('span').length, 1, '多余 span 清理')
   assert.equal(el.querySelector('span')?.textContent, 'keep')
 })
+
+// ── 数组内 null 占位：SSR 与 hydration 必须保留位置（hole 注释 ↔ 游标对齐） ──
+
+test('SSR: 数组 [null, div, div] 输出 hole 注释（与客户端 renderValue 对齐）', async () => {
+  const v = h('div', { class: 'bar' }, [null, h('i', { id: 'a' }, 'A'), h('i', { id: 'b' }, 'B')])
+  const router = new UIRouter()
+  const Page = async () => () => v
+  router.get('/', () => h(Page, {}), { title: 'SSR-null' })
+  const { html } = await ssrPage(router, { url: '/' })
+  console.log('[ssr-null] html =', html)
+  assert.ok(html.includes('wf-hole'), '数组内 null 应输出 wf-hole 注释')
+  const holeCount = (html.match(/wf-hole/g) || []).length
+  assert.equal(holeCount, 1, `应有 1 个 hole（null 位置），实际 ${holeCount}——${html}`)
+  assert.ok(html.includes('id="a">A</i>'), 'a 渲染')
+  assert.ok(html.includes('id="b">B</i>'), 'b 渲染')
+  // hole 在 a 之前（位置对齐）
+  const holeIdx = html.indexOf('wf-hole')
+  const aIdx = html.indexOf('id="a"')
+  assert.ok(holeIdx < aIdx, 'hole 在 a 前')
+})
+
+test('hydration: 数组 [null, div, div] SSR 后收养——位置保留且内容正确', async () => {
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const browser = createClientBrowser()
+  const v = h('div', { class: 'bar' }, [null, h('i', { id: 'a' }, 'A'), h('i', { id: 'b' }, 'B')])
+  const router = new UIRouter()
+  const Page = async () => () => v
+  router.get('/', () => h(Page, {}), { title: 'SSR-null' })
+  const { html } = await ssrPage(router, { url: '/' })
+  // 提取 root 内容并放入容器（模拟服务端输出）
+  const m = html.match(/<div class="bar">.*<\/div>/)
+  assert.ok(m, 'bar html 提取')
+  container.innerHTML = m[0]
+  const { ctx } = createVdomContext({ root: container, browser })
+  await hydrateVNode(container, v, ctx as any)
+  // 位置保留：a 在 b 前，hole 注释（位置 0）在 a 前——顺序 [hole?, a, b]
+  const bar = container.querySelector('div.bar')!
+  const kids = [...bar.childNodes]
+  const a = bar.querySelector('#a')!
+  const b = bar.querySelector('#b')!
+  assert.ok(a && b, 'a/b 收养')
+  assert.ok(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING, 'a 在 b 前')
+  assert.equal(a.textContent, 'A')
+  assert.equal(b.textContent, 'B')
+  // 占位法一致性：hydration 后 DOM 必须与客户端 renderValue 一致——
+  // [null, i, i] → [hole, i, i]（3 个节点，hole 注释保留在位置 0，a/b 唯一不重复）
+  const holes = kids.filter(k => k.nodeType === 8 && k.nodeValue?.includes('wf-hole'))
+  assert.equal(holes.length, 1, `hole 应保留 1 个（null 位置——与 renderValue 一致），实际 ${holes.length}——${bar.innerHTML}`)
+  const is = bar.querySelectorAll('i')
+  assert.equal(is.length, 2, `i 唯一（无重复收养），实际 ${is.length}——${bar.innerHTML}`)
+  assert.equal(kids.length, 3, `childNodes 长度 = 数组长度（占位法长度恒定），实际 ${kids.length}——${bar.innerHTML}`)
+  assert.equal(holes[0]?.compareDocumentPosition(is[0]) & Node.DOCUMENT_POSITION_FOLLOWING, Node.DOCUMENT_POSITION_FOLLOWING, 'hole 在 a 前')
+  container.remove()
+})

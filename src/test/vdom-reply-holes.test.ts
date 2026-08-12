@@ -235,3 +235,37 @@ test('mount 链路 rerender()：force 重渲染后 null 位置 hole 必须保留
   handle.close?.()
   document.body.removeChild(container)
 })
+
+test('mount 链路：多占位混合 [false, null, div, false, div, null] rerender 后全部保留', async () => {
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const browser = createClientBrowser()
+  const mount = await import('../ui-dom/vdom/mount.ts')
+  const { ctx } = mount.createVdomContext({ root: container, browser })
+
+  const Bar = async (init: any, c: any) => {
+    const $: any = { show: null }
+    return (props: any) => jsx('div', { class: 'bar', children: [
+      false,
+      $.show && jsx('div', { class: 'reply', children: 'R' }),
+      jsx('div', { class: 'a', children: 'A' }),
+      false,
+      jsx('div', { class: 'b', children: 'B' }),
+      null,
+    ]})
+  }
+  const handle = mount.mountRoot({ root: container, ctx, browser })
+  await handle.mount(jsx(Bar, {}))
+  const bar1 = container.querySelector('div.bar')!
+  const holes1 = (bar1.innerHTML.match(/wf-hole/g) || []).length
+  // 数组 6 项：[false, null, div, false, div, null] → 4 个 hole + 2 div
+  assert.equal(holes1, 4, `初始 4 hole，实际 ${holes1}——${bar1.innerHTML}`)
+
+  await handle.rerender()
+  const bar2 = container.querySelector('div.bar')!
+  const holes2 = (bar2.innerHTML.match(/wf-hole/g) || []).length
+  assert.equal(holes2, 4, `rerender 后仍 4 hole，实际 ${holes2}——${bar2.innerHTML}`)
+
+  handle.close?.()
+  document.body.removeChild(container)
+})

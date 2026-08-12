@@ -105,6 +105,12 @@ function renderValueHydrating(v: VNodeChild, ctx: WfuiContext, c: HydrationCurso
   // 原生元素：收养（tag 匹配）或替换（mismatch 恢复）
   const tag = vnode.type as string
   const props = vnode.props ?? {}
+  // 跳过 SSR 的 wf-hole 占位注释（数组内 null/false——与客户端 renderValue 一致：
+  // hole 注释保留在 DOM，位置对齐；否则游标停在注释 → 下一元素 cursorReplace 替换 hole
+  // → 位置错位（元素重复/顺序乱））
+  while (c.node && c.node.nodeType === 8 && (c.node as Comment).nodeValue?.startsWith('wf-hole:')) {
+    cursorAdvance(c)
+  }
   let el: Element
   if (c.node && c.node.nodeType === 1 && (c.node as Element).tagName.toLowerCase() === tag.toLowerCase()) {
     el = c.node as Element
