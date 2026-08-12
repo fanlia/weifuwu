@@ -1,6 +1,6 @@
 # agent-platform 产品化优化计划（8 角色评审）
 
-> **状态（2026-12）**：🔄 实施中——Wave 1-3 核心已落地（P0 阻断修复 / 成员管理 / 会话列表 / 审批待办 / @ 定向 / 测试隔离），Wave 4-5 后续。
+> **状态（2026-12）**：🔄 实施中——Wave 1-4 核心已落地（P0 阻断修复 / 群聊核心 / @ 定向+补全 / 消息搜索+分页 / 成本视图 / 注册引导 / webhook replay 防护 / 测试隔离根治），Wave 5 剩余低优先级项。
 
 ## 0. 现状盘点（实测证据，2026-12）
 
@@ -150,7 +150,13 @@
 | P1-4 会话列表 | ✅ | last_message 子查询 + 相对时间 + 空态 CTA（客服中心带最后消息 ✓） |
 | P1-5 审批待办 | ✅ | /approvals 页 + Dashboard 待批卡 + 权限收紧（仅部门管理员） |
 | 测试隔离 | ✅ | TEST_DATABASE_URL=demo_test 独立库 + 限流键 rl:rl:* 修复——81 测试不再清 demo 数据 |
-| P1 @ 补全浮层 / P2 分页搜索 / Wave 4-5 | ⏳ | 留后续 Wave |
+| P1 @ 补全浮层 | ✅ | ChatInput 新增 control 原语（setKeyword/setValue）——输入 @ 弹成员浮层 + 选中回填，端到端定向验证 |
+| P2 消息分页 + 搜索 | ✅ | 后端 ILIKE 搜索 + cursor 分页；前端搜索框 + scroll 顶部自动加载更早 |
+| P2 Dashboard 成本视图 | ✅ | /api/stats/tokens-by-agent 按 Agent token 排行 + Dashboard 卡片 |
+| P2 webhook replay 防护 | ✅ | X-Timestamp 参与签名 + 5 分钟新鲜度 + nonce 去重（兼容旧调用方） |
+| P2 注册引导 | ✅ | Dashboard 首启横幅「创建你的第一个 AI 同事」3 步引导（有 AI 后消失） |
+| 测试隔离根治 | ✅ | postgres() 参数修正（connection 字符串非 url——此前隔离无效根因）+ demo_test 确认独立 |
+| Wave 5（Chat 拆分/状态类型化/埋点/模板运营位） | ⏳ | 低优先级留后续——Chat.tsx 471 行已函数化清晰，拆分收益低风险高（裁剪） |
 
 ## 3. 实施计划（Wave 划分）
 

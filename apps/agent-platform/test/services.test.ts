@@ -90,7 +90,7 @@ function makeMockCtx(extra?: Record<string, unknown>): Context {
 let pg: ReturnType<typeof postgres>
 
 before(async () => {
-  pg = postgres({ url: process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_test', max: 10, closeTimeout: 1 })
+  pg = postgres(process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_test', { max: 10, closeTimeout: 1 })
   const schemaPath = resolve(__dirname, '..', 'src', 'db', 'schema.sql')
   const schema = readFileSync(schemaPath, 'utf-8')
   await pg.sql.unsafe(`

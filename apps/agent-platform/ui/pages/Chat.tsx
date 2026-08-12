@@ -12,21 +12,60 @@ export const Chat: Component = async (_props, ctx) => {
   $.editingId = ''; $.editValue = ''; $.userAgentId = ''; $.sending = false
   $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
   $.approving = null; $.copiedId = ''; $.timeVersion = 0
+  $.hasMore = false; $.loadingMore = false; $.searchQ = ''; $.searching = false
+  $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
+  const chatControl = { current: null as any }
+
+  async function loadMessages() {
+    const msgRes = await ctx.api!.get(`/api/departments/${deptId}/messages?limit=50`).catch(() => ({ messages: [] }))
+    const list = msgRes.messages ?? []
+    $.hasMore = list.length >= 50
+    $.msgs = [...list].reverse().map((m: any) => ({ ...m }))
+  }
 
   Promise.all([
-    ctx.api!.get(`/api/departments/${deptId}/messages`).catch(() => ({ messages: [] })),
+    loadMessages(),
     ctx.api!.get(`/api/departments/${deptId}`).catch(() => ({})),
     ctx.api!.get('/api/agents?type=user').catch(() => ({ agents: [] })),
-  ]).then(([msgRes, deptRes, agentRes]) => {
+  ]).then(([, deptRes, agentRes]) => {
     const agents = agentRes.agents ?? []
     const user = ctx.auth?.user
     const mine = agents.find((a: any) => a.user_id === user?.id)
     if (mine) $.userAgentId = mine.id
-    $.msgs = (msgRes.messages ?? []).reverse().map((m: any) => ({ ...m }))
     $.deptName = deptRes?.department?.name ?? deptRes?.name ?? '聊天'
     $.memberCount = (deptRes?.members ?? []).length
+    $.membersList = (deptRes?.members ?? []).filter((m: any) => m.type === 'ai')
     rerender()
   }).catch(() => {})
+
+  async function loadOlder() {
+    if ($.loadingMore || !$.hasMore) return
+    $.loadingMore = true; rerender()
+    const oldest = $.msgs[0]
+    const msgRes = await ctx.api!.get(`/api/departments/${deptId}/messages?limit=50&before=${oldest?.id ?? ''}`).catch(() => ({ messages: [] }))
+    const older = msgRes.messages ?? []
+    if (older.length > 0) {
+      $.msgs = [...older.reverse(), ...$.msgs]
+      $.hasMore = older.length >= 50
+    } else {
+      $.hasMore = false
+    }
+    $.loadingMore = false
+    rerender()
+  }
+
+  async function runSearch() {
+    const q = $.searchQ.trim()
+    $.searching = true; rerender()
+    if (!q) {
+      await loadMessages(); $.searching = false; rerender(); return
+    }
+    const msgRes = await ctx.api!.get(`/api/departments/${deptId}/messages?limit=50&q=${encodeURIComponent(q)}`).catch(() => ({ messages: [] }))
+    $.msgs = [...(msgRes.messages ?? [])].reverse().map((m: any) => ({ ...m }))
+    $.hasMore = false
+    $.searching = false
+    rerender()
+  }
 
   const unsub = ctx.ws?.onMessage((event: any) => {
     switch (event.type) {
@@ -140,6 +179,7 @@ export const Chat: Component = async (_props, ctx) => {
     if (!trimmed || $.sending) return
     const saved = trimmed
     $.sending = true; $.input = ''
+    $.atMenuOpen = false; $.atQuery = ''
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     try {
       const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: trimmed }).catch(() => null)
@@ -241,6 +281,28 @@ export const Chat: Component = async (_props, ctx) => {
 
     const inputDisabled = $.editingId !== ''
 
+  // @ 补全：输入末尾 @ 或 @前缀 时弹出成员浮层
+  function onInputChange(v: string) {
+    $.input = v; rerender()
+    const atMatch = v.match(/@([\u4e00-\u9fa5\w]*)$/)
+    if (atMatch) {
+      $.atQuery = atMatch[1]
+      $.atMenu = $.membersList.filter((m: any) => m.type === 'ai' && (String(m.name).includes($.atQuery) || !$.atQuery))
+      $.atMenuOpen = $.atMenu.length > 0
+    } else {
+      $.atMenuOpen = false; $.atQuery = ''
+    }
+    rerender()
+  }
+  function pickAtMember(m: any) {
+    // 替换末尾 @前缀 为完整 @名 + 空格（ChatInput 内部 keyword 程序化改写——不触发 onChange 避免 IME 打断）
+    const v = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, `@${m.name} `)
+    $.input = v
+    chatControl.current?.setKeyword(v)
+    $.atMenuOpen = false; $.atQuery = ''
+    rerender()
+  }
+
 
     return (
     <div class="wf-stack wf-h-full">
@@ -263,9 +325,20 @@ export const Chat: Component = async (_props, ctx) => {
           if (!$.bodyEl) return
           const threshold = 80
           $.isUserScrolledUp = ($.bodyEl.scrollHeight - $.bodyEl.scrollTop - $.bodyEl.clientHeight) > threshold
+          // 顶部接近时自动加载更早
+          if ($.bodyEl.scrollTop < 40 && $.hasMore && !$.loadingMore) { loadOlder() }
         }}>
+        <div class="wf-row wf-gap-sm wf-items-center">
+          {$.hasMore && (
+            <Button size="sm" variant="ghost" disabled={$.loadingMore} onClick={loadOlder}>
+              {$.loadingMore ? '加载中...' : '↑ 加载更早消息'}
+            </Button>
+          )}
+          {$.searchQ && <Badge variant="primary">搜索："{$.searchQ}" <a class="wf-text-brand wf-ml-xs" style="cursor:pointer" onClick={() => { $.searchQ = ''; runSearch() }}>✕ 清除</a></Badge>}
+        </div>
+
         {$.msgs.length === 0 && (
-          <EmptyState icon={<Icon name="message" />} text="暂无消息" hint="发送第一条消息，@ 的 AI 成员会自动回复" />
+          <EmptyState icon={<Icon name="message" />} text={$.searchQ ? '没有匹配的消息' : '暂无消息'} hint={$.searchQ ? '换个关键词试试' : '发送第一条消息，@ 的 AI 成员会自动回复'} />
         )}
 
         {$.msgs.map((msg: any) => {
@@ -360,15 +433,36 @@ export const Chat: Component = async (_props, ctx) => {
         })}
       </div>
 
-      <div class="wf-row wf-gap-sm wf-p-sm wf-border-t">
-        <div class="wf-fill">
-          <ChatInput
-            value={$.input}
-            onChange={(v) => { $.input = v; rerender() }}
-            onSend={(text) => sendText(text)}
-            disabled={inputDisabled}
-            labels={{ placeholder: '输入消息，回车发送...' }}
-          />
+      <div class="wf-border-t wf-p-sm">
+        {$.atMenuOpen && (
+          <div class="wf-stack wf-gap-none wf-p-sm wf-rounded wf-surface wf-mb-sm wf-shadow" style="position: relative; z-index: 10">
+            <div class="wf-text-xs wf-text-tertiary wf-px-sm wf-pb-xs">@ 选择成员</div>
+            {$.atMenu.map((m: any) => (
+              <button type="button" key={m.id} class="wf-row wf-gap-sm wf-px-sm wf-py-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px"
+                onClick={() => pickAtMember(m)}>
+                <Ava name={m.name} type={m.type ?? 'ai'} small />
+                <span class="wf-text-base">{m.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div class="wf-row wf-gap-sm">
+          <div class="wf-fill">
+            <ChatInput
+              value={$.input}
+              control={chatControl}
+              onChange={(v) => onInputChange(v)}
+              onSend={(text) => sendText(text)}
+              disabled={inputDisabled}
+              labels={{ placeholder: $.searchQ ? '搜索模式：输入新消息退出搜索' : '输入消息，回车发送；@ 可定向 AI' }}
+            />
+          </div>
+        </div>
+        <div class="wf-row wf-gap-sm wf-mt-sm">
+          <div class="wf-fill">
+            <Input placeholder="搜索消息..." value={$.searchQ} onInput={(e: any) => { $.searchQ = e.target.value; rerender() }} />
+          </div>
+          <Button size="sm" disabled={$.searching} onClick={runSearch}><Icon name="search" size={14} /> 搜索</Button>
         </div>
       </div>
     </div>

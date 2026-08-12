@@ -1,5 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { Card, Icon, StatCard } from 'weifuwu/components'
+import { Button, Card, Icon, StatCard } from 'weifuwu/components'
+import { Ava } from '../components/ui'
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -20,9 +21,11 @@ export const Dashboard: Component = async (_props, ctx) => {
     ctx.api!.get('/api/agents').catch(() => ({ agents: [] })),
     ctx.api!.get('/api/departments').catch(() => ({ departments: [] })),
     ctx.api!.get('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
-  ]).then(([stats, agents, depts, pend]) => {
+    ctx.api!.get('/api/stats/tokens-by-agent').catch(() => ({ agents: [] })),
+  ]).then(([stats, agents, depts, pend, cost]) => {
     $.stats = stats; $.agents = agents.agents ?? []; $.deptCount = depts.departments?.length ?? 0
     $.pendingCount = pend.pending?.length ?? 0
+    $.costAgents = cost.agents ?? []
     $.loading = false
     rerender()
   })
@@ -54,6 +57,17 @@ export const Dashboard: Component = async (_props, ctx) => {
         <p class="wf-text-base wf-text-secondary wf-m-0">这是你的 AI 团队工作台，从这里管理 Agent、部门和对话。</p>
       </div>
 
+      {aiCount === 0 && (
+        <div class="wf-surface wf-row wf-gap-md wf-p-md wf-rounded wf-border">
+          <div class="wf-text-3xl">🤖</div>
+          <div class="wf-fill wf-stack wf-gap-xs">
+            <div class="wf-text-base wf-text-semibold">创建你的第一个 AI 同事</div>
+            <div class="wf-text-sm wf-text-secondary">3 步搞定：选角色模板 → 起个名字 → 创建后加入部门聊天</div>
+          </div>
+          <Button variant="primary" onClick={() => ctx.app?.navigate('/agents/new')}>开始创建</Button>
+        </div>
+      )}
+
       <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
         <StatCard label="Agent 总数" value={agentCount} icon={<Icon name="cpu" />} animate onClick={() => ctx.app?.navigate('/agents')} />
         <StatCard label="AI 机器人" value={aiCount} icon={<Icon name="zap" />} animate onClick={() => ctx.app?.navigate('/agents?type=ai')} />
@@ -71,6 +85,24 @@ export const Dashboard: Component = async (_props, ctx) => {
           <div class="wf-row wf-gap-xs wf-items-end" style="height: 32px; margin-top: 6px">{trendBars}</div>
         </Card>
       </div>
+
+      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">Token 成本排行（按 Agent）</div>
+      {($.costAgents ?? []).length > 0 ? (
+        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(200px, 1fr))">
+          {($.costAgents ?? []).slice(0, 4).map((a: any) => (
+            <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)}>
+              <div class="wf-row wf-gap-sm wf-items-center">
+                <Ava name={a.name} type={a.type} small />
+                <div class="wf-fill wf-truncate wf-text-base wf-text-semibold">{a.name}</div>
+              </div>
+              <div class="wf-text-2xl wf-text-semibold wf-mt-xs">{((a.tokens_total ?? 0) / 1000).toFixed(1)}k</div>
+              <div class="wf-text-xs wf-text-tertiary">tokens · {a.run_count} 次运行</div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div class="wf-text-sm wf-text-tertiary">暂无 token 消耗——AI 对话后这里会显示成本排行</div>
+      )}
 
       <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">快捷操作</div>
       <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(220px, 1fr))">

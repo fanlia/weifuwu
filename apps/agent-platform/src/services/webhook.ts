@@ -41,9 +41,11 @@ export interface WebhookConfig {
  *
  * HMAC-SHA256(body) === X-Signature header
  */
-function verifySignature(body: string, signature: string, secret: string): boolean {
+function verifySignature(body: string, signature: string, secret: string, timestamp?: string): boolean {
   try {
-    const expected = createHmac('sha256', secret).update(body).digest('hex')
+    // timestamp 参与签名：HMAC(secret, timestamp + '.' + body)——防 replay（旧调用方无 timestamp 时退化为 HMAC(body)）
+    const payload = timestamp ? `${timestamp}.${body}` : body
+    const expected = createHmac('sha256', secret).update(payload).digest('hex')
     const received = signature.toLowerCase()
     // timingSafeEqual 防止时序攻击
     const expectedBuf = Buffer.from(expected, 'hex')
@@ -53,6 +55,19 @@ function verifySignature(body: string, signature: string, secret: string): boole
   } catch {
     return false
   }
+}
+
+// ── Replay 防护：已用 nonce 集合（进程内，5 分钟过期） ──────────
+const seenNonces = new Map<string, number>()
+function checkNonce(nonce: string | undefined, timestamp: string | undefined): boolean {
+  if (!nonce || !timestamp) return true // 旧调用方（无 nonce/timestamp）不拦截——兼容
+  const ts = Number(timestamp)
+  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 5 * 60_000) return false // timestamp 超 5 分钟 = 过期/重放
+  const now = Date.now()
+  for (const [k, t] of seenNonces) { if (now - t > 5 * 60_000) seenNonces.delete(k) } // 清理过期
+  if (seenNonces.has(nonce)) return false // 同 nonce 重放
+  seenNonces.set(nonce, now)
+  return true
 }
 
 /**
@@ -97,6 +112,8 @@ export async function handleWebhookMessage(
   body: WebhookRequest,
   tenantId?: string,
   signature?: string,
+  timestamp?: string,
+  nonce?: string,
 ): Promise<WebhookResponse> {
   const { sql, ai } = ctx
   const startTime = Date.now()
@@ -128,9 +145,13 @@ export async function handleWebhookMessage(
       throw new Error('Missing X-Signature header')
     }
     const rawBody = JSON.stringify(body)
-    if (!verifySignature(rawBody, signature, agent.webhook_secret)) {
+    if (!verifySignature(rawBody, signature, agent.webhook_secret, timestamp)) {
       await logWebhookCall(ctx, agentId, agent.tenant_id, rawBody, null, 403, Date.now() - startTime, false)
       throw new Error('Invalid signature')
+    }
+    if (!checkNonce(nonce, timestamp)) {
+      await logWebhookCall(ctx, agentId, agent.tenant_id, rawBody, null, 403, Date.now() - startTime, false)
+      throw new Error('Replay detected or stale timestamp')
     }
   }
 

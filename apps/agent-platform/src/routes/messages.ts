@@ -33,6 +33,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const url = new URL(req.url)
     const limit = parseInt(url.searchParams.get('limit') ?? '50', 10)
     const before = url.searchParams.get('before') // cursor 分页
+    const q = url.searchParams.get('q')?.trim() ?? '' // 消息搜索
 
     // 验证部门存在
     const [dept] = await sql`
@@ -53,6 +54,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       LEFT JOIN agents a ON a.id = m.sender_id
       WHERE m.department_id = ${params.id}
       ${before ? sql`AND m.created_at < (SELECT created_at FROM messages WHERE id = ${before})` : sql``}
+      ${q ? sql`AND m.content ILIKE ${'%' + q + '%'}` : sql``}
       ORDER BY m.created_at DESC
       LIMIT ${limit}
     `

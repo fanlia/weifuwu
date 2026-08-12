@@ -50,7 +50,11 @@ server.ts（中间件装配 + schema 迁移 + 优雅关闭）
 - **@ 定向发言**：`@Agent名 消息` → 只有被 @ 的 AI 回复；无 @ 全部 AI 回复（多 AI 群不刷屏）
 - **审批待办**（`/approvals`）：管理员集中处理所有 HITL 草稿（批准/拒绝/去聊天）——审批权限仅部门管理员
 - **无 AI 成员提示**：群内无 AI 成员时发送自动插入系统提示（消除静默失败）
-- **Dashboard 近 7 天消息趋势**：真实数据 CSS 柱条
+- **Dashboard 近 7 天消息趋势**：真实数据 CSS 柱条 + **Token 成本排行**（按 Agent）
+- **消息搜索 + 前滚分页**：聊天内全文搜索 + scroll 顶部加载更早
+- **@ 补全浮层**：输入 @ 弹成员选择（ChatInput control 原语），选中后定向发送
+- **注册引导**：无 AI 机器人时 Dashboard 显示「创建你的第一个 AI 同事」3 步引导
+- **Webhook replay 防护**：X-Timestamp 签名 + 5 分钟新鲜度 + nonce 去重
 - **测试隔离**：`TEST_DATABASE_URL`（默认 demo_test 独立库）——测试不再清 demo 产品数据
 
 ## 验证记录（agent-browser 实测，2026-12）

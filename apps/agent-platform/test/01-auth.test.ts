@@ -29,7 +29,7 @@ function req(method: string, path: string, body?: unknown): Promise<Response> {
 }
 
 before(async () => {
-  pg = postgres({ url: process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_test', max: 10, closeTimeout: 1 })
+  pg = postgres(process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_test', { max: 10, closeTimeout: 1 })
   const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
   await pg.sql.unsafe('DROP TABLE IF EXISTS _weifuwu_sessions, _weifuwu_users CASCADE')
   await pg.sql.unsafe('DROP TABLE IF EXISTS webhook_logs, agent_logs, kb_chunks, kb_documents, messages, department_members, departments, agents, companies, tenants CASCADE')

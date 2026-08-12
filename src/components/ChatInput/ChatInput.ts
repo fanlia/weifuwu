@@ -49,6 +49,15 @@ export interface ChatInputProps {
   labels?: Partial<ChatInputLabels>
   /** 扩展位（附件/知识库/模型选择等） */
   actions?: VNode | null
+  /** 外部程序化控制（@ 补全等场景）——mount 后写入 { setKeyword, setValue } */
+  control?: { current: ChatInputControl | null }
+}
+
+export interface ChatInputControl {
+  /** 直接写内部输入态（不触发 onChange——程序化改写如 @ 补全） */
+  setKeyword: (v: string) => void
+  /** 写内部态并触发 onChange（受控回传） */
+  setValue: (v: string) => void
 }
 
 export const ChatInput: Component<ChatInputProps, { ui: HookEnv }> = async (_init, ctx) => {
@@ -69,6 +78,14 @@ export const ChatInput: Component<ChatInputProps, { ui: HookEnv }> = async (_ini
       onChange: props.onChange,
       name: 'ChatInput',
     })
+    // §5.3 外部程序化控制：@ 补全等需要改写输入态（不触发 onChange 的 setKeyword——
+    // 由消费方自行决定是否回传共享态）
+    if (props.control) {
+      props.control.current = {
+        setKeyword: (v: string) => { input.setKeyword(v) },
+        setValue: (v: string) => { input.setKeyword(v); props.onChange?.(v) },
+      }
+    }
     let composing = false
 
     const send = () => {

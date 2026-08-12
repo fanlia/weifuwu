@@ -260,6 +260,26 @@ async function main() {
     })
   })
 
+  // ── Token 成本排行（按 Agent，老板视角成本视图） ─────────────
+  protectedRoutes.get('/api/stats/tokens-by-agent', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, tenantId } = ctx
+    const rows = await sql`
+      SELECT a.id, a.name, a.type,
+        COUNT(al.id)::int as run_count,
+        COALESCE(SUM(al.tokens_total), 0)::int as tokens_total,
+        COALESCE(SUM(al.tokens_prompt), 0)::int as tokens_prompt,
+        COALESCE(SUM(al.tokens_completion), 0)::int as tokens_completion
+      FROM agents a
+      LEFT JOIN agent_logs al ON al.agent_id = a.id AND al.tenant_id = ${tenantId}
+      WHERE a.tenant_id = ${tenantId}
+      GROUP BY a.id
+      HAVING COUNT(al.id) > 0
+      ORDER BY tokens_total DESC
+      LIMIT 10
+    `
+    return Response.json({ agents: rows })
+  })
+
   // ── Agent 执行日志 ───────────────────────────────────────
   protectedRoutes.get('/api/stats/agents/:agentId/logs', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
@@ -303,7 +323,8 @@ async function main() {
     try {
       const body = await req.json()
       const signature = req.headers.get('x-signature') ?? undefined
-      const result = await handleWebhookMessage(ctx, ctx.params.agentId, body, undefined, signature)
+      const result = await handleWebhookMessage(ctx, ctx.params.agentId, body, undefined, signature,
+        req.headers.get('x-timestamp') ?? undefined, req.headers.get('x-nonce') ?? undefined)
       return Response.json(result)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
