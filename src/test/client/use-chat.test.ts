@@ -493,7 +493,7 @@ describe('AiChat 子组件共享父 $ — 三态 skip 回归', () => {
     let app: any
     try {
       app = await mountApp(root, Parent)
-      const input = browser.query('.wf-aichat-input') as HTMLInputElement
+      const input = browser.query('.wf-chat-input') as HTMLInputElement
       assert.ok(input, 'AiChat 应挂载输入框')
       input.value = 'hi'
       input.dispatchEvent(new (window as any).Event('input', { bubbles: true }))

@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Ava } from '../components/ui'
-import { Alert, Badge, Button, CopyButton, EmptyState, Icon, Input, Markdown, MessageBubble } from 'weifuwu/components'
+import { Alert, Badge, Button, ChatInput, CopyButton, EmptyState, Icon, Input, Markdown, MessageBubble } from 'weifuwu/components'
 
 export const Chat: Component = async (_props, ctx) => {
   const $: Record<string, any> = {}
@@ -135,15 +135,14 @@ export const Chat: Component = async (_props, ctx) => {
   function isOwn(msg: any) { return $.userAgentId && msg.sender_id === $.userAgentId }
   function canEdit(msg: any) { return isOwn(msg) && Date.now() - new Date(msg.created_at).getTime() < 5 * 60 * 1000 }
 
-  async function sendMessage(e: Event) {
-    e.preventDefault()
-    const content = $.input.trim()
-    if (!content || $.sending) return
-    const saved = content
+  async function sendText(content: string) {
+    const trimmed = content.trim()
+    if (!trimmed || $.sending) return
+    const saved = trimmed
     $.sending = true; $.input = ''
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     try {
-      const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, { content }).catch(() => null)
+      const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: trimmed }).catch(() => null)
       if (data) {
         if (data.message && !$.msgs.some((m: any) => m.id === data.message.id)) {
           $.msgs.push({
@@ -151,7 +150,7 @@ export const Chat: Component = async (_props, ctx) => {
             sender_id: data.message.sender_id ?? '',
             sender_name: data.message.sender_name ?? '我',
             sender_type: 'user',
-            content: data.message.content ?? content,
+            content: data.message.content ?? trimmed,
             msg_type: 'text',
             created_at: data.message.created_at ?? new Date().toISOString(),
             status: 'idle',
@@ -241,7 +240,7 @@ export const Chat: Component = async (_props, ctx) => {
     }
 
     const inputDisabled = $.editingId !== ''
-    const canSend = $.input.trim().length > 0 && !$.sending
+
 
     return (
     <div class="wf-stack wf-h-full">
@@ -361,14 +360,17 @@ export const Chat: Component = async (_props, ctx) => {
         })}
       </div>
 
-      <form class="wf-row wf-gap-sm wf-p-sm wf-border-t" onSubmit={sendMessage}>
+      <div class="wf-row wf-gap-sm wf-p-sm wf-border-t">
         <div class="wf-fill">
-          <Input type="text" placeholder="输入消息，回车发送..."
-            value={$.input} onInput={(e: any) => { $.input = e.target.value; rerender() }}
-            disabled={inputDisabled} />
+          <ChatInput
+            value={$.input}
+            onChange={(v) => { $.input = v; rerender() }}
+            onSend={(text) => sendText(text)}
+            disabled={inputDisabled}
+            labels={{ placeholder: '输入消息，回车发送...' }}
+          />
         </div>
-        <Button type="submit" variant="primary" disabled={!canSend}><Icon name="send" size={14} /></Button>
-      </form>
+      </div>
     </div>
     )
   }

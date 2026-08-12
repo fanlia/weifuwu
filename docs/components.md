@@ -2,7 +2,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-113 个 HTML 原语组件。每个是 `async (initProps, ctx) => (props) => Promise<VNode>`（两阶段组件，与前端框架同一模型——外层工厂 + 内层 renderFn 强制异步），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+115 个 HTML 原语组件。每个是 `async (initProps, ctx) => (props) => Promise<VNode>`（两阶段组件，与前端框架同一模型——外层工厂 + 内层 renderFn 强制异步），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 > **组件速查（weifuwu 组件 ↔ antd / Element Plus / shadcn-ui 对应 + 迁移示例）**：见 [`docs/components-map.md`](components-map.md)——从其他组件库迁来的开发者按功能直接找对应组件。
 > **自定义组件开发**：见 [docs/custom-components.md](custom-components.md)——usePopup/useControlled/对话框/AI 组件/类型纪律逐步指南。
@@ -640,12 +640,14 @@ props 变化 ──────────────────────�
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | Divider | `Divider` | `vertical` | 分割线（水平带文字放 children，`vertical` 垂直） |
+| AuthPage | `AuthPage` | `title`, `subtitle?`, `logo?`, `children`, `footer?`, `submitLabel`, `loading?`, `error?`, `onSubmit?` | 认证页骨架：居中卡片 + logo + 标题/副标题 + 表单插槽 + 错误条 + 提交 loading + 底部链接（登录/注册复用；认证流程/跳转由消费方提供） |
 
 ### AI 交互原语（wf: 协议配套）
 
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | AiChat | `AiChat` | `chat`, `maxHeight?`, `labels?`, `renderMessage?`, `renderToolArgs?` | 标准 AI 对话界面：气泡 + 工具卡 + 审批卡 + 自动滚动 + 错误重试（接收 `ctx.ui.useChat()` handle） |
+| ChatInput | `ChatInput` | `value`, `onChange`, `onSend`, `streaming?`, `onStop?`, `error?`, `onRetry?`, `multiline?`, `actions?` | 独立聊天输入条（AiChat 抽取）：单行/多行（Enter 发送/Shift+Enter 换行）+ streaming 停止切换 + §5.3 IME 受控输入纪律——纯输入层，聊天逻辑（useChat）由消费方组合 |
 | MessageBubble | `MessageBubble` | `content`, `role`, `status`, `actions` | 独立消息气泡（业务聊天页复用） |
 | ToolCallCard | `ToolCallCard` | `call`, `progress?`, `result?`, `renderArgs?` | 工具调用卡片：running（进度条）/ ok / error 三态（协议 §4） |
 | JsonSchemaForm | `JsonSchemaForm` | `schema`, `value?`, `onChange?`, `onSubmit?`, `submitLabel?` | JSON Schema（对象子集）→ 参数输入表单：类型映射 + required/范围校验 + 嵌套/数组（工具参数输入面；不支持项告警降级） |

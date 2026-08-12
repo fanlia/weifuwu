@@ -151,6 +151,12 @@ export type { ApprovalCardProps, ApprovalStatus } from './ApprovalCard/ApprovalC
 export { AiChat } from './AiChat/AiChat.ts'
 export type { AiChatProps, AiChatLabels } from './AiChat/AiChat.ts'
 
+export { ChatInput } from './ChatInput/ChatInput.ts'
+export type { ChatInputProps, ChatInputLabels } from './ChatInput/ChatInput.ts'
+
+export { AuthPage } from './AuthPage/AuthPage.ts'
+export type { AuthPageProps } from './AuthPage/AuthPage.ts'
+
 export { Markdown } from './Markdown/Markdown.ts'
 export type { MarkdownProps } from './Markdown/Markdown.ts'
 export { parseMarkdown, parseInline } from './Markdown/parser.ts'

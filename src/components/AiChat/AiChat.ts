@@ -28,6 +28,7 @@ import type { JsonSchema } from '../JsonSchemaForm/JsonSchemaForm.ts'
 import { ToolCallCard } from '../ToolCallCard/ToolCallCard.ts'
 import { ApprovalCard } from '../ApprovalCard/ApprovalCard.ts'
 import { ReasoningBlock } from '../ReasoningBlock/ReasoningBlock.ts'
+import { ChatInput } from '../ChatInput/ChatInput.ts'
 
 // ── 类型 ─────────────────────────────────────────────────
 
@@ -132,19 +133,6 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
       currentChat = chat
       resubscribe() // 换 handle → 重新订阅（新会话的 notify 才能驱动本组件）
     }
-    const input = ctx.ui.useControlledInput({
-      value: chat.input ?? '',
-      onChange: (v: string) => { chat.input = v },
-      name: 'AiChat',
-    })
-    let composing = false
-    const sendInput = () => {
-      const text = input.keyword.trim()
-      if (!text) return
-      chat.input = text // 写入共享 handle（send 读 state.input）
-      input.setKeyword('') // 清内部输入态（防残留）
-      chat.send()
-    }
 
 
     // 贴底判定（useScrollPosition 的 y 响应式驱动；scrollHeight/clientHeight 读当前 DOM）
@@ -179,6 +167,7 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
         style: { maxHeight: props.maxHeight ?? '70vh' },
         ref: listRef,
       }, nodes),
+      // 输入条（ChatInput 独立组件——§5.3 受控输入纪律内置：IME 组合/Enter 发送/streaming 切换）
       h('div', {
         class: `wf-aichat-inputbar${vv.keyboardOpen && raiseOnKeyboard ? ' wf-aichat-inputbar--raised' : ''}`,
         // 键盘弹起（opt-in，全屏 chat 布局）：fixed 抬升到键盘上方（bottom = 键盘高度）
@@ -186,34 +175,19 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
           ? { position: 'fixed', left: '0', right: '0', bottom: `${Math.max(0, _browser?.viewportHeight() - (vv.height + vv.offsetTop)) + 8}px`, zIndex: 'var(--wf-z-popover)' }
           : undefined,
       }, [
-        h('input', {
-          class: 'wf-aichat-input',
-          // 内部 keyword（IME 安全：组合中不回流传受控 value）；发送/清空后回空
-          value: input.keyword,
-          placeholder: labels.placeholder,
-          onInput: (e: any) => { if (composing || e.isComposing) return; input.setKeyword(e.target.value) },
-          onCompositionStart: () => { composing = true },
-          onCompositionEnd: (e: any) => { composing = false; input.setKeyword((e.target as HTMLInputElement)?.value ?? '') },
-          onKeyDown: (e: any) => { if (e.key === 'Enter' && !composing && !e.isComposing) sendInput() },
+        h(ChatInput, {
+          value: chat.input ?? '',
+          onChange: (v: string) => { chat.input = v }, // 输入期每键同步共享 handle（发送读 state.input）
+          onSend: (text: string) => {
+            chat.input = text // 写入共享 handle（send 读 state.input）
+            chat.send()
+          },
+          streaming: chat.streaming,
+          onStop: () => chat.stop(),
+          error: chat.error ? chat.error.message : null,
+          onRetry: () => chat.retry(),
+          labels: { send: labels.send, stop: labels.stop, retry: labels.retry, placeholder: labels.placeholder },
         }),
-        chat.streaming
-          ? h('button', {
-              class: 'wf-btn wf-btn--primary wf-btn--sm',
-              type: 'button',
-              onClick: () => chat.stop(),
-            }, labels.stop)
-          : h('button', {
-              class: 'wf-btn wf-btn--primary wf-btn--sm',
-              type: 'button',
-              onClick: () => sendInput(),
-            }, labels.send),
-        !chat.streaming && chat.error
-          ? h('button', {
-              class: 'wf-btn wf-btn--danger wf-btn--sm',
-              type: 'button',
-              onClick: () => chat.retry(),
-            }, labels.retry)
-          : null,
       ]),
     ])
   }

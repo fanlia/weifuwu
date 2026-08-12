@@ -111,6 +111,8 @@
 | 组件 | 说明 |
 |------|------|
 | `<AiChat>` | 完整 AI 对话界面（流式 token/工具卡/审批卡/自动滚动），配 `ctx.ui.useChat()`；移动端 `raiseOnKeyboard` |
+| `<ChatInput>` | 独立聊天输入条（AiChat 抽取）：单行/多行 + streaming 停止 + IME 安全——纯输入层（useChat 组合在消费方） |
+| `<AuthPage>` | 认证页骨架：居中卡片 + logo + 表单插槽 + 错误条 + 提交 loading（登录/注册复用） |
 | `<Markdown content>` | 零依赖安全子集 parser（无 raw HTML 注入，VNode 渲染天然转义） |
 | `<CodeBlock code lang>` | 代码块 + 语言标签 + 复制按钮 |
 | `<MessageBubble role status>` | 聊天气泡（独立复用，AiChat 抽取） |

@@ -21,7 +21,7 @@ import {
   Tabs, Dropdown, Pagination, Accordion,
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
   InView, DatePicker, Chart, Editor, ThemeSwitch,
-  AiChat, ToolCallCard, ApprovalCard, PageHeader, Icon,
+  AiChat, ChatInput, AuthPage, ToolCallCard, ApprovalCard, PageHeader, Icon,
   Markdown, CodeBlock, Timeline, InputNumber, Descriptions, AvatarGroup, MessageBubble,
   Menu, PasswordInput, TagsInput, Highlight, List, Result,
   Rate, Title, Text, Paragraph, Label, AspectRatio,
@@ -1269,6 +1269,87 @@ const DemoAiChat: Component = async (_props, ctx) => {
   )
 }
 
+/** ChatInput：独立复用聊天输入条（单行/多行/流式——AiChat 抽取） */
+const DemoChatInput: Component = async (_props, ctx) => {
+  let value = ''
+  let streaming = false
+  const sent: string[] = []
+  const rerender = () => ctx.ui.render()
+  return async () => (
+    <div class="wf-stack wf-gap-md">
+      <div class="wf-stack wf-gap-xs">
+        <Text variant="secondary">单行 + 发送（Enter）</Text>
+        <ChatInput
+          value={value}
+          onChange={(v) => { value = v }}
+          onSend={(t) => { sent.push(t); value = ''; rerender() }}
+          labels={{ placeholder: '输入消息，回车发送...' }}
+        />
+        {sent.length > 0 && <Text variant="secondary">已发送：{sent.join(' | ')}</Text>}
+      </div>
+      <div class="wf-stack wf-gap-xs">
+        <Text variant="secondary">多行 textarea（Shift+Enter 换行）</Text>
+        <ChatInput
+          multiline
+          value={value}
+          onChange={(v) => { value = v }}
+          onSend={(t) => { sent.push(t); value = ''; rerender() }}
+        />
+      </div>
+      <div class="wf-stack wf-gap-xs">
+        <Text variant="secondary">流式（发送后 1.5s 自动进入停止态）</Text>
+        <ChatInput
+          value={value}
+          onChange={(v) => { value = v }}
+          streaming={streaming}
+          onSend={() => { streaming = true; rerender(); setTimeout(() => { streaming = false; rerender() }, 1500) }}
+          onStop={() => { streaming = false; rerender() }}
+        />
+      </div>
+    </div>
+  )
+}
+
+/** AuthPage：认证页骨架（登录/注册/错误+loading 三态） */
+const DemoAuthPage: Component = async (_props, ctx) => {
+  let mode: 'login' | 'register' = 'login'
+  let loading = false
+  let error = ''
+  const rerender = () => ctx.ui.render()
+  return async () => (
+    <div class="wf-stack wf-gap-md">
+      <div class="wf-row wf-gap-sm">
+        <button class={`wf-btn wf-btn--sm ${mode === 'login' ? 'wf-btn--primary' : ''}`} type="button" onClick={() => { mode = 'login'; error = ''; rerender() }}>登录</button>
+        <button class={`wf-btn wf-btn--sm ${mode === 'register' ? 'wf-btn--primary' : ''}`} type="button" onClick={() => { mode = 'register'; error = ''; rerender() }}>注册</button>
+        <button class="wf-btn wf-btn--sm" type="button" onClick={() => { loading = !loading; rerender() }}>{loading ? '取消 loading' : '模拟 loading'}</button>
+        <button class="wf-btn wf-btn--sm" type="button" onClick={() => { error = error ? '' : '邮箱已被注册（模拟错误）'; rerender() }}>{error ? '清除错误' : '模拟错误'}</button>
+      </div>
+      <AuthPage
+        title={mode === 'login' ? '登录' : '创建账号'}
+        subtitle="Agent Platform — 多租户 AI 平台"
+        logo={<Avatar name="A" size="lg" />}
+        submitLabel={mode === 'login' ? '登 录' : '注 册'}
+        loading={loading}
+        error={error || null}
+        onSubmit={() => { loading = true; rerender(); setTimeout(() => { loading = false; error = '网络错误（模拟）'; rerender() }, 800) }}
+        footer={<span>{mode === 'login' ? '还没有账号？' : '已有账号？'}<a onClick={() => { mode = mode === 'login' ? 'register' : 'login'; error = ''; rerender() }}>{mode === 'login' ? '立即注册' : '立即登录'}</a></span>}
+      >
+        {mode === 'register' && (
+          <Field label="姓名" required>
+            <Input placeholder="你的名字" />
+          </Field>
+        )}
+        <Field label="邮箱" required>
+          <Input type="email" placeholder="you@example.com" />
+        </Field>
+        <Field label="密码" required>
+          <PasswordInput placeholder="••••••••" />
+        </Field>
+      </AuthPage>
+    </div>
+  )
+}
+
 // ── 新增组件 Demo（全量实现批次）────────────────────
 
 const DemoRate: Component = async (_props, ctx) => {
@@ -2333,6 +2414,27 @@ return () => <AiChat chat={chat} />
 // 订阅共享：ctx.ui.useExternal(chat) —— 子组件共享会话状态
 // agent 消息内嵌：msg.toolCalls / msg.approval`,
 
+  chatinput: `<ChatInput value={input} onChange={v => input = v}
+  onSend={text => send(text)}      // 回车/按钮触发（trim 后非空）
+  streaming={streaming}            // 流式 → 按钮变「停止」
+  onStop={() => stop()}
+  multiline                         // 多行 textarea（Shift+Enter 换行）
+  actions={<button>附件</button>}  // 扩展位插槽
+/>
+
+// 纯输入层：不自带聊天逻辑（useChat 组合在消费方）`,
+
+  authpage: `<AuthPage title="登录" subtitle="多租户 AI 平台" logo={<Avatar />}
+  submitLabel="登 录" loading={loading} error={error}
+  onSubmit={submit}                 // 表单提交回调（preventDefault 已处理）
+  footer={<span>没有账号？<a>注册</a></span>}>
+  <Field label="邮箱"><Input type="email" /></Field>
+  <Field label="密码"><PasswordInput /></Field>
+</AuthPage>
+
+// 纯骨架：字段（children）与提交逻辑（onSubmit）由消费方提供
+// 认证流程（token/跳转）不进组件——框架 ctx.auth 可组合`,
+
   toolcall: `<ToolCallCard call={{ id, name, args }} />
 <ToolCallCard call={...} progress={{ toolCallId, step, total }} />
 <ToolCallCard call={...} result={{ id, ok, output }} />
@@ -2545,11 +2647,11 @@ const App: Component = async (_props, ctx) => {
       <div class="wf-text-center wf-py-xl">
         <h1 class="wf-text-4xl wf-mb-sm wf-m-0">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p class="wf-text-secondary">{isEn
-          ? '113 HTML primitive components · pure (props, ctx) → VNode · drop-in'
-          : ((ctx as any)?.i18n?.t?.('app.desc') ?? '113 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
+          ? '115 HTML primitive components · pure (props, ctx) → VNode · drop-in'
+          : ((ctx as any)?.i18n?.t?.('app.desc') ?? '115 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
-          <Badge variant="primary">113 组件</Badge>
-          <Badge variant="success">981 测试</Badge>
+          <Badge variant="primary">115 组件</Badge>
+          <Badge variant="success">993 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
@@ -2649,6 +2751,8 @@ const App: Component = async (_props, ctx) => {
 
       <Section title="AI 对话">
         <DemoCard title="AiChat" desc="useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明" code={CODE.aichat}><DemoAiChat /></DemoCard>
+        <DemoCard title="ChatInput" desc="独立聊天输入条（AiChat 抽取）：单行/多行 + streaming 停止 + IME 安全——不自带聊天逻辑" code={CODE.chatinput}><DemoChatInput /></DemoCard>
+        <DemoCard title="AuthPage" desc="认证页骨架：居中卡片 + logo + 表单插槽 + 错误条 + 提交 loading（登录/注册复用）" code={CODE.authpage}><DemoAuthPage /></DemoCard>
         <DemoCard title="ToolCallCard" desc="工具调用卡片：running / ok / error 状态机（call/progress/result 三字段驱动）" code={CODE.toolcall}><DemoToolCallCard /></DemoCard>
         <DemoCard title="JsonSchemaForm" desc="JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套/数组（AI 工具参数输入面）" code={CODE.jsonschemaform}><DemoJsonSchemaForm /></DemoCard>
         <DemoCard title="ReasoningBlock" desc="CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲（thinking 模式 reasoning_content）" code={CODE.reasoningblock}><DemoReasoningBlock /></DemoCard>
@@ -2712,8 +2816,8 @@ const i18nMw = (() => {
   const messages: Record<string, Record<string, string>> = {
     'app.title': { 'zh-CN': 'weifuwu/components', en: 'weifuwu/components' },
     'app.desc': {
-      'zh-CN': '113 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
-      en: '113 HTML primitive components · pure (props, ctx) → VNode · drop-in',
+      'zh-CN': '115 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
+      en: '115 HTML primitive components · pure (props, ctx) → VNode · drop-in',
     },
     'app.footer': {
       'zh-CN': 'weifuwu/components · 全部 113 个组件 · 打开 devtools 查看代码',

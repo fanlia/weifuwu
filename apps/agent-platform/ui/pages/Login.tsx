@@ -1,15 +1,13 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { setRefreshToken } from '../lib/api'
-import { Alert, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
-import { Avatar } from 'weifuwu/components'
+import { AuthPage, Avatar, Field, Input, PasswordInput } from 'weifuwu/components'
 
 export const Login: Component = async (_props, ctx) => {
   const $: Record<string, any> = {}
   const rerender = () => ctx.ui.render()
 $.email = ''; $.password = ''; $.error = ''; $.loading = false
 
-  async function handleLogin(e: Event) {
-    e.preventDefault()
+  async function handleLogin() {
     if (!$.email || !$.password) { $.error = '请输入邮箱和密码'; rerender(); return }
     $.loading = true
     $.error = ''
@@ -33,35 +31,24 @@ $.email = ''; $.password = ''; $.error = ''; $.loading = false
     }
   }
   return async (props) => (
-    <div class="wf-center wf-p-xl wf-bg-secondary" style="min-height: 100vh">
-      <Card>
-        <div class="wf-stack wf-gap-sm wf-text-center wf-mb-lg">
-          <div class="wf-center"><Avatar name="A" size="lg" /></div>
-          <div class="wf-text-2xl wf-text-semibold">登录</div>
-          <div class="wf-text-sm wf-text-secondary">Agent Platform — 多租户 AI 平台</div>
-        </div>
-
-        <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
-
-        <form class="wf-stack wf-gap-md" onSubmit={handleLogin}>
-          <Field label="邮箱" required>
-            <Input type="email" placeholder="you@example.com" value={$.email}
-              onInput={(e: any) => { $.email = e.target.value; rerender() }} />
-          </Field>
-          <Field label="密码" required>
-            <PasswordInput placeholder="••••••••" value={$.password}
-              onInput={(e: any) => { $.password = e.target.value; rerender() }} />
-          </Field>
-          <Button variant="primary" block type="submit" disabled={$.loading}>
-            {$.loading ? '登录中...' : '登 录'}
-          </Button>
-        </form>
-
-        <div class="wf-text-sm wf-text-secondary wf-mt-lg wf-text-center">
-          还没有账号？
-          <a onClick={() => ctx.app?.navigate('/register')}>立即注册</a>
-        </div>
-      </Card>
-    </div>
+    <AuthPage
+      title="登录"
+      subtitle="Agent Platform — 多租户 AI 平台"
+      logo={<Avatar name="A" size="lg" />}
+      submitLabel="登 录"
+      loading={$.loading}
+      error={$.error || null}
+      onSubmit={() => handleLogin()}
+      footer={<span>还没有账号？<a onClick={() => ctx.app?.navigate('/register')}>立即注册</a></span>}
+    >
+      <Field label="邮箱" required>
+        <Input type="email" placeholder="you@example.com" value={$.email}
+          onInput={(e: any) => { $.email = e.target.value; rerender() }} />
+      </Field>
+      <Field label="密码" required>
+        <PasswordInput placeholder="••••••••" value={$.password}
+          onInput={(e: any) => { $.password = e.target.value; rerender() }} />
+      </Field>
+    </AuthPage>
   )
 }

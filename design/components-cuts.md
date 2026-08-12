@@ -12,6 +12,7 @@
 | antd App / ConfigProvider、EP ElConfigProvider | `createApp` + `--wf-*` CSS token + ctx 注入（框架级） | 全局配置由框架中间件承载，非组件 |
 | EP Teleport / Overlay | `createPortal` + `ctx.ui.ssr`（渲染器内置） | 框架机制，非组件 |
 | antd Statistic.Countdown | StatCard `countdown` 模式（已并入） | 换名合并 |
+| PageForm（表单页骨架） | PageHeader + Card + Field + Alert + wf-* 原语组合 | 骨架重复度低（~20 行/页 × 4 页）；字段差异大无收敛语义；PageHeader 已覆盖页头——能用原语+组件组合就不加包装（2026-12 评估，design/components-gap-plan.md W3） |
 
 ## 二、能力级裁剪（组件存在，能力不做）
 

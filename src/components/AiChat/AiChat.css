@@ -85,26 +85,3 @@
   padding: var(--wf-space-sm);
 }
 
-.wf-aichat-inputbar {
-  display: flex;
-  gap: var(--wf-gap-sm);
-  align-items: center;
-}
-
-.wf-aichat-input {
-  flex: 1;
-  min-width: 0;
-  height: var(--wf-control-height);
-  padding: var(--wf-control-pad-y) var(--wf-space-md);
-  border: 1px solid var(--wf-color-border);
-  border-radius: var(--wf-radius);
-  font-family: var(--wf-font-sans);
-  font-size: var(--wf-font-size-sm);
-  color: var(--wf-color-text);
-  background: var(--wf-color-bg);
-}
-
-.wf-aichat-input:focus {
-  outline: none;
-  border-color: var(--wf-color-primary);
-}

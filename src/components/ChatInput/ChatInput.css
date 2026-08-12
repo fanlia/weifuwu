@@ -1,0 +1,36 @@
+/* weifuwu/components — ChatInput（独立聊天输入条——从 AiChat 输入条抽取） */
+
+.wf-chat-inputbar {
+  display: flex;
+  gap: var(--wf-gap-sm);
+  align-items: center;
+}
+
+.wf-chat-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--wf-control-height);
+  padding: var(--wf-control-pad-y) var(--wf-space-md);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  background: var(--wf-color-bg);
+}
+
+.wf-chat-input:focus {
+  outline: none;
+  border-color: var(--wf-color-primary);
+}
+
+.wf-chat-input:hover:not(:disabled) {
+  border-color: var(--wf-color-primary-muted, var(--wf-color-primary));
+}
+
+/* 多行 textarea：自适应高度（行数由内容撑开） */
+.wf-chat-inputbar textarea.wf-chat-input {
+  height: auto;
+  min-height: var(--wf-control-height);
+  line-height: 1.5;
+}

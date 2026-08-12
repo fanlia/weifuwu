@@ -1,6 +1,6 @@
 # weifuwu
 
-**自托管全栈框架** — 一个 npm 包 = 后端 HTTP + 前端 VDOM + 113 组件 + CSS 设计系统 + SaaS 地基（认证 / 消息 / 队列 / AI）。全自研、零构建、消灭样板。
+**自托管全栈框架** — 一个 npm 包 = 后端 HTTP + 前端 VDOM + 115 组件 + CSS 设计系统 + SaaS 地基（认证 / 消息 / 队列 / AI）。全自研、零构建、消灭样板。
 
 ```bash
 npm install weifuwu      # 一个依赖，完整应用栈
@@ -24,7 +24,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 |----|------|------|
 | 后端 | `weifuwu` | Trie 路由 / 中间件链 / serve / 自研 PG+Redis / SSR / GraphQL / WebSocket |
 | 前端 | `weifuwu/ui-dom` | **UIRouter（纯路由 + ctx 注入链）+ uiServe（渲染运行时）+ SSR/hydration**——handler=异步组件 / 中间件两阶段 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom，见 `docs/frontend-ui-dom.md`） |
-| 组件 | `weifuwu/components` | 113 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
+| 组件 | `weifuwu/components` | 115 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
 | 样式 | `weifuwu/layout` | 58 布局原语 + 136 工具类 + 167 主题 Token，零自定义 CSS 文件 |
 | SaaS 地基 | 随包内置 | rateLimit / email / userSystem / messager / queue / ai → `ctx.*` 一行接入 |
 
@@ -111,7 +111,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **自研数据层** — `ctx.sql`（PG v3 协议）与 `ctx.redis`（RESP2 协议）为**自研客户端**：确定性输出、行为可预测、统一错误模型。jsonb 自动解码、TTL 安全 API、schema 写前校验——高频痛点（双重编码/parseRow 样板/`'EX'` 参数顺序）从根上消除。
 
-> **实践验证**：多租户 AI 平台（`apps/agent-platform`——14 页 + 部门聊天 + 知识库 + HITL 审批）已完全运行在框架上：auth（userSystem）/ AI 引擎（ai）/ 实时消息（messager）/ UI（113 组件）/ 数据管道（ctx.api）零自研替代。框架哲学（中间件注入、诚实裁剪、机制与策略分离）经受住了真实复杂应用的检验——这也是我们确定「哪些进框架、哪些留应用层」的依据。
+> **实践验证**：多租户 AI 平台（`apps/agent-platform`——14 页 + 部门聊天 + 知识库 + HITL 审批）已完全运行在框架上：auth（userSystem）/ AI 引擎（ai）/ 实时消息（messager）/ UI（115 组件）/ 数据管道（ctx.api）零自研替代。框架哲学（中间件注入、诚实裁剪、机制与策略分离）经受住了真实复杂应用的检验——这也是我们确定「哪些进框架、哪些留应用层」的依据。
 
 ---
 
@@ -227,7 +227,7 @@ uiServe(app, { root: '#root', hydrate: true })
 ### 30 秒体验（跑现有 demo）
 
 ```bash
-# ① 组件 cheatsheet——113 组件全部可交互预览（零依赖，5 秒起）
+# ① 组件 cheatsheet——115 组件全部可交互预览（零依赖，5 秒起）
 cd apps/components-demo && node server.ts
 # 打开 http://localhost:3000
 
@@ -315,7 +315,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
 | `weifuwu/ui-dom` | `https://unpkg.com/weifuwu@latest/dist/ui-dom/index.js` | 前端运行时（UIRouter, uiServe, h, 状态管理等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 113 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 115 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 167 个主题 Token + 58 个布局原语 + 136 个工具类 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 

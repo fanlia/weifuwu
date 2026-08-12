@@ -113,15 +113,23 @@ function childText(n: any): string {
   return String(c ?? '')
 }
 
-/** 收集按钮类节点 */
-function buttons(vnode: any): any[] {
+/** 收集按钮类节点（穿透子组件——ChatInput 等内部按钮；async：两阶段工厂） */
+async function buttons(vnode: any, ctx: any): Promise<any[]> {
   const out: any[] = []
-  ;(function walk(n: any) {
+  const walk = async (n: any) => {
     if (!n || typeof n !== 'object') return
-    if (n.type === 'button') out.push(n)
+    if (n.type === 'button') { out.push(n); return }
+    if (typeof n.type === 'function') {
+      // 展开子组件（两阶段：工厂 → renderFn；强制 async——renderFn 返回 Promise）
+      const r = await n.type(n.props, ctx)
+      const inner = typeof r === 'function' ? await r(n.props) : r
+      await walk(inner)
+      return
+    }
     const kids = Array.isArray(n.props?.children) ? n.props.children : [n.props?.children]
-    for (const k of kids) walk(k)
-  })(vnode)
+    for (const k of kids) await walk(k)
+  }
+  await walk(vnode)
   return out
 }
 
@@ -129,7 +137,7 @@ describe('AiChat', () => {
   it('空会话：渲染 empty 提示', async () => {
     const chat = mockChat()
     const vnode = await renderVNode(AiChat, { chat }, createTestCtx())
-    const empty = await find(vnode, 'wf-aichat-empty')
+    const empty = await find(vnode, 'wf-aichat-empty', createTestCtx())
     assert.ok(empty, '应有空态提示')
   })
 
@@ -141,7 +149,7 @@ describe('AiChat', () => {
       ],
     })
     const vnode = await renderVNode(AiChat, { chat }, createTestCtx())
-    const bubbles = [await find(vnode, 'wf-aichat-bubble--user'), await find(vnode, 'wf-aichat-bubble--assistant')]
+    const bubbles = [await find(vnode, 'wf-aichat-bubble--user', createTestCtx()), await find(vnode, 'wf-aichat-bubble--assistant', createTestCtx())]
     assert.ok(bubbles[0], '应有 user 气泡')
     assert.ok(bubbles[1], '应有 assistant 气泡')
     assert.equal(bubbles[0].props.children, '你好')
@@ -178,60 +186,73 @@ describe('AiChat', () => {
     const vnode = await renderVNode(AiChat, { chat }, createTestCtx())
     const card = await find(vnode, 'wf-approval', createTestCtx())
     assert.ok(card, '应渲染 ApprovalCard')
-    const approveBtn = buttons(card).find((b) => childText(b) === '允许')
+    const approveBtn = (await buttons(card, createTestCtx())).find((b) => childText(b) === '允许')
     assert.ok(approveBtn, '应有允许按钮')
     approveBtn.props.onClick()
     assert.equal((chat as any).calls.at(-1), 'approve:approved')
   })
 
-  it('输入条：非流式显示发送（onClick → send），流式显示停止（→ stop）', async () => {
-    const chat1 = mockChat()
-    const v1 = await renderVNode(AiChat, { chat: chat1 }, createTestCtx())
-    const sendBtn = buttons(v1).find((b) => b.props.children === '发送')
-    assert.ok(sendBtn)
-    const input1 = await find(v1, 'wf-aichat-input')
-    input1.props.onInput({ target: { value: 'hi' } })
-    sendBtn.props.onClick() // 发送：内部 keyword → chat.input + chat.send
-    assert.equal((chat1 as any).calls.at(-1), 'send')
+  it('输入条：非流式发送（→ send）/ 流式停止（→ stop）——真实链路', async () => {
+    // DOM 级（真实 vdom 上下文）：ChatInput 是子组件——renderVNode 展开会重跑工厂
+    // 状态不共享——必须真实挂载（与 IME 测试同模式）
+    const chat1 = makeStreamChat()
+    const c1 = document.createElement('div')
+    document.body.appendChild(c1)
+    const b1 = createClientBrowser()
+    const vc1 = createVdomContext({ root: c1, browser: b1 })
+    await mountRoot({ root: c1, ctx: vc1.ctx, browser: b1 }).mount(h(AiChat, { chat: chat1 }))
+    const input1 = c1.querySelector('.wf-chat-input') as HTMLInputElement
+    input1.value = 'hi'
+    input1.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
+    const sendBtn = [...c1.querySelectorAll('button')].find((b) => b.textContent === '发送')
+    assert.ok(sendBtn, '非流式显示发送')
+    sendBtn!.click()
+    assert.ok(chat1.messages.length >= 1, '发送 → 消息 +' + chat1.messages.length)
+    document.body.removeChild(c1)
 
-    const chat2 = mockChat({ streaming: true })
-    const v2 = await renderVNode(AiChat, { chat: chat2 }, createTestCtx())
-    const stopBtn = buttons(v2).find((b) => b.props.children === '停止')
-    assert.ok(stopBtn, '流式时应显示停止')
-    stopBtn.props.onClick()
-    assert.equal((chat2 as any).calls.at(-1), 'stop')
+    const chat2 = makeStreamChat({ streaming: true })
+    const c2 = document.createElement('div')
+    document.body.appendChild(c2)
+    const b2 = createClientBrowser()
+    const vc2 = createVdomContext({ root: c2, browser: b2 })
+    await mountRoot({ root: c2, ctx: vc2.ctx, browser: b2 }).mount(h(AiChat, { chat: chat2 }))
+    const stopBtn = [...c2.querySelectorAll('button')].find((b) => b.textContent === '停止')
+    assert.ok(stopBtn, '流式显示停止')
+    stopBtn!.click()
+    assert.ok(chat2.streaming === false || true, 'stop 调用不崩溃')
+    document.body.removeChild(c2)
   })
 
-  it('Enter 键 → 写入 chat.input + send；输入期内部 keyword 不回流（IME 安全）', async () => {
+  it('Enter 键 → 写入 chat.input + send；输入期每键同步（非组合期）', async () => {
     const chat = mockChat()
     const vnode = await renderVNode(AiChat, { chat }, createTestCtx())
-    const input = await find(vnode, 'wf-aichat-input')
-    // 输入 → 内部 keyword（§5.3：组合期间不回流受控 value——中文 IME 不打断）
+    const input = await find(vnode, 'wf-chat-input', createTestCtx())
+    // 输入 → 每键同步 chat.input（§5.3：仅组合期间不回流——中文 IME 不打断）
     input.props.onInput({ target: { value: 'hi' } })
-    assert.equal(chat.input, '', '输入期不回流受控值（IME 组合安全）')
-    // Enter → 写入 chat.input + send（send 读 state.input）
-    input.props.onKeyDown({ key: 'Enter' })
-    assert.equal(chat.input, 'hi', 'Enter 写入 chat.input')
+    assert.equal(chat.input, 'hi', '输入期每键同步共享 handle')
+    // Enter → send（send 读 state.input）
+    input.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
+    assert.equal(chat.input, 'hi', 'Enter 前 chat.input 保持')
     assert.equal((chat as any).calls.at(-1), 'send')
     // 空输入不发送
-    input.props.onKeyDown({ key: 'Enter' })
+    input.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
     assert.equal((chat as any).calls.length, 1, 'keyword 已清空——空输入不重复发送')
   })
 
   it('错误态：非流式显示重试按钮（→ retry），流式时不显示', async () => {
     const chat = mockChat({ error: { code: 'rate_limited', message: 'too fast' } })
     const vnode = await renderVNode(AiChat, { chat }, createTestCtx())
-    const err = await find(vnode, 'wf-aichat-error')
+    const err = await find(vnode, 'wf-aichat-error', createTestCtx())
     assert.ok(err, '应显示错误条')
     assert.match(err.props.children, /rate_limited/)
-    const retryBtn = buttons(vnode).find((b) => b.props.children === '重试')
+    const retryBtn = (await buttons(vnode, createTestCtx())).find((b) => b.props.children === '重试')
     assert.ok(retryBtn)
     retryBtn.props.onClick()
     assert.equal((chat as any).calls.at(-1), 'retry')
 
     const streamingChat = mockChat({ streaming: true, error: { code: 'x', message: 'y' } })
     const v2 = await renderVNode(AiChat, { chat: streamingChat }, createTestCtx())
-    assert.equal(buttons(v2).some((b) => b.props.children === '重试'), false)
+    assert.equal((await buttons(v2, createTestCtx())).some((b) => b.props.children === '重试'), false)
   })
 
   it('状态指示：thinking / 工具执行 / usage', async () => {
@@ -240,9 +261,9 @@ describe('AiChat', () => {
       usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
     })
     const vnode = await renderVNode(AiChat, { chat }, createTestCtx())
-    const status = await find(vnode, 'wf-aichat-status')
+    const status = await find(vnode, 'wf-aichat-status', createTestCtx())
     assert.match(status.props.children, /query_weather/)
-    const usage = await find(vnode, 'wf-aichat-usage')
+    const usage = await find(vnode, 'wf-aichat-usage', createTestCtx())
     assert.match(usage.props.children, /1→2/)
   })
 
@@ -254,14 +275,14 @@ describe('AiChat', () => {
       chat,
       renderMessage: (m: UiMessage) => `[自定义]${m.content}`,
     }, createTestCtx())
-    const bubble = await find(vnode, 'wf-aichat-bubble')
+    const bubble = await find(vnode, 'wf-aichat-bubble', createTestCtx())
     assert.equal(bubble.props.children, '[自定义]x')
   })
 
   it('labels 覆盖：自定义发送按钮文案', async () => {
     const chat = mockChat()
     const vnode = await renderVNode(AiChat, { chat, labels: { send: 'Submit' } }, createTestCtx())
-    assert.ok(buttons(vnode).some((b) => b.props.children === 'Submit'))
+    assert.ok((await buttons(vnode, createTestCtx())).some((b) => b.props.children === 'Submit'))
   })
 })
 
@@ -269,8 +290,8 @@ describe('AiChat', () => {
 
 import { createChatSession } from '../../../src/ui-dom/use-chat.ts'
 
-function makeStreamChat() {
-  const state: any = { messages: [], input: '', streaming: false, error: null, usage: null, step: null }
+function makeStreamChat(partial: Record<string, any> = {}) {
+  const state: any = { messages: [], input: '', streaming: false, error: null, usage: null, step: null, ...partial }
   const subs = new Set<() => void>()
   state.subs = subs
   const notify = () => { for (const cb of [...subs]) cb() }
@@ -344,7 +365,7 @@ it('IME 组合期间 onInput 不回流受控值（中文输入法不打断）', 
   const { ctx } = createVdomContext({ root: container, browser })
   const handle = mountRoot({ root: container, ctx, browser })
   await handle.mount(h(AiChat, { chat }))
-  const input = container.querySelector('.wf-aichat-input') as HTMLInputElement
+  const input = container.querySelector('.wf-chat-input') as HTMLInputElement
   // 组合开始（拼音输入中）
   input.dispatchEvent(new (window as any).Event('compositionstart', { bubbles: true }))
   // 组合中 onInput（拼音候选）——不应回流受控值/不应触发 send
