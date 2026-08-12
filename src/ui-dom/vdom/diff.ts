@@ -411,6 +411,29 @@ export function patchChildren(
       if (newC == null || typeof newC === 'boolean') {
         const on = oldNodes[i]
         const b = ctx.browser ?? createClientBrowser()
+        // 数组长度差（i 超出新数组——newC=null 来自 len=max）：多余旧项 → 移除（不是占位——
+        // 新数组没有该位置；占位法"长度恒定"只适用于数组内 false/null（长度不变时互转））
+        if (i >= newChildren.length) {
+          if (Array.isArray(oldC)) {
+            // 旧数组项（隐式 Fragment）整体移除：范围（含边界标记）+ 内层组件 dispose
+            const range = rangeFor(oldNodes, i, parent)
+            for (const n of range) n.parentNode?.removeChild(n)
+            for (const sub of oldC) {
+              if (sub != null && typeof sub === 'object' && !Array.isArray(sub) && typeof (sub as VNode).type === 'function') {
+                disposeComponent(sub as VNode, ctx.registry)
+              }
+            }
+          } else if (oldC && typeof oldC === 'object' && !Array.isArray(oldC)) {
+            if (typeof (oldC as VNode).type === 'function') disposeComponent(oldC as VNode, ctx.registry)
+            else { try { callRefCleanupFor(oldC as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+            if (on?.parentNode) on.parentNode.removeChild(on)
+          } else if (on?.parentNode) {
+            on.parentNode.removeChild(on)
+          }
+          out.push(null)
+          pushA(null)
+          continue
+        }
         const newHole = createHole(b, newC)
         if (oldC == null || typeof oldC === 'boolean') {
           // 占位 ↔ 占位：内容更新（nodeValue 直改——长度恒定，预捕获 source 索引全有效）

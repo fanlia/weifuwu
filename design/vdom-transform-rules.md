@@ -94,7 +94,11 @@ type 必写；value/key/id 有则写；简单 token 裸写、含空白/引号用
 > **magic = 规则表之外的一切行为**（用户凭本表推导不出却发生了）
 > **magic = 同一输入在不同路径/环境的分叉**（SSR vs 客户端、jsdom vs 真浏览器、混合 vs 非混合数组——必须同结果）
 
-已知违反（实施中消除）：filter 空洞（占位法替换）· 嵌套数组静默展开（Fragment 语义替换）· pos:key 注入（强制 key 后删除）· class 残留（先清后设修复）· innerHTML render/diff 分叉（统一判断）· 事件变体静默（支持或 warn）· SSR 空洞 `return ''`（占位输出）。
+**已知违反已全部清零（2026-12）**——历史违反与消除记录：
+filter 空洞（占位法替换）✅ · 嵌套数组静默展开（vnode 保真 + 隐式 Fragment 语义——normalizeChildren 删除）✅ ·
+pos:key 注入（强制 key 后删除）✅ · class 残留（先清后设修复）✅ · innerHTML render/diff 分叉（统一判断）✅ ·
+事件变体静默（支持或 warn）✅ · SSR 空洞 `return ''`（占位输出）✅ ·
+数组项边界消失（fragment-start/end 标记持久化）✅ · 位置配对长度差残留（多余旧项移除——2026-12 验收测试暴露）✅
 
 ---
 
