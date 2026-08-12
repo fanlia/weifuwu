@@ -167,6 +167,15 @@ TagsInput 限制+错误 / PinInput 禁用 / FileUpload 禁用+accept / Form load
 - AutoComplete error（输入框 --err + aria-invalid）——TDD 2
 - DatePicker error（同上）——TDD 1
 
+**agent-browser 实测验收**（真实浏览器——W1 新增交互能力）：
+- ✅ Cascader 全键盘流：点击打开 → ArrowDown 高亮广东 → Enter 推进第二列 →
+  ArrowDown+Enter 选择「广东 / 深圳」→ 面板关闭
+- ✅ Dropdown 键盘流：打开 → ArrowDown 高亮 → Enter 触发 onClick → 菜单关闭
+- 新增 8 demo（懒渲染 section）确认渲染
+
+**W1 状态**：F2 状态矩阵（disabled/error 全链）+ a11y（核心键盘）+ demo 状态矩阵完成；
+F1 功能对照已 100%（三库）+ F4 audit 防线全绿
+
 **待办**：
-- W1 逐组件 6 维 checklist 继续（F1 功能/F2 状态/F3 变体/F4 a11y/F5 响应式/F6 demo）
-- 每组件 demo ≥3 示例渐进（R40 全局防线已建，Wave 内逐组件补）
+- W2 数据展示族（24 组件——Table/VirtualTable/Tree/Chart 等）6 维 checklist
+- W1 剩余组件 demo ≥3 示例渐进
