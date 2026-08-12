@@ -103,7 +103,7 @@ export function createHole(browser: BrowserEnv, v: unknown): Node | null {
 }
 
 /** 递归渲染（同步——组件必须已构建） */
-export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?: string | null, id?: string | null): Node | null {
+export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?: string | null, id?: string | null, fid?: string | null): Node | null {
   const b = (ctx?.browser ?? browser) as BrowserEnv
   if (!b) throw new Error('[vdom] renderValue requires browser env (ctx.browser)')
   if (v == null || typeof v === 'boolean') return null
@@ -115,14 +115,19 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?:
     // （fragment-start/end 注释，与占位注释 wf-hole 同族——不改变 DOM 结构，非用户内容）。
     // 标记带数组项身份：key 必写（父数组下标/显式 key——规则表 §3-46 层级独立）；id 有则写
     // （数组项无 vnode 身份时省略——组件/元素 id 走 data-wf-id 不重复）。diff 直接读注释定位
-    const fragStart = b.createComment(holeMarkup({ type: 'fragment-start', key, id }))
-    const fragEnd = b.createComment(holeMarkup({ type: 'fragment-end', key, id }))
+    // fid = 数组项唯一 id（位置路径：父数组项 fid + 内层下标——确定性 + 唯一 + 可读：
+    // fid="1-2" = 外层数组项 1 内的第 2 个数组项）。start/end 共享 fid——嵌套时 end 配对
+    // 精确（内层数组项 fid 不同——不干扰外层配对）；无需 depth 层级上下文
+    const fragStart = b.createComment(holeMarkup({ type: 'fragment-start', key, id, fid: fid ?? undefined }))
+    const fragEnd = b.createComment(holeMarkup({ type: 'fragment-end', key, id, fid: fid ?? undefined }))
     if (fragStart) frag.appendChild(fragStart)
     for (let i = 0; i < v.length; i++) {
       const c = v[i]
       // 数组上下文：无渲染值（false/null/true）→ 占位节点（childNodes 长度 = 数组长度）；
       // 内层项下标传给嵌套数组项（多层嵌套 key 层级独立）
-      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i))
+      // 数组项位置路径：顶层 = 外层下标（"0"/"1"）；嵌套 = 父 fid + 下标（"1-2"）
+      const childFid = fid != null ? `${fid}-${i}` : String(i)
+      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), undefined, childFid)
       if (n != null) frag.appendChild(n)
     }
     if (fragEnd) frag.appendChild(fragEnd)
@@ -252,7 +257,9 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?:
       const c = elChildren[i]
       // 数组项（隐式 Fragment）边界标记带外层下标 key（规则表 §3-46 层级独立——data-wf-key
       // 与 fragment 标记 key 同源；组件 id 由 renderValue 内部落 data-wf-id）
-      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i))
+      // 数组项位置路径：顶层 = 外层下标（"0"/"1"）；嵌套 = 父 fid + 下标（"1-2"）
+      const childFid = fid != null ? `${fid}-${i}` : String(i)
+      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), undefined, childFid)
       if (n == null) { anchors.push(null); continue }
       // appendChild 前记录锚点（数组项 = 隐式 Fragment：n 是 DocumentFragment——appendChild
       // 展开子节点后 fragment 变空，firstChild 读不到——锚点必须是展开前首节点）

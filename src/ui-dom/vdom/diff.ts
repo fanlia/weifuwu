@@ -312,17 +312,24 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
  */
 /** 数组项（隐式 Fragment）DOM 范围。
  *  锚点是 fragment-start 注释（数组项渲染时写入边界标记）→ 范围 = start..fragment-end 含标记；
- *  非数组项（单节点锚点）→ 自身到下一锚点前（保留 nextSibling 推导——无标记的普通项）。
+ *  end 配对用同 depth（嵌套数组项 [c,d,[e,f]] 的 end 属于内层——外层 start 必须跳过内层
+ *  end 找到自己的——否则移除/对齐切错范围）。非数组项（单节点锚点）→ 自身到下一锚点前。
  *  标记持久化让数组项边界在 DOM 可见——移动/移除/对齐精确（替代纯 nextSibling 链推导） */
 function rangeFor(anchors: (Node | null)[], i: number, parent: Node): Node[] {
   const start = anchors[i]
   if (!start) return []
   if (start.nodeType === 8 && start.nodeValue?.includes('type=fragment-start')) {
     const out: Node[] = [start]
+    // end 配对用同 fid（start/end 共享数组项唯一 id——嵌套数组项 fid 不同不干扰；
+    // 无 fid（旧标记）兜底取首个 end）
+    const startFid = /fid=([^\s"]+)/.exec(start.nodeValue)?.[1] ?? ''
     let n: Node | null = start.nextSibling
     while (n) {
       out.push(n)
-      if (n.nodeType === 8 && n.nodeValue?.includes('type=fragment-end')) break
+      if (n.nodeType === 8 && n.nodeValue?.includes('type=fragment-end')) {
+        const endFid = /fid=([^\s"]+)/.exec(n.nodeValue)?.[1] ?? startFid
+        if (endFid === startFid) break
+      }
       n = n.nextSibling
     }
     return out
@@ -366,10 +373,12 @@ export function patchChildren(
     const vn = c as VNode
     return vn._placement !== 'remote' && vn.key !== undefined
   })
-  // 数组项（隐式 Fragment）存在 → 外层位置配对（数组项无 key 身份——默认位置语义；内层数组
-  // 内部各自 keyed——层级独立。混合 keyed 的外层（列表 + 固定元素：items.map() + footer）中
-  // 数组项按位置、显式 key 项按位置——不混合 keyed 匹配）
-  const hasArrayItem = newChildren.some((c) => Array.isArray(c))
+  // 数组项（隐式 Fragment）存在（新旧任一）→ 外层位置配对（数组项无 key 身份——默认位置语义；
+  // 内层数组内部各自 keyed——层级独立。混合 keyed 的外层（列表 + 固定元素：items.map() + footer）
+  // 中数组项按位置、显式 key 项按位置——不混合 keyed 匹配）。
+  // 必须含 oldChildren：旧数组项在 keyed 分支无匹配（getKey 对数组返回 undefined 不建 keyMap）
+  // → 旧数组项消失（长度差/移除）被 keyed 忽略 → 残留（[c,d,[e,f]]→[c,d] 的 [e,f] 残留）
+  const hasArrayItem = newChildren.some((c) => Array.isArray(c)) || oldChildren.some((c) => Array.isArray(c))
   if (hasUserKey) {
     for (let i = 0; i < newChildren.length; i++) {
       const c = newChildren[i]
@@ -385,13 +394,35 @@ export function patchChildren(
   // fragment/数组项多节点展开后不错位——规则表 §5；文本/null 用 source 位置）
   const oldNodes: (Node | null)[] = oldAnchors
     ? oldAnchors.map((a, i) => a ?? (i < oldChildren.length ? (oldChildren[i] as any)?._refNode ?? null : null))
-    : oldChildren.map((c, i) => {
-        if (c == null || typeof c !== 'object' || Array.isArray(c)) return source[i] ?? null
-        const vn = c as VNode
-        if (vn._placement === 'remote') return (vn._remoteEl ?? null) as Node | null
-        if (vn.type === Fragment) return vn._childNodes?.[0] ?? null
-        return vn._refNode ?? vn.el ?? null
-      })
+    : (() => {
+        // 数组项递归传入的 oldRange 含边界标记（[start1, c, d, start2, e, f, end2, end1]）——
+        // source[i] 索引与 oldChildren 内容项错位（标记占位 + 嵌套数组项内部节点）。
+        // 剥离首尾标记得内容序列；数组项锚点 = 其 start 标记（srcIdx 推进不消费内部节点）
+        let src = source
+        if (src.length >= 2 && src[0]?.nodeType === 8 && (src[0] as Comment).nodeValue?.includes('fragment-start') &&
+            src[src.length - 1]?.nodeType === 8 && (src[src.length - 1] as Comment).nodeValue?.includes('fragment-end')) {
+          src = src.slice(1, -1)
+        }
+        const nodes: (Node | null)[] = []
+        let k = 0
+        for (let i = 0; i < oldChildren.length; i++) {
+          const c = oldChildren[i]
+          if (Array.isArray(c)) {
+            // 数组项锚点 = 其 start 标记（内容序列中该位置）；内部节点（内容+嵌套标记）不消费 src
+            nodes.push(src[k] ?? null)
+            k++
+            continue
+          }
+          if (c == null || typeof c === 'boolean') { nodes.push(src[k] ?? null); k++; continue }
+          if (typeof c === 'string' || typeof c === 'number') { nodes.push(src[k] ?? null); k++; continue }
+          const vn = c as VNode
+          if (vn._placement === 'remote') { nodes.push((vn._remoteEl ?? null) as Node | null); continue }
+          if (vn.type === Fragment) { nodes.push(vn._childNodes?.[0] ?? null); k++; continue }
+          nodes.push(vn._refNode ?? vn.el ?? src[k] ?? null)
+          k++
+        }
+        return nodes
+      })()
 
   // C1：remote（portal）的 portalKey 不算用户 keyed——[input(无key), portal] 走 allUnkeyed 按位置复用
   const allUnkeyed = hasArrayItem || !newChildren.some((c) => {

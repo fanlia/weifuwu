@@ -44,9 +44,9 @@ test('综合：用户 JSX 全形态 → DOM 与规则表推导精确一致', asy
   assert.deepEqual(order, [
     'text:hello',
     'item', 'item',                          // 组件输出
-    'hole:wf-hole: type=fragment-start key=3',    // 数组项边界（外层下标 3）
+    'hole:wf-hole: type=fragment-start key=3 fid=3',    // 数组项边界（外层下标 3 + fid 位置路径）
     'na', 'nb',
-    'hole:wf-hole: type=fragment-end key=3',
+    'hole:wf-hole: type=fragment-end key=3 fid=3',
     'hole:wf-hole: type=hole value=false',  // false 占位
     'em',                                    // Fragment 展开
     'plain',
@@ -80,7 +80,7 @@ test('综合：用户 JSX 全形态 → DOM 与规则表推导精确一致', asy
   assert.deepEqual(after, [
     'text:hello', 'item',
     'hole:wf-hole: type=hole value=false',
-    'hole:wf-hole: type=fragment-start key=3', 'nb', 'na', 'hole:wf-hole: type=fragment-end key=3',
+    'hole:wf-hole: type=fragment-start key=3 fid=3', 'nb', 'na', 'hole:wf-hole: type=fragment-end key=3 fid=3',
     'em', 'plain',
   ], '更新后 DOM 与用户新 JSX 推导一致（B 移除、数组项重排、占位位置保持）')
   assert.equal(root.querySelector('[data-n="A"]')!.getAttribute('data-wf-key'), 'a', '组件 A 复用（key 身份保持）')

@@ -57,15 +57,20 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
     // 数组上下文无渲染值 → 占位注释；数组项（隐式 Fragment）输出边界标记
     // （fragment-start/end 注释——与客户端 renderValue 同族，hydration 不 mismatch）
     ensureArrayKeys(input)
-    const parts = await Promise.all(input.map((c) => {
+    // 数组项（内层数组）边界标记：fid = 位置路径（父 fid + 下标——与客户端 renderValue 同推导，
+    // 确定性——SSR/CSR/hydration 同 fid）；key = 外层下标（层级独立）。
+    // 并行保留（fid 只依赖父路径 + 下标——不依赖兄弟——每数组项独立 ctx 传 fid）
+    const fidBase = (ctx as any)._fidPath as string | undefined
+    const parts = await Promise.all(input.map(async (c, i) => {
+      const childFid = fidBase != null ? `${fidBase}-${i}` : String(i)
       if (c == null || typeof c === 'boolean') return Promise.resolve(`<!--${holeMarkup({ type: 'hole', value: c })}-->`)
+      if (Array.isArray(c)) {
+        const inner = await renderSsr(c, { ...ctx, _fidPath: childFid } as any)
+        return `<!--${holeMarkup({ type: 'fragment-start', key: String(i), fid: childFid })}-->${inner}<!--${holeMarkup({ type: 'fragment-end', key: String(i), fid: childFid })}-->`
+      }
       return renderSsr(c, ctx)
     }))
-    // 数组项（内层数组）边界标记：key = 外层下标（层级独立——与客户端 renderValue 同格式）
-    const hasArrayItem = input.some((c) => Array.isArray(c))
-    const fragStart = hasArrayItem ? `<!--${holeMarkup({ type: 'fragment-start', key: String(input.findIndex(Array.isArray)) })}-->` : ''
-    const fragEnd = hasArrayItem ? `<!--${holeMarkup({ type: 'fragment-end', key: String(input.findIndex(Array.isArray)) })}-->` : ''
-    return fragStart + parts.join('') + fragEnd
+    return parts.join('')
   }
 
   const vnode = input as VNode
@@ -83,6 +88,8 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
   // 组件（统一签名：async 工厂 → Promise<renderFn>）
   if (typeof vnode.type === 'function') {
     const childCtx = Object.create(ctx) as WfuiContext
+    // 组件输出 = fid 根（客户端 renderValue 组件分支不传 fid——数组项路径重置）
+    delete (childCtx as any)._fidPath
     const renderFn = await (vnode.type as Component)(vnode.props ?? {}, childCtx)
     if (typeof renderFn !== 'function') {
       throw new Error(

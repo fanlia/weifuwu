@@ -37,12 +37,26 @@ function quoteIfNeeded(s: string): string {
  *  - 诊断  `wf-hole: type=hole value="object {...}"`（value 承载内容）
  *  字段：type 必写（hole/fragment-start/fragment-end）；value/key/id 有则写。
  *  前缀恒为 `wf-hole:`——diff/audit/hydrate 的占位判断（startsWith）不随格式演进变化 */
-export function holeMarkup(opts: { type: string; value?: unknown; key?: string | null; id?: string | null }): string {
+export function holeMarkup(opts: { type: string; value?: unknown; key?: string | null; id?: string | null; fid?: string }): string {
   const parts = [`type=${opts.type}`]
   if (opts.value !== undefined) parts.push(`value=${quoteIfNeeded(holeDetail(opts.value))}`)
   if (opts.key != null) parts.push(`key=${quoteIfNeeded(opts.key)}`)
   if (opts.id != null) parts.push(`id=${quoteIfNeeded(opts.id)}`)
+  if (opts.fid != null) parts.push(`fid=${quoteIfNeeded(opts.fid)}`)
   return `wf-hole: ${parts.join(' ')}`
+}
+
+/** 解析 wf-hole 注释字段（type/key/depth/id/value——统一格式，单一解析点） */
+export function parseHoleMarkup(nodeValue: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  const body = nodeValue.startsWith('wf-hole: ') ? nodeValue.slice('wf-hole: '.length) : nodeValue
+  // 字段：token 或 "引号值"（value 可能含空格——双引号包裹）
+  const re = /([a-z]+)=("(?:[^"]*)"|[^\s]+)/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(body)) !== null) {
+    out[m[1]] = m[2].startsWith('"') ? m[2].slice(1, -1) : m[2]
+  }
+  return out
 }
 
 /** children 项分类（规则表 §1）——唯一判定，消费方只调函数不写判定 */
