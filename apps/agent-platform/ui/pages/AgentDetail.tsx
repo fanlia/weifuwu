@@ -23,7 +23,7 @@ interface AgentDetailState {
   kbQuery: string; kbResults: Array<{ filename: string; content: string; similarity: number }>
   kbSearching: boolean; reindexing: boolean
   previewQuery: string; previewText: string; previewing: boolean
-  allowFileTools: boolean; allowCommandExec: boolean
+  allowFileTools: boolean; allowCommandExec: boolean; allowNetwork: boolean
   boundSkills: BoundSkill[]; availableSkills: AvailableSkill[]; showSkillPicker: boolean
   logs: AgentLog[]; logsLoading: boolean
   docs: KbDocument[]; docsLoading: boolean
@@ -53,7 +53,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     $.kbChunkSize = '500'; $.kbChunkOverlap = '50'
     $.kbQuery = ''; $.kbResults = []; $.kbSearching = false
     $.previewQuery = ''; $.previewText = ''; $.previewing = false
-    $.allowFileTools = false; $.allowCommandExec = false
+    $.allowFileTools = false; $.allowCommandExec = false; $.allowNetwork = false
 
     $.boundSkills = []; $.availableSkills = []; $.showSkillPicker = false
 
@@ -79,6 +79,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.kbId = a.kb_id ?? ''
       $.allowFileTools = a.allow_file_tools ?? false
       $.allowCommandExec = a.allow_command_exec ?? false
+      $.allowNetwork = a.allow_network ?? false
       $.kbOptions = (kbRes.agents ?? []).map((k: { id: string; name: string }) => ({ id: k.id, name: k.name }))
       $.boundSkills = skillRes.skills ?? []
       $.availableSkills = availRes.skills ?? []
@@ -111,6 +112,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       body.human_in_the_loop = $.aiHITL
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
+      body.allow_network = $.allowNetwork
       body.kb_id = $.kbId || null
     }
     if ($.agent?.type === 'webhook') {
@@ -406,7 +408,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
               </Field>
               <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-text-secondary">
                 Agent 专用目录: <code>data/workspaces/{'{agent_id}'}/</code>
-                <span class="wf-block wf-text-xs wf-text-tertiary wf-mt-xs">首次运行时自动创建</span>
+                <span class="wf-block wf-text-xs wf-text-tertiary wf-mt-xs">首次运行时自动创建（容器卷挂载——沙盒内 bash 写入的文件与此处一致）</span>
               </div>
               <div class="wf-row wf-gap-lg">
                 <Checkbox label="📄 启用文件工具 (read/write/edit/grep)" checked={$.allowFileTools}
@@ -414,6 +416,12 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 <Checkbox label="⚡ 启用命令执行 (bash)" checked={$.allowCommandExec}
                   onChange={(v: boolean) => { $.allowCommandExec = v; rerender() }} />
               </div>
+              <div class="wf-row wf-gap-lg wf-mt-xs">
+                <Checkbox label="🌐 允许网络访问" checked={$.allowNetwork}
+                  onChange={(v: boolean) => { $.allowNetwork = v; rerender() }} />
+                <span class="wf-text-xs wf-text-tertiary wf-self-center">默认关闭（沙盒 --network none——npm/curl 会失败）；开启后容器接入 bridge 网络</span>
+              </div>
+              {$.allowFileTools && <div class="wf-text-xs wf-text-tertiary wf-mt-xs">🧪 沙盒：Docker node:24 · 网络隔离 · 内存 512MB · 1 CPU（命令执行在容器内，路径穿越/资源/网络均受容器边界保护）</div>}
             </>
           )}
 

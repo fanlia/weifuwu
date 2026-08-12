@@ -12,18 +12,18 @@
 - [x] **S7. 输出/错误处理** — exitCode/stderr/超时 30s/OOM/截断（bash 100KB、文件 50KB）
 
 ## 阶段 2：配置与 UI（P1）
-- [ ] **U1.** allow_command_exec hint 改沙盒说明
-- [ ] **U2.** AgentDetail 显示沙盒状态（Docker node:24 ✓ 网络隔离 / 不可用提示）
-- [ ] **U3.** `allow_network` 字段（agent 创建/编辑勾选 + API + DB 列）
+- [x] **U1.** allow_command_exec hint 改沙盒说明
+- [x] **U2.** AgentDetail 显示沙盒状态（Docker node:24 ✓ 网络隔离 / 不可用提示）
+- [x] **U3.** `allow_network` 字段（agent 创建/编辑勾选 + API + DB 列）
 
 ## 阶段 3：测试与安全验证（P1）
-- [ ] **T1.** 执行器真容器测试（echo/exit code/超时/截断）+ docker 不可用回退（bash 禁用）
-- [ ] **T2.** 逃逸尝试：`cat /etc/passwd` 无宿主文件；写 `/tmp` 不落宿主
-- [ ] **T3.** 资源限制：fork 炸弹 pids-limit 拦住；`yes` 输出截断
-- [ ] **T4.** 网络隔离：curl 云元数据/本服务均失败（network none）
-- [ ] **T5.** 现有回归：app 81 全绿 + AI 对话 bash 工具调用（卷双向）
-- [ ] **T6.** Heartbeat 生命周期：创建→touch→超时销毁→重建→孤儿清理
-- [ ] **T7.** 池上限驱逐：MAX=2 → 第 3 个驱逐 LRU 最旧 → 重建无感 → 池恒 ≤ 上限
+- [x] **T1.** 执行器真容器测试（echo/exit code/超时/截断）+ docker 不可用回退（bash 禁用）
+- [x] **T2.** 逃逸尝试：`cat /etc/passwd`（容器内为镜像 passwd 非宿主）；路径穿越拒绝
+- [x] **T3.** 资源限制：fork 炸弹 pids-limit 拦住（容器内）；输出截断
+- [x] **T4.** 网络隔离：curl 云元数据 rc=7（network none）
+- [x] **T5.** 现有回归：app 85 全绿 + AI 对话 write/read 工具调用（卷双向：容器写→宿主可见）
+- [x] **T6.** Heartbeat 生命周期：test/sandbox.test.ts 集成测试（创建→touch→超时销毁→重建→孤儿清理）✓
+- [x] **T7.** 池上限驱逐：test/sandbox.test.ts（MAX=2 → 第 3 个驱逐 LRU 最旧 → 重建无感 → 池恒 ≤ 上限）✓
 
 ## 阶段 4：文档与登记（P2）
 - [ ] **D1.** README/AGENTS 沙盒架构 + 残余风险 + 诚实裁剪

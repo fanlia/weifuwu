@@ -126,10 +126,22 @@ export class DockerSandbox {
     this.lastUsed.set(agentId, Date.now())
   }
 
-  /** 容器名可推导——检查存在性 */
-  private async containerExists(agentId: string): Promise<boolean> {
-    const r = await dockerCli(['ps', '-a', '--filter', `name=^${containerName(agentId)}$`, '--format', '{{.Names}}'])
-    return r.exitCode === 0 && r.stdout.trim().length > 0
+  /** 容器名可推导——检查存在性 + 挂载路径匹配（真实 bug：agent 换 workspace 后容器仍挂旧路径） */
+  private async containerReady(agentId: string, ws: string): Promise<boolean> {
+    const name = containerName(agentId)
+    const r = await dockerCli(['ps', '-a', '--filter', `name=^${name}$`, '--format', '{{.Names}}'])
+    if (r.exitCode !== 0 || !r.stdout.trim()) return false
+    // 校验卷挂载路径与当前 ws 一致（不一致 → 重建）
+    const m = await dockerCli(['inspect', name, '--format', '{{ range .Mounts }}{{ .Source }}={{ .Destination }};{{ end }}'])
+    if (m.exitCode === 0) {
+      const mounts = m.stdout
+      const expected = `${ws}=/ws`
+      if (!mounts.includes(expected)) {
+        await dockerCli(['rm', '-f', name])
+        return false
+      }
+    }
+    return true
   }
 
   /** 池大小（活跃容器数） */
@@ -173,7 +185,7 @@ export class DockerSandbox {
       const ok = await this.ensureImage()
       if (!ok) return false
     }
-    if (await this.containerExists(agentId)) {
+    if (await this.containerReady(agentId, ws)) {
       this.touch(agentId)
       return true
     }

@@ -126,6 +126,9 @@ export interface RoleTemplate {
   icon?: string | null
   usage_count?: number
   is_new?: boolean
+  default_allow_file_tools?: boolean
+  default_allow_command_exec?: boolean
+  default_allow_network?: boolean
 }
 
 export interface Skill {

@@ -8,7 +8,7 @@ interface RoleTemplate {
   slug: string; name: string; icon: string; category: string; description: string
   default_system_prompt: string; default_model: string | null
   default_temperature: number; default_max_tokens: number
-  default_allow_file_tools: boolean; default_allow_command_exec: boolean
+  default_allow_file_tools: boolean; default_allow_command_exec: boolean; default_allow_network?: boolean
   default_workspace_hint: string | null; default_skills: string[]
   usage_count?: number
 }
@@ -32,7 +32,7 @@ interface NewAgentState {
   type: string; name: string; description: string; systemPrompt: string
   webhookSecret: string; chunkSize: string; aiModel: string
   aiTemperature: number; aiMaxTokens: number; aiHITL: boolean
-  allowFileTools: boolean; allowCommandExec: boolean
+  allowFileTools: boolean; allowCommandExec: boolean; allowNetwork: boolean
   submitting: boolean; error: string
   roleTemplates: RoleTemplate[]; loading: boolean
 }
@@ -70,6 +70,7 @@ export const NewAgent: Component = async (_props, ctx) => {
     $.aiMaxTokens = Number(t.default_max_tokens ?? 2048)
     $.allowFileTools = t.default_allow_file_tools ?? false
     $.allowCommandExec = t.default_allow_command_exec ?? false
+    $.allowNetwork = t.default_allow_network ?? false
     $.step = 'configure'
     rerender()
   }
@@ -77,7 +78,7 @@ export const NewAgent: Component = async (_props, ctx) => {
   function startDirect() {
     $.selectedTemplate = null; $.systemPrompt = ''; $.aiModel = ''
     $.aiTemperature = 0.7; $.aiMaxTokens = 2048; $.aiHITL = false
-    $.allowFileTools = false; $.allowCommandExec = false
+    $.allowFileTools = false; $.allowCommandExec = false; $.allowNetwork = false
     $.step = 'direct'
     rerender()
   }
@@ -99,6 +100,7 @@ export const NewAgent: Component = async (_props, ctx) => {
       body.max_tokens = $.aiMaxTokens ?? 2048
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
+      body.allow_network = $.allowNetwork
       try {
         const data = await ctx.api!.post<{ agent: { id: string } }>('/api/agents/from-template', body)
         track('agent_created')
@@ -115,6 +117,7 @@ export const NewAgent: Component = async (_props, ctx) => {
       body.human_in_the_loop = $.aiHITL
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
+      body.allow_network = $.allowNetwork
     }
     if ($.type === 'webhook') body.webhook_secret = $.webhookSecret || undefined
     if ($.type === 'knowledge_base') body.chunk_size = parseInt($.chunkSize) || 500
@@ -282,6 +285,12 @@ export const NewAgent: Component = async (_props, ctx) => {
                 <Checkbox label="⚡ 启用命令执行 (bash)" checked={$.allowCommandExec}
                   onChange={(v: boolean) => { $.allowCommandExec = v; rerender() }} />
               </div>
+              <div class="wf-row wf-gap-lg wf-mt-xs">
+                <Checkbox label="🌐 允许网络访问" checked={$.allowNetwork}
+                  onChange={(v: boolean) => { $.allowNetwork = v; rerender() }} />
+                <span class="wf-text-xs wf-text-tertiary wf-self-center">默认关闭（沙盒 --network none）；开启后容器接入 bridge 网络</span>
+              </div>
+              <div class="wf-text-xs wf-text-tertiary wf-mt-xs">🧪 工具在 Docker node:24 沙盒容器内执行（网络隔离 · 内存 512MB · 1 CPU · 非 root）</div>
             </>
           )}
 
