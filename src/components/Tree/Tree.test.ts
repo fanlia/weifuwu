@@ -72,6 +72,15 @@ function switcherOf(row: any): any {
   return row.props.children.find((c: any) => c?.props?.class?.includes?.('wf-tree-switcher'))
 }
 
+function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
+  if (!vnode || typeof vnode !== 'object') return null
+  if (pred(vnode)) return vnode
+  const kids = vnode.props?.children
+  if (Array.isArray(kids)) { for (const k of kids) { const f = findVNode(k, pred); if (f) return f } }
+  else if (kids && typeof kids === 'object') return findVNode(kids, pred)
+  return null
+}
+
 describe('Tree', () => {
   it('renders root node', async () => {
     const vnode = await renderVNode(Tree, { data }, createTestCtx())!
@@ -243,4 +252,13 @@ it('searchValue：高亮 mark + 无匹配空提示', async () => {
   // 无匹配
   const empty = await factory({ data, searchValue: '不存在' })
   assert.ok(JSON.stringify(empty).includes('无匹配节点'), '无匹配空提示')
+})
+
+describe('Tree 空态（F2 状态矩阵）', () => {
+  it('空 data 显示"暂无数据"', async () => {
+    const vnode = await renderVNode(Tree, { data: [] }, createTestCtx())
+    const empty = findVNode(vnode, (v: any) => String(v.props?.class).includes('wf-tree-empty'))
+    assert.ok(empty, '空态节点存在')
+    assert.equal(empty.props.children, '暂无数据')
+  })
 })

@@ -12,6 +12,8 @@ export interface VirtualListProps {
   /** 可见区外额外渲染数量 */
   overscan?: number
   keyBy?: (item: any, index: number) => string | number
+  /** 空数据占位（F2 状态矩阵——容器类基线） */
+  emptyText?: string
   className?: string
 }
 
@@ -41,7 +43,7 @@ export const VirtualList: Component<VirtualListProps> = async (_init, ctx) => {
   return async (props) => {
     const {
       items = [], height = 400, itemHeight = 40, renderItem,
-      overscan = 5, keyBy, className,
+      overscan = 5, keyBy, emptyText = '暂无数据', className,
     } = props
 
     // 浏览器刷新/前进后退恢复滚动位置（直接设 scrollTop，无 scroll 事件）→ 主动同步
@@ -53,6 +55,13 @@ export const VirtualList: Component<VirtualListProps> = async (_init, ctx) => {
     const total = items.length
     const start = Math.max(0, Math.floor(scroll.y / itemHeight) - overscan)
     const end = Math.min(total, Math.ceil((scroll.y + height) / itemHeight) + overscan)
+
+    if (total === 0) {
+      return h('div', {
+        class: ['wf-virtual-list', 'wf-virtual-list--empty', className].filter(Boolean).join(' '),
+        style: { height: `${height}px` },
+      }, emptyText)
+    }
 
     const spacer = h('div', {
       class: 'wf-virtual-list-spacer',

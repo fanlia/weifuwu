@@ -253,9 +253,9 @@ export const Tree: Component<TreeProps> = async (_init, ctx) => {
       ].filter(Boolean))
     }
 
-    // 搜索无结果提示
-    const emptyHint = q && filteredData.length === 0
-      ? h('div', { class: 'wf-tree-empty' }, '无匹配节点')
+    // 空态提示：搜索无结果 vs 无数据（F2 状态矩阵——容器类基线）
+    const emptyHint = filteredData.length === 0
+      ? h('div', { class: 'wf-tree-empty' }, q ? '无匹配节点' : '暂无数据')
       : null
 
     // 容器键盘（方向键上下移动焦点）

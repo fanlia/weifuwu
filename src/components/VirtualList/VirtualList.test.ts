@@ -4,7 +4,7 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { VirtualList } from './VirtualList.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import { createTestCtx, renderVNode } from '../../ui-dom/testing.ts'
 
 // 可控 useScrollPosition mock：y 驱动可见窗口（scrollTop 响应式）
 function makeCtx(scrollY = 0): { ctx: WfuiContext; setY: (y: number) => void } {
@@ -67,5 +67,19 @@ describe('VirtualList', () => {
     assert.match(v.props.class, /wf-virtual-list/)
     assert.equal(v.props.style.height, '300px')
     assert.equal(v.props.style.overflowY, 'auto')
+  })
+})
+
+describe('VirtualList 空态（F2 状态矩阵）', () => {
+  it('空 items 显示 emptyText + 空态类', async () => {
+    const render = await mount(VirtualList, { items: [], emptyText: '列表为空' }, makeCtx().ctx)!
+    const v = await render({ items: [], emptyText: '列表为空' })
+    assert.match(String(v.props.class), /--empty/, '空态类')
+    assert.equal(v.props.children, '列表为空', 'emptyText 展示')
+  })
+  it('默认 emptyText', async () => {
+    const render = await mount(VirtualList, { items: [] }, makeCtx().ctx)!
+    const v = await render({ items: [] })
+    assert.equal(v.props.children, '暂无数据')
   })
 })

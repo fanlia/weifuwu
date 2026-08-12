@@ -20,3 +20,10 @@
 .wf-virtual-list-item {
   box-sizing: border-box;
 }
+
+/* 空态（F2 状态矩阵） */
+.wf-virtual-list--empty {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-sm);
+}
