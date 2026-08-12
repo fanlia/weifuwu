@@ -1,0 +1,169 @@
+/**
+ * vdom2 VNode 强类型定义——**判别联合**（type 为判别式）+ 类型守卫收窄，
+ * 特有字段**必填**（渲染前初始化为显式 null/[]——不用 `xxx?: type` 弱可选）。
+ *
+ * 访问模式（强类型约束）：
+ *   if (isFrag(vnode)) { vnode._childNodes ... }   // type === Fragment → TS 收窄为 FragVNode
+ *   if (isComp(vnode)) { vnode._render ... }        // type 为函数 → 收窄为 CompVNode
+ *   —— 无需散落 `as FragVNode` cast；字段访问由类型系统强制。
+ *
+ * 文本/数组/占位是 JSX 编译产物的**原生值**（string/Array/boolean/null）——非 VNode，
+ * 由 classifyKind() 分类后走同一转换表（transitions x2y / 渲染分派）。
+ */
+
+export type VNodeType = string | Component | typeof Fragment | typeof Portal
+
+export type VNodeChild =
+  | VNode
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | VNodeChild[]
+
+// Fragment/Portal 复用全局 symbol（全局唯一协议——vdom2 引擎与全局 vnode.ts 的 h()/jsx 产物兼容；
+// 若重复定义 Symbol('Fragment') 会与全局 h() 创建的 Fragment vnode 判别失败）
+import { Fragment, Portal } from '../vnode.ts'
+export { Fragment, Portal }
+
+/** 通用字段（所有 VNode 共有——构建元数据；渲染前为 null 的显式初始化） */
+interface VNodeBase {
+  type: VNodeType
+  props: Record<string, any>
+  key?: string
+  /** 子 vnode 缓存（buildVNode 构建——patchValue diff 对照用；渲染前 null） */
+  _child: VNode | VNode[] | null
+  /** 结构父节点（输出范围坐标系——范围定位不需要外部传 parent） */
+  _parentNode: Node | null
+  /** 输出锚点 = 输出范围**首 DOM 节点**（多节点输出时必须是真实节点而非 DocumentFragment） */
+  _refNode: Node | null
+  /** 组件实例 ID / 自定义 ID（buildVNode 分配） */
+  _id: string | null
+  _customId: string | null
+  /** 父 vnode 引用 */
+  _parentVNode: VNode | null
+  /** 组件 renderFn 上次执行时的 ctx 版本号（buildVNode 剪枝 + diff 三态 skip） */
+  _ctxVersion: number | null
+}
+
+/** 原生元素——type: string；特有：el / _childAnchors（渲染后填充，前 null） */
+export interface NativeVNode extends VNodeBase {
+  type: string
+  el: Node | null
+  _childAnchors: (Node | null)[] | null
+}
+
+/** Fragment——type: typeof Fragment；特有：_childNodes（输出范围，渲染后填充） */
+export interface FragVNode extends VNodeBase {
+  type: typeof Fragment
+  _childNodes: Node[] | null
+}
+
+/** 组件——type: Component；特有：_render（两阶段 renderFn）/ _outputChild（输出引用） */
+export interface CompVNode extends VNodeBase {
+  type: Component
+  _render: ((props: Record<string, unknown>) => Promise<VNode | null>) | null
+  /** 输出 vnode 引用（dispose 清 _child/_id/_render 后仍可取输出范围——getOutputRange 递归终点） */
+  _outputChild: VNodeChild | null
+}
+
+/** Portal——type: typeof Portal；特有：_remoteEl / _placement（固定 'remote'） */
+export interface PortalVNode extends VNodeBase {
+  type: typeof Portal
+  _remoteEl: HTMLElement | null
+  _placement: 'remote'
+}
+
+/** VNode 判别联合——type 为判别式 */
+export type VNode = NativeVNode | FragVNode | CompVNode | PortalVNode
+
+// ── 类型守卫（判别式收窄——替代散落 cast） ──
+
+export function isNative(v: VNode | null | undefined): v is NativeVNode {
+  return v != null && typeof v.type === 'string'
+}
+export function isFrag(v: VNode | null | undefined): v is FragVNode {
+  return v != null && v.type === Fragment
+}
+export function isComp(v: VNode | null | undefined): v is CompVNode {
+  return v != null && typeof v.type === 'function'
+}
+export function isPortal(v: VNode | null | undefined): v is PortalVNode {
+  return v != null && v.type === Portal
+}
+
+export type Component<P = {}, C extends object = {}> = (
+  initProps: P,
+  ctx: any,
+) => Promise<((props: P) => Promise<VNode | null>) | null>
+
+/** 构造 VNode 基字段（所有类型共用的初始值） */
+function base(type: VNodeType, props: Record<string, any>, key?: string): VNodeBase {
+  return {
+    type,
+    props,
+    key,
+    _child: null,
+    _parentNode: null,
+    _refNode: null,
+    _id: null,
+    _customId: null,
+    _parentVNode: null,
+    _ctxVersion: null,
+  }
+}
+
+/** 按类型构造强类型 VNode（每类初始化特有必填字段） */
+export function createVNode(type: VNodeType, props: Record<string, any>, key?: string): VNode {
+  if (type === Fragment) {
+    const v: FragVNode = { ...base(type, props, key), type, _childNodes: null }
+    return v
+  }
+  if (type === Portal) {
+    const v: PortalVNode = { ...base(type, props, key), type, _remoteEl: null, _placement: 'remote' }
+    return v
+  }
+  if (typeof type === 'function') {
+    const v: CompVNode = { ...base(type, props, key), type, _render: null, _outputChild: null }
+    return v
+  }
+  const v: NativeVNode = { ...base(type, props, key), type, el: null, _childAnchors: null }
+  return v
+}
+
+export function h(type: VNodeType, props: Record<string, any> | null, ...children: VNodeChild[]): VNode {
+  const p = normalizeProps(props ?? {})
+  if (children.length > 0) {
+    p.children = children.length === 1 ? children[0] : children
+  }
+  const vnode = createVNode(type, p, props?.key ?? undefined)
+  vnode.key = props?.key ?? undefined
+  return vnode
+}
+
+export function jsx(type: VNodeType, props: Record<string, any> | null, key?: string | null): VNode {
+  return createVNode(type, normalizeProps(props), key ?? undefined)
+}
+export const jsxs = jsx
+
+function normalizeProps(props: Record<string, any> | null): Record<string, any> {
+  if (!props) return {}
+  const result: Record<string, any> = {}
+  for (const key of Object.keys(props)) {
+    if (key === 'key') continue
+    result[key] = props[key]
+  }
+  return result
+}
+
+export function arrayChildren(c: VNodeChild | undefined | null): VNodeChild[] {
+  if (c == null || typeof c === 'boolean') return []
+  return Array.isArray(c) ? c : [c]
+}
+
+export function createPortal(children: VNodeChild, portalKey?: string): VNode {
+  const vnode = createVNode(Portal, { children, portalKey }) as PortalVNode
+  vnode.key = portalKey ?? undefined
+  return vnode
+}
