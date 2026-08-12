@@ -207,6 +207,14 @@ demo 覆盖（命令式 DemoConfirm/DemoNotification 已存在）✓
 - ✅ Pagination：初始页 3 → next → 4（onChange 受控回流）
 - 走查：demo 全覆盖（全 ≥2）+ 测试全 ≥3 + 键盘核心组件（Menu/NavMenu/Tabs/Anchor/Collapse/Accordion）✓
 
-**待办**：
-- W5 AI 工具链族（AiChat/ChatInput/MessageBubble/useChat 会话等）6 维 checklist
-- W4 剩余组件 demo 渐进
+### W5 AI 工具链族进度（2026-12）
+
+**agent-browser 实测验收**（真实浏览器——AI 对话全链路）：
+- ✅ 流式对话：输入「你好」+ Enter → 流式回复（demo server SSE 推送）
+- ✅ Agent 模式：发送 → 工具审批卡（HITL place_order 单笔超限「允许/拒绝」）→ 允许 → 工具结果回复「北京 25°C」
+- useChat 契约：stream / tool_call / approval_request / approve('modified'/'approved'/'rejected') 全链路浏览器实测通过
+
+**P12 五 Wave 验收全部完成**（W0 audit 防线 → W1 表单族 → W2 数据展示族 → W3 弹层反馈族 → W4 导航布局族 → W5 AI 工具链族）：
+- 关键交互全部 agent-browser 真实浏览器实测（键盘/弹层/AI 会话）
+- audit 45 条防线全绿 + 全量 1845 测试 + 三 app tsc 零错误
+- 剩余：demo ≥3 示例渐进（存量渐进，无硬缺口）
