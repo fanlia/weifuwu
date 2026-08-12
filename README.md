@@ -93,6 +93,8 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **render-only 确定性渲染** — 渲染唯一触发 `ctx.ui.render()`（闭包绑定组件），状态是普通对象（`let` + `render()`）；跨组件共享用 `createStore` + `ctx.ui.useExternal()`。行为可静态推导，无隐式触发（详见[组件库](docs/components.md)）。
 
+**VDOM 输出透明（写 JSX，看 DOM 即真相）** — VDOM 对用户输入零 magic：条件渲染的 false 在 DOM 里是诊断占位注释（`<!--wf-hole: false-->`），数组项 key 与组件实例 id 直接落 DOM（`data-wf-key` / `data-wf-id`）——devtools 看到的 DOM 就是引擎决策的可读输出；非法输入占位 + warn，不崩溃不静默。转化契约唯一清晰（design/vdom-transform-rules.md）：用户写什么，vnode 就是什么，DOM 就长什么样。
+
 **中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` / `ctx.limit` / `ctx.email` / `ctx.queue` / `ctx.ai` / `ctx.msg` 等），Handler/组件从 `ctx` 读取。
 
 **async 工厂组件** — `async (initProps, ctx) => (props) => Promise<VNode>`（weifuwu **唯一组件形态**——同步组件已不支持）：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`let` + `render()`）、render 输出视图。异步在工厂边界与 renderFn，数据经闭包注入，写数据像写同步代码。三条纪律见[核心概念 · async 组件](#核心概念)。
@@ -396,7 +398,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | **UIHandler**（路由） | `async (location, ctx) => VNode` | ✅ 整体 | 每次路由变化执行 |
 | **Component**（唯一形态） | `async (initProps, ctx) => (props) => Promise<VNode>` | ✅ 工厂 + renderFn | mount 一次 + render 每次；同步组件已不支持（类型强制 Promise） |
 
-异步只在两个边界——路由 handler（整页）和组件工厂（数据声明）+ renderFn（强制异步）。渲染器按「返回值 instanceof Promise」统一判别：主路径 `buildVNode` async 预构建（await 全部工厂，兄弟并行）→ 原子落地（无占位、无补全回调）；运行时首次挂载的 async 组件同样在 buildVNode 阶段 await；骨架屏 `uiServe({ loading })` + `handle.ready`。
+异步只在两个边界——路由 handler（整页）和组件工厂（数据声明）+ renderFn（强制异步）。渲染器按「返回值 instanceof Promise」统一判别：主路径 `buildVNode` async 预构建（await 全部工厂，兄弟并行）→ 原子落地（无**中间态**占位、无补全回调——注意：数组内 false/null 的静态诊断占位 `<!--wf-hole-->` 是另一回事，见「VDOM 输出透明」）；运行时首次挂载的 async 组件同样在 buildVNode 阶段 await；骨架屏 `uiServe({ loading })` + `handle.ready`。
 ### 两阶段组件（新手必读：为什么是两层）
 
 组件 = `async (initProps, ctx) => (props) => Promise<VNode>`——**外层 = 初始化（只执行一次，可 await 数据），内层 = 渲染（每次状态/props 变化时执行，强制异步）**。类比：外层是对象的构造函数，内层是它的 render 方法。
