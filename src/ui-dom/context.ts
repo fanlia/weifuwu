@@ -46,6 +46,9 @@ export function createVdomContext(opts: MountOptions): VdomContext {
     browser: opts.browser,
     __registry: registry,
   }
+  // ctx.app.navigate（types.ts 已声明契约——08bc14c5 曾注入但 vdom 重构迁移时丢失：
+  // agent-platform 全部 ctx.app?.navigate 静默失效 → 未登录卡 Loading / 注册不跳转）
+  ctx.app = { navigate: (path: string) => opts.browser.navigate(path) }
   const renderer = opts.renderer ?? createRenderer({ registry, ctx, rootEl: opts.root, onError: opts.onError })
 
   // ── 弹层/滚动跟踪系统（scroll/resize 重算 → 渲染） ──

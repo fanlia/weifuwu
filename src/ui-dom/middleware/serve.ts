@@ -63,6 +63,37 @@ export function uiServe<RC extends object = {}>(
     initVdomTrace()
   } catch { /* 环境无 location/localStorage——忽略 */ }
 
+  // reflow debug 开关（?wf_reflow=1——定位「页面加载早期强制排版」：Chrome 警告
+  // 「Forced reflow while a page is loading」来源——布局读取时记录样式表加载状态 + 调用栈；
+  // styles=0 时读取 = 样式表未加载场景（FOUC 风险），styles>=1 为正常排版）
+  try {
+    const q = new URLSearchParams((globalThis as any)?.location?.search ?? '')
+    const reflowDebug = q.get('wf_reflow') === '1' || (globalThis as any)?.localStorage?.getItem?.('__WF_REFLOW_DEBUG') === '1'
+    if (reflowDebug) {
+      ;(globalThis as any).__WF_REFLOW_DEBUG = true
+      console.log('[weifuwu] reflow debug 已开启（?wf_reflow=1——布局读取追踪）')
+      const logRead = (kind: string, target: any) => {
+        const styles = typeof document !== 'undefined' ? (document.styleSheets?.length ?? 0) : -1
+        const t = target?.tagName ? `<${target.tagName}${target.id ? '#' + target.id : ''}${target.className ? '.' + String(target.className).split(' ')[0] : ''}>` : ''
+        const stack = (new Error().stack || '').split('\n').slice(2, 5).map(s => s.trim().split('/').pop()?.slice(0, 80)).join(' ← ')
+        console.log(`[wf-reflow] ${kind}${t} styles=${styles}${styles === 0 ? ' ⚠️样式未加载（强制排版场景）' : ''} :: ${stack}`)
+      }
+      const ogRect = Element.prototype.getBoundingClientRect
+      Element.prototype.getBoundingClientRect = function (this: Element, ...a: any[]) { logRead('rect', this); return ogRect.apply(this, a as any) }
+      for (const prop of ['offsetWidth', 'offsetHeight', 'offsetTop', 'offsetLeft', 'clientWidth', 'clientHeight', 'scrollTop', 'scrollHeight']) {
+        const desc = Object.getOwnPropertyDescriptor(Element.prototype, prop)
+        if (desc?.get) {
+          const getter = desc.get
+          Object.defineProperty(Element.prototype, prop, {
+            configurable: true,
+            enumerable: true,
+            get(this: Element) { logRead(prop, this); return getter.call(this) },
+          })
+        }
+      }
+    }
+  } catch { /* 环境不支持 hook——忽略 */ }
+
   // ── 渲染上下文（vdom2 纯引擎 + context 组装层——完整 hooks/popup） ──
   const { ctx, registry, renderer, rootUi, destroyPopupListeners } = createVdomContext({
     browser,

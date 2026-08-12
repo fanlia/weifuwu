@@ -539,3 +539,17 @@ test('mount: unmountCommand 无 registry → 仅移除容器（不抛）', () =>
   unmountCommand(container, h('div', {}), ctx)
   assert.equal(container.isConnected, false, '容器移除（无 registry 不抛错）')
 })
+
+test('ctx.app.navigate 契约：注入存在且转发到 browser.navigate（08bc14c5 曾注入——vdom 重构迁移丢失回归防线：agent-platform 全部 ctx.app?.navigate 静默失效→卡 Loading/不跳转）', () => {
+  const b = createClientBrowser()
+  const el = document.createElement('div')
+  const { ctx: vctx } = createVdomContext({ browser: b, root: el })
+  assert.ok(vctx.app, 'ctx.app 已注入')
+  assert.equal(typeof (vctx.app as any).navigate, 'function', 'navigate 是函数')
+  const orig = b.navigate
+  let called = ''
+  ;(b as any).navigate = (p: string) => { called = p }
+  ;(vctx.app as any).navigate('/login')
+  assert.equal(called, '/login', 'navigate 转发到 browser.navigate（popstate 驱动路由）')
+  ;(b as any).navigate = orig
+})
