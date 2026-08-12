@@ -186,7 +186,7 @@ export function buildVNode(
     if (traceEnabled('build')) trace('build', 'debug', '', `mount comp=${vnDesc(vnode)} propsSame=${propsSame} verSame=${verSame} force=${!!opts?.force}`)
     return (async () => {
       const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? null })
-      const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry)
+      const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry, opts)
       vnode._child = (built ?? null) as VNode | VNode[] | null
       vnode._ctxVersion = ver
       return vnode
@@ -195,7 +195,7 @@ export function buildVNode(
 
   if (vnode.type === Fragment) {
     if (traceEnabled('build')) trace('build', 'debug', '', `fragment kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
-    const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?._child ?? oldV?.props?.children, registry)
+    const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?._child ?? oldV?.props?.children, registry, opts)
     if (isThenable(r)) {
       return r.then((built) => { vnode._child = (built ?? null) as VNode | VNode[] | null; return vnode })
     }
@@ -206,7 +206,7 @@ export function buildVNode(
   // Native：递归 children（旧树同位置对照复用）——children 同步时同步设置 _child
   if (typeof vnode.type === 'string' || typeof vnode.type === 'symbol') {
     if (traceEnabled('build')) trace('build', 'trace', '', `native <${String(vnode.type)}> kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
-    const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?.props?.children, registry)
+    const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?.props?.children, registry, opts)
     if (isThenable(r)) {
       return r.then((built) => { vnode._child = (built ?? null) as VNode | VNode[] | null; return vnode })
     }

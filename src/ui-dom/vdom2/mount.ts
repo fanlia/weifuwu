@@ -132,17 +132,16 @@ export function mountRoot(opts: MountOptions): MountHandle {
     },
     async rerender() {
       if (mounted == null) return
-      const built = await buildVNode(mounted, ctx, mounted as VNode, registry, { force: true })
-      const rootV = mounted as VNode
-      const oldChild = prevChild
-      const newChild = rootV._child
-      const prevNode = opts.root.firstChild
-      patchValue(opts.root, prevNode, oldChild, newChild, {
-        browser, registry,
-        ctxVersion: getCtxVersion(ctx),
-        force: true,
-      })
-      prevChild = newChild
+      // 全树强制重渲染：逐组件 renderOne（renderFn 重跑 + 组件级 patch 自身输出）。
+      // 不用「force buildVNode + 根级 patchValue」——force 原地 mutate mounted → 旧/new
+      // 引用相同（prevChild === rootV._child）→ 引用短路（arrToArr/V3-3a/textToText）
+      // 全部失效 → 组件输出不更新（真实 bug：renderFn 重跑但 DOM 停留旧值）。
+      // renderOne 的 old/new = 旧 _child vs 新输出——引用不同——patch 正常 diff。
+      const ids: string[] = []
+      for (const [, v] of registry.idRegistry) {
+        if (isComp(v) && typeof v._render === 'function' && v._id) ids.push(v._id)
+      }
+      await renderer.render(ids)
     },
     unmount() {
       for (const [, vnode] of registry.idRegistry) {
