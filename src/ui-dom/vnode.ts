@@ -55,10 +55,9 @@ export interface NativeVNode extends VNodeBase {
   _childAnchors: (Node | null)[] | null
 }
 
-/** Fragment——type: typeof Fragment；特有：_childNodes（输出范围，渲染后填充） */
+/** Fragment——type: typeof Fragment（多节点输出边界 = fragment-start/end 标记——DOM 持久化） */
 export interface FragVNode extends VNodeBase {
   type: typeof Fragment
-  _childNodes: Node[] | null
 }
 
 /** 组件——type: Component；特有：_render（两阶段 renderFn）/ _outputChild（输出引用） */
@@ -118,7 +117,7 @@ function base(type: VNodeType, props: Record<string, any>, key: string | null = 
 /** 按类型构造强类型 VNode（每类初始化特有必填字段） */
 export function createVNode(type: VNodeType, props: Record<string, any>, key: string | null = null): VNode {
   if (type === Fragment) {
-    const v: FragVNode = { ...base(type, props, key), type, _childNodes: null }
+    const v: FragVNode = { ...base(type, props, key), type }
     return v
   }
   if (type === Portal) {

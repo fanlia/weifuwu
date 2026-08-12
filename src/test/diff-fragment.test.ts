@@ -18,6 +18,11 @@ import { h, Fragment } from '../ui-dom/vnode.ts'
 setupJsdom()
 const browser = createClientBrowser()
 
+/** 过滤 fragment-start/end 标记（内部协议节点——断言用户可见结构） */
+function visible(el: Element): (Node | null)[] {
+  return [...el.childNodes].filter((n) => !(n.nodeType === 8 && (n.nodeValue || '').includes('type=fragment')))
+}
+
 function fakeCtx(){
   return { ui: { $: {}, dirty: () => {}, render: () => {}, ready: true } }
 }
@@ -42,13 +47,13 @@ describe('diff: fragment + siblings 位置对齐', () => {
     // 状态变化触发重渲染（结构不变；new 是全新 VNode，old 是上次挂载的树）
     patchValue(container, container.firstChild, prev, make(), { browser: ctx.browser, registry: (ctx as any).__registry })
 
-    assert.equal((container.firstChild as Element).childNodes.length, 4, 'div 应保持 4 个子节点 (span/b/b/span)')
+    assert.equal(visible(container.firstChild as Element).length, 4, 'div 应保持 4 个子节点 (span/b/b/span，过滤 fragment 标记)')
     assert.equal(container.querySelector('#a')?.textContent, 'name')
     assert.equal(container.querySelector('#b1')?.textContent, 'A')
     assert.equal(container.querySelector('#b2')?.textContent, 'B')
     assert.equal(container.querySelector('#c')?.textContent, 'end')
-    const order = Array.from((container.firstChild as Element).childNodes).map(n => (n as Element).id || (n as Element).tagName)
-    assert.deepEqual(order, ['a', 'b1', 'b2', 'c'], '子节点顺序不得错乱')
+    const order = visible(container.firstChild as Element).map(n => (n as Element).id || (n as Element).tagName)
+    assert.deepEqual(order, ['a', 'b1', 'b2', 'c'], '子节点顺序不得错乱（过滤 fragment 标记）')
   })
 
   it('fragment 子项数量变化：重渲染后 DOM 与结构一致', async () => {
@@ -73,12 +78,12 @@ describe('diff: fragment + siblings 位置对齐', () => {
     )
     patchValue(container, container.firstChild, prev, next, { browser: ctx.browser, registry: (ctx as any).__registry })
 
-    assert.equal((container.firstChild as Element).childNodes.length, 5, 'div 应为 5 个子节点 (span/b/b/b/span)')
+    assert.equal(visible(container.firstChild as Element).length, 5, 'div 应为 5 个子节点 (span/b/b/b/span，过滤 fragment 标记)')
     assert.equal(container.querySelector('#a')?.textContent, 'name')
     assert.equal(container.querySelector('#c')?.textContent, 'end')
     assert.equal(container.querySelector('#b2')?.textContent, 'B')
     assert.equal(container.querySelector('#b3')?.textContent, 'C')
-    const order = Array.from((container.firstChild as Element).childNodes).map(n => (n as Element).id || (n as Element).tagName)
-    assert.deepEqual(order, ['a', 'b1', 'b2', 'b3', 'c'])
+    const order = visible(container.firstChild as Element).map(n => (n as Element).id || (n as Element).tagName)
+    assert.deepEqual(order, ['a', 'b1', 'b2', 'b3', 'c'], '子节点顺序（过滤 fragment 标记）')
   })
 })

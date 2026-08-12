@@ -90,20 +90,26 @@ function renderPortal(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
   return null
 }
 
-/** Fragment：多节点输出——_childNodes 记录完整范围（输出范围协议） */
-function renderFrag(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
+/** Fragment：多节点输出——fragment-start/end 标记包裹（与数组项同构——统一多节点定位
+ * 为 DOM 持久化边界；_childNodes 缓存已删除——范围由标记推导，随 DOM 天然同步） */
+function renderFrag(v: VNodeChild, ctx: any, b: BrowserEnv, key: string | null = null, id: string | null = null, fid: string | null = null): Node | null {
   const vnode = v as VNode
   const fv = vnode as FragVNode
   const frag = b.createDocumentFragment()
   if (!frag) return null
   const kidsArr = arrayChildren(vnode.props?.children)
-  if (traceEnabled('render')) trace('render', 'debug', '', `fragment kids=${kidsSeq(kidsArr)}`)
-  for (const c of kidsArr) {
-    const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b)
+  if (traceEnabled('render')) trace('render', 'debug', '', `fragment kids=${kidsSeq(kidsArr)} fid=${fid ?? '-'}`)
+  // 边界标记带身份：fid = 位置路径（父 fid + 下标——嵌套 Fragment/数组项配对精确）
+  const fragStart = b.createComment(holeMarkup({ type: 'fragment-start', key, id, fid }))
+  const fragEnd = b.createComment(holeMarkup({ type: 'fragment-end', key, id, fid }))
+  if (fragStart) frag.appendChild(fragStart)
+  for (let i = 0; i < kidsArr.length; i++) {
+    const c = kidsArr[i]
+    const childFid = fid != null ? `${fid}-${i}` : String(i)
+    const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), null, childFid)
     if (n != null) frag.appendChild(n)
   }
-  fv._childNodes = Array.from(frag.childNodes) as Node[]
-  if (traceEnabled('render')) trace('render', 'debug', '', `fragment out=${childNodesSeq(frag)}`)
+  if (fragEnd) frag.appendChild(fragEnd)
   return frag
 }
 

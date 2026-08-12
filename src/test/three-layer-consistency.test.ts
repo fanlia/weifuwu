@@ -48,7 +48,9 @@ test('综合：用户 JSX 全形态 → DOM 与规则表推导精确一致', asy
     'na', 'nb',
     'hole:wf-hole: type=fragment-end key=3 fid=3',
     'hole:wf-hole: type=hole value=false',  // false 占位
+    'hole:wf-hole: type=fragment-start key=5 fid=5',    // Fragment 边界（2026-12 统一协议——与数组项同构）
     'em',                                    // Fragment 展开
+    'hole:wf-hole: type=fragment-end key=5 fid=5',
     'plain',
   ], 'DOM 结构 = 用户 JSX 推导（含边界/占位标记）')
 
@@ -81,7 +83,8 @@ test('综合：用户 JSX 全形态 → DOM 与规则表推导精确一致', asy
     'text:hello', 'item',
     'hole:wf-hole: type=hole value=false',
     'hole:wf-hole: type=fragment-start key=3 fid=3', 'nb', 'na', 'hole:wf-hole: type=fragment-end key=3 fid=3',
-    'em', 'plain',
+    'hole:wf-hole: type=fragment-start key=4', 'em', 'hole:wf-hole: type=fragment-end key=4',  // 新增 Fragment（key=位置身份）
+    'plain',
   ], '更新后 DOM 与用户新 JSX 推导一致（B 移除、数组项重排、占位位置保持）')
   assert.equal(root.querySelector('[data-n="A"]')!.getAttribute('data-wf-key'), 'a', '组件 A 复用（key 身份保持）')
 

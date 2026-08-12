@@ -19,7 +19,10 @@ import { createClientBrowser } from '../ui-dom/browser.ts'
 before(setupJsdom)
 
 function domSeq(el: Element): string[] {
-  return [...el.childNodes].map((n) =>
+  // 过滤 fragment-start/end 标记（内部协议节点——断言用户可见结构）
+  return [...el.childNodes].filter((n) =>
+    !(n.nodeType === 8 && (n.nodeValue || '').includes('type=fragment')))
+    .map((n) =>
     n.nodeType === 1 ? (n as Element).id
     : '#' + (n.nodeValue || '').slice(0, 12))
 }

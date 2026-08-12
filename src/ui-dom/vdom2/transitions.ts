@@ -120,22 +120,21 @@ function nativeToNative(s: PatchState): Node | null {
 
 // ── frag 转换 ──
 
-/** frag → frag：children 递归 diff（patchChildren——Fragment 透明容器） */
+/** frag → frag：children 递归 diff（patchChildren——Fragment 透明容器）
+ *  统一协议（2026-12）：旧范围 = fragment-start/end 标记（DOM 持久化——随移动/移除天然同步，
+ *  _childNodes 缓存已删——缓存脱离 DOM 的 bug 类别根治）；锚点 = start 标记（保留在 DOM，
+ *  内容由 patchChildren 原位 patch——start/end 不动，新增插到 end 前——与数组项同构） */
 function fragToFrag(s: PatchState): Node | null {
   const { parent, oldNode, oldInput, ctx } = s
   const newV = s.newInput as VNode
   const oldV = oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) ? (oldInput as VNode) : null
-  const oldRange = isFrag(oldV) && oldV._childNodes ? oldV._childNodes : null
+  // 旧 Fragment 标记范围（anchor = start 标记——父层映射 Frag 锚点即标记）
+  const oldRange = isFrag(oldV) ? getOutputRange(oldV, oldNode) : null
   // oldInput 传旧 Fragment 的 props.children（旧 vnode 本身会导致 oldChildren 错位 1 项
   // ——[fragV] vs [b1,b2] → 替换路径新建节点 → 重复残留；diff-fragment 真实 bug）
   const range = patchChildren(parent, oldV?.props?.children ?? oldInput, newV.props?.children ?? null, ctx, oldRange)
-  if (isFrag(newV)) newV._childNodes = range.filter(Boolean) as Node[]
-  // 占位法：oldNode（Frag 锚点）是 Frag children 内容的一部分（首节点，可能是 hole）——
-  // **不可提前移除**：patchChildren 内部已处理 hole 转换（hole↔hole 保持 / hole→真实
-  // replaceChild / 真实→hole replaceChild）——此处 removeChild 会先移除首项 hole →
-  // patchChildren 用已脱离节点做保持（无效）→ 占位丢失 → childNodes 长度不恒定 →
-  // 后续项错位（真实 bug：Frag 首项 hole 占位↔占位保持失败，2026-12 探针定位）
-  return oldNode && oldNode.nodeType === 1 ? oldNode : (range[0] ?? null)
+  // 锚点 = 旧 start 标记（保留在 DOM——patchChildren 剥离首尾标记不触碰）；否则新内容首节点
+  return oldNode?.parentNode ? oldNode : (range[0] ?? null)
 }
 
 // ── comp 转换 ──

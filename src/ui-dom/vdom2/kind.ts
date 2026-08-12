@@ -30,17 +30,26 @@ export interface PatchState {
   }
 }
 
-/** 输出范围统一获取（多节点输出完整边界；单节点/未知 → null）——类型守卫收窄，无散落 cast */
+/** 输出范围统一获取（多节点输出完整边界；单节点/未知 → null）——类型守卫收窄，无散落 cast
+ *  统一协议（2026-12）：Fragment 与数组项同构——多节点输出 = fragment-start/end 标记包裹，
+ *  范围由标记推导（anchor = start 标记，DOM 持久化——随移动/移除天然同步）；组件经 _outputChild 递归 */
 export function getOutputRange(input: VNodeChild, anchor: Node | null): Node[] | null {
   if (input == null || typeof input !== 'object') return null
-  if (Array.isArray(input)) {
+  // Fragment / 数组项：多节点输出统一为标记范围（start..end 含标记）
+  if (Array.isArray(input) || isFrag(input as VNode)) {
     const start = anchor
     if (start && start.nodeType === 8 && start.nodeValue?.includes('type=fragment-start')) {
       const range: Node[] = [start]
+      // end 配对用同 fid（start/end 共享位置路径 id——嵌套数组项/Fragment fid 不同不干扰；
+      // 与 rangeFor 同款——Frag 内嵌数组项时不能被 arr-end 截断）
+      const startFid = /fid=([^\s"]+)/.exec(start.nodeValue)?.[1] ?? ''
       let n: Node | null = start.nextSibling
       while (n) {
         range.push(n)
-        if (n.nodeType === 8 && n.nodeValue?.includes('type=fragment-end')) break
+        if (n.nodeType === 8 && n.nodeValue?.includes('type=fragment-end')) {
+          const endFid = /fid=([^\s"]+)/.exec(n.nodeValue)?.[1] ?? startFid
+          if (endFid === startFid) break
+        }
         n = n.nextSibling
       }
       return range
@@ -48,7 +57,6 @@ export function getOutputRange(input: VNodeChild, anchor: Node | null): Node[] |
     return null
   }
   const vn = input as VNode
-  if (isFrag(vn)) return vn._childNodes && vn._childNodes.length ? vn._childNodes : null
   if (isComp(vn)) return getOutputRange(vn._outputChild ?? vn._child, anchor)
   return null
 }

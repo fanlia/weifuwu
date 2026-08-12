@@ -80,12 +80,20 @@ async function arrToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
   return parts.join('')
 }
 
-/** Portal/Fragment：就地内联子节点（客户端 portal 远程渲染——SSR 内联保留内容/SEO） */
+/** Fragment：fragment-start/end 标记 + 内容（与客户端 renderFrag 同构——统一多节点定位协议；
+ *  数组项（arrToHtml）同款；fid 传递——嵌套 Fragment/数组项配对精确） */
 async function fragToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
+  const vnode = v as VNode
+  const fid = ctx._fidPath ?? null
+  const inner = await x2html(vnode.props?.children, { ...ctx, _fidPath: fid ?? undefined })
+  return `<!--${holeMarkup({ type: 'fragment-start', key: null, id: null, fid })}-->${inner}<!--${holeMarkup({ type: 'fragment-end', key: null, id: null, fid })}-->`
+}
+
+/** Portal：就地内联子节点（客户端 portal 远程渲染——SSR 内联保留内容/SEO） */
+async function portalToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
   const vnode = v as VNode
   return x2html(vnode.props?.children, ctx)
 }
-const portalToHtml = fragToHtml
 
 /** 组件：现场执行工厂 + renderFn（SSR 无预构建）——输出顶层注入 data-wf-key（与客户端一致） */
 async function compToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {

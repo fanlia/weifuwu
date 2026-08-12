@@ -86,8 +86,10 @@ export function removeOldOutput(oldInput: VNodeChild, oldNode: Node | null, pare
   if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput)) {
     const ov = oldInput as VNode
     if (isFrag(ov)) {
-      const fragNodes = ov._childNodes ?? []
-      // 范围后兄弟（fragment-end 之后）——移除前捕获（fragNodes 空时回退 oldNode 兄弟）
+      // 标记范围（start..end 含标记——统一协议；anchor = start 标记）
+      const range = getOutputRange(ov, oldNode)
+      const fragNodes = range ?? []
+      // 范围后兄弟（fragment-end 之后）——移除前捕获（标记缺失时回退 oldNode 兄弟）
       ref = (fragNodes[fragNodes.length - 1] ?? oldNode)?.nextSibling ?? null
       for (const n of fragNodes) if (n.parentNode) n.parentNode.removeChild(n)
       disposeSubtree(ov, ctx.registry)
@@ -322,7 +324,8 @@ export function patchChildren(
           if (typeof c === 'string' || typeof c === 'number') { nodes.push(src[k] ?? null); k++; continue }
           const vn = c as VNode
           if (isPortal(vn)) { nodes.push((vn._remoteEl ?? null) as Node | null); continue }
-          if (isFrag(vn)) { nodes.push(vn._childNodes?.[0] ?? null); k++; continue }
+          // Frag 锚点 = start 标记（标记化统一——source 内 Frag 项位置即标记；与数组项同款）
+          if (isFrag(vn)) { nodes.push(src[k] ?? null); k++; continue }
           // 组件锚点 = _refNode；native 锚点 = el（类型守卫收窄——强类型约束）
           nodes.push(vn._refNode ?? (isNative(vn) ? vn.el : null) ?? src[k] ?? null)
           k++
@@ -385,9 +388,28 @@ export function patchChildren(
           } else {
             // 旧位置无占位（异常/迁移场景）→ 兜底插入
             if (newHole && on?.parentNode) on.parentNode.replaceChild(newHole, on)
-            else if (newHole) parent.appendChild(newHole)
-            out.push(newHole)
-            pushA(newHole)
+            else if (newHole) {
+              // 超界新增 hole（旧 children 短于新——i 超出旧数组但 newC 是占位）：
+              // 插到正确位置（next 推导）而非 append 末尾——Frag 标记化后 box 末尾可能是
+              // tail（Frag-end 后）——append 会把 hole 塞到 Frag 范围外（错位）
+              let next: Node | null = null
+              for (let j = i + 1; j < oldNodes.length; j++) {
+                const n = oldNodes[j]
+                if (n && n.parentNode === parent) { next = n; break }
+              }
+              if (!next) {
+                let last: Node | null = null
+                for (let k = out.length - 1; k >= 0; k--) if (out[k]) { last = out[k]; break }
+                if (last && last.parentNode === parent) next = last.nextSibling
+              }
+              if (next && next.parentNode === parent) parent.insertBefore(newHole, next)
+              else parent.appendChild(newHole)
+              out.push(newHole)
+              pushA(newHole)
+            } else {
+              out.push(newHole)
+              pushA(newHole)
+            }
           }
           continue
         }
@@ -459,8 +481,8 @@ export function patchChildren(
           pushA(hole)
           continue
         }
-        // 新增：渲染 + 插入
-        const node = renderValue(newC, ctx, ctx.browser ?? createClientBrowser())
+        // 新增：渲染 + 插入（key = 位置身份——标记带下标，与首帧渲染一致）
+        const node = renderValue(newC, ctx, ctx.browser ?? createClientBrowser(), String(i))
         if (node == null) { out.push(null); pushA(null); continue }
         const oldHole = oldNodes[i]
         // 占位 → 真实：replaceChild（占位法下旧位置是注释节点——长度恒定，索引全有效）
@@ -508,7 +530,7 @@ export function patchChildren(
         }
         // 新数组项 vs 旧非数组：替换——移除旧输出范围（引用驱动——旧项可能是 Fragment/组件
         // 多节点，只 replaceChild 锚点则残留——vdom2-matrix 矩阵 frag→arr 失败）+ 渲染数组项
-        const node = renderValue(newC, ctx, b)
+        const node = renderValue(newC, ctx, b, String(i))
         if (node == null) { out.push(null); pushA(null); continue }
         const oldHole = oldNodes[i]
         const oldRange = oldC && typeof oldC === 'object' ? getOutputRange(oldC, oldHole) : null
@@ -545,7 +567,7 @@ export function patchChildren(
             disposeComponent(sub as VNode, ctx.registry)
           }
         }
-        const node = renderValue(newC, ctx, b)
+        const node = renderValue(newC, ctx, b, String(i))
         if (node == null) { out.push(null); pushA(null); continue }
         // 插入到数组项范围后的位置（下一个锚点前）——数组项首节点已移除，用范围后首个节点作参考
         const anchor = oldNodes[i + 1] ?? null
