@@ -130,7 +130,11 @@ function fragToFrag(s: PatchState): Node | null {
   // ——[fragV] vs [b1,b2] → 替换路径新建节点 → 重复残留；diff-fragment 真实 bug）
   const range = patchChildren(parent, oldV?.props?.children ?? oldInput, newV.props?.children ?? null, ctx, oldRange)
   if (isFrag(newV)) newV._childNodes = range.filter(Boolean) as Node[]
-  if (oldNode?.parentNode && oldNode.nodeType === 8) oldNode.parentNode.removeChild(oldNode)
+  // 占位法：oldNode（Frag 锚点）是 Frag children 内容的一部分（首节点，可能是 hole）——
+  // **不可提前移除**：patchChildren 内部已处理 hole 转换（hole↔hole 保持 / hole→真实
+  // replaceChild / 真实→hole replaceChild）——此处 removeChild 会先移除首项 hole →
+  // patchChildren 用已脱离节点做保持（无效）→ 占位丢失 → childNodes 长度不恒定 →
+  // 后续项错位（真实 bug：Frag 首项 hole 占位↔占位保持失败，2026-12 探针定位）
   return oldNode && oldNode.nodeType === 1 ? oldNode : (range[0] ?? null)
 }
 
