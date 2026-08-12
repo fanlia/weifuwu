@@ -3,7 +3,7 @@
  *
  * 结构化 JSON 浏览（工具调用 args / API 响应）：递归树 + 折叠 + 类型色 + 路径复制 + 懒展开。
  * 零依赖（无 raw JSON.parse 展示——VNode 渲染天然转义）。
- * 裁剪：JSON 编辑、超大对象流式渲染（懒展开覆盖 100 键级）。
+ * 裁剪（CS-05，见 design/components-cuts.md）：JSON 编辑、超大对象流式渲染（懒展开覆盖 100 键级）。
  */
 
 import type { Component } from '../../ui-dom/vnode.ts'

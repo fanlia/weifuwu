@@ -7,7 +7,7 @@
  * 支持块级：标题(#~####) / 段落 / 列表(有序·无序·GFM 任务) / 围栏代码块 / 引用 / 分割线 / GFM 表格
  * 支持行内：**粗体** / *斜体* / ~~删除线~~ / `行内代码` / [文本](链接)
  *
- * 诚实裁剪：脚注/raw HTML/自动链接/语法高亮（见 roadmap）
+ * 诚实裁剪（CS-05，见 design/components-cuts.md）：脚注/raw HTML/自动链接/语法高亮（raw HTML 安全红线——VNode 天然转义；语法高亮破零依赖）
  */
 
 export interface MdInline {

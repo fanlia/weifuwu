@@ -25,7 +25,7 @@ export interface MenubarProps {
 }
 
 /** 水平菜单栏（对应 shadcn Menubar）：trigger 点击展开下拉，←→ 切换菜单，Escape 关闭。
- * 裁剪：hover 展开、子菜单、可拖拽菜单。 */
+ * 裁剪（CS-05，见 design/components-cuts.md）：hover 展开、子菜单、可拖拽菜单。 */
 export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()

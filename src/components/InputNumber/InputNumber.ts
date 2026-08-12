@@ -3,7 +3,7 @@
  *
  * 数字输入：min/max/step + 增减按钮 + precision 格式化 + 长按连增。
  * 受控 value: number | null；空值 → null；输入 clamp 到 min/max。
- * 裁剪：不做千分位货币（见 roadmap）。
+ * 裁剪（CS-05，见 design/components-cuts.md）：千分位货币格式（业务自拼）。
  */
 
 import type { Component } from '../../ui-dom/vnode.ts'

@@ -25,7 +25,7 @@ const DEFAULT_COLORS = [
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
 /** 颜色选择（对应 antd/EP ColorPicker 预设版）：触发按钮 + 色板弹层 + hex 输入。
- * 裁剪：不做吸管/自由取色/透明度（预设色板 + hex 输入覆盖 90% 场景）。 */
+ * 裁剪（CS-05，见 design/components-cuts.md）：不做吸管/自由取色/透明度（预设色板 + hex 输入覆盖 90% 场景）。 */
 export const ColorPicker: Component<ColorPickerProps> = async (_init, ctx) =>
   async (props) => {
     const {

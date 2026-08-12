@@ -25,6 +25,9 @@
 | Select | optgroup 分组搜索过滤、分组禁选 | 搜索时组内过滤已做；分组禁选低频 |
 | Select | 虚拟化选项列表 | 零依赖成本高，候选量级小 |
 | Cascader | 多选（multiple） | 低频；单选 + 搜索已够 |
+| Cascader | hover 展开、任意层级配置、异步加载 | 点击展开 + 搜索已够；异步数据源可组合 |
+| ColorPicker | 吸管/自由取色/透明度 | 预设色板 + hex 输入覆盖 90% 场景 |
+| Mentions | 多 prefix/自定义高亮渲染/远程搜索 | options 静态传入；远程搜索可组合 |
 | InputNumber | 千分位货币格式 | 业务自拼 |
 | PinInput | 「发送验证码」倒计时、邮箱/短信发送 | 业务自配；框架 email 中间件可组合 |
 | TimePicker（独立组件） | — | DatePicker `mode="time"` 四合一覆盖 |
@@ -41,7 +44,7 @@
 | VirtualTable | 横向虚拟滚动、行编辑、单元格合并、树形表格 | 列虚拟化成本高 |
 | Markdown | GFM 表格/任务列表/删除线/脚注/raw HTML/语法高亮 | 表格+任务列表已实现；raw HTML 安全红线（VNode 天然转义）；语法高亮引入依赖破零依赖 |
 | CodeBlock | 语法高亮 | 依赖；语言标签仅展示 |
-| JSONViewer | JSON 编辑、大文本截断省略号 | 只读定位（编辑用 Editor） |
+| JSONViewer | JSON 编辑、超大对象流式渲染 | 只读定位（编辑用 Editor）；懒展开覆盖 100 键级 |
 | LogViewer | 正则高亮、多日志源合并、搜索定位 | 性能与复杂度；Filter 可组合 |
 | DiffView | 词级 diff、语法高亮、忽略空白、merge 编辑 | 行级 LCS 已够 AI 代码展示 |
 | Sparkline | 多序列、tooltip、实时流式 | 迷你趋势线定位 |
@@ -57,12 +60,16 @@
 | NavMenu | hover 延迟微调、子菜单动画曲线定制 | 折叠态交还 useBreakpoint 由用户驱动 |
 | Tooltip/HoverCard | 富内容自动判定 | HoverCard 已补富内容 |
 | Menu | 水平菜单栏、子菜单自动互斥 | Menubar 已有；互斥由父层 controlled |
-| Menubar | 无（已实现） | — |
+| Menu | 折叠态 icon-only 标题不弹浮层（无 label 无展开交互） | 有 label 的折叠态子菜单浮层已实现（usePopup 基座）；icon-only 无展开语义 |
+| Menubar | hover 展开、子菜单、可拖拽菜单 | 点击展开 + 水平菜单已实现；可拖拽低频 |
+| Result | 内置路由跳转 | 页面自身处理路由（框架 ctx.app.navigate 可组合） |
+| Calendar | 周/日视图、拖拽创建事件、事件详情弹层 | 月视图 + 选择/范围已够；事件展示可组合 |
 | Tour | 步骤动画、多目标高亮、完整键盘流 | 基础 Escape/箭头已做 |
 | Kanban | 列增删/编辑、泳道、跨看板、虚拟滚动 | 拖拽模型核心已做 |
 | Pipeline | 手动拖拽布局、缩放平移、嵌套子图、循环图 | Kahn 拓扑分层已做；环检测报错 |
-| Carousel | 垂直模式 | fade 可 CSS 配 |
+| Carousel | 垂直模式、多图联动、淡入淡出 | 水平 + 触摸滑动已够；fade 可 CSS 配 |
 | Scrollbar | 拖动 thumb | webkit 样式已够 |
+| Transfer | 拖拽排序、自定义渲染 | 双列表 + 搜索已实现；拖拽低频 |
 | FileUpload | 真实上传进度（xhr/fetch）、分片、拖拽排序、目录上传 | 进度由父层驱动（组件不做 xhr） |
 | Command | 无（已实现） | — |
 
@@ -79,13 +86,13 @@
 
 | 组件 | 裁剪能力 | 理由/替代 |
 |------|---------|----------|
-| Anchor | 嵌套滚动容器、滚动容器非视口 | 视口滚动已实现 |
+| Anchor | 嵌套滚动容器、滚动容器非视口、自动生成标题锚点 | 视口滚动已实现；标题锚点业务自配 |
 | Affix | 无（已实现） | — |
 | Layout | Sider 拖拽调整宽度、SSR 骨架布局 | Resizable 可组合；静态容器 SSR 天然支持 |
 | Space/Grid/Scrollbar | 新布局引擎 | 原语封装级（24 栅格百分比 + gutter + flex 容器模式） |
 | Accordion | 动画高度 | 卡片面板语义；CSS 过渡即可 |
 | Collapse | 互斥模式、高度动画 | 行内展开定位 |
-| Timeline | 横向/折叠展开节点 | 横向已实现（mode="horizontal"） |
+| Timeline | 折叠展开节点 | 横向已实现（mode="horizontal"）；折叠低频 |
 | Scrollbar | 拖动 thumb | webkit 样式已够 |
 
 ## 三、登记纪律

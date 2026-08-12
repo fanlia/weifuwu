@@ -3,7 +3,7 @@
  *
  * 堆叠头像组（负 margin 重叠）+ max 溢出显示 +N。
  * 用于群聊成员、协作人列表。
- * 裁剪：不做 hover 展开 tooltip（见 roadmap）。
+ * 裁剪（CS-05，见 design/components-cuts.md）：hover 展开 tooltip（Tooltip 可组合）。
  */
 
 import type { Component } from '../../ui-dom/vnode.ts'

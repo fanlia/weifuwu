@@ -4,7 +4,7 @@
  * 时间线：节点（状态色圆点/自定义）+ 标题 + 时间 + 内容 + 连接线。
  * 竖向（left/alternate）+ 横向（horizontal）。
  * 用于执行日志、审批历史、审计记录、步骤进度。
- * 裁剪：不做折叠节点。
+ * 裁剪（CS-05，见 design/components-cuts.md）：不做折叠节点。
  */
 
 import type { Component } from '../../ui-dom/vnode.ts'

@@ -20,7 +20,7 @@ export interface WatermarkProps {
 }
 
 /** 水印（对应 antd Watermark）：canvas 绘制平铺文字 + overlay 覆盖内容（pointer-events none）。
- * 裁剪：图片水印、多行文字、动态旋转。 */
+ * 裁剪（CS-05，见 design/components-cuts.md）：图片水印、多行文字、动态旋转。 */
 export const Watermark: Component<WatermarkProps> = async (_init, _ctx) => {
   const _browser = _ctx?.browser ?? createClientBrowser()
   // ── mount（只一次）──

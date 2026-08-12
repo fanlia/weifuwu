@@ -65,21 +65,21 @@
 
 | 组件 | roadmap 项 | 判定 | 理由 |
 | --- | --- | --- | --- |
-| Menu | 折叠态子菜单浮层 | DO | 侧栏导航核心场景 |
-| Menu | 子菜单自动互斥 | CUT | 单展开语义由父层 controlled 更可控 |
-| Timeline | 横向时间线 | DO | 步骤展示常见 |
-| Transfer | 搜索过滤 | DO | 大数据量必备 |
-| Tree | 搜索过滤 | DO | 大树必备 |
-| VirtualTable | 行选择 rowSelection | DO | 表格高频需求 |
-| Cascader | 搜索 | DO | 大数据必备 |
-| InputNumber | 长按连增 | DO | 数字输入标配 |
-| AvatarGroup | hover tooltip | CUT | Tooltip 可组合，不内建 |
-| Markdown | GFM 表格/任务列表/删除线 | DO | 文档场景核心 |
-| Markdown | 语法高亮 | CUT | 零依赖红线（引入 highlighter 即破） |
-| LogViewer | 正则高亮 | CUT | 性能与复杂度，组合 Filter 即可 |
-| Carousel | 垂直模式 | CUT | 低频，fade 可 CSS 配 |
-| JSONViewer | JSON 编辑 | CUT | 只读定位（编辑用 Editor） |
-| Scrollbar | 拖动 thumb | CUT | webkit 样式已够，拖动 thumb 体验争议大 |
+| Menu | 折叠态子菜单浮层 | ✅ DO 已实现 | usePopup 基座（外部点击/Escape/portal/定位） |
+| Menu | 子菜单自动互斥 | ✅ CUT 已登记 | 单展开语义由父层 controlled 更可控 |
+| Timeline | 横向时间线 | ✅ DO 已实现 | mode="horizontal" |
+| Transfer | 搜索过滤 | ✅ DO 已实现 | 双列表 + 搜索 |
+| Tree | 搜索过滤 | ✅ DO 已实现 | 展开/选中/勾选 + 搜索 |
+| VirtualTable | 行选择 rowSelection | ✅ DO 已实现 | 受控 selectedRowKeys + onChange |
+| Cascader | 搜索 | ✅ DO 已实现 | 搜索框 + 扁平过滤 |
+| InputNumber | 长按连增 | ✅ DO 已实现 | pointerdown 连增定时器 |
+| AvatarGroup | hover tooltip | ✅ CUT 已登记 | Tooltip 可组合，不内建 |
+| Markdown | GFM 表格/任务列表/删除线 | ✅ DO 已实现 | ~~删除线~~ GFM 解析 |
+| Markdown | 语法高亮 | ✅ CUT 已登记 | 零依赖红线（引入 highlighter 即破） |
+| LogViewer | 正则高亮 | ✅ CUT 已登记 | 性能与复杂度，组合 Filter 即可 |
+| Carousel | 垂直模式 | ✅ CUT 已登记 | 低频，fade 可 CSS 配 |
+| JSONViewer | JSON 编辑 | ✅ CUT 已登记 | 只读定位（编辑用 Editor） |
+| Scrollbar | 拖动 thumb | ✅ CUT 已登记 | webkit 样式已够，拖动 thumb 体验争议大 |
 
 （DO 项进 W1-W5 对应 Wave；CUT 项登记 `components-cuts.md`。）
 
@@ -135,4 +135,20 @@
 
 ## 进度记录
 
-（Wave 完成后追加）
+### Wave 0（audit 防线 + 裁剪登记 + roadmap triage）✅ 2026-12
+
+- **audit 扩容 38→44**：R39（demo 状态矩阵）/ R40（demo 交互）/ R41（交互 role 可访问名）/
+  R42（弹层 aria-expanded——ratchet：存量 {Mentions, Tour} Wave 内修复）/ R43（键盘导航 onKeyDown——
+  豁免 {Cascader, Dropdown} 于 W1 修复）/ R44（裁剪声明引用单一事实源——全库 23 处收敛）
+- **裁剪集中登记**：components-cuts.md 补齐 9 项（Cascader hover/任意层级/异步、ColorPicker 吸管、
+  Mentions 多 prefix/远程搜索、Calendar 周/日视图、Carousel 多图联动、Anchor 标题锚点、Menubar 子菜单、
+  Result 路由、Transfer 拖拽、Timeline 折叠）——23 处组件「裁剪」注释统一「（CS-05，见 design/components-cuts.md）」
+- **roadmap triage 清零**：15 项全部已决——DO 项全实现（Menu 折叠浮层/Timeline 横向/Transfer 搜索/
+  Tree 搜索/VirtualTable 行选择/Cascader 搜索/InputNumber 长按/Markdown 删除线）；CUT 项全登记
+- **状态**：audit 45 条全绿；全量 1827 测试全绿；「见 roadmap」残留 = 0
+
+### 待办（W1 高频表单 Wave）
+
+- Cascader/Dropdown 键盘导航（R43 豁免——listbox/menu 方向键）
+- Mentions/Tour 弹层 aria-expanded（R42 ratchet——归零）
+- W1 逐组件 6 维 checklist（F1 功能/F2 状态/F3 变体/F4 a11y/F5 响应式/F6 demo）

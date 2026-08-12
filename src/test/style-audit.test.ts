@@ -805,6 +805,104 @@ describe('样式审计 — 设计约束', () => {
     }
     assert.deepEqual(violations, [], '交互组件 CSS 必须有 :hover 态（合理无 hover 组件登记 HOVER_EXEMPT）')
   })
+
+  // ── P12 组件完整度防线（R39-44）──
+  // R39/R40 demo 防线、R41/R43 全绿硬门、R42 ratchet（存量弹层 aria 逐步修复）、R44 裁剪单一事实源
+
+  it('P12-R39：demo 状态矩阵覆盖（disabled/error/loading/empty 特征词存在——防 demo 退化纯静态）', () => {
+    const demo = readFileSync(join(root, 'apps/components-demo/src/main.tsx'), 'utf-8')
+    for (const kw of ['disabled', 'error', 'loading', 'empty']) {
+      assert.match(demo, new RegExp(`\\b${kw}\\b`), `demo 必须覆盖 ${kw} 态（状态矩阵基线）`)
+    }
+  })
+
+  it('P12-R40：demo 交互示例存在（onClick/onChange/onKeyDown 特征——防 demo 纯展示）', () => {
+    const demo = readFileSync(join(root, 'apps/components-demo/src/main.tsx'), 'utf-8')
+    const interactive = [...demo.matchAll(/\bon(?:Click|Change|KeyDown|Submit)\b/g)].length
+    assert.ok(interactive >= 20, `demo 交互回调数异常（应 ≥20 处实际 ${interactive}）`)
+  })
+
+  it('P12-R41：交互 role 必须有可访问名（aria-label/aria-labelledby 或文本/元素 children）', () => {
+    const ARIA_ROLES = ['button', 'tab', 'option', 'switch', 'checkbox', 'radio', 'menuitem', 'treeitem']
+    const offenders: string[] = []
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    for (const d of dirs) {
+      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      let src = ''
+      try { src = readFileSync(f, 'utf-8') } catch { continue }
+      for (const block of src.split(/\bh\(/).slice(1)) {
+        const chunk = block.slice(0, 800)
+        const role = chunk.match(/role:\s*'([a-z]+)'/)?.[1]
+        if (!role || !ARIA_ROLES.includes(role)) continue
+        const named = /aria-label|aria-labelledby/.test(chunk)
+        // 可访问名兜底：无 children（props 闭括号后直接 h() 闭括号）且无 aria = 裸 role。
+        // children 是变量（item.label）也算可访问名——检测「无 children」比「有 children」更准
+        const noChildren = /}\)\s*$/.test(chunk) || /}\)\s*,\s*\)/.test(chunk)
+        if (!named && noChildren) offenders.push(`${d.name}: role="${role}" 无可访问名`)
+      }
+    }
+    assert.deepEqual(offenders, [], `交互 role 缺可访问名：\n${offenders.join('\n')}`)
+  })
+
+  it('P12-R42：弹层 trigger aria-expanded（ratchet——存量未带者登记 baseline，新组件必须带）', () => {
+    // 豁免：命令式（无 trigger 锚定——Toast/Notification/Confirm）、会话级模态（Modal/Drawer positioning:none）、
+    // 全屏面板（Command）、轻量居中（Img preview）、右键触发（ContextMenu——无 trigger 按钮语义）
+    const EXEMPT = new Set(['Toast', 'Notification', 'Confirm', 'Modal', 'Drawer', 'Command', 'Img', 'ContextMenu'])
+    const actual: Record<string, number> = {}
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    for (const d of dirs) {
+      if (EXEMPT.has(d.name)) continue
+      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      let src = ''
+      try { src = readFileSync(f, 'utf-8') } catch { continue }
+      if (!/\busePopup\b/.test(src)) continue
+      if (/aria-expanded|aria-haspopup/.test(src)) continue
+      actual[d.name] = 1
+    }
+    // baseline：当前未带 aria 的锚定弹层组件（Wave 内 F4 a11y 修复后从本快照删除；归零 = 硬门）
+    const baseline: Record<string, number> = {
+      Mentions: 1, Tour: 1,
+    }
+    assert.deepEqual(actual, baseline, '弹层 aria 违规集合变化：存量只能递减（同步本快照）；新 usePopup 组件必须带 aria-expanded')
+  })
+
+  it('P12-R43：键盘导航组件必须有 onKeyDown（tablist/menu/tree/listbox——方向键导航必须实现）', () => {
+    // 豁免（P12 W1 高频表单 Wave 修复——不得永久豁免）：Cascader listbox / Dropdown menu 方向键导航
+    const KEYBOARD_EXEMPT = new Set(['Cascader', 'Dropdown'])
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    const offenders: string[] = []
+    for (const d of dirs) {
+      if (KEYBOARD_EXEMPT.has(d.name)) continue
+      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      let src = ''
+      try { src = readFileSync(f, 'utf-8') } catch { continue }
+      if (/role:\s*'(tablist|menu|tree|listbox)'/.test(src) && !/onKeyDown|onKeydown/.test(src)) {
+        offenders.push(d.name)
+      }
+    }
+    assert.deepEqual(offenders, [], '键盘导航容器必须有 onKeyDown 处理（方向键/Enter/Escape）')
+  })
+
+  it('P12-R44：裁剪声明引用单一事实源（禁「见 roadmap」残留——Triage 已清零）', () => {
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    const offenders: string[] = []
+    for (const d of dirs) {
+      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      let src = ''
+      try { src = readFileSync(f, 'utf-8') } catch { continue }
+      if (/见 roadmap/.test(src)) offenders.push(`${d.name}.ts`)
+      // 文件头 20 行内的「裁剪」声明必须引用 cuts.md（诚实裁剪集中登记——防措辞漂移；
+      // 行内功能注释的裁剪提级（如「诚实裁剪：告警」）不算声明）
+      const head = src.split('\n').slice(0, 20).join('\n')
+      for (const m of head.matchAll(/\*\s*(?:诚实)?裁剪[：:]/g)) {
+        if (!/design\/components-cuts\.md/.test(head.slice(m.index, m.index + 140))) {
+          offenders.push(`${d.name}.ts: 裁剪声明未引用 cuts.md`)
+          break
+        }
+      }
+    }
+    assert.deepEqual(offenders, [], `裁剪声明漂移：\n${offenders.join('\n')}`)
+  })
 })
 // ── 布局原语回归（agent-browser 体检发现的真实 bug） ──
 it('wf-container 必须 width:100%（flex 父中 margin auto 阻止 stretch——landing 特性区 404 根因）', () => {

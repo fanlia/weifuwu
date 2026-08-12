@@ -6,7 +6,7 @@
  *
  *   <AlertGroup items={[{ id, message, time }]} onClose={...} />
  *
- * 裁剪（CS-05）：合并阈值固定 3 条起（少于此退化为平铺）；
+ * 裁剪（CS-05，见 design/components-cuts.md）：合并阈值固定 3 条起（少于此退化为平铺）；
  * 不做时间线分组/虚拟化。
  */
 
