@@ -190,7 +190,10 @@ export function createVdomContext(opts: MountOptions): VdomContext {
 
   // ── 弹层/滚动跟踪系统（scroll/resize 重算 → 渲染） ──
   const tracker = createPopupTrackerSystem((ids: string[]) => { for (const id of ids) renderer.render([id]) })
-  const { mediaRegistry, popupTrackers, scrollTrackers, ensurePopupListeners, destroyPopupListeners, cleanupTrackers } = tracker as any
+  // mediaRegistry 自建（createPopupTrackerSystem 不提供——useMedia/useBreakpoint 的
+  // mql 注册表；曾被 `as any` 解构掩盖为 undefined——useBreakpoint 报 has 错误的根因）
+  const mediaRegistry = new Map<string, { mqls: Array<{ mql: MediaQueryList; handler: () => void }> }>()
+  const { popupTrackers, scrollTrackers, ensurePopupListeners, destroyPopupListeners, cleanupTrackers } = tracker as any
 
   // ── 卸载钩子防御：hook 自身已注册清理（usePopupPosition/useScrollPosition/useMedia），
   // 此处兜底清理跟踪条目（防 hook 未接线场景——如旧代码路径） ──
