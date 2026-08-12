@@ -247,6 +247,7 @@ export async function handleNewMessage(
         workspacePath: agent.workspace_path,
         allowFileTools: agent.allow_file_tools,
         allowCommandExec: agent.allow_command_exec,
+    allowNetwork: agent.allow_network,
       }, chatMessages)
 
       // 保存回复消息
@@ -349,6 +350,7 @@ async function runAgentStreamForAgent(
       preloadedSkills,
       allowFileTools: agent.allow_file_tools,
       allowCommandExec: agent.allow_command_exec,
+    allowNetwork: agent.allow_network,
     }, chatMessages, {
       onChunk: (text: string) => {
         accumulatedContent += text
@@ -495,6 +497,7 @@ async function runAllAgents(
         preloadedSkills: await loadAgentSkills(sql, agent.id, ctx),
         allowFileTools: agent.allow_file_tools,
         allowCommandExec: agent.allow_command_exec,
+    allowNetwork: agent.allow_network,
       }, chatMessages)
 
       const content = result.content

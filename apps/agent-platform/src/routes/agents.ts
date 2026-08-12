@@ -123,6 +123,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       workspace_path?: string
       allow_file_tools?: boolean
       allow_command_exec?: boolean
+      allow_network?: boolean
     }
 
     if (!body.type || !body.name) {
@@ -142,13 +143,13 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
         tenant_id, type, name, avatar_url, description,
         model, system_prompt, temperature, max_tokens, human_in_the_loop,
         user_id, webhook_url, webhook_secret, webhook_retry_count, chunk_size, chunk_overlap, tools,
-        workspace_path, allow_file_tools, allow_command_exec, kb_id
+        workspace_path, allow_file_tools, allow_command_exec, allow_network, kb_id
       ) VALUES (
         ${tenantId}, ${body.type}, ${body.name}, ${body.avatar_url ?? null}, ${body.description ?? null},
         ${body.model ?? null}, ${body.system_prompt ?? null}, ${body.temperature ?? 0.7}, ${body.max_tokens ?? 2048}, ${body.human_in_the_loop ?? false},
         ${body.user_id ?? null}, ${body.webhook_url ?? null}, ${body.webhook_secret ?? null}, ${body.webhook_retry_count ?? 3}, ${body.chunk_size ?? 500}, ${body.chunk_overlap ?? 50},
         ${body.tools ? JSON.stringify(body.tools) : '[]'},
-        ${body.workspace_path ?? null}, ${body.allow_file_tools ?? false}, ${body.allow_command_exec ?? false}, ${body.kb_id ?? null}
+        ${body.workspace_path ?? null}, ${body.allow_file_tools ?? false}, ${body.allow_command_exec ?? false}, ${body.allow_network ?? false}, ${body.kb_id ?? null}
       )
       RETURNING id, type, name, created_at
     `
@@ -183,7 +184,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       'name', 'avatar_url', 'description',
       'model', 'system_prompt', 'temperature', 'max_tokens', 'human_in_the_loop',
       'webhook_url', 'webhook_secret', 'webhook_retry_count', 'chunk_size', 'chunk_overlap', 'tools', 'is_active',
-      'workspace_path', 'allow_file_tools', 'allow_command_exec', 'kb_id',
+      'workspace_path', 'allow_file_tools', 'allow_command_exec', 'allow_network', 'kb_id',
     ]
 
     const sets: string[] = []

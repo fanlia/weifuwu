@@ -119,6 +119,17 @@ async function main() {
   registerBuiltinTools(() => currentCtx)
   console.log(`[agent-platform] 已注册 ${BUILTIN_TOOL_DEFS.length} 个内置工具`)
 
+  // ── 沙盒初始化（S2：探测 + 孤儿清理 + Heartbeat 回收） ──
+  const { sandbox } = await import('./src/sandbox/docker.ts')
+  const sandboxStatus = await sandbox.status()
+  if (sandboxStatus.enabled && sandboxStatus.available) {
+    const cleaned = await sandbox.cleanupOrphans()
+    sandbox.startReaper()
+    console.log(`[agent-platform] 沙盒就绪：${sandboxStatus.mode} · 镜像 ${process.env.SANDBOX_IMAGE ?? 'node:24'} · 池上限 ${sandboxStatus.maxContainers}（孤儿容器清理 ${cleaned} 个）`)
+  } else {
+    console.warn(`[agent-platform] 沙盒不可用（enabled=${sandboxStatus.enabled} dockerOk=镜像缺失或 docker 不可用）——agent 文件/命令工具将返回「沙盒不可用」禁用`)
+  }
+
   // ── 公开 API（无需登录） ───────────────────────────────
   registerAuthRoutes(app)
 

@@ -37,6 +37,8 @@ export interface AgentRunnerConfig {
   allowFileTools?: boolean
   /** 是否允许命令执行 */
   allowCommandExec?: boolean
+  /** 是否允许网络访问（默认 false → --network none） */
+  allowNetwork?: boolean
 }
 
 interface TokenCounter {
@@ -114,10 +116,10 @@ function truncateMessages(
 /**
  * 构建执行上下文：技能注册表 + 框架 AgentTool[]（run 分发到 skillRegistry / 全局工具注册表）
  */
-function buildToolContext(
+async function buildToolContext(
   ctx: AppCtx,
   config: AgentRunnerConfig,
-): { tools: AgentTool[]; skillRegistry?: SkillRegistry } {
+): Promise<{ tools: AgentTool[]; skillRegistry?: SkillRegistry }> {
   // 构建工具集：agent 声明工具 + 技能工具 + 工作空间工具——按工具名去重
   // （真实事故：内置工具 search_knowledge_base 既在 agent.tools 又在绑定技能里 →
   //  重复声明 → DeepSeek API 400 → streamStep 静默空内容 → AI 回复为空）
@@ -143,14 +145,15 @@ function buildToolContext(
     }
   }
 
-  // 解析工作空间路径（始终使用内置目录，忽略用户自定义）
+  // 解析工作空间路径（默认 {root}/{agent_id}/，或自定义路径）
   if (config.allowFileTools) {
-    const resolvedWs = config.workspacePath ?? null
+    // 始终解析实际路径（自定义 null → 默认目录）——修复：buildToolContext 此前只看自定义路径导致默认路径工具不注册
+    const resolvedWs = await resolveAgentWorkspace(config.agentId, config.workspacePath, true)
     if (resolvedWs) {
       const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
       pushUnique(wsTools)
       try {
-        const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false)
+        const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false, config.agentId, config.allowNetwork)
         if (!skillRegistry) skillRegistry = new SkillRegistry(config.agentId)
         skillRegistry.registerSkill({
           dir: resolvedWs,
@@ -205,7 +208,7 @@ export async function runAgent(
     8000,
   )
 
-  const { tools } = buildToolContext(ctx, config)
+  const { tools } = await buildToolContext(ctx, config)
 
   const startTime = Date.now()
 
@@ -276,8 +279,9 @@ export async function streamAgentPreview(
     workspacePath: agent.workspace_path,
     allowFileTools: agent.allow_file_tools,
     allowCommandExec: agent.allow_command_exec,
+    allowNetwork: agent.allow_network,
   }
-  const { tools: builtTools } = buildToolContext(ctx, config)
+  const { tools: builtTools } = await buildToolContext(ctx, config)
   const agentRunner = ai.agent({
     model: config.model,
     systemPrompt: config.systemPrompt,
@@ -327,7 +331,7 @@ export async function streamAgent(
   },
 ): Promise<WfUsage | undefined> {
   const { ai } = ctx
-  const { tools } = buildToolContext(ctx, config)
+  const { tools } = await buildToolContext(ctx, config)
 
   const agentRunner = ai.agent({
     model: config.model,

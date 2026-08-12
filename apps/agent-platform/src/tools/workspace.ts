@@ -1,24 +1,26 @@
 /**
  * 工作空间工具集 — read/write/edit/grep/list_files/bash
  *
- * 所有文件操作限制在 workspace_path 范围内（禁止 `../` 跳出）
- * bash 执行需要 allow_command_exec = true
- * 全部使用异步 I/O，不阻塞事件循环（符合 PS-01）
+ * 安全边界 = Docker 沙盒容器（S4/S5）：所有工具操作经容器内 tool-runner.js 执行
+ * （agent 看到统一的容器内 /ws 视图；路径穿越即使有 bug 也逃不出卷挂载——纵深防御）
+ * 宿主侧只做参数透传 + 容器调用，不再直接 fs/bash
  */
 
-import { readFile, writeFile, readdir, mkdir, stat } from 'node:fs/promises'
-import { join, relative, resolve, normalize, sep, dirname } from 'node:path'
-import { exec } from 'node:child_process'
+import { resolve } from 'node:path'
 import type { ToolDefinition } from '../ai/types.ts'
+import { sandbox } from '../sandbox/docker.ts'
 
 // ── 工具定义 ───────────────────────────────────────────────
+
+// 提示词引导（体验关键）：/ws 是唯一持久位置
+const WS_GUIDE = '工作目录为 /ws（沙盒卷挂载）——所有文件/依赖放这里（容器重建后保留）；容器根目录为瞬态不保留。'
 
 export const WORKSPACE_TOOL_DEFS: ToolDefinition[] = [
   {
     type: 'function',
     function: {
       name: 'read',
-      description: '读取文件内容。使用相对路径（相对于工作空间根目录）。',
+      description: `读取文件内容。使用相对路径（相对于工作空间根目录 /ws）。${WS_GUIDE}`,
       parameters: {
         type: 'object',
         properties: {
@@ -32,7 +34,7 @@ export const WORKSPACE_TOOL_DEFS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'write',
-      description: '写入或创建文件。使用相对路径（相对于工作空间根目录）。',
+      description: `写入或创建文件。使用相对路径（相对于工作空间根目录 /ws）。${WS_GUIDE}`,
       parameters: {
         type: 'object',
         properties: {
@@ -47,7 +49,7 @@ export const WORKSPACE_TOOL_DEFS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'edit',
-      description: '对文件进行精确文本替换。使用相对路径。',
+      description: `对文件进行精确文本替换。使用相对路径。${WS_GUIDE}`,
       parameters: {
         type: 'object',
         properties: {
@@ -93,11 +95,13 @@ export const BASH_TOOL_DEF: ToolDefinition = {
   type: 'function',
   function: {
     name: 'bash',
-    description: '在工作空间目录中执行 shell 命令。支持运行脚本、编译、测试等。超时 30 秒，输出上限 100KB。',
+    description: '在工作空间目录 /ws 中执行 shell 命令。支持运行脚本、编译、测试等。超时 30 秒，输出上限 100KB。' +
+      '沙盒默认无网络（--network none）——npm install/curl 等网络命令会失败；如需网络请管理员在 Agent 配置开启 allow_network。' +
+      '所有文件/依赖放 /ws（容器重建后保留）；容器根目录为瞬态不保留。',
     parameters: {
       type: 'object',
       properties: {
-        command: { type: 'string', description: '要执行的 shell 命令' },
+        command: { type: 'string', description: '要执行的 shell 命令（工作目录 /ws）' },
         description: { type: 'string', description: '命令的目的说明（仅用于日志）' },
       },
       required: ['command'],
@@ -105,274 +109,41 @@ export const BASH_TOOL_DEF: ToolDefinition = {
   },
 }
 
-// ── 安全校验 ───────────────────────────────────────────────
-
-/** 高危命令模式列表 */
-const DANGEROUS_PATTERNS = [
-  /^sudo\s/, /^su\s/, /chmod\s+777/, /chown\b/,
-  /\s+>\s+\/dev\//, /\s+>\s+\/etc\//,
-]
+// ── Handler 工厂（S4/S5：参数透传 + 容器调用） ─────────────
 
 /**
- * 将相对路径解析为工作空间内的绝对路径
- * 检查路径是否跳出工作空间（路径穿越攻击防护）
- */
-function resolveWorkspacePath(workspace: string, relPath: string): string {
-  const resolved = resolve(join(workspace, relPath))
-  const normalized = normalize(resolved)
-  const wsNormalized = normalize(resolve(workspace))
-
-  if (!normalized.startsWith(wsNormalized + sep) && normalized !== wsNormalized) {
-    throw new Error(`路径 "${relPath}" 超出了工作空间范围`)
-  }
-  return normalized
-}
-
-// ── Helper: 用 Promise 包装 exec ──────────────────────────
-
-function execAsync(
-  command: string,
-  options: { cwd: string; timeout: number; maxBuffer: number },
-): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = exec(command, {
-      cwd: options.cwd,
-      timeout: options.timeout,
-      maxBuffer: options.maxBuffer,
-      env: { ...process.env, PATH: process.env.PATH! },
-    }, (error, stdout, stderr) => {
-      if (error) {
-        // 超时或其他错误
-        reject(error)
-      } else {
-        resolve({ stdout: stdout ?? '', stderr: stderr ?? '' })
-      }
-    })
-  })
-}
-
-// ── Handler 工厂 ───────────────────────────────────────────
-
-/**
- * 创建工作空间工具的 handlers
- * @param workspace 工作空间根目录绝对路径
+ * 创建工作空间工具的 handlers（全部经沙盒容器执行）
+ * @param workspace 工作空间根目录绝对路径（宿主——容器卷挂载源）
  * @param allowCommandExec 是否允许 bash 执行
+ * @param agentId agent UUID（容器命名/卷挂载归属）
+ * @param allowNetwork 是否允许网络（--network bridge）
  */
 export function createWorkspaceHandlers(
   workspace: string,
   allowCommandExec: boolean,
+  agentId: string,
+  allowNetwork?: boolean,
 ): Record<string, (args: Record<string, unknown>) => Promise<string>> {
   const ws = resolve(workspace)
 
-  const handlers: Record<string, (args: Record<string, unknown>) => Promise<string>> = {
-
-    // ── read ────────────────────────────────────────────
-    read: async (args: Record<string, unknown>) => {
-      const relPath = String(args.path ?? '')
-      if (!relPath) return '请提供文件路径'
-      let absPath: string
-      try {
-        absPath = resolveWorkspacePath(ws, relPath)
-      } catch (err: any) {
-        return `读取失败: ${err.message}`
-      }
-      try {
-        const content = await readFile(absPath, 'utf-8')
-        if (content.length === 0) return '(空文件)'
-        const maxLen = 50000
-        if (content.length > maxLen) {
-          return content.slice(0, maxLen) + `\n\n... (文件过长，截断至 ${maxLen} 字符，总长 ${content.length})`
-        }
-        return content
-      } catch (err: any) {
-        return `读取失败: ${err.message}`
-      }
-    },
-
-    // ── write ───────────────────────────────────────────
-    write: async (args: Record<string, unknown>) => {
-      const relPath = String(args.path ?? '')
-      const content = String(args.content ?? '')
-      if (!relPath) return '请提供文件路径'
-      let absPath: string
-      try {
-        absPath = resolveWorkspacePath(ws, relPath)
-      } catch (err: any) {
-        return `写入失败: ${err.message}`
-      }
-
-      try {
-        await mkdir(dirname(absPath), { recursive: true })
-        await writeFile(absPath, content, 'utf-8')
-        return `已写入 ${relPath} (${content.length} 字符)`
-      } catch (err: any) {
-        return `写入失败: ${err.message}`
-      }
-    },
-
-    // ── edit ────────────────────────────────────────────
-    edit: async (args: Record<string, unknown>) => {
-      const relPath = String(args.path ?? '')
-      const oldText = String(args.oldText ?? '')
-      const newText = String(args.newText ?? '')
-      if (!relPath || !oldText) return '请提供文件路径和 oldText'
-      let absPath: string
-      try {
-        absPath = resolveWorkspacePath(ws, relPath)
-      } catch (err: any) {
-        return `编辑失败: ${err.message}`
-      }
-
-      try {
-        const content = await readFile(absPath, 'utf-8')
-        const idx = content.indexOf(oldText)
-        if (idx === -1) return '未找到匹配的 oldText，请精确匹配'
-        const newContent = content.replace(oldText, newText)
-        await writeFile(absPath, newContent, 'utf-8')
-        return `已编辑 ${relPath} (替换了 ${oldText.length} → ${newText.length} 字符)`
-      } catch (err: any) {
-        return `编辑失败: ${err.message}`
-      }
-    },
-
-    // ── grep ────────────────────────────────────────────
-    grep: async (args: Record<string, unknown>) => {
-      const pattern = String(args.pattern ?? '')
-      const relPath = args.path ? String(args.path) : '.'
-      if (!pattern) return '请提供搜索模式'
-      let absPath: string
-      try {
-        absPath = resolveWorkspacePath(ws, relPath)
-      } catch (err: any) {
-        return `搜索失败: ${err.message}`
-      }
-
-      try {
-        const results: Array<{ file: string; line: number; text: string }> = []
-
-        async function searchFile(filePath: string, relToWs: string) {
-          try {
-            const content = await readFile(filePath, 'utf-8')
-            const lines = content.split('\n')
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i].includes(pattern)) {
-                results.push({ file: relToWs, line: i + 1, text: lines[i].trim().slice(0, 200) })
-              }
-            }
-          } catch { /* 跳过无法读取的文件 */ }
-        }
-
-        async function searchDir(dirPath: string, relToWs: string) {
-          try {
-            const entries = await readdir(dirPath, { withFileTypes: true })
-            for (const entry of entries) {
-              const fullPath = join(dirPath, entry.name)
-              const relPath2 = join(relToWs, entry.name)
-              if (entry.isDirectory()) {
-                if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
-                  await searchDir(fullPath, relPath2)
-                }
-              } else if (entry.isFile()) {
-                await searchFile(fullPath, relPath2)
-              }
-            }
-          } catch { /* 跳过 */ }
-        }
-
-        const st = await stat(absPath)
-        if (st.isDirectory()) {
-          await searchDir(absPath, relPath === '.' ? '' : relPath)
-        } else {
-          await searchFile(absPath, relPath)
-        }
-
-        if (results.length === 0) return '未找到匹配'
-        const top10 = results.slice(0, 10)
-        let output = top10.map(r => `${r.file}:${r.line} | ${r.text}`).join('\n')
-        if (results.length > 10) {
-          output += `\n... 还有 ${results.length - 10} 处匹配`
-        }
-        return output
-      } catch (err: any) {
-        return `搜索失败: ${err.message}`
-      }
-    },
-
-    // ── list_files ──────────────────────────────────────
-    list_files: async (args: Record<string, unknown>) => {
-      const relPath = args.path ? String(args.path) : '.'
-      let absPath: string
-      try {
-        absPath = resolveWorkspacePath(ws, relPath)
-      } catch (err: any) {
-        return `列出目录失败: ${err.message}`
-      }
-      try {
-        const entries = await readdir(absPath, { withFileTypes: true })
-        const items: string[] = []
-
-        for (const entry of entries) {
-          const fullPath = join(absPath, entry.name)
-          if (entry.isDirectory()) {
-            items.push(`📁 ${entry.name}/`)
-          } else {
-            try {
-              const st = await stat(fullPath)
-              const sizeStr = st.size > 1024 ? `${(st.size / 1024).toFixed(1)}KB` : `${st.size}B`
-              items.push(`📄 ${entry.name} (${sizeStr})`)
-            } catch {
-              items.push(`📄 ${entry.name}`)
-            }
-          }
-        }
-
-        items.sort()
-        if (items.length === 0) return '(空目录)'
-        return items.join('\n')
-      } catch (err: any) {
-        return `列出目录失败: ${err.message}`
-      }
-    },
+  // 容器内工具执行（统一入口）
+  const runInSandbox = async (tool: string, args: Record<string, unknown>): Promise<string> => {
+    const r = await sandbox.runTool(agentId, ws, tool, args, allowNetwork)
+    if (r.ok) return r.output ?? ''
+    // 诚实裁剪：沙盒不可用 → 明确错误（绝不静默回退宿主）
+    return `沙盒错误: ${r.error ?? 'unknown'}`
   }
 
-  // ── bash（可选） ──────────────────────────────────────
+  const handlers: Record<string, (args: Record<string, unknown>) => Promise<string>> = {
+    read: (a) => runInSandbox('read', a),
+    write: (a) => runInSandbox('write', a),
+    edit: (a) => runInSandbox('edit', a),
+    grep: (a) => runInSandbox('grep', a),
+    list_files: (a) => runInSandbox('list_files', a),
+  }
+
   if (allowCommandExec) {
-    handlers.bash = async (args: Record<string, unknown>) => {
-      const command = String(args.command ?? '')
-      if (!command) return '请提供命令'
-
-      // 高危命令检查
-      for (const pattern of DANGEROUS_PATTERNS) {
-        if (pattern.test(command)) {
-          return `命令包含高危操作 "${pattern.source}"，已拒绝执行`
-        }
-      }
-
-      try {
-        const { stdout, stderr } = await execAsync(command, {
-          cwd: ws,
-          timeout: 30000,
-          maxBuffer: 100 * 1024,
-        })
-        const output = (stdout ?? '').trim()
-        const errOutput = (stderr ?? '').trim()
-
-        let result = ''
-        if (output) {
-          const maxOutput = 10000
-          result += output.length > maxOutput
-            ? output.slice(0, maxOutput) + `\n... (输出过长，截断至 ${maxOutput} 字符，总长 ${output.length})`
-            : output
-        }
-        if (errOutput) {
-          result += result ? `\n\n--- stderr ---\n${errOutput}` : errOutput
-        }
-        return result || '命令执行成功（无输出）'
-      } catch (err: any) {
-        if (err.killed) return '命令执行超时（30s）'
-        return `命令执行失败: ${err.stderr ?? err.message}`
-      }
-    }
+    handlers.bash = (a) => runInSandbox('bash', a)
   }
 
   return handlers
