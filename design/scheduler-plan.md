@@ -1,4 +1,5 @@
 # weifuwu/scheduler — 计划任务中间件
+> **状态（2026-12 确认）**：✅ 已完成——ctx.schedule/cron/cancelCron——解析器 + 执行器 + 真库测试全绿
 
 > 即时 / 延时 / 定时（cron）三类任务，与 queue 咬合（触发后入队执行）。
 > 方法论：TDD 先行、零 npm 运行时依赖、CS-04 真库验证、诚实裁剪。

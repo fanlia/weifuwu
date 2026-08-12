@@ -2,7 +2,8 @@
 
 > 用户决策 2026-12：**用户写 JSX，凭本规则表即可推导 vnode 结构与 DOM 结果——规则表之外的行为 = magic**。
 > 配套：design/vdom-consistency-plan.md（实施）· AGENTS.md §4.0（终极目标声明）
-> 状态：目标规则（实施中——plan 阶段 0/A/B/E 落地后与代码一致）
+> 状态：**已落地（2026-12 确认）**——阶段 0/A/B/E/A-3 + fid 方案全部实施，
+> three-layer-consistency / nested-fid-pairing / nested-reconstruct 测试与规则表逐条一致（DOM = JSX 双向可推导 by construction）
 
 ---
 

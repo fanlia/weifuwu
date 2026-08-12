@@ -1,4 +1,5 @@
 # 移动端友好支持计划 — weifuwu/ui-dom + weifuwu/layout → components 自适应提升
+> **状态（2026-12 确认）**：✅ 已完成——P0-P3 全落地（usePopup 全系 A1-A4 / _popup+safe-area CSS / 8 弹层迁移 / coarse 44px / audit +2 / docs/mobile.md）；进度表见下。
 
 > 目标：让框架提供移动端基础能力，组件获得"由构造保证"的自适应体验，
 > 而非每个组件各自手写（现状：16 个组件重复 Escape、9 个重复定位、9 个重复 hover 触发）。

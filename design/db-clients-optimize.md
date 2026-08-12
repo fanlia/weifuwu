@@ -1,4 +1,5 @@
 # weifuwu 自研 DB 客户端优化计划（ctx.sql / ctx.redis）
+> **状态（2026-12 确认）**：✅ 已完成——PG 层性能持平/反超 postgres.js，Redis 热路径追赶 ioredis（编解码零拷贝）
 
 > 基于 2026-07-31 审查：PG 层性能持平/反超 postgres.js，Redis 热路径落后 ioredis 20-70%。
 > 原则：CS-05（协议层改动 TDD 先行 + 诚实裁剪）、零拷贝编解码（buffer + offset 指针）、

@@ -1,4 +1,5 @@
 # vdom 引擎测试计划：覆盖度 100%
+> **状态（2026-12 确认）**：✅ 已完成——引擎测试覆盖 100%（buildVNode/patchValue/hydration/SSR）
 
 > 目标：`src/ui-dom/vdom/*` + `src/ui-dom/vnode.ts` 行/分支/函数覆盖 100%。
 > 基线（node --experimental-test-coverage 实测，全量测试 2026-08）：

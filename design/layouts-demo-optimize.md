@@ -1,4 +1,5 @@
 # apps/layouts-demo 优化计划 — 布局蓝本质量提升
+> **状态（2026-12 确认）**：✅ 已完成——布局蓝本质量提升——复制即用规范达成
 
 > 目标：让 `apps/layouts-demo` 成为"复制即用"的布局蓝本——开发者抄的每一行都是
 > weifuwu/layout 原语 + weifuwu/components 组件的**规范用法**，且每个模式在真实

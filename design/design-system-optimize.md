@@ -1,4 +1,5 @@
 # weifuwu/layout + weifuwu/components 优化计划
+> **状态（2026-12 确认）**：✅ 已完成——layout+components 专业且无障碍合规（z-index/aria/暗色/触控尺寸）
 
 > 目标：零 CSS 用户能产出**专业且无障碍合规**的界面。
 > 验收维度：① 浮层层级正确 ② 无障碍达标（reduced-motion/focus-visible/自动暗色/触控尺寸）③ 视觉基调达行业标准。

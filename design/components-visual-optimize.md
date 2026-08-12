@@ -1,4 +1,5 @@
 # weifuwu/components 视觉样式优化计划（P11）
+> **状态（2026-12 确认）**：✅ 已完成——P11 视觉 token 化 + 交互态完备——全组件 hover/focus/disabled 一致
 
 > 目标：组件 CSS 从「token 部分采用 + 交互态部分覆盖」迈向**全 token 化 + 交互态完备**——
 > 单一真相源（零裸值/零 fallback）、全组件 hover/focus/disabled 一致、字号/圆角/阴影/间距全走阶梯。

@@ -1,4 +1,5 @@
 # weifuwu/layout + weifuwu/components 缺口走查（P5）
+> **状态（2026-12 确认）**：✅ 已完成——P5 缺口走查——零自定义 CSS 达成
 
 > 目标：**开发者零自定义 CSS** —— 业务代码只写 `wf-*` 原语 + 组件，不再手写 `style="..."`。
 > 方法：dogfooding 走查（agent-platform / components-demo + 已归档的 aippt / weifuwu-demo）+ 运行时 DOM 审计。

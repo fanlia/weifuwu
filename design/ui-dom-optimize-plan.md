@@ -1,6 +1,8 @@
 # ui-dom 优化计划
 
-> **状态（2026-10）**：基础能力齐备（嵌套路由/组件重渲染/SSR/hydration/keyed，19 测试绿 + 冒烟）。
+> **状态（2026-12 确认）**：⚠️ **已过时**——本计划基于 **v1 引擎 `$` 赋值时代**（O1 丢更新/O2 registry 泄漏/O3 stale response 均为 v1 机制问题）。
+> v1 已完全退役（render-only-plan.md），v2 vdom 引擎全面接管（AGENTS.md §4.0）——O1 被 render-only 显式 `render()` 取代、
+> O2 生命周期由 vdom mount/diff 管理、O3 竞态由 buildVNode 原子切换解决。仅保留历史参考价值。
 > 本计划按优先级消除真实缺口（诊断测试为证），先修 P0（正确性），再 P1/P2（性能/健壮性）。
 
 ## 诊断依据（实测）

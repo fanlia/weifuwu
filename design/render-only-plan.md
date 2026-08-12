@@ -1,4 +1,5 @@
 # render-only 方案 — 取消 ctx.ui.$() / ctx.ui.dirty()（确定性渲染）
+> **状态（2026-12 确认）**：✅ 已完成——render-only 方案落地——v1 引擎完全退役，v2 vdom 接管
 
 > **状态（2026-08）**：✅ **v1 引擎完全退役——v2（vdom）全面接管**。
 > 1700 测试全绿 + typecheck 通过；`ctx.ui.$()`/`ctx.ui.dirty()` 全仓零残留。

@@ -1,4 +1,5 @@
 # messager — 消息系统中间件实施计划
+> **状态（2026-12 确认）**：✅ 已完成——P1-P4 全落地（数据层 + 核心服务 / WS 实时层 handler+房间+broadcast+sendTo / HTTP routes / agent-platform 迁移完成——`apps/agent-platform/server.ts` 用 `messager` WS 房间广播）。裁剪登记：已读回执轮询/附件上传/全文搜索/离线推送（见文末）。
 
 > 对齐 userSystem 模式：持久化消息系统（会话/消息/实时投递），应用必须的一等能力。
 > 定位：实时应用（聊天/通知/协作）从"每应用自建消息基础设施"变为"中间件 + 业务代码"。

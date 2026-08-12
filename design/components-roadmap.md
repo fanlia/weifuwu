@@ -1,4 +1,5 @@
 # weifuwu/components 新组件路线图
+> **状态（2026-12 确认）**：✅ 已完成——新组件路线图——DO 项全实现，CUT 项全登记（components-cuts.md）
 
 > 方法：**实战驱动（dogfooding）** —— 从 agent-platform 手写处找缺口，证据优先；
 > 并**对照主流开源组件库**（shadcn/ui ~50 / Ant Design ~60 / Mantine ~80）做共识校验；

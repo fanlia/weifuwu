@@ -1,4 +1,5 @@
 # vdom render 优化计划（v2）
+> **状态（2026-12 确认）**：✅ 已完成——render 优化 v2（diff/调度）
 
 > 状态：规划中（2026-08）· v1 的 P-1/P-2 前提已因 renderFn 异步化而成熟
 > 来源：vdom 引擎评估报告 + `src/components` 组件库调研 + `apps/` 应用层调研

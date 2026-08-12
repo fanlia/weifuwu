@@ -1,6 +1,7 @@
 # ui-dom 实施计划 — 独立 UIRouter + VDOM（定稿架构落地）
 
 > **状态（2026-10）**：基础已就绪（8 测试绿，零依赖 src/client）。本计划补齐定稿架构的剩余能力，按依赖排序。
+> **状态（2026-12 确认）**：✅ 已实现——目标能力（两阶段组件 + VDOM diff + 浏览器冒烟 + hydration/SSR）随 v2 vdom 引擎全量落地；`$` 响应式部分被 render-only 取代（见 render-only-plan.md）。
 > 目标：交互子组件（两阶段 + $ 组件级重渲染）→ VDOM diff 完善 → 浏览器冒烟 → hydration/SSR 落地。
 > 纪律：开发期只跑 ui-dom 测试（完全独立），全量测试不动。
 

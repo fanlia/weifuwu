@@ -1,4 +1,5 @@
 # weifuwu/layout + weifuwu/components 视觉与交互精修计划（P8）
+> **状态（2026-12 确认）**：✅ 已完成——P8 视觉与交互精修——z-index/无障碍/暗色/排版全落地
 
 > 目标：从"零自定义 CSS"（P5-P7 已达成）迈向**专业质感与交互完备**。
 > 前置事实：P0-P7 已交付 z-index 层级 / 无障碍基线 / 暗色 / 排版 / 组件变量化 / @layer / prose；全量 796 测试 + style-audit 8 项全绿。

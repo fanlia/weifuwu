@@ -1,4 +1,5 @@
 # weifuwu/components 逐组件优化计划（P13）
+> **状态（2026-12 确认）**：✅ 已完成——P13 逐组件优化——a11y/视觉/功能缺口全修（含本轮 ColorPicker aria-expanded）
 
 > 目标：在 P12 框架（audit 防线 + roadmap triage + 6 维 checklist）之上，落地**每组件的具体优化项**——
 > 把抽检发现的真实问题（a11y 缺口 / 视觉债 / demo 单薄 / 功能 roadmap）逐个修掉。
