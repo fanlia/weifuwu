@@ -18,6 +18,7 @@ import type { VNode, VNodeChild, Component } from '../vnode.ts'
 import type { WfuiContext } from '../types.ts'
 import { Fragment, arrayChildren } from '../vnode.ts'
 import { ensureId, type Registry } from './registry.ts'
+import { trace, traceEnabled, kidsSeq, vnDesc } from './trace.ts'
 
 /** 组件 props 浅比较（三态 skip 判定） */
 export function componentPropsEqual(a: Record<string, any>, b: Record<string, any>): boolean {
@@ -121,6 +122,7 @@ export function buildVNode(
   if (Array.isArray(input)) {
     // 数组项 = 隐式 Fragment：vnode 保持用户结构（不展开——层级独立 key，规则表 §3-46）。
     // 外层数组项 key：元素/组件项赋外层下标；数组项（内层数组）递归构建时独立分配（不跨层）
+    if (traceEnabled('build')) trace('build', 'debug', '', `array in  kids=${kidsSeq(input)}`)
     for (let i = 0; i < input.length; i++) {
       const c = input[i]
       if (c != null && typeof c === 'object' && !Array.isArray(c)) {
@@ -131,6 +133,7 @@ export function buildVNode(
     }
     const oldArr = Array.isArray(oldInput) ? oldInput : []
     const jobs = input.map((c, i) => buildVNode(c, ctx, oldArr[i], reg, opts))
+    if (traceEnabled('build')) trace('build', 'debug', '', `array out kids=${kidsSeq(input)}`)
     // 全同步（剪枝/文本/已构建 native）→ 零微任务直接返回；含异步项 → Promise.all 并行
     let hasAsync = false
     for (let i = 0; i < jobs.length; i++) {
@@ -173,9 +176,11 @@ export function buildVNode(
     if (!opts?.force && propsSame && verSame && oldV?._child != null) {
       vnode._child = oldV._child
       vnode._ctxVersion = oldV._ctxVersion
+      if (traceEnabled('build')) trace('build', 'debug', '', `prune comp=${vnDesc(vnode)} propsSame=${propsSame} verSame=${verSame}`)
       return vnode
     }
     // ── 完整路径：mountAsyncComponent（await 工厂——组件两阶段异步契约不变） ──
+    if (traceEnabled('build')) trace('build', 'debug', '', `mount comp=${vnDesc(vnode)} propsSame=${propsSame} verSame=${verSame} force=${!!opts?.force}`)
     return (async () => {
       const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? undefined })
       const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry)
@@ -186,6 +191,7 @@ export function buildVNode(
   }
 
   if (vnode.type === Fragment) {
+    if (traceEnabled('build')) trace('build', 'debug', '', `fragment kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
     const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?._child ?? oldV?.props?.children, registry)
     if (isThenable(r)) {
       return r.then((built) => { vnode._child = (built ?? null) as VNode | VNode[] | null; return vnode })
@@ -196,6 +202,7 @@ export function buildVNode(
 
   // Native：递归 children（旧树同位置对照复用）——children 同步时同步设置 _child
   if (typeof vnode.type === 'string' || typeof vnode.type === 'symbol') {
+    if (traceEnabled('build')) trace('build', 'trace', '', `native <${String(vnode.type)}> kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
     const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?.props?.children, registry)
     if (isThenable(r)) {
       return r.then((built) => { vnode._child = (built ?? null) as VNode | VNode[] | null; return vnode })

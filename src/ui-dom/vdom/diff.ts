@@ -24,6 +24,7 @@ function disposeComponent(vnode: VNode, registry?: Registry): void {
   }
 }
 import { renderValue, setProp, EVENT_RE, createHole, eventTarget } from './render.ts'
+import { trace, traceEnabled, kidsSeq, vnDesc, nodeDesc, childNodesSeq } from './trace.ts'
 
 
 /** 从 vnode 取稳定 key（Portal 内部 key 不算用户 keyed） */
@@ -44,6 +45,57 @@ function collectChildNodes(newC: VNodeChild, node: Node | null): (Node | null)[]
     if (nodes && nodes.length) return nodes
   }
   return [node]
+}
+
+/** 递归 dispose 子树里的组件（Fragment/数组展开）——整体移除时组件状态清理（卸载钩子/ref） */
+function disposeSubtree(v: VNode, registry?: Registry): void {
+  const kids = arrayChildren((v.props as any)?.children)
+  for (const c of kids) {
+    if (c == null || typeof c !== 'object' || Array.isArray(c)) continue
+    const cv = c as VNode
+    if (typeof cv.type === 'function') disposeComponent(cv, registry)
+    else if (cv.type === Fragment || typeof cv.type === 'string' || typeof cv.type === 'symbol') disposeSubtree(cv, registry)
+  }
+}
+
+/**
+ * 移除旧输出的全部 DOM（Fragment 展开多节点 + Portal 容器）并做组件/ref 清理。
+ * @returns 移除后应插入新节点的位置（范围后兄弟；null = append 末尾）
+ * 真实 bug：Frag→div 类型切换只 replaceChild 锚点 → Fragment 其余节点（holes/标记/数组项）残留
+ * （frag-native-switch trace 定位 2026-12；同逻辑覆盖 Frag→null/Portal→null）
+ */
+function removeOldOutput(oldInput: VNodeChild, oldNode: Node | null, parent: Node, ctx: PatchCtx): Node | null {
+  let ref: Node | null = null
+  if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput)) {
+    const ov = oldInput as VNode
+    if (ov.type === Fragment) {
+      const fragNodes = ov._childNodes ?? []
+      // 范围后兄弟（fragment-end 之后）——移除前捕获（fragNodes 空时回退 oldNode 兄弟）
+      ref = (fragNodes[fragNodes.length - 1] ?? oldNode)?.nextSibling ?? null
+      for (const n of fragNodes) if (n.parentNode) n.parentNode.removeChild(n)
+      disposeSubtree(ov, ctx.registry)
+      return ref && ref.parentNode === parent ? ref : null
+    }
+    if (ov.type === Portal) {
+      // 递归清理 portal 内容的 ref（Modal root div 的 rootRef → unlockScroll；
+      // 直接 removeChild 会跳过 ref(null) → 滚动锁泄漏 → body overflow 卡 hidden）
+      const remoteEl = ov._remoteEl
+      try { callRefCleanupFor(ov.props?.children, ctx.registry as any) } catch (e) { console.error('[weifuwu] portal ref cleanup error', e) }
+      remoteEl?.parentNode?.removeChild(remoteEl)
+      return null
+    }
+    if (typeof ov.type === 'function') {
+      // 组件：完整 dispose（ref 清理 + 卸载钩子）
+      disposeComponent(ov, ctx.registry)
+    } else {
+      // 原生元素：ref(null) 清理（Modal root div 移除时若不调 ref(null)——usePopup 的
+      // portalPanelRef 依赖它 unlockScroll——滚动锁泄漏 → body overflow 卡 hidden）
+      try { callRefCleanupFor(ov, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
+    }
+  }
+  ref = oldNode?.nextSibling ?? null
+  if (oldNode?.parentNode) oldNode.parentNode.removeChild(oldNode)
+  return ref && ref.parentNode === parent ? ref : null
 }
 
 export interface PatchCtx {
@@ -91,26 +143,9 @@ export function patchValue(
     return t
   }
   if (newInput == null || typeof newInput === 'boolean') {
-    // 旧输出是 Portal（remote）→ 移除 remote 容器（vdom renderValue 在 #__wf_portal）
-    if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) && (oldInput as VNode).type === Portal) {
-      const remoteEl = (oldInput as VNode)._remoteEl
-      // 递归清理 portal 内容的 ref（Modal root div 的 rootRef → unlockScroll；
-      // 直接 removeChild 会跳过 ref(null) → 滚动锁泄漏 → body overflow 卡 hidden）
-      try { callRefCleanupFor((oldInput as VNode).props?.children, ctx.registry as any) } catch (e) { console.error('[weifuwu] portal ref cleanup error', e) }
-      remoteEl?.parentNode?.removeChild(remoteEl)
-      return null
-    }
-    if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput)) {
-      // 组件：完整 dispose（ref 清理 + 卸载钩子）；原生元素：ref(null) 清理
-      // （Modal root div 移除时若不调 ref(null)——usePopup 的 portalPanelRef 依赖它 unlockScroll——
-      //   滚动锁泄漏 → body overflow 卡 hidden → 滑动条消失）
-      if (typeof (oldInput as VNode).type === 'function') {
-        disposeComponent(oldInput as VNode, ctx.registry)
-      } else {
-        try { callRefCleanupFor(oldInput as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
-      }
-    }
-    if (oldNode?.parentNode) oldNode.parentNode.removeChild(oldNode)
+    // 整体移除旧输出（Fragment 展开多节点/Potal 容器/组件 dispose/ref 清理——
+    // 旧实现只 removeChild 锚点 → Fragment 其余节点残留）
+    removeOldOutput(oldInput, oldNode, parent, ctx)
     return null
   }
   if (Array.isArray(newInput)) {
@@ -159,6 +194,26 @@ export function patchValue(
   // Fragment
   if (newV.type === Fragment) {
     const oldV = oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) ? (oldInput as VNode) : null
+    // 非 Fragment → Fragment：整体替换（旧输出移除 + 新 Fragment 渲染插入到旧位置）——
+    // 旧实现把 div 的 children 当 Fragment children diff（source=parent.childNodes）→ 整容器错位
+    // （frag-native-switch：编辑视图 div → 列表 Fragment 返回时残留/错位）
+    if (!oldV || oldV.type !== Fragment) {
+      const frag = renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
+      if (frag == null) return null
+      // insertBefore/appendChild 会展开 DocumentFragment（childNodes 清空）——**先捕获节点**
+      // （frag-native-switch：插入后读 frag.childNodes 得空数组 → _childNodes=[]、返回 null →
+      //   keyed 分支 lastDom 不更新 → 后续兄弟被位置校正移到错误位置）
+      const fragNodes = Array.from(frag.childNodes) as Node[]
+      if (oldNode?.parentNode) {
+        const ref = removeOldOutput(oldInput, oldNode, parent, ctx)
+        if (ref) parent.insertBefore(frag, ref)
+        else parent.appendChild(frag)
+      } else {
+        parent.appendChild(frag)
+      }
+      newV._childNodes = fragNodes
+      return fragNodes[0] ?? null
+    }
     const oldRange = oldV?._childNodes
     // oldInput 传旧 Fragment 的 props.children（旧 vnode 本身会导致 oldChildren 错位 1 项
     // ——[fragV] vs [b1,b2] → 替换路径新建节点 → 重复残留；diff-fragment 真实 bug）
@@ -232,6 +287,14 @@ export function patchValue(
   if (node == null) return null
   if (oldNode?.parentNode) {
     if (oldInput != null && typeof oldInput !== 'boolean') {
+      // Fragment → 非 Fragment：整体替换——旧实现只 replaceChild 锚点 → Fragment 其余节点残留
+      // （frag-native-switch：列表 Fragment → 编辑 div 时 holes/标记/按钮残留）
+      if (typeof oldInput === 'object' && !Array.isArray(oldInput) && (oldInput as VNode).type === Fragment) {
+        const ref = removeOldOutput(oldInput, oldNode, parent, ctx)
+        if (ref) parent.insertBefore(node, ref)
+        else parent.appendChild(node)
+        return node
+      }
       // 替换（oldInput 存在——object/string/数组）：清理旧 ref（object 时）+ replaceChild。
       // 注意 oldInput 为 string（文本→元素）也必须 replaceChild——不能 insertBefore（旧文本残留）
       if (typeof oldInput === 'object' && !Array.isArray(oldInput)) {
@@ -361,6 +424,7 @@ export function patchChildren(
   const oldChildren = arrayChildren(oldInput)
   const newChildren = arrayChildren(newInput)
   const source = oldAnchors ?? oldRange ?? Array.from(parent.childNodes)
+  if (traceEnabled('diff')) trace('diff', 'debug', '', `patchChildren parent=${nodeDesc(parent)} old=${kidsSeq(oldChildren)} new=${kidsSeq(newChildren)} dom=${childNodesSeq(parent)}`)
 
   // 混合 keyed 数组（部分项有用户 key）：给无 key 项自动分配位置 key——
   // 否则 keyed 分支对无 key 项「移除旧 + 新建」→ 固定结构（表头/行标签等）每次 render 重建 → 闪烁。
@@ -379,6 +443,11 @@ export function patchChildren(
   // 必须含 oldChildren：旧数组项在 keyed 分支无匹配（getKey 对数组返回 undefined 不建 keyMap）
   // → 旧数组项消失（长度差/移除）被 keyed 忽略 → 残留（[c,d,[e,f]]→[c,d] 的 [e,f] 残留）
   const hasArrayItem = newChildren.some((c) => Array.isArray(c)) || oldChildren.some((c) => Array.isArray(c))
+  if (traceEnabled('diff')) trace('diff', 'debug', '', `mode=${hasUserKey && !hasArrayItem ? 'keyed' : 'unkeyed'} hasUserKey=${hasUserKey} hasArrayItem=${hasArrayItem}`)
+  // 数组项递归场景（oldRange 传入——数组项 vs 数组项配对分支）：旧数组项范围 = [start, 内容..., end] 标记。
+  // keyed/allUnkeyed 新增分支必须插到范围内（end 标记前），否则新内容插到容器首/尾
+  // （真实 bug：ARR(0)→ARR(2) 文件按钮跑到 Card children 最前——frag-arr-content-change trace 定位 2026-12）
+  const arrEnd = oldRange && oldRange.length ? oldRange[oldRange.length - 1] : null
   if (hasUserKey) {
     for (let i = 0; i < newChildren.length; i++) {
       const c = newChildren[i]
@@ -439,6 +508,7 @@ export function patchChildren(
     for (let i = 0; i < len; i++) {
       const oldC = i < oldChildren.length ? oldChildren[i] : null
       const newC = i < newChildren.length ? newChildren[i] : null
+      if (traceEnabled('diff')) trace('diff', 'trace', '', `pos ${i} old=${vnDesc(oldC)} new=${vnDesc(newC)} oldNode=${nodeDesc(oldNodes[i])}`)
       if (newC == null || typeof newC === 'boolean') {
         const on = oldNodes[i]
         const b = ctx.browser ?? createClientBrowser()
@@ -446,9 +516,12 @@ export function patchChildren(
         // 新数组没有该位置；占位法"长度恒定"只适用于数组内 false/null（长度不变时互转））
         if (i >= newChildren.length) {
           if (Array.isArray(oldC)) {
+            if (traceEnabled('diff')) trace('diff', 'trace', '', `remove-arr-item i=${i} range=[${rangeFor(oldNodes, i, parent).map(nodeDesc).join(' | ')}] before=${childNodesSeq(parent)}`)
+
             // 旧数组项（隐式 Fragment）整体移除：范围（含边界标记）+ 内层组件 dispose
             const range = rangeFor(oldNodes, i, parent)
             for (const n of range) n.parentNode?.removeChild(n)
+            if (traceEnabled('diff')) trace('diff', 'trace', '', `remove-arr-item after=${childNodesSeq(parent)}`)
             for (const sub of oldC) {
               if (sub != null && typeof sub === 'object' && !Array.isArray(sub) && typeof (sub as VNode).type === 'function') {
                 disposeComponent(sub as VNode, ctx.registry)
@@ -482,6 +555,31 @@ export function patchChildren(
           continue
         }
         // 真实 → 占位：dispose/ref 清理 + replaceChild（不 removeChild——childNodes 长度恒定）
+        // 但 Fragment/数组项是多节点输出——只替换锚点则其余节点残留（frag-hole-switch 定位 2026-12）
+        if (Array.isArray(oldC)) {
+          // 数组项（隐式 Fragment）→ 占位：移除整范围（start..end 标记 + 内容）+ 组件 dispose
+          const range = rangeFor(oldNodes, i, parent)
+          const ref = (range[range.length - 1] ?? on)?.nextSibling ?? null
+          for (const n of range) n.parentNode?.removeChild(n)
+          for (const sub of oldC) {
+            if (sub != null && typeof sub === 'object' && !Array.isArray(sub) && typeof (sub as VNode).type === 'function') {
+              disposeComponent(sub as VNode, ctx.registry)
+            }
+          }
+          if (newHole && ref && ref.parentNode === parent) parent.insertBefore(newHole, ref)
+          else if (newHole) parent.appendChild(newHole)
+          out.push(newHole)
+          pushA(newHole)
+          continue
+        }
+        if (oldC && typeof oldC === 'object' && !Array.isArray(oldC) && (oldC as VNode).type === Fragment) {
+          const ref = removeOldOutput(oldC, on, parent, ctx)
+          if (newHole && ref) parent.insertBefore(newHole, ref)
+          else if (newHole) parent.appendChild(newHole)
+          out.push(newHole)
+          pushA(newHole)
+          continue
+        }
         if (oldC && typeof oldC === 'object' && !Array.isArray(oldC)) {
           if (typeof (oldC as VNode).type === 'function') {
             disposeComponent(oldC as VNode, ctx.registry)
@@ -577,6 +675,7 @@ export function patchChildren(
         // 旧数组项 vs 新非数组：移除旧数组项范围（dispose 组件） + 渲染新
         const b = ctx.browser ?? createClientBrowser()
         const range = rangeFor(oldNodes, i, parent)
+        if (traceEnabled('diff')) trace('diff', 'debug', '', `arr-remove i=${i} range=[${range.map(nodeDesc).join(' | ')}]`)
         for (const n of range) {
           n.parentNode?.removeChild(n)
         }
@@ -597,6 +696,7 @@ export function patchChildren(
         continue
       }
       const node = patchValue(parent, oldNodes[i], oldC, newC, ctx)
+      if (traceEnabled('diff')) trace('diff', 'trace', '', `after-patch i=${i} new=${vnDesc(newC)} node=${nodeDesc(node)} dom=${childNodesSeq(parent)}`)
       // Fragment 项展开全部 childNodes（patchValue 只返回锚点——多节点 Fragment 漏收）
       const collected = collectChildNodes(newC, node)
       out.push(...collected)
@@ -627,11 +727,20 @@ export function patchChildren(
       movedKeys.add(k)
       const node = patchValue(parent, oldNode, entry.vnode, newV, ctx)
       const collected = collectChildNodes(newV, node)
-      // 位置校正：node 必须位于 lastDom 之后（keyed 重排——旧实现只 patch 不移动 DOM）
-      // Fragment 项用最后一个节点校正（多节点展开——插入不能拆散 Fragment）
+      // 位置校正：keyed 项的所有节点必须位于 lastDom 之后（keyed 重排——旧实现只 patch 不移动 DOM）
+      // 多节点集合（Fragment/数组项展开）必须**整体移动**——只移动最后一个节点会拆散集合
+      // （真实 bug：Card 内三元 Fragment 切换后 edit-plain 被挤到尾部——keyed-correct trace 定位 2026-12；
+      //   判断也用集合首节点：原逻辑用 last.previousSibling 比较——集合内 prev 永远 ≠ lastDom → 误触发移动）
+      const first = collected[0] ?? node
       const last = collected[collected.length - 1] ?? node
-      if (last && last.parentNode === parent && lastDom && last.previousSibling !== lastDom) {
-        parent.insertBefore(last, lastDom.nextSibling)
+      if (first && first.parentNode === parent && lastDom && first.previousSibling !== lastDom) {
+        if (traceEnabled('diff')) trace('diff', 'debug', '', `keyed-correct i=${i} k=${k} move=[${collected.map(nodeDesc).join(' | ')}] after=${nodeDesc(lastDom)} before=${childNodesSeq(parent)}`)
+        // 整体移动到 lastDom 之后（ref 固定 = lastDom.nextSibling——逐节点 insertBefore 保持集合内顺序）
+        const ref = lastDom.nextSibling
+        for (const n of collected) {
+          if (n && n.parentNode === parent) parent.insertBefore(n, ref)
+        }
+        if (traceEnabled('diff')) trace('diff', 'debug', '', `keyed-correct after=${childNodesSeq(parent)}`)
       }
       out.push(...collected)
       pushA(collected[0] ?? node ?? null)
@@ -658,6 +767,33 @@ export function patchChildren(
           }
         } else {
           // 真实 → 占位：dispose/ref 清理 + replaceChild（不 removeChild——长度恒定）
+          // 但 Fragment/数组项是多节点输出——只替换锚点则其余节点残留（frag-hole-switch 定位 2026-12）
+          if (Array.isArray(oldC)) {
+            // 数组项（隐式 Fragment）→ 占位：移除整范围（start..end 标记 + 内容）+ 组件 dispose
+            const range = rangeFor(oldNodes, i, parent)
+            const ref = (range[range.length - 1] ?? on)?.nextSibling ?? null
+            for (const n of range) n.parentNode?.removeChild(n)
+            for (const sub of oldC) {
+              if (sub != null && typeof sub === 'object' && !Array.isArray(sub) && typeof (sub as VNode).type === 'function') {
+                disposeComponent(sub as VNode, ctx.registry)
+              }
+            }
+            if (hole && ref && ref.parentNode === parent) parent.insertBefore(hole, ref)
+            else if (hole) parent.appendChild(hole)
+            out.push(hole)
+            pushA(hole)
+            if (hole) lastDom = hole
+            return
+          }
+          if (typeof oldC === 'object' && !Array.isArray(oldC) && (oldC as VNode).type === Fragment) {
+            const ref = removeOldOutput(oldC, on, parent, ctx)
+            if (hole && ref) parent.insertBefore(hole, ref)
+            else if (hole) parent.appendChild(hole)
+            out.push(hole)
+            pushA(hole)
+            if (hole) lastDom = hole
+            return
+          }
           if (typeof oldC === 'object' && !Array.isArray(oldC)) {
             if (typeof (oldC as VNode).type === 'function') disposeComponent(oldC as VNode, ctx.registry)
             else { try { callRefCleanupFor(oldC as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
@@ -694,10 +830,12 @@ export function patchChildren(
           } else {
             // P-4：新增节点单次插入——直接插到正确位置（不 append 末尾再校正）
             // lastDom 存在 → 插到已处理链尾后（中间/尾部插入：1 次写）
-            // lastDom 为 null（列表头新增）→ 插到第一个旧节点前（头部插入：1 次写——
-            //   旧实现 append 末尾导致后续所有匹配项位置校正 insertBefore 移动——
+            // lastDom 为 null（列表头新增）→ 优先数组项递归锚点（end 标记前——ARR(0)→ARR(2)
+            //   新增内容必须留在旧数组项范围内，否则插到容器最前）；无锚点 → 插到第一个旧节点前
+            //   （头部插入：1 次写——旧实现 append 末尾导致后续所有匹配项位置校正 insertBefore 移动——
             //   100 行头部插入 = 103 次 DOM 写，perf 基准实锤）
             if (lastDom) parent.insertBefore(node, lastDom.nextSibling)
+            else if (arrEnd && arrEnd.parentNode === parent) parent.insertBefore(node, arrEnd)
             else parent.insertBefore(node, parent.firstChild)
             lastDom = node
           }

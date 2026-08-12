@@ -9,6 +9,7 @@
 import type { VNode, VNodeChild } from '../vnode.ts'
 import type { BrowserEnv } from '../types.ts'
 import { Fragment, Portal, arrayChildren } from '../vnode.ts'
+import { trace, traceEnabled, kidsSeq, vnDesc, nodeDesc, childNodesSeq } from './trace.ts'
 // 单一规则源（阶段 0）：children/属性判定从 transform.ts 导入——禁止各路径各自实现
 import { EVENT_RE, eventTarget, ENUMERATED_VALUE_BASED, holeDetail, holeMarkup } from './transform.ts'
 // re-export（diff.ts 等消费方保持从 render.ts 导入的既有路径）
@@ -111,6 +112,7 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?:
   if (Array.isArray(v)) {
     const frag = b.createDocumentFragment()
     if (!frag) return null
+    if (traceEnabled('render')) trace('render', 'debug', '', `array kids=${kidsSeq(v)} fid=${fid ?? '-'} key=${key ?? '-'}`)
     // 数组项 = 隐式 Fragment（规则表 §1-20）：DOM 边界标记——数组项展开后边界在 DOM 持久化
     // （fragment-start/end 注释，与占位注释 wf-hole 同族——不改变 DOM 结构，非用户内容）。
     // 标记带数组项身份：key 必写（父数组下标/显式 key——规则表 §3-46 层级独立）；id 有则写
@@ -170,11 +172,14 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?:
     const frag = b.createDocumentFragment()
     if (!frag) return null
     // P-5：arrayChildren 统一展开（替代 flat(Infinity) 重复展开）；数组上下文无渲染值 → 占位
-    for (const c of arrayChildren(vnode.props?.children)) {
+    const kidsArr = arrayChildren(vnode.props?.children)
+    if (traceEnabled('render')) trace('render', 'debug', '', `fragment kids=${kidsSeq(kidsArr)}`)
+    for (const c of kidsArr) {
       const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b)
       if (n != null) frag.appendChild(n)
     }
     vnode._childNodes = Array.from(frag.childNodes) as Node[]
+    if (traceEnabled('render')) trace('render', 'debug', '', `fragment out=${childNodesSeq(frag)}`)
     return frag
   }
 
@@ -236,6 +241,7 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?:
     : b.createElement(tag as any)
   if (!el) return null
   vnode.el = el
+  if (traceEnabled('render')) trace('render', 'trace', '', `native <${tag}> key=${vnode.key ?? '-'} kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
   // 规则表 §3：数组项 key → data-wf-key（显式原文/默认下标值，DOM 可见——零隐藏状态）
   if (vnode.key != null) el.setAttribute('data-wf-key', vnode.key)
 
@@ -276,6 +282,7 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?:
       }
     }
     vnode._childAnchors = anchors
+    if (traceEnabled('render')) trace('render', 'trace', '', `native <${tag}> out=${childNodesSeq(el)}`)
   }
   // select value 在 options 生成后设置（v1 处理——value 属性延后）
   if (selectValue !== undefined) {

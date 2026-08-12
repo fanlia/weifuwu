@@ -12,6 +12,7 @@
 import { createClientBrowser } from '../browser.ts'
 import { h } from '../vnode.ts'
 import { uiLog } from '../debug.ts'
+import { trace, traceEnabled, nextTraceId, initVdomTrace } from './trace.ts'
 import type { UIRouter } from '../router.ts'
 import type { VNode, WfuiContext, UIContext } from '../types.ts'
 import { buildVNode } from './build.ts'
@@ -115,6 +116,9 @@ export function uiServe<RC extends object = {}>(
     }
     if (closing || token !== navToken) return // 过期导航丢弃（串行化——快速连续导航防竞态）
     // async 预构建：await 全部工厂（含动态挂载）——diff 只处理已构建树
+    const traceOn = traceEnabled('mount')
+    const traceId = traceOn ? nextTraceId('nav') : ''
+    if (traceOn) trace('mount', 'info', traceId, `route path=${path} initial=${initial}`)
     let built: VNodeChild
     try {
       built = await buildVNode(output as VNodeChild, ctx, currentChild, registry)
@@ -125,7 +129,9 @@ export function uiServe<RC extends object = {}>(
     if (initial) {
       root.innerHTML = ''
       const node = renderValue(built, ctx, browser)
+      if (traceEnabled('mount')) trace('mount', 'debug', traceId, `first-render node=${node?.nodeName ?? 'null'} fragKids=${node?.nodeType === 11 ? Array.from(node.childNodes).length : '-'}`)
       if (node != null) root.appendChild(node)
+      if (traceEnabled('mount')) trace('mount', 'debug', traceId, `root-fill done=${root.childNodes.length} first=${root.firstChild?.nodeName}`)
     } else if (currentChild !== undefined) {
       const prev = currentChild
       currentChild = built

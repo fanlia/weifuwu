@@ -11,6 +11,7 @@ import type { BrowserEnv } from '../types.ts'
 import { buildVNode } from './build.ts'
 import { renderValue } from './render.ts'
 import { patchValue, type PatchCtx } from './diff.ts'
+import { trace, traceEnabled, nextTraceId, childNodesSeq } from './trace.ts'
 import { auditEnabled, auditTree } from './audit.ts'
 import { createRegistry, type Registry, onComponentUnmountFor, cleanupComponent } from './registry.ts'
 import type { HookEnv } from '../hooks/types.ts'
@@ -91,8 +92,9 @@ export function createRenderer(opts: RendererOptions): Renderer {
   async function doRender(id: string): Promise<void> {
     const vnode = opts.registry.idRegistry.get(id)
     if (!vnode || typeof vnode._render !== 'function') return
-    // D-2 diff trace：`__WF_VDOM_DEBUG`（或 ?vdom_debug=1）开启——结构化日志，事故可回放
-    const trace = !!((globalThis as any)?.__WF_VDOM_DEBUG)
+    // D-2 diff trace：`?vdom_trace=...` / `?vdom_debug=1` 开启——结构化日志，事故可回放
+    const traceOn = traceEnabled('mount')
+    const traceId = traceOn ? nextTraceId() : ''
     try {
       const patchCtx: PatchCtx = {
         browser: opts.ctx.browser,
@@ -100,7 +102,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
         // 当前 ctx 版本（rootUi._ctxVersion——bumpCtxVersion 递增；三态 skip 版本比较基准）
         ctxVersion: (opts.ctx as any)?.ui?._ctxVersion ?? 0,
       }
-      if (trace) console.log(`[vdom/trace] render id=${id} comp=${(vnode.type as any)?.name || '?'}`)
+      if (traceOn) trace('mount', 'info', traceId, `render id=${id} comp=${(vnode.type as any)?.name || '?'}`)
       // renderFn 强制异步：await 数据 → 输出 vnode 树
       const output = await vnode._render!(vnode.props)
       const newChild = (await buildVNode(output, opts.ctx, vnode._child, opts.registry)) ?? null
@@ -114,14 +116,15 @@ export function createRenderer(opts: RendererOptions): Renderer {
         const node = patchValue(parent, (vnode as any)._refNode ?? null, oldChild, newChild, patchCtx)
         if (node) (vnode as any)._refNode = node
         else (vnode as any)._refNode = null
-        if (trace) console.log(`[vdom/trace]   patch parent=${parent.nodeName} ref=${(vnode as any)._refNode?.nodeName ?? 'null'}`)
+        if (traceOn) trace('mount', 'debug', traceId, `patch parent=${parent.nodeName} ref=${(vnode as any)._refNode?.nodeName ?? 'null'}`)
+        if (traceOn) trace('mount', 'debug', traceId, `session-end dom=${childNodesSeq(parent)}`)
         // 阶段 C audit：__WF_VDOM_AUDIT 开启时 patch 后结构校验（错位即报错，不静默传播）
         if (auditEnabled()) {
           try {
             const msgs: string[] = []
             auditTree(parent, newChild, (m) => msgs.push(m))
             if (msgs.length) console.error('[weifuwu/audit] ' + msgs.join(' | '))
-            else if (trace) console.log('[vdom/trace]   audit ✓ 一致')
+            else if (traceOn) trace('audit', 'debug', traceId, 'audit ✓ 一致')
           } catch (e) {
             console.error('[weifuwu/audit] 校验异常:', e)
           }
