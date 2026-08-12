@@ -287,6 +287,8 @@ export interface WfuiContext {
   ui: {
     /** 触发组件重渲染（同步，无参 = 当前组件） */
     render: (ids?: string[]) => Promise<void>
+    /** 组件卸载钩子（mount 阶段注册——组件卸载时调用 fn；SSR no-op；返回退订） */
+    onUnmount?: (fn: () => void) => (() => void) | undefined
     /**
      * AI 对话会话：$ 超集（会话语义 + 工具调用内嵌 + HITL 审批）
      *

@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
-import { Button, Card } from 'weifuwu/components'
+import { Button, Card, Icon } from 'weifuwu/components'
 
 export const NewChat: Component = async (_props, ctx) => {
   const $: Record<string, any> = {}
@@ -12,14 +12,14 @@ export const NewChat: Component = async (_props, ctx) => {
       .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
       .catch(() => { $.loading = false; rerender() })
 
-  return (props) => (
+  return async (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
       <PageHeader title="发起聊天" sub="选择一个部门开始对话" />
 
       {$.loading && <Loading />}
 
       {!$.loading && $.depts.length === 0 && (
-        <EmptyState icon="💬" text="暂无可聊的部门" hint="先创建一个部门并添加成员">
+        <EmptyState icon={<Icon name="message" />} text="暂无可聊的部门" hint="先创建一个部门并添加成员">
           <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
         </EmptyState>
       )}

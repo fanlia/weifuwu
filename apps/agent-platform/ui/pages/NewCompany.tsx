@@ -19,7 +19,7 @@ $.name = ''; $.error = ''; $.submitting = false
       ctx.app?.navigate('/companies')
     } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }
-  return (props) => (
+  return async (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
       <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/companies')}>← 返回公司列表</a>
       <PageHeader title="创建公司" sub="公司是部门的顶层组织单位" />

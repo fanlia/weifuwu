@@ -38,7 +38,7 @@ export const Settings: Component = async (_props, ctx) => {
     } catch (e) { $.pwdErr = errMsg(e, '修改失败') }
     finally { $.pwdSubmitting = false; rerender() }
   }
-  return (props) => (
+  return async (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
       <PageHeader title="个人设置" sub="管理你的账号信息" />
 

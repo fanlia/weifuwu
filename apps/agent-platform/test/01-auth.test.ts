@@ -41,10 +41,10 @@ before(async () => {
   app.use(pg)
   rds = redis()
   app.use(rds) // ctx.limit 的 redis store 需要
-  app.use(rateLimit({ store: 'redis', windowMs: 60_000, max: 100 })) // 与 server.ts 同构
+  app.use(rateLimit({ redis: (rds as any).redis, windowMs: 60_000, max: 100 })) // 与 server.ts 同构
 
   // 框架用户系统（与 server.ts 一致）
-  const users = userSystem({ sql: pg.sql, secret: process.env.JWT_SECRET ?? 'test' })
+  const users = userSystem({ sql: pg.sql, secret: process.env.JWT_SECRET ?? 'test-secret-0123456789' })
   await users.migrate()
   app.use(users)
   users.routes(app, { prefix: '/api/auth', exclude: ['register'] })

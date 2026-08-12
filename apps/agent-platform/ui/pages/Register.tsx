@@ -19,10 +19,12 @@ $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
       const data = await res.json()
       if (!res.ok) { $.error = data.error || '注册失败'; $.loading = false; rerender(); return }
       ctx.auth?.login(data.token, data.user, data.refreshToken)
+      $.loading = false
       ctx.app?.navigate('/')
+      rerender()
     } catch { $.error = '网络错误'; $.loading = false; rerender() }
   }
-  return (props) => (
+  return async (props) => (
     <div class="wf-center wf-p-xl wf-bg-secondary" style="min-height: 100vh">
       <Card>
         <div class="wf-stack wf-gap-sm wf-text-center wf-mb-lg">

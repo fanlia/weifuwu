@@ -19,7 +19,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
         rerender()
       }).catch(() => { $.loading = false; rerender() })
 
-  return (props) => {
+  return async (props) => {
     if ($.loading) return <div class="wf-stack wf-gap-lg"><Loading /></div>
     if ($.notFound) return <div class="wf-stack wf-gap-lg"><EmptyState icon="🔍" text="部门不存在" /></div>
     return (

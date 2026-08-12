@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
-import { Badge, Button, Card } from 'weifuwu/components'
+import { Badge, Button, Card, Icon } from 'weifuwu/components'
 
 export const Departments: Component = async (_props, ctx) => {
   const $: Record<string, any> = {}
@@ -23,14 +23,14 @@ export const Departments: Component = async (_props, ctx) => {
       ;ctx.toast!('删除失败', 'error')
     }
   }
-  return (props) => (
+  return async (props) => (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="部门" sub="组织 Agent 与成员进行协作对话">
         <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
       </PageHeader>
 
       {$.loading && <Loading />}
-      {!$.loading && $.depts.length === 0 && <EmptyState icon="👥" text="暂无部门" hint="点击上方按钮创建第一个部门" />}
+      {!$.loading && $.depts.length === 0 && <EmptyState icon={<Icon name="users" />} text="暂无部门" hint="点击上方按钮创建第一个部门" />}
 
       {$.depts.length > 0 && (
         <div class="wf-grid">

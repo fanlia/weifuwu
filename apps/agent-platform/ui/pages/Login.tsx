@@ -32,7 +32,7 @@ $.email = ''; $.password = ''; $.error = ''; $.loading = false
       rerender()
     }
   }
-  return (props) => (
+  return async (props) => (
     <div class="wf-center wf-p-xl wf-bg-secondary" style="min-height: 100vh">
       <Card>
         <div class="wf-stack wf-gap-sm wf-text-center wf-mb-lg">

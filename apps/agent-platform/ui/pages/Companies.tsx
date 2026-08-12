@@ -21,7 +21,7 @@ export const Companies: Component = async (_props, ctx) => {
       ctx.toast!('删除失败', 'error')
     }
   }
-  return (props) => (
+  return async (props) => (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="公司" sub="管理公司及其下属部门">
         <Button variant="primary" onClick={() => ctx.app?.navigate('/companies/new')}>＋ 创建公司</Button>

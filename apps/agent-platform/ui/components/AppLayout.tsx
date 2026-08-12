@@ -1,5 +1,5 @@
 import type { WfuiContext } from 'weifuwu/ui-dom'
-import { Avatar, Button, Menu } from 'weifuwu/components'
+import { Avatar, Button, Icon, Menu } from 'weifuwu/components'
 import { Loading } from './ui'
 
 interface NavDef {
@@ -10,18 +10,18 @@ interface NavDef {
 }
 
 const NAV: NavDef[] = [
-  { path: '/', icon: '📊', label: '概览', match: p => p === '/' || p === '/dashboard' },
-  { path: '/agents', icon: '🤖', label: 'Agent', match: p => p.startsWith('/agents') },
-  { path: '/companies', icon: '🏢', label: '公司', match: p => p.startsWith('/companies') },
-  { path: '/departments', icon: '👥', label: '部门', match: p => p.startsWith('/departments') },
-  { path: '/chat/new', icon: '💬', label: '聊天', match: p => p.startsWith('/chat') },
+  { path: '/', icon: 'grid', label: '概览', match: p => p === '/' || p === '/dashboard' },
+  { path: '/agents', icon: 'cpu', label: 'Agent', match: p => p.startsWith('/agents') },
+  { path: '/companies', icon: 'briefcase', label: '公司', match: p => p.startsWith('/companies') },
+  { path: '/departments', icon: 'users', label: '部门', match: p => p.startsWith('/departments') },
+  { path: '/chat/new', icon: 'message', label: '聊天', match: p => p.startsWith('/chat') },
 ]
 
 export async function AppLayout(_props: {}, ctx: WfuiContext) {
   // ── 认证守卫 ──
   if (!ctx.auth?.isLoggedIn) {
     queueMicrotask(() => ctx.app?.navigate('/login'))
-    return (__props: {}) => <div class="wf-center wf-h-full"><Loading /></div>
+    return async (__props: {}) => <div class="wf-center wf-h-full"><Loading /></div>
   }
 
   const user = ctx.auth?.user
@@ -33,7 +33,7 @@ export async function AppLayout(_props: {}, ctx: WfuiContext) {
     ctx.app?.navigate('/login')
   }
 
-  return (__props: { children?: any }) => {
+  return async (__props: { children?: any }) => {
     // 渲染期读取路由（layout 跨子路由复用，mount 捕获的 route 不随导航更新）
     // 子路由 'agents' → '/agents'（NAV 匹配用；'/' 保持）
     const route = '/' + (ctx.route?.path ?? '').replace(/^\/+$/, '')
@@ -61,8 +61,8 @@ export async function AppLayout(_props: {}, ctx: WfuiContext) {
               <div class="wf-text-sm wf-text-semibold wf-truncate">{userName}</div>
               <div class="wf-text-xs wf-text-tertiary wf-truncate">{userMail}</div>
             </div>
-            <Button size="sm" variant="ghost" title="设置" onClick={() => ctx.app?.navigate('/settings')}>⚙</Button>
-            <Button size="sm" variant="ghost" title="退出登录" onClick={logout}>⏻</Button>
+            <Button size="sm" variant="ghost" title="设置" onClick={() => ctx.app?.navigate('/settings')}><Icon name="settings" size={16} /></Button>
+            <Button size="sm" variant="ghost" title="退出登录" onClick={logout}><Icon name="log-out" size={16} /></Button>
           </div>
         </div>
       </aside>

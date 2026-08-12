@@ -25,7 +25,7 @@ export const Agents: Component = async (_props, ctx) => {
       ;ctx.toast!('删除失败', 'error')
     }
   }
-  return (props) => (
+  return async (props) => (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库">
         <Button variant="primary" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</Button>

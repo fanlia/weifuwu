@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import { Alert, Button, Card, Checkbox, EmptyState, Field, Icon, Input, Select } from 'weifuwu/components'
 import { PageHeader, Loading, TypeBadge, errMsg } from '../components/ui'
-import { Alert, Button, Card, Checkbox, EmptyState, Field, Input, Select } from 'weifuwu/components'
 
 export const NewDepartment: Component = async (_props, ctx) => {
   const $: Record<string, any> = {}
@@ -35,7 +35,7 @@ export const NewDepartment: Component = async (_props, ctx) => {
       ctx.app?.navigate('/departments')
     } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }
-  return (props) => (
+  return async (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
       <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
       <PageHeader title="创建部门" sub="选择公司并添加成员" />
@@ -45,7 +45,7 @@ export const NewDepartment: Component = async (_props, ctx) => {
       {$.loading && <Loading />}
 
       {!$.loading && $.companies.length === 0 && (
-        <EmptyState icon="🏢" text="还没有公司" hint="部门必须挂在公司下，请先在 API 中创建公司" />
+        <EmptyState icon={<Icon name="briefcase" />} text="还没有公司" hint="部门必须挂在公司下，请先在 API 中创建公司" />
       )}
 
       {!$.loading && $.companies.length > 0 && (

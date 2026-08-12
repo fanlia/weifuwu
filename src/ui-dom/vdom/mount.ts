@@ -158,6 +158,9 @@ export function createVdomContext(opts: MountOptions): VdomContext {
     browser: opts.browser,
     __registry: registry,
   } as any
+  // ctx.app.navigate（types.ts 已声明契约——曾缺失注入导致 `ctx.app?.navigate()` 静默失效：
+  // agent-platform 注册成功不跳转根因）——SPA 导航原语（pushState + popstate，uiServe 监听）
+  ;(ctx as any).app = { navigate: (path: string) => opts.browser.navigate(path) }
 
   const renderer = opts.renderer ?? createRenderer({ registry, ctx, rootEl: opts.root })
 
@@ -185,6 +188,12 @@ export function createVdomContext(opts: MountOptions): VdomContext {
   // render-only（design/render-only-plan.md）：仅 render() 触发渲染——$ / dirty 已删除
   rootUi.setMounting = (v: boolean) => { rootUi._mounting = v }
   rootUi.endMounting = () => { rootUi._mounting = false }
+  // 组件级卸载钩子（mount 阶段注册——卸载时调用 fn；对齐 HookEnv.onUnmount 但绑定 selfId）
+  rootUi.onUnmount = function (this: any, fn: () => void): (() => void) | undefined {
+    const self = this?._selfVNode?._id ?? this?._selfId
+    if (!self) return undefined
+    return onComponentUnmountFor(registry, (id: string) => { if (id === self) fn() })
+  }
 
 ;(ctx as any).ui = rootUi
 

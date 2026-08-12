@@ -17,9 +17,9 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
-test('apps 类型检查（components-demo / layouts-demo 零错误）', { timeout: 60_000 }, () => {
+test('apps 类型检查（components-demo / layouts-demo / agent-platform 零错误）', { timeout: 90_000 }, () => {
   const tsc = 'tsc' // 全局 devDependency（package.json 无本地 tsc——与 pre-commit typecheck 一致）
-  // 并行两个 app（Promise 化 exec 双进程，冷 ~2.4s/app 并行 ≈2.5s）
+  // 并行三个 app（Promise 化 exec 多进程，冷 ~2.4s/app 并行 ≈2.5s）
   const run = (app: string) =>
     execFileSync(tsc, [
       '--noEmit', '--incremental',
@@ -27,7 +27,7 @@ test('apps 类型检查（components-demo / layouts-demo 零错误）', { timeou
       '-p', `apps/${app}/tsconfig.json`,
     ], { cwd: root, stdio: 'pipe' })
   const errors: string[] = []
-  const jobs = ['components-demo', 'layouts-demo'].map((app) =>
+  const jobs = ['components-demo', 'layouts-demo', 'agent-platform'].map((app) =>
     new Promise<void>((resolve) => {
       try { run(app) } catch (e: any) { errors.push(`${app}:\n${e.stdout?.toString() ?? e.message}`) }
       resolve()

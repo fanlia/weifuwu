@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, TypeBadge, Loading, errMsg } from '../components/ui'
-import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Input, Select, Slider, Textarea, Timeline } from 'weifuwu/components'
+import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Icon, Input, Select, Slider, Textarea, Timeline } from 'weifuwu/components'
 
 const MODELS = [
   { value: '', label: '默认 (环境变量 DEEPSEEK_MODEL)' },
@@ -159,7 +159,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     rerender()
   }
 
-  return (props) => {
+  return async (props) => {
     if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
     if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在" /></div>
 
@@ -230,7 +230,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 </div>
               </div>
 
-              <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📁 工作空间</div>
+              <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间</div>
               <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-text-secondary">
                 Agent 专用目录: <code>data/workspaces/{'{agent_id}'}/</code>
                 <span class="wf-block wf-text-xs wf-text-tertiary wf-mt-xs">首次运行时自动创建</span>
@@ -282,7 +282,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
       {a.type === 'ai' && (
         <Card>
-          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm">🔧 技能管理</div>
+          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="settings" size={14} /> 技能管理</div>
           {$.boundSkills.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无绑定技能</div>}
           {$.boundSkills.map((s: any) => (
             <div key={s.slug} class="wf-split wf-py-sm wf-border-b">
@@ -318,7 +318,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       {a.type === 'ai' && (
         <Card>
           <div class="wf-split wf-mb-sm">
-            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📋 执行日志</div>
+            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="list" size={14} /> 执行日志</div>
             <Button size="sm" variant="ghost" onClick={loadLogs}>刷新</Button>
           </div>
           {$.logsLoading && <Loading />}
@@ -338,14 +338,14 @@ export const AgentDetail: Component = async (_props, ctx) => {
       {a.type === 'webhook' && (
         <Card>
           <div class="wf-split wf-mb-sm">
-            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📋 Webhook 请求日志</div>
+            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="globe" size={14} /> Webhook 请求日志</div>
             <Button size="sm" variant="ghost" onClick={loadWebhookLogs}>刷新</Button>
           </div>
           {$.whLogsLoading && <Loading />}
           {!$.whLogsLoading && $.whLogs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-text-center wf-p-lg">暂无请求记录</div>}
           {$.whLogs.map((log: any) => (
             <div key={log.id} class="wf-py-sm wf-border-b">
-              <div class="wf-text-sm wf-text-medium">{log.success ? '✅' : '❌'} HTTP {log.response_status ?? '?'}</div>
+              <div class="wf-text-sm wf-text-medium"><Icon name={log.success ? 'check' : 'close'} size={14} /> HTTP {log.response_status ?? '?'}</div>
               <div class="wf-text-xs wf-text-tertiary">{log.created_at ? new Date(log.created_at).toLocaleString() : ''} · {log.elapsed_ms}ms</div>
             </div>
           ))}
@@ -364,7 +364,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
               {$.docs.map((d: any) => (
                 <div key={d.id}>
                   <div class="wf-row wf-gap-sm wf-py-sm wf-border-b" style="cursor: pointer" onClick={() => toggleExpandDoc(d.id)}>
-                    <span>{$.expandedDoc === d.id ? '📂' : '📄'}</span>
+                    <span>{$.expandedDoc === d.id ? <Icon name="folder" size={14} /> : <Icon name="file" size={14} />}</span>
                     <span class="wf-fill wf-text-sm wf-truncate">{d.filename}</span>
                     <span class="wf-text-xs wf-text-tertiary">{d.chunk_count ?? 0} 块</span>
                     <Button size="sm" variant="danger" onClick={(e: any) => { e.stopPropagation(); deleteDoc(d.id) }}>删除</Button>

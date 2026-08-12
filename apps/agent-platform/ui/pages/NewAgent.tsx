@@ -112,7 +112,7 @@ export const NewAgent: Component = async (_props, ctx) => {
 
   // render：步骤判断必须在 render 函数内部（mount 只返回一个 render fn，
   // 否则 $.step 变化后视图不会切换——历史 bug：mount 提前 return 导致模板/配置步骤冻结）
-  return (props: {}) => {
+  return async (props: {}) => {
     // ── 步骤 1: 选择模板 ──
     if ($.step === 'template') {
       if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>

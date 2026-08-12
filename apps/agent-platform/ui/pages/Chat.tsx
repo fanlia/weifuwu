@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Ava } from '../components/ui'
-import { Alert, Badge, Button, CopyButton, EmptyState, Input, Markdown, MessageBubble } from 'weifuwu/components'
+import { Alert, Badge, Button, CopyButton, EmptyState, Icon, Input, Markdown, MessageBubble } from 'weifuwu/components'
 
 export const Chat: Component = async (_props, ctx) => {
   const $: Record<string, any> = {}
@@ -117,6 +117,12 @@ export const Chat: Component = async (_props, ctx) => {
   }, 30000)
   $.streamTimer = timer
 
+  // 生命周期双保险：卸载清理定时器 + ws 退订（ref 卸载回调之外——组件层契约，不依赖 DOM）
+  ctx.ui.onUnmount?.(() => {
+    if ($.streamTimer) { clearInterval($.streamTimer); $.streamTimer = null }
+    if ($.unsubWs) { try { $.unsubWs() } catch {}; $.unsubWs = null }
+  })
+
   let prevLen = 0
   let prevContentLen = 0
 
@@ -153,9 +159,9 @@ export const Chat: Component = async (_props, ctx) => {
           })
         }
       } else {
-        $.input = saved; alert('发送失败')
+        $.input = saved; ctx.toast!('发送失败', 'error')
       }
-    } catch { $.input = saved; alert('网络错误') }
+    } catch { $.input = saved; ctx.toast!('网络错误', 'error') }
     finally { $.sending = false; rerender() }
   }
 
@@ -178,7 +184,7 @@ export const Chat: Component = async (_props, ctx) => {
   async function saveEdit(e: Event) {
     e.preventDefault()
     if (!$.editingId || !$.editValue.trim()) return
-    await ctx.api!.put(`/api/messages/${$.editingId}`, { content: $.editValue }).then(() => cancelEdit()).catch(() => alert('编辑失败'))
+    await ctx.api!.put(`/api/messages/${$.editingId}`, { content: $.editValue }).then(() => cancelEdit()).catch(() => ctx.toast!('编辑失败', 'error'))
   }
 
   async function deleteMsg(msg: any) {
@@ -225,7 +231,7 @@ export const Chat: Component = async (_props, ctx) => {
     return labels[name] ?? name.replace(/_/g, ' ')
   }
 
-  return (props: {}) => {
+  return async (props: {}) => {
     const msgsLen = $.msgs.length
     if (msgsLen > prevLen) { scrollToBottom(); prevLen = msgsLen }
     if (msgsLen > 0) {
@@ -241,12 +247,14 @@ export const Chat: Component = async (_props, ctx) => {
     <div class="wf-stack wf-h-full">
       <div class="wf-row wf-gap-sm wf-p-sm wf-bg-secondary wf-border-b">
         <a href="/chat/new" class="wf-text-brand"
-          onClick={(e: any) => { e.preventDefault(); ctx.app?.navigate('/chat/new') }}>←</a>
+          onClick={(e: any) => { e.preventDefault(); ctx.app?.navigate('/chat/new') }}>
+          <Icon name="arrow-left" size={16} />
+        </a>
         <div class="wf-fill wf-stack wf-gap-none">
           <div class="wf-text-base wf-text-semibold">{$.deptName}</div>
           <div class="wf-text-xs wf-text-tertiary">{$.memberCount} 位成员</div>
         </div>
-        {!ctx.ws?.isConnected && <Badge variant="error">⚠ 连接断开</Badge>}
+        {!ctx.ws?.isConnected && <Badge variant="error"><Icon name="warning" size={12} /> 连接断开</Badge>}
         <Button size="sm" variant="ghost" onClick={() => ctx.app?.navigate(`/departments/${deptId}`)}>部门详情</Button>
       </div>
 
@@ -258,11 +266,10 @@ export const Chat: Component = async (_props, ctx) => {
           $.isUserScrolledUp = ($.bodyEl.scrollHeight - $.bodyEl.scrollTop - $.bodyEl.clientHeight) > threshold
         }}>
         {$.msgs.length === 0 && (
-          <EmptyState icon="💬" text="暂无消息" hint="发送第一条消息，@ 的 AI 成员会自动回复" />
+          <EmptyState icon={<Icon name="message" />} text="暂无消息" hint="发送第一条消息，@ 的 AI 成员会自动回复" />
         )}
 
         {$.msgs.map((msg: any) => {
-          if ((globalThis as any).__dbgMsgs) console.log('[chat-map]', String(msg.id).slice(0, 8), msg.sender_name, 'msgsLen=', $.msgs.length)
           const own = isOwn(msg)
           const beingEdited = $.editingId === msg.id
           const st = msg.status
@@ -296,7 +303,7 @@ export const Chat: Component = async (_props, ctx) => {
                   <div class="wf-stack wf-gap-xs">
                     {(msg.tools ?? []).map((t: any, i: number) => (
                       <span key={i} class="wf-pill wf-bg-brand wf-px-sm wf-py-xs wf-text-xs wf-text-brand">
-                        {t.status === 'running' ? '⏳' : '✅'} {toolLabel(t.name)}
+                        <Icon name={t.status === 'running' ? 'clock' : 'check'} size={12} /> {toolLabel(t.name)}
                       </span>
                     ))}
                   </div>
@@ -314,24 +321,25 @@ export const Chat: Component = async (_props, ctx) => {
                     />
                     {st === 'complete' && msg.usage && (
                       <div class="wf-text-right wf-mt-xs">
-                        <Badge variant="default">⚡ {msg.usage.total_tokens} tokens</Badge>
+                        <Badge variant="default"><Icon name="zap" size={12} /> {msg.usage.total_tokens} tokens</Badge>
                       </div>
                     )}
                     {isError && (
-                      <Button size="sm" variant="ghost" class="wf-mt-xs" onClick={() => retryMessage(msg.id)}>🔄 重新生成</Button>
+                      <Button size="sm" variant="ghost" class="wf-mt-xs" onClick={() => retryMessage(msg.id)}><Icon name="refresh" size={12} /> 重新生成</Button>
                     )}
 
                     {msg.ai_draft && msg.ai_approved === null && (
                       <div class="wf-mt-sm">
                         <Alert variant="warning">
-                          <div class="wf-text-xs wf-text-semibold wf-mb-xs">⏳ AI 草稿待审批</div>
+                          <div class="wf-text-xs wf-text-semibold wf-mb-xs"><Icon name="clock" size={12} /> AI 草稿待审批</div>
                           {msg.ai_draft}
                         </Alert>
                         <div class="wf-row wf-gap-xs wf-mt-xs">
                           <Button size="sm" disabled={$.approving === msg.id}
-                            onClick={() => approveDraft(msg.id)}>{$.approving === msg.id ? '处理中...' : '✓ 批准'}</Button>
+                            onClick={() => approveDraft(msg.id)}>{$.approving === msg.id ? '处理中...' : (<><Icon name="check" size={12} /> 批准</>)}
+                          </Button>
                           <Button size="sm" variant="danger" disabled={$.approving === msg.id}
-                            onClick={() => rejectDraft(msg.id)}>✕ 拒绝</Button>
+                            onClick={() => rejectDraft(msg.id)}><Icon name="close" size={12} /> 拒绝</Button>
                         </div>
                       </div>
                     )}
@@ -343,8 +351,8 @@ export const Chat: Component = async (_props, ctx) => {
                     <div class="wf-fill">
                       <Input value={$.editValue} onInput={(e: any) => { $.editValue = e.target.value; rerender() }} />
                     </div>
-                    <Button type="submit" size="sm">✓</Button>
-                    <Button type="button" size="sm" variant="secondary" onClick={cancelEdit}>✕</Button>
+                    <Button type="submit" size="sm"><Icon name="check" size={14} /></Button>
+                    <Button type="button" size="sm" variant="secondary" onClick={cancelEdit}><Icon name="close" size={14} /></Button>
                   </form>
                 )}
               </div>
@@ -359,7 +367,7 @@ export const Chat: Component = async (_props, ctx) => {
             value={$.input} onInput={(e: any) => { $.input = e.target.value; rerender() }}
             disabled={inputDisabled} />
         </div>
-        <Button type="submit" variant="primary" disabled={!canSend}>➤</Button>
+        <Button type="submit" variant="primary" disabled={!canSend}><Icon name="send" size={14} /></Button>
       </form>
     </div>
     )

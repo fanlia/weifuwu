@@ -151,6 +151,7 @@ function createSsrUi(): any {
     bumpCtxVersion: () => {},
     setMounting: () => {},
     endMounting: () => {},
+    onUnmount: () => undefined,
     // hooks no-op（组件 SSR 安全——不注册监听/定时器）
     useChat: () => ({ messages: [], input: '', streaming: false, error: null, usage: null, step: null, send: () => {}, stop: () => {}, retry: () => {}, clear: () => {}, approve: () => {}, subscribe: () => () => {} }),
     useExternal: (store: any) => store,

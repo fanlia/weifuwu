@@ -1,5 +1,5 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { Card, StatCard } from 'weifuwu/components'
+import { Card, Icon, StatCard } from 'weifuwu/components'
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -25,7 +25,7 @@ export const Dashboard: Component = async (_props, ctx) => {
     rerender()
   })
 
-  return (props) => {
+  return async (props) => {
     const s = $.stats ?? {}
     const msgCount = s.messages?.total ?? 0
     const totalTokens = s.tokens?.total_tokens ?? 0
@@ -40,28 +40,28 @@ export const Dashboard: Component = async (_props, ctx) => {
       </div>
 
       <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
-        <StatCard label="Agent 总数" value={agentCount} icon="🤖" animate onClick={() => ctx.app?.navigate('/agents')} />
-        <StatCard label="AI 机器人" value={aiCount} icon="✨" animate onClick={() => ctx.app?.navigate('/agents?type=ai')} />
-        <StatCard label="部门群组" value={$.deptCount ?? 0} icon="👥" animate onClick={() => ctx.app?.navigate('/departments')} />
-        <StatCard label="总消息数" value={msgCount} icon="💬" animate />
-        <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon="⚡" animate />
-        <StatCard label="消息趋势" value={`${s.days ?? 1}天`} icon="📊" />
+        <StatCard label="Agent 总数" value={agentCount} icon={<Icon name="cpu" />} animate onClick={() => ctx.app?.navigate('/agents')} />
+        <StatCard label="AI 机器人" value={aiCount} icon={<Icon name="zap" />} animate onClick={() => ctx.app?.navigate('/agents?type=ai')} />
+        <StatCard label="部门群组" value={$.deptCount ?? 0} icon={<Icon name="users" />} animate onClick={() => ctx.app?.navigate('/departments')} />
+        <StatCard label="总消息数" value={msgCount} icon={<Icon name="message" />} animate />
+        <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon={<Icon name="zap" />} animate />
+        <StatCard label="消息趋势" value={`${s.days ?? 1}天`} icon={<Icon name="bar-chart" />} />
       </div>
 
       <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">快捷操作</div>
       <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(220px, 1fr))">
         <Card clickable hover onClick={() => ctx.app?.navigate('/agents/new')}>
-          <div class="wf-text-2xl wf-mb-xs">🤖</div>
+          <div class="wf-text-2xl wf-mb-xs"><Icon name="cpu" size={28} /></div>
           <div class="wf-text-base wf-text-semibold">创建 Agent</div>
           <div class="wf-text-sm wf-text-secondary">AI 机器人、Webhook 或知识库</div>
         </Card>
         <Card clickable hover onClick={() => ctx.app?.navigate('/departments/new')}>
-          <div class="wf-text-2xl wf-mb-xs">👥</div>
+          <div class="wf-text-2xl wf-mb-xs"><Icon name="users" size={28} /></div>
           <div class="wf-text-base wf-text-semibold">创建部门</div>
           <div class="wf-text-sm wf-text-secondary">组建人机协作的群组</div>
         </Card>
         <Card clickable hover onClick={() => ctx.app?.navigate('/chat/new')}>
-          <div class="wf-text-2xl wf-mb-xs">💬</div>
+          <div class="wf-text-2xl wf-mb-xs"><Icon name="message" size={28} /></div>
           <div class="wf-text-base wf-text-semibold">发起聊天</div>
           <div class="wf-text-sm wf-text-secondary">与部门里的 AI 直接对话</div>
         </Card>
