@@ -204,7 +204,7 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
         tenant_id, type, name, description,
         model, system_prompt, temperature, max_tokens,
         workspace_path, allow_file_tools, allow_command_exec,
-        tools, human_in_the_loop
+        tools, human_in_the_loop, template_slug
       ) VALUES (
         ${tenantId}, 'ai', ${body.name.trim()}, ${body.description ?? template.description},
         ${body.model ?? template.default_model},
@@ -214,7 +214,7 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
         ${body.workspace_path ?? template.default_workspace_hint ?? null},
         ${body.allow_file_tools ?? template.default_allow_file_tools},
         ${body.allow_command_exec ?? template.default_allow_command_exec},
-        '[]', FALSE
+        '[]', FALSE, ${template.slug}
       )
       RETURNING id, name, type, created_at
     `

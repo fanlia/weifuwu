@@ -43,6 +43,9 @@ export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
     let pingTimer: any = null
     let pingTimeoutTimer: any = null
     let destroyed = false
+    // 连接建立前 send 的消息排队（subscribe 等——首次 mount 时 socket 仍 CONNECTING，
+    // 立即发送会被丢弃 → 房间订阅永久丢失 → 收不到推送。OPEN 后 flush 补发）
+    let pending: string[] = []
 
     const wsClient = {
       isConnected: false,
@@ -52,8 +55,11 @@ export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
       },
 
       send: (msg: unknown) => {
+        const s = JSON.stringify(msg)
         if (socket?.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify(msg))
+          socket.send(s)
+        } else {
+          pending.push(s) // 未连接 → 排队，OPEN 后 flush
         }
       },
 
@@ -65,6 +71,7 @@ export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
         clearTimers()
         socket?.close()
         socket = null
+        pending = []
         wsClient.isConnected = false
       },
     }
@@ -77,6 +84,9 @@ export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
         socket.onopen = () => {
           wsClient.isConnected = true
           reconnectAttempts = 0
+          // flush 排队消息（首次 mount 的 subscribe 等）
+          for (const s of pending) socket!.send(s)
+          pending = []
           startPing()
         }
         socket.onmessage = (e) => {

@@ -379,7 +379,7 @@ export const Chat: Component = async (_props, ctx) => {
               {$.loadingMore ? '加载中...' : '↑ 加载更早消息'}
             </Button>
           )}
-          {$.searchQ && <Badge variant="primary">搜索："{$.searchQ}" <a class="wf-text-brand wf-ml-xs" style="cursor:pointer" onClick={() => { $.searchQ = ''; runSearch() }}>✕ 清除</a></Badge>}
+          {$.searchQ && <Badge variant="primary">搜索："{$.searchQ}" <a class="wf-text-brand wf-ml-xs" style="cursor:pointer" onClick={() => { $.searchQ = ''; runSearch() }}><Icon name="close" size={12} /> 清除</a></Badge>}
         </div>
 
         {$.msgs.length === 0 && (

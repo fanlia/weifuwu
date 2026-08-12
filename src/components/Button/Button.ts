@@ -33,6 +33,7 @@ export const Button: Component<ButtonProps> = async (_init, ctx) =>
 
   return h('button', {
     id: props.id,
+    title: props.title,
     class: cls,
     type: type ?? 'button',
     disabled: disabled || loading || undefined,

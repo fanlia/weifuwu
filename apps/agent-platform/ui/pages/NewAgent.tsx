@@ -64,7 +64,7 @@ export const NewAgent: Component = async (_props, ctx) => {
   }
 
   function selectTemplate(t: RoleTemplate) {
-    $.selectedTemplate = t; $.name = ''; $.description = t.description ?? ''
+    $.selectedTemplate = t; if (!$.name) $.name = t.name; $.description = t.description ?? ''
     $.systemPrompt = t.default_system_prompt ?? ''; $.aiModel = t.default_model ?? ''
     $.aiTemperature = t.default_temperature ?? 0.7
     $.aiMaxTokens = Number(t.default_max_tokens ?? 2048)

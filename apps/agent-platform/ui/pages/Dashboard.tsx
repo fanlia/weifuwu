@@ -136,7 +136,7 @@ export const Dashboard: Component = async (_props, ctx) => {
                     <Icon name={done ? 'check-circle' : 'target'} size={14} />
                     <span class={`wf-text-sm${done ? ' wf-text-brand wf-text-semibold' : ' wf-text-secondary'}`}>{labels[ev]}</span>
                   </div>
-                  <div class="wf-text-xs wf-text-tertiary">{done ? '✓ 已完成' : '未完成'} · 全平台 {rate}%</div>
+                  <div class="wf-text-xs wf-text-tertiary">{done ? '已完成' : '未完成'} · 全平台 {rate}%</div>
                 </div>
               )
             })}

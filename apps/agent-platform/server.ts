@@ -129,7 +129,16 @@ async function main() {
   // 使用动态 import 访问模板数据
   app.get('/api/role-templates', async () => {
     const { getRoleTemplates } = await import('./src/routes/role-templates.ts')
-    return Response.json({ templates: getRoleTemplates() })
+    const templates = getRoleTemplates()
+    // 持久化使用计数（DB 统计——内存计数服务重启即清零）
+    const [rowsRaw] = await pg.sql`
+      SELECT template_slug, COUNT(*)::int AS cnt FROM agents
+      WHERE template_slug IS NOT NULL GROUP BY template_slug
+    ` as any[]
+    const rows = Array.isArray(rowsRaw) ? rowsRaw : rowsRaw ? [rowsRaw] : []
+    const usage = new Map<string, number>(rows.map((r: any) => [r.template_slug, r.cnt]))
+    for (const t of templates) t.usage_count = usage.get(t.slug) ?? 0
+    return Response.json({ templates })
   })
   app.get('/api/role-templates/:slug', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { getRoleTemplates } = await import('./src/routes/role-templates.ts')
