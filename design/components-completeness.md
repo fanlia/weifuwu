@@ -182,7 +182,12 @@ F1 功能对照已 100%（三库）+ F4 audit 防线全绿
 Table 行选择（rowSelection）/ VirtualTable 10 万行大数据 / Tree checkable 勾选联动 /
 JSONViewer 深展开 / LogViewer 自定义日志 / DiffView 标题对比 / InfiniteScroll 失败重试
 
+**W2 demo 丰富度补充（第二批）**：EmptyState 操作 / Descriptions 紧凑 / Result error / Highlight 多词
+
+**W2 走查结论**：剩余 17 组件无硬缺口——Highlight 已用 mark 语义（a11y ✓）、Descriptions dl/dt/dd（原生 ✓）、
+Avatar alt ✓、Timeline mode 三向 ✓、StatCard animate/countdown/trend ✓——F1 功能对照 100% + F4 audit 全绿
+
 **待办**：
-- W2 剩余组件 6 维 checklist（Timeline/Tag/Badge/EmptyState/StatCard/Img/CodeBlock/
-  Skeleton/Highlight/Descriptions/List/Result/Avatar/AvatarGroup/Sparkline/Chart）
-- W1 剩余组件 demo ≥3 示例渐进
+- W3 弹层反馈族（Popover/Tooltip/Toast/Notification/Modal/Drawer/Confirm/Tour/Command/
+  ContextMenu/Message/Alert/Banner/Skeleton/Progress 等）6 维 checklist
+- W2 demo ≥3 示例渐进（存量渐进）

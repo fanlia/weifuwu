@@ -748,6 +748,59 @@ const view = <Markdown content="# 标题" />`} />
   </div>
 )
 
+const DemoEmptyStateAction: Component = async (_props, ctx) => async () => (
+  <div class="wf-w-full">
+    <EmptyState
+      icon={<Icon name="inbox" />}
+      text="还没有成员"
+      hint="邀请成员后他们将出现在这里"
+    >
+      <button class="wf-btn wf-btn--primary wf-btn--sm" onClick={() => ctx.ui.render()}>邀请成员</button>
+    </EmptyState>
+    <div class="wf-text-xs wf-text-secondary wf-text-center">hint + action 操作按钮（EmptyState 扩展）</div>
+  </div>
+)
+
+const DemoDescriptionsSize: Component = async () => async () => (
+  <div class="wf-w-full">
+    <Descriptions
+      size="sm"
+      items={[
+        { label: '姓名', value: '张三' },
+        { label: '角色', value: '管理员' },
+        { label: '部门', value: '前端组' },
+        { label: '状态', value: <Badge variant="success">活跃</Badge> },
+      ]}
+      column={2}
+    />
+    <div class="wf-text-xs wf-text-secondary">size=small 紧凑布局（详情页密度）</div>
+  </div>
+)
+
+const DemoResultError: Component = async () => async () => (
+  <div class="wf-w-full">
+    <Result
+      status="error"
+      title="发布失败"
+      desc="版本校验未通过——请检查依赖后重试"
+      extra={
+        <div class="wf-row wf-gap-sm wf-center">
+          <button class="wf-btn wf-btn--primary wf-btn--sm">重试</button>
+          <button class="wf-btn wf-btn--secondary wf-btn--sm">查看日志</button>
+        </div>
+      }
+    />
+    <div class="wf-text-xs wf-text-secondary wf-text-center">error 状态 + 操作区（Result 扩展）</div>
+  </div>
+)
+
+const DemoHighlightMulti: Component = async () => async () => (
+  <div class="wf-w-full">
+    <Highlight text="React 与 Vue 都是现代前端框架，React 生态更丰富，Vue 上手更快" query={['react', 'vue']} />
+    <div class="wf-text-xs wf-text-secondary">多词高亮（query 数组）——大小写不敏感 mark</div>
+  </div>
+)
+
 const DemoTimeline: Component = async (_props, ctx) => {
   let logs: Array<{ key: string; title: string; time: string; status: 'default' | 'info' | 'success' | 'warning' | 'error'; content?: string }> = [
     { key: '1', title: 'AI 回复', time: '10:00:12', status: 'success' as const, content: '生成了 256 tokens' },
@@ -2482,6 +2535,14 @@ if (ok) { /* 执行 */ }`,
   empty: `<EmptyState
   text="暂无数据"
   hint="提示信息" />`,
+  emptyAction: `<EmptyState text="还没有成员" hint="邀请成员">
+  <button>邀请成员</button>
+</EmptyState>`,
+  descriptionsSize: `<Descriptions size="sm" items={[{label:'姓名',value:'张三'}]} column={2} />`,
+  resultError: `<Result status="error" title="发布失败" desc="版本校验未通过">
+  <button>重试</button>
+</Result>`,
+  highlightMulti: `<Highlight text="React 与 Vue" query={['react','vue']} />`,
 
   card: `<Card>默认卡片</Card>
 <Card variant="outlined">线框</Card>
@@ -2963,6 +3024,7 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="InView" desc="进入视窗后懒加载内容，支持 IntersectionObserver" code={CODE.inview}><DemoInView /></DemoCard>
         <DemoCard title="Timeline" desc="时间线：节点状态色 + 时间 + 内容（执行日志/审批历史）" code={CODE.timeline}><DemoTimeline /></DemoCard>
         <DemoCard title="Descriptions" desc="描述列表：label/value 栅格 + bordered + span（详情页）" code={CODE.descriptions}><DemoDescriptions /></DemoCard>
+        <DemoCard title="Descriptions 紧凑" desc="size=small 详情页密度（变体覆盖）" code={CODE.descriptionsSize}><DemoDescriptionsSize /></DemoCard>
         <DemoCard title="AvatarGroup" desc="头像组：堆叠 + max 溢出 +N" code={CODE.avatarGroup}><DemoAvatarGroup /></DemoCard>
         <DemoCard title="Markdown" desc="AI 回复渲染：安全子集 parser + 代码块 + 链接白名单" code={CODE.markdown}><DemoMarkdown /></DemoCard>
         <DemoCard title="CodeBlock" desc="代码块：语言标签 + 复制按钮 + 横向滚动" code={CODE.codeblock}><DemoCodeBlock /></DemoCard>
@@ -2991,6 +3053,7 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="StatCard Countdown" desc="倒计时模式：剩余 HH:MM:SS + 结束回调" code={CODE.statCountdown}><DemoStatCountdown /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
+        <DemoCard title="Highlight 多词" desc="query 数组多词高亮（变体覆盖）" code={CODE.highlightMulti}><DemoHighlightMulti /></DemoCard>
         <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>
         <DemoCard title="Result" desc="结果页：success/error/warning/info + extra 操作区" code={CODE.result}><DemoResult /></DemoCard>
         <DemoCard title="Confirm" desc="确认对话框，Promise 化 await 调用" code={CODE.confirm}><DemoConfirm /></DemoCard>
