@@ -1,20 +1,22 @@
 import type { WfuiContext } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/ui-dom'
 import { Avatar, Button, Icon, Menu } from 'weifuwu/components'
 import { Loading } from './ui'
 
 interface NavDef {
   path: string
-  icon: string
+  icon: any
   label: string
   match: (p: string) => boolean
 }
 
+// 图标是 VNode（Menu icon 作为 children 渲染——字符串会当文本显示）
 const NAV: NavDef[] = [
-  { path: '/', icon: 'grid', label: '概览', match: p => p === '/' || p === '/dashboard' },
-  { path: '/agents', icon: 'cpu', label: 'Agent', match: p => p.startsWith('/agents') },
-  { path: '/companies', icon: 'briefcase', label: '公司', match: p => p.startsWith('/companies') },
-  { path: '/departments', icon: 'users', label: '部门', match: p => p.startsWith('/departments') },
-  { path: '/chat/new', icon: 'message', label: '聊天', match: p => p.startsWith('/chat') },
+  { path: '/', icon: h(Icon, { name: 'grid' }), label: '概览', match: p => p === '/' || p === '/dashboard' },
+  { path: '/agents', icon: h(Icon, { name: 'cpu' }), label: 'Agent', match: p => p.startsWith('/agents') },
+  { path: '/companies', icon: h(Icon, { name: 'briefcase' }), label: '公司', match: p => p.startsWith('/companies') },
+  { path: '/departments', icon: h(Icon, { name: 'users' }), label: '部门', match: p => p.startsWith('/departments') },
+  { path: '/chat/new', icon: h(Icon, { name: 'message' }), label: '聊天', match: p => p.startsWith('/chat') },
 ]
 
 export async function AppLayout(_props: {}, ctx: WfuiContext) {
