@@ -291,6 +291,13 @@ const MyComp: Component = async (_init, ctx) => {
 
 ## 已知边界（诚实裁剪）
 
+- **引擎自动写入的 DOM 属性（开发者不需要处理，但写自定义组件时会在 DOM 里看到）**：
+  - `data-wf-id`——组件实例 id，写到组件输出**每个顶层节点**（多根全部写）——渲染定位/audit/debug 用；存在性可预期，值不可预期（`_wf_N` 引擎分配）
+  - `data-wf-key`——数组项 key（显式或默认下标），写到元素项自身 / **组件项穿透到输出每个顶层节点**——列表项身份可见，动态增删重排建议显式 key（默认下标 = 位置复用 + 状态继承）
+  - `<!--wf-hole: xxx-->` 占位注释——条件渲染 false/null/true/非法输入的占位节点（`{cond && <X/>}`=false 时 DOM 里有注释而非消失）——不是 bug，是引擎的透明占位
+  - SSR 不输出 `data-wf-id`（id 客户端运行时分配）；`data-wf-key` SSR 同步输出
+  - 断言/快照测试注意：`outerHTML` 包含这些属性与占位注释；按类选择器/子项数量断言不受影响
+
 - `usePopup` 是**统一弹窗能力层**：锚定浮层（Tooltip/Popover/Dropdown/Select/AutoComplete/Mentions/Cascader/ContextMenu/NavMenu/Popconfirm/TreeSelect）+ 会话级模态（Modal/Drawer/Confirm——presence/trapFocus/lockScroll/positioning 'none'，Escape 语义留组件层）+ mask 模式（Command/Img preview/Tour——mask/maskCentered/自定义 mask VNode）+ focus 触发（DatePicker）+ positioning 'none' 常驻容器（Toast/Notification）——**全部弹窗单一入口**
 - **事件监听纪律**：组件库内部浏览器事件监听**统一走 `ctx.ui.useXXX`**——滚动/观察/弹层/对话框/快捷键/拖拽/DnD 全覆盖：
   `useInView`（InfiniteScroll）、`useScrollPosition`（AiChat/Affix/BackTop/VirtualList）、`usePopupPosition`（Affix 阈值重算）、`usePopup`（弹窗统一——ContextMenu 自由定位 + Modal/Drawer 模态模式 + mask 遮罩）、`useGlobalKey`（Command 快捷键/Img preview Escape）、`useDrag`（Resizable）、`useDragDrop`（FileUpload）、`useControlled`/`useStableRef`（状态/ref）

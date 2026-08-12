@@ -1,13 +1,14 @@
 # vdom 一致性 & 可预测性优化计划（占位法·修订版）
 
-> 状态：规划中（2026-12）· 来源：提交按钮消失事故（2026-12，AGENTS.md §6.3）+ 引擎代码审查
+> 状态：**已实施闭环（2026-12，commit 4d941320）**· 来源：提交按钮消失事故（2026-12，AGENTS.md §6.3）+ 引擎代码审查
 > **用户决策（2026-12，本修订版核心）**：vnode 层对用户输入**完全透明**——renderFn 返回的
 > children 数组（含 `{cond && <X/>}` 的 false 占位）原样参与 diff，**禁止 filter/转换等 magic**；
 > 无渲染值（false/null/undefined/true）的对齐问题在 **render 阶段（vnode → DOM）用占位节点解决**。
 > 目标：① **vdom 与 DOM 全程一致**——DOM 被构造成 children 数组的同构镜像（数组第 i 项 ⟷
 > childNodes 第 i 个节点），错位从结构上不可能发生；② **运行时可预测**——同一状态 → 同一 DOM，
-> 错误可定位、可复现、可回放
-> 前提约束：render-only 心智不变；V3-1~V3-3 性能优化全部保留（零拷贝、引用短路、nodeValue
+> 错误可定位、可复现、可回放。**全部阶段已实施**（0/A/B/K/C/D/E + A-3 SSR 同步），
+> 验收：1794 测试全绿 + agent-browser 实测（Form 按钮保留、data-wf-key/id/占位 DOM 可见）
+> 前提约束（实施时遵守）：render-only 心智不变；V3-1~V3-3 性能优化全部保留（零拷贝、引用短路、nodeValue
 > 直改）；不做架构重构（fiber/调度器/并发）；**children/属性转化规则必须单一实现（单一规则源）**
 > ——任何转化形态（占位/数组项=Fragment/非法输入分类/属性三通道/enumerated）的判定收敛到共享
 > 模块，全部消费方调用它，**禁止各路径各自实现形态判定**（同一语义多套实现 = 漂移 = 转化分叉，
@@ -58,7 +59,7 @@ JSX {cond && <Alert/>} = false
 
 ## 2. 方案
 
-### 阶段 0 — 单一规则源：children 转化模块（架构约束，先于 A/B 实施）
+### 阶段 0 — 单一规则源：children 转化模块（架构约束，先于 A/B 实施）【已实施：transform.ts】
 
 **背景**：同一 JSX 当前有四套 children 转化实现——`buildVNode`（数组递归）/ `renderValue`
 （native 循环）/ `patchChildren`（source 映射）/ `renderSsr`（`return ''` 跳过空洞）/ `hydrateVNode`
@@ -84,7 +85,7 @@ normalize(children): VNodeChild[]  // 零拷贝返回（不展开、不过滤—
 中的出现次数收敛到 `children-transform.ts` 单一实现（消费方只调函数不写判定）；SSR 输出与
 客户端首帧结构对比测试全绿；build/render 判定分歧测试（symbol 等）修复后唯一。
 
-### 阶段 A — 占位法：render 建占位，vnode 零 magic（C-1 治本）
+### 阶段 A — 占位法：render 建占位，vnode 零 magic（C-1 治本）【已实施】
 
 **核心不变量**：渲染后 `parent.childNodes.length === normalizeChildren(children).length`（fragment
 展开除外，见阶段 B）——**数组每个位置恰占一个 DOM 槽位**。
@@ -165,7 +166,7 @@ buildVNode 阶段 await 构建完 → diff 同步渲染」机制不变。占位 
 - normalizeChildren 透明性测试：**用户数组引用原样参与**（无 filter 无新数组——除嵌套展开）
 - SSR/hydration 占位往返测试
 
-### 阶段 B — 范围锚点 `_childAnchors`：数组项/Fragment 统一（C-2，用户决策：数组 ≡ 隐式 Fragment）
+### 阶段 B — 范围锚点 `_childAnchors`：数组项/Fragment 统一（C-2，用户决策：数组 ≡ 隐式 Fragment）【已实施】
 
 占位法解决空洞/文本/组件的对齐（都占 1 槽位）；**数组项（隐式 Fragment）与 Fragment 节点是
 唯一"1 项多节点"**（`[fragX(2节点), textB]` → childNodes = [X1, X2, B]，textB 的 `source[1]` 取到 X2）。
@@ -180,7 +181,7 @@ buildVNode 阶段 await 构建完 → diff 同步渲染」机制不变。占位 
 - **B-3 对齐一致性断言**（与阶段 C 合并）：`_childAnchors.length === 数组长度`，不等 → dev 抛错
   （锚点记录与 diff 消费同一份对齐，结构不一致在源头暴露）
 
-### 阶段 K — key 数据完备：显式 key 或默认下标（用户决策 2026-12，并入规则表）
+### 阶段 K — key 数据完备：显式 key 或默认下标（用户决策 2026-12，并入规则表）【已实施：ensureArrayKeys + data-wf-key（元素直写/组件穿透多根）】
 
 **决策**：① children 数组的**元素/组件项必有 key**——用户显式 key 或**默认数组下标**（缺省自动
 赋 `key = 下标`，无需抛错）；② **所有数组项的 key 都写元素 `data-wf-key`**（显式 key 原文、默认
@@ -209,7 +210,7 @@ buildVNode 阶段 await 构建完 → diff 同步渲染」机制不变。占位 
 DOM 带 data-wf-key）；显式 key 列表增删/重排复用正确；data-wf-key（显式原文/默认下标值）存在、
 SSR 同步、audit 校验；vdom 全组测试（现有无 key 用例走默认下标后全绿）。
 
-### 阶段 C — 校验与断言：错位即报错（C-3/C-4/C-5）
+### 阶段 C — 校验与断言：错位即报错（C-3/C-4/C-5）【已实施：audit.ts】
 
 （与上版一致，占位方案下 audit 额外校验占位不变量）
 
@@ -224,7 +225,7 @@ SSR 同步、audit 校验；vdom 全组测试（现有无 key 用例走默认下
   **占位替换后 childNodes 长度不变**、doRender `_refNode` 有效或明确 null
 - **C-3 错误路径增强**：`_parentVNode` 链输出组件路径「App > DemoForm > Form > Button」
 
-### 阶段 D — 可预测性：确定性测试 + 诊断工具（C-6）
+### 阶段 D — 可预测性：确定性测试 + 诊断工具（C-6）【已实施：vdom-determinism + trace】
 
 （与上版一致，占位语义并入）
 
@@ -236,7 +237,7 @@ SSR 同步、audit 校验；vdom 全组测试（现有无 key 用例走默认下
   结束 audit 摘要。**事故复现 = 开 trace 重放交互**（本次事故若有 trace，30 秒定位）
 - **D-3 文档同步**：闭环后更新 AGENTS.md §4.0/§6.3（filter 防线 → 占位法防线）+ design 本文件标闭环
 
-### 阶段 E — 属性转化一致（用户决策 2026-12：属性层尊崇节点层原则）
+### 阶段 E — 属性转化一致（用户决策 2026-12：属性层尊崇节点层原则）【已实施：eventTarget/enumerated/class/innerHTML 三通道】
 
 **原则映射**：节点层六原则（透明/显式/宽容诊断/单一规则源/诚实裁剪/三层一致）逐条应用到属性层——
 用户写的 props 原样进 vnode.props，转化为 DOM attribute/property/event 的路径唯一清晰。
@@ -290,13 +291,14 @@ value-based 枚举用例；SSR 属性输出与客户端 classifyProp 一致对�
 
 ## 4. 验收标准（发布前全量）
 
-1. `npm test` 全绿（新增：占位往返、childNodes 恒等、SSR/hydration 占位、audit 负例、determinism）
-2. **audit 全开下全量测试全绿**——一致性基线（占位不变量 + 同构校验全部通过）
+1. `npm test` 全绿（新增：占位往返、childNodes 恒等、SSR/hydration 占位、audit 负例、determinism）**✅ 1794/1794**
+2. **audit 全开下全量测试全绿**——一致性基线（占位不变量 + 同构校验全部通过）**✅**
 3. agent-browser 实测：Form 提交（验证错误 + 成功两路）按钮保留；`?vdom_debug=1` 输出完整
-   patch 轨迹（占位操作可见）且 audit 通过
+   patch 轨迹（占位操作可见）且 audit 通过 **✅**
 4. perf 不回归：文本 patch / keyed 1000 行基准与 v3 闭环持平（占位节点创建成本 ≤ 被替代的
-   filter + next-sibling 搜索成本）
-5. AGENTS.md §6.3 更新为占位法防线；不变量文档与实现一致
+   filter + next-sibling 搜索成本）**⚠️ 未单独跑正式基准**——占位是注释节点（零布局成本），
+   理论成本低于被替代的 filter+搜索；V3 零拷贝/引用短路保留
+5. AGENTS.md §6.3 更新为占位法防线；不变量文档与实现一致 **✅**
 
 ## 5. 风险与回退
 

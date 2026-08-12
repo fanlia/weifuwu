@@ -212,8 +212,8 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 - 防重入：同一组件 id 同时只跑一次渲染（渲染中再次触发 → 跳过——错过由下次用户操作捕获，**不补跑**）
 - 工厂只跑一次：vnode 级缓存 + 旧树同位置同类型复用（跨渲染保持组件内部状态）
 - **ctx 版本（bumpCtxVersion）**：i18n 等全局状态变化时递增——buildVNode 剪枝 + diff 三态 skip 比较 `_ctxVersion`，版本不同强制重跑 renderFn（`_ctxVersion` 未接线是 i18n 切换不更新的根因，已修复 + 回归测试）
-- **用户的想法/vnode/DOM 三层一致（§6.3 提交按钮消失事故）**：① 用户 renderFn/JSX 写的结构（含 false 占位）必须**原样**成为 vnode——**禁止对用户 vnode 做 magic**（filter/转换/mutation）；② DOM 必须**同构**镜像 vnode——目标机制为 render 阶段对无渲染值**建占位节点**（`childNodes.length` 恒等于 children 数组长度，数组第 i 项 ⟷ childNodes 第 i 个节点），当前为过渡 filter（§6.3）；③ 就地 patch 不校验同构、错位不报错不自愈（错误静默传播，整树重建/刷新才恢复）。改 diff 必须先跑 `src/test/vdom*.test.ts`
-- **children 转化规则单一实现（单一规则源，design/vdom-consistency-plan.md 阶段 0）**：children 形态判定（占位/数组项=隐式 Fragment/非法输入分类/锚点）收敛到 `children-transform.ts` 单一模块——buildVNode / renderValue / patchChildren / renderSsr / hydrateVNode 全部调用它，**禁止各路径各自实现形态判定**（同一语义多套实现 = 漂移 = 转化分叉——SSR 对空洞 `return ''` vs 客户端建占位 / build 把任意 Symbol 当 native vs render 无 symbol 分支，都是既有漂移证据）。新增 children 形态只改一处；验收用 grep 审计五消费方判定收敛
+- **用户的想法/vnode/DOM 三层一致（§6.3 提交按钮消失事故）**：① 用户 renderFn/JSX 写的结构（含 false 占位）必须**原样**成为 vnode——**禁止对用户 vnode 做 magic**（filter/转换/mutation——过渡 filter 已删除）；② DOM 必须**同构**镜像 vnode——render 阶段对无渲染值**建占位节点**（`childNodes.length` 恒等于 children 数组长度，数组第 i 项 ⟷ childNodes 第 i 个节点，已实施）；③ 就地 patch 不校验同构、错位不报错不自愈（错误静默传播，整树重建/刷新才恢复）——由 `__WF_VDOM_AUDIT` 运行时校验兜底。改 diff 必须先跑 `src/test/vdom*.test.ts`
+- **children 转化规则单一实现（单一规则源，design/vdom-consistency-plan.md 阶段 0）**：children 形态判定（占位/数组项=隐式 Fragment/非法输入分类/锚点）收敛到 `transform.ts` 单一模块——buildVNode / renderValue / patchChildren / renderSsr / hydrateVNode 全部调用它，**禁止各路径各自实现形态判定**（同一语义多套实现 = 漂移 = 转化分叉——SSR 对空洞 `return ''` vs 客户端建占位 / build 把任意 Symbol 当 native vs render 无 symbol 分支，都是既有漂移证据）。新增 children 形态只改一处；验收用 grep 审计五消费方判定收敛
 - mount 保护期（工厂执行）`render()` 调用被 `_render` 守卫天然拦截（未挂载组件跳过）
 
 **实现位置**：`src/ui-dom/vdom/`（build.ts / diff.ts / render.ts / mount.ts / registry.ts / hydration.ts / ssr.ts / serve.ts）——第 2 代引擎，替代第 1 代（render.ts/diff.ts 顶层文件）的占位/补全/批处理机制。
@@ -528,19 +528,19 @@ const MyComp: Component = (_init, ctx) => {
 > **③ DOM**：必须**同构**镜像②——render 阶段对无渲染值（false/null/undefined/true）**建占位节点**
 > （`<!--wf-hole-->`），`childNodes.length` 恒等于 children 数组长度（数组第 i 项 ⟷ childNodes 第 i 个节点）——**对齐从结构上保证，不靠消费侧猜测**。
 
-**目标机制（占位法——用户决策，未实施）**：`renderValue` 数组子项遇无渲染值 → 占位节点；`patchChildren` 对称处理（占位↔真实用 **replaceChild 互换，禁止 removeChild 塌缩 childNodes**——长度恒定则预捕获 source 索引全有效）；SSR/hydration 同步序列化。占位是静态的、零 resolve 回调——**≠ v1 动态挂载占位（死循环根因），不触发任何补渲染**。实施见 design/vdom-consistency-plan.md 阶段 A。
+**机制（占位法——已实施，2026-12）**：`renderValue` 数组子项遇无渲染值 → 占位节点（`<!--wf-hole: xxx-->`）；`patchChildren` 对称处理（占位↔真实用 **replaceChild 互换，禁止 removeChild 塌缩 childNodes**——长度恒定则预捕获 source 索引全有效）；SSR/hydration 同步序列化。占位是静态的、零 resolve 回调——**≠ v1 动态挂载占位（死循环根因），不触发任何补渲染**。实施见 design/vdom-consistency-plan.md 阶段 A（已闭环）。
 
 **事故还原**（Form 提交按钮消失）：JSX `{cond && <Alert/>}` = false 保留在 children 数组（V3-3b 零拷贝不滤除），但 renderValue 不产生 DOM——两树不同构 → diff 建 `oldNodes[i] = source[i] = childNodes[i]` 下标映射时，false 位置命中**下一个真实兄弟（提交按钮）** → 删除分支 `removeChild` 误删。vnode 树里 Button 还在（`_refNode` 指向已脱离 DOM 的元素），DOM 里按钮已没——两树从此永久错位（静默传播，刷新/整树重建才恢复）。
 
-**当前机制（过渡修复——待占位法替换）**：`patchChildren` 入口过滤空洞——`normalizeChildren(...).filter(c => c != null && typeof c !== 'boolean')`（新旧两侧）。**这是对用户 vnode 的 magic（删元素），违背三层一致②——只作过渡**；占位法落地后删除。过渡期注意：filter 产生新数组破坏引用恒等短路（`oldInput === newInput` 零操作 / `newC === oldC` 剪枝）——**禁止移到 normalizeChildren**（会永久破坏）；占位法恢复完全零拷贝。
+**占位法落地细节（用户决策）**：数组项必有 key（显式或默认下标，统一字符串——`ensureArrayKeys`）；key 全落 DOM（`data-wf-key`——元素项直写 / 组件项穿透到输出每个顶层节点，多根全部写）；组件实例 id 落 `data-wf-id`（输出每个顶层节点，SSR 不输出——id 客户端运行时分配）；非法输入（对象/数字 type/未知 Symbol）→ 诊断占位 `<!--wf-hole: object {...}-->` + warn，不崩溃不静默；`__WF_VDOM_AUDIT`/`__WF_VDOM_DEBUG`/`?vdom_debug=1` 运行时校验与 trace。规则表：design/vdom-transform-rules.md。**filter 已删除**——占位法落地后无任何对用户 vnode 的 magic。
 
 **回归测试**：`src/test/vdom-diff.test.ts`「数组 boolean 空洞：{cond && <X/>}=false 占位不得误删下一个兄弟（提交按钮消失事故）」——覆盖空洞保持、空洞→真实元素插入（Alert 出现在按钮前、位置正确）。
 
 **复现步骤**：① jsdom：children = `[Field, false, Button]`，Field 加 error 重渲染 → 修复前 `querySelectorAll('button')` 为 0、修复后为 1；② agent-browser（components-demo）：Form 空表单点「提交表单」→ 修复前验证错误出现 + 按钮消失、修复后按钮保留。
 
-**残余风险（诚实裁剪）**：① 过渡期（filter）下，数组内 string 子项 + fragment 多节点展开前置时，string 的 `source[i]` 映射仍可能错位（占位法解决空洞，fragment 边界见 plan 阶段 B）；② 组件/fragment 子项有 `_refNode`/`_childNodes` 锚点不受影响。
+**残余风险（诚实裁剪）**：① 组件输出数组场景的 `_childAnchors` 边界——数组项 ≡ 隐式 Fragment，fragment/组件多节点展开后的相邻文本错位已由阶段 B 锚点覆盖（`_childAnchors` 每位置首节点锚点），组件输出数组的首/尾锚点仍有理论边界（未实测场景：组件输出数组直接接数组）；② 动态列表默认下标 key = 位置复用 + 状态继承（index key 语义）——增删重排需显式 key（规则表 §3 明示）。
 
-**React 对照**：fiber 模型 null 子项不产生 fiber（`reconcileChildrenArray` 主循环 `newChild == null → continue` 不推进 oldFiber）+ 每 fiber 自带 `index` 元数据——对齐不依赖数组/DOM 下标，从数据模型层消灭此 bug 类别；weifuwu 以「DOM 占位同构（目标）+ 消费侧防御（过渡期）+ 测试兜底」实现同等保证。
+**React 对照**：fiber 模型 null 子项不产生 fiber（`reconcileChildrenArray` 主循环 `newChild == null → continue` 不推进 oldFiber）+ 每 fiber 自带 `index` 元数据——对齐不依赖数组/DOM 下标，从数据模型层消灭此 bug 类别；weifuwu 以「DOM 占位同构（占位法，已实施）+ 单一规则源（transform.ts）+ audit 运行时校验 + 测试兜底」实现同等保证。
 
 ### 6.4 其他渲染器坑
 
