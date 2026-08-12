@@ -23,3 +23,5 @@
 - **startDirect 缺 rerender**（NewAgent「跳过模板」视图冻结——FS-03 违规）→ 修复
 - **AgentDetail 编辑/删除对 user 类型可见** → 隐藏（U3 的一部分）
 - **Input 组件缺 readonly 透传** → 框架 Input.ts 支持 readonly（入站端点只读展示）
+
+> ✅ **状态：全部 15 项完成**（user 3 + webhook 5 + knowledge_base 4 + ai 4，减去 W2 裁剪换 W5 补入）。修复 6 个真实 bug（孤儿 user / 随机向量 / 工具重复 / from-template tools / startDirect rerender / Input readonly）。框架 1936 + app 81 全绿。
