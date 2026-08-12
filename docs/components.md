@@ -558,7 +558,7 @@ props 变化 ──────────────────────�
 | Markdown | `Markdown` | `content` | AI 回复渲染（安全子集 parser） |
 | CodeBlock | `CodeBlock` | `code`, `lang`, `title` | 代码块（语言标签 + 复制） |
 | Highlight | `Highlight` | `text`, `query: string \| string[]` | 搜索词高亮（mark） |
-| List | `List` | `items`, `renderItem`, `divided`, `header/footer/empty` | 通用列表 |
+| List | `List` | `items`, `renderItem`, `keyBy?`, `divided`, `header/footer/empty` | 通用列表——`keyBy`（可选）自定义项 key：renderItem 渲染有内部状态的组件且列表动态增删/重排时传身份跟随内容的 key（默认数组下标 = 位置身份） |
 | Result | `Result` | `status`, `title`, `desc`, `extra` | 结果页（成功/失败/警告/信息） |
 | Icon | `Icon` | `name: IconName`, `size` | 图标（内置 25 个 stroke 图标，currentColor 随字号） |
 | StatCard | `StatCard` | `label`, `value`, `trend: 'up'\|'down'`, `trendLabel`, `icon`, `animate` | 统计卡片 |

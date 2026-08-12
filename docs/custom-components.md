@@ -297,6 +297,7 @@ const MyComp: Component = async (_init, ctx) => {
   - `<!--wf-hole: xxx-->` 占位注释——条件渲染 false/null/true/非法输入的占位节点（`{cond && <X/>}`=false 时 DOM 里有注释而非消失）——不是 bug，是引擎的透明占位
   - SSR 不输出 `data-wf-id`（id 客户端运行时分配）；`data-wf-key` SSR 同步输出
   - 断言/快照测试注意：`outerHTML` 包含这些属性与占位注释；按类选择器/子项数量断言不受影响
+- **列表 key 纪律**：渲染的列表是**有内部状态的组件实例 + 动态增删/重排**（如可输入的卡片）→ 必须显式 key（项 id），否则默认下标位置复用会让后续项继承被删项的内部状态；纯元素列表（格子/行/节点 div）默认下标即可——通用列表组件对外提供 `keyBy`（如 `List`）
 
 - `usePopup` 是**统一弹窗能力层**：锚定浮层（Tooltip/Popover/Dropdown/Select/AutoComplete/Mentions/Cascader/ContextMenu/NavMenu/Popconfirm/TreeSelect）+ 会话级模态（Modal/Drawer/Confirm——presence/trapFocus/lockScroll/positioning 'none'，Escape 语义留组件层）+ mask 模式（Command/Img preview/Tour——mask/maskCentered/自定义 mask VNode）+ focus 触发（DatePicker）+ positioning 'none' 常驻容器（Toast/Notification）——**全部弹窗单一入口**
 - **事件监听纪律**：组件库内部浏览器事件监听**统一走 `ctx.ui.useXXX`**——滚动/观察/弹层/对话框/快捷键/拖拽/DnD 全覆盖：

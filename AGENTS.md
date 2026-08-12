@@ -483,7 +483,6 @@ const MyComp: Component = (_init, ctx) => {
 **浏览器全局审计基线**：`grep -rnE '\bwindow\.|\bdocument\.|\bnavigator\.|\blocation\.|\bhistory\.|\blocalStorage|\bgetSelection\(|\brequestAnimationFrame|\bMutationObserver|\bIntersectionObserver|matchMedia\(' src/components/*/*.ts`（排除注释后必须为 0——新组件引入即 CI 噪音）。
 
 ### 5.6 样式纪律
-
 **小尺寸 button 必须固定 min/max-height**（全局 button 样式设 `min-height: 36px`——小尺寸按钮不覆盖会被撑成 36px 竖条，Tree checkbox 14x36 / Carousel 圆点 8x45 / Rate 星 16x36——真实操作抓出 6 处）：
 
 ```css
@@ -496,6 +495,19 @@ const MyComp: Component = (_init, ctx) => {
 ```
 
 **组件 CSS 不得与 layout 布局原语同名**（`.wf-grid` 组件类覆盖了 layout 双列布局——demo 回归；组件用 `wf-grid-comp` 类名——audit 第 21 条强制）。
+
+### 5.7 列表 key 纪律（vdom 规则表 §3 的组件层落地）
+
+**组件内数组项 key 决策标准**：
+
+| 列表类型 | key 决策 | 组件库现状（2026-12 审计） |
+|---------|---------|--------------------------|
+| **无内部状态的元素列表**（格子/行/节点 div/option 等——内容按 props patch） | 默认下标即可（位置复用正确） | Tree 节点 / Kanban 卡 / Table 行 / Calendar / DatePicker / Markdown / JSONViewer / Select option / Menu / Chart / Pipeline——已正确 |
+| **有内部状态的组件实例列表 + 动态增删/重排** | **必须显式 key**（身份跟随内容——避免状态继承错位） | Tabs(tab.key) / TagsInput(t) / Accordion(item.key) / SessionList(s.id) / VirtualList(keyBy) / JsonSchemaForm 数组字段(key={i} 受控)——已正确 |
+| **通用列表 API** | 提供 `keyBy`（可选，默认下标向后兼容）——renderItem 可能渲染有状态组件，动态增删需用户传 | List（keyBy 已加，2026-12） |
+
+- **新增列表类组件**：先判断列表类型——渲染有内部状态的组件 + 动态增删/重排 → 设计显式 key 来源（项 id / keyBy prop）；纯元素列表默认下标即可
+- **验证标准**：动态场景实测（拖拽重排 / 展开折叠 / 增删项 / 滚动）后项身份不漂移——keyed diff 下 DOM 操作与变化量成正比（规则表 §5 实测表）
 
 ## 6. 渲染器机制与已知坑（client 内部）
 

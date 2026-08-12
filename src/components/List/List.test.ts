@@ -44,3 +44,21 @@ describe('List', () => {
     assert.ok(collectText(vnode).includes('页脚'))
   })
 })
+
+  it('keyBy：自定义项 key（动态列表身份跟随内容）', async () => {
+    const vnode = await renderVNode(List, {
+      items: [{ id: 'x1', n: 'a' }, { id: 'x2', n: 'b' }],
+      renderItem: (it: any) => it.n,
+      keyBy: (it: any) => it.id,
+    }, createTestCtx())!
+    const ul = vnode.props.children.find((c: any) => c?.props?.class === 'wf-list-body')
+    assert.equal(ul.props.children[0].key, 'x1')
+    assert.equal(ul.props.children[1].key, 'x2')
+  })
+
+  it('无 keyBy → 默认下标 key（回归兼容）', async () => {
+    const vnode = await renderVNode(List, { items: ['a', 'b'], renderItem: (i: any) => String(i) }, createTestCtx())!
+    const ul = vnode.props.children.find((c: any) => c?.props?.class === 'wf-list-body')
+    assert.equal(String(ul.props.children[0].key), '0')
+    assert.equal(String(ul.props.children[1].key), '1')
+  })
