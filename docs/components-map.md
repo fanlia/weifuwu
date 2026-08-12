@@ -201,7 +201,7 @@
 |------|------|---------|------|
 | **Layout**（+LayoutHeader/Sider/Content/Footer） | 新增 | antd Layout / EP Container / shadcn Sidebar | 复合子组件双模式；含 Sider → row 布局；Sider 折叠受控/非受控 + trigger |
 | **Popconfirm** | 新增 | antd / EP Popconfirm | 复用 usePopup 基座（弹层组合性）；danger 危险色；确认后自动关闭 |
-| **AutoComplete** | 新增 | antd+EP Autocomplete / shadcn Combobox | 自由输入联想；包含过滤（纯函数）；键盘 ↓↑/Enter/Escape；选中回填 |
+| **AutoComplete** | 新增 | antd+EP Autocomplete / shadcn Combobox | 自由输入联想；包含过滤（纯函数）；键盘 ↓↑/Enter/Escape；选中回填；error 错误态 |
 | **Link** | 新增 | EP Link / antd Typography.Link | 语义色/下划线/disabled/new window/icon |
 | **FloatButton** | 新增 | antd FloatButton（特有） | fixed 定位 + badge + 组展开状态机 |
 | **NavMenu** | 新增 | shadcn NavigationMenu（特有） | 顶部多级 hover 弹出 + 键盘 →/Escape |

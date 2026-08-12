@@ -301,6 +301,7 @@ props 变化 ──────────────────────�
 | `onChange` | `(value: string) => void` | — |
 | `placeholder` | `string` | — |
 | `disabled` | `boolean` | — |
+| `error` | `string` | 错误态——输入框错误样式 + aria-invalid（F2 状态矩阵） |
 
 ### Form（表单增强）
 | Prop | 类型 | 说明 |
@@ -614,7 +615,7 @@ props 变化 ──────────────────────�
 | ContextMenu | `ContextMenu` | `items: ContextMenuItem[]`（`{ label, onClick, variant: 'danger' }`） | 右键菜单（光标定位 + 方向键） |
 | Mentions | `Mentions` | `options: { value, label }[]`, `value`, `onChange`, `prefix` | @提及（composition 抑制） |
 | Collapse | `Collapse` | `items: CollapseItem[]`（`{ key, title, content, loading }`）, `active`, `multiple` | 行内折叠（异步 loading） |
-| Tree | `Tree` | `data: TreeNode[]`, `expandedKeys`, `checkedKeys`, `checkable`, `selectedKeys`, `onCheck/onExpand/onSelect` | 树（递归 + 勾选父子联动 + 半选传播） |
+| Tree | `Tree` | `data: TreeNode[]`, `expandedKeys`, `checkedKeys`, `checkable`, `selectedKeys`, `onCheck/onExpand/onSelect` | 树（递归 + 勾选父子联动 + 半选传播；空数据「暂无数据」） |
 | Cascader | `Cascader` | `options: CascaderOption[]`, `value: string[]`, `onChange` | 级联选择（多列推进） |
 | Transfer | `Transfer` | `data: { key, label }[]`, `targetKeys`, `onChange`, `titles` | 穿梭框（选中 + 批量移动） |
 | Command | `Command` | `items: CommandItem[]`, `open`, `onOpenChange`, `shortcut` | 命令面板（⌘K 全局 + 键盘流） |
@@ -623,7 +624,7 @@ props 变化 ──────────────────────�
 | Resizable | `Resizable` | `direction`, `defaultSize`, `min/maxSize` | 拖拽分割面板（pointer + 键盘方向键） |
 | Calendar | `Calendar` | `month`, `year`, `events`, `selectedDate`, `onMonthChange/onSelectDate` | 月历（事件点 + 月切换 + 选日） |
 | Watermark | `Watermark` | `text`, `fontSize`, `rotate`, `zIndex` | 水印（canvas 平铺） |
-| VirtualList | `VirtualList` | `items`, `height`, `itemHeight`, `renderItem`, `overscan` | 虚拟列表（spacer + 可见窗口，1000+ 条） |
+| VirtualList | `VirtualList` | `items`, `height`, `itemHeight`, `renderItem`, `overscan`, `emptyText` | 虚拟列表（spacer + 可见窗口，1000+ 条；空态占位） |
 | InfiniteScroll | `InfiniteScroll` | `hasMore`, `loadMore`, `children`, `loader` | 触底加载（IntersectionObserver） |
 | QRCode | `QRCode` | `value`, `ecLevel`, `size`, `color`, `bgColor` | 二维码（自研 Reed-Solomon，版本 1-6） |
 
