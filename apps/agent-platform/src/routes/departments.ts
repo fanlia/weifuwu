@@ -39,6 +39,64 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     return Response.json({ departments, total: countResult.total })
   })
 
+  // ── 发起单聊（找/建 1v1 DM 部门——当前用户 × 目标 Agent） ──────
+
+  app.post('/api/departments/dm', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, tenantId, auth } = ctx
+    const body = await req.json() as { agent_id: string }
+    if (!body.agent_id) {
+      return Response.json({ error: 'agent_id 为必填' }, { status: 400 })
+    }
+    // 目标 Agent 必须是同租户且不是 user 类型（不能和自己单聊）
+    const [target] = await sql`
+      SELECT id FROM agents WHERE id = ${body.agent_id} AND tenant_id = ${tenantId} AND type != 'user'
+    `
+    if (!target) {
+      return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    }
+    // 当前用户的 user agent
+    const [me] = await sql`
+      SELECT id FROM agents WHERE tenant_id = ${tenantId} AND type = 'user' AND user_id = ${auth!.userId}
+    `
+    if (!me) {
+      return Response.json({ error: '当前用户无绑定 Agent' }, { status: 400 })
+    }
+    // 找已有 DM（成员恰好 = me + target）
+    const [existing] = await sql`
+      SELECT d.id FROM departments d
+      JOIN department_members dm1 ON dm1.department_id = d.id AND dm1.agent_id = ${me.id}
+      JOIN department_members dm2 ON dm2.department_id = d.id AND dm2.agent_id = ${target.id}
+      WHERE d.is_dm = TRUE
+        AND (SELECT COUNT(*) FROM department_members dm WHERE dm.department_id = d.id) = 2
+      LIMIT 1
+    `
+    if (existing) {
+      return Response.json({ department: existing, existed: true })
+    }
+    // 找目标 agent 的公司（挂第一个公司；无公司时不允许）
+    const [company] = await sql`
+      SELECT c.id FROM companies c
+      JOIN agents a ON a.tenant_id = c.tenant_id
+      WHERE a.id = ${target.id} AND c.tenant_id = ${tenantId}
+      ORDER BY c.created_at LIMIT 1
+    `
+    if (!company) {
+      return Response.json({ error: '请先创建公司' }, { status: 400 })
+    }
+    const [department] = await sql`
+      INSERT INTO departments (company_id, name, is_dm)
+      VALUES (${company.id}, '单聊', TRUE)
+      RETURNING id, company_id, name, is_dm, created_at
+    `
+    await sql`
+      INSERT INTO department_members (department_id, agent_id, role) VALUES
+        (${department.id}, ${me.id}, 'admin'),
+        (${department.id}, ${target.id}, 'member')
+      ON CONFLICT DO NOTHING
+    `
+    return Response.json({ department, existed: false }, { status: 201 })
+  })
+
   // ── 创建部门 ─────────────────────────────────────────────
 
   app.post('/api/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {

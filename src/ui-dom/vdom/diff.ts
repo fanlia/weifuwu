@@ -507,6 +507,14 @@ export function patchChildren(
         continue
       }
       if (oldC == null || typeof oldC === 'boolean') {
+        // 新旧都是无渲染值（null/false/undefined 同构）——占位法长度恒定：旧 hole 位置不动，
+        // 不重建不删除（否则 null 位置的 hole 在 rerender 后消失——结构错位：Chat 回复条缺失根因）
+        if (newC == null || typeof newC === 'boolean') {
+          const hole = oldNodes[i] ?? null
+          out.push(hole)
+          pushA(hole)
+          continue
+        }
         // 新增：渲染 + 插入
         const node = renderValue(newC, ctx, ctx.browser ?? createClientBrowser())
         if (node == null) { out.push(null); pushA(null); continue }
@@ -709,12 +717,13 @@ export function patchChildren(
       const on = oldNodes[i]
       if (on?.parentNode) on.parentNode.removeChild(on)
     } else if (k === undefined) {
-      const newC = i < newChildren.length ? newChildren[i] : null
       const on = oldNodes[i]
       const isHole = on?.nodeType === 8 && on.nodeValue?.startsWith('wf-hole:')
       // 占位保留（占位法：长度恒定——占位↔占位/占位→真实已由新建分支处理）；
-      // 仅当 new 侧无对应位置（数组缩短）或非占位项（文本/真实）才删除
-      if (!isHole || newC == null) {
+      // 仅当 new 侧无对应位置（数组缩短 i >= newChildren.length）或非占位项（文本/真实）才删除。
+      // 注意：不能用 newC == null 判断缩短——数组内 null 本身是占位项（有位置），
+      // newC=null 是「占位↔占位」需保留；数组缩短是 i 超界（Chat 回复条缺失根因）
+      if (!isHole || i >= newChildren.length) {
         if (c && typeof c === 'object' && !Array.isArray(c)) {
           if (isComponent) disposeComponent(c as VNode, ctx.registry)
           else { try { callRefCleanupFor(c as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }

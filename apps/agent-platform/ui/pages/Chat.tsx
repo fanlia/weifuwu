@@ -13,6 +13,7 @@ export const Chat: Component = async (_props, ctx) => {
   $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
   $.approving = null; $.copiedId = ''; $.timeVersion = 0
   $.hasMore = false; $.loadingMore = false; $.searchQ = ''; $.searching = false
+  $.replyTo = null
   $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
   const chatControl = { current: null as any }
 
@@ -180,9 +181,11 @@ export const Chat: Component = async (_props, ctx) => {
     const saved = trimmed
     $.sending = true; $.input = ''
     $.atMenuOpen = false; $.atQuery = ''
+    const replyId = $.replyTo?.id ?? null
+    $.replyTo = null
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     try {
-      const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: trimmed }).catch(() => null)
+      const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: trimmed, reply_to: replyId }).catch(() => null)
       if (data) {
         if (data.message && !$.msgs.some((m: any) => m.id === data.message.id)) {
           $.msgs.push({
@@ -218,6 +221,7 @@ export const Chat: Component = async (_props, ctx) => {
   }
 
   function startEdit(msg: any) { $.editingId = msg.id; $.editValue = msg.content; rerender() }
+  function startReply(msg: any) { $.replyTo = { id: msg.id, sender: msg.sender_name, content: msg.content }; rerender() }
   function cancelEdit() { $.editingId = ''; $.editValue = ''; rerender() }
 
   async function saveEdit(e: Event) {
@@ -360,16 +364,27 @@ export const Chat: Component = async (_props, ctx) => {
                   <span>{fmtTime(msg.created_at)}</span>
                   {isActive && <span class="wf-text-brand">{st === 'thinking' ? '思考中...' : '生成中...'}</span>}
                   {isError && <span class="wf-text-error">出错了</span>}
-                  {canEdit(msg) && !$.editingId && !isActive && (
+                  {!$.editingId && !isActive && (
                     <span class="wf-row wf-gap-xs">
-                      <Button size="sm" variant="ghost" onClick={() => startEdit(msg)}>编辑</Button>
-                      <Button size="sm" variant="ghost" onClick={() => deleteMsg(msg)}>撤回</Button>
+                      <Button size="sm" variant="ghost" onClick={() => startReply(msg)}>回复</Button>
+                      {canEdit(msg) && (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={() => startEdit(msg)}>编辑</Button>
+                          <Button size="sm" variant="ghost" onClick={() => deleteMsg(msg)}>撤回</Button>
+                        </>
+                      )}
                     </span>
                   )}
                   {st === 'complete' && msg.sender_type === 'ai' && msg.content && (
                     <CopyButton size="sm" variant="ghost" value={msg.content} label="复制" />
                   )}
                 </div>
+
+                {msg.reply_content && !beingEdited && (
+                  <div class="wf-border-l wf-pl-sm wf-text-xs wf-text-tertiary">
+                    <span class="wf-text-secondary">↩ {msg.reply_sender ?? '消息'}</span> {String(msg.reply_content).slice(0, 40)}
+                  </div>
+                )}
 
                 {showTools && (
                   <div class="wf-stack wf-gap-xs">
@@ -444,6 +459,13 @@ export const Chat: Component = async (_props, ctx) => {
                 <span class="wf-text-base">{m.name}</span>
               </button>
             ))}
+          </div>
+        )}
+        {$.replyTo && (
+          <div class="wf-row wf-gap-sm wf-items-center wf-bg-tertiary wf-px-sm wf-py-xs wf-rounded wf-mb-sm">
+            <Icon name="message" size={14} />
+            <span class="wf-text-sm wf-text-secondary wf-truncate wf-fill">回复 {$.replyTo.sender}：{String($.replyTo.content).slice(0, 40)}</span>
+            <Button size="sm" variant="ghost" onClick={() => { $.replyTo = null; rerender() }}><Icon name="close" size={12} /></Button>
           </div>
         )}
         <div class="wf-row wf-gap-sm">

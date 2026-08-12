@@ -48,10 +48,13 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const messages = await sql`
       SELECT
         m.id, m.department_id, m.sender_id, m.content, m.msg_type,
-        m.ai_draft, m.ai_approved, m.created_at,
-        a.name as sender_name, a.type as sender_type, a.avatar_url as sender_avatar
+        m.ai_draft, m.ai_approved, m.created_at, m.reply_to,
+        a.name as sender_name, a.type as sender_type, a.avatar_url as sender_avatar,
+        r.content as reply_content, ra.name as reply_sender
       FROM messages m
       LEFT JOIN agents a ON a.id = m.sender_id
+      LEFT JOIN messages r ON r.id = m.reply_to
+      LEFT JOIN agents ra ON ra.id = r.sender_id
       WHERE m.department_id = ${params.id}
       ${before ? sql`AND m.created_at < (SELECT created_at FROM messages WHERE id = ${before})` : sql``}
       ${q ? sql`AND m.content ILIKE ${'%' + q + '%'}` : sql``}

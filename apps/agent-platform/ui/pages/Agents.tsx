@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot } from '../components/ui'
-import { Button, Card } from 'weifuwu/components'
+import { Button, Card, Icon } from 'weifuwu/components'
 
 export const Agents: Component = async (_props, ctx) => {
   const $: Record<string, any> = {}
@@ -24,6 +24,16 @@ export const Agents: Component = async (_props, ctx) => {
     } else {
       ;ctx.toast!('删除失败', 'error')
     }
+  }
+
+  async function startDm(e: Event, id: string) {
+    e.stopPropagation()
+    try {
+      const res = await ctx.api!.post('/api/departments/dm', { agent_id: id })
+      const d = res.department
+      if (d?.id) { ctx.app?.navigate(`/chat/${d.id}`) }
+      else { ctx.toast!('发起单聊失败', 'error') }
+    } catch { ctx.toast!('发起单聊失败', 'error') }
   }
   return async (props) => (
     <div class="wf-stack wf-gap-lg">
@@ -63,6 +73,10 @@ export const Agents: Component = async (_props, ctx) => {
               <div class="wf-split wf-mt-md">
                 <StatusDot on={a.is_active !== false} />
                 <div class="wf-row wf-gap-sm">
+                  {a.type !== 'user' && (
+                    <Button size="sm" variant="ghost" title="发起单聊"
+                      onClick={(e: any) => startDm(e, a.id)}><Icon name="message" size={14} /> 单聊</Button>
+                  )}
                   <Button size="sm" variant="ghost"
                     onClick={(e: any) => { e.stopPropagation(); ctx.app?.navigate(`/agents/${a.id}`) }}>编辑</Button>
                   <Button size="sm" variant="danger" onClick={(e: any) => remove(e, a.id)}>删除</Button>
