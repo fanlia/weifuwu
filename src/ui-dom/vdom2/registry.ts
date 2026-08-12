@@ -5,8 +5,8 @@
  * 卸载钩子：hooks（usePopup/useMedia 等）注册清理回调，组件卸载时执行。
  */
 
-import type { VNode } from '../vnode2.ts'
-import { isComp, isPortal } from '../vnode2.ts'
+import type { VNode } from '../vnode.ts'
+import { isComp, isPortal } from '../vnode.ts'
 
 export interface Registry {
   idRegistry: Map<string, VNode>

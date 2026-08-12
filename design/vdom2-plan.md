@@ -63,6 +63,7 @@ ui-dom/hooks/     hooks 实现（独立模块，已存在）
 - [x] vnode2.ts 独立强类型（不兼容 vdom1——用户决策；Fragment/Portal symbol 复用全局）
 - [x] uiServe 迁移到 ui-dom/middleware/serve.ts（vdom2 引擎）
 - [x] tsc 零错误 + client 170 + components 1079 + vdom2 矩阵全绿
-- [ ] hydration.ts 迁移（vdom2 的 hydrate）
-- [ ] audit.ts 迁移（vdom2 结构校验）
+- [x] hydration 迁移（vdom2/hydrate.ts）+ audit 迁移（vdom2/audit.ts——接入 mount/renderer）
+- [x] 强类型贯彻：vdom2 + context 零 `as any`（48→0）、零内部 `undefined`（key 显式 null、
+      字段 `xxx: type | null`、ctx.ui 必填、globalThis/tracker 结构化 cast）、组件库守卫适配
 - [ ] 删除 vdom1（vdom/ 目录）——完成后单一引擎（vnode2.ts 成唯一类型源，serve cast 消除）

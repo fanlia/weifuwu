@@ -2,7 +2,7 @@ import type { Component, VNode } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
 import { h } from '../../ui-dom/vnode.ts'
-import { mountCommand } from '../../ui-dom/vdom/mount.ts'
+import { mountCommand } from '../../ui-dom/context.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
 

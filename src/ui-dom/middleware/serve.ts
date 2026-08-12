@@ -7,18 +7,18 @@
  */
 
 import { createClientBrowser } from '../browser.ts'
-import { h } from '../vnode2.ts'
+import { h } from '../vnode.ts'
 import { uiLog } from '../debug.ts'
 import { trace, traceEnabled, nextTraceId, initVdomTrace } from '../vdom2/trace.ts'
 import type { UIRouter } from '../router.ts'
-import { isNative, type VNode } from '../vnode2.ts'
+import { isNative, type VNode } from '../vnode.ts'
 import type { WfuiContext, UIContext } from '../types.ts'
 import { buildVNode } from '../vdom2/build.ts'
 import { renderValue } from '../vdom2/render.ts'
 import { patchValue } from '../vdom2/patch.ts'
 import { createVdomContext } from '../context.ts'
 import { hydrateVNode } from '../vdom2/hydrate.ts'
-import type { VNodeChild } from '../vnode2.ts'
+import type { VNodeChild } from '../vnode.ts'
 
 /** uiServe 选项 */
 export interface UIServeOptions {

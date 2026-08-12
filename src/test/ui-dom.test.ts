@@ -14,7 +14,7 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { UIRouter, h } from '../ui-dom/index.ts'
-import { uiServe } from '../ui-dom/vdom/serve.ts'
+import { uiServe } from '../ui-dom/middleware/serve.ts'
 import type { UIHandler, UIMiddleware, WfuiContext } from '../ui-dom/index.ts'
 const browser = createClientBrowser()
 
@@ -248,7 +248,7 @@ test('keyed 列表重排复用 DOM + style diff + 事件不累积', async () => 
 // ═══════════════════════════════════════════════════════
 
 test('ssrToString + uiServe hydrate 收养', async () => {
-  const { ssrToString } = await import('../ui-dom/vdom/ssr.ts')
+  const { ssrToString } = await import('../ui-dom/vdom2/ssr.ts')
   const html = await ssrToString(
     (() => () => h('div', { id: 'app' }, h('h1', {}, '标题'), h('span', { onClick: () => {} }, 'x'))) as any,
     {},
@@ -356,7 +356,7 @@ test('UIRouter.use(AppMiddleware)：自定义注入中间件（ctx.xxx 类型扩
 // ═══════════════════════════════════════════════════════
 
 test('ssrPage：SSR 渲染路由页面 → 完整 HTML + __DATA__', async () => {
-  const { ssrPage } = await import('../ui-dom/vdom/ssr.ts')
+  const { ssrPage } = await import('../ui-dom/vdom2/ssr.ts')
   const router = new UIRouter()
   router.get('/users/:id', async (location, ctx) => {
     const user = await ctx.data.get(`/api/users/${ctx.params.id}`, async () => ({ name: '张三' }))
@@ -376,7 +376,7 @@ test('ssrPage：SSR 渲染路由页面 → 完整 HTML + __DATA__', async () => 
 })
 
 test('SSR → hydrate 完整链路：预取数据 __DATA__ 命中 + DOM 收养', async () => {
-  const { ssrPage } = await import('../ui-dom/vdom/ssr.ts')
+  const { ssrPage } = await import('../ui-dom/vdom2/ssr.ts')
   const router = new UIRouter()
   let fetchCount = 0
   router.get('/page', async (location, ctx) => {

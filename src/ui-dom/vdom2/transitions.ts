@@ -13,13 +13,14 @@
  * 全量组合表显式列出——vdom2-matrix.test.ts 9×9 矩阵验证无遗漏。
  */
 
-import type { VNode, VNodeChild } from '../vnode2.ts'
-import { Fragment, Portal, isFrag, isComp, isNative, isPortal } from '../vnode2.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
+import { Fragment, Portal, isFrag, isComp, isNative, isPortal } from '../vnode.ts'
 import { classifyKind, getOutputRange, type PatchState, type VKind } from './kind.ts'
 import { renderValue, createHole } from './render.ts'
 import { removeOldOutput, patchChildren, patchProps, patchValue, disposeComponent, type PatchCtx } from './patch.ts'
 import { callRefCleanupFor } from './registry.ts'
 import { createClientBrowser } from '../browser.ts'
+import { componentName } from './ctx.ts'
 
 type TransitionFn = (s: PatchState) => Node | null
 
@@ -109,7 +110,7 @@ function nativeToNative(s: PatchState): Node | null {
     if (!('innerHTML' in (newV.props ?? {}))) {
       const anchors: (Node | null)[] = []
       // 锚点优先（_childAnchors 每位置首节点——fragment/数组项多节点展开后不错位）
-      patchChildren(el, oldV?.props?.children ?? null, newV.props?.children ?? null, ctx, undefined, isNative(oldV) ? oldV._childAnchors ?? undefined : undefined, anchors)
+      patchChildren(el, oldV?.props?.children ?? null, newV.props?.children ?? null, ctx, null, isNative(oldV) ? oldV._childAnchors ?? null : null, anchors)
       newV._childAnchors = anchors
     }
     return el
@@ -124,7 +125,7 @@ function fragToFrag(s: PatchState): Node | null {
   const { parent, oldNode, oldInput, ctx } = s
   const newV = s.newInput as VNode
   const oldV = oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) ? (oldInput as VNode) : null
-  const oldRange = isFrag(oldV) && oldV._childNodes ? oldV._childNodes : undefined
+  const oldRange = isFrag(oldV) && oldV._childNodes ? oldV._childNodes : null
   // oldInput 传旧 Fragment 的 props.children（旧 vnode 本身会导致 oldChildren 错位 1 项
   // ——[fragV] vs [b1,b2] → 替换路径新建节点 → 重复残留；diff-fragment 真实 bug）
   const range = patchChildren(parent, oldV?.props?.children ?? oldInput, newV.props?.children ?? null, ctx, oldRange)
@@ -141,14 +142,14 @@ function compToComp(s: PatchState): Node | null {
   const newV = s.newInput as VNode
   if (!isComp(newV) || typeof newV._render !== 'function') {
     throw new Error(
-      `[vdom2] component ${(newV.type as any).name || 'anonymous'} not built in diff — buildVNode must run before patchValue`,
+      `[vdom2] component ${componentName(newV.type)} not built in diff — buildVNode must run before patchValue`,
     )
   }
   const oldV = oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) ? (oldInput as VNode) : null
 
   // 三态 skip（diff 信任 buildVNode 产出——剪枝命中时 _child 引用相等 → 子树未变）
   const typeSame = oldV?.type === newV.type
-  if (!ctx.force && oldV && typeSame && oldV._child !== undefined && newV._child === oldV._child) {
+  if (!ctx.force && oldV && typeSame && oldV._child !== null && newV._child === oldV._child) {
     return oldNode
   }
 
@@ -160,12 +161,12 @@ function compToComp(s: PatchState): Node | null {
   newV._parentNode = parent
   if (oldNode) newV._refNode = oldNode
 
-  // 渲染输出（_child 必已由 buildVNode 预构建——diff 同步上下文永不执行 renderFn）
+  // 渲染输出（_child 必已由 buildVNode 预构建——diff 同步上下文永不执行 renderFn；
+  // null 是合法输出（组件条件渲染）——patchValue 的 toHole 处理移除）
   const childNew = newV._child
-  if (childNew === undefined) {
-    throw new Error(
-      `[vdom2] component ${(newV.type as any).name || 'anonymous'} not built (missing _child) — buildVNode must run before patchValue`,
-    )
+  if (childNew === null) {
+    newV._outputChild = null
+    return patchValue(parent, oldNode, oldV?._child, null, ctx)
   }
   // 输出 vnode 引用（独立于 dispose 的 _child 链——getOutputRange 递归终点）
   newV._outputChild = childNew
@@ -182,7 +183,7 @@ function arrToArr(s: PatchState): Node | null {
   // V3-3a：数组引用相同 → 内容未变（构建产物不可变约定——引用相同 = 未变，短路零操作）
   if (oldInput === s.newInput && oldNode?.parentNode) return oldNode
   const frag = parent.ownerDocument!.createDocumentFragment()
-  const range = patchChildren(parent, oldInput, s.newInput, ctx, oldNode ? [oldNode] : undefined)
+  const range = patchChildren(parent, oldInput, s.newInput, ctx, oldNode ? [oldNode] : null)
   for (const n of range) if (n) frag.appendChild(n)
   if (oldNode?.parentNode) {
     // frag 可能已含 oldNode（patchChildren 对照复用了旧 DOM）——replaceChild(frag, oldNode)

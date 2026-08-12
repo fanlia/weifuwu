@@ -19,7 +19,7 @@ import { h, createPortal } from '../../ui-dom/vnode.ts'
 
 before(setupJsdom)
 
-import { mountRoot } from '../../ui-dom/vdom/mount.ts'
+import { mountRoot } from '../../ui-dom/context.ts'
 const browser = createClientBrowser()
 
 describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {

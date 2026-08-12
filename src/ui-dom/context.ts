@@ -40,7 +40,7 @@ export function createVdomContext(opts: MountOptions): VdomContext {
     _selfId: '_wf_root',
     _mounting: false,
     _ctxVersion: 0,
-    _rootVNodeId: undefined as string | undefined,
+    _rootVNodeId: null as string | null,
   }
   const ctx: any = {
     browser: opts.browser,
@@ -52,7 +52,7 @@ export function createVdomContext(opts: MountOptions): VdomContext {
   const tracker = createPopupTrackerSystem((ids: string[]) => { for (const id of ids) renderer.render([id]) })
   // mediaRegistry 自建（useMedia/useBreakpoint 的 mql 注册表）
   const mediaRegistry = new Map<string, { mqls: Array<{ mql: MediaQueryList; handler: () => void }> }>()
-  const { popupTrackers, scrollTrackers, ensurePopupListeners, destroyPopupListeners, cleanupTrackers } = tracker as any
+  const { popupTrackers, scrollTrackers, ensurePopupListeners, destroyPopupListeners, cleanupTrackers } = tracker
 
   // 卸载钩子防御：hook 自身已注册清理，此处兜底清理跟踪条目
   onComponentUnmountFor(registry, (id: string) => {
@@ -77,8 +77,8 @@ export function createVdomContext(opts: MountOptions): VdomContext {
     onUnmount: (fn) => onComponentUnmountFor(registry, fn),
     registry,
     mediaRegistry,
-    popupTrackers,
-    scrollTrackers,
+    popupTrackers: popupTrackers as unknown as Map<string, import('./hooks/types.ts').PopupTracker>,
+    scrollTrackers: scrollTrackers as unknown as Map<string, import('./hooks/types.ts').ScrollTracker>,
     isMounting: () => rootUi._mounting === true,
     warned,
     uncontrolledValues,
@@ -167,3 +167,6 @@ export function mountRoot(opts: MountOptions): MountHandle {
     onError: opts.onError,
   })
 }
+
+// 命令式挂载（toast/notification/confirm——vdom2 引擎）
+export { mountCommand, unmountCommand, createCommandContainer } from './vdom2/mount.ts'

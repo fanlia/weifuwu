@@ -11,8 +11,8 @@ import { describe, it, before } from 'node:test'
 import assert from 'node:assert'
 import { h } from '../ui-dom/vnode.ts'
 import { setupJsdom } from './client/setup.ts'
-import { createVdomContext, mountRoot } from '../ui-dom/vdom/mount.ts'
-import { patchValue } from '../ui-dom/vdom/diff.ts'
+import { createVdomContext, mountRoot } from '../ui-dom/context.ts'
+import { patchValue } from '../ui-dom/vdom2/patch.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 
 before(setupJsdom)
@@ -49,8 +49,8 @@ async function switchPage(PageA_: any, PageB_: any): Promise<string[]> {
   const handle = mountRoot({ root: container, ctx, browser })
   const vA = h(PageA_, {})
   await handle.mount(vA)
-  const { buildVNode } = await import('../ui-dom/vdom/build.ts')
-  const { createRegistry } = await import('../ui-dom/vdom/registry.ts')
+  const { buildVNode } = await import('../ui-dom/vdom2/build.ts')
+  const { createRegistry } = await import('../ui-dom/vdom2/registry.ts')
   const reg = createRegistry()
   const vB = h(PageB_, {})
   const builtB = await buildVNode(vB, ctx, vA, reg)

@@ -10,8 +10,8 @@
  * 文本/数组/占位是 JSX 原生值（string/Array/boolean/null）——classifyKind 分类后走同一转换表。
  */
 
-import type { VNode, VNodeChild } from '../vnode2.ts'
-import { Fragment, Portal, isFrag, isComp, isPortal } from '../vnode2.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
+import { Fragment, Portal, isFrag, isComp, isPortal } from '../vnode.ts'
 
 /** children 值类型分类（vdom 状态机状态） */
 export type VKind = 'text' | 'native' | 'frag' | 'comp' | 'arr' | 'hole' | 'portal'

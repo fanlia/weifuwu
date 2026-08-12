@@ -14,9 +14,9 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { h } from '../ui-dom/vnode.ts'
-import { buildVNode } from '../ui-dom/vdom/build.ts'
-import { renderValue } from '../ui-dom/vdom/render.ts'
-import { createVdomContext } from '../ui-dom/vdom/mount.ts'
+import { buildVNode } from '../ui-dom/vdom2/build.ts'
+import { renderValue } from '../ui-dom/vdom2/render.ts'
+import { createVdomContext } from '../ui-dom/context.ts'
 
 before(setupJsdom)
 

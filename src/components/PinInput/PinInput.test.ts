@@ -6,7 +6,7 @@ import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 import { setupJsdom } from '../../test/client/setup.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { h } from '../../ui-dom/vnode.ts'
-import { mountRoot } from '../../ui-dom/vdom/mount.ts'
+import { mountRoot } from '../../ui-dom/context.ts'
 
 before(setupJsdom)
 afterEach(() => { createClientBrowser().clearBody() })

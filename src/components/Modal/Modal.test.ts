@@ -181,7 +181,7 @@ describe('Modal', () => {
 
 // ── 真实 usePopup 链路（非 mock——createVdomContext + mountRoot：presence 退场接线） ──
 
-import { mountRoot, createVdomContext } from '../../ui-dom/vdom/mount.ts'
+import { mountRoot, createVdomContext } from '../../ui-dom/context.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { h } from '../../ui-dom/vnode.ts'
 

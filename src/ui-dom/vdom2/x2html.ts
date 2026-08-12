@@ -11,9 +11,10 @@
  * - 事件 props 剥离（hydration 接线）；ref 剥离
  */
 
-import type { VNode, VNodeChild } from '../vnode2.ts'
-import { isFrag, isComp, isPortal, isNative, Fragment, Portal } from '../vnode2.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
+import { isFrag, isComp, isPortal, isNative, Fragment, Portal } from '../vnode.ts'
 import { classifyKind, type VKind } from './kind.ts'
+import { componentName } from './ctx.ts'
 import { holeMarkup, ENUMERATED_VALUE_BASED } from './transform.ts'
 import { ensureArrayKeys } from './transform.ts'
 
@@ -69,10 +70,10 @@ async function arrToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
   const fidBase = ctx._fidPath
   const parts = await Promise.all(arr.map(async (c, i) => {
     const childFid = fidBase != null ? `${fidBase}-${i}` : String(i)
-    if (c == null || typeof c === 'boolean') return `<!--${holeMarkup({ type: 'hole', value: c })}-->`
+    if (c == null || typeof c === 'boolean') return `<!--${holeMarkup({ type: 'hole', value: c, key: null, id: null, fid: null })}-->`
     if (Array.isArray(c)) {
       const inner = await x2html(c, { ...ctx, _fidPath: childFid })
-      return `<!--${holeMarkup({ type: 'fragment-start', key: String(i), fid: childFid })}-->${inner}<!--${holeMarkup({ type: 'fragment-end', key: String(i), fid: childFid })}-->`
+      return `<!--${holeMarkup({ type: 'fragment-start', key: String(i), id: null, fid: childFid })}-->${inner}<!--${holeMarkup({ type: 'fragment-end', key: String(i), id: null, fid: childFid })}-->`
     }
     return x2html(c, ctx)
   }))
@@ -92,10 +93,10 @@ async function compToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
   const childCtx = Object.create(ctx) as HtmlCtx
   // 组件输出 = fid 根（与客户端 renderValue 组件分支不传 fid——数组项路径重置）
   delete childCtx._fidPath
-  const renderFn = await (vnode.type as any)(vnode.props ?? {}, childCtx)
+  const renderFn = await (vnode.type as (p: Record<string, any>, c: any) => Promise<(p: Record<string, any>) => Promise<VNode | null>>)(vnode.props ?? {}, childCtx)
   if (typeof renderFn !== 'function') {
     throw new Error(
-      `Component ${(vnode.type as any).name || 'anonymous'} must return a render function. ` +
+      `Component ${componentName(vnode.type)} must return a render function. ` +
         `Use (init_props, ctx) => (props) => VNode pattern.`,
     )
   }
@@ -116,7 +117,7 @@ async function nativeToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
   const tag = vnode.type as string
   const props = vnode.props ?? {}
   const attrs: string[] = []
-  let innerHTML: string | undefined
+  let innerHTML: string | null = null
   if (vnode.key != null) attrs.push(` data-wf-key="${escape(String(vnode.key))}"`)
   for (const [key, value] of Object.entries(props)) {
     if (key === 'children' || key === 'key') continue
@@ -143,7 +144,7 @@ async function nativeToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
   const attrStr = attrs.join('')
   const svgWrap = SVG_TAGS.has(tag)
   if (VOID_TAGS.has(tag)) return `<${tag}${attrStr}>`
-  if (innerHTML !== undefined) return `<${tag}${attrStr}>${innerHTML}</${tag}>`
+  if (innerHTML !== null) return `<${tag}${attrStr}>${innerHTML}</${tag}>`
   const children = await x2html(props.children, ctx)
   if (svgWrap) return `<${tag}${attrStr}>${children}</${tag}>`
   return `<${tag}${attrStr}>${children}</${tag}>`

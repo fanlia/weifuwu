@@ -137,8 +137,8 @@ describe('VNode 结构', () => {
     assert.equal(v.key, 'key1')
   })
 
-  it('无 key 时为 undefined', () => {
+  it('无 key 时为 null（vdom2 强类型：key 显式 null 非 undefined）', () => {
     const v = jsx('div', { children: 'x' })
-    assert.equal(v.key, undefined)
+    assert.equal(v.key, null)
   })
 })

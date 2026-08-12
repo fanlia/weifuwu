@@ -19,10 +19,10 @@
 
 import type { VNode } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
-import { mountCommand } from './vdom/mount.ts'
-import { patchValue } from './vdom/diff.ts'
-import { buildVNode } from './vdom/build.ts'
-import { createRegistry } from './vdom/registry.ts'
+import { mountCommand } from './vdom2/mount.ts'
+import { patchValue } from './vdom2/patch.ts'
+import { buildVNode } from './vdom2/build.ts'
+import { createRegistry } from './vdom2/registry.ts'
 
 /**
  * 组件 DOM 级测试辅助（vdom 引擎）：

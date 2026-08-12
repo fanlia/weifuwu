@@ -10,21 +10,22 @@
  * ctx.ui.render：render-only（design/render-only-plan.md）——唯一渲染触发。
  */
 
-import type { VNode, VNodeChild, CompVNode } from '../vnode2.ts'
-import { isComp } from '../vnode2.ts'
+import type { VNode, VNodeChild, CompVNode } from '../vnode.ts'
+import { isComp } from '../vnode.ts'
 import { createRegistry, type Registry } from './registry.ts'
 import { buildVNode } from './build.ts'
 import { renderValue } from './render.ts'
 import { patchValue, type PatchCtx } from './patch.ts'
 import { auditEnabled, auditTree } from './audit.ts'
 import { createClientBrowser } from '../browser.ts'
+import { ctxVersion as getCtxVersion, type VdomCtx } from './ctx.ts'
 import type { BrowserEnv } from '../types.ts'
 
 export interface MountOptions {
   browser: BrowserEnv
   root: HTMLElement
-  /** 完整 ctx（ui-dom/context.ts createVdomContext 组装——含 ctx.ui.render 等） */
-  ctx: any
+  /** 完整 ctx（ui-dom/context.ts createVdomContext 组装——ui 必填） */
+  ctx: VdomCtx
   registry?: Registry
   renderer?: Renderer
   onError?: (e: unknown) => void
@@ -75,7 +76,7 @@ export function createRenderer(opts: {
         const patchCtx: PatchCtx = {
           browser: ctx.browser ?? createClientBrowser(),
           registry,
-          ctxVersion: (ctx as any)?.ui?._ctxVersion ?? 0,
+          ctxVersion: getCtxVersion(ctx),
         }
         const node = patchValue(parent, comp._refNode ?? null, oldChild, newChild, patchCtx)
         comp._refNode = node
@@ -90,12 +91,12 @@ export function createRenderer(opts: {
       }
     } catch (e) {
       if (opts.onError) opts.onError(e)
-      else console.error('[vdom2] render error:', (e as any)?.stack ?? e)
+      else console.error('[vdom2] render error:', (e as { stack?: string })?.stack ?? e)
     }
   }
   function render(ids?: string[]): Promise<void> {
     if (ids == null) return Promise.resolve()
-    return Promise.all(ids.map((id) => renderOne(id))).then(() => undefined)
+    return Promise.all(ids.map((id) => renderOne(id))).then(() => {})
   }
   return { render }
 }
@@ -105,7 +106,7 @@ export function mountRoot(opts: MountOptions): MountHandle {
   const { ctx, browser } = opts
   const registry = opts.registry ?? createRegistry()
   const renderer = opts.renderer ?? createRenderer({ registry, ctx, rootEl: opts.root, onError: opts.onError })
-  const rootUi = (ctx as any).ui
+  const rootUi = ctx.ui
   let mounted: VNodeChild | null = null
   let prevChild: VNodeChild | null = null
 
@@ -115,12 +116,12 @@ export function mountRoot(opts: MountOptions): MountHandle {
     renderer,
     async mount(input) {
       mounted = input
-      const built = await buildVNode(input, ctx, undefined, registry)
+      const built = await buildVNode(input, ctx, null, registry)
       opts.root.innerHTML = ''
       const node = renderValue(built, ctx, browser)
       if (node != null) opts.root.appendChild(node)
       prevChild = (built as VNode)?._child ?? built
-      if (rootUi) rootUi._rootVNodeId = (built as VNode)?._id
+      if (rootUi) rootUi._rootVNodeId = (built as VNode)?._id ?? null
       if (auditEnabled()) {
         try {
           const msgs: string[] = []
@@ -138,7 +139,7 @@ export function mountRoot(opts: MountOptions): MountHandle {
       const prevNode = opts.root.firstChild
       patchValue(opts.root, prevNode, oldChild, newChild, {
         browser, registry,
-        ctxVersion: (ctx as any)?.ui?._ctxVersion ?? 0,
+        ctxVersion: getCtxVersion(ctx),
         force: true,
       })
       prevChild = newChild
@@ -151,9 +152,9 @@ export function mountRoot(opts: MountOptions): MountHandle {
       }
       opts.root.innerHTML = ''
     },
-    close: undefined,
+    // close 由上层按需提供（MountHandle.close? 可选）
   }
-  ;(handle as any).close = () => handle.unmount()
+  handle.close = () => handle.unmount()
   return handle
 }
 
@@ -161,3 +162,46 @@ export function mountRoot(opts: MountOptions): MountHandle {
 import { callRefCleanupFor } from './registry.ts'
 export { createRegistry }
 export type { Registry }
+
+/** vdom2 命令式挂载（toast/notification 等——buildVNode await 工厂 → renderValue → append） */
+export function mountCommand(
+  container: HTMLElement,
+  vnode: VNode,
+  ctx: VdomCtx | import('../types.ts').WfuiContext,
+  opts?: { onMounted?: () => void },
+): { id: string } {
+  const vctx = ctx as VdomCtx
+  const reg = vctx.__registry ?? createRegistry()
+  const browser = vctx.browser ?? createClientBrowser()
+  void Promise.resolve(buildVNode(vnode, vctx as VdomCtx, null, reg))
+    .then(() => {
+      const node = renderValue(vnode, vctx as VdomCtx, browser)
+      if (node != null) container.appendChild(node)
+      if (vnode._id && reg) {
+        const v = reg.idRegistry.get(vnode._id)
+        if (v) v._parentNode = container
+      }
+      opts?.onMounted?.()
+    })
+    .catch((e) => console.error('[vdom2] command mount error', e))
+  return { id: vnode._id ?? '' }
+}
+
+/** vdom2 命令式卸载：ref 清理 + 卸载钩子 + 容器移除 */
+export function unmountCommand(container: HTMLElement, vnode: VNode | null, ctx: VdomCtx | import('../types.ts').WfuiContext): void {
+  const reg = (ctx as VdomCtx).__registry as Registry | undefined
+  if (reg) {
+    for (const [, v] of reg.idRegistry) {
+      try { callRefCleanupFor(v, reg) } catch { /* noop */ }
+    }
+  }
+  container.innerHTML = ''
+}
+
+/** 命令式挂载容器（toast 等——body 下） */
+export function createCommandContainer(): HTMLDivElement | null {
+  if (typeof document === 'undefined') return null
+  const d = document.createElement('div')
+  document.body.appendChild(d)
+  return d
+}

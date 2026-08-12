@@ -55,7 +55,7 @@ describe('Img preview 增强', () => {
   it('Escape closes preview（DOM 级：usePopup document keydown）', async () => {
     const { createClientBrowser } = await import('../../ui-dom/browser.ts')
     const { h } = await import('../../ui-dom/vnode.ts')
-    const { mountRoot } = await import('../../ui-dom/vdom/mount.ts')
+    const { mountRoot } = await import('../../ui-dom/context.ts')
     const browser = createClientBrowser()
     const container = document.createElement('div')
     document.body.appendChild(container)
@@ -80,7 +80,7 @@ describe('Img preview 增强', () => {
   it('click mask closes preview（maskClosable 默认 true）', async () => {
     const { createClientBrowser } = await import('../../ui-dom/browser.ts')
     const { h } = await import('../../ui-dom/vnode.ts')
-    const { mountRoot } = await import('../../ui-dom/vdom/mount.ts')
+    const { mountRoot } = await import('../../ui-dom/context.ts')
     const browser = createClientBrowser()
     const container = document.createElement('div')
     document.body.appendChild(container)

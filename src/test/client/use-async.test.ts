@@ -12,7 +12,7 @@ import { setupJsdom } from './setup.ts'
 setupJsdom()
 
 import { h } from '../../ui-dom/vnode.ts'
-import { mountRoot } from '../../ui-dom/vdom/mount.ts'
+import { mountRoot } from '../../ui-dom/context.ts'
 const browser = createClientBrowser()
 
 function makeMount(Comp: any) {

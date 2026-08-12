@@ -7,7 +7,7 @@ import { test, before } from 'node:test'
 import assert from 'node:assert'
 import { h } from '../ui-dom/vnode.ts'
 import { setupJsdom } from './client/setup.ts'
-import { createVdomContext, mountRoot } from '../ui-dom/vdom/mount.ts'
+import { createVdomContext, mountRoot } from '../ui-dom/context.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 
 before(setupJsdom)

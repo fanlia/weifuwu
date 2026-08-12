@@ -12,7 +12,7 @@ import { describe, it, before } from 'node:test'
 import assert from 'node:assert'
 import { h } from '../ui-dom/vnode.ts'
 import { setupJsdom } from './client/setup.ts'
-import { createVdomContext, mountRoot } from '../ui-dom/vdom/mount.ts'
+import { createVdomContext, mountRoot } from '../ui-dom/context.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 
 before(setupJsdom)
@@ -39,9 +39,9 @@ describe('嵌套数组 = 隐式 Fragment（层级独立 key）', () => {
     const browser = createClientBrowser()
     const { ctx } = createVdomContext({ root: container, browser })
     const handle = mountRoot({ root: container, ctx, browser })
-    const { patchValue } = await import('../ui-dom/vdom/diff.ts')
-    const { buildVNode } = await import('../ui-dom/vdom/build.ts')
-    const { createRegistry } = await import('../ui-dom/vdom/registry.ts')
+    const { patchValue } = await import('../ui-dom/vdom2/patch.ts')
+    const { buildVNode } = await import('../ui-dom/vdom2/build.ts')
+    const { createRegistry } = await import('../ui-dom/vdom2/registry.ts')
     const reg = createRegistry()
 
     const mk = (x: string) => h('i', { id: x, 'data-l': x })

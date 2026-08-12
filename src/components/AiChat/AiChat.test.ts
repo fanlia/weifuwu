@@ -311,7 +311,7 @@ function makeStreamChat(partial: Record<string, any> = {}) {
 
 // ── 真实运行链路复现（createVdomContext + mountRoot——真实 useExternal 订阅，非 mock） ──
 
-import { mountRoot, createVdomContext } from '../../ui-dom/vdom/mount.ts'
+import { mountRoot, createVdomContext } from '../../ui-dom/context.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 
 it('流式：真实 vdom 上下文（useExternal 真实订阅）token 逐帧落 DOM', async () => {
@@ -323,7 +323,7 @@ it('流式：真实 vdom 上下文（useExternal 真实订阅）token 逐帧落 
   document.body.appendChild(container)
   const browser = createClientBrowser()
   const { ctx } = createVdomContext({ root: container, browser })
-  const handle = mountRoot({ root: container, ctx, browser })
+  const handle = mountRoot({ root: container, browser })
   await handle.mount(h(AiChat, { chat }))
   chat.input = 'hi'
   chat.send()
@@ -345,7 +345,7 @@ it('订阅注册 + notify → render 链路（流式渲染基座）', async () =
   document.body.appendChild(container)
   const browser = createClientBrowser()
   const { ctx } = createVdomContext({ root: container, browser })
-  const handle = mountRoot({ root: container, ctx, browser })
+  const handle = mountRoot({ root: container, browser })
   await handle.mount(h(AiChat, { chat }))
   // 订阅注册了吗？
   // 手动触发 notify → 渲染了吗？
@@ -363,7 +363,7 @@ it('IME 组合期间 onInput 不回流受控值（中文输入法不打断）', 
   document.body.appendChild(container)
   const browser = createClientBrowser()
   const { ctx } = createVdomContext({ root: container, browser })
-  const handle = mountRoot({ root: container, ctx, browser })
+  const handle = mountRoot({ root: container, browser })
   await handle.mount(h(AiChat, { chat }))
   const input = container.querySelector('.wf-chat-input') as HTMLInputElement
   // 组合开始（拼音输入中）
@@ -391,7 +391,7 @@ it('换 chat handle → 重新订阅（新会话 notify 驱动渲染——防订
   document.body.appendChild(container)
   const browser = createClientBrowser()
   const { ctx } = createVdomContext({ root: container, browser })
-  const handle = mountRoot({ root: container, ctx, browser })
+  const handle = mountRoot({ root: container, browser })
   // 用一个转发组件：mount 时 chatA，props 变化换 chatB
   const ChatHost: any = async (initProps: any, c: any) => {
     let latest = initProps.chat

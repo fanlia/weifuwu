@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { h } from '../ui-dom/vnode.ts'
-import { mountRoot } from '../ui-dom/vdom/mount.ts'
+import { mountRoot } from '../ui-dom/context.ts'
 import { createStore } from '../ui-dom/store.ts'
 
 before(setupJsdom)

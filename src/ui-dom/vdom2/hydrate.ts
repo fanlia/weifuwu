@@ -8,12 +8,13 @@
  * null 消耗零；创建时 insertBefore(游标) 且游标不动；收养/替换时游标前进。
  */
 
-import type { VNode, VNodeChild } from '../vnode2.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
 import type { BrowserEnv, WfuiContext } from '../types.ts'
-import { isFrag, isComp, isPortal } from '../vnode2.ts'
+import { isFrag, isComp, isPortal } from '../vnode.ts'
 import { buildVNode } from './build.ts'
 import { setProp } from './transform.ts'
 import { createClientBrowser } from '../browser.ts'
+import { componentName, type VdomCtx } from './ctx.ts'
 
 const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'clipPath'])
 
@@ -51,7 +52,7 @@ function wireProps(el: Element, props: Record<string, any>): void {
 }
 
 /** 游标收养渲染（只处理已构建树——buildVNode 已 await 工厂） */
-function renderValueHydrating(v: VNodeChild, ctx: WfuiContext, c: HydrationCursor): Node | null {
+function renderValueHydrating(v: VNodeChild, ctx: VdomCtx, c: HydrationCursor): Node | null {
   const b = (ctx.browser ?? createClientBrowser()) as BrowserEnv
   if (v == null || typeof v === 'boolean') return null
   if (typeof v === 'string' || typeof v === 'number') {
@@ -92,7 +93,7 @@ function renderValueHydrating(v: VNodeChild, ctx: WfuiContext, c: HydrationCurso
     const child = vnode._child
     if (child == null) {
       if (typeof vnode._render !== 'function') {
-        throw new Error(`[vdom2] component ${(vnode.type as any).name || 'anonymous'} not built before hydration`)
+        throw new Error(`[vdom2] component ${componentName(vnode.type)} not built before hydration`)
       }
       vnode._child = null
       return null
@@ -159,11 +160,11 @@ function renderValueHydrating(v: VNodeChild, ctx: WfuiContext, c: HydrationCurso
 export async function hydrateVNode(
   container: Element,
   vnode: VNode,
-  ctx: WfuiContext,
+  ctx: VdomCtx,
 ): Promise<void> {
-  const reg = (ctx as any).__registry
+  const reg = ctx.__registry
   // 阶段 1：async 预构建——await 全部工厂（组件 resolve、_child 展开）
-  await buildVNode(vnode, ctx, undefined, reg)
+  await buildVNode(vnode, ctx, null, reg)
   // 阶段 2：游标收养（只接线——不重跑 renderFn）
   const cursor: HydrationCursor = { parent: container, node: container.firstChild }
   renderValueHydrating(vnode, ctx, cursor)

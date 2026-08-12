@@ -8,8 +8,8 @@
  * 三态 skip：props 同 + 无 dirty + ctx 版本同 → 复用旧 _child（renderFn 不重跑）。
  */
 
-import type { VNode, VNodeChild } from '../vnode2.ts'
-import { Fragment, Portal, arrayChildren, isFrag, isComp, isNative, isPortal } from '../vnode2.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
+import { Fragment, Portal, arrayChildren, isFrag, isComp, isNative, isPortal } from '../vnode.ts'
 // re-export（v1 导入点兼容——arrayChildren 已移至 vnode.ts 统一）
 export { arrayChildren }
 import { createClientBrowser } from '../browser.ts'
@@ -20,7 +20,7 @@ import { callRefCleanupFor } from './registry.ts'
 /** 组件 vnode 从树中移除：ref(null) 递归 + 卸载钩子（cleanupComponent） */
 export function disposeComponent(vnode: VNode, registry?: Registry): void {
   if (registry && typeof vnode.type === 'function' && vnode._id) {
-    try { callRefCleanupFor(vnode, registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
+    try { callRefCleanupFor(vnode, registry) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
     cleanupComponent(registry, vnode._id)
   }
 }
@@ -31,12 +31,12 @@ import { getOutputRange, type PatchState } from './kind.ts'
 
 
 /** 从 vnode 取稳定 key（Portal 内部 key 不算用户 keyed） */
-function getKey(v: VNodeChild): string | undefined {
-  if (v == null || typeof v !== 'object' || Array.isArray(v)) return undefined
+function getKey(v: VNodeChild): string | null {
+  if (v == null || typeof v !== 'object' || Array.isArray(v)) return null
   const vn = v as VNode
   // remote（portal）：portalKey 作 key（v1 语义——keyed diff 复用容器 patch 内容）。
   // C1（input+portal 焦点）由 allUnkeyed 判断排除 remote 保证——这里返回 key 不影响 allUnkeyed
-  if (isPortal(vn)) return vn.props?.portalKey as string | undefined
+  if (isPortal(vn)) return typeof vn.props?.portalKey === 'string' ? vn.props.portalKey : null
   return vn.key
 }
 
@@ -54,7 +54,7 @@ function collectChildNodes(newC: VNodeChild, node: Node | null): (Node | null)[]
 
 /** 递归 dispose 子树里的组件（Fragment/数组展开）——整体移除时组件状态清理（卸载钩子/ref） */
 function disposeSubtree(v: VNode, registry?: Registry): void {
-  const kids = arrayChildren((v.props as any)?.children)
+  const kids = arrayChildren(v.props?.children)
   for (const c of kids) {
     if (c == null || typeof c !== 'object' || Array.isArray(c)) continue
     const cv = c as VNode
@@ -97,7 +97,7 @@ export function removeOldOutput(oldInput: VNodeChild, oldNode: Node | null, pare
       // 递归清理 portal 内容的 ref（Modal root div 的 rootRef → unlockScroll；
       // 直接 removeChild 会跳过 ref(null) → 滚动锁泄漏 → body overflow 卡 hidden）
       const remoteEl = ov._remoteEl
-      try { callRefCleanupFor(ov.props?.children, ctx.registry as any) } catch (e) { console.error('[weifuwu] portal ref cleanup error', e) }
+      try { callRefCleanupFor(ov.props?.children, ctx.registry) } catch (e) { console.error('[weifuwu] portal ref cleanup error', e) }
       remoteEl?.parentNode?.removeChild(remoteEl)
       return null
     }
@@ -115,7 +115,7 @@ export function removeOldOutput(oldInput: VNodeChild, oldNode: Node | null, pare
     } else {
       // 原生元素：ref(null) 清理（Modal root div 移除时若不调 ref(null)——usePopup 的
       // portalPanelRef 依赖它 unlockScroll——滚动锁泄漏 → body overflow 卡 hidden）
-      try { callRefCleanupFor(ov, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
+      try { callRefCleanupFor(ov, ctx.registry) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
     }
   }
   ref = oldNode?.nextSibling ?? null
@@ -170,13 +170,13 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
       // 事件函数引用变化：先移除旧 handler 再绑定新（否则重复绑定累积——
       // renderFn 重渲染产生新函数 → 每次 patch 多一个监听 → 点击触发多次）
       const { type, capture } = eventTarget(key)
-      if (typeof ov === 'function') el.removeEventListener(type, ov, capture ? { capture: true } : undefined)
+      if (typeof ov === 'function') el.removeEventListener(type, ov, capture ? { capture: true } : {})
       // 类型守卫：非函数值不抛错（once/only 等 on 开头非事件属性由 EVENT_RE 排除）
       if (nv != null && nv !== false) {
         if (typeof nv !== 'function') {
           console.warn(`[weifuwu] event prop ${key} expects a function, got ${typeof nv} — ignored`)
         } else {
-          el.addEventListener(type, nv, capture ? { capture: true } : undefined)
+          el.addEventListener(type, nv, capture ? { capture: true } : {})
         }
       }
       continue
@@ -198,7 +198,7 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
       else if (key === 'ref') { if (typeof ov === 'function') { try { ov(null) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } } }
       else if (key === 'value') { (el as HTMLInputElement).value = '' }
       else if (key === 'indeterminate') { (el as HTMLInputElement).indeterminate = false }  // 半选态清除（delete 无效——property）
-      else { el.removeAttribute(key); try { delete (el as any)[key] } catch {} }
+      else { el.removeAttribute(key); try { delete (el as unknown as Record<string, unknown>)[key] } catch {} }
       continue
     }
     setProp(el, key, nv)
@@ -245,11 +245,11 @@ function rangeFor(anchors: (Node | null)[], i: number, parent: Node): Node[] {
 
 export function patchChildren(
   parent: Node,
-  oldInput: VNodeChild | null | undefined,
-  newInput: VNodeChild | null | undefined,
+  oldInput: VNodeChild | null,
+  newInput: VNodeChild | null,
   ctx: PatchCtx,
-  oldRange?: Node[],
-  oldAnchors?: (Node | null)[],
+  oldRange?: Node[] | null,
+  oldAnchors?: (Node | null)[] | null,
   anchorOut?: (Node | null)[],
 ): (Node | null)[] {
   // 过滤已删除（占位法替代）：数组上下文的无渲染值（false/null/true）由 renderValue 建占位节点——
@@ -271,7 +271,7 @@ export function patchChildren(
   const hasUserKey = newChildren.some((c) => {
     if (c == null || typeof c !== 'object' || Array.isArray(c)) return false
     const vn = c as VNode
-    return !isPortal(vn) && vn.key !== undefined
+    return !isPortal(vn) && vn.key !== null
   })
   // 数组项（隐式 Fragment）存在（新旧任一）→ 外层位置配对（数组项无 key 身份——默认位置语义；
   // 内层数组内部各自 keyed——层级独立。混合 keyed 的外层（列表 + 固定元素：items.map() + footer）
@@ -287,18 +287,18 @@ export function patchChildren(
   if (hasUserKey) {
     for (let i = 0; i < newChildren.length; i++) {
       const c = newChildren[i]
-      if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === undefined) (c as VNode).key = `pos:${i}`
+      if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === null) (c as VNode).key = `pos:${i}`
     }
     for (let i = 0; i < oldChildren.length; i++) {
       const c = oldChildren[i]
-      if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === undefined) (c as VNode).key = `pos:${i}`
+      if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === null) (c as VNode).key = `pos:${i}`
     }
   }
 
   // 映射旧 DOM 范围（锚点优先：_childAnchors 每位置首节点——替代 source[i] 下标猜测，
   // fragment/数组项多节点展开后不错位——规则表 §5；文本/null 用 source 位置）
   const oldNodes: (Node | null)[] = oldAnchors
-    ? oldAnchors.map((a, i) => a ?? (i < oldChildren.length ? (oldChildren[i] as any)?._refNode ?? null : null))
+    ? oldAnchors.map((a, i) => a ?? (i < oldChildren.length && oldChildren[i] != null && typeof oldChildren[i] === 'object' && !Array.isArray(oldChildren[i]) ? (oldChildren[i] as VNode)._refNode ?? null : null))
     : (() => {
         // 数组项递归传入的 oldRange 含边界标记（[start1, c, d, start2, e, f, end2, end1]）——
         // source[i] 索引与 oldChildren 内容项错位（标记占位 + 嵌套数组项内部节点）。
@@ -334,7 +334,7 @@ export function patchChildren(
   const allUnkeyed = hasArrayItem || !newChildren.some((c) => {
     if (c == null || typeof c !== 'object' || Array.isArray(c)) return false
     const vn = c as VNode
-    return !isPortal(vn) && vn.key !== undefined
+    return !isPortal(vn) && vn.key !== null
   })
 
   if (allUnkeyed) {
@@ -366,7 +366,7 @@ export function patchChildren(
             }
           } else if (oldC && typeof oldC === 'object' && !Array.isArray(oldC)) {
             if (typeof (oldC as VNode).type === 'function') disposeComponent(oldC as VNode, ctx.registry)
-            else { try { callRefCleanupFor(oldC as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+            else { try { callRefCleanupFor(oldC as VNode, ctx.registry) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
             if (on?.parentNode) on.parentNode.removeChild(on)
           } else if (on?.parentNode) {
             on.parentNode.removeChild(on)
@@ -430,7 +430,7 @@ export function patchChildren(
           if (typeof (oldC as VNode).type === 'function') {
             disposeComponent(oldC as VNode, ctx.registry)
           } else {
-            try { callRefCleanupFor(oldC as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
+            try { callRefCleanupFor(oldC as VNode, ctx.registry) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
           }
         }
         if (newHole && on?.parentNode) on.parentNode.replaceChild(newHole, on)
@@ -517,7 +517,7 @@ export function patchChildren(
           for (const n of oldRange) if (n.parentNode) n.parentNode.removeChild(n)
           if (oldC && typeof oldC === 'object' && !Array.isArray(oldC)) {
             if (typeof (oldC as VNode).type === 'function') disposeComponent(oldC as VNode, ctx.registry)
-            else { try { callRefCleanupFor(oldC as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+            else { try { callRefCleanupFor(oldC as VNode, ctx.registry) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
           }
           if (ref && ref.parentNode === parent) parent.insertBefore(node, ref)
           else parent.appendChild(node)
@@ -569,7 +569,7 @@ export function patchChildren(
   const oldKeyMap = new Map<string, { vnode: VNode; nodes: Node[]; index: number }>()
   oldChildren.forEach((c, i) => {
     const k = getKey(c)
-    if (k !== undefined && c && typeof c === 'object' && !Array.isArray(c)) {
+    if (k !== null && c && typeof c === 'object' && !Array.isArray(c)) {
       oldKeyMap.set(k, { vnode: c as VNode, nodes: [oldNodes[i] ?? null].filter(Boolean) as Node[], index: i })
     }
   })
@@ -581,7 +581,7 @@ export function patchChildren(
   newChildren.forEach((c, i) => {
     const k = getKey(c)
     const newV = c as VNode
-    if (k !== undefined && oldKeyMap.has(k)) {
+    if (k !== null && oldKeyMap.has(k)) {
       const entry = oldKeyMap.get(k)!
       const oldNode = entry.nodes[0] ?? null
       movedKeys.add(k)
@@ -666,7 +666,7 @@ export function patchChildren(
           }
           if (typeof oldC === 'object' && !Array.isArray(oldC)) {
             if (typeof (oldC as VNode).type === 'function') disposeComponent(oldC as VNode, ctx.registry)
-            else { try { callRefCleanupFor(oldC as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+            else { try { callRefCleanupFor(oldC as VNode, ctx.registry) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
           }
           if (hole && on?.parentNode) on.parentNode.replaceChild(hole, on)
           else if (hole) parent.appendChild(hole)
@@ -679,7 +679,7 @@ export function patchChildren(
       // 新增——但 remote（portal）项必须走 patchValue：H 的 Portal 分支复用旧容器 patch 内容
       // （v1 patchPortal 语义——否则混合 keyed 数组里 portal 每次 render renderValue 新建容器
       //  → Popover 内容（Editor table grid）整体重建 → 闪烁）
-      if ((newV as any)?._placement === 'remote') {
+      if (isPortal(newV)) {
         const oldC = oldChildren[i] ?? null
         const node = patchValue(parent, oldNodes[i] ?? null, oldC, newV, ctx)
         const collected = collectChildNodes(newV, node)
@@ -719,18 +719,18 @@ export function patchChildren(
   oldChildren.forEach((c, i) => {
     const k = getKey(c)
     const isComponent = c && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function'
-    if (k !== undefined && !movedKeys.has(k)) {
+    if (k !== null && !movedKeys.has(k)) {
       const range = c && typeof c === 'object' && !Array.isArray(c) ? getOutputRange(c, oldNodes[i]) : null
       if (traceEnabled('diff')) trace('diff', 'trace', '', `keyed-delete i=${i} k=${k} range=${range?.length ?? 0} oldNode=${nodeDesc(oldNodes[i])}`)
       if (c && typeof c === 'object' && !Array.isArray(c)) {
         if (isComponent) disposeComponent(c as VNode, ctx.registry)
-        else { try { callRefCleanupFor(c as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+        else { try { callRefCleanupFor(c as VNode, ctx.registry) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
       }
       const on = oldNodes[i]
       if (range && range.length > 1) {
         for (const n of range) if (n.parentNode) n.parentNode.removeChild(n)
       } else if (on?.parentNode) on.parentNode.removeChild(on)
-    } else if (k === undefined) {
+    } else if (k === null) {
       const on = oldNodes[i]
       const isHole = on?.nodeType === 8 && on.nodeValue?.includes('type=hole')
       // 占位保留（占位法：长度恒定——占位↔占位/占位→真实已由新建分支处理）；
@@ -740,7 +740,7 @@ export function patchChildren(
       if (!isHole || i >= newChildren.length) {
         if (c && typeof c === 'object' && !Array.isArray(c)) {
           if (isComponent) disposeComponent(c as VNode, ctx.registry)
-          else { try { callRefCleanupFor(c as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+          else { try { callRefCleanupFor(c as VNode, ctx.registry) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
         }
         const range = c && typeof c === 'object' && !Array.isArray(c) ? getOutputRange(c, on) : null
         if (range && range.length > 1) {

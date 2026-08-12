@@ -13,8 +13,8 @@ import { usePresence, useTween, useStableRef, useLongPress } from '../stable.ts'
 import { useScrollPosition, useInView, useMedia } from '../media.ts'
 import { useGlobalKey, useDrag } from '../events.ts'
 import type { HookEnv } from '../types.ts'
-import type { Registry } from '../../vdom/registry.ts'
-import { createRegistry } from '../../vdom/registry.ts'
+import type { Registry } from '../../vdom2/registry.ts'
+import { createRegistry } from '../../vdom2/registry.ts'
 
 before(setupJsdom)
 afterEach(() => {

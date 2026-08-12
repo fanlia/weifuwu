@@ -14,9 +14,10 @@
  * 已构建 native）同步返回——零微任务。调用方统一 await 吸收（同步值 await 仅 1 微任务）。
  */
 
-import type { VNode, VNodeChild, Component } from '../vnode2.ts'
-import type { WfuiContext } from '../types.ts'
-import { Fragment, arrayChildren, isFrag, isComp, isNative } from '../vnode2.ts'
+import type { VNode, VNodeChild, Component } from '../vnode.ts'
+import { componentName, ctxVersion as getCtxVersion, setMounting, type VdomCtx, type VdomUi } from './ctx.ts'
+import { createRegistry } from './registry.ts'
+import { Fragment, arrayChildren, isFrag, isComp, isNative } from '../vnode.ts'
 import { ensureId, type Registry } from './registry.ts'
 import { trace, traceEnabled, kidsSeq, vnDesc } from './trace.ts'
 
@@ -35,11 +36,11 @@ export function componentPropsEqual(a: Record<string, any>, b: Record<string, an
 /** 挂载 async 组件：await 工厂（两阶段：外层 mount 一次）→ 设 _render + 分配 id + childCtx */
 export async function mountAsyncComponent(
   vnode: VNode,
-  ctx: WfuiContext,
+  ctx: VdomCtx,
   reg: Registry,
-  opts?: { reuse?: VNode },
-): Promise<{ renderFn: (props: VNode['props']) => Promise<VNode | null>; childCtx: WfuiContext }> {
-  const comp = vnode as import('../vnode2.ts').CompVNode
+  opts?: { reuse?: VNode | null },
+): Promise<{ renderFn: (props: VNode['props']) => Promise<VNode | null>; childCtx: VdomCtx }> {
+  const comp = vnode as import('../vnode.ts').CompVNode
   if (!comp._id) {
     // 旧树同位置同类型 → 复用旧 id（渲染定位锚点不漂移：剪枝新 vnode 若分配新 id，
     // 组件内部 render([selfId]) 会命中 registry 里的新 vnode——其 _parentNode 未设置 →
@@ -59,15 +60,16 @@ export async function mountAsyncComponent(
     if (opts.reuse._refNode) comp._refNode = opts.reuse._refNode
     if (opts.reuse._ctxVersion != null) comp._ctxVersion = opts.reuse._ctxVersion
   }
-  const childCtx = Object.create(ctx) as WfuiContext
-  childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & Record<string, unknown>
-  const childUi = childCtx.ui as WfuiContext['ui'] & { _selfId?: string; _selfVNode?: VNode }
-  childUi._selfId = comp._id ?? undefined
-  ;(childUi as any)._selfVNode = comp
+  const childCtx = Object.create(ctx) as VdomCtx
+  childCtx.ui = Object.create(ctx.ui) as VdomUi & Record<string, unknown>
+  const childUi = childCtx.ui as VdomUi & { _selfId?: string; _selfVNode?: VNode }
+    childUi._selfId = comp._id ?? null
+  ;(childUi as VdomUi & { _selfVNode?: VNode })._selfVNode = comp
   // render-only：闭包绑定渲染（无 this 陷阱——根治 §4.5 selfId 错位：重挂载/解构不影响）
-  childUi.render = function (this: any, ids?: string[]): Promise<void> {
-    if (ids == null && comp._id) return ctx.ui.render([comp._id])
-    return ctx.ui.render(ids)
+  childUi.render = function (this: unknown, ids?: string[]): Promise<void> {
+    const ui = ctx.ui
+    if (ids == null && comp._id) return ui.render!([comp._id])
+    return ui.render!(ids)
   }
 
   // 旧树同位置同类型复用（工厂不重跑——组件跨渲染保持内部状态）
@@ -76,16 +78,16 @@ export async function mountAsyncComponent(
   }
   if (typeof comp._render !== 'function') {
     // mount 保护期：$ 初始化赋值不产生 dirty 标记
-    ;(ctx.ui as any)?.setMounting?.(true)
+    setMounting(ctx, true)
     let renderFn: unknown
     try {
-      renderFn = await (comp.type as Component)(comp.props ?? {}, childCtx)
+      renderFn = await (comp.type as Component)(comp.props ?? {}, childCtx as unknown as import('../types.ts').WfuiContext)
     } finally {
-      ;(ctx.ui as any)?.endMounting?.()
+      setMounting(ctx, false)
     }
     if (typeof renderFn !== 'function') {
       throw new Error(
-        `Component ${(vnode.type as any).name || 'anonymous'} must return a render function. ` +
+        `Component ${componentName(vnode.type)} must return a render function. ` +
           `Use (init_props, ctx) => (props) => VNode pattern.`,
       )
     }
@@ -96,7 +98,7 @@ export async function mountAsyncComponent(
 
 /** thenable 判定（buildVNode 返回值可能是同步值或 Promise） */
 function isThenable(v: unknown): v is Promise<VNodeChild> {
-  return !!v && typeof (v as any).then === 'function'
+  return !!v && typeof (v as { then?: unknown }).then === 'function'
 }
 
 /**
@@ -112,7 +114,7 @@ function isThenable(v: unknown): v is Promise<VNodeChild> {
  */
 export function buildVNode(
   input: VNodeChild,
-  ctx: WfuiContext,
+  ctx: VdomCtx,
   oldInput?: VNodeChild,
   reg?: Registry,
   opts?: { force?: boolean },
@@ -128,7 +130,7 @@ export function buildVNode(
       const c = input[i]
       if (c != null && typeof c === 'object' && !Array.isArray(c)) {
         const v = c as VNode
-        if (v.key === undefined) v.key = String(i)
+        if (v.key === null) v.key = String(i)
         else v.key = String(v.key)
       }
     }
@@ -144,7 +146,7 @@ export function buildVNode(
     return input
   }
   const vnode = input as VNode
-  const registry = reg ?? ((ctx as any).__registry as Registry)
+  const registry = reg ?? ctx.__registry ?? createRegistry()
   const oldV =
     oldInput != null && typeof oldInput === 'object' && !Array.isArray(oldInput) &&
     (oldInput as VNode).type === vnode.type
@@ -172,8 +174,8 @@ export function buildVNode(
     // ── 剪枝判断（前置——命中 = 纯同步 O(1)，不创建 childCtx 不 await） ──
     // force（renderByIds 显式渲染）→ 强制重跑 renderFn（读最新状态）
     const propsSame = componentPropsEqual(oldV?.props ?? {}, vnode.props ?? {})
-    const ctxVersion = (ctx as any)?.ui?._ctxVersion ?? 0
-    const verSame = (oldV?._ctxVersion ?? -1) === ctxVersion
+    const ver = getCtxVersion(ctx)
+    const verSame = (oldV?._ctxVersion ?? -1) === ver
     if (!opts?.force && propsSame && verSame && oldV?._child != null) {
       vnode._child = oldV._child
       vnode._ctxVersion = oldV._ctxVersion
@@ -183,10 +185,10 @@ export function buildVNode(
     // ── 完整路径：mountAsyncComponent（await 工厂——组件两阶段异步契约不变） ──
     if (traceEnabled('build')) trace('build', 'debug', '', `mount comp=${vnDesc(vnode)} propsSame=${propsSame} verSame=${verSame} force=${!!opts?.force}`)
     return (async () => {
-      const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? undefined })
+      const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? null })
       const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry)
       vnode._child = (built ?? null) as VNode | VNode[] | null
-      vnode._ctxVersion = ctxVersion
+      vnode._ctxVersion = ver
       return vnode
     })()
   }

@@ -10,11 +10,11 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { h, Fragment } from '../ui-dom/vnode.ts'
-import { buildVNode } from '../ui-dom/vdom/build.ts'
-import { renderValue } from '../ui-dom/vdom/render.ts'
-import { patchValue } from '../ui-dom/vdom/diff.ts'
-import { createRegistry } from '../ui-dom/vdom/registry.ts'
-import { auditChildren, auditTree } from '../ui-dom/vdom/audit.ts'
+import { buildVNode } from '../ui-dom/vdom2/build.ts'
+import { renderValue } from '../ui-dom/vdom2/render.ts'
+import { patchValue } from '../ui-dom/vdom2/patch.ts'
+import { createRegistry } from '../ui-dom/vdom2/registry.ts'
+import { auditChildren, auditTree } from '../ui-dom/vdom2/audit.ts'
 
 before(setupJsdom)
 afterEach(() => createClientBrowser().clearBody())

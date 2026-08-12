@@ -12,7 +12,7 @@ import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
-import { mountRoot, createVdomContext } from '../../ui-dom/vdom/mount.ts'
+import { mountRoot, createVdomContext } from '../../ui-dom/context.ts'
 import { h } from '../../ui-dom/vnode.ts'
 const browser = createClientBrowser()
 
@@ -25,7 +25,7 @@ async function mountModal(opts: { trapFocus?: boolean; lockScroll?: boolean } = 
   const container = browser.createElement('div')
   browser.bodyAppend(container)
   const { ctx } = createVdomContext({ root: container, browser })
-  const handle = mountRoot({ root: container, ctx, browser })
+  const handle = mountRoot({ root: container, browser })
   let open = true
   let popup: any
   const Comp: any = async (_i: any, c: any) => {

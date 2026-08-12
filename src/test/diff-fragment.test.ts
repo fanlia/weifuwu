@@ -11,8 +11,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
-import { mountCommand } from '../ui-dom/vdom/mount.ts'
-import { patchValue } from '../ui-dom/vdom/diff.ts'
+import { mountCommand } from '../ui-dom/context.ts'
+import { patchValue } from '../ui-dom/vdom2/patch.ts'
 import { h, Fragment } from '../ui-dom/vnode.ts'
 
 setupJsdom()

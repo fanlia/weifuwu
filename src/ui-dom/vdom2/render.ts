@@ -11,10 +11,11 @@
  * - 数组项：fragment-start/end 标记（DOM 持久化）
  */
 
-import type { VNode, VNodeChild } from '../vnode2.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
 import type { BrowserEnv } from '../types.ts'
-import { Fragment, Portal, arrayChildren, isNative, isFrag, isComp, isPortal } from '../vnode2.ts'
+import { Fragment, Portal, arrayChildren, isNative, isFrag, isComp, isPortal, type NativeVNode, type FragVNode, type CompVNode, type PortalVNode } from '../vnode.ts'
 import { classifyKind } from './kind.ts'
+import { componentName } from './ctx.ts'
 import { createClientBrowser } from '../browser.ts'
 import { holeMarkup, setProp, createHole as _createHole } from './transform.ts'
 import { trace, traceEnabled, kidsSeq, childNodesSeq } from './trace.ts'
@@ -27,10 +28,10 @@ export function createHole(browser: BrowserEnv, v: unknown): Node | null {
 }
 
 /** 递归渲染（同步——组件必须已构建；首帧/新增路径） */
-export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?: string | null, id?: string | null, fid?: string | null): Node | null {
+export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key: string | null = null, id: string | null = null, fid: string | null = null): Node | null {
   const b = (ctx?.browser ?? browser) as BrowserEnv
   if (!b) throw new Error('[vdom2] renderValue requires browser env (ctx.browser)')
-  return RENDERERS[classifyKind(v)](v, ctx, b, key ?? undefined, id ?? undefined, fid ?? undefined)
+  return RENDERERS[classifyKind(v)](v, ctx, b, key, id, fid)
 }
 
 // ── 各类型渲染 ──
@@ -44,20 +45,20 @@ function renderText(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
 }
 
 /** 数组项 = 隐式 Fragment：fragment-start/end 标记包裹（边界持久化——diff 直接读注释定位） */
-function renderArray(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | null, id?: string | null, fid?: string | null): Node | null {
+function renderArray(v: VNodeChild, ctx: any, b: BrowserEnv, key: string | null = null, id: string | null = null, fid: string | null = null): Node | null {
   const arr = v as VNodeChild[]
   const frag = b.createDocumentFragment()
   if (!frag) return null
   if (traceEnabled('render')) trace('render', 'debug', '', `array kids=${kidsSeq(arr)} fid=${fid ?? '-'} key=${key ?? '-'}`)
   // 数组项边界标记带身份：key 必写（父数组下标/显式 key）；fid = 位置路径（父 fid + 下标）——
   // start/end 共享 fid，嵌套数组项 fid 不同——end 配对精确（不干扰外层配对）
-  const fragStart = b.createComment(holeMarkup({ type: 'fragment-start', key, id, fid: fid ?? undefined }))
-  const fragEnd = b.createComment(holeMarkup({ type: 'fragment-end', key, id, fid: fid ?? undefined }))
+  const fragStart = b.createComment(holeMarkup({ type: 'fragment-start', key, id, fid }))
+  const fragEnd = b.createComment(holeMarkup({ type: 'fragment-end', key, id, fid }))
   if (fragStart) frag.appendChild(fragStart)
   for (let i = 0; i < arr.length; i++) {
     const c = arr[i]
     const childFid = fid != null ? `${fid}-${i}` : String(i)
-    const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), undefined, childFid)
+    const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), null, childFid)
     if (n != null) frag.appendChild(n)
   }
   if (fragEnd) frag.appendChild(fragEnd)
@@ -67,7 +68,7 @@ function renderArray(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | null
 /** Portal：渲染到 #__wf_portal（body） */
 function renderPortal(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
   const vnode = v as VNode
-  const pv = isPortal(vnode) ? vnode : (vnode as any)
+  const pv = vnode as PortalVNode
   const body = b.bodyElement()
   if (!body) return null
   let portalEl = body.querySelector('#__wf_portal') as HTMLElement | null
@@ -92,7 +93,7 @@ function renderPortal(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
 /** Fragment：多节点输出——_childNodes 记录完整范围（输出范围协议） */
 function renderFrag(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
   const vnode = v as VNode
-  const fv = isFrag(vnode) ? vnode : (vnode as any)
+  const fv = vnode as FragVNode
   const frag = b.createDocumentFragment()
   if (!frag) return null
   const kidsArr = arrayChildren(vnode.props?.children)
@@ -109,14 +110,12 @@ function renderFrag(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
 /** 组件：渲染输出（_child 必已构建）——_refNode = 输出范围首节点（非 DocumentFragment） */
 function renderComp(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
   const vnode = v as VNode
-  const cv = isComp(vnode) ? vnode : (vnode as any)
+  const cv = vnode as CompVNode
   if (typeof cv._render !== 'function') {
-    throw new Error(`[vdom2] component ${(vnode.type as any).name || 'anonymous'} not built (missing _render) — buildVNode must run before renderValue`)
-  }
-  if (cv._child === undefined) {
-    throw new Error(`[vdom2] component ${(vnode.type as any).name || 'anonymous'} not built (missing _child) — buildVNode must run before renderValue`)
+    throw new Error(`[vdom2] component ${componentName(vnode.type)} not built (missing _render) — buildVNode must run before renderValue`)
   }
   const childVNode = cv._child
+  // 构建后输出 null（组件条件渲染合法——_render 已设则 null 是输出非未构建）
   if (childVNode == null) {
     cv._child = null
     return null
@@ -152,16 +151,16 @@ function renderComp(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
 /** Native：元素渲染 + _childAnchors（每位置首节点锚点——引用驱动 diff 定位） */
 function renderNative(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | null, fid?: string | null): Node | null {
   const vnode = v as VNode
-  const nv = isNative(vnode) ? vnode : (vnode as any)
+  const nv = vnode as NativeVNode
   const tag = vnode.type as string
-  const el = SVG_TAGS.has(tag) ? b.createElementNS('http://www.w3.org/2000/svg', tag) : b.createElement(tag as any)
+  const el = SVG_TAGS.has(tag) ? b.createElementNS('http://www.w3.org/2000/svg', tag) : b.createElement(tag as keyof HTMLElementTagNameMap)
   if (!el) return null
   nv.el = el
   if (traceEnabled('render')) trace('render', 'trace', '', `native <${tag}> key=${vnode.key ?? '-'} kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
   if (vnode.key != null) el.setAttribute('data-wf-key', vnode.key)
 
   // select value 延后设置（options 生成前设置无效）
-  let selectValue: any
+  let selectValue: string | null = null
   for (const [k, value] of Object.entries(vnode.props ?? {})) {
     if (k === 'children' || k === 'key') continue
     if (k === 'value' && el instanceof HTMLSelectElement) { selectValue = value; continue }
@@ -174,7 +173,7 @@ function renderNative(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | nul
     for (let i = 0; i < elChildren.length; i++) {
       const c = elChildren[i]
       const childFid = fid != null ? `${fid}-${i}` : String(i)
-      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), undefined, childFid)
+      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), null, childFid)
       if (n == null) { anchors.push(null); continue }
       const anchorNode = n.nodeType === 11 ? (n.firstChild as Node | null) : n
       el.appendChild(n)
@@ -190,7 +189,7 @@ function renderNative(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | nul
     nv._childAnchors = anchors
     if (traceEnabled('render')) trace('render', 'trace', '', `native <${tag}> out=${childNodesSeq(el)}`)
   }
-  if (selectValue !== undefined) {
+  if (selectValue !== null) {
     ;(el as HTMLSelectElement).value = String(selectValue)
   }
   return el

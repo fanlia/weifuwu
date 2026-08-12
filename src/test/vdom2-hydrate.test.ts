@@ -6,7 +6,7 @@
  */
 import { test, before } from 'node:test'
 import assert from 'node:assert'
-import { h, Fragment } from '../ui-dom/vnode2.ts'
+import { h, Fragment } from '../ui-dom/vnode.ts'
 import { x2html } from '../ui-dom/vdom2/x2html.ts'
 import { hydrateVNode } from '../ui-dom/vdom2/hydrate.ts'
 import { createVdomContext } from '../ui-dom/context.ts'

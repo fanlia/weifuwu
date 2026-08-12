@@ -7,8 +7,8 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
-import { setProp } from '../../ui-dom/vdom/render.ts'
-import { patchProps } from '../../ui-dom/vdom/diff.ts'
+import { setProp } from '../../ui-dom/vdom2/transform.ts'
+import { patchProps } from '../../ui-dom/vdom2/patch.ts'
 
 before(setupJsdom)
 

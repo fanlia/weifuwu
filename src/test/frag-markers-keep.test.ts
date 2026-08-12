@@ -15,10 +15,10 @@ import { test, before } from 'node:test'
 import assert from 'node:assert'
 import { h, Fragment } from '../ui-dom/vnode.ts'
 import { setupJsdom } from './client/setup.ts'
-import { createVdomContext, mountRoot } from '../ui-dom/vdom/mount.ts'
+import { createVdomContext, mountRoot } from '../ui-dom/context.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { Card } from '../components/index.ts'
-import { configureVdomTrace } from '../ui-dom/vdom/trace.ts'
+import { configureVdomTrace } from '../ui-dom/vdom2/trace.ts'
 
 // Node 测试环境开启 vdom trace（diff 阶段 trace 级——观察数组项移除/配对动作）
 configureVdomTrace({ stages: ['diff', 'mount'], level: 'trace' })

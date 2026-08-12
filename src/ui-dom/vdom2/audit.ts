@@ -12,19 +12,20 @@
  *   A4 锚点：组件 _refNode 指向的节点仍在父 DOM 中
  */
 
-import type { VNode, VNodeChild } from '../vnode2.ts'
-import { arrayChildren, isFrag, isComp, isPortal, Fragment, Portal } from '../vnode2.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
+import { arrayChildren, isFrag, isComp, isPortal, Fragment, Portal } from '../vnode.ts'
 import { classifyChild, isInvalidVNodeType } from './transform.ts'
+import { componentName } from './ctx.ts'
 
 /** audit 开关（dev/测试注入；生产默认关） */
 export function auditEnabled(): boolean {
-  return !!(globalThis as any)?.__WF_VDOM_AUDIT
+  return !!((globalThis as Record<string, unknown>)?.__WF_VDOM_AUDIT)
 }
 
 /** 数组级校验：childNodes 与 children 数组对齐（A1/A2——占位错位/数量错位） */
 export function auditChildren(
   parent: Node,
-  children: VNodeChild[] | null | undefined,
+  children: VNodeChild[] | null,
   report: (msg: string) => void,
 ): void {
   if (children == null || children.length === 0) return
@@ -82,7 +83,7 @@ export function auditTree(parent: Node, child: VNodeChild, report: (msg: string)
     // A4：组件锚点——_refNode 必须在父 DOM 内
     const ref = v._refNode
     if (ref && ref.parentNode !== parent) {
-      report(`[audit] 组件锚点错位：${(v.type as any).name || 'anonymous'} _refNode 不在父节点内`)
+      report(`[audit] 组件锚点错位：${componentName(v.type)} _refNode 不在父节点内`)
     }
     if (v._child != null) auditTree(parent, v._child, report)
     return

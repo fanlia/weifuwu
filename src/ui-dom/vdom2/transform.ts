@@ -5,8 +5,8 @@
  * 属性通道判定收敛到此单一模块——buildVNode / renderValue / patchChildren / renderSsr /
  * hydrateVNode 全部调用，禁止各路径各自实现形态判定（同一语义多套实现 = 漂移 = 转化分叉）。
  */
-import type { VNode, VNodeChild } from '../vnode2.ts'
-import { Fragment, Portal } from '../vnode2.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
+import { Fragment, Portal } from '../vnode.ts'
 import type { BrowserEnv } from '../types.ts'
 
 /** wf-hole 值摘要（占位内容可见可审计：false/null/undefined/true/对象摘要/bad-vnode） */
@@ -38,7 +38,7 @@ function quoteIfNeeded(s: string): string {
  *  - 诊断  `wf-hole: type=hole value="object {...}"`（value 承载内容）
  *  字段：type 必写（hole/fragment-start/fragment-end）；value/key/id 有则写。
  *  前缀恒为 `wf-hole:`——diff/audit/hydrate 的占位判断（startsWith）不随格式演进变化 */
-export function holeMarkup(opts: { type: string; value?: unknown; key?: string | null; id?: string | null; fid?: string }): string {
+export function holeMarkup(opts: { type: string; value?: unknown; key: string | null; id: string | null; fid: string | null }): string {
   const parts = [`type=${opts.type}`]
   if (opts.value !== undefined) parts.push(`value=${quoteIfNeeded(holeDetail(opts.value))}`)
   if (opts.key != null) parts.push(`key=${quoteIfNeeded(opts.key)}`)
@@ -100,7 +100,7 @@ export function ensureArrayKeys(children: VNodeChild[]): void {
     const c = children[i]
     if (c != null && typeof c === 'object' && !Array.isArray(c)) {
       const v = c as VNode
-      if (v.key === undefined) v.key = String(i)
+      if (v.key === null) v.key = String(i)
       else v.key = String(v.key)
     }
   }
@@ -132,7 +132,7 @@ export const UNITLESS_PROPS = new Set([
 
 export function setProp(el: Element, key: string, value: any): void {
   if (value == null) return
-  const b = el.ownerDocument?.defaultView as any
+  const b = el.ownerDocument?.defaultView as unknown as { matchMedia?(q: string): unknown }
   // enumerated value-based：即使 false 也显式写 'true'/'false'（空字符串解析为 false——
   // draggable 事故；规则表 §2：显式可预期，不依赖「不设 = 默认值」的隐式行为）
   if (ENUMERATED_VALUE_BASED.has(key)) {
@@ -153,10 +153,10 @@ export function setProp(el: Element, key: string, value: any): void {
     else {
       const st = (el as HTMLElement).style
       for (const [k, v] of Object.entries(value)) {
-        if (v == null) { (st as any)[k] = '' }  // null/undefined → 删除样式属性（§6.4 style 只设不删修复）
+        if (v == null) { (st as unknown as Record<string, string>)[k] = '' }  // null/undefined → 删除样式属性（§6.4 style 只设不删修复）
         else if (k.startsWith('--')) { st.setProperty(k, String(v)) }  // CSS 变量必须 setProperty（st['--x']=v 静默失败——--wf-cols 事故，v1 处理）
-        else if (typeof v === 'number' && !UNITLESS_PROPS.has(k)) { (st as any)[k] = `${v}px` }  // 数字加 px（top/left/width 等——无单位值被浏览器忽略 → 坐标丢失）
-        else (st as any)[k] = String(v)
+        else if (typeof v === 'number' && !UNITLESS_PROPS.has(k)) { (st as unknown as Record<string, string>)[k] = `${v}px` }  // 数字加 px（top/left/width 等——无单位值被浏览器忽略 → 坐标丢失）
+        else (st as unknown as Record<string, string>)[k] = String(v)
       }
     }
     return
@@ -175,7 +175,7 @@ export function setProp(el: Element, key: string, value: any): void {
       console.warn(`[weifuwu] event prop ${key} expects a function, got ${typeof value} — ignored`)
       return
     }
-    el.addEventListener(type, value, capture ? { capture: true } : undefined)
+    el.addEventListener(type, value, capture ? { capture: true } : {})
     return
   }
   if (key === 'value') {
@@ -202,7 +202,7 @@ export function setProp(el: Element, key: string, value: any): void {
     return
   }
   try {
-    ;(el as any)[key] = value
+    ;(el as unknown as Record<string, unknown>)[key] = value
     if (el.getAttribute(key) !== String(value)) el.setAttribute(key, String(value))
   } catch {
     el.setAttribute(key, String(value))
@@ -212,7 +212,7 @@ export function setProp(el: Element, key: string, value: any): void {
 /** 占位内容（规则表 §1——wf-hole 内容可见可审计：false/null/undefined/true/对象摘要/bad-vnode） */
 /** 创建占位节点（数组上下文的无渲染值 → 注释节点，childNodes 与数组同构——规则表 §1） */
 export function createHole(browser: BrowserEnv, v: unknown): Node | null {
-  return browser.createComment(holeMarkup({ type: 'hole', value: v }))
+  return browser.createComment(holeMarkup({ type: 'hole', value: v, key: null, id: null, fid: null }))
 }
 
 /** 递归渲染（同步——组件必须已构建） */

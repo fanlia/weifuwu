@@ -19,8 +19,8 @@
  * uiLog 是深度跟踪——两者独立开关、不冲突。
  */
 
-import type { VNodeChild, VNode } from '../vnode2.ts'
-import { Fragment } from '../vnode2.ts'
+import type { VNodeChild, VNode } from '../vnode.ts'
+import { Fragment } from '../vnode.ts'
 
 export type VdomStage = 'mount' | 'build' | 'render' | 'diff' | 'audit'
 export type VdomLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace'
@@ -34,11 +34,11 @@ export interface VdomTraceConfig {
   stages: Set<VdomStage>
   /** 最低级别（info 起；debug/trace 明细） */
   level: VdomLevel
-  /** 组件名过滤（可选——只输出含该名称的组件相关日志） */
-  filter?: string
+  /** 组件名过滤（只输出含该名称的组件相关日志；null = 不过滤） */
+  filter: string | null
 }
 
-let cfg: VdomTraceConfig = { enabled: false, stages: new Set(), level: 'info' }
+let cfg: VdomTraceConfig = { enabled: false, stages: new Set(), level: 'info', filter: null }
 let _initDone = false
 
 function parseLevel(s: string | null): VdomLevel {
@@ -64,18 +64,22 @@ export function initVdomTrace(): VdomTraceConfig {
   if (_initDone) return cfg
   _initDone = true
   try {
-    const g = globalThis as any
+    const g = globalThis as unknown as {
+      location?: { search?: string }
+      localStorage?: { getItem?(k: string): string | null }
+      __vdom_trace__?: Partial<VdomTraceConfig>
+    }
     // 1. URL query
     const q = new URLSearchParams(typeof g.location?.search === 'string' ? g.location.search : '')
     const qStages = q.get('vdom_trace')
     const qDebug = q.get('vdom_debug')
     // 2. 全局变量（页面加载前注入）
-    const gCfg = g.__vdom_trace__ as Partial<VdomTraceConfig> | undefined
+    const gCfg = g.__vdom_trace__
     // 3. localStorage
     const ls = typeof g.localStorage?.getItem === 'function' ? g.localStorage.getItem('vdom_trace') : null
 
     if (qDebug === '1' || g?.localStorage?.getItem?.('__WF_VDOM_DEBUG') === '1') {
-      cfg = { enabled: true, stages: new Set(STAGES), level: 'debug' }
+      cfg = { enabled: true, stages: new Set(STAGES), level: 'debug', filter: null }
     } else if (qStages || gCfg || ls) {
       const stages = new Set<VdomStage>()
       if (qStages) for (const s of parseStages(qStages)) stages.add(s)
@@ -89,7 +93,7 @@ export function initVdomTrace(): VdomTraceConfig {
         stages,
         // 无显式级别默认 debug（能看明细）——显式 :trace/:debug/:info 才降/升
         level: qStages?.includes(':') ? parseLevel(qStages.split(':')[1]) : (gCfg?.level ?? 'debug'),
-        filter: typeof gCfg?.filter === 'string' ? gCfg.filter : undefined,
+        filter: typeof gCfg?.filter === 'string' ? gCfg.filter : null,
       }
     }
   } catch { /* 环境无 location/localStorage——忽略 */ }
@@ -121,7 +125,7 @@ export function configureVdomTrace(c: Partial<Omit<VdomTraceConfig, 'enabled'>>)
   cfg.enabled = true
   if (c.stages) cfg.stages = new Set(c.stages)
   if (c.level) cfg.level = c.level
-  if (c.filter !== undefined) cfg.filter = c.filter
+  if (c.filter !== null && c.filter !== undefined) cfg.filter = c.filter
 }
 
 /** 渲染会话 traceId：R{seq}——同一渲染的 build→render→diff 日志共享 */
@@ -133,7 +137,7 @@ export function nextTraceId(tag?: string): string {
 // ── 摘要函数（children 顺序可视化——定位顺序错乱类 bug 的关键工具） ──
 
 /** children 顺序摘要：["div#list-simple | false | ARR(2) | str"] */
-export function kidsSeq(kids: VNodeChild[] | null | undefined, max = 12): string {
+export function kidsSeq(kids: VNodeChild[] | null, max = 12): string {
   if (!kids) return '∅'
   if (typeof kids === 'string' || typeof kids === 'number') return `"${kids}"`
   if (!Array.isArray(kids)) return vnDesc(kids)
@@ -151,16 +155,16 @@ export function vnDesc(v: VNodeChild): string {
   const vn = v as VNode
   const t = vn.type
   let name: string
-  if (typeof t === 'function') name = (t as any).name || 'Comp'
+  if (typeof t === 'function') name = (t as { name?: string }).name || 'Comp'
   else if (t === Fragment) name = 'Frag'
   else if (typeof t === 'string') name = t
   else name = String(t)
-  const id = (vn.props as any)?.id ? `#${(vn.props as any).id}` : vn.key != null ? `@${vn.key}` : ''
+  const id = vn.props?.id ? `#${vn.props.id}` : vn.key != null ? `@${vn.key}` : ''
   return name + id
 }
 
 /** DOM 节点摘要 */
-export function nodeDesc(n: Node | null | undefined): string {
+export function nodeDesc(n: Node | null): string {
   if (!n) return 'null'
   if (n.nodeType === 1) {
     const el = n as Element

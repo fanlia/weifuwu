@@ -1,23 +1,19 @@
 /**
- * weifuwu/ui-dom VNode — 虚拟 DOM 节点
+ * vnode — VNode 强类型判别联合（vdom2 方案——vdom1 退役后唯一类型源）
  *
- * VNode 是纯 JS 对象，不依赖 DOM。组件返回 VNode。
+ * 与全局 vnode.ts（vdom1 JSX 运行时）的关系：
+ * - Fragment/Portal **symbol 复用全局**（全局唯一协议——JSX 编译产物用全局 Fragment，
+ *   vdom2 引擎处理全局 h() 产物必须同 symbol 判别）
+ * - 类型（VNode/VNodeChild/Component）**独立**（vdom2 强类型；vdom1 替换后本文件成唯一类型源）
  *
- * h/jsx 由 esbuild JSX 编译调用：
- *   --jsxImportSource=weifuwu/ui-dom
+ * 访问模式（强类型约束）：
+ *   if (isFrag(vnode)) { vnode._childNodes ... }   // type === Fragment → TS 收窄为 FragVNode
+ *   if (isComp(vnode)) { vnode._render ... }        // type 为函数 → 收窄为 CompVNode
+ *   —— 无散落 cast；字段访问由类型系统强制。
  */
 
-import type { WfuiContext } from './types.ts'
-
-// VNodeType 的组件部分用 Component<any, any>：h() 的 props 是 Record<string, any>，
-// 调用点的 props 检查本来就发生在组件声明处；这里只要求「是组件」。
-// （具体泛型会因 props 逆变导致 required-prop 组件无法嵌套，如 h(ToolCallCard, {...})）
 export type VNodeType = string | Component<any, any> | typeof Fragment | typeof Portal
 
-/**
- * VNode 子节点合法值——组件可返回/渲染的多态内容。
- * 递归联合：string/number/VNode/array/null/boolean 任意组合。
- */
 export type VNodeChild =
   | VNode
   | string
@@ -27,87 +23,130 @@ export type VNodeChild =
   | undefined
   | VNodeChild[]
 
-export interface VNode {
+// Fragment/Portal symbol（全局唯一协议——JSX 编译产物判别式）
+export const Fragment = Symbol('Fragment')
+export const Portal = Symbol('Portal')
+
+/** 通用字段（所有 VNode 共有——构建元数据；渲染前为 null 的显式初始化） */
+interface VNodeBase {
   type: VNodeType
   props: Record<string, any>
-  key?: string
-  el?: Node
-  /** 子 VNode 缓存（用于 patchValue diff，避免重复执行组件） */
-  _child?: VNode | VNode[] | null
-  /** 远程 DOM 容器（Portal 等 remote VNode 的 DOM 所在处） */
-  _remoteEl?: HTMLElement | undefined
-  /** VNode 的 DOM 归属：'local' 在父 DOM 树下，'remote' 在别处 */
-  _placement?: 'local' | 'remote'
-  /** 两阶段组件的 render 函数（mount 返回的函数——强制异步：props 变化时可 await 数据） */
-  _render?: (props: Record<string, unknown>) => Promise<VNode | null>
-
-  /** 组件实例 ID（如 '_wf_0'） */
-  _id?: string
-  /** 自定义组件 ID（ctx.ui.selfId() 注册，跨组件精准刷新） */
-  _customId?: string
-  /** 组件输出的 DOM 父节点 */
-  _parentNode?: Node
-  /** 父 vnode 引用（动态挂载补全向上找持有组件） */
-  _parentVNode?: VNode
-  /** 组件输出的第一个 DOM 节点 */
-  _refNode?: Node | null
-  /** 阶段 B：children 每位置的首 DOM 节点（规则表 §5 锚点优先——替代 source[i] 下标猜测，
-   *  fragment/数组项多节点展开后相邻项不错位）。renderValue 记录，patchChildren 读取 + 回写 */
-  _childAnchors?: (Node | null)[]
-  /** Fragment 展开后的多个直属 DOM 节点范围（diff 对齐用，见 diff.ts） */
-  _childNodes?: Node[]
-  /** 组件 renderFn 上次执行时的 ctx 版本号（buildVNode 剪枝 + diff 三态 skip 的版本比较——
-   *  bumpCtxVersion 递增后版本不同 → 强制重跑 renderFn，如 i18n 切换语言） */
-  _ctxVersion?: number
+  /** key（数组项身份——无 key 为 null；显式 null 非可选 undefined） */
+  key: string | null
+  /** 子 vnode 缓存（buildVNode 构建——patchValue diff 对照用；渲染前 null） */
+  _child: VNode | VNode[] | null
+  /** 结构父节点（输出范围坐标系——范围定位不需要外部传 parent） */
+  _parentNode: Node | null
+  /** 输出锚点 = 输出范围**首 DOM 节点**（多节点输出时必须是真实节点而非 DocumentFragment） */
+  _refNode: Node | null
+  /** 组件实例 ID / 自定义 ID（buildVNode 分配） */
+  _id: string | null
+  _customId: string | null
+  /** 父 vnode 引用 */
+  _parentVNode: VNode | null
+  /** 组件 renderFn 上次执行时的 ctx 版本号（buildVNode 剪枝 + diff 三态 skip） */
+  _ctxVersion: number | null
 }
 
-/**
- * 两阶段异步组件（weifuwu 唯一组件形态）：
- *   async (initProps, ctx) => Promise<renderFn>
- * 外层 = mount（一次，可 await 数据），内层 = renderFn（每次 dirty/props 变化——**强制异步**，
- * 可 await 数据；统一异步心智：两阶段都可 await，无「同步组件 vs 异步组件」二元形态）。
- * P = props 类型（JSX 自动推断），C = 组件依赖的 ctx 注入（如 ApiInjected & RouteInjected）
- *
- * renderFn 签名：async (props) => Promise<VNode | null>——同步 renderFn 是类型错误
- * （diff 永不执行 renderFn——渲染器在 buildVNode 阶段 await，同步上下文拿不到 vnode）。
- * 渲染器按「返回值是 Promise」判别（主路径 buildVNode await 全部工厂 + renderFn）。
- */
-export type RenderFn<P> = (props: P) => Promise<VNode | null>
+/** 原生元素——type: string；特有：el / _childAnchors（渲染后填充，前 null） */
+export interface NativeVNode extends VNodeBase {
+  type: string
+  el: Node | null
+  _childAnchors: (Node | null)[] | null
+}
+
+/** Fragment——type: typeof Fragment；特有：_childNodes（输出范围，渲染后填充） */
+export interface FragVNode extends VNodeBase {
+  type: typeof Fragment
+  _childNodes: Node[] | null
+}
+
+/** 组件——type: Component；特有：_render（两阶段 renderFn）/ _outputChild（输出引用） */
+export interface CompVNode extends VNodeBase {
+  type: Component
+  _render: ((props: Record<string, unknown>) => Promise<VNode | null>) | null
+  /** 输出 vnode 引用（dispose 清 _child/_id/_render 后仍可取输出范围——getOutputRange 递归终点） */
+  _outputChild: VNodeChild | null
+}
+
+/** Portal——type: typeof Portal；特有：_remoteEl / _placement（固定 'remote'） */
+export interface PortalVNode extends VNodeBase {
+  type: typeof Portal
+  _remoteEl: HTMLElement | null
+  _placement: 'remote'
+}
+
+/** VNode 判别联合——type 为判别式 */
+export type VNode = NativeVNode | FragVNode | CompVNode | PortalVNode
+
+// ── 类型守卫（判别式收窄——替代散落 cast） ──
+
+export function isNative(v: unknown): v is NativeVNode {
+  return v != null && typeof v === 'object' && typeof (v as any).type === 'string'
+}
+export function isFrag(v: unknown): v is FragVNode {
+  return v != null && typeof v === 'object' && (v as any).type === Fragment
+}
+export function isComp(v: unknown): v is CompVNode {
+  return v != null && typeof v === 'object' && typeof (v as any).type === 'function'
+}
+export function isPortal(v: unknown): v is PortalVNode {
+  return v != null && typeof v === 'object' && (v as any).type === Portal
+}
 
 export type Component<P = {}, C extends object = {}> = (
   initProps: P,
-  ctx: WfuiContext & C,
-) => Promise<RenderFn<P> | null>
+  ctx: import('./types.ts').WfuiContext & C,
+) => Promise<((props: P) => Promise<VNode | null>) | null>
 
-export const Fragment = Symbol('Fragment')
-
-/** Portal — 将子 VNode 渲染到 document.body 下的独立容器 */
-export const Portal = Symbol('Portal')
-
-/** JSX 类型声明 — 使 TypeScript 理解自定义 JSX 运行时 */
-
-
-export function jsx(type: VNodeType, props: Record<string, any> | null, key?: string | null): VNode {
+/** 构造 VNode 基字段（所有类型共用的初始值） */
+function base(type: VNodeType, props: Record<string, any>, key: string | null = null): VNodeBase {
   return {
     type,
-    props: normalizeProps(props),
-    key: key ?? undefined,
+    props,
+    key,
+    _child: null,
+    _parentNode: null,
+    _refNode: null,
+    _id: null,
+    _customId: null,
+    _parentVNode: null,
+    _ctxVersion: null,
   }
 }
 
-export const jsxs = jsx
-
-export function jsxDEV(type: VNodeType, props: Record<string, any> | null, key?: string | null): VNode {
-  return jsx(type, props, key)
+/** 按类型构造强类型 VNode（每类初始化特有必填字段） */
+export function createVNode(type: VNodeType, props: Record<string, any>, key: string | null = null): VNode {
+  if (type === Fragment) {
+    const v: FragVNode = { ...base(type, props, key), type, _childNodes: null }
+    return v
+  }
+  if (type === Portal) {
+    const v: PortalVNode = { ...base(type, props, key), type, _remoteEl: null, _placement: 'remote' }
+    return v
+  }
+  if (typeof type === 'function') {
+    const v: CompVNode = { ...base(type, props, key), type, _render: null, _outputChild: null }
+    return v
+  }
+  const v: NativeVNode = { ...base(type, props, key), type, el: null, _childAnchors: null }
+  return v
 }
 
-/** `h`（hyperscript）支持 variadic children: `h('div', {class:'x'}, child1, child2)` */
 export function h(type: VNodeType, props: Record<string, any> | null, ...children: VNodeChild[]): VNode {
   const p = normalizeProps(props ?? {})
   if (children.length > 0) {
     p.children = children.length === 1 ? children[0] : children
   }
-  return { type, props: p, key: props?.key ?? undefined }
+  return createVNode(type, p, props?.key ?? null)
+}
+
+export function jsx(type: VNodeType, props: Record<string, any> | null, key?: string | null): VNode {
+  return createVNode(type, normalizeProps(props), key ?? null)
+}
+export const jsxs = jsx
+export function jsxDEV(type: VNodeType, props: Record<string, any> | null, key?: string | null): VNode {
+  return jsx(type, props, key)
 }
 
 function normalizeProps(props: Record<string, any> | null): Record<string, any> {
@@ -120,57 +159,13 @@ function normalizeProps(props: Record<string, any> | null): Record<string, any> 
   return result
 }
 
-export function isNative(vnode: VNode): boolean {
-  return typeof vnode.type === 'string'
-}
-
-/** 递归文本/数组归一化（children 数组展开——嵌套数组扁平化，DOM 范围对齐）。
- *  栈展开（索引遍历替代 shift/unshift 头部操作——长数组 O(n) 而非 O(n²)）；逆序入栈 + pop 保持原顺序 */
-/** children 数组视图（保真用户结构——vnode 任何阶段以用户 JSX 为标准，规则表 §1-20）。
- *  数组原样返回（零拷贝——嵌套数组不展开：数组项 ≡ 隐式 Fragment，渲染/diff 按嵌套递归，
- *  key 层级独立 §3-46）；非数组包装成单元素数组。替代 v1 normalizeChildren（平铺展开——
- *  消灭层级信息 → 内层/外层下标 key 撞车 → auth 切换字段残留）。 */
 export function arrayChildren(c: VNodeChild | undefined | null): VNodeChild[] {
   if (c == null || typeof c === 'boolean') return []
   return Array.isArray(c) ? c : [c]
 }
 
-export function isComponent(vnode: VNode): boolean {
-  return typeof vnode.type === 'function'
-}
-
-export function isFragment(vnode: VNode): boolean {
-  return vnode.type === Fragment
-}
-
-export function isPortal(vnode: VNode): boolean {
-  return vnode.type === Portal
-}
-
-/** Portal VNode — 子节点渲染到 document.body#__wf_portal 中 */
 export function createPortal(children: VNodeChild, portalKey?: string): VNode {
-  return {
-    type: Portal,
-    props: { children, portalKey },
-    key: portalKey ?? undefined,
-    _placement: 'remote',
-  }
-}
-
-/** JSX 类型声明 — ui-dom 是 jsxImportSource（client 壳不再声明） */
-declare global {
-  namespace JSX {
-    type Element = import('./vnode.ts').VNode | null
-    type ElementType =
-      | string
-      | ((props: any, ctx: any) => any)
-      | typeof Fragment
-      | typeof Portal
-    interface IntrinsicElements {
-      [tag: string]: any
-    }
-    interface IntrinsicAttributes {
-      key?: string | number
-    }
-  }
+  const vnode = createVNode(Portal, { children, portalKey }) as PortalVNode
+  vnode.key = portalKey ?? null
+  return vnode
 }

@@ -5,11 +5,11 @@ import { test, before } from 'node:test'
 import assert from 'node:assert'
 import { h, Fragment } from '../ui-dom/vnode.ts'
 import { setupJsdom } from './client/setup.ts'
-import { createVdomContext, mountRoot } from '../ui-dom/vdom/mount.ts'
+import { createVdomContext, mountRoot } from '../ui-dom/context.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
-import { patchValue } from '../ui-dom/vdom/diff.ts'
-import { buildVNode } from '../ui-dom/vdom/build.ts'
-import { createRegistry } from '../ui-dom/vdom/registry.ts'
+import { patchValue } from '../ui-dom/vdom2/patch.ts'
+import { buildVNode } from '../ui-dom/vdom2/build.ts'
+import { createRegistry } from '../ui-dom/vdom2/registry.ts'
 
 before(setupJsdom)
 
