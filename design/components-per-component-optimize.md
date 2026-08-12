@@ -4,6 +4,8 @@
 > 把抽检发现的真实问题（a11y 缺口 / 视觉债 / demo 单薄 / 功能 roadmap）逐个修掉。
 > 方法：**按族分 Wave，每组件列具体发现 + 修复**，agent-browser 实测验收，不重写、增量补全。
 > 前置：P10 测试基线 / P11 视觉 token 化 / 全局交互过渡与按压反馈（本轮已做）已完成。
+> **P13 完成（2026-12）**：四缺口处理——Slider 原生 input range 隐式 role=slider/valuenow（豁免）、
+> Notification role=status/alert + aria-live（已修）、Tabs ink bar（已修）、**ColorPicker aria-expanded + haspopup（本轮 TDD 补）**。
 
 ## 抽检发现（2026-08，驱动本计划）
 

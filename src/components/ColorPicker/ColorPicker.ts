@@ -26,8 +26,10 @@ const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
 /** 颜色选择（对应 antd/EP ColorPicker 预设版）：触发按钮 + 色板弹层 + hex 输入。
  * 裁剪（CS-05，见 design/components-cuts.md）：不做吸管/自由取色/透明度（预设色板 + hex 输入覆盖 90% 场景）。 */
-export const ColorPicker: Component<ColorPickerProps> = async (_init, ctx) =>
-  async (props) => {
+export const ColorPicker: Component<ColorPickerProps> = async (_init, ctx) => {
+  // mount 层：弹层 open 状态（aria-expanded 联动 + 受控 Popover）
+  let open = false
+  return async (props) => {
     const {
       colors = DEFAULT_COLORS,
       size = 'md', disabled, showInput, 'aria-label': ariaLabel,
@@ -78,6 +80,8 @@ export const ColorPicker: Component<ColorPickerProps> = async (_init, ctx) =>
       disabled,
       'aria-label': ariaLabel ?? '选择颜色',
       'aria-disabled': disabled ? 'true' : undefined,
+      'aria-haspopup': 'dialog',
+      'aria-expanded': open ? 'true' : 'false',
     }, [
       h('span', { class: 'wf-color-picker-swatch', style: { background: current || '#fff' } }),
       h('span', { class: 'wf-color-picker-value' }, current || '颜色'),
@@ -87,5 +91,8 @@ export const ColorPicker: Component<ColorPickerProps> = async (_init, ctx) =>
       content: panel,
       position: 'bottom',
       disabled,
+      open,
+      onOpenChange: (o: boolean) => { open = o; ctx.ui.render() },
     }, trigger)
   }
+}

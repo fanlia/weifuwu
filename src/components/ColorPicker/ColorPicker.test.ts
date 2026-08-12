@@ -104,3 +104,12 @@ describe('ColorPicker', () => {
     assert.equal(swatches.length, 2)
   })
 })
+
+describe('ColorPicker 弹层 aria（P13 a11y 补缺）', () => {
+  it('trigger 有 aria-haspopup + aria-expanded=false（初始关闭）', async () => {
+    const vnode = await renderVNode(ColorPicker, { value: '#ff0000' }, createTestCtx() as any)
+    const trigger = vnode.props.children
+    assert.equal(trigger.props['aria-haspopup'], 'dialog')
+    assert.equal(trigger.props['aria-expanded'], 'false')
+  })
+})
