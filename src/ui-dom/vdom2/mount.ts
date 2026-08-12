@@ -16,6 +16,7 @@ import { createRegistry, type Registry } from './registry.ts'
 import { buildVNode } from './build.ts'
 import { renderValue } from './render.ts'
 import { patchValue, type PatchCtx } from './patch.ts'
+import { auditEnabled, auditTree } from './audit.ts'
 import { createClientBrowser } from '../browser.ts'
 import type { BrowserEnv } from '../types.ts'
 
@@ -78,6 +79,14 @@ export function createRenderer(opts: {
         }
         const node = patchValue(parent, comp._refNode ?? null, oldChild, newChild, patchCtx)
         comp._refNode = node
+        // 阶段 C audit：__WF_VDOM_AUDIT 开启时 patch 后结构校验（错位即报错，不静默传播）
+        if (auditEnabled()) {
+          try {
+            const msgs: string[] = []
+            auditTree(parent, newChild, (msg) => msgs.push(msg))
+            if (msgs.length) console.error('[vdom2/audit] ' + msgs.join(' | '))
+          } catch (e) { console.error('[vdom2/audit] 校验异常:', e) }
+        }
       }
     } catch (e) {
       if (opts.onError) opts.onError(e)
@@ -112,6 +121,13 @@ export function mountRoot(opts: MountOptions): MountHandle {
       if (node != null) opts.root.appendChild(node)
       prevChild = (built as VNode)?._child ?? built
       if (rootUi) rootUi._rootVNodeId = (built as VNode)?._id
+      if (auditEnabled()) {
+        try {
+          const msgs: string[] = []
+          auditTree(opts.root, built, (msg) => msgs.push(msg))
+          if (msgs.length) console.error('[vdom2/audit] ' + msgs.join(' | '))
+        } catch (e) { console.error('[vdom2/audit] 校验异常:', e) }
+      }
     },
     async rerender() {
       if (mounted == null) return

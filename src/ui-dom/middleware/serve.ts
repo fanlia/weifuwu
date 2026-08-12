@@ -11,11 +11,13 @@ import { h } from '../vnode2.ts'
 import { uiLog } from '../debug.ts'
 import { trace, traceEnabled, nextTraceId, initVdomTrace } from '../vdom2/trace.ts'
 import type { UIRouter } from '../router.ts'
-import type { VNode, WfuiContext, UIContext } from '../types.ts'
+import { isNative, type VNode } from '../vnode2.ts'
+import type { WfuiContext, UIContext } from '../types.ts'
 import { buildVNode } from '../vdom2/build.ts'
 import { renderValue } from '../vdom2/render.ts'
 import { patchValue } from '../vdom2/patch.ts'
 import { createVdomContext } from '../context.ts'
+import { hydrateVNode } from '../vdom2/hydrate.ts'
 import type { VNodeChild } from '../vnode2.ts'
 
 /** uiServe 选项 */
@@ -122,15 +124,22 @@ export function uiServe<RC extends object = {}>(
     }
     if (closing || token !== navToken) return
     if (initial) {
-      root.innerHTML = ''
-      const node = renderValue(built, ctx, browser)
-      if (traceEnabled('mount')) trace('mount', 'debug', traceId, `first-render node=${node?.nodeName ?? 'null'} fragKids=${node?.nodeType === 11 ? Array.from(node.childNodes).length : '-'}`)
-      if (node != null) root.appendChild(node)
-      if (traceEnabled('mount')) trace('mount', 'debug', traceId, `root-fill done=${root.childNodes.length} first=${root.firstChild?.nodeName}`)
+      if (hydrating) {
+        // 水合：SSR HTML 游标收养（不重建 DOM——接线属性/事件/ref）
+        await hydrateVNode(root, built as VNode, ctx)
+        if (traceEnabled('mount')) trace('mount', 'debug', traceId, `hydrate done=${root.childNodes.length}`)
+      } else {
+        root.innerHTML = ''
+        const node = renderValue(built, ctx, browser)
+        if (traceEnabled('mount')) trace('mount', 'debug', traceId, `first-render node=${node?.nodeName ?? 'null'} fragKids=${node?.nodeType === 11 ? Array.from(node.childNodes).length : '-'}`)
+        if (node != null) root.appendChild(node)
+        if (traceEnabled('mount')) trace('mount', 'debug', traceId, `root-fill done=${root.childNodes.length} first=${root.firstChild?.nodeName}`)
+      }
     } else if (currentChild !== undefined) {
       const prev = currentChild
       currentChild = built
-      const prevNode = (prev as VNode)?.el ?? (prev as VNode)?._refNode ?? null
+      const pv = prev as VNode
+      const prevNode = isNative(pv) ? pv.el ?? pv._refNode : pv._refNode
       patchValue(root, prevNode, prev, built, { browser, registry, ctxVersion: (ctx as any)?.ui?._ctxVersion ?? 0 })
     }
     currentChild = built
