@@ -72,7 +72,7 @@ async function main() {
   const pg = postgres()
   const { sql } = pg
 
-  // ── 清空业务数据（保留租户和用户 UUID 不变） ────────
+  // ── 清空业务数据（保留应用和用户 UUID 不变） ────────
   console.log('  … 清空业务数据...')
   await sql.unsafe(`
     DELETE FROM webhook_logs;
@@ -84,7 +84,6 @@ async function main() {
     DELETE FROM department_members;
     DELETE FROM departments;
     DELETE FROM agents;
-    DELETE FROM companies;
   `)
   console.log('  ✓ 已清空业务数据')
 
@@ -95,53 +94,58 @@ async function main() {
   console.log('  ✓ schema')
 
   // ════════════════════════════════════════════════════
-  // 1. 租户 + 用户
+  // 1. 应用 + 用户（框架 userSystem 三层模型）
   // ════════════════════════════════════════════════════
 
-  // 使用固定 UUID 确保 re-seed 后租户 ID 永远不变
-  // token 中的 tenantId 始终有效，无需重新登录
-  const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001'
-  const [tenant] = await sql`
-    INSERT INTO tenants (id, name, slug)
-    VALUES (${DEMO_TENANT_ID}, '演示科技有限公司', 'demo')
-    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, slug = EXCLUDED.slug
-    RETURNING id
-  `
-  console.log('  ✓ 租户: 演示科技有限公司')
-
-  // 注意：认证已迁移到 weifuwu 框架 user()（_weifuwu_users 表，scrypt$ 哈希格式，
-  // tenant claim 进 token）。seed 必须写入框架用户表，否则登录后 tenantId 与业务数据
-  // 不匹配（历史 bug：写旧 users 表 → 登录成功但 Dashboard 全 0）。
+  // 使用固定 UUID 确保 re-seed 后 app ID 永远不变
+  // 应用 token 中的 appId 始终有效，无需重新登录
+  const DEMO_APP_ID = '00000000-0000-0000-0000-000000000001'
   const adminPassword = await hashPassword('admin123')
   const [admin] = await sql`
-    INSERT INTO _weifuwu_users (email, name, password_hash, role, tenant)
-    VALUES ('admin@demo.com', '张明', ${adminPassword}, 'admin', ${tenant.id})
-    ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, tenant = EXCLUDED.tenant
+    INSERT INTO _weifuwu_users (email, name, password_hash, role)
+    VALUES ('admin@demo.com', '张明', ${adminPassword}, 'admin')
+    ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
     RETURNING id, name
   `
   console.log('  ✓ 管理员: admin@demo.com / admin123')
 
   const userPassword = await hashPassword('user123')
   const [user] = await sql`
-    INSERT INTO _weifuwu_users (email, name, password_hash, role, tenant)
-    VALUES ('user@demo.com', '李华', ${userPassword}, 'member', ${tenant.id})
-    ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, tenant = EXCLUDED.tenant
+    INSERT INTO _weifuwu_users (email, name, password_hash, role)
+    VALUES ('user@demo.com', '李华', ${userPassword}, 'member')
+    ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
     RETURNING id, name
   `
   console.log('  ✓ 用户: user@demo.com / user123')
+
+  // 应用（= 产品/公司——一个 app 就是一个公司）
+  await sql`
+    INSERT INTO _weifuwu_apps (id, slug, name, owner_user_id)
+    VALUES (${DEMO_APP_ID}, 'demo', '演示科技有限公司', ${admin.id})
+    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, slug = EXCLUDED.slug, owner_user_id = EXCLUDED.owner_user_id
+  `
+  // 成员关系（owner + member）
+  await sql`
+    INSERT INTO _weifuwu_app_members (app_id, user_id, role, invited_by)
+    VALUES
+      (${DEMO_APP_ID}, ${admin.id}, 'owner', ${admin.id}),
+      (${DEMO_APP_ID}, ${user.id}, 'member', ${admin.id})
+    ON CONFLICT DO NOTHING
+  `
+  console.log('  ✓ 应用: 演示科技有限公司（demo）')
 
   // ════════════════════════════════════════════════════
   // 2. Agent — 真实用户映射
   // ════════════════════════════════════════════════════
 
   const [adminAgent] = await sql`
-    INSERT INTO agents (tenant_id, type, name, user_id, is_active)
-    VALUES (${tenant.id}, 'user', ${admin.name}, ${admin.id}, true)
+    INSERT INTO agents (app_id, type, name, user_id, is_active)
+    VALUES (${DEMO_APP_ID}, 'user', ${admin.name}, ${admin.id}, true)
     RETURNING id
   `
   const [userAgent] = await sql`
-    INSERT INTO agents (tenant_id, type, name, user_id, is_active)
-    VALUES (${tenant.id}, 'user', ${user.name}, ${user.id}, true)
+    INSERT INTO agents (app_id, type, name, user_id, is_active)
+    VALUES (${DEMO_APP_ID}, 'user', ${user.name}, ${user.id}, true)
     RETURNING id
   `
   console.log('  ✓ 用户 Agent: 张明, 李华')
@@ -153,11 +157,11 @@ async function main() {
   // 3a. 开发助手（带工作空间 + 文件工具 + bash）
   const devTemplate = ROLE_TEMPLATES.find(t => t.slug === 'developer')
   const [devAgent] = await sql`
-    INSERT INTO agents (tenant_id, type, name, description, model,
+    INSERT INTO agents (app_id, type, name, description, model,
       system_prompt, temperature, max_tokens,
       allow_file_tools, allow_command_exec,
       is_active, tools)
-    VALUES (${tenant.id}, 'ai', '小码', '代码编写与项目重构助手',
+    VALUES (${DEMO_APP_ID}, 'ai', '小码', '代码编写与项目重构助手',
       'deepseek-v4-flash',
       ${devTemplate.default_system_prompt},
       ${devTemplate.default_temperature},
@@ -182,10 +186,10 @@ async function main() {
   // 3b. 智能客服（带知识库 + HITL）
   const csTemplate = ROLE_TEMPLATES.find(t => t.slug === 'customer-support')
   const [csAgent] = await sql`
-    INSERT INTO agents (tenant_id, type, name, description, model,
+    INSERT INTO agents (app_id, type, name, description, model,
       system_prompt, temperature, max_tokens,
       human_in_the_loop, is_active, tools)
-    VALUES (${tenant.id}, 'ai', '小应', '客户服务与 FAQ 自动回复',
+    VALUES (${DEMO_APP_ID}, 'ai', '小应', '客户服务与 FAQ 自动回复',
       'deepseek-v4-flash',
       ${csTemplate.default_system_prompt},
       ${csTemplate.default_temperature},
@@ -207,11 +211,11 @@ async function main() {
   // 3c. 运维机器人（带工作空间 + bash + HITL）
   const opsTemplate = ROLE_TEMPLATES.find(t => t.slug === 'ops-bot')
   const [opsAgent] = await sql`
-    INSERT INTO agents (tenant_id, type, name, description, model,
+    INSERT INTO agents (app_id, type, name, description, model,
       system_prompt, temperature, max_tokens,
       allow_file_tools, allow_command_exec,
       human_in_the_loop, is_active, tools)
-    VALUES (${tenant.id}, 'ai', '小维', '系统监控与自动化运维',
+    VALUES (${DEMO_APP_ID}, 'ai', '小维', '系统监控与自动化运维',
       'deepseek-v4-flash',
       ${opsTemplate.default_system_prompt},
       ${opsTemplate.default_temperature},
@@ -234,9 +238,9 @@ async function main() {
 
   // 3d. 通用助手（无特殊权限）
   const [generalAgent] = await sql`
-    INSERT INTO agents (tenant_id, type, name, description, model,
+    INSERT INTO agents (app_id, type, name, description, model,
       system_prompt, temperature, max_tokens, is_active, tools)
-    VALUES (${tenant.id}, 'ai', '小悟', '通用问答助手',
+    VALUES (${DEMO_APP_ID}, 'ai', '小悟', '通用问答助手',
       'deepseek-v4-flash',
       '你是一个有帮助的 AI 助手，名叫小悟。回答简洁、准确、友好。',
       0.7, 2048, true, '[]')
@@ -249,20 +253,20 @@ async function main() {
   // ════════════════════════════════════════════════════
 
   const [kbAgent] = await sql`
-    INSERT INTO agents (tenant_id, type, name, description, chunk_size, chunk_overlap, is_active)
-    VALUES (${tenant.id}, 'knowledge_base', '产品知识库', '产品手册与 FAQ 文档库', 500, 50, true)
+    INSERT INTO agents (app_id, type, name, description, chunk_size, chunk_overlap, is_active)
+    VALUES (${DEMO_APP_ID}, 'knowledge_base', '产品知识库', '产品手册与 FAQ 文档库', 500, 50, true)
     RETURNING id
   `
 
   // 文档 1: 产品介绍
   const doc1Content = `# Agent Platform 产品介绍
 
-Agent Platform 是一个多租户 AI Agent 平台，基于 weifuwu 框架构建。
+Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
 
 ## 核心特性
 
 1. **四种 Agent 类型**：AI 机器人、Webhook、知识库、真实用户
-2. **多租户隔离**：每个租户的数据完全隔离
+2. **应用隔离**：每个应用（产品/公司）的数据完全隔离
 3. **Human-in-the-Loop**：AI 回复可配置为需要人工审批
 4. **工具调用**：AI 机器人可通过 tool calling 执行外部操作
 5. **技能系统**：通过 SKILL.md 扩展 AI 能力
@@ -330,27 +334,21 @@ Agent Platform 是一个多租户 AI Agent 平台，基于 weifuwu 框架构建�
   // ════════════════════════════════════════════════════
 
   const [webhookAgent] = await sql`
-    INSERT INTO agents (tenant_id, type, name, description, webhook_url, webhook_secret, webhook_retry_count, is_active)
-    VALUES (${tenant.id}, 'webhook', '通知机器人', '接收外部系统回调通知',
+    INSERT INTO agents (app_id, type, name, description, webhook_url, webhook_secret, webhook_retry_count, is_active)
+    VALUES (${DEMO_APP_ID}, 'webhook', '通知机器人', '接收外部系统回调通知',
       'https://hooks.example.com/notify', 'sk-demo-webhook-secret', 3, true)
     RETURNING id
   `
   console.log('  ✓ Webhook Agent: 通知机器人')
 
   // ════════════════════════════════════════════════════
-  // 6. 公司 + 部门
+  // 6. 部门（直接挂应用——一个 app 就是一个产品/公司）
   // ════════════════════════════════════════════════════
-
-  const [company] = await sql`
-    INSERT INTO companies (tenant_id, name)
-    VALUES (${tenant.id}, '演示科技有限公司')
-    RETURNING id
-  `
 
   // 部门 1: 技术部（开发 + 全员）
   const [devDept] = await sql`
-    INSERT INTO departments (company_id, name, is_dm)
-    VALUES (${company.id}, '技术部', false)
+    INSERT INTO departments (app_id, name, is_dm)
+    VALUES (${DEMO_APP_ID}, '技术部', false)
     RETURNING id
   `
   await sql`
@@ -364,8 +362,8 @@ Agent Platform 是一个多租户 AI Agent 平台，基于 weifuwu 框架构建�
 
   // 部门 2: 客服中心（智能客服 + 知识库）
   const [csDept] = await sql`
-    INSERT INTO departments (company_id, name, is_dm)
-    VALUES (${company.id}, '客服中心', false)
+    INSERT INTO departments (app_id, name, is_dm)
+    VALUES (${DEMO_APP_ID}, '客服中心', false)
     RETURNING id
   `
   await sql`
@@ -378,8 +376,8 @@ Agent Platform 是一个多租户 AI Agent 平台，基于 weifuwu 框架构建�
 
   // 部门 3: 运维组（运维机器人 + HITL）
   const [opsDept] = await sql`
-    INSERT INTO departments (company_id, name, is_dm)
-    VALUES (${company.id}, '运维组', false)
+    INSERT INTO departments (app_id, name, is_dm)
+    VALUES (${DEMO_APP_ID}, '运维组', false)
     RETURNING id
   `
   await sql`
@@ -392,8 +390,8 @@ Agent Platform 是一个多租户 AI Agent 平台，基于 weifuwu 框架构建�
 
   // 部门 4: 单聊 — 张明和小码的 DM
   const [dmDept] = await sql`
-    INSERT INTO departments (company_id, name, is_dm)
-    VALUES (${company.id}, '张明 — 小码', true)
+    INSERT INTO departments (app_id, name, is_dm)
+    VALUES (${DEMO_APP_ID}, '张明 — 小码', true)
     RETURNING id
   `
   await sql`
@@ -439,18 +437,18 @@ Agent Platform 是一个多租户 AI Agent 平台，基于 weifuwu 框架构建�
   // ════════════════════════════════════════════════════
 
   await sql`
-    INSERT INTO agent_logs (agent_id, tenant_id, department_id, messages_count, steps_count, tokens_prompt, tokens_completion, tokens_total, elapsed_ms, success, created_at)
+    INSERT INTO agent_logs (agent_id, app_id, department_id, messages_count, steps_count, tokens_prompt, tokens_completion, tokens_total, elapsed_ms, success, created_at)
     VALUES
       -- 小码执行记录
-      (${devAgent.id}, ${tenant.id}, ${devDept.id}, 10, 2, 850, 420, 1270, 3200, true, NOW() - INTERVAL '29 minutes'),
-      (${devAgent.id}, ${tenant.id}, ${devDept.id}, 15, 3, 1200, 680, 1880, 5100, true, NOW() - INTERVAL '24 minutes'),
-      (${devAgent.id}, ${tenant.id}, ${dmDept.id}, 5, 1, 340, 180, 520, 1800, true, NOW() - INTERVAL '4 minutes'),
+      (${devAgent.id}, ${DEMO_APP_ID}, ${devDept.id}, 10, 2, 850, 420, 1270, 3200, true, NOW() - INTERVAL '29 minutes'),
+      (${devAgent.id}, ${DEMO_APP_ID}, ${devDept.id}, 15, 3, 1200, 680, 1880, 5100, true, NOW() - INTERVAL '24 minutes'),
+      (${devAgent.id}, ${DEMO_APP_ID}, ${dmDept.id}, 5, 1, 340, 180, 520, 1800, true, NOW() - INTERVAL '4 minutes'),
       -- 小应执行记录
-      (${csAgent.id}, ${tenant.id}, ${csDept.id}, 8, 1, 560, 210, 770, 2400, true, NOW() - INTERVAL '19 minutes'),
-      (${csAgent.id}, ${tenant.id}, ${csDept.id}, 12, 1, 780, 340, 1120, 3100, true, NOW() - INTERVAL '14 minutes'),
+      (${csAgent.id}, ${DEMO_APP_ID}, ${csDept.id}, 8, 1, 560, 210, 770, 2400, true, NOW() - INTERVAL '19 minutes'),
+      (${csAgent.id}, ${DEMO_APP_ID}, ${csDept.id}, 12, 1, 780, 340, 1120, 3100, true, NOW() - INTERVAL '14 minutes'),
       -- 小维执行记录（有一次失败）
-      (${opsAgent.id}, ${tenant.id}, ${opsDept.id}, 6, 3, 980, 560, 1540, 4500, true, NOW() - INTERVAL '9 minutes'),
-      (${opsAgent.id}, ${tenant.id}, ${opsDept.id}, 3, 2, 420, 0, 420, 12000, false, NOW() - INTERVAL '7 minutes')
+      (${opsAgent.id}, ${DEMO_APP_ID}, ${opsDept.id}, 6, 3, 980, 560, 1540, 4500, true, NOW() - INTERVAL '9 minutes'),
+      (${opsAgent.id}, ${DEMO_APP_ID}, ${opsDept.id}, 3, 2, 420, 0, 420, 12000, false, NOW() - INTERVAL '7 minutes')
   `
   console.log('  ✓ Agent 执行日志: 7 条（含 1 条失败记录）')
 
@@ -459,11 +457,11 @@ Agent Platform 是一个多租户 AI Agent 平台，基于 weifuwu 框架构建�
   // ════════════════════════════════════════════════════
 
   await sql`
-    INSERT INTO webhook_logs (agent_id, tenant_id, request_body, response_body, response_status, elapsed_ms, success, created_at)
+    INSERT INTO webhook_logs (agent_id, app_id, request_body, response_body, response_status, elapsed_ms, success, created_at)
     VALUES
-      (${webhookAgent.id}, ${tenant.id}, '{"event":"deploy","status":"success"}', '{"reply":"部署成功通知已收到"}', 200, 1200, true, NOW() - INTERVAL '1 hour'),
-      (${webhookAgent.id}, ${tenant.id}, '{"event":"monitor","alert":"cpu_high"}', '{"reply":"告警已记录，已通知运维组"}', 200, 980, true, NOW() - INTERVAL '30 minutes'),
-      (${webhookAgent.id}, ${tenant.id}, '{"event":"deploy","status":"failed"}', '{"reply":"部署失败通知已收到"}', 200, 1500, true, NOW() - INTERVAL '15 minutes')
+      (${webhookAgent.id}, ${DEMO_APP_ID}, '{"event":"deploy","status":"success"}', '{"reply":"部署成功通知已收到"}', 200, 1200, true, NOW() - INTERVAL '1 hour'),
+      (${webhookAgent.id}, ${DEMO_APP_ID}, '{"event":"monitor","alert":"cpu_high"}', '{"reply":"告警已记录，已通知运维组"}', 200, 980, true, NOW() - INTERVAL '30 minutes'),
+      (${webhookAgent.id}, ${DEMO_APP_ID}, '{"event":"deploy","status":"failed"}', '{"reply":"部署失败通知已收到"}', 200, 1500, true, NOW() - INTERVAL '15 minutes')
   `
   console.log('  ✓ Webhook 调用日志: 3 条')
 
