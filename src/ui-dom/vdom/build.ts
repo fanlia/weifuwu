@@ -120,6 +120,17 @@ export function buildVNode(
   }
   if (Array.isArray(input)) {
     const oldArr = Array.isArray(oldInput) ? oldInput : []
+    // 阶段 K（规则表 §3）：数组项必有 key——无显式 key 的元素/组件项赋默认下标 key（数组原始
+    // 下标含占位位置，统一字符串）；显式 key 统一字符串化（key={1} ≡ key="1"）。
+    // 文本/占位值（非 vnode）豁免；层级独立（嵌套数组各自从 0 起）。
+    for (let i = 0; i < input.length; i++) {
+      const c = input[i]
+      if (c != null && typeof c === 'object' && !Array.isArray(c)) {
+        const v = c as VNode
+        if (v.key === undefined) v.key = String(i)
+        else v.key = String(v.key)
+      }
+    }
     const jobs = input.map((c, i) => buildVNode(c, ctx, oldArr[i], reg, opts))
     // 全同步（剪枝/文本/已构建 native）→ 零微任务直接返回；含异步项 → Promise.all 并行
     let hasAsync = false

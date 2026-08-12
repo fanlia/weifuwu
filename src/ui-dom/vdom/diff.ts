@@ -23,7 +23,7 @@ function disposeComponent(vnode: VNode, registry?: Registry): void {
     cleanupComponent(registry, vnode._id)
   }
 }
-import { renderValue, setProp, EVENT_RE } from './render.ts'
+import { renderValue, setProp, EVENT_RE, createHole, eventTarget } from './render.ts'
 
 
 /** 从 vnode 取稳定 key（Portal 内部 key 不算用户 keyed） */
@@ -218,7 +218,13 @@ export function patchValue(
     const el = oldNode as Element
     newV.el = el
     patchProps(el, oldV?.props ?? {}, newV.props ?? {})
-    patchChildren(el, oldV?.props?.children ?? null, newV.props?.children ?? null, ctx)
+    // 规则表 §2 innerHTML：存在则 children 不渲染——diff 与 renderValue 同一判断（行为统一）
+    if (!('innerHTML' in (newV.props ?? {}))) {
+      const anchors: (Node | null)[] = []
+      // 阶段 B：锚点优先（_childAnchors 每位置首节点——fragment/数组项展开后不错位，规则表 §5）
+      patchChildren(el, oldV?.props?.children ?? null, newV.props?.children ?? null, ctx, undefined, (oldV as any)?._childAnchors, anchors)
+      newV._childAnchors = anchors
+    }
     return el
   }
   // 新增/替换
@@ -264,14 +270,25 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
     if (EVENT_RE.test(key)) {
       // 事件函数引用变化：先移除旧 handler 再绑定新（否则重复绑定累积——
       // renderFn 重渲染产生新函数 → 每次 patch 多一个监听 → 点击触发多次）
-      if (typeof ov === 'function') el.removeEventListener(key.slice(2).toLowerCase(), ov)
+      const { type, capture } = eventTarget(key)
+      if (typeof ov === 'function') el.removeEventListener(type, ov, capture ? { capture: true } : undefined)
       // 类型守卫：非函数值不抛错（once/only 等 on 开头非事件属性由 EVENT_RE 排除）
       if (nv != null && nv !== false) {
         if (typeof nv !== 'function') {
           console.warn(`[weifuwu] event prop ${key} expects a function, got ${typeof nv} — ignored`)
         } else {
-          el.addEventListener(key.slice(2).toLowerCase(), nv)
+          el.addEventListener(type, nv, capture ? { capture: true } : undefined)
         }
+      }
+      continue
+    }
+    if (key === 'class' || key === 'className') {
+      // 规则表 §2 class：先清后设（无残留——字符串→对象形态切换时旧类名不残留）
+      if (nv == null || nv === false) {
+        el.removeAttribute('class')
+      } else {
+        el.className = ''
+        setProp(el, key, nv)
       }
       continue
     }
@@ -299,10 +316,15 @@ export function patchChildren(
   newInput: VNodeChild | null | undefined,
   ctx: PatchCtx,
   oldRange?: Node[],
+  oldAnchors?: (Node | null)[],
+  anchorOut?: (Node | null)[],
 ): (Node | null)[] {
+  // 过滤已删除（占位法替代）：数组上下文的无渲染值（false/null/true）由 renderValue 建占位节点——
+  // DOM childNodes 与 children 数组同构（长度恒等），数组项原样参与 diff（用户 vnode 零 magic，
+  // 规则表 §1/§3）。
   const oldChildren = normalizeChildren(oldInput)
   const newChildren = normalizeChildren(newInput)
-  const source = oldRange ?? Array.from(parent.childNodes)
+  const source = oldAnchors ?? oldRange ?? Array.from(parent.childNodes)
 
   // 混合 keyed 数组（部分项有用户 key）：给无 key 项自动分配位置 key——
   // 否则 keyed 分支对无 key 项「移除旧 + 新建」→ 固定结构（表头/行标签等）每次 render 重建 → 闪烁。
@@ -326,14 +348,17 @@ export function patchChildren(
     }
   }
 
-  // 映射旧 DOM 范围（文本/null 用 source 位置；组件用 _refNode 精确）
-  const oldNodes: (Node | null)[] = oldChildren.map((c, i) => {
-    if (c == null || typeof c !== 'object' || Array.isArray(c)) return source[i] ?? null
-    const vn = c as VNode
-    if (vn._placement === 'remote') return (vn._remoteEl ?? null) as Node | null
-    if (vn.type === Fragment) return vn._childNodes?.[0] ?? null
-    return vn._refNode ?? vn.el ?? null
-  })
+  // 映射旧 DOM 范围（锚点优先：_childAnchors 每位置首节点——替代 source[i] 下标猜测，
+  // fragment/数组项多节点展开后不错位——规则表 §5；文本/null 用 source 位置）
+  const oldNodes: (Node | null)[] = oldAnchors
+    ? oldAnchors.map((a, i) => a ?? (i < oldChildren.length ? (oldChildren[i] as any)?._refNode ?? null : null))
+    : oldChildren.map((c, i) => {
+        if (c == null || typeof c !== 'object' || Array.isArray(c)) return source[i] ?? null
+        const vn = c as VNode
+        if (vn._placement === 'remote') return (vn._remoteEl ?? null) as Node | null
+        if (vn.type === Fragment) return vn._childNodes?.[0] ?? null
+        return vn._refNode ?? vn.el ?? null
+      })
 
   // C1：remote（portal）的 portalKey 不算用户 keyed——[input(无key), portal] 走 allUnkeyed 按位置复用
   const allUnkeyed = !newChildren.some((c) => {
@@ -346,10 +371,30 @@ export function patchChildren(
     // 无 key：按位置匹配（不移动 DOM）
     const len = Math.max(oldChildren.length, newChildren.length)
     const out: (Node | null)[] = []
+    const pushA = (n: Node | null) => { if (anchorOut) anchorOut.push(n) }
     for (let i = 0; i < len; i++) {
       const oldC = i < oldChildren.length ? oldChildren[i] : null
       const newC = i < newChildren.length ? newChildren[i] : null
       if (newC == null || typeof newC === 'boolean') {
+        const on = oldNodes[i]
+        const b = ctx.browser ?? createClientBrowser()
+        const newHole = createHole(b, newC)
+        if (oldC == null || typeof oldC === 'boolean') {
+          // 占位 ↔ 占位：内容更新（nodeValue 直改——长度恒定，预捕获 source 索引全有效）
+          if (on?.nodeType === 8) {
+            if (newHole && on.nodeValue !== newHole.nodeValue) on.nodeValue = newHole.nodeValue
+            out.push(on)
+            pushA(on)
+          } else {
+            // 旧位置无占位（异常/迁移场景）→ 兜底插入
+            if (newHole && on?.parentNode) on.parentNode.replaceChild(newHole, on)
+            else if (newHole) parent.appendChild(newHole)
+            out.push(newHole)
+            pushA(newHole)
+          }
+          continue
+        }
+        // 真实 → 占位：dispose/ref 清理 + replaceChild（不 removeChild——childNodes 长度恒定）
         if (oldC && typeof oldC === 'object' && !Array.isArray(oldC)) {
           if (typeof (oldC as VNode).type === 'function') {
             disposeComponent(oldC as VNode, ctx.registry)
@@ -357,9 +402,10 @@ export function patchChildren(
             try { callRefCleanupFor(oldC as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
           }
         }
-        const on = oldNodes[i]
-        if (on?.parentNode) on.parentNode.removeChild(on)
-        out.push(null)
+        if (newHole && on?.parentNode) on.parentNode.replaceChild(newHole, on)
+        else if (newHole) parent.appendChild(newHole)
+        out.push(newHole)
+        pushA(newHole)
         continue
       }
       // V3-3a：引用短路——newC === oldC（vnode 引用相等 = 子树未变——JS 对象不可变约定）
@@ -370,12 +416,22 @@ export function patchChildren(
           newC != null && typeof newC === 'object' && !Array.isArray(newC) &&
           newC === oldC) {
         out.push(oldNodes[i])
+        pushA(oldNodes[i])
         continue
       }
       if (oldC == null || typeof oldC === 'boolean') {
-        // 新增：渲染 + 插到下一个兄弟前（位置正确）
+        // 新增：渲染 + 插入
         const node = renderValue(newC, ctx, ctx.browser ?? createClientBrowser())
-        if (node == null) { out.push(null); continue }
+        if (node == null) { out.push(null); pushA(null); continue }
+        const oldHole = oldNodes[i]
+        // 占位 → 真实：replaceChild（占位法下旧位置是注释节点——长度恒定，索引全有效）
+        if (oldHole && oldHole.nodeType === 8 && oldHole.nodeValue?.startsWith('wf-hole:')) {
+          oldHole.parentNode?.replaceChild(node, oldHole)
+          out.push(node)
+          pushA(node)
+          continue
+        }
+        // 无占位（旧 children 短于新/尾部新增）→ 原 next-sibling 逻辑（位置正确）
         let next: Node | null = null
         for (let j = i + 1; j < oldNodes.length; j++) {
           const n = oldNodes[j]
@@ -396,11 +452,14 @@ export function patchChildren(
         if (next && next.parentNode === parent) parent.insertBefore(node, next)
         else parent.appendChild(node)
         out.push(node)
+        pushA(node)
         continue
       }
       const node = patchValue(parent, oldNodes[i], oldC, newC, ctx)
       // Fragment 项展开全部 childNodes（patchValue 只返回锚点——多节点 Fragment 漏收）
-      out.push(...collectChildNodes(newC, node))
+      const collected = collectChildNodes(newC, node)
+      out.push(...collected)
+      pushA(collected[0] ?? node ?? null)
     }
     return out
   }
@@ -415,6 +474,7 @@ export function patchChildren(
   })
   const out: (Node | null)[] = []
   const movedKeys = new Set<string>()
+  const pushA = (n: Node | null) => { if (anchorOut) anchorOut.push(n) }
   // 位置校正锚点：保证最终 DOM 顺序 = newChildren 顺序（keyed 移动必须 insertBefore）
   let lastDom: Node | null = null
   newChildren.forEach((c, i) => {
@@ -433,8 +493,42 @@ export function patchChildren(
         parent.insertBefore(last, lastDom.nextSibling)
       }
       out.push(...collected)
+      pushA(collected[0] ?? node ?? null)
       if (last) lastDom = last
     } else {
+      // 占位项（false/null/true，无 key——规则表 §3 豁免）：位置对齐处理（占位↔占位内容更新 / 真实→占位）
+      if (c == null || typeof c === 'boolean') {
+        const oldC = oldChildren[i] ?? null
+        const on = oldNodes[i] ?? null
+        const hole = createHole(ctx.browser ?? createClientBrowser(), c)
+        if (oldC == null || typeof oldC === 'boolean') {
+          // 占位 ↔ 占位：内容更新（nodeValue 直改，长度恒定）
+          if (on?.nodeType === 8) {
+            if (hole && on.nodeValue !== hole.nodeValue) on.nodeValue = hole.nodeValue
+            out.push(on)
+            pushA(on)
+            if (on) lastDom = on
+          } else {
+            if (hole && on?.parentNode) on.parentNode.replaceChild(hole, on)
+            else if (hole) parent.appendChild(hole)
+            out.push(hole)
+            pushA(hole)
+            if (hole) lastDom = hole
+          }
+        } else {
+          // 真实 → 占位：dispose/ref 清理 + replaceChild（不 removeChild——长度恒定）
+          if (typeof oldC === 'object' && !Array.isArray(oldC)) {
+            if (typeof (oldC as VNode).type === 'function') disposeComponent(oldC as VNode, ctx.registry)
+            else { try { callRefCleanupFor(oldC as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+          }
+          if (hole && on?.parentNode) on.parentNode.replaceChild(hole, on)
+          else if (hole) parent.appendChild(hole)
+          out.push(hole)
+          pushA(hole)
+          if (hole) lastDom = hole
+        }
+        return
+      }
       // 新增——但 remote（portal）项必须走 patchValue：H 的 Portal 分支复用旧容器 patch 内容
       // （v1 patchPortal 语义——否则混合 keyed 数组里 portal 每次 render renderValue 新建容器
       //  → Popover 内容（Editor table grid）整体重建 → 闪烁）
@@ -443,20 +537,29 @@ export function patchChildren(
         const node = patchValue(parent, oldNodes[i] ?? null, oldC, newV, ctx)
         const collected = collectChildNodes(newV, node)
         out.push(...collected)
+        pushA(collected[0] ?? node ?? null)
         const last = collected[collected.length - 1] ?? node
         if (last) lastDom = last
       } else {
         const node = renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
         out.push(node)
+        pushA(node ?? null)
         if (node != null) {
-          // P-4：新增节点单次插入——直接插到正确位置（不 append 末尾再校正）
-          // lastDom 存在 → 插到已处理链尾后（中间/尾部插入：1 次写）
-          // lastDom 为 null（列表头新增）→ 插到第一个旧节点前（头部插入：1 次写——
-          //   旧实现 append 末尾导致后续所有匹配项位置校正 insertBefore 移动——
-          //   100 行头部插入 = 103 次 DOM 写，perf 基准实锤）
-          if (lastDom) parent.insertBefore(node, lastDom.nextSibling)
-          else parent.insertBefore(node, parent.firstChild)
-          lastDom = node
+          const oldHole = oldNodes[i]
+          // 占位 → 真实：replaceChild（§5 占位↔真实——Alert 顶替 false 位置，长度恒定）
+          if (oldHole && oldHole.nodeType === 8 && oldHole.nodeValue?.startsWith('wf-hole:')) {
+            oldHole.parentNode?.replaceChild(node, oldHole)
+            lastDom = node
+          } else {
+            // P-4：新增节点单次插入——直接插到正确位置（不 append 末尾再校正）
+            // lastDom 存在 → 插到已处理链尾后（中间/尾部插入：1 次写）
+            // lastDom 为 null（列表头新增）→ 插到第一个旧节点前（头部插入：1 次写——
+            //   旧实现 append 末尾导致后续所有匹配项位置校正 insertBefore 移动——
+            //   100 行头部插入 = 103 次 DOM 写，perf 基准实锤）
+            if (lastDom) parent.insertBefore(node, lastDom.nextSibling)
+            else parent.insertBefore(node, parent.firstChild)
+            lastDom = node
+          }
         }
       }
     }
@@ -473,12 +576,18 @@ export function patchChildren(
       const on = oldNodes[i]
       if (on?.parentNode) on.parentNode.removeChild(on)
     } else if (k === undefined) {
-      if (c && typeof c === 'object' && !Array.isArray(c)) {
-        if (isComponent) disposeComponent(c as VNode, ctx.registry)
-        else { try { callRefCleanupFor(c as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
-      }
+      const newC = i < newChildren.length ? newChildren[i] : null
       const on = oldNodes[i]
-      if (on?.parentNode) on.parentNode.removeChild(on)
+      const isHole = on?.nodeType === 8 && on.nodeValue?.startsWith('wf-hole:')
+      // 占位保留（占位法：长度恒定——占位↔占位/占位→真实已由新建分支处理）；
+      // 仅当 new 侧无对应位置（数组缩短）或非占位项（文本/真实）才删除
+      if (!isHole || newC == null) {
+        if (c && typeof c === 'object' && !Array.isArray(c)) {
+          if (isComponent) disposeComponent(c as VNode, ctx.registry)
+          else { try { callRefCleanupFor(c as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+        }
+        if (on?.parentNode) on.parentNode.removeChild(on)
+      }
     }
   })
   return out

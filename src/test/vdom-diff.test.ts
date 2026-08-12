@@ -113,6 +113,43 @@ test('数组无 key：新增/删除/同位置 patch', async () => {
   assert.equal(el.querySelectorAll('span').length, 1)
 })
 
+test('数组 boolean 空洞：{cond && <X/>}=false 占位不得误删下一个兄弟（提交按钮消失事故）', async () => {
+  const { ctx, reg } = await makePatchCtx()
+  const el = mount('d4b')
+  const Field = async (_init: any) => (props: any) => {
+    const parts: any[] = []
+    parts.push(h('label', {}, props.label))
+    parts.push(h('input', { class: 'inp', name: props.name }))
+    if (props.error) parts.push(h('div', { class: 'err' }, props.error))
+    return h('div', { class: `field${props.error ? ' err' : ''}` }, parts)
+  }
+  const Button = async (_init: any) => () => h('button', { type: 'submit' }, '提交')
+  const Form = async (_init: any) => (props: any) => h('form', {}, props.children)
+  // 首帧：{submitted && <Alert/>} = false —— children 数组含 boolean 空洞
+  const v1 = h(Form, {}, [h(Field, { label: 'a', name: 'a' }), false, h(Button, {})])
+  await buildVNode(v1, ctx, undefined, reg)
+  const n1 = renderValue(v1, ctx, ctx.browser)!
+  el.appendChild(n1)
+  assert.equal(el.querySelectorAll('button').length, 1, '首帧有按钮')
+  assert.equal(el.querySelector('form')!.children.length, 2)
+  // 重渲染：Field 出现 error（children 增多）——boolean 空洞仍在 → 按钮不得消失
+  const v2 = h(Form, {}, [h(Field, { label: 'a', name: 'a', error: 'e' }), false, h(Button, {})])
+  await buildVNode(v2, ctx, v1, reg)
+  patchValue(el, n1, v1, v2, ctx)
+  const btns = el.querySelectorAll('button')
+  assert.equal(btns.length, 1, 'boolean 空洞位置误删兄弟（按钮消失事故）')
+  assert.equal(btns[0]?.textContent, '提交')
+  assert.equal(el.querySelector('form')!.children.length, 2)
+  // 空洞 → 真实元素（false → Alert）：插入到正确位置（Button 前）
+  const v3 = h(Form, {}, [h(Field, { label: 'a', name: 'a', error: 'e' }), h('div', { class: 'alert' }, '已提交'), h(Button, {})])
+  await buildVNode(v3, ctx, v2, reg)
+  patchValue(el, n1, v2, v3, ctx)
+  const form = el.querySelector('form')!
+  assert.equal(form.children.length, 3)
+  assert.equal(form.children[1].className, 'alert')
+  assert.equal(form.children[2].textContent, '提交', 'Alert 插入后 Button 仍在正确位置')
+})
+
 // ── 3. 组件 diff + 三态 skip ──
 
 test('组件 diff：同类型复用 _render（工厂不重跑）', async () => {
@@ -202,10 +239,11 @@ test('setProp: enumerated 属性显式字符串', () => {
   const el = document.createElement('div')
   setProp(el, 'draggable', true)
   assert.equal(el.getAttribute('draggable'), 'true')
-  // false → 移除（patchProps 移除语义）
+  // 规则表 §2：value-based 枚举即使 false 也显式写 'false'（空字符串解析为 false 事故的根治——
+  // 显式可预期，不依赖「不设 = 默认值」的隐式行为；移除由 patchProps 的 nv==null 分支负责）
   el.removeAttribute('draggable')
   setProp(el, 'draggable', false)
-  assert.equal(el.getAttribute('draggable'), null, 'false 不设属性（移除由 patchProps）')
+  assert.equal(el.getAttribute('draggable'), 'false', 'value-based 枚举 false 显式写 "false"')
 })
 
 test('setProp: indeterminate 半选态用 property（setAttribute 无效）', () => {

@@ -51,6 +51,9 @@ export interface VNode {
   _parentVNode?: VNode
   /** 组件输出的第一个 DOM 节点 */
   _refNode?: Node | null
+  /** 阶段 B：children 每位置的首 DOM 节点（规则表 §5 锚点优先——替代 source[i] 下标猜测，
+   *  fragment/数组项多节点展开后相邻项不错位）。renderValue 记录，patchChildren 读取 + 回写 */
+  _childAnchors?: (Node | null)[]
   /** Fragment 展开后的多个直属 DOM 节点范围（diff 对齐用，见 diff.ts） */
   _childNodes?: Node[]
   /** 组件 renderFn 上次执行时的 ctx 版本号（buildVNode 剪枝 + diff 三态 skip 的版本比较——

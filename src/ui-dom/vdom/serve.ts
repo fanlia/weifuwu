@@ -52,6 +52,18 @@ export function uiServe<RC extends object = {}>(
   const hydrating = !!options.hydrate
   if (!hydrating && !options.loading) root.innerHTML = ''
 
+  // D-2 diff trace 开关：`?vdom_debug=1`（或 localStorage.__WF_VDOM_DEBUG）开启结构化日志
+  // + audit 运行时校验——事故复现 = 开 trace 重放交互（design/vdom-consistency-plan.md 阶段 D）
+  try {
+    const q = new URLSearchParams((globalThis as any)?.location?.search ?? '')
+    const debug = q.get('vdom_debug') === '1' || (globalThis as any)?.localStorage?.getItem?.('__WF_VDOM_DEBUG') === '1'
+    if (debug) {
+      ;(globalThis as any).__WF_VDOM_DEBUG = true
+      ;(globalThis as any).__WF_VDOM_AUDIT = true
+      console.log('[weifuwu] vdom debug + audit 已开启（?vdom_debug=1）')
+    }
+  } catch { /* 环境无 location/localStorage——忽略 */ }
+
   // ── vdom 渲染上下文（ctx/registry/renderer/rootUi——完整 hooks） ──
   const { ctx, registry, renderer, rootUi, destroyPopupListeners } = createVdomContext({
     browser,

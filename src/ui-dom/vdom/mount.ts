@@ -11,6 +11,7 @@ import type { BrowserEnv } from '../types.ts'
 import { buildVNode } from './build.ts'
 import { renderValue } from './render.ts'
 import { patchValue, type PatchCtx } from './diff.ts'
+import { auditEnabled, auditTree } from './audit.ts'
 import { createRegistry, type Registry, onComponentUnmountFor, cleanupComponent } from './registry.ts'
 import type { HookEnv } from '../hooks/types.ts'
 import { callRefCleanupFor } from './registry.ts'
@@ -90,6 +91,8 @@ export function createRenderer(opts: RendererOptions): Renderer {
   async function doRender(id: string): Promise<void> {
     const vnode = opts.registry.idRegistry.get(id)
     if (!vnode || typeof vnode._render !== 'function') return
+    // D-2 diff trace：`__WF_VDOM_DEBUG`（或 ?vdom_debug=1）开启——结构化日志，事故可回放
+    const trace = !!((globalThis as any)?.__WF_VDOM_DEBUG)
     try {
       const patchCtx: PatchCtx = {
         browser: opts.ctx.browser,
@@ -97,6 +100,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
         // 当前 ctx 版本（rootUi._ctxVersion——bumpCtxVersion 递增；三态 skip 版本比较基准）
         ctxVersion: (opts.ctx as any)?.ui?._ctxVersion ?? 0,
       }
+      if (trace) console.log(`[vdom/trace] render id=${id} comp=${(vnode.type as any)?.name || '?'}`)
       // renderFn 强制异步：await 数据 → 输出 vnode 树
       const output = await vnode._render!(vnode.props)
       const newChild = (await buildVNode(output, opts.ctx, vnode._child, opts.registry)) ?? null
@@ -110,6 +114,18 @@ export function createRenderer(opts: RendererOptions): Renderer {
         const node = patchValue(parent, (vnode as any)._refNode ?? null, oldChild, newChild, patchCtx)
         if (node) (vnode as any)._refNode = node
         else (vnode as any)._refNode = null
+        if (trace) console.log(`[vdom/trace]   patch parent=${parent.nodeName} ref=${(vnode as any)._refNode?.nodeName ?? 'null'}`)
+        // 阶段 C audit：__WF_VDOM_AUDIT 开启时 patch 后结构校验（错位即报错，不静默传播）
+        if (auditEnabled()) {
+          try {
+            const msgs: string[] = []
+            auditTree(parent, newChild, (m) => msgs.push(m))
+            if (msgs.length) console.error('[weifuwu/audit] ' + msgs.join(' | '))
+            else if (trace) console.log('[vdom/trace]   audit ✓ 一致')
+          } catch (e) {
+            console.error('[weifuwu/audit] 校验异常:', e)
+          }
+        }
       }
     } catch (e) {
       if (opts.onError) opts.onError(e)
@@ -268,6 +284,16 @@ export function mountRoot(opts: MountOptions): MountHandle {
       opts.root.innerHTML = ''
       const node = renderValue(built, ctx, opts.browser)
       if (node != null) opts.root.appendChild(node)
+      // 阶段 C audit：首帧后结构校验
+      if (auditEnabled()) {
+        try {
+          const msgs: string[] = []
+          auditTree(opts.root, built, (m) => msgs.push(m))
+          if (msgs.length) console.error('[weifuwu/audit] ' + msgs.join(' | '))
+        } catch (e) {
+          console.error('[weifuwu/audit] 校验异常:', e)
+        }
+      }
       // prevChild 存「渲染内容」（组件 vnode 的 _child）——rerender 内容级 patch 对比用
       prevChild = (built as VNode)?._child ?? built
       // root 组件 id（rootUi.render() 无参精准渲染）——built 为组件 vnode 时才有 id

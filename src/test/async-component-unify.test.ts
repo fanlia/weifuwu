@@ -232,7 +232,7 @@ test('T6 SSR：嵌套原生 async 组件 await 展开', async () => {
     return () => h('div', {}, d.label, h(Inner, {}))
   }
   const html = await ssrToString(Outer, {}, {}, { data: new Map() } as any)
-  assert.equal(html.toString(), '<div>outer<b>inner</b></div>', 'SSR 直接 await 无占位')
+  assert.equal(html.toString(), '<div>outer<b data-wf-key="1">inner</b></div>', 'SSR 直接 await 无占位——组件数组项 key 穿透输出节点')
 })
 
 // ── T8 _render 复用（resolve 后二次渲染不重跑工厂） ──────

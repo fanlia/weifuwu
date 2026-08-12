@@ -171,6 +171,23 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 
 ### 4.0 vdom 核心原则：无自动渲染（渲染时机完全由用户显式操作决定）
 
+> **vdom 终极目标（用户决策 2026-12）——可推导性 by construction**：**用户写 JSX，就能直接知道
+> vnode/DOM 是什么样的——可预期、没有 magic**。完整规则表见 design/vdom-transform-rules.md。
+> ① **vnode = JSX**：`h()` 除 key 剥离外零转换，children 原样（false/嵌套数组保留）——用户写什么
+> vnode 就是什么；
+> ② **DOM 由规则表推导**（design/vdom-transform-rules.md）：节点规则（元素/组件/Fragment/数组项/
+> 占位/非法输入）+ 属性规则（attribute/property/event 三通道 + enumerated 白名单）+ key 规则 +
+> 更新规则——有限、直觉、可记忆，用户看一遍即可推导任何 JSX 的首帧 DOM 与更新行为；
+> ③ **key 数据完备 + DOM 可见**：children 数组的元素/组件项**必有 key**——显式 key 或默认数组下标
+> （缺省自动赋下标，无需用户写）；**显式 key = 身份匹配**（增删/重排复用正确）、**默认下标 = 位置
+> 身份**（静态列表可省，动态增删中间项后续项重建——React index key 同款）；**所有数组项的 key 都写
+> 元素 `data-wf-key`**（显式原文/默认下标值——用户可见每个 key 决策），组件实例 id → 输出节点
+> `data-wf-id`——key/id 是 DOM 可见的显式数据（debug/audit/定位）；
+> ④ **禁止一切规则表之外的行为**（magic = 规则表之外 + 路径/环境分叉）——filter/嵌套展开/pos:key
+> 注入/属性残留全是违反（plan 实施中逐个消除）。
+> 验收标准 = 用户可推导性：写任意 JSX，不读引擎源码，凭规则表即可说出 vnode 结构、DOM 结果
+> 与更新行为。
+
 > **render-only（design/render-only-plan.md）：只有 `ctx.ui.render(ids?)` 一种触发渲染，除此之外没有任何自动渲染**。
 > `$` Proxy / `ctx.ui.dirty()` 已删除——状态是普通对象（`let` / `createStore`），改状态后必须显式 `render()`。
 > 行为可静态推导：代码审查看事件回调里有无 `render()` 即可验证渲染逻辑。
@@ -195,9 +212,11 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 - 防重入：同一组件 id 同时只跑一次渲染（渲染中再次触发 → 跳过——错过由下次用户操作捕获，**不补跑**）
 - 工厂只跑一次：vnode 级缓存 + 旧树同位置同类型复用（跨渲染保持组件内部状态）
 - **ctx 版本（bumpCtxVersion）**：i18n 等全局状态变化时递增——buildVNode 剪枝 + diff 三态 skip 比较 `_ctxVersion`，版本不同强制重跑 renderFn（`_ctxVersion` 未接线是 i18n 切换不更新的根因，已修复 + 回归测试）
+- **用户的想法/vnode/DOM 三层一致（§6.3 提交按钮消失事故）**：① 用户 renderFn/JSX 写的结构（含 false 占位）必须**原样**成为 vnode——**禁止对用户 vnode 做 magic**（filter/转换/mutation）；② DOM 必须**同构**镜像 vnode——目标机制为 render 阶段对无渲染值**建占位节点**（`childNodes.length` 恒等于 children 数组长度，数组第 i 项 ⟷ childNodes 第 i 个节点），当前为过渡 filter（§6.3）；③ 就地 patch 不校验同构、错位不报错不自愈（错误静默传播，整树重建/刷新才恢复）。改 diff 必须先跑 `src/test/vdom*.test.ts`
+- **children 转化规则单一实现（单一规则源，design/vdom-consistency-plan.md 阶段 0）**：children 形态判定（占位/数组项=隐式 Fragment/非法输入分类/锚点）收敛到 `children-transform.ts` 单一模块——buildVNode / renderValue / patchChildren / renderSsr / hydrateVNode 全部调用它，**禁止各路径各自实现形态判定**（同一语义多套实现 = 漂移 = 转化分叉——SSR 对空洞 `return ''` vs 客户端建占位 / build 把任意 Symbol 当 native vs render 无 symbol 分支，都是既有漂移证据）。新增 children 形态只改一处；验收用 grep 审计五消费方判定收敛
 - mount 保护期（工厂执行）`render()` 调用被 `_render` 守卫天然拦截（未挂载组件跳过）
 
-**实现位置**：`src/ui-dom/vdom/`（build.ts / diff.ts / render.ts / scheduler.ts / mount.ts / registry.ts / hydration.ts / ssr.ts）——第 2 代引擎，替代第 1 代（render.ts/diff.ts 顶层文件）的占位/补全/批处理机制。
+**实现位置**：`src/ui-dom/vdom/`（build.ts / diff.ts / render.ts / mount.ts / registry.ts / hydration.ts / ssr.ts / serve.ts）——第 2 代引擎，替代第 1 代（render.ts/diff.ts 顶层文件）的占位/补全/批处理机制。
 
 ### 4.1 状态存放位置
 
@@ -496,11 +515,32 @@ const MyComp: Component = (_init, ctx) => {
 - 新 enumerated 属性（contenteditable 等）同理——**空字符串语义需查 HTML 规范**
 - 防线：`src/test/client/draggable.test.ts`（el.draggable 真值断言——jsdom 可测）
 
-### 6.3 数组 diff 与 key（C1 已治本）
+### 6.3 数组 diff 与三层一致性：用户的想法 = vnode = DOM（C1 已治本 + 空洞事故已修）
 
-**`patchKeyedChildren`（src/client/diff.ts）**：
+**`patchChildren`（`src/ui-dom/vdom/diff.ts`）**：
 - **全无 key**（含 portal——createPortal 的内部 key 不算用户 keyed，C1 修复）→ **按位置复用 + patch**（不重建）——受控 input 焦点保持
 - **用户 keyed 混合**：无 key 项 Step 1 移除重建（React 等价——C1 治本边界）
+
+**三层一致不变量（用户决策 2026-12——design/vdom-consistency-plan.md，可追溯）**：
+
+> **① 用户的想法**：renderFn/JSX 里写的结构（含 `{cond && <X/>}` 的 false 占位）；
+> **② vnode**：必须**透明**镜像①——**禁止对用户 vnode 做任何 magic**（filter/转换/mutation）；
+> **③ DOM**：必须**同构**镜像②——render 阶段对无渲染值（false/null/undefined/true）**建占位节点**
+> （`<!--wf-hole-->`），`childNodes.length` 恒等于 children 数组长度（数组第 i 项 ⟷ childNodes 第 i 个节点）——**对齐从结构上保证，不靠消费侧猜测**。
+
+**目标机制（占位法——用户决策，未实施）**：`renderValue` 数组子项遇无渲染值 → 占位节点；`patchChildren` 对称处理（占位↔真实用 **replaceChild 互换，禁止 removeChild 塌缩 childNodes**——长度恒定则预捕获 source 索引全有效）；SSR/hydration 同步序列化。占位是静态的、零 resolve 回调——**≠ v1 动态挂载占位（死循环根因），不触发任何补渲染**。实施见 design/vdom-consistency-plan.md 阶段 A。
+
+**事故还原**（Form 提交按钮消失）：JSX `{cond && <Alert/>}` = false 保留在 children 数组（V3-3b 零拷贝不滤除），但 renderValue 不产生 DOM——两树不同构 → diff 建 `oldNodes[i] = source[i] = childNodes[i]` 下标映射时，false 位置命中**下一个真实兄弟（提交按钮）** → 删除分支 `removeChild` 误删。vnode 树里 Button 还在（`_refNode` 指向已脱离 DOM 的元素），DOM 里按钮已没——两树从此永久错位（静默传播，刷新/整树重建才恢复）。
+
+**当前机制（过渡修复——待占位法替换）**：`patchChildren` 入口过滤空洞——`normalizeChildren(...).filter(c => c != null && typeof c !== 'boolean')`（新旧两侧）。**这是对用户 vnode 的 magic（删元素），违背三层一致②——只作过渡**；占位法落地后删除。过渡期注意：filter 产生新数组破坏引用恒等短路（`oldInput === newInput` 零操作 / `newC === oldC` 剪枝）——**禁止移到 normalizeChildren**（会永久破坏）；占位法恢复完全零拷贝。
+
+**回归测试**：`src/test/vdom-diff.test.ts`「数组 boolean 空洞：{cond && <X/>}=false 占位不得误删下一个兄弟（提交按钮消失事故）」——覆盖空洞保持、空洞→真实元素插入（Alert 出现在按钮前、位置正确）。
+
+**复现步骤**：① jsdom：children = `[Field, false, Button]`，Field 加 error 重渲染 → 修复前 `querySelectorAll('button')` 为 0、修复后为 1；② agent-browser（components-demo）：Form 空表单点「提交表单」→ 修复前验证错误出现 + 按钮消失、修复后按钮保留。
+
+**残余风险（诚实裁剪）**：① 过渡期（filter）下，数组内 string 子项 + fragment 多节点展开前置时，string 的 `source[i]` 映射仍可能错位（占位法解决空洞，fragment 边界见 plan 阶段 B）；② 组件/fragment 子项有 `_refNode`/`_childNodes` 锚点不受影响。
+
+**React 对照**：fiber 模型 null 子项不产生 fiber（`reconcileChildrenArray` 主循环 `newChild == null → continue` 不推进 oldFiber）+ 每 fiber 自带 `index` 元数据——对齐不依赖数组/DOM 下标，从数据模型层消灭此 bug 类别；weifuwu 以「DOM 占位同构（目标）+ 消费侧防御（过渡期）+ 测试兜底」实现同等保证。
 
 ### 6.4 其他渲染器坑
 

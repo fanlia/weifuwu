@@ -81,7 +81,8 @@ describe('SSR 字符串遍历器', () => {
         createPortal(h('aside', {}, 'portal-content')),
       )
     const html = await ssr(Cmp)
-    assert.equal(html, '<div><span>a</span><span>b</span><aside>portal-content</aside></div>')
+    // 数组项默认 key 全显（规则表 §3——Fragment 内部 span 是 Fragment 的数组项）
+    assert.equal(html, '<div><span data-wf-key="0">a</span><span data-wf-key="1">b</span><aside>portal-content</aside></div>')
   })
 
   it('innerHTML 原样输出（跳过 children）', async () => {
@@ -95,7 +96,7 @@ describe('SSR 字符串遍历器', () => {
     const Cmp = async (_init: any) => () =>
       h('div', {}, h('br', {}), h('img', { src: '/a.png', alt: 'x' }))
     const html = await ssr(Cmp)
-    assert.equal(html, '<div><br><img src="/a.png" alt="x"></div>')
+    assert.equal(html, '<div><br data-wf-key="0"><img data-wf-key="1" src="/a.png" alt="x"></div>')
   })
 
   it('布尔/空值属性', async () => {
@@ -121,7 +122,8 @@ describe('SSR 字符串遍历器', () => {
         h('section', {}, h('h1', {}, title), h(A, {}), h(Inner, { label: 'in' }), h(B, {}))
     }
     const html = await ssr(Root)
-    assert.equal(html, '<section><h1>T</h1><span>AAA</span><b>in</b><span>BBB</span></section>')
+    // 数组项 key 全落 DOM：元素项（h1 data-wf-key） + 组件项穿透到输出（A/Inner/B 的输出节点）
+    assert.equal(html, '<section><h1 data-wf-key="0">T</h1><span data-wf-key="1">AAA</span><b data-wf-key="2">in</b><span data-wf-key="3">BBB</span></section>')
   })
 
   it('服务端 ctx shim：selfId 请求级隔离 + 组件可渲染', async () => {
@@ -138,7 +140,7 @@ describe('SSR 字符串遍历器', () => {
     const Cmp = async (_init: any) => () =>
       h('ul', {}, [h('li', {}, '1'), h('li', {}, '2')])
     const html = await ssr(Cmp)
-    assert.equal(html, '<ul><li>1</li><li>2</li></ul>')
+    assert.equal(html, '<ul><li data-wf-key="0">1</li><li data-wf-key="1">2</li></ul>')
   })
 
   it('组件返回 null / 条件渲染', async () => {

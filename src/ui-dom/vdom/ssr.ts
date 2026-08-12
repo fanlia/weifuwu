@@ -14,6 +14,8 @@ import type { VNode, VNodeChild, Component } from '../vnode.ts'
 import type { WfuiContext, UIContext } from '../types.ts'
 import { Fragment, Portal } from '../vnode.ts'
 import type { UIRouter } from '../router.ts'
+// 单一规则源（阶段 0）：与客户端 renderValue 共用 children/属性判定（design/vdom-consistency-plan.md）
+import { holeDetail, ensureArrayKeys, isInvalidVNodeType, ENUMERATED_VALUE_BASED } from './transform.ts'
 
 const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
 const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'clipPath'])
@@ -51,13 +53,24 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
   if (input == null || typeof input === 'boolean') return ''
   if (typeof input === 'string' || typeof input === 'number') return escape(String(input))
   if (Array.isArray(input)) {
-    // P-6：并行——统一异步后 renderFn 可 await 数据，串行会让数据驱动 SSR 页面
-    // 取数变为「所有组件延迟之和」；并行 = 「最慢组件延迟」（对齐客户端 buildVNode 的 Promise.all）
-    const parts = await Promise.all(input.map((c) => renderSsr(c, ctx)))
+    // 阶段 A-3/K：与客户端 buildVNode/renderValue 对齐——数组项默认下标 key（字符串化）+
+    // 数组上下文无渲染值 → 占位注释（childNodes 与数组同构，hydration 不 mismatch）
+    ensureArrayKeys(input)
+    const parts = await Promise.all(input.map((c) => {
+      if (c == null || typeof c === 'boolean') return Promise.resolve(`<!--wf-hole: ${holeDetail(c)}-->`)
+      return renderSsr(c, ctx)
+    }))
     return parts.join('')
   }
 
   const vnode = input as VNode
+
+  // 非法 vnode（type 非 string/function/Fragment/Portal）→ 诊断占位 + warn（规则表 §1——
+  // 与客户端 renderValue 同一判定，单一规则源）
+  if (isInvalidVNodeType(vnode.type)) {
+    console.warn(`[weifuwu] children 项非法：type=${String(vnode.type)}（${typeof vnode.type}）——已占位（wf-hole）`)
+    return `<!--wf-hole: ${holeDetail(input)}-->`
+  }
 
   // Portal/Fragment：就地内联子节点（客户端 portal 渲染到 #__wf_portal，SSR 内联保留内容/SEO）
   if (vnode.type === Portal || vnode.type === Fragment) return renderSsr(vnode.props?.children, ctx)
@@ -72,7 +85,19 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
           `Use (init_props, ctx) => (props) => VNode pattern.`,
       )
     }
-    return renderSsr(await renderFn(vnode.props ?? {}), childCtx)
+    const out = await renderFn(vnode.props ?? {})
+    // 规则表 §3：组件数组项 key → 输出顶层节点 data-wf-key（与客户端 renderValue 一致——
+    // 渲染期临时注入 renderFn 输出（每次重建的临时产物，非用户 vnode 的持久改写）；多根每个注入）
+    if (vnode.key != null && out != null && typeof out === 'object') {
+      if (Array.isArray(out)) {
+        for (const c of out) {
+          if (c != null && typeof c === 'object' && !Array.isArray(c)) (c as VNode).key = vnode.key
+        }
+      } else {
+        ;(out as VNode).key = vnode.key
+      }
+    }
+    return renderSsr(out, childCtx)
   }
 
   // Native
@@ -80,6 +105,8 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
   const props = vnode.props ?? {}
   const attrs: string[] = []
   let innerHTML: string | undefined
+  // 规则表 §3：数组项 key → data-wf-key（与客户端 renderValue 同位置输出——SSR/客户端同构）
+  if (vnode.key != null) attrs.push(` data-wf-key="${escape(String(vnode.key))}"`)
   for (const [key, value] of Object.entries(props)) {
     if (key === 'children' || key === 'key') continue
     if (key === 'ref') continue
@@ -94,8 +121,8 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
       attrs.push(` style="${escape(styleToString(value))}"`)
       continue
     }
-    // enumerated（draggable 等）：显式 true/false 字符串（空字符串解析为 false——规范坑）
-    if ((key === 'draggable' || key === 'contenteditable' || key === 'spellcheck')) {
+    // enumerated value-based（规则表 §2——与客户端 setProp 同一白名单，单一规则源）
+    if (ENUMERATED_VALUE_BASED.has(key)) {
       attrs.push(` ${key}="${value ? 'true' : 'false'}"`)
       continue
     }

@@ -9,21 +9,24 @@
 import type { VNode, VNodeChild } from '../vnode.ts'
 import type { BrowserEnv } from '../types.ts'
 import { Fragment, Portal, normalizeChildren } from '../vnode.ts'
+// 单一规则源（阶段 0）：children/属性判定从 transform.ts 导入——禁止各路径各自实现
+import { EVENT_RE, eventTarget, ENUMERATED_VALUE_BASED, holeDetail } from './transform.ts'
+// re-export（diff.ts 等消费方保持从 render.ts 导入的既有路径）
+export { EVENT_RE, eventTarget, ENUMERATED_VALUE_BASED, holeDetail } from './transform.ts'
+import { UNITLESS_PROPS } from './transform.ts'
 
 export const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'clipPath'])
 
-/** 事件 prop 判定：on + 大写字母（React 约定）——排除 once/only 等 on 开头非事件属性 */
-export const EVENT_RE = /^on[A-Z]/
-// CSS 无单位属性（数字不加 px）——其余数字样式属性（top/left/width/height/margin 等）必须加 px
-const UNITLESS_PROPS = new Set([
-  'zIndex', 'opacity', 'lineHeight', 'fontWeight', 'fontSizeAdjust', 'flex', 'flexGrow', 'flexShrink',
-  'order', 'zoom', 'aspectRatio', 'gridRow', 'gridColumn', 'scale', 'rotate', 'animationIterationCount',
-  'columnCount', 'fillOpacity', 'strokeOpacity', 'stopOpacity', 'floodOpacity',
-])
-
 export function setProp(el: Element, key: string, value: any): void {
-  if (value == null || value === false) return
+  if (value == null) return
   const b = el.ownerDocument?.defaultView as any
+  // enumerated value-based：即使 false 也显式写 'true'/'false'（空字符串解析为 false——
+  // draggable 事故；规则表 §2：显式可预期，不依赖「不设 = 默认值」的隐式行为）
+  if (ENUMERATED_VALUE_BASED.has(key)) {
+    el.setAttribute(key, value ? 'true' : 'false')
+    return
+  }
+  if (value === false) return
   if (key === 'class' || key === 'className') {
     if (typeof value === 'object') {
       for (const [k, v] of Object.entries(value)) if (v) el.classList.add(k)
@@ -53,13 +56,13 @@ export function setProp(el: Element, key: string, value: any): void {
     return
   }
   if (EVENT_RE.test(key)) {
-    const type = key.slice(2).toLowerCase()
+    const { type, capture } = eventTarget(key)
     // 类型守卫：非函数值（onClick={true} / 字符串）不抛错——warn + 跳过，不中断渲染管线
     if (typeof value !== 'function') {
       console.warn(`[weifuwu] event prop ${key} expects a function, got ${typeof value} — ignored`)
       return
     }
-    el.addEventListener(type, value)
+    el.addEventListener(type, value, capture ? { capture: true } : undefined)
     return
   }
   if (key === 'value') {
@@ -74,11 +77,6 @@ export function setProp(el: Element, key: string, value: any): void {
   }
   if (key === 'innerHTML') {
     el.innerHTML = String(value ?? '')
-    return
-  }
-  if (key === 'draggable' || key === 'contenteditable' || key === 'spellcheck') {
-    // enumerated 属性：空字符串解析为 false（draggable 事故）——显式 true/false
-    el.setAttribute(key, value ? 'true' : 'false')
     return
   }
   if (key.startsWith('aria-') && typeof value === 'boolean') {
@@ -98,6 +96,12 @@ export function setProp(el: Element, key: string, value: any): void {
   }
 }
 
+/** 占位内容（规则表 §1——wf-hole 内容可见可审计：false/null/undefined/true/对象摘要/bad-vnode） */
+/** 创建占位节点（数组上下文的无渲染值 → 注释节点，childNodes 与数组同构——规则表 §1） */
+export function createHole(browser: BrowserEnv, v: unknown): Node | null {
+  return browser.createComment(`wf-hole: ${holeDetail(v)}`)
+}
+
 /** 递归渲染（同步——组件必须已构建） */
 export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node | null {
   const b = (ctx?.browser ?? browser) as BrowserEnv
@@ -108,12 +112,21 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
     const frag = b.createDocumentFragment()
     if (!frag) return null
     for (const c of v) {
-      const n = renderValue(c, ctx, b)
+      // 数组上下文：无渲染值（false/null/true）→ 占位节点（childNodes 长度 = 数组长度）
+      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b)
       if (n != null) frag.appendChild(n)
     }
     return frag
   }
   const vnode = v as VNode
+
+  // 非法 vnode（type 非 string/function/Fragment/Portal）→ 诊断占位 + warn（规则表 §1：
+  // 不崩溃、不静默——用户写错可直接从 DOM 注释看到原因；对齐事件 prop 非函数守卫先例）
+  const vt = vnode.type
+  if (typeof vt !== 'string' && typeof vt !== 'function' && vt !== Fragment && vt !== Portal) {
+    console.warn(`[weifuwu] children 项非法：type=${String(vt)}（${typeof vt}），值=${holeDetail(v)}——已占位（wf-hole），检查传入的 children`)
+    return createHole(b, v)
+  }
 
   if (vnode.type === Portal) {
     // Portal：渲染到 #__wf_portal（body）
@@ -141,9 +154,9 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
   if (vnode.type === Fragment) {
     const frag = b.createDocumentFragment()
     if (!frag) return null
-    // P-5：normalizeChildren 统一展开（替代 flat(Infinity) 重复展开）
+    // P-5：normalizeChildren 统一展开（替代 flat(Infinity) 重复展开）；数组上下文无渲染值 → 占位
     for (const c of normalizeChildren(vnode.props?.children)) {
-      const n = renderValue(c, ctx, b)
+      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b)
       if (n != null) frag.appendChild(n)
     }
     vnode._childNodes = Array.from(frag.childNodes) as Node[]
@@ -173,7 +186,31 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
     // 组件输出指向组件 vnode（供调度层向上找持有组件——当前不需要，保留引用便于调试）
     if (typeof child === 'object' && !Array.isArray(child)) (child as VNode)._parentVNode = vnode
     const node = renderValue(child, ctx, b)
-    if (node) vnode._refNode = node
+    if (node) {
+      vnode._refNode = node
+      // 规则表 §4：组件实例 id → 输出每个顶层节点 data-wf-id（多根输出全部写；
+      // 定位 renderByIds / audit 校验 / debug）
+      if (vnode._id) {
+        if (node.nodeType === 11) {
+          for (const cn of Array.from(node.childNodes)) {
+            if (cn.nodeType === 1) (cn as Element).setAttribute('data-wf-id', vnode._id)
+          }
+        } else if (node.nodeType === 1) {
+          ;(node as Element).setAttribute('data-wf-id', vnode._id)
+        }
+      }
+      // 规则表 §3：组件数组项 key → 输出每个顶层节点 data-wf-key（与元素项行为一致——
+      // 列表项身份在 DOM 完全可见；多根输出全部写）
+      if (vnode.key != null) {
+        if (node.nodeType === 11) {
+          for (const cn of Array.from(node.childNodes)) {
+            if (cn.nodeType === 1) (cn as Element).setAttribute('data-wf-key', vnode.key)
+          }
+        } else if (node.nodeType === 1) {
+          ;(node as Element).setAttribute('data-wf-key', vnode.key)
+        }
+      }
+    }
     return node
   }
 
@@ -184,6 +221,8 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
     : b.createElement(tag as any)
   if (!el) return null
   vnode.el = el
+  // 规则表 §3：数组项 key → data-wf-key（显式原文/默认下标值，DOM 可见——零隐藏状态）
+  if (vnode.key != null) el.setAttribute('data-wf-key', vnode.key)
 
   // select value 延后设置（v1 处理）：options 生成前设置 select.value 无效——
   // 必须在 children（option）渲染后赋值
@@ -194,11 +233,15 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
     setProp(el, key, value)
   }
   if (!('innerHTML' in (vnode.props ?? {}))) {
-    // P-5：normalizeChildren 统一展开（替代 flat(Infinity) 重复展开）
+    // P-5：normalizeChildren 统一展开（替代 flat(Infinity) 重复展开）；数组上下文无渲染值 → 占位
+    // 阶段 B：记录 children 每位置的首 DOM 节点（_childAnchors——替代 source[i] 下标猜测，
+    // fragment/数组项多节点展开后相邻项不错位——规则表 §5）
+    const anchors: (Node | null)[] = []
     for (const c of normalizeChildren(vnode.props?.children)) {
-      const n = renderValue(c, ctx, b)
-      if (n == null) continue
+      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b)
+      if (n == null) { anchors.push(null); continue }
       el.appendChild(n)
+      anchors.push(n.nodeType === 11 ? (n.firstChild as Node | null) : n)
       // 子组件 DOM 锚点（精准刷新定位）
       if (c && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function') {
         const cv = c as VNode
@@ -208,6 +251,7 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
         }
       }
     }
+    vnode._childAnchors = anchors
   }
   // select value 在 options 生成后设置（v1 处理——value 属性延后）
   if (selectValue !== undefined) {
