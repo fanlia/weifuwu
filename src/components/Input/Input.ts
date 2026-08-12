@@ -9,6 +9,8 @@ export interface InputProps {
   placeholder?: string
   required?: boolean
   disabled?: boolean
+  /** 只读（不可编辑但可复制） */
+  readonly?: boolean
   error?: string
   hint?: string
   /** 边框变体：borderless 用于可编辑标题/内联编辑（hover/focus 才显边框） */
@@ -24,7 +26,7 @@ export interface InputProps {
 
 export const Input: Component<InputProps> = async (_init) =>
   async (props) => {
-  const { label, name, type = 'text', value, placeholder, required, disabled, error, hint, variant = 'default', onInput, onChange } = props
+  const { label, name, type = 'text', value, placeholder, required, disabled, readonly, error, hint, variant = 'default', onInput, onChange } = props
 
   const inputEl = h('input', {
     class: `wf-input${variant === 'borderless' ? ' wf-input--borderless' : ''}`,
@@ -34,6 +36,7 @@ export const Input: Component<InputProps> = async (_init) =>
     placeholder,
     required: required || undefined,
     disabled: disabled || undefined,
+    readonly: readonly || undefined,
     onInput,
     onChange,
   })

@@ -238,6 +238,52 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
     return Response.json({ success: true })
   })
 
+  // ── 重新向量化（修复旧 chunk 的随机/失效 embedding；嵌入失败时回退随机向量的历史数据）──
+
+  app.post('/api/agents/:id/knowledge/reindex', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, tenantId, params } = ctx
+
+    const [agent] = await sql`
+      SELECT id, chunk_size, chunk_overlap
+      FROM agents
+      WHERE id = ${params.id} AND tenant_id = ${tenantId} AND type = 'knowledge_base'
+    `
+    if (!agent) {
+      return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
+    }
+
+    const docs = await sql`
+      SELECT id, filename, content FROM kb_documents WHERE agent_id = ${params.id}
+    `
+
+    let reindexed = 0
+    for (const doc of docs as unknown as Array<Record<string, any>>) {
+      const chunks = chunkText(String(doc.content), (agent as any).chunk_size ?? 500, (agent as any).chunk_overlap ?? 50)
+      let embeddings: number[][]
+      try {
+        embeddings = await ctx.ai.embedMany(chunks)
+      } catch {
+        // 与 processDocument 一致：失败回退随机向量（离线模式）——日志提示管理员检查 embedding 配置
+        console.warn('[knowledge] reindex embedding 失败，回退随机向量（请检查 DASHSCOPE_API_KEY）')
+        embeddings = chunks.map(() => Array.from({ length: 1024 }, () => Math.random() * 2 - 1))
+      }
+      // 删旧 chunk → 存新
+      await sql`DELETE FROM kb_chunks WHERE document_id = ${doc.id}`
+      const [docRow] = await sql`
+        UPDATE kb_documents SET chunk_count = ${chunks.length} WHERE id = ${doc.id} RETURNING id
+      `
+      for (let i = 0; i < chunks.length; i++) {
+        await sql`
+          INSERT INTO kb_chunks (document_id, agent_id, content, chunk_index, embedding)
+          VALUES (${doc.id}, ${params.id}, ${chunks[i]}, ${i}, ${`[${embeddings[i].join(',')}]`}::vector)
+        `
+      }
+      reindexed++
+    }
+
+    return Response.json({ success: true, reindexed, docs: docs.length })
+  })
+
   // ── 语义检索 ─────────────────────────────────────────
 
   app.post('/api/agents/:id/knowledge/search', async (req: Request, ctx: AppCtx): Promise<Response> => {

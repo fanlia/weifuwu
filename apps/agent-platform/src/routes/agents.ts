@@ -4,9 +4,10 @@
 
 import type { Router, Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
+import { streamAgentPreview } from '../services/agent-runner.ts'
 
 /** 内置工具定义（与 builtin.ts 同步） */
-const BUILTIN_TOOL_DEFS = [
+export const BUILTIN_TOOL_DEFS = [
   {
     type: 'function',
     function: {
@@ -112,6 +113,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       user_id?: string
       // Webhook
       webhook_url?: string
+      kb_id?: string | null
       webhook_secret?: string
       webhook_retry_count?: number
       // Knowledge Base
@@ -130,19 +132,23 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     if (!['ai', 'user', 'webhook', 'knowledge_base'].includes(body.type)) {
       return Response.json({ error: 'type 必须是 ai/user/webhook/knowledge_base 之一' }, { status: 400 })
     }
+    // user 类型仅允许注册/内部流程创建（绑定 user_id）——API 直调创建孤儿 user agent 防护
+    if (body.type === 'user' && !body.user_id) {
+      return Response.json({ error: 'user 类型必须绑定用户账号（由注册流程创建）' }, { status: 400 })
+    }
 
     const [agent] = await sql`
       INSERT INTO agents (
         tenant_id, type, name, avatar_url, description,
         model, system_prompt, temperature, max_tokens, human_in_the_loop,
         user_id, webhook_url, webhook_secret, webhook_retry_count, chunk_size, chunk_overlap, tools,
-        workspace_path, allow_file_tools, allow_command_exec
+        workspace_path, allow_file_tools, allow_command_exec, kb_id
       ) VALUES (
         ${tenantId}, ${body.type}, ${body.name}, ${body.avatar_url ?? null}, ${body.description ?? null},
         ${body.model ?? null}, ${body.system_prompt ?? null}, ${body.temperature ?? 0.7}, ${body.max_tokens ?? 2048}, ${body.human_in_the_loop ?? false},
         ${body.user_id ?? null}, ${body.webhook_url ?? null}, ${body.webhook_secret ?? null}, ${body.webhook_retry_count ?? 3}, ${body.chunk_size ?? 500}, ${body.chunk_overlap ?? 50},
         ${body.tools ? JSON.stringify(body.tools) : '[]'},
-        ${body.workspace_path ?? null}, ${body.allow_file_tools ?? false}, ${body.allow_command_exec ?? false}
+        ${body.workspace_path ?? null}, ${body.allow_file_tools ?? false}, ${body.allow_command_exec ?? false}, ${body.kb_id ?? null}
       )
       RETURNING id, type, name, created_at
     `
@@ -155,8 +161,10 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   app.get('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const [agent] = await sql`
-      SELECT * FROM agents
-      WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      SELECT a.*, u.email as bound_email, u.name as bound_user_name
+      FROM agents a
+      LEFT JOIN _weifuwu_users u ON u.id = a.user_id
+      WHERE a.id = ${params.id} AND a.tenant_id = ${tenantId}
     `
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
@@ -175,7 +183,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       'name', 'avatar_url', 'description',
       'model', 'system_prompt', 'temperature', 'max_tokens', 'human_in_the_loop',
       'webhook_url', 'webhook_secret', 'webhook_retry_count', 'chunk_size', 'chunk_overlap', 'tools', 'is_active',
-      'workspace_path', 'allow_file_tools', 'allow_command_exec',
+      'workspace_path', 'allow_file_tools', 'allow_command_exec', 'kb_id',
     ]
 
     const sets: string[] = []
@@ -220,5 +228,40 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
     return Response.json({ success: true })
+  })
+
+  // ── 对话预览（测试提示词，单轮流式，不落消息/不触发 HITL） ──
+
+  app.post('/api/agents/:id/preview', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, tenantId, params } = ctx
+    const [agent] = await sql`
+      SELECT * FROM agents
+      WHERE id = ${params.id} AND tenant_id = ${tenantId} AND type = 'ai'
+    `
+    if (!agent) {
+      return Response.json({ error: 'AI Agent 不存在' }, { status: 404 })
+    }
+    const body = await req.json().catch(() => ({ content: '' }))
+    const content = String(body.content ?? '').slice(0, 2000)
+    if (!content.trim()) {
+      return Response.json({ error: 'content 为必填' }, { status: 400 })
+    }
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder()
+        const write = (chunk: string) => controller.enqueue(encoder.encode(chunk))
+        try {
+          await streamAgentPreview(ctx, agent as any, content, write)
+        } catch (err) {
+          write(`event: wf:error\ndata: ${JSON.stringify({ message: err instanceof Error ? err.message : String(err) })}\n\n`)
+        }
+        controller.close()
+      },
+    })
+
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' },
+    })
   })
 }

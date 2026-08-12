@@ -198,6 +198,7 @@ ALTER TABLE agents ADD COLUMN IF NOT EXISTS workspace_path TEXT;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS allow_file_tools BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS allow_command_exec BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS template_slug TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS kb_id UUID;
 
 -- ── Phase 3: 角色模板 ─────────────────────────────────────
 

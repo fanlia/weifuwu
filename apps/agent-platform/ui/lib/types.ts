@@ -42,6 +42,9 @@ export interface Agent {
   updated_at?: string
   /** GET /api/agents 附加（ai 类型） */
   token_usage?: TokenUsage
+  /** GET /api/agents/:id 附加（user 类型绑定账号） */
+  bound_email?: string | null
+  bound_user_name?: string | null
 }
 
 /** 部门成员（department_members join agents——后端 SELECT a.id 别名 id） */

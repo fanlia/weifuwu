@@ -60,6 +60,62 @@ export function createSseEmitter(write: (chunk: string) => void): StreamEmitter 
  * 4. 保存回复消息
  * 5. 通过 WS 推送
  */
+
+/** 部门内 knowledge_base 成员（@ 定向用——KB 机器人检索回复，不调 LLM） */
+async function loadKbMembers(ctx: AppCtx, departmentId: string): Promise<Array<Record<string, any>>> {
+  const { sql } = ctx
+  return (await sql`
+    SELECT a.id, a.name
+    FROM department_members dm
+    JOIN agents a ON a.id = dm.agent_id
+    WHERE dm.department_id = ${departmentId}
+      AND a.type = 'knowledge_base'
+      AND a.is_active = TRUE
+  `) as unknown as Array<Record<string, any>>
+}
+
+/** @ 命中知识库机器人 → 检索 top3 拼接回复（纯确定性，不调 LLM）；无命中/相似度过低 → null */
+async function kbReplyFor(ctx: AppCtx, kb: Record<string, any>, query: string): Promise<string | null> {
+  try {
+    const { sql } = ctx
+    const embedding = await ctx.ai.embed(query)
+    const vecStr = `[${embedding.join(',')}]`
+    const chunks = (await sql`
+      SELECT kc.content, kd.filename,
+        1 - (kc.embedding <=> ${vecStr}::vector) as similarity
+      FROM kb_chunks kc
+      JOIN kb_documents kd ON kd.id = kc.document_id
+      WHERE kc.agent_id = ${kb.id}
+      ORDER BY kc.embedding <=> ${vecStr}::vector
+      LIMIT 3
+    `) as unknown as Array<Record<string, any>>
+    const hits = chunks.filter((c) => Number(c.similarity) > 0.1)
+    if (hits.length === 0) return null
+    return `📚 知识库检索结果（${kb.name}）：\n\n` + hits
+      .map((c) => `【${c.filename}】${String(c.content).slice(0, 400)}`)
+      .join('\n\n')
+  } catch {
+    return null
+  }
+}
+
+/** 落一条 KB 检索回复消息 + WS 推送 */
+async function persistKbReply(
+  ctx: AppCtx, departmentId: string, kb: Record<string, any>, content: string,
+): Promise<void> {
+  const { sql } = ctx
+  try {
+    const [msg] = await sql`
+      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
+      VALUES (${departmentId}, ${kb.id}, ${content}, 'text', TRUE)
+      RETURNING id, created_at
+    `
+    ctx.msg.broadcast(String(departmentId), {
+      type: 'ai_reply',
+      message: { id: msg.id, agentId: kb.id, agentName: kb.name, content, departmentId, createdAt: msg.created_at },
+    })
+  } catch { /* KB 回复落库失败不阻断 */ }
+}
 export async function handleNewMessage(
   ctx: AppCtx,
   departmentId: string,
@@ -87,6 +143,18 @@ export async function handleNewMessage(
   if (Object.keys(mentioned).length > 0) {
     const hit = aiAgents.filter((a) => mentioned[String(a.name).trim()])
     if (hit.length > 0) targets = hit
+    else {
+      // @ 未命中 ai——查是否命中知识库机器人（KB 检索回复，不调 LLM）
+      const kbAgents = await loadKbMembers(ctx, departmentId)
+      const kbHit = kbAgents.filter((a) => mentioned[String(a.name).trim()])
+      if (kbHit.length > 0) {
+        for (const kb of kbHit) {
+          const reply = await kbReplyFor(ctx, kb, messageContent)
+          if (reply) await persistKbReply(ctx, departmentId, kb, reply)
+        }
+        return // @ KB 时只回复 KB，不触发 AI
+      }
+    }
   }
 
   if (aiAgents.length === 0) {
@@ -374,6 +442,18 @@ async function runAllAgents(
   if (mentioned.size > 0) {
     const hit = aiAgents.filter((a) => mentioned.has(String(a.name).trim()))
     if (hit.length > 0) agents = hit
+    else {
+      // @ 未命中 ai——查是否命中知识库机器人（KB 检索回复，不调 LLM）
+      const kbAgents = await loadKbMembers(ctx, departmentId)
+      const kbHit = kbAgents.filter((a) => mentioned.has(String(a.name).trim()))
+      if (kbHit.length > 0) {
+        for (const kb of kbHit) {
+          const reply = await kbReplyFor(ctx, kb, messageContent)
+          if (reply) await persistKbReply(ctx, departmentId, kb, reply)
+        }
+        return // @ KB 时只回复 KB，不触发 AI
+      }
+    }
   }
 
   const recentMessages = (await sql`

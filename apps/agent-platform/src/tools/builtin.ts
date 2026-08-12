@@ -58,16 +58,33 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       const topK = Math.min(20, Math.max(1, Number(args.top_k ?? 5)))
       if (!query) return '请提供搜索关键词'
 
-      // 查找当前 dialog 上下文中的 AI Agent — 通过调用链推断
-      // 实际场景：agent-runner 从 department AI Agent 配置中获取 agentId
-      // 这里采用通用方式：从 ctx 中取出当前用户的 tenant 下所有 knowledge_base agent 进行搜索
+      // 绑定知识库优先：AI agent 配置了 kb_id → 只检索绑定 KB；未绑定 → 检索租户全部（现状）
       const { sql } = ctx
+      const agentId = (ctx as any)._toolAgentId
 
-      const kbs = await sql`
-        SELECT id, name FROM agents
-        WHERE tenant_id = ${ctx.tenantId} AND type = 'knowledge_base' AND is_active = TRUE
-        LIMIT 5
-      `
+      let kbs: Array<Record<string, any>>
+      if (agentId) {
+        const [agent] = await sql`
+          SELECT a.kb_id, kb.name as kb_name
+          FROM agents a
+          LEFT JOIN agents kb ON kb.id = a.kb_id AND kb.type = 'knowledge_base' AND kb.is_active = TRUE
+          WHERE a.id = ${agentId} AND a.tenant_id = ${ctx.tenantId}
+        `
+        if (agent?.kb_id && agent.kb_name) {
+          kbs = [{ id: agent.kb_id as string, name: agent.kb_name as string }]
+        } else {
+          kbs = []
+        }
+      } else {
+        kbs = []
+      }
+      if (kbs.length === 0) {
+        kbs = await sql`
+          SELECT id, name FROM agents
+          WHERE tenant_id = ${ctx.tenantId} AND type = 'knowledge_base' AND is_active = TRUE
+          LIMIT 5
+        ` as unknown as Array<{ id: string; name: string }>
+      }
 
       if (kbs.length === 0) {
         return '没有找到已激活的知识库。请先创建 knowledge_base 类型的 Agent 并上传文档。'

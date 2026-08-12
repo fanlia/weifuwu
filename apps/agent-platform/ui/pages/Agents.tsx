@@ -78,12 +78,14 @@ export const Agents: Component = async (_props, ctx) => {
                 <StatusDot on={a.is_active !== false} />
                 <div class="wf-row wf-gap-sm">
                   {a.type !== 'user' && (
-                    <Button size="sm" variant="ghost" title="发起单聊"
-                      onClick={(e: Event) => startDm(e, a.id)}><Icon name="message" size={14} /> 单聊</Button>
+                    <>
+                      <Button size="sm" variant="ghost" title="发起单聊"
+                        onClick={(e: Event) => startDm(e, a.id)}><Icon name="message" size={14} /> 单聊</Button>
+                      <Button size="sm" variant="ghost"
+                        onClick={(e: Event) => { e.stopPropagation(); ctx.app?.navigate(`/agents/${a.id}`) }}>编辑</Button>
+                      <Button size="sm" variant="danger" onClick={(e: Event) => remove(e, a.id)}>删除</Button>
+                    </>
                   )}
-                  <Button size="sm" variant="ghost"
-                    onClick={(e: Event) => { e.stopPropagation(); ctx.app?.navigate(`/agents/${a.id}`) }}>编辑</Button>
-                  <Button size="sm" variant="danger" onClick={(e: Event) => remove(e, a.id)}>删除</Button>
                 </div>
               </div>
             </Card>

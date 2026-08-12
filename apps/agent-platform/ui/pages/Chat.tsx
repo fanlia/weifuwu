@@ -75,7 +75,7 @@ export const Chat: Component = async (_props, ctx) => {
     if (mine) $.userAgentId = mine.id
     $.deptName = deptRes?.department?.name ?? deptRes?.name ?? '聊天'
     $.memberCount = (deptRes?.members ?? []).length
-    $.membersList = (deptRes?.members ?? []).filter((m: Member) => m.type === 'ai')
+    $.membersList = (deptRes?.members ?? []).filter((m: Member) => m.type === 'ai' || m.type === 'knowledge_base')
     rerender()
   }).catch(() => {})
 
@@ -332,7 +332,7 @@ export const Chat: Component = async (_props, ctx) => {
     const atMatch = v.match(/@([\u4e00-\u9fa5\w]*)$/)
     if (atMatch) {
       $.atQuery = atMatch[1]
-      $.atMenu = $.membersList.filter((m) => m.type === 'ai' && (String(m.name).includes($.atQuery) || !$.atQuery))
+      $.atMenu = $.membersList.filter((m) => (m.type === 'ai' || m.type === 'knowledge_base') && (String(m.name).includes($.atQuery) || !$.atQuery))
       $.atMenuOpen = $.atMenu.length > 0
     } else {
       $.atMenuOpen = false; $.atQuery = ''

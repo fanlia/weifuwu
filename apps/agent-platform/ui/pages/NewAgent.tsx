@@ -17,7 +17,7 @@ const AGENT_TYPES = [
   { value: 'ai', label: '🤖 AI 机器人', desc: 'DeepSeek 驱动，支持工具调用与人工审批' },
   { value: 'webhook', label: '🔗 Webhook', desc: '通过 HTTP Webhook 收发消息' },
   { value: 'knowledge_base', label: '📚 知识库', desc: 'PGVector 文档语义检索' },
-  { value: 'user', label: '👤 真实用户', desc: '绑定到平台用户账号' },
+  // user 类型由注册流程自动创建（绑定登录账号）——UI 不提供手动创建（防止 user_id=null 孤儿）
 ]
 
 const CAT_LABELS: Record<string, string> = {
@@ -79,6 +79,7 @@ export const NewAgent: Component = async (_props, ctx) => {
     $.aiTemperature = 0.7; $.aiMaxTokens = 2048; $.aiHITL = false
     $.allowFileTools = false; $.allowCommandExec = false
     $.step = 'direct'
+    rerender()
   }
 
   async function handleSubmit(e: Event) {
@@ -285,8 +286,8 @@ export const NewAgent: Component = async (_props, ctx) => {
           )}
 
           {!$.selectedTemplate && isWebhook && (
-            <Field label="Webhook URL">
-              <Input type="url" placeholder="https://example.com/webhook" value={$.webhookUrl}
+            <Field label="Webhook URL" hint="预留出站回调地址（当前版本仅支持入站 API）——可留空">
+              <Input type="url" placeholder="https://example.com/webhook（可选）" value={$.webhookUrl}
                 onInput={(e: Event) => { $.webhookUrl = inputValue(e); rerender() }} />
             </Field>
           )}

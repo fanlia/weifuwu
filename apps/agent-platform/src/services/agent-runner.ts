@@ -115,10 +115,23 @@ function truncateMessages(
  * 构建执行上下文：技能注册表 + 框架 AgentTool[]（run 分发到 skillRegistry / 全局工具注册表）
  */
 function buildToolContext(
+  ctx: AppCtx,
   config: AgentRunnerConfig,
 ): { tools: AgentTool[]; skillRegistry?: SkillRegistry } {
-  // 构建工具集：技能工具 + 工作空间工具
-  const allTools: ToolDefinition[] = [...(config.tools as ToolDefinition[])]
+  // 构建工具集：agent 声明工具 + 技能工具 + 工作空间工具——按工具名去重
+  // （真实事故：内置工具 search_knowledge_base 既在 agent.tools 又在绑定技能里 →
+  //  重复声明 → DeepSeek API 400 → streamStep 静默空内容 → AI 回复为空）
+  const allTools: ToolDefinition[] = []
+  const seenToolNames = new Set<string>()
+  const pushUnique = (defs: ToolDefinition[]) => {
+    for (const t of defs) {
+      const name = (t as any).function?.name ?? (t as any).name
+      if (!name || seenToolNames.has(name)) continue
+      seenToolNames.add(name)
+      allTools.push(t)
+    }
+  }
+  pushUnique(config.tools as ToolDefinition[])
 
   // 构建 SkillRegistry（如果有预加载技能）
   let skillRegistry: SkillRegistry | undefined
@@ -126,7 +139,7 @@ function buildToolContext(
     skillRegistry = new SkillRegistry(config.agentId)
     for (const skill of config.preloadedSkills) {
       skillRegistry.registerSkill(skill)
-      allTools.push(...skill.tools)
+      pushUnique(skill.tools)
     }
   }
 
@@ -135,7 +148,7 @@ function buildToolContext(
     const resolvedWs = config.workspacePath ?? null
     if (resolvedWs) {
       const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
-      allTools.push(...wsTools)
+      pushUnique(wsTools)
       try {
         const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false)
         if (!skillRegistry) skillRegistry = new SkillRegistry(config.agentId)
@@ -162,8 +175,14 @@ function buildToolContext(
       }
       const handler = getToolHandler(td.function.name)
       if (!handler) return `Error: tool handler for "${td.function.name}" not registered`
-      const r = await handler(args)
-      return typeof r === 'string' ? r : JSON.stringify(r)
+      // 工具上下文：暴露当前 AI agent id（search_knowledge_base 等需要知道是哪个 agent 在调用）
+      ;(ctx as any)._toolAgentId = config.agentId
+      try {
+        const r = await handler(args)
+        return typeof r === 'string' ? r : JSON.stringify(r)
+      } finally {
+        ;(ctx as any)._toolAgentId = undefined
+      }
     },
   }))
 
@@ -186,7 +205,7 @@ export async function runAgent(
     8000,
   )
 
-  const { tools } = buildToolContext(config)
+  const { tools } = buildToolContext(ctx, config)
 
   const startTime = Date.now()
 
@@ -234,6 +253,68 @@ export async function runAgent(
  *
  * 增加 token 用量记录
  */
+/** 对话预览：单轮流式（不落消息/不触发 HITL/审批）——AgentDetail 测试提示词用 */
+export async function streamAgentPreview(
+  ctx: AppCtx,
+  agent: Record<string, any>,
+  content: string,
+  write: (chunk: string) => void,
+): Promise<void> {
+  const { ai, sql } = ctx
+  const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
+  const preloadedSkills = await loadAgentSkillsPreview(sql, agent.id, ctx)
+  const config: AgentRunnerConfig = {
+    agentId: agent.id,
+    tenantId: ctx.tenantId,
+    departmentId: '',
+    systemPrompt: agent.system_prompt ?? '你是一个有帮助的 AI 助手。',
+    model: agent.model,
+    tools,
+    maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
+    humanInTheLoop: false,
+    preloadedSkills,
+    workspacePath: agent.workspace_path,
+    allowFileTools: agent.allow_file_tools,
+    allowCommandExec: agent.allow_command_exec,
+  }
+  const { tools: builtTools } = buildToolContext(ctx, config)
+  const agentRunner = ai.agent({
+    model: config.model,
+    systemPrompt: config.systemPrompt,
+    tools: builtTools,
+    maxSteps: config.maxSteps ?? 10,
+    humanInTheLoop: false,
+  })
+  await agentRunner.stream([{ role: 'user', content }], {
+    emit: (name, data) => {
+      if (name === 'wf:token') write(`event: wf:token\ndata: ${JSON.stringify({ text: (data as WfToken).text })}\n\n`)
+      else if (name === 'wf:tool_call') write(`event: wf:tool_call\ndata: ${JSON.stringify(data)}\n\n`)
+      else if (name === 'wf:done') write(`event: wf:done\ndata: ${JSON.stringify({ content: (data as WfDone).content })}\n\n`)
+      else if (name === 'wf:error') write(`event: wf:error\ndata: ${JSON.stringify((data as any).message ?? '')}\n\n`)
+    },
+  })
+}
+
+async function loadAgentSkillsPreview(sql: any, agentId: string, ctx: AppCtx): Promise<SkillContext[]> {
+  try {
+    const rows = (await sql`
+      SELECT ask.skill_dir, ask.skill_name
+      FROM agent_skills ask
+      WHERE ask.agent_id = ${agentId} AND ask.enabled = TRUE
+    `) as unknown as Array<Record<string, any>>
+    const out: SkillContext[] = []
+    for (const r of rows) {
+      try {
+        const { loadSkill } = await import('./skills.ts')
+        out.push(await loadSkill(r.skill_dir, () => ctx))
+      } catch { /* 技能加载失败跳过 */ }
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
 export async function streamAgent(
   ctx: AppCtx,
   config: AgentRunnerConfig,
@@ -246,7 +327,7 @@ export async function streamAgent(
   },
 ): Promise<WfUsage | undefined> {
   const { ai } = ctx
-  const { tools } = buildToolContext(config)
+  const { tools } = buildToolContext(ctx, config)
 
   const agentRunner = ai.agent({
     model: config.model,

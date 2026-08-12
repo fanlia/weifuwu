@@ -7,6 +7,7 @@
 
 import type { Router, Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
+import { BUILTIN_TOOL_DEFS } from './agents.ts'
 
 export interface RoleTemplate {
   slug: string
@@ -214,7 +215,8 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
         ${body.workspace_path ?? template.default_workspace_hint ?? null},
         ${body.allow_file_tools ?? template.default_allow_file_tools},
         ${body.allow_command_exec ?? template.default_allow_command_exec},
-        '[]', FALSE, ${template.slug}
+        ${JSON.stringify((template.default_skills ?? []).map((s: string) => BUILTIN_TOOL_DEFS.find(t => t.function.name === s)).filter(Boolean))},
+        FALSE, ${template.slug}
       )
       RETURNING id, name, type, created_at
     `
