@@ -1,9 +1,13 @@
 /**
- * vdom2 mount — 挂载入口 + 渲染执行器（最小核心版——矩阵测试需要；hooks/popup/serve 后续补全）
+ * vdom2 mount — 纯引擎挂载核心（无 ctx 组装、无 hooks——那些在 ui-dom/context.ts 组装层）
+ *
+ * 分层（vdom2 方案）：
+ * - vdom2/ = 纯渲染引擎（vnode/kind/render/patch/build/mount 核心——改 vdom 不影响其他）
+ * - ui-dom/context.ts = 组装层（createVdomContext：ctx.ui 完整能力 + hooks 转发 + popup tracker）
+ * - ui-dom/middleware/ = 中间件（uiServe 等——后续迁移）
  *
  * 渲染管线：buildVNode（async 预构建——await 全部工厂）→ renderValue（同步落地）
- * ctx.ui.render：render-only（design/render-only-plan.md）——唯一渲染触发，
- * fire-and-forget async（await 可精确等待）。
+ * ctx.ui.render：render-only（design/render-only-plan.md）——唯一渲染触发。
  */
 
 import type { VNode, VNodeChild, CompVNode } from './vnode.ts'
@@ -18,6 +22,8 @@ import type { BrowserEnv } from '../types.ts'
 export interface MountOptions {
   browser: BrowserEnv
   root: HTMLElement
+  /** 完整 ctx（ui-dom/context.ts createVdomContext 组装——含 ctx.ui.render 等） */
+  ctx: any
   registry?: Registry
   renderer?: Renderer
   onError?: (e: unknown) => void
@@ -85,55 +91,12 @@ export function createRenderer(opts: {
   return { render }
 }
 
-/** 组装 vdom 渲染上下文（ctx/registry/renderer/rootUi——最小核心：render/selfId） */
-export function createVdomContext(opts: MountOptions): VdomContext {
-  const registry = opts.registry ?? createRegistry()
-  const rootUi: any = {
-    _selfId: '_wf_root',
-    _mounting: false,
-    _ctxVersion: 0,
-    _rootVNodeId: undefined as string | undefined,
-  }
-  const ctx: any = {
-    browser: opts.browser,
-    __registry: registry,
-  }
-  const renderer = opts.renderer ?? createRenderer({ registry, ctx, rootEl: opts.root })
-
-  let warnedNoTarget = false
-  rootUi.render = function (this: any, ids?: string[]): Promise<void> {
-    // this = 调用者的 childCtx.ui（组件 ctx.ui.render() → this._selfId = 组件 id）
-    if (ids == null) {
-      const self = this._selfId !== '_wf_root' && this._selfId ? this._selfId : rootUi._rootVNodeId
-      if (!self) {
-        if (!warnedNoTarget) {
-          warnedNoTarget = true
-          console.warn('[vdom2] render() 无参但无渲染目标：页面根是 native vnode（UIHandler 直接返回 vnode 的页面形态）。改用 async 组件形态或 createStore + useExternal。')
-        }
-        return Promise.resolve()
-      }
-      return renderer.render([self])
-    }
-    return renderer.render(ids)
-  }
-  rootUi.setMounting = (v: boolean) => { rootUi._mounting = v }
-  rootUi.endMounting = () => { rootUi._mounting = false }
-  rootUi.bumpCtxVersion = () => { rootUi._ctxVersion = (rootUi._ctxVersion ?? 0) + 1 }
-  rootUi.selfId = function (this: any, name: string) {
-    if (registry.idRegistry.has(name)) {
-      throw new Error(`[vdom2] Duplicate component ID: "${name}"`)
-    }
-    const vnode = this._selfVNode
-    if (!vnode) return
-    vnode._customId = name
-    registry.idRegistry.set(name, vnode)
-  }
-  ;(ctx as any).ui = rootUi
-  return { ctx, registry, renderer, rootUi }
-}
-
+/** 纯引擎挂载（接受已组装 ctx——ui-dom/context.ts 提供便捷入口） */
 export function mountRoot(opts: MountOptions): MountHandle {
-  const { ctx, registry, renderer, rootUi } = createVdomContext(opts)
+  const { ctx, browser } = opts
+  const registry = opts.registry ?? createRegistry()
+  const renderer = opts.renderer ?? createRenderer({ registry, ctx, rootEl: opts.root, onError: opts.onError })
+  const rootUi = (ctx as any).ui
   let mounted: VNodeChild | null = null
   let prevChild: VNodeChild | null = null
 
@@ -145,10 +108,10 @@ export function mountRoot(opts: MountOptions): MountHandle {
       mounted = input
       const built = await buildVNode(input, ctx, undefined, registry)
       opts.root.innerHTML = ''
-      const node = renderValue(built, ctx, opts.browser)
+      const node = renderValue(built, ctx, browser)
       if (node != null) opts.root.appendChild(node)
       prevChild = (built as VNode)?._child ?? built
-      rootUi._rootVNodeId = (built as VNode)?._id
+      if (rootUi) rootUi._rootVNodeId = (built as VNode)?._id
     },
     async rerender() {
       if (mounted == null) return
@@ -158,7 +121,7 @@ export function mountRoot(opts: MountOptions): MountHandle {
       const newChild = rootV._child
       const prevNode = opts.root.firstChild
       patchValue(opts.root, prevNode, oldChild, newChild, {
-        browser: opts.browser, registry,
+        browser, registry,
         ctxVersion: (ctx as any)?.ui?._ctxVersion ?? 0,
         force: true,
       })
@@ -167,7 +130,7 @@ export function mountRoot(opts: MountOptions): MountHandle {
     unmount() {
       for (const [, vnode] of registry.idRegistry) {
         try {
-          import('./registry.ts').then(({ callRefCleanupFor }) => callRefCleanupFor(vnode, registry))
+          callRefCleanupFor(vnode, registry)
         } catch { /* noop */ }
       }
       opts.root.innerHTML = ''
@@ -177,3 +140,8 @@ export function mountRoot(opts: MountOptions): MountHandle {
   ;(handle as any).close = () => handle.unmount()
   return handle
 }
+
+// re-export（组装层/消费方需要）
+import { callRefCleanupFor } from './registry.ts'
+export { createRegistry }
+export type { Registry }

@@ -14,7 +14,7 @@ import assert from 'node:assert'
 import { h, Fragment } from '../ui-dom/vnode.ts'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
-import { mountRoot } from '../ui-dom/vdom2/index.ts'
+import { mountRoot } from '../ui-dom/context.ts'
 
 before(setupJsdom)
 

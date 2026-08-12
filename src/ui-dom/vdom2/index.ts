@@ -1,7 +1,7 @@
 /**
  * vdom2 引擎入口（TDD 实施中——测试见 src/test/vdom2-matrix.test.ts）
  */
-export { mountRoot, createVdomContext, createRenderer, type MountHandle, type Renderer } from './mount.ts'
+export { mountRoot, createRenderer, type MountHandle, type Renderer } from './mount.ts'
 export { buildVNode } from './build.ts'
 export { renderValue } from './render.ts'
 export { patchValue } from './patch.ts'

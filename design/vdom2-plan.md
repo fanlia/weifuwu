@@ -43,18 +43,28 @@ vdom2/
 | removeOldOutput 缺数组分支 | getOutputRange 数组扫描 |
 | **绿：162 对全过** | |
 
-## 4. 验收
+## 4. 分层（context/hooks/middleware 与 vdom 引擎解耦）
+
+```
+vdom2/           纯渲染引擎——改 vdom 不影响其他（审计：不 import hooks/popup/context）
+ui-dom/context.ts 组装层——ctx.ui 完整能力（render/selfId/onUnmount/bumpCtxVersion +
+                   24 个 hooks 转发 + popup tracker + media registry）——改 hooks/ctx 不动 vdom
+ui-dom/hooks/     hooks 实现（独立模块，已存在）
+ui-dom/middleware/ 中间件（uiServe 等——后续迁移）
+```
+
+## 5. 验收
 
 - [x] vdom2 9×9 全矩阵（数组 + 单值 children 上下文）零残留
 - [x] x2html（SSR）与客户端同构（占位/数组标记/组件）
-- [x] tsc 零错误（vdom2 自包含）
+- [x] 分层：vdom2 纯引擎（无 hooks/popup/ctx 依赖）+ ui-dom/context.ts 组装层
+- [x] tsc 零错误 + client 170 全绿 + vdom2 矩阵全绿
 - [ ] 替换 vdom1：serve/hydration/audit 迁移到 vdom2 + 全量回归（components 1079 + 既有 137）
 - [ ] 删除 vdom1（vdom/ 目录）——完成后单一引擎
 
-## 5. 待办（替换 vdom1 前）
+## 6. 待办（替换 vdom1 前）
 
-- serve.ts（uiServe/SPA 导航）迁移
-- hydration.ts 迁移
-- audit.ts 迁移
-- popup-tracker/hooks 转发补全（mount.ts 最小核心版缺）
-- 组件全量回归（1079）
+- serve.ts（uiServe/SPA 导航）迁移到 vdom2 + ui-dom/middleware/
+- hydration.ts 迁移（vdom2 的 hydrate）
+- audit.ts 迁移（vdom2 结构校验）
+- 组件全量回归（1079）——测试辅助 ui-dom-mount 改指向 vdom2
