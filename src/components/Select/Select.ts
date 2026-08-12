@@ -89,7 +89,7 @@ const SelectNative: Component<SelectProps> = async (_init, _ctx) =>
 }
 
 const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
-  // render-only：内部 UI 状态 let + 显式 render（design/render-only-plan.md）
+  // render-only：内部 UI 状态 let + 显式 render（design 归档）
   let open = false
   let keyword = ''
   let filteredOptions = [] as SelectOption[]

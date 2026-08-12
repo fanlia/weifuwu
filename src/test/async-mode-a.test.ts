@@ -1,5 +1,5 @@
 /**
- * 模式 A（design/async-mode-a-plan.md）验收测试
+ * 模式 A（design 归档）验收测试
  *
  * S1 验证：
  *   - buildVNode 兄弟 async 组件并行（Promise.all——父子串行、兄弟并行）

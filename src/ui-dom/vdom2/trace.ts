@@ -1,7 +1,7 @@
 /**
  * vdom/trace — 结构化调试 trace（阶段级开关 + 渲染会话 traceId）
  *
- * 目的（design/vdom-trace-plan.md）：
+ * 目的（design 归档）：
  * - 一次建立全面 vdom 调试能力：build/render/diff/mount/audit 各阶段独立开关
  * - traceId 关联同一渲染会话（renderByIds/首帧/导航）的全部日志——事故可回放
  * - children 顺序可视化（kidsSeq）——快速定位顺序错乱类 bug（Fragment/数组项）

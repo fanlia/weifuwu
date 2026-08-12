@@ -1,5 +1,5 @@
 /**
- * useExternal — 订阅共享状态（render-only 共享原语，见 design/render-only-plan.md）
+ * useExternal — 订阅共享状态（render-only 共享原语，见 design 归档）
  *
  * 与 useInView/useScrollPosition 同构（mount 阶段注册，生命周期框架管）：
  * - mount 注册：订阅 store（任何变化 → 自身重渲染）

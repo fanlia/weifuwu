@@ -1,7 +1,7 @@
 /**
  * keyed 分支位置校正：多节点 Fragment 集合整体移动（agent-platform 复现）
  *
- * 真实事故（design/vdom-trace-plan.md）：AgentDetail 文件浏览器 `{$.wsOpenFile ? <FragA> : <FragB>}`
+ * 真实事故（design 归档）：AgentDetail 文件浏览器 `{$.wsOpenFile ? <FragA> : <FragB>}`
  * ——点击文件后编辑视图错乱（edit-plain 被挤到第二个 Card 之后）。
  *
  * 根因（trace 定位，2026-12）：

@@ -1,5 +1,5 @@
 /**
- * vdom2/audit — 结构一致性运行时校验（design/vdom-consistency-plan.md 阶段 C）
+ * vdom2/audit — 结构一致性运行时校验（design 归档 阶段 C）
  *
  * 把「用户的想法 = vnode = DOM」变成每次 patch 的断言——错位即报错（dev），
  * 不静默传播（提交按钮消失事故的根治）。vdom2 版：vnode2 强类型 + 类型守卫。

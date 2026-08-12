@@ -380,7 +380,7 @@ export interface WfuiContext {
       onDragEnd?: (e: DragEvent) => void
     }) => { dropProps: Record<string, any>; dragProps: Record<string, any> }
     /**
-     * 订阅共享状态（render-only 共享原语——design/render-only-plan.md）：
+     * 订阅共享状态（render-only 共享原语——design 归档）：
      * mount 注册订阅（任何变化 → 自身重渲染），unmount 自动退订；返回 store 本身（活引用）。
      * 参数契约：任何 { subscribe(cb): unsub } 的可订阅对象（createStore 产物 / useChat handle）。
      *

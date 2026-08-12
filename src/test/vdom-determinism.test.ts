@@ -1,5 +1,5 @@
 /**
- * vdom determinism 测试（design/vdom-consistency-plan.md 阶段 D-1）
+ * vdom determinism 测试（design 归档 阶段 D-1）
  *
  * 可预测性：同一状态 → 同一 vnode → 同一 DOM——连续渲染结果一致、无重复节点、结构稳定。
  * ① 幂等渲染：同一 vnode 树连续 patch 两次 → DOM 快照一致（无重复/无残留）

@@ -7,7 +7,7 @@
  * - ui-dom/middleware/ = 中间件（uiServe 等——后续迁移）
  *
  * 渲染管线：buildVNode（async 预构建——await 全部工厂）→ renderValue（同步落地）
- * ctx.ui.render：render-only（design/render-only-plan.md）——唯一渲染触发。
+ * ctx.ui.render：render-only（design 归档）——唯一渲染触发。
  */
 
 import type { VNode, VNodeChild, CompVNode } from '../vnode.ts'

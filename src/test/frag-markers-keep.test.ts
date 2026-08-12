@@ -1,7 +1,7 @@
 /**
  * 数组项标记引用保持：Card children 三元 Fragment 多次切换（agent-platform 完整复现）
  *
- * 真实 bug 链（design/vdom-trace-plan.md）：
+ * 真实 bug 链（design 归档）：
  * - 首帧 renderValue：Fragment._childNodes = [list-simple, hole, hole, start, btn-A, btn-B, end]（7 个）
  * - 第一次 rerender（数组项配对分支）：递归 patch 剥离 start/end 做内部 diff，返回 out 不含标记
  *   → Fragment._childNodes 缩成 5 个（start/end 引用丢失——DOM 里标记还在）

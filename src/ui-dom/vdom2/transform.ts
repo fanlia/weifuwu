@@ -1,5 +1,5 @@
 /**
- * transform — children/属性转化规则单一源（design/vdom-consistency-plan.md 阶段 0）
+ * transform — children/属性转化规则单一源（design 归档 阶段 0）
  *
  * 可推导性 by construction（design/vdom-transform-rules.md）：所有 children 形态判定与
  * 属性通道判定收敛到此单一模块——buildVNode / renderValue / patchChildren / renderSsr /

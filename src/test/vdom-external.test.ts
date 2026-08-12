@@ -1,5 +1,5 @@
 /**
- * vdom useExternal/createStore 测试（render-only 方案——design/render-only-plan.md）
+ * vdom useExternal/createStore 测试（render-only 方案——design 归档）
  *
  * 覆盖：
  * 1. createStore：set/update/notify 通知订阅者；退订后不再通知

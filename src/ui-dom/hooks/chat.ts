@@ -1,7 +1,7 @@
 /**
  * hooks/chat — AI 对话会话（useChat）
  *
- * 会话语义 + 工具调用内嵌 + HITL 审批。render-only 方案（design/render-only-plan.md）：
+ * 会话语义 + 工具调用内嵌 + HITL 审批。render-only 方案（design 归档）：
  * state 是**普通对象**（不再挂组件 $），变化 → notify → 订阅者重渲染；
  * handle 带 subscribe——共享会话的子组件用 ctx.ui.useExternal(handle) 订阅。
  */

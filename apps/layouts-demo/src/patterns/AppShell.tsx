@@ -35,7 +35,7 @@ const GOODS = [
 ]
 
 export const AppShell: Component = async (_init, ctx) => {
-  // render-only：内部状态 let + 显式 render（design/render-only-plan.md）
+  // render-only：内部状态 let + 显式 render（design 归档）
   let collapsed = false
   let nav = 'dashboard'
   let page = 1

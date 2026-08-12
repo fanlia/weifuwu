@@ -35,7 +35,7 @@
 | CS-06 | **行为变更先查旧测试**：默认值/时序变更后，旧测试可能静默挂起而非失败 | `await promise` 永不 resolve = 挂起信号；`--test-timeout` 定位 |
 | FS-01 | 组件 = `Component<P, C>`：`(initProps: P, ctx) => (props: P) => VNode` | 无 class/hook/this；P=props（JSX 自动推断），C=ctx 注入依赖 |
 | FS-02 | 组件必须类型化：`Component<P, C>`，ctx 注入声明 C | 禁止 `_init: any`；`ctx.api` 等由 C 泛型编译期保证 |
-| FS-03 | 渲染只发生在 `render()` 调用处 | 事件/定时器里改状态后 `ctx.ui.render()`——禁止隐式触发/`$` Proxy（render-only，design/render-only-plan.md） |
+| FS-03 | 渲染只发生在 `render()` 调用处 | 事件/定时器里改状态后 `ctx.ui.render()`——禁止隐式触发/`$` Proxy（render-only，design 归档历史可追溯） |
 | FS-04 | 禁止 eval/new Function | 安全基线 |
 | FS-05 | 前端无 npm 运行时依赖 | client 包 import 无外部 dep |
 | PS-01 | 请求路径无同步 I/O | 无 readFileSync/execSync |
@@ -106,7 +106,7 @@ const Toggle: Component = (_init, ctx) => {
 }
 ```
 
-> **render-only 唯一规则**（design/render-only-plan.md）：渲染只发生在 `render()` 调用处——
+> **render-only 唯一规则**：渲染只发生在 `render()` 调用处——
 > 状态回归普通 JS 对象（`let` / `createStore`），行为可静态推导、测试无 mock 盲区。
 
 ### 3.3 两阶段异步组件（唯一组件形态）
@@ -129,7 +129,7 @@ const UserProfile = async (initProps, ctx) => {
 }
 ```
 
-关键规则（模式 A——design/async-mode-a-plan.md）：
+关键规则（模式 A——两阶段异步组件架构，design 归档历史可追溯）：
 - **主路径 await 全部**：首帧/导航 = `buildVNode`（async 预构建：await 全部工厂；兄弟 Promise.all 并行；零 DOM）→ 完成后 `renderValue`/`patchValue` 一次落地——**无占位、无闪烁**；导航旧页保持到新树就绪（原子切换）
 - **旧树对照复用**：同位置同类型组件复用 `_render`（工厂不重跑，let/ref 状态保持）；`ctx.data` 缓存兜底并发合并
 - **运行时首次挂载的 async 组件**：在 `buildVNode` 阶段 await（构建完成）→ diff 同步渲染——无占位/注释/补全回调（第 1 代死循环已根治）
@@ -188,7 +188,7 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 > 验收标准 = 用户可推导性：写任意 JSX，不读引擎源码，凭规则表即可说出 vnode 结构、DOM 结果
 > 与更新行为。
 
-> **render-only（design/render-only-plan.md）：只有 `ctx.ui.render(ids?)` 一种触发渲染，除此之外没有任何自动渲染**。
+> **render-only：只有 `ctx.ui.render(ids?)` 一种触发渲染，除此之外没有任何自动渲染**。
 > `$` Proxy / `ctx.ui.dirty()` 已删除——状态是普通对象（`let` / `createStore`），改状态后必须显式 `render()`。
 > 行为可静态推导：代码审查看事件回调里有无 `render()` 即可验证渲染逻辑。
 
@@ -213,7 +213,7 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 - 工厂只跑一次：vnode 级缓存 + 旧树同位置同类型复用（跨渲染保持组件内部状态）
 - **ctx 版本（bumpCtxVersion）**：i18n 等全局状态变化时递增——buildVNode 剪枝 + diff 三态 skip 比较 `_ctxVersion`，版本不同强制重跑 renderFn（`_ctxVersion` 未接线是 i18n 切换不更新的根因，已修复 + 回归测试）
 - **用户的想法/vnode/DOM 三层一致（§6.3 提交按钮消失事故）**：① 用户 renderFn/JSX 写的结构（含 false 占位）必须**原样**成为 vnode——**禁止对用户 vnode 做 magic**（filter/转换/mutation——过渡 filter 已删除）；② DOM 必须**同构**镜像 vnode——render 阶段对无渲染值**建占位节点**（`childNodes.length` 恒等于 children 数组长度，数组第 i 项 ⟷ childNodes 第 i 个节点，已实施）；③ 就地 patch 不校验同构、错位不报错不自愈（错误静默传播，整树重建/刷新才恢复）——由 `__WF_VDOM_AUDIT` 运行时校验兜底。改 diff 必须先跑 `src/test/vdom*.test.ts`
-- **children 转化规则单一实现（单一规则源，design/vdom-consistency-plan.md 阶段 0）**：children 形态判定（占位/数组项=隐式 Fragment/非法输入分类/锚点）收敛到 `transform.ts` 单一模块——buildVNode / renderValue / patchChildren / renderSsr / hydrateVNode 全部调用它，**禁止各路径各自实现形态判定**（同一语义多套实现 = 漂移 = 转化分叉——SSR 对空洞 `return ''` vs 客户端建占位 / build 把任意 Symbol 当 native vs render 无 symbol 分支，都是既有漂移证据）。新增 children 形态只改一处；验收用 grep 审计五消费方判定收敛
+- **children 转化规则单一实现（单一规则源，vdom 一致性设计阶段 0）**：children 形态判定（占位/数组项=隐式 Fragment/非法输入分类/锚点）收敛到 `transform.ts` 单一模块——buildVNode / renderValue / patchChildren / renderSsr / hydrateVNode 全部调用它，**禁止各路径各自实现形态判定**（同一语义多套实现 = 漂移 = 转化分叉——SSR 对空洞 `return ''` vs 客户端建占位 / build 把任意 Symbol 当 native vs render 无 symbol 分支，都是既有漂移证据）。新增 children 形态只改一处；验收用 grep 审计五消费方判定收敛
 - mount 保护期（工厂执行）`render()` 调用被 `_render` 守卫天然拦截（未挂载组件跳过）
 
 **实现位置**：`src/ui-dom/vdom/`（build.ts / diff.ts / render.ts / mount.ts / registry.ts / hydration.ts / ssr.ts / serve.ts）——第 2 代引擎，替代第 1 代（render.ts/diff.ts 顶层文件）的占位/补全/批处理机制。
@@ -533,14 +533,14 @@ const MyComp: Component = (_init, ctx) => {
 - **全无 key**（含 portal——createPortal 的内部 key 不算用户 keyed，C1 修复）→ **按位置复用 + patch**（不重建）——受控 input 焦点保持
 - **用户 keyed 混合**：无 key 项 Step 1 移除重建（React 等价——C1 治本边界）
 
-**三层一致不变量（用户决策 2026-12——design/vdom-consistency-plan.md，可追溯）**：
+**三层一致不变量（用户决策 2026-12，可追溯）**：
 
 > **① 用户的想法**：renderFn/JSX 里写的结构（含 `{cond && <X/>}` 的 false 占位）；
 > **② vnode**：必须**透明**镜像①——**禁止对用户 vnode 做任何 magic**（filter/转换/mutation）；
 > **③ DOM**：必须**同构**镜像②——render 阶段对无渲染值（false/null/undefined/true）**建占位节点**
 > （`<!--wf-hole-->`），`childNodes.length` 恒等于 children 数组长度（数组第 i 项 ⟷ childNodes 第 i 个节点）——**对齐从结构上保证，不靠消费侧猜测**。
 
-**机制（占位法——已实施，2026-12）**：`renderValue` 数组子项遇无渲染值 → 占位节点（`<!--wf-hole: xxx-->`）；`patchChildren` 对称处理（占位↔真实用 **replaceChild 互换，禁止 removeChild 塌缩 childNodes**——长度恒定则预捕获 source 索引全有效）；SSR/hydration 同步序列化。占位是静态的、零 resolve 回调——**≠ v1 动态挂载占位（死循环根因），不触发任何补渲染**。实施见 design/vdom-consistency-plan.md 阶段 A（已闭环）。
+**机制（占位法——已实施，2026-12）**：`renderValue` 数组子项遇无渲染值 → 占位节点（`<!--wf-hole: xxx-->`）；`patchChildren` 对称处理（占位↔真实用 **replaceChild 互换，禁止 removeChild 塌缩 childNodes**——长度恒定则预捕获 source 索引全有效）；SSR/hydration 同步序列化。占位是静态的、零 resolve 回调——**≠ v1 动态挂载占位（死循环根因），不触发任何补渲染**。
 
 **事故还原**（Form 提交按钮消失）：JSX `{cond && <Alert/>}` = false 保留在 children 数组（V3-3b 零拷贝不滤除），但 renderValue 不产生 DOM——两树不同构 → diff 建 `oldNodes[i] = source[i] = childNodes[i]` 下标映射时，false 位置命中**下一个真实兄弟（提交按钮）** → 删除分支 `removeChild` 误删。vnode 树里 Button 还在（`_refNode` 指向已脱离 DOM 的元素），DOM 里按钮已没——两树从此永久错位（静默传播，刷新/整树重建才恢复）。
 

@@ -1,5 +1,5 @@
 /**
- * createStore — 共享状态工厂（render-only 方案，见 design/render-only-plan.md）
+ * createStore — 共享状态工厂（render-only 方案，见 design 归档）
  *
  * state 是**普通对象（非 Proxy）**——渲染是显式 render()，状态只是数据，
  * 无响应式引擎（无深度代理/Set/Map 绑定/isMounting 保护——§6.4 整节不需要）。

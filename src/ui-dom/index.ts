@@ -1,7 +1,7 @@
 /**
  * weifuwu/ui-dom — 前端路由 + 渲染运行时（v2 vdom 引擎，render-only）
  *
- * 渲染运行时 = vdom（第 2 代引擎，design/render-only-plan.md）：
+ * 渲染运行时 = vdom（第 2 代引擎，design 归档）：
  * - 渲染触发唯一原语 ctx.ui.render()（无 $ / dirty——无自动渲染）
  * - 共享状态：createStore + ctx.ui.useExternal
  * - 命令式挂载：mountCommand/unmountCommand（弹窗中间件在 components 各组件内部）
