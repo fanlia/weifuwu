@@ -147,8 +147,17 @@
   Tree 搜索/VirtualTable 行选择/Cascader 搜索/InputNumber 长按/Markdown 删除线）；CUT 项全登记
 - **状态**：audit 45 条全绿；全量 1827 测试全绿；「见 roadmap」残留 = 0
 
-### 待办（W1 高频表单 Wave）
+### W1 高频表单 Wave 进度（2026-12）
 
-- Cascader/Dropdown 键盘导航（R43 豁免——listbox/menu 方向键）
-- Mentions/Tour 弹层 aria-expanded（R42 ratchet——归零）
+**R43/R42 豁免兑现**（4368cc8f）：
+- Cascader listbox 方向键 + ←→ 列推进回退 + Enter + 搜索态键盘（TDD 3）
+- Dropdown menu 方向键 + Home/End 跳过 disabled + Enter 触发 + 打开重置高亮（TDD 3）
+- Mentions textarea aria-expanded；Tour 豁免（无 trigger）——R42 baseline 归零硬门
+
+**demo 状态矩阵补充**（8 组件 ×1 示例——disabled/error/loading 覆盖）：
+AutoComplete 禁用 / Cascader 禁用+错误 / Calendar 事件+选择 / Mentions 禁用 /
+TagsInput 限制+错误 / PinInput 禁用 / FileUpload 禁用+accept / Form loading 提交
+
+**待办**：
 - W1 逐组件 6 维 checklist（F1 功能/F2 状态/F3 变体/F4 a11y/F5 响应式/F6 demo）
+- 每组件 demo ≥3 示例渐进（R40 全局防线已建，Wave 内逐组件补）

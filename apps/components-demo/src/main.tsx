@@ -283,6 +283,28 @@ const DemoForm: Component = async (_props, ctx) => {
   )
 }
 
+const DemoFormSubmit: Component = async (_props, ctx) => {
+  let loading = false
+  let done = false
+  return async (_p: any) => (
+    <Form
+      validation={{
+        name: [{ required: true, minLength: 2, message: '名称至少 2 字符' }],
+      }}
+      onSubmit={() => {
+        if (loading) return
+        loading = true; done = false; ctx.ui.render()
+        setTimeout(() => { loading = false; done = true; ctx.ui.render() }, 1200)
+      }}>
+      <Field label="项目名称" required>
+        <Input name="name" placeholder="输入项目名称" disabled={loading} />
+      </Field>
+      {done && <Alert variant="success">提交成功（模拟 1.2s）</Alert>}
+      <Button type="submit" variant="primary" loading={loading}>{loading ? '提交中…' : '提交'}</Button>
+    </Form>
+  )
+}
+
 const DemoField: Component = async (_props, ctx) => {
   let name = ''
   let mail = 'bad-input'
@@ -1588,11 +1610,106 @@ const DemoCascader: Component = async (_props, ctx) => {
   )
 }
 
+const DemoAutoCompleteDis: Component = async (_p, ctx) => {
+  let disabled = false
+  return async () => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <AutoComplete options={[
+        { value: 'pay-admin', label: '支付平台管理' },
+        { value: 'order-center', label: '订单中心' },
+      ]} value="" disabled={disabled} placeholder="禁用时不可输入…" />
+      <div><Button onClick={() => { disabled = !disabled; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
+    </div>
+  )
+}
+
+const DemoCascaderDis: Component = async (_p, ctx) => {
+  let disabled = false
+  let err = ''
+  return async () => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <Cascader options={[
+        { value: 'zj', label: '浙江', children: [{ value: 'hz', label: '杭州' }] },
+        { value: 'gd', label: '广东', children: [{ value: 'sz', label: '深圳' }] },
+      ]} disabled={disabled} error={err} placeholder={disabled ? '禁用中' : '选择地区'} />
+      <div class="wf-row wf-gap-sm">
+        <Button onClick={() => { disabled = !disabled; err = ''; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button>
+        <Button variant="danger" onClick={() => { disabled = false; err = '地区必填（校验示例）'; ctx.ui.render() }}>触发错误</Button>
+      </div>
+    </div>
+  )
+}
+
+const DemoMentionsDis: Component = async (_p, ctx) => {
+  let disabled = false
+  return async () => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <Mentions options={[{ value: 'alice', label: 'Alice' }, { value: 'bob', label: 'Bob' }]} disabled={disabled} rows={2} placeholder={disabled ? '禁用中' : '输入 @ 提及成员…'} />
+      <div><Button onClick={() => { disabled = !disabled; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
+    </div>
+  )
+}
+
+const DemoTagsInputErr: Component = async (_p, ctx) => {
+  let tags = ['前端']
+  let err = ''
+  return async () => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <TagsInput value={tags} onChange={(t) => { tags = t; if (t.length >= 3) err = ''; ctx.ui.render() }} maxTags={3} error={err} placeholder="最多 3 个标签（回车添加）" />
+      {err && <div class="wf-text-sm wf-text-error">{err}</div>}
+      <div class="wf-row wf-gap-sm">
+        <Button variant="danger" onClick={() => { err = '标签数量超限（示例）'; ctx.ui.render() }}>触发错误</Button>
+      </div>
+    </div>
+  )
+}
+
+const DemoPinInputDis: Component = async (_p, ctx) => {
+  let disabled = false
+  return async () => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <PinInput length={6} disabled={disabled} />
+      <div><Button onClick={() => { disabled = !disabled; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
+    </div>
+  )
+}
+
+const DemoFileUploadDis: Component = async (_p, ctx) => {
+  let files: File[] = []
+  let disabled = false
+  return async () => (
+    <div class="wf-w-full wf-stack wf-gap-sm">
+      <FileUpload accept="image/*" multiple value={files} disabled={disabled} error={disabled ? '' : undefined}
+        onChange={f => { files = f; ctx.ui.render() }} />
+      <div><Button onClick={() => { disabled = !disabled; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
+    </div>
+  )
+}
+
 const DemoTransfer: Component = async (_props, ctx) => {
   let target = ['a']
   return async () => (
     <Transfer data={[{ key: 'a', label: '成员A' }, { key: 'b', label: '成员B' }, { key: 'c', label: '成员C' }, { key: 'd', label: '成员D' }]}
       targetKeys={target} onChange={(k: string[]) => { target = k; ctx.ui.render() }} titles={['可选成员', '已选成员']} showSearch />
+  )
+}
+
+const DemoCalendarEvents: Component = async (_props, ctx) => {
+  let view = { month: 5, year: 2025 }
+  let selected = '2025-06-10'
+  return async () => (
+    <div class="wf-w-full wf-flex wf-center">
+      <Calendar
+        month={view.month} year={view.year}
+        selectedDate={selected}
+        events={[
+          { key: 'e1', date: '2025-06-10', title: '需求评审', color: 'var(--wf-color-brand)' },
+          { key: 'e2', date: '2025-06-18', title: '发布 v0.78', color: 'var(--wf-color-success)' },
+          { key: 'e3', date: '2025-06-25', title: '代码评审', color: 'var(--wf-color-warning)' },
+        ]}
+        onMonthChange={(m, y) => { view = { month: m, year: y }; ctx.ui.render() }}
+        onSelectDate={(d) => { selected = d; ctx.ui.render() }} />
+    </div>
   )
 }
 
@@ -2515,6 +2632,18 @@ return () => <AiChat chat={chat} />
   cascader: `<Cascader options={regions}
   value={['zj','hz']} onChange={setPath} />`,
 
+  autocompleteDis: `<AutoComplete options={[{value:'pay-admin',label:'支付平台管理'},{value:'order-center',label:'订单中心'}]}
+  value="" disabled placeholder="禁用时不可输入" />`,
+  cascaderDis: `<Cascader options={regions} disabled error="地区必填" />`,
+  calendarEvents: `<Calendar month={5} year={2025} selectedDate="2025-06-10"
+  events={[{date:'2025-06-10',title:'需求评审'}]} onSelectDate={d => set(d)} />`,
+  mentionsDis: `<Mentions options={users} disabled rows={2} placeholder="输入 @ 提及成员…" />`,
+  tagsInputErr: `<TagsInput value={tags} maxTags={3} error="标签超限" onChange={t => set(t)} />`,
+  pininputDis: `<PinInput length={6} disabled />`,
+  fileUploadDis: `<FileUpload accept="image/*" multiple disabled error />`,
+  formSubmit: `<Form validation={{name:[{required:true,minLength:2}]}}
+  onSubmit={submit}><Field label="项目名称" required><Input name="name" /></Field>
+  <Button type="submit" loading={loading}>提交</Button></Form>`,
   transfer: `<Transfer data={members}
   targetKeys={selected} onChange={setSelected} />`,
 
@@ -2674,13 +2803,16 @@ const App: Component = async (_props, ctx) => {
 
       <Section title="表单增强">
         <DemoCard title="Form" desc="内置验证规则：required/pattern/minLength/自定义" code={CODE.form}><DemoForm /></DemoCard>
+        <DemoCard title="Form 提交" desc="loading 提交 + 校验错误（状态矩阵覆盖）" code={CODE.formSubmit}><DemoFormSubmit /></DemoCard>
         <DemoCard title="Field" desc="label+error+hint 容器" code={CODE.field}><DemoField /></DemoCard>
         <DemoCard title="FileUpload" desc="文件上传，拖拽区 + 文件列表 + accept/maxSize" code={CODE.fileUpload}><DemoFileUpload /></DemoCard>
+        <DemoCard title="FileUpload 禁用" desc="disabled + accept 限定（状态矩阵覆盖）" code={CODE.fileUploadDis}><DemoFileUploadDis /></DemoCard>
         <DemoCard title="SearchInput" desc="搜索输入框，带清除按钮" code={CODE.search}><DemoSearchInput /></DemoCard>
         <DemoCard title="ProgressBar" desc="进度条，支持 label/showValue" code={CODE.progress}><DemoProgress /></DemoCard>
         <DemoCard title="InputNumber" desc="数字输入：min/max/step + 增减按钮 + precision" code={CODE.inputNumber}><DemoInputNumber /></DemoCard>
         <DemoCard title="PasswordInput" desc="密码输入：眼睛按钮切换可见性" code={CODE.passwordInput}><DemoPasswordInput /></DemoCard>
         <DemoCard title="TagsInput" desc="标签输入：回车/逗号添加 + 中文输入法感知" code={CODE.tagsInput}><DemoTagsInput /></DemoCard>
+        <DemoCard title="TagsInput 限制/错误" desc="maxTags 限制 + error 校验态（状态矩阵覆盖）" code={CODE.tagsInputErr}><DemoTagsInputErr /></DemoCard>
       </Section>
 
       <Section title="数据展示">
@@ -2707,6 +2839,7 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="Layout" desc="布局外壳：Sider 折叠 + Header/Content/Footer 骨架（antd Layout / shadcn Sidebar 等价）" code={CODE.layout}><DemoLayout /></DemoCard>
         <DemoCard title="Popconfirm" desc="气泡确认：危险操作防误触 + 复用 usePopup 基座" code={CODE.popconfirm}><DemoPopconfirm /></DemoCard>
         <DemoCard title="AutoComplete" desc="输入联想：自由输入 + 过滤下拉 + 键盘流 + 选中回填" code={CODE.autocomplete}><DemoAutoComplete /></DemoCard>
+        <DemoCard title="AutoComplete 禁用态" desc="disabled 时不可输入（状态矩阵覆盖）" code={CODE.autocompleteDis}><DemoAutoCompleteDis /></DemoCard>
         <DemoCard title="Link" desc="文字链接：语义色/下划线/disabled/新窗口" code={CODE.link}><DemoLink /></DemoCard>
         <DemoCard title="FloatButton" desc="悬浮按钮组：展开状态机 + badge" code={CODE.floatbutton}><DemoFloatButton /></DemoCard>
         <DemoCard title="NavMenu" desc="顶部导航：多级 hover 弹出 + 键盘（shadcn NavigationMenu）" code={CODE.navmenu}><DemoNavMenu /></DemoCard>
@@ -2774,6 +2907,7 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="Toggle / ToggleGroup" desc="切换按钮：single/multiple 双模式（shadcn 对齐）" code={CODE.togglegroup}><DemoToggleGroup /></DemoCard>
         <DemoCard title="CheckboxGroup" desc="复选框组：数组受控 + 栅格列数（antd Checkbox.Group）" code={CODE.checkboxgroup}><DemoCheckboxGroup /></DemoCard>
         <DemoCard title="PinInput" desc="验证码输入：自动聚焦/粘贴分派/Backspace 回退（shadcn InputOTP）" code={CODE.pininput}><DemoPinInput /></DemoCard>
+        <DemoCard title="PinInput 禁用态" desc="disabled 不可编辑（状态矩阵覆盖）" code={CODE.pininputDis}><DemoPinInputDis /></DemoCard>
         <DemoCard title="CopyButton" desc="复制按钮：clipboard + execCommand 降级 + 成功状态机" code={CODE.copybtn}><DemoCopyButton /></DemoCard>
         <DemoCard title="ColorPicker" desc="颜色选择：预设色板 + hex 输入（Popover 弹层）" code={CODE.colorpicker}><DemoColorPicker /></DemoCard>
         <DemoCard title="HoverCard" desc="悬停富内容卡：openDelay 延迟 + 任意 VNode（shadcn）" code={CODE.hovercard}><DemoHoverCard /></DemoCard>
@@ -2782,15 +2916,18 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="Anchor" desc="锚点导航：滚动高亮跟随 + 点击平滑滚动" code={CODE.anchor}><DemoAnchor /></DemoCard>
         <DemoCard title="ContextMenu" desc="右键菜单：光标定位 + 方向键 + danger 变体（shadcn）" code={CODE.contextmenu}><DemoContextMenu /></DemoCard>
         <DemoCard title="Mentions" desc="@提及：composition 抑制 + 过滤插入（antd Mentions）" code={CODE.mentions}><DemoMentions /></DemoCard>
+        <DemoCard title="Mentions 禁用态" desc="disabled 时不可输入（状态矩阵覆盖）" code={CODE.mentionsDis}><DemoMentionsDis /></DemoCard>
         <DemoCard title="Collapse" desc="行内折叠：异步 loading + extra 操作区（区别于 Accordion）" code={CODE.collapse}><DemoCollapse /></DemoCard>
         <DemoCard title="Tree" desc="树形：递归模型 + 勾选父子联动 + indeterminate（antd/EP Tree）" code={CODE.tree}><DemoToggleTree /></DemoCard>
         <DemoCard title="Cascader" desc="级联选择：多列面板逐级推进（antd/EP Cascader）" code={CODE.cascader}><DemoCascader /></DemoCard>
+        <DemoCard title="Cascader 禁用/错误" desc="disabled + error 校验态（状态矩阵覆盖）" code={CODE.cascaderDis}><DemoCascaderDis /></DemoCard>
         <DemoCard title="Transfer" desc="穿梭框：双列表 + 选中移动（antd/EP Transfer）" code={CODE.transfer}><DemoTransfer /></DemoCard>
         <DemoCard title="Command" desc="命令面板：⌘K 全局快捷键 + 键盘流（shadcn Command）" code={CODE.command}><DemoCommand /></DemoCard>
         <DemoCard title="Menubar" desc="水平菜单栏：←→ 切换 + ↓ 展开（shadcn Menubar）" code={CODE.menubar}><DemoMenubar /></DemoCard>
         <DemoCard title="Carousel" desc="轮播：箭头/圆点/循环 + 自动播放（三库共识）" code={CODE.carousel}><DemoCarousel /></DemoCard>
         <DemoCard title="Resizable" desc="拖拽分割面板：pointer + 键盘方向键 + clamp（shadcn）" code={CODE.resizable}><DemoResizable /></DemoCard>
         <DemoCard title="Calendar" desc="月历：事件点 + 月切换 + 日期选择（antd/EP Calendar）" code={CODE.calendar}><DemoCalendar /></DemoCard>
+        <DemoCard title="Calendar 事件" desc="事件标记 + 日期选择交互（变体覆盖）" code={CODE.calendarEvents}><DemoCalendarEvents /></DemoCard>
         <DemoCard title="Watermark" desc="水印：canvas 平铺绘制 + overlay（antd Watermark）" code={CODE.watermark}><DemoWatermark /></DemoCard>
         <DemoCard title="VirtualList" desc="虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM" code={CODE.virtuallist}><DemoVirtualList /></DemoCard>
         <DemoCard title="VirtualTable" desc="虚拟表格：10k 行固定表头 + 可见窗口渲染 + 排序" code={CODE.virtualtable}><DemoVirtualTable /></DemoCard>
