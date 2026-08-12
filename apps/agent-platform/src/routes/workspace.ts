@@ -3,7 +3,7 @@
  *
  * 与沙盒关系：文件浏览器是用户查看 workspace 状态的管理面（宿主直接 fs 访问）；
  * agent 工具（容器内）与用户看到的是同一份数据（容器卷挂载 = 宿主目录，双向可见）。
- * 安全：租户隔离（agent 必须属于当前 tenant）+ 路径穿越防护（resolveWorkspacePath）。
+ * 安全：应用隔离（agent 必须属于当前 app）+ 路径穿越防护（resolveWorkspacePath）。
  */
 
 import { readFile, readdir, writeFile, stat, mkdir } from 'node:fs/promises'
@@ -28,10 +28,10 @@ const MAX_WRITE = 500 * 1024 // 500KB 写上限
 export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void> {
   // 校验 agent 属于当前租户 + 解析 workspace
   async function getWorkspace(ctx: AppCtx, agentId: string): Promise<string | null> {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const [agent] = await sql`
       SELECT id, workspace_path, allow_file_tools FROM agents
-      WHERE id = ${agentId} AND tenant_id = ${tenantId}
+      WHERE id = ${agentId} AND app_id = ${appId}
     `
     if (!agent) return null
     // 未启用文件工具的 agent 无 workspace（或返回默认目录）

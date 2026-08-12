@@ -68,7 +68,7 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
           SELECT a.kb_id, kb.name as kb_name
           FROM agents a
           LEFT JOIN agents kb ON kb.id = a.kb_id AND kb.type = 'knowledge_base' AND kb.is_active = TRUE
-          WHERE a.id = ${agentId} AND a.tenant_id = ${ctx.tenantId}
+          WHERE a.id = ${agentId} AND a.app_id = ${ctx.appId}
         `
         if (agent?.kb_id && agent.kb_name) {
           kbs = [{ id: agent.kb_id as string, name: agent.kb_name as string }]
@@ -81,7 +81,7 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       if (kbs.length === 0) {
         kbs = await sql`
           SELECT id, name FROM agents
-          WHERE tenant_id = ${ctx.tenantId} AND type = 'knowledge_base' AND is_active = TRUE
+          WHERE app_id = ${ctx.appId} AND type = 'knowledge_base' AND is_active = TRUE
           LIMIT 5
         ` as unknown as Array<{ id: string; name: string }>
       }

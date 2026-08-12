@@ -22,7 +22,7 @@ import type { WfEmitter } from 'weifuwu'
 
 export interface AgentRunnerConfig {
   agentId: string
-  tenantId: string
+  appId: string
   departmentId: string
   systemPrompt: string
   model?: string
@@ -231,11 +231,11 @@ export async function runAgent(
     if (sql) {
       await sql`
         INSERT INTO agent_logs (
-          agent_id, tenant_id, department_id,
+          agent_id, app_id, department_id,
           messages_count, steps_count, tokens_prompt, tokens_completion, tokens_total,
           elapsed_ms, success
         ) VALUES (
-          ${config.agentId}, ${config.tenantId}, ${config.departmentId},
+          ${config.agentId}, ${config.appId}, ${config.departmentId},
           ${messages.length}, ${result.steps.length},
           ${result.usage?.prompt_tokens ?? 0},
           ${result.usage?.completion_tokens ?? 0},
@@ -268,7 +268,7 @@ export async function streamAgentPreview(
   const preloadedSkills = await loadAgentSkillsPreview(sql, agent.id, ctx)
   const config: AgentRunnerConfig = {
     agentId: agent.id,
-    tenantId: ctx.tenantId,
+    appId: ctx.appId,
     departmentId: '',
     systemPrompt: agent.system_prompt ?? '你是一个有帮助的 AI 助手。',
     model: agent.model,

@@ -22,7 +22,7 @@ export interface AppCtx {
   /** postgres() 中间件注入（Context['sql'] 由框架 postgres declare 提供） */
   sql: Context['sql']
   // ── 自研中间件注入 ──
-  /** 框架 user() 注入：AuthApi 方法面 + 会话 payload 字段（userId/tenantId/email/name/role） */
+  /** 框架 user() 注入：AuthApi 方法面 + 会话 payload 字段（userId/appId/email/name/role） */
   auth: AuthApi & AuthPayload
   /** 框架 ai() 注入：AiClientModule（chat/stream/sse/agent/embed/approve） */
   ai: AiClientModule
@@ -30,8 +30,8 @@ export interface AppCtx {
   msg: MessagerClient
   /** 框架 rateLimit() 注入：ctx.limit 手动限流（显式声明，避免落入索引签名 unknown） */
   limit?: RateLimitInjected['limit']
-  /** 租户隔离（tenant 中间件从 auth.tenantId 注入） */
-  tenantId: string
+  /** 应用隔离（auth.appId 从 token payload 注入——框架 userSystem） */
+  appId: string
   workspace?: WorkspaceInfo
   // ── 其他中间件注入（宽松） ──
   [key: string]: unknown

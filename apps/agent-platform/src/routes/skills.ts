@@ -8,9 +8,9 @@ import type { AppCtx } from '../middleware/ctx.ts'
 export function registerSkillRoutes(app: Router<AppCtx>): void {
   // ── 获取 Agent 已绑定的技能 ─────────────────────────
   app.get('/api/agents/:id/skills', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, params, tenantId } = ctx
+    const { sql, params, appId } = ctx
     const [agent] = await sql`
-      SELECT id, tenant_id FROM agents WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      SELECT id, app_id FROM agents WHERE id = ${params.id} AND app_id = ${appId}
     `
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
 
@@ -25,7 +25,7 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
 
   // ── 为 Agent 绑定技能 ───────────────────────────────
   app.post('/api/agents/:id/skills', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, params, tenantId } = ctx
+    const { sql, params, appId } = ctx
     const body = await req.json() as { skill_name: string; skill_dir: string }
 
     if (!body.skill_name || !body.skill_dir) {
@@ -33,7 +33,7 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
     }
 
     const [agent] = await sql`
-      SELECT id, tenant_id FROM agents WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      SELECT id, app_id FROM agents WHERE id = ${params.id} AND app_id = ${appId}
     `
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
 
@@ -54,11 +54,11 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
 
   // ── 更新技能状态 ───────────────────────────────────
   app.put('/api/agents/:id/skills/:skillId', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, params, tenantId } = ctx
+    const { sql, params, appId } = ctx
     const body = await req.json() as { enabled?: boolean }
 
     const [agent] = await sql`
-      SELECT id FROM agents WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}
     `
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
 
@@ -79,10 +79,10 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
 
   // ── 移除 Agent 技能 ─────────────────────────────────
   app.delete('/api/agents/:id/skills/:skillId', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, params, tenantId } = ctx
+    const { sql, params, appId } = ctx
 
     const [agent] = await sql`
-      SELECT id FROM agents WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}
     `
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
 

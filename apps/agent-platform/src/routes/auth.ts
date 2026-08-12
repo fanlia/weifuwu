@@ -1,13 +1,17 @@
 /**
  * 认证路由 — 登录/注册
+ *
+ * 产品流程（框架 userSystem 三层模型）：
+ *   平台注册（_weifuwu_users）→ createApp（_weifuwu_apps，调用者成 owner）→ 建默认 Agent
+ *   登录：平台登录（/api/auth/login 返回 apps 列表）→ 应用内登录（/apps/:appSlug/login 拿应用 token）
  */
 
-import type { Router, Context } from 'weifuwu'
+import type { Router } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
 /**
- * 自定义注册路由（其余认证路由 login/logout/refresh/me 由框架 user() 提供）：
- * 产品流程 = 建租户 → 框架 ctx.auth.register（_weifuwu_users + 签发）→ 建默认 Agent
+ * 自定义注册路由（其余认证路由 login/logout/refresh/me/apps 由框架 user() 提供）：
+ * 注册 = 平台注册 + 建默认应用（owner）+ 建默认 Agent + 签发应用 token——前端一次提交完成 onboarding
  */
 export function registerAuthRoutes(app: Router<AppCtx>): void {
 
@@ -24,7 +28,7 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
       email: string
       password: string
       name: string
-      tenantSlug?: string
+      appSlug?: string
     }
 
     if (!body.email || !body.password || !body.name) {
@@ -33,53 +37,36 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
 
     const { sql } = ctx
 
-    // 查找或创建租户
-    const tenantSlug = body.tenantSlug ?? body.email.split('@')[1] ?? 'default'
-    let [tenant] = await sql`
-      SELECT id FROM tenants WHERE slug = ${tenantSlug}
-    `
-    if (!tenant) {
-      [tenant] = await sql`
-        INSERT INTO tenants (name, slug)
-        VALUES (${tenantSlug}, ${tenantSlug})
-        RETURNING id
-      `
-    }
-
-    // 检查邮箱是否已注册（框架 _weifuwu_users：email 全局唯一，登录/改密/会话都走它）
-    const [existing] = await sql`
-      SELECT id FROM _weifuwu_users WHERE email = ${body.email}
-    `
-    if (existing) {
-      return Response.json({ error: '该邮箱已注册' }, { status: 409 })
-    }
-
-    // 框架 ctx.auth.register：建用户（_weifuwu_users）+ 签发 token（payload 携带 tenantId）
+    // 1. 平台注册（框架 _weifuwu_users：email 全局唯一）——重复邮箱 409
     const registered = await ctx.auth.register({
       email: body.email,
       password: body.password,
       name: body.name,
-      role: 'member',
-      tenant: String(tenant.id),   // 多租户感知：token 携带 → ctx.tenantId 注入
     })
 
-    // 自动创建绑定的 user 类型 Agent — 注册用户即可发消息
+    // 2. 建默认应用（框架 _weifuwu_apps：调用者成为 owner）——slug = 邮箱域名或自定义
+    const appSlug = (body.appSlug ?? body.email.split('@')[1] ?? 'default').trim().toLowerCase()
+    const appInfo = await ctx.auth.createApp({
+      slug: appSlug,
+      name: `${body.name} 的应用`,
+      openRegistration: false,
+    })
+
+    // 3. 自动创建绑定的 user 类型 Agent — 注册用户即可发消息
     await sql`
-      INSERT INTO agents (tenant_id, type, name, user_id, is_active)
-      VALUES (${tenant.id}, 'user', ${registered.user.name ?? body.name}, ${registered.user.id}, true)
+      INSERT INTO agents (app_id, type, name, user_id, is_active)
+      VALUES (${appInfo.id}, 'user', ${registered.user.name ?? body.name}, ${registered.user.id}, true)
       ON CONFLICT DO NOTHING
     `
 
+    // 4. 签发应用 token（owner 成员已建——应用内登录一步到位，前端直接进应用）
+    const appLogin = await ctx.auth.loginApp(appSlug, body.email, body.password)
+
     return Response.json({
-      token: registered.token,
-      refreshToken: registered.refreshToken,
-      user: registered.user,
+      token: appLogin.token,
+      refreshToken: appLogin.refreshToken,
+      user: appLogin.user,
+      app: { id: appInfo.id, slug: appInfo.slug, name: appInfo.name, role: 'owner' },
     })
   })
-
-
-  // ── 获取当前用户 ─────────────────────────────────────────
-
-  // 注：/api/auth/me 已被移至 server.ts 的 protectedRoutes 中
 }
-

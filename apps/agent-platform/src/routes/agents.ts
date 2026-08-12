@@ -45,7 +45,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 获取 Agent 列表 ──────────────────────────────────────
 
   app.get('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const url = new URL(req.url)
     const type = url.searchParams.get('type')
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
@@ -59,7 +59,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
         tools, is_active, created_at, updated_at,
         workspace_path, allow_file_tools, allow_command_exec
       FROM agents
-      WHERE tenant_id = ${tenantId}
+      WHERE app_id = ${appId}
       ${type && ['ai', 'user', 'webhook', 'knowledge_base'].includes(type) ? sql`AND type = ${type}` : sql``}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -67,7 +67,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
 
     const [countResult] = await sql`
       SELECT COUNT(*)::int as total FROM agents
-      WHERE tenant_id = ${tenantId}
+      WHERE app_id = ${appId}
       ${type && ['ai', 'user', 'webhook', 'knowledge_base'].includes(type) ? sql`AND type = ${type}` : sql``}
     `
 
@@ -96,7 +96,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 创建 Agent ───────────────────────────────────────────
 
   app.post('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const body = await req.json() as {
       type: string
       name: string
@@ -140,12 +140,12 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
 
     const [agent] = await sql`
       INSERT INTO agents (
-        tenant_id, type, name, avatar_url, description,
+        app_id, type, name, avatar_url, description,
         model, system_prompt, temperature, max_tokens, human_in_the_loop,
         user_id, webhook_url, webhook_secret, webhook_retry_count, chunk_size, chunk_overlap, tools,
         workspace_path, allow_file_tools, allow_command_exec, allow_network, kb_id
       ) VALUES (
-        ${tenantId}, ${body.type}, ${body.name}, ${body.avatar_url ?? null}, ${body.description ?? null},
+        ${appId}, ${body.type}, ${body.name}, ${body.avatar_url ?? null}, ${body.description ?? null},
         ${body.model ?? null}, ${body.system_prompt ?? null}, ${body.temperature ?? 0.7}, ${body.max_tokens ?? 2048}, ${body.human_in_the_loop ?? false},
         ${body.user_id ?? null}, ${body.webhook_url ?? null}, ${body.webhook_secret ?? null}, ${body.webhook_retry_count ?? 3}, ${body.chunk_size ?? 500}, ${body.chunk_overlap ?? 50},
         ${body.tools ? JSON.stringify(body.tools) : '[]'},
@@ -160,12 +160,12 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 获取单个 Agent ───────────────────────────────────────
 
   app.get('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const [agent] = await sql`
       SELECT a.*, u.email as bound_email, u.name as bound_user_name
       FROM agents a
       LEFT JOIN _weifuwu_users u ON u.id = a.user_id
-      WHERE a.id = ${params.id} AND a.tenant_id = ${tenantId}
+      WHERE a.id = ${params.id} AND a.app_id = ${appId}
     `
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
@@ -176,7 +176,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 更新 Agent ───────────────────────────────────────────
 
   app.put('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const body = await req.json() as Record<string, unknown>
 
     // 构建动态更新
@@ -204,9 +204,9 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
 
     // 构建安全的动态 SET 子句 — 字段名硬编码无注入风险，参数值通过 paramsList 传入
     const setClause = sets.join(', ')
-    const allParams = [...paramsList, params.id, tenantId]
+    const allParams = [...paramsList, params.id, appId]
     const [agent] = await sql.unsafe(
-      `UPDATE agents SET ${setClause}, updated_at = NOW() WHERE id = $${paramsList.length + 1} AND tenant_id = $${paramsList.length + 2} RETURNING id, name, type, updated_at`,
+      `UPDATE agents SET ${setClause}, updated_at = NOW() WHERE id = $${paramsList.length + 1} AND app_id = $${paramsList.length + 2} RETURNING id, name, type, updated_at`,
       allParams
     )
 
@@ -219,10 +219,10 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 删除 Agent ───────────────────────────────────────────
 
   app.delete('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const result = await sql`
       DELETE FROM agents
-      WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      WHERE id = ${params.id} AND app_id = ${appId}
       RETURNING id
     `
     if (result.length === 0) {
@@ -234,10 +234,10 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 对话预览（测试提示词，单轮流式，不落消息/不触发 HITL） ──
 
   app.post('/api/agents/:id/preview', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const [agent] = await sql`
       SELECT * FROM agents
-      WHERE id = ${params.id} AND tenant_id = ${tenantId} AND type = 'ai'
+      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'ai'
     `
     if (!agent) {
       return Response.json({ error: 'AI Agent 不存在' }, { status: 404 })

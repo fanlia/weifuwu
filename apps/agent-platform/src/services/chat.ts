@@ -236,7 +236,7 @@ export async function handleNewMessage(
 
       const result = await runAgent(ctx, {
         agentId: agent.id,
-        tenantId: ctx.tenantId,
+        appId: ctx.appId,
         departmentId,
         systemPrompt,
         model: agent.model,
@@ -340,7 +340,7 @@ async function runAgentStreamForAgent(
   try {
     finalUsage = await streamAgent(ctx, {
       agentId: agent.id,
-      tenantId: ctx.tenantId,
+      appId: ctx.appId,
       departmentId,
       systemPrompt,
       model: agent.model,
@@ -387,9 +387,9 @@ async function runAgentStreamForAgent(
     if (finalUsage) {
       try {
         await sql`
-          INSERT INTO agent_logs (agent_id, tenant_id, department_id, messages_count, steps_count,
+          INSERT INTO agent_logs (agent_id, app_id, department_id, messages_count, steps_count,
             tokens_prompt, tokens_completion, tokens_total, elapsed_ms, success)
-          VALUES (${agent.id}, ${ctx.tenantId}, ${departmentId},
+          VALUES (${agent.id}, ${ctx.appId}, ${departmentId},
             ${chatMessages.length}, 1,
             ${finalUsage.prompt_tokens}, ${finalUsage.completion_tokens}, ${finalUsage.total_tokens},
             0, TRUE)
@@ -487,7 +487,7 @@ async function runAllAgents(
       // HITL：非流式
       const result = await runAgent(ctx, {
         agentId: agent.id,
-        tenantId: ctx.tenantId,
+        appId: ctx.appId,
         departmentId,
         systemPrompt: agent.system_prompt ?? '你是一个有帮助的 AI 助手。',
         model: agent.model,

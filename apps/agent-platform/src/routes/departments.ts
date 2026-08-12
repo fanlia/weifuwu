@@ -9,7 +9,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 获取部门列表 ─────────────────────────────────────────
 
   app.get('/api/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const url = new URL(req.url)
     const companyId = url.searchParams.get('company_id')
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
@@ -22,7 +22,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
         (SELECT m.created_at FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1) as last_message_at
       FROM departments d
       JOIN companies c ON c.id = d.company_id
-      WHERE c.tenant_id = ${tenantId}
+      WHERE c.app_id = ${appId}
       ${companyId ? sql`AND d.company_id = ${companyId}` : sql``}
       ORDER BY COALESCE((SELECT m.created_at FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1), d.created_at) DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -32,7 +32,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       SELECT COUNT(*)::int as total
       FROM departments d
       JOIN companies c ON c.id = d.company_id
-      WHERE c.tenant_id = ${tenantId}
+      WHERE c.app_id = ${appId}
       ${companyId ? sql`AND d.company_id = ${companyId}` : sql``}
     `
 
@@ -42,21 +42,21 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 发起单聊（找/建 1v1 DM 部门——当前用户 × 目标 Agent） ──────
 
   app.post('/api/departments/dm', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, auth } = ctx
+    const { sql, appId, auth } = ctx
     const body = await req.json() as { agent_id: string }
     if (!body.agent_id) {
       return Response.json({ error: 'agent_id 为必填' }, { status: 400 })
     }
     // 目标 Agent 必须是同租户且不是 user 类型（不能和自己单聊）
     const [target] = await sql`
-      SELECT id FROM agents WHERE id = ${body.agent_id} AND tenant_id = ${tenantId} AND type != 'user'
+      SELECT id FROM agents WHERE id = ${body.agent_id} AND app_id = ${appId} AND type != 'user'
     `
     if (!target) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
     // 当前用户的 user agent
     const [me] = await sql`
-      SELECT id FROM agents WHERE tenant_id = ${tenantId} AND type = 'user' AND user_id = ${auth!.userId}
+      SELECT id FROM agents WHERE app_id = ${appId} AND type = 'user' AND user_id = ${auth!.userId}
     `
     if (!me) {
       return Response.json({ error: '当前用户无绑定 Agent' }, { status: 400 })
@@ -76,8 +76,8 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     // 找目标 agent 的公司（挂第一个公司；无公司时不允许）
     const [company] = await sql`
       SELECT c.id FROM companies c
-      JOIN agents a ON a.tenant_id = c.tenant_id
-      WHERE a.id = ${target.id} AND c.tenant_id = ${tenantId}
+      JOIN agents a ON a.app_id = c.app_id
+      WHERE a.id = ${target.id} AND c.app_id = ${appId}
       ORDER BY c.created_at LIMIT 1
     `
     if (!company) {
@@ -100,7 +100,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 创建部门 ─────────────────────────────────────────────
 
   app.post('/api/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const body = await req.json() as {
       company_id: string
       name: string
@@ -114,7 +114,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
 
     // 验证公司属于当前租户
     const [company] = await sql`
-      SELECT id FROM companies WHERE id = ${body.company_id} AND tenant_id = ${tenantId}
+      SELECT id FROM companies WHERE id = ${body.company_id} AND app_id = ${appId}
     `
     if (!company) {
       return Response.json({ error: '公司不存在' }, { status: 404 })
@@ -129,7 +129,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     // 创建者的 user agent 自动加入并设为管理员（确保创建者能发消息）
     const [creatorAgent] = await sql`
       SELECT id FROM agents
-      WHERE tenant_id = ${tenantId} AND type = 'user' AND user_id = ${ctx.auth!.userId}
+      WHERE app_id = ${appId} AND type = 'user' AND user_id = ${ctx.auth!.userId}
     `
     if (creatorAgent) {
       await sql`
@@ -156,12 +156,12 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 获取单个部门 ─────────────────────────────────────────
 
   app.get('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const [dept] = await sql`
       SELECT d.*, c.name as company_name
       FROM departments d
       JOIN companies c ON c.id = d.company_id
-      WHERE d.id = ${params.id} AND c.tenant_id = ${tenantId}
+      WHERE d.id = ${params.id} AND c.app_id = ${appId}
     `
     if (!dept) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
@@ -181,14 +181,14 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 更新部门 ─────────────────────────────────────────────
 
   app.put('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const body = await req.json() as { name?: string }
 
     const [dept] = await sql`
       UPDATE departments d
       SET name = COALESCE(${body.name ?? null}, d.name), updated_at = NOW()
       FROM companies c
-      WHERE d.id = ${params.id} AND c.id = d.company_id AND c.tenant_id = ${tenantId}
+      WHERE d.id = ${params.id} AND c.id = d.company_id AND c.app_id = ${appId}
       RETURNING d.id, d.name, d.updated_at
     `
 
@@ -201,11 +201,11 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 删除部门 ─────────────────────────────────────────────
 
   app.delete('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const result = await sql`
       DELETE FROM departments d
       USING companies c
-      WHERE d.id = ${params.id} AND c.id = d.company_id AND c.tenant_id = ${tenantId}
+      WHERE d.id = ${params.id} AND c.id = d.company_id AND c.app_id = ${appId}
       RETURNING d.id
     `
     if (result.length === 0) {
@@ -217,7 +217,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 添加成员 ─────────────────────────────────────────────
 
   app.post('/api/departments/:id/members', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const body = await req.json() as { agent_id: string; role?: string }
 
     if (!body.agent_id) {
@@ -228,14 +228,14 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     const [dept] = await sql`
       SELECT d.id FROM departments d
       JOIN companies c ON c.id = d.company_id
-      WHERE d.id = ${params.id} AND c.tenant_id = ${tenantId}
+      WHERE d.id = ${params.id} AND c.app_id = ${appId}
     `
     if (!dept) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
     }
 
     const [agent] = await sql`
-      SELECT id FROM agents WHERE id = ${body.agent_id} AND tenant_id = ${tenantId}
+      SELECT id FROM agents WHERE id = ${body.agent_id} AND app_id = ${appId}
     `
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
@@ -253,13 +253,13 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 移除成员 ─────────────────────────────────────────────
 
   app.delete('/api/departments/:id/members/:agentId', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
 
     // 验证部门属于当前租户
     const [dept] = await sql`
       SELECT d.id FROM departments d
       JOIN companies c ON c.id = d.company_id
-      WHERE d.id = ${params.id} AND c.tenant_id = ${tenantId}
+      WHERE d.id = ${params.id} AND c.app_id = ${appId}
     `
     if (!dept) {
       return Response.json({ error: '部门不存在' }, { status: 404 })

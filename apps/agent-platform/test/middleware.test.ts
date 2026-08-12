@@ -1,10 +1,10 @@
 /**
- * 中间件测试 — 框架 user()（认证注入）+ ai()（AI 客户端注入）+ 租户 claim
+ * 中间件测试 — 框架 user()（认证注入）+ ai()（AI 客户端注入）+ 应用 claim
  *
- * 架构迁移后（框架 userSystem 替代自研 auth/tenant 中间件），测试改为验证：
- *  - userSystem 注入 ctx.auth（userId/tenantId/email/name/role）+ requireAuth
+ * 架构迁移后（框架 userSystem 替代自研 auth/app 模型），测试改为验证：
+ *  - userSystem 注入 ctx.auth（userId/appId/email/name/role）+ requireAuth
  *  - 框架 ai() 注入 ctx.ai（chat/stream/agent/embed/embedMany）
- *  - token payload 携带 tenantId → ctx.tenantId 注入
+ *  - token payload 携带 appId → ctx.appId 注入
  */
 import { describe, it, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'

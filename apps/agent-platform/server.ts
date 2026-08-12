@@ -84,12 +84,65 @@ async function main() {
     accessTtlSeconds: 15 * 60,   // 对齐原 15m
     refreshTtlDays: 7,           // 对齐原 7d
   })
-  await users.migrate()          // _weifuwu_users / _weifuwu_sessions
+  await users.migrate()          // _weifuwu_users / _weifuwu_sessions / _weifuwu_apps / _weifuwu_app_members
   // 迁移遗留：schema.sql 已去外键（agents.user_id 指向框架 _weifuwu_users），但已存在的表结构
   // 仍带旧约束（agents_user_id_fkey → 已删的 users 表）——幂等删除，避免注册建默认 Agent 失败
   await pg.sql`
     ALTER TABLE agents DROP CONSTRAINT IF EXISTS agents_user_id_fkey
   `
+
+  // ── 一次性迁移：旧 tenant 模型 → 新 app 模型（幂等，仅旧库生效） ──
+  // 旧版：tenants 表 + _weifuwu_users.tenant 字段 + 业务表 app_id
+  // 新版：_weifuwu_apps + _weifuwu_app_members + 业务表 app_id（框架 userSystem 三层模型）
+  await pg.sql.unsafe(`
+    -- 一次性迁移：仅当旧 tenants 表存在时执行（成功后会 DROP——幂等标记）
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables
+                 WHERE table_name='tenants' AND table_schema='public') THEN
+        -- 1. 旧 tenants → _weifuwu_apps（owner = 该租户第一个用户）
+        INSERT INTO _weifuwu_apps (id, slug, name, owner_user_id)
+        SELECT t.id, t.slug, t.name,
+          (SELECT u.id FROM _weifuwu_users u WHERE u.tenant = t.id::text ORDER BY u.created_at LIMIT 1)
+        FROM tenants t
+        WHERE EXISTS (SELECT 1 FROM _weifuwu_users u WHERE u.tenant = t.id::text)
+        ON CONFLICT (slug) DO NOTHING;
+
+        -- 2. 旧用户 tenant 字段 → members（role=owner——旧模型注册即租户所有者）
+        INSERT INTO _weifuwu_app_members (app_id, user_id, role, invited_by)
+        SELECT u.tenant::uuid, u.id, 'owner', u.id
+        FROM _weifuwu_users u WHERE u.tenant IS NOT NULL
+        ON CONFLICT DO NOTHING;
+
+        -- 3. 业务表列重命名（幂等：列存在检查）+ 旧外键清理
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='companies' AND column_name='tenant_id') THEN
+          ALTER TABLE companies DROP CONSTRAINT IF EXISTS companies_tenant_id_fkey;
+          ALTER TABLE agents DROP CONSTRAINT IF EXISTS agents_tenant_id_fkey;
+          ALTER TABLE agent_logs DROP CONSTRAINT IF EXISTS agent_logs_tenant_id_fkey;
+          ALTER TABLE webhook_logs DROP CONSTRAINT IF EXISTS webhook_logs_tenant_id_fkey;
+          ALTER TABLE companies RENAME COLUMN tenant_id TO app_id;
+          ALTER TABLE agents RENAME COLUMN tenant_id TO app_id;
+          ALTER TABLE agent_logs RENAME COLUMN tenant_id TO app_id;
+          ALTER TABLE webhook_logs RENAME COLUMN tenant_id TO app_id;
+          ALTER TABLE events RENAME COLUMN tenant_id TO app_id;
+          DROP INDEX IF EXISTS idx_agents_tenant;
+          DROP INDEX IF EXISTS idx_agent_logs_tenant;
+          DROP INDEX IF EXISTS idx_events_tenant;
+          DROP INDEX IF EXISTS uq_events_first_message;
+        END IF;
+
+        -- 4. 清空旧 tenant 字段 + 删旧表（迁移完成的标记）
+        UPDATE _weifuwu_users SET tenant = NULL;
+        DROP TABLE IF EXISTS tenants;
+      END IF;
+    END $$;
+    -- 索引无条件幂等重建（新库直接建，旧库迁移后补）
+    CREATE INDEX IF NOT EXISTS idx_agents_app ON agents(app_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_logs_app ON agent_logs(app_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_events_app ON events(app_id, event);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_events_first_message ON events(app_id, event) WHERE event = 'first_message';
+  `)
+  console.log('[agent-platform] app 模型迁移完成（旧 tenants → _weifuwu_apps + members）')
   app.use(users)
   // 框架认证路由：login/logout/refresh/me（register 自定义：建租户 + 默认 agent）
   users.routes(app, { prefix: '/api/auth', exclude: ['register'] })
@@ -237,7 +290,7 @@ async function main() {
 
   // ── 完整统计数据 ───────────────────────────────────────
   protectedRoutes.get('/api/stats', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
 
     const [agentStats] = await sql`
       SELECT
@@ -246,19 +299,19 @@ async function main() {
         COUNT(*) FILTER (WHERE type = 'webhook')::int as webhook_count,
         COUNT(*) FILTER (WHERE type = 'knowledge_base')::int as kb_count,
         COUNT(*) FILTER (WHERE type = 'user')::int as user_count
-      FROM agents WHERE tenant_id = ${tenantId}
+      FROM agents WHERE app_id = ${appId}
     `
 
     const [deptStats] = await sql`
       SELECT COUNT(*)::int as total FROM departments d
       JOIN companies c ON c.id = d.company_id
-      WHERE c.tenant_id = ${tenantId}
+      WHERE c.app_id = ${appId}
     `
 
     const [msgStats] = await sql`
       SELECT COUNT(*)::int as total FROM messages m
       JOIN agents a ON a.id = m.sender_id
-      WHERE a.tenant_id = ${tenantId}
+      WHERE a.app_id = ${appId}
     `
 
     const [tokenStats] = await sql`
@@ -266,7 +319,7 @@ async function main() {
         COALESCE(SUM(tokens_prompt), 0)::int as total_prompt,
         COALESCE(SUM(tokens_completion), 0)::int as total_completion,
         COALESCE(SUM(tokens_total), 0)::int as total_tokens
-      FROM agent_logs WHERE tenant_id = ${tenantId}
+      FROM agent_logs WHERE app_id = ${appId}
     `
 
     // 近 7 天消息趋势
@@ -276,7 +329,7 @@ async function main() {
         COUNT(*)::int as count
       FROM messages m
       JOIN agents a ON a.id = m.sender_id
-      WHERE a.tenant_id = ${tenantId}
+      WHERE a.app_id = ${appId}
         AND m.created_at >= NOW() - INTERVAL '7 days'
       GROUP BY DATE(m.created_at)
       ORDER BY day
@@ -289,7 +342,7 @@ async function main() {
         MAX(m.created_at) as last_active_at
       FROM agents a
       JOIN messages m ON m.sender_id = a.id
-      WHERE a.tenant_id = ${tenantId}
+      WHERE a.app_id = ${appId}
         AND m.created_at >= NOW() - INTERVAL '7 days'
       GROUP BY a.id, a.name, a.type
       ORDER BY message_count DESC
@@ -308,7 +361,7 @@ async function main() {
 
   // ── Token 成本排行（按 Agent，老板视角成本视图） ─────────────
   protectedRoutes.get('/api/stats/tokens-by-agent', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const rows = await sql`
       SELECT a.id, a.name, a.type,
         COUNT(al.id)::int as run_count,
@@ -316,8 +369,8 @@ async function main() {
         COALESCE(SUM(al.tokens_prompt), 0)::int as tokens_prompt,
         COALESCE(SUM(al.tokens_completion), 0)::int as tokens_completion
       FROM agents a
-      LEFT JOIN agent_logs al ON al.agent_id = a.id AND al.tenant_id = ${tenantId}
-      WHERE a.tenant_id = ${tenantId}
+      LEFT JOIN agent_logs al ON al.agent_id = a.id AND al.app_id = ${appId}
+      WHERE a.app_id = ${appId}
       GROUP BY a.id
       HAVING COUNT(al.id) > 0
       ORDER BY tokens_total DESC
@@ -331,13 +384,13 @@ async function main() {
   // first_message 每租户唯一（部分唯一索引）——首次消息只记一次
   const TRACKABLE = new Set(['register_complete', 'agent_created', 'first_message'])
   protectedRoutes.post('/api/track', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const body = await req.json().catch(() => ({})) as { event?: string }
     if (!body.event || !TRACKABLE.has(body.event)) {
       return Response.json({ error: 'event 必须是 register_complete/agent_created/first_message 之一' }, { status: 400 })
     }
     try {
-      await sql`INSERT INTO events (tenant_id, event) VALUES (${tenantId}, ${body.event})`
+      await sql`INSERT INTO events (app_id, event) VALUES (${appId}, ${body.event})`
     } catch {
       // 部分唯一索引冲突（first_message 已记）——幂等，忽略
     }
@@ -346,19 +399,19 @@ async function main() {
 
   // 漏斗：本租户进度 + 全平台转化（去重租户）
   protectedRoutes.get('/api/stats/funnel', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const rows = await sql`
       SELECT
         COUNT(*) FILTER (WHERE event = 'register_complete')::int as register_complete,
         COUNT(*) FILTER (WHERE event = 'agent_created')::int as agent_created,
         COUNT(*) FILTER (WHERE event = 'first_message')::int as first_message
-      FROM events WHERE tenant_id = ${tenantId}
+      FROM events WHERE app_id = ${appId}
     `
     const mine = rows[0] as { register_complete: number; agent_created: number; first_message: number } | undefined
     const platform = await sql`
       SELECT event, COUNT(*)::int as count
       FROM (
-        SELECT DISTINCT tenant_id, event FROM events
+        SELECT DISTINCT app_id, event FROM events
       ) t GROUP BY event
     `
     return Response.json({
@@ -369,13 +422,13 @@ async function main() {
 
   // ── Agent 执行日志 ───────────────────────────────────────
   protectedRoutes.get('/api/stats/agents/:agentId/logs', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const logs = await sql`
       SELECT id, messages_count, steps_count,
         tokens_prompt, tokens_completion, tokens_total,
         elapsed_ms, success, created_at
       FROM agent_logs
-      WHERE agent_id = ${params.agentId} AND tenant_id = ${tenantId}
+      WHERE agent_id = ${params.agentId} AND app_id = ${appId}
       ORDER BY created_at DESC
       LIMIT 50
     `
@@ -384,12 +437,12 @@ async function main() {
 
   // ── Webhook 调用日志 ─────────────────────────────────────
   protectedRoutes.get('/api/stats/agents/:agentId/webhook-logs', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const logs = await sql`
       SELECT id, request_body, response_body, response_status,
         elapsed_ms, success, created_at
       FROM webhook_logs
-      WHERE agent_id = ${params.agentId} AND tenant_id = ${tenantId}
+      WHERE agent_id = ${params.agentId} AND app_id = ${appId}
       ORDER BY created_at DESC
       LIMIT 30
     `

@@ -6,7 +6,7 @@ export interface AuthPayload {
   /** 当前用户 id（token 的 sub） */
   userId: string
   /** 租户 id（token 携带时；多租户隔离用） */
-  tenantId?: string
+  appId?: string
   email?: string
   name?: string
   role?: string

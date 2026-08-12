@@ -31,8 +31,8 @@ function req(method: string, path: string, body?: unknown): Promise<Response> {
 before(async () => {
   pg = postgres(process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_test', { max: 10, closeTimeout: 1 })
   const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
-  await pg.sql.unsafe('DROP TABLE IF EXISTS _weifuwu_sessions, _weifuwu_users CASCADE')
-  await pg.sql.unsafe('DROP TABLE IF EXISTS webhook_logs, agent_logs, kb_chunks, kb_documents, messages, department_members, departments, agents, companies, tenants CASCADE')
+  await pg.sql.unsafe('DROP TABLE IF EXISTS _weifuwu_sessions, _weifuwu_users, _weifuwu_apps, _weifuwu_app_members CASCADE')
+  await pg.sql.unsafe('DROP TABLE IF EXISTS webhook_conversations, webhook_logs, agent_logs, agent_skills, kb_chunks, kb_documents, role_templates, messages, department_members, departments, events, agents, companies, _weifuwu_app_members, _weifuwu_apps, _weifuwu_sessions, _weifuwu_users CASCADE')
   await pg.sql.unsafe('DROP TYPE IF EXISTS agent_type CASCADE')
   await pg.sql.unsafe(schema)
 

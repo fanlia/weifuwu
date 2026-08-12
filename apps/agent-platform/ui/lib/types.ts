@@ -16,7 +16,7 @@ export interface TokenUsage {
 
 export interface Agent {
   id: string
-  tenant_id?: string
+  app_id?: string
   company_id?: string | null
   type: AgentType
   name: string
@@ -60,7 +60,7 @@ export interface Member {
 export interface Department {
   id: string
   company_id?: string
-  tenant_id?: string
+  app_id?: string
   name: string
   description?: string | null
   created_at?: string

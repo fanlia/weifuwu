@@ -70,7 +70,7 @@ const mockAiClient = {
   },
 }
 
-const TENANT_ID = '00000000-0000-0000-0000-000000000001'
+const APP_ID = '00000000-0000-0000-0000-000000000001'
 const DEPT_ID = '00000000-0000-0000-0000-000000000020'
 const AI_AGENT_ID = '00000000-0000-0000-0000-000000000030'
 const USER_AGENT_ID = '00000000-0000-0000-0000-000000000031'
@@ -81,8 +81,8 @@ function makeMockCtx(extra?: Record<string, unknown>): Context {
     query: {},
     ai: mockAiClient,
     sql: null as any,
-    tenantId: TENANT_ID,
-    auth: { userId: 'test-user', tenantId: TENANT_ID, email: 'test@test.com', name: 'Test', role: 'member' },
+    appId: APP_ID,
+    auth: { userId: 'test-user', appId: APP_ID, email: 'test@test.com', name: 'Test', role: 'member' },
     ...extra,
   } as any
 }
@@ -102,17 +102,15 @@ before(async () => {
     DROP TABLE IF EXISTS agents CASCADE;
     DROP TABLE IF EXISTS companies CASCADE;
     DROP TABLE IF EXISTS users CASCADE;
-    DROP TABLE IF EXISTS tenants CASCADE;
     DROP TYPE IF EXISTS agent_type CASCADE;
   `)
   await pg.sql.unsafe(schema)
 
   // 插入测试数据（使用有效 UUID）
-  await pg.sql`INSERT INTO tenants (id, name, slug) VALUES ('00000000-0000-0000-0000-000000000001', 'Test', 'test')`
-  await pg.sql`INSERT INTO companies (id, tenant_id, name) VALUES ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Test Co')`
+  await pg.sql`INSERT INTO companies (id, app_id, name) VALUES ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Test Co')`
   await pg.sql`INSERT INTO departments (id, company_id, name) VALUES ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000010', 'Test Dept')`
-  await pg.sql`INSERT INTO agents (id, tenant_id, type, name, system_prompt) VALUES ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', 'ai', 'AI Bot', '你是AI助手')`
-  await pg.sql`INSERT INTO agents (id, tenant_id, type, name) VALUES ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', 'user', 'User')`
+  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', 'ai', 'AI Bot', '你是AI助手')`
+  await pg.sql`INSERT INTO agents (id, app_id, type, name) VALUES ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', 'user', 'User')`
   await pg.sql`INSERT INTO department_members (department_id, agent_id) VALUES ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000030')`
   await pg.sql`INSERT INTO department_members (department_id, agent_id) VALUES ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000031')`
 })
@@ -132,7 +130,7 @@ describe('Services', () => {
       const ctx = makeMockCtx()
       const result = await runAgent(ctx, {
         agentId: AI_AGENT_ID,
-        tenantId: TENANT_ID,
+        appId: APP_ID,
         departmentId: DEPT_ID,
         systemPrompt: '你是有帮助的助手',
         model: 'deepseek-v4-flash',
@@ -149,7 +147,7 @@ describe('Services', () => {
       const ctx = makeMockCtx()
       const result = await runAgent(ctx, {
         agentId: AI_AGENT_ID,
-        tenantId: TENANT_ID,
+        appId: APP_ID,
         departmentId: DEPT_ID,
         systemPrompt: '使用工具回答问题',
         tools: [{
@@ -170,7 +168,7 @@ describe('Services', () => {
 
       await streamAgent(ctx, {
         agentId: AI_AGENT_ID,
-        tenantId: TENANT_ID,
+        appId: APP_ID,
         departmentId: DEPT_ID,
         systemPrompt: '流式回答',
         tools: [],
@@ -219,8 +217,8 @@ describe('Services', () => {
     it('human_in_the_loop 创建草稿', async () => {
       // 创建 HITL AI Agent
       await pg.sql`
-        INSERT INTO agents (id, tenant_id, type, name, system_prompt, human_in_the_loop)
-        VALUES ('00000000-0000-0000-0000-000000000032', ${TENANT_ID}, 'ai', 'HITL Bot', '需审批', TRUE)
+        INSERT INTO agents (id, app_id, type, name, system_prompt, human_in_the_loop)
+        VALUES ('00000000-0000-0000-0000-000000000032', ${APP_ID}, 'ai', 'HITL Bot', '需审批', TRUE)
       `
       await pg.sql`
         INSERT INTO department_members (department_id, agent_id) VALUES (${DEPT_ID}, '00000000-0000-0000-0000-000000000032')
@@ -280,8 +278,8 @@ describe('Services', () => {
     before(async () => {
       // 创建 webhook agent
       await pg.sql`
-        INSERT INTO agents (id, tenant_id, type, name, system_prompt)
-        VALUES ('00000000-0000-0000-0000-000000000040', ${TENANT_ID}, 'webhook', 'Webhook Bot', '你是 Webhook Bot')
+        INSERT INTO agents (id, app_id, type, name, system_prompt)
+        VALUES ('00000000-0000-0000-0000-000000000040', ${APP_ID}, 'webhook', 'Webhook Bot', '你是 Webhook Bot')
       `
     })
 
@@ -314,7 +312,7 @@ describe('Services', () => {
       )
     })
 
-    it('有 tenantId 时验证租户隔离', async () => {
+    it('有 appId 时验证应用隔离', async () => {
       const ctx = makeMockCtx({ sql: await pg.sql as any })
       await assert.rejects(
         () => handleWebhookMessage(
@@ -329,8 +327,8 @@ describe('Services', () => {
 
     it('使用工具的 webhook', async () => {
       await pg.sql`
-        INSERT INTO agents (id, tenant_id, type, name, system_prompt, tools)
-        VALUES ('00000000-0000-0000-0000-000000000041', ${TENANT_ID}, 'webhook', 'Tool WB', 'Use tools', '[{"type":"function","function":{"name":"get_info","description":"Get info","parameters":{}}}]'::jsonb)
+        INSERT INTO agents (id, app_id, type, name, system_prompt, tools)
+        VALUES ('00000000-0000-0000-0000-000000000041', ${APP_ID}, 'webhook', 'Tool WB', 'Use tools', '[{"type":"function","function":{"name":"get_info","description":"Get info","parameters":{}}}]'::jsonb)
       `
 
       const ctx = makeMockCtx({ sql: await pg.sql as any })

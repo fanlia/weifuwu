@@ -26,7 +26,7 @@ export interface WebhookResponse {
 
 export interface WebhookConfig {
   id: string
-  tenant_id: string
+  app_id: string
   system_prompt: string
   model: string | null
   tools: unknown[]
@@ -110,7 +110,7 @@ export async function handleWebhookMessage(
   ctx: AppCtx,
   agentId: string,
   body: WebhookRequest,
-  tenantId?: string,
+  appId?: string,
   signature?: string,
   timestamp?: string,
   nonce?: string,
@@ -118,17 +118,17 @@ export async function handleWebhookMessage(
   const { sql, ai } = ctx
   const startTime = Date.now()
 
-  // 查找 agent — 如果有 tenantId 则验证租户隔离
-  const agent: Record<string, any> = tenantId
+  // 查找 agent — 如果有 appId 则验证租户隔离
+  const agent: Record<string, any> = appId
     ? (await sql`
         SELECT id, system_prompt, model, tools, temperature, max_tokens,
-               webhook_secret, webhook_retry_count, tenant_id
+               webhook_secret, webhook_retry_count, app_id
         FROM agents
-        WHERE id = ${agentId} AND type = 'webhook' AND is_active = TRUE AND tenant_id = ${tenantId}
+        WHERE id = ${agentId} AND type = 'webhook' AND is_active = TRUE AND app_id = ${appId}
       `)[0] as unknown as Record<string, any>
     : (await sql`
         SELECT id, system_prompt, model, tools, temperature, max_tokens,
-               webhook_secret, webhook_retry_count, tenant_id
+               webhook_secret, webhook_retry_count, app_id
         FROM agents
         WHERE id = ${agentId} AND type = 'webhook' AND is_active = TRUE
       `)[0] as unknown as Record<string, any>
@@ -141,16 +141,16 @@ export async function handleWebhookMessage(
   if (agent.webhook_secret) {
     if (!signature) {
       // 记录日志并返回错误
-      await logWebhookCall(ctx, agentId, agent.tenant_id, JSON.stringify(body), null, 401, Date.now() - startTime, false)
+      await logWebhookCall(ctx, agentId, agent.app_id, JSON.stringify(body), null, 401, Date.now() - startTime, false)
       throw new Error('Missing X-Signature header')
     }
     const rawBody = JSON.stringify(body)
     if (!verifySignature(rawBody, signature, agent.webhook_secret, timestamp)) {
-      await logWebhookCall(ctx, agentId, agent.tenant_id, rawBody, null, 403, Date.now() - startTime, false)
+      await logWebhookCall(ctx, agentId, agent.app_id, rawBody, null, 403, Date.now() - startTime, false)
       throw new Error('Invalid signature')
     }
     if (!checkNonce(nonce, timestamp)) {
-      await logWebhookCall(ctx, agentId, agent.tenant_id, rawBody, null, 403, Date.now() - startTime, false)
+      await logWebhookCall(ctx, agentId, agent.app_id, rawBody, null, 403, Date.now() - startTime, false)
       throw new Error('Replay detected or stale timestamp')
     }
   }
@@ -178,7 +178,7 @@ export async function handleWebhookMessage(
     await persistConversation(ctx, agentId, body.conversation_id, 'assistant', result.content)
 
     const elapsed = Date.now() - startTime
-    await logWebhookCall(ctx, agentId, agent.tenant_id, JSON.stringify(body), result.content, 200, elapsed, true)
+    await logWebhookCall(ctx, agentId, agent.app_id, JSON.stringify(body), result.content, 200, elapsed, true)
     await pruneLogs(ctx, agentId) // D3：每 agent 保留最近 500 条
 
     return {
@@ -188,7 +188,7 @@ export async function handleWebhookMessage(
   } catch (err) {
     const elapsed = Date.now() - startTime
     const errMsg = err instanceof Error ? err.message : String(err)
-    await logWebhookCall(ctx, agentId, agent.tenant_id, JSON.stringify(body), errMsg, 500, elapsed, false)
+    await logWebhookCall(ctx, agentId, agent.app_id, JSON.stringify(body), errMsg, 500, elapsed, false)
     await pruneLogs(ctx, agentId) // D3
     throw err
   }
@@ -260,7 +260,7 @@ async function pruneLogs(ctx: AppCtx, agentId: string): Promise<void> {
 async function logWebhookCall(
   ctx: AppCtx,
   agentId: string,
-  tenantId: string,
+  appId: string,
   requestBody: string,
   responseBody: string | null,
   responseStatus: number | null,
@@ -271,8 +271,8 @@ async function logWebhookCall(
     const { sql } = ctx as any
     if (sql) {
       await sql`
-        INSERT INTO webhook_logs (agent_id, tenant_id, request_body, response_body, response_status, elapsed_ms, success)
-        VALUES (${agentId}, ${tenantId}, ${requestBody}, ${responseBody}, ${responseStatus}, ${elapsedMs}, ${success})
+        INSERT INTO webhook_logs (agent_id, app_id, request_body, response_body, response_status, elapsed_ms, success)
+        VALUES (${agentId}, ${appId}, ${requestBody}, ${responseBody}, ${responseStatus}, ${elapsedMs}, ${success})
       `
     }
   } catch {

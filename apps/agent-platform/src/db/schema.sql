@@ -3,15 +3,9 @@
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- ── 租户 ───────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS tenants (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name        TEXT NOT NULL,
-  slug        TEXT NOT NULL UNIQUE,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- ── 应用隔离（app_id）─────────────────────────────────────
+-- 应用（tenant）由框架 userSystem 的 _weifuwu_apps / _weifuwu_app_members 管理——
+-- 业务表只挂 app_id 外键语义（无 REFERENCES——框架表生命周期独立，避免建表顺序依赖）。
 
 -- ── 用户 ───────────────────────────────────────────────────
 
@@ -20,7 +14,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 
 CREATE TABLE IF NOT EXISTS companies (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  app_id      UUID NOT NULL,
   name        TEXT NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -36,7 +30,7 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS agents (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  app_id      UUID NOT NULL,
   type        agent_type NOT NULL,
   name        TEXT NOT NULL,
   avatar_url  TEXT,
@@ -70,7 +64,7 @@ CREATE TABLE IF NOT EXISTS agents (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_agents_tenant ON agents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agents_app ON agents(app_id);
 CREATE INDEX IF NOT EXISTS idx_agents_type ON agents(type);
 
 -- ── 部门/群组 ─────────────────────────────────────────────
@@ -132,7 +126,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_agent ON kb_documents(agent_id);
 CREATE TABLE IF NOT EXISTS agent_logs (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id        UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  app_id          UUID NOT NULL,
   department_id   UUID REFERENCES departments(id) ON DELETE SET NULL,
   messages_count  INT NOT NULL DEFAULT 0,
   steps_count     INT NOT NULL DEFAULT 0,
@@ -145,14 +139,14 @@ CREATE TABLE IF NOT EXISTS agent_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_logs(agent_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_agent_logs_tenant ON agent_logs(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_logs_app ON agent_logs(app_id, created_at DESC);
 
 -- ── Webhook 调用日志 ─────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS webhook_logs (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id        UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  app_id          UUID NOT NULL,
   request_body    TEXT,
   response_body   TEXT,
   response_status INT,
@@ -242,13 +236,13 @@ ALTER TABLE agents ADD COLUMN IF NOT EXISTS approval_policy JSONB DEFAULT '{}'::
 
 CREATE TABLE IF NOT EXISTS events (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id   UUID NOT NULL,
+  app_id      UUID NOT NULL,
   event       TEXT NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_events_tenant ON events(tenant_id, event);
+CREATE INDEX IF NOT EXISTS idx_events_app ON events(app_id, event);
 CREATE INDEX IF NOT EXISTS idx_events_event ON events(event, created_at DESC);
 
 -- first_message 每租户去重（激活漏斗只记首次）
 CREATE UNIQUE INDEX IF NOT EXISTS uq_events_first_message
-  ON events(tenant_id, event) WHERE event = 'first_message';
+  ON events(app_id, event) WHERE event = 'first_message';

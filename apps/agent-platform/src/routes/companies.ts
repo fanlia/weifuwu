@@ -9,7 +9,7 @@ export function registerCompanyRoutes(app: Router<AppCtx>): void {
   // ── 获取公司列表 ─────────────────────────────────────────
 
   app.get('/api/companies', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const url = new URL(req.url)
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))
@@ -17,13 +17,13 @@ export function registerCompanyRoutes(app: Router<AppCtx>): void {
     const companies = await sql`
       SELECT id, name, created_at, updated_at
       FROM companies
-      WHERE tenant_id = ${tenantId}
+      WHERE app_id = ${appId}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `
 
     const [countResult] = await sql`
-      SELECT COUNT(*)::int as total FROM companies WHERE tenant_id = ${tenantId}
+      SELECT COUNT(*)::int as total FROM companies WHERE app_id = ${appId}
     `
 
     return Response.json({ companies, total: countResult.total })
@@ -32,7 +32,7 @@ export function registerCompanyRoutes(app: Router<AppCtx>): void {
   // ── 创建公司 ─────────────────────────────────────────────
 
   app.post('/api/companies', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const body = await req.json() as { name: string }
 
     if (!body.name) {
@@ -40,8 +40,8 @@ export function registerCompanyRoutes(app: Router<AppCtx>): void {
     }
 
     const [company] = await sql`
-      INSERT INTO companies (tenant_id, name)
-      VALUES (${tenantId}, ${body.name})
+      INSERT INTO companies (app_id, name)
+      VALUES (${appId}, ${body.name})
       RETURNING id, name, created_at
     `
 
@@ -51,11 +51,11 @@ export function registerCompanyRoutes(app: Router<AppCtx>): void {
   // ── 获取单个公司 ─────────────────────────────────────────
 
   app.get('/api/companies/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const [company] = await sql`
       SELECT id, name, created_at, updated_at
       FROM companies
-      WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      WHERE id = ${params.id} AND app_id = ${appId}
     `
     if (!company) {
       return Response.json({ error: '公司不存在' }, { status: 404 })
@@ -66,13 +66,13 @@ export function registerCompanyRoutes(app: Router<AppCtx>): void {
   // ── 更新公司 ─────────────────────────────────────────────
 
   app.put('/api/companies/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const body = await req.json() as { name: string }
 
     const [company] = await sql`
       UPDATE companies
       SET name = ${body.name}, updated_at = NOW()
-      WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      WHERE id = ${params.id} AND app_id = ${appId}
       RETURNING id, name, updated_at
     `
 
@@ -85,10 +85,10 @@ export function registerCompanyRoutes(app: Router<AppCtx>): void {
   // ── 删除公司 ─────────────────────────────────────────────
 
   app.delete('/api/companies/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const result = await sql`
       DELETE FROM companies
-      WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      WHERE id = ${params.id} AND app_id = ${appId}
       RETURNING id
     `
     if (result.length === 0) {

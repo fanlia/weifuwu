@@ -332,6 +332,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           .run()
         const user = rows[0] as unknown as User
         const session = await issueSession(user)
+        currentUser = user // 注册后同请求内 createApp/requireApp 可感知当前用户
         return { ...session, user }
       },
 
@@ -354,6 +355,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         }
         const session = await issueSession(user)
         const apps = await listAppsFor(user.id)
+        currentUser = user
         return { ...session, user, apps }
       },
 
@@ -456,6 +458,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         }
 
         const session = await issueSession(user, { appId, role })
+        currentUser = user
         return { ...session, user }
       },
 
@@ -485,6 +488,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           tenant: row.tenant as string | undefined,
         }
         const session = await issueSession(user, { appId, role })
+        currentUser = user
         return { ...session, user }
       },
 

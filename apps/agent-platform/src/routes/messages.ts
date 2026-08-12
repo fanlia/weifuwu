@@ -10,7 +10,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 审批待办（租户内全部待批草稿，供管理员集中处理） ──────────
 
   app.get('/api/messages/pending-approvals', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const pending = await sql`
       SELECT m.id, m.department_id, m.content, m.ai_draft, m.created_at,
         a.name as agent_name, a.type as agent_type,
@@ -18,7 +18,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       FROM messages m
       JOIN agents a ON a.id = m.sender_id
       JOIN departments d ON d.id = m.department_id
-      WHERE a.tenant_id = ${tenantId}
+      WHERE a.app_id = ${appId}
         AND m.ai_draft IS NOT NULL AND m.ai_approved IS NULL
       ORDER BY m.created_at DESC
       LIMIT 50
@@ -29,7 +29,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 获取消息列表 ─────────────────────────────────────────
 
   app.get('/api/departments/:id/messages', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const url = new URL(req.url)
     const limit = parseInt(url.searchParams.get('limit') ?? '50', 10)
     const before = url.searchParams.get('before') // cursor 分页
@@ -39,7 +39,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [dept] = await sql`
       SELECT d.id FROM departments d
       JOIN companies c ON c.id = d.company_id
-      WHERE d.id = ${params.id} AND c.tenant_id = ${tenantId}
+      WHERE d.id = ${params.id} AND c.app_id = ${appId}
     `
     if (!dept) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
@@ -68,7 +68,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 发送消息 ─────────────────────────────────────────────
 
   app.post('/api/departments/:id/messages', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, auth, params } = ctx
+    const { sql, appId, auth, params } = ctx
     const body = await req.json() as {
       content: string
       msg_type?: string
@@ -82,14 +82,14 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     // 验证发件人 agent（当前用户绑定的 agent）
     let [sender] = await sql`
       SELECT id FROM agents
-      WHERE tenant_id = ${tenantId} AND type = 'user' AND user_id = ${auth!.userId}
+      WHERE app_id = ${appId} AND type = 'user' AND user_id = ${auth!.userId}
     `
     if (!sender) {
       // 自愈：老用户缺少绑定 agent 时自动创建
       const [u] = await sql`SELECT name FROM _weifuwu_users WHERE id = ${auth!.userId}`
       ;[sender] = await sql`
-        INSERT INTO agents (tenant_id, type, name, user_id, is_active)
-        VALUES (${tenantId}, 'user', ${u?.name ?? '用户'}, ${auth!.userId}, true)
+        INSERT INTO agents (app_id, type, name, user_id, is_active)
+        VALUES (${appId}, 'user', ${u?.name ?? '用户'}, ${auth!.userId}, true)
         RETURNING id
       `
     }
@@ -101,7 +101,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       JOIN companies c ON c.id = d.company_id
       WHERE dm.department_id = ${params.id}
         AND dm.agent_id = ${sender.id}
-        AND c.tenant_id = ${tenantId}
+        AND c.app_id = ${appId}
     `
     if (!membership) {
       return Response.json({ error: '你不是该部门的成员' }, { status: 403 })
@@ -143,7 +143,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
   //     -d '{"content":"现在几点"}'
 
   app.post('/api/departments/:id/messages/stream', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, auth, params } = ctx
+    const { sql, appId, auth, params } = ctx
     const body = await req.json() as { content: string }
 
     if (!body.content) {
@@ -153,13 +153,13 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     // 验证发件人 agent
     let [sender] = await sql`
       SELECT id FROM agents
-      WHERE tenant_id = ${tenantId} AND type = 'user' AND user_id = ${auth!.userId}
+      WHERE app_id = ${appId} AND type = 'user' AND user_id = ${auth!.userId}
     `
     if (!sender) {
       const [u] = await sql`SELECT name FROM _weifuwu_users WHERE id = ${auth!.userId}`
       ;[sender] = await sql`
-        INSERT INTO agents (tenant_id, type, name, user_id, is_active)
-        VALUES (${tenantId}, 'user', ${u?.name ?? '用户'}, ${auth!.userId}, true)
+        INSERT INTO agents (app_id, type, name, user_id, is_active)
+        VALUES (${appId}, 'user', ${u?.name ?? '用户'}, ${auth!.userId}, true)
         RETURNING id
       `
     }
@@ -171,7 +171,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       JOIN companies c ON c.id = d.company_id
       WHERE dm.department_id = ${params.id}
         AND dm.agent_id = ${sender.id}
-        AND c.tenant_id = ${tenantId}
+        AND c.app_id = ${appId}
     `
     if (!membership) {
       return Response.json({ error: '你不是该部门的成员' }, { status: 403 })
@@ -228,7 +228,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 编辑消息（5 分钟内可编辑） ───────────────────────────
 
   app.put('/api/messages/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, auth, params } = ctx
+    const { sql, appId, auth, params } = ctx
     const body = await req.json() as { content: string }
 
     if (!body.content?.trim()) {
@@ -237,10 +237,10 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
 
     // 查找消息，验证属于同一租户
     const [msg] = await sql`
-      SELECT m.id, m.sender_id, m.created_at, m.department_id, a.user_id as owner_user_id, a.tenant_id
+      SELECT m.id, m.sender_id, m.created_at, m.department_id, a.user_id as owner_user_id, a.app_id
       FROM messages m
       JOIN agents a ON a.id = m.sender_id
-      WHERE m.id = ${params.id} AND a.tenant_id = ${tenantId}
+      WHERE m.id = ${params.id} AND a.app_id = ${appId}
     `
     if (!msg) {
       return Response.json({ error: '消息不存在' }, { status: 404 })
@@ -275,13 +275,13 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 删除消息（撤回） ───────────────────────────────────────
 
   app.delete('/api/messages/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, auth, params } = ctx
+    const { sql, appId, auth, params } = ctx
 
     const [msg] = await sql`
       SELECT m.id, m.sender_id, m.created_at, a.user_id as owner_user_id, m.department_id
       FROM messages m
       JOIN agents a ON a.id = m.sender_id
-      WHERE m.id = ${params.id} AND a.tenant_id = ${tenantId}
+      WHERE m.id = ${params.id} AND a.app_id = ${appId}
     `
     if (!msg) {
       return Response.json({ error: '消息不存在' }, { status: 404 })
@@ -312,14 +312,14 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 审批 AI 回复（Human-in-the-Loop） ────────────────────
 
   app.post('/api/messages/:id/approve', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params, auth } = ctx
+    const { sql, appId, params, auth } = ctx
     const body = await req.json() as { approved: boolean; reason?: string }
 
     const [msg] = await sql`
       SELECT m.id, m.ai_draft, m.ai_approved, m.department_id
       FROM messages m
       JOIN agents a ON a.id = m.sender_id
-      WHERE m.id = ${params.id} AND a.tenant_id = ${tenantId}
+      WHERE m.id = ${params.id} AND a.app_id = ${appId}
     `
     if (!msg) {
       return Response.json({ error: '消息不存在' }, { status: 404 })

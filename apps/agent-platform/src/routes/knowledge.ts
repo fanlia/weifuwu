@@ -24,11 +24,11 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   // ── 获取文档列表 ──────────────────────────────────────
 
   app.get('/api/agents/:id/knowledge', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
 
     const [agent] = await sql`
       SELECT id FROM agents
-      WHERE id = ${params.id} AND tenant_id = ${tenantId} AND type = 'knowledge_base'
+      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
     `
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
@@ -47,7 +47,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   // ── 获取文档详情（含内容预览 + chunks） ───────────────
 
   app.get('/api/knowledge/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
     const url = new URL(req.url)
     const includeChunks = url.searchParams.get('chunks') === 'true'
 
@@ -55,7 +55,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       SELECT d.id, d.filename, d.content, d.chunk_count, d.created_at
       FROM kb_documents d
       JOIN agents a ON a.id = d.agent_id
-      WHERE d.id = ${params.id} AND a.tenant_id = ${tenantId}
+      WHERE d.id = ${params.id} AND a.app_id = ${appId}
     `
     if (!doc) {
       return Response.json({ error: '文档不存在' }, { status: 404 })
@@ -77,12 +77,12 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   // ── 文本上传文档 ─────────────────────────────────────
 
   app.post('/api/agents/:id/knowledge', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params, ai } = ctx
+    const { sql, appId, params, ai } = ctx
 
     const [agent] = await sql`
       SELECT id, chunk_size, chunk_overlap
       FROM agents
-      WHERE id = ${params.id} AND tenant_id = ${tenantId} AND type = 'knowledge_base'
+      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
     `
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
@@ -101,12 +101,12 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   // ── 文件上传 ─────────────────────────────────────────
 
   app.post('/api/agents/:id/knowledge/upload', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params, ai } = ctx
+    const { sql, appId, params, ai } = ctx
 
     const [agent] = await sql`
       SELECT id, chunk_size, chunk_overlap
       FROM agents
-      WHERE id = ${params.id} AND tenant_id = ${tenantId} AND type = 'knowledge_base'
+      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
     `
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
@@ -174,12 +174,12 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   // ── 批量上传（JSON body: { documents: [{ filename, content }] }） ──
 
   app.post('/api/agents/:id/knowledge/batch', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params, ai } = ctx
+    const { sql, appId, params, ai } = ctx
 
     const [agent] = await sql`
       SELECT id, chunk_size, chunk_overlap
       FROM agents
-      WHERE id = ${params.id} AND tenant_id = ${tenantId} AND type = 'knowledge_base'
+      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
     `
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
@@ -221,14 +221,14 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   // ── 删除文档 ─────────────────────────────────────────
 
   app.delete('/api/knowledge/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
 
     const result = await sql`
       DELETE FROM kb_documents d
       USING agents a
       WHERE d.id = ${params.id}
         AND d.agent_id = a.id
-        AND a.tenant_id = ${tenantId}
+        AND a.app_id = ${appId}
       RETURNING d.id
     `
 
@@ -241,12 +241,12 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   // ── 重新向量化（修复旧 chunk 的随机/失效 embedding；嵌入失败时回退随机向量的历史数据）──
 
   app.post('/api/agents/:id/knowledge/reindex', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, appId, params } = ctx
 
     const [agent] = await sql`
       SELECT id, chunk_size, chunk_overlap
       FROM agents
-      WHERE id = ${params.id} AND tenant_id = ${tenantId} AND type = 'knowledge_base'
+      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
     `
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
@@ -287,11 +287,11 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   // ── 语义检索 ─────────────────────────────────────────
 
   app.post('/api/agents/:id/knowledge/search', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params, ai } = ctx
+    const { sql, appId, params, ai } = ctx
 
     const [agent] = await sql`
       SELECT id FROM agents
-      WHERE id = ${params.id} AND tenant_id = ${tenantId} AND type = 'knowledge_base'
+      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
     `
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })

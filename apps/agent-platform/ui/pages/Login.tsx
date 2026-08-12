@@ -19,6 +19,7 @@ export const Login: Component = async (_props, ctx) => {
     rerender()
 
     try {
+      // 1. 平台登录（/api/auth/login）——返回 { token, user, apps } 我的应用列表
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -26,8 +27,27 @@ export const Login: Component = async (_props, ctx) => {
       })
       const data = await res.json()
       if (!res.ok) { $.error = data.error || '登录失败'; $.loading = false; rerender(); return }
-      ctx.auth?.login(data.token, data.user, data.refreshToken)
-      if (data.refreshToken) setRefreshToken(data.refreshToken)
+
+      // 2. 应用内登录（/api/auth/apps/:slug/login）——token 带 appId，业务 API 隔离所需
+      //    单应用直接进；多应用取第一个（应用选择器后续迭代）
+      const apps = data.apps ?? []
+      if (!apps.length) {
+        $.error = '该账号尚未加入任何应用'
+        $.loading = false
+        rerender()
+        return
+      }
+      const app = apps[0]
+      const appRes = await fetch(`/api/auth/apps/${app.slug}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: $.email, password: $.password }),
+      })
+      const appData = await appRes.json()
+      if (!appRes.ok) { $.error = appData.error || '应用登录失败'; $.loading = false; rerender(); return }
+
+      ctx.auth?.login(appData.token, appData.user, appData.refreshToken)
+      if (appData.refreshToken) setRefreshToken(appData.refreshToken)
       ctx.app?.navigate('/')
     } catch {
       $.error = '网络错误，请检查连接后重试'

@@ -178,7 +178,7 @@ export function getRoleTemplates(): RoleTemplate[] {
 export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
   // ── 从模板创建 Agent ───────────────────────────────
   app.post('/api/agents/from-template', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId } = ctx
+    const { sql, appId } = ctx
     const body = await req.json() as {
       template_slug: string
       name: string
@@ -202,12 +202,12 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
 
     const [agent] = await sql`
       INSERT INTO agents (
-        tenant_id, type, name, description,
+        app_id, type, name, description,
         model, system_prompt, temperature, max_tokens,
         workspace_path, allow_file_tools, allow_command_exec,
         tools, human_in_the_loop, template_slug
       ) VALUES (
-        ${tenantId}, 'ai', ${body.name.trim()}, ${body.description ?? template.description},
+        ${appId}, 'ai', ${body.name.trim()}, ${body.description ?? template.description},
         ${body.model ?? template.default_model},
         ${body.system_prompt ?? template.default_system_prompt},
         ${body.temperature ?? template.default_temperature},
