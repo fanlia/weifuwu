@@ -88,10 +88,12 @@ docker run --rm -i \
 
 ### 阶段 1：沙盒执行层（P0）
 - [ ] **S1. `src/sandbox/docker.ts`** — DockerSandbox 执行器：`run({ image, command, cwd, env, network, memory, cpus, timeout })` → `{ stdout, stderr, exitCode, timedOut, oomKilled }`；内部用 `docker run --rm -i` + JSON 输出解析；容器退出码/超时/资源被 kill 区分
-- [ ] **S2. 可用性探测 + 镜像管理** — 启动时探测 docker 可用性 + node:24 存在性；首次 bash 调用自动 `docker pull node:24`（幂等）；状态注入 `ctx.sandboxStatus`（available / imageMissing / unavailable）
-- [ ] **S3. bash 工具接入沙盒** — `createWorkspaceHandlers` 的 bash handler：allow_command_exec 时改走 `DockerSandbox`（cwd=workspace、卷挂载 workspace）；`SANDBOX_DISABLE=1` 或探测失败 → 返回「沙盒不可用，命令执行已禁用」（诚实裁剪）
-- [ ] **S4. 资源限制落地** — `--network none --memory 512m --cpus 1 --pids-limit 256 --user node --ulimit nofile`；`allow_network` agent 字段 → `--network bridge`
-- [ ] **S5. 输出/错误处理** — exitCode 非 0 → 错误消息含 stderr + 退出码；超时 → 「命令执行超时（30s）」；OOM/pids 被 kill → 明确提示
+- [ ] **S2. 可用性探测 + 镜像管理** — 启动时探测 docker 可用性 + node:24 存在性；首次调用自动 `docker pull node:24`（幂等）；状态注入 `ctx.sandboxStatus`（available / imageMissing / unavailable）
+- [ ] **S3. 统一工具执行器（agent 的全部工具操作都在容器内）** — 容器内固定入口脚本 `/opt/tool-runner.js`（挂载或镜像内置），统一 JSON 协议：`echo '{"tool":"read","args":{"path":"x.ts"}}' \| docker run --rm -i -v {ws}:/ws node:24 node /opt/tool-runner.js` → 返回 JSON `{ok, output}`。**read/write/edit/grep/list_files/bash 全部经此入口**——agent 看到的是统一的容器内 /ws 文件系统视图（宿主路径 vs 容器路径无认知差异）
+- [ ] **S4. 文件工具接入执行器** — `createWorkspaceHandlers` 的 read/write/edit/grep/list_files 改为走容器执行器（传工具名 + args）——路径穿越防护从「宿主代码」升级为「容器边界」（即使 resolveWorkspacePath 有 bug 也逃不出卷挂载）；安全 = 纵深防御
+- [ ] **S5. bash 工具接入执行器** — bash handler 同样走容器（allow_command_exec 时）：`docker run --rm -i -v {ws}:/ws -w /ws --network ... node:24 bash -c "{command}"`；`SANDBOX_DISABLE=1` 或探测失败 → 返回「沙盒不可用，命令执行已禁用」（诚实裁剪）
+- [ ] **S6. 资源限制落地** — `--network none --memory 512m --cpus 1 --pids-limit 256 --user node --ulimit nofile`；`allow_network` agent 字段 → `--network bridge`
+- [ ] **S7. 输出/错误处理** — 容器退出码/JSON 解析；exitCode 非 0 → 错误消息含 stderr + 退出码；超时 → 「命令执行超时（30s）」；OOM/pids 被 kill → 明确提示；输出截断 100KB（文件工具 50KB）
 
 ### 阶段 2：配置与 UI（P1）
 - [ ] **U1. Agent 配置加「命令执行沙盒」说明** — allow_command_exec 的 hint 改为「在 Docker node:24 沙盒内执行（网络隔离、资源受限）——需服务端已安装 docker」
@@ -115,6 +117,8 @@ docker run --rm -i \
 组件库已有 Tree/Breadcrumb/CodeBlock/Editor/Table/FileUpload——**组装复用，不自研组件**。
 
 #### 后端 API（复用 resolveWorkspacePath 路径穿越防护）
+> 注：文件浏览器是**用户管理面**（用户查看自己的 workspace 状态）——宿主直接 fs 访问（非容器）。
+> 与 agent 工具（容器内）看到的是**同一份数据**（容器卷挂载 = 宿主目录，双向可见）：AI 容器内写文件 → 用户浏览器立即可见 ✓
 - [ ] **F1. `GET /api/agents/:id/workspace/list?path=`** — 列目录：名称/类型（dir/file）/大小/修改时间（排序：目录在前）
 - [ ] **F2. `GET /api/agents/:id/workspace/file?path=`** — 读文件：文本截断 50KB；null 字节 → 「二进制文件不可预览」；超 200KB → 仅预览头部
 - [ ] **F3. `PUT /api/agents/:id/workspace/file`** — 写文件（编辑保存）：body {path, content}；拒绝二进制（写 null 字节）；大小上限 500KB；租户隔离（agent 必须属于当前 tenant）
@@ -135,7 +139,7 @@ docker run --rm -i \
 2. **`--network none` 默认**：网络是隐藏的宿主暴露面（SSRF），默认关闭；`allow_network` 显式开启（管理员决策）
 3. **非 root 容器用户**：`--user node`
 4. **docker 不可用 → bash 禁用（不静默回退宿主）**：诚实裁剪
-5. **文件工具暂不容器化**：已有路径穿越防护 + 数据面风险低；F1 升级项保留
+5. **全工具容器化（不只 bash）**：read/write/edit/grep/list_files/bash 全部经容器执行器——统一沙盒边界（agent 看到的是容器内 /ws 统一视图）+ 纵深防御（文件工具路径穿越即使有 bug 也逃不出卷挂载）
 6. **docker.sock 权限是信任边界**：沙盒保护 AI/租户，文档明示不保护管理员
 7. **文件浏览器**：浏览 + 编辑保存（读/写）为第一版；新建/删除暂缓（操作风险确认）——完整 CRUD 后续评估
 8. **文件浏览器安全**：租户隔离 + 路径穿越防护复用；二进制/大文件只读；写操作限 500KB 文本
