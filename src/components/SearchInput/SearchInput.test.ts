@@ -4,6 +4,15 @@ import { SearchInput } from './SearchInput.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
 
+function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
+  if (!vnode || typeof vnode !== 'object') return null
+  if (pred(vnode)) return vnode
+  const kids = vnode.props?.children
+  if (Array.isArray(kids)) { for (const k of kids) { const f = findVNode(k, pred); if (f) return f } }
+  else if (kids && typeof kids === 'object') return findVNode(kids, pred)
+  return null
+}
+
 /** Call component and get VNode (two-phase compat) */
 
 function createTestCtx(): WfuiContext {
@@ -68,4 +77,12 @@ it('有值时渲染清除按钮，点击触发 onClear', async () => {
 it('空值不渲染清除按钮（边界）', async () => {
   const vnode = await renderVNode(SearchInput, { value: '' }, createTestCtx())!
   assert.ok(!/clear/.test(JSON.stringify(vnode)), '空值无清除按钮')
+})
+
+describe('SearchInput disabled（F2 状态矩阵）', () => {
+  it('disabled 透传原生 input', async () => {
+    const vnode = await renderVNode(SearchInput, { disabled: true }, createTestCtx())
+    const input = findVNode(vnode, (v: any) => v?.props?.type === 'search')
+    assert.equal(input.props.disabled, true, 'disabled 透传')
+  })
 })

@@ -1,4 +1,4 @@
-import { test, describe, before, afterEach } from 'node:test'
+import { test, describe, it, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { TreeSelect } from './TreeSelect.ts'
 import { Tree } from '../Tree/Tree.ts'
@@ -167,4 +167,33 @@ test('外部点击关闭下拉（usePopup 统一组合器回归）', async () =>
   await flush()
   assert.ok(!document.querySelector('.wf-treeselect-dropdown'), '外部点击后下拉关闭（此前 bug：不关闭）')
   handle.unmount()
+})
+
+describe('TreeSelect disabled/error（F2 状态矩阵）', () => {
+  async function triggerOf(props: any) {
+    const render = await TreeSelect(props, makeCtx() as any)
+    return await render(props)
+  }
+  const treeData = [{ key: 'a', label: 'A 部门', children: [{ key: 'a1', label: 'A1 组' }] }]
+
+  it('disabled：触发框禁用样式 + 点击不打开 + aria-disabled', async () => {
+    const v = await triggerOf({ options: treeData, disabled: true })
+    const trigger = v.props.children.find((c: any) => String(c.props?.class).includes('wf-treeselect-trigger'))
+    assert.match(String(trigger.props.class), /--dis/, '禁用样式类')
+    assert.equal(trigger.props['aria-disabled'], 'true', 'aria-disabled')
+    // 点击不打开：disabled 时无 onClick 处理（禁用语义）
+    assert.equal(trigger.props.onClick, undefined, 'disabled 无点击处理（不打开）')
+  })
+
+  it('error：触发框错误样式', async () => {
+    const v = await triggerOf({ options: treeData, error: '必选' })
+    const trigger = v.props.children.find((c: any) => String(c.props?.class).includes('wf-treeselect-trigger'))
+    assert.match(String(trigger.props.class), /--err/, '错误样式类')
+  })
+
+  it('非 disabled/error 无状态类', async () => {
+    const v = await triggerOf({ options: treeData })
+    const trigger = v.props.children.find((c: any) => String(c.props?.class).includes('wf-treeselect-trigger'))
+    assert.ok(!String(trigger.props.class).includes('--dis') && !String(trigger.props.class).includes('--err'), '无状态类')
+  })
 })

@@ -14,6 +14,8 @@ export interface TreeSelectProps {
   /** 多选（checkable 父子联动语义） */
   multiple?: boolean
   placeholder?: string
+  disabled?: boolean
+  error?: string
   className?: string
 }
 
@@ -87,6 +89,8 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
       onChange,
       multiple = false,
       placeholder = '请选择',
+      disabled,
+      error,
       className = '',
     } = props
 
@@ -132,14 +136,21 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
       class: `wf-treeselect${className ? ` ${className}` : ''}`,
     }, [
       h('div', {
-        class: `wf-treeselect-trigger${open ? ' wf-treeselect-trigger--open' : ''}`,
+        class: [
+          'wf-treeselect-trigger',
+          open ? ' wf-treeselect-trigger--open' : '',
+          disabled ? ' wf-treeselect-trigger--dis' : '',
+          error ? ' wf-treeselect-trigger--err' : '',
+        ].filter(Boolean).join(' '),
         role: 'combobox',
-        tabindex: 0,
+        tabindex: disabled ? -1 : 0,
         'aria-haspopup': 'listbox',
         'aria-expanded': String(open),
+        'aria-disabled': disabled ? 'true' : undefined,
         ref: triggerRef,
-        onClick: toggle,
+        onClick: disabled ? undefined : toggle,
         onKeyDown: (e: KeyboardEvent) => {
+          if (disabled) return
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             toggle()

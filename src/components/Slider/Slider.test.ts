@@ -4,6 +4,15 @@ import { Slider } from './Slider.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
 
+function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
+  if (!vnode || typeof vnode !== 'object') return null
+  if (pred(vnode)) return vnode
+  const kids = vnode.props?.children
+  if (Array.isArray(kids)) { for (const k of kids) { const f = findVNode(k, pred); if (f) return f } }
+  else if (kids && typeof kids === 'object') return findVNode(kids, pred)
+  return null
+}
+
 /** Call component and get VNode (two-phase compat) */
 
 function createTestCtx(): WfuiContext {
@@ -73,4 +82,20 @@ it('label 渲染 + 无 label 精简结构（边界）', async () => {
   assert.ok(JSON.stringify(withLabel).includes('wf-slider-label'))
   const noLabel = await renderVNode(Slider, { value: 1 }, createTestCtx())!
   assert.ok(!JSON.stringify(noLabel).includes('wf-slider-label'))
+})
+
+describe('Slider disabled（F2 状态矩阵）', () => {
+  it('disabled 时 input 禁用 + 样式类', async () => {
+    const vnode = await renderVNode(Slider, { label: '音量', value: 50, disabled: true }, createTestCtx())
+    const input = findVNode(vnode, (v: any) => v?.props?.type === 'range')
+    assert.ok(input, 'range input 存在')
+    assert.equal(input.props.disabled, true, 'disabled 透传原生 input')
+    assert.match(String(input.props.class), /--dis/, '禁用样式类')
+  })
+
+  it('非 disabled 无禁用样式', async () => {
+    const vnode = await renderVNode(Slider, { label: '音量', value: 50 }, createTestCtx())
+    const input = findVNode(vnode, (v: any) => v?.props?.type === 'range')
+    assert.ok(!input.props.disabled, '非 disabled 无 disabled prop')
+  })
 })

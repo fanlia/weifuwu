@@ -62,3 +62,8 @@
   max-height: var(--wf-treeselect-dropdown-max-height);
   overflow: auto;
 }
+
+/* disabled / error（F2 状态矩阵） */
+.wf-treeselect-trigger--dis { opacity: 0.5; cursor: not-allowed; background: var(--wf-color-fill); }
+.wf-treeselect-trigger--err { border-color: var(--wf-color-error); }
+.wf-treeselect-trigger--err:focus-visible { box-shadow: 0 0 0 2px var(--wf-color-error-bg), 0 0 0 1px var(--wf-color-error); }

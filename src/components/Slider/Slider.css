@@ -61,3 +61,7 @@
   min-width: 30px;
   text-align: center;
 }
+
+/* disabled（F2 状态矩阵） */
+.wf-slider-input--dis { opacity: 0.5; cursor: not-allowed; }
+.wf-slider-input:disabled { cursor: not-allowed; }

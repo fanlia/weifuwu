@@ -6,13 +6,14 @@ import { Icon } from '../Icon/Icon.ts'
 export interface SearchInputProps {
   value?: string
   placeholder?: string
+  disabled?: boolean
   onInput?: (e: Event) => void
   onClear?: () => void
 }
 
 export const SearchInput: Component<SearchInputProps> = async (_init, _ctx) =>
   async (props) => {
-  const { value = '', placeholder = '搜索...', onInput, onClear } = props
+  const { value = '', placeholder = '搜索...', onInput, onClear, disabled } = props
 
   const clearBtn = value && onClear
     ? h('button', {
@@ -28,10 +29,12 @@ export const SearchInput: Component<SearchInputProps> = async (_init, _ctx) =>
   return h('div', { class: 'wf-search' }, [
     icon,
     h('input', {
-      class: 'wf-search-input',
+      class: ['wf-search-input', disabled ? 'wf-search-input--dis' : ''].filter(Boolean).join(' '),
       type: 'search',
       value,
       placeholder,
+      disabled: disabled || undefined,
+      'aria-disabled': disabled ? 'true' : undefined,
       onInput,
     }),
     clearBtn,

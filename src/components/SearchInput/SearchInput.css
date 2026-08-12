@@ -51,3 +51,7 @@
 .wf-search-clear:hover {
   color: var(--wf-color-text);
 }
+
+/* disabled（F2 状态矩阵） */
+.wf-search-input--dis { opacity: 0.5; cursor: not-allowed; }
+.wf-search-input:disabled { cursor: not-allowed; }
