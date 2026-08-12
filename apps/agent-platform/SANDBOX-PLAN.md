@@ -97,7 +97,8 @@ docker run --rm -i \
   - `touch(agentId)`：每次工具调用前更新 `lastUsedAt`（内存 Map，单进程；多进程部署换 Redis——文档标注）
   - 回收定时器：`setInterval` 60s 扫描——超过 `SANDBOX_IDLE_TIMEOUT`（默认 600s = 10 分钟）无 heartbeat 的容器 → `docker rm -f` + 从 Map 移除
   - **惰性重建**：工具调用时容器不存在（被回收/服务重启/手动删除）→ `ensure` 自动重建（幂等，无感）——销毁与重建循环对 AI 透明
-  - 正在执行的 exec 安全：exec 同步阻塞且单次 ≤30s 超时，回收扫描不会误杀活跃容器
+  - **池上限 + LRU 驱逐**：`SANDBOX_MAX_CONTAINERS`（默认 20）——ensure 创建前检查池大小，超限 → 驱逐 lastUsedAt 最旧的容器（`docker rm -f` + Map 移除）再创建新容器——即使刚用过也要让位（忙时峰值保护）；被驱逐容器无感（下次调用重建）
+  - 正在执行的 exec 安全：exec 同步阻塞且单次 ≤30s 超时，回收/驱逐扫描不会误杀活跃容器
 - [ ] **S3. 统一工具执行器（agent 的全部工具操作都在容器内）** — 容器内固定入口脚本 `/opt/tool-runner.js`（镜像构建内置或首次 exec 时写入卷），统一 JSON 协议：`echo '{"tool":"read","args":{"path":"x.ts"}}' | docker exec -i ap-sandbox-{id} node /opt/tool-runner.js` → 返回 JSON `{ok, output}`。**read/write/edit/grep/list_files/bash 全部经此入口**——agent 看到的是统一的容器内 /ws 文件系统视图（宿主路径 vs 容器路径无认知差异）
 - [ ] **S4. 文件工具接入执行器** — `createWorkspaceHandlers` 的 read/write/edit/grep/list_files 改为走容器执行器（传工具名 + args）——路径穿越防护从「宿主代码」升级为「容器边界」（即使 resolveWorkspacePath 有 bug 也逃不出卷挂载）；安全 = 纵深防御
 - [ ] **S5. bash 工具接入执行器** — bash handler 同样走容器（allow_command_exec 时）：`docker exec ap-sandbox-{id} bash -c "{command}"`；`SANDBOX_DISABLE=1` 或探测失败 → 返回「沙盒不可用，命令执行已禁用」（诚实裁剪）
@@ -116,6 +117,7 @@ docker run --rm -i \
 - [ ] **T4. 网络隔离** — `curl http://169.254.169.254/`（云元数据）→ 失败；`curl http://localhost:3000`（本服务）→ 失败（network none）
 - [ ] **T5. 现有回归** — app 81 测试全绿（无 docker 的 CI 环境 bash 返回禁用而非崩溃）；手动验证 AI 对话中 bash 工具调用（写文件 → 容器内读 → 宿主机可读——卷挂载双向）
 - [ ] **T6. Heartbeat 生命周期** — 集成测试（真 docker + 短 IDLE_TIMEOUT 配置）：创建容器 → 调用工具（touch）→ 等超时 → 定时器销毁容器（`docker ps` 确认消失）→ 再次调用 → 惰性重建（无感，文件状态保留——卷内文件仍可读）→ 孤儿清理（启动扫描 `ap-sandbox-*` 全删）
+- [ ] **T7. 池上限驱逐** — 集成测试（`SANDBOX_MAX_CONTAINERS=2`）：创建 3 个 agent 容器 → 第 3 个创建时驱逐 LRU 最旧的（`docker ps` 确认）→ 被驱逐 agent 下次调用自动重建（文件保留）→ 池大小恒 ≤ 上限
 
 ### 阶段 4：文档与登记（P2）
 - [ ] **D1. 文档** — apps/agent-platform/README + AGENTS.md 相关章节记录沙盒架构、残余风险表、诚实裁剪（network none 默认、docker 不可用禁用 bash）
@@ -177,6 +179,7 @@ docker run --rm -i \
 - `ensureContainer(agentId)`：存在且健康 → 复用；不存在 → `docker run -d --name ap-sandbox-{id} -v {ws}:/ws -w /ws --network none -m 512m --cpus 1 --pids-limit 256 -u node node:24 sleep infinity`
 - 工具调用：`docker exec ap-sandbox-{id} node /opt/tool-runner.js <<< '{tool,args}'`（~20-50ms）
 - **Heartbeat 空闲回收 + 惰性重建**：每次 exec 前 `touch`（lastUsedAt）；60s 定时扫描，超 `SANDBOX_IDLE_TIMEOUT`（默认 600s）无 heartbeat → `docker rm -f`；下次调用自动重建（无感）——常驻容器每个 ~50-100MB，回收防资源累积；销毁仅失容器内瞬态（环境变量/后台进程），文件状态永远在卷
+- **池上限 `SANDBOX_MAX_CONTAINERS`（默认 20）**：heartbeat 控空闲，池上限控峰值——ensure 创建前超限 → LRU 驱逐最旧容器；被驱逐后下次调用惰性重建（无感）。双保险：空闲回收防长期闲置累积，池上限防活跃 agent 数超资源预算
 - 孤儿清理：服务启动时 `docker ps -a --filter name=ap-sandbox-` → 全部 `docker rm -f`（容器无状态，删除无损——数据全在卷里）
 - agent 删除联动：DELETE /api/agents/:id → 同步销毁容器
 - **状态残留是副作用不是特性**：容器内环境变量/后台进程跨会话保留，但**不应依赖**（heartbeat 回收/服务重启即丢）——文档明示；文件状态永远在卷（workspace）
