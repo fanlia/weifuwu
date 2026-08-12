@@ -784,9 +784,11 @@ const DemoResultError: Component = async () => async () => (
       title="发布失败"
       desc="版本校验未通过——请检查依赖后重试"
       extra={
-        <div class="wf-row wf-gap-sm wf-center">
-          <button class="wf-btn wf-btn--primary wf-btn--sm">重试</button>
-          <button class="wf-btn wf-btn--secondary wf-btn--sm">查看日志</button>
+        <div class="wf-center">
+          <div class="wf-row wf-gap-sm">
+            <button class="wf-btn wf-btn--primary wf-btn--sm">重试</button>
+            <button class="wf-btn wf-btn--secondary wf-btn--sm">查看日志</button>
+          </div>
         </div>
       }
     />
