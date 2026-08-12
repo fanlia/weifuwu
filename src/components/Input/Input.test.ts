@@ -69,4 +69,13 @@ describe('Input', () => {
     const plain = await renderVNode(Input, {}, createTestCtx())!
     assert.doesNotMatch(plain.props.class, /--borderless/)
   })
+
+  it('透传额外原生 props（onKeyDown 等——不被 Input 吞掉）', async () => {
+    let esc = 0
+    const vnode = await renderVNode(Input, { onKeyDown: () => { esc++ } }, createTestCtx())!
+    assert.equal(vnode.type, 'input')
+    assert.equal(typeof vnode.props.onKeyDown, 'function', 'onKeyDown 到达 input 元素')
+    vnode.props.onKeyDown({ key: 'Escape' })
+    assert.equal(esc, 1, '回调可调用')
+  })
 })

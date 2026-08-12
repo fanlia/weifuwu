@@ -99,6 +99,24 @@ export const Dashboard: Component = async (_props, ctx) => {
         </Card>
       </div>
 
+      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">本周活跃 Agent（近 7 天消息）</div>
+      {(s.active_agents ?? []).length > 0 ? (
+        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(200px, 1fr))">
+          {(s.active_agents ?? []).slice(0, 4).map((a: { id: string; name: string; type: string; message_count: number }) => (
+            <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)}>
+              <div class="wf-row wf-gap-sm wf-items-center">
+                <Ava name={a.name} type={a.type} small />
+                <div class="wf-fill wf-truncate wf-text-base wf-text-semibold">{a.name}</div>
+              </div>
+              <div class="wf-text-2xl wf-text-semibold wf-mt-xs wf-nums">{a.message_count}</div>
+              <div class="wf-text-xs wf-text-tertiary">条消息 · 本周</div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div class="wf-text-sm wf-text-tertiary">近 7 天暂无活跃——聊天中 @ AI 成员后这里会显示排行</div>
+      )}
+
       <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">Token 成本排行（按 Agent）</div>
       {$.costAgents.length > 0 ? (
         <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(200px, 1fr))">

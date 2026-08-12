@@ -170,9 +170,9 @@ JWT_SECRET=change-this-to-a-random-secret-in-production
 
 ### P2 — 后续改进
 
-- [ ] Agent: 类型特定字段校验（webhook 必填 URL，KB 不需要 system_prompt）
-- [ ] Agent: 统计面板（按类型、活跃度）
-- [ ] 统一前端 toast 错误提示
+- [x] Agent: 类型特定字段校验（webhook 必填 URL 已由 H5 裁剪为入站无需 URL；KB 空 system_prompt 已支持；user 必须绑定账号校验已有）
+- [x] Agent: 统计面板（按类型已有；活跃度新增——/api/stats active_agents 近 7 天消息排行 + Dashboard「本周活跃 Agent」卡片，2026-12）
+- [x] 统一前端 toast 错误提示（ctx.toast 全页面统一入口——8 页面均已使用）
 
 ### P2 — 长期规划
 

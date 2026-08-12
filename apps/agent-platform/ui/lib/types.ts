@@ -299,6 +299,8 @@ export interface StatsData {
   messages?: { total: number }
   tokens?: { total_prompt: number; total_completion: number; total_tokens: number }
   trend?: DailyMessageRow[]
+  /** 近 7 天活跃 Agent 排行（统计面板「活跃度」） */
+  active_agents?: { id: string; name: string; type: string; message_count: number; last_active_at?: string }[]
 }
 
 /** /api/stats/tokens-by-agent 响应项 */

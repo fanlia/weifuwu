@@ -115,6 +115,19 @@ describe('ChatInput', () => {
     assert.deepEqual(sent, ['a\nb'], 'Enter 发送多行文本')
   })
 
+  it('Ctrl+Enter 强制发送（多行场景双保险）', async () => {
+    const sent: string[] = []
+    const ctx = createTestCtx()
+    const v = await renderVNode(ChatInput, { value: '', onChange: () => {}, onSend: (t) => sent.push(t), multiline: true }, ctx)
+    const ta = await find(v, 'wf-chat-input')
+    ta.props.onInput({ target: { value: 'x' } })
+    ta.props.onKeyDown({ key: 'Enter', ctrlKey: true, preventDefault: () => {} })
+    assert.deepEqual(sent, ['x'], 'Ctrl+Enter 发送')
+    ta.props.onInput({ target: { value: 'y' } })
+    ta.props.onKeyDown({ key: 'Enter', metaKey: true, preventDefault: () => {} })
+    assert.deepEqual(sent, ['x', 'y'], 'Cmd+Enter 发送（macOS）')
+  })
+
   it('streaming → 停止按钮（onStop）；非流式 → 发送按钮', async () => {
     const calls: string[] = []
     const ctx = createTestCtx()

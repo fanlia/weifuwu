@@ -26,7 +26,7 @@ export interface InputProps {
 
 export const Input: Component<InputProps> = async (_init) =>
   async (props) => {
-  const { label, name, type = 'text', value, placeholder, required, disabled, readonly, error, hint, variant = 'default', onInput, onChange } = props
+  const { label, name, type = 'text', value, placeholder, required, disabled, readonly, error, hint, variant = 'default', onInput, onChange, ...rest } = props
 
   const inputEl = h('input', {
     class: `wf-input${variant === 'borderless' ? ' wf-input--borderless' : ''}`,
@@ -39,6 +39,8 @@ export const Input: Component<InputProps> = async (_init) =>
     readonly: readonly || undefined,
     onInput,
     onChange,
+    // 额外原生 props 透传（onKeyDown/maxLength/autocomplete 等——调用方传即达，不吞）
+    ...rest,
   })
 
   if (!label && !error && !hint) return inputEl

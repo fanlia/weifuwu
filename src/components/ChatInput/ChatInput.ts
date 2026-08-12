@@ -116,6 +116,8 @@ export const ChatInput: Component<ChatInputProps, { ui: HookEnv }> = async (_ini
       onKeyDown: (e: any) => {
         if (e.key !== 'Enter') return
         if (composing || e.isComposing) return
+        // Ctrl/Cmd+Enter 强制发送（多行/单行通用快捷键——Gmail/微信习惯双保险）
+        if (e.ctrlKey || e.metaKey) { e.preventDefault(); send(); return }
         if (props.multiline && e.shiftKey) return // Shift+Enter 换行
         e.preventDefault()
         send()

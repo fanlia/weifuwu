@@ -41,6 +41,7 @@ interface ChatState {
   replyTo: { id: string; sender: string; content: string } | null
   membersList: Member[]; atMenu: Member[]; atMenuOpen: boolean; atQuery: string
   streamTimer: ReturnType<typeof setInterval> | null
+  expandedTool: string | null
 }
 
 export const Chat: Component = async (_props, ctx) => {
@@ -55,6 +56,7 @@ export const Chat: Component = async (_props, ctx) => {
   $.hasMore = false; $.loadingMore = false; $.searchQ = ''; $.searching = false
   $.replyTo = null
   $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
+  $.expandedTool = null
   const chatControl = { current: null as ChatInputControl | null }
 
   async function loadMessages() {
@@ -429,11 +431,37 @@ export const Chat: Component = async (_props, ctx) => {
 
                 {showTools && (
                   <div class="wf-stack wf-gap-xs">
-                    {(msg.tools ?? []).map((t: MessageTool, i: number) => (
-                      <span key={i} class="wf-pill wf-bg-brand wf-px-sm wf-py-xs wf-text-xs wf-text-brand">
-                        <Icon name={t.status === 'running' ? 'clock' : 'check'} size={12} /> {toolLabel(t.name)}
-                      </span>
-                    ))}
+                    {(msg.tools ?? []).map((t: MessageTool, i: number) => {
+                      const tk = `${msg.id}:${i}`
+                      const expanded = $.expandedTool === tk
+                      return (
+                        <div key={i} class="wf-stack wf-gap-none">
+                          <button type="button" class="wf-pill wf-bg-brand wf-px-sm wf-py-xs wf-text-xs wf-text-brand wf-text-left"
+                            style="background: none; border: none; cursor: pointer"
+                            onClick={() => { $.expandedTool = expanded ? null : tk; rerender() }}>
+                            <Icon name={t.status === 'running' ? 'clock' : t.status === 'error' ? 'warning' : 'check'} size={12} /> {toolLabel(t.name)}
+                            {expanded ? ' ▾' : ' ▸'}
+                          </button>
+                          {expanded && (
+                            <div class="wf-stack wf-gap-xs wf-ml-xs wf-mt-xs wf-px-sm wf-py-sm wf-rounded wf-bg-tertiary">
+                              {t.args !== undefined && t.args !== null && (
+                                <div class="wf-text-xs">
+                                  <span class="wf-text-tertiary">参数 </span>
+                                  <pre class="wf-mt-none wf-text-xs" style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-all">{JSON.stringify(t.args)}</pre>
+                                </div>
+                              )}
+                              {t.result !== undefined && t.result !== null && (
+                                <div class="wf-text-xs">
+                                  <span class="wf-text-tertiary">结果 </span>
+                                  <pre class="wf-mt-none wf-text-xs" style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-all">{String(t.result).slice(0, 500)}</pre>
+                                </div>
+                              )}
+                              {t.status === 'error' && <span class="wf-text-error wf-text-xs">执行失败</span>}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
 
@@ -477,7 +505,8 @@ export const Chat: Component = async (_props, ctx) => {
                 {beingEdited && (
                   <form onSubmit={saveEdit} class="wf-row wf-gap-xs wf-top">
                     <div class="wf-fill">
-                      <Input value={$.editValue} onInput={(e: Event) => { $.editValue = inputValue(e); rerender() }} />
+                      <Input value={$.editValue} onInput={(e: Event) => { $.editValue = inputValue(e); rerender() }}
+                        onKeyDown={(e: KeyboardEvent) => { if (e.key === 'Escape') cancelEdit() }} />
                     </div>
                     <Button type="submit" size="sm"><Icon name="check" size={14} /></Button>
                     <Button type="button" size="sm" variant="secondary" onClick={cancelEdit}><Icon name="close" size={14} /></Button>

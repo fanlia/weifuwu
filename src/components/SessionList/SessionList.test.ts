@@ -5,11 +5,14 @@ import { renderVNode, mountComponent, findByClass, createTestCtx } from '../../u
 
 const now = Date.now()
 const day = 24 * 3600 * 1000
+// 分组基准：今天 00:00（s1 用「今天中午」——任何时刻执行都稳定落在「今天」组；
+// 原 now-1h 在 00:00-01:00 执行时落「昨天」——测试跨午夜脆弱性）
+const todayStart = new Date(now).setHours(0, 0, 0, 0)
 const sessions: Session[] = [
-  { id: 's1', title: '今天的话题', updatedAt: now - 3600 * 1000 },
-  { id: 's2', title: '昨天的讨论', updatedAt: now - day - 3600 * 1000 },
-  { id: 's3', title: '上周的调研', updatedAt: now - 3 * day },
-  { id: 's4', title: '很久以前', updatedAt: now - 30 * day },
+  { id: 's1', title: '今天的话题', updatedAt: todayStart + 12 * 3600 * 1000 },
+  { id: 's2', title: '昨天的讨论', updatedAt: todayStart - 1 - 3600 * 1000 },
+  { id: 's3', title: '上周的调研', updatedAt: todayStart - 3 * day },
+  { id: 's4', title: '很久以前', updatedAt: todayStart - 30 * day },
 ]
 
 describe('SessionList', () => {

@@ -282,12 +282,27 @@ async function main() {
       ORDER BY day
     `
 
+    // 活跃 Agent 排行（近 7 天发消息数——统计面板「活跃度」）
+    const activeAgents = await sql`
+      SELECT a.id, a.name, a.type,
+        COUNT(m.id)::int as message_count,
+        MAX(m.created_at) as last_active_at
+      FROM agents a
+      JOIN messages m ON m.sender_id = a.id
+      WHERE a.tenant_id = ${tenantId}
+        AND m.created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY a.id, a.name, a.type
+      ORDER BY message_count DESC
+      LIMIT 8
+    `
+
     return Response.json({
       agents: agentStats,
       departments: deptStats,
       messages: msgStats,
       tokens: tokenStats,
       trend,
+      active_agents: activeAgents,
     })
   })
 
