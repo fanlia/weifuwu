@@ -24,7 +24,8 @@ vdom2/
 1. **类型即分派**：`classifyKind` 单一判定源；渲染用 `RENDERERS[kind]` 表，patch 用
    `TRANSITIONS[oldKind][newKind]` 表——无散落 if-else 类型链
 2. **输出范围协议**（getOutputRange）：每个输出单元都能给出 DOM 范围——
-   Fragment._childNodes / 组件 _outputChild 递归 / 数组 fragment-start..end 标记；
+   **多节点统一（2026-12）：Fragment/数组项 = fragment-start/end 标记 + fid 配对**
+   （DOM 持久化——无 _childNodes JS 缓存）；组件 _outputChild 递归；
    替换/移除统一「范围移除」，不依赖下标猜测
 3. **强类型约束**：VNode 判别联合 + 类型守卫（isFrag/isComp/...）——字段访问类型系统强制，
    无散落 cast；特有字段必填（渲染前显式 null）

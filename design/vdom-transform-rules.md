@@ -17,8 +17,8 @@
 | 原生元素 `<div class="a">` | `h('div', { class: 'a' })` | `<div class="a">`（原样） |
 | 文本 `{'hello'}` | string | 文本节点 |
 | 组件 `<Button/>` | 组件 vnode（实例 id → `data-wf-id`） | 其输出（递归应用本表推导） |
-| Fragment `<>a b</>` | Fragment vnode | 展开为兄弟节点（无容器） |
-| 数组项 `[xx, [yy, zz]]` | 原数组保留（透明） | 数组项 ≡ 隐式 Fragment：**vnode 保持用户结构**（任何阶段不展开）——渲染/diff 按嵌套递归，展开为兄弟节点；DOM 边界持久化为 `<!--wf-hole: type=fragment-start key=0 fid=0-->` / `<!--wf-hole: type=fragment-end key=0 fid=0-->` 注释（统一格式，id 有则写） |
+| Fragment `<>a b</>` | Fragment vnode | 展开为兄弟节点（无容器）——**2026-12 统一协议：fragment-start/end 标记包裹**（与数组项同构——`<!--wf-hole: type=fragment-start key=… fid=…-->` … 内容 … `<!--wf-hole: type=fragment-end key=… fid=…-->`；注释无布局/查询影响——「透明容器」语义保留，DOM 边界可见） |
+| 数组项 `[xx, [yy, zz]]` | 原数组保留（透明） | 数组项 ≡ 隐式 Fragment：**vnode 保持用户结构**（任何阶段不展开）——渲染/diff 按嵌套递归，展开为兄弟节点；DOM 边界持久化为 `<!--wf-hole: type=fragment-start key=0 fid=0-->` / `<!--wf-hole: type=fragment-end key=0 fid=0-->` 注释（统一格式，id 有则写）——**与显式 Fragment 同一协议（2026-12：多节点分组 = start/end 标记）** |
 | Portal | Portal vnode | 渲染到 `#__wf_portal`（body 下独立容器，`data-portal` 标记）——非父树内 |
 | false/null/true | 保留 | `<!--wf-hole: type=hole value=false-->` 占位节点 |
 | 非法对象/非法 type | 原样 | `<!--wf-hole: type=hole value="object {...}"-->` 占位 + warn（不崩溃） |
@@ -56,7 +56,7 @@ type 必写；value/key/fid/id 有则写；简单 token 裸写、含空白/引�
 | 豁免（无 key 概念） | 文本 / 占位值（false/null/true）——不参与 keyed 匹配（占位法处理） |
 | key → DOM | **所有数组项的 key 都落 DOM**（用户决策 2026-12——行为一致）：**元素项**写 `data-wf-key`（显式原文/默认下标值）；**组件项 key 穿透到输出每个顶层节点**（多根全部写，与 data-wf-id 同规则）——列表项身份在 DOM 完全可见，元素/组件无例外；SSR 同步输出 |
 | data-wf-key 层级语义 | **相对最近父层级**——元素项的 `data-wf-key` 是它在父 children 数组的 key；组件输出节点的 `data-wf-key` 是外层列表项的 key（组件输出被内层子元素数组项 key 的 data-wf-key 不冲突——不同层级同名属性含义不同，看 DOM 时注意父层级归属） |
-| diff 模型 | 外层位置配对 + 数组项递归（数组项 = 隐式 Fragment：无 key 身份——默认位置语义，内层各自 keyed——层级独立）；纯 vnode 列表（无数组项）走 keyed diff（显式/默认下标）；数组项范围用 fragment-start/end 标记定位 |
+| diff 模型 | **多节点统一（2026-12 array2array）**：位置循环多节点分支（newIsMulti = 数组项 \|\| Fragment）——配对递归（oldRange = getOutputRange——标记 + fid 配对）、替换/移除同一套范围逻辑；纯 vnode 列表（无多节点项）走 keyed diff（显式/默认下标）；**有 key 的 Fragment 项走 keyed 分支（fragToFrag——展开 children + patchChildren——与位置循环多节点分支行为等价）** |
 
 ## 4. 组件 id 规则
 
@@ -76,7 +76,7 @@ type 必写；value/key/fid/id 有则写；简单 token 裸写、含空白/引�
 | 新 key | 新建 + 插入 |
 | key 消失 | 移除（ref 清理 + 卸载钩子） |
 | key 顺序变化 | 移动（位置校正） |
-| 数组项/fragment | 范围锚点对齐（_childAnchors） |
+| 数组项/fragment（多节点） | 范围 = getOutputRange（fragment-start/end 标记 + fid 配对——统一协议；rangeFor 已并入）——配对递归 / 替换（renderValue + removeOldOutput）/ 移除（范围 + dispose） |
 | 文本 | nodeValue 直改（引用稳定） |
 | 占位 ↔ 真实 | 占位 ↔ 元素：replaceChild 互换（childNodes 长度恒定，索引全有效）；占位 ↔ 占位内容变：nodeValue 直改注释内容 |
 
@@ -97,6 +97,12 @@ type 必写；value/key/fid/id 有则写；简单 token 裸写、含空白/引�
 
 > **magic = 规则表之外的一切行为**（用户凭本表推导不出却发生了）
 > **magic = 同一输入在不同路径/环境的分叉**（SSR vs 客户端、jsdom vs 真浏览器、混合 vs 非混合数组——必须同结果）
+
+**多节点统一（2026-12）**：Fragment/数组项/组件多节点输出全部 = start/end 标记协议——
+无 `_childNodes` JS 缓存（缓存脱离 DOM 的 bug 类别根治）、无 rangeFor 冗余实现、
+单一 getOutputRange。**路径分叉明示**：多节点项在位置循环走多节点分支、有 key 的
+Fragment 项在 keyed 分支走 fragToFrag——两条路径行为等价（fragToFrag = 展开
+children + patchChildren——同多节点分支逻辑）——非 magic（规则表明示）。
 
 **已知违反已全部清零（2026-12）**——历史违反与消除记录：
 filter 空洞（占位法替换）✅ · 嵌套数组静默展开（vnode 保真 + 隐式 Fragment 语义——normalizeChildren 删除）✅ ·
