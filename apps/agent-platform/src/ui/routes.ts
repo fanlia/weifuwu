@@ -59,6 +59,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/companies', '/companies/new',
       '/departments', '/departments/new', '/departments/:id',
       '/chat/new', '/chat/:id',
+      '/approvals',
       '/settings',
     ]
 
@@ -92,6 +93,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/companies', '/companies/new',
       '/departments', '/departments/new', '/departments/:id',
       '/chat/new', '/chat/:id',
+      '/approvals',
       '/settings',
     ]
 

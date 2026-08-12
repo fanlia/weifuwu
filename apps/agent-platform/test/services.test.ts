@@ -90,7 +90,7 @@ function makeMockCtx(extra?: Record<string, unknown>): Context {
 let pg: ReturnType<typeof postgres>
 
 before(async () => {
-  pg = postgres()
+  pg = postgres({ url: process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_test', max: 10, closeTimeout: 1 })
   const schemaPath = resolve(__dirname, '..', 'src', 'db', 'schema.sql')
   const schema = readFileSync(schemaPath, 'utf-8')
   await pg.sql.unsafe(`
@@ -200,7 +200,7 @@ describe('Services', () => {
       assert.ok(aiReply, 'AI 自动回复应存在且已批准')
     })
 
-    it('部门无 AI Agent 时不做任何事', async () => {
+    it('部门无 AI Agent 时插入系统提示（引导添加）', async () => {
       // 创建一个无 AI 成员的部门
       await pg.sql`INSERT INTO departments (id, company_id, name) VALUES ('00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000010', 'Empty')`
       await pg.sql`INSERT INTO department_members (department_id, agent_id) VALUES ('00000000-0000-0000-0000-000000000022', ${USER_AGENT_ID})`
@@ -211,7 +211,9 @@ describe('Services', () => {
       const msgs = await pg.sql`
         SELECT * FROM messages WHERE department_id = '00000000-0000-0000-0000-000000000022'
       `
-      assert.equal(msgs.length, 0)
+      assert.equal(msgs.length, 1)
+      assert.equal(msgs[0].msg_type, 'system')
+      assert.match(String(msgs[0].content), /暂无 AI 成员/)
     })
 
     it('human_in_the_loop 创建草稿', async () => {

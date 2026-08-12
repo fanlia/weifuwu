@@ -12,14 +12,26 @@ export const NewChat: Component = async (_props, ctx) => {
       .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
       .catch(() => { $.loading = false; rerender() })
 
+  function fmtTime(iso: string | null | undefined) {
+    if (!iso) return ''
+    try {
+      const d = new Date(iso)
+      const diff = Date.now() - d.getTime()
+      if (diff < 60000) return '刚刚'
+      if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+      if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
+      return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+    } catch { return '' }
+  }
+
   return async (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
-      <PageHeader title="发起聊天" sub="选择一个部门开始对话" />
+      <PageHeader title="会话" sub="最近对话，点击进入" />
 
       {$.loading && <Loading />}
 
       {!$.loading && $.depts.length === 0 && (
-        <EmptyState icon={<Icon name="message" />} text="暂无可聊的部门" hint="先创建一个部门并添加成员">
+        <EmptyState icon={<Icon name="message" />} text="还没有会话" hint="创建一个部门并添加成员，开始人机协作">
           <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
         </EmptyState>
       )}
@@ -30,14 +42,25 @@ export const NewChat: Component = async (_props, ctx) => {
             <Card key={d.id} clickable hover onClick={() => ctx.app?.navigate(`/chat/${d.id}`)}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} />
-                <div class="wf-fill">
-                  <div class="wf-text-base wf-text-semibold">{d.name}</div>
-                  <div class="wf-text-xs wf-text-tertiary wf-mt-xs">{d.member_count ?? 0} 位成员{d.company_name ? ` · ${d.company_name}` : ''}</div>
+                <div class="wf-fill wf-stack wf-gap-none wf-shrink">
+                  <div class="wf-row wf-gap-sm">
+                    <span class="wf-text-base wf-text-semibold wf-truncate">{d.name}</span>
+                    {d.member_count > 0 && <span class="wf-text-xs wf-text-tertiary">{d.member_count} 人</span>}
+                  </div>
+                  <div class="wf-text-sm wf-text-secondary wf-truncate">
+                    {d.last_message || (d.member_count > 0 ? '暂无消息，发一条试试' : '还没有成员')}
+                  </div>
                 </div>
-                <span class="wf-text-tertiary">→</span>
+                <div class="wf-stack wf-gap-none wf-items-end wf-shrink">
+                  <span class="wf-text-xs wf-text-tertiary">{fmtTime(d.last_message_at)}</span>
+                  <span class="wf-text-tertiary">→</span>
+                </div>
               </div>
             </Card>
           ))}
+          <div class="wf-right">
+            <Button variant="ghost" onClick={() => ctx.app?.navigate('/departments')}>查看全部部门 →</Button>
+          </div>
         </div>
       )}
     </div>

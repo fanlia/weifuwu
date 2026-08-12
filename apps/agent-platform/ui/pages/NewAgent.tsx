@@ -37,7 +37,7 @@ export const NewAgent: Component = async (_props, ctx) => {
   $.roleTemplates = []; $.loading = true
 
   ctx.api!.get<{ templates: any[] }>('/api/role-templates')
-    .then(d => { $.roleTemplates = d.templates ?? []; $.loading = false })
+    .then(d => { $.roleTemplates = d.templates ?? []; $.loading = false; rerender() })
     .catch(() => { $.loading = false; rerender() })
 
   function buildCategories() {

@@ -17,12 +17,14 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
 
     const departments = await sql`
       SELECT d.id, d.company_id, d.name, d.is_dm, d.created_at,
-        (SELECT COUNT(*) FROM department_members dm WHERE dm.department_id = d.id)::int as member_count
+        (SELECT COUNT(*) FROM department_members dm WHERE dm.department_id = d.id)::int as member_count,
+        (SELECT m.content FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1) as last_message,
+        (SELECT m.created_at FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1) as last_message_at
       FROM departments d
       JOIN companies c ON c.id = d.company_id
       WHERE c.tenant_id = ${tenantId}
       ${companyId ? sql`AND d.company_id = ${companyId}` : sql``}
-      ORDER BY d.created_at DESC
+      ORDER BY COALESCE((SELECT m.created_at FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1), d.created_at) DESC
       LIMIT ${limit} OFFSET ${offset}
     `
 

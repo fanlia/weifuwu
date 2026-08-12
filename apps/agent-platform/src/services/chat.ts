@@ -78,7 +78,37 @@ export async function handleNewMessage(
       AND a.is_active = TRUE
   `) as unknown as Array<Record<string, any>>
 
-  if (aiAgents.length === 0) return // 没有 AI Agent，无需自动回复
+  // @ 定向发言：消息中 @Agent名 只触发目标 AI（无 @ 时全部回复）
+  const mentioned: Record<string, string> = {}
+  for (const m of messageContent.matchAll(/@([\u4e00-\u9fa5\w\-]+)/g)) {
+    mentioned[m[1]] = m[1]
+  }
+  let targets = aiAgents
+  if (Object.keys(mentioned).length > 0) {
+    const hit = aiAgents.filter((a) => mentioned[String(a.name).trim()])
+    if (hit.length > 0) targets = hit
+  }
+
+  if (aiAgents.length === 0) {
+    // 无 AI 成员——插入系统提示（消除静默失败，引导用户添加 AI 成员）
+    try {
+      const [hint] = await sql`
+        INSERT INTO messages (department_id, sender_id, content, msg_type)
+        VALUES (${departmentId}, ${senderId}, '该群组暂无 AI 成员，消息不会得到自动回复。请到部门详情添加 AI 机器人。', 'system')
+        RETURNING id, created_at
+      `
+      const hintMsg = hint as any
+      ctx.msg.broadcast(String(departmentId), {
+        type: 'new_message',
+        message: {
+          id: hintMsg.id, departmentId, sender_id: senderId, sender_name: '系统',
+          sender_type: 'system', content: '该群组暂无 AI 成员，消息不会得到自动回复。请到部门详情添加 AI 机器人。',
+          msg_type: 'system', created_at: hintMsg.created_at,
+        },
+      })
+    } catch { /* 提示失败不阻断用户消息 */ }
+    return
+  }
 
   // 如果 API key 为占位符或未配置，跳过 AI 回复
   const apiKey = process.env.DEEPSEEK_API_KEY
@@ -110,8 +140,8 @@ export async function handleNewMessage(
   // 追加当前消息
   chatMessages.push({ role: 'user', content: messageContent })
 
-  // 为每个 AI Agent 生成回复
-  for (const agent of aiAgents) {
+  // 为每个 AI Agent 生成回复（@ 定向时只回复被 @ 的目标）
+  for (const agent of targets) {
     try {
       const systemPrompt = agent.system_prompt ?? '你是一个有帮助的 AI 助手。'
       const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
@@ -335,6 +365,17 @@ async function runAllAgents(
   `) as unknown as Array<Record<string, any>>
   if (aiAgents.length === 0) return
 
+  // @ 定向发言：消息中 @Agent名 只触发目标 AI（无 @ 或未命中时全部回复）
+  let agents = aiAgents
+  const mentioned: Set<string> = new Set()
+  for (const m of messageContent.matchAll(/@([\u4e00-\u9fa5\w\-]+)/g)) {
+    mentioned.add(m[1])
+  }
+  if (mentioned.size > 0) {
+    const hit = aiAgents.filter((a) => mentioned.has(String(a.name).trim()))
+    if (hit.length > 0) agents = hit
+  }
+
   const recentMessages = (await sql`
     SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type
     FROM messages m
@@ -355,8 +396,8 @@ async function runAllAgents(
   }
   chatMessages.push({ role: 'user', content: messageContent })
 
-  for (let i = 0; i < aiAgents.length; i++) {
-    const agent = aiAgents[i]
+  for (let i = 0; i < agents.length; i++) {
+    const agent = agents[i]
     const msgId = initialMsgIds[i] ?? ''
     const emit = createEmitter(agent, msgId)
 

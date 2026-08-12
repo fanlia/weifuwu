@@ -19,8 +19,10 @@ export const Dashboard: Component = async (_props, ctx) => {
     ctx.api!.get('/api/stats').catch(() => ({})),
     ctx.api!.get('/api/agents').catch(() => ({ agents: [] })),
     ctx.api!.get('/api/departments').catch(() => ({ departments: [] })),
-  ]).then(([stats, agents, depts]) => {
+    ctx.api!.get('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
+  ]).then(([stats, agents, depts, pend]) => {
     $.stats = stats; $.agents = agents.agents ?? []; $.deptCount = depts.departments?.length ?? 0
+    $.pendingCount = pend.pending?.length ?? 0
     $.loading = false
     rerender()
   })
@@ -31,6 +33,19 @@ export const Dashboard: Component = async (_props, ctx) => {
     const totalTokens = s.tokens?.total_tokens ?? 0
     const agentCount = s.agents?.total ?? ($.agents ?? []).length
     const aiCount = s.agents?.ai_count ?? ($.agents ?? []).filter((a: any) => a.type === 'ai' || a.type === 'robot').length
+    // 近 7 天消息趋势：真实数据 + CSS 柱条（框架无 Chart——诚实裁剪）
+    const trend: { day: string; count: number }[] = (s.trend ?? []).map((t: any) => ({
+      day: String(t.day ?? '').slice(5, 10),
+      count: Number(t.count ?? 0),
+    }))
+    const trendTotal = trend.reduce((sum: number, t) => sum + t.count, 0)
+    const maxTrend = Math.max(1, ...trend.map((t) => t.count))
+    const trendBars = trend.map((t, i) => (
+      <div key={i} class="wf-fill wf-stack wf-gap-none wf-items-center" title={`${t.day}：${t.count} 条`}>
+        <div style={`width: 100%; max-width: 14px; height: ${Math.max(2, Math.round((t.count / maxTrend) * 24))}px; background: var(--wf-color-primary); border-radius: 2px 2px 0 0; opacity: ${t.count === 0 ? 0.25 : 1}`} />
+        <span class="wf-text-[10px] wf-text-tertiary" style="font-size: 9px">{t.day.slice(5) ?? ''}</span>
+      </div>
+    ))
 
     return (
     <div class="wf-stack wf-gap-lg">
@@ -45,7 +60,16 @@ export const Dashboard: Component = async (_props, ctx) => {
         <StatCard label="部门群组" value={$.deptCount ?? 0} icon={<Icon name="users" />} animate onClick={() => ctx.app?.navigate('/departments')} />
         <StatCard label="总消息数" value={msgCount} icon={<Icon name="message" />} animate />
         <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon={<Icon name="zap" />} animate />
-        <StatCard label="消息趋势" value={`${s.days ?? 1}天`} icon={<Icon name="bar-chart" />} />
+        <Card clickable hover onClick={() => ctx.app?.navigate('/approvals')}>
+          <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="clock" size={14} /> 审批待办</div>
+          <div class="wf-text-2xl wf-text-semibold wf-mt-xs">{$.pendingCount ?? 0}</div>
+          <div class="wf-text-xs wf-text-secondary wf-mt-xs">{($.pendingCount ?? 0) > 0 ? 'AI 草稿待批准发布' : '没有待审批草稿'}</div>
+        </Card>
+        <Card clickable hover onClick={() => ctx.app?.navigate('/agents')}>
+          <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 7 天消息</div>
+          <div class="wf-text-2xl wf-text-semibold wf-mt-xs">{trendTotal}</div>
+          <div class="wf-row wf-gap-xs wf-items-end" style="height: 32px; margin-top: 6px">{trendBars}</div>
+        </Card>
       </div>
 
       <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">快捷操作</div>

@@ -45,7 +45,10 @@ export const NewDepartment: Component = async (_props, ctx) => {
       {$.loading && <Loading />}
 
       {!$.loading && $.companies.length === 0 && (
-        <EmptyState icon={<Icon name="briefcase" />} text="还没有公司" hint="部门必须挂在公司下，请先在 API 中创建公司" />
+        <EmptyState icon={<Icon name="briefcase" />} text="还没有公司" hint="部门必须挂在公司下，先创建公司（1 分钟）">
+          <Button variant="primary" onClick={() => ctx.app?.navigate('/companies/new')}>＋ 创建公司</Button>
+          <Button variant="ghost" onClick={() => ctx.app?.navigate('/companies')}>查看公司</Button>
+        </EmptyState>
       )}
 
       {!$.loading && $.companies.length > 0 && (
@@ -53,11 +56,11 @@ export const NewDepartment: Component = async (_props, ctx) => {
           <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
             <Field label="部门名称" required>
               <Input type="text" placeholder="如：技术部、市场部" value={$.name}
-                onInput={(e: any) => { $.name = e.target.value }} />
+                onInput={(e: any) => { $.name = e.target.value; rerender() }} />
             </Field>
 
             <Field label="所属公司">
-              <Select value={$.companyId} onChange={(v) => { $.companyId = v as string }}
+              <Select value={$.companyId} onChange={(v) => { $.companyId = v as string; rerender() }}
                 options={$.companies.map((c: any) => ({ value: c.id, label: c.name }))} />
             </Field>
 

@@ -54,7 +54,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
       if (a.type === 'knowledge_base') {
         ctx.api!.get(`/api/agents/${agentId}/knowledge`)
-          .then(d => { $.docs = d.documents ?? [] }).catch(() => {})
+          .then(d => { $.docs = d.documents ?? []; $.docsLoading = false; rerender() }).catch(() => { $.docsLoading = false; rerender() })
       }
 
       $.loading = false

@@ -29,7 +29,7 @@ function req(method: string, path: string, body?: unknown): Promise<Response> {
 }
 
 before(async () => {
-  pg = postgres({ max: 10, closeTimeout: 1 })
+  pg = postgres({ url: process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_test', max: 10, closeTimeout: 1 })
   const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
   await pg.sql.unsafe('DROP TABLE IF EXISTS _weifuwu_sessions, _weifuwu_users CASCADE')
   await pg.sql.unsafe('DROP TABLE IF EXISTS webhook_logs, agent_logs, kb_chunks, kb_documents, messages, department_members, departments, agents, companies, tenants CASCADE')
@@ -55,8 +55,10 @@ before(async () => {
 
   // 限流 key 清理（跨运行残留 + 跨测试累计）：本文件统一 IP 'auth-test'
   const rdsPool = (rds as any).redis
-  await rdsPool.del('rl:global:auth-test')   // 全局限流
-  await rdsPool.del('rl:register:auth-test') // register ctx.limit（IP 维度）
+  // 实际键名带 rl: 前缀（rateLimit 中间件内部前缀）——两种都清，防跨运行残留
+  for (const k of ['rl:rl:global:auth-test', 'rl:rl:register:auth-test', 'rl:global:auth-test', 'rl:register:auth-test']) {
+    await rdsPool.del(k)
+  }
 
   // 受保护路由（仅验证 requireAuth 保护语义；me 由框架 users.routes 提供）
   const protectedRoutes = new Router()
@@ -139,6 +141,8 @@ describe('Auth', () => {
 
   it('限流（框架 ctx.limit，IP 维度）：同一 IP 5 次注册后 429', async () => {
     // 清理该 IP 限流计数（ctx.limit key = rl:register:{ip}）
+    // 实际键名带 rl: 前缀（rateLimit 内部前缀）——两候选都清
+    await (rds as any).redis.command('DEL', 'rl:rl:register:test-ip')
     await (rds as any).redis.command('DEL', 'rl:register:test-ip')
     const reqWithIp = (body: unknown) =>
       handle(
@@ -168,6 +172,8 @@ describe('Auth', () => {
     )
     assert.ok(otherIp.status !== 429, '不同 IP 独立计数')
     // 清理
+    // 实际键名带 rl: 前缀（rateLimit 内部前缀）——两候选都清
+    await (rds as any).redis.command('DEL', 'rl:rl:register:test-ip')
     await (rds as any).redis.command('DEL', 'rl:register:test-ip')
     await (rds as any).redis.command('DEL', 'rl:register:other-ip')
   })

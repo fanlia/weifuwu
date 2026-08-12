@@ -19,6 +19,7 @@ import { Departments } from './pages/Departments'
 import { NewDepartment } from './pages/NewDepartment'
 import { DepartmentDetail } from './pages/DepartmentDetail'
 import { NewChat } from './pages/NewChat'
+import { Approvals } from './pages/Approvals'
 import { Chat } from './pages/Chat'
 import { Companies } from './pages/Companies'
 import { NewCompany } from './pages/NewCompany'
@@ -71,7 +72,8 @@ main.get('companies/new', () => h(NewCompany, {}), { title: '创建公司' })
 main.get('departments', () => h(Departments, {}), { title: '部门 — Agent Platform' })
 main.get('departments/new', () => h(NewDepartment, {}), { title: '创建部门' })
 main.get('departments/:id', () => h(DepartmentDetail, {}), { title: '部门详情' })
-main.get('chat/new', () => h(NewChat, {}), { title: '发起聊天' })
+main.get('chat/new', () => h(NewChat, {}), { title: '会话' })
+  main.get('approvals', () => h(Approvals, {}), { title: '审批待办' })
 main.get('chat/:id', () => h(Chat, {}), { title: '聊天' })
 main.get('settings', () => h(Settings, {}), { title: '设置 — Agent Platform' })
 app.use('/', main)

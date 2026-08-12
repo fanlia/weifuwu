@@ -7,6 +7,25 @@ import type { AppCtx } from '../middleware/ctx.ts'
 import { handleNewMessage, handleNewMessageStream, handleNewMessageStreamSSE } from '../services/chat.ts'
 
 export function registerMessageRoutes(app: Router<AppCtx>): void {
+  // ── 审批待办（租户内全部待批草稿，供管理员集中处理） ──────────
+
+  app.get('/api/messages/pending-approvals', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, tenantId } = ctx
+    const pending = await sql`
+      SELECT m.id, m.department_id, m.content, m.ai_draft, m.created_at,
+        a.name as agent_name, a.type as agent_type,
+        d.name as department_name
+      FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      JOIN departments d ON d.id = m.department_id
+      WHERE a.tenant_id = ${tenantId}
+        AND m.ai_draft IS NOT NULL AND m.ai_approved IS NULL
+      ORDER BY m.created_at DESC
+      LIMIT 50
+    `
+    return Response.json({ pending })
+  })
+
   // ── 获取消息列表 ─────────────────────────────────────────
 
   app.get('/api/departments/:id/messages', async (req: Request, ctx: AppCtx): Promise<Response> => {
@@ -288,11 +307,11 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 审批 AI 回复（Human-in-the-Loop） ────────────────────
 
   app.post('/api/messages/:id/approve', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, tenantId, params } = ctx
+    const { sql, tenantId, params, auth } = ctx
     const body = await req.json() as { approved: boolean; reason?: string }
 
     const [msg] = await sql`
-      SELECT m.id, m.ai_draft, m.ai_approved
+      SELECT m.id, m.ai_draft, m.ai_approved, m.department_id
       FROM messages m
       JOIN agents a ON a.id = m.sender_id
       WHERE m.id = ${params.id} AND a.tenant_id = ${tenantId}
@@ -303,6 +322,19 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
 
     if (msg.ai_approved !== null) {
       return Response.json({ error: '该消息已审批' }, { status: 400 })
+    }
+
+    // 审批权限：仅部门管理员可批（部门内 role='admin' 的成员）
+    const [approver] = await sql`
+      SELECT dm.role
+      FROM department_members dm
+      JOIN agents ua ON ua.id = dm.agent_id
+      WHERE dm.department_id = ${msg.department_id}
+        AND ua.user_id = ${auth!.userId}
+      LIMIT 1
+    `
+    if (!approver || approver.role !== 'admin') {
+      return Response.json({ error: '只有部门管理员可以审批' }, { status: 403 })
     }
 
     if (body.approved) {

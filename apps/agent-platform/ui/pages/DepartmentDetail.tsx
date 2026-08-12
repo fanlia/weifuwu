@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Ava, Loading, TypeBadge } from '../components/ui'
-import { Badge, Button, Card, EmptyState } from 'weifuwu/components'
+import { Badge, Button, Card, Checkbox, EmptyState, Icon } from 'weifuwu/components'
 
 export const DepartmentDetail: Component = async (_props, ctx) => {
   const $: Record<string, any> = {}
@@ -9,15 +9,53 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
   const token = ctx.auth?.token
 
     $.dept = null; $.members = []; $.loading = true; $.notFound = false
-    ctx.api!.get(`/api/departments/${deptId}`)
-      .then(data => {
-        const d = data.department ?? data ?? null
-        if (!d?.id) { $.notFound = true; $.loading = false; return }
-        $.dept = d
-        $.members = data.members ?? []
-        $.loading = false
+    $.showMemberPicker = false; $.allAgents = []; $.picked = []; $.managing = false
+
+    function loadDept() {
+      ctx.api!.get(`/api/departments/${deptId}`)
+        .then(data => {
+          const d = data.department ?? data ?? null
+          if (!d?.id) { $.notFound = true; $.loading = false; rerender(); return }
+          $.dept = d
+          $.members = data.members ?? []
+          $.loading = false
+          rerender()
+        }).catch(() => { $.loading = false; rerender() })
+    }
+    loadDept()
+
+    async function openMemberPicker() {
+      $.showMemberPicker = true; $.picked = []; rerender()
+      ctx.api!.get('/api/agents').then((d: any) => {
+        const all = d.agents ?? []
+        const inIds = new Set($.members.map((m: any) => m.id))
+        $.allAgents = all.filter((a: any) => !inIds.has(a.id) && a.type !== 'user')
         rerender()
-      }).catch(() => { $.loading = false; rerender() })
+      }).catch(() => { ctx.toast!('加载 Agent 列表失败', 'error') })
+    }
+
+    async function addMembers() {
+      if ($.picked.length === 0) { ctx.toast!('请选择成员', 'warning'); return }
+      $.managing = true; rerender()
+      try {
+        for (const id of $.picked) {
+          await ctx.api!.post(`/api/departments/${deptId}/members`, { agent_id: id })
+        }
+        ctx.toast!('已添加成员', 'success')
+        $.showMemberPicker = false; $.picked = []; $.managing = false
+        loadDept()
+      } catch { $.managing = false; ctx.toast!('添加失败', 'error'); rerender() }
+    }
+
+    async function removeMember(m: any) {
+      const ok = await ctx.confirm!(`确定将 ${m.name} 移出部门？`)
+      if (!ok) return
+      try {
+        await ctx.api!.delete(`/api/departments/${deptId}/members/${m.id}`)
+        ctx.toast!('已移除', 'success')
+        loadDept()
+      } catch { ctx.toast!('移除失败', 'error') }
+    }
 
   return async (props) => {
     if ($.loading) return <div class="wf-stack wf-gap-lg"><Loading /></div>
@@ -46,7 +84,34 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
       </Card>
 
       <Card>
-        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm">成员列表</div>
+        <div class="wf-row wf-gap-sm wf-mb-sm">
+          <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">成员列表</div>
+          <Button size="sm" onClick={openMemberPicker}><Icon name="plus" size={14} /> 添加成员</Button>
+        </div>
+        {$.showMemberPicker && (
+          <div class="wf-bg-tertiary wf-p-md wf-rounded wf-mb-md">
+            <div class="wf-text-sm wf-text-semibold wf-mb-sm">选择要添加的 Agent（{$.picked.length} 个）</div>
+            {$.allAgents.length === 0 && <div class="wf-text-sm wf-text-tertiary">没有可添加的 Agent——先创建 AI 机器人 / Webhook / 知识库</div>}
+            <div class="wf-stack wf-gap-none">
+              {$.allAgents.map((a: any) => (
+                <label key={a.id} class="wf-row wf-gap-sm wf-py-sm" style="cursor: pointer">
+                  <Checkbox checked={$.picked.includes(a.id)} onChange={() => {
+                    $.picked = $.picked.includes(a.id) ? $.picked.filter((x: string) => x !== a.id) : [...$.picked, a.id]
+                    rerender()
+                  }} />
+                  <span class="wf-text-base">{a.name}</span>
+                  <TypeBadge type={a.type} />
+                </label>
+              ))}
+            </div>
+            <div class="wf-right wf-gap-sm wf-mt-sm">
+              <Button size="sm" variant="ghost" onClick={() => { $.showMemberPicker = false; rerender() }}>取消</Button>
+              <Button size="sm" variant="primary" disabled={$.managing || $.picked.length === 0} onClick={addMembers}>
+                {$.managing ? '添加中...' : `添加 ${$.picked.length} 个成员`}
+              </Button>
+            </div>
+          </div>
+        )}
         {$.members.map((m: any) => (
           <div key={m.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b">
             <Ava name={m.name} type={m.type ?? 'user'} small />
@@ -55,10 +120,13 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
               <span class="wf-text-xs wf-text-tertiary">{m.role === 'admin' ? '管理员' : '成员'}</span>
             </div>
             <TypeBadge type={m.type} />
+            {m.role !== 'admin' && (
+              <Button size="sm" variant="ghost" title="移除" onClick={() => removeMember(m)}><Icon name="trash" size={14} /></Button>
+            )}
           </div>
         ))}
         {$.members.length === 0 && (
-          <div class="wf-py-lg"><EmptyState text="暂无成员" /></div>
+          <div class="wf-py-lg"><EmptyState text="暂无成员" hint="点击右上角添加成员"><Button size="sm" onClick={openMemberPicker}>＋ 添加成员</Button></EmptyState></div>
         )}
       </Card>
     </div>
