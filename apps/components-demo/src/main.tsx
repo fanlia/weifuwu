@@ -39,34 +39,63 @@ import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } f
 
 // ── 搜索过滤态（App 写、Section 读——单页 demo 免逐卡片 props 传递）──
 const cardFilter = { q: '' }
-const matchCard = (title: string) =>
-  !cardFilter.q || title.toLowerCase().includes(cardFilter.q.trim().toLowerCase())
+const matchCard = (title: string, desc?: string) => {
+  if (!cardFilter.q) return true
+  const q = cardFilter.q.trim().toLowerCase()
+  return title.toLowerCase().includes(q) || (desc ?? '').toLowerCase().includes(q)
+}
 
 const SECTIONS = ['表单核心', '表单选择', '表单增强', '数据展示', '数据反馈', '导航组件', 'AI 对话', '其他', '新增批次']
 const secId = (t: string) => `sec-${t}`
 const cardId = (t: string) => `c-${t.replace(/[^\w一-龥-]+/g, '-')}`
 
-function Section(props: { title: string; children: any }) {
+function Section(props: { title: string; children: any }, ctx: any) {
+  // 懒渲染（S1）：分组滚入视口才建卡片树（once-latch——滚走后保持，demo 状态不回收）；
+  // 搜索时强制全渲染（全局匹配）；IO 未就绪时保守渲染（避免首屏闪烁）
+  const inView = ctx.ui.useInView({ threshold: 0.02 })
+  let rendered = false
+  const secRef = (el: any) => inView.observe(el)
   return (_p: any) => {
+    if (inView.isIn) rendered = true
+    const searching = !!cardFilter.q
     const kids = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean)
-    const visible = cardFilter.q ? kids.filter((v: any) => matchCard(String(v?.props?.title ?? ''))) : kids
-    if (cardFilter.q && visible.length === 0) return null // 搜索时隐藏空分组
+    const visible = searching ? kids.filter((v: any) => matchCard(String(v?.props?.title ?? ''), String(v?.props?.desc ?? ''))) : kids
+    if (searching && visible.length === 0) return null // 搜索时隐藏空分组
+    const show = searching || rendered || !inView.ready
     return (
-      <section class="wf-stack wf-gap-lg" id={secId(props.title)}>
+      <section class="wf-stack wf-gap-lg" id={secId(props.title)} ref={secRef}>
         <h2 class="wf-text-2xl wf-m-0 wf-border-b wf-pb-sm">{props.title}</h2>
-        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 420px), 1fr))">{visible}</div>
+        {show ? (
+          <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 420px), 1fr))">{visible}</div>
+        ) : (
+          <div class="wf-surface wf-border wf-rounded-md wf-p-md wf-text-sm wf-text-secondary">
+            该分组组件未加载——滚动到此处或点击上方导航加载
+          </div>
+        )}
       </section>
     )
   }
 }
 
-function DemoCard(props: { title: string; desc: string; code: string; children: any }) {
+function DemoCard(props: { title: string; desc: string; code: string; children: any }, ctx: any) {
+  let copied = false
   return (_p: any) => (
     <div class="wf-surface wf-border wf-rounded-md wf-clip" id={cardId(props.title)}>
       <h3 class="wf-text-base wf-text-semibold wf-p-md wf-bg-secondary wf-border-b wf-m-0">{props.title}</h3>
       <div class="wf-p-md wf-row wf-gap-sm wf-cluster wf-border-b wf-scroll">{props.children}</div>
       <div class="wf-px-md wf-py-sm wf-text-xs wf-text-secondary">{props.desc}</div>
-      <pre class="wf-bg-tertiary wf-p-md wf-text-xs wf-m-0 wf-scroll">{props.code}</pre>
+      {/* S0：代码块默认收起（<details> 原生折叠——36% 页面高度退出渲染树）+ 复制按钮 */}
+      <details>
+        <summary class="wf-row wf-between wf-gap-sm wf-px-md wf-py-sm wf-text-xs wf-text-secondary" style="cursor:pointer">
+          <span>{copied ? '✓ 已复制' : '查看代码'}</span>
+          <button
+            type="button"
+            class="wf-btn wf-btn--sm"
+            onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); void (ctx as any)?.browser?.copyText?.(props.code); copied = true; ctx.ui.render() }}
+          >复制</button>
+        </summary>
+        <pre class="wf-bg-tertiary wf-p-md wf-text-xs wf-m-0 wf-scroll">{props.code}</pre>
+      </details>
     </div>
   )
 }

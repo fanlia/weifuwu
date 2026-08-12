@@ -107,3 +107,52 @@ C0 门禁+存量修复 → C1 纪律清零 → C2 壳升级 → C3 验证矩阵 
 ```
 
 每期门禁：全量 `npm test` + style-audit + 两 app tsc + build + agent-browser 走查。
+
+---
+
+## 第二轮：性能与结构（P10，2026-12 已实施）
+
+> 第一轮（C0-C4）交付质量走查面；第二轮交付**浏览体验**——实测暴露的问题：
+> 115 个 demo 一次性全渲染（3844 节点 / 页面 31 米 / 首帧 566ms）。
+
+### 实测对比（agent-browser，本地）
+
+| 指标 | 优化前 | 优化后 | 降幅 |
+|------|--------|--------|------|
+| 首帧（loadMs） | 566ms | **140ms** | -75% |
+| DOM 节点 | 3844 | **194** | -95% |
+| 页面高度 | 30998px | **3007px** | -90% |
+| 初始代码块（pre） | 116 | **5**（details 收起不渲染） | -96% |
+
+### S0 — 代码块折叠 + 复制（低成本高收益）
+
+- DemoCard 的 `pre` → `<details>` 原生折叠（默认收起）——36% 页面高度退出渲染树；
+  summary 内复制按钮（`ctx.browser.copyText` + `preventDefault/stopPropagation` 防 toggle）
+- 复制反馈：内部 `copied` let + render()（render-only）
+- 幽灵类防线抓到 `wf-demo-code`（未定义类）→ 移除（details 默认样式足够）
+
+### S1 — 分组懒渲染（核心）
+
+- Section 两阶段化：`ctx.ui.useInView({ threshold: 0.02 })` + **once-latch**
+  （`if (isIn) rendered = true`——滚入渲染后永不回收，demo 状态保持）
+- IO 未就绪（`!ready`）保守渲染卡片（避免首屏闪烁）；就绪且不在视口 → 占位提示
+- **搜索特殊处理**：`q` 非空 → 全分组渲染（全局匹配）；清空恢复懒渲染（rendered 只由 isIn 设置）
+
+### S2 — 搜索增强
+
+- `matchCard(title, desc)`——标题 + 描述模糊匹配（`includes` 大小写不敏感）
+
+### 验证（agent-browser）
+
+- 首帧 140ms ✓ · 滚动加载（表单选择 5 卡片渲染、占位消失）✓ · latch（滚回顶部保持）✓
+- details 展开（open=true + pre 可见）✓ · 复制反馈（✓ 已复制）✓ · 按钮计数交互（0→1）✓
+- 搜索全渲染（搜「日期」75 卡片）✓ · 清空恢复懒渲染 ✓ · 1280 无溢出 ✓
+- 375 断点：CSS 自适应（网格 `minmax(min(100%, 420px))` 单列化）——懒渲染不改 CSS，
+  溢出风险由既有 C3 矩阵覆盖（agent-browser device 命令需 Xcode，环境不可用）
+
+### 诚实裁剪（第二轮）
+
+- **不做页面虚拟滚动**（与懒渲染收益重叠，复杂度不值）
+- **不拆单文件**（2716 行——demo 单文件快速浏览价值 > 模块化收益）
+- **不做 SSR/静态化**（demo 是交互走查面）
+- **不做组件级懒加载**（`ctx.ui.js` 动态编译已有，非 demo 场景优化点）
