@@ -48,11 +48,10 @@ interface VNodeBase {
   _ctxVersion: number | null
 }
 
-/** 原生元素——type: string；特有：el / _childAnchors（渲染后填充，前 null） */
+/** 原生元素——type: string；特有：el（元素引用——锚点统一用 _refNode） */
 export interface NativeVNode extends VNodeBase {
   type: string
   el: Node | null
-  _childAnchors: (Node | null)[] | null
 }
 
 /** Fragment——type: typeof Fragment（多节点输出边界 = fragment-start/end 标记——DOM 持久化） */
@@ -128,7 +127,7 @@ export function createVNode(type: VNodeType, props: Record<string, any>, key: st
     const v: CompVNode = { ...base(type, props, key), type, _render: null, _outputChild: null }
     return v
   }
-  const v: NativeVNode = { ...base(type, props, key), type, el: null, _childAnchors: null }
+  const v: NativeVNode = { ...base(type, props, key), type, el: null }
   return v
 }
 

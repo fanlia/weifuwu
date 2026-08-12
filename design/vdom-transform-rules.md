@@ -76,7 +76,7 @@ type 必写；value/key/fid/id 有则写；简单 token 裸写、含空白/引�
 | 新 key | 新建 + 插入 |
 | key 消失 | 移除（ref 清理 + 卸载钩子） |
 | key 顺序变化 | 移动（位置校正） |
-| 数组项/fragment（多节点） | 范围 = getOutputRange（fragment-start/end 标记 + fid 配对——统一协议；rangeFor 已并入）——配对递归 / 替换（renderValue + removeOldOutput）/ 移除（范围 + dispose） |
+| 数组项/fragment（多节点） | 范围 = getOutputRange（fragment-start/end 标记 + fid 配对——统一协议；rangeFor 已并入）——配对递归（arrayToArray）/ 替换（renderValue + removeOldOutput）/ 移除（范围 + dispose） |
 | 文本 | nodeValue 直改（引用稳定） |
 | 占位 ↔ 真实 | 占位 ↔ 元素：replaceChild 互换（childNodes 长度恒定，索引全有效）；占位 ↔ 占位内容变：nodeValue 直改注释内容 |
 
@@ -100,9 +100,11 @@ type 必写；value/key/fid/id 有则写；简单 token 裸写、含空白/引�
 
 **多节点统一（2026-12）**：Fragment/数组项/组件多节点输出全部 = start/end 标记协议——
 无 `_childNodes` JS 缓存（缓存脱离 DOM 的 bug 类别根治）、无 rangeFor 冗余实现、
-单一 getOutputRange。**路径分叉明示**：多节点项在位置循环走多节点分支、有 key 的
-Fragment 项在 keyed 分支走 fragToFrag——两条路径行为等价（fragToFrag = 展开
-children + patchChildren——同多节点分支逻辑）——非 magic（规则表明示）。
+单一 getOutputRange。**锚点统一**：单一 `_refNode`（native=el / Frag=start 标记 /
+组件=输出首节点）——`_childAnchors` 缓存删除（children 锚点从 _refNode +
+getOutputRange 宽度推导）。**路径分叉明示**：多节点项在位置循环走多节点分支、
+有 key 的 Fragment 项在 keyed 分支走 fragToFrag——**两条路径共用 arrayToArray
+（展开 children + patchChildren）**——非 magic（规则表明示）。
 
 **已知违反已全部清零（2026-12）**——历史违反与消除记录：
 filter 空洞（占位法替换）✅ · 嵌套数组静默展开（vnode 保真 + 隐式 Fragment 语义——normalizeChildren 删除）✅ ·

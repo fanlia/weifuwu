@@ -17,7 +17,7 @@ import type { VNode, VNodeChild } from '../vnode.ts'
 import { Fragment, Portal, isFrag, isComp, isNative, isPortal } from '../vnode.ts'
 import { classifyKind, getOutputRange, type PatchState, type VKind } from './kind.ts'
 import { renderValue, createHole } from './render.ts'
-import { removeOldOutput, patchChildren, patchProps, patchValue, disposeComponent, type PatchCtx } from './patch.ts'
+import { removeOldOutput, patchChildren, patchProps, patchValue, disposeComponent, arrayToArray, type PatchCtx } from './patch.ts'
 import { callRefCleanupFor } from './registry.ts'
 import { createClientBrowser } from '../browser.ts'
 import { componentName } from './ctx.ts'
@@ -105,13 +105,12 @@ function nativeToNative(s: PatchState): Node | null {
   if (oldNode && oldNode.nodeType === 1 && (oldV?.type ?? null) === newTag && isNative(newV)) {
     const el = oldNode as Element
     newV.el = el
+    newV._refNode = el  // 统一锚点（native 单节点输出 = 元素）
     patchProps(el, oldV?.props ?? {}, newV.props ?? {})
     // 规则表 §2 innerHTML：存在则 children 不渲染——diff 与 renderValue 同一判断（行为统一）
     if (!('innerHTML' in (newV.props ?? {}))) {
-      const anchors: (Node | null)[] = []
-      // 锚点优先（_childAnchors 每位置首节点——fragment/数组项多节点展开后不错位）
-      patchChildren(el, oldV?.props?.children ?? null, newV.props?.children ?? null, ctx, null, isNative(oldV) ? oldV._childAnchors ?? null : null, anchors)
-      newV._childAnchors = anchors
+      // children 锚点统一：oldNodes 映射从旧 children 项 _refNode 推导（无需 _childAnchors 缓存）
+      patchChildren(el, oldV?.props?.children ?? null, newV.props?.children ?? null, ctx)
     }
     return el
   }
@@ -124,15 +123,18 @@ function nativeToNative(s: PatchState): Node | null {
  *  统一协议（2026-12）：旧范围 = fragment-start/end 标记（DOM 持久化——随移动/移除天然同步，
  *  _childNodes 缓存已删——缓存脱离 DOM 的 bug 类别根治）；锚点 = start 标记（保留在 DOM，
  *  内容由 patchChildren 原位 patch——start/end 不动，新增插到 end 前——与数组项同构） */
+/** frag → frag：多节点配对 diff（arrayToArray——与位置循环多节点分支同实现；
+ *  展开 children + patchChildren 递归——标记范围由 getOutputRange 提供）。
+ *  oldInput 传旧 Fragment vnode（arrayToArray 展开 props.children——旧 vnode 本身传
+ *  patchChildren 会导致 oldChildren 错位 1 项——[fragV] vs [b1,b2] 重复残留；
+ *  arrayToArray 先展开再递归——无此问题） */
 function fragToFrag(s: PatchState): Node | null {
   const { parent, oldNode, oldInput, ctx } = s
   const newV = s.newInput as VNode
   const oldV = oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) ? (oldInput as VNode) : null
   // 旧 Fragment 标记范围（anchor = start 标记——父层映射 Frag 锚点即标记）
   const oldRange = isFrag(oldV) ? getOutputRange(oldV, oldNode) : null
-  // oldInput 传旧 Fragment 的 props.children（旧 vnode 本身会导致 oldChildren 错位 1 项
-  // ——[fragV] vs [b1,b2] → 替换路径新建节点 → 重复残留；diff-fragment 真实 bug）
-  const range = patchChildren(parent, oldV?.props?.children ?? oldInput, newV.props?.children ?? null, ctx, oldRange)
+  const range = arrayToArray(parent, oldV ?? oldInput, newV, ctx, oldRange)
   // 锚点 = 旧 start 标记（保留在 DOM——patchChildren 剥离首尾标记不触碰）；否则新内容首节点
   return oldNode?.parentNode ? oldNode : (range[0] ?? null)
 }

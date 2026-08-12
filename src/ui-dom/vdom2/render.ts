@@ -103,6 +103,7 @@ function renderFrag(v: VNodeChild, ctx: any, b: BrowserEnv, key: string | null =
   const fragStart = b.createComment(holeMarkup({ type: 'fragment-start', key, id, fid }))
   const fragEnd = b.createComment(holeMarkup({ type: 'fragment-end', key, id, fid }))
   if (fragStart) frag.appendChild(fragStart)
+  fv._refNode = fragStart  // 统一锚点：输出范围首节点（Fragment = start 标记）
   for (let i = 0; i < kidsArr.length; i++) {
     const c = kidsArr[i]
     const childFid = fid != null ? `${fid}-${i}` : String(i)
@@ -162,6 +163,7 @@ function renderNative(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | nul
   const el = SVG_TAGS.has(tag) ? b.createElementNS('http://www.w3.org/2000/svg', tag) : b.createElement(tag as keyof HTMLElementTagNameMap)
   if (!el) return null
   nv.el = el
+  nv._refNode = el  // 统一锚点：输出范围首节点（native = 元素本身）
   if (traceEnabled('render')) trace('render', 'trace', '', `native <${tag}> key=${vnode.key ?? '-'} kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
   if (vnode.key != null) el.setAttribute('data-wf-key', vnode.key)
 
@@ -173,26 +175,24 @@ function renderNative(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | nul
     setProp(el, k, value)
   }
   if (!('innerHTML' in (vnode.props ?? {}))) {
-    // _childAnchors：children 每位置首 DOM 节点（替代 source[i] 下标猜测——多节点展开不错位）
-    const anchors: (Node | null)[] = []
+    // children 锚点统一：每项渲染时已设 _refNode（native=el / Frag=start 标记 / 组件=输出首节点）
+    // ——diff 的 oldNodes 映射从 _refNode 推导（_childAnchors 缓存已删除——冗余 + 双锚点体系）
     const elChildren = arrayChildren(vnode.props?.children)
     for (let i = 0; i < elChildren.length; i++) {
       const c = elChildren[i]
       const childFid = fid != null ? `${fid}-${i}` : String(i)
       const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), null, childFid)
-      if (n == null) { anchors.push(null); continue }
-      const anchorNode = n.nodeType === 11 ? (n.firstChild as Node | null) : n
+      if (n == null) continue
       el.appendChild(n)
-      anchors.push(anchorNode)
       if (c && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function') {
         const cv = c as VNode
         if (!cv._parentNode) {
           cv._parentNode = el
-          cv._refNode = n
+          // _refNode 已由 renderComp 设（输出首节点——非 DocumentFragment）——此处只补 _parentNode
+          // （覆盖为 n=DocumentFragment 会让 keyed diff 的锚点失效——comp→frag 残留 bug）
         }
       }
     }
-    nv._childAnchors = anchors
     if (traceEnabled('render')) trace('render', 'trace', '', `native <${tag}> out=${childNodesSeq(el)}`)
   }
   if (selectValue !== null) {

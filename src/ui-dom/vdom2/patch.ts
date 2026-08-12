@@ -211,13 +211,28 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
  * patchChildren — 数组 diff。
  * @returns 每个新子项的 DOM 范围（Fragment 展开对齐）
  */
+/** 多节点配对 diff（Fragment/数组项统一——2026-12 array2array）：
+ *  展开 children（Fragment 项取 props.children；数组项传自身）→ patchChildren 递归。
+ *  位置循环多节点分支与 fragToFrag（keyed/顶层入口）共用——多节点 diff 实现单点。
+ *  oldRange = 标记范围（getOutputRange——start/end + fid 配对） */
+export function arrayToArray(
+  parent: Node,
+  oldInput: VNodeChild | null,
+  newInput: VNodeChild | null,
+  ctx: PatchCtx,
+  oldRange: Node[] | null,
+): (Node | null)[] {
+  const oldCChildren = Array.isArray(oldInput) ? oldInput : (oldInput as VNode)?.props?.children ?? null
+  const newCChildren = Array.isArray(newInput) ? newInput : (newInput as VNode)?.props?.children ?? null
+  return patchChildren(parent, oldCChildren, newCChildren, ctx, oldRange)
+}
+
 export function patchChildren(
   parent: Node,
   oldInput: VNodeChild | null,
   newInput: VNodeChild | null,
   ctx: PatchCtx,
   oldRange?: Node[] | null,
-  oldAnchors?: (Node | null)[] | null,
   anchorOut?: (Node | null)[],
 ): (Node | null)[] {
   // 过滤已删除（占位法替代）：数组上下文的无渲染值（false/null/true）由 renderValue 建占位节点——
@@ -227,7 +242,7 @@ export function patchChildren(
   // §1-20）。old/new children 是外层数组（含数组项原样）；数组项在下方配对分支递归处理
   const oldChildren = arrayChildren(oldInput)
   const newChildren = arrayChildren(newInput)
-  const source = oldAnchors ?? oldRange ?? Array.from(parent.childNodes)
+  const source = oldRange ?? Array.from(parent.childNodes)
   if (traceEnabled('diff')) trace('diff', 'debug', '', `patchChildren parent=${nodeDesc(parent)} old=${kidsSeq(oldChildren)} new=${kidsSeq(newChildren)} dom=${childNodesSeq(parent)}`)
 
   // 混合 keyed 数组（部分项有用户 key）：给无 key 项自动分配位置 key——
@@ -263,41 +278,45 @@ export function patchChildren(
     }
   }
 
-  // 映射旧 DOM 范围（锚点优先：_childAnchors 每位置首节点——替代 source[i] 下标猜测，
-  // fragment/数组项多节点展开后不错位——规则表 §5；文本/null 用 source 位置）
-  const oldNodes: (Node | null)[] = oldAnchors
-    ? oldAnchors.map((a, i) => a ?? (i < oldChildren.length && oldChildren[i] != null && typeof oldChildren[i] === 'object' && !Array.isArray(oldChildren[i]) ? (oldChildren[i] as VNode)._refNode ?? null : null))
-    : (() => {
-        // 数组项递归传入的 oldRange 含边界标记（[start1, c, d, start2, e, f, end2, end1]）——
-        // source[i] 索引与 oldChildren 内容项错位（标记占位 + 嵌套数组项内部节点）。
-        // 剥离首尾标记得内容序列；数组项锚点 = 其 start 标记（srcIdx 推进不消费内部节点）
-        let src = source
-        if (src.length >= 2 && src[0]?.nodeType === 8 && (src[0] as Comment).nodeValue?.includes('fragment-start') &&
-            src[src.length - 1]?.nodeType === 8 && (src[src.length - 1] as Comment).nodeValue?.includes('fragment-end')) {
-          src = src.slice(1, -1)
-        }
-        const nodes: (Node | null)[] = []
-        let k = 0
-        for (let i = 0; i < oldChildren.length; i++) {
-          const c = oldChildren[i]
-          if (Array.isArray(c)) {
-            // 数组项锚点 = 其 start 标记（内容序列中该位置）；内部节点（内容+嵌套标记）不消费 src
-            nodes.push(src[k] ?? null)
-            k++
-            continue
-          }
-          if (c == null || typeof c === 'boolean') { nodes.push(src[k] ?? null); k++; continue }
-          if (typeof c === 'string' || typeof c === 'number') { nodes.push(src[k] ?? null); k++; continue }
-          const vn = c as VNode
-          if (isPortal(vn)) { nodes.push((vn._remoteEl ?? null) as Node | null); continue }
-          // Frag 锚点 = start 标记（标记化统一——source 内 Frag 项位置即标记；与数组项同款）
-          if (isFrag(vn)) { nodes.push(src[k] ?? null); k++; continue }
-          // 组件锚点 = _refNode；native 锚点 = el（类型守卫收窄——强类型约束）
-          nodes.push(vn._refNode ?? (isNative(vn) ? vn.el : null) ?? src[k] ?? null)
-          k++
-        }
-        return nodes
-      })()
+  // oldNodes 映射：统一锚点推导——vnode 项 = _refNode（native=el / Frag=start 标记 /
+  // 组件=输出首节点——渲染时已设，无需 _childAnchors 缓存）；数组项/文本/hole = source 位置。
+  // 数组项递归传入的 oldRange 含边界标记（[start1, c, d, start2, e, f, end2, end1]）——
+  // source[i] 索引与 oldChildren 内容项错位（标记占位 + 嵌套数组项内部节点）。
+  // 剥离首尾标记得内容序列；数组项锚点 = 其 start 标记（k 推进不消费内部节点）
+  const oldNodes: (Node | null)[] = (() => {
+    let src = source
+    if (src.length >= 2 && src[0]?.nodeType === 8 && (src[0] as Comment).nodeValue?.includes('fragment-start') &&
+        src[src.length - 1]?.nodeType === 8 && (src[src.length - 1] as Comment).nodeValue?.includes('fragment-end')) {
+      src = src.slice(1, -1)
+    }
+    const nodes: (Node | null)[] = []
+    let k = 0
+    for (let i = 0; i < oldChildren.length; i++) {
+      const c = oldChildren[i]
+      if (Array.isArray(c)) {
+        // 数组项锚点 = start 标记；k 跳过多节点内部（start..end 宽度——getOutputRange 配对）
+        const start = src[k] ?? null
+        nodes.push(start)
+        const range = getOutputRange(c, start)
+        k += (range?.length ?? 1)
+        continue
+      }
+      if (c == null || typeof c === 'boolean' || typeof c === 'string' || typeof c === 'number') { nodes.push(src[k] ?? null); k++; continue }
+      const vn = c as VNode
+      if (isPortal(vn)) { nodes.push((vn._remoteEl ?? null) as Node | null); continue }
+      // 统一锚点：_refNode（渲染时已设——native=el / Frag=start 标记 / 组件=输出首节点）
+      nodes.push(vn._refNode ?? src[k] ?? null)
+      // 多节点宽度推进（Frag/组件——输出可能多节点，内部节点不消费 src——_childAnchors
+      // 缓存删除后的等价替代）：getOutputRange 返回 start..end 宽度；单节点 null → +1
+      if (typeof vn.type === 'function' || isFrag(vn)) {
+        const range = getOutputRange(vn, vn._refNode ?? src[k] ?? null)
+        k += (range?.length ?? 1)
+      } else {
+        k++
+      }
+    }
+    return nodes
+  })()
 
   // C1：remote（portal）的 portalKey 不算用户 keyed——[input(无key), portal] 走 allUnkeyed 按位置复用
   const allUnkeyed = hasArrayItem || !newChildren.some((c) => {
@@ -491,10 +510,7 @@ export function patchChildren(
         if (oldIsMulti) {
           // 多节点 vs 多节点：递归——旧范围 = 标记范围（anchor = start 标记——oldNodes[i] 映射即标记）
           const range = getOutputRange(oldC, oldNodes[i])
-          // Fragment 项展开 props.children（数组项传自身）——fragToFrag 同款
-          const oldCChildren = Array.isArray(oldC) ? oldC : (oldC as VNode)?.props?.children ?? null
-          const newCChildren = Array.isArray(newC) ? newC : (newC as VNode)?.props?.children ?? null
-          const inner = patchChildren(parent, oldCChildren, newCChildren, ctx, range)
+          const inner = arrayToArray(parent, oldC, newC, ctx, range)
           out.push(...inner)
           // 锚点 = 旧 start 标记（保留在 DOM——patchChildren 剥离首尾不触碰）；数组项首帧同款
           pushA(oldNodes[i] ?? inner[0] ?? null)
