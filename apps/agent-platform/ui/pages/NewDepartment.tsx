@@ -1,20 +1,27 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Alert, Button, Card, Checkbox, EmptyState, Field, Icon, Input, Select } from 'weifuwu/components'
 import { PageHeader, Loading, TypeBadge, errMsg } from '../components/ui'
+import { inputValue } from '../lib/types'
+import type { Agent, AgentListResponse, Company, CompanyListResponse } from '../lib/types'
+
+interface NewDepartmentState {
+  name: string; companyId: string; selected: string[]
+  submitting: boolean; error: string
+  companies: Company[]; agents: Agent[]; loading: boolean
+}
 
 export const NewDepartment: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as NewDepartmentState
   const rerender = () => ctx.ui.render()
-  const token = ctx.auth?.token
 
-    $.name = ''; $.companyId = ''; $.selected = []; $.submitting = false; $.error = ''
-    $.companies = []; $.agents = []; $.loading = true
-    Promise.all([
-      ctx.api!.get<{ companies: any[] }>('/api/companies').then(d => d.companies ?? []).catch(() => []),
-      ctx.api!.get<{ agents: any[] }>('/api/agents').then(d => d.agents ?? []).catch(() => []),
-    ]).then(([companies, agents]) => {
-      $.companies = companies; $.agents = agents; $.loading = false; rerender()
-    }).catch(() => { $.loading = false; rerender() })
+  $.name = ''; $.companyId = ''; $.selected = []; $.submitting = false; $.error = ''
+  $.companies = []; $.agents = []; $.loading = true
+  Promise.all([
+    ctx.api!.get<CompanyListResponse>('/api/companies').then(d => d.companies ?? []).catch(() => []),
+    ctx.api!.get<AgentListResponse>('/api/agents').then(d => d.agents ?? []).catch(() => []),
+  ]).then(([companies, agents]) => {
+    $.companies = companies; $.agents = agents; $.loading = false; rerender()
+  }).catch(() => { $.loading = false; rerender() })
 
   function toggle(id: string) {
     const set = new Set($.selected)
@@ -56,17 +63,17 @@ export const NewDepartment: Component = async (_props, ctx) => {
           <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
             <Field label="部门名称" required>
               <Input type="text" placeholder="如：技术部、市场部" value={$.name}
-                onInput={(e: any) => { $.name = e.target.value; rerender() }} />
+                onInput={(e: Event) => { $.name = inputValue(e); rerender() }} />
             </Field>
 
             <Field label="所属公司">
               <Select value={$.companyId} onChange={(v) => { $.companyId = v as string; rerender() }}
-                options={$.companies.map((c: any) => ({ value: c.id, label: c.name }))} />
+                options={$.companies.map((c: Company) => ({ value: c.id, label: c.name }))} />
             </Field>
 
             <Field label={`添加成员（已选 ${$.selected.length} 个，可稍后添加）`}>
               <div class="wf-stack wf-gap-none">
-                {$.agents.map((a: any) => (
+                {$.agents.map((a: Agent) => (
                   <label key={a.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b" style="cursor: pointer">
                     <Checkbox checked={$.selected.includes(a.id)} onChange={() => toggle(a.id)} />
                     <span class="wf-text-base">{a.name}</span>

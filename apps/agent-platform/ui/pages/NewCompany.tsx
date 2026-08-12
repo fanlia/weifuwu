@@ -1,13 +1,17 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Button, Card, Field, Input } from 'weifuwu/components'
+import { inputValue } from '../lib/types'
+
+interface NewCompanyState {
+  name: string; error: string; submitting: boolean
+}
 
 export const NewCompany: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as NewCompanyState
   const rerender = () => ctx.ui.render()
-  const token = ctx.auth?.token
 
-$.name = ''; $.error = ''; $.submitting = false
+  $.name = ''; $.error = ''; $.submitting = false
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
@@ -30,7 +34,7 @@ $.name = ''; $.error = ''; $.submitting = false
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
           <Field label="公司名称" required>
             <Input type="text" placeholder="如：某某科技有限公司" value={$.name}
-              onInput={(e: any) => { $.name = e.target.value; rerender() }} />
+              onInput={(e: Event) => { $.name = inputValue(e); rerender() }} />
           </Field>
           <div class="wf-right wf-gap-sm">
             <Button type="button" variant="ghost" onClick={() => ctx.app?.navigate('/companies')}>取消</Button>

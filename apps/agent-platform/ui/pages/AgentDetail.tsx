@@ -1,6 +1,8 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, TypeBadge, Loading, errMsg } from '../components/ui'
 import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Icon, Input, Select, Slider, Textarea, Timeline } from 'weifuwu/components'
+import { inputValue } from '../lib/types'
+import type { Agent, AgentLog, AvailableSkill, BoundSkill, KbChunk, KbDocument, WebhookLog } from '../lib/types'
 
 const MODELS = [
   { value: '', label: '默认 (环境变量 DEEPSEEK_MODEL)' },
@@ -8,11 +10,29 @@ const MODELS = [
   { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner' },
 ]
 
+interface AgentDetailState {
+  agent: Agent | null
+  loading: boolean; saving: boolean; notFound: boolean
+  error: string; ok: string
+  name: string; description: string; systemPrompt: string
+  aiModel: string; aiTemperature: string; aiMaxTokens: string
+  aiHITL: boolean; webhookUrl: string; webhookSecret: string
+  webhookRetryCount: string; secretVisible: boolean
+  allowFileTools: boolean; allowCommandExec: boolean
+  boundSkills: BoundSkill[]; availableSkills: AvailableSkill[]; showSkillPicker: boolean
+  logs: AgentLog[]; logsLoading: boolean
+  docs: KbDocument[]; docsLoading: boolean
+  newDocFilename: string; newDocContent: string
+  uploading: boolean; expandedDoc: string | null
+  docChunks: KbChunk[]; loadingChunks: boolean
+  showBatch: boolean
+  whLogs: WebhookLog[]; whLogsLoading: boolean
+}
+
 export const AgentDetail: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as AgentDetailState
   const rerender = () => ctx.ui.render()
   const agentId = ctx.route?.params?.id ?? ''
-  const token = ctx.auth?.token
 
     $.agent = null; $.loading = true; $.saving = false; $.notFound = false
     $.error = ''; $.ok = ''
@@ -53,7 +73,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.whLogs = []; $.whLogsLoading = false
 
       if (a.type === 'knowledge_base') {
-        ctx.api!.get(`/api/agents/${agentId}/knowledge`)
+        ctx.api!.get<{ documents: KbDocument[] }>(`/api/agents/${agentId}/knowledge`)
           .then(d => { $.docs = d.documents ?? []; $.docsLoading = false; rerender() }).catch(() => { $.docsLoading = false; rerender() })
       }
 
@@ -64,7 +84,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
   async function handleSubmit(e: Event) {
     e.preventDefault()
     $.saving = true; $.error = ''; $.ok = ''
-    const body: Record<string, any> = { name: $.name, description: $.description }
+    const body: Record<string, unknown> = { name: $.name, description: $.description }
     if ($.agent?.type === 'ai') {
       body.system_prompt = $.systemPrompt; body.model = $.aiModel || null
       body.temperature = parseFloat($.aiTemperature) || 0.7
@@ -84,7 +104,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     } catch (e) { $.error = errMsg(e, '保存失败'); $.saving = false; rerender() }
   }
 
-  async function bindSkill(skill: any) {
+  async function bindSkill(skill: AvailableSkill) {
     // 后端契约：POST /api/agents/:id/skills 需要 { skill_name, skill_dir }
     const skillName = skill.meta?.name ?? skill.name ?? skill.slug
     const skillDir = skill.dir ?? skill.skill_dir
@@ -143,9 +163,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
       {
         $.newDocFilename = ''; $.newDocContent = ''
         rerender()
-        const d = await ctx.api!.get(`/api/agents/${agentId}/knowledge`)
+        const d = await ctx.api!.get<{ documents: KbDocument[] }>(`/api/agents/${agentId}/knowledge`)
         $.docs = d.documents ?? []
-    rerender()
+        rerender()
       }
     } catch {}
     $.uploading = false
@@ -163,7 +183,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
     if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在" /></div>
 
-    const a = $.agent ?? {}
+    const a = $.agent ?? ({} as Partial<Agent>)
     const typeColor: Record<string, string> = { ai: '#8b5cf6', webhook: '#f59e0b', knowledge_base: '#22c55e', user: '#4f6ef7' }
 
     return (
@@ -187,16 +207,16 @@ export const AgentDetail: Component = async (_props, ctx) => {
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md">基本设置</div>
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
           <Field label="名称">
-            <Input value={$.name} onInput={(e: any) => { $.name = e.target.value; rerender() }} />
+            <Input value={$.name} onInput={(e: Event) => { $.name = inputValue(e); rerender() }} />
           </Field>
           <Field label="描述">
-            <Textarea value={$.description} onInput={(e: any) => { $.description = e.target.value; rerender() }} />
+            <Textarea value={$.description} onInput={(e: Event) => { $.description = inputValue(e); rerender() }} />
           </Field>
 
           {a.type === 'ai' && (
             <>
               <Field label="系统提示词">
-                <Textarea rows={5} value={$.systemPrompt} onInput={(e: any) => { $.systemPrompt = e.target.value; rerender() }} />
+                <Textarea rows={5} value={$.systemPrompt} onInput={(e: Event) => { $.systemPrompt = inputValue(e); rerender() }} />
               </Field>
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
@@ -209,7 +229,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   <Field label="温度">
                     <div class="wf-row wf-gap-sm">
                       <Slider min={0} max={2} step={0.1} value={$.aiTemperature}
-                        onChange={(v) => { $.aiTemperature = v; rerender() }} />
+                        onChange={(v) => { $.aiTemperature = String(v); rerender() }} />
                       <span class="wf-text-sm wf-text-semibold" style="min-width: 30px; text-align: center">{$.aiTemperature}</span>
                     </div>
                   </Field>
@@ -219,7 +239,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="最大 Token 数">
                     <Input type="number" min="64" max="8192" step="64" value={$.aiMaxTokens}
-                      onInput={(e: any) => { $.aiMaxTokens = e.target.value; rerender() }} />
+                      onInput={(e: Event) => { $.aiMaxTokens = inputValue(e); rerender() }} />
                   </Field>
                 </div>
                 <div class="wf-fill">
@@ -247,14 +267,14 @@ export const AgentDetail: Component = async (_props, ctx) => {
           {a.type === 'webhook' && (
             <>
               <Field label="Webhook URL" hint="消息将以 POST JSON 推送到该地址">
-                <Input type="url" value={$.webhookUrl} onInput={(e: any) => { $.webhookUrl = e.target.value; rerender() }} />
+                <Input type="url" value={$.webhookUrl} onInput={(e: Event) => { $.webhookUrl = inputValue(e); rerender() }} />
               </Field>
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
                   <Field label="Webhook Secret" hint="设置后，请求必须携带 X-Signature: HMAC-SHA256(body) 头">
                     <div class="wf-row wf-gap-xs">
                       <Input type={$.secretVisible ? 'text' : 'password'} placeholder="留空不验证签名"
-                        value={$.webhookSecret} onInput={(e: any) => { $.webhookSecret = e.target.value; rerender() }} />
+                        value={$.webhookSecret} onInput={(e: Event) => { $.webhookSecret = inputValue(e); rerender() }} />
                       <Button type="button" variant="ghost" onClick={() => { $.secretVisible = !$.secretVisible; rerender() }}>
                         {$.secretVisible ? '🙈' : '👁'}
                       </Button>
@@ -264,7 +284,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="重试次数" hint="失败后指数退避重试（默认 3 次）">
                     <Input type="number" min="0" max="5" value={$.webhookRetryCount}
-                      onInput={(e: any) => { $.webhookRetryCount = e.target.value; rerender() }} />
+                      onInput={(e: Event) => { $.webhookRetryCount = inputValue(e); rerender() }} />
                   </Field>
                 </div>
               </div>
@@ -284,7 +304,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
         <Card>
           <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="settings" size={14} /> 技能管理</div>
           {$.boundSkills.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无绑定技能</div>}
-          {$.boundSkills.map((s: any) => (
+          {$.boundSkills.map((s: BoundSkill) => (
             <div key={s.slug} class="wf-split wf-py-sm wf-border-b">
               <div class="wf-stack wf-gap-none">
                 <span class="wf-text-sm wf-text-medium">{s.name}</span>
@@ -300,10 +320,10 @@ export const AgentDetail: Component = async (_props, ctx) => {
           )}
           {$.showSkillPicker && (
             <div class="wf-stack wf-gap-xs wf-mt-sm">
-              {$.availableSkills.filter((as: any) => {
+              {$.availableSkills.filter((as: AvailableSkill) => {
                 const name = as.meta?.name ?? as.name ?? as.slug
-                return !$.boundSkills.some((bs: any) => bs.skill_name === name)
-              }).map((s: any) => (
+                return !$.boundSkills.some((bs: BoundSkill) => bs.skill_name === name)
+              }).map((s: AvailableSkill) => (
                 <div key={s.dir ?? s.slug ?? s.id} class="wf-split wf-py-xs">
                   <span class="wf-text-sm">{s.meta?.name ?? s.name}</span>
                   <span class="wf-text-xs wf-text-tertiary">{s.meta?.description ?? s.description ?? ''}</span>
@@ -324,9 +344,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
           {$.logsLoading && <Loading />}
           {!$.logsLoading && $.logs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无执行日志</div>}
           {!$.logsLoading && $.logs.length > 0 && (
-            <Timeline items={$.logs.map((log: any) => ({
+            <Timeline items={$.logs.map((log: AgentLog) => ({
               key: log.id,
-              title: '🤖 AI 执行' + (log.type && log.type !== 'execution' ? ` · ${log.type}` : ''),
+              title: '🤖 AI 执行',
               time: log.created_at ? new Date(log.created_at).toLocaleTimeString() : undefined,
               status: log.success === false ? 'error' : 'success',
               content: `${log.messages_count ?? 0} 条消息 · ${log.tokens_total ?? 0} tokens · ${log.elapsed_ms ?? 0}ms`,
@@ -343,7 +363,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
           </div>
           {$.whLogsLoading && <Loading />}
           {!$.whLogsLoading && $.whLogs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-text-center wf-p-lg">暂无请求记录</div>}
-          {$.whLogs.map((log: any) => (
+          {$.whLogs.map((log: WebhookLog) => (
             <div key={log.id} class="wf-py-sm wf-border-b">
               <div class="wf-text-sm wf-text-medium"><Icon name={log.success ? 'check' : 'close'} size={14} /> HTTP {log.response_status ?? '?'}</div>
               <div class="wf-text-xs wf-text-tertiary">{log.created_at ? new Date(log.created_at).toLocaleString() : ''} · {log.elapsed_ms}ms</div>
@@ -361,21 +381,21 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
           {$.docs.length > 0 && (
             <div class="wf-stack wf-gap-none wf-mb-md">
-              {$.docs.map((d: any) => (
+              {$.docs.map((d: KbDocument) => (
                 <div key={d.id}>
                   <div class="wf-row wf-gap-sm wf-py-sm wf-border-b" style="cursor: pointer" onClick={() => toggleExpandDoc(d.id)}>
                     <span>{$.expandedDoc === d.id ? <Icon name="folder" size={14} /> : <Icon name="file" size={14} />}</span>
                     <span class="wf-fill wf-text-sm wf-truncate">{d.filename}</span>
                     <span class="wf-text-xs wf-text-tertiary">{d.chunk_count ?? 0} 块</span>
-                    <Button size="sm" variant="danger" onClick={(e: any) => { e.stopPropagation(); deleteDoc(d.id) }}>删除</Button>
+                    <Button size="sm" variant="danger" onClick={(e: Event) => { e.stopPropagation(); deleteDoc(d.id) }}>删除</Button>
                   </div>
                   {$.expandedDoc === d.id && (
                     <div class="wf-bg-secondary wf-p-md wf-text-sm wf-stack wf-gap-sm">
                       {$.loadingChunks && <div class="wf-text-xs wf-text-tertiary">加载中...</div>}
                       {!$.loadingChunks && $.docChunks.length === 0 && <div class="wf-text-xs wf-text-tertiary">无分块数据</div>}
-                      {$.docChunks.map((ch: any, i: number) => (
+                      {$.docChunks.map((ch: KbChunk, i: number) => (
                         <div key={i} class="wf-surface wf-p-sm wf-rounded-sm wf-text-xs" style="line-height: 1.6">
-                          <span class="wf-text-xs wf-text-tertiary">块 #{ch.chunk_index + 1}</span><br />
+                          <span class="wf-text-xs wf-text-tertiary">块 #{(ch.chunk_index ?? 0) + 1}</span><br />
                           {(ch.content ?? '').slice(0, 300)}
                         </div>
                       ))}
@@ -389,11 +409,11 @@ export const AgentDetail: Component = async (_props, ctx) => {
           <form class="wf-stack wf-gap-md" onSubmit={uploadDoc}>
             <Field label="文件名">
               <Input type="text" placeholder="如：产品手册.txt" value={$.newDocFilename}
-                onInput={(e: any) => { $.newDocFilename = e.target.value; rerender() }} />
+                onInput={(e: Event) => { $.newDocFilename = inputValue(e); rerender() }} />
             </Field>
             <Field label="文档内容">
               <Textarea rows={5} placeholder="粘贴文档内容..." value={$.newDocContent}
-                onInput={(e: any) => { $.newDocContent = e.target.value; rerender() }} />
+                onInput={(e: Event) => { $.newDocContent = inputValue(e); rerender() }} />
             </Field>
             <div class="wf-right">
               <Button type="submit" variant="primary" disabled={$.uploading}>

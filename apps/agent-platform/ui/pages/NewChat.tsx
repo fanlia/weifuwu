@@ -1,16 +1,20 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Button, Card, Icon } from 'weifuwu/components'
+import type { Department, DepartmentListResponse } from '../lib/types'
+
+interface NewChatState {
+  depts: Department[]; loading: boolean
+}
 
 export const NewChat: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as NewChatState
   const rerender = () => ctx.ui.render()
-  const token = ctx.auth?.token
 
-   $.depts = []; $.loading = true
-    ctx.api!.get('/api/departments')
-      .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
-      .catch(() => { $.loading = false; rerender() })
+  $.depts = []; $.loading = true
+  ctx.api!.get<DepartmentListResponse>('/api/departments')
+    .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
+    .catch(() => { $.loading = false; rerender() })
 
   function fmtTime(iso: string | null | undefined) {
     if (!iso) return ''
@@ -38,17 +42,17 @@ export const NewChat: Component = async (_props, ctx) => {
 
       {$.depts.length > 0 && (
         <div class="wf-stack wf-gap-sm">
-          {$.depts.map((d: any) => (
+          {$.depts.map((d: Department) => (
             <Card key={d.id} clickable hover onClick={() => ctx.app?.navigate(`/chat/${d.id}`)}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} />
                 <div class="wf-fill wf-stack wf-gap-none wf-shrink">
                   <div class="wf-row wf-gap-sm">
                     <span class="wf-text-base wf-text-semibold wf-truncate">{d.name}</span>
-                    {d.member_count > 0 && <span class="wf-text-xs wf-text-tertiary">{d.member_count} 人</span>}
+                    {(d.member_count ?? 0) > 0 && <span class="wf-text-xs wf-text-tertiary">{d.member_count} 人</span>}
                   </div>
                   <div class="wf-text-sm wf-text-secondary wf-truncate">
-                    {d.last_message || (d.member_count > 0 ? '暂无消息，发一条试试' : '还没有成员')}
+                    {d.last_message || ((d.member_count ?? 0) > 0 ? '暂无消息，发一条试试' : '还没有成员')}
                   </div>
                 </div>
                 <div class="wf-stack wf-gap-none wf-items-end wf-shrink">

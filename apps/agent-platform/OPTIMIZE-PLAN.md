@@ -37,7 +37,14 @@
 
 ## 后续建议
 
-- 拆分 Chat.tsx（~450 行 → 子组件）
+- ~~拆分 Chat.tsx~~（已函数化清晰——拆分收益低风险高，裁剪）
 - 键盘快捷键 (Ctrl+Enter, Esc 取消编辑)
 - 多轮对话上下文可视化（显示每轮 tool calls）
-- 消息搜索/过滤
+- ~~消息搜索/过滤~~（已实现：搜索框 + 前滚分页 + @ 补全）
+
+## Wave 5（产品化收尾，2026-12）
+
+- [x] **页面状态类型化**：15 页面 `Record<string, any>` → 类型化状态接口（`ui/lib/types.ts` 共享实体类型）——tsc 编译期暴露 6 处潜在空值/字段错（Agents token_usage、Companies created_at、NewChat member_count、DepartmentDetail Member.id 字段、NewAgent Slider 类型、Chat Ava name）——全部修复
+- [x] **激活漏斗埋点**：events 表（部分唯一索引 first_message 去重）+ POST /api/track（鉴权 + 白名单）+ GET /api/stats/funnel（本租户进度 + 全平台转化）+ 前端 track 工具（Bearer token）+ 注册/建 Agent/发消息埋点 + Dashboard 漏斗卡片
+  - 实测：新注册用户 register_complete 入库 → Dashboard 显示「注册 ✓ / 建 Agent 未完成」；first_message 重复 track 幂等
+  - 踩坑：track 裸 fetch 无 token → protectedRoutes 401 静默失败（已修——localStorage 读 token 带 Bearer）

@@ -1,6 +1,17 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Button, Card, Icon, StatCard } from 'weifuwu/components'
 import { Ava } from '../components/ui'
+import type { Agent, AgentListResponse, CostAgentRow, DepartmentListResponse, FunnelData, PendingApproval, StatsData } from '../lib/types'
+
+interface DashboardState {
+  loading: boolean
+  stats: StatsData
+  agents: Agent[]
+  deptCount: number
+  pendingCount: number
+  costAgents: CostAgentRow[]
+  funnel: FunnelData | null
+}
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -13,19 +24,21 @@ function greeting(): string {
 }
 
 export const Dashboard: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as DashboardState
   const rerender = () => ctx.ui.render()
-  $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0
+  $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0; $.pendingCount = 0; $.costAgents = []; $.funnel = null
   Promise.all([
-    ctx.api!.get('/api/stats').catch(() => ({})),
-    ctx.api!.get('/api/agents').catch(() => ({ agents: [] })),
-    ctx.api!.get('/api/departments').catch(() => ({ departments: [] })),
-    ctx.api!.get('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
-    ctx.api!.get('/api/stats/tokens-by-agent').catch(() => ({ agents: [] })),
-  ]).then(([stats, agents, depts, pend, cost]) => {
+    ctx.api!.get<StatsData>('/api/stats').catch(() => ({})),
+    ctx.api!.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
+    ctx.api!.get<DepartmentListResponse>('/api/departments').catch(() => ({ departments: [] })),
+    ctx.api!.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
+    ctx.api!.get<{ agents: CostAgentRow[] }>('/api/stats/tokens-by-agent').catch(() => ({ agents: [] })),
+    ctx.api!.get<FunnelData>('/api/stats/funnel').catch(() => ({ mine: { register_complete: false, agent_created: false, first_message: false }, platform: {} })),
+  ]).then(([stats, agents, depts, pend, cost, funnel]) => {
     $.stats = stats; $.agents = agents.agents ?? []; $.deptCount = depts.departments?.length ?? 0
     $.pendingCount = pend.pending?.length ?? 0
     $.costAgents = cost.agents ?? []
+    $.funnel = funnel
     $.loading = false
     rerender()
   })
@@ -34,10 +47,10 @@ export const Dashboard: Component = async (_props, ctx) => {
     const s = $.stats ?? {}
     const msgCount = s.messages?.total ?? 0
     const totalTokens = s.tokens?.total_tokens ?? 0
-    const agentCount = s.agents?.total ?? ($.agents ?? []).length
-    const aiCount = s.agents?.ai_count ?? ($.agents ?? []).filter((a: any) => a.type === 'ai' || a.type === 'robot').length
+    const agentCount = s.agents?.total ?? $.agents.length
+    const aiCount = s.agents?.ai_count ?? $.agents.filter((a) => a.type === 'ai').length
     // 近 7 天消息趋势：真实数据 + CSS 柱条（框架无 Chart——诚实裁剪）
-    const trend: { day: string; count: number }[] = (s.trend ?? []).map((t: any) => ({
+    const trend: { day: string; count: number }[] = (s.trend ?? []).map((t) => ({
       day: String(t.day ?? '').slice(5, 10),
       count: Number(t.count ?? 0),
     }))
@@ -71,13 +84,13 @@ export const Dashboard: Component = async (_props, ctx) => {
       <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
         <StatCard label="Agent 总数" value={agentCount} icon={<Icon name="cpu" />} animate onClick={() => ctx.app?.navigate('/agents')} />
         <StatCard label="AI 机器人" value={aiCount} icon={<Icon name="zap" />} animate onClick={() => ctx.app?.navigate('/agents?type=ai')} />
-        <StatCard label="部门群组" value={$.deptCount ?? 0} icon={<Icon name="users" />} animate onClick={() => ctx.app?.navigate('/departments')} />
+        <StatCard label="部门群组" value={$.deptCount} icon={<Icon name="users" />} animate onClick={() => ctx.app?.navigate('/departments')} />
         <StatCard label="总消息数" value={msgCount} icon={<Icon name="message" />} animate />
         <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon={<Icon name="zap" />} animate />
         <Card clickable hover onClick={() => ctx.app?.navigate('/approvals')}>
           <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="clock" size={14} /> 审批待办</div>
-          <div class="wf-text-2xl wf-text-semibold wf-mt-xs">{$.pendingCount ?? 0}</div>
-          <div class="wf-text-xs wf-text-secondary wf-mt-xs">{($.pendingCount ?? 0) > 0 ? 'AI 草稿待批准发布' : '没有待审批草稿'}</div>
+          <div class="wf-text-2xl wf-text-semibold wf-mt-xs">{$.pendingCount}</div>
+          <div class="wf-text-xs wf-text-secondary wf-mt-xs">{$.pendingCount > 0 ? 'AI 草稿待批准发布' : '没有待审批草稿'}</div>
         </Card>
         <Card clickable hover onClick={() => ctx.app?.navigate('/agents')}>
           <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 7 天消息</div>
@@ -87,9 +100,9 @@ export const Dashboard: Component = async (_props, ctx) => {
       </div>
 
       <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">Token 成本排行（按 Agent）</div>
-      {($.costAgents ?? []).length > 0 ? (
+      {$.costAgents.length > 0 ? (
         <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(200px, 1fr))">
-          {($.costAgents ?? []).slice(0, 4).map((a: any) => (
+          {$.costAgents.slice(0, 4).map((a: CostAgentRow) => (
             <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)}>
               <div class="wf-row wf-gap-sm wf-items-center">
                 <Ava name={a.name} type={a.type} small />
@@ -102,6 +115,33 @@ export const Dashboard: Component = async (_props, ctx) => {
         </div>
       ) : (
         <div class="wf-text-sm wf-text-tertiary">暂无 token 消耗——AI 对话后这里会显示成本排行</div>
+      )}
+
+      {$.funnel && (
+        <div class="wf-surface wf-p-md wf-rounded wf-border">
+          <div class="wf-row wf-gap-sm wf-mb-sm">
+            <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">激活漏斗</div>
+            <span class="wf-text-xs wf-text-tertiary">注册 → 建 Agent → 首次对话</span>
+          </div>
+          <div class="wf-row wf-gap-md">
+            {(['register_complete', 'agent_created', 'first_message'] as const).map((ev, i) => {
+              const labels: Record<string, string> = { register_complete: '注册', agent_created: '创建 Agent', first_message: '首次对话' }
+              const done = $.funnel!.mine[ev]
+              const platformCount = $.funnel!.platform[ev] ?? 0
+              const platformTotal = Math.max(1, $.funnel!.platform.register_complete ?? 0)
+              const rate = Math.round((platformCount / platformTotal) * 100)
+              return (
+                <div key={ev} class="wf-fill wf-stack wf-gap-xs">
+                  <div class="wf-row wf-gap-xs wf-items-center">
+                    <Icon name={done ? 'check-circle' : 'target'} size={14} />
+                    <span class={`wf-text-sm${done ? ' wf-text-brand wf-text-semibold' : ' wf-text-secondary'}`}>{labels[ev]}</span>
+                  </div>
+                  <div class="wf-text-xs wf-text-tertiary">{done ? '✓ 已完成' : '未完成'} · 全平台 {rate}%</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       )}
 
       <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">快捷操作</div>

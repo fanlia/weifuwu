@@ -1,13 +1,19 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
+import { inputValue } from '../lib/types'
+
+interface SettingsState {
+  name: string; nameSubmitting: boolean; nameOk: string; nameErr: string
+  currentPassword: string; newPassword: string; confirmPassword: string
+  pwdSubmitting: boolean; pwdOk: string; pwdErr: string
+}
 
 export const Settings: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as SettingsState
   const rerender = () => ctx.ui.render()
-  const token = ctx.auth?.token
 
-    $.name = ctx.auth?.user?.name ?? ''
+  $.name = ctx.auth?.user?.name ?? ''
     $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
@@ -48,7 +54,7 @@ export const Settings: Component = async (_props, ctx) => {
         <div class="wf-mb-md">{$.nameErr && <Alert variant="error">{$.nameErr}</Alert>}</div>
         <form class="wf-stack wf-gap-md" onSubmit={updateName}>
           <Field label="姓名">
-            <Input type="text" value={$.name} onInput={(e: any) => { $.name = e.target.value; rerender() }} />
+            <Input type="text" value={$.name} onInput={(e: Event) => { $.name = inputValue(e); rerender() }} />
           </Field>
           <div class="wf-right">
             <Button type="submit" variant="primary" disabled={$.nameSubmitting}>
@@ -65,15 +71,15 @@ export const Settings: Component = async (_props, ctx) => {
         <form class="wf-stack wf-gap-md" onSubmit={updatePassword}>
           <Field label="当前密码">
             <PasswordInput placeholder="••••••••" value={$.currentPassword}
-              onInput={(e: any) => { $.currentPassword = e.target.value; rerender() }} />
+              onInput={(e: Event) => { $.currentPassword = inputValue(e); rerender() }} />
           </Field>
           <Field label="新密码">
             <PasswordInput placeholder="至少 6 位" value={$.newPassword}
-              onInput={(e: any) => { $.newPassword = e.target.value; rerender() }} />
+              onInput={(e: Event) => { $.newPassword = inputValue(e); rerender() }} />
           </Field>
           <Field label="确认新密码">
             <PasswordInput placeholder="再次输入新密码" value={$.confirmPassword}
-              onInput={(e: any) => { $.confirmPassword = e.target.value; rerender() }} />
+              onInput={(e: Event) => { $.confirmPassword = inputValue(e); rerender() }} />
           </Field>
           <div class="wf-right">
             <Button type="submit" variant="primary" disabled={$.pwdSubmitting}>

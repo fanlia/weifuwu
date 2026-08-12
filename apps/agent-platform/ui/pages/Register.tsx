@@ -1,10 +1,16 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { AuthPage, Avatar, Field, Input, PasswordInput } from 'weifuwu/components'
+import { inputValue } from '../lib/types'
+import { track } from '../lib/track'
+
+interface RegisterState {
+  email: string; name: string; password: string; error: string; loading: boolean
+}
 
 export const Register: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as RegisterState
   const rerender = () => ctx.ui.render()
-$.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
+  $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
 
   async function handleRegister() {
     if (!$.email || !$.name || !$.password) { $.error = '请填写所有字段'; rerender(); return }
@@ -18,6 +24,7 @@ $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
       const data = await res.json()
       if (!res.ok) { $.error = data.error || '注册失败'; $.loading = false; rerender(); return }
       ctx.auth?.login(data.token, data.user, data.refreshToken)
+      track('register_complete')
       $.loading = false
       ctx.app?.navigate('/')
       rerender()
@@ -35,13 +42,13 @@ $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
       footer={<span>已有账号？<a onClick={() => ctx.app?.navigate('/login')}>立即登录</a></span>}
     >
       <Field label="姓名" required>
-        <Input placeholder="你的名字" value={$.name} onInput={(e: any) => { $.name = e.target.value; rerender() }} />
+        <Input placeholder="你的名字" value={$.name} onInput={(e: Event) => { $.name = inputValue(e); rerender() }} />
       </Field>
       <Field label="邮箱" required>
-        <Input type="email" placeholder="you@example.com" value={$.email} onInput={(e: any) => { $.email = e.target.value; rerender() }} />
+        <Input type="email" placeholder="you@example.com" value={$.email} onInput={(e: Event) => { $.email = inputValue(e); rerender() }} />
       </Field>
       <Field label="密码" required>
-        <PasswordInput placeholder="••••••••" value={$.password} onInput={(e: any) => { $.password = e.target.value; rerender() }} />
+        <PasswordInput placeholder="••••••••" value={$.password} onInput={(e: Event) => { $.password = inputValue(e); rerender() }} />
       </Field>
     </AuthPage>
   )

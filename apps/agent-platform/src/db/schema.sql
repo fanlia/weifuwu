@@ -223,3 +223,18 @@ CREATE TABLE IF NOT EXISTS role_templates (
 -- ── Phase 5: 审批策略 ─────────────────────────────────────
 
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS approval_policy JSONB DEFAULT '{}'::JSONB;
+
+-- ── Phase 6: 激活漏斗埋点 ─────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS events (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id   UUID NOT NULL,
+  event       TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_events_tenant ON events(tenant_id, event);
+CREATE INDEX IF NOT EXISTS idx_events_event ON events(event, created_at DESC);
+
+-- first_message 每租户去重（激活漏斗只记首次）
+CREATE UNIQUE INDEX IF NOT EXISTS uq_events_first_message
+  ON events(tenant_id, event) WHERE event = 'first_message';

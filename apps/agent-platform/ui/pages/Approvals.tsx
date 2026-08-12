@@ -1,16 +1,21 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Badge, Button, Card, Icon } from 'weifuwu/components'
+import type { PendingApproval } from '../lib/types'
+
+interface ApprovalsState {
+  items: PendingApproval[]; loading: boolean; handling: string
+}
 
 /** 审批待办 — 管理员集中处理所有 AI 草稿（HITL 核心入口） */
 export const Approvals: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as ApprovalsState
   const rerender = () => ctx.ui.render()
   $.items = []; $.loading = true; $.handling = ''
 
   function load() {
-    ctx.api!.get('/api/messages/pending-approvals')
-      .then((d: any) => { $.items = d.pending ?? []; $.loading = false; rerender() })
+    ctx.api!.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals')
+      .then(d => { $.items = d.pending ?? []; $.loading = false; rerender() })
       .catch(() => { $.loading = false; rerender() })
   }
   load()
@@ -20,7 +25,7 @@ export const Approvals: Component = async (_props, ctx) => {
     try {
       await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved })
       ctx.toast!(approved ? '已批准发布' : '已拒绝', approved ? 'success' : 'info')
-      $.items = $.items.filter((m: any) => m.id !== msgId)
+      $.items = $.items.filter((m) => m.id !== msgId)
     } catch { ctx.toast!('操作失败', 'error') }
     $.handling = ''; rerender()
   }
@@ -47,7 +52,7 @@ export const Approvals: Component = async (_props, ctx) => {
 
       {$.items.length > 0 && (
         <div class="wf-stack wf-gap-sm">
-          {$.items.map((m: any) => (
+          {$.items.map((m: PendingApproval) => (
             <Card key={m.id} outlined>
               <div class="wf-row wf-gap-sm">
                 <Ava name={m.agent_name ?? 'AI'} type={m.agent_type ?? 'ai'} small />
@@ -57,7 +62,7 @@ export const Approvals: Component = async (_props, ctx) => {
                     <Badge variant="warning"><Icon name="clock" size={12} /> 待审批</Badge>
                   </div>
                   <span class="wf-text-xs wf-text-tertiary">
-                    部门：{m.department_name ?? '未知'} · {fmtTime(m.created_at)}
+                    部门：{m.department_name ?? '未知'} · {fmtTime(m.created_at ?? '')}
                   </span>
                   <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-mt-sm">{m.ai_draft}</div>
                 </div>

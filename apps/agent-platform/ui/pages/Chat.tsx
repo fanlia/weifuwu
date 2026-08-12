@@ -1,12 +1,52 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Ava } from '../components/ui'
 import { Alert, Badge, Button, ChatInput, CopyButton, EmptyState, Icon, Input, Markdown, MessageBubble } from 'weifuwu/components'
+import { inputValue } from '../lib/types'
+import { track } from '../lib/track'
+import type { Agent, Member, Message, MessageListResponse, MessageTool } from '../lib/types'
+
+/** ChatInput 程序化控制（与 weifuwu/components ChatInputControl 同形） */
+interface ChatInputControl {
+  setKeyword: (v: string) => void
+  setValue: (v: string) => void
+}
+
+/** 前端消息形态（后端字段 + 流式状态——宽松：WS 推送对象字段不全） */
+interface ChatMessage {
+  id: string
+  department_id?: string
+  sender_id: string
+  sender_name?: string | null
+  sender_type?: string
+  content: string
+  msg_type?: string
+  created_at: string
+  status: string
+  tools: MessageTool[]
+  usage?: { total_tokens: number }
+  ai_draft?: string | null
+  ai_approved?: boolean | null
+  reply_content?: string | null
+  reply_sender?: string | null
+}
+
+interface ChatState {
+  msgs: ChatMessage[]
+  deptName: string; memberCount: number; input: string
+  editingId: string; editValue: string; userAgentId: string; sending: boolean
+  bodyEl: HTMLElement | null; isUserScrolledUp: boolean
+  unsubWs: (() => void) | null
+  approving: string | null; copiedId: string; timeVersion: number
+  hasMore: boolean; loadingMore: boolean; searchQ: string; searching: boolean
+  replyTo: { id: string; sender: string; content: string } | null
+  membersList: Member[]; atMenu: Member[]; atMenuOpen: boolean; atQuery: string
+  streamTimer: ReturnType<typeof setInterval> | null
+}
 
 export const Chat: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as ChatState
   const rerender = () => ctx.ui.render()
   const deptId = ctx.route?.params?.id ?? ''
-  const token = ctx.auth?.token
 
   $.msgs = []; $.deptName = '聊天'; $.memberCount = 0; $.input = ''
   $.editingId = ''; $.editValue = ''; $.userAgentId = ''; $.sending = false
@@ -15,13 +55,13 @@ export const Chat: Component = async (_props, ctx) => {
   $.hasMore = false; $.loadingMore = false; $.searchQ = ''; $.searching = false
   $.replyTo = null
   $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
-  const chatControl = { current: null as any }
+  const chatControl = { current: null as ChatInputControl | null }
 
   async function loadMessages() {
-    const msgRes = await ctx.api!.get(`/api/departments/${deptId}/messages?limit=50`).catch(() => ({ messages: [] }))
+    const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50`).catch(() => ({ messages: [] }))
     const list = msgRes.messages ?? []
     $.hasMore = list.length >= 50
-    $.msgs = [...list].reverse().map((m: any) => ({ ...m }))
+    $.msgs = [...list].reverse().map((m: Message) => ({ ...m } as ChatMessage))
   }
 
   Promise.all([
@@ -31,11 +71,11 @@ export const Chat: Component = async (_props, ctx) => {
   ]).then(([, deptRes, agentRes]) => {
     const agents = agentRes.agents ?? []
     const user = ctx.auth?.user
-    const mine = agents.find((a: any) => a.user_id === user?.id)
+    const mine = agents.find((a: Agent) => a.user_id === user?.id)
     if (mine) $.userAgentId = mine.id
     $.deptName = deptRes?.department?.name ?? deptRes?.name ?? '聊天'
     $.memberCount = (deptRes?.members ?? []).length
-    $.membersList = (deptRes?.members ?? []).filter((m: any) => m.type === 'ai')
+    $.membersList = (deptRes?.members ?? []).filter((m: Member) => m.type === 'ai')
     rerender()
   }).catch(() => {})
 
@@ -43,10 +83,10 @@ export const Chat: Component = async (_props, ctx) => {
     if ($.loadingMore || !$.hasMore) return
     $.loadingMore = true; rerender()
     const oldest = $.msgs[0]
-    const msgRes = await ctx.api!.get(`/api/departments/${deptId}/messages?limit=50&before=${oldest?.id ?? ''}`).catch(() => ({ messages: [] }))
+    const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50&before=${oldest?.id ?? ''}`).catch(() => ({ messages: [] }))
     const older = msgRes.messages ?? []
     if (older.length > 0) {
-      $.msgs = [...older.reverse(), ...$.msgs]
+      $.msgs = [...older.reverse() as ChatMessage[], ...$.msgs]
       $.hasMore = older.length >= 50
     } else {
       $.hasMore = false
@@ -61,39 +101,39 @@ export const Chat: Component = async (_props, ctx) => {
     if (!q) {
       await loadMessages(); $.searching = false; rerender(); return
     }
-    const msgRes = await ctx.api!.get(`/api/departments/${deptId}/messages?limit=50&q=${encodeURIComponent(q)}`).catch(() => ({ messages: [] }))
-    $.msgs = [...(msgRes.messages ?? [])].reverse().map((m: any) => ({ ...m }))
+    const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50&q=${encodeURIComponent(q)}`).catch(() => ({ messages: [] }))
+    $.msgs = [...(msgRes.messages ?? [])].reverse().map((m: Message) => ({ ...m } as ChatMessage))
     $.hasMore = false
     $.searching = false
     rerender()
   }
 
-  const unsub = ctx.ws?.onMessage((event: any) => {
+  const unsub: (() => void) | undefined = ctx.ws?.onMessage((event: any) => {
     switch (event.type) {
       case 'new_message':
-        if (!$.msgs.some((m: any) => m.id === event.message.id)) {
-          $.msgs.push({ id: event.message.id, sender_id: event.message.sender_id, sender_name: event.message.sender_name ?? '', sender_type: event.message.sender_type ?? 'user', content: event.message.content, msg_type: 'text', created_at: event.message.created_at ?? new Date().toISOString(), status: 'idle', tools: [] })
+        if (!$.msgs.some((m: ChatMessage) => m.id === event.message.id)) {
+          $.msgs.push({ id: event.message.id, sender_id: event.message.sender_id, sender_name: event.message.sender_name ?? '', sender_type: event.message.sender_type ?? 'user', content: event.message.content, msg_type: 'text', created_at: event.message.created_at ?? new Date().toISOString(), status: 'idle', tools: [] as MessageTool[] })
         }
         ; break
       case 'ai_draft':
-        if (!$.msgs.some((m: any) => m.id === event.message.id)) {
-          $.msgs.push({ id: event.message.id, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'idle', tools: [], ai_draft: event.draft, ai_approved: null })
+        if (!$.msgs.some((m: ChatMessage) => m.id === event.message.id)) {
+          $.msgs.push({ id: event.message.id, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'idle', tools: [] as MessageTool[], ai_draft: event.draft, ai_approved: null })
         }
         ; break
       case 'wf:step': {
         // 框架协议：stepType 'llm'（开始思考）/ 'tool'（工具调用）
-        const idx = $.msgs.findIndex((m: any) => m.id === event.messageId)
+        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
         if (event.stepType === 'llm') {
           if (idx === -1) {
-            $.msgs.push({ id: event.messageId, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'thinking', tools: [] })
+            $.msgs.push({ id: event.messageId, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'thinking', tools: [] as MessageTool[] })
           } else if ($.msgs[idx].status !== 'complete' && $.msgs[idx].status !== 'error') {
             $.msgs[idx].status = 'thinking'
           }
         } else if (event.stepType === 'tool') {
-          const m = $.msgs.find((m: any) => m.id === event.messageId)
+          const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
           if (m) {
             if (!m.tools) m.tools = []
-            if (!m.tools.some((t: any) => t.name === event.name && t.status === 'running')) {
+            if (!m.tools.some((t: MessageTool) => t.name === event.name && t.status === 'running')) {
               m.tools.push({ name: event.name, args: event.args, status: 'running' })
             }
           }
@@ -101,20 +141,20 @@ export const Chat: Component = async (_props, ctx) => {
         ; break
       }
       case 'wf:token': {
-        const m = $.msgs.find((m: any) => m.id === event.messageId)
+        const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
         if (m) { m.content += event.text; if (m.status !== 'complete') m.status = 'generating' }
         ; break
       }
       case 'wf:tool_result': {
-        const m = $.msgs.find((m: any) => m.id === event.messageId)
+        const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
         if (m) {
-          (m.tools ?? []).forEach((t: any) => { if (t.name === event.name && t.status === 'running') { t.status = 'done'; t.result = event.result } })
+          (m.tools ?? []).forEach((t: MessageTool) => { if (t.name === event.name && t.status === 'running') { t.status = 'done'; t.result = event.result } })
           if (m.status !== 'complete') m.status = 'thinking'
         }
         ; break
       }
       case 'wf:done': {
-        const idx = $.msgs.findIndex((m: any) => m.id === event.messageId)
+        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
         if (idx !== -1) {
           const m = $.msgs[idx]
           if (event.content) m.content = event.content
@@ -123,21 +163,21 @@ export const Chat: Component = async (_props, ctx) => {
         ; break
       }
       case 'wf:error': {
-        const m = $.msgs.find((m: any) => m.id === event.messageId)
+        const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
         if (m) { if (!m.content) m.content = '⚠️ AI 回复失败'; m.status = 'error' }
         ; break
       }
       case 'message_edited': {
-        const m = $.msgs.find((m: any) => m.id === event.messageId)
+        const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
         if (m) m.content = event.content; break
       }
       case 'message_deleted': {
-        $.msgs = $.msgs.filter((m: any) => m.id !== event.messageId); break
+        $.msgs = $.msgs.filter((m: ChatMessage) => m.id !== event.messageId); break
       }
     }
     rerender()
   })
-  $.unsubWs = unsub
+  $.unsubWs = unsub ?? null
 
   ctx.ws?.send({ type: 'subscribe', room: deptId })
 
@@ -145,7 +185,7 @@ export const Chat: Component = async (_props, ctx) => {
     $.timeVersion++
     let changed = false
     const now = Date.now()
-    const updated = $.msgs.map((m: any) => {
+    const updated = $.msgs.map((m: ChatMessage) => {
       if ((m.status === 'thinking' || m.status === 'generating') && m.created_at) {
         if (now - new Date(m.created_at).getTime() > 60000) {
           changed = true; return { ...m, status: 'complete' }
@@ -172,8 +212,8 @@ export const Chat: Component = async (_props, ctx) => {
     requestAnimationFrame(() => { if ($.bodyEl) $.bodyEl.scrollTop = $.bodyEl.scrollHeight })
   }
 
-  function isOwn(msg: any) { return $.userAgentId && msg.sender_id === $.userAgentId }
-  function canEdit(msg: any) { return isOwn(msg) && Date.now() - new Date(msg.created_at).getTime() < 5 * 60 * 1000 }
+  function isOwn(msg: ChatMessage) { return $.userAgentId && msg.sender_id === $.userAgentId }
+  function canEdit(msg: ChatMessage) { return isOwn(msg) && Date.now() - new Date(msg.created_at).getTime() < 5 * 60 * 1000 }
 
   async function sendText(content: string) {
     const trimmed = content.trim()
@@ -187,7 +227,8 @@ export const Chat: Component = async (_props, ctx) => {
     try {
       const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: trimmed, reply_to: replyId }).catch(() => null)
       if (data) {
-        if (data.message && !$.msgs.some((m: any) => m.id === data.message.id)) {
+        track('first_message')
+        if (data.message && !$.msgs.some((m: ChatMessage) => m.id === data.message.id)) {
           $.msgs.push({
             id: data.message.id,
             sender_id: data.message.sender_id ?? '',
@@ -197,7 +238,7 @@ export const Chat: Component = async (_props, ctx) => {
             msg_type: 'text',
             created_at: data.message.created_at ?? new Date().toISOString(),
             status: 'idle',
-            tools: [],
+            tools: [] as MessageTool[],
           })
         }
       } else {
@@ -208,11 +249,11 @@ export const Chat: Component = async (_props, ctx) => {
   }
 
   async function retryMessage(fromMsgId: string) {
-    const idx = $.msgs.findIndex((m: any) => m.id === fromMsgId)
+    const idx = $.msgs.findIndex((m: ChatMessage) => m.id === fromMsgId)
     if (idx <= 0) return
-    const lastUser = $.msgs.slice(0, idx).filter((m: any) => m.sender_type === 'user').pop()
+    const lastUser = $.msgs.slice(0, idx).filter((m: ChatMessage) => m.sender_type === 'user').pop()
     if (!lastUser) return
-    $.msgs = $.msgs.filter((m: any) => m.id !== fromMsgId)
+    $.msgs = $.msgs.filter((m: ChatMessage) => m.id !== fromMsgId)
     $.sending = true
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: lastUser.content }).catch(() => {})
@@ -220,8 +261,8 @@ export const Chat: Component = async (_props, ctx) => {
     rerender()
   }
 
-  function startEdit(msg: any) { $.editingId = msg.id; $.editValue = msg.content; rerender() }
-  function startReply(msg: any) { $.replyTo = { id: msg.id, sender: msg.sender_name, content: msg.content }; rerender() }
+  function startEdit(msg: ChatMessage) { $.editingId = msg.id; $.editValue = msg.content; rerender() }
+  function startReply(msg: ChatMessage) { $.replyTo = { id: msg.id, sender: msg.sender_name ?? '消息', content: msg.content }; rerender() }
   function cancelEdit() { $.editingId = ''; $.editValue = ''; rerender() }
 
   async function saveEdit(e: Event) {
@@ -230,7 +271,7 @@ export const Chat: Component = async (_props, ctx) => {
     await ctx.api!.put(`/api/messages/${$.editingId}`, { content: $.editValue }).then(() => cancelEdit()).catch(() => ctx.toast!('编辑失败', 'error'))
   }
 
-  async function deleteMsg(msg: any) {
+  async function deleteMsg(msg: ChatMessage) {
     const ok = await ctx.confirm!('确定撤回这条消息？')
     if (!ok) return
     await ctx.api!.delete(`/api/messages/${msg.id}`).then(() => { ctx.toast!('消息已撤回', 'success'); rerender() }).catch(() => ctx.toast!('撤回失败', 'error'))
@@ -250,7 +291,7 @@ export const Chat: Component = async (_props, ctx) => {
     rerender()
   }
 
-  const chatBodyRef = (el: any) => {
+  const chatBodyRef = (el: HTMLElement | null) => {
     if (el) { $.bodyEl = el; scrollToBottom(true) }
     if (!el && $.bodyEl) {
       $.bodyEl = null
@@ -278,7 +319,7 @@ export const Chat: Component = async (_props, ctx) => {
     const msgsLen = $.msgs.length
     if (msgsLen > prevLen) { scrollToBottom(); prevLen = msgsLen }
     if (msgsLen > 0) {
-      const totalLen = $.msgs.reduce((s: number, m: any) => s + m.content.length, 0)
+      const totalLen = $.msgs.reduce((s: number, m: ChatMessage) => s + m.content.length, 0)
       if (totalLen > prevContentLen && prevContentLen > 0) { scrollToBottom() }
       prevContentLen = totalLen
     }
@@ -291,14 +332,14 @@ export const Chat: Component = async (_props, ctx) => {
     const atMatch = v.match(/@([\u4e00-\u9fa5\w]*)$/)
     if (atMatch) {
       $.atQuery = atMatch[1]
-      $.atMenu = $.membersList.filter((m: any) => m.type === 'ai' && (String(m.name).includes($.atQuery) || !$.atQuery))
+      $.atMenu = $.membersList.filter((m) => m.type === 'ai' && (String(m.name).includes($.atQuery) || !$.atQuery))
       $.atMenuOpen = $.atMenu.length > 0
     } else {
       $.atMenuOpen = false; $.atQuery = ''
     }
     rerender()
   }
-  function pickAtMember(m: any) {
+  function pickAtMember(m: Member) {
     // 替换末尾 @前缀 为完整 @名 + 空格（ChatInput 内部 keyword 程序化改写——不触发 onChange 避免 IME 打断）
     const v = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, `@${m.name} `)
     $.input = v
@@ -312,7 +353,7 @@ export const Chat: Component = async (_props, ctx) => {
     <div class="wf-stack wf-h-full">
       <div class="wf-row wf-gap-sm wf-p-sm wf-bg-secondary wf-border-b">
         <a href="/chat/new" class="wf-text-brand"
-          onClick={(e: any) => { e.preventDefault(); ctx.app?.navigate('/chat/new') }}>
+          onClick={(e: Event) => { e.preventDefault(); ctx.app?.navigate('/chat/new') }}>
           <Icon name="arrow-left" size={16} />
         </a>
         <div class="wf-fill wf-stack wf-gap-none">
@@ -345,7 +386,7 @@ export const Chat: Component = async (_props, ctx) => {
           <EmptyState icon={<Icon name="message" />} text={$.searchQ ? '没有匹配的消息' : '暂无消息'} hint={$.searchQ ? '换个关键词试试' : '发送第一条消息，@ 的 AI 成员会自动回复'} />
         )}
 
-        {$.msgs.map((msg: any) => {
+        {$.msgs.map((msg: ChatMessage) => {
           const own = isOwn(msg)
           const beingEdited = $.editingId === msg.id
           const st = msg.status
@@ -357,7 +398,7 @@ export const Chat: Component = async (_props, ctx) => {
 
           return (
             <div data-msgid={String(msg.id).slice(0, 8)} data-msgtype={msg.msg_type} class={`wf-row wf-top wf-gap-sm${own ? ' wf-row-reverse' : ''}`}>
-              <Ava name={msg.sender_name} type={msg.sender_type ?? 'user'} small />
+              <Ava name={msg.sender_name ?? '未知'} type={msg.sender_type ?? 'user'} small />
               <div class={`wf-stack wf-gap-xs wf-shrink${own ? ' wf-bottom' : ''}`}>
                 <div class={`wf-row wf-gap-xs wf-text-xs wf-text-tertiary${own ? ' wf-row-reverse' : ''}`}>
                   <span>{msg.sender_name ?? '未知'}</span>
@@ -382,13 +423,13 @@ export const Chat: Component = async (_props, ctx) => {
 
                 {msg.reply_content && !beingEdited && (
                   <div class="wf-border-l wf-pl-sm wf-text-xs wf-text-tertiary">
-                    <span class="wf-text-secondary">↩ {msg.reply_sender ?? '消息'}</span> {String(msg.reply_content).slice(0, 40)}
+                    <span class="wf-text-secondary">↩ {msg.reply_sender ?? '消息'}</span> {String(msg.reply_content ?? '').slice(0, 40)}
                   </div>
                 )}
 
                 {showTools && (
                   <div class="wf-stack wf-gap-xs">
-                    {(msg.tools ?? []).map((t: any, i: number) => (
+                    {(msg.tools ?? []).map((t: MessageTool, i: number) => (
                       <span key={i} class="wf-pill wf-bg-brand wf-px-sm wf-py-xs wf-text-xs wf-text-brand">
                         <Icon name={t.status === 'running' ? 'clock' : 'check'} size={12} /> {toolLabel(t.name)}
                       </span>
@@ -436,7 +477,7 @@ export const Chat: Component = async (_props, ctx) => {
                 {beingEdited && (
                   <form onSubmit={saveEdit} class="wf-row wf-gap-xs wf-top">
                     <div class="wf-fill">
-                      <Input value={$.editValue} onInput={(e: any) => { $.editValue = e.target.value; rerender() }} />
+                      <Input value={$.editValue} onInput={(e: Event) => { $.editValue = inputValue(e); rerender() }} />
                     </div>
                     <Button type="submit" size="sm"><Icon name="check" size={14} /></Button>
                     <Button type="button" size="sm" variant="secondary" onClick={cancelEdit}><Icon name="close" size={14} /></Button>
@@ -452,7 +493,7 @@ export const Chat: Component = async (_props, ctx) => {
         {$.atMenuOpen && (
           <div class="wf-stack wf-gap-none wf-p-sm wf-rounded wf-surface wf-mb-sm wf-shadow" style="position: relative; z-index: 10">
             <div class="wf-text-xs wf-text-tertiary wf-px-sm wf-pb-xs">@ 选择成员</div>
-            {$.atMenu.map((m: any) => (
+            {$.atMenu.map((m: Member) => (
               <button type="button" key={m.id} class="wf-row wf-gap-sm wf-px-sm wf-py-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px"
                 onClick={() => pickAtMember(m)}>
                 <Ava name={m.name} type={m.type ?? 'ai'} small />
@@ -482,7 +523,7 @@ export const Chat: Component = async (_props, ctx) => {
         </div>
         <div class="wf-row wf-gap-sm wf-mt-sm">
           <div class="wf-fill">
-            <Input placeholder="搜索消息..." value={$.searchQ} onInput={(e: any) => { $.searchQ = e.target.value; rerender() }} />
+            <Input placeholder="搜索消息..." value={$.searchQ} onInput={(e: Event) => { $.searchQ = inputValue(e); rerender() }} />
           </div>
           <Button size="sm" disabled={$.searching} onClick={runSearch}><Icon name="search" size={14} /> 搜索</Button>
         </div>

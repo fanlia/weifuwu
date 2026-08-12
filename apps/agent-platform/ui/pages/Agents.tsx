@@ -1,16 +1,20 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot } from '../components/ui'
 import { Button, Card, Icon } from 'weifuwu/components'
+import type { Agent, AgentListResponse } from '../lib/types'
+
+interface AgentsState {
+  agents: Agent[]; loading: boolean
+}
 
 export const Agents: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as AgentsState
   const rerender = () => ctx.ui.render()
-  const token = ctx.auth?.token
 
-    $.agents = []; $.loading = true
-    ctx.api!.get('/api/agents')
-      .then(d => { $.agents = d.agents ?? []; $.loading = false; rerender() })
-      .catch(() => { $.loading = false; rerender() })
+  $.agents = []; $.loading = true
+  ctx.api!.get<AgentListResponse>('/api/agents')
+    .then(d => { $.agents = d.agents ?? []; $.loading = false; rerender() })
+    .catch(() => { $.loading = false; rerender() })
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
@@ -18,7 +22,7 @@ export const Agents: Component = async (_props, ctx) => {
     if (!ok) return
     const res = await ctx.api!.delete(`/api/agents/${id}`)
     if (res.ok || res.status === 204) {
-      $.agents = $.agents.filter((a: any) => a.id !== id)
+      $.agents = $.agents.filter((a: Agent) => a.id !== id)
       rerender()
       ;ctx.toast!('Agent 已删除', 'success')
     } else {
@@ -51,7 +55,7 @@ export const Agents: Component = async (_props, ctx) => {
 
       {$.agents.length > 0 && (
         <div class="wf-grid">
-          {$.agents.map((a: any) => (
+          {$.agents.map((a: Agent) => (
             <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={a.name} type={a.type} />
@@ -66,7 +70,7 @@ export const Agents: Component = async (_props, ctx) => {
                 {a.type === 'ai' && a.human_in_the_loop && (
                   <span class="wf-text-warning">🛑 需审批</span>
                 )}
-                {a.token_usage?.run_count > 0 && (
+                {(a.token_usage?.run_count ?? 0) > 0 && (
                   <span>⚡ {((a.token_usage?.total_tokens ?? 0) / 1000).toFixed(1)}k tokens</span>
                 )}
               </div>
@@ -75,11 +79,11 @@ export const Agents: Component = async (_props, ctx) => {
                 <div class="wf-row wf-gap-sm">
                   {a.type !== 'user' && (
                     <Button size="sm" variant="ghost" title="发起单聊"
-                      onClick={(e: any) => startDm(e, a.id)}><Icon name="message" size={14} /> 单聊</Button>
+                      onClick={(e: Event) => startDm(e, a.id)}><Icon name="message" size={14} /> 单聊</Button>
                   )}
                   <Button size="sm" variant="ghost"
-                    onClick={(e: any) => { e.stopPropagation(); ctx.app?.navigate(`/agents/${a.id}`) }}>编辑</Button>
-                  <Button size="sm" variant="danger" onClick={(e: any) => remove(e, a.id)}>删除</Button>
+                    onClick={(e: Event) => { e.stopPropagation(); ctx.app?.navigate(`/agents/${a.id}`) }}>编辑</Button>
+                  <Button size="sm" variant="danger" onClick={(e: Event) => remove(e, a.id)}>删除</Button>
                 </div>
               </div>
             </Card>

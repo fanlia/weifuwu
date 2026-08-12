@@ -1,6 +1,8 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Badge, Button, Card, Checkbox, Field, Input, InputNumber, Loading, Select, Slider, Textarea } from 'weifuwu/components'
+import { inputValue } from '../lib/types'
+import { track } from '../lib/track'
 
 interface RoleTemplate {
   slug: string; name: string; icon: string; category: string; description: string
@@ -24,20 +26,30 @@ const CAT_LABELS: Record<string, string> = {
   management: '👔 管理决策', general: '🤖 通用',
 }
 
+interface NewAgentState {
+  step: string
+  selectedTemplate: RoleTemplate | null
+  type: string; name: string; description: string; systemPrompt: string
+  webhookUrl: string; chunkSize: string; aiModel: string
+  aiTemperature: number; aiMaxTokens: number; aiHITL: boolean
+  allowFileTools: boolean; allowCommandExec: boolean
+  submitting: boolean; error: string
+  roleTemplates: RoleTemplate[]; loading: boolean
+}
+
 export const NewAgent: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as NewAgentState
   const rerender = () => ctx.ui.render()
-  const token = ctx.auth?.token
 
   $.step = 'template'; $.selectedTemplate = null
   $.type = 'ai'; $.name = ''; $.description = ''; $.systemPrompt = ''
   $.webhookUrl = ''; $.chunkSize = '500'; $.aiModel = ''
-  $.aiTemperature = '0.7'; $.aiMaxTokens = 2048; $.aiHITL = false
+  $.aiTemperature = 0.7; $.aiMaxTokens = 2048; $.aiHITL = false
   $.allowFileTools = false; $.allowCommandExec = false
   $.submitting = false; $.error = ''
   $.roleTemplates = []; $.loading = true
 
-  ctx.api!.get<{ templates: any[] }>('/api/role-templates')
+  ctx.api!.get<{ templates: RoleTemplate[] }>('/api/role-templates')
     .then(d => { $.roleTemplates = d.templates ?? []; $.loading = false; rerender() })
     .catch(() => { $.loading = false; rerender() })
 
@@ -54,7 +66,7 @@ export const NewAgent: Component = async (_props, ctx) => {
   function selectTemplate(t: RoleTemplate) {
     $.selectedTemplate = t; $.name = ''; $.description = t.description ?? ''
     $.systemPrompt = t.default_system_prompt ?? ''; $.aiModel = t.default_model ?? ''
-    $.aiTemperature = String(t.default_temperature ?? 0.7)
+    $.aiTemperature = t.default_temperature ?? 0.7
     $.aiMaxTokens = Number(t.default_max_tokens ?? 2048)
     $.allowFileTools = t.default_allow_file_tools ?? false
     $.allowCommandExec = t.default_allow_command_exec ?? false
@@ -64,7 +76,7 @@ export const NewAgent: Component = async (_props, ctx) => {
 
   function startDirect() {
     $.selectedTemplate = null; $.systemPrompt = ''; $.aiModel = ''
-    $.aiTemperature = '0.7'; $.aiMaxTokens = 2048; $.aiHITL = false
+    $.aiTemperature = 0.7; $.aiMaxTokens = 2048; $.aiHITL = false
     $.allowFileTools = false; $.allowCommandExec = false
     $.step = 'direct'
   }
@@ -82,12 +94,13 @@ export const NewAgent: Component = async (_props, ctx) => {
       body.description = $.description || undefined
       body.system_prompt = $.systemPrompt || undefined
       body.model = $.aiModel || undefined
-      body.temperature = parseFloat($.aiTemperature) || 0.7
+      body.temperature = $.aiTemperature
       body.max_tokens = $.aiMaxTokens ?? 2048
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
       try {
         const data = await ctx.api!.post<{ agent: { id: string } }>('/api/agents/from-template', body)
+        track('agent_created')
         ctx.app?.navigate(`/agents/${data.agent.id}`)
       } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
       return
@@ -96,7 +109,7 @@ export const NewAgent: Component = async (_props, ctx) => {
     if ($.type === 'ai') {
       body.system_prompt = $.systemPrompt || undefined
       body.model = $.aiModel || undefined
-      body.temperature = parseFloat($.aiTemperature) || 0.7
+      body.temperature = $.aiTemperature
       body.max_tokens = $.aiMaxTokens ?? 2048
       body.human_in_the_loop = $.aiHITL
       body.allow_file_tools = $.allowFileTools
@@ -107,6 +120,7 @@ export const NewAgent: Component = async (_props, ctx) => {
 
     try {
       const data = await ctx.api!.post<{ agent: { id: string } }>('/api/agents', body)
+      track('agent_created')
       ctx.app?.navigate(`/agents/${data.agent.id}`)
     } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }
@@ -200,18 +214,18 @@ export const NewAgent: Component = async (_props, ctx) => {
 
           <Field label="名称" required>
             <Input type="text" placeholder="输入 Agent 名称" value={$.name}
-              onInput={(e: any) => { $.name = e.target.value; rerender() }} />
+              onInput={(e: Event) => { $.name = inputValue(e); rerender() }} />
           </Field>
 
           <Field label="描述">
             <Input type="text" placeholder="简短描述此 Agent 的用途" value={$.description}
-              onInput={(e: any) => { $.description = e.target.value; rerender() }} />
+              onInput={(e: Event) => { $.description = inputValue(e); rerender() }} />
           </Field>
 
           {hasAIConfig && (
             <Field label="系统提示词（System Prompt）" hint="留空则使用默认助手人格">
               <Textarea rows={5} placeholder="设定 AI 的角色与行为指令..." value={$.systemPrompt}
-                onInput={(e: any) => { $.systemPrompt = e.target.value; rerender() }} />
+                onInput={(e: Event) => { $.systemPrompt = inputValue(e); rerender() }} />
             </Field>
           )}
 
@@ -242,7 +256,7 @@ export const NewAgent: Component = async (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="最大 Token 数">
                     <InputNumber value={$.aiMaxTokens} min={64} max={8192} step={64}
-                      onChange={(v) => { $.aiMaxTokens = v; rerender() }} />
+                      onChange={(v) => { $.aiMaxTokens = v ?? 2048; rerender() }} />
                   </Field>
                 </div>
                 <div class="wf-fill">
@@ -273,12 +287,12 @@ export const NewAgent: Component = async (_props, ctx) => {
           {!$.selectedTemplate && isWebhook && (
             <Field label="Webhook URL">
               <Input type="url" placeholder="https://example.com/webhook" value={$.webhookUrl}
-                onInput={(e: any) => { $.webhookUrl = e.target.value; rerender() }} />
+                onInput={(e: Event) => { $.webhookUrl = inputValue(e); rerender() }} />
             </Field>
           )}
           {!$.selectedTemplate && isKB && (
             <Field label="分块大小">
-              <Input type="number" value={$.chunkSize} onInput={(e: any) => { $.chunkSize = e.target.value; rerender() }} />
+              <Input type="number" value={$.chunkSize} onInput={(e: Event) => { $.chunkSize = inputValue(e); rerender() }} />
             </Field>
           )}
 

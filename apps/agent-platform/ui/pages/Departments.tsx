@@ -1,14 +1,19 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Badge, Button, Card, Icon } from 'weifuwu/components'
+import type { Department, DepartmentListResponse } from '../lib/types'
+
+interface DepartmentsState {
+  depts: Department[]; loading: boolean
+}
 
 export const Departments: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as DepartmentsState
   const rerender = () => ctx.ui.render()
-   $.depts = []; $.loading = true
-    ctx.api!.get('/api/departments')
-      .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
-      .catch(() => { $.loading = false; rerender() })
+  $.depts = []; $.loading = true
+  ctx.api!.get<DepartmentListResponse>('/api/departments')
+    .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
+    .catch(() => { $.loading = false; rerender() })
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
@@ -16,7 +21,7 @@ export const Departments: Component = async (_props, ctx) => {
     if (!ok) return
     const res = await ctx.api!.delete(`/api/departments/${id}`)
     if (res.ok || res.status === 204) {
-      $.depts = $.depts.filter((d: any) => d.id !== id)
+      $.depts = $.depts.filter((d: Department) => d.id !== id)
       rerender()
       ;ctx.toast!('部门已删除', 'success')
     } else {
@@ -34,7 +39,7 @@ export const Departments: Component = async (_props, ctx) => {
 
       {$.depts.length > 0 && (
         <div class="wf-grid">
-          {$.depts.map((d: any) => (
+          {$.depts.map((d: Department) => (
             <Card key={d.id} clickable hover onClick={() => ctx.app?.navigate(`/departments/${d.id}`)}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} />
@@ -46,8 +51,8 @@ export const Departments: Component = async (_props, ctx) => {
                 <span class="wf-text-xs wf-text-tertiary">{d.member_count ?? 0} 位成员</span>
                 <div class="wf-row wf-gap-sm">
                   <Button size="sm" variant="ghost"
-                    onClick={(e: any) => { e.stopPropagation(); ctx.app?.navigate(`/chat/${d.id}`) }}>聊天</Button>
-                  <Button size="sm" variant="danger" onClick={(e: any) => remove(e, d.id)}>删除</Button>
+                    onClick={(e: Event) => { e.stopPropagation(); ctx.app?.navigate(`/chat/${d.id}`) }}>聊天</Button>
+                  <Button size="sm" variant="danger" onClick={(e: Event) => remove(e, d.id)}>删除</Button>
                 </div>
               </div>
             </Card>

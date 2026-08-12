@@ -1,20 +1,31 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Ava, Loading, TypeBadge } from '../components/ui'
 import { Badge, Button, Card, Checkbox, EmptyState, Icon } from 'weifuwu/components'
+import type { Agent, AgentListResponse, Department, Member } from '../lib/types'
+
+interface DepartmentDetailState {
+  dept: Department | null
+  members: Member[]
+  loading: boolean
+  notFound: boolean
+  showMemberPicker: boolean
+  allAgents: Agent[]
+  picked: string[]
+  managing: boolean
+}
 
 export const DepartmentDetail: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as DepartmentDetailState
   const rerender = () => ctx.ui.render()
   const deptId = ctx.route?.params?.id ?? ''
-  const token = ctx.auth?.token
 
-    $.dept = null; $.members = []; $.loading = true; $.notFound = false
-    $.showMemberPicker = false; $.allAgents = []; $.picked = []; $.managing = false
+  $.dept = null; $.members = []; $.loading = true; $.notFound = false
+  $.showMemberPicker = false; $.allAgents = []; $.picked = []; $.managing = false
 
     function loadDept() {
-      ctx.api!.get(`/api/departments/${deptId}`)
+      ctx.api!.get<{ department?: Department; members?: Member[] }>(`/api/departments/${deptId}`)
         .then(data => {
-          const d = data.department ?? data ?? null
+          const d = data.department ?? null
           if (!d?.id) { $.notFound = true; $.loading = false; rerender(); return }
           $.dept = d
           $.members = data.members ?? []
@@ -26,10 +37,10 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
 
     async function openMemberPicker() {
       $.showMemberPicker = true; $.picked = []; rerender()
-      ctx.api!.get('/api/agents').then((d: any) => {
+      ctx.api!.get<AgentListResponse>('/api/agents').then(d => {
         const all = d.agents ?? []
-        const inIds = new Set($.members.map((m: any) => m.id))
-        $.allAgents = all.filter((a: any) => !inIds.has(a.id) && a.type !== 'user')
+        const inIds = new Set($.members.map((m) => m.id))
+        $.allAgents = all.filter((a) => !inIds.has(a.id) && a.type !== 'user')
         rerender()
       }).catch(() => { ctx.toast!('加载 Agent 列表失败', 'error') })
     }
@@ -47,7 +58,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
       } catch { $.managing = false; ctx.toast!('添加失败', 'error'); rerender() }
     }
 
-    async function removeMember(m: any) {
+    async function removeMember(m: Member) {
       const ok = await ctx.confirm!(`确定将 ${m.name} 移出部门？`)
       if (!ok) return
       try {
@@ -93,7 +104,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
             <div class="wf-text-sm wf-text-semibold wf-mb-sm">选择要添加的 Agent（{$.picked.length} 个）</div>
             {$.allAgents.length === 0 && <div class="wf-text-sm wf-text-tertiary">没有可添加的 Agent——先创建 AI 机器人 / Webhook / 知识库</div>}
             <div class="wf-stack wf-gap-none">
-              {$.allAgents.map((a: any) => (
+              {$.allAgents.map((a: Agent) => (
                 <label key={a.id} class="wf-row wf-gap-sm wf-py-sm" style="cursor: pointer">
                   <Checkbox checked={$.picked.includes(a.id)} onChange={() => {
                     $.picked = $.picked.includes(a.id) ? $.picked.filter((x: string) => x !== a.id) : [...$.picked, a.id]
@@ -112,14 +123,14 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
             </div>
           </div>
         )}
-        {$.members.map((m: any) => (
+        {$.members.map((m: Member) => (
           <div key={m.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b">
             <Ava name={m.name} type={m.type ?? 'user'} small />
             <div class="wf-fill wf-stack wf-gap-none">
               <span class="wf-text-base">{m.name}</span>
               <span class="wf-text-xs wf-text-tertiary">{m.role === 'admin' ? '管理员' : '成员'}</span>
             </div>
-            <TypeBadge type={m.type} />
+            <TypeBadge type={m.type ?? "user"} />
             {m.role !== 'admin' && (
               <Button size="sm" variant="ghost" title="移除" onClick={() => removeMember(m)}><Icon name="trash" size={14} /></Button>
             )}

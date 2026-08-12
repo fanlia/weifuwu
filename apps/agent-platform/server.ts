@@ -280,6 +280,47 @@ async function main() {
     return Response.json({ agents: rows })
   })
 
+  // ── 激活漏斗埋点 ──────────────────────────────────────────
+  // 埋点：POST /api/track { event: 'register_complete'|'agent_created'|'first_message' }
+  // first_message 每租户唯一（部分唯一索引）——首次消息只记一次
+  const TRACKABLE = new Set(['register_complete', 'agent_created', 'first_message'])
+  protectedRoutes.post('/api/track', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, tenantId } = ctx
+    const body = await req.json().catch(() => ({})) as { event?: string }
+    if (!body.event || !TRACKABLE.has(body.event)) {
+      return Response.json({ error: 'event 必须是 register_complete/agent_created/first_message 之一' }, { status: 400 })
+    }
+    try {
+      await sql`INSERT INTO events (tenant_id, event) VALUES (${tenantId}, ${body.event})`
+    } catch {
+      // 部分唯一索引冲突（first_message 已记）——幂等，忽略
+    }
+    return Response.json({ ok: true })
+  })
+
+  // 漏斗：本租户进度 + 全平台转化（去重租户）
+  protectedRoutes.get('/api/stats/funnel', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, tenantId } = ctx
+    const rows = await sql`
+      SELECT
+        COUNT(*) FILTER (WHERE event = 'register_complete')::int as register_complete,
+        COUNT(*) FILTER (WHERE event = 'agent_created')::int as agent_created,
+        COUNT(*) FILTER (WHERE event = 'first_message')::int as first_message
+      FROM events WHERE tenant_id = ${tenantId}
+    `
+    const mine = rows[0] as { register_complete: number; agent_created: number; first_message: number } | undefined
+    const platform = await sql`
+      SELECT event, COUNT(*)::int as count
+      FROM (
+        SELECT DISTINCT tenant_id, event FROM events
+      ) t GROUP BY event
+    `
+    return Response.json({
+      mine: { register_complete: (mine?.register_complete ?? 0) > 0, agent_created: (mine?.agent_created ?? 0) > 0, first_message: (mine?.first_message ?? 0) > 0 },
+      platform: Object.fromEntries(platform.map((p: any) => [p.event, p.count])),
+    })
+  })
+
   // ── Agent 执行日志 ───────────────────────────────────────
   protectedRoutes.get('/api/stats/agents/:agentId/logs', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx

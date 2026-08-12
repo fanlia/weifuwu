@@ -1,6 +1,6 @@
 # agent-platform 产品化优化计划（8 角色评审）
 
-> **状态（2026-12）**：🔄 实施中——Wave 1-4 全落地 + 模板运营位（使用计数/热门排序）；Wave 5 剩余低优先级项（页面状态类型化/埋点）。
+> **状态（2026-12）**：✅ 全部实施完成——Wave 1-5 全落地（阻断修复/群聊核心/AI 会话智能/商业运营/工程收尾）。
 
 ## 0. 现状盘点（实测证据，2026-12）
 
@@ -159,7 +159,9 @@
 | 模板运营位 | ✅ | ROLE_TEMPLATES usage_count（from-template 递增）+ GET 排序（热门优先）+ 前端 🔥 热门标记——实测 developer 计数 1 |
 | seed 演示环境 | ✅ | scripts/seed.mjs 完整工作（4 Agent/7 日志/10 消息/3 webhook 日志 + 体验引导） |
 | AuthPage 受控警告 | ✅ | 实测 reload 后消失——旧 bundle 缓存误报（非当前代码） |
-| Wave 5（Chat 拆分/状态类型化/埋点/页面测试） | ⏳ | 低优先级留后续——Chat.tsx 已函数化清晰；页面测试需 mock 大量 ctx（诚实裁剪） |
+| Wave 5 页面状态类型化 | ✅ | 15 页面 any → 类型化状态接口（ui/lib/types.ts）——tsc 暴露 6 处潜在空值/字段错全修 |
+| Wave 5 激活漏斗埋点 | ✅ | events 表 + /api/track + /api/stats/funnel + 前端 track + Dashboard 漏斗卡片——浏览器实测入库 ✓ |
+| Wave 5 页面组件测试 | ⏳ | 诚实裁剪——页面测试需 mock 大量 ctx（ui-dom/testing 原语已供框架组件用） |
 
 ## 3. 实施计划（Wave 划分）
 

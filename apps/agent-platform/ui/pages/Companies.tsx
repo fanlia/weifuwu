@@ -1,11 +1,12 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, EmptyState, Loading } from '../components/ui'
 import { Avatar, Button, Card } from 'weifuwu/components'
+import type { Company, CompanyListResponse } from '../lib/types'
 
 export const Companies: Component = async (_props, ctx) => {
   // 取数工具：loading/error 自动管理 + 自动渲染（token 由 api 中间件自动注入）
   const companies = ctx.ui.useAsync(async () => {
-    const d = await ctx.api!.get<{ companies: any[] }>('/api/companies')
+    const d = await ctx.api!.get<CompanyListResponse>('/api/companies')
     return d.companies ?? []
   })
 
@@ -37,18 +38,18 @@ export const Companies: Component = async (_props, ctx) => {
 
       {!companies.loading && (companies.data?.length ?? 0) > 0 && (
         <div class="wf-grid">
-          {(companies.data ?? []).map((c: any) => (
+          {(companies.data ?? []).map((c: Company) => (
             <Card key={c.id}>
               <div class="wf-row wf-gap-sm">
                 <Avatar name={(c.name ?? 'C')[0]} color="#8b5cf6" />
                 <div class="wf-fill wf-text-base wf-text-semibold wf-truncate">{c.name}</div>
               </div>
               <div class="wf-text-sm wf-text-secondary wf-mt-sm">
-                创建于 {new Date(c.created_at).toLocaleDateString('zh-CN')}
+                创建于 {new Date(c.created_at ?? '').toLocaleDateString('zh-CN')}
               </div>
               <div class="wf-split wf-mt-md">
                 <span class="wf-text-xs wf-text-tertiary">ID: {c.id?.slice(0, 8)}...</span>
-                <Button size="sm" variant="danger" onClick={(e: any) => remove(e, c.id)}>删除</Button>
+                <Button size="sm" variant="danger" onClick={(e: Event) => remove(e, c.id)}>删除</Button>
               </div>
             </Card>
           ))}

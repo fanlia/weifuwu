@@ -1,11 +1,16 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { setRefreshToken } from '../lib/api'
 import { AuthPage, Avatar, Field, Input, PasswordInput } from 'weifuwu/components'
+import { inputValue } from '../lib/types'
+
+interface LoginState {
+  email: string; password: string; error: string; loading: boolean
+}
 
 export const Login: Component = async (_props, ctx) => {
-  const $: Record<string, any> = {}
+  const $ = {} as LoginState
   const rerender = () => ctx.ui.render()
-$.email = ''; $.password = ''; $.error = ''; $.loading = false
+  $.email = ''; $.password = ''; $.error = ''; $.loading = false
 
   async function handleLogin() {
     if (!$.email || !$.password) { $.error = '请输入邮箱和密码'; rerender(); return }
@@ -43,11 +48,11 @@ $.email = ''; $.password = ''; $.error = ''; $.loading = false
     >
       <Field label="邮箱" required>
         <Input type="email" placeholder="you@example.com" value={$.email}
-          onInput={(e: any) => { $.email = e.target.value; rerender() }} />
+          onInput={(e: Event) => { $.email = inputValue(e); rerender() }} />
       </Field>
       <Field label="密码" required>
         <PasswordInput placeholder="••••••••" value={$.password}
-          onInput={(e: any) => { $.password = e.target.value; rerender() }} />
+          onInput={(e: Event) => { $.password = inputValue(e); rerender() }} />
       </Field>
     </AuthPage>
   )
