@@ -676,11 +676,11 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 | 目录 | 用途 | 读者 | 发布 |
 |------|------|------|------|
 | `docs/` | **用户文档**：README 按角色拆分——后端（server/data/realtime/saas）、前端（frontend/frontend-middleware/components/layout/styling/components-map/mobile/ai-contract/style-guide）、通用（examples/environment） | 框架使用者 | ✅ 随 npm 包 |
-| `design/` | **内部设计理念/概念文档**：架构定稿（ui-architecture）、渲染不变量（render-only/vdom-consistency/vdom-transform-rules）、组件模型（async-mode-a）、裁剪登记（components-cuts）、设计 token（design-variables）、样式体系（style-system） | 框架开发者/贡献者 | ❌ 仅仓库 |
+| `design/` | **内部设计理念/概念文档**：架构定稿（ui-architecture）、转化规则表（vdom-transform-rules）、裁剪登记（components-cuts）、设计 token（design-variables）、样式体系（style-system） | 框架开发者/贡献者 | ❌ 仅仓库 |
 
 **维护规则**：
 - 新增用户可见能力 → 写 `docs/`（按角色对号入座），README 文档导航同步
-- **`design/` 属内部文档——禁止在 README / `docs/` 中引用 `design/` 路径**（docs 随包发布而 design 不发布——引用必然断裂）。用户可见的设计内容（协议契约 ai-contract、命名规范 style-guide）直接放 `docs/`；裁剪清单等内部登记在 docs 里只描述概念不带路径；仅**源码注释/AGENTS.md** 可引用 `design/`（开发导向）
+- **`design/` 属内部文档——文件与内容一律不得写入 `README.md` / `docs/`**：既禁止在 README/docs 中引用 `design/` 路径，也禁止把 design 文档的正文/要点复制迁移到 docs 或 README（docs 随包发布而 design 不发布——引用与复制必然断裂/超范围）。用户可见的设计内容（协议契约 ai-contract、命名规范 style-guide）直接放 `docs/`；裁剪清单等内部登记在 docs 里只描述概念不带路径；仅**源码注释/AGENTS.md** 可引用 `design/`（开发导向）
 - 新增 ctx.ui 原语 → 同步 `docs/custom-components.md`（自定义组件指南）+ `docs/frontend.md` 方法速查表
 - 新增设计决策/概念 → 写 `design/`；实施计划完成 → 归档删除（git 历史可追溯，不留残骸）
 - README 保持门面（~400 行）：简介/设计理念/快速开始/CDN/模块总览/核心概念 + 文档导航，不堆 API 细节
