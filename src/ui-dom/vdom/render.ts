@@ -10,9 +10,9 @@ import type { VNode, VNodeChild } from '../vnode.ts'
 import type { BrowserEnv } from '../types.ts'
 import { Fragment, Portal, arrayChildren } from '../vnode.ts'
 // 单一规则源（阶段 0）：children/属性判定从 transform.ts 导入——禁止各路径各自实现
-import { EVENT_RE, eventTarget, ENUMERATED_VALUE_BASED, holeDetail } from './transform.ts'
+import { EVENT_RE, eventTarget, ENUMERATED_VALUE_BASED, holeDetail, holeMarkup } from './transform.ts'
 // re-export（diff.ts 等消费方保持从 render.ts 导入的既有路径）
-export { EVENT_RE, eventTarget, ENUMERATED_VALUE_BASED, holeDetail } from './transform.ts'
+export { EVENT_RE, eventTarget, ENUMERATED_VALUE_BASED, holeDetail, holeMarkup } from './transform.ts'
 import { UNITLESS_PROPS } from './transform.ts'
 
 export const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'clipPath'])
@@ -99,7 +99,7 @@ export function setProp(el: Element, key: string, value: any): void {
 /** 占位内容（规则表 §1——wf-hole 内容可见可审计：false/null/undefined/true/对象摘要/bad-vnode） */
 /** 创建占位节点（数组上下文的无渲染值 → 注释节点，childNodes 与数组同构——规则表 §1） */
 export function createHole(browser: BrowserEnv, v: unknown): Node | null {
-  return browser.createComment(`wf-hole: ${holeDetail(v)}`)
+  return browser.createComment(holeMarkup({ type: 'hole', value: v }))
 }
 
 /** 递归渲染（同步——组件必须已构建） */
@@ -115,10 +115,8 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv, key?:
     // （fragment-start/end 注释，与占位注释 wf-hole 同族——不改变 DOM 结构，非用户内容）。
     // 标记带数组项身份：key 必写（父数组下标/显式 key——规则表 §3-46 层级独立）；id 有则写
     // （数组项无 vnode 身份时省略——组件/元素 id 走 data-wf-id 不重复）。diff 直接读注释定位
-    const keyAttr = key != null ? ` key="${key}"` : ''
-    const idAttr = id != null ? ` id="${id}"` : ''
-    const fragStart = b.createComment(`wf-hole:fragment-start${keyAttr}${idAttr}`)
-    const fragEnd = b.createComment(`wf-hole:fragment-end${keyAttr}${idAttr}`)
+    const fragStart = b.createComment(holeMarkup({ type: 'fragment-start', key, id }))
+    const fragEnd = b.createComment(holeMarkup({ type: 'fragment-end', key, id }))
     if (fragStart) frag.appendChild(fragStart)
     for (let i = 0; i < v.length; i++) {
       const c = v[i]

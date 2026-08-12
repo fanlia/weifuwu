@@ -317,12 +317,12 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
 function rangeFor(anchors: (Node | null)[], i: number, parent: Node): Node[] {
   const start = anchors[i]
   if (!start) return []
-  if (start.nodeType === 8 && start.nodeValue?.startsWith('wf-hole:fragment-start')) {
+  if (start.nodeType === 8 && start.nodeValue?.includes('type=fragment-start')) {
     const out: Node[] = [start]
     let n: Node | null = start.nextSibling
     while (n) {
       out.push(n)
-      if (n.nodeType === 8 && n.nodeValue?.startsWith('wf-hole:fragment-end')) break
+      if (n.nodeType === 8 && n.nodeValue?.includes('type=fragment-end')) break
       n = n.nextSibling
     }
     return out

@@ -403,7 +403,7 @@ test('§5 占位 ↔ 真实转换（false → Alert，Alert → false）', async
 test('SSR 数组空洞 → 占位注释（与客户端同构，hydration 不 mismatch）', async () => {
   const ctx: any = { params: {}, query: {} }
   const html = await renderSsr([h('span', { class: 'x' }, 'a'), false, h('span', { class: 'z' }, 'b')], ctx)
-  assert.ok(html.includes('<!--wf-hole: false-->'), 'SSR 输出占位: ' + html)
+  assert.ok(html.includes('<!--wf-hole: type=hole value=false-->'), 'SSR 输出占位（统一格式）: ' + html)
   assert.ok(html.indexOf('x') < html.indexOf('<!--wf-hole') && html.indexOf('<!--wf-hole') < html.indexOf('z'), '占位位置正确')
 })
 

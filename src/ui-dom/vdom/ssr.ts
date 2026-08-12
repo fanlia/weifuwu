@@ -15,7 +15,7 @@ import type { WfuiContext, UIContext } from '../types.ts'
 import { Fragment, Portal } from '../vnode.ts'
 import type { UIRouter } from '../router.ts'
 // 单一规则源（阶段 0）：与客户端 renderValue 共用 children/属性判定（design/vdom-consistency-plan.md）
-import { holeDetail, ensureArrayKeys, isInvalidVNodeType, ENUMERATED_VALUE_BASED } from './transform.ts'
+import { holeDetail, holeMarkup, ensureArrayKeys, isInvalidVNodeType, ENUMERATED_VALUE_BASED } from './transform.ts'
 
 const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
 const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'clipPath'])
@@ -58,11 +58,13 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
     // （fragment-start/end 注释——与客户端 renderValue 同族，hydration 不 mismatch）
     ensureArrayKeys(input)
     const parts = await Promise.all(input.map((c) => {
-      if (c == null || typeof c === 'boolean') return Promise.resolve(`<!--wf-hole: ${holeDetail(c)}-->`)
+      if (c == null || typeof c === 'boolean') return Promise.resolve(`<!--${holeMarkup({ type: 'hole', value: c })}-->`)
       return renderSsr(c, ctx)
     }))
-    const fragStart = input.some(Array.isArray) ? '<!--wf-hole:fragment-start-->' : ''
-    const fragEnd = input.some(Array.isArray) ? '<!--wf-hole:fragment-end-->' : ''
+    // 数组项（内层数组）边界标记：key = 外层下标（层级独立——与客户端 renderValue 同格式）
+    const hasArrayItem = input.some((c) => Array.isArray(c))
+    const fragStart = hasArrayItem ? `<!--${holeMarkup({ type: 'fragment-start', key: String(input.findIndex(Array.isArray)) })}-->` : ''
+    const fragEnd = hasArrayItem ? `<!--${holeMarkup({ type: 'fragment-end', key: String(input.findIndex(Array.isArray)) })}-->` : ''
     return fragStart + parts.join('') + fragEnd
   }
 
@@ -72,7 +74,7 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
   // 与客户端 renderValue 同一判定，单一规则源）
   if (isInvalidVNodeType(vnode.type)) {
     console.warn(`[weifuwu] children 项非法：type=${String(vnode.type)}（${typeof vnode.type}）——已占位（wf-hole）`)
-    return `<!--wf-hole: ${holeDetail(input)}-->`
+    return `<!--${holeMarkup({ type: 'hole', value: input })}-->`
   }
 
   // Portal/Fragment：就地内联子节点（客户端 portal 渲染到 #__wf_portal，SSR 内联保留内容/SEO）

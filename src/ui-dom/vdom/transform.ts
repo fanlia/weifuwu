@@ -8,7 +8,7 @@
 import type { VNode, VNodeChild } from '../vnode.ts'
 import { Fragment, Portal } from '../vnode.ts'
 
-/** 占位内容（规则表 §1——wf-hole 内容可见可审计：false/null/undefined/true/对象摘要/bad-vnode） */
+/** wf-hole 值摘要（占位内容可见可审计：false/null/undefined/true/对象摘要/bad-vnode） */
 export function holeDetail(v: unknown): string {
   if (v === false) return 'false'
   if (v === null) return 'null'
@@ -24,6 +24,25 @@ export function holeDetail(v: unknown): string {
     }
   }
   return `bad-vnode type=${typeof v}`
+}
+
+/** 字段值包裹：含空白/引号/等号 → 双引号（用户可读 + 可解析——单一格式，规则表 §1） */
+function quoteIfNeeded(s: string): string {
+  return /[\s"=]/.test(s) ? `"${s.replace(/"/g, "'")}"` : s
+}
+
+/** 统一 wf-hole 标记（规则表 §1——全部 wf-hole 同一格式，用户直接读 DOM 注释可懂）：
+ *  - 占位  `wf-hole: type=hole value=false key=0 id=_wf_5`
+ *  - 边界  `wf-hole: type=fragment-start key="0" id="_wf_5"` / `wf-hole: type=fragment-end key="0"`
+ *  - 诊断  `wf-hole: type=hole value="object {...}"`（value 承载内容）
+ *  字段：type 必写（hole/fragment-start/fragment-end）；value/key/id 有则写。
+ *  前缀恒为 `wf-hole:`——diff/audit/hydrate 的占位判断（startsWith）不随格式演进变化 */
+export function holeMarkup(opts: { type: string; value?: unknown; key?: string | null; id?: string | null }): string {
+  const parts = [`type=${opts.type}`]
+  if (opts.value !== undefined) parts.push(`value=${quoteIfNeeded(holeDetail(opts.value))}`)
+  if (opts.key != null) parts.push(`key=${quoteIfNeeded(opts.key)}`)
+  if (opts.id != null) parts.push(`id=${quoteIfNeeded(opts.id)}`)
+  return `wf-hole: ${parts.join(' ')}`
 }
 
 /** children 项分类（规则表 §1）——唯一判定，消费方只调函数不写判定 */

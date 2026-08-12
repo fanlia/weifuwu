@@ -17,10 +17,15 @@
 | 文本 `{'hello'}` | string | 文本节点 |
 | 组件 `<Button/>` | 组件 vnode（实例 id → `data-wf-id`） | 其输出（递归应用本表推导） |
 | Fragment `<>a b</>` | Fragment vnode | 展开为兄弟节点（无容器） |
-| 数组项 `[xx, [yy, zz]]` | 原数组保留（透明） | 数组项 ≡ 隐式 Fragment：**vnode 保持用户结构**（任何阶段不展开）——渲染/diff 按嵌套递归，展开为兄弟节点；DOM 边界持久化为 `<!--wf-hole:fragment-start/end-->` 注释（带数组项 key，id 有则写） |
+| 数组项 `[xx, [yy, zz]]` | 原数组保留（透明） | 数组项 ≡ 隐式 Fragment：**vnode 保持用户结构**（任何阶段不展开）——渲染/diff 按嵌套递归，展开为兄弟节点；DOM 边界持久化为 `<!--wf-hole: type=fragment-start key=0-->` / `<!--wf-hole: type=fragment-end key=0-->` 注释（统一格式，id 有则写） |
 | Portal | Portal vnode | 渲染到 `#__wf_portal`（body 下独立容器，`data-portal` 标记）——非父树内 |
-| false/null/true | 保留 | `<!--wf-hole: false-->` 占位节点 |
-| 非法对象/非法 type | 原样 | `<!--wf-hole: object {...}-->` 占位 + warn（不崩溃） |
+| false/null/true | 保留 | `<!--wf-hole: type=hole value=false-->` 占位节点 |
+| 非法对象/非法 type | 原样 | `<!--wf-hole: type=hole value="object {...}"-->` 占位 + warn（不崩溃） |
+
+**wf-hole 统一格式**（全部占位/边界/诊断同一格式，用户直接读 DOM 注释可懂）：
+`wf-hole: type=<hole|fragment-start|fragment-end> value=<值> key=<数组项key> id=<id>`——
+type 必写；value/key/id 有则写；简单 token 裸写、含空白/引号用双引号包裹。
+前缀恒为 `wf-hole:`（diff/audit/hydrate 的占位判断 startsWith 不随格式演进变化）。
 
 ## 2. 属性规则（attribute / property / event 三通道）
 
