@@ -33,6 +33,9 @@ interface AgentDetailState {
   showBatch: boolean
   whLogs: WebhookLog[]; whLogsLoading: boolean
   whTesting: boolean; whTestResult: string
+  whTestContent: string; whTestStatus: number | null; whTestElapsed: number | null
+  expandedWhLog: string | null; whLogFilter: 'all' | 'success' | 'fail'
+  showGuide: boolean; guideTab: 'curl' | 'node'
 }
 
 export const AgentDetail: Component = async (_props, ctx) => {
@@ -84,7 +87,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.uploading = false; $.expandedDoc = null; $.docChunks = []; $.loadingChunks = false
       $.showBatch = false
 
-      $.whLogs = []; $.whLogsLoading = false
+      $.whLogs = []; $.whLogsLoading = false; $.whLogFilter = 'all'
+    $.whTestContent = ''; $.whTestStatus = null; $.whTestElapsed = null
+    $.expandedWhLog = null; $.showGuide = false; $.guideTab = 'curl'
 
       if (a.type === 'knowledge_base') {
         ctx.api!.get<{ documents: KbDocument[] }>(`/api/agents/${agentId}/knowledge`)
@@ -109,7 +114,8 @@ export const AgentDetail: Component = async (_props, ctx) => {
       body.kb_id = $.kbId || null
     }
     if ($.agent?.type === 'webhook') {
-      body.webhook_url = $.webhookUrl; body.webhook_secret = $.webhookSecret
+      // 出站回调为规划中（H5 诚实裁剪）——不传 webhook_url；仅 Secret/重试次数可配
+      body.webhook_secret = $.webhookSecret
       body.webhook_retry_count = parseInt($.webhookRetryCount) || 3
     }
     if ($.agent?.type === 'knowledge_base') {
@@ -221,9 +227,13 @@ export const AgentDetail: Component = async (_props, ctx) => {
     return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('')
   }
 
-  async function testWebhook() {    $.whTesting = true; rerender()
+  async function testWebhook() {
+    const msg = $.whTestContent.trim() || '测试消息：验证 Webhook 机器人可用'
+    $.whTesting = true; $.whTestResult = ''; $.whTestStatus = null; $.whTestElapsed = null
+    rerender()
+    const t0 = performance.now()
     try {
-      const body = JSON.stringify({ content: '测试消息：验证 Webhook 机器人可用' })
+      const body = JSON.stringify({ content: msg })
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if ($.webhookSecret) {
         const ts = String(Date.now())
@@ -234,12 +244,49 @@ export const AgentDetail: Component = async (_props, ctx) => {
       }
       const res = await fetch(`/api/webhook/${agentId}`, { method: 'POST', headers, body })
       const d = await res.json().catch(() => ({}))
-      $.whTestResult = (d as any).reply ?? (res.ok ? '调用成功（无回复）' : (d as any).error ?? `HTTP ${res.status}`)
+      $.whTestStatus = res.status
+      $.whTestElapsed = Math.round(performance.now() - t0)
+      $.whTestResult = (d as any).reply
+        ? (d as any).reply
+        : res.ok ? '调用成功（无回复）'
+        : (d as any).error ?? `HTTP ${res.status}`
       await loadWebhookLogs()
     } catch (e) {
+      $.whTestElapsed = Math.round(performance.now() - t0)
       $.whTestResult = '调用失败：' + errMsg(e, '')
     }
     $.whTesting = false; rerender()
+  }
+
+  function genSecret() {
+    const s = crypto.randomUUID().replace(/-/g, '')
+    $.webhookSecret = s; rerender()
+    void ctx.browser?.copyText(s); ctx.toast!('已生成并复制', 'success')
+  }
+
+  function webhookFullUrl() {
+    return `${location.origin}/api/webhook/${agentId}`
+  }
+
+  // 对接示例代码（带当前 secret 自动签名）
+  function guideCurl(secret: string, withSign: boolean): string {
+    const url = webhookFullUrl()
+    if (!withSign || !secret) {
+      return `# 无需签名（未设置 Secret）\ncurl -X POST '${url}' \\\n  -H 'Content-Type: application/json' \\\n  -d '{"content":"你好，Webhook"}'`
+    }
+    return `# 需签名：X-Signature = HMAC-SHA256(secret, timestamp + '.' + body)\nSECRET="${secret}"\nURL='${url}'\nBODY='{"content":"你好，Webhook"}'\nTS=$(date +%s%3N)\nNONCE=$(cat /proc/sys/kernel/random/uuid)\nSIG=$(printf "%s.%s" "$TS" "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print $NF}')\ncurl -X POST "$URL" \\\n  -H 'Content-Type: application/json' \\\n  -H "X-Signature: $SIG" -H "X-Timestamp: $TS" -H "X-Nonce: $NONCE" \\\n  -d "$BODY"`
+  }
+
+  function guideNode(secret: string): string {
+    const url = webhookFullUrl()
+    if (!secret) {
+      return `const body = JSON.stringify({ content: '你好，Webhook' })\nawait fetch('${url}', {\n  method: 'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body,\n}).then(r => r.json()).then(console.log)`
+    }
+    return `const crypto = require('node:crypto')\nconst body = JSON.stringify({ content: '你好，Webhook' })\nconst secret = '${secret}'\nconst ts = String(Date.now())\nconst nonce = crypto.randomUUID()\nconst sig = crypto.createHmac('sha256', secret).update(ts + '.' + body).digest('hex')\nawait fetch('${url}', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    'X-Signature': sig, 'X-Timestamp': ts, 'X-Nonce': nonce,\n  },\n  body,\n}).then(r => r.json()).then(console.log)`
+  }
+
+  function copyGuide(text: string) {
+    void ctx.browser?.copyText(text); ctx.toast!('示例已复制', 'success')
   }
 
   async function toggleExpandDoc(docId: string) {
@@ -374,20 +421,43 @@ export const AgentDetail: Component = async (_props, ctx) => {
             <>
               <Field label="入站端点" hint="外部系统 POST JSON 到该地址即可触发 AI 应答（若设置 Secret，须带 X-Signature/X-Timestamp/X-Nonce 头）">
                 <div class="wf-row wf-gap-xs">
-                  <Input readonly value={`/api/webhook/${agentId}`} />
-                  <Button type="button" variant="ghost" onClick={() => { void ctx.browser?.copyText(`/api/webhook/${agentId}`); ctx.toast!('已复制', 'success') }}><Icon name="copy" size={14} /></Button>
+                  <Input readonly value={webhookFullUrl()} />
+                  <Button type="button" variant="ghost" onClick={() => { void ctx.browser?.copyText(webhookFullUrl()); ctx.toast!('已复制', 'success') }}><Icon name="copy" size={14} /></Button>
                 </div>
               </Field>
-              <Field label="Webhook URL" hint="预留出站回调地址——当前版本仅支持入站 API，可留空">
-                <Input type="url" value={$.webhookUrl} onInput={(e: Event) => { $.webhookUrl = inputValue(e); rerender() }} />
+              <Field label="对接指南" hint="外部系统接入示例——复制即用，自动带上当前 Secret 签名">
+                <div class="wf-row wf-gap-xs">
+                  <Button type="button" size="sm" variant="ghost" onClick={() => { $.showGuide = !$.showGuide; rerender() }}>
+                    {$.showGuide ? '收起示例' : '查看示例代码'}
+                  </Button>
+                </div>
+                {$.showGuide && (
+                  <div class="wf-bg-secondary wf-rounded wf-p-sm wf-mt-xs">
+                    <div class="wf-row wf-gap-xs wf-mb-xs">
+                      <Button type="button" size="sm" variant={$.guideTab === 'curl' ? 'primary' : 'ghost'} onClick={() => { $.guideTab = 'curl'; rerender() }}>curl</Button>
+                      <Button type="button" size="sm" variant={$.guideTab === 'node' ? 'primary' : 'ghost'} onClick={() => { $.guideTab = 'node'; rerender() }}>Node.js fetch</Button>
+                      <div class="wf-fill" />
+                      <Button type="button" size="sm" variant="ghost" onClick={() => copyGuide($.guideTab === 'curl' ? guideCurl($.webhookSecret, true) : guideNode($.webhookSecret))}>
+                        <Icon name="copy" size={14} /> 复制
+                      </Button>
+                    </div>
+                    <pre class="wf-text-xs wf-overflow-auto" style="white-space: pre-wrap; line-height: 1.5">{(function () {
+                      if ($.guideTab === 'node') return guideNode($.webhookSecret)
+                      // curl 标签：无 secret 时展示简单版，有 secret 时展示签名版
+                      return $.webhookSecret ? guideCurl($.webhookSecret, true) : guideCurl('', false)
+                    })()}</pre>
+                    <div class="wf-text-xs wf-text-tertiary wf-mt-xs">请求格式：<code>content</code>（必填·消息内容）· <code>conversation_id</code>（可选·会话 ID——同一会话多轮记忆）· 响应 <code>{'{"reply": "..."}'}</code></div>
+                  </div>
+                )}
               </Field>
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
-                  <Field label="Webhook Secret" hint="设置后，请求必须携带 X-Signature: HMAC-SHA256(body) 头">
+                  <Field label="Webhook Secret" hint="设置后，请求必须携带 X-Signature: HMAC-SHA256(secret, timestamp + '.' + body) 头">
                     <div class="wf-row wf-gap-xs">
                       <Input type={$.secretVisible ? 'text' : 'password'} placeholder="留空不验证签名"
                         value={$.webhookSecret} onInput={(e: Event) => { $.webhookSecret = inputValue(e); rerender() }} />
-                      <Button type="button" variant="ghost" onClick={() => { $.secretVisible = !$.secretVisible; rerender() }}>
+                      <Button type="button" variant="ghost" title="生成随机 Secret" onClick={genSecret}>🎲</Button>
+                      <Button type="button" variant="ghost" title={$.secretVisible ? '隐藏' : '显示'} onClick={() => { $.secretVisible = !$.secretVisible; rerender() }}>
                         {$.secretVisible ? '🙈' : '👁'}
                       </Button>
                     </div>
@@ -400,6 +470,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   </Field>
                 </div>
               </div>
+              <Field label="出站回调" hint="当前版本仅支持入站 API——出站推送（AI 主动 POST 到该地址）规划中，无需配置">
+                <Input readonly value="📡 规划中（当前版本仅入站）" />
+              </Field>
             </>
           )}
 
@@ -503,23 +576,71 @@ export const AgentDetail: Component = async (_props, ctx) => {
       {a.type === 'webhook' && (
         <Card>
           <div class="wf-split wf-mb-sm">
-            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="globe" size={14} /> Webhook 请求日志</div>
-            <div class="wf-row wf-gap-xs">
-              <Button size="sm" variant="primary" disabled={$.whTesting} onClick={testWebhook}>
-                {$.whTesting ? '测试中...' : '发送测试请求'}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={loadWebhookLogs}>刷新</Button>
-            </div>
+            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="external-link" size={14} /> Webhook 收发测试</div>
+            <Button size="sm" variant="ghost" onClick={loadWebhookLogs}>刷新日志</Button>
           </div>
-          {$.whTestResult && <div class="wf-text-sm wf-text-medium wf-bg-secondary wf-rounded wf-p-sm wf-mb-sm">应答：{$.whTestResult}</div>}
+          <div class="wf-row wf-gap-xs wf-mb-sm">
+            <div class="wf-fill">
+              <Input placeholder="测试消息内容（默认：验证 Webhook 机器人可用）" value={$.whTestContent}
+                onInput={(e: Event) => { $.whTestContent = inputValue(e); rerender() }} />
+            </div>
+            <Button size="sm" variant="primary" disabled={$.whTesting} onClick={testWebhook}>
+              {$.whTesting ? '测试中...' : '发送测试请求'}
+            </Button>
+          </div>
+          {$.whTestResult && (
+            <div class="wf-text-sm wf-bg-secondary wf-rounded wf-p-sm wf-mb-sm">
+              <div class="wf-row wf-gap-md wf-mb-xs">
+                <span class="wf-text-semibold">{$.whTestStatus === 200 ? '✅ 成功' : '❌ 失败'}</span>
+                <span class="wf-text-tertiary wf-nums">HTTP {$.whTestStatus ?? '?'} · {$.whTestElapsed ?? 0}ms</span>
+              </div>
+              <div style="white-space: pre-wrap">{$.whTestResult}</div>
+            </div>
+          )}
+
+          <div class="wf-row wf-gap-xs wf-mb-sm">
+            {(['all', 'success', 'fail'] as const).map(f => (
+              <Button key={f} size="sm" variant={$.whLogFilter === f ? 'primary' : 'ghost'}
+                onClick={() => { $.whLogFilter = f; rerender() }}>
+                {f === 'all' ? '全部' : f === 'success' ? '成功' : '失败'}
+              </Button>
+            ))}
+          </div>
           {$.whLogsLoading && <Loading />}
           {!$.whLogsLoading && $.whLogs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-text-center wf-p-lg">暂无请求记录</div>}
-          {$.whLogs.map((log: WebhookLog) => (
-            <div key={log.id} class="wf-py-sm wf-border-b">
-              <div class="wf-text-sm wf-text-medium"><Icon name={log.success ? 'check' : 'close'} size={14} /> HTTP {log.response_status ?? '?'}</div>
-              <div class="wf-text-xs wf-text-tertiary">{log.created_at ? new Date(log.created_at).toLocaleString() : ''} · {log.elapsed_ms}ms</div>
-            </div>
-          ))}
+          {$.whLogs
+            .filter(l => $.whLogFilter === 'all' || ($.whLogFilter === 'success' ? l.success !== false : l.success === false))
+            .map((log: WebhookLog, idx: number) => {
+              const expanded = $.expandedWhLog === log.id
+              const isNewest = idx === 0 && $.whTestElapsed !== null && log.created_at === $.whLogs[0]?.created_at
+              const reqBody = typeof log.request_body === 'string' ? log.request_body : JSON.stringify(log.request_body ?? '{}')
+              const resBody = typeof log.response_body === 'string' ? log.response_body : JSON.stringify(log.response_body ?? '')
+              return (
+                <div key={log.id} class="wf-py-sm wf-border-b">
+                  <button type="button" class="wf-row wf-gap-xs wf-fill wf-text-left" onClick={() => { $.expandedWhLog = expanded ? null : log.id; rerender() }}>
+                    <Icon name={log.success === false ? 'close' : 'check'} size={14} />
+                    <span class={`wf-text-sm wf-text-medium ${log.success === false ? 'wf-text-danger' : ''}`}>HTTP {log.response_status ?? '?'}</span>
+                    {isNewest && <Badge variant="primary">最新</Badge>}
+                    <span class="wf-fill" />
+                    <span class="wf-text-xs wf-text-tertiary wf-nums">{log.elapsed_ms}ms</span>
+                    <span class="wf-text-xs wf-text-tertiary">{log.created_at ? new Date(log.created_at).toLocaleTimeString() : ''}</span>
+                    <Icon name="chevron-down" size={14} />
+                  </button>
+                  {expanded && (
+                    <div class="wf-mt-xs wf-grid wf-gap-xs" style="grid-template-columns: 1fr 1fr">
+                      <div>
+                        <div class="wf-text-xs wf-text-secondary wf-mb-xs">请求体</div>
+                        <pre class="wf-text-xs wf-bg-secondary wf-rounded wf-p-xs wf-overflow-auto" style="white-space: pre-wrap; line-height: 1.5; max-height: 160px">{reqBody}</pre>
+                      </div>
+                      <div>
+                        <div class="wf-text-xs wf-text-secondary wf-mb-xs">响应体</div>
+                        <pre class="wf-text-xs wf-bg-secondary wf-rounded wf-p-xs wf-overflow-auto" style="white-space: pre-wrap; line-height: 1.5; max-height: 160px">{resBody}</pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
         </Card>
       )}
 

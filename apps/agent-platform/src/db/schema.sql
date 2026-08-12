@@ -163,6 +163,17 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
 
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_agent ON webhook_logs(agent_id, created_at DESC);
 
+-- ── Webhook 会话记忆（B1：conversation_id 多轮上下文） ──
+CREATE TABLE IF NOT EXISTS webhook_conversations (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id        UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  conversation_id TEXT NOT NULL,
+  role            TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content         TEXT NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_webhook_conv ON webhook_conversations(agent_id, conversation_id, created_at);
+
 -- ── 文档块（带向量） ─────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS kb_chunks (

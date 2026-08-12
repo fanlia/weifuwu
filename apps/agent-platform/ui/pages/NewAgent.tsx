@@ -30,7 +30,7 @@ interface NewAgentState {
   step: string
   selectedTemplate: RoleTemplate | null
   type: string; name: string; description: string; systemPrompt: string
-  webhookUrl: string; chunkSize: string; aiModel: string
+  webhookSecret: string; chunkSize: string; aiModel: string
   aiTemperature: number; aiMaxTokens: number; aiHITL: boolean
   allowFileTools: boolean; allowCommandExec: boolean
   submitting: boolean; error: string
@@ -43,7 +43,7 @@ export const NewAgent: Component = async (_props, ctx) => {
 
   $.step = 'template'; $.selectedTemplate = null
   $.type = 'ai'; $.name = ''; $.description = ''; $.systemPrompt = ''
-  $.webhookUrl = ''; $.chunkSize = '500'; $.aiModel = ''
+  $.webhookSecret = ''; $.chunkSize = '500'; $.aiModel = ''
   $.aiTemperature = 0.7; $.aiMaxTokens = 2048; $.aiHITL = false
   $.allowFileTools = false; $.allowCommandExec = false
   $.submitting = false; $.error = ''
@@ -116,7 +116,7 @@ export const NewAgent: Component = async (_props, ctx) => {
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
     }
-    if ($.type === 'webhook') body.webhook_url = $.webhookUrl || undefined
+    if ($.type === 'webhook') body.webhook_secret = $.webhookSecret || undefined
     if ($.type === 'knowledge_base') body.chunk_size = parseInt($.chunkSize) || 500
 
     try {
@@ -286,10 +286,9 @@ export const NewAgent: Component = async (_props, ctx) => {
           )}
 
           {!$.selectedTemplate && isWebhook && (
-            <Field label="Webhook URL" hint="预留出站回调地址（当前版本仅支持入站 API）——可留空">
-              <Input type="url" placeholder="https://example.com/webhook（可选）" value={$.webhookUrl}
-                onInput={(e: Event) => { $.webhookUrl = inputValue(e); rerender() }} />
-            </Field>
+            <div class="wf-text-sm wf-text-secondary wf-bg-secondary wf-rounded wf-p-sm">
+              📡 出站回调规划中——Webhook Agent 当前为<b>入站 API 机器人</b>（外部系统 POST 到 /api/webhook/&#123;id&#125; 触发 AI 应答），创建后可在详情页查看对接示例。
+            </div>
           )}
           {!$.selectedTemplate && isKB && (
             <Field label="分块大小">

@@ -94,8 +94,16 @@ async function main() {
   users.routes(app, { prefix: '/api/auth', exclude: ['register'] })
 
   // ── 限流（框架 rateLimit：ctx.limit 手动限流，默认按 IP 维度） ──
+  // Webhook 入站端点豁免全局限流（外部系统高频调用易撞 100/60s 429）——
+  // 防滥用由签名验证 + 请求体大小限制（B3）承担；后续如需独立阈值再加实例
   if (hasRedis) {
-    app.use(rateLimit({ windowMs: 60_000, max: 100, redis: redisClient.redis }))
+    const globalRateLimit = rateLimit({ windowMs: 60_000, max: 100, redis: redisClient.redis })
+    app.use((req: Request, ctx: Context, next: any) => {
+      // req.url 是完整 URL（含 host）——取 path 判断
+      const path = (req.url ?? '').replace(/^https?:\/\/[^/]+/, '')
+      if (path.startsWith('/api/webhook/')) return next(req, ctx)
+      return globalRateLimit(req, ctx, next)
+    })
   }
 
   // ── AI 中间件（框架 ai()：chat/stream/agent/embedding——embedding 默认读 DASHSCOPE_*） ──
@@ -371,6 +379,11 @@ async function main() {
 
   app.post('/api/webhook/:agentId', async (req: Request, ctx: AppCtx): Promise<Response> => {
     try {
+      // B3：请求体大小限制（64KB）——防滥用
+      const contentLength = Number(req.headers.get('content-length') ?? 0)
+      if (contentLength > 64 * 1024) {
+        return Response.json({ error: 'Request body too large (max 64KB)' }, { status: 413 })
+      }
       const body = await req.json()
       const signature = req.headers.get('x-signature') ?? undefined
       const result = await handleWebhookMessage(ctx, ctx.params.agentId, body, undefined, signature,
@@ -378,7 +391,10 @@ async function main() {
       return Response.json(result)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      const status = message.includes('signature') || message.includes('Missing') ? 401 : 400
+      // H3：签名类错误明确区分——Missing 401，Invalid/Replay 403，其它 400
+      const status = message.includes('Missing') ? 401
+        : message.includes('Invalid') || message.includes('Replay') ? 403
+        : 400
       return Response.json({ error: message }, { status })
     }
   })

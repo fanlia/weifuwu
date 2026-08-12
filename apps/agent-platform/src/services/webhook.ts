@@ -159,6 +159,9 @@ export async function handleWebhookMessage(
   const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
   const retryCount = agent.webhook_retry_count ?? 3
 
+  // B1：conversation_id 会话记忆——同一会话的多轮调用保持上下文（最近 10 轮）
+  const history = await loadConversationHistory(ctx, agentId, body.conversation_id, 10)
+
   // 统一走 agent runner（兼容纯对话和 tool calling）
   const agentRunner = ai.agent({
     model: agent.model,
@@ -168,10 +171,15 @@ export async function handleWebhookMessage(
   })
 
   try {
-    const result = await agentRunner.runToResult([{ role: 'user', content: body.content }])
+    const result = await agentRunner.runToResult([...history, { role: 'user', content: body.content }])
+
+    // 持久化本轮对话（B1）
+    await persistConversation(ctx, agentId, body.conversation_id, 'user', body.content)
+    await persistConversation(ctx, agentId, body.conversation_id, 'assistant', result.content)
 
     const elapsed = Date.now() - startTime
     await logWebhookCall(ctx, agentId, agent.tenant_id, JSON.stringify(body), result.content, 200, elapsed, true)
+    await pruneLogs(ctx, agentId) // D3：每 agent 保留最近 500 条
 
     return {
       reply: result.content,
@@ -181,8 +189,69 @@ export async function handleWebhookMessage(
     const elapsed = Date.now() - startTime
     const errMsg = err instanceof Error ? err.message : String(err)
     await logWebhookCall(ctx, agentId, agent.tenant_id, JSON.stringify(body), errMsg, 500, elapsed, false)
+    await pruneLogs(ctx, agentId) // D3
     throw err
   }
+}
+
+/**
+ * B1：加载会话历史（conversation_id 多轮记忆）——无 conversation_id 返回空（单轮兼容）
+ */
+async function loadConversationHistory(ctx: AppCtx, agentId: string, conversationId: string | undefined, limit: number): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+  if (!conversationId) return []
+  try {
+    const { sql } = ctx as any
+    if (!sql) return []
+    const rows = await sql`
+      SELECT role, content FROM webhook_conversations
+      WHERE agent_id = ${agentId} AND conversation_id = ${conversationId}
+      ORDER BY created_at ASC
+      LIMIT ${limit * 2}
+    `
+    const list = Array.isArray(rows) ? rows : [rows]
+    // 截断到偶数条（保证 user/assistant 成对），最多保留 limit 轮
+    const maxPairs = Math.floor(list.length / 2)
+    const pairs = Math.min(maxPairs, limit)
+    const trimmed = list.slice(list.length - pairs * 2)
+    return trimmed.map((r: any) => ({ role: r.role as 'user' | 'assistant', content: String(r.content ?? '') }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * B1：持久化对话记录（表不存在时静默跳过——webhook_conversations 迁移由 schema.sql 负责）
+ */
+async function persistConversation(ctx: AppCtx, agentId: string, conversationId: string | undefined, role: string, content: string): Promise<void> {
+  if (!conversationId) return
+  try {
+    const { sql } = ctx as any
+    if (!sql) return
+    await sql`
+      INSERT INTO webhook_conversations (agent_id, conversation_id, role, content)
+      VALUES (${agentId}, ${conversationId}, ${role}, ${content})
+    `
+  } catch { /* 会话持久化失败不影响主流程 */ }
+}
+
+/**
+ * D3：每 agent 保留最近 500 条日志（超量删除最旧）
+ */
+async function pruneLogs(ctx: AppCtx, agentId: string): Promise<void> {
+  try {
+    const { sql } = ctx as any
+    if (!sql) return
+    await sql`
+      DELETE FROM webhook_logs
+      WHERE agent_id = ${agentId}
+        AND id NOT IN (
+          SELECT id FROM webhook_logs
+          WHERE agent_id = ${agentId}
+          ORDER BY created_at DESC
+          LIMIT 500
+        )
+    `
+  } catch { /* 清理失败不影响主流程 */ }
 }
 
 /**
