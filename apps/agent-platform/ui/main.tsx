@@ -13,6 +13,7 @@ import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
 import { Agents } from './pages/Agents'
+import { Templates } from './pages/Templates'
 import { NewAgent } from './pages/NewAgent'
 import { AgentDetail } from './pages/AgentDetail'
 import { Departments } from './pages/Departments'
@@ -80,6 +81,7 @@ main.use(layoutMw)
 main.get('', () => h(Dashboard, {}), { title: '概览 — Agent Platform' })
 main.get('dashboard', () => h(Dashboard, {}), { title: '概览 — Agent Platform' })
 main.get('agents', () => h(Agents, {}), { title: 'Agent — Agent Platform' })
+main.get('templates', () => h(Templates, {}), { title: '模板市场 — Agent Platform' })
 main.get('agents/new', () => h(NewAgent, {}), { title: '创建 Agent' })
 main.get('agents/:id', () => h(AgentDetail, {}), { title: '编辑 Agent' })
 main.get('departments', () => h(Departments, {}), { title: '部门 — Agent Platform' })

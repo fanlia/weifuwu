@@ -317,6 +317,31 @@ export const Chat: Component = async (_props, ctx) => {
     return labels[name] ?? name.replace(/_/g, ' ')
   }
 
+  /** 导出对话为 Markdown（复制到剪贴板——用户可粘贴到文档/对话工具） */
+  function exportChat() {
+    if ($.msgs.length === 0) {
+      ctx.toast?.('暂无消息可导出', 'info')
+      return
+    }
+    const lines: string[] = [`# ${$.deptName} 对话记录`, '', `> 导出时间：${new Date().toLocaleString()} · ${$.memberCount} 位成员`, '']
+    for (const msg of $.msgs) {
+      if (msg.msg_type === 'system') {
+        lines.push(`> [系统] ${msg.content}`, '')
+        continue
+      }
+      const sender = msg.sender_name ?? '未知'
+      const time = new Date(msg.created_at).toLocaleString()
+      lines.push(`## ${sender} · ${time}`)
+      if ((msg.tools ?? []).length > 0) {
+        for (const t of msg.tools ?? []) lines.push(`- 🛠 ${toolLabel(t.name)}${t.status === 'error' ? '（失败）' : ''}`)
+      }
+      if (msg.content) lines.push('', msg.content, '')
+      if (msg.usage?.total_tokens) lines.push(`_（${msg.usage.total_tokens} tokens）_`, '')
+    }
+    void ctx.browser?.copyText?.(lines.join('\n'))
+    ctx.toast?.(`已复制对话（${$.msgs.length} 条消息）`, 'success')
+  }
+
   return async (props: {}) => {
     const msgsLen = $.msgs.length
     if (msgsLen > prevLen) { scrollToBottom(); prevLen = msgsLen }
@@ -363,7 +388,8 @@ export const Chat: Component = async (_props, ctx) => {
           <div class="wf-text-xs wf-text-tertiary">{$.memberCount} 位成员</div>
         </div>
         {!ctx.ws?.isConnected && <Badge variant="error"><Icon name="warning" size={12} /> 连接断开</Badge>}
-        <Button size="sm" variant="ghost" onClick={() => ctx.app?.navigate(`/departments/${deptId}`)}>部门详情</Button>
+        <Button size="sm" variant="ghost" onClick={exportChat} title="导出对话为 Markdown"><Icon name="copy" size={14} /> 导出</Button>
+        <Button size="sm" variant="ghost" class="wf-hidden wf-flex@sm" onClick={() => ctx.app?.navigate(`/departments/${deptId}`)}>部门详情</Button>
       </div>
 
       <div class="wf-fill wf-scroll wf-stack wf-gap-md wf-p-md"

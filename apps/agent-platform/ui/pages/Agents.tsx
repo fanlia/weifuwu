@@ -49,7 +49,10 @@ export const Agents: Component = async (_props, ctx) => {
 
       {!$.loading && $.agents.length === 0 && (
         <EmptyState icon="🤖" text="还没有 Agent" hint="创建你的第一个 AI 机器人、Webhook 或知识库">
-          <Button variant="primary" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</Button>
+          <div class="wf-row wf-gap-sm">
+            <Button variant="primary" onClick={() => ctx.app?.navigate('/templates')}><Icon name="layers" size={14} /> 从模板开始</Button>
+            <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 自定义创建</Button>
+          </div>
         </EmptyState>
       )}
 

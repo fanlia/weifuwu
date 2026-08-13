@@ -56,6 +56,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
     const spaPaths = [
       '/', '/login', '/register', '/dashboard',
       '/agents', '/agents/new', '/agents/:id',
+      '/templates',
       '/departments', '/departments/new', '/departments/:id',
       '/chat/new', '/chat/:id',
       '/approvals',
@@ -89,6 +90,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
     const spaPaths = [
       '/', '/login', '/register', '/dashboard',
       '/agents', '/agents/new', '/agents/:id',
+      '/templates',
       '/departments', '/departments/new', '/departments/:id',
       '/chat/new', '/chat/:id',
       '/approvals',
