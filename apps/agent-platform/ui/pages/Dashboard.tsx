@@ -1,5 +1,5 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { Button, Card, Icon, StatCard } from 'weifuwu/components'
+import { Button, Card, Icon, Skeleton, StatCard } from 'weifuwu/components'
 import { Ava } from '../components/ui'
 import type { Agent, AgentListResponse, CostAgentRow, DepartmentListResponse, FunnelData, PendingApproval, StatsData } from '../lib/types'
 
@@ -44,6 +44,21 @@ export const Dashboard: Component = async (_props, ctx) => {
   })
 
   return async (props) => {
+    // 骨架屏（加载中——Wave 8 视觉优化）：统计卡片网格 + 列表骨架
+    if ($.loading) {
+      return (
+        <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 960px">
+          <div class="wf-stack wf-gap-xs">
+            <Skeleton variant="text" width="200px" height="28px" />
+            <Skeleton variant="text" width="340px" />
+          </div>
+          <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
+            {[1, 2, 3, 4, 5, 6].map(i => <Card key={i}><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="40%" height="24px" className="wf-mt-sm" /></Card>)}
+          </div>
+          <Skeleton variant="table" lines={4} cols={3} />
+        </div>
+      )
+    }
     const s = $.stats ?? {}
     const msgCount = s.messages?.total ?? 0
     const totalTokens = s.tokens?.total_tokens ?? 0

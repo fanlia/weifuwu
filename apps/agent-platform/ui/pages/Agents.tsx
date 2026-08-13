@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot } from '../components/ui'
-import { Button, Card, Icon } from 'weifuwu/components'
+import { Button, Card, Icon, Skeleton } from 'weifuwu/components'
 import type { Agent, AgentListResponse } from '../lib/types'
 
 interface AgentsState {
@@ -45,7 +45,13 @@ export const Agents: Component = async (_props, ctx) => {
         <Button variant="primary" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</Button>
       </PageHeader>
 
-      {$.loading && <Loading />}
+      {$.loading && (
+        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 280px), 1fr))">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i}><Skeleton variant="text" width="60%" /><Skeleton variant="text" width="90%" className="wf-mt-sm" /><Skeleton variant="text" width="45%" className="wf-mt-sm" /></Card>
+          ))}
+        </div>
+      )}
 
       {!$.loading && $.agents.length === 0 && (
         <EmptyState icon="🤖" text="还没有 Agent" hint="创建你的第一个 AI 机器人、Webhook 或知识库">

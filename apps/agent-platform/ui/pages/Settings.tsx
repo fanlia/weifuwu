@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, errMsg } from '../components/ui'
-import { Alert, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
+import { Alert, Button, Card, Field, Icon, Input, PasswordInput, ThemeSwitch } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 
 interface SettingsState {
@@ -87,6 +87,16 @@ export const Settings: Component = async (_props, ctx) => {
             </Button>
           </div>
         </form>
+      </Card>
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="settings" size={14} /> 外观</div>
+        <div class="wf-split wf-py-sm wf-border-b">
+          <div class="wf-stack wf-gap-none">
+            <span class="wf-text-sm">主题</span>
+            <span class="wf-text-xs wf-text-tertiary">自动跟随系统偏好；可强制亮色/暗色（持久化）</span>
+          </div>
+          <ThemeSwitch />
+        </div>
       </Card>
     </div>
   )
