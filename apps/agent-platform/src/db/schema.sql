@@ -238,3 +238,17 @@ CREATE INDEX IF NOT EXISTS idx_events_event ON events(event, created_at DESC);
 -- first_message 每租户去重（激活漏斗只记首次）
 CREATE UNIQUE INDEX IF NOT EXISTS uq_events_first_message
   ON events(app_id, event) WHERE event = 'first_message';
+
+-- ── 审计日志（Wave 9——安全/合规：登录/Agent 变更/审批操作） ─────────────
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_id      UUID NOT NULL,
+  user_id     UUID,
+  action      TEXT NOT NULL,          -- login_success / login_fail / agent_create / agent_update / agent_delete / approval
+  target_type TEXT,                   -- agent / department / message
+  target_id   UUID,
+  detail      JSONB,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_app ON audit_logs(app_id, created_at DESC);

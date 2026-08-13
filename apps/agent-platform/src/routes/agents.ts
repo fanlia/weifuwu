@@ -154,6 +154,11 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       RETURNING id, type, name, created_at
     `
 
+    // 审计：Agent 创建（Wave 9）
+    try {
+      const { writeAudit } = await import('../services/audit.ts')
+      await writeAudit(ctx as any, { action: 'agent_create', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? ''), type: String(agent.type ?? '') } })
+    } catch { /* 尽力 */ }
     return Response.json({ agent }, { status: 201 })
   })
 
@@ -170,6 +175,11 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
+    // 审计：Agent 更新（Wave 9）
+    try {
+      const { writeAudit } = await import('../services/audit.ts')
+      await writeAudit(ctx as any, { action: 'agent_update', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? '') } })
+    } catch { /* 尽力 */ }
     return Response.json({ agent })
   })
 
@@ -213,6 +223,11 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
+    // 审计：Agent 更新（Wave 9）
+    try {
+      const { writeAudit } = await import('../services/audit.ts')
+      await writeAudit(ctx as any, { action: 'agent_update', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? '') } })
+    } catch { /* 尽力 */ }
     return Response.json({ agent })
   })
 
@@ -228,6 +243,11 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     if (result.length === 0) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
+    // 审计：Agent 删除（Wave 9）
+    try {
+      const { writeAudit } = await import('../services/audit.ts')
+      await writeAudit(ctx as any, { action: 'agent_delete', target_type: 'agent', target_id: String(params.id) })
+    } catch { /* 尽力 */ }
     return Response.json({ success: true })
   })
 

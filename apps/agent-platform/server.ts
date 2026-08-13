@@ -101,6 +101,21 @@ async function main() {
     console.log('[agent-platform] 检测到表丢失，已重新创建')
   }
 
+  // 增量表（追加的 schema——迁移一次性 markMigrated，新表需幂等补建；Wave 9 audit_logs）
+  await pg.sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      app_id      UUID NOT NULL,
+      user_id     UUID,
+      action      TEXT NOT NULL,
+      target_type TEXT,
+      target_id   UUID,
+      detail      JSONB,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_app ON audit_logs(app_id, created_at DESC);
+  `)
+
   // ── Redis（框架自研客户端）────────────────────────────
   const hasRedis = !!(process.env.REDIS_URL)
   let redisClient: any = null
@@ -308,6 +323,16 @@ async function main() {
   registerSkillRoutes(protectedRoutes)
   // 角色模板
   registerRoleTemplateRoutes(protectedRoutes)
+
+  // ── 审计日志（Wave 9——安全/合规：登录/Agent 变更记录） ──
+  protectedRoutes.get('/api/audit', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { listAudit } = await import('./src/services/audit.ts')
+    const url = new URL(req.url ?? '', 'http://localhost')
+    const limit = Number(url.searchParams.get('limit') ?? 50)
+    const action = url.searchParams.get('action') ?? undefined
+    const result = await listAudit(ctx, { limit, action })
+    return Response.json(result)
+  })
 
   // ── 用户设置 ─────────────────────────────────────────────
   // 更新个人资料

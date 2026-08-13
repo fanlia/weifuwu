@@ -243,6 +243,11 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
       }
     }
 
+    // 审计：模板创建 Agent（Wave 9）
+    try {
+      const { writeAudit } = await import('../services/audit.ts')
+      await writeAudit(ctx as any, { action: 'agent_create', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? ''), source: 'template' } })
+    } catch { /* 尽力 */ }
     return Response.json({ agent }, { status: 201 })
   })
 }

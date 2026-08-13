@@ -9,7 +9,21 @@ interface SettingsState {
   pwdSubmitting: boolean; pwdOk: string; pwdErr: string
 }
 
+const AUDIT_LABELS: Record<string, string> = {
+  login_success: '登录成功', agent_create: '创建 Agent', agent_update: '更新 Agent',
+  agent_delete: '删除 Agent', approval: '审批操作',
+}
+function fmtAuditTime(t: string): string {
+  try { return new Date(t).toLocaleString().slice(0, 16) } catch { return String(t ?? '').slice(0, 16) }
+}
+
 export const Settings: Component = async (_props, ctx) => {
+  // 审计日志（Wave 9）——加载最近 20 条
+  const auditEntries: any[] = []
+  void ctx.api!.get<{ entries: any[] }>('/api/audit?limit=20').then((d) => {
+    auditEntries.push(...(d.entries ?? []))
+    ctx.ui.render()
+  }).catch(() => {})
   const $ = {} as SettingsState
   const rerender = () => ctx.ui.render()
 
@@ -97,6 +111,25 @@ export const Settings: Component = async (_props, ctx) => {
           </div>
           <ThemeSwitch />
         </div>
+      </Card>
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="shield" size={14} /> 审计日志</div>
+        <div class="wf-text-xs wf-text-tertiary wf-mb-sm">登录、Agent 变更与审批操作记录（最近 20 条）</div>
+        {auditEntries.length === 0 ? (
+          <div class="wf-text-sm wf-text-tertiary wf-py-sm">暂无记录</div>
+        ) : (
+          <div class="wf-stack wf-gap-xs">
+            {auditEntries.map((e: any, i: number) => (
+              <div key={i} class="wf-split wf-py-xs wf-border-b">
+                <div class="wf-stack wf-gap-none">
+                  <span class="wf-text-sm">{AUDIT_LABELS[e.action] ?? e.action}</span>
+                  <span class="wf-text-xs wf-text-tertiary">{e.user_name ?? 'system'} · {fmtAuditTime(e.created_at)}</span>
+                </div>
+                <span class="wf-text-xs wf-text-secondary wf-nums">{String(e.detail?.name ?? e.target_type ?? '')}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   )

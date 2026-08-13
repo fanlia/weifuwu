@@ -62,6 +62,12 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
     // 4. 签发应用 token（owner 成员已建——应用内登录一步到位，前端直接进应用）
     const appLogin = await ctx.auth.loginApp(appSlug, body.email, body.password)
 
+    // 审计：登录成功（Wave 9——安全/合规）
+    try {
+      const { writeAudit } = await import('../services/audit.ts')
+      await writeAudit({ ...(ctx as any), appId: appInfo.id, user: { id: appLogin.user?.id ?? null } } as any, { action: 'login_success', target_type: 'app', target_id: appInfo.id, detail: { email: body.email } })
+    } catch { /* 尽力 */ }
+
     return Response.json({
       token: appLogin.token,
       refreshToken: appLogin.refreshToken,
@@ -69,4 +75,6 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
       app: { id: appInfo.id, slug: appInfo.slug, name: appInfo.name, role: 'owner' },
     })
   })
+
+  // 登录失败审计（认证中间件 401 时由 auth-payload 记录——此处覆盖应用登录成功路径）
 }
