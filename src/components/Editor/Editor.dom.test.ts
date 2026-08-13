@@ -220,3 +220,25 @@ test('hidden input 携带受控 value', async () => {
   assert.ok(hidden, '应有 hidden input')
   assert.equal(hidden.value, '<p>v</p>')
 })
+
+test('placeholder：清空内容后 :empty 匹配（空骨架归一——真实浏览器验收发现）', async () => {
+  const ed = await setupEditor({ value: '<p>text</p>', placeholder: '输入内容...' })
+  const editable = ed.editable()!
+  assert.ok(editable.classList.contains('wf-editor-content--has-placeholder'), '有 placeholder 类')
+  assert.equal(editable.getAttribute('data-placeholder'), '输入内容...')
+  // 模拟清空：Chrome 删除后保留空骨架 <p><br></p>——handleRichInput 应归一为空串
+  editable.innerHTML = '<p><br></p>'
+  editable.dispatchEvent(new window.Event('input', { bubbles: true }))
+  await ed.flush()
+  assert.equal(editable.innerHTML, '', '空骨架应归一为空串（:empty 匹配 → placeholder 显示）')
+  assert.ok(editable.matches(':empty'), ':empty 匹配')
+})
+
+test('placeholder：有媒体元素（img）时不算空——不清空', async () => {
+  const ed = await setupEditor({ value: '' })
+  const editable = ed.editable()!
+  editable.innerHTML = '<p><img src="x.png"></p>'
+  editable.dispatchEvent(new window.Event('input', { bubbles: true }))
+  await ed.flush()
+  assert.ok(editable.innerHTML.includes('<img'), '有 img 时内容保留（不算空）')
+})

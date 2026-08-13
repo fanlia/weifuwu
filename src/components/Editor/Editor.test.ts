@@ -140,7 +140,7 @@ describe('Editor', () => {
     const vnode = await ed.render({ value: '', onChange: (v) => calls.push(v) })
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === true)
     assert.ok(editable, 'should have editable div')
-    editable.props.onInput({ currentTarget: { innerHTML: '<p>changed</p>' } })
+    editable.props.onInput({ currentTarget: { innerHTML: '<p>changed</p>', textContent: 'changed', querySelector: () => null } })
     assert.equal(calls.length, 1)
     assert.equal(calls[0], '<p>changed</p>')
   })

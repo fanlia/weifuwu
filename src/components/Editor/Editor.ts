@@ -254,7 +254,17 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     // ── 输入事件 ────────────────────────────────────────
     const handleRichInput = (e: Event) => {
       if (disabled) return
-      emitChange((e.currentTarget as HTMLElement).innerHTML)
+      const el = e.currentTarget as HTMLElement
+      let html = el.innerHTML
+      // 清空时 Chrome 保留空骨架（<br>/<p><br></p>/<div><br></div>）——:empty 不匹配 →
+      // placeholder 永不显示（真实浏览器验收发现）。无可见文本且无媒体元素（img/table/hr）
+      // 时归一为空串，让 .wf-editor-content:empty::before 生效。
+      const isEmpty = !(el.textContent ?? '').trim() && !(el.querySelector?.('img,table,hr') ?? null)
+      if (isEmpty) {
+        html = ''
+        el.innerHTML = ''
+      }
+      emitChange(html)
     }
 
     const handleSourceInput = (e: Event) => {
