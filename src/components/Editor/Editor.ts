@@ -146,6 +146,12 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     const handleToolbarItem = (item: ToolbarItem) => {
       if (disabled) return
 
+      // 恢复 contentEditable 焦点 + selection：真实用户点击工具栏按钮 → contentEditable
+      // 失焦（按钮获焦）——execCommand 对失焦内容选区不可靠（连续应用工具失效：选中文字
+      // 点 bold 后再点 italic，选区已丢）。focus() 恢复 contentEditable 的 document
+      // selection（Chrome focus 与 selection 分离——失焦不清 selection，focus 恢复）。
+      editorEl?.focus()
+
       if (item === 'source') {
         if (isRichMode) {
           sourceText = editorEl?.innerHTML ?? value

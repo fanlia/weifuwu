@@ -243,9 +243,32 @@ test('placeholder：有媒体元素（img）时不算空——不清空', async 
   assert.ok(editable.innerHTML.includes('<img'), '有 img 时内容保留（不算空）')
 })
 
+test('连续应用工具：选中文字后连点 bold/italic，选区保持（点击按钮失焦后恢复焦点）', async () => {
+  const ed = await setupEditor({ value: '<p>Hello world</p>' })
+  const editable = ed.editable()!
+  editable.focus()
+  const node = editable.querySelector('p')!.firstChild!
+  const s = window.getSelection()!
+  const r = document.createRange()
+  r.selectNodeContents(node)
+  s.removeAllRanges()
+  s.addRange(r)
+  const findBtn = (item: string) => [...ed.container.querySelectorAll<HTMLButtonElement>('.wf-editor-tb-btn')]
+    .find((b) => b.getAttribute('data-item') === item)!
+  // 连点 bold + italic——选区不得丢失（handleToolbarItem 开头 focus 恢复 contentEditable 焦点与选区）
+  findBtn('bold').click()
+  assert.ok(s.rangeCount >= 1, 'bold 后选区保持')
+  assert.equal(s.toString(), 'Hello world', 'bold 后选区内容不变')
+  findBtn('italic').click()
+  assert.ok(s.rangeCount >= 1, 'italic 后选区保持（连续应用）')
+  assert.equal(s.toString(), 'Hello world', 'italic 后选区内容不变')
+})
+
 test('对齐反选：当前已居中 → 再点 alignCenter 移除 inline style（execCommand 不 toggle 对齐）', async () => {
   const ed = await setupEditor({ value: '<p style="text-align: center;">居中</p>' })
-  const p = ed.editable()!.querySelector('p')!
+  const editableEl = ed.editable()!
+  const p = editableEl.querySelector('p')!
+  editableEl.focus() // 模拟真实：用户先点击编辑器（已聚焦）
   // spy queryCommandState 返回 justifyCenter true（模拟 Chrome 已居中状态）
   const orig = (document as any).queryCommandState
   const origV = (document as any).queryCommandValue
@@ -272,6 +295,7 @@ test('对齐反选：当前已居中 → 再点 alignCenter 移除 inline style�
 test('对齐操作清除冲突的 wf-text-* 对齐类（HTML 语义一致——真实浏览器验收发现）', async () => {
   const ed = await setupEditor({ value: '<p class="wf-text-center">居中文字</p>' })
   const editable = ed.editable()!
+  editable.focus() // 模拟真实：先聚焦再选区
   const p = editable.querySelector('p')!
   // caret 放入居中 p
   const range = document.createRange()
