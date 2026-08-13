@@ -10,7 +10,7 @@
  * 统一架构模式：状态 + 事件 + 转换表 + 查表分派（无 if/else 分派链）。
  */
 
-import { trace, traceEnabled } from './trace.ts'
+import { emit } from './events.ts'
 
 /** 路由生命周期状态 */
 export type RouteLifecycle = 'idle' | 'navigating' | 'settled'
@@ -36,20 +36,16 @@ export interface RouteController {
   navigateError(path: string, err: unknown): void
 }
 
-/** 创建路由生命周期协调器（查表分派——非法转换 trace warn 不静默） */
+/** 创建路由生命周期协调器（查表分派——非法转换 emit/trace warn 不静默） */
 export function createRouteController(): RouteController {
   let state: RouteLifecycle = 'idle'
   const fire = (event: RouteEvent, path?: string): RouteLifecycle => {
     const next = ROUTE_TRANSITIONS[state]?.[event] ?? null
     if (next == null) {
-      if (traceEnabled('route', 'debug')) {
-        trace('route', 'debug', '', `illegal route transition ${state} --${event}--> ? path=${path ?? '-'}`)
-      }
+      emit({ session: '', machine: 'route', nodeId: null, component: null, from: state, event, to: '?', payload: { path }, level: 'debug', ts: Date.now() })
       return state
     }
-    if (traceEnabled('route', 'debug')) {
-      trace('route', 'debug', '', `${state} --${event}--> ${next} path=${path ?? '-'}`)
-    }
+    emit({ session: '', machine: 'route', nodeId: null, component: null, from: state, event, to: next, payload: { path }, level: 'debug', ts: Date.now() })
     state = next
     return next
   }

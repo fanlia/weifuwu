@@ -31,6 +31,7 @@ import { getOutputRange, classifyKind, type PatchState, keyModeOf, type KeyMode,
 import { auditEnabled } from './audit.ts'
 import { canReuse } from './lifecycle.ts'
 import { componentName } from './ctx.ts'
+import { emit } from './events.ts'
 
 
 /** 从 vnode 取稳定 key（Portal 内部 key 不算用户 keyed） */
@@ -313,7 +314,7 @@ export function patchChildren(
   // 内层数组内部各自 keyed，层级独立。旧数组项在 keyed 分支无匹配会残留——[c,d,[e,f]]→[c,d]）
   const hasArrayItem = newChildren.some((c) => Array.isArray(c)) || oldChildren.some((c) => Array.isArray(c))
   const mode: KeyMode = hasArrayItem ? 'unkeyed' : keyModeOf(newChildren)
-  if (traceEnabled('diff')) trace('diff', 'debug', '', `key-mode=${mode}`)
+  emit({ session: '', machine: 'keys', nodeId: null, component: null, from: hasArrayItem ? 'unkeyed' : keyModeOf(newChildren), event: 'SELECT', to: mode, payload: () => ({ len: newChildren.length }), level: 'trace', ts: Date.now() })
 
   // A 级动态检测（业务身份声明协议）：长度变化 + 无 key 组件项 → dev error
   // （业务身份只有业务知道——框架提示而非静默错位；native/portal 豁免——无实例状态）
@@ -508,6 +509,9 @@ function posHoleReal(s: PosState): void {
   }
   if (next && next.parentNode === parent) parent.insertBefore(node, next)
   else parent.appendChild(node)
+  // 插入点事件（machine=pos，payload 惰性）——append 串位事故断言的基础：
+  // insertedBefore 指向刚插入的项 = 插入点解析错乱（搜索恢复实测）
+  emit({ session: '', machine: 'pos', nodeId: null, component: null, from: 'hole', event: 'INSERT', to: 'real', payload: () => ({ i, insertedBefore: next ? nodeDesc(next) : 'END', node: nodeDesc(node) }), level: 'trace', ts: Date.now() })
   out.push(node)
   pushA(node)
 }
@@ -672,7 +676,6 @@ function diffUnkeyed(s: KeyDiffState): (Node | null)[] {
   for (let i = 0; i < len; i++) {
     const oldC = i < oldChildren.length ? oldChildren[i] : null
     const newC = i < newChildren.length ? newChildren[i] : null
-    if (traceEnabled('diff')) trace('diff', 'trace', '', `pos ${i} old=${vnDesc(oldC)} new=${vnDesc(newC)} oldNode=${nodeDesc(oldNodes[i])}`)
     // 数组长度差（i 超出新数组——newC=null 来自 len=max）：多余旧项 → 移除（不是占位——
     // 新数组没有该位置；占位法"长度恒定"只适用于数组内 false/null（长度不变时互转））
     if (i >= newChildren.length) {
@@ -692,7 +695,9 @@ function diffUnkeyed(s: KeyDiffState): (Node | null)[] {
       continue
     }
     // 位置级 (oldKind, newKind) 转换状态机查表分派（无 if/else 类型链）
-    POS[posKindOf(oldC)][posKindOf(newC)]({ parent, oldC, newC, oldNode: oldNodes[i], i, oldNodes, newChildren, out, pushA, ctx })
+    const posFn = POS[posKindOf(oldC)][posKindOf(newC)]
+    emit({ session: '', machine: 'pos', nodeId: null, component: null, from: posKindOf(oldC), event: posFn.name, to: posKindOf(newC), payload: () => ({ i }), level: 'trace', ts: Date.now() })
+    posFn({ parent, oldC, newC, oldNode: oldNodes[i], i, oldNodes, newChildren, out, pushA, ctx })
   }
   return out
 }

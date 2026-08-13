@@ -78,6 +78,8 @@ export function callRefCleanupFor(input: any, reg: Registry): void {
 
   // 组件卸载：从 idRegistry 注销并清除渲染状态
   if (vnode._id) {
+    // tctx 在 _id 置空前捕获（dispose 事件需要真实实例 id 追溯——置空后只剩 null）
+    const tctx = vnodeTraceCtx(vnode)
     if (vnode._customId) reg.idRegistry.delete(vnode._customId)
     reg.idRegistry.delete(vnode._id)
     if (reg.unmountHooks.length > 0) {
@@ -92,7 +94,7 @@ export function callRefCleanupFor(input: any, reg: Registry): void {
     vnode._refNode = null
     // 生命周期状态机：DISPOSE（显式标记——build 剪枝检查 _lifecycle !== 'disposed'
     // 跳过被清理的旧树，根治「dispose 掏空内容但引用保留 → 剪枝复用空壳」）
-    vnode._lifecycle = transition(vnode._lifecycle, 'DISPOSE', vnodeTraceCtx(vnode))
+    vnode._lifecycle = transition(vnode._lifecycle, 'DISPOSE', tctx)
   } else if (isComp(vnode) || vnode._child != null) {
     // 无 id 的组件/有子树的节点（native 容器等）：递归清理时也标记 disposed（一致性）
     vnode._lifecycle = transition(vnode._lifecycle, 'DISPOSE', vnodeTraceCtx(vnode))

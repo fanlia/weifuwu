@@ -20,6 +20,7 @@ import { createVdomContext } from '../context.ts'
 import { hydrateVNode } from '../vdom2/hydrate.ts'
 import { createRouteController } from '../vdom2/route.ts'
 import { installVdomInspect } from '../vdom2/trace.ts'
+import { installEventRing } from '../vdom2/events.ts'
 import type { VNodeChild } from '../vnode.ts'
 
 /** uiServe 选项 */
@@ -192,8 +193,10 @@ export function uiServe<RC extends object = {}>(
   const initialPath = browser.pathname()
   void renderPath(initialPath, true).finally(() => { if (!closing) readyResolve() })
 
-  // 全局调试 API（__vdom_dump / __vdom_lc——组件视角生命周期可观测）
+  // 全局调试 API（__vdom_dump / __vdom_lc / __vdom_events——组件视角生命周期可观测）
   installVdomInspect(() => currentChild)
+  // 事件 ring buffer：页面生命周期内状态机事件全程记录（__vdom_events 查询）
+  installEventRing()
 
   // ── 导航（popstate——SPA 路由切换） ──
   // 注意：不依赖 currentPath 判断（快速连续导航时 currentPath 异步滞后——误跳第二次导航）；

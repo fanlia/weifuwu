@@ -18,6 +18,7 @@
  */
 
 import { trace, traceEnabled } from './trace.ts'
+import { emit } from './events.ts'
 
 /** 节点生命周期状态 */
 export type Lifecycle = 'fresh' | 'building' | 'built' | 'pruned' | 'disposed'
@@ -86,21 +87,17 @@ export function dumpTimeline(id?: string): string {
     .join('\n')
 }
 
-/** 状态转换执行（非法转换 → 保留原状态 + trace warn——不静默吞掉）
- *  tctx：trace 上下文（组件名/id/深度——trace 输出 `Name(id)[d0] from --event--> to`） */
+/** 状态转换执行（非法转换 → 保留原状态 + 事件/trace warn——不静默吞掉）
+ *  tctx：trace 上下文（组件名/id/深度——事件携带结构化字段，trace 输出 `Name(id)[d0] from --event--> to`）
+ *  事件流：所有转换统一 emit（machine=lifecycle）——过程级可观测/可断言 */
 export function transition(from: Lifecycle, event: LifecycleEvent, tctx?: LifecycleTraceCtx): Lifecycle {
   const next = TRANSITIONS[from]?.[event] ?? null
-  const who = tctx ? `${tctx.name ?? '?'}(${tctx.id ?? '?'})[d${tctx.depth ?? 0}]` : '?'
   if (next == null) {
-    if (traceEnabled('lifecycle')) {
-      trace('lifecycle', 'warn', '', `illegal transition ${who} ${from} --${event}--> ?`)
-    }
+    emit({ session: '', machine: 'lifecycle', nodeId: tctx?.id ?? null, component: tctx?.name ?? null, from, event, to: '?', level: 'warn', ts: Date.now() })
     return from
   }
   recordTimeline(tctx, from, event, next)
-  if (traceEnabled('lifecycle', 'debug')) {
-    trace('lifecycle', 'debug', '', `${who} ${from} --${event}--> ${next}`)
-  }
+  emit({ session: '', machine: 'lifecycle', nodeId: tctx?.id ?? null, component: tctx?.name ?? null, from, event, to: next, payload: () => ({ depth: tctx?.depth ?? 0 }), level: 'debug', ts: Date.now() })
   return next
 }
 

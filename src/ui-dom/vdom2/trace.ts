@@ -22,6 +22,7 @@
 import type { VNodeChild, VNode } from '../vnode.ts'
 import { Fragment, Portal } from '../vnode.ts'
 import { dumpTimeline } from './lifecycle.ts'
+import { __vdom_events } from './events.ts'
 
 export type VdomStage = 'mount' | 'build' | 'render' | 'diff' | 'lifecycle' | 'route' | 'audit'
 export type VdomLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace'
@@ -225,7 +226,8 @@ export function dumpTree(vnode: VNodeChild, depth = 0): string[] {
 
 /** 安装全局调试 API（dev/调试——页面加载后可用）：
  *  __vdom_dump()      全树生命周期快照（root 由调用方注入）
- *  __vdom_lc(id?)     生命周期时间线（全组件或单组件） */
+ *  __vdom_lc(id?)     生命周期时间线（全组件或单组件）
+ *  __vdom_events(n?)  统一状态机事件流（最近 N 条——跨状态机关联/追溯） */
 export function installVdomInspect(rootGetter: () => VNodeChild | null | undefined): void {
   const g = globalThis as Record<string, unknown>
   if (g.__vdom_dump == null) {
@@ -233,5 +235,9 @@ export function installVdomInspect(rootGetter: () => VNodeChild | null | undefin
   }
   if (g.__vdom_lc == null) {
     g.__vdom_lc = (id?: string) => dumpTimeline(id)
+  }
+  if (g.__vdom_events == null) {
+    const events = __vdom_events
+    g.__vdom_events = (n?: number, filter?: unknown) => events(n, filter as never)
   }
 }

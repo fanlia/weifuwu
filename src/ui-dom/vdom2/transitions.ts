@@ -22,6 +22,7 @@ import { removeOldOutput, patchChildren, patchProps, patchValue, disposeComponen
 import { callRefCleanupFor } from './registry.ts'
 import { createClientBrowser } from '../browser.ts'
 import { componentName } from './ctx.ts'
+import { emit } from './events.ts'
 
 type TransitionFn = (s: PatchState) => Node | null
 
@@ -267,10 +268,12 @@ export const TRANSITIONS: Record<VKind, Record<VKind, TransitionFn>> = {
   portal: table({ portal: portalToPortal }),
 }
 
-/** x2y 状态机分派：由源类型（oldInput）与目标类型（newInput）查表调用转换函数 */
+/** x2y 状态机分派：由源类型（oldInput）与目标类型（newInput）查表调用转换函数
+ *  转换事件：machine=x2y（from=旧 kind，to=新 kind）——过程级可观测 */
 export function x2y(s: PatchState): Node | null {
   const from = classifyKind(s.oldInput)
   const to = classifyKind(s.newInput)
+  emit({ session: '', machine: 'x2y', nodeId: null, component: null, from, event: 'X2Y', to, level: 'trace', ts: Date.now() })
   return TRANSITIONS[from][to](s)
 }
 
