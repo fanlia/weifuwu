@@ -243,6 +243,32 @@ test('placeholder：有媒体元素（img）时不算空——不清空', async 
   assert.ok(editable.innerHTML.includes('<img'), '有 img 时内容保留（不算空）')
 })
 
+test('对齐反选：当前已居中 → 再点 alignCenter 移除 inline style（execCommand 不 toggle 对齐）', async () => {
+  const ed = await setupEditor({ value: '<p style="text-align: center;">居中</p>' })
+  const p = ed.editable()!.querySelector('p')!
+  // spy queryCommandState 返回 justifyCenter true（模拟 Chrome 已居中状态）
+  const orig = (document as any).queryCommandState
+  const origV = (document as any).queryCommandValue
+  ;(document as any).queryCommandState = (cmd: string) => cmd === 'justifyCenter'
+  ;(document as any).queryCommandValue = () => ''
+  try {
+    const range = document.createRange()
+    range.setStart(p.firstChild!, 0)
+    range.collapse(true)
+    const sel = window.getSelection()!
+    sel.removeAllRanges()
+    sel.addRange(range)
+    const btn = [...ed.container.querySelectorAll<HTMLButtonElement>('.wf-editor-tb-btn')]
+      .find((b) => b.getAttribute('data-item') === 'alignCenter')!
+    btn.click()
+    await ed.flush()
+    assert.equal(p.getAttribute('style'), null, '已居中时再点 alignCenter → 移除 style（反选）')
+  } finally {
+    ;(document as any).queryCommandState = orig
+    ;(document as any).queryCommandValue = origV
+  }
+})
+
 test('对齐操作清除冲突的 wf-text-* 对齐类（HTML 语义一致——真实浏览器验收发现）', async () => {
   const ed = await setupEditor({ value: '<p class="wf-text-center">居中文字</p>' })
   const editable = ed.editable()!

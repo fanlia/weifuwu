@@ -97,6 +97,24 @@ test('queryFormats：queryCommandState/Value → FormatState 字段映射', () =
   assert.equal(f.alignRight, false)
 })
 
+test('execFormat：formatBlock 类 toggle——当前已是该格式 → 回默认块（标题/引用反选）', () => {
+  // spy queryCommandState 返回 h1 已 active
+  spyQuery({ h1: true }, { formatBlock: 'h1' })
+  const calls = spyExec()
+  execFormat('h1')
+  assert.deepEqual(calls, [['formatBlock', '<div>']], 'h1 active 时再点 → 回默认块（反选）')
+
+  spyQuery({ h1: false }, { formatBlock: 'p' })
+  calls.length = 0
+  execFormat('h1')
+  assert.deepEqual(calls, [['formatBlock', '<h1>']], 'h1 未 active → 应用 h1')
+
+  spyQuery({ blockquote: true }, { formatBlock: 'blockquote' })
+  calls.length = 0
+  execFormat('blockquote')
+  assert.deepEqual(calls, [['formatBlock', '<div>']], 'blockquote active 时再点 → 回默认块')
+})
+
 test('queryFormats：jsdom 无 execCommand 时不抛（安全兜底）', () => {
   delete (document as any).queryCommandState
   delete (document as any).queryCommandValue

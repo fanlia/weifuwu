@@ -34,18 +34,27 @@ export function exec(cmd: string, value?: string) {
   } catch { /* 安全忽略 */ }
 }
 
-/** 根据工具项执行格式化 */
+/** formatBlock 目标值（toggle 用） */
+const FORMAT_BLOCK: Record<string, string> = {
+  h1: '<h1>', h2: '<h2>', h3: '<h3>', blockquote: '<blockquote>',
+}
+/** 反选回退的默认块（与 clear 命令一致） */
+const DEFAULT_BLOCK = '<div>'
+
+/** 根据工具项执行格式化（formatBlock 类带 toggle：当前已是该块格式 → 回默认块——
+ *  真实浏览器验收发现 Chrome 对重复 formatBlock 同值不切换，标题/引用无法反选） */
 export function execFormat(item: ToolbarItem) {
   switch (item) {
     case 'bold': exec('bold'); break
     case 'italic': exec('italic'); break
     case 'underline': exec('underline'); break
-    case 'h1': exec('formatBlock', '<h1>'); break
-    case 'h2': exec('formatBlock', '<h2>'); break
-    case 'h3': exec('formatBlock', '<h3>'); break
+    case 'h1': case 'h2': case 'h3': case 'blockquote': {
+      const cur = queryFormats()
+      exec('formatBlock', cur[item] ? DEFAULT_BLOCK : FORMAT_BLOCK[item])
+      break
+    }
     case 'ul': exec('insertUnorderedList'); break
     case 'ol': exec('insertOrderedList'); break
-    case 'blockquote': exec('formatBlock', '<blockquote>'); break
     case 'alignLeft': exec('justifyLeft'); break
     case 'alignCenter': exec('justifyCenter'); break
     case 'alignRight': exec('justifyRight'); break

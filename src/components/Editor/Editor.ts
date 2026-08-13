@@ -87,6 +87,31 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       if (removed && el.className.trim() === '') el.removeAttribute('class')
     }
   }
+  // 对齐反选：移除选区块的 inline text-align（execCommand('justify*') 不 toggle——
+  // 已居中的块再点 alignCenter 不会移除 style，真实浏览器验收发现）
+  const clearAlignStyle = () => {
+    if (!editorEl) return
+    const sel = _browser?.getSelection()
+    if (!sel || !sel.rangeCount) return
+    const range = sel.getRangeAt(0)
+    const targets = new Set<Element>()
+    for (const c of [range.startContainer, range.endContainer]) {
+      let n: Node | null = c.nodeType === 1 ? c : c.parentNode
+      while (n && n !== editorEl && n.nodeType === 1) {
+        targets.add(n as Element)
+        n = n.parentNode
+      }
+    }
+    for (const el of targets) {
+      if (el instanceof HTMLElement && el.style.textAlign) {
+        el.style.removeProperty('text-align')
+        if (el.style.cssText === '') el.removeAttribute('style')
+      }
+    }
+  }
+  const ALIGN_COMMANDS: Record<string, string> = {
+    alignLeft: 'justifyLeft', alignCenter: 'justifyCenter', alignRight: 'justifyRight',
+  }
 
   // ── 选区保存/恢复 ──────────────────────────────
   let savedRange: Range | null = null
@@ -168,9 +193,20 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         return
       }
 
+      if (item === 'alignLeft' || item === 'alignCenter' || item === 'alignRight') {
+        // 对齐完全独立处理（不经过 execFormat——避免「先执行命令再查状态」误判 toggle）：
+        // 当前已是该对齐 → 反选（移除 inline style——execCommand 不 toggle 对齐）
+        const cur = queryFormats()
+        if (cur[item]) clearAlignStyle()
+        else exec(ALIGN_COMMANDS[item])
+        clearAlignClasses() // 清除冲突的 wf-text-* 对齐类（HTML 语义一致）
+        activeFormats = queryFormats()
+        if (editorEl && onChange) emitChange(editorEl.innerHTML)
+        ctx.ui.render()
+        return
+      }
+
       execFormat(item)
-      // 对齐命令后清除冲突的文本对齐 class（execCommand 不清 class——HTML 语义一致）
-      if (item === 'alignLeft' || item === 'alignCenter' || item === 'alignRight') clearAlignClasses()
       activeFormats = queryFormats()
       if (editorEl && onChange) emitChange(editorEl.innerHTML) // 先标记脏（DOM 已改）再 render——避免 render 写旧 value 覆盖
       ctx.ui.render()
