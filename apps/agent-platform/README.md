@@ -85,6 +85,14 @@ server.ts（中间件装配 + schema 迁移 + 优雅关闭）
 - **注册引导**：无 AI 机器人时 Dashboard 显示「创建你的第一个 AI 同事」3 步引导
 - **Webhook replay 防护**：X-Timestamp 签名 + 5 分钟新鲜度 + nonce 去重
 - **模板运营位**：from-template 使用计数 + 🔥 热门标记（热门优先排序）
+- **模板市场**（`/templates`）：角色模板分类浏览 + 一键创建（navigate query 驱动）
+- **Agent 版本管理**：配置快照保存/列表/一键回滚（系统提示/模型/工具/配额）
+- **Agent token 配额**：月 token 上限设置 + 用量展示 + 超限自动拦截（AI 暂停回复）
+- **审计日志**：登录/Agent 变更记录（Settings 卡片 + /api/audit）
+- **留存报表**：近 14 天消息趋势 + 每日活跃 Agent 数（Dashboard）
+- **深色模式**：Settings「外观」auto/light/dark（localStorage 持久化）
+- **骨架屏**：Dashboard/Agents 加载骨架
+- **可观测性**：结构化请求日志（JSON 行）+ /api/metrics（请求/错误/AI token/内存）+ 备份脚本 scripts/backup.sh
 - **演示环境**：`node scripts/seed.mjs` 一键种子（admin@demo.com / admin123）
 - **测试隔离**：`TEST_DATABASE_URL`（默认 demo_test 独立库）——测试不再清 demo 产品数据
 
