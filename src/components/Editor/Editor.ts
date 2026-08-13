@@ -51,6 +51,13 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
   let editorEl: HTMLElement | null = null
   const editorRef = (el: HTMLElement | null) => { if (el) editorEl = el }
 
+  // ── 受控回流脏标记（§5.3 contentEditable 版）──────────────────
+  // contentEditable 的 innerHTML 受控回流会重写 DOM → 光标归零（真实事故：demo 输入一个
+  // 字母光标跳到第一个字符）。脏标记模型：onInput/工具操作（DOM 已被修改且 onChange 尚未
+  // 回流）期间**不传 innerHTML prop**（patch 不重写 → 光标保持）；回流完成（DOM === value）
+  // 后清除；外部变化（source 切回/程序化 setValue）在非脏状态正常同步。
+  let domDirty = false
+
   // ── 选区保存/恢复 ──────────────────────────────
   let savedRange: Range | null = null
 
@@ -76,6 +83,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     const isRichMode = mode === 'rich'
 
     const emitChange = (html: string) => {
+      domDirty = true // DOM 已被修改——受控回流完成前不写 innerHTML（光标保持）
       onChange?.(html)
     }
 
@@ -91,6 +99,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         } else {
           mode = 'rich'
           activeFormats = {}
+          domDirty = false // 切回富文本：强制同步受控值到 contentEditable
           ctx.ui.render()
           onChange?.(value)
         }
@@ -119,6 +128,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         if (existing) {
           exec('unlink')
           activeFormats = queryFormats()
+          if (editorEl && onChange) emitChange(editorEl.innerHTML) // unlink 也改 DOM——同步受控值
           ctx.ui.render()
         } else {
           showLinkInput = true
@@ -130,8 +140,8 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
 
       execFormat(item)
       activeFormats = queryFormats()
+      if (editorEl && onChange) emitChange(editorEl.innerHTML) // 先标记脏（DOM 已改）再 render——避免 render 写旧 value 覆盖
       ctx.ui.render()
-      if (editorEl && onChange) emitChange(editorEl.innerHTML)
     }
 
     // ── 链接 ────────────────────────────────────────────
@@ -199,9 +209,9 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       // 先恢复选区 + 插入表格（DOM 还未被 render 移动）
       restoreSelection()
       insertTable(rows, cols)
+      if (editorEl && onChange) emitChange(editorEl.innerHTML) // 先标记脏（DOM 已插表）再 render
       // 再 render 关闭弹出层
       ctx.ui.render()
-      if (editorEl && onChange) emitChange(editorEl.innerHTML)
     }
 
     const handleTableHover = (row: number, col: number) => {
@@ -259,8 +269,8 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       const isFormatShortcut = (e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())
       if (isFormatShortcut) {
         activeFormats = queryFormats()
+        if (editorEl && onChange) emitChange(editorEl.innerHTML) // 先标记脏再 render（同上）
         ctx.ui.render()
-        if (editorEl && onChange) emitChange(editorEl.innerHTML)
       }
     }
 
@@ -365,11 +375,15 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         placeholder && 'wf-editor-content--has-placeholder',
       ].filter(Boolean).join(' ')
 
-      // 使用 innerHTML prop，VDOM 自动同步
-      editorBody = h('div', {
+      // 回流完成检测：DOM 与受控 value 一致 = onChange 已回流（脏标记清除）。
+      // **刚清除的当次 render 不写**（值相同，写 innerHTML 会重建子树 → caret 丢）——
+      // externalSync 要求「本次起点不脏且尚未清除」（wasDirty 捕获清除动作）
+      const wasDirty = domDirty
+      if (domDirty && editorEl && editorEl.innerHTML === value) domDirty = false
+      const externalSync = !domDirty && !wasDirty
+      const editorProps: Record<string, any> = {
         class: editorClass,
         contentEditable: !disabled,
-        innerHTML: isRichMode ? value : sourceText,
         'data-placeholder': placeholder || undefined,
         style: { minHeight },
         onInput: handleRichInput,
@@ -377,7 +391,10 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         onMouseUp: handleMouseUp,
         onMouseDown: handleMouseDown,
         ref: editorRef,
-      })
+      }
+      // 脏标记期间不传 innerHTML（不重写 DOM → 光标不跳）；外部变化/首次挂载才同步
+      if (externalSync) editorProps.innerHTML = value
+      editorBody = h('div', editorProps)
     } else {
       editorBody = h('textarea', {
         class: 'wf-editor-source',

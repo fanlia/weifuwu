@@ -145,9 +145,12 @@ export type PropChannel =
   | 'enumerated' | 'class' | 'style' | 'ref' | 'event'
   | 'value' | 'indeterminate' | 'innerHTML' | 'aria' | 'default'
 
-/** 属性通道判定（key 分类——值判断留在各通道处理函数内，规则表 §2） */
+/** 属性通道判定（key 分类——值判断留在各通道处理函数内，规则表 §2）
+ *  enumerated 白名单小写匹配：JSX camelCase（contentEditable）与规范小写（contenteditable）
+ *  统一走显式 'true'/'false'——否则 camelCase 落入 boolean 通道输出空字符串（解析仍 true，
+ *  但违反 §6.2 显式协议且属性值不可预期） */
 export function propChannelOf(key: string): PropChannel {
-  if (ENUMERATED_VALUE_BASED.has(key)) return 'enumerated'
+  if (ENUMERATED_VALUE_BASED.has(key.toLowerCase())) return 'enumerated'
   if (key === 'class' || key === 'className') return 'class'
   if (key === 'style') return 'style'
   if (key === 'ref') return 'ref'
