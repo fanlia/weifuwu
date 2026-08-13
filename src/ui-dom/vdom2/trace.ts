@@ -147,6 +147,30 @@ export function kidsSeq(kids: VNodeChild[] | null, max = 12): string {
   return `[${parts.join(' | ')}]`
 }
 
+/** type 类别（名称解析查表分派——vnDesc/dumpTree 共用） */
+type TypeClass = 'function' | 'fragment' | 'string' | 'other'
+function typeClassOf(t: unknown): TypeClass {
+  if (typeof t === 'function') return 'function'
+  if (t === Fragment) return 'fragment'
+  if (typeof t === 'string') return 'string'
+  return 'other'
+}
+
+/** 短名表（vnDesc——trace 摘要紧凑格式） */
+const NAME_SHORT: Record<TypeClass, (t: unknown) => string> = {
+  function: (t) => (t as { name?: string }).name || 'Comp',
+  fragment: () => 'Frag',
+  string: (t) => String(t),
+  other: (t) => String(t),
+}
+/** 全名表（dumpTree——快照详细格式，Portal 区分） */
+const NAME_FULL: Record<TypeClass, (t: unknown) => string> = {
+  function: (t) => (t as { name?: string }).name || 'anonymous',
+  fragment: () => 'Fragment',
+  string: (t) => String(t),
+  other: (t) => (t === Portal ? 'Portal' : String(t)),
+}
+
 /** 单值摘要（children 项） */
 export function vnDesc(v: VNodeChild): string {
   if (v == null || typeof v === 'boolean') return String(v)
@@ -155,11 +179,7 @@ export function vnDesc(v: VNodeChild): string {
   if (Array.isArray(v)) return `ARR(${v.length})`
   const vn = v as VNode
   const t = vn.type
-  let name: string
-  if (typeof t === 'function') name = (t as { name?: string }).name || 'Comp'
-  else if (t === Fragment) name = 'Frag'
-  else if (typeof t === 'string') name = t
-  else name = String(t)
+  const name = NAME_SHORT[typeClassOf(t)](t)
   const id = vn.props?.id ? `#${vn.props.id}` : vn.key != null ? `@${vn.key}` : ''
   return name + id
 }
@@ -194,11 +214,7 @@ export function dumpTree(vnode: VNodeChild, depth = 0): string[] {
   if (Array.isArray(vnode)) return vnode.flatMap((c) => dumpTree(c, depth))
   const v = vnode as VNode
   const t = v.type
-  let name: string
-  if (typeof t === 'function') name = (t as { name?: string }).name || 'anonymous'
-  else if (t === Fragment) name = 'Fragment'
-  else if (t === Portal) name = 'Portal'
-  else name = String(t)
+  const name = NAME_FULL[typeClassOf(t)](t)
   const lc = v._lifecycle ? `[${v._lifecycle}]` : ''
   const id = v._id ? `(${v._id})` : ''
   const lines = [`${'  '.repeat(depth)}${name}${id}${lc}`]

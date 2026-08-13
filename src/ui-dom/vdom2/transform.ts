@@ -130,73 +130,40 @@ export const UNITLESS_PROPS = new Set([
 
 
 
-export function setProp(el: Element, key: string, value: any): void {
-  if (value == null) return
-  const b = el.ownerDocument?.defaultView as unknown as { matchMedia?(q: string): unknown }
-  // enumerated value-based：即使 false 也显式写 'true'/'false'（空字符串解析为 false——
-  // draggable 事故；规则表 §2：显式可预期，不依赖「不设 = 默认值」的隐式行为）
-  if (ENUMERATED_VALUE_BASED.has(key)) {
-    el.setAttribute(key, value ? 'true' : 'false')
-    return
-  }
+/** 属性通道分类（单一判定源——setProp/patchProps/x2html 共用；规则表 §2 属性三通道）：
+ *  - enumerated ：value-based 枚举属性（draggable 等——空字符串解析为 false，必须显式 'true'/'false'）
+ *  - class      ：class/className（字符串/对象形态）
+ *  - style      ：style（字符串/对象形态）
+ *  - ref        ：ref 回调（挂载调用 el / 卸载调用 null）
+ *  - event      ：on + 大写（onClick/onClickCapture——事件通道）
+ *  - value      ：input/select value（property）
+ *  - indeterminate：checkbox 半选态（property——attribute 解析为 false）
+ *  - innerHTML  ：innerHTML 内容（存在则 children 不渲染）
+ *  - aria       ：aria-* 语义属性（boolean 必须显式 'true'/'false'）
+ *  - default    ：其余——property + attribute 双写 */
+export type PropChannel =
+  | 'enumerated' | 'class' | 'style' | 'ref' | 'event'
+  | 'value' | 'indeterminate' | 'innerHTML' | 'aria' | 'default'
+
+/** 属性通道判定（key 分类——值判断留在各通道处理函数内，规则表 §2） */
+export function propChannelOf(key: string): PropChannel {
+  if (ENUMERATED_VALUE_BASED.has(key)) return 'enumerated'
+  if (key === 'class' || key === 'className') return 'class'
+  if (key === 'style') return 'style'
+  if (key === 'ref') return 'ref'
+  if (EVENT_RE.test(key)) return 'event'
+  if (key === 'value') return 'value'
+  if (key === 'indeterminate') return 'indeterminate'
+  if (key === 'innerHTML') return 'innerHTML'
+  if (key.startsWith('aria-')) return 'aria'
+  return 'default'
+}
+
+type SetPropFn = (el: Element, key: string, value: any) => void
+
+/** 默认通道：property + attribute 双写（value===false 跳过；value===true → 空字符串 attribute） */
+function setPropDefault(el: Element, key: string, value: any): void {
   if (value === false) return
-  if (key === 'class' || key === 'className') {
-    if (typeof value === 'object') {
-      for (const [k, v] of Object.entries(value)) if (v) el.classList.add(k)
-    } else {
-      el.setAttribute('class', String(value))
-    }
-    return
-  }
-  if (key === 'style') {
-    if (typeof value === 'string') el.setAttribute('style', value)
-    else {
-      const st = (el as HTMLElement).style
-      for (const [k, v] of Object.entries(value)) {
-        if (v == null) { (st as unknown as Record<string, string>)[k] = '' }  // null/undefined → 删除样式属性（§6.4 style 只设不删修复）
-        else if (k.startsWith('--')) { st.setProperty(k, String(v)) }  // CSS 变量必须 setProperty（st['--x']=v 静默失败——--wf-cols 事故，v1 处理）
-        else if (typeof v === 'number' && !UNITLESS_PROPS.has(k)) { (st as unknown as Record<string, string>)[k] = `${v}px` }  // 数字加 px（top/left/width 等——无单位值被浏览器忽略 → 坐标丢失）
-        else (st as unknown as Record<string, string>)[k] = String(v)
-      }
-    }
-    return
-  }
-  if (key === 'ref') {
-    if (typeof value === 'function') {
-      // ref 错误隔离（safeCallRef——用户 ref 抛错不中断渲染管线）
-      try { value(el) } catch (e) { console.error('[weifuwu] ref error', e) }
-    }
-    return
-  }
-  if (EVENT_RE.test(key)) {
-    const { type, capture } = eventTarget(key)
-    // 类型守卫：非函数值（onClick={true} / 字符串）不抛错——warn + 跳过，不中断渲染管线
-    if (typeof value !== 'function') {
-      console.warn(`[weifuwu] event prop ${key} expects a function, got ${typeof value} — ignored`)
-      return
-    }
-    el.addEventListener(type, value, capture ? { capture: true } : {})
-    return
-  }
-  if (key === 'value') {
-    ;(el as HTMLInputElement).value = value
-    return
-  }
-  if (key === 'indeterminate') {
-    // input[type=checkbox] 半选态：property 而非 attribute——setAttribute('indeterminate','')
-    // 解析为 false（同 draggable 枚举坑）；el.indeterminate = true 才有效
-    ;(el as HTMLInputElement).indeterminate = !!value
-    return
-  }
-  if (key === 'innerHTML') {
-    el.innerHTML = String(value ?? '')
-    return
-  }
-  if (key.startsWith('aria-') && typeof value === 'boolean') {
-    // aria-* 枚举语义属性（同 draggable）：aria-expanded="" 解析为非标准值——boolean 必须显式 'true'/'false'
-    el.setAttribute(key, value ? 'true' : 'false')
-    return
-  }
   if (value === true) {
     el.setAttribute(key, '')
     return
@@ -207,6 +174,85 @@ export function setProp(el: Element, key: string, value: any): void {
   } catch {
     el.setAttribute(key, String(value))
   }
+}
+
+/** 属性设置状态机表（通道 → 设置行为——setProp 查表分派，无 if/else 通道链） */
+export const PROP_SETTERS: Record<PropChannel, SetPropFn> = {
+  /** enumerated value-based：即使 false 也显式写 'true'/'false'（空字符串解析为 false——
+   *  draggable 事故；规则表 §2：显式可预期，不依赖「不设 = 默认值」的隐式行为） */
+  enumerated: (el, key, value) => { el.setAttribute(key, value ? 'true' : 'false') },
+  /** class：对象形态 → classList 逐项；字符串 → attribute */
+  class: (el, key, value) => {
+    if (value === false) return
+    if (typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) if (v) el.classList.add(k)
+    } else {
+      el.setAttribute('class', String(value))
+    }
+  },
+  /** style：字符串 → attribute；对象 → style 属性逐项（null 删除 / CSS 变量 setProperty / 数字加 px） */
+  style: (el, key, value) => {
+    if (value === false) return
+    if (typeof value === 'string') el.setAttribute('style', value)
+    else {
+      const st = (el as HTMLElement).style
+      for (const [k, v] of Object.entries(value)) {
+        if (v == null) { (st as unknown as Record<string, string>)[k] = '' }  // null/undefined → 删除样式属性（§6.4 style 只设不删修复）
+        else if (k.startsWith('--')) { st.setProperty(k, String(v)) }  // CSS 变量必须 setProperty（st['--x']=v 静默失败——--wf-cols 事故，v1 处理）
+        else if (typeof v === 'number' && !UNITLESS_PROPS.has(k)) { (st as unknown as Record<string, string>)[k] = `${v}px` }  // 数字加 px（top/left/width 等——无单位值被浏览器忽略 → 坐标丢失）
+        else (st as unknown as Record<string, string>)[k] = String(v)
+      }
+    }
+  },
+  /** ref：挂载调用 el（ref 错误隔离——用户 ref 抛错不中断渲染管线） */
+  ref: (el, key, value) => {
+    if (typeof value === 'function') {
+      try { value(el) } catch (e) { console.error('[weifuwu] ref error', e) }
+    }
+  },
+  /** event：addEventListener（类型守卫：非函数值不抛错——warn + 跳过） */
+  event: (el, key, value) => {
+    if (value === false) return
+    const { type, capture } = eventTarget(key)
+    if (typeof value !== 'function') {
+      console.warn(`[weifuwu] event prop ${key} expects a function, got ${typeof value} — ignored`)
+      return
+    }
+    el.addEventListener(type, value, capture ? { capture: true } : {})
+  },
+  /** value：input/select property */
+  value: (el, key, value) => {
+    if (value === false) return
+    ;(el as HTMLInputElement).value = value
+  },
+  /** indeterminate：checkbox 半选态——property 而非 attribute（setAttribute('indeterminate','')
+   *  解析为 false（同 draggable 枚举坑）；el.indeterminate = true 才有效） */
+  indeterminate: (el, key, value) => {
+    if (value === false) return
+    ;(el as HTMLInputElement).indeterminate = !!value
+  },
+  /** innerHTML：内容直接写（存在则 children 不渲染——与 diff 同一判断） */
+  innerHTML: (el, key, value) => {
+    if (value === false) return
+    el.innerHTML = String(value ?? '')
+  },
+  /** aria-*：boolean → 显式 'true'/'false'（aria-expanded="" 解析为非标准值）；非 boolean → 默认通道 */
+  aria: (el, key, value) => {
+    if (value === false) return
+    if (typeof value === 'boolean') {
+      el.setAttribute(key, value ? 'true' : 'false')
+      return
+    }
+    setPropDefault(el, key, value)
+  },
+  /** 默认通道：property + attribute */
+  default: setPropDefault,
+}
+
+/** 属性设置（查表分派——PROP_SETTERS[propChannelOf(key)]） */
+export function setProp(el: Element, key: string, value: any): void {
+  if (value == null) return
+  PROP_SETTERS[propChannelOf(key)](el, key, value)
 }
 
 /** 占位内容（规则表 §1——wf-hole 内容可见可审计：false/null/undefined/true/对象摘要/bad-vnode） */

@@ -63,6 +63,30 @@ async function textToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
   return escape(String(v))
 }
 
+/** 数组项子元素 kind 分类（数组上下文——hole/嵌套数组/其他，CHILD_HTML 分派用） */
+type ChildHtmlKind = 'hole' | 'arr' | 'vnode'
+function childHtmlKind(c: VNodeChild): ChildHtmlKind {
+  if (c == null || typeof c === 'boolean') return 'hole'
+  if (Array.isArray(c)) return 'arr'
+  return 'vnode'
+}
+
+/** 数组项 → HTML 状态机表（数组上下文：占位注释 / 嵌套数组边界标记 / 普通项——无 if/else 链） */
+const CHILD_HTML: Record<ChildHtmlKind, (c: VNodeChild, ctx: HtmlCtx, i: number, childFid: string) => Promise<string>> = {
+  /** 占位：wf-hole 注释（与客户端 renderArray 同构——数组项槽位必须有节点） */
+  hole: (c) => Promise.resolve(`<!--${holeMarkup({ type: 'hole', value: c, key: null, id: null, fid: null })}-->`),
+  /** 嵌套数组项 = 隐式 Fragment：fragment-start/end 标记 + 内容（fid 传递——配对精确） */
+  arr: async (c, ctx, i, childFid) => {
+    const inner = await x2html(c, { ...ctx, _fidPath: childFid })
+    return `<!--${holeMarkup({ type: 'fragment-start', key: String(i), id: null, fid: childFid })}-->${inner}<!--${holeMarkup({ type: 'fragment-end', key: String(i), id: null, fid: childFid })}-->`
+  },
+  /** 普通项：递归 x2html；组件输出 null（渲染层无输出）→ 占位注释（与客户端 renderArray 同构） */
+  vnode: async (c, ctx) => {
+    const html = await x2html(c, ctx)
+    return html === '' ? `<!--${holeMarkup({ type: 'hole', value: null, key: null, id: null, fid: null })}-->` : html
+  },
+}
+
 /** 数组项 = 隐式 Fragment：fragment-start/end 注释 + 内容（与客户端 renderValue 同构） */
 async function arrToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
   const arr = v as VNodeChild[]
@@ -70,15 +94,7 @@ async function arrToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
   const fidBase = ctx._fidPath
   const parts = await Promise.all(arr.map(async (c, i) => {
     const childFid = fidBase != null ? `${fidBase}-${i}` : String(i)
-    if (c == null || typeof c === 'boolean') return `<!--${holeMarkup({ type: 'hole', value: c, key: null, id: null, fid: null })}-->`
-    if (Array.isArray(c)) {
-      const inner = await x2html(c, { ...ctx, _fidPath: childFid })
-      return `<!--${holeMarkup({ type: 'fragment-start', key: String(i), id: null, fid: childFid })}-->${inner}<!--${holeMarkup({ type: 'fragment-end', key: String(i), id: null, fid: childFid })}-->`
-    }
-    const html = await x2html(c, ctx)
-    // 组件输出 null（值层有值、渲染层无输出）→ 输出占位注释（与客户端 renderArray 同构——
-    // 数组项槽位在 SSR HTML 必须有节点，否则 hydrate 游标/后续 diff 错位）
-    return html === '' ? `<!--${holeMarkup({ type: 'hole', value: null, key: null, id: null, fid: null })}-->` : html
+    return CHILD_HTML[childHtmlKind(c)](c, ctx, i, childFid)
   }))
   return parts.join('')
 }
@@ -162,7 +178,7 @@ async function nativeToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
 }
 
 /** 类型分派表（与客户端 renderValue 同一 classifyKind——SSR/客户端结构同构） */
-const TO_HTML: Record<VKind, (v: VNodeChild, ctx: HtmlCtx) => Promise<string>> = {
+export const TO_HTML: Record<VKind, (v: VNodeChild, ctx: HtmlCtx) => Promise<string>> = {
   hole: holeToHtml,
   text: textToHtml,
   arr: arrToHtml,

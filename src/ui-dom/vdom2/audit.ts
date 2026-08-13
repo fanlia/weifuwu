@@ -13,8 +13,9 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
-import { arrayChildren, isFrag, isComp, isPortal, Fragment, Portal } from '../vnode.ts'
+import { arrayChildren, isFrag, isComp, Fragment, Portal, type NativeVNode } from '../vnode.ts'
 import { classifyChild, isInvalidVNodeType } from './transform.ts'
+import { classifyKind, type VKind } from './kind.ts'
 import { componentName } from './ctx.ts'
 
 /** audit 开关（dev/测试注入；生产默认关） */
@@ -57,39 +58,61 @@ export function auditChildren(
   }
 }
 
-/** 树级校验：vnode 树 ↔ DOM 树递归对照（A3/A4）——入口调用一次 */
+/** 树级校验：vnode 树 ↔ DOM 树递归对照（A3/A4）——入口分派 AUDITERS[classifyKind(child)] 查表 */
 export function auditTree(parent: Node, child: VNodeChild, report: (msg: string) => void): void {
-  if (child == null || typeof child === 'boolean') return
-  if (typeof child === 'string' || typeof child === 'number') return
-  if (Array.isArray(child)) {
-    auditChildren(parent, child, report)
-    for (const c of child) {
-      if (c != null && typeof c === 'object' && Array.isArray(c)) {
-        for (const x of c) auditTree(parent, x, report)
-      } else if (c != null && typeof c === 'object' && !Array.isArray(c) && isFrag(c as VNode)) {
-        auditChildren(parent, arrayChildren((c as VNode).props?.children), report)
-      }
+  AUDITERS[classifyKind(child)](parent, child, report)
+}
+
+/** 审计状态机表（kind → 校验行为——portal 远程单独容器跳过；native 含非法 type 诊断跳过） */
+export const AUDITERS: Record<VKind, (parent: Node, child: VNodeChild, report: (msg: string) => void) => void> = {
+  hole: () => {},
+  text: () => {},
+  /** 数组：childNodes 对照 + 嵌套数组项/Fragment 递归 */
+  arr: auditArray,
+  /** remote——#__wf_portal 单独容器 */
+  portal: () => {},
+  /** Fragment：children 对照 */
+  frag: auditFrag,
+  /** 组件：A4 锚点 + _child 递归 */
+  comp: auditComp,
+  /** native：A3 元素类型 + children 递归（非法 type → 诊断占位跳过） */
+  native: auditNative,
+}
+
+/** 数组级校验：childNodes 对照 + 嵌套数组项/Fragment 递归 */
+function auditArray(parent: Node, child: VNodeChild, report: (msg: string) => void): void {
+  const arr = child as VNodeChild[]
+  auditChildren(parent, arr, report)
+  for (const c of arr) {
+    if (c != null && typeof c === 'object' && Array.isArray(c)) {
+      for (const x of c) auditTree(parent, x, report)
+    } else if (c != null && typeof c === 'object' && !Array.isArray(c) && isFrag(c as VNode)) {
+      auditChildren(parent, arrayChildren((c as VNode).props?.children), report)
     }
-    return
   }
+}
+
+/** Fragment 校验：children 对照（多节点展开项由 auditTree 递归覆盖） */
+function auditFrag(parent: Node, child: VNodeChild, report: (msg: string) => void): void {
   const v = child as VNode
-  if (isPortal(v)) return // remote——#__wf_portal 单独容器
-  if (isFrag(v)) {
-    auditChildren(parent, arrayChildren(v.props?.children), report)
-    return
+  auditChildren(parent, arrayChildren(v.props?.children), report)
+}
+
+/** 组件校验：A4 锚点（_refNode 必须在父 DOM 内）+ _child 递归 */
+function auditComp(parent: Node, child: VNodeChild, report: (msg: string) => void): void {
+  const v = child as VNode
+  const ref = v._refNode
+  if (ref && ref.parentNode !== parent) {
+    report(`[audit] 组件锚点错位：${componentName(v.type)} _refNode 不在父节点内`)
   }
+  if (v._child != null) auditTree(parent, v._child, report)
+}
+
+/** native 校验：A3 元素类型 + children 递归（非法 type → 诊断占位跳过） */
+function auditNative(parent: Node, child: VNodeChild, report: (msg: string) => void): void {
+  const v = child as VNode
   if (isInvalidVNodeType(v.type)) return // 诊断占位
-  if (isComp(v)) {
-    // A4：组件锚点——_refNode 必须在父 DOM 内
-    const ref = v._refNode
-    if (ref && ref.parentNode !== parent) {
-      report(`[audit] 组件锚点错位：${componentName(v.type)} _refNode 不在父节点内`)
-    }
-    if (v._child != null) auditTree(parent, v._child, report)
-    return
-  }
-  // native
-  const el = v.el ?? v._refNode
+  const el = (v as NativeVNode).el ?? v._refNode
   if (el && el.nodeType === 1 && (el as Element).tagName.toLowerCase() !== String(v.type)) {
     report(`[audit] 元素类型错位：期望 <${String(v.type)}>，实际 ${(el as Element).tagName}`)
   }

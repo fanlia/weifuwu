@@ -8,9 +8,10 @@
  * null 消耗零；创建时 insertBefore(游标) 且游标不动；收养/替换时游标前进。
  */
 
-import type { VNode, VNodeChild } from '../vnode.ts'
+import type { VNode, VNodeChild, CompVNode, NativeVNode } from '../vnode.ts'
 import type { BrowserEnv, WfuiContext } from '../types.ts'
-import { isFrag, isComp, isPortal } from '../vnode.ts'
+import { isComp } from '../vnode.ts'
+import { classifyKind, type VKind } from './kind.ts'
 import { buildVNode } from './build.ts'
 import { setProp } from './transform.ts'
 import { createClientBrowser } from '../browser.ts'
@@ -51,64 +52,89 @@ function wireProps(el: Element, props: Record<string, any>): void {
   }
 }
 
-/** 游标收养渲染（只处理已构建树——buildVNode 已 await 工厂） */
+/** 游标收养渲染（只处理已构建树——buildVNode 已 await 工厂）。
+ *  分派：HYDRATERS[classifyKind(v)] 查表（kind → 收养行为——无 if/else 类型链） */
 function renderValueHydrating(v: VNodeChild, ctx: VdomCtx, c: HydrationCursor): Node | null {
+  return HYDRATERS[classifyKind(v)](v, ctx, c)
+}
+
+/** 水合状态机表（kind → 收养行为——与 render RENDERERS / ssr TO_HTML 同构） */
+export const HYDRATERS: Record<VKind, (v: VNodeChild, ctx: VdomCtx, c: HydrationCursor) => Node | null> = {
+  /** 占位：SSR 的 wf-hole 由组件/null 分支消费——顶层零节点 */
+  hole: () => null,
+  /** 文本：收养游标文本（nodeValue 直改）或新建 */
+  text: hydrateText,
+  /** 数组：逐项递归（首节点作锚点） */
+  arr: hydrateArray,
+  /** Portal/Fragment：就地内联收养（portal 内容不移动到 __wf_portal） */
+  portal: hydrateInline,
+  frag: hydrateInline,
+  /** 组件：用 buildVNode 预构建的 _child（已 resolve——不重跑工厂） */
+  comp: hydrateComp,
+  /** 原生元素：收养（tag 匹配）或替换（mismatch 恢复） */
+  native: hydrateNative,
+}
+
+/** 文本收养：游标是文本节点 → nodeValue 直改；否则新建插入（游标不动） */
+function hydrateText(v: VNodeChild, ctx: VdomCtx, c: HydrationCursor): Node | null {
   const b = (ctx.browser ?? createClientBrowser()) as BrowserEnv
-  if (v == null || typeof v === 'boolean') return null
-  if (typeof v === 'string' || typeof v === 'number') {
-    const text = String(v)
-    if (c.node && c.node.nodeType === 3) {
-      if (c.node.textContent !== text) c.node.textContent = text
-      cursorAdvance(c)
-      return c.node
-    }
-    const tn = b.createTextNode(text) as Text
-    cursorInsert(c, tn)
-    return tn
+  const text = String(v)
+  if (c.node && c.node.nodeType === 3) {
+    if (c.node.textContent !== text) c.node.textContent = text
+    cursorAdvance(c)
+    return c.node
   }
-  if (Array.isArray(v)) {
-    let first: Node | null = null
-    for (const item of v) {
-      const n = renderValueHydrating(item, ctx, c)
-      if (n != null && !first) first = n
-    }
-    return first
+  const tn = b.createTextNode(text) as Text
+  cursorInsert(c, tn)
+  return tn
+}
+
+/** 数组收养：逐项递归（首节点作锚点） */
+function hydrateArray(v: VNodeChild, ctx: VdomCtx, c: HydrationCursor): Node | null {
+  let first: Node | null = null
+  for (const item of v as VNodeChild[]) {
+    const n = renderValueHydrating(item, ctx, c)
+    if (n != null && !first) first = n
   }
+  return first
+}
+
+/** Portal/Fragment 收养：就地内联（SSR 已内联输出——不移动 DOM） */
+function hydrateInline(v: VNodeChild, ctx: VdomCtx, c: HydrationCursor): Node | null {
   const vnode = v as VNode
-
-  // Portal/Fragment：就地内联收养（portal 内容不移动到 __wf_portal）
-  if (isPortal(vnode) || isFrag(vnode)) {
-    const children = vnode.props?.children
-    const arr = children == null ? [] : (Array.isArray(children) ? children : [children])
-    let first: Node | null = null
-    for (const child of arr) {
-      const n = renderValueHydrating(child, ctx, c)
-      if (n != null && !first) first = n
-    }
-    return first
+  const children = vnode.props?.children
+  const arr = children == null ? [] : (Array.isArray(children) ? children : [children])
+  let first: Node | null = null
+  for (const child of arr) {
+    const n = renderValueHydrating(child, ctx, c)
+    if (n != null && !first) first = n
   }
+  return first
+}
 
-  // 组件：用 buildVNode 预构建的 _child（已 resolve——不重跑工厂）
-  if (isComp(vnode)) {
-    const child = vnode._child
-    if (child == null) {
-      if (typeof vnode._render !== 'function') {
-        throw new Error(`[vdom2] component ${componentName(vnode.type)} not built before hydration`)
-      }
-      vnode._child = null
-      // 组件输出 null：消费 SSR 的 wf-hole 占位（保留在 DOM——与 SPA renderArray 同构，
-      // 后续 diff 的 oldNodes 映射有对应槽位节点）
-      while (c.node && c.node.nodeType === 8 && (c.node as Comment).nodeValue?.startsWith('wf-hole:')) {
-        cursorAdvance(c)
-      }
-      return null
+/** 组件收养：输出 null → 消费 SSR 的 wf-hole 占位（保留在 DOM——与 SPA renderArray 同构，
+ *  后续 diff 的 oldNodes 映射有对应槽位节点）；否则 _child 递归 */
+function hydrateComp(v: VNodeChild, ctx: VdomCtx, c: HydrationCursor): Node | null {
+  const vnode = v as VNode
+  const child = vnode._child
+  if (child == null) {
+    if (typeof (vnode as CompVNode)._render !== 'function') {
+      throw new Error(`[vdom2] component ${componentName(vnode.type)} not built before hydration`)
     }
-    const domNode = renderValueHydrating(child, ctx, c)
-    if (!vnode._refNode) vnode._refNode = domNode
-    return domNode
+    vnode._child = null
+    while (c.node && c.node.nodeType === 8 && (c.node as Comment).nodeValue?.startsWith('wf-hole:')) {
+      cursorAdvance(c)
+    }
+    return null
   }
-
-  // 原生元素：收养（tag 匹配）或替换（mismatch 恢复）
+  const domNode = renderValueHydrating(child, ctx, c)
+  if (!vnode._refNode) vnode._refNode = domNode
+  return domNode
+}
+/** 原生元素收养：tag 匹配 → 复用（cursorAdvance）；mismatch → 新建替换恢复 */
+function hydrateNative(v: VNodeChild, ctx: VdomCtx, c: HydrationCursor): Node | null {
+  const b = (ctx.browser ?? createClientBrowser()) as BrowserEnv
+  const vnode = v as VNode
   const tag = vnode.type as string
   const props = vnode.props ?? {}
   // 跳过 SSR 的所有 wf-hole 注释（占位 type=hole + 数组边界 fragment-start/end——
@@ -125,7 +151,7 @@ function renderValueHydrating(v: VNodeChild, ctx: VdomCtx, c: HydrationCursor): 
     el = (SVG_TAGS.has(tag) ? b.createElementNS('http://www.w3.org/2000/svg', tag) : b.createElement(tag as keyof HTMLElementTagNameMap)) as Element
     cursorReplace(c, el)
   }
-  vnode.el = el
+  ;(vnode as NativeVNode).el = el
 
   wireProps(el, props)
 

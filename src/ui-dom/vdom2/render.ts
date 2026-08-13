@@ -249,7 +249,7 @@ function renderNative(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | nul
 }
 
 /** 渲染函数表（按 classifyKind 分派——每类一个实现，无 if-else 类型链） */
-const RENDERERS: Record<string, (v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | null, id?: string | null, fid?: string | null) => Node | null> = {
+export const RENDERERS: Record<string, (v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | null, id?: string | null, fid?: string | null) => Node | null> = {
   // 渲染是「创建目标」——按目标类型分派（与 patch 的源类型驱动 x2y 互补）
   hole: renderHole,
   text: renderText,
