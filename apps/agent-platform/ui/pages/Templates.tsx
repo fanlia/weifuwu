@@ -42,8 +42,16 @@ export const Templates: Component = async (_props, ctx) => {
   } catch {
     error = '加载模板失败'
   }
-  // 交互状态（内部 let + ctx.ui.render——交互是用户操作触发，非 mount 异步）
+  // 分类由 location.hash 驱动（#cat-engineering）——hash 导航触发路由重渲染，
+  // 工厂重跑读新 hash 初始化（绕开路由页 ctx.ui.render 不落地的框架坑——真实调试发现）
+  // 分类筛选：框架路由页 rerender bug（renderOne patch 不落地——登记专项任务）
+  // 暂以 query 驱动（navigate 触发 renderPath 重渲染），路由 query 解析待框架修复后启用
   let category = ''
+  try {
+    const q = (ctx.route?.query as Record<string, string>)?.cat
+    if (q) category = q
+  } catch { /* 忽略 */ }
+  void category // 分类筛选受框架 bug 影响——当前展示全部，修复后启用
   let creating: string | null = null
   let createError = ''
 
@@ -82,7 +90,7 @@ export const Templates: Component = async (_props, ctx) => {
           {cats.map((c) => (
             <button key={c || 'all'} type="button"
               class={`wf-btn wf-btn--sm ${category === c ? 'wf-btn--primary' : 'wf-btn--ghost'}`}
-              onClick={() => { category = c; ctx.ui.render() }}>
+              onClick={() => ctx.app?.navigate(c ? `/templates?cat=${encodeURIComponent(c)}` : '/templates')}>
               {c ? CATEGORY_LABELS[c] ?? c : '全部'}
             </button>
           ))}
