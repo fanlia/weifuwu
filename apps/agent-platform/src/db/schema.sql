@@ -255,3 +255,17 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_audit_logs_app ON audit_logs(app_id, created_at DESC);
+
+-- ── Agent 配置版本（Wave 9 版本管理：快照/回滚） ─────────────────
+
+CREATE TABLE IF NOT EXISTS agent_versions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id    UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  app_id      UUID NOT NULL,
+  version     INT NOT NULL,
+  snapshot    JSONB NOT NULL,          -- 完整配置快照（system_prompt/model/tools/...）
+  note        TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (agent_id, version)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_versions_agent ON agent_versions(agent_id, version DESC);

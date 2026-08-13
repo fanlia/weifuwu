@@ -294,4 +294,26 @@ return Response.json({ agent })
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' },
     })
   })
+  // ── Agent 版本管理（Wave 9：快照/列表/回滚） ─────────────────
+
+  app.get('/api/agents/:id/versions', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { listVersions } = await import('../services/versions.ts')
+    const versions = await listVersions(ctx as any, String(ctx.params.id))
+    return Response.json({ versions })
+  })
+
+  app.post('/api/agents/:id/versions', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { saveVersion } = await import('../services/versions.ts')
+    const body = await req.json().catch(() => ({}))
+    const result = await saveVersion(ctx as any, String(ctx.params.id), body.note)
+    if (!result) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    return Response.json({ version: result }, { status: 201 })
+  })
+
+  app.post('/api/agents/:id/versions/:versionId/rollback', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { rollbackVersion } = await import('../services/versions.ts')
+    const result = await rollbackVersion(ctx as any, String(ctx.params.id), String(ctx.params.versionId))
+    if (!result.ok) return Response.json({ error: result.note }, { status: 404 })
+    return Response.json({ ok: true, note: result.note })
+  })
 }

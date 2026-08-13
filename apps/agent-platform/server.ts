@@ -104,6 +104,19 @@ async function main() {
   // 增量表（追加的 schema——迁移一次性 markMigrated，新表需幂等补建；Wave 9 audit_logs）
   // 增量列（Wave 9 token 配额——ADD COLUMN IF NOT EXISTS 幂等）
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS monthly_token_quota INT NOT NULL DEFAULT 0`)
+  await pg.sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS agent_versions (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      agent_id    UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+      app_id      UUID NOT NULL,
+      version     INT NOT NULL,
+      snapshot    JSONB NOT NULL,
+      note        TEXT,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (agent_id, version)
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_versions_agent ON agent_versions(agent_id, version DESC);
+  `)
 
   await pg.sql.unsafe(`
     CREATE TABLE IF NOT EXISTS audit_logs (
