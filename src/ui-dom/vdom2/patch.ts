@@ -479,6 +479,8 @@ function posHoleReal(s: PosState): void {
   if (node == null) { out.push(null); pushA(null); return }
   // 占位 → 真实：replaceChild（占位法下旧位置是注释节点——长度恒定，索引全有效）
   if (oldHole && oldHole.nodeType === 8 && oldHole.nodeValue?.includes('type=hole')) {
+    // 空洞填充事件（空洞错位事故断言：占位按数组下标替换——childNodes 与 children 同构）
+    emit({ session: '', machine: 'pos', nodeId: null, component: null, from: 'hole', event: 'HOLE_FILL', to: 'real', payload: () => ({ i, replaced: nodeDesc(oldHole) }), level: 'trace', ts: Date.now() })
     oldHole.parentNode?.replaceChild(node, oldHole)
     out.push(node)
     pushA(node)

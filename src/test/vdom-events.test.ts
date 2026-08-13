@@ -14,10 +14,12 @@ import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { mountCommand } from '../ui-dom/context.ts'
+import { createVdomContext, mountRoot } from '../ui-dom/context.ts'
 import { patchValue } from '../ui-dom/vdom2/patch.ts'
 import { buildVNode } from '../ui-dom/vdom2/build.ts'
 import { renderValue } from '../ui-dom/vdom2/render.ts'
 import { h } from '../ui-dom/vnode.ts'
+import { Fragment } from '../ui-dom/vnode.ts'
 import { createRouteController } from '../ui-dom/vdom2/route.ts'
 import { createRegistry } from '../ui-dom/vdom2/registry.ts'
 import { makeEventCollector, __resetVdomEvents, type VdomEvent } from '../ui-dom/vdom2/events.ts'
@@ -199,6 +201,114 @@ test('render 调度事件：PARENT 状态（MOUNTED/ROOT/SKIP_BUILDING）可观�
     assert.ok(mounted, `树内组件应 PARENT=MOUNTED，实际 ${parentEvts.map((e) => e.to).join(',')}`)
     assert.equal(mounted?.component, 'Inner')
     assert.equal(mounted?.nodeId, '_wf_inner')
+  } finally {
+    collector.unsubscribe()
+  }
+})
+
+test('契约违反检测：新数组出现 disposed vnode → CONTRACT_VIOLATION 事件', async () => {
+  __resetVdomEvents()
+  const collector = makeEventCollector()
+  try {
+    const ctx = fakeCtx()
+    const reg = createRegistry()
+    const vnode = h('div', { id: 'x' }, 'x')
+    // 手动标记 disposed——模拟用户 renderFn 复用了被 dispose 的旧树对象（Section 捕获 props 事故）
+    ;(vnode as any)._lifecycle = 'disposed'
+    await buildVNode([vnode], ctx, null, reg)
+    const viol = collector.events.find((e) => e.machine === 'audit' && e.event === 'CONTRACT_VIOLATION')
+    assert.ok(viol, `应发射 CONTRACT_VIOLATION 事件，实际 ${collector.events.map((e) => e.machine + '/' + e.event).join(',')}`)
+  } finally {
+    collector.unsubscribe()
+  }
+})
+
+test('空洞填充：数组 false → 真实值按下标 replaceChild（HOLE_FILL——提交按钮消失事故）', async () => {
+  __resetVdomEvents()
+  const collector = makeEventCollector()
+  try {
+    const reg = createRegistry()
+    const ctx = fakeCtx()
+    ctx.__registry = reg
+    const container = browser.createElement('div')
+    // 首帧：[false, div#btn]（条件渲染的空洞 + 提交按钮）
+    const prev = h('div', {}, false, h('div', { id: 'btn' }, 'btn'))
+    await mountCommand(container, prev, ctx)
+    // 重渲染：[div#alert, div#btn]——空洞被填充（占位法：childNodes 与数组同构）
+    const next = h('div', {}, h('div', { id: 'alert' }, 'alert'), h('div', { id: 'btn' }, 'btn'))
+    patchValue(container, container.firstChild, prev, next, { browser: ctx.browser, registry: reg })
+
+    const fill = collector.events.find((e) => e.machine === 'pos' && e.event === 'HOLE_FILL')
+    assert.ok(fill, `空洞填充应发射 HOLE_FILL，实际 ${collector.events.map((e) => e.machine + '/' + e.event).join(',')}`)
+    assert.equal((fill.payload as { i: number }).i, 0, '占位按数组下标 0 替换')
+    const box = container.firstChild as Element
+    assert.ok(box.querySelector('#alert'), 'Alert 出现在空洞位置')
+    assert.ok(box.querySelector('#btn'), 'Button 未被误删（提交按钮消失事故）')
+  } finally {
+    collector.unsubscribe()
+  }
+})
+
+test('Fragment 串位：fragment 内新增 INSERT 插入点不得越过 fragment 边界', async () => {
+  __resetVdomEvents()
+  const collector = makeEventCollector()
+  try {
+    const reg = createRegistry()
+    const ctx = fakeCtx()
+    ctx.__registry = reg
+    const container = browser.createElement('div')
+    // [span#a, Fragment[b], span#c] → [span#a, Fragment[b1,b2,b3], span#c]
+    const prev = h('div', {}, h('span', { id: 'a' }, 'a'), h(Fragment, {}, h('b', { id: 'b1' }, 'B')), h('span', { id: 'c' }, 'c'))
+    await mountCommand(container, prev, ctx)
+    const next = h('div', {}, h('span', { id: 'a' }, 'a'), h(Fragment, {}, h('b', { id: 'b1' }, 'B'), h('b', { id: 'b2' }, 'B2'), h('b', { id: 'b3' }, 'B3')), h('span', { id: 'c' }, 'c'))
+    patchValue(container, container.firstChild, prev, next, { browser: ctx.browser, registry: reg })
+
+    // INSERT 插入点单调：不得指向本次 diff 已插入的节点（fragment 内新增按序）
+    const inserts = collector.events.filter((e) => e.machine === 'pos' && e.event === 'INSERT')
+    const inserted = new Set<string>()
+    for (const ev of inserts) {
+      const p = ev.payload as { i: number; insertedBefore: string; node: string }
+      if (p.insertedBefore !== 'END') {
+        assert.ok(!inserted.has(p.insertedBefore), `fragment 内新增插入点指向已插入节点 ${p.insertedBefore}`)
+      }
+      inserted.add(p.node)
+    }
+    // span#c 仍在末尾（fragment 边界外不得被越过）
+    const box = container.firstChild as Element
+    const kids = [...box.children]
+    assert.equal(kids[kids.length - 1].id, 'c', 'fragment 后的兄弟不得被串位')
+  } finally {
+    collector.unsubscribe()
+  }
+})
+
+test('契约违反集成：renderFn 复用 mount 捕获数组 → 过滤恢复触发 CONTRACT_VIOLATION', async () => {
+  __resetVdomEvents()
+  const collector = makeEventCollector()
+  try {
+    const container = browser.createElement('div')
+    const { ctx } = createVdomContext({ root: container, browser })
+    const handle = mountRoot({ root: container, ctx, browser })
+    const filter = { q: '' }
+    // 违反两阶段契约：renderFn 闭包捕获 mount 期 children（demo Section 事故同款）
+    const Section = async (_i: any, c: any) => {
+      const kids = [h('div', { id: 'a' }, 'A'), h('div', { id: 'b' }, 'B')]
+      return async () => h('div', { id: 'sec' }, ...(filter.q ? kids.filter((k) => k.props.id === filter.q) : kids))
+    }
+    await handle.mount(h(Section, {}))
+    // 过滤到 [a]——b 被 dispose
+    filter.q = 'a'
+    await handle.ctx.ui.render()
+    await flush()
+    // 恢复 [a, b]——同一 b 对象（已 disposed）再次进入新树 → 检测
+    filter.q = ''
+    await handle.ctx.ui.render()
+    await flush()
+
+    const viol = collector.events.find((e) => e.machine === 'audit' && e.event === 'CONTRACT_VIOLATION')
+    assert.ok(viol, `复用捕获数组的组件在过滤恢复后应触发 CONTRACT_VIOLATION，实际 ${collector.events.map((e) => e.machine + '/' + e.event).join(',')}`)
+    const sec = container.querySelector('#sec')
+    assert.ok(sec?.querySelector('#a') && sec?.querySelector('#b'), 'DOM 正确（a、b 都在）')
   } finally {
     collector.unsubscribe()
   }

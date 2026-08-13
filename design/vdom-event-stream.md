@@ -47,10 +47,10 @@ ctx.ui.render()
 | # | 事故 | 事件断言（machine/event/to/payload） | 状态 |
 |---|---|---|---|
 | 1 | stray 兄弟树（rootEl fallback） | render/PARENT：非 building 非根组件必须 ≠ SKIP_DETACHED | ✅ audit + 测试 |
-| 2 | 卡片自 dispose（两阶段契约违反） | lifecycle：同一 nodeId 不得 DISPOSED 后又 BUILD_START（新树出现旧 vnode） | 🚧 audit 检测点 |
+| 2 | 卡片自 dispose（两阶段契约违反） | audit/CONTRACT_VIOLATION：新树数组出现 disposed vnode（复用旧对象） | ✅ 检测 + 集成测试 |
 | 3 | 连续 append 串位 | pos/INSERT：`insertedBefore` 不得指向本次 diff 已插入的节点 | ✅ 测试 |
-| 4 | 提交按钮消失（空洞错位） | pos：hole↔real 转换位置与数组下标对齐（占位法不变量） | 🚧 测试 |
-| 5 | Fragment 夹兄弟串位 | pos：插入锚点不得指向 fragment-end 之后 | 🚧 测试 |
+| 4 | 提交按钮消失（空洞错位） | pos/HOLE_FILL：占位按数组下标 replaceChild（childNodes 与数组同构） | ✅ 测试 |
+| 5 | Fragment 夹兄弟串位 | pos/INSERT：插入点不得越过 fragment 边界（不指向已插入项） | ✅ 测试 |
 | 6 | 剪枝空壳（dispose 后复用） | lifecycle：PRUNE 时旧 vnode 不得是 disposed（canReuse 已拦——事件见证） | ✅ canReuse + 事件 |
 | 7 | 快速连续导航竞态 | route：转换序列必须满足转换表（非法 → to=? 事件） | ✅ 测试 |
 | 8 | 并发渲染互相踩 patch | render：per-id 串行链——同 id 不并发（排队合并补跑） | ✅ 链式实现 |

@@ -22,6 +22,8 @@ import { ensureId, type Registry } from './registry.ts'
 import { transition, canReuse, vnodeTraceCtx } from './lifecycle.ts'
 import { classifyKind, type VKind } from './kind.ts'
 import { trace, traceEnabled, kidsSeq, vnDesc } from './trace.ts'
+import { emit } from './events.ts'
+import { auditEnabled } from './audit.ts'
 
 /** 组件 props 浅比较（三态 skip 判定） */
 export function componentPropsEqual(a: Record<string, any>, b: Record<string, any>): boolean {
@@ -174,6 +176,28 @@ function buildArray(
 ): VNodeChild | Promise<VNodeChild> {
   const arr = input as VNodeChild[]
   if (traceEnabled('build')) trace('build', 'debug', '', `array in  kids=${kidsSeq(arr)}`)
+  // 两阶段契约违反检测（audit——事件流）：新树数组出现 disposed vnode =
+  // renderFn 复用了旧树对象（真实事故：Section 捕获 mount 期 props.children——
+  // 同一 DemoCard vnode 既是旧树又被 dispose，重发后自 dispose → 卡片错位/消失）。
+  // 正常新树项是 fresh vnode；disposed 只应出现在 oldInput 对照（重建恢复），
+  // 出现在 new children 说明用户返回了被清理的旧引用。
+  for (const c of arr) {
+    if (c != null && typeof c === 'object' && !Array.isArray(c) && (c as VNode)._lifecycle === 'disposed') {
+      const v = c as VNode
+      emit({
+        session: '', machine: 'audit', nodeId: v._id ?? null, component: componentName(v.type), from: 'disposed',
+        event: 'CONTRACT_VIOLATION', to: 'new-tree', level: 'error', ts: Date.now(),
+      })
+      if (auditEnabled()) {
+        console.error(
+          `[vdom2/audit] 两阶段契约违反：组件 ${componentName(v.type)} 的 renderFn 返回了 disposed 旧 vnode` +
+            `${v._id ? `(${v._id})` : ''}——复用旧树对象（应为每次渲染生成新 vnode）。` +
+            `同一对象既是旧树又被 dispose → diff 自 dispose → 卡片错位/消失（demo 搜索恢复事故）`,
+        )
+      }
+      break
+    }
+  }
   for (let i = 0; i < arr.length; i++) {
     const c = arr[i]
     if (c != null && typeof c === 'object' && !Array.isArray(c)) {
