@@ -175,12 +175,16 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
-    // 审计：Agent 更新（Wave 9）
+    // 配额用量（Wave 9 成本控制——本月已用 token）
+    let quota_used = 0
     try {
-      const { writeAudit } = await import('../services/audit.ts')
-      await writeAudit(ctx as any, { action: 'agent_update', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? '') } })
+      const [usedRow] = await sql`
+        SELECT COALESCE(SUM(tokens_total), 0)::int AS used
+        FROM agent_logs WHERE agent_id = ${params.id} AND created_at >= DATE_TRUNC('month', NOW())
+      `
+      quota_used = Number((usedRow as any)?.used ?? 0)
     } catch { /* 尽力 */ }
-    return Response.json({ agent })
+    return Response.json({ agent: { ...agent, quota_used } })
   })
 
   // ── 更新 Agent ───────────────────────────────────────────
@@ -194,7 +198,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       'name', 'avatar_url', 'description',
       'model', 'system_prompt', 'temperature', 'max_tokens', 'human_in_the_loop',
       'webhook_url', 'webhook_secret', 'webhook_retry_count', 'chunk_size', 'chunk_overlap', 'tools', 'is_active',
-      'workspace_path', 'allow_file_tools', 'allow_command_exec', 'allow_network', 'kb_id',
+      'workspace_path', 'allow_file_tools', 'allow_command_exec', 'allow_network', 'kb_id', 'monthly_token_quota',
     ]
 
     const sets: string[] = []
@@ -228,7 +232,12 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       const { writeAudit } = await import('../services/audit.ts')
       await writeAudit(ctx as any, { action: 'agent_update', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? '') } })
     } catch { /* 尽力 */ }
-    return Response.json({ agent })
+        // 审计：Agent 更新（Wave 9）
+    try {
+      const { writeAudit } = await import('../services/audit.ts')
+      await writeAudit(ctx as any, { action: 'agent_update', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? '') } })
+    } catch { /* 尽力 */ }
+return Response.json({ agent })
   })
 
   // ── 删除 Agent ───────────────────────────────────────────

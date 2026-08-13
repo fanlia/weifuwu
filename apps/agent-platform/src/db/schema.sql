@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS agents (
   -- 工具配置
   tools       JSONB DEFAULT '[]'::JSONB, -- ToolDefinition[]
 
+  -- 配额（Wave 9 成本控制——月 token 上限，0 = 不限）
+  monthly_token_quota INT NOT NULL DEFAULT 0,
+
   -- 公共
   is_active   BOOLEAN NOT NULL DEFAULT TRUE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),

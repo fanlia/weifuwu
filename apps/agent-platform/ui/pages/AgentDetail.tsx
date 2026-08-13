@@ -15,7 +15,7 @@ interface AgentDetailState {
   loading: boolean; saving: boolean; notFound: boolean
   error: string; ok: string
   name: string; description: string; systemPrompt: string
-  aiModel: string; aiTemperature: string; aiMaxTokens: string
+  aiModel: string; aiTemperature: string; aiMaxTokens: string; aiQuota: string; quotaUsed: number
   aiHITL: boolean; webhookUrl: string; webhookSecret: string
   webhookRetryCount: string; secretVisible: boolean
   kbChunkSize: string; kbChunkOverlap: string
@@ -51,7 +51,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     $.error = ''; $.ok = ''
 
     $.name = ''; $.description = ''; $.systemPrompt = ''
-    $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'
+    $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiQuota = '0'; $.quotaUsed = 0
     $.aiHITL = false; $.webhookUrl = ''; $.webhookSecret = ''
     $.webhookRetryCount = '3'; $.secretVisible = false
     $.kbChunkSize = '500'; $.kbChunkOverlap = '50'
@@ -75,6 +75,8 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.systemPrompt = a.system_prompt ?? ''; $.aiModel = a.model ?? ''
       $.aiTemperature = String(a.temperature ?? 0.7)
       $.aiMaxTokens = String(a.max_tokens ?? 2048)
+      $.aiQuota = String(a.monthly_token_quota ?? 0)
+      $.quotaUsed = Number(a.quota_used ?? 0)
       $.aiHITL = !!a.human_in_the_loop
       $.webhookUrl = a.webhook_url ?? ''; $.webhookSecret = a.webhook_secret ?? ''
       $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
@@ -118,6 +120,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       body.system_prompt = $.systemPrompt; body.model = $.aiModel || null
       body.temperature = parseFloat($.aiTemperature) || 0.7
       body.max_tokens = parseInt($.aiMaxTokens) || 2048
+      body.monthly_token_quota = parseInt($.aiQuota) || 0
       body.human_in_the_loop = $.aiHITL
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
@@ -451,6 +454,12 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   <Field label="最大 Token 数">
                     <Input type="number" min="64" max="8192" step="64" value={$.aiMaxTokens}
                       onInput={(e: Event) => { $.aiMaxTokens = inputValue(e); rerender() }} />
+                  </Field>
+                </div>
+                <div class="wf-fill">
+                  <Field label={`月 Token 配额（${$.quotaUsed.toLocaleString()} 已用${$.aiQuota && parseInt($.aiQuota) > 0 ? ' / ' + parseInt($.aiQuota).toLocaleString() : '（不限）'}）`}>
+                    <Input type="number" min="0" step="1000" value={$.aiQuota} placeholder="0 = 不限"
+                      onInput={(e: Event) => { $.aiQuota = inputValue(e); rerender() }} />
                   </Field>
                 </div>
                 <div class="wf-fill">

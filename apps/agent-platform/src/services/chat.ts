@@ -327,6 +327,22 @@ async function runAgentStreamForAgent(
   // 1) thinking
   emit.emit({ type: 'wf:step', messageId: msgId, agentId: agent.id, agentName: agent.name, stepType: 'llm' })
 
+  // ── 配额检查（Wave 9 成本控制——月 token 上限，超限拒绝回复） ──
+  try {
+    const quota = Number(agent.monthly_token_quota ?? 0)
+    if (quota > 0) {
+      const [usedRow] = await sql`
+        SELECT COALESCE(SUM(tokens_total), 0)::int AS used
+        FROM agent_logs WHERE agent_id = ${agent.id} AND created_at >= DATE_TRUNC('month', NOW())
+      `
+      const used = Number((usedRow as any)?.used ?? 0)
+      if (used >= quota) {
+        emit.emit({ type: 'wf:done', messageId: msgId, content: `⚠️ 该 Agent 本月 token 配额（${quota.toLocaleString()}）已用尽，暂停自动回复。请在 Agent 详情调整配额或下月恢复。` })
+        return
+      }
+    }
+  } catch { /* 配额检查失败不阻断——保守放行 */ }
+
   let accumulatedContent = ''
   let streamFailed = false
   let hasEmittedGenerating = false
