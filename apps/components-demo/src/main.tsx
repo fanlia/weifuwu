@@ -2965,6 +2965,7 @@ const App: Component = async (_props, ctx) => {
         <div class="wf-row wf-gap-sm">
           <SearchInput
             placeholder="搜索组件…"
+            value={cardFilter.q}
             onInput={(e) => { cardFilter.q = (e.target as HTMLInputElement).value; ctx.ui.render() }}
             onClear={() => { cardFilter.q = ''; ctx.ui.render() }}
           />

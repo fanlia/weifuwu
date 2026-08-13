@@ -64,7 +64,8 @@ it('有值时渲染清除按钮，点击触发 onClear', async () => {
   assert.ok(s.includes('clear'), '有值显示清除')
   const find = (n: any): any => {
     if (!n || typeof n !== 'object') return null
-    if (/clear/.test(String(n.props?.class ?? ''))) return n
+    // 精确匹配按钮类（has-clear 包装类含 clear 子串——宽松 /clear/ 会误命中 wrapper）
+    if (String(n.props?.class ?? '').split(' ').includes('wf-search-clear')) return n
     const k = n.props?.children
     if (Array.isArray(k)) for (const c of k) { const f = find(c); if (f) return f }
     return null

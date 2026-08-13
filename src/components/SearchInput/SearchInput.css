@@ -52,6 +52,13 @@
   color: var(--wf-color-text);
 }
 
+/* 受控 + 自定义清除按钮时隐藏原生 ×（type=search WebKit 双清除 UI——
+   自定义 wf-search-clear 是设计清除入口，原生 × 样式不统一且重复） */
+.wf-search--has-clear .wf-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* disabled（F2 状态矩阵） */
 .wf-search-input--dis { opacity: 0.5; cursor: not-allowed; }
 .wf-search-input:disabled { cursor: not-allowed; }
