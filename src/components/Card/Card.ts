@@ -14,13 +14,15 @@ export interface CardProps {
   active?: boolean
   onClick?: () => void
   className?: string
+  /** id 属性（锚点定位——AgentDetail Tab 导航用） */
+  id?: string
   style?: Record<string, string>
   children?: any
 }
 
 export const Card: Component<CardProps> = async (_init, _ctx) =>
   async (props) => {
-  const { variant = 'default', padding = 'md', clickable, hover, active, onClick, className, style, children } = props
+  const { variant = 'default', padding = 'md', clickable, hover, active, onClick, className, id, style, children } = props
 
   const cls = [
     'wf-card',
@@ -34,6 +36,7 @@ export const Card: Component<CardProps> = async (_init, _ctx) =>
 
   return h('div', {
     class: className ? `${cls} ${className}` : cls,
+    id,
     style,
     onClick,
     role: clickable ? 'button' : undefined,

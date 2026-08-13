@@ -39,12 +39,46 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 async function main() {
   const app = new Router<AppCtx>()
 
+  // ── 指标收集（内存计数器——/api/metrics 暴露） ─────────────────
+  const metrics = {
+    requests: 0, errors: 0,
+    aiCalls: 0, aiTokens: 0, aiLatencyMs: 0,
+    webhooks: 0, sandboxCalls: 0,
+    startTime: Date.now(),
+  }
+  ;(globalThis as any).__platform_metrics = metrics
+
   // ── 全局中间件 ──────────────────────────────────────────
   app.use(cors())
+
 
   // ── 数据库 ──────────────────────────────────────────────
   const pg = postgres()
   app.use(pg)
+
+  // ── 请求日志（结构化 JSON 行 + 请求 id——可观测性基础；pg 之后——ctx.sql 已注入） ──
+  app.use(async (req: Request, ctx: Context, next: any) => {
+    const id = Math.random().toString(36).slice(2, 10)
+    const url = new URL(req.url ?? '', 'http://localhost')
+    const start = Date.now()
+    metrics.requests++
+    try {
+      const res = await next(req, ctx)  // 必须显式传 req/ctx（dispatch 不传参数会变 undefined——框架约定）
+      metrics.errors += (res as Response)?.status >= 500 ? 1 : 0
+      console.log(JSON.stringify({
+        ts: new Date().toISOString(), id, method: req.method, path: url.pathname,
+        status: (res as Response)?.status ?? 200, ms: Date.now() - start,
+      }))
+      return res
+    } catch (e) {
+      metrics.errors++
+      console.error(JSON.stringify({
+        ts: new Date().toISOString(), id, method: req.method, path: url.pathname,
+        level: 'error', ms: Date.now() - start, error: (e as Error)?.message,
+      }))
+      throw e
+    }
+  })
 
   // ── Schema 迁移 ───────────────────────────────────────
   // 使用 CREATE IF NOT EXISTS 安全地确保表存在，绝不 DROP 数据
@@ -231,6 +265,24 @@ async function main() {
     const template = getRoleTemplates().find(t => t.slug === ctx.params.slug)
     if (!template) return Response.json({ error: '模板不存在' }, { status: 404 })
     return Response.json({ template })
+  })
+
+  // ── 指标端点（运营/监控——内存计数器 + 进程信息） ──
+  app.get('/api/metrics', async () => {
+    const m = (globalThis as any).__platform_metrics ?? {}
+    const uptime = Math.round((Date.now() - (m.startTime ?? Date.now())) / 1000)
+    return Response.json({
+      uptimeSec: uptime,
+      requests: m.requests ?? 0,
+      errors: m.errors ?? 0,
+      errorRate: m.requests ? Number(((m.errors / m.requests) * 100).toFixed(2)) : 0,
+      aiCalls: m.aiCalls ?? 0,
+      aiTokens: m.aiTokens ?? 0,
+      aiAvgLatencyMs: m.aiCalls ? Math.round((m.aiLatencyMs ?? 0) / m.aiCalls) : 0,
+      webhooks: m.webhooks ?? 0,
+      sandboxCalls: m.sandboxCalls ?? 0,
+      memMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+    })
   })
 
   // ── 需要登录 + 租户隔离的路由 ─────────────────────────

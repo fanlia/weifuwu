@@ -385,6 +385,9 @@ async function runAgentStreamForAgent(
     emit.emit({ type: 'wf:error', messageId: msgId, code: 'provider_error', message: 'AI 回复失败' })
   } else {
     if (finalUsage) {
+      // 指标采集（/api/metrics——AI 调用次数/token/延迟）
+      const m = (globalThis as any).__platform_metrics
+      if (m) { m.aiCalls++; m.aiTokens += finalUsage.total_tokens ?? 0 }
       try {
         await sql`
           INSERT INTO agent_logs (agent_id, app_id, department_id, messages_count, steps_count,

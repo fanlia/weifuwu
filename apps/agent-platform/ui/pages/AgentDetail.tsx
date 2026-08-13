@@ -389,7 +389,19 @@ export const AgentDetail: Component = async (_props, ctx) => {
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
       <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
 
-      <Card>
+      <div class="wf-row wf-gap-xs" style="flex-wrap: wrap">
+        {(a.type === 'ai'
+          ? [['sec-config', '配置'], ['sec-skills', '技能'], ['sec-files', '文件'], ['sec-knowledge', '知识库'], ['sec-preview', '对话'], ['sec-logs', '日志'], ['sec-webhook', 'Webhook']]
+          : [['sec-config', '配置'], ['sec-account', '账号']]
+        ).map(([id, label]) => (
+          <button key={id} type="button" class="wf-btn wf-btn--sm wf-btn--ghost"
+            onClick={() => { const el = document.getElementById(id); if (el) (el as any).scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <Card id="sec-account">
         <div class="wf-row wf-gap-md">
           <Avatar name={a.name} color={typeColor[a.type ?? 'ai'] ?? '#64748b'} />
           <div class="wf-fill wf-stack wf-gap-xs">
@@ -402,7 +414,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
       <div class="wf-mb-md">{$.ok && <Alert variant="success">{$.ok}</Alert>}</div>
 
-      <Card>
+      <Card id="sec-config">
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md">基本设置</div>
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
           <Field label="名称">
@@ -450,6 +462,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
               </div>
 
               <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间</div>
+
               <Field label="绑定知识库" hint="search_knowledge_base 工具优先检索绑定知识库（未绑定 → 检索全部）">
                 <Select value={$.kbId}
                   onChange={(v) => { $.kbId = v as string; rerender() }}
@@ -543,7 +556,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       </Card>
 
       {a.type === 'user' && (
-        <Card>
+        <Card id="sec-account">
           <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="user" size={14} /> 绑定账号</div>
           <div class="wf-split wf-py-sm wf-border-b">
             <span class="wf-text-sm wf-text-secondary">平台用户</span>
@@ -560,7 +573,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       )}
 
       {a.type === 'ai' && (
-        <Card>
+        <Card id="sec-skills">
           <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="settings" size={14} /> 技能管理</div>
           {$.boundSkills.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无绑定技能</div>}
           {$.boundSkills.map((s: BoundSkill) => (
@@ -595,7 +608,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       )}
 
       {a.type === 'ai' && $.allowFileTools && (
-        <Card>
+        <Card id="sec-files">
           <div class="wf-split wf-mb-sm">
             <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间文件</div>
             <Button size="sm" variant="ghost" onClick={() => loadWsList()}>刷新</Button>
@@ -645,7 +658,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       )}
 
       {a.type === 'ai' && (
-        <Card>
+        <Card id="sec-preview">
           <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="message" size={14} /> 测试对话</div>
           <div class="wf-row wf-gap-xs">
             <div class="wf-fill">
@@ -661,7 +674,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       )}
 
       {a.type === 'ai' && (
-        <Card>
+        <Card id="sec-logs">
           <div class="wf-split wf-mb-sm">
             <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="list" size={14} /> 执行日志</div>
             <Button size="sm" variant="ghost" onClick={loadLogs}>刷新</Button>
@@ -681,7 +694,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       )}
 
       {a.type === 'webhook' && (
-        <Card>
+        <Card id="sec-webhook">
           <div class="wf-split wf-mb-sm">
             <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="external-link" size={14} /> Webhook 收发测试</div>
             <Button size="sm" variant="ghost" onClick={loadWebhookLogs}>刷新日志</Button>
@@ -752,7 +765,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       )}
 
       {a.type === 'knowledge_base' && (
-        <Card>
+        <Card id="sec-knowledge">
           <div class="wf-split wf-mb-md">
             <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📚 知识库文档</div>
             <span class="wf-text-xs wf-text-tertiary">{$.docs.length} 个文档</span>

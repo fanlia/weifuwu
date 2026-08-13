@@ -7,16 +7,18 @@ interface NavDef {
   path: string
   icon: any
   label: string
+  group?: string
   match: (p: string) => boolean
 }
 
 // 图标是 VNode（Menu icon 作为 children 渲染——字符串会当文本显示）
 const NAV: NavDef[] = [
-  { path: '/', icon: h(Icon, { name: 'grid' }), label: '概览', match: p => p === '/' || p === '/dashboard' },
-  { path: '/agents', icon: h(Icon, { name: 'cpu' }), label: 'Agent', match: p => p.startsWith('/agents') },
-  { path: '/templates', icon: h(Icon, { name: 'layers' }), label: '模板市场', match: p => p.startsWith('/templates') },
-  { path: '/departments', icon: h(Icon, { name: 'users' }), label: '部门', match: p => p.startsWith('/departments') },
-  { path: '/chat/new', icon: h(Icon, { name: 'message' }), label: '聊天', match: p => p.startsWith('/chat') },
+  { path: '/', icon: h(Icon, { name: 'grid' }), label: '概览', group: '工作台', match: p => p === '/' || p === '/dashboard' },
+  { path: '/chat/new', icon: h(Icon, { name: 'message' }), label: '聊天', group: '工作台', match: p => p.startsWith('/chat') },
+  { path: '/approvals', icon: h(Icon, { name: 'check-circle' }), label: '审批待办', group: '工作台', match: p => p.startsWith('/approvals') },
+  { path: '/agents', icon: h(Icon, { name: 'cpu' }), label: 'Agent', group: '管理', match: p => p.startsWith('/agents') },
+  { path: '/templates', icon: h(Icon, { name: 'layers' }), label: '模板市场', group: '管理', match: p => p.startsWith('/templates') },
+  { path: '/departments', icon: h(Icon, { name: 'users' }), label: '部门', group: '管理', match: p => p.startsWith('/departments') },
 ]
 
 export async function AppLayout(_props: {}, ctx: WfuiContext) {
@@ -51,7 +53,7 @@ export async function AppLayout(_props: {}, ctx: WfuiContext) {
         </div>
 
         <div class="wf-sidebar-body">
-          <Menu items={NAV.map(n => ({ key: n.path, label: n.label, icon: n.icon, group: '工作台' }))}
+          <Menu items={NAV.map(n => ({ key: n.path, label: n.label, icon: n.icon, group: n.group ?? '工作台' }))}
             activeKey={NAV.find(n => n.match(route))?.path ?? ''}
             onSelect={p => ctx.app?.navigate(p)} />
         </div>
