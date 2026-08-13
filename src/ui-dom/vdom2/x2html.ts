@@ -75,7 +75,10 @@ async function arrToHtml(v: VNodeChild, ctx: HtmlCtx): Promise<string> {
       const inner = await x2html(c, { ...ctx, _fidPath: childFid })
       return `<!--${holeMarkup({ type: 'fragment-start', key: String(i), id: null, fid: childFid })}-->${inner}<!--${holeMarkup({ type: 'fragment-end', key: String(i), id: null, fid: childFid })}-->`
     }
-    return x2html(c, ctx)
+    const html = await x2html(c, ctx)
+    // 组件输出 null（值层有值、渲染层无输出）→ 输出占位注释（与客户端 renderArray 同构——
+    // 数组项槽位在 SSR HTML 必须有节点，否则 hydrate 游标/后续 diff 错位）
+    return html === '' ? `<!--${holeMarkup({ type: 'hole', value: null, key: null, id: null, fid: null })}-->` : html
   }))
   return parts.join('')
 }

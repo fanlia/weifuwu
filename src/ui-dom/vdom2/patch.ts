@@ -29,6 +29,8 @@ import { setProp, EVENT_RE, createHole, eventTarget } from './transform.ts'
 import { trace, traceEnabled, kidsSeq, vnDesc, nodeDesc, childNodesSeq } from './trace.ts'
 import { getOutputRange, type PatchState, keyModeOf, type KeyMode } from './kind.ts'
 import { auditEnabled } from './audit.ts'
+import { canReuse } from './lifecycle.ts'
+import { componentName } from './ctx.ts'
 
 
 /** 从 vnode 取稳定 key（Portal 内部 key 不算用户 keyed） */
@@ -223,8 +225,11 @@ export function arrayToArray(
   ctx: PatchCtx,
   oldRange: Node[] | null,
 ): (Node | null)[] {
-  const oldCChildren = Array.isArray(oldInput) ? oldInput : (oldInput as VNode)?.props?.children ?? null
-  const newCChildren = Array.isArray(newInput) ? newInput : (newInput as VNode)?.props?.children ?? null
+  // 构建后的 _child 优先（buildVNode 产物——组件已设 _render）；手写 vnode（未 build）fallback
+  // props.children。原始 JSX children 里的组件未构建——diff 到它们 → renderComp 抛「not built」
+  // （demo 搜索序列实测：fragToFrag/nativeToNative 递归 diff 原始 vnode）
+  const oldCChildren = Array.isArray(oldInput) ? oldInput : (oldInput as VNode)?._child ?? (oldInput as VNode)?.props?.children ?? null
+  const newCChildren = Array.isArray(newInput) ? newInput : (newInput as VNode)?._child ?? (newInput as VNode)?.props?.children ?? null
   return patchChildren(parent, oldCChildren, newCChildren, ctx, oldRange)
 }
 
@@ -449,10 +454,11 @@ function diffUnkeyed(s: KeyDiffState): (Node | null)[] {
       // V3-3a：引用短路——newC === oldC（vnode 引用相等 = 子树未变——JS 对象不可变约定）
       // → 跳过 patchValue 全递归（未变项零开销）。命中场景：renderFn 返回稳定数组引用
       // （props.items 原样透传）+ build 同步构建的 native 项（引用保持）；组件项剪枝
-      // 已由 patchValue 组件 skip 覆盖（此处短路仅原生项）
+      // 已由 patchValue 组件 skip 覆盖（此处短路仅原生项）。canReuse（I3）：disposed 的
+      // 旧 vnode 不能短路（已被清理——DOM 已移除，短路会跳过错位）
       if (oldC != null && typeof oldC === 'object' && !Array.isArray(oldC) &&
           newC != null && typeof newC === 'object' && !Array.isArray(newC) &&
-          newC === oldC) {
+          newC === oldC && canReuse(oldC as VNode)) {
         out.push(oldNodes[i])
         pushA(oldNodes[i])
         continue
@@ -565,6 +571,15 @@ function diffUnkeyed(s: KeyDiffState): (Node | null)[] {
         pushA(node)
         continue
       }
+      // I1 兜底：disposed 组件在 diff（剪枝缓存失效——portal 内容独立 dispose）——
+      // 占位 + 提示（audit 报错暴露；生产 warn 恢复——父树下一轮 canReuse 拒绝 → 重建）
+      if (newC && typeof newC === 'object' && !Array.isArray(newC) &&
+          typeof (newC as VNode).type === 'function' && (newC as VNode)._lifecycle === 'disposed') {
+        const hole = disposedFallback(parent, oldNodes[i], ctx, componentName((newC as VNode).type))
+        out.push(hole)
+        pushA(hole)
+        continue
+      }
       const node = patchValue(parent, oldNodes[i], oldC, newC, ctx)
       if (traceEnabled('diff')) trace('diff', 'trace', '', `after-patch i=${i} new=${vnDesc(newC)} node=${nodeDesc(node)} dom=${childNodesSeq(parent)}`)
       // Fragment 项展开全部 childNodes（patchValue 只返回锚点——多节点 Fragment 漏收）
@@ -598,6 +613,14 @@ function diffKeyed(s: KeyDiffState): (Node | null)[] {
       const entry = oldKeyMap.get(k)!
       const oldNode = entry.nodes[0] ?? null
       movedKeys.add(k)
+      // I1 兜底：disposed 组件（同 unkeyed 分支——剪枝缓存失效）
+      if (newV && typeof newV === 'object' && typeof newV.type === 'function' && newV._lifecycle === 'disposed') {
+        const hole = disposedFallback(parent, oldNode, ctx, componentName(newV.type))
+        out.push(hole)
+        pushA(hole)
+        if (hole) lastDom = hole
+        return
+      }
       const node = patchValue(parent, oldNode, entry.vnode, newV, ctx)
       const collected = collectChildNodes(newV, node)
       // 位置校正：keyed 项的所有节点必须位于 lastDom 之后（keyed 重排——旧实现只 patch 不移动 DOM）
@@ -785,6 +808,29 @@ export function prepPos(children: VNodeChild[]): void {
     const c = children[i]
     if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === null) (c as VNode).key = `pos:${i}`
   }
+}
+
+/** I1 兜底：disposed 组件在 diff（剪枝缓存失效——portal 内容独立 dispose 打破
+ *  「父非 disposed ⟹ 子树全非 disposed」）——占位 + 提示。
+ *  audit 开启 → console.error（暴露缺陷）；生产 → console.warn（占位兜底，
+ *  父树下一轮 canReuse 深检查拒绝 → 重建恢复） */
+function disposedFallback(parent: Node, oldNode: Node | null, ctx: PatchCtx, name: string): Node | null {
+  if (auditEnabled()) {
+    console.error(`[vdom2/audit] I1 违反：diff 收到 disposed 组件 ${name}——剪枝缓存失效（portal 内容独立 dispose）——父树将重建`)
+  } else {
+    console.warn(`[vdom2] disposed 组件 ${name} 在 diff——剪枝缓存失效——父树重建中（占位兜底）`)
+  }
+  const hole = createHole(ctx.browser ?? createClientBrowser(), null)
+  if (hole == null) return null // createHole 类型可 null（实际浏览器 createComment 恒有值）
+  const on = oldNode
+  if (on) {
+    const p = on.parentNode
+    if (p) p.replaceChild(hole, on)
+    else parent.appendChild(hole)
+  } else {
+    parent.appendChild(hole)
+  }
+  return hole
 }
 
 /** key diff 策略状态机：KeyMode → 实现（查表分派——与 x2y 转换状态机同构）

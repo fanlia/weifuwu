@@ -17,6 +17,7 @@ import type { VNode, VNodeChild } from '../vnode.ts'
 import { Fragment, Portal, isFrag, isComp, isNative, isPortal } from '../vnode.ts'
 import { classifyKind, getOutputRange, type PatchState, type VKind } from './kind.ts'
 import { renderValue, createHole } from './render.ts'
+import { canReuse } from './lifecycle.ts'
 import { removeOldOutput, patchChildren, patchProps, patchValue, disposeComponent, arrayToArray, type PatchCtx } from './patch.ts'
 import { callRefCleanupFor } from './registry.ts'
 import { createClientBrowser } from '../browser.ts'
@@ -110,7 +111,9 @@ function nativeToNative(s: PatchState): Node | null {
     // 规则表 §2 innerHTML：存在则 children 不渲染——diff 与 renderValue 同一判断（行为统一）
     if (!('innerHTML' in (newV.props ?? {}))) {
       // children 锚点统一：oldNodes 映射从旧 children 项 _refNode 推导（无需 _childAnchors 缓存）
-      patchChildren(el, oldV?.props?.children ?? null, newV.props?.children ?? null, ctx)
+      // 构建后的 _child 优先（组件已设 _render）；手写 vnode（未 build）fallback props.children
+      // ——原始 props.children 里的组件未构建（demo 搜索序列 bug）
+      patchChildren(el, oldV?._child ?? oldV?.props?.children ?? null, newV._child ?? newV.props?.children ?? null, ctx)
     }
     return el
   }
@@ -152,9 +155,14 @@ function compToComp(s: PatchState): Node | null {
   }
   const oldV = oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) ? (oldInput as VNode) : null
 
+  // 类型不同（同位置异组件——路由页面切换）：走 toOther——dispose 旧组件（整树）+ 渲染新
+  // （集成测试 T2 抓到：原实现 diff _child 但旧组件未 dispose——PageA 保持 built 泄漏）
+  if (oldV?.type != null && oldV.type !== newV.type) return toOther(s)
+
   // 三态 skip（diff 信任 buildVNode 产出——剪枝命中时 _child 引用相等 → 子树未变）
+  // canReuse（I3）：disposed 旧树不可 skip（已被清理——DOM 已移除）
   const typeSame = oldV?.type === newV.type
-  if (!ctx.force && oldV && typeSame && oldV._child !== null && newV._child === oldV._child) {
+  if (!ctx.force && oldV && typeSame && canReuse(oldV) && newV._child === oldV._child) {
     return oldNode
   }
 
@@ -167,10 +175,27 @@ function compToComp(s: PatchState): Node | null {
   if (oldNode) newV._refNode = oldNode
 
   // 渲染输出（_child 必已由 buildVNode 预构建——diff 同步上下文永不执行 renderFn；
-  // null 是合法输出（组件条件渲染）——patchValue 的 toHole 处理移除）
+  // null 是合法输出（组件条件渲染）——占位法：真实→占位 replaceChild（childNodes 长度恒定，
+  // 槽位不塌缩——与渲染侧 renderChild 的占位补全对称；否则槽位空缺 → oldNodes 映射漂移）
   const childNew = newV._child
   if (childNew === null) {
     newV._outputChild = null
+    newV._refNode = null // 防 stale：输出 null 后锚点清空——否则指向已移除旧输出，
+    // 下次恢复时 holeToOther 的 oldNode.parentNode === null → insertBefore 抛 NotFoundError
+    // 先移除旧输出（removeOldOutput 递归 dispose——内部组件标记 disposed），
+    // 再清引用（oldV._child = null——防 build 剪枝按引用误判复用空壳）
+    // 顺序不可反：removeOldOutput 需要 oldV._child 定位要移除的 DOM 输出；
+    // oldHadNode 在移除前捕获（移除后 oldNode.parentNode 变 null——判断会漏建占位）
+    const oldHadNode = oldNode?.parentNode != null
+    const ref = removeOldOutput(oldV?._child ?? null, oldNode, parent, ctx)
+    if (oldV) oldV._child = null
+    const hole = createHole(ctx.browser ?? createClientBrowser(), null)
+    if (oldHadNode && hole) {
+      if (ref && ref.parentNode === parent) parent.insertBefore(hole, ref)
+      else parent.appendChild(hole)
+      return hole
+    }
+    // 无旧 DOM（首帧/已空）→ 直接返回 null（无槽位可保持）
     return patchValue(parent, oldNode, oldV?._child, null, ctx)
   }
   // 输出 vnode 引用（独立于 dispose 的 _child 链——getOutputRange 递归终点）
@@ -211,8 +236,9 @@ function portalToPortal(s: PatchState): Node | null {
   if (isPortal(oldV) && isPortal(newV)) {
     const container = oldV._remoteEl
     if (container) {
-      const oldChild = oldV.props?.children ?? null
-      const newChild = newV.props?.children ?? null
+      // 构建后的 _child 优先（组件已设 _render）；手写 vnode fallback props.children
+      const oldChild = oldV._child ?? oldV.props?.children ?? null
+      const newChild = newV._child ?? newV.props?.children ?? null
       // patchChildren 直接处理（复用容器 patch 子节点，不操作父 DOM——避免闪烁/丢状态）
       patchChildren(container, oldChild, newChild, ctx)
     }

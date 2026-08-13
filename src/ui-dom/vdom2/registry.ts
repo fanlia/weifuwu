@@ -7,6 +7,7 @@
 
 import type { VNode } from '../vnode.ts'
 import { isComp, isPortal } from '../vnode.ts'
+import { transition, vnodeTraceCtx } from './lifecycle.ts'
 
 export interface Registry {
   idRegistry: Map<string, VNode>
@@ -89,6 +90,12 @@ export function callRefCleanupFor(input: any, reg: Registry): void {
     if (isComp(vnode)) vnode._render = null
     vnode._parentNode = null
     vnode._refNode = null
+    // 生命周期状态机：DISPOSE（显式标记——build 剪枝检查 _lifecycle !== 'disposed'
+    // 跳过被清理的旧树，根治「dispose 掏空内容但引用保留 → 剪枝复用空壳」）
+    vnode._lifecycle = transition(vnode._lifecycle, 'DISPOSE', vnodeTraceCtx(vnode))
+  } else if (isComp(vnode) || vnode._child != null) {
+    // 无 id 的组件/有子树的节点（native 容器等）：递归清理时也标记 disposed（一致性）
+    vnode._lifecycle = transition(vnode._lifecycle, 'DISPOSE', vnodeTraceCtx(vnode))
   }
 
   // 先递归清理 _child（支持数组——Portal 的 _child 是 `[root, ...]`）

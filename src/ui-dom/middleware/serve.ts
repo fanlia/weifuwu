@@ -18,6 +18,8 @@ import { renderValue } from '../vdom2/render.ts'
 import { patchValue } from '../vdom2/patch.ts'
 import { createVdomContext } from '../context.ts'
 import { hydrateVNode } from '../vdom2/hydrate.ts'
+import { createRouteController } from '../vdom2/route.ts'
+import { installVdomInspect } from '../vdom2/trace.ts'
 import type { VNodeChild } from '../vnode.ts'
 
 /** uiServe 选项 */
@@ -132,14 +134,19 @@ export function uiServe<RC extends object = {}>(
   const ready = new Promise<void>((r) => { readyResolve = r })
   let closing = false
 
+  // 路由生命周期状态机（四状态机架构·第一层——design/vdom-lifecycle-state-machines.md）
+  const routeCtrl = createRouteController()
+
   async function renderPath(path: string, initial: boolean): Promise<void> {
     const token = ++navToken
     const location = { pathname: path, search: '' } as any
     ;(ctx as any).route.path = path
+    routeCtrl.navigateStart(path) // idle/settled → navigating（旧树卸载 + 新树构建起点）
     let output: VNodeChild
     try {
       output = (await router.execute(location, ctx as UIContext, path)) as VNodeChild
     } catch (e: any) {
+      routeCtrl.navigateError(path, e) // navigating → idle（导航失败回退）
       // 错误兜底（不黑屏）：handler 抛错 → 错误页
       output = h('div', { class: 'ui-dom-error' }, `页面渲染失败: ${e?.message ?? String(e)}`)
     }
@@ -177,16 +184,23 @@ export function uiServe<RC extends object = {}>(
     currentPath = path
     // root 组件 id（rootUi.render() 无参精准渲染——i18n 中间件等 root 层 render 调用）
     rootUi._rootVNodeId = (built as VNode)?._id
+    // 导航完成：新树 build + diff/render 全部落地 → navigating → settled
+    routeCtrl.navigateDone(path)
   }
 
   // ── 首帧 ──
   const initialPath = browser.pathname()
   void renderPath(initialPath, true).finally(() => { if (!closing) readyResolve() })
 
+  // 全局调试 API（__vdom_dump / __vdom_lc——组件视角生命周期可观测）
+  installVdomInspect(() => currentChild)
+
   // ── 导航（popstate——SPA 路由切换） ──
+  // 注意：不依赖 currentPath 判断（快速连续导航时 currentPath 异步滞后——误跳第二次导航）；
+  // renderPath 内部 token 串行化已处理过期导航（集成测试 T4 抓到）
   const onPopState = () => {
     const path = browser.pathname()
-    if (path !== currentPath) void renderPath(path, false)
+    void renderPath(path, false)
   }
   browser.addEventListener('popstate', onPopState)
 

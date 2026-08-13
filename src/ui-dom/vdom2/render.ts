@@ -16,6 +16,7 @@ import type { BrowserEnv } from '../types.ts'
 import { Fragment, Portal, arrayChildren, isNative, isFrag, isComp, isPortal, type NativeVNode, type FragVNode, type CompVNode, type PortalVNode } from '../vnode.ts'
 import { classifyKind } from './kind.ts'
 import { componentName } from './ctx.ts'
+import type { Lifecycle } from './lifecycle.ts'
 import { createClientBrowser } from '../browser.ts'
 import { holeMarkup, setProp, createHole as _createHole } from './transform.ts'
 import { trace, traceEnabled, kidsSeq, childNodesSeq } from './trace.ts'
@@ -45,6 +46,18 @@ function renderText(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
 }
 
 /** 数组项 = 隐式 Fragment：fragment-start/end 标记包裹（边界持久化——diff 直接读注释定位） */
+/** 数组子项渲染（占位法统一，§6.3）：
+ *  - 数组项本身无渲染值（false/null/boolean）→ 建占位
+ *  - 数组项是组件且组件输出 null（值层有值、渲染层无输出）→ 同样建占位
+ *    （占位法缺口修复：childNodes 恒与数组同构——diff oldNodes 映射不漂移；
+ *    否则组件输出 null 的槽位空缺 → src[k] 错位指向兄弟 → stale 引用 → insertBefore 抛错） */
+function renderChild(c: VNodeChild, ctx: any, b: BrowserEnv, i: number, fid: string | null): Node | null {
+  if (c == null || typeof c === 'boolean') return createHole(b, c)
+  const n = renderValue(c, ctx, b, String(i), null, fid)
+  if (n == null) return createHole(b, null) // 组件输出 null → 占位（与 false/null 同构）
+  return n
+}
+
 function renderArray(v: VNodeChild, ctx: any, b: BrowserEnv, key: string | null = null, id: string | null = null, fid: string | null = null): Node | null {
   const arr = v as VNodeChild[]
   const frag = b.createDocumentFragment()
@@ -58,7 +71,7 @@ function renderArray(v: VNodeChild, ctx: any, b: BrowserEnv, key: string | null 
   for (let i = 0; i < arr.length; i++) {
     const c = arr[i]
     const childFid = fid != null ? `${fid}-${i}` : String(i)
-    const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), null, childFid)
+    const n = renderChild(c, ctx, b, i, childFid)
     if (n != null) frag.appendChild(n)
   }
   if (fragEnd) frag.appendChild(fragEnd)
@@ -86,6 +99,12 @@ function renderPortal(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
     if (child != null) container.appendChild(child)
     if (portalEl) portalEl.appendChild(container)
     pv._remoteEl = container
+    // 补父链：portal children 指向 portal vnode（_parentVNode 链完整性——
+    // dispose 传播基础：portal 内容被独立清理时（popup 关闭）可沿链找到父树）
+    const pkids = arrayChildren(vnode.props?.children)
+    for (const pk of pkids) {
+      if (pk != null && typeof pk === 'object' && !Array.isArray(pk)) (pk as VNode)._parentVNode = vnode
+    }
   }
   return null
 }
@@ -107,20 +126,48 @@ function renderFrag(v: VNodeChild, ctx: any, b: BrowserEnv, key: string | null =
   for (let i = 0; i < kidsArr.length; i++) {
     const c = kidsArr[i]
     const childFid = fid != null ? `${fid}-${i}` : String(i)
-    const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), null, childFid)
+    const n = renderChild(c, ctx, b, i, childFid)
     if (n != null) frag.appendChild(n)
   }
   if (fragEnd) frag.appendChild(fragEnd)
   return frag
 }
 
-/** 组件：渲染输出（_child 必已构建）——_refNode = 输出范围首节点（非 DocumentFragment） */
+/** 组件：渲染输出——生命周期状态机查表分派（RENDER_COMP[lifecycle]——无 if/else 链）。
+ *  渲染行为完全由生命周期状态决定：
+ *  - built/pruned：正常渲染（_child 递归——输出 null 或 vnode）
+ *  - disposed   ：占位兜底（剪枝缓存失效——父树重建中）
+ *  - fresh      ：未构建（build 缺陷——抛错暴露）
+ *  - building   ：构建中（diff 同步上下文不该遇到——抛错暴露） */
 function renderComp(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
-  const vnode = v as VNode
-  const cv = vnode as CompVNode
-  if (typeof cv._render !== 'function') {
-    throw new Error(`[vdom2] component ${componentName(vnode.type)} not built (missing _render) — buildVNode must run before renderValue`)
-  }
+  const cv = v as CompVNode
+  // 手写 vnode（测试/命令式）无 _lifecycle——按 _render 推断（有 → built；无 → fresh）
+  const lc = cv._lifecycle ?? (typeof cv._render === 'function' ? 'built' : 'fresh')
+  return RENDER_COMP[lc](cv, ctx, b)
+}
+
+/** 组件渲染状态机表（生命周期状态 → 渲染行为） */
+const RENDER_COMP: Record<Lifecycle, (cv: CompVNode, ctx: any, b: BrowserEnv) => Node | null> = {
+  /** fresh：未构建（build 缺陷——diff 收到未构建组件） */
+  fresh: (cv, _ctx, _b) => {
+    throw new Error(`[vdom2] component ${componentName(cv.type)} not built (missing _render) — buildVNode must run before renderValue`)
+  },
+  /** building：构建中（diff 同步上下文不该遇到——异步工厂未 resolve） */
+  building: (cv, _ctx, _b) => {
+    throw new Error(`[vdom2] component ${componentName(cv.type)} building in render — buildVNode must await before renderValue`)
+  },
+  /** disposed：剪枝缓存失效（portal 内容独立 dispose）——占位 + warn（父树重建中） */
+  disposed: (cv, _ctx, b) => {
+    console.warn(`[vdom2] disposed 组件 ${componentName(cv.type)} 在渲染——剪枝缓存失效——父树重建中（占位兜底）`)
+    return createHole(b, null)
+  },
+  /** built/pruned：正常渲染（输出 null 或 vnode——_child 递归） */
+  built: renderCompBuilt,
+  pruned: renderCompBuilt,
+}
+
+/** built/pruned 渲染：_child 递归 + 输出锚点 + data-wf-id/key */
+function renderCompBuilt(cv: CompVNode, ctx: any, b: BrowserEnv): Node | null {
   const childVNode = cv._child
   // 构建后输出 null（组件条件渲染合法——_render 已设则 null 是输出非未构建）
   if (childVNode == null) {
@@ -130,7 +177,7 @@ function renderComp(v: VNodeChild, ctx: any, b: BrowserEnv): Node | null {
   cv._child = childVNode
   // 输出 vnode 引用（独立于 dispose 清空的 _child 链——getOutputRange 递归终点）
   cv._outputChild = childVNode
-  if (typeof childVNode === 'object' && !Array.isArray(childVNode)) (childVNode as VNode)._parentVNode = vnode
+  if (typeof childVNode === 'object' && !Array.isArray(childVNode)) (childVNode as VNode)._parentVNode = cv
   const node = renderValue(childVNode, ctx, b)
   if (node) {
     // _refNode 必须是输出范围首 DOM 节点（多节点输出 node 是 DocumentFragment——展开后失效）
@@ -181,7 +228,7 @@ function renderNative(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | nul
     for (let i = 0; i < elChildren.length; i++) {
       const c = elChildren[i]
       const childFid = fid != null ? `${fid}-${i}` : String(i)
-      const n = c == null || typeof c === 'boolean' ? createHole(b, c) : renderValue(c, ctx, b, String(i), null, childFid)
+      const n = renderChild(c, ctx, b, i, childFid)
       if (n == null) continue
       el.appendChild(n)
       if (c && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function') {

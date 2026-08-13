@@ -20,13 +20,14 @@
  */
 
 import type { VNodeChild, VNode } from '../vnode.ts'
-import { Fragment } from '../vnode.ts'
+import { Fragment, Portal } from '../vnode.ts'
+import { dumpTimeline } from './lifecycle.ts'
 
-export type VdomStage = 'mount' | 'build' | 'render' | 'diff' | 'audit'
+export type VdomStage = 'mount' | 'build' | 'render' | 'diff' | 'lifecycle' | 'route' | 'audit'
 export type VdomLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace'
 
 const LEVELS: Record<VdomLevel, number> = { error: 0, warn: 1, info: 2, debug: 3, trace: 4 }
-const STAGES: VdomStage[] = ['mount', 'build', 'render', 'diff', 'audit']
+const STAGES: VdomStage[] = ['mount', 'build', 'render', 'diff', 'lifecycle', 'route', 'audit']
 
 export interface VdomTraceConfig {
   enabled: boolean
@@ -124,7 +125,7 @@ export function trace(stage: VdomStage, level: VdomLevel, msg: string, ...args: 
 export function configureVdomTrace(c: Partial<Omit<VdomTraceConfig, 'enabled'>>): void {
   cfg.enabled = true
   if (c.stages) cfg.stages = new Set(c.stages)
-  if (c.level) cfg.level = c.level
+  cfg.level = c.level ?? 'debug' // 默认 debug（与 initVdomTrace 的 URL 语义一致——可见 build/render/diff/lifecycle 明细）
   if (c.filter !== null && c.filter !== undefined) cfg.filter = c.filter
 }
 
@@ -182,4 +183,39 @@ export function childNodesSeq(parent: Node | null, max = 12): string {
   const parts = nodes.map(nodeDesc)
   if (parent.childNodes.length > max) parts.push(`…+${parent.childNodes.length - max}`)
   return `[${parts.join(' | ')}]`
+}
+
+// ── 全树生命周期快照（组件视角 dump——__vdom_dump / __vdom_inspect） ──
+
+/** 递归打印 vnode 树快照：type + id + lifecycle + 深度缩进（组件视角——整页可观测） */
+export function dumpTree(vnode: VNodeChild, depth = 0): string[] {
+  if (vnode == null || typeof vnode === 'boolean') return []
+  if (typeof vnode === 'string' || typeof vnode === 'number') return [`${'  '.repeat(depth)}"${String(vnode).slice(0, 20)}"`]
+  if (Array.isArray(vnode)) return vnode.flatMap((c) => dumpTree(c, depth))
+  const v = vnode as VNode
+  const t = v.type
+  let name: string
+  if (typeof t === 'function') name = (t as { name?: string }).name || 'anonymous'
+  else if (t === Fragment) name = 'Fragment'
+  else if (t === Portal) name = 'Portal'
+  else name = String(t)
+  const lc = v._lifecycle ? `[${v._lifecycle}]` : ''
+  const id = v._id ? `(${v._id})` : ''
+  const lines = [`${'  '.repeat(depth)}${name}${id}${lc}`]
+  const child = v._child
+  if (child != null) lines.push(...dumpTree(child, depth + 1))
+  return lines
+}
+
+/** 安装全局调试 API（dev/调试——页面加载后可用）：
+ *  __vdom_dump()      全树生命周期快照（root 由调用方注入）
+ *  __vdom_lc(id?)     生命周期时间线（全组件或单组件） */
+export function installVdomInspect(rootGetter: () => VNodeChild | null | undefined): void {
+  const g = globalThis as Record<string, unknown>
+  if (g.__vdom_dump == null) {
+    g.__vdom_dump = () => dumpTree(rootGetter() ?? null).join('\n')
+  }
+  if (g.__vdom_lc == null) {
+    g.__vdom_lc = (id?: string) => dumpTimeline(id)
+  }
 }

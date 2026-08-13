@@ -96,6 +96,11 @@ function renderValueHydrating(v: VNodeChild, ctx: VdomCtx, c: HydrationCursor): 
         throw new Error(`[vdom2] component ${componentName(vnode.type)} not built before hydration`)
       }
       vnode._child = null
+      // 组件输出 null：消费 SSR 的 wf-hole 占位（保留在 DOM——与 SPA renderArray 同构，
+      // 后续 diff 的 oldNodes 映射有对应槽位节点）
+      while (c.node && c.node.nodeType === 8 && (c.node as Comment).nodeValue?.startsWith('wf-hole:')) {
+        cursorAdvance(c)
+      }
       return null
     }
     const domNode = renderValueHydrating(child, ctx, c)

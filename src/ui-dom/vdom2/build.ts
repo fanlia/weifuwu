@@ -19,6 +19,7 @@ import { componentName, ctxVersion as getCtxVersion, setMounting, type VdomCtx, 
 import { createRegistry } from './registry.ts'
 import { Fragment, arrayChildren, isFrag, isComp, isNative } from '../vnode.ts'
 import { ensureId, type Registry } from './registry.ts'
+import { transition, canReuse, vnodeTraceCtx } from './lifecycle.ts'
 import { trace, traceEnabled, kidsSeq, vnDesc } from './trace.ts'
 
 /** 组件 props 浅比较（三态 skip 判定） */
@@ -189,22 +190,30 @@ export function buildVNode(
     }
     // ── 剪枝判断（前置——命中 = 纯同步 O(1)，不创建 childCtx 不 await） ──
     // force（renderByIds 显式渲染）→ 强制重跑 renderFn（读最新状态）
+    // 生命周期检查（核心修复）：oldV 被 dispose 过（_lifecycle=disposed——diff 移除时
+    // registry.ts 显式标记）→ 不剪枝 → 重新构建。dispose 掏空了旧树内容但引用保留，
+    // 剪枝按引用（_child != null）误判可用 → 复用空壳 → diff 遇未构建组件（demo 搜索序列）
     const propsSame = componentPropsEqual(oldV?.props ?? {}, vnode.props ?? {})
     const ver = getCtxVersion(ctx)
     const verSame = (oldV?._ctxVersion ?? -1) === ver
-    if (!opts?.force && propsSame && verSame && oldV?._child != null) {
-      vnode._child = oldV._child
-      vnode._ctxVersion = oldV._ctxVersion
+    // canReuse：生命周期非 disposed + 旧 _child 有效（I3——统一复用检查）
+    if (!opts?.force && propsSame && verSame && canReuse(oldV) && typeof vnode._render === 'function') {
+      const ov = oldV! // canReuse(oldV) 保证非 null + _child 有效（TS 无法收窄——显式断言）
+      vnode._lifecycle = transition(vnode._lifecycle, 'PRUNE', vnodeTraceCtx(vnode))
+      vnode._child = ov._child
+      vnode._ctxVersion = ov._ctxVersion
       if (traceEnabled('build')) trace('build', 'debug', '', `prune comp=${vnDesc(vnode)} propsSame=${propsSame} verSame=${verSame}`)
       return vnode
     }
     // ── 完整路径：mountAsyncComponent（await 工厂——组件两阶段异步契约不变） ──
+    vnode._lifecycle = transition(vnode._lifecycle, 'BUILD_START', vnodeTraceCtx(vnode))
     if (traceEnabled('build')) trace('build', 'debug', '', `mount comp=${vnDesc(vnode)} propsSame=${propsSame} verSame=${verSame} force=${!!opts?.force}`)
     return (async () => {
       const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? null })
       const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry, opts)
       vnode._child = (built ?? null) as VNode | VNode[] | null
       vnode._ctxVersion = ver
+      vnode._lifecycle = transition(vnode._lifecycle, 'BUILD_DONE', vnodeTraceCtx(vnode))
       return vnode
     })()
   }
@@ -213,9 +222,15 @@ export function buildVNode(
     if (traceEnabled('build')) trace('build', 'debug', '', `fragment kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
     const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?._child ?? oldV?.props?.children, registry, opts)
     if (isThenable(r)) {
-      return r.then((built) => { vnode._child = (built ?? null) as VNode | VNode[] | null; return vnode })
+      return r.then((built) => {
+        vnode._child = (built ?? null) as VNode | VNode[] | null
+        // 生命周期：同步构建路径 fresh → built（四状态机·节点层——native/Fragment 无中间态）
+        vnode._lifecycle = transition(vnode._lifecycle, 'BUILD_DONE', vnodeTraceCtx(vnode))
+        return vnode
+      })
     }
     vnode._child = (r ?? null) as VNode | VNode[] | null
+    vnode._lifecycle = transition(vnode._lifecycle, 'BUILD_DONE', vnodeTraceCtx(vnode))
     return vnode
   }
 
@@ -224,9 +239,15 @@ export function buildVNode(
     if (traceEnabled('build')) trace('build', 'trace', '', `native <${String(vnode.type)}> kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
     const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?.props?.children, registry, opts)
     if (isThenable(r)) {
-      return r.then((built) => { vnode._child = (built ?? null) as VNode | VNode[] | null; return vnode })
+      return r.then((built) => {
+        vnode._child = (built ?? null) as VNode | VNode[] | null
+        // 生命周期：同步构建路径 fresh → built（native/Fragment/Portal——含异步子项则 resolve 后标）
+        vnode._lifecycle = transition(vnode._lifecycle, 'BUILD_DONE', vnodeTraceCtx(vnode))
+        return vnode
+      })
     }
     vnode._child = (r ?? null) as VNode | VNode[] | null
+    vnode._lifecycle = transition(vnode._lifecycle, 'BUILD_DONE', vnodeTraceCtx(vnode))
     return vnode
   }
 
