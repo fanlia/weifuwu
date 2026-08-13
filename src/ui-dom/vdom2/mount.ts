@@ -19,6 +19,7 @@ import { patchValue, type PatchCtx } from './patch.ts'
 import { auditEnabled, auditTree } from './audit.ts'
 import { createClientBrowser } from '../browser.ts'
 import { ctxVersion as getCtxVersion, type VdomCtx } from './ctx.ts'
+import { emit, beginSession, endSession } from './events.ts'
 import type { BrowserEnv } from '../types.ts'
 
 export interface MountOptions {
@@ -52,7 +53,8 @@ export interface VdomContext {
   rootUi: any
 }
 
-/** 渲染执行器（render-only 唯一渲染入口——无调度队列，直接执行） */
+/** 渲染执行器（render-only 唯一渲染入口——per-id 串行链：并发触发排队补跑，
+ *  同一组件渲染中再次触发 → 排队等前一个完成后补跑最新状态（合并语义）） */
 export function createRenderer(opts: {
   registry: Registry
   ctx: any
@@ -60,10 +62,14 @@ export function createRenderer(opts: {
   onError?: (e: unknown) => void
 }): Renderer {
   const { registry, ctx } = opts
-  async function renderOne(id: string): Promise<void> {
+  // render 调度状态机（per-id）：IDLE → RUNNING → 完成后 IDLE；RUNNING 中再次触发 →
+  // 排队（prev.then）——不是丢弃（错过状态更新会丢渲染，并发合并是既有语义，测试锁定）
+  const renderChains = new Map<string, Promise<void>>()
+  async function doRenderOne(id: string): Promise<void> {
     const vnode = registry.idRegistry.get(id)
     if (!vnode || !isComp(vnode) || typeof vnode._render !== 'function') return
     const comp = vnode as CompVNode
+    const session = beginSession('render')
     try {
       // renderFn 强制异步：await 数据 → 输出 vnode 树
       const output = await comp._render!(comp.props)
@@ -76,16 +82,22 @@ export function createRenderer(opts: {
       // stray 兄弟节点。
       // **跳过**：父树构建尚未完成，本次渲染会带上最新状态，自渲染的变更由下次渲染呈现
       // （状态变更已写入闭包/let——renderFn 重跑时读到）。
-      if (comp._lifecycle === 'building') return
-      // 定位渲染容器：_parentNode 优先；_refNode.parentNode fallback。
-      // **rootEl 只属于根组件**（_rootVNodeId 匹配）：非根组件无 _parentNode/_refNode =
-      // 挂载信息断裂（重建后未渲染/构建中）——渲染会 append 到 #root 成 stray 兄弟
-      // （真实事故：DemoAnchor 页面加载期 dispose→rebuild 后 lc=built 但 _refNode=null，
-      // 自渲染落入 rootEl → 锚点树 append 到 #root）。根组件（portal 输出的 Modal 壳 +
-      // 关闭渲染移除远程容器）经此定位；App 经 _refNode.parentNode（= rootEl）。
+      if (comp._lifecycle === 'building') {
+        emit({ session, machine: 'render', nodeId: comp._id ?? null, component: compName(comp), from: 'IDLE', event: 'PARENT', to: 'SKIP_BUILDING', payload: () => ({ lifecycle: comp._lifecycle }), level: 'debug', ts: Date.now() })
+        return
+      }
+      // 定位渲染容器（render 调度状态机——显式分派 + 事件）：
+      //  _parentNode 优先（树内组件）；_refNode.parentNode fallback。
+      //  **rootEl 只属于根组件**（_rootVNodeId 匹配）：非根组件无 _parentNode/_refNode =
+      //  挂载信息断裂（重建后未渲染/构建中）——渲染会 append 到 #root 成 stray 兄弟
+      //  （真实事故：DemoAnchor 页面加载期 dispose→rebuild 后 lc=built 但 _refNode=null，
+      //  自渲染落入 rootEl → 锚点树 append 到 #root）。根组件（portal 输出的 Modal 壳 +
+      //  关闭渲染移除远程容器）经此定位；App 经 _refNode.parentNode（= rootEl）。
       const isRoot = comp._id != null && comp._id === (ctx.ui as any)?._rootVNodeId
       let parent = comp._parentNode ?? comp._refNode?.parentNode ?? null
       if (parent == null && isRoot) parent = opts.rootEl ?? null
+      const to = parent ? (isRoot && !comp._parentNode ? 'ROOT' : 'MOUNTED') : 'SKIP_DETACHED'
+      emit({ session, machine: 'render', nodeId: comp._id ?? null, component: compName(comp), from: 'IDLE', event: 'PARENT', to, payload: () => ({ lifecycle: comp._lifecycle }), level: 'debug', ts: Date.now() })
       if (parent) {
         const patchCtx: PatchCtx = {
           browser: ctx.browser ?? createClientBrowser(),
@@ -106,13 +118,26 @@ export function createRenderer(opts: {
     } catch (e) {
       if (opts.onError) opts.onError(e)
       else console.error('[vdom2] render error:', (e as { stack?: string })?.stack ?? e)
+    } finally {
+      endSession()
     }
   }
   function render(ids?: string[]): Promise<void> {
     if (ids == null) return Promise.resolve()
-    return Promise.all(ids.map((id) => renderOne(id))).then(() => {})
+    // per-id 串行链：并发触发排队（合并补跑最新状态）——prev.then 保证同 id 不并发覆盖
+    return Promise.all(ids.map((id) => {
+      const prev = renderChains.get(id) ?? Promise.resolve()
+      const next = prev.then(() => doRenderOne(id))
+      renderChains.set(id, next)
+      return next.finally(() => { if (renderChains.get(id) === next) renderChains.delete(id) })
+    })).then(() => {})
   }
   return { render }
+}
+
+/** 组件名（render 调度 PARENT 事件用——尽力，type.name 缺失时回退） */
+function compName(comp: CompVNode): string {
+  return typeof comp.type === 'function' && comp.type.name ? comp.type.name : 'anonymous'
 }
 
 /** 纯引擎挂载（接受已组装 ctx——ui-dom/context.ts 提供便捷入口） */

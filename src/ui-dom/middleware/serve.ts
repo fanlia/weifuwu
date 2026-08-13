@@ -20,7 +20,8 @@ import { createVdomContext } from '../context.ts'
 import { hydrateVNode } from '../vdom2/hydrate.ts'
 import { createRouteController } from '../vdom2/route.ts'
 import { installVdomInspect } from '../vdom2/trace.ts'
-import { installEventRing } from '../vdom2/events.ts'
+import { installEventRing, beginSession, endSession } from '../vdom2/events.ts'
+import { installMountInvariantAudit } from '../vdom2/audit.ts'
 import type { VNodeChild } from '../vnode.ts'
 
 /** uiServe 选项 */
@@ -143,6 +144,7 @@ export function uiServe<RC extends object = {}>(
     const location = { pathname: path, search: '' } as any
     ;(ctx as any).route.path = path
     routeCtrl.navigateStart(path) // idle/settled → navigating（旧树卸载 + 新树构建起点）
+    const session = beginSession(initial ? 'initial' : 'nav') // 导航会话：一棵事件树
     let output: VNodeChild
     try {
       output = (await router.execute(location, ctx as UIContext, path)) as VNodeChild
@@ -151,7 +153,7 @@ export function uiServe<RC extends object = {}>(
       // 错误兜底（不黑屏）：handler 抛错 → 错误页
       output = h('div', { class: 'ui-dom-error' }, `页面渲染失败: ${e?.message ?? String(e)}`)
     }
-    if (closing || token !== navToken) return // 过期导航丢弃（串行化——快速连续导航防竞态）
+    if (closing || token !== navToken) { endSession(); return } // 过期导航丢弃（串行化——快速连续导航防竞态）
     const traceOn = traceEnabled('mount')
     const traceId = traceOn ? nextTraceId('nav') : ''
     if (traceOn) trace('mount', 'info', traceId, `route path=${path} initial=${initial}`)
@@ -187,6 +189,7 @@ export function uiServe<RC extends object = {}>(
     rootUi._rootVNodeId = (built as VNode)?._id
     // 导航完成：新树 build + diff/render 全部落地 → navigating → settled
     routeCtrl.navigateDone(path)
+    endSession()
   }
 
   // ── 首帧 ──
@@ -197,6 +200,8 @@ export function uiServe<RC extends object = {}>(
   installVdomInspect(() => currentChild)
   // 事件 ring buffer：页面生命周期内状态机事件全程记录（__vdom_events 查询）
   installEventRing()
+  // 挂载不变量 audit：订阅 render 调度 PARENT 事件——built 组件无定位在转换瞬间报错
+  installMountInvariantAudit()
 
   // ── 导航（popstate——SPA 路由切换） ──
   // 注意：不依赖 currentPath 判断（快速连续导航时 currentPath 异步滞后——误跳第二次导航）；

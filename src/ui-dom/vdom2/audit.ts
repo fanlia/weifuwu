@@ -23,6 +23,34 @@ export function auditEnabled(): boolean {
   return !!((globalThis as Record<string, unknown>)?.__WF_VDOM_AUDIT)
 }
 
+// ── 挂载不变量 audit（事件流消费者——订阅 render 调度 PARENT 事件） ──
+//
+// 「built 但无定位」是挂载信息断裂的标志（真实事故：DemoAnchor 页面加载期 dispose→rebuild
+// 后 lc=built 但 _refNode=null——自渲染被 renderOne 跳过，组件状态更新丢失）。
+// 传统 auditTree 是事后整树遍历（DOM 快照对比）；此处订阅事件流——render 调度发射
+// PARENT 事件（MOUNTED/ROOT/SKIP_BUILDING/SKIP_DETACHED），转换瞬间校验：
+//  - SKIP_BUILDING：构建中自渲染——正常（父树构建承载）
+//  - SKIP_DETACHED ：built/pruned 但无定位——挂载不变量违反（报错暴露）
+//  - MOUNTED/ROOT ：正常
+import { onVdomEvent, type VdomEvent } from './events.ts'
+
+let mountAuditInstalled = false
+
+/** 安装挂载不变量 audit（uiServe 初始化时调用一次——订阅事件流而非遍历 DOM） */
+export function installMountInvariantAudit(): void {
+  if (mountAuditInstalled) return
+  mountAuditInstalled = true
+  onVdomEvent((ev: VdomEvent) => {
+    if (ev.machine !== 'render' || ev.event !== 'PARENT') return
+    if (!auditEnabled()) return
+    if (ev.to === 'SKIP_DETACHED') {
+      console.error(
+        `[vdom2/audit] 挂载不变量违反：组件 ${ev.component ?? '?'}${ev.nodeId ? `(${ev.nodeId})` : ''} 状态 ${String((ev.payload as { lifecycle?: string })?.lifecycle)} 但无 _parentNode/_refNode（rootEl 只属于根组件）——挂载信息断裂，渲染被跳过，状态更新将丢失`,
+      )
+    }
+  })
+}
+
 /** 数组级校验：childNodes 与 children 数组对齐（A1/A2——占位错位/数量错位） */
 export function auditChildren(
   parent: Node,

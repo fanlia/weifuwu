@@ -65,9 +65,32 @@ export function onVdomEvent(sink: EventSink): () => void {
   return () => { sinks.delete(sink) }
 }
 
-/** payload 惰性求值 + 分发（sink 错误隔离——不中断渲染管线） */
+// ── 渲染会话（session）管理：一次渲染（renderOne/renderPath）= 一棵事件树 ──
+const sessionStack: string[] = []
+let sessionSeq = 0
+
+/** 开始渲染会话（renderOne/renderPath 入口调用）——期间所有 emit 共享 session */
+export function beginSession(tag?: string): string {
+  const id = `R${++sessionSeq}${tag ? ':' + tag : ''}`
+  sessionStack.push(id)
+  return id
+}
+
+/** 结束渲染会话（renderOne/renderPath 出口调用） */
+export function endSession(): void {
+  sessionStack.pop()
+}
+
+/** 当前会话 id（空 = 无会话——事件流外直接 emit） */
+export function currentSession(): string {
+  return sessionStack[sessionStack.length - 1] ?? ''
+}
+
+/** payload 惰性求值 + 分发（sink 错误隔离——不中断渲染管线）
+ *  session：事件显式传入优先，否则继承当前渲染会话（一次渲染 = 一棵事件树） */
 export function emit(ev: VdomEvent): void {
   if (sinks.size === 0) return
+  if (!ev.session) ev.session = currentSession()
   // 惰性 payload：仅当有消费者需要时才求值（collect sink 或 trace 开启）
   if (typeof ev.payload === 'function') {
     const need = sinks.size > 1 || traceEnabled(machineToStage(ev.machine), ev.level ?? 'debug')

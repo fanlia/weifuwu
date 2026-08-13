@@ -15,6 +15,8 @@ import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { mountCommand } from '../ui-dom/context.ts'
 import { patchValue } from '../ui-dom/vdom2/patch.ts'
+import { buildVNode } from '../ui-dom/vdom2/build.ts'
+import { renderValue } from '../ui-dom/vdom2/render.ts'
 import { h } from '../ui-dom/vnode.ts'
 import { createRouteController } from '../ui-dom/vdom2/route.ts'
 import { createRegistry } from '../ui-dom/vdom2/registry.ts'
@@ -24,7 +26,7 @@ before(setupJsdom)
 const browser = createClientBrowser()
 
 function fakeCtx() {
-  return { ui: { $: {}, dirty: () => {}, render: () => {}, ready: true } }
+  return { ui: { $: {}, dirty: () => {}, render: () => {}, ready: true }, browser }
 }
 
 function flush(): Promise<void> {
@@ -140,6 +142,65 @@ test('trace 包装：执行细节 TRACE 事件可观测（trace 开启时 collec
   } finally {
     collector.unsubscribe()
     configureVdomTrace({ stages: new Set([]) }) // 关闭——不影响其他测试输出
+  }
+})
+
+test('session 贯穿：一次渲染的事件共享同一 session（事件树关联）', async () => {
+  __resetVdomEvents()
+  const collector = makeEventCollector()
+  try {
+    const ctx = fakeCtx()
+    const container = browser.createElement('div')
+    const Comp = async (_i: any) => async () => h('div', { id: 'x' }, 'x')
+    // mountCommand 直接 build（不经 renderOne）——用 createRenderer 触发带 session 的渲染
+    const reg = createRegistry()
+    const { createRenderer } = await import('../ui-dom/vdom2/mount.ts')
+    const renderer = createRenderer({ registry: reg, ctx, rootEl: container })
+    await renderer.render(['_wf_nonexistent']) // 空跑一次（验证 session 边界）
+    // 直接驱动 renderOne 路径：造一个已挂载组件
+    const vnode = { type: Comp, props: {}, _id: '_wf_s1', _render: async () => h('div', { id: 'x' }, 'x'), _parentNode: container } as any
+    reg.idRegistry.set('_wf_s1', vnode)
+    vnode._child = await buildVNode(await vnode._render(), ctx, null, reg)
+    const node = renderValue(vnode._child, ctx, ctx.browser)!
+    container.appendChild(node)
+    vnode._refNode = node
+    await renderer.render(['_wf_s1'])
+
+    // 该次渲染的所有事件共享同一 session（非空且一致）
+    const sessions = new Set(collector.events.filter((e) => e.event !== 'TRACE').map((e) => e.session).filter(Boolean))
+    assert.equal(sessions.size, 1, `一次渲染应共享一个 session，实际 ${[...sessions].join(',')}`)
+    assert.ok(sessions.size === 1 && [...sessions][0].startsWith('R'), 'session 格式 R{n}')
+  } finally {
+    collector.unsubscribe()
+  }
+})
+
+test('render 调度事件：PARENT 状态（MOUNTED/ROOT/SKIP_BUILDING）可观测', async () => {
+  __resetVdomEvents()
+  const collector = makeEventCollector()
+  try {
+    const ctx = fakeCtx()
+    const container = browser.createElement('div')
+    // 树内组件（_parentNode 有效）→ MOUNTED
+    const { createRenderer } = await import('../ui-dom/vdom2/mount.ts')
+    const reg = createRegistry()
+    const renderer = createRenderer({ registry: reg, ctx, rootEl: container })
+    const Inner = async (_i: any) => async () => h('div', { id: 'i' }, 'i')
+    const innerV = { type: Inner, props: {}, _id: '_wf_inner', _render: async () => h('div', { id: 'i' }, 'i'), _parentNode: container } as any
+    reg.idRegistry.set('_wf_inner', innerV)
+    innerV._child = await buildVNode(await innerV._render(), ctx, null, reg)
+    const n1 = renderValue(innerV._child, ctx, ctx.browser)!
+    container.appendChild(n1)
+    innerV._refNode = n1
+    await renderer.render(['_wf_inner'])
+
+    const parentEvts = collector.events.filter((e) => e.machine === 'render' && e.event === 'PARENT')
+    const mounted = parentEvts.find((e) => e.to === 'MOUNTED')
+    assert.ok(mounted, `树内组件应 PARENT=MOUNTED，实际 ${parentEvts.map((e) => e.to).join(',')}`)
+    assert.equal(mounted?.component, 'Inner')
+    assert.equal(mounted?.nodeId, '_wf_inner')
+  } finally {
+    collector.unsubscribe()
   }
 })
 
