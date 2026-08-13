@@ -119,6 +119,30 @@ test('x2y / keys 事件：数组 diff 的转换与策略选择可观测', async 
   }
 })
 
+test('trace 包装：执行细节 TRACE 事件可观测（trace 开启时 collect 收 build/render 摘要）', async () => {
+  __resetVdomEvents()
+  const { configureVdomTrace } = await import('../ui-dom/vdom2/trace.ts')
+  configureVdomTrace({ stages: new Set(['build', 'render']) })
+  const collector = makeEventCollector()
+  try {
+    const ctx = fakeCtx()
+    const container = browser.createElement('div')
+    const Comp = async (_i: any) => async () => h('div', { id: 'x' }, 'x')
+    await mountCommand(container, h(Comp, {}), ctx)
+    await flush()
+
+    const traceEvts = collector.events.filter((e) => e.event === 'TRACE')
+    assert.ok(traceEvts.length >= 3, `应收集到 build/render 执行细节，实际 ${traceEvts.length}`)
+    assert.ok(traceEvts.some((e) => e.machine === 'build' && String(e.payload).includes('native <div>')),
+      `build 摘要事件缺失: ${traceEvts.map((e) => e.machine).join(',')}`)
+    assert.ok(traceEvts.some((e) => e.machine === 'render' && String(e.payload).includes('native <div>')),
+      `render 摘要事件缺失`)
+  } finally {
+    collector.unsubscribe()
+    configureVdomTrace({ stages: new Set([]) }) // 关闭——不影响其他测试输出
+  }
+})
+
 test('append 串位事故断言：pos INSERT 插入点不得指向本次 diff 已插入的节点', async () => {
   __resetVdomEvents()
   const collector = makeEventCollector()

@@ -22,7 +22,7 @@
 import type { VNodeChild, VNode } from '../vnode.ts'
 import { Fragment, Portal } from '../vnode.ts'
 import { dumpTimeline } from './lifecycle.ts'
-import { __vdom_events } from './events.ts'
+import { __vdom_events, emit, hasObservingSinks, type VdomMachine } from './events.ts'
 
 export type VdomStage = 'mount' | 'build' | 'render' | 'diff' | 'lifecycle' | 'route' | 'audit'
 export type VdomLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace'
@@ -113,13 +113,26 @@ export function traceEnabled(stage: VdomStage, level: VdomLevel = 'info'): boole
   return LEVELS[level] <= LEVELS[cfg.level]
 }
 
-/** 输出 trace 日志（[vdom:{stage}] {traceId} {msg}） */
+/** 输出 trace 日志（[vdom:{stage}] {traceId} {msg}）
+ *  统一事件流：trace = 执行细节摘要通道——内部发射 TRACE 事件（console sink 输出原格式；
+ *  ring/collect sink 记录——执行细节可追溯/可断言）。
+ *  gate：trace 开启 或 存在观测 sink（collect/ring）——否则零成本（调用点已有 traceEnabled 前置守卫保证 msg 惰性） */
 export function trace(stage: VdomStage, level: VdomLevel, msg: string, ...args: unknown[]): void {
-  if (!traceEnabled(stage, level)) return
+  if (!traceEnabled(stage, level) && !hasObservingSinks()) return
   const filter = cfg.filter
   if (filter && !msg.includes(filter)) return
-  // eslint-disable-next-line no-console
-  console.log(`[vdom:${stage}]  ${msg}`, ...args)
+  emit({
+    session: '',
+    machine: stage as unknown as VdomMachine,
+    nodeId: null,
+    component: null,
+    from: '',
+    event: 'TRACE',
+    to: '',
+    payload: () => (args.length ? `${msg} ${args.join(' ')}` : msg),
+    level,
+    ts: Date.now(),
+  })
 }
 
 /** 手动配置（测试/调试用——不受 init 时序/缓存影响） */

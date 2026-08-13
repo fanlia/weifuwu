@@ -15,8 +15,8 @@
 
 import { traceEnabled, type VdomLevel, type VdomStage } from './trace.ts'
 
-/** 状态机名（事件来源） */
-export type VdomMachine = 'route' | 'lifecycle' | 'x2y' | 'keys' | 'pos' | 'render' | 'audit'
+/** 状态机名（事件来源）——含执行细节摘要通道（build/render/diff/mount——trace 包装） */
+export type VdomMachine = 'route' | 'lifecycle' | 'x2y' | 'keys' | 'pos' | 'render' | 'audit' | 'build' | 'mount' | 'diff'
 
 /** machine → trace 阶段映射（console sink 可见性门控复用 trace 开关） */
 const MACHINE_TO_STAGE: Record<VdomMachine, VdomStage> = {
@@ -27,6 +27,9 @@ const MACHINE_TO_STAGE: Record<VdomMachine, VdomStage> = {
   pos: 'diff',
   render: 'render',
   audit: 'audit',
+  build: 'build',
+  mount: 'mount',
+  diff: 'diff',
 }
 
 export function machineToStage(m: VdomMachine): VdomStage {
@@ -75,6 +78,12 @@ export function emit(ev: VdomEvent): void {
   }
 }
 
+/** 是否存在「console 之外」的观测 sink（ring/collect）——trace() 包装的 emit 门槛：
+ *  trace 关闭但测试收集/调试 ring 存在时，执行细节事件仍要发射（供断言/追溯） */
+export function hasObservingSinks(): boolean {
+  return sinks.size > 1
+}
+
 /** 可读 payload 摘要（console sink 用） */
 function fmtPayload(p: unknown): string {
   if (p == null) return ''
@@ -97,6 +106,12 @@ function fmtPayload(p: unknown): string {
 function consoleSink(ev: VdomEvent): void {
   const stage = machineToStage(ev.machine)
   if (!traceEnabled(stage, ev.level ?? 'debug')) return
+  // TRACE 事件 = trace() 包装（执行细节摘要——输出原始 msg，保持旧格式）
+  if (ev.event === 'TRACE') {
+    // eslint-disable-next-line no-console
+    console.log(`[vdom:${ev.machine}]  ${ev.payload as string}`)
+    return
+  }
   const who = ev.component
     ? `${ev.component}${ev.nodeId ? `(${ev.nodeId})` : ''}`
     : (ev.nodeId ? `(${ev.nodeId})` : '')
