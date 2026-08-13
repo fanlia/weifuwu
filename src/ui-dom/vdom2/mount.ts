@@ -70,8 +70,22 @@ export function createRenderer(opts: {
       const newChild = (await buildVNode(output, ctx, comp._child, registry)) ?? null
       const oldChild = comp._child
       comp._child = newChild as VNode | VNode[] | null
-      // 定位渲染容器：_parentNode 优先；_refNode.parentNode fallback
-      const parent = comp._parentNode ?? comp._refNode?.parentNode ?? opts.rootEl ?? null
+      // 构建中自渲染（组件 renderFn 期间调用 ctx.ui.render()——真实事故：DemoAnchor 在
+      // buildVNode 期间 computeActive 触发 onAnchorChange → ctx.ui.render()）：此时
+      // _parentNode/_refNode 皆空，直接渲染会落到 rootEl → 整树 append 到 #root 成为
+      // stray 兄弟节点。
+      // **跳过**：父树构建尚未完成，本次渲染会带上最新状态，自渲染的变更由下次渲染呈现
+      // （状态变更已写入闭包/let——renderFn 重跑时读到）。
+      if (comp._lifecycle === 'building') return
+      // 定位渲染容器：_parentNode 优先；_refNode.parentNode fallback。
+      // **rootEl 只属于根组件**（_rootVNodeId 匹配）：非根组件无 _parentNode/_refNode =
+      // 挂载信息断裂（重建后未渲染/构建中）——渲染会 append 到 #root 成 stray 兄弟
+      // （真实事故：DemoAnchor 页面加载期 dispose→rebuild 后 lc=built 但 _refNode=null，
+      // 自渲染落入 rootEl → 锚点树 append 到 #root）。根组件（portal 输出的 Modal 壳 +
+      // 关闭渲染移除远程容器）经此定位；App 经 _refNode.parentNode（= rootEl）。
+      const isRoot = comp._id != null && comp._id === (ctx.ui as any)?._rootVNodeId
+      let parent = comp._parentNode ?? comp._refNode?.parentNode ?? null
+      if (parent == null && isRoot) parent = opts.rootEl ?? null
       if (parent) {
         const patchCtx: PatchCtx = {
           browser: ctx.browser ?? createClientBrowser(),

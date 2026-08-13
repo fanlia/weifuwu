@@ -490,13 +490,18 @@ function posHoleReal(s: PosState): void {
     if (n && n.parentNode === parent) { next = n; break }
   }
   // Fragment 内新增：oldNodes 用完（旧 children 短于新）→ 优先用已处理项（out 尾部）的
-  // nextSibling（连续新增按序插入）；fallback 用最后一个旧节点的 nextSibling（Fragment
-  // 尾节点后的兄弟——c）——否则 append 末尾/顺序颠倒（diff-fragment bug）
-  if (!next) {
+  // nextSibling（连续新增按序插入）。
+  // **坑（2026-12 搜索恢复实测）**：out 尾部 nextSibling === null = 「父末尾——append 正确」，
+  // 不得再进入旧节点兜底——否则用旧节点（已被新插入项顶到前方）的 nextSibling 作插入点，
+  // 后续新增全被插到首个新项前（[Button, Input…] 恢复时 Input 被挤到列表尾）。
+  // 兜底（最后一个旧节点的 nextSibling——Fragment 尾节点后的兄弟 c）仅在 out 尾部不可用
+  // （null/已移除）时执行。
+  if (next == null) {
     let last: Node | null = null
     for (let k = out.length - 1; k >= 0; k--) if (out[k]) { last = out[k]; break }
-    if (last && last.parentNode === parent) next = last.nextSibling
-    if (!next) {
+    if (last && last.parentNode === parent) {
+      next = last.nextSibling // null = 父末尾（append 正确）——不再覆盖
+    } else {
       const l = oldNodes[oldNodes.length - 1]
       if (l && l.parentNode === parent) next = l.nextSibling
     }

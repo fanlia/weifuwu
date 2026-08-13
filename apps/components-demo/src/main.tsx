@@ -49,13 +49,16 @@ const SECTIONS = ['表单核心', '表单选择', '表单增强', '数据展示'
 const secId = (t: string) => `sec-${t}`
 const cardId = (t: string) => `c-${t.replace(/[^\w一-龥-]+/g, '-')}`
 
-function Section(props: { title: string; children: any }, ctx: any) {
+function Section(initProps: { title: string; children: any }, ctx: any) {
   // 懒渲染（S1）：分组滚入视口才建卡片树（once-latch——滚走后保持，demo 状态不回收）；
   // 搜索时强制全渲染（全局匹配）；IO 未就绪时保守渲染（避免首屏闪烁）
+  // §3.1 纪律：renderFn 必须用渲染期 props（最新）——不得用 mount 捕获的 initProps 渲染
+  // （否则 children 永远是首次挂载的 vnode 对象——搜索过滤 dispose 后重发的同对象
+  //  既是旧树又是新树 → 自 dispose → 卡片错位/消失）
   const inView = ctx.ui.useInView({ threshold: 0.02 })
   let rendered = false
   const secRef = (el: any) => inView.observe(el)
-  return (_p: any) => {
+  return (props: { title: string; children: any }) => {
     if (inView.isIn) rendered = true
     const searching = !!cardFilter.q
     const kids = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean)
@@ -77,9 +80,10 @@ function Section(props: { title: string; children: any }, ctx: any) {
   }
 }
 
-function DemoCard(props: { title: string; desc: string; code: string; children: any }, ctx: any) {
+function DemoCard(initProps: { title: string; desc: string; code: string; children: any }, ctx: any) {
   let copied = false
-  return (_p: any) => (
+  // §3.1 纪律：renderFn 用渲染期 props（最新）——mount 捕获的 initProps 不得用于渲染
+  return (props: { title: string; desc: string; code: string; children: any }) => (
     <div class="wf-surface wf-border wf-rounded-md wf-clip" id={cardId(props.title)}>
       <h3 class="wf-text-base wf-text-semibold wf-p-md wf-bg-secondary wf-border-b wf-m-0">{props.title}</h3>
       <div class="wf-p-md wf-row wf-gap-sm wf-cluster wf-border-b wf-scroll">{props.children}</div>
@@ -1672,7 +1676,7 @@ const DemoAutoCompleteDis: Component = async (_p, ctx) => {
       <AutoComplete options={[
         { value: 'pay-admin', label: '支付平台管理' },
         { value: 'order-center', label: '订单中心' },
-      ]} value="" disabled={disabled} placeholder="禁用时不可输入…" />
+      ]} disabled={disabled} placeholder="禁用时不可输入…" />
       <div><Button onClick={() => { disabled = !disabled; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
     </div>
   )
