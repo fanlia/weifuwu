@@ -58,6 +58,36 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
   // 后清除；外部变化（source 切回/程序化 setValue）在非脏状态正常同步。
   let domDirty = false
 
+  // ── 对齐 class 清理（HTML 语义一致）──────────────────────
+  // execCommand('justify*') 只加 inline style，不清除冲突的文本对齐 class——
+  // 初始内容带 wf-text-center 时点左/右对齐，HTML 残留 `class="wf-text-center"
+  // style="text-align: left"`（class 声明居中 + style 声明左——语义矛盾，复用场景 class
+  // 生效）。对齐操作后清除选区块的 wf-text-* 对齐类（真实浏览器验收发现）。
+  const ALIGN_CLASSES = ['wf-text-left', 'wf-text-center', 'wf-text-right']
+  const clearAlignClasses = () => {
+    if (!editorEl) return
+    const sel = _browser?.getSelection()
+    if (!sel || !sel.rangeCount) return
+    const range = sel.getRangeAt(0)
+    // start/end 容器各自向上找块，清除对齐类（覆盖光标所在块/选区两端块）
+    const targets = new Set<Element>()
+    for (const c of [range.startContainer, range.endContainer]) {
+      let n: Node | null = c.nodeType === 1 ? c : c.parentNode
+      while (n && n !== editorEl && n.nodeType === 1) {
+        targets.add(n as Element)
+        n = n.parentNode
+      }
+    }
+    for (const el of targets) {
+      let removed = false
+      for (const c of ALIGN_CLASSES) {
+        if (el.classList.contains(c)) { el.classList.remove(c); removed = true }
+      }
+      // 对齐类清空后无其他 class → 移除空 class 属性（HTML 输出干净）
+      if (removed && el.className.trim() === '') el.removeAttribute('class')
+    }
+  }
+
   // ── 选区保存/恢复 ──────────────────────────────
   let savedRange: Range | null = null
 
@@ -139,6 +169,8 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       }
 
       execFormat(item)
+      // 对齐命令后清除冲突的文本对齐 class（execCommand 不清 class——HTML 语义一致）
+      if (item === 'alignLeft' || item === 'alignCenter' || item === 'alignRight') clearAlignClasses()
       activeFormats = queryFormats()
       if (editorEl && onChange) emitChange(editorEl.innerHTML) // 先标记脏（DOM 已改）再 render——避免 render 写旧 value 覆盖
       ctx.ui.render()

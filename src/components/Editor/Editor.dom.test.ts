@@ -242,3 +242,35 @@ test('placeholder：有媒体元素（img）时不算空——不清空', async 
   await ed.flush()
   assert.ok(editable.innerHTML.includes('<img'), '有 img 时内容保留（不算空）')
 })
+
+test('对齐操作清除冲突的 wf-text-* 对齐类（HTML 语义一致——真实浏览器验收发现）', async () => {
+  const ed = await setupEditor({ value: '<p class="wf-text-center">居中文字</p>' })
+  const editable = ed.editable()!
+  const p = editable.querySelector('p')!
+  // caret 放入居中 p
+  const range = document.createRange()
+  range.setStart(p.firstChild!, 2)
+  range.collapse(true)
+  const sel = window.getSelection()!
+  sel.removeAllRanges()
+  sel.addRange(range)
+  // 点 alignLeft（jsdom execCommand no-op，但 clearAlignClasses 执行）
+  const btn = [...ed.container.querySelectorAll<HTMLButtonElement>('.wf-editor-tb-btn')]
+    .find((b) => b.getAttribute('data-item') === 'alignLeft')!
+  btn.click()
+  await ed.flush()
+  assert.ok(!p.classList.contains('wf-text-center'), 'wf-text-center 类被清除（execCommand 不清 class——组件补）')
+  assert.equal(p.getAttribute('class'), null, '无其他 class 时移除空 class 属性')
+  // 点 alignRight 同样清除
+  const sel2 = window.getSelection()!
+  const r2 = document.createRange()
+  r2.setStart(p.firstChild!, 2)
+  r2.collapse(true)
+  sel2.removeAllRanges()
+  sel2.addRange(r2)
+  const rightBtn = [...ed.container.querySelectorAll<HTMLButtonElement>('.wf-editor-tb-btn')]
+    .find((b) => b.getAttribute('data-item') === 'alignRight')!
+  rightBtn.click()
+  await ed.flush()
+  assert.equal(p.getAttribute('class'), null, 'alignRight 后 class 仍干净')
+})
