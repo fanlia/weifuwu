@@ -27,7 +27,8 @@ export function disposeComponent(vnode: VNode, registry?: Registry): void {
 import { renderValue } from './render.ts'
 import { setProp, EVENT_RE, createHole, eventTarget } from './transform.ts'
 import { trace, traceEnabled, kidsSeq, vnDesc, nodeDesc, childNodesSeq } from './trace.ts'
-import { getOutputRange, type PatchState } from './kind.ts'
+import { getOutputRange, type PatchState, keyModeOf, type KeyMode } from './kind.ts'
+import { auditEnabled } from './audit.ts'
 
 
 /** 从 vnode 取稳定 key（Portal 内部 key 不算用户 keyed） */
@@ -245,37 +246,37 @@ export function patchChildren(
   const source = oldRange ?? Array.from(parent.childNodes)
   if (traceEnabled('diff')) trace('diff', 'debug', '', `patchChildren parent=${nodeDesc(parent)} old=${kidsSeq(oldChildren)} new=${kidsSeq(newChildren)} dom=${childNodesSeq(parent)}`)
 
-  // 混合 keyed 数组（部分项有用户 key）：给无 key 项自动分配位置 key——
-  // 否则 keyed 分支对无 key 项「移除旧 + 新建」→ 固定结构（表头/行标签等）每次 render 重建 → 闪烁。
-  // （v1 ensureKeys 精神——但 v1 只在全无 key 时分配，混合场景缺失：DatePicker 面板
-  //  [header(无key), ...gridRows(keyed)] 每次选时间整段重建的真实 bug）
-  // 注意：portal（_placement: 'remote'）的 portalKey 不算用户 keyed（C1——
-  // [input(无key), portal] 走 allUnkeyed 按位置复用，不分配 pos key、不 mutate vnode.key）
-  const hasUserKey = newChildren.some((c) => {
-    if (c == null || typeof c !== 'object' || Array.isArray(c)) return false
-    const vn = c as VNode
-    return !isPortal(vn) && vn.key !== null
-  })
-  // 数组项（隐式 Fragment）存在（新旧任一）→ 外层位置配对（数组项无 key 身份——默认位置语义；
-  // 内层数组内部各自 keyed——层级独立。混合 keyed 的外层（列表 + 固定元素：items.map() + footer）
-  // 中数组项按位置、显式 key 项按位置——不混合 keyed 匹配）。
-  // 必须含 oldChildren：旧数组项在 keyed 分支无匹配（getKey 对数组返回 undefined 不建 keyMap）
-  // → 旧数组项消失（长度差/移除）被 keyed 忽略 → 残留（[c,d,[e,f]]→[c,d] 的 [e,f] 残留）
+  // ── key 模式状态机（业务身份声明协议——框架不生成身份 key，design 归档） ──
+  // 模式判定（keyModeOf）→ 状态转换（mixed → prepPos → keyed）→ 查表分派（KEY_DIFFERS）。
+  // 三场景：unkeyed（位置身份）/ keyed（内容身份）/ mixed（无 key 项 pos: 显式接管后降级 keyed）
+  // 数组项（隐式 Fragment）存在（新旧任一）→ 强制 unkeyed（外层位置配对——数组项无 key 身份，
+  // 内层数组内部各自 keyed，层级独立。旧数组项在 keyed 分支无匹配会残留——[c,d,[e,f]]→[c,d]）
   const hasArrayItem = newChildren.some((c) => Array.isArray(c)) || oldChildren.some((c) => Array.isArray(c))
-  if (traceEnabled('diff')) trace('diff', 'debug', '', `mode=${hasUserKey && !hasArrayItem ? 'keyed' : 'unkeyed'} hasUserKey=${hasUserKey} hasArrayItem=${hasArrayItem}`)
+  const mode: KeyMode = hasArrayItem ? 'unkeyed' : keyModeOf(newChildren)
+  if (traceEnabled('diff')) trace('diff', 'debug', '', `key-mode=${mode}`)
+
+  // A 级动态检测（业务身份声明协议）：长度变化 + 无 key 组件项 → dev error
+  // （业务身份只有业务知道——框架提示而非静默错位；native/portal 豁免——无实例状态）
+  if (auditEnabled() && oldChildren.length !== newChildren.length) {
+    for (let i = 0; i < newChildren.length; i++) {
+      const c = newChildren[i]
+      if (c != null && typeof c === 'object' && !Array.isArray(c) && isComp(c as VNode) && (c as VNode).key == null) {
+        console.error(
+          `[vdom2/audit] 动态数组位置 ${i} 的组件缺少 key——列表增删/重排会错位组件实例状态。` +
+            `请提供业务身份 key（如 key={item.id}）；无状态 native 项豁免。`,
+        )
+      }
+    }
+  }
   // 数组项递归场景（oldRange 传入——数组项 vs 数组项配对分支）：旧数组项范围 = [start, 内容..., end] 标记。
   // keyed/allUnkeyed 新增分支必须插到范围内（end 标记前），否则新内容插到容器首/尾
   // （真实 bug：ARR(0)→ARR(2) 文件按钮跑到 Card children 最前——frag-arr-content-change trace 定位 2026-12）
   const arrEnd = oldRange && oldRange.length ? oldRange[oldRange.length - 1] : null
-  if (hasUserKey) {
-    for (let i = 0; i < newChildren.length; i++) {
-      const c = newChildren[i]
-      if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === null) (c as VNode).key = `pos:${i}`
-    }
-    for (let i = 0; i < oldChildren.length; i++) {
-      const c = oldChildren[i]
-      if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === null) (c as VNode).key = `pos:${i}`
-    }
+  // mixed 状态转换：无 key 项分配 pos:{i}（位置身份显式化——防 keyed 分支「移除旧+新建」重建
+  // 固定结构（表头/行标签等）；portal 的 portalKey 不算用户 keyed（C1）——不分配、不 mutate）
+  if (mode === 'mixed') {
+    prepPos(newChildren)
+    prepPos(oldChildren)
   }
 
   // oldNodes 映射：统一锚点推导——vnode 项 = _refNode（native=el / Frag=start 标记 /
@@ -318,18 +319,17 @@ export function patchChildren(
     return nodes
   })()
 
-  // C1：remote（portal）的 portalKey 不算用户 keyed——[input(无key), portal] 走 allUnkeyed 按位置复用
-  const allUnkeyed = hasArrayItem || !newChildren.some((c) => {
-    if (c == null || typeof c !== 'object' || Array.isArray(c)) return false
-    const vn = c as VNode
-    return !isPortal(vn) && vn.key !== null
-  })
+  // C1：remote（portal）的 portalKey 不算用户 keyed——[input(无key), portal] 走 unkeyed 按位置复用
+  // （keyModeOf 已排除 portal）——查表分派：unkeyed/keyed 各自实现；mixed 已转换为 keyed
+  return KEY_DIFFERS[mode]({ parent, oldChildren, newChildren, oldNodes, ctx, arrEnd, anchorOut })
+}
 
-  if (allUnkeyed) {
-    // 无 key：按位置匹配（不移动 DOM）
-    const len = Math.max(oldChildren.length, newChildren.length)
-    const out: (Node | null)[] = []
-    const pushA = (n: Node | null) => { if (anchorOut) anchorOut.push(n) }
+/** unkeyed 模式：按位置 patch（不移动 DOM——位置身份） */
+function diffUnkeyed(s: KeyDiffState): (Node | null)[] {
+  const { parent, oldChildren, newChildren, oldNodes, ctx, anchorOut, arrEnd } = s
+  const len = Math.max(oldChildren.length, newChildren.length)
+  const out: (Node | null)[] = []
+  const pushA = (n: Node | null) => { if (anchorOut) anchorOut.push(n) }
     for (let i = 0; i < len; i++) {
       const oldC = i < oldChildren.length ? oldChildren[i] : null
       const newC = i < newChildren.length ? newChildren[i] : null
@@ -573,8 +573,11 @@ export function patchChildren(
       pushA(collected[0] ?? node ?? null)
     }
     return out
-  }
+}
 
+/** keyed 模式：按 key 匹配（keyMap——内容身份；movedKeys 跟踪 + 位置校正移动） */
+function diffKeyed(s: KeyDiffState): (Node | null)[] {
+  const { parent, oldChildren, newChildren, oldNodes, ctx, anchorOut, arrEnd } = s
   // keyed diff
   const oldKeyMap = new Map<string, { vnode: VNode; nodes: Node[]; index: number }>()
   oldChildren.forEach((c, i) => {
@@ -760,4 +763,36 @@ export function patchChildren(
     }
   })
   return out
+}
+
+// ── key 模式状态机（业务身份声明协议——design 归档） ──
+
+/** 数组 diff 上下文（unkeyed/keyed 共享——状态机分派参数） */
+export interface KeyDiffState {
+  parent: Node
+  oldChildren: VNodeChild[]
+  newChildren: VNodeChild[]
+  oldNodes: (Node | null)[]
+  ctx: PatchCtx
+  arrEnd: Node | null
+  anchorOut?: (Node | null)[]
+}
+
+/** mixed → keyed 状态转换：无 key 项分配 pos:{i}（位置身份显式化——防 keyed 分支
+ *  「移除旧+新建」重建固定结构；portal 的 portalKey 不算用户 keyed（C1）——不分配） */
+export function prepPos(children: VNodeChild[]): void {
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i]
+    if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === null) (c as VNode).key = `pos:${i}`
+  }
+}
+
+/** key diff 策略状态机：KeyMode → 实现（查表分派——与 x2y 转换状态机同构）
+ *  - unkeyed：位置身份——按位置 patch（不移动 DOM）
+ *  - keyed  ：内容身份——按 key 匹配（keyMap + 位置校正）
+ *  - mixed  ：状态转换 prepPos（无 key 项 → pos:{i}）→ 降级 keyed */
+export const KEY_DIFFERS: Record<KeyMode, (s: KeyDiffState) => (Node | null)[]> = {
+  unkeyed: diffUnkeyed,
+  keyed: diffKeyed,
+  mixed: (s) => { prepPos(s.newChildren); prepPos(s.oldChildren); return diffKeyed(s) },
 }

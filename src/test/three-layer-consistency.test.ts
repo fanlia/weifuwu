@@ -54,13 +54,13 @@ test('综合：用户 JSX 全形态 → DOM 与规则表推导精确一致', asy
     'plain',
   ], 'DOM 结构 = 用户 JSX 推导（含边界/占位标记）')
 
-  // ② data-wf-key：组件显式 key + 元素默认下标 + 数组项内层独立
+  // ② data-wf-key：组件显式 key 穿透；无 key 项不写（取消自动 key——位置身份 DOM 诚实）
   const itemA = root.querySelector('[data-n="A"]')!
   assert.equal(itemA.getAttribute('data-wf-key'), 'a', '组件显式 key 穿透')
   assert.ok(itemA.getAttribute('data-wf-id')?.startsWith('_wf_'), '组件实例 id 存在（值由引擎分配——规则表 §4 存在性可预期）')
-  assert.equal(root.querySelector('.na')!.getAttribute('data-wf-key'), '0', '数组项内层独立下标')
-  assert.equal(root.querySelector('.nb')!.getAttribute('data-wf-key'), '1')
-  assert.equal(root.querySelector('.plain')!.getAttribute('data-wf-key'), '6', '外层下标（数组原始下标含占位位置）')
+  assert.equal(root.querySelector('.na')!.getAttribute('data-wf-key'), null, '无 key 项不写 data-wf-key（位置身份）')
+  assert.equal(root.querySelector('.nb')!.getAttribute('data-wf-key'), null)
+  assert.equal(root.querySelector('.plain')!.getAttribute('data-wf-key'), null)
 
   // ③ 属性：class 原样、style 数字加 px、enumerated
   const plain = root.querySelector('.plain')!

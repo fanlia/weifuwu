@@ -73,4 +73,31 @@ export function classifyKind(v: VNodeChild): VKind {
   return 'native'
 }
 
+// ── 数组 key 模式（业务身份声明协议——框架不生成身份 key，design 归档） ──
+
+/** 数组 key 模式：diff 策略状态机的状态 */
+export type KeyMode = 'unkeyed' | 'keyed' | 'mixed'
+
+/** 数组 key 模式判定（单一判定源——替代 patch 散落的 hasUserKey/allUnkeyed 计算）：
+ *  - unkeyed：无用户 key（位置身份——按位置 patch）
+ *  - keyed  ：全部用户 key（内容身份——按 key 匹配）
+ *  - mixed  ：部分 key（无 key 项由 prepPos 分配 pos:{i} 后降级 keyed）
+ *  豁免：占位/文本（无 key 协议豁免）；数组项（隐式 Fragment，位置语义）；
+ *  portal（portalKey 不算用户 keyed——C1：[input(无key), portal] 按位置复用） */
+export function keyModeOf(children: VNodeChild[]): KeyMode {
+  let hasKey = false
+  let hasUnkeyed = false
+  for (const c of children) {
+    if (c == null || typeof c === 'boolean' || typeof c === 'string' || typeof c === 'number') continue
+    if (Array.isArray(c)) { hasUnkeyed = true; continue }
+    const vn = c as VNode
+    if (isPortal(vn)) continue
+    if (vn.key != null) hasKey = true
+    else hasUnkeyed = true
+  }
+  if (hasKey && hasUnkeyed) return 'mixed'
+  if (hasKey) return 'keyed'
+  return 'unkeyed'
+}
+
 export { Fragment, Portal }

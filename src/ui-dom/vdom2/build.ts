@@ -124,18 +124,34 @@ export function buildVNode(
   }
   if (Array.isArray(input)) {
     // 数组项 = 隐式 Fragment：vnode 保持用户结构（不展开——层级独立 key，规则表 §3-46）。
-    // 外层数组项 key：元素/组件项赋外层下标；数组项（内层数组）递归构建时独立分配（不跨层）
+    // key 业务身份声明协议：框架不生成身份 key——显式 key 仅字符串化；无 key 项保持 null
+    // （位置身份——patch 阶段由 pos: 显式接管混合数组，见 patch.ts）
     if (traceEnabled('build')) trace('build', 'debug', '', `array in  kids=${kidsSeq(input)}`)
     for (let i = 0; i < input.length; i++) {
       const c = input[i]
       if (c != null && typeof c === 'object' && !Array.isArray(c)) {
         const v = c as VNode
-        if (v.key === null) v.key = String(i)
-        else v.key = String(v.key)
+        if (v.key !== null) v.key = String(v.key)
       }
     }
     const oldArr = Array.isArray(oldInput) ? oldInput : []
-    const jobs = input.map((c, i) => buildVNode(c, ctx, oldArr[i], reg, opts))
+    // 旧树对照按 key 匹配（keyed 数组——与 patch 的 keyed 匹配对齐）：位置对照在「增删」时
+    // 错位（new[0] 可能是旧 B、位置 0 是旧 A——按位置复用 _render 让 B 实例继承 A 状态，
+    // 全 keyed 头部删除身份错位的根因）；无 key 项（位置身份）按位置
+    const oldByKey = new Map<string, VNodeChild>()
+    for (const o of oldArr) {
+      if (o != null && typeof o === 'object' && !Array.isArray(o) && (o as VNode).key != null) {
+        oldByKey.set((o as VNode).key!, o)
+      }
+    }
+    const jobs = input.map((c, i) => {
+      let oldMatch: VNodeChild | null = null
+      if (c != null && typeof c === 'object' && !Array.isArray(c) && (c as VNode).key != null) {
+        oldMatch = oldByKey.get((c as VNode).key!) ?? null
+      }
+      if (oldMatch == null) oldMatch = oldArr[i] ?? null
+      return buildVNode(c, ctx, oldMatch, reg, opts)
+    })
     if (traceEnabled('build')) trace('build', 'debug', '', `array out kids=${kidsSeq(input)}`)
     // 全同步（剪枝/文本/已构建 native）→ 零微任务直接返回；含异步项 → Promise.all 并行
     let hasAsync = false

@@ -178,10 +178,12 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 > ② **DOM 由规则表推导**（design/vdom-transform-rules.md）：节点规则（元素/组件/Fragment/数组项/
 > 占位/非法输入）+ 属性规则（attribute/property/event 三通道 + enumerated 白名单）+ key 规则 +
 > 更新规则——有限、直觉、可记忆，用户看一遍即可推导任何 JSX 的首帧 DOM 与更新行为；
-> ③ **key 数据完备 + DOM 可见**：children 数组的元素/组件项**必有 key**——显式 key 或默认数组下标
-> （缺省自动赋下标，无需用户写）；**显式 key = 身份匹配**（增删/重排复用正确）、**默认下标 = 位置
-> 身份**（静态列表可省，动态增删中间项后续项重建——React index key 同款）；**所有数组项的 key 都写
-> 元素 `data-wf-key`**（显式原文/默认下标值——用户可见每个 key 决策），组件实例 id → 输出节点
+> ③ **key 业务身份声明协议**（2026-12）：**框架不生成身份 key**——数组项 key 只由业务声明
+> （数据 id → keyBy / 组件内部列表 → 组件内部生成 / 自定义 JSX → 用户写）；**无 key = 位置身份**
+> （unkeyed 按位置 patch——静态/无状态列表正确零噪音）、**显式 key = 内容身份**（keyed 增删/重排
+> 复用正确）、**混合数组**（部分 key）→ 无 key 项由 prepPos 分配 `pos:{i}` 位置 key（命名空间隔离——
+> 永不与用户 key 冲突）；**data-wf-key 只写用户 key**（无 key 项不写——位置身份 DOM 诚实，
+> 三层一致），组件实例 id → 输出节点
 > `data-wf-id`——key/id 是 DOM 可见的显式数据（debug/audit/定位）；
 > ④ **禁止一切规则表之外的行为**（magic = 规则表之外 + 路径/环境分叉）——filter/嵌套展开/pos:key
 > 注入/属性残留全是违反（plan 实施中逐个消除）。
@@ -502,11 +504,13 @@ const MyComp: Component = (_init, ctx) => {
 
 | 列表类型 | key 决策 | 组件库现状（2026-12 审计） |
 |---------|---------|--------------------------|
-| **无内部状态的元素列表**（格子/行/节点 div/option 等——内容按 props patch） | 默认下标即可（位置复用正确） | Tree 节点 / Kanban 卡 / Table 行 / Calendar / DatePicker / Markdown / JSONViewer / Select option / Menu / Chart / Pipeline——已正确 |
-| **有内部状态的组件实例列表 + 动态增删/重排** | **必须显式 key**（身份跟随内容——避免状态继承错位） | Tabs(tab.key) / TagsInput(t) / Accordion(item.key) / SessionList(s.id) / VirtualList(keyBy) / JsonSchemaForm 数组字段(key={i} 受控)——已正确 |
-| **通用列表 API** | 提供 `keyBy`（可选，默认下标向后兼容）——renderItem 可能渲染有状态组件，动态增删需用户传 | List（keyBy 已加，2026-12） |
+| **无内部状态的元素列表**（格子/行/节点 div/option 等——内容按 props patch） | **无 key（位置身份）**——位置复用正确，零噪音 | Tree 节点 / Kanban 卡 / Table 行 / Calendar / DatePicker / Markdown / JSONViewer / Select option / Menu / Chart / Pipeline——已正确 |
+| **有内部状态的组件实例列表 + 动态增删/重排** | **必须显式 key**（身份跟随内容——避免状态继承错位；组件内部已知身份时由组件生成） | Tabs(tab.key) / TagsInput(t) / Accordion(item.key) / SessionList(s.id) / VirtualList(keyBy) / JsonSchemaForm 数组字段(key={i} 受控)——已正确 |
+| **通用列表 API** | 提供 `keyBy`（可选，默认无 key = 位置身份）——renderItem 可能渲染有状态组件，动态增删需用户传 | List（keyBy 已加，2026-12） |
 
-- **新增列表类组件**：先判断列表类型——渲染有内部状态的组件 + 动态增删/重排 → 设计显式 key 来源（项 id / keyBy prop）；纯元素列表默认下标即可
+- **key 业务身份声明协议**：key 只有业务知道——框架不自动生成身份 key（`pos:{i}` 仅混合数组位置接管，命名空间隔离）。三层分工：数据层 keyBy / 组件层内部 key / 用户层显式 key；A 级检测（数组长度变化 + 无 key 组件项 → dev error 提示）引导用户层
+
+- **新增列表类组件**：先判断列表类型——渲染有内部状态的组件 + 动态增删/重排 → 设计显式 key 来源（项 id / keyBy prop，组件内部已知身份则组件生成）；纯元素/无状态列表无 key（位置身份）即可
 - **验证标准**：动态场景实测（拖拽重排 / 展开折叠 / 增删项 / 滚动）后项身份不漂移——keyed diff 下 DOM 操作与变化量成正比（规则表 §5 实测表）
 
 ## 6. 渲染器机制与已知坑（client 内部）
@@ -544,13 +548,13 @@ const MyComp: Component = (_init, ctx) => {
 
 **事故还原**（Form 提交按钮消失）：JSX `{cond && <Alert/>}` = false 保留在 children 数组（V3-3b 零拷贝不滤除），但 renderValue 不产生 DOM——两树不同构 → diff 建 `oldNodes[i] = source[i] = childNodes[i]` 下标映射时，false 位置命中**下一个真实兄弟（提交按钮）** → 删除分支 `removeChild` 误删。vnode 树里 Button 还在（`_refNode` 指向已脱离 DOM 的元素），DOM 里按钮已没——两树从此永久错位（静默传播，刷新/整树重建才恢复）。
 
-**占位法落地细节（用户决策）**：数组项必有 key（显式或默认下标，统一字符串——`ensureArrayKeys`）；key 全落 DOM（`data-wf-key`——元素项直写 / 组件项穿透到输出每个顶层节点，多根全部写）；组件实例 id 落 `data-wf-id`（输出每个顶层节点，SSR 不输出——id 客户端运行时分配）；非法输入（对象/数字 type/未知 Symbol）→ 诊断占位 `<!--wf-hole: object {...}-->` + warn，不崩溃不静默；`__WF_VDOM_AUDIT`/`__WF_VDOM_DEBUG`/`?vdom_debug=1` 运行时校验与 trace。规则表：design/vdom-transform-rules.md。**filter 已删除**——占位法落地后无任何对用户 vnode 的 magic。
+**占位法落地细节（用户决策）**：数组项 key 由业务声明（`ensureArrayKeys` 仅字符串化显式 key——框架不生成身份 key，取消自动 key 2026-12）；`data-wf-key` 只写用户 key（无 key 项不写——位置身份 DOM 诚实；组件项穿透到输出每个顶层节点，多根全部写）；组件实例 id 落 `data-wf-id`（输出每个顶层节点，SSR 不输出——id 客户端运行时分配）；非法输入（对象/数字 type/未知 Symbol）→ 诊断占位 `<!--wf-hole: object {...}-->` + warn，不崩溃不静默；`__WF_VDOM_AUDIT`/`__WF_VDOM_DEBUG`/`?vdom_debug=1` 运行时校验与 trace。规则表：design/vdom-transform-rules.md。**filter 已删除**——占位法落地后无任何对用户 vnode 的 magic。
 
 **回归测试**：`src/test/vdom-diff.test.ts`「数组 boolean 空洞：{cond && <X/>}=false 占位不得误删下一个兄弟（提交按钮消失事故）」——覆盖空洞保持、空洞→真实元素插入（Alert 出现在按钮前、位置正确）。
 
 **复现步骤**：① jsdom：children = `[Field, false, Button]`，Field 加 error 重渲染 → 修复前 `querySelectorAll('button')` 为 0、修复后为 1；② agent-browser（components-demo）：Form 空表单点「提交表单」→ 修复前验证错误出现 + 按钮消失、修复后按钮保留。
 
-**残余风险（诚实裁剪）**：① 组件输出数组场景的 `_childAnchors` 边界——数组项 ≡ 隐式 Fragment，fragment/组件多节点展开后的相邻文本错位已由阶段 B 锚点覆盖（`_childAnchors` 每位置首节点锚点），组件输出数组的首/尾锚点仍有理论边界（未实测场景：组件输出数组直接接数组）；② 动态列表默认下标 key = 位置复用 + 状态继承（index key 语义）——增删重排需显式 key（规则表 §3 明示）。
+**残余风险（诚实裁剪）**：① 组件输出数组场景的 `_childAnchors` 边界——数组项 ≡ 隐式 Fragment，fragment/组件多节点展开后的相邻文本错位已由阶段 B 锚点覆盖（`_childAnchors` 每位置首节点锚点），组件输出数组的首/尾锚点仍有理论边界（未实测场景：组件输出数组直接接数组）；② 动态列表无 key = 位置复用 + 状态继承（位置身份语义）——增删重排需显式 key（A 级检测 dev 报错引导；重排/同类型替换长度不变不可检测——文档红线，业务声明 key）。
 
 **React 对照**：fiber 模型 null 子项不产生 fiber（`reconcileChildrenArray` 主循环 `newChild == null → continue` 不推进 oldFiber）+ 每 fiber 自带 `index` 元数据——对齐不依赖数组/DOM 下标，从数据模型层消灭此 bug 类别；weifuwu 以「DOM 占位同构（占位法，已实施）+ 单一规则源（transform.ts）+ audit 运行时校验 + 测试兜底」实现同等保证。
 

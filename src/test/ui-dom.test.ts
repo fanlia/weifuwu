@@ -255,7 +255,7 @@ test('ssrToString + uiServe hydrate 收养', async () => {
     {},
   )
   assert.ok(html.includes('标题') && html.includes('<h1'), 'SSR HTML: ' + html.slice(0, 120))
-  assert.ok(html.includes('data-wf-key="0"'), 'SSR 数组项默认 key 可见（规则表 §3）: ' + html.slice(0, 120))
+  assert.ok(!html.includes('data-wf-key="0"'), '取消自动 key——SSR 无 key 项不输出 data-wf-key: ' + html.slice(0, 120))
   assert.ok(!html.includes('onClick'), '事件不 SSR')
   // hydrate 收养
   const el = mount('ui-hyd')

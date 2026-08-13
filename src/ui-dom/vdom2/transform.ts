@@ -93,15 +93,15 @@ export function isHoleChild(c: VNodeChild): boolean {
   return c == null || typeof c === 'boolean'
 }
 
-/** 数组项必有 key（规则表 §3）：无显式 key 的元素/组件项赋默认下标 key（数组原始下标含占位位置，
- *  统一字符串）；文本/占位值豁免。原地写入 vnode.key（声明规则，非隐藏 magic） */
+/** 数组项 key 规范化（key 业务身份声明协议——design 归档）：显式 key 仅字符串化（统一字符串）；
+ *  无 key 项保持 null（框架不生成身份 key——位置身份由 patch 的 prepPos 显式接管混合数组）。
+ *  文本/占位值豁免。原地写入 vnode.key（声明规则，非隐藏 magic） */
 export function ensureArrayKeys(children: VNodeChild[]): void {
   for (let i = 0; i < children.length; i++) {
     const c = children[i]
     if (c != null && typeof c === 'object' && !Array.isArray(c)) {
       const v = c as VNode
-      if (v.key === null) v.key = String(i)
-      else v.key = String(v.key)
+      if (v.key !== null) v.key = String(v.key)
     }
   }
 }

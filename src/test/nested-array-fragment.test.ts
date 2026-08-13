@@ -3,7 +3,9 @@
  *
  * 规则表 §1-20：`[xx, [yy, zz]]` → 数组项 ≡ Fragment：展开为兄弟节点
  * 规则表 §3-46：嵌套数组项在父数组有 key；其内部子项各自独立分配默认下标——层级独立，key 不跨层
- * 规则表 §3-49：data-wf-key 层级语义 = 相对最近父层级
+ * 规则表 §3-49（已裁剪）：data-wf-key 层级语义 = 相对最近父层级——
+ * 取消自动 key 后（业务身份声明协议）：无 key 项不写 data-wf-key（位置身份 DOM 诚实），
+ * 显式 key 项写原文。层级独立性体现在 DOM 结构与数组项边界标记（fragment-start/end）。
  *
  * 平铺实现（旧）把 [[a,b],c] 展开成 [a,b,c]——key 平铺 0/1/2——违反层级独立
  * （内层 b 的 '1' 与外层 c 的 '1' 是不同层级——平铺后撞车 → auth 切换残留）。
@@ -18,7 +20,7 @@ import { createClientBrowser } from '../ui-dom/browser.ts'
 before(setupJsdom)
 
 describe('嵌套数组 = 隐式 Fragment（层级独立 key）', () => {
-  it('data-wf-key 层级独立：[[a,b],c] → 内层 a="0"/b="1"、外层 c="1"（相对最近父层级）', async () => {
+  it('数组项层级独立：[[a,b],c] → 无 key 项不写 data-wf-key（位置身份 DOM 诚实）', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const browser = createClientBrowser()
@@ -27,13 +29,13 @@ describe('嵌套数组 = 隐式 Fragment（层级独立 key）', () => {
     // 嵌套数组：外层 [ [a,b], c ]（数组项 = 隐式 Fragment）
     await handle.mount(h('div', { class: 'w' }, [[h('i', { id: 'a' }), h('i', { id: 'b' })], h('i', { id: 'c' })]))
     const keys = ['a', 'b', 'c'].map(id => container.querySelector(`#${id}`)?.getAttribute('data-wf-key'))
-    assert.deepEqual(keys, ['0', '1', '1'],
-      `层级独立 key：内层数组项 [a,b] 各得 0/1（内层下标），外层项 c 得 1（外层下标）——实际: ${keys.join(',')}`)
+    assert.deepEqual(keys, [null, null, null],
+      `无 key 项不写 data-wf-key（取消自动 key）——实际: ${keys.join(',')}`)
     handle.close?.()
     document.body.removeChild(container)
   })
 
-  it('数组项重排（默认下标）：位置复用不重建——DOM 顺序跟随', async () => {
+  it('数组项重排：位置复用不重建——DOM 顺序跟随（数组项 = 隐式 Fragment 整体移动）', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const browser = createClientBrowser()
