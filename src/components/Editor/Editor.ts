@@ -131,6 +131,78 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     }
   }
 
+  // ── caret 文本偏移保存/恢复（格式操作专用——真实浏览器验收发现）────────────────
+  // execCommand('formatBlock' 等块级命令）后，Chrome 会在**渲染（renderOne）后**替换
+  // contentEditable 内部节点（innerHTML 字符串相同但节点对象不同）——caret 引用的旧节点
+  // 脱离文档 → 被重置到编辑器开头（光标跳到第一行第一个字符）。
+  // 手动模拟全部 DOM 操作均无法阻止（Chrome 内部重建）。防御：格式操作前记录 caret 的
+  // **文本绝对偏移**（不依赖节点引用），render 完成后按偏移重新定位（内容文本不变——
+  // 格式命令不增删文本——偏移仍有效）。
+  let savedCaretPos: { start: number; end: number } | null = null
+
+  const textOffsetOf = (node: Node | null, offset: number): number => {
+    if (!editorEl || !node || node.nodeType !== 3) return 0
+    let acc = 0
+    const w = editorEl.ownerDocument.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT)
+    let n: Node | null = w.nextNode()
+    while (n && n !== node) {
+      acc += String(n.nodeValue ?? '').length
+      n = w.nextNode()
+    }
+    return acc + offset
+  }
+
+  const nodeAtTextOffset = (target: number): { node: Node; off: number } | null => {
+    if (!editorEl) return null
+    const w = editorEl.ownerDocument.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT)
+    let n: Node | null = w.nextNode()
+    let acc = 0
+    while (n) {
+      const len = String(n.nodeValue ?? '').length
+      if (acc + len >= target) return { node: n, off: target - acc }
+      acc += len
+      n = w.nextNode()
+    }
+    return null
+  }
+
+  const saveCaretPos = () => {
+    const sel = _browser?.getSelection()
+    if (!sel || !sel.rangeCount || !editorEl) return
+    const range = sel.getRangeAt(0)
+    savedCaretPos = {
+      start: textOffsetOf(range.startContainer, range.startOffset),
+      end: textOffsetOf(range.endContainer, range.endOffset),
+    }
+  }
+
+  const restoreCaretPos = () => {
+    if (!editorEl || !savedCaretPos) return
+    const { start, end } = savedCaretPos
+    const sel = _browser?.getSelection()
+    if (!sel) return
+    editorEl.focus()
+    const startNode = nodeAtTextOffset(start)
+    if (!startNode) return
+    const range = editorEl.ownerDocument.createRange()
+    range.setStart(startNode.node, startNode.off)
+    if (start === end) {
+      range.collapse(true)
+    } else {
+      const endNode = nodeAtTextOffset(end)
+      if (endNode) range.setEnd(endNode.node, endNode.off)
+    }
+    sel.removeAllRanges()
+    sel.addRange(range)
+    savedCaretPos = null
+  }
+
+  /** 格式操作后恢复 caret（render 异步完成后——setTimeout 0：微任务（renderOne 链）先于宏任务） */
+  const restoreCaretAfterRender = () => {
+    if (savedCaretPos == null) return
+    _browser.timeout(() => restoreCaretPos(), 0)
+  }
+
   // ── render（每次 dirty/props 变化）──
   return async (props: EditorProps) => {
     const { value = '', onChange, onUpload, placeholder = '', disabled = false, minHeight = '200px' } = props
@@ -202,6 +274,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       if (item === 'alignLeft' || item === 'alignCenter' || item === 'alignRight') {
         // 对齐完全独立处理（不经过 execFormat——避免「先执行命令再查状态」误判 toggle）：
         // 当前已是该对齐 → 反选（移除 inline style——execCommand 不 toggle 对齐）
+        saveCaretPos() // 格式操作前记录 caret 文本偏移（render 后 Chrome 重建内部节点——偏移恢复）
         const cur = queryFormats()
         if (cur[item]) clearAlignStyle()
         else exec(ALIGN_COMMANDS[item])
@@ -209,13 +282,16 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         activeFormats = queryFormats()
         if (editorEl && onChange) emitChange(editorEl.innerHTML)
         ctx.ui.render()
+        restoreCaretAfterRender()
         return
       }
 
+      saveCaretPos() // 格式操作前记录 caret 文本偏移（execFormat 前——caret 在目标位置）
       execFormat(item)
       activeFormats = queryFormats()
       if (editorEl && onChange) emitChange(editorEl.innerHTML) // 先标记脏（DOM 已改）再 render——避免 render 写旧 value 覆盖
       ctx.ui.render()
+      restoreCaretAfterRender()
     }
 
     // ── 链接 ────────────────────────────────────────────
@@ -352,9 +428,11 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       saveSelection()
       const isFormatShortcut = (e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())
       if (isFormatShortcut) {
+        saveCaretPos() // 快捷键格式操作同样需要 caret 偏移恢复
         activeFormats = queryFormats()
         if (editorEl && onChange) emitChange(editorEl.innerHTML) // 先标记脏再 render（同上）
         ctx.ui.render()
+        restoreCaretAfterRender()
       }
     }
 
