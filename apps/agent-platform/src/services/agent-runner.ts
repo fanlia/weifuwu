@@ -133,6 +133,12 @@ async function buildToolContext(
       allTools.push(t)
     }
   }
+  // 内置工具（get_current_time/call_agent 等）对所有 Agent 开箱可用——
+  // 去重后加入（文件工具仍由 allowFileTools 控制——见下方 wsTools）
+  try {
+    const { BUILTIN_TOOL_DEFS } = await import('../tools/builtin.ts')
+    pushUnique(BUILTIN_TOOL_DEFS as unknown as ToolDefinition[])
+  } catch { /* 尽力 */ }
   pushUnique(config.tools as ToolDefinition[])
 
   // 构建 SkillRegistry（如果有预加载技能）
@@ -235,8 +241,8 @@ export async function runAgent(
           messages_count, steps_count, tokens_prompt, tokens_completion, tokens_total,
           elapsed_ms, success
         ) VALUES (
-          ${config.agentId}, ${config.appId}, ${config.departmentId},
-          ${messages.length}, ${result.steps.length},
+          ${config.agentId}, ${config.appId}, ${config.departmentId || null},
+          ${messages.length}, ${result.steps?.length ?? 0},
           ${result.usage?.prompt_tokens ?? 0},
           ${result.usage?.completion_tokens ?? 0},
           ${result.usage?.total_tokens ?? 0},

@@ -18,7 +18,7 @@ const AGENT_ID = '00000000-0000-0000-0000-000000000030'
 let pg: any
 
 before(async () => {
-  pg = postgres(process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_test', { max: 5, closeTimeout: 1 })
+  pg = postgres(process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_audit_test', { max: 5, closeTimeout: 1 })
   const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
   await pg.sql.unsafe(`
     DROP TABLE IF EXISTS agent_versions CASCADE;
@@ -34,6 +34,8 @@ before(async () => {
   `)
   await pg.sql.unsafe(schema)
   // 增量表（schema.sql 含——直接建）
+  // 框架 userSystem 表（audit JOIN user_name 依赖——新库需补建）
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS _weifuwu_users (id UUID PRIMARY KEY, name TEXT, email TEXT, app_id UUID, created_at TIMESTAMPTZ DEFAULT NOW())`)
   await pg.sql.unsafe(`
     CREATE TABLE IF NOT EXISTS audit_logs (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID NOT NULL, user_id UUID,
