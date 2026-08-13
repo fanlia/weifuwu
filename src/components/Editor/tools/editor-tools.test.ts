@@ -115,6 +115,64 @@ test('execFormat：formatBlock 类 toggle——当前已是该格式 → 回默�
   assert.deepEqual(calls, [['formatBlock', '<div>']], 'blockquote active 时再点 → 回默认块')
 })
 
+test('queryFormats：CSS class 居中的块 → alignCenter true（queryCommandState 不识别 class 对齐）', () => {
+  ;(document as any).queryCommandState = () => false // jsdom 无原生——spy 返回 false，对齐走 queryBlockAlign
+  ;(document as any).queryCommandValue = () => ''
+  // 构造真实 DOM：contentEditable 里 class="wf-text-center" 的 p，选区放其内
+  const container = document.createElement('div')
+  container.setAttribute('contenteditable', 'true')
+  container.innerHTML = '<p class="wf-text-center">居中文字</p>'
+  document.body.appendChild(container)
+  try {
+    const p = container.querySelector('p')!
+    const range = document.createRange()
+    range.setStart(p.firstChild!, 0)
+    range.collapse(true)
+    const sel = window.getSelection()!
+    sel.removeAllRanges()
+    sel.addRange(range)
+    // jsdom queryCommandState 返回 false（无 execCommand）——对齐检测走 queryBlockAlign（class）
+    const f = queryFormats()
+    assert.equal(f.alignCenter, true, 'class wf-text-center → alignCenter true')
+    assert.equal(f.alignLeft, false)
+    assert.equal(f.alignRight, false)
+  } finally {
+    container.remove()
+  }
+})
+
+test('queryFormats：inline style 对齐 → 对应字段 true', () => {
+  ;(document as any).queryCommandState = () => false
+  ;(document as any).queryCommandValue = () => ''
+  const container = document.createElement('div')
+  container.setAttribute('contenteditable', 'true')
+  container.innerHTML = '<p style="text-align: right;">右对齐</p>'
+  document.body.appendChild(container)
+  try {
+    const p = container.querySelector('p')!
+    const range = document.createRange()
+    range.setStart(p.firstChild!, 0)
+    range.collapse(true)
+    const sel = window.getSelection()!
+    sel.removeAllRanges()
+    sel.addRange(range)
+    const f = queryFormats()
+    assert.equal(f.alignRight, true, 'inline text-align: right → alignRight true')
+  } finally {
+    container.remove()
+  }
+})
+
+test('queryFormats：无选区/无对齐 → 对齐字段 false（安全兜底）', () => {
+  ;(document as any).queryCommandState = () => false
+  ;(document as any).queryCommandValue = () => ''
+  window.getSelection()!.removeAllRanges()
+  const f = queryFormats()
+  assert.equal(f.alignCenter, false)
+  assert.equal(f.alignLeft, false)
+  assert.equal(f.alignRight, false)
+})
+
 test('queryFormats：jsdom 无 execCommand 时不抛（安全兜底）', () => {
   delete (document as any).queryCommandState
   delete (document as any).queryCommandValue

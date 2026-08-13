@@ -442,6 +442,12 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       const newFormats = queryFormats()
       if (activeFormats === null) {
         activeFormats = newFormats
+        // 首次点击编辑器：也渲染工具栏——显示当前块的格式高亮（class 居中 → 高亮居中）。
+        // 原设计「首次只存不 render」导致工具栏永不显示格式状态（真实用户报告：
+        // 光标在居中行 toolbar 却显示左对齐/无高亮）。render 用 caret 偏移恢复防光标丢失。
+        saveCaretPos()
+        ctx.ui.render()
+        restoreCaretAfterRender()
         return
       }
       if (!shallowEqual(activeFormats, newFormats)) {

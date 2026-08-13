@@ -8,6 +8,40 @@ import { createClientBrowser } from '../../../ui-dom/browser.ts'
 // 编辑器工具：无组件 ctx——模块级 browser（SSR 时 queryCommand 返回安全默认）
 const browser = createClientBrowser()
 
+/** 选区所在块的文本对齐（DOM 检测——queryCommandState 不识别 CSS class/计算样式对齐：
+ *  光标在 class="wf-text-center" 的块内，toolbar 却显示左对齐——真实用户报告）。
+ *  检测优先级：inline style → wf-text-* class → 计算样式 */
+function queryBlockAlign(): string | null {
+  try {
+    const sel = browser.getSelection()
+    if (!sel || !sel.rangeCount) return null
+    const range = sel.getRangeAt(0)
+    let el = (range.startContainer as Element).nodeType === 1
+      ? (range.startContainer as Element)
+      : ((range.startContainer as Node).parentElement ?? null)
+    while (el) {
+      // 到 contentEditable 边界停止（块 = 编辑器内最近元素）
+      if (el.getAttribute?.('contenteditable') === 'true') break
+      const inline = (el as HTMLElement).style?.textAlign
+      if (inline) return inline
+      if (el.classList?.contains('wf-text-center')) return 'center'
+      if (el.classList?.contains('wf-text-right')) return 'right'
+      if (el.classList?.contains('wf-text-left')) return 'left'
+      el = el.parentElement
+    }
+    // 计算样式兜底（继承对齐）
+    const first = (range.startContainer as Node).parentElement
+    if (first && first.ownerDocument?.defaultView) {
+      const cs = first.ownerDocument.defaultView.getComputedStyle(first)
+      const ta = cs?.textAlign
+      if (ta && ta !== 'start' && ta !== 'initial') return ta
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 /** 查询当前选区格式状态 */
 export function queryFormats(): FormatState {
   const f: FormatState = {}
@@ -20,9 +54,11 @@ export function queryFormats(): FormatState {
     f.h2 = block === 'h2' || block === 'H2'
     f.h3 = block === 'h3' || block === 'H3'
     f.blockquote = block === 'blockquote' || block === 'BLOCKQUOTE'
-    f.alignLeft = browser.queryCommandState('justifyLeft')
-    f.alignCenter = browser.queryCommandState('justifyCenter')
-    f.alignRight = browser.queryCommandState('justifyRight')
+    // 对齐：queryCommandState + 块 DOM 检测合并（class 居中/计算样式——state 不识别）
+    const blockAlign = queryBlockAlign()
+    f.alignLeft = browser.queryCommandState('justifyLeft') || blockAlign === 'left'
+    f.alignCenter = browser.queryCommandState('justifyCenter') || blockAlign === 'center'
+    f.alignRight = browser.queryCommandState('justifyRight') || blockAlign === 'right'
   } catch { /* 安全忽略 */ }
   return f
 }
