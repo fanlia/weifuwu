@@ -413,15 +413,16 @@ async function main() {
       FROM agent_logs WHERE app_id = ${appId}
     `
 
-    // 近 7 天消息趋势
+    // 近 14 天消息趋势 + 活跃 Agent 数（留存维度——运营看活跃）
     const trend = await sql`
       SELECT
         DATE(m.created_at) as day,
-        COUNT(*)::int as count
+        COUNT(*)::int as count,
+        COUNT(DISTINCT m.sender_id)::int as active_agents
       FROM messages m
       JOIN agents a ON a.id = m.sender_id
       WHERE a.app_id = ${appId}
-        AND m.created_at >= NOW() - INTERVAL '7 days'
+        AND m.created_at >= NOW() - INTERVAL '14 days'
       GROUP BY DATE(m.created_at)
       ORDER BY day
     `

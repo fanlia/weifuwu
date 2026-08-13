@@ -65,11 +65,13 @@ export const Dashboard: Component = async (_props, ctx) => {
     const agentCount = s.agents?.total ?? $.agents.length
     const aiCount = s.agents?.ai_count ?? $.agents.filter((a) => a.type === 'ai').length
     // 近 7 天消息趋势：真实数据 + CSS 柱条（框架无 Chart——诚实裁剪）
-    const trend: { day: string; count: number }[] = (s.trend ?? []).map((t) => ({
+    const trend: { day: string; count: number; active_agents: number }[] = (s.trend ?? []).map((t) => ({
       day: String(t.day ?? '').slice(5, 10),
       count: Number(t.count ?? 0),
+      active_agents: Number((t as any).active_agents ?? 0),
     }))
     const trendTotal = trend.reduce((sum: number, t) => sum + t.count, 0)
+    const activeAgentCount = trend.reduce((sum: number, t) => sum + Number(t.active_agents ?? 0), 0)
     const maxTrend = Math.max(1, ...trend.map((t) => t.count))
     const trendBars = trend.map((t, i) => (
       <div key={i} class="wf-fill wf-stack wf-gap-none wf-items-center" title={`${t.day}：${t.count} 条`}>
@@ -108,13 +110,13 @@ export const Dashboard: Component = async (_props, ctx) => {
           <div class="wf-text-xs wf-text-secondary wf-mt-xs">{$.pendingCount > 0 ? 'AI 草稿待批准发布' : '没有待审批草稿'}</div>
         </Card>
         <Card clickable hover onClick={() => ctx.app?.navigate('/agents')}>
-          <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 7 天消息</div>
+          <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 14 天消息</div>
           <div class="wf-text-2xl wf-text-semibold wf-mt-xs wf-nums">{trendTotal}</div>
           <div class="wf-row wf-gap-xs wf-items-end" style="height: 32px; margin-top: 6px">{trendBars}</div>
         </Card>
       </div>
 
-      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">本周活跃 Agent（近 7 天消息）</div>
+      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">活跃 Agent（近 14 天消息 · {activeAgentCount} 个活跃）</div>
       {(s.active_agents ?? []).length > 0 ? (
         <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(200px, 1fr))">
           {(s.active_agents ?? []).slice(0, 4).map((a: { id: string; name: string; type: string; message_count: number }) => (
