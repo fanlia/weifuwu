@@ -132,6 +132,7 @@ export function uiServe<RC extends object = {}>(
   let currentChild: VNodeChild = null
   let currentPath = ''
   let navToken = 0
+  let prevQuery: Record<string, string> = {}
   let readyResolve!: () => void
   const ready = new Promise<void>((r) => { readyResolve = r })
   let closing = false
@@ -141,13 +142,27 @@ export function uiServe<RC extends object = {}>(
 
   async function renderPath(path: string, initial: boolean): Promise<void> {
     const token = ++navToken
-    const location = { pathname: path, search: '' } as any
-    ;(ctx as any).route.path = path
-    routeCtrl.navigateStart(path) // idle/settled → navigating（旧树卸载 + 新树构建起点）
+    // 解析 pathname + query（query 注入 ctx.route.query——组件读 /templates?cat=x）
+    const qIndex = path.indexOf('?')
+    const pathname = qIndex >= 0 ? path.slice(0, qIndex) : path
+    const search = qIndex >= 0 ? path.slice(qIndex) : ''
+    const query: Record<string, string> = {}
+    if (search) {
+      for (const [k, v] of new URLSearchParams(search)) query[k] = v
+    }
+    // query 变化 → bump ctx 版本：组件剪枝/三态 skip 失效 → renderFn 重跑读最新 query
+    // （真实调试发现：/templates?cat=x 导航后组件 props 未变被剪枝，工厂/渲染读不到新 query）
+    if (JSON.stringify(query) !== JSON.stringify(prevQuery)) {
+      ;(ctx.ui as any).bumpCtxVersion?.()
+      prevQuery = query
+    }
+    const location = { pathname, search, query } as any
+    ;(ctx as any).route = { params: {}, query, path: pathname }
+    routeCtrl.navigateStart(pathname) // idle/settled → navigating（旧树卸载 + 新树构建起点）
     const session = beginSession(initial ? 'initial' : 'nav') // 导航会话：一棵事件树
     let output: VNodeChild
     try {
-      output = (await router.execute(location, ctx as UIContext, path)) as VNodeChild
+      output = (await router.execute(location, ctx as UIContext, pathname)) as VNodeChild
     } catch (e: any) {
       routeCtrl.navigateError(path, e) // navigating → idle（导航失败回退）
       // 错误兜底（不黑屏）：handler 抛错 → 错误页
@@ -207,7 +222,9 @@ export function uiServe<RC extends object = {}>(
   // 注意：不依赖 currentPath 判断（快速连续导航时 currentPath 异步滞后——误跳第二次导航）；
   // renderPath 内部 token 串行化已处理过期导航（集成测试 T4 抓到）
   const onPopState = () => {
-    const path = browser.pathname()
+    // 完整 URL（含 query）——query 参数驱动（如 /templates?cat=engineering）；
+    // 仅 pathname 会丢 query（真实调试发现：分类导航后 ctx.route.query 恒空）
+    const path = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : browser.pathname()
     void renderPath(path, false)
   }
   browser.addEventListener('popstate', onPopState)

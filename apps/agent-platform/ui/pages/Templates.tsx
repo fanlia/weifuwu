@@ -72,10 +72,17 @@ export const Templates: Component = async (_props, ctx) => {
     creating = null
   }
 
-  const cats = ['', ...new Set(templates.map((t) => t.category))]
-  const visible = category ? templates.filter((t) => t.category === category) : templates
-
-  return async (props: {}) => (
+  return async (props: {}) => {
+    // 分类由路由 query 驱动（/templates?cat=x）——renderFn 每次渲染读最新
+    // （框架 query 变化 bump ctx 版本 → renderFn 重跑——真实调试验证）
+    let category = ''
+    try {
+      const q = (ctx.route?.query as Record<string, string>)?.cat
+      if (q) category = q
+    } catch { /* 忽略 */ }
+    const cats = ['', ...new Set(templates.map((t) => t.category))]
+    const visible = category ? templates.filter((t) => t.category === category) : templates
+    return (
     <div class="wf-stack wf-gap-lg">
       <div class="wf-row wf-between wf-gap-sm wf-items-center">
         <div>
@@ -131,5 +138,6 @@ export const Templates: Component = async (_props, ctx) => {
         </div>
       )}
     </div>
-  )
+    )
+  }
 }
