@@ -163,6 +163,11 @@ Webhook  收发 + 签名验证 + 重试 + 日志
 
 ---
 
+## 10. 多 Agent 协作（P2 专项）
+
+详见 `MULTI-AGENT-PLAN.md`——Agent 作为工具（call_agent）：TDD 实现、
+深度限制防环、租户隔离、父子审计。不做可视化编排/并行 fan-out。
+
 ## 10. 裁剪声明（诚实——不做）
 
 - **AI 自研引擎重写**：当前 deepseek/dashscope 直连可用，重写收益低风险高——裁剪
