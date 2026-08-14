@@ -432,6 +432,19 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
   `
   console.log('  ✓ 消息历史: 10 条（覆盖 4 个部门）')
 
+  // 7b. 审批待办草稿（Approvals 页数据——HITL 小维生成待审批回复）
+  await sql`
+    INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved, ai_step, created_at)
+    VALUES
+      (${opsDept.id}, ${opsAgent.id}, '[AI 生成中...]', 'text',
+       '⚠️ 检测到服务器 cpu 使用率持续高于 85%（已持续 10 分钟）。建议：\n1. 重启 nginx 工作进程释放缓存\n2. 扩容 2 台实例分担负载\n\n请确认是否执行扩容操作。', NULL,
+       '{"steps":["llm"]}', NOW() - INTERVAL '12 minutes'),
+      (${opsDept.id}, ${opsAgent.id}, '[AI 生成中...]', 'text',
+       '检测到磁盘空间不足（/data 使用率 92%）。建议清理 30 天前的备份文件（约 4.2GB）。请确认清理范围。', NULL,
+       '{"steps":["llm"]}', NOW() - INTERVAL '5 minutes')
+  `
+  console.log('  ✓ 审批待办: 2 条 HITL 草稿（运维组待审批）')
+
   // ════════════════════════════════════════════════════
   // 8. Agent 执行日志（Dashboard 面板数据）
   // ════════════════════════════════════════════════════
@@ -505,6 +518,68 @@ export function add(a: number, b: number): number {
 `)
   console.log('  ✓ 工作空间演示文件已创建')
 
+  // ════════════════════════════════════════════════════
+  // 9b. 第二租户「星辰科技」（多租户演示——管理后台/用量）
+  // ════════════════════════════════════════════════════
+
+  const ACME_APP_ID = '00000000-0000-0000-0000-000000000002'
+  const bossPassword = await hashPassword('acme123')
+  const staffPassword = await hashPassword('acme123')
+  const [boss] = await sql`
+    INSERT INTO _weifuwu_users (email, name, password_hash, role)
+    VALUES ('boss@acme.local', '王总', ${bossPassword}, 'member')
+    ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash
+    RETURNING id, name
+  `
+  const [staff] = await sql`
+    INSERT INTO _weifuwu_users (email, name, password_hash, role)
+    VALUES ('staff@acme.local', '小林', ${staffPassword}, 'member')
+    ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash
+    RETURNING id, name
+  `
+  await sql`
+    INSERT INTO _weifuwu_apps (id, slug, name, owner_user_id, plan, trial_ends_at, monthly_token_limit)
+    VALUES (${ACME_APP_ID}, 'acme', '星辰科技', ${boss.id}, 'free', NOW() + INTERVAL '10 days', 50000)
+    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, plan = EXCLUDED.plan
+  `
+  await sql`
+    INSERT INTO _weifuwu_app_members (app_id, user_id, role, invited_by)
+    VALUES (${ACME_APP_ID}, ${boss.id}, 'owner', ${boss.id}), (${ACME_APP_ID}, ${staff.id}, 'member', ${boss.id})
+    ON CONFLICT DO NOTHING
+  `
+  const [bossAgent] = await sql`
+    INSERT INTO agents (app_id, type, name, user_id, is_active)
+    VALUES (${ACME_APP_ID}, 'user', ${boss.name}, ${boss.id}, true) RETURNING id
+  `
+  const [staffAgent] = await sql`
+    INSERT INTO agents (app_id, type, name, user_id, is_active)
+    VALUES (${ACME_APP_ID}, 'user', ${staff.name}, ${staff.id}, true) RETURNING id
+  `
+  const [acmeAi] = await sql`
+    INSERT INTO agents (app_id, type, name, description, model, system_prompt, temperature, max_tokens, is_active, tools)
+    VALUES (${ACME_APP_ID}, 'ai', '小星', '产品咨询助手', 'deepseek-v4-flash',
+      '你是星辰科技的产品助手，回答简洁准确。', 0.7, 2048, true, '[]')
+    RETURNING id
+  `
+  const [acmeDept] = await sql`
+    INSERT INTO departments (app_id, name, is_dm) VALUES (${ACME_APP_ID}, '产品咨询组', false) RETURNING id
+  `
+  await sql`
+    INSERT INTO department_members (department_id, agent_id, role)
+    VALUES (${acmeDept.id}, ${bossAgent.id}, 'admin'), (${acmeDept.id}, ${staffAgent.id}, 'member'), (${acmeDept.id}, ${acmeAi.id}, 'member')
+  `
+  await sql`
+    INSERT INTO messages (department_id, sender_id, content, msg_type, created_at)
+    VALUES
+      (${acmeDept.id}, ${staffAgent.id}, '小星，我们产品的试用期是多久？', 'text', NOW() - INTERVAL '2 hours'),
+      (${acmeDept.id}, ${acmeAi.id}, '我们提供 14 天免费试用，支持 5 万 token 用量。升级 Pro 后额度提升至 100 万。', 'text', NOW() - INTERVAL '110 minutes')
+  `
+  await sql`
+    INSERT INTO agent_logs (agent_id, app_id, department_id, messages_count, steps_count, tokens_prompt, tokens_completion, tokens_total, elapsed_ms, success, created_at)
+    VALUES (${acmeAi.id}, ${ACME_APP_ID}, ${acmeDept.id}, 6, 1, 420, 210, 630, 2400, true, NOW() - INTERVAL '100 minutes')
+  `
+  console.log('  ✓ 第二租户: 星辰科技（acme）——boss@acme.local / staff@acme.local')
+
   await pg.close()
 
   // ════════════════════════════════════════════════════
@@ -515,9 +590,26 @@ export function add(a: number, b: number): number {
   console.log('║            🎉 种子数据创建完成                       ║')
   console.log('╚══════════════════════════════════════════════════════╝')
   console.log()
-  console.log('  📧 登录凭据')
-  console.log('    管理员: admin@demo.com / admin123')
-  console.log('    用户:   user@demo.com / user123')
+  console.log('  📧 登录凭据（角色对照）')
+  console.log('    ┌─ 租户「演示科技有限公司」(demo)')
+  console.log('    │  老板/Owner : admin@demo.com / admin123')
+  console.log('    │  员工/Member : user@demo.com / user123')
+  console.log('    └─ 租户「星辰科技」(acme)')
+  console.log('       老板/Owner : boss@acme.local / acme123')
+  console.log('       员工/Member : staff@acme.local / acme123')
+  console.log()
+  const adminEmails = process.env.ADMIN_EMAILS ?? ''
+  console.log('  🛡 平台管理员（租户管理后台 /admin）')
+  if (adminEmails.toLowerCase().includes('admin@demo.com')) {
+    console.log('    ✓ admin@demo.com 已在 ADMIN_EMAILS——登录后可访问 /admin')
+  } else {
+    console.log('    ✗ 未配置——启动时加 ADMIN_EMAILS="admin@demo.com" 后登录 admin@demo.com 可访问 /admin')
+  }
+  console.log()
+  console.log('  📋 体验要点')
+  console.log('    · Approvals 页：2 条待审批草稿（运维组 HITL）')
+  console.log('    · Dashboard：ROI/成本/趋势有数据（demo 租户）')
+  console.log('    · /admin（管理员）：多租户列表 + 使用概览 + 停用/开通 Pro')
   console.log()
   console.log('  🤖 AI Agent（从角色模板创建）')
   console.log('    👨‍💻 小码 — 开发助手（文件工具 + bash + 2技能）')
