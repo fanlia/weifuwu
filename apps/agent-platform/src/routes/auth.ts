@@ -59,6 +59,15 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
       ON CONFLICT DO NOTHING
     `
 
+    // 4. 商业化 G1：新租户初始化免费版 14 天试用 + 月配额
+    await sql`
+      UPDATE _weifuwu_apps
+      SET plan = 'free',
+          trial_ends_at = NOW() + INTERVAL '14 days',
+          monthly_token_limit = ${50000}
+      WHERE id = ${appInfo.id}
+    `
+
     // 4. 签发应用 token（owner 成员已建——应用内登录一步到位，前端直接进应用）
     const appLogin = await ctx.auth.loginApp(appSlug, body.email, body.password)
 

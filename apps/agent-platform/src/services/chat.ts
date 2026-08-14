@@ -327,6 +327,16 @@ async function runAgentStreamForAgent(
   // 1) thinking
   emit.emit({ type: 'wf:step', messageId: msgId, agentId: agent.id, agentName: agent.name, stepType: 'llm' })
 
+  // ── 计划拦截（G1 付费墙：试用到期 / 月配额用尽——租户级，先于 Agent 级配额） ──
+  try {
+    const { planBlockReason } = await import('./plan.ts')
+    const reason = await planBlockReason(sql, ctx.appId)
+    if (reason) {
+      emit.emit({ type: 'wf:done', messageId: msgId, content: reason })
+      return
+    }
+  } catch { /* 计划检查失败不阻断——保守放行 */ }
+
   // ── 配额检查（Wave 9 成本控制——月 token 上限，超限拒绝回复） ──
   try {
     const quota = Number(agent.monthly_token_quota ?? 0)

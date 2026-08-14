@@ -11,6 +11,7 @@ interface SettingsState {
   auditFilter: string
   sysHealth: OpsInfo | null
   inviteLink: string; inviteCopied: boolean; inviteErr: string
+  plan: { plan: string; label: string; trialEndsAt: string | null; trialExpired: boolean; monthlyTokenLimit: number; usedThisMonth?: number } | null
 }
 
 const AUDIT_LABELS: Record<string, string> = {
@@ -45,6 +46,9 @@ export const Settings: Component = async (_props, ctx) => {
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
     $.inviteLink = ''; $.inviteCopied = false
+    $.plan = null
+    // 计划状态（G1 付费墙：试用剩余/配额用量）
+    void ctx.api!.get('/api/plan').then((d: any) => { $.plan = d; ctx.ui.render() }).catch(() => {})
 
   async function createInvite() {
     $.inviteLink = ''; $.inviteCopied = false; $.inviteErr = ''
@@ -128,6 +132,32 @@ export const Settings: Component = async (_props, ctx) => {
           </div>
         </form>
       </Card>
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="zap" size={14} /> 当前计划</div>
+        {$.plan ? (
+          <div class="wf-stack wf-gap-xs">
+            <div class="wf-split wf-py-xs wf-border-b">
+              <span class="wf-text-sm wf-text-secondary">计划</span>
+              <span class="wf-text-sm">{$.plan.plan === 'pro' ? <Badge variant="primary">Pro</Badge> : <Badge>免费试用</Badge>}</span>
+            </div>
+            {$.plan.plan !== 'pro' && (
+              <div class="wf-split wf-py-xs wf-border-b">
+                <span class="wf-text-sm wf-text-secondary">试用到期</span>
+                <span class="wf-text-sm">{$.plan.trialExpired
+                  ? <Badge variant="danger">已到期（AI 已暂停）</Badge>
+                  : <span>{$.plan.trialEndsAt ? new Date($.plan.trialEndsAt).toLocaleDateString() : '—'}</span>}</span>
+              </div>
+            )}
+            <div class="wf-split wf-py-xs wf-border-b">
+              <span class="wf-text-sm wf-text-secondary">本月配额</span>
+              <span class="wf-text-sm wf-nums">{($.plan.usedThisMonth ?? 0).toLocaleString()} / {$.plan.monthlyTokenLimit.toLocaleString()} token</span>
+            </div>
+          </div>
+        ) : (
+          <div class="wf-text-sm wf-text-tertiary wf-py-sm">加载中...</div>
+        )}
+      </Card>
+
       <Card>
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="users" size={14} /> 邀请成员</div>
         <div class="wf-text-xs wf-text-tertiary wf-mb-sm">生成邀请链接，同事打开链接注册即可加入你的团队（7 天有效；仅所有者可用）</div>

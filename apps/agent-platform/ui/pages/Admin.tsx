@@ -7,6 +7,9 @@ interface AdminApp {
   slug: string
   name: string
   status: string
+  plan?: string
+  trial_ends_at?: string | null
+  monthly_token_limit?: number
   created_at: string
   member_count: number
   agent_count: number
@@ -27,6 +30,16 @@ export const Admin: Component = async (_props, ctx) => {
       .catch((e) => { error = errMsg(e, '加载租户列表失败'); loading = false; ctx.ui.render() })
   }
   void load()
+
+  async function openPro(a: AdminApp) {
+    busyId = a.id
+    ctx.ui.render()
+    try {
+      await ctx.api!.post(`/api/admin/apps/${a.id}/plan`, { plan: 'pro', monthlyTokenLimit: 1000000 })
+      await load()
+    } catch (e) { error = errMsg(e, '操作失败'); ctx.ui.render() }
+    finally { busyId = '' }
+  }
 
   async function toggleStatus(a: AdminApp) {
     busyId = a.id
@@ -60,6 +73,14 @@ export const Admin: Component = async (_props, ctx) => {
               { key: 'agent_count', label: 'Agent', render: (v: any) => <span class="wf-nums">{v}</span> },
               { key: 'token_usage_month', label: '本月 Token', render: (v: any) => <span class="wf-nums">{fmtTokens(Number(v))}</span> },
               { key: 'token_usage', label: '累计 Token', render: (v: any) => <span class="wf-nums wf-text-secondary">{fmtTokens(Number(v))}</span> },
+              { key: 'plan', label: '计划', render: (v: any, row: any) => (
+                <span class="wf-row wf-gap-sm wf-items-center">
+                  {v === 'pro' ? <Badge variant="primary">Pro</Badge> : <Badge>免费试用</Badge>}
+                  {v !== 'pro' && (
+                    <Button size="sm" variant="primary" disabled={busyId === row.id} onClick={() => openPro(row)}>开通 Pro</Button>
+                  )}
+                </span>
+              ) },
               { key: 'status', label: '状态', render: (v: any, row: any) => (
                 <span class="wf-row wf-gap-sm wf-items-center">
                   {v === 'disabled' ? <Badge variant="danger">已停用</Badge> : <Badge variant="success">正常</Badge>}
