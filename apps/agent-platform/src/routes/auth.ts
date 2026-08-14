@@ -76,5 +76,68 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
     })
   })
 
+  // ── 邀请成员（G3：owner 生成邀请链接——框架 createInvite 7 天有效） ──
+
+  app.post('/api/auth/invite', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const body = await req.json() as { email?: string; role?: string }
+    try {
+      const inv = await ctx.auth.createInvite(ctx.appId, { email: body.email, role: body.role })
+      // 查 slug 拼邀请链接（前端复制分发）
+      const rows = await ctx.sql`SELECT slug FROM _weifuwu_apps WHERE id = ${ctx.appId}`
+      const slug = rows[0]?.slug ?? ''
+      try {
+        const { writeAudit } = await import('../services/audit.ts')
+        await writeAudit(ctx as any, { action: 'invite_create', target_type: 'app', target_id: ctx.appId, detail: { email: body.email ?? null } })
+      } catch { /* 尽力 */ }
+      return Response.json({ token: inv.inviteToken, url: `/register?app=${slug}&invite=${encodeURIComponent(inv.inviteToken)}`, expiresInDays: 7 })
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '生成邀请失败' }, { status: e?.status ?? 400 })
+    }
+  })
+
+  // ── 邀请加入：inviteToken + 注册信息 → registerInApp（复用或建平台账号 + 加成员） ──
+
+  app.post('/api/auth/join', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    try {
+      await ctx.limit?.('join', { max: 5, windowMs: 60_000 })
+    } catch {
+      return Response.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 })
+    }
+    const body = await req.json() as { appSlug: string; inviteToken: string; email: string; name: string; password: string }
+    if (!body.appSlug || !body.inviteToken || !body.email || !body.password || !body.name) {
+      return Response.json({ error: '邀请码、邮箱、姓名、密码为必填' }, { status: 400 })
+    }
+    try {
+      const appRows = await ctx.sql`SELECT id FROM _weifuwu_apps WHERE slug = ${body.appSlug}`
+      const appId = String(appRows[0]?.id ?? '')
+      if (!appId) throw new Error('应用不存在')
+      const appLogin = await ctx.auth.registerInApp({
+        appSlug: body.appSlug,
+        inviteToken: body.inviteToken,
+        email: body.email,
+        name: body.name,
+        password: body.password,
+      })
+      // 自动创建绑定的 user 类型 Agent（同注册流程——加入即可发消息）
+      await ctx.sql`
+        INSERT INTO agents (app_id, type, name, user_id, is_active)
+        VALUES (${appId}, 'user', ${body.name}, ${appLogin.user.id}, true)
+        ON CONFLICT DO NOTHING
+      `
+      try {
+        const { writeAudit } = await import('../services/audit.ts')
+        await writeAudit(ctx as any, { action: 'invite_join', target_type: 'app', target_id: appId, detail: { email: body.email } })
+      } catch { /* 尽力 */ }
+      return Response.json({
+        token: appLogin.token,
+        refreshToken: appLogin.refreshToken,
+        user: appLogin.user,
+        app: { id: appId, slug: body.appSlug, role: 'member' },
+      })
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '邀请无效或已过期' }, { status: e?.status ?? 403 })
+    }
+  })
+
   // 登录失败审计（认证中间件 401 时由 auth-payload 记录——此处覆盖应用登录成功路径）
 }

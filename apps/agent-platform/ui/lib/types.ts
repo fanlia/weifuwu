@@ -198,7 +198,7 @@ export interface UserInfo {
 }
 
 /** 埋点事件（激活漏斗） */
-export type TrackEvent = 'register_complete' | 'agent_created' | 'first_message'
+export type TrackEvent = 'register_complete' | 'invite_join_complete' | 'agent_created' | 'first_message'
 
 export interface FunnelRow {
   event: TrackEvent

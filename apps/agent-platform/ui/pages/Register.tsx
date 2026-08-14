@@ -8,24 +8,38 @@ interface RegisterState {
   email: string; name: string; password: string; error: string; loading: boolean
 }
 
+/** 邀请模式：URL query ?app=slug&invite=token（Settings 生成的邀请链接） */
+function inviteParams(): { app: string; invite: string } | null {
+  const q = new URLSearchParams(location.search)
+  const app = q.get('app') ?? ''
+  const invite = q.get('invite') ?? ''
+  return app && invite ? { app, invite } : null
+}
+
 export const Register: Component = async (_props, ctx) => {
   const $ = {} as RegisterState
   const rerender = () => ctx.ui.render()
   $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
+  const invite = inviteParams()
 
   async function handleRegister() {
     if (!$.email || !$.name || !$.password) { $.error = '请填写所有字段'; rerender(); return }
     $.loading = true; $.error = ''
     rerender()
     try {
-      const res = await fetch('/api/auth/register', {
+      // 邀请模式：/api/auth/join（加入已有团队）；普通模式：/api/auth/register（建新团队）
+      const url = invite ? '/api/auth/join' : '/api/auth/register'
+      const body = invite
+        ? { appSlug: invite.app, inviteToken: invite.invite, email: $.email, name: $.name, password: $.password }
+        : { email: $.email, name: $.name, password: $.password }
+      const res = await fetch(url, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: $.email, name: $.name, password: $.password }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) { const k = authErrorKey(data.error); $.error = k ? (ctx.i18n?.t(k) ?? data.error) : (data.error || '注册失败'); $.loading = false; rerender(); return }
       ctx.auth?.login(data.token, data.user, data.refreshToken)
-      track('register_complete')
+      track(invite ? 'invite_join_complete' : 'register_complete')
       $.loading = false
       ctx.app?.navigate('/')
       rerender()
@@ -33,10 +47,10 @@ export const Register: Component = async (_props, ctx) => {
   }
   return async (props) => (
     <AuthPage
-      title="创建账号"
-      subtitle="注册 Agent Platform，开始构建 AI 团队"
+      title={invite ? '加入团队' : '创建账号'}
+      subtitle={invite ? '你已被邀请加入团队——注册后即可与 AI 同事协作' : '注册 Agent Platform，开始构建 AI 团队'}
       logo={<Avatar name="A" size="lg" />}
-      submitLabel="注 册"
+      submitLabel={invite ? '加入团队' : '注 册'}
       loading={$.loading}
       error={$.error || null}
       onSubmit={() => handleRegister()}
@@ -49,7 +63,7 @@ export const Register: Component = async (_props, ctx) => {
         <Input type="email" placeholder="you@example.com" value={$.email} onInput={(e: Event) => { $.email = inputValue(e); rerender() }} />
       </Field>
       <Field label="密码" required>
-        <PasswordInput placeholder="••••••••" value={$.password} onInput={(e: Event) => { $.password = inputValue(e); rerender() }} />
+        <PasswordInput placeholder="至少 8 位" value={$.password} onInput={(e: Event) => { $.password = inputValue(e); rerender() }} />
       </Field>
     </AuthPage>
   )

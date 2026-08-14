@@ -10,11 +10,12 @@ interface SettingsState {
   pwdSubmitting: boolean; pwdOk: string; pwdErr: string
   auditFilter: string
   sysHealth: OpsInfo | null
+  inviteLink: string; inviteCopied: boolean; inviteErr: string
 }
 
 const AUDIT_LABELS: Record<string, string> = {
   login_success: '登录成功', agent_create: '创建 Agent', agent_update: '更新 Agent',
-  agent_delete: '删除 Agent', approval: '审批操作',
+  agent_delete: '删除 Agent', approval: '审批操作', invite_create: '生成邀请', invite_join: '邀请加入',
 }
 function fmtAuditTime(t: string): string {
   try { return new Date(t).toLocaleString().slice(0, 16) } catch { return String(t ?? '').slice(0, 16) }
@@ -40,9 +41,22 @@ export const Settings: Component = async (_props, ctx) => {
   $.sysHealth = null
   // 系统状态（运营视角：健康 + 沙盒 + 今日审计）
   void ctx.api!.get('/api/ops').then((d) => { $.sysHealth = d; ctx.ui.render() }).catch(() => {})
-    $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
+  $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
+    $.inviteLink = ''; $.inviteCopied = false
+
+  async function createInvite() {
+    $.inviteLink = ''; $.inviteCopied = false; $.inviteErr = ''
+    rerender()
+    try {
+      const d = await ctx.api!.post<{ url: string; expiresInDays: number }>('/api/auth/invite', {})
+      $.inviteLink = d.url
+      void ctx.browser?.copyText?.(location.origin + d.url)
+      $.inviteCopied = true
+    } catch (e) { $.inviteErr = errMsg(e, '生成邀请失败') }
+    rerender()
+  }
 
   async function updateName(e: Event) {
     e.preventDefault()
@@ -114,6 +128,27 @@ export const Settings: Component = async (_props, ctx) => {
           </div>
         </form>
       </Card>
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="users" size={14} /> 邀请成员</div>
+        <div class="wf-text-xs wf-text-tertiary wf-mb-sm">生成邀请链接，同事打开链接注册即可加入你的团队（7 天有效；仅所有者可用）</div>
+        <div class="wf-mb-sm">{$.inviteErr && <Alert variant="error">{$.inviteErr}</Alert>}</div>
+        {$.inviteLink ? (
+          <div class="wf-stack wf-gap-sm">
+            <div class="wf-surface wf-border wf-rounded-md wf-p-sm wf-text-xs wf-break-word" style="background: var(--wf-color-bg-secondary)">
+              {location.origin + $.inviteLink}
+            </div>
+            <div class="wf-row wf-gap-sm">
+              <Button size="sm" variant="primary" onClick={createInvite}>生成新邀请（旧链接失效）</Button>
+              <Button size="sm" variant="ghost" onClick={() => { void ctx.browser?.copyText?.(location.origin + $.inviteLink); $.inviteCopied = true; rerender() }}>
+                {$.inviteCopied ? '✓ 已复制' : '复制链接'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button size="sm" variant="primary" onClick={createInvite}>生成邀请链接</Button>
+        )}
+      </Card>
+
       <Card>
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="activity" size={14} /> 系统状态</div>
         {$.sysHealth ? (
