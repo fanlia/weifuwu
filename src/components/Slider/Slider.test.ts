@@ -74,9 +74,11 @@ it('onChange 数值化（string → Number）', async () => {
   assert.equal(typeof got, 'number')
 })
 
-it('轨道渐变百分比（value=50 → 50%）', async () => {
+it('轨道渐变边界 = thumb 中心偏移补偿（value=50 → calc 0.5）', async () => {
   const vnode = await renderVNode(Slider, { value: 50, min: 0, max: 100 }, createTestCtx())!
-  assert.ok(JSON.stringify(vnode).includes('50%'), '渐变包含 50%')
+  const s = JSON.stringify(vnode)
+  // 渐变边界与 thumb 中心同一公式：calc(9px + (100% - 18px) * 0.5)
+  assert.ok(s.includes('calc(9px + (100% - 18px) * 0.5)'), '渐变边界必须含 thumb 偏移补偿')
 })
 
 it('label 渲染 + 无 label 精简结构（边界）', async () => {

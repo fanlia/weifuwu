@@ -40,16 +40,17 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
 
     const numVal = Number(value)
     const range = max - min
-    // 轨道进度填充：已滑过部分主色（webkit 用 background 渐变；Firefox 轨道透明由同渐变着色）
-    const pct = range > 0 ? Math.min(100, Math.max(0, ((numVal - min) / range) * 100)) : 0
-    const trackBg = `linear-gradient(to right, var(--wf-color-primary) ${pct}%, var(--wf-color-border) ${pct}%)`
-
     // thumb 中心活动范围 = [轨道左 + 半宽, 轨道右 - 半宽]（原生 range 行为）——
-    // marks/tooltip 必须用同一偏移补偿（否则两端错位 9px、中间对齐）。
+    // marks/tooltip/渐变边界必须用同一偏移补偿（否则两端错位 9px、中间对齐）。
     // 与 CSS .wf-slider 的 --wf-slider-thumb-size 默认 18px 对应（覆盖该变量时此处需同步）。
     const THUMB_R = 9
     const thumbOffset = (t: number) => `calc(${THUMB_R}px + (100% - ${THUMB_R * 2}px) * ${t})`
     const thumbX = (w: number, t: number) => THUMB_R + t * (w - THUMB_R * 2)
+    // 轨道进度填充：渐变边界 = thumb 中心（同一偏移补偿公式）——
+    // 否则渐变用全宽百分比与 thumb 半宽偏移错位（0% thumb 超填充 9px / 100% 反向）
+    const pct = range > 0 ? Math.min(100, Math.max(0, ((numVal - min) / range) * 100)) : 0
+    const fillStop = `calc(${THUMB_R}px + (100% - ${THUMB_R * 2}px) * ${pct / 100})`
+    const trackBg = `linear-gradient(to right, var(--wf-color-primary) ${fillStop}, var(--wf-color-border) ${fillStop})`
 
     // ── tooltip 坐标：input rect + 进度百分比 → thumb 中心；视口边缘手动 clamp ──
     let tipStyle: Record<string, string> | null = null
