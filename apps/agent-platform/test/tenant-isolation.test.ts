@@ -33,6 +33,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'server.ts', match: "SELECT id, name, webhook_platform, webhook_url, im_bind_dept, webhook_secret FROM agents WHERE type = 'webhook'", reason: 'IM 入站机器人查询（G8 补强）——平台级路由：回调无租户上下文，机器人绑定部门显式配置（返回单行供消息路由，不泄漏）' },
   { file: 'server.ts', match: "SELECT id FROM departments WHERE name = '模拟调研组'", reason: '问卷一键派单（demo 端点）——按部门名查询，仅返回 id 供消息路由（demo 专用，不泄漏数据）' },
   { file: 'server.ts', match: 'FROM department_members dm JOIN agents a ON a.id = dm.agent_id WHERE dm.department_id = ${dept.id}', reason: '问卷一键派单（demo 端点）——部门 id 来自上一步（同名查询），仅返回角色名供派单' },
+  { file: 'server.ts', match: 'WHERE id::text = ANY(string_to_array(${ids.join(',')}', reason: '沙盒监控容器→agent 名映射（管理员端点）——按容器 id 反查名字，不返回租户数据' },
   { file: 'server.ts', match: 'SELECT template_slug', reason: '平台级模板使用统计（role_templates usage_count）' },
   { file: 'src/routes/admin.ts', match: 'FROM messages m JOIN agents', reason: '平台管理员聚合（requireAdmin 保护，管理员有权看全平台）' },
   { file: 'src/routes/admin.ts', match: 'FROM agent_logs WHERE created_at', reason: '平台管理员聚合（requireAdmin 保护）' },
