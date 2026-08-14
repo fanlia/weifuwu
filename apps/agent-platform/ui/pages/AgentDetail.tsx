@@ -112,7 +112,18 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
       $.loading = false
       rerender()
-    }).catch(() => { $.loading = false; rerender() })
+    }).catch((e) => {
+      // 404/无权限 → notFound；其他（网络/500）→ 显示错误信息（不误报“不存在”）
+      const msg = errMsg(e, '').toLowerCase()
+      if (msg.includes('不存在') || msg.includes('unauthorized') || msg.includes('未授权')) {
+        $.notFound = true
+      } else {
+        $.error = errMsg(e, '加载 Agent 失败')
+        $.agent = null
+      }
+      $.loading = false
+      rerender()
+    })
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
@@ -409,7 +420,8 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
   return async (props) => {
     if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
-    if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在" /></div>
+    if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在或无权访问" hint="可能是链接过期，或该 Agent 属于其他应用。"><Button variant="primary" onClick={() => ctx.route!.navigate('/agents')}>返回 Agent 列表</Button></EmptyState></div>
+    if ($.error && !$.agent) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="⚠️" text="加载 Agent 失败" hint={$.error}><Button variant="primary" onClick={() => { window.location.reload() }}>重试</Button></EmptyState></div>
 
     const a = $.agent ?? ({} as Partial<Agent>)
     const typeColor: Record<string, string> = { ai: '#8b5cf6', webhook: '#f59e0b', knowledge_base: '#22c55e', user: '#4f6ef7' }
