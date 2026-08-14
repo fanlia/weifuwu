@@ -303,6 +303,8 @@ describe('Services', () => {
     })
 
     it('出站镜像：配置 webhook_url → 应答回推（带签名）', async () => {
+      // 测试逃生口：本地 mock 端点验证镜像（SSRF 防护默认拦内网——生产绝不设置）
+      process.env.WEBHOOK_SSRF_ALLOW_PRIVATE = '1'
       // mock 接收端点
       const received: Array<{ headers: any; body: any }> = []
       const http = await import('node:http')
@@ -339,8 +341,30 @@ describe('Services', () => {
         assert.ok(received[0].headers['x-signature'], '带签名')
       } finally {
         // 恢复（不污染后续测试）
+        process.env.WEBHOOK_SSRF_ALLOW_PRIVATE = ''
         await pg.sql`UPDATE agents SET webhook_url = NULL, webhook_secret = NULL WHERE id = '00000000-0000-0000-0000-000000000040'`
         await new Promise<void>((r) => server.close(() => r()))
+      }
+    })
+
+    it('SSRF 防护：出站 URL 内网地址拒绝推送', async () => {
+      // 配置内网出站 URL（无 secret——入站免签）
+      await pg.sql`UPDATE agents SET webhook_url = 'http://127.0.0.1:9/evil', webhook_secret = NULL WHERE id = '00000000-0000-0000-0000-000000000040'`
+      const { handleWebhookMessage } = await import('../src/services/webhook.ts')
+      try {
+        const ctx = makeMockCtx({ sql: await pg.sql as any })
+        const result = await handleWebhookMessage(
+          ctx as Context,
+          '00000000-0000-0000-0000-000000000040',
+          { content: 'SSRF 测试' },
+        )
+        assert.ok(result.reply, 'AI 正常回复（推送被拒不影响主流程）')
+        // 推送被拒 → 出站日志记录 502（delivered=false）
+        const [log] = await pg.sql`SELECT response_status FROM webhook_logs WHERE agent_id = '00000000-0000-0000-0000-000000000040' AND request_body LIKE 'OUTBOUND%' ORDER BY created_at DESC LIMIT 1`
+        assert.ok(log, '出站日志存在')
+        assert.equal(Number(log.response_status), 502, '出站推送被拒（502）')
+      } finally {
+        await pg.sql`UPDATE agents SET webhook_url = NULL, webhook_secret = NULL WHERE id = '00000000-0000-0000-0000-000000000040'`
       }
     })
 

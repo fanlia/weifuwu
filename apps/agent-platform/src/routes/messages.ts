@@ -78,6 +78,9 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: 'content 为必填' }, { status: 400 })
     }
 
+    // 消息长度上限（后端强制——防无界入库 + AI 上下文浪费）
+    const content = String(body.content).slice(0, 5000)
+
     // 验证发件人 agent（当前用户绑定的 agent）
     let [sender] = await sql`
       SELECT id FROM agents
@@ -107,7 +110,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
 
     const [message] = (await sql`
       INSERT INTO messages (department_id, sender_id, content, msg_type, reply_to)
-      VALUES (${params.id}, ${sender.id}, ${body.content}, ${body.msg_type ?? 'text'}, ${body.reply_to ?? null})
+      VALUES (${params.id}, ${sender.id}, ${content}, ${body.msg_type ?? 'text'}, ${body.reply_to ?? null})
       RETURNING id, department_id, sender_id, content, msg_type, created_at
     `) as unknown as Array<Record<string, any>>
 
@@ -147,6 +150,9 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     if (!body.content) {
       return Response.json({ error: 'content 为必填' }, { status: 400 })
     }
+
+    // 消息长度上限（后端强制——防无界入库 + AI 上下文浪费）
+    const content = String(body.content).slice(0, 5000)
 
     // 验证发件人 agent
     let [sender] = await sql`

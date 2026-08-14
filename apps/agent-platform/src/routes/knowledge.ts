@@ -93,6 +93,9 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
     if (!body.filename || !body.content) {
       return Response.json({ error: 'filename 和 content 为必填' }, { status: 400 })
     }
+    // 文档内容上限（200KB——分块/嵌入成本控制）
+    body.content = String(body.content).slice(0, 200_000)
+    body.filename = String(body.filename).slice(0, 200)
 
     const result = await processDocument(ctx, params.id, agent as any, body.filename, body.content)
     return Response.json(result, { status: 201 })

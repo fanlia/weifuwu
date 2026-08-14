@@ -243,7 +243,11 @@ return Response.json({ agent })
   // ── 删除 Agent ───────────────────────────────────────────
 
   app.delete('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { sql, appId, params, auth } = ctx
+    // 删除权限：仅 owner/admin（防 member 越权删 Agent）
+    if (auth!.role !== 'owner' && auth!.role !== 'admin') {
+      return Response.json({ error: '仅管理员可删除 Agent' }, { status: 403 })
+    }
     const result = await sql`
       DELETE FROM agents
       WHERE id = ${params.id} AND app_id = ${appId}

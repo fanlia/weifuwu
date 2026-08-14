@@ -46,6 +46,34 @@ function createSignature(body: string, secret: string, timestamp: string): strin
 }
 
 /**
+ * SSRF 防护：出站 URL 必须 http/https 且非内网（字面量 + DNS 解析双检查）
+ * ——webhook_url 由租户配置，服务器 fetch 任意 URL = 内网探测/元数据窃取风险
+ */
+async function isSafeWebhookUrl(raw: string): Promise<boolean> {
+  // 测试逃生口（仅测试环境——集成测试用本地 mock 端点验证镜像；生产绝不设置）
+  if (process.env.WEBHOOK_SSRF_ALLOW_PRIVATE === '1') return true
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+    const host = u.hostname
+    if (host === 'localhost' || host === '0.0.0.0' || host === '::1' || host === '127.0.0.1') return false
+    const isPrivate = (addr: string): boolean => {
+      const m = addr.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+      if (!m) return addr.includes(':') // 非 IPv4（IPv6/域名）→ DNS 检查兜底；域名本身放行走解析
+      const [a, b] = m.slice(1).map(Number)
+      return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+    }
+    if (isPrivate(host)) return false
+    // DNS 解析检查：域名指向内网也拒绝
+    const { lookup } = await import('node:dns/promises')
+    const addrs = await lookup(host).catch(() => [] as Array<{ address: string }>)
+    if (!Array.isArray(addrs) || addrs.length === 0) return false
+    for (const a of addrs) if (isPrivate(a.address)) return false
+    return true
+  } catch { return false }
+}
+
+/**
  * 出站回调镜像：入站应答回推到配置的 webhook_url（双向管道）
  * - 签名对齐入站：X-Timestamp（毫秒）+ X-Signature（HMAC(secret, ts + '.' + body)）
  * - 重试：指数退避（复用 webhook_retry_count）
@@ -54,6 +82,8 @@ function createSignature(body: string, secret: string, timestamp: string): strin
 async function deliverOutbound(agent: any, reply: string, conversationId?: string): Promise<boolean> {
   const url = agent?.webhook_url ? String(agent.webhook_url) : ''
   if (!url) return true
+  // SSRF 防护：内网/非法 URL 拒绝推送（记录日志由调用方处理）
+  if (!(await isSafeWebhookUrl(url))) return false
   const secret = agent?.webhook_secret ? String(agent.webhook_secret) : ''
   const maxRetry = Math.max(1, Number(agent?.webhook_retry_count ?? 3))
   const body = JSON.stringify({ reply, conversation_id: conversationId ?? null, timestamp: Date.now() })
