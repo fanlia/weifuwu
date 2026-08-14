@@ -44,13 +44,20 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
     const pct = range > 0 ? Math.min(100, Math.max(0, ((numVal - min) / range) * 100)) : 0
     const trackBg = `linear-gradient(to right, var(--wf-color-primary) ${pct}%, var(--wf-color-border) ${pct}%)`
 
+    // thumb 中心活动范围 = [轨道左 + 半宽, 轨道右 - 半宽]（原生 range 行为）——
+    // marks/tooltip 必须用同一偏移补偿（否则两端错位 9px、中间对齐）。
+    // 与 CSS .wf-slider 的 --wf-slider-thumb-size 默认 18px 对应（覆盖该变量时此处需同步）。
+    const THUMB_R = 9
+    const thumbOffset = (t: number) => `calc(${THUMB_R}px + (100% - ${THUMB_R * 2}px) * ${t})`
+    const thumbX = (w: number, t: number) => THUMB_R + t * (w - THUMB_R * 2)
+
     // ── tooltip 坐标：input rect + 进度百分比 → thumb 中心；视口边缘手动 clamp ──
     let tipStyle: Record<string, string> | null = null
     if (tipOpen && inputEl && !disabled) {
       const r = inputEl.getBoundingClientRect()
       if (r.width > 0) {
         const vw = browser.viewportWidth?.() ?? 0
-        const left = Math.max(24, Math.min(vw - 24, r.left + (pct / 100) * r.width))
+        const left = Math.max(24, Math.min(vw - 24, r.left + thumbX(r.width, pct / 100)))
         const top = Math.max(8, r.top - 36)
         tipStyle = { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` }
       }
@@ -96,7 +103,7 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
             return h('div', {
               key: `mark-${m.value}`,
               class: 'wf-slider-mark',
-              style: { left: `${mp}%` },
+              style: { left: thumbOffset(mp / 100) },
             }, [
               h('span', { class: 'wf-slider-mark-dot' }),
               m.label ? h('span', { class: 'wf-slider-mark-label' }, m.label) : null,

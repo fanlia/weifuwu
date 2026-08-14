@@ -10,6 +10,8 @@
   display: flex;
   align-items: center;
   gap: var(--wf-gap-md);
+  /* thumb 尺寸（可覆盖定制；marks/tooltip 偏移常量按默认 18px 同步——覆盖需知悉） */
+  --wf-slider-thumb-size: 18px;
 }
 
 /* 轨道容器（input + marks 同宽对齐——value 显示不参与） */
@@ -50,8 +52,8 @@
 
 .wf-slider-input::-webkit-slider-thumb {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: var(--wf-slider-thumb-size);
+  height: var(--wf-slider-thumb-size);
   border-radius: 50%;
   background: var(--wf-color-primary);
   cursor: pointer;
@@ -64,8 +66,8 @@
 
 /* Firefox 同款 thumb（跨浏览器一致） */
 .wf-slider-input::-moz-range-thumb {
-  width: 14px; /* 去除 border 后的同视觉尺寸 */
-  height: 14px;
+  width: calc(var(--wf-slider-thumb-size) - 4px); /* 去除 border 后的同视觉尺寸 */
+  height: calc(var(--wf-slider-thumb-size) - 4px);
   border-radius: 50%;
   background: var(--wf-color-primary);
   cursor: pointer;
