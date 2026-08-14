@@ -1,7 +1,21 @@
-# weifuwu/style 使用指南（wf-* 命名规范 + 三档学习路径）
+# weifuwu/style 使用指南（设计语言 + wf-* 命名规范 + 三档学习路径）
 
 > 一个 CSS 文件（`weifuwu/components/style.css`）= Token + 布局原语 + 工具类 + 组件样式。
-> 本文档是**学习路径**与**命名规范**——看完第二档即可上手 90% 页面。
+> 本文档是**设计语言**与**学习路径**——看完第二档即可上手 90% 页面。
+
+## 设计语言：WUI Design Language（微设计）
+
+weifuwu 的设计语言与框架哲学同源（确定性、诚实裁剪、render-only）——**五条理念，每条都可被代码审计**：
+
+| # | 理念 | 含义 | 代码中的体现 |
+|---|------|------|-------------|
+| 1 | **确定性** Deterministic | 每个可交互元素必有完整状态链：hover → focus → active → disabled | 状态层 token（`--wf-state-hover/pressed/selected`）全组件引用，audit 强制 |
+| 2 | **清晰** Clear | 三层表面层级 + 三档文字层级 + 语义色只表达语义 | `--wf-surface-*` / `--wf-color-bg-elevated`；语义色 `-text` 变体 |
+| 3 | **克制** Restrained | 中性色主导、品牌色点睛；动效短促有目的；阴影轻 | 动效 Token 阶梯 120-300ms；focus-ring 双层；预设 minimal |
+| 4 | **专业** Instrumental | 面向 AI 应用/管理后台/数据工具：键盘可达、数据密度、三态完整 | 键盘焦点全局；compact 预设；加载/空/错误三态规范 |
+| 5 | **中文原生** CJK-Native | 字阶/行高/断行针对中文；表头不做 uppercase；数字防抖 | `--wf-heading-case: none`；`wf-nums`（tabular-nums） |
+
+主题配置三档（详见 [docs/styling.md](styling.md)）：**① 改 `--wf-brand-seed` 一个值换肤**（色阶 color-mix 自动派生，暗色自动跟随）→ **② `<html data-preset="minimal|compact|rounded">` 预设**（与 data-theme 正交）→ **③ 深度定制**（组件钩子 + @layer 覆盖）。
 
 ## 统一语法：`wf-<域>-<名字>`
 
@@ -84,15 +98,48 @@ wf-rounded-md     圆角
 | 可关闭标签 | `<Tag closable>`（可交互，有关闭钮） |
 | 图标 | `<Icon name="close" />`（禁止裸 emoji/字形） |
 
+### 排版速查（字号/行高/字距）
+
+| 用途 | 写法 | Token |
+|------|------|-------|
+| 顶级页面标题 | `<PageHeader display>` | `--wf-font-size-display` (30px, 负字距) |
+| 页面标题 | `wf-text-3xl/4xl` | 24/30px |
+| 卡片标题 | `wf-text-xl/2xl` | 16/21px |
+| 正文 | `wf-text-base`（默认） | 14px · 行高 1.5（CJK 实测可读，与主流框架同档） |
+| 次级/辅助 | `wf-text-sm` / `wf-text-xs` | 13/12px · 配 `wf-text-secondary` |
+| 长文正文（文章） | `wf-prose` | 行高 1.75（relaxed）——长文更宽松 |
+| 数字/统计 | `wf-nums`（StatCard/Table 数值） | tabular-nums 防宽度抖动 |
+| 标题字距/变换 | 全局 | `--wf-heading-case`（CJK 默认 none，英文可 uppercase） |
+
+### 三态规范（加载 / 空 / 错误——专业工具感）
+
+| 状态 | 组件组合 | 要点 |
+|------|---------|------|
+| 加载中 | `Skeleton`（页面/卡片级）· Button `loading` · Table 加载遮罩 | 首帧不闪：骨架屏结构与最终内容同构 |
+| 无数据 | `EmptyState`（icon 可自定义 VNode） | 给下一步动作（新建/刷新按钮），不写"暂无数据"就结束 |
+| 出错 | `Alert`（内联错误）· `Result`（整页错误） | 必须带重试/返回路径；表单错误用 Field `error` + 红边 |
+
+**交互状态链**（设计语言内建，无需手写）：hover → focus-visible → active(pressed) → disabled——
+菜单/列表/按钮全组件自动具备；自定义可交互元素用状态层变量：
+`background: var(--wf-state-hover)`（悬停）/ `var(--wf-state-pressed)`（按压）/ `var(--wf-state-selected)`（选中）。
+
 ## 定制（零 CSS 文件）
 
-### 品牌换色 — 改原始层一个值，全站跟随
+### 品牌换色 — 改 seed 一个值，全站跟随（亮/暗色阶自动派生）
 
 ```html
 <style>
-  :root { --wf-brand-500: #7c3aed; }        /* 亮色品牌 */
-  :root { --wf-dark-brand-500: #a78bfa; }   /* 暗色品牌（可选） */
+  :root { --wf-brand-seed: #7c3aed; }        /* 亮色品牌（50/500/600/700 色阶自动派生） */
+  :root { --wf-dark-brand-seed: #a78bfa; }   /* 暗色品牌（可选） */
 </style>
+```
+
+### 预设主题 — 一个属性开箱即用
+
+```html
+<html data-preset="minimal">   <!-- 极简：中性色、弱品牌 -->
+<html data-preset="compact">  <!-- 紧凑：控件/间距/字号缩一档 -->
+<html data-preset="rounded">  <!-- 圆润：大圆角 + 胶囊按钮 -->
 ```
 
 ### 组件定制 — 设一个变量
@@ -130,7 +177,7 @@ wf-rounded-md     圆角
 用户 @layer utilities 可精准盖过 weifuwu 的 utilities
 ```
 
-## 主题 Token（141 个，双层）
+## 主题 Token（177 个，双层）
 
 - **原始层**（`--wf-brand-*` `--wf-slate-*` `--wf-dark-*`）：色值只定义一次，品牌/暗色调校改这里
 - **语义层**（`--wf-color-*` `--wf-space-*` `--wf-radius-*` …）：组件消费，主题切换覆盖这里
@@ -164,7 +211,11 @@ h(Icon, { name: 'close' })          // 随上下文颜色/字号
 h(Icon, { name: 'check', size: 16 })
 ```
 
-内置 25 个：方向（chevron/arrow/sort）、状态（check/close/alert/info/warning）、操作（search/send/stop/retry/upload/trash/edit/plus）等。业务图标自备（`Icon` 只做基础集）。
+内置 90 个：方向（chevron/arrow/sort）、状态（check/close/alert/info/warning）、操作（search/send/stop/retry/upload/trash/edit/plus）等。业务图标自备（`Icon` 只做基础集）。
+
+**图标视觉参数**（全库统一）：24 viewBox · stroke 风格（feather-like）· `stroke-width: 1.8` ·
+`linecap/linejoin: round` · `currentColor` 随文字色 · `1em` 随字号 · `aria-hidden`——
+新图标必须沿用同一模板（`Icon.ts` 单一 SVG 模板对象），禁止自建参数。
 
 ## 浮层退场语义（P0/P4 变更，注意时序）
 

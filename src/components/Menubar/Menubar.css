@@ -43,7 +43,7 @@
   position: fixed;
   z-index: var(--wf-z-popover);
   min-width: var(--wf-menubar-min-width,  160px);
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   box-shadow: var(--wf-shadow-lg);
@@ -68,11 +68,16 @@
   color: var(--wf-color-text);
   cursor: pointer;
   font-family: var(--wf-font-sans);
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-menubar-item:hover,
 .wf-menubar-item--hl {
-  background: var(--wf-color-bg-tertiary);
+  background: var(--wf-state-hover);
+}
+
+.wf-menubar-item:active {
+  background: var(--wf-state-pressed);
 }
 
 .wf-menubar-item:focus-visible {

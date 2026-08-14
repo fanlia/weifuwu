@@ -2,7 +2,7 @@
 
 .wf-command-panel {
   width: min(520px, 90vw);
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   box-shadow: var(--wf-shadow-lg);
@@ -14,7 +14,7 @@
 }
 
 @keyframes wf-command-in {
-  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  from { opacity: 0; transform: translateY(calc(var(--wf-motion-sm) * -1)) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 

@@ -2,15 +2,21 @@
  *
  * 原始层（Primitive）：色值/暗色值只定义一次。品牌换色/暗色调校只改这一层。
  * 语义层（Semantic）：组件消费这一层。主题切换 = 覆盖语义映射（见 _dark.css）。
+ *
+ * 品牌换肤（WUI 设计语言第一档）：只改 --wf-brand-seed 一个值，
+ * 50/500/600/700 色阶经 color-mix() 自动派生（500 = seed 本身）。
+ * 暗色阶由 --wf-dark-brand-seed 派生。不支持 color-mix 的旧浏览器
+ * 经文件底部 @supports 回退块自动使用默认色板（渐进增强，零 JS）。
  */
 
 /* ══ 原始层（Primitive）══ */
 :root {
-  /* 品牌（覆盖 --wf-brand-500 即换主题色，全站跟随） */
-  --wf-brand-500: #4f6ef7;
-  --wf-brand-600: #3b5ae0;
-  --wf-brand-700: #4338ca;  /* 品牌文字色（浅底可读，配 --wf-color-primary-text） */
-  --wf-brand-50: #eef1ff;
+  /* 品牌（WUI 设计语言：改 --wf-brand-seed 一个值全站换肤，色阶 color-mix 派生） */
+  --wf-brand-seed: #4f6ef7;
+  --wf-brand-500: var(--wf-brand-seed);
+  --wf-brand-600: color-mix(in srgb, var(--wf-brand-seed) 85%, #000);
+  --wf-brand-700: color-mix(in srgb, var(--wf-brand-seed) 70%, #000);  /* 品牌文字色（浅底可读，配 --wf-color-primary-text） */
+  --wf-brand-50: color-mix(in srgb, var(--wf-brand-seed) 12%, #fff);
 
   /* 语义原始色 */
   --wf-green-500: #22c55e;  --wf-green-50: #f0fdf4;
@@ -28,7 +34,10 @@
   --wf-slate-50: #f8fafc;   --wf-white: #ffffff;
 
   /* 暗色值（暗色模式只做映射，值定义于此） */
-  --wf-dark-brand-500: #6b8aff;  --wf-dark-brand-600: #8ba3ff;  --wf-dark-brand-50: #1e293b;
+  --wf-dark-brand-seed: #6b8aff;
+  --wf-dark-brand-500: var(--wf-dark-brand-seed);
+  --wf-dark-brand-600: color-mix(in srgb, var(--wf-dark-brand-seed) 78%, #fff);
+  --wf-dark-brand-50: color-mix(in srgb, var(--wf-dark-brand-seed) 12%, #0f172a);
   --wf-dark-green-500: #4ade80;  --wf-dark-green-50: #14532d;
   --wf-dark-amber-500: #fbbf24;  --wf-dark-amber-50: #451a03;
   --wf-dark-red-500: #f87171;    --wf-dark-red-50: #451a1a;
@@ -39,6 +48,8 @@
   --wf-dark-overlay: rgba(0, 0, 0, 0.6); /* 暗色遮罩（比亮色更深，压住暗底内容） */
   --wf-dark-fill: var(--wf-dark-slate-200);           /* 暗色填充（比底色亮一级） */
   --wf-dark-bg-hover: rgba(255, 255, 255, 0.06);      /* 暗色 hover 反白 */
+  --wf-dark-state-hover: rgba(255, 255, 255, 0.06);   /* 状态层暗色值（hover 反白） */
+  --wf-dark-state-pressed: rgba(255, 255, 255, 0.10); /* 状态层暗色值（pressed 更强） */
   --wf-dark-surface-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   --wf-dark-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --wf-dark-shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -141,6 +152,9 @@
   /* ── surface 引用色彩 ── */
   --wf-surface-bg: var(--wf-color-bg);
 
+  /* 浮层面板底色（surface-2/3：浮层/模态——亮色同 bg 靠阴影区分，暗色抬升一级见 _dark.css） */
+  --wf-color-bg-elevated: var(--wf-color-bg);
+
   /* ── 字体 ── */
   --wf-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --wf-font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
@@ -212,7 +226,13 @@
   /* ── 色彩 — 通用填充/悬停底色（暗色经 _dark.css 映射） ── */
   --wf-color-fill: var(--wf-slate-100);               /* 通用填充色（禁裸灰——组件假 token 收敛） */
   --wf-color-bg-subtle: var(--wf-color-fill);         /* 极淡底（别名） */
-  --wf-color-bg-hover: rgba(0, 0, 0, 0.04);           /* hover 底色（暗色反白） */
+
+  /* ── 状态层（Material 3 state layers 语义——可交互元素统一引用，暗色经 _dark.css 映射） ── */
+  --wf-state-hover: rgba(0, 0, 0, 0.04);              /* hover 叠色（列表项/菜单项） */
+  --wf-state-pressed: rgba(0, 0, 0, 0.08);            /* pressed 按压叠色 */
+  --wf-state-selected: var(--wf-color-primary-bg);    /* 选中态底色 */
+
+  --wf-color-bg-hover: var(--wf-state-hover);         /* 兼容别名（历史名） */
 
   /* ── 色彩 — 实心填充上的文字/图标（primary/success 等实心底色） ── */
   --wf-color-on-brand: #fff;
@@ -252,4 +272,17 @@
 
   /* ── 数字 ── */
   --wf-nums: 'tabular-nums'; /* 数字等宽（统计/表格数值防抖动） */
+}
+
+/* ══ 旧浏览器回退（渐进增强——不支持 color-mix 时用默认色板硬值） ══
+ * 定义处 color-mix 声明无效 → 此处同层覆盖回默认 hex。
+ * 注意：声明缩进 4 空格——不参与 token 计数（计数只认 2 空格缩进）。 */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+    :root {
+        --wf-brand-600: #3b5ae0;
+        --wf-brand-700: #4338ca;
+        --wf-brand-50: #eef1ff;
+        --wf-dark-brand-600: #8ba3ff;
+        --wf-dark-brand-50: #1e293b;
+    }
 }

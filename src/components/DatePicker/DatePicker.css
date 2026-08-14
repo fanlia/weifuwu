@@ -43,7 +43,7 @@
 .wf-datepicker-dropdown {
   position: fixed;
   z-index: var(--wf-z-popover);
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-md);
@@ -156,7 +156,7 @@
   z-index: var(--wf-z-popover);
   display: flex;
   gap: var(--wf-space);
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-md);
@@ -277,7 +277,7 @@
   padding: 2px 4px;
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   color: var(--wf-color-text);
   outline: none;
   cursor: pointer;

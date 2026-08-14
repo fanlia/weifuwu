@@ -1,8 +1,10 @@
 # weifuwu/style — 样式系统总览
 > **状态（2026-12 确认）**：📄 文档——样式系统总览——使用指南（非计划）
 
-> 一个 CSS 文件（`weifuwu/components/style.css`）= **167 个双层 Token + 基础层 + 66 个布局原语 + 156 个工具类 + 48 个组件样式 + 5 层 @layer 机制**。
+> 一个 CSS 文件（`weifuwu/components/style.css`）= **177 个双层 Token + 基础层 + 66 个布局原语 + 156 个工具类 + 48 个组件样式 + 5 层 @layer 机制 + 3 套预设主题**。
 > 定位：全栈框架的纯 CSS 样式层——零构建、零配置、纯 link 即得完整设计系统。
+>
+> 设计语言：**WUI Design Language（微设计）**——确定性/清晰/克制/专业/中文原生（docs/style-guide.md 理念表）。
 
 ## 架构分层
 
@@ -20,12 +22,12 @@
 │ 基础层  reset / 原生控件 / focus / 触屏44px / │ 无障碍与默认品质
 │         reduced-motion / color-scheme        │
 ├─────────────────────────────────────────────┤
-│ Token   167 个 · 原始层（品牌/中性/暗色值）   │ 值只定义一次
+│ Token   177 个 · 原始层（品牌/中性/暗色值）   │ 值只定义一次
 │         语义层（组件消费，主题切换覆盖）       │
 └─────────────────────────────────────────────┘
 ```
 
-## 1. Token 层（167 个，双层）
+## 1. Token 层（177 个，双层）
 
 **原始层（Primitive）**——色值只定义一次，品牌/暗色调校改这里：
 
@@ -53,7 +55,7 @@
 --wf-z-*  --wf-bp-*  --wf-control-*  --wf-sidebar-width
 ```
 
-**定制**：品牌换色 = 覆盖 `--wf-brand-500` 一个值全站跟随（实测）。
+**定制**：品牌换色 = 覆盖 `--wf-brand-seed` 一个值全站跟随（50/500/600/700 色阶 color-mix 派生，旧浏览器 @supports 回退默认色板）；预设主题 = `<html data-preset="minimal|compact|rounded">` 变量组切换（_presets.css，与 data-theme 正交）。
 
 ## 2. 基础层
 
@@ -112,6 +114,10 @@ Button/Input/Textarea/Select/Checkbox/Switch/RadioGroup/Table/Modal/Confirm/Toas
 
 **组件定制钩子**（29 个变量，默认值 = 现有 token）：
 `--wf-btn-radius/pad-*` `--wf-card-radius/shadow` `--wf-field-radius/height` `--wf-modal-width/radius/shadow` `--wf-drawer-width` `--wf-toast-width/radius` `--wf-alert-radius` `--wf-badge-radius` `--wf-tag-radius` `--wf-switch-radius` `--wf-popover-width/radius` `--wf-tooltip-radius` `--wf-dropdown-min-width` `--wf-datepicker-*`。
+
+**状态层与表面层级**（Material 3 思想落地）：
+- `--wf-state-hover/pressed/selected`——可交互元素统一状态反馈（菜单项/列表项 hover+pressed 双态，audit 强制）
+- `--wf-color-bg-elevated`——浮层面板底色（Modal/Drawer/Popover/Dropdown/Select/DatePicker 等统一引用；暗色抬升一级——tonal elevation，浮层提亮而非只靠阴影）
 
 ## 7. 命名体系
 

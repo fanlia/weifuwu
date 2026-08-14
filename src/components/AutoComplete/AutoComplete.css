@@ -16,7 +16,7 @@
   max-height: 280px;
   overflow-y: auto;
   border-radius: var(--wf-surface-radius);
-  background: var(--wf-surface-bg);
+  background: var(--wf-color-bg-elevated);
   box-shadow: var(--wf-surface-shadow);
   border: var(--wf-border-width) solid var(--wf-color-border-light);
   font-family: var(--wf-font-sans);

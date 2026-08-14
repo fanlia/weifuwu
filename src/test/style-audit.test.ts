@@ -202,14 +202,37 @@ describe('样式审计 — 设计约束', () => {
     return (l1 + 0.05) / (l2 + 0.05)
   }
 
-  it('语义文字色对比度 ≥ 4.5（-text 对 -50 底，亮暗双验证）', () => {
-    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
-    const get = (name: string) => {
-      const m = tokens.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`))
-      assert.ok(m, `原始层缺少色值: ${name}`)
-      return m[1]
+  /** 解析 token 值到 hex：支持 hex / var() 链 / color-mix() 派生（seed 单值换肤审计） */
+  function resolveHex(name: string, tokensText: string, seen: Set<string> = new Set()): string {
+    assert.ok(!seen.has(name), `循环引用: ${name}`)
+    seen.add(name)
+    const m = tokensText.match(new RegExp(`${name}:\\s*([^;]+)`))
+    assert.ok(m, `原始层缺少色值: ${name}`)
+    return resolveValue(m[1].trim(), name, tokensText, seen)
+  }
+  function expandHex(h: string): string {
+    return h.length === 4 ? `#${h[1]}${h[1]}${h[2]}${h[2]}${h[3]}${h[3]}` : h
+  }
+  function resolveValue(value: string, name: string, tokensText: string, seen: Set<string>): string {
+    if (/^#[0-9a-fA-F]{3,6}$/.test(value)) return expandHex(value)
+    const vm = value.match(/^var\((--[\w-]+)\)$/)
+    if (vm) return resolveHex(vm[1], tokensText, seen)
+    const cm = value.match(/^color-mix\(in srgb,\s*var\((--[\w-]+)\)\s+([\d.]+)%,\s*(#[0-9a-fA-F]{3,6})\)$/)
+    if (cm) {
+      const base = resolveHex(cm[1], tokensText, seen)
+      const p = parseFloat(cm[2]) / 100
+      const target = expandHex(cm[3])
+      const mix = (a: string, b: string) => Math.round(parseInt(a, 16) * p + parseInt(b, 16) * (1 - p))
+      const ch = (i: number) => mix(base.slice(i, i + 2), target.slice(i, i + 2)).toString(16).padStart(2, '0')
+      return `#${ch(1)}${ch(3)}${ch(5)}`
     }
-    // 亮色：700 级文字色 on 50 级底色
+    throw new Error(`无法解析 ${name} 的值: ${value}`)
+  }
+
+  it('语义文字色对比度 ≥ 4.5（-text 对 -50 底，亮暗双验证；seed 派生色板可解析）', () => {
+    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const get = (name: string) => resolveHex(name, tokens)
+    // 亮色：700 级文字色 on 50 级底色（color-mix 派生链自动解析）
     const light: [string, string][] = [
       ['--wf-brand-700', '--wf-brand-50'],
       ['--wf-green-700', '--wf-green-50'],
@@ -233,6 +256,95 @@ describe('样式审计 — 设计约束', () => {
       const r = contrast(get(fg), get(bg))
       assert.ok(r >= 4.5, `暗色对比度不足: ${fg} on ${bg} = ${r.toFixed(2)}:1`)
     }
+    // seed 单值换肤派生链完整性（改 seed 一个值 → 全色阶可用）
+    assert.equal(get('--wf-brand-500'), get('--wf-brand-seed'), 'brand-500 必须等于 seed')
+    assert.equal(get('--wf-dark-brand-500'), get('--wf-dark-brand-seed'), 'dark-brand-500 必须等于 dark seed')
+  })
+
+  it('状态层 token 存在（hover/pressed/selected + 暗色双段映射）', () => {
+    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    for (const t of ['--wf-state-hover', '--wf-state-pressed', '--wf-state-selected', '--wf-color-bg-elevated']) {
+      assert.match(tokens, new RegExp(`${t}:`), `语义层缺少状态层 token: ${t}`)
+    }
+    for (const t of ['--wf-dark-state-hover', '--wf-dark-state-pressed']) {
+      assert.match(tokens, new RegExp(`${t}:`), `原始层缺少暗色状态值: ${t}`)
+    }
+    const dark = readFileSync(join(root, 'src/layout/_dark.css'), 'utf-8')
+    const manual = dark.slice(0, dark.indexOf('@media'))
+    const auto = dark.slice(dark.indexOf('@media'))
+    for (const seg of [manual, auto]) {
+      assert.match(seg, /--wf-state-hover: var\(--wf-dark-state-hover\)/, '暗色段必须映射 state-hover')
+      assert.match(seg, /--wf-state-pressed: var\(--wf-dark-state-pressed\)/, '暗色段必须映射 state-pressed')
+      assert.match(seg, /--wf-color-bg-elevated: var\(--wf-dark-slate-100\)/, '暗色段必须抬升浮层底色')
+    }
+  })
+
+  it('浮层底色必须 bg-elevated（禁 var(--wf-color-bg) 作面板底——暗色抬升一致性）', () => {
+    const css = readComponentCss()
+    const panels = [
+      '.wf-autocomplete-dropdown', '.wf-cascader-panel', '.wf-command-panel', '.wf-context-menu',
+      '.wf-datepicker-dropdown', '.wf-drawer-panel', '.wf-dropdown-menu', '.wf-hover-card',
+      '.wf-menubar-panel', '.wf-modal-content', '.wf-popover', '.wf-select-search-menu',
+      '.wf-treeselect-dropdown',
+    ]
+    const missing: string[] = []
+    for (const sel of panels) {
+      const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      // 扫描所有含该类的规则（如 .wf-modal--enter .wf-modal-content）——任一规则带 bg-elevated 即通过
+      const re = new RegExp(`${esc}(?:[^{]*)\\{([^}]*)\\}`, 'g')
+      let m: RegExpExecArray | null
+      let found = false
+      while ((m = re.exec(css))) {
+        if (m[1].includes('var(--wf-color-bg-elevated)')) { found = true; break }
+      }
+      if (!found) missing.push(sel)
+    }
+    assert.deepEqual(missing, [], '浮层面板类必须用 var(--wf-color-bg-elevated)（新增浮层组件加入清单）')
+  })
+
+  it('菜单项状态链完备（:hover + :active pressed——状态层纪律）', () => {
+    const css = readComponentCss()
+    const items = [
+      '.wf-dropdown-item', '.wf-select-search-opt', '.wf-context-menu-item', '.wf-menubar-item',
+      '.wf-cascader-opt', '.wf-tree-row', '.wf-navmenu-item', '.wf-navmenu-sub-item',
+    ]
+    const missing: string[] = []
+    for (const sel of items) {
+      if (!css.includes(`${sel}:hover`)) { missing.push(`${sel}:hover`); continue }
+      if (!css.includes(`${sel}:active`)) missing.push(`${sel}:active`)
+    }
+    assert.deepEqual(missing, [], '可交互菜单项必须 hover + active(pressed) 双态（缺则补 --wf-state-pressed）')
+  })
+
+  it('预设主题完整（data-preset 三套 + 各自 token 覆盖齐全）', () => {
+    const presets = readFileSync(join(root, 'src/layout/_presets.css'), 'utf-8')
+    const block = (name: string) => {
+      const m = presets.match(new RegExp(`\\[data-preset="${name}"\\][^{]*\\{([^}]*)\\}`))
+      assert.ok(m, `预设缺失: ${name}`)
+      return m[1]
+    }
+    const minimal = block('minimal')
+    assert.match(minimal, /--wf-brand-seed:/, 'minimal 必须覆盖亮色 seed')
+    assert.match(minimal, /--wf-dark-brand-seed:/, 'minimal 必须覆盖暗色 seed')
+    const compact = block('compact')
+    for (const t of ['--wf-control-height', '--wf-control-pad-y', '--wf-space-sm', '--wf-space-md', '--wf-gap-md', '--wf-font-size-base']) {
+      assert.match(compact, new RegExp(`${t}:`), `compact 缺少 ${t}`)
+    }
+    const rounded = block('rounded')
+    for (const t of ['--wf-radius-sm', '--wf-radius', '--wf-radius-md', '--wf-radius-lg', '--wf-radius-xl', '--wf-btn-radius']) {
+      assert.match(rounded, new RegExp(`${t}:`), `rounded 缺少 ${t}`)
+    }
+  })
+
+  it('关键帧命名规范（wf- 前缀 + 语义后缀）', () => {
+    const css = readComponentCss()
+    const bad: string[] = []
+    for (const m of css.matchAll(/@keyframes\s+([a-zA-Z0-9-]+)/g)) {
+      const name = m[1]
+      if (!/^wf-[a-z0-9-]+$/.test(name)) { bad.push(name); continue }
+      if (!/-(in|out|fadein|fadeout|pop|unpop|spin|pulse|shimmer|blink|slidein|slideout|indeterminate)(-[a-z0-9]+)?$/.test(name)) bad.push(name)
+    }
+    assert.deepEqual(bad, [], '组件 @keyframes 必须 wf- 前缀 + 语义动作后缀（新动画先查命名规范）')
   })
 
   it('组件文字色禁止 500 级语义色（必须 -text 变体）', () => {
@@ -737,7 +849,8 @@ describe('样式审计 — 设计约束', () => {
   it('P11-R34：禁 var(--token, fallback) 双真相源（仅 token 层已定义的 token——定制钩子 fallback 是默认值，豁免；ratchet）', () => {
     const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
     // token 层已定义集合：fallback 对已定义 token 是死代码；未定义的（如 --wf-drawer-width）是定制钩子默认值，豁免
-    const tokenFiles = readdirSync(join(root, 'src/layout')).filter(f => f.endsWith('.css')).map(f => join(root, 'src/layout', f))
+    // _presets.css 排除：预设变量是有条件覆盖（仅 [data-preset] 作用域生效），fallback 是真正的默认值
+    const tokenFiles = readdirSync(join(root, 'src/layout')).filter(f => f.endsWith('.css') && f !== '_presets.css').map(f => join(root, 'src/layout', f))
     const defined = new Set<string>()
     for (const f of tokenFiles) { try { const c = readFileSync(f, 'utf-8'); for (const m of c.matchAll(/^\s*(--wf-[\w-]+)\s*:/gm)) defined.add(m[1]) } catch {} }
     const actual: Record<string, number> = {}

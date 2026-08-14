@@ -14,6 +14,15 @@
 `--wf-shadow-*`、`--wf-z-*`、`--wf-dur-*`、`--wf-ease-*`、`--wf-space-*` 等。
 **禁止裸色值**（`#fff`/`rgba(...)`/`#1668dc`）——暗色下失效。
 
+**品牌 seed（WUI 设计语言单值换肤）**：`--wf-brand-seed`（亮）与 `--wf-dark-brand-seed`（暗）——
+50/500/600/700 色阶经 color-mix 派生；旧浏览器 @supports 回退默认色板。
+
+**状态层 token**（可交互元素统一引用）：`--wf-state-hover` / `--wf-state-pressed` / `--wf-state-selected`——
+暗色经 `--wf-dark-state-*` 映射。
+
+**浮层面板底色**：`--wf-color-bg-elevated`——Modal/Drawer/Popover/Dropdown/Select/DatePicker 等浮层
+面板统一引用（暗色抬升一级，tonal elevation）。
+
 ### 2. 组件设计变量（组件级可覆盖——fallback 提供默认）
 
 以下变量是**用户可覆盖的组件外观 API**（`:root` 或组件类上覆盖即定制外观），

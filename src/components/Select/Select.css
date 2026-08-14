@@ -92,7 +92,7 @@
 .wf-select-search-menu {
   /* portal 定位（usePopup 接管）——absolute 会被父容器 overflow 裁剪 */
   min-width: var(--wf-select-menu-min-width);
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-field-radius);
   box-shadow: var(--wf-shadow-md);
@@ -109,7 +109,7 @@
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 /* 分组标题（optgroup）：次级色小字，不可选 */
@@ -122,7 +122,10 @@
   user-select: none;
 }
 .wf-select-search-opt:hover {
-  background: var(--wf-color-bg-tertiary);
+  background: var(--wf-state-hover);
+}
+.wf-select-search-opt:active {
+  background: var(--wf-state-pressed);
 }
 .wf-select-search-opt--sel {
   color: var(--wf-color-primary-text);

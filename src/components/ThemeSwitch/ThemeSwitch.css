@@ -2,6 +2,7 @@
 
 .wf-theme-switch {
   display: inline-flex;
+  flex-wrap: wrap; /* 预设行（可选）占满整行换行到第二行 */
   align-items: center;
   gap: 2px;
   padding: 2px;
@@ -50,4 +51,22 @@
 .wf-theme-seg:disabled {
   opacity: var(--wf-opacity-disabled);
   cursor: not-allowed;
+}
+
+/* 预设主题行（可选——传 preset/onPresetChange 才渲染）：小号分段，与模式行同控件语言 */
+.wf-theme-preset-row {
+  display: inline-flex;
+  flex-basis: 100%; /* 换行占满 */
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px 2px 0;
+  border-top: var(--wf-border-width) solid var(--wf-color-border-light);
+  margin-top: 2px;
+}
+
+.wf-theme-seg--preset {
+  min-height: 22px;
+  padding: 2px var(--wf-space-xs);
+  font-size: var(--wf-font-size-xs);
 }

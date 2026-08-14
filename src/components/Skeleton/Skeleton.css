@@ -7,11 +7,11 @@
   background: linear-gradient(
     90deg,
     var(--wf-color-border) 25%,
-    var(--wf-color-bg-hover) 50%,
+    var(--wf-state-hover) 50%,
     var(--wf-color-border) 75%
   );
   background-size: 200% 100%;
-  animation: wf-skeleton-shimmer 1.5s ease-in-out infinite;
+  animation: wf-skeleton-shimmer calc(var(--wf-dur-slow) * 5) var(--wf-ease-in-out) infinite;
   vertical-align: middle;
 }
 

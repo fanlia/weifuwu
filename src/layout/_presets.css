@@ -1,0 +1,52 @@
+/* weifuwu/theme — 预设主题（shadcn themes.css 式变量组切换）
+ *
+ * 用法：<html data-preset="minimal|compact|rounded">
+ * 与暗色 data-theme 正交（可组合：data-theme="dark" data-preset="compact"）。
+ * 每组覆盖同一份 token 清单的相应子集——新增预设必须补齐全套（audit 强制）。
+ *
+ * 预设语义：
+ *   minimal  品牌弱化——中性蓝灰主色（适合内容/文档型产品，Geist 式克制）
+ *   compact  紧凑密度——控件/间距/字号缩一档（数据密集型工具，专业感）
+ *   rounded  大圆角——radius 全升一档 + 按钮胶囊（亲和/消费型产品）
+ */
+:root[data-preset="minimal"] {
+  /* 品牌：中性蓝灰（seed 派生色阶自动跟随——50/600/700 不必手改） */
+  --wf-brand-seed: #64748b;
+  --wf-dark-brand-seed: #94a3b8;
+}
+
+:root[data-preset="compact"] {
+  /* 控件尺寸 */
+  --wf-control-height: 32px;
+  --wf-control-pad-y: 6px;
+  /* 间距标尺缩一档（布局原语/工具类同步生效） */
+  --wf-space-xs: 3px;
+  --wf-space-sm: 6px;
+  --wf-space: 9px;
+  --wf-space-md: 12px;
+  --wf-space-lg: 18px;
+  --wf-space-xl: 24px;
+  --wf-space-2xl: 30px;
+  --wf-gap-xs: 3px;
+  --wf-gap-sm: 6px;
+  --wf-gap-md: 9px;
+  --wf-gap-lg: 12px;
+  --wf-gap-xl: 18px;
+  --wf-gap-2xl: 24px;
+  /* 正文字号缩一档（数据密度） */
+  --wf-font-size-sm: 12px;
+  --wf-font-size-base: 13px;
+}
+
+:root[data-preset="rounded"] {
+  /* 圆角标尺全升一档 */
+  --wf-radius-sm: 8px;
+  --wf-radius: 12px;
+  --wf-radius-md: 16px;
+  --wf-radius-lg: 20px;
+  --wf-radius-xl: 28px;
+  --wf-surface-radius: var(--wf-radius-md);
+  /* 组件钩子跟随（按钮胶囊、字段大圆角） */
+  --wf-btn-radius: 999px;
+  --wf-field-radius: var(--wf-radius-md);
+}

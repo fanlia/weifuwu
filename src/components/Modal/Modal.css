@@ -56,7 +56,7 @@
 }
 
 .wf-modal-content {
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   border-radius: var(--wf-modal-radius,  var(--wf-radius-md));
   box-shadow: var(--wf-modal-shadow,  var(--wf-shadow-lg));
   min-width: var(--wf-modal-width,  400px);

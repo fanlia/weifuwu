@@ -21,13 +21,17 @@
   border-radius: var(--wf-surface-radius);
   color: var(--wf-color-text-secondary);
   cursor: pointer;
-  transition: background var(--wf-dur-fast) var(--wf-ease-standard),
-              color var(--wf-dur-fast) var(--wf-ease-standard);
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out),
+              color var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-navmenu-item:hover {
-  background: var(--wf-color-bg-hover);
+  background: var(--wf-state-hover);
   color: var(--wf-color-text);
+}
+
+.wf-navmenu-item:active {
+  background: var(--wf-state-pressed);
 }
 
 .wf-navmenu-item--active {
@@ -61,7 +65,7 @@
 }
 
 @keyframes wf-navmenu-in {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(calc(var(--wf-motion-sm) * -1)); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -80,7 +84,11 @@
 }
 
 .wf-navmenu-sub-item:hover {
-  background: var(--wf-color-bg-hover);
+  background: var(--wf-state-hover);
+}
+
+.wf-navmenu-sub-item:active {
+  background: var(--wf-state-pressed);
 }
 
 .wf-navmenu-sub-item--disabled {

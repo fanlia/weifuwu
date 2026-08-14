@@ -37,6 +37,12 @@
   --wf-color-bg-subtle: var(--wf-dark-fill);
   --wf-color-bg-hover: var(--wf-dark-bg-hover);
 
+  /* 状态层（原始层 --wf-dark-state-* 映射） */
+  --wf-state-hover: var(--wf-dark-state-hover);
+  --wf-state-pressed: var(--wf-dark-state-pressed);
+  /* 浮层面板底色：暗色抬升一级（Material tonal elevation——浮层提亮而非只靠阴影） */
+  --wf-color-bg-elevated: var(--wf-dark-slate-100);
+
   --wf-color-border: var(--wf-dark-slate-200);
   --wf-color-border-light: var(--wf-dark-slate-100);
   --wf-color-border-dark: var(--wf-dark-slate-300);
@@ -87,6 +93,12 @@
     --wf-color-fill: var(--wf-dark-fill);
     --wf-color-bg-subtle: var(--wf-dark-fill);
     --wf-color-bg-hover: var(--wf-dark-bg-hover);
+
+    /* 状态层（原始层 --wf-dark-state-* 映射） */
+    --wf-state-hover: var(--wf-dark-state-hover);
+    --wf-state-pressed: var(--wf-dark-state-pressed);
+    /* 浮层面板底色：暗色抬升一级（Material tonal elevation——浮层提亮而非只靠阴影） */
+    --wf-color-bg-elevated: var(--wf-dark-slate-100);
 
     --wf-color-border: var(--wf-dark-slate-200);
     --wf-color-border-light: var(--wf-dark-slate-100);

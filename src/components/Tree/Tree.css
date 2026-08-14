@@ -17,10 +17,15 @@
   padding: var(--wf-space-xs) var(--wf-space-sm);
   border-radius: var(--wf-radius-sm);
   cursor: pointer;
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-tree-row:hover {
-  background: var(--wf-color-bg-tertiary);
+  background: var(--wf-state-hover);
+}
+
+.wf-tree-row:active {
+  background: var(--wf-state-pressed);
 }
 
 .wf-tree-row--selected {

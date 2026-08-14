@@ -2,7 +2,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-纯 CSS 66 个布局原语 + 156 个工具类 + 167 个主题 Token。不绑定任何 JS 框架。
+纯 CSS 66 个布局原语 + 156 个工具类 + 177 个主题 Token。不绑定任何 JS 框架。
 
 > **学习路径与命名规范**：见 [`docs/style-guide.md`](style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
 
@@ -131,17 +131,21 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | `wf-truncate` | 单行省略（ellipsis） |
 | `wf-line-clamp-2/3` | 多行截断 |
 
-## 167 个主题 Token
+## 177 个主题 Token
 
 **双层结构**：原始层（Primitive，色值只定义一次，品牌/暗色调校改这里）+ 语义层（Semantic，组件消费）。
 
 ```css
 /* ── 原始层 — 品牌/中性色值 + 暗色值，主题定制改这一层 ── */
---wf-brand-500 / --wf-brand-600 / --wf-brand-50   /* 品牌主色/悬停/浅底 */
+--wf-brand-seed / --wf-dark-brand-seed   /* 品牌 seed：改一个值全站换肤，50/500/600/700 色阶 color-mix 派生 */
+--wf-brand-500 / --wf-brand-600 / --wf-brand-50   /* 品牌色阶（seed 派生，可单独覆盖） */
 --wf-slate-900…50 / --wf-white                     /* 中性阶 */
 --wf-dark-*                                        /* 暗色值（暗色模式经间接层引用，零硬编码） */
 
 /* ── 语义层 — 组件消费，暗色/主题切换覆盖这里 ── */
+/* 状态层 */
+--wf-state-hover / --wf-state-pressed / --wf-state-selected   /* 交互状态反馈（暗色自动映射） */
+--wf-color-bg-elevated                                        /* 浮层面板底色（暗色抬升一级） */
 /* 品牌色 */
 --wf-color-primary / --wf-color-primary-hover / --wf-color-primary-bg
 

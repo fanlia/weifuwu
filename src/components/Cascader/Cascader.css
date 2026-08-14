@@ -83,7 +83,7 @@
   position: fixed;
   z-index: var(--wf-z-popover);
   display: flex;
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   box-shadow: var(--wf-shadow-lg);
@@ -118,11 +118,16 @@
   color: var(--wf-color-text);
   cursor: pointer;
   font-family: var(--wf-font-sans);
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-cascader-opt:hover,
 .wf-cascader-opt--active {
-  background: var(--wf-color-bg-tertiary);
+  background: var(--wf-state-hover);
+}
+
+.wf-cascader-opt:active {
+  background: var(--wf-state-pressed);
 }
 
 .wf-cascader-opt:focus-visible {

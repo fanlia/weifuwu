@@ -1120,14 +1120,19 @@ const DemoEditor: Component = async (_props, ctx) => {
 
 const DemoThemeSwitch: Component = async (_props, ctx) => {
   let mode = 'auto'
+  let preset: any = undefined
   const rerender = () => ctx.ui.render()
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <div class="wf-row wf-gap-sm">
         <ThemeSwitch onChange={(m) => { mode = m; rerender() }} />
       </div>
+      <div class="wf-row wf-gap-sm">
+        {/* 预设主题行（可选）：minimal/compact/rounded，与暗色正交 */}
+        <ThemeSwitch preset={preset} onPresetChange={(p) => { preset = p; rerender() }} />
+      </div>
       <div class="wf-text-xs wf-text-secondary">
-        当前模式: <code>{mode}</code> · 已持久化到 localStorage · 右上角也有一个可直接用
+        当前模式: <code>{mode}</code> · 预设: <code>{preset ?? 'default'}</code> · 已持久化到 localStorage · 右上角也有一个可直接用
       </div>
     </div>
   )
@@ -2700,6 +2705,11 @@ if (ok) { /* 执行 */ }`,
 <ThemeSwitch onChange={mode =>
   console.log(mode)} />  // auto | light | dark
 
+{/* 预设主题行（可选）：minimal/compact/rounded，与暗色正交 */}
+<ThemeSwitch preset="compact"
+  onPresetChange={p =>
+    console.log(p)} />
+
 // 命令式
 import { applyTheme, getTheme } from 'weifuwu/components'
 applyTheme('dark')
@@ -2985,7 +2995,7 @@ const App: Component = async (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '115 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">115 组件</Badge>
-          <Badge variant="success">1014 测试</Badge>
+          <Badge variant="success">1019 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

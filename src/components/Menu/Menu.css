@@ -173,6 +173,6 @@
   animation: wf-menu-popup-in var(--wf-dur-fast) var(--wf-ease-out);
 }
 @keyframes wf-menu-popup-in {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(calc(var(--wf-motion-sm) * -1)); }
   to { opacity: 1; transform: translateY(0); }
 }

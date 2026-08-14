@@ -10,7 +10,7 @@
   position: fixed;
   z-index: var(--wf-z-tooltip);
   max-width: 320px;
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   box-shadow: var(--wf-shadow-lg);

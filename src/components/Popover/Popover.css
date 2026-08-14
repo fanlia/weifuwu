@@ -13,7 +13,7 @@
 .wf-popover {
   position: fixed;
   z-index: var(--wf-z-popover);
-  background: var(--wf-color-bg);
+  background: var(--wf-color-bg-elevated);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-popover-radius,  var(--wf-radius-md));
   box-shadow: var(--wf-shadow-md);

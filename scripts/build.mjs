@@ -120,7 +120,7 @@ const layoutSrc = join(srcDir, 'layout')
 const layoutDist = join(distDir, 'layout')
 
 const LAYER_OF = {
-  _tokens: 'tokens', _dark: 'tokens', _base: 'base',
+  _tokens: 'tokens', _dark: 'tokens', _presets: 'tokens', _base: 'base',
   _stack: 'layout', _row: 'layout', _split: 'layout', _center: 'layout', _between: 'layout',
   _right: 'layout', _top: 'layout', _bottom: 'layout', _stretch: 'layout',
   _around: 'layout', _evenly: 'layout', _fill: 'layout', _fixed: 'layout',
