@@ -32,6 +32,8 @@
 
 .wf-btn--danger { background: var(--wf-color-error); color: var(--wf-color-on-brand); border-color: var(--wf-color-error); }
 .wf-btn--danger:hover { opacity: 0.9; }
+.wf-btn--danger-ghost { background: transparent; color: var(--wf-color-error-text); border-color: transparent; }
+.wf-btn--danger-ghost:hover { background: var(--wf-color-error); color: var(--wf-color-on-brand); border-color: var(--wf-color-error); }
 
 .wf-btn--sm { padding: var(--wf-space-xs) var(--wf-space-sm); font-size: var(--wf-font-size-xs); min-height: 28px; }
 .wf-btn--lg { padding: var(--wf-space) var(--wf-space-lg); font-size: var(--wf-font-size-base); min-height: 40px; }

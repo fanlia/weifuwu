@@ -65,7 +65,7 @@ export const Agents: Component = async (_props, ctx) => {
       {$.agents.length > 0 && (
         <div class="wf-grid">
           {$.agents.map((a: Agent) => (
-            <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)}>
+            <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)} style={{ display: 'flex', flexDirection: 'column' }}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={a.name} type={a.type} />
                 <div class="wf-fill wf-text-base wf-text-semibold wf-truncate">{a.name}</div>
@@ -83,7 +83,7 @@ export const Agents: Component = async (_props, ctx) => {
                   <span>⚡ {((a.token_usage?.total_tokens ?? 0) / 1000).toFixed(1)}k tokens</span>
                 )}
               </div>
-              <div class="wf-split wf-mt-md">
+              <div class="wf-split" style={{ marginTop: 'auto', paddingTop: '12px' }}>
                 <StatusDot on={a.is_active !== false} />
                 <div class="wf-row wf-gap-sm">
                   {a.type !== 'user' && (
@@ -92,7 +92,7 @@ export const Agents: Component = async (_props, ctx) => {
                         onClick={(e: Event) => startDm(e, a.id)}><Icon name="message" size={14} /> 单聊</Button>
                       <Button size="sm" variant="ghost"
                         onClick={(e: Event) => { e.stopPropagation(); ctx.app?.navigate(`/agents/${a.id}`) }}>编辑</Button>
-                      <Button size="sm" variant="danger" onClick={(e: Event) => remove(e, a.id)}>删除</Button>
+                      <Button size="sm" variant="danger-ghost" onClick={(e: Event) => remove(e, a.id)}>删除</Button>
                     </>
                   )}
                 </div>

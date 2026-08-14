@@ -3,7 +3,7 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 import { h } from '../../ui-dom/vnode.ts'
 
 export interface ButtonProps {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost'
   size?: 'sm' | 'md' | 'lg'
   block?: boolean
   loading?: boolean

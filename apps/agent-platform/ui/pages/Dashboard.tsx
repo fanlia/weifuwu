@@ -74,7 +74,7 @@ export const Dashboard: Component = async (_props, ctx) => {
     const activeAgentCount = trend.reduce((sum: number, t) => sum + Number(t.active_agents ?? 0), 0)
     const maxTrend = Math.max(1, ...trend.map((t) => t.count))
     // SVG 折线（零依赖——自绘：面积 + 折线 + 数据点 + 峰值标注）
-    const W = 260, H = 84, PAD = 6
+    const W = 600, H = 120, PAD = 6
     const n = trend.length
     const xAt = (i: number) => PAD + (n > 1 ? (i / (n - 1)) * (W - PAD * 2) : W / 2)
     const yAt = (c: number) => H - PAD - (c / maxTrend) * (H - PAD * 2)
@@ -82,7 +82,7 @@ export const Dashboard: Component = async (_props, ctx) => {
     const areaPts = `${PAD},${H - PAD} ${pts} ${W - PAD},${H - PAD}`
     const peak = trend.reduce((m, t, i) => (t.count > (m?.count ?? -1) ? { i, count: t.count } : m), null as { i: number; count: number } | null)
     const trendChart = trend.length > 0 ? (
-      <svg viewBox={`0 0 ${W} ${H}`} style="width: 100%; height: 84px" role="img" aria-label="近 14 天消息趋势">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style="width: 100%; height: 120px" role="img" aria-label="近 14 天消息趋势">
         <polygon points={areaPts} fill="var(--wf-color-primary)" opacity="0.12" />
         <polyline points={pts} fill="none" stroke="var(--wf-color-primary)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
         {trend.map((t, i) => (
@@ -122,14 +122,17 @@ export const Dashboard: Component = async (_props, ctx) => {
         <StatCard label="部门群组" value={$.deptCount} icon={<Icon name="users" />} animate onClick={() => ctx.app?.navigate('/departments')} />
         <StatCard label="总消息数" value={msgCount} icon={<Icon name="message" />} animate />
         <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon={<Icon name="zap" />} animate />
-        <Card clickable hover onClick={() => ctx.app?.navigate('/approvals')}>
+      </div>
+
+      <div class="wf-stretch wf-gap-md" style="flex-wrap: wrap">
+        <Card clickable hover onClick={() => ctx.app?.navigate('/approvals')} style={{ minWidth: '200px', maxWidth: '280px', flex: '1' }}>
           <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="clock" size={14} /> 审批待办</div>
           <div class="wf-text-2xl wf-text-semibold wf-mt-xs wf-nums">{$.pendingCount}</div>
           <div class="wf-text-xs wf-text-secondary wf-mt-xs">{$.pendingCount > 0 ? 'AI 草稿待批准发布' : '没有待审批草稿'}</div>
         </Card>
-        <Card clickable hover onClick={() => ctx.app?.navigate('/agents')}>
+        <Card clickable hover onClick={() => ctx.app?.navigate('/agents')} style={{ flex: '3', minWidth: '320px' }}>
           <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 14 天消息</div>
-          <div class="wf-row wf-items-end wf-gap-md">
+          <div class="wf-row wf-bottom wf-gap-md">
             <div class="wf-text-2xl wf-text-semibold wf-nums">{trendTotal}</div>
             <div class="wf-text-xs wf-text-tertiary">峰值 {peak?.count ?? 0} · {activeAgentCount} 活跃</div>
           </div>

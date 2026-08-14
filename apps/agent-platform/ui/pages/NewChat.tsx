@@ -7,6 +7,20 @@ interface NewChatState {
   depts: Department[]; loading: boolean
 }
 
+/** 会话预览去 Markdown 符号（列表摘要要纯文本——视觉噪音） */
+function plainPreview(src: string): string {
+  return String(src ?? '')
+    .replace(/```[\s\S]*?```/g, ' [代码] ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export const NewChat: Component = async (_props, ctx) => {
   const $ = {} as NewChatState
   const rerender = () => ctx.ui.render()
@@ -52,7 +66,7 @@ export const NewChat: Component = async (_props, ctx) => {
                     {(d.member_count ?? 0) > 0 && <span class="wf-text-xs wf-text-tertiary">{d.member_count} 人</span>}
                   </div>
                   <div class="wf-text-sm wf-text-secondary wf-truncate">
-                    {d.last_message || ((d.member_count ?? 0) > 0 ? '暂无消息，发一条试试' : '还没有成员')}
+                    {d.last_message ? plainPreview(d.last_message) : ((d.member_count ?? 0) > 0 ? '暂无消息，发一条试试' : '还没有成员')}
                   </div>
                 </div>
                 <div class="wf-stack wf-gap-none wf-items-end wf-shrink">

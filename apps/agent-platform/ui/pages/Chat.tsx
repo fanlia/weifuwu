@@ -406,7 +406,7 @@ export const Chat: Component = async (_props, ctx) => {
           // 顶部接近时自动加载更早
           if ($.bodyEl.scrollTop < 40 && $.hasMore && !$.loadingMore) { loadOlder() }
         }}>
-        <div class="wf-row wf-gap-sm wf-items-center">
+        <div class="wf-row wf-gap-sm">
           {$.hasMore && (
             <Button size="sm" variant="ghost" disabled={$.loadingMore} onClick={loadOlder}>
               {$.loadingMore ? '加载中...' : '↑ 加载更早消息'}
@@ -566,7 +566,7 @@ export const Chat: Component = async (_props, ctx) => {
           </div>
         )}
         {$.replyTo && (
-          <div class="wf-row wf-gap-sm wf-items-center wf-bg-tertiary wf-px-sm wf-py-xs wf-rounded wf-mb-sm">
+          <div class="wf-row wf-gap-sm wf-bg-tertiary wf-px-sm wf-py-xs wf-rounded wf-mb-sm">
             <Icon name="message" size={14} />
             <span class="wf-text-sm wf-text-secondary wf-truncate wf-fill">回复 {$.replyTo.sender}：{String($.replyTo.content).slice(0, 40)}</span>
             <Button size="sm" variant="ghost" onClick={() => { $.replyTo = null; rerender() }}><Icon name="close" size={12} /></Button>

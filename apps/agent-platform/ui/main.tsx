@@ -9,6 +9,13 @@ import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
 import { EmptyState, confirm as uiDomConfirm, toast as uiDomToast } from 'weifuwu/components'
 
 import { AppLayout } from './components/AppLayout'
+
+// 主题启动应用（ThemeSwitch 仅 Settings 挂载——全局读 localStorage 防翻页/刷新丢失）
+try {
+  const stored = localStorage.getItem('wf_theme')
+  if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored)
+  else document.documentElement.removeAttribute('data-theme')
+} catch { /* 隐私模式 */ }
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
