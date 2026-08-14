@@ -79,9 +79,15 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
       onChange: disabled || !onChange ? undefined : (e: Event) => onChange(Number((e.target as HTMLInputElement).value)),
       // 专业交互：hover/focus/拖拽显示当前值气泡；拖拽结束回调
       onPointerDown: disabled ? undefined : () => { dragging = true; setTip(true) },
-      onPointerUp: disabled || !onChangeEnd ? undefined : () => {
+      onPointerUp: disabled ? undefined : (e: Event) => {
+        // 独立于 onChangeEnd——未传回调时也必须复位拖拽态并关闭气泡（拖拽残留 bug）
         dragging = false
-        onChangeEnd(numVal)
+        onChangeEnd?.(Number((e.target as HTMLInputElement).value))
+        setTip(false)
+      },
+      onPointerCancel: disabled ? undefined : () => {
+        // 拖拽被打断（触摸滚动/系统手势）——同样复位，防 dragging 残留锁死气泡
+        dragging = false
         setTip(false)
       },
       onMouseEnter: disabled ? undefined : () => setTip(true),

@@ -103,8 +103,16 @@ it('onChangeEnd 拖拽结束回调', async () => {
   let ended: number | undefined
   const vnode = await renderVNode(Slider, { value: 30, onChangeEnd: (v: number) => { ended = v } }, createTestCtx())!
   const input = findVNode(vnode, (v: any) => v?.props?.type === 'range')
-  input.props.onPointerUp()
-  assert.equal(ended, 30)
+  input.props.onPointerUp({ target: { value: '35' } })
+  assert.equal(ended, 35)
+})
+
+it('未传 onChangeEnd 时 pointerup 仍存在（拖拽态复位——气泡不残留 bug）', async () => {
+  const vnode = await renderVNode(Slider, { value: 30 }, createTestCtx())!
+  const input = findVNode(vnode, (v: any) => v?.props?.type === 'range')
+  assert.equal(typeof input.props.onPointerUp, 'function', '无 onChangeEnd 也必须绑 pointerup')
+  assert.doesNotThrow(() => input.props.onPointerUp({ target: { value: '31' } }))
+  assert.equal(typeof input.props.onPointerCancel, 'function', 'pointercancel 兜底存在')
 })
 
 it('disabled 不显示气泡（无 tip vnode）', async () => {
