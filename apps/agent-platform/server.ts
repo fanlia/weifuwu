@@ -675,6 +675,11 @@ async function main() {
 
   // ── 完整统计数据 ───────────────────────────────────────
   protectedRoutes.get('/api/stats', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    return Response.json(await buildStats(ctx))
+  })
+
+  /** 应用统计聚合（/api/stats 与价值报告共用） */
+  async function buildStats(ctx: AppCtx): Promise<Record<string, unknown>> {
     const { sql, appId } = ctx
 
     const [agentStats] = await sql`
@@ -784,7 +789,7 @@ async function main() {
     const aiRepliesMonth = Number((aiMsgRow as any)?.cnt ?? 0)
     const savedYuan = Math.max(0, aiRepliesMonth * COST_PER_AI_REPLY - estCostYuan).toFixed(2)
 
-    return Response.json({
+    return {
       agents: agentStats,
       departments: deptStats,
       messages: msgStats,
@@ -795,7 +800,77 @@ async function main() {
       active_agents: activeAgents,
       roi: { aiRepliesMonth, costPerReply: COST_PER_AI_REPLY, estCostYuan, savedYuan: Number(savedYuan) },
       quality: { toolSuccessRate, likes: Number((feedback as any)?.likes ?? 0), dislikes: Number((feedback as any)?.dislikes ?? 0) },
-    })
+    }
+  }
+
+  // ── 试用期价值报告（销售转化物料：ROI/使用量/质量 → HTML 可打印 PDF） ──
+  protectedRoutes.get('/api/stats/report', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const s = await buildStats(ctx) as any
+    const [app] = await ctx.sql`SELECT name, plan, trial_ends_at FROM _weifuwu_apps WHERE id = ${ctx.appId}`
+    const [used] = await ctx.sql`
+      SELECT COALESCE(SUM(tokens_total), 0)::int AS used FROM agent_logs WHERE app_id = ${ctx.appId} AND created_at >= DATE_TRUNC('month', NOW())
+    `
+    const appName = String(app?.name ?? '本应用')
+    const planLabel = String(app?.plan ?? 'free') === 'pro' ? '专业版' : '免费试用'
+    const roi = s.roi ?? { aiRepliesMonth: 0, costPerReply: 2, estCostYuan: 0, savedYuan: 0 }
+    const quality = s.quality ?? { toolSuccessRate: null, likes: 0, dislikes: 0 }
+    const msgTotal = s.messages?.total ?? 0
+    const aiCount = s.agents?.ai_count ?? 0
+    const tokens = s.tokens ?? { total_tokens: 0 }
+    const costTrend = (s.costTrend ?? []) as Array<{ day: string; costYuan: number }>
+    const active = (s.active_agents ?? []) as Array<{ name: string; type: string; message_count: number }>
+    const quota = Number((used as any)?.used ?? 0)
+    const trendLine = costTrend.map((d) => `${d.day}:¥${d.costYuan}`).join(' → ')
+
+    const html = `<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>AI 价值报告 — ${appName}</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #1f2937; }
+  h1 { font-size: 24px; margin-bottom: 4px; } .sub { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+  .hero { background: #f3f4f6; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
+  .hero .big { font-size: 36px; font-weight: 700; color: #059669; }
+  .hero .cap { color: #6b7280; font-size: 13px; margin-top: 4px; }
+  h2 { font-size: 16px; border-left: 3px solid #2563eb; padding-left: 10px; margin: 28px 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+  th { color: #6b7280; font-weight: 500; }
+  .muted { color: #6b7280; }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; }
+  @media print { body { margin: 0; } }
+</style></head><body>
+  <h1>AI 价值报告</h1>
+  <div class="sub">${appName} · ${planLabel} · 生成于 ${new Date().toLocaleString('zh-CN')} · 统计范围：全部历史 + 近 14 天趋势</div>
+
+  <div class="hero">
+    <div class="big">¥${roi.savedYuan}</div>
+    <div class="cap">本月预计节省（${roi.aiRepliesMonth} 条 AI 处理 × ¥${roi.costPerReply}/条人工成本 − AI 成本 ¥${roi.estCostYuan}）</div>
+  </div>
+
+  <h2>使用概况</h2>
+  <table>
+    <tr><td>总消息数</td><td>${msgTotal} 条</td><td>AI 成员</td><td>${aiCount} 个</td></tr>
+    <tr><td>本月 token 消耗</td><td>${quota.toLocaleString()}</td><td>工具执行成功率</td><td>${quality.toolSuccessRate === null ? '—' : quality.toolSuccessRate + '%'}</td></tr>
+    <tr><td>质量反馈</td><td>👍 ${quality.likes} · 👎 ${quality.dislikes}</td><td>AI 回复数（本月）</td><td>${roi.aiRepliesMonth} 条</td></tr>
+  </table>
+
+  <h2>近 14 天成本趋势</h2>
+  <p class="muted">${trendLine || '暂无数据'}</p>
+
+  <h2>活跃成员排行（近 7 天）</h2>
+  <table>
+    <tr><th>成员</th><th>类型</th><th>消息数</th></tr>
+    ${active.map((a: any) => `<tr><td>${a.name}</td><td>${a.type === 'ai' ? 'AI' : a.type}</td><td>${a.message_count}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">暂无活跃数据</td></tr>'}
+  </table>
+
+  <h2>价值总结</h2>
+  <p>${msgTotal > 0
+    ? `过去 ${msgTotal > 100 ? '30' : '14'} 天里，${aiCount} 个 AI 成员处理了 ${msgTotal} 条消息，工具执行成功率 ${quality.toolSuccessRate === null ? '—' : quality.toolSuccessRate + '%'}，为您节省约 ¥${roi.savedYuan}。AI 正在成为您团队里干活最勤快的同事。`
+    : '开始使用：在群里 @AI 成员下达第一个任务，两周后这里会有一份属于您的价值报告。'}</p>
+
+  <div class="footer">agent-platform · AI 价值报告 · 数据来自您自己的私有化部署</div>
+</body></html>`
+
+    return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   })
 
   // ── Token 成本排行（按 Agent，老板视角成本视图） ─────────────
