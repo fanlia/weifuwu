@@ -601,6 +601,18 @@ async function main() {
       costYuan: Number(((Number(d.prompt ?? 0) * PRICE_IN + Number(d.completion ?? 0) * PRICE_OUT)).toFixed(2)),
     }))
 
+    // ── 商业化 G10 ROI 估算：AI 回复数 × 单条人工成本 − AI 成本 = 节省 ──
+    // 假设：人工处理一条消息/任务平均 3 分钟 × 时薪 40 元 ≈ ¥2/条（可配置常量）
+    const COST_PER_AI_REPLY = 2
+    const [aiMsgRow] = await sql`
+      SELECT COUNT(*)::int AS cnt FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      WHERE a.app_id = ${appId} AND a.type = 'ai' AND m.ai_approved IS NOT NULL
+        AND m.created_at >= DATE_TRUNC('month', NOW())
+    `
+    const aiRepliesMonth = Number((aiMsgRow as any)?.cnt ?? 0)
+    const savedYuan = Math.max(0, aiRepliesMonth * COST_PER_AI_REPLY - estCostYuan).toFixed(2)
+
     return Response.json({
       agents: agentStats,
       departments: deptStats,
@@ -610,6 +622,7 @@ async function main() {
       costTrend: costTrendYuan,
       trend,
       active_agents: activeAgents,
+      roi: { aiRepliesMonth, costPerReply: COST_PER_AI_REPLY, estCostYuan, savedYuan: Number(savedYuan) },
     })
   })
 

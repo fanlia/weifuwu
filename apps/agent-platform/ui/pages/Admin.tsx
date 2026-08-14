@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, errMsg } from '../components/ui'
-import { Alert, Badge, Button, Card, Table, Icon } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, StatCard, Table, Icon } from 'weifuwu/components'
 
 interface AdminApp {
   id: string
@@ -22,6 +22,7 @@ export const Admin: Component = async (_props, ctx) => {
   let loading = true
   let error = ''
   let busyId = ''
+  let overview: any = null
   const load = () => {
     loading = true; error = ''
     ctx.ui.render()
@@ -30,6 +31,8 @@ export const Admin: Component = async (_props, ctx) => {
       .catch((e) => { error = errMsg(e, '加载租户列表失败'); loading = false; ctx.ui.render() })
   }
   void load()
+  // 平台使用概览（G11）
+  void ctx.api!.get<any>('/api/admin/overview').then((d) => { overview = d; ctx.ui.render() }).catch(() => {})
 
   async function openPro(a: AdminApp) {
     busyId = a.id
@@ -60,6 +63,18 @@ export const Admin: Component = async (_props, ctx) => {
       <PageHeader title="租户管理" sub="平台管理员：查看所有团队用量，停用/启用租户（ADMIN_EMAILS 白名单）" />
 
       {error && <Alert variant="error">{error}</Alert>}
+
+      {overview && (
+        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(160px, 1fr))">
+          <StatCard label="租户总数" value={overview.totalApps} icon={<Icon name="grid" />} />
+          <StatCard label="7 天活跃租户" value={overview.activeApps7d} icon={<Icon name="activity" />} />
+          <StatCard label="Pro 租户" value={overview.proApps} icon={<Icon name="zap" />} />
+          <StatCard label="本月消息" value={overview.msgsMonth} icon={<Icon name="message" />} />
+          <StatCard label="AI 回复" value={overview.aiRepliesMonth} icon={<Icon name="cpu" />} />
+          <StatCard label="平台成本（月）" value={`¥${overview.costYuanMonth}`} icon={<Icon name="database" />} />
+        </div>
+      )}
+
       {loading ? (
         <div class="wf-text-sm wf-text-tertiary wf-py-lg wf-center">加载中...</div>
       ) : (

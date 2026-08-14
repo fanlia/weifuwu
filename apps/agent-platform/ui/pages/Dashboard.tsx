@@ -70,6 +70,7 @@ export const Dashboard: Component = async (_props, ctx) => {
       count: Number(t.count ?? 0),
       active_agents: Number((t as any).active_agents ?? 0),
     }))
+    const roi = (s as any).roi ?? null
     const estCostYuan = Number((s as any).estCostYuan ?? 0)
     const costTrend = ((s as any).costTrend ?? []) as Array<{ day: string; costYuan: number }>
     const costTotalYuan = costTrend.reduce((sum: number, t) => sum + (t.costYuan ?? 0), 0)
@@ -103,6 +104,18 @@ export const Dashboard: Component = async (_props, ctx) => {
         <StatCard label="总消息数" value={msgCount} icon={<Icon name="message" />} animate />
         <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon={<Icon name="zap" />} animate />
         <StatCard label="预估 AI 成本" value={`¥${estCostYuan.toFixed(2)}`} icon={<Icon name="database" />} animate onClick={() => ctx.app?.navigate('/settings')} />
+        {roi && (
+          <Card style={{ gridColumn: 'span 2' }}>
+            <div class="wf-row wf-between wf-gap-md">
+              <div class="wf-stack wf-gap-none">
+                <span class="wf-text-xs wf-text-tertiary">本月 AI 节省估算（ROI）</span>
+                <span class="wf-text-2xl wf-text-semibold" style="color: var(--wf-color-success)">¥{roi.savedYuan}</span>
+                <span class="wf-text-xs wf-text-secondary">{roi.aiRepliesMonth} 条 AI 回复 × ¥{roi.costPerReply}/条（人工处理成本）− AI 成本 ¥{roi.estCostYuan}</span>
+              </div>
+              <Icon name="trending-up" size={28} className="wf-text-success" />
+            </div>
+          </Card>
+        )}
       </div>
 
       <div class="wf-stretch wf-gap-md" style="flex-wrap: wrap">

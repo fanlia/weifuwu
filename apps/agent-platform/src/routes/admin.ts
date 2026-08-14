@@ -46,6 +46,47 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
     return Response.json({ isAdmin: isAdminEmail(await adminEmailOf(ctx)) })
   })
 
+  // 平台使用概览（G11 使用分析——管理员看整体活跃/成本/转化）
+  app.get('/api/admin/overview', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    await requireAdmin(ctx)
+    const { sql } = ctx
+    const [total] = await sql`SELECT COUNT(*)::int AS apps FROM _weifuwu_apps`
+    const [active] = await sql`SELECT COUNT(*)::int AS cnt FROM _weifuwu_apps WHERE status = 'active'`
+    const [pros] = await sql`SELECT COUNT(*)::int AS cnt FROM _weifuwu_apps WHERE plan = 'pro'`
+    const [msgs] = await sql`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE a.type = 'ai' AND m.ai_approved IS NOT NULL)::int AS ai_replies
+      FROM messages m JOIN agents a ON a.id = m.sender_id
+      WHERE m.created_at >= DATE_TRUNC('month', NOW())
+    `
+    const [tokens] = await sql`
+      SELECT COALESCE(SUM(tokens_total), 0)::int AS total FROM agent_logs
+      WHERE created_at >= DATE_TRUNC('month', NOW())
+    `
+    const PRICE_IN = 2 / 1_000_000
+    const PRICE_OUT = 8 / 1_000_000
+    const [usage] = await sql`
+      SELECT COALESCE(SUM(tokens_prompt), 0)::int AS prompt, COALESCE(SUM(tokens_completion), 0)::int AS completion
+      FROM agent_logs WHERE created_at >= DATE_TRUNC('month', NOW())
+    `
+    const costYuan = Number(((Number((usage as any)?.prompt ?? 0) * PRICE_IN + Number((usage as any)?.completion ?? 0) * PRICE_OUT)).toFixed(2))
+    const [activeApps] = await sql`
+      SELECT COUNT(DISTINCT l.app_id)::int AS cnt FROM agent_logs l
+      WHERE l.created_at >= NOW() - INTERVAL '7 days'
+    `
+    return Response.json({
+      totalApps: Number((total as any)?.apps ?? 0),
+      activeApps: Number((active as any)?.cnt ?? 0),
+      proApps: Number((pros as any)?.cnt ?? 0),
+      msgsMonth: Number((msgs as any)?.total ?? 0),
+      aiRepliesMonth: Number((msgs as any)?.ai_replies ?? 0),
+      tokensMonth: Number((tokens as any)?.total ?? 0),
+      costYuanMonth: costYuan,
+      activeApps7d: Number((activeApps as any)?.cnt ?? 0),
+    })
+  })
+
   // 租户列表：app + 成员数 + Agent 数 + Token 用量 + 状态 + 计划
   app.get('/api/admin/apps', async (_req: Request, ctx: AppCtx): Promise<Response> => {
     await requireAdmin(ctx)
