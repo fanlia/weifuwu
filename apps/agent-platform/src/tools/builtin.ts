@@ -161,6 +161,14 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       const target = String(args.agent ?? '')
       const message = String(args.message ?? '')
       if (!target || !message) return 'Error: call_agent 需要 agent 和 message 参数'
+      // P1-4 委托背景：被委托方知道"谁在委托、为什么"（AI/人可替换——同事间移交要有来龙去脉）
+      const callerId = String((ctx as any)._toolAgentId ?? '')
+      let callerName = '未知同事'
+      if (callerId) {
+        const rows = await ctx.sql`SELECT name FROM agents WHERE id = ${callerId}`
+        if (rows[0]) callerName = String(rows[0].name)
+      }
+      const delegatedMessage = `[来自 ${callerName} 的委托] ${message}`
       // 深度限制（防环：A→B→A 或过深链）
       const depth = Number((ctx as any)._agentDepth ?? 0)
       const MAX_DEPTH = 2
@@ -191,7 +199,7 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
           allowFileTools: !!ta.allow_file_tools,
           allowCommandExec: !!ta.allow_command_exec,
           allowNetwork: !!ta.allow_network,
-        }, [{ role: 'user', content: message }])
+        }, [{ role: 'user', content: delegatedMessage }])
         return `[${String(ta.name)} 的回复]\n${result.content}`
       } catch (e) {
         return `Error: 调用 Agent「${String(ta.name)}」失败: ${(e as Error)?.message ?? '未知错误'}`

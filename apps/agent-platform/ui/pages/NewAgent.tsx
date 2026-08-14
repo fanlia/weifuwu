@@ -29,7 +29,7 @@ const CAT_LABELS: Record<string, string> = {
 interface NewAgentState {
   step: string
   selectedTemplate: RoleTemplate | null
-  type: string; name: string; description: string; systemPrompt: string
+  type: string; name: string; description: string; roleLabel: string; expertise: string; systemPrompt: string
   webhookSecret: string; chunkSize: string; aiModel: string
   aiTemperature: number; aiMaxTokens: number; aiHITL: boolean
   allowFileTools: boolean; allowCommandExec: boolean; allowNetwork: boolean
@@ -42,7 +42,7 @@ export const NewAgent: Component = async (_props, ctx) => {
   const rerender = () => ctx.ui.render()
 
   $.step = 'template'; $.selectedTemplate = null
-  $.type = 'ai'; $.name = ''; $.description = ''; $.systemPrompt = ''
+  $.type = 'ai'; $.name = ''; $.description = ''; $.roleLabel = ''; $.expertise = ''; $.systemPrompt = ''
   $.webhookSecret = ''; $.chunkSize = '500'; $.aiModel = ''
   $.aiTemperature = 0.7; $.aiMaxTokens = 2048; $.aiHITL = false
   $.allowFileTools = false; $.allowCommandExec = false
@@ -94,6 +94,8 @@ export const NewAgent: Component = async (_props, ctx) => {
     if ($.selectedTemplate) {
       body.template_slug = $.selectedTemplate.slug
       body.description = $.description || undefined
+      body.role_label = $.roleLabel || undefined
+      body.expertise = $.expertise || undefined
       body.system_prompt = $.systemPrompt || undefined
       body.model = $.aiModel || undefined
       body.temperature = $.aiTemperature
@@ -225,6 +227,22 @@ export const NewAgent: Component = async (_props, ctx) => {
             <Input type="text" placeholder="简短描述此 Agent 的用途" value={$.description}
               onInput={(e: Event) => { $.description = inputValue(e); rerender() }} />
           </Field>
+          {$.type === 'ai' && (
+            <div class="wf-row wf-gap-lg">
+              <div class="wf-fill">
+                <Field label="角色标签" hint="群里展示的身份，如：财务分析">
+                  <Input placeholder="财务分析" value={$.roleLabel}
+                    onInput={(e: Event) => { $.roleLabel = inputValue(e); rerender() }} />
+                </Field>
+              </div>
+              <div class="wf-fill">
+                <Field label="专长" hint="能干什么，如：Excel/报表/预算">
+                  <Input placeholder="Excel/报表/预算" value={$.expertise}
+                    onInput={(e: Event) => { $.expertise = inputValue(e); rerender() }} />
+                </Field>
+              </div>
+            </div>
+          )}
 
           {hasAIConfig && (
             <Field label="系统提示词（System Prompt）" hint="留空则使用默认助手人格">

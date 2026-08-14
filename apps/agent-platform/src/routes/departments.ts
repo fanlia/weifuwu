@@ -151,7 +151,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
 
     // 获取成员列表
     const members = await sql`
-      SELECT a.id, a.type, a.name, a.avatar_url, dm.role, dm.joined_at
+      SELECT a.id, a.type, a.name, a.avatar_url, a.description, a.role_label, a.expertise, dm.role, dm.joined_at
       FROM department_members dm
       JOIN agents a ON a.id = dm.agent_id
       WHERE dm.department_id = ${params.id}

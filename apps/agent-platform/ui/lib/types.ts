@@ -53,6 +53,8 @@ export interface Member {
   name: string
   type?: AgentType
   role?: string | null
+  role_label?: string | null
+  expertise?: string | null
   avatar_url?: string | null
 }
 

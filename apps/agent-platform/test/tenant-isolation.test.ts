@@ -81,6 +81,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/services/versions.ts', match: 'FROM agent_versions WHERE agent_id', reason: '间接隔离——agentId 来自已校验 agent（版本管理路由）' },
   { file: 'src/services/webhook.ts', match: 'webhook_logs WHERE agent_id = ${agentId}', reason: '间接隔离——agentId 来自 webhook 请求（签名 + agent 归属校验）' },
   { file: 'src/tools/builtin.ts', match: 'FROM kb_chunks kc JOIN kb_documents', reason: '间接隔离——kb agent_id 工具上下文（沙盒内工具，归属受限）' },
+  { file: 'src/tools/builtin.ts', match: 'SELECT name FROM agents WHERE id = ${callerId}', reason: '委托背景（P1-4）——按主键 UUID 查名，callerId 来自当前执行的 agent（归属已由调用链保证）' },
 ]
 
 /** 扫描目标文件 */

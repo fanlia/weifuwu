@@ -127,7 +127,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
           <div key={m.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b">
             <Ava name={m.name} type={m.type ?? 'user'} small />
             <div class="wf-fill wf-stack wf-gap-none">
-              <span class="wf-text-base">{m.name}</span>
+              <span class="wf-text-base">{m.name}{m.role_label ? <span class="wf-text-xs wf-text-tertiary wf-ml-sm">· {m.role_label}</span> : null}{m.expertise ? <span class="wf-text-xs wf-text-tertiary wf-ml-sm">— {m.expertise}</span> : null}</span>
               <span class="wf-text-xs wf-text-tertiary">{m.role === 'admin' ? '管理员' : '成员'}</span>
             </div>
             <TypeBadge type={m.type ?? "user"} />

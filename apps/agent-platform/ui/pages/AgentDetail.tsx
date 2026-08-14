@@ -20,7 +20,7 @@ interface AgentDetailState {
   agent: Agent | null
   loading: boolean; saving: boolean; notFound: boolean
   error: string; ok: string
-  name: string; description: string; systemPrompt: string
+  name: string; description: string; roleLabel: string; expertise: string; systemPrompt: string
   aiModel: string; aiTemperature: string; aiMaxTokens: string; aiQuota: string; quotaUsed: number
   aiHITL: boolean; riskPolicy: string; lightModel: string; memory: string; memoryLoaded: boolean; quality: any; webhookUrl: string; webhookPlatform: string; webhookSecret: string
   webhookRetryCount: string; secretVisible: boolean
@@ -43,7 +43,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     $.agent = null; $.loading = true; $.saving = false; $.notFound = false
     $.error = ''; $.ok = ''
 
-    $.name = ''; $.description = ''; $.systemPrompt = ''
+    $.name = ''; $.description = ''; $.roleLabel = ''; $.expertise = ''; $.systemPrompt = ''
     $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiQuota = '0'; $.quotaUsed = 0
     $.aiHITL = false; $.riskPolicy = 'auto'; $.lightModel = ''; $.memory = ''; $.memoryLoaded = false; $.quality = null; $.webhookUrl = ''; $.webhookPlatform = 'generic'; $.webhookSecret = ''
     $.webhookRetryCount = '3'; $.secretVisible = false
@@ -60,6 +60,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       const a = agentRes.agent ?? agentRes
       if (!a?.id) { $.notFound = true; $.loading = false; rerender(); return }
       $.agent = a; $.name = a.name ?? ''; $.description = a.description ?? ''
+      $.roleLabel = a.role_label ?? ''; $.expertise = a.expertise ?? ''
       $.systemPrompt = a.system_prompt ?? ''; $.aiModel = a.model ?? ''
       $.aiTemperature = String(a.temperature ?? 0.7)
       $.aiMaxTokens = String(a.max_tokens ?? 2048)
@@ -113,7 +114,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
   async function handleSubmit(e: Event) {
     e.preventDefault()
     $.saving = true; $.error = ''; $.ok = ''
-    const body: Record<string, unknown> = { name: $.name, description: $.description }
+    const body: Record<string, unknown> = { name: $.name, description: $.description, role_label: $.roleLabel, expertise: $.expertise }
     if ($.agent?.type === 'ai') {
       body.system_prompt = $.systemPrompt; body.model = $.aiModel || null
       body.temperature = parseFloat($.aiTemperature) || 0.7
@@ -271,6 +272,22 @@ export const AgentDetail: Component = async (_props, ctx) => {
           <Field label="描述">
             <Textarea value={$.description} onInput={(e: Event) => { $.description = inputValue(e); rerender() }} />
           </Field>
+          {a.type === 'ai' && (
+            <>
+              <div class="wf-row wf-gap-lg">
+                <div class="wf-fill">
+                  <Field label="角色标签" hint="群里展示的身份，如：财务分析">
+                    <Input value={$.roleLabel} onInput={(e: Event) => { $.roleLabel = inputValue(e); rerender() }} />
+                  </Field>
+                </div>
+                <div class="wf-fill">
+                  <Field label="专长" hint="能干什么，如：Excel/报表/预算">
+                    <Input value={$.expertise} onInput={(e: Event) => { $.expertise = inputValue(e); rerender() }} />
+                  </Field>
+                </div>
+              </div>
+            </>
+          )}
 
           {a.type === 'ai' && (
             <>

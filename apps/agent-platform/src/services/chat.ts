@@ -13,6 +13,7 @@
 import type { Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
+import { buildRosterText, buildHistoryContent, buildPersonaLayer, type RosterMember } from './persona.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
 
 // ── 流式事件类型 ───────────────────────────────────────
@@ -198,31 +199,49 @@ export async function handleNewMessage(
 
   // 获取最近消息历史（逆序还原为正序）
   const recentMessages = (await sql`
-    SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type
+    SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type,
+      m.reply_to, r.content as reply_content, ra.name as reply_sender_name
     FROM messages m
     JOIN agents a ON a.id = m.sender_id
+    LEFT JOIN messages r ON r.id = m.reply_to
+    LEFT JOIN agents ra ON ra.id = r.sender_id
     WHERE m.department_id = ${departmentId} AND m.ai_approved != FALSE
     ORDER BY m.created_at DESC
     LIMIT 20
   `) as unknown as Array<Record<string, any>>
 
-  // 构建 ChatMessage[] — 包含历史上下文
+  // 构建 ChatMessage[] — 包含历史上下文（P1-1 署名 / P1-2 引用）
   const chatMessages: import('../ai/types.ts').ChatMessage[] = []
   for (const msg of recentMessages.reverse()) {
     if (msg.sender_type === 'user' || msg.sender_type === 'ai') {
       chatMessages.push({
         role: msg.sender_type === 'ai' ? 'assistant' : 'user',
-        content: msg.content,
+        content: buildHistoryContent({
+          content: msg.content,
+          senderName: String(msg.sender_name ?? '未知'),
+          replyTo: msg.reply_to ? { senderName: String(msg.reply_sender_name ?? '未知'), content: String(msg.reply_content ?? '') } : undefined,
+        }),
       })
     }
   }
   // 追加当前消息
   chatMessages.push({ role: 'user', content: messageContent })
 
+  // P0-2 同事名单
+  const rosterMembers = (await sql`
+    SELECT a.id, a.type, a.name, dm.role, a.role_label, a.expertise
+    FROM department_members dm
+    JOIN agents a ON a.id = dm.agent_id
+    WHERE dm.department_id = ${departmentId}
+  `) as unknown as RosterMember[]
+
   // 为每个 AI Agent 生成回复（@ 定向时只回复被 @ 的目标）
   for (const agent of targets) {
     try {
-      const systemPrompt = agent.system_prompt ?? '你是一个有帮助的 AI 助手。'
+      const systemPrompt = (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({
+    rosterText: buildRosterText(rosterMembers, String(agent.id)),
+    selfName: String(agent.name),
+  })
       const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
 
       // 加载 Agent 已启用的技能
@@ -341,11 +360,15 @@ async function runAgentStreamForAgent(
   chatMessages: import('../ai/types.ts').ChatMessage[],
   initialMsgId: string,  // WS 路径预创建的消息 ID；SSE 路径为 ''（内部创建）
   emit: StreamEmitter,
+  rosterMembers: RosterMember[] = [],
 ): Promise<void> {
   const { sql } = ctx
   const isExternalMsg = !!initialMsgId
 
-  const systemPrompt = agent.system_prompt ?? '你是一个有帮助的 AI 助手。'
+  const systemPrompt = (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({
+    rosterText: buildRosterText(rosterMembers, String(agent.id)),
+    selfName: String(agent.name),
+  })
   const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
   const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
 
@@ -525,9 +548,12 @@ async function runAllAgents(
   }
 
   const recentMessages = (await sql`
-    SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type
+    SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type,
+      m.reply_to, r.content as reply_content, ra.name as reply_sender_name
     FROM messages m
     JOIN agents a ON a.id = m.sender_id
+    LEFT JOIN messages r ON r.id = m.reply_to
+    LEFT JOIN agents ra ON ra.id = r.sender_id
     WHERE m.department_id = ${departmentId} AND m.ai_approved != FALSE
     ORDER BY m.created_at DESC
     LIMIT 20
@@ -538,11 +564,24 @@ async function runAllAgents(
     if (msg.sender_type === 'user' || msg.sender_type === 'ai') {
       chatMessages.push({
         role: msg.sender_type === 'ai' ? 'assistant' : 'user',
-        content: msg.content,
+        content: buildHistoryContent({
+          content: msg.content,
+          senderName: String(msg.sender_name ?? '未知'),
+          replyTo: msg.reply_to ? { senderName: String(msg.reply_sender_name ?? '未知'), content: String(msg.reply_content ?? '') } : undefined,
+        }),
       })
     }
   }
   chatMessages.push({ role: 'user', content: messageContent })
+
+  // P0-2 同事名单（注入所有 AI 的 systemPrompt——分工共识）
+  const rosterMembers = (await sql`
+    SELECT a.id, a.type, a.name, dm.role, a.role_label, a.expertise
+    FROM department_members dm
+    JOIN agents a ON a.id = dm.agent_id
+    WHERE dm.department_id = ${departmentId}
+  `) as unknown as RosterMember[]
+  const rosterText = buildRosterText(rosterMembers, '')
 
   for (let i = 0; i < agents.length; i++) {
     const agent = agents[i]
@@ -555,7 +594,7 @@ async function runAllAgents(
         agentId: agent.id,
         appId: ctx.appId,
         departmentId,
-        systemPrompt: agent.system_prompt ?? '你是一个有帮助的 AI 助手。',
+        systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }),
         model: agent.model,
         tools: typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? []),
         maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
@@ -581,7 +620,7 @@ async function runAllAgents(
       continue
     }
 
-    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit)
+    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers)
   }
 }
 

@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS agents (
   name        TEXT NOT NULL,
   avatar_url  TEXT,
   description TEXT,
+  role_label  TEXT,                      -- AI 人格化：角色标签（如"财务分析"）
+  expertise   TEXT,                      -- AI 人格化：专长描述（如"Excel/报表/预算"）
 
   -- AI 机器人配置
   model       TEXT,                      -- 默认 deepseek-chat
