@@ -242,6 +242,6 @@ SPA serveUI = 另一落地（VDOM → DOM）——handler 只产出 VDOM，落�
 - serveUI 渲染 / async handler 取数（ctx.data 缓存）/ $ 重渲染（fetchCount=1）/ 中间件链 / 子路由 / 404
 - 响应式深度 / VDOM diff 复用 / keyed 重排增删 / style diff / renderHtml SSR / serveUI hydrate 收养+事件
 - 交互子组件：点击 inc-a 只更新 a（handler 不重跑）
-- **浏览器冒烟**（`apps/ui-router-demo`，agent-browser 实测）：首页渲染 / 计数器交互 / keyed 轮转 / 导航 /users/42（params）/ 404 / history back
+- **浏览器冒烟**（layouts-demo/components-demo，agent-browser 实测）：首页渲染 / 计数器交互 / keyed 轮转 / 导航 /users/42（params）/ 404 / history back
 
 **当前状态（2026-10 收尾）**：ui-dom 侧能力齐备（类型/路由/serve/VDOM/SSR/hydration/async 组件）；**S4/S5 已由「weifuwu/client 整体删除、ui-dom 唯一前端运行时」终结**（createApp/router() 不复存在——见提交「清理 weifuwu/client 引用」）。

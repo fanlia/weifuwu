@@ -25,9 +25,10 @@ node server.ts        # → http://localhost:3001
 
 ## 壳能力
 
-- 左侧分组导航（工作台/内容展示/营销推广）+ **↑↓ 键盘导航**
+- 左侧分组导航（工作台/内容展示/营销推广）+ **↑↓ 键盘导航** + **模式搜索过滤**（快速定位）
+- **主题切换**：ThemeSwitch 亮/暗/自动 + 预设（minimal/compact/rounded），localStorage 持久化
 - **查看代码** Drawer（描述条按钮——展示当前模式源码）
-- hash 深链（`#/dashboard` 直达）+ 无效 hash 回退
+- 计数徽章（模式/原语/工具类）+ hash 深链（`#/dashboard` 直达）+ 无效 hash 回退
 - 响应式：<1024px 侧栏隐藏 → 顶部横向切换条
 
 ## 纪律（AGENTS.md §8 布局蓝本纪律）

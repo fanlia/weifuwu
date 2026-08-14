@@ -4,7 +4,7 @@
  * 根因：createPopupTrackerSystem 返回值无 mediaRegistry，mount.ts 用 `as any` 解构
  * 掩盖为 undefined——useMedia/useBreakpoint 在真实挂载场景报
  * `Cannot read properties of undefined (reading 'has')`。组件库测试未覆盖此路径
- * （无组件在挂载上下文调用 useBreakpoint 实测暴露）——ui-router-demo /hooks 页走查抓到。
+ * （无组件在挂载上下文调用 useBreakpoint 实测暴露）——layouts-demo /components-demo 走查抓到。
  * 修复：mount.ts 自建 mediaRegistry Map。本测试锁定：完整 vdom 上下文（createVdomContext）
  * 下 useMedia/useBreakpoint 挂载 + 触发不报错。
  */
