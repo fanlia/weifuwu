@@ -72,6 +72,33 @@ export function buildHistoryContent(msg: {
   return `${prefix} ${msg.content}`
 }
 
+export interface WorkspaceFileEntry {
+  path: string
+  size: number
+  mtime?: string
+}
+
+const WORKSPACE_IGNORE = /(^|\/)(node_modules|\.git|\.next|dist|__pycache__)(\/|$)|(^|\/)\.[^\/]*$/
+
+/**
+ * 工作空间文件地图（C3 增强）——AI 开局就知道工作空间有什么
+ * 例：
+ *   【工作空间文件】
+ *   - sales.csv（30B）
+ *   - uploads/c2.csv（30B）
+ *   - report.xlsx（9.5KB）
+ *   需要读取时直接用相对路径（相对于工作空间根 /ws），无需 list_files。
+ */
+export function buildWorkspaceLayer(files: WorkspaceFileEntry[]): string {
+  const visible = files.filter((f) => f.path && !WORKSPACE_IGNORE.test(f.path))
+  if (visible.length === 0) return ''
+  const lines = visible.map((f) => {
+    const size = f.size >= 1024 ? `${(f.size / 1024).toFixed(1)}KB` : `${f.size}B`
+    return `- ${f.path}（${size}）`
+  })
+  return `【工作空间文件】\n${lines.join('\n')}\n需要读取时直接用相对路径（相对于工作空间根 /ws），无需 list_files。`
+}
+
 /**
  * 统一人格注入层（chat.ts 各 systemPrompt 拼接点收敛到此处）
  * - 名单段：透传 buildRosterText 结果

@@ -13,7 +13,7 @@
 import type { Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
-import { buildRosterText, buildHistoryContent, buildPersonaLayer, type RosterMember } from './persona.ts'
+import { buildRosterText, buildHistoryContent, buildPersonaLayer, buildWorkspaceLayer, type RosterMember } from './persona.ts'
 import { updateGroupMemory, buildGroupMemoryLayer } from './group-memory.ts'
 import { findCachedAnswer, shouldCacheQuestion, buildCachedReply } from './answer-cache.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
@@ -366,6 +366,7 @@ async function runAgentStreamForAgent(
   attachmentLayer = '',
   groupMemoryLayer = '',
   runMessageId = '',
+  workspaceLayer = '',
 ): Promise<void> {
   const { sql } = ctx
   const isExternalMsg = !!initialMsgId
@@ -373,7 +374,7 @@ async function runAgentStreamForAgent(
   const systemPrompt = (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({
     rosterText: buildRosterText(rosterMembers, String(agent.id)),
     selfName: String(agent.name),
-  }) + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : '')
+  }) + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (workspaceLayer ? '\n\n' + workspaceLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : '')
   const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
   const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
 
@@ -609,6 +610,7 @@ async function runAllAgents(
 
     // P1-3：附件拷贝到本 AI 工作空间 uploads/{msgId}/（沙盒 bind mount 自动可见）
     let attachmentLayer = ''
+    let workspaceLayer = ''
     if (attachments.length > 0 && agent.allow_file_tools) {
       const { buildAttachmentLayer } = await import('./upload.ts')
       const { resolveAgentWorkspace } = await import('../middleware/workspace.ts')
@@ -631,6 +633,25 @@ async function runAllAgents(
           }
         }
         attachmentLayer = buildAttachmentLayer(copied)
+        // C3 增强：工作空间文件地图（AI 开局知道有什么——浅层扫描 2 层）
+        try {
+          const files: Array<{ path: string; size: number; mtime: string }> = []
+          const scanDir = async (dir: string, prefix: string, depth: number) => {
+            if (depth > 2) return
+            const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => [])
+            for (const e of entries) {
+              const rel = prefix ? `${prefix}/${e.name}` : e.name
+              if (e.isDirectory()) await scanDir(pathMod.join(dir, e.name), rel, depth + 1)
+              else {
+                const st = await fs.stat(pathMod.join(dir, e.name)).catch(() => null)
+                files.push({ path: rel, size: st?.size ?? 0, mtime: st?.mtime?.toISOString() ?? '' })
+              }
+            }
+          }
+          await scanDir(ws, '', 0)
+          files.sort((a, b) => a.path.localeCompare(b.path))
+          workspaceLayer = buildWorkspaceLayer(files)
+        } catch { /* 扫描失败——无文件地图 */ }
       }
     }
 
@@ -640,7 +661,7 @@ async function runAllAgents(
         agentId: agent.id,
         appId: ctx.appId,
         departmentId,
-        systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }) + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : ''),
+        systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }) + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (workspaceLayer ? '\n\n' + workspaceLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : ''),
         model: agent.model,
         tools: typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? []),
         maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
@@ -667,7 +688,7 @@ async function runAllAgents(
     }
 
     // C1：runMessageId 用用户消息 id（attachmentMsgId——WS 路径 msgId 是 AI 回复占位）
-    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers, attachmentLayer, groupMemoryLayer, attachmentMsgId)
+    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers, attachmentLayer, groupMemoryLayer, attachmentMsgId, workspaceLayer)
   }
 
   // C5 写缓存：AI 回复完成后（通用问题 → 存答案供后续相似问题秒回）
