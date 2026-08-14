@@ -256,3 +256,47 @@ describe('userSystem (memory sql)', () => {
     })
   })
 })
+
+// ── SSO 登录（G14：无密码建号/加成员——OIDC 集成用） ──
+
+describe('ssoLogin（无密码 SSO 会话）', () => {
+  const db = createMemorySql()
+  const ssoUsers = userSystem({ sql: db, secret: 'test-secret-0123456789abcdef' })
+  before(async () => { await ssoUsers.migrate() })
+  after(async () => { await db.close() })
+  async function ssoCtx(token?: string) {
+    const ctx: any = {}
+    await ssoUsers(new Request('http://localhost/', {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    }), ctx, async () => new Response('ok'))
+    return ctx
+  }
+
+  it('新邮箱：建平台账号 + 签发会话（无密码）', async () => {
+    const ctx = await ssoCtx()
+    const sso = await ctx.auth.ssoLogin('sso-new@corp.test', { name: 'SSO 用户' })
+    assert.ok(sso.token, '签发 token')
+    assert.equal(sso.user.email, 'sso-new@corp.test')
+    assert.equal(sso.user.name, 'SSO 用户')
+    // 无密码账号——密码登录不应成功
+    await assert.rejects(() => ctx.auth.login('sso-new@corp.test', 'whatever'), /password/i)
+  })
+
+  it('已有账号：直接登录不重建', async () => {
+    const ctx = await ssoCtx()
+    const reg = await ctx.auth.register({ email: 'exist@corp.test', password: 'password123', name: '已有' })
+    const sso = await ctx.auth.ssoLogin('exist@corp.test')
+    assert.equal(sso.user.id, reg.user.id, '复用同一平台账号')
+  })
+
+  it('带 appId：自动加成员 + 应用会话（role=member）', async () => {
+    const ownerCtx = await ssoCtx()
+    const owner = await ownerCtx.auth.register({ email: 'sso-owner@corp.test', password: 'password123', name: 'Owner' })
+    const ctx = await ssoCtx(owner.token)
+    const app = await ctx.auth.createApp({ slug: 'sso-app', name: 'SSO 应用', openRegistration: false })
+    const sso = await ctx.auth.ssoLogin('sso-member@corp.test', { appId: app.id })
+    const payload = JSON.parse(Buffer.from(sso.token.split('.')[1], 'base64url').toString())
+    assert.equal(payload.appId, app.id)
+    assert.equal(payload.role, 'member')
+  })
+})

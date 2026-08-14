@@ -137,6 +137,8 @@ export interface AuthApi {
     email: string,
     password: string,
   ): Promise<{ token: string; refreshToken: string; user: User }>
+  /** SSO 登录（无密码）：按 email 找或建平台账号；带 appId 时自动加成员并签发应用会话 */
+  ssoLogin(email: string, opts?: { appId?: string; name?: string }): Promise<{ token: string; refreshToken: string; user: User }>
   /** owner 生成邀请 token（7 天有效，可选绑定 email/role） */
   createInvite(appId: string, opts: { email?: string; role?: string }): Promise<{ inviteToken: string }>
   /** owner 直接添加已有平台账号为成员 */
@@ -492,6 +494,39 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         return { ...session, user }
       },
 
+      async ssoLogin(email: string, opts?: { appId?: string; name?: string }) {
+        const normalized = normalizeEmail(email)
+        // 找或建平台账号（无密码——SSO 身份提供方已认证）
+        let user: User
+        const existing = await sql.query.from(USERS_TABLE)
+          .select('id', 'email', 'name', 'role', 'tenant')
+          .where({ email: normalized })
+          .run()
+        if (existing.length) {
+          user = existing[0] as unknown as User
+        } else {
+          const rows = await sql.query.insert(USERS_TABLE)
+            .values({ email: normalized, password_hash: null, name: opts?.name ?? null, role: null, tenant: null })
+            .returning('id', 'email', 'name', 'role', 'tenant')
+            .run()
+          user = rows[0] as unknown as User
+        }
+        // 带 appId：自动加成员（member）+ 应用会话
+        let appId: string | undefined
+        if (opts?.appId) {
+          const member = await findMemberRole(opts.appId, user.id)
+          if (!member) {
+            await sql.query.insert(MEMBER_TABLE)
+              .values({ app_id: opts.appId, user_id: user.id, role: 'member', invited_by: null })
+              .run()
+          }
+          appId = opts.appId
+        }
+        const session = await issueSession(user, appId ? { appId, role: 'member' } : undefined)
+        currentUser = user
+        return { ...session, user }
+      },
+
       async createInvite(appId: string, opts: { email?: string; role?: string }) {
         if (!currentUser) throw new HttpError('Unauthorized', 401)
         const role = await findMemberRole(appId, currentUser.id)
@@ -544,7 +579,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       CREATE TABLE IF NOT EXISTS ${USERS_TABLE} (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
+        password_hash TEXT,
         name TEXT,
         role TEXT,
         tenant TEXT,
@@ -552,6 +587,8 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `)
+    // SSO 用户无密码——已有表放宽 NOT NULL（幂等）
+    await sql.unsafe(`ALTER TABLE ${USERS_TABLE} ALTER COLUMN password_hash DROP NOT NULL`)
     await sql.unsafe(`
       CREATE TABLE IF NOT EXISTS ${SESSIONS_TABLE} (
         token_hash TEXT PRIMARY KEY,
