@@ -479,4 +479,35 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
 
     return Response.json({ success: true, approved: body.approved })
   })
+
+  // ── C1 断点续跑：从上次执行断点继续 ───────────────────────
+  app.post('/api/messages/:id/continue', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const [msg] = await sql`
+      SELECT m.id, m.department_id, m.content
+      FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      WHERE m.id = ${params.id} AND a.app_id = ${appId} AND a.type = 'user'
+    `
+    if (!msg) return Response.json({ error: '消息不存在' }, { status: 404 })
+
+    // 查上次执行状态（步骤清单——断点）
+    const [state] = await sql`
+      SELECT steps, status FROM agent_run_states WHERE message_id = ${params.id}
+    `
+    const steps = Array.isArray(state?.steps) ? state.steps : []
+    const doneSteps = steps.filter((st: any) => st?.result !== undefined).length
+
+    // 续跑提示（注入 AI 上下文——从中断处继续，不重做已完成步骤）
+    const resumeHint = steps.length > 0
+      ? `\n\n【断点续跑】这条消息上次执行中断（已完成 ${doneSteps}/${steps.length} 步工具调用）。已执行步骤：${steps.map((st: any) => `${st.tool}(${String(st.args ?? '').slice(0, 60)})`).join(' → ')}。请从中断处继续完成用户请求，不要重复执行已完成步骤。`
+      : ''
+
+    // 复用消息流：重发原内容 + 续跑提示（handleNewMessageStream 重新触发 AI）
+    const { handleNewMessageStream } = await import('../services/chat.ts')
+    handleNewMessageStream(ctx, String(msg.department_id), 'system', String(msg.content) + resumeHint, String(msg.id)).catch((err: any) =>
+      console.error('[messages] continue error:', err),
+    )
+    return Response.json({ success: true, resumed: true, doneSteps, totalSteps: steps.length })
+  })
 }

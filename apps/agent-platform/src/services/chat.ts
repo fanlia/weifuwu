@@ -365,6 +365,7 @@ async function runAgentStreamForAgent(
   rosterMembers: RosterMember[] = [],
   attachmentLayer = '',
   groupMemoryLayer = '',
+  runMessageId = '',
 ): Promise<void> {
   const { sql } = ctx
   const isExternalMsg = !!initialMsgId
@@ -431,6 +432,7 @@ async function runAgentStreamForAgent(
       agentId: agent.id,
       appId: ctx.appId,
       departmentId,
+      runMessageId,
       systemPrompt,
       model: agent.model,
       tools,
@@ -664,7 +666,8 @@ async function runAllAgents(
       continue
     }
 
-    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers, attachmentLayer, groupMemoryLayer)
+    // C1：runMessageId 用用户消息 id（attachmentMsgId——WS 路径 msgId 是 AI 回复占位）
+    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers, attachmentLayer, groupMemoryLayer, attachmentMsgId)
   }
 
   // C5 写缓存：AI 回复完成后（通用问题 → 存答案供后续相似问题秒回）

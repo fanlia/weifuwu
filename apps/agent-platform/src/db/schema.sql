@@ -303,3 +303,14 @@ CREATE TABLE IF NOT EXISTS skill_ratings (
   UNIQUE (skill_dir, app_id)
 );
 CREATE INDEX IF NOT EXISTS idx_skill_ratings_dir ON skill_ratings(skill_dir);
+
+-- ── C1 断点续跑：流式执行步骤持久化（中断后可从中断处继续） ──
+CREATE TABLE IF NOT EXISTS agent_run_states (
+  message_id    UUID PRIMARY KEY,
+  agent_id      UUID NOT NULL,
+  department_id UUID NOT NULL,
+  app_id        UUID NOT NULL,
+  steps         JSONB NOT NULL DEFAULT '[]'::JSONB,
+  status        TEXT NOT NULL DEFAULT 'running',  -- running | done | failed
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

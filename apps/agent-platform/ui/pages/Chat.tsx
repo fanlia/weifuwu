@@ -282,6 +282,16 @@ export const Chat: Component = async (_props, ctx) => {
     finally { $.sending = false; rerender() }
   }
 
+  async function continueMessage(fromMsgId: string) {
+    // C1 断点续跑：从中断处继续（后端注入已执行步骤，不重做）
+    ctx.ws?.send({ type: 'subscribe', room: deptId })
+    try {
+      const d = await ctx.api!.post(`/api/messages/${fromMsgId}/continue`).catch(() => null)
+      if (d?.resumed) ctx.toast!(`继续执行（已 ${d.doneSteps}/${d.totalSteps} 步）`, 'info')
+      else ctx.toast!('无断点——从头执行', 'info')
+    } catch { ctx.toast!('续跑失败', 'error') }
+  }
+
   async function retryMessage(fromMsgId: string) {
     const idx = $.msgs.findIndex((m: ChatMessage) => m.id === fromMsgId)
     if (idx <= 0) return
@@ -575,7 +585,10 @@ export const Chat: Component = async (_props, ctx) => {
                       </div>
                     )}
                     {isError && (
-                      <Button size="sm" variant="ghost" class="wf-mt-xs" onClick={() => retryMessage(msg.id)}><Icon name="refresh" size={12} /> 重新生成</Button>
+                      <div class="wf-row wf-gap-xs wf-mt-xs">
+                        <Button size="sm" variant="ghost" onClick={() => retryMessage(msg.id)}><Icon name="refresh" size={12} /> 重新生成</Button>
+                        <Button size="sm" variant="primary" onClick={() => continueMessage(msg.id)}><Icon name="arrow-right" size={12} /> 断点续跑</Button>
+                      </div>
                     )}
 
                     {msg.ai_draft && msg.ai_approved === null && (

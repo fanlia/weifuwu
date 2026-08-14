@@ -25,6 +25,8 @@ export interface AgentRunnerConfig {
   agentId: string
   appId: string
   departmentId: string
+  /** C1 断点续跑：执行归属消息 id（步骤落库锚点） */
+  runMessageId?: string
   systemPrompt: string
   model?: string
   tools: unknown[]
@@ -488,6 +490,8 @@ export async function streamAgent(
   let finalUsage: WfUsage | undefined
   let lastToolName = ''
   let _finished = false
+  // C1 断点续跑：步骤落库串行链（emit 同步——fire-and-forget 保序）
+  let runStateChain: Promise<unknown> = Promise.resolve()
 
   // 框架 agent 事件流：wf:* 事件 → 业务回调（onChunk/onToolCall/onToolResult/onFinish）
   const emit: WfEmitter = (name, data) => {
@@ -505,11 +509,35 @@ export async function streamAgent(
       if (s.type === 'tool' && s.name) {
         lastToolName = s.name
         callbacks.onToolCall?.({ name: s.name, args: s.args ?? '' })
+        // C1 断点续跑：步骤实时落库（中断后可恢复上下文）
+        if (config.runMessageId) {
+          runStateChain = runStateChain
+            .then(() => ctx.sql`
+              INSERT INTO agent_run_states (message_id, agent_id, department_id, app_id, steps, status)
+              VALUES (${config.runMessageId ?? ''}, ${config.agentId}, ${config.departmentId}, ${config.appId},
+                ${JSON.stringify([{ tool: s.name, args: s.args ?? '', at: new Date().toISOString() }])}, 'running')
+              ON CONFLICT (message_id) DO UPDATE SET
+                steps = agent_run_states.steps || EXCLUDED.steps,
+                status = 'running', updated_at = NOW()
+            `)
+            .catch(() => {})
+        }
       }
     } else if (name === 'wf:tool_result') {
       const r = data as WfToolResult
       const result = r.ok ? (typeof r.output === 'string' ? r.output : JSON.stringify(r.output ?? '')) : `Error: ${r.error?.message ?? 'unknown'}`
       callbacks.onToolResult?.({ name: lastToolName, result })
+      // C1：工具结果摘要落库
+      if (config.runMessageId) {
+        runStateChain = runStateChain
+          .then(() => ctx.sql`
+            UPDATE agent_run_states SET
+              steps = steps || ${JSON.stringify([{ tool: lastToolName, result: result.slice(0, 200), ok: r.ok, at: new Date().toISOString() }])},
+              updated_at = NOW()
+            WHERE message_id = ${config.runMessageId ?? ''}
+          `)
+          .catch(() => {})
+      }
     } else if (name === 'wf:usage') {
       finalUsage = data as WfUsage
     } else if (name === 'wf:done') {
@@ -518,6 +546,15 @@ export async function streamAgent(
   }
 
   await agentRunner.stream(messages, { emit })
+
+  // C1：执行完成标记（中断 vs 完成可区分）——等落库链排空
+  await runStateChain.catch(() => {})
+  try {
+    await ctx.sql`
+      UPDATE agent_run_states SET status = 'done', updated_at = NOW()
+      WHERE message_id = ${config.runMessageId ?? ''} AND status = 'running'
+    `
+  } catch { /* 状态更新失败不影响 */ }
 
   return finalUsage
 }

@@ -19,7 +19,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BUSINESS_TABLES = [
   'agents', 'departments', 'department_members', 'messages', 'agent_logs',
   'webhook_logs', 'kb_documents', 'kb_chunks', 'audit_logs', 'app_ai_configs',
-  'events', 'agent_skills', 'agent_versions', 'agent_memories', 'answer_cache',
+  'events', 'agent_skills', 'agent_versions', 'agent_memories', 'answer_cache', 'agent_run_states',
 ]
 
 /** 豁免登记（文件 + SQL 特征 + 理由）——审查通过才可登记 */
@@ -79,6 +79,9 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/services/group-memory.ts', match: 'FROM messages m JOIN agents a ON a.id = m.sender_id WHERE m.department_id = ${departmentId}', reason: '群共识摘要（P4）——按部门主键操作，部门上下文来自消息流入口（已校验）' },
   { file: 'src/services/group-memory.ts', match: 'INSERT INTO group_memories (department_id', reason: '群共识计数/摘要 upsert（P4）——department_id 主键，同上' },
   { file: 'src/services/chat.ts', match: 'SELECT summary FROM group_memories WHERE department_id = ${departmentId}', reason: '群共识读取（P4）——按部门主键，同消息流部门上下文' },
+  { file: 'src/services/agent-runner.ts', match: 'INSERT INTO agent_run_states', reason: '执行状态（C1）——含 app_id 列，租户隔离' },
+  { file: 'src/services/agent-runner.ts', match: 'UPDATE agent_run_states SET', reason: '执行状态更新（C1）——WHERE message_id 主键（消息归属已校验）' },
+  { file: 'src/routes/messages.ts', match: 'SELECT steps, status FROM agent_run_states WHERE message_id', reason: '断点查询（C1）——按主键，消息归属上游校验（a.app_id）' },
   { file: 'src/routes/messages.ts', match: 'UPDATE messages SET attachments = ${JSON.stringify(attachmentMeta)}', reason: '附件元数据落库（P1-3）——按主键更新，message 本流程刚创建' },
   { file: 'src/services/chat.ts', match: 'FROM department_members dm JOIN agents', reason: '间接隔离——departmentId 来自已校验部门' },
   { file: 'src/services/chat.ts', match: 'FROM kb_chunks kc JOIN kb_documents', reason: '间接隔离——kb.agent_id 来自部门成员查询（已校验）' },
