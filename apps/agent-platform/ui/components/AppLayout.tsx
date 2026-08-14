@@ -21,6 +21,11 @@ const NAV: NavDef[] = [
   { path: '/departments', icon: h(Icon, { name: 'users' }), label: '部门', group: '管理', match: p => p.startsWith('/departments') },
 ]
 
+// 管理员导航（商业化 G2：ADMIN_EMAILS 白名单——/api/admin/me 判定）
+const ADMIN_NAV: NavDef[] = [
+  { path: '/admin', icon: h(Icon, { name: 'shield' }), label: '租户管理', group: '管理', match: p => p.startsWith('/admin') },
+]
+
 export async function AppLayout(_props: {}, ctx: WfuiContext) {
   // ── 认证守卫 ──
   if (!ctx.auth?.isLoggedIn) {
@@ -31,6 +36,11 @@ export async function AppLayout(_props: {}, ctx: WfuiContext) {
   const user = ctx.auth?.user
   const userName = user?.name ?? '用户'
   const userMail = user?.email ?? ''
+  // 管理员导航（G2）：/api/admin/me 判定，仅管理员可见「租户管理」入口
+  let isAdmin = false
+  void ctx.api?.get<{ isAdmin: boolean }>('/api/admin/me')
+    .then((d) => { isAdmin = !!d.isAdmin; ctx.ui.render() })
+    .catch(() => {})
 
   function logout() {
     ctx.auth?.logout?.()
@@ -53,7 +63,7 @@ export async function AppLayout(_props: {}, ctx: WfuiContext) {
         </div>
 
         <div class="wf-sidebar-body">
-          <Menu items={NAV.map(n => ({ key: n.path, label: n.label, icon: n.icon, group: n.group ?? '工作台' }))}
+          <Menu items={[...NAV, ...(isAdmin ? ADMIN_NAV : [])].map(n => ({ key: n.path, label: n.label, icon: n.icon, group: n.group ?? '工作台' }))}
             activeKey={NAV.find(n => n.match(route))?.path ?? ''}
             onSelect={p => ctx.app?.navigate(p)} />
         </div>

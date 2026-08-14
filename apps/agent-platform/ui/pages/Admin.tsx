@@ -1,0 +1,79 @@
+import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import { PageHeader, errMsg } from '../components/ui'
+import { Alert, Badge, Button, Card, Table, Icon } from 'weifuwu/components'
+
+interface AdminApp {
+  id: string
+  slug: string
+  name: string
+  status: string
+  created_at: string
+  member_count: number
+  agent_count: number
+  token_usage: number
+  token_usage_month: number
+}
+
+export const Admin: Component = async (_props, ctx) => {
+  let apps: AdminApp[] = []
+  let loading = true
+  let error = ''
+  let busyId = ''
+  const load = () => {
+    loading = true; error = ''
+    ctx.ui.render()
+    return ctx.api!.get<{ apps: AdminApp[] }>('/api/admin/apps')
+      .then((d) => { apps = d.apps ?? []; loading = false; ctx.ui.render() })
+      .catch((e) => { error = errMsg(e, '加载租户列表失败'); loading = false; ctx.ui.render() })
+  }
+  void load()
+
+  async function toggleStatus(a: AdminApp) {
+    busyId = a.id
+    ctx.ui.render()
+    try {
+      await ctx.api!.post(`/api/admin/apps/${a.id}/status`, { status: a.status === 'disabled' ? 'active' : 'disabled' })
+      await load()
+    } catch (e) {
+      error = errMsg(e, '操作失败')
+      ctx.ui.render()
+    } finally { busyId = '' }
+  }
+
+  const fmtTokens = (n: number) => n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n)
+
+  return async () => (
+    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 960px">
+      <PageHeader title="租户管理" sub="平台管理员：查看所有团队用量，停用/启用租户（ADMIN_EMAILS 白名单）" />
+
+      {error && <Alert variant="error">{error}</Alert>}
+      {loading ? (
+        <div class="wf-text-sm wf-text-tertiary wf-py-lg wf-center">加载中...</div>
+      ) : (
+        <Card>
+          <Table
+            data={apps}
+            columns={[
+              { key: 'name', label: '团队', render: (v: any) => <span class="wf-text-sm wf-text-semibold">{v}</span> },
+              { key: 'slug', label: 'Slug' },
+              { key: 'member_count', label: '成员', render: (v: any) => <span class="wf-nums">{v}</span> },
+              { key: 'agent_count', label: 'Agent', render: (v: any) => <span class="wf-nums">{v}</span> },
+              { key: 'token_usage_month', label: '本月 Token', render: (v: any) => <span class="wf-nums">{fmtTokens(Number(v))}</span> },
+              { key: 'token_usage', label: '累计 Token', render: (v: any) => <span class="wf-nums wf-text-secondary">{fmtTokens(Number(v))}</span> },
+              { key: 'status', label: '状态', render: (v: any, row: any) => (
+                <span class="wf-row wf-gap-sm wf-items-center">
+                  {v === 'disabled' ? <Badge variant="danger">已停用</Badge> : <Badge variant="success">正常</Badge>}
+                  <Button size="sm" variant={v === 'disabled' ? 'primary' : 'ghost'}
+                    disabled={busyId === row.id}
+                    onClick={() => toggleStatus(row)}>
+                    {v === 'disabled' ? '启用' : '停用'}
+                  </Button>
+                </span>
+              ) },
+            ]}
+          />
+        </Card>
+      )}
+    </div>
+  )
+}

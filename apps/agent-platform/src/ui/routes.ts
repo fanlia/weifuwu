@@ -61,6 +61,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/chat/new', '/chat/:id',
       '/approvals',
       '/settings',
+      '/admin',
     ]
 
     for (const path of spaPaths) {
@@ -95,6 +96,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/chat/new', '/chat/:id',
       '/approvals',
       '/settings',
+      '/admin',
     ]
 
     for (const path of spaPaths) {

@@ -31,6 +31,7 @@ import { NewChat } from './pages/NewChat'
 import { Approvals } from './pages/Approvals'
 import { Chat } from './pages/Chat'
 import { Settings } from './pages/Settings'
+import { Admin } from './pages/Admin'
 
 // ── 应用 ─────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ main.get('chat/new', () => h(NewChat, {}), { title: '会话' })
   main.get('approvals', () => h(Approvals, {}), { title: '审批待办' })
 main.get('chat/:id', () => h(Chat, {}), { title: '聊天' })
 main.get('settings', () => h(Settings, {}), { title: '设置 — Agent Platform' })
+  main.get('admin', () => h(Admin, {}), { title: '租户管理 — Agent Platform' })
 app.use('/', main)
 
 app.notFound(() => (

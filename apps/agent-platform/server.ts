@@ -30,6 +30,7 @@ import { handleWebhookMessage } from './src/services/webhook.ts'
 import { registerBuiltinTools, BUILTIN_TOOL_DEFS } from './src/tools/builtin.ts'
 import { registerSkillRoutes } from './src/routes/skills.ts'
 import { registerRoleTemplateRoutes } from './src/routes/role-templates.ts'
+import { registerAdminRoutes } from './src/routes/admin.ts'
 
 // ── UI ────────────────────────────────────────────────────
 import { registerUiRoutes } from './src/ui/routes.ts'
@@ -104,6 +105,8 @@ async function main() {
   // 增量表（追加的 schema——迁移一次性 markMigrated，新表需幂等补建；Wave 9 audit_logs）
   // 增量列（Wave 9 token 配额——ADD COLUMN IF NOT EXISTS 幂等）
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS monthly_token_quota INT NOT NULL DEFAULT 0`)
+  // 商业化 G2：租户状态（active/disabled——管理后台停用）
+  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`)
   // 多 Agent 协作：agent_logs.department_id 可空（子 Agent 被调用时无部门——call_agent 嵌套）
   await pg.sql.unsafe(`ALTER TABLE agent_logs ALTER COLUMN department_id DROP NOT NULL`)
   await pg.sql.unsafe(`
@@ -349,7 +352,19 @@ async function main() {
     ;(ctx as unknown as AppCtx).auth.requireAuth()
     return next(req, ctx)
   })
-
+  // 商业化 G2：租户停用拦截（status='disabled' → 403——管理后台停用即全租户不可用）
+  // 管理面豁免：/api/admin/* 不受租户停用影响（管理员停用后仍需能恢复）
+  protectedRoutes.use(async (req: Request, ctx: Context, next: any) => {
+    if (String(req.url ?? '').includes('/api/admin/')) return next(req, ctx)
+    const c = ctx as unknown as AppCtx
+    if (c.appId) {
+      const rows = await c.sql`SELECT status FROM _weifuwu_apps WHERE id = ${c.appId}`
+      if (rows[0]?.status === 'disabled') {
+        return Response.json({ error: '该团队已被停用，请联系管理员' }, { status: 403 })
+      }
+    }
+    return next(req, ctx)
+  })
   // 公司
   // Agent
   registerAgentRoutes(protectedRoutes)
@@ -365,6 +380,8 @@ async function main() {
   registerSkillRoutes(protectedRoutes)
   // 角色模板
   registerRoleTemplateRoutes(protectedRoutes)
+  // 商业化 G2：租户管理后台（平台管理员 ADMIN_EMAILS）
+  registerAdminRoutes(protectedRoutes)
 
   // ── 审计日志（Wave 9——安全/合规：登录/Agent 变更记录） ──
   // ── 运营详情：沙盒状态 + 今日审计（受保护） ─────────────
