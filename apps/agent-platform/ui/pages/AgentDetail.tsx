@@ -1,7 +1,7 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, TypeBadge, Loading, errMsg } from '../components/ui'
 import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Icon, Input, Select, Slider, Textarea, Timeline } from 'weifuwu/components'
-import { inputValue } from '../lib/types'
+import { inputValue, type AgentVersion } from '../lib/types'
 import type { Agent, AgentLog, AvailableSkill, BoundSkill, KbChunk, KbDocument, WebhookLog } from '../lib/types'
 
 const MODELS = [
@@ -16,7 +16,7 @@ interface AgentDetailState {
   error: string; ok: string
   name: string; description: string; systemPrompt: string
   aiModel: string; aiTemperature: string; aiMaxTokens: string; aiQuota: string; quotaUsed: number
-  versions: any[]; versionNote: string; savingVersion: boolean; rollingBack: string | null
+  versions: AgentVersion[]; versionNote: string; savingVersion: boolean; rollingBack: string | null
   aiHITL: boolean; webhookUrl: string; webhookSecret: string
   webhookRetryCount: string; secretVisible: boolean
   kbChunkSize: string; kbChunkOverlap: string
@@ -250,7 +250,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     try { return new Date(t).toLocaleString().slice(0, 16) } catch { return String(t ?? '').slice(0, 16) }
   }
   function loadVersions() {
-    void ctx.api!.get<{ versions: any[] }>(`/api/agents/${agentIdPath}/versions`).then((d) => { $.versions = d.versions ?? []; rerender() }).catch(() => {})
+    void ctx.api!.get<{ versions: AgentVersion[] }>(`/api/agents/${agentIdPath}/versions`).then((d) => { $.versions = d.versions ?? []; rerender() }).catch(() => {})
   }
   async function saveVersionFn() {
     $.savingVersion = true; rerender()
@@ -272,7 +272,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     if (!$.previewQuery.trim()) return
     $.previewing = true; $.previewText = ''; rerender()
     try {
-      const token = localStorage.getItem('agent_platform_token') ?? ''
+      const token = ctx.browser?.storageGet?.('agent_platform_token') ?? ''
       const res = await fetch(`/api/agents/${agentId}/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -445,7 +445,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
   return async (props) => {
     if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
     if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在或无权访问" hint="可能是链接过期，或该 Agent 属于其他应用。"><Button variant="primary" onClick={() => ctx.route!.navigate('/agents')}>返回 Agent 列表</Button></EmptyState></div>
-    if ($.error && !$.agent) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="⚠️" text="加载 Agent 失败" hint={$.error}><Button variant="primary" onClick={() => { window.location.reload() }}>重试</Button></EmptyState></div>
+    if ($.error && !$.agent) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="⚠️" text="加载 Agent 失败" hint={$.error}><Button variant="primary" onClick={() => { ctx.browser?.reload?.() }}>重试</Button></EmptyState></div>
 
     const a = $.agent ?? ({} as Partial<Agent>)
     const typeColor: Record<string, string> = { ai: '#8b5cf6', webhook: '#f59e0b', knowledge_base: '#22c55e', user: '#4f6ef7' }
@@ -462,7 +462,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
             : [['sec-config', '配置'], ['sec-account', '账号'], ['sec-versions', '版本']]
         ).map(([id, label]) => (
           <button key={id} type="button" class="wf-btn wf-btn--sm wf-btn--ghost"
-            onClick={() => { const el = document.getElementById(id); if (el) (el as any).scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>
+            onClick={() => { const el = ctx.browser?.byId?.(id); if (el) (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>
             {label}
           </button>
         ))}

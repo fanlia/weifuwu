@@ -2,13 +2,14 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Badge, Button, Card, Field, Icon, Input, PasswordInput, Select, ThemeSwitch } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
+import type { AuditEntry, OpsInfo } from '../lib/types'
 
 interface SettingsState {
   name: string; nameSubmitting: boolean; nameOk: string; nameErr: string
   currentPassword: string; newPassword: string; confirmPassword: string
   pwdSubmitting: boolean; pwdOk: string; pwdErr: string
   auditFilter: string
-  sysHealth: any
+  sysHealth: OpsInfo | null
 }
 
 const AUDIT_LABELS: Record<string, string> = {
@@ -21,11 +22,11 @@ function fmtAuditTime(t: string): string {
 
 export const Settings: Component = async (_props, ctx) => {
   // 审计日志（Wave 9）——加载最近 20 条（支持 action 过滤）
-  const auditEntries: any[] = []
+  const auditEntries: AuditEntry[] = []
   const loadAudit = (action?: string) => {
     auditEntries.length = 0
     const q = action ? `&action=${encodeURIComponent(action)}` : ''
-    return ctx.api!.get<{ entries: any[] }>(`/api/audit?limit=20${q}`).then((d) => {
+    return ctx.api!.get<{ entries: AuditEntry[] }>(`/api/audit?limit=20${q}`).then((d) => {
       auditEntries.push(...(d.entries ?? []))
       ctx.ui.render()
     }).catch(() => {})
@@ -157,7 +158,7 @@ export const Settings: Component = async (_props, ctx) => {
           <div class="wf-text-sm wf-text-tertiary wf-py-sm">{$.auditFilter ? '该类型暂无记录' : '暂无记录'}</div>
         ) : (
           <div class="wf-stack wf-gap-xs">
-            {auditEntries.map((e: any, i: number) => (
+            {auditEntries.map((e: AuditEntry, i: number) => (
               <div key={i} class="wf-split wf-py-xs wf-border-b">
                 <div class="wf-stack wf-gap-none">
                   <span class="wf-text-sm">{AUDIT_LABELS[e.action] ?? e.action}</span>

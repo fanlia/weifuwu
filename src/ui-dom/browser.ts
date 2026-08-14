@@ -43,6 +43,7 @@ export function createClientBrowser(): BrowserEnv {
       try { return new (w as any)[Ctor](type, init) } catch { return new (w as any).Event(type, init) }
     },
     dispatchEvent: (target, evt) => (typeof target !== 'undefined' ? target.dispatchEvent(evt) : false),
+    reload: () => { if (typeof window !== 'undefined') window.location.reload() },
     navigate: (url) => {
       if (typeof window === 'undefined') return
       window.history.pushState(null, '', url)

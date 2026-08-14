@@ -242,6 +242,8 @@ export interface BrowserEnv {
   dispatchEvent(target: EventTarget, evt: Event): boolean
   /** 编程式导航（history.pushState + popstate——路由驱动） */
   navigate(url: string): void
+  /** 整页重载（location.reload——SSR no-op；错误重试场景） */
+  reload(): void
   /** 文本遍历（TreeWalker） */
   createTreeWalker(root: Node, whatToShow?: number): TreeWalker | null
   /** 复制文本（clipboard API + execCommand 降级，统一组件重复实现） */

@@ -304,3 +304,27 @@ export interface CostAgentRow {
 export function inputValue(e: Event): string {
   return (e.target as HTMLInputElement | HTMLTextAreaElement).value
 }
+
+// ── 运营/版本类型（Settings/AgentDetail 类型化——消除 any） ─────
+export interface AgentVersion {
+  id: string
+  version: number
+  note: string | null
+  snapshot: Record<string, unknown>
+  created_at: string
+}
+export interface AuditEntry {
+  action: string
+  target_type: string | null
+  target_id: string | null
+  detail: Record<string, unknown> | null
+  created_at: string
+  user_name: string | null
+}
+export interface OpsInfo {
+  sandbox: {
+    available: boolean; enabled?: boolean; imageReady?: boolean
+    mode?: string; poolSize?: number; maxContainers?: number
+  }
+  auditToday: number
+}
