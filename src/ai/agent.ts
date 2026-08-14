@@ -45,8 +45,12 @@ export interface AgentConfig {
   tools: AgentTool[]
   /** 默认 10 */
   maxSteps?: number
-  /** 每个工具执行前要求人工审批（协议 §4.5） */
-  humanInTheLoop?: boolean
+  /**
+   * 每个工具执行前要求人工审批（协议 §4.5）。
+   * 支持函数：按工具调用动态判定（C2 条件审批——风险分级）——
+   * 返回 true 需审批，false 自动执行。
+   */
+  humanInTheLoop?: boolean | ((call: { name: string; args: unknown }) => boolean)
   /** 审批超时（默认 5 分钟），到期按拒绝处理 */
   approvalTimeoutMs?: number
 }
@@ -210,9 +214,12 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
         const args = safeParseArgs(tc.function?.arguments ?? '')
         emit('wf:step', { type: 'tool', toolCallId: tc.id, name })
 
-        // HITL：执行前挂起等待人工审批
+        // HITL：执行前挂起等待人工审批（C2：函数模式按工具调用判定——风险分级）
         let execArgs = args
-        if (config.humanInTheLoop) {
+        const needApproval = typeof config.humanInTheLoop === 'function'
+          ? config.humanInTheLoop({ name, args })
+          : !!config.humanInTheLoop
+        if (needApproval) {
           const decision = await client.waitApproval(
             { id: randomUUID(), toolCallId: tc.id, name, args },
             emit,

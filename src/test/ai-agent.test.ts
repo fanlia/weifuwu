@@ -160,6 +160,71 @@ test('agent：工具不存在 → tool_result ok:false，循环继续', async ()
   }
 })
 
+test('C2 条件审批：函数返回 false 的工具自动执行（不发 approval_request）', async () => {
+  const fake = await startScriptedProvider([
+    toolRound('read_file', '{"path":"a.txt"}'),
+    textRound('内容正常'),
+  ])
+  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  let executed = false
+  const agent = a.agent({
+    systemPrompt: '助手',
+    // 函数模式：read_file 返回 false（自动执行），其它返回 true（审批）
+    humanInTheLoop: (call: any) => call.name !== 'read_file',
+    tools: [{ name: 'read_file', description: '读文件', run: async () => { executed = true; return { content: 'x' } } }],
+  })
+  try {
+    const res = agent.run([{ role: 'user', content: '读文件' }])
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let sawApproval = false
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      if (buffer.includes('wf:approval_request')) { sawApproval = true; break }
+    }
+    reader.cancel().catch(() => {})
+    assert.equal(sawApproval, false, '函数返回 false → 自动执行不审批')
+    assert.equal(executed, true, '工具已执行')
+  } finally {
+    await fake.close()
+  }
+})
+
+test('C2 条件审批：函数返回 true 的工具走审批（approval_request 发出）', async () => {
+  const fake = await startScriptedProvider([
+    toolRound('delete_file', '{"path":"a.txt"}'),
+    textRound('已删除'),
+  ])
+  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const agent = a.agent({
+    systemPrompt: '助手',
+    humanInTheLoop: (call: any) => call.name === 'delete_file',
+    tools: [{ name: 'delete_file', description: '删文件', run: async () => ({ ok: true }) }],
+  })
+  try {
+    const res = agent.run([{ role: 'user', content: '删文件' }])
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let approvalId = ''
+    while (!approvalId) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const m = buffer.match(/"id":"([^"]+)","toolCallId"[^}]*"name":"delete_file"/)
+      if (m) approvalId = m[1]
+    }
+    if (approvalId) a.approve({ id: approvalId, decision: 'rejected' }) // 响应审批释放 waitApproval
+    reader.cancel().catch(() => {})
+    assert.ok(approvalId.length > 0, 'delete_file 应触发审批')
+  } finally {
+    await fake.close()
+  }
+})
+
 test('agent：HITL 审批 approved → 执行工具', async () => {
   const fake = await startScriptedProvider([
     toolRound('send_email', '{"to":"a@x.com"}'),

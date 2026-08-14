@@ -88,6 +88,9 @@ export const Approvals: Component = async (_props, ctx) => {
                 </div>
               </div>
               <div class="wf-row wf-right wf-gap-sm wf-mt-sm">
+                  <span class="wf-text-xs wf-text-tertiary wf-self-center">
+                    {/删除|清空|drop|移除/.test(String(m.ai_draft ?? '')) ? '⚠️ 高风险操作' : 'AI 草稿'}
+                  </span>
                 <Button size="sm" variant="ghost" onClick={() => ctx.app?.navigate(`/chat/${m.department_id}`)}>
                   <Icon name="message" size={12} /> 去聊天
                 </Button>

@@ -50,6 +50,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/services/chat.ts', match: 'FROM messages m JOIN agents', reason: '间接隔离——department_id 来自已校验部门（会话上下文）' },
   { file: 'src/services/permissions.ts', match: 'SELECT dm.role FROM department_members', reason: '间接隔离——departmentId 来自调用方上下文（审批/成员管理已校验归属）' },
   { file: 'src/services/permissions.ts', match: 'FROM _weifuwu_app_members', reason: '系统表（框架 userSystem 平台级隔离）' },
+  { file: 'src/services/agent-runner.ts', match: 'SELECT risk_policy FROM agents', reason: 'C2 间接隔离——agentId 来自运行上下文（已校验的 agent）' },
   { file: 'server.ts', match: 'WHERE a.user_id = ${uid}', reason: 'R10 用户维度隔离——uid 来自会话 token（auth.userId），只能查/改自己' },
   { file: 'server.ts', match: 'UPDATE agents SET is_active = FALSE', reason: 'R10 用户维度隔离——账号删除仅匿名化自己的 Agent' },
   // ── 间接隔离批量登记（外键归属上游已校验——逐条审查过） ──

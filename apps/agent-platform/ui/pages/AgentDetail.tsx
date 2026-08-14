@@ -22,7 +22,7 @@ interface AgentDetailState {
   error: string; ok: string
   name: string; description: string; systemPrompt: string
   aiModel: string; aiTemperature: string; aiMaxTokens: string; aiQuota: string; quotaUsed: number
-  aiHITL: boolean; webhookUrl: string; webhookPlatform: string; webhookSecret: string
+  aiHITL: boolean; riskPolicy: string; webhookUrl: string; webhookPlatform: string; webhookSecret: string
   webhookRetryCount: string; secretVisible: boolean
     kbOptions: Array<{ id: string; name: string }>; kbId: string
       previewQuery: string; previewText: string; previewing: boolean
@@ -45,7 +45,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
     $.name = ''; $.description = ''; $.systemPrompt = ''
     $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiQuota = '0'; $.quotaUsed = 0
-    $.aiHITL = false; $.webhookUrl = ''; $.webhookPlatform = 'generic'; $.webhookSecret = ''
+    $.aiHITL = false; $.riskPolicy = 'auto'; $.webhookUrl = ''; $.webhookPlatform = 'generic'; $.webhookSecret = ''
     $.webhookRetryCount = '3'; $.secretVisible = false
     $.allowFileTools = false; $.allowCommandExec = false; $.allowNetwork = false
 
@@ -66,6 +66,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.aiQuota = String(a.monthly_token_quota ?? 0)
       $.quotaUsed = Number(a.quota_used ?? 0)
       $.aiHITL = !!a.human_in_the_loop
+      $.riskPolicy = a.risk_policy ?? 'auto'
       $.webhookUrl = a.webhook_url ?? ''; $.webhookPlatform = a.webhook_platform ?? 'generic'; $.webhookSecret = a.webhook_secret ?? ''
       $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
       $.kbId = a.kb_id ?? ''
@@ -114,6 +115,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       body.max_tokens = parseInt($.aiMaxTokens) || 2048
       body.monthly_token_quota = parseInt($.aiQuota) || 0
       body.human_in_the_loop = $.aiHITL
+      body.risk_policy = $.riskPolicy
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
       body.allow_network = $.allowNetwork
@@ -300,8 +302,17 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 </div>
                 <div class="wf-fill">
                   <Field label="人工审批 (HITL)">
-                    <Checkbox label="开启后 AI 回复需人工批准后才发送" checked={$.aiHITL}
-                      onChange={(v: boolean) => { $.aiHITL = v; rerender() }} />
+                    <div class="wf-row wf-gap-md wf-items-center">
+                      <Checkbox label="开启后 AI 回复需人工批准后才发送" checked={$.aiHITL}
+                        onChange={(v: boolean) => { $.aiHITL = v; rerender() }} />
+                      {$.aiHITL && (
+                        <Select value={$.riskPolicy} onChange={(v: string | string[]) => { const val = Array.isArray(v) ? 'auto' : v; $.riskPolicy = val; rerender() }}
+                          options={[
+                            { value: 'auto', label: '智能分级（读自动/写审批）' },
+                            { value: 'strict', label: '严格（全部审批）' },
+                          ]} />
+                      )}
+                    </div>
                   </Field>
                 </div>
               </div>

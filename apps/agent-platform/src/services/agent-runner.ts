@@ -222,6 +222,16 @@ export async function runAgent(
   // 框架 agent 引擎：结构化结果模式（content/steps/usage）
   // 商业化 G4 BYOK：租户自带模型 Key/端点 → 框架 per-call 覆盖（未配置走全局）
   const byok: { apiKey?: string; baseUrl?: string; model?: string } = await byokParamsOf(ctx.sql, config.appId).catch(() => ({}))
+  // C2 风险分级审批：HITL 开启时按 Agent 风险策略动态判定（low 自动 / high 审批）
+  const { needsApproval, riskOf } = await import('./risk-policy.ts')
+  let riskPolicy: string = 'auto'
+  try {
+    const [ag] = await ctx.sql`SELECT risk_policy FROM agents WHERE id = ${config.agentId}`
+    riskPolicy = String((ag as any)?.risk_policy ?? 'auto')
+  } catch { /* 查询失败用默认 auto */ }
+  const humanGate = config.humanInTheLoop
+    ? (call: { name: string; args: unknown }): boolean => needsApproval(riskPolicy as any, call.name, call.args)
+    : undefined
   const agentRunner = ai.agent({
     model: byok.model ?? config.model,
     apiKey: byok.apiKey,
@@ -229,7 +239,7 @@ export async function runAgent(
     systemPrompt: config.systemPrompt,
     tools,
     maxSteps: config.maxSteps ?? 10,
-    humanInTheLoop: config.humanInTheLoop ?? false,
+    humanInTheLoop: humanGate,
   })
 
   const result = await agentRunner.runToResult(contextMessages.slice(1)) // 去掉 system，agent 内部会重新加
@@ -346,6 +356,16 @@ export async function streamAgent(
 
   // 商业化 G4 BYOK：租户自带模型 Key/端点 → 框架 per-call 覆盖（未配置走全局）
   const byok: { apiKey?: string; baseUrl?: string; model?: string } = await byokParamsOf(ctx.sql, config.appId).catch(() => ({}))
+  // C2 风险分级审批：HITL 开启时按 Agent 风险策略动态判定（low 自动 / high 审批）
+  const { needsApproval, riskOf } = await import('./risk-policy.ts')
+  let riskPolicy: string = 'auto'
+  try {
+    const [ag] = await ctx.sql`SELECT risk_policy FROM agents WHERE id = ${config.agentId}`
+    riskPolicy = String((ag as any)?.risk_policy ?? 'auto')
+  } catch { /* 查询失败用默认 auto */ }
+  const humanGate = config.humanInTheLoop
+    ? (call: { name: string; args: unknown }): boolean => needsApproval(riskPolicy as any, call.name, call.args)
+    : undefined
   const agentRunner = ai.agent({
     model: byok.model ?? config.model,
     apiKey: byok.apiKey,
@@ -353,7 +373,7 @@ export async function streamAgent(
     systemPrompt: config.systemPrompt,
     tools,
     maxSteps: config.maxSteps ?? 10,
-    humanInTheLoop: config.humanInTheLoop ?? false,
+    humanInTheLoop: humanGate,
   })
 
   let fullContent = ''
