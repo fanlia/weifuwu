@@ -1216,6 +1216,18 @@ async function main() {
     submissions: surveySubmissions.slice(-surveyLimit),
     online: { count: surveyOnline.size, sources: [...surveyOnline.values()].map((v) => v.source) },
   })
+  // 僵尸连接清理：close 事件可能丢失（浏览器崩溃/网络硬断）——定期检查
+  // readyState 非 OPEN 的连接并移除（防在线人数虚高——真实事故：重连残留）
+  setInterval(() => {
+    try {
+      let changed = false
+      for (const [w] of surveyOnline) {
+        if (w.readyState !== 1 /* OPEN */) { surveyOnline.delete(w); changed = true }
+      }
+      if (changed) surveyBroadcastOnline()
+    } catch { /* 清理失败不影响 */ }
+  }, 5 * 60 * 1000).unref()
+
   const surveyBroadcastOnline = () => {
     surveyBroadcast({
       type: 'survey:online',
