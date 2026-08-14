@@ -43,6 +43,34 @@ describe('Settings 渲染基线', () => {
   })
 })
 
+describe('Dashboard 渲染基线（Chart 迁移验证）', () => {
+  it('趋势图 Chart 组件渲染（SVG + 数据点）', async () => {
+    const { Dashboard } = await import('../../ui/pages/Dashboard.tsx')
+    const { container } = await mountPage('/dashboard', () => h(Dashboard, {}), {
+      routes: [
+        { method: 'GET', pattern: /^\/api\/stats\/funnel$/, handler: () => ({ mine: { register_complete: true, agent_created: true, first_message: false }, platform: {} }) },
+        { method: 'GET', pattern: /^\/api\/stats\/tokens-by-agent$/, handler: () => ({ agents: [] }) },
+        { method: 'GET', pattern: /^\/api\/stats$/, handler: () => ({
+          agents: { total: 2, ai_count: 1 }, departments: { total: 1 }, messages: { total: 5 },
+          tokens: { total_prompt: 100, total_completion: 50, total_tokens: 150 },
+          estCostYuan: 0.01, costTrend: [], trend: [
+            { day: '2026-08-01', count: 1, active_agents: 1 },
+            { day: '2026-08-02', count: 3, active_agents: 1 },
+            { day: '2026-08-03', count: 2, active_agents: 1 },
+          ], active_agents: [],
+        }) },
+        { method: 'GET', pattern: '/api/messages/pending-approvals', handler: () => ({ approvals: [], total: 0 }) },
+      ],
+    })
+    const text = container.textContent ?? ''
+    assert.ok(text.includes('预估 AI 成本'), '成本卡')
+    assert.ok(text.includes('¥'), '金额')
+    const svg = container.querySelector('svg[viewBox*="320"]')
+    assert.ok(svg, 'Chart 组件 SVG 渲染')
+    assert.ok(svg!.querySelectorAll('circle').length === 3, '3 个数据点')
+  })
+})
+
 describe('AgentDetail 渲染基线（拆分保护网）', () => {
   function detailOpts() {
     return {

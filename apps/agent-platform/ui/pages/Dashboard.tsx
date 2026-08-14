@@ -1,5 +1,5 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { Button, Card, Icon, Skeleton, StatCard } from 'weifuwu/components'
+import { Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
 import { Ava } from '../components/ui'
 import type { Agent, AgentListResponse, CostAgentRow, DepartmentListResponse, FunnelData, PendingApproval, StatsData } from '../lib/types'
 
@@ -76,30 +76,7 @@ export const Dashboard: Component = async (_props, ctx) => {
     const trendTotal = trend.reduce((sum: number, t) => sum + t.count, 0)
     const activeAgentCount = trend.reduce((sum: number, t) => sum + Number(t.active_agents ?? 0), 0)
     const maxTrend = Math.max(1, ...trend.map((t) => t.count))
-    // SVG 折线（零依赖——自绘：面积 + 折线 + 数据点 + 峰值标注）
-    const W = 600, H = 120, PAD = 6
-    const n = trend.length
-    const xAt = (i: number) => PAD + (n > 1 ? (i / (n - 1)) * (W - PAD * 2) : W / 2)
-    const yAt = (c: number) => H - PAD - (c / maxTrend) * (H - PAD * 2)
-    const pts = trend.map((t, i) => `${xAt(i)},${yAt(t.count)}`).join(' ')
-    const areaPts = `${PAD},${H - PAD} ${pts} ${W - PAD},${H - PAD}`
     const peak = trend.reduce((m, t, i) => (t.count > (m?.count ?? -1) ? { i, count: t.count } : m), null as { i: number; count: number } | null)
-    const trendChart = trend.length > 0 ? (
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style="width: 100%; height: 120px" role="img" aria-label="近 14 天消息趋势">
-        <polygon points={areaPts} fill="var(--wf-color-primary)" opacity="0.12" />
-        <polyline points={pts} fill="none" stroke="var(--wf-color-primary)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
-        {trend.map((t, i) => (
-          <circle key={i} cx={xAt(i)} cy={yAt(t.count)} r="2.5" fill="var(--wf-color-primary)" opacity={t.count === 0 ? 0.25 : 1}>
-            <title>{`${t.day}：${t.count} 条`}</title>
-          </circle>
-        ))}
-        {peak && peak.count > 0 && (
-          <text x={xAt(peak.i)} y={yAt(peak.count) - 7} text-anchor="middle" font-size="9" fill="var(--wf-color-primary)" class="wf-nums">{peak.count}</text>
-        )}
-        <text x={PAD} y={H - 1} font-size="8" fill="var(--wf-color-text-tertiary)">{trend[0]?.day}</text>
-        <text x={W - PAD} y={H - 1} text-anchor="end" font-size="8" fill="var(--wf-color-text-tertiary)">{trend[n - 1]?.day}</text>
-      </svg>
-    ) : null
 
     return (
     <div class="wf-stack wf-gap-lg">
@@ -140,7 +117,7 @@ export const Dashboard: Component = async (_props, ctx) => {
             <div class="wf-text-2xl wf-text-semibold wf-nums">{trendTotal}</div>
             <div class="wf-text-xs wf-text-tertiary">峰值 {peak?.count ?? 0} · {activeAgentCount} 活跃 · 14 天成本 ¥{costTotalYuan.toFixed(2)}</div>
           </div>
-          <div style="margin-top: 6px">{trendChart}</div>
+          <div style="margin-top: 6px">{trend.length > 0 && <Chart type="line" area data={trend.map((t) => ({ label: t.day, value: t.count }))} options={{ height: 130 }} title="近 14 天消息" />}</div>
         </Card>
       </div>
 
