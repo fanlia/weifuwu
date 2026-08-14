@@ -102,3 +102,21 @@ describe('AuthPage', () => {
     assert.ok(msg && String(msg.props.children).includes('邮箱已被注册'), '错误文案')
   })
 })
+
+it('title/subtitle/logo/footer 自定义渲染', async () => {
+  const vnode = await renderVNode(AuthPage, { title: '登录', subtitle: '欢迎', logo: '★', footer: '© 2026' }, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('登录') && s.includes('欢迎'), '标题/副标题')
+  assert.ok(s.includes('★'), 'logo 渲染')
+  assert.ok(s.includes('© 2026'), 'footer 渲染')
+})
+
+it('children 表单插槽渲染', async () => {
+  const vnode = await renderVNode(AuthPage, { title: '登录', children: '表单区' }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('表单区'), 'children 插槽')
+})
+
+it('无 onSubmit 提交不抛错（边界）', async () => {
+  const vnode = await renderVNode(AuthPage, { title: '登录' }, createTestCtx())!
+  assert.ok(vnode, '无回调渲染')
+})

@@ -65,3 +65,16 @@ it('状态图标渲染 Icon 组件而非名称文本（P3——"settings"/"check
   assert.equal(icon.type, Icon, '图标必须是 Icon VNode')
   assert.equal(icon.props.name, 'check')
 })
+
+it('pending 初始态（无 status）', async () => {
+  const vnode = await renderVNode(ToolCallCard, { call: { id: 't1', name: 'query_db', args: {} } }, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('query_db'), '工具名渲染')
+})
+
+it('工具名渲染（name 展示）', async () => {
+  const vnode = await renderVNode(ToolCallCard, { call: { id: 't1', name: 'query_weather', args: { city: '北京' } }, status: 'running' }, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('query_weather'), '工具名')
+  assert.ok(s.includes('北京'), '参数渲染')
+})

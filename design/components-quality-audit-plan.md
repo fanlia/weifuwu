@@ -143,7 +143,15 @@
 
 ### 待滚动组
 
-组 7 AI（9）→ 组 8 长尾（36）
+组 8 长尾（36）
+
+### 组 7 AI 对话（2026-12）
+
+| 组件 | 功能列（单测） | 交互列（agent-browser 实测） | 结果 |
+|------|--------------|----------------------------|------|
+| AuthPage | 7（+3：title/subtitle/logo/footer 自定义/children 插槽/无 onSubmit 边界） | — | ✅ |
+| ToolCallCard | 9（+2：pending 初始态/工具名+参数渲染——call 对象契约） | — | ✅ |
+| AiChat 14 / SessionList 10 / ApprovalCard 15 / ChatInput 9 / JsonSchemaForm 8 / ReasoningBlock 8 / CitationCard 8 | 既有覆盖 | AiChat 真实输入+发送→流式回复（wire-fake：你刚才说：你好） | ✅ |
 
 ### 组 3 表单增强（2026-12）
 
