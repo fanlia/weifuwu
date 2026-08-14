@@ -285,6 +285,9 @@ export class DockerSandbox {
     if (!ready) {
       return { ok: false, error: '沙盒不可用——命令执行已禁用（docker 不可用或镜像缺失）' }
     }
+    // heartbeat：工具执行即活动（长任务执行中容器不被 reaper 销毁——
+    // 真实事故：浏览器填问卷 >10 分钟时容器被空闲回收，AI 卡死）
+    this.touch(agentId)
     this.touch(agentId)
     const payload = JSON.stringify({ tool, args })
     const r = await this.dockerExec(agentId, ['node', '/opt/sandbox/tool-runner.js'], payload)
