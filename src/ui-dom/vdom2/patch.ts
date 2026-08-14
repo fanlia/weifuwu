@@ -256,14 +256,22 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
     if (same) return
   }
   const allKeys = new Set([...ka, ...kb])
+  // input/select value 延后：先 patch 其余属性（min/max/step/options）再设 value——
+  // range 先设 value 会被默认 min/max 夹紧（0/100），Set 遍历顺序不保证 → 显式延后
+  let deferredValue: { ov: any; nv: any } | null = null
   for (const key of allKeys) {
     if (key === 'children' || key === 'key') continue
     const ov = oldProps[key]
     const nv = newProps[key]
     if (ov === nv) continue
+    if (key === 'value' && (el instanceof HTMLSelectElement || el instanceof HTMLInputElement)) {
+      deferredValue = { ov, nv }
+      continue
+    }
     // 属性通道状态机查表分派（通道判定单一源 propChannelOf——无 if/else 通道链）
     PROP_PATCHERS[propChannelOf(key)](el, key, ov, nv)
   }
+  if (deferredValue) PROP_PATCHERS.value(el, 'value', deferredValue.ov, deferredValue.nv)
 }
 
 /**

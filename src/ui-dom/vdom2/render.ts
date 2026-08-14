@@ -214,11 +214,12 @@ function renderNative(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | nul
   if (traceEnabled('render')) trace('render', 'trace', '', `native <${tag}> key=${vnode.key ?? '-'} kids=${kidsSeq(arrayChildren(vnode.props?.children))}`)
   if (vnode.key != null) el.setAttribute('data-wf-key', vnode.key)
 
-  // select value 延后设置（options 生成前设置无效）
-  let selectValue: string | null = null
+  // select/range input value 延后设置（select：options 生成前设置无效；
+  // range：先设 value 会被默认 min/max(0/100) 夹紧——夹紧后 min/max 更新不恢复）
+  let deferredValue: string | null = null
   for (const [k, value] of Object.entries(vnode.props ?? {})) {
     if (k === 'children' || k === 'key') continue
-    if (k === 'value' && el instanceof HTMLSelectElement) { selectValue = value; continue }
+    if (k === 'value' && (el instanceof HTMLSelectElement || el instanceof HTMLInputElement)) { deferredValue = value; continue }
     setProp(el, k, value)
   }
   if (!('innerHTML' in (vnode.props ?? {}))) {
@@ -242,8 +243,8 @@ function renderNative(v: VNodeChild, ctx: any, b: BrowserEnv, key?: string | nul
     }
     if (traceEnabled('render')) trace('render', 'trace', '', `native <${tag}> out=${childNodesSeq(el)}`)
   }
-  if (selectValue !== null) {
-    ;(el as HTMLSelectElement).value = String(selectValue)
+  if (deferredValue !== null) {
+    ;(el as HTMLSelectElement | HTMLInputElement).value = String(deferredValue)
   }
   return el
 }

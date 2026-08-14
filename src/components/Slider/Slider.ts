@@ -17,7 +17,7 @@ export interface SliderProps {
   disabled?: boolean
   /** 刻度标记（轨道下方刻度线 + 可选文字标签） */
   marks?: SliderMark[]
-  /** 拖拽结束回调（pointerup——键盘调整也触发） */
+  /** 拖拽结束回调（pointerup） */
   onChangeEnd?: (value: number) => void
   onChange?: (value: number) => void
 }
