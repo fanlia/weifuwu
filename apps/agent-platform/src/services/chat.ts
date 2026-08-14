@@ -305,6 +305,12 @@ export async function handleNewMessage(
           RETURNING id, content, created_at
         `
 
+        // C5 配额 80% 告警（用量达阈值邮件 owner——每日一次）
+        try {
+          const { maybeAlertQuota } = await import('./quota-alert.ts')
+          void maybeAlertQuota(ctx, ctx.appId)
+        } catch { /* 告警失败不阻断 */ }
+
         // WS 推送
         ctx.msg.broadcast(String(departmentId), {
           type: 'ai_reply',

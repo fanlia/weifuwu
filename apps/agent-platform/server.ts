@@ -110,6 +110,10 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS feedback TEXT`)
   // C2 风险策略：agents 审批模式（auto 智能分级 / strict 严格 / off 关闭）
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS risk_policy TEXT NOT NULL DEFAULT 'auto'`)
+  // C5 成本工程：Agent 轻量模型（内部调用路由——记忆提取/自校验用小模型省成本）
+  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS light_model TEXT`)
+  // C5 配额 80% 告警防刷（记录上次提醒时间）
+  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS last_quota_alert_at TIMESTAMPTZ`)
   // C3 会话记忆：AI Agent 跨会话记忆（偏好/项目背景）
   await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS agent_memories (
     agent_id UUID PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,

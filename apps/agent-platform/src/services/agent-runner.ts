@@ -223,12 +223,12 @@ function buildAgentPrompt(base: string, memory: string): string {
 }
 
 /** C3 记忆更新（任务后提取背景——共享） */
-async function updateMemory(ctx: AppCtx, ai: any, byok: { apiKey?: string; baseUrl?: string; model?: string }, agentId: string, messages: ChatMessage[], content: string, existing: string): Promise<void> {
+async function updateMemory(ctx: AppCtx, ai: any, byok: { apiKey?: string; baseUrl?: string; model?: string }, agentId: string, messages: ChatMessage[], content: string, existing: string, lightModel?: string): Promise<void> {
   try {
     const lastUser = [...messages].reverse().find((m) => m.role === 'user')
     if (!lastUser) return
     const memRes = await ai.chat({
-      model: byok.model, apiKey: byok.apiKey, baseUrl: byok.baseUrl,
+      model: lightModel ?? byok.model, apiKey: byok.apiKey, baseUrl: byok.baseUrl,
       messages: [
         { role: 'system', content: '从对话中提取值得长期记住的用户偏好或项目约定（如：用户喜欢简洁回复/项目使用 TypeScript）。没有值得记住的则输出空字符串。只输出记忆内容，最多 100 字。' },
         { role: 'user', content: `用户：${String(lastUser.content ?? '').slice(0, 800)}\n助手：${String(content).slice(0, 800)}` },
@@ -282,6 +282,12 @@ export async function runAgent(
     : undefined
   // C3 会话记忆：任务前注入（跨会话背景——用户偏好/项目约定）
   const memoryInjected = await loadMemory(ctx, config.agentId)
+  // C5 轻量模型：内部调用（记忆提取/自校验）用小模型——Agent 配置 light_model
+  let lightModel: string | undefined
+  try {
+    const [agL] = await ctx.sql`SELECT light_model FROM agents WHERE id = ${config.agentId}`
+    lightModel = (agL as any)?.light_model ? String((agL as any).light_model) : undefined
+  } catch { /* 查询失败用主模型 */ }
 
   // C1 任务纪律：失败恢复引导 + 结构化汇报（共享）
   const agentRunner = ai.agent({
@@ -325,7 +331,7 @@ export async function runAgent(
 
   // C3 记忆更新：任务完成后提取背景（共享函数）
   if (result.content) {
-    await updateMemory(ctx, ai, byok, config.agentId, messages, String(result.content), memoryInjected)
+    await updateMemory(ctx, ai, byok, config.agentId, messages, String(result.content), memoryInjected, lightModel)
   }
 
   const elapsed = Date.now() - startTime
@@ -452,6 +458,12 @@ export async function streamAgent(
     : undefined
   // C1/C3：任务纪律 + 会话记忆（共享——streamAgent 主路径）
   const memoryInjected = await loadMemory(ctx, config.agentId)
+  // C5 轻量模型（内部调用用小模型）
+  let lightModel: string | undefined
+  try {
+    const [agL] = await ctx.sql`SELECT light_model FROM agents WHERE id = ${config.agentId}`
+    lightModel = (agL as any)?.light_model ? String((agL as any).light_model) : undefined
+  } catch { /* 查询失败用主模型 */ }
   const agentRunner = ai.agent({
     model: byok.model ?? config.model,
     apiKey: byok.apiKey,
@@ -472,7 +484,7 @@ export async function streamAgent(
     if (name === 'wf:done' && !_finished) {
       _finished = true
       // C3 记忆更新（流式完成后——后台提取，不阻塞回复）
-      void updateMemory(ctx, ai, byok, config.agentId, messages, fullContent, memoryInjected)
+      void updateMemory(ctx, ai, byok, config.agentId, messages, fullContent, memoryInjected, lightModel)
     }
     if (name === 'wf:token') {
       const text = (data as WfToken).text
