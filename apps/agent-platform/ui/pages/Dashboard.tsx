@@ -70,6 +70,9 @@ export const Dashboard: Component = async (_props, ctx) => {
       count: Number(t.count ?? 0),
       active_agents: Number((t as any).active_agents ?? 0),
     }))
+    const estCostYuan = Number((s as any).estCostYuan ?? 0)
+    const costTrend = ((s as any).costTrend ?? []) as Array<{ day: string; costYuan: number }>
+    const costTotalYuan = costTrend.reduce((sum: number, t) => sum + (t.costYuan ?? 0), 0)
     const trendTotal = trend.reduce((sum: number, t) => sum + t.count, 0)
     const activeAgentCount = trend.reduce((sum: number, t) => sum + Number(t.active_agents ?? 0), 0)
     const maxTrend = Math.max(1, ...trend.map((t) => t.count))
@@ -122,6 +125,7 @@ export const Dashboard: Component = async (_props, ctx) => {
         <StatCard label="部门群组" value={$.deptCount} icon={<Icon name="users" />} animate onClick={() => ctx.app?.navigate('/departments')} />
         <StatCard label="总消息数" value={msgCount} icon={<Icon name="message" />} animate />
         <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon={<Icon name="zap" />} animate />
+        <StatCard label="预估 AI 成本" value={`¥${estCostYuan.toFixed(2)}`} icon={<Icon name="database" />} animate onClick={() => ctx.app?.navigate('/settings')} />
       </div>
 
       <div class="wf-stretch wf-gap-md" style="flex-wrap: wrap">
@@ -134,7 +138,7 @@ export const Dashboard: Component = async (_props, ctx) => {
           <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 14 天消息</div>
           <div class="wf-row wf-bottom wf-gap-md">
             <div class="wf-text-2xl wf-text-semibold wf-nums">{trendTotal}</div>
-            <div class="wf-text-xs wf-text-tertiary">峰值 {peak?.count ?? 0} · {activeAgentCount} 活跃</div>
+            <div class="wf-text-xs wf-text-tertiary">峰值 {peak?.count ?? 0} · {activeAgentCount} 活跃 · 14 天成本 ¥{costTotalYuan.toFixed(2)}</div>
           </div>
           <div style="margin-top: 6px">{trendChart}</div>
         </Card>

@@ -468,6 +468,17 @@ async function main() {
       FROM agent_logs WHERE app_id = ${appId}
     `
 
+    // 近 14 天成本趋势（agent_logs 按天聚合——老板看运营成本走势）
+    const costTrend = await sql`
+      SELECT DATE(created_at) as day,
+        COALESCE(SUM(tokens_prompt), 0)::int as prompt,
+        COALESCE(SUM(tokens_completion), 0)::int as completion,
+        COALESCE(SUM(tokens_total), 0)::int as total
+      FROM agent_logs
+      WHERE app_id = ${appId} AND created_at >= NOW() - INTERVAL '14 days'
+      GROUP BY DATE(created_at) ORDER BY day
+    `
+
     // 近 14 天消息趋势 + 活跃 Agent 数（留存维度——运营看活跃）
     const trend = await sql`
       SELECT
@@ -496,11 +507,24 @@ async function main() {
       LIMIT 8
     `
 
+    // 预估成本（DeepSeek 参考价：输入 ¥2/百万 tokens · 输出 ¥8/百万——估算，非计费）
+    const ts = tokenStats as any
+    const PRICE_IN = 2 / 1_000_000
+    const PRICE_OUT = 8 / 1_000_000
+    const estCostYuan = Number(((ts?.total_prompt ?? 0) * PRICE_IN + (ts?.total_completion ?? 0) * PRICE_OUT).toFixed(2))
+    const costTrendYuan = (costTrend as Array<Record<string, any>>).map((d) => ({
+      day: String(d.day).slice(5, 10),
+      total: Number(d.total ?? 0),
+      costYuan: Number(((Number(d.prompt ?? 0) * PRICE_IN + Number(d.completion ?? 0) * PRICE_OUT)).toFixed(2)),
+    }))
+
     return Response.json({
       agents: agentStats,
       departments: deptStats,
       messages: msgStats,
       tokens: tokenStats,
+      estCostYuan,
+      costTrend: costTrendYuan,
       trend,
       active_agents: activeAgents,
     })
