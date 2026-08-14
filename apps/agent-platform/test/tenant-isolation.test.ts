@@ -53,6 +53,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/services/agent-runner.ts', match: 'SELECT risk_policy FROM agents', reason: 'C2 间接隔离——agentId 来自运行上下文（已校验的 agent）' },
   { file: 'src/services/agent-runner.ts', match: 'agent_memories', reason: 'C3 间接隔离——agentId 来自运行上下文（已校验的 agent）' },
   { file: 'src/routes/agents.ts', match: 'agent_memories', reason: 'C3 间接隔离——先查 agent 归属（a.app_id）再读/删记忆' },
+  { file: 'src/routes/agents.ts', match: 'WHERE sender_id = ${params.id}', reason: 'C4 间接隔离——先查 agent 归属（a.app_id）再统计反馈' },
   { file: 'server.ts', match: 'WHERE a.user_id = ${uid}', reason: 'R10 用户维度隔离——uid 来自会话 token（auth.userId），只能查/改自己' },
   { file: 'server.ts', match: 'UPDATE agents SET is_active = FALSE', reason: 'R10 用户维度隔离——账号删除仅匿名化自己的 Agent' },
   // ── 间接隔离批量登记（外键归属上游已校验——逐条审查过） ──

@@ -22,7 +22,7 @@ interface AgentDetailState {
   error: string; ok: string
   name: string; description: string; systemPrompt: string
   aiModel: string; aiTemperature: string; aiMaxTokens: string; aiQuota: string; quotaUsed: number
-  aiHITL: boolean; riskPolicy: string; memory: string; memoryLoaded: boolean; webhookUrl: string; webhookPlatform: string; webhookSecret: string
+  aiHITL: boolean; riskPolicy: string; memory: string; memoryLoaded: boolean; quality: any; webhookUrl: string; webhookPlatform: string; webhookSecret: string
   webhookRetryCount: string; secretVisible: boolean
     kbOptions: Array<{ id: string; name: string }>; kbId: string
       previewQuery: string; previewText: string; previewing: boolean
@@ -45,7 +45,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
     $.name = ''; $.description = ''; $.systemPrompt = ''
     $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiQuota = '0'; $.quotaUsed = 0
-    $.aiHITL = false; $.riskPolicy = 'auto'; $.memory = ''; $.memoryLoaded = false; $.webhookUrl = ''; $.webhookPlatform = 'generic'; $.webhookSecret = ''
+    $.aiHITL = false; $.riskPolicy = 'auto'; $.memory = ''; $.memoryLoaded = false; $.quality = null; $.webhookUrl = ''; $.webhookPlatform = 'generic'; $.webhookSecret = ''
     $.webhookRetryCount = '3'; $.secretVisible = false
     $.allowFileTools = false; $.allowCommandExec = false; $.allowNetwork = false
 
@@ -70,6 +70,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.webhookUrl = a.webhook_url ?? ''; $.webhookPlatform = a.webhook_platform ?? 'generic'; $.webhookSecret = a.webhook_secret ?? ''
       if (a.type === 'ai') {
         void ctx.api!.get<any>(`/api/agents/${a.id}/memory`).then((d) => { $.memory = d.memory ?? ''; $.memoryLoaded = true; rerender() }).catch(() => { $.memoryLoaded = true; rerender() })
+        void ctx.api!.get<any>(`/api/agents/${a.id}/quality`).then((d) => { $.quality = d; rerender() }).catch(() => {})
       }
       $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
       $.kbId = a.kb_id ?? ''
@@ -319,6 +320,20 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   </Field>
                 </div>
               </div>
+
+              {$.quality && (
+                <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="activity" size={14} /> 质量</div>
+              )}
+              {$.quality && (
+                <div class="wf-row wf-gap-md wf-text-sm wf-mt-xs wf-cluster">
+                  <span>工具成功率：<b class="wf-nums">{$.quality.toolSuccessRate ?? '—'}%</b> <span class="wf-text-xs wf-text-tertiary">({$.quality.runs} 次)</span></span>
+                  <span>👍 <b class="wf-nums">{$.quality.likes}</b></span>
+                  <span>👎 <b class="wf-nums">{$.quality.dislikes}</b></span>
+                  {$.quality.toolSuccessRate !== null && $.quality.toolSuccessRate < 60 && (
+                    <Badge variant="danger">质量偏低——建议优化提示词</Badge>
+                  )}
+                </div>
+              )}
 
               <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="book-open" size={14} /> 记忆（跨会话）</div>
               <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-mt-xs">

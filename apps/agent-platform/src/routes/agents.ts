@@ -271,6 +271,31 @@ return Response.json({ agent })
     return Response.json({ success: true })
   })
 
+  // ── C4 质量指标：per-Agent 工具成功率 + 反馈汇总 ──
+
+  app.get('/api/agents/:id/quality', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const [agent] = await sql`SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}`
+    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    const [q] = await sql`
+      SELECT COUNT(*)::int AS runs, COUNT(*) FILTER (WHERE success)::int AS ok_runs
+      FROM agent_logs WHERE agent_id = ${params.id}
+    `
+    const [fb] = await sql`
+      SELECT
+        COALESCE(COUNT(*) FILTER (WHERE feedback = 'like'), 0)::int AS likes,
+        COALESCE(COUNT(*) FILTER (WHERE feedback = 'dislike'), 0)::int AS dislikes
+      FROM messages WHERE sender_id = ${params.id} AND feedback IS NOT NULL
+    `
+    const runs = Number((q as any)?.runs ?? 0)
+    return Response.json({
+      toolSuccessRate: runs > 0 ? Math.round(Number((q as any)?.ok_runs ?? 0) / runs * 100) : null,
+      runs,
+      likes: Number((fb as any)?.likes ?? 0),
+      dislikes: Number((fb as any)?.dislikes ?? 0),
+    })
+  })
+
   // ── C3 记忆管理：查看/清除（R10 联动——记忆是用户数据） ──
 
   app.get('/api/agents/:id/memory', async (req: Request, ctx: AppCtx): Promise<Response> => {
