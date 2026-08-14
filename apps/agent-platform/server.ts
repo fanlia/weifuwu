@@ -300,6 +300,28 @@ async function main() {
     return Response.json({ template })
   })
 
+  // ── 健康检查（运营/部署探针——存活 + 依赖探活） ─────────
+  app.get('/healthz', async (): Promise<Response> => {
+    const deps: Record<string, any> = { pg: false, redis: false, sandbox: null }
+    try { await pg.sql`SELECT 1`; deps.pg = true } catch { /* 探活失败 */ }
+    try {
+      if (hasRedis) { await redisClient.redis.ping(); deps.redis = true }
+      else deps.redis = 'disabled'
+    } catch { deps.redis = false }
+    try {
+      const { sandbox } = await import('./src/sandbox/docker.ts')
+      const st = await sandbox.status()
+      deps.sandbox = { available: st.available, enabled: st.enabled, imageReady: st.imageReady, mode: st.mode, poolSize: st.poolSize, maxContainers: st.maxContainers }
+    } catch { deps.sandbox = 'unavailable' }
+    const healthy = deps.pg === true
+    const startTime = (globalThis as any).__platform_metrics?.startTime
+    const uptimeSec = startTime ? Math.round((Date.now() - startTime) / 1000) : 0
+    return Response.json(
+      { status: healthy ? 'ok' : 'degraded', uptimeSec, deps, ts: new Date().toISOString() },
+      { status: healthy ? 200 : 503 },
+    )
+  })
+
   // ── 指标端点（运营/监控——内存计数器 + 进程信息） ──
   app.get('/api/metrics', async () => {
     const m = (globalThis as any).__platform_metrics ?? {}
@@ -317,6 +339,8 @@ async function main() {
       memMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
     })
   })
+
+
 
   // ── 需要登录 + 租户隔离的路由 ─────────────────────────
   const protectedRoutes = new Router<AppCtx>()
@@ -343,6 +367,22 @@ async function main() {
   registerRoleTemplateRoutes(protectedRoutes)
 
   // ── 审计日志（Wave 9——安全/合规：登录/Agent 变更记录） ──
+  // ── 运营详情：沙盒状态 + 今日审计（受保护） ─────────────
+  protectedRoutes.get('/api/ops', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    let sandboxInfo: Record<string, any> = { available: false }
+    try {
+      const { sandbox } = await import('./src/sandbox/docker.ts')
+      const st = await sandbox.status()
+      sandboxInfo = { available: st.available, enabled: st.enabled, imageReady: st.imageReady, mode: st.mode, poolSize: st.poolSize, maxContainers: st.maxContainers }
+    } catch { /* 沙盒不可用 */ }
+    let auditToday = 0
+    try {
+      const [row] = await ctx.sql`SELECT COUNT(*)::int AS n FROM audit_logs WHERE created_at >= NOW() - INTERVAL '1 day' AND app_id = ${ctx.appId}`
+      auditToday = Number((row as any)?.n ?? 0)
+    } catch { /* 无审计表 */ }
+    return Response.json({ sandbox: sandboxInfo, auditToday })
+  })
+
   protectedRoutes.get('/api/audit', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { listAudit } = await import('./src/services/audit.ts')
     const url = new URL(req.url ?? '', 'http://localhost')

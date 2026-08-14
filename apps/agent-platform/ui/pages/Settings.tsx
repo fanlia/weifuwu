@@ -1,12 +1,14 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, errMsg } from '../components/ui'
-import { Alert, Button, Card, Field, Icon, Input, PasswordInput, ThemeSwitch } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, Field, Icon, Input, PasswordInput, Select, ThemeSwitch } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 
 interface SettingsState {
   name: string; nameSubmitting: boolean; nameOk: string; nameErr: string
   currentPassword: string; newPassword: string; confirmPassword: string
   pwdSubmitting: boolean; pwdOk: string; pwdErr: string
+  auditFilter: string
+  sysHealth: any
 }
 
 const AUDIT_LABELS: Record<string, string> = {
@@ -18,16 +20,25 @@ function fmtAuditTime(t: string): string {
 }
 
 export const Settings: Component = async (_props, ctx) => {
-  // 审计日志（Wave 9）——加载最近 20 条
+  // 审计日志（Wave 9）——加载最近 20 条（支持 action 过滤）
   const auditEntries: any[] = []
-  void ctx.api!.get<{ entries: any[] }>('/api/audit?limit=20').then((d) => {
-    auditEntries.push(...(d.entries ?? []))
-    ctx.ui.render()
-  }).catch(() => {})
+  const loadAudit = (action?: string) => {
+    auditEntries.length = 0
+    const q = action ? `&action=${encodeURIComponent(action)}` : ''
+    return ctx.api!.get<{ entries: any[] }>(`/api/audit?limit=20${q}`).then((d) => {
+      auditEntries.push(...(d.entries ?? []))
+      ctx.ui.render()
+    }).catch(() => {})
+  }
+  void loadAudit()
   const $ = {} as SettingsState
   const rerender = () => ctx.ui.render()
 
   $.name = ctx.auth?.user?.name ?? ''
+  $.auditFilter = ''
+  $.sysHealth = null
+  // 系统状态（运营视角：健康 + 沙盒 + 今日审计）
+  void ctx.api!.get('/api/ops').then((d) => { $.sysHealth = d; ctx.ui.render() }).catch(() => {})
     $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
@@ -103,6 +114,27 @@ export const Settings: Component = async (_props, ctx) => {
         </form>
       </Card>
       <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="activity" size={14} /> 系统状态</div>
+        {$.sysHealth ? (
+          <div class="wf-stack wf-gap-xs">
+            <div class="wf-split wf-py-xs wf-border-b">
+              <span class="wf-text-sm wf-text-secondary">今日审计操作</span>
+              <span class="wf-text-sm wf-text-semibold wf-nums">{$.sysHealth.auditToday ?? 0} 条</span>
+            </div>
+            <div class="wf-split wf-py-xs wf-border-b">
+              <span class="wf-text-sm wf-text-secondary">沙盒执行环境</span>
+              <span class="wf-text-sm">{$.sysHealth.sandbox?.available ? <Badge variant="success">运行中</Badge> : <Badge variant="danger">不可用</Badge>} <span class="wf-text-xs wf-text-tertiary">模式 {$.sysHealth.sandbox?.mode ?? '-'} · 池 {$.sysHealth.sandbox?.poolSize ?? 0}/{$.sysHealth.sandbox?.maxContainers ?? '-'}</span></span>
+            </div>
+            <div class="wf-split wf-py-xs wf-border-b">
+              <span class="wf-text-sm wf-text-secondary">容器镜像</span>
+              <span class="wf-text-sm">{$.sysHealth.sandbox?.imageReady ? <Badge variant="success">就绪</Badge> : <Badge variant="danger">缺失</Badge>}</span>
+            </div>
+          </div>
+        ) : (
+          <div class="wf-text-sm wf-text-tertiary wf-py-sm">加载中...</div>
+        )}
+      </Card>
+      <Card>
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="settings" size={14} /> 外观</div>
         <div class="wf-split wf-py-sm wf-border-b">
           <div class="wf-stack wf-gap-none">
@@ -114,9 +146,15 @@ export const Settings: Component = async (_props, ctx) => {
       </Card>
       <Card>
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="shield" size={14} /> 审计日志</div>
-        <div class="wf-text-xs wf-text-tertiary wf-mb-sm">登录、Agent 变更与审批操作记录（最近 20 条）</div>
+        <div class="wf-row wf-gap-xs wf-items-center wf-mb-sm">
+          <span class="wf-text-xs wf-text-tertiary">登录、Agent 变更与审批操作记录（最近 20 条）</span>
+          <div style="width: 140px; margin-left: auto">
+            <Select value={$.auditFilter} onChange={(v: string | string[]) => { const val = Array.isArray(v) ? '' : v; $.auditFilter = val; void loadAudit(val || undefined) }}
+              options={[{ value: '', label: '全部操作' }, { value: 'login_success', label: '登录' }, { value: 'agent_create', label: '创建 Agent' }, { value: 'agent_update', label: '更新 Agent' }, { value: 'agent_delete', label: '删除 Agent' }, { value: 'approval', label: '审批' }]} />
+          </div>
+        </div>
         {auditEntries.length === 0 ? (
-          <div class="wf-text-sm wf-text-tertiary wf-py-sm">暂无记录</div>
+          <div class="wf-text-sm wf-text-tertiary wf-py-sm">{$.auditFilter ? '该类型暂无记录' : '暂无记录'}</div>
         ) : (
           <div class="wf-stack wf-gap-xs">
             {auditEntries.map((e: any, i: number) => (
