@@ -190,7 +190,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 添加成员 ─────────────────────────────────────────────
 
   app.post('/api/departments/:id/members', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { sql, appId, params, auth } = ctx
     const body = await req.json() as { agent_id: string; role?: string }
 
     if (!body.agent_id) {
@@ -211,6 +211,21 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     `
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    }
+
+    // 商业化 G7 知识库部门授权：成员管理（含 KB 添加）必须部门管理员或租户 owner——
+    // 防普通成员把知识库/Agent 拉进自己部门造成越权
+    const [caller] = await sql`
+      SELECT dm.role FROM department_members dm
+      JOIN agents ua ON ua.id = dm.agent_id
+      WHERE dm.department_id = ${params.id} AND ua.user_id = ${auth!.userId}
+      LIMIT 1
+    `
+    const [callerOwner] = await sql`
+      SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${auth!.userId}
+    `
+    if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
+      return Response.json({ error: '只有部门管理员可以管理成员' }, { status: 403 })
     }
 
     await sql`
