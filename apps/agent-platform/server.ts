@@ -1171,6 +1171,108 @@ async function main() {
     return Response.json({ success: true, id, total })
   })
 
+  // ── 模拟数据收集统计页（用户看——可视化汇总） ──────────────
+  app.get('/demo-survey/stats', async (): Promise<Response> => {
+    const { readdirSync, readFileSync, existsSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const dir = join(process.cwd(), 'data', 'survey-submissions')
+    const records = existsSync(dir)
+      ? readdirSync(dir).filter((f) => f.endsWith('.json')).sort().map((f) => {
+          try { return JSON.parse(readFileSync(join(dir, f), 'utf-8')) } catch { return null }
+        }).filter(Boolean)
+      : []
+
+    // 聚合
+    const ratingDist: Record<string, number> = {}
+    const industryDist: Record<string, number> = {}
+    const focusCount: Record<string, number> = {}
+    const ageDist: Record<string, number> = {}
+    let sum = 0
+    for (const r of records) {
+      sum += Number(r.rating ?? 0)
+      ratingDist[String(r.rating)] = (ratingDist[String(r.rating)] ?? 0) + 1
+      industryDist[String(r.industry)] = (industryDist[String(r.industry)] ?? 0) + 1
+      ageDist[String(r.age)] = (ageDist[String(r.age)] ?? 0) + 1
+      for (const f of Array.isArray(r.focus) ? r.focus : []) focusCount[String(f)] = (focusCount[String(f)] ?? 0) + 1
+    }
+    const avg = records.length ? (sum / records.length) : 0
+    const maxCount = Math.max(1, ...Object.values(ratingDist).map(Number), ...Object.values(industryDist).map(Number))
+
+    const bar = (label: string, count: number, max: number, color: string) =>
+      `<div class="row"><span class="lbl">${label}</span><div class="bar"><div class="fill" style="width:${Math.round(count / max * 100)}%;background:${color}"></div></div><span class="num">${count}</span></div>`
+
+    const rows = [...records].reverse().map((r) => `
+      <tr>
+        <td class="muted">${String(r.submitted_at ?? '').slice(5, 16).replace('T', ' ')}</td>
+        <td>${r.id}</td>
+        <td>${r.industry ?? '—'}</td>
+        <td>${r.age ?? '—'}</td>
+        <td><b>${r.rating ?? '—'}</b></td>
+        <td class="muted">${(Array.isArray(r.focus) ? r.focus : []).join('、') || '—'}</td>
+        <td class="fb">${String(r.feedback ?? '').slice(0, 120)}</td>
+      </tr>`).join('')
+
+    const html = `<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>模拟数据收集统计</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 860px; margin: 32px auto; padding: 0 20px; background: #f8fafc; color: #1f2937; }
+  h1 { font-size: 22px; margin: 0 0 4px; } .sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .card .v { font-size: 26px; font-weight: 700; } .card .k { color: #6b7280; font-size: 12px; margin-top: 2px; }
+  .panel { background: #fff; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; color: #374151; }
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13px; }
+  .lbl { width: 64px; text-align: right; color: #6b7280; } .num { width: 28px; color: #374151; font-weight: 600; }
+  .bar { flex: 1; background: #f3f4f6; border-radius: 6px; height: 16px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { padding: 7px 8px; border-bottom: 1px solid #eef2f7; text-align: left; vertical-align: top; }
+  th { color: #6b7280; font-weight: 500; font-size: 12px; }
+  .muted { color: #9ca3af; } .fb { max-width: 280px; }
+  a { color: #2563eb; text-decoration: none; font-size: 13px; }
+  .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .badge { background: #2563eb; color: #fff; border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+  @media print { body { margin: 0; } }
+</style></head><body>
+  <div class="nav">
+    <div><h1>模拟数据收集统计</h1><div class="sub">多角色 AI 真实浏览器填写 · 数据落库 data/survey-submissions/</div></div>
+    <div class="wf-row" style="display:flex;gap:8px">
+      <a href="/demo-survey" class="badge" style="background:#6b7280">← 填写页</a>
+      <a href="/demo-survey/stats" class="badge">刷新 ⟳</a>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="v">${records.length}</div><div class="k">总提交数</div></div>
+    <div class="card"><div class="v">${avg.toFixed(1)}</div><div class="k">平均满意度 / 5</div></div>
+    <div class="card"><div class="v">${Object.keys(industryDist).length}</div><div class="k">覆盖行业</div></div>
+    <div class="card"><div class="v">${Object.keys(ratingDist).length}</div><div class="k">分数档位</div></div>
+  </div>
+
+  <div class="panel"><h2>满意度分布</h2>
+    ${[5, 4, 3, 2, 1].map((i) => bar(`${i} 分`, Number(ratingDist[String(i)] ?? 0), maxCount, i >= 4 ? '#22c55e' : i === 3 ? '#f59e0b' : '#ef4444')).join('')}
+  </div>
+
+  <div class="panel"><h2>行业分布</h2>
+    ${Object.entries(industryDist).sort((a, b) => b[1] - a[1]).map(([k, v]) => bar(k, v, maxCount, '#3b82f6')).join('')}
+  </div>
+
+  <div class="panel"><h2>关注点</h2>
+    ${Object.entries(focusCount).sort((a, b) => b[1] - a[1]).map(([k, v]) => bar(k, v, maxCount, '#8b5cf6')).join('') || '<div class="muted">暂无</div>'}
+  </div>
+
+  <div class="panel"><h2>明细（${records.length} 条）</h2>
+    <table>
+      <tr><th>时间</th><th>编号</th><th>行业</th><th>年龄</th><th>评分</th><th>关注</th><th>反馈</th></tr>
+      ${rows || '<tr><td colspan="7" class="muted">暂无提交——让 10 个角色去填写问卷</td></tr>'}
+    </table>
+  </div>
+</body></html>`
+
+    return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  })
+
   // ── UI / SPA ───────────────────────────────────────────
   app.use(ui())
 
