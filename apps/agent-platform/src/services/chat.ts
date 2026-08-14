@@ -557,6 +557,9 @@ async function runAllAgents(
         }
         return // @ KB 时只回复 KB，不触发 AI
       }
+      // @ 完全未命中（非 AI 非 KB）——不触发任何成员（真实 bug：此前 fall
+      // through 全员回复——小应被 @实习生阿泽 误触发并冒充身份）
+      return
     }
   }
 
@@ -736,7 +739,9 @@ export async function handleNewMessageStream(
 
   // ── C5 答案缓存：相似问题直接秒回（零 token） ──
   try {
-    if (!attachments.length) { // 带附件消息不走缓存（附件内容唯一）
+    // 带附件/@定向消息不走缓存（任务语义唯一——@消息命中缓存会返回旧答案，
+    // 真实 bug：小应冒充实习生的旧回复被缓存复用）
+    if (!attachments.length && !messageContent.includes('@')) {
       const cacheRows = (await ctx.sql`
         SELECT question, answer, hits FROM answer_cache WHERE app_id = ${ctx.appId}
         ORDER BY updated_at DESC LIMIT 200
