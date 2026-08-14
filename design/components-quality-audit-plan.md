@@ -143,7 +143,15 @@
 
 ### 待滚动组
 
-组 4 数据展示（47）→ 组 6 导航（7）→ 组 3 表单增强（11）→ 组 7 AI（9）→ 组 8 长尾（36）
+组 6 导航（7）→ 组 3 表单增强（11）→ 组 7 AI（9）→ 组 8 长尾（36）
+
+### 组 4 数据展示首轮（2026-12）
+
+**0 测试展示组件补全（8 个 +33 测试）**：Grid(4)/Space(4)/Link(4)/Sparkline(5)/DiffView(4)/Layout(4)/Scrollbar(4)/Pipeline(4)
+
+**agent-browser 实测**：Table 排序（首行 2→1）、TreeSelect 展开→选叶子→值回流（RPC 服务）→关闭、Confirm 确认框→删除→关闭
+
+**测试统计修正**：早期扫描误报（文件用 test() 跨行格式）——AutoComplete/Popconfirm/TreeSelect/FloatButton 实际各 8 测试，覆盖良好；Kanban 7/Tour 12/NavMenu 11/AlertGroup 9
 
 ### 组 2 表单选择（2026-12）
 

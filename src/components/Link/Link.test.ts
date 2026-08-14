@@ -1,4 +1,4 @@
-import { test, describe } from 'node:test'
+import { test, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Link } from './Link.ts'
 import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
@@ -58,4 +58,18 @@ test('disabled：无 href + aria-disabled + 点击阻止', async () => {
 test('target=_blank 自动补 rel=noopener noreferrer（安全）', async () => {
   const vnode = await renderVNode(Link, { href: 'https://x.com', target: '_blank', children: 'x' }, createTestCtx())!
   assert.equal(vnode.props.rel, 'noopener noreferrer')
+})
+
+it('onClick 回调透传触发', async () => {
+  let clicked = 0
+  const vnode = await renderVNode(Link, { href: '#', onClick: () => { clicked++ } }, createTestCtx())!
+  vnode.props.onClick()
+  assert.equal(clicked, 1)
+})
+
+it('disabled 不调用用户 onClick（事件阻断）', async () => {
+  let clicked = 0
+  const vnode = await renderVNode(Link, { href: '#', disabled: true, onClick: () => { clicked++ } }, createTestCtx())!
+  vnode.props.onClick({ preventDefault: () => {}, stopPropagation: () => {} })
+  assert.equal(clicked, 0)
 })

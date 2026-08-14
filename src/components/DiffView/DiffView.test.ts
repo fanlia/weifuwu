@@ -125,3 +125,35 @@ describe('DiffView 组件', () => {
     assert.ok(header, '应有 header')
   })
 })
+
+describe('DiffView 组件渲染', () => {
+  test('渲染 diff 行（add/remove 三态）', async () => {
+    const vnode = await renderVNode(DiffView, { oldCode: 'a\nb', newCode: 'a\nc' }, createTestCtx())!
+    const s = JSON.stringify(vnode)
+    assert.ok(s.includes('wf-diffview'), '容器类')
+    assert.ok(s.includes('--add') && s.includes('--remove'), '三态行类')
+  })
+
+  test('oldTitle/newTitle 渲染', async () => {
+    const vnode = await renderVNode(DiffView, { oldCode: 'a', newCode: 'b', oldTitle: '旧', newTitle: '新' }, createTestCtx())!
+    const s = JSON.stringify(vnode)
+    assert.ok(s.includes('旧') && s.includes('新'), '标题渲染')
+  })
+
+  test('相同代码 / 空代码安全', async () => {
+    const same = await renderVNode(DiffView, { oldCode: 'x', newCode: 'x' }, createTestCtx())!
+    assert.ok(same)
+    const empty = await renderVNode(DiffView, { oldCode: '', newCode: '' }, createTestCtx())!
+    assert.ok(empty, '空代码渲染')
+  })
+
+  test('foldThreshold 折叠不抛错', async () => {
+    const vnode = await renderVNode(DiffView, { oldCode: 'a\nb\nc\nd\ne\nf\ng', newCode: 'a\nx\nc\nd\ne\nf\ng', foldThreshold: 5 }, createTestCtx())!
+    assert.ok(vnode)
+  })
+
+  test('maxLines 限制', async () => {
+    const vnode = await renderVNode(DiffView, { oldCode: 'a\nb\nc', newCode: 'a\nx\nc', maxLines: 2 }, createTestCtx())!
+    assert.ok(vnode)
+  })
+})
