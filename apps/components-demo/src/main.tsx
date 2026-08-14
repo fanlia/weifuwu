@@ -1121,7 +1121,15 @@ const DemoEditor: Component = async (_props, ctx) => {
 const DemoThemeSwitch: Component = async (_props, ctx) => {
   let mode = 'auto'
   let preset: any = undefined
+  // 品牌 seed 实时换肤（演示 WUI 设计语言第一档：改一个值全站跟随）
+  let brandSeed = '#4f6ef7'
+  let darkBrandSeed = '#6b8aff'
   const rerender = () => ctx.ui.render()
+  const applySeeds = (light: string, dark: string) => {
+    const root = document.documentElement
+    root.style.setProperty('--wf-brand-seed', light)
+    root.style.setProperty('--wf-dark-brand-seed', dark)
+  }
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <div class="wf-row wf-gap-sm">
@@ -1131,8 +1139,26 @@ const DemoThemeSwitch: Component = async (_props, ctx) => {
         {/* 预设主题行（可选）：minimal/compact/rounded，与暗色正交 */}
         <ThemeSwitch preset={preset} onPresetChange={(p) => { preset = p; rerender() }} />
       </div>
+      <div class="wf-row wf-gap-sm wf-items-center">
+        <label class="wf-text-xs wf-text-secondary">亮色品牌</label>
+        <input type="color" value={brandSeed} aria-label="亮色品牌色"
+          style={{ width: '28px', height: '28px', padding: 0, border: 'var(--wf-border-width) solid var(--wf-color-border)', borderRadius: 'var(--wf-radius-sm)', background: 'none' }}
+          onChange={(e: any) => { brandSeed = e.target.value; applySeeds(brandSeed, darkBrandSeed); rerender() }} />
+        <label class="wf-text-xs wf-text-secondary">暗色品牌</label>
+        <input type="color" value={darkBrandSeed} aria-label="暗色品牌色"
+          style={{ width: '28px', height: '28px', padding: 0, border: 'var(--wf-border-width) solid var(--wf-color-border)', borderRadius: 'var(--wf-radius-sm)', background: 'none' }}
+          onChange={(e: any) => { darkBrandSeed = e.target.value; applySeeds(brandSeed, darkBrandSeed); rerender() }} />
+        <button class="wf-btn wf-btn--sm" onClick={() => {
+          brandSeed = '#4f6ef7'; darkBrandSeed = '#6b8aff'
+          const root = document.documentElement
+          root.style.removeProperty('--wf-brand-seed')
+          root.style.removeProperty('--wf-dark-brand-seed')
+          rerender()
+        }}>重置</button>
+      </div>
       <div class="wf-text-xs wf-text-secondary">
-        当前模式: <code>{mode}</code> · 预设: <code>{preset ?? 'default'}</code> · 已持久化到 localStorage · 右上角也有一个可直接用
+        模式: <code>{mode}</code> · 预设: <code>{preset ?? 'default'}</code> · 品牌: <code>{brandSeed}</code> / <code>{darkBrandSeed}</code> ·
+        已持久化 localStorage · 右上角也有一个可直接用
       </div>
     </div>
   )
@@ -2709,6 +2735,12 @@ if (ok) { /* 执行 */ }`,
 <ThemeSwitch preset="compact"
   onPresetChange={p =>
     console.log(p)} />
+
+// 单值换肤：改 seed 一个值，色阶自动派生
+:root {
+  --wf-brand-seed: #7c3aed;
+  --wf-dark-brand-seed: #a78bfa;  /* 暗色品牌（可选） */
+}
 
 // 命令式
 import { applyTheme, getTheme } from 'weifuwu/components'
