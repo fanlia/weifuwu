@@ -15,6 +15,7 @@ import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
 import { buildRosterText, buildHistoryContent, buildPersonaLayer, type RosterMember } from './persona.ts'
 import { updateGroupMemory, buildGroupMemoryLayer } from './group-memory.ts'
+import { findCachedAnswer, shouldCacheQuestion, buildCachedReply } from './answer-cache.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
 
 // ── 流式事件类型 ───────────────────────────────────────
@@ -665,6 +666,26 @@ async function runAllAgents(
 
     await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers, attachmentLayer, groupMemoryLayer)
   }
+
+  // C5 写缓存：AI 回复完成后（通用问题 → 存答案供后续相似问题秒回）
+  void (async () => {
+    try {
+      if (!shouldCacheQuestion(messageContent)) return
+      const [aiReply] = await ctx.sql`
+        SELECT m.content FROM messages m
+        JOIN agents a ON a.id = m.sender_id
+        WHERE m.department_id = ${departmentId} AND a.type = 'ai'
+          AND m.content != '' AND m.content NOT LIKE '%来自缓存%'
+        ORDER BY m.created_at DESC LIMIT 1
+      `
+      const answer = String(aiReply?.content ?? '').trim()
+      if (answer.length < 10) return
+      await ctx.sql`
+        INSERT INTO answer_cache (app_id, question, answer)
+        VALUES (${ctx.appId}, ${messageContent.slice(0, 200)}, ${answer.slice(0, 2000)})
+      `
+    } catch { /* 缓存写入失败静默 */ }
+  })()
 }
 
 /**
@@ -688,6 +709,31 @@ export async function handleNewMessageStream(
   } catch { /* 无附件字段/查询失败——按无附件处理 */ }
   // P4 群共识：消息落库后异步提取（节流——每 20 条一次，不阻塞消息流）
   void updateGroupMemory(ctx, departmentId).catch(() => {})
+
+  // ── C5 答案缓存：相似问题直接秒回（零 token） ──
+  try {
+    if (!attachments.length) { // 带附件消息不走缓存（附件内容唯一）
+      const cacheRows = (await ctx.sql`
+        SELECT question, answer, hits FROM answer_cache WHERE app_id = ${ctx.appId}
+        ORDER BY updated_at DESC LIMIT 200
+      `) as unknown as Array<{ question: string; answer: string; hits: number }>
+      const hit = findCachedAnswer(messageContent, cacheRows)
+      if (hit) {
+        await ctx.sql`UPDATE answer_cache SET hits = hits + 1, updated_at = NOW() WHERE app_id = ${ctx.appId} AND question = ${hit.question}`
+        const [anyAi] = await ctx.sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'ai' AND is_active = TRUE LIMIT 1`
+        if (anyAi) {
+          const [cachedMsg] = await ctx.sql`
+            INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
+            VALUES (${departmentId}, ${anyAi.id}, ${buildCachedReply(hit.answer, hit.hits + 1)}, 'text', TRUE)
+            RETURNING id
+          `
+          const evt = { type: 'wf:done', messageId: String(cachedMsg.id), content: buildCachedReply(hit.answer, hit.hits + 1) }
+          ctx.msg.broadcast(String(departmentId), evt)
+        }
+        return
+      }
+    }
+  } catch { /* 缓存查询失败——走正常流程 */ }
 
   await runAllAgents(ctx, departmentId, messageContent, [], attachments, messageId, (agent, msgId) => ({
     emit(event) {

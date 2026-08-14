@@ -280,3 +280,15 @@ CREATE TABLE IF NOT EXISTS group_memories (
   msg_count     INT NOT NULL DEFAULT 0,
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ── C5 答案缓存（相似问题零 token 秒回——降本增效） ──────
+CREATE TABLE IF NOT EXISTS answer_cache (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_id      UUID NOT NULL,
+  question    TEXT NOT NULL,
+  answer      TEXT NOT NULL,
+  hits        INT NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_answer_cache_app ON answer_cache(app_id);

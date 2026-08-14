@@ -19,7 +19,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BUSINESS_TABLES = [
   'agents', 'departments', 'department_members', 'messages', 'agent_logs',
   'webhook_logs', 'kb_documents', 'kb_chunks', 'audit_logs', 'app_ai_configs',
-  'events', 'agent_skills', 'agent_versions', 'agent_memories',
+  'events', 'agent_skills', 'agent_versions', 'agent_memories', 'answer_cache',
 ]
 
 /** 豁免登记（文件 + SQL 特征 + 理由）——审查通过才可登记 */
