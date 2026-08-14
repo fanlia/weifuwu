@@ -143,4 +143,13 @@
 
 ### 待滚动组
 
-组 1 表单核心（5）→ 组 2 表单选择（5）→ 组 4 数据展示（47）→ 组 6 导航（7）→ 组 3 表单增强（11）→ 组 7 AI（9）→ 组 8 长尾（36）
+组 2 表单选择（5）→ 组 4 数据展示（47）→ 组 6 导航（7）→ 组 3 表单增强（11）→ 组 7 AI（9）→ 组 8 长尾（36）
+
+### 组 1 表单核心（2026-12）
+
+| 组件 | 功能列（单测） | 交互列（agent-browser 实测） | 视觉列 | 结果 |
+|------|--------------|----------------------------|--------|------|
+| Button | 15（+4：onClick/loading 禁用+aria-busy/disabled/danger-ghost） | 既有 | — | ✅ |
+| Input | 13（+4：受控 value 含空串/onInput/disabled+readonly+placeholder/error 样式类） | 真实键盘输入→受控回流（11 字符） | — | ✅ |
+| Textarea | 11（+3：受控 value+onInput/disabled+placeholder+required/无 showCount 不渲染） | 真实输入→受控回流 | — | ✅ |
+| Select | 13（+2：multiple 多选标签回显/disabled 透传） | searchable 打开→选张三→菜单关→值回流（已选: 张三） | — | ✅ |

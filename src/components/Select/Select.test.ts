@@ -171,4 +171,26 @@ describe('Select (searchable)', () => {
     opt.props.onMouseDown({ preventDefault: () => {} })
     assert.equal(captured, 'x')
   })
+
+  it('multiple 多选：value 数组 → 选中标签渲染', async () => {
+    const { render } = await searchableCtx()
+    const props = {
+      searchable: true, multiple: true,
+      options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }],
+      value: ['a', 'b'],
+      onChange: () => {},
+    }
+    const vnode = await render(props)
+    const s = JSON.stringify(vnode)
+    assert.ok(s.includes('A') && s.includes('B'), '多选值回显为标签')
+    assert.ok(s.includes('wf-select-tag'), '标签类存在')
+  })
+
+  it('disabled 透传（原生 select 禁用）', async () => {
+    const ctx = { ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
+    const render = await Select({}, ctx)!
+    const vnode = await render({ disabled: true, options: [{ value: 'a', label: 'A' }] })
+    const select = childrenOf(vnode).find((c: any) => c?.type === 'select')
+    assert.equal(select.props.disabled, true, 'disabled 透传原生 select')
+  })
 })

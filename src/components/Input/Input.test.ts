@@ -78,4 +78,30 @@ describe('Input', () => {
     vnode.props.onKeyDown({ key: 'Escape' })
     assert.equal(esc, 1, '回调可调用')
   })
+
+  it('value 受控透传（含空串）', async () => {
+    const vnode = await renderVNode(Input, { value: 'hello' }, createTestCtx())!
+    assert.equal(vnode.props.value, 'hello')
+    const empty = await renderVNode(Input, { value: '' }, createTestCtx())!
+    assert.equal(empty.props.value, '', '空串不落 undefined')
+  })
+
+  it('onInput 回调透传', async () => {
+    let got: any = null
+    const vnode = await renderVNode(Input, { onInput: (e: any) => { got = e } }, createTestCtx())!
+    vnode.props.onInput({ target: { value: 'x' } })
+    assert.ok(got, 'onInput 回调触发')
+  })
+
+  it('disabled / readonly / placeholder 透传原生属性', async () => {
+    const vnode = await renderVNode(Input, { disabled: true, readonly: true, placeholder: '输入…' }, createTestCtx())!
+    assert.equal(vnode.props.disabled, true)
+    assert.equal(vnode.props.readonly, true)
+    assert.equal(vnode.props.placeholder, '输入…')
+  })
+
+  it('error 时 input 带错误样式类（视觉联动）', async () => {
+    const vnode = await renderVNode(Input, { error: '必填' }, createTestCtx())!
+    assert.match(vnode.props.class, /--err/, 'error 必须有 --err 类')
+  })
 })

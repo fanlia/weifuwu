@@ -69,5 +69,28 @@ describe('Button', () => {
     const vnode = await renderVNode(Button, { id: 'async-click', children: '点击' }, createTestCtx())!
     assert.equal(vnode.props.id, 'async-click', 'id 透传到原生 button')
   })
+
+  it('onClick 回调透传并触发', async () => {
+    let clicked = 0
+    const vnode = await renderVNode(Button, { onClick: () => clicked++ }, createTestCtx())!
+    vnode.props.onClick()
+    assert.equal(clicked, 1)
+  })
+
+  it('loading 时 disabled + aria-busy（点击被原生禁用拦截）', async () => {
+    const vnode = await renderVNode(Button, { loading: true, onClick: () => {} }, createTestCtx())!
+    assert.equal(vnode.props.disabled, true, 'loading 必须禁用按钮')
+    assert.equal(vnode.props['aria-busy'], true, 'aria-busy 声明')
+  })
+
+  it('disabled 时透传原生 disabled', async () => {
+    const vnode = await renderVNode(Button, { disabled: true }, createTestCtx())!
+    assert.equal(vnode.props.disabled, true)
+  })
+
+  it('danger-ghost 变体渲染', async () => {
+    const vnode = await renderVNode(Button, { variant: 'danger-ghost', children: '删除' }, createTestCtx())!
+    assert.match(vnode.props.class, /wf-btn--danger-ghost/)
+  })
 })
 
