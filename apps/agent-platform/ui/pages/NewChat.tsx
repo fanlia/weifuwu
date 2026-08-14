@@ -49,8 +49,9 @@ export const NewChat: Component = async (_props, ctx) => {
       {$.loading && <Loading />}
 
       {!$.loading && $.depts.length === 0 && (
-        <EmptyState icon={<Icon name="message" />} text="还没有会话" hint="创建一个部门并添加成员，开始人机协作">
-          <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
+        <EmptyState icon={<Icon name="message" />} text="还没有会话" hint="在 Agent 列表点「单聊」立即开始，或创建部门群聊">
+          <Button variant="primary" onClick={() => ctx.app?.navigate('/agents')}>去 Agent 列表单聊</Button>
+          <Button variant="ghost" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
         </EmptyState>
       )}
 

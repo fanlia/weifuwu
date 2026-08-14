@@ -95,6 +95,15 @@ export const AgentDetail: Component = async (_props, ctx) => {
       rerender()
     })
 
+  async function startDm(id: string) {
+    try {
+      const res = await ctx.api!.post('/api/departments/dm', { agent_id: id })
+      const d = res.department
+      if (d?.id) { ctx.app?.navigate(`/chat/${d.id}`) }
+      else { ctx.toast!('发起单聊失败', 'error') }
+    } catch { ctx.toast!('发起单聊失败', 'error') }
+  }
+
   async function handleSubmit(e: Event) {
     e.preventDefault()
     $.saving = true; $.error = ''; $.ok = ''
@@ -235,6 +244,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
             <div class="wf-text-lg wf-text-semibold">{a.name ?? '未命名'} <TypeBadge type={a.type ?? 'ai'} /></div>
             <div class="wf-text-sm wf-text-secondary">{a.description ?? ''} · 模型: {a.model ?? '-'}</div>
           </div>
+          {(a.type === 'ai' || a.type === 'webhook') && a.id && (
+            <Button variant="primary" onClick={() => startDm(String(a.id))}><Icon name="message" size={14} /> 单聊</Button>
+          )}
         </div>
       </Card>
 
