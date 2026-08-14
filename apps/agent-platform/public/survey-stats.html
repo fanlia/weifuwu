@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>模拟数据收集统计</title>
+  <!-- weifuwu CDN：组件样式一条 link -->
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    body { background: var(--wf-color-bg); color: var(--wf-color-text); }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13px; }
+    .bar-lbl { width: 64px; text-align: right; color: var(--wf-color-text-tertiary); }
+    .bar-num { width: 28px; color: var(--wf-color-text-secondary); font-weight: 600; }
+    .bar { flex: 1; background: var(--wf-color-bg-tertiary); border-radius: 6px; height: 16px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    td, th { padding: 7px 8px; border-bottom: 1px solid var(--wf-color-border, #eef2f7); text-align: left; vertical-align: top; }
+    th { color: var(--wf-color-text-tertiary); font-weight: 500; font-size: 12px; }
+    .fb { max-width: 280px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "weifuwu/ui-dom": "/static/ui-dom/index.js",
+        "weifuwu/components": "/static/components/index.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
+    import { Card, Badge, Button, EmptyState, Loading } from 'weifuwu/components'
+
+    const StatsPage = async (_init, ctx) => {
+      let data = null
+      let loading = true
+
+      const load = async () => {
+        loading = true; ctx.ui.render()
+        try {
+          const res = await fetch('/demo-survey/stats-data')
+          data = await res.json()
+        } catch { data = { records: [], ratingDist: {}, industryDist: {}, focusCount: {}, avg: 0 } }
+        loading = false
+        ctx.ui.render()
+      }
+      void load()
+
+      const bar = (label, count, max, color) =>
+        h('div', { class: 'bar-row' },
+          h('span', { class: 'bar-lbl' }, label),
+          h('div', { class: 'bar' }, h('div', { class: 'bar-fill', style: { width: `${Math.round(count / max * 100)}%`, background: color } })),
+          h('span', { class: 'bar-num' }, String(count)),
+        )
+
+      const ratingColor = (i) => i >= 4 ? 'var(--wf-color-success)' : i === 3 ? 'var(--wf-color-warning)' : 'var(--wf-color-error)'
+
+      return () => {
+        if (loading) return h(Loading, {})
+        const d = data ?? {}
+        const records = d.records ?? []
+        const maxCount = Math.max(1, ...[...Object.values(d.ratingDist ?? {}), ...Object.values(d.industryDist ?? {})].map(Number))
+
+        return h('div', { style: { maxWidth: '860px', margin: '32px auto', padding: '0 20px' } },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
+            h('div', {},
+              h('h1', { style: { margin: '0 0 4px', fontSize: '22px' } }, '模拟数据收集统计'),
+              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '13px' } }, '多角色 AI 真实浏览器填写 · 数据落库 data/survey-submissions/'),
+            ),
+            h('div', {},
+              h(Button, { variant: 'ghost', size: 'sm', onClick: () => { window.location.href = '/demo-survey' } }, '← 填写页'),
+              h(Button, { variant: 'primary', size: 'sm', onClick: load, style: { marginLeft: '8px' } }, '刷新 ⟳'),
+            ),
+          ),
+
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' } },
+            h(Card, { variant: 'default', padding: 'md' }, h('div', { style: { fontSize: '26px', fontWeight: 700 } }, String(records.length)), h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '总提交数')),
+            h(Card, { variant: 'default', padding: 'md' }, h('div', { style: { fontSize: '26px', fontWeight: 700 } }, String(d.avg?.toFixed(1) ?? '0')), h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '平均满意度 / 5')),
+            h(Card, { variant: 'default', padding: 'md' }, h('div', { style: { fontSize: '26px', fontWeight: 700 } }, String(Object.keys(d.industryDist ?? {}).length)), h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '覆盖行业')),
+            h(Card, { variant: 'default', padding: 'md' }, h('div', { style: { fontSize: '26px', fontWeight: 700 } }, String(Object.keys(d.ratingDist ?? {}).length)), h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '分数档位')),
+          ),
+
+          h(Card, { variant: 'default', padding: 'md', style: { marginBottom: '16px' } },
+            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '满意度分布'),
+            [5, 4, 3, 2, 1].map((i) => bar(`${i} 分`, Number(d.ratingDist?.[String(i)] ?? 0), maxCount, ratingColor(i))),
+          ),
+
+          h(Card, { variant: 'default', padding: 'md', style: { marginBottom: '16px' } },
+            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '行业分布'),
+            Object.entries(d.industryDist ?? {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => bar(k, v, maxCount, 'var(--wf-color-primary)')),
+          ),
+
+          h(Card, { variant: 'default', padding: 'md', style: { marginBottom: '16px' } },
+            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '关注点'),
+            Object.entries(d.focusCount ?? {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => bar(k, v, maxCount, 'var(--wf-color-info, #8b5cf6)')),
+          ),
+
+          h(Card, { variant: 'default', padding: 'md' },
+            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, `明细（${records.length} 条）`),
+            records.length === 0
+              ? h(EmptyState, { icon: '📋', text: '暂无提交', hint: '让 10 个角色去填写问卷' })
+              : h('table', {},
+                  h('tr', {},
+                    ['时间', '编号', '行业', '年龄', '评分', '关注', '反馈'].map((t) => h('th', {}, t)),
+                  ),
+                  [...records].reverse().map((r) =>
+                    h('tr', {},
+                      h('td', { style: { color: 'var(--wf-color-text-tertiary)' } }, String(r.submitted_at ?? '').slice(5, 16).replace('T', ' ')),
+                      h('td', {}, r.id),
+                      h('td', {}, r.industry ?? '—'),
+                      h('td', {}, r.age ?? '—'),
+                      h('td', {}, h('b', {}, String(r.rating ?? '—'))),
+                      h('td', { style: { color: 'var(--wf-color-text-tertiary)' } }, (r.focus ?? []).join('、') || '—'),
+                      h('td', { class: 'fb' }, String(r.feedback ?? '').slice(0, 120)),
+                    ),
+                  ),
+                ),
+          ),
+        )
+      }
+    }
+
+    const router = new UIRouter()
+    router.get('/', async () => h(StatsPage, {}))
+    router.notFound(async () => h(StatsPage, {}))
+    uiServe(router, { root: document.getElementById('root') })
+  </script>
+</body>
+</html>

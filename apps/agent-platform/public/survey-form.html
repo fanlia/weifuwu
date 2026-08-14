@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>模拟数据收集问卷</title>
+  <!-- weifuwu CDN：组件样式一条 link -->
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    /* 仅原生表单控件基础态（AI 填写可靠性——组件库封装控件对 agent-browser 不友好）+ 页面私有布局 */
+    body { background: var(--wf-color-bg); color: var(--wf-color-text); }
+    .q { font-weight: 600; font-size: 15px; margin: 20px 0 8px; }
+    .hint { color: var(--wf-color-text-tertiary); font-size: 12px; font-weight: 400; margin-left: 6px; }
+    input[type=text], textarea, select { width: 100%; padding: 10px 12px; border: 1px solid var(--wf-color-border, #d1d5db); border-radius: var(--wf-radius, 8px); font-size: 14px; box-sizing: border-box; background: var(--wf-color-surface); color: var(--wf-color-text); }
+    textarea { min-height: 72px; }
+    .opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+    .opts label { font-weight: 400; font-size: 14px; display: flex; gap: 8px; align-items: center; }
+    .stars { display: flex; gap: 12px; margin-top: 6px; }
+    .stars label { display: flex; flex-direction: column; align-items: center; font-size: 12px; gap: 2px; }
+    .stars input { width: 18px; height: 18px; }
+    .error { color: var(--wf-color-error, #dc2626); font-size: 13px; margin-top: 10px; display: none; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- CDN import map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "weifuwu/ui-dom": "/static/ui-dom/index.js",
+        "weifuwu/components": "/static/components/index.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
+    import { Card, Button, Icon } from 'weifuwu/components'
+
+    // 填写页组件（render-only：状态普通对象 + ctx.ui.render()）
+    const SurveyForm = async (_init, ctx) => {
+      let submitted = null          // 提交结果 { id, total }
+      let error = ''
+      let submitting = false
+
+      const submit = async (e) => {
+        e.preventDefault()
+        if (submitting) return
+        const f = e.target
+        const data = Object.fromEntries(new FormData(f).entries())
+        error = ''
+        if (!data.age || !data.industry || !data.rating) {
+          error = '请完成必填项（年龄/行业/满意度）'
+          ctx.ui.render()
+          return
+        }
+        submitting = true
+        ctx.ui.render()
+        try {
+          const res = await fetch('/demo-survey/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          })
+          const r = await res.json()
+          if (!res.ok) throw new Error(r.error || '提交失败')
+          submitted = r
+        } catch (ex) {
+          error = '提交失败：' + ex.message
+        }
+        submitting = false
+        ctx.ui.render()
+      }
+
+      return () => {
+        if (submitted) {
+          return h(Card, { variant: 'default', padding: 'lg' },
+            h('div', { style: { textAlign: 'center', padding: '2rem 0' } },
+              h('div', { style: { fontSize: '3rem' } }, '✅'),
+              h('h2', { style: { margin: '0.5rem 0' } }, '提交成功'),
+              h('p', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '14px' } },
+                `提交序号 #${submitted.id} · 共 ${submitted.total} 份模拟数据`),
+              h(Button, { variant: 'primary', onClick: () => { submitted = null; ctx.ui.render() } }, '再填一份'),
+              h('span', { style: { marginLeft: '0.5rem' } },
+                h(Button, { variant: 'ghost', onClick: () => { window.location.href = '/demo-survey/stats' } }, '查看统计 →')),
+            ),
+          )
+        }
+        return h('div', { style: { maxWidth: '640px', margin: '32px auto', padding: '0 20px' } },
+          h(Card, { variant: 'default', padding: 'lg' },
+            h('h1', { style: { margin: '0 0 4px', fontSize: '22px' } }, '模拟数据收集问卷'),
+            h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '13px', marginBottom: '16px' } },
+              '用于多角色模拟数据收集 Demo · 提交后数据落库（非真实调研） · ',
+              h('a', { href: '/demo-survey/stats', style: { color: 'var(--wf-color-primary)' } }, '查看统计 →'),
+            ),
+            // 原生表单控件（AI/agent-browser 填写可靠——组件库封装控件对自动化不友好）
+            h('form', { onSubmit: submit },
+              h('label', { class: 'q' }, '1. 您的年龄 ', h('span', { class: 'hint' }, '单选')),
+              h('div', { class: 'opts' },
+                ['18-25', '26-35', '36-45', '46+'].map((v) =>
+                  h('label', {}, h('input', { type: 'radio', name: 'age', value: v }), ` ${v}`)),
+              ),
+              h('label', { class: 'q' }, '2. 您所在的行业 ', h('span', { class: 'hint' }, '单选')),
+              h('div', { class: 'opts' },
+                [['互联网', '互联网/IT'], ['制造', '制造/工业'], ['金融', '金融/保险'], ['零售', '零售/消费'], ['教育', '教育/培训']].map(([v, l]) =>
+                  h('label', {}, h('input', { type: 'radio', name: 'industry', value: v }), ` ${l}`)),
+              ),
+              h('label', { class: 'q' }, '3. 您关注的产品能力 ', h('span', { class: 'hint' }, '多选')),
+              h('div', { class: 'opts' },
+                ['易用性', '安全性', '性能', '价格', '售后服务'].map((v) =>
+                  h('label', {}, h('input', { type: 'checkbox', name: 'focus', value: v }), ` ${v}`)),
+              ),
+              h('label', { class: 'q' }, '4. 总体满意度 ', h('span', { class: 'hint' }, '打分 1-5')),
+              h('div', { class: 'stars' },
+                [1, 2, 3, 4, 5].map((v) =>
+                  h('label', {}, h('input', { type: 'radio', name: 'rating', value: String(v) }), String(v))),
+              ),
+              h('label', { class: 'q' }, '5. 建议与反馈 ', h('span', { class: 'hint' }, '文本')),
+              h('textarea', { name: 'feedback', placeholder: '请留下您的建议...' }),
+              error && h('div', { class: 'error', style: { display: 'block' } }, error),
+              h('div', { style: { marginTop: '24px' } },
+                h(Button, { variant: 'primary', type: 'submit', size: 'lg', disabled: submitting }, submitting ? '提交中...' : '提交问卷'),
+              ),
+            ),
+          ),
+        )
+      }
+    }
+
+    const router = new UIRouter()
+    router.get('/', async () => h(SurveyForm, {}))
+    router.notFound(async () => h(SurveyForm, {}))
+    uiServe(router, { root: document.getElementById('root') })
+  </script>
+</body>
+</html>
