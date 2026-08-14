@@ -19,7 +19,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BUSINESS_TABLES = [
   'agents', 'departments', 'department_members', 'messages', 'agent_logs',
   'webhook_logs', 'kb_documents', 'kb_chunks', 'audit_logs', 'app_ai_configs',
-  'events', 'agent_skills', 'agent_versions',
+  'events', 'agent_skills', 'agent_versions', 'agent_memories',
 ]
 
 /** 豁免登记（文件 + SQL 特征 + 理由）——审查通过才可登记 */
@@ -51,6 +51,8 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/services/permissions.ts', match: 'SELECT dm.role FROM department_members', reason: '间接隔离——departmentId 来自调用方上下文（审批/成员管理已校验归属）' },
   { file: 'src/services/permissions.ts', match: 'FROM _weifuwu_app_members', reason: '系统表（框架 userSystem 平台级隔离）' },
   { file: 'src/services/agent-runner.ts', match: 'SELECT risk_policy FROM agents', reason: 'C2 间接隔离——agentId 来自运行上下文（已校验的 agent）' },
+  { file: 'src/services/agent-runner.ts', match: 'agent_memories', reason: 'C3 间接隔离——agentId 来自运行上下文（已校验的 agent）' },
+  { file: 'src/routes/agents.ts', match: 'agent_memories', reason: 'C3 间接隔离——先查 agent 归属（a.app_id）再读/删记忆' },
   { file: 'server.ts', match: 'WHERE a.user_id = ${uid}', reason: 'R10 用户维度隔离——uid 来自会话 token（auth.userId），只能查/改自己' },
   { file: 'server.ts', match: 'UPDATE agents SET is_active = FALSE', reason: 'R10 用户维度隔离——账号删除仅匿名化自己的 Agent' },
   // ── 间接隔离批量登记（外键归属上游已校验——逐条审查过） ──

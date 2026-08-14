@@ -110,6 +110,12 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS feedback TEXT`)
   // C2 风险策略：agents 审批模式（auto 智能分级 / strict 严格 / off 关闭）
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS risk_policy TEXT NOT NULL DEFAULT 'auto'`)
+  // C3 会话记忆：AI Agent 跨会话记忆（偏好/项目背景）
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS agent_memories (
+    agent_id UUID PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`)
   // R5 企业-子租户：企业账户（结算主体）+ apps 归属
   await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS enterprises (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

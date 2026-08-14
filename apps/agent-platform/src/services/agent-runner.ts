@@ -201,6 +201,52 @@ async function buildToolContext(
   return { tools, skillRegistry }
 }
 
+/** C1/C3 共享：任务纪律提示 + 会话记忆加载（runAgent/streamAgent 共用） */
+const TASK_DISCIPLINE = `
+【任务纪律】
+1. 工具失败时不要直接放弃：先尝试换一个工具/方案重试；确实无法完成时，在回复中明确说明"未能完成的原因"。
+2. 任务完成后按以下结构汇报：
+   - ✅ 已完成：列出完成的事项
+   - ⚠️ 未完成：列出未完成的事项及原因（没有则省略）
+   - 📦 产物：生成的文件/结果位置（没有则省略）
+3. 如果用户目标不明确，先说明你的理解再执行。`
+
+async function loadMemory(ctx: AppCtx, agentId: string): Promise<string> {
+  try {
+    const [mem] = await ctx.sql`SELECT content FROM agent_memories WHERE agent_id = ${agentId}`
+    return mem && String((mem as any).content ?? '').trim() ? String((mem as any).content).slice(0, 1500) : ''
+  } catch { return '' }
+}
+
+function buildAgentPrompt(base: string, memory: string): string {
+  return base + (memory ? `\n【历史记忆】${memory}\n` : '') + TASK_DISCIPLINE
+}
+
+/** C3 记忆更新（任务后提取背景——共享） */
+async function updateMemory(ctx: AppCtx, ai: any, byok: { apiKey?: string; baseUrl?: string; model?: string }, agentId: string, messages: ChatMessage[], content: string, existing: string): Promise<void> {
+  try {
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+    if (!lastUser) return
+    const memRes = await ai.chat({
+      model: byok.model, apiKey: byok.apiKey, baseUrl: byok.baseUrl,
+      messages: [
+        { role: 'system', content: '从对话中提取值得长期记住的用户偏好或项目约定（如：用户喜欢简洁回复/项目使用 TypeScript）。没有值得记住的则输出空字符串。只输出记忆内容，最多 100 字。' },
+        { role: 'user', content: `用户：${String(lastUser.content ?? '').slice(0, 800)}\n助手：${String(content).slice(0, 800)}` },
+      ],
+      max_tokens: 120,
+    })
+    const memText = String((memRes as any)?.choices?.[0]?.message?.content ?? '').trim()
+    if (memText && memText.length > 3) {
+      const merged = existing ? `${existing}\n- ${memText.slice(0, 500)}`.slice(0, 2000) : memText.slice(0, 500)
+      await ctx.sql`
+        INSERT INTO agent_memories (agent_id, content, updated_at)
+        VALUES (${agentId}, ${merged}, NOW())
+        ON CONFLICT (agent_id) DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
+      `
+    }
+  } catch { /* 记忆更新失败静默 */ }
+}
+
 export async function runAgent(
   ctx: AppCtx,
   config: AgentRunnerConfig,
@@ -234,20 +280,15 @@ export async function runAgent(
   const humanGate = config.humanInTheLoop
     ? (call: { name: string; args: unknown }): boolean => needsApproval(riskPolicy as any, call.name, call.args)
     : undefined
-  // C1 任务纪律：失败恢复引导 + 结构化汇报（零额外调用——系统提示规则）
-  const TASK_DISCIPLINE = `
-【任务纪律】
-1. 工具失败时不要直接放弃：先尝试换一个工具/方案重试；确实无法完成时，在回复中明确说明"未能完成的原因"。
-2. 任务完成后按以下结构汇报：
-   - ✅ 已完成：列出完成的事项
-   - ⚠️ 未完成：列出未完成的事项及原因（没有则省略）
-   - 📦 产物：生成的文件/结果位置（没有则省略）
-3. 如果用户目标不明确，先说明你的理解再执行。`
+  // C3 会话记忆：任务前注入（跨会话背景——用户偏好/项目约定）
+  const memoryInjected = await loadMemory(ctx, config.agentId)
+
+  // C1 任务纪律：失败恢复引导 + 结构化汇报（共享）
   const agentRunner = ai.agent({
     model: byok.model ?? config.model,
     apiKey: byok.apiKey,
     baseUrl: byok.baseUrl,
-    systemPrompt: config.systemPrompt + TASK_DISCIPLINE,
+    systemPrompt: buildAgentPrompt(config.systemPrompt, memoryInjected),
     tools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: humanGate,
@@ -280,6 +321,11 @@ export async function runAgent(
         }
       }
     } catch { /* 自校验失败不阻断（低成本保护） */ }
+  }
+
+  // C3 记忆更新：任务完成后提取背景（共享函数）
+  if (result.content) {
+    await updateMemory(ctx, ai, byok, config.agentId, messages, String(result.content), memoryInjected)
   }
 
   const elapsed = Date.now() - startTime
@@ -404,11 +450,13 @@ export async function streamAgent(
   const humanGate = config.humanInTheLoop
     ? (call: { name: string; args: unknown }): boolean => needsApproval(riskPolicy as any, call.name, call.args)
     : undefined
+  // C1/C3：任务纪律 + 会话记忆（共享——streamAgent 主路径）
+  const memoryInjected = await loadMemory(ctx, config.agentId)
   const agentRunner = ai.agent({
     model: byok.model ?? config.model,
     apiKey: byok.apiKey,
     baseUrl: byok.baseUrl,
-    systemPrompt: config.systemPrompt,
+    systemPrompt: buildAgentPrompt(config.systemPrompt, memoryInjected),
     tools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: humanGate,
@@ -417,9 +465,15 @@ export async function streamAgent(
   let fullContent = ''
   let finalUsage: WfUsage | undefined
   let lastToolName = ''
+  let _finished = false
 
   // 框架 agent 事件流：wf:* 事件 → 业务回调（onChunk/onToolCall/onToolResult/onFinish）
   const emit: WfEmitter = (name, data) => {
+    if (name === 'wf:done' && !_finished) {
+      _finished = true
+      // C3 记忆更新（流式完成后——后台提取，不阻塞回复）
+      void updateMemory(ctx, ai, byok, config.agentId, messages, fullContent, memoryInjected)
+    }
     if (name === 'wf:token') {
       const text = (data as WfToken).text
       fullContent += text

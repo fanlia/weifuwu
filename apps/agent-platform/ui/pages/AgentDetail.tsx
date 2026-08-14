@@ -22,7 +22,7 @@ interface AgentDetailState {
   error: string; ok: string
   name: string; description: string; systemPrompt: string
   aiModel: string; aiTemperature: string; aiMaxTokens: string; aiQuota: string; quotaUsed: number
-  aiHITL: boolean; riskPolicy: string; webhookUrl: string; webhookPlatform: string; webhookSecret: string
+  aiHITL: boolean; riskPolicy: string; memory: string; memoryLoaded: boolean; webhookUrl: string; webhookPlatform: string; webhookSecret: string
   webhookRetryCount: string; secretVisible: boolean
     kbOptions: Array<{ id: string; name: string }>; kbId: string
       previewQuery: string; previewText: string; previewing: boolean
@@ -45,7 +45,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
     $.name = ''; $.description = ''; $.systemPrompt = ''
     $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiQuota = '0'; $.quotaUsed = 0
-    $.aiHITL = false; $.riskPolicy = 'auto'; $.webhookUrl = ''; $.webhookPlatform = 'generic'; $.webhookSecret = ''
+    $.aiHITL = false; $.riskPolicy = 'auto'; $.memory = ''; $.memoryLoaded = false; $.webhookUrl = ''; $.webhookPlatform = 'generic'; $.webhookSecret = ''
     $.webhookRetryCount = '3'; $.secretVisible = false
     $.allowFileTools = false; $.allowCommandExec = false; $.allowNetwork = false
 
@@ -68,6 +68,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.aiHITL = !!a.human_in_the_loop
       $.riskPolicy = a.risk_policy ?? 'auto'
       $.webhookUrl = a.webhook_url ?? ''; $.webhookPlatform = a.webhook_platform ?? 'generic'; $.webhookSecret = a.webhook_secret ?? ''
+      if (a.type === 'ai') {
+        void ctx.api!.get<any>(`/api/agents/${a.id}/memory`).then((d) => { $.memory = d.memory ?? ''; $.memoryLoaded = true; rerender() }).catch(() => { $.memoryLoaded = true; rerender() })
+      }
       $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
       $.kbId = a.kb_id ?? ''
       $.allowFileTools = a.allow_file_tools ?? false
@@ -315,6 +318,28 @@ export const AgentDetail: Component = async (_props, ctx) => {
                     </div>
                   </Field>
                 </div>
+              </div>
+
+              <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="book-open" size={14} /> 记忆（跨会话）</div>
+              <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-mt-xs">
+                {$.memoryLoaded ? (
+                  $.memory ? (
+                    <div class="wf-stack wf-gap-sm">
+                      <div class="wf-pre-wrap wf-text-secondary">{$.memory}</div>
+                      <div class="wf-right">
+                        <Button type="button" size="sm" variant="ghost" onClick={async () => {
+                          if (!window.confirm('清除该 Agent 的记忆？')) return
+                          try {
+                            await ctx.api!.delete(`/api/agents/${$.agent!.id}/memory`)
+                            $.memory = ''; rerender()
+                          } catch { /* 静默 */ }
+                        }}>清除记忆</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <span class="wf-text-secondary">暂无记忆——AI 会在对话中自动记住你的偏好与项目约定</span>
+                  )
+                ) : '加载中...'}
               </div>
 
               <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间</div>

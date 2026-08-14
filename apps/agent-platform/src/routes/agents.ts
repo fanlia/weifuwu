@@ -271,6 +271,24 @@ return Response.json({ agent })
     return Response.json({ success: true })
   })
 
+  // ── C3 记忆管理：查看/清除（R10 联动——记忆是用户数据） ──
+
+  app.get('/api/agents/:id/memory', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const [agent] = await sql`SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}`
+    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    const [mem] = await sql`SELECT content, updated_at FROM agent_memories WHERE agent_id = ${params.id}`
+    return Response.json({ memory: mem ? String((mem as any).content ?? '') : '', updatedAt: mem ? (mem as any).updated_at : null })
+  })
+
+  app.delete('/api/agents/:id/memory', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const [agent] = await sql`SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}`
+    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    await sql`DELETE FROM agent_memories WHERE agent_id = ${params.id}`
+    return Response.json({ success: true })
+  })
+
   // ── 对话预览（测试提示词，单轮流式，不落消息/不触发 HITL） ──
 
   app.post('/api/agents/:id/preview', async (req: Request, ctx: AppCtx): Promise<Response> => {
