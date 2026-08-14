@@ -24,6 +24,28 @@ export const Admin: Component = async (_props, ctx) => {
   let busyId = ''
   let overview: any = null
   let opsInfo: any = null
+  // 沙盒监控：容器列表 / 进程 / 操作
+  let sbContainers: any[] | null = null
+  let sbProcs: { name: string; list: any[] } | null = null
+  let sbBusy = ''
+  const loadContainers = () => {
+    void ctx.api!.get<any>('/api/sandbox/containers').then((d) => {
+      sbContainers = d.containers ?? []
+      ctx.ui.render()
+    }).catch(() => {})
+  }
+  const containerAction = async (name: string, action: string) => {
+    sbBusy = name + action; ctx.ui.render()
+    await ctx.api!.post(`/api/sandbox/containers/${name}/${action}`).catch(() => {})
+    sbBusy = ''
+    loadContainers()
+  }
+  const showProcesses = (name: string) => {
+    void ctx.api!.get<any>(`/api/sandbox/containers/${name}/processes`).then((d) => {
+      sbProcs = { name, list: d.processes ?? [] }
+      ctx.ui.render()
+    }).catch(() => {})
+  }
   let enterprises: any[] = []
   let entName = ''
   let entEmail = ''
@@ -101,6 +123,48 @@ export const Admin: Component = async (_props, ctx) => {
           <StatCard label="容器镜像" value={opsInfo.sandbox?.imageReady ? '就绪' : '缺失'} icon={<Icon name="hard-drive" />} />
         </div>
       )}
+
+      <Card>
+        <div class="wf-row wf-between wf-mb-sm">
+          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="box" size={14} /> 沙盒监控（容器/资源/进程）</div>
+          <Button size="sm" variant="ghost" onClick={loadContainers}>刷新</Button>
+        </div>
+        {sbContainers === null ? (
+          <div class="wf-text-sm wf-text-tertiary">加载容器列表（docker ps）——<Button size="sm" variant="ghost" onClick={loadContainers}>加载</Button></div>
+        ) : sbContainers.length === 0 ? (
+          <div class="wf-text-sm wf-text-tertiary">暂无容器（沙盒空闲）</div>
+        ) : (
+          <div class="wf-stack wf-gap-xs">
+            {sbContainers.map((c: any) => (
+              <div key={c.name} class="wf-border wf-rounded wf-p-sm">
+                <div class="wf-row wf-gap-sm wf-items-center">
+                  <span class="wf-text-sm wf-text-semibold">{c.agentName}</span>
+                  <span class="wf-text-xs wf-text-tertiary wf-truncate">{c.name}</span>
+                  {String(c.status ?? '').includes('Up') ? <Badge variant="success">运行中</Badge> : <Badge variant="danger">已停止</Badge>}
+                  <span class="wf-fill" />
+                  <span class="wf-text-xs wf-text-tertiary wf-nums">CPU {c.cpu ?? '-'} · 内存 {c.mem ?? '-'} · 进程 {c.pids ?? '-'}</span>
+                  <Button size="sm" variant="ghost" disabled={!!sbBusy} onClick={() => showProcesses(c.name)}>进程</Button>
+                  <Button size="sm" variant="ghost" disabled={!!sbBusy} onClick={() => containerAction(c.name, 'restart')}>重启</Button>
+                  <Button size="sm" variant="danger" disabled={!!sbBusy} onClick={() => containerAction(c.name, 'stop')}>停止</Button>
+                </div>
+                {sbProcs && sbProcs.name === c.name && (
+                  <div class="wf-mt-xs wf-bg-tertiary wf-rounded wf-p-sm wf-text-xs wf-overflow-x" style="max-height: 160px; overflow-y: auto">
+                    <div class="wf-row wf-gap-xs wf-text-tertiary">
+                      <span class="wf-text-xs">PID</span><span class="wf-text-xs">USER</span><span class="wf-text-xs">CPU%</span><span class="wf-text-xs">MEM%</span><span class="wf-text-xs wf-fill">COMMAND</span>
+                    </div>
+                    {(sbProcs.list ?? []).map((p: any, i: number) => (
+                      <div key={i} class="wf-row wf-gap-xs">
+                        <span class="wf-nums">{p.PID ?? '-'}</span><span>{p.USER ?? '-'}</span><span class="wf-nums">{p['%CPU'] ?? '-'}</span><span class="wf-nums">{p['%MEM'] ?? '-'}</span>
+                        <span class="wf-truncate wf-fill">{p.COMMAND ?? ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card>
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="briefcase" size={14} /> 企业账户（子租户）</div>

@@ -927,6 +927,46 @@ async function main() {
     return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   })
 
+  // ── 沙盒监控/管理 API（管理员——容器状态/资源/进程/操作） ──
+  protectedRoutes.get('/api/sandbox/containers', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sandbox } = await import('./src/sandbox/docker.ts')
+    const { sql } = ctx
+    const containers = await sandbox.listContainers()
+    // 容器名 → agent 名映射（ap-sandbox-{agentId}）
+    const ids = containers.map((c) => String(c.name ?? '').replace('ap-sandbox-', ''))
+    const agents = ids.length > 0
+      ? (await sql`SELECT id, name, type FROM agents WHERE id::text = ANY(string_to_array(${ids.join(',')}, ','))` as any[])
+      : []
+    const agentMap = new Map((Array.isArray(agents) ? agents : []).map((a: any) => [String(a.id), String(a.name ?? a.id)]))
+    // 逐个取资源统计（docker stats 逐容器——上限 20 个，串行快）
+    const withStats = []
+    for (const c of containers) {
+      const stats = await sandbox.containerStats(String(c.name))
+      withStats.push({
+        name: c.name, status: c.status, image: c.image, createdAt: c.createdAt,
+        agentName: agentMap.get(String(c.name).replace('ap-sandbox-', '')) ?? '未知',
+        ...(stats ?? {}),
+      })
+    }
+    return Response.json({ containers: withStats })
+  })
+
+  protectedRoutes.get('/api/sandbox/containers/:name/processes', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sandbox } = await import('./src/sandbox/docker.ts')
+    const procs = await sandbox.containerProcesses(ctx.params.name)
+    return Response.json({ name: ctx.params.name, processes: procs })
+  })
+
+  protectedRoutes.post('/api/sandbox/containers/:name/:action', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sandbox } = await import('./src/sandbox/docker.ts')
+    const action = ctx.params.action as 'stop' | 'start' | 'restart' | 'rm'
+    if (!['stop', 'start', 'restart', 'rm'].includes(action)) {
+      return Response.json({ error: '不支持的 action' }, { status: 400 })
+    }
+    const r = await sandbox.containerAction(ctx.params.name, action)
+    return r.ok ? Response.json(r) : Response.json({ error: r.message }, { status: 400 })
+  })
+
   // ── Token 成本排行（按 Agent，老板视角成本视图） ─────────────
   protectedRoutes.get('/api/stats/tokens-by-agent', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId } = ctx
@@ -1070,7 +1110,9 @@ async function main() {
           return
         }
         if (msg.type === 'survey:answer' && msg.question) {
-          // 逐题同步：填写页每完成一题 → 广播（统计页实时滚动）
+          // 逐题同步：填写页每完成一题 → 广播（统计页实时滚动）+ 刷新活动时间
+          const cur = surveyOnline.get(ws)
+          if (cur) { cur.at = new Date().toISOString() }
           const record = {
             source: String(msg.source ?? '访客'),
             question: String(msg.question).slice(0, 100),
@@ -1094,6 +1136,12 @@ async function main() {
           surveySubmissions.push(record)
           if (surveySubmissions.length > surveyLimit) surveySubmissions.splice(0, surveySubmissions.length - surveyLimit)
           surveyBroadcast({ type: 'survey:submitted', count: surveySubmissions.length, latest: record })
+          // 提交即下线（真人/AI 填完即不在线——统计页在线人数归零）
+          if (surveyOnline.delete(ws)) surveyBroadcastOnline()
+        }
+        // 显式 bye（页面主动离开）
+        if (msg.type === 'survey:bye') {
+          if (surveyOnline.delete(ws)) surveyBroadcastOnline()
         }
       } catch { /* 解析失败忽略 */ }
     },
@@ -1216,17 +1264,23 @@ async function main() {
     submissions: surveySubmissions.slice(-surveyLimit),
     online: { count: surveyOnline.size, sources: [...surveyOnline.values()].map((v) => v.source) },
   })
-  // 僵尸连接清理：close 事件可能丢失（浏览器崩溃/网络硬断）——定期检查
-  // readyState 非 OPEN 的连接并移除（防在线人数虚高——真实事故：重连残留）
+  // 在线连接清理（每 30 秒）：①readyState 非 OPEN（僵尸连接——close 丢失）
+  // ②超过 10 分钟无活动（AI 填完不关页面/卡住——提交后应已下线，超时兜底）
+  const ONLINE_IDLE_MS = 10 * 60 * 1000
   setInterval(() => {
     try {
+      const now = Date.now()
       let changed = false
-      for (const [w] of surveyOnline) {
-        if (w.readyState !== 1 /* OPEN */) { surveyOnline.delete(w); changed = true }
+      for (const [w, v] of surveyOnline) {
+        const idle = now - new Date(v.at).getTime()
+        if (w.readyState !== 1 /* OPEN */ || idle > ONLINE_IDLE_MS) {
+          surveyOnline.delete(w)
+          changed = true
+        }
       }
       if (changed) surveyBroadcastOnline()
     } catch { /* 清理失败不影响 */ }
-  }, 5 * 60 * 1000).unref()
+  }, 30 * 1000).unref()
 
   const surveyBroadcastOnline = () => {
     surveyBroadcast({
@@ -1275,7 +1329,7 @@ async function main() {
       let sent = 0
       for (const name of roleNames) {
         // ?s=角色名 → 填写页来源标识 → 统计页在线/进度按角色名显示
-        const content = `@${name} 请填写问卷 http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(name)} 并按你的人设提交（填完即锁定）`
+        const content = `@${name} 请填写问卷 http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(name)} 并按你的人设提交（填完即锁定）。完成后请执行 agent-browser close 关闭浏览器页面（否则统计页会一直显示你在线）`
         void handleNewMessageStream(ctx, String(dept.id), senderId, content, '').catch(() => {})
         sent++
         await new Promise((r) => setTimeout(r, 1200)) // 错峰派单（沙盒容器错峰启动）

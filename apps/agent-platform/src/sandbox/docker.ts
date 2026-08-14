@@ -339,6 +339,53 @@ export class DockerSandbox {
 
   // ── 状态（U2）────────────────────────────────────────
 
+  /**
+   * 沙盒监控（管理/调试）：容器列表 + 资源占用
+   * - listContainers：全部 ap-sandbox-* 容器（含停止的）
+   * - containerStats：单容器 CPU/内存（docker stats --no-stream）
+   * - containerProcesses：容器内进程（docker top）
+   * - containerAction：stop/start/restart/rm（管理操作）
+   */
+  async listContainers(): Promise<Array<Record<string, string>>> {
+    const r = await dockerCli(['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format',
+      '{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.CreatedAt}}'], 10_000)
+    if (r.exitCode !== 0) return []
+    return r.stdout.trim().split('\n').filter(Boolean).map((line) => {
+      const [name, status, image, createdAt] = line.split('\t')
+      return { name: name ?? '', status: status ?? '', image: image ?? '', createdAt: createdAt ?? '' }
+    })
+  }
+
+  async containerStats(name: string): Promise<Record<string, string> | null> {
+    if (!name.startsWith(CONTAINER_PREFIX)) return null
+    const r = await dockerCli(['stats', '--no-stream', '--format',
+      '{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.PIDs}}\t{{.NetIO}}', name], 15_000)
+    if (r.exitCode !== 0) return null
+    const [cpu, mem, memPct, pids, net] = r.stdout.trim().split('\t')
+    return { cpu: cpu ?? '-', mem: mem ?? '-', memPct: memPct ?? '-', pids: pids ?? '-', net: net ?? '-' }
+  }
+
+  async containerProcesses(name: string): Promise<Array<Record<string, string>>> {
+    if (!name.startsWith(CONTAINER_PREFIX)) return []
+    const r = await dockerCli(['top', name], 10_000)
+    if (r.exitCode !== 0) return []
+    const lines = r.stdout.trim().split('\n').filter(Boolean)
+    if (lines.length <= 1) return []
+    const headers = lines[0].split(/\s+/)
+    return lines.slice(1).map((line) => {
+      const parts = line.split(/\s+/)
+      const row: Record<string, string> = {}
+      headers.forEach((h, i) => { row[h] = parts[i] ?? '' })
+      return row
+    })
+  }
+
+  async containerAction(name: string, action: 'stop' | 'start' | 'restart' | 'rm'): Promise<{ ok: boolean; message: string }> {
+    if (!name.startsWith(CONTAINER_PREFIX)) return { ok: false, message: '非法容器名' }
+    const r = await dockerCli([action, name], 30_000)
+    return r.exitCode === 0 ? { ok: true, message: `${action} ${name} 成功` } : { ok: false, message: r.stderr.trim() || `${action} 失败` }
+  }
+
   async status(): Promise<SandboxStatus> {
     const a = this.availability ?? (await this.probe())
     const size = await this.poolSize()
