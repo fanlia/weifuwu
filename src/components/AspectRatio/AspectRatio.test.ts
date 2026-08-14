@@ -30,3 +30,13 @@ describe('AspectRatio', () => {
     assert.match(vnode.props.class, /thumb/)
   })
 })
+
+it('宽高比经 CSS 变量传递（--wf-aspect-ratio）', async () => {
+  const vnode = await renderVNode(AspectRatio, { ratio: 4 / 3, children: '内容' }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('--wf-aspect-ratio'), 'CSS 变量')
+})
+
+it('自定义 ratio 数值', async () => {
+  const vnode = await renderVNode(AspectRatio, { ratio: 2, children: 'x' }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('2'), 'ratio 传递')
+})

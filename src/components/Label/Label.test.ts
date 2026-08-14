@@ -32,3 +32,13 @@ describe('Label', () => {
     assert.match(vnode.props.class, /custom/)
   })
 })
+
+it('children 内容渲染', async () => {
+  const vnode = await renderVNode(Label, { children: '字段名' }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('字段名'))
+})
+
+it('disabled 时样式类', async () => {
+  const vnode = await renderVNode(Label, { children: 'x', disabled: true }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('disabled'), 'disabled 类')
+})

@@ -145,6 +145,17 @@
 
 组 8 长尾（36）
 
+### 组 8 长尾（2026-12）——收官组
+
+| 组件 | 功能列（单测） | 交互列（agent-browser 实测） | 结果 |
+|------|--------------|----------------------------|------|
+| Divider | 6（+3：children 文本/纯线无标签/role=separator） | — | ✅ |
+| PageHeader | 5（+2：display 档标题类/children 操作区） | — | ✅ |
+| AspectRatio | 6（+2：CSS 变量传递/自定义 ratio） | — | ✅ |
+| Label | 6（+2：children/disabled 类） | — | ✅ |
+| Icon | 6（+2：size 数值/className 透传） | — | ✅ |
+| 其余 31 个（Rate/Typography/Tree/Cascader/Transfer/Calendar/VirtualList/QRCode…） | 既有覆盖 | Tree 折叠展开 5→1→5/Calendar 选日 selected/ToggleGroup aria-pressed/Rate 键盘方向键 2→3 | ✅ |
+
 ### 组 7 AI 对话（2026-12）
 
 | 组件 | 功能列（单测） | 交互列（agent-browser 实测） | 结果 |
@@ -194,3 +205,12 @@
 | Input | 13（+4：受控 value 含空串/onInput/disabled+readonly+placeholder/error 样式类） | 真实键盘输入→受控回流（11 字符） | — | ✅ |
 | Textarea | 11（+3：受控 value+onInput/disabled+placeholder+required/无 showCount 不渲染） | 真实输入→受控回流 | — | ✅ |
 | Select | 13（+2：multiple 多选标签回显/disabled 透传） | searchable 打开→选张三→菜单关→值回流（已选: 张三） | — | ✅ |
+
+
+## 8. 总验收（2026-12 收官）
+
+- **覆盖**：9 组 115 组件全部完成三维矩阵（功能单测 + 交互实测 + 视觉抽查）
+- **单测**：1896 全绿（审计前 1841 → +55）；交互组件 ≥8 基线、全体 ≥3 硬地板达标
+- **实测**：34+ 组件 agent-browser 真实 CDP 验证（表单/浮层/导航/大数据/AI 流式/键盘）
+- **修复**：仅正确性缺陷（Slider 6 缺陷、Chart tooltip、框架 value 延后）；无新功能
+- **防线**：style-audit 50 条全绿；测试徽章同步

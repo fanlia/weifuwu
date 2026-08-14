@@ -33,3 +33,18 @@ describe('PageHeader', () => {
     assert.equal(actionsEl.props.children, '按钮')
   })
 })
+
+it('display 变体类（title 元素上）', async () => {
+  const vnode = await renderVNode(PageHeader, { title: '标题', display: true }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('wf-page-title--display'), 'display 档标题类')
+})
+
+it('children 内容区渲染', async () => {
+  const vnode = await renderVNode(PageHeader, { title: '标题', children: '操作区' }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('操作区'))
+})
+
+it('无 title 安全', async () => {
+  const vnode = await renderVNode(PageHeader, {}, createTestCtx())!
+  assert.ok(vnode, '空页头渲染')
+})

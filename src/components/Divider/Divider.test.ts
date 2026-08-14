@@ -32,3 +32,21 @@ describe('Divider', () => {
     assert.equal(vnode.props.children.props.children, '或')
   })
 })
+
+it('children 文本渲染（text 分隔）', async () => {
+  const vnode = await renderVNode(Divider, { children: '或' }, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-divider-text'), '文本标签类')
+  assert.ok(s.includes('或'), '文本渲染')
+})
+
+it('无 children 纯线（无标签结构）', async () => {
+  const vnode = await renderVNode(Divider, {}, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(!s.includes('wf-divider-text'), '纯线无标签')
+})
+
+it('role=separator（语义分隔）', async () => {
+  const vnode = await renderVNode(Divider, {}, createTestCtx())!
+  assert.equal(vnode.props.role, 'separator')
+})

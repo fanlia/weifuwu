@@ -45,3 +45,13 @@ describe('Icon', () => {
     }
   })
 })
+
+it('size 数值转 px', async () => {
+  const vnode = await renderVNode(Icon, { name: 'check', size: 16 }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('16'), '尺寸传递')
+})
+
+it('className 透传', async () => {
+  const vnode = await renderVNode(Icon, { name: 'close', className: 'my-icon' }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('my-icon'))
+})
