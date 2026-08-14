@@ -204,7 +204,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     const allowedFields = [
       'name', 'avatar_url', 'description', 'role_label', 'expertise',
       'model', 'system_prompt', 'temperature', 'max_tokens', 'human_in_the_loop',
-      'webhook_url', 'webhook_secret', 'webhook_retry_count', 'chunk_size', 'chunk_overlap', 'tools', 'is_active',
+      'webhook_url', 'webhook_secret', 'webhook_retry_count', 'im_bind_dept', 'chunk_size', 'chunk_overlap', 'tools', 'is_active',
       'workspace_path', 'allow_file_tools', 'allow_command_exec', 'allow_network', 'kb_id', 'monthly_token_quota',
     ]
 

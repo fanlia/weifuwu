@@ -106,6 +106,7 @@ async function main() {
   // 增量列（Wave 9 token 配额——ADD COLUMN IF NOT EXISTS 幂等）
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS monthly_token_quota INT NOT NULL DEFAULT 0`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS role_label TEXT`)
+  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS im_bind_dept UUID`)
   await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB`)
   await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS agent_run_states (message_id UUID PRIMARY KEY, agent_id UUID NOT NULL, department_id UUID NOT NULL, app_id UUID NOT NULL, steps JSONB NOT NULL DEFAULT '[]'::JSONB, status TEXT NOT NULL DEFAULT 'running', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
     await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS skill_ratings (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), skill_dir TEXT NOT NULL, app_id UUID NOT NULL, liked BOOLEAN NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE (skill_dir, app_id))`)
@@ -1072,6 +1073,49 @@ async function main() {
         : 400
       return Response.json({ error: message }, { status })
     }
+  })
+
+  // ── G8 补强：外部 IM 入站（企微/钉钉/飞书回调 → 绑定部门消息流 → AI 回复回显） ──
+  app.post('/api/im/:platform', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const body = await req.json().catch(() => ({}))
+    const { parseImInbound } = await import('./src/services/im-inbound.ts')
+    let msg: any
+    try {
+      msg = parseImInbound(ctx.params.platform, body as Record<string, any>)
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '解析失败' }, { status: 400 })
+    }
+
+    // 查绑定了部门的 IM 机器人（webhook agent + im_bind_dept 非空）
+    const agents = await pg.sql`
+      SELECT id, name, webhook_platform, webhook_url, im_bind_dept FROM agents
+      WHERE type = 'webhook' AND im_bind_dept IS NOT NULL AND is_active = TRUE
+      LIMIT 1
+    `
+    const whAgent = (Array.isArray(agents) ? agents : [agents])[0] as any
+    if (!whAgent?.im_bind_dept) {
+      return Response.json({ error: '未配置 IM 绑定部门（Webhook Agent 需绑定 im_bind_dept）' }, { status: 404 })
+    }
+
+    // 消息进绑定部门——同步收集 AI 回复（SSE 路径：write 回调分片——累积 buffer 再匹配）
+    let reply = ''
+    let sseBuf = ''
+    const { handleNewMessageStreamSSE } = await import('./src/services/chat.ts')
+    await handleNewMessageStreamSSE(ctx, String(whAgent.im_bind_dept), msg.content, (chunk: string) => {
+      sseBuf += chunk
+      const m = sseBuf.match(/event: wf:done[\s\S]*?data: (\{[\s\S]*?\})\n\n/)
+      if (m) {
+        try {
+          const evt = JSON.parse(m[1])
+          if (evt.content) reply = evt.content
+        } catch { /* 解析失败忽略 */ }
+      }
+    }).catch((e: any) => console.error('[im] 入站处理失败:', e?.message ?? e))
+
+    // 平台格式回显（回调响应即回复——钉钉/飞书/企微被动回复）
+    const { formatOutboundBody } = await import('./src/services/webhook-platform.ts')
+    const out = formatOutboundBody(String(whAgent.webhook_platform ?? 'generic'), reply || '（AI 未生成回复）', msg.conversationId)
+    return new Response(out, { headers: { 'Content-Type': 'application/json' } })
   })
 
   // ── UI / SPA ───────────────────────────────────────────

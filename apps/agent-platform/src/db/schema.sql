@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS agents (
   webhook_url TEXT,
   webhook_secret TEXT,               -- HMAC 签名密钥
   webhook_retry_count INT DEFAULT 3,  -- 失败重试次数
+  im_bind_dept UUID,                 -- G8 入站：IM 回调绑定的部门（IM 消息进该部门触发 AI）
 
   -- 知识库配置 (type='knowledge_base')
   chunk_size  INT DEFAULT 500,
