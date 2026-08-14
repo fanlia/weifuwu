@@ -66,6 +66,16 @@ node scripts/upgrade.mjs --backup-dir /data/backups
 
 ### 沙盒（可选组件）
 
+**Python/Office 环境**（2026-12）：沙盒镜像内置 python3 + Office 库
+（openpyxl/pandas/pypdf/python-docx/python-pptx）——AI 直接写脚本处理文件；
+高级库 `pip install --break-system-packages`（需 allow_network）。
+
+```bash
+docker build -f Dockerfile.sandbox -t ap-sandbox:latest .
+# .env: SANDBOX_IMAGE=ap-sandbox:latest
+```
+
+
 - 生产建议：沙盒与主服务同机（docker.sock 挂载）或独立沙盒节点
 - 安全基线：见 [docs/sandbox-threat-model.md](docs/sandbox-threat-model.md)（`--cap-drop ALL`/no-new-privileges 已默认）
 - 高安全：`SANDBOX_RUNTIME=runsc`（gVisor）+ 每租户配额（登记待做）

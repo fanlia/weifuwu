@@ -203,6 +203,11 @@ async function buildToolContext(
 
 /** C1/C3 共享：任务纪律提示 + 会话记忆加载（runAgent/streamAgent 共用） */
 const TASK_DISCIPLINE = `
+【沙盒环境】
+- python3 可用，预装库：openpyxl(Excel xlsx)/pandas(数据分析)/pypdf(PDF)/
+  python-docx(Word)/python-pptx(PPT)
+- 需要其他 Python 库时：pip install --break-system-packages <包>（需网络权限）
+- 处理文件（表格/文档/PDF）优先写 python 脚本经 bash 执行——不要只描述步骤
 【任务纪律】
 1. 工具失败时不要直接放弃：先尝试换一个工具/方案重试；确实无法完成时，在回复中明确说明"未能完成的原因"。
 2. 任务完成后按以下结构汇报：

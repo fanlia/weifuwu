@@ -1,0 +1,27 @@
+# agent-platform 沙盒镜像（AI 工具执行环境）
+#
+# 设计（用户决策 2026-12）：不预制 Office 技能套装——沙盒提供 python + pip +
+# 预装基础 Office 库，AI 按需自装工具并写代码处理文件（Excel/Word/PDF/PPT…）。
+#
+# 预装（离线可用）：apk 系统包（openpyxl/pandas/numpy/pypdf）+ pip 补装
+#                （python-docx/python-pptx——alpine 仓库无此二包）
+# AI 自装（需 allow_network）：pip install --break-system-packages 任意包
+#
+# 构建：docker build -f Dockerfile.sandbox -t ap-sandbox:latest .
+# 启用：.env 设 SANDBOX_IMAGE=ap-sandbox:latest
+#
+# 注：tool-runner.js 由平台运行时挂载（-v ...:/opt/sandbox/tool-runner.js:ro）；
+#     python 经 bash 工具调用（AI 写脚本 → python3 执行）
+
+FROM node:24-alpine
+
+# ── python + 预装 Office 库（apk 系统包 + pip 补装） ──
+RUN apk add --no-cache python3 py3-pip py3-openpyxl py3-pandas py3-numpy py3-pypdf \
+  && pip install --break-system-packages --no-cache-dir python-docx python-pptx
+
+# ── 非 root 用户（R2 威胁模型：容器内降权——node:24-alpine 自带 node 用户，
+#   与平台 docker.ts --user node 对齐；/ws 挂载卷由平台创建） ──
+USER node
+WORKDIR /ws
+
+CMD ["node", "/opt/sandbox/tool-runner.js"]

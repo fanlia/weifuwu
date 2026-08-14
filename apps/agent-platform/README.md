@@ -51,6 +51,11 @@ npm run dev        # node --watch server.ts → http://localhost:3000
 统一工具执行器 /opt/sandbox/tool-runner.js（stdin {tool,args} → stdout {ok,output}）
 ```
 
+**Python/Office 环境（用户决策 2026-12）**：不预制 Office 技能套装——沙盒内置 python3 +
+预装库（openpyxl/pandas/pypdf/python-docx/python-pptx），AI 按需写脚本处理
+Excel/Word/PDF/PPT；需要其他库时 `pip install --break-system-packages`（需网络权限）。
+镜像：`docker build -f Dockerfile.sandbox -t ap-sandbox:latest .` + `SANDBOX_IMAGE`。
+
 **生命周期（Heartbeat + 池上限）**：
 - 每次工具调用 `touch`（记录最后使用）→ 60s 扫描，超 `SANDBOX_IDLE_TIMEOUT`（默认 600s）无操作自动销毁容器
 - 池上限 `SANDBOX_MAX_CONTAINERS`（默认 20）——超限 LRU 驱逐最旧容器（即使刚用过也要让位）
