@@ -1,7 +1,7 @@
 {
   "name": "weifuwu",
   "type": "module",
-  "version": "0.82.8",
+  "version": "0.82.9",
   "description": "AI SaaS framework — (req, ctx) => Response",
   "exports": {
     ".": {
