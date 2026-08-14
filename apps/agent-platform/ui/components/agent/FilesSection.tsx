@@ -122,14 +122,21 @@ export const FilesSection: Component<{ agentId: string }> = async (_init, ctx) =
           {wsLoading && <Loading />}
           {!wsLoading && wsEntries.length === 0 && <EmptyState icon="📂" text="空目录" hint="沙盒内 AI 写文件后此处可见" />}
           {wsEntries.map((entry) => (
-            <button key={entry.name} type="button" class="wf-row wf-gap-xs wf-py-xs wf-fill wf-text-left"
-              onClick={() => openWsFile(entry)}>
-              <Icon name={entry.type === 'dir' ? 'folder' : 'file-text'} size={14} />
-              <span class="wf-text-sm wf-text-medium">{entry.name}{entry.type === 'dir' ? '/' : ''}</span>
-              <span class="wf-fill" />
-              {entry.type === 'file' && <span class="wf-text-xs wf-text-tertiary wf-nums">{entry.size > 1024 ? (entry.size / 1024).toFixed(1) + 'KB' : entry.size + 'B'}</span>}
+            <div key={entry.name} class="wf-row wf-gap-xs wf-py-xs wf-items-center">
+              <button type="button" class="wf-row wf-gap-xs wf-fill wf-text-left"
+                onClick={() => openWsFile(entry)}>
+                <Icon name={entry.type === 'dir' ? 'folder' : 'file-text'} size={14} />
+                <span class="wf-text-sm wf-text-medium wf-truncate">{entry.name}{entry.type === 'dir' ? '/' : ''}</span>
+              </button>
+              <span class="wf-text-xs wf-text-tertiary wf-nums">{entry.type === 'file' && entry.size > 1024 ? (entry.size / 1024).toFixed(1) + 'KB' : entry.size + 'B'}</span>
               <span class="wf-text-xs wf-text-tertiary wf-nums">{new Date(entry.mtime).toLocaleTimeString()}</span>
-            </button>
+              {entry.type === 'file' && (
+                <a class="wf-btn wf-btn--ghost wf-btn--sm" title="下载（AI 产物交付）"
+                  href={`/api/agents/${agentId}/workspace/file?path=${encodeURIComponent(wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`)}&download=1`}>
+                  <Icon name="arrow-down" size={13} />
+                </a>
+              )}
+            </div>
           ))}
         </>
       )}

@@ -77,12 +77,13 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     }
   })
 
-  // ── F2: 读文件 ────────────────────────────────────────
+  // ── F2: 读文件（?download=1 → 二进制下载流——AI 产物交付） ──
   app.get('/api/agents/:id/workspace/file', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
     const ws = await getWorkspace(ctx, params.id)
     if (!ws) return Response.json({ error: 'Agent 不存在或无工作空间' }, { status: 404 })
-    const rel = new URL(req.url).searchParams.get('path') ?? ''
+    const url = new URL(req.url)
+    const rel = url.searchParams.get('path') ?? ''
     if (!rel) return Response.json({ error: 'path 为必填' }, { status: 400 })
     let abs: string
     try {
@@ -94,6 +95,17 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
       const st = await stat(abs)
       if (st.isDirectory()) return Response.json({ error: '是目录——请用 list 接口' }, { status: 400 })
       const buf = await readFile(abs)
+      // P1-3 产物下载：二进制流 + Content-Disposition（AI 生成的 xlsx/pdf/图表交付）
+      if (url.searchParams.get('download') === '1') {
+        const pathMod = await import('node:path')
+        return new Response(new Uint8Array(buf), {
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${encodeURIComponent(pathMod.basename(rel))}"`,
+            'Content-Length': String(buf.length),
+          },
+        })
+      }
       // 二进制检测（null 字节）
       const isBinary = buf.includes(0)
       let content = ''
