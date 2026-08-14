@@ -204,6 +204,8 @@ export class DockerSandbox {
       '-m', '512m', '--memory-swap', '512m',
       '--cpus', '1',
       '--pids-limit', '256',
+      '--cap-drop', 'ALL',
+      '--security-opt', 'no-new-privileges',
       '--ulimit', 'nofile=1024:1024',
       '--user', 'node',
       this.opts.image,
