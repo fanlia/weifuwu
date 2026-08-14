@@ -107,7 +107,9 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS monthly_token_quota INT NOT NULL DEFAULT 0`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS role_label TEXT`)
   await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB`)
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS answer_cache (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, hits INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS skill_ratings (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), skill_dir TEXT NOT NULL, app_id UUID NOT NULL, liked BOOLEAN NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE (skill_dir, app_id))`)
+  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_skill_ratings_dir ON skill_ratings(skill_dir)`)
+    await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS answer_cache (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, hits INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_answer_cache_app ON answer_cache(app_id)`)
     await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS group_memories (department_id UUID PRIMARY KEY, summary TEXT, msg_count INT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS expertise TEXT`)
@@ -313,15 +315,63 @@ async function main() {
   // ── 公开 API（无需登录） ───────────────────────────────
   registerAuthRoutes(app)
 
-  // 可用技能列表（公开，无租户信息）
-  app.get('/api/skills/available', async (_req: Request, _ctx: AppCtx): Promise<Response> => {
+  // 可用技能列表（公开）+ C6 技能市场：?q= 搜索 + 全局评分聚合
+  app.get('/api/skills/available', async (req: Request, _ctx: AppCtx): Promise<Response> => {
     const { discoverSkills } = await import('./src/services/skills.ts')
     const { resolve, dirname } = await import('node:path')
     const { fileURLToPath } = await import('node:url')
     const __dirname = dirname(fileURLToPath(import.meta.url))
     const skillsDir = resolve(__dirname, 'skills', 'builtin')
-    const skills = await discoverSkills(skillsDir)
+    let skills = await discoverSkills(skillsDir)
+
+    // C6 搜索：name/description 匹配（大小写不敏感）
+    const q = new URL(req.url).searchParams.get('q')?.trim().toLowerCase() ?? ''
+    if (q) {
+      skills = skills.filter((sk: any) =>
+        String(sk?.meta?.name ?? '').toLowerCase().includes(q) ||
+        String(sk?.meta?.description ?? '').toLowerCase().includes(q) ||
+        String(sk?.dir ?? '').toLowerCase().includes(q),
+      )
+    }
+
+    // C6 评分聚合（全局——所有租户的评分）
+    try {
+      const ratings = await pg.sql`
+        SELECT skill_dir,
+          COALESCE(COUNT(*) FILTER (WHERE liked), 0)::int AS likes,
+          COALESCE(COUNT(*) FILTER (WHERE NOT liked), 0)::int AS dislikes
+        FROM skill_ratings GROUP BY skill_dir
+      `
+      // key 用路径 basename（绝对/相对路径环境无关——如 process-csv）
+      const base = (p: string) => String(p ?? '').split(/[\\/]/).filter(Boolean).pop() ?? ''
+      const map = new Map<string, { likes: number; dislikes: number }>(
+        (Array.isArray(ratings) ? ratings : [ratings]).map((r: any) => [
+          base(String(r.skill_dir ?? '')), { likes: Number(r.likes ?? 0), dislikes: Number(r.dislikes ?? 0) },
+        ]),
+      )
+      for (const sk of skills) {
+        const r = map.get(base(String(sk?.dir ?? ''))) ?? { likes: 0, dislikes: 0 }
+        ;(sk as any).rating = r
+      }
+    } catch { /* 评分表不存在——无评分 */ }
+
     return Response.json({ skills, skillsDir })
+  })
+
+  // C6 技能评分（登录——每租户每技能一次，upsert 可改评）
+  app.post('/api/skills/rate', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const body = await req.json().catch(() => ({})) as { skill_dir?: string; liked?: boolean }
+    if (!body.skill_dir) return Response.json({ error: 'skill_dir 为必填' }, { status: 400 })
+    const liked = !!body.liked
+    // key 统一 basename（绝对/相对路径一致）
+    const key = String(body.skill_dir).split(/[\\/]/).filter(Boolean).pop() ?? String(body.skill_dir)
+    const [row] = await pg.sql`
+      INSERT INTO skill_ratings (skill_dir, app_id, liked)
+      VALUES (${key.slice(0, 200)}, ${ctx.appId}, ${liked})
+      ON CONFLICT (skill_dir, app_id) DO UPDATE SET liked = EXCLUDED.liked
+      RETURNING skill_dir, liked
+    `
+    return Response.json({ rating: row })
   })
 
   // ── 角色模板列表（公开） ───────────────────────────────

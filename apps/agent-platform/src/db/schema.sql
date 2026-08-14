@@ -292,3 +292,14 @@ CREATE TABLE IF NOT EXISTS answer_cache (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_answer_cache_app ON answer_cache(app_id);
+
+-- ── C6 技能市场：租户级技能评分（like/dislike——聚合好评率） ──
+CREATE TABLE IF NOT EXISTS skill_ratings (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  skill_dir   TEXT NOT NULL,
+  app_id      UUID NOT NULL,
+  liked       BOOLEAN NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (skill_dir, app_id)
+);
+CREATE INDEX IF NOT EXISTS idx_skill_ratings_dir ON skill_ratings(skill_dir);
