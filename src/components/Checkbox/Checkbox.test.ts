@@ -60,3 +60,18 @@ it('checked=true 传递到 input checked', async () => {
   const vnode = await renderVNode(Checkbox, { label: 'x', checked: true }, createTestCtx())!
   assert.ok(vnode.props.children[0].props.checked)
 })
+
+it('非受控：原生点击切换 checked，onChange 携带勾选值', async () => {
+  let got: boolean | undefined
+  const vnode = await renderVNode(Checkbox, { label: '同意', onChange: (v: boolean) => { got = v } }, createTestCtx())!
+  const input = vnode.props.children[0]
+  assert.equal(input.props.checked, undefined, '非受控不传 checked')
+  input.props.onChange({ target: { checked: true } })
+  assert.equal(got, true, 'onChange 携带勾选值')
+})
+
+it('受控缺回调：点击不静默（onChange undefined 不报错）', async () => {
+  const vnode = await renderVNode(Checkbox, { checked: true, label: 'x' }, createTestCtx())!
+  const input = vnode.props.children[0]
+  assert.doesNotThrow(() => input.props.onChange?.({ target: { checked: false } }))
+})

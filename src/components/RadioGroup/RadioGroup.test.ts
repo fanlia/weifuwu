@@ -86,3 +86,9 @@ it('inline 布局类', async () => {
   const vnode = await renderVNode(RadioGroup, { options, inline: true }, createTestCtx())!
   assert.match(vnode.props.class, /inline/)
 })
+
+it('name 透传（表单提交组名）', async () => {
+  const options = [{ value: 'a', label: 'A' }]
+  const vnode = await renderVNode(RadioGroup, { name: 'role', options }, createTestCtx())!
+  assert.ok(JSON.stringify(vnode).includes('"name":"role"'), 'name 透传到 radio input')
+})

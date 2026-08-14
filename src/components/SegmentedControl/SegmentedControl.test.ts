@@ -101,3 +101,9 @@ it('空 options 不抛错（边界）', async () => {
   const vnode = await renderVNode(SegmentedControl, { options: [] }, createTestCtx())!
   assert.ok(vnode)
 })
+
+it('ariaLabel 透传（无障碍可访问名）', async () => {
+  const options = [{ value: 'a', label: 'A' }]
+  const vnode = await renderVNode(SegmentedControl, { options, ariaLabel: '视图切换' }, createTestCtx())!
+  assert.equal(vnode.props['aria-label'], '视图切换')
+})
