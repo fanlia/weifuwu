@@ -46,7 +46,7 @@
       let error = ''
       let submitting = false
       let connected = false
-      let wsReady = false
+      let confirmTimer = null        // 提交确认超时（防假提交）
 
       // 逐题同步（防抖 400ms——填完一题即推送到统计页）
       let debounceTimer = null
@@ -88,11 +88,17 @@
         }
         submitting = true
         ctx.ui.render()
-        // WS 提交（框架 ctx.ws——不落库，统计页实时 +1）
+        // WS 提交——等待服务端确认（真实 bug：WS 未连接时 send 排队永不
+        // flush，乐观锁导致'假提交'——AI 看到锁定以为成功，统计页无记录）
         ctx.ws?.send({ type: 'survey:submit', source, data })
-        // 等广播回执（survey:submitted 事件更新计数）——先本地乐观锁定
-        submitted = { id: '提交中...', count: 0 }
-        ctx.ui.render()
+        clearTimeout(confirmTimer)
+        confirmTimer = setTimeout(() => {
+          if (submitting && !submitted) {
+            submitting = false
+            error = '提交超时未确认（WS 未连接？）——请稍后重试'
+            ctx.ui.render()
+          }
+        }, 25000)
       }
 
       // 在线报到（WS 排队机制：连接前 send 自动 flush）
@@ -110,6 +116,7 @@
           if (msg.latest?.source === source) {
             submitted = { id: msg.latest.id ?? '', count: msg.count ?? 0 }
             submitting = false
+            clearTimeout(confirmTimer)
           }
           ctx.ui.render()
         }
@@ -159,7 +166,7 @@
               error && h('div', { class: 'error', style: { display: 'block' } }, error),
               h('div', { style: { marginTop: '24px' } },
                 h(Button, { variant: 'primary', type: 'submit', size: 'lg', disabled: submitting || lock },
-                  submitting ? '提交中...' : lock ? '已提交（锁定）' : '提交问卷'),
+                  submitting ? '提交中（等待确认）...' : lock ? '已提交（锁定）' : !connected ? '提交（连接中，稍候）' : '提交问卷'),
               ),
             ),
           ),

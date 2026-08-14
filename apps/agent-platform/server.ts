@@ -1330,7 +1330,14 @@ async function main() {
       for (const name of roleNames) {
         // ?s=角色名 → 填写页来源标识 → 统计页在线/进度按角色名显示
         const content = `@${name} 请填写问卷 http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(name)} 并按你的人设提交（填完即锁定）。完成后请执行 agent-browser close 关闭浏览器页面（否则统计页会一直显示你在线）`
-        void handleNewMessageStream(ctx, String(dept.id), senderId, content, '').catch(() => {})
+        // 派单失败不静默（真实事故：10 个派单随机 3 个失败被 catch 吞掉——
+        // 7/10 验收）——记录 + 重试一次
+        const dispatch = () => handleNewMessageStream(ctx, String(dept.id), senderId, content, '')
+        dispatch().catch(async (err: any) => {
+          console.error(`[launch] 派单失败 ${name}:`, err?.message ?? err)
+          await new Promise((r) => setTimeout(r, 3000))
+          dispatch().catch((err2: any) => console.error(`[launch] 重试失败 ${name}:`, err2?.message ?? err2))
+        })
         sent++
         await new Promise((r) => setTimeout(r, 1200)) // 错峰派单（沙盒容器错峰启动）
       }
