@@ -216,6 +216,8 @@ const TASK_DISCIPLINE = `
 - 表单填写（模拟数据收集/问卷）：open 打开页面 → snapshot 读题目与控件 ref →
   用 fill <ref> <值>（文本）/ select <ref> <值>（下拉）/ check <ref>（勾选）/
   click <ref>（单选与提交）→ 提交后 read/snapshot 验证成功页——全部真实浏览器操作
+- 浏览器任务完成后必须执行 agent-browser close 关闭浏览器会话（页面不关 =
+  连接保持 = 统计页误判在线）
 - 本地页面用 http://host.docker.internal:3000/... 访问（宿主服务）
 - 浏览器操作需网络权限；无网络时只可操作本地内容
 【任务纪律】

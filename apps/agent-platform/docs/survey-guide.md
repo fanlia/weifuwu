@@ -44,9 +44,9 @@ node --env-file=.env scripts/seed-survey-agents.mjs
 
 ### 方式 2：手动 @ 定向派单
 
-平台 → 模拟调研组 → 群里发：
+平台 → 模拟调研组 → 群里发（**记得加"完成后关闭浏览器页面"**——否则统计页一直显示在线）：
 ```
-@财务小王 请填写 http://host.docker.internal:3000/demo-survey?s=财务小王 问卷并提交
+@财务小王 请填写 http://host.docker.internal:3000/demo-survey?s=财务小王 问卷并提交（完成后执行 agent-browser close 关闭页面）
 ```
 支持任意组合（1 个/几个/全部角色）。
 
