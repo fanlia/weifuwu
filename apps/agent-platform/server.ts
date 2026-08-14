@@ -1326,31 +1326,33 @@ async function main() {
       `
       const roleNames = (Array.isArray(roles) ? roles : [roles]).map((r: any) => String(r.name ?? ''))
       const { handleNewMessageStream } = await import('./src/services/chat.ts')
-      let sent = 0
-      // 分批派单（每批 3 个 + 批次间隔 45s）：控制瞬时并发——
-      // 真实事故：10 个并发 AI 执行把 pg 连接池（默认 10）占满，
-      // 后续派单 SQL 30s 超时静默失败（pool acquire timed out）
-      const BATCH = 3
-      for (let i = 0; i < roleNames.length; i += BATCH) {
-        const batch = roleNames.slice(i, i + BATCH)
-        for (const name of batch) {
-          // ?s=角色名 → 填写页来源标识 → 统计页在线/进度按角色名显示
-          const content = `@${name} 请填写问卷 http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(name)} 并按你的人设提交（填完即锁定）。完成后请执行 agent-browser close 关闭浏览器页面（否则统计页会一直显示你在线）`
-          // 派单失败不静默——记录 + 重试一次
-          const dispatch = () => handleNewMessageStream(ctx, String(dept.id), senderId, content, '')
-          dispatch().catch(async (err: any) => {
-            console.error(`[launch] 派单失败 ${name}:`, err?.message ?? err)
-            await new Promise((r) => setTimeout(r, 3000))
-            dispatch().catch((err2: any) => console.error(`[launch] 重试失败 ${name}:`, err2?.message ?? err2))
-          })
-          sent++
-          await new Promise((r) => setTimeout(r, 1500)) // 批内错峰（容器错峰启动）
+      // 立即响应 + 后台分批派单（HTTP 不等——分批耗时 ~2min，长连接会断）
+      void (async () => {
+        // 分批派单（每批 3 个 + 批次间隔 45s）：控制瞬时并发——
+        // 真实事故：10 个并发 AI 执行把 pg 连接池（默认 10）占满，
+        // 后续派单 SQL 30s 超时静默失败（pool acquire timed out）
+        const BATCH = 3
+        for (let i = 0; i < roleNames.length; i += BATCH) {
+          const batch = roleNames.slice(i, i + BATCH)
+          for (const name of batch) {
+            // ?s=角色名 → 填写页来源标识 → 统计页在线/进度按角色名显示
+            const content = `@${name} 请填写问卷 http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(name)} 并按你的人设提交（填完即锁定）。完成后请执行 agent-browser close 关闭浏览器页面（否则统计页会一直显示你在线）`
+            // 派单失败不静默——记录 + 重试一次
+            const dispatch = () => handleNewMessageStream(ctx, String(dept.id), senderId, content, '')
+            dispatch().catch(async (err: any) => {
+              console.error(`[launch] 派单失败 ${name}:`, err?.message ?? err)
+              await new Promise((r) => setTimeout(r, 3000))
+              dispatch().catch((err2: any) => console.error(`[launch] 重试失败 ${name}:`, err2?.message ?? err2))
+            })
+            await new Promise((r) => setTimeout(r, 1500)) // 批内错峰（容器错峰启动）
+          }
+          if (i + BATCH < roleNames.length) {
+            await new Promise((r) => setTimeout(r, 45_000)) // 批次间隔：等前批完成（连接/容器释放）
+          }
         }
-        if (i + BATCH < roleNames.length) {
-          await new Promise((r) => setTimeout(r, 45_000)) // 批次间隔：等前批完成（连接/容器释放）
-        }
-      }
-      return Response.json({ success: true, sent, roles: roleNames })
+        console.log(`[launch] 后台分批派单完成：${roleNames.length} 个角色`)
+      })()
+      return Response.json({ success: true, sent: roleNames.length, scheduling: true, roles: roleNames })
     } catch (e: any) {
       return Response.json({ error: e?.message ?? 'launch 失败' }, { status: 500 })
     }
