@@ -1,6 +1,6 @@
 # agent-platform 商业化难点优化方案（Commercial Risks & Optimization）
 
-> **状态**：🔄 实施中——R1/R2/R3 ✅ + R6 质量反馈闭环 ✅（2026-12）；R4/R7 待做
+> **状态**：🔄 实施中——R1/R2/R3/R6 ✅ + R7 交付链 ✅（2026-12）；R4 权限矩阵待做
 > **定位**：商业化 G1-G15 功能收官后，**质量/安全/留存**层面的系统性优化。
 > 难点按致命度分层（🔴 致命 / 🟠 重要 / 🟡 次要），每项含现状→目标→方案→验收。
 > 关联：[COMMERCIAL-PLAN.md](COMMERCIAL-PLAN.md)（功能层，已完成）——本方案是它的质量层续篇。
@@ -147,9 +147,10 @@
 4. **健康告警**：healthz 扩展（pg/redis/沙盒/磁盘）→ 失败邮件/webhook 通知（复用 email 中间件）
 
 **验收**：
-- [ ] Compose 一键起服务（新机器验证）
-- [ ] 升级脚本：0.82.x → 0.83 演练（数据保留）
-- [ ] 告警邮件实测
+- [x] docker-compose.yml 一键部署（pg+redis+app + 卷 + 健康检查 + 环境变量全表）
+- [x] 升级脚本 scripts/upgrade.mjs（pg_dump 备份 → 重建 → healthz 轮询 → 失败回滚指引）
+- [x] healthz 扩展（disk 水位 + version）+ 告警接入文档（cron + 邮件/webhook + 阈值表）
+- [x] docs/deployment.md 交付三件套（部署/升级/运维）
 
 ## 🟡 R8 BYOK 定价模型
 

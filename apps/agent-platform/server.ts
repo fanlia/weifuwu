@@ -373,11 +373,20 @@ async function main() {
       const st = await sandbox.status()
       deps.sandbox = { available: st.available, enabled: st.enabled, imageReady: st.imageReady, mode: st.mode, poolSize: st.poolSize, maxContainers: st.maxContainers }
     } catch { deps.sandbox = 'unavailable' }
-    const healthy = deps.pg === true
+    // R7：磁盘水位 + 版本（运维告警/升级判断）
+    let disk: Record<string, any> | null = null
+    try {
+      const { statfs } = await import('node:fs/promises')
+      const st = await statfs(process.env.AGENT_WORKSPACE_ROOT ?? '.')
+      const total = st.blocks * st.bsize
+      const free = st.bfree * st.bsize
+      disk = { totalBytes: total, freeBytes: free, freePercent: Math.round(free / total * 100) }
+    } catch { disk = null }
+    const healthy = deps.pg === true && (!disk || disk.freePercent > 5)
     const startTime = (globalThis as any).__platform_metrics?.startTime
     const uptimeSec = startTime ? Math.round((Date.now() - startTime) / 1000) : 0
     return Response.json(
-      { status: healthy ? 'ok' : 'degraded', uptimeSec, deps, ts: new Date().toISOString() },
+      { status: healthy ? 'ok' : 'degraded', uptimeSec, deps, disk, version: '0.82.2', ts: new Date().toISOString() },
       { status: healthy ? 200 : 503 },
     )
   })
