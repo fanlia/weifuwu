@@ -38,7 +38,7 @@ const ROLE_TEMPLATES = [
     default_allow_file_tools: true,
     default_allow_command_exec: true,
     default_workspace_hint: '/data/projects/demo',
-    default_skills: ['search-knowledge-base', 'get-current-time'],
+    default_skills: ['search-knowledge-base', 'get-current-time', 'process-csv', 'fetch-url'],
   },
   {
     slug: 'customer-support',
@@ -62,7 +62,7 @@ const ROLE_TEMPLATES = [
     default_allow_file_tools: true,
     default_allow_command_exec: true,
     default_workspace_hint: '/data/ops/scripts',
-    default_skills: ['search-knowledge-base', 'get-current-time'],
+    default_skills: ['search-knowledge-base', 'get-current-time', 'fetch-url'],
   },
 ]
 
