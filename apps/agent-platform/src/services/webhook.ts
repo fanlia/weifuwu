@@ -170,6 +170,14 @@ async function fetchWithRetry(
  * 5. 记录调用日志到 webhook_logs
  * 6. 返回响应
  */
+/** R3 计量收口：Webhook 调用前查计划配额（免费版到期/超限 → 拒绝） */
+export async function planBlockForApp(ctx: AppCtx, appId: string): Promise<string | null> {
+  try {
+    const { planBlockReason } = await import('./plan.ts')
+    return await planBlockReason(ctx.sql, appId)
+  } catch { return null }
+}
+
 export async function handleWebhookMessage(
   ctx: AppCtx,
   agentId: string,

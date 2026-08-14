@@ -75,9 +75,13 @@ async function loadKbMembers(ctx: AppCtx, departmentId: string): Promise<Array<R
 }
 
 /** @ 命中知识库机器人 → 检索 top3 拼接回复（纯确定性，不调 LLM）；无命中/相似度过低 → null */
-async function kbReplyFor(ctx: AppCtx, kb: Record<string, any>, query: string): Promise<string | null> {
+async function kbReplyFor(ctx: AppCtx, kb: Record<string, any>, query: string, departmentId: string): Promise<string | null> {
   try {
     const { sql } = ctx
+    // R3 计量收口：KB 检索也受计划配额约束（免费版到期/超限 → 不检索）
+    const { planBlockReason } = await import('./plan.ts')
+    const block = await planBlockReason(sql, ctx.appId)
+    if (block) return block
     const embedding = await ctx.ai.embed(query)
     const vecStr = `[${embedding.join(',')}]`
     const chunks = (await sql`
@@ -91,6 +95,13 @@ async function kbReplyFor(ctx: AppCtx, kb: Record<string, any>, query: string): 
     `) as unknown as Array<Record<string, any>>
     const hits = chunks.filter((c) => Number(c.similarity) > 0.1)
     if (hits.length === 0) return null
+    // R3：KB 检索计量（agent_logs 记录调用——配额/成本/ROI 口径一致）
+    try {
+      await sql`
+        INSERT INTO agent_logs (agent_id, app_id, department_id, messages_count, steps_count, tokens_prompt, tokens_completion, tokens_total, elapsed_ms, success)
+        VALUES (${kb.id}, ${ctx.appId}, ${departmentId}, 1, 0, 0, 0, 0, 50, true)
+      `
+    } catch { /* 计量失败不阻断检索 */ }
     return `📚 知识库检索结果（${kb.name}）：\n\n` + hits
       .map((c) => `【${c.filename}】${String(c.content).slice(0, 400)}`)
       .join('\n\n')
@@ -149,7 +160,7 @@ export async function handleNewMessage(
       const kbHit = kbAgents.filter((a) => mentioned[String(a.name).trim()])
       if (kbHit.length > 0) {
         for (const kb of kbHit) {
-          const reply = await kbReplyFor(ctx, kb, messageContent)
+          const reply = await kbReplyFor(ctx, kb, messageContent, departmentId)
           if (reply) await persistKbReply(ctx, departmentId, kb, reply)
         }
         return // @ KB 时只回复 KB，不触发 AI
@@ -498,7 +509,7 @@ async function runAllAgents(
       const kbHit = kbAgents.filter((a) => mentioned.has(String(a.name).trim()))
       if (kbHit.length > 0) {
         for (const kb of kbHit) {
-          const reply = await kbReplyFor(ctx, kb, messageContent)
+          const reply = await kbReplyFor(ctx, kb, messageContent, departmentId)
           if (reply) await persistKbReply(ctx, departmentId, kb, reply)
         }
         return // @ KB 时只回复 KB，不触发 AI

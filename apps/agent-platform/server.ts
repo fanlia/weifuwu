@@ -795,6 +795,14 @@ async function main() {
         return Response.json({ error: 'Request body too large (max 64KB)' }, { status: 413 })
       }
       const body = await req.json()
+      // R3 计量收口：Webhook 调用受计划配额约束（免费版到期/超限 → 402）
+      const { planBlockForApp } = await import('./src/services/webhook.ts')
+      const [whAgent] = await ctx.sql`SELECT app_id FROM agents WHERE id = ${ctx.params.agentId} AND type = 'webhook'`
+      const whAppId = whAgent ? String(whAgent.app_id ?? '') : ''
+      if (whAppId) {
+        const block = await planBlockForApp(ctx, whAppId)
+        if (block) return Response.json({ error: block }, { status: 402 })
+      }
       const signature = req.headers.get('x-signature') ?? undefined
       const result = await handleWebhookMessage(ctx, ctx.params.agentId, body, undefined, signature,
         req.headers.get('x-timestamp') ?? undefined, req.headers.get('x-nonce') ?? undefined)
