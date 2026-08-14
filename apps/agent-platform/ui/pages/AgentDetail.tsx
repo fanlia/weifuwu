@@ -23,7 +23,7 @@ interface AgentDetailState {
   name: string; description: string; roleLabel: string; expertise: string; systemPrompt: string
   aiModel: string; aiTemperature: string; aiMaxTokens: string; aiQuota: string; quotaUsed: number
   aiHITL: boolean; riskPolicy: string; lightModel: string; memory: string; memoryLoaded: boolean; quality: any; webhookUrl: string; webhookPlatform: string; webhookSecret: string
-  webhookRetryCount: string; secretVisible: boolean
+  webhookRetryCount: string; secretVisible: boolean; imBindDept: string; deptOptions: Array<{ id: string; name: string }>
     kbOptions: Array<{ id: string; name: string }>; kbId: string
       previewQuery: string; previewText: string; previewing: boolean
   allowFileTools: boolean; allowCommandExec: boolean; allowNetwork: boolean
@@ -47,6 +47,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiQuota = '0'; $.quotaUsed = 0
     $.aiHITL = false; $.riskPolicy = 'auto'; $.lightModel = ''; $.memory = ''; $.memoryLoaded = false; $.quality = null; $.webhookUrl = ''; $.webhookPlatform = 'generic'; $.webhookSecret = ''
     $.webhookRetryCount = '3'; $.secretVisible = false
+    $.imBindDept = ''; $.deptOptions = []
     $.allowFileTools = false; $.allowCommandExec = false; $.allowNetwork = false
 
     $.boundSkills = []; $.availableSkills = []; $.showSkillPicker = false
@@ -56,7 +57,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
       ctx.api!.get(`/api/agents/${agentId}/skills`).catch(() => ({ skills: [] })),
       ctx.api!.get('/api/skills/available').catch(() => ({ skills: [] })),
       ctx.api!.get('/api/agents?type=knowledge_base').catch(() => ({ agents: [] })),
-    ]).then(([agentRes, skillRes, availRes, kbRes]) => {
+      ctx.api!.get('/api/departments').catch(() => ({ departments: [] })),
+    ]).then(([agentRes, skillRes, availRes, kbRes, deptRes]) => {
+      $.deptOptions = (deptRes.departments ?? []).filter((d: any) => !d.is_dm).map((d: any) => ({ id: d.id, name: d.name }))
       const a = agentRes.agent ?? agentRes
       if (!a?.id) { $.notFound = true; $.loading = false; rerender(); return }
       $.agent = a; $.name = a.name ?? ''; $.description = a.description ?? ''
@@ -75,6 +78,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
         void ctx.api!.get<any>(`/api/agents/${a.id}/quality`).then((d) => { $.quality = d; rerender() }).catch(() => {})
       }
       $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
+      $.imBindDept = a.im_bind_dept ?? ''
       $.kbId = a.kb_id ?? ''
       $.allowFileTools = a.allow_file_tools ?? false
       $.allowCommandExec = a.allow_command_exec ?? false
@@ -133,6 +137,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       body.webhook_platform = $.webhookPlatform
       body.webhook_secret = $.webhookSecret
       body.webhook_retry_count = parseInt($.webhookRetryCount) || 3
+      body.im_bind_dept = $.imBindDept || null
     }
     try {
       await ctx.api!.put(`/api/agents/${agentId}`, body)
@@ -423,6 +428,11 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   <Input readonly value={webhookFullUrl()} />
                   <Button type="button" variant="ghost" onClick={() => { void ctx.browser?.copyText(webhookFullUrl()); ctx.toast!('已复制', 'success') }}><Icon name="copy" size={14} /></Button>
                 </div>
+              </Field>
+              <Field label="IM 群绑定" hint="IM 入站：外部平台群消息（企微/钉钉/飞书回调）进该部门，AI 像群里同事一样回复并回显">
+                <Select value={$.imBindDept}
+                  onChange={(v: string | string[]) => { const val = Array.isArray(v) ? '' : v; $.imBindDept = val; rerender() }}
+                  options={[{ value: '', label: '不绑定（仅 Webhook 直连）' }, ...$.deptOptions.map((d) => ({ value: d.id, label: d.name }))]} />
               </Field>
               <Field label="对接指南" hint="外部系统接入示例——复制即用，自动带上当前 Secret 签名">
                 <div class="wf-row wf-gap-xs">
