@@ -48,6 +48,8 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/routes/messages.ts', match: 'UPDATE messages SET content', reason: '间接隔离——先查 msg（a.app_id）再改（264 行同 DELETE 模式）' },
   { file: 'src/routes/messages.ts', match: 'DELETE FROM messages WHERE id', reason: '间接隔离——先查 msg（WHERE a.app_id = appId）再删（308 行）' },
   { file: 'src/services/chat.ts', match: 'FROM messages m JOIN agents', reason: '间接隔离——department_id 来自已校验部门（会话上下文）' },
+  { file: 'src/services/permissions.ts', match: 'SELECT dm.role FROM department_members', reason: '间接隔离——departmentId 来自调用方上下文（审批/成员管理已校验归属）' },
+  { file: 'src/services/permissions.ts', match: 'FROM _weifuwu_app_members', reason: '系统表（框架 userSystem 平台级隔离）' },
   // ── 间接隔离批量登记（外键归属上游已校验——逐条审查过） ──
   { file: 'src/routes/agents.ts', match: 'total_tokens', reason: '间接隔离——agent_id 来自上方 agents 列表（已 WHERE app_id，74 行）' },
   { file: 'src/routes/departments.ts', match: 'dm1.agent_id = ${me.id}', reason: '间接隔离——me 是当前用户 Agent（app_id 限定）；target 上游校验（47 行 a.app_id）' },
