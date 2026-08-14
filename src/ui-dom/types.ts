@@ -285,6 +285,9 @@ export interface WfuiContext {
   /** 浏览器环境抽象（SSR shim 安全默认）——组件禁直接 window/document */
   browser?: BrowserEnv
 
+  /** i18n（i18n() 中间件注入——运行时语言切换 + 应用级文案） */
+  i18n?: import('./i18n.ts').I18nState
+
   /** UI 框架能力（由 createApp.mount 注入） */
   ui: {
     /** 触发组件重渲染（同步，无参 = 当前组件） */

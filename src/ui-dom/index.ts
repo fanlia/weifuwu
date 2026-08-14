@@ -21,6 +21,8 @@ export type { ApiClient, ApiOptions, ApiRequestOptions, ApiInjected } from './mi
 export { auth } from './middleware/auth.ts'
 export type { AuthClient, AuthInjected } from './middleware/auth.ts'
 export { ws } from './middleware/ws.ts'
+export { i18n } from './i18n.ts'
+export type { I18nState, I18nInjected, I18nOptions } from './i18n.ts'
 export type { WsClient, WsInjected } from './middleware/ws.ts'
 export type {
   UIRequest,

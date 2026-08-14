@@ -1,6 +1,7 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { AuthPage, Avatar, Field, Input, PasswordInput } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
+import { authErrorKey } from '../lib/i18n'
 import { track } from '../lib/track'
 
 interface RegisterState {
@@ -22,7 +23,7 @@ export const Register: Component = async (_props, ctx) => {
         body: JSON.stringify({ email: $.email, name: $.name, password: $.password }),
       })
       const data = await res.json()
-      if (!res.ok) { $.error = data.error || '注册失败'; $.loading = false; rerender(); return }
+      if (!res.ok) { const k = authErrorKey(data.error); $.error = k ? (ctx.i18n?.t(k) ?? data.error) : (data.error || '注册失败'); $.loading = false; rerender(); return }
       ctx.auth?.login(data.token, data.user, data.refreshToken)
       track('register_complete')
       $.loading = false

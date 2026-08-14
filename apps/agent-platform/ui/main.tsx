@@ -4,7 +4,8 @@
  * agent-platform 前端入口
  */
 
-import { api, auth, ws } from 'weifuwu/ui-dom'
+import { api, auth, ws, i18n } from 'weifuwu/ui-dom'
+import { APP_MESSAGES } from './lib/i18n'
 import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
 import { EmptyState, confirm as uiDomConfirm, toast as uiDomToast } from 'weifuwu/components'
 
@@ -57,6 +58,9 @@ app.use(api({
     return false
   },
 }))
+// i18n（应用级文案——服务端英文错误经 key 映射中文）
+app.use(i18n({ locale: 'zh-CN', messages: APP_MESSAGES }))
+
 app.use(auth({
   storage: localStorage,
   tokenKey: 'agent_platform_token',

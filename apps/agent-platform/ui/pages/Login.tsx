@@ -2,6 +2,7 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { setRefreshToken } from '../lib/api'
 import { AuthPage, Avatar, Field, Input, PasswordInput } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
+import { authErrorKey } from '../lib/i18n'
 
 interface LoginState {
   email: string; password: string; error: string; loading: boolean
@@ -26,13 +27,13 @@ export const Login: Component = async (_props, ctx) => {
         body: JSON.stringify({ email: $.email, password: $.password }),
       })
       const data = await res.json()
-      if (!res.ok) { $.error = data.error || '登录失败'; $.loading = false; rerender(); return }
+      if (!res.ok) { const k = authErrorKey(data.error); $.error = k ? (ctx.i18n?.t(k) ?? data.error) : (data.error || '登录失败'); $.loading = false; rerender(); return }
 
       // 2. 应用内登录（/api/auth/apps/:slug/login）——token 带 appId，业务 API 隔离所需
       //    单应用直接进；多应用取第一个（应用选择器后续迭代）
       const apps = data.apps ?? []
       if (!apps.length) {
-        $.error = '该账号尚未加入任何应用'
+        $.error = ctx.i18n?.t('err.app_not_joined') ?? '该账号尚未加入任何应用'
         $.loading = false
         rerender()
         return
