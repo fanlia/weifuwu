@@ -252,6 +252,33 @@ export const Settings: Component = async (_props, ctx) => {
       </Card>
 
       <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="database" size={14} /> 数据与账号</div>
+        <div class="wf-stack wf-gap-sm">
+          <div class="wf-split wf-py-xs wf-border-b wf-items-center">
+            <div class="wf-stack wf-gap-none">
+              <span class="wf-text-sm">导出我的数据</span>
+              <span class="wf-text-xs wf-text-tertiary">账号资料/成员关系/Agent/消息（JSON 下载）</span>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => { window.open('/api/auth/export', '_blank') }}>导出</Button>
+          </div>
+          <div class="wf-split wf-py-xs wf-items-center">
+            <div class="wf-stack wf-gap-none">
+              <span class="wf-text-sm wf-text-error">删除账号</span>
+              <span class="wf-text-xs wf-text-tertiary">匿名化你的身份（消息/日志保留，不可恢复）</span>
+            </div>
+            <Button size="sm" variant="danger" onClick={async () => {
+              if (!window.confirm('确定删除账号？你的身份将被匿名化，此操作不可恢复。')) return
+              try {
+                await ctx.api!.delete('/api/auth/account')
+                ctx.auth?.logout?.()
+                ctx.app?.navigate('/login')
+              } catch (e) { window.alert('删除失败：' + errMsg(e, '未知错误')) }
+            }}>删除账号</Button>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="activity" size={14} /> 系统状态</div>
         {$.sysHealth ? (
           <div class="wf-stack wf-gap-xs">

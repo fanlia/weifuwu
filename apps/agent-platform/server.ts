@@ -546,6 +546,57 @@ async function main() {
     return Response.json({ user })
   })
 
+  // ── R10 GDPR：数据导出（用户可带走自己的数据） ───────────
+
+  protectedRoutes.get('/api/auth/export', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, auth } = ctx
+    const uid = auth!.userId
+    const [profile] = await sql`SELECT id, email, name, created_at FROM _weifuwu_users WHERE id = ${uid}`
+    const memberships = await sql`
+      SELECT a.slug, a.name, m.role FROM _weifuwu_app_members m
+      JOIN _weifuwu_apps a ON a.id = m.app_id WHERE m.user_id = ${uid}
+    `
+    const agents = await sql`
+      SELECT id, app_id, type, name, description, created_at FROM agents WHERE user_id = ${uid}
+    `
+    const messages = await sql`
+      SELECT m.id, m.department_id, m.content, m.msg_type, m.created_at
+      FROM messages m JOIN agents a ON a.id = m.sender_id
+      WHERE a.user_id = ${uid}
+    `
+    const data = { profile, memberships, agents, messages }
+    return new Response(JSON.stringify(data, null, 2), {
+      headers: { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="my-data.json"' },
+    })
+  })
+
+  // ── R10 GDPR：账号删除（匿名化级联——保留业务数据，去用户身份） ──
+
+  protectedRoutes.delete('/api/auth/account', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, auth } = ctx
+    const uid = auth!.userId
+    // 1) 匿名化平台账号（email 唯一约束 → 用 deleted-{id} 占位；密码失效）
+    await sql`
+      UPDATE _weifuwu_users
+      SET email = ${`deleted-${String(uid).slice(0, 8)}@deleted.local`},
+          name = '已删除用户',
+          password_hash = NULL
+      WHERE id = ${uid}
+    `
+    // 2) 停用绑定的 user Agent（消息历史 sender 不再关联真实身份）
+    await sql`UPDATE agents SET is_active = FALSE, name = '已删除用户' WHERE user_id = ${uid}`
+    // 3) 移除成员关系
+    await sql`DELETE FROM _weifuwu_app_members WHERE user_id = ${uid}`
+    // 4) 清除会话（refresh token 失效）
+    await sql`DELETE FROM _weifuwu_sessions WHERE user_id = ${uid}`
+    // 审计（用户 id 已匿名——记录 app 级事件）
+    try {
+      const { writeAudit } = await import('./src/services/audit.ts')
+      await writeAudit(ctx as any, { action: 'account_deleted', target_type: 'user', target_id: String(uid), detail: {} })
+    } catch { /* 尽力 */ }
+    return Response.json({ success: true, message: '账号已删除（数据已匿名化）' })
+  })
+
   // 修改密码
   protectedRoutes.put('/api/auth/password', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, auth } = ctx

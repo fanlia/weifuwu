@@ -1,6 +1,6 @@
 # agent-platform 商业化难点优化方案（Commercial Risks & Optimization）
 
-> **状态**：✅ Phase A+B 全部完成（R1-R4/R6/R7，2026-12）——剩 Phase C（R5/R8-R11 按需）
+> **状态**：✅ Phase A+B 完成 + R10 合规 ✅（2026-12）——剩 R5/R8/R9/R11 按需
 > **定位**：商业化 G1-G15 功能收官后，**质量/安全/留存**层面的系统性优化。
 > 难点按致命度分层（🔴 致命 / 🟠 重要 / 🟡 次要），每项含现状→目标→方案→验收。
 > 关联：[COMMERCIAL-PLAN.md](COMMERCIAL-PLAN.md)（功能层，已完成）——本方案是它的质量层续篇。
