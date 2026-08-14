@@ -143,7 +143,14 @@
 
 ### 待滚动组
 
-组 3 表单增强（11）→ 组 7 AI（9）→ 组 8 长尾（36）
+组 7 AI（9）→ 组 8 长尾（36）
+
+### 组 3 表单增强（2026-12）
+
+| 组件 | 功能列（单测） | 交互列（agent-browser 实测） | 结果 |
+|------|--------------|----------------------------|------|
+| Field | 10（+5：error 隐藏 hint/--err 类/无 label 精简/required 星号/label 元素） | — | ✅ |
+| Form 19 / FileUpload 12 / SearchInput 10 / PasswordInput 10 / InputNumber 9 / TagsInput 9 / ProgressBar 7 | 既有覆盖 | Form 空提交 4 错误→逐字段精准→补全提交成功；InputNumber 步进 0.7→0.6；TagsInput 真实输入+Enter 添加标签 | ✅ |
 
 ### 组 6 导航组件（2026-12）
 
