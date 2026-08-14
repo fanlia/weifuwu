@@ -267,6 +267,25 @@ export async function handleNewMessage(
           type: 'ai_draft',
           message: { id: draftMsg.id, agentId: agent.id, agentName: agent.name, draft: content, departmentId, createdAt: draftMsg.created_at },
         })
+
+        // 邮件通知租户 owner（商业化 G5——审批不打开页面也能收到提醒）
+        try {
+          const owners = await sql`
+            SELECT u.email, u.name FROM _weifuwu_app_members m
+            JOIN _weifuwu_users u ON u.id = m.user_id
+            WHERE m.app_id = ${ctx.appId} AND m.role = 'owner'
+          `
+          for (const owner of owners as Array<{ email: string; name?: string }>) {
+            if (!owner.email) continue
+            const mailer = (ctx as any).email
+            await mailer?.send?.({
+              to: owner.email,
+              subject: `[Agent Platform] 审批请求：${agent.name ?? 'AI Agent'} 需要您的确认`,
+              text: `${agent.name ?? 'AI Agent'} 在部门对话中请求审批以下内容：\n\n${content.slice(0, 200)}${content.length > 200 ? '…' : ''}\n\n请登录平台处理：${process.env.PUBLIC_BASE_URL ?? 'https://localhost:3000'}/approvals`,
+              html: `<p><b>${agent.name ?? 'AI Agent'}</b> 在部门对话中请求审批：</p><blockquote style="border-left:3px solid #4f6ef7;padding-left:12px;color:#555">${content.slice(0, 200)}${content.length > 200 ? '…' : ''}</blockquote><p><a href="${process.env.PUBLIC_BASE_URL ?? 'https://localhost:3000'}/approvals">前往审批 →</a></p>`,
+            })
+          }
+        } catch { /* 邮件失败不阻断审批流程 */ }
       } else {
         // 自动回复
         const [replyMsg] = await sql`

@@ -214,6 +214,7 @@ export const Settings: Component = async (_props, ctx) => {
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="shield" size={14} /> 审计日志</div>
         <div class="wf-row wf-gap-xs wf-items-center wf-mb-sm">
           <span class="wf-text-xs wf-text-tertiary">登录、Agent 变更与审批操作记录（最近 20 条）</span>
+          <Button size="sm" variant="ghost" onClick={() => { window.open('/api/audit/export', '_blank') }}><Icon name="file-text" size={14} /> 导出 CSV</Button>
           <div style="width: 140px; margin-left: auto">
             <Select value={$.auditFilter} onChange={(v: string | string[]) => { const val = Array.isArray(v) ? '' : v; $.auditFilter = val; void loadAudit(val || undefined) }}
               options={[{ value: '', label: '全部操作' }, { value: 'login_success', label: '登录' }, { value: 'agent_create', label: '创建 Agent' }, { value: 'agent_update', label: '更新 Agent' }, { value: 'agent_delete', label: '删除 Agent' }, { value: 'approval', label: '审批' }]} />

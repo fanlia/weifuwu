@@ -9,7 +9,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, ui, userSystem, ai, messager, rateLimit, verifyPassword } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, ui, userSystem, ai, messager, rateLimit, verifyPassword, email } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -415,6 +415,27 @@ async function main() {
     return Response.json(result)
   })
 
+  // 商业化 G6：审计日志 CSV 导出（合规——数据可带走）
+  protectedRoutes.get('/api/audit/export', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { listAudit } = await import('./src/services/audit.ts')
+    const url = new URL(req.url ?? '', 'http://localhost')
+    const action = url.searchParams.get('action') ?? undefined
+    const { entries } = await listAudit(ctx, { limit: 100, action })
+    const esc = (v: unknown) => { const s = String(v ?? ''); return `"${s.replace(/"/g, '""')}"` }
+    const head = '时间,操作,操作人,目标类型,详情'
+    const rows = (entries as any[]).map((e) => [
+      e.created_at ?? '', e.action ?? '', e.user_name ?? '', e.target_type ?? '',
+      JSON.stringify(e.detail ?? ''),
+    ].map(esc).join(','))
+    const csv = '\uFEFF' + [head, ...rows].join('\n')
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="audit-${ctx.appId.slice(0, 8)}-${Date.now()}.csv"`,
+      },
+    })
+  })
+
   // ── 用户设置 ─────────────────────────────────────────────
   // 更新个人资料
   protectedRoutes.put('/api/auth/profile', async (req: Request, ctx: AppCtx): Promise<Response> => {
@@ -649,6 +670,24 @@ async function main() {
   // ── WebSocket（框架 messager：房间广播 + Redis 跨进程） ──
   const messagerSystem = messager({ sql: pg.sql, redis: redisClient?.redis })
   app.use(messagerSystem)
+
+  // ── 邮件通知（商业化 G5：审批请求通知）——无 SMTP/RESEND 配置时降级 no-op ──
+  app.use(email({
+    from: process.env.EMAIL_FROM ?? 'no-reply@agent-platform.local',
+    adapter: process.env.SMTP_HOST
+      ? 'smtp'
+      : process.env.RESEND_API_KEY
+        ? 'resend'
+        : (async () => ({ ok: true, id: 'noop' })) as any,  // 未配置：no-op 适配器（不阻断）
+    smtp: process.env.SMTP_HOST ? {
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT ?? 587),
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+      secure: process.env.SMTP_SECURE === 'true',
+    } : undefined,
+    resend: process.env.RESEND_API_KEY ? { apiKey: process.env.RESEND_API_KEY } : undefined,
+  }))
   app.ws('/ws', messagerSystem.client.handler())
 
   // ── Webhook 入口 ───────────────────────────────────────
