@@ -95,6 +95,9 @@
         ctx.ui.render()
       }
 
+      // 在线报到（WS 排队机制：连接前 send 自动 flush）
+      ctx.ws?.send({ type: 'survey:hello', source })
+
       ctx.ws?.onMessage((msg) => {
         if (msg?.type === 'connected') { connected = true; ctx.ui.render() }
         if (msg?.type === 'survey:state') {

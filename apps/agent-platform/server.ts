@@ -1054,6 +1054,12 @@ async function main() {
     message: (ws: any, ctx: any, data: string | Buffer) => {
       try {
         const msg = JSON.parse(String(data))
+        // 在线报到：填写页连接后发 hello（统计页只订阅不发——不计入在线）
+        if (msg.type === 'survey:hello' && msg.source) {
+          surveyOnline.set(ws, { source: String(msg.source).slice(0, 40), at: new Date().toISOString() })
+          surveyBroadcastOnline()
+          return
+        }
         if (msg.type === 'survey:answer' && msg.question) {
           // 逐题同步：填写页每完成一题 → 广播（统计页实时滚动）
           const record = {
@@ -1082,7 +1088,10 @@ async function main() {
         }
       } catch { /* 解析失败忽略 */ }
     },
-    close: (ws: any, ctx: any) => ctx.hub.leave(ws),
+    close: (ws: any, ctx: any) => {
+      ctx.hub.leave(ws)
+      if (surveyOnline.delete(ws)) surveyBroadcastOnline()   // 下线 → 实时更新在线人数
+    },
   })
 
   // ── Webhook 入口 ───────────────────────────────────────
@@ -1187,6 +1196,7 @@ async function main() {
   const surveySubmissions: Array<Record<string, unknown>> = []    // 已提交（内存）
   const surveyLimit = 20
   let surveyHub: import('weifuwu').Hub | null = null              // WS 房间（app.ws open 时捕获）
+  const surveyOnline = new Map<any, { source: string; at: string }>()  // 在线填写者（ws → source）
   const surveyBroadcast = (event: Record<string, unknown>) => {
     surveyHub?.send('survey-live', JSON.stringify(event))
   }
@@ -1195,7 +1205,15 @@ async function main() {
     count: surveySubmissions.length,
     answers: surveyAnswers.slice(-surveyLimit),
     submissions: surveySubmissions.slice(-surveyLimit),
+    online: { count: surveyOnline.size, sources: [...surveyOnline.values()].map((v) => v.source) },
   })
+  const surveyBroadcastOnline = () => {
+    surveyBroadcast({
+      type: 'survey:online',
+      count: surveyOnline.size,
+      sources: [...surveyOnline.values()].map((v) => v.source),
+    })
+  }
 
   // ── 本地 CDN：问卷 CDN 页面的框架资源（dist——客户环境可无外网） ──
   const distRoot = join(__dirname, '..', '..', 'dist')

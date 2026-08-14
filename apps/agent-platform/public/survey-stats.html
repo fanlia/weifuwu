@@ -44,6 +44,7 @@
       let submissions = []             // 已提交
       let bumpTick = 0                 // 计数跳动动画触发
       let connected = false
+      let online = { count: 0, sources: [] }   // 在线填写者
 
       const refresh = (s) => {
         count = s.count ?? count
@@ -64,6 +65,10 @@
           count = msg.count ?? count
           if (msg.latest) submissions = [...submissions, msg.latest]
           bumpTick++
+          ctx.ui.render()
+        }
+        if (msg?.type === 'survey:online') {
+          online = { count: msg.count ?? 0, sources: msg.sources ?? [] }
           ctx.ui.render()
         }
       })
@@ -100,10 +105,15 @@
               : h(Badge, { variant: 'warning' }, '连接中...'),
           ),
 
-          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' } },
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' } },
             h(Card, { variant: 'default', padding: 'md' },
               h('div', { key: `c${bumpTick}`, class: 'bump', style: { fontSize: '30px', fontWeight: 700, color: 'var(--wf-color-success)' } }, String(count)),
               h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '已提交（锁定）'),
+            ),
+            h(Card, { variant: 'default', padding: 'md' },
+              h('div', { key: `o${online.count}-${bumpTick}`, class: 'bump', style: { fontSize: '30px', fontWeight: 700, color: 'var(--wf-color-primary)' } }, String(online.count)),
+              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } },
+                online.sources.length > 0 ? `在线：${online.sources.slice(0, 3).join('、')}${online.sources.length > 3 ? ` 等 ${online.sources.length} 人` : ''}` : '在线填写者'),
             ),
             h(Card, { variant: 'default', padding: 'md' },
               h('div', { style: { fontSize: '30px', fontWeight: 700 } }, String(progress.length)),
