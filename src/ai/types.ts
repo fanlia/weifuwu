@@ -77,6 +77,8 @@ export interface WfStep {
   content?: string
   toolCallId?: string
   name?: string
+  /** 工具调用参数（JSON 字符串——前端工具卡片展示） */
+  args?: string
 }
 
 export interface WfApprovalRequest {

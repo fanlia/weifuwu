@@ -212,7 +212,7 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
         if (signal?.aborted) return
         const name = tc.function?.name ?? ''
         const args = safeParseArgs(tc.function?.arguments ?? '')
-        emit('wf:step', { type: 'tool', toolCallId: tc.id, name })
+        emit('wf:step', { type: 'tool', toolCallId: tc.id, name, args: tc.function?.arguments ?? '{}' })
 
         // HITL：执行前挂起等待人工审批（C2：函数模式按工具调用判定——风险分级）
         let execArgs = args

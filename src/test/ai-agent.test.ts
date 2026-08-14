@@ -397,3 +397,39 @@ test('agent：maxSteps 耗尽 → done 返回', async () => {
     await fake.close()
   }
 })
+
+test('agent 流式 wf:step(tool) 事件携带工具参数（前端工具卡片展示）', async () => {
+  const fake = await startScriptedProvider([
+    toolRound('send_email', '{"to":"a@x.com","subject":"你好"}'),
+    textRound('已发送'),
+  ])
+  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  try {
+    const agent = a.agent({
+      systemPrompt: '助手',
+      tools: [{ name: 'send_email', description: '发邮件', run: async () => ({ sent: true }) }],
+    })
+    const res = agent.run([{ role: 'user', content: '发邮件' }])
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let sawArgs = false
+    let argsOk = false
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const m = buffer.match(/event: wf:step[\s\S]*?data: (\{[^}]*"type":"tool"[^}]*\})/)
+      if (m) {
+        sawArgs = true
+        if (m[1].includes('a@x.com')) argsOk = true
+        break
+      }
+    }
+    reader.cancel().catch(() => {})
+    assert.ok(sawArgs, 'wf:step tool 事件存在')
+    assert.ok(argsOk, 'wf:step tool 事件必须携带 args（含参数内容）')
+  } finally {
+    await fake.close()
+  }
+})

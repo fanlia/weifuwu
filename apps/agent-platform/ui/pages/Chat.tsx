@@ -501,7 +501,7 @@ export const Chat: Component = async (_props, ctx) => {
                               {t.args !== undefined && t.args !== null && (
                                 <div class="wf-text-xs">
                                   <span class="wf-text-tertiary">参数 </span>
-                                  <pre class="wf-mt-none wf-text-xs" style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-all">{JSON.stringify(t.args)}</pre>
+                                  <pre class="wf-mt-none wf-text-xs" style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-all">{typeof t.args === 'string' ? t.args : JSON.stringify(t.args)}</pre>
                                 </div>
                               )}
                               {t.result !== undefined && t.result !== null && (

@@ -17,7 +17,7 @@ export const tools: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'http_get',
-      description: '读取公开网页或 API 内容（HTTP GET，返回纯文本，最多 8KB）。仅限公网 http/https URL。',
+      description: '读取公开网页或 API 内容（HTTP GET，返回纯文本，最多 2KB——足够提取标题/要点）。调用一次即可，直接基于返回内容回答，不要重复调用本工具。仅限公网 http/https URL。',
       parameters: {
         type: 'object',
         properties: {
@@ -36,7 +36,7 @@ export function createHandlers() {
       const url = new URL(raw)
       if (url.protocol !== 'http:' && url.protocol !== 'https:') return { ok: false, error: '仅支持 http/https' }
       const { lookup } = await import('node:dns/promises')
-      const addrs = await lookup(url.hostname).catch(() => [])
+      const addrs = await lookup(url.hostname, { all: true }).catch(() => [])
       for (const a of addrs) {
         if (isPrivate(a.address)) return { ok: false, error: `拒绝内网地址: ${a.address}` }
       }
@@ -47,7 +47,7 @@ export function createHandlers() {
         })
         if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
         const text = await res.text()
-        return { ok: true, content: text.slice(0, 8000) }
+        return { ok: true, content: text.slice(0, 2000) }
       } catch (e: any) {
         return { ok: false, error: `请求失败: ${e?.message ?? e}` }
       }

@@ -599,7 +599,14 @@ export async function handleNewMessageStream(
   // createEmitter 返回 WsEmitter
   // WS 路径：让 runAgentStreamForAgent 内部创建 AI 消息（而非复用用户消息 ID）
   await runAllAgents(ctx, departmentId, messageContent, [], (agent, msgId) => ({
-    emit(event) { ctx.msg.broadcast(String(departmentId), event) },
+    emit(event) {
+      ctx.msg.broadcast(String(departmentId), event)
+      // HTTP/无 WS 路径：wf:done（配额/付费墙提示等非流式回复）直接落库——
+      // 否则无 WS 连接时提示丢失，用户看到空回复（真实事故：demo 月配额用尽后 HTTP 测试全空）
+      if (event.type === 'wf:done' && event.content) {
+        void ctx.sql`UPDATE messages SET content = ${event.content} WHERE id = ${event.messageId} AND content = ''`.catch(() => {})
+      }
+    },
   }))
 }
 

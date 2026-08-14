@@ -218,7 +218,8 @@ const TASK_DISCIPLINE = `
    - ✅ 已完成：列出完成的事项
    - ⚠️ 未完成：列出未完成的事项及原因（没有则省略）
    - 📦 产物：生成的文件/结果位置（没有则省略）
-3. 如果用户目标不明确，先说明你的理解再执行。`
+3. 如果用户目标不明确，先说明你的理解再执行。
+4. 工具已返回结果时，直接基于结果回答用户——不要重复调用同一工具，也不要再次请求工具（除确需补充信息外）。`
 
 async function loadMemory(ctx: AppCtx, agentId: string): Promise<string> {
   try {
@@ -503,7 +504,7 @@ export async function streamAgent(
       const s = data as WfStep
       if (s.type === 'tool' && s.name) {
         lastToolName = s.name
-        callbacks.onToolCall?.({ name: s.name, args: '' })
+        callbacks.onToolCall?.({ name: s.name, args: s.args ?? '' })
       }
     } else if (name === 'wf:tool_result') {
       const r = data as WfToolResult
