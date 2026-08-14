@@ -248,11 +248,8 @@ export const NewAgent: Component = async (_props, ctx) => {
                 </div>
                 <div class="wf-fill">
                   <Field label="温度">
-                    <div class="wf-row wf-gap-sm">
-                      <Slider min={0} max={2} step={0.1} value={$.aiTemperature}
-                        onChange={(v) => { $.aiTemperature = v; rerender() }} />
-                      <span class="wf-text-sm wf-text-semibold" style="min-width: 30px; text-align: center">{$.aiTemperature}</span>
-                    </div>
+                    <Slider min={0} max={2} step={0.1} value={$.aiTemperature}
+                      onChange={(v) => { $.aiTemperature = v; rerender() }} />
                   </Field>
                 </div>
               </div>
