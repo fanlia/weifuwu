@@ -49,3 +49,36 @@ describe('Breadcrumb', () => {
     assert.equal(first.props.children, '首页')
   })
 })
+
+it('末项 aria-current=page（当前位置语义）', async () => {
+  const vnode = await renderVNode(Breadcrumb, { items: [{ label: '首页', href: '/' }, { label: '详情' }] }, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-breadcrumb-current'), '末项 current 类')
+  assert.ok(s.includes('aria-current'), '末项 aria-current')
+})
+
+it('分隔符渲染（/ 隐藏于辅助树）', async () => {
+  const vnode = await renderVNode(Breadcrumb, { items: [{ label: 'A', href: '/a' }, { label: 'B' }] }, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-breadcrumb-sep'), '分隔符存在')
+  assert.ok(s.includes('aria-hidden'), '分隔符 aria-hidden')
+})
+
+it('无 href 中间项渲染为文本（不可点）', async () => {
+  const vnode = await renderVNode(Breadcrumb, { items: [{ label: 'A' }, { label: 'B' }] }, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-breadcrumb-text'), '文本项类')
+})
+
+it('nav aria-label 面包屑', async () => {
+  const vnode = await renderVNode(Breadcrumb, { items: [{ label: 'A' }] }, createTestCtx())!
+  assert.equal(vnode.type, 'nav')
+  assert.equal(vnode.props['aria-label'], '面包屑')
+})
+
+it('单一项（只有当前页）', async () => {
+  const vnode = await renderVNode(Breadcrumb, { items: [{ label: '首页' }] }, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-breadcrumb-current'))
+  assert.ok(!s.includes('wf-breadcrumb-sep'), '单项无分隔符')
+})

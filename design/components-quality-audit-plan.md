@@ -143,7 +143,15 @@
 
 ### 待滚动组
 
-组 6 导航（7）→ 组 3 表单增强（11）→ 组 7 AI（9）→ 组 8 长尾（36）
+组 3 表单增强（11）→ 组 7 AI（9）→ 组 8 长尾（36）
+
+### 组 6 导航组件（2026-12）
+
+| 组件 | 功能列（单测） | 交互列（agent-browser 实测） | 结果 |
+|------|--------------|----------------------------|------|
+| Breadcrumb | 9（+5：aria-current/分隔符 aria-hidden/无 href 文本项/nav aria-label/单项） | — | ✅ |
+| Steps | 8（+4：current 索引/aria-current=step/description/空 items） | — | ✅ |
+| Menu 12 / Tabs 8 / Dropdown 11 / Pagination 8 / Accordion 10 | 既有达标 | Tabs 切换（详情→设置）/Pagination 跳页（3→4）/Accordion 展开 | ✅ |
 
 ### 组 4 数据展示首轮（2026-12）
 
