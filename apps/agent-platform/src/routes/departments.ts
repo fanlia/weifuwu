@@ -85,6 +85,13 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 创建部门 ─────────────────────────────────────────────
 
   app.post('/api/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    // R4 权限：viewer 只读——不能建部门
+    try {
+      const { requireWriter } = await import('../services/permissions.ts')
+      await requireWriter(ctx)
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    }
     const { sql, appId } = ctx
     const body = await req.json() as {
       name: string

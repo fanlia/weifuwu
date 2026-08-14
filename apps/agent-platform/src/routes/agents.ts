@@ -96,6 +96,13 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 创建 Agent ───────────────────────────────────────────
 
   app.post('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    // R4 权限：viewer 只读——不能建 Agent
+    try {
+      const { requireWriter } = await import('../services/permissions.ts')
+      await requireWriter(ctx)
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    }
     const { sql, appId } = ctx
     const body = await req.json() as {
       type: string

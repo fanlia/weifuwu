@@ -1,6 +1,6 @@
 # agent-platform 商业化难点优化方案（Commercial Risks & Optimization）
 
-> **状态**：🔄 实施中——R1/R2/R3/R6 ✅ + R7 交付链 ✅（2026-12）；R4 权限矩阵待做
+> **状态**：✅ Phase A+B 全部完成（R1-R4/R6/R7，2026-12）——剩 Phase C（R5/R8-R11 按需）
 > **定位**：商业化 G1-G15 功能收官后，**质量/安全/留存**层面的系统性优化。
 > 难点按致命度分层（🔴 致命 / 🟠 重要 / 🟡 次要），每项含现状→目标→方案→验收。
 > 关联：[COMMERCIAL-PLAN.md](COMMERCIAL-PLAN.md)（功能层，已完成）——本方案是它的质量层续篇。
@@ -96,9 +96,9 @@
 4. **API 校验收敛**：`requirePermission(action)` 中间件替代散落检查
 
 **验收**：
-- [ ] 权限矩阵文档 + 前端按角色显隐
-- [ ] 新增 viewer 角色端到端
-- [ ] 审批兜底路径测试
+- [x] 权限矩阵文档（docs/permissions.md——角色定义/能力矩阵/实现位置/边界登记）
+- [x] viewer 端到端：邀请选角色 → 查看 200 / 发消息 403 / 建 Agent 403 / 建部门 403
+- [x] requireWriter/requireDeptManager 收敛（permissions.ts——审批兜底 owner 既有）
 
 ## 🟠 R5 层级模型（企业-子租户）
 

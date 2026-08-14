@@ -11,6 +11,7 @@ interface SettingsState {
   auditFilter: string
   sysHealth: OpsInfo | null
   inviteLink: string; inviteCopied: boolean; inviteErr: string
+  inviteRole: string
   plan: { plan: string; label: string; trialEndsAt: string | null; trialExpired: boolean; monthlyTokenLimit: number; usedThisMonth?: number } | null
   byok: { baseUrl: string; apiKey: string; apiKeySet: boolean; model: string } | null
   byokSubmitting: boolean; byokOk: string; byokErr: string
@@ -47,7 +48,7 @@ export const Settings: Component = async (_props, ctx) => {
   $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
-    $.inviteLink = ''; $.inviteCopied = false
+    $.inviteLink = ''; $.inviteCopied = false; $.inviteRole = 'member'
     $.plan = null
     $.byok = null; $.byokSubmitting = false; $.byokOk = ''; $.byokErr = ''
     // 计划状态（G1 付费墙：试用剩余/配额用量）
@@ -79,10 +80,10 @@ export const Settings: Component = async (_props, ctx) => {
   }
 
   async function createInvite() {
-    $.inviteLink = ''; $.inviteCopied = false; $.inviteErr = ''
+    $.inviteLink = ''; $.inviteCopied = false; $.inviteRole = 'member'; $.inviteErr = ''
     rerender()
     try {
-      const d = await ctx.api!.post<{ url: string; expiresInDays: number }>('/api/auth/invite', {})
+      const d = await ctx.api!.post<{ url: string; expiresInDays: number }>('/api/auth/invite', { role: $.inviteRole === 'viewer' ? 'viewer' : 'member' })
       $.inviteLink = d.url
       void ctx.browser?.copyText?.(location.origin + d.url)
       $.inviteCopied = true
@@ -225,6 +226,14 @@ export const Settings: Component = async (_props, ctx) => {
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="users" size={14} /> 邀请成员</div>
         <div class="wf-text-xs wf-text-tertiary wf-mb-sm">生成邀请链接，同事打开链接注册即可加入你的团队（7 天有效；仅所有者可用）</div>
         <div class="wf-mb-sm">{$.inviteErr && <Alert variant="error">{$.inviteErr}</Alert>}</div>
+        <div class="wf-row wf-gap-sm wf-items-center wf-mb-sm">
+          <span class="wf-text-xs wf-text-secondary">成员角色</span>
+          <Select value={$.inviteRole} onChange={(v: string | string[]) => { const val = Array.isArray(v) ? 'member' : v; $.inviteRole = val; rerender() }}
+            options={[
+              { value: 'member', label: '成员（可对话/建 Agent）' },
+              { value: 'viewer', label: '只读（仅查看）' },
+            ]} />
+        </div>
         {$.inviteLink ? (
           <div class="wf-stack wf-gap-sm">
             <div class="wf-surface wf-border wf-rounded-md wf-p-sm wf-text-xs wf-break-word" style="background: var(--wf-color-bg-secondary)">

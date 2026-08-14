@@ -67,6 +67,13 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 发送消息 ─────────────────────────────────────────────
 
   app.post('/api/departments/:id/messages', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    // R4 权限：viewer 只读——不能发消息
+    try {
+      const { requireWriter } = await import('../services/permissions.ts')
+      await requireWriter(ctx)
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    }
     const { sql, appId, auth, params } = ctx
     const body = await req.json() as {
       content: string
