@@ -17,7 +17,7 @@
 
 .wf-scrollbar::-webkit-scrollbar-thumb {
   background: var(--wf-color-border);
-  border-radius: 4px;
+  border-radius: var(--wf-radius-sm);
 }
 
 .wf-scrollbar::-webkit-scrollbar-thumb:hover {

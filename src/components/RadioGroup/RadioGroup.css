@@ -11,6 +11,7 @@
   flex-wrap: wrap;
 }
 
+.wf-radio:hover .wf-radio-visual { border-color: var(--wf-color-primary); }
 .wf-radio {
   display: inline-flex;
   align-items: center;

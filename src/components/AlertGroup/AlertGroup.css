@@ -63,7 +63,7 @@
   background: transparent;
   color: var(--wf-color-text-tertiary);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--wf-radius-sm);
 }
 
 .wf-alertgroup-close:hover {

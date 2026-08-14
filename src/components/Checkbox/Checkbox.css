@@ -10,6 +10,8 @@
   user-select: none;
 }
 
+.wf-checkbox:hover .wf-checkbox-visual { border-color: var(--wf-color-primary); }
+.wf-checkbox:active .wf-checkbox-visual { border-color: var(--wf-color-primary); }
 .wf-checkbox-input {
   position: absolute;
   opacity: 0;
