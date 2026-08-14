@@ -23,6 +23,7 @@ export const Admin: Component = async (_props, ctx) => {
   let error = ''
   let busyId = ''
   let overview: any = null
+  let opsInfo: any = null
   const load = () => {
     loading = true; error = ''
     ctx.ui.render()
@@ -33,6 +34,7 @@ export const Admin: Component = async (_props, ctx) => {
   void load()
   // 平台使用概览（G11）
   void ctx.api!.get<any>('/api/admin/overview').then((d) => { overview = d; ctx.ui.render() }).catch(() => {})
+  void ctx.api!.get<any>('/api/ops').then((d) => { opsInfo = d; ctx.ui.render() }).catch(() => {})
 
   async function openPro(a: AdminApp) {
     busyId = a.id
@@ -72,6 +74,14 @@ export const Admin: Component = async (_props, ctx) => {
           <StatCard label="本月消息" value={overview.msgsMonth} icon={<Icon name="message" />} />
           <StatCard label="AI 回复" value={overview.aiRepliesMonth} icon={<Icon name="cpu" />} />
           <StatCard label="平台成本（月）" value={`¥${overview.costYuanMonth}`} icon={<Icon name="database" />} />
+        </div>
+      )}
+
+      {opsInfo && (
+        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(160px, 1fr))">
+          <StatCard label="沙盒池" value={`${opsInfo.sandbox?.poolSize ?? 0}/${opsInfo.sandbox?.maxContainers ?? 0}`} icon={<Icon name="box" />} />
+          <StatCard label="沙盒模式" value={opsInfo.sandbox?.mode ?? '-'} icon={<Icon name="cpu" />} />
+          <StatCard label="容器镜像" value={opsInfo.sandbox?.imageReady ? '就绪' : '缺失'} icon={<Icon name="hard-drive" />} />
         </div>
       )}
 

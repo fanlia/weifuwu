@@ -392,6 +392,32 @@ async function main() {
   })
 
   // ── 指标端点（运营/监控——内存计数器 + 进程信息） ──
+  // R9：Prometheus 文本格式（Grafana 生态可抓）
+  app.get('/api/metrics/prom', async () => {
+    const m = (globalThis as any).__platform_metrics ?? {}
+    const uptime = Math.round((Date.now() - (m.startTime ?? Date.now())) / 1000)
+    let disk: Record<string, any> | null = null
+    try {
+      const { statfs } = await import('node:fs/promises')
+      const st = await statfs(process.env.AGENT_WORKSPACE_ROOT ?? '.')
+      disk = { freePercent: Math.round(st.bfree * st.bsize / (st.blocks * st.bsize) * 100) }
+    } catch { disk = null }
+    const lines = [
+      `# HELP agent_platform_uptime_seconds 服务运行时长`,
+      `agent_platform_uptime_seconds ${uptime}`,
+      `agent_platform_requests_total ${m.requests ?? 0}`,
+      `agent_platform_errors_total ${m.errors ?? 0}`,
+      `agent_platform_ai_calls_total ${m.aiCalls ?? 0}`,
+      `agent_platform_ai_tokens_total ${m.aiTokens ?? 0}`,
+      `agent_platform_webhooks_total ${m.webhooks ?? 0}`,
+      `agent_platform_sandbox_calls_total ${m.sandboxCalls ?? 0}`,
+      `agent_platform_disk_free_percent ${disk?.freePercent ?? -1}`,
+    ]
+    return new Response(lines.join('\n') + '\n', {
+      headers: { 'Content-Type': 'text/plain; version=0.0.4' },
+    })
+  })
+
   app.get('/api/metrics', async () => {
     const m = (globalThis as any).__platform_metrics ?? {}
     const uptime = Math.round((Date.now() - (m.startTime ?? Date.now())) / 1000)
