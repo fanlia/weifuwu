@@ -86,7 +86,9 @@ async function deliverOutbound(agent: any, reply: string, conversationId?: strin
   if (!(await isSafeWebhookUrl(url))) return false
   const secret = agent?.webhook_secret ? String(agent.webhook_secret) : ''
   const maxRetry = Math.max(1, Number(agent?.webhook_retry_count ?? 3))
-  const body = JSON.stringify({ reply, conversation_id: conversationId ?? null, timestamp: Date.now() })
+  // 外部 IM 平台格式（G8：企微/钉钉/飞书群机器人）
+  const { formatOutboundBody } = await import('./webhook-platform.ts')
+  const body = formatOutboundBody(String(agent?.webhook_platform ?? 'generic'), reply, conversationId)
   for (let attempt = 0; attempt < maxRetry; attempt++) {
     try {
       const ts = String(Date.now())

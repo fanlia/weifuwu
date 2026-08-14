@@ -22,7 +22,7 @@ interface AgentDetailState {
   error: string; ok: string
   name: string; description: string; systemPrompt: string
   aiModel: string; aiTemperature: string; aiMaxTokens: string; aiQuota: string; quotaUsed: number
-  aiHITL: boolean; webhookUrl: string; webhookSecret: string
+  aiHITL: boolean; webhookUrl: string; webhookPlatform: string; webhookSecret: string
   webhookRetryCount: string; secretVisible: boolean
     kbOptions: Array<{ id: string; name: string }>; kbId: string
       previewQuery: string; previewText: string; previewing: boolean
@@ -45,7 +45,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
     $.name = ''; $.description = ''; $.systemPrompt = ''
     $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiQuota = '0'; $.quotaUsed = 0
-    $.aiHITL = false; $.webhookUrl = ''; $.webhookSecret = ''
+    $.aiHITL = false; $.webhookUrl = ''; $.webhookPlatform = 'generic'; $.webhookSecret = ''
     $.webhookRetryCount = '3'; $.secretVisible = false
     $.allowFileTools = false; $.allowCommandExec = false; $.allowNetwork = false
 
@@ -66,7 +66,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.aiQuota = String(a.monthly_token_quota ?? 0)
       $.quotaUsed = Number(a.quota_used ?? 0)
       $.aiHITL = !!a.human_in_the_loop
-      $.webhookUrl = a.webhook_url ?? ''; $.webhookSecret = a.webhook_secret ?? ''
+      $.webhookUrl = a.webhook_url ?? ''; $.webhookPlatform = a.webhook_platform ?? 'generic'; $.webhookSecret = a.webhook_secret ?? ''
       $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
       $.kbId = a.kb_id ?? ''
       $.allowFileTools = a.allow_file_tools ?? false
@@ -121,6 +121,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     }
     if ($.agent?.type === 'webhook') {
       body.webhook_url = $.webhookUrl.trim() || null
+      body.webhook_platform = $.webhookPlatform
       body.webhook_secret = $.webhookSecret
       body.webhook_retry_count = parseInt($.webhookRetryCount) || 3
     }
@@ -333,6 +334,16 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
           {a.type === 'webhook' && (
             <>
+              <Field label="外部平台" hint="出站推送格式：AI 回复按平台群机器人消息体推送（generic = 平台自解析 reply/conversation_id）">
+                <Select value={$.webhookPlatform}
+                  onChange={(v: string | string[]) => { const val = Array.isArray(v) ? 'generic' : v; $.webhookPlatform = val; rerender() }}
+                  options={[
+                    { value: 'generic', label: '通用（自解析）' },
+                    { value: 'wecom', label: '企业微信群机器人' },
+                    { value: 'dingtalk', label: '钉钉群机器人' },
+                    { value: 'feishu', label: '飞书群机器人' },
+                  ]} />
+              </Field>
               <Field label="入站端点" hint="外部系统 POST JSON 到该地址即可触发 AI 应答（若设置 Secret，须带 X-Signature/X-Timestamp/X-Nonce 头）">
                 <div class="wf-row wf-gap-xs">
                   <Input readonly value={webhookFullUrl()} />

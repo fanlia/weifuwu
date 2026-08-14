@@ -105,6 +105,7 @@ async function main() {
   // 增量表（追加的 schema——迁移一次性 markMigrated，新表需幂等补建；Wave 9 audit_logs）
   // 增量列（Wave 9 token 配额——ADD COLUMN IF NOT EXISTS 幂等）
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS monthly_token_quota INT NOT NULL DEFAULT 0`)
+  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS webhook_platform TEXT NOT NULL DEFAULT 'generic'`)
   // 商业化 G2：租户状态（active/disabled——管理后台停用）
   await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`)
   // 商业化 G1：订阅计划（free 试用 / pro）+ 试用到期时间 + 租户级月 token 配额

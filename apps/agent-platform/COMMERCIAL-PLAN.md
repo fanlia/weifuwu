@@ -121,7 +121,7 @@
 
 | # | 项 | 说明 |
 |---|-----|------|
-| G8 | **外部 IM 入口**（企微/钉钉/飞书）：在客户已有的工作软件里用 AI | 大（场景 1 关键拼图） |
+| G8 | **外部 IM 入口**（企微/钉钉/飞书）：在客户已有的工作软件里用 AI | ✅ 已实施（2026-12）——入站（HMAC 签名 + 多轮 conversation_id 既有）+ 出站平台格式（wecom/dingtalk/feishu 群机器人消息体 + 超长截断 + SSRF 防护）；Agent 详情配置外部平台 | 大（场景 1 关键拼图） |
 | G9 | **场景模板 Agent**：客服/资料员/代码助手预设 | ✂️ 裁剪（2026-12）——role_templates 已有 8 个场景（developer/customer-support/product-manager/data-analyst/hr-assistant/ops-bot/sales-assistant/executive-assistant/general），覆盖充分无缺口 | 中 |
 | G10 | **ROI 视图**：省了多少人力时间 | ✅ 已实施（2026-12）——/api/stats 加 roi（本月 AI 回复数 × ¥2/条人工成本 − AI 成本）；Dashboard 节省估算卡片 | 中 |
 | G11 | **使用分析**：平台级使用概览 | ✅ 已实施（2026-12）——/api/admin/overview（租户总数/7 天活跃/Pro 数/消息/AI 回复/平台成本）；Admin 页顶部 StatCards | 中 |
@@ -198,4 +198,5 @@ Phase 4「能签大单」（按需）→ G12-G15
 
 > 商业闭环最小可用：注册免费试用 → 邀请同事 → 管理员（ADMIN_EMAILS）停用/开通 Pro → 配额与试用拦截 AI 用量。
 > **Phase 2 完成**：G4 ✅ BYOK（框架 per-call 覆盖 + 租户配置）；G5 ✅ 审批邮件；G6 ✅ 审计导出；G7 ✅ 知识库权限闸门。
-> **Phase 3 进度**：G9 ✂️ 裁剪（模板已 8 场景）；G10 ✅ ROI 节省视图；G11 ✅ 平台使用概览；剩余 G8 外部 IM 入口（最大项）。
+> **Phase 3 完成**：G8 ✅ 外部 IM 平台适配（企微/钉钉/飞书出站格式）；G9 ✂️ 裁剪；G10 ✅ ROI；G11 ✅ 使用分析。
+> **全部 15 项差距（G1-G15）完成度：12 完成 + 1 裁剪 + 2 待定（G13 白标/G15 管理 API——Phase 4 私有化大单，按需启动）。**
