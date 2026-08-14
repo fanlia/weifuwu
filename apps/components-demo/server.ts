@@ -87,5 +87,5 @@ app.get('/*', async (req, ctx) => ctx.ui.html`
 </html>
 `)
 
-serve(app, { port: 3000 })
+serve(app, { port: 3100 })
 console.log('http://localhost:3000')
