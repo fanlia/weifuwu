@@ -540,6 +540,11 @@ async function runAllAgents(
     mentioned.add(m[1])
   }
   if (mentioned.size > 0) {
+    // @all / @所有人：显式全员触发（@ 定向之外的通告语义）
+    if (mentioned.has('all') || mentioned.has('所有人') || mentioned.has('everyone')) {
+      agents = aiAgents
+      // 前端提示语（@all 已由 emit 处理——直接放行全员）
+    } else {
     const hit = aiAgents.filter((a) => mentioned.has(String(a.name).trim()))
     if (hit.length > 0) agents = hit
     else {
@@ -561,6 +566,7 @@ async function runAllAgents(
       // through 全员回复——小应被 @实习生阿泽 误触发并冒充身份）
       return
     }
+    } // @all 之外的定向分支闭合
   }
 
   const recentMessages = (await sql`

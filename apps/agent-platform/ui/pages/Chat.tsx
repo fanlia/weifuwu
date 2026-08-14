@@ -628,7 +628,11 @@ export const Chat: Component = async (_props, ctx) => {
       <div class="wf-border-t wf-p-sm">
         {$.atMenuOpen && (
           <div class="wf-stack wf-gap-none wf-p-sm wf-rounded wf-surface wf-mb-sm wf-shadow" style="position: relative; z-index: 10">
-            <div class="wf-text-xs wf-text-tertiary wf-px-sm wf-pb-xs">@ 选择成员</div>
+            <div class="wf-text-xs wf-text-tertiary wf-px-sm wf-pb-xs">@ 选择成员（可多选——@all 全员）</div>
+            <button type="button" class="wf-row wf-gap-sm wf-px-sm wf-py-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px; color: var(--wf-color-brand)"
+              onClick={() => { $.input = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, '@all '); $.atMenuOpen = false; rerender() }}>
+              <span class="wf-text-base">@所有人（全部 AI）</span>
+            </button>
             {$.atMenu.map((m: Member) => (
               <button type="button" key={m.id} class="wf-row wf-gap-sm wf-px-sm wf-py-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px"
                 onClick={() => pickAtMember(m)}>
