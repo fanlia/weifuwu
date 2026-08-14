@@ -5,6 +5,7 @@ import type { PendingApproval } from '../lib/types'
 
 interface ApprovalsState {
   items: PendingApproval[]; loading: boolean; handling: string
+  editingId: string; editDraft: string
 }
 
 /** 审批待办 — 管理员集中处理所有 AI 草稿（HITL 核心入口） */
@@ -12,6 +13,20 @@ export const Approvals: Component = async (_props, ctx) => {
   const $ = {} as ApprovalsState
   const rerender = () => ctx.ui.render()
   $.items = []; $.loading = true; $.handling = ''
+  $.editingId = ''; $.editDraft = ''
+
+  function startEdit(m: PendingApproval) {
+    $.editingId = m.id; $.editDraft = String(m.ai_draft ?? '')
+    rerender()
+  }
+
+  function saveDraft(m: PendingApproval) {
+    const draft = $.editDraft.trim()
+    if (!draft) return
+    ctx.api!.put(`/api/messages/${m.id}/draft`, { draft })
+      .then(() => { m.ai_draft = draft; $.editingId = ''; rerender() })
+      .catch(() => { rerender() })
+  }
 
   function load() {
     ctx.api!.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals')
@@ -64,13 +79,23 @@ export const Approvals: Component = async (_props, ctx) => {
                   <span class="wf-text-xs wf-text-tertiary">
                     部门：{m.department_name ?? '未知'} · {fmtTime(m.created_at ?? '')}
                   </span>
-                  <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-mt-sm">{m.ai_draft}</div>
+                  {$.editingId === m.id ? (
+                    <textarea class="wf-input wf-mt-sm" rows={4} value={$.editDraft}
+                      onInput={(e: any) => { $.editDraft = e.target.value; rerender() }} />
+                  ) : (
+                    <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-mt-sm wf-pre-wrap">{m.ai_draft}</div>
+                  )}
                 </div>
               </div>
               <div class="wf-row wf-right wf-gap-sm wf-mt-sm">
                 <Button size="sm" variant="ghost" onClick={() => ctx.app?.navigate(`/chat/${m.department_id}`)}>
                   <Icon name="message" size={12} /> 去聊天
                 </Button>
+                {$.editingId === m.id ? (
+                  <Button size="sm" variant="secondary" onClick={() => saveDraft(m)}>保存修改</Button>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={() => startEdit(m)}><Icon name="edit" size={12} /> 编辑草稿</Button>
+                )}
                 <Button size="sm" variant="danger" disabled={$.handling === m.id} onClick={() => decide(m.id, false)}>
                   {$.handling === m.id ? '处理中...' : '拒绝'}
                 </Button>

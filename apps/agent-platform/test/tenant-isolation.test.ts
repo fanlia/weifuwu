@@ -54,6 +54,8 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/routes/messages.ts', match: 'WHERE m.department_id = ${params.id}', reason: '间接隔离——部门存在性校验带 app_id（39 行）' },
   { file: 'src/routes/messages.ts', match: 'SELECT dm.role FROM department_members', reason: '间接隔离——msg.department_id 来自已校验消息（审批 321 行）' },
   { file: 'src/routes/messages.ts', match: 'UPDATE messages SET ai_approved', reason: '间接隔离——审批先查 msg（a.app_id，321 行）' },
+  { file: 'src/routes/messages.ts', match: 'UPDATE messages SET feedback', reason: '间接隔离——反馈先查 msg（a.app_id + type=ai）' },
+  { file: 'src/routes/messages.ts', match: 'UPDATE messages SET ai_draft = ${draft}', reason: '间接隔离——草稿编辑先查 msg（a.app_id + 待审批）' },
   { file: 'src/routes/messages.ts', match: 'UPDATE messages SET content = ai_draft', reason: '间接隔离——审批先查 msg（a.app_id）' },
   { file: 'src/routes/role-templates.ts', match: 'INSERT INTO agent_skills', reason: '间接隔离——agent.id 来自同请求刚创建的 Agent（带 app_id）' },
   { file: 'src/routes/skills.ts', match: 'agent_skills', reason: '间接隔离——agent_id/skillId 上游已校验归属（skills 路由 a.app_id）' },

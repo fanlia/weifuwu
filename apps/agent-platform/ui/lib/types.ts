@@ -96,6 +96,8 @@ export interface Message {
   usage?: { total_tokens: number }
   /** 回复引用（reply_to JOIN messages 预览） */
   reply_to?: string | null
+  /** R6 质量反馈：AI 回复点赞/点踩 */
+  feedback?: 'like' | 'dislike' | null
   reply_content?: string | null
   reply_sender?: string | null
   /** HITL 草稿 */

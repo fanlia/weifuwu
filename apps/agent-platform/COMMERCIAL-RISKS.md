@@ -1,6 +1,6 @@
 # agent-platform 商业化难点优化方案（Commercial Risks & Optimization）
 
-> **状态**：🔄 实施中——R1 静态审计 ✅ + R3 计量收口 ✅ + R2 威胁模型/加固 ✅（2026-12）；R1 中央拦截待做
+> **状态**：🔄 实施中——R1/R2/R3 ✅ + R6 质量反馈闭环 ✅（2026-12）；R4/R7 待做
 > **定位**：商业化 G1-G15 功能收官后，**质量/安全/留存**层面的系统性优化。
 > 难点按致命度分层（🔴 致命 / 🟠 重要 / 🟡 次要），每项含现状→目标→方案→验收。
 > 关联：[COMMERCIAL-PLAN.md](COMMERCIAL-PLAN.md)（功能层，已完成）——本方案是它的质量层续篇。
@@ -129,9 +129,10 @@
 4. **反馈数据导出**：审计/CSV 含质量字段（续费谈判证据）
 
 **验收**：
-- [ ] 点赞/点踩端到端 + 汇总视图
-- [ ] 草稿编辑发布流程
-- [ ] 质量指标三个率可查
+- [x] 点赞/点踩端到端（messages.feedback + API + Chat 页按钮 + stats 汇总）——实测 like ✓
+- [x] 草稿编辑发布流程（PUT /api/messages/:id/draft + Approvals 编辑框 + 审计）——实测修订 ✓
+- [x] 质量指标：toolSuccessRate（agent_logs success 聚合）+ likes/dislikes（stats.quality）
+- [ ] RAG 无命中率（需检索场景标记——登记待做）
 
 ## 🟠 R7 私有化交付链（签单后不翻车）
 

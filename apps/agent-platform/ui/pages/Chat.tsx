@@ -28,6 +28,8 @@ interface ChatMessage {
   ai_approved?: boolean | null
   reply_content?: string | null
   reply_sender?: string | null
+  /** R6 质量反馈 */
+  feedback?: 'like' | 'dislike' | null
 }
 
 interface ChatState {
@@ -274,6 +276,14 @@ export const Chat: Component = async (_props, ctx) => {
     await ctx.api!.put(`/api/messages/${$.editingId}`, { content: $.editValue }).then(() => cancelEdit()).catch(() => ctx.toast!('编辑失败', 'error'))
   }
 
+  async function feedbackMsg(msg: any, fb: 'like' | 'dislike' | null) {
+    try {
+      await ctx.api!.post(`/api/messages/${msg.id}/feedback`, { feedback: fb })
+      msg.feedback = fb
+      ctx.ui.render()
+    } catch { /* 反馈失败静默 */ }
+  }
+
   async function deleteMsg(msg: ChatMessage) {
     const mine = isOwn(msg)
     const ok = await ctx.confirm!(mine ? '确定撤回这条消息？' : '作为管理员删除这条消息？删除后不可恢复。')
@@ -454,6 +464,16 @@ export const Chat: Component = async (_props, ctx) => {
                   )}
                   {st === 'complete' && msg.sender_type === 'ai' && msg.content && (
                     <CopyButton size="sm" variant="ghost" value={msg.content} label="复制" />
+                  )}
+                  {st === 'complete' && msg.sender_type === 'ai' && !isActive && (
+                    <span class="wf-row wf-gap-xs">
+                      <button type="button" class="wf-btn wf-btn--ghost wf-btn--sm" aria-label="赞" title="有帮助"
+                        style={msg.feedback === 'like' ? { background: 'var(--wf-color-primary-bg)', opacity: 1 } : { opacity: 0.6 }}
+                        onClick={() => feedbackMsg(msg, msg.feedback === 'like' ? null : 'like')}>👍</button>
+                      <button type="button" class="wf-btn wf-btn--ghost wf-btn--sm" aria-label="踩" title="需改进"
+                        style={msg.feedback === 'dislike' ? { background: 'var(--wf-color-error-bg)', opacity: 1 } : { opacity: 0.6 }}
+                        onClick={() => feedbackMsg(msg, msg.feedback === 'dislike' ? null : 'dislike')}>👎</button>
+                    </span>
                   )}
                 </div>
 

@@ -316,6 +316,69 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     return Response.json({ success: true })
   })
 
+  // ── 消息反馈（R6 质量闭环：AI 回复点赞/点踩） ─────────────
+
+  app.post('/api/messages/:id/feedback', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const body = await req.json() as { feedback?: string }
+    const fb = body.feedback === 'like' || body.feedback === 'dislike' ? body.feedback
+      : body.feedback === null || body.feedback === '' ? null
+      : undefined
+    if (fb === undefined) {
+      return Response.json({ error: 'feedback 必须是 like/dislike/null' }, { status: 400 })
+    }
+    // 校验消息属于租户且是 AI 回复
+    const [msg] = await sql`
+      SELECT m.id FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      WHERE m.id = ${params.id} AND a.app_id = ${appId} AND a.type = 'ai'
+    `
+    if (!msg) {
+      return Response.json({ error: '消息不存在' }, { status: 404 })
+    }
+    await sql`UPDATE messages SET feedback = ${fb} WHERE id = ${params.id}`
+    return Response.json({ success: true, feedback: fb })
+  })
+
+  // ── 草稿编辑（R6 质量闭环：审批人可修改 AI 草稿后批准） ───
+
+  app.put('/api/messages/:id/draft', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params, auth } = ctx
+    const body = await req.json() as { draft?: string }
+    const draft = String(body.draft ?? '').trim()
+    if (!draft) {
+      return Response.json({ error: '草稿不能为空' }, { status: 400 })
+    }
+    // 校验消息归属租户 + 待审批
+    const [msg] = await sql`
+      SELECT m.id, m.department_id, m.ai_draft FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      WHERE m.id = ${params.id} AND a.app_id = ${appId} AND m.ai_approved IS NULL
+    `
+    if (!msg) {
+      return Response.json({ error: '草稿不存在或已处理' }, { status: 404 })
+    }
+    // 权限：部门管理员（同审批）
+    const [caller] = await sql`
+      SELECT dm.role FROM department_members dm
+      JOIN agents ua ON ua.id = dm.agent_id
+      WHERE dm.department_id = ${msg.department_id} AND ua.user_id = ${auth!.userId}
+      LIMIT 1
+    `
+    const [callerOwner] = await sql`
+      SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${auth!.userId}
+    `
+    if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
+      return Response.json({ error: '只有部门管理员可以编辑草稿' }, { status: 403 })
+    }
+    await sql`UPDATE messages SET ai_draft = ${draft} WHERE id = ${params.id}`
+    try {
+      const { writeAudit } = await import('../services/audit.ts')
+      await writeAudit(ctx as any, { action: 'approval_draft_edit', target_type: 'message', target_id: String(params.id), detail: {} })
+    } catch { /* 尽力 */ }
+    return Response.json({ success: true })
+  })
+
   // ── 审批 AI 回复（Human-in-the-Loop） ────────────────────
 
   app.post('/api/messages/:id/approve', async (req: Request, ctx: AppCtx): Promise<Response> => {

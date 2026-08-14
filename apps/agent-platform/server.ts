@@ -106,6 +106,8 @@ async function main() {
   // 增量列（Wave 9 token 配额——ADD COLUMN IF NOT EXISTS 幂等）
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS monthly_token_quota INT NOT NULL DEFAULT 0`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS webhook_platform TEXT NOT NULL DEFAULT 'generic'`)
+  // R6 质量反馈：AI 消息点赞/点踩（'like'/'dislike'/NULL）
+  await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS feedback TEXT`)
   // 商业化 G2：租户状态（active/disabled——管理后台停用）
   await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`)
   // 商业化 G1：订阅计划（free 试用 / pro）+ 试用到期时间 + 租户级月 token 配额
@@ -647,6 +649,22 @@ async function main() {
     // ── 商业化 G10 ROI 估算：AI 回复数 × 单条人工成本 − AI 成本 = 节省 ──
     // 假设：人工处理一条消息/任务平均 3 分钟 × 时薪 40 元 ≈ ¥2/条（可配置常量）
     const COST_PER_AI_REPLY = 2
+    // R6-3 质量指标：工具执行成功率（agent_logs success）+ AI 消息反馈汇总（分查——防 JOIN 膨胀）
+    const [quality] = await sql`
+      SELECT COUNT(*)::int AS runs, COUNT(*) FILTER (WHERE success)::int AS ok_runs
+      FROM agent_logs WHERE app_id = ${appId}
+    `
+    const [feedback] = await sql`
+      SELECT
+        COALESCE(COUNT(*) FILTER (WHERE feedback = 'like'), 0)::int AS likes,
+        COALESCE(COUNT(*) FILTER (WHERE feedback = 'dislike'), 0)::int AS dislikes
+      FROM messages m JOIN agents a ON a.id = m.sender_id
+      WHERE a.app_id = ${appId} AND m.feedback IS NOT NULL
+    `
+    const toolSuccessRate = Number((quality as any)?.runs ?? 0) > 0
+      ? Math.round(Number((quality as any)?.ok_runs ?? 0) / Number((quality as any)?.runs ?? 0) * 100)
+      : null
+
     const [aiMsgRow] = await sql`
       SELECT COUNT(*)::int AS cnt FROM messages m
       JOIN agents a ON a.id = m.sender_id
@@ -666,6 +684,7 @@ async function main() {
       trend,
       active_agents: activeAgents,
       roi: { aiRepliesMonth, costPerReply: COST_PER_AI_REPLY, estCostYuan, savedYuan: Number(savedYuan) },
+      quality: { toolSuccessRate, likes: Number((feedback as any)?.likes ?? 0), dislikes: Number((feedback as any)?.dislikes ?? 0) },
     })
   })
 
