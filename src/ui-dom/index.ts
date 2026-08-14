@@ -42,6 +42,7 @@ export { ssrPage, ssrToString, serializeData, createSsrContext } from './vdom2/s
 export { buildVNode } from './vdom2/build.ts'
 export { renderValue } from './vdom2/render.ts'
 export { createRenderer, type Renderer } from './vdom2/mount.ts'
+export { mountCommand, unmountCommand } from './vdom2/mount.ts'
 export { createStore } from './store.ts'
 export { createVdomContext, mountRoot } from './context.ts'
 export type { ExternalStore } from './store.ts'

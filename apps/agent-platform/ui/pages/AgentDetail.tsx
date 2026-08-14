@@ -1,7 +1,11 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, TypeBadge, Loading, errMsg } from '../components/ui'
 import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Icon, Input, Select, Slider, Textarea, Timeline } from 'weifuwu/components'
-import { inputValue, type AgentVersion } from '../lib/types'
+import { inputValue } from '../lib/types'
+import { SkillsSection } from '../components/agent/SkillsSection'
+import { PreviewSection } from '../components/agent/PreviewSection'
+import { LogsSection } from '../components/agent/LogsSection'
+import { VersionsSection } from '../components/agent/VersionsSection'
 import type { Agent, AgentLog, AvailableSkill, BoundSkill, KbChunk, KbDocument, WebhookLog } from '../lib/types'
 
 const MODELS = [
@@ -16,7 +20,6 @@ interface AgentDetailState {
   error: string; ok: string
   name: string; description: string; systemPrompt: string
   aiModel: string; aiTemperature: string; aiMaxTokens: string; aiQuota: string; quotaUsed: number
-  versions: AgentVersion[]; versionNote: string; savingVersion: boolean; rollingBack: string | null
   aiHITL: boolean; webhookUrl: string; webhookSecret: string
   webhookRetryCount: string; secretVisible: boolean
   kbChunkSize: string; kbChunkOverlap: string
@@ -26,7 +29,6 @@ interface AgentDetailState {
   previewQuery: string; previewText: string; previewing: boolean
   allowFileTools: boolean; allowCommandExec: boolean; allowNetwork: boolean
   boundSkills: BoundSkill[]; availableSkills: AvailableSkill[]; showSkillPicker: boolean
-  logs: AgentLog[]; logsLoading: boolean
   docs: KbDocument[]; docsLoading: boolean
   newDocFilename: string; newDocContent: string
   uploading: boolean; expandedDoc: string | null
@@ -52,7 +54,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     $.error = ''; $.ok = ''
 
     $.name = ''; $.description = ''; $.systemPrompt = ''
-    $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiQuota = '0'; $.quotaUsed = 0; $.versions = []; $.versionNote = ''; $.savingVersion = false; $.rollingBack = null
+    $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiQuota = '0'; $.quotaUsed = 0
     $.aiHITL = false; $.webhookUrl = ''; $.webhookSecret = ''
     $.webhookRetryCount = '3'; $.secretVisible = false
     $.kbChunkSize = '500'; $.kbChunkOverlap = '50'
@@ -61,8 +63,6 @@ export const AgentDetail: Component = async (_props, ctx) => {
     $.allowFileTools = false; $.allowCommandExec = false; $.allowNetwork = false
 
     $.boundSkills = []; $.availableSkills = []; $.showSkillPicker = false
-
-    $.logs = []; $.logsLoading = false
 
     Promise.all([
       ctx.api!.get(`/api/agents/${agentId}`),
@@ -78,8 +78,6 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.aiMaxTokens = String(a.max_tokens ?? 2048)
       $.aiQuota = String(a.monthly_token_quota ?? 0)
       $.quotaUsed = Number(a.quota_used ?? 0)
-      loadVersions()
-      if (a.type === 'ai') loadLogs()
       $.aiHITL = !!a.human_in_the_loop
       $.webhookUrl = a.webhook_url ?? ''; $.webhookSecret = a.webhook_secret ?? ''
       $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
@@ -157,24 +155,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     } catch (e) { $.error = errMsg(e, '保存失败'); $.saving = false; rerender() }
   }
 
-  async function bindSkill(skill: AvailableSkill) {
-    // 后端契约：POST /api/agents/:id/skills 需要 { skill_name, skill_dir }
-    const skillName = skill.meta?.name ?? skill.name ?? skill.slug
-    const skillDir = skill.dir ?? skill.skill_dir
-    if (!skillName || !skillDir) return
-    await ctx.api!.post(`/api/agents/${agentId}/skills`, { skill_name: skillName, skill_dir: skillDir })
-    const d = await ctx.api!.get(`/api/agents/${agentId}/skills`)
-    $.boundSkills = d.skills ?? []
-    rerender()
-  }
 
-  async function unbindSkill(id: string) {
-    // 后端契约：DELETE /api/agents/:id/skills/:skillId 需要 agent_skills.id（UUID）
-    await ctx.api!.delete(`/api/agents/${agentId}/skills/${id}`)
-    const d = await ctx.api!.get(`/api/agents/${agentId}/skills`)
-    $.boundSkills = d.skills ?? []
-    rerender()
-  }
 
   async function loadWsList(path = '') {
     $.wsLoading = true; rerender()
@@ -216,14 +197,6 @@ export const AgentDetail: Component = async (_props, ctx) => {
     return $.wsPath.split('/').filter(Boolean)
   }
 
-  async function loadLogs() {
-    $.logsLoading = true
-    try {
-      const d = await ctx.api!.get(`/api/stats/agents/${agentId}/logs`)
-      $.logs = d.logs ?? []; $.logsLoading = false
-      rerender()
-    } catch { $.logsLoading = false; rerender() }
-  }
 
   async function loadWebhookLogs() {
     $.whLogsLoading = true
@@ -246,60 +219,6 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
 
   const agentIdPath = ctx.route?.params?.id ?? ''
-  function fmtVersionTime(t: string): string {
-    try { return new Date(t).toLocaleString().slice(0, 16) } catch { return String(t ?? '').slice(0, 16) }
-  }
-  function loadVersions() {
-    void ctx.api!.get<{ versions: AgentVersion[] }>(`/api/agents/${agentIdPath}/versions`).then((d) => { $.versions = d.versions ?? []; rerender() }).catch(() => {})
-  }
-  async function saveVersionFn() {
-    $.savingVersion = true; rerender()
-    await ctx.api!.post(`/api/agents/${agentIdPath}/versions`, { note: $.versionNote }).then(() => {
-      $.versionNote = ''; ctx.toast?.('版本已保存', 'success'); loadVersions()
-    }).catch(() => ctx.toast?.('保存失败', 'error'))
-    $.savingVersion = false; rerender()
-  }
-  async function rollbackVersionFn(versionId: string) {
-    const ok = await ctx.confirm?.('回滚将覆盖当前配置，确定继续？')
-    if (ok === false) return
-    $.rollingBack = versionId; rerender()
-    await ctx.api!.post(`/api/agents/${agentIdPath}/versions/${versionId}/rollback`).then(() => {
-      ctx.toast?.('已回滚', 'success'); location.reload()
-    }).catch(() => ctx.toast?.('回滚失败', 'error'))
-    $.rollingBack = null; rerender()
-  }
-  async function previewSend() {
-    if (!$.previewQuery.trim()) return
-    $.previewing = true; $.previewText = ''; rerender()
-    try {
-      const token = ctx.browser?.storageGet?.('agent_platform_token') ?? ''
-      const res = await fetch(`/api/agents/${agentId}/preview`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ content: $.previewQuery }),
-      })
-      const reader = res.body?.getReader()
-      const dec = new TextDecoder()
-      if (reader) {
-        let buf = ''
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buf += dec.decode(value)
-          for (const line of buf.split('\n')) {
-            if (line.startsWith('data: ')) {
-              try {
-                const d = JSON.parse(line.slice(6))
-                if (d.text) { $.previewText += d.text; rerender() }
-                if (d.content) { $.previewText = d.content; rerender() }
-              } catch { /* 非 JSON 行跳过 */ }
-            }
-          }
-        }
-      }
-    } catch (e) { $.previewText = '预览失败：' + errMsg(e, '') }
-    $.previewing = false; rerender()
-  }
 
   async function reindexDocs() {
     $.reindexing = true; rerender()
@@ -645,40 +564,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
         </Card>
       )}
 
-      {a.type === 'ai' && (
-        <Card id="sec-skills">
-          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="settings" size={14} /> 技能管理</div>
-          {$.boundSkills.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无绑定技能</div>}
-          {$.boundSkills.map((s: BoundSkill) => (
-            <div key={s.slug} class="wf-split wf-py-sm wf-border-b">
-              <div class="wf-stack wf-gap-none">
-                <span class="wf-text-sm wf-text-medium">{s.name ?? s.skill_name}</span>
-                <span class="wf-text-xs wf-text-tertiary">{s.description ?? ''}</span>
-              </div>
-              <Button size="sm" variant="danger" onClick={() => unbindSkill(s.id)}>解绑</Button>
-            </div>
-          ))}
-          {$.availableSkills.length > 0 && (
-            <Button size="sm" variant="ghost" onClick={() => { $.showSkillPicker = !$.showSkillPicker; rerender() }}>
-              {$.showSkillPicker ? '收起' : '+ 绑定技能'}
-            </Button>
-          )}
-          {$.showSkillPicker && (
-            <div class="wf-stack wf-gap-xs wf-mt-sm">
-              {$.availableSkills.filter((as: AvailableSkill) => {
-                const name = as.meta?.name ?? as.name ?? as.slug
-                return !$.boundSkills.some((bs: BoundSkill) => bs.skill_name === name)
-              }).map((s: AvailableSkill) => (
-                <div key={s.dir ?? s.slug ?? s.id} class="wf-split wf-py-xs">
-                  <span class="wf-text-sm">{s.meta?.name ?? s.name}</span>
-                  <span class="wf-text-xs wf-text-tertiary">{s.meta?.description ?? s.description ?? ''}</span>
-                  <Button size="sm" variant="primary" onClick={() => bindSkill(s)}>绑定</Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
+      {a.type === 'ai' && <SkillsSection agentId={agentId} />}
 
       {a.type === 'ai' && $.allowFileTools && (
         <Card id="sec-files">
@@ -730,41 +616,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
         </Card>
       )}
 
-      {a.type === 'ai' && (
-        <Card id="sec-preview">
-          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="message" size={14} /> 测试对话</div>
-          <div class="wf-row wf-gap-xs">
-            <div class="wf-fill">
-              <Input placeholder="输入消息测试提示词（如：介绍一下你自己）" value={$.previewQuery}
-                onInput={(e: Event) => { $.previewQuery = inputValue(e); rerender() }} />
-            </div>
-            <Button size="sm" variant="primary" disabled={$.previewing} onClick={previewSend}>
-              {$.previewing ? '回复中...' : '发送'}
-            </Button>
-          </div>
-          {$.previewText && <pre class="wf-bg-secondary wf-rounded wf-p-sm wf-mt-sm wf-text-sm" style="white-space: pre-wrap; line-height: 1.6">{$.previewText}</pre>}
-        </Card>
-      )}
+      {a.type === 'ai' && <PreviewSection agentId={agentId} />}
 
-      {a.type === 'ai' && (
-        <Card id="sec-logs">
-          <div class="wf-split wf-mb-sm">
-            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="list" size={14} /> 执行日志</div>
-            <Button size="sm" variant="ghost" onClick={loadLogs}>刷新</Button>
-          </div>
-          {$.logsLoading && <Loading />}
-          {!$.logsLoading && $.logs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无执行日志</div>}
-          {!$.logsLoading && $.logs.length > 0 && (
-            <Timeline items={$.logs.map((log: AgentLog) => ({
-              key: log.id,
-              title: '🤖 AI 执行',
-              time: log.created_at ? new Date(log.created_at).toLocaleTimeString() : undefined,
-              status: log.success === false ? 'error' : 'success',
-              content: `${log.messages_count ?? 0} 条消息 · ${log.tokens_total ?? 0} tokens · ${log.elapsed_ms ?? 0}ms`,
-            }))} />
-          )}
-        </Card>
-      )}
+      {a.type === 'ai' && <LogsSection agentId={agentId} />}
 
       {a.type === 'webhook' && (
                 
@@ -839,31 +693,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
         </Card>
       )}
 
-      <Card id="sec-versions">
-          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="refresh" size={14} /> 版本管理</div>
-          <div class="wf-text-xs wf-text-tertiary wf-mb-sm">保存当前配置快照，可随时回滚（系统提示/模型/工具/配额等）</div>
-          <div class="wf-row wf-gap-xs wf-mb-sm">
-            <div class="wf-fill"><Input placeholder="版本备注（可选）" value={$.versionNote}
-              onInput={(e: Event) => { $.versionNote = inputValue(e); rerender() }} /></div>
-            <Button size="sm" disabled={$.savingVersion} onClick={saveVersionFn}>
-              {$.savingVersion ? '保存中...' : '保存版本'}
-            </Button>
-          </div>
-          <div class="wf-stack wf-gap-xs">
-            {$.versions.length === 0 ? (
-              <div class="wf-text-sm wf-text-tertiary wf-py-sm">暂无版本——保存第一个版本开始管理</div>
-            ) : $.versions.map((v: any) => (
-              <div key={v.id} class="wf-split wf-py-sm wf-border-b">
-                <div class="wf-stack wf-gap-none">
-                  <span class="wf-text-sm">v{v.version} · {v.note ?? '版本'}</span>
-                  <span class="wf-text-xs wf-text-tertiary">{fmtVersionTime(v.created_at)}</span>
-                </div>
-                <Button size="sm" variant="ghost" disabled={$.rollingBack === v.id}
-                  onClick={() => rollbackVersionFn(v.id)}>{$.rollingBack === v.id ? '回滚中...' : '回滚'}</Button>
-              </div>
-            ))}
-          </div>
-        </Card>
+      <VersionsSection agentId={agentId} />
 
       {a.type === 'knowledge_base' && (
         <Card id="sec-knowledge">
