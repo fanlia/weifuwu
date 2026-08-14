@@ -113,6 +113,14 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS monthly_token_limit INT NOT NULL DEFAULT 0`)
   // G1 回填：老租户（free 无试用期）补 14 天试用 + 免费配额
   await pg.sql.unsafe(`UPDATE _weifuwu_apps SET trial_ends_at = NOW() + INTERVAL '14 days', monthly_token_limit = 50000 WHERE plan = 'free' AND trial_ends_at IS NULL`)
+  // 商业化 G4：租户 BYOK 配置（自带模型 Key/端点）
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS app_ai_configs (
+    app_id UUID PRIMARY KEY,
+    base_url TEXT,
+    api_key TEXT,
+    model TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`)
   // 多 Agent 协作：agent_logs.department_id 可空（子 Agent 被调用时无部门——call_agent 嵌套）
   await pg.sql.unsafe(`ALTER TABLE agent_logs ALTER COLUMN department_id DROP NOT NULL`)
   await pg.sql.unsafe(`
@@ -413,6 +421,37 @@ async function main() {
     const action = url.searchParams.get('action') ?? undefined
     const result = await listAudit(ctx, { limit, action })
     return Response.json(result)
+  })
+
+  // 商业化 G4：租户 BYOK 配置（自带模型 Key/端点——Settings 设置）
+  protectedRoutes.get('/api/settings/ai-config', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    const { getByokConfig } = await import('./src/services/byok.ts')
+    const cfg = await getByokConfig(ctx.sql, ctx.appId)
+    return Response.json({ baseUrl: cfg?.base_url ?? '', apiKey: cfg?.api_key ? '******' : '', apiKeySet: !!cfg?.api_key, model: cfg?.model ?? '' })
+  })
+
+  protectedRoutes.put('/api/settings/ai-config', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId } = ctx
+    const body = await req.json() as { baseUrl?: string; apiKey?: string; model?: string; clear?: boolean }
+    if (body.clear) {
+      await sql`DELETE FROM app_ai_configs WHERE app_id = ${appId}`
+      return Response.json({ ok: true, cleared: true })
+    }
+    // 已存 key 不回显：apiKey 为空 = 保持原值
+    const [cur] = await sql`SELECT api_key FROM app_ai_configs WHERE app_id = ${appId}`
+    const finalKey = body.apiKey?.trim() ? body.apiKey.trim() : String((cur as any)?.api_key ?? '')
+    await sql`
+      INSERT INTO app_ai_configs (app_id, base_url, api_key, model, updated_at)
+      VALUES (${appId}, ${body.baseUrl?.trim() ?? null}, ${finalKey || null}, ${body.model?.trim() ?? null}, NOW())
+      ON CONFLICT (app_id) DO UPDATE SET
+        base_url = EXCLUDED.base_url, api_key = EXCLUDED.api_key,
+        model = EXCLUDED.model, updated_at = NOW()
+    `
+    try {
+      const { writeAudit } = await import('./src/services/audit.ts')
+      await writeAudit(ctx as any, { action: 'byok_update', target_type: 'app', target_id: appId, detail: { baseUrl: body.baseUrl ?? null, model: body.model ?? null } })
+    } catch { /* 尽力 */ }
+    return Response.json({ ok: true })
   })
 
   // 商业化 G6：审计日志 CSV 导出（合规——数据可带走）

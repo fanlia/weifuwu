@@ -12,6 +12,8 @@ interface SettingsState {
   sysHealth: OpsInfo | null
   inviteLink: string; inviteCopied: boolean; inviteErr: string
   plan: { plan: string; label: string; trialEndsAt: string | null; trialExpired: boolean; monthlyTokenLimit: number; usedThisMonth?: number } | null
+  byok: { baseUrl: string; apiKey: string; apiKeySet: boolean; model: string } | null
+  byokSubmitting: boolean; byokOk: string; byokErr: string
 }
 
 const AUDIT_LABELS: Record<string, string> = {
@@ -47,8 +49,34 @@ export const Settings: Component = async (_props, ctx) => {
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
     $.inviteLink = ''; $.inviteCopied = false
     $.plan = null
+    $.byok = null; $.byokSubmitting = false; $.byokOk = ''; $.byokErr = ''
     // 计划状态（G1 付费墙：试用剩余/配额用量）
     void ctx.api!.get('/api/plan').then((d: any) => { $.plan = d; ctx.ui.render() }).catch(() => {})
+    // BYOK（G4：租户自带模型 Key）
+    void ctx.api!.get('/api/settings/ai-config').then((d: any) => { $.byok = d; ctx.ui.render() }).catch(() => {})
+
+  async function saveByok() {
+    if (!$.byok) return
+    $.byokSubmitting = true; $.byokErr = ''; $.byokOk = ''
+    rerender()
+    try {
+      await ctx.api!.put('/api/settings/ai-config', {
+        baseUrl: $.byok.baseUrl, apiKey: $.byok.apiKey, model: $.byok.model,
+      })
+      $.byokOk = '已保存——新对话使用你的模型配置'
+      $.byok = { ...$.byok, apiKey: '' }
+    } catch (e) { $.byokErr = errMsg(e, '保存失败') }
+    finally { $.byokSubmitting = false; rerender() }
+  }
+
+  async function clearByok() {
+    try {
+      await ctx.api!.put('/api/settings/ai-config', { clear: true })
+      $.byok = { baseUrl: '', apiKey: '', apiKeySet: false, model: '' }
+      $.byokOk = '已清除——恢复使用平台默认模型'
+      rerender()
+    } catch (e) { $.byokErr = errMsg(e, '清除失败'); rerender() }
+  }
 
   async function createInvite() {
     $.inviteLink = ''; $.inviteCopied = false; $.inviteErr = ''
@@ -151,6 +179,41 @@ export const Settings: Component = async (_props, ctx) => {
             <div class="wf-split wf-py-xs wf-border-b">
               <span class="wf-text-sm wf-text-secondary">本月配额</span>
               <span class="wf-text-sm wf-nums">{($.plan.usedThisMonth ?? 0).toLocaleString()} / {$.plan.monthlyTokenLimit.toLocaleString()} token</span>
+            </div>
+          </div>
+        ) : (
+          <div class="wf-text-sm wf-text-tertiary wf-py-sm">加载中...</div>
+        )}
+      </Card>
+
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="server" size={14} /> 模型配置（BYOK）</div>
+        <div class="wf-text-xs wf-text-tertiary wf-mb-sm">企业自带模型 Key/端点（OpenAI 兼容）——AI 对话改用你的配置，平台默认配置不参与</div>
+        {$.byok ? (
+          <div class="wf-stack wf-gap-md">
+            {$.byokOk && <Alert variant="success">{$.byokOk}</Alert>}
+            {$.byokErr && <Alert variant="error">{$.byokErr}</Alert>}
+            <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); --wf-gap: 12px">
+              <Field label="API Base URL">
+                <Input placeholder="https://api.你的模型.com/v1" value={$.byok.baseUrl}
+                  onInput={(e: Event) => { $.byok!.baseUrl = inputValue(e); rerender() }} />
+              </Field>
+              <Field label="API Key">
+                <Input type="password" placeholder={$.byok.apiKeySet ? '已配置（留空保持不变）' : 'sk-...'}
+                  value={$.byok.apiKey} onInput={(e: Event) => { $.byok!.apiKey = inputValue(e); rerender() }} />
+              </Field>
+              <Field label="模型">
+                <Input placeholder="模型名（如 deepseek-chat）" value={$.byok.model}
+                  onInput={(e: Event) => { $.byok!.model = inputValue(e); rerender() }} />
+              </Field>
+            </div>
+            <div class="wf-row wf-gap-sm">
+              <Button size="sm" variant="primary" disabled={$.byokSubmitting} onClick={saveByok}>
+                {$.byokSubmitting ? '保存中...' : '保存配置'}
+              </Button>
+              {$.byok.apiKeySet && (
+                <Button size="sm" variant="ghost" onClick={clearByok}>清除（用平台默认）</Button>
+              )}
             </div>
           </div>
         ) : (

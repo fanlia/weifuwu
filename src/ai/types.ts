@@ -148,6 +148,10 @@ export interface ToolDefinition {
 
 export interface ChatParams {
   model?: string
+  /** BYOK：per-call 覆盖全局 apiKey（租户自带模型 Key——商业化 G4） */
+  apiKey?: string
+  /** BYOK：per-call 覆盖全局端点（OpenAI 兼容任意服务商） */
+  baseUrl?: string
   messages: ChatMessage[]
   temperature?: number
   max_tokens?: number

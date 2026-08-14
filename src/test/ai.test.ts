@@ -17,6 +17,7 @@ import type { WfStreamEvent } from '../ai/types.ts'
 interface FakeRequest {
   method: string
   url: string
+  headers: Record<string, string>
   body: Record<string, unknown>
 }
 
@@ -25,7 +26,7 @@ function startFakeProvider(handler: (req: FakeRequest) => void): Promise<{ url: 
     let raw = ''
     for await (const chunk of req) raw += chunk
     const body = JSON.parse(raw || '{}')
-    handler({ method: req.method ?? 'GET', url: req.url ?? '/', body })
+    handler({ method: req.method ?? 'GET', url: req.url ?? '/', headers: Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k, String(v)])), body })
 
     const isStream = body.stream === true
     if (isStream) {
@@ -263,5 +264,46 @@ test('ai() 工厂：middleware 注入 ctx.ai + 独立可用（queue 式混合）
     assert.equal(typeof a.chat, 'function')
   } finally {
     await fake.close()
+  }
+})
+
+// ── BYOK（商业化 G4：per-call apiKey/baseUrl 覆盖——租户自带模型 Key） ──
+
+test('BYOK：chat per-call apiKey/baseUrl 覆盖全局配置（租户自带模型）', async () => {
+  let seen: FakeRequest | null = null
+  const global = await startFakeProvider(() => {})
+  const byok = await startFakeProvider((req) => { seen = req })
+  const a = ai({ apiKey: 'global-key', baseUrl: global.url })
+  try {
+    const res = await a.chat({
+      messages: [{ role: 'user', content: 'hi' }],
+      apiKey: 'tenant-key',       // 租户 BYOK
+      baseUrl: byok.url,          // 租户端点（OpenAI 兼容任意服务商）
+      model: 'tenant-model',
+    })
+    assert.ok(res.id, '响应正常')
+    assert.ok(seen, '请求到达租户端点')
+    assert.equal(seen!.headers['authorization'], 'Bearer tenant-key', '请求头用租户 key')
+    assert.ok(seen!.url.includes('/chat/completions'), '端点正确')
+    assert.equal(seen!.body.model, 'tenant-model', '模型用租户配置')
+  } finally {
+    await global.close()
+    await byok.close()
+  }
+})
+
+test('BYOK：stream per-call 覆盖同样生效', async () => {
+  let seen: FakeRequest | null = null
+  const global = await startFakeProvider(() => {})
+  const byok = await startFakeProvider((req) => { seen = req })
+  const a = ai({ apiKey: 'global-key', baseUrl: global.url })
+  try {
+    const res = a.stream({ messages: [{ role: 'user', content: 'hi' }], apiKey: 'tenant-key', baseUrl: byok.url })
+    await collectEvents(res)
+    assert.ok(seen, '流式请求到达租户端点')
+    assert.equal(seen!.headers['authorization'], 'Bearer tenant-key')
+  } finally {
+    await global.close()
+    await byok.close()
   }
 })

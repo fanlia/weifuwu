@@ -225,9 +225,16 @@ function createEmbeddingClient(ebd?: AiEmbeddingOptions) {
 }
 
 export function createAiClient(opts: AiClientOptions): AiClient {
-  const endpoint = `${opts.baseUrl.replace(/\/$/, '')}/chat/completions`
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${opts.apiKey}` }
   const embedding = createEmbeddingClient(opts.embedding)
+
+  /** BYOK per-call 覆盖：端点 = params.baseUrl ?? 全局（租户自带模型 Key——G4） */
+  function endpointFor(params: ChatParams): string {
+    const base = params.baseUrl ?? opts.baseUrl
+    return `${base.replace(/\/$/, '')}/chat/completions`
+  }
+  function headersFor(params: ChatParams): Record<string, string> {
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${params.apiKey ?? opts.apiKey}` }
+  }
 
   // ── HITL 审批注册表（协议 §4.5）：agent run 挂起 → app 的 POST /approve 响应 ──
   const approvals = new Map<string, (resp: WfApprovalResponse) => void>()
@@ -281,9 +288,9 @@ export function createAiClient(opts: AiClientOptions): AiClient {
   }
 
   async function chat(params: ChatParams, options?: { signal?: AbortSignal }): Promise<ChatResponse> {
-    const res = await fetch(endpoint, {
+    const res = await fetch(endpointFor(params), {
       method: 'POST',
-      headers,
+      headers: headersFor(params),
       body: JSON.stringify({ ...params, model: params.model ?? opts.defaultModel, stream: false }),
       signal: options?.signal,
     })
@@ -324,9 +331,9 @@ export function createAiClient(opts: AiClientOptions): AiClient {
 
     let res: Response
     try {
-      res = await fetch(endpoint, {
+      res = await fetch(endpointFor(params), {
         method: 'POST',
-        headers,
+        headers: headersFor(params),
         body: JSON.stringify({ ...params, model: params.model ?? opts.defaultModel, stream: true }),
         signal,
       })

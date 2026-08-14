@@ -38,6 +38,9 @@ export interface AgentTool {
 
 export interface AgentConfig {
   model?: string
+  /** BYOK：per-call 覆盖全局 apiKey/baseUrl（租户自带模型 Key——商业化 G4） */
+  apiKey?: string
+  baseUrl?: string
   systemPrompt: string
   tools: AgentTool[]
   /** 默认 10 */
@@ -166,7 +169,7 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
       emit('wf:step', { type: 'llm' })
       let finish: StreamFinishResult = { content: '', toolCalls: [] }
       await client.streamStep(
-        { model: config.model, messages: all, tools: toolDefs },
+        { model: config.model, apiKey: config.apiKey, baseUrl: config.baseUrl, messages: all, tools: toolDefs },
         {
           emit,
           signal,

@@ -18,6 +18,7 @@ import type { SkillContext } from './skills.ts'
 import { resolveAgentWorkspace } from '../middleware/workspace.ts'
 import { getWorkspaceToolDefs, createWorkspaceHandlers } from '../tools/workspace.ts'
 import { getToolHandler } from '../tools/registry.ts'
+import { byokParamsOf } from './byok.ts'
 import type { WfEmitter } from 'weifuwu'
 
 export interface AgentRunnerConfig {
@@ -219,8 +220,12 @@ export async function runAgent(
   const startTime = Date.now()
 
   // 框架 agent 引擎：结构化结果模式（content/steps/usage）
+  // 商业化 G4 BYOK：租户自带模型 Key/端点 → 框架 per-call 覆盖（未配置走全局）
+  const byok: { apiKey?: string; baseUrl?: string; model?: string } = await byokParamsOf(ctx.sql, config.appId).catch(() => ({}))
   const agentRunner = ai.agent({
-    model: config.model,
+    model: byok.model ?? config.model,
+    apiKey: byok.apiKey,
+    baseUrl: byok.baseUrl,
     systemPrompt: config.systemPrompt,
     tools,
     maxSteps: config.maxSteps ?? 10,
@@ -339,8 +344,12 @@ export async function streamAgent(
   const { ai } = ctx
   const { tools } = await buildToolContext(ctx, config)
 
+  // 商业化 G4 BYOK：租户自带模型 Key/端点 → 框架 per-call 覆盖（未配置走全局）
+  const byok: { apiKey?: string; baseUrl?: string; model?: string } = await byokParamsOf(ctx.sql, config.appId).catch(() => ({}))
   const agentRunner = ai.agent({
-    model: config.model,
+    model: byok.model ?? config.model,
+    apiKey: byok.apiKey,
+    baseUrl: byok.baseUrl,
     systemPrompt: config.systemPrompt,
     tools,
     maxSteps: config.maxSteps ?? 10,
