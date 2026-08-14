@@ -40,6 +40,8 @@ export interface AgentRunnerConfig {
   allowCommandExec?: boolean
   /** 是否允许网络访问（默认 false → --network none） */
   allowNetwork?: boolean
+  /** C1 自校验：任务完成后模型自检（默认开；false 关闭省一次调用） */
+  selfCheck?: boolean
 }
 
 interface TokenCounter {
@@ -232,17 +234,53 @@ export async function runAgent(
   const humanGate = config.humanInTheLoop
     ? (call: { name: string; args: unknown }): boolean => needsApproval(riskPolicy as any, call.name, call.args)
     : undefined
+  // C1 任务纪律：失败恢复引导 + 结构化汇报（零额外调用——系统提示规则）
+  const TASK_DISCIPLINE = `
+【任务纪律】
+1. 工具失败时不要直接放弃：先尝试换一个工具/方案重试；确实无法完成时，在回复中明确说明"未能完成的原因"。
+2. 任务完成后按以下结构汇报：
+   - ✅ 已完成：列出完成的事项
+   - ⚠️ 未完成：列出未完成的事项及原因（没有则省略）
+   - 📦 产物：生成的文件/结果位置（没有则省略）
+3. 如果用户目标不明确，先说明你的理解再执行。`
   const agentRunner = ai.agent({
     model: byok.model ?? config.model,
     apiKey: byok.apiKey,
     baseUrl: byok.baseUrl,
-    systemPrompt: config.systemPrompt,
+    systemPrompt: config.systemPrompt + TASK_DISCIPLINE,
     tools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: humanGate,
   })
 
   const result = await agentRunner.runToResult(contextMessages.slice(1)) // 去掉 system，agent 内部会重新加
+
+  // C1 自校验：任务完成后模型自检（低置信 → 追加"可能未完成"标注）
+  if (config.selfCheck !== false && result.content) {
+    try {
+      const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+      if (lastUser) {
+        const check = await ai.chat({
+          model: byok.model ?? config.model,
+          apiKey: byok.apiKey,
+          baseUrl: byok.baseUrl,
+          messages: [
+            { role: 'system', content: '你是任务质检员。检查助手是否完整完成了用户目标。只输出 JSON：{"complete":true|false,"missing":"未完成部分摘要或空字符串"}' },
+            { role: 'user', content: `用户目标：${String(lastUser.content ?? '').slice(0, 2000)}\n\n助手结果：${String(result.content).slice(0, 4000)}` },
+          ],
+          max_tokens: 150,
+        })
+        const raw = String((check as any)?.choices?.[0]?.message?.content ?? '').trim()
+        const m = raw.match(/\{[\s\S]*\}/)
+        if (m) {
+          const parsed = JSON.parse(m[0]) as { complete?: boolean; missing?: string }
+          if (parsed.complete === false && parsed.missing) {
+            result.content = `${String(result.content)}\n\n⚠️ 自查：以下部分可能未完成——${String(parsed.missing).slice(0, 300)}`
+          }
+        }
+      }
+    } catch { /* 自校验失败不阻断（低成本保护） */ }
+  }
 
   const elapsed = Date.now() - startTime
 
