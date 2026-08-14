@@ -24,6 +24,10 @@
   width: 100%;
   height: 6px;
   appearance: none;
+  /* 清零 UA 默认 padding/border（Chrome range 默认 padding 9px + border 1px）——
+     否则 content 区被压缩，thumb 活动范围 ≠ 盒宽，marks/渐变偏移公式错位 */
+  padding: 0;
+  border: none;
   background: var(--wf-color-border);
   border-radius: var(--wf-radius-xs);
   outline: none;
@@ -80,6 +84,8 @@
 
 .wf-slider-input::-moz-range-track {
   height: 6px;
+  padding: 0; /* Firefox track 默认 padding——清零保 content = 盒宽 */
+  border: none;
   border-radius: var(--wf-radius-xs);
   background: transparent; /* 进度填充由组件 inline 渐变提供 */
 }
