@@ -485,7 +485,6 @@ export const AgentDetail: Component = async (_props, ctx) => {
                     <div class="wf-row wf-gap-sm">
                       <Slider min={0} max={2} step={0.1} value={$.aiTemperature}
                         onChange={(v) => { $.aiTemperature = String(v); rerender() }} />
-                      <span class="wf-text-sm wf-text-semibold" style="min-width: 30px; text-align: center">{$.aiTemperature}</span>
                     </div>
                   </Field>
                 </div>
@@ -629,7 +628,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
           {$.boundSkills.map((s: BoundSkill) => (
             <div key={s.slug} class="wf-split wf-py-sm wf-border-b">
               <div class="wf-stack wf-gap-none">
-                <span class="wf-text-sm wf-text-medium">{s.name}</span>
+                <span class="wf-text-sm wf-text-medium">{s.name ?? s.skill_name}</span>
                 <span class="wf-text-xs wf-text-tertiary">{s.description ?? ''}</span>
               </div>
               <Button size="sm" variant="danger" onClick={() => unbindSkill(s.id)}>解绑</Button>
