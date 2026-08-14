@@ -1043,6 +1043,48 @@ async function main() {
   }))
   app.ws('/ws', messagerSystem.client.handler())
 
+  // ── 问卷实时联动 WS（框架 router.ws + hub 房间——逐题同步/提交锁定） ──
+  app.ws('/survey-live', {
+    open: (ws: any, ctx: any) => {
+      ctx.hub.join('survey-live', ws)
+      surveyHub = ctx.hub
+      // 连接即发当前状态（统计页/填写页初始渲染）
+      ws.send(JSON.stringify(surveyState()))
+    },
+    message: (ws: any, ctx: any, data: string | Buffer) => {
+      try {
+        const msg = JSON.parse(String(data))
+        if (msg.type === 'survey:answer' && msg.question) {
+          // 逐题同步：填写页每完成一题 → 广播（统计页实时滚动）
+          const record = {
+            source: String(msg.source ?? '访客'),
+            question: String(msg.question).slice(0, 100),
+            answer: String(msg.answer ?? '').slice(0, 300),
+            at: new Date().toISOString(),
+          }
+          surveyAnswers.push(record)
+          if (surveyAnswers.length > surveyLimit) surveyAnswers.splice(0, surveyAnswers.length - surveyLimit)
+          surveyBroadcast({ type: 'survey:answer', ...record })
+        } else if (msg.type === 'survey:submit' && msg.data) {
+          // 提交：入内存 + 广播（统计页计数 +1、来源锁定）
+          const d = msg.data
+          const record = {
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            source: String(msg.source ?? '访客'),
+            submitted_at: new Date().toISOString(),
+            age: String(d.age ?? ''), industry: String(d.industry ?? ''), rating: Number(d.rating ?? 0),
+            focus: Array.isArray(d.focus) ? d.focus : (d.focus ? [d.focus] : []),
+            feedback: String(d.feedback ?? '').slice(0, 500),
+          }
+          surveySubmissions.push(record)
+          if (surveySubmissions.length > surveyLimit) surveySubmissions.splice(0, surveySubmissions.length - surveyLimit)
+          surveyBroadcast({ type: 'survey:submitted', count: surveySubmissions.length, latest: record })
+        }
+      } catch { /* 解析失败忽略 */ }
+    },
+    close: (ws: any, ctx: any) => ctx.hub.leave(ws),
+  })
+
   // ── Webhook 入口 ───────────────────────────────────────
 
   app.post('/api/webhook/:agentId', async (req: Request, ctx: AppCtx): Promise<Response> => {
@@ -1140,6 +1182,21 @@ async function main() {
     return new Response(out, { headers: { 'Content-Type': 'application/json' } })
   })
 
+  // ── 问卷实时联动（框架 WS——2 页联动，不落库） ──
+  const surveyAnswers: Array<Record<string, unknown>> = []        // 逐题回答（内存）
+  const surveySubmissions: Array<Record<string, unknown>> = []    // 已提交（内存）
+  const surveyLimit = 20
+  let surveyHub: import('weifuwu').Hub | null = null              // WS 房间（app.ws open 时捕获）
+  const surveyBroadcast = (event: Record<string, unknown>) => {
+    surveyHub?.send('survey-live', JSON.stringify(event))
+  }
+  const surveyState = () => ({
+    type: 'survey:state',
+    count: surveySubmissions.length,
+    answers: surveyAnswers.slice(-surveyLimit),
+    submissions: surveySubmissions.slice(-surveyLimit),
+  })
+
   // ── 本地 CDN：问卷 CDN 页面的框架资源（dist——客户环境可无外网） ──
   const distRoot = join(__dirname, '..', '..', 'dist')
   app.get('/static/ui-dom/index.js', async (): Promise<Response> => {
@@ -1163,28 +1220,6 @@ async function main() {
   })
 
   // ── 模拟数据收集统计（CDN 页面 + JSON 数据 API） ─────────────
-  app.get('/demo-survey/stats-data', async (): Promise<Response> => {
-    const { readdirSync, readFileSync, existsSync } = await import('node:fs')
-    const { join } = await import('node:path')
-    const dir = join(process.cwd(), 'data', 'survey-submissions')
-    const records = existsSync(dir)
-      ? readdirSync(dir).filter((f) => f.endsWith('.json')).sort().map((f) => {
-          try { return JSON.parse(readFileSync(join(dir, f), 'utf-8')) } catch { return null }
-        }).filter(Boolean)
-      : []
-    const ratingDist: Record<string, number> = {}
-    const industryDist: Record<string, number> = {}
-    const focusCount: Record<string, number> = {}
-    let sum = 0
-    for (const r of records) {
-      sum += Number(r.rating ?? 0)
-      ratingDist[String(r.rating)] = (ratingDist[String(r.rating)] ?? 0) + 1
-      industryDist[String(r.industry)] = (industryDist[String(r.industry)] ?? 0) + 1
-      for (const f of Array.isArray(r.focus) ? r.focus : []) focusCount[String(f)] = (focusCount[String(f)] ?? 0) + 1
-    }
-    return Response.json({ records, ratingDist, industryDist, focusCount, avg: records.length ? sum / records.length : 0 })
-  })
-
   app.get('/demo-survey/stats', async (): Promise<Response> => {
     const { readFileSync } = await import('node:fs')
     const { join, dirname } = await import('node:path')

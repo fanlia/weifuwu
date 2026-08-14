@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>模拟数据收集统计</title>
-  <!-- weifuwu CDN：组件样式一条 link -->
+  <title>模拟数据收集统计（实时）</title>
   <link rel="stylesheet" href="/static/style.css" />
   <style>
     body { background: var(--wf-color-bg); color: var(--wf-color-text); }
-    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13px; }
-    .bar-lbl { width: 64px; text-align: right; color: var(--wf-color-text-tertiary); }
-    .bar-num { width: 28px; color: var(--wf-color-text-secondary); font-weight: 600; }
-    .bar { flex: 1; background: var(--wf-color-bg-tertiary); border-radius: 6px; height: 16px; overflow: hidden; }
-    .bar-fill { height: 100%; border-radius: 6px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    td, th { padding: 7px 8px; border-bottom: 1px solid var(--wf-color-border, #eef2f7); text-align: left; vertical-align: top; }
-    th { color: var(--wf-color-text-tertiary); font-weight: 500; font-size: 12px; }
-    .fb { max-width: 280px; }
+    /* 实时流动态效果：新条目淡入 + 滑入 */
+    @keyframes wf-feed-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+    .feed-item { animation: wf-feed-in 0.35s ease-out; }
+    /* 计数跳动 */
+    @keyframes wf-bump { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+    .bump { animation: wf-bump 0.4s ease-out; display: inline-block; }
+    .prog { display: flex; gap: 4px; }
+    .prog-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--wf-color-bg-tertiary); }
+    .prog-dot.on { background: var(--wf-color-success); }
+    .feed { max-height: 300px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -32,90 +32,141 @@
   </script>
 
   <script type="module">
-    import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
-    import { Card, Badge, Button, EmptyState, Loading } from 'weifuwu/components'
+    import { UIRouter, uiServe, h, ws } from 'weifuwu/ui-dom'
+    import { Card, Badge, Button, EmptyState } from 'weifuwu/components'
+
+    // 5 道题（进度用）
+    const QUESTIONS = ['1.年龄', '2.行业', '3.关注能力', '4.满意度', '5.建议反馈']
 
     const StatsPage = async (_init, ctx) => {
-      let data = null
-      let loading = true
+      let count = 0
+      let answers = []                 // 实时答题流
+      let submissions = []             // 已提交
+      let bumpTick = 0                 // 计数跳动动画触发
+      let connected = false
 
-      const load = async () => {
-        loading = true; ctx.ui.render()
-        try {
-          const res = await fetch('/demo-survey/stats-data')
-          data = await res.json()
-        } catch { data = { records: [], ratingDist: {}, industryDist: {}, focusCount: {}, avg: 0 } }
-        loading = false
+      const refresh = (s) => {
+        count = s.count ?? count
+        answers = s.answers ?? answers
+        submissions = s.submissions ?? submissions
+        bumpTick++
         ctx.ui.render()
       }
-      void load()
 
-      const bar = (label, count, max, color) =>
-        h('div', { class: 'bar-row' },
-          h('span', { class: 'bar-lbl' }, label),
-          h('div', { class: 'bar' }, h('div', { class: 'bar-fill', style: { width: `${Math.round(count / max * 100)}%`, background: color } })),
-          h('span', { class: 'bar-num' }, String(count)),
-        )
+      ctx.ws?.onMessage((msg) => {
+        if (msg?.type === 'connected') { connected = true; ctx.ui.render() }
+        if (msg?.type === 'survey:state') refresh(msg)
+        if (msg?.type === 'survey:answer') {
+          answers = [...answers, msg]
+          ctx.ui.render()
+        }
+        if (msg?.type === 'survey:submitted') {
+          count = msg.count ?? count
+          if (msg.latest) submissions = [...submissions, msg.latest]
+          bumpTick++
+          ctx.ui.render()
+        }
+      })
 
-      const ratingColor = (i) => i >= 4 ? 'var(--wf-color-success)' : i === 3 ? 'var(--wf-color-warning)' : 'var(--wf-color-error)'
+      // 按来源聚合进度（哪些题已答）
+      const sourceProgress = () => {
+        const map = new Map()
+        for (const a of answers) {
+          const list = map.get(a.source) ?? []
+          list.push(a.question)
+          map.set(a.source, list)
+        }
+        return [...map.entries()].map(([src, qs]) => ({
+          source: src,
+          done: QUESTIONS.filter((q) => qs.includes(q)).length,
+          locked: submissions.some((x) => x.source === src),
+        }))
+      }
 
       return () => {
-        if (loading) return h(Loading, {})
-        const d = data ?? {}
-        const records = d.records ?? []
-        const maxCount = Math.max(1, ...[...Object.values(d.ratingDist ?? {}), ...Object.values(d.industryDist ?? {})].map(Number))
-
+        const progress = sourceProgress()
+        const feed = [...answers].reverse().slice(0, 30)
         return h('div', { style: { maxWidth: '860px', margin: '32px auto', padding: '0 20px' } },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
             h('div', {},
-              h('h1', { style: { margin: '0 0 4px', fontSize: '22px' } }, '模拟数据收集统计'),
-              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '13px' } }, '多角色 AI 真实浏览器填写 · 数据落库 data/survey-submissions/'),
+              h('h1', { style: { margin: '0 0 4px', fontSize: '22px' } }, '模拟数据收集统计（实时）'),
+              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '13px' } },
+                'WS 实时联动 · 填完一题即同步 · 提交即锁定 · ',
+                h('a', { href: '/demo-survey', style: { color: 'var(--wf-color-primary)' } }, '← 填写页'),
+              ),
             ),
-            h('div', {},
-              h(Button, { variant: 'ghost', size: 'sm', onClick: () => { window.location.href = '/demo-survey' } }, '← 填写页'),
-              h(Button, { variant: 'primary', size: 'sm', onClick: load, style: { marginLeft: '8px' } }, '刷新 ⟳'),
+            connected
+              ? h(Badge, { variant: 'success' }, '● 实时')
+              : h(Badge, { variant: 'warning' }, '连接中...'),
+          ),
+
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' } },
+            h(Card, { variant: 'default', padding: 'md' },
+              h('div', { key: `c${bumpTick}`, class: 'bump', style: { fontSize: '30px', fontWeight: 700, color: 'var(--wf-color-success)' } }, String(count)),
+              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '已提交（锁定）'),
+            ),
+            h(Card, { variant: 'default', padding: 'md' },
+              h('div', { style: { fontSize: '30px', fontWeight: 700 } }, String(progress.length)),
+              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '填写中的来源'),
+            ),
+            h(Card, { variant: 'default', padding: 'md' },
+              h('div', { style: { fontSize: '30px', fontWeight: 700 } }, String(answers.length)),
+              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '已同步的答题数'),
             ),
           ),
 
-          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' } },
-            h(Card, { variant: 'default', padding: 'md' }, h('div', { style: { fontSize: '26px', fontWeight: 700 } }, String(records.length)), h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '总提交数')),
-            h(Card, { variant: 'default', padding: 'md' }, h('div', { style: { fontSize: '26px', fontWeight: 700 } }, String(d.avg?.toFixed(1) ?? '0')), h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '平均满意度 / 5')),
-            h(Card, { variant: 'default', padding: 'md' }, h('div', { style: { fontSize: '26px', fontWeight: 700 } }, String(Object.keys(d.industryDist ?? {}).length)), h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '覆盖行业')),
-            h(Card, { variant: 'default', padding: 'md' }, h('div', { style: { fontSize: '26px', fontWeight: 700 } }, String(Object.keys(d.ratingDist ?? {}).length)), h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '分数档位')),
-          ),
-
+          // 填写进度（按来源）
           h(Card, { variant: 'default', padding: 'md', style: { marginBottom: '16px' } },
-            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '满意度分布'),
-            [5, 4, 3, 2, 1].map((i) => bar(`${i} 分`, Number(d.ratingDist?.[String(i)] ?? 0), maxCount, ratingColor(i))),
-          ),
-
-          h(Card, { variant: 'default', padding: 'md', style: { marginBottom: '16px' } },
-            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '行业分布'),
-            Object.entries(d.industryDist ?? {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => bar(k, v, maxCount, 'var(--wf-color-primary)')),
-          ),
-
-          h(Card, { variant: 'default', padding: 'md', style: { marginBottom: '16px' } },
-            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '关注点'),
-            Object.entries(d.focusCount ?? {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => bar(k, v, maxCount, 'var(--wf-color-info, #8b5cf6)')),
-          ),
-
-          h(Card, { variant: 'default', padding: 'md' },
-            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, `明细（${records.length} 条）`),
-            records.length === 0
-              ? h(EmptyState, { icon: '📋', text: '暂无提交', hint: '让 10 个角色去填写问卷' })
-              : h('table', {},
-                  h('tr', {},
-                    ['时间', '编号', '行业', '年龄', '评分', '关注', '反馈'].map((t) => h('th', {}, t)),
+            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '填写进度'),
+            progress.length === 0
+              ? h(EmptyState, { icon: '📝', text: '暂无填写者', hint: '打开填写页开始答题——每题实时同步到这里' })
+              : progress.map((p) =>
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' } },
+                    h('span', { style: { width: '100px', fontSize: '13px', fontWeight: 600 } }, p.source),
+                    h('div', { class: 'prog' },
+                      QUESTIONS.map((q) => h('div', { class: `prog-dot${p.done >= QUESTIONS.indexOf(q) + 1 ? ' on' : ''}` })),
+                    ),
+                    h('span', { style: { fontSize: '12px', color: 'var(--wf-color-text-tertiary)' } }, `${p.done}/5 题`),
+                    p.locked && h(Badge, { variant: 'success' }, '已提交'),
                   ),
-                  [...records].reverse().map((r) =>
+                ),
+          ),
+
+          // 实时答题流（动态效果）
+          h(Card, { variant: 'default', padding: 'md', style: { marginBottom: '16px' } },
+            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '实时答题流'),
+            h('div', { class: 'feed' },
+              feed.length === 0
+                ? h(EmptyState, { icon: '⚡', text: '等待答题...', hint: '填写页每完成一题，这里实时滚动' })
+                : feed.map((a, i) =>
+                    h('div', { key: `${a.at}-${i}`, class: 'feed-item', style: { display: 'flex', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--wf-color-border, #eef2f7)', fontSize: '13px' } },
+                      h('span', { style: { color: 'var(--wf-color-text-tertiary)' } }, String(a.at ?? '').slice(11, 19)),
+                      h('span', { style: { fontWeight: 600, color: 'var(--wf-color-primary)' } }, a.source),
+                      h('span', {}, `${a.question} →`),
+                      h('span', { style: { color: 'var(--wf-color-text-secondary)' } }, String(a.answer ?? '').slice(0, 80)),
+                    ),
+                  ),
+            ),
+          ),
+
+          // 已提交明细
+          h(Card, { variant: 'default', padding: 'md' },
+            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, `已提交（${submissions.length} 份——锁定不可改）`),
+            submissions.length === 0
+              ? h(EmptyState, { icon: '📋', text: '暂无提交', hint: '填写页提交后这里实时出现' })
+              : h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '13px' } },
+                  h('tr', {},
+                    ['来源', '时间', '行业', '年龄', '评分', '关注', '反馈'].map((t) => h('th', { style: { textAlign: 'left', padding: '6px 8px', color: 'var(--wf-color-text-tertiary)' } }, t)),
+                  ),
+                  [...submissions].reverse().map((r) =>
                     h('tr', {},
-                      h('td', { style: { color: 'var(--wf-color-text-tertiary)' } }, String(r.submitted_at ?? '').slice(5, 16).replace('T', ' ')),
-                      h('td', {}, r.id),
-                      h('td', {}, r.industry ?? '—'),
-                      h('td', {}, r.age ?? '—'),
-                      h('td', {}, h('b', {}, String(r.rating ?? '—'))),
-                      h('td', { style: { color: 'var(--wf-color-text-tertiary)' } }, (r.focus ?? []).join('、') || '—'),
-                      h('td', { class: 'fb' }, String(r.feedback ?? '').slice(0, 120)),
+                      h('td', { style: { padding: '6px 8px' } }, r.source),
+                      h('td', { style: { padding: '6px 8px', color: 'var(--wf-color-text-tertiary)' } }, String(r.submitted_at ?? '').slice(5, 16).replace('T', ' ')),
+                      h('td', { style: { padding: '6px 8px' } }, r.industry ?? '—'),
+                      h('td', { style: { padding: '6px 8px' } }, r.age ?? '—'),
+                      h('td', { style: { padding: '6px 8px' } }, h('b', {}, String(r.rating ?? '—'))),
+                      h('td', { style: { padding: '6px 8px', color: 'var(--wf-color-text-tertiary)' } }, (r.focus ?? []).join('、') || '—'),
+                      h('td', { style: { padding: '6px 8px', maxWidth: '240px' } }, String(r.feedback ?? '').slice(0, 100)),
                     ),
                   ),
                 ),
@@ -125,6 +176,7 @@
     }
 
     const router = new UIRouter()
+    router.use(ws({ url: '/survey-live' }))   // 框架 ws 中间件——问卷联动端点
     router.get('/', async () => h(StatsPage, {}))
     router.notFound(async () => h(StatsPage, {}))
     uiServe(router, { root: document.getElementById('root') })
