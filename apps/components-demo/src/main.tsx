@@ -49,32 +49,20 @@ const SECTIONS = ['表单核心', '表单选择', '表单增强', '数据展示'
 const secId = (t: string) => `sec-${t}`
 const cardId = (t: string) => `c-${t.replace(/[^\w一-龥-]+/g, '-')}`
 
-function Section(initProps: { title: string; children: any }, ctx: any) {
-  // 懒渲染（S1）：分组滚入视口才建卡片树（once-latch——滚走后保持，demo 状态不回收）；
-  // 搜索时强制全渲染（全局匹配）；IO 未就绪时保守渲染（避免首屏闪烁）
+function Section(_initProps: { title: string; children: any }, _ctx: any) {
+  // 全量渲染（无懒渲染）：所有分组一次建树，搜索即时全局过滤——方便快速定位组件
   // §3.1 纪律：renderFn 必须用渲染期 props（最新）——不得用 mount 捕获的 initProps 渲染
   // （否则 children 永远是首次挂载的 vnode 对象——搜索过滤 dispose 后重发的同对象
   //  既是旧树又是新树 → 自 dispose → 卡片错位/消失）
-  const inView = ctx.ui.useInView({ threshold: 0.02 })
-  let rendered = false
-  const secRef = (el: any) => inView.observe(el)
   return (props: { title: string; children: any }) => {
-    if (inView.isIn) rendered = true
     const searching = !!cardFilter.q
     const kids = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean)
     const visible = searching ? kids.filter((v: any) => matchCard(String(v?.props?.title ?? ''), String(v?.props?.desc ?? ''))) : kids
     if (searching && visible.length === 0) return null // 搜索时隐藏空分组
-    const show = searching || rendered || !inView.ready
     return (
-      <section class="wf-stack wf-gap-lg" id={secId(props.title)} ref={secRef}>
+      <section class="wf-stack wf-gap-lg" id={secId(props.title)}>
         <h2 class="wf-text-2xl wf-m-0 wf-border-b wf-pb-sm">{props.title}</h2>
-        {show ? (
-          <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 420px), 1fr))">{visible}</div>
-        ) : (
-          <div class="wf-surface wf-border wf-rounded-md wf-p-md wf-text-sm wf-text-secondary">
-            该分组组件未加载——滚动到此处或点击上方导航加载
-          </div>
-        )}
+        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 420px), 1fr))">{visible}</div>
       </section>
     )
   }
