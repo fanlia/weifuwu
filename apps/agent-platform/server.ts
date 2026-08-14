@@ -1056,7 +1056,16 @@ async function main() {
         const msg = JSON.parse(String(data))
         // 在线报到：填写页连接后发 hello（统计页只订阅不发——不计入在线）
         if (msg.type === 'survey:hello' && msg.source) {
-          surveyOnline.set(ws, { source: String(msg.source).slice(0, 40), at: new Date().toISOString() })
+          const source = String(msg.source).slice(0, 40)
+          // 同来源重连去重（WS 重连时旧连接 close 可能延迟——先移除同 source 旧连接，
+          // 否则在线人数虚高/列表重复——真实 bug：AI 浏览器重连后同角色出现两次）
+          for (const [w, v] of surveyOnline) {
+            if (v.source === source && w !== ws) {
+              surveyOnline.delete(w)
+              try { w.close() } catch { /* 已断 */ }
+            }
+          }
+          surveyOnline.set(ws, { source, at: new Date().toISOString() })
           surveyBroadcastOnline()
           return
         }
@@ -1238,6 +1247,33 @@ async function main() {
   })
 
   // ── 模拟数据收集统计（CDN 页面 + JSON 数据 API） ─────────────
+  // 一键触发 10 角色填写（demo——统计页按钮 → 服务端批量派单）
+  app.post('/demo-survey/launch', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    try {
+      const [dept] = await pg.sql`SELECT id FROM departments WHERE name = '模拟调研组' LIMIT 1`
+      if (!dept) return Response.json({ error: '未找到「模拟调研组」部门（先跑 seed-survey-agents.mjs）' }, { status: 404 })
+      const [sender] = await pg.sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'user' LIMIT 1`
+      const senderId = sender ? String(sender.id) : 'system'
+      const roles = await pg.sql`
+        SELECT a.name FROM department_members dm JOIN agents a ON a.id = dm.agent_id
+        WHERE dm.department_id = ${dept.id} AND a.type = 'ai' ORDER BY a.created_at
+      `
+      const roleNames = (Array.isArray(roles) ? roles : [roles]).map((r: any) => String(r.name ?? ''))
+      const { handleNewMessageStream } = await import('./src/services/chat.ts')
+      let sent = 0
+      for (const name of roleNames) {
+        // ?s=角色名 → 填写页来源标识 → 统计页在线/进度按角色名显示
+        const content = `@${name} 请填写问卷 http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(name)} 并按你的人设提交（填完即锁定）`
+        void handleNewMessageStream(ctx, String(dept.id), senderId, content, '').catch(() => {})
+        sent++
+        await new Promise((r) => setTimeout(r, 1200)) // 错峰派单（沙盒容器错峰启动）
+      }
+      return Response.json({ success: true, sent, roles: roleNames })
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? 'launch 失败' }, { status: 500 })
+    }
+  })
+
   app.get('/demo-survey/stats', async (): Promise<Response> => {
     const { readFileSync } = await import('node:fs')
     const { join, dirname } = await import('node:path')
