@@ -87,6 +87,64 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
     })
   })
 
+  // ── R5 企业-子租户（企业账户 + 子租户聚合结算） ──────────
+
+  // 企业列表 + 子租户 + 聚合用量
+  app.get('/api/admin/enterprises', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    await requireAdmin(ctx)
+    const { sql } = ctx
+    const enterprises = await sql`
+      SELECT e.id, e.name, e.created_at,
+        (SELECT COUNT(*)::int FROM _weifuwu_apps a WHERE a.enterprise_id = e.id) AS app_count,
+        (SELECT COALESCE(SUM(l.tokens_total), 0)::int FROM agent_logs l
+          JOIN _weifuwu_apps a ON a.id = l.app_id WHERE a.enterprise_id = e.id
+          AND l.created_at >= date_trunc('month', now())) AS tokens_month
+      FROM enterprises e ORDER BY e.created_at DESC
+    `
+    return Response.json({ enterprises })
+  })
+
+  // 建企业（指定管理员邮箱——作为 owner_user_id 标记）
+  app.post('/api/admin/enterprises', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    await requireAdmin(ctx)
+    const body = await req.json() as { name?: string; ownerEmail?: string }
+    if (!body.name?.trim()) return Response.json({ error: 'name 必填' }, { status: 400 })
+    let ownerId: string | null = null
+    if (body.ownerEmail) {
+      const [u] = await ctx.sql`SELECT id FROM _weifuwu_users WHERE email = ${String(body.ownerEmail).trim().toLowerCase()}`
+      ownerId = u ? String(u.id) : null
+    }
+    const [row] = await ctx.sql`
+      INSERT INTO enterprises (name, owner_user_id) VALUES (${body.name.trim()}, ${ownerId})
+      RETURNING id, name
+    `
+    return Response.json({ enterprise: row })
+  })
+
+  // 租户挂入企业（子租户归属）
+  app.post('/api/admin/enterprises/:id/apps', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    await requireAdmin(ctx)
+    const body = await req.json() as { appId?: string }
+    if (!body.appId) return Response.json({ error: 'appId 必填' }, { status: 400 })
+    await ctx.sql`UPDATE _weifuwu_apps SET enterprise_id = ${ctx.params.id} WHERE id = ${body.appId}`
+    return Response.json({ ok: true })
+  })
+
+  // 企业聚合用量（子租户汇总——结算视图）
+  app.get('/api/admin/enterprises/:id/usage', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    await requireAdmin(ctx)
+    const { sql } = ctx
+    const apps = await sql`
+      SELECT a.slug, a.name, a.plan, a.status,
+        (SELECT COALESCE(SUM(l.tokens_total), 0)::int FROM agent_logs l
+          WHERE l.app_id = a.id AND l.created_at >= date_trunc('month', now())) AS tokens_month,
+        (SELECT COUNT(*)::int FROM _weifuwu_app_members m WHERE m.app_id = a.id) AS member_count
+      FROM _weifuwu_apps a WHERE a.enterprise_id = ${ctx.params.id} ORDER BY a.created_at
+    `
+    const totalTokens = apps.reduce((s: number, a: any) => s + Number(a.tokens_month ?? 0), 0)
+    return Response.json({ apps, totalTokensMonth: totalTokens })
+  })
+
   // 租户列表：app + 成员数 + Agent 数 + Token 用量 + 状态 + 计划
   app.get('/api/admin/apps', async (_req: Request, ctx: AppCtx): Promise<Response> => {
     await requireAdmin(ctx)

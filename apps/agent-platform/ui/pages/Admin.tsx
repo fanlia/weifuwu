@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, errMsg } from '../components/ui'
-import { Alert, Badge, Button, Card, StatCard, Table, Icon } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, Input, StatCard, Table, Icon } from 'weifuwu/components'
 
 interface AdminApp {
   id: string
@@ -24,6 +24,10 @@ export const Admin: Component = async (_props, ctx) => {
   let busyId = ''
   let overview: any = null
   let opsInfo: any = null
+  let enterprises: any[] = []
+  let entName = ''
+  let entEmail = ''
+  let entErr = ''
   const load = () => {
     loading = true; error = ''
     ctx.ui.render()
@@ -35,6 +39,19 @@ export const Admin: Component = async (_props, ctx) => {
   // 平台使用概览（G11）
   void ctx.api!.get<any>('/api/admin/overview').then((d) => { overview = d; ctx.ui.render() }).catch(() => {})
   void ctx.api!.get<any>('/api/ops').then((d) => { opsInfo = d; ctx.ui.render() }).catch(() => {})
+  void ctx.api!.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.ui.render() }).catch(() => {})
+
+  async function createEnterprise() {
+    if (!entName.trim()) { entErr = '企业名必填'; ctx.ui.render(); return }
+    entErr = ''
+    try {
+      await ctx.api!.post('/api/admin/enterprises', { name: entName.trim(), ownerEmail: entEmail.trim() || undefined })
+      entName = ''; entEmail = ''
+      const d = await ctx.api!.get<any>('/api/admin/enterprises')
+      enterprises = d.enterprises ?? []
+    } catch (e: any) { entErr = e?.message ?? '创建失败' }
+    ctx.ui.render()
+  }
 
   async function openPro(a: AdminApp) {
     busyId = a.id
@@ -84,6 +101,38 @@ export const Admin: Component = async (_props, ctx) => {
           <StatCard label="容器镜像" value={opsInfo.sandbox?.imageReady ? '就绪' : '缺失'} icon={<Icon name="hard-drive" />} />
         </div>
       )}
+
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="briefcase" size={14} /> 企业账户（子租户）</div>
+        <div class="wf-row wf-gap-sm wf-mb-sm wf-cluster">
+          <Input placeholder="企业名" value={entName} style={{ width: 180 }}
+            onInput={(e: any) => { entName = e.target.value; ctx.ui.render() }} />
+          <Input placeholder="管理员邮箱（可选）" value={entEmail} style={{ width: 220 }}
+            onInput={(e: any) => { entEmail = e.target.value; ctx.ui.render() }} />
+          <Button size="sm" variant="primary" onClick={createEnterprise}>建企业</Button>
+          {entErr && <span class="wf-text-xs wf-text-error">{entErr}</span>}
+        </div>
+        {enterprises.length === 0 ? (
+          <div class="wf-text-sm wf-text-tertiary">暂无企业——大客户场景：建企业后把租户挂入（统一结算视图）</div>
+        ) : (
+          <div class="wf-stack wf-gap-sm">
+            {enterprises.map((e: any) => (
+              <div key={e.id} class="wf-split wf-py-xs wf-border-b">
+                <div class="wf-stack wf-gap-none">
+                  <span class="wf-text-sm wf-text-semibold">{e.name}</span>
+                  <span class="wf-text-xs wf-text-tertiary">{e.app_count} 个子租户 · 本月 {Number(e.tokens_month ?? 0).toLocaleString()} token</span>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => {
+                  const appId = window.prompt('挂入租户的 appId（管理后台列表可见）')
+                  if (appId) void ctx.api!.post(`/api/admin/enterprises/${e.id}/apps`, { appId }).then(() => {
+                    void ctx.api!.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.ui.render() })
+                  })
+                }}>挂租户</Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {loading ? (
         <div class="wf-text-sm wf-text-tertiary wf-py-lg wf-center">加载中...</div>

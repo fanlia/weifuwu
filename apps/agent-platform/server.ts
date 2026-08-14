@@ -108,6 +108,14 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS webhook_platform TEXT NOT NULL DEFAULT 'generic'`)
   // R6 质量反馈：AI 消息点赞/点踩（'like'/'dislike'/NULL）
   await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS feedback TEXT`)
+  // R5 企业-子租户：企业账户（结算主体）+ apps 归属
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS enterprises (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    owner_user_id UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`)
+  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS enterprise_id UUID`)
   // 商业化 G2：租户状态（active/disabled——管理后台停用）
   await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`)
   // 商业化 G1：订阅计划（free 试用 / pro）+ 试用到期时间 + 租户级月 token 配额
