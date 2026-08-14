@@ -105,8 +105,12 @@
           if (mine) { submitted = mine; submitting = false }
         }
         if (msg?.type === 'survey:submitted') {
-          submitted = { id: msg.latest?.id ?? '', count: msg.count ?? 0 }
-          submitting = false
+          // 只锁自己的提交（真实 bug：任何角色提交广播都会让其他页面误锁，
+          // 显示别人的提交编号——AI 看到'已提交'后停止操作 → 假提交）
+          if (msg.latest?.source === source) {
+            submitted = { id: msg.latest.id ?? '', count: msg.count ?? 0 }
+            submitting = false
+          }
           ctx.ui.render()
         }
       })
