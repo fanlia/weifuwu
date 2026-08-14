@@ -91,6 +91,74 @@ describe('Modal', () => {
     assert.equal(closeBtn, undefined)
   })
 
+  it('maskClosable=false 遮罩点击不触发 onClose（危险确认防误触）', async () => {
+    let closed = 0
+    const vnode = await inner(await renderModal({ open: true, children: '内容', onClose: () => closed++, maskClosable: false }, makeCtx())!)
+    const overlay = vnode.props.children[0]
+    assert.equal(overlay.props.onClick, undefined, 'maskClosable=false 时遮罩无 onClick')
+    assert.equal(closed, 0)
+  })
+
+  it('无 title 不渲染 header（含无关闭按钮场景）', async () => {
+    const vnode = await inner(await renderModal({ open: true, children: '内容' }, makeCtx())!)
+    const content = vnode.props.children[1]
+    const kids = content.props.children as any[]
+    const hasHeader = kids.some((c: any) => c?.props?.class === 'wf-modal-header')
+    assert.equal(hasHeader, false, '无 title 无 header')
+  })
+
+  it('无 footer 不渲染 footer 元素', async () => {
+    const vnode = await inner(await renderModal({ open: true, title: '标题', children: '内容' }, makeCtx())!)
+    const content = vnode.props.children[1]
+    const kids = content.props.children as any[]
+    const hasFooter = kids.some((c: any) => c?.props?.class === 'wf-modal-footer')
+    assert.equal(hasFooter, false)
+  })
+
+  it('内容点击 stopPropagation（不冒泡到遮罩关闭）', async () => {
+    let closed = 0
+    const vnode = await inner(await renderModal({ open: true, title: '标题', children: '内容', onClose: () => closed++ }, makeCtx())!)
+    const content = vnode.props.children[1]
+    // 模拟内容内点击冒泡：stopPropagation 阻止到达遮罩
+    const fakeEvent = { stopPropagation: () => { (fakeEvent as any).stopped = true } } as any
+    content.props.onClick(fakeEvent)
+    assert.equal((fakeEvent as any).stopped, true, '内容点击必须 stopPropagation')
+    assert.equal(closed, 0)
+  })
+
+  it('关闭按钮点击触发 onClose（aria-label 关闭）', async () => {
+    let closed = 0
+    const vnode = await inner(await renderModal({ open: true, title: '标题', children: '内容', onClose: () => closed++ }, makeCtx())!)
+    const content = vnode.props.children[1]
+    const header = content.props.children[0]
+    const closeBtn = (Array.isArray(header.props.children) ? header.props.children : [header.props.children]).find((c: any) => c?.props?.class === 'wf-modal-close')
+    assert.ok(closeBtn, '关闭按钮存在')
+    assert.equal(closeBtn.props['aria-label'], '关闭')
+    closeBtn.props.onClick()
+    assert.equal(closed, 1)
+  })
+
+  it('aria：role=dialog + aria-modal + aria-label=title', async () => {
+    const vnode = await inner(await renderModal({ open: true, title: '确认删除', children: '内容' }, makeCtx())!)
+    assert.equal(vnode.props.role, 'dialog')
+    assert.equal(vnode.props['aria-modal'], 'true')
+    assert.equal(vnode.props['aria-label'], '确认删除')
+  })
+
+  it('Escape 在退场（exit）阶段不重复触发 onClose', async () => {
+    const ctx = makeCtx()
+    let closed = 0
+    let open = true
+    await renderModal({ open, onClose: () => { closed++; open = false } }, ctx)
+    const esc = globalKeys[globalKeys.length - 1]
+    esc({ key: 'Escape' })
+    assert.equal(closed, 1)
+    // 父组件 render open=false → sync → phase=exit（模拟真实关闭链路）
+    await renderModal({ open: false, onClose: () => {} }, ctx)
+    esc({ key: 'Escape' })
+    assert.equal(closed, 1, 'exit 阶段 Escape 不重复触发')
+  })
+
   it('shows close button by default', async () => {
     const vnode = await inner(await renderModal({ open: true, title: '标题', children: '内容' }, makeCtx())!)
     const content = vnode.props.children[1]

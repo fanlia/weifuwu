@@ -93,4 +93,50 @@ describe('Drawer', () => {
     vnode.props.onKeyDown({ key: 'Escape' } as KeyboardEvent)
     assert.equal(closed, true)
   })
+
+  it('遮罩点击关闭（无 maskClosable——默认关闭）', async () => {
+    let closed = 0
+    const vnode = await inner(await renderDrawer({ open: true, title: '编辑', onClose: () => closed++ }, makeCtx())!)
+    const overlay = vnode.props.children[0]
+    assert.match(overlay.props.class, /wf-drawer-overlay/)
+    assert.equal(typeof overlay.props.onClick, 'function')
+    overlay.props.onClick()
+    assert.equal(closed, 1)
+  })
+
+  it('面板点击 stopPropagation（不冒泡到遮罩关闭）', async () => {
+    let closed = 0
+    const vnode = await inner(await renderDrawer({ open: true, title: '编辑', onClose: () => closed++ }, makeCtx())!)
+    const panel = vnode.props.children[1]
+    const fake = { stopPropagation: () => { (fake as any).stopped = true } } as any
+    panel.props.onClick(fake)
+    assert.equal((fake as any).stopped, true)
+    assert.equal(closed, 0)
+  })
+
+  it('关闭按钮点击触发 onClose + aria-label', async () => {
+    let closed = 0
+    const vnode = await inner(await renderDrawer({ open: true, title: '编辑', onClose: () => closed++ }, makeCtx())!)
+    const panel = vnode.props.children[1]
+    const header = panel.props.children[0]
+    const closeBtn = (Array.isArray(header.props.children) ? header.props.children : [header.props.children]).find((c: any) => c?.props?.class === 'wf-drawer-close')
+    assert.ok(closeBtn)
+    assert.equal(closeBtn.props['aria-label'], '关闭')
+    closeBtn.props.onClick()
+    assert.equal(closed, 1)
+  })
+
+  it('aria：role=dialog + aria-modal + aria-label=title + tabIndex=-1', async () => {
+    const vnode = await inner(await renderDrawer({ open: true, title: '编辑表单', children: 'x' }, makeCtx())!)
+    assert.equal(vnode.props.role, 'dialog')
+    assert.equal(vnode.props['aria-modal'], 'true')
+    assert.equal(vnode.props['aria-label'], '编辑表单')
+    assert.equal(vnode.props.tabIndex, -1)
+  })
+
+  it('width 经 CSS 变量 --wf-drawer-width 传递', async () => {
+    const vnode = await inner(await renderDrawer({ open: true, title: '编辑', children: 'x', width: '480px' }, makeCtx())!)
+    const panel = vnode.props.children[1]
+    assert.equal(panel.props.style['--wf-drawer-width'], '480px')
+  })
 })
