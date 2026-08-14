@@ -8,3 +8,6 @@
 @media (min-width: 640px) { .wf-flex\@sm { display: flex; } }
 @media (min-width: 768px) { .wf-flex\@md { display: flex; } }
 @media (min-width: 1024px) { .wf-flex\@lg { display: flex; } }
+
+@media (min-width: 640px) { .wf-flex@sm { display: flex; } }
+@media (min-width: 768px) { .wf-flex@md { display: flex; } }

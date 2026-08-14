@@ -69,6 +69,28 @@
 
 /* ── margin: auto（居中） ── */
 .wf-mx-auto { margin-left: auto; margin-right: auto; }
+
+/* ── margin: 左/右（间距体系对称——消费侧 ml-* 缺口） ── */
+.wf-ml-none { margin-left: 0; }
+.wf-ml-xs { margin-left: var(--wf-space-xs); }
+.wf-ml-sm { margin-left: var(--wf-space-sm); }
+.wf-ml-md { margin-left: var(--wf-space-md); }
+.wf-ml-lg { margin-left: var(--wf-space-lg); }
+.wf-ml-xl { margin-left: var(--wf-space-xl); }
+.wf-ml-2xl { margin-left: var(--wf-space-2xl); }
+.wf-ml-auto { margin-left: auto; }
+.wf-mr-none { margin-right: 0; }
+.wf-mr-xs { margin-right: var(--wf-space-xs); }
+.wf-mr-sm { margin-right: var(--wf-space-sm); }
+.wf-mr-md { margin-right: var(--wf-space-md); }
+.wf-mr-lg { margin-right: var(--wf-space-lg); }
+.wf-mr-xl { margin-right: var(--wf-space-xl); }
+.wf-mr-2xl { margin-right: var(--wf-space-2xl); }
+.wf-mr-auto { margin-right: auto; }
+.wf-mt-none { margin-top: 0; }
+.wf-mb-none { margin-bottom: 0; }
+.wf-mx-none { margin-left: 0; margin-right: 0; }
+
 .wf-my-auto { margin-top: auto; margin-bottom: auto; }
 .wf-mt-auto { margin-top: auto; }  /* flex 列推底（侧栏 footer——曾写不存在类静默失效） */
 .wf-mb-auto { margin-bottom: auto; }

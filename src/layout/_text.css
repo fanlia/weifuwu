@@ -106,3 +106,6 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* 语义文字色（消费侧 wf-text-danger 缺口——错误/危险操作文字） */
+.wf-text-danger { color: var(--wf-color-error-text); }

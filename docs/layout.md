@@ -2,7 +2,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-纯 CSS 58 个布局原语 + 136 个工具类 + 167 个主题 Token。不绑定任何 JS 框架。
+纯 CSS 66 个布局原语 + 156 个工具类 + 167 个主题 Token。不绑定任何 JS 框架。
 
 > **学习路径与命名规范**：见 [`docs/style-guide.md`](style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
 
@@ -25,7 +25,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 
 也支持相对路径：`ctx.ui.css('./src/style.css')`。
 
-## 58 个布局原语
+## 66 个布局原语
 
 | 类别 | 原语 | 效果 |
 |------|------|------|
@@ -43,6 +43,8 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | **对齐** | `wf-top` | align-items: flex-start |
 | | `wf-bottom` | align-items: flex-end |
 | | `wf-stretch` | align-items: stretch |
+| | `wf-items-start/center/end/stretch` | 设 `--wf-align`（wf-row 消费——items 命名） |
+| | `wf-self-start/center/end/stretch` | align-self（弹性子项单元素对齐） |
 | **弹性** | `wf-fill` | flex: 1 + min-width: 0 |
 | | `wf-flex-none` | flex: none（`wf-fixed` 为兼容别名——易与 position:fixed 混淆，推荐新名） |
 | | `wf-auto` | flex: auto |
@@ -69,9 +71,9 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | | `wf-dim` | opacity 0.7（运行中/历史态淡化） |
 | **间距** | `wf-p-*` / `wf-px-*` / `wf-py-*`（xs~2xl，另有 `wf-p-0`） | padding：全/水平/垂直，引用 `--wf-space-*` |
 | | `wf-m-0` | margin: 0 |
-| | `wf-mt-*` / `wf-mb-*` / `wf-my-*`（xs~2xl） | margin：top/bottom/垂直 |
+| | `wf-mt-*` / `wf-mb-*` / `wf-my-*` / `wf-ml-*` / `wf-mr-*`（xs~2xl + none） | margin：top/bottom/垂直/左/右 |
 | | `wf-pt-*` / `wf-pb-*`（xs~2xl） | padding：单侧顶/底（分隔条场景） |
-| | `wf-mx-auto` / `wf-my-auto` / `wf-mt-auto` / `wf-mb-auto` | margin: auto 居中 / flex 列推底 |
+| | `wf-mx-auto` / `wf-my-auto` / `wf-mt-auto` / `wf-mb-auto` / `wf-ml-auto` / `wf-mr-auto` | margin: auto 居中 / flex 列推底 |
 | | `wf-gap-*`（xs~2xl） | 为 flex/grid 原语设置 `--wf-gap` |
 | **尺寸** | `wf-w-full` / `wf-h-full` / `wf-w-auto` | 宽/高 100%、auto |
 | | `wf-w-xs…xl` / `wf-w-max` / `wf-w-md-auto` | 固定宽阶（`--wf-space-*` 派生）/ max-content / md 起 auto |

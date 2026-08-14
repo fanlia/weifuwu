@@ -1,0 +1,5 @@
+/* align-self — 弹性子项交叉轴对齐（消费侧 wf-self-* 缺口——容器内单元素对齐） */
+.wf-self-start { align-self: flex-start; }
+.wf-self-center { align-self: center; }
+.wf-self-end { align-self: flex-end; }
+.wf-self-stretch { align-self: stretch; }

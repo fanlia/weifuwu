@@ -25,7 +25,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 | 后端 | `weifuwu` | Trie 路由 / 中间件链 / serve / 自研 PG+Redis / SSR / GraphQL / WebSocket |
 | 前端 | `weifuwu/ui-dom` | **UIRouter（纯路由 + ctx 注入链）+ uiServe（渲染运行时）+ SSR/hydration**——handler=异步组件 / 中间件两阶段 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom，见 `docs/frontend-ui-dom.md`） |
 | 组件 | `weifuwu/components` | 115 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
-| 样式 | `weifuwu/layout` | 58 布局原语 + 136 工具类 + 167 主题 Token，零自定义 CSS 文件 |
+| 样式 | `weifuwu/layout` | 66 布局原语 + 156 工具类 + 167 主题 Token，零自定义 CSS 文件 |
 | SaaS 地基 | 随包内置 | rateLimit / email / userSystem / messager / queue / ai → `ctx.*` 一行接入 |
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
@@ -316,7 +316,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 |------|---------|------|
 | `weifuwu/ui-dom` | `https://unpkg.com/weifuwu@latest/dist/ui-dom/index.js` | 前端运行时（UIRouter, uiServe, h, 状态管理等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 115 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 167 个主题 Token + 58 个布局原语 + 136 个工具类 |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 167 个主题 Token + 66 个布局原语 + 156 个工具类 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
 
@@ -359,7 +359,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu/ui-dom` | **useChat / AiChat 原语** | AI 会话（流式/工具调用/HITL） | — |
 | `weifuwu/ui-dom` | **事件原语** | `usePopup`（统一弹窗能力层）/ `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [docs/mobile.md](docs/mobile.md)） | — |
 | `weifuwu/components` | **113 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/ui-dom |
-| `weifuwu/layout` | **CSS 布局** | 58 个布局原语 + 136 个工具类 + 167 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+| `weifuwu/layout` | **CSS 布局** | 66 个布局原语 + 156 个工具类 + 167 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
 
@@ -382,7 +382,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | AI 对话 / Agent / HITL 审批 | `ai()` → `ctx.ai` + `ctx.ui.useChat()` + `AiChat` | [docs/saas.md](docs/saas.md) |
 | GraphQL / WebSocket | `app.graphql(handler)` · `app.ws(path, handler)` | [docs/realtime.md](docs/realtime.md) |
 | 前端 UI 组件 | `weifuwu/components`（113 个：Button/Table/Modal/AiChat/...） | [docs/components.md](docs/components.md) |
-| 布局/主题/暗色 | `weifuwu/layout`（58 原语 + 136 工具类 + 167 Token） | [docs/layout.md](docs/layout.md) |
+| 布局/主题/暗色 | `weifuwu/layout`（58 原语 + 156 工具类 + 167 Token） | [docs/layout.md](docs/layout.md) |
 | 样式定制（零自定义 CSS） | `--wf-*` 变量覆盖 + 组件定制钩子 | [docs/styling.md](docs/styling.md) |
 | 移动端适配（tap/长按/键盘/弹层） | `usePopup` / `useHoverCapable` / `useLongPress` / `useVisualViewport` | [docs/mobile.md](docs/mobile.md) |
 | 前后端类型安全中间件 | `createMiddleware`（声明注入即类型化） | [docs/server.md](docs/server.md) |
@@ -513,7 +513,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) | **ui-dom**：UIRouter 纯路由 + uiServe 渲染运行时 + ctx 注入链 + components 复用 + SSR/hydration（前端唯一运行时——weifuwu/client 已删除） |
 | [docs/frontend-middleware.md](docs/frontend-middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
 | [docs/components.md](docs/components.md) | 组件库（113 个组件 + 使用示例 + 组件列表） |
-| [docs/layout.md](docs/layout.md) | 布局系统：58 个布局原语 + 136 个工具类 + 167 个主题 Token |
+| [docs/layout.md](docs/layout.md) | 布局系统：66 个布局原语 + 156 个工具类 + 167 个主题 Token |
 | [docs/style-guide.md](docs/style-guide.md) | 样式学习路径与命名规范：三档学习（组件 → 原语 → 速查）|
 | [docs/styling.md](docs/styling.md) | 样式定制指南：零自定义 CSS 模式 / 暗色 / 组件级覆盖 / 作用域主题 |
 

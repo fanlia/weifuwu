@@ -11,7 +11,7 @@ import {Title,Paragraph,Text, Badge, BackTop, Button, Card, Divider, Icon, Link,
 // ─────────────────────────────────────────────────────────────
 
 const FEATURES = [
-  { icon: 'layers' as const, title: '原子原语', desc: '58 个布局原语 + 136 个工具类组合任意界面，无框架锁定' },
+  { icon: 'layers' as const, title: '原子原语', desc: '66 个布局原语 + 156 个工具类组合任意界面，无框架锁定' },
   { icon: 'zap' as const, title: '零依赖前端', desc: '纯函数组件 + Proxy 状态驱动，无 npm 运行时依赖' },
   { icon: 'globe' as const, title: 'SSR 透明', desc: '路由级服务端渲染，hydration 零决策' },
   { icon: 'database' as const, title: '全栈一体', desc: 'DB / Redis / 队列 / AI / WebSocket 一个框架搞定' },

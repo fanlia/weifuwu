@@ -25,3 +25,10 @@
 @media (min-width: 640px) { .wf-row-reverse\@sm { flex-direction: row-reverse; flex-wrap: wrap; } }
 @media (min-width: 768px) { .wf-row-reverse\@md { flex-direction: row-reverse; flex-wrap: wrap; } }
 @media (min-width: 1024px) { .wf-row-reverse\@lg { flex-direction: row-reverse; flex-wrap: wrap; } }
+
+/* items — 交叉轴对齐工具（设 --wf-align 变量，wf-row/wf-row-reverse 消费；
+   语义与 wf-top/bottom/stretch 等价——items 命名对齐消费侧习惯） */
+.wf-items-start { --wf-align: flex-start; }
+.wf-items-center { --wf-align: center; }
+.wf-items-end { --wf-align: flex-end; }
+.wf-items-stretch { --wf-align: stretch; }
