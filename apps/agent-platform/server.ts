@@ -5,7 +5,7 @@
  *   node --env-file=.env apps/agent-platform/server.ts
  */
 
-import { resolve, dirname } from 'node:path'
+import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
@@ -464,7 +464,7 @@ async function main() {
     const startTime = (globalThis as any).__platform_metrics?.startTime
     const uptimeSec = startTime ? Math.round((Date.now() - startTime) / 1000) : 0
     return Response.json(
-      { status: healthy ? 'ok' : 'degraded', uptimeSec, deps, disk, version: '0.82.2', ts: new Date().toISOString() },
+      { status: healthy ? 'ok' : 'degraded', uptimeSec, deps, disk, version: (() => { try { return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../package.json'), 'utf-8')).version } catch { return 'dev' } })(), ts: new Date().toISOString() },
       { status: healthy ? 200 : 503 },
     )
   })
