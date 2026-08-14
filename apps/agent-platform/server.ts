@@ -107,6 +107,7 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS monthly_token_quota INT NOT NULL DEFAULT 0`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS role_label TEXT`)
   await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB`)
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS group_memories (department_id UUID PRIMARY KEY, summary TEXT, msg_count INT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS expertise TEXT`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS webhook_platform TEXT NOT NULL DEFAULT 'generic'`)
   // R6 质量反馈：AI 消息点赞/点踩（'like'/'dislike'/NULL）

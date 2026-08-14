@@ -272,3 +272,11 @@ CREATE TABLE IF NOT EXISTS agent_versions (
   UNIQUE (agent_id, version)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_versions_agent ON agent_versions(agent_id, version DESC);
+
+-- ── 群共识记忆（P4——群级摘要，AI 记得群里决定过什么） ──────
+CREATE TABLE IF NOT EXISTS group_memories (
+  department_id UUID PRIMARY KEY,
+  summary       TEXT,
+  msg_count     INT NOT NULL DEFAULT 0,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

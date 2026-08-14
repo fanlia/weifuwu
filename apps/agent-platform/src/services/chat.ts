@@ -14,6 +14,7 @@ import type { Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
 import { buildRosterText, buildHistoryContent, buildPersonaLayer, type RosterMember } from './persona.ts'
+import { updateGroupMemory, buildGroupMemoryLayer } from './group-memory.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
 
 // ── 流式事件类型 ───────────────────────────────────────
@@ -362,6 +363,7 @@ async function runAgentStreamForAgent(
   emit: StreamEmitter,
   rosterMembers: RosterMember[] = [],
   attachmentLayer = '',
+  groupMemoryLayer = '',
 ): Promise<void> {
   const { sql } = ctx
   const isExternalMsg = !!initialMsgId
@@ -369,7 +371,7 @@ async function runAgentStreamForAgent(
   const systemPrompt = (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({
     rosterText: buildRosterText(rosterMembers, String(agent.id)),
     selfName: String(agent.name),
-  }) + (attachmentLayer ? '\n\n' + attachmentLayer : '')
+  }) + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : '')
   const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
   const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
 
@@ -590,6 +592,13 @@ async function runAllAgents(
   `) as unknown as RosterMember[]
   const rosterText = buildRosterText(rosterMembers, '')
 
+  // P4 群共识摘要（AI 记得群里决定过什么——记忆层闭环）
+  let groupMemoryLayer = ''
+  try {
+    const [gm] = await sql`SELECT summary FROM group_memories WHERE department_id = ${departmentId}`
+    if (gm?.summary) groupMemoryLayer = buildGroupMemoryLayer(String(gm.summary))
+  } catch { /* 表不存在/查询失败——无群共识 */ }
+
   for (let i = 0; i < agents.length; i++) {
     const agent = agents[i]
     const msgId = initialMsgIds[i] ?? ''
@@ -628,7 +637,7 @@ async function runAllAgents(
         agentId: agent.id,
         appId: ctx.appId,
         departmentId,
-        systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }) + (attachmentLayer ? '\n\n' + attachmentLayer : ''),
+        systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }) + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : ''),
         model: agent.model,
         tools: typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? []),
         maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
@@ -654,7 +663,7 @@ async function runAllAgents(
       continue
     }
 
-    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers, attachmentLayer)
+    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers, attachmentLayer, groupMemoryLayer)
   }
 }
 
@@ -677,6 +686,9 @@ export async function handleNewMessageStream(
     const rows = await ctx.sql`SELECT attachments FROM messages WHERE id = ${messageId}`
     if (rows[0]?.attachments) attachments = typeof rows[0].attachments === 'string' ? JSON.parse(rows[0].attachments) : rows[0].attachments
   } catch { /* 无附件字段/查询失败——按无附件处理 */ }
+  // P4 群共识：消息落库后异步提取（节流——每 20 条一次，不阻塞消息流）
+  void updateGroupMemory(ctx, departmentId).catch(() => {})
+
   await runAllAgents(ctx, departmentId, messageContent, [], attachments, messageId, (agent, msgId) => ({
     emit(event) {
       ctx.msg.broadcast(String(departmentId), event)
