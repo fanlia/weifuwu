@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS messages (
   ai_step       JSONB,                        -- agent step 快照
   -- 元数据
   reply_to      UUID REFERENCES messages(id) ON DELETE SET NULL,
+  attachments   JSONB,                        -- [{name, path, size, ext}]（P1-3 聊天附件）
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

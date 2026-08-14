@@ -146,4 +146,35 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
       return Response.json({ error: `写入失败: ${e.message}` }, { status: 400 })
     }
   })
+
+  // ── P1-3: 上传二进制文件（配置页——管理员预置资料） ─────────
+  app.post('/api/agents/:id/workspace/upload', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { params } = ctx
+    const ws = await getWorkspace(ctx, params.id)
+    if (!ws) return Response.json({ error: 'Agent 不存在或无工作空间' }, { status: 404 })
+    const body = await req.json().catch(() => ({}))
+    const rel = String(body.path ?? '')
+    const { validateUploadFile } = await import('../services/upload.ts')
+    let file
+    try {
+      file = validateUploadFile(body as { name: string; data: string; size?: number })
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '附件无效' }, { status: 400 })
+    }
+    let abs: string
+    try {
+      abs = resolveWorkspacePath(ws, rel ? `${rel.replace(/\/$/, '')}/${file.safeName}` : file.safeName)
+    } catch (e: any) {
+      return Response.json({ error: e.message }, { status: 400 })
+    }
+    const fs = await import('node:fs/promises')
+    const pathMod = await import('node:path')
+    try {
+      await fs.mkdir(pathMod.dirname(abs), { recursive: true })
+      await fs.writeFile(abs, file.buffer)
+      return Response.json({ success: true, name: file.safeName, size: file.size })
+    } catch (e: any) {
+      return Response.json({ error: `写入失败: ${e.message}` }, { status: 400 })
+    }
+  })
 }

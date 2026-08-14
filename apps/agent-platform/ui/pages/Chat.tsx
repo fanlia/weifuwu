@@ -2,6 +2,7 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Ava } from '../components/ui'
 import { Alert, Badge, Button, ChatInput, CopyButton, EmptyState, Icon, Input, Markdown, MessageBubble } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
+import { detectTaskMarker } from '../../src/services/task-markers.ts'
 import { track } from '../lib/track'
 import type { Agent, Member, Message, MessageListResponse, MessageTool } from '../lib/types'
 
@@ -30,6 +31,7 @@ interface ChatMessage {
   reply_sender?: string | null
   /** R6 质量反馈 */
   feedback?: 'like' | 'dislike' | null
+  attachments?: Array<{ name: string; path: string; size: number }> | null
 }
 
 interface ChatState {
@@ -40,6 +42,7 @@ interface ChatState {
   unsubWs: (() => void) | null
   approving: string | null; copiedId: string; timeVersion: number
   hasMore: boolean; loadingMore: boolean; searchQ: string; searching: boolean
+  files: Array<{ name: string; data: string; size: number }>
   replyTo: { id: string; sender: string; content: string } | null
   membersList: Member[]; atMenu: Member[]; atMenuOpen: boolean; atQuery: string
   streamTimer: ReturnType<typeof setInterval> | null
@@ -49,9 +52,28 @@ interface ChatState {
 export const Chat: Component = async (_props, ctx) => {
   const $ = {} as ChatState
   const rerender = () => ctx.ui.render()
+  // P1-3 附件：隐藏 file input + FileReader（无 npm 依赖）
+  let fileInputEl: HTMLInputElement | null = null
+  const fileInputRef = (el: any) => { fileInputEl = el }
+  const pickFile = () => { fileInputEl?.click() }
+  const onFilePick = (e: Event) => {
+    const input = e.target as HTMLInputElement
+    const f = input.files?.[0]
+    if (!f) return
+    if (f.size > 20 * 1024 * 1024) { ctx.toast!('文件过大（上限 20MB）', 'warning'); input.value = ''; return }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const data = String(reader.result ?? '').split(',')[1] ?? ''
+      $.files = [...$.files, { name: f.name, data, size: f.size }]
+      rerender()
+    }
+    reader.readAsDataURL(f)
+    input.value = ''
+  }
   const deptId = ctx.route?.params?.id ?? ''
 
   $.msgs = []; $.deptName = '聊天'; $.memberCount = 0; $.input = ''; $.isAdmin = false
+  $.files = []
   $.editingId = ''; $.editValue = ''; $.userAgentId = ''; $.sending = false
   $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
   $.approving = null; $.copiedId = ''; $.timeVersion = 0
@@ -222,15 +244,21 @@ export const Chat: Component = async (_props, ctx) => {
 
   async function sendText(content: string) {
     const trimmed = content.trim()
-    if (!trimmed || $.sending) return
+    const hasFiles = $.files.length > 0
+    if ((!trimmed && !hasFiles) || $.sending) return
     const saved = trimmed
-    $.sending = true; $.input = ''
+    const savedFiles = $.files
+    $.sending = true; $.input = ''; $.files = []
     $.atMenuOpen = false; $.atQuery = ''
     const replyId = $.replyTo?.id ?? null
     $.replyTo = null
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     try {
-      const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: trimmed, reply_to: replyId }).catch(() => null)
+      const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, {
+        content: trimmed,
+        reply_to: replyId,
+        attachments: savedFiles.map((f) => ({ name: f.name, data: f.data, size: f.size })),
+      }).catch(() => null)
       if (data) {
         track('first_message')
         if (data.message && !$.msgs.some((m: ChatMessage) => m.id === data.message.id)) {
@@ -244,6 +272,7 @@ export const Chat: Component = async (_props, ctx) => {
             created_at: data.message.created_at ?? new Date().toISOString(),
             status: 'idle',
             tools: [] as MessageTool[],
+            attachments: data.message.attachments ?? null,
           })
         }
       } else {
@@ -445,6 +474,7 @@ export const Chat: Component = async (_props, ctx) => {
               <div class={`wf-stack wf-gap-xs wf-shrink${own ? ' wf-bottom' : ''}`}>
                 <div class={`wf-row wf-gap-xs wf-text-xs wf-text-tertiary${own ? ' wf-row-reverse' : ''}`}>
                   <span>{msg.sender_name ?? '未知'}</span>
+                  {msg.sender_type === 'ai' && st === 'complete' && (() => { const mk = detectTaskMarker(msg.content); return mk.marker ? <span class="wf-pill wf-px-sm wf-py-xs wf-text-xs wf-text-secondary">{mk.label}</span> : null })()}
                   <span>{fmtTime(msg.created_at)}</span>
                   {isActive && <span class="wf-text-brand">{st === 'thinking' ? '思考中...' : '生成中...'}</span>}
                   {isError && <span class="wf-text-error">出错了</span>}
@@ -480,6 +510,16 @@ export const Chat: Component = async (_props, ctx) => {
                 {msg.reply_content && !beingEdited && (
                   <div class="wf-border-l wf-pl-sm wf-text-xs wf-text-tertiary">
                     <span class="wf-text-secondary">↩ {msg.reply_sender ?? '消息'}</span> {String(msg.reply_content ?? '').slice(0, 40)}
+                  </div>
+                )}
+
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div class="wf-row wf-gap-xs wf-wrap">
+                    {msg.attachments.map((att: { name: string; size: number }, i: number) => (
+                      <span key={i} class="wf-pill wf-bg-tertiary wf-px-sm wf-py-xs wf-text-xs">
+                        📎 {att.name}{att.size >= 1024 ? `（${Math.round(att.size / 1024)}KB）` : `（${att.size}B）`}
+                      </span>
+                    ))}
                   </div>
                 )}
 
@@ -592,6 +632,16 @@ export const Chat: Component = async (_props, ctx) => {
             <Button size="sm" variant="ghost" onClick={() => { $.replyTo = null; rerender() }}><Icon name="close" size={12} /></Button>
           </div>
         )}
+        {$.files.length > 0 && (
+          <div class="wf-row wf-gap-sm wf-mb-sm">
+            {$.files.map((f, i) => (
+              <span key={i} class="wf-bg-tertiary wf-rounded wf-px-sm wf-py-xs wf-text-xs wf-row wf-gap-xs">
+                📎 {f.name}（{f.size >= 1024 ? Math.round(f.size / 1024) + 'KB' : f.size + 'B'}）
+                <button class="wf-no-bg wf-no-border wf-cursor wf-text-tertiary" onClick={() => { $.files = $.files.filter((_, j) => j !== i); rerender() }}>✕</button>
+              </span>
+            ))}
+          </div>
+        )}
         <div class="wf-row wf-gap-sm">
           <div class="wf-fill">
             <ChatInput
@@ -603,6 +653,8 @@ export const Chat: Component = async (_props, ctx) => {
               labels={{ placeholder: $.searchQ ? '搜索模式：输入新消息退出搜索' : '输入消息，回车发送；@ 可定向 AI' }}
             />
           </div>
+          <Button variant="ghost" onClick={pickFile} title="上传附件（csv/xlsx/pdf/docx/pptx/txt/md/json/log/png/jpg，≤20MB）"><Icon name="paperclip" size={15} /></Button>
+          <input ref={fileInputRef} type="file" hidden onChange={(e: Event) => { onFilePick(e as Event) }} />
         </div>
         <div class="wf-row wf-gap-sm wf-mt-sm">
           <div class="wf-fill">

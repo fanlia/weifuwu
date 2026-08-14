@@ -55,13 +55,42 @@ export const FilesSection: Component<{ agentId: string }> = async (_init, ctx) =
     return wsPath.split('/').filter(Boolean)
   }
 
+  // P1-3 配置页上传（二进制预置资料）
+  let wsFileInputEl: HTMLInputElement | null = null
+  const wsFileInputRef = (el: any) => { wsFileInputEl = el }
+  const pickWsFile = () => { wsFileInputEl?.click() }
+  const onWsFilePick = (e: Event) => {
+    const input = e.target as HTMLInputElement
+    const f = input.files?.[0]
+    if (!f) return
+    if (f.size > 20 * 1024 * 1024) { ctx.toast!('文件过大（上限 20MB）', 'warning'); input.value = ''; return }
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const data = String(reader.result ?? '').split(',')[1] ?? ''
+      ctx.toast!('上传中...', 'info')
+      try {
+        const rel = wsPath === '/' ? '' : wsPath
+        const d = await ctx.api!.post(`/api/agents/${agentId}/workspace/upload`, { path: rel, name: f.name, data, size: f.size })
+        if (d.success) { ctx.toast!(`已上传 ${d.name}（${d.size} 字节）`, 'success'); await loadWsList() }
+        else ctx.toast!('上传失败：' + (d.error ?? ''), 'error')
+      } catch (err) { ctx.toast!('上传失败：' + errMsg(err, ''), 'error') }
+      rerender()
+    }
+    reader.readAsDataURL(f)
+    input.value = ''
+  }
+
   await loadWsList()
 
   return async () => (
     <Card id="sec-files">
       <div class="wf-split wf-mb-sm">
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间文件</div>
-        <Button size="sm" variant="ghost" onClick={() => loadWsList()}>刷新</Button>
+        <div class="wf-row wf-gap-xs">
+          <Button size="sm" variant="ghost" onClick={pickWsFile}><Icon name="upload" size={13} /> 上传文件</Button>
+          <input ref={wsFileInputRef} type="file" hidden onChange={(e: Event) => { onWsFilePick(e) }} />
+          <Button size="sm" variant="ghost" onClick={() => loadWsList()}>刷新</Button>
+        </div>
       </div>
       <div class="wf-text-xs wf-text-tertiary wf-mb-sm">沙盒内 AI 写入的文件与此处一致（卷挂载共享）——AI 干活时刷新即可看到进度</div>
 

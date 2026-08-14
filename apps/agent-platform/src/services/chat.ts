@@ -361,6 +361,7 @@ async function runAgentStreamForAgent(
   initialMsgId: string,  // WS 路径预创建的消息 ID；SSE 路径为 ''（内部创建）
   emit: StreamEmitter,
   rosterMembers: RosterMember[] = [],
+  attachmentLayer = '',
 ): Promise<void> {
   const { sql } = ctx
   const isExternalMsg = !!initialMsgId
@@ -368,7 +369,7 @@ async function runAgentStreamForAgent(
   const systemPrompt = (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({
     rosterText: buildRosterText(rosterMembers, String(agent.id)),
     selfName: String(agent.name),
-  })
+  }) + (attachmentLayer ? '\n\n' + attachmentLayer : '')
   const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
   const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
 
@@ -502,6 +503,8 @@ async function runAllAgents(
   departmentId: string,
   messageContent: string,
   initialMsgIds: string[],  // WS 路径：每个 agent 一个 msgId；SSE：[]
+  attachments: Array<{ name: string; path: string; size: number }> = [],  // P1-3 聊天附件
+  attachmentMsgId = '',  // P1-3 用户消息 id（附件区目录名——WS 路径与 AI 回复占位 id 不同）
   createEmitter: (agent: any, msgId: string) => StreamEmitter,
 ): Promise<void> {
   const { sql } = ctx
@@ -536,6 +539,10 @@ async function runAllAgents(
     else {
       // @ 未命中 ai——查是否命中知识库机器人（KB 检索回复，不调 LLM）
       const kbAgents = await loadKbMembers(ctx, departmentId)
+      // P1-3：带附件消息跳过 KB（KB 无沙盒/文件能力——避免'我无法处理文件'噪音）
+      if (attachments.length > 0) {
+        return
+      }
       const kbHit = kbAgents.filter((a) => mentioned.has(String(a.name).trim()))
       if (kbHit.length > 0) {
         for (const kb of kbHit) {
@@ -588,13 +595,40 @@ async function runAllAgents(
     const msgId = initialMsgIds[i] ?? ''
     const emit = createEmitter(agent, msgId)
 
+    // P1-3：附件拷贝到本 AI 工作空间 uploads/{msgId}/（沙盒 bind mount 自动可见）
+    let attachmentLayer = ''
+    if (attachments.length > 0 && agent.allow_file_tools) {
+      const { buildAttachmentLayer } = await import('./upload.ts')
+      const { resolveAgentWorkspace } = await import('../middleware/workspace.ts')
+      const fs = await import('node:fs/promises')
+      const pathMod = await import('node:path')
+      const ws = await resolveAgentWorkspace(String(agent.id), agent.workspace_path, true)
+      if (ws) {
+        const targetDir = pathMod.join(ws, 'uploads', attachmentMsgId)
+        const attachBase = pathMod.join(process.cwd(), 'data', 'uploads', String(ctx.appId), String(departmentId))
+        const copied: Array<{ name: string; size: number; path: string }> = []
+        for (const att of attachments) {
+          const src = pathMod.join(attachBase, attachmentMsgId, att.name)
+          try {
+            const buf = await fs.readFile(src)
+            await fs.mkdir(targetDir, { recursive: true })
+            await fs.writeFile(pathMod.join(targetDir, att.name), buf)
+            copied.push({ name: att.name, size: att.size ?? buf.length, path: `uploads/${attachmentMsgId}/${att.name}` })
+          } catch (e: any) {
+            console.warn(`[chat] 附件拷贝失败 ${att.name}: ${e?.message ?? ''}`)
+          }
+        }
+        attachmentLayer = buildAttachmentLayer(copied)
+      }
+    }
+
     if (agent.human_in_the_loop) {
       // HITL：非流式
       const result = await runAgent(ctx, {
         agentId: agent.id,
         appId: ctx.appId,
         departmentId,
-        systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }),
+        systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }) + (attachmentLayer ? '\n\n' + attachmentLayer : ''),
         model: agent.model,
         tools: typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? []),
         maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
@@ -620,7 +654,7 @@ async function runAllAgents(
       continue
     }
 
-    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers)
+    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers, attachmentLayer)
   }
 }
 
@@ -637,7 +671,13 @@ export async function handleNewMessageStream(
   // WS 路径：每个 agent 共享同一个 messageId
   // createEmitter 返回 WsEmitter
   // WS 路径：让 runAgentStreamForAgent 内部创建 AI 消息（而非复用用户消息 ID）
-  await runAllAgents(ctx, departmentId, messageContent, [], (agent, msgId) => ({
+  // P1-3：读取消息附件元数据（uploads/{msgId}/xxx ——附件区相对路径）
+  let attachments: Array<{ name: string; path: string; size: number }> = []
+  try {
+    const rows = await ctx.sql`SELECT attachments FROM messages WHERE id = ${messageId}`
+    if (rows[0]?.attachments) attachments = typeof rows[0].attachments === 'string' ? JSON.parse(rows[0].attachments) : rows[0].attachments
+  } catch { /* 无附件字段/查询失败——按无附件处理 */ }
+  await runAllAgents(ctx, departmentId, messageContent, [], attachments, messageId, (agent, msgId) => ({
     emit(event) {
       ctx.msg.broadcast(String(departmentId), event)
       // HTTP/无 WS 路径：wf:done（配额/付费墙提示等非流式回复）直接落库——
@@ -658,6 +698,12 @@ export async function handleNewMessageStreamSSE(
   messageContent: string,
   write: (chunk: string) => void,
 ): Promise<void> {
+  // P1-3 SSE 路径：从最近一条消息取附件
+  let sseAttachments: Array<{ name: string; path: string; size: number }> = []
+  try {
+    const rows = await ctx.sql`SELECT attachments FROM messages WHERE department_id = ${departmentId} AND sender_id IS NOT NULL ORDER BY created_at DESC LIMIT 1`
+    if (rows[0]?.attachments) sseAttachments = typeof rows[0].attachments === 'string' ? JSON.parse(rows[0].attachments) : rows[0].attachments
+  } catch { /* 无附件 */ }
   const sseEmitter: StreamEmitter = {
     emit(event) {
       write(`event: ${event.type}\n`)
@@ -666,7 +712,7 @@ export async function handleNewMessageStreamSSE(
   }
   // SSE 路径：msgId 由 runAgentStreamForAgent 内部创建并设置到 event
   // 不强制覆盖 messageId
-  await runAllAgents(ctx, departmentId, messageContent, [], (agent, msgId) => ({
+  await runAllAgents(ctx, departmentId, messageContent, [], sseAttachments, '', (agent, msgId) => ({
     emit(event) { sseEmitter.emit(event) },
   }))
 }

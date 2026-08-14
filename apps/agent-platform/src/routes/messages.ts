@@ -47,7 +47,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const messages = await sql`
       SELECT
         m.id, m.department_id, m.sender_id, m.content, m.msg_type,
-        m.ai_draft, m.ai_approved, m.created_at, m.reply_to,
+        m.ai_draft, m.ai_approved, m.created_at, m.reply_to, m.attachments,
         a.name as sender_name, a.type as sender_type, a.avatar_url as sender_avatar,
         r.content as reply_content, ra.name as reply_sender
       FROM messages m
@@ -79,14 +79,15 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       content: string
       msg_type?: string
       reply_to?: string
+      attachments?: Array<{ name: string; data: string; size?: number }>
     }
 
-    if (!body.content) {
+    if (!body.content && (!body.attachments || body.attachments.length === 0)) {
       return Response.json({ error: 'content 为必填' }, { status: 400 })
     }
 
     // 消息长度上限（后端强制——防无界入库 + AI 上下文浪费）
-    const content = String(body.content).slice(0, 5000)
+    const content = String(body.content ?? '').slice(0, 5000)
 
     // 验证发件人 agent（当前用户绑定的 agent）
     let [sender] = await sql`
@@ -113,6 +114,47 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     `
     if (!membership) {
       return Response.json({ error: '你不是该部门的成员' }, { status: 403 })
+    }
+
+    // P1-3 附件：校验（白名单/大小/消毒）→ 落盘附件区 data/uploads/{app_id}/{dept}/{msg_id}/
+    let attachmentMeta: Array<{ name: string; path: string; size: number; ext: string }> | null = null
+    if (body.attachments && body.attachments.length > 0) {
+      const { validateUploadFile } = await import('../services/upload.ts')
+      const fs = await import('node:fs/promises')
+      const pathMod = await import('node:path')
+      const [message] = (await sql`
+        INSERT INTO messages (department_id, sender_id, content, msg_type, reply_to)
+        VALUES (${params.id}, ${sender.id}, ${content}, ${body.msg_type ?? 'text'}, ${body.reply_to ?? null})
+        RETURNING id
+      `) as unknown as Array<Record<string, any>>
+      const attachDir = pathMod.join(process.cwd(), 'data', 'uploads', String(appId), String(params.id), String(message.id))
+      await fs.mkdir(attachDir, { recursive: true })
+      attachmentMeta = []
+      for (const f of body.attachments) {
+        try {
+          const v = validateUploadFile(f)
+          await fs.writeFile(pathMod.join(attachDir, v.safeName), v.buffer)
+          attachmentMeta.push({ name: v.safeName, path: `uploads/${String(message.id)}/${v.safeName}`, size: v.size, ext: v.ext })
+        } catch (e: any) {
+          // 单个附件失败：清理已写文件 + 拒绝整条消息（防半截附件）
+          await fs.rm(attachDir, { recursive: true, force: true }).catch(() => {})
+          return Response.json({ error: `附件「${f?.name ?? ''}」无效：${e?.message ?? '未知错误'}` }, { status: 400 })
+        }
+      }
+      await sql`UPDATE messages SET attachments = ${JSON.stringify(attachmentMeta)} WHERE id = ${message.id}`
+      ;(message as any).content = content
+      ;(message as any).msg_type = body.msg_type ?? 'text'
+      ;(message as any).created_at = new Date().toISOString()
+      // WS 推送 + 异步回复继续走下方公共代码
+      ctx.msg.broadcast(String(params.id), {
+        type: 'new_message',
+        departmentId: params.id,
+        message: { id: message.id, sender_id: message.sender_id, content: message.content, attachments: attachmentMeta },
+      })
+      handleNewMessageStream(ctx, params.id, String(sender.id), content, String(message.id)).catch((err) =>
+        console.error('[messages] handleNewMessageStream error:', err),
+      )
+      return Response.json({ message }, { status: 201 })
     }
 
     const [message] = (await sql`
