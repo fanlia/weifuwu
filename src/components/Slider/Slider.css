@@ -12,22 +12,42 @@
   gap: var(--wf-gap-md);
 }
 
-.wf-slider-input {
+/* 轨道容器（input + marks 同宽对齐——value 显示不参与） */
+.wf-slider-track {
   flex: 1;
+  min-width: 0;
+}
+
+.wf-slider-input {
+  width: 100%;
   height: 6px;
   appearance: none;
   background: var(--wf-color-border);
   border-radius: var(--wf-radius-xs);
   outline: none;
   cursor: pointer;
+  margin: 8px 0; /* thumb 18px 超出轨道——留出 hover/拖拽空间 */
 }
 
-.wf-slider-input:hover::-webkit-slider-thumb {
+/* hover / 拖拽中（active）：thumb 放大 + 加深（跨浏览器一致） */
+.wf-slider-input:hover::-webkit-slider-thumb,
+.wf-slider-input:active::-webkit-slider-thumb {
   transform: scale(1.15);
+  background: var(--wf-color-primary-hover);
 }
+.wf-slider-input:hover::-moz-range-thumb,
+.wf-slider-input:active::-moz-range-thumb {
+  transform: scale(1.15);
+  background: var(--wf-color-primary-hover);
+}
+
 .wf-slider-input:focus-visible::-webkit-slider-thumb {
   box-shadow: 0 0 0 3px var(--wf-color-primary-bg);
 }
+.wf-slider-input:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--wf-color-primary-bg);
+}
+
 .wf-slider-input::-webkit-slider-thumb {
   appearance: none;
   width: 18px;
@@ -37,7 +57,9 @@
   cursor: pointer;
   border: 2px solid var(--wf-color-on-brand);
   box-shadow: var(--wf-slider-thumb-shadow, var(--wf-shadow-sm));
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out),
+              background-color var(--wf-dur-fast) var(--wf-ease-out),
+              box-shadow var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 /* Firefox 同款 thumb（跨浏览器一致） */
@@ -49,7 +71,9 @@
   cursor: pointer;
   border: 2px solid var(--wf-color-on-brand);
   box-shadow: var(--wf-slider-thumb-shadow, var(--wf-shadow-sm));
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out),
+              background-color var(--wf-dur-fast) var(--wf-ease-out),
+              box-shadow var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-slider-input::-moz-range-track {
@@ -70,6 +94,55 @@
   text-align: center;
 }
 
+/* ── 当前值气泡（拖拽/hover/focus 显示——portal 渲染） ── */
+.wf-slider-tip {
+  z-index: var(--wf-z-tooltip);
+  background: var(--wf-color-text);
+  color: var(--wf-color-bg);
+  padding: 2px var(--wf-space-sm);
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-semibold);
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── 刻度标记（marks） ── */
+.wf-slider-marks {
+  position: relative;
+  height: 18px;
+  margin-top: 2px;
+  pointer-events: none;
+}
+
+.wf-slider-mark {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.wf-slider-mark-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--wf-color-border-dark);
+  border: 2px solid var(--wf-color-bg);
+  box-sizing: border-box;
+}
+
+.wf-slider-mark-label {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  white-space: nowrap;
+}
+
 /* disabled（F2 状态矩阵） */
 .wf-slider-input--dis { opacity: 0.5; cursor: not-allowed; }
 .wf-slider-input:disabled { cursor: not-allowed; }
+.wf-slider-input:disabled::-webkit-slider-thumb,
+.wf-slider-input:disabled::-moz-range-thumb { cursor: not-allowed; }

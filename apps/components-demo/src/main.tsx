@@ -242,10 +242,15 @@ const DemoSegmented: Component = async (_props, ctx) => {
 const DemoSlider: Component = async (_props, ctx) => {
   let volume = 60
   let brightness = 30
+  let price = 800
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <Slider label="音量" value={volume} onChange={v => { volume = v; ctx.ui.render() }} />
       <Slider label="亮度" value={brightness} min={0} max={100} onChange={v => { brightness = v; ctx.ui.render() }} />
+      <Slider label="价格" value={price} min={0} max={2000} step={50}
+        marks={[{ value: 0, label: '0' }, { value: 500 }, { value: 1000 }, { value: 1500 }, { value: 2000, label: '2000' }]}
+        onChange={v => { price = v; ctx.ui.render() }}
+        onChangeEnd={v => console.log('价格调整完成:', v)} />
     </div>
   )
 }
@@ -2471,7 +2476,12 @@ const CODE = {
 <SegmentedControl size="sm" block ... />`,
 
   slider: `<Slider label="音量" value={volume}
-  onChange={v => volume = v} />`,
+  onChange={v => setVolume(v)} />  // 拖拽/hover/focus 显示当前值气泡
+
+<Slider label="价格" value={800} min={0} max={2000} step={50}
+  marks={[{ value: 0, label: '0' }, { value: 500 },
+          { value: 1000 }, { value: 2000, label: '2000' }]}
+  onChangeEnd={v => console.log('拖拽结束:', v)} />`,
 
   form: `<Form
   validation={{
@@ -3015,7 +3025,7 @@ const App: Component = async (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '115 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">115 组件</Badge>
-          <Badge variant="success">1019 测试</Badge>
+          <Badge variant="success">1022 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

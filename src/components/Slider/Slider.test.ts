@@ -23,8 +23,8 @@ function createTestCtx(): WfuiContext {
 describe('Slider', () => {
   it('renders range input', async () => {
     const vnode = await renderVNode(Slider, {}, createTestCtx())!
-    const input = vnode.props.children[0]
-    assert.equal(input.props.type, 'range')
+    const input = findVNode(vnode, (v: any) => v?.props?.type === 'range')
+    assert.ok(input, 'range input 存在')
   })
 
   it('renders label when provided', async () => {
@@ -36,14 +36,16 @@ describe('Slider', () => {
 
   it('sets min, max, step', async () => {
     const vnode = await renderVNode(Slider, { min: 0, max: 10, step: 0.5 }, createTestCtx())!
-    const input = vnode.props.children[0]
-    assert.equal(input.props.type, 'range') 
-    // check props from actual vnode structure
+    const input = findVNode(vnode, (v: any) => v?.props?.type === 'range')
+    assert.ok(input)
+    assert.equal(input.props.min, 0)
+    assert.equal(input.props.max, 10)
+    assert.equal(input.props.step, 0.5)
   })
 
   it('displays current value', async () => {
     const vnode = await renderVNode(Slider, { value: 50 }, createTestCtx())!
-    const display = vnode.props.children[1]
+    const display = findVNode(vnode, (v: any) => v?.props?.class === 'wf-slider-value')
     assert.equal(display.props.children, '50')
   })
 })
@@ -82,6 +84,30 @@ it('label 渲染 + 无 label 精简结构（边界）', async () => {
   assert.ok(JSON.stringify(withLabel).includes('wf-slider-label'))
   const noLabel = await renderVNode(Slider, { value: 1 }, createTestCtx())!
   assert.ok(!JSON.stringify(noLabel).includes('wf-slider-label'))
+})
+
+it('marks 渲染刻度（含标签）', async () => {
+  const vnode = await renderVNode(Slider, {
+    value: 0, min: 0, max: 100,
+    marks: [{ value: 0, label: '低' }, { value: 50 }, { value: 100, label: '高' }],
+  }, createTestCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-slider-marks'), 'marks 容器存在')
+  assert.ok(s.includes('低') && s.includes('高'), 'mark 标签渲染')
+  assert.ok(s.includes('mark-0') && s.includes('mark-100'), 'mark key 按值')
+})
+
+it('onChangeEnd 拖拽结束回调', async () => {
+  let ended: number | undefined
+  const vnode = await renderVNode(Slider, { value: 30, onChangeEnd: (v: number) => { ended = v } }, createTestCtx())!
+  const input = findVNode(vnode, (v: any) => v?.props?.type === 'range')
+  input.props.onPointerUp()
+  assert.equal(ended, 30)
+})
+
+it('disabled 不显示气泡（无 tip vnode）', async () => {
+  const vnode = await renderVNode(Slider, { value: 30, disabled: true }, createTestCtx())!
+  assert.ok(!JSON.stringify(vnode).includes('wf-slider-tip'), 'disabled 无 tip')
 })
 
 describe('Slider disabled（F2 状态矩阵）', () => {
