@@ -153,6 +153,7 @@ ctx.ui.render(['name'])
 | `byId(id)` / `query(sel)` | 元素查询（getElementById / querySelector） |
 | `createElement(tag)` / `bodyAppend(el)` / `bodyRemove(el)` | 动态创建/挂载容器 |
 | `copyText(text)` | **复制统一入口**（clipboard API + execCommand 降级） |
+| `downloadFile(filename, content, mime?)` | 下载文本文件（Blob + a[download]；SSR no-op）——导出/报表 |
 | `execCommand(cmd, value?)` | 富文本编辑器命令 |
 | `selectionText()` / `getSelection()` | 编辑器选区（文本 / 完整 Selection 对象） |
 | `viewportHeight()` / `scrollTop()` | 视口高度 / 滚动量（scrollingElement 优先） |
