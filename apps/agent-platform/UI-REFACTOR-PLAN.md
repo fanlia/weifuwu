@@ -1,11 +1,12 @@
 # UI 测试基建 + AgentDetail 拆分专项（2026-12）
 
-> ## ✅ M1-M2 完成（2026-12）
+> ## ✅ M1-M2-M2b 全部完成（2026-12）
 > M1：UI 测试基建（makeAppCtx/mountPage 真实中间件链路 + 4 基线测试）+
 > dev loader 增强（扩展名补全 + bare→src 别名单模块图）+ dist mountCommand 导出修复。
-> M2：AgentDetail 968→804 行——Skills/Preview/Logs/Versions 4 区拆为独立组件
-> （自有状态 + 工厂 await 取数）；基线测试 + 浏览器实测 6 区全渲染。
-> **登记 M2b**：Config/Files/Knowledge/Webhook 4 区二期拆分（同模式渐进）。
+> M2：Skills/Preview/Logs/Versions 4 区拆分（968→804 行）。
+> M2b：Files/Knowledge 2 区拆分（804→495 行）+ 分块配置独立保存按钮。
+> **登记**：Webhook 字段与主表单保存耦合（不拆——交互不变）；Config 主表单
+> 保持（核心表单，拆分收益低）。基线测试 + 后端 92 + 浏览器实测全绿。
 
 > 前端工程师审视登记的两项技术债（互为前提）：
 > 1. UI 层无 DOM 测试（92 测试全后端，页面靠浏览器实测）
