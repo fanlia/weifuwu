@@ -4,6 +4,29 @@
 **认证（userSystem）/ AI 引擎（ai）/ 实时消息（messager）/ 数据库（postgres）/ 缓存广播（redis）/
 限流（rateLimit）/ 权限（租户隔离）/ UI（ui-dom 14 页）** 全部框架能力，零自研替代。
 
+## 商业化能力（2026-12 · v0.82.2）
+
+完整商业化闭环（详见 [COMMERCIAL-PLAN.md](COMMERCIAL-PLAN.md)——G1-G15 全部实施）：
+
+| 能力 | 说明 | 配置 |
+|------|------|------|
+| 订阅分层 | 免费版（14 天试用 + 5 万 token）/ Pro（100 万）——试用到期/配额用尽自动拦截 AI | 管理后台开通 |
+| 租户管理后台 | 管理员（ADMIN_EMAILS）查看全部租户用量、停用/启用、开通 Pro | `ADMIN_EMAILS` |
+| 邀请机制 | owner 生成 7 天邀请链接，同事注册即加入 + 自动建 Agent | — |
+| BYOK 自带模型 | 租户配置 OpenAI 兼容端点/Key/模型（企业模型自主） | Settings → 模型配置 |
+| 审批邮件通知 | HITL 审批请求邮件推送给 owner（含摘要 + 审批链接） | SMTP/RESEND |
+| 审计导出 | 审计日志 CSV 下载（合规数据可带走） | — |
+| 知识库权限 | 部门成员管理权限闸门（防越权拉取知识库） | — |
+| 外部 IM 接入 | Webhook 双向 + 企微/钉钉/飞书群机器人出站格式 | Agent 详情 |
+| ROI 视图 | 本月 AI 节省估算（回复数 × 人工成本 − AI 成本） | Dashboard |
+| 使用分析 | 平台概览（活跃租户/消息/AI 回复/成本） | 管理后台 |
+| SSO | OIDC 授权码登录（无密码建号 + 自动加入租户） | `OIDC_*` |
+| License | 私有化授权（社区版/企业授权/到期） | `LICENSE_KEY`/`LICENSE_TO` |
+| 白标 | 品牌名/logo/主色注入 | `WHITE_LABEL_*` |
+| 管理 API | 租户列表/用量（客户系统集成） | `MANAGEMENT_API_KEY` |
+
+**私有化部署**：`LICENSE_KEY` + `WHITE_LABEL_*` + `OIDC_*` + Dockerfile——一套配置交付品牌化企业实例。
+
 ## 启动
 
 ```bash
