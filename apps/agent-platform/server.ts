@@ -1140,6 +1140,37 @@ async function main() {
     return new Response(out, { headers: { 'Content-Type': 'application/json' } })
   })
 
+  // ── 模拟数据收集问卷（客户 demo——多角色 AI 填写） ──────────
+  app.get('/demo-survey', async (): Promise<Response> => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const { dirname } = await import('node:path')
+    const { fileURLToPath } = await import('node:url')
+    const __dirname = dirname(fileURLToPath(import.meta.url))
+    const html = readFileSync(join(__dirname, 'public', 'demo-survey.html'), 'utf-8')
+    return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  })
+  app.post('/demo-survey/submit', async (req: Request): Promise<Response> => {
+    const body = await req.json().catch(() => ({}))
+    const age = String(body?.age ?? ''); const industry = String(body?.industry ?? ''); const rating = String(body?.rating ?? '')
+    if (!age || !industry || !rating) return Response.json({ error: '缺少必填项（age/industry/rating）' }, { status: 400 })
+    const { mkdirSync, readdirSync, writeFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const dir = join(process.cwd(), 'data', 'survey-submissions')
+    mkdirSync(dir, { recursive: true })
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+    const record = {
+      id,
+      submitted_at: new Date().toISOString(),
+      age, industry, rating: Number(rating),
+      focus: Array.isArray(body?.focus) ? body.focus : (body?.focus ? [body.focus] : []),
+      feedback: String(body?.feedback ?? '').slice(0, 500),
+    }
+    writeFileSync(join(dir, `${id}.json`), JSON.stringify(record, null, 2), 'utf-8')
+    const total = readdirSync(dir).filter((f) => f.endsWith('.json')).length
+    return Response.json({ success: true, id, total })
+  })
+
   // ── UI / SPA ───────────────────────────────────────────
   app.use(ui())
 

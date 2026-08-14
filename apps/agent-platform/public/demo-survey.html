@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>模拟数据收集问卷</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 640px; margin: 32px auto; padding: 0 20px; background: #f8fafc; color: #1f2937; }
+  .card { background: #fff; border-radius: 12px; padding: 28px 32px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .sub { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+  label.q { display: block; font-weight: 600; font-size: 15px; margin: 20px 0 8px; }
+  .hint { color: #9ca3af; font-size: 12px; font-weight: 400; margin-left: 6px; }
+  input[type=text], textarea, select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+  textarea { min-height: 72px; }
+  .opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .opts label { font-weight: 400; font-size: 14px; display: flex; gap: 8px; align-items: center; }
+  .stars { display: flex; gap: 12px; margin-top: 6px; }
+  .stars label { display: flex; flex-direction: column; align-items: center; font-size: 12px; gap: 2px; }
+  .stars input { width: 18px; height: 18px; }
+  button { margin-top: 24px; width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #1d4ed8; }
+  #ok { display: none; text-align: center; padding: 40px 0; }
+  #ok .icon { font-size: 44px; }
+  #ok h2 { margin: 12px 0 6px; }
+  #ok p { color: #6b7280; font-size: 14px; }
+  .error { color: #dc2626; font-size: 13px; margin-top: 10px; display: none; }
+</style>
+</head>
+<body>
+<div class="card" id="form">
+  <h1>模拟数据收集问卷</h1>
+  <div class="sub">用于多角色模拟数据收集 Demo · 提交后数据落库（非真实调研）</div>
+  <form id="survey">
+    <label class="q">1. 您的年龄 <span class="hint">单选</span></label>
+    <select name="age">
+      <option value="">请选择</option>
+      <option value="18-25">18-25</option>
+      <option value="26-35">26-35</option>
+      <option value="36-45">36-45</option>
+      <option value="46+">46+</option>
+    </select>
+
+    <label class="q">2. 您所在的行业 <span class="hint">单选</span></label>
+    <div class="opts">
+      <label><input type="radio" name="industry" value="互联网"> 互联网/IT</label>
+      <label><input type="radio" name="industry" value="制造"> 制造/工业</label>
+      <label><input type="radio" name="industry" value="金融"> 金融/保险</label>
+      <label><input type="radio" name="industry" value="零售"> 零售/消费</label>
+      <label><input type="radio" name="industry" value="教育"> 教育/培训</label>
+    </div>
+
+    <label class="q">3. 您关注的产品能力 <span class="hint">多选</span></label>
+    <div class="opts">
+      <label><input type="checkbox" name="focus" value="易用性"> 易用性</label>
+      <label><input type="checkbox" name="focus" value="安全性"> 安全性</label>
+      <label><input type="checkbox" name="focus" value="性能"> 性能</label>
+      <label><input type="checkbox" name="focus" value="价格"> 价格</label>
+      <label><input type="checkbox" name="focus" value="售后"> 售后服务</label>
+    </div>
+
+    <label class="q">4. 总体满意度 <span class="hint">打分 1-5</span></label>
+    <div class="stars">
+      <label><input type="radio" name="rating" value="1">1</label>
+      <label><input type="radio" name="rating" value="2">2</label>
+      <label><input type="radio" name="rating" value="3">3</label>
+      <label><input type="radio" name="rating" value="4">4</label>
+      <label><input type="radio" name="rating" value="5">5</label>
+    </div>
+
+    <label class="q">5. 建议与反馈 <span class="hint">文本</span></label>
+    <textarea name="feedback" placeholder="请留下您的建议..."></textarea>
+
+    <button type="submit">提交问卷</button>
+    <div class="error" id="err"></div>
+  </form>
+</div>
+<div class="card" id="ok" style="display:none">
+  <div class="icon">✅</div>
+  <h2>提交成功</h2>
+  <p id="ok-info">感谢参与（模拟数据已落库）</p>
+  <button onclick="location.reload()">再填一份</button>
+</div>
+<script>
+  document.getElementById('survey').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const f = new FormData(e.target)
+    const data = Object.fromEntries(f.entries())
+    const err = document.getElementById('err')
+    err.style.display = 'none'
+    if (!data.age || !data.industry || !data.rating) {
+      err.textContent = '请完成必填项（年龄/行业/满意度）'
+      err.style.display = 'block'
+      return
+    }
+    try {
+      const res = await fetch('/demo-survey/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const r = await res.json()
+      if (!res.ok) throw new Error(r.error || '提交失败')
+      document.getElementById('form').style.display = 'none'
+      const ok = document.getElementById('ok')
+      ok.style.display = 'block'
+      document.getElementById('ok-info').textContent = `提交序号 #${r.id} · 共 ${r.total} 份模拟数据`
+    } catch (ex) {
+      err.textContent = '提交失败：' + ex.message
+      err.style.display = 'block'
+    }
+  })
+</script>
+</body>
+</html>

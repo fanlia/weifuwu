@@ -213,6 +213,10 @@ const TASK_DISCIPLINE = `
 【浏览器环境】
 - agent-browser CLI 可用（已内置 chromium）——需要真实浏览网页/读取页面内容/
   截图时，用 agent-browser 命令操作（open/read/snapshot/screenshot）
+- 表单填写（模拟数据收集/问卷）：open 打开页面 → snapshot 读题目与控件 ref →
+  用 fill <ref> <值>（文本）/ select <ref> <值>（下拉）/ check <ref>（勾选）/
+  click <ref>（单选与提交）→ 提交后 read/snapshot 验证成功页——全部真实浏览器操作
+- 本地页面用 http://host.docker.internal:3000/... 访问（宿主服务）
 - 浏览器操作需网络权限；无网络时只可操作本地内容
 【任务纪律】
 1. 工具失败时不要直接放弃：先尝试换一个工具/方案重试；确实无法完成时，在回复中明确说明"未能完成的原因"。

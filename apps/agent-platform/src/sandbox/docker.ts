@@ -201,6 +201,7 @@ export class DockerSandbox {
       '-v', `${this.opts.runnerPath}:/opt/sandbox/tool-runner.js:ro`,
       '-w', '/ws',
       '--network', network ? 'bridge' : 'none',
+      ...(network ? ['--add-host', 'host.docker.internal:host-gateway'] : []), // 容器访问宿主（本地问卷页 demo）
       '-m', network ? '1g' : '512m', '--memory-swap', network ? '1g' : '512m',
       '--cpus', network ? '2' : '1', // 浏览器（chromium ~500MB）需提额——按 allow_network 联动
       '--pids-limit', '256',
