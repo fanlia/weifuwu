@@ -105,7 +105,7 @@ async function deliverOutbound(agent: any, reply: string, conversationId?: strin
   return false
 }
 
-function verifySignature(body: string, signature: string, secret: string, timestamp?: string): boolean {
+export function verifySignature(body: string, signature: string, secret: string, timestamp?: string): boolean {
   try {
     // timestamp 参与签名：HMAC(secret, timestamp + '.' + body)——防 replay（旧调用方无 timestamp 时退化为 HMAC(body)）
     const payload = timestamp ? `${timestamp}.${body}` : body
@@ -121,9 +121,26 @@ function verifySignature(body: string, signature: string, secret: string, timest
   }
 }
 
+/**
+ * 钉钉官方回调验签（G8 补强）：sign = Base64(HmacSHA256(timestamp + '\n' + clientSecret, clientSecret))
+ * clientSecret 复用 webhook_secret——文档说明
+ */
+export function verifyDingtalkSign(body: unknown, timestamp: string, sign: string, clientSecret: string): boolean {
+  try {
+    const payload = `${timestamp}\n${clientSecret}`
+    const expected = createHmac('sha256', clientSecret).update(payload).digest('base64')
+    const a = Buffer.from(expected)
+    const b = Buffer.from(sign)
+    if (a.length !== b.length) return false
+    return timingSafeEqual(a, b)
+  } catch {
+    return false
+  }
+}
+
 // ── Replay 防护：已用 nonce 集合（进程内，5 分钟过期） ──────────
 const seenNonces = new Map<string, number>()
-function checkNonce(nonce: string | undefined, timestamp: string | undefined): boolean {
+export function checkNonce(nonce: string | undefined, timestamp: string | undefined): boolean {
   if (!nonce || !timestamp) return true // 旧调用方（无 nonce/timestamp）不拦截——兼容
   const ts = Number(timestamp)
   if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 5 * 60_000) return false // timestamp 超 5 分钟 = 过期/重放

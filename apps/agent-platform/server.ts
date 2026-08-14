@@ -1077,7 +1077,9 @@ async function main() {
 
   // ── G8 补强：外部 IM 入站（企微/钉钉/飞书回调 → 绑定部门消息流 → AI 回复回显） ──
   app.post('/api/im/:platform', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const body = await req.json().catch(() => ({}))
+    const rawBody = await req.text().catch(() => '')
+    let body: Record<string, any> = {}
+    try { body = rawBody ? JSON.parse(rawBody) : {} } catch { return Response.json({ error: '无效 JSON' }, { status: 400 }) }
     const { parseImInbound } = await import('./src/services/im-inbound.ts')
     let msg: any
     try {
@@ -1088,13 +1090,33 @@ async function main() {
 
     // 查绑定了部门的 IM 机器人（webhook agent + im_bind_dept 非空）
     const agents = await pg.sql`
-      SELECT id, name, webhook_platform, webhook_url, im_bind_dept FROM agents
+      SELECT id, name, webhook_platform, webhook_url, im_bind_dept, webhook_secret FROM agents
       WHERE type = 'webhook' AND im_bind_dept IS NOT NULL AND is_active = TRUE
       LIMIT 1
     `
     const whAgent = (Array.isArray(agents) ? agents : [agents])[0] as any
     if (!whAgent?.im_bind_dept) {
       return Response.json({ error: '未配置 IM 绑定部门（Webhook Agent 需绑定 im_bind_dept）' }, { status: 404 })
+    }
+
+    // G8 验签（安全底线）：配置了 webhook_secret 时强制校验
+    const secret = whAgent.webhook_secret ? String(whAgent.webhook_secret) : ''
+    if (secret) {
+      const { verifySignature, checkNonce, verifyDingtalkSign } = await import('./src/services/webhook.ts')
+      const hmacOk = verifySignature(rawBody,
+        req.headers.get('x-signature') ?? '', secret,
+        req.headers.get('x-timestamp') ?? undefined)
+      // 钉钉官方：timestamp + sign 头
+      const dt = req.headers.get('timestamp') ?? ''
+      const dtSign = req.headers.get('sign') ?? ''
+      const dingOk = dt && dtSign ? verifyDingtalkSign(body, dt, dtSign, secret) : false
+      if (!hmacOk && !dingOk) {
+        return Response.json({ error: '签名校验失败（需 X-Signature 或钉钉 timestamp+sign）' }, { status: 403 })
+      }
+      // Replay 防护（HMAC 路径）
+      if (!checkNonce(req.headers.get('x-nonce') ?? undefined, req.headers.get('x-timestamp') ?? undefined)) {
+        return Response.json({ error: '重放请求' }, { status: 403 })
+      }
     }
 
     // 消息进绑定部门——同步收集 AI 回复（SSE 路径：write 回调分片——累积 buffer 再匹配）

@@ -51,3 +51,16 @@ describe('外部 IM 入站解析（G8 补强）', () => {
     assert.throws(() => parseImInbound('wecom', { MsgType: 'text', Content: '' }), /空/)
   })
 })
+
+describe('IM 验签（安全底线）', () => {
+  it('钉钉官方验签：正确 sign 通过、错误拒绝', async () => {
+    const { createHmac } = await import('node:crypto')
+    const { verifyDingtalkSign } = await import('../src/services/webhook.ts')
+    const secret = 'SEC123'
+    const timestamp = String(Date.now())
+    const payload = `${timestamp}\n${secret}`
+    const sign = createHmac('sha256', secret).update(payload).digest('base64')
+    assert.strictEqual(verifyDingtalkSign({}, timestamp, sign, secret), true)
+    assert.strictEqual(verifyDingtalkSign({}, timestamp, 'bad', secret), false)
+  })
+})
