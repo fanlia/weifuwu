@@ -25,19 +25,24 @@ const HIGH_PATTERNS: RegExp[] = [
   /\brm\b/i, /\bdelete\b/i, /\bremove\b/i, /\bdrop\b/i, /\btruncate\b/i,
   /\bunlink\b/i, /\bformat\b/i, /\bshutdown\b/i, /\breboot\b/i,
   /--force\b/i, /-rf\b/i,
+  // 浏览器交互操作（点击/输入/提交——真实世界副作用，C2 扩展）
+  /agent-browser[^\n]*(click|type|fill|press|submit|keyboard)/i,
 ]
 
 const MEDIUM_PATTERNS: RegExp[] = [
   /\bwrite\b/i, /\bedit\b/i, /\bsave\b/i, /\bmv\b/i, /\brename\b/i, /\bmkdir\b/i,
   /\bexec\b/i, /\bbash\b/i, /\bcommand\b/i, /\bshell\b/i,
   /\bhttp\b/i, /\bpost\b/i, /\bfetch\b/i, /\brequest\b/i, /\bnetwork\b/i, /\bcurl\b/i,
+  // 浏览器读取类（导航/快照/截图——medium：策略决定是否审批）
+  /agent-browser[^\n]*(open|read|snapshot|screenshot)/i,
 ]
 
 /**
  * 工具调用风险判定（工具名 + 参数序列化——纯规则，确定性）
  */
 export function riskOf(name: string, args: unknown): RiskLevel {
-  const blob = `${name} ${JSON.stringify(args ?? {})}`
+  // 只匹配参数值（排除工具名——bash 工具名曾匹配 bash 误判全 medium）
+  const blob = Object.values((args ?? {}) as Record<string, unknown>).map(String).join(' ')
   if (HIGH_PATTERNS.some((re) => re.test(blob))) return 'high'
   if (MEDIUM_PATTERNS.some((re) => re.test(blob))) return 'medium'
   return 'low'
