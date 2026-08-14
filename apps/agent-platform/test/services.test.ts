@@ -302,6 +302,48 @@ describe('Services', () => {
       assert.equal(result.conversation_id, 'conv-123')
     })
 
+    it('出站镜像：配置 webhook_url → 应答回推（带签名）', async () => {
+      // mock 接收端点
+      const received: Array<{ headers: any; body: any }> = []
+      const http = await import('node:http')
+      const server = http.createServer((req: any, res: any) => {
+        let b = ''
+        req.on('data', (c: Buffer) => b += c)
+        req.on('end', () => {
+          received.push({ headers: req.headers, body: JSON.parse(b || '{}') })
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end('{"ok":true}')
+        })
+      })
+      await new Promise<void>((r) => server.listen(0, r))
+      const port = (server.address() as any).port
+      // 配置出站 URL + secret
+      await pg.sql`UPDATE agents SET webhook_url = ${`http://127.0.0.1:${port}/reply`}, webhook_secret = 'out-secret' WHERE id = '00000000-0000-0000-0000-000000000040'`
+      try {
+        const ctx = makeMockCtx({ sql: await pg.sql as any })
+        // 入站也需签名（出站/入站共享 secret）
+        const ts = String(Date.now())
+        const raw = JSON.stringify({ content: '出站测试' })
+        const { createHmac } = await import('node:crypto')
+        const sig = createHmac('sha256', 'out-secret').update(`${ts}.${raw}`).digest('hex')
+        const result = await handleWebhookMessage(
+          ctx as Context,
+          '00000000-0000-0000-0000-000000000040',
+          { content: '出站测试' },
+          undefined, sig, ts, `nonce-${Date.now()}`,
+        )
+        assert.ok(result.reply)
+        await new Promise((r) => setTimeout(r, 300)) // 等镜像推送
+        assert.equal(received.length, 1, '出站端点收到 1 次')
+        assert.equal(received[0].body.reply, result.reply, '镜像内容 = 应答')
+        assert.ok(received[0].headers['x-signature'], '带签名')
+      } finally {
+        // 恢复（不污染后续测试）
+        await pg.sql`UPDATE agents SET webhook_url = NULL, webhook_secret = NULL WHERE id = '00000000-0000-0000-0000-000000000040'`
+        await new Promise<void>((r) => server.close(() => r()))
+      }
+    })
+
     it('不存在的 agent 抛出错误', async () => {
       const ctx = makeMockCtx({ sql: await pg.sql as any })
       await assert.rejects(

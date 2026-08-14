@@ -246,6 +246,8 @@ export interface BrowserEnv {
   createTreeWalker(root: Node, whatToShow?: number): TreeWalker | null
   /** 复制文本（clipboard API + execCommand 降级，统一组件重复实现） */
   copyText(text: string): Promise<boolean>
+  /** 下载文本文件（Blob + a[download]——SSR no-op false；导出/报表用） */
+  downloadFile(filename: string, content: string, mime?: string): boolean
   /** execCommand（富文本编辑器） */
   execCommand(cmd: string, value?: string): boolean
   /** 编辑器选区文本 */

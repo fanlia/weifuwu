@@ -284,15 +284,19 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: '消息不存在' }, { status: 404 })
     }
 
-    // 仅消息发送者可撤回
-    if (msg.owner_user_id !== auth!.userId) {
+    // 权限：发送者可撤回（5 分钟）；管理员（owner/admin）可删除任意消息（不限时）
+    const isOwner = msg.owner_user_id === auth!.userId
+    const isAdmin = auth!.role === 'owner' || auth!.role === 'admin'
+    if (!isOwner && !isAdmin) {
       return Response.json({ error: '只能撤回自己的消息' }, { status: 403 })
     }
 
-    // 5 分钟内可撤回
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-    if (new Date(String(msg.created_at)) < fiveMinutesAgo) {
-      return Response.json({ error: '消息已超过 5 分钟，无法撤回' }, { status: 400 })
+    // 非管理员撤回限 5 分钟内；管理员删除不限
+    if (!isAdmin) {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+      if (new Date(String(msg.created_at)) < fiveMinutesAgo) {
+        return Response.json({ error: '消息已超过 5 分钟，无法撤回' }, { status: 400 })
+      }
     }
 
     await sql`DELETE FROM messages WHERE id = ${params.id}`

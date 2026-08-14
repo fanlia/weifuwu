@@ -48,6 +48,21 @@ export function createClientBrowser(): BrowserEnv {
       window.history.pushState(null, '', url)
       window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
     },
+    downloadFile: (filename, content, mime = 'text/plain') => {
+      try {
+        if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return false
+        const blob = new Blob([content], { type: mime })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+        return true
+      } catch { return false }
+    },
     copyText: async (text) => {
       const w = typeof window !== 'undefined' ? window : null
       if (w?.navigator?.clipboard?.writeText) {

@@ -32,7 +32,7 @@ interface ChatMessage {
 
 interface ChatState {
   msgs: ChatMessage[]
-  deptName: string; memberCount: number; input: string
+  deptName: string; memberCount: number; input: string; isAdmin: boolean
   editingId: string; editValue: string; userAgentId: string; sending: boolean
   bodyEl: HTMLElement | null; isUserScrolledUp: boolean
   unsubWs: (() => void) | null
@@ -49,7 +49,7 @@ export const Chat: Component = async (_props, ctx) => {
   const rerender = () => ctx.ui.render()
   const deptId = ctx.route?.params?.id ?? ''
 
-  $.msgs = []; $.deptName = '聊天'; $.memberCount = 0; $.input = ''
+  $.msgs = []; $.deptName = '聊天'; $.memberCount = 0; $.input = ''; $.isAdmin = false
   $.editingId = ''; $.editValue = ''; $.userAgentId = ''; $.sending = false
   $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
   $.approving = null; $.copiedId = ''; $.timeVersion = 0
@@ -75,6 +75,7 @@ export const Chat: Component = async (_props, ctx) => {
     const user = ctx.auth?.user
     const mine = agents.find((a: Agent) => a.user_id === user?.id)
     if (mine) $.userAgentId = mine.id
+    $.isAdmin = (ctx.auth as any)?.role === 'owner' || (ctx.auth as any)?.role === 'admin'
     $.deptName = deptRes?.department?.name ?? deptRes?.name ?? '聊天'
     $.memberCount = (deptRes?.members ?? []).length
     $.membersList = (deptRes?.members ?? []).filter((m: Member) => m.type === 'ai' || m.type === 'knowledge_base')
@@ -274,9 +275,10 @@ export const Chat: Component = async (_props, ctx) => {
   }
 
   async function deleteMsg(msg: ChatMessage) {
-    const ok = await ctx.confirm!('确定撤回这条消息？')
+    const mine = isOwn(msg)
+    const ok = await ctx.confirm!(mine ? '确定撤回这条消息？' : '作为管理员删除这条消息？删除后不可恢复。')
     if (!ok) return
-    await ctx.api!.delete(`/api/messages/${msg.id}`).then(() => { ctx.toast!('消息已撤回', 'success'); rerender() }).catch(() => ctx.toast!('撤回失败', 'error'))
+    await ctx.api!.delete(`/api/messages/${msg.id}`).then(() => { ctx.toast!(mine ? '消息已撤回' : '消息已删除', 'success'); rerender() }).catch(() => ctx.toast!('操作失败', 'error'))
   }
 
   async function approveDraft(msgId: string) {
@@ -317,7 +319,7 @@ export const Chat: Component = async (_props, ctx) => {
     return labels[name] ?? name.replace(/_/g, ' ')
   }
 
-  /** 导出对话为 Markdown（复制到剪贴板——用户可粘贴到文档/对话工具） */
+  /** 导出对话为 Markdown（复制到剪贴板 + 下载 .md 文件） */
   function exportChat() {
     if ($.msgs.length === 0) {
       ctx.toast?.('暂无消息可导出', 'info')
@@ -338,8 +340,11 @@ export const Chat: Component = async (_props, ctx) => {
       if (msg.content) lines.push('', msg.content, '')
       if (msg.usage?.total_tokens) lines.push(`_（${msg.usage.total_tokens} tokens）_`, '')
     }
-    void ctx.browser?.copyText?.(lines.join('\n'))
-    ctx.toast?.(`已复制对话（${$.msgs.length} 条消息）`, 'success')
+    const text = lines.join('\n')
+    void ctx.browser?.copyText?.(text)
+    const filename = `${($.deptName ?? '对话').replace(/[^\w\u4e00-\u9fa5-]/g, '_')}-${new Date().toISOString().slice(0, 10)}.md`
+    ctx.browser?.downloadFile?.(filename, text, 'text/markdown')
+    ctx.toast?.(`已复制并下载对话（${$.msgs.length} 条消息）`, 'success')
   }
 
   return async (props: {}) => {
@@ -441,6 +446,9 @@ export const Chat: Component = async (_props, ctx) => {
                           <Button size="sm" variant="ghost" onClick={() => startEdit(msg)}>编辑</Button>
                           <Button size="sm" variant="ghost" onClick={() => deleteMsg(msg)}>撤回</Button>
                         </>
+                      )}
+                      {!isOwn(msg) && $.isAdmin && (
+                        <Button size="sm" variant="ghost" onClick={() => deleteMsg(msg)}>删除</Button>
                       )}
                     </span>
                   )}

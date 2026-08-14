@@ -73,12 +73,30 @@ export const Dashboard: Component = async (_props, ctx) => {
     const trendTotal = trend.reduce((sum: number, t) => sum + t.count, 0)
     const activeAgentCount = trend.reduce((sum: number, t) => sum + Number(t.active_agents ?? 0), 0)
     const maxTrend = Math.max(1, ...trend.map((t) => t.count))
-    const trendBars = trend.map((t, i) => (
-      <div key={i} class="wf-fill wf-stack wf-gap-none wf-items-center" title={`${t.day}：${t.count} 条`}>
-        <div style={`width: 100%; max-width: 14px; height: ${Math.max(2, Math.round((t.count / maxTrend) * 24))}px; background: var(--wf-color-primary); border-radius: 2px 2px 0 0; opacity: ${t.count === 0 ? 0.25 : 1}`} />
-        <span class="wf-text-[10px] wf-text-tertiary" style="font-size: 9px">{t.day.slice(5) ?? ''}</span>
-      </div>
-    ))
+    // SVG 折线（零依赖——自绘：面积 + 折线 + 数据点 + 峰值标注）
+    const W = 260, H = 84, PAD = 6
+    const n = trend.length
+    const xAt = (i: number) => PAD + (n > 1 ? (i / (n - 1)) * (W - PAD * 2) : W / 2)
+    const yAt = (c: number) => H - PAD - (c / maxTrend) * (H - PAD * 2)
+    const pts = trend.map((t, i) => `${xAt(i)},${yAt(t.count)}`).join(' ')
+    const areaPts = `${PAD},${H - PAD} ${pts} ${W - PAD},${H - PAD}`
+    const peak = trend.reduce((m, t, i) => (t.count > (m?.count ?? -1) ? { i, count: t.count } : m), null as { i: number; count: number } | null)
+    const trendChart = trend.length > 0 ? (
+      <svg viewBox={`0 0 ${W} ${H}`} style="width: 100%; height: 84px" role="img" aria-label="近 14 天消息趋势">
+        <polygon points={areaPts} fill="var(--wf-color-primary)" opacity="0.12" />
+        <polyline points={pts} fill="none" stroke="var(--wf-color-primary)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+        {trend.map((t, i) => (
+          <circle key={i} cx={xAt(i)} cy={yAt(t.count)} r="2.5" fill="var(--wf-color-primary)" opacity={t.count === 0 ? 0.25 : 1}>
+            <title>{`${t.day}：${t.count} 条`}</title>
+          </circle>
+        ))}
+        {peak && peak.count > 0 && (
+          <text x={xAt(peak.i)} y={yAt(peak.count) - 7} text-anchor="middle" font-size="9" fill="var(--wf-color-primary)" class="wf-nums">{peak.count}</text>
+        )}
+        <text x={PAD} y={H - 1} font-size="8" fill="var(--wf-color-text-tertiary)">{trend[0]?.day}</text>
+        <text x={W - PAD} y={H - 1} text-anchor="end" font-size="8" fill="var(--wf-color-text-tertiary)">{trend[n - 1]?.day}</text>
+      </svg>
+    ) : null
 
     return (
     <div class="wf-stack wf-gap-lg">
@@ -111,8 +129,11 @@ export const Dashboard: Component = async (_props, ctx) => {
         </Card>
         <Card clickable hover onClick={() => ctx.app?.navigate('/agents')}>
           <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 14 天消息</div>
-          <div class="wf-text-2xl wf-text-semibold wf-mt-xs wf-nums">{trendTotal}</div>
-          <div class="wf-row wf-gap-xs wf-items-end" style="height: 32px; margin-top: 6px">{trendBars}</div>
+          <div class="wf-row wf-items-end wf-gap-md">
+            <div class="wf-text-2xl wf-text-semibold wf-nums">{trendTotal}</div>
+            <div class="wf-text-xs wf-text-tertiary">峰值 {peak?.count ?? 0} · {activeAgentCount} 活跃</div>
+          </div>
+          <div style="margin-top: 6px">{trendChart}</div>
         </Card>
       </div>
 

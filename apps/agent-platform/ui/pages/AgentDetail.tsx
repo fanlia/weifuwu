@@ -142,7 +142,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       body.kb_id = $.kbId || null
     }
     if ($.agent?.type === 'webhook') {
-      // 出站回调为规划中（H5 诚实裁剪）——不传 webhook_url；仅 Secret/重试次数可配
+      body.webhook_url = $.webhookUrl.trim() || null
       body.webhook_secret = $.webhookSecret
       body.webhook_retry_count = parseInt($.webhookRetryCount) || 3
     }
@@ -412,6 +412,29 @@ export const AgentDetail: Component = async (_props, ctx) => {
     rerender()
   }
 
+  /** 批量上传：文件选择（multiple）→ 逐个读内容 → 上传 */
+  async function uploadFiles(e: Event) {
+    const input = e.target as HTMLInputElement
+    const files = input.files ? Array.from(input.files) : []
+    if (files.length === 0) return
+    $.uploading = true
+    rerender()
+    let ok = 0
+    for (const f of files) {
+      try {
+        const text = await f.text()
+        await ctx.api!.post(`/api/agents/${agentId}/knowledge`, { filename: f.name, content: text })
+        ok++
+      } catch { /* 单个失败跳过 */ }
+    }
+    input.value = ''
+    $.uploading = false
+    const d = await ctx.api!.get<{ documents: KbDocument[] }>(`/api/agents/${agentId}/knowledge`)
+    $.docs = d.documents ?? []
+    rerender()
+    ctx.toast?.(`上传完成：${ok}/${files.length} 个文档`, ok === files.length ? 'success' : 'warning')
+  }
+
   async function deleteDoc(docId: string) {
     await ctx.api!.delete(`/api/knowledge/${docId}`)
     const d = await ctx.api!.get(`/api/agents/${agentId}/knowledge`)
@@ -589,8 +612,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   </Field>
                 </div>
               </div>
-              <Field label="出站回调" hint="当前版本仅支持入站 API——出站推送（AI 主动 POST 到该地址）规划中，无需配置">
-                <Input readonly value="📡 规划中（当前版本仅入站）" />
+              <Field label="出站回调" hint="配置后，入站应答会镜像回推到该地址（POST { reply, conversation_id, timestamp } + X-Signature 签名，与入站一致）；留空仅入站">
+                <Input type="url" placeholder="https://example.com/webhook-reply（可选）" value={$.webhookUrl}
+                  onInput={(e: Event) => { $.webhookUrl = inputValue(e); rerender() }} />
               </Field>
             </>
           )}
@@ -917,6 +941,11 @@ export const AgentDetail: Component = async (_props, ctx) => {
           )}
 
           <form class="wf-stack wf-gap-md" onSubmit={uploadDoc}>
+            <Field label="批量上传" hint="支持 .txt / .md / .csv / .json——一次选择多个文件">
+              <input type="file" multiple accept=".txt,.md,.csv,.json,.jsonl,.log"
+                onChange={uploadFiles} disabled={$.uploading} class="wf-input" />
+            </Field>
+            <div class="wf-text-xs wf-text-tertiary wf-border-t wf-pt-sm">或手动粘贴：</div>
             <Field label="文件名">
               <Input type="text" placeholder="如：产品手册.txt" value={$.newDocFilename}
                 onInput={(e: Event) => { $.newDocFilename = inputValue(e); rerender() }} />

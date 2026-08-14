@@ -41,6 +41,38 @@ export interface WebhookConfig {
  *
  * HMAC-SHA256(body) === X-Signature header
  */
+function createSignature(body: string, secret: string, timestamp: string): string {
+  return createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex')
+}
+
+/**
+ * 出站回调镜像：入站应答回推到配置的 webhook_url（双向管道）
+ * - 签名对齐入站：X-Timestamp（毫秒）+ X-Signature（HMAC(secret, ts + '.' + body)）
+ * - 重试：指数退避（复用 webhook_retry_count）
+ * - 未配置 URL → 直接成功（无镜像）
+ */
+async function deliverOutbound(agent: any, reply: string, conversationId?: string): Promise<boolean> {
+  const url = agent?.webhook_url ? String(agent.webhook_url) : ''
+  if (!url) return true
+  const secret = agent?.webhook_secret ? String(agent.webhook_secret) : ''
+  const maxRetry = Math.max(1, Number(agent?.webhook_retry_count ?? 3))
+  const body = JSON.stringify({ reply, conversation_id: conversationId ?? null, timestamp: Date.now() })
+  for (let attempt = 0; attempt < maxRetry; attempt++) {
+    try {
+      const ts = String(Date.now())
+      const headers: Record<string, string> = { 'Content-Type': 'application/json', 'X-Timestamp': ts }
+      if (secret) headers['X-Signature'] = createSignature(body, secret, ts)
+      const res = await fetch(url, { method: 'POST', headers, body })
+      if (res.ok) return true
+      // 非 2xx → 退避重试
+      if (attempt < maxRetry - 1) await new Promise(r => setTimeout(r, 200 * (attempt + 1)))
+    } catch {
+      if (attempt < maxRetry - 1) await new Promise(r => setTimeout(r, 200 * (attempt + 1)))
+    }
+  }
+  return false
+}
+
 function verifySignature(body: string, signature: string, secret: string, timestamp?: string): boolean {
   try {
     // timestamp 参与签名：HMAC(secret, timestamp + '.' + body)——防 replay（旧调用方无 timestamp 时退化为 HMAC(body)）
@@ -122,13 +154,13 @@ export async function handleWebhookMessage(
   const agent: Record<string, any> = appId
     ? (await sql`
         SELECT id, system_prompt, model, tools, temperature, max_tokens,
-               webhook_secret, webhook_retry_count, app_id
+               webhook_secret, webhook_retry_count, webhook_url, app_id
         FROM agents
         WHERE id = ${agentId} AND type = 'webhook' AND is_active = TRUE AND app_id = ${appId}
       `)[0] as unknown as Record<string, any>
     : (await sql`
         SELECT id, system_prompt, model, tools, temperature, max_tokens,
-               webhook_secret, webhook_retry_count, app_id
+               webhook_secret, webhook_retry_count, webhook_url, app_id
         FROM agents
         WHERE id = ${agentId} AND type = 'webhook' AND is_active = TRUE
       `)[0] as unknown as Record<string, any>
@@ -180,6 +212,12 @@ export async function handleWebhookMessage(
     const elapsed = Date.now() - startTime
     await logWebhookCall(ctx, agentId, agent.app_id, JSON.stringify(body), result.content, 200, elapsed, true)
     await pruneLogs(ctx, agentId) // D3：每 agent 保留最近 500 条
+
+    // 出站镜像：配置了 webhook_url → 应答回推到外部系统（双向管道）
+    if (agent.webhook_url) {
+      const delivered = await deliverOutbound(agent, result.content, body.conversation_id)
+      await logWebhookCall(ctx, agentId, agent.app_id, `OUTBOUND → ${String(agent.webhook_url)}`, result.content, delivered ? 200 : 502, Date.now() - startTime, delivered)
+    }
 
     return {
       reply: result.content,
