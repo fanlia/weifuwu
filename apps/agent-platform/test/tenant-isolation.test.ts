@@ -30,7 +30,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'server.ts', match: 'DROP TABLE', reason: 'DDL migration（schema 级）' },
   { file: 'server.ts', match: 'ALTER COLUMN', reason: 'DDL migration（schema 级）' },
   { file: 'server.ts', match: 'FROM agents WHERE template_slug IS NOT NULL', reason: '平台级模板使用统计（不返回租户数据）' },
-  { file: 'server.ts', match: "SELECT id, name, webhook_platform, webhook_url, im_bind_dept FROM agents WHERE type = 'webhook'", reason: 'IM 入站机器人查询（G8 补强）——平台级路由：回调无租户上下文，机器人绑定部门显式配置（返回单行供消息路由，不泄漏）' },
+  { file: 'server.ts', match: "SELECT id, name, webhook_platform, webhook_url, im_bind_dept, webhook_secret FROM agents WHERE type = 'webhook'", reason: 'IM 入站机器人查询（G8 补强）——平台级路由：回调无租户上下文，机器人绑定部门显式配置（返回单行供消息路由，不泄漏）' },
   { file: 'server.ts', match: 'SELECT template_slug', reason: '平台级模板使用统计（role_templates usage_count）' },
   { file: 'src/routes/admin.ts', match: 'FROM messages m JOIN agents', reason: '平台管理员聚合（requireAdmin 保护，管理员有权看全平台）' },
   { file: 'src/routes/admin.ts', match: 'FROM agent_logs WHERE created_at', reason: '平台管理员聚合（requireAdmin 保护）' },
