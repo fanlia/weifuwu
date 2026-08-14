@@ -251,6 +251,14 @@ export const Settings: Component = async (_props, ctx) => {
               <span class="wf-text-sm wf-text-semibold wf-nums">{$.sysHealth.auditToday ?? 0} 条</span>
             </div>
             <div class="wf-split wf-py-xs wf-border-b">
+              <span class="wf-text-sm wf-text-secondary">授权</span>
+              <span class="wf-text-sm">{$.sysHealth?.license?.edition === 'licensed'
+                ? <span><Badge variant="success">企业授权</Badge> {$.sysHealth?.license?.expiresAt && <span class="wf-text-xs wf-text-tertiary">至 {$.sysHealth.license.expiresAt}</span>}</span>
+                : $.sysHealth?.license?.expired
+                  ? <Badge variant="danger">授权已到期</Badge>
+                  : <Badge>社区版</Badge>}</span>
+            </div>
+            <div class="wf-split wf-py-xs wf-border-b">
               <span class="wf-text-sm wf-text-secondary">沙盒执行环境</span>
               <span class="wf-text-sm">{$.sysHealth.sandbox?.available ? <Badge variant="success">运行中</Badge> : <Badge variant="danger">不可用</Badge>} <span class="wf-text-xs wf-text-tertiary">模式 {$.sysHealth.sandbox?.mode ?? '-'} · 池 {$.sysHealth.sandbox?.poolSize ?? 0}/{$.sysHealth.sandbox?.maxContainers ?? '-'}</span></span>
             </div>

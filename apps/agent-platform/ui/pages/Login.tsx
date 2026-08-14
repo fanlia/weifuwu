@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { setRefreshToken } from '../lib/api'
-import { AuthPage, Avatar, Field, Input, PasswordInput } from 'weifuwu/components'
+import { AuthPage, Avatar, Field, Icon, Input, PasswordInput } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 import { authErrorKey } from '../lib/i18n'
 
@@ -9,6 +9,8 @@ interface LoginState {
 }
 
 export const Login: Component = async (_props, ctx) => {
+  let ssoEnabled = false
+  void fetch('/api/auth/sso/enabled').then(r => r.json()).then((d: any) => { ssoEnabled = !!d.enabled; ctx.ui.render() }).catch(() => {})
   const $ = {} as LoginState
   const rerender = () => ctx.ui.render()
   $.email = ''; $.password = ''; $.error = ''; $.loading = false
@@ -59,13 +61,22 @@ export const Login: Component = async (_props, ctx) => {
   return async (props) => (
     <AuthPage
       title="登录"
-      subtitle="Agent Platform — 多租户 AI 平台"
-      logo={<Avatar name="A" size="lg" />}
+      subtitle={`${(window as any).__whiteLabel?.name || 'Agent Platform'} — 多租户 AI 平台`}
+      logo={<Avatar name={(window as any).__whiteLabel?.logo || 'A'} size="lg" />}
       submitLabel="登 录"
       loading={$.loading}
       error={$.error || null}
       onSubmit={() => handleLogin()}
-      footer={<span>还没有账号？<a onClick={() => ctx.app?.navigate('/register')}>立即注册</a></span>}
+      footer={
+        <div class="wf-stack wf-gap-sm wf-center">
+          <span>还没有账号？<a onClick={() => ctx.app?.navigate('/register')}>立即注册</a></span>
+          {ssoEnabled && (
+            <a href="/api/auth/sso/login" class="wf-btn wf-btn--secondary wf-btn--sm wf-w-full wf-center">
+              <Icon name="shield" size={14} /> 企业 SSO 登录
+            </a>
+          )}
+        </div>
+      }
     >
       <Field label="邮箱" required>
         <Input type="email" placeholder="you@example.com" value={$.email}

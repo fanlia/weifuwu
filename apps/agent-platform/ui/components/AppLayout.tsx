@@ -55,9 +55,9 @@ export async function AppLayout(_props: {}, ctx: WfuiContext) {
     <div class="wf-app-shell">
       <aside class="wf-sidebar">
         <div class="wf-sidebar-header">
-          <Avatar name="A" />
+          <Avatar name={(window as any).__whiteLabel?.logo || 'A'} />
           <div class="wf-stack wf-gap-none">
-            <span class="wf-text-base wf-text-semibold">Agent Platform</span>
+            <span class="wf-text-base wf-text-semibold">{(window as any).__whiteLabel?.name || 'Agent Platform'}</span>
             <small class="wf-uppercase wf-tracking-wide">Multi-Tenant AI</small>
           </div>
         </div>

@@ -150,5 +150,90 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
     }
   })
 
+  // ── SSO 登录（商业化 G14：OIDC 授权码——企业身份接入） ──
+  // 配置：OIDC_ISSUER + OIDC_CLIENT_ID + OIDC_CLIENT_SECRET + OIDC_REDIRECT_URI +
+  //       OIDC_APP_SLUG（SSO 用户自动加入的应用）；未配置 = 不启用
+
+  function ssoEnabled(): boolean {
+    return !!(process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID && process.env.OIDC_CLIENT_SECRET)
+  }
+
+  // 0) SSO 启用探测（登录页显示按钮用）
+  app.get('/api/auth/sso/enabled', async (): Promise<Response> => {
+    return Response.json({ enabled: ssoEnabled(), appSlug: process.env.OIDC_APP_SLUG ?? null })
+  })
+
+  // 1) 跳转身份提供方授权页
+  app.get('/api/auth/sso/login', async (): Promise<Response> => {
+    if (!ssoEnabled()) return Response.json({ error: 'SSO 未启用（配置 OIDC_* 环境变量）' }, { status: 400 })
+    const issuer = String(process.env.OIDC_ISSUER).replace(/\/$/, '')
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: process.env.OIDC_CLIENT_ID!,
+      redirect_uri: process.env.OIDC_REDIRECT_URI ?? `${process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000'}/api/auth/sso/callback`,
+      scope: 'openid email profile',
+      state: process.env.OIDC_APP_SLUG ?? 'sso',
+    })
+    // 自建 302（Response.redirect 的 headers 不可变——框架 mw 追加头会抛 immutable）
+    return new Response(null, { status: 302, headers: { Location: `${issuer}/authorize?${params}` } })
+  })
+
+  // 2) 回调：code → token → userinfo → 建号/登录
+  app.get('/api/auth/sso/callback', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    if (!ssoEnabled()) return Response.json({ error: 'SSO 未启用' }, { status: 400 })
+    const url = new URL(req.url ?? '', 'http://localhost')
+    const code = url.searchParams.get('code')
+    if (!code) return Response.json({ error: 'SSO 回调缺少 code' }, { status: 400 })
+    const issuer = String(process.env.OIDC_ISSUER).replace(/\/$/, '')
+    const redirectUri = process.env.OIDC_REDIRECT_URI ?? `${process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000'}/api/auth/sso/callback`
+    try {
+      // code → token（信任身份提供方 token 端点——完整 JWT 验签留待生产强化）
+      const tokenRes = await fetch(`${issuer}/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri,
+          client_id: process.env.OIDC_CLIENT_ID!,
+          client_secret: process.env.OIDC_CLIENT_SECRET!,
+        }),
+      })
+      if (!tokenRes.ok) return Response.json({ error: 'SSO token 交换失败' }, { status: 401 })
+      const tokenData = await tokenRes.json() as { access_token?: string }
+      // userinfo → email
+      const infoRes = await fetch(`${issuer}/userinfo`, {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      })
+      if (!infoRes.ok) return Response.json({ error: 'SSO 用户信息获取失败' }, { status: 401 })
+      const info = await infoRes.json() as { email?: string; name?: string; sub?: string }
+      const email = (info.email ?? '').trim().toLowerCase()
+      if (!email) return Response.json({ error: 'SSO 未返回邮箱（需要 email scope）' }, { status: 401 })
+
+      // 建号/登录 + 自动加入目标应用（OIDC_APP_SLUG）
+      let appId: string | undefined
+      const slug = url.searchParams.get('state') ?? process.env.OIDC_APP_SLUG
+      if (slug && slug !== 'sso') {
+        const [app] = await ctx.sql`SELECT id FROM _weifuwu_apps WHERE slug = ${slug}`
+        if (app) appId = String(app.id)
+      }
+      const session = await ctx.auth.ssoLogin(email, { appId, name: info.name })
+      try {
+        const { writeAudit } = await import('../services/audit.ts')
+        await writeAudit(ctx as any, { action: 'sso_login', target_type: 'app', target_id: appId, detail: { email } })
+      } catch { /* 尽力 */ }
+
+      // 前端收 token：SPA 页面脚本存 localStorage 后跳首页
+      return new Response(`<!DOCTYPE html><html><body><script>
+        localStorage.setItem('agent_platform_token', ${JSON.stringify(session.token)});
+        localStorage.setItem('agent_platform_refresh', ${JSON.stringify(session.refreshToken)});
+        localStorage.setItem('agent_platform_user', ${JSON.stringify(JSON.stringify(session.user))});
+        location.href = '/';
+      </script></body></html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+    } catch (e: any) {
+      return Response.json({ error: `SSO 登录失败: ${e?.message ?? '未知错误'}` }, { status: 500 })
+    }
+  })
+
   // 登录失败审计（认证中间件 401 时由 auth-payload 记录——此处覆盖应用登录成功路径）
 }

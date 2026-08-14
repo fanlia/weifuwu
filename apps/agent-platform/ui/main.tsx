@@ -17,6 +17,12 @@ try {
   if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored)
   else document.documentElement.removeAttribute('data-theme')
 } catch { /* 隐私模式 */ }
+// 白标（G13）：品牌名/logo/主色——私有化客户品牌注入
+void fetch('/api/white-label').then(r => r.json()).then((wl: any) => {
+  if (wl?.name) document.title = wl.name
+  if (wl?.brand) document.documentElement.style.setProperty('--wf-brand-seed', wl.brand)
+  ;(window as any).__whiteLabel = wl ?? null
+}).catch(() => {})
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'

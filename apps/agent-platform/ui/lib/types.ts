@@ -327,4 +327,5 @@ export interface OpsInfo {
     mode?: string; poolSize?: number; maxContainers?: number
   }
   auditToday: number
+  license?: { key: string; edition: 'community' | 'licensed'; expiresAt: string | null; expired: boolean }
 }

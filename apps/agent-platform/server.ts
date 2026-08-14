@@ -319,6 +319,46 @@ async function main() {
   })
 
   // ── 健康检查（运营/部署探针——存活 + 依赖探活） ─────────
+  // 商业化 G13：白标配置（公开——登录页/壳读取品牌）
+  app.get('/api/white-label', async (): Promise<Response> => {
+    const { getWhiteLabelInfo } = await import('./src/services/license.ts')
+    return Response.json(getWhiteLabelInfo())
+  })
+
+  // 商业化 G15：管理 API（只读——客户系统集成；独立于登录会话，MANAGEMENT_API_KEY 认证）
+  app.get('/api/v1/apps', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    const expected = process.env.MANAGEMENT_API_KEY ?? ''
+    if (!expected) return Response.json({ error: '管理 API 未启用（配置 MANAGEMENT_API_KEY）' }, { status: 403 })
+    if ((_req.headers.get('authorization') ?? '') !== `Bearer ${expected}`) {
+      return Response.json({ error: '无效的管理 API Key' }, { status: 401 })
+    }
+    const apps = await ctx.sql`
+      SELECT a.slug, a.name, a.status, a.plan, a.trial_ends_at, a.monthly_token_limit, a.created_at,
+        (SELECT COUNT(*)::int FROM _weifuwu_app_members m WHERE m.app_id = a.id) AS member_count,
+        (SELECT COUNT(*)::int FROM agents ag WHERE ag.app_id = a.id) AS agent_count,
+        COALESCE((SELECT SUM(l.tokens_total)::int FROM agent_logs l WHERE l.app_id = a.id AND l.created_at >= date_trunc('month', now())), 0) AS token_usage_month
+      FROM _weifuwu_apps a ORDER BY a.created_at DESC
+    `
+    return Response.json({ apps })
+  })
+
+  app.get('/api/v1/usage', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    const expected = process.env.MANAGEMENT_API_KEY ?? ''
+    if (!expected) return Response.json({ error: '管理 API 未启用（配置 MANAGEMENT_API_KEY）' }, { status: 403 })
+    if ((_req.headers.get('authorization') ?? '') !== `Bearer ${expected}`) {
+      return Response.json({ error: '无效的管理 API Key' }, { status: 401 })
+    }
+    const rows = await ctx.sql`
+      SELECT l.app_id, date_trunc('day', l.created_at)::date AS day,
+        COUNT(*)::int AS calls, COALESCE(SUM(l.tokens_total), 0)::int AS tokens
+      FROM agent_logs l
+      WHERE l.created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY l.app_id, date_trunc('day', l.created_at)::date
+      ORDER BY day DESC LIMIT 500
+    `
+    return Response.json({ usage: rows })
+  })
+
   app.get('/healthz', async (): Promise<Response> => {
     const deps: Record<string, any> = { pg: false, redis: false, sandbox: null }
     try { await pg.sql`SELECT 1`; deps.pg = true } catch { /* 探活失败 */ }
@@ -401,6 +441,8 @@ async function main() {
   // ── 审计日志（Wave 9——安全/合规：登录/Agent 变更记录） ──
   // ── 运营详情：沙盒状态 + 今日审计（受保护） ─────────────
   protectedRoutes.get('/api/ops', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    const { getLicenseInfo } = await import('./src/services/license.ts')
+    const licenseInfo = getLicenseInfo()
     let sandboxInfo: Record<string, any> = { available: false }
     try {
       const { sandbox } = await import('./src/sandbox/docker.ts')
@@ -412,7 +454,7 @@ async function main() {
       const [row] = await ctx.sql`SELECT COUNT(*)::int AS n FROM audit_logs WHERE created_at >= NOW() - INTERVAL '1 day' AND app_id = ${ctx.appId}`
       auditToday = Number((row as any)?.n ?? 0)
     } catch { /* 无审计表 */ }
-    return Response.json({ sandbox: sandboxInfo, auditToday })
+    return Response.json({ sandbox: sandboxInfo, auditToday, license: licenseInfo })
   })
 
   protectedRoutes.get('/api/audit', async (req: Request, ctx: AppCtx): Promise<Response> => {
