@@ -59,7 +59,18 @@
 }
 
 .wf-chart-tooltip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
   font-weight: var(--wf-font-weight-semibold);
+}
+
+.wf-chart-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .wf-chart-tooltip-value {

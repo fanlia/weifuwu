@@ -4,7 +4,7 @@
 
 import type { Component } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import { createPortal, h } from '../../ui-dom/vnode.ts'
 
 import {
   scaleLinear, linePath, areaPath, barRects, pieArcs,
@@ -25,14 +25,20 @@ export interface ChartProps {
 
 export const Chart: Component<ChartProps> = async (_props, ctx) => {
   // ── mount（只一次）──
-  let tooltip: { label: string; value: number } | null = null
+  let tooltip: { label: string; value: number; color?: string } | null = null
   let tooltipEl: Element | null = null
+  let tooltipPanel: HTMLElement | null = null
   let prevOpen = false
 
-  // 滚动/resize 时自动重算坐标（tooltip 跟随触发元素）
+  // §5.1 ref 纪律：稳定引用定义在 mount 作用域（内联 ref 每渲染新函数 → 反复触发）
+  const panelRef = (el: HTMLElement | null) => { tooltipPanel = el }
+
+  // 滚动/resize 时自动重算坐标（tooltip 跟随触发元素）；panel 传入 → 视口夹紧
+  // （getBoundingClientRect 含 translate(-50%,-100%) 变换，clamp 位移同步逻辑成立）
   const pos = ctx.ui.usePopupPosition({
     el: () => tooltipEl as HTMLElement | null,
     isOpen: () => tooltip !== null,
+    panel: () => tooltipPanel,
     compute: (r) => ({ top: r.top - 8, left: r.left + r.width / 2 }),
   })
 
@@ -63,39 +69,56 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
       const dots = data.map((d, i) => {
         const cx = xScale(i) + pad
         const cy = yScale(d.value) + pad
-        return h('circle', {
-          key: `dot-${i}`,
-          cx, cy, r: 3,
-          fill: d.color ?? getDefaultColor(i),
-          stroke: '#fff', 'stroke-width': 1.5,
-          style: { cursor: 'pointer' },
-          onMouseEnter: (e: Event) => {
-            tooltipEl = e.target as Element
-            tooltip = { label: d.label, value: d.value }; ctx.ui.render()
-          },
-          onMouseLeave: () => { tooltipEl = null; tooltip = null; ctx.ui.render() },
-        })
+        const enter = (e: Event) => {
+          tooltipEl = e.target as Element
+          tooltip = { label: d.label, value: d.value, color: d.color ?? getDefaultColor(i) }
+          ctx.ui.render()
+        }
+        const leave = () => { tooltipEl = null; tooltip = null; ctx.ui.render() }
+        return h('g', { key: `dot-${i}` }, [
+          // 视觉点
+          h('circle', {
+            cx, cy, r: 3,
+            fill: d.color ?? getDefaultColor(i),
+            style: { stroke: 'var(--wf-color-bg)' },
+            'stroke-width': 1.5,
+            'pointer-events': 'none',
+          }),
+          // 透明命中区（r=3 太小难悬停——扩大交互目标，覆盖相邻点先到先得）
+          h('circle', {
+            cx, cy, r: 9,
+            fill: 'transparent',
+            style: { cursor: 'pointer' },
+            onMouseEnter: enter,
+            onMouseLeave: leave,
+          }),
+        ])
       })
 
       return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}` }, [
         ...ticks.map((t, i) => h('g', { key: `tick-${i}` }, [
           h('line', {
             x1: pad, y1: t.y + pad, x2: W - pad, y2: t.y + pad,
-            stroke: '#e5e7eb', 'stroke-width': 1,
+            style: { stroke: 'var(--wf-color-border)' },
+            'stroke-width': 1,
           }),
           h('text', {
             x: pad - 6, y: t.y + pad + 4,
-            'text-anchor': 'end', fill: '#6b7280',
+            'text-anchor': 'end', style: { fill: 'var(--wf-color-text-tertiary)' },
             'font-size': '11', 'font-family': 'var(--wf-font-sans)',
           }, t.label),
         ])),
         ...(areaD ? [h('path', {
-          key: 'area', d: areaD, fill: '#3b82f620', stroke: 'none',
+          key: 'area', d: areaD,
+          style: { fill: 'var(--wf-color-primary-bg)' },
+          stroke: 'none',
           transform: `translate(${pad},${pad})`,
         })] : []),
         h('path', {
           key: 'line', d: lineD,
-          fill: 'none', stroke: '#3b82f6', 'stroke-width': 2,
+          fill: 'none',
+          style: { stroke: 'var(--wf-color-primary)' },
+          'stroke-width': 2,
           'stroke-linejoin': 'round', 'stroke-linecap': 'round',
           transform: `translate(${pad},${pad})`,
         }),
@@ -104,7 +127,7 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
           return h('text', {
             key: `xlabel-${i}`,
             x, y: H - pad + 14,
-            'text-anchor': 'middle', fill: '#6b7280',
+            'text-anchor': 'middle', style: { fill: 'var(--wf-color-text-tertiary)' },
             'font-size': '10', 'font-family': 'var(--wf-font-sans)',
           }, d.label)
         }),
@@ -123,11 +146,12 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
         ...ticks.map((t, i) => h('g', { key: `tick-${i}` }, [
           h('line', {
             x1: pad, y1: t.y + pad, x2: W - pad, y2: t.y + pad,
-            stroke: '#e5e7eb', 'stroke-width': 1,
+            style: { stroke: 'var(--wf-color-border)' },
+            'stroke-width': 1,
           }),
           h('text', {
             x: pad - 6, y: t.y + pad + 4,
-            'text-anchor': 'end', fill: '#6b7280',
+            'text-anchor': 'end', style: { fill: 'var(--wf-color-text-tertiary)' },
             'font-size': '11', 'font-family': 'var(--wf-font-sans)',
           }, t.label),
         ])),
@@ -137,7 +161,7 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
           fill: r.color, rx: 2,
           onMouseEnter: (e: Event) => {
             tooltipEl = e.target as Element
-            tooltip = { label: r.label, value: r.value }; ctx.ui.render()
+            tooltip = { label: r.label, value: r.value, color: r.color }; ctx.ui.render()
           },
           onMouseLeave: () => { tooltipEl = null; tooltip = null; ctx.ui.render() },
         })),
@@ -146,7 +170,7 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
           return h('text', {
             key: `xlabel-${i}`,
             x, y: H - pad + 14,
-            'text-anchor': 'middle', fill: '#6b7280',
+            'text-anchor': 'middle', style: { fill: 'var(--wf-color-text-tertiary)' },
             'font-size': '10', 'font-family': 'var(--wf-font-sans)',
           }, d.label)
         }),
@@ -162,17 +186,19 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
       return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}` }, [
         ...arcs.map((a, i) => h('g', { key: `arc-${i}` }, [
           h('path', {
-            d: a.d, fill: a.color, stroke: '#fff', 'stroke-width': 1.5,
+            d: a.d, fill: a.color,
+            style: { stroke: 'var(--wf-color-bg)' },
+            'stroke-width': 1.5,
             onMouseEnter: (e: Event) => {
               tooltipEl = e.target as Element
-              tooltip = { label: a.label, value: a.value }; ctx.ui.render()
+              tooltip = { label: a.label, value: a.value, color: a.color }; ctx.ui.render()
             },
             onMouseLeave: () => { tooltipEl = null; tooltip = null; ctx.ui.render() },
           }),
           ...(a.value / data.reduce((s, d) => s + Math.abs(d.value), 0) > 0.05
             ? [h('text', {
               x: a.centroid.x, y: a.centroid.y + 3,
-              'text-anchor': 'middle', fill: '#fff',
+              'text-anchor': 'middle', style: { fill: 'var(--wf-color-on-brand)' },
               'font-size': '11', 'font-weight': 'bold',
               'font-family': 'var(--wf-font-sans)',
             }, `${Math.round(a.value / data.reduce((s, d) => s + Math.abs(d.value), 0) * 100)}%`)]
@@ -198,13 +224,17 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
     if (isTipOpen && !prevOpen) pos.refresh()
     prevOpen = isTipOpen
 
-    const tip = tooltip ? h('div', {
+    const tip = tooltip ? createPortal(h('div', {
       class: 'wf-chart-tooltip',
+      ref: panelRef,
       style: { position: 'fixed', left: pos.left, top: pos.top },
     }, [
-      h('div', { class: 'wf-chart-tooltip-label' }, tooltip.label),
+      h('div', { class: 'wf-chart-tooltip-label' }, [
+        tooltip.color ? h('span', { class: 'wf-chart-tooltip-dot', style: { background: tooltip.color } }) : null,
+        h('span', {}, tooltip.label),
+      ]),
       h('div', { class: 'wf-chart-tooltip-value' }, String(tooltip.value)),
-    ]) : null
+    ]), 'chart-tooltip') : null
 
     return h('div', {
       class: `wf-chart${className ? ' ' + className : ''}`,
