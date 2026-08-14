@@ -491,6 +491,7 @@ async function runAllAgents(
 
   const aiAgents = (await sql`
     SELECT a.id, a.name, a.system_prompt, a.model, a.tools, a.human_in_the_loop, a.max_tokens,
+      a.workspace_path, a.allow_file_tools, a.allow_command_exec, a.allow_network,
       a.workspace_path, a.allow_file_tools, a.allow_command_exec
     FROM department_members dm
     JOIN agents a ON a.id = dm.agent_id

@@ -208,6 +208,10 @@ const TASK_DISCIPLINE = `
   python-docx(Word)/python-pptx(PPT)
 - 需要其他 Python 库时：pip install --break-system-packages <包>（需网络权限）
 - 处理文件（表格/文档/PDF）优先写 python 脚本经 bash 执行——不要只描述步骤
+【浏览器环境】
+- agent-browser CLI 可用（已内置 chromium）——需要真实浏览网页/读取页面内容/
+  截图时，用 agent-browser 命令操作（open/read/snapshot/screenshot）
+- 浏览器操作需网络权限；无网络时只可操作本地内容
 【任务纪律】
 1. 工具失败时不要直接放弃：先尝试换一个工具/方案重试；确实无法完成时，在回复中明确说明"未能完成的原因"。
 2. 任务完成后按以下结构汇报：

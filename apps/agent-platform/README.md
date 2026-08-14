@@ -51,6 +51,10 @@ npm run dev        # node --watch server.ts → http://localhost:3000
 统一工具执行器 /opt/sandbox/tool-runner.js（stdin {tool,args} → stdout {ok,output}）
 ```
 
+**浏览器技能（agent-browser 内置）**：沙盒镜像含 agent-browser CLI + Chromium——
+AI 可真实浏览网页（open/read/snapshot/screenshot）。容器自动 --no-sandbox；
+需 Agent 开启 allow_network（同时容器提额 1G/2CPU——chromium 内存需求）。
+
 **Python/Office 环境（用户决策 2026-12）**：不预制 Office 技能套装——沙盒内置 python3 +
 预装库（openpyxl/pandas/pypdf/python-docx/python-pptx），AI 按需写脚本处理
 Excel/Word/PDF/PPT；需要其他库时 `pip install --break-system-packages`（需网络权限）。

@@ -1,26 +1,36 @@
 # agent-platform 沙盒镜像（AI 工具执行环境）
 #
-# 设计（用户决策 2026-12）：不预制 Office 技能套装——沙盒提供 python + pip +
-# 预装基础 Office 库，AI 按需自装工具并写代码处理文件（Excel/Word/PDF/PPT…）。
+# 设计（用户决策 2026-12）：
+#   - 不预制 Office 技能套装——python + 预装 Office 库，AI 按需自装/写代码处理
+#   - 内置 agent-browser（浏览器操作技能）——AI 可真实操作网页（导航/快照/截图）
 #
-# 预装（离线可用）：apk 系统包（openpyxl/pandas/numpy/pypdf）+ pip 补装
-#                （python-docx/python-pptx——alpine 仓库无此二包）
-# AI 自装（需 allow_network）：pip install --break-system-packages 任意包
+# 环境：
+#   - python3 + apk 预装（openpyxl/pandas/numpy/pypdf）+ pip 补装（docx/pptx）
+#   - chromium（apk 官方 musl 构建）+ agent-browser CLI（Rust，npm 包）
+#   - agent-browser 自动发现 PATH 的 chromium；容器环境自动 --no-sandbox
+#
+# 网络：浏览器/自装库需沙盒 allow_network（--network bridge）；none 时仅本地操作
+# 资源：chromium 需 ~500MB 内存——启用浏览器技能的 Agent 容器需提额（平台侧）
 #
 # 构建：docker build -f Dockerfile.sandbox -t ap-sandbox:latest .
 # 启用：.env 设 SANDBOX_IMAGE=ap-sandbox:latest
-#
-# 注：tool-runner.js 由平台运行时挂载（-v ...:/opt/sandbox/tool-runner.js:ro）；
-#     python 经 bash 工具调用（AI 写脚本 → python3 执行）
+# 注：tool-runner.js 由平台运行时挂载；python 经 bash 工具调用
 
 FROM node:24-alpine
 
-# ── python + 预装 Office 库（apk 系统包 + pip 补装） ──
-RUN apk add --no-cache python3 py3-pip py3-openpyxl py3-pandas py3-numpy py3-pypdf \
+# ── 清华 TUNA alpine 镜像源（国内构建加速） ──
+RUN sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories
+
+# ── python + Office 库 + chromium（浏览器执行体） ──
+RUN apk add --no-cache \
+    python3 py3-pip py3-openpyxl py3-pandas py3-numpy py3-pypdf \
+    chromium \
   && pip install --break-system-packages --no-cache-dir python-docx python-pptx
 
-# ── 非 root 用户（R2 威胁模型：容器内降权——node:24-alpine 自带 node 用户，
-#   与平台 docker.ts --user node 对齐；/ws 挂载卷由平台创建） ──
+# ── agent-browser（Rust CLI——CDP 客户端，发现 PATH 的 chromium） ──
+RUN npm install -g agent-browser
+
+# ── 非 root 用户（R2 威胁模型：容器内降权——与 docker.ts --user node 对齐） ──
 USER node
 WORKDIR /ws
 
