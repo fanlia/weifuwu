@@ -42,7 +42,7 @@
 
 .wf-toolcall-bar {
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--wf-radius-xs);
   background: var(--wf-color-bg-tertiary);
   overflow: hidden;
   margin-top: var(--wf-gap-xs);

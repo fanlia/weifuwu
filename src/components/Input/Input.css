@@ -109,7 +109,7 @@
   border: none;
   background: transparent;
   color: var(--wf-color-text-secondary);
-  font-size: 10px;
+  font-size: var(--wf-font-size-xs);
   cursor: pointer;
   padding: 0;
   line-height: 1;

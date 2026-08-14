@@ -152,7 +152,7 @@
 
 .wf-upload-progress {
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--wf-radius-xs);
   background: var(--wf-color-bg-tertiary);
   overflow: hidden;
   margin-top: var(--wf-space-sm);
@@ -161,6 +161,6 @@
 .wf-upload-progress-fill {
   height: 100%;
   background: var(--wf-color-primary);
-  border-radius: 2px;
+  border-radius: var(--wf-radius-xs);
   transition: width var(--wf-dur-fast) var(--wf-ease-out);
 }

@@ -41,7 +41,7 @@
 }
 
 .wf-navmenu-arrow {
-  font-size: 10px;
+  font-size: var(--wf-font-size-xs);
   opacity: 0.6;
 }
 

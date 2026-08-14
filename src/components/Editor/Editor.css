@@ -289,7 +289,7 @@
   width: 18px;
   height: 18px;
   border: 1px solid var(--wf-color-border);
-  border-radius: 2px;
+  border-radius: var(--wf-radius-xs);
   cursor: pointer;
   background: var(--wf-color-bg);
   transition: background 0.1s, border-color 0.1s;

@@ -17,11 +17,17 @@
   height: 6px;
   appearance: none;
   background: var(--wf-color-border);
-  border-radius: 3px;
+  border-radius: var(--wf-radius-xs);
   outline: none;
   cursor: pointer;
 }
 
+.wf-slider-input:hover::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+.wf-slider-input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--wf-color-primary-bg);
+}
 .wf-slider-input::-webkit-slider-thumb {
   appearance: none;
   width: 18px;
@@ -31,6 +37,7 @@
   cursor: pointer;
   border: 2px solid var(--wf-color-on-brand);
   box-shadow: var(--wf-slider-thumb-shadow, var(--wf-shadow-sm));
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* Firefox 同款 thumb（跨浏览器一致） */
@@ -42,11 +49,12 @@
   cursor: pointer;
   border: 2px solid var(--wf-color-on-brand);
   box-shadow: var(--wf-slider-thumb-shadow, var(--wf-shadow-sm));
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .wf-slider-input::-moz-range-track {
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--wf-radius-xs);
   background: transparent; /* 进度填充由组件 inline 渐变提供 */
 }
 

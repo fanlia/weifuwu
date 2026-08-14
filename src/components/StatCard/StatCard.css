@@ -48,4 +48,9 @@
 /* 可点击指标卡：hover 抬升已提炼为 .wf-elevate（_surface.css） */
 .wf-stat--clickable {
   cursor: pointer;
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out), box-shadow var(--wf-dur-fast) var(--wf-ease-out);
+}
+.wf-stat--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--wf-shadow-md);
 }

@@ -3,7 +3,7 @@
 .wf-highlight-mark {
   background: var(--wf-color-warning-bg);
   color: var(--wf-color-warning-text);
-  border-radius: 2px;
+  border-radius: var(--wf-radius-xs);
   padding: 0 1px;
   font-weight: var(--wf-font-weight-semibold);
 }

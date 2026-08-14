@@ -31,7 +31,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--wf-font-size-xs);
   padding: 0;
   line-height: 0;
   opacity: 0.6;

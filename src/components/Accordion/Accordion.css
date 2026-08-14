@@ -58,3 +58,5 @@
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text-secondary);
 }
+
+.wf-accordion-summary[disabled] { opacity: 0.5; cursor: not-allowed; }
