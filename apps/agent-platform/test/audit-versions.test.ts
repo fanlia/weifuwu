@@ -98,15 +98,23 @@ describe('Agent 版本管理服务', () => {
     assert.equal(versions[0].snapshot.system_prompt, '你是AI助手')
   })
 
-  it('rollbackVersion 恢复配置', async () => {
-    // 修改配置
-    await pg.sql`UPDATE agents SET system_prompt = '修改后的提示', updated_at = NOW() WHERE id = ${AGENT_ID}`
+  it('saveVersion 快照含名称/描述（回滚可恢复）', async () => {
+    const versions = await listVersions(makeCtx() as any, AGENT_ID)
+    assert.ok(versions[0].snapshot.name !== undefined, '快照含 name')
+    assert.ok(versions[0].snapshot.description !== undefined, '快照含 description')
+  })
+
+  it('rollbackVersion 恢复配置（含 name/description）', async () => {
+    // 修改配置（含名称/描述）
+    await pg.sql`UPDATE agents SET system_prompt = '修改后的提示', name = '改名后', description = '改描述', updated_at = NOW() WHERE id = ${AGENT_ID}`
     // 回滚到 v1
     const versions = await listVersions(makeCtx() as any, AGENT_ID)
     const v1 = versions.find((v: any) => v.version === 1)
     const result = await rollbackVersion(makeCtx() as any, AGENT_ID, v1.id)
     assert.equal(result.ok, true)
-    const [agent] = await pg.sql`SELECT system_prompt FROM agents WHERE id = ${AGENT_ID}`
-    assert.equal(agent.system_prompt, '你是AI助手', '回滚后配置恢复')
+    const [agent] = await pg.sql`SELECT system_prompt, name, description FROM agents WHERE id = ${AGENT_ID}`
+    assert.equal(agent.system_prompt, '你是AI助手', '回滚后 system_prompt 恢复')
+    assert.equal(agent.name, 'AI Bot', '回滚后名称恢复')
+    assert.equal(agent.description, null, '回滚后描述恢复')
   })
 })

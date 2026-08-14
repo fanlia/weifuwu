@@ -79,6 +79,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       $.aiQuota = String(a.monthly_token_quota ?? 0)
       $.quotaUsed = Number(a.quota_used ?? 0)
       loadVersions()
+      if (a.type === 'ai') loadLogs()
       $.aiHITL = !!a.human_in_the_loop
       $.webhookUrl = a.webhook_url ?? ''; $.webhookSecret = a.webhook_secret ?? ''
       $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
@@ -432,8 +433,10 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
       <div class="wf-row wf-gap-xs" style="flex-wrap: wrap">
         {(a.type === 'ai'
-          ? [['sec-config', '配置'], ['sec-skills', '技能'], ['sec-files', '文件'], ['sec-knowledge', '知识库'], ['sec-preview', '对话'], ['sec-logs', '日志'], ['sec-webhook', 'Webhook'], ['sec-versions', '版本']]
-          : [['sec-config', '配置'], ['sec-account', '账号']]
+          ? [['sec-config', '配置'], ['sec-skills', '技能'], ['sec-files', '文件'], ['sec-knowledge', '知识库'], ['sec-preview', '对话'], ['sec-logs', '日志'], ['sec-versions', '版本']]
+          : a.type === 'webhook'
+            ? [['sec-config', '配置'], ['sec-webhook', 'Webhook'], ['sec-versions', '版本']]
+            : [['sec-config', '配置'], ['sec-account', '账号'], ['sec-versions', '版本']]
         ).map(([id, label]) => (
           <button key={id} type="button" class="wf-btn wf-btn--sm wf-btn--ghost"
             onClick={() => { const el = document.getElementById(id); if (el) (el as any).scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>

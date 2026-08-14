@@ -12,12 +12,14 @@ import type { AppCtx } from '../middleware/ctx.ts'
 export async function saveVersion(ctx: AppCtx, agentId: string, note?: string): Promise<{ id: string; version: number } | null> {
   const { sql } = ctx
   const [agent] = await sql`
-    SELECT system_prompt, model, temperature, max_tokens, tools, workspace_path,
-      allow_file_tools, allow_command_exec, allow_network, monthly_token_quota, name
+    SELECT name, description, system_prompt, model, temperature, max_tokens, tools, workspace_path,
+      allow_file_tools, allow_command_exec, allow_network, monthly_token_quota
     FROM agents WHERE id = ${agentId} AND app_id = ${ctx.appId}
   `
   if (!agent) return null
   const snapshot = {
+    name: agent.name,
+    description: agent.description,
     system_prompt: agent.system_prompt,
     model: agent.model,
     temperature: agent.temperature,
@@ -60,14 +62,15 @@ export async function rollbackVersion(ctx: AppCtx, agentId: string, versionId: s
   if (!ver) return { ok: false, note: '版本不存在' }
   const snap = ver.snapshot as Record<string, any>
   const sets = [
-    'system_prompt', 'model', 'temperature', 'max_tokens', 'tools',
+    'name', 'description', 'system_prompt', 'model', 'temperature', 'max_tokens', 'tools',
     'workspace_path', 'allow_file_tools', 'allow_command_exec', 'allow_network', 'monthly_token_quota',
   ]
   const assign: string[] = []
   const params: unknown[] = []
   let idx = 1
   for (const f of sets) {
-    if (snap[f] !== undefined && snap[f] !== null) {
+    // null 也恢复（版本回滚 = 完全回到快照；description 等可空字段显式置 null）
+    if (snap[f] !== undefined) {
       assign.push(`${f} = $${idx++}`)
       params.push(f === 'tools' ? JSON.stringify(snap[f]) : snap[f])
     }
