@@ -1303,3 +1303,35 @@ test('audit：开发期不变量——重复 data-v3-id 检测（patch 泄漏）
   console.warn = ow
   document.body.removeChild(root)
 })
+
+test('路由嵌套布局：layout 跨路由复用（工厂不重跑——vdom2 布局层语义）', async () => {
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  let layoutRuns = 0
+  const Layout = async (_init: any, ctx: any) => {
+    layoutRuns++
+    const rerender = () => ctx.render()
+    return async (props: any) => h('div', { class: 'layout' }, [
+      h('nav', { id: 'nav' }, 'nav'),
+      h('main', {}, props.children),
+    ])
+  }
+  const PageA = async (_init: any, _ctx: any) => async () => h('div', { id: 'page-a' }, '页面A')
+  const PageB = async (_init: any, _ctx: any) => async () => h('div', { id: 'page-b' }, '页面B')
+  const router = createRouter([
+    { path: '/a', render: () => h(PageA, {}), layout: (p) => h(Layout, {}, p) },
+    { path: '/b', render: () => h(PageB, {}), layout: (p) => h(Layout, {}, p) },
+  ], root, { initialPath: '/a' })
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(layoutRuns, 1, '首次挂载 layout 工厂 1 次')
+  assert.ok(root.querySelector('[id="page-a"]'), '页面A 渲染')
+  // 导航（同 layout——复用）
+  router.navigate('/b')
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(layoutRuns, 1, '跨路由 layout 复用（工厂不重跑）')
+  assert.ok(root.querySelector('[id="page-b"]'), '页面B 渲染（插槽切换）')
+  assert.ok(root.querySelector('.layout nav'), 'layout 保持')
+  router.close()
+  document.body.removeChild(root)
+})

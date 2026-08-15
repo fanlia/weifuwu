@@ -11,10 +11,16 @@ import { buildVNode } from './build.ts'
 import { mount, patch } from './render.ts'
 import { stream } from './events.ts'
 
+/** 布局包裹（跨路由复用——layout 函数引用稳定 → patch 同位置同类型复用——
+ *  工厂不重跑——内部状态（折叠/高亮）保持——vdom2 布局层语义） */
+export type RouteLayout = (page: VNode) => VNode
+
 export interface RouteDef {
   path: string
   /** 页面渲染（params 注入——:id 等） */
   render: (params: Record<string, string>) => VNode
+  /** 布局包裹（可选——页面在布局插槽内） */
+  layout?: RouteLayout
 }
 
 export interface RouterHandle {
@@ -100,8 +106,10 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
         return
       }
       pageCtx = makePageCtx() // 新页面新 ctx（render 绑定当前实例）
-      const vnode = matched.def.render(matched.params)
-      const built = await buildVNode(vnode, pageCtx)
+      const page = matched.def.render(matched.params)
+      const vnode = matched.def.layout ? matched.def.layout(page) : page
+      // oldV 对照（current——同位置同类型复用 _render——layout 工厂不重跑）
+      const built = await buildVNode(vnode, pageCtx, current)
       if (current == null) {
         mount(built, root) // 首帧
       } else {

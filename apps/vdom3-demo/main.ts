@@ -84,6 +84,18 @@ const V3AppPage = async (_init: any, _ctx: any) => async () => {
   ])
 }
 
+// ── 嵌套路由：AppLayout 跨路由复用（layout 工厂不重跑——vdom2 语义） ──
+;(window as any).__v3_layout_runs = 0
+const TrackedLayout = async (initProps: any, ctx: any) => {
+  ;(window as any).__v3_layout_runs++
+  const inner = await AppLayout(initProps, ctx)
+  return inner
+}
+const V3App2Depts = async (_init: any, _ctx: any) => async () =>
+  h('div', { id: 'v3-app2' }, [h(TrackedLayout, {}, h('div', { class: 'wf-p-lg' }, [h(Departments, {})]))])
+const V3App2Chat = async (_init: any, _ctx: any) => async () =>
+  h('div', { id: 'v3-app2' }, [h(TrackedLayout, {}, h('div', { class: 'wf-p-lg' }, [h('h3', {}, 'Chat 内容页')]))])
+
 // 守卫验证：AppLayout 的未登录分支（isLoggedIn=false → navigate /login + Loading）
 // ——ctx.auth 全局注入 isLoggedIn=true——守卫页直接测 AppLayout 的条件逻辑
 const V3GuardPage = async (_init: any, _ctx: any) => async () => {
@@ -216,6 +228,9 @@ const router = createRouter([
   { path: '/v3-chat', render: () => h(V3ChatPage, {}) },
   { path: '/v3-app', render: () => h(V3AppPage, {}) },
   { path: '/v3-guard', render: () => h(V3GuardPage, {}) },
+  // 嵌套布局形态：layout 函数引用稳定（跨路由复用——工厂不重跑）
+  { path: '/v3-app3/depts', render: () => h(Departments, {}), layout: (page) => h(TrackedLayout, {}, page) },
+  { path: '/v3-app3/chat', render: () => h('div', {}, [h('h3', {}, 'Chat 内容页')]), layout: (page) => h(TrackedLayout, {}, page) },
 ], root, {
   ctx: {
     // 中间件面 mock（agent-platform 页面消费——ctx.api/confirm/toast）
