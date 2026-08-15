@@ -35,8 +35,11 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null):
     if (reuse) {
       v._render = reuse._render
       v._id = reuse._id
+      // BUILD 事件：组件构建决策（工厂复用——内部状态保持的事件证据）
+      stream.emit({ type: 'BUILD', id: v._id!, name: compName(v.type), reused: true, ts: Date.now() })
     } else {
       v._id = nextNodeId()
+      stream.emit({ type: 'BUILD', id: v._id, name: compName(v.type), reused: false, ts: Date.now() })
       stream.emit({ type: 'COMP_MOUNT', id: v._id, name: compName(v.type), ts: Date.now() })
       // 组件 ctx：onUnmount 钩子（卸载清理注册——COMP_UNMOUNT 时执行）
       // + ui（vdom2 兼容面——hooks shim——组件库零改动）
@@ -49,6 +52,8 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null):
       const renderFn = await (v.type as Component)(v.props, compCtx)
       v._render = renderFn as (props: Record<string, unknown>) => Promise<VNode | null>
     }
+    // RENDER 事件：jsx 层——组件 renderFn 执行（每次渲染可观测——更新链路）
+    stream.emit({ type: 'RENDER', id: v._id!, name: compName(v.type), ts: Date.now() })
     const output = await v._render!(v.props)
     v._child = null
     const oldOut = reuse?._child ?? null

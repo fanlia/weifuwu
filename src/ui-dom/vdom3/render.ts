@@ -8,8 +8,8 @@
  * 卸载：COMP_UNMOUNT 事件（类型/位置变化时——由 patch 顶层判定）。
  */
 
-import type { VNode, VNodeChild, PortalVNode } from './types.ts'
-import { Fragment, Portal, childrenOf } from './types.ts'
+import type { VNode, VNodeChild, PortalVNode, VKind } from './types.ts'
+import { Fragment, Portal, childrenOf, classifyKind } from './types.ts'
 
 /** SVG 元素集合（createElementNS——SVG 命名空间：属性大小写敏感（viewBox 等）） */
 const SVG_TAGS = new Set([
@@ -200,44 +200,21 @@ function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?:
 
   if (sameType) {
     const ov = oldV as VNode
-    // portal：内容 patch 到远程容器（同 key 复用）
-    if (isPortalNode(vn)) {
-      const portalKey = String(vn.props?.portalKey ?? 'default')
-      const container = ensurePortalContainer(portalKey)
-      registry.register(NodeRegistry.PORTAL(portalKey), container)
-      patchChildren(ov, vn, container)
-      vn.el = container
-      return container
+    const kind = classifyKind(vn)
+    emitPatch(oldIsVNode ? classifyKind(oldV) : null, kind, 'reuse')
+    const patcher = KIND_PATCHERS[kind]
+    if (!patcher) {
+      // kind 处理器缺注册：明确失败（PATCH 事件 + warn——不再是静默崩进默认路径）
+      emitPatch(oldIsVNode ? classifyKind(oldV) : null, kind, 'unhandled')
+      console.warn(`[vdom3/patch] kind=${kind} 无同类型处理器——降级重建（kind 分发完整性缺失）`)
+      return renderVNode(vn, parent, anchor)
     }
-    // 组件：复用实例（_render 保持）——输出已由 build 更新（新 _child）——渲染新输出
-    if (typeof vn.type === 'function') {
-      vn._render = ov._render
-      vn._id = ov._id
-      const out = vn._child !== undefined ? vn._child : childrenOf(vn)[0] ?? null
-      const oldOut = ov._child !== undefined ? ov._child : childrenOf(ov)[0] ?? null
-      if (out == null) {
-        if (ov.el) { ov.el.parentNode?.removeChild(ov.el); ov.el = null }
-        vn.el = null
-        return null
-      }
-      if (ov.el == null || !(ov.el.isConnected || ov.el.parentNode === parent)) {
-        vn.el = renderVNode(vn, parent, anchor)
-      } else {
-        // 组件输出变化 → patch 子树（组件 el 保持——输出首节点定位）
-        patch(oldOut as VNode | null, out as VNodeChild, parent, anchor)
-        vn.el = ov.el
-      }
-      return vn.el
-    }
-    // native：属性 diff + children patch
-    const el = ov.el as Element
-    vn.el = el
-    patchProps(el, ov.props, vn.props)
-    patchChildren(ov, vn, el)
-    return el
+    return patcher(ov, vn, parent, anchor)
   }
 
-  // 异类型：旧组件 → COMP_UNMOUNT；移除旧 + 渲染新
+  // 异类型：rebuild（PATCH 决策事件——异类型走通用重建——不依赖 kind 组合矩阵）
+  emitPatch(oldIsVNode ? classifyKind(oldV) : null, classifyKind(vn), 'rebuild')
+  // 旧组件 → COMP_UNMOUNT；移除旧 + 渲染新
   if (oldIsVNode && typeof (oldV as VNode).type === 'function' && (oldV as VNode)._id) {
     runUnmountHooks((oldV as VNode)._id!)
     stream.emit({ type: 'COMP_UNMOUNT', id: (oldV as VNode)._id!, name: compName((oldV as VNode).type), ts: Date.now() })
@@ -298,6 +275,94 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
     }
     stream.emit({ type: 'PROP_UPDATE', target, key, value: nv, prev: ov ?? '', ts: Date.now() })
   }
+}
+
+/** PATCH 决策事件（全链路事件流——kind 分发可观测/可断言） */
+function emitPatch(oldKind: VKind | null, newKind: VKind, action: 'reuse' | 'rebuild' | 'move' | 'remove' | 'unhandled'): void {
+  stream.emit({ type: 'PATCH', oldKind, newKind, action, ts: Date.now() })
+}
+
+// ── kind 同类型处理器表（kind → 复用路径——显式注册——缺注册明确失败） ──
+
+/** native：属性 diff + children patch（el 守卫——ov.el 缺失 → 明确失败 + 降级） */
+function patchNativeKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null): Node | null {
+  const el = ov.el as Element | undefined
+  if (el == null) {
+    emitPatch(classifyKind(ov), 'native', 'unhandled')
+    console.warn(`[vdom3/patch] native 复用但 ov.el 缺失（tag=${String(ov.type)}——kind 分发或渲染时序错误）——降级重建`)
+    return renderVNode(vn, parent, anchor)
+  }
+  vn.el = el
+  patchProps(el, ov.props, vn.props)
+  patchChildren(ov, vn, el)
+  return el
+}
+
+/** 组件：复用实例（_render 保持）——输出已由 build 更新——patch 子树 */
+function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null): Node | null {
+  vn._render = ov._render
+  vn._id = ov._id
+  const out = vn._child !== undefined ? vn._child : childrenOf(vn)[0] ?? null
+  const oldOut = ov._child !== undefined ? ov._child : childrenOf(ov)[0] ?? null
+  if (out == null) {
+    if (ov.el) { ov.el.parentNode?.removeChild(ov.el); ov.el = null }
+    vn.el = null
+    return null
+  }
+  if (ov.el == null || !(ov.el.isConnected || ov.el.parentNode === parent)) {
+    vn.el = renderVNode(vn, parent, anchor)
+  } else {
+    // 组件输出变化 → patch 子树（组件 el 保持——输出首节点定位）
+    patch(oldOut as VNode | null, out as VNodeChild, parent, anchor)
+    vn.el = ov.el
+  }
+  return vn.el
+}
+
+/** Fragment：children 级 patch（Fragment 无自身 el——children 的 DOM 展开在父容器——
+ *  baseIndex 对齐 Fragment 的起始位置（前后可有兄弟）） */
+function patchFragKind(ov: VNode, vn: VNode, parent: Node, _anchor?: Node | null): Node | null {
+  patchChildren(ov, vn, parent as Element, fragmentBaseIndex(ov))
+  // Fragment 的 el = 首 child 的 el（组件输出定位）
+  const firstChild = childrenOf(ov).find((c): c is VNode => c != null && typeof c === 'object' && !Array.isArray(c))
+  vn.el = ov.el ?? (firstChild?.el ?? null)
+  return vn.el
+}
+
+/** portal：内容 patch 到远程容器（同 key 复用） */
+function patchPortalKind(ov: VNode, vn: VNode, _parent: Node, _anchor?: Node | null): Node | null {
+  const portalKey = String(vn.props?.portalKey ?? 'default')
+  const container = ensurePortalContainer(portalKey)
+  registry.register(NodeRegistry.PORTAL(portalKey), container)
+  patchChildren(ov, vn, container)
+  vn.el = container
+  return container
+}
+
+/** kind 同类型处理器表（显式注册——text/null 在 patchInner 入口已处理——此处占位） */
+const KIND_PATCHERS: Partial<Record<VKind, (ov: VNode, vn: VNode, parent: Node, anchor?: Node | null) => Node | null>> = {
+  native: patchNativeKind,
+  comp: patchCompKind,
+  frag: patchFragKind,
+  portal: patchPortalKind,
+  text: undefined, // 入口已处理（TEXT_UPDATE）
+  null: undefined, // 入口已处理（移除）
+}
+
+/** Fragment 首节点在父容器的索引（children patch 的 baseIndex——Fragment 的
+ *  children 展开在父容器——位置可能非 0（前后有兄弟）——索引偏移对齐） */
+function fragmentBaseIndex(ov: VNode): number {
+  const firstChild = childrenOf(ov).find((c): c is VNode => c != null && typeof c === 'object' && !Array.isArray(c))
+  const el0 = firstChild?.el
+  const parent = el0?.parentNode
+  if (parent && el0) {
+    let idx = 0
+    for (const n of parent.childNodes) {
+      if (n === el0) return idx
+      idx++
+    }
+  }
+  return 0
 }
 
 /** keyed 移动（重排优化）：新 key 在旧列表存在 → 按新顺序移动（prevNode 跟踪——连续重排正确） */
@@ -369,7 +434,9 @@ function removePortalContent(pv: PortalVNode): void {
 }
 
 /** children diff：全 keyed → 专用路径（MOVE）；无 key/混合 → 位置配对 */
-function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
+/** children diff（el 父容器；baseIndex = 起始 childNodes 偏移——Fragment 的 children
+ *  展开在父容器非 0 位——索引对齐） */
+function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): void {
   const oldKids = childrenOf(oldV)
   const newKids = childrenOf(newV)
   // 全 keyed 列表（>1 项且全部有 key）→ keyed diff（重排 MOVE——DOM 状态保持）

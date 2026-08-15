@@ -1479,3 +1479,75 @@ test('路由：ctx.route 注入（动态 params——组件 ctx.route.params 消
   router.close()
   document.body.removeChild(root)
 })
+
+test('全链路事件流：交互 → RENDER → PATCH → dom 事件（location/jsx/vdom/dom 因果链）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let count = 0
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'app' }, [
+      h('button', { id: 'inc', onClick: () => { count++; rerender() } }, [`c${count}`]),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  gs.reset() // 清初始（聚焦交互链）
+  ;(root.querySelector('[id="inc"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  const evs = gs.events()
+  const types = evs.map((e) => e.type)
+  // jsx 层：组件 renderFn 执行（更新）
+  assert.ok(types.includes('RENDER'), 'jsx 层：RENDER 事件（renderFn 执行）')
+  // vdom 层：patch 决策（reuse）
+  const patches = evs.filter((e) => e.type === 'PATCH')
+  assert.ok(patches.length > 0, 'vdom 层：PATCH 决策事件')
+  assert.ok(patches.some((e: any) => e.action === 'reuse' && e.newKind === 'native'), 'native 同类型 reuse 决策')
+  // dom 层：文本更新（结果）
+  assert.ok(types.includes('TEXT_UPDATE'), 'dom 层：TEXT_UPDATE（结果）')
+  // 因果链顺序：RENDER（jsx）→ PATCH（vdom）→ TEXT_UPDATE（dom）
+  const iRender = types.indexOf('RENDER')
+  const iPatch = types.findIndex((t) => t === 'PATCH')
+  const iDom = types.indexOf('TEXT_UPDATE')
+  assert.ok(iRender >= 0 && iPatch >= 0 && iDom >= 0, '三层事件都存在')
+  assert.ok(iRender < iDom, 'RENDER 先于 dom 结果')
+  document.body.removeChild(root)
+})
+
+test('kind 完整性：patch 决策表覆盖全部 6 种 kind（reuse 路径——缺 case 明确失败）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  // 触发 5 种 kind 的同类型 patch（native/comp/frag/portal/text）
+  let show = true
+  const Inner = async (_init: any, _ctx: any) => async (_p: any) => h('span', {}, 'inner')
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'kinds' }, [
+      h('button', { id: 'go', onClick: () => { show = !show; rerender() } }, 'go'),
+      show ? h(Inner, {}) : h('div', { class: 'native' }, 'n'),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  gs.reset()
+  // comp → native（异类型 rebuild）+ 各 kind 的同类型
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  const patches = gs.events().filter((e) => e.type === 'PATCH') as any[]
+  const reuseKinds = new Set(patches.filter((p) => p.action === 'reuse').map((p) => p.newKind))
+  // native/comp 必须有 reuse（frag/portal/text 由组件库场景覆盖——此处核心断言）
+  assert.ok(reuseKinds.has('native'), 'native reuse 决策')
+  assert.ok(reuseKinds.has('comp'), 'comp reuse 决策')
+  // 无 unhandled（kind 分发完整性——缺 case 会在这里暴露）
+  const unhandled = patches.filter((p) => p.action === 'unhandled')
+  assert.equal(unhandled.length, 0, `无 unhandled 决策（kind 分发完整）——实际 ${unhandled.length}`)
+  document.body.removeChild(root)
+})

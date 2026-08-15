@@ -58,6 +58,23 @@ export interface VNode {
 
 export type VNodeChild = VNode | string | number | null | undefined | boolean
 
+/** vnode kind 分类（全链路事件流的决策基础——单一规则源）
+ *  renderVNode / patchInner / patchChildren / 事件流 全部消费——新增类型只改此处 */
+export type VKind = 'native' | 'comp' | 'frag' | 'portal' | 'text' | 'null'
+
+export function classifyKind(v: VNodeChild | undefined | null): VKind {
+  if (v == null || typeof v === 'boolean') return 'null'
+  if (typeof v === 'string' || typeof v === 'number') return 'text'
+  const t = (v as VNode).type
+  if (typeof t === 'function') return 'comp'
+  if (typeof t === 'symbol') {
+    // Portal（props.portalKey）优先——Fragment 是 symbol 非 portal
+    if ((v as VNode).props?.portalKey != null) return 'portal'
+    return 'frag'
+  }
+  return 'native'
+}
+
 /** children 读取统一入口（vdom2 兼容：h 存 props.children——vdom3 引擎输出存 v.children）
  *  读取顺序：v.children（引擎写——组件输出）→ props.children（h/组件库产出）→ 空 */
 /** 嵌套数组拍平（vdom2 语义：数组项 = 隐式 Fragment——组件库 [props.children, x] 模式） */
@@ -86,6 +103,12 @@ export type V3Event =
   /** 组件 */
   | { type: 'COMP_MOUNT'; id: string; name: string; ts: number }
   | { type: 'COMP_UNMOUNT'; id: string; name: string; ts: number }
+  /** jsx 层：组件 renderFn 执行（每次渲染——更新可观测） */
+  | { type: 'RENDER'; id: string; name: string; ts: number }
+  /** vdom 层：组件构建（复用/新建——工厂不重跑的事件证据） */
+  | { type: 'BUILD'; id: string; name: string; reused: boolean; ts: number }
+  /** vdom 层：patch 决策（kind 分发——diff 决策可观测/可断言——缺 case 明确失败） */
+  | { type: 'PATCH'; oldKind: VKind | null; newKind: VKind; action: 'reuse' | 'rebuild' | 'move' | 'remove' | 'unhandled'; ts: number }
   /** 渲染指令（DOM 变更——执行器消费；可逆） */
   | { type: 'NODE_CREATE'; id: string; tag: string; ts: number }
   | { type: 'TEXT_CREATE'; id: string; value: string; ts: number }
