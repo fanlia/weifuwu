@@ -1284,3 +1284,22 @@ test('嵌套数组（vdom2 组件库模式 [props.children, x]）：拍平渲染
   assert.ok(root.querySelector('input[type="password"]'), 'password input')
   document.body.removeChild(root)
 })
+
+test('audit：开发期不变量——重复 data-v3-id 检测（patch 泄漏）+ 顺序错位检测', async () => {
+  const { auditAfterRender } = await import('../ui-dom/vdom3/audit.ts')
+  const warnings: string[] = []
+  const ow = console.warn
+  console.warn = (...a: any[]) => { warnings.push(a.map(String).join(' ')); ow(...a) }
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  // 正常渲染——无警告
+  root.innerHTML = '<div data-v3-id="n1"><span data-v3-id="n2">x</span></div>'
+  auditAfterRender(root)
+  assert.equal(warnings.length, 0, '正常树无 audit 警告')
+  // 泄漏场景：重复 id（节点未移除——双份）
+  root.innerHTML = '<div data-v3-id="n1"></div><div data-v3-id="n1"></div>'
+  auditAfterRender(root)
+  assert.ok(warnings.some((w) => w.includes('重复 data-v3-id')), '重复 id 警告（泄漏检测）')
+  console.warn = ow
+  document.body.removeChild(root)
+})

@@ -26,6 +26,7 @@ export function isFragmentNode(v: unknown): boolean {
 import { stream, nextNodeId } from './events.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
+import { auditOrder } from './audit.ts'
 
 /** 全局节点注册表（id ↔ Node——事件流指令定位） */
 export const registry = new NodeRegistry()
@@ -406,6 +407,7 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
       if (node && node.parentNode === el) prevNode = node
     }
   }
+  auditOrder(el, newV)
 }
 
 function compName(type: unknown): string {
