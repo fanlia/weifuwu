@@ -65,6 +65,12 @@ export function uiServe<RC extends object = {}>(
       ;(globalThis as any).__WF_VDOM_DEBUG = true
       console.log('[weifuwu] vdom debug 已开启（?vdom_debug=1）')
       ;(globalThis as any).__WF_DOM_TRACE = true // vdom debug 时同时追踪 DOM 写（diff 对 DOM 的动作可观测）
+      // debug 模式：自动打印全部路由（含嵌套子路由——SPA 页面清单一目了然）
+      try {
+        const routes = (router as any).dumpRoutes?.() ?? []
+        console.log(`[weifuwu] routes (${routes.length}):`)
+        for (const r of routes) console.log(`[weifuwu]   ${r.path}${r.title ? '  — ' + r.title : ''}`)
+      } catch { /* 路由打印失败不影响渲染 */ }
     }
     initVdomTrace()
   } catch { /* 环境无 location/localStorage——忽略 */ }

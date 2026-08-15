@@ -54,6 +54,8 @@ export class UIRouter<C extends object = {}> {
   private _injected = false
   private _mode: 'hash' | 'history'
   private _notFound?: UIHandler
+  /** 子路由挂载（use(prefix, sub)——dumpRoutes 遍历用） */
+  private _children: Array<{ prefix: string; sub: UIRouter }> = []
 
   constructor(options: UIRouterOptions = {}) {
     this._mode = options.mode ?? 'history'
@@ -74,6 +76,7 @@ export class UIRouter<C extends object = {}> {
       // 子路由：前缀匹配中间件——URL 在 prefix 下时交给 sub 路由树处理
       const parent = this
       const prefix = arg
+      this._children.push({ prefix: arg, sub }) // dumpRoutes 遍历（嵌套子路由）
       const mw: UIMiddleware = async (_location, ctx, children) => {
         // 当前相对路径（嵌套时 _handle 注入 __routePath；顶层回退 parent.getPath()——mode 感知）
         const path = (ctx as any).__routePath ?? parent.getPath()
@@ -130,6 +133,15 @@ export class UIRouter<C extends object = {}> {
   /** 当前 URL 路径（serve 调用——mode 由 UIRouter 决定） */
   getPath(): string {
     return this._getPath(undefined as any)
+  }
+
+  /** 路由清单（debug 打印/测试用）——含嵌套子路由（use(prefix, sub) 递归展开） */
+  dumpRoutes(prefix = ''): Array<{ path: string; title?: string }> {
+    const out: Array<{ path: string; title?: string }> = this._routes.map((r) => ({ path: joinPath(prefix, r.path), title: r.title }))
+    for (const c of this._children) {
+      out.push(...c.sub.dumpRoutes(joinPath(prefix, c.prefix)))
+    }
+    return out
   }
 
   private _getPath(ctx: any): string {
