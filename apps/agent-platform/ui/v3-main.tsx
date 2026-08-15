@@ -4,9 +4,6 @@
  * 与 main.tsx 同构：中间件链（vdom2 中间件复用——纯函数注入）+
  * createRouter（vdom3 路由——RouteDef.layout 布局复用）+ 页面路由。
  */
-;(window as any).__v3_main = { state: 'loading' }
-window.addEventListener('error', (e) => { (window as any).__v3_main.error = String(e.message) })
-window.addEventListener('unhandledrejection', (e: any) => { (window as any).__v3_main.rejection = String(e.reason?.message ?? e.reason) })
 import { api, auth, i18n } from 'weifuwu/ui-dom'
 import { createRouter, h } from '../../../src/ui-dom/vdom3/index.ts'
 
@@ -43,8 +40,6 @@ const root = document.getElementById('root')!
 // ctx.app（登录后跳转——router 引用后绑定）
 let router: ReturnType<typeof createRouter>
 ctx.app = { navigate: (p: string) => router.navigate(p) }
-;(window as any).__v3_main.state = 'router-start'
-;(window as any).__v3_main.initialPath = window.location.pathname
 router = createRouter([
   { path: '/login', render: () => h(Login, {}) },
   { path: '/register', render: () => h(Register, {}) },
