@@ -43,31 +43,45 @@ describe('Settings 渲染基线', () => {
   })
 })
 
-describe('Dashboard 渲染基线（Chart 迁移验证）', () => {
-  it('趋势图 Chart 组件渲染（SVG + 数据点）', async () => {
-    const { Dashboard } = await import('../../ui/pages/Dashboard.tsx')
-    const { container } = await mountPage('/dashboard', () => h(Dashboard, {}), {
+describe('工作台渲染基线（P0 重构——项目空间卡片）', () => {
+  it('项目空间卡片 + 环境状态点 + 空状态引导', async () => {
+    const { Workspace } = await import('../../ui/pages/Workspace.tsx')
+    const { container } = await mountPage('/dashboard', () => h(Workspace, {}), {
       routes: [
-        { method: 'GET', pattern: /^\/api\/stats\/funnel$/, handler: () => ({ mine: { register_complete: true, agent_created: true, first_message: false }, platform: {} }) },
-        { method: 'GET', pattern: /^\/api\/stats\/tokens-by-agent$/, handler: () => ({ agents: [] }) },
-        { method: 'GET', pattern: /^\/api\/stats$/, handler: () => ({
-          agents: { total: 2, ai_count: 1 }, departments: { total: 1 }, messages: { total: 5 },
-          tokens: { total_prompt: 100, total_completion: 50, total_tokens: 150 },
-          estCostYuan: 0.01, costTrend: [], trend: [
-            { day: '2026-08-01', count: 1, active_agents: 1 },
-            { day: '2026-08-02', count: 3, active_agents: 1 },
-            { day: '2026-08-03', count: 2, active_agents: 1 },
-          ], active_agents: [],
+        { method: 'GET', pattern: '/api/departments', handler: () => ({
+          departments: [
+            { id: 'd1', name: '技术部', is_dm: false, member_count: 3, last_message: '分析一下 Q3 数据', last_message_at: '2026-08-15T08:00:00Z' },
+            { id: 'd2', name: '张明 — 小码', is_dm: true, member_count: 2, last_message: null, last_message_at: null },
+          ], total: 2,
         }) },
-        { method: 'GET', pattern: '/api/messages/pending-approvals', handler: () => ({ approvals: [], total: 0 }) },
+        { method: 'GET', pattern: '/api/sandboxes', handler: () => ({ sandboxes: [{ department_id: 'd1', status: 'running' }], total: 1 }) },
+        { method: 'GET', pattern: '/api/messages/pending-approvals', handler: () => ({ pending: [], total: 0 }) },
+        { method: 'GET', pattern: '/api/agents', handler: () => ({ agents: [] }) },
       ],
     })
     const text = container.textContent ?? ''
-    assert.ok(text.includes('预估 AI 成本'), '成本卡')
-    assert.ok(text.includes('¥'), '金额')
-    const svg = container.querySelector('svg[viewBox*="320"]')
-    assert.ok(svg, 'Chart 组件 SVG 渲染')
-    assert.ok(svg!.querySelectorAll('circle').length === 3, '3 个数据点')
+    assert.ok(text.includes('我的项目空间'), '项目空间标题')
+    assert.ok(text.includes('技术部'), '项目卡片')
+    assert.ok(text.includes('AI 随时能干活'), '环境状态用户语言（running → 随时能干活）')
+    assert.ok(text.includes('分析一下 Q3 数据'), '最近消息摘要')
+    assert.ok(text.includes('单聊'), '单聊标记')
+    assert.ok(text.includes('新建项目空间'), '创建入口')
+  })
+
+  it('空状态引导：无项目空间 → 三步引导', async () => {
+    const { Workspace } = await import('../../ui/pages/Workspace.tsx')
+    const { container } = await mountPage('/dashboard', () => h(Workspace, {}), {
+      routes: [
+        { method: 'GET', pattern: '/api/departments', handler: () => ({ departments: [], total: 0 }) },
+        { method: 'GET', pattern: '/api/sandboxes', handler: () => ({ sandboxes: [], total: 0 }) },
+        { method: 'GET', pattern: '/api/messages/pending-approvals', handler: () => ({ pending: [], total: 0 }) },
+        { method: 'GET', pattern: '/api/agents', handler: () => ({ agents: [] }) },
+      ],
+    })
+    const text = container.textContent ?? ''
+    assert.ok(text.includes('还没有项目空间'), '空状态')
+    assert.ok(text.includes('三步开始'), '引导文案')
+    assert.ok(text.includes('先创建 AI Agent'), '无 Agent 引导')
   })
 })
 

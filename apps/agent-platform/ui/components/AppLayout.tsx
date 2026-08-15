@@ -13,13 +13,14 @@ interface NavDef {
 
 // 图标是 VNode（Menu icon 作为 children 渲染——字符串会当文本显示）
 const NAV: NavDef[] = [
-  { path: '/', icon: h(Icon, { name: 'grid' }), label: '概览', group: '工作台', match: p => p === '/' || p === '/dashboard' },
+  { path: '/', icon: h(Icon, { name: 'grid' }), label: '工作台', group: '工作台', match: p => p === '/' || p === '/dashboard' },
   { path: '/chat/new', icon: h(Icon, { name: 'message' }), label: '聊天', group: '工作台', match: p => p.startsWith('/chat') },
   { path: '/approvals', icon: h(Icon, { name: 'check-circle' }), label: '审批待办', group: '工作台', match: p => p.startsWith('/approvals') },
   { path: '/agents', icon: h(Icon, { name: 'cpu' }), label: 'Agent', group: '管理', match: p => p.startsWith('/agents') },
   { path: '/sandboxes', icon: h(Icon, { name: 'box' }), label: '沙盒', group: '管理', match: p => p.startsWith('/sandboxes') },
   { path: '/templates', icon: h(Icon, { name: 'layers' }), label: '模板市场', group: '管理', match: p => p.startsWith('/templates') },
   { path: '/departments', icon: h(Icon, { name: 'users' }), label: '部门', group: '管理', match: p => p.startsWith('/departments') },
+  { path: '/reports', icon: h(Icon, { name: 'bar-chart' }), label: '运营报表', group: '管理', match: p => p.startsWith('/reports') },
 ]
 
 // 管理员导航（商业化 G2：ADMIN_EMAILS 白名单——/api/admin/me 判定）

@@ -25,7 +25,8 @@ void fetch('/api/white-label').then(r => r.json()).then((wl: any) => {
 }).catch(() => {})
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
-import { Dashboard } from './pages/Dashboard'
+import { Workspace } from './pages/Workspace'
+import { Reports } from './pages/Reports'
 import { Agents } from './pages/Agents'
 import { Templates } from './pages/Templates'
 import { NewAgent } from './pages/NewAgent'
@@ -97,8 +98,9 @@ const layoutMw = async (_location: any, ctx: any, children: any) => {
 }
 const main = new UIRouter()
 main.use(layoutMw)
-main.get('', () => h(Dashboard, {}), { title: '概览 — Agent Platform' })
-main.get('dashboard', () => h(Dashboard, {}), { title: '概览 — Agent Platform' })
+main.get('', () => h(Workspace, {}), { title: '工作台 — Agent Platform' })
+main.get('dashboard', () => h(Workspace, {}), { title: '工作台 — Agent Platform' })
+main.get('reports', () => h(Reports, {}), { title: '运营报表 — Agent Platform' })
 main.get('agents', () => h(Agents, {}), { title: 'Agent — Agent Platform' })
 main.get('templates', () => h(Templates, {}), { title: '模板市场 — Agent Platform' })
 main.get('agents/new', () => h(NewAgent, {}), { title: '创建 Agent' })
