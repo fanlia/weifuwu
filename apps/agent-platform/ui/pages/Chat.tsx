@@ -452,7 +452,7 @@ export const Chat: Component = async (_props, ctx) => {
             <div class="wf-relative">
               <Ava name={m.name} type={m.type ?? 'ai'} small />
               {m.type !== 'knowledge_base' && (
-                <span class="wf-dot" style={`position:absolute;right:-2px;bottom:-2px;width:8px;height:8px;border-radius:50%;background:${aiStatusOf(m.id) === 'working' ? 'var(--wf-color-brand)' : 'var(--wf-color-success)'};border:1px solid var(--wf-color-surface)`} />
+                <span class="wf-dot" style={`position:absolute;right:-2px;bottom:-2px;width:8px;height:8px;border-radius:50%;background:${aiStatusOf(m.id) === 'working' ? 'var(--wf-color-brand)' : 'var(--wf-color-success)'};border:1px solid var(--wf-color-surface);${aiStatusOf(m.id) === 'working' ? 'animation:wf-breathe 1.2s ease-in-out infinite' : ''}`} />
               )}
             </div>
             <div class="wf-fill wf-stack wf-gap-none wf-min-w-0">
@@ -489,8 +489,10 @@ export const Chat: Component = async (_props, ctx) => {
           <div class="wf-text-xs wf-text-tertiary">{$.memberCount} 位成员</div>
         </div>
         {!ctx.ws?.isConnected && <Badge variant="error"><Icon name="warning" size={12} /> 连接断开</Badge>}
-        {/* P1：环境状态用户语言（头部可见） */}
-        {$.env.label && <Badge variant="default">{$.env.label}</Badge>}
+        {/* P1：环境状态用户语言（头部可见——颜色语义：ready 绿/error 红/其他灰） */}
+        {$.env.label && (
+          <Badge variant={$.env.status === 'error' ? 'error' : $.env.status === 'ready' ? 'success' : 'default'}>{$.env.label}</Badge>
+        )}
         <Button size="sm" variant="ghost" onClick={exportChat} title="导出对话为 Markdown"><Icon name="copy" size={14} /> 导出</Button>
         <Button size="sm" variant="ghost" class="wf-hidden wf-flex@sm" onClick={() => ctx.app?.navigate(`/departments/${deptId}`)}>部门详情</Button>
       </div>

@@ -93,7 +93,7 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
     return (
     <Card id="sec-files">
       <div class="wf-split wf-mb-sm">
-        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间文件</div>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间文件{wsEntries.length > 0 && <span class="wf-pill wf-bg-tertiary wf-px-sm wf-py-xs wf-text-xs wf-ml-sm">{wsEntries.length} 项</span>}</div>
         <div class="wf-row wf-gap-xs">
           <Button size="sm" variant="ghost" onClick={pickWsFile}><Icon name="upload" size={13} /> 上传文件</Button>
           <input ref={wsFileInputRef} type="file" hidden onChange={(e: Event) => { onWsFilePick(e) }} />

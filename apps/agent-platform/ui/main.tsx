@@ -17,6 +17,12 @@ try {
   if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored)
   else document.documentElement.removeAttribute('data-theme')
 } catch { /* 隐私模式 */ }
+// P4-3：AI 干活呼吸动画（组件库无此 keyframe——轻量注入）
+try {
+  const st = document.createElement('style')
+  st.textContent = '@keyframes wf-breathe { 0%,100% { opacity: 1; transform: scale(1) } 50% { opacity: 0.45; transform: scale(0.8) } }'
+  document.head.appendChild(st)
+} catch { /* 注入失败不影响 */ }
 // 白标（G13）：品牌名/logo/主色——私有化客户品牌注入
 void fetch('/api/white-label').then(r => r.json()).then((wl: any) => {
   if (wl?.name) document.title = wl.name
