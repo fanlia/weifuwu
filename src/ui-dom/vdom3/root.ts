@@ -28,8 +28,9 @@ export interface RootHandle {
   ready: Promise<void>
 }
 
-/** 创建应用根（挂载组件树——组件获得 ctx.render 调度能力） */
-export function createRoot(vnode: VNode, root: HTMLElement): RootHandle {
+/** 创建应用根（挂载组件树——组件获得 ctx.render 调度能力；options.ctx 注入扩展字段
+ *  ——中间件面（app/i18n/auth/data 等——组件 ctx 可选链消费）） */
+export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Record<string, unknown> }): RootHandle {
   let current = vnode
 
   // 渲染串行 + dirty 合并（async update 并发 → 同基于初始树 patch → 结构错乱；
@@ -60,10 +61,11 @@ export function createRoot(vnode: VNode, root: HTMLElement): RootHandle {
   const ctx: V3Ctx = {
     _vnode: vnode,
     _parent: root,
+    ...(options?.ctx ?? {}),
     render() {
       scheduler.schedule(() => void update())
     },
-  }
+  } as V3Ctx
 
   // ready = 首帧完成 Promise
   let readyResolve!: () => void

@@ -1201,3 +1201,31 @@ test('AiChat（agent 对话组件——useChat + subscribe + useVisualViewport/u
   document.body.removeChild(root)
   globalThis.fetch = origFetch
 })
+
+test('ctx 注入（createRoot options.ctx——中间件面）：组件消费 app/i18n 可选链', async () => {
+  // node --test 不跑 .tsx（agent-platform 页面为 tsx——页面级验证在浏览器/阶段 5）
+  // ——此处验证注入机制本身（.ts 组件消费 ctx.app/i18n）
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const navs: string[] = []
+  const Page = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'page' }, [
+      h('button', { id: 'go', onClick: () => ctx.app?.navigate('/x') }, 'go'),
+      h('span', { id: 'label' }, ctx.i18n?.t('hello') ?? 'no-i18n'),
+    ])
+  }
+  createRoot(h(Page, {}), root, {
+    ctx: {
+      app: { navigate: (p: string) => { navs.push(p) } },
+      i18n: { t: (k: string) => `t:${k}` },
+    },
+  })
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(root.querySelector('[id="label"]')?.textContent, 't:hello', '注入 ctx.i18n 消费')
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.deepEqual(navs, ['/x'], '注入 ctx.app.navigate 回调')
+  document.body.removeChild(root)
+})
