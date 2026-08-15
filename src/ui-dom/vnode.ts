@@ -23,7 +23,7 @@ export type VNodeChild =
   | undefined
   | VNodeChild[]
 
-import type { Lifecycle } from './vdom2/lifecycle.ts'
+
 
 // Fragment/Portal symbol（全局唯一协议——JSX 编译产物判别式）
 export const Fragment = Symbol('Fragment')
@@ -49,7 +49,7 @@ interface VNodeBase {
   /** 组件 renderFn 上次执行时的 ctx 版本号（buildVNode 剪枝 + diff 三态 skip） */
   _ctxVersion: number | null
   /** 生命周期状态（节点生命周期状态机——lifecycle.ts）：fresh→building→built / pruned；dispose→disposed */
-  _lifecycle: Lifecycle
+  _lifecycle: unknown
   /** 渲染调度状态（render 调度状态机：IDLE/RUNNING——渲染中再次触发跳过，防重入） */
   _rendering?: boolean
 }

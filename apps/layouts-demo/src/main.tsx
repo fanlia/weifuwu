@@ -11,7 +11,8 @@
  * 启动: node apps/layouts-demo/server.ts → http://localhost:3001
  */
 
-import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
+// ⚠️ vdom2 遗留应用（vdom2 引擎已删除——迁移参考 agent-platform v3-main）
+import { UIRouter, h } from 'weifuwu/ui-dom'
 import type { Component } from 'weifuwu/ui-dom'
 import { Badge, Button, CodeBlock, Drawer, Icon, SearchInput, Tag, Text, Space, ThemeSwitch } from 'weifuwu/components'
 

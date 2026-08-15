@@ -8,7 +8,8 @@
  */
 
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { UIRouter, uiServe } from '../../../src/ui-dom/index.ts'
+// ⚠️ vdom2 遗留应用（vdom2 引擎已删除——uiServe 不可用——迁移参考 agent-platform v3-main）
+import { UIRouter } from '../../../src/ui-dom/index.ts'
 import { v3Toast, v3Confirm } from '../../../src/ui-dom/vdom3/commands.ts'
 import { notification } from '../../../src/ui-dom/Notification.ts'
 import {

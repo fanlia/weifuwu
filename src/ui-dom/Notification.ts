@@ -5,7 +5,7 @@
  * mountCommand + render-only）。本文件保留为公开 API 兼容入口。
  */
 
-export { Notification, notification } from '../components/Notification/Notification.ts'
+export { Notification } from '../components/Notification/Notification.ts'
 export type {
   NotificationType, NotificationPosition, NotificationItem, NotificationProps, NotificationOptions, NotificationInjected,
 } from '../components/Notification/Notification.ts'

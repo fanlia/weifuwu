@@ -2,7 +2,6 @@ import type { Component, VNode } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
 import { h } from '../../ui-dom/vnode.ts'
-import { mountCommand } from '../../ui-dom/context.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
 
@@ -125,67 +124,3 @@ export interface NotificationInjected {
   }
 }
 
-export function notification(opts?: NotificationOptions): AppMiddleware<{}, NotificationInjected> {
-  const defaults = {
-    position: opts?.position ?? 'top-right',
-    duration: opts?.duration ?? 4500,
-    max: opts?.max ?? 5,
-  }
-
-  let hostApi: { add: (item: NotificationItem) => void; remove: (id: string) => void } | null = null
-  let ctxRef: WfuiContext | null = null
-  let seq = 0
-
-  const NotificationHost: Component = async (_init, ctx) => {
-    let items: NotificationItem[] = []
-    const render = () => ctx.ui.render()
-    hostApi = {
-      add: (item: NotificationItem) => { items = [...items, item]; render() },
-      remove: (id: string) => { items = items.filter((t: NotificationItem) => t.id !== id); render() },
-    }
-    return async () => h('div', { class: 'wf-notification-host' }, [
-      h(Notification, {
-        items,
-        position: defaults.position,
-        duration: defaults.duration,
-        max: defaults.max,
-        onRemove: (id: string) => hostApi?.remove(id),
-      }),
-    ])
-  }
-
-  const ensureHost = () => {
-    if (hostApi || !ctxRef) return
-    const container = browser.createElement('div') as HTMLDivElement | null
-    if (!container) return
-    browser.bodyAppend(container)
-    mountCommand(container, h(NotificationHost, {}), ctxRef)
-  }
-
-  const emit = (item: Omit<NotificationItem, 'id'>) => {
-    ensureHost()
-    const id = String(++seq)
-    hostApi?.add({ ...item, id })
-    if (item.duration && item.duration > 0) {
-      setTimeout(() => hostApi?.remove(id), item.duration)
-    }
-  }
-
-  return (ctx: WfuiContext) => {
-    ctxRef = ctx
-    const api: NotificationInjected['notification'] = Object.assign(
-      (title: string, item?: { type?: NotificationType; description?: string; duration?: number; action?: NotificationItem['action'] }) =>
-        emit({ type: item?.type ?? 'info', title, description: item?.description, duration: item?.duration ?? defaults.duration, action: item?.action }),
-      {
-        open: (o: { type?: NotificationType; title: string; description?: string; duration?: number; action?: NotificationItem['action'] }) =>
-          emit({ type: o.type ?? 'info', title: o.title, description: o.description, duration: o.duration ?? defaults.duration, action: o.action }),
-        success: (o: { title: string; description?: string; duration?: number }) => emit({ type: 'success', title: o.title, description: o.description, duration: o.duration ?? defaults.duration }),
-        error: (o: { title: string; description?: string; duration?: number }) => emit({ type: 'error', title: o.title, description: o.description, duration: o.duration ?? defaults.duration }),
-        info: (o: { title: string; description?: string; duration?: number }) => emit({ type: 'info', title: o.title, description: o.description, duration: o.duration ?? defaults.duration }),
-        warning: (o: { title: string; description?: string; duration?: number }) => emit({ type: 'warning', title: o.title, description: o.description, duration: o.duration ?? defaults.duration }),
-      },
-    )
-    ;(ctx as any).notification = api
-    return ctx as WfuiContext & NotificationInjected
-  }
-}

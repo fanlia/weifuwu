@@ -5,7 +5,7 @@
  * mountCommand + render-only）。本文件保留为公开 API 兼容入口。
  */
 
-export { Toast, toast } from '../components/Toast/Toast.ts'
+export { Toast } from '../components/Toast/Toast.ts'
 export type {
   ToastType, ToastPosition, ToastItem, ToastProps, ToastOptions, ToastInjected,
 } from '../components/Toast/Toast.ts'

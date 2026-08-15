@@ -39,7 +39,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
   } else {
     // 开发模式：动态编译
     app.get('/static/app.js', async (req: Request, ctx: Context): Promise<Response> =>
-      ctx.ui.js(resolve(baseDir, 'ui', 'main.tsx'))
+      ctx.ui.js(resolve(baseDir, 'ui', 'v3-main.tsx')) // vdom3 默认入口（main.tsx 为 vdom2 遗留——vdom2 已删除）
     )
   }
 

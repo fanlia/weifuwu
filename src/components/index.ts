@@ -233,7 +233,7 @@ export type { AffixProps } from './Affix/Affix.ts'
 export { HoverCard } from './HoverCard/HoverCard.ts'
 export type { HoverCardProps, HoverCardPosition } from './HoverCard/HoverCard.ts'
 
-export { Notification, notification } from './Notification/Notification.ts'
+export { Notification } from './Notification/Notification.ts'
 export type { NotificationProps, NotificationItem, NotificationType, NotificationPosition, NotificationOptions, NotificationInjected } from './Notification/Notification.ts'
 
 export { ContextMenu } from './ContextMenu/ContextMenu.ts'

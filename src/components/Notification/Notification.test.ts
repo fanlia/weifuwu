@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
-import { Notification, notification } from './Notification.ts'
+import { Notification } from './Notification.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
@@ -80,50 +80,5 @@ describe('Notification', () => {
     assert.equal(action.props.children, '查看')
     action.props.onClick({ stopPropagation: () => {} })
     assert.equal(clicked, true)
-  })
-})
-
-describe('notification 命令式中间件', () => {
-  it('injects ctx.notification with open/success/error/info/warning', async () => {
-    const ctx = makeCtx() as any
-    const middleware = notification({ duration: 0 }) as any
-    const injected = middleware(ctx)
-    assert.equal(typeof injected.notification, 'function')
-    assert.equal(typeof injected.notification.success, 'function')
-    assert.equal(typeof injected.notification.error, 'function')
-    assert.equal(typeof injected.notification.info, 'function')
-    assert.equal(typeof injected.notification.warning, 'function')
-  })
-
-  it('notification.success mounts host and triggers reactive update', async () => {
-    document.body.innerHTML = ''
-    let renderCount = 0
-    const ctx = createTestCtx({ ui: {
-      render: () => { renderCount++ },
-      usePopup: () => ({ get open() { return true }, setOpen: () => {}, wrapProps: {}, portal: (c: any) => c, refresh: () => {} }),
-    } }) as any
-    const middleware = notification({ duration: 0, max: 10 }) as any
-    middleware(ctx)
-        ctx.notification.success({ title: '保存成功', description: '已写入数据库' }) // 首次 emit → 惰性挂载 host
-    await new Promise((r) => setTimeout(r, 0))
-    const host = document.querySelector('.wf-notification-host')
-    assert.ok(host, '应挂载 NotificationHost')
-    ctx.notification.success({ title: '第二次', description: 'host 已就绪' })   // hostApi 已设 → add 走真实渲染链路
-    assert.ok(renderCount > 0, 'render 被调用（渲染链路通）')
-  })
-
-  it('notification.open with type', async () => {
-    document.body.innerHTML = ''
-    let renderCount = 0
-    const ctx = createTestCtx({ ui: {
-      render: () => { renderCount++ },
-      usePopup: () => ({ get open() { return true }, setOpen: () => {}, wrapProps: {}, portal: (c: any) => c, refresh: () => {} }),
-    } }) as any
-    const middleware = notification({ duration: 0 }) as any
-    middleware(ctx)
-    ctx.notification.open({ type: 'error', title: '请求失败', description: '500' })  // 挂载 host
-    await new Promise((r) => setTimeout(r, 0))
-    ctx.notification.open({ type: 'error', title: '请求失败', description: '500' })  // hostApi 就绪 → render
-    assert.ok(renderCount > 0)
   })
 })

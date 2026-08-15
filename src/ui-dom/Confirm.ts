@@ -5,5 +5,5 @@
  * mountCommand + render-only）。本文件保留为公开 API 兼容入口。
  */
 
-export { Confirm, confirm } from '../components/Confirm/Confirm.ts'
+export { Confirm } from '../components/Confirm/Confirm.ts'
 export type { ConfirmProps, ConfirmOptions, ConfirmInjected } from '../components/Confirm/Confirm.ts'

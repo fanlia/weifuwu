@@ -1,8 +1,5 @@
 /**
- * ⚠️ DEPRECATED（冻结中——2026-08）：vdom2 引擎将由 vdom3（src/ui-dom/vdom3/）替代。
- * 迁移路线图：design/vdom3-migration-plan.md——vdom2 保留（git 历史/回滚保险），
- * 不再演进（bug 修复在 vdom3）。新引擎入口：weifuwu/ui-dom/vdom3。
- *
+
  * weifuwu/ui-dom — 前端路由 + 渲染运行时（v2 vdom 引擎，render-only）
  *
  * 渲染运行时 = vdom（第 2 代引擎，design 归档）：
@@ -38,15 +35,5 @@ export type {
 } from './types.ts'
 
 // ── v2 vdom 引擎（render-only）──
-export { uiServe } from './middleware/serve.ts'
-export type { UIServeOptions, UIServeHandle } from './middleware/serve.ts'
-export { patchValue } from './vdom2/patch.ts'
-export { hydrateVNode } from './vdom2/hydrate.ts'
-export { ssrPage, ssrToString, serializeData, createSsrContext } from './vdom2/ssr.ts'
-export { buildVNode } from './vdom2/build.ts'
-export { renderValue } from './vdom2/render.ts'
-export { createRenderer, type Renderer } from './vdom2/mount.ts'
-export { mountCommand, unmountCommand } from './vdom2/mount.ts'
 export { createStore } from './store.ts'
-export { createVdomContext, mountRoot } from './context.ts'
 export type { ExternalStore } from './store.ts'
