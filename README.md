@@ -6,6 +6,11 @@
 npm install weifuwu      # 一个依赖，完整应用栈
 ```
 
+**本地开发（apps/ 下的应用）**：dev 模式经 `node_modules/weifuwu/*` 软链解析到源码
+（`import 'weifuwu/ui-dom'` 等——esbuild bundle 的模块解析；tsconfig paths 只管类型）。
+新环境 `npm install` 后执行 `node scripts/dev-links.mjs` 创建软链（apps 运行前提）。
+发布时才编译 dist（`node scripts/release.mjs`——dev 零构建）。
+
 **定位**：面向需要完整应用栈、又不想缝合多个框架/服务、且重视代码与数据所有权的开发者——独立开发者、小团队、自托管/私有化部署。尤其当应用包含 **认证 + 实时消息 + AI 对话 + 后台管理** 时，weifuwu 把这些「每个应用都要的地基」全部内置为一行 `app.use(...)`。
 
 ### 五个关键卖点
