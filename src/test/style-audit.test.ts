@@ -637,7 +637,14 @@ describe('样式审计 — 设计约束', () => {
       .filter(d => { try { readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8'); return true } catch { return false } })
     // 低于交互基线（8）的组件必须在此登记（含 Wave 批次）——P10 已全部补齐，
     // 注册表保持为空：新组件低于基线必须登记（集合强一致校验）
-    const TEST_GAP: Record<string, string> = {}
+    const TEST_GAP: Record<string, string> = {
+      // vdom2 引擎删除归档后低于基线（vdom2-prep 2026-08——vdom3 迁移补测）
+      AiChat: 'vdom2 测试归档（useChat 验证在 vdom3-core）——补测迁移',
+      PinInput: 'vdom2 测试归档——补测迁移',
+      TreeSelect: 'vdom2 测试归档（usePopup 验证在 vdom3-core）——补测迁移',
+      Notification: '命令式测试归档（v3Toast 替代）——声明式补测',
+      Confirm: 'DOM 级交互测试归档（uiServe 随 vdom2 删除）——vdom3 补测迁移',
+    }
     const INTERACTIVE = /onClick|onKeyDown|onInput|onChange|useControlled|useOpen|usePopup/
     const errors: string[] = []
     const actualGap = new Set<string>()
@@ -837,9 +844,9 @@ describe('样式审计 — 设计约束', () => {
   it('渲染器防线存在：enumerated 属性渲染（CDD 启发回归防线——render-only 无 $/无内置类型降级）', () => {
     // draggable enumerated 语义防线（Kanban 教训：setAttribute('draggable','') = false）
     // vdom diff 测试固化（v1 draggable.test.ts 随 v1 退役删除——vdom diff.test.ts 覆盖）
-    const diffTest = readFileSync(join(root, 'src/test/client/style-patch.test.ts'), 'utf-8')
-    assert.match(diffTest, /setProp: enumerated 属性显式字符串/, 'style-patch 测试必须覆盖 enumerated 属性')
-    assert.match(diffTest, /el\.getAttribute\('draggable'\)/, '渲染器必须显式 setAttribute(\'true\')')
+    const diffTest = readFileSync(join(root, 'src/test/vdom3-core.test.ts'), 'utf-8')
+    assert.match(diffTest, /enumerated 属性 draggable 显式字符串/, 'vdom3 测试必须覆盖 enumerated 属性')
+    assert.match(diffTest, /el\.draggable, true/, '渲染器必须显式 setAttribute(\'true\')')
   })
 
   // ── P11 视觉一致性防线（全 token 化 + 交互态完备） ──

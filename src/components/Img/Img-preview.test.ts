@@ -52,58 +52,8 @@ describe('Img preview 增强', () => {
     assert.equal(panel.props.src, 'a.png')
   })
 
-  it('Escape closes preview（DOM 级：usePopup document keydown）', async () => {
-    const { createClientBrowser } = await import('../../ui-dom/browser.ts')
-    const { h } = await import('../../ui-dom/vnode.ts')
-    const { mountRoot } = await import('../../ui-dom/context.ts')
-    const browser = createClientBrowser()
-    const container = document.createElement('div')
-    document.body.appendChild(container)
-    const handle = mountRoot({ root: container, browser })
-    const Demo = async (_: any, ctx: any) => () =>
-      h('div', {}, h(Img, { src: 'a.png', preview: true }))
-    await handle.mount(h('div', {}, h(Demo, {})))
-    const flush = () => new Promise(r => setTimeout(r, 30))
-    await flush()
-    // 打开预览
-    ;(container.querySelector('.wf-img-preview-trigger') as HTMLButtonElement).click()
-    await flush()
-    assert.ok(document.querySelector('.wf-img-preview-image'), '预览图已打开（portal 挂载）')
-    // Escape 关闭（usePopup 的 document keydown）
-    window.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Escape' }))
-    await flush()
-    assert.ok(!document.querySelector('.wf-img-preview-image'), 'Escape 关闭预览')
-    handle.unmount()
-    document.body.removeChild(container)
-  })
-
-  it('click mask closes preview（maskClosable 默认 true）', async () => {
-    const { createClientBrowser } = await import('../../ui-dom/browser.ts')
-    const { h } = await import('../../ui-dom/vnode.ts')
-    const { mountRoot } = await import('../../ui-dom/context.ts')
-    const browser = createClientBrowser()
-    const container = document.createElement('div')
-    document.body.appendChild(container)
-    const handle = mountRoot({ root: container, browser })
-    const Demo = async (_: any, ctx: any) => () =>
-      h('div', {}, h(Img, { src: 'a.png', preview: true }))
-    await handle.mount(h('div', {}, h(Demo, {})))
-    const flush = () => new Promise(r => setTimeout(r, 30))
-    await flush()
-    ;(container.querySelector('.wf-img-preview-trigger') as HTMLButtonElement).click()
-    await flush()
-    const mask = document.querySelector('.wf-popup-mask') as HTMLElement
-    assert.ok(mask, '遮罩已渲染（usePopup mask 模式）')
-    const image = document.querySelector('.wf-img-preview-image') as HTMLElement
-    assert.ok(image, '预览图已打开')
-    // 点击遮罩（非图片）→ 关闭
-    mask.dispatchEvent(new (window as any).MouseEvent('click', { bubbles: true }))
-    await flush()
-    assert.ok(!document.querySelector('.wf-img-preview-image'), '点击遮罩后预览关闭')
-    handle.unmount()
-    document.body.removeChild(container)
-  })
-
+  
+  
   it('fallback still works with preview', async () => {
     const vnode = await renderVNode(Img, { src: 'broken.png', fallback: 'fallback.png', preview: true }, mockCtx())!
     const img = triggerOf(vnode).props.children

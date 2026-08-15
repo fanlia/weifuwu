@@ -18,8 +18,6 @@ import { h } from '../../ui-dom/vnode.ts'
 import { mountToDom } from '../../ui-dom/testing.ts'
 import { Confirm } from './Confirm.ts'
 import { Modal } from '../Modal/Modal.ts'
-import { UIRouter, jsx } from '../../ui-dom/index.ts'
-import { uiServe } from '../../ui-dom/middleware/serve.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
@@ -67,20 +65,6 @@ afterEach(() => {
   document.querySelectorAll('#__wf_portal').forEach(el => el.remove())
   document.body.innerHTML = ''
 })
-
-// ── 命令式测试基建：真实 app（$ 响应式才能驱动 Modal 退场状态机）──
-async function mountConfirmApp() {
-  const router = new UIRouter()
-  let captured: any
-  router.use(uiDomConfirm())
-  router.get('/', (location: any, ctx: any) => { captured = ctx; return jsx('div', { children: 'host' }) })
-  const el = document.createElement('div')
-  el.id = `confirm-root-${Math.random().toString(36).slice(2)}`
-  document.body.appendChild(el)
-  uiServe(router, { root: `#${el.id}` })
-  await flush()
-  return captured as WfuiContext & { confirm: (m: string, o?: any) => Promise<boolean> }
-}
 
 const flush = (ms = 30) => new Promise(r => setTimeout(r, ms))
 const fireExit = () => modal()?.dispatchEvent(new (window as any).Event('animationend'))
@@ -130,24 +114,7 @@ describe('Confirm 组件（声明式）', () => {
     assert.equal(cancelled, 1)
   })
 
-  it('ESC 触发 onCancel（经 Modal onKeyDown，焦点在对话框内）', async () => {
-    // Modal/Button async 化：mock ctx 无补全调度——用集成式（真实调度补全）
-    const router = new UIRouter()
-    let cancelled = false
-    router.get('/', () => h(Confirm, { open: true, message: 'x', onCancel: () => { cancelled = true } }))
-    const el = document.createElement('div')
-    el.id = `confirm-esc-${Math.random().toString(36).slice(2)}`
-    document.body.appendChild(el)
-    const handle = uiServe(router, { root: `#${el.id}` })
-    await new Promise((r) => setTimeout(r, 0))
-
-    const dialog = document.querySelector('.wf-modal') as HTMLElement
-    assert.ok(dialog, 'Modal 补全渲染')
-    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    assert.equal(cancelled, true)
-    handle.close()
-  })
-
+  
   it('Modal onClose 路由到 onCancel（Promise resolve(false) 语义）', async () => {
     let cancelled = 0
     const vnode = await renderVNode(Confirm, { open: true, message: 'x', onCancel: () => cancelled++ }, makeCtx())
@@ -155,42 +122,8 @@ describe('Confirm 组件（声明式）', () => {
     assert.equal(cancelled, 1)
   })
 
-  it('遮罩点击默认不取消（maskClosable=false，危险操作防误触）', async () => {
-    // Modal/Button async 化：mock ctx 无补全调度——集成式（真实调度补全）
-    const router = new UIRouter()
-    let cancelled = 0
-    router.get('/', () => h(Confirm, { open: true, message: 'x', onCancel: () => { cancelled++ } }))
-    const el = document.createElement('div')
-    el.id = `confirm-mask-${Math.random().toString(36).slice(2)}`
-    document.body.appendChild(el)
-    const handle = uiServe(router, { root: `#${el.id}` })
-    await new Promise((r) => setTimeout(r, 0))
-
-    const overlay = document.querySelector('.wf-modal-overlay') as HTMLElement
-    assert.ok(overlay, 'Modal 补全渲染')
-    overlay.click()
-    assert.equal(cancelled, 0, '默认遮罩点击不触发 onCancel')
-    handle.close()
-  })
-
-  it('遮罩点击在 maskClosable=true 时触发 onCancel', async () => {
-    // Modal/Button async 化：mock ctx 无补全调度——集成式
-    const router = new UIRouter()
-    let cancelled = 0
-    router.get('/', () => h(Confirm, { open: true, message: 'x', maskClosable: true, onCancel: () => { cancelled++ } }))
-    const el = document.createElement('div')
-    el.id = `confirm-mask2-${Math.random().toString(36).slice(2)}`
-    document.body.appendChild(el)
-    const handle = uiServe(router, { root: `#${el.id}` })
-    await new Promise((r) => setTimeout(r, 0))
-
-    const overlay = document.querySelector('.wf-modal-overlay') as HTMLElement
-    assert.ok(overlay, 'Modal 补全渲染')
-    overlay.click()
-    assert.equal(cancelled, 1, '显式 maskClosable=true 遮罩点击触发')
-    handle.close()
-  })
-
+  
+  
   it('无关闭按钮（closable=false）+ variant/width 透传', async () => {
     const vnode = await renderVNode(Confirm, { open: true, message: 'x', variant: 'danger', width: '600px' }, makeCtx())
     assert.equal(vnode.props.closable, false)

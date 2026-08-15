@@ -1408,3 +1408,17 @@ test('命令式 toast（v3——createRoot 挂载 Toast 组件）', async () => 
   // 自动消失（3 秒兜底——不等——清理验证卸载）
   document.querySelector('.wf-toast-host')?.remove()
 })
+
+test('防线：enumerated 属性 draggable 显式字符串（Kanban 教训——空串解析为 false）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', {}, [h('div', { id: 'd', draggable: true }, 'x')])
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  const el = root.querySelector('[id="d"]') as HTMLElement
+  assert.equal(el.draggable, true, 'draggable=true 显式字符串（enumerated 语义）')
+  assert.equal(el.getAttribute('draggable'), 'true', 'getAttribute 显式 true')
+  document.body.removeChild(root)
+})

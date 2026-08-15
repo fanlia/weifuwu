@@ -142,6 +142,17 @@ export function createTestCtx(overrides?: { ui?: Partial<WfuiContext['ui']>; bro
       ready: true,
       // useExternal 默认 no-op：订阅记录但不触发渲染（测试用 renderVNode 手动断言）
       useExternal: () => undefined,
+      // 常用 hooks mock（组件消费面——vdom3 补测）
+      useVisualViewport: () => ({ keyboardOpen: false, height: 0, offsetTop: 0 }),
+      useScrollPosition: () => ({ y: 0 }),
+      useStableRef: () => () => {},
+      useGlobalKey: () => () => {},
+      useReducedMotion: () => false,
+      useControlledInput: (opts: any) => ({
+        value: opts.value ?? '', setValue: opts.onChange ?? (() => {}),
+        keyword: opts.value ?? '', setKeyword: () => {}, setSelectedLabel: () => {},
+      }),
+      useOpen: (opts: any) => ({ get open() { return !!opts.open }, setOpen: opts.onOpenChange ?? (() => {}), triggerProps: {} }),
     },
   }
   const merged = overrides
