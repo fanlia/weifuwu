@@ -68,6 +68,16 @@ const V3DepartmentsPage = async (_init: any, _ctx: any) => async () => {
   ])
 }
 
+// ── agent-platform Chat 页面（消息列表 + 工具调用/审批/附件渲染） ──
+import { Chat } from '../../apps/agent-platform/ui/pages/Chat.tsx'
+
+const V3ChatPage = async (_init: any, _ctx: any) => async () => {
+  return h('div', { id: 'v3-chat' }, [
+    h('h2', {}, 'vdom3 — agent-platform Chat'),
+    h(Chat, {}),
+  ])
+}
+
 const ChatPage = async (_init: any, ctx: any) => {
   const chat = ctx.ui.useChat({ url: '/api/chat' })
   return async () => h('div', { id: 'chat-page' }, [
@@ -181,6 +191,7 @@ const router = createRouter([
   { path: '/chat', render: () => h(ChatPage, {}) },
   { path: '/v3-login', render: () => h(V3LoginPage, {}) },
   { path: '/v3-depts', render: () => h(V3DepartmentsPage, {}) },
+  { path: '/v3-chat', render: () => h(V3ChatPage, {}) },
 ], root, {
   ctx: {
     // 中间件面 mock（agent-platform 页面消费——ctx.api/confirm/toast）
@@ -190,6 +201,18 @@ const router = createRouter([
           { id: 'd1', name: '产品组', is_dm: false, member_count: 5 },
           { id: 'd2', name: '设计组', is_dm: false, member_count: 3 },
         ] }
+        if (url.includes('/messages')) return { messages: [
+          { id: 'm1', role: 'user', content: '帮我分析一下数据', status: 'done', created_at: '2026-08-01T10:00:00Z' },
+          { id: 'm2', role: 'assistant', sender_type: 'ai', content: '好的，我来分析。', status: 'done', tools: [
+            { id: 'tc1', name: 'query_data', args: { sql: 'SELECT * FROM orders' }, result: '42 rows', status: 'ok' },
+          ], created_at: '2026-08-01T10:00:01Z' },
+          { id: 'm3', role: 'assistant', content: '分析完成：订单量环比 +12%', status: 'done', created_at: '2026-08-01T10:00:02Z' },
+        ] }
+        if (url.includes('/workspace')) return { department: { name: '产品组' }, members: [
+          { id: 'u1', name: '小码', type: 'ai' }, { id: 'u2', name: '产品组', type: 'department' },
+        ], env: { status: 'ready', label: '运行中' }, subDepartments: [] }
+        if (url.includes('/agents')) return { agents: [{ id: 'ag1', user_id: 'u1', name: '小码' }] }
+        if (url.includes('/artifacts')) return { artifacts: [] }
         return {}
       },
       delete: async () => ({ ok: true, status: 204 }),
@@ -197,6 +220,8 @@ const router = createRouter([
     },
     confirm: async () => true,
     toast: (msg: string) => { console.log('[toast]', msg) },
+    route: { params: { id: 'd1' } },
+    auth: { user: { id: 'u1', name: '测试用户' }, role: 'owner' },
     app: { navigate: (p: string) => { router.navigate(p) } },
   },
 })
