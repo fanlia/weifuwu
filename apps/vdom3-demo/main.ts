@@ -84,6 +84,15 @@ const V3AppPage = async (_init: any, _ctx: any) => async () => {
   ])
 }
 
+// 守卫验证：AppLayout 的未登录分支（isLoggedIn=false → navigate /login + Loading）
+// ——ctx.auth 全局注入 isLoggedIn=true——守卫页直接测 AppLayout 的条件逻辑
+const V3GuardPage = async (_init: any, _ctx: any) => async () => {
+  return h('div', { id: 'v3-guard' }, [
+    h('h2', {}, '守卫验证（AppLayout 未登录分支）'),
+    h(AppLayout, {}, h('div', {}, '内容')),
+  ])
+}
+
 const V3ChatPage = async (_init: any, _ctx: any) => async () => {
   return h('div', { id: 'v3-chat' }, [
     h('h2', {}, 'vdom3 — agent-platform Chat'),
@@ -206,6 +215,7 @@ const router = createRouter([
   { path: '/v3-depts', render: () => h(V3DepartmentsPage, {}) },
   { path: '/v3-chat', render: () => h(V3ChatPage, {}) },
   { path: '/v3-app', render: () => h(V3AppPage, {}) },
+  { path: '/v3-guard', render: () => h(V3GuardPage, {}) },
 ], root, {
   ctx: {
     // 中间件面 mock（agent-platform 页面消费——ctx.api/confirm/toast）
@@ -233,8 +243,10 @@ const router = createRouter([
       post: async () => ({}), put: async () => ({}),
     },
     confirm: async () => true,
+    // 守卫验证：navigate 钩子（AppLayout 重定向路径）
+    _navigateLog: (window as any).__v3_navs = [],
     toast: (msg: string) => { console.log('[toast]', msg) },
-    auth: {
+    auth: (window as any).__v3_auth = {
       isLoggedIn: true,
       user: { id: 'u1', name: '测试用户', email: 'admin@demo.com' },
       role: 'owner',
