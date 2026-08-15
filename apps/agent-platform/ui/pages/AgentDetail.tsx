@@ -36,7 +36,21 @@ interface AgentDetailState {
 
 export const AgentDetail: Component = async (_props, ctx) => {
   const $ = {} as AgentDetailState
+
   const rerender = () => ctx.ui.render()
+  // 稳定回调（mount 层——Field/Input/Select 不随交互重建；受控输入焦点保持）
+  const onNameInput = (e: Event) => { $.name = inputValue(e); rerender() }
+  const onDescriptionInput = (e: Event) => { $.description = inputValue(e); rerender() }
+  const onRoleLabelInput = (e: Event) => { $.roleLabel = inputValue(e); rerender() }
+  const onExpertiseInput = (e: Event) => { $.expertise = inputValue(e); rerender() }
+  const onSystemPromptInput = (e: Event) => { $.systemPrompt = inputValue(e); rerender() }
+  const onAiMaxTokensInput = (e: Event) => { $.aiMaxTokens = inputValue(e); rerender() }
+  const onAiQuotaInput = (e: Event) => { $.aiQuota = inputValue(e); rerender() }
+  const onLightModelInput = (e: Event) => { $.lightModel = inputValue(e); rerender() }
+  const onWebhookSecretInput = (e: Event) => { $.webhookSecret = inputValue(e); rerender() }
+  const onWebhookRetryCountInput = (e: Event) => { $.webhookRetryCount = inputValue(e); rerender() }
+  const onWebhookUrlInput = (e: Event) => { $.webhookUrl = inputValue(e); rerender() }
+  const onWhTestContentInput = (e: Event) => { $.whTestContent = inputValue(e); rerender() }
   const agentId = ctx.route?.params?.id ?? ''
 
     $.agent = null; $.loading = true; $.saving = false; $.notFound = false
@@ -271,22 +285,22 @@ export const AgentDetail: Component = async (_props, ctx) => {
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md">基本设置</div>
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
           <Field label="名称">
-            <Input value={$.name} onInput={(e: Event) => { $.name = inputValue(e); rerender() }} />
+            <Input value={$.name} onInput={onNameInput} />
           </Field>
           <Field label="描述">
-            <Textarea value={$.description} onInput={(e: Event) => { $.description = inputValue(e); rerender() }} />
+            <Textarea value={$.description} onInput={onDescriptionInput} />
           </Field>
           {a.type === 'ai' && (
             <>
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
                   <Field label="角色标签" hint="群里展示的身份，如：财务分析">
-                    <Input value={$.roleLabel} onInput={(e: Event) => { $.roleLabel = inputValue(e); rerender() }} />
+                    <Input value={$.roleLabel} onInput={onRoleLabelInput} />
                   </Field>
                 </div>
                 <div class="wf-fill">
                   <Field label="专长" hint="能干什么，如：Excel/报表/预算">
-                    <Input value={$.expertise} onInput={(e: Event) => { $.expertise = inputValue(e); rerender() }} />
+                    <Input value={$.expertise} onInput={onExpertiseInput} />
                   </Field>
                 </div>
               </div>
@@ -296,7 +310,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
           {a.type === 'ai' && (
             <>
               <Field label="系统提示词">
-                <Textarea rows={5} value={$.systemPrompt} onInput={(e: Event) => { $.systemPrompt = inputValue(e); rerender() }} />
+                <Textarea rows={5} value={$.systemPrompt} onInput={onSystemPromptInput} />
               </Field>
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
@@ -318,13 +332,13 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="最大 Token 数">
                     <Input type="number" min="64" max="8192" step="64" value={$.aiMaxTokens}
-                      onInput={(e: Event) => { $.aiMaxTokens = inputValue(e); rerender() }} />
+                      onInput={onAiMaxTokensInput} />
                   </Field>
                 </div>
                 <div class="wf-fill">
                   <Field label={`月 Token 配额（${$.quotaUsed.toLocaleString()} 已用${$.aiQuota && parseInt($.aiQuota) > 0 ? ' / ' + parseInt($.aiQuota).toLocaleString() : '（不限）'}）`}>
                     <Input type="number" min="0" step="1000" value={$.aiQuota} placeholder="0 = 不限"
-                      onInput={(e: Event) => { $.aiQuota = inputValue(e); rerender() }} />
+                      onInput={onAiQuotaInput} />
                   </Field>
                 </div>
                 <div class="wf-fill">
@@ -384,7 +398,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
               <Field label="轻量模型（可选）" hint="内部调用（记忆提取/自校验）用小模型省钱——如 deepseek-chat；留空用主模型">
                 <Input placeholder="轻量模型名" value={$.lightModel}
-                  onInput={(e: Event) => { $.lightModel = inputValue(e); rerender() }} />
+                  onInput={onLightModelInput} />
               </Field>
               <Field label="绑定知识库" hint="search_knowledge_base 工具优先检索绑定知识库（未绑定 → 检索全部）">
                 <Select value={$.kbId}
@@ -463,7 +477,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   <Field label="Webhook Secret" hint="设置后，请求必须携带 X-Signature: HMAC-SHA256(secret, timestamp + '.' + body) 头">
                     <div class="wf-row wf-gap-xs">
                       <Input type={$.secretVisible ? 'text' : 'password'} placeholder="留空不验证签名"
-                        value={$.webhookSecret} onInput={(e: Event) => { $.webhookSecret = inputValue(e); rerender() }} />
+                        value={$.webhookSecret} onInput={onWebhookSecretInput} />
                       <Button type="button" variant="ghost" title="生成随机 Secret" onClick={genSecret}>🎲</Button>
                       <Button type="button" variant="ghost" title={$.secretVisible ? '隐藏' : '显示'} onClick={() => { $.secretVisible = !$.secretVisible; rerender() }}>
                         {$.secretVisible ? '🙈' : '👁'}
@@ -474,13 +488,13 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="重试次数" hint="失败后指数退避重试（默认 3 次）">
                     <Input type="number" min="0" max="5" value={$.webhookRetryCount}
-                      onInput={(e: Event) => { $.webhookRetryCount = inputValue(e); rerender() }} />
+                      onInput={onWebhookRetryCountInput} />
                   </Field>
                 </div>
               </div>
               <Field label="出站回调" hint="配置后，入站应答会镜像回推到该地址（POST { reply, conversation_id, timestamp } + X-Signature 签名，与入站一致）；留空仅入站">
                 <Input type="url" placeholder="https://example.com/webhook-reply（可选）" value={$.webhookUrl}
-                  onInput={(e: Event) => { $.webhookUrl = inputValue(e); rerender() }} />
+                  onInput={onWebhookUrlInput} />
               </Field>
             </>
           )}
@@ -528,7 +542,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
           <div class="wf-row wf-gap-xs wf-mb-sm">
             <div class="wf-fill">
               <Input placeholder="测试消息内容（默认：验证 Webhook 机器人可用）" value={$.whTestContent}
-                onInput={(e: Event) => { $.whTestContent = inputValue(e); rerender() }} />
+                onInput={onWhTestContentInput} />
             </div>
             <Button size="sm" variant="primary" disabled={$.whTesting} onClick={testWebhook}>
               {$.whTesting ? '测试中...' : '发送测试请求'}
