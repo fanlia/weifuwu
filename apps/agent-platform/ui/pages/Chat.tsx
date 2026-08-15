@@ -109,6 +109,55 @@ export const Chat: Component = async (_props, ctx) => {
   $.subDepts = []
   const chatControl = { current: null as ChatInputControl | null }
 
+  // ChatInput labels（引用稳定——剪枝命中不重建；placeholder 内容在搜索状态切换点更新）
+  const CHAT_INPUT_LABELS = { placeholder: '输入消息，回车发送；@ 可定向 AI' }
+  const setSearchQ = (q: string) => {
+    $.searchQ = q
+    CHAT_INPUT_LABELS.placeholder = q ? '搜索模式：输入新消息退出搜索' : '输入消息，回车发送；@ 可定向 AI'
+  }
+
+  // ── 稳定回调（mount 层定义——render 期传同一引用：MessageItem/ChatInput 的 props
+  //    回调不变 → componentPropsEqual 成立 → 剪枝命中 → 不重建。内联箭头每次渲染
+  //    新函数 → 全量重建（实测 MessageItem 28 次构建/4 次渲染）） ──
+  const handleToggleTool = (tk: string) => { $.expandedTool = $.expandedTool === tk ? null : tk; rerender() }
+  const handleReply = (m: ChatMessage) => startReply(m)
+  const handleEdit = (m: ChatMessage) => startEdit(m)
+  const handleDelete = (m: ChatMessage) => deleteMsg(m)
+  const handleFeedback = (m: ChatMessage, v: 'like' | 'dislike' | null) => feedbackMsg(m, v)
+  const handleApprove = (id: string) => approveDraft(id)
+  const handleReject = (id: string) => rejectDraft(id)
+  const handleRetry = (id: string) => retryMessage(id)
+  const handleContinue = (id: string) => continueMessage(id)
+  const handleReview = (action: 'approve' | 'reject', path: string) => reviewArtifact(action, path)
+  const handleEditChange = (v: string) => { $.editValue = v; rerender() }
+  const handleEditSave = () => saveEdit()
+  const handleEditCancel = () => cancelEdit()
+
+  // @ 补全（mount 层——只依赖 mount 闭包 $/rerender/chatControl/membersList）
+  function onInputChange(v: string) {
+    $.input = v; rerender()
+    const atMatch = v.match(/@([\u4e00-\u9fa5\w]*)$/)
+    if (atMatch) {
+      $.atQuery = atMatch[1]
+      $.atMenu = $.membersList.filter((m) => (m.type === 'ai' || m.type === 'knowledge_base' || m.type === 'department') && (String(m.name).includes($.atQuery) || !$.atQuery))
+      $.atMenuOpen = $.atMenu.length > 0
+    } else {
+      $.atMenuOpen = false; $.atQuery = ''
+    }
+    rerender()
+  }
+  // 稳定引用（render 期传同一引用——ChatInput/Input props 不变 → 剪枝命中不重建）
+  const handleSend = (text: string) => sendText(text)
+  const onSearchInput = (e: Event) => { $.searchQ = inputValue(e); rerender() }
+  function pickAtMember(m: Member) {
+    // 替换末尾 @前缀 为完整 @名 + 空格（ChatInput 内部 keyword 程序化改写——不触发 onChange 避免 IME 打断）
+    const v = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, `@${m.name} `)
+    $.input = v
+    chatControl.current?.setKeyword(v)
+    $.atMenuOpen = false; $.atQuery = ''
+    rerender()
+  }
+
   async function loadMessages() {
     const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50`).catch(() => ({ messages: [] }))
     const list = msgRes.messages ?? []
@@ -153,6 +202,7 @@ export const Chat: Component = async (_props, ctx) => {
 
   async function runSearch() {
     const q = $.searchQ.trim()
+    setSearchQ(q) // 搜索状态切换 → labels placeholder 更新（引用不变——剪枝仍命中）
     $.searching = true; rerender()
     if (!q) {
       await loadMessages(); $.searching = false; rerender(); return
@@ -461,29 +511,6 @@ export const Chat: Component = async (_props, ctx) => {
 
     const inputDisabled = $.editingId !== ''
 
-  // @ 补全：输入末尾 @ 或 @前缀 时弹出成员浮层
-  function onInputChange(v: string) {
-    $.input = v; rerender()
-    const atMatch = v.match(/@([\u4e00-\u9fa5\w]*)$/)
-    if (atMatch) {
-      $.atQuery = atMatch[1]
-      $.atMenu = $.membersList.filter((m) => (m.type === 'ai' || m.type === 'knowledge_base' || m.type === 'department') && (String(m.name).includes($.atQuery) || !$.atQuery))
-      $.atMenuOpen = $.atMenu.length > 0
-    } else {
-      $.atMenuOpen = false; $.atQuery = ''
-    }
-    rerender()
-  }
-  function pickAtMember(m: Member) {
-    // 替换末尾 @前缀 为完整 @名 + 空格（ChatInput 内部 keyword 程序化改写——不触发 onChange 避免 IME 打断）
-    const v = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, `@${m.name} `)
-    $.input = v
-    chatControl.current?.setKeyword(v)
-    $.atMenuOpen = false; $.atQuery = ''
-    rerender()
-  }
-
-
     return (
     <div class="wf-row wf-h-full wf-gap-none">
       {/* 左栏：成员与 AI 状态（P1 项目空间——窄屏隐藏） */}
@@ -560,7 +587,7 @@ export const Chat: Component = async (_props, ctx) => {
               {$.loadingMore ? '加载中...' : '↑ 加载更早消息'}
             </Button>
           )}
-          {$.searchQ && <Badge variant="primary">搜索："{$.searchQ}" <a class="wf-text-brand wf-ml-xs" style="cursor:pointer" onClick={() => { $.searchQ = ''; runSearch() }}><Icon name="close" size={12} /> 清除</a></Badge>}
+          {$.searchQ && <Badge variant="primary">搜索："{$.searchQ}" <a class="wf-text-brand wf-ml-xs" style="cursor:pointer" onClick={() => { setSearchQ(''); runSearch() }}><Icon name="close" size={12} /> 清除</a></Badge>}
         </div>
 
         {$.msgs.length === 0 && (
@@ -579,20 +606,20 @@ export const Chat: Component = async (_props, ctx) => {
             editing={$.editingId === msg.id}
             editValue={$.editValue}
             expandedToolKey={$.expandedTool}
-            onToggleTool={(tk) => { $.expandedTool = $.expandedTool === tk ? null : tk; rerender() }}
-            onReply={(m) => startReply(m)}
-            onEdit={(m) => startEdit(m)}
-            onDelete={(m) => deleteMsg(m)}
-            onFeedback={(m, v) => feedbackMsg(m, v)}
-            onApprove={(id) => approveDraft(id)}
-            onReject={(id) => rejectDraft(id)}
-            onRetry={(id) => retryMessage(id)}
-            onContinue={(id) => continueMessage(id)}
-            onReview={(action, path) => reviewArtifact(action, path)}
+            onToggleTool={handleToggleTool}
+            onReply={handleReply}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onFeedback={handleFeedback}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onRetry={handleRetry}
+            onContinue={handleContinue}
+            onReview={handleReview}
             reviewBusy={$.reviewBusy === 'chat'}
-            onEditChange={(v) => { $.editValue = v; rerender() }}
-            onEditSave={() => saveEdit()}
-            onEditCancel={() => cancelEdit()}
+            onEditChange={handleEditChange}
+            onEditSave={handleEditSave}
+            onEditCancel={handleEditCancel}
           />
         ))}
       </div>
@@ -636,10 +663,10 @@ export const Chat: Component = async (_props, ctx) => {
             <ChatInput
               value={$.input}
               control={chatControl}
-              onChange={(v) => onInputChange(v)}
-              onSend={(text) => sendText(text)}
+              onChange={onInputChange}
+              onSend={handleSend}
               disabled={inputDisabled}
-              labels={{ placeholder: $.searchQ ? '搜索模式：输入新消息退出搜索' : '输入消息，回车发送；@ 可定向 AI' }}
+              labels={CHAT_INPUT_LABELS}
             />
           </div>
           <Button variant="ghost" onClick={pickFile} title="上传附件（csv/xlsx/pdf/docx/pptx/txt/md/json/log/png/jpg，≤20MB）"><Icon name="paperclip" size={15} /></Button>
@@ -647,7 +674,7 @@ export const Chat: Component = async (_props, ctx) => {
         </div>
         <div class="wf-row wf-gap-sm wf-mt-sm">
           <div class="wf-fill">
-            <Input placeholder="搜索消息..." value={$.searchQ} onInput={(e: Event) => { $.searchQ = inputValue(e); rerender() }} />
+            <Input placeholder="搜索消息..." value={$.searchQ} onInput={onSearchInput} />
           </div>
           <Button size="sm" disabled={$.searching} onClick={runSearch}><Icon name="search" size={14} /> 搜索</Button>
         </div>
