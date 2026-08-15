@@ -2300,3 +2300,60 @@ test('事件流自身状态：buffer 溢出 → stream:overflow（覆盖可审�
   assert.equal(s.size(), 0, 'reset 后占用 0')
   assert.equal(s.overflowCount(), 0, 'reset 后溢出计数清零')
 })
+
+test('事件代理：hooks 全局监听统一（addGlobalListener——聚合注册/退订 + 事件流可观测）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  const { resetDelegation, addGlobalListener } = await import('../ui-dom/vdom3/delegate.ts')
+  resetDelegation()
+  gs.reset()
+  // 多 handler 聚合（同事件——目标监听一次）
+  let a = 0, b2 = 0
+  // 自定义事件名（隔离并发——其他测试的 keydown handler 不在聚合集合）
+  const EVT = 'wf-test-global'
+  const off1 = addGlobalListener(window, EVT, (() => { a++ }) as EventListener)
+  gs.reset()
+  const off2 = addGlobalListener(window, EVT, (() => { b2++ }) as EventListener)
+  // 第二个 handler 注册：同事件已挂监听——不发 EVENT_BIND（聚合——目标监听一次）
+  const bindsAfterSecond = gs.events().filter((e) => evKey(e) === 'event:bind')
+  assert.equal(bindsAfterSecond.length, 0, `同事件聚合（第二 handler 不重复注册监听）——实际: ${bindsAfterSecond.length}`)
+  // 分发：两个 handler 都执行
+  window.dispatchEvent(new (window as any).Event(EVT))
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(a, 1, 'handler1 执行')
+  assert.equal(b2, 1, 'handler2 执行（聚合分发）')
+  // 退订一个——另一个仍工作
+  off1()
+  window.dispatchEvent(new (window as any).Event(EVT))
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(a, 1, '退订后 handler1 不再执行')
+  assert.equal(b2, 2, 'handler2 继续执行')
+  // 全部退订——目标监听移除（EVENT_UNBIND）
+  gs.reset()
+  off2()
+  const unbinds = gs.events().filter((e) => evKey(e) === 'event:unbind')
+  assert.ok(unbinds.length >= 1, `全部退订 → EVENT_UNBIND（目标监听移除配对）——实际: ${unbinds.map((e) => evKey(e)).join(',')}`)
+  resetDelegation()
+})
+
+test('事件代理：removeDelegationRoot 移除挂载点监听（removeEventListener 配对——卸载无残留）', async () => {
+  const { resetDelegation, ensureDelegationRoot, removeDelegationRoot } = await import('../ui-dom/vdom3/delegate.ts')
+  resetDelegation()
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  let clicks = 0
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('button', { id: 'x', onClick: () => { clicks++ } }, 'x')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  ;(root.querySelector('[id="x"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(clicks, 1, '挂载点监听生效')
+  // 卸载挂载点（监听移除）
+  removeDelegationRoot(root)
+  ;(root.querySelector('[id="x"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(clicks, 1, 'removeDelegationRoot 后监听移除（点击不再触发）')
+  document.body.removeChild(root)
+  resetDelegation()
+})

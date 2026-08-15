@@ -16,6 +16,7 @@ import { clampToViewport, computeFixedPosRect } from '../popup.ts'
 import { createPortal, h } from '../vnode.ts'
 import type { VNode } from '../vnode.ts'
 import { useHoverCapable, usePresence } from './stable.ts'
+import { addGlobalListener } from '../vdom3/delegate.ts'
 
 /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标（0 rect 防护） */
 export function usePopupPosition(env: HookEnv, options: PopupPositionOptions): PopupPosition {
@@ -130,13 +131,14 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
     if (e.key !== 'Escape' || !isOpen()) return
     setOpen(false)
   }
-  b.addEventListener('mousedown', onDocMouseDown)
-  b.addEventListener('keydown', onDocKeyDown)
+  // 全局监听统一走事件代理（聚合注册/退订 + 事件流可观测）
+  const offMouse = addGlobalListener(b as unknown as EventTarget, 'mousedown', onDocMouseDown as EventListener)
+  const offKey = addGlobalListener(b as unknown as EventTarget, 'keydown', onDocKeyDown as EventListener)
   if (selfId) {
     const unsub = env.onUnmount((id) => {
       if (id === selfId) {
-        b.removeEventListener('mousedown', onDocMouseDown)
-        b.removeEventListener('keydown', onDocKeyDown)
+        offMouse()
+        offKey()
         unsub()
       }
     })
@@ -496,9 +498,10 @@ function trapFocus(container: HTMLElement): () => void {
     const prevFocused = _browser.activeElement() as HTMLElement | null
     first.focus()
 
-    container.addEventListener('keydown', handler)
+    // 焦点 trap 的容器键盘——统一走事件代理（聚合注册/退订 + 事件流可观测）
+    const offKey = addGlobalListener(container, 'keydown', handler as EventListener)
     cleanup = () => {
-      container.removeEventListener('keydown', handler)
+      offKey()
       prevFocused?.focus()
     }
   })

@@ -5,17 +5,18 @@
  */
 
 import type { HookEnv } from './types.ts'
+import { addGlobalListener } from '../vdom3/delegate.ts'
 
 /** 全局键盘监听：window keydown，mount 注册 + 卸载清理。返回退订函数。 */
 export function useGlobalKey(env: HookEnv, handler: (e: KeyboardEvent) => void): () => void {
   const selfId = env.selfId()
-  const b = env.browser
   if (typeof window === 'undefined') return () => {}
-  b.addEventListener('keydown', handler)
+  // 全局监听统一走事件代理（聚合注册/退订 + 事件流可观测）
+  const off = addGlobalListener(window, 'keydown', handler as EventListener)
   if (selfId) {
-    const unsub = env.onUnmount((id) => { if (id === selfId) { b.removeEventListener('keydown', handler); unsub() } })
+    const unsub = env.onUnmount((id) => { if (id === selfId) { off(); unsub() } })
   }
-  return () => b.removeEventListener('keydown', handler)
+  return off
 }
 
 /** 指针拖拽：pointerdown 捕获 → window pointermove（delta）/pointerup（释放）。 */
@@ -32,11 +33,16 @@ export function useDrag(env: HookEnv, options: {
     if (!active) return
     options.onMove(e, { x: e.clientX - startX, y: e.clientY - startY })
   }
+  let moveOff: (() => void) | null = null
+  let upOff: (() => void) | null = null
+  const releasePointers = () => {
+    moveOff?.(); moveOff = null
+    upOff?.(); upOff = null
+  }
   const onPointerUp = (e: PointerEvent) => {
     if (!active) return
     active = false
-    b.removeEventListener('pointermove', onPointerMove)
-    b.removeEventListener('pointerup', onPointerUp)
+    releasePointers()
     options.onEnd?.(e)
   }
   const onPointerDown = (e: PointerEvent) => {
@@ -45,8 +51,9 @@ export function useDrag(env: HookEnv, options: {
     active = true
     startX = e.clientX
     startY = e.clientY
-    b.addEventListener('pointermove', onPointerMove)
-    b.addEventListener('pointerup', onPointerUp)
+    // 全局监听统一走事件代理（活动期注册——onEnd/卸载释放）
+    moveOff = addGlobalListener(window, 'pointermove', onPointerMove as EventListener)
+    upOff = addGlobalListener(window, 'pointerup', onPointerUp as EventListener)
     options.onStart?.(e)
   }
 
@@ -56,8 +63,7 @@ export function useDrag(env: HookEnv, options: {
     const unsub = env.onUnmount((id) => {
       if (id !== selfId) return
       if (active) {
-        b.removeEventListener('pointermove', onPointerMove)
-        b.removeEventListener('pointerup', onPointerUp)
+        releasePointers()
         active = false
       }
       unsub()

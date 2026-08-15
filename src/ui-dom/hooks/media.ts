@@ -5,6 +5,7 @@
  */
 
 import type { HookEnv } from './types.ts'
+import { addGlobalListener } from '../vdom3/delegate.ts'
 import type {
   UseInViewOptions,
   UseInViewHandle,
@@ -22,7 +23,8 @@ export function useMedia(env: HookEnv, query: string, callback: (matches: boolea
     const mql = b.matchMedia(query) as MediaQueryList
     callback(mql.matches)
     const handler = (e: MediaQueryListEvent) => callback(e.matches)
-    mql.addEventListener('change', handler)
+    // 全局监听统一走事件代理（mql 也是 EventTarget——聚合注册/退订）
+    addGlobalListener(mql as unknown as EventTarget, 'change', handler as EventListener)
     env.mediaRegistry.set(key, { mql, handler })
     // 卸载清理 mql 监听（组件销毁后 media 变化不再回调已卸载组件——
     // 无此清理则重复 mount/unmount 累积监听）
@@ -66,7 +68,8 @@ export function useBreakpoint(
     for (const query of Object.values(bps)) {
       const mql = b.matchMedia(query) as MediaQueryList
       const handler = () => cb(evaluate())
-      mql.addEventListener('change', handler)
+      // 全局监听统一走事件代理（mql 也是 EventTarget——聚合注册/退订）
+      addGlobalListener(mql as unknown as EventTarget, 'change', handler as EventListener)
       mqls.push({ mql, handler })
     }
     env.mediaRegistry.set(key, { mqls })
@@ -106,21 +109,20 @@ export function useVisualViewport(env: HookEnv): VisualViewportHandle {
     dirty()
   }
   const vv = b.visualViewport()
+  // 全局监听统一走事件代理（vv/window 都是 EventTarget——聚合注册/退订）
+  let offVv: (() => void) | null = null
+  let offWin: (() => void) | null = null
   if (vv?.addEventListener) {
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
+    offVv = addGlobalListener(vv as unknown as EventTarget, 'resize', update as EventListener)
+    addGlobalListener(vv as unknown as EventTarget, 'scroll', update as EventListener)
   } else {
-    b.addEventListener('resize', update)
+    offWin = addGlobalListener(window, 'resize', update as EventListener)
   }
   if (selfId) {
     const unsub = env.onUnmount((id) => {
       if (id !== selfId) return
-      if (vv?.removeEventListener) {
-        vv.removeEventListener('resize', update)
-        vv.removeEventListener('scroll', update)
-      } else {
-        b.removeEventListener('resize', update)
-      }
+      offVv?.()
+      offWin?.()
       unsub()
     })
   }

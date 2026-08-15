@@ -21,6 +21,15 @@ const handlers = new Map<string, Map<string, EventListener>>()
 const roots = new Set<Element>()
 /** 挂载点 → 已注册的事件（惰性——每挂载点每事件一次） */
 const registered = new Map<Element, Set<string>>()
+/** 挂载点 → (真实事件 → 监听函数)——removeDelegationRoot 的 removeEventListener 配对 */
+const rootListeners = new Map<Element, Map<string, EventListener>>()
+
+// ── 全局监听（document/window 级——hooks 统一入口：useGlobalKey/useDrag/
+//    usePopup 外部点击/Escape/useBreakpoint resize——统一注册/退订 + 事件流可观测） ──
+/** event → handler 集合（全局监听——非 id 分发——直接调用） */
+const globalHandlers = new Map<string, Set<EventListener>>()
+/** 目标（document/window）→ 已挂载的 (真实事件 → 统一监听函数) */
+const globalRoots = new Map<EventTarget, Map<string, EventListener>>()
 
 /** 不冒泡事件 → 冒泡等价（focus/blur 用 focusin/focusout——代理依赖冒泡） */
 const EVENT_MAP: Record<string, string> = {
@@ -57,6 +66,9 @@ export function resetDelegation(): void {
   handlers.clear()
   roots.clear()
   registered.clear()
+  rootListeners.clear()
+  globalHandlers.clear()
+  globalRoots.clear()
 }
 
 /** 注册挂载点（createRoot/createRouter 挂载时调用） */
@@ -64,10 +76,16 @@ export function ensureDelegationRoot(root: Element): void {
   roots.add(root)
 }
 
-/** 移除挂载点（卸载——监听由 roots/registered 自然失效；handler 由节点移除清理） */
+/** 移除挂载点（卸载——removeEventListener 配对 + 注册表清理；
+ *  handler 由节点移除清理（unbindAll）） */
 export function removeDelegationRoot(root: Element): void {
   roots.delete(root)
   registered.delete(root)
+  const listeners = rootListeners.get(root)
+  if (listeners) {
+    for (const [realEvent, fn] of listeners) root.removeEventListener(realEvent, fn)
+    rootListeners.delete(root)
+  }
 }
 
 /** 从节点向上找挂载点（O(depth)——首次绑定事件时注册监听） */
@@ -88,13 +106,52 @@ function ensureRootEvent(root: Element, event: string): void {
   registered.set(root, set)
   const realEvent = EVENT_MAP[event] ?? event
   // 冒泡监听（与元素级语义一致：stopPropagation 的 handler 影响后续冒泡——
-  // 组件 handler 内 stopPropagation 与现状一致）
-  root.addEventListener(realEvent, (e) => dispatch(e))
+  // 组件 handler 内 stopPropagation 与现状一致）——保存引用（卸载可 remove）
+  const fn: EventListener = (e) => dispatch(e)
+  root.addEventListener(realEvent, fn)
+  const m = rootListeners.get(root) ?? new Map<string, EventListener>()
+  m.set(realEvent, fn)
+  rootListeners.set(root, m)
   // 挂载点 id（root → 'root'；portal 容器 → 'portal:key'）
   const rootId = root.hasAttribute('data-wf-portal-key')
     ? `portal:${root.getAttribute('data-wf-portal-key')}`
     : 'root'
   stream.emit(ev('event', 'bind', rootId, { event: realEvent, delegated: true }))
+}
+
+/** 全局监听（document/window 级——hooks 统一入口）：
+ *  同事件多 handler 聚合到一个目标监听（EventTarget 每事件一次）——
+ *  统一注册/退订 + 事件流可观测（EVENT_BIND/UNBIND——delegated: true）。
+ *  mql/visualViewport 等浏览器 API 对象（无事件冒泡语义）不纳入——保持直接监听。 */
+export function addGlobalListener(target: EventTarget, event: string, handler: EventListener): () => void {
+  const realEvent = EVENT_MAP[event] ?? event
+  let set = globalHandlers.get(realEvent)
+  if (!set) { set = new Set(); globalHandlers.set(realEvent, set) }
+  set.add(handler)
+  // 目标首次注册该事件时挂统一监听（EventTarget 每事件一次——多 handler 聚合）
+  const rootMap = globalRoots.get(target) ?? new Map<string, EventListener>()
+  if (!rootMap.has(realEvent)) {
+    const fn: EventListener = (e) => {
+      for (const h of globalHandlers.get(realEvent) ?? []) {
+        try { h(e) } catch { /* 全局 handler 失败隔离 */ }
+      }
+    }
+    target.addEventListener(realEvent, fn)
+    rootMap.set(realEvent, fn)
+    globalRoots.set(target, rootMap)
+    stream.emit(ev('event', 'bind', target === window ? 'window' : 'document', { event: realEvent, delegated: true }))
+  }
+  // 退订：移除 handler——空集时移除目标监听（配对清理）
+  return () => {
+    set.delete(handler)
+    if (set.size === 0) {
+      const fn = rootMap.get(realEvent)
+      if (fn) target.removeEventListener(realEvent, fn)
+      rootMap.delete(realEvent)
+      if (rootMap.size === 0) globalRoots.delete(target)
+      stream.emit(ev('event', 'unbind', target === window ? 'window' : 'document', { event: realEvent }))
+    }
+  }
 }
 
 /** 渲染时绑定（createNode/patchProps 调用——事件 props 处理）：
