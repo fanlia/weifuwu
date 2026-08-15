@@ -100,11 +100,11 @@ export const Reports: Component = async (_props, ctx) => {
       </Card>
 
       <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
-        <StatCard label="Agent 总数" value={agentCount} icon={<Icon name="cpu" />} animate onClick={() => ctx.app?.navigate('/agents')} />
-        <StatCard label="AI 机器人" value={aiCount} icon={<Icon name="zap" />} animate onClick={() => ctx.app?.navigate('/agents?type=ai')} />
-        <StatCard label="总消息数" value={msgCount} icon={<Icon name="message" />} animate />
-        <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon={<Icon name="zap" />} animate />
-        <StatCard label="预估 AI 成本" value={`¥${estCostYuan.toFixed(2)}`} icon={<Icon name="database" />} animate onClick={() => ctx.app?.navigate('/settings')} />
+        <StatCard key="agents" label="Agent 总数" value={agentCount} icon={<Icon name="cpu" />} animate onClick={() => ctx.app?.navigate('/agents')} />
+        <StatCard key="ai" label="AI 机器人" value={aiCount} icon={<Icon name="zap" />} animate onClick={() => ctx.app?.navigate('/agents?type=ai')} />
+        <StatCard key="msgs" label="总消息数" value={msgCount} icon={<Icon name="message" />} animate />
+        <StatCard key="tokens" label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon={<Icon name="zap" />} animate />
+        <StatCard key="cost" label="预估 AI 成本" value={`¥${estCostYuan.toFixed(2)}`} icon={<Icon name="database" />} animate onClick={() => ctx.app?.navigate('/settings')} />
         {roi && (
           <Card style={{ gridColumn: 'span 2' }}>
             <div class="wf-row wf-between wf-gap-md">
