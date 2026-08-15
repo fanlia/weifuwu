@@ -48,7 +48,8 @@ export function auditOrder(_el: Element, v: VNode): void {
     const idx = [...parent.childNodes].indexOf(node as ChildNode)
     if (idx < 0) return
     if (idx < prevIdx) {
-      console.warn(`[vdom3/audit] children 顺序错位（vnode 顺序 ≠ DOM 顺序——索引 ${idx} < ${prevIdx}）`)
+      // 单行（避免多行源码噪音——console 历史累积可读性）
+      console.warn(`[vdom3/audit] children 顺序错位 idx=${idx}<${prevIdx} tag=${String((k as VNode).type).slice(0, 30)}`)
       return
     }
     prevIdx = idx
