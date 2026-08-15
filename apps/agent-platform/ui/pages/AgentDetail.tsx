@@ -333,7 +333,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                       <Checkbox label="开启后 AI 回复需人工批准后才发送" checked={$.aiHITL}
                         onChange={(v: boolean) => { $.aiHITL = v; rerender() }} />
                       {$.aiHITL && (
-                        <Select value={$.riskPolicy} onChange={(v: string | string[]) => { const val = Array.isArray(v) ? 'auto' : v; $.riskPolicy = val; rerender() }}
+                        <Select key="risk-policy" value={$.riskPolicy} onChange={(v: string | string[]) => { const val = Array.isArray(v) ? 'auto' : v; $.riskPolicy = val; rerender() }}
                           options={[
                             { value: 'auto', label: '智能分级（读自动/写审批）' },
                             { value: 'strict', label: '严格（全部审批）' },
@@ -345,9 +345,10 @@ export const AgentDetail: Component = async (_props, ctx) => {
               </div>
 
               {$.quality && (
-                <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="activity" size={14} /> 质量</div>
+                <div key="quality-title" class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="activity" size={14} /> 质量</div>
               )}
               {$.quality && (
+                <div key="quality-stats" 
                 <div class="wf-row wf-gap-md wf-text-sm wf-mt-xs wf-cluster">
                   <span>工具成功率：<b class="wf-nums">{$.quality.toolSuccessRate ?? '—'}%</b> <span class="wf-text-xs wf-text-tertiary">({$.quality.runs} 次)</span></span>
                   <span>👍 <b class="wf-nums">{$.quality.likes}</b></span>

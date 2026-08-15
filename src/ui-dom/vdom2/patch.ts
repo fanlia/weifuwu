@@ -33,6 +33,9 @@ import { canReuse } from './lifecycle.ts'
 import { componentName } from './ctx.ts'
 import { emit } from './events.ts'
 
+/** A 级动态数组检测去重（表单类静态字段数组误报抑制——同一长度签名只报一次） */
+const warnedDynamicArrays = new Set<string>()
+
 
 /** 从 vnode 取稳定 key（Portal 内部 key 不算用户 keyed） */
 function getKey(v: VNodeChild): string | null {
@@ -326,14 +329,20 @@ export function patchChildren(
 
   // A 级动态检测（业务身份声明协议）：长度变化 + 无 key 组件项 → dev error
   // （业务身份只有业务知道——框架提示而非静默错位；native/portal 豁免——无实例状态）
+  // 去重：表单类静态字段数组（条件块尾部插入导致长度变化——字段位置实际稳定）会批量
+  // 误报——同一数组上下文只报一次（module 级 Set——按数组长度签名）
   if (auditEnabled() && oldChildren.length !== newChildren.length) {
-    for (let i = 0; i < newChildren.length; i++) {
-      const c = newChildren[i]
-      if (c != null && typeof c === 'object' && !Array.isArray(c) && isComp(c as VNode) && (c as VNode).key == null) {
-        console.error(
-          `[vdom2/audit] 动态数组位置 ${i} 的组件缺少 key——列表增删/重排会错位组件实例状态。` +
-            `请提供业务身份 key（如 key={item.id}）；无状态 native 项豁免。`,
-        )
+    const sig = `${newChildren.length}:${oldChildren.length}`
+    if (!warnedDynamicArrays.has(sig)) {
+      warnedDynamicArrays.add(sig)
+      for (let i = 0; i < newChildren.length; i++) {
+        const c = newChildren[i]
+        if (c != null && typeof c === 'object' && !Array.isArray(c) && isComp(c as VNode) && (c as VNode).key == null) {
+          console.error(
+            `[vdom2/audit] 动态数组位置 ${i} 的组件缺少 key——列表增删/重排会错位组件实例状态。` +
+              `请提供业务身份 key（如 key={item.id}）；无状态 native 项豁免。`,
+          )
+        }
       }
     }
   }
