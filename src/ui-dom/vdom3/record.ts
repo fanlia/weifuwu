@@ -12,6 +12,31 @@ import type { V3Event } from './types.ts'
 /** 事件流 → jsdom 测试代码（可写盘/执行） */
 export function recordToTest(events: V3Event[], name = 'recorded-render'): string {
   const types = [...new Set(events.map((e) => e.type))]
+  // 内容断言：重建 DOM 的 tag 计数——DOM = fold(事件流) 的直接验证：
+  // 最终 tag 计数 = NODE_CREATE − REMOVE 子树（折叠语义——移除父节点隐含移除后代）
+  const idTag = new Map(events.filter((e) => e.type === 'NODE_CREATE').map((e) => [e.id, (e as any).tag]))
+  const childrenOf = new Map<string, string[]>()
+  for (const e of events) {
+    if (e.type === 'INSERT') {
+      const arr = childrenOf.get(e.parent) ?? []
+      arr.push(e.child)
+      childrenOf.set(e.parent, arr)
+    }
+  }
+  const removedSet = new Set<string>()
+  const addTree = (id: string): void => {
+    removedSet.add(id)
+    for (const c of childrenOf.get(id) ?? []) addTree(c)
+  }
+  for (const e of events) if (e.type === 'REMOVE') addTree(e.child)
+  const tagCounts = new Map<string, number>()
+  for (const [id, tag] of idTag) {
+    if (removedSet.has(id)) continue
+    tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
+  }
+  const tagAssertions = [...tagCounts.entries()]
+    .map(([tag, n]) => `  assert.equal(root.querySelectorAll('${tag}').length, ${n}, '${tag} × ${n}（事件流推导）')`)
+    .join('\n')
   const json = JSON.stringify(events)
   return `/**
  * 自动生成测试（vdom3 recordToTest）——事件流录制转回归
@@ -32,6 +57,9 @@ test('${name}：事件流回放（DOM = fold）+ 渲染序列断言', () => {
   document.body.appendChild(root)
   replay(events, root)
   assert.ok(root.childNodes.length > 0, '回放渲染非空')
+
+  // 内容断言：tag 计数与录制一致（DOM = fold 直接验证）
+${tagAssertions}
 
   // 渲染类型断言：渲染过程包含的关键事件（精确描述渲染做了什么）
   const keyTypes = ['NODE_CREATE', 'PROP_UPDATE', 'INSERT']

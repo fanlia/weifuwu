@@ -2,7 +2,9 @@
  * vdom3 demo — 完整应用验证
  * 路由（/ /list /detail/:id）+ 计数器/列表/条件 + 事件流观测 + 回放
  */
-import { h, createRouter, stream, replay, createRoot } from '../../src/ui-dom/vdom3/index.ts'
+import { h, createRouter, stream, replay, createRoot, recordToTest } from '../../src/ui-dom/vdom3/index.ts'
+
+function require_ns_record() { return { recordToTest } }
 
 // 暴露事件流（浏览器观测）
 ;(window as any).__v3_events = () => stream.events()
@@ -10,6 +12,13 @@ import { h, createRouter, stream, replay, createRoot } from '../../src/ui-dom/vd
   const t = document.getElementById(targetId)
   if (t) { replay(stream.events(), t); return t.innerHTML.slice(0, 200) }
   return 'no-target'
+}
+// 导出：事件流 JSON（浏览器事故 → 本地转测试闭环）
+;(window as any).__v3_export = () => JSON.stringify(stream.events())
+// 导出：recordToTest 生成的测试代码（浏览器内预览——可直接粘贴为测试）
+;(window as any).__v3_to_test = (name: string) => {
+  const { recordToTest } = require_ns_record()
+  return recordToTest(stream.events(), name)
 }
 
 // 共享状态（路由页面间）
