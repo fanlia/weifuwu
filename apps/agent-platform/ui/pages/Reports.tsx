@@ -40,7 +40,7 @@ export const Reports: Component = async (_props, ctx) => {
     if ($.loading) {
       return (
         <div class="wf-stack wf-gap-lg">
-          <PageHeader title="运营报表" sub="AI 团队使用量 / 成本 / 活跃度" />
+          <PageHeader key="loading-header" title="运营报表" sub="AI 团队使用量 / 成本 / 活跃度" />
           <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
             {[1, 2, 3, 4, 5, 6].map(i => <Card key={i}><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="40%" height="24px" className="wf-mt-sm" /></Card>)}
           </div>
@@ -68,7 +68,7 @@ export const Reports: Component = async (_props, ctx) => {
 
     return (
     <div class="wf-stack wf-gap-lg">
-      <PageHeader title="运营报表" sub="AI 团队使用量 · 成本 · 活跃度（管理员视角）">
+      <PageHeader key="reports-header" title="运营报表" sub="AI 团队使用量 · 成本 · 活跃度（管理员视角）">
         <Button variant="ghost" onClick={() => ctx.app?.navigate('/')}><Icon name="arrow-left" size={14} /> 返回工作台</Button>
       </PageHeader>
 
@@ -76,7 +76,7 @@ export const Reports: Component = async (_props, ctx) => {
       {$.quotaPressure && (
         <div class="wf-bg-warning wf-p-sm wf-rounded wf-text-sm wf-text-on-warning">⚠️ 沙盒配额接近上限（≥80%）——终止不用的环境释放配额</div>
       )}
-      <Card>
+      <Card key="usage-card">
         <div class="wf-row wf-gap-sm wf-mb-sm">
           <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="users" size={14} /> 项目空间用量（按部门）</div>
           <span class="wf-text-xs wf-text-tertiary">消息 · AI 运行 · Token · 环境状态</span>
