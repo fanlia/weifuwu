@@ -5,7 +5,7 @@
 > createRoot + 事件流）。vdom2（本文档）为当前生产引擎（冻结中——bug 修复在 vdom3）。
 > 迁移路线图见仓库 `design/vdom3-migration-plan.md`。
 
-> ⚠️ **`weifuwu/client` 已并入 `weifuwu/ui-dom`**（`src/client/` 已删除）——本页 import 均用 `weifuwu/ui-dom`。前端运行时唯一入口是 **`weifuwu/ui-dom`**（UIRouter 纯路由 + uiServe 渲染运行时 + SSR/hydration），权威参考见 **[docs/frontend-ui-dom.md](frontend-ui-dom.md)**。
+> ⚠️ **`weifuwu/client` 已并入 `weifuwu/ui-dom`**（`src/client/` 已删除）——本页 import 均用 `weifuwu/ui-dom`。前端运行时唯一入口是 **`weifuwu/ui-dom`**（vdom3 精准事件流引擎：createRouter + createRoot——渲染全链路 `entity:action` 事件流），权威参考见 **[docs/frontend-ui-dom.md](frontend-ui-dom.md)**。
 
 > 以下为完整 API 参考，按需查阅。新手建议先阅读 README 的「核心概念」和「快速开始」。
 
@@ -25,31 +25,34 @@ esbuild.build({
 
 ---
 
-## 应用引导（UIRouter + uiServe）
+## 应用引导（vdom3 事件流引擎——createRouter）
 
 ```tsx
-import { UIRouter, uiServe } from 'weifuwu/ui-dom'
+import { createRouter } from 'weifuwu/ui-dom'
 
-const app = new UIRouter()
+// 中间件面展开（对齐后端 app.use 链——ctx 注入）
+let ctx: any = {}
+ctx = await api({ baseURL: '' })(ctx)
+ctx = await auth({ ... })(ctx)
+ctx = v3Toast()(ctx)
 
-// 注册中间件（ctx 注入）
-app.use(middleware1)
-app.use(middleware2)
-
-// 页面路由（handler = 异步组件）
-app.get('/', () => h(Home, {}))
-
-// 落地：客户端渲染（hydrate: true 收养 SSR HTML）
-const handle = uiServe(app, { root: '#root' })
+// 路由（RouteDef[]）+ 落地（事件流渲染）
+const handle = createRouter(
+  [
+    { path: '/', render: () => h(Home, {}) },
+    { path: '/users/:id', render: (params) => h(UserPage, { id: params.id }) },
+  ],
+  document.querySelector('#root')!,
+  { ctx },
+)
 ```
 
 | API | 说明 |
 |------|------|
-| `new UIRouter()` | 创建路由实例 |
-| `app.use(mw)` | 注册中间件（AppMiddleware / UIMiddleware） |
-| `app.get(path, handler)` / `use(prefix, sub)` / `notFound(handler)` | 页面路由 / 子路由树 / 404 |
-| `uiServe(app, { root, hydrate })` | 客户端落地（返回 handle，`handle.close()` 卸载） |
-| `app.ctx` | 当前 WfuiContext |
+| `createRouter(routes, root, { ctx })` | vdom3 路由：RouteDef[]（`{ path, render, layout? }`）+ 中间件面 ctx 注入 |
+| `handle.navigate(path)` / `refresh()` / `close()` | 导航 / 重渲染当前页 / 卸载 |
+| `ctx.route` | 当前路由 `{ path, params }`（对齐后端 ctx.params） |
+| `createRoot(vnode, root, { ctx })` | 无路由组件树挂载（`handle.ready` 首帧完成） |
 
 ---
 
@@ -94,10 +97,11 @@ const Home: Component<{}, ApiInjected & RouteInjected> = async (_init, ctx) => {
 }
 // 未声明的注入字段编译期报错——注入从"文档约定"变成"类型保证"
 
-const app = new UIRouter<{}>()
-  .use(api())                    // 注入 ctx.api
-  .use(toast())                  // 注入 ctx.toast
-uiServe(app, { root: '#root' })  // 类型累积完整（UIRouter<C & O>）
+// 中间件面展开 + createRouter（options.ctx 注入——类型由中间件函数累积）
+let ctx: any = {}
+ctx = api()(ctx)                 // 注入 ctx.api
+ctx = v3Toast()(ctx)             // 注入 ctx.toast
+createRouter(routes, root, { ctx })
 ```
 
 > 各中间件的注入接口：`api()` → `ApiInjected`、`auth()` → `AuthInjected`、`ws()` → `WsInjected`、`i18n()` → `I18nInjected`、`router()` → `RouteInjected`（均可从 `weifuwu/ui-dom` 导入）。

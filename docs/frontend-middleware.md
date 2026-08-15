@@ -1,45 +1,46 @@
 # 前端中间件与工具（weifuwu/ui-dom）
 
-> ⚠️ **`weifuwu/client` 已并入 `weifuwu/ui-dom`**——中间件（api/auth/ws/i18n）位于 `weifuwu/ui-dom`，前端运行时唯一入口为 `weifuwu/ui-dom`（UIRouter + uiServe），见 [frontend-ui-dom.md](frontend-ui-dom.md)。
+> ⚠️ **`weifuwu/client` 已并入 `weifuwu/ui-dom`**——中间件（api/auth/ws/i18n）位于 `weifuwu/ui-dom`，前端运行时唯一入口为 `weifuwu/ui-dom`（vdom3 事件流引擎：createRouter + createRoot），见 [frontend-ui-dom.md](frontend-ui-dom.md)。
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-## UIRouter — 前端路由
+## createRouter — 前端路由（vdom3）
 
 ```tsx
-import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
-import type { UIHandler } from 'weifuwu/ui-dom'
+import { createRouter, h } from 'weifuwu/ui-dom'
 
-const app = new UIRouter()
-app.get('/', () => h(Home, {}))
-app.get('/users', () => h(UserList, {}))
-app.get('/users/:id', (loc, ctx) => h(UserDetail, { id: ctx.params.id }))
-app.notFound(() => h(NotFound, {}))
-app.use(toast())                    // 中间件（ctx 注入）——app.use(mw)
+let ctx: any = {}
+ctx = v3Toast()(ctx)                  // 中间件面展开（ctx 注入——对齐后端 app.use）
 
-uiServe(app, { root: '#root' })     // 客户端落地（hydrate: true 收养 SSR HTML）
+const handle = createRouter(
+  [
+    { path: '/', render: () => h(Home, {}) },
+    { path: '/users', render: () => h(UserList, {}) },
+    { path: '/users/:id', render: (params) => h(UserDetail, { id: params.id }) },
+    { path: '*', render: () => h(NotFound, {}) },
+  ],
+  document.querySelector('#root')!,
+  { ctx },
+)
 ```
 
-### 嵌套布局（中间件两阶段）
+### 嵌套布局（RouteDef.layout——跨路由工厂不重跑）
 
 ```tsx
-const DashboardLayout: UIMiddleware = async (_loc, ctx, children) => {
+const DashboardLayout = async (page: any) => {
   let open = true
-  return async (loc, c) => {
-    const child = await children(loc, c)   // 子路由/嵌套路由内容
-    return h('div', { class: 'wf-row' },
-      h('aside', {}, '导航菜单'),
-      h('main', {}, child),
-    )
-  }
+  return h('div', { class: 'wf-row' },
+    h('aside', {}, '导航菜单'),
+    h('main', {}, page),   // 子路由内容（layout 包装——工厂复用——状态保持）
+  )
 }
-app.use(DashboardLayout)
+// { path: '/users', layout: DashboardLayout, render: () => h(UserList, {}) }
 ```
 
 ### 编程式导航
 
 ```tsx
-// 在任意组件/页面中（uiServe 注入）
+// 在任意组件/页面中（ctx.app——createRouter 注入）
 ctx.app?.navigate('/users/123?tab=profile')
 ```
 
@@ -51,28 +52,28 @@ ctx.app?.navigate('/users/123?tab=profile')
 | `ctx.route.query` | `Record<string, string>` | 查询参数 |
 | `ctx.app.navigate(path)` | `(string) => void` | 编程式导航 |
 
-| UIRouter API | 签名 | 说明 |
-|--------------|------|------|
-| `get(path, handler)` | `(string, UIHandler)` | 页面路由（handler = async 组件：`async (location, ctx) => vnode`） |
-| `use(prefix, sub)` / `use(mw)` | `(string, UIRouter) \| (mw)` | 子路由树挂载 / 中间件（ctx 注入） |
-| `notFound(handler)` | `(UIHandler)` | 404 页面 |
-| `mode` | `'history' \| 'hash'` | 路由模式（默认 history） |
+| RouteDef | 签名 | 说明 |
+|---------|------|------|
+| `path` | `string` | 路径（`:id` 参数 / `*` 通配） |
+| `render(params)` | `(params) => VNode` | 页面（params 注入——`ctx.route.params` 同源） |
+| `layout(page)` | `(VNode) => VNode` | 嵌套布局（跨路由工厂不重跑——状态保持） |
 
 | UIHandler | 类型 | 说明 |
 |-----------|------|------|
 | 签名 | `(location, ctx) => Promise<VNode> \| VNode` | 页面 = 异步组件（`ctx.data.get` 三场景；async 组件无需包装） |
-| 返回值 | `VNode \| null` | 数据结构（落地由 uiServe/ssrPage 决定） |
+| 返回值 | `VNode \| null` | 数据结构（落地由 createRouter 事件流渲染决定） |
 
 ---
 
 ## api — HTTP 客户端中间件
 
 ```tsx
-import { UIRouter, api, uiServe } from 'weifuwu/ui-dom'
+import { createRouter, h, api } from 'weifuwu/ui-dom'
 
-const app = new UIRouter()
-app.use(api({ baseURL: '/api' }))
-uiServe(app, { root: '#root' })
+let ctx: any = {}
+const root = document.querySelector('#root')!
+ctx = api({ baseURL: '/api' })(ctx)
+createRouter([], root, { ctx })
 
 // 在组件中使用
 async function loadUsers(ctx: WfuiContext) {
@@ -124,11 +125,12 @@ try {
 ## auth — 认证中间件
 
 ```tsx
-import { UIRouter, auth, uiServe } from 'weifuwu/ui-dom'
+import { createRouter, h, auth } from 'weifuwu/ui-dom'
 
-const app = new UIRouter()
-app.use(auth())
-uiServe(app, { root: '#root' })
+let ctx: any = {}
+const root = document.querySelector('#root')!
+ctx = auth()(ctx)
+createRouter([], root, { ctx })
 
 // 在组件中
 async function Profile(_props: {}, ctx: WfuiContext) {
@@ -176,11 +178,12 @@ await ctx.auth?.refresh()  // → boolean
 ## ws — WebSocket 客户端中间件
 
 ```tsx
-import { UIRouter, ws, uiServe } from 'weifuwu/ui-dom'
+import { createRouter, h, ws } from 'weifuwu/ui-dom'
 
-const app = new UIRouter()
-app.use(ws({ url: '/ws' }))
-uiServe(app, { root: '#root' })
+let ctx: any = {}
+const root = document.querySelector('#root')!
+ctx = ws({ url: '/ws' })(ctx)
+createRouter([], root, { ctx })
 
 // 发送消息
 ctx.ws?.send({ type: 'chat', body: 'hello' })
@@ -216,9 +219,10 @@ unsubscribe?.()
 ## i18n — 国际化中间件
 
 ```tsx
-import { UIRouter, i18n, uiServe } from 'weifuwu/ui-dom'
+import { createRouter, h, i18n } from 'weifuwu/ui-dom'
 
-const app = new UIRouter()
+let ctx: any = {}
+const root = document.querySelector('#root')!
 app.use(i18n({
     locale: 'zh-CN',
     messages: {
@@ -301,12 +305,13 @@ import { ErrorBoundary } from 'weifuwu/ui-dom'
 **① 命令式 `ctx.confirm()`（推荐，操作前询问）**
 
 ```tsx
-import { UIRouter, uiServe } from 'weifuwu/ui-dom'
+import { createRouter, h } from 'weifuwu/ui-dom'
 import { confirm } from 'weifuwu/components'
 
-const app = new UIRouter()
-app.use(confirm())
-uiServe(app, { root: '#root' })
+let ctx: any = {}
+const root = document.querySelector('#root')!
+ctx = confirm()(ctx)
+createRouter([], root, { ctx })
 
 // 任意代码中（组件事件、async 逻辑）
 async function handleDelete(ctx: WfuiContext) {
@@ -357,12 +362,13 @@ import { Confirm } from 'weifuwu/components'
 `ctx.toast()` 是 `<Toast>` 组件的全局命令式封装：任意代码中一行调用，自动消失、自动清理，无需宿主状态。
 
 ```tsx
-import { UIRouter, uiServe } from 'weifuwu/ui-dom'
+import { createRouter, h } from 'weifuwu/ui-dom'
 import { toast } from 'weifuwu/components'
 
-const app = new UIRouter()
-app.use(toast({ position: 'top-right', duration: 3000, max: 3 }))
-uiServe(app, { root: '#root' })
+let ctx: any = {}
+const root = document.querySelector('#root')!
+ctx = toast({ position: 'top-right', duration: 3000, max: 3 })(ctx)
+createRouter([], root, { ctx })
 
 // 任意代码中（组件事件、api 拦截器、WS 回调、定时器）
 ctx.toast?.('保存成功', 'success')

@@ -32,7 +32,7 @@ function compNameOf(v: VNode): string {
 }
 
 /** 树中按组件 _id 定位（组件级更新的定位——DFS——含组件输出 _child） */
-function findComponent(v: VNode | null | undefined, compId: string): VNode | null {
+export function findComponent(v: VNode | null | undefined, compId: string): VNode | null {
   if (v == null || typeof v !== 'object' || Array.isArray(v)) return null
   if ((v as VNode)._id === compId) return v as VNode
   // 组件输出（_child——组件的 childrenOf 不含输出——必须遍历）

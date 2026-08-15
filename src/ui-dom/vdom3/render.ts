@@ -419,7 +419,6 @@ function moveKeyedNodes(oldKids: VNodeChild[], newKids: VNodeChild[], el: Elemen
 
 /** 全 keyed 列表 diff：DOM 移动（MOVE 事件）+ 按 key 配对 patch + 新增/移除 */
 function patchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: Element): void {
-  console.log('[dbg-key] old:', oldKids.map((k) => (isVNode(k) ? String(k.key) : '?')).join(','), 'new:', newKids.map((k) => (isVNode(k) ? String(k.key) : '?')).join(','), 'elKids:', el.childNodes.length)
   const oldMap = new Map<string, VNode>()
   for (const k of oldKids) if (isVNode(k) && k.key != null) oldMap.set(k.key, k)
   // 新顺序移动 DOM（MOVE 事件——重排不重建）

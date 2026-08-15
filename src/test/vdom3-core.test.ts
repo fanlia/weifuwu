@@ -1976,3 +1976,31 @@ test('事件重绑防线：handler 变化重绑后点击只触发一次（remove
   assert.equal(clicks, 1, `重绑后点击只触发一次（实际 ${clicks}——旧监听残留会重复）`)
   document.body.removeChild(root)
 })
+
+test('路由页面下组件 ctx.render 组件级更新：props 剪枝不吞内部状态（count 闭包更新生效）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  // 页面 App 嵌套 Counter（props 不变——页面级刷新会被剪枝——组件级更新必须生效）
+  let count = 0
+  const Counter = async (_init: any, ctx: any) => {
+    return async (_props: any) =>
+      h('button', { id: 'cnt', onClick: () => { count++; ctx.ui.render() } }, [`count:${count}`])
+  }
+  const App = async (_init: any, _ctx: any) => async () => h('div', { id: 'page' }, [
+    h('div', {}, 'static'),
+    h(Counter, {}),
+  ])
+  createRouter([{ path: '/', render: () => h(App, {}) }], root, { initialPath: '/' })
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(root.querySelector('[id="cnt"]')?.textContent, 'count:0', '初始')
+  ;(root.querySelector('[id="cnt"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(root.querySelector('[id="cnt"]')?.textContent, 'count:1', '组件级更新（剪枝不吞内部状态）')
+  // 事件流：comp:render（Counter——组件级）——不是页面级全量
+  const renders = gs.events().filter((e) => e.entity === 'comp' && e.action === 'render')
+  assert.ok(renders.length >= 1, 'RENDER 事件（组件级更新）')
+  document.body.removeChild(root)
+})

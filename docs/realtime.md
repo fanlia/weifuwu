@@ -128,44 +128,44 @@ app.get('/blog/:slug', async (req, ctx) => {
 - `ctx.ui.ssrData(data)` 输出 `<script>window.__DATA__=...</script>`（JSON `<` 转义防 XSS）
 - 服务端 ctx shim：`$`（dirty no-op）、`ctx.data` 预取去重、`selfId` 请求级隔离
 
-### Hydration — 客户端收养服务端 HTML
+### Hydration — 客户端收养服务端 HTML（事件流形态）
 
-服务端 HTML + `window.__DATA__`（ctx.data 种子）到达客户端后，`mount(..., { hydrate: true })` **收养现有 DOM**（不重建、不闪跳），只接线事件/ref/$：
+服务端将 vnode 构建为**事件流**（`renderToEvents`）→ `eventsToHtml` 输出完整 HTML + `serializeEvents` 序列化进 `__DATA__`，客户端 `deserializeEvents` + `replay` **收养**（DOM = fold(事件流)——零 DOM 猜测、不重建、无闪跳）：
 
 ```ts
-import { UIRouter, uiServe } from 'weifuwu/ui-dom'
+import { createRouter, deserializeEvents, replay } from 'weifuwu/ui-dom'
 
-const app = new UIRouter()
-app.get('/blog/:slug', (loc, ctx) => h(BlogPage, { slug: ctx.params.slug }))
-uiServe(app, { root: '#root', hydrate: true })   // 容器已有服务端 HTML → 收养
+const root = document.querySelector('#root')!
+replay(deserializeEvents((window as any).__DATA__), root)  // 收养服务端 HTML（同构）
+createRouter(routes, root)                                  // 之后正常交互渲染
 ```
 
-- **游标收养**：元素/文本按位置匹配现有 DOM；tag 不匹配 → 局部替换；文本不一致 → 就地修正；服务端多余节点 → 收尾清理
-- **async 工厂 hydration**：工厂 `ctx.data.get` 从 `__DATA__` 同步命中（不重跑请求）→ 渲染与服务端一致 → 收养
-- hydration 后 `$`/dirty/事件全量可用（与纯 SPA 无差别）
+- **DOM = fold(事件流)**：初始 DOM + 事件序列 = 任意时刻 DOM——收养即回放（与服务端渲染完全同构）
+- **async 工厂 hydration**：工厂 `ctx.data.get` 从 `__DATA__` 同步命中（不重跑请求）→ 渲染与服务端一致
+- 收养后事件流全量可用（与纯 SPA 无差别）
 - 诚实裁剪：Portal 内容就地收养（不移动到 `#__wf_portal`）；渲染期非确定性（Date/random）会导致 mismatch（dev 警告）
 
-### 路由级 SSR（UIRouter 两端共享）
+### 路由级 SSR（routes 两端共享）
 
-同一份 UIRouter 路由定义，后端匹配即自动 SSR，无需手写 handler/模板/序列化：
+同一份 RouteDef[] 路由定义，后端构建事件流即自动 SSR，无需手写 handler/模板/序列化：
 
 ```tsx
-// router.ts —— 前后端共用
-import { UIRouter, h } from 'weifuwu/ui-dom'
+// routes.ts —— 前后端共用
+import { h } from 'weifuwu/ui-dom'
 
-export const app = new UIRouter()
-app.get('/blog/:slug', (loc, ctx) => h(BlogPage, { slug: ctx.params.slug }))
+export const routes = [{ path: '/blog/:slug', render: (params) => h(BlogPage, { slug: params.slug }) }]
 
-// server.ts —— ssrPage 服务端落地：完整 HTML + __DATA__ + styles
-import { ssrPage } from 'weifuwu/ui-dom'
-const { page } = await ssrPage(app, { url: '/blog/hello', styles: ['/components.css'] })
+// server.ts —— renderToEvents → eventsToHtml + serializeEvents（完整 HTML + __DATA__ + styles）
+import { renderToEvents, eventsToHtml, serializeEvents } from 'weifuwu/ui-dom'
+const events = await renderToEvents(routes[0].render({ slug: 'hello' }))
+const page = eventsToHtml(events)
 
-// client.ts —— uiServe 客户端收养（hydrate: true）
-uiServe(app, { root: '#root', hydrate: true })
+// client.ts —— deserializeEvents + replay 收养
+replay(deserializeEvents((window as any).__DATA__), root)
 ```
 
 - 组件工厂读 `ctx.params`（`/blog/:slug` → `ctx.params.slug`）——两端同源注入
-- `ssrPage` 选项：`styles`（stylesheet link）/ `title` / `lang` / `rootId`
+- SSR（事件流形态）：`renderToEvents` → `eventsToHtml` + `serializeEvents`——styles/title 由页面模板控制
 
 ### weifuwu/dev — 服务端直接跑 .tsx
 

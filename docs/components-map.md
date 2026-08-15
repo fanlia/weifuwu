@@ -212,4 +212,4 @@
 | **StatCard ⬆️** | 增强 | antd Statistic.Countdown | countdown 模式：剩余 HH:MM:SS + 结束回调（1s tick + 清理纪律） |
 
 > 三库 208 项（antd 84 / EP 74 / shadcn 50）→ 100% 覆盖（业务组件全对应；
-> 框架级 App/ConfigProvider/Teleport/Overlay 由 UIRouter+uiServe/createPortal/--wf-* token 内置）。
+> 框架级 App/ConfigProvider/Teleport/Overlay 由 createRouter/createRoot/createPortal/--wf-* token 内置）。

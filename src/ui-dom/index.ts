@@ -8,7 +8,7 @@
  * - 命令式挂载：mountCommand/unmountCommand（弹窗中间件在 components 各组件内部）
  *
  * 定稿架构（design/ui-architecture.md）：req = window.location，res = VNode，
- * uiServe = VDOM（落地）；handler = 异步组件；middleware = 两阶段 async。
+ * createRouter/createRoot = 事件流渲染落地；组件 = 两阶段异步组件。
  */
 
 export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts'

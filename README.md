@@ -28,7 +28,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 | 层 | 入口 | 能力 |
 |----|------|------|
 | 后端 | `weifuwu` | Trie 路由 / 中间件链 / serve / 自研 PG+Redis / SSR / GraphQL / WebSocket |
-| 前端 | `weifuwu/ui-dom` | **UIRouter（纯路由 + ctx 注入链）+ uiServe（渲染运行时）+ SSR/hydration**——handler=异步组件 / 中间件两阶段 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom，见 `docs/frontend-ui-dom.md`） |
+| 前端 | `weifuwu/ui-dom` | **vdom3 精准事件流引擎**——createRouter（路由）+ createRoot（挂载）+ 事件流（渲染本体：`entity:action` 统一命名、DOM = fold、可回放可断言）+ SSR（事件流序列化）；组件=两阶段异步组件 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom，见 `docs/frontend-ui-dom.md`） |
 | 组件 | `weifuwu/components` | 115 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
 | 样式 | `weifuwu/layout` | 66 布局原语 + 156 工具类 + 177 主题 Token，零自定义 CSS 文件 |
 | SaaS 地基 | 随包内置 | rateLimit / email / userSystem / messager / queue / ai → `ctx.*` 一行接入 |
@@ -104,7 +104,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **async 工厂组件** — `async (initProps, ctx) => (props) => Promise<VNode>`（weifuwu **唯一组件形态**——同步组件已不支持）：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`let` + `render()`）、render 输出视图。异步在工厂边界与 renderFn，数据经闭包注入，写数据像写同步代码。三条纪律见[核心概念 · async 组件](#核心概念)。
 
-**SPA/SSR/Hydration 统一透明** — 同一份路由定义（`UIRouter`）一个组件三场景自动适配：后端 `ssrPage(router, { url })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `uiServe(router, { root, hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
+**SPA/SSR/Hydration 统一透明** — 同一份路由定义（`createRouter`）一个组件三场景自动适配：后端将 vnode 构建为**事件流**（`renderToEvents`）→ `eventsToHtml` 输出完整 HTML + `serializeEvents` 序列化进 `__DATA__`，客户端 `deserializeEvents` + `replay` 收养（DOM = fold(事件流)——零 DOM 猜测、不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
 
 **AI 是一等公民** — 自研 OpenAI 兼容协议（`docs/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批 + embedding 向量化。后端 `ctx.ai` 一个入口：`chat()` / `stream()` / `agent()`（`stream(messages, { emit })` emitter 抽象——事件可接任意通道，`runToResult()` 结构化结果）/ `approve()` / `embed()` / `embedMany()`；前端 `ctx.ui.useChat()`（会话语义）+ `AiChat` 组件（标准对话界面）——流式 token / 工具调用卡 / 审批卡开箱即用，协议对页面完全透明，不用 ai-sdk。
 
@@ -126,16 +126,14 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 | 模式 | 适用场景 | 后端 | 客户端入口 |
 |------|---------|------|-----------|
-| **SPA** | 应用页（Dashboard、工具、后台） | HTML 外壳 | `uiServe(router, { root: '#root' })` |
-| **SSR + Hydration** | 内容页（博客、营销，需要 SEO/首屏） | `ssrPage(router)` 一行 | `uiServe(router, { root: '#root', hydrate: true })` |
+| **SPA** | 应用页（Dashboard、工具、后台） | HTML 外壳 | `createRouter(routes, root, { ctx })` |
+| **SSR + Hydration** | 内容页（博客、营销，需要 SEO/首屏） | `renderToEvents` → `eventsToHtml` + `serializeEvents` | `deserializeEvents` + `replay`（事件流收养） |
 
 ### 先写共享部分（两种模式都一样）
 
 ```tsx
-// routes.tsx —— 页面声明（前后端共用 UIRouter）
-import { UIRouter } from 'weifuwu/ui-dom'
-
-const app = new UIRouter()
+// routes.tsx —— 路由声明（createRouter——vdom3 事件流引擎）
+import { createRouter, h } from 'weifuwu/ui-dom'
 
 // async 组件（原生）：await 数据 → 返回视图（外层初始化，内层渲染）
 const Home = async (_init, ctx) => {
@@ -143,9 +141,7 @@ const Home = async (_init, ctx) => {
   return async (props) => <h1>{msg.msg}</h1>
 }
 
-app.get('/', async () => <Home />)   // handler = 异步组件
-
-export { app }
+export const routes = [{ path: '/', render: () => h(Home, {}) }]
 ```
 
 ### 模式 A：纯 SPA
@@ -173,47 +169,51 @@ serve(router, { port: 3000 })
 ```
 
 ```ts
-// src/client.ts —— 纯客户端渲染
-import { uiServe } from 'weifuwu/ui-dom'
-import { app } from './routes.tsx'
+// src/client.ts —— 纯客户端渲染（vdom3 事件流引擎）
+import { createRouter } from 'weifuwu/ui-dom'
+import { routes } from './routes.tsx'
 
-uiServe(app, { root: '#root' })   // 监听 location → 执行路由 → VDOM 落地
+createRouter(routes, document.querySelector('#root')!, { ctx })   // 监听 location → 匹配 → 事件流渲染
 ```
 
 ### 模式 B：SSR + Hydration（内容页/SEO）
 
-同一份 `router`、同一个组件，差异只在**后端加 `ssrPage` 一行、客户端加 `hydrate` 参数**：
+同一份 `routes`、同一个组件，差异只在**后端构建事件流 → HTML + 序列化事件，客户端回放**：
 
 ```ts
-// server.ts —— 完整版（与模式 A 的差异：ssrPage + 一条样式路由）
+// server.ts —— SSR：vnode → 事件流 → 完整 HTML + __DATA__（DOM = fold 不变量）
 import { serve, Router, ui, cors } from 'weifuwu'
-import { ssrPage } from 'weifuwu/ui-dom'
-import { app } from './routes.tsx'
+import { renderToEvents, eventsToHtml, serializeEvents } from 'weifuwu/ui-dom'
+import { routes } from './routes.tsx'
 
 const router = new Router()
 router.use(cors())
 router.use(ui())
 
-// 路由级 SSR：GET 匹配共享 router → 注入 ctx.params → await 组件工厂
-// → 完整 HTML + __DATA__ + bundle/styles 引用（无需手写页面 handler）
+// 路由级 SSR：匹配共享 routes → 构建 vnode → 事件流 → HTML + __DATA__ 序列化
 router.get('*', async (req, ctx) => {
-  const { page } = await ssrPage(app, { url: req.url ?? '/' })
-  return ctx.ui.html.unsafe(page)   // page 是完整 HTML（ssrPage 已序列化 __DATA__）——unsafe 防二次转义
+  const def = routes.find((r) => r.path === (req.url ?? '/'))
+  const events = await renderToEvents(def?.render({}) ?? null)   // 事件流（服务端真 fetch 数据）
+  const page = `<!doctype html><html><body><div id="root">${eventsToHtml(events)}</div>
+    <script>window.__DATA__=${serializeEvents(events)}</script>
+    <script src="/static/app.js"></script></body></html>`
+  return ctx.ui.html.unsafe(page)
 })
 
 router.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/client.ts'))
-router.get('/static/style.css', (req, ctx) => ctx.ui.css('./src/style.css'))
 router.get('/api/hello', () => Response.json({ msg: 'world' }))
 
 serve(router, { port: 3000 })
 ```
 
 ```ts
-// src/client.ts —— 与模式 A 的唯一差异：hydrate: true（收养服务端 HTML，无闪跳）
-import { uiServe } from 'weifuwu/ui-dom'
-import { app } from './routes.tsx'
+// src/client.ts —— 事件流回放收养（deserializeEvents + replay——零 DOM 猜测）
+import { createRouter, deserializeEvents, replay } from 'weifuwu/ui-dom'
+import { routes } from './routes.tsx'
 
-uiServe(app, { root: '#root', hydrate: true })
+const root = document.querySelector('#root')!
+replay(deserializeEvents((window as any).__DATA__), root)  // 收养服务端 HTML（无闪跳）
+createRouter(routes, root)                                  // 之后正常交互渲染
 ```
 
 ### 启动（两种模式都一样）
@@ -279,7 +279,7 @@ cd apps/agent-platform && npm run seed && npm run dev
   </script>
 
   <script type="module">
-    import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
+    import { createRouter, h } from 'weifuwu/ui-dom'
     import { Card, Button, Badge } from 'weifuwu/components'
 
     // 组件 = async (initProps, ctx) => (props) => Promise<VNode>（render-only：改状态后 ctx.ui.render()）
@@ -304,10 +304,11 @@ cd apps/agent-platform && npm run seed && npm run dev
         )
     }
 
-    // 路由 + 渲染：监听 location → 执行 handler → VDOM 落地
-    const app = new UIRouter()
-    app.get('/', () => h(Counter, {}))
-    uiServe(app, { root: '#root' })
+    // 路由 + 渲染（vdom3 事件流引擎：createRouter——监听 location → 匹配 → 事件流落地）
+    createRouter(
+      [{ path: '/', render: () => h(Counter, {}) }],
+      document.querySelector('#root')!,
+    )
   </script>
 </body>
 </html>
@@ -319,7 +320,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
-| `weifuwu/ui-dom` | `https://unpkg.com/weifuwu@latest/dist/ui-dom/index.js` | 前端运行时（UIRouter, uiServe, h, 状态管理等） |
+| `weifuwu/ui-dom` | `https://unpkg.com/weifuwu@latest/dist/ui-dom/index.js` | 前端运行时（createRouter, createRoot, h, 事件流, 状态管理等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 115 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 177 个主题 Token + 66 个布局原语 + 156 个工具类 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
@@ -339,8 +340,8 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu` | **redis** | Redis 客户端（自研 RESP2 协议）→ `ctx.redis` | Router, REDIS_URL |
 | `weifuwu/db` | **Memory 实现** | `createMemorySql()` / `MemoryRedis`——生产契约黑盒实现（开发/测试/单实例零数据库）；`MemoryRedisServer`/`MemoryPostgresServer`——进程内线协议服务器（协议测试零 docker） | — |
 | `weifuwu` | **ui** | SSR 渲染 + esbuild JS/CSS 动态编译 → `ctx.ui` | Router |
-| `weifuwu/ui-dom` | **uiServe** | 渲染运行时：监听 location → 执行路由 → VDOM 落地（`hydrate: true` 收养 SSR HTML） | UIRouter |
-| `weifuwu/ui-dom` | **ssrPage** | 路由级 SSR：匹配共享 router → 自动完整 HTML + `__DATA__` | Router, ui |
+| `weifuwu/ui-dom` | **createRouter** | vdom3 路由：RouteDef[] + 中间件面 ctx 注入（对齐后端 `app.use`）——监听 location → 匹配 → 事件流渲染 | — |
+| `weifuwu/ui-dom` | **SSR（事件流形态）** | `renderToEvents` → `eventsToHtml` + `serializeEvents`（DOM = fold——客户端 `replay` 收养） | Router, ui |
 | `weifuwu` | **rateLimit** | 限流中间件（fixed/sliding，redis 多实例原子）→ `ctx.limit` | Router, redis |
 | `weifuwu` | **email** | 邮件发送（Resend/SMTP 自研/自定义适配器）→ `ctx.email` | Router |
 | `weifuwu` | **userSystem** | 用户系统（scrypt 密码哈希 + 混合会话 + 多租户感知）→ `ctx.user` / `ctx.auth` / `ctx.tenantId` + `/api/auth/*` | Router, postgres |
@@ -354,14 +355,13 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu` | **ok / badRequest / …** | HTTP 响应辅助函数（ok/badRequest/... 等 12 个） | — |
 | `weifuwu` | **parseBody** | JSON 请求体安全解析 | — |
 | Router 方法 | **app.graphql()** | GraphQL 端点（支持 GraphiQL），Router 实例方法（无需单独 import） | Router |
-| `weifuwu/ui-dom` | **UIRouter** | 纯路由 + ctx 注入链（`use` 中间件累积类型，对齐后端 `app.use`）；handler=异步组件 | — |
-| `weifuwu/ui-dom` | **uiServe** | 渲染运行时：监听 location → 执行路由 → VDOM diff/patch；`hydrate: true` 收养 SSR HTML | UIRouter |
-| `weifuwu/ui-dom/vdom3` | **vdom3 引擎**（转正中） | 下一代渲染（vnode + stream——事件流可回放/可逆）；`createRouter` + `createRoot` | vdom3 |
+| `weifuwu/ui-dom` | **createRouter / createRoot** | vdom3 事件流引擎：路由（RouteDef[] + ctx 注入）/ 挂载（组件树）——渲染全链路 `entity:action` 事件流（DOM = fold——可记录/回放/断言） | — |
+| `weifuwu/ui-dom` | **事件流原语** | `stream` / `ev` / `evKey` / `replay` / `eventsOf` / `expectEventSequence`——渲染可观测/可断言 | — |
 | `weifuwu/ui-dom` | **async 组件** | async 函数即组件（与同步同签名）；数据走 ctx.data 三场景（三条纪律见[核心概念](#核心概念)） | — |
-| `weifuwu/ui-dom` | **ctx.data** | 数据管道：SSR 预取 / hydration 命中 / SPA fetch（`ctx.data.get`） | uiServe |
+| `weifuwu/ui-dom` | **ctx.data** | 数据管道：SSR 预取 / hydration 命中 / SPA fetch（`ctx.data.get`） | — |
 | `weifuwu/ui-dom` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | — |
 | `weifuwu/ui-dom` | **i18n** | 国际化中间件（运行时切换语言） | — |
-| `weifuwu/ui-dom` | **ssrPage / serializeData** | 服务端渲染：SSR HTML + `__DATA__` 序列化（`ctx.params` 两端同源） | — |
+| `weifuwu/ui-dom` | **renderToEvents / eventsToHtml / serializeEvents** | 服务端渲染：vnode → 事件流 → HTML + `__DATA__` 序列化（客户端 `replay` 收养） | — |
 | `weifuwu/ui-dom` | **useChat / AiChat 原语** | AI 会话（流式/工具调用/HITL） | — |
 | `weifuwu/ui-dom` | **事件原语** | `usePopup`（统一弹窗能力层）/ `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [docs/mobile.md](docs/mobile.md)） | — |
 | `weifuwu/components` | **113 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/ui-dom |
@@ -376,7 +376,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | 任务 | 用 | 位置 |
 |------|-----|------|
 | 起 HTTP 服务 + 路由 | `serve(app)` + `new Router()` + `app.get/post/...` | [docs/server.md](docs/server.md) |
-| 渲染页面（SPA / SSR+hydrate） | `ui()` + `ssrPage(router)`；`uiServe(router, { root, hydrate })` | [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) · [docs/frontend.md](docs/frontend.md) |
+| 渲染页面（SPA / SSR） | `createRouter(routes, root, { ctx })`；SSR = `renderToEvents` → `eventsToHtml` + `replay`（事件流形态） | [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) · [docs/frontend.md](docs/frontend.md) |
 | 数据持久化 | `postgres()` → `` ctx.sql`SELECT *` `` · `redis()` → `ctx.redis` · **`sql.query`**（Query Language AST 双后端） | [docs/data.md](docs/data.md) |
 | 零数据库开发/测试 | `createMemorySql()` / `MemoryRedis`——契约同真库、替换成本为零 | [docs/data.md](docs/data.md) |
 | 数据管道（SSR 预取/hydration/SPA） | `ctx.data.get(key)` + async 组件 | [docs/frontend.md](docs/frontend.md) |
@@ -404,7 +404,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | **UIHandler**（路由） | `async (location, ctx) => VNode` | ✅ 整体 | 每次路由变化执行 |
 | **Component**（唯一形态） | `async (initProps, ctx) => (props) => Promise<VNode>` | ✅ 工厂 + renderFn | mount 一次 + render 每次；同步组件已不支持（类型强制 Promise） |
 
-异步只在两个边界——路由 handler（整页）和组件工厂（数据声明）+ renderFn（强制异步）。渲染器按「返回值 instanceof Promise」统一判别：主路径 `buildVNode` async 预构建（await 全部工厂，兄弟并行）→ 原子落地（无**中间态**占位、无补全回调——注意：数组内 false/null 的静态诊断占位 `<!--wf-hole-->` 是另一回事，见「VDOM 输出透明」）；运行时首次挂载的 async 组件同样在 buildVNode 阶段 await；骨架屏 `uiServe({ loading })` + `handle.ready`。
+异步只在两个边界——路由 handler（整页）和组件工厂（数据声明）+ renderFn（强制异步）。渲染器按「返回值 instanceof Promise」统一判别：主路径 `buildVNode` async 预构建（await 全部工厂，兄弟并行）→ 原子落地（无**中间态**占位、无补全回调——注意：数组内 false/null 的静态诊断占位 `<!--wf-hole-->` 是另一回事，见「VDOM 输出透明」）；运行时首次挂载的 async 组件同样在 buildVNode 阶段 await；骨架屏：预置骨架屏 HTML → 首帧原子替换 + `handle.ready`。
 ### 两阶段组件（新手必读：为什么是两层）
 
 组件 = `async (initProps, ctx) => (props) => Promise<VNode>`——**外层 = 初始化（只执行一次，可 await 数据），内层 = 渲染（每次状态/props 变化时执行，强制异步）**。类比：外层是对象的构造函数，内层是它的 render 方法。
@@ -430,15 +430,15 @@ const Counter = async (_init, ctx) => {
        app.get('/users', (req, ctx) => { ctx.sql`SELECT *` })
        // ctx 已注入 ctx.sql
 
-前端:  const router = new UIRouter()
+前端:  const router = createRouter(routes, root, { ctx })
        router.use(api({ baseURL: '/api' }))
        router.use(auth())
        router.get('/users', async (location, ctx) => h(UsersPage, {}))
-       uiServe(router, { root: '#root' })
+       // createRouter = 监听 location → 匹配 → 事件流渲染落地
        // ctx 已注入 ctx.api, ctx.auth
 ```
 
-前端 req = `window.location`（原生对象，不包装），res = `VNode`，`uiServe` = VDOM 落地——与后端 `Request → Response`、`serve(router)` 完全同构。
+前端 req = `window.location`，res = `VNode`，`createRouter` = 事件流渲染落地——与后端 `Request → Response`、`serve(router)` 完全同构。
 
 ### 状态管理
 
@@ -483,10 +483,10 @@ const UserProfile = async (_init, ctx) => {
 | | SPA | SSR + Hydration |
 |---|---|---|
 | 适用 | 应用页（后台、工具、Dashboard） | 内容页（博客、营销，需要 SEO/首屏） |
-| 后端 | HTML 外壳 | `ssrPage(router, { url })` 一行（自动完整 HTML + `__DATA__`） |
-| 客户端 | `uiServe(router, { root: '#root' })` | `uiServe(router, { root: '#root', hydrate: true })` |
+| 后端 | HTML 外壳 | `renderToEvents` → `eventsToHtml` + `serializeEvents`（完整 HTML + `__DATA__`） |
+| 客户端 | `createRouter(routes, root, { ctx })` | `deserializeEvents` + `replay`（事件流收养——DOM = fold） |
 
-**怎么选**：默认 SPA；需要 SEO 或首屏即内容时用 SSR。两种模式可混合——一个 app 内 `ssrPage` 匹配共享 router，未匹配 `next()` 走普通 handler。
+**怎么选**：默认 SPA；需要 SEO 或首屏即内容时用 SSR。两种模式可混合——SSR 走共享 routes，未匹配走普通 handler。
 
 ### Closeable 接口
 
@@ -515,8 +515,8 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 
 | 文档 | 内容 |
 |------|------|
-| [docs/frontend.md](docs/frontend.md) | 前端核心：应用引导（UIRouter+uiServe）/ 组件模型 / 异步组件 / 状态管理 / 条件与列表 / ref / 类型（weifuwu/client 已并入 ui-dom） |
-| [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) | **ui-dom**：UIRouter 纯路由 + uiServe 渲染运行时 + ctx 注入链 + components 复用 + SSR/hydration（前端唯一运行时——weifuwu/client 已删除） |
+| [docs/frontend.md](docs/frontend.md) | 前端核心：应用引导（createRouter/createRoot——vdom3 事件流）/ 组件模型 / 异步组件 / 状态管理 / 条件与列表 / ref / 类型（weifuwu/client 已并入 ui-dom） |
+| [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) | **ui-dom**：vdom3 精准事件流引擎（createRouter/createRoot + 事件流）——components 复用 + SSR（事件流形态）（前端唯一运行时） |
 | [docs/frontend-middleware.md](docs/frontend-middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
 | [docs/components.md](docs/components.md) | 组件库（113 个组件 + 使用示例 + 组件列表） |
 | [docs/layout.md](docs/layout.md) | 布局系统：66 个布局原语 + 156 个工具类 + 177 个主题 Token |

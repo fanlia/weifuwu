@@ -6,10 +6,11 @@
  * 全链路事件化（location→DOM 的完整因果链可回放）。
  */
 
-import type { VNode, V3Ctx } from './types.ts'
+import type { VNode, V3Ctx, PortalVNode } from './types.ts'
 import { buildVNode } from './build.ts'
-import { mount, patch } from './render.ts'
+import { mount, patch, removeNodeWithLifecycle, removePortalContent, isPortalNode } from './render.ts'
 import { stream, ev } from './events.ts'
+import { findComponent } from './root.ts'
 
 /** 布局包裹（跨路由复用——layout 函数引用稳定 → patch 同位置同类型复用——
  *  工厂不重跑——内部状态（折叠/高亮）保持——vdom2 布局层语义） */
@@ -70,6 +71,10 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
   const makePageCtx = (): V3Ctx =>
     Object.assign(Object.create(options?.ctx ?? {}), {
       render: () => { void updatePage() },
+      // 组件级精准更新（build.ts compCtx 的 componentRender 读取——页面下组件
+      // ctx.render/ui.render 只重跑该组件——不经过页面级 build（props 剪枝会吞
+      // 组件内部状态变化——count 闭包更新后 props 未变 → 剪枝复用旧输出））
+      _componentRender: (compId: string) => { void updateComponent(compId) },
     }) as V3Ctx
 
   /** 重渲染当前页面（页面组件 ctx.render——组件实例复用 + patch） */
@@ -89,6 +94,42 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
         v._child = built
         patch(oldOut as VNode | null, built, root)
       }
+    } finally {
+      busy = false
+      if (queue != null) { const q = queue; queue = null; void runOp(q) }
+    }
+  }
+
+  /** 组件级精准更新（页面内组件 ctx.render——与 createRoot 同语义：
+   *  findComponent 定位 → 只重跑该组件 renderFn + patch 其输出——兄弟/父零执行） */
+  async function updateComponent(compId: string): Promise<void> {
+    if (busy) { queue = { type: 'refresh' }; return } // 与导航/页面刷新串行
+    if (!current) return
+    busy = true
+    try {
+      const comp = findComponent(current, compId)
+      if (!comp || typeof comp.type !== 'function' || !comp._render) return
+      stream.emit(ev('comp', 'render', comp._id!, { name: compNameOf(comp) }))
+      const output = await comp._render(comp.props)
+      const oldOut = comp._child ?? null
+      const built = output ? await buildVNode(output, pageCtx, oldOut ?? undefined) : null
+      comp._child = built
+      const parent = (comp.el?.parentNode ?? root) as HTMLElement
+      if (oldOut && built) {
+        patch(oldOut, built, parent)
+      } else if (built) {
+        mount(built, parent)
+      } else if (oldOut || comp.el) {
+        if (oldOut && isPortalNode(oldOut)) {
+          removePortalContent(oldOut as PortalVNode)
+        } else {
+          const oldEl = (oldOut && oldOut.el) || comp.el
+          if (oldEl && oldEl.parentNode === parent) {
+            removeNodeWithLifecycle(oldEl, parent, oldOut as VNode | null)
+          }
+        }
+      }
+      comp.el = built?.el ?? null
     } finally {
       busy = false
       if (queue != null) { const q = queue; queue = null; void runOp(q) }
