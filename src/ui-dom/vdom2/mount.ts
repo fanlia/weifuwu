@@ -102,21 +102,23 @@ export function createRenderer(opts: {
           return
         }
       }
+      // 构建中守卫（前置——必须在 renderFn 之前）：组件正在被构建（首帧/父树构建期
+      // buildComponent 的 await 链中）时，事件驱动的 doRenderOne（WS 回包/fetch 完成/
+      // store 通知等）会命中本组件（_render 已设）。若先执行 renderFn + buildVNode
+      // 再检查：
+      //   - renderFn 重跑（读最新状态）+ 输出再构建 → 子树组件再次 mount（新 id）→
+      //     孤儿实例（真实事故：agent-platform 首帧 Chat 输出被重复构建 3 次——
+      //     ChatInput/FilesSection 工厂各执行 3 次，registry 残留多代实例）
+      //   - 状态变更已写入闭包/let——跳过后由下次渲染呈现（语义与后置检查等价）
+      if (comp._lifecycle === 'building') {
+        emit({ session, machine: 'render', nodeId: comp._id ?? null, component: compName(comp), from: 'IDLE', event: 'PARENT', to: 'SKIP_BUILDING', payload: () => ({ lifecycle: comp._lifecycle }), level: 'debug', ts: Date.now() })
+        return
+      }
       // renderFn 强制异步：await 数据 → 输出 vnode 树
       const output = await comp._render!(comp.props)
       const newChild = (await buildVNode(output, ctx, comp._child, registry)) ?? null
       const oldChild = comp._child
       comp._child = newChild as VNode | VNode[] | null
-      // 构建中自渲染（组件 renderFn 期间调用 ctx.ui.render()——真实事故：DemoAnchor 在
-      // buildVNode 期间 computeActive 触发 onAnchorChange → ctx.ui.render()）：此时
-      // _parentNode/_refNode 皆空，直接渲染会落到 rootEl → 整树 append 到 #root 成为
-      // stray 兄弟节点。
-      // **跳过**：父树构建尚未完成，本次渲染会带上最新状态，自渲染的变更由下次渲染呈现
-      // （状态变更已写入闭包/let——renderFn 重跑时读到）。
-      if (comp._lifecycle === 'building') {
-        emit({ session, machine: 'render', nodeId: comp._id ?? null, component: compName(comp), from: 'IDLE', event: 'PARENT', to: 'SKIP_BUILDING', payload: () => ({ lifecycle: comp._lifecycle }), level: 'debug', ts: Date.now() })
-        return
-      }
       // 定位渲染容器（render 调度状态机——显式分派 + 事件）：
       //  _parentNode 优先（树内组件）；_refNode.parentNode fallback。
       //  **rootEl 只属于根组件**（_rootVNodeId 匹配）：非根组件无 _parentNode/_refNode =

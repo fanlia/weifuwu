@@ -127,3 +127,46 @@ test('孤儿实例（构建期重复构建残留）doRenderOne 基于脱节旧�
     fsState.loading = false
   }
 })
+
+// ── 根因测试：doRenderOne 的 building 守卫必须在 renderFn 之前 ──
+// 真实事故（agent-platform 首帧 Chat 输出被重复构建 3 次）：组件工厂完成后（_render
+// 已设）、父树构建完成前（lc=building），事件驱动渲染（WS 回包/fetch 完成/store 通知/
+// 定时器）触发 doRenderOne——旧实现先执行 renderFn + buildVNode（子树组件再次 mount、
+// 新 id——孤儿实例）才发现 building 跳过 patch。守卫前置：renderFn 前检查 building →
+// 直接跳过（状态在闭包，下次渲染读到——语义等价）。
+
+let buildChildMounts = 0
+function SlowChild() {
+  return async () => {
+    buildChildMounts++
+    await new Promise((r) => setTimeout(r, 30)) // 挂起构建——事件驱动渲染在 building 期间触发
+    return h('div', { class: 'slow-child' }, 'child')
+  }
+}
+function BuildingParent(_init: any, ctx: any) {
+  return async () => {
+    // 组件内部 ctx.ui.render()（childCtx 绑自身 id）——构建期触发 doRenderOne(自身)
+    setTimeout(() => { void ctx.ui.render() }, 0)
+    return h('div', { class: 'bp' }, [h(SlowChild, {})])
+  }
+}
+
+test('构建期自渲染：doRenderOne 命中 building 组件 → 守卫前置阻止子树重复构建', async () => {
+  const { ctx, root } = setup()
+  buildChildMounts = 0
+  // ctx.ui.render 必须接真实 renderer（mountAsyncComponent 的 childUi.render 转发到 ui.render）
+  const renderer = createRenderer({ registry: ctx.__registry, ctx, rootEl: root })
+  const origRender = ctx.ui.render
+  ctx.ui.render = (ids?: string[]) => renderer.render(ids)
+  try {
+    const tree = h(BuildingParent, {})
+    await buildVNode(tree, ctx, null, ctx.__registry)
+    const node = renderValue(tree, ctx, ctx.browser)
+    if (node) root.appendChild(node)
+    await new Promise((r) => setTimeout(r, 100)) // 等待 setTimeout 触发的 doRenderOne + 构建完成
+    assert.equal(buildChildMounts, 1, `构建期自渲染不得重复构建子树（旧实现：工厂执行 ${buildChildMounts} 次——孤儿实例来源）`)
+    assert.equal(root.querySelectorAll('.slow-child').length, 1, '子树单实例')
+  } finally {
+    ctx.ui.render = origRender
+  }
+})
