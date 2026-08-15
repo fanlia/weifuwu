@@ -114,6 +114,11 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
       const t = ctx.browser?.query(props.steps[current].target) as HTMLElement | null
       if (t !== targetEl) {
         targetEl = t
+        if (t) {
+          // 打开/步骤切换：目标带进视口（引导标准行为——highlight/bubble 可见；
+          // 仅目标变化时滚动——滚动跟随的 renderFn 重跑（t 不变）不触发——防死循环）
+          try { t.scrollIntoView({ block: 'center' }) } catch { /* 无 scrollIntoView 环境（SSR） */ }
+        }
         popup.refresh()
       }
     }

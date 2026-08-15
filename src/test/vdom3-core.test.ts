@@ -2004,3 +2004,39 @@ test('路由页面下组件 ctx.render 组件级更新：props 剪枝不吞内�
   assert.ok(renders.length >= 1, 'RENDER 事件（组件级更新）')
   document.body.removeChild(root)
 })
+
+test('usePopup 滚动跟随：scroll → rAF 重算坐标 → 组件重渲染（portal 重读 pos 更新 style）', async () => {
+  const { createV3Ui } = await import('../ui-dom/vdom3/ui.ts')
+  const h = (await import('../ui-dom/vdom3/jsx.ts')).h
+  let renders = 0
+  const ui = createV3Ui('popup-t1', () => { renders++ }, () => {})
+  const el = document.createElement('button')
+  document.body.appendChild(el)
+  // jsdom rect 恒 0——mock 真实 rect（滚动前后位置变化）
+  el.getBoundingClientRect = () => ({ top: 100, bottom: 130, left: 50, right: 150, width: 100, height: 30, x: 50, y: 100, toJSON: () => ({}) }) as DOMRect
+  let open = true
+  const popup = ui.usePopup({
+    el: () => el,
+    isOpen: () => open,
+    setOpen: (v) => { open = v },
+    trigger: 'manual',
+  })
+  const panel = popup.portal(h('div', {}, 'x'))
+  assert.ok(panel, 'portal 打开')
+  // portal vnode 的 props.children 含面板（无 mask 时单元素）
+  const panelNode = Array.isArray((panel as any).props.children) ? (panel as any).props.children[0] : (panel as any).props.children
+  const style1 = panelNode.props.style
+  assert.equal(style1.top, '136px', '初始定位（rect.bottom 130 + gap 6）')
+  // 滚动：锚点下移（页面滚动后视口坐标变化）→ scroll 事件 → rAF → 重算 + 组件重渲染
+  el.getBoundingClientRect = () => ({ top: 300, bottom: 330, left: 50, right: 150, width: 100, height: 30, x: 50, y: 300, toJSON: () => ({}) }) as DOMRect
+  const before = renders
+  window.dispatchEvent(new (window as any).Event('scroll'))
+  await new Promise((r) => setTimeout(r, 60)) // rAF 节流后重算
+  assert.ok(renders > before, '滚动后组件重渲染（跟随触发）')
+  // 组件重渲染后 portal() 重读 pos → 新坐标
+  const panel2 = popup.portal(h('div', {}, 'x'))
+  const panelNode2 = Array.isArray((panel2 as any).props.children) ? (panel2 as any).props.children[0] : (panel2 as any).props.children
+  const style2 = panelNode2.props.style
+  assert.equal(style2.top, '336px', '滚动后坐标跟随（rect.bottom 330 + gap 6）')
+  document.body.removeChild(el)
+})

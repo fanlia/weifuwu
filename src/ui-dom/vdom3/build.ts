@@ -8,6 +8,7 @@
 import type { VNode, VNodeChild, Component, PortalVNode, V3Ctx } from './types.ts'
 import { Fragment, Portal, childrenOf } from './types.ts'
 import { stream, ev, nextNodeId } from './events.ts'
+import { createClientBrowser } from '../browser.ts'
 import { createV3Ui } from './ui.ts'
 
 /** 组件卸载钩子注册表（组件 id → 清理函数——COMP_UNMOUNT 时调用） */
@@ -82,6 +83,11 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
       const compCtx = Object.assign(Object.create(ctx), {
         render: componentRender,
         onUnmount: (fn: () => void) => { unmountHooks.set(compId, fn) },
+        // 浏览器环境抽象：默认注入（createClientBrowser 惰性 typeof 防御——
+        // SSR 下 document undefined → null/no-op——组件 36 处 ctx.browser 消费
+        // 无需各自 fallback（Tour 曾因 ctx.browser 缺失 → query 返回 undefined →
+        // targetEl 永不赋值 → rect 恒 0 → 引导高亮定位失效）
+        browser: createClientBrowser(),
         ui: createV3Ui(compId, componentRender, (fn) => { unmountHooks.set(compId, fn) }),
       }) as V3Ctx
       const renderFn = await (v.type as Component)(v.props, compCtx)

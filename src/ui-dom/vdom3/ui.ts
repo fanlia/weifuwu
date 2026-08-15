@@ -19,6 +19,7 @@ import { useMedia, useBreakpoint, useVisualViewport, useInView, useScrollPositio
 import { useGlobalKey, useDrag, useDragDrop } from '../hooks/events.ts'
 import { useChat } from '../hooks/chat.ts'
 import { createClientBrowser } from '../browser.ts'
+import { createPopupTrackerSystem } from '../popup-tracker.ts'
 
 /** 组件 ctx.ui（vdom2 兼容面——V3Ui 类型定义在 types.ts（hooks 契约继承）） */
 import type { V3Ui } from './types.ts'
@@ -26,36 +27,32 @@ export type { V3Ui } from './types.ts'
 
 // ── 模块级共享状态（HookEnv 契约：mediaRegistry/popupTrackers 等跨组件共享） ──
 const mediaRegistry = new Map<string, import('../hooks/types.ts').MediaRegistryItem>()
-const popupTrackers = new Map<string, import('../hooks/types.ts').PopupTracker>()
-const scrollTrackers = new Map<string, import('../hooks/types.ts').ScrollTracker>()
 const warned = new Set<string>()
 const uncontrolledValues = new Map<string, unknown>()
 const inputStates = new Map<string, { keyword: string; selectedLabel: string }>()
 const openStates = new Map<string, boolean>()
 
-/** 惰性全局 scroll/resize 监听（幂等）——popup 定位跟随（usePopupPosition/usePopup 依赖） */
-let popupListenersReady = false
-function ensurePopupListeners(): void {
-  if (popupListenersReady) return
-  popupListenersReady = true
-  const browser = createClientBrowser()
-  const schedule = () => {
-    for (const tracker of popupTrackers.values()) {
-      try {
-        if (tracker.isOpen()) {
-          const el = tracker.getEl()
-          const rect = el?.getBoundingClientRect()
-          if (rect && rect.width > 0) tracker.compute(rect)
-        }
-      } catch { /* 定位失败隔离 */ }
+// ── 弹层/滚动跟踪系统（popup-tracker.ts 完整版：rAF 节流 + 重算后 renderByIds
+//  ——滚动/resize 跟随的渲染触发：坐标更新 → 组件重渲染 → portal() 重读 pos → DOM style
+//  更新。vdom2 时代 createPopupTrackerSystem(renderByIds) 同机制——vdom3 复用） ──
+const componentRenders = new Map<string, () => void>() // compId → 组件级渲染调度（createV3Ui 注册）
+const trackerSystem = createPopupTrackerSystem((ids) => {
+  // 精准刷新目标组件（滚动跟随——只重渲染受影响的弹层组件，兄弟零执行）
+  for (const id of ids) {
+    const render = componentRenders.get(id)
+    if (render) {
+      try { render() } catch { /* 渲染失败隔离 */ }
     }
   }
-  browser.addEventListener?.('scroll', schedule, { capture: true, passive: true } as AddEventListenerOptions)
-  browser.addEventListener?.('resize', schedule)
-}
+})
+const popupTrackers = trackerSystem.popupTrackers as Map<string, import('../hooks/types.ts').PopupTracker>
+const scrollTrackers = trackerSystem.scrollTrackers as Map<string, import('../hooks/types.ts').ScrollTracker>
+const ensurePopupListeners = trackerSystem.ensurePopupListeners
 
 /** 组装 HookEnv + ctx.ui（组件实例级——id 绑定；共享态模块级） */
 export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn: () => void) => void): V3Ui {
+  // 滚动/resize 跟随：注册组件级渲染回调（trackerSystem.renderByIds → 精准刷新）
+  componentRenders.set(compId, render)
   const env: HookEnv = {
     selfId: () => compId,
     render: (ids?: string[]) => {
@@ -64,7 +61,7 @@ export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn:
     },
     browser: createClientBrowser(),
     onUnmount: (fn) => {
-      onUnmountCb(() => fn(compId))
+      onUnmountCb(() => { fn(compId); componentRenders.delete(compId) })
       return () => { /* 退订由卸载钩子管理 */ }
     },
     registry: { idRegistry: new Map() },

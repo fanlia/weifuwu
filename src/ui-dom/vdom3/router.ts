@@ -63,7 +63,9 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
   let current: VNode | null = null
   let pageVnode: VNode | null = null // 当前页面组件 vnode（组件引用——重渲染定位）
   let busy = false
-  type Op = { type: 'nav'; path: string } | { type: 'refresh' }
+  type Op = { type: 'nav'; path: string } | { type: 'refresh' } | { type: 'comp'; id: string }
+  // 组件级 dirty 多槽（滚动高频多弹层跟随——busy 时各自排队，互不挤占）
+  const dirtyComps = new Set<string>()
   let queue: Op | null = null
 
   // 页面组件 ctx：render = 重渲染当前页（组件工厂收到——交互驱动）+ 注入中间件面
@@ -103,7 +105,10 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
   /** 组件级精准更新（页面内组件 ctx.render——与 createRoot 同语义：
    *  findComponent 定位 → 只重跑该组件 renderFn + patch 其输出——兄弟/父零执行） */
   async function updateComponent(compId: string): Promise<void> {
-    if (busy) { queue = { type: 'refresh' }; return } // 与导航/页面刷新串行
+    // 渲染中再触发 → dirty 排队组件级补跑（不得降级为页面级 refresh——页面级
+    // build 的 props 剪枝会吞组件内部状态变化——滚动跟随丢失的根因；
+    // 多槽 dirtyComps——多个弹层组件滚动跟随互不挤占）
+    if (busy) { dirtyComps.add(compId); return }
     if (!current) return
     busy = true
     try {
@@ -132,12 +137,18 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
       comp.el = built?.el ?? null
     } finally {
       busy = false
-      if (queue != null) { const q = queue; queue = null; void runOp(q) }
+      if (dirtyComps.size > 0) {
+        // 补跑排队组件（多槽——逐个补——滚动收敛）
+        const next = dirtyComps.values().next().value as string
+        dirtyComps.delete(next)
+        void updateComponent(next)
+      } else if (queue != null) { const q = queue; queue = null; void runOp(q) }
     }
   }
 
   function runOp(op: Op): void {
     if (op.type === 'nav') void handleRoute(op.path)
+    else if (op.type === 'comp') void updateComponent(op.id)
     else void updatePage()
   }
 
