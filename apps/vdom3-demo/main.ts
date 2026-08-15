@@ -17,6 +17,45 @@ let count = 0
 const items = ['a', 'b', 'c']
 let show = true
 
+// ── TodoApp（真实感页面：异步加载 + 表单 + CRUD + 过滤） ──
+let todoDb = [
+  { id: 't1', text: '设计 vdom3', done: true },
+  { id: 't2', text: '写测试', done: false },
+  { id: 't3', text: '浏览器验证', done: false },
+]
+let todoN = 10
+const fetchTodos = () => new Promise<any[]>((res) => setTimeout(() => res(todoDb.map((t) => ({ ...t }))), 30))
+
+const TodoApp = async (_init: any, ctx: any) => {
+  const todos = await fetchTodos()
+  let input = ''
+  let filter: 'all' | 'active' | 'done' = 'all'
+  const rerender = () => ctx.render()
+  return async () => {
+    const visible = todos.filter((t) => (filter === 'all' ? true : filter === 'active' ? !t.done : t.done))
+    return h('div', { id: 'todo-app' }, [
+      h('h2', {}, `待办 (${todos.length})`),
+      h('div', {}, [
+        h('input', { id: 'new-todo', placeholder: '输入待办…', value: input, onInput: (e: any) => { input = e.target.value; rerender() } }),
+        h('button', { id: 'add-btn', onClick: () => { if (input.trim()) { todos.push({ id: `t${++todoN}`, text: input.trim(), done: false }); input = ''; rerender() } } }, '添加'),
+      ]),
+      h('div', {}, [
+        h('button', { id: 'f-active', onClick: () => { filter = 'active'; rerender() } }, '未完成'),
+        h('button', { id: 'f-all', onClick: () => { filter = 'all'; rerender() } }, '全部'),
+      ]),
+      visible.length === 0
+        ? h('div', { id: 'empty' }, '没有待办项')
+        : h('ul', {}, visible.map((t) =>
+            h('li', { key: t.id, class: t.done ? 'done' : '' }, [
+              h('input', { type: 'checkbox', checked: t.done, onChange: () => { t.done = !t.done; rerender() } }),
+              h('span', {}, t.text),
+              h('button', { class: 'del', onClick: () => { todos.splice(todos.findIndex((x) => x.id === t.id), 1); rerender() } }, '×'),
+            ]),
+          )),
+    ])
+  }
+}
+
 // ── 页面组件 ──
 const Home = async (_init: any, ctx: any) => {
   const rerender = () => ctx.render()
@@ -46,6 +85,7 @@ const Detail = async (_init: any, _ctx: any) => {
   return async (props: any) => h('div', { id: 'detail-page' }, [
     h('h2', {}, `vdom3 demo — detail:${props.params?.id ?? '?'}`),
     h('button', { id: 'goto-list', onClick: () => router.navigate('/list') }, '← /list'),
+    h('button', { id: 'goto-todos', onClick: () => router.navigate('/todos') }, '→ /todos'),
   ])
 }
 
@@ -55,4 +95,5 @@ const router = createRouter([
   { path: '/', render: () => h(Home, {}) },
   { path: '/list', render: () => h(List, {}) },
   { path: '/detail/:id', render: (params) => h(Detail, { params }) },
+  { path: '/todos', render: () => h(TodoApp, {}) },
 ], root)

@@ -30,14 +30,17 @@ app.get('/app.js', async (): Promise<Response> => {
   return new Response(js, { headers: { 'Content-Type': 'application/javascript' } })
 })
 
-app.get('/', (): Response => new Response(`<!DOCTYPE html>
+const page = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><title>vdom3 demo</title></head>
 <body>
   <div id="root"></div>
   <script type="module" src="/app.js"></script>
 </body>
-</html>`, { headers: { 'Content-Type': 'text/html' } }))
+</html>`
+app.get('/', (): Response => new Response(page, { headers: { 'Content-Type': 'text/html' } }))
+// SPA fallback（深链刷新——路由由客户端接管）
+app.get('*', (): Response => new Response(page, { headers: { 'Content-Type': 'text/html' } }))
 
 serve(app, { port: 3200 })
 console.log('vdom3 demo: http://localhost:3200')
