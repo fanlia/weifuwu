@@ -286,14 +286,15 @@ export async function handleNewMessage(
       const content = result.content
       if (!content) continue
       // AI 执行验证（2026-12 幻觉治理）：HITL 非流式路径同样校验声称产物
+      const taskStartedAt = Date.now() // 任务开始时间（产物验证区分新旧）
       let verifiedContent = content
       try {
         const { extractArtifactPaths, verifyArtifacts, buildVerifyMark } = await import('./artifact-verify.ts')
         const claimed = extractArtifactPaths(content)
         if (claimed.length > 0) {
-          const { verified, missing } = await verifyArtifacts(sql, String(departmentId), claimed)
-          if (verified.length > 0 || missing.length > 0) {
-            verifiedContent = content + buildVerifyMark(verified, missing)
+          const { verified, missing, stale } = await verifyArtifacts(sql, String(departmentId), claimed, taskStartedAt)
+          if (verified.length > 0 || missing.length > 0 || stale.length > 0) {
+            verifiedContent = content + buildVerifyMark(verified, missing, stale)
           }
         }
       } catch { /* 验证失败不阻断 */ }
@@ -382,6 +383,8 @@ async function runAgentStreamForAgent(
 ): Promise<void> {
   const { sql } = ctx
   const isExternalMsg = !!initialMsgId
+  // 2026-12：任务开始时间（产物验证区分新旧——旧文件不算「已验证」）
+  const taskStartedAt = Date.now()
   // P1-3：最近一次工具调用的 args（write/edit 文件变动广播用——工具名→args 映射）
   const lastToolArgs = new Map<string, Record<string, unknown>>()
   const lastToolArgsOf = (name: string): Record<string, unknown> | null => lastToolArgs.get(name) ?? null
@@ -550,11 +553,11 @@ async function runAgentStreamForAgent(
       const { extractArtifactPaths, verifyArtifacts, buildVerifyMark } = await import('./artifact-verify.ts')
       const claimed = extractArtifactPaths(accumulatedContent)
       if (claimed.length > 0) {
-        const { verified, missing } = await verifyArtifacts(sql, String(departmentId), claimed)
-        if (verified.length > 0 || missing.length > 0) {
-          const mark = buildVerifyMark(verified, missing)
+        const { verified, missing, stale } = await verifyArtifacts(sql, String(departmentId), claimed, taskStartedAt)
+        if (verified.length > 0 || missing.length > 0 || stale.length > 0) {
+          const mark = buildVerifyMark(verified, missing, stale)
           accumulatedContent = accumulatedContent + mark
-          emit.emit({ type: 'wf:verify', messageId: msgId, verified, missing })
+          emit.emit({ type: 'wf:verify', messageId: msgId, verified, missing, stale })
           await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`.catch(() => {})
         }
       }

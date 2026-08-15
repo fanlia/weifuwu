@@ -55,7 +55,8 @@ async function main() {
 
 
   // ── 数据库 ──────────────────────────────────────────────
-  const pg = postgres({ max: 30 }) // 连接池：10 并发 AI 执行（每任务 2+ SQL 连接）——默认 10 会被占满（pool acquire timeout 事故）
+  // 主池：10 并发 AI 执行（每任务 2+ SQL 连接）+ 常规请求——acquireTimeoutMs 防池满无限排队（卡住）
+  const pg = postgres({ max: 50, acquireTimeoutMs: 10_000 })
   app.use(pg)
 
   // ── 请求日志（结构化 JSON 行 + 请求 id——可观测性基础；pg 之后——ctx.sql 已注入） ──
@@ -354,7 +355,9 @@ async function main() {
     // 三层模型：生命周期由 SandboxManager 驱动（DB 单一事实源）——
     // 启动立即 reconcile 一轮（恢复状态/孤儿清理），然后周期收敛
     const { manager } = await import('./src/sandbox/manager.ts')
-    manager.init(pg.sql)
+    // 事件日志独立连接池（不抢主池——并发 AI 执行风暴时诊断写入不阻塞业务查询）
+    const eventsPg = postgres({ max: 3, acquireTimeoutMs: 5_000 })
+    manager.init(pg.sql, eventsPg.sql)
     manager.startReaper()
     void manager.reconcile().then((s) => {
       console.log(`[agent-platform] 沙盒 reconcile 首轮完成：started=${s.started} stopped=${s.stopped} terminated=${s.terminated} 孤儿清理=${s.orphans}`)
@@ -1469,11 +1472,13 @@ async function main() {
       const BASE = process.env.PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3000}`
       void (async () => {
         const BATCH = 3
+        const BATCH_GAP_MS = 10_000 // 批间 10s（连接池 50 + acquireTimeout 防线已增强——旧 45s 是池满事故的保守设计）
         let dispatched = 0
         for (let i = 0; i < ROLES.length; i += BATCH) {
           const batch = ROLES.slice(i, i + BATCH)
+          console.log(`[launch] 第 ${i / BATCH + 1} 批派单：${batch.join('、')}`)
           await Promise.allSettled(batch.map(async (name) => {
-            const content = `@${name} 请填写问卷 ${BASE}/demo-survey?s=${encodeURIComponent(name)} 并按你的人设作答提交。完成后把作答结果写入工作目录 survey-result.json，并执行 agent-browser close 关闭浏览器。`
+            const content = `@${name} 【新任务】请重新打开问卷 ${BASE}/demo-survey?s=${encodeURIComponent(name)} 并完整填写提交（这是新一轮填写任务——即使工作目录已有旧的 survey-result.json 也要重新填写并覆盖更新它）。完成后把本轮作答结果写入工作目录 survey-result.json（覆盖旧文件），并执行 agent-browser close 关闭浏览器。`
             const dispatch = () => handleNewMessageStream(ctx, String(deptMap.get(name)), senderId, content, '')
             try { await dispatch(); dispatched++ } catch (err: any) {
               console.error(`[launch] 派单失败 ${name}:`, err?.message ?? err)
@@ -1484,7 +1489,7 @@ async function main() {
             }
           }))
           if (i + BATCH < ROLES.length) {
-            await new Promise((r) => setTimeout(r, 45_000)) // 批次间隔：等前批执行（浏览器任务错峰）
+            await new Promise((r) => setTimeout(r, BATCH_GAP_MS))
           }
         }
         console.log(`[launch] 派单完成：${dispatched}/${ROLES.length} 个角色（并发独立沙盒）`)

@@ -34,6 +34,7 @@ function buildSurveyPrompt(p) {
   return `${p.prompt}
 
 【问卷填写任务（模拟数据收集）】
+⚠️ 执行纪律：这是真实浏览器任务——你必须**实际调用 agent-browser 工具**完成填写（open/snapshot/fill/select/check/submit），禁止只回复计划不执行；执行失败要重试，绝不假装完成。
 1. 用 agent-browser 打开问卷：agent-browser open "${SURVEY_URL}?s=${encodeURIComponent(p.name)}"
 2. agent-browser snapshot 读取题目与控件 ref——逐题作答（fill 文本 / select 下拉 / check 勾选 / click 单选与提交）
 3. 按你的${p.roleLabel}作答：评分与反馈符合你的身份
@@ -69,6 +70,14 @@ async function main() {
   const agents = await api('/api/agents', { headers: auth })
   const existingAgents = new Map(agents.agents.map((a) => [a.name, a]))
 
+  // 「问卷调研」部门——用户在部门里发消息（@全员 或 @角色）让大家填写（自然使用路径）
+  let hubDeptId = existingDepts.get('问卷调研')
+  if (!hubDeptId) {
+    const d = await api('/api/departments', { method: 'POST', headers: auth, body: JSON.stringify({ name: '问卷调研', auto_manager: false }) })
+    hubDeptId = d.department.id
+    existingDepts.set('问卷调研', hubDeptId)
+  }
+
   let created = 0
   for (const p of PERSONAS) {
     // 1) 角色部门（每角色独立部门 = 独立沙盒——并发填写）
@@ -87,20 +96,29 @@ async function main() {
         system_prompt: buildSurveyPrompt(p),
         allow_file_tools: true, allow_command_exec: true, allow_network: true,
         human_in_the_loop: false,
+        // 执行归属：角色在自己的独立部门干活（在问卷调研被 @ 时工具走自己的沙盒——并发）
+        department_id: deptId,
       } })
       agent = a.agent ?? a
       existingAgents.set(p.name, agent)
+    } else if (!agent.department_id) {
+      // 存量角色（无 department_id）——补挂执行归属部门
+      const updated = await api(`/api/agents/${agent.id}`, { method: 'PUT', headers: auth, body: { department_id: deptId } })
+      agent = updated.agent ?? agent
     }
-    // 3) 入组
+    // 3) 入组：角色自己的部门 + 问卷调研（用户发消息的入口）
     await api(`/api/departments/${deptId}/members`, { method: 'POST', headers: auth, body: JSON.stringify({ agent_id: agent.id }) })
       .catch((e) => console.log(`  ⚠️ 入组失败 ${p.name}: ${e.message}`))
+    await api(`/api/departments/${hubDeptId}/members`, { method: 'POST', headers: auth, body: JSON.stringify({ agent_id: agent.id }) })
+      .catch((e) => console.log(`  ⚠️ 入问卷调研失败 ${p.name}: ${e.message}`))
     created++
-    console.log(`✅ ${p.name}（${p.roleLabel}）——部门=${deptId.slice(0, 8)} agent=${String(agent.id).slice(0, 8)}`)
+    console.log(`✅ ${p.name}（${p.roleLabel}）——角色部门=${deptId.slice(0, 8)} agent=${String(agent.id).slice(0, 8)} 已入「问卷调研」`)
   }
 
   console.log(`\n完成：${created} 个角色部门 + agent（每角色独立沙盒——并发填写）`)
   console.log(`问卷页：${SURVEY_URL}`)
-  console.log(`派单：node --env-file=.env scripts/survey-launch.mjs`)
+  console.log(`\n【让大家填写问卷（自然路径）】`)
+  console.log(`进入「问卷调研」部门 → 发消息 @全员 请填写问卷——10 个角色同时响应（各自独立沙盒并发）`)
   console.log(`汇总：node --env-file=.env scripts/survey-summary.mjs`)
 }
 

@@ -33,36 +33,45 @@ export async function verifyArtifacts(
   sql: Sql,
   departmentId: string,
   paths: string[],
-): Promise<{ verified: string[]; missing: string[] }> {
+  taskStartedAt?: number,
+): Promise<{ verified: string[]; missing: string[]; stale: string[] }> {
   const verified: string[] = []
   const missing: string[] = []
-  if (paths.length === 0) return { verified, missing }
+  const stale: string[] = []
+  if (paths.length === 0) return { verified, missing, stale }
   try {
     const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
     const [dept] = await sql`SELECT workspace_path FROM departments WHERE id = ${departmentId}`
     const ws = await resolveDepartmentWorkspace(departmentId, dept?.workspace_path, true)
-    if (!ws) return { verified, missing }
-    const { access } = await import('node:fs/promises')
+    if (!ws) return { verified, missing, stale }
+    const { access, stat } = await import('node:fs/promises')
     const { join, resolve } = await import('node:path')
     const wsRoot = resolve(ws)
     for (const p of paths) {
       const abs = resolve(join(ws, p))
       if (abs !== wsRoot && !abs.startsWith(wsRoot + '/')) continue // 越界忽略
       try {
-        await access(abs)
-        verified.push(p)
+        const st = await stat(abs)
+        // 2026-12 修复：区分新旧产物——文件 mtime 早于任务开始 = 旧文件（本轮未更新——
+        // 曾把旧 survey-result.json 误判「已验证」掩盖 AI 未干活）
+        if (taskStartedAt && st.mtimeMs < taskStartedAt) {
+          stale.push(p)
+        } else {
+          verified.push(p)
+        }
       } catch {
         missing.push(p)
       }
     }
   } catch { /* 验证失败不阻断 */ }
-  return { verified, missing }
+  return { verified, missing, stale }
 }
 
 /** 验证标记（追加到 AI 回复末尾——Markdown 渲染） */
-export function buildVerifyMark(verified: string[], missing: string[]): string {
+export function buildVerifyMark(verified: string[], missing: string[], stale: string[] = []): string {
   const parts: string[] = []
   if (verified.length > 0) parts.push(`✅ 产物已验证：${verified.join('、')}`)
+  if (stale.length > 0) parts.push(`⚠️ 声称的产物是旧文件（本轮未更新）：${stale.join('、')}——请确认是否实际重新生成`)
   if (missing.length > 0) parts.push(`⚠️ 声称的产物未找到：${missing.join('、')}——请确认是否实际生成`)
   return parts.length > 0 ? `\n\n---\n${parts.join('\n')}` : ''
 }

@@ -70,6 +70,8 @@ type Sql = any // weifuwu Sql 类型（消费侧依赖契约类型——运行�
 
 export class SandboxManager {
   private sql: Sql | null = null
+  /** 2026-12：事件日志独立连接池（不抢主池——10 角色并发 exec 风暴时事件写入不占 AI 执行连接） */
+  private eventsSql: Sql | null = null
   private exe: DockerSandbox
   private opts: ManagerOptions
   private timer: NodeJS.Timeout | null = null
@@ -81,16 +83,18 @@ export class SandboxManager {
   }
 
   /** 启动注入 DB 句柄（server.ts 初始化时调用；幂等） */
-  init(sql: Sql): void {
+  init(sql: Sql, eventsSql?: Sql): void {
     this.sql = sql
+    this.eventsSql = eventsSql ?? sql
     // 2026-12 可观测性：executor exec 事件 → sandbox_events（诊断链）
     this.exe.onExecEvent = (sandboxId, type, detail) => this.logEvent(sandboxId, null, type, detail)
   }
 
   /** 事件日志（2026-12 可观测性——fire-and-forget，不阻塞主流程） */
   private logEvent(sandboxId: string, appId: string | null, type: string, detail?: string): void {
-    if (!this.sql) return
-    void this.sql`
+    const db = this.eventsSql ?? this.sql
+    if (!db) return
+    void db`
       INSERT INTO sandbox_events (sandbox_id, app_id, type, detail)
       VALUES (${sandboxId}, ${appId ?? null}, ${type}, ${detail ?? null})
     `.catch(() => {})

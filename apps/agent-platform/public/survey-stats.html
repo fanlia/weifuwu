@@ -45,7 +45,6 @@
       let bumpTick = 0                 // 计数跳动动画触发
       let connected = false
       let online = { count: 0, sources: [] }   // 在线填写者
-      let launching = false                     // 一键触发中
 
       const refresh = (s) => {
         count = s.count ?? count
@@ -102,17 +101,7 @@
               ),
             ),
             h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
-              h(Button, { variant: 'primary', size: 'sm', disabled: launching,
-                  onClick: async () => {
-                    launching = true; ctx.ui.render()
-                    try {
-                      const res = await fetch('/demo-survey/launch', { method: 'POST' })
-                      const r = await res.json()
-                      alert(`已派单 ${r.sent} 个角色填写（${(r.roles ?? []).slice(0, 3).join('、')}…）——观察上方实时进度`)
-                    } catch (e) { alert('派单失败：' + e.message) }
-                    launching = false; ctx.ui.render()
-                  } },
-                launching ? '派单中...' : '🚀 一键 10 角色填写'),
+              h('span', { style: { fontSize: '12px', color: 'var(--wf-color-text-tertiary)' } }, '让 AI 填写：进入「问卷调研」部门发消息 @全员——10 个角色同时响应（各自独立沙盒并发）'),
               connected
                 ? h(Badge, { variant: 'success' }, '● 实时')
                 : h(Badge, { variant: 'warning' }, '连接中...'),
