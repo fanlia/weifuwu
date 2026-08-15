@@ -21,6 +21,9 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
   // （注册表方案：render-only 模型下 useExternal 的 render([id]) 对动态子组件不可靠）
   const reloadCb = () => { if (!wsOpenFile) void loadWsList(wsPath) }
   onFilesReload(reloadCb)
+  // 退订（组件卸载/重建时清理——模块级注册表不累积：多代实例时旧回调不再触发
+  // loadWsList（fetch 浪费）；实测 onFilesReload 只注册不退订 → Set 累积）
+  ctx.ui.onUnmount?.(() => { offFilesReload(reloadCb) })
 
   async function loadWsList(path = '') {
     wsLoading = true; rerender()
