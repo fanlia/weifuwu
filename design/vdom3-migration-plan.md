@@ -32,10 +32,13 @@
 
 ## 3. 阶段计划（每阶段：内容 / 验收 / 风险）
 
-### 阶段 0：差距冻结（1 天）
-- hooks 依赖矩阵：27 种 ×（引擎机制依赖 / 纯浏览器封装）——确定 shim 实现顺序
-- vdom2 语义清单：占位法（三层一致性）/x2y 状态机/selfId/audit 规则——vdom3 等价物映射
-- **验收**：design/vdom3-migration-plan.md 能力矩阵冻结；无未识别差距
+### 阶段 0：差距冻结（1 天）✅ 完成（依赖矩阵已实证）
+- **hooks 依赖矩阵（实证结论）**：27 种 hooks 对 vdom2 引擎 import = **0**——只依赖 `HookEnv` 接口
+  （12 字段：selfId/render/browser/onUnmount/registry/mediaRegistry/popupTrackers/scrollTrackers/
+  isMounting/warned/uncontrolledValues/inputStates）+ 纯浏览器能力（clampToViewport/computeFixedPosRect）
+  + `createPortal/h`（vnode.ts——**唯一引擎耦合点**——阶段 1 的 portal 等价物）
+- **结论**：shim 面 = 实现 HookEnv 12 字段（多数已有或简单）+ vdom3 createPortal——hooks 零改动
+- **验收**：能力矩阵冻结；无未识别差距
 - **风险**：低（盘点工作）
 
 ### 阶段 1：vdom3 引擎补齐（3-5 天）
