@@ -52,6 +52,9 @@ ROUTE_CHANGE(path, params) → COMP_MOUNT(页面) → NODE_CREATE/TEXT_CREATE
 | **update 串行 + dirty 合并** | 同 tick 多变更 → 两次 async update 并发基于初始树 patch → childNodes 索引错位 → 结构灾难（列表丢失） | `updating` 标记 + `dirty` 合并（渲染中触发标记、完成后补跑一次） |
 | **事件绑定 `__v3evt` 单次** | createNode 未设标记 → patchProps 每次重复绑定 onClick → 点击触发多次（count/列表错乱） | 创建与 patch 统一 `__v3evt` 检查 |
 | **scheduler 循环上限** | vdom2 pending 死循环教训（前车之鉴） | MAX_ITERATIONS 截断 + 报错 |
+| **路由页面必须注入 ctx.render** | createRouter 用空 ctx（`{}`）→ 页面组件点击抛 TypeError（浏览器 console 抓出） | router 注入 pageCtx（render = updatePage——复用实例重渲染 + patch；busy/queue 扩展为 Op 类型串行） |
+| **受控 input value 必须设 property** | setAttribute('value') 不更新输入框（浏览器显示旧值） | createNode/patchProps 双路径 `el.value = String(nv)` 特判 |
+| **createRoot 必须提供 handle.ready** | 应用/测试需知道首帧完成（工厂 await 时序） | 首帧完成 Promise（buildVNode + mount 后 resolve） |
 | **NodeRegistry 文本 WeakMap** | 文本节点无 data-v3-id → 事件流 id 丢失 → replay 无法定位 | WeakMap 双向映射 |
 | **jsdom id 缓存怪癖** | 动态 setAttribute('id') 后 querySelector('#id') 失效 | 测试用属性选择器 `[id="x"]` |
 

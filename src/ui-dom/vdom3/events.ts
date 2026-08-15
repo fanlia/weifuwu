@@ -8,14 +8,22 @@
 import type { EventStream, V3Event } from './types.ts'
 
 export function createEventStream(max = 20000): EventStream {
-  const events: V3Event[] = []
-  let uid = 0
+  // 环形缓冲（head/tail 指针——溢出不 shift——O(1) emit）
+  const buf: V3Event[] = []
+  let head = 0
+  let len = 0
+  const at = (i: number): V3Event => buf[(head + i) % max]
+  const set = (i: number, ev: V3Event): void => { buf[(head + i) % max] = ev }
   return {
     emit(ev: V3Event): void {
-      events.push(ev)
-      if (events.length > max) events.shift()
+      if (len < max) { set(len, ev); len++ }
+      else { set(0, ev); head = (head + 1) % max }
     },
-    events(): V3Event[] { return [...events] },
+    events(): V3Event[] {
+      const out: V3Event[] = new Array(len)
+      for (let i = 0; i < len; i++) out[i] = at(i)
+      return out
+    },
     inverse(ev: V3Event): V3Event | null {
       switch (ev.type) {
         case 'INSERT':
@@ -32,7 +40,7 @@ export function createEventStream(max = 20000): EventStream {
           return null
       }
     },
-    reset(): void { events.length = 0 },
+    reset(): void { head = 0; len = 0 },
   }
 }
 

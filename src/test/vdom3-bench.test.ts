@@ -13,6 +13,22 @@ import { h, mount, patch, stream } from '../ui-dom/vdom3/index.ts'
 
 before(setupJsdom)
 
+test('bench：事件流容量保护（环形 vs 线性 shift——长会话不退化）', async () => {
+  const { createEventStream } = await import('../ui-dom/vdom3/events.ts')
+  const N = 50000
+  const ring = createEventStream(2000)
+  const t0 = performance.now()
+  for (let i = 0; i < N; i++) ring.emit({ type: 'NODE_CREATE', id: `n${i}`, tag: 'div', ts: i })
+  const ringMs = performance.now() - t0
+  assert.equal(ring.events().length, 2000, '容量保护（保留最近 2000）')
+  const linear: any[] = []
+  const t1 = performance.now()
+  for (let i = 0; i < N; i++) { linear.push({ type: 'NODE_CREATE', id: `n${i}`, tag: 'div', ts: i }); if (linear.length > 2000) linear.shift() }
+  const linearMs = performance.now() - t1
+  console.log(`[bench] ring: ${ringMs.toFixed(1)}ms vs linear-shift: ${linearMs.toFixed(1)}ms (${N} emits, cap 2000)`)
+  assert.ok(ringMs < linearMs, `环形更快（${ringMs.toFixed(1)} < ${linearMs.toFixed(1)}）`)
+})
+
 function time(fn: () => void, iterations = 1): number {
   const t0 = performance.now()
   for (let i = 0; i < iterations; i++) fn()

@@ -726,3 +726,19 @@ test('路由：页面组件交互（ctx.render 重渲染当前页）——点击
   router.close()
   document.body.removeChild(root)
 })
+
+// ── 事件流容量保护：环形缓冲（溢出只保留最近 max——O(1) emit） ──
+
+test('事件流：环形缓冲——溢出保留最近 max 条（最旧丢弃）+ 顺序正确', async () => {
+  const { createEventStream } = await import('../ui-dom/vdom3/events.ts')
+  const s = createEventStream(5)
+  for (let i = 1; i <= 8; i++) s.emit({ type: 'NODE_CREATE', id: `n${i}`, tag: 'div', ts: i })
+  const evs = s.events()
+  assert.equal(evs.length, 5, '容量 5（保留最近 5）')
+  assert.deepEqual(evs.map((e: any) => e.id), ['n4', 'n5', 'n6', 'n7', 'n8'], '最旧 3 条丢弃——顺序正确')
+  s.reset()
+  assert.equal(s.events().length, 0, 'reset 清空')
+  // reset 后可复用
+  s.emit({ type: 'NODE_CREATE', id: 'x', tag: 'span', ts: 1 })
+  assert.equal(s.events().length, 1, 'reset 后继续记录')
+})
