@@ -1437,3 +1437,25 @@ test('style 对象 → cssText（camelCase → kebab-case——[object Object] �
   assert.ok(el.getAttribute('style')?.includes('background-color:red'), '多属性')
   document.body.removeChild(root)
 })
+
+test('SVG 命名空间：svg/path 用 createElementNS（viewBox 大小写保留——Icon 失效回归）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', {}, [
+      h('svg', { viewBox: '0 0 24 24', class: 'wf-icon' }, [
+        h('path', { d: 'M12 5v14' }),
+        h('circle', { cx: '12', cy: '12', r: '10' }),
+      ]),
+    ])
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  const svg = root.querySelector('svg') as SVGSVGElement
+  assert.ok(svg, 'svg 渲染')
+  assert.equal(svg.namespaceURI, 'http://www.w3.org/2000/svg', 'SVG 命名空间（非 HTML 元素）')
+  assert.ok(svg.getAttribute('viewBox')?.includes('0 0 24 24'), 'viewBox 大小写保留（camelCase）')
+  const path = svg.querySelector('path')
+  assert.equal(path?.namespaceURI, 'http://www.w3.org/2000/svg', 'path 也在 SVG 命名空间')
+  document.body.removeChild(root)
+})

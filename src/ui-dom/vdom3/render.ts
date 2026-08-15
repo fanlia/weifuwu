@@ -11,6 +11,13 @@
 import type { VNode, VNodeChild, PortalVNode } from './types.ts'
 import { Fragment, Portal, childrenOf } from './types.ts'
 
+/** SVG 元素集合（createElementNS——SVG 命名空间：属性大小写敏感（viewBox 等）） */
+const SVG_TAGS = new Set([
+  'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'defs',
+  'use', 'text', 'tspan', 'ellipse', 'title', 'desc', 'marker', 'symbol',
+  'linearGradient', 'radialGradient', 'stop', 'mask', 'pattern', 'clipPath',
+])
+
 /** Portal 判定（symbol 恒等 + props.portalKey——兼容 vdom2 组件产出的 Portal vnode） */
 export function isPortalNode(v: unknown): v is PortalVNode {
   if (v == null || typeof v !== 'object') return false
@@ -84,8 +91,12 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     vnode.el = container
     return first ?? container
   }
-  // native
-  const el = document.createElement(vnode.type as string)
+  // native（SVG 命名空间——Icon/图表组件的 svg/path 等：HTML createElement 的
+  // svg 无 SVG 语义（属性解析小写化——viewBox 失效/不渲染））
+  const tag = vnode.type as string
+  const el = SVG_TAGS.has(tag)
+    ? document.createElementNS('http://www.w3.org/2000/svg', tag)
+    : document.createElement(tag)
   const id = nextNodeId()
   el.setAttribute('data-v3-id', id)
   registry.register(id, el)
