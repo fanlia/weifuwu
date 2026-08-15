@@ -288,6 +288,19 @@ export class SandboxManager {
     }
   }
 
+  /** P3-3：状态计数（/api/metrics 暴露——DB 快照） */
+  async statusCounts(): Promise<Record<string, number>> {
+    if (!this.sql) return {}
+    try {
+      const rows = await this.sql`SELECT status, COUNT(*)::int as n FROM sandboxes GROUP BY status`
+      const out: Record<string, number> = {}
+      for (const r of rows ?? []) out[String((r as any).status)] = Number((r as any).n ?? 0)
+      return out
+    } catch {
+      return {}
+    }
+  }
+
   /** 终止（rm + terminated_at；记录保留 historyRetentionDays） */
   async terminate(id: string, appId: string): Promise<void> {
     if (!this.sql) return
@@ -381,7 +394,7 @@ export class SandboxManager {
 
   /** 对齐 DB 期望状态与 docker 实际状态（启动恢复 + 周期收敛） */
   async reconcile(): Promise<{ created: number; started: number; stopped: number; terminated: number; orphans: number }> {
-    const stats = { created: 0, started: 0, stopped: 0, terminated: 0, orphans: 0 }
+    const stats = { created: 0, started: 0, stopped: 0, terminated: 0, orphans: 0, error: 0 }
     if (!this.sql || this.reconciling) return stats
     this.reconciling = true
     try {
@@ -412,6 +425,7 @@ export class SandboxManager {
         if (this.exe.isBusy(row.id)) continue // busy 豁免——长任务不回收
         const lastUsed = row.last_used_at ? new Date(row.last_used_at).getTime() : new Date(row.created_at).getTime()
         if (row.status === 'running' || row.status === 'error' || row.status === 'requested') {
+          if (row.status === 'error') stats.error++
           // 超龄重建（清瞬态残留）
           const created = new Date(row.created_at).getTime()
           if (row.status === 'running' && this.opts.maxLifetimeMs > 0 && now - created > this.opts.maxLifetimeMs && row.mode !== 'ephemeral') {
@@ -458,6 +472,10 @@ export class SandboxManager {
       `.catch(() => {})
     } finally {
       this.reconciling = false
+    }
+    // P3-2 告警：环境 error 持续 → 日志 warn（可观测性）
+    if (stats.error > 0) {
+      console.warn(`[agent-platform] 沙盒 reconcile：${stats.error} 个环境处于 error 状态`)
     }
     return stats
   }

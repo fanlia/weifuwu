@@ -472,12 +472,14 @@ async function runAgentStreamForAgent(
             const relPath = argsJson?.path ? String(argsJson.path) : ''
             if (relPath && !relPath.startsWith('..')) {
               try {
-                ctx.msg.broadcast(String(departmentId), {
-                  type: 'file_updated',
-                  file: relPath,
-                  agentId: agent.id,
-                  agentName: agent.name,
-                })
+                if (ctx.msg?.broadcast) {
+                  ctx.msg.broadcast(String(departmentId), {
+                    type: 'file_updated',
+                    file: relPath,
+                    agentId: agent.id,
+                    agentName: agent.name,
+                  })
+                }
               } catch { /* 广播失败不影响 */ }
             }
           }

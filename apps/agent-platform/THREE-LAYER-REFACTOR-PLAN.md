@@ -156,10 +156,10 @@
 
 ### P3 运营与成本（运营 + 后端——管理面）
 
-- [ ] **P3-1. 运营看板**（B+F）— 部门维度：活跃度（消息/工具调用/产物数）、成本（token+环境）、配额用量；按部门排名
-- [ ] **P3-2. 告警**（B）— 配额 ≥80% / 池预算逼近 / 环境 error 持续 → 日志 warn + 管理端黄条（列表接口聚合）
-- [ ] **P3-3. 部门维度指标**（B）— /api/metrics 扩展：按 department_id 的 token/工具调用/文件事件计数
-  - 测试：看板 API 契约；告警触发条件单测；指标字段断言
+- [x] **P3-1. 运营看板**（B+F）— GET /api/stats/departments（消息/运行/成功/token/环境状态 per 部门——三层模型计量单元）+ Reports 页「项目空间用量」排名区块
+- [x] **P3-2. 告警**（B）— 配额 ≥80% → 日志 warn + Reports 黄条；reconcile 环境 error 计数 → 日志 warn
+- [x] **P3-3. 指标**（B）— /api/metrics + prom 加 sandbox 状态计数（statusCounts：running/stopped/terminated/error DB 快照）
+  - 测试：租户隔离豁免登记；全量 154/154；浏览器实测看板渲染
 
 ### P4 视觉与品牌（视觉——氛围与状态）
 

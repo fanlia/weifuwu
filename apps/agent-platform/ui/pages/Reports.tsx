@@ -13,20 +13,26 @@ interface ReportsState {
   agents: Array<{ id: string; type: string; name: string }>
   costAgents: CostAgentRow[]
   funnel: FunnelData | null
+  // P3-1 部门维度（三层模型计量单元）
+  deptStats: Array<{ id: string; name: string; is_dm: boolean; messages: number; runs: number; runs_ok: number; tokens: number; envStatus: string | null; envLabel: string | null }>
+  quotaPressure: boolean
 }
 
 export const Reports: Component = async (_props, ctx) => {
   const $ = {} as ReportsState
   const rerender = () => ctx.ui.render()
   $.loading = true; $.stats = {}; $.agents = []; $.costAgents = []; $.funnel = null
+  $.deptStats = []; $.quotaPressure = false
   Promise.all([
     ctx.api!.get<StatsData>('/api/stats').catch(() => ({})),
     ctx.api!.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
     ctx.api!.get<{ agents: CostAgentRow[] }>('/api/stats/tokens-by-agent').catch(() => ({ agents: [] })),
     ctx.api!.get<FunnelData>('/api/stats/funnel').catch(() => ({ mine: { register_complete: false, agent_created: false, first_message: false }, platform: {} })),
-  ]).then(([stats, agents, cost, funnel]) => {
+    ctx.api!.get<{ departments: ReportsState['deptStats']; quotaPressure: boolean }>('/api/stats/departments').catch(() => ({ departments: [], quotaPressure: false })),
+  ]).then(([stats, agents, cost, funnel, depts]) => {
     $.stats = stats; $.agents = agents.agents ?? []; $.costAgents = cost.agents ?? []
-    $.funnel = funnel; $.loading = false
+    $.funnel = funnel; $.deptStats = depts.departments ?? []; $.quotaPressure = depts.quotaPressure ?? false
+    $.loading = false
     rerender()
   })
 
@@ -65,6 +71,33 @@ export const Reports: Component = async (_props, ctx) => {
       <PageHeader title="运营报表" sub="AI 团队使用量 · 成本 · 活跃度（管理员视角）">
         <Button variant="ghost" onClick={() => ctx.app?.navigate('/')}><Icon name="arrow-left" size={14} /> 返回工作台</Button>
       </PageHeader>
+
+      {/* P3-1：部门维度看板（三层模型计量单元）+ 配额告警黄条 */}
+      {$.quotaPressure && (
+        <div class="wf-bg-warning wf-p-sm wf-rounded wf-text-sm wf-text-on-warning">⚠️ 沙盒配额接近上限（≥80%）——终止不用的环境释放配额</div>
+      )}
+      <Card>
+        <div class="wf-row wf-gap-sm wf-mb-sm">
+          <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="users" size={14} /> 项目空间用量（按部门）</div>
+          <span class="wf-text-xs wf-text-tertiary">消息 · AI 运行 · Token · 环境状态</span>
+        </div>
+        {$.deptStats.length === 0 ? (
+          <div class="wf-text-sm wf-text-tertiary">暂无项目空间使用数据</div>
+        ) : (
+          <div class="wf-stack wf-gap-none">
+            {$.deptStats.map((d) => (
+              <div key={d.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b wf-items-center">
+                <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} small />
+                <span class="wf-text-sm wf-text-medium wf-fill wf-truncate">{d.name}</span>
+                {d.envLabel && <span class={`wf-text-xs wf-px-sm wf-py-xs wf-rounded ${d.envStatus === 'error' ? 'wf-bg-error wf-text-on-brand' : 'wf-bg-tertiary'}`}>{d.envLabel}</span>}
+                <span class="wf-text-xs wf-text-tertiary wf-nums">{d.messages} 消息</span>
+                <span class="wf-text-xs wf-text-tertiary wf-nums">{d.runs} 次运行</span>
+                <span class="wf-text-sm wf-text-semibold wf-nums">{((d.tokens ?? 0) / 1000).toFixed(1)}k</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
         <StatCard label="Agent 总数" value={agentCount} icon={<Icon name="cpu" />} animate onClick={() => ctx.app?.navigate('/agents')} />

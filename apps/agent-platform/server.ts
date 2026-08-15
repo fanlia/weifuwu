@@ -552,6 +552,12 @@ async function main() {
     try {
       const { manager } = await import('./src/sandbox/manager.ts')
       const { sandbox } = await import('./src/sandbox/docker.ts')
+      // P3-3：状态计数（DB 快照——reconcile 后的现实）
+      let statusCounts: Record<string, number> = {}
+      try {
+        const rows = await manager.statusCounts()
+        statusCounts = rows
+      } catch { /* 查询失败 */ }
       sb = {
         calls: m.sandboxCalls ?? 0,
         created: manager.counters.created,
@@ -561,6 +567,7 @@ async function main() {
         autoStarted: manager.counters.autoStarted,
         orphansCleaned: manager.counters.orphansCleaned,
         exec: sandbox.execStats,
+        statusCounts,
       }
     } catch { /* 沙盒未初始化 */ }
     return Response.json({
@@ -1052,6 +1059,50 @@ async function main() {
       LIMIT 10
     `
     return Response.json({ agents: rows })
+  })
+
+  // ── P3-1 运营看板：部门维度活跃/成本/配额（三层模型计量单元 = 部门） ──
+  protectedRoutes.get('/api/stats/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId } = ctx
+    const rows = await sql`
+      SELECT d.id, d.name, d.is_dm,
+        COUNT(m.id)::int as messages,
+        COUNT(al.id)::int as runs,
+        COUNT(al.id) FILTER (WHERE al.success)::int as runs_ok,
+        COALESCE(SUM(al.tokens_total), 0)::int as tokens,
+        MAX(m.created_at) as last_active
+      FROM departments d
+      LEFT JOIN messages m ON m.department_id = d.id AND m.ai_approved != FALSE
+      LEFT JOIN agent_logs al ON al.department_id = d.id AND al.app_id = ${appId}
+      WHERE d.app_id = ${appId}
+      GROUP BY d.id
+      ORDER BY tokens DESC, messages DESC
+    `
+    // 配额用量 + 环境状态（per 部门）
+    const { manager } = await import('./src/sandbox/manager.ts')
+    manager.init(sql)
+    const deptRows = (rows ?? []) as Array<Record<string, any>>
+    let quotaPressure = false
+    const withEnv: Array<Record<string, any>> = []
+    for (const d of deptRows) {
+      const sb = await manager.byDepartment(String(d.id))
+      withEnv.push({
+        ...d,
+        envStatus: sb?.status ?? null,
+        envLabel: sb ? (sb.status === 'running' ? '运行中' : sb.status === 'stopped' ? '已停止' : sb.status === 'error' ? '错误' : '待启动') : null,
+      })
+    }
+    // P3-2 告警：配额压力（active sandbox / quota ≥ 80%）
+    try {
+      const [q] = await sql`SELECT sandbox_quota FROM _weifuwu_apps WHERE id = ${appId}`
+      const limit = Number(q?.sandbox_quota ?? 5)
+      const [c] = await sql`SELECT COUNT(*)::int as n FROM sandboxes WHERE app_id = ${appId} AND status != 'terminated'`
+      quotaPressure = limit > 0 && Number(c?.n ?? 0) / limit >= 0.8
+      if (quotaPressure) {
+        console.warn(`[agent-platform] 沙盒配额压力：${c?.n}/${limit}（≥80%）——app ${appId}`)
+      }
+    } catch { /* 告警尽力 */ }
+    return Response.json({ departments: withEnv, quotaPressure })
   })
 
   // ── 激活漏斗埋点 ──────────────────────────────────────────

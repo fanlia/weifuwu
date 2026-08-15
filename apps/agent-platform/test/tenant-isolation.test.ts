@@ -58,6 +58,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/sandbox/manager.ts', match: 'SELECT * FROM sandboxes WHERE status IN', reason: '后台回收扫描（reconcile 平台级状态对齐——不返回租户数据）' },
   { file: 'src/sandbox/manager.ts', match: 'SUM(memory_mb)', reason: '池内存预算聚合（平台级——只算总量不返回租户数据）' },
   { file: 'src/sandbox/manager.ts', match: 'ORDER BY last_used_at ASC NULLS FIRST', reason: '池预算驱逐扫描（平台级——驱逐不返回租户数据）' },
+  { file: 'src/sandbox/manager.ts', match: 'SELECT status, COUNT(*)::int as n FROM sandboxes GROUP BY status', reason: 'P3-3 状态计数（平台级聚合——/api/metrics 不返回租户数据）' },
   { file: 'src/sandbox/manager.ts', match: 'DELETE FROM sandboxes WHERE status', reason: 'terminated 历史清理（平台级——不返回租户数据）' },
   { file: 'src/routes/knowledge.ts', match: 'INSERT INTO kb_documents', reason: '间接隔离——agentId 来自已校验 agent（路由前 a.app_id 检查）' },
   { file: 'src/routes/knowledge.ts', match: 'FROM kb_chunks kc JOIN kb_documen', reason: '间接隔离——kb agent_id 上游校验（KB 检索入口）' },
