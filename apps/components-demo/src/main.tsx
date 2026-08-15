@@ -58,6 +58,13 @@ function Section(_initProps: { title: string; children: any }, _ctx: any) {
     const searching = !!cardFilter.q
     const kids = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean)
     const visible = searching ? kids.filter((v: any) => matchCard(String(v?.props?.title ?? ''), String(v?.props?.desc ?? ''))) : kids
+    // DemoCard 业务 key（title——搜索过滤/恢复时卡片身份稳定：copied 等内部状态不错位；
+    // 审计抓出：过滤长度变化 + 无 key 组件 → 动态数组位置错位风险）
+    for (const v of visible) {
+      if (v && typeof v === 'object' && !Array.isArray(v) && (v as any).key == null) {
+        ;(v as any).key = String((v as any).props?.title ?? '')
+      }
+    }
     if (searching && visible.length === 0) return null // 搜索时隐藏空分组
     return (
       <section class="wf-stack wf-gap-lg" id={secId(props.title)}>
