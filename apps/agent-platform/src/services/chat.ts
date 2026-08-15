@@ -485,12 +485,28 @@ async function runAgentStreamForAgent(
             if (relPath && !relPath.startsWith('..')) {
               try {
                 if (ctx.msg?.broadcast) {
-                  ctx.msg.broadcast(String(departmentId), {
-                    type: 'file_updated',
-                    file: relPath,
-                    agentId: agent.id,
-                    agentName: agent.name,
-                  })
+                  // 产物审批模式（2026-12）：部门开启时 AI 写入在待审区——事件带 pending 标记
+                  // （前端文件卡片显示「待审批」+ 聊天流内直接批准/拒绝）——异步查询后广播
+                  void sql`SELECT artifact_review FROM departments WHERE id = ${departmentId}`
+                    .then((rows) => {
+                      const pending = !!(rows?.[0] as any)?.artifact_review
+                      if (ctx.msg?.broadcast) {
+                        ctx.msg.broadcast(String(departmentId), {
+                          type: 'file_updated',
+                          file: relPath,
+                          agentId: agent.id,
+                          agentName: agent.name,
+                          pending,
+                        })
+                      }
+                    })
+                    .catch(() => { /* 查询失败——补发无 pending 标记 */
+                      if (ctx.msg?.broadcast) {
+                        ctx.msg.broadcast(String(departmentId), {
+                          type: 'file_updated', file: relPath, agentId: agent.id, agentName: agent.name, pending: false,
+                        })
+                      }
+                    })
                 }
               } catch { /* 广播失败不影响 */ }
             }

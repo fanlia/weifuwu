@@ -356,4 +356,6 @@ export interface ChatMessage {
   /** R6 质量反馈 */
   feedback?: 'like' | 'dislike' | null
   attachments?: Array<{ name: string; path: string; size: number }> | null
+  /** 产物审批（2026-12）：AI 写入在待审区——待审批产物 */
+  pending?: boolean
 }

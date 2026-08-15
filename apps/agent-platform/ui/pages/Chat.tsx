@@ -31,6 +31,8 @@ interface ChatState {
   env: { status: string; label: string }
   /** 组织层级：下级部门（经理代表的部门——上级可见子部门交付物） */
   subDepts: Array<{ id: string; name: string; managerId: string; managerName: string; memberCount: number; files: Array<{ name: string; type: string; size: number; mtime: string }> }>
+  /** 产物审批：聊天流内操作中标记 */
+  reviewBusy: string
 }
 
 export const Chat: Component = async (_props, ctx) => {
@@ -58,6 +60,26 @@ export const Chat: Component = async (_props, ctx) => {
   // P2-1：AI 干活状态（aiStatus store 订阅——左栏呼吸灯；useExternal 返回 store 活引用）
   const aiStatusStore = ctx.ui.useExternal(aiStatus)
   const aiStatusOf = (id: string) => (aiStatusStore.state as Record<string, string>)[id] ?? 'idle'
+
+  // 产物审批（2026-12）：聊天流内批准/拒绝（调 API + 通知 + 标记已处理）
+  $.reviewBusy = ''
+  const reviewArtifact = async (action: 'approve' | 'reject', path: string) => {
+    if ($.reviewBusy) return
+    $.reviewBusy = 'chat'; rerender()
+    try {
+      const r = await ctx.api!.post(`/api/departments/${deptId}/artifacts/${action}`, { path })
+      if (r.success) {
+        ctx.toast!(action === 'approve' ? `已发布 ${path}` : `已拒绝 ${path}`, 'success')
+        const m = $.msgs.find((x: ChatMessage) => x.msg_type === 'file_card' && x.content === path)
+        if (m) { m.pending = false; m.content = `${path}（已${action === 'approve' ? '发布' : '拒绝'}）` }
+        bumpFilesVersion()
+        notifyFilesReload()
+      } else {
+        ctx.toast!((r as any).error ?? '操作失败', 'error')
+      }
+    } catch { ctx.toast!('操作失败', 'error') }
+    $.reviewBusy = ''; rerender()
+  }
 
   // 组织层级：重拉聚合 API（file_updated 时子部门交付物列表实时化）
   let reloadingWs = false
@@ -221,6 +243,7 @@ export const Chat: Component = async (_props, ctx) => {
           $.msgs.push({
             id: `file-${f}-${Date.now()}`, sender_id: event.agentId ?? 'ai', sender_name: event.agentName ?? 'AI',
             sender_type: 'ai', content: fname, msg_type: 'file_card', created_at: new Date().toISOString(), status: 'idle', tools: [],
+            pending: !!event.pending,
           })
           scrollToBottom()
         }
@@ -565,6 +588,8 @@ export const Chat: Component = async (_props, ctx) => {
             onReject={(id) => rejectDraft(id)}
             onRetry={(id) => retryMessage(id)}
             onContinue={(id) => continueMessage(id)}
+            onReview={(action, path) => reviewArtifact(action, path)}
+            reviewBusy={$.reviewBusy === 'chat'}
             onEditChange={(v) => { $.editValue = v; rerender() }}
             onEditSave={() => saveEdit()}
             onEditCancel={() => cancelEdit()}

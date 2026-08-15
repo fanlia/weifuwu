@@ -72,6 +72,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/routes/messages.ts', match: 'INSERT INTO messages', reason: '间接隔离——department_id 上游校验部门归属（发消息路由）' },
   { file: 'src/routes/messages.ts', match: 'UPDATE messages SET content', reason: '间接隔离——先查 msg（a.app_id）再改（264 行同 DELETE 模式）' },
   { file: 'src/routes/messages.ts', match: 'DELETE FROM messages WHERE id', reason: '间接隔离——先查 msg（WHERE a.app_id = appId）再删（308 行）' },
+  { file: 'src/services/chat.ts', match: 'SELECT artifact_review FROM departments', reason: '产物审批 pending 标记——departmentId 来自消息路由上下文（已校验部门归属）' },
   { file: 'src/services/chat.ts', match: 'FROM messages m JOIN agents', reason: '间接隔离——department_id 来自已校验部门（会话上下文）' },
   { file: 'src/services/chat.ts', match: 'UPDATE messages SET content = ${event.content} WHERE id = ${event.messageId}', reason: '按主键 UUID 更新（wf:done 落库）——id 归属在消息创建时已校验，无跨租户路径' },
   { file: 'src/services/permissions.ts', match: 'SELECT dm.role FROM department_members', reason: '间接隔离——departmentId 来自调用方上下文（审批/成员管理已校验归属）' },

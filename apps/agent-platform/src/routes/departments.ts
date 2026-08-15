@@ -477,11 +477,24 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   })
 
   app.post('/api/departments/:id/artifacts/:action', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { sql, appId, params, auth } = ctx
     const action = params.action as 'approve' | 'reject'
     if (!['approve', 'reject'].includes(action)) return Response.json({ error: '不支持的 action' }, { status: 400 })
     const [dept] = await sql`SELECT id FROM departments WHERE id = ${params.id} AND app_id = ${appId}`
     if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    // 产物审批是管理动作（G7 同款权限）：部门管理员或租户 owner 才能批准/拒绝
+    const [caller] = await sql`
+      SELECT dm.role FROM department_members dm
+      JOIN agents ua ON ua.id = dm.agent_id
+      WHERE dm.department_id = ${params.id} AND ua.user_id = ${auth!.userId}
+      LIMIT 1
+    `
+    const [callerOwner] = await sql`
+      SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${auth!.userId}
+    `
+    if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
+      return Response.json({ error: '只有部门管理员可以审批产物' }, { status: 403 })
+    }
     const body = await req.json().catch(() => ({}))
     const relPath = String(body.path ?? '')
     const { approveArtifact, rejectArtifact } = await import('../services/artifact-review.ts')

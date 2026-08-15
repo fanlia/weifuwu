@@ -30,6 +30,9 @@ export interface MessageItemProps {
   onReject: (id: string) => void
   onRetry: (id: string) => void
   onContinue: (id: string) => void
+  /** 产物审批（2026-12）：聊天流内直接批准/拒绝待审产物 */
+  onReview: (action: 'approve' | 'reject', path: string) => void
+  reviewBusy: boolean
   onEditChange: (v: string) => void
   onEditSave: () => void
   onEditCancel: () => void
@@ -63,16 +66,25 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
     }
 
     // P2-4：交付物文件卡片（AI 刚生成的文件——可点击下载；进场动效 wf-panel-in）
+    // 产物审批（2026-12）：pending 待审——显示徽标 + 批准/拒绝按钮（聊天流内直接审批）
     if (msg.msg_type === 'file_card') {
       const rel = props.msg.content
+      const already = rel.includes('（已发布）') || rel.includes('（已拒绝）')
       return (
-        <div class="wf-row wf-gap-sm wf-items-center wf-panel-in">
+        <div class="wf-row wf-gap-sm wf-items-center wf-panel-in wf-wrap">
           <Ava name={msg.sender_name ?? 'AI'} type="ai" small />
           <a class="wf-pill wf-bg-tertiary wf-px-sm wf-py-xs wf-text-xs wf-row wf-gap-xs wf-items-center"
-            href={`/api/departments/${props.departmentId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`}
+            href={`/api/departments/${props.departmentId}/workspace/file?path=${encodeURIComponent(rel.replace(/（已发布|已拒绝）$/, ''))}&download=1`}
             style="text-decoration: none">
             <Icon name="file-text" size={12} /> {msg.sender_name ?? 'AI'} 刚生成了 <b class="wf-text-brand">{rel}</b> 下载 ↓
           </a>
+          {msg.pending && !already && (
+            <>
+              <span class="wf-pill wf-bg-warning wf-text-on-warning wf-px-sm wf-py-xs wf-text-xs">⏳ 待审批</span>
+              <Button size="sm" variant="primary" disabled={props.reviewBusy} onClick={() => props.onReview('approve', rel)}>批准发布</Button>
+              <Button size="sm" variant="danger-ghost" disabled={props.reviewBusy} onClick={() => props.onReview('reject', rel)}>拒绝</Button>
+            </>
+          )}
         </div>
       )
     }
