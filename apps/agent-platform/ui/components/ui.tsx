@@ -26,6 +26,7 @@ export const TYPE_META: Record<string, { label: string; icon: string; color: str
   webhook: { label: 'Webhook', icon: '🔗', color: '#f59e0b' },
   knowledge_base: { label: '知识库', icon: '📚', color: '#22c55e' },
   user: { label: '真实用户', icon: '👤', color: '#4f6ef7' },
+  department: { label: '部门经理', icon: '🏢', color: '#0ea5e9' },
 }
 
 /** 类型徽章 */

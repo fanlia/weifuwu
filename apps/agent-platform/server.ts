@@ -118,6 +118,10 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS expertise TEXT`)
   // 三层模型（2026-12）：部门 = 工作目录——workspace_path 自定义工作目录（默认 {root}/{id}）
   await pg.sql.unsafe(`ALTER TABLE departments ADD COLUMN IF NOT EXISTS workspace_path TEXT`)
+  // 组织层级（2026-12）：agent type = 'department'（部门经理——代表部门对外协作）
+  await pg.sql.unsafe(`ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'department'`)
+  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS department_id UUID`)
+  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_agents_department ON agents(department_id) WHERE department_id IS NOT NULL`)
   // 三层模型：sandbox = 计算资源（一级概念）——sandboxes 表 + 租户配额
   await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS sandbox_quota INT NOT NULL DEFAULT 5`)
   await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS sandboxes (

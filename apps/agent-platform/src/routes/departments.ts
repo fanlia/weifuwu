@@ -97,6 +97,8 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       name: string
       is_dm?: boolean
       member_ids?: string[]
+      /** 组织层级：自动创建部门经理（department 类型 agent——代表部门对外协作） */
+      auto_manager?: boolean
     }
 
     if (!body.name) {
@@ -133,7 +135,37 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       }
     }
 
-    return Response.json({ department }, { status: 201 })
+    // 组织层级：自动创建部门经理（department 类型 agent——代表部门，可加入上级部门）
+    let manager = null
+    if (!body.is_dm && body.auto_manager !== false) {
+      const [mgr] = await sql`
+        INSERT INTO agents (app_id, type, name, description, model, department_id, is_active, tools, allow_file_tools)
+        VALUES (${appId}, 'department', ${String(body.name) + '经理'}, ${'部门经理——代表「' + String(body.name) + '」对外协作'},
+          'deepseek-v4-flash', ${department.id}, true, '[]', true)
+        RETURNING id, name
+      `
+      // 经理自动成为本部门成员（role='manager'——识别组织层级）
+      await sql`
+        INSERT INTO department_members (department_id, agent_id, role)
+        VALUES (${department.id}, ${mgr.id}, 'manager')
+        ON CONFLICT DO NOTHING
+      `
+      // 经理提示词（部门成员名单——call_agent 分派用）
+      try {
+        const members = await sql`
+          SELECT a.name FROM department_members dm JOIN agents a ON a.id = dm.agent_id
+          WHERE dm.department_id = ${department.id} AND a.type IN ('ai', 'knowledge_base')
+        `
+        const names = (members ?? []).map((m: any) => m.name).join('、')
+        await sql`
+          UPDATE agents SET system_prompt = ${`你是「${String(body.name)}」的部门经理，代表该部门参与协作。\n\n你的职责：\n1. 作为部门代表回答与其他部门的协作请求\n2. 需要部门成员实际干活时，用 call_agent 工具把任务分派给成员（一次一个成员）\n3. 汇总成员结果后回复——你就是「${String(body.name)}」的对外出口\n\n部门成员：${names || '（暂无 AI 成员——请先给部门添加 AI 能力）'}\n\n任务完成后按以下结构汇报：\n- ✅ 已完成：列出完成的事项\n- ⚠️ 未完成：列出未完成的事项及原因（没有则省略）\n- 📦 产物：生成的文件/结果位置（没有则省略）`}
+          WHERE id = ${mgr.id}
+        `
+      } catch { /* 提示词生成失败不阻断 */ }
+      manager = { id: mgr.id, name: mgr.name }
+    }
+
+    return Response.json({ department, manager }, { status: 201 })
   })
 
   // ── P1 工作区聚合 API（三层模型：一个部门 = 一个页面）─────────────────

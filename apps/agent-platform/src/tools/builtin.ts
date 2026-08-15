@@ -173,15 +173,27 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       const depth = Number((ctx as any)._agentDepth ?? 0)
       const MAX_DEPTH = 2
       if (depth >= MAX_DEPTH) return `Error: Agent 协作深度超限（最多 ${MAX_DEPTH} 层）——请直接回答而非继续委托`
-      // 找目标 Agent（同租户 + ai 类型 + 激活；名称或 ID）
+      // 找目标 Agent（同租户 + ai/department 类型 + 激活；名称或 ID）——
+      // department = 部门经理（组织层级：可把任务委托给部门代表）
       const [targetAgent] = await ctx.sql`
         SELECT * FROM agents
         WHERE (name = ${target} OR id::text = ${target}) AND app_id = ${ctx.appId}
-          AND type = 'ai' AND is_active = TRUE
+          AND type IN ('ai', 'department') AND is_active = TRUE
       `
       if (!targetAgent) return `Error: 找不到可调用的 AI Agent「${target}」（需同租户且已激活）`
       const ta = targetAgent as any
       if (String(ta.id) === String((ctx as any)._toolAgentId ?? '')) return 'Error: 不能调用自己（循环）'
+      // 组织层级：被委托 agent 在其**自己所在部门**执行（工作目录/沙盒归属自己的部门——
+      // 如：技术部经理在管理委员会被 @ → 委托小码 → 小码在技术部目录干活）
+      let targetDept = String((ctx as any)._toolDepartmentId ?? '')
+      try {
+        const [memberDept] = await ctx.sql`
+          SELECT dm.department_id FROM department_members dm
+          JOIN departments d ON d.id = dm.department_id
+          WHERE dm.agent_id = ${ta.id} AND d.is_dm = FALSE LIMIT 1
+        `
+        if (memberDept?.department_id) targetDept = String(memberDept.department_id)
+      } catch { /* 部门查询失败用当前部门 */ }
       // 委托给子 Agent：复用 runAgent（其自身工具/知识库/协作全可用——递归）
       const { runAgent } = await import('../services/agent-runner.ts')
       ;(ctx as any)._agentDepth = depth + 1
@@ -189,7 +201,7 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
         const result = await runAgent(ctx, {
           agentId: String(ta.id),
           appId: ctx.appId,
-          departmentId: String((ctx as any)._toolDepartmentId ?? ''),
+          departmentId: targetDept,
           systemPrompt: String(ta.system_prompt ?? '你是一个 AI 助手'),
           model: ta.model ? String(ta.model) : undefined,
           tools: (ta.tools ?? []) as unknown[],

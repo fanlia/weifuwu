@@ -405,6 +405,64 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
 
   console.log('  ✓ 4 个部门: 技术部 / 客服中心 / 运维组 / 张明-小码')
 
+  // ════════════════════════════════════════════════════
+  // 6b. 组织层级：部门经理（department 类型 agent——代表部门对外协作）
+  // ════════════════════════════════════════════════════
+  // 经理 = 部门代表：加入上级部门（管理委员会）形成组织层级；被 @ 时用 call_agent 分派成员干活
+  async function makeManager(deptRow, deptName) {
+    const [mgr] = await sql`
+      INSERT INTO agents (app_id, type, name, description, model, department_id, is_active, tools, allow_file_tools)
+      VALUES (${DEMO_APP_ID}, 'department', ${deptName + '经理'}, ${'部门经理——代表「' + deptName + '」对外协作'},
+        'deepseek-v4-flash', ${deptRow.id}, true, '[]', true)
+      RETURNING id, name
+    `
+    await sql`
+      INSERT INTO department_members (department_id, agent_id, role)
+      VALUES (${deptRow.id}, ${mgr.id}, 'manager')
+      ON CONFLICT DO NOTHING
+    `
+    return mgr
+  }
+  const devMgr = await makeManager(devDept, '技术部')
+  const csMgr = await makeManager(csDept, '客服中心')
+  const opsMgr = await makeManager(opsDept, '运维组')
+  console.log('  ✓ 部门经理: 技术部经理 / 客服中心经理 / 运维组经理（department 类型——代表部门）')
+
+  // 上级部门「管理委员会」——三个经理加入，形成组织层级（两层）
+  const [boardDept] = await sql`
+    INSERT INTO departments (app_id, name, is_dm)
+    VALUES (${DEMO_APP_ID}, '管理委员会', false)
+    RETURNING id
+  `
+  const boardMgr = await makeManager(boardDept, '管理委员会')
+  await sql`
+    INSERT INTO department_members (department_id, agent_id, role)
+    VALUES
+      (${boardDept.id}, ${adminAgent.id}, 'admin'),
+      (${boardDept.id}, ${devMgr.id}, 'member'),
+      (${boardDept.id}, ${csMgr.id}, 'member'),
+      (${boardDept.id}, ${opsMgr.id}, 'member')
+    ON CONFLICT DO NOTHING
+  `
+  console.log('  ✓ 管理委员会（上级部门）: 技术部/客服中心/运维组经理加入——两层组织层级')
+
+  // 经理提示词回填（部门成员名单——call_agent 分派用）
+  for (const [mgr, deptRow, deptName] of [[devMgr, devDept, '技术部'], [csMgr, csDept, '客服中心'], [opsMgr, opsDept, '运维组'], [boardMgr, boardDept, '管理委员会']]) {
+    try {
+      const members = await sql`
+        SELECT a.name FROM department_members dm JOIN agents a ON a.id = dm.agent_id
+        WHERE dm.department_id = ${deptRow.id} AND a.type IN ('ai', 'knowledge_base') AND a.id != ${mgr.id}
+      `
+      const names = (members ?? []).map((m) => m.name).join('、')
+      await sql`
+        UPDATE agents SET system_prompt = ${`你是「${deptName}」的部门经理，代表该部门参与协作。\n\n你的职责：\n1. 作为部门代表回答与其他部门的协作请求\n2. 需要部门成员实际干活时，用 call_agent 工具把任务分派给成员（一次一个成员）\n3. 汇总成员结果后回复——你就是「${deptName}」的对外出口\n\n部门成员：${names || '（暂无 AI 成员——请先给部门添加 AI 能力）'}\n\n任务完成后按以下结构汇报：\n- ✅ 已完成：列出完成的事项\n- ⚠️ 未完成：列出未完成的事项及原因（没有则省略）\n- 📦 产物：生成的文件/结果位置（没有则省略）`}
+        WHERE id = ${mgr.id}
+      `
+    } catch { /* 提示词回填失败不阻断 */ }
+  }
+  console.log('  ✓ 经理提示词已生成（部门成员名单——call_agent 分派）')
+
+
   // 三层模型：部门 = 工作目录（默认 {AGENT_WORKSPACE_ROOT}/{department_id}/）
   // 创建演示目录与交付物文件（AI 工具经沙盒容器读写——用户文件浏览器可见）
   const workspaceRoot = process.env.AGENT_WORKSPACE_ROOT
@@ -651,11 +709,12 @@ df -h / | awk 'NR==2 {print \"磁盘使用率: \" \$5}'
   console.log('  📚 知识库: 产品知识库（2篇文档）')
   console.log('  🔗 Webhook: 通知机器人')
   console.log()
-  console.log('  👥 部门（4个）')
-  console.log('    技术部 — 张明、李华、小码、小悟')
-  console.log('    客服中心 — 张明、小应、产品知识库')
-  console.log('    运维组 — 张明、小维、通知机器人')
+  console.log('  👥 部门（5个 + 组织层级）')
+  console.log('    技术部 — 张明、李华、小码、小悟 + 技术部经理')
+  console.log('    客服中心 — 张明、小应、产品知识库 + 客服中心经理')
+  console.log('    运维组 — 张明、小维、通知机器人 + 运维组经理')
   console.log('    张明-小码 — 单聊')
+  console.log('    管理委员会 — 技术部/客服中心/运维组经理加入（两层组织）')
   console.log()
   console.log('  📊 Dashboard 数据')
   console.log('    4 个 Agent · 7 条执行日志 · 10 条消息 · 3 条 Webhook 日志')

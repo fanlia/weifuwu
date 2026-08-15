@@ -57,7 +57,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
         model, system_prompt, temperature, max_tokens, human_in_the_loop,
         user_id, webhook_url, chunk_size, chunk_overlap,
         tools, is_active, created_at, updated_at,
-        workspace_path, allow_file_tools, allow_command_exec
+        workspace_path, allow_file_tools, allow_command_exec, department_id
       FROM agents
       WHERE app_id = ${appId}
       ${type && ['ai', 'user', 'webhook', 'knowledge_base'].includes(type) ? sql`AND type = ${type}` : sql``}
@@ -130,6 +130,8 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       workspace_path?: string
       allow_file_tools?: boolean
       allow_command_exec?: boolean
+      // 组织层级（type='department' 部门经理）
+      department_id?: string
       allow_network?: boolean
     }
 
@@ -137,12 +139,51 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: 'type 和 name 为必填' }, { status: 400 })
     }
 
-    if (!['ai', 'user', 'webhook', 'knowledge_base'].includes(body.type)) {
-      return Response.json({ error: 'type 必须是 ai/user/webhook/knowledge_base 之一' }, { status: 400 })
+    if (!['ai', 'user', 'webhook', 'knowledge_base', 'department'].includes(body.type)) {
+      return Response.json({ error: 'type 必须是 ai/user/webhook/knowledge_base/department 之一' }, { status: 400 })
     }
     // user 类型仅允许注册/内部流程创建（绑定 user_id）——API 直调创建孤儿 user agent 防护
     if (body.type === 'user' && !body.user_id) {
       return Response.json({ error: 'user 类型必须绑定用户账号（由注册流程创建）' }, { status: 400 })
+    }
+    // 组织层级：department 类型 = 部门经理——绑定代表部门（同 app + 唯一：1 部门 1 经理）
+    let managerPrompt: string | null = null
+    if (body.type === 'department') {
+      if (!body.department_id) {
+        return Response.json({ error: '部门经理必须绑定部门（department_id）' }, { status: 400 })
+      }
+      const [dept] = await sql`
+        SELECT id, name FROM departments WHERE id = ${body.department_id} AND app_id = ${appId}
+      `
+      if (!dept) return Response.json({ error: '绑定的部门不存在' }, { status: 404 })
+      const [existing] = await sql`
+        SELECT id FROM agents WHERE department_id = ${body.department_id} AND type = 'department' AND is_active = TRUE
+      `
+      if (existing) return Response.json({ error: '该部门已有经理（1 部门 1 经理）' }, { status: 409 })
+      // 经理提示词：部门身份 + 成员名单（可经 call_agent 分派）——默认生成，可覆盖
+      const members = await sql`
+        SELECT a.name, a.type, a.description FROM department_members dm
+        JOIN agents a ON a.id = dm.agent_id
+        WHERE dm.department_id = ${body.department_id} AND a.type != 'user'
+      `
+      const memberNames = (members ?? [])
+        .filter((m: any) => m.type === 'ai' || m.type === 'knowledge_base')
+        .map((m: any) => `${m.name}${m.description ? `（${String(m.description).slice(0, 20)}）` : ''}`)
+        .join('、')
+      managerPrompt = body.system_prompt
+        ?? `你是「${String(dept.name)}」的部门经理，代表该部门参与协作。
+
+你的职责：
+1. 作为部门代表回答与其他部门的协作请求
+2. 需要部门成员实际干活时，用 call_agent 工具把任务分派给成员（一次一个成员）
+3. 汇总成员结果后回复——你就是「${String(dept.name)}」的对外出口
+
+部门成员：${memberNames || '（暂无 AI 成员——请先给部门添加 AI 能力）'}
+
+任务完成后按以下结构汇报：
+- ✅ 已完成：列出完成的事项
+- ⚠️ 未完成：列出未完成的事项及原因（没有则省略）
+- 📦 产物：生成的文件/结果位置（没有则省略）`
     }
 
     const [agent] = await sql`
@@ -150,13 +191,13 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
         app_id, type, name, avatar_url, description,
         model, system_prompt, temperature, max_tokens, human_in_the_loop,
         user_id, webhook_url, webhook_secret, webhook_retry_count, chunk_size, chunk_overlap, tools,
-        workspace_path, allow_file_tools, allow_command_exec, allow_network, kb_id
+        workspace_path, allow_file_tools, allow_command_exec, allow_network, kb_id, department_id
       ) VALUES (
         ${appId}, ${body.type}, ${body.name}, ${body.avatar_url ?? null}, ${body.description ?? null},
-        ${body.model ?? null}, ${body.system_prompt ?? null}, ${body.temperature ?? 0.7}, ${body.max_tokens ?? 2048}, ${body.human_in_the_loop ?? false},
+        ${body.model ?? null}, ${managerPrompt ?? body.system_prompt ?? null}, ${body.temperature ?? 0.7}, ${body.max_tokens ?? 2048}, ${body.human_in_the_loop ?? false},
         ${body.user_id ?? null}, ${body.webhook_url ?? null}, ${body.webhook_secret ?? null}, ${body.webhook_retry_count ?? 3}, ${body.chunk_size ?? 500}, ${body.chunk_overlap ?? 50},
         ${body.tools ? JSON.stringify(body.tools) : '[]'},
-        ${body.workspace_path ?? null}, ${body.allow_file_tools ?? false}, ${body.allow_command_exec ?? false}, ${body.allow_network ?? false}, ${body.kb_id ?? null}
+        ${body.workspace_path ?? null}, ${body.allow_file_tools ?? false}, ${body.allow_command_exec ?? false}, ${body.allow_network ?? false}, ${body.kb_id ?? null}, ${body.department_id ?? null}
       )
       RETURNING id, type, name, created_at
     `
@@ -244,7 +285,16 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       const { writeAudit } = await import('../services/audit.ts')
       await writeAudit(ctx as any, { action: 'agent_update', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? '') } })
     } catch { /* 尽力 */ }
-return Response.json({ agent })
+    // 组织层级：经理自动成为代表部门的成员（role='manager'——识别层级）
+    if (body.type === 'department' && body.department_id) {
+      await sql`
+        INSERT INTO department_members (department_id, agent_id, role)
+        VALUES (${body.department_id}, ${agent.id}, 'manager')
+        ON CONFLICT DO NOTHING
+      `.catch(() => {})
+    }
+
+    return Response.json({ agent })
   })
 
   // ── 删除 Agent ───────────────────────────────────────────

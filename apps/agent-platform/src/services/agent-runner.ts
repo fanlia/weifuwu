@@ -198,8 +198,9 @@ async function buildToolContext(
       }
       const handler = getToolHandler(td.function.name)
       if (!handler) return `Error: tool handler for "${td.function.name}" not registered`
-      // 工具上下文：暴露当前 AI agent id（search_knowledge_base 等需要知道是哪个 agent 在调用）
+      // 工具上下文：暴露当前 AI agent id + 执行部门（call_agent 委托链传播）
       ;(ctx as any)._toolAgentId = config.agentId
+      ;(ctx as any)._toolDepartmentId = config.departmentId
       try {
         const r = await handler(args)
         return typeof r === 'string' ? r : JSON.stringify(r)

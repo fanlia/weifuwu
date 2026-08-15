@@ -5,7 +5,7 @@
  */
 
 /** Agent 类型 */
-export type AgentType = 'ai' | 'user' | 'webhook' | 'knowledge_base'
+export type AgentType = 'ai' | 'user' | 'webhook' | 'knowledge_base' | 'department'
 
 export interface TokenUsage {
   total_tokens: number

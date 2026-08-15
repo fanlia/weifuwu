@@ -17,6 +17,7 @@ const AGENT_TYPES = [
   { value: 'ai', label: '🤖 AI 机器人', desc: 'DeepSeek 驱动，支持工具调用与人工审批' },
   { value: 'webhook', label: '🔗 Webhook', desc: '通过 HTTP Webhook 收发消息' },
   { value: 'knowledge_base', label: '📚 知识库', desc: 'PGVector 文档语义检索' },
+  { value: 'department', label: '🏢 部门经理', desc: '代表部门对外协作（可加入上级部门形成组织层级）' },
   // user 类型由注册流程自动创建（绑定登录账号）——UI 不提供手动创建（防止 user_id=null 孤儿）
 ]
 
@@ -35,6 +36,8 @@ interface NewAgentState {
   allowFileTools: boolean; allowCommandExec: boolean; allowNetwork: boolean
   submitting: boolean; error: string
   roleTemplates: RoleTemplate[]; loading: boolean
+  /** 组织层级：部门经理绑定的部门 */
+  deptId: string; deptOptions: Array<{ id: string; name: string }>
 }
 
 export const NewAgent: Component = async (_props, ctx) => {
@@ -48,10 +51,16 @@ export const NewAgent: Component = async (_props, ctx) => {
   $.allowFileTools = false; $.allowCommandExec = false
   $.submitting = false; $.error = ''
   $.roleTemplates = []; $.loading = true
+  $.deptId = ''; $.deptOptions = []
 
   ctx.api!.get<{ templates: RoleTemplate[] }>('/api/role-templates')
     .then(d => { $.roleTemplates = d.templates ?? []; $.loading = false; rerender() })
     .catch(() => { $.loading = false; rerender() })
+
+  // 组织层级：部门列表（经理绑定用）
+  ctx.api!.get<{ departments: Array<{ id: string; name: string; is_dm: boolean }> }>('/api/departments')
+    .then(d => { $.deptOptions = (d.departments ?? []).filter((x) => !x.is_dm).map((x) => ({ id: x.id, name: x.name })); rerender() })
+    .catch(() => {})
 
   function buildCategories() {
     const cats = new Map<string, { label: string; templates: RoleTemplate[] }>()
@@ -90,6 +99,10 @@ export const NewAgent: Component = async (_props, ctx) => {
     rerender()
 
     const body: Record<string, unknown> = { type: $.type, name: $.name.trim() }
+    if ($.type === 'department') {
+      if (!$.deptId) { $.error = '部门经理必须选择代表部门'; $.submitting = false; rerender(); return }
+      body.department_id = $.deptId
+    }
 
     if ($.selectedTemplate) {
       body.template_slug = $.selectedTemplate.slug
@@ -178,7 +191,7 @@ export const NewAgent: Component = async (_props, ctx) => {
     const isAI = !$.selectedTemplate && $.type === 'ai'
     const isWebhook = !$.selectedTemplate && $.type === 'webhook'
     const isKB = !$.selectedTemplate && $.type === 'knowledge_base'
-    const hasAIConfig = isAI || $.selectedTemplate !== null
+    const hasAIConfig = isAI || $.selectedTemplate !== null || $.type === 'department'
 
     return (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
@@ -215,6 +228,16 @@ export const NewAgent: Component = async (_props, ctx) => {
                   </Card>
                 ))}
               </div>
+            </Field>
+          )}
+
+          {$.type === 'department' && (
+            <Field label="代表部门" required hint="该经理代表此部门对外协作——可把任务分派给部门成员">
+              <Select value={$.deptId}
+                onChange={(v) => { $.deptId = v as string; rerender() }}
+                options={$.deptOptions.map(d => ({ value: d.id, label: d.name }))}
+                placeholder="选择要代表的部门"
+              />
             </Field>
           )}
 

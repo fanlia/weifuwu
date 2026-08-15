@@ -144,7 +144,7 @@ export async function handleNewMessage(
     FROM department_members dm
     JOIN agents a ON a.id = dm.agent_id
     WHERE dm.department_id = ${departmentId}
-      AND a.type = 'ai'
+      AND a.type IN ('ai', 'department')
       AND a.is_active = TRUE
   `) as unknown as Array<Record<string, any>>
 
@@ -560,7 +560,7 @@ async function runAllAgents(
     FROM department_members dm
     JOIN agents a ON a.id = dm.agent_id
     WHERE dm.department_id = ${departmentId}
-      AND a.type = 'ai'
+      AND a.type IN ('ai', 'department')
       AND a.is_active = TRUE
   `) as unknown as Array<Record<string, any>>
   if (aiAgents.length === 0) return
@@ -740,7 +740,7 @@ async function runAllAgents(
       const [aiReply] = await ctx.sql`
         SELECT m.content FROM messages m
         JOIN agents a ON a.id = m.sender_id
-        WHERE m.department_id = ${departmentId} AND a.type = 'ai'
+        WHERE m.department_id = ${departmentId} AND a.type IN ('ai', 'department')
           AND m.content != '' AND m.content NOT LIKE '%来自缓存%'
         ORDER BY m.created_at DESC LIMIT 1
       `

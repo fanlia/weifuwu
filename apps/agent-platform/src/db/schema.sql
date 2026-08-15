@@ -15,7 +15,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- ── Agent — 四种类型单表继承 ─────────────────────────────
 
 DO $$ BEGIN
-  CREATE TYPE agent_type AS ENUM ('ai', 'user', 'webhook', 'knowledge_base');
+  CREATE TYPE agent_type AS ENUM ('ai', 'user', 'webhook', 'knowledge_base', 'department');
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
@@ -52,6 +52,9 @@ CREATE TABLE IF NOT EXISTS agents (
 
   -- 工具配置
   tools       JSONB DEFAULT '[]'::JSONB, -- ToolDefinition[]
+
+  -- 组织层级（type='department' 部门经理——代表部门对外协作，可加入上级部门）
+  department_id UUID,                    -- 代表哪个部门（1 部门 1 经理；同 app）
 
   -- 配额（Wave 9 成本控制——月 token 上限，0 = 不限）
   monthly_token_quota INT NOT NULL DEFAULT 0,

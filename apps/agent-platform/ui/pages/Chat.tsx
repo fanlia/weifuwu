@@ -89,7 +89,7 @@ export const Chat: Component = async (_props, ctx) => {
     $.isAdmin = (ctx.auth as any)?.role === 'owner' || (ctx.auth as any)?.role === 'admin'
     $.deptName = wsRes?.department?.name ?? '聊天'
     $.memberCount = (wsRes?.members ?? []).length
-    $.membersList = (wsRes?.members ?? []).filter((m: Member) => m.type === 'ai' || m.type === 'knowledge_base')
+    $.membersList = (wsRes?.members ?? []).filter((m: Member) => m.type === 'ai' || m.type === 'knowledge_base' || m.type === 'department')
     $.env = wsRes?.env ?? { status: 'none', label: '' }
     rerender()
   }).catch(() => {})
@@ -423,7 +423,7 @@ export const Chat: Component = async (_props, ctx) => {
     const atMatch = v.match(/@([\u4e00-\u9fa5\w]*)$/)
     if (atMatch) {
       $.atQuery = atMatch[1]
-      $.atMenu = $.membersList.filter((m) => (m.type === 'ai' || m.type === 'knowledge_base') && (String(m.name).includes($.atQuery) || !$.atQuery))
+      $.atMenu = $.membersList.filter((m) => (m.type === 'ai' || m.type === 'knowledge_base' || m.type === 'department') && (String(m.name).includes($.atQuery) || !$.atQuery))
       $.atMenuOpen = $.atMenu.length > 0
     } else {
       $.atMenuOpen = false; $.atQuery = ''
