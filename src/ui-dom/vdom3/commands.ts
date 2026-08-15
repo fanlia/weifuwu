@@ -11,7 +11,6 @@ import type { Component } from './types.ts'
 import { h } from './jsx.ts'
 import { createRoot } from './root.ts'
 import { Confirm } from '../../components/Confirm/Confirm.ts'
-import { Toast as ToastComp } from '../../components/Toast/Toast.ts'
 
 // ── confirm ──────────────────────────────────────────────
 
@@ -70,13 +69,17 @@ export function v3Toast(): any {
   }
 }
 
+/** v3 toast：轻量自实现（不依赖 Toast 组件——其 import 链含 vdom2 context）
+ *  portal 渲染 + wf-toast 样式类 + 自动消失 */
 function createV3Toast(message: string, variant: string): void {
   const container = document.createElement('div')
+  container.className = 'wf-toast-host'
+  container.style.cssText = 'position:fixed;top:16px;right:16px;z-index:var(--wf-z-toast,9999)'
   document.body.appendChild(container)
   const Host = async (_init: any, _c: any) => async () =>
-    h('div', { class: 'wf-toast-host' }, h(ToastComp as unknown as Component, { message, variant }))
+    h('div', { class: `wf-toast wf-toast--${variant}` }, h('span', { class: 'wf-toast-msg' }, message))
   const handle = createRoot(h(Host, {}), container)
-  // 自动消失（Toast 组件自身动画——兜底清理）
+  // 自动消失（兜底清理）
   setTimeout(() => {
     handle.unmount()
     container.remove()

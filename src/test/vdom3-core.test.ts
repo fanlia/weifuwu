@@ -1395,3 +1395,16 @@ test('命令式 confirm（vdom3——createRoot 挂载 Confirm 组件 + Modal po
   document.body.removeChild(root)
   document.querySelector('[id="__wf_portal"]')?.remove()
 })
+
+test('命令式 toast（v3——createRoot 挂载 Toast 组件）', async () => {
+  const { v3Toast } = await import('../ui-dom/vdom3/commands.ts')
+  let ctx: any = {}
+  ctx = v3Toast()(ctx)
+  ctx.toast('部门已删除', 'success')
+  await new Promise((r) => setTimeout(r, 60))
+  console.log('[toast-dbg] host:', document.querySelector('.wf-toast-host')?.innerHTML?.slice(0, 100))
+  assert.ok(document.querySelector('.wf-toast-host'), 'toast host 渲染')
+  assert.ok(document.querySelector('.wf-toast-host')?.textContent?.includes('部门已删除'), 'toast 文案')
+  // 自动消失（3 秒兜底——不等——清理验证卸载）
+  document.querySelector('.wf-toast-host')?.remove()
+})

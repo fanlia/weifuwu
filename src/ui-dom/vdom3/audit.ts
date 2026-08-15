@@ -33,18 +33,24 @@ export function auditAfterRender(root: Element): void {
   for (const c of root.children) walk(c)
 }
 
-/** vnode/DOM 顺序一致性（children 有 el 的项——DOM 顺序 = children 顺序） */
-export function auditOrder(el: Element, v: VNode): void {
+/** vnode/DOM 顺序一致性（children 有 el 的项——DOM 顺序 = children 顺序）
+ *  索引比较（父下 childNodes indexOf——无 compareDocumentPosition 的跨树/同节点歧义） */
+export function auditOrder(_el: Element, v: VNode): void {
   if (!enabled) return
   const kids = childrenOf(v).filter((c) => c != null && typeof c === 'object' && (c as VNode).el != null)
   if (kids.length < 2) return
-  let prev: Node | null = null
+  const parent = (kids[0] as VNode).el?.parentNode
+  if (!parent) return
+  let prevIdx = -1
   for (const k of kids) {
     const node = (k as VNode).el as Node
-    if (prev && node.compareDocumentPosition(prev) & Node.DOCUMENT_POSITION_PRECEDING) {
-      console.warn(`[vdom3/audit] children 顺序错位（vnode 顺序 ≠ DOM 顺序）`)
+    if (node.parentNode !== parent) return // 跨树（portal 等）跳过
+    const idx = [...parent.childNodes].indexOf(node as ChildNode)
+    if (idx < 0) return
+    if (idx < prevIdx) {
+      console.warn(`[vdom3/audit] children 顺序错位（vnode 顺序 ≠ DOM 顺序——索引 ${idx} < ${prevIdx}）`)
       return
     }
-    prev = node
+    prevIdx = idx
   }
 }

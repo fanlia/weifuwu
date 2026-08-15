@@ -9,6 +9,7 @@ import type { VNode } from './types.ts'
 import { buildVNode } from './build.ts'
 import { patch, mount } from './render.ts'
 import { scheduler } from './scheduler.ts'
+import { stream } from './events.ts'
 
 export interface V3Ctx {
   render: () => void
@@ -79,7 +80,6 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
     unmount() {
       // COMP_UNMOUNT（根组件）
       if (current._id) {
-        const { stream } = require('./events.ts') as typeof import('./events.ts')
         stream.emit({ type: 'COMP_UNMOUNT', id: current._id, name: 'root', ts: Date.now() })
       }
       root.innerHTML = ''
