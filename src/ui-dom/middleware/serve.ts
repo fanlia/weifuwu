@@ -20,7 +20,7 @@ import { createVdomContext } from '../context.ts'
 import { hydrateVNode } from '../vdom2/hydrate.ts'
 import { createRouteController } from '../vdom2/route.ts'
 import { installVdomInspect } from '../vdom2/trace.ts'
-import { installEventRing, beginSession, endSession } from '../vdom2/events.ts'
+import { installEventRing, beginSession, endSession, emit } from '../vdom2/events.ts'
 import { installMountInvariantAudit } from '../vdom2/audit.ts'
 import type { VNodeChild } from '../vnode.ts'
 
@@ -169,6 +169,9 @@ export function uiServe<RC extends object = {}>(
       output = h('div', { class: 'ui-dom-error' }, `页面渲染失败: ${e?.message ?? String(e)}`)
     }
     if (closing || token !== navToken) { endSession(); return } // 过期导航丢弃（串行化——快速连续导航防竞态）
+    // 渲染请求来源标记（追踪）：uiServe 的渲染入口（首帧 renderValue / 导航 patchValue）
+    // 与组件内 ctx.ui.render() 统一进事件流——页面存续期所有渲染请求可追溯
+    emit({ session, machine: 'render', nodeId: null, component: null, from: 'uiServe', event: 'RENDER_REQUEST', to: initial ? 'initial' : 'nav', payload: () => ({ source: 'uiServe', detail: initial ? 'initial' : 'nav', path, ts: Date.now() }), level: 'info', ts: Date.now() })
     const traceOn = traceEnabled('mount')
     const traceId = traceOn ? nextTraceId('nav') : ''
     if (traceOn) trace('mount', 'info', traceId, `route path=${path} initial=${initial}`)

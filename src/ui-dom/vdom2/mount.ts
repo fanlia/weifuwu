@@ -43,7 +43,7 @@ export interface MountHandle {
 }
 
 export interface Renderer {
-  render(ids?: string[]): Promise<void>
+  render(ids?: string[], req?: RenderRequestInfo): Promise<void>
 }
 
 export interface VdomContext {
@@ -51,6 +51,23 @@ export interface VdomContext {
   registry: Registry
   renderer: Renderer
   rootUi: any
+}
+
+/** 渲染请求来源（render 调用追踪——页面存续期所有渲染入口统一可追溯） */
+export interface RenderRequestInfo {
+  /** 调用来源分类 */
+  source: 'component' | 'uiServe' | 'external' | 'root'
+  /** 调用者组件名（source=component 时） */
+  component: string | null
+  /** 调用者组件 id（childUi 绑定的 _id） */
+  nodeId: string | null
+  /** 附加信息（uiServe: initial/nav；external: popup-tracker/hook 名等） */
+  detail?: string
+}
+
+/** 渲染请求事件（machine=render, event=RENDER_REQUEST——每次 render()/renderPath 发射） */
+function emitRenderRequest(req: RenderRequestInfo, ids: string[] | null, to: string, session: string): void {
+  emit({ session, machine: 'render', nodeId: req?.nodeId ?? null, component: req?.component ?? null, from: req?.source ?? 'external', event: 'RENDER_REQUEST', to, payload: () => ({ ids, source: req?.source ?? 'external', detail: req?.detail ?? null, ts: Date.now() }), level: 'info', ts: Date.now() })
 }
 
 /** 渲染执行器（render-only 唯一渲染入口——per-id 串行链：并发触发排队补跑，
@@ -155,8 +172,9 @@ export function createRenderer(opts: {
       endSession()
     }
   }
-  function render(ids?: string[]): Promise<void> {
+  function render(ids?: string[], req?: RenderRequestInfo): Promise<void> {
     if (ids == null) return Promise.resolve()
+    emitRenderRequest(req ?? { source: 'external', component: null, nodeId: null }, ids, 'dispatch', '')
     // per-id 串行链：并发触发排队（合并补跑最新状态）——prev.then 保证同 id 不并发覆盖
     return Promise.all(ids.map((id) => {
       const prev = renderChains.get(id) ?? Promise.resolve()

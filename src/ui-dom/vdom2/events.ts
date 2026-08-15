@@ -89,6 +89,9 @@ export function currentSession(): string {
 /** payload 惰性求值 + 分发（sink 错误隔离——不中断渲染管线）
  *  session：事件显式传入优先，否则继承当前渲染会话（一次渲染 = 一棵事件树） */
 export function emit(ev: VdomEvent): void {
+  // ring buffer 全程记录（页面生命周期任何时刻的事件都可追溯——首次 emit 即注册，
+  // 不依赖查询时机：事故现场查询前的事件不丢失）
+  ensureRing()
   if (sinks.size === 0) return
   if (!ev.session) ev.session = currentSession()
   // 惰性 payload：仅当有消费者需要时才求值（collect sink 或 trace 开启）
@@ -167,6 +170,21 @@ export function __vdom_events(n = 50, filter?: Partial<VdomEvent>): VdomEvent[] 
   return ring.filter((e) =>
     Object.entries(filter).every(([k, v]) => (e as unknown as Record<string, unknown>)[k] === v),
   ).slice(-n)
+}
+
+/** 渲染请求追踪（__vdom_render_trace(n?)——页面存续期所有渲染入口统一视图：
+ *  uiServe 首帧/导航 + 组件 ctx.ui.render()（含调用者组件名/id） + 外部系统
+ *  输出：`[t=ms] source(component:id) → ids / detail`——按事件顺序 */
+export function __vdom_render_trace(n = 100): string[] {
+  ensureRing()
+  return ring.filter((e) => e.event === 'RENDER_REQUEST').slice(-n).map((e) => {
+    const p = (e.payload ?? {}) as { ids?: string[] | null; source?: string; detail?: string | null; ts?: number }
+    const t0 = ring[0]?.ts ?? 0
+    const t = p.ts != null ? p.ts - t0 : 0
+    const who = e.component ? `${e.component}${e.nodeId ? `(${e.nodeId})` : ''}` : e.from
+    const target = p.ids?.length ? `[${p.ids.join(',')}]` : '(无参→self)'
+    return `[t=+${t}ms] ${who} → ${target} ${p.detail ? `(${p.detail})` : ''}`
+  })
 }
 
 /** 重置 ring buffer（测试隔离用） */

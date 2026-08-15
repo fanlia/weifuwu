@@ -22,7 +22,7 @@
 import type { VNodeChild, VNode } from '../vnode.ts'
 import { Fragment, Portal } from '../vnode.ts'
 import { dumpTimeline } from './lifecycle.ts'
-import { __vdom_events, emit, hasObservingSinks, type VdomMachine } from './events.ts'
+import { __vdom_events, __vdom_render_trace, emit, hasObservingSinks, type VdomMachine } from './events.ts'
 
 export type VdomStage = 'mount' | 'build' | 'render' | 'diff' | 'lifecycle' | 'route' | 'audit'
 export type VdomLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace'
@@ -252,5 +252,8 @@ export function installVdomInspect(rootGetter: () => VNodeChild | null | undefin
   if (g.__vdom_events == null) {
     const events = __vdom_events
     g.__vdom_events = (n?: number, filter?: unknown) => events(n, filter as never)
+  }
+  if (g.__vdom_render_trace == null) {
+    g.__vdom_render_trace = (n?: number) => __vdom_render_trace(n)
   }
 }

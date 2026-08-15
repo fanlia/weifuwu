@@ -10,7 +10,7 @@
  * hooks 实现已在 src/ui-dom/hooks/（独立模块）——此处仅组装 HookEnv + 转发。
  */
 
-import { createRenderer, mountRoot as mountRootCore, createRegistry, type Registry, type Renderer, type MountHandle } from './vdom2/mount.ts'
+import { createRenderer, mountRoot as mountRootCore, createRegistry, type Registry, type Renderer, type MountHandle, type RenderRequestInfo } from './vdom2/mount.ts'
 import { onComponentUnmountFor } from './vdom2/registry.ts'
 import { createPopupTrackerSystem } from './popup-tracker.ts'
 import type { HookEnv } from './hooks/types.ts'
@@ -52,7 +52,7 @@ export function createVdomContext(opts: MountOptions): VdomContext {
   const renderer = opts.renderer ?? createRenderer({ registry, ctx, rootEl: opts.root, onError: opts.onError })
 
   // ── 弹层/滚动跟踪系统（scroll/resize 重算 → 渲染） ──
-  const tracker = createPopupTrackerSystem((ids: string[]) => { for (const id of ids) renderer.render([id]) })
+  const tracker = createPopupTrackerSystem((ids: string[]) => { for (const id of ids) renderer.render([id], { source: 'external', component: null, nodeId: null, detail: 'popup-tracker' }) })
   // mediaRegistry 自建（useMedia/useBreakpoint 的 mql 注册表）
   const mediaRegistry = new Map<string, { mqls: Array<{ mql: MediaQueryList; handler: () => void }> }>()
   const { popupTrackers, scrollTrackers, ensurePopupListeners, destroyPopupListeners, cleanupTrackers } = tracker
@@ -75,7 +75,16 @@ export function createVdomContext(opts: MountOptions): VdomContext {
       const id = self?._selfVNode?._id ?? self?._selfId
       return typeof id === 'string' ? id : undefined
     },
-    render: (ids) => renderer.render(ids),
+    render: (ids) => {
+      // hooks 内部渲染（useExternal store 通知 / useMedia 断点变化等）——调用者是组件（经 hook）
+      const vn = self?._selfVNode
+      return renderer.render(ids, {
+        source: 'component',
+        component: vn && typeof vn.type === 'function' ? ((vn.type as { name?: string }).name || 'anonymous') : null,
+        nodeId: vn?._id ?? null,
+        detail: 'hook',
+      })
+    },
     browser: opts.browser,
     onUnmount: (fn) => onComponentUnmountFor(registry, fn),
     registry,
@@ -92,7 +101,13 @@ export function createVdomContext(opts: MountOptions): VdomContext {
 
   // ── rootUi 核心原语（render-only） ──
   let warnedNoTarget = false
-  rootUi.render = function (this: any, ids?: string[]): Promise<void> {
+  rootUi.render = function (this: any, ids?: string[], req?: RenderRequestInfo): Promise<void> {
+    // 调用者解析（渲染请求追踪）：优先显式 req（childUi.render 闭包绑定 comp——可靠）；
+    // 否则 this = childCtx.ui（组件 ctx.ui.render() → this._selfVNode）→ source=component；
+    // 无 _selfVNode（rootUi 直接调用/i18n 等 root 层）→ source=root
+    const caller = req ?? (this?._selfVNode
+      ? { source: 'component' as const, component: this._selfVNode && typeof this._selfVNode.type === 'function' ? ((this._selfVNode.type as { name?: string }).name || 'anonymous') : null, nodeId: this._selfVNode?._id ?? null }
+      : { source: 'root' as const, component: null, nodeId: null })
     // this = 调用者的 childCtx.ui（组件 ctx.ui.render() → this._selfId = 组件 id）
     if (ids == null) {
       const self = this._selfId !== '_wf_root' && this._selfId ? this._selfId : rootUi._rootVNodeId
@@ -103,9 +118,9 @@ export function createVdomContext(opts: MountOptions): VdomContext {
         }
         return Promise.resolve()
       }
-      return renderer.render([self])
+      return renderer.render([self], caller)
     }
-    return renderer.render(ids)
+    return renderer.render(ids, caller)
   }
   rootUi.setMounting = (v: boolean) => { rootUi._mounting = v }
   rootUi.endMounting = () => { rootUi._mounting = false }

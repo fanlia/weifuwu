@@ -24,6 +24,7 @@ import { classifyKind, type VKind } from './kind.ts'
 import { trace, traceEnabled, kidsSeq, vnDesc } from './trace.ts'
 import { emit } from './events.ts'
 import { auditEnabled } from './audit.ts'
+import type { RenderRequestInfo } from './mount.ts'
 
 /** 组件 props 浅比较（三态 skip 判定） */
 export function componentPropsEqual(a: Record<string, any>, b: Record<string, any>): boolean {
@@ -71,9 +72,18 @@ export async function mountAsyncComponent(
   ;(childUi as VdomUi & { _selfVNode?: VNode })._selfVNode = comp
   // render-only：闭包绑定渲染（无 this 陷阱——根治 §4.5 selfId 错位：重挂载/解构不影响）
   childUi.render = function (this: unknown, ids?: string[]): Promise<void> {
-    const ui = ctx.ui
-    if (ids == null && comp._id) return ui.render!([comp._id])
-    return ui.render!(ids)
+    // 渲染请求来源标记（追踪）：调用者 = 本组件（闭包绑定 comp——可靠，不依赖 this）
+    const req: RenderRequestInfo = { source: 'component', component: componentName(comp.type), nodeId: comp._id ?? null }
+    // 沿原型链直达 rootUi.render（跳过中间 childUi——父 childUi.render 会重新构造
+    // 自己的 req 并丢弃子组件的 req——归因错误：AppLayout 的 render 显示子组件 id）
+    let ui: any = childCtx.ui
+    let depth = 0
+    while (ui && typeof ui === 'object' && ui._selfVNode && depth < 10) {
+      ui = Object.getPrototypeOf(ui)
+      depth++
+    }
+    if (ids == null && comp._id) return ui.render!([comp._id], req)
+    return ui.render!(ids, req)
   }
 
   // 旧树同位置同类型复用（工厂不重跑——组件跨渲染保持内部状态）
