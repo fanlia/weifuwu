@@ -348,8 +348,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 <div key="quality-title" class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="activity" size={14} /> 质量</div>
               )}
               {$.quality && (
-                <div key="quality-stats" 
-                <div class="wf-row wf-gap-md wf-text-sm wf-mt-xs wf-cluster">
+                <div key="quality-stats" class="wf-row wf-gap-md wf-text-sm wf-mt-xs wf-cluster">
                   <span>工具成功率：<b class="wf-nums">{$.quality.toolSuccessRate ?? '—'}%</b> <span class="wf-text-xs wf-text-tertiary">({$.quality.runs} 次)</span></span>
                   <span>👍 <b class="wf-nums">{$.quality.likes}</b></span>
                   <span>👎 <b class="wf-nums">{$.quality.dislikes}</b></span>
