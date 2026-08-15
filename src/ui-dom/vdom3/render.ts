@@ -31,6 +31,7 @@ export function isFragmentNode(v: unknown): boolean {
   return (t === Fragment || typeof t === 'symbol') && (v as VNode).props?.portalKey == null
 }
 import { stream, ev, nextNodeId } from './events.ts'
+import { bindDelegated, unbindAll, unbindEvent, ensureDelegationRoot } from './delegate.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
 import { auditOrder } from './audit.ts'
@@ -47,6 +48,8 @@ export function mount(vnode: VNode, root: HTMLElement, reg?: NodeRegistry): void
   const prev = registry
   if (reg) registry = reg
   try {
+    // 事件代理根（任何挂载点——含测试基建 mountToDom——挂载即注册监听）
+    ensureDelegationRoot(root)
     root.innerHTML = ''
     registry.register(NodeRegistry.ROOT, root) // root id 映射（事件流 parent 定位）
     renderVNode(vnode, root)
@@ -81,6 +84,8 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     const pv = vnode as PortalVNode
     const portalKey = String(pv.props?.portalKey ?? 'default')
     const container = ensurePortalContainer(portalKey)
+    // 事件代理根（portal 容器——内容冒泡到容器——按钮点击等事件分发的挂载点）
+    ensureDelegationRoot(container)
     // 容器 id 注册（事件流 parent 用 portal:key——idOf 经 WeakMap 解析）
     registry.register(NodeRegistry.PORTAL(portalKey), container)
     let first: Node | null = null
@@ -105,17 +110,9 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   for (const [key, val] of Object.entries(vnode.props ?? {})) {
     if (key === 'key' || key === 'children' || key === 'ref') continue
     if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
-      const evtKeys = ((el as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys ??= new Set<string>())
-      const evtHandlers = ((el as Element & { __v3evtHandlers?: Map<string, EventListener> }).__v3evtHandlers ??= new Map())
-      if (!evtKeys.has(key)) { // 按 key 防重复（多事件全绑定——首事件后不再跳过后续）
-        // 绑定用原始 handler（同一引用——重绑时 removeEventListener 有效——防旧监听残留重复触发）
-        const handler = val as EventListener
-        el.addEventListener(key.slice(2).toLowerCase(), handler)
-        evtKeys.add(key)
-        evtHandlers.set(key, handler)
-        // EVENT_BIND 观测（dom 层——绑定关系可审计）
-        stream.emit(ev('event', 'bind', id, { event: key.slice(2).toLowerCase() }))
-      }
+      // 事件代理：handler 注册到代理注册表（按节点 id——Map 覆盖零重绑）——
+      // 挂载点监听惰性注册（每挂载点每事件一次——EVENT_BIND 由代理发）
+      bindDelegated(id, key.slice(2).toLowerCase(), val as EventListener, parent)
       continue
     }
     if (val != null && val !== false) {
@@ -267,25 +264,9 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
         && !Array.isArray(ov) && !Array.isArray(nv)
         && shallowEqual(ov as Record<string, unknown>, nv as Record<string, unknown>)) continue
     if (typeof nv === 'function' && /^on[A-Z]/.test(key)) {
-      const evtKeys = ((el as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys ??= new Set<string>())
-      const evtHandlers = ((el as Element & { __v3evtHandlers?: Map<string, EventListener> }).__v3evtHandlers ??= new Map())
-      const handler = nv as EventListener
-      if (!evtKeys.has(key)) {
-        // 新 key 绑定（EVENT_BIND——生命周期）
-        el.addEventListener(key.slice(2).toLowerCase(), handler)
-        evtKeys.add(key)
-        evtHandlers.set(key, handler)
-        stream.emit(ev('event', 'bind', target, { event: key.slice(2).toLowerCase() }))
-      } else if (evtHandlers.get(key) !== handler) {
-        // handler 变化 → 先解绑旧再绑新（EVENT_UNBIND → EVENT_BIND——注册/注销可观测；
-        // 稳定引用（§5.1 mount 定义回调）→ 零事件）
-        const oldHandler = evtHandlers.get(key)
-        if (oldHandler) el.removeEventListener(key.slice(2).toLowerCase(), oldHandler)
-        el.addEventListener(key.slice(2).toLowerCase(), handler)
-        evtHandlers.set(key, handler)
-        stream.emit(ev('event', 'unbind', target, { event: key.slice(2).toLowerCase() }))
-        stream.emit(ev('event', 'bind', target, { event: key.slice(2).toLowerCase() }))
-      }
+      // 事件代理：handler 更新 = Map 覆盖（零重绑零事件——事件流零噪音；
+      // 稳定引用（§5.1）仅为性能建议——非正确性要求）
+      bindDelegated(target, key.slice(2).toLowerCase(), nv as EventListener, el)
       continue
     }
     if (nv == null || nv === false) {
@@ -478,13 +459,8 @@ export function callRefCleanup(v: VNode | null | undefined): void {
 
 /** 节点移除的完整清理（REMOVE 事件 + EVENT_UNBIND（绑定生命周期）+ ref(null) + registry） */
 export function removeNodeWithLifecycle(node: Node, parent: Node, vnodeRef?: VNode | null): void {
-  // 事件绑定生命周期：解绑（EVENT_UNBIND——可观测）
-  const evtKeys = (node as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys
-  if (evtKeys) {
-    for (const key of evtKeys) {
-      stream.emit(ev('event', 'unbind', registry.idOf(node), { event: key.slice(2).toLowerCase() }))
-    }
-  }
+  // 事件代理解绑（注册表删除 + EVENT_UNBIND——每事件可观测）
+  unbindAll(registry.idOf(node))
   if (vnodeRef) callRefCleanup(vnodeRef)
   const rid = registry.idOf(node)
   stream.emit(ev('node', 'remove', rid, { parent: parentId(parent) }))
@@ -511,12 +487,7 @@ export function removePortalContent(pv: PortalVNode): void {
   // 递归 ref(null)（面板根/嵌套的 ref——锁滚动/焦点清理依赖）+ EVENT_UNBIND
   callRefCleanup(pv)
   for (const child of [...container.childNodes]) {
-    const evtKeys = (child as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys
-    if (evtKeys) {
-      for (const key of evtKeys) {
-        stream.emit(ev('event', 'unbind', registry.idOf(child), { event: key.slice(2).toLowerCase() }))
-      }
-    }
+    unbindAll(registry.idOf(child))
     const cid = registry.idOf(child)
     stream.emit(ev('node', 'remove', cid, { parent: NodeRegistry.PORTAL(portalKey) }))
     container.removeChild(child)

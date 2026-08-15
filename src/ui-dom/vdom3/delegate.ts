@@ -1,0 +1,129 @@
+/**
+ * vdom3 event delegation — 事件代理（用户决策：事件注册到代理而非组件自身）
+ *
+ * 架构：
+ *   组件渲染 → handler 写入代理注册表（按节点 id——Map 覆盖零重绑）
+ *   挂载点（createRoot/createRouter 的 root + portal 容器）注册原生监听
+ *   （每挂载点每事件一次——监听器 O(1)）——惰性（首次绑定某事件时注册）
+ *   事件冒泡 → 挂载点监听 → e.target 向上找最近 [data-v3-id] → 查注册表 → 分发
+ *
+ * 收益：
+ *   - 监听器 O(1)（每挂载点每事件一次——非每元素）
+ *   - 零重绑（handler 变化 = Map 覆盖——事件流零噪音——§5.1 稳定引用仅为性能建议）
+ *   - 生命周期：EVENT_BIND（挂载点首次注册）/ EVENT_UNBIND（节点移除时代理删除）
+ */
+
+import { stream, ev } from './events.ts'
+
+/** event → (nodeId → handler)——模块级全局（节点 id 全局唯一） */
+const handlers = new Map<string, Map<string, EventListener>>()
+/** 已注册监听的挂载点（root + portal 容器） */
+const roots = new Set<Element>()
+/** 挂载点 → 已注册的事件（惰性——每挂载点每事件一次） */
+const registered = new Map<Element, Set<string>>()
+
+/** 不冒泡事件 → 冒泡等价（focus/blur 用 focusin/focusout——代理依赖冒泡） */
+const EVENT_MAP: Record<string, string> = {
+  focus: 'focusin',
+  blur: 'focusout',
+}
+
+/** 绑定/更新 handler（Map 覆盖——零重绑零事件） */
+export function bindEvent(nodeId: string, event: string, handler: EventListener): void {
+  let m = handlers.get(event)
+  if (!m) { m = new Map(); handlers.set(event, m) }
+  m.set(nodeId, handler)
+}
+
+/** 解绑（节点移除——代理删除 + EVENT_UNBIND） */
+export function unbindEvent(nodeId: string, event: string): void {
+  if (handlers.get(event)?.delete(nodeId)) {
+    stream.emit(ev('event', 'unbind', nodeId, { event }))
+  }
+}
+
+/** 解绑节点的全部事件（移除统一清理——注册表与元素级标记解耦） */
+export function unbindAll(nodeId: string): void {
+  for (const [event, m] of handlers) {
+    if (m.delete(nodeId)) {
+      stream.emit(ev('event', 'unbind', nodeId, { event }))
+    }
+  }
+}
+
+/** 测试/调试隔离：清空注册表与挂载点（模块级 handlers 跨测试残留——
+ *  节点 id 各测试从 n1 重新分配——旧 handler 可能被错误分发） */
+export function resetDelegation(): void {
+  handlers.clear()
+  roots.clear()
+  registered.clear()
+}
+
+/** 注册挂载点（createRoot/createRouter 挂载时调用） */
+export function ensureDelegationRoot(root: Element): void {
+  roots.add(root)
+}
+
+/** 移除挂载点（卸载——监听由 roots/registered 自然失效；handler 由节点移除清理） */
+export function removeDelegationRoot(root: Element): void {
+  roots.delete(root)
+  registered.delete(root)
+}
+
+/** 从节点向上找挂载点（O(depth)——首次绑定事件时注册监听） */
+function rootOf(node: Node | null): Element | null {
+  let el: Node | null = node
+  while (el) {
+    if (el.nodeType === 1 && roots.has(el as Element)) return el as Element
+    el = el.parentNode
+  }
+  return null
+}
+
+/** 挂载点惰性注册事件监听（每挂载点每事件一次——EVENT_BIND 发一次） */
+function ensureRootEvent(root: Element, event: string): void {
+  const set = registered.get(root) ?? new Set<string>()
+  if (set.has(event)) return
+  set.add(event)
+  registered.set(root, set)
+  const realEvent = EVENT_MAP[event] ?? event
+  // 冒泡监听（与元素级语义一致：stopPropagation 的 handler 影响后续冒泡——
+  // 组件 handler 内 stopPropagation 与现状一致）
+  root.addEventListener(realEvent, (e) => dispatch(e))
+  // 挂载点 id（root → 'root'；portal 容器 → 'portal:key'）
+  const rootId = root.hasAttribute('data-wf-portal-key')
+    ? `portal:${root.getAttribute('data-wf-portal-key')}`
+    : 'root'
+  stream.emit(ev('event', 'bind', rootId, { event: realEvent, delegated: true }))
+}
+
+/** 渲染时绑定（createNode/patchProps 调用——事件 props 处理）：
+ *  注册 handler + 确保挂载点监听（向上找——首次） */
+export function bindDelegated(nodeId: string, event: string, handler: EventListener, parent: Node | null): void {
+  bindEvent(nodeId, event, handler)
+  if (parent) {
+    const root = rootOf(parent)
+    if (root) ensureRootEvent(root, event)
+  }
+}
+
+/** 事件分发（挂载点监听回调——冒泡语义：e.target 向上沿祖先链查 handler——
+ *  每层有 data-v3-id 的节点都执行（handler 可能在祖先——如 Tabs 容器 onKeyDown）；
+ *  handler 内 stopPropagation（cancelBubble）后停止向上——与原生冒泡一致） */
+function dispatch(e: Event): void {
+  let el = e.target as Element | null
+  if (el && el.nodeType === 3) el = el.parentElement
+  const m = handlers.get(e.type)
+  if (!m) return
+  while (el) {
+    const id = el.getAttribute?.('data-v3-id')
+    if (id) {
+      const handler = m.get(id)
+      if (handler) {
+        try { handler(e) } catch { /* handler 失败隔离——错误事件化由上层覆盖 */ }
+        if (e.cancelBubble) break // handler 内 stopPropagation——停止向上分发
+      }
+    }
+    el = el.parentElement
+  }
+}

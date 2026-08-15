@@ -12,6 +12,7 @@ import { patch, mount, removeNodeWithLifecycle, removePortalContent, isPortalNod
 import type { PortalVNode } from './types.ts'
 import { scheduler } from './scheduler.ts'
 import { stream, ev } from './events.ts'
+import { ensureDelegationRoot } from './delegate.ts'
 
 
 
@@ -174,6 +175,9 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
       root.innerHTML = ''
     },
   }
+
+  // 事件代理根（挂载点监听——每挂载点每事件一次——惰性注册）
+  ensureDelegationRoot(root)
 
   // 初始挂载（组件构建——ctx 注入）
   void (async () => {

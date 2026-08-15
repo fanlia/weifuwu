@@ -11,6 +11,7 @@ import { buildVNode } from './build.ts'
 import { mount, patch, removeNodeWithLifecycle, removePortalContent, isPortalNode } from './render.ts'
 import { stream, ev } from './events.ts'
 import { findComponent } from './root.ts'
+import { ensureDelegationRoot } from './delegate.ts'
 
 /** 布局包裹（跨路由复用——layout 函数引用稳定 → patch 同位置同类型复用——
  *  工厂不重跑——内部状态（折叠/高亮）保持——vdom2 布局层语义） */
@@ -67,6 +68,9 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
   // 组件级 dirty 多槽（滚动高频多弹层跟随——busy 时各自排队，互不挤占）
   const dirtyComps = new Set<string>()
   let queue: Op | null = null
+
+  // 事件代理根（挂载点监听——每挂载点每事件一次——惰性注册）
+  ensureDelegationRoot(root)
 
   // 页面组件 ctx：render = 重渲染当前页（组件工厂收到——交互驱动）+ 注入中间件面
   let pageCtx: V3Ctx = {} as V3Ctx

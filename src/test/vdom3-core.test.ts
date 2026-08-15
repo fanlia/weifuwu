@@ -1872,7 +1872,9 @@ test('全链路事件流矩阵：每层每事件类型都有断言（location/js
   assert.ok(types.has('comp:render'), 'jsx：RENDER')
   assert.ok(types.has('vnode:patch'), 'vdom：PATCH')
   assert.ok(types.has('text:update'), 'dom：TEXT_UPDATE')
-  assert.ok(types.has('event:bind'), 'dom：EVENT_BIND（初始已绑——重置后点击不含——初始有）')
+  // 事件代理：点击（handler 更新）零 BIND/UNBIND（Map 覆盖——零重绑零噪音）；
+  // 挂载点 EVENT_BIND 在初始渲染（惰性注册——每挂载点每事件一次）
+  assert.ok(!types.has('event:bind') && !types.has('event:unbind'), '事件代理：点击零 BIND/UNBIND（Map 覆盖）')
   gs.reset()
   // 路由导航（location：ROUTE_CHANGE → 页面 RENDER → dom）
   router.navigate('/a/2')
@@ -1900,7 +1902,7 @@ test('全链路事件流矩阵：每层每事件类型都有断言（location/js
   document.body.removeChild(root2)
 })
 
-test('事件生命周期：handler 变化 → UNBIND + BIND（注册/注销可观测）；稳定 → 零事件', async () => {
+test('事件代理生命周期：handler 更新零事件（Map 覆盖——零重绑）；挂载点 EVENT_BIND 一次；移除 UNBIND', async () => {
   const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
   gs.reset()
   const root = document.createElement('div')
@@ -1938,18 +1940,22 @@ test('事件生命周期：handler 变化 → UNBIND + BIND（注册/注销可�
   }
   const root2 = document.createElement('div')
   document.body.appendChild(root2)
+  // 挂载点首次绑定：EVENT_BIND（每挂载点每事件一次——惰性注册）
+  gs.reset()
   createRoot(h(App2, {}), root2)
   await new Promise((r) => setTimeout(r, 20))
+  const initBinds = gs.events().filter((e) => evKey(e) === 'event:bind')
+  assert.ok(initBinds.length >= 1, '挂载点 EVENT_BIND（首次注册——每挂载点每事件一次）')
+  // handler 更新（重渲染——render 内定义新函数）→ 零 UNBIND（Map 覆盖零重绑零噪音）
   gs.reset()
   ;(root2.querySelector('[id="g2"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
-  const evs = gs.events()
-  const types = evs.map((e) => evKey(e))
-  // render 内定义（新函数）→ UNBIND + BIND 序列（生命周期完整）
-  const unbindIdx = types.findIndex((t) => t === 'event:unbind')
-  const bindIdx = types.lastIndexOf('event:bind')
-  assert.ok(unbindIdx >= 0, `handler 变化 → EVENT_UNBIND（旧解绑）——实际: ${[...new Set(types)].join(',')}`)
-  assert.ok(unbindIdx < bindIdx, 'UNBIND 先于 BIND（先取消再注册）')
+  const types = gs.events().map((e) => evKey(e))
+  assert.ok(!types.includes('event:unbind') && !types.includes('event:bind'), `handler 更新零 BIND/UNBIND（代理 Map 覆盖）——实际: ${[...new Set(types)].join(',')}`)
+  // 点击执行最新 handler（Map 覆盖生效——render 内定义新闭包——最新 n++——只触发一次）
+  ;(root2.querySelector('[id="b2"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(n, 1, '代理分发执行最新 handler（Map 覆盖——点击只触发一次）')
   document.body.removeChild(root)
   document.body.removeChild(root2)
 })
