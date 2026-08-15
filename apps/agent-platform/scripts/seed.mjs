@@ -82,6 +82,7 @@ async function main() {
     DELETE FROM agent_skills;
     DELETE FROM messages;
     DELETE FROM department_members;
+    DELETE FROM sandboxes;
     DELETE FROM departments;
     DELETE FROM agents;
   `)
@@ -360,6 +361,7 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
       (${devDept.id}, ${generalAgent.id}, 'member')
   `
 
+
   // 部门 2: 客服中心（智能客服 + 知识库）
   const [csDept] = await sql`
     INSERT INTO departments (app_id, name, is_dm)
@@ -403,6 +405,56 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
 
   console.log('  ✓ 4 个部门: 技术部 / 客服中心 / 运维组 / 张明-小码')
 
+  // 三层模型：部门 = 工作目录（默认 {AGENT_WORKSPACE_ROOT}/{department_id}/）
+  // 创建演示目录与交付物文件（AI 工具经沙盒容器读写——用户文件浏览器可见）
+  const workspaceRoot = process.env.AGENT_WORKSPACE_ROOT
+    ? resolve(process.env.AGENT_WORKSPACE_ROOT)
+    : resolve(__dirname, '..', 'data', 'workspaces')
+  const mkdir = (await import('node:fs/promises')).mkdir
+  const writeFile = (await import('node:fs/promises')).writeFile
+  const rm = (await import('node:fs/promises')).rm
+
+  // 清理旧模型（agent 级目录）残留——三层模型目录归属部门
+  for (const oldAgentDir of [devAgent.id, opsAgent.id]) {
+    await rm(join(workspaceRoot, oldAgentDir), { recursive: true, force: true })
+  }
+
+  const devWs = join(workspaceRoot, devDept.id)
+  await mkdir(devWs, { recursive: true })
+  await writeFile(join(devWs, 'README.md'), `# Demo Project
+
+这是一个演示项目——位于「技术部」共享工作目录。
+
+## 目录结构
+
+- \`src/\` — 源代码
+- \`tests/\` — 测试文件
+- \`README.md\` — 本文件
+
+> 三层模型：部门 = 工作目录，沙盒 = 计算资源，Agent = 能力。
+> 小码/小悟 的工具（read/write/bash）都在此目录执行——交付物实时可见。
+`)
+  await mkdir(join(devWs, 'src'), { recursive: true })
+  await writeFile(join(devWs, 'src', 'index.ts'), `// 入口文件
+console.log("Hello, Agent!")
+`)
+  await writeFile(join(devWs, 'src', 'utils.ts'), `// 工具函数
+export function add(a: number, b: number): number {
+  return a + b
+}
+`)
+
+  // 运维组目录（小维的工具执行目录——监控脚本）
+  const opsWs = join(workspaceRoot, opsDept.id)
+  await mkdir(opsWs, { recursive: true })
+  await mkdir(join(opsWs, 'scripts'), { recursive: true })
+  await writeFile(join(opsWs, 'scripts', 'check-disk.sh'), `#!/bin/bash
+# 磁盘水位检查
+df -h / | awk 'NR==2 {print \"磁盘使用率: \" \$5}'
+`)
+  console.log('  ✓ 部门工作目录 + 演示交付物文件已创建（技术部/运维组）')
+
+
   // ════════════════════════════════════════════════════
   // 7. 消息历史
   // ════════════════════════════════════════════════════
@@ -414,7 +466,7 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
       (${devDept.id}, ${userAgent.id}, '小码，帮我看一下这段代码有什么问题？\n\`\`\`typescript\nconst data = await fetch("/api/users")\nreturn data\n\`\`\`', 'text', NOW() - INTERVAL '30 minutes'),
       (${devDept.id}, ${devAgent.id}, '这段代码有几个问题：\n\n1. **缺少错误处理** — fetch 可能失败，需要用 try-catch\n2. **没有解析 JSON** — data 是 Response 对象，需要调用 data.json()\n3. **缺少类型定义** — 建议给返回值加类型\n\n改进建议：\n\`\`\`typescript\ninterface User { id: string; name: string; email: string }\n\nasync function getUsers(): Promise<User[]> {\n  try {\n    const res = await fetch("/api/users")\n    if (!res.ok) throw new Error(HTTP \${res.status})\n    return res.json()\n  } catch (err) {\n    console.error("获取用户列表失败:", err)\n    return []\n  }\n}\n\`\`\`', 'text', NOW() - INTERVAL '28 minutes'),
       (${devDept.id}, ${userAgent.id}, '明白了，谢谢！能帮我跑一下测试吗？', 'text', NOW() - INTERVAL '25 minutes'),
-      (${devDept.id}, ${devAgent.id}, '⚠️ 需要先设置工作空间路径才能运行测试命令。请在工作空间配置中设置项目根目录路径。', 'text', NOW() - INTERVAL '23 minutes'),
+      (${devDept.id}, ${devAgent.id}, '✅ 已在部门工作目录完成初始化：\n\n- \`README.md\` — 项目说明\n- \`src/index.ts\` — 入口文件\n- \`src/utils.ts\` — 工具函数\n\n📦 交付物在右侧「交付物（共享目录）」面板可见——你也可以随时让我在共享目录里写文件。', 'text', NOW() - INTERVAL '23 minutes'),
 
       -- 客服中心对话
       (${csDept.id}, ${userAgent.id}, '请问如何创建一个 AI 机器人？', 'text', NOW() - INTERVAL '20 minutes'),
@@ -424,7 +476,7 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
 
       -- 运维组对话
       (${opsDept.id}, ${adminAgent.id}, '小维，收到一条告警：服务器 CPU 负载超过 90%', 'text', NOW() - INTERVAL '10 minutes'),
-      (${opsDept.id}, ${opsAgent.id}, '⚠️ **收到告警，正在诊断**\n\n请确认以下信息：\n1. 哪个服务器？\n2. 持续了多久？\n3. 最近是否有新部署？\n\n请在工作空间配置中设置运维脚本目录，我可以执行诊断脚本。', 'text', NOW() - INTERVAL '8 minutes'),
+      (${opsDept.id}, ${opsAgent.id}, '⚠️ **收到告警，正在诊断**\n\n1. 已在运维组工作目录放好检查脚本 \`scripts/check-disk.sh\`（磁盘水位）\n2. 需网络权限才能抓取 CPU 详情——默认沙盒无网络\n\n请确认是否允许我执行诊断命令（bash 在沙盒容器内执行，安全隔离）。', 'text', NOW() - INTERVAL '8 minutes'),
 
       -- 张明-小码 单聊
       (${dmDept.id}, ${adminAgent.id}, '小码，帮我写一个 git hook 脚本，在 commit 前自动运行 lint', 'text', NOW() - INTERVAL '5 minutes'),
@@ -444,6 +496,19 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
        '{"steps":["llm"]}', NOW() - INTERVAL '5 minutes')
   `
   console.log('  ✓ 审批待办: 2 条 HITL 草稿（运维组待审批）')
+
+  // ════════════════════════════════════════════════════
+  // 7c. 沙盒演示记录（三层模型：sandbox = 计算资源——绑定部门）
+  // ════════════════════════════════════════════════════
+  // requested = 惰性（容器未起——首次 AI 工具调用自动创建）；
+  // 工作台/部门页显示环境状态点「环境待启动（首次干活自动创建）」
+  await sql`
+    INSERT INTO sandboxes (app_id, department_id, name, status, mode, image, network, memory_mb, cpus, workspace)
+    VALUES
+      (${DEMO_APP_ID}, ${devDept.id}, '技术部', 'requested', 'persistent', 'ap-sandbox:latest', false, 512, 1, ${devWs}),
+      (${DEMO_APP_ID}, ${opsDept.id}, '运维组', 'requested', 'persistent', 'ap-sandbox:latest', false, 512, 1, ${opsWs})
+  `
+  console.log('  ✓ 沙盒演示记录: 技术部 / 运维组（requested——首次干活自动创建）')
 
   // ════════════════════════════════════════════════════
   // 8. Agent 执行日志（Dashboard 面板数据）
@@ -479,45 +544,8 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
   console.log('  ✓ Webhook 调用日志: 3 条')
 
   // ════════════════════════════════════════════════════
-  // 10. 创建工作空间演示文件
   // ════════════════════════════════════════════════════
-
-  // 为有文件工具的 Agent 创建演示目录和文件
-  const workspaceRoot = process.env.AGENT_WORKSPACE_ROOT
-    ? resolve(process.env.AGENT_WORKSPACE_ROOT)
-    : resolve(__dirname, '..', 'data', 'workspaces')
-
-  const mkdir = (await import('node:fs/promises')).mkdir
-  const writeFile = (await import('node:fs/promises')).writeFile
-
-  for (const agentRow of [devAgent, opsAgent]) {
-    const dir = join(workspaceRoot, agentRow.id)
-    await mkdir(dir, { recursive: true })
-  }
-
-  // 开发助手的工作空间：写一个 demo 文件
-  const devWorkspace = join(workspaceRoot, devAgent.id)
-  await writeFile(join(devWorkspace, 'README.md'), `# Demo Project
-
-这是一个演示项目，用于测试 AI Agent 的文件操作能力。
-
-## 目录结构
-
-- \`src/\` — 源代码
-- \`tests/\` — 测试文件
-- \`README.md\` — 本文件
-`)
-  await mkdir(join(devWorkspace, 'src'), { recursive: true })
-  await writeFile(join(devWorkspace, 'src', 'index.ts'), `// 入口文件
-console.log("Hello, Agent!")
-`)
-  await writeFile(join(devWorkspace, 'src', 'utils.ts'), `// 工具函数
-export function add(a: number, b: number): number {
-  return a + b
-}
-`)
-  console.log('  ✓ 工作空间演示文件已创建')
-
+  // 9b. 第二租户「星辰科技」（多租户演示——管理后台/用量）
   // ════════════════════════════════════════════════════
   // 9b. 第二租户「星辰科技」（多租户演示——管理后台/用量）
   // ════════════════════════════════════════════════════
@@ -607,8 +635,11 @@ export function add(a: number, b: number): number {
   }
   console.log()
   console.log('  📋 体验要点')
+  console.log('    · 工作台：项目空间卡片（成员/最近消息/环境状态点）——三层模型入口')
+  console.log('    · 项目空间三栏：左 AI 成员呼吸灯 / 中聊天流 / 右交付物（AI 写文件实时可见）')
+  console.log('    · 沙盒记录：技术部/运维组 requested（首次 AI 干活自动创建容器）')
   console.log('    · Approvals 页：2 条待审批草稿（运维组 HITL）')
-  console.log('    · Dashboard：ROI/成本/趋势有数据（demo 租户）')
+  console.log('    · 运营报表：部门维度用量看板 + 配额告警')
   console.log('    · /admin（管理员）：多租户列表 + 使用概览 + 停用/开通 Pro')
   console.log()
   console.log('  🤖 AI Agent（从角色模板创建）')
@@ -632,11 +663,11 @@ export function add(a: number, b: number): number {
   console.log('  💡 建议体验顺序')
   console.log('    1. 浏览器打开 http://localhost:3000')
   console.log('    2. 用 admin@demo.com / admin123 登录')
-  console.log('    3. 查看 Dashboard 统计数据')
-  console.log('    4. 进入 Agent 页面，查看各 Agent 详情')
-  console.log('    5. 在 Agent 详情中体验技能管理、工作空间配置')
-  console.log('    6. 进入"技术部"聊天，与 AI Agent 对话')
-  console.log('    7. 尝试创建新的 Agent，体验角色模板选择')
+  console.log('    3. 工作台：查看项目空间卡片（环境状态点）')
+  console.log('    4. 进入「技术部」项目空间：三栏工作区——右栏交付物已有演示文件')
+  console.log('    5. 聊天 @小码 让 AI 干活（如"在共享目录写一份周报.md"）——呼吸灯/文件卡片/交付物实时刷新')
+  console.log('    6. 运营报表：部门维度用量看板')
+  console.log('    7. 沙盒页：查看技术部/运维组环境（requested——首次干活自动启动）')
 }
 
 main().catch((err) => {
