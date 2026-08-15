@@ -17,7 +17,7 @@ import type { VNode, VNodeChild } from '../vnode.ts'
 import { Fragment, Portal, isFrag, isComp, isNative, isPortal } from '../vnode.ts'
 import { classifyKind, getOutputRange, type PatchState, type VKind } from './kind.ts'
 import { renderValue, createHole } from './render.ts'
-import { canReuse } from './lifecycle.ts'
+import { canReuse, treeHasDisposed } from './lifecycle.ts'
 import { removeOldOutput, patchChildren, patchProps, patchValue, disposeComponent, arrayToArray, type PatchCtx } from './patch.ts'
 import { callRefCleanupFor } from './registry.ts'
 import { createClientBrowser } from '../browser.ts'
@@ -201,6 +201,24 @@ function compToComp(s: PatchState): Node | null {
   }
   // 输出 vnode 引用（独立于 dispose 的 _child 链——getOutputRange 递归终点）
   newV._outputChild = childNew
+  // I1 并发变体（剪枝缓存失效——真实事故：agent-platform 文件生成后「disposed 组件
+  // EmptyState/LoadingLike 在渲染」+ 文件列表重复）：build 剪枝时共享的旧输出被
+  // **另一渲染会话** dispose/清理（子组件自身 doRenderOne 与父树 diff 交错——
+  // file_updated → FilesSection rerender 与 Chat rerender 并发）。双向检测：
+  //   - childNew 含 disposed：共享旧输出被另一会话 dispose（旧树被当新树——
+  //     patchValue 参数语义反转 → renderValue(disposed) → 占位兜底警告）
+  //   - oldV._child 含 disposed：旧树被另一会话部分清理（vnode 树与 DOM 已脱节——
+  //     DOM 由清理会话更新；脱节树为 diff 基准 → keyed 新增重复插入）
+  // 正确行为：跳过 diff 保留当前 DOM——下一轮父树 build 的 canReuse 深检查
+  // （treeHasDisposed）拒绝剪枝/子组件自身渲染 → 收敛恢复
+  if ((childNew != null && treeHasDisposed(childNew)) || (oldV?._child != null && treeHasDisposed(oldV._child))) {
+    emit({
+      session: '', machine: 'audit', nodeId: newV._id ?? null, component: componentName(newV.type),
+      from: 'PRUNED', event: 'STALE_CACHE', to: 'SKIP_DIFF', level: 'warn', ts: Date.now(),
+    })
+    console.warn(`[vdom2] 剪枝缓存失效：${componentName(newV.type)} 输出含 disposed 组件——并发渲染会话 dispose 共享旧树——跳过 diff（下一轮重建恢复）`)
+    return oldNode
+  }
   const returned = patchValue(parent, oldNode, oldV?._child, childNew, ctx)
   if (returned) newV._refNode = returned
   return returned

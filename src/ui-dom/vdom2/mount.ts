@@ -65,12 +65,43 @@ export function createRenderer(opts: {
   // render 调度状态机（per-id）：IDLE → RUNNING → 完成后 IDLE；RUNNING 中再次触发 →
   // 排队（prev.then）——不是丢弃（错过状态更新会丢渲染，并发合并是既有语义，测试锁定）
   const renderChains = new Map<string, Promise<void>>()
+
+  /** 递归查找 vnode 是否在树中（_child 链 + 手写 vnode 的 props.children——覆盖组件/原生/数组） */
+  function treeContainsVNode(node: unknown, target: unknown): boolean {
+    if (node == null || typeof node !== 'object') return false
+    if (node === target) return true
+    if (Array.isArray(node)) {
+      for (const c of node) if (treeContainsVNode(c, target)) return true
+      return false
+    }
+    const v = node as VNode
+    if (v._child != null && treeContainsVNode(v._child, target)) return true
+    if (typeof v.type === 'string' && v.props?.children != null && treeContainsVNode(v.props.children, target)) return true
+    return false
+  }
+
   async function doRenderOne(id: string): Promise<void> {
     const vnode = registry.idRegistry.get(id)
     if (!vnode || !isComp(vnode) || typeof vnode._render !== 'function') return
     const comp = vnode as CompVNode
     const session = beginSession('render')
     try {
+      // 实例活跃性校验（防脱节 patch——真实事故：agent-platform 文件列表双份）：
+      // registry 里可能残留**孤儿实例**（页面构建期重复构建/未 dispose——多代实例
+      // 共享同一 DOM 锚点，旧实例闭包回调（loadWsList rerender 绑旧 id）仍触发）。
+      // 孤儿实例的 _child 与 DOM 已脱节——doRenderOne 基于脱节旧树 patch 共享 DOM
+      // → keyed 重复插入。信号：从当前渲染树根（_rootVNodeId）DFS——comp 不在树中
+      // = 孤儿 → 跳过渲染 + 清理注册（防反复触发）。正常实例（树中）零影响。
+      const rootId = (ctx.ui as any)?._rootVNodeId
+      if (rootId) {
+        const rootV = registry.idRegistry.get(rootId)
+        if (rootV && !treeContainsVNode(rootV, comp)) {
+          registry.idRegistry.delete(id)
+          registry.idRegistry.delete(`custom:${id}`)
+          emit({ session, machine: 'render', nodeId: id, component: compName(comp), from: 'IDLE', event: 'PARENT', to: 'SKIP_ORPHAN', payload: () => ({ reason: 'not in render tree (stale instance)' }), level: 'warn', ts: Date.now() })
+          return
+        }
+      }
       // renderFn 强制异步：await 数据 → 输出 vnode 树
       const output = await comp._render!(comp.props)
       const newChild = (await buildVNode(output, ctx, comp._child, registry)) ?? null

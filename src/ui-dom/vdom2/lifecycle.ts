@@ -112,8 +112,10 @@ export function canReuse(oldV: { _lifecycle?: Lifecycle; _child?: unknown } | nu
   return !treeHasDisposed(oldV._child)
 }
 
-/** 递归检查子树是否含 disposed vnode（_child 树——不含 props.children 原始 JSX） */
-function treeHasDisposed(child: unknown): boolean {
+/** 递归检查子树是否含 disposed vnode（_child 树——不含 props.children 原始 JSX）
+ *  导出：compToComp 并发剪枝缓存失效检测复用（build 剪枝后另一渲染会话 dispose 共享
+ *  旧树——childNew 树含 disposed = 旧树被当新树，禁止 diff） */
+export function treeHasDisposed(child: unknown): boolean {
   if (child == null || typeof child !== 'object') return false
   if (Array.isArray(child)) {
     for (const c of child) if (treeHasDisposed(c)) return true

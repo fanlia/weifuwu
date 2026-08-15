@@ -279,7 +279,7 @@ function buildComponent(
   }
   // ── 完整路径：mountAsyncComponent（await 工厂——组件两阶段异步契约不变） ──
   vnode._lifecycle = transition(vnode._lifecycle, 'BUILD_START', vnodeTraceCtx(vnode))
-  if (traceEnabled('build')) trace('build', 'debug', '', `mount comp=${vnDesc(vnode)} propsSame=${propsSame} verSame=${verSame} force=${!!opts?.force}`)
+  if (traceEnabled('build')) trace('build', 'debug', '', `mount comp=${vnDesc(vnode)} propsSame=${propsSame} verSame=${verSame} force=${!!opts?.force} oldV=${oldV ? (typeof oldV.type === 'function' ? oldV.type.name : String(oldV.type)) + '/' + (oldV._lifecycle ?? '?') : 'null'}`)
   return (async () => {
     const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? null })
     const built = await buildVNode(await (vnode as CompVNode)._render!(vnode.props), childCtx, oldV?._child, registry, opts)
