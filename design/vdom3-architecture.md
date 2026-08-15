@@ -68,6 +68,9 @@ ROUTE_CHANGE(path, params) → COMP_MOUNT(页面) → NODE_CREATE/TEXT_CREATE
 | SSR | 事件流序列化往返 → replay 重建（零 DOM 猜测） |
 | 流式渲染 | 服务端逐事件推送 → 客户端逐事件应用（渐进首屏——根挂载即见） |
 | 录制转测试 | 事件流 → 自动生成可运行测试（子进程执行通过——事故转回归） |
+| 多端同步 | 事件流 = 操作日志 → 镜像容器（增量同步——日志游标） |
+| 兼容层 | vdom2 组件（ctx.ui.render）→ vdom3 树运行（迁移路径——hooks 裁剪） |
+| MOVE 事件 | keyed 重排 = 移动而非重建（DOM 状态保持 + 回放/undo 可逆） |
 | 浏览器 | apps/vdom3-demo：路由/交互/事件流 8 类型/跨路由状态保持/__v3_replay 回放 |
 | 性能 | mount 1000 节点 ~35ms（jsdom）/ 流式 ~200 更新/ms |
 
@@ -85,6 +88,6 @@ ROUTE_CHANGE(path, params) → COMP_MOUNT(页面) → NODE_CREATE/TEXT_CREATE
 
 1. ~~**录制转测试工具**~~ ✅ 已完成（record.ts——事件流 → 自动生成可运行测试，闭环验证）
 2. ~~**流式渲染**~~ ✅ 已完成（renderToEventStream——服务端逐事件推送 → 客户端 applyEvent 逐事件应用——渐进首屏）
-3. **协作/OT**：事件流 = 操作日志——多端同步/协同编辑基础（undo 已就绪：INSERT→REMOVE/PROP/TEXT 恢复；缺 MOVE 逆操作）
-4. **vdom2 ↔ vdom3 兼容层**：两阶段组件互操作（迁移路径）
+3. **协作/OT 双向**：单向镜像已就绪（sync.ts）——双向 = 各自日志 + 合并策略（MOVE 已可逆）
+4. ~~**vdom2 ↔ vdom3 兼容层**~~ ✅ 已完成（compat.ts——ctx.ui.render 适配；hooks 裁剪）
 5. **性能**：事件池/批处理（当前 jsdom 环境可接受——真实浏览器更快）
