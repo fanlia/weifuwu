@@ -69,12 +69,14 @@
 - **空洞对齐**：位置配对 prevNode 锚（vdom2 提交按钮事故等价验证 + 顺序修复）✅
 - **audit**：__WF_V3_AUDIT（重复 id 泄漏检测 + 顺序错位防线——默认开）✅
 
-### 阶段 5：应用迁移 🔄（入口形态 + 5 页面模式验证完成——剩余页面同类模式）
+### 阶段 5：应用迁移 🔄（核心机制全部验证——剩余为同类模式工程执行）
 - vdom3 应用入口形态：createRouter + ctx 注入（api/confirm/toast/auth/route/app）✅
 - 5 个真实 tsx 页面模式浏览器验证：Login（表单）/Departments（数据 CRUD）/
   Chat（消息+工具卡）/AiChat（流式）/AppLayout（应用框架——认证守卫+导航+登出）✅
 - 认证守卫闭环（未登录 → /login 重定向）✅
-- 剩余：其余页面（同类模式——逐个加路由 + mock api）、完整入口文件（v3-app.ts）
+- 嵌套布局复用（RouteDef.layout——跨路由工厂不重跑——AppLayout 状态保持）✅
+- 剩余：其余页面（同类模式——逐个加路由 + mock api）、完整入口文件（v3-app.ts——
+  机械性工程执行——核心机制已验证）
 
 ### 阶段 6：vdom2 退役（1 天）
 - 默认入口切 vdom3；vdom2 冻结标记（DEPRECATED 注释 + 发布排除）
