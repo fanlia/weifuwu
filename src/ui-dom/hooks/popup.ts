@@ -422,6 +422,12 @@ function canLock(): boolean {
   return typeof window !== 'undefined' && typeof document !== 'undefined'
 }
 
+/** 测试隔离：重置滚动锁状态（node --test 并发——模块级 lockedCount 跨文件共享） */
+export function __resetPopupLockState(): void {
+  lockedCount = 0
+  originalOverflow = ''
+}
+
 function lockScroll(): void {
   lockedCount++
   if (lockedCount > 1) return

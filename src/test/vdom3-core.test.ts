@@ -1553,6 +1553,10 @@ test('kind 完整性：patch 决策表覆盖全部 6 种 kind（reuse 路径—�
 })
 
 test('滚动锁恢复：Modal 关闭 → portal 内容移除时 ref(null) → lockScroll 解锁（滑动条恢复回归）', async () => {
+  // 并发测试隔离：模块级 lockedCount 跨文件共享——重置
+  const { __resetPopupLockState } = await import('../ui-dom/hooks/popup.ts')
+  __resetPopupLockState()
+  document.body.style.overflow = ''
   const { Modal } = await import('../components/Modal/Modal.ts')
   const root = document.createElement('div')
   document.body.appendChild(root)
