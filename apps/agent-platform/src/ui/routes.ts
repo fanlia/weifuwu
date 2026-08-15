@@ -43,6 +43,27 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
     )
   }
 
+  // ── vdom3 入口（默认引擎切换验证） ────────────────
+  if (!IS_PRODUCTION) {
+    app.get('/v3-app.js', async (_req: Request, ctx: Context): Promise<Response> =>
+      ctx.ui.js(resolve(baseDir, 'ui', 'v3-main.tsx'))
+    )
+    const v3Page = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>vdom3 — Agent Platform</title>
+<link rel="stylesheet" href="/static/style.css">
+<script>window.__WF_V3_AUDIT='1'</script>
+</head>
+<body>
+<div id="root"></div>
+<script>history.replaceState(null, '', location.pathname.replace(/^\\/v3/, '') || '/')</script>
+<script type="module" src="/v3-app.js"></script>
+</body>
+</html>`
+    app.get('/v3', async (): Promise<Response> => new Response(v3Page, { headers: { 'Content-Type': 'text/html' } }))
+    app.get('/v3/login', async (): Promise<Response> => new Response(v3Page, { headers: { 'Content-Type': 'text/html' } }))
+  }
+
   // ── SPA 入口页面 ───────────────────────────────────
   if (IS_PRODUCTION) {
     const dist = distDir(baseDir)
