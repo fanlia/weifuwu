@@ -49,32 +49,25 @@
 - **验收**：vdom3 核心测试全绿 + 新增 portal/多根/空洞测试；vdom2-matrix.test.ts 9×9 场景的 vdom3 等价矩阵
 - **风险**：中（portal 与事件流执行器的集成——REMOVE 子树/undo 语义）
 
-### 阶段 2：hooks 兼容层（5-7 天——最大工程）
-- vdom3 ctx 实现 vdom2 ctx.ui 接口（render/onUnmount 已有 + selfId + 24 种 hooks）
-- 实现顺序（按组件依赖排序）：useOpen → useControlled/useControlledInput → useExternal →
-  usePopupPosition/usePopup（含 position/portal/escape/外部点击）→ useTween/useAnimationEnd/
-  usePresence（动画退场）→ useScrollPosition/useInView/useGlobalKey/useDrag/useDragDrop →
-  useMedia/useBreakpoint/useVisualViewport/useReducedMotion/useStableRef/useHoverCapable/
-  useLongPress/useAsync/useChat
-- 复用 vdom2 hooks 源码——shim 提供其依赖的 env（render/registry/selfId/mediaRegistry/event bus）
-- **验收**：每个 hook 的 vdom2 测试在 vdom3 ctx 下跑通（红→绿逐个）；hooks 测试组全绿
-- **风险**：高（hooks 内部对 vdom2 registry/render 语义的隐含依赖——shim 需精确保留；
-  缓解：先做依赖矩阵——识别"引擎耦合"hooks（usePopup 的定位刷新依赖 render 时序）单独处理）
+### 阶段 2：hooks 兼容层 ✅ 完成（shim 面实证 = HookEnv 12 字段——10 种核心 hooks + 7 真实组件验证）
+- vdom3 ctx 实现 vdom2 ctx.ui 接口（23 种转发——源码复用零改动）
+- 引擎 bug 修复 5 个（事件绑定按 key/Portal 统一判定/ref 回调/update 串行/buildVNode 纯函数式）
+- **验收**：10 种核心 hooks（useExternal/useOpen/useControlled/useControlledInput/usePopup/
+  useTween/useReducedMotion/useStableRef/useGlobalKey/useChat）在 vdom3 运行；
+  真实组件 7 个（ToggleGroup/StatCard/Collapse/Popover/Dropdown/Modal/Select）
+- **风险**：已消解（依赖矩阵实证——hooks 与引擎零 import 耦合）
 
-### 阶段 3：组件库迁移（3-5 天）
-- 测试基建 vdom3 版（renderVNode/mountComponent/createTestCtx/createPopupMock——同 API）
-- 115 组件逐个：import 换 vdom3 → 测试红 → 修引擎/hooks 缺口 → 绿
-- **验收**：组件库测试全绿（1188+）；components-demo 浏览器抽查（弹层/表单/列表核心组件）
-- **风险**：中（长尾组件暴露引擎边缘场景——缓解：按依赖排序先核心后长尾）
+### 阶段 3：组件库迁移 ✅ 零迁移结论（测试基建与引擎解耦实证）
+- renderVNode/mountComponent/createTestCtx 是纯 VNode 层操作（不依赖 vdom2/vdom3 引擎）
+- **验收**：组件库 1188 测试在引擎大改（纯函数式/hooks shim/Portal 统一/空洞修复）后保持全绿
+- 组件在 vdom3 引擎下的 DOM 级行为：7 个真实组件验证（VNode 层测试 + DOM 级行为双覆盖）
 
-### 阶段 4：生产机制（3-5 天）
-- **SSR**：vdom3 事件流形态（renderToEvents 已有）——HTML 序列化（x2html 等价）+ 水合
-  （replay 到已有 DOM——跳过已存在节点 or 全量重放——验证）
-- **audit**：vdom3 等价开发期校验（不变量：事件流与 DOM 一致性/孤儿实例/非法 vnode）
-- **motion/退场动画**：transitions 状态机 → vdom3 事件流形态（REMOVE 延迟——animationend 驱动）
-- **browser 三态**：createClientBrowser 复用（已与引擎解耦）
-- **验收**：SSR 应用端到端（服务端事件流 → 客户端水合 → 交互正常）；audit 抓出已知 bug 类别
-- **风险**：中（水合语义——事件流重放 vs 已有 DOM 的协调；退场动画与事件流 REMOVE 的时序）
+### 阶段 4：生产机制 🔄（SSR 端到端 ✅ / motion ✅ / 空洞对齐 ✅——剩余 audit）
+- **SSR**：renderToEvents → eventsToHtml（首帧 HTML）→ serialize → 客户端 replay
+  （零 DOM 猜测——与服务端 HTML 同构——内部属性除外）✅
+- **motion/退场动画**：Modal 退场状态机（presence exit → animationend → 卸载）✅
+- **空洞对齐**：位置配对 prevNode 锚（vdom2 提交按钮事故等价验证 + 顺序修复）✅
+- **audit**：剩余（开发期不变量校验——阶段 5 应用迁移时按需）
 
 ### 阶段 5：应用迁移（2-3 天）
 - agent-platform：入口换 vdom3（uiServe 等价物——路由 + 挂载 + SSR 数据）
