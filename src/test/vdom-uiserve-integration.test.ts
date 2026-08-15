@@ -115,3 +115,37 @@ test('uiServe 导航期间构建期渲染请求：pending 补跑（Bug #3 复现
   handle.close()
   root.innerHTML = ''
 })
+
+test('nav-chain：多轮 SPA 导航 Chat 实例收敛（build/dispose 差值不增长——无泄漏）', async () => {
+  __resetVdomEvents()
+  const { root, handle } = setupApp('/chat')
+  await handle.ready
+  await flush(40)
+  const lcOf = () => __vdom_events(1000, { machine: 'lifecycle' } as any).filter((e) => e.component === 'ChatPage')
+  const stats = () => {
+    const lc = lcOf()
+    return {
+      build: lc.filter((e) => e.event === 'BUILD_START').length,
+      dispose: lc.filter((e) => e.event === 'DISPOSE').length,
+    }
+  }
+  const before = stats()
+  // 多轮导航：/chat → /other → /chat → /other
+  for (let i = 0; i < 2; i++) {
+    await browser.navigate('/other')
+    await flush(50)
+    await browser.navigate('/chat')
+    await flush(50)
+  }
+  const after = stats()
+  const buildDelta = after.build - before.build
+  const disposeDelta = after.dispose - before.dispose
+  // 每次 /chat 导航重建 1 次 ChatPage；dispose 应同步（不增长 = 无实例残留）
+  assert.equal(buildDelta, 2, `ChatPage 构建 ${buildDelta} 次（2 轮导航）`)
+  assert.equal(disposeDelta, 2, `ChatPage dispose ${disposeDelta} 次（与构建同步——无泄漏）`)
+  // 无孤儿/违规
+  const violations = __vdom_events(1000).filter((e) => ['SKIP_ORPHAN', 'CONTRACT_VIOLATION', 'STALE_CACHE'].includes(e.event))
+  assert.deepEqual(violations, [], '无渲染违规')
+  handle.close()
+  root.innerHTML = ''
+})

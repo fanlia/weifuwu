@@ -124,16 +124,15 @@ main.tsx: uiServe(app, { root })
 - [x] 状态机联合矩阵：vdom-state-machine-matrix（I5a-f——fresh/building/disposed/
       pruned 进入 render/diff/build 的合法与非法行为形式化断言）
 
-### L4 浏览器自动化回归（端到端）
-目标：**真实浏览器事件流（WS/网络/定时器）下的自动回归**。
-- [x] agent-browser 脚本化场景（scripts/browser-regression.mjs——待环境恢复执行）：
-  - 页面加载：断言构建次数（ChatInput/FS 各 ≤2）、无 SKIP_ORPHAN/SESSION_VIOLATION
-  - 文件生成：发送消息 → 等 file_updated → 断言列表单份 + pill 单份 + 结构完整
-  - 导航切换：/chat/:id ↔ /departments/:id ↔ /agents——断言无残留实例
-  - 关键交互：@ 提及、搜索、附件上传、审批流
-- [ ] 断言工具：console 错误钩子（现有 init-hook 模式）+ `__vdom_events` 违规过滤
-      + DOM 结构快照对比
-- [ ] 与 L3 场景一一对应（jsdom 复现 + 浏览器确认——事故双验证）
+### L4 回归自动化（jsdom 化——2026-08 决策：agent-browser 仅手动验证）
+目标：**关键场景自动化回归——全部 jsdom（agent-browser 环境不稳定——daemon 卡死/
+ref 变化/时序问题——只用于手动验证；测试参考既有用例模式）**。
+- [x] nav-chain：多轮 SPA 导航 Chat 实例收敛（build/dispose 差值不增长——vdom-uiserve-integration）
+- [x] 页面加载无违规 + 消息单份（vdom-uiserve-integration 首帧场景）
+- [x] back-nav 消息重新加载（pending 补跑——vdom-uiserve-integration）
+- [x] 文件生成列表单份（vdom2-concurrent-prune 场景 2）
+- [ ] 手动验证清单（agent-browser——发布前人工抽查）：@ 提及、附件上传、审批流、
+      真实 WS 流式渲染
 
 ### L5 结构性改进（治本，后续里程碑）
 - [ ] **渲染会话互斥**：buildVNode/patchValue 全局"渲染锁"（导航/首帧期间事件渲染
