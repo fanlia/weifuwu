@@ -62,10 +62,10 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
 
   // 页面组件 ctx：render = 重渲染当前页（组件工厂收到——交互驱动）+ 注入中间件面
   let pageCtx: Record<string, unknown> = {}
-  const makePageCtx = (): Record<string, unknown> => ({
-    ...(options?.ctx ?? {}),
-    render: () => { void updatePage() },
-  })
+  const makePageCtx = (): Record<string, unknown> =>
+    Object.assign(Object.create(options?.ctx ?? {}), {
+      render: () => { void updatePage() },
+    })
 
   /** 重渲染当前页面（页面组件 ctx.render——组件实例复用 + patch） */
   async function updatePage(): Promise<void> {

@@ -41,11 +41,11 @@ export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, old
       // 组件 ctx：onUnmount 钩子（卸载清理注册——COMP_UNMOUNT 时执行）
       // + ui（vdom2 兼容面——hooks shim——组件库零改动）
       const compId = v._id
-      const compCtx = {
-        ...ctx,
+      // Object.create 保留原型链（vdom2 extendCtx 中间件组合——spread 会丢失链上字段）
+      const compCtx = Object.assign(Object.create(ctx), {
         onUnmount: (fn: () => void) => { unmountHooks.set(compId, fn) },
         ui: createV3Ui(compId, () => { (ctx as any).render?.() }, (fn) => { unmountHooks.set(compId, fn) }),
-      }
+      })
       v._render = await (v.type as Component)(v.props, compCtx)
     }
     const output = await v._render!(v.props)

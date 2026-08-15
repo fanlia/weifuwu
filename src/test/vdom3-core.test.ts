@@ -1335,3 +1335,40 @@ test('路由嵌套布局：layout 跨路由复用（工厂不重跑——vdom2 �
   router.close()
   document.body.removeChild(root)
 })
+
+test('入口形态：vdom2 中间件链复用（api/auth/i18n 注入 → vdom3 ctx）→ 页面组件消费', async () => {
+  const { api } = await import('../ui-dom/middleware/api.ts')
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  // mock fetch（node 相对 URL 限制——api client 的 fetch 封装）
+  const origFetch = globalThis.fetch
+  globalThis.fetch = (async () => new Response(JSON.stringify({ departments: [{ id: 'd1', name: '产品组' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as any
+  // 手动跑中间件链（uiServe 等价——vdom2 中间件是纯函数 (ctx) => ctx'）
+  let ctx: any = {}
+  ctx = await api({ baseURL: '/api' })(ctx)
+  ctx = await (await import('../ui-dom/middleware/auth.ts')).auth({
+    tokenKey: 't', userKey: 'u', storage: {
+      getItem: (k: string) => (k === 't' ? 'token-x' : JSON.stringify({ id: 'u1', name: 'x' })),
+      setItem: () => {}, removeItem: () => {},
+    },
+  })(ctx)
+  // 页面组件消费注入的 ctx.api/auth
+  const Page = async (_init: any, c: any) => async () => {
+    const data = await c.api.get('/departments')
+    return h('div', { id: 'mw-page' }, [
+      h('span', { id: 'data' }, JSON.stringify(data)),
+      h('span', { id: 'auth' }, String(!!c.auth?.isLoggedIn)),
+    ])
+  }
+  const router = createRouter([
+    { path: '/', render: () => h(Page, {}) },
+  ], root, { initialPath: '/', ctx })
+  await new Promise((r) => setTimeout(r, 40))
+  assert.ok(root.querySelector('[id="mw-page"]'), '中间件注入的页面渲染')
+  assert.ok(root.querySelector('[id="data"]')?.textContent?.length > 0, 'ctx.api 消费（注入的 api client 工作）')
+  assert.equal(root.querySelector('[id="auth"]')?.textContent, 'true', 'ctx.auth 消费（token 解析——isLoggedIn）')
+  router.close()
+  globalThis.fetch = origFetch
+  document.body.removeChild(root)
+})
