@@ -148,7 +148,9 @@ function consoleSink(ev: VdomEvent): void {
 onVdomEvent(consoleSink)
 
 // ── ring buffer sink（调试 API 惰性注册——内存最近 N 条） ──
-const RING_MAX = 500
+// ring 容量（可配置：__WF_RING_MAX——DOM 写追踪/长会话下默认 500 会轮转早期事件
+// （渲染请求/首帧构建）——事故现场追溯不完整；5000 条 × ~200B ≈ 1MB 可接受）
+const RING_MAX = Number((globalThis as Record<string, unknown>)?.__WF_RING_MAX) || 5000
 const ring: VdomEvent[] = []
 let ringRegistered = false
 function ringSink(ev: VdomEvent): void {
