@@ -188,49 +188,49 @@ PUT    /api/departments/:id/workspace/file
 
 ### M0 部门升华（地基——workspace 归属切换）
 
-- [ ] **M0-1. departments 表升华** — workspace_path/is_workspace 列 + `resolveDepartmentWorkspace`（替代 resolveAgentWorkspace——3 处调用点：agent-runner:162 / chat.ts:628 / routes/workspace.ts:39 全部切换）
+- [x] **M0-1. departments 表升华** — workspace_path/is_workspace 列 + `resolveDepartmentWorkspace`（替代 resolveAgentWorkspace——3 处调用点：agent-runner:162 / chat.ts:628 / routes/workspace.ts:39 全部切换）
 - [x] **M0-2. 工具执行路径切换** — agent-runner 注入 `departmentId → ws`；`createWorkspaceHandlers(departmentWs, allowCommandExec, departmentId, allowNetwork)`；单聊（is_dm）也是部门特例——同样有目录/沙盒
-- [ ] **M0-3. 文件浏览器迁移** — `/api/departments/:id/workspace/*`（成员可见性：department_members join）+ UI 从 AgentDetail 迁到 DepartmentDetail
+- [x] **M0-3. 文件浏览器迁移** — `/api/departments/:id/workspace/*`（成员可见性：department_members join）+ UI 从 AgentDetail 迁到 DepartmentDetail
   - 测试 T-M0：① 部门解析：自定义路径/默认路径/单聊 null；② 同部门两个 agent 工具调用 → 同一目录（写 A 读 B 可见）；③ 文件浏览器部门隔离（非成员 403）
 
 ### M1 数据模型 + 执行器重构（P0 三件套）
 
-- [ ] **M1-1. sandboxes 表** — schema.sql + server.ts 增量建表 + `_weifuwu_apps.sandbox_quota` 列
-- [ ] **M1-2. DockerSandbox 纯执行器** — 移除 lastUsed/reaper/evict/cleanup；容器名 sandbox_id；busy 豁免（P0-1）；inflight 去重（P0-2）；容器内 timeout 35s（P0-3）；stopped 自愈（P1-5）；漂移校验（P1-6）；per-sandbox exec 串行队列
+- [x] **M1-1. sandboxes 表** — schema.sql + server.ts 增量建表 + `_weifuwu_apps.sandbox_quota` 列
+- [x] **M1-2. DockerSandbox 纯执行器** — 移除 lastUsed/reaper/evict/cleanup；容器名 sandbox_id；busy 豁免（P0-1）；inflight 去重（P0-2）；容器内 timeout 35s（P0-3）；stopped 自愈（P1-5）；漂移校验（P1-6）；per-sandbox exec 串行队列
   - 测试 T-M1（真 docker）：并发 ensure 单容器 / 长 exec 不被回收 / 超时无孤儿 / stop 自愈 / 漂移重建 / 串行队列（并发调用按序完成）
 
 ### M2 服务层（SandboxManager）
 
-- [ ] **M2-1. SandboxManager** — 状态机全路径 + 两级回收 + 超龄重建 + reconcile 60s + 启动恢复
-- [ ] **M2-2. 部门联动** — 部门内成员 agent 启用文件工具 → 自动建 sandbox 记录（requested）；**部门删除 → 级联 terminate + workspace 目录清理**（保留期 `SANDBOX_WORKSPACE_RETENTION_DAYS` 默认 0）；agent 删除不再级联 sandbox（只退成员关系——天然，无需代码）
-- [ ] **M2-3. 审计** — sandbox_* + department_workspace 接线
+- [x] **M2-1. SandboxManager** — 状态机全路径 + 两级回收 + 超龄重建 + reconcile 60s + 启动恢复
+- [x] **M2-2. 部门联动** — 部门内成员 agent 启用文件工具 → 自动建 sandbox 记录（requested）；**部门删除 → 级联 terminate + workspace 目录清理**（保留期 `SANDBOX_WORKSPACE_RETENTION_DAYS` 默认 0）；agent 删除不再级联 sandbox（只退成员关系——天然，无需代码）
+- [x] **M2-3. 审计** — sandbox_* + department_workspace 接线
   - 测试 T-M2（真 docker）：状态机全路径 / 部门删除级联 / 模拟重启 reconcile 恢复 / 孤儿清理
 
 ### M3 API
 
-- [ ] **M3-1. /api/sandboxes CRUD + 操作 + 进程/详情** — 租户隔离 + owner/admin 权限 + 配额 409
+- [x] **M3-1. /api/sandboxes CRUD + 操作 + 进程/详情** — 租户隔离 + owner/admin 权限 + 配额 409
   - 测试 T-M3：CRUD 直测 + 隔离 + 权限 + 配额
 
 ### M4 UI
 
-- [ ] **M4-1. Sandboxes 页面** — ui/pages/Sandboxes.tsx（与 Agents 同构：卡片/状态徽章/操作/配额用量）+ NAV「沙盒」+ 路由
-- [ ] **M4-2. DepartmentDetail 升华** — 工作空间文件区块（迁移自 AgentDetail）+ 沙盒状态卡片（关联记录/资源/操作）
-- [ ] **M4-3. AgentDetail 收敛** — 移除 workspace/沙盒区块（agent 纯能力化；保留 allow_file_tools 开关——联动提示「保存后部门将自动创建工作环境」）
+- [x] **M4-1. Sandboxes 页面** — ui/pages/Sandboxes.tsx（与 Agents 同构：卡片/状态徽章/操作/配额用量）+ NAV「沙盒」+ 路由
+- [x] **M4-2. DepartmentDetail 升华** — 工作空间文件区块（迁移自 AgentDetail）+ 沙盒状态卡片（关联记录/资源/操作）
+- [x] **M4-3. AgentDetail 收敛** — 移除 workspace/沙盒区块（agent 纯能力化；保留 allow_file_tools 开关——联动提示「保存后部门将自动创建工作环境」）
   - 验收：agent-browser——沙盒页全流程 + 部门页文件浏览 + AI 对话写文件 → 部门文件浏览器可见（端到端闭环）
 
 ### M5 配额与资源预算
 
-- [ ] **M5-1. per-app 配额**（创建校验 + 列表用量 + 超限提示）
-- [ ] **M5-2. 池预算 + 压力告警**（明确错误不静默降级）
-- [ ] **M5-3. 资源 env 化 + 快照**
+- [x] **M5-1. per-app 配额**（创建校验 + 列表用量 + 超限提示）
+- [x] **M5-2. 池预算 + 压力告警**（明确错误不静默降级）
+- [x] **M5-3. 资源 env 化 + 快照**
   - 测试 T-M5：配额 409 / 预算错误 / env 断言
 
 ### M6 性能、可观测与收尾
 
-- [ ] **M6-1. TTL 缓存**（probe/readiness——工具调用降为 1 次 exec）
-- [ ] **M6-2. 指标接线**（sandboxCalls 修复 + 状态计数 gauge + 操作计数）
-- [ ] **M6-3. ephemeral 落地**（per-sandbox mode）
-- [ ] **M6-4. 回归 + 文档** — test/sandbox.test.ts + workspace.test.ts 重写对齐新归属（CS-06）；全量测试 + tsc；README 三层模型章节（目录/资源/能力 + 状态机图 + API + 配额 + 迁移说明）；SANDBOX-PLAN.md 决策记录追加
+- [x] **M6-1. TTL 缓存**（probe/readiness——工具调用降为 1 次 exec）
+- [x] **M6-2. 指标接线**（sandboxCalls 修复 + 状态计数 gauge + 操作计数）
+- [x] **M6-3. ephemeral 落地**（per-sandbox mode）
+- [x] **M6-4. 回归 + 文档** — test/sandbox.test.ts + workspace.test.ts 重写对齐新归属（CS-06）；全量测试 + tsc；README 三层模型章节（目录/资源/能力 + 状态机图 + API + 配额 + 迁移说明）；SANDBOX-PLAN.md 决策记录追加
 
 ---
 
