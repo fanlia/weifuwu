@@ -16,7 +16,7 @@
 import { traceEnabled, type VdomLevel, type VdomStage } from './trace.ts'
 
 /** 状态机名（事件来源）——含执行细节摘要通道（build/render/diff/mount——trace 包装） */
-export type VdomMachine = 'route' | 'lifecycle' | 'x2y' | 'keys' | 'pos' | 'render' | 'audit' | 'build' | 'mount' | 'diff'
+export type VdomMachine = 'route' | 'lifecycle' | 'x2y' | 'keys' | 'pos' | 'render' | 'audit' | 'build' | 'mount' | 'diff' | 'dom'
 
 /** machine → trace 阶段映射（console sink 可见性门控复用 trace 开关） */
 const MACHINE_TO_STAGE: Record<VdomMachine, VdomStage> = {
@@ -30,6 +30,7 @@ const MACHINE_TO_STAGE: Record<VdomMachine, VdomStage> = {
   build: 'build',
   mount: 'mount',
   diff: 'diff',
+  dom: 'diff',
 }
 
 export function machineToStage(m: VdomMachine): VdomStage {

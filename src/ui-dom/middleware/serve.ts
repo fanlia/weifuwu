@@ -21,6 +21,7 @@ import { hydrateVNode } from '../vdom2/hydrate.ts'
 import { createRouteController } from '../vdom2/route.ts'
 import { installVdomInspect } from '../vdom2/trace.ts'
 import { installEventRing, beginSession, endSession, emit } from '../vdom2/events.ts'
+import { installDomTrace, domTraceEnabled } from '../vdom2/dom-trace.ts'
 import { installMountInvariantAudit } from '../vdom2/audit.ts'
 import type { VNodeChild } from '../vnode.ts'
 
@@ -63,9 +64,15 @@ export function uiServe<RC extends object = {}>(
     if (debug) {
       ;(globalThis as any).__WF_VDOM_DEBUG = true
       console.log('[weifuwu] vdom debug 已开启（?vdom_debug=1）')
+      ;(globalThis as any).__WF_DOM_TRACE = true // vdom debug 时同时追踪 DOM 写（diff 对 DOM 的动作可观测）
     }
     initVdomTrace()
   } catch { /* 环境无 location/localStorage——忽略 */ }
+
+  // DOM 写追踪安装（vdom → DOM 层可观测——append/insertBefore/remove/setAttribute 事件）
+  try {
+    if (domTraceEnabled()) installDomTrace()
+  } catch { /* hook 失败不影响渲染 */ }
 
   // reflow debug 开关（?wf_reflow=1——定位「页面加载早期强制排版」：Chrome 警告
   // 「Forced reflow while a page is loading」来源——布局读取时记录样式表加载状态 + 调用栈；
