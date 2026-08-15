@@ -68,6 +68,8 @@ export interface Department {
   /** GET /api/departments 附加（会话列表） */
   last_message?: string | null
   last_message_at?: string | null
+  /** 产物审批模式（2026-12） */
+  artifact_review?: boolean
   members?: Member[]
   /** 部门列表附加 */
   is_dm?: boolean

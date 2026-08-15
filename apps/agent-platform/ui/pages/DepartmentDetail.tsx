@@ -16,6 +16,10 @@ interface DepartmentDetailState {
   // 沙盒状态（三层模型：部门 = 计算资源归属）
   sandbox: any | null
   sbBusy: string
+  // 产物审批（2026-12：AI 产出 → 批准发布）
+  artifactReview: boolean
+  pendingArtifacts: Array<{ path: string; size: number; mtime: string }>
+  reviewBusy: string
 }
 
 export const DepartmentDetail: Component = async (_props, ctx) => {
@@ -26,6 +30,33 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
   $.dept = null; $.members = []; $.loading = true; $.notFound = false
   $.showMemberPicker = false; $.allAgents = []; $.picked = []; $.managing = false
   $.sandbox = null; $.sbBusy = ''
+  $.artifactReview = false; $.pendingArtifacts = []; $.reviewBusy = ''
+
+  // 产物审批（开关 + 待审列表）
+  const loadReview = () => {
+    if (!deptId || $.dept?.is_dm) return
+    void ctx.api!.get<any>(`/api/departments/${deptId}/artifacts/pending`).then((d) => {
+      $.pendingArtifacts = d.pending ?? []
+      rerender()
+    }).catch(() => {})
+  }
+  const toggleReview = async (on: boolean) => {
+    $.reviewBusy = 'toggle'; rerender()
+    try {
+      await ctx.api!.put(`/api/departments/${deptId}`, { artifact_review: on })
+      $.artifactReview = on
+      ctx.toast!(on ? '已开启产物审批——AI 新产物先入待审区' : '已关闭——待审产物已全部发布', 'success')
+    } catch { ctx.toast!('切换失败', 'error') }
+    $.reviewBusy = ''; loadReview(); rerender()
+  }
+  const reviewAction = async (action: string, path: string) => {
+    $.reviewBusy = action + path; rerender()
+    try {
+      await ctx.api!.post(`/api/departments/${deptId}/artifacts/${action}`, { path })
+      ctx.toast!(action === 'approve' ? `已发布 ${path}` : `已拒绝 ${path}`, 'success')
+    } catch { ctx.toast!('操作失败', 'error') }
+    $.reviewBusy = ''; loadReview(); rerender()
+  }
 
   // 部门沙盒状态（群聊——单聊无工作目录/沙盒）
   const loadSandbox = () => {
@@ -54,8 +85,10 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
           if (!d?.id) { $.notFound = true; $.loading = false; rerender(); return }
           $.dept = d
           $.members = data.members ?? []
+          $.artifactReview = !!d.artifact_review
           $.loading = false
           rerender()
+          if (!d.is_dm) loadReview()
         }).catch(() => { $.loading = false; rerender() })
     }
     loadDept()
@@ -207,6 +240,40 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
             </div>
           )}
         </Card>
+
+      {/* 产物审批（2026-12）：AI 产出 → 批准发布到共享目录 */}
+      <Card id="sec-artifacts">
+        <div class="wf-row wf-gap-sm wf-mb-sm">
+          <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="shield" size={14} /> 产物审批</div>
+          <Button size="sm" variant="ghost" disabled={$.reviewBusy === 'toggle'} onClick={() => toggleReview(!$.artifactReview)}>
+            {$.artifactReview ? '关闭（待审全部发布）' : '开启审批模式'}
+          </Button>
+        </div>
+        <div class="wf-text-xs wf-text-tertiary wf-mb-sm">
+          开启后 AI 的新产物先进入待审区——批准后才发布到共享目录（交付物可见）；关闭时待审产物自动全部发布。
+        </div>
+        {$.artifactReview && (
+          <>
+            {$.pendingArtifacts.length === 0 ? (
+              <div class="wf-text-sm wf-text-tertiary">暂无待审批产物——AI 写文件后出现在这里</div>
+            ) : (
+              <div class="wf-stack wf-gap-none">
+                {$.pendingArtifacts.map((a) => (
+                  <div key={a.path} class="wf-row wf-gap-sm wf-py-sm wf-border-b wf-items-center">
+                    <Icon name="file-text" size={13} />
+                    <span class="wf-text-sm wf-text-medium wf-truncate wf-fill">{a.path}</span>
+                    <span class="wf-text-xs wf-text-tertiary wf-nums">{a.size > 1024 ? (a.size / 1024).toFixed(1) + 'KB' : a.size + 'B'}</span>
+                    <Button size="sm" variant="primary" disabled={!!$.reviewBusy}
+                      onClick={() => reviewAction('approve', a.path)}>批准发布</Button>
+                    <Button size="sm" variant="danger-ghost" disabled={!!$.reviewBusy}
+                      onClick={() => reviewAction('reject', a.path)}>拒绝</Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </Card>
     </div>
     )
   }

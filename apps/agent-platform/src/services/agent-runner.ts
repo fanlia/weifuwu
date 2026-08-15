@@ -169,9 +169,18 @@ async function buildToolContext(
       }
     } catch { /* 类型查询失败用当前部门 */ }
     try {
-      const [dept] = await ctx.sql`SELECT is_dm, workspace_path FROM departments WHERE id = ${wsDeptId}`
+      const [dept] = await ctx.sql`SELECT is_dm, workspace_path, artifact_review FROM departments WHERE id = ${wsDeptId}`
       if (dept) {
         resolvedWs = await resolveDepartmentWorkspace(wsDeptId, (dept as any).workspace_path, true)
+        // 产物审批模式（2026-12）：AI 的写入落在待审区 {ws}/.pending（AI 感知为 /ws 正常）——
+        // 批准后宿主移动到共享目录。工具注册用待审区路径（容器挂载点 = 待审区）
+        if (resolvedWs && (dept as any).artifact_review) {
+          const { join } = await import('node:path')
+          const { mkdir } = await import('node:fs/promises')
+          const pending = join(resolvedWs, '.pending')
+          await mkdir(pending, { recursive: true }).catch(() => {})
+          resolvedWs = pending
+        }
       }
     } catch (err: any) {
       console.warn(`[agent-runner] 部门工作空间查询失败: ${err?.message ?? ''}`)

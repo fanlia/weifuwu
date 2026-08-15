@@ -167,7 +167,8 @@ export class SandboxManager {
     }
     // 记录快照 → 执行器规格（配置即声明）
     const spec: SandboxSpec = {
-      ws: row.workspace,
+      // 挂载目标优先用调用方传入的 ws（产物审批模式 = .pending 待审区；正常模式 = 记录快照一致）
+      ws: ws || row.workspace,
       image: row.image,
       network: opts?.network ?? row.network,
       memoryMb: row.memory_mb,

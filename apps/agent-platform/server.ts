@@ -118,6 +118,8 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS expertise TEXT`)
   // 三层模型（2026-12）：部门 = 工作目录——workspace_path 自定义工作目录（默认 {root}/{id}）
   await pg.sql.unsafe(`ALTER TABLE departments ADD COLUMN IF NOT EXISTS workspace_path TEXT`)
+  // 产物审批模式（2026-12）：AI 新产物先入 .pending 待审区——批准后发布到共享目录
+  await pg.sql.unsafe(`ALTER TABLE departments ADD COLUMN IF NOT EXISTS artifact_review BOOLEAN NOT NULL DEFAULT FALSE`)
   // 组织层级（2026-12）：agent type = 'department'（部门经理——代表部门对外协作）
   await pg.sql.unsafe(`ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'department'`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS department_id UUID`)

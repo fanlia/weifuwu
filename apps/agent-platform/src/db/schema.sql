@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS departments (
   name        TEXT NOT NULL,
   is_dm       BOOLEAN NOT NULL DEFAULT FALSE,  -- 是否为单聊
   workspace_path TEXT,                       -- 自定义工作目录（三层模型：部门=工作目录；默认 {root}/{id}）
+  artifact_review BOOLEAN NOT NULL DEFAULT FALSE,  -- 产物审批模式：AI 新产物先入 .pending 待审区
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -319,13 +319,27 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
 
   app.put('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params } = ctx
-    const body = await req.json() as { name?: string }
+    const body = await req.json() as { name?: string; artifact_review?: boolean }
+
+    // 产物审批模式切换（2026-12）：关闭时把 .pending 待审产物全部移入共享目录（不丢文件）
+    if (body.artifact_review !== undefined) {
+      try {
+        const [cur] = await sql`SELECT artifact_review FROM departments WHERE id = ${params.id} AND app_id = ${appId}`
+        const turningOff = (cur as any)?.artifact_review === true && body.artifact_review === false
+        if (turningOff) {
+          const { flushPendingArtifacts } = await import('../services/artifact-review.ts')
+          await flushPendingArtifacts(sql, String(params.id))
+        }
+      } catch { /* 切换失败不阻断 */ }
+    }
 
     const [dept] = await sql`
       UPDATE departments d
-      SET name = COALESCE(${body.name ?? null}, d.name), updated_at = NOW()
+      SET name = COALESCE(${body.name ?? null}, d.name),
+          artifact_review = COALESCE(${body.artifact_review ?? null}, d.artifact_review),
+          updated_at = NOW()
       WHERE d.id = ${params.id} AND d.app_id = ${appId}
-      RETURNING d.id, d.name, d.updated_at
+      RETURNING d.id, d.name, d.artifact_review, d.updated_at
     `
 
     if (!dept) {
@@ -449,5 +463,32 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     } catch { /* 刷新失败不阻断 */ }
 
     return Response.json({ success: true })
+  })
+
+  // ── 产物审批（2026-12）：AI 产出 → 批准发布 / 拒绝删除 ────────────
+  // artifact_review 模式下 AI 的写入落在 .pending 待审区——批准 = 移动至共享目录
+  app.get('/api/departments/:id/artifacts/pending', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const [dept] = await sql`SELECT id FROM departments WHERE id = ${params.id} AND app_id = ${appId}`
+    if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    const { listPendingArtifacts } = await import('../services/artifact-review.ts')
+    const items = await listPendingArtifacts(sql, String(params.id))
+    return Response.json({ pending: items })
+  })
+
+  app.post('/api/departments/:id/artifacts/:action', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const action = params.action as 'approve' | 'reject'
+    if (!['approve', 'reject'].includes(action)) return Response.json({ error: '不支持的 action' }, { status: 400 })
+    const [dept] = await sql`SELECT id FROM departments WHERE id = ${params.id} AND app_id = ${appId}`
+    if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    const body = await req.json().catch(() => ({}))
+    const relPath = String(body.path ?? '')
+    const { approveArtifact, rejectArtifact } = await import('../services/artifact-review.ts')
+    const r = action === 'approve'
+      ? await approveArtifact(sql, String(params.id), relPath)
+      : await rejectArtifact(sql, String(params.id), relPath)
+    if (!r.ok) return Response.json({ error: r.error }, { status: 400 })
+    return Response.json({ success: true, path: relPath })
   })
 }

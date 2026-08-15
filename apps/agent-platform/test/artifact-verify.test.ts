@@ -8,7 +8,7 @@
 
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { extractArtifactPaths, buildVerifyMark } from '../src/services/artifact-verify.ts'
@@ -58,4 +58,62 @@ test('A6: verifyArtifacts 真实目录校验', async () => {
   } finally {
     await rm(ws, { recursive: true, force: true })
   }
+})
+
+// ── 产物审批服务测试（2026-12：pending 列表/批准发布/拒绝删除） ──
+
+test('R1: approveArtifact 移动待审文件 → 共享目录（发布）', async () => {
+  const { approveArtifact } = await import('../src/services/artifact-review.ts')
+  const ws = await mkdtemp(join(tmpdir(), 'review-ws-'))
+  const pending = join(ws, '.pending')
+  await mkdir(pending, { recursive: true })
+  await writeFile(join(pending, 'draft.md'), 'draft')
+  // mock sql：部门 workspace_path = ws（直接返回）
+  const sql = async () => [{ workspace_path: ws }]
+  const r = await approveArtifact(sql as any, 'dept-1', 'draft.md')
+  assert.equal(r.ok, true, JSON.stringify(r))
+  // 文件已在共享区、pending 消失
+  const { readFile, access } = await import('node:fs/promises')
+  assert.equal(await readFile(join(ws, 'draft.md'), 'utf-8'), 'draft', '发布到共享区')
+  await assert.rejects(() => access(join(pending, 'draft.md')), '待审区已移除')
+  await rm(ws, { recursive: true, force: true })
+})
+
+test('R2: rejectArtifact 删除待审文件', async () => {
+  const { rejectArtifact } = await import('../src/services/artifact-review.ts')
+  const ws = await mkdtemp(join(tmpdir(), 'review-ws2-'))
+  const pending = join(ws, '.pending')
+  await mkdir(pending, { recursive: true })
+  await writeFile(join(pending, 'bad.md'), 'bad')
+  const sql = async () => [{ workspace_path: ws }]
+  const r = await rejectArtifact(sql as any, 'dept-1', 'bad.md')
+  assert.equal(r.ok, true, JSON.stringify(r))
+  const { access } = await import('node:fs/promises')
+  await assert.rejects(() => access(join(pending, 'bad.md')), '待审文件已删除')
+  await rm(ws, { recursive: true, force: true })
+})
+
+test('R3: 非法路径拒绝（../ 穿越）', async () => {
+  const { approveArtifact, rejectArtifact } = await import('../src/services/artifact-review.ts')
+  const sql = async () => [{ workspace_path: '/tmp' }]
+  const a = await approveArtifact(sql as any, 'dept-1', '../evil.md')
+  assert.equal(a.ok, false, 'approve 拒绝穿越')
+  const b = await rejectArtifact(sql as any, 'dept-1', '/abs.md')
+  assert.equal(b.ok, false, 'reject 拒绝绝对路径')
+})
+
+test('R4: flushPendingArtifacts 关闭审批时全部发布', async () => {
+  const { flushPendingArtifacts } = await import('../src/services/artifact-review.ts')
+  const ws = await mkdtemp(join(tmpdir(), 'review-ws3-'))
+  const pending = join(ws, '.pending')
+  await mkdir(pending, { recursive: true })
+  await writeFile(join(pending, 'a.md'), 'a')
+  await writeFile(join(pending, 'b.md'), 'b')
+  const sql = async () => [{ workspace_path: ws }]
+  const moved = await flushPendingArtifacts(sql as any, 'dept-1')
+  assert.equal(moved, 2, '2 个待审全部发布')
+  const { readdir } = await import('node:fs/promises')
+  assert.equal((await readdir(pending)).length, 0, '待审区清空')
+  assert.equal((await readdir(ws)).includes('a.md') && (await readdir(ws)).includes('b.md'), true, '共享区有文件')
+  await rm(ws, { recursive: true, force: true })
 })
