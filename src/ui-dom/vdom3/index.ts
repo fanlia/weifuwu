@@ -30,5 +30,6 @@ export { replay, undo, eventsOf, hasEvent, expectEventSequence } from './replay.
 export { NodeRegistry } from './registry.ts'
 export { createRouter, type RouteDef } from './router.ts'
 export { renderToEvents, serializeEvents, deserializeEvents } from './ssr.ts'
+export { recordToTest, summarizeEvents } from './record.ts'
 export { createEventStream, stream, nextNodeId } from './events.ts'
 export type { VNode, VNodeChild, V3Event, EventStream, Renderer } from './types.ts'
