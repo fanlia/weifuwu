@@ -22,49 +22,57 @@ export function isVNode(v: unknown): v is VNode {
   return v != null && typeof v === 'object' && !Array.isArray(v) && 'type' in (v as any)
 }
 
-/** 构建 vnode 树（组件展开——异步；native/text 同步递归）。
+/** 构建 vnode 树（组件展开——异步；native/text 同步递归）——**纯函数式**：
+ *  每层返回克隆（不就地修改入参）——update 的对照树（current）不被污染。
  *  oldV：旧树同位置对照——同类型组件复用 _render（工厂不重跑——内部状态保持）。 */
 export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, oldV?: VNode | null): Promise<VNode> {
   if (typeof vnode.type === 'function') {
-    // 组件：同位置同类型 → 复用旧实例 _render；否则工厂执行（COMP_MOUNT）
+    // 克隆（组件实例字段 _render/_id/_child 写克隆——旧树保持完整）
+    const v = { ...vnode } as VNode
     const reuse = oldV != null && typeof oldV === 'object' && oldV.type === vnode.type && oldV.key === vnode.key && oldV._render
       ? oldV
       : null
     if (reuse) {
-      vnode._render = reuse._render
-      vnode._id = reuse._id
+      v._render = reuse._render
+      v._id = reuse._id
     } else {
-      vnode._id = nextNodeId()
-      stream.emit({ type: 'COMP_MOUNT', id: vnode._id, name: compName(vnode.type), ts: Date.now() })
+      v._id = nextNodeId()
+      stream.emit({ type: 'COMP_MOUNT', id: v._id, name: compName(v.type), ts: Date.now() })
       // 组件 ctx：onUnmount 钩子（卸载清理注册——COMP_UNMOUNT 时执行）
       // + ui（vdom2 兼容面——hooks shim——组件库零改动）
-      const compId = vnode._id
+      const compId = v._id
       const compCtx = {
         ...ctx,
         onUnmount: (fn: () => void) => { unmountHooks.set(compId, fn) },
         ui: createV3Ui(compId, () => { (ctx as any).render?.() }, (fn) => { unmountHooks.set(compId, fn) }),
       }
-      vnode._render = await (vnode.type as Component)(vnode.props, compCtx)
+      v._render = await (v.type as Component)(v.props, compCtx)
     }
-    const output = await vnode._render!(vnode.props)
-    if (output == null) { vnode.children = []; return vnode }
-    // 展开输出：组件输出作为单子节点（渲染时输出组件 _child）——旧输出对照递归
-    vnode.children = [output]
-    const oldOut = childrenOf(reuse ?? ({} as VNode))[0]
-    await buildVNode(output, ctx, oldOut != null && typeof oldOut === 'object' ? (oldOut as VNode) : null)
-    return vnode
+    const output = await v._render!(v.props)
+    v._child = null
+    const oldOut = (reuse as any)?._child ?? null
+    if (output) {
+      // 输出递归构建——_child 存克隆（渲染链完整：克隆输出含全部子克隆）
+      const built = await buildVNode(output, ctx, oldOut != null && typeof oldOut === 'object' ? (oldOut as VNode) : null)
+      v._child = built
+    }
+    return v
   }
-  // native / Fragment / Portal：递归 children（跳过文本）
+  // native / Fragment / Portal：递归 children（跳过文本）——克隆 + 新 children 数组
+  const v = { ...vnode } as VNode
   const oldKids = childrenOf(oldV ?? ({} as VNode))
   let i = 0
+  let newKids: VNodeChild[] | null = null
   for (const c of childrenOf(vnode)) {
     if (isVNode(c)) {
       const oc = oldKids[i]
-      await buildVNode(c, ctx, oc != null && typeof oc === 'object' ? (oc as VNode) : null)
+      const built = await buildVNode(c, ctx, oc != null && typeof oc === 'object' ? (oc as VNode) : null)
+      if (built !== c) { newKids ??= [...childrenOf(vnode)]; newKids[i] = built }
     }
     i++
   }
-  return vnode
+  if (newKids) v.children = newKids
+  return v
 }
 
 export function isPortal(v: unknown): v is PortalVNode {

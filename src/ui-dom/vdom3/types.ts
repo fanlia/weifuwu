@@ -29,6 +29,8 @@ export interface VNode {
   /** 组件实例状态（comp：工厂返回的 renderFn + 实例 id） */
   _render?: (props: any) => Promise<VNode | null>
   _id?: string
+  /** 组件输出（build 写——独立于 children（props.children 是入参）；避免覆盖污染对照树） */
+  _child?: VNode | null
 }
 
 export type VNodeChild = VNode | string | number | null | undefined | boolean

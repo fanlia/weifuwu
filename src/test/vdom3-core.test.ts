@@ -138,22 +138,22 @@ test('组件：挂载（COMP_MOUNT）→ 更新（复用实例状态保持）→
       return h('div', { class: 'counter' }, [`count:${count}`])
     }
   }
-  // build + mount
+  // build + mount（buildVNode 纯函数式——用返回值）
   const tree = h(Counter, {})
   const { buildVNode } = await import('../ui-dom/vdom3/build.ts')
-  await buildVNode(tree, {})
+  const built = await buildVNode(tree, {})
   const { mount } = await import('../ui-dom/vdom3/index.ts')
-  mount(tree, root)
+  mount(built, root)
   assert.equal(root.querySelector('.counter')?.textContent, 'count:0', '组件渲染')
   assert.equal(factoryRuns, 1, '工厂执行 1 次')
 
-  // 更新（同类型组件——oldV 对照复用 _render——工厂不重跑）
+  // 更新（同类型组件——oldV 对照复用 _render——工厂不重跑；对照用 built（构建产物））
   const tree2 = h(Counter, {})
-  await buildVNode(tree2, {}, tree)
+  const built2 = await buildVNode(tree2, {}, built)
   assert.equal(factoryRuns, 1, '同类型复用——工厂不重跑（组件内部状态保持）')
   // patch 更新（同类型——_render 复用——输出 patch）
   const { patch } = await import('../ui-dom/vdom3/index.ts')
-  patch(tree, tree2, root)
+  patch(built, built2, root)
   assert.equal(root.querySelector('.counter')?.textContent, 'count:0', '复用实例渲染（状态保持）')
   document.body.removeChild(root)
 })
@@ -167,8 +167,8 @@ test('组件：事件流包含 COMP_MOUNT（挂载即事件——引擎本体）
   const { buildVNode } = await import('../ui-dom/vdom3/build.ts')
   const { mount } = await import('../ui-dom/vdom3/index.ts')
   const tree = h(Greet, {})
-  await buildVNode(tree, {})
-  mount(tree, root)
+  const built = await buildVNode(tree, {})
+  mount(built, root)
   assert.ok(root.querySelector('#greet'), '组件输出渲染')
   const events = stream.events()
   assert.ok(events.some((e) => e.type === 'COMP_MOUNT'), 'COMP_MOUNT 事件')
@@ -864,5 +864,30 @@ test('hooks shim：真实 vdom2 组件（ToggleGroup——useControlled）在 vd
   await new Promise((r) => setTimeout(r, 20))
   const redAfter = [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('红'))
   assert.ok(redAfter?.className.includes('active') || redAfter?.getAttribute('aria-pressed') === 'true', '点击切换选中（红——非受控内部态）')
+  document.body.removeChild(root)
+})
+
+test('hooks shim：真实 vdom2 组件批量——StatCard（useTween/useReducedMotion）+ Collapse（useOpen/useStableRef/useGlobalKey）', async () => {
+  const { StatCard } = await import('../components/StatCard/StatCard.ts')
+  const { Collapse } = await import('../components/Collapse/Collapse.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h('div', {}, [
+    h(StatCard, { label: '订单', value: 42, animate: true }),
+    h(Collapse, { items: [{ key: 'a', title: '标题A', content: '内容A' }] }),
+  ]), root)
+  await new Promise((r) => setTimeout(r, 60))
+  // tween 动画在 jsdom 有时钟分叉（rAF 回调 performance ≠ 全局——负值）——
+  // 与 vdom2 一致：测试断言结构（动画在真实浏览器验证）
+  assert.ok(root.textContent?.includes('订单'), 'StatCard 渲染（label）')
+  assert.ok(root.querySelector('[class*="wf-stat"]'), 'StatCard 结构')
+  const header = root.querySelector('.wf-collapse-header') as HTMLElement
+  assert.ok(header, 'Collapse 渲染')
+  ;(header as HTMLElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const h2 = root.querySelector('.wf-collapse-header') as HTMLElement
+  assert.ok(h2?.getAttribute('aria-expanded') === 'true', 'Collapse 展开（useControlled 内部态）')
+  assert.ok(root.textContent?.includes('内容A'), 'Collapse 内容出现')
   document.body.removeChild(root)
 })

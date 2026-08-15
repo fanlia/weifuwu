@@ -12,8 +12,12 @@
 
 import type { HookEnv } from '../hooks/types.ts'
 import { useExternal } from '../hooks/external.ts'
-import { useControlled } from '../hooks/input.ts'
-import { useOpen } from '../hooks/popup.ts'
+import { useControlled, useControlledInput, useAsync } from '../hooks/input.ts'
+import { usePresence, useAnimationEnd, useStableRef, useHoverCapable, useReducedMotion, useLongPress, useTween } from '../hooks/stable.ts'
+import { useOpen, usePopupPosition, usePopup } from '../hooks/popup.ts'
+import { useMedia, useBreakpoint, useVisualViewport, useInView, useScrollPosition } from '../hooks/media.ts'
+import { useGlobalKey, useDrag, useDragDrop } from '../hooks/events.ts'
+import { useChat } from '../hooks/chat.ts'
 import { createClientBrowser } from '../browser.ts'
 
 /** 组件 ctx.ui（vdom2 兼容面）——组件库零改动运行 */
@@ -23,7 +27,27 @@ export interface V3Ui {
   selfId(name: string): void
   useExternal(store: any): any
   useControlled(options: any): any
+  useControlledInput(options: any): any
   useOpen(options: any): any
+  usePopup(options: any): any
+  usePopupPosition(options: any): any
+  useTween(target: number, opts?: any): any
+  useInView(options?: any): any
+  useScrollPosition(options?: any): any
+  useGlobalKey(handler: (e: KeyboardEvent) => void): () => void
+  useDrag(options?: any): any
+  useDragDrop(options?: any): any
+  useMedia(query: string, callback: (matches: boolean) => void): void
+  useBreakpoint(bps: any, callback?: any): void
+  useReducedMotion(): boolean
+  useStableRef(init: any, cleanup?: any): any
+  useAnimationEnd(cb: any, opts?: any): any
+  usePresence(options?: any): any
+  useLongPress(options?: any): any
+  useHoverCapable(): boolean
+  useVisualViewport(): any
+  useAsync(fetcher: any): any
+  useChat(options: any): any
   [key: string]: any
 }
 
@@ -69,7 +93,27 @@ export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn:
     },
     useExternal: (store: any) => useExternal(env, store),
     useControlled: (options: any) => useControlled(env, options),
+    useControlledInput: (options: any) => useControlledInput(env, options),
     useOpen: (options: any) => useOpen(env, options),
+    usePopup: (options: any) => usePopup(env, options),
+    usePopupPosition: (options: any) => usePopupPosition(env, options),
+    useTween: (target: number, opts?: any) => useTween(env, target, opts),
+    useInView: (options?: any) => useInView(env, options),
+    useScrollPosition: (options?: any) => useScrollPosition(env, options),
+    useGlobalKey: (handler: (e: KeyboardEvent) => void) => useGlobalKey(env, handler),
+    useDrag: (options?: any) => useDrag(env, options),
+    useDragDrop: (options?: any) => useDragDrop(env, options),
+    useMedia: (query: string, cb: (m: boolean) => void) => { useMedia(env, query, cb) },
+    useBreakpoint: (bps: any, cb?: any) => { useBreakpoint(env, bps, cb) },
+    useReducedMotion: () => useReducedMotion(env),
+    useStableRef: (init: any, cleanup?: any) => useStableRef(env, init, cleanup),
+    useAnimationEnd: (cb: any, opts?: any) => useAnimationEnd(env, cb, opts),
+    usePresence: (options?: any) => usePresence(env, options),
+    useLongPress: (options?: any) => useLongPress(env, options),
+    useHoverCapable: () => useHoverCapable(env),
+    useVisualViewport: () => useVisualViewport(env),
+    useAsync: (fetcher: any) => useAsync(env, fetcher),
+    useChat: (options: any) => useChat(env, options),
   }
   return ui
 }

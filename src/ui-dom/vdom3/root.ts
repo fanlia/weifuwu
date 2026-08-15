@@ -42,15 +42,15 @@ export function createRoot(vnode: VNode, root: HTMLElement): RootHandle {
     try {
       do {
         dirty = false
-        // 重跑 renderFn → 构建（oldV 对照复用 _render）→ patch（事件流 → DOM）
-        if (typeof current.type === 'function' && current._render) {
-          const output = await current._render(current.props)
-          if (output == null) break
-          const oldOut = current.children?.[0] ?? null
-          const built = await buildVNode(output, {}, oldOut && typeof oldOut === 'object' ? (oldOut as VNode) : null)
-          current.children = [built]
-          patch(oldOut as VNode | null, built, root)
+        // 统一重建：buildVNode（组件根 → renderFn 重跑复用实例；native 根 → 全树递归；
+        // oldV 对照复用 _render）→ patch（事件流 → DOM）
+        const built = await buildVNode(vnode, ctx as unknown as Record<string, unknown>, current)
+        if (current == null) {
+          mount(built, root)
+        } else {
+          patch(current, built, root)
         }
+        current = built
       } while (dirty)
     } finally {
       updating = false
@@ -87,9 +87,9 @@ export function createRoot(vnode: VNode, root: HTMLElement): RootHandle {
   // 初始挂载（组件构建——ctx 注入）
   void (async () => {
     try {
-      await buildVNode(vnode, ctx as unknown as Record<string, unknown>)
-      mount(vnode, root)
-      current = vnode
+      const built = await buildVNode(vnode, ctx as unknown as Record<string, unknown>)
+      mount(built, root)
+      current = built
     } finally {
       readyResolve()
     }

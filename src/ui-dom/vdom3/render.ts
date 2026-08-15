@@ -27,7 +27,7 @@ export function mount(vnode: VNode, root: HTMLElement): void {
 function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | null {
   // 组件：输出 _child（已构建——直接渲染输出；el 定位组件输出首节点）
   if (typeof vnode.type === 'function') {
-    const output = childrenOf(vnode)[0] ?? null
+    const output = (vnode as any)._child ?? childrenOf(vnode)[0] ?? null
     if (output == null) return null
     if (vnode.el == null || !vnode.el.isConnected) {
       const node = renderVNode(output as VNode, parent, anchor)
@@ -156,8 +156,8 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
     if (typeof vn.type === 'function') {
       vn._render = ov._render
       vn._id = ov._id
-      const out = childrenOf(vn)[0] ?? null
-      const oldOut = childrenOf(ov)[0] ?? null
+      const out = (vn as any)._child ?? childrenOf(vn)[0] ?? null
+      const oldOut = (ov as any)._child ?? childrenOf(ov)[0] ?? null
       if (out == null) {
         if (ov.el) { ov.el.parentNode?.removeChild(ov.el); ov.el = null }
         vn.el = null

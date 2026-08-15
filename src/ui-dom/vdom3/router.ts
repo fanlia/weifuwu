@@ -70,9 +70,9 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
       if (typeof v.type === 'function' && v._render) {
         const output = await v._render(v.props)
         if (output == null) return
-        const oldOut = v.children?.[0] ?? null
+        const oldOut = (v as any)._child ?? null
         const built = await buildVNode(output, pageCtx, oldOut && typeof oldOut === 'object' ? (oldOut as VNode) : null)
-        v.children = [built]
+        ;(v as any)._child = built
         patch(oldOut as VNode | null, built, root)
       }
     } finally {
@@ -100,14 +100,14 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
       }
       pageCtx = makePageCtx() // 新页面新 ctx（render 绑定当前实例）
       const vnode = matched.def.render(matched.params)
-      await buildVNode(vnode, pageCtx)
+      const built = await buildVNode(vnode, pageCtx)
       if (current == null) {
-        mount(vnode, root) // 首帧
+        mount(built, root) // 首帧
       } else {
-        patch(current, vnode, root) // 页面切换（异类型 → COMP_UNMOUNT+REMOVE / MOUNT+CREATE）
+        patch(current, built, root) // 页面切换（异类型 → COMP_UNMOUNT+REMOVE / MOUNT+CREATE）
       }
-      current = vnode
-      pageVnode = vnode
+      current = built
+      pageVnode = built
     } finally {
       busy = false
       if (queue != null) { const q = queue; queue = null; void runOp(q) }
