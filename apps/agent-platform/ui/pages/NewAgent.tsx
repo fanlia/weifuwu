@@ -152,8 +152,8 @@ export const NewAgent: Component = async (_props, ctx) => {
       if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
       return (
       <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
-        <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
-        <PageHeader title="创建 Agent" sub="选择一个角色模板快速开始，或跳过自行配置" />
+        <a key="back-link" class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
+        <PageHeader key="tmpl-header" title="创建 Agent" sub="选择一个角色模板快速开始，或跳过自行配置" />
 
         {buildCategories().map(([key, cat]) => (
           <div key={key} class="wf-stack wf-gap-sm wf-mb-lg">
@@ -195,10 +195,10 @@ export const NewAgent: Component = async (_props, ctx) => {
 
     return (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
-      <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
+      <a key="back-link2" class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
 
       {$.selectedTemplate && (
-        <Card>
+        <Card key="selected-tmpl">
           <div class="wf-row wf-gap-sm">
             <span class="wf-text-2xl">{$.selectedTemplate.icon}</span>
             <div class="wf-fill">
@@ -210,12 +210,12 @@ export const NewAgent: Component = async (_props, ctx) => {
         </Card>
       )}
 
-      <PageHeader title={$.selectedTemplate ? `创建 ${$.selectedTemplate.name}` : '创建 Agent'}
+      <PageHeader key="form-header" title={$.selectedTemplate ? `创建 ${$.selectedTemplate.name}` : '创建 Agent'}
         sub="模板已预填默认值，可根据需要修改" />
 
       <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
 
-      <Card>
+      <Card key="form-card">
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
           {!$.selectedTemplate && (
             <Field label="类型">
