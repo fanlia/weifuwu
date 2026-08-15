@@ -1,102 +1,50 @@
 /**
- * vdom3 render — 渲染执行器：vnode 树 → 事件流 → DOM
+ * vdom3 render — 渲染执行器：**构建后的纯树** → 事件流 → DOM
  *
- * 核心：**渲染即事件**——树的每个节点创建/属性设置/插入都是事件（stream.emit），
+ * 核心：**渲染即事件**——节点创建/属性设置/文本更新/插入/移除都是事件（stream.emit），
  * 执行器消费事件操作 DOM。DOM = fold(事件流)。
  *
- * 更新（patch）：同位置同类型复用（vnode 身份）——仅变化部分发事件
- * （TEXT_UPDATE / PROP_UPDATE / 异类型 → REMOVE+CREATE+INSERT）——无整树 diff。
+ * 组件 vnode（已 build）：输出 _child（渲染组件输出——无重复构建）；
+ * 卸载：COMP_UNMOUNT 事件（类型/位置变化时——由 patch 顶层判定）。
  */
 
 import type { VNode, VNodeChild } from './types.ts'
 import { Fragment } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
 
-/** 挂载：vnode → 事件流 → DOM */
+/** 挂载：纯树 → 事件流 → DOM */
 export function mount(vnode: VNode, root: HTMLElement): void {
-  patch(null, vnode, root)
+  renderVNode(vnode, root)
 }
 
-/**
- * patch：old vs new → 事件流 → DOM。
- * 复用规则（最小——非整树 diff）：
- *  - 同位置同类型（含 key）→ 递归 patch（仅属性/文本/子节点变化发事件）
- *  - 异类型/异 key → REMOVE + CREATE + INSERT（重建事件）
- *  - 列表：keyed 匹配（同 key 复用；新增 INSERT；消失 REMOVE）
- */
-export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?: Node | null): Node | null {
-  // 文本
-  if (typeof newV === 'string' || typeof newV === 'number') {
-    const str = String(newV)
-    if (oldV == null || typeof oldV !== 'object') {
-      // 旧节点非文本（或空）→ 创建文本
-      const t = document.createTextNode(str)
-      const id = nextNodeId()
-      stream.emit({ type: 'TEXT_CREATE', id, value: str, ts: Date.now() })
-      if (anchor && anchor.parentNode === parent) parent.insertBefore(t, anchor)
-      else parent.appendChild(t)
-      stream.emit({ type: 'INSERT', parent: parentId(parent), child: id, ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
-      return t
+/** 渲染 vnode（同步——树已构建） */
+function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | null {
+  // 组件：输出 _child（已构建——直接渲染输出；el 定位组件输出首节点）
+  if (typeof vnode.type === 'function') {
+    const output = vnode.children?.[0] ?? null
+    if (output == null) return null
+    if (vnode.el == null || !vnode.el.isConnected) {
+      const node = renderVNode(output as VNode, parent, anchor)
+      vnode.el = node
+      return node
     }
-    // 同类型文本 → 值变化更新（TEXT_UPDATE 事件）
-    const el = oldV.el as Text
-    if (el && el.nodeValue !== str) {
-      stream.emit({ type: 'TEXT_UPDATE', target: nodeId(el), value: str, prev: el.nodeValue ?? '', ts: Date.now() })
-      el.nodeValue = str
+    return vnode.el
+  }
+  if (vnode.type === Fragment) {
+    let first: Node | null = null
+    for (const c of vnode.children ?? []) {
+      const n = renderVNodeChild(c, parent, anchor)
+      if (n && !first) first = n
     }
-    return el
+    return first
   }
-  if (newV == null || newV === false || newV === true) {
-    if (oldV != null && oldV.el) {
-      stream.emit({ type: 'REMOVE', parent: parentId(parent), child: nodeId(oldV.el), ts: Date.now() })
-      oldV.el.parentNode?.removeChild(oldV.el)
-      oldV.el = null
-    }
-    return null
-  }
-
-  // vnode 节点
-  const vn = newV
-  const sameType = oldV != null && typeof oldV === 'object' && oldV.type === vn.type && oldV.key === vn.key
-
-  if (sameType && vn.type !== Fragment) {
-    // 同类型复用：属性 diff + 子节点递归
-    const el = oldV!.el as Element
-    vn.el = el
-    patchProps(el, oldV!.props, vn.props)
-    patchChildren(oldV!, vn, el)
-    return el
-  }
-
-  // 异类型 / 新节点 → 创建 + 插入
-  const node = createNode(vn, parent)
-  if (oldV != null && oldV.el && oldV.el.parentNode === parent) {
-    stream.emit({ type: 'REMOVE', parent: parentId(parent), child: nodeId(oldV.el), ts: Date.now() })
-    oldV.el.parentNode?.removeChild(oldV.el)
-  }
-  if (anchor && anchor.parentNode === parent) parent.insertBefore(node, anchor)
-  else parent.appendChild(node)
-  stream.emit({ type: 'INSERT', parent: parentId(parent), child: nodeId(node), ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
-  return node
-}
-
-/** 创建节点（vnode → DOM + 事件） */
-function createNode(vn: VNode, parent: Node): Node {
-  if (vn.type === Fragment) {
-    const frag = document.createDocumentFragment()
-    for (const c of vn.children ?? []) {
-      const n = patch(null, c, frag)
-      if (n) frag.appendChild(n)
-    }
-    return frag
-  }
-  const el = document.createElement(vn.type as string)
+  // native
+  const el = document.createElement(vnode.type as string)
   const id = nextNodeId()
   el.setAttribute('data-v3-id', id)
-  vn.el = el
-  stream.emit({ type: 'NODE_CREATE', id, tag: vn.type as string, ts: Date.now() })
-  // props（初始——事件流记录每个属性设置）
-  for (const [key, val] of Object.entries(vn.props ?? {})) {
+  vnode.el = el
+  stream.emit({ type: 'NODE_CREATE', id, tag: vnode.type as string, ts: Date.now() })
+  for (const [key, val] of Object.entries(vnode.props ?? {})) {
     if (key === 'key' || key === 'children') continue
     if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
       el.addEventListener(key.slice(2).toLowerCase(), (e) => (val as any)(e))
@@ -107,11 +55,105 @@ function createNode(vn: VNode, parent: Node): Node {
       stream.emit({ type: 'PROP_UPDATE', target: id, key, value: val, prev: '', ts: Date.now() })
     }
   }
-  for (const c of vn.children ?? []) {
-    const n = patch(null, c, el)
-    if (n) el.appendChild(n)
-  }
+  if (anchor && anchor.parentNode === parent) parent.insertBefore(el, anchor)
+  else parent.appendChild(el)
+  stream.emit({ type: 'INSERT', parent: parentId(parent), child: id, ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
+  for (const c of vnode.children ?? []) renderVNodeChild(c, el)
   return el
+}
+
+function renderVNodeChild(c: VNodeChild, parent: Node, anchor?: Node | null): Node | null {
+  if (c == null || c === false || c === true) return null
+  if (typeof c === 'string' || typeof c === 'number') {
+    const t = document.createTextNode(String(c))
+    const id = nextNodeId()
+    stream.emit({ type: 'TEXT_CREATE', id, value: String(c), ts: Date.now() })
+    if (anchor && anchor.parentNode === parent) parent.insertBefore(t, anchor)
+    else parent.appendChild(t)
+    stream.emit({ type: 'INSERT', parent: parentId(parent), child: id, ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
+    return t
+  }
+  return renderVNode(c, parent, anchor)
+}
+
+/**
+ * patch：旧树（纯）vs 新树（纯）→ 事件流 → DOM。
+ * 同位置同类型（含 key）复用——仅变化发事件；异类型 → REMOVE+CREATE+INSERT（重建事件）。
+ */
+export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?: Node | null): Node | null {
+  // 文本
+  if (typeof newV === 'string' || typeof newV === 'number') {
+    const str = String(newV)
+    const existing = oldV && typeof oldV === 'object' ? oldV.el : (parent.childNodes[0] ?? null)
+    if (existing && existing.nodeType === 3) {
+      if (existing.nodeValue !== str) {
+        stream.emit({ type: 'TEXT_UPDATE', target: nodeId(existing), value: str, prev: existing.nodeValue ?? '', ts: Date.now() })
+        existing.nodeValue = str
+      }
+      return existing
+    }
+    const t = document.createTextNode(str)
+    const id = nextNodeId()
+    stream.emit({ type: 'TEXT_CREATE', id, value: str, ts: Date.now() })
+    if (anchor && anchor.parentNode === parent) parent.insertBefore(t, anchor)
+    else parent.appendChild(t)
+    stream.emit({ type: 'INSERT', parent: parentId(parent), child: id, ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
+    return t
+  }
+  if (newV == null || newV === false || newV === true) {
+    if (oldV != null && oldV.el && oldV.el.parentNode === parent) {
+      stream.emit({ type: 'REMOVE', parent: parentId(parent), child: nodeId(oldV.el), ts: Date.now() })
+      oldV.el.parentNode?.removeChild(oldV.el)
+    }
+    return null
+  }
+  // vnode
+  const vn = newV
+  const oldIsVNode = oldV != null && typeof oldV === 'object' && 'type' in oldV
+  const sameType = oldIsVNode && (oldV as VNode).type === vn.type && (oldV as VNode).key === vn.key
+
+  if (sameType) {
+    const ov = oldV as VNode
+    // 组件：复用实例（_render 保持）——输出已由 build 更新（新 _child）——渲染新输出
+    if (typeof vn.type === 'function') {
+      vn._render = ov._render
+      vn._id = ov._id
+      const out = vn.children?.[0] ?? null
+      const oldOut = ov.children?.[0] ?? null
+      if (out == null) {
+        if (ov.el) { ov.el.parentNode?.removeChild(ov.el); ov.el = null }
+        vn.el = null
+        return null
+      }
+      if (ov.el == null || !ov.el.isConnected) {
+        vn.el = renderVNode(vn, parent, anchor)
+      } else {
+        // 组件输出变化 → patch 子树（组件 el 保持——输出首节点定位）
+        patch(oldOut as VNode | null, out as VNodeChild, parent, anchor)
+        vn.el = ov.el
+      }
+      return vn.el
+    }
+    // native：属性 diff + children patch
+    const el = ov.el as Element
+    vn.el = el
+    patchProps(el, ov.props, vn.props)
+    patchChildren(ov, vn, el)
+    return el
+  }
+
+  // 异类型：旧组件 → COMP_UNMOUNT；移除旧 + 渲染新
+  if (oldIsVNode && typeof (oldV as VNode).type === 'function' && (oldV as VNode)._id) {
+    stream.emit({ type: 'COMP_UNMOUNT', id: (oldV as VNode)._id!, name: compName((oldV as VNode).type), ts: Date.now() })
+  }
+  if (oldIsVNode) {
+    const oldEl = (oldV as VNode).el
+    if (oldEl && oldEl.parentNode === parent) {
+      stream.emit({ type: 'REMOVE', parent: parentId(parent), child: nodeId(oldEl), ts: Date.now() })
+      oldEl.parentNode?.removeChild(oldEl)
+    }
+  }
+  return renderVNode(vn, parent, anchor)
 }
 
 /** 属性 diff（同类型复用——仅变化发事件） */
@@ -130,19 +172,13 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
       }
       continue
     }
-    if (nv == null || nv === false) {
-      el.removeAttribute(key)
-    } else {
-      el.setAttribute(key, String(nv))
-    }
+    if (nv == null || nv === false) el.removeAttribute(key)
+    else el.setAttribute(key, String(nv))
     stream.emit({ type: 'PROP_UPDATE', target, key, value: nv, prev: ov ?? '', ts: Date.now() })
   }
 }
 
-/** children diff：位置配对（childNodes 索引对齐——无整树比较）。
- *  文本特判：同位置文本节点更新 nodeValue（TEXT_UPDATE 事件——不重建）。
- *  false/null：不产生 DOM 节点（childNodes 与 children 对齐的前提——h 已过滤 false）。
- *  列表 keyed：见 patch 的 key 复用（同 key 递归——新增/移除事件）。 */
+/** children diff：位置配对（childNodes 索引对齐）；文本特判；keyed 列表复用 */
 function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
   const oldKids = oldV.children ?? []
   const newKids = newV.children ?? []
@@ -151,7 +187,6 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
     const oc = i < oldKids.length ? oldKids[i] : null
     const nc = i < newKids.length ? newKids[i] : null
     if (i >= newKids.length) {
-      // 多余旧项 → 移除对应 DOM（childNodes 对齐——vnode 项有 el；文本项用索引）
       if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
         const elNode = (oc as VNode).el!
         stream.emit({ type: 'REMOVE', parent: nodeId(el), child: nodeId(elNode), ts: Date.now() })
@@ -163,7 +198,6 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
       continue
     }
     if (typeof nc === 'string' || typeof nc === 'number') {
-      // 文本特判：定位同位置文本节点（childNodes[i]——children 对齐）
       const str = String(nc)
       const existing = el.childNodes[i]
       if (existing && existing.nodeType === 3) {
@@ -181,7 +215,6 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
       continue
     }
     if (nc == null || nc === false || nc === true) {
-      // 新占位：移除同位置 DOM（若存在）
       const domNode = el.childNodes[i]
       if (domNode) domNode.parentNode?.removeChild(domNode)
       continue
@@ -189,9 +222,14 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
     if (oc != null && typeof oc === 'object') {
       patch(oc as VNode, nc as VNode, el)
     } else {
-      patch(null, nc as VNode, el)
+      // 新项：渲染（组件输出已在 build 展开）
+      renderVNode(nc as VNode, el)
     }
   }
+}
+
+function compName(type: unknown): string {
+  return typeof type === 'function' ? (type.name || 'anonymous') : String(type)
 }
 
 function nodeId(n: Node | null): string {
@@ -205,3 +243,5 @@ function parentId(p: Node): string {
   if (p.nodeType === 1) return (p as Element).getAttribute('data-v3-id') ?? 'root'
   return 'root'
 }
+
+export { Fragment }

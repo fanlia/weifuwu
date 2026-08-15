@@ -12,14 +12,23 @@
 
 // ── vnode 树（声明式——与 vdom2 同模型） ──
 
+/** 两阶段组件契约（与 vdom2 同模型：mount 工厂一次 + renderFn 每次渲染） */
+export type Component<P = Record<string, unknown>, C = Record<string, unknown>> = (
+  initProps: P,
+  ctx: C,
+) => Promise<(props: P) => Promise<VNode | null>>
+
 export interface VNode {
   /** native 标签名 / 组件函数 / Fragment 符号 */
-  type: string | symbol
+  type: string | symbol | Component
   props: Record<string, unknown>
   key?: string | null
   /** 渲染后回填：DOM 元素（native）/ 组件实例输出（comp） */
   el?: Node | null
   children?: VNodeChild[]
+  /** 组件实例状态（comp：工厂返回的 renderFn + 实例 id） */
+  _render?: (props: any) => Promise<VNode | null>
+  _id?: string
 }
 
 export type VNodeChild = VNode | string | number | null | undefined | boolean

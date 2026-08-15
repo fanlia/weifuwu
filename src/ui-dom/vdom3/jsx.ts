@@ -6,7 +6,7 @@ import type { VNode, VNodeChild } from './types.ts'
 import { Fragment } from './types.ts'
 
 export function h(
-  type: string | symbol,
+  type: string | symbol | import('./types.ts').Component,
   props?: Record<string, unknown> | null,
   ...children: VNodeChild[]
 ): VNode {

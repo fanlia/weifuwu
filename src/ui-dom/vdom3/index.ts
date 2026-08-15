@@ -23,5 +23,6 @@
 
 export { h, Fragment } from './jsx.ts'
 export { mount, patch } from './render.ts'
+export { buildVNode, isVNode } from './build.ts'
 export { createEventStream, stream, nextNodeId } from './events.ts'
 export type { VNode, VNodeChild, V3Event, EventStream, Renderer } from './types.ts'

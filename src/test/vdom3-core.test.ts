@@ -123,3 +123,55 @@ test('事件流可断言：DOM = fold(事件流)——事件序列精确描述�
   assert.ok(hasInsert, 'INSERT 事件（根入 root）')
   document.body.removeChild(root)
 })
+
+// ── P0 组件层：两阶段组件（mount/patch 复用/卸载）──
+
+test('组件：挂载（COMP_MOUNT）→ 更新（复用实例状态保持）→ 卸载（COMP_UNMOUNT）', async () => {
+  stream.reset()
+  const root = mkRoot()
+  // 有状态组件（内部 let——跨渲染保持）
+  let factoryRuns = 0
+  const Counter = async (_init: any, _ctx: any) => {
+    factoryRuns++
+    let count = 0
+    return async (_props: any) => {
+      return h('div', { class: 'counter' }, [`count:${count}`])
+    }
+  }
+  // build + mount
+  const tree = h(Counter, {})
+  const { buildVNode } = await import('../ui-dom/vdom3/build.ts')
+  await buildVNode(tree, {})
+  const { mount } = await import('../ui-dom/vdom3/index.ts')
+  mount(tree, root)
+  assert.equal(root.querySelector('.counter')?.textContent, 'count:0', '组件渲染')
+  assert.equal(factoryRuns, 1, '工厂执行 1 次')
+
+  // 更新（同类型组件——oldV 对照复用 _render——工厂不重跑）
+  const tree2 = h(Counter, {})
+  await buildVNode(tree2, {}, tree)
+  assert.equal(factoryRuns, 1, '同类型复用——工厂不重跑（组件内部状态保持）')
+  // patch 更新（同类型——_render 复用——输出 patch）
+  const { patch } = await import('../ui-dom/vdom3/index.ts')
+  patch(tree, tree2, root)
+  assert.equal(root.querySelector('.counter')?.textContent, 'count:0', '复用实例渲染（状态保持）')
+  document.body.removeChild(root)
+})
+
+test('组件：事件流包含 COMP_MOUNT（挂载即事件——引擎本体）', async () => {
+  stream.reset()
+  const root = mkRoot()
+  const Greet = async (_init: any, _ctx: any) => {
+    return async (_props: any) => h('span', { id: 'greet' }, 'hi')
+  }
+  const { buildVNode } = await import('../ui-dom/vdom3/build.ts')
+  const { mount } = await import('../ui-dom/vdom3/index.ts')
+  const tree = h(Greet, {})
+  await buildVNode(tree, {})
+  mount(tree, root)
+  assert.ok(root.querySelector('#greet'), '组件输出渲染')
+  const events = stream.events()
+  assert.ok(events.some((e) => e.type === 'COMP_MOUNT'), 'COMP_MOUNT 事件')
+  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'span'), '组件内部节点创建事件（全链路）')
+  document.body.removeChild(root)
+})
