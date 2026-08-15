@@ -1551,3 +1551,31 @@ test('kind 完整性：patch 决策表覆盖全部 6 种 kind（reuse 路径—�
   assert.equal(unhandled.length, 0, `无 unhandled 决策（kind 分发完整）——实际 ${unhandled.length}`)
   document.body.removeChild(root)
 })
+
+test('滚动锁恢复：Modal 关闭 → portal 内容移除时 ref(null) → lockScroll 解锁（滑动条恢复回归）', async () => {
+  const { Modal } = await import('../components/Modal/Modal.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let open = true
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', {}, [
+      h('button', { id: 'close', onClick: () => { open = false; rerender() } }, 'close'),
+      h(Modal, { open, onClose: () => { open = false; rerender() }, title: 't', children: h('div', {}, 'x') }),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 40))
+  assert.equal(document.body.style.overflow, 'hidden', '打开时滚动锁')
+  // 关闭（open=false → exit → animationend → 卸载）
+  ;(root.querySelector('[id="close"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const modal = document.querySelector('.wf-modal')
+  if (modal) modal.dispatchEvent(new (window as any).Event('animationend', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 40))
+  assert.ok(!document.querySelector('.wf-modal'), 'Modal 卸载')
+  assert.equal(document.body.style.overflow, '', '滚动锁恢复（ref(null) → unlockScroll）')
+  document.body.removeChild(root)
+  document.querySelector('[id="__wf_portal"]')?.remove()
+})

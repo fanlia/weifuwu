@@ -305,7 +305,13 @@ function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null)
   const out = vn._child !== undefined ? vn._child : childrenOf(vn)[0] ?? null
   const oldOut = ov._child !== undefined ? ov._child : childrenOf(ov)[0] ?? null
   if (out == null) {
-    if (ov.el) { ov.el.parentNode?.removeChild(ov.el); ov.el = null }
+    // 移除旧输出（递归 ref(null)——ref 纪律：lockScroll/focus 清理依赖
+    // 卸载回调（usePopup 的 portalPanelRef → unlockScroll））
+    if (ov.el) {
+      callRefCleanup(oldOut as VNode | null)
+      ov.el.parentNode?.removeChild(ov.el)
+      ov.el = null
+    }
     vn.el = null
     return null
   }
@@ -421,10 +427,24 @@ function patchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: El
   }
 }
 
-/** 移除 portal 内容（远程容器清空——子树 REMOVE 事件） */
+/** 递归调 ref(null)（移除树——ref 纪律：卸载清理（lockScroll/focus）依赖
+ *  ——portal/组件输出等嵌套结构的 ref 全部清理） */
+function callRefCleanup(v: VNode | null | undefined): void {
+  if (v == null || typeof v !== 'object' || Array.isArray(v)) return
+  const refFn = (v as VNode).props?.ref
+  if (typeof refFn === 'function') refFn(null)
+  for (const c of childrenOf(v as VNode)) {
+    if (c != null && typeof c === 'object' && !Array.isArray(c)) callRefCleanup(c as VNode)
+  }
+}
+
+/** 移除 portal 内容（远程容器清空——子树 REMOVE 事件 + ref(null)——ref 纪律：
+ *  卸载必须调 ref(null)（usePopup 的 portalPanelRef 清理——lockScroll/focus 恢复）） */
 function removePortalContent(pv: PortalVNode): void {
   const portalKey = String(pv.props?.portalKey ?? 'default')
   const container = ensurePortalContainer(portalKey)
+  // 递归 ref(null)（面板根/嵌套的 ref——锁滚动/焦点清理依赖）
+  callRefCleanup(pv)
   for (const child of [...container.childNodes]) {
     const cid = registry.idOf(child)
     stream.emit({ type: 'REMOVE', parent: NodeRegistry.PORTAL(portalKey), child: cid, ts: Date.now() })
