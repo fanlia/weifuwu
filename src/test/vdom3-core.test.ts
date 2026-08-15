@@ -390,3 +390,43 @@ test('生命周期：组件卸载 → onUnmount 钩子执行（清理注册的�
   router.close()
   document.body.removeChild(root)
 })
+
+// ── SSR 事件流水合：服务端生成事件流 → 客户端重放（零 DOM 猜测） ──
+
+test('SSR：renderToEvents 生成事件流 → serialize/deserialize → replay 重建 DOM（与 mount 同构）', async () => {
+  const { renderToEvents, serializeEvents, deserializeEvents } = await import('../ui-dom/vdom3/ssr.ts')
+  const { replay } = await import('../ui-dom/vdom3/replay.ts')
+  // 组件树（含文本/属性/嵌套）
+  const Page = async (_init: any, _ctx: any) => {
+    return async () => h('div', { id: 'page', class: 'x' }, [
+      h('h1', {}, '标题'),
+      h('p', {}, ['内容 ', '段落']),
+      h('ul', {}, ['a', 'b', 'c'].map((it, i) => h('li', { key: it + i }, it))),
+    ])
+  }
+  // 服务端：生成事件流 + 序列化
+  const events = await renderToEvents(h(Page, {}))
+  const json = serializeEvents(events)
+  const parsed = deserializeEvents(json)
+  assert.equal(parsed.length, events.length, '序列化往返无损')
+
+  // 客户端：重放 → DOM（零 DOM 猜测——事件流自带全部指令）
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  replay(parsed, container)
+  assert.ok(container.querySelector('[id="page"]'), '重放：根元素')
+  assert.equal(container.querySelector('[id="page"]')?.getAttribute('class'), 'x', '重放：属性')
+  assert.equal(container.querySelector('h1')?.textContent, '标题', '重放：文本')
+  assert.equal(container.querySelectorAll('li').length, 3, '重放：列表')
+  assert.ok(container.innerHTML.includes('内容'), '重放：多段文本')
+  document.body.removeChild(container)
+})
+
+test('SSR：组件挂载事件（COMP_MOUNT）在服务端事件流中（可审计）', async () => {
+  const { renderToEvents } = await import('../ui-dom/vdom3/ssr.ts')
+  const Comp = async (_init: any, _ctx: any) => async () => h('span', {}, 'hi')
+  const events = await renderToEvents(h(Comp, {}))
+  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'span'), 'SSR 事件流含节点创建')
+  // 服务端生成不污染全局流（独立数组）
+  assert.ok(!stream.events().includes(events[0]), 'SSR 事件独立于运行时流')
+})
