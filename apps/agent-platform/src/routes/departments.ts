@@ -225,11 +225,63 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       WHERE m.department_id = ${params.id} AND m.ai_approved != FALSE
       ORDER BY m.created_at DESC LIMIT 3
     `
+    // 组织层级（2026-12）：下级部门——本部门成员中 type='department' 的经理代表的部门
+    // 上级可查看子部门交付物（只读）——组织层级的可见性闭环
+    const subDepartments = []
+    try {
+      const mgrRows = await sql`
+        SELECT a.id as mgr_id, a.name as mgr_name, a.department_id
+        FROM department_members dm JOIN agents a ON a.id = dm.agent_id
+        WHERE dm.department_id = ${params.id} AND a.type = 'department' AND a.department_id IS NOT NULL
+      `
+      for (const m of mgrRows ?? []) {
+        const subDeptId = String((m as any).department_id)
+        if (subDeptId === String(params.id)) continue // 排除自我引用（经理代表本部门）
+        const [sd] = await sql`SELECT id, name FROM departments WHERE id = ${subDeptId} AND app_id = ${appId}`
+        if (!sd) continue
+        // 子部门成员数 + 最近交付物（根目录 top 10——只读可见性）
+        let subMemberCount = 0
+        let subFiles: Array<{ name: string; type: string; size: number; mtime: string }> = []
+        try {
+          const [cnt] = await sql`SELECT COUNT(*)::int as n FROM department_members WHERE department_id = ${subDeptId}`
+          subMemberCount = Number(cnt?.n ?? 0)
+        } catch { /* 计数失败 */ }
+        try {
+          const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
+          const subWs = await resolveDepartmentWorkspace(subDeptId, (sd as any).workspace_path, true)
+          if (subWs) {
+            const { readdir, stat } = await import('node:fs/promises')
+            const { join } = await import('node:path')
+            const entries = await readdir(subWs, { withFileTypes: true })
+            const items: Array<{ name: string; type: string; size: number; mtime: string }> = []
+            for (const entry of entries) {
+              if (entry.name.startsWith('.')) continue
+              const full = join(subWs, entry.name)
+              try {
+                const st = await stat(full)
+                items.push({ name: entry.name, type: entry.isDirectory() ? 'dir' : 'file', size: st.size, mtime: st.mtime.toISOString() })
+              } catch { /* 跳过 */ }
+            }
+            items.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'dir' ? -1 : 1))
+            subFiles = items.slice(0, 10)
+          }
+        } catch { /* 子部门文件失败不阻断 */ }
+        subDepartments.push({
+          id: subDeptId,
+          name: String((sd as any).name),
+          managerId: String((m as any).mgr_id),
+          managerName: String((m as any).mgr_name),
+          memberCount: subMemberCount,
+          files: subFiles,
+        })
+      }
+    } catch { /* 下级部门解析失败不阻断 */ }
     return Response.json({
       department: dept,
       members,
       env,
       files,
+      subDepartments,
       recentMessages: (recent ?? []).map((r: any) => ({
         content: String(r.content ?? '').slice(0, 120),
         senderName: String(r.sender_name ?? ''),
@@ -362,6 +414,12 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       ON CONFLICT (department_id, agent_id) DO UPDATE SET role = EXCLUDED.role
     `
 
+    // 组织层级：成员变化 → 刷新部门经理提示词（成员名单实时化）
+    try {
+      const { refreshManagerPrompt } = await import('../services/org-manager.ts')
+      await refreshManagerPrompt(sql, String(appId), String(params.id))
+    } catch { /* 刷新失败不阻断 */ }
+
     return Response.json({ success: true })
   })
 
@@ -383,6 +441,12 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       DELETE FROM department_members
       WHERE department_id = ${params.id} AND agent_id = ${params.agentId}
     `
+
+    // 组织层级：成员变化 → 刷新部门经理提示词（成员名单实时化）
+    try {
+      const { refreshManagerPrompt } = await import('../services/org-manager.ts')
+      await refreshManagerPrompt(sql, String(appId), String(params.id))
+    } catch { /* 刷新失败不阻断 */ }
 
     return Response.json({ success: true })
   })

@@ -29,6 +29,8 @@ interface ChatState {
   expandedTool: string | null
   /** P1 项目空间：环境状态（用户语言——聚合 API） */
   env: { status: string; label: string }
+  /** 组织层级：下级部门（经理代表的部门——上级可见子部门交付物） */
+  subDepts: Array<{ id: string; name: string; managerId: string; managerName: string; memberCount: number; files: Array<{ name: string; type: string; size: number; mtime: string }> }>
 }
 
 export const Chat: Component = async (_props, ctx) => {
@@ -57,6 +59,21 @@ export const Chat: Component = async (_props, ctx) => {
   const aiStatusStore = ctx.ui.useExternal(aiStatus)
   const aiStatusOf = (id: string) => (aiStatusStore.state as Record<string, string>)[id] ?? 'idle'
 
+  // 组织层级：重拉聚合 API（file_updated 时子部门交付物列表实时化）
+  let reloadingWs = false
+  const reloadWorkspace = async () => {
+    if (reloadingWs) return
+    reloadingWs = true
+    try {
+      const wsRes = await ctx.api!.get(`/api/departments/${deptId}/workspace`).catch(() => null)
+      if (wsRes) {
+        $.subDepts = wsRes.subDepartments ?? []
+        if (wsRes.env) $.env = wsRes.env
+        rerender()
+      }
+    } finally { reloadingWs = false }
+  }
+
   $.msgs = []; $.deptName = '聊天'; $.memberCount = 0; $.input = ''; $.isAdmin = false
   $.files = []
   $.editingId = ''; $.editValue = ''; $.userAgentId = ''; $.sending = false
@@ -67,6 +84,7 @@ export const Chat: Component = async (_props, ctx) => {
   $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
   $.expandedTool = null
   $.env = { status: 'none', label: '' }
+  $.subDepts = []
   const chatControl = { current: null as ChatInputControl | null }
 
   async function loadMessages() {
@@ -91,6 +109,7 @@ export const Chat: Component = async (_props, ctx) => {
     $.memberCount = (wsRes?.members ?? []).length
     $.membersList = (wsRes?.members ?? []).filter((m: Member) => m.type === 'ai' || m.type === 'knowledge_base' || m.type === 'department')
     $.env = wsRes?.env ?? { status: 'none', label: '' }
+    $.subDepts = wsRes?.subDepartments ?? []
     rerender()
   }).catch(() => {})
 
@@ -192,6 +211,8 @@ export const Chat: Component = async (_props, ctx) => {
         bumpFilesVersion()
         // 文件列表刷新（注册表——FilesSection 挂载时注册，事件直接驱动）
         notifyFilesReload()
+        // 组织层级：子部门交付物列表实时化（重拉聚合 API——env/subDepts 更新）
+        void reloadWorkspace()
         // P2-4：聊天流内「AI 刚生成了 X」文件卡片（可点击下载）
         const f = String(event.file ?? '')
         const fname = f.split('/').pop() ?? f
@@ -457,7 +478,11 @@ export const Chat: Component = async (_props, ctx) => {
             </div>
             <div class="wf-fill wf-stack wf-gap-none wf-min-w-0">
               <span class="wf-text-sm wf-text-medium wf-truncate">{m.name}</span>
-              <span class="wf-text-xs wf-text-tertiary wf-truncate">{aiStatusOf(m.id) === 'working' ? '干活中…' : (m.role_label || '空闲')}</span>
+              <span class="wf-text-xs wf-text-tertiary wf-truncate">
+                {m.type === 'department'
+                  ? `代表 ${$.subDepts.find(sd => sd.managerId === m.id)?.name ?? '本部门'}`
+                  : aiStatusOf(m.id) === 'working' ? '干活中…' : (m.role_label || '空闲')}
+              </span>
             </div>
             {m.type === 'knowledge_base' && <span class="wf-text-xs wf-text-tertiary">KB</span>}
           </div>
@@ -609,6 +634,42 @@ export const Chat: Component = async (_props, ctx) => {
       <aside class="wf-col wf-hidden wf-flex@lg wf-p-sm wf-border-l wf-scroll" style="width: 300px; min-width: 300px">
         <div class="wf-text-xs wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm">交付物（共享目录）</div>
         <FilesSection departmentId={deptId} />
+
+        {/* 组织层级：下级部门交付物（只读可见——上级看下属成果） */}
+        {$.subDepts.length > 0 && (
+          <div class="wf-mt-md">
+            <div class="wf-text-xs wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-xs">下级部门（{$.subDepts.length}）</div>
+            {$.subDepts.map((sd) => (
+              <div key={sd.id} class="wf-bg-tertiary wf-rounded wf-p-sm wf-mb-sm">
+                <div class="wf-row wf-gap-xs wf-items-center wf-mb-xs">
+                  <Icon name="users" size={12} />
+                  <span class="wf-text-sm wf-text-medium wf-truncate">{sd.name}</span>
+                  <span class="wf-text-xs wf-text-tertiary">{sd.memberCount} 人</span>
+                </div>
+                <div class="wf-text-xs wf-text-tertiary wf-mb-xs">经理：{sd.managerName}</div>
+                {sd.files.length === 0 ? (
+                  <div class="wf-text-xs wf-text-tertiary">暂无交付物</div>
+                ) : (
+                  <div class="wf-stack wf-gap-none">
+                    {sd.files.map((f) => (
+                      <div key={f.name} class="wf-row wf-gap-xs wf-py-xs wf-items-center">
+                        <Icon name={f.type === 'dir' ? 'folder' : 'file-text'} size={12} />
+                        <span class="wf-text-xs wf-text-medium wf-truncate wf-fill">{f.name}{f.type === 'dir' ? '/' : ''}</span>
+                        <span class="wf-text-xs wf-text-tertiary wf-nums">{f.type === 'file' && f.size > 1024 ? (f.size / 1024).toFixed(1) + 'KB' : f.size + 'B'}</span>
+                        {f.type === 'file' && (
+                          <a class="wf-text-brand" title="下载（子部门交付物）"
+                            href={`/api/departments/${sd.id}/workspace/file?path=${encodeURIComponent(f.name)}&download=1`}>
+                            <Icon name="arrow-down" size={12} />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </aside>
     </div>
     )

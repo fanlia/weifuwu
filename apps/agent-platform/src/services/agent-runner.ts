@@ -157,13 +157,21 @@ async function buildToolContext(
   }
 
   // 解析工作空间路径（三层模型：目录归属部门——{root}/{department_id}/，或自定义路径）
-  // 单聊（is_dm）也是部门特例——同样有工作目录；无部门上下文（preview）→ 无文件工具
+  // 组织层级（2026-12）：部门经理（type='department'）按**代表部门**解析工作目录——
+  // 经理在上级部门被 @ 时，文件工具在自己的部门干活（身份一致性：技术部经理=技术部目录）
   if (config.allowFileTools && config.departmentId) {
     let resolvedWs: string | null = null
+    let wsDeptId = config.departmentId
     try {
-      const [dept] = await ctx.sql`SELECT is_dm, workspace_path FROM departments WHERE id = ${config.departmentId}`
+      const [ag] = await ctx.sql`SELECT type, department_id FROM agents WHERE id = ${config.agentId}`
+      if ((ag as any)?.type === 'department' && (ag as any)?.department_id) {
+        wsDeptId = String((ag as any).department_id)
+      }
+    } catch { /* 类型查询失败用当前部门 */ }
+    try {
+      const [dept] = await ctx.sql`SELECT is_dm, workspace_path FROM departments WHERE id = ${wsDeptId}`
       if (dept) {
-        resolvedWs = await resolveDepartmentWorkspace(config.departmentId, (dept as any).workspace_path, true)
+        resolvedWs = await resolveDepartmentWorkspace(wsDeptId, (dept as any).workspace_path, true)
       }
     } catch (err: any) {
       console.warn(`[agent-runner] 部门工作空间查询失败: ${err?.message ?? ''}`)
