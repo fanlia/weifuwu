@@ -627,7 +627,8 @@ async function runAllAgents(
     // P1-3：附件拷贝到本 AI 工作空间 uploads/{msgId}/（沙盒 bind mount 自动可见）
     let attachmentLayer = ''
     let workspaceLayer = ''
-    if (attachments.length > 0 && agent.allow_file_tools && deptWsInfo && !deptWsInfo.is_dm) {
+    if (attachments.length > 0 && agent.allow_file_tools && deptWsInfo) {
+      // 单聊（is_dm）也是部门特例——同样有工作目录（附件 AI 可见）
       const { buildAttachmentLayer } = await import('./upload.ts')
       const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
       const fs = await import('node:fs/promises')

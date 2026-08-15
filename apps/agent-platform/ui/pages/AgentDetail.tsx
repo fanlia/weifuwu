@@ -393,7 +393,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
               </Field>
               <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-text-secondary">
                 文件工具在<strong>部门工作空间</strong>中执行（三层模型：部门 = 工作目录，sandbox = 计算资源，agent = 能力）——
-                <span class="wf-block wf-text-xs wf-text-tertiary wf-mt-xs">将本 Agent 加入群聊部门后，自动获得该部门共享工作目录（部门详情页可浏览/编辑文件）；单聊无工作目录</span>
+                <span class="wf-block wf-text-xs wf-text-tertiary wf-mt-xs">将本 Agent 加入部门（含单聊）后，自动获得该部门共享工作目录（部门详情页可浏览/编辑文件）——单聊也是部门的特例</span>
               </div>
               <div class="wf-row wf-gap-lg">
                 <Checkbox label="📄 启用文件工具 (read/write/edit/grep)" checked={$.allowFileTools}

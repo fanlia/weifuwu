@@ -44,7 +44,7 @@ npm run dev        # node --watch server.ts → http://localhost:3000
 > **2026-12 用户决策**：sandbox 与 agents 平级，成为**一级概念**——独立 DB 对象（`sandboxes` 表）、CRUD API（`/api/sandboxes`）、管理 UI（「沙盒」页）、审计、租户配额。归属链：**一个群聊部门 = 一个共享工作目录 + 一个沙盒环境**——部门内所有 Agent 的工具（read/write/edit/grep/list_files/bash）都在该环境执行。
 
 ```
-宿主 data/workspaces/{department_id}/ ← 状态真相源（卷，双向挂载；单聊无目录）
+宿主 data/workspaces/{department_id}/ ← 状态真相源（卷，双向挂载——单聊也是部门特例，同样有目录）
         ↓ bind mount
 常驻容器 ap-sandbox-{sandbox_id}（--network none · 内存 512MB · 1 CPU · pids 256 · 非 root node 用户）
         ↓ docker exec（per-sandbox 串行队列）
@@ -82,7 +82,7 @@ requested（记录已建，容器未起——惰性）→ running ⇄ stopped �
 - `--network none` 默认——npm install/curl 等网络命令失败是**设计**；Agent 配置「允许网络访问」→ `--network bridge`
 - docker 不可用 / 镜像缺失 / `SANDBOX_DISABLE=1` → 工具返回「沙盒不可用，命令执行已禁用」——**绝不静默回退宿主执行**
 - 容器内文件操作限制在 `/ws`（卷）——路径穿越/资源/网络均受容器边界保护
-- 单聊（is_dm）无工作目录/无沙盒；旧 `{root}/{agent_id}` 目录不迁移（新模型切部门级，旧数据保留可手动搬移）
+- 单聊（is_dm）也是部门特例——同样有工作目录/沙盒（两人部门：用户 + AI）；旧 `{root}/{agent_id}` 目录不迁移（新模型切部门级，旧数据保留可手动搬移）
 - `SANDBOX_MODE=ephemeral` 记录级 mode（一次性容器——调用即焚、卷持久；低资源环境备选）
 
 **残余风险**（记录，不静默）：docker.sock 权限是信任边界（沙盒保护 AI/租户而非管理员）；容器逃逸（内核漏洞）低概率——生产可选 gVisor（`SANDBOX_RUNTIME=runsc`，登记为后续强化项）；部门内 agent 互信（共享环境——一个 agent 的 bash 可触及其他成员文件，per-sandbox 串行队列缓解并发冲突）。

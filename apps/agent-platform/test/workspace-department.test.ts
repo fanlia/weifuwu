@@ -44,8 +44,11 @@ test('M0c: allowFileTools=false → null', async () => {
   assert.equal(await mod.resolveDepartmentWorkspace('dept-3', null, false), null)
 })
 
-test('M0d: 无部门上下文（单聊/preview departmentId 空）→ null', async () => {
+test('M0d: 无部门上下文（preview departmentId 空）→ null；单聊也是部门特例——同样有目录', async () => {
   assert.equal(await mod.resolveDepartmentWorkspace('', null, true), null)
+  // 单聊（is_dm=true）id 同样解析出目录（部门特例语义——解析不区分单聊/群聊）
+  const dm = await mod.resolveDepartmentWorkspace('dm-1', null, true)
+  assert.equal(dm, join(wsRoot, 'dm-1'))
 })
 
 test('M0e: 同一部门多次解析返回同一路径（幂等——成员共享目录）', async () => {

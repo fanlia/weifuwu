@@ -129,3 +129,12 @@
 - [x] T-M5-2（池预算：驱逐最旧生效 + 仍超抛错 + makeManager poolBudgetMb 转发）
 - [x] T-M6-3（ephemeral：写读跨容器卷持久 + 无容器残留 + 状态标记 running）
 - 实施中抓出的问题：模块级 DEFAULT_POOL_BUDGET_MB 固化 → 构造参数覆盖；readiness 缓存致 stopped 自愈失效 → 'not running' 重试自愈
+
+## 2026-12 单聊 = 部门特例（工作目录/沙盒同样成立）
+
+- [x] agent-runner buildToolContext：去掉 is_dm 拦截（单聊同样解析部门目录）
+- [x] chat.ts 附件拷贝：去掉 is_dm 判断——单聊发附件 → 拷贝进工作目录 → AI 可见（修复单聊体验断档）
+- [x] routes/workspace.ts + sandboxes.ts：去掉单聊拦截（文件浏览器/手动创建沙盒单聊可用）
+- [x] DepartmentDetail：FilesSection + 沙盒卡片去掉 is_dm 条件（单聊详情页同样展示）
+- [x] AgentDetail 文案更新（单聊也是部门特例）
+- [x] 测试：M0d 更新（单聊 id 同样解析目录）；tsc + workspace 测试全绿

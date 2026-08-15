@@ -1,9 +1,8 @@
 /**
  * 工作空间文件浏览器 API（F1-F4 迁移 2026-12）——用户管理面
  *
- * 三层模型：部门 = 工作目录——文件浏览器按**部门**浏览（不再是 agent）：
- *   - 群聊部门有工作目录（departments.workspace_path 自定义，默认 {root}/{id}）
- *   - 单聊（is_dm）无工作目录
+ * 三层模型：部门 = 工作目录——文件浏览器按**部门**浏览（单聊也是部门特例，同样有目录）：
+ *   - 部门有工作目录（departments.workspace_path 自定义，默认 {root}/{id}）
  *   - 可见性：部门必须属于当前 app（app_id 隔离）
  * 与沙盒关系：AI 工具（容器内）与用户看到的是同一份数据（容器卷挂载 = 宿主目录，双向可见）。
  * 安全：应用隔离 + 路径穿越防护（resolveWorkspacePath）。
@@ -29,14 +28,14 @@ const MAX_READ = 200 * 1024 // 200KB 内可读全文
 const MAX_WRITE = 500 * 1024 // 500KB 写上限
 
 export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void> {
-  // 校验部门属于当前租户 + 解析 workspace（单聊/不存在 → null）
+  // 校验部门属于当前租户 + 解析 workspace（不存在 → null；单聊也是部门特例——同样有目录）
   async function getWorkspace(ctx: AppCtx, departmentId: string): Promise<string | null> {
     const { sql, appId } = ctx
     const [dept] = await sql`
       SELECT id, is_dm, workspace_path FROM departments
       WHERE id = ${departmentId} AND app_id = ${appId}
     `
-    if (!dept || (dept as any).is_dm) return null
+    if (!dept) return null
     const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
     return resolveDepartmentWorkspace(String((dept as any).id), (dept as any).workspace_path as string | null | undefined, true)
   }

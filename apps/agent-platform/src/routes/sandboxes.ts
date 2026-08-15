@@ -94,7 +94,6 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
         SELECT id, name, is_dm, workspace_path FROM departments WHERE id = ${body.department_id} AND app_id = ${appId}
       `
       if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
-      if ((dept as any).is_dm) return Response.json({ error: '单聊无工作目录——不支持创建沙盒' }, { status: 400 })
       deptName = deptName ?? String(dept.name ?? '工作环境')
       // 三层模型：部门 = 工作目录——手动创建沙盒挂载部门目录（默认 {root}/{id}）
       try {

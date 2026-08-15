@@ -166,14 +166,11 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
         )}
       </Card>
 
-      {/* 三层模型：部门 = 工作目录——群聊展示共享工作空间（单聊无目录） */}
-      {!$.dept?.is_dm && (
-        <FilesSection departmentId={deptId} />
-      )}
+      {/* 三层模型：部门 = 工作目录——单聊也是部门特例，同样有工作空间 */}
+      <FilesSection departmentId={deptId} />
 
-      {/* 三层模型：sandbox = 计算资源——部门沙盒状态与操作 */}
-      {!$.dept?.is_dm && (
-        <Card id="sec-sandbox">
+      {/* 三层模型：sandbox = 计算资源——部门沙盒状态与操作（单聊同样适用） */}
+      <Card id="sec-sandbox">
           <div class="wf-row wf-gap-sm wf-mb-sm">
             <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="box" size={14} /> 沙盒（计算环境）</div>
             <Button size="sm" variant="ghost" onClick={loadSandbox}><Icon name="refresh" size={13} /> 刷新</Button>
@@ -210,7 +207,6 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
             </div>
           )}
         </Card>
-      )}
     </div>
     )
   }

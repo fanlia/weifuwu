@@ -157,12 +157,12 @@ async function buildToolContext(
   }
 
   // 解析工作空间路径（三层模型：目录归属部门——{root}/{department_id}/，或自定义路径）
-  // 单聊（is_dm）/无部门上下文（preview）→ 无文件工具
+  // 单聊（is_dm）也是部门特例——同样有工作目录；无部门上下文（preview）→ 无文件工具
   if (config.allowFileTools && config.departmentId) {
     let resolvedWs: string | null = null
     try {
       const [dept] = await ctx.sql`SELECT is_dm, workspace_path FROM departments WHERE id = ${config.departmentId}`
-      if (dept && !(dept as any).is_dm) {
+      if (dept) {
         resolvedWs = await resolveDepartmentWorkspace(config.departmentId, (dept as any).workspace_path, true)
       }
     } catch (err: any) {

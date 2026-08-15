@@ -41,7 +41,7 @@
 | 部门内多 agent 并发 exec 同一容器 | **per-sandbox exec 串行队列**（AI 思考时间 >> 执行时间，实际影响小）；工具调用天然间歇 |
 | 并发写同一文件 | tool-runner write 改原子写（tmp + rename）+ 文档红线（AI 协作写不同文件） |
 | 旧数据迁移 | **不自动搬移**：新模型默认目录切部门级，旧 `{root}/{agent_id}` 目录保留（README 标注手动迁移）；`agents.workspace_path` 弃用（列保留、解析不再使用） |
-| 单聊（is_dm=true） | 无工作目录/无 sandbox（个人对话不需要计算资源——诚实裁剪，需求出现再加） |
+| 单聊（is_dm=true） | **部门特例——同样有工作目录/沙盒**（两人部门：用户 + AI；附件/产出闭环完整） |
 
 ---
 
@@ -189,7 +189,7 @@ PUT    /api/departments/:id/workspace/file
 ### M0 部门升华（地基——workspace 归属切换）
 
 - [ ] **M0-1. departments 表升华** — workspace_path/is_workspace 列 + `resolveDepartmentWorkspace`（替代 resolveAgentWorkspace——3 处调用点：agent-runner:162 / chat.ts:628 / routes/workspace.ts:39 全部切换）
-- [ ] **M0-2. 工具执行路径切换** — agent-runner 注入 `departmentId → ws`；`createWorkspaceHandlers(departmentWs, allowCommandExec, departmentId, allowNetwork)`；单聊（is_dm）无目录 → 文件工具禁用（诚实报「单聊无工作目录」）
+- [x] **M0-2. 工具执行路径切换** — agent-runner 注入 `departmentId → ws`；`createWorkspaceHandlers(departmentWs, allowCommandExec, departmentId, allowNetwork)`；单聊（is_dm）也是部门特例——同样有目录/沙盒
 - [ ] **M0-3. 文件浏览器迁移** — `/api/departments/:id/workspace/*`（成员可见性：department_members join）+ UI 从 AgentDetail 迁到 DepartmentDetail
   - 测试 T-M0：① 部门解析：自定义路径/默认路径/单聊 null；② 同部门两个 agent 工具调用 → 同一目录（写 A 读 B 可见）；③ 文件浏览器部门隔离（非成员 403）
 
@@ -253,6 +253,6 @@ M6: 指标递增 + ephemeral 调用即焚 + 全量测试全绿（≤15s）+ tsc 
 3. **并发共享环境的代价 = per-sandbox exec 串行队列**——正确性优先，AI 间歇调用实际影响小；文件原子写 + 文档红线兜底
 4. **不搬移旧数据**：升级后 AI 工作目录切部门级，旧 agent 目录保留（README 标注）——诚实迁移，不搞后台搬运
 5. **agent 删除不再级联 sandbox/workspace**（归属已移部门）；部门删除才级联——联动语义随归属链修正
-6. **单聊无工作目录**（is_dm 裁剪）——需求出现时再评估
+6. **单聊 = 部门特例，同样有工作目录/沙盒**（2026-12 修订：单聊即两人部门——附件 AI 可见、产出可下载，日常体验闭环；沙盒两级回收 + 配额自动控制资源）
 7. **执行器纯化 + DB 单一事实源**——回收/驱逐/恢复全部 DB 驱动，重启不失忆，多进程部署天然支持
 8. **回收/驱逐永不杀 busy 容器**——任务完整性 > 池吞吐；池满返回明确错误
