@@ -6,6 +6,7 @@
  */
 
 import type { HookEnv } from './types.ts'
+import { bindElementListener } from '../vdom3/delegate.ts'
 import type {
   UseLongPressOptions,
   UseLongPressHandle,
@@ -37,18 +38,19 @@ export function useReducedMotion(_env: HookEnv): boolean {
 /** 元素动画完成回调（animationend）：stableRef——ref 挂载绑定、卸载清理、引用恒定 */
 export function useAnimationEnd(env: HookEnv, cb: () => void, opts?: { once?: boolean }) {
   void env
-  let el: HTMLElement | null = null
+  let off: (() => void) | null = null
   const handler = () => {
     cb()
-    if (opts?.once && el) el.removeEventListener('animationend', handler)
+    if (opts?.once) off?.()
   }
+  // 动画监听统一走事件代理（once 由代理自动解绑——EVENT_UNBIND 可观测——
+  // 元素 ref 挂载时注册、卸载时退订）
   const ref = (node: HTMLElement | null) => {
     if (node) {
-      el = node
-      node.addEventListener('animationend', handler)
-    } else if (el) {
-      el.removeEventListener('animationend', handler)
-      el = null
+      off = bindElementListener(node, 'animationend', handler as EventListener, !!opts?.once)
+    } else {
+      off?.()
+      off = null
     }
   }
   return ref
@@ -102,13 +104,18 @@ export function usePresence(env: HookEnv, options?: { name?: string }) {
     else env.render()
   }
 
+  let animEndOff: (() => void) | null = null
   const ref = (el: HTMLElement | null) => {
     if (el) {
-      if (!animEndHandler) {
+      if (!animEndOff) {
+        // 动画监听统一走事件代理（注册表管理——重渲染零重绑——
+        // 卸载时退订——EVENT_UNBIND 可观测）
         animEndHandler = () => { if (phase === 'exit') finishExit() }
-        el.addEventListener('animationend', animEndHandler)
+        animEndOff = bindElementListener(el, 'animationend', animEndHandler as EventListener)
       }
     } else {
+      animEndOff?.()
+      animEndOff = null
       animEndHandler = undefined
     }
   }

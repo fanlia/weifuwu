@@ -15,8 +15,8 @@
 
 import { stream, ev } from './events.ts'
 
-/** event → (nodeId → handler)——模块级全局（节点 id 全局唯一） */
-const handlers = new Map<string, Map<string, EventListener>>()
+/** event → (nodeId → 条目{handler, once})——模块级全局（节点 id 全局唯一） */
+const handlers = new Map<string, Map<string, { handler: EventListener; once: boolean }>>()
 /** 已注册监听的挂载点（root + portal 容器） */
 const roots = new Set<Element>()
 /** 挂载点 → 已注册的事件（惰性——每挂载点每事件一次） */
@@ -38,10 +38,10 @@ const EVENT_MAP: Record<string, string> = {
 }
 
 /** 绑定/更新 handler（Map 覆盖——零重绑零事件） */
-export function bindEvent(nodeId: string, event: string, handler: EventListener): void {
+export function bindEvent(nodeId: string, event: string, handler: EventListener, once = false): void {
   let m = handlers.get(event)
   if (!m) { m = new Map(); handlers.set(event, m) }
-  m.set(nodeId, handler)
+  m.set(nodeId, { handler, once })
 }
 
 /** 解绑（节点移除——代理删除 + EVENT_UNBIND） */
@@ -58,6 +58,16 @@ export function unbindAll(nodeId: string): void {
       stream.emit(ev('event', 'unbind', nodeId, { event }))
     }
   }
+}
+/** 元素级监听统一入口（动画生命周期等——ref 回调的 el）：
+ *  注册到代理（once 自动解绑）+ 挂载点监听（el 已挂载——向上找）——返回退订 */
+export function bindElementListener(el: Element, event: string, handler: EventListener, once = false): () => void {
+  const id = el.getAttribute('data-v3-id')
+  if (!id) return () => {}
+  bindEvent(id, event, handler, once)
+  const root = rootOf(el)
+  if (root) ensureRootEvent(root, event)
+  return () => unbindEvent(id, event)
 }
 
 /** 测试/调试隔离：清空注册表与挂载点（模块级 handlers 跨测试残留——
@@ -176,9 +186,15 @@ function dispatch(e: Event): void {
   while (el) {
     const id = el.getAttribute?.('data-v3-id')
     if (id) {
-      const handler = m.get(id)
-      if (handler) {
-        try { handler(e) } catch { /* handler 失败隔离——错误事件化由上层覆盖 */ }
+      const entry = m.get(id)
+      if (entry) {
+        try { entry.handler(e) } catch { /* handler 失败隔离——错误事件化由上层覆盖 */ }
+        // once：分发一次后自动解绑（EVENT_UNBIND——可观测——与 addEventListener
+        // { once: true } 等价但生命周期入事件流）
+        if (entry.once) {
+          m.delete(id)
+          stream.emit(ev('event', 'unbind', id, { event: e.type }))
+        }
         if (e.cancelBubble) break // handler 内 stopPropagation——停止向上分发
       }
     }

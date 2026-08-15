@@ -2357,3 +2357,34 @@ test('事件代理：removeDelegationRoot 移除挂载点监听（removeEventLis
   document.body.removeChild(root)
   resetDelegation()
 })
+
+test('事件代理 once：动画监听分发一次后自动解绑（EVENT_UNBIND 可观测——与 addEventListener {once} 等价）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  const { resetDelegation, bindElementListener } = await import('../ui-dom/vdom3/delegate.ts')
+  resetDelegation()
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let anims = 0
+  const App = async (_init: any, _ctx: any) => async () => {
+    return h('div', { id: 'anim', ref: (el: any) => {
+      if (el) bindElementListener(el, 'animationend', (() => { anims++ }) as EventListener, true)
+    } }, 'x')
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  const el = root.querySelector('[id="anim"]') as HTMLElement
+  // 第一次动画结束 → handler 执行 + once 自动解绑（EVENT_UNBIND）
+  el.dispatchEvent(new (window as any).Event('animationend', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(anims, 1, 'once handler 第一次执行')
+  const unbinds = gs.events().filter((e) => evKey(e) === 'event:unbind' && e.payload?.event === 'animationend')
+  assert.ok(unbinds.length >= 1, 'once 自动解绑（EVENT_UNBIND 可观测）')
+  // 第二次 → 不执行（已解绑）
+  el.dispatchEvent(new (window as any).Event('animationend', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(anims, 1, 'once 解绑后不再执行')
+  document.body.removeChild(root)
+  resetDelegation()
+})

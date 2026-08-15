@@ -9,6 +9,7 @@
 import type { VNode, Component, V3Ctx } from './types.ts'
 import { h } from './jsx.ts'
 import { createRoot } from './root.ts'
+import { bindElementListener } from './delegate.ts'
 import { Confirm } from '../../components/Confirm/Confirm.ts'
 
 // ── confirm ──────────────────────────────────────────────
@@ -59,7 +60,8 @@ function createV3Confirm(message: string, options: Record<string, unknown>, _ctx
     if (el && typeof el.addEventListener === 'function') {
       let done = false
       const once = () => { if (!done) { done = true; cleanup() } }
-      el.addEventListener('animationend', once, { once: true })
+      // 动画监听统一走事件代理（once 自动解绑——EVENT_UNBIND 可观测）
+      bindElementListener(el, 'animationend', once as EventListener, true)
       setTimeout(once, 600)
     } else {
       cleanup()
