@@ -13,6 +13,7 @@ import { test } from 'node:test'
 import assert from 'node:assert'
 import { JSDOM } from 'jsdom'
 import { h } from '../ui-dom/vnode.ts'
+import { __resetAuditWarnings } from '../ui-dom/vdom2/patch.ts'
 import { buildVNode } from '../ui-dom/vdom2/build.ts'
 import { renderValue } from '../ui-dom/vdom2/render.ts'
 import { patchValue } from '../ui-dom/vdom2/patch.ts'
@@ -217,6 +218,7 @@ test('S3c: S2 回归——[A(无key), B(key="0")] 删除 A 不残留', async () 
 
 test('A1: 长度变化 + 无 key 组件项 → console.error 提示加 key', async () => {
   const { ctx, root } = setup()
+  __resetAuditWarnings() // 去重隔离（module 级 Set 跨测试污染）
   ;(globalThis as any).__WF_VDOM_AUDIT = true
   const errs: string[] = []
   const orig = console.error

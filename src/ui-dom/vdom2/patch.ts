@@ -35,6 +35,8 @@ import { emit } from './events.ts'
 
 /** A 级动态数组检测去重（表单类静态字段数组误报抑制——同一长度签名只报一次） */
 const warnedDynamicArrays = new Set<string>()
+/** 重置 audit 告警去重（测试隔离——node --test 同进程共享 module 状态） */
+export function __resetAuditWarnings(): void { warnedDynamicArrays.clear() }
 
 
 /** 从 vnode 取稳定 key（Portal 内部 key 不算用户 keyed） */
