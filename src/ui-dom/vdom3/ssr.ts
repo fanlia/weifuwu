@@ -101,6 +101,48 @@ export async function* renderToEventStream(vnode: VNode): AsyncGenerator<V3Event
   yield* walk(built, 'root')
 }
 
+/** 事件流 → HTML 字符串（首帧序列化——SEO/爬虫/首帧；客户端用事件流重建——零 DOM 猜测） */
+export function eventsToHtml(events: V3Event[]): string {
+  // 折叠：NODE_CREATE（id→tag）+ PROP_UPDATE（target→attrs）+ TEXT_CREATE（id→text）
+  // → INSERT 树遍历输出 HTML
+  const tags = new Map<string, string>()
+  const attrs = new Map<string, Map<string, unknown>>()
+  const texts = new Map<string, string>()
+  for (const e of events) {
+    if (e.type === 'NODE_CREATE') tags.set(e.id, e.tag)
+    else if (e.type === 'PROP_UPDATE') {
+      const m = attrs.get(e.target) ?? new Map()
+      if (e.value == null || e.value === false) m.delete(e.key)
+      else m.set(e.key, e.value)
+      attrs.set(e.target, m)
+    } else if (e.type === 'TEXT_CREATE') texts.set(e.id, e.value)
+  }
+  const childrenOf = new Map<string, string[]>()
+  for (const e of events) {
+    if (e.type === 'INSERT') {
+      const arr = childrenOf.get(e.parent) ?? []
+      arr.push(e.child)
+      childrenOf.set(e.parent, arr)
+    }
+  }
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  const emit = (id: string): string => {
+    const tag = tags.get(id)
+    if (tag) {
+      const a = attrs.get(id)
+      const attrStr = a
+        ? [...a.entries()]
+            .filter(([k, v]) => typeof v !== 'function' && k !== 'data-v3-id' && k !== 'key' && k !== 'ref')
+            .map(([k, v]) => ` ${k}="${esc(String(v))}"`).join('')
+        : ''
+      const kids = (childrenOf.get(id) ?? []).map(emit).join('')
+      return `<${tag}${attrStr}>${kids}</${tag}>`
+    }
+    return esc(texts.get(id) ?? '')
+  }
+  return (childrenOf.get('root') ?? []).map(emit).join('')
+}
+
 /** 序列化（传输——事件流 JSON 化） */
 export function serializeEvents(events: V3Event[]): string {
   return JSON.stringify(events)

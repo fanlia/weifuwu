@@ -1063,3 +1063,36 @@ test('useChat：会话创建 + 流式发送（token 累积→notify→订阅组�
   assert.equal(chatHandle.streaming, false, '流结束')
   document.body.removeChild(root)
 })
+
+test('SSR 端到端：renderToEvents → eventsToHtml（首帧 HTML）→ 客户端 replay（重建——零 DOM 猜测）', async () => {
+  const { renderToEvents, eventsToHtml, serializeEvents, deserializeEvents } = await import('../ui-dom/vdom3/ssr.ts')
+  const { replay } = await import('../ui-dom/vdom3/replay.ts')
+  const Page = async (_init: any, _ctx: any) => {
+    return async () => h('div', { id: 'ssr-page', class: 'card' }, [
+      h('h1', {}, 'SSR 标题'),
+      h('p', { 'data-k': 'v' }, ['内容 ', '段落']),
+      h('ul', {}, ['a', 'b'].map((it, i) => h('li', { key: it + i }, it))),
+    ])
+  }
+  // 服务端：事件流 + HTML 序列化
+  const events = await renderToEvents(h(Page, {}))
+  const html = eventsToHtml(events)
+  assert.ok(html.startsWith('<div id="ssr-page" class="card">'), 'HTML 序列化（根元素+属性）')
+  assert.ok(html.includes('<h1>SSR 标题</h1>'), 'HTML 序列化（文本）')
+  assert.ok(html.includes('<li>a</li><li>b</li>'), 'HTML 序列化（列表）')
+  // 传输：事件流 JSON
+  const json = serializeEvents(events)
+  const parsed = deserializeEvents(json)
+  // 客户端：replay（零 DOM 猜测——事件流自带全部指令）
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  root.innerHTML = html // 服务端 HTML（首帧——SEO/爬虫）
+  const root2 = document.createElement('div')
+  document.body.appendChild(root2)
+  replay(parsed, root2)
+  // 剔除运行时内部属性（data-v3-id——replay 节点定位用）后同构
+  const strip = (h: string) => h.replace(/ data-v3-id="[^"]*"/g, '')
+  assert.equal(strip(root2.innerHTML), root.innerHTML, '客户端重建与服务端 HTML 同构（零 DOM 猜测——内部属性除外）')
+  document.body.removeChild(root)
+  document.body.removeChild(root2)
+})
