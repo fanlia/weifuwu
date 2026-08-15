@@ -1,17 +1,17 @@
 /**
- * vdom3 最小闭环测试——状态驱动渲染 + 事件流
+ * vdom3 核心测试——vnode + stream（渲染执行 = 事件流）
  *
  * 验证核心不变量：
- *   1. signal 变化 → 只更新绑定点（无整树 diff）
- *   2. Show 条件结构 → 局部插入/移除指令
- *   3. For 列表结构 → keyed 局部更新
- *   4. 事件流记录全部 DOM 指令（可断言）
+ *   1. mount：vnode 树 → 事件流（NODE_CREATE/TEXT_CREATE/INSERT/PROP_UPDATE）→ DOM
+ *   2. patch：同位置同类型复用——仅变化发事件（TEXT_UPDATE/PROP_UPDATE）
+ *   3. 异类型 → REMOVE + CREATE + INSERT（重建事件）
+ *   4. 列表 keyed：同 key 复用——增删只操作变化项
+ *   5. DOM = fold(事件流)：事件序列可断言（回放基础）
  */
 import { test, before } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
-import { signal, effect, h, bind, Show, For, renderNode } from '../ui-dom/vdom3/index.ts'
-import { stream } from '../ui-dom/vdom3/events.ts'
+import { h, mount, patch, stream } from '../ui-dom/vdom3/index.ts'
 
 before(setupJsdom)
 
@@ -21,85 +21,105 @@ function mkRoot(): HTMLElement {
   return root
 }
 
-test('signal 变化 → 只更新绑定文本（无整树 diff——事件流记录 DOM_UPDATE）', () => {
+test('mount：vnode 树 → 事件流（CREATE/INSERT/PROP_UPDATE）→ DOM', () => {
   stream.reset()
   const root = mkRoot()
-  const count = signal(0, 'count')
-  renderNode(h('div', { id: 'box' }, bind(() => count())), root)
+  const tree = h('div', { id: 'box', class: 'a' }, [
+    h('span', {}, 'hello'),
+    h('button', { onClick: () => {} }, '点击'),
+  ])
+  mount(tree, root)
 
+  assert.ok(root.querySelector('#box'), '元素渲染')
+  assert.equal(root.querySelector('span')?.textContent, 'hello', '文本渲染')
+
+  const events = stream.events()
+  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'div'), 'NODE_CREATE 事件（div）')
+  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'button'), 'NODE_CREATE 事件（button）')
+  assert.ok(events.some((e) => e.type === 'INSERT'), 'INSERT 事件')
+  assert.ok(events.some((e) => e.type === 'PROP_UPDATE' && (e as any).key === 'class'), 'PROP_UPDATE 事件（class）')
+  document.body.removeChild(root)
+})
+
+test('patch：同位置同类型复用——仅文本/属性变化发事件（无重建）', () => {
+  stream.reset()
+  const root = mkRoot()
+  // 直接构造两棵树
+  const v1 = h('div', { id: 'box', class: 'a' }, ['旧文本'])
+  const v2 = h('div', { id: 'box', class: 'b' }, ['新文本'])
+  mount(v1, root)
   const box = root.querySelector('#box')!
   const text = box.firstChild as Text
-  assert.equal(text.nodeValue, '0', '初始渲染 0')
+  stream.reset() // 清掉 mount 事件——只测 patch 事件
 
-  count.set(1)
-  assert.equal(text.nodeValue, '1', 'signal 变化 → 文本更新（同节点——未重建）')
-  assert.equal(box.childNodes.length, 1, '无节点增删（无 diff 重建）')
+  patch(v1, v2, root)
 
-  // 事件流：记录 SIGNAL_SET + DOM_UPDATE
+  assert.equal(text.nodeValue, '新文本', '文本更新（同一节点——未重建）')
+  assert.equal(box.getAttribute('class'), 'b', '属性更新（同一元素）')
+  assert.equal(box.childNodes.length, 1, '无节点增删（复用）')
+  assert.equal(root.querySelectorAll('#box').length, 1, '单实例（无重建）')
+
   const events = stream.events()
-  assert.ok(events.some((e) => e.type === 'SIGNAL_SET' && (e as any).signal === 'count' && e.value === 1), 'SIGNAL_SET 事件')
-  assert.ok(events.some((e) => e.type === 'DOM_UPDATE' && (e as any).key === 'text'), 'DOM_UPDATE 事件（文本更新）')
+  assert.ok(events.some((e) => e.type === 'TEXT_UPDATE'), 'TEXT_UPDATE 事件')
+  assert.ok(events.some((e) => e.type === 'PROP_UPDATE' && (e as any).key === 'class' && e.value === 'b'), 'PROP_UPDATE 事件（class a→b）')
+  assert.ok(!events.some((e) => e.type === 'NODE_CREATE'), '无 NODE_CREATE（未重建）')
   document.body.removeChild(root)
 })
 
-test('Show 条件结构：when 变化 → 局部插入/移除（指令化）', () => {
+test('异类型/异 key → REMOVE + CREATE + INSERT（重建事件）', () => {
   stream.reset()
   const root = mkRoot()
-  const show = signal(false, 'show')
-  const node = Show({
-    when: () => show(),
-    render: () => h('p', { id: 'shown' }, '内容'),
-  })
-  renderNode(node, root)
-  assert.ok(!root.querySelector('#shown'), '初始隐藏')
+  const v1 = h('div', {}, [h('span', { id: 'old' }, '旧')])
+  const v2 = h('div', {}, [h('p', { id: 'new' }, '新')])
+  mount(v1, root)
+  stream.reset()
 
-  show.set(true)
-  assert.ok(root.querySelector('#shown'), '条件为真 → 插入')
-  assert.equal(root.querySelectorAll('#shown').length, 1, '单实例（非全量重建）')
+  patch(v1, v2, root)
 
-  show.set(false)
-  assert.ok(!root.querySelector('#shown'), '条件为假 → 移除')
+  assert.ok(!root.querySelector('#old'), '旧元素移除')
+  assert.ok(root.querySelector('#new'), '新元素创建')
+  const events = stream.events()
+  assert.ok(events.some((e) => e.type === 'REMOVE'), 'REMOVE 事件（旧节点）')
+  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'p'), 'NODE_CREATE 事件（新节点）')
+  assert.ok(events.some((e) => e.type === 'INSERT'), 'INSERT 事件（新节点）')
   document.body.removeChild(root)
 })
 
-test('For 列表结构：keyed 局部更新（增/删只操作变化项）', () => {
+test('列表 keyed：同 key 复用——增删只操作变化项（事件断言）', () => {
   stream.reset()
   const root = mkRoot()
-  const items = signal<Array<{ id: string; label: string }>>([{ id: 'a', label: 'A' }], 'items')
-  const node = For({
-    each: () => items(),
-    key: (it: any) => it.id,
-    render: (it: any) => h('div', { 'data-id': it.id }, bind(() => it.label)),
-  })
-  renderNode(node, root)
-  assert.equal(root.querySelectorAll('[data-id]').length, 1, '初始 1 项')
+  const mk = (items: Array<{ id: string; label: string }>) =>
+    h('ul', {}, items.map((it) => h('li', { key: it.id, 'data-id': it.id }, it.label)))
+  const v1 = mk([{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }])
+  mount(v1, root)
+  assert.equal(root.querySelectorAll('li').length, 2, '初始 2 项')
 
-  items.set([{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }])
-  assert.equal(root.querySelectorAll('[data-id]').length, 2, '新增 b（a 复用——无重建）')
+  stream.reset()
+  const v2 = mk([{ id: 'a', label: 'A' }, { id: 'c', label: 'C' }])
+  patch(v1, v2, root)
+  assert.equal(root.querySelectorAll('li').length, 2, 'b→c 替换（a 复用）')
+  assert.ok(root.querySelector('[data-id="a"]'), 'a 保留（复用）')
+  assert.ok(root.querySelector('[data-id="c"]'), 'c 新增')
+  assert.ok(!root.querySelector('[data-id="b"]'), 'b 移除')
 
-  items.set([{ id: 'b', label: 'B' }])
-  assert.equal(root.querySelectorAll('[data-id]').length, 1, '移除 a（仅移除指令）')
-  assert.ok(root.querySelector('[data-id="b"]'), 'b 保留')
+  const events = stream.events()
+  const creates = events.filter((e) => e.type === 'NODE_CREATE')
+  assert.equal(creates.length, 1, '仅 c 创建（a/b 复用——无全量重建）')
   document.body.removeChild(root)
 })
 
-test('effect：signal 变化自动重跑（依赖追踪）', () => {
+test('事件流可断言：DOM = fold(事件流)——事件序列精确描述渲染', () => {
   stream.reset()
   const root = mkRoot()
-  const a = signal(1, 'a')
-  const b = signal(10, 'b')
-  let runs = 0
-  let sum = 0
-  effect(() => { sum = a() + b(); runs++ })
-  assert.equal(sum, 11, '初始计算')
-
-  a.set(2)
-  assert.equal(sum, 12, 'a 变化 → 重跑')
-  assert.equal(runs, 2, '重跑 1 次（a 变化）')
-
-  // b 未变化——不重跑
-  const before = runs
-  a.set(2) // 值相同不触发
-  assert.equal(runs, before, '值相同不触发')
+  const v1 = h('div', { id: 'box' }, ['初始'])
+  mount(v1, root)
+  const mountEvents = stream.events()
+  // 事件序列：NODE_CREATE(div) → ... → TEXT_CREATE → INSERT
+  const first = mountEvents[0]
+  assert.equal(first.type, 'NODE_CREATE', '事件流第一条 = 根节点创建')
+  const hasTextCreate = mountEvents.some((e) => e.type === 'TEXT_CREATE' && e.value === '初始')
+  assert.ok(hasTextCreate, 'TEXT_CREATE 事件携带文本内容')
+  const hasInsert = mountEvents.some((e) => e.type === 'INSERT')
+  assert.ok(hasInsert, 'INSERT 事件（根入 root）')
   document.body.removeChild(root)
 })

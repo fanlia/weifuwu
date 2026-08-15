@@ -1,12 +1,27 @@
 /**
- * vdom3 — 状态驱动前端引擎（全新架构）
+ * vdom3 — vnode + stream 前端引擎（全新架构，2026-08）
  *
- * 无整树 diff：状态（signal）→ 绑定点更新 / 结构指令（Show/For）→ DOM 指令 → DOM。
- * 事件流是引擎本体：location→DOM 全链路可记录/回放/取消（DOM = fold(事件流)）。
+ * 与 vdom2 的差异：**渲染执行 = 事件流**（不是命令式 diff + 旁路记录）。
+ *
+ *   vdom2：状态 → renderFn → vnode 树 → diff（命令式比较）→ DOM 变更 + 旁路事件记录
+ *   vdom3：状态 → renderFn → vnode 树 → **渲染事件流**（CREATE/INSERT/UPDATE/REMOVE）
+ *          → 执行器消费事件 → DOM（事件流是引擎本体——DOM = fold(事件流)）
+ *
+ * 核心不变量：
+ *   1. **vnode 树保留声明式**（renderFn 输出完整树——与 vdom2 同模型）
+ *   2. **渲染即事件**：节点创建/属性设置/文本更新/插入/移除都是事件（可回放/取消/断言）
+ *   3. **DOM = fold(事件流)**：初始 DOM + 事件序列 = 任意时刻 DOM（时间旅行）
+ *   4. **更新最小化**：同位置同类型（含 key）复用——仅变化发事件（无整树 diff 决策噪音）
+ *
+ * 事件流覆盖（location → DOM）：
+ *   ROUTE_CHANGE → COMP_MOUNT → NODE_CREATE/TEXT_CREATE → INSERT → PROP_UPDATE/TEXT_UPDATE
+ *   → REMOVE/MOVE（更新时）→ COMP_UNMOUNT
+ *
+ * 与 vdom2 并行（不兼容演进）——vdom2 资产（两阶段组件/状态机/观测体系）保留，
+ * vdom3 验证"事件流即执行"范式。
  */
 
-export { signal, computed, effect, track } from './signal.ts'
-export { h, bind, Show, For } from './jsx.ts'
-export { renderNode } from './render.ts'
-export { stream } from './events.ts'
-export type { Signal, V3Node, EventStream, V3Event } from './types.ts'
+export { h, Fragment } from './jsx.ts'
+export { mount, patch } from './render.ts'
+export { createEventStream, stream, nextNodeId } from './events.ts'
+export type { VNode, VNodeChild, V3Event, EventStream, Renderer } from './types.ts'

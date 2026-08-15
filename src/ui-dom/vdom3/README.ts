@@ -1,21 +1,28 @@
 /**
- * vdom3 — 状态驱动前端引擎（全新架构，2026-08）
+ * vdom3 — vnode + stream 前端引擎（2026-08）
  *
- * 与 vdom2 的本质区别：**无整树 diff**。
+ * 与 vdom2 的差异：**渲染执行 = 事件流**（vnode 树保留声明式——renderFn 输出完整树）。
  *
- *   vdom2：状态 → renderFn（输出完整树）→ 新旧树比较（diff）→ DOM 变更
- *   vdom3：状态（signal）→ 绑定点更新 / 结构指令（Show/For）→ DOM 指令 → DOM
+ *   vdom2：状态 → renderFn → vnode 树 → diff（命令式比较）→ DOM 变更 + 旁路事件记录
+ *   vdom3：状态 → renderFn → vnode 树 → **渲染事件流**（CREATE/INSERT/UPDATE/REMOVE）
+ *          → 执行器消费事件 → DOM（事件流是引擎本体——DOM = fold(事件流)）
  *
  * 核心不变量：
- *   1. **状态是唯一事实源**——signal 变化 → 调度 → 指令 → DOM（无树比较）
- *   2. **事件流是引擎本体**——从 location 到 DOM 每一步都是事件（可回放/取消/断言）
- *   3. **DOM = 事件折叠**——给定初始 DOM + 事件流 = 任意时刻 DOM（可重放）
- *   4. **组件 = 状态 + 绑定视图**——闭包状态 + signal；条件/列表经 Show/For 结构指令
- *
- * 无整树 diff 的代价与收益：
- *   - 收益：更新 O(变化量)（不遍历整树）；可回放/取消（指令逆操作）；无 diff 决策噪音
- *   - 代价：组件必须显式声明状态绑定点（放弃"renderFn 输出完整树"的隐式 diff）
+ *   1. vnode 树保留声明式（与 vdom2 同模型——两阶段组件兼容）
+ *   2. 渲染即事件：节点创建/属性设置/文本更新/插入/移除都是事件（可回放/取消/断言）
+ *   3. DOM = fold(事件流)：初始 DOM + 事件序列 = 任意时刻 DOM（时间旅行）
+ *   4. 更新最小化：同位置同类型（含 key）复用——仅变化发事件
+ *      （TEXT_UPDATE/PROP_UPDATE——无整树 diff 决策噪音；异类型 → 重建事件）
  *
  * 事件流覆盖（location → DOM）：
- *   ROUTE_CHANGE → COMP_MOUNT → SIGNAL_SET → DOM_WRITE(INSERT/UPDATE/REMOVE) → ...
+ *   ROUTE_CHANGE → COMP_MOUNT → NODE_CREATE/TEXT_CREATE → INSERT → PROP_UPDATE/
+ *   TEXT_UPDATE → REMOVE/MOVE（更新时）→ COMP_UNMOUNT
+ *
+ * 模块：
+ *   types.ts   — VNode（native/文本/Fragment）+ V3Event + EventStream 契约
+ *   jsx.ts     — h（vnode 创建——单数组参数自动展开）
+ *   render.ts  — mount/patch：树 → 事件流 → DOM（同类型复用/异类型重建/文本属性特判）
+ *   events.ts  — 事件流（记录/回放/逆操作/断言——DOM = fold(events)）
+ *
+ * 与 vdom2 并行（不兼容演进）——vdom2 资产保留，vdom3 验证「事件流即执行」范式。
  */

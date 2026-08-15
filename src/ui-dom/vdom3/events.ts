@@ -1,41 +1,46 @@
 /**
- * vdom3 events — 事件流（引擎本体——location→DOM 全链路可记录/回放/取消）
+ * vdom3 events — 事件流（引擎本体——渲染全程可记录/回放/取消）
  *
- * 不变量：DOM = fold(事件流)——给定初始 DOM + 事件流 = 任意时刻 DOM。
- * 事件不可变（回放安全）；DOM 指令可逆（取消 = 逆操作应用）。
+ * 不变量：DOM = fold(事件流)——初始 DOM + 事件序列 = 任意时刻 DOM。
+ * 事件不可变；DOM 指令可逆（取消 = 应用逆事件）。
  */
 
 import type { EventStream, V3Event } from './types.ts'
 
-/** 信号变化事件（signal 模块调用） */
-export function emitSignal(name: string, value: unknown, prev: unknown): void {
-  stream.emit({ type: 'SIGNAL_SET', signal: name, value, prev, ts: Date.now() })
+export function createEventStream(max = 20000): EventStream {
+  const events: V3Event[] = []
+  let uid = 0
+  return {
+    emit(ev: V3Event): void {
+      events.push(ev)
+      if (events.length > max) events.shift()
+    },
+    events(): V3Event[] { return [...events] },
+    inverse(ev: V3Event): V3Event | null {
+      switch (ev.type) {
+        case 'INSERT':
+          return { type: 'REMOVE', parent: ev.parent, child: ev.child, ts: Date.now() }
+        case 'REMOVE':
+          return null // 逆操作需保存被移除节点完整信息——执行器快照配合
+        case 'PROP_UPDATE':
+          return { type: 'PROP_UPDATE', target: ev.target, key: ev.key, value: ev.prev, prev: ev.value, ts: Date.now() }
+        case 'TEXT_UPDATE':
+          return { type: 'TEXT_UPDATE', target: ev.target, value: ev.prev, prev: ev.value, ts: Date.now() }
+        case 'MOVE':
+          return null // 需保存旧位置
+        default:
+          return null
+      }
+    },
+    reset(): void { events.length = 0 },
+  }
 }
 
-/** 全局事件流（单例——后续可实例化 per-app） */
-export const stream: EventStream = {
-  emit(ev: V3Event): void {
-    events.push(ev)
-    if (events.length > MAX) events.shift() // 容量保护（可配置）
-  },
-  events(): V3Event[] { return [...events] },
-  inverse(ev: V3Event): V3Event | null {
-    switch (ev.type) {
-      case 'DOM_INSERT':
-        return { type: 'DOM_REMOVE', parent: ev.parent, node: ev.node, ts: Date.now() }
-      case 'DOM_REMOVE':
-        // 逆操作需要被移除节点的完整信息——由执行器保存（此处返回 null 表示需快照）
-        return null
-      case 'DOM_UPDATE':
-        return { type: 'DOM_UPDATE', target: ev.target, key: ev.key, value: ev.prev, prev: ev.value, ts: Date.now() }
-      case 'DOM_MOVE':
-        return null // 需保存旧位置
-      default:
-        return null
-    }
-  },
-  reset(): void { events.length = 0 },
-}
+/** 全局流（默认实例——后续 per-app 实例化） */
+export const stream = createEventStream()
 
-const MAX = 10000
-const events: V3Event[] = []
+/** 节点 id 分配（渲染指令目标定位） */
+let nodeUid = 0
+export function nextNodeId(): string {
+  return `n${++nodeUid}`
+}
