@@ -34,6 +34,15 @@ window.fetch = (async (url: any, opts: any) => {
   return origFetch(url, opts)
 }) as any
 
+// ── agent-platform Login 页面（真实 tsx 页面——vdom3 运行验证） ──
+import { Login } from '../../apps/agent-platform/ui/pages/Login.tsx'
+
+const V3LoginPage = async (_init: any, _ctx: any) => async () =>
+  h('div', { id: 'v3-login' }, [
+    h('h2', {}, 'vdom3 — agent-platform Login'),
+    h(Login, {}),
+  ])
+
 const ChatPage = async (_init: any, ctx: any) => {
   const chat = ctx.ui.useChat({ url: '/api/chat' })
   return async () => h('div', { id: 'chat-page' }, [
@@ -145,4 +154,5 @@ const router = createRouter([
   { path: '/detail/:id', render: (params) => h(Detail, { params }) },
   { path: '/todos', render: () => h(TodoApp, {}) },
   { path: '/chat', render: () => h(ChatPage, {}) },
+  { path: '/v3-login', render: () => h(V3LoginPage, {}) },
 ], root)
