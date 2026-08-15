@@ -351,6 +351,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | Router 方法 | **app.graphql()** | GraphQL 端点（支持 GraphiQL），Router 实例方法（无需单独 import） | Router |
 | `weifuwu/ui-dom` | **UIRouter** | 纯路由 + ctx 注入链（`use` 中间件累积类型，对齐后端 `app.use`）；handler=异步组件 | — |
 | `weifuwu/ui-dom` | **uiServe** | 渲染运行时：监听 location → 执行路由 → VDOM diff/patch；`hydrate: true` 收养 SSR HTML | UIRouter |
+| `weifuwu/ui-dom/vdom3` | **vdom3 引擎**（转正中） | 下一代渲染（vnode + stream——事件流可回放/可逆）；`createRouter` + `createRoot` | vdom3 |
 | `weifuwu/ui-dom` | **async 组件** | async 函数即组件（与同步同签名）；数据走 ctx.data 三场景（三条纪律见[核心概念](#核心概念)） | — |
 | `weifuwu/ui-dom` | **ctx.data** | 数据管道：SSR 预取 / hydration 命中 / SPA fetch（`ctx.data.get`） | uiServe |
 | `weifuwu/ui-dom` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | — |
