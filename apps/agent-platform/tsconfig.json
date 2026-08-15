@@ -10,11 +10,27 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "paths": {
-      "weifuwu": ["../../src/index.ts"],
-      "weifuwu/ui-dom": ["../../src/ui-dom/index.ts"],
-      "weifuwu/ui-dom/jsx-runtime": ["../../src/ui-dom/jsx-runtime.ts"],
-      "weifuwu/components": ["../../src/components/index.ts"]
+      "weifuwu": [
+        "../../src/index.ts"
+      ],
+      "weifuwu/ui-dom": [
+        "../../src/ui-dom/index.ts"
+      ],
+      "weifuwu/ui-dom/jsx-runtime": [
+        "../../src/ui-dom/jsx-runtime.ts"
+      ],
+      "weifuwu/components": [
+        "../../src/components/index.ts"
+      ],
+      "weifuwu/ui-dom/vdom3": [
+        "../../src/ui-dom/vdom3/index.ts"
+      ]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "server.ts", "ui/**/*.tsx"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "server.ts",
+    "ui/**/*.tsx"
+  ]
 }

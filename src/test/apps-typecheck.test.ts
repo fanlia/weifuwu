@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
-test('apps 类型检查（agent-platform 零错误——demo/layouts 为 vdom2 遗留跳过）', { timeout: 90_000 }, () => {
+test('apps 类型检查（components-demo / layouts-demo / agent-platform 零错误）', { timeout: 90_000 }, () => {
   const tsc = 'tsc' // 全局 devDependency（package.json 无本地 tsc——与 pre-commit typecheck 一致）
   // 并行三个 app（Promise 化 exec 多进程，冷 ~2.4s/app 并行 ≈2.5s）
   const run = (app: string) =>
@@ -27,10 +27,8 @@ test('apps 类型检查（agent-platform 零错误——demo/layouts 为 vdom2 �
       '-p', `apps/${app}/tsconfig.json`,
     ], { cwd: root, stdio: 'pipe' })
   const errors: string[] = []
-  // components-demo/layouts-demo 为 vdom2 遗留应用（uiServe 已随 vdom2 删除）——
-  // 迁移留后续（vdom3 入口形态参考 apps/agent-platform/ui/v3-main.tsx——
-  // createRouter + ctx 注入 + RouteDef.layout）；agent-platform 已迁移（v3-main）
-  const jobs = ['agent-platform'].map((app) =>
+  // 三个 app 全部从包入口引用（weifuwu/ui-dom + vdom3）——uiServe vdom3 兼容
+  const jobs = ['components-demo', 'layouts-demo', 'agent-platform'].map((app) =>
     new Promise<void>((resolve) => {
       try { run(app) } catch (e: any) { errors.push(`${app}:\n${e.stdout?.toString() ?? e.message}`) }
       resolve()

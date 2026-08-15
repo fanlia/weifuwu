@@ -5,8 +5,8 @@
  * createRouter（vdom3 路由——RouteDef.layout 布局复用）+ 页面路由。
  */
 import { api, auth, ws, i18n } from 'weifuwu/ui-dom'
-import { v3Confirm, v3Toast } from '../../../src/ui-dom/vdom3/commands.ts'
-import { createRouter, h, compat } from '../../../src/ui-dom/vdom3/index.ts'
+import { v3Confirm, v3Toast } from 'weifuwu/ui-dom/vdom3'
+import { createRouter, h, compat } from 'weifuwu/ui-dom/vdom3'
 
 import { AppLayout } from './components/AppLayout'
 import { Login } from './pages/Login'

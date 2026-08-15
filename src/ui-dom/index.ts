@@ -12,6 +12,8 @@
  */
 
 export { UIRouter } from './router.ts'
+export { uiServe } from './middleware/serve.ts'
+export type { UIServeOptions, UIServeHandle } from './middleware/serve.ts'
 export type { UIRouterOptions, RouteMatch } from './router.ts'
 export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts'
 export type { VNode, VNodeChild, VNodeType, Component } from './vnode.ts'

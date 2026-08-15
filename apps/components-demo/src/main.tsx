@@ -8,10 +8,8 @@
  */
 
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-// ⚠️ vdom2 遗留应用（vdom2 引擎已删除——uiServe 不可用——迁移参考 agent-platform v3-main）
-import { UIRouter } from '../../../src/ui-dom/index.ts'
-import { v3Toast, v3Confirm } from '../../../src/ui-dom/vdom3/commands.ts'
-import { notification } from '../../../src/ui-dom/Notification.ts'
+import { UIRouter, uiServe } from 'weifuwu/ui-dom'
+import { v3Toast, v3Confirm } from 'weifuwu/ui-dom/vdom3'
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -3242,6 +3240,5 @@ const app = new UIRouter()
 app.use(i18nMw)
 app.use(v3Toast())
 app.use(v3Confirm())
-app.use(notification())
 app.get('/', () => <App />)
 uiServe(app, { root: '#root' })
