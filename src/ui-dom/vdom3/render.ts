@@ -80,7 +80,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   vnode.el = el
   stream.emit({ type: 'NODE_CREATE', id, tag: vnode.type as string, ts: Date.now() })
   for (const [key, val] of Object.entries(vnode.props ?? {})) {
-    if (key === 'key' || key === 'children') continue
+    if (key === 'key' || key === 'children' || key === 'ref') continue
     if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
       const evtKeys = ((el as any).__v3evtKeys ??= new Set<string>())
       if (!evtKeys.has(key)) { // 按 key 防重复（多事件全绑定——首事件后不再跳过后续）
@@ -98,6 +98,9 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   if (anchor && anchor.parentNode === parent) parent.insertBefore(el, anchor)
   else parent.appendChild(el)
   stream.emit({ type: 'INSERT', parent: parentId(parent), child: id, ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
+  // ref 回调（挂载——稳定 ref 定义在 mount 层——§5.1 纪律）
+  const refFn = vnode.props?.ref
+  if (typeof refFn === 'function') refFn(el)
   for (const c of childrenOf(vnode)) renderVNodeChild(c, el)
   return el
 }
@@ -203,6 +206,8 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
   if (oldIsVNode) {
     const oldEl = (oldV as VNode).el
     if (oldEl && oldEl.parentNode === parent) {
+      const oldRef = (oldV as VNode).props?.ref
+      if (typeof oldRef === 'function') oldRef(null)
       const rid = registry.idOf(oldEl)
       stream.emit({ type: 'REMOVE', parent: parentId(parent), child: rid, ts: Date.now() })
       oldEl.parentNode?.removeChild(oldEl)
@@ -219,8 +224,15 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
 function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Record<string, unknown>): void {
   const target = nodeId(el)
   const allKeys = new Set([...Object.keys(oldProps ?? {}), ...Object.keys(newProps ?? {})])
+  // ref 切换（引用变化 → 旧(null) + 新(el)——稳定 ref 不重绑）
+  const oldRef = oldProps?.ref
+  const newRef = newProps?.ref
+  if (oldRef !== newRef) {
+    if (typeof oldRef === 'function') oldRef(null)
+    if (typeof newRef === 'function') newRef(el)
+  }
   for (const key of allKeys) {
-    if (key === 'key' || key === 'children') continue
+    if (key === 'key' || key === 'children' || key === 'ref') continue
     const ov = oldProps?.[key]
     const nv = newProps?.[key]
     if (ov === nv) continue
@@ -332,6 +344,8 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
         continue
       }
       if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
+        const oldRef = (oc as VNode).props?.ref
+        if (typeof oldRef === 'function') oldRef(null)
         const elNode = (oc as VNode).el!
         const rid = registry.idOf(elNode)
         stream.emit({ type: 'REMOVE', parent: nodeId(el), child: rid, ts: Date.now() })
@@ -366,8 +380,19 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
         removePortalContent(oc as PortalVNode)
         continue
       }
-      const domNode = el.childNodes[i]
-      if (domNode) domNode.parentNode?.removeChild(domNode)
+      // 移除（含 ref(null)——卸载清理）
+      if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
+        const oldRef = (oc as VNode).props?.ref
+        if (typeof oldRef === 'function') oldRef(null)
+        const elNode = (oc as VNode).el!
+        const rid = registry.idOf(elNode)
+        stream.emit({ type: 'REMOVE', parent: nodeId(el), child: rid, ts: Date.now() })
+        elNode.parentNode?.removeChild(elNode)
+        registry.unregister(rid, elNode)
+      } else {
+        const domNode = el.childNodes[i]
+        if (domNode) domNode.parentNode?.removeChild(domNode)
+      }
       continue
     }
     if (oc != null && typeof oc === 'object') {

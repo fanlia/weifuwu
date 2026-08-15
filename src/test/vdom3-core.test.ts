@@ -918,3 +918,37 @@ test('usePopup：真实浮层组件（Popover）在 vdom3——打开/关闭/por
   document.body.removeChild(root)
   document.querySelector('#__wf_portal')?.remove()
 })
+
+test('ref：挂载回调（el）+ 卸载回调（null）+ 稳定 ref 不重绑（§5.1 纪律）', async () => {
+  let mounted: any = null
+  let unmounted = 0
+  let bindCount = 0
+  const stableRef = (el: any) => { bindCount++; if (el) mounted = el; else unmounted++ }
+  let spanEl: any = null
+  let spanUnmounted = 0
+  const spanRef = (el: any) => { if (el) spanEl = el; else spanUnmounted++ }
+  let show = true
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'ref-app' }, [
+      h('button', { id: 'ref-btn', ref: stableRef }, 'A'),
+      h('button', { id: 'toggle', onClick: () => { show = !show; rerender() } }, 't'),
+      show ? h('span', { id: 'ref-span', ref: spanRef }, 's') : null,
+    ])
+  }
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(mounted, 'ref 挂载回调（el）')
+  assert.equal(root.querySelector('[id="ref-btn"]'), mounted, 'ref el = 实际 DOM')
+  const before = bindCount
+  // 条件移除（show=false）——span 卸载 → ref(null)；button 稳定 ref 不重绑
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(bindCount, before, '稳定 ref 重渲染不重绑（§5.1）')
+  assert.equal(spanUnmounted, 1, '卸载 → ref(null)（span）')
+  assert.equal(root.querySelector('#ref-span'), null, 'span 已移除')
+  document.body.removeChild(root)
+})
