@@ -184,6 +184,8 @@ PUT    /api/departments/:id/workspace/file
 
 ---
 
+> **完成状态（2026-12）**：M0-M6 全部实施完毕——实施证据见 SANDBOX-TASKS.md（19 条 [x] 记录，含测试/真实问题）；
+> 后续演进：单聊 = 部门特例（80de34f7）、组织层级 department 经理（f47fff16）、三层模型重构 P0-P5（THREE-LAYER-REFACTOR-PLAN.md）。
 ## 四、任务清单（红→绿逐项验证）
 
 ### M0 部门升华（地基——workspace 归属切换）
