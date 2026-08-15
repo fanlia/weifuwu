@@ -4,7 +4,7 @@
  * 与 main.tsx 同构：中间件链（vdom2 中间件复用——纯函数注入）+
  * createRouter（vdom3 路由——RouteDef.layout 布局复用）+ 页面路由。
  */
-import { api, auth, i18n } from 'weifuwu/ui-dom'
+import { api, auth, ws, i18n } from 'weifuwu/ui-dom'
 import { createRouter, h } from '../../../src/ui-dom/vdom3/index.ts'
 
 import { AppLayout } from './components/AppLayout'
@@ -27,15 +27,32 @@ import { Approvals } from './pages/Approvals'
 import { Admin } from './pages/Admin'
 
 // ── 中间件链（复用 vdom2 中间件——(ctx) => ctx' 纯函数） ──
+const authRef: { current: null | { refresh: () => Promise<boolean> } } = { current: null }
 let ctx: any = {}
-ctx = await api()(ctx)
+ctx = await api({
+  baseURL: '',
+  // 自动鉴权：请求自动带 Bearer token
+  token: () => localStorage.getItem('agent_platform_token'),
+  // 401：先 refresh（成功重试）——失败清理 + 跳登录
+  onUnauthorized: async () => {
+    const ok = await authRef.current?.refresh?.()
+    if (ok) return true
+    localStorage.removeItem('agent_platform_token')
+    localStorage.removeItem('agent_platform_user')
+    localStorage.removeItem('agent_platform_refresh')
+    if (!window.location.pathname.startsWith('/login')) window.location.href = '/login'
+    return false
+  },
+})(ctx)
 ctx = auth({
+  onAuth: (auth: any) => { authRef.current = { refresh: () => auth.refresh() } },
   storage: localStorage,
   tokenKey: 'agent_platform_token',
   userKey: 'agent_platform_user',
   refreshTokenKey: 'agent_platform_refresh',
 })(ctx)
 ctx = i18n({ locale: 'zh-CN' })(ctx)
+ctx = ws({ url: '/ws' })(ctx)
 // 命令式 confirm/toast：vdom3 适配（portal 挂载）暂缺——页面可选链消费（?./!! 调用处按需 mock）
 ctx = Object.assign(ctx, {
   confirm: async () => true,
