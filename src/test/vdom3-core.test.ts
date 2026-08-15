@@ -1096,3 +1096,67 @@ test('SSR 端到端：renderToEvents → eventsToHtml（首帧 HTML）→ 客户
   document.body.removeChild(root)
   document.body.removeChild(root2)
 })
+
+test('Modal 退场：open=false → exit 阶段（DOM 保留播动画）→ animationend → 卸载', async () => {
+  const { Modal } = await import('../components/Modal/Modal.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let open = true
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'main' }, [
+      h('button', { id: 'close', onClick: () => { open = false; rerender() } }, 'close'),
+      h(Modal, { open, onClose: () => { open = false; rerender() }, title: '退场测试', children: h('div', {}, '内容') }),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 40))
+  assert.ok(document.querySelector('.wf-modal'), 'Modal 打开（portal）')
+  // 关闭（open=false → presence exit 阶段——DOM 保留播退场动画）
+  ;(root.querySelector('[id="close"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 40))
+  const modal = document.querySelector('.wf-modal')
+  assert.ok(modal, 'exit 阶段：DOM 保留（退场动画）')
+  assert.ok(modal.className.includes('wf-modal--exit'), 'exit class 生效')
+  // animationend → 卸载
+  modal.dispatchEvent(new (window as any).Event('animationend', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 40))
+  assert.ok(!document.querySelector('.wf-modal'), 'animationend 后卸载')
+  document.body.removeChild(root)
+  document.querySelector('[id="__wf_portal"]')?.remove()
+})
+
+test('空洞对齐（vdom2 提交按钮事故回归）：children [Field, false, Button] 重渲染——false 位置不误删 Button', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let error = ''
+  const Field = async (_init: any, _ctx: any) => async (props: any) =>
+    h('div', { class: 'field' }, props.error ? '有错误' : '正常')
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => {
+      const showAlert = error.length > 0
+      return h('div', { id: 'form' }, [
+        h(Field, { error }),
+        showAlert && h('div', { class: 'alert' }, '错误提示'),
+        h('button', { id: 'submit' }, '提交'),
+      ])
+    }
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  assert.ok(root.querySelector('[id="submit"]'), '初始渲染：提交按钮')
+  assert.equal(root.querySelector('.alert'), null, '初始无错误提示')
+  // Field 加错误 → 重渲染（false → alert——空洞位置变化）
+  error = '必填'
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('.alert'), '错误提示出现')
+  assert.ok(root.querySelector('[id="submit"]'), '提交按钮保留（false 位置不误删下一个兄弟——占位语义）')
+  // 顺序正确（alert 在 submit 前——vnode 顺序 = DOM 顺序）
+  const html = root.querySelector('[id="form"]')?.innerHTML ?? ''
+  assert.ok(html.indexOf('alert') < html.indexOf('submit'), '顺序：alert 在 submit 前（prevNode 锚）')
+  document.body.removeChild(root)
+})

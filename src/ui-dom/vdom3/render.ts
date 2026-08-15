@@ -334,6 +334,9 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
     return
   }
 
+  // prevNode 锚：新项插入到前一个已渲染兄弟之后（空洞（false）不产生 DOM——
+  // childNodes 索引与 children 错位——prevNode 保证 vnode 顺序 = DOM 顺序）
+  let prevNode: Node | null = null
   const len = Math.max(oldKids.length, newKids.length)
   for (let i = 0; i < len; i++) {
     const oc = i < oldKids.length ? oldKids[i] : null
@@ -380,7 +383,7 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
         removePortalContent(oc as PortalVNode)
         continue
       }
-      // 移除（含 ref(null)——卸载清理）
+      // 移除（含 ref(null)——卸载清理）；oc 无 el（空洞）跳过——不碰 childNodes[i]
       if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
         const oldRef = (oc as VNode).props?.ref
         if (typeof oldRef === 'function') oldRef(null)
@@ -389,17 +392,18 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
         stream.emit({ type: 'REMOVE', parent: nodeId(el), child: rid, ts: Date.now() })
         elNode.parentNode?.removeChild(elNode)
         registry.unregister(rid, elNode)
-      } else {
-        const domNode = el.childNodes[i]
-        if (domNode) domNode.parentNode?.removeChild(domNode)
       }
       continue
     }
     if (oc != null && typeof oc === 'object') {
       patch(oc as VNode, nc as VNode, el)
+      const patched = (nc as VNode).el
+      if (patched && patched.parentNode === el) prevNode = patched
     } else {
-      // 新项：渲染（组件输出已在 build 展开）
-      renderVNode(nc as VNode, el)
+      // 新项：渲染（组件输出已在 build 展开）——prevNode 锚（空洞后插入位置正确）
+      const anchor = prevNode ? prevNode.nextSibling : el.firstChild
+      const node = renderVNode(nc as VNode, el, anchor)
+      if (node && node.parentNode === el) prevNode = node
     }
   }
 }
