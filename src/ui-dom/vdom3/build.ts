@@ -5,8 +5,8 @@
  * 组件实例复用：同位置同类型（patch 判定）→ 工厂不重跑（内部状态保持）。
  */
 
-import type { VNode, VNodeChild, Component } from './types.ts'
-import { Fragment } from './types.ts'
+import type { VNode, VNodeChild, Component, PortalVNode } from './types.ts'
+import { Fragment, Portal } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
 
 /** 组件卸载钩子注册表（组件 id → 清理函数——COMP_UNMOUNT 时调用） */
@@ -51,7 +51,7 @@ export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, old
     await buildVNode(output, ctx, oldOut != null && typeof oldOut === 'object' ? (oldOut as VNode) : null)
     return vnode
   }
-  // native / Fragment：递归 children（跳过文本）
+  // native / Fragment / Portal：递归 children（跳过文本）
   const oldKids = oldV?.children ?? []
   let i = 0
   for (const c of vnode.children ?? []) {
@@ -62,6 +62,10 @@ export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, old
     i++
   }
   return vnode
+}
+
+export function isPortal(v: unknown): v is PortalVNode {
+  return v != null && typeof v === 'object' && (v as any).type === Portal
 }
 
 function compName(type: unknown): string {

@@ -6,11 +6,43 @@
  * REMOVE 时保存被移除节点（undo 恢复——取消的节点快照）。
  */
 
+/** portal 容器（#__wf_portal > [data-wf-portal-key]——lazy 创建——组件库浮层基础） */
+export function ensurePortalContainer(key: string): HTMLElement {
+  let rootEl = document.getElementById('__wf_portal')
+  if (!rootEl) {
+    rootEl = document.createElement('div')
+    rootEl.id = '__wf_portal'
+    document.body.appendChild(rootEl)
+  }
+  let c = rootEl.querySelector(`[data-wf-portal-key="${key}"]`) as HTMLElement | null
+  if (!c) {
+    c = document.createElement('div')
+    c.setAttribute('data-wf-portal-key', key)
+    rootEl.appendChild(c)
+  }
+  return c
+}
+
 export class NodeRegistry {
   private byId = new Map<string, Node>()
   private idByNode = new WeakMap<Node, string>()
   /** 被移除节点（id → node——undo 恢复用） */
   private removed = new Map<string, Node>()
+
+  /** portal 容器 id 约定（事件流 parent 用——replay 可解析） */
+  static PORTAL = (key: string): string => `portal:${key}`
+
+  /** 解析父 id（portal: 前缀 → lazy 容器；否则查注册表） */
+  resolveParent(id: string): Node | null {
+    if (id.startsWith('portal:')) return ensurePortalContainer(id.slice(7))
+    return this.get(id)
+  }
+
+  /** id → 节点（回放/取消）——含 portal 容器 */
+  get(id: string): Node | null {
+    if (id.startsWith('portal:')) return ensurePortalContainer(id.slice(7))
+    return this.byId.get(id) ?? null
+  }
 
   register(id: string, node: Node): void {
     this.byId.set(id, node)
@@ -24,11 +56,6 @@ export class NodeRegistry {
       return (node as Element).getAttribute('data-v3-id') ?? this.idByNode.get(node) ?? 'el'
     }
     return this.idByNode.get(node) ?? 'node'
-  }
-
-  /** id → 节点（回放/取消） */
-  get(id: string): Node | null {
-    return this.byId.get(id) ?? null
   }
 
   /** 移除记录（REMOVE 时调用——保存节点供 undo） */

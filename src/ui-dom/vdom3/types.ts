@@ -34,6 +34,9 @@ export interface VNode {
 export type VNodeChild = VNode | string | number | null | undefined | boolean
 
 export const Fragment: unique symbol = Symbol('v3-fragment')
+/** Portal（浮层渲染到远程容器——#__wf_portal 下按 key 的容器——脱离父节点位置） */
+export const Portal: unique symbol = Symbol('v3-portal')
+export type PortalVNode = VNode & { type: typeof Portal; portalKey?: string | null }
 
 // ── 渲染事件流（location→DOM 全链路——引擎本体） ──
 

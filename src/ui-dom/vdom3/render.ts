@@ -8,10 +8,10 @@
  * 卸载：COMP_UNMOUNT 事件（类型/位置变化时——由 patch 顶层判定）。
  */
 
-import type { VNode, VNodeChild } from './types.ts'
-import { Fragment } from './types.ts'
+import type { VNode, VNodeChild, PortalVNode } from './types.ts'
+import { Fragment, Portal } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
-import { NodeRegistry } from './registry.ts'
+import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
 
 /** 全局节点注册表（id ↔ Node——事件流指令定位） */
@@ -43,6 +43,20 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
       if (n && !first) first = n
     }
     return first
+  }
+  if (vnode.type === Portal) {
+    // portal：渲染到远程容器（#__wf_portal > [data-wf-portal-key]——脱离父节点位置）
+    const pv = vnode as PortalVNode
+    const container = ensurePortalContainer(pv.portalKey ?? 'default')
+    // 容器 id 注册（事件流 parent 用 portal:key——idOf 经 WeakMap 解析）
+    registry.register(NodeRegistry.PORTAL(pv.portalKey ?? 'default'), container)
+    let first: Node | null = null
+    for (const c of vnode.children ?? []) {
+      const n = renderVNodeChild(c, container)
+      if (n && !first) first = n
+    }
+    vnode.el = container
+    return first ?? container
   }
   // native
   const el = document.createElement(vnode.type as string)
@@ -129,6 +143,15 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
 
   if (sameType) {
     const ov = oldV as VNode
+    // portal：内容 patch 到远程容器（同 key 复用）
+    if (vn.type === Portal) {
+      const pv = vn as PortalVNode
+      const container = ensurePortalContainer(pv.portalKey ?? 'default')
+      registry.register(NodeRegistry.PORTAL(pv.portalKey ?? 'default'), container)
+      patchChildren(ov, vn, container)
+      vn.el = container
+      return container
+    }
     // 组件：复用实例（_render 保持）——输出已由 build 更新（新 _child）——渲染新输出
     if (typeof vn.type === 'function') {
       vn._render = ov._render
@@ -169,6 +192,9 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
       stream.emit({ type: 'REMOVE', parent: parentId(parent), child: rid, ts: Date.now() })
       oldEl.parentNode?.removeChild(oldEl)
       registry.unregister(rid, oldEl)
+    } else if (oldV && (oldV as VNode).type === Portal) {
+      // 旧 portal：清空远程容器（内容全移除——子树 REMOVE 事件）
+      removePortalContent(oldV as PortalVNode)
     }
   }
   return renderVNode(vn, parent, anchor)
@@ -258,6 +284,17 @@ function patchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: El
   }
 }
 
+/** 移除 portal 内容（远程容器清空——子树 REMOVE 事件） */
+function removePortalContent(pv: PortalVNode): void {
+  const container = ensurePortalContainer(pv.portalKey ?? 'default')
+  for (const child of [...container.childNodes]) {
+    const cid = registry.idOf(child)
+    stream.emit({ type: 'REMOVE', parent: NodeRegistry.PORTAL(pv.portalKey ?? 'default'), child: cid, ts: Date.now() })
+    container.removeChild(child)
+    registry.unregister(cid, child)
+  }
+}
+
 /** children diff：全 keyed → 专用路径（MOVE）；无 key/混合 → 位置配对 */
 function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
   const oldKids = oldV.children ?? []
@@ -273,6 +310,10 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
     const oc = i < oldKids.length ? oldKids[i] : null
     const nc = i < newKids.length ? newKids[i] : null
     if (i >= newKids.length) {
+      if (oc != null && typeof oc === 'object' && (oc as VNode).type === Portal) {
+        removePortalContent(oc as PortalVNode)
+        continue
+      }
       if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
         const elNode = (oc as VNode).el!
         const rid = registry.idOf(elNode)
@@ -304,6 +345,10 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
       continue
     }
     if (nc == null || nc === false || nc === true) {
+      if (oc != null && typeof oc === 'object' && (oc as VNode).type === Portal) {
+        removePortalContent(oc as PortalVNode)
+        continue
+      }
       const domNode = el.childNodes[i]
       if (domNode) domNode.parentNode?.removeChild(domNode)
       continue

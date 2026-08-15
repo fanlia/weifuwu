@@ -3,7 +3,7 @@
  */
 
 import type { VNode, VNodeChild } from './types.ts'
-import { Fragment } from './types.ts'
+import { Fragment, Portal } from './types.ts'
 
 export function h(
   type: string | symbol | import('./types.ts').Component,
@@ -15,4 +15,13 @@ export function h(
   return { type, props: props ?? {}, children: kids as VNodeChild[], key: (props?.key as string) ?? null }
 }
 
-export { Fragment }
+/** Portal：children 渲染到远程容器（#__wf_portal > [data-wf-portal-key=key]） */
+/** Portal：children 渲染到远程容器（#__wf_portal > [data-wf-portal-key=key]） */
+export function createPortal(children: VNodeChild, portalKey?: string): VNode {
+  return {
+    type: Portal, props: {}, children: Array.isArray(children) ? children : [children],
+    key: portalKey ?? null, portalKey: portalKey ?? 'default',
+  } as unknown as VNode
+}
+
+export { Fragment, Portal }

@@ -28,7 +28,7 @@ export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry):
       break
     }
     case 'INSERT': {
-      const parent = ev.parent === NodeRegistry.ROOT ? target : reg.get(ev.parent)
+      const parent = ev.parent === NodeRegistry.ROOT ? target : reg.resolveParent(ev.parent)
       const child = reg.get(ev.child)
       const ref = ev.ref ? reg.get(ev.ref) : null
       if (parent && child) {
@@ -44,7 +44,7 @@ export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry):
     }
     case 'MOVE': {
       const node = reg.get(ev.node)
-      const parent = ev.parent === NodeRegistry.ROOT ? target : reg.get(ev.parent)
+      const parent = ev.parent === NodeRegistry.ROOT ? target : reg.resolveParent(ev.parent)
       const ref = ev.ref ? reg.get(ev.ref) : null
       if (node && parent && node.parentNode === parent) {
         if (ref && ref.parentNode === parent) parent.insertBefore(node, ref)

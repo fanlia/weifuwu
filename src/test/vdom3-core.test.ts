@@ -742,3 +742,60 @@ test('事件流：环形缓冲——溢出保留最近 max 条（最旧丢弃）
   s.emit({ type: 'NODE_CREATE', id: 'x', tag: 'span', ts: 1 })
   assert.equal(s.events().length, 1, 'reset 后继续记录')
 })
+
+// ── Portal：浮层渲染到远程容器（#__wf_portal——脱离父节点位置） ──
+
+test('Portal：渲染到 #__wf_portal（父节点位置无内容）+ 更新 + 卸载', async () => {
+  const { createPortal, ensurePortalContainer } = await import('../ui-dom/vdom3/index.ts')
+  let open = true
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'main' }, [
+      h('button', { id: 'toggle', onClick: () => { open = !open; rerender() } }, 'toggle'),
+      open ? createPortal(h('div', { id: 'pop', class: 'wf-pop' }, '浮层内容'), 'test-pop') : null,
+    ])
+  }
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  // portal 内容在 #__wf_portal（不在父节点位置）
+  assert.ok(document.querySelector('#__wf_portal [data-wf-portal-key="test-pop"] #pop'), 'portal 内容渲染到远程容器')
+  assert.equal(root.querySelector('#pop'), null, '父节点位置无 portal 内容')
+  assert.equal(document.querySelector('#pop')?.textContent, '浮层内容', 'portal 文本')
+  // 更新（关闭——条件变 null → 移除）
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(document.querySelector('#pop'), null, 'portal 卸载（容器清空）')
+  assert.ok(root.querySelector('[id="main"]'), '主树正常')
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})
+
+test('Portal：事件流可回放（INSERT parent=portal:key——replay 重建浮层）', async () => {
+  const { createPortal, replay } = await import('../ui-dom/vdom3/index.ts')
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', {}, [
+      createPortal(h('div', { id: 'pop2' }, '重放浮层'), 'rp'),
+    ])
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(document.querySelector('[data-wf-portal-key="rp"] #pop2'), '原渲染 portal')
+  // 清空并回放（事件流 → portal 容器重建）
+  const events = gs.events()
+  document.querySelector('#__wf_portal')?.remove()
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  replay(events, target)
+  assert.ok(document.querySelector('[data-wf-portal-key="rp"] #pop2'), '回放重建 portal 内容')
+  assert.equal(document.querySelector('#pop2')?.textContent, '重放浮层', '回放文本正确')
+  document.body.removeChild(root)
+  document.body.removeChild(target)
+  document.querySelector('#__wf_portal')?.remove()
+})
