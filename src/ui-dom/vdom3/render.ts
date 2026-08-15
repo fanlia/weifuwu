@@ -199,6 +199,7 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
 function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
   const oldKids = oldV.children ?? []
   const newKids = newV.children ?? []
+
   const len = Math.max(oldKids.length, newKids.length)
   for (let i = 0; i < len; i++) {
     const oc = i < oldKids.length ? oldKids[i] : null

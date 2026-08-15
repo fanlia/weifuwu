@@ -30,15 +30,28 @@ export interface RootHandle {
 export function createRoot(vnode: VNode, root: HTMLElement): RootHandle {
   let current = vnode
 
+  // 渲染串行 + dirty 合并（async update 并发 → 同基于初始树 patch → 结构错乱；
+  // 渲染中再次触发 → 标记 dirty → 完成后补跑一次读最新状态——防死循环）
+  let updating = false
+  let dirty = false
   async function update(): Promise<void> {
-    // 重跑 renderFn → 构建（oldV 对照复用 _render）→ patch（事件流 → DOM）
-    if (typeof current.type === 'function' && current._render) {
-      const output = await current._render(current.props)
-      if (output == null) return
-      const oldOut = current.children?.[0] ?? null
-      const built = await buildVNode(output, {}, oldOut && typeof oldOut === 'object' ? (oldOut as VNode) : null)
-      current.children = [built]
-      patch(oldOut as VNode | null, built, root)
+    if (updating) { dirty = true; return }
+    updating = true
+    try {
+      do {
+        dirty = false
+        // 重跑 renderFn → 构建（oldV 对照复用 _render）→ patch（事件流 → DOM）
+        if (typeof current.type === 'function' && current._render) {
+          const output = await current._render(current.props)
+          if (output == null) break
+          const oldOut = current.children?.[0] ?? null
+          const built = await buildVNode(output, {}, oldOut && typeof oldOut === 'object' ? (oldOut as VNode) : null)
+          current.children = [built]
+          patch(oldOut as VNode | null, built, root)
+        }
+      } while (dirty)
+    } finally {
+      updating = false
     }
   }
 
