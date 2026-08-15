@@ -49,8 +49,11 @@ export function installMountInvariantAudit(): void {
     if (ev.machine !== 'render' || ev.event !== 'PARENT') return
     if (!auditEnabled()) return
     if (ev.to === 'SKIP_DETACHED') {
+      const p = ev.payload as { lifecycle?: string; rendered?: boolean }
+      // 从未渲染（_outputChild 空——首帧/导航构建完成未落地的窗口期）→ 暂时性，不报错
+      if (p.rendered === false) return
       console.error(
-        `[vdom2/audit] 挂载不变量违反：组件 ${ev.component ?? '?'}${ev.nodeId ? `(${ev.nodeId})` : ''} 状态 ${String((ev.payload as { lifecycle?: string })?.lifecycle)} 但无 _parentNode/_refNode（rootEl 只属于根组件）——挂载信息断裂，渲染被跳过，状态更新将丢失`,
+        `[vdom2/audit] 挂载不变量违反：组件 ${ev.component ?? '?'}${ev.nodeId ? `(${ev.nodeId})` : ''} 状态 ${String(p?.lifecycle)} 但无 _parentNode/_refNode（rootEl 只属于根组件）——挂载信息断裂（曾渲染后定位丢失），渲染被跳过，状态更新将丢失`,
       )
     }
   })

@@ -154,10 +154,12 @@ export function createRenderer(opts: {
       let parent = comp._parentNode ?? comp._refNode?.parentNode ?? null
       if (parent == null && isRoot) parent = opts.rootEl ?? null
       const to = parent ? (isRoot && !comp._parentNode ? 'ROOT' : 'MOUNTED') : 'SKIP_DETACHED'
-      emit({ session, machine: 'render', nodeId: comp._id ?? null, component: compName(comp), from: 'IDLE', event: 'PARENT', to, payload: () => ({ lifecycle: comp._lifecycle }), level: 'debug', ts: Date.now() })
+      emit({ session, machine: 'render', nodeId: comp._id ?? null, component: compName(comp), from: 'IDLE', event: 'PARENT', to, payload: () => ({ lifecycle: comp._lifecycle, rendered: comp._outputChild != null }), level: 'debug', ts: Date.now() })
       if (!parent) {
-        // 挂载断裂/父树构建中——渲染请求不丢弃（pending——构建完成后补跑）
-        pendingIds.add(id)
+        // 挂载断裂（SKIP_DETACHED）——**不加 pending**：补跑会再次 SKIP_DETACHED →
+        // flushPending 无限循环（真实事故：Chrome CPU 100% 渲染死循环——补跑又跳过又补跑）。
+        // building 的 pending 已覆盖主要场景（组件构建中——构建完成后 ready）；
+        // SKIP_DETACHED 是定位失败（永久/父树未完成）——补跑无意义，等下次事件触发
         return
       }
       if (parent) {
