@@ -982,3 +982,39 @@ test('浮层批量：Dropdown（usePopup 菜单）+ Modal（会话级模态—�
   document.body.removeChild(root)
   document.querySelector('#__wf_portal')?.remove()
 })
+
+test('Select（重头组件——useControlledInput + usePopup + keyed 列表）在 vdom3', async () => {
+  const { Select } = await import('../components/Select/Select.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let value: string | undefined
+  // 非受控（组件内部态——useControlledInput 回填）
+  createRoot(h(Select, {
+    onChange: (v: any) => { value = v },
+    searchable: true,
+    options: [{ value: 'a', label: '苹果' }, { value: 'b', label: '香蕉' }, { value: 'c', label: '樱桃' }],
+    placeholder: '选择水果',
+  }), root)
+  await new Promise((r) => setTimeout(r, 50))
+  const trigger = root.querySelector('.wf-select-search-trigger, .wf-select-trigger') as HTMLElement
+  assert.ok(trigger, 'Select 渲染')
+  assert.ok(root.querySelector('input[placeholder="选择水果"]'), 'placeholder（input 属性）')
+  // 打开（点击触发器 → usePopup）
+  console.log('[sel-dbg] trigger:', trigger?.outerHTML?.slice(0, 120))
+  ;(trigger as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 50))
+  assert.ok(document.querySelector('[id="__wf_portal"]')?.textContent?.includes('苹果'), '下拉打开（portal——选项渲染）')
+  // 选择选项（keyed 列表项点击 → onChange）
+  const opts = [...document.querySelectorAll('[id="__wf_portal"] [class*="opt"]')]
+  const apple = opts.find((el) => el.textContent?.includes('苹果'))
+  assert.ok(apple, '选项元素存在')
+  ;(apple as HTMLElement).dispatchEvent(new (window as any).MouseEvent('mousedown', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 40))
+  assert.equal(value, 'a', 'onChange 回调（选中苹果）')
+  // 非受控单选：选中后关闭 + placeholder 保留（组件设计——回填走受控 value 回流）
+  assert.ok(!document.querySelector('[id="__wf_portal"]')?.textContent?.includes('苹果'), '选中后关闭（portal 内容移除）')
+  assert.ok(root.querySelector('input[placeholder="选择水果"]'), 'placeholder 保留（非受控无回填）')
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})
