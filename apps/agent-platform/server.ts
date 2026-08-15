@@ -145,6 +145,16 @@ async function main() {
     terminated_at TIMESTAMPTZ
   )`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_sandboxes_dept ON sandboxes(department_id)`)
+  // 沙盒事件日志（2026-12 可观测性）
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS sandbox_events (
+    id BIGSERIAL PRIMARY KEY,
+    sandbox_id UUID NOT NULL,
+    app_id UUID,
+    type TEXT NOT NULL,
+    detail TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`)
+  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_sandbox_events_sb ON sandbox_events(sandbox_id, created_at DESC)`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status, last_used_at)`)
   await pg.sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sandboxes_dept_active ON sandboxes(department_id) WHERE department_id IS NOT NULL AND status != 'terminated'`)
   // 镜像升级（2026-12）：node:24 → ap-sandbox:latest（agent-browser/python/office）——存量记录不迁移（快照兼容，容器重建时按快照）
@@ -1440,43 +1450,46 @@ async function main() {
   // 一键触发 10 角色填写（demo——统计页按钮 → 服务端批量派单）
   app.post('/demo-survey/launch', async (_req: Request, ctx: AppCtx): Promise<Response> => {
     try {
-      const [dept] = await pg.sql`SELECT id FROM departments WHERE name = '模拟调研组' LIMIT 1`
-      if (!dept) return Response.json({ error: '未找到「模拟调研组」部门（先跑 seed-survey-agents.mjs）' }, { status: 404 })
+      // 新架构（2026-12）：10 个角色各在独立部门（独立沙盒——并发填写）
+      // 派单 = 对每个角色部门发消息（@角色 触发）——并发执行，互不排队
+      const ROLES = ['财务小王', '市场小李', '产品老张', '客服小陈', '研发大刘', '人事小周', '销售阿强', '运营小赵', '行政陈姐', '实习生阿泽']
+      const deptRows = await pg.sql`
+        SELECT id, name FROM departments
+        WHERE name = ANY(string_to_array(${ROLES.join(',')}, ',')::text[]) AND is_dm = FALSE
+      `
+      const deptMap = new Map((deptRows ?? []).map((d: any) => [String(d.name), String(d.id)]))
+      const missing = ROLES.filter((r) => !deptMap.has(r))
+      if (missing.length > 0) {
+        return Response.json({ error: `缺少角色部门：${missing.join('、')}（先跑 seed-survey-agents.mjs）` }, { status: 404 })
+      }
       const [sender] = await pg.sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'user' LIMIT 1`
       const senderId = sender ? String(sender.id) : 'system'
-      const roles = await pg.sql`
-        SELECT a.name FROM department_members dm JOIN agents a ON a.id = dm.agent_id
-        WHERE dm.department_id = ${dept.id} AND a.type = 'ai' ORDER BY a.created_at
-      `
-      const roleNames = (Array.isArray(roles) ? roles : [roles]).map((r: any) => String(r.name ?? ''))
       const { handleNewMessageStream } = await import('./src/services/chat.ts')
-      // 立即响应 + 后台分批派单（HTTP 不等——分批耗时 ~2min，长连接会断）
+      // 并发派单（各部门沙盒同时执行浏览器任务）；分批 3 个控制瞬时连接/容器启动峰值
+      const BASE = process.env.PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3000}`
       void (async () => {
-        // 分批派单（每批 3 个 + 批次间隔 45s）：控制瞬时并发——
-        // 真实事故：10 个并发 AI 执行把 pg 连接池（默认 10）占满，
-        // 后续派单 SQL 30s 超时静默失败（pool acquire timed out）
         const BATCH = 3
-        for (let i = 0; i < roleNames.length; i += BATCH) {
-          const batch = roleNames.slice(i, i + BATCH)
-          for (const name of batch) {
-            // ?s=角色名 → 填写页来源标识 → 统计页在线/进度按角色名显示
-            const content = `@${name} 请填写问卷 http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(name)} 并按你的人设提交（填完即锁定）。完成后请执行 agent-browser close 关闭浏览器页面（否则统计页会一直显示你在线）`
-            // 派单失败不静默——记录 + 重试一次
-            const dispatch = () => handleNewMessageStream(ctx, String(dept.id), senderId, content, '')
-            dispatch().catch(async (err: any) => {
+        let dispatched = 0
+        for (let i = 0; i < ROLES.length; i += BATCH) {
+          const batch = ROLES.slice(i, i + BATCH)
+          await Promise.allSettled(batch.map(async (name) => {
+            const content = `@${name} 请填写问卷 ${BASE}/demo-survey?s=${encodeURIComponent(name)} 并按你的人设作答提交。完成后把作答结果写入工作目录 survey-result.json，并执行 agent-browser close 关闭浏览器。`
+            const dispatch = () => handleNewMessageStream(ctx, String(deptMap.get(name)), senderId, content, '')
+            try { await dispatch(); dispatched++ } catch (err: any) {
               console.error(`[launch] 派单失败 ${name}:`, err?.message ?? err)
               await new Promise((r) => setTimeout(r, 3000))
-              dispatch().catch((err2: any) => console.error(`[launch] 重试失败 ${name}:`, err2?.message ?? err2))
-            })
-            await new Promise((r) => setTimeout(r, 1500)) // 批内错峰（容器错峰启动）
-          }
-          if (i + BATCH < roleNames.length) {
-            await new Promise((r) => setTimeout(r, 45_000)) // 批次间隔：等前批完成（连接/容器释放）
+              try { await dispatch(); dispatched++ } catch (err2: any) {
+                console.error(`[launch] 重试失败 ${name}:`, err2?.message ?? err2)
+              }
+            }
+          }))
+          if (i + BATCH < ROLES.length) {
+            await new Promise((r) => setTimeout(r, 45_000)) // 批次间隔：等前批执行（浏览器任务错峰）
           }
         }
-        console.log(`[launch] 后台分批派单完成：${roleNames.length} 个角色`)
+        console.log(`[launch] 派单完成：${dispatched}/${ROLES.length} 个角色（并发独立沙盒）`)
       })()
-      return Response.json({ success: true, sent: roleNames.length, scheduling: true, roles: roleNames })
+      return Response.json({ success: true, sent: ROLES.length, scheduling: true, roles: ROLES })
     } catch (e: any) {
       return Response.json({ error: e?.message ?? 'launch 失败' }, { status: 500 })
     }

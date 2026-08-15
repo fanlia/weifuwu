@@ -83,6 +83,31 @@ export class SandboxManager {
   /** 启动注入 DB 句柄（server.ts 初始化时调用；幂等） */
   init(sql: Sql): void {
     this.sql = sql
+    // 2026-12 可观测性：executor exec 事件 → sandbox_events（诊断链）
+    this.exe.onExecEvent = (sandboxId, type, detail) => this.logEvent(sandboxId, null, type, detail)
+  }
+
+  /** 事件日志（2026-12 可观测性——fire-and-forget，不阻塞主流程） */
+  private logEvent(sandboxId: string, appId: string | null, type: string, detail?: string): void {
+    if (!this.sql) return
+    void this.sql`
+      INSERT INTO sandbox_events (sandbox_id, app_id, type, detail)
+      VALUES (${sandboxId}, ${appId ?? null}, ${type}, ${detail ?? null})
+    `.catch(() => {})
+  }
+
+  /** 事件历史（诊断用） */
+  async eventHistory(sandboxId: string, limit = 30): Promise<Array<{ type: string; detail: string | null; created_at: string }>> {
+    if (!this.sql) return []
+    try {
+      const rows = await this.sql`
+        SELECT type, detail, created_at FROM sandbox_events
+        WHERE sandbox_id = ${sandboxId} ORDER BY created_at DESC LIMIT ${limit}
+      `
+      return (rows ?? []).map((r: any) => ({ type: String(r.type), detail: r.detail ? String(r.detail) : null, created_at: r.created_at }))
+    } catch {
+      return []
+    }
   }
 
   /** 计数器（M6-2 指标接线） */
@@ -229,6 +254,7 @@ export class SandboxManager {
       SELECT COUNT(*)::int as n FROM sandboxes WHERE app_id = ${input.appId} AND status != 'terminated'
     `
     if (Number(c?.n ?? 0) >= quota) {
+      this.logEvent('quota', String(input.appId), 'quota_rejected', `quota=${quota} name=${input.name}`)
       throw new Error(`沙盒配额已满（${quota} 个）——请先终止不用的沙盒`)
     }
     // 池内存预算校验（M5-2）：超预算 → 驱逐非 busy 最旧（LRU）→ 仍超 → 明确错误（不静默降级）
@@ -249,6 +275,7 @@ export class SandboxManager {
         RETURNING *
       `
       this.counters.created++
+      this.logEvent(String(rows[0].id), String(input.appId), 'created', `name=${input.name}`)
       return rows[0] as SandboxRow
     } catch (e: any) {
       // 并发创建冲突（23505）→ 重查返回已有记录（幂等）
@@ -313,6 +340,7 @@ export class SandboxManager {
       WHERE id = ${id}
     `
     this.counters.terminated++
+    this.logEvent(id, appId, 'terminated')
   }
 
   /** 启动（requested/stopped/error → provision） */
@@ -336,6 +364,7 @@ export class SandboxManager {
       UPDATE sandboxes SET status = 'running', error = NULL, last_used_at = NOW(), updated_at = NOW()
       WHERE id = ${row.id}
     `
+    this.logEvent(String(row.id), String(appId), 'started')
     return { ok: true }
   }
 
@@ -348,6 +377,7 @@ export class SandboxManager {
     const r = await this.exe.containerAction(`ap-sandbox-${row.id}`, 'stop')
     if (!r.ok) return { ok: false, error: r.message }
     await this.sql`UPDATE sandboxes SET status = 'stopped', updated_at = NOW() WHERE id = ${row.id}`
+    this.logEvent(String(row.id), String(appId), 'stopped')
     return { ok: true }
   }
 

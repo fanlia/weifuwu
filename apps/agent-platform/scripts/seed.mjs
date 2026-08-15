@@ -121,9 +121,9 @@ async function main() {
 
   // 应用（= 产品/公司——一个 app 就是一个公司）
   await sql`
-    INSERT INTO _weifuwu_apps (id, slug, name, owner_user_id)
-    VALUES (${DEMO_APP_ID}, 'demo', '演示科技有限公司', ${admin.id})
-    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, slug = EXCLUDED.slug, owner_user_id = EXCLUDED.owner_user_id
+    INSERT INTO _weifuwu_apps (id, slug, name, owner_user_id, sandbox_quota)
+    VALUES (${DEMO_APP_ID}, 'demo', '演示科技有限公司', ${admin.id}, 20)
+    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, slug = EXCLUDED.slug, owner_user_id = EXCLUDED.owner_user_id, sandbox_quota = 20
   `
   // 成员关系（owner + member）
   await sql`

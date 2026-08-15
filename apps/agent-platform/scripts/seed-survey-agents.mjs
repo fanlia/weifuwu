@@ -1,16 +1,20 @@
 /**
- * 模拟数据收集——10 个不同人设的 AI Agent 批量创建
+ * 模拟数据收集——10 个不同人设的 AI 角色批量创建（新架构适配 2026-12）
  *
- * 用途：客户 demo（模拟数据收集——10 个角色各自访问问卷页填写并提交）。
- * 每个 Agent 有独立人设（行业/岗位/偏好）→ 回答天然差异化。
+ * 三层模型：每角色一个独立部门 = 独立沙盒 = **并发填写**（旧实现 1 部门 10 agent 在新架构
+ * 下会走沙盒 exec 串行队列——浏览器任务排队数十分钟——架构不变量，按角色拆部门解决）。
+ *
+ * 角色流程（提示词内建）：agent-browser 打开问卷 → snapshot 读题 → fill/select/check 作答
+ * → submit 提交 → 验证成功 → 结果写入部门工作目录 survey-result.json（交付物+执行验证可见）
  *
  * 用法：node --env-file=.env scripts/seed-survey-agents.mjs
- * 前置：登录（admin@demo.com）→ 自动建部门（模拟调研组）+ 建 10 个 AI + 绑成员
+ * 前置：服务启动（admin@demo.com 可登录）；问卷页 {PUBLIC_BASE_URL}/demo-survey
  */
 
 const BASE = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000'
 const EMAIL = process.env.SEED_EMAIL ?? 'admin@demo.com'
 const PASSWORD = process.env.SEED_PASSWORD ?? 'admin123'
+const SURVEY_URL = process.env.SURVEY_URL ?? `${BASE}/demo-survey`
 
 const PERSONAS = [
   { name: '财务小王', roleLabel: '财务视角', expertise: '成本/预算/ROI', prompt: '你是财务部的小王，35 岁，关注成本与预算。填问卷时：对价格敏感，倾向低分，反馈聚焦性价比与 ROI。回答简洁务实。' },
@@ -25,6 +29,22 @@ const PERSONAS = [
   { name: '实习生阿泽', roleLabel: '新人视角', expertise: '上手/引导/文档', prompt: '你是实习生阿泽，22 岁，刚入职。填问卷时：评分看上手体验，反馈聚焦新人引导与文档质量。语气青涩真诚。' },
 ]
 
+/** 角色执行提示词：人设 + agent-browser 填写纪律 + 结果落盘（交付物） */
+function buildSurveyPrompt(p) {
+  return `${p.prompt}
+
+【问卷填写任务（模拟数据收集）】
+1. 用 agent-browser 打开问卷：agent-browser open "${SURVEY_URL}?s=${encodeURIComponent(p.name)}"
+2. agent-browser snapshot 读取题目与控件 ref——逐题作答（fill 文本 / select 下拉 / check 勾选 / click 单选与提交）
+3. 按你的${p.roleLabel}作答：评分与反馈符合你的身份
+4. 提交后 read/snapshot 验证成功页（「✅ 已提交」锁定态）
+5. 完成后把你的作答结果写入工作目录：用 write 工具创建 survey-result.json，内容：
+   {"name":"${p.name}","role":"${p.roleLabel}","submitted":true,"answers":{...逐题答案...},"verified":true}
+6. 最后必须执行 agent-browser close 关闭浏览器会话
+
+【产物纪律】survey-result.json 是本次任务的交付物——写入后工作目录可见。`
+}
+
 async function api(path, opts = {}) {
   const res = await fetch(BASE + path, {
     ...opts,
@@ -37,50 +57,51 @@ async function api(path, opts = {}) {
 }
 
 async function main() {
-  // 登录
   const login = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: EMAIL, password: PASSWORD }) })
   const appLogin = await api('/api/auth/apps/demo/login', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${login.token}` },
-    body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
+    method: 'POST', headers: { Authorization: `Bearer ${login.token}` }, body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
   })
   const token = appLogin.token
   const auth = { Authorization: `Bearer ${token}` }
 
-  // 建部门（模拟调研组）
-  const deptName = '模拟调研组'
   const depts = await api('/api/departments', { headers: auth })
-  let dept = depts.departments.find((d) => d.name === deptName)
-  if (!dept) {
-    const d = await api('/api/departments', { method: 'POST', headers: auth, body: JSON.stringify({ name: deptName }) })
-    dept = d.department ?? d
-    console.log(`✅ 部门已创建：${dept.name}`)
-  } else {
-    console.log(`✅ 部门已存在：${dept.name}`)
-  }
-
-  // 建 10 个角色 Agent（人设各异 + 网络权限——浏览器填写需要）
+  const existingDepts = new Map(depts.departments.map((d) => [d.name, d.id]))
   const agents = await api('/api/agents', { headers: auth })
-  const existingNames = new Set(agents.agents.map((a) => a.name))
+  const existingAgents = new Map(agents.agents.map((a) => [a.name, a]))
+
   let created = 0
   for (const p of PERSONAS) {
-    if (existingNames.has(p.name)) { console.log(`⏭ 已存在：${p.name}`); continue }
-    const body = {
-      type: 'ai', name: p.name, description: `${p.roleLabel}——${p.expertise}`,
-      role_label: p.roleLabel, expertise: p.expertise,
-      system_prompt: p.prompt,
-      allow_file_tools: true, allow_command_exec: true, allow_network: true,
-      human_in_the_loop: false,
+    // 1) 角色部门（每角色独立部门 = 独立沙盒——并发填写）
+    let deptId = existingDepts.get(p.name)
+    if (!deptId) {
+      const d = await api('/api/departments', { method: 'POST', headers: auth, body: JSON.stringify({ name: p.name, auto_manager: false }) })
+      deptId = d.department.id
+      existingDepts.set(p.name, deptId)
     }
-    const createdAgent = await api('/api/agents', { method: 'POST', headers: auth, body })
-    const agent = createdAgent.agent ?? createdAgent
-    // 绑到部门
-    await api(`/api/departments/${dept.id}/members`, { method: 'POST', headers: auth, body: JSON.stringify({ agent_id: agent.id }) }).catch((e) => console.log(`  ⚠️ 绑定失败 ${p.name}: ${e.message}`))
+    // 2) 角色 agent（人设 + 网络权限——浏览器填写）
+    let agent = existingAgents.get(p.name)
+    if (!agent) {
+      const a = await api('/api/agents', { method: 'POST', headers: auth, body: {
+        type: 'ai', name: p.name, description: `${p.roleLabel}——${p.expertise}`,
+        role_label: p.roleLabel, expertise: p.expertise,
+        system_prompt: buildSurveyPrompt(p),
+        allow_file_tools: true, allow_command_exec: true, allow_network: true,
+        human_in_the_loop: false,
+      } })
+      agent = a.agent ?? a
+      existingAgents.set(p.name, agent)
+    }
+    // 3) 入组
+    await api(`/api/departments/${deptId}/members`, { method: 'POST', headers: auth, body: JSON.stringify({ agent_id: agent.id }) })
+      .catch((e) => console.log(`  ⚠️ 入组失败 ${p.name}: ${e.message}`))
     created++
-    console.log(`✅ 已创建并入组：${p.name}（${p.roleLabel}）`)
+    console.log(`✅ ${p.name}（${p.roleLabel}）——部门=${deptId.slice(0, 8)} agent=${String(agent.id).slice(0, 8)}`)
   }
-  console.log(`\n完成：本次创建 ${created} 个 · 部门「${dept.name}」现有 ${dept.member_count ?? '?'} 名成员`)
-  console.log(`问卷页：${BASE}/demo-survey（AI 从容器内访问 http://host.docker.internal:3000/demo-survey）`)
+
+  console.log(`\n完成：${created} 个角色部门 + agent（每角色独立沙盒——并发填写）`)
+  console.log(`问卷页：${SURVEY_URL}`)
+  console.log(`派单：node --env-file=.env scripts/survey-launch.mjs`)
+  console.log(`汇总：node --env-file=.env scripts/survey-summary.mjs`)
 }
 
 main().catch((e) => { console.error('失败:', e.message); process.exit(1) })

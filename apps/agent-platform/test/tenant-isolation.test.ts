@@ -20,7 +20,7 @@ const BUSINESS_TABLES = [
   'agents', 'departments', 'department_members', 'messages', 'agent_logs',
   'webhook_logs', 'kb_documents', 'kb_chunks', 'audit_logs', 'app_ai_configs',
   'events', 'agent_skills', 'agent_versions', 'agent_memories', 'answer_cache', 'agent_run_states',
-  'sandboxes',
+  'sandboxes', 'sandbox_events',
 ]
 
 /** 豁免登记（文件 + SQL 特征 + 理由）——审查通过才可登记 */
@@ -34,8 +34,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'server.ts', match: 'ALTER COLUMN', reason: 'DDL migration（schema 级）' },
   { file: 'server.ts', match: 'FROM agents WHERE template_slug IS NOT NULL', reason: '平台级模板使用统计（不返回租户数据）' },
   { file: 'server.ts', match: "SELECT id, name, webhook_platform, webhook_url, im_bind_dept, webhook_secret FROM agents WHERE type = 'webhook'", reason: 'IM 入站机器人查询（G8 补强）——平台级路由：回调无租户上下文，机器人绑定部门显式配置（返回单行供消息路由，不泄漏）' },
-  { file: 'server.ts', match: "SELECT id FROM departments WHERE name = '模拟调研组'", reason: '问卷一键派单（demo 端点）——按部门名查询，仅返回 id 供消息路由（demo 专用，不泄漏数据）' },
-  { file: 'server.ts', match: 'FROM department_members dm JOIN agents a ON a.id = dm.agent_id WHERE dm.department_id = ${dept.id}', reason: '问卷一键派单（demo 端点）——部门 id 来自上一步（同名查询），仅返回角色名供派单' },
+  { file: 'server.ts', match: 'name = ANY(string_to_array', reason: '问卷一键派单（demo 端点）——按角色名查部门 id 供消息路由（demo 专用，不泄漏数据）' },
   { file: 'server.ts', match: 'WHERE id::text = ANY(string_to_array(', reason: '沙盒监控容器→agent 名映射（管理员端点）——按容器 id 反查名字，不返回租户数据' },
   { file: 'server.ts', match: 'SELECT template_slug', reason: '平台级模板使用统计（role_templates usage_count）' },
   { file: 'src/routes/admin.ts', match: 'FROM messages m JOIN agents', reason: '平台管理员聚合（requireAdmin 保护，管理员有权看全平台）' },
@@ -62,6 +61,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/services/chat.ts', match: 'SELECT is_dm, workspace_path FROM departments', reason: '间接隔离——departmentId 来自消息路由上下文（已校验部门归属）' },
   { file: 'src/sandbox/manager.ts', match: 'FROM sandboxes WHERE department_id = ${departmentId}', reason: '间接隔离——departmentId 来自调用方上下文（工具执行/部门删除已校验归属）' },
   { file: 'src/sandbox/manager.ts', match: 'UPDATE sandboxes SET', reason: '按主键 id 更新——id 来自已校验的 row（服务层内部）' },
+  { file: 'src/sandbox/manager.ts', match: 'FROM sandbox_events WHERE sandbox_id', reason: '事件历史（诊断）——按 sandbox_id 主键查询（服务层内部）' },
   { file: 'src/sandbox/manager.ts', match: 'SELECT * FROM sandboxes WHERE status IN', reason: '后台回收扫描（reconcile 平台级状态对齐——不返回租户数据）' },
   { file: 'src/sandbox/manager.ts', match: 'SUM(memory_mb)', reason: '池内存预算聚合（平台级——只算总量不返回租户数据）' },
   { file: 'src/sandbox/manager.ts', match: 'ORDER BY last_used_at ASC NULLS FIRST', reason: '池预算驱逐扫描（平台级——驱逐不返回租户数据）' },

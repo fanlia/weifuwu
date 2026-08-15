@@ -105,6 +105,10 @@ export class DockerSandbox {
   private readyCache = new Map<string, { at: number; fingerprint: string }>()
   /** M6-2 执行器指标 */
   readonly execStats = { execCount: 0, execTimeouts: 0, execErrors: 0 }
+  /** 2026-12 可观测性：运行中的 exec（sandboxId → 工具/开始时间/超时）——debug 卡住场景 */
+  readonly runningExecs = new Map<string, { tool: string; startedAt: number; timeoutMs: number }>()
+  /** 事件回调（manager 注入——exec 生命周期写 sandbox_events） */
+  onExecEvent: ((sandboxId: string, type: string, detail?: string) => void) | null = null
 
   constructor(options?: Partial<SandboxOptions>) {
     this.opts = { ...DEFAULT_OPTIONS, ...options }
@@ -396,6 +400,9 @@ export class DockerSandbox {
   private async execOnce(sandboxId: string, tool: string, args: Record<string, unknown>): Promise<ExecResult> {
     this.busy.add(sandboxId)
     this.execStats.execCount++
+    // 2026-12 可观测性：记录运行中 exec（诊断卡住场景——哪个沙盒在跑什么/多久）
+    this.runningExecs.set(sandboxId, { tool, startedAt: Date.now(), timeoutMs: this.opts.execTimeoutMs })
+    this.onExecEvent?.(sandboxId, 'exec_start', tool)
     try {
       const payload = JSON.stringify({ tool, args })
       const secs = Math.max(3, Math.floor(this.opts.execTimeoutMs / 1000))
@@ -406,17 +413,20 @@ export class DockerSandbox {
         payload)
       if (r.timedOut) {
         this.execStats.execTimeouts++
+        this.onExecEvent?.(sandboxId, 'exec_timeout', `${tool} ${secs}s`)
         return { ok: false, error: `命令执行超时（${secs}s）——沙盒已终止该命令`, timedOut: true }
       }
       if (r.exitCode !== 0) {
         // 超时信号：timeout 命令自身 124 / 进程组被 SIGKILL 137（容器内 timeout -s KILL 杀树）
         if (r.exitCode === 124 || r.exitCode === 137 || r.timedOut) {
           this.execStats.execTimeouts++
+          this.onExecEvent?.(sandboxId, 'exec_timeout', `${tool} ${secs}s`)
           return { ok: false, error: `命令执行超时（${secs}s）——沙盒已终止该命令`, timedOut: true }
         }
         // exec 失败（容器可能被外部 stop）→ 清 readiness 缓存（下次 ensure 重新校验）
         this.readyCache.delete(sandboxId)
         this.execStats.execErrors++
+        this.onExecEvent?.(sandboxId, 'exec_error', `${tool}: ${r.output?.slice(0, 200) ?? ''}`)
         return { ok: false, error: `容器执行失败 (exit ${r.exitCode}): ${r.output || 'unknown'}`, exitCode: r.exitCode }
       }
       try {
@@ -428,6 +438,8 @@ export class DockerSandbox {
       }
     } finally {
       this.busy.delete(sandboxId)
+      this.runningExecs.delete(sandboxId)
+      this.onExecEvent?.(sandboxId, 'exec_done', tool)
     }
   }
 

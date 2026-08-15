@@ -344,6 +344,16 @@ CREATE TABLE IF NOT EXISTS sandboxes (
   terminated_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_sandboxes_dept ON sandboxes(department_id);
+-- 沙盒事件日志（2026-12 可观测性：生命周期 + exec 追踪——debug 问卷并发等场景）
+CREATE TABLE IF NOT EXISTS sandbox_events (
+  id          BIGSERIAL PRIMARY KEY,
+  sandbox_id  UUID NOT NULL,
+  app_id      UUID,
+  type        TEXT NOT NULL,   -- created/started/stopped/terminated/evicted/exec_start/exec_done/exec_timeout/exec_error/quota_rejected
+  detail      TEXT,            -- 工具名/错误/超时秒数等
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sandbox_events_sb ON sandbox_events(sandbox_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status, last_used_at);
 -- 1 部门 = 1 环境（部分唯一索引——terminated 后允许重建；NULL=独立沙盒不冲突）
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sandboxes_dept_active ON sandboxes(department_id)

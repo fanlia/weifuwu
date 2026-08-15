@@ -43,6 +43,10 @@ export const Sandboxes: Component = async (_props, ctx) => {
   let loading = true
   let busyId = ''
   let error = ''
+  // 诊断（2026-12 可观测性：生命周期事件 + 运行中 exec + 进程）
+  let debugOf: string | null = null
+  let debugData: any = null
+  let debugLoading = false
   const rerender = () => ctx.ui.render()
 
   const load = () => {
@@ -53,6 +57,14 @@ export const Sandboxes: Component = async (_props, ctx) => {
       .catch((e: any) => { error = errMsg(e, '加载失败'); loading = false; rerender() })
   }
   void load()
+
+  const loadDebug = async (id: string) => {
+    debugOf = id; debugData = null; debugLoading = true; rerender()
+    try {
+      const d = await ctx.api!.get<any>(`/api/sandboxes/${id}/debug`)
+      debugData = d; debugLoading = false; rerender()
+    } catch { debugLoading = false; rerender() }
+  }
 
   async function action(id: string, action: string, confirmText?: string) {
     if (confirmText) {
@@ -137,8 +149,35 @@ export const Sandboxes: Component = async (_props, ctx) => {
                     onClick={() => action(s.id, 'terminate', `确定终止沙盒「${s.name}」？容器将删除（工作目录文件保留）`)}>终止</Button>
                 </>
               )}
+              <Button size="sm" variant="ghost" onClick={() => loadDebug(s.id)} title="生命周期事件 + 运行中任务 + 容器进程">诊断</Button>
             </div>
           </div>
+          {debugOf === s.id && (
+            <div class="wf-bg-tertiary wf-rounded wf-p-sm wf-mt-sm wf-text-xs wf-stack wf-gap-xs">
+              {debugLoading && <span class="wf-text-tertiary">诊断加载中...</span>}
+              {debugData && (
+                <>
+                  <div class="wf-row wf-gap-md">
+                    <span>状态：<b class="wf-text-medium">{debugData.sandbox?.status}</b></span>
+                    {debugData.sandbox?.error && <span class="wf-text-danger">错误：{debugData.sandbox.error}</span>}
+                    {debugData.sandbox?.last_used_at && <span>最后使用 {new Date(debugData.sandbox.last_used_at).toLocaleString()}</span>}
+                  </div>
+                  {debugData.runningExec ? (
+                    <div class="wf-text-brand">▶ 运行中任务：{debugData.runningExec.tool}（已 {Math.round(debugData.runningExec.elapsedMs / 1000)}s / 超时 {Math.round(debugData.runningExec.timeoutMs / 1000)}s）——{debugData.runningExec.startedAt}</div>
+                  ) : <div class="wf-text-tertiary">当前无运行中任务</div>}
+                  <div class="wf-text-tertiary">容器进程（{debugData.processes?.length ?? 0}）：{debugData.processes?.slice(0, 5).map((p: any) => p.CMD ?? p.Command ?? '').filter(Boolean).join(' · ') || '无'}</div>
+                  <div class="wf-text-tertiary">最近事件：</div>
+                  {(debugData.events ?? []).slice(0, 10).map((ev: any, i: number) => (
+                    <div key={i} class="wf-row wf-gap-xs">
+                      <span class="wf-text-tertiary wf-nums">{new Date(ev.created_at).toLocaleTimeString()}</span>
+                      <span class={`${ev.type.includes('error') || ev.type.includes('timeout') ? 'wf-text-danger' : ev.type.includes('exec_start') ? 'wf-text-brand' : 'wf-text-secondary'}`}>{ev.type}</span>
+                      {ev.detail && <span class="wf-text-tertiary wf-truncate">— {ev.detail}</span>}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
         </Card>
       ))}
     </div>

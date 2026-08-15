@@ -194,6 +194,25 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     return Response.json({ success: true, status: action === 'terminate' ? 'terminated' : undefined })
   })
 
+  // ── 诊断（2026-12 可观测性：生命周期事件 + 运行中 exec + 容器进程——debug 卡住场景） ──
+  app.get('/api/sandboxes/:id/debug', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const { manager } = await import('../sandbox/manager.ts')
+    manager.init(sql)
+    const row = await manager.get(String(params.id), String(appId))
+    if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
+    const { sandbox } = await import('../sandbox/docker.ts')
+    const running = sandbox.runningExecs.get(String(row.id)) ?? null
+    const events = await manager.eventHistory(String(row.id), 30)
+    const procs = await sandbox.containerProcesses(`ap-sandbox-${row.id}`).catch(() => [])
+    return Response.json({
+      sandbox: { id: row.id, status: row.status, error: row.error, last_used_at: row.last_used_at },
+      runningExec: running ? { tool: running.tool, startedAt: new Date(running.startedAt).toISOString(), elapsedMs: Date.now() - running.startedAt, timeoutMs: running.timeoutMs } : null,
+      events,
+      processes: procs.slice(0, 20),
+    })
+  })
+
   // ── 容器内进程 / 资源（管理面） ─────────────────────────
 
   app.get('/api/sandboxes/:id/processes', async (req: Request, ctx: AppCtx): Promise<Response> => {
