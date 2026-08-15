@@ -56,6 +56,8 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
       ...r,
       departmentName: r.department_id ? (deptMap.get(r.department_id) ?? '未知部门') : null,
       containerStatus: actualMap.get(r.id) ?? null,
+      // 2026-12 并发聚合：运行中任务（沙盒页顶部「执行中 N」）
+      runningExec: sandbox.runningExecs.get(String(r.id)) ?? null,
     }))
     // M5-1 配额用量（per-app）：used/limit + 压力（≥80% 黄条）
     const [q] = await sql`SELECT sandbox_quota FROM _weifuwu_apps WHERE id = ${appId}`

@@ -23,6 +23,7 @@ interface SandboxItem {
   created_at: string
   last_used_at: string | null
   containerStatus: string | null
+  runningExec: { tool: string; startedAt: number; timeoutMs: number } | null
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -96,6 +97,15 @@ export const Sandboxes: Component = async (_props, ctx) => {
         三层模型：一个群聊部门 = 一个共享工作目录 + 一个沙盒环境——部门内所有 Agent 的工具（read/write/bash）都在该环境执行。
         空闲 10 分钟自动停止（瞬态保留、恢复快），停止超 24 小时自动终止（释放磁盘）。文件状态永远在卷（工作目录）——环境重建无损。
       </div>
+
+      {/* 2026-12 并发聚合：执行中任务（P4） */}
+      {sandboxes.filter((s) => s.runningExec).length > 0 && (
+        <div class="wf-bg-brand wf-p-sm wf-rounded wf-text-xs wf-text-on-brand">
+          ▶ 执行中 {sandboxes.filter((s) => s.runningExec).length} 个环境正在运行任务：
+          {sandboxes.filter((s) => s.runningExec).slice(0, 4).map((s) => `${s.name}(${s.runningExec?.tool})`).join(' · ')}
+          {sandboxes.filter((s) => s.runningExec).length > 4 ? ' …' : ''}
+        </div>
+      )}
 
       {/* M5-1 配额用量 + 压力告警（≥80% 黄条） */}
       {quota && (

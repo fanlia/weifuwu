@@ -39,6 +39,22 @@ import { registerUiRoutes } from './src/ui/routes.ts'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 async function main() {
+  // 2026-12 外部地址推导：PUBLIC_BASE_URL 未配置或含 localhost 时推导宿主 IP——
+  // 消息/问卷链接给可达地址（容器内 AI 访问宿主用 host.docker.internal——提示词已有）
+  try {
+    if (!process.env.PUBLIC_BASE_URL || process.env.PUBLIC_BASE_URL.includes('localhost')) {
+      // 纯 JS 获取宿主 IP（node:os——不依赖 hostname/ip 命令，容器/精简环境可靠）
+      const os = await import('node:os')
+      const nets = os.networkInterfaces()
+      const ip = Object.values(nets)
+        .flat()
+        .find((n) => n?.family === 'IPv4' && !n.internal)?.address
+      if (ip) {
+        process.env.PUBLIC_BASE_URL = `http://${ip}:${process.env.PORT ?? 3000}`
+        console.log(`[agent-platform] PUBLIC_BASE_URL 自动推导：${process.env.PUBLIC_BASE_URL}`)
+      }
+    }
+  } catch { /* 推导失败用默认 */ }
   const app = new Router<AppCtx>()
 
   // ── 指标收集（内存计数器——/api/metrics 暴露） ─────────────────
@@ -566,6 +582,14 @@ async function main() {
   app.get('/api/metrics', async () => {
     const m = (globalThis as any).__platform_metrics ?? {}
     const uptime = Math.round((Date.now() - (m.startTime ?? Date.now())) / 1000)
+    // 2026-12 运维：pg 连接池水位（池耗尽预警——演示事故的预防）
+    let pgActive = -1
+    let pgTotal = -1
+    try {
+      const [row] = await pg.sql`SELECT count(*) FILTER (WHERE state = 'active')::int as active, count(*)::int as total FROM pg_stat_activity`
+      pgActive = Number((row as any)?.active ?? -1)
+      pgTotal = Number((row as any)?.total ?? -1)
+    } catch { /* 查询失败 */ }
     // M6-2：沙盒生命周期计数（manager.counters + 执行器 execStats）
     let sb: Record<string, unknown> = {}
     try {
@@ -600,6 +624,7 @@ async function main() {
       webhooks: m.webhooks ?? 0,
       sandboxCalls: m.sandboxCalls ?? 0,
       sandbox: sb,
+      pgConnections: { active: pgActive, total: pgTotal },
       memMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
     })
   })
@@ -633,6 +658,80 @@ async function main() {
   await registerWorkspaceRoutes(protectedRoutes)
   // 部门
   registerDepartmentRoutes(protectedRoutes)
+  // P1 任务执行总览：部门执行状态聚合（复用 sandbox_events/runningExecs/产物 mtime）
+  protectedRoutes.get('/api/departments/:id/executions', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const [dept] = await sql`SELECT id FROM departments WHERE id = ${params.id} AND app_id = ${appId}`
+    if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    const { manager } = await import('./src/sandbox/manager.ts')
+    manager.init(sql)
+    const { sandbox } = await import('./src/sandbox/docker.ts')
+    // 成员（ai/department——可执行角色）
+    const members = await sql`
+      SELECT a.id, a.name, a.role_label, a.type, a.department_id
+      FROM department_members dm JOIN agents a ON a.id = dm.agent_id
+      WHERE dm.department_id = ${params.id} AND a.type IN ('ai', 'department')
+    `
+    // 部门最近**用户**消息时间（任务派发起点——AI 回复会推后时间导致早期完成者误判 stalled）
+    const [lastMsg] = await sql`SELECT MAX(m.created_at) as at FROM messages m JOIN agents a ON a.id = m.sender_id WHERE m.department_id = ${params.id} AND a.type = 'user'`
+    const taskStart = lastMsg?.at ? new Date(String(lastMsg.at)).getTime() : Date.now()
+    const now = Date.now()
+    const tasks = []
+    for (const m of members ?? []) {
+      const agentId = String((m as any).id)
+      const execDeptId = (m as any).department_id ? String((m as any).department_id) : String(params.id)
+      // 执行归属沙盒（角色独立部门沙盒 / 当前部门沙盒）
+      let sb = null
+      try { sb = await manager.byDepartment(execDeptId) } catch { sb = null }
+      const running = sb ? sandbox.runningExecs.get(String(sb.id)) ?? null : null
+      // 最近事件（exec 链路）
+      let lastEvent: { type: string; detail: string | null; created_at: string } | null = null
+      let recentFailed = false
+      if (sb) {
+        const events = await manager.eventHistory(String(sb.id), 10)
+        lastEvent = events[0] ?? null
+        recentFailed = events.some((e) => (e.type.includes('error') || e.type.includes('timeout')) && now - new Date(e.created_at).getTime() < 10 * 60_000)
+      }
+      // 产物文件（执行归属目录最新文件 mtime）
+      let artifact: { path: string; mtime: number } | null = null
+      try {
+        const { resolveDepartmentWorkspace } = await import('./src/middleware/workspace.ts')
+        const ws = await resolveDepartmentWorkspace(execDeptId, null, true)
+        if (ws) {
+          const { readdir, stat } = await import('node:fs/promises')
+          const { join } = await import('node:path')
+          const entries = await readdir(ws).catch(() => [])
+          let latest: { path: string; mtime: number } | null = null
+          for (const e of entries) {
+            if (e.startsWith('.')) continue
+            try {
+              const st = await stat(join(ws, e))
+              if (st.isFile() && (!latest || st.mtimeMs > latest.mtime)) latest = { path: e, mtime: st.mtimeMs }
+            } catch { /* 跳过 */ }
+          }
+          artifact = latest
+        }
+      } catch { /* 产物扫描失败 */ }
+      // 状态推导（2026-12）：working > failed > done > stalled > waiting > idle
+      let status: 'working' | 'failed' | 'done' | 'stalled' | 'waiting' | 'idle' = 'idle'
+      const artifactNew = artifact && artifact.mtime > taskStart
+      if (running) status = 'working'
+      else if (recentFailed && !artifactNew) status = 'failed'
+      else if (artifactNew) status = 'done'
+      else if (now - taskStart > 5 * 60_000 && !artifactNew) status = 'stalled'
+      else if (now - taskStart > 30_000) status = 'waiting'
+      tasks.push({
+        agentId, name: String((m as any).name), roleLabel: (m as any).role_label ?? null,
+        type: String((m as any).type),
+        status,
+        runningExec: running ? { tool: running.tool, elapsedMs: now - running.startedAt, timeoutMs: running.timeoutMs } : null,
+        lastEvent: lastEvent ? { type: lastEvent.type, detail: lastEvent.detail, created_at: lastEvent.created_at } : null,
+        artifact: artifactNew && artifact ? { path: artifact.path, mtime: new Date(artifact.mtime).toISOString() } : null,
+      })
+    }
+    const done = tasks.filter((t) => t.status === 'done').length
+    return Response.json({ tasks, progress: { done, total: tasks.length } })
+  })
   // 沙盒（一级概念：计算资源——CRUD + 生命周期操作）
   registerSandboxRoutes(protectedRoutes)
   // 消息

@@ -20,6 +20,9 @@ interface DepartmentDetailState {
   artifactReview: boolean
   pendingArtifacts: Array<{ path: string; size: number; mtime: string }>
   reviewBusy: string
+  // 执行面板（P1 任务总览：成员执行状态）
+  executions: any[] | null
+  execProgress: { done: number; total: number } | null
 }
 
 export const DepartmentDetail: Component = async (_props, ctx) => {
@@ -31,6 +34,16 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
   $.showMemberPicker = false; $.allAgents = []; $.picked = []; $.managing = false
   $.sandbox = null; $.sbBusy = ''
   $.artifactReview = false; $.pendingArtifacts = []; $.reviewBusy = ''
+  $.executions = null; $.execProgress = null
+
+  // 执行面板（2026-12：AI 成员执行状态总览——演示可见性）
+  const loadExecutions = () => {
+    if (!deptId || $.dept?.is_dm) return
+    void ctx.api!.get<any>(`/api/departments/${deptId}/executions`).then((d) => {
+      $.executions = d.tasks ?? []; $.execProgress = d.progress ?? null
+      rerender()
+    }).catch(() => {})
+  }
 
   // 产物审批（开关 + 待审列表）
   const loadReview = () => {
@@ -88,7 +101,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
           $.artifactReview = !!d.artifact_review
           $.loading = false
           rerender()
-          if (!d.is_dm) loadReview()
+          if (!d.is_dm) { loadReview(); loadExecutions() }
         }).catch(() => { $.loading = false; rerender() })
     }
     loadDept()
@@ -240,6 +253,52 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
             </div>
           )}
         </Card>
+
+      {/* 执行面板（2026-12：任务总览——AI 成员执行状态/进度） */}
+      <Card id="sec-executions">
+        <div class="wf-row wf-gap-sm wf-mb-sm">
+          <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="activity" size={14} /> 执行面板</div>
+          <Button size="sm" variant="ghost" onClick={loadExecutions}><Icon name="refresh" size={13} /> 刷新</Button>
+        </div>
+        {$.execProgress && (
+          <div class="wf-text-xs wf-text-tertiary wf-mb-sm">
+            进度 {$.execProgress.done}/{$.execProgress.total} 完成
+            {$.execProgress.done > 0 && <span class="wf-text-secondary"> · AI 成员执行状态实时更新（执行中角色用浏览器真实操作）</span>}
+          </div>
+        )}
+        {$.executions === null ? (
+          <div class="wf-text-sm wf-text-tertiary">加载中...</div>
+        ) : $.executions.length === 0 ? (
+          <div class="wf-text-sm wf-text-tertiary">暂无 AI 成员——添加后此处显示执行状态</div>
+        ) : (
+          <div class="wf-stack wf-gap-none">
+            {$.executions.map((t: any) => (
+              <div key={t.agentId} class="wf-row wf-gap-sm wf-py-sm wf-border-b wf-items-center">
+                <span class={`wf-text-base ${t.status === 'working' ? 'wf-text-brand' : t.status === 'failed' ? 'wf-text-danger' : t.status === 'done' ? 'wf-text-success' : 'wf-text-tertiary'}`}>
+                  {t.status === 'working' ? '▶' : t.status === 'done' ? '✅' : t.status === 'failed' ? '⚠️' : t.status === 'stalled' ? '⏸' : '○'}
+                </span>
+                <span class="wf-text-sm wf-text-medium wf-truncate" style="width: 90px">{t.name}</span>
+                <span class="wf-text-xs wf-fill wf-truncate wf-text-tertiary">
+                  {t.status === 'working' && t.runningExec
+                    ? `执行中：${t.runningExec.tool}（${Math.round(t.runningExec.elapsedMs / 1000)}s）`
+                    : t.status === 'done'
+                      ? `已完成：${t.artifact?.path ?? '产物'} ${t.artifact ? new Date(t.artifact.mtime).toLocaleTimeString() : ''}`
+                      : t.status === 'failed'
+                        ? `失败：${t.lastEvent?.detail ?? '执行错误'}`
+                        : t.status === 'stalled'
+                          ? '卡住：超 5 分钟无进展（可重新派发）'
+                          : t.status === 'waiting'
+                            ? '等待响应...'
+                            : '空闲'}
+                </span>
+                {t.lastEvent && t.status !== 'done' && (
+                  <span class="wf-text-xs wf-text-tertiary wf-nums">{new Date(t.lastEvent.created_at).toLocaleTimeString()}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* 产物审批（2026-12）：AI 产出 → 批准发布到共享目录 */}
       <Card id="sec-artifacts">

@@ -24,6 +24,19 @@ import { SkillRegistry, loadSkill } from './skills.ts'
  * 流式事件：框架 wf:* 协议（AI 回合事件）+ 应用层元数据（messageId/agentId）。
  * 业务事件（new_message/message_edited/message_deleted/ai_draft）仍为应用自有类型。
  */
+/** 2026-12：惰性回复自动重试计数（防循环——每 agent 10 分钟窗口内最多重试 1 次） */
+const retryCounts = new Map<string, { count: number; at: number }>()
+function canAutoRetry(agentId: string): boolean {
+  const r = retryCounts.get(agentId)
+  if (!r || Date.now() - r.at > 10 * 60_000) {
+    retryCounts.set(agentId, { count: 0, at: Date.now() })
+    return true
+  }
+  if (r.count >= 1) return false
+  r.count++
+  return true
+}
+
 export interface StreamEvent {
   type: 'wf:step' | 'wf:token' | 'wf:tool_result' | 'wf:done' | 'wf:error' | 'wf:usage' | 'wf:verify'
   messageId: string
@@ -291,8 +304,14 @@ export async function handleNewMessage(
       try {
         const { extractArtifactPaths, verifyArtifacts, buildVerifyMark } = await import('./artifact-verify.ts')
         const claimed = extractArtifactPaths(content)
+        // 执行归属部门（与流式路径一致）
+        let verifyDeptId = String(departmentId)
+        try {
+          const [agRow] = await sql`SELECT department_id FROM agents WHERE id = ${agent.id}`
+          if ((agRow as any)?.department_id) verifyDeptId = String((agRow as any).department_id)
+        } catch { /* 查询失败用当前部门 */ }
         if (claimed.length > 0) {
-          const { verified, missing, stale } = await verifyArtifacts(sql, String(departmentId), claimed, taskStartedAt)
+          const { verified, missing, stale } = await verifyArtifacts(sql, verifyDeptId, claimed, taskStartedAt)
           if (verified.length > 0 || missing.length > 0 || stale.length > 0) {
             verifiedContent = content + buildVerifyMark(verified, missing, stale)
           }
@@ -385,6 +404,8 @@ async function runAgentStreamForAgent(
   const isExternalMsg = !!initialMsgId
   // 2026-12：任务开始时间（产物验证区分新旧——旧文件不算「已验证」）
   const taskStartedAt = Date.now()
+  // 2026-12：工具调用计数（惰性回复检测——本轮 0 次工具调用 = 只回复计划）
+  let toolCallCount = 0
   // P1-3：最近一次工具调用的 args（write/edit 文件变动广播用——工具名→args 映射）
   const lastToolArgs = new Map<string, Record<string, unknown>>()
   const lastToolArgsOf = (name: string): Record<string, unknown> | null => lastToolArgs.get(name) ?? null
@@ -474,6 +495,7 @@ async function runAgentStreamForAgent(
       },
       onToolCall: (toolCall: { name: string; args: string }) => {
         emit.emit({ type: 'wf:step', messageId: msgId, stepType: 'tool', name: toolCall.name, args: toolCall.args })
+        toolCallCount++
         // P1-3：记录工具参数（write/edit 成功时广播 file_updated）
         try { lastToolArgs.set(String(toolCall.name), JSON.parse(String(toolCall.args ?? '{}'))) } catch { /* 解析失败跳过 */ }
       },
@@ -552,8 +574,14 @@ async function runAgentStreamForAgent(
     try {
       const { extractArtifactPaths, verifyArtifacts, buildVerifyMark } = await import('./artifact-verify.ts')
       const claimed = extractArtifactPaths(accumulatedContent)
+      // 执行归属部门（角色在问卷调研被 @ 时产物写在 agents.department_id 的部门——验证也查那里）
+      let verifyDeptId = String(departmentId)
+      try {
+        const [agRow] = await sql`SELECT department_id FROM agents WHERE id = ${agent.id}`
+        if ((agRow as any)?.department_id) verifyDeptId = String((agRow as any).department_id)
+      } catch { /* 查询失败用当前部门 */ }
       if (claimed.length > 0) {
-        const { verified, missing, stale } = await verifyArtifacts(sql, String(departmentId), claimed, taskStartedAt)
+        const { verified, missing, stale } = await verifyArtifacts(sql, verifyDeptId, claimed, taskStartedAt)
         if (verified.length > 0 || missing.length > 0 || stale.length > 0) {
           const mark = buildVerifyMark(verified, missing, stale)
           accumulatedContent = accumulatedContent + mark
@@ -562,6 +590,22 @@ async function runAgentStreamForAgent(
         }
       }
     } catch { /* 验证失败不阻断 */ }
+    // 2026-12 可靠性：惰性回复检测——本轮 0 次工具调用 = AI 只回复计划没干活
+    // （研发大刘演示事故：看到旧结果只回复「收到」不执行）→ 自动重发一次（防循环）
+    if (toolCallCount === 0 && accumulatedContent.trim() && !streamFailed) {
+      try {
+        if (canAutoRetry(String(agent.id))) {
+          const [sender] = await sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'user' LIMIT 1`
+          const senderId = sender ? String(sender.id) : 'system'
+          const retryContent = `@${agent.name} 【系统自动重试】你上一轮只回复了计划、没有实际调用任何工具执行。请立即实际执行任务（调用工具完成），不要只回复计划。`
+          const { handleNewMessageStream } = await import('./chat.ts')
+          await sql`INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
+            VALUES (${departmentId}, ${senderId}, ${retryContent}, 'system', TRUE)`
+          console.warn(`[chat] ${agent.name} 惰性回复（0 工具调用）——自动重试`)
+          void handleNewMessageStream(ctx, String(departmentId), senderId, retryContent, '').catch(() => {})
+        }
+      } catch { /* 重试失败不阻断 */ }
+    }
     emit.emit({ type: 'wf:done', messageId: msgId, content: accumulatedContent, usage: finalUsage })
   }
 
