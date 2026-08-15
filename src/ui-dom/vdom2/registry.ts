@@ -75,6 +75,10 @@ export function safeCallRef(
 export function callRefCleanupFor(input: any, reg: Registry): void {
   if (input == null || typeof input !== 'object') return
   const vnode = input as VNode
+  // 已清理（disposed）——跳过（幂等：_child 已置空/ref 已调/注册已删——重复递归无意义）。
+  // 真实观察：callRefCleanupFor 经 _child 链 + props.children 链多次到达同一 vnode →
+  // 重复 DISPOSE（transition 非法 → '?' 事件噪音 + 重复 ref 清理）
+  if (vnode._lifecycle === 'disposed') return
 
   // 组件卸载：从 idRegistry 注销并清除渲染状态
   if (vnode._id) {
