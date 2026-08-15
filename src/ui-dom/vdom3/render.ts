@@ -12,6 +12,7 @@ import type { VNode, VNodeChild } from './types.ts'
 import { Fragment } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
 import { NodeRegistry } from './registry.ts'
+import { runUnmountHooks } from './build.ts'
 
 /** 全局节点注册表（id ↔ Node——事件流指令定位） */
 export const registry = new NodeRegistry()
@@ -154,6 +155,7 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
 
   // 异类型：旧组件 → COMP_UNMOUNT；移除旧 + 渲染新
   if (oldIsVNode && typeof (oldV as VNode).type === 'function' && (oldV as VNode)._id) {
+    runUnmountHooks((oldV as VNode)._id!)
     stream.emit({ type: 'COMP_UNMOUNT', id: (oldV as VNode)._id!, name: compName((oldV as VNode).type), ts: Date.now() })
   }
   if (oldIsVNode) {

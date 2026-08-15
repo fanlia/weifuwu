@@ -9,6 +9,14 @@ import type { VNode, VNodeChild, Component } from './types.ts'
 import { Fragment } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
 
+/** 组件卸载钩子注册表（组件 id → 清理函数——COMP_UNMOUNT 时调用） */
+const unmountHooks = new Map<string, () => void>()
+
+export function runUnmountHooks(id: string): void {
+  const h = unmountHooks.get(id)
+  if (h) { try { h() } catch { /* 清理错误隔离 */ } unmountHooks.delete(id) }
+}
+
 export function isVNode(v: unknown): v is VNode {
   return v != null && typeof v === 'object' && !Array.isArray(v) && 'type' in (v as any)
 }
@@ -27,7 +35,13 @@ export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, old
     } else {
       vnode._id = nextNodeId()
       stream.emit({ type: 'COMP_MOUNT', id: vnode._id, name: compName(vnode.type), ts: Date.now() })
-      vnode._render = await (vnode.type as Component)(vnode.props, ctx)
+      // 组件 ctx：onUnmount 钩子（卸载清理注册——COMP_UNMOUNT 时执行）
+      const compId = vnode._id
+      const compCtx = {
+        ...ctx,
+        onUnmount: (fn: () => void) => { unmountHooks.set(compId, fn) },
+      }
+      vnode._render = await (vnode.type as Component)(vnode.props, compCtx)
     }
     const output = await vnode._render!(vnode.props)
     if (output == null) { vnode.children = []; return vnode }

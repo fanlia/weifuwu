@@ -307,3 +307,86 @@ test('断言：expectEventSequence——渲染 = 事件序列（精确断言）'
   assert.ok(threw, '序列不符 → 抛错')
   document.body.removeChild(root)
 })
+
+// ── P3 路由：ROUTE_CHANGE → location→DOM 全链路事件流 ──
+
+test('路由：navigate → ROUTE_CHANGE 事件 → 页面挂载（全链路事件流）', async () => {
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  stream.reset()
+  const root = mkRoot()
+  const Home = async (_init: any, _ctx: any) => async () => h('div', { id: 'home' }, '首页')
+  const About = async (_init: any, _ctx: any) => async () => h('div', { id: 'about' }, '关于')
+  const router = createRouter([
+    { path: '/', render: () => h(Home, {}) },
+    { path: '/about', render: () => h(About, {}) },
+  ], root, { initialPath: '/' })
+  await new Promise((r) => setTimeout(r, 10))
+  assert.ok(root.querySelector('[id="home"]'), '首帧渲染（/ → Home）')
+
+  router.navigate('/about')
+  await new Promise((r) => setTimeout(r, 10))
+  assert.ok(root.querySelector('[id="about"]'), '导航 → About 渲染')
+  assert.ok(!root.querySelector('[id="home"]'), 'Home 移除（页面切换）')
+
+  const events = stream.events()
+  const routeEvts = events.filter((e) => e.type === 'ROUTE_CHANGE')
+  assert.equal(routeEvts.length, 2, 'ROUTE_CHANGE 事件（初始 + 导航）')
+  assert.equal((routeEvts[1] as any).path, '/about', '导航事件携带 path')
+  // 全链路：ROUTE_CHANGE → COMP_MOUNT → NODE_CREATE → INSERT
+  const seq = events.slice(events.findIndex((e) => e.type === 'ROUTE_CHANGE' && (e as any).path === '/about'))
+  assert.ok(seq.some((e) => e.type === 'COMP_MOUNT'), '导航后 COMP_MOUNT（页面组件）')
+  assert.ok(seq.some((e) => e.type === 'NODE_CREATE'), '导航后 NODE_CREATE')
+  assert.ok(seq.some((e) => e.type === 'INSERT'), '导航后 INSERT')
+  assert.ok(seq.some((e) => e.type === 'COMP_UNMOUNT'), '导航后 COMP_UNMOUNT（旧页面）')
+  router.close()
+  document.body.removeChild(root)
+})
+
+test('路由：参数解析（:id）→ params 注入 → ROUTE_CHANGE 携带', async () => {
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  stream.reset()
+  const root = mkRoot()
+  let seenParams: Record<string, string> = {}
+  const User = async (_init: any, _ctx: any) => async (props: any) => h('div', { id: 'user' }, [`user:${props.params?.id ?? '?'}`])
+  const router = createRouter([
+    { path: '/user/:id', render: (params) => { seenParams = params; return h(User, { params }) } },
+  ], root, { initialPath: '/user/123' })
+  await new Promise((r) => setTimeout(r, 10))
+  assert.ok(root.querySelector('[id="user"]'), '用户页渲染')
+  assert.equal(root.querySelector('[id="user"]')?.textContent, 'user:123', 'params 注入渲染')
+  assert.equal(seenParams.id, '123', 'params 解析')
+  const routeEvt = stream.events().find((e) => e.type === 'ROUTE_CHANGE') as any
+  assert.equal(routeEvt.params.id, '123', 'ROUTE_CHANGE 携带 params')
+  router.close()
+  document.body.removeChild(root)
+})
+
+// ── P4 生命周期：onUnmount 钩子（卸载清理） ──
+
+test('生命周期：组件卸载 → onUnmount 钩子执行（清理注册的副作用）', async () => {
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  stream.reset()
+  const root = mkRoot()
+  let cleaned = 0
+  let timerId: ReturnType<typeof setInterval> | null = null
+  const Home = async (_init: any, ctx: any) => {
+    // 组件挂载：注册定时器 + onUnmount 清理
+    timerId = setInterval(() => {}, 1000)
+    ctx.onUnmount?.(() => { cleaned++; if (timerId) { clearInterval(timerId); timerId = null } })
+    return async () => h('div', { id: 'home' }, '首页')
+  }
+  const About = async (_init: any, _ctx: any) => async () => h('div', { id: 'about' }, '关于')
+  const router = createRouter([
+    { path: '/', render: () => h(Home, {}) },
+    { path: '/about', render: () => h(About, {}) },
+  ], root, { initialPath: '/' })
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(cleaned, 0, '初始：未清理')
+
+  router.navigate('/about')
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(cleaned, 1, '导航离开 → onUnmount 执行（定时器清理）')
+  assert.equal(timerId, null, '定时器已清（资源释放）')
+  router.close()
+  document.body.removeChild(root)
+})
