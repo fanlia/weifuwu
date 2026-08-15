@@ -61,7 +61,8 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
       continue
     }
     if (val != null && val !== false) {
-      el.setAttribute(key, String(val))
+      if (key === 'value' && el instanceof HTMLInputElement) el.value = String(val)
+      else el.setAttribute(key, String(val))
       stream.emit({ type: 'PROP_UPDATE', target: id, key, value: val, prev: '', ts: Date.now() })
     }
   }
@@ -189,8 +190,14 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
       }
       continue
     }
-    if (nv == null || nv === false) el.removeAttribute(key)
-    else el.setAttribute(key, String(nv))
+    if (nv == null || nv === false) {
+      if (key === 'value' && el instanceof HTMLInputElement) (el as HTMLInputElement).value = ''
+      else el.removeAttribute(key)
+    } else if (key === 'value' && el instanceof HTMLInputElement) {
+      ;(el as HTMLInputElement).value = String(nv)
+    } else {
+      el.setAttribute(key, String(nv))
+    }
     stream.emit({ type: 'PROP_UPDATE', target, key, value: nv, prev: ov ?? '', ts: Date.now() })
   }
 }

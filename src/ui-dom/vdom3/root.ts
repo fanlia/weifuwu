@@ -24,6 +24,8 @@ export interface RootHandle {
   /** 立即刷新（测试） */
   flush(): void
   unmount(): void
+  /** 首帧完成 Promise（初始挂载——工厂 await + 渲染落地） */
+  ready: Promise<void>
 }
 
 /** 创建应用根（挂载组件树——组件获得 ctx.render 调度能力） */
@@ -63,8 +65,13 @@ export function createRoot(vnode: VNode, root: HTMLElement): RootHandle {
     },
   }
 
+  // ready = 首帧完成 Promise
+  let readyResolve!: () => void
+  const ready = new Promise<void>((res) => { readyResolve = res })
+
   const handle: RootHandle = {
     ctx,
+    ready,
     rerender: () => scheduler.schedule(() => void update()),
     flush: () => scheduler.flush(),
     unmount() {
@@ -79,9 +86,13 @@ export function createRoot(vnode: VNode, root: HTMLElement): RootHandle {
 
   // 初始挂载（组件构建——ctx 注入）
   void (async () => {
-    await buildVNode(vnode, ctx as unknown as Record<string, unknown>)
-    mount(vnode, root)
-    current = vnode
+    try {
+      await buildVNode(vnode, ctx as unknown as Record<string, unknown>)
+      mount(vnode, root)
+      current = vnode
+    } finally {
+      readyResolve()
+    }
   })()
 
   return handle
