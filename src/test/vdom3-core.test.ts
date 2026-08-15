@@ -175,3 +175,70 @@ test('组件：事件流包含 COMP_MOUNT（挂载即事件——引擎本体）
   assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'span'), '组件内部节点创建事件（全链路）')
   document.body.removeChild(root)
 })
+
+// ── P1 调度：render 合并 / 批处理 / 防死循环 ──
+
+test('调度：同 tick 多次 render → 合并为一次更新（renderFn 不重复执行）', async () => {
+  const { Scheduler } = await import('../ui-dom/vdom3/scheduler.ts')
+  const sched = new Scheduler()
+  let runs = 0
+  const fn = () => { runs++ }
+  // 同 tick 3 次 schedule → flush 一次执行 3 个（或合并）
+  sched.schedule(fn)
+  sched.schedule(fn)
+  sched.schedule(fn)
+  assert.equal(sched.pending(), 3, '3 个待处理')
+  await new Promise((r) => setTimeout(r, 10)) // 微任务 flush
+  assert.equal(runs, 3, 'flush 执行 3 个')
+  assert.equal(sched.pending(), 0, '队列清空')
+})
+
+test('调度：flush 中再次 schedule → 下一轮补跑（不死循环）', async () => {
+  const { Scheduler } = await import('../ui-dom/vdom3/scheduler.ts')
+  const sched = new Scheduler()
+  let count = 0
+  const fn = () => {
+    count++
+    if (count < 3) sched.schedule(fn) // 渲染中再触发（补跑）
+  }
+  sched.schedule(fn)
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(count, 3, '补跑至稳定（不死循环——上限内）')
+})
+
+test('调度：无限重渲染 → 循环上限截断（防死循环——vdom2 pending 教训）', async () => {
+  const { Scheduler } = await import('../ui-dom/vdom3/scheduler.ts')
+  const sched = new Scheduler()
+  let count = 0
+  const fn = () => { count++; sched.schedule(fn) } // 无限自触发
+  const errs: string[] = []
+  const oe = console.error
+  console.error = (...a: any[]) => { errs.push(String(a[0])); oe(...a) }
+  try {
+    sched.schedule(fn)
+    await new Promise((r) => setTimeout(r, 20))
+  } finally {
+    console.error = oe
+  }
+  assert.ok(errs.some((e) => e.includes('渲染循环超限')), '循环超限报错（截断）')
+  assert.ok(count < 100, `截断（count=${count}）`)
+})
+
+test('createRoot：组件 ctx.render → 调度重渲染（内部状态更新 → DOM 更新）', async () => {
+  const { createRoot, h } = await import('../ui-dom/vdom3/index.ts')
+  const root = mkRoot()
+  let count = 0
+  const Counter = async (_init: any, ctx: any) => {
+    return async (_props: any) => h('div', { id: 'c' }, [`count:${count}`])
+  }
+  const tree = h(Counter, {})
+  const handle = createRoot(tree, root)
+  await new Promise((r) => setTimeout(r, 10)) // 初始挂载（异步构建）
+  assert.equal(root.querySelector('#c')?.textContent, 'count:0', '初始渲染')
+
+  count = 1
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(root.querySelector('#c')?.textContent, 'count:1', '调度重渲染（DOM 更新）')
+  document.body.removeChild(root)
+})

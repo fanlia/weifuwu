@@ -24,5 +24,7 @@
 export { h, Fragment } from './jsx.ts'
 export { mount, patch } from './render.ts'
 export { buildVNode, isVNode } from './build.ts'
+export { createRoot } from './root.ts'
+export { scheduler, Scheduler } from './scheduler.ts'
 export { createEventStream, stream, nextNodeId } from './events.ts'
 export type { VNode, VNodeChild, V3Event, EventStream, Renderer } from './types.ts'
