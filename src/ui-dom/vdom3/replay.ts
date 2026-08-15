@@ -13,54 +13,57 @@
 import type { V3Event, EventStream } from './types.ts'
 import { NodeRegistry } from './registry.ts'
 
+/** 应用单个事件（流式客户端逐事件消费——replay 循环的拆解） */
+export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry): void {
+  switch (ev.type) {
+    case 'NODE_CREATE': {
+      const el = document.createElement(ev.tag)
+      el.setAttribute('data-v3-id', ev.id)
+      reg.register(ev.id, el)
+      break
+    }
+    case 'TEXT_CREATE': {
+      const t = document.createTextNode(ev.value)
+      reg.register(ev.id, t)
+      break
+    }
+    case 'INSERT': {
+      const parent = ev.parent === NodeRegistry.ROOT ? target : reg.get(ev.parent)
+      const child = reg.get(ev.child)
+      const ref = ev.ref ? reg.get(ev.ref) : null
+      if (parent && child) {
+        if (ref && ref.parentNode === parent) parent.insertBefore(child, ref)
+        else parent.appendChild(child)
+      }
+      break
+    }
+    case 'REMOVE': {
+      const child = reg.get(ev.child)
+      if (child?.parentNode) child.parentNode.removeChild(child)
+      break
+    }
+    case 'PROP_UPDATE': {
+      const el = reg.get(ev.target)
+      if (el?.nodeType === 1) {
+        if (ev.value == null || ev.value === false) (el as Element).removeAttribute(ev.key)
+        else (el as Element).setAttribute(ev.key, String(ev.value))
+      }
+      break
+    }
+    case 'TEXT_UPDATE': {
+      const el = reg.get(ev.target)
+      if (el?.nodeType === 3) el.nodeValue = ev.value
+      break
+    }
+    default: break // ROUTE/COMP_* 非 DOM 指令——跳过
+  }
+}
+
 /** 回放事件流到目标容器（DOM = fold(events)——结果与原始渲染同构） */
 export function replay(events: V3Event[], target: HTMLElement, reg = new NodeRegistry()): void {
   reg.register(NodeRegistry.ROOT, target)
   target.innerHTML = ''
-  for (const ev of events) {
-    switch (ev.type) {
-      case 'NODE_CREATE': {
-        const el = document.createElement(ev.tag)
-        el.setAttribute('data-v3-id', ev.id)
-        reg.register(ev.id, el)
-        break
-      }
-      case 'TEXT_CREATE': {
-        const t = document.createTextNode(ev.value)
-        reg.register(ev.id, t)
-        break
-      }
-      case 'INSERT': {
-        const parent = ev.parent === NodeRegistry.ROOT ? target : reg.get(ev.parent)
-        const child = reg.get(ev.child)
-        const ref = ev.ref ? reg.get(ev.ref) : null
-        if (parent && child) {
-          if (ref && ref.parentNode === parent) parent.insertBefore(child, ref)
-          else parent.appendChild(child)
-        }
-        break
-      }
-      case 'REMOVE': {
-        const child = reg.get(ev.child)
-        if (child?.parentNode) child.parentNode.removeChild(child)
-        break
-      }
-      case 'PROP_UPDATE': {
-        const el = reg.get(ev.target)
-        if (el?.nodeType === 1) {
-          if (ev.value == null || ev.value === false) (el as Element).removeAttribute(ev.key)
-          else (el as Element).setAttribute(ev.key, String(ev.value))
-        }
-        break
-      }
-      case 'TEXT_UPDATE': {
-        const el = reg.get(ev.target)
-        if (el?.nodeType === 3) el.nodeValue = ev.value
-        break
-      }
-      default: break // ROUTE/COMP_* 非 DOM 指令——跳过
-    }
-  }
+  for (const ev of events) applyEvent(ev, target, reg)
 }
 
 /** 取消：从事件流末尾取 n 个 DOM 指令 → 应用逆操作（撤销渲染变化） */

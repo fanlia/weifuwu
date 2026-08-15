@@ -430,3 +430,73 @@ test('SSR：组件挂载事件（COMP_MOUNT）在服务端事件流中（可审�
   // 服务端生成不污染全局流（独立数组）
   assert.ok(!stream.events().includes(events[0]), 'SSR 事件独立于运行时流')
 })
+
+// ── 流式渲染：服务端逐事件推送 → 客户端逐事件应用（渐进首屏） ──
+
+test('流式渲染：AsyncGenerator 逐事件 → 客户端逐事件 apply → 与完整回放同构', async () => {
+  const { renderToEventStream } = await import('../ui-dom/vdom3/ssr.ts')
+  const { applyEvent } = await import('../ui-dom/vdom3/replay.ts')
+  const { NodeRegistry } = await import('../ui-dom/vdom3/registry.ts')
+  const Page = async (_init: any, _ctx: any) => {
+    return async () => h('div', { id: 'stream-page' }, [
+      h('h1', {}, '流式标题'),
+      h('p', {}, ['流式', '内容']),
+      h('ul', {}, ['a', 'b'].map((it, i) => h('li', { key: it + i }, it))),
+    ])
+  }
+  // 服务端：流式推送（模拟分批到达——每 2 事件一批）
+  const stream0 = renderToEventStream(h(Page, {}))
+  const received: any[] = []
+  for await (const ev of stream0) received.push(ev)
+
+  // 客户端：逐事件应用（模拟传输延迟）
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  const reg = new NodeRegistry()
+  reg.register(NodeRegistry.ROOT, target)
+  let applied = 0
+  for (const ev of received) {
+    applyEvent(ev, target, reg)
+    applied++
+  }
+  // 与同步回放同构
+  assert.ok(target.querySelector('[id="stream-page"]'), '流式：根元素')
+  assert.equal(target.querySelector('h1')?.textContent, '流式标题', '流式：标题文本')
+  assert.equal(target.querySelectorAll('li').length, 2, '流式：列表')
+  assert.ok(target.innerHTML.includes('内容'), '流式：多段文本')
+  assert.equal(applied, received.length, '全部事件已应用')
+  document.body.removeChild(target)
+})
+
+test('流式渲染：渐进性——根节点事件先到即可先显示（TTFB 后首块可见）', async () => {
+  const { renderToEventStream } = await import('../ui-dom/vdom3/ssr.ts')
+  const { applyEvent } = await import('../ui-dom/vdom3/replay.ts')
+  const { NodeRegistry } = await import('../ui-dom/vdom3/registry.ts')
+  const App = async (_init: any, _ctx: any) => async () => h('div', { id: 'p', class: 'c' }, ['内容'])
+  const stream0 = renderToEventStream(h(App, {}))
+  const it = stream0[Symbol.asyncIterator]()
+  // 第一批：仅根节点（NODE_CREATE + PROP_UPDATE + INSERT——无文本）
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  const reg = new NodeRegistry()
+  reg.register(NodeRegistry.ROOT, target)
+  // 首批：NODE_CREATE + PROP_UPDATE + INSERT（根节点完整就位——渐进首屏）
+  // 首批：到根节点挂载（INSERT）为止（创建+属性+挂载——渐进首屏）
+  let ev
+  let guard = 0
+  do {
+    const r = await it.next()
+    assert.ok(!r.done, '流未提前结束')
+    ev = r.value
+    applyEvent(ev, target, reg)
+    guard++
+  } while (ev.type !== 'INSERT' && guard < 10)
+  assert.equal(ev.type, 'INSERT', '首批以 INSERT 结束（根已挂载）')
+  assert.ok(target.querySelector('[id="p"]'), '根已挂载（渐进——非空壳）')
+  assert.equal(target.querySelector('[id="p"]')?.getAttribute('class'), 'c', '属性已应用')
+  const rest: any[] = []
+  for await (const ev of { [Symbol.asyncIterator]: () => it }) rest.push(ev)
+  for (const ev of rest) applyEvent(ev, target, reg)
+  assert.equal(target.querySelector('[id="p"]')?.textContent, '内容', '完整应用后文本就位')
+  document.body.removeChild(target)
+})

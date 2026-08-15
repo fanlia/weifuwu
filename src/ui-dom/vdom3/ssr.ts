@@ -59,6 +59,48 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
   return events
 }
 
+/**
+ * 流式渲染：服务端逐事件推送（AsyncGenerator）→ 客户端逐事件应用
+ * ——TTFB 后首帧渐进（根节点先到 → 内容逐块）——vdom2 无法做到（HTML 需完整）
+ */
+export async function* renderToEventStream(vnode: VNode): AsyncGenerator<V3Event> {
+  // 组件构建（await 工厂/renderFn）
+  await buildVNode(vnode, {})
+  let uid = 0
+  const nextId = () => `s${++uid}`
+  const ts = Date.now()
+
+  const walk = function* (v: VNode, parentId: string): Generator<V3Event> {
+    if (typeof v.type === 'function') {
+      const out = v.children?.[0]
+      if (out && typeof out === 'object' && !Array.isArray(out)) yield* walk(out, parentId)
+      return
+    }
+    if (v.type === Fragment) {
+      for (const c of v.children ?? []) if (c && typeof c === 'object' && !Array.isArray(c)) yield* walk(c as VNode, parentId)
+      return
+    }
+    const id = nextId()
+    yield { type: 'NODE_CREATE', id, tag: v.type as string, ts }
+    for (const [k, val] of Object.entries(v.props ?? {})) {
+      if (k === 'key' || k === 'children') continue
+      if (typeof val === 'function') continue
+      if (val != null && val !== false) yield { type: 'PROP_UPDATE', target: id, key: k, value: val, prev: '', ts }
+    }
+    yield { type: 'INSERT', parent: parentId, child: id, ref: null, ts }
+    for (const c of v.children ?? []) {
+      if (typeof c === 'string' || typeof c === 'number') {
+        const tid = nextId()
+        yield { type: 'TEXT_CREATE', id: tid, value: String(c), ts }
+        yield { type: 'INSERT', parent: id, child: tid, ref: null, ts }
+      } else if (c && typeof c === 'object' && !Array.isArray(c)) {
+        yield* walk(c as VNode, id)
+      }
+    }
+  }
+  yield* walk(vnode, 'root')
+}
+
 /** 序列化（传输——事件流 JSON 化） */
 export function serializeEvents(events: V3Event[]): string {
   return JSON.stringify(events)
