@@ -5,6 +5,7 @@
  * createRouter（vdom3 路由——RouteDef.layout 布局复用）+ 页面路由。
  */
 import { api, auth, ws, i18n } from 'weifuwu/ui-dom'
+import { v3Confirm, v3Toast } from '../../../src/ui-dom/vdom3/commands.ts'
 import { createRouter, h } from '../../../src/ui-dom/vdom3/index.ts'
 
 import { AppLayout } from './components/AppLayout'
@@ -53,11 +54,9 @@ ctx = auth({
 })(ctx)
 ctx = i18n({ locale: 'zh-CN' })(ctx)
 ctx = ws({ url: '/ws' })(ctx)
-// 命令式 confirm/toast：vdom3 适配（portal 挂载）暂缺——页面可选链消费（?./!! 调用处按需 mock）
-ctx = Object.assign(ctx, {
-  confirm: async () => true,
-  toast: (_msg: string, _variant?: string) => {},
-})
+// 命令式 confirm/toast（vdom3 适配——createRoot 挂载 Confirm/Toast 组件）
+ctx = v3Confirm()(ctx)
+ctx = v3Toast()(ctx)
 
 // ── 路由（AppLayout 布局——跨路由复用） ──
 const layout = (page: any) => h(AppLayout, {}, page)

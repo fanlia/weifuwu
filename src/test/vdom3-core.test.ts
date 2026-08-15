@@ -1372,3 +1372,26 @@ test('入口形态：vdom2 中间件链复用（api/auth/i18n 注入 → vdom3 c
   globalThis.fetch = origFetch
   document.body.removeChild(root)
 })
+
+test('命令式 confirm（vdom3——createRoot 挂载 Confirm 组件 + Modal portal 退场）', async () => {
+  const { v3Confirm } = await import('../ui-dom/vdom3/commands.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  let ctx: any = {}
+  ctx = v3Confirm()(ctx)
+  // 触发 confirm（异步——Modal 渲染到 portal）
+  let result: boolean | null = null
+  const p = ctx.confirm('确定删除？', { title: '删除确认' }).then((r: boolean) => { result = r })
+  await new Promise((r) => setTimeout(r, 60))
+  assert.ok(document.querySelector('[id="__wf_portal"] .wf-modal'), 'confirm Modal 渲染（portal）')
+  assert.ok(document.querySelector('[id="__wf_portal"]')?.textContent?.includes('确定删除？'), 'confirm 文案')
+  // 点确定
+  const okBtn = [...document.querySelectorAll('[id="__wf_portal"] button')].find((b) => b.textContent?.includes('确定'))
+  assert.ok(okBtn, '确定按钮')
+  ;(okBtn as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(result, true, 'confirm resolve(true)')
+  await p
+  document.body.removeChild(root)
+  document.querySelector('[id="__wf_portal"]')?.remove()
+})
