@@ -5,18 +5,13 @@
  * 渲染流程：renderFn 重跑 → buildVNode（oldV 对照复用）→ patch（事件流 → DOM）。
  */
 
-import type { VNode } from './types.ts'
+import type { VNode, V3Ctx } from './types.ts'
 import { buildVNode } from './build.ts'
 import { patch, mount } from './render.ts'
 import { scheduler } from './scheduler.ts'
 import { stream } from './events.ts'
 
-export interface V3Ctx {
-  render: () => void
-  /** 组件自身输出（渲染定位） */
-  _vnode: VNode
-  _parent: Node | null
-}
+
 
 export interface RootHandle {
   ctx: V3Ctx
@@ -46,7 +41,7 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
         dirty = false
         // 统一重建：buildVNode（组件根 → renderFn 重跑复用实例；native 根 → 全树递归；
         // oldV 对照复用 _render）→ patch（事件流 → DOM）
-        const built = await buildVNode(vnode, ctx as unknown as Record<string, unknown>, current)
+        const built = await buildVNode(vnode, ctx, current)
         if (current == null) {
           mount(built, root)
         } else {
@@ -59,14 +54,13 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
     }
   }
 
-  const ctx: V3Ctx = {
+  const ctx = Object.assign(Object.create(options?.ctx ?? null), {
     _vnode: vnode,
     _parent: root,
-    ...(options?.ctx ?? {}),
     render() {
       scheduler.schedule(() => void update())
     },
-  } as V3Ctx
+  }) as V3Ctx
 
   // ready = 首帧完成 Promise
   let readyResolve!: () => void
@@ -89,7 +83,7 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
   // 初始挂载（组件构建——ctx 注入）
   void (async () => {
     try {
-      const built = await buildVNode(vnode, ctx as unknown as Record<string, unknown>)
+      const built = await buildVNode(vnode, ctx)
       mount(built, root)
       current = built
     } finally {

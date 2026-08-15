@@ -20,43 +20,16 @@ import { useGlobalKey, useDrag, useDragDrop } from '../hooks/events.ts'
 import { useChat } from '../hooks/chat.ts'
 import { createClientBrowser } from '../browser.ts'
 
-/** 组件 ctx.ui（vdom2 兼容面）——组件库零改动运行 */
-export interface V3Ui {
-  render(ids?: string[]): void
-  onUnmount(fn: () => void): (() => void) | undefined
-  selfId(name: string): void
-  useExternal(store: any): any
-  useControlled(options: any): any
-  useControlledInput(options: any): any
-  useOpen(options: any): any
-  usePopup(options: any): any
-  usePopupPosition(options: any): any
-  useTween(target: number, opts?: any): any
-  useInView(options?: any): any
-  useScrollPosition(options?: any): any
-  useGlobalKey(handler: (e: KeyboardEvent) => void): () => void
-  useDrag(options?: any): any
-  useDragDrop(options?: any): any
-  useMedia(query: string, callback: (matches: boolean) => void): void
-  useBreakpoint(bps: any, callback?: any): void
-  useReducedMotion(): boolean
-  useStableRef(init: any, cleanup?: any): any
-  useAnimationEnd(cb: any, opts?: any): any
-  usePresence(options?: any): any
-  useLongPress(options?: any): any
-  useHoverCapable(): boolean
-  useVisualViewport(): any
-  useAsync(fetcher: any): any
-  useChat(options: any): any
-  [key: string]: any
-}
+/** 组件 ctx.ui（vdom2 兼容面——V3Ui 类型定义在 types.ts（hooks 契约继承）） */
+import type { V3Ui } from './types.ts'
+export type { V3Ui } from './types.ts'
 
 // ── 模块级共享状态（HookEnv 契约：mediaRegistry/popupTrackers 等跨组件共享） ──
 const mediaRegistry = new Map<string, import('../hooks/types.ts').MediaRegistryItem>()
 const popupTrackers = new Map<string, import('../hooks/types.ts').PopupTracker>()
 const scrollTrackers = new Map<string, import('../hooks/types.ts').ScrollTracker>()
 const warned = new Set<string>()
-const uncontrolledValues = new Map<string, any>()
+const uncontrolledValues = new Map<string, unknown>()
 const inputStates = new Map<string, { keyword: string; selectedLabel: string }>()
 const openStates = new Map<string, boolean>()
 
@@ -77,7 +50,7 @@ function ensurePopupListeners(): void {
       } catch { /* 定位失败隔离 */ }
     }
   }
-  browser.addEventListener?.('scroll', schedule, { capture: true, passive: true } as any)
+  browser.addEventListener?.('scroll', schedule, { capture: true, passive: true } as AddEventListenerOptions)
   browser.addEventListener?.('resize', schedule)
 }
 
@@ -116,29 +89,30 @@ export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn:
       // 语义化 ID 注册（跨组件 render(['id']) 的基础——当前仅记录）
       env.registry.idRegistry.set(name, compId)
     },
-    useExternal: (store: any) => useExternal(env, store),
-    useControlled: (options: any) => useControlled(env, options),
-    useControlledInput: (options: any) => useControlledInput(env, options),
-    useOpen: (options: any) => useOpen(env, options),
-    usePopup: (options: any) => usePopup(env, options),
-    usePopupPosition: (options: any) => usePopupPosition(env, options),
-    useTween: (target: number, opts?: any) => useTween(env, target, opts),
-    useInView: (options?: any) => useInView(env, options),
-    useScrollPosition: (options?: any) => useScrollPosition(env, options),
-    useGlobalKey: (handler: (e: KeyboardEvent) => void) => useGlobalKey(env, handler),
-    useDrag: (options?: any) => useDrag(env, options),
-    useDragDrop: (options?: any) => useDragDrop(env, options),
-    useMedia: (query: string, cb: (m: boolean) => void) => { useMedia(env, query, cb) },
-    useBreakpoint: (bps: any, cb?: any) => { useBreakpoint(env, bps, cb) },
+    // 转发（参数/返回类型继承 V3Ui（hooks 契约）——上下文推断）
+    useExternal: (store) => useExternal(env, store),
+    useControlled: (options) => useControlled(env, options),
+    useControlledInput: (options) => useControlledInput(env, options),
+    useOpen: (options) => useOpen(env, options),
+    usePopup: (options) => usePopup(env, options),
+    usePopupPosition: (options) => usePopupPosition(env, options),
+    useTween: (target, opts) => useTween(env, target, opts),
+    useInView: (options) => useInView(env, options),
+    useScrollPosition: (options) => useScrollPosition(env, options),
+    useGlobalKey: (handler) => useGlobalKey(env, handler),
+    useDrag: (options) => useDrag(env, options),
+    useDragDrop: (options) => useDragDrop(env, options),
+    useMedia: (query, cb) => { useMedia(env, query, cb) },
+    useBreakpoint: (bps, cb) => { useBreakpoint(env, bps, cb) },
     useReducedMotion: () => useReducedMotion(env),
-    useStableRef: (init: any, cleanup?: any) => useStableRef(env, init, cleanup),
-    useAnimationEnd: (cb: any, opts?: any) => useAnimationEnd(env, cb, opts),
-    usePresence: (options?: any) => usePresence(env, options),
-    useLongPress: (options?: any) => useLongPress(env, options),
+    useStableRef: (init, cleanup) => useStableRef(env, init, cleanup),
+    useAnimationEnd: (cb, opts) => useAnimationEnd(env, cb, opts),
+    usePresence: (options) => usePresence(env, options),
+    useLongPress: (options) => useLongPress(env, options),
     useHoverCapable: () => useHoverCapable(env),
     useVisualViewport: () => useVisualViewport(env),
-    useAsync: (fetcher: any) => useAsync(env, fetcher),
-    useChat: (options: any) => useChat(env, options),
+    useAsync: (fetcher) => useAsync(env, fetcher),
+    useChat: (options) => useChat(env, options),
   }
   return ui
 }

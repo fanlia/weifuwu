@@ -14,7 +14,7 @@ export function recordToTest(events: V3Event[], name = 'recorded-render'): strin
   const types = [...new Set(events.map((e) => e.type))]
   // 内容断言：重建 DOM 的 tag 计数——DOM = fold(事件流) 的直接验证：
   // 最终 tag 计数 = NODE_CREATE − REMOVE 子树（折叠语义——移除父节点隐含移除后代）
-  const idTag = new Map(events.filter((e) => e.type === 'NODE_CREATE').map((e) => [e.id, (e as any).tag]))
+  const idTag = new Map(events.filter((e): e is Extract<V3Event, { type: 'NODE_CREATE' }> => e.type === 'NODE_CREATE').map((e) => [e.id, e.tag]))
   const childrenOf = new Map<string, string[]>()
   for (const e of events) {
     if (e.type === 'INSERT') {

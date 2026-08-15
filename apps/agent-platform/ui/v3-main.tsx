@@ -6,7 +6,7 @@
  */
 import { api, auth, ws, i18n } from 'weifuwu/ui-dom'
 import { v3Confirm, v3Toast } from '../../../src/ui-dom/vdom3/commands.ts'
-import { createRouter, h } from '../../../src/ui-dom/vdom3/index.ts'
+import { createRouter, h, compat } from '../../../src/ui-dom/vdom3/index.ts'
 
 import { AppLayout } from './components/AppLayout'
 import { Login } from './pages/Login'
@@ -59,28 +59,47 @@ ctx = v3Confirm()(ctx)
 ctx = v3Toast()(ctx)
 
 // ── 路由（AppLayout 布局——跨路由复用） ──
-const layout = (page: any) => h(AppLayout, {}, page)
+// v2 组件经 compat 包装（模块级稳定引用——类型安全边界——工厂复用前提）
+const AppLayoutCompat = compat(AppLayout)
+const LoginCompat = compat(Login)
+const RegisterCompat = compat(Register)
+const WorkspaceCompat = compat(Workspace)
+const ReportsCompat = compat(Reports)
+const AgentsCompat = compat(Agents)
+const TemplatesCompat = compat(Templates)
+const DepartmentsCompat = compat(Departments)
+const ChatCompat = compat(Chat)
+const SettingsCompat = compat(Settings)
+const NewAgentCompat = compat(NewAgent)
+const AgentDetailCompat = compat(AgentDetail)
+const SandboxesCompat = compat(Sandboxes)
+const NewDepartmentCompat = compat(NewDepartment)
+const DepartmentDetailCompat = compat(DepartmentDetail)
+const NewChatCompat = compat(NewChat)
+const ApprovalsCompat = compat(Approvals)
+const AdminCompat = compat(Admin)
+const layout = (page: any) => h(AppLayoutCompat, {}, page)
 const root = document.getElementById('root')!
 // ctx.app（登录后跳转——router 引用后绑定）
 let router: ReturnType<typeof createRouter>
 ctx.app = { navigate: (p: string) => router.navigate(p) }
 router = createRouter([
-  { path: '/login', render: () => h(Login, {}) },
-  { path: '/register', render: () => h(Register, {}) },
-  { path: '/', render: () => h(Workspace, {}), layout },
-  { path: '/dashboard', render: () => h(Workspace, {}), layout },
-  { path: '/reports', render: () => h(Reports, {}), layout },
-  { path: '/agents', render: () => h(Agents, {}), layout },
-  { path: '/templates', render: () => h(Templates, {}), layout },
-  { path: '/departments', render: () => h(Departments, {}), layout },
-  { path: '/chat/:id', render: () => h(Chat, {}), layout },
-  { path: '/chat/new', render: () => h(NewChat, {}), layout },
-  { path: '/settings', render: () => h(Settings, {}), layout },
-  { path: '/agents/new', render: () => h(NewAgent, {}), layout },
-  { path: '/agents/:id', render: () => h(AgentDetail, {}), layout },
-  { path: '/sandboxes', render: () => h(Sandboxes, {}), layout },
-  { path: '/departments/new', render: () => h(NewDepartment, {}), layout },
-  { path: '/departments/:id', render: () => h(DepartmentDetail, {}), layout },
-  { path: '/approvals', render: () => h(Approvals, {}), layout },
-  { path: '/admin', render: () => h(Admin, {}), layout },
+  { path: '/login', render: () => h(LoginCompat, {}) },
+  { path: '/register', render: () => h(RegisterCompat, {}) },
+  { path: '/', render: () => h(WorkspaceCompat, {}), layout },
+  { path: '/dashboard', render: () => h(WorkspaceCompat, {}), layout },
+  { path: '/reports', render: () => h(ReportsCompat, {}), layout },
+  { path: '/agents', render: () => h(AgentsCompat, {}), layout },
+  { path: '/templates', render: () => h(TemplatesCompat, {}), layout },
+  { path: '/departments', render: () => h(DepartmentsCompat, {}), layout },
+  { path: '/chat/:id', render: () => h(ChatCompat, {}), layout },
+  { path: '/chat/new', render: () => h(NewChatCompat, {}), layout },
+  { path: '/settings', render: () => h(SettingsCompat, {}), layout },
+  { path: '/agents/new', render: () => h(NewAgentCompat, {}), layout },
+  { path: '/agents/:id', render: () => h(AgentDetailCompat, {}), layout },
+  { path: '/sandboxes', render: () => h(SandboxesCompat, {}), layout },
+  { path: '/departments/new', render: () => h(NewDepartmentCompat, {}), layout },
+  { path: '/departments/:id', render: () => h(DepartmentDetailCompat, {}), layout },
+  { path: '/approvals', render: () => h(ApprovalsCompat, {}), layout },
+  { path: '/admin', render: () => h(AdminCompat, {}), layout },
 ], root, { ctx })

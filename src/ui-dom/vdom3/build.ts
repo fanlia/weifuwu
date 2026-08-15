@@ -5,7 +5,7 @@
  * 组件实例复用：同位置同类型（patch 判定）→ 工厂不重跑（内部状态保持）。
  */
 
-import type { VNode, VNodeChild, Component, PortalVNode } from './types.ts'
+import type { VNode, VNodeChild, Component, PortalVNode, V3Ctx } from './types.ts'
 import { Fragment, Portal, childrenOf } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
 import { createV3Ui } from './ui.ts'
@@ -19,13 +19,13 @@ export function runUnmountHooks(id: string): void {
 }
 
 export function isVNode(v: unknown): v is VNode {
-  return v != null && typeof v === 'object' && !Array.isArray(v) && 'type' in (v as any)
+  return v != null && typeof v === 'object' && !Array.isArray(v) && 'type' in v
 }
 
 /** 构建 vnode 树（组件展开——异步；native/text 同步递归）——**纯函数式**：
  *  每层返回克隆（不就地修改入参）——update 的对照树（current）不被污染。
  *  oldV：旧树同位置对照——同类型组件复用 _render（工厂不重跑——内部状态保持）。 */
-export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, oldV?: VNode | null): Promise<VNode> {
+export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null): Promise<VNode> {
   if (typeof vnode.type === 'function') {
     // 克隆（组件实例字段 _render/_id/_child 写克隆——旧树保持完整）
     const v = { ...vnode } as VNode
@@ -44,13 +44,14 @@ export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, old
       // Object.create 保留原型链（vdom2 extendCtx 中间件组合——spread 会丢失链上字段）
       const compCtx = Object.assign(Object.create(ctx), {
         onUnmount: (fn: () => void) => { unmountHooks.set(compId, fn) },
-        ui: createV3Ui(compId, () => { (ctx as any).render?.() }, (fn) => { unmountHooks.set(compId, fn) }),
-      })
-      v._render = await (v.type as Component)(v.props, compCtx)
+        ui: createV3Ui(compId, () => { ctx.render() }, (fn) => { unmountHooks.set(compId, fn) }),
+      }) as V3Ctx
+      const renderFn = await (v.type as Component)(v.props, compCtx)
+      v._render = renderFn as (props: Record<string, unknown>) => Promise<VNode | null>
     }
     const output = await v._render!(v.props)
     v._child = null
-    const oldOut = (reuse as any)?._child ?? null
+    const oldOut = reuse?._child ?? null
     if (output) {
       // 输出递归构建——_child 存克隆（渲染链完整：克隆输出含全部子克隆）
       const built = await buildVNode(output, ctx, oldOut != null && typeof oldOut === 'object' ? (oldOut as VNode) : null)
@@ -76,7 +77,7 @@ export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, old
 }
 
 export function isPortal(v: unknown): v is PortalVNode {
-  return v != null && typeof v === 'object' && (v as any).type === Portal
+  return v != null && typeof v === 'object' && (v as VNode).type === Portal
 }
 
 function compName(type: unknown): string {

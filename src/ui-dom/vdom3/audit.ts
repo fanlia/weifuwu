@@ -12,7 +12,7 @@
 import type { VNode } from './types.ts'
 import { childrenOf } from './types.ts'
 
-const enabled = (globalThis as any).__WF_V3_AUDIT !== '0'
+const enabled = (globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0'
 
 /** 渲染后校验（patch 完成调用——root 为挂载容器） */
 export function auditAfterRender(root: Element): void {
@@ -37,7 +37,7 @@ export function auditAfterRender(root: Element): void {
  *  索引比较（父下 childNodes indexOf——无 compareDocumentPosition 的跨树/同节点歧义） */
 export function auditOrder(_el: Element, v: VNode): void {
   if (!enabled) return
-  const kids = childrenOf(v).filter((c) => c != null && typeof c === 'object' && (c as VNode).el != null)
+  const kids = childrenOf(v).filter((c): c is VNode => c != null && typeof c === 'object' && (c as VNode).el != null)
   if (kids.length < 2) return
   const parent = (kids[0] as VNode).el?.parentNode
   if (!parent) return

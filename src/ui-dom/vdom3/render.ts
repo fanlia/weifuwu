@@ -15,13 +15,13 @@ import { Fragment, Portal, childrenOf } from './types.ts'
 export function isPortalNode(v: unknown): v is PortalVNode {
   if (v == null || typeof v !== 'object') return false
   const t = (v as VNode).type
-  return t === Portal || (typeof t === 'symbol' && (v as any).props?.portalKey != null)
+  return t === Portal || (typeof t === 'symbol' && (v as VNode).props?.portalKey != null)
 }
 /** Fragment 判定（symbol 且非 Portal——vdom2/vdom3 Fragment 都认） */
 export function isFragmentNode(v: unknown): boolean {
   if (v == null || typeof v !== 'object') return false
   const t = (v as VNode).type
-  return (t === Fragment || typeof t === 'symbol') && (v as any).props?.portalKey == null
+  return (t === Fragment || typeof t === 'symbol') && (v as VNode).props?.portalKey == null
 }
 import { stream, nextNodeId } from './events.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
@@ -41,7 +41,7 @@ export function mount(vnode: VNode, root: HTMLElement): void {
 function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | null {
   // 组件：输出 _child（已构建——直接渲染输出；el 定位组件输出首节点）
   if (typeof vnode.type === 'function') {
-    const output = (vnode as any)._child ?? childrenOf(vnode)[0] ?? null
+    const output = vnode._child ?? childrenOf(vnode)[0] ?? null
     if (output == null) return null
     if (vnode.el == null || !vnode.el.isConnected) {
       const node = renderVNode(output as VNode, parent, anchor)
@@ -83,9 +83,9 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   for (const [key, val] of Object.entries(vnode.props ?? {})) {
     if (key === 'key' || key === 'children' || key === 'ref') continue
     if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
-      const evtKeys = ((el as any).__v3evtKeys ??= new Set<string>())
+      const evtKeys = ((el as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys ??= new Set<string>())
       if (!evtKeys.has(key)) { // 按 key 防重复（多事件全绑定——首事件后不再跳过后续）
-        el.addEventListener(key.slice(2).toLowerCase(), (e) => (val as any)(e))
+        el.addEventListener(key.slice(2).toLowerCase(), (e) => (val as (e: Event) => void)(e))
         evtKeys.add(key)
       }
       continue
@@ -175,8 +175,8 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
     if (typeof vn.type === 'function') {
       vn._render = ov._render
       vn._id = ov._id
-      const out = (vn as any)._child ?? childrenOf(vn)[0] ?? null
-      const oldOut = (ov as any)._child ?? childrenOf(ov)[0] ?? null
+      const out = vn._child ?? childrenOf(vn)[0] ?? null
+      const oldOut = ov._child ?? childrenOf(ov)[0] ?? null
       if (out == null) {
         if (ov.el) { ov.el.parentNode?.removeChild(ov.el); ov.el = null }
         vn.el = null
@@ -238,9 +238,9 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
     const nv = newProps?.[key]
     if (ov === nv) continue
     if (typeof nv === 'function' && /^on[A-Z]/.test(key)) {
-      const evtKeys = ((el as any).__v3evtKeys ??= new Set<string>())
+      const evtKeys = ((el as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys ??= new Set<string>())
       if (!evtKeys.has(key)) { // 按 key 防重复（同一 key 已绑定跳过——新 key 绑定）
-        el.addEventListener(key.slice(2).toLowerCase(), (e) => (nv as any)(e))
+        el.addEventListener(key.slice(2).toLowerCase(), (e) => (nv as (e: Event) => void)(e))
         evtKeys.add(key)
       }
       continue

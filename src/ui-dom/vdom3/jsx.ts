@@ -4,9 +4,10 @@
 
 import type { VNode, VNodeChild } from './types.ts'
 import { Fragment, Portal } from './types.ts'
+import type { Component } from './types.ts'
 
 export function h(
-  type: string | symbol | ((initProps: any, ctx: any) => any),
+  type: string | symbol | Component,
   props?: Record<string, unknown> | null,
   ...children: VNodeChild[]
 ): VNode {

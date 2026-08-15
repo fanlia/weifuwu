@@ -12,24 +12,45 @@
 
 // ── vnode 树（声明式——与 vdom2 同模型） ──
 
-/** 两阶段组件契约（与 vdom2 同模型：mount 工厂一次 + renderFn 每次渲染）
- *  返回 Promise<any>（兼容 vdom2 组件——renderFn 产出 JSX.Element（名义类型
- *  不同于 VNode——结构兼容）——vdom2 资产零改动迁移的前提） */
-export type Component<P = Record<string, unknown>, C = Record<string, unknown>> = (
+/** vdom3 组件 ctx（正式契约——组件可见最小面 + 中间件扩展（index 签名））
+ *  render：调度自身重渲染（同 tick 合并）——render-only 唯一触发
+ *  onUnmount：卸载清理注册（COMP_UNMOUNT 时执行）
+ *  ui：vdom2 兼容面（hooks shim——组件库零改动运行）
+ *  扩展字段（ctx.app/i18n/data/auth...）经 index 签名消费（可选链——中间件注入） */
+export interface V3Ctx {
+  render(): void
+  onUnmount(fn: () => void): void
+  ui: V3Ui
+  [key: string]: unknown
+}
+
+/** ctx.ui 兼容面（vdom2 hooks 契约——组件库零改动运行）
+ *  方法签名继承 vdom2 ui（hooks 类型源——vdom2 删除后 hooks 保留为共享层）；
+ *  render/onUnmount 覆盖为 vdom3 语义（同步 render）。 */
+export interface V3Ui
+  extends Omit<import('../types.ts').WfuiContext['ui'], 'render' | 'onUnmount'> {
+  render(ids?: string[]): void
+  onUnmount(fn: () => void): (() => void) | undefined
+}
+
+/** 两阶段组件契约（正式签名——无 any）
+ *  P：props（JSX 自动推断）；C：ctx 注入依赖（V3Ctx——组件可见面） */
+export type Component<P = Record<string, unknown>, C = V3Ctx> = (
   initProps: P,
   ctx: C,
-) => Promise<(props: P) => Promise<any>>
+) => Promise<(props: P) => Promise<VNode | null>>
 
 export interface VNode {
-  /** native 标签名 / 组件函数 / Fragment 符号 */
+  /** native 标签名 / 组件函数 / Fragment/Portal 符号 */
   type: string | symbol | Component
   props: Record<string, unknown>
   key?: string | null
   /** 渲染后回填：DOM 元素（native）/ 组件实例输出（comp） */
   el?: Node | null
   children?: VNodeChild[]
-  /** 组件实例状态（comp：工厂返回的 renderFn + 实例 id） */
-  _render?: (props: any) => Promise<VNode | null>
+  /** 组件实例状态（comp：工厂返回的 renderFn + 实例 id）——内部字段
+   *  （props 参数放宽为 Record——组件 renderFn 的 P 泛型在 buildVNode 赋值处断言一次） */
+  _render?: (props: Record<string, unknown>) => Promise<VNode | null>
   _id?: string
   /** 组件输出（build 写——独立于 children（props.children 是入参）；避免覆盖污染对照树） */
   _child?: VNode | null

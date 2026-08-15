@@ -6,7 +6,7 @@
  * 全链路事件化（location→DOM 的完整因果链可回放）。
  */
 
-import type { VNode } from './types.ts'
+import type { VNode, V3Ctx } from './types.ts'
 import { buildVNode } from './build.ts'
 import { mount, patch } from './render.ts'
 import { stream } from './events.ts'
@@ -61,11 +61,11 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
   let queue: Op | null = null
 
   // 页面组件 ctx：render = 重渲染当前页（组件工厂收到——交互驱动）+ 注入中间件面
-  let pageCtx: Record<string, unknown> = {}
-  const makePageCtx = (): Record<string, unknown> =>
+  let pageCtx: V3Ctx = {} as V3Ctx
+  const makePageCtx = (): V3Ctx =>
     Object.assign(Object.create(options?.ctx ?? {}), {
       render: () => { void updatePage() },
-    })
+    }) as V3Ctx
 
   /** 重渲染当前页面（页面组件 ctx.render——组件实例复用 + patch） */
   async function updatePage(): Promise<void> {
@@ -77,9 +77,9 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
       if (typeof v.type === 'function' && v._render) {
         const output = await v._render(v.props)
         if (output == null) return
-        const oldOut = (v as any)._child ?? null
+        const oldOut = v._child ?? null
         const built = await buildVNode(output, pageCtx, oldOut && typeof oldOut === 'object' ? (oldOut as VNode) : null)
-        ;(v as any)._child = built
+        v._child = built
         patch(oldOut as VNode | null, built, root)
       }
     } finally {

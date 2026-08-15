@@ -6,30 +6,36 @@
  * createRoot 挂载到命令式容器——resolve 时 handle.unmount 清理。
  */
 
-import type { VNode } from './types.ts'
-import type { Component } from './types.ts'
+import type { VNode, Component, V3Ctx } from './types.ts'
 import { h } from './jsx.ts'
 import { createRoot } from './root.ts'
 import { Confirm } from '../../components/Confirm/Confirm.ts'
 
 // ── confirm ──────────────────────────────────────────────
 
+/** 命令式中间件注入类型（confirm/toast 挂到 ctx——中间件面） */
+export interface V3CommandInjected {
+  confirm(message: string, options?: Record<string, unknown>): Promise<boolean>
+  toast(message: string, variant?: 'success' | 'error' | 'warning' | 'info'): void
+}
+
 /** 命令式确认（vdom3——createRoot 挂载 Confirm 组件——Modal portal 退场） */
-export function v3Confirm(): any {
-  return (ctx: any) => {
-    ;(ctx as any).confirm = (message: string, options?: any) => createV3Confirm(message, options ?? {}, ctx)
-    return ctx
+export function v3Confirm(): (ctx: V3Ctx) => V3Ctx & V3CommandInjected {
+  return (ctx: V3Ctx) => {
+    ;(ctx as V3Ctx & V3CommandInjected).confirm = (message: string, options?: Record<string, unknown>) =>
+      createV3Confirm(message, options ?? {}, ctx)
+    return ctx as V3Ctx & V3CommandInjected
   }
 }
 
-function createV3Confirm(message: string, options: any, ctx: any): Promise<boolean> {
+function createV3Confirm(message: string, options: Record<string, unknown>, _ctx: V3Ctx): Promise<boolean> {
   return new Promise((resolve) => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     let settled = false
     let open = true
     // 包装组件（open 状态驱动——Modal 退场状态机自播动画）
-    const Host = async (_init: any, c: any) => {
+    const Host: Component = async (_init, c) => {
       return async () => {
         return h('div', { class: 'wf-confirm-host' }, h(Confirm as unknown as Component, {
           open,
@@ -40,7 +46,7 @@ function createV3Confirm(message: string, options: any, ctx: any): Promise<boole
         }))
       }
     }
-    const handle = createRoot(h(Host, {}), container, { ctx: { ...ctx } })
+    const handle = createRoot(h(Host, {}), container, { ctx: { ..._ctx } })
     // 退场后清理（animationend 或兜底）
     const cleanup = () => {
       handle.unmount()
@@ -61,22 +67,22 @@ function createV3Confirm(message: string, options: any, ctx: any): Promise<boole
 // ── toast ────────────────────────────────────────────────
 
 /** 命令式轻提示（vdom3——createRoot 挂载 Toast 组件——自动消失） */
-export function v3Toast(): any {
-  return (ctx: any) => {
-    ;(ctx as any).toast = (message: string, variant: 'success' | 'error' | 'warning' | 'info' = 'info') =>
+export function v3Toast(): (ctx: V3Ctx) => V3Ctx & V3CommandInjected {
+  return (ctx: V3Ctx) => {
+    ;(ctx as V3Ctx & V3CommandInjected).toast = (message: string, variant: 'success' | 'error' | 'warning' | 'info' = 'info') =>
       createV3Toast(message, variant)
-    return ctx
+    return ctx as V3Ctx & V3CommandInjected
   }
 }
 
 /** v3 toast：轻量自实现（不依赖 Toast 组件——其 import 链含 vdom2 context）
  *  portal 渲染 + wf-toast 样式类 + 自动消失 */
-function createV3Toast(message: string, variant: string): void {
+function createV3Toast(message: string, variant: 'success' | 'error' | 'warning' | 'info'): void {
   const container = document.createElement('div')
   container.className = 'wf-toast-host'
   container.style.cssText = 'position:fixed;top:16px;right:16px;z-index:var(--wf-z-toast,9999)'
   document.body.appendChild(container)
-  const Host = async (_init: any, _c: any) => async () =>
+  const Host: Component = async () => async () =>
     h('div', { class: `wf-toast wf-toast--${variant}` }, h('span', { class: 'wf-toast-msg' }, message))
   const handle = createRoot(h(Host, {}), container)
   // 自动消失（兜底清理）

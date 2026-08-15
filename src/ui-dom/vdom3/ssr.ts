@@ -10,7 +10,7 @@
  *  - vdom3：服务端生成事件流 → 客户端重放（精确增量——无猜测）
  */
 
-import type { VNode, V3Event } from './types.ts'
+import type { VNode, V3Event, V3Ctx } from './types.ts'
 import { Fragment, childrenOf } from './types.ts'
 import { buildVNode } from './build.ts'
 import { stream } from './events.ts'
@@ -18,7 +18,7 @@ import { stream } from './events.ts'
 /** 服务端渲染 → 事件流（dry-run：只生成指令，不创建 DOM——可传输/回放） */
 export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
   // 组件构建（异步工厂/renderFn——COMP_MOUNT 事件进全局流）——用克隆（构建产物）
-  const built = await buildVNode(vnode, {})
+  const built = await buildVNode(vnode, {} as V3Ctx)
   // 树遍历生成 DOM 指令（dry-run——id 本地分配）
   const events: V3Event[] = []
   let uid = 0
@@ -28,7 +28,7 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
   const walk = (v: VNode, parentId: string): void => {
     // 组件：输出 _child（已 build）
     if (typeof v.type === 'function') {
-      const out = (v as any)._child ?? childrenOf(v)[0] ?? null
+      const out = v._child ?? childrenOf(v)[0] ?? null
       if (out && typeof out === 'object' && !Array.isArray(out)) walk(out, parentId)
       return
     }
@@ -65,14 +65,14 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
  */
 export async function* renderToEventStream(vnode: VNode): AsyncGenerator<V3Event> {
   // 组件构建（await 工厂/renderFn）
-  const built = await buildVNode(vnode, {})
+  const built = await buildVNode(vnode, {} as V3Ctx)
   let uid = 0
   const nextId = () => `s${++uid}`
   const ts = Date.now()
 
   const walk = function* (v: VNode, parentId: string): Generator<V3Event> {
     if (typeof v.type === 'function') {
-      const out = (v as any)._child ?? childrenOf(v)[0] ?? null
+      const out = v._child ?? childrenOf(v)[0] ?? null
       if (out && typeof out === 'object' && !Array.isArray(out)) yield* walk(out, parentId)
       return
     }
