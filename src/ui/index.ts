@@ -32,7 +32,8 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
-import { ssrToString, serializeData } from '../ui-dom/vdom2/ssr.ts'
+import { renderToEvents, eventsToHtml } from '../ui-dom/vdom3/ssr.ts'
+import { h } from '../ui-dom/vdom3/jsx.ts'
 import type { Component } from '../ui-dom/vnode.ts'
 
 declare module '../types.ts' {
@@ -148,15 +149,16 @@ export function ui(): Middleware {
     ctx.ui = {
       html: Object.assign(htmlTag, { unsafe }) as any,
 
-      /** SSR 渲染组件 → HTML 片段（HtmlSafe：内联进 ctx.ui.html 不二次转义） */
-      async ssr(Comp: Component, props?: Record<string, any>, opts?: { data?: Map<string, unknown> }): Promise<string> {
-        const safe = await ssrToString(Comp, props ?? {}, ctx, opts)
-        return safe as unknown as string
+      /** SSR 渲染组件 → HTML 片段（vdom3 事件流形态：组件构建 → 事件流 → HTML 序列化） */
+      async ssr(Comp: Component, props?: Record<string, any>): Promise<string> {
+        const events = await renderToEvents(h(Comp as never, props ?? {}))
+        return new HtmlSafe(eventsToHtml(events)) as unknown as string
       },
 
-      /** 序列化 SSR 数据存储 → window.__DATA__ 脚本（HtmlSafe） */
+      /** 序列化 SSR 数据存储 → window.__DATA__ 脚本（HtmlSafe——< 转义防注入） */
       ssrData(data: Map<string, unknown>): string {
-        return new HtmlSafe(serializeData(data)) as unknown as string
+        const json = JSON.stringify(Object.fromEntries(data)).replace(/</g, '\u003c')
+        return new HtmlSafe(`<script>window.__DATA__=${json};</script>`) as unknown as string
       },
 
       async js(entryPath: string): Promise<Response> {
