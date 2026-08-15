@@ -117,7 +117,7 @@ export const Workspace: Component = async (_props, ctx) => {
 
       {/* 空状态引导（无项目空间） */}
       {$.projects.length === 0 && (
-        <Card>
+        <Card key="empty-guide">
           <EmptyState icon="🚀" text="还没有项目空间" hint="三步开始：创建项目空间 → 添加 AI 能力 → 上传资料让 AI 干活">
             <div class="wf-row wf-gap-sm">
               <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>创建项目空间</Button>
@@ -129,7 +129,7 @@ export const Workspace: Component = async (_props, ctx) => {
 
       {/* 审批待办（快捷入口） */}
       {$.pendingCount > 0 && (
-        <Card clickable hover onClick={() => ctx.app?.navigate('/approvals')} style={{ borderColor: 'var(--wf-color-warning)' }}>
+        <Card key="pending-card" clickable hover onClick={() => ctx.app?.navigate('/approvals')} style={{ borderColor: 'var(--wf-color-warning)' }}>
           <div class="wf-row wf-gap-sm wf-items-center">
             <Icon name="check-circle" size={16} className="wf-text-warning" />
             <span class="wf-text-sm wf-text-medium">有 {$.pendingCount} 条 AI 草稿待你批准发布</span>
