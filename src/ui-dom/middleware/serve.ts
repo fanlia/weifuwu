@@ -214,6 +214,9 @@ export function uiServe<RC extends object = {}>(
     rootUi._rootVNodeId = (built as VNode)?._id
     // 导航完成：新树 build + diff/render 全部落地 → navigating → settled
     routeCtrl.navigateDone(path)
+    // 导航落地 → 补跑构建期被跳过的渲染请求（SKIP_BUILDING/SKIP_DETACHED 的 pending——
+    // 导航期间 fetch/WS 回调的状态更新延迟落地，不丢失）
+    void renderer.flushPending()
     endSession()
   }
 

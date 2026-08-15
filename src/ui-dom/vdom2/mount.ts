@@ -44,6 +44,8 @@ export interface MountHandle {
 
 export interface Renderer {
   render(ids?: string[], req?: RenderRequestInfo): Promise<void>
+  /** 补跑构建期被跳过的渲染请求（renderPath/渲染链落地后调用——导航期间状态更新不丢失） */
+  flushPending(): Promise<void>
 }
 
 export interface VdomContext {
@@ -103,12 +105,29 @@ export function createRenderer(opts: {
     const comp = vnode as CompVNode
     const session = beginSession('render')
     try {
+      // 构建中守卫（前置——必须在 renderFn 之前）：组件正在被构建（首帧/父树构建期
+      // buildComponent 的 await 链中）时，事件驱动的 doRenderOne（WS 回包/fetch 完成/
+      // store 通知等）会命中本组件（_render 已设）。若先执行 renderFn + buildVNode
+      // 再检查：
+      //   - renderFn 重跑（读最新状态）+ 输出再构建 → 子树组件再次 mount（新 id）→
+      //     孤儿实例（真实事故：agent-platform 首帧 Chat 输出被重复构建 3 次）
+      //   - 状态变更已写入闭包/let——跳过后由下次渲染呈现（语义与后置检查等价）
+      //   **pending 记录**：构建期请求不丢弃——构建完成（渲染链落地/renderPath
+      //   完成）后 flushPending 补跑（真实事故：back 导航时新 Chat 构建期 fetch 完成
+      //   rerender 被丢弃 → 消息永不加载）
+      if (comp._lifecycle === 'building') {
+        pendingIds.add(id)
+        emit({ session, machine: 'render', nodeId: comp._id ?? null, component: compName(comp), from: 'IDLE', event: 'PARENT', to: 'SKIP_BUILDING', payload: () => ({ lifecycle: comp._lifecycle }), level: 'debug', ts: Date.now() })
+        return
+      }
       // 实例活跃性校验（防脱节 patch——真实事故：agent-platform 文件列表双份）：
       // registry 里可能残留**孤儿实例**（页面构建期重复构建/未 dispose——多代实例
       // 共享同一 DOM 锚点，旧实例闭包回调（loadWsList rerender 绑旧 id）仍触发）。
       // 孤儿实例的 _child 与 DOM 已脱节——doRenderOne 基于脱节旧树 patch 共享 DOM
       // → keyed 重复插入。信号：从当前渲染树根（_rootVNodeId）DFS——comp 不在树中
       // = 孤儿 → 跳过渲染 + 清理注册（防反复触发）。正常实例（树中）零影响。
+      // **building 已在上面拦截**——导航构建中的新实例不会被误判为孤儿（rootVNodeId
+      // 未更新期间，新实例不在旧树中——误判会丢渲染请求）
       const rootId = (ctx.ui as any)?._rootVNodeId
       if (rootId) {
         const rootV = registry.idRegistry.get(rootId)
@@ -118,18 +137,6 @@ export function createRenderer(opts: {
           emit({ session, machine: 'render', nodeId: id, component: compName(comp), from: 'IDLE', event: 'PARENT', to: 'SKIP_ORPHAN', payload: () => ({ reason: 'not in render tree (stale instance)' }), level: 'warn', ts: Date.now() })
           return
         }
-      }
-      // 构建中守卫（前置——必须在 renderFn 之前）：组件正在被构建（首帧/父树构建期
-      // buildComponent 的 await 链中）时，事件驱动的 doRenderOne（WS 回包/fetch 完成/
-      // store 通知等）会命中本组件（_render 已设）。若先执行 renderFn + buildVNode
-      // 再检查：
-      //   - renderFn 重跑（读最新状态）+ 输出再构建 → 子树组件再次 mount（新 id）→
-      //     孤儿实例（真实事故：agent-platform 首帧 Chat 输出被重复构建 3 次——
-      //     ChatInput/FilesSection 工厂各执行 3 次，registry 残留多代实例）
-      //   - 状态变更已写入闭包/let——跳过后由下次渲染呈现（语义与后置检查等价）
-      if (comp._lifecycle === 'building') {
-        emit({ session, machine: 'render', nodeId: comp._id ?? null, component: compName(comp), from: 'IDLE', event: 'PARENT', to: 'SKIP_BUILDING', payload: () => ({ lifecycle: comp._lifecycle }), level: 'debug', ts: Date.now() })
-        return
       }
       // renderFn 强制异步：await 数据 → 输出 vnode 树
       const output = await comp._render!(comp.props)
@@ -148,6 +155,11 @@ export function createRenderer(opts: {
       if (parent == null && isRoot) parent = opts.rootEl ?? null
       const to = parent ? (isRoot && !comp._parentNode ? 'ROOT' : 'MOUNTED') : 'SKIP_DETACHED'
       emit({ session, machine: 'render', nodeId: comp._id ?? null, component: compName(comp), from: 'IDLE', event: 'PARENT', to, payload: () => ({ lifecycle: comp._lifecycle }), level: 'debug', ts: Date.now() })
+      if (!parent) {
+        // 挂载断裂/父树构建中——渲染请求不丢弃（pending——构建完成后补跑）
+        pendingIds.add(id)
+        return
+      }
       if (parent) {
         const patchCtx: PatchCtx = {
           browser: ctx.browser ?? createClientBrowser(),
@@ -172,6 +184,28 @@ export function createRenderer(opts: {
       endSession()
     }
   }
+  /** 构建期被跳过的渲染请求（SKIP_BUILDING/SKIP_DETACHED——组件/父树构建中无锚点）。
+   *  构建完成（渲染链落地/renderPath 完成）后补跑——导航/构建期间的状态更新不丢失
+   *  （真实事故：back 导航时新 Chat 构建期 fetch 完成 rerender 被孤儿校验丢弃 →
+   *  消息永不加载——DOM 恒显「暂无消息」） */
+  const pendingIds = new Set<string>()
+
+  /** 补跑就绪的 pending（组件已 built 且非 building）——构建链收敛后调用 */
+  function flushPending(): Promise<void> {
+    if (pendingIds.size === 0) return Promise.resolve()
+    const pend = [...pendingIds]
+    pendingIds.clear()
+    const ready = pend.filter((id) => {
+      const v = registry.idRegistry.get(id)
+      return v && isComp(v) && typeof v._render === 'function' && v._lifecycle !== 'building' && v._lifecycle !== 'disposed'
+    })
+    if (ready.length) {
+      return render(ready, { source: 'external', component: null, nodeId: null, detail: 'pending-flush' })
+    }
+    for (const id of pend) pendingIds.add(id) // 未就绪保留（父树构建中）——下轮 flush 重试
+    return Promise.resolve()
+  }
+
   function render(ids?: string[], req?: RenderRequestInfo): Promise<void> {
     if (ids == null) return Promise.resolve()
     emitRenderRequest(req ?? { source: 'external', component: null, nodeId: null }, ids, 'dispatch', '')
@@ -181,9 +215,9 @@ export function createRenderer(opts: {
       const next = prev.then(() => doRenderOne(id))
       renderChains.set(id, next)
       return next.finally(() => { if (renderChains.get(id) === next) renderChains.delete(id) })
-    })).then(() => {})
+    })).then(() => flushPending()) // 渲染链落地 → 补跑构建期被跳过的请求（收敛后 ready 空终止）
   }
-  return { render }
+  return { render, flushPending }
 }
 
 /** 组件名（render 调度 PARENT 事件用——尽力，type.name 缺失时回退） */

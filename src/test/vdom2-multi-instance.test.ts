@@ -170,3 +170,51 @@ test('构建期自渲染：doRenderOne 命中 building 组件 → 守卫前置�
     ctx.ui.render = origRender
   }
 })
+
+// ── Bug #3：构建期渲染请求不丢弃（pending 补跑）──
+// 真实事故（agent-platform back 导航）：新 Chat 构建中（rootVNodeId 未更新）fetch 完成
+// rerender → 被孤儿校验/SKIP_BUILDING 丢弃 → 无后续事件 → 消息永不加载（DOM 恒显「暂无消息」）。
+// 修复：SKIP_BUILDING/SKIP_DETACHED 记入 pending——构建完成（渲染链落地/renderPath 完成）
+// 后 flushPending 补跑（状态在闭包——补跑读最新值）。
+
+let pendingChildMounts = 0
+function PendingSlowChild() {
+  return async () => {
+    pendingChildMounts++
+    await new Promise((r) => setTimeout(r, 30)) // 挂起构建——事件驱动渲染在 building 期间触发
+    return h('div', { class: 'p-child' }, 'child')
+  }
+}
+function PendingParent(_init: any, ctx: any) {
+  let loaded = false
+  setTimeout(() => { loaded = true; void ctx.ui.render() }, 0) // 模拟构建期 fetch 完成回调
+  return async () => h('div', { class: 'pp' }, [
+    h(PendingSlowChild, {}),
+    loaded ? h('div', { class: 'loaded' }, 'DATA') : false,
+  ])
+}
+
+test('构建期渲染请求 pending 补跑：构建完成（flushPending）后状态更新落地不丢失', async () => {
+  const { ctx, root } = setup()
+  const renderer = createRenderer({ registry: ctx.__registry, ctx, rootEl: root })
+  const origRender = ctx.ui.render
+  ctx.ui.render = (ids?: string[]) => renderer.render(ids)
+  try {
+    pendingChildMounts = 0
+    const tree = h(PendingParent, {})
+    // 模拟 renderPath：buildVNode（构建中 setTimeout 触发 render → SKIP_BUILDING + pending）
+    await buildVNode(tree, ctx, null, ctx.__registry)
+    const node = renderValue(tree, ctx, ctx.browser)
+    if (node) root.appendChild(node)
+    // 构建完成——但渲染请求已被 SKIP_BUILDING 拦截（pending 记录）
+    await new Promise((r) => setTimeout(r, 60))
+    assert.equal(root.querySelectorAll('.loaded').length, 0, '构建期渲染请求被跳过（尚未补跑）')
+    // renderPath 完成 → flushPending → 补跑（读闭包 loaded=true → DATA 落地）
+    await renderer.flushPending()
+    await new Promise((r) => setTimeout(r, 20))
+    assert.equal(root.querySelectorAll('.loaded').length, 1, 'pending 补跑后状态更新落地（修复前：渲染请求丢失 → DATA 永不出现）')
+    assert.equal(pendingChildMounts, 1, '子树不重复构建（补跑是正常渲染——剪枝复用）')
+  } finally {
+    ctx.ui.render = origRender
+  }
+})
