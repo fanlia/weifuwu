@@ -51,13 +51,38 @@ export interface V3Ui {
   [key: string]: any
 }
 
-/** 组装 HookEnv + ctx.ui（组件实例级——id 绑定） */
-export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn: () => void) => void): V3Ui {
-  const warned = new Set<string>()
-  const uncontrolledValues = new Map<string, any>()
-  const inputStates = new Map<string, { keyword: string; selectedLabel: string }>()
-  const openStates = new Map<string, boolean>()
+// ── 模块级共享状态（HookEnv 契约：mediaRegistry/popupTrackers 等跨组件共享） ──
+const mediaRegistry = new Map<string, import('../hooks/types.ts').MediaRegistryItem>()
+const popupTrackers = new Map<string, import('../hooks/types.ts').PopupTracker>()
+const scrollTrackers = new Map<string, import('../hooks/types.ts').ScrollTracker>()
+const warned = new Set<string>()
+const uncontrolledValues = new Map<string, any>()
+const inputStates = new Map<string, { keyword: string; selectedLabel: string }>()
+const openStates = new Map<string, boolean>()
 
+/** 惰性全局 scroll/resize 监听（幂等）——popup 定位跟随（usePopupPosition/usePopup 依赖） */
+let popupListenersReady = false
+function ensurePopupListeners(): void {
+  if (popupListenersReady) return
+  popupListenersReady = true
+  const browser = createClientBrowser()
+  const schedule = () => {
+    for (const tracker of popupTrackers.values()) {
+      try {
+        if (tracker.isOpen()) {
+          const el = tracker.getEl()
+          const rect = el?.getBoundingClientRect()
+          if (rect && rect.width > 0) tracker.compute(rect)
+        }
+      } catch { /* 定位失败隔离 */ }
+    }
+  }
+  browser.addEventListener?.('scroll', schedule, { capture: true, passive: true } as any)
+  browser.addEventListener?.('resize', schedule)
+}
+
+/** 组装 HookEnv + ctx.ui（组件实例级——id 绑定；共享态模块级） */
+export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn: () => void) => void): V3Ui {
   const env: HookEnv = {
     selfId: () => compId,
     render: (ids?: string[]) => {
@@ -70,15 +95,15 @@ export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn:
       return () => { /* 退订由卸载钩子管理 */ }
     },
     registry: { idRegistry: new Map() },
-    mediaRegistry: new Map(),
-    popupTrackers: new Map(),
-    scrollTrackers: new Map(),
+    mediaRegistry,
+    popupTrackers,
+    scrollTrackers,
     isMounting: () => false,
     warned,
     uncontrolledValues,
     inputStates,
     openStates,
-    ensurePopupListeners: () => { /* popup 全局监听——阶段 2 usePopup 时实现 */ },
+    ensurePopupListeners,
   }
 
   const ui: V3Ui = {

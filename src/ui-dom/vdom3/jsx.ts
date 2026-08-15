@@ -21,8 +21,8 @@ export function h(
 /** Portal：children 渲染到远程容器（#__wf_portal > [data-wf-portal-key=key]） */
 export function createPortal(children: VNodeChild, portalKey?: string): VNode {
   return {
-    type: Portal, props: {}, children: Array.isArray(children) ? children : [children],
-    key: portalKey ?? null, portalKey: portalKey ?? 'default',
+    type: Portal, props: { children: Array.isArray(children) ? children : [children], portalKey: portalKey ?? 'default' },
+    key: portalKey ?? null,
   } as unknown as VNode
 }
 

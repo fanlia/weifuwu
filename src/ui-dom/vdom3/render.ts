@@ -10,6 +10,19 @@
 
 import type { VNode, VNodeChild, PortalVNode } from './types.ts'
 import { Fragment, Portal, childrenOf } from './types.ts'
+
+/** Portal 判定（symbol 恒等 + props.portalKey——兼容 vdom2 组件产出的 Portal vnode） */
+export function isPortalNode(v: unknown): v is PortalVNode {
+  if (v == null || typeof v !== 'object') return false
+  const t = (v as VNode).type
+  return t === Portal || (typeof t === 'symbol' && (v as any).props?.portalKey != null)
+}
+/** Fragment 判定（symbol 且非 Portal——vdom2/vdom3 Fragment 都认） */
+export function isFragmentNode(v: unknown): boolean {
+  if (v == null || typeof v !== 'object') return false
+  const t = (v as VNode).type
+  return (t === Fragment || typeof t === 'symbol') && (v as any).props?.portalKey == null
+}
 import { stream, nextNodeId } from './events.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
@@ -36,7 +49,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     }
     return vnode.el
   }
-  if (vnode.type === Fragment) {
+  if (isFragmentNode(vnode)) {
     let first: Node | null = null
     for (const c of childrenOf(vnode)) {
       const n = renderVNodeChild(c, parent, anchor)
@@ -44,12 +57,13 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     }
     return first
   }
-  if (vnode.type === Portal) {
+  if (isPortalNode(vnode)) {
     // portal：渲染到远程容器（#__wf_portal > [data-wf-portal-key]——脱离父节点位置）
     const pv = vnode as PortalVNode
-    const container = ensurePortalContainer(pv.portalKey ?? 'default')
+    const portalKey = String(pv.props?.portalKey ?? 'default')
+    const container = ensurePortalContainer(portalKey)
     // 容器 id 注册（事件流 parent 用 portal:key——idOf 经 WeakMap 解析）
-    registry.register(NodeRegistry.PORTAL(pv.portalKey ?? 'default'), container)
+    registry.register(NodeRegistry.PORTAL(portalKey), container)
     let first: Node | null = null
     for (const c of childrenOf(vnode)) {
       const n = renderVNodeChild(c, container)
@@ -68,9 +82,10 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   for (const [key, val] of Object.entries(vnode.props ?? {})) {
     if (key === 'key' || key === 'children') continue
     if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
-      if (!(el as any).__v3evt) { // 事件绑定仅首次（__v3evt 标记——patchProps 同检查防重复）
+      const evtKeys = ((el as any).__v3evtKeys ??= new Set<string>())
+      if (!evtKeys.has(key)) { // 按 key 防重复（多事件全绑定——首事件后不再跳过后续）
         el.addEventListener(key.slice(2).toLowerCase(), (e) => (val as any)(e))
-        ;(el as any).__v3evt = key
+        evtKeys.add(key)
       }
       continue
     }
@@ -144,10 +159,10 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
   if (sameType) {
     const ov = oldV as VNode
     // portal：内容 patch 到远程容器（同 key 复用）
-    if (vn.type === Portal) {
-      const pv = vn as PortalVNode
-      const container = ensurePortalContainer(pv.portalKey ?? 'default')
-      registry.register(NodeRegistry.PORTAL(pv.portalKey ?? 'default'), container)
+    if (isPortalNode(vn)) {
+      const portalKey = String(vn.props?.portalKey ?? 'default')
+      const container = ensurePortalContainer(portalKey)
+      registry.register(NodeRegistry.PORTAL(portalKey), container)
       patchChildren(ov, vn, container)
       vn.el = container
       return container
@@ -192,7 +207,7 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
       stream.emit({ type: 'REMOVE', parent: parentId(parent), child: rid, ts: Date.now() })
       oldEl.parentNode?.removeChild(oldEl)
       registry.unregister(rid, oldEl)
-    } else if (oldV && (oldV as VNode).type === Portal) {
+    } else if (oldV && isPortalNode(oldV)) {
       // 旧 portal：清空远程容器（内容全移除——子树 REMOVE 事件）
       removePortalContent(oldV as PortalVNode)
     }
@@ -210,9 +225,10 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
     const nv = newProps?.[key]
     if (ov === nv) continue
     if (typeof nv === 'function' && /^on[A-Z]/.test(key)) {
-      if (!(el as any).__v3evt) {
+      const evtKeys = ((el as any).__v3evtKeys ??= new Set<string>())
+      if (!evtKeys.has(key)) { // 按 key 防重复（同一 key 已绑定跳过——新 key 绑定）
         el.addEventListener(key.slice(2).toLowerCase(), (e) => (nv as any)(e))
-        ;(el as any).__v3evt = key
+        evtKeys.add(key)
       }
       continue
     }
@@ -286,10 +302,11 @@ function patchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: El
 
 /** 移除 portal 内容（远程容器清空——子树 REMOVE 事件） */
 function removePortalContent(pv: PortalVNode): void {
-  const container = ensurePortalContainer(pv.portalKey ?? 'default')
+  const portalKey = String(pv.props?.portalKey ?? 'default')
+  const container = ensurePortalContainer(portalKey)
   for (const child of [...container.childNodes]) {
     const cid = registry.idOf(child)
-    stream.emit({ type: 'REMOVE', parent: NodeRegistry.PORTAL(pv.portalKey ?? 'default'), child: cid, ts: Date.now() })
+    stream.emit({ type: 'REMOVE', parent: NodeRegistry.PORTAL(portalKey), child: cid, ts: Date.now() })
     container.removeChild(child)
     registry.unregister(cid, child)
   }
@@ -310,7 +327,7 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
     const oc = i < oldKids.length ? oldKids[i] : null
     const nc = i < newKids.length ? newKids[i] : null
     if (i >= newKids.length) {
-      if (oc != null && typeof oc === 'object' && (oc as VNode).type === Portal) {
+      if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
         removePortalContent(oc as PortalVNode)
         continue
       }
@@ -345,7 +362,7 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
       continue
     }
     if (nc == null || nc === false || nc === true) {
-      if (oc != null && typeof oc === 'object' && (oc as VNode).type === Portal) {
+      if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
         removePortalContent(oc as PortalVNode)
         continue
       }

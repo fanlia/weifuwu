@@ -891,3 +891,30 @@ test('hooks shim：真实 vdom2 组件批量——StatCard（useTween/useReduced
   assert.ok(root.textContent?.includes('内容A'), 'Collapse 内容出现')
   document.body.removeChild(root)
 })
+
+test('usePopup：真实浮层组件（Popover）在 vdom3——打开/关闭/portal 渲染', async () => {
+  const { Popover } = await import('../components/Popover/Popover.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  // 非受控（可交互——§5.2 纪律）
+  createRoot(h(Popover, { content: h('div', { id: 'pop-content' }, '浮层内容'), children: h('button', { id: 'pop-trigger' }, '触发') }), root)
+  await new Promise((r) => setTimeout(r, 40))
+  const trigger = root.querySelector('[id="pop-trigger"]') as HTMLElement
+  assert.ok(trigger, '触发器渲染')
+  // 打开（triggerProps.onClick → useOpen setOpen(true) → portal 渲染）
+  const wrap = root.querySelector('.wf-popover-wrap') as HTMLElement
+  console.log('[pop-dbg] wrap evt:', (wrap as any).__v3evt, 'trigger evt:', (trigger as any).__v3evt)
+  ;(trigger as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 40))
+  console.log('[pop-dbg] portal:', !!document.querySelector('#__wf_portal'), 'pop:', !!document.querySelector('#pop-content'), 'html:', root.innerHTML.slice(0, 100))
+  assert.ok(document.querySelector('#__wf_portal [data-wf-portal-key]'), 'portal 容器存在')
+  assert.ok(document.querySelector('#pop-content'), '浮层内容渲染（portal——body 下）')
+  assert.equal(root.querySelector('#pop-content'), null, '浮层不在主树（portal 语义）')
+  // 外部点击关闭（document mousedown——usePopup 的外部点击）
+  document.dispatchEvent(new (window as any).MouseEvent('mousedown', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 40))
+  assert.equal(document.querySelector('#pop-content'), null, '外部点击关闭')
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})
