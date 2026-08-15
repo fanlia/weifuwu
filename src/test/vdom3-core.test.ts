@@ -561,3 +561,66 @@ test('同步：A 渲染 + 交互 → 事件日志 → B 增量镜像（DOM 同�
   document.body.removeChild(A)
   document.body.removeChild(B)
 })
+
+// ── vdom2 ↔ vdom3 兼容层：迁移路径（ctx.ui.render → ctx.render 适配） ──
+
+test('兼容：vdom2 风格组件（ctx.ui.render）在 vdom3 树运行——交互/复用正常', async () => {
+  const { compat } = await import('../ui-dom/vdom3/compat.ts')
+  // vdom2 风格组件（含内部状态 + ctx.ui.render——不依赖 hooks）
+  const V2Counter: any = (initProps: any, ctx: any) => {
+    let n = initProps.initial ?? 0
+    return async (props: any) =>
+      h('button', {
+        id: 'v2btn',
+        onClick: () => { n += props.step ?? 1; ctx.ui.render() },
+      }, [`v2: ${n}`])
+  }
+  // 迁移：compat 包裹（模块级稳定引用——工厂复用前提）→ vdom3 树
+  const V2CounterCompat = compat(V2Counter)
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'v2app' }, [
+      h(V2CounterCompat, { initial: 5 }),
+      h('button', { id: 'parent', onClick: () => rerender() }, 'parent'),
+    ])
+  }
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const handle = createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('[id="v2btn"]'), 'v2 组件挂载')
+  assert.equal(root.querySelector('[id="v2btn"]')?.textContent, 'v2: 5', '初始状态')
+
+  // v2 组件内部交互（ctx.ui.render → v3 render）
+  ;(root.querySelector('[id="v2btn"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(root.querySelector('[id="v2btn"]')?.textContent, 'v2: 6', 'v2 组件交互（ui.render 适配）')
+
+  // 父组件重渲染（v3 render）——v2 组件同位置复用（内部状态保持）
+  ;(root.querySelector('[id="parent"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(root.querySelector('[id="v2btn"]')?.textContent, 'v2: 6', '父重渲染后 v2 状态保持（工厂不重跑）')
+  document.body.removeChild(root)
+})
+
+test('兼容：真实 vdom2 组件（EmptyState——无状态）在 vdom3 渲染', async () => {
+  const { compat } = await import('../ui-dom/vdom3/compat.ts')
+  // 模拟 vdom2 组件形态（无状态——只用 props）
+  const V2Badge: any = (_init: any, _ctx: any) => async (props: any) =>
+    h('span', { class: props.variant ? `badge-${props.variant}` : 'badge' }, props.label)
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', {}, [
+      h(compat(V2Badge), { label: '迁移', variant: 'primary' }),
+      h('div', { id: 'rest' }, 'rest'),
+    ])
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('span[class="badge-primary"]'), 'v2 无状态组件渲染')
+  assert.equal(root.querySelector('span')?.textContent, '迁移', '文本')
+  assert.ok(root.querySelector('[id="rest"]'), '兄弟节点正常')
+  document.body.removeChild(root)
+})
