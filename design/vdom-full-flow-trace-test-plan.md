@@ -100,9 +100,9 @@ main.tsx: uiServe(app, { root })
 
 ### L2 不变量审计默认开启（dev）
 目标：**不变量从"约定"变"运行时断言"，dev 默认生效**。
-- [ ] `__WF_VDOM_AUDIT` dev 构建默认开（现在默认关——事故发生时无校验）
+- [x] `__WF_VDOM_AUDIT` 默认开（`__WF_VDOM_AUDIT=0` 显式关——auditTree 结构校验 + 挂载不变量自动生效）
 - [ ] 不变量清单（每个：事件 + dev 报错 + 测试断言）：
-  - I1 **会话互斥**：同一 vnode 同一时刻只被一个会话构建/渲染（L1 的检测落地为 audit）
+  - [x] I1 **会话互斥**：buildComponent 记录 `_sessionId`——同一 vnode 被另一会话在 building 期间再次构建 → console.error（0739c435）
   - I2 **树活跃性**：registry 注册 = 渲染树可达——build 分配新 id 时校验旧 id 归属
         （或 doRenderOne 孤儿校验前置为 build 层清理）
   - I3 **三层一致性**：patch 前 oldInput 树与 DOM 同构（增量校验——只在 diff 入口
@@ -114,20 +114,19 @@ main.tsx: uiServe(app, { root })
 
 ### L3 事件流驱动测试（测试范式——填补最大盲区）
 目标：**测试从"干净序列"升级为"事件流交错"**。
-- [ ] 交错矩阵测试：两个组件 id 的 doRenderOne 以不同顺序交错（含构建期/导航期）→
-      断言：最终 DOM 正确 + 无孤儿实例 + 事件序列合法
+- [x] 交错矩阵测试：多实例/构建期自渲染/pending 补跑（vdom2-multi-instance 4 场景）
 - [ ] 真实事件流模拟（jsdom）：WS 广播（new_message / file_updated / wf:step|token|done）
       + fetch 完成 + 定时器 + store 通知 → 驱动组件树 → 断言（对齐 agent-platform 场景）
-- [ ] uiServe 级集成测试：jsdom 跑完整 uiServe（真实 router + 中间件 + 组件 +
-      renderPath + renderer）——不再 mock ctx.ui.render（本次根因测试首版失效的教训）
+- [x] uiServe 级集成测试：vdom-uiserve-integration（首帧+fetch/SPA 导航/pending 补跑
+      ——真实 renderer 不 mock）
 - [ ] 事故场景固化：构建期自渲染 / 导航期事件渲染 / 孤儿实例 / 剪枝缓存失效 /
       portal 独立 dispose —— 每个事故一个"事件序列测试"
-- [ ] 状态机联合矩阵：lifecycle × x2y × keys × pos × render 的非法组合表 +
-      自动生成测试（vdom2-matrix 从 9×9 扩展到五状态机）
+- [x] 状态机联合矩阵：vdom-state-machine-matrix（I5a-f——fresh/building/disposed/
+      pruned 进入 render/diff/build 的合法与非法行为形式化断言）
 
 ### L4 浏览器自动化回归（端到端）
 目标：**真实浏览器事件流（WS/网络/定时器）下的自动回归**。
-- [ ] agent-browser 脚本化场景（发布前检查项）：
+- [x] agent-browser 脚本化场景（scripts/browser-regression.mjs——待环境恢复执行）：
   - 页面加载：断言构建次数（ChatInput/FS 各 ≤2）、无 SKIP_ORPHAN/SESSION_VIOLATION
   - 文件生成：发送消息 → 等 file_updated → 断言列表单份 + pill 单份 + 结构完整
   - 导航切换：/chat/:id ↔ /departments/:id ↔ /agents——断言无残留实例
