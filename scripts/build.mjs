@@ -74,6 +74,16 @@ await esbuild.build({
   minify: true,
 })
 
+// ui-dom/vdom3（下一代引擎——vnode + stream；独立入口——转正 minor 发布）
+await esbuild.build({
+  entryPoints: [join(srcDir, 'ui-dom', 'vdom3', 'index.ts')],
+  outfile: join(distDir, 'ui-dom', 'vdom3.js'),
+  format: 'esm',
+  platform: 'browser',
+  bundle: true,
+  minify: true,
+})
+
 // ui-dom/testing（组件测试原语子路径——vue/test-utils 模式；不污染主 index）
 await esbuild.build({
   entryPoints: [join(srcDir, 'ui-dom', 'testing.ts')],

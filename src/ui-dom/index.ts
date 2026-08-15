@@ -1,4 +1,8 @@
 /**
+ * ⚠️ DEPRECATED（冻结中——2026-08）：vdom2 引擎将由 vdom3（src/ui-dom/vdom3/）替代。
+ * 迁移路线图：design/vdom3-migration-plan.md——vdom2 保留（git 历史/回滚保险），
+ * 不再演进（bug 修复在 vdom3）。新引擎入口：weifuwu/ui-dom/vdom3。
+ *
  * weifuwu/ui-dom — 前端路由 + 渲染运行时（v2 vdom 引擎，render-only）
  *
  * 渲染运行时 = vdom（第 2 代引擎，design 归档）：

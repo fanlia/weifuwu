@@ -27,7 +27,11 @@
       "default": "./dist/components/index.js"
     },
     "./components/style.css": "./dist/components/style.css",
-    "./dev": "./dist/dev/index.js"
+    "./dev": "./dist/dev/index.js",
+    "./ui-dom/vdom3": {
+      "types": "./dist/ui-dom/vdom3/index.d.ts",
+      "default": "./dist/ui-dom/vdom3.js"
+    }
   },
   "files": [
     "dist/",

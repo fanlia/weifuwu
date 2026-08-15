@@ -1,5 +1,10 @@
 # 前端 API 核心（weifuwu/ui-dom）
 
+> ⚠️ **引擎演进（2026-08）**：下一代引擎 **vdom3**（vnode + stream——渲染执行 = 事件流，
+> 可回放/可逆/可断言）已进入转正阶段——入口 `weifuwu/ui-dom/vdom3`（createRouter +
+> createRoot + 事件流）。vdom2（本文档）为当前生产引擎（冻结中——bug 修复在 vdom3）。
+> 迁移路线图见仓库 `design/vdom3-migration-plan.md`。
+
 > ⚠️ **`weifuwu/client` 已并入 `weifuwu/ui-dom`**（`src/client/` 已删除）——本页 import 均用 `weifuwu/ui-dom`。前端运行时唯一入口是 **`weifuwu/ui-dom`**（UIRouter 纯路由 + uiServe 渲染运行时 + SSR/hydration），权威参考见 **[docs/frontend-ui-dom.md](frontend-ui-dom.md)**。
 
 > 以下为完整 API 参考，按需查阅。新手建议先阅读 README 的「核心概念」和「快速开始」。
