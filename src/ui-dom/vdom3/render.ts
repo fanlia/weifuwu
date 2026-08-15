@@ -33,11 +33,14 @@ import { auditOrder } from './audit.ts'
 let registry = new NodeRegistry()
 export { registry }
 
-/** 挂载：纯树 → 事件流 → DOM（reg 可选——per-call 隔离；默认全局） */
+/** 挂载：纯树 → 事件流 → DOM（reg 可选——per-call 隔离；默认全局）
+ *  挂载前清空容器（首次挂载语义——清除 HTML 预置的 boot-loading 等占位——
+ *  不残留「加载中...」） */
 export function mount(vnode: VNode, root: HTMLElement, reg?: NodeRegistry): void {
   const prev = registry
   if (reg) registry = reg
   try {
+    root.innerHTML = ''
     registry.register(NodeRegistry.ROOT, root) // root id 映射（事件流 parent 定位）
     renderVNode(vnode, root)
   } finally {
@@ -100,7 +103,13 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     }
     if (val != null && val !== false) {
       if (key === 'value' && el instanceof HTMLInputElement) el.value = String(val)
-      else el.setAttribute(key, String(val))
+      else if (key === 'style' && typeof val === 'object' && !Array.isArray(val)) {
+        // style 对象 → cssText（camelCase → kebab-case）
+        const css = Object.entries(val as Record<string, unknown>)
+          .filter(([, v]) => v != null && v !== false)
+          .map(([k, v]) => `${k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}:${v}`).join(';')
+        el.setAttribute('style', css)
+      } else el.setAttribute(key, String(val))
       stream.emit({ type: 'PROP_UPDATE', target: id, key, value: val, prev: '', ts: Date.now() })
     }
   }
@@ -268,6 +277,11 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
       else el.removeAttribute(key)
     } else if (key === 'value' && el instanceof HTMLInputElement) {
       ;(el as HTMLInputElement).value = String(nv)
+    } else if (key === 'style' && typeof nv === 'object' && !Array.isArray(nv)) {
+      const css = Object.entries(nv as Record<string, unknown>)
+        .filter(([, v]) => v != null && v !== false)
+        .map(([k, v]) => `${k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}:${v}`).join(';')
+      el.setAttribute('style', css)
     } else {
       el.setAttribute(key, String(nv))
     }

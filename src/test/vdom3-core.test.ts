@@ -1422,3 +1422,18 @@ test('防线：enumerated 属性 draggable 显式字符串（Kanban 教训——
   assert.equal(el.getAttribute('draggable'), 'true', 'getAttribute 显式 true')
   document.body.removeChild(root)
 })
+
+test('style 对象 → cssText（camelCase → kebab-case——[object Object] 回归）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', { id: 'sty', style: { minHeight: '100vh', backgroundColor: 'red' } }, 'x')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  const el = root.querySelector('[id="sty"]') as HTMLElement
+  assert.ok(!el.getAttribute('style')?.includes('object Object'), '非 [object Object]')
+  assert.ok(el.getAttribute('style')?.includes('min-height:100vh'), 'camelCase → kebab-case')
+  assert.ok(el.getAttribute('style')?.includes('background-color:red'), '多属性')
+  document.body.removeChild(root)
+})
