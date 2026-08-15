@@ -952,3 +952,33 @@ test('ref：挂载回调（el）+ 卸载回调（null）+ 稳定 ref 不重绑�
   assert.equal(root.querySelector('#ref-span'), null, 'span 已移除')
   document.body.removeChild(root)
 })
+
+test('浮层批量：Dropdown（usePopup 菜单）+ Modal（会话级模态——presence/portal）在 vdom3', async () => {
+  const { Dropdown } = await import('../components/Dropdown/Dropdown.ts')
+  const { Modal } = await import('../components/Modal/Modal.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h('div', {}, [
+    h(Dropdown, { trigger: h('button', { id: 'dd-trigger' }, '操作'), items: [{ key: 'a', label: '编辑' }, { key: 'b', label: '删除' }] }),
+    h(Modal, { open: true, onClose: () => {}, title: '确认', children: h('div', { id: 'modal-body' }, '模态内容') }),
+  ]), root)
+  await new Promise((r) => setTimeout(r, 50))
+  // Modal：portal 渲染（#__wf_portal）
+  assert.ok(document.querySelector('#__wf_portal [data-wf-portal-key]'), 'Modal portal 容器')
+  assert.ok(document.querySelector('#__wf_portal')?.textContent?.includes('确认'), 'Modal 标题（portal）')
+  assert.ok(!root.textContent?.includes('确认'), 'Modal 内容不在主树（portal 语义）')
+  assert.ok(document.querySelector('#modal-body'), 'Modal 内容（portal）')
+  // Dropdown：点击打开
+  const ddBtn = root.querySelector('[id="dd-trigger"]') as HTMLButtonElement
+  assert.ok(ddBtn, 'Dropdown 触发器')
+  ;(ddBtn as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 40))
+  assert.ok(document.querySelector('#__wf_portal')?.textContent?.includes('编辑'), 'Dropdown 菜单打开（portal）')
+  // 关闭（外部点击）
+  document.dispatchEvent(new (window as any).MouseEvent('mousedown', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 40))
+  assert.ok(!document.querySelector('#__wf_portal')?.textContent?.includes('编辑'), '外部点击关闭 Dropdown')
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})
