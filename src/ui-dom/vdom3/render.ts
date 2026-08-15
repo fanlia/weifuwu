@@ -11,9 +11,14 @@
 import type { VNode, VNodeChild } from './types.ts'
 import { Fragment } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
+import { NodeRegistry } from './registry.ts'
+
+/** 全局节点注册表（id ↔ Node——事件流指令定位） */
+export const registry = new NodeRegistry()
 
 /** 挂载：纯树 → 事件流 → DOM */
 export function mount(vnode: VNode, root: HTMLElement): void {
+  registry.register(NodeRegistry.ROOT, root) // root id 映射（事件流 parent 定位）
   renderVNode(vnode, root)
 }
 
@@ -42,6 +47,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   const el = document.createElement(vnode.type as string)
   const id = nextNodeId()
   el.setAttribute('data-v3-id', id)
+  registry.register(id, el)
   vnode.el = el
   stream.emit({ type: 'NODE_CREATE', id, tag: vnode.type as string, ts: Date.now() })
   for (const [key, val] of Object.entries(vnode.props ?? {})) {
@@ -67,6 +73,7 @@ function renderVNodeChild(c: VNodeChild, parent: Node, anchor?: Node | null): No
   if (typeof c === 'string' || typeof c === 'number') {
     const t = document.createTextNode(String(c))
     const id = nextNodeId()
+    registry.register(id, t)
     stream.emit({ type: 'TEXT_CREATE', id, value: String(c), ts: Date.now() })
     if (anchor && anchor.parentNode === parent) parent.insertBefore(t, anchor)
     else parent.appendChild(t)
@@ -94,6 +101,7 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
     }
     const t = document.createTextNode(str)
     const id = nextNodeId()
+    registry.register(id, t)
     stream.emit({ type: 'TEXT_CREATE', id, value: str, ts: Date.now() })
     if (anchor && anchor.parentNode === parent) parent.insertBefore(t, anchor)
     else parent.appendChild(t)
@@ -102,8 +110,10 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
   }
   if (newV == null || newV === false || newV === true) {
     if (oldV != null && oldV.el && oldV.el.parentNode === parent) {
-      stream.emit({ type: 'REMOVE', parent: parentId(parent), child: nodeId(oldV.el), ts: Date.now() })
+      const id = registry.idOf(oldV.el)
+      stream.emit({ type: 'REMOVE', parent: parentId(parent), child: id, ts: Date.now() })
       oldV.el.parentNode?.removeChild(oldV.el)
+      registry.unregister(id, oldV.el)
     }
     return null
   }
@@ -149,8 +159,10 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
   if (oldIsVNode) {
     const oldEl = (oldV as VNode).el
     if (oldEl && oldEl.parentNode === parent) {
-      stream.emit({ type: 'REMOVE', parent: parentId(parent), child: nodeId(oldEl), ts: Date.now() })
+      const rid = registry.idOf(oldEl)
+      stream.emit({ type: 'REMOVE', parent: parentId(parent), child: rid, ts: Date.now() })
       oldEl.parentNode?.removeChild(oldEl)
+      registry.unregister(rid, oldEl)
     }
   }
   return renderVNode(vn, parent, anchor)
@@ -189,8 +201,10 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
     if (i >= newKids.length) {
       if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
         const elNode = (oc as VNode).el!
-        stream.emit({ type: 'REMOVE', parent: nodeId(el), child: nodeId(elNode), ts: Date.now() })
+        const rid = registry.idOf(elNode)
+        stream.emit({ type: 'REMOVE', parent: nodeId(el), child: rid, ts: Date.now() })
         elNode.parentNode?.removeChild(elNode)
+        registry.unregister(rid, elNode)
       } else {
         const domNode = el.childNodes[i]
         if (domNode) domNode.parentNode?.removeChild(domNode)
@@ -208,6 +222,7 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
       } else {
         const t = document.createTextNode(str)
         const id = nextNodeId()
+        registry.register(id, t)
         stream.emit({ type: 'TEXT_CREATE', id, value: str, ts: Date.now() })
         el.insertBefore(t, el.childNodes[i] ?? null)
         stream.emit({ type: 'INSERT', parent: nodeId(el), child: id, ref: null, ts: Date.now() })
@@ -233,15 +248,11 @@ function compName(type: unknown): string {
 }
 
 function nodeId(n: Node | null): string {
-  if (!n) return 'null'
-  if (n.nodeType === 1) return (n as Element).getAttribute('data-v3-id') ?? 'el'
-  if (n.nodeType === 3) return 'text'
-  return 'comment'
+  return registry.idOf(n)
 }
 
 function parentId(p: Node): string {
-  if (p.nodeType === 1) return (p as Element).getAttribute('data-v3-id') ?? 'root'
-  return 'root'
+  return registry.idOf(p)
 }
 
 export { Fragment }

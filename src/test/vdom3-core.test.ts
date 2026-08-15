@@ -242,3 +242,68 @@ test('createRoot：组件 ctx.render → 调度重渲染（内部状态更新 �
   assert.equal(root.querySelector('#c')?.textContent, 'count:1', '调度重渲染（DOM 更新）')
   document.body.removeChild(root)
 })
+
+// ── P2 事件流能力：回放 / 取消 / 断言 ──
+
+test('回放：DOM = fold(事件流)——重放事件序列 → 结果与原始渲染同构', async () => {
+  const { replay } = await import('../ui-dom/vdom3/replay.ts')
+  stream.reset()
+  const root = mkRoot()
+  const tree = h('div', { id: 'box', class: 'a' }, [h('span', {}, 'hello'), 'tail'])
+  const { mount } = await import('../ui-dom/vdom3/index.ts')
+  mount(tree, root)
+  const events = stream.events()
+
+  // 回放到新容器——事件流自包含（id 映射独立）
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  replay(events, target)
+  // jsdom 怪癖：动态 setAttribute('id') 后 querySelector('#id') 缓存失效——用属性选择器
+  assert.equal(target.querySelector('[id="box"]')?.getAttribute('class'), 'a', '回放：元素+属性')
+  assert.equal(target.querySelector('span')?.textContent, 'hello', '回放：子元素+文本')
+  assert.ok(target.innerHTML.includes('tail'), '回放：尾部文本')
+  // 与原始渲染同构（结构一致——忽略 data-v3-id 差异）
+  assert.equal(target.querySelector('[id="box"]')?.childNodes.length, root.querySelector('[id="box"]')?.childNodes.length, '回放：子节点数一致')
+  document.body.removeChild(root)
+  document.body.removeChild(target)
+})
+
+test('取消：undo 应用逆操作——INSERT→REMOVE、PROP/TEXT_UPDATE→恢复 prev', async () => {
+  const { undo } = await import('../ui-dom/vdom3/replay.ts')
+  const { NodeRegistry } = await import('../ui-dom/vdom3/registry.ts')
+  stream.reset()
+  const root = mkRoot()
+  const { mount, patch } = await import('../ui-dom/vdom3/index.ts')
+  // 挂载 + 更新（产生 INSERT/PROP_UPDATE/TEXT_UPDATE/REMOVE 事件）
+  const v1 = h('div', { id: 'box', class: 'a' }, ['旧'])
+  mount(v1, root)
+  const v2 = h('div', { id: 'box', class: 'b' }, ['新'])
+  patch(v1, v2, root)
+  const events = stream.events()
+  const box = root.querySelector('#box')!
+
+  // undo 最近 2 个 DOM 指令（TEXT_UPDATE + PROP_UPDATE）→ 恢复旧值
+  undo(events, 2, (await import('../ui-dom/vdom3/render.ts')).registry)
+  assert.equal(box.getAttribute('class'), 'a', 'undo：属性恢复旧值')
+  assert.equal(box.firstChild?.nodeValue, '旧', 'undo：文本恢复旧值')
+  document.body.removeChild(root)
+})
+
+test('断言：expectEventSequence——渲染 = 事件序列（精确断言）', async () => {
+  const { expectEventSequence, eventsOf } = await import('../ui-dom/vdom3/replay.ts')
+  stream.reset()
+  const root = mkRoot()
+  const { mount } = await import('../ui-dom/vdom3/index.ts')
+  mount(h('div', { id: 'x' }, '文本'), root)
+  const events = stream.events()
+  // 断言事件序列（NODE_CREATE 开头 + 包含 INSERT/TEXT_CREATE）
+  expectEventSequence(events, ['NODE_CREATE'])
+  assert.ok(eventsOf(events, 'NODE_CREATE').length >= 1, 'NODE_CREATE 事件')
+  assert.ok(eventsOf(events, 'TEXT_CREATE').length >= 1, 'TEXT_CREATE 事件')
+  assert.ok(eventsOf(events, 'INSERT').length >= 1, 'INSERT 事件')
+  // 断言失败应抛错
+  let threw = false
+  try { expectEventSequence(events, ['REMOVE']) } catch { threw = true }
+  assert.ok(threw, '序列不符 → 抛错')
+  document.body.removeChild(root)
+})
