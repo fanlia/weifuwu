@@ -3,6 +3,45 @@
  * 路由（/ /list /detail/:id）+ 计数器/列表/条件 + 事件流观测 + 回放
  */
 import { h, createRouter, stream, replay, createRoot, recordToTest } from '../../src/ui-dom/vdom3/index.ts'
+import { AiChat } from '../../src/components/AiChat/AiChat.ts'
+import { useChat } from '../../src/ui-dom/hooks/chat.ts'
+
+// ── AI 对话页面（agent 风格——流式回复） ──
+// mock fetch（SSE 协议流——浏览器端到端验证流式渲染）
+const origFetch = window.fetch.bind(window)
+const sse = (ev: string, data: unknown) => `event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`
+window.fetch = (async (url: any, opts: any) => {
+  if (String(url).includes('/api/chat')) {
+    const replies = ['你好！', '我是 vdom3 助手。', '事件流渲染的流式回复。']
+    const streamBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        let i = 0
+        const push = () => {
+          if (i < replies.length) {
+            controller.enqueue(new TextEncoder().encode(sse('wf:token', { text: replies[i] })))
+            i++
+            setTimeout(push, 200)
+          } else {
+            controller.enqueue(new TextEncoder().encode(sse('wf:done', {})))
+            controller.close()
+          }
+        }
+        setTimeout(push, 100)
+      },
+    })
+    return new Response(streamBody, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+  }
+  return origFetch(url, opts)
+}) as any
+
+const ChatPage = async (_init: any, ctx: any) => {
+  const chat = ctx.ui.useChat({ url: '/api/chat' })
+  return async () => h('div', { id: 'chat-page' }, [
+    h('h2', {}, 'vdom3 demo — AI 对话'),
+    h(AiChat, { chat, maxHeight: '50vh' }),
+    h('button', { id: 'goto-home', onClick: () => router.navigate('/') }, '← home'),
+  ])
+}
 
 function require_ns_record() { return { recordToTest } }
 
@@ -105,4 +144,5 @@ const router = createRouter([
   { path: '/list', render: () => h(List, {}) },
   { path: '/detail/:id', render: (params) => h(Detail, { params }) },
   { path: '/todos', render: () => h(TodoApp, {}) },
+  { path: '/chat', render: () => h(ChatPage, {}) },
 ], root)
