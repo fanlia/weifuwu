@@ -19,10 +19,11 @@
 
 import type { VNode } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
-import { mountCommand } from './vdom2/mount.ts'
-import { patchValue } from './vdom2/patch.ts'
-import { buildVNode } from './vdom2/build.ts'
-import { createRegistry } from './vdom2/registry.ts'
+// vdom3 引擎（vdom2 删除后——mount/patch/build 的 vdom3 实现——同 API）
+import { mount as v3Mount, patch as v3Patch, registry as v3Registry } from './vdom3/render.ts'
+import { NodeRegistry } from './vdom3/registry.ts'
+import { buildVNode as v3Build } from './vdom3/build.ts'
+import type { V3Ctx } from './vdom3/types.ts'
 
 /**
  * 组件 DOM 级测试辅助（vdom 引擎）：
@@ -30,23 +31,49 @@ import { createRegistry } from './vdom2/registry.ts'
  * - patchToDom：同树 patch（patchValue 兼容签名——第 5 参 ctx）
  * - buildToDom：buildVNode 预构建（vdom 签名：reg 参数可省略）
  */
-export function mountToDom(container: Element, vnode: VNode, ctx: any): Promise<void> {
-  return new Promise<void>((resolve) => {
-    mountCommand(container as HTMLElement, vnode, ctx, { onMounted: resolve })
+/** vdom3 版（vdom2 删除后——同 API——组件测试零改动）
+ *  vdom3 build 纯函数式（prev 不就地修改）——patch 对照需「上次 built」——
+ *  按容器缓存（测试的 prev = renderFn 输出（原始）——缓存补全对照链） */
+const builtCache = new WeakMap<Element, unknown>()
+const regCache = new WeakMap<Element, NodeRegistry>()
+
+export function mountToDom(container: Element, vnode: any, _ctx: any): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    void (async () => {
+      try {
+        // vdom3 portal 容器为全局单例（#__wf_portal）——并发测试残留会污染断言
+        // （open=false 无 DOM 断言找到他文件残留）——挂载前清理
+        document.getElementById('__wf_portal')?.remove()
+        // per-container 独立 registry（并发测试隔离——vdom2 per-app 模型对齐）
+        const reg = new NodeRegistry()
+        const built = await v3Build(vnode, {} as V3Ctx)
+        v3Mount(built, container as HTMLElement, reg)
+        builtCache.set(container, built)
+        regCache.set(container, reg)
+        resolve()
+      } catch (e) {
+        reject(e)
+      }
+    })()
   })
 }
-export async function patchToDom(container: Element, node: Node | null, prev: any, next: any, ctx: any): Promise<any> {
-  // vdom 不变量：diff 前必须 buildVNode（组件 _render 已设——否则 renderValue 抛「not built」）
-  await buildVNode(next, ctx, prev, (ctx as any).__registry)
-  return patchValue(container, node, prev, next, {
-    browser: ctx.browser ?? (ctx as any).__browser,
-    registry: (ctx as any).__registry,
-  })
+export async function patchToDom(container: Element, _node: Node | null, _prev: any, next: any, _ctx: any): Promise<any> {
+  const oldBuilt = builtCache.get(container) ?? null
+  const reg = regCache.get(container) ?? v3Registry
+  // renderFn 返回 null（条件移除——测试语义）→ 清空容器
+  if (next == null) {
+    container.innerHTML = ''
+    builtCache.set(container, null)
+    return null
+  }
+  const built = await v3Build(next, {} as V3Ctx, oldBuilt as any)
+  if (oldBuilt) v3Patch(oldBuilt as any, built, container as HTMLElement, undefined, reg)
+  else v3Mount(built, container as HTMLElement, reg)
+  builtCache.set(container, built)
+  return built
 }
-export function buildToDom(vnode: VNode, ctx: any): Promise<any> {
-  const reg = (ctx as any).__registry ?? ((ctx as any).__registry = createRegistry())
-  // V3-2：buildVNode 可能同步返回（剪枝/文本）——统一 Promise 语义
-  return Promise.resolve(buildVNode(vnode, ctx, undefined, reg))
+export function buildToDom(vnode: any, _ctx: any): Promise<any> {
+  return v3Build(vnode, {} as V3Ctx)
 }
 
 // ── 两阶段组件渲染 ──────────────────────────────────────

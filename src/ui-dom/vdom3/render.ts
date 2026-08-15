@@ -28,27 +28,35 @@ import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
 import { auditOrder } from './audit.ts'
 
-/** 全局节点注册表（id ↔ Node——事件流指令定位） */
-export const registry = new NodeRegistry()
+/** 节点注册表（id ↔ Node——事件流指令定位）——模块级可变（mount/patch 支持
+ *  per-call 注入（测试隔离）——同步段切换安全（并发交错在 await 点） */
+let registry = new NodeRegistry()
+export { registry }
 
-/** 挂载：纯树 → 事件流 → DOM */
-export function mount(vnode: VNode, root: HTMLElement): void {
-  registry.register(NodeRegistry.ROOT, root) // root id 映射（事件流 parent 定位）
-  renderVNode(vnode, root)
+/** 挂载：纯树 → 事件流 → DOM（reg 可选——per-call 隔离；默认全局） */
+export function mount(vnode: VNode, root: HTMLElement, reg?: NodeRegistry): void {
+  const prev = registry
+  if (reg) registry = reg
+  try {
+    registry.register(NodeRegistry.ROOT, root) // root id 映射（事件流 parent 定位）
+    renderVNode(vnode, root)
+  } finally {
+    registry = prev
+  }
 }
 
 /** 渲染 vnode（同步——树已构建） */
 function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | null {
   // 组件：输出 _child（已构建——直接渲染输出；el 定位组件输出首节点）
   if (typeof vnode.type === 'function') {
-    const output = vnode._child ?? childrenOf(vnode)[0] ?? null
+    // _child 权威（build 设置——null 是合法输出（条件移除）；undefined = 未 build → fallback）
+    const output = vnode._child !== undefined ? vnode._child : childrenOf(vnode)[0] ?? null
     if (output == null) return null
-    if (vnode.el == null || !vnode.el.isConnected) {
-      const node = renderVNode(output as VNode, parent, anchor)
-      vnode.el = node
-      return node
-    }
-    return vnode.el
+    // 已渲染（isConnected（真实 DOM/portal 容器）或 el 在父内（测试容器未连接））→ 复用
+    if (vnode.el != null && (vnode.el.isConnected || vnode.el.parentNode === parent)) return vnode.el
+    const node = renderVNode(output as VNode, parent, anchor)
+    vnode.el = node
+    return node
   }
   if (isFragmentNode(vnode)) {
     let first: Node | null = null
@@ -125,7 +133,17 @@ function renderVNodeChild(c: VNodeChild, parent: Node, anchor?: Node | null): No
  * patch：旧树（纯）vs 新树（纯）→ 事件流 → DOM。
  * 同位置同类型（含 key）复用——仅变化发事件；异类型 → REMOVE+CREATE+INSERT（重建事件）。
  */
-export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?: Node | null): Node | null {
+export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?: Node | null, reg?: NodeRegistry): Node | null {
+  const prev = registry
+  if (reg) registry = reg
+  try {
+    return patchInner(oldV, newV, parent, anchor)
+  } finally {
+    registry = prev
+  }
+}
+
+function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?: Node | null): Node | null {
   // 文本
   if (typeof newV === 'string' || typeof newV === 'number') {
     const str = String(newV)
@@ -175,14 +193,14 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
     if (typeof vn.type === 'function') {
       vn._render = ov._render
       vn._id = ov._id
-      const out = vn._child ?? childrenOf(vn)[0] ?? null
-      const oldOut = ov._child ?? childrenOf(ov)[0] ?? null
+      const out = vn._child !== undefined ? vn._child : childrenOf(vn)[0] ?? null
+      const oldOut = ov._child !== undefined ? ov._child : childrenOf(ov)[0] ?? null
       if (out == null) {
         if (ov.el) { ov.el.parentNode?.removeChild(ov.el); ov.el = null }
         vn.el = null
         return null
       }
-      if (ov.el == null || !ov.el.isConnected) {
+      if (ov.el == null || !(ov.el.isConnected || ov.el.parentNode === parent)) {
         vn.el = renderVNode(vn, parent, anchor)
       } else {
         // 组件输出变化 → patch 子树（组件 el 保持——输出首节点定位）
