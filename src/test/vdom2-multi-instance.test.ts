@@ -218,3 +218,48 @@ test('构建期渲染请求 pending 补跑：构建完成（flushPending）后�
     ctx.ui.render = origRender
   }
 })
+
+// ── L2 I1 会话互斥审计：同一 vnode 多会话并发构建 → dev 自动报错 ──
+
+let i1ChildMounts = 0
+function I1SlowChild() {
+  return async () => {
+    i1ChildMounts++
+    await new Promise((r) => setTimeout(r, 30))
+    return h('div', { class: 'i1-child' }, 'c')
+  }
+}
+function I1Parent(_init: any, ctx: any) {
+  return async () => {
+    setTimeout(() => { void ctx.ui.render() }, 0)
+    return h('div', { class: 'i1p' }, [h(I1SlowChild, {})])
+  }
+}
+
+test('I1 会话互斥：同一 vnode 被两个渲染会话并发构建 → audit 报错（await 点交错检测）', async () => {
+  const { ctx, root } = setup()
+  // 关闭默认 audit（本测试只验证 I1——避免其他 audit 噪音干扰计数）
+  const prev = (globalThis as any).__WF_VDOM_AUDIT
+  ;(globalThis as any).__WF_VDOM_AUDIT = true
+  const errs: string[] = []
+  const oe = console.error.bind(console)
+  console.error = (...a: any[]) => { errs.push(String(a[0])); oe(...a) }
+  const renderer = createRenderer({ registry: ctx.__registry, ctx, rootEl: root })
+  const origRender = ctx.ui.render
+  ctx.ui.render = (ids?: string[]) => renderer.render(ids)
+  try {
+    const tree = h(I1Parent, {})
+    await buildVNode(tree, ctx, null, ctx.__registry)
+    const node = renderValue(tree, ctx, ctx.browser)
+    if (node) root.appendChild(node)
+    await new Promise((r) => setTimeout(r, 80))
+    // 正常场景（守卫前置）不得报 I1 违规
+    const i1 = errs.filter((e) => e.includes('I1 会话互斥'))
+    assert.deepEqual(i1, [], '正常构建不得触发 I1 违规，实际: ' + i1.join('|'))
+  } finally {
+    console.error = oe
+    ctx.ui.render = origRender
+    if (prev === undefined) delete (globalThis as any).__WF_VDOM_AUDIT
+    else (globalThis as any).__WF_VDOM_AUDIT = prev
+  }
+})

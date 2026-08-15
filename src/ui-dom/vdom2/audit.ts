@@ -18,9 +18,14 @@ import { classifyChild, isInvalidVNodeType } from './transform.ts'
 import { classifyKind, type VKind } from './kind.ts'
 import { componentName } from './ctx.ts'
 
-/** audit 开关（dev/测试注入；生产默认关） */
+/** audit 开关（默认开——正确性优先；显式关：__WF_VDOM_AUDIT=0/生产优化时）。
+ *  此前默认关 → 事故发生时无运行时校验（三层一致性/挂载不变量全靠事后手动排查）。
+ *  默认开的代价：每次 doRenderOne/renderPath 后 O(n) 结构校验（页面树几百节点——
+ *  毫秒级，可接受） */
 export function auditEnabled(): boolean {
-  return !!((globalThis as Record<string, unknown>)?.__WF_VDOM_AUDIT)
+  const g = globalThis as Record<string, unknown>
+  if (g.__WF_VDOM_AUDIT === 0 || g.__WF_VDOM_AUDIT === '0' || g.__WF_VDOM_AUDIT === false) return false
+  return true
 }
 
 // ── 挂载不变量 audit（事件流消费者——订阅 render 调度 PARENT 事件） ──

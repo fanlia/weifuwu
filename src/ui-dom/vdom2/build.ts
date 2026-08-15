@@ -22,7 +22,7 @@ import { ensureId, type Registry } from './registry.ts'
 import { transition, canReuse, vnodeTraceCtx } from './lifecycle.ts'
 import { classifyKind, type VKind } from './kind.ts'
 import { trace, traceEnabled, kidsSeq, vnDesc } from './trace.ts'
-import { emit } from './events.ts'
+import { emit, currentSession } from './events.ts'
 import { auditEnabled } from './audit.ts'
 import type { RenderRequestInfo } from './mount.ts'
 
@@ -254,6 +254,18 @@ function buildComponent(
   const vnode = input as VNode
   const registry = reg ?? ctx.__registry ?? createRegistry()
   const oldV = matchOldV(oldInput, vnode)
+  // I1 会话互斥（不变量审计——默认开）：同一 vnode 同一时刻只被一个渲染会话构建。
+  // 检测：vnode 已被会话 A 构建中（_sessionId=A 且 lc=building），又被会话 B 命中
+  // （渲染交错——await 点让出后另一会话处理同一 vnode）→ 违规报错（构建结果不确定）。
+  // 正常单会话路径：_sessionId 每次覆盖（同会话重复构建 = 非法输入树，亦暴露）
+  if (auditEnabled()) {
+    const sess = currentSession()
+    const prevSess = (vnode as { _sessionId?: string })._sessionId
+    if (prevSess != null && prevSess !== sess && vnode._lifecycle === 'building') {
+      console.error(`[vdom2/audit] I1 会话互斥违反：${componentName(vnode.type)} 被会话 ${prevSess} 构建中又被会话 ${sess} 处理——同一 vnode 多会话并发构建（await 点渲染交错——构建结果不确定，需排查渲染触发源）`)
+    }
+    ;(vnode as { _sessionId?: string })._sessionId = sess
+  }
   if (!vnode._id) {
     // 旧树同位置同类型 → 复用旧 id（渲染定位锚点不漂移：剪枝新 vnode 若分配新 id，
     // 组件内部 render([selfId]) 会命中 registry 里的新 vnode——其 _parentNode 未设置 →
