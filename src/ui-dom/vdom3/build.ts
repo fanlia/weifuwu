@@ -76,9 +76,10 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
       // 不触发整树 patch）——_componentRender 由 createRoot/router 注入
       // 注意：reuse 时工厂不重跑——componentRender 闭包捕获 compId（稳定）
       const componentRender = () => {
+        ;(window as any).__chain = 'componentRender:' + compId
         const fn = (ctx as { _componentRender?: (id: string) => void })._componentRender
-        if (fn) fn(compId)
-        else ctx.render()
+        if (fn) { ;(window as any).__chain = 'fn(' + compId + ')'; fn(compId) }
+        else { ;(window as any).__chain = 'ctx.render(' + compId + ')'; ctx.render() }
       }
       const compCtx = Object.assign(Object.create(ctx), {
         render: componentRender,
@@ -90,12 +91,28 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
         browser: createClientBrowser(),
         ui: createV3Ui(compId, componentRender, (fn) => { unmountHooks.set(compId, fn) }),
       }) as V3Ctx
-      const renderFn = await (v.type as Component)(v.props, compCtx)
-      v._render = renderFn as (props: Record<string, unknown>) => Promise<VNode | null>
+      // 组件工厂：失败 → error:throw（事件流可观测——工厂 reject 不静默）
+      let renderFn: ((props: Record<string, unknown>) => Promise<VNode | null>) | null = null
+      try {
+        renderFn = (await (v.type as Component)(v.props, compCtx)) as (props: Record<string, unknown>) => Promise<VNode | null>
+      } catch (e) {
+        const err = e as Error
+        stream.emit(ev('error', 'throw', v._id, { phase: 'factory', name: compName(v.type), message: err?.message ?? String(e) }))
+        throw e // 保持传播——上层（updateComponent/handleRoute）捕获并记录
+      }
+      v._render = renderFn
     }
     // RENDER 事件：jsx 层——组件 renderFn 执行（每次渲染可观测——更新链路）
     stream.emit(ev('comp', 'render', v._id!, { name: compName(v.type) }))
-    const output = await v._render!(v.props)
+    // renderFn：失败 → error:throw（事件流可观测——渲染失败可定位到组件与环节）
+    let output: VNode | null = null
+    try {
+      output = await v._render!(v.props)
+    } catch (e) {
+      const err = e as Error
+      stream.emit(ev('error', 'throw', v._id, { phase: 'renderFn', name: compName(v.type), message: err?.message ?? String(e) }))
+      throw e
+    }
     v._child = null
     const oldOut = reuse?._child ?? null
     if (output) {

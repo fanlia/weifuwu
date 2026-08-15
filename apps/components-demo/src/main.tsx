@@ -8,7 +8,7 @@
  */
 
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { createRouter, h } from 'weifuwu/ui-dom'
+import { createRouter, h, stream, evKey } from 'weifuwu/ui-dom'
 import { v3Toast, v3Confirm } from 'weifuwu/ui-dom'
 import {
   Button, Input, Textarea, Select,
@@ -3237,6 +3237,23 @@ const i18nMw = (() => {
   ;(mw as any).onLocaleChange = (fn: () => void) => { onLocaleChange = fn }
   return mw
 })()
+
+// 事件流观测（浏览器 debug：真实交互后读 __wf_events()——含错误事件——
+// 哪层事件缺失/哪个环节出错一目了然）
+;(window as any).__wf_events = () =>
+  stream.events().map((e: any) => ({ k: `${e.entity}:${e.action}`, t: e.target, p: e.payload }))
+// 环形缓冲满后 length 恒定——取末尾 N 条（读取最近的渲染/错误事件）
+;(window as any).__wf_recent = (n = 100) => {
+  const evs = stream.events()
+  return evs.slice(Math.max(0, evs.length - n)).map((e: any) => ({ k: `${e.entity}:${e.action}`, t: e.target, p: e.payload }))
+}
+// 实时订阅（emit 同步回调——缓冲溢出不丢——观测/调试可靠通道）
+;(window as any).__wf_tail = []
+stream.subscribe((e: any) => {
+  const arr = (window as any).__wf_tail
+  arr.push({ k: `${e.entity}:${e.action}`, t: e.target, p: e.payload, ts: e.ts })
+  if (arr.length > 2000) arr.splice(0, arr.length - 2000)
+})
 
 // vdom3 事件流引擎装配（createRouter——中间件面展开为 options.ctx）
 let demoCtx: any = {}

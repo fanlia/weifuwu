@@ -25,13 +25,47 @@ export function createEventStream(max = 20000): EventStream {
   const buf: V3Event[] = []
   let head = 0
   let len = 0
+  let overflowCount = 0
+  // 实时订阅（emit 同步回调——缓冲溢出也不丢事件——观测/调试可靠通道）
+  const listeners = new Set<(ev: V3Event) => void>()
   const at = (i: number): V3Event => buf[(head + i) % max]
   const set = (i: number, evt: V3Event): void => { buf[(head + i) % max] = evt }
+  const emitOne = (evt: V3Event, suppressOverflow: boolean): void => {
+    if (len < max) { set(len, evt); len++ }
+    else {
+      set(0, evt); head = (head + 1) % max
+      // 溢出：最旧事件被覆盖（静默丢失）——纳入事件流（stream:overflow——
+      // buffer 状态可观测；suppress 防 overflow 事件自身递归触发）
+      if (!suppressOverflow) {
+        overflowCount++
+        // overflow 事件降频（每 64 次溢出一条——避免高频溢出自身占满缓冲成噪音）
+        if (overflowCount % 64 === 1 || overflowCount === 1) {
+          emitOne(ev('stream', 'overflow', undefined, {
+            capacity: max,
+            count: overflowCount,
+            dropped: `${evt.entity}:${evt.action}`,
+            droppedTarget: evt.target ?? null,
+          }), true)
+        }
+      }
+    }
+  }
   return {
     emit(evt: V3Event): void {
-      if (len < max) { set(len, evt); len++ }
-      else { set(0, evt); head = (head + 1) % max }
+      emitOne(evt, false)
+      for (const fn of listeners) { try { fn(evt) } catch { /* 订阅者失败隔离 */ } }
     },
+    /** 实时订阅（emit 同步回调——不丢事件——返回退订） */
+    subscribe(fn: (ev: V3Event) => void): () => void {
+      listeners.add(fn)
+      return () => { listeners.delete(fn) }
+    },
+    /** 当前有效条数（缓冲占用） */
+    size(): number { return len },
+    /** 缓冲容量 */
+    capacity(): number { return max },
+    /** 溢出次数（最旧事件被覆盖的次数——事件丢失可审计） */
+    overflowCount(): number { return overflowCount },
     events(): V3Event[] {
       const out: V3Event[] = new Array(len)
       for (let i = 0; i < len; i++) out[i] = at(i)
@@ -53,7 +87,7 @@ export function createEventStream(max = 20000): EventStream {
           return null
       }
     },
-    reset(): void { head = 0; len = 0 },
+    reset(): void { head = 0; len = 0; overflowCount = 0 },
   }
 }
 

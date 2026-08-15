@@ -548,6 +548,12 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
         removePortalContent(oc as PortalVNode)
         continue
       }
+      // 组件输出 Portal（oc._child 是 Portal——组件 el 为 null 此前跳过 →
+      // portal 内容残留——多次条件切换后 DOM 与树不一致累积）
+      if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
+        removePortalContent((oc as VNode)._child as PortalVNode)
+        continue
+      }
       // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
       if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
         removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)

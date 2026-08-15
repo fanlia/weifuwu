@@ -56,6 +56,7 @@ export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn:
   const env: HookEnv = {
     selfId: () => compId,
     render: (ids?: string[]) => {
+      ;(window as any).__chain = 'env.render'
       if (!ids || ids.length === 0 || ids.includes(compId)) render()
       else console.warn(`[vdom3/ui] render([${ids.join(',')}]) 跨组件渲染暂未实现（vdom3 当前仅组件自身 render）`)
     },
@@ -77,6 +78,9 @@ export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn:
   }
 
   const ui: V3Ui = {
+    // 实例标记（debug：ctx.ui 来源审计——双实例/compId 错位定位）
+    __v3ui: true,
+    __compId: compId,
     render: (ids?: string[]) => env.render(ids),
     onUnmount: (fn) => {
       onUnmountCb(fn)

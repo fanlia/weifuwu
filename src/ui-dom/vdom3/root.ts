@@ -77,9 +77,18 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
         const comp = findComponent(current, compId)
         if (!comp || typeof comp.type !== 'function' || !comp._render) break
         stream.emit(ev('comp', 'render', comp._id!, { name: compNameOf(comp) }))
-        const output = await comp._render(comp.props)
+        // await 挂起检测（挂起 = 静默失败——错误事件流必须覆盖；
+        // 超时可配置：globalThis.__v3HangMs——测试/调试用短超时）
+        const hm = ((globalThis as any).__v3HangMs ?? 3000)
+        const output = await Promise.race([
+          comp._render(comp.props),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`renderFn 挂起超时（${hm}ms）——组件 ${compId} 未 resolve`)), hm)),
+        ])
         const oldOut = comp._child ?? null
-        const built = output ? await buildVNode(output, ctx, oldOut ?? undefined) : null
+        const built = output ? await Promise.race([
+          buildVNode(output, ctx, oldOut ?? undefined),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`buildVNode 挂起超时（${hm}ms）——组件 ${compId} 输出构建未 resolve`)), hm)),
+        ]) : null
         comp._child = built
         // patch 组件输出（组件 el 定位——只动该组件子树）
         const parent = (comp.el?.parentNode ?? root) as HTMLElement
@@ -103,6 +112,10 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
         }
         comp.el = built?.el ?? null
       } while (dirtyComps.has(compId))
+    } catch (e) {
+      // 组件级更新失败 → error:caught（事件流可观测——不中断渲染管线）
+      const err = e as Error
+      stream.emit(ev('error', 'caught', compId, { phase: 'update', name: 'component', message: err?.message ?? String(e) }))
     } finally {
       updatingComps.delete(compId)
     }
@@ -168,6 +181,10 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
       const built = await buildVNode(vnode, ctx)
       mount(built, root)
       current = built
+    } catch (e) {
+      // 初始挂载失败 → error:caught（事件流可观测——组件错误不静默——渲染可诊断）
+      const err = e as Error
+      stream.emit(ev('error', 'caught', (vnode as VNode)._id ?? 'root', { phase: 'mount', name: 'root', message: err?.message ?? String(e) }))
     } finally {
       readyResolve()
     }

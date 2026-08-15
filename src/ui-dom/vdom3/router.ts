@@ -82,20 +82,28 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
   /** 重渲染当前页面（页面组件 ctx.render——组件实例复用 + patch） */
   async function updatePage(): Promise<void> {
     if (busy) { queue = { type: 'refresh' }; return } // 与导航串行（渲染中触发 → 排队）
-    if (!current || !pageVnode) return
+    if (!current || !pageVnode) { stream.emit(ev('internal', 'skip', 'page', { reason: !current ? 'no-current' : 'no-page-vnode' })); return }
     busy = true
     try {
       const v = pageVnode
       if (typeof v.type === 'function' && v._render) {
         // RENDER 事件（jsx 层——页面组件渲染可观测）
         stream.emit(ev('comp', 'render', v._id!, { name: compNameOf(v) }))
-        const output = await v._render(v.props)
+        const HANG_MS = 3000
+        const output = await Promise.race([
+          v._render(v.props),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`页面 renderFn 挂起超时（${HANG_MS}ms）`)), HANG_MS)),
+        ])
         if (output == null) return
         const oldOut = v._child ?? null
         const built = await buildVNode(output, pageCtx, oldOut && typeof oldOut === 'object' ? (oldOut as VNode) : null)
         v._child = built
         patch(oldOut as VNode | null, built, root)
       }
+    } catch (e) {
+      // 页面刷新失败 → error:caught（事件流可观测——不中断路由）
+      const err = e as Error
+      stream.emit(ev('error', 'caught', pageVnode?._id ?? 'page', { phase: 'update', name: 'page', message: err?.message ?? String(e) }))
     } finally {
       busy = false
       if (queue != null) { const q = queue; queue = null; void runOp(q) }
@@ -104,20 +112,40 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
 
   /** 组件级精准更新（页面内组件 ctx.render——与 createRoot 同语义：
    *  findComponent 定位 → 只重跑该组件 renderFn + patch 其输出——兄弟/父零执行） */
+  const hangMs = (): number => ((globalThis as any).__v3HangMs ?? 3000)
+
   async function updateComponent(compId: string): Promise<void> {
     // 渲染中再触发 → dirty 排队组件级补跑（不得降级为页面级 refresh——页面级
     // build 的 props 剪枝会吞组件内部状态变化——滚动跟随丢失的根因；
     // 多槽 dirtyComps——多个弹层组件滚动跟随互不挤占）
-    if (busy) { dirtyComps.add(compId); return }
-    if (!current) return
+    if (busy) {
+      // 内部决策事件：渲染中排队（busy→dirty——多槽补跑不丢——状态可观测）
+      stream.emit(ev('internal', 'queue', compId, { reason: 'busy' }))
+      dirtyComps.add(compId)
+      return
+    }
+    if (!current) { stream.emit(ev('internal', 'skip', compId, { reason: 'no-current' })); return }
     busy = true
     try {
       const comp = findComponent(current, compId)
-      if (!comp || typeof comp.type !== 'function' || !comp._render) return
+      if (!comp || typeof comp.type !== 'function' || !comp._render) {
+        stream.emit(ev('internal', 'notfound', compId, { reason: 'comp-missing-or-render-absent' }))
+        return
+      }
       stream.emit(ev('comp', 'render', comp._id!, { name: compNameOf(comp) }))
-      const output = await comp._render(comp.props)
+
+      // await 挂起检测（挂起 = 静默失败——错误事件流必须覆盖：
+      // renderFn/buildVNode 永不 resolve → error:caught phase:'update'）
+      const hm = hangMs()
+      const output = await Promise.race([
+        comp._render(comp.props),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`renderFn 挂起超时（${hm}ms）——组件 ${compId} 未 resolve`)), hm)),
+      ])
       const oldOut = comp._child ?? null
-      const built = output ? await buildVNode(output, pageCtx, oldOut ?? undefined) : null
+      const built = output ? await Promise.race([
+        buildVNode(output, pageCtx, oldOut ?? undefined),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`buildVNode 挂起超时（${hm}ms）——组件 ${compId} 输出构建未 resolve`)), hm)),
+      ]) : null
       comp._child = built
       const parent = (comp.el?.parentNode ?? root) as HTMLElement
       if (oldOut && built) {
@@ -135,6 +163,10 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
         }
       }
       comp.el = built?.el ?? null
+    } catch (e) {
+      // 组件级更新失败 → error:caught（事件流可观测——渲染管线不中断——错误定位到组件）
+      const err = e as Error
+      stream.emit(ev('error', 'caught', compId, { phase: 'update', name: compNameOf(findComponent(current, compId) ?? ({} as VNode)), message: err?.message ?? String(e) }))
     } finally {
       busy = false
       if (dirtyComps.size > 0) {

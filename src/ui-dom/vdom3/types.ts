@@ -41,6 +41,10 @@ export interface V3Ui
   extends Omit<WfuiContext['ui'], 'render' | 'onUnmount'> {
   render(ids?: string[]): void
   onUnmount(fn: () => void): (() => void) | undefined
+  /** 实例标记（debug：ctx.ui 来源审计——双实例定位） */
+  __v3ui?: boolean
+  /** 实例绑定的组件 id（debug：compId 错位定位） */
+  __compId?: string
 }
 
 /** 两阶段组件契约（正式签名——无 any）
@@ -122,7 +126,7 @@ export type PortalVNode = VNode & { type: typeof Portal; portalKey?: string | nu
 // 不变量：任何事件触发，最终都落到 dom 层事件（node/text/prop/event/ref 的精准状态变化）——
 // 决策层事件（route/comp/vnode）只是解释"为什么"，执行层事件（dom）是"做了什么"。
 
-export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref'
+export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream'
 
 export type Action =
   /** location 层 */
@@ -133,6 +137,12 @@ export type Action =
   | 'patch'
   /** dom 层 */
   | 'create' | 'insert' | 'remove' | 'move' | 'bind' | 'unbind' | 'cleanup'
+  /** 错误层（任意环节失败——事件流完整覆盖：throw=未捕获传播 / caught=隔离降级） */
+  | 'throw' | 'caught'
+  /** 内部决策层（渲染管线内部状态——busy 排队/组件未定位/跳过——非正常路径可观测） */
+  | 'queue' | 'notfound' | 'skip'
+  /** 事件流自身层（buffer 状态——溢出覆盖可观测） */
+  | 'overflow'
 
 export type V3Event = {
   /** 对象（什么） */
@@ -149,10 +159,21 @@ export type V3Event = {
 /** patch 决策策略（vnode:patch 的 payload.strategy） */
 export type PatchStrategy = 'reuse' | 'rebuild' | 'move' | 'remove' | 'unhandled'
 
+/** 错误发生的环节（error:throw/caught 的 payload.phase——全链路可定位） */
+export type ErrorPhase = 'factory' | 'renderFn' | 'build' | 'patch' | 'mount' | 'update' | 'hook' | 'schedule' | 'event'
+
 /** 事件流（记录/回放/断言——DOM = fold(events)） */
 export interface EventStream {
   emit(ev: V3Event): void
+  /** 实时订阅（emit 同步回调——缓冲溢出也不丢事件——返回退订） */
+  subscribe(fn: (ev: V3Event) => void): () => void
   events(): V3Event[]
+  /** 当前有效条数（缓冲占用——事件流自身状态可观测） */
+  size(): number
+  /** 缓冲容量 */
+  capacity(): number
+  /** 溢出次数（最旧事件被覆盖的次数——事件丢失可审计） */
+  overflowCount(): number
   /** 逆操作（取消——INSERT↔REMOVE / UPDATE 恢复旧值） */
   inverse(ev: V3Event): V3Event | null
   reset(): void

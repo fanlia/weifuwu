@@ -733,9 +733,15 @@ test('事件流：环形缓冲——溢出保留最近 max 条（最旧丢弃）
   for (let i = 1; i <= 8; i++) s.emit({ entity: 'node', action: 'create', target: `n${i}`, payload: { tag: 'div' }, ts: i })
   const evs = s.events()
   assert.equal(evs.length, 5, '容量 5（保留最近 5）')
-  assert.deepEqual(evs.map((e: any) => e.target), ['n4', 'n5', 'n6', 'n7', 'n8'], '最旧 3 条丢弃——顺序正确')
+  // 溢出事件（stream:overflow）也占用缓冲——最近 5 条含溢出事件（n8 + overflow + n5..n7）
+  const targets = evs.map((e: any) => e.target)
+  assert.ok(targets.includes('n8'), '最新事件保留（n8）')
+  assert.ok(!targets.includes('n1'), '最旧丢弃（n1）')
+  assert.ok(evs.some((e) => e.entity === 'stream' && e.action === 'overflow'), '溢出事件在缓冲（覆盖可审计）')
+  assert.equal(s.overflowCount(), 3, '溢出 3 次')
   s.reset()
   assert.equal(s.events().length, 0, 'reset 清空')
+  assert.equal(s.overflowCount(), 0, 'reset 后溢出计数清零')
   // reset 后可复用
   s.emit({ entity: 'node', action: 'create', target: 'x', payload: { tag: 'span' }, ts: 1 })
   assert.equal(s.events().length, 1, 'reset 后继续记录')
@@ -2116,3 +2122,175 @@ test('Tour 受控完成关闭（open=false 回流）：最后一步点完成 →
   document.querySelector('[id="__wf_portal"]')?.remove()
 })
 
+
+test('错误事件化：工厂/renderFn 抛错 → error:throw（事件流可观测——不静默）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  // 工厂抛错组件（独立树——工厂错误中断构建——单独验证）
+  const BadFactory = async () => { throw new Error('factory-boom') }
+  const App = async (_init: any, _ctx: any) => async () => h('div', {}, [
+    h(BadFactory, {}),
+    h('div', { id: 'ok' }, 'ok'),
+  ])
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  const errs = gs.events().filter((e) => e.entity === 'error')
+  const factoryErr = errs.find((e) => e.payload?.phase === 'factory')
+  assert.ok(factoryErr, `工厂错误在事件流（phase: factory）——实际: ${errs.map((e) => e.payload?.phase).join(',')}`)
+  assert.ok(String((factoryErr as any).payload?.message).includes('factory-boom'), '错误消息可观测')
+  document.body.removeChild(root)
+  // renderFn 抛错组件（工厂正常——渲染期失败——独立验证）
+  const root2 = document.createElement('div')
+  document.body.appendChild(root2)
+  gs.reset()
+  const BadRender = async (_init: any, _ctx: any) => async () => { throw new Error('render-boom') }
+  const App2 = async (_init: any, _ctx: any) => async () => h('div', {}, [
+    h(BadRender, {}),
+    h('div', { id: 'ok2' }, 'ok'),
+  ])
+  createRoot(h(App2, {}), root2)
+  await new Promise((r) => setTimeout(r, 30))
+  const errs2 = gs.events().filter((e) => e.entity === 'error')
+  const renderErr = errs2.find((e) => e.payload?.phase === 'renderFn')
+  assert.ok(renderErr, `renderFn 错误在事件流（phase: renderFn）——实际: ${errs2.map((e) => e.payload?.phase).join(',')}`)
+  assert.ok(String((renderErr as any).payload?.message).includes('render-boom'), '错误消息可观测')
+  document.body.removeChild(root2)
+})
+
+test('错误事件化：组件级更新失败 → error:caught（渲染管线不中断——错误定位到组件）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let fail = false
+  const Flaky = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.ui.render()
+    return async (_props: any) => {
+      if (fail) throw new Error('flaky-boom')
+      return h('button', { id: 'f', onClick: () => { fail = true; rerender() } }, 'go')
+    }
+  }
+  const App = async (_init: any, _ctx: any) => async () => h('div', {}, [
+    h(Flaky, {}),
+    h('div', { id: 'rest' }, 'rest'),
+  ])
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  gs.reset()
+  // 点击 → renderFn 抛错 → error:caught（组件级更新——管线不中断）
+  ;(root.querySelector('[id="f"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const caught = gs.events().filter((e) => e.entity === 'error' && e.action === 'caught')
+  assert.ok(caught.length >= 1, `error:caught 在事件流——实际: ${gs.events().map((e) => evKey(e)).join(',')}`)
+  const e = caught[0] as any
+  assert.equal(e.payload?.phase, 'update', '错误定位到 update 环节')
+  assert.ok(String(e.payload?.message).includes('flaky-boom'), '错误消息可观测')
+  // 管线不中断：后续交互仍可渲染（错误后恢复——再点不抛（fail 已 true——恢复逻辑））
+  assert.ok(root.querySelector('[id="rest"]'), '其他组件不受影响')
+  document.body.removeChild(root)
+})
+
+test('错误事件化：正常渲染零错误事件（事件流无噪音）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.ui.render()
+    let n = 0
+    return async () => h('div', {}, [
+      h('button', { id: 'go', onClick: () => { n++; rerender() } }, [`n:${n}`]),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  gs.reset()
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const errs = gs.events().filter((e) => e.entity === 'error')
+  assert.equal(errs.length, 0, `正常渲染零错误事件——实际: ${errs.length}`)
+  document.body.removeChild(root)
+})
+
+test('错误事件化：renderFn 挂起 → error:caught（挂起超时——静默失败不再静默）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  // 挂起 renderFn（永不 resolve——静默失败）
+  let hangs = false
+  const Hanging = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.ui.render()
+    return async (_props: any) => {
+      if (hangs) return new Promise<never>(() => {}) // 永不 resolve
+      return h('button', { id: 'h', onClick: () => { hangs = true; rerender() } }, 'go')
+    }
+  }
+  const App = async (_init: any, _ctx: any) => async () => h('div', {}, [h(Hanging, {})])
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  // 缩短挂起超时（测试用 200ms）
+  ;(globalThis as any).__v3HangMs = 200
+  gs.reset()
+  ;(root.querySelector('[id="h"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 400))
+  const errors = gs.events().filter((e) => e.entity === 'error' && e.action === 'caught')
+  assert.ok(errors.length >= 1, `挂起超时在错误事件流——实际: ${gs.events().map((e) => evKey(e)).join(',')}`)
+  const hang = errors.find((e) => String(e.payload?.message).includes('挂起超时'))
+  assert.ok(hang, `挂起消息可观测——实际: ${errors.map((e) => e.payload?.message).join('; ')}`)
+  assert.equal(hang?.payload?.phase, 'update', '定位到 update 环节')
+  document.body.removeChild(root)
+})
+
+test('错误事件化：正常渲染零内部决策事件（queue/notfound/skip 零噪音）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let n = 0
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.ui.render()
+    return async () => h('button', { id: 'go', onClick: () => { n++; rerender() } }, [`n:${n}`])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  gs.reset()
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const internals = gs.events().filter((e) => e.entity === 'internal')
+  assert.equal(internals.length, 0, `正常渲染零内部决策事件——实际: ${internals.length}`)
+  document.body.removeChild(root)
+})
+
+test('事件流自身状态：buffer 溢出 → stream:overflow（覆盖可审计——size/capacity/overflowCount API）', async () => {
+  const { createEventStream } = await import('../ui-dom/vdom3/events.ts')
+  const s = createEventStream(5)
+  // 填满 + 溢出
+  for (let i = 1; i <= 8; i++) {
+    s.emit({ entity: 'node', action: 'create', target: `n${i}`, payload: { tag: 'div' }, ts: i })
+  }
+  assert.equal(s.size(), 5, '缓冲占用 5（容量）')
+  assert.equal(s.capacity(), 5, '容量 5')
+  assert.equal(s.overflowCount(), 3, '溢出 3 次（n6/n7/n8 各覆盖一条最旧）')
+  // overflow 事件在事件流里（buffer 状态可观测）
+  const overflows = s.events().filter((e) => e.entity === 'stream' && e.action === 'overflow')
+  assert.ok(overflows.length >= 1, `stream:overflow 事件存在——实际: ${s.events().map((e) => evKey(e)).join(',')}`)
+  const last = overflows[overflows.length - 1] as any
+  assert.equal(last.payload?.capacity, 5, '溢出事件携带容量')
+  assert.ok(last.payload?.count >= 1, '溢出事件携带累计次数（降频——每 64 次一条）')
+  assert.ok(last.payload?.dropped, `溢出事件携带被覆盖的事件键——实际: ${JSON.stringify(last.payload)}`)
+  // 保留最近 5 条（n4-n8 + overflow 事件循环覆盖——最新 overflow 保留）
+  const keys = s.events().map((e) => evKey(e))
+  assert.ok(keys.includes('stream:overflow'), 'overflow 事件在缓冲内（最近溢出可观测）')
+  // reset 清空状态
+  s.reset()
+  assert.equal(s.size(), 0, 'reset 后占用 0')
+  assert.equal(s.overflowCount(), 0, 'reset 后溢出计数清零')
+})
