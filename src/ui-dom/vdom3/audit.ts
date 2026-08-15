@@ -49,7 +49,10 @@ export function auditOrder(_el: Element, v: VNode): void {
     if (idx < 0) return
     if (idx < prevIdx) {
       // 单行（避免多行源码噪音——console 历史累积可读性）
-      console.warn(`[vdom3/audit] children 顺序错位 idx=${idx}<${prevIdx} tag=${String((k as VNode).type).slice(0, 30)}`)
+      const stack = (globalThis as { __WF_V3_AUDIT_STACK?: string }).__WF_V3_AUDIT_STACK
+        ? new Error().stack?.split('\n').slice(2, 5).map((l) => l.trim().slice(0, 70)).join(' | ')
+        : ''
+      console.warn(`[vdom3/audit] children 顺序错位 idx=${idx}<${prevIdx} tag=${String((k as VNode).type).slice(0, 30)}${stack ? ' || ' + stack : ''}`)
       return
     }
     prevIdx = idx
