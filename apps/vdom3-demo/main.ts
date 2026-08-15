@@ -43,6 +43,31 @@ const V3LoginPage = async (_init: any, _ctx: any) => async () =>
     h(Login, {}),
   ])
 
+// ── agent-platform Departments 页面（ctx.api 数据加载 + 列表 + 删除） ──
+import { Departments } from '../../apps/agent-platform/ui/pages/Departments.tsx'
+
+const V3DepartmentsPage = async (_init: any, _ctx: any) => async () => {
+  const deptApi = {
+    get: async (url: string) => {
+      if (url === '/api/departments') {
+        return { departments: [
+          { id: 'd1', name: '产品组', is_dm: false, member_count: 5 },
+          { id: 'd2', name: '设计组', is_dm: false, member_count: 3 },
+          { id: 'dm-1', name: '小码', is_dm: true, member_count: 1 },
+        ] }
+      }
+      return {}
+    },
+    delete: async () => ({ ok: true, status: 204 }),
+    post: async () => ({}),
+    put: async () => ({}),
+  }
+  return h('div', { id: 'v3-depts' }, [
+    h('h2', {}, 'vdom3 — agent-platform Departments'),
+    h(Departments, {}),
+  ])
+}
+
 const ChatPage = async (_init: any, ctx: any) => {
   const chat = ctx.ui.useChat({ url: '/api/chat' })
   return async () => h('div', { id: 'chat-page' }, [
@@ -155,4 +180,23 @@ const router = createRouter([
   { path: '/todos', render: () => h(TodoApp, {}) },
   { path: '/chat', render: () => h(ChatPage, {}) },
   { path: '/v3-login', render: () => h(V3LoginPage, {}) },
-], root)
+  { path: '/v3-depts', render: () => h(V3DepartmentsPage, {}) },
+], root, {
+  ctx: {
+    // 中间件面 mock（agent-platform 页面消费——ctx.api/confirm/toast）
+    api: {
+      get: async (url: string) => {
+        if (url === '/api/departments') return { departments: [
+          { id: 'd1', name: '产品组', is_dm: false, member_count: 5 },
+          { id: 'd2', name: '设计组', is_dm: false, member_count: 3 },
+        ] }
+        return {}
+      },
+      delete: async () => ({ ok: true, status: 204 }),
+      post: async () => ({}), put: async () => ({}),
+    },
+    confirm: async () => true,
+    toast: (msg: string) => { console.log('[toast]', msg) },
+    app: { navigate: (p: string) => { router.navigate(p) } },
+  },
+})
