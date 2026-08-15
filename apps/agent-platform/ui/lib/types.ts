@@ -333,3 +333,25 @@ export interface OpsInfo {
   auditToday: number
   license?: { key: string; edition: 'community' | 'licensed'; expiresAt: string | null; expired: boolean }
 }
+
+/** 前端流式消息形态（Chat 页 + MessageItem 共享——WS 推送对象字段不全，宽松） */
+export interface ChatMessage {
+  id: string
+  department_id?: string
+  sender_id: string
+  sender_name?: string | null
+  sender_type?: string
+  content: string
+  msg_type?: string
+  created_at: string
+  status: string
+  tools: MessageTool[]
+  usage?: { total_tokens: number }
+  ai_draft?: string | null
+  ai_approved?: boolean | null
+  reply_content?: string | null
+  reply_sender?: string | null
+  /** R6 质量反馈 */
+  feedback?: 'like' | 'dislike' | null
+  attachments?: Array<{ name: string; path: string; size: number }> | null
+}

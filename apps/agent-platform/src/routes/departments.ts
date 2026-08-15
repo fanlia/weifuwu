@@ -136,6 +136,77 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     return Response.json({ department }, { status: 201 })
   })
 
+  // ── P1 工作区聚合 API（三层模型：一个部门 = 一个页面）─────────────────
+  // 项目空间页首屏一次返回：部门 + 成员 + 环境状态（用户语言）+ 文件根列表 + 最近消息摘要 + 配额
+  app.get('/api/departments/:id/workspace', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, params } = ctx
+    const [dept] = await sql`
+      SELECT d.* FROM departments d
+      WHERE d.id = ${params.id} AND d.app_id = ${appId}
+    `
+    if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    // 成员
+    const members = await sql`
+      SELECT a.id, a.type, a.name, a.avatar_url, a.description, a.role_label, a.expertise, dm.role, dm.joined_at
+      FROM department_members dm
+      JOIN agents a ON a.id = dm.agent_id
+      WHERE dm.department_id = ${params.id}
+    `
+    // 环境状态（用户语言映射——前端零翻译）
+    const { manager } = await import('../sandbox/manager.ts')
+    manager.init(sql)
+    const sb = await manager.byDepartment(String(params.id))
+    const envMap: Record<string, { status: string; label: string }> = {
+      running: { status: 'ready', label: 'AI 随时能干活' },
+      stopped: { status: 'cold', label: 'AI 休息中，干活时自动唤醒' },
+      requested: { status: 'cold', label: '环境待启动（首次干活自动创建）' },
+      error: { status: 'error', label: '环境异常，请管理员处理' },
+    }
+    let env = { status: 'none', label: '' }
+    if (sb && envMap[sb.status]) env = envMap[sb.status]
+    // 文件根列表（共享工作目录——交付物；单聊也是部门特例）
+    let files: Array<{ name: string; type: string; size: number; mtime: string }> = []
+    try {
+      const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
+      const ws = await resolveDepartmentWorkspace(String(params.id), (dept as any).workspace_path, true)
+      if (ws) {
+        const { readdir, stat } = await import('node:fs/promises')
+        const { join } = await import('node:path')
+        const entries = await readdir(ws, { withFileTypes: true })
+        const items: Array<{ name: string; type: string; size: number; mtime: string }> = []
+        for (const entry of entries) {
+          if (entry.name.startsWith('.')) continue
+          const full = join(ws, entry.name)
+          try {
+            const s = await stat(full)
+            items.push({ name: entry.name, type: entry.isDirectory() ? 'dir' : 'file', size: s.size, mtime: s.mtime.toISOString() })
+          } catch { /* 跳过 */ }
+        }
+        items.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'dir' ? -1 : 1))
+        files = items.slice(0, 20)
+      }
+    } catch { /* 文件列表失败不阻断 */ }
+    // 最近消息摘要（3 条）
+    const recent = await sql`
+      SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type
+      FROM messages m JOIN agents a ON a.id = m.sender_id
+      WHERE m.department_id = ${params.id} AND m.ai_approved != FALSE
+      ORDER BY m.created_at DESC LIMIT 3
+    `
+    return Response.json({
+      department: dept,
+      members,
+      env,
+      files,
+      recentMessages: (recent ?? []).map((r: any) => ({
+        content: String(r.content ?? '').slice(0, 120),
+        senderName: String(r.sender_name ?? ''),
+        senderType: String(r.sender_type ?? ''),
+        createdAt: r.created_at,
+      })),
+    })
+  })
+
   // ── 获取单个部门 ─────────────────────────────────────────
 
   app.get('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {

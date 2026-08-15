@@ -43,6 +43,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/routes/agents.ts', match: 'FROM agent_logs WHERE agent_id = ${params.id}', reason: '间接隔离——上游 GET /api/agents/:id 已校验 a.app_id（171 行）' },
   { file: 'src/routes/departments.ts', match: 'INSERT INTO department_members', reason: '间接隔离——上游已校验部门/Agent 归属（app_id）' },
   { file: 'src/routes/departments.ts', match: 'FROM department_members dm JOIN agents', reason: '间接隔离——department_id 上游已校验归属' },
+  { file: 'src/routes/departments.ts', match: 'FROM messages m JOIN agents a ON a.id = m.sender_id', reason: 'P1 工作区聚合——department_id 上游已校验归属（部门存在性校验后）' },
   { file: 'src/routes/departments.ts', match: 'DELETE FROM department_members WHERE department_id', reason: '间接隔离——上游部门归属校验（G7 权限闸门）' },
   { file: 'src/routes/knowledge.ts', match: 'kb_documents WHERE agent_id = ${params.id}', reason: '间接隔离——上游已校验 agent 归属（a.app_id）' },
   { file: 'src/routes/knowledge.ts', match: 'kb_chunks WHERE document_id', reason: '间接隔离——doc 查询带 a.app_id（54 行），document_id 来自已校验 doc' },

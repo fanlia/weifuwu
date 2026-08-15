@@ -370,6 +370,9 @@ async function runAgentStreamForAgent(
 ): Promise<void> {
   const { sql } = ctx
   const isExternalMsg = !!initialMsgId
+  // P1-3：最近一次工具调用的 args（write/edit 文件变动广播用——工具名→args 映射）
+  const lastToolArgs = new Map<string, Record<string, unknown>>()
+  const lastToolArgsOf = (name: string): Record<string, unknown> | null => lastToolArgs.get(name) ?? null
 
   const systemPrompt = (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({
     rosterText: buildRosterText(rosterMembers, String(agent.id)),
@@ -456,9 +459,29 @@ async function runAgentStreamForAgent(
       },
       onToolCall: (toolCall: { name: string; args: string }) => {
         emit.emit({ type: 'wf:step', messageId: msgId, stepType: 'tool', name: toolCall.name, args: toolCall.args })
+        // P1-3：记录工具参数（write/edit 成功时广播 file_updated）
+        try { lastToolArgs.set(String(toolCall.name), JSON.parse(String(toolCall.args ?? '{}'))) } catch { /* 解析失败跳过 */ }
       },
       onToolResult: (result: { name: string; result: string }) => {
         emit.emit({ type: 'wf:tool_result', messageId: msgId, name: result.name, result: result.result })
+        // P1-3 文件变动事件：AI 写入/编辑文件 → 广播 file_updated（工作区交付物自动刷新）
+        // 工具名 + args 来自 onToolCall（宿主侧已知——容器内 tool-runner 无需回传）
+        try {
+          if ((result.name === 'write' || result.name === 'edit') && !String(result.result ?? '').startsWith('写入失败') && !String(result.result ?? '').startsWith('编辑失败') && !String(result.result ?? '').includes('未找到匹配')) {
+            const argsJson = lastToolArgsOf(String(result.name))
+            const relPath = argsJson?.path ? String(argsJson.path) : ''
+            if (relPath && !relPath.startsWith('..')) {
+              try {
+                ctx.msg.broadcast(String(departmentId), {
+                  type: 'file_updated',
+                  file: relPath,
+                  agentId: agent.id,
+                  agentName: agent.name,
+                })
+              } catch { /* 广播失败不影响 */ }
+            }
+          }
+        } catch { /* 事件尽力 */ }
       },
       onFinish: () => {
         // 每个流式步骤结束，不在此处发 complete

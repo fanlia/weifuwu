@@ -140,10 +140,10 @@
 
 ### P1 项目空间工作区（后端 + 前端——核心一体化页面）
 
-- [ ] **P1-1. 部门工作区聚合 API**（B）— `GET /api/departments/:id/workspace`（部门+成员+文件树+envStatus+最近消息摘要）；`envStatus` 用户语言映射（ready 随时能干活 / cold 休息中自动唤醒 / working 干活中 / error 需处理）
-- [ ] **P1-2. 一体化工作区页**（F）— 三栏：左成员与 AI 状态 / 中聊天流（复用 Chat 逻辑） / 右交付物（FilesSection 增强）；窄屏折叠为 Tab；Chat 组件拆分（MessageList/MessageItem/ToolStep/Composer/FileCard）
-- [ ] **P1-3. 文件变动 WS 事件**（B+F）— 沙盒写文件 → `file_created/file_updated` 广播 → 工作区右侧自动刷新 + 聊天流内「AI 刚生成了 X」文件卡片
-- [ ] **P1-4. 环境状态接入工作区**（B+F）— 部门页顶部环境条（用户语言 + 冷启动提示「首次干活需约 1 秒启动」）；管理员可展开管理操作（启动/停止/终止——沿用 API）
+- [x] **P1-1. 部门工作区聚合 API**（B）— `GET /api/departments/:id/workspace`（部门+成员+文件根列表+envStatus 用户语言+最近消息摘要）——工作区页 1 请求首屏
+- [x] **P1-2. 一体化工作区页**（F）— Chat.tsx 三栏改造：左栏成员+AI 状态+工作环境 / 中栏聊天流（头部 env 用户语言 Badge） / 右栏交付物（FilesSection）；MessageItem 组件拆分（Chat 686→~580 行 + MessageItem 独立组件）；聚合 API 替换部门请求
+- [x] **P1-3. 文件变动 WS 事件**（B+F）— chat.ts onToolResult 检测 write/edit 成功 → `file_updated` 广播（宿主侧工具 args 解析——tool-runner 无需回传）；前端 filesVersion store（createStore）→ FilesSection 订阅自动刷新；聊天内文件卡片 P2-4
+- [x] **P1-4. 环境状态接入工作区**（B+F）— 聚合 API envStatus + Chat 头部 Badge + 左栏「工作环境」卡（用户语言；冷启动提示）；管理操作沿用沙盒页/部门详情
   - 测试：聚合 API 契约测试；工作区页渲染基线（含 envStatus 各态）；Chat 组件拆分后旧交互回归（agent-browser）
 
 ### P2 AI 协作体验（设计 + 前端——信任感与引导）
