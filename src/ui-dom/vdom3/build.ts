@@ -6,8 +6,9 @@
  */
 
 import type { VNode, VNodeChild, Component, PortalVNode } from './types.ts'
-import { Fragment, Portal } from './types.ts'
+import { Fragment, Portal, childrenOf } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
+import { createV3Ui } from './ui.ts'
 
 /** 组件卸载钩子注册表（组件 id → 清理函数——COMP_UNMOUNT 时调用） */
 const unmountHooks = new Map<string, () => void>()
@@ -36,10 +37,12 @@ export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, old
       vnode._id = nextNodeId()
       stream.emit({ type: 'COMP_MOUNT', id: vnode._id, name: compName(vnode.type), ts: Date.now() })
       // 组件 ctx：onUnmount 钩子（卸载清理注册——COMP_UNMOUNT 时执行）
+      // + ui（vdom2 兼容面——hooks shim——组件库零改动）
       const compId = vnode._id
       const compCtx = {
         ...ctx,
         onUnmount: (fn: () => void) => { unmountHooks.set(compId, fn) },
+        ui: createV3Ui(compId, () => { (ctx as any).render?.() }, (fn) => { unmountHooks.set(compId, fn) }),
       }
       vnode._render = await (vnode.type as Component)(vnode.props, compCtx)
     }
@@ -47,14 +50,14 @@ export async function buildVNode(vnode: VNode, ctx: Record<string, unknown>, old
     if (output == null) { vnode.children = []; return vnode }
     // 展开输出：组件输出作为单子节点（渲染时输出组件 _child）——旧输出对照递归
     vnode.children = [output]
-    const oldOut = reuse?.children?.[0]
+    const oldOut = childrenOf(reuse ?? ({} as VNode))[0]
     await buildVNode(output, ctx, oldOut != null && typeof oldOut === 'object' ? (oldOut as VNode) : null)
     return vnode
   }
   // native / Fragment / Portal：递归 children（跳过文本）
-  const oldKids = oldV?.children ?? []
+  const oldKids = childrenOf(oldV ?? ({} as VNode))
   let i = 0
-  for (const c of vnode.children ?? []) {
+  for (const c of childrenOf(vnode)) {
     if (isVNode(c)) {
       const oc = oldKids[i]
       await buildVNode(c, ctx, oc != null && typeof oc === 'object' ? (oc as VNode) : null)

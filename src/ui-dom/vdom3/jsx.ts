@@ -10,9 +10,11 @@ export function h(
   props?: Record<string, unknown> | null,
   ...children: VNodeChild[]
 ): VNode {
-  // 单数组参数（h('div', props, [a, b])）→ 展开；多参（h('div', props, a, b)）→ 原样
+  // children 存 props.children（vdom2 对齐——组件库产物兼容）；单数组参数展开
   const kids = children.length === 1 && Array.isArray(children[0]) ? children[0] : children
-  return { type, props: props ?? {}, children: kids as VNodeChild[], key: (props?.key as string) ?? null }
+  const p = props ? { ...props } : {}
+  if (children.length > 0) p.children = kids
+  return { type, props: p, key: (props?.key as string) ?? null }
 }
 
 /** Portal：children 渲染到远程容器（#__wf_portal > [data-wf-portal-key=key]） */

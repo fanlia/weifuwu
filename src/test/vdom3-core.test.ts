@@ -799,3 +799,70 @@ test('Portal：事件流可回放（INSERT parent=portal:key——replay 重建�
   document.body.removeChild(target)
   document.querySelector('#__wf_portal')?.remove()
 })
+
+// ── hooks shim（阶段 2 最小闭环）：vdom2 hooks 在 vdom3 ctx 运行 ──
+
+test('hooks shim：useExternal（createStore 共享状态）在 vdom3 组件运行', async () => {
+  const { createV3Ui } = await import('../ui-dom/vdom3/ui.ts')
+  const { createStore } = await import('../ui-dom/store.ts')
+  const store = createStore({ user: 'alice' })
+  // vdom2 风格组件（ctx.ui.useExternal——mount 订阅）
+  const UserBadge = async (_init: any, ctx: any) => {
+    const st = ctx.ui.useExternal(store)
+    return async () => h('span', { id: 'badge' }, `user: ${st.state.user}`)
+  }
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h(UserBadge, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(root.querySelector('[id="badge"]')?.textContent, 'user: alice', '初始渲染（订阅）')
+  // store 变化 → 组件自动重渲染（useExternal 订阅驱动）
+  store.set({ user: 'bob' })
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(root.querySelector('[id="badge"]')?.textContent, 'user: bob', 'store 变化自动重渲染')
+  document.body.removeChild(root)
+})
+
+test('hooks shim：useOpen（受控/非受控打开态）+ useControlled（输入态）', async () => {
+  // useOpen 非受控（内部态 + render）
+  const Dropdown = async (_init: any, ctx: any) => {
+    const ctrl = ctx.ui.useOpen({ name: 'TestDropdown' })
+    return async () => h('div', {}, [
+      h('button', { id: 'dd-btn', onClick: () => { ctrl.setOpen(!ctrl.open); ctx.ui.render() } }, 'toggle'),
+      ctrl.open ? h('div', { id: 'dd-panel' }, '面板') : null,
+    ])
+  }
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h(Dropdown, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(root.querySelector('[id="dd-panel"]'), null, '初始关闭')
+  ;(root.querySelector('[id="dd-btn"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('[id="dd-panel"]'), 'toggle 打开')
+  ;(root.querySelector('[id="dd-btn"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(root.querySelector('[id="dd-panel"]'), null, '再次 toggle 关闭')
+  document.body.removeChild(root)
+})
+
+test('hooks shim：真实 vdom2 组件（ToggleGroup——useControlled）在 vdom3 运行', async () => {
+  const { ToggleGroup } = await import('../components/ToggleGroup/ToggleGroup.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  // 非受控（内部态——可点击）
+  createRoot(h(ToggleGroup, { options: [{ value: 'red', label: '红' }, { value: 'green', label: '绿' }, { value: 'blue', label: '蓝' }] }), root)
+  await new Promise((r) => setTimeout(r, 20))
+  const btns = [...root.querySelectorAll('[class*="wf-toggle"] button, button')]
+  assert.equal(btns.length, 3, 'ToggleGroup 渲染（3 按钮）')
+  // 点击切换（非受控内部态——useControlled）
+  const red = [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('红'))
+  ;(red as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  const redAfter = [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('红'))
+  assert.ok(redAfter?.className.includes('active') || redAfter?.getAttribute('aria-pressed') === 'true', '点击切换选中（红——非受控内部态）')
+  document.body.removeChild(root)
+})

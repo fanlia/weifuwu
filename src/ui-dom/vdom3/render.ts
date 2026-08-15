@@ -9,7 +9,7 @@
  */
 
 import type { VNode, VNodeChild, PortalVNode } from './types.ts'
-import { Fragment, Portal } from './types.ts'
+import { Fragment, Portal, childrenOf } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
@@ -27,7 +27,7 @@ export function mount(vnode: VNode, root: HTMLElement): void {
 function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | null {
   // 组件：输出 _child（已构建——直接渲染输出；el 定位组件输出首节点）
   if (typeof vnode.type === 'function') {
-    const output = vnode.children?.[0] ?? null
+    const output = childrenOf(vnode)[0] ?? null
     if (output == null) return null
     if (vnode.el == null || !vnode.el.isConnected) {
       const node = renderVNode(output as VNode, parent, anchor)
@@ -38,7 +38,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   }
   if (vnode.type === Fragment) {
     let first: Node | null = null
-    for (const c of vnode.children ?? []) {
+    for (const c of childrenOf(vnode)) {
       const n = renderVNodeChild(c, parent, anchor)
       if (n && !first) first = n
     }
@@ -51,7 +51,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     // 容器 id 注册（事件流 parent 用 portal:key——idOf 经 WeakMap 解析）
     registry.register(NodeRegistry.PORTAL(pv.portalKey ?? 'default'), container)
     let first: Node | null = null
-    for (const c of vnode.children ?? []) {
+    for (const c of childrenOf(vnode)) {
       const n = renderVNodeChild(c, container)
       if (n && !first) first = n
     }
@@ -83,7 +83,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   if (anchor && anchor.parentNode === parent) parent.insertBefore(el, anchor)
   else parent.appendChild(el)
   stream.emit({ type: 'INSERT', parent: parentId(parent), child: id, ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
-  for (const c of vnode.children ?? []) renderVNodeChild(c, el)
+  for (const c of childrenOf(vnode)) renderVNodeChild(c, el)
   return el
 }
 
@@ -156,8 +156,8 @@ export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor
     if (typeof vn.type === 'function') {
       vn._render = ov._render
       vn._id = ov._id
-      const out = vn.children?.[0] ?? null
-      const oldOut = ov.children?.[0] ?? null
+      const out = childrenOf(vn)[0] ?? null
+      const oldOut = childrenOf(ov)[0] ?? null
       if (out == null) {
         if (ov.el) { ov.el.parentNode?.removeChild(ov.el); ov.el = null }
         vn.el = null
@@ -297,8 +297,8 @@ function removePortalContent(pv: PortalVNode): void {
 
 /** children diff：全 keyed → 专用路径（MOVE）；无 key/混合 → 位置配对 */
 function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
-  const oldKids = oldV.children ?? []
-  const newKids = newV.children ?? []
+  const oldKids = childrenOf(oldV)
+  const newKids = childrenOf(newV)
   // 全 keyed 列表（>1 项且全部有 key）→ keyed diff（重排 MOVE——DOM 状态保持）
   if (newKids.length > 1 && newKids.every((k) => isVNode(k) && k.key != null)) {
     patchKeyedChildren(oldKids, newKids, el)

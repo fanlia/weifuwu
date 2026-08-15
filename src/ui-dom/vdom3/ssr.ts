@@ -11,7 +11,7 @@
  */
 
 import type { VNode, V3Event } from './types.ts'
-import { Fragment } from './types.ts'
+import { Fragment, childrenOf } from './types.ts'
 import { buildVNode } from './build.ts'
 import { stream } from './events.ts'
 
@@ -28,12 +28,12 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
   const walk = (v: VNode, parentId: string): void => {
     // 组件：输出 _child（已 build）
     if (typeof v.type === 'function') {
-      const out = v.children?.[0]
+      const out = childrenOf(v)[0]
       if (out && typeof out === 'object' && !Array.isArray(out)) walk(out, parentId)
       return
     }
     if (v.type === Fragment) {
-      for (const c of v.children ?? []) if (c && typeof c === 'object' && !Array.isArray(c)) walk(c as VNode, parentId)
+      for (const c of childrenOf(v)) if (c && typeof c === 'object' && !Array.isArray(c)) walk(c as VNode, parentId)
       return
     }
     // native
@@ -45,7 +45,7 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
       if (val != null && val !== false) events.push({ type: 'PROP_UPDATE', target: id, key: k, value: val, prev: '', ts })
     }
     events.push({ type: 'INSERT', parent: parentId, child: id, ref: null, ts })
-    for (const c of v.children ?? []) {
+    for (const c of childrenOf(v)) {
       if (typeof c === 'string' || typeof c === 'number') {
         const tid = nextId()
         events.push({ type: 'TEXT_CREATE', id: tid, value: String(c), ts })
@@ -72,7 +72,7 @@ export async function* renderToEventStream(vnode: VNode): AsyncGenerator<V3Event
 
   const walk = function* (v: VNode, parentId: string): Generator<V3Event> {
     if (typeof v.type === 'function') {
-      const out = v.children?.[0]
+      const out = childrenOf(v)[0]
       if (out && typeof out === 'object' && !Array.isArray(out)) yield* walk(out, parentId)
       return
     }
@@ -88,7 +88,7 @@ export async function* renderToEventStream(vnode: VNode): AsyncGenerator<V3Event
       if (val != null && val !== false) yield { type: 'PROP_UPDATE', target: id, key: k, value: val, prev: '', ts }
     }
     yield { type: 'INSERT', parent: parentId, child: id, ref: null, ts }
-    for (const c of v.children ?? []) {
+    for (const c of childrenOf(v)) {
       if (typeof c === 'string' || typeof c === 'number') {
         const tid = nextId()
         yield { type: 'TEXT_CREATE', id: tid, value: String(c), ts }

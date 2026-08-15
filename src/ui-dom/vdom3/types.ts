@@ -33,6 +33,15 @@ export interface VNode {
 
 export type VNodeChild = VNode | string | number | null | undefined | boolean
 
+/** children 读取统一入口（vdom2 兼容：h 存 props.children——vdom3 引擎输出存 v.children）
+ *  读取顺序：v.children（引擎写——组件输出）→ props.children（h/组件库产出）→ 空 */
+export function childrenOf(v: VNode): VNodeChild[] {
+  if (v.children != null) return v.children
+  const c = (v.props?.children ?? []) as VNodeChild | VNodeChild[]
+  if (c == null || typeof c === 'boolean') return []
+  return Array.isArray(c) ? c : [c]
+}
+
 export const Fragment: unique symbol = Symbol('v3-fragment')
 /** Portal（浮层渲染到远程容器——#__wf_portal 下按 key 的容器——脱离父节点位置） */
 export const Portal: unique symbol = Symbol('v3-portal')
