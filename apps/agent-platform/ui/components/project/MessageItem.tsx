@@ -13,6 +13,7 @@ import { detectTaskMarker } from '../../../src/services/task-markers.ts'
 
 export interface MessageItemProps {
   msg: ChatMessage
+  departmentId: string
   own: boolean
   canEditMsg: boolean
   isAdmin: boolean
@@ -59,6 +60,21 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
 
     if (msg.msg_type === 'system') {
       return <div class="wf-center"><span class="wf-pill wf-bg-tertiary wf-text-secondary wf-px-sm wf-py-xs wf-text-xs">{msg.content}</span></div>
+    }
+
+    // P2-4：交付物文件卡片（AI 刚生成的文件——可点击下载）
+    if (msg.msg_type === 'file_card') {
+      const rel = props.msg.content
+      return (
+        <div class="wf-row wf-gap-sm wf-items-center">
+          <Ava name={msg.sender_name ?? 'AI'} type="ai" small />
+          <a class="wf-pill wf-bg-tertiary wf-px-sm wf-py-xs wf-text-xs wf-row wf-gap-xs wf-items-center"
+            href={`/api/departments/${props.departmentId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`}
+            style="text-decoration: none">
+            <Icon name="file-text" size={12} /> {msg.sender_name ?? 'AI'} 刚生成了 <b class="wf-text-brand">{rel}</b> 下载 ↓
+          </a>
+        </div>
+      )
     }
 
     return (

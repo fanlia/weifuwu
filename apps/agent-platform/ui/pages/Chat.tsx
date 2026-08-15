@@ -6,7 +6,7 @@ import type { Agent, ChatMessage, Member, Message, MessageListResponse, MessageT
 import { track } from '../lib/track'
 import { MessageItem } from '../components/project/MessageItem.tsx'
 import { FilesSection } from '../components/agent/FilesSection.tsx'
-import { bumpFilesVersion } from '../lib/project-store.ts'
+import { bumpFilesVersion, setAiWorking, aiStatus, notifyFilesReload } from '../lib/project-store.ts'
 
 /** ChatInput 程序化控制（与 weifuwu/components ChatInputControl 同形） */
 interface ChatInputControl {
@@ -53,6 +53,9 @@ export const Chat: Component = async (_props, ctx) => {
     input.value = ''
   }
   const deptId = ctx.route?.params?.id ?? ''
+  // P2-1：AI 干活状态（aiStatus store 订阅——左栏呼吸灯；useExternal 返回 store 活引用）
+  const aiStatusStore = ctx.ui.useExternal(aiStatus)
+  const aiStatusOf = (id: string) => (aiStatusStore.state as Record<string, string>)[id] ?? 'idle'
 
   $.msgs = []; $.deptName = '聊天'; $.memberCount = 0; $.input = ''; $.isAdmin = false
   $.files = []
@@ -135,6 +138,8 @@ export const Chat: Component = async (_props, ctx) => {
       case 'wf:step': {
         // 框架协议：stepType 'llm'（开始思考）/ 'tool'（工具调用）
         const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
+        // P2-1：AI 干活中状态（左栏呼吸灯）
+        setAiWorking(event.agentId, true)
         if (event.stepType === 'llm') {
           if (idx === -1) {
             $.msgs.push({ id: event.messageId, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'thinking', tools: [] as MessageTool[] })
@@ -172,17 +177,34 @@ export const Chat: Component = async (_props, ctx) => {
           if (event.content) m.content = event.content
           m.status = 'complete'; if (event.usage) m.usage = event.usage
         }
+        // P2-1：AI 干活结束（呼吸灯复位）
+        setAiWorking(event.agentId, false)
         ; break
       }
       case 'wf:error': {
         const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
         if (m) { if (!m.content) m.content = '⚠️ AI 回复失败'; m.status = 'error' }
+        setAiWorking(event.agentId, false)
         ; break
       }
-      case 'file_updated':
+      case 'file_updated': {
         // P1-3：AI 写入/编辑文件 → 交付物自动刷新（FilesSection 订阅 filesVersion）
         bumpFilesVersion()
+        // 文件列表刷新（注册表——FilesSection 挂载时注册，事件直接驱动）
+        notifyFilesReload()
+        // P2-4：聊天流内「AI 刚生成了 X」文件卡片（可点击下载）
+        const f = String(event.file ?? '')
+        const fname = f.split('/').pop() ?? f
+        const isNew = !$.msgs.some((m: ChatMessage) => m.msg_type === 'file_card' && m.content === fname)
+        if (f && isNew) {
+          $.msgs.push({
+            id: `file-${f}-${Date.now()}`, sender_id: event.agentId ?? 'ai', sender_name: event.agentName ?? 'AI',
+            sender_type: 'ai', content: fname, msg_type: 'file_card', created_at: new Date().toISOString(), status: 'idle', tools: [],
+          })
+          scrollToBottom()
+        }
         ; break
+      }
       case 'message_edited': {
         const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
         if (m) m.content = event.content; break
@@ -425,15 +447,25 @@ export const Chat: Component = async (_props, ctx) => {
         <div class="wf-text-xs wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">成员（{$.memberCount}）</div>
         {$.membersList.length === 0 && <div class="wf-text-xs wf-text-tertiary">暂无 AI 成员——聊天中 @ 不到人时去「管理 → Agent」添加</div>}
         {$.membersList.map((m: Member) => (
-          <div key={m.id} class="wf-row wf-gap-sm wf-items-center">
-            <Ava name={m.name} type={m.type ?? 'ai'} small />
+          <div key={m.id} class="wf-row wf-gap-sm wf-items-center wf-py-xs">
+            {/* P2-1：AI 干活中呼吸灯（wf:step/wf:done 驱动 aiStatus store） */}
+            <div class="wf-relative">
+              <Ava name={m.name} type={m.type ?? 'ai'} small />
+              {m.type !== 'knowledge_base' && (
+                <span class="wf-dot" style={`position:absolute;right:-2px;bottom:-2px;width:8px;height:8px;border-radius:50%;background:${aiStatusOf(m.id) === 'working' ? 'var(--wf-color-brand)' : 'var(--wf-color-success)'};border:1px solid var(--wf-color-surface)`} />
+              )}
+            </div>
             <div class="wf-fill wf-stack wf-gap-none wf-min-w-0">
               <span class="wf-text-sm wf-text-medium wf-truncate">{m.name}</span>
-              {m.role_label && <span class="wf-text-xs wf-text-tertiary wf-truncate">{m.role_label}</span>}
+              <span class="wf-text-xs wf-text-tertiary wf-truncate">{aiStatusOf(m.id) === 'working' ? '干活中…' : (m.role_label || '空闲')}</span>
             </div>
             {m.type === 'knowledge_base' && <span class="wf-text-xs wf-text-tertiary">KB</span>}
           </div>
         ))}
+        {$.membersList.length > 0 && (
+          <a class="wf-text-xs wf-text-brand wf-mt-xs" style="cursor:pointer"
+            onClick={() => ctx.app?.navigate('/departments/' + deptId)}>＋ 添加 AI 能力</a>
+        )}
         <div class="wf-border-t wf-pt-sm wf-mt-sm">
           <div class="wf-text-xs wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">工作环境</div>
           {$.env.label ? (
@@ -482,13 +514,14 @@ export const Chat: Component = async (_props, ctx) => {
         </div>
 
         {$.msgs.length === 0 && (
-          <EmptyState icon={<Icon name="message" />} text={$.searchQ ? '没有匹配的消息' : '暂无消息'} hint={$.searchQ ? '换个关键词试试' : '发送第一条消息，@ 的 AI 成员会自动回复'} />
+          <EmptyState icon={<Icon name="message" />} text={$.searchQ ? '没有匹配的消息' : '暂无消息'} hint={$.searchQ ? '换个关键词试试' : '三步开始：上传资料到右侧交付物 → 发送消息 @AI 成员 → 交付物里拿成果'} />
         )}
 
         {$.msgs.map((msg: ChatMessage) => (
           <MessageItem
             key={msg.id}
             msg={msg}
+            departmentId={deptId}
             own={isOwn(msg)}
             canEditMsg={canEdit(msg)}
             isAdmin={$.isAdmin}

@@ -6,7 +6,7 @@
 import type { Component } from 'weifuwu/ui-dom'
 import { Button, Card, EmptyState, Icon, Loading } from 'weifuwu/components'
 import { errMsg } from '../../components/ui'
-import { filesVersion } from '../../lib/project-store.ts'
+import { onFilesReload, offFilesReload } from '../../lib/project-store.ts'
 
 export const FilesSection: Component<{ departmentId: string }> = async (_init, ctx) => {
   let wsEntries: Array<{ name: string; type: 'dir' | 'file'; size: number; mtime: string }> = []
@@ -17,9 +17,10 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
   let wsSaving = false
   const rerender = () => ctx.ui.render()
   const departmentId = _init.departmentId
-  // P1-3：AI 写文件 → filesVersion bump → 自动刷新（交付物实时可见）
-  const fv = ctx.ui.useExternal(filesVersion)
-  let lastFv = fv.v
+  // P1-3：AI 写文件 → Chat 的 file_updated 事件 → notifyFilesReload → 自动刷新
+  // （注册表方案：render-only 模型下 useExternal 的 render([id]) 对动态子组件不可靠）
+  const reloadCb = () => { if (!wsOpenFile) void loadWsList(wsPath) }
+  onFilesReload(reloadCb)
 
   async function loadWsList(path = '') {
     wsLoading = true; rerender()
@@ -89,11 +90,6 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
   await loadWsList()
 
   return async () => {
-    // P1-3：文件版本变化 → 自动刷新列表（AI 交付实时可见；编辑态不打断）
-    if (fv.v !== lastFv && !wsOpenFile) {
-      lastFv = fv.v
-      void loadWsList(wsPath)
-    }
     return (
     <Card id="sec-files">
       <div class="wf-split wf-mb-sm">
