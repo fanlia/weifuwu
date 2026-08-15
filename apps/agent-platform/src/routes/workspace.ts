@@ -1,9 +1,12 @@
 /**
- * 工作空间文件浏览器 API（F1-F4）——用户管理面
+ * 工作空间文件浏览器 API（F1-F4 迁移 2026-12）——用户管理面
  *
- * 与沙盒关系：文件浏览器是用户查看 workspace 状态的管理面（宿主直接 fs 访问）；
- * agent 工具（容器内）与用户看到的是同一份数据（容器卷挂载 = 宿主目录，双向可见）。
- * 安全：应用隔离（agent 必须属于当前 app）+ 路径穿越防护（resolveWorkspacePath）。
+ * 三层模型：部门 = 工作目录——文件浏览器按**部门**浏览（不再是 agent）：
+ *   - 群聊部门有工作目录（departments.workspace_path 自定义，默认 {root}/{id}）
+ *   - 单聊（is_dm）无工作目录
+ *   - 可见性：部门必须属于当前 app（app_id 隔离）
+ * 与沙盒关系：AI 工具（容器内）与用户看到的是同一份数据（容器卷挂载 = 宿主目录，双向可见）。
+ * 安全：应用隔离 + 路径穿越防护（resolveWorkspacePath）。
  */
 
 import { readFile, readdir, writeFile, stat, mkdir } from 'node:fs/promises'
@@ -26,24 +29,23 @@ const MAX_READ = 200 * 1024 // 200KB 内可读全文
 const MAX_WRITE = 500 * 1024 // 500KB 写上限
 
 export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void> {
-  // 校验 agent 属于当前租户 + 解析 workspace
-  async function getWorkspace(ctx: AppCtx, agentId: string): Promise<string | null> {
+  // 校验部门属于当前租户 + 解析 workspace（单聊/不存在 → null）
+  async function getWorkspace(ctx: AppCtx, departmentId: string): Promise<string | null> {
     const { sql, appId } = ctx
-    const [agent] = await sql`
-      SELECT id, workspace_path, allow_file_tools FROM agents
-      WHERE id = ${agentId} AND app_id = ${appId}
+    const [dept] = await sql`
+      SELECT id, is_dm, workspace_path FROM departments
+      WHERE id = ${departmentId} AND app_id = ${appId}
     `
-    if (!agent) return null
-    // 未启用文件工具的 agent 无 workspace（或返回默认目录）
-    const { resolveAgentWorkspace } = await import('../middleware/workspace.ts')
-    return resolveAgentWorkspace(String(agent.id), agent.workspace_path as string | null | undefined, true)
+    if (!dept || (dept as any).is_dm) return null
+    const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
+    return resolveDepartmentWorkspace(String((dept as any).id), (dept as any).workspace_path as string | null | undefined, true)
   }
 
   // ── F1: 列目录 ────────────────────────────────────────
-  app.get('/api/agents/:id/workspace/list', async (req: Request, ctx: AppCtx): Promise<Response> => {
+  app.get('/api/departments/:id/workspace/list', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
     const ws = await getWorkspace(ctx, params.id)
-    if (!ws) return Response.json({ error: 'Agent 不存在或无工作空间' }, { status: 404 })
+    if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
     const rel = new URL(req.url).searchParams.get('path') ?? ''
     let abs: string
     try {
@@ -78,10 +80,10 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
   })
 
   // ── F2: 读文件（?download=1 → 二进制下载流——AI 产物交付） ──
-  app.get('/api/agents/:id/workspace/file', async (req: Request, ctx: AppCtx): Promise<Response> => {
+  app.get('/api/departments/:id/workspace/file', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
     const ws = await getWorkspace(ctx, params.id)
-    if (!ws) return Response.json({ error: 'Agent 不存在或无工作空间' }, { status: 404 })
+    if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
     const url = new URL(req.url)
     const rel = url.searchParams.get('path') ?? ''
     if (!rel) return Response.json({ error: 'path 为必填' }, { status: 400 })
@@ -125,10 +127,10 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
   })
 
   // ── F3/F4: 写文件（编辑保存） ─────────────────────────
-  app.put('/api/agents/:id/workspace/file', async (req: Request, ctx: AppCtx): Promise<Response> => {
+  app.put('/api/departments/:id/workspace/file', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
     const ws = await getWorkspace(ctx, params.id)
-    if (!ws) return Response.json({ error: 'Agent 不存在或无工作空间' }, { status: 404 })
+    if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
     const body = await req.json().catch(() => ({}))
     const rel = String(body.path ?? '')
     const content = String(body.content ?? '')
@@ -160,10 +162,10 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
   })
 
   // ── P1-3: 上传二进制文件（配置页——管理员预置资料） ─────────
-  app.post('/api/agents/:id/workspace/upload', async (req: Request, ctx: AppCtx): Promise<Response> => {
+  app.post('/api/departments/:id/workspace/upload', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
     const ws = await getWorkspace(ctx, params.id)
-    if (!ws) return Response.json({ error: 'Agent 不存在或无工作空间' }, { status: 404 })
+    if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
     const body = await req.json().catch(() => ({}))
     const rel = String(body.path ?? '')
     const { validateUploadFile } = await import('../services/upload.ts')

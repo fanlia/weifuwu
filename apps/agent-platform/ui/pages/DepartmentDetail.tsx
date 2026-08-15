@@ -1,7 +1,8 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { Ava, Loading, TypeBadge } from '../components/ui'
+import { Ava, Loading, TypeBadge, StatusDot } from '../components/ui'
 import { Badge, Button, Card, Checkbox, EmptyState, Icon } from 'weifuwu/components'
 import type { Agent, AgentListResponse, Department, Member } from '../lib/types'
+import { FilesSection } from '../components/agent/FilesSection.tsx'
 
 interface DepartmentDetailState {
   dept: Department | null
@@ -12,6 +13,9 @@ interface DepartmentDetailState {
   allAgents: Agent[]
   picked: string[]
   managing: boolean
+  // 沙盒状态（三层模型：部门 = 计算资源归属）
+  sandbox: any | null
+  sbBusy: string
 }
 
 export const DepartmentDetail: Component = async (_props, ctx) => {
@@ -21,6 +25,27 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
 
   $.dept = null; $.members = []; $.loading = true; $.notFound = false
   $.showMemberPicker = false; $.allAgents = []; $.picked = []; $.managing = false
+  $.sandbox = null; $.sbBusy = ''
+
+  // 部门沙盒状态（群聊——单聊无工作目录/沙盒）
+  const loadSandbox = () => {
+    void ctx.api!.get<any>(`/api/sandboxes?department_id=${deptId}`).then((d) => {
+      $.sandbox = d.sandboxes?.[0] ?? null
+      rerender()
+    }).catch(() => {})
+  }
+  const sbAction = async (action: string) => {
+    if (!$.sandbox) return
+    const ok = action === 'terminate' ? await ctx.confirm!('确定终止该沙盒？容器将删除（工作目录文件保留）') : true
+    if (!ok) return
+    $.sbBusy = action; rerender()
+    try {
+      const r = await ctx.api!.post(`/api/sandboxes/${$.sandbox.id}/${action}`)
+      if (r.ok || r.success) ctx.toast!('操作成功', 'success')
+      else ctx.toast!((r as any).error ?? '操作失败', 'error')
+    } catch (e: any) { ctx.toast!(e?.message ?? '操作失败', 'error') }
+    $.sbBusy = ''; loadSandbox(); rerender()
+  }
 
     function loadDept() {
       ctx.api!.get<{ department?: Department; members?: Member[] }>(`/api/departments/${deptId}`)
@@ -140,6 +165,52 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
           <div class="wf-py-lg"><EmptyState text="暂无成员" hint="点击右上角添加成员"><Button size="sm" onClick={openMemberPicker}>＋ 添加成员</Button></EmptyState></div>
         )}
       </Card>
+
+      {/* 三层模型：部门 = 工作目录——群聊展示共享工作空间（单聊无目录） */}
+      {!$.dept?.is_dm && (
+        <FilesSection departmentId={deptId} />
+      )}
+
+      {/* 三层模型：sandbox = 计算资源——部门沙盒状态与操作 */}
+      {!$.dept?.is_dm && (
+        <Card id="sec-sandbox">
+          <div class="wf-row wf-gap-sm wf-mb-sm">
+            <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="box" size={14} /> 沙盒（计算环境）</div>
+            <Button size="sm" variant="ghost" onClick={loadSandbox}><Icon name="refresh" size={13} /> 刷新</Button>
+          </div>
+          {$.sandbox ? (
+            <div class="wf-stack wf-gap-sm">
+              <div class="wf-row wf-gap-sm wf-items-center">
+                <StatusDot on={$.sandbox.status === 'running' || $.sandbox.status === 'requested'} />
+                <span class="wf-text-sm wf-text-medium">
+                  {$.sandbox.status === 'running' ? '运行中' : $.sandbox.status === 'stopped' ? '已停止' : $.sandbox.status === 'requested' ? '待启动（首次工具调用时自动启动）' : $.sandbox.status === 'error' ? '错误' : '已终止'}
+                </span>
+                <span class="wf-text-xs wf-text-tertiary">镜像 {$.sandbox.image} · 内存 {$.sandbox.memory_mb}MB · {$.sandbox.cpus} CPU · 网络 {$.sandbox.network ? '开' : '关'}</span>
+              </div>
+              {$.sandbox.error && <div class="wf-text-xs wf-text-danger">错误：{$.sandbox.error}</div>}
+              {$.sandbox.containerStatus && <div class="wf-text-xs wf-text-tertiary">容器：{$.sandbox.containerStatus}</div>}
+              <div class="wf-row wf-gap-xs">
+                {$.sandbox.status === 'running' ? (
+                  <>
+                    <Button size="sm" variant="ghost" disabled={!!$.sbBusy} onClick={() => sbAction('stop')}>停止</Button>
+                    <Button size="sm" variant="ghost" disabled={!!$.sbBusy} onClick={() => sbAction('restart')}>重启</Button>
+                  </>
+                ) : $.sandbox.status !== 'terminated' ? (
+                  <Button size="sm" variant="primary" disabled={!!$.sbBusy} onClick={() => sbAction('start')}>启动</Button>
+                ) : null}
+                {$.sandbox.status !== 'terminated' && (
+                  <Button size="sm" variant="danger-ghost" disabled={!!$.sbBusy} onClick={() => sbAction('terminate')}>终止</Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div class="wf-text-sm wf-text-tertiary">
+              部门内 Agent 首次使用文件/命令工具时自动创建（惰性）；
+              之后该部门所有 Agent 的工具都在此环境中执行（共享目录 + 共享依赖）。
+            </div>
+          )}
+        </Card>
+      )}
     </div>
     )
   }

@@ -19,6 +19,7 @@ import { registerAuthRoutes } from './src/routes/auth.ts'
 import { registerAgentRoutes } from './src/routes/agents.ts'
 import { registerWorkspaceRoutes } from './src/routes/workspace.ts'
 import { registerDepartmentRoutes } from './src/routes/departments.ts'
+import { registerSandboxRoutes } from './src/routes/sandboxes.ts'
 import { registerMessageRoutes } from './src/routes/messages.ts'
 import { registerKnowledgeRoutes } from './src/routes/knowledge.ts'
 
@@ -115,6 +116,33 @@ async function main() {
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_answer_cache_app ON answer_cache(app_id)`)
     await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS group_memories (department_id UUID PRIMARY KEY, summary TEXT, msg_count INT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS expertise TEXT`)
+  // 三层模型（2026-12）：部门 = 工作目录——workspace_path 自定义工作目录（默认 {root}/{id}）
+  await pg.sql.unsafe(`ALTER TABLE departments ADD COLUMN IF NOT EXISTS workspace_path TEXT`)
+  // 三层模型：sandbox = 计算资源（一级概念）——sandboxes 表 + 租户配额
+  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS sandbox_quota INT NOT NULL DEFAULT 5`)
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS sandboxes (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    app_id      UUID NOT NULL,
+    department_id UUID,
+    name        TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'requested',
+    mode        TEXT NOT NULL DEFAULT 'persistent',
+    image       TEXT NOT NULL DEFAULT 'ap-sandbox:latest',
+    network     BOOLEAN NOT NULL DEFAULT FALSE,
+    memory_mb   INT NOT NULL DEFAULT 512,
+    cpus        INT NOT NULL DEFAULT 1,
+    error       TEXT,
+    workspace   TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ,
+    expires_at  TIMESTAMPTZ,
+    terminated_at TIMESTAMPTZ
+  )`)
+  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_sandboxes_dept ON sandboxes(department_id)`)
+  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status, last_used_at)`)
+  await pg.sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sandboxes_dept_active ON sandboxes(department_id) WHERE department_id IS NOT NULL AND status != 'terminated'`)
+  // 镜像升级（2026-12）：node:24 → ap-sandbox:latest（agent-browser/python/office）——存量记录不迁移（快照兼容，容器重建时按快照）
+  await pg.sql.unsafe(`ALTER TABLE sandboxes ALTER COLUMN image SET DEFAULT 'ap-sandbox:latest'`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS webhook_platform TEXT NOT NULL DEFAULT 'generic'`)
   // R6 质量反馈：AI 消息点赞/点踩（'like'/'dislike'/NULL）
   await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS feedback TEXT`)
@@ -307,9 +335,15 @@ async function main() {
   const { sandbox } = await import('./src/sandbox/docker.ts')
   const sandboxStatus = await sandbox.status()
   if (sandboxStatus.enabled && sandboxStatus.available) {
-    const cleaned = await sandbox.cleanupOrphans()
-    sandbox.startReaper()
-    console.log(`[agent-platform] 沙盒就绪：${sandboxStatus.mode} · 镜像 ${process.env.SANDBOX_IMAGE ?? 'node:24'} · 池上限 ${sandboxStatus.maxContainers}（孤儿容器清理 ${cleaned} 个）`)
+    // 三层模型：生命周期由 SandboxManager 驱动（DB 单一事实源）——
+    // 启动立即 reconcile 一轮（恢复状态/孤儿清理），然后周期收敛
+    const { manager } = await import('./src/sandbox/manager.ts')
+    manager.init(pg.sql)
+    manager.startReaper()
+    void manager.reconcile().then((s) => {
+      console.log(`[agent-platform] 沙盒 reconcile 首轮完成：started=${s.started} stopped=${s.stopped} terminated=${s.terminated} 孤儿清理=${s.orphans}`)
+    })
+    console.log(`[agent-platform] 沙盒就绪：${sandboxStatus.mode} · 镜像 ${process.env.SANDBOX_IMAGE ?? 'ap-sandbox:latest'}（生命周期 DB 驱动——reconcile 60s）`)
   } else {
     console.warn(`[agent-platform] 沙盒不可用（enabled=${sandboxStatus.enabled} dockerOk=镜像缺失或 docker 不可用）——agent 文件/命令工具将返回「沙盒不可用」禁用`)
   }
@@ -480,6 +514,13 @@ async function main() {
       const st = await statfs(process.env.AGENT_WORKSPACE_ROOT ?? '.')
       disk = { freePercent: Math.round(st.bfree * st.bsize / (st.blocks * st.bsize) * 100) }
     } catch { disk = null }
+    // M6-2：沙盒生命周期计数（修复 sandboxCalls 死指标——manager.runTool 入口自增）
+    let sbCounters: Record<string, unknown> = {}
+    try {
+      const { manager } = await import('./src/sandbox/manager.ts')
+      const { sandbox } = await import('./src/sandbox/docker.ts')
+      sbCounters = { ...manager.counters, exec: sandbox.execStats }
+    } catch { /* 沙盒未初始化 */ }
     const lines = [
       `# HELP agent_platform_uptime_seconds 服务运行时长`,
       `agent_platform_uptime_seconds ${uptime}`,
@@ -489,6 +530,13 @@ async function main() {
       `agent_platform_ai_tokens_total ${m.aiTokens ?? 0}`,
       `agent_platform_webhooks_total ${m.webhooks ?? 0}`,
       `agent_platform_sandbox_calls_total ${m.sandboxCalls ?? 0}`,
+      `agent_platform_sandbox_created_total ${(sbCounters as any).created ?? 0}`,
+      `agent_platform_sandbox_terminated_total ${(sbCounters as any).terminated ?? 0}`,
+      `agent_platform_sandbox_evicted_total ${(sbCounters as any).evicted ?? 0}`,
+      `agent_platform_sandbox_idle_stopped_total ${(sbCounters as any).idleStopped ?? 0}`,
+      `agent_platform_sandbox_exec_total ${((sbCounters as any).exec as any)?.execCount ?? 0}`,
+      `agent_platform_sandbox_exec_errors_total ${((sbCounters as any).exec as any)?.execErrors ?? 0}`,
+      `agent_platform_sandbox_exec_timeouts_total ${((sbCounters as any).exec as any)?.execTimeouts ?? 0}`,
       `agent_platform_disk_free_percent ${disk?.freePercent ?? -1}`,
     ]
     return new Response(lines.join('\n') + '\n', {
@@ -499,6 +547,22 @@ async function main() {
   app.get('/api/metrics', async () => {
     const m = (globalThis as any).__platform_metrics ?? {}
     const uptime = Math.round((Date.now() - (m.startTime ?? Date.now())) / 1000)
+    // M6-2：沙盒生命周期计数（manager.counters + 执行器 execStats）
+    let sb: Record<string, unknown> = {}
+    try {
+      const { manager } = await import('./src/sandbox/manager.ts')
+      const { sandbox } = await import('./src/sandbox/docker.ts')
+      sb = {
+        calls: m.sandboxCalls ?? 0,
+        created: manager.counters.created,
+        terminated: manager.counters.terminated,
+        evicted: manager.counters.evicted,
+        idleStopped: manager.counters.idleStopped,
+        autoStarted: manager.counters.autoStarted,
+        orphansCleaned: manager.counters.orphansCleaned,
+        exec: sandbox.execStats,
+      }
+    } catch { /* 沙盒未初始化 */ }
     return Response.json({
       uptimeSec: uptime,
       requests: m.requests ?? 0,
@@ -509,6 +573,7 @@ async function main() {
       aiAvgLatencyMs: m.aiCalls ? Math.round((m.aiLatencyMs ?? 0) / m.aiCalls) : 0,
       webhooks: m.webhooks ?? 0,
       sandboxCalls: m.sandboxCalls ?? 0,
+      sandbox: sb,
       memMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
     })
   })
@@ -542,6 +607,8 @@ async function main() {
   await registerWorkspaceRoutes(protectedRoutes)
   // 部门
   registerDepartmentRoutes(protectedRoutes)
+  // 沙盒（一级概念：计算资源——CRUD + 生命周期操作）
+  registerSandboxRoutes(protectedRoutes)
   // 消息
   registerMessageRoutes(protectedRoutes)
   // 知识库

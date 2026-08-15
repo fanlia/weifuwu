@@ -1,10 +1,20 @@
 /**
- * Docker 沙盒执行器 — agent 级常驻容器池（S1/S2/S6/S7）
+ * Docker 沙盒执行器 — 纯执行层（无生命周期状态）
  *
- * 架构：状态在宿主 workspace 卷（data/workspaces/{agent_id}/）→ bind mount 到容器 /ws
- *       agent 的一切工具操作（read/write/edit/grep/list_files/bash）经容器执行
- * 生命周期：heartbeat 空闲回收（SANDBOX_IDLE_TIMEOUT 默认 600s）+ 池上限 LRU 驱逐
- *           （SANDBOX_MAX_CONTAINERS 默认 20）+ 惰性重建 + 孤儿清理
+ * 三层模型（2026-12）：sandbox = 计算资源（一级概念）。本模块只负责 docker 操作：
+ *   ensure（创建/校验/重建）/ runTool（统一工具执行）/ dispose / 监控查询。
+ * 生命周期状态（requested/running/stopped/terminated/error + 回收/驱逐/孤儿清理）
+ * 全部由 SandboxManager（src/sandbox/manager.ts）持有——DB 驱动，单一事实源。
+ *
+ * 重构要点（M1，P0 修复）：
+ *   - 容器名 = ap-sandbox-{sandbox_id}（身份独立，不依赖 agent/部门存在）
+ *   - busy 豁免：exec 期间容器不可被回收/驱逐（长任务保护——P0-1）
+ *   - ensure inflight 去重：并发调用共享同一 promise（P0-2）
+ *   - 容器内 timeout 杀进程树：exec 超时不留孤儿进程（P0-3）
+ *   - stopped 自愈：容器存在但未运行 → docker start（P1-5）
+ *   - 漂移校验：挂载/镜像/网络不匹配 → 重建（P1-6）
+ *   - per-sandbox exec 串行队列（部门共享环境的并发纪律）
+ *
  * 诚实裁剪：docker 不可用 / 镜像缺失 → 工具返回「沙盒不可用」（绝不静默回退宿主）
  */
 
@@ -15,22 +25,28 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export interface SandboxOptions {
-  /** 容器镜像（默认 node:24） */
+  /** 默认容器镜像（ensure 时可按记录快照覆盖） */
   image: string
-  /** 空闲回收超时（ms）——超过无 heartbeat 销毁容器 */
-  idleTimeoutMs: number
-  /** 池上限——超限 LRU 驱逐最旧容器 */
-  maxContainers: number
-  /** 回收扫描间隔（ms） */
-  reaperIntervalMs: number
-  /** persistent（agent 级常驻，默认）| ephemeral（每次调用一次性容器） */
-  mode: 'persistent' | 'ephemeral'
   /** 单次命令超时（ms） */
   execTimeoutMs: number
   /** 是否启用（SANDBOX_DISABLE=1 禁用） */
   enabled: boolean
   /** 工具执行器脚本路径（挂载进容器 /opt/sandbox/tool-runner.js） */
   runnerPath: string
+}
+
+/** ensure 时的容器规格（来自 sandboxes 记录快照——配置即声明） */
+export interface SandboxSpec {
+  /** 宿主 workspace 绝对路径（卷挂载源） */
+  ws: string
+  /** 容器镜像（默认 opts.image） */
+  image?: string
+  /** allow_network → bridge（默认 none） */
+  network?: boolean
+  /** 内存上限 MB（默认 512） */
+  memoryMb?: number
+  /** CPU 上限（默认 1） */
+  cpus?: number
 }
 
 export interface ExecResult {
@@ -45,17 +61,14 @@ export interface SandboxStatus {
   available: boolean
   enabled: boolean
   imageReady: boolean
-  mode: SandboxOptions['mode']
+  /** 部署模式（persistent 常驻池 | ephemeral 一次性——记录级 mode 为准） */
+  mode: string
   poolSize: number
   maxContainers: number
 }
 
 const DEFAULT_OPTIONS: SandboxOptions = {
-  image: process.env.SANDBOX_IMAGE ?? 'node:24',
-  idleTimeoutMs: Number(process.env.SANDBOX_IDLE_TIMEOUT ?? 600) * 1000,
-  maxContainers: Number(process.env.SANDBOX_MAX_CONTAINERS ?? 20),
-  reaperIntervalMs: 60_000,
-  mode: (process.env.SANDBOX_MODE ?? 'persistent') === 'ephemeral' ? 'ephemeral' : 'persistent',
+  image: process.env.SANDBOX_IMAGE ?? 'ap-sandbox:latest',
   execTimeoutMs: 35_000,
   enabled: process.env.SANDBOX_DISABLE !== '1',
   runnerPath: resolve(__dirname, 'tool-runner.js'),
@@ -63,8 +76,8 @@ const DEFAULT_OPTIONS: SandboxOptions = {
 
 const CONTAINER_PREFIX = 'ap-sandbox-'
 
-function containerName(agentId: string): string {
-  return CONTAINER_PREFIX + agentId
+function containerName(sandboxId: string): string {
+  return CONTAINER_PREFIX + sandboxId
 }
 
 /** 执行 docker CLI，返回 { stdout, stderr, exitCode }——args 数组避免 shell 注入 */
@@ -79,21 +92,38 @@ function dockerCli(args: string[], timeoutMs?: number): Promise<{ stdout: string
 
 export class DockerSandbox {
   private opts: SandboxOptions
-  /** agentId → 最后使用时间戳（heartbeat） */
-  private lastUsed = new Map<string, number>()
-  private reaper: NodeJS.Timeout | null = null
+  /** exec 进行中的 sandbox（回收/驱逐必须跳过——长任务保护 P0-1） */
+  private busy = new Set<string>()
+  /** ensure inflight 去重（P0-2） */
+  private inflightEnsure = new Map<string, Promise<boolean>>()
+  /** per-sandbox exec 串行队列（并发工具调用排队） */
+  private execChains = new Map<string, Promise<unknown>>()
   private availability: { dockerOk: boolean; imageOk: boolean } | null = null
+  /** M6-1 TTL 缓存：探测结果（成功 60s；失败负缓存 10s——防 docker 抖动时反复全量探测） */
+  private availCache: { at: number; value: { dockerOk: boolean; imageOk: boolean } } | null = null
+  /** M6-1 TTL 缓存：per-sandbox 就绪指纹（30s——工具调用降为 1 次 exec） */
+  private readyCache = new Map<string, { at: number; fingerprint: string }>()
+  /** M6-2 执行器指标 */
+  readonly execStats = { execCount: 0, execTimeouts: 0, execErrors: 0 }
 
   constructor(options?: Partial<SandboxOptions>) {
     this.opts = { ...DEFAULT_OPTIONS, ...options }
   }
 
-  // ── 探测（S2）─────────────────────────────────────────
+  // ── 探测 ──────────────────────────────────────────
 
   async probe(): Promise<{ dockerOk: boolean; imageOk: boolean }> {
     if (!this.opts.enabled) {
       this.availability = { dockerOk: false, imageOk: false }
       return this.availability
+    }
+    // M6-1 TTL：成功 60s / 失败负缓存 10s
+    if (this.availCache) {
+      const ttl = this.availCache.value.dockerOk ? 60_000 : 10_000
+      if (Date.now() - this.availCache.at < ttl) {
+        this.availability = this.availCache.value
+        return this.availCache.value
+      }
     }
     const docker = await dockerCli(['version', '--format', '{{.Server.Version}}'], 10_000)
     const dockerOk = docker.exitCode === 0
@@ -102,6 +132,7 @@ export class DockerSandbox {
       const img = await dockerCli(['image', 'inspect', this.opts.image, '--format', '{{.Id}}'], 10_000)
       imageOk = img.exitCode === 0
     }
+    this.availCache = { at: Date.now(), value: { dockerOk, imageOk } }
     this.availability = { dockerOk, imageOk }
     return this.availability
   }
@@ -119,212 +150,310 @@ export class DockerSandbox {
     return false
   }
 
-  // ── 生命周期（S1/S2）─────────────────────────────────
+  // ── 生命周期（纯执行——状态由 manager 持有） ──────────
 
-  /** touch heartbeat：记录最后使用时间 */
-  touch(agentId: string): void {
-    this.lastUsed.set(agentId, Date.now())
-  }
-
-  /** 容器名可推导——检查存在性 + 挂载路径匹配（真实 bug：agent 换 workspace 后容器仍挂旧路径） */
-  private async containerReady(agentId: string, ws: string): Promise<boolean> {
-    const name = containerName(agentId)
-    const r = await dockerCli(['ps', '-a', '--filter', `name=^${name}$`, '--format', '{{.Names}}'])
-    if (r.exitCode !== 0 || !r.stdout.trim()) return false
-    // 校验卷挂载路径与当前 ws 一致（不一致 → 重建）
-    const m = await dockerCli(['inspect', name, '--format', '{{ range .Mounts }}{{ .Source }}={{ .Destination }};{{ end }}'])
-    if (m.exitCode === 0) {
-      const mounts = m.stdout
-      const expected = `${ws}=/ws`
-      if (!mounts.includes(expected)) {
-        await dockerCli(['rm', '-f', name])
-        return false
-      }
-    }
-    return true
-  }
-
-  /** 池大小（活跃容器数） */
-  private async poolSize(): Promise<number> {
-    const r = await dockerCli(['ps', '--filter', `name=${CONTAINER_PREFIX}`, '--format', '{{.Names}}'])
-    if (r.exitCode !== 0) return 0
-    return r.stdout.trim() ? r.stdout.trim().split('\n').length : 0
-  }
-
-  /** LRU 驱逐最旧容器（池满时） */
-  private async evictLru(): Promise<void> {
-    // 从 heartbeat Map 找最旧的
-    let oldestId: string | null = null
-    let oldestTs = Infinity
-    for (const [id, ts] of this.lastUsed) {
-      if (ts < oldestTs) { oldestTs = ts; oldestId = id }
-    }
-    if (oldestId) {
-      await this.dispose(oldestId)
-      return
-    }
-    // Map 空（从未 touch）——驱逐任一池内容器
-    const r = await dockerCli(['ps', '--filter', `name=${CONTAINER_PREFIX}`, '--format', '{{.Names}}'])
-    if (r.exitCode === 0 && r.stdout.trim()) {
-      const name = r.stdout.trim().split('\n')[0]
-      await dockerCli(['rm', '-f', name])
-    }
+  /** exec 进行中（manager 回收/驱逐前查询——长任务保护） */
+  isBusy(sandboxId: string): boolean {
+    return this.busy.has(sandboxId)
   }
 
   /**
-   * 确保容器存在（惰性重建）
-   * @param agentId agent UUID
-   * @param ws 宿主 workspace 绝对路径（卷挂载源）
-   * @param network allow_network → bridge（默认 none）
+   * 确保容器存在且符合规格（惰性创建/自愈/重建）
+   * - 存在且健康且规格匹配 → 复用
+   * - 存在但停止 → docker start（P1-5 自愈；start 失败 → rm 重建）
+   * - 规格漂移（挂载/镜像/网络）→ rm 重建（P1-6）
+   * - 不存在 → docker run（池上限检查由 manager 负责）
+   * 并发去重：同 sandbox 并发 ensure 共享同一 promise（P0-2）
    */
-  async ensure(agentId: string, ws: string, network?: boolean): Promise<boolean> {
+  async ensure(sandboxId: string, spec: SandboxSpec): Promise<boolean> {
     if (!this.opts.enabled) return false
+    const existing = this.inflightEnsure.get(sandboxId)
+    if (existing) return existing
+    const p = this.doEnsure(sandboxId, spec)
+    this.inflightEnsure.set(sandboxId, p)
+    try {
+      return await p
+    } finally {
+      this.inflightEnsure.delete(sandboxId)
+    }
+  }
+
+  private async doEnsure(sandboxId: string, spec: SandboxSpec): Promise<boolean> {
+    // M6-1 readiness TTL：同指纹 30s 内命中 → 直接就绪（工具调用降为 1 次 exec）
+    const fingerprint = `${spec.ws}|${spec.image ?? this.opts.image}|${spec.network ? 'bridge' : 'none'}|${spec.memoryMb ?? 512}|${spec.cpus ?? 1}`
+    const cached = this.readyCache.get(sandboxId)
+    if (cached && cached.fingerprint === fingerprint && Date.now() - cached.at < 30_000) {
+      return true
+    }
     const a = await this.probe()
     if (!a.dockerOk) return false
-    if (!a.imageOk) {
+    const image = spec.image ?? this.opts.image
+    if (image !== this.opts.image) {
+      // 记录快照镜像与默认不同——确保存在
+      const img = await dockerCli(['image', 'inspect', image, '--format', '{{.Id}}'], 10_000)
+      if (img.exitCode !== 0) {
+        const pull = await dockerCli(['pull', image], 120_000)
+        if (pull.exitCode !== 0) return false
+      }
+    } else if (!a.imageOk) {
       const ok = await this.ensureImage()
       if (!ok) return false
     }
-    if (await this.containerReady(agentId, ws)) {
-      this.touch(agentId)
-      return true
+    const name = containerName(sandboxId)
+    const state = await this.inspectState(name)
+    if (state) {
+      // 存在——校验规格漂移（挂载/镜像/网络；P1-6）
+      const drift = await this.specDrift(name, spec, image)
+      if (state.running && !drift) {
+        this.readyCache.set(sandboxId, { at: Date.now(), fingerprint })
+        return true
+      }
+      if (!state.running && !drift) {
+        // stopped 自愈：docker start（P1-5）；失败 → 重建
+        const st = await dockerCli(['start', name], 15_000)
+        if (st.exitCode === 0) {
+          this.readyCache.set(sandboxId, { at: Date.now(), fingerprint })
+          return true
+        }
+        await dockerCli(['rm', '-f', name])
+      } else {
+        await dockerCli(['rm', '-f', name])
+      }
     }
-    // 池上限检查（S2）
-    const size = await this.poolSize()
-    if (size >= this.opts.maxContainers) {
-      await this.evictLru()
-    }
-    const args = [
-      'run', '-d',
-      '--name', containerName(agentId),
-      '-v', `${ws}:/ws`,
-      '-v', `${this.opts.runnerPath}:/opt/sandbox/tool-runner.js:ro`,
-      '-w', '/ws',
-      '--network', network ? 'bridge' : 'none',
-      ...(network ? ['--add-host', 'host.docker.internal:host-gateway'] : []), // 容器访问宿主（本地问卷页 demo）
-      '-m', network ? '1g' : '512m', '--memory-swap', network ? '1g' : '512m',
-      '--cpus', network ? '2' : '1', // 浏览器（chromium ~500MB）需提额——按 allow_network 联动
-      '--pids-limit', '256',
-      '--cap-drop', 'ALL',
-      '--security-opt', 'no-new-privileges',
-      '--ulimit', 'nofile=1024:1024',
-      '--user', 'node',
-      this.opts.image,
-      'sleep', 'infinity',
-    ]
+    // 创建
+    const args = this.runArgs(sandboxId, spec, image)
     const r = await dockerCli(args, 30_000)
     if (r.exitCode !== 0) {
-      // 容器名冲突（残留）→ 删除重试
+      // 容器名冲突（残留竞态）→ 删除重试一次
       if (r.stderr.includes('Conflict')) {
-        await dockerCli(['rm', '-f', containerName(agentId)])
+        await dockerCli(['rm', '-f', name])
         const r2 = await dockerCli(args, 30_000)
         if (r2.exitCode !== 0) return false
       } else {
         return false
       }
     }
-    this.touch(agentId)
+    this.readyCache.set(sandboxId, { at: Date.now(), fingerprint })
     return true
   }
 
-  /** 销毁容器（空闲回收/驱逐/agent 删除联动） */
-  async dispose(agentId: string): Promise<void> {
-    await dockerCli(['rm', '-f', containerName(agentId)])
-    this.lastUsed.delete(agentId)
+  /** 容器存在性 + 运行状态（null = 不存在） */
+  private async inspectState(name: string): Promise<{ running: boolean } | null> {
+    const r = await dockerCli(['ps', '-a', '--filter', `name=^${name}$`, '--format', '{{.Names}}'], 10_000)
+    if (r.exitCode !== 0 || !r.stdout.trim()) return null
+    const st = await dockerCli(['inspect', name, '--format', '{{.State.Running}}'], 10_000)
+    return { running: st.exitCode === 0 && st.stdout.trim() === 'true' }
   }
 
-  /** 孤儿清理：启动时扫描 ap-sandbox-* 全删（容器无状态，数据在卷，删除无损） */
-  async cleanupOrphans(): Promise<number> {
-    if (!this.opts.enabled) return 0
+  /** 规格漂移校验（挂载/镜像/网络不匹配 → 需重建） */
+  private async specDrift(name: string, spec: SandboxSpec, image: string): Promise<boolean> {
+    const m = await dockerCli(['inspect', name, '--format',
+      '{{ range .Mounts }}{{ .Source }}={{ .Destination }};{{ end }}|{{.Config.Image}}|{{.HostConfig.NetworkMode}}'], 10_000)
+    if (m.exitCode !== 0) return true
+    const [mounts, cfgImage, netMode] = m.stdout.split('|')
+    if (!mounts || !mounts.includes(`${spec.ws}=/ws`)) return true
+    if (cfgImage !== image) return true
+    const wantNet = spec.network ? 'bridge' : 'none'
+    if (netMode !== wantNet) return true
+    return false
+  }
+
+  /** docker run 参数（资源限制——非 root/无特权/防 fork 炸弹） */
+  private runArgs(sandboxId: string, spec: SandboxSpec, image: string): string[] {
+    const memory = (spec.memoryMb ?? 512) * 1024 * 1024
+    const cpus = spec.cpus ?? 1
+    return [
+      'run', '-d',
+      '--name', containerName(sandboxId),
+      '-v', `${spec.ws}:/ws`,
+      '-v', `${this.opts.runnerPath}:/opt/sandbox/tool-runner.js:ro`,
+      '-w', '/ws',
+      '--network', spec.network ? 'bridge' : 'none',
+      ...(spec.network ? ['--add-host', 'host.docker.internal:host-gateway'] : []),
+      '-m', `${memory}`, '--memory-swap', `${memory}`,
+      '--cpus', String(cpus),
+      '--pids-limit', '256',
+      '--cap-drop', 'ALL',
+      '--security-opt', 'no-new-privileges',
+      '--ulimit', 'nofile=1024:1024',
+      '--user', 'node',
+      image,
+      'sleep', 'infinity',
+    ]
+  }
+
+  /** 销毁容器（终止/驱逐/清理） */
+  async dispose(sandboxId: string): Promise<void> {
+    await dockerCli(['rm', '-f', containerName(sandboxId)])
+  }
+
+  /**
+   * ephemeral 一次性执行（M6-3）：每次调用独立容器（docker run -d + exec + finally rm -f）
+   * - 天然隔离：无池/心跳/回收/busy/串行队列（调用即焚）
+   * - 卷挂载共享：文件状态永远在 /ws（卷）——与常驻模式同一份数据
+   */
+  async runOnce(sandboxId: string, spec: SandboxSpec, tool: string, args: Record<string, unknown>): Promise<ExecResult> {
+    if (!this.opts.enabled) {
+      return { ok: false, error: '沙盒不可用（SANDBOX_DISABLE）——工具已禁用' }
+    }
     const a = await this.probe()
-    if (!a.dockerOk) return 0
-    const r = await dockerCli(['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format', '{{.Names}}'])
-    if (r.exitCode !== 0 || !r.stdout.trim()) return 0
-    const names = r.stdout.trim().split('\n')
-    for (const n of names) {
-      await dockerCli(['rm', '-f', n])
+    if (!a.dockerOk) return { ok: false, error: '沙盒不可用——命令执行已禁用（docker 不可用或镜像缺失）' }
+    const image = spec.image ?? this.opts.image
+    const img = await dockerCli(['image', 'inspect', image, '--format', '{{.Id}}'], 10_000)
+    if (img.exitCode !== 0) {
+      const pull = await dockerCli(['pull', image], 120_000)
+      if (pull.exitCode !== 0) return { ok: false, error: '沙盒不可用——镜像缺失' }
     }
-    this.lastUsed.clear()
-    return names.length
-  }
-
-  /** Heartbeat 回收定时器（S2） */
-  startReaper(): void {
-    if (this.reaper || !this.opts.enabled) return
-    this.reaper = setInterval(() => {
-      void this.reapIdle()
-    }, this.opts.reaperIntervalMs)
-    this.reaper.unref?.()
-  }
-
-  private async reapIdle(): Promise<void> {
-    const now = Date.now()
-    for (const [id, ts] of this.lastUsed) {
-      if (now - ts > this.opts.idleTimeoutMs) {
-        await this.dispose(id)
+    const tmpName = CONTAINER_PREFIX + 'e-' + sandboxId.slice(0, 8) + '-' + Math.random().toString(36).slice(2, 8)
+    const memory = (spec.memoryMb ?? 512) * 1024 * 1024
+    const args2 = [
+      'run', '-d',
+      '--name', tmpName,
+      '-v', `${spec.ws}:/ws`,
+      '-v', `${this.opts.runnerPath}:/opt/sandbox/tool-runner.js:ro`,
+      '-w', '/ws',
+      '--network', spec.network ? 'bridge' : 'none',
+      ...(spec.network ? ['--add-host', 'host.docker.internal:host-gateway'] : []),
+      '-m', `${memory}`, '--memory-swap', `${memory}`,
+      '--cpus', String(spec.cpus ?? 1),
+      '--pids-limit', '256',
+      '--cap-drop', 'ALL',
+      '--security-opt', 'no-new-privileges',
+      '--ulimit', 'nofile=1024:1024',
+      '--user', 'node',
+      image,
+      'sleep', 'infinity',
+    ]
+    const r = await dockerCli(args2, 30_000)
+    if (r.exitCode !== 0) return { ok: false, error: `一次性容器创建失败: ${r.stderr.trim() || 'unknown'}` }
+    try {
+      const payload = JSON.stringify({ tool, args })
+      const secs = Math.max(3, Math.floor(this.opts.execTimeoutMs / 1000))
+      const er = await this.dockerExec(tmpName,
+        ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), 'node', '/opt/sandbox/tool-runner.js'],
+        payload)
+      if (er.timedOut) return { ok: false, error: `命令执行超时（${secs}s）——沙盒已终止该命令`, timedOut: true }
+      if (er.exitCode !== 0) {
+        if (er.exitCode === 124 || er.exitCode === 137) {
+          return { ok: false, error: `命令执行超时（${secs}s）——沙盒已终止该命令`, timedOut: true }
+        }
+        return { ok: false, error: `容器执行失败 (exit ${er.exitCode}): ${er.output || 'unknown'}`, exitCode: er.exitCode }
       }
+      try {
+        const parsed = JSON.parse(er.output)
+        if (parsed.ok) return { ok: true, output: String(parsed.output ?? '') }
+        return { ok: false, error: String(parsed.error ?? 'unknown') }
+      } catch {
+        return { ok: true, output: er.output }
+      }
+    } finally {
+      // 调用即焚：无论成败删除容器
+      await dockerCli(['rm', '-f', tmpName]).catch(() => {})
     }
   }
 
-  // ── 执行（S3/S4/S5/S7）───────────────────────────────
+  // ── 执行 ──────────────────────────────────────────
 
   /**
    * 统一工具执行：stdin {tool,args} → 容器内 tool-runner.js → {ok,output}
+   * - busy 标记（回收/驱逐豁免）+ finally 清除（P0-1）
+   * - per-sandbox 串行队列（部门共享环境的并发纪律）
    */
   async runTool(
-    agentId: string,
-    ws: string,
+    sandboxId: string,
+    spec: SandboxSpec,
     tool: string,
     args: Record<string, unknown>,
-    network?: boolean,
   ): Promise<ExecResult> {
     if (!this.opts.enabled) {
       return { ok: false, error: '沙盒不可用（SANDBOX_DISABLE）——工具已禁用' }
     }
-    const ready = await this.ensure(agentId, ws, network)
+    const ready = await this.ensure(sandboxId, spec)
     if (!ready) {
       return { ok: false, error: '沙盒不可用——命令执行已禁用（docker 不可用或镜像缺失）' }
     }
-    // heartbeat：工具执行即活动（长任务执行中容器不被 reaper 销毁——
-    // 真实事故：浏览器填问卷 >10 分钟时容器被空闲回收，AI 卡死）
-    this.touch(agentId)
-    this.touch(agentId)
-    const payload = JSON.stringify({ tool, args })
-    const r = await this.dockerExec(agentId, ['node', '/opt/sandbox/tool-runner.js'], payload)
-    if (r.timedOut) {
-      return { ok: false, error: '命令执行超时（30s）——沙盒已终止该命令', timedOut: true }
+    // 串行队列：同 sandbox 的 exec 排队执行（并发调用不踩踏容器内状态）
+    const chain = this.execChains.get(sandboxId) ?? Promise.resolve()
+    const run = chain.then(() => this.execOnce(sandboxId, tool, args))
+    this.execChains.set(sandboxId, run.catch(() => {}))
+    const r = await run
+    // stopped 自愈重试（P1-5 + readiness 缓存）：容器被外部 stop 时缓存命中 → exec 'not running'
+    // → 清缓存 → ensure（start/重建）→ 重试一次——自愈对工具调用透明
+    if (!r.ok && !r.timedOut && r.error && r.error.includes('not running')) {
+      this.readyCache.delete(sandboxId)
+      const ready2 = await this.ensure(sandboxId, spec)
+      if (ready2) {
+        const chain2 = this.execChains.get(sandboxId) ?? Promise.resolve()
+        const run2 = chain2.then(() => this.execOnce(sandboxId, tool, args))
+        this.execChains.set(sandboxId, run2.catch(() => {}))
+        return run2
+      }
     }
-    if (r.exitCode !== 0) {
-      return { ok: false, error: `容器执行失败 (exit ${r.exitCode}): ${r.output || 'unknown'}`, exitCode: r.exitCode }
-    }
-    // 解析 tool-runner 的 JSON 输出
+    return r
+  }
+
+  /** 单次 exec（队列内执行体） */
+  private async execOnce(sandboxId: string, tool: string, args: Record<string, unknown>): Promise<ExecResult> {
+    this.busy.add(sandboxId)
+    this.execStats.execCount++
     try {
-      const parsed = JSON.parse(r.output)
-      if (parsed.ok) return { ok: true, output: String(parsed.output ?? '') }
-      return { ok: false, error: String(parsed.error ?? 'unknown') }
-    } catch {
-      return { ok: true, output: r.output }
+      const payload = JSON.stringify({ tool, args })
+      const secs = Math.max(3, Math.floor(this.opts.execTimeoutMs / 1000))
+      // 容器内 timeout 杀 node 兜底（P0-3）；bash 进程树由 tool-runner 内部
+      // spawn detached + kill(-pid) 先杀（-e 传外层超时——内部 = 外层 − 2s）
+      const r = await this.dockerExec(containerName(sandboxId),
+        ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), 'node', '/opt/sandbox/tool-runner.js'],
+        payload)
+      if (r.timedOut) {
+        this.execStats.execTimeouts++
+        return { ok: false, error: `命令执行超时（${secs}s）——沙盒已终止该命令`, timedOut: true }
+      }
+      if (r.exitCode !== 0) {
+        // 超时信号：timeout 命令自身 124 / 进程组被 SIGKILL 137（容器内 timeout -s KILL 杀树）
+        if (r.exitCode === 124 || r.exitCode === 137 || r.timedOut) {
+          this.execStats.execTimeouts++
+          return { ok: false, error: `命令执行超时（${secs}s）——沙盒已终止该命令`, timedOut: true }
+        }
+        // exec 失败（容器可能被外部 stop）→ 清 readiness 缓存（下次 ensure 重新校验）
+        this.readyCache.delete(sandboxId)
+        this.execStats.execErrors++
+        return { ok: false, error: `容器执行失败 (exit ${r.exitCode}): ${r.output || 'unknown'}`, exitCode: r.exitCode }
+      }
+      try {
+        const parsed = JSON.parse(r.output)
+        if (parsed.ok) return { ok: true, output: String(parsed.output ?? '') }
+        return { ok: false, error: String(parsed.error ?? 'unknown') }
+      } catch {
+        return { ok: true, output: r.output }
+      }
+    } finally {
+      this.busy.delete(sandboxId)
     }
   }
 
   /**
-   * 直接执行命令（bash 场景经 tool-runner；底层通用）
+   * docker exec（容器内命令）。超时：杀 exec 客户端 + 状态上报
+   * （容器内 timeout 已保证进程树终止——此定时器是兜底）
    */
   private async dockerExec(
-    agentId: string,
+    container: string,
     cmdArgs: string[],
     stdin?: string,
   ): Promise<{ output: string; exitCode: number; timedOut: boolean }> {
     return new Promise((resolvePromise) => {
-      const proc = spawn('docker', ['exec', '-i', containerName(agentId), ...cmdArgs], {
+      // -e/--env 必须在容器名前（docker exec [OPTIONS] CONTAINER COMMAND）
+      const envIdx = cmdArgs.findIndex((a) => a === '-e')
+      const envArgs = envIdx >= 0 ? cmdArgs.slice(envIdx, envIdx + 2) : []
+      const rest = envIdx >= 0 ? [...cmdArgs.slice(0, envIdx), ...cmdArgs.slice(envIdx + 2)] : cmdArgs
+      const proc = spawn('docker', ['exec', '-i', ...envArgs, container, ...rest], {
         stdio: ['pipe', 'pipe', 'pipe'],
       })
       let stdout = ''
       let stderr = ''
       const timer = setTimeout(() => {
         proc.kill('SIGKILL')
-        ;(resolvePromise as any)({ output: (stdout + stderr).trim() || '命令执行超时（30s）——沙盒已终止该命令', exitCode: -1, timedOut: true })
-      }, this.opts.execTimeoutMs)
+        ;(resolvePromise as any)({ output: (stdout + stderr).trim() || `命令执行超时（${Math.floor(this.opts.execTimeoutMs / 1000)}s）——沙盒已终止该命令`, exitCode: -1, timedOut: true })
+      }, this.opts.execTimeoutMs + 5_000) // 容器内 timeout 优先，外层多 5s 兜底
       proc.stdout.on('data', d => { stdout += d })
       proc.stderr.on('data', d => { stderr += d })
       proc.on('error', () => {
@@ -340,14 +469,10 @@ export class DockerSandbox {
     })
   }
 
-  // ── 状态（U2）────────────────────────────────────────
+  // ── 状态与监控（管理/运维面——Admin 保留） ────────────
 
   /**
    * 沙盒监控（管理/调试）：容器列表 + 资源占用
-   * - listContainers：全部 ap-sandbox-* 容器（含停止的）
-   * - containerStats：单容器 CPU/内存（docker stats --no-stream）
-   * - containerProcesses：容器内进程（docker top）
-   * - containerAction：stop/start/restart/rm（管理操作）
    */
   async listContainers(): Promise<Array<Record<string, string>>> {
     const r = await dockerCli(['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format',
@@ -385,28 +510,26 @@ export class DockerSandbox {
 
   async containerAction(name: string, action: 'stop' | 'start' | 'restart' | 'rm'): Promise<{ ok: boolean; message: string }> {
     if (!name.startsWith(CONTAINER_PREFIX)) return { ok: false, message: '非法容器名' }
-    const r = await dockerCli([action, name], 30_000)
+    // rm 必须强制（运行中容器直接删除——孤儿/终止语义）
+    const args = action === 'rm' ? ['rm', '-f', name] : [action, name]
+    const r = await dockerCli(args, 30_000)
     return r.exitCode === 0 ? { ok: true, message: `${action} ${name} 成功` } : { ok: false, message: r.stderr.trim() || `${action} 失败` }
   }
 
   async status(): Promise<SandboxStatus> {
     const a = this.availability ?? (await this.probe())
-    const size = await this.poolSize()
+    const r = await dockerCli(['ps', '--filter', `name=${CONTAINER_PREFIX}`, '--format', '{{.Names}}'], 10_000)
+    const poolSize = r.exitCode === 0 && r.stdout.trim() ? r.stdout.trim().split('\n').length : 0
     return {
       available: this.opts.enabled && a.dockerOk && a.imageOk,
       enabled: this.opts.enabled,
       imageReady: a.imageOk,
-      mode: this.opts.mode,
-      poolSize: size,
-      maxContainers: this.opts.maxContainers,
+      mode: process.env.SANDBOX_MODE ?? 'persistent',
+      poolSize,
+      maxContainers: 0, // 池上限由 manager 的配额/预算控制（M2/M5）
     }
-  }
-
-  /** agent 删除联动 */
-  async disposeAgent(agentId: string): Promise<void> {
-    await this.dispose(agentId)
   }
 }
 
-// 单例（模块级共享——app 内所有 agent 共用同一个池）
+// 单例（模块级共享——app 内所有 sandbox 共用同一个执行器）
 export const sandbox = new DockerSandbox()

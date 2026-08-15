@@ -6,7 +6,6 @@ import { SkillsSection } from '../components/agent/SkillsSection'
 import { PreviewSection } from '../components/agent/PreviewSection'
 import { LogsSection } from '../components/agent/LogsSection'
 import { VersionsSection } from '../components/agent/VersionsSection'
-import { FilesSection } from '../components/agent/FilesSection'
 import { KnowledgeSection } from '../components/agent/KnowledgeSection'
 import type { Agent, AgentLog, AvailableSkill, BoundSkill, KbChunk, KbDocument, WebhookLog } from '../lib/types'
 
@@ -393,8 +392,8 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   options={[{ value: '', label: '不绑定（检索全部）' }, ...$.kbOptions.map(k => ({ value: k.id, label: k.name }))]} />
               </Field>
               <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-text-secondary">
-                Agent 专用目录: <code>data/workspaces/{'{agent_id}'}/</code>
-                <span class="wf-block wf-text-xs wf-text-tertiary wf-mt-xs">首次运行时自动创建（容器卷挂载——沙盒内 bash 写入的文件与此处一致）</span>
+                文件工具在<strong>部门工作空间</strong>中执行（三层模型：部门 = 工作目录，sandbox = 计算资源，agent = 能力）——
+                <span class="wf-block wf-text-xs wf-text-tertiary wf-mt-xs">将本 Agent 加入群聊部门后，自动获得该部门共享工作目录（部门详情页可浏览/编辑文件）；单聊无工作目录</span>
               </div>
               <div class="wf-row wf-gap-lg">
                 <Checkbox label="📄 启用文件工具 (read/write/edit/grep)" checked={$.allowFileTools}
@@ -407,7 +406,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   onChange={(v: boolean) => { $.allowNetwork = v; rerender() }} />
                 <span class="wf-text-xs wf-text-tertiary wf-self-center">默认关闭（沙盒 --network none——npm/curl 会失败）；开启后容器接入 bridge 网络</span>
               </div>
-              {$.allowFileTools && <div class="wf-text-xs wf-text-tertiary wf-mt-xs">🧪 沙盒：Docker node:24 · 网络隔离 · 内存 512MB · 1 CPU（命令执行在容器内，路径穿越/资源/网络均受容器边界保护）</div>}
+              {$.allowFileTools && <div class="wf-text-xs wf-text-tertiary wf-mt-xs">🧪 沙盒：ap-sandbox（node:24 + python + agent-browser）· 网络隔离 · 内存 512MB · 1 CPU（命令执行在容器内，路径穿越/资源/网络均受容器边界保护；保存后在部门内生效）</div>}
             </>
           )}
 
@@ -513,8 +512,6 @@ export const AgentDetail: Component = async (_props, ctx) => {
       )}
 
       {a.type === 'ai' && <SkillsSection agentId={agentId} />}
-
-      {a.type === 'ai' && a.allow_file_tools && <FilesSection agentId={agentId} />}
 
       {a.type === 'ai' && <PreviewSection agentId={agentId} />}
 

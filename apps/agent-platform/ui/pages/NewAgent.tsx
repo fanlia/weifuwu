@@ -305,7 +305,7 @@ export const NewAgent: Component = async (_props, ctx) => {
                   onChange={(v: boolean) => { $.allowNetwork = v; rerender() }} />
                 <span class="wf-text-xs wf-text-tertiary wf-self-center">默认关闭（沙盒 --network none）；开启后容器接入 bridge 网络</span>
               </div>
-              <div class="wf-text-xs wf-text-tertiary wf-mt-xs">🧪 工具在 Docker node:24 沙盒容器内执行（网络隔离 · 内存 512MB · 1 CPU · 非 root）</div>
+              <div class="wf-text-xs wf-text-tertiary wf-mt-xs">🧪 工具在 ap-sandbox 沙盒容器内执行（node:24 + python + agent-browser · 网络隔离 · 内存 512MB · 1 CPU · 非 root）</div>
             </>
           )}
 

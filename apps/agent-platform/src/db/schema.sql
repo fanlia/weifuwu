@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS departments (
   app_id      UUID NOT NULL,
   name        TEXT NOT NULL,
   is_dm       BOOLEAN NOT NULL DEFAULT FALSE,  -- 是否为单聊
+  workspace_path TEXT,                       -- 自定义工作目录（三层模型：部门=工作目录；默认 {root}/{id}）
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -315,3 +316,31 @@ CREATE TABLE IF NOT EXISTS agent_run_states (
   status        TEXT NOT NULL DEFAULT 'running',  -- running | done | failed
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ── 三层模型：sandbox = 计算资源（一级概念，2026-12 用户决策） ──
+-- 归属：绑定部门（1 部门 = 1 目录 = 1 环境）；可空 = 独立沙盒
+-- 状态机：requested（记录已建，容器未起）→ running ⇄ stopped → terminated；error（失败持久化）
+-- 配置快照（image/network/memory/cpus）——漂移重建依据（配置即声明）
+CREATE TABLE IF NOT EXISTS sandboxes (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_id      UUID NOT NULL,
+  department_id UUID,                          -- 绑定部门（核心归属；可空=独立沙盒）
+  name        TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'requested',  -- requested/running/stopped/terminated/error
+  mode        TEXT NOT NULL DEFAULT 'persistent', -- persistent/ephemeral
+  image       TEXT NOT NULL DEFAULT 'ap-sandbox:latest',
+  network     BOOLEAN NOT NULL DEFAULT FALSE,
+  memory_mb   INT NOT NULL DEFAULT 512,
+  cpus        INT NOT NULL DEFAULT 1,
+  error       TEXT,
+  workspace   TEXT,                            -- 宿主 workspace 路径（卷挂载源）
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at TIMESTAMPTZ,                    -- heartbeat（DB 持久化——重启可恢复）
+  expires_at  TIMESTAMPTZ,                     -- 寿命上限（超龄重建）
+  terminated_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_sandboxes_dept ON sandboxes(department_id);
+CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status, last_used_at);
+-- 1 部门 = 1 环境（部分唯一索引——terminated 后允许重建；NULL=独立沙盒不冲突）
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sandboxes_dept_active ON sandboxes(department_id)
+  WHERE department_id IS NOT NULL AND status != 'terminated';

@@ -31,6 +31,7 @@ import { Templates } from './pages/Templates'
 import { NewAgent } from './pages/NewAgent'
 import { AgentDetail } from './pages/AgentDetail'
 import { Departments } from './pages/Departments'
+import { Sandboxes } from './pages/Sandboxes'
 import { NewDepartment } from './pages/NewDepartment'
 import { DepartmentDetail } from './pages/DepartmentDetail'
 import { NewChat } from './pages/NewChat'
@@ -103,6 +104,7 @@ main.get('templates', () => h(Templates, {}), { title: '模板市场 — Agent P
 main.get('agents/new', () => h(NewAgent, {}), { title: '创建 Agent' })
 main.get('agents/:id', () => h(AgentDetail, {}), { title: '编辑 Agent' })
 main.get('departments', () => h(Departments, {}), { title: '部门 — Agent Platform' })
+main.get('sandboxes', () => h(Sandboxes, {}), { title: '沙盒 — Agent Platform' })
 main.get('departments/new', () => h(NewDepartment, {}), { title: '创建部门' })
 main.get('departments/:id', () => h(DepartmentDetail, {}), { title: '部门详情' })
 main.get('chat/new', () => h(NewChat, {}), { title: '会话' })

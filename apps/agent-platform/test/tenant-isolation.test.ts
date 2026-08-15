@@ -20,6 +20,7 @@ const BUSINESS_TABLES = [
   'agents', 'departments', 'department_members', 'messages', 'agent_logs',
   'webhook_logs', 'kb_documents', 'kb_chunks', 'audit_logs', 'app_ai_configs',
   'events', 'agent_skills', 'agent_versions', 'agent_memories', 'answer_cache', 'agent_run_states',
+  'sandboxes',
 ]
 
 /** 豁免登记（文件 + SQL 特征 + 理由）——审查通过才可登记 */
@@ -27,6 +28,8 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'server.ts', match: 'information_schema', reason: '元数据检查（表存在性）' },
   { file: 'server.ts', match: 'ALTER TABLE', reason: 'DDL migration（schema 级）' },
   { file: 'server.ts', match: 'CREATE TABLE', reason: 'DDL migration（schema 级）' },
+  { file: 'server.ts', match: 'CREATE INDEX', reason: 'DDL migration（schema 级）' },
+  { file: 'server.ts', match: 'CREATE UNIQUE INDEX', reason: 'DDL migration（schema 级）' },
   { file: 'server.ts', match: 'DROP TABLE', reason: 'DDL migration（schema 级）' },
   { file: 'server.ts', match: 'ALTER COLUMN', reason: 'DDL migration（schema 级）' },
   { file: 'server.ts', match: 'FROM agents WHERE template_slug IS NOT NULL', reason: '平台级模板使用统计（不返回租户数据）' },
@@ -46,6 +49,15 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/routes/knowledge.ts', match: 'DELETE FROM kb_chunks', reason: '间接隔离——doc.id 来自已校验查询（agent_id 归属）' },
   { file: 'src/routes/knowledge.ts', match: 'UPDATE kb_documents SET chunk_count', reason: '间接隔离——doc.id 来自已校验查询' },
   { file: 'src/routes/knowledge.ts', match: 'INSERT INTO kb_chunks', reason: '间接隔离——document_id 来自已校验 doc（含 agent_id 写入）' },
+  { file: 'src/routes/sandboxes.ts', match: 'FROM departments WHERE id = ANY', reason: '间接隔离——deptIds 来自已隔离的 sandboxes 列表（manager.list 带 app_id）' },
+  { file: 'src/services/agent-runner.ts', match: 'SELECT is_dm, workspace_path FROM departments', reason: '间接隔离——departmentId 来自运行上下文（会话执行已校验部门归属）' },
+  { file: 'src/services/chat.ts', match: 'SELECT is_dm, workspace_path FROM departments', reason: '间接隔离——departmentId 来自消息路由上下文（已校验部门归属）' },
+  { file: 'src/sandbox/manager.ts', match: 'FROM sandboxes WHERE department_id = ${departmentId}', reason: '间接隔离——departmentId 来自调用方上下文（工具执行/部门删除已校验归属）' },
+  { file: 'src/sandbox/manager.ts', match: 'UPDATE sandboxes SET', reason: '按主键 id 更新——id 来自已校验的 row（服务层内部）' },
+  { file: 'src/sandbox/manager.ts', match: 'SELECT * FROM sandboxes WHERE status IN', reason: '后台回收扫描（reconcile 平台级状态对齐——不返回租户数据）' },
+  { file: 'src/sandbox/manager.ts', match: 'SUM(memory_mb)', reason: '池内存预算聚合（平台级——只算总量不返回租户数据）' },
+  { file: 'src/sandbox/manager.ts', match: 'ORDER BY last_used_at ASC NULLS FIRST', reason: '池预算驱逐扫描（平台级——驱逐不返回租户数据）' },
+  { file: 'src/sandbox/manager.ts', match: 'DELETE FROM sandboxes WHERE status', reason: 'terminated 历史清理（平台级——不返回租户数据）' },
   { file: 'src/routes/knowledge.ts', match: 'INSERT INTO kb_documents', reason: '间接隔离——agentId 来自已校验 agent（路由前 a.app_id 检查）' },
   { file: 'src/routes/knowledge.ts', match: 'FROM kb_chunks kc JOIN kb_documen', reason: '间接隔离——kb agent_id 上游校验（KB 检索入口）' },
   { file: 'src/routes/messages.ts', match: 'INSERT INTO messages', reason: '间接隔离——department_id 上游校验部门归属（发消息路由）' },

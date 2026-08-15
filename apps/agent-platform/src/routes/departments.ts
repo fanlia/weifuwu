@@ -183,6 +183,12 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
 
   app.delete('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params } = ctx
+    // 三层模型：部门 = 工作目录 + 计算资源归属——删除前先终止关联 sandbox（rm 容器）
+    try {
+      const { manager } = await import('../sandbox/manager.ts')
+      manager.init(sql)
+      await manager.terminateByDepartment(String(params.id))
+    } catch { /* 沙盒清理失败不阻断删除——孤儿清理兜底 */ }
     const result = await sql`
       DELETE FROM departments d
       WHERE d.id = ${params.id} AND d.app_id = ${appId}
@@ -191,6 +197,18 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     if (result.length === 0) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
     }
+    // 三层模型：部门删除 → 工作目录清理（保留期 SANDBOX_WORKSPACE_RETENTION_DAYS 默认 0=立即删）
+    try {
+      const { resolveDepartmentWorkspace, getDefaultWorkspaceRoot } = await import('../middleware/workspace.ts')
+      const ws = await resolveDepartmentWorkspace(String(params.id), null, true)
+      if (ws) {
+        const retentionDays = Number(process.env.SANDBOX_WORKSPACE_RETENTION_DAYS ?? 0)
+        if (retentionDays <= 0) {
+          const { rm } = await import('node:fs/promises')
+          await rm(ws, { recursive: true, force: true })
+        }
+      }
+    } catch { /* 目录清理失败不影响 */ }
     return Response.json({ success: true })
   })
 

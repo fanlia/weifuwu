@@ -11,7 +11,7 @@
 const fs = require('node:fs')
 const fsp = require('node:fs/promises')
 const path = require('node:path')
-const { exec } = require('node:child_process')
+const { spawn } = require('node:child_process')
 
 const WS = '/ws'
 const MAX_FILE_READ = 50 * 1024 // 文件工具 50KB
@@ -144,24 +144,47 @@ async function dispatch(tool, args) {
       const command = String(args.command ?? '')
       if (!command) return '请提供命令'
       const desc = String(args.description ?? '')
-      return new Promise((resolve) => {
-        exec(command, {
+      // 进程组超时（P0-3 根治：外层 timeout 只杀 node——bash 的 sh+子进程会成孤儿继续跑）：
+      //   spawn detached = 新进程组 → kill(-pid) 杀整个组（sh + 全部后代）——不留孤儿
+      // 内部超时 = 外层（docker exec -e 传入）− 2s（至少 1s 缓冲——必须严格小于外层，
+      // 否则与外层 timeout 同时触发：race 下外层先杀 node，timer 无机会执行，进程组残留）
+      const outerSecs = parseInt(process.env.SANDBOX_EXEC_TIMEOUT_SECS || '', 10)
+      const bashTimeoutMs = (outerSecs > 0 ? Math.max(1, outerSecs - 2) : Math.floor(BASH_TIMEOUT_MS / 1000)) * 1000
+      const result = await new Promise((resolve) => {
+        const child = spawn(command, {
           cwd: WS,
-          timeout: BASH_TIMEOUT_MS,
-          maxBuffer: MAX_BASH_OUTPUT,
+          shell: true,
+          detached: true,
           env: { PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', HOME: '/home/node', LANG: 'C.UTF-8' },
-        }, (err, stdout, stderr) => {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        let stdout = ''
+        let stderr = ''
+        let timedOut = false
+        const timer = setTimeout(() => {
+          timedOut = true
+          try { process.kill(-child.pid, 'SIGKILL') } catch { /* 已退出 */ }
+        }, bashTimeoutMs)
+        child.stdout.on('data', (d) => { stdout += d })
+        child.stderr.on('data', (d) => { stderr += d })
+        child.on('error', () => {
+          clearTimeout(timer)
+          resolve(`命令执行失败: ${stderr || 'spawn 失败'}`)
+        })
+        child.on('close', (code) => {
+          clearTimeout(timer)
+          if (timedOut) {
+            // 超时 = 工具失败（抛错 → {ok:false}——AI 可感知的重试语义）
+            resolve({ __timeout: `命令执行超时（${Math.floor(bashTimeoutMs / 1000)}s）——沙盒已终止该命令` })
+            return
+          }
           const out = (stdout ?? '').trim()
           const errOut = (stderr ?? '').trim()
           let result = ''
           if (out) result += truncate(out, MAX_BASH_OUTPUT)
           if (errOut) result += result ? `\n\n--- stderr ---\n${errOut}` : errOut
-          if (err) {
-            if (err.killed) {
-              result = (result ? result + '\n\n' : '') + '命令执行超时（30s）——沙盒已终止该命令'
-            } else {
-              result = (result ? result + '\n\n' : '') + `命令执行失败: ${errOut || err.message}`
-            }
+          if (code !== 0) {
+            result = (result ? result + '\n\n' : '') + `命令执行失败: ${errOut || `exit ${code}`}`
           }
           // 网络隔离提示（诚实裁剪前置——防 AI 反复重试 npm/curl）
           if (!result) result = '命令执行成功（无输出）'
@@ -171,6 +194,10 @@ async function dispatch(tool, args) {
           resolve(result)
         })
       })
+      if (result && typeof result === 'object' && result.__timeout) {
+        throw new Error(result.__timeout)
+      }
+      return result
     }
     default:
       return `未知工具: ${tool}`
@@ -194,6 +221,9 @@ async function main() {
   } catch (e) {
     process.stdout.write(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }))
   }
+  // 强制退出（bash 分支 detached child 的 stdio 引用可能挂住事件循环——
+  // 不退出则 docker exec 一直等，直到外层 timeout 杀 node）
+  process.exit(0)
 }
 
 main()

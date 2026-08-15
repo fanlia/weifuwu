@@ -1,11 +1,13 @@
 /**
- * 工作空间文件区（AgentDetail 拆分子组件——列目录/打开/编辑/保存）
+ * 工作空间文件区（DepartmentDetail 拆分子组件——三层模型：部门 = 工作目录）
+ * 按部门浏览（/api/departments/:id/workspace/*）——成员共享同一目录：
+ * AI 在沙盒里写文件 / 用户放资料，双向可见。
  */
 import type { Component } from 'weifuwu/ui-dom'
 import { Button, Card, EmptyState, Icon, Loading } from 'weifuwu/components'
 import { errMsg } from '../../components/ui'
 
-export const FilesSection: Component<{ agentId: string }> = async (_init, ctx) => {
+export const FilesSection: Component<{ departmentId: string }> = async (_init, ctx) => {
   let wsEntries: Array<{ name: string; type: 'dir' | 'file'; size: number; mtime: string }> = []
   let wsPath = ''
   let wsLoading = true
@@ -13,13 +15,13 @@ export const FilesSection: Component<{ agentId: string }> = async (_init, ctx) =
   let wsEditContent = ''
   let wsSaving = false
   const rerender = () => ctx.ui.render()
-  const agentId = _init.agentId
+  const departmentId = _init.departmentId
 
   async function loadWsList(path = '') {
     wsLoading = true; rerender()
     try {
       const q = path ? `?path=${encodeURIComponent(path)}` : ''
-      const d = await ctx.api!.get(`/api/agents/${agentId}/workspace/list${q}`)
+      const d = await ctx.api!.get(`/api/departments/${departmentId}/workspace/list${q}`)
       wsEntries = d.entries ?? []; wsPath = d.path ?? '/'
     } catch (e) { ctx.toast!('加载失败：' + errMsg(e, ''), 'error') }
     wsLoading = false; rerender()
@@ -32,7 +34,7 @@ export const FilesSection: Component<{ agentId: string }> = async (_init, ctx) =
     }
     try {
       const rel = wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`
-      const d = await ctx.api!.get(`/api/agents/${agentId}/workspace/file?path=${encodeURIComponent(rel)}`)
+      const d = await ctx.api!.get(`/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(rel)}`)
       if (d.binary) { ctx.toast!('二进制文件不可预览', 'error'); return }
       wsOpenFile = { path: rel, content: d.content ?? '', binary: d.binary, truncated: d.truncated, size: d.size }
       wsEditContent = d.content ?? ''
@@ -44,7 +46,7 @@ export const FilesSection: Component<{ agentId: string }> = async (_init, ctx) =
     if (!wsOpenFile) return
     wsSaving = true; rerender()
     try {
-      const d = await ctx.api!.put(`/api/agents/${agentId}/workspace/file`, { path: wsOpenFile.path, content: wsEditContent })
+      const d = await ctx.api!.put(`/api/departments/${departmentId}/workspace/file`, { path: wsOpenFile.path, content: wsEditContent })
       if (d.success) { ctx.toast!('已保存', 'success'); wsOpenFile = null; await loadWsList() }
     } catch (e) { ctx.toast!('保存失败：' + errMsg(e, ''), 'error') }
     wsSaving = false; rerender()
@@ -70,7 +72,7 @@ export const FilesSection: Component<{ agentId: string }> = async (_init, ctx) =
       ctx.toast!('上传中...', 'info')
       try {
         const rel = wsPath === '/' ? '' : wsPath
-        const d = await ctx.api!.post(`/api/agents/${agentId}/workspace/upload`, { path: rel, name: f.name, data, size: f.size })
+        const d = await ctx.api!.post(`/api/departments/${departmentId}/workspace/upload`, { path: rel, name: f.name, data, size: f.size })
         if (d.success) { ctx.toast!(`已上传 ${d.name}（${d.size} 字节）`, 'success'); await loadWsList() }
         else ctx.toast!('上传失败：' + (d.error ?? ''), 'error')
       } catch (err) { ctx.toast!('上传失败：' + errMsg(err, ''), 'error') }
@@ -132,7 +134,7 @@ export const FilesSection: Component<{ agentId: string }> = async (_init, ctx) =
               <span class="wf-text-xs wf-text-tertiary wf-nums">{new Date(entry.mtime).toLocaleTimeString()}</span>
               {entry.type === 'file' && (
                 <a class="wf-btn wf-btn--ghost wf-btn--sm" title="下载（AI 产物交付）"
-                  href={`/api/agents/${agentId}/workspace/file?path=${encodeURIComponent(wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`)}&download=1`}>
+                  href={`/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`)}&download=1`}>
                   <Icon name="arrow-down" size={13} />
                 </a>
               )}

@@ -88,10 +88,10 @@ describe('AgentDetail 渲染基线（拆分保护网）', () => {
   it('ai 类型：8 区中 7 区渲染（无 Webhook 区）', async () => {
     const { container } = await mountPage('/agents/agent-1', () => h(AgentDetail, {}), detailOpts(), '/agents/:id')
     const text = container.textContent ?? ''
-    // 7 区（ai 类型）
+    // 7 区（ai 类型）——工作空间文件区已迁至部门页（三层模型：目录归属部门）
     assert.ok(text.includes('基本设置'), '配置区')
     assert.ok(text.includes('技能管理'), '技能区')
-    assert.ok(text.includes('工作空间文件'), '文件区')
+    assert.ok(!text.includes('工作空间文件'), '文件区已迁至部门详情页（三层模型）')
     assert.ok(text.includes('绑定知识库'), '知识库绑定（ai 类型——文档管理仅 KB 类型）')
     assert.ok(!text.includes('知识库文档'), 'ai 类型无文档管理区')
     assert.ok(text.includes('测试对话'), '对话区')

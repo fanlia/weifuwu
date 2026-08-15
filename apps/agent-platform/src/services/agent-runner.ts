@@ -15,7 +15,7 @@ import type { AppCtx } from '../middleware/ctx.ts'
 import type { ToolDefinition } from '../ai/types.ts'
 import { SkillRegistry } from './skills.ts'
 import type { SkillContext } from './skills.ts'
-import { resolveAgentWorkspace } from '../middleware/workspace.ts'
+import { resolveDepartmentWorkspace } from '../middleware/workspace.ts'
 import { getWorkspaceToolDefs, createWorkspaceHandlers } from '../tools/workspace.ts'
 import { getToolHandler } from '../tools/registry.ts'
 import { byokParamsOf } from './byok.ts'
@@ -156,15 +156,24 @@ async function buildToolContext(
     }
   }
 
-  // 解析工作空间路径（默认 {root}/{agent_id}/，或自定义路径）
-  if (config.allowFileTools) {
-    // 始终解析实际路径（自定义 null → 默认目录）——修复：buildToolContext 此前只看自定义路径导致默认路径工具不注册
-    const resolvedWs = await resolveAgentWorkspace(config.agentId, config.workspacePath, true)
+  // 解析工作空间路径（三层模型：目录归属部门——{root}/{department_id}/，或自定义路径）
+  // 单聊（is_dm）/无部门上下文（preview）→ 无文件工具
+  if (config.allowFileTools && config.departmentId) {
+    let resolvedWs: string | null = null
+    try {
+      const [dept] = await ctx.sql`SELECT is_dm, workspace_path FROM departments WHERE id = ${config.departmentId}`
+      if (dept && !(dept as any).is_dm) {
+        resolvedWs = await resolveDepartmentWorkspace(config.departmentId, (dept as any).workspace_path, true)
+      }
+    } catch (err: any) {
+      console.warn(`[agent-runner] 部门工作空间查询失败: ${err?.message ?? ''}`)
+    }
     if (resolvedWs) {
       const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
       pushUnique(wsTools)
       try {
-        const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false, config.agentId, config.allowNetwork)
+        // 沙盒归属 = 部门（sandbox 绑定 department_id——M2 后按记录执行）
+        const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false, config.departmentId, config.allowNetwork)
         if (!skillRegistry) skillRegistry = new SkillRegistry(config.agentId)
         skillRegistry.registerSkill({
           dir: resolvedWs,

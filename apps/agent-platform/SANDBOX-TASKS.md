@@ -53,3 +53,79 @@
 1. **buildToolContext 默认 workspace 路径 bug**：只看自定义路径 → 默认目录工具不注册 → AI 无工具可用（对话实测）
 2. **ensure 卷挂载校验**：agent 换 workspace 后容器仍挂旧路径（T6b/T7 测试抓出）→ 不匹配重建
 3. **vdom 三元分支返回 Fragment 渲染空**（真实坑）：`{cond ? (<></>) : (<></>)}` 条件表达式分支返回 Fragment 时渲染结果为空——**用单 div 包裹替代 Fragment 解决**（文件浏览器编辑视图踩中——浏览器验证定位）
+
+## 2026-12 三层模型 + 一级概念实施记录（SANDBOX-LIFECYCLE-PLAN.md）
+
+### M0 部门升华（部门 = 工作目录）
+- [x] **M0-1.** departments.workspace_path 列 + `resolveDepartmentWorkspace`（替代 resolveAgentWorkspace——3 处调用点全切换：agent-runner/chat.ts/routes/workspace.ts）
+- [x] **M0-2.** 工具执行路径切换——buildToolContext 按部门解析（is_dm 拦截）+ createWorkspaceHandlers 归属部门
+- [x] **M0-3.** 文件浏览器迁移 `/api/departments/:id/workspace/*`（原 agent 级）——UI 迁至 DepartmentDetail，AgentDetail 收敛为纯能力说明
+- [x] 测试：test/workspace-department.test.ts（5 个：默认/自定义/禁用具/无部门/幂等）
+
+### M1 数据模型 + 执行器重构（P0 三件套）
+- [x] **M1-1.** sandboxes 表（schema.sql + server.ts 增量 + 部门部分唯一索引 + sandbox_quota 列）
+- [x] **M1-2.** DockerSandbox 纯执行器（移除 lastUsed/reaper/evict/cleanup）——容器名 sandbox_id；busy 豁免（P0-1）；inflight 去重（P0-2）；容器内 timeout 杀树（P0-3）；stopped 自愈（P1-5）；漂移校验（P1-6）；exec 串行队列
+
+### M2 服务层（SandboxManager——DB 驱动状态机）
+- [x] **M2-1.** 状态机全路径 + 两级回收（idle→stop / 停止超时→terminate）+ 超龄重建 + reconcile 60s（对齐/孤儿清理/历史清理）+ 启动恢复
+- [x] **M2-2.** 部门联动——runTool 自动建记录（requested 惰性）；**部门删除 → 级联 terminate + workspace 清理**（保留期 env）；agent 删除不再级联（归属已移部门）
+- [x] **M2-3.** 审计接线（sandbox_create/config_change/start/stop/restart/terminate）
+- [x] 测试：test/sandbox.test.ts 重写 9 个真 docker+真 postgres 集成测试（T-M1a~e / T-M2a~d）全绿
+
+### M3 API
+- [x] **M3-1.** /api/sandboxes CRUD + 生命周期操作 + 进程/资源 + 租户隔离（app_id）+ owner/admin 权限 + 配额 409 + 手动创建解析部门目录
+- [x] 租户隔离审计登记（sandboxes 表 + manager 豁免——间接隔离/后台回收扫描/按主键更新）
+
+### M4 UI
+- [x] **M4-1.** Sandboxes 页（列表卡片/状态徽章/操作/镜像网络内存/容器状态）+ NAV「沙盒」+ 路由
+- [x] **M4-2.** DepartmentDetail 升华——文件浏览器（部门级）+ 沙盒状态卡片（启动/停止/重启/终止）
+- [x] **M4-3.** AgentDetail 收敛（纯能力化——文件工具说明指向部门工作空间）
+- [x] 浏览器验收：登录 → 沙盒页列表（运行中/已终止状态正确）→ 部门页文件浏览器（API 写文件立即可见）→ 沙盒启动（容器 Up）→ 权限 403 正确
+
+### 回归
+- [x] 全量测试 152/152 全绿（排除既有环境问题的 test/ui/pages.test.ts——HEAD 同样失败）+ tsc 零错误
+- [x] README 沙盒章节重写（三层模型/状态机/两级回收/env 表/裁剪/残余风险）
+
+### 实施中抓出的真实问题
+1. **manager.list 拼接 SQL 参数化陷阱**：conds.join 字符串被 sql 标签参数化 → `invalid input syntax for type boolean`——重构为显式分支 + 白名单校验
+2. **容器内 timeout exit 137**：`timeout -s KILL` 杀进程组 → docker exec 返回 137（非 124）——137/124 均判定超时
+3. **手动创建沙盒 workspace 为空**：routes 层补 resolveDepartmentWorkspace（部门目录解析）
+4. **测试表外键**：_weifuwu_apps.owner_user_id 有外键 → 测试插入需真实用户 id
+5. **pages.test.ts 既有环境问题**：jsx-runtime 解析失败（dist dev hooks 与 src paths 冲突）——HEAD 同样失败，非本次引入
+
+## 2026-12 镜像切换：node:24 → ap-sandbox:latest（含 P0-3 孤儿进程根治）
+
+- [x] **默认镜像切换**：docker.ts / manager.ts / schema.sql / server.ts 建表默认值 / 测试全部改 `ap-sandbox:latest`
+  （agent-browser + python/office 预装库；存量记录快照 image='node:24' 不迁移——重建时按快照，兼容）
+- [x] **ALTER COLUMN SET DEFAULT**（server.ts 增量）——新记录默认 ap-sandbox:latest
+- [x] UI 文案更新（AgentDetail/NewAgent「ap-sandbox（node:24 + python + agent-browser）」）
+- [x] 镜像能力冒烟：python-office-ok（openpyxl/pandas/pypdf/docx/pptx）+ agent-browser 0.34.0 ✓
+
+### P0-3 孤儿进程根治（镜像切换暴露——node:24 下同样存在）
+**事故**：`timeout -s KILL {secs} node tool-runner.js` 只杀 node——bash 的 `sh + sleep` 子进程成孤儿挂在容器主进程下继续跑（docker top 证实）。
+**根因**：外层 timeout 杀不了 bash 进程树；且内部超时下限 Math.max(3, secs-2) 在 secs=3 时与外层同时触发（race）。
+**修复**（tool-runner.js + docker.ts）：
+1. bash 分支 `spawn(detached: true)` = 新进程组 → 超时 `kill(-pid, SIGKILL)` 杀整个组（sh + 全部后代）
+2. 内部超时 = 外层（`docker exec -e SANDBOX_EXEC_TIMEOUT_SECS` 传入）− 2s（至少 1s 缓冲——严格小于外层，杜绝 race）
+3. bash 超时 = 工具失败（`{__timeout}` → 抛错 → `{ok:false}`——AI 可感知重试）
+4. main() 输出后 `process.exit(0)`（防 detached child stdio 挂住事件循环）
+5. dockerExec 的 `-e` 参数移到容器名前（docker exec [OPTIONS] CONTAINER COMMAND 语法）
+- 验证：T-M1c（sleep 60 → 超时 + docker top 无残留）✓ 9/9 集成测试全绿 + 全量 152/152
+
+## 2026-12 M5/M6 实施记录（配额/预算/缓存/指标/ephemeral）
+
+### M5 配额与资源预算
+- [x] **M5-1. per-app 配额用量**——GET /api/sandboxes 响应加 `quota: {used, limit, pressure}`；Sandboxes 页显示「配额用量 x/5」+ ≥80% 压力黄条（创建校验 T-M2d 已有）
+- [x] **M5-2. 池内存预算**——`SANDBOX_POOL_BUDGET_MB`（默认 10240=20×512MB；0=禁用）——create 时超预算 → **驱逐非 busy 最旧（LRU）** → 仍超 → 明确错误「沙盒池内存不足」（不静默降级）；构造参数 poolBudgetMb 可覆盖（测试用）；租户审计豁免登记（平台级聚合）
+- [x] **M5-3. 资源 env 化 + 快照**——`SANDBOX_MEMORY_LIMIT`（默认 512）/`SANDBOX_CPU_LIMIT`（默认 1）——创建时快照进 memory_mb/cpus（配置即声明，改配置 → 漂移重建）
+
+### M6 性能、可观测与收尾
+- [x] **M6-1. TTL 缓存**——probe 成功 60s / 失败负缓存 10s；per-sandbox readiness 指纹缓存 30s（工具调用降为 1 次 exec）；**缓存自愈**：exec 'not running'（容器被外部 stop）→ 清缓存 → ensure（start）→ 重试一次（对工具透明）
+- [x] **M6-2. 指标接线**——`sandboxCalls` 死指标修复（manager.runTool 入口自增）；manager.counters（created/terminated/evicted/idleStopped/autoStarted/orphansCleaned）+ 执行器 execStats（execCount/errors/timeouts）→ /api/metrics + /api/metrics/prom 全量暴露
+- [x] **M6-3. ephemeral 落地**——per-sandbox `mode='ephemeral'`：每次调用独立容器（runOnce：docker run -d + exec + finally rm -f——调用即焚）；卷挂载共享（文件持久）；创建 API 支持 mode/memory_mb；reconcile 跳过 ephemeral
+- [x] **M6-4. 回归**——11 个 sandbox 集成测试全绿 + 全量 154/154 + tsc 零错误；README/SANDBOX 文档更新
+
+### 测试
+- [x] T-M5-2（池预算：驱逐最旧生效 + 仍超抛错 + makeManager poolBudgetMb 转发）
+- [x] T-M6-3（ephemeral：写读跨容器卷持久 + 无容器残留 + 状态标记 running）
+- 实施中抓出的问题：模块级 DEFAULT_POOL_BUDGET_MB 固化 → 构造参数覆盖；readiness 缓存致 stopped 自愈失效 → 'not running' 重试自愈

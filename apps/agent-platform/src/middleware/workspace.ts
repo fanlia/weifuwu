@@ -1,13 +1,14 @@
 /**
  * ctx.workspace 中间件 — 注入工作空间信息
  *
- * 工作空间路径解析规则：
- *   - allowFileTools=false → 无工作空间（null）
- *   - 有自定义 workspace_path → 使用自定义路径
- *   - 无自定义路径 → 使用默认 {AGENT_WORKSPACE_ROOT}/{agent_id}/
+ * 三层统一模型（2026-12 用户决策）：部门 = 工作目录，sandbox = 计算资源，agent = 能力。
+ * 工作空间归属**部门**（不再是 agent）：
+ *   - 单聊（is_dm=true）/无部门上下文 → 无工作空间（null）
+ *   - 有自定义 departments.workspace_path → 使用自定义路径
+ *   - 无自定义路径 → 使用默认 {AGENT_WORKSPACE_ROOT}/{department_id}/
  *     自动创建目录（如 AGENT_WORKSPACE_ROOT 未设置，默认 ./data/workspaces）
  *
- * 在 Agent 执行时，由 agent-runner 调用 resolveAgentWorkspace() 获取最终路径
+ * 由 agent-runner 调用 resolveDepartmentWorkspace() 获取最终路径
  */
 
 import type { Context, Middleware } from 'weifuwu'
@@ -36,19 +37,19 @@ const DEFAULT_ROOT = (() => {
 })()
 
 /**
- * 解析 Agent 的工作空间路径
+ * 解析部门的工作空间路径（三层模型：目录归属部门）
  *
- * @param agentId Agent UUID
- * @param customPath  用户自定义路径（来自 agents.workspace_path）
+ * @param departmentId 部门 UUID（单聊/空 → 无工作空间）
+ * @param customPath  用户自定义路径（来自 departments.workspace_path）
  * @param allowFileTools  是否启用了文件工具
  * @returns 最终的工作空间绝对路径，或 null（无工作空间）
  */
-export async function resolveAgentWorkspace(
-  agentId: string,
+export async function resolveDepartmentWorkspace(
+  departmentId: string,
   customPath?: string | null,
   allowFileTools?: boolean,
 ): Promise<string | null> {
-  if (!allowFileTools) return null
+  if (!allowFileTools || !departmentId) return null
 
   if (customPath) {
     const p = resolve(customPath)
@@ -56,8 +57,8 @@ export async function resolveAgentWorkspace(
     return p
   }
 
-  // 使用默认路径：{root}/{agent_id}/
-  const defaultPath = join(DEFAULT_ROOT, agentId)
+  // 使用默认路径：{root}/{department_id}/
+  const defaultPath = join(DEFAULT_ROOT, departmentId)
   await mkdir(defaultPath, { recursive: true })
   return defaultPath
 }

@@ -1,14 +1,15 @@
 /**
  * 工作空间工具集 — read/write/edit/grep/list_files/bash
  *
- * 安全边界 = Docker 沙盒容器（S4/S5）：所有工具操作经容器内 tool-runner.js 执行
+ * 三层模型（2026-12）：部门 = 工作目录，sandbox = 计算资源，agent = 能力。
+ * 安全边界 = Docker 沙盒容器：所有工具操作经容器内 tool-runner.js 执行
  * （agent 看到统一的容器内 /ws 视图；路径穿越即使有 bug 也逃不出卷挂载——纵深防御）
- * 宿主侧只做参数透传 + 容器调用，不再直接 fs/bash
+ * 宿主侧只做参数透传 + 容器调用（经 SandboxManager——DB 驱动生命周期），不再直接 fs/bash
  */
 
 import { resolve } from 'node:path'
 import type { ToolDefinition } from '../ai/types.ts'
-import { sandbox } from '../sandbox/docker.ts'
+import { manager } from '../sandbox/manager.ts'
 
 // ── 工具定义 ───────────────────────────────────────────────
 
@@ -112,23 +113,23 @@ export const BASH_TOOL_DEF: ToolDefinition = {
 // ── Handler 工厂（S4/S5：参数透传 + 容器调用） ─────────────
 
 /**
- * 创建工作空间工具的 handlers（全部经沙盒容器执行）
- * @param workspace 工作空间根目录绝对路径（宿主——容器卷挂载源）
+ * 创建工作空间工具的 handlers（全部经沙盒容器执行——归属部门）
+ * @param workspace 工作空间根目录绝对路径（宿主——容器卷挂载源；部门级）
  * @param allowCommandExec 是否允许 bash 执行
- * @param agentId agent UUID（容器命名/卷挂载归属）
+ * @param departmentId 部门 UUID（sandbox 记录归属/容器命名）
  * @param allowNetwork 是否允许网络（--network bridge）
  */
 export function createWorkspaceHandlers(
   workspace: string,
   allowCommandExec: boolean,
-  agentId: string,
+  departmentId: string,
   allowNetwork?: boolean,
 ): Record<string, (args: Record<string, unknown>) => Promise<string>> {
   const ws = resolve(workspace)
 
-  // 容器内工具执行（统一入口）
+  // 容器内工具执行（统一入口——经 SandboxManager：查/建记录 → ensure → exec）
   const runInSandbox = async (tool: string, args: Record<string, unknown>): Promise<string> => {
-    const r = await sandbox.runTool(agentId, ws, tool, args, allowNetwork)
+    const r = await manager.runTool(departmentId, ws, tool, args, { network: allowNetwork })
     if (r.ok) return r.output ?? ''
     // 诚实裁剪：沙盒不可用 → 明确错误（绝不静默回退宿主）
     return `沙盒错误: ${r.error ?? 'unknown'}`

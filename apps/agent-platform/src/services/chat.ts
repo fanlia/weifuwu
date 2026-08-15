@@ -515,6 +515,13 @@ async function runAllAgents(
 ): Promise<void> {
   const { sql } = ctx
 
+  // 三层模型（2026-12）：部门 = 工作目录——附件/文件地图按部门 workspace 解析（单聊无目录）
+  let deptWsInfo: { is_dm: boolean; workspace_path: string | null } | null = null
+  try {
+    const [dept] = await sql`SELECT is_dm, workspace_path FROM departments WHERE id = ${departmentId}`
+    if (dept) deptWsInfo = { is_dm: !!dept.is_dm, workspace_path: dept.workspace_path ? String(dept.workspace_path) : null }
+  } catch { /* 查询失败 → 无工作空间 */ }
+
   const apiKey = process.env.DEEPSEEK_API_KEY
   if (!apiKey || apiKey === '' || apiKey === 'sk-your-deepseek-api-key' || apiKey.startsWith('sk-your-')) {
     console.warn('[chat] DEEPSEEK_API_KEY 未配置，跳过 AI 自动回复')
@@ -620,12 +627,12 @@ async function runAllAgents(
     // P1-3：附件拷贝到本 AI 工作空间 uploads/{msgId}/（沙盒 bind mount 自动可见）
     let attachmentLayer = ''
     let workspaceLayer = ''
-    if (attachments.length > 0 && agent.allow_file_tools) {
+    if (attachments.length > 0 && agent.allow_file_tools && deptWsInfo && !deptWsInfo.is_dm) {
       const { buildAttachmentLayer } = await import('./upload.ts')
-      const { resolveAgentWorkspace } = await import('../middleware/workspace.ts')
+      const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
       const fs = await import('node:fs/promises')
       const pathMod = await import('node:path')
-      const ws = await resolveAgentWorkspace(String(agent.id), agent.workspace_path, true)
+      const ws = await resolveDepartmentWorkspace(departmentId, deptWsInfo.workspace_path, true)
       if (ws) {
         const targetDir = pathMod.join(ws, 'uploads', attachmentMsgId)
         const attachBase = pathMod.join(process.cwd(), 'data', 'uploads', String(ctx.appId), String(departmentId))
