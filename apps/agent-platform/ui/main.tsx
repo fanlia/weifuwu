@@ -7,7 +7,7 @@
 import { api, auth, ws, i18n } from 'weifuwu/ui-dom'
 import { APP_MESSAGES } from './lib/i18n'
 import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
-import { EmptyState, confirm as uiDomConfirm, toast as uiDomToast } from 'weifuwu/components'
+import { EmptyState } from 'weifuwu/components'
 
 import { AppLayout } from './components/AppLayout'
 
@@ -85,9 +85,8 @@ app.use(auth({
 }))
 app.use(ws({ url: '/ws' }))
 
-// 命令式确认/轻提示（ui-dom 版——局部 registry）
-app.use(uiDomConfirm())
-app.use(uiDomToast())
+// 命令式确认/轻提示（vdom3 版——v3Confirm/v3Toast——main.tsx 为 vdom2 遗留入口
+// ——命令式中间件已迁移 v3-main（vdom3 入口）——此处由 v3commands 提供）
 
 // 认证页（无侧边栏）
 app.get('/login', () => h(Login, {}), { title: '登录 — Agent Platform' })

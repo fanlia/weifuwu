@@ -9,8 +9,7 @@
 
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { UIRouter, uiServe } from '../../../src/ui-dom/index.ts'
-import { toast } from '../../../src/ui-dom/Toast.ts'
-import { confirm } from '../../../src/ui-dom/Confirm.ts'
+import { v3Toast, v3Confirm } from '../../../src/ui-dom/vdom3/commands.ts'
 import { notification } from '../../../src/ui-dom/Notification.ts'
 import {
   Button, Input, Textarea, Select,
@@ -3240,8 +3239,8 @@ const i18nMw = (() => {
 
 const app = new UIRouter()
 app.use(i18nMw)
-app.use(toast())
-app.use(confirm())
+app.use(v3Toast())
+app.use(v3Confirm())
 app.use(notification())
 app.get('/', () => <App />)
 uiServe(app, { root: '#root' })

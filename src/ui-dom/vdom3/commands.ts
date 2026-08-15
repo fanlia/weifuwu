@@ -19,12 +19,13 @@ export interface V3CommandInjected {
   toast(message: string, variant?: 'success' | 'error' | 'warning' | 'info'): void
 }
 
-/** 命令式确认（vdom3——createRoot 挂载 Confirm 组件——Modal portal 退场） */
-export function v3Confirm(): (ctx: V3Ctx) => V3Ctx & V3CommandInjected {
-  return (ctx: V3Ctx) => {
-    ;(ctx as V3Ctx & V3CommandInjected).confirm = (message: string, options?: Record<string, unknown>) =>
-      createV3Confirm(message, options ?? {}, ctx)
-    return ctx as V3Ctx & V3CommandInjected
+/** 命令式确认（vdom3——createRoot 挂载 Confirm 组件——Modal portal 退场）
+ *  泛型 ctx（兼容 UIRouter（WfuiContext）与 vdom3（V3Ctx）双入口） */
+export function v3Confirm<C extends { [key: string]: unknown }>(): (ctx: C) => C & V3CommandInjected {
+  return (ctx: C) => {
+    ;(ctx as C & V3CommandInjected).confirm = (message: string, options?: Record<string, unknown>) =>
+      createV3Confirm(message, options ?? {}, ctx as unknown as V3Ctx)
+    return ctx as C & V3CommandInjected
   }
 }
 
@@ -67,11 +68,11 @@ function createV3Confirm(message: string, options: Record<string, unknown>, _ctx
 // ── toast ────────────────────────────────────────────────
 
 /** 命令式轻提示（vdom3——createRoot 挂载 Toast 组件——自动消失） */
-export function v3Toast(): (ctx: V3Ctx) => V3Ctx & V3CommandInjected {
-  return (ctx: V3Ctx) => {
-    ;(ctx as V3Ctx & V3CommandInjected).toast = (message: string, variant: 'success' | 'error' | 'warning' | 'info' = 'info') =>
+export function v3Toast<C extends { [key: string]: unknown }>(): (ctx: C) => C & V3CommandInjected {
+  return (ctx: C) => {
+    ;(ctx as C & V3CommandInjected).toast = (message: string, variant: 'success' | 'error' | 'warning' | 'info' = 'info') =>
       createV3Toast(message, variant)
-    return ctx as V3Ctx & V3CommandInjected
+    return ctx as C & V3CommandInjected
   }
 }
 
