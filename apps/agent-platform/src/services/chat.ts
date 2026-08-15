@@ -25,7 +25,7 @@ import { SkillRegistry, loadSkill } from './skills.ts'
  * 业务事件（new_message/message_edited/message_deleted/ai_draft）仍为应用自有类型。
  */
 export interface StreamEvent {
-  type: 'wf:step' | 'wf:token' | 'wf:tool_result' | 'wf:done' | 'wf:error' | 'wf:usage'
+  type: 'wf:step' | 'wf:token' | 'wf:tool_result' | 'wf:done' | 'wf:error' | 'wf:usage' | 'wf:verify'
   messageId: string
   [key: string]: unknown
 }
@@ -285,19 +285,31 @@ export async function handleNewMessage(
       // 保存回复消息
       const content = result.content
       if (!content) continue
+      // AI 执行验证（2026-12 幻觉治理）：HITL 非流式路径同样校验声称产物
+      let verifiedContent = content
+      try {
+        const { extractArtifactPaths, verifyArtifacts, buildVerifyMark } = await import('./artifact-verify.ts')
+        const claimed = extractArtifactPaths(content)
+        if (claimed.length > 0) {
+          const { verified, missing } = await verifyArtifacts(sql, String(departmentId), claimed)
+          if (verified.length > 0 || missing.length > 0) {
+            verifiedContent = content + buildVerifyMark(verified, missing)
+          }
+        }
+      } catch { /* 验证失败不阻断 */ }
 
       if (agent.human_in_the_loop) {
         // Human-in-the-Loop: 保存为草稿，待审批
         const [draftMsg] = await sql`
           INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved, ai_step)
-          VALUES (${departmentId}, ${agent.id}, '[AI 生成中...]', 'text', ${content}, NULL, ${JSON.stringify({ steps: result.steps })})
+          VALUES (${departmentId}, ${agent.id}, '[AI 生成中...]', 'text', ${verifiedContent}, NULL, ${JSON.stringify({ steps: result.steps })})
           RETURNING id, content, created_at
         `
 
         // WS 推送审批通知
         ctx.msg.broadcast(String(departmentId), {
           type: 'ai_draft',
-          message: { id: draftMsg.id, agentId: agent.id, agentName: agent.name, draft: content, departmentId, createdAt: draftMsg.created_at },
+          message: { id: draftMsg.id, agentId: agent.id, agentName: agent.name, draft: verifiedContent, departmentId, createdAt: draftMsg.created_at },
         })
 
         // 邮件通知租户 owner（商业化 G5——审批不打开页面也能收到提醒）
@@ -516,6 +528,21 @@ async function runAgentStreamForAgent(
         `
       } catch { /* 日志失败不影响主流程 */ }
     }
+    // AI 执行验证（2026-12 幻觉治理）：回复完成后校验声称的产物是否存在——
+    // 「声称完成」vs「实际完成」分开，用户可信任（追加标记到回复 + DB 落库）
+    try {
+      const { extractArtifactPaths, verifyArtifacts, buildVerifyMark } = await import('./artifact-verify.ts')
+      const claimed = extractArtifactPaths(accumulatedContent)
+      if (claimed.length > 0) {
+        const { verified, missing } = await verifyArtifacts(sql, String(departmentId), claimed)
+        if (verified.length > 0 || missing.length > 0) {
+          const mark = buildVerifyMark(verified, missing)
+          accumulatedContent = accumulatedContent + mark
+          emit.emit({ type: 'wf:verify', messageId: msgId, verified, missing })
+          await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`.catch(() => {})
+        }
+      }
+    } catch { /* 验证失败不阻断 */ }
     emit.emit({ type: 'wf:done', messageId: msgId, content: accumulatedContent, usage: finalUsage })
   }
 
