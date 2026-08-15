@@ -52,6 +52,11 @@ function match(routes: RouteDef[], path: string): { def: RouteDef; params: Recor
   return null
 }
 
+/** 组件名（事件可观测） */
+function compNameOf(v: VNode): string {
+  return typeof v.type === 'function' ? ((v.type as { name?: string }).name || 'anonymous') : 'anonymous'
+}
+
 /** 创建路由应用（初始挂载 + popstate 导航；options.ctx 注入中间件面——页面组件消费） */
 export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { initialPath?: string; ctx?: Record<string, unknown> }): RouterHandle {
   let current: VNode | null = null
@@ -75,6 +80,8 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
     try {
       const v = pageVnode
       if (typeof v.type === 'function' && v._render) {
+        // RENDER 事件（jsx 层——页面组件渲染可观测）
+        stream.emit({ type: 'RENDER', id: v._id!, name: compNameOf(v), ts: Date.now() })
         const output = await v._render(v.props)
         if (output == null) return
         const oldOut = v._child ?? null
@@ -114,7 +121,7 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
       const page = matched.def.render(matched.params)
       const vnode = matched.def.layout ? matched.def.layout(page) : page
       // oldV 对照（current——同位置同类型复用 _render——layout 工厂不重跑）
-      const built = await buildVNode(vnode, pageCtx, current)
+      const built = await buildVNode(vnode, pageCtx, current, true)
       if (current == null) {
         mount(built, root) // 首帧
       } else {

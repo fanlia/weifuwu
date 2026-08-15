@@ -105,10 +105,18 @@ export type V3Event =
   | { type: 'COMP_UNMOUNT'; id: string; name: string; ts: number }
   /** jsx 层：组件 renderFn 执行（每次渲染——更新可观测） */
   | { type: 'RENDER'; id: string; name: string; ts: number }
+  /** jsx 层：组件 props 变化（父 diff 剪枝——props 变化才驱动子重渲染） */
+  | { type: 'PROPS_UPDATE'; id: string; name: string; keys: string[]; ts: number }
   /** vdom 层：组件构建（复用/新建——工厂不重跑的事件证据） */
   | { type: 'BUILD'; id: string; name: string; reused: boolean; ts: number }
   /** vdom 层：patch 决策（kind 分发——diff 决策可观测/可断言——缺 case 明确失败） */
   | { type: 'PATCH'; oldKind: VKind | null; newKind: VKind; action: 'reuse' | 'rebuild' | 'move' | 'remove' | 'unhandled'; ts: number }
+  /** dom 层：事件绑定观测（记录绑定关系——handler 闭包不可序列化——不参与 diff/回放） */
+  | { type: 'EVENT_BIND'; target: string; event: string; ts: number }
+  /** dom 层：事件解绑（节点移除时——绑定生命周期 UNBIND 可观测） */
+  | { type: 'EVENT_UNBIND'; target: string; event: string; ts: number }
+  /** dom 层：ref 生命周期（ref(null)——卸载清理可观测——lockScroll/focus 等清理依赖） */
+  | { type: 'REF_CLEANUP'; target: string; ts: number }
   /** 渲染指令（DOM 变更——执行器消费；可逆） */
   | { type: 'NODE_CREATE'; id: string; tag: string; ts: number }
   | { type: 'TEXT_CREATE'; id: string; value: string; ts: number }

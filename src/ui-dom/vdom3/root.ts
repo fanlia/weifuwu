@@ -6,8 +6,10 @@
  */
 
 import type { VNode, V3Ctx } from './types.ts'
+import { childrenOf } from './types.ts'
 import { buildVNode } from './build.ts'
-import { patch, mount } from './render.ts'
+import { patch, mount, removeNodeWithLifecycle, removePortalContent, isPortalNode, registry } from './render.ts'
+import type { PortalVNode } from './types.ts'
 import { scheduler } from './scheduler.ts'
 import { stream } from './events.ts'
 
@@ -24,6 +26,30 @@ export interface RootHandle {
   ready: Promise<void>
 }
 
+/** 组件名（事件可观测） */
+function compNameOf(v: VNode): string {
+  return typeof v.type === 'function' ? ((v.type as { name?: string }).name || 'anonymous') : 'anonymous'
+}
+
+/** 树中按组件 _id 定位（组件级更新的定位——DFS——含组件输出 _child） */
+function findComponent(v: VNode | null | undefined, compId: string): VNode | null {
+  if (v == null || typeof v !== 'object' || Array.isArray(v)) return null
+  if ((v as VNode)._id === compId) return v as VNode
+  // 组件输出（_child——组件的 childrenOf 不含输出——必须遍历）
+  const child = (v as VNode)._child
+  if (child != null && typeof child === 'object' && !Array.isArray(child)) {
+    const found = findComponent(child as VNode, compId)
+    if (found) return found
+  }
+  for (const c of childrenOf(v as VNode)) {
+    if (c != null && typeof c === 'object' && !Array.isArray(c)) {
+      const found = findComponent(c as VNode, compId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 /** 创建应用根（挂载组件树——组件获得 ctx.render 调度能力；options.ctx 注入扩展字段
  *  ——中间件面（app/i18n/auth/data 等——组件 ctx 可选链消费）） */
 export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Record<string, unknown> }): RootHandle {
@@ -33,6 +59,56 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
   // 渲染中再次触发 → 标记 dirty → 完成后补跑一次读最新状态——防死循环）
   let updating = false
   let dirty = false
+
+  // 组件级更新的 per-target 状态（组件间独立——A/B 并发不互锁；
+  // 同组件渲染中再触发 → dirty 合并——完成后补跑）
+  const updatingComps = new Set<string>()
+  const dirtyComps = new Set<string>()
+
+  /** 组件级精准更新（vdom2 语义：ctx.render 只刷新自身——事件流定位到组件——
+   *  只重跑该组件 renderFn + patch 其输出——不碰整树/兄弟——避免全树 patch
+   *  导致的全局 style 重设/布局抖动） */
+  async function updateComponent(compId: string): Promise<void> {
+    if (updatingComps.has(compId)) { dirtyComps.add(compId); return }
+    updatingComps.add(compId)
+    try {
+      do {
+        dirtyComps.delete(compId)
+        const comp = findComponent(current, compId)
+        if (!comp || typeof comp.type !== 'function' || !comp._render) break
+        stream.emit({ type: 'RENDER', id: comp._id!, name: compNameOf(comp), ts: Date.now() })
+        const output = await comp._render(comp.props)
+        const oldOut = comp._child ?? null
+        const built = output ? await buildVNode(output, ctx, oldOut ?? undefined) : null
+        comp._child = built
+        // patch 组件输出（组件 el 定位——只动该组件子树）
+        const parent = (comp.el?.parentNode ?? root) as HTMLElement
+        if (oldOut && built) {
+          patch(oldOut, built, parent)
+        } else if (built) {
+          mount(built, parent)
+        } else if (oldOut || comp.el) {
+          // 输出变 null（条件移除）——统一生命周期清理（REMOVE + EVENT_UNBIND +
+          // REF_CLEANUP——ref(null)——lockScroll 等卸载清理）
+          if (oldOut && isPortalNode(oldOut)) {
+            // Portal 输出：el 为 null（内容独立挂载）——走 portal 内容清理
+            // （含 ref(null) 递归——popup 的 portalPanelRef → lockScroll 解锁）
+            removePortalContent(oldOut as PortalVNode)
+          } else {
+            const oldEl = (oldOut && oldOut.el) || comp.el
+            if (oldEl && oldEl.parentNode === parent) {
+              removeNodeWithLifecycle(oldEl, parent, oldOut as VNode | null)
+            }
+          }
+        }
+        comp.el = built?.el ?? null
+      } while (dirtyComps.has(compId))
+    } finally {
+      updatingComps.delete(compId)
+    }
+  }
+
+  /** 整树重建（根级——native 根/路由等） */
   async function update(): Promise<void> {
     if (updating) { dirty = true; return }
     updating = true
@@ -41,7 +117,7 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
         dirty = false
         // 统一重建：buildVNode（组件根 → renderFn 重跑复用实例；native 根 → 全树递归；
         // oldV 对照复用 _render）→ patch（事件流 → DOM）
-        const built = await buildVNode(vnode, ctx, current)
+        const built = await buildVNode(vnode, ctx, current, true)
         if (current == null) {
           mount(built, root)
         } else {
@@ -61,6 +137,12 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
       scheduler.schedule(() => void update())
     },
   }) as V3Ctx
+
+  /** 组件级 render（组件 ctx 用——buildVNode 的 compCtx 绑定） */
+  const componentRender = (compId: string) => {
+    scheduler.schedule(() => void updateComponent(compId))
+  }
+  ;(ctx as any)._componentRender = componentRender
 
   // ready = 首帧完成 Promise
   let readyResolve!: () => void

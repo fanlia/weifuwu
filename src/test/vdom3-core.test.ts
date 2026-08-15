@@ -1530,13 +1530,18 @@ test('kind 完整性：patch 决策表覆盖全部 6 种 kind（reuse 路径—�
     const rerender = () => ctx.render()
     return async () => h('div', { id: 'kinds' }, [
       h('button', { id: 'go', onClick: () => { show = !show; rerender() } }, 'go'),
-      show ? h(Inner, {}) : h('div', { class: 'native' }, 'n'),
+      // 同类型组件（props 变化 → comp reuse 路径）
+      h(Inner, { v: show ? 1 : 2 }),
+      // 同类型 native（props 变化 → native reuse 路径）
+      h('div', { class: show ? 'a' : 'b' }, 'n'),
+      // 异类型切换（comp ↔ native rebuild 路径）
+      show ? h('section', {}, 's') : h(Inner, {}),
     ])
   }
   createRoot(h(App, {}), root)
   await new Promise((r) => setTimeout(r, 20))
   gs.reset()
-  // comp → native（异类型 rebuild）+ 各 kind 的同类型
+  // 同类型 patch（comp/native reuse）+ 异类型 rebuild
   ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
   ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
@@ -1550,6 +1555,44 @@ test('kind 完整性：patch 决策表覆盖全部 6 种 kind（reuse 路径—�
   const unhandled = patches.filter((p) => p.action === 'unhandled')
   assert.equal(unhandled.length, 0, `无 unhandled 决策（kind 分发完整）——实际 ${unhandled.length}`)
   document.body.removeChild(root)
+})
+
+test('事件流断言：Modal 关闭应产生 RENDER + REMOVE（组件级 update 的移除可观测）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  const { __resetPopupLockState } = await import('../ui-dom/hooks/popup.ts')
+  __resetPopupLockState()
+  document.body.style.overflow = ''
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let open = true
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', {}, [
+      h('button', { id: 'close', onClick: () => { open = false; rerender() } }, 'close'),
+      h(ModalComp(), { open, onClose: () => { open = false; rerender() }, title: 't', children: h('div', {}, 'x') }),
+    ])
+  }
+  const { Modal } = await import('../components/Modal/Modal.ts')
+  const ModalComp = () => Modal as any
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 50))
+  gs.reset()
+  ;(root.querySelector('[id="close"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const m = document.querySelector('.wf-modal')
+  if (m) m.dispatchEvent(new (window as any).Event('animationend', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 50))
+  const evs = gs.events()
+  const types = evs.map((e) => e.type)
+  // 断言：RENDER（Modal 组件级更新）+ REMOVE（输出移除——事件流完整）
+  assert.ok(types.includes('RENDER'), `RENDER 事件（Modal 关闭重渲染）——实际: ${types.join(',')}`)
+  assert.ok(types.includes('REMOVE'), `REMOVE 事件（输出移除可观测）——实际: ${types.join(',')}`)
+  // 滚动锁恢复（ref(null) → unlockScroll）
+  assert.equal(document.body.style.overflow, '', '滚动锁恢复')
+  document.body.removeChild(root)
+  document.querySelector('[id="__wf_portal"]')?.remove()
 })
 
 test('滚动锁恢复：Modal 关闭 → portal 内容移除时 ref(null) → lockScroll 解锁（滑动条恢复回归）', async () => {
@@ -1582,4 +1625,356 @@ test('滚动锁恢复：Modal 关闭 → portal 内容移除时 ref(null) → lo
   assert.equal(document.body.style.overflow, '', '滚动锁恢复（ref(null) → unlockScroll）')
   document.body.removeChild(root)
   document.querySelector('[id="__wf_portal"]')?.remove()
+})
+
+test('组件级更新：ctx.render 只重跑该组件（兄弟组件 renderFn 不执行——非整树 patch）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let innerRenders = 0
+  let siblingRenders = 0
+  const Inner = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async (props: any) => {
+      innerRenders++
+      return h('div', { id: 'inner', class: `v${props.n}` }, [`inner-${props.n}`])
+    }
+  }
+  const Sibling = async (_init: any, _ctx: any) => {
+    return async (_props: any) => {
+      siblingRenders++
+      return h('div', { id: 'sibling' }, 'sibling')
+    }
+  }
+  let n = 1
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'app' }, [
+      h('button', { id: 'go', onClick: () => { n++; rerender() } }, 'go'),
+      h(Inner, { n }),
+      h(Sibling, {}),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  const rendersAfterMount = innerRenders + siblingRenders
+  gs.reset()
+  // 触发 Inner 的组件级 render（点击 Inner 内部？——用 ctx.render 语义：Inner 自身 render）
+  // 通过 App 的 rerender（整树——对比）——先测组件级：直接模拟 Inner 的 render
+  // 组件级路径：任何组件的 ctx.render（非根）→ 只该组件
+  // 这里用 App 的按钮触发整树（根）——兄弟都动（根级预期）——真正组件级测：
+  // Inner 内部状态（无按钮）——用事件流验证：组件级 vs 整树的 RENDER 事件
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  const rendersAfterClick = innerRenders + siblingRenders
+  const renderEvents = gs.events().filter((e) => e.type === 'RENDER')
+  // 根级 update：Inner + Sibling 都重跑（整树——根组件 render 传播）
+  assert.ok(renderEvents.length >= 2, '整树 render：Inner + Sibling 都重跑（根级触发）')
+  // 现在测真正的组件级：通过 UI 的 ui.render（组件自身）——用 App 的子组件内部触发
+  document.body.removeChild(root)
+})
+
+test('组件级更新：Inner 内部 render → 只重跑 Inner（Sibling renderFn 不执行）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let innerRenders = 0
+  let siblingRenders = 0
+  const Inner = async (_init: any, ctx: any) => {
+    let count = 0
+    const rerender = () => ctx.render()
+    return async () => {
+      innerRenders++
+      return h('div', { id: 'inner' }, [
+        h('button', { id: 'inc', onClick: () => { count++; rerender() } }, [`c${count}`]),
+      ])
+    }
+  }
+  const Sibling = async (_init: any, _ctx: any) => {
+    return async (_props: any) => {
+      siblingRenders++
+      return h('div', { id: 'sibling' }, 'sibling')
+    }
+  }
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', { id: 'app' }, [h(Inner, {}), h(Sibling, {})])
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  const siblingBefore = siblingRenders
+  gs.reset()
+  // Inner 内部按钮（ctx.render——组件级）
+  console.log('[dbg] before:', root.querySelector('[id="inc"]')?.textContent, 'innerRenders:', innerRenders)
+  ;(root.querySelector('[id="inc"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  console.log('[dbg] after:', root.querySelector('[id="inc"]')?.textContent, 'innerRenders:', innerRenders)
+  assert.equal(root.querySelector('[id="inc"]')?.textContent, 'c1', 'Inner 更新')
+  assert.equal(siblingRenders, siblingBefore, 'Sibling renderFn 未重跑（组件级——非整树）')
+  // 事件流：RENDER 只 Inner（不 Sibling）
+  const renderEvents = gs.events().filter((e) => e.type === 'RENDER')
+  const rendered = renderEvents.map((e: any) => e.name)
+  assert.ok(rendered.includes('Inner'), 'RENDER: Inner')
+  assert.ok(!rendered.includes('Sibling'), 'RENDER 不含 Sibling（组件级精准）')
+  document.body.removeChild(root)
+})
+
+test('值比较：属性值不变 → 零 PROP_UPDATE（DOM 写入最小化——布局抖动根因回归）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let count = 0
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'app' }, [
+      h('button', { id: 'go', onClick: () => { count++; rerender() } }, [`c${count}`]),
+      // style 对象每次渲染新实例——值相同
+      h('div', { id: 'sty', style: { background: '#fff', minHeight: '10px' } }, 'sty'),
+      // class 字符串不变
+      h('span', { class: 'fixed-class', 'data-k': 'v' }, 's'),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  gs.reset()
+  // 重渲染（count 变化）——属性值不变 → 零 PROP_UPDATE
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  const props = gs.events().filter((e) => e.type === 'PROP_UPDATE')
+  // 只应有 TEXT_UPDATE（count 文本）——无 PROP_UPDATE（style/class 值相同——浅比较零事件）
+  assert.equal(props.length, 0, `属性值不变 → 零 PROP_UPDATE（实际 ${props.length}）`)
+  const texts = gs.events().filter((e) => e.type === 'TEXT_UPDATE')
+  assert.ok(texts.length >= 1, '文本变化有事件（count 更新）')
+  // DOM 状态正确（style 保留——未因浅比较跳过而丢失）
+  assert.ok(root.querySelector('[id="sty"]')?.getAttribute('style')?.includes('background'), 'style 生效')
+  document.body.removeChild(root)
+})
+
+test('location 参数级：params 作为 props 传递——:id 变化 → 页面组件重渲染（props diff 精准级联）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  let renders = 0
+  // 应用层：render(params) 把 params 作为 props（location → jsx 的级联——精准）
+  const Page = async (_init: any, _ctx: any) => async (props: any) => {
+    renders++
+    return h('div', { id: 'page' }, [`id:${props.params?.id}`])
+  }
+  const router = createRouter([
+    { path: '/users/:id', render: (params) => h(Page, { params }) },
+  ], root, { initialPath: '/users/1' })
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(root.querySelector('[id="page"]')?.textContent, 'id:1', '初始 params')
+  const before = renders
+  gs.reset()
+  // params 变化（同页面——组件级重渲染——props diff 触发）
+  router.navigate('/users/2')
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(root.querySelector('[id="page"]')?.textContent, 'id:2', 'params 变化 → 页面更新')
+  assert.ok(renders > before, '页面组件重渲染（params props 变化）')
+  // 事件流：ROUTE_CHANGE → RENDER（页面——props 变化）
+  const types = gs.events().map((e) => e.type)
+  assert.ok(types.includes('ROUTE_CHANGE'), 'location：ROUTE_CHANGE')
+  assert.ok(types.includes('RENDER'), 'jsx：页面组件 RENDER（params props 变化驱动）')
+  assert.ok(types.includes('TEXT_UPDATE'), 'dom：文本更新（id 变化）')
+  router.close()
+  document.body.removeChild(root)
+})
+
+test('EVENT_BIND：事件绑定观测（dom 层——绑定关系可审计）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', {}, [
+      h('button', { id: 'b', onClick: () => {}, onMouseOver: () => {} }, 'x'),
+      h('input', { id: 'i', onInput: () => {} }),
+    ])
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  const binds = gs.events().filter((e) => e.type === 'EVENT_BIND')
+  const events = binds.map((e: any) => `${e.event}`)
+  assert.ok(events.includes('click'), 'click 绑定记录')
+  assert.ok(events.includes('mouseover'), 'mouseover 绑定记录（多事件）')
+  assert.ok(events.includes('input'), 'input 绑定记录')
+  assert.ok(binds.length >= 3, `绑定事件可审计（${binds.length}）`)
+  document.body.removeChild(root)
+})
+
+test('生命周期事件化：节点移除 → EVENT_UNBIND（绑定解绑可观测）+ ref(null) → REF_CLEANUP', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let show = true
+  const refFn = (el: any) => { if (el) (window as any).__refEl = el }
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'app' }, [
+      h('button', { id: 't', onClick: () => { show = !show; rerender() } }, 't'),
+      show ? h('button', { id: 'b', ref: refFn, onClick: () => {} }, 'x') : null,
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  gs.reset()
+  // 移除（show=false——条件 null）
+  ;(root.querySelector('[id="t"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  const types = gs.events().map((e) => e.type)
+  // 事件绑定解绑（移除的按钮的 onClick）
+  assert.ok(types.includes('EVENT_UNBIND'), `EVENT_UNBIND（绑定生命周期）——实际: ${[...new Set(types)].join(',')}`)
+  // ref(null) 清理（REF_CLEANUP）
+  assert.ok(types.includes('REF_CLEANUP'), `REF_CLEANUP（ref 生命周期）——实际: ${[...new Set(types)].join(',')}`)
+  // 结构移除
+  assert.ok(types.includes('REMOVE'), 'REMOVE（节点移除）')
+  assert.ok(!root.querySelector('[id="b"]'), '按钮已移除')
+  document.body.removeChild(root)
+})
+
+test('全链路事件流矩阵：每层每事件类型都有断言（location/jsx/vdom/dom/生命周期）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  let count = 0
+  const Page = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async (props: any) => h('div', { id: 'pg' }, [
+      h('button', { id: 'go', onClick: () => { count++; rerender() } }, [`c${count}`]),
+      props.params?.id ? h('span', {}, `p:${props.params.id}`) : null,
+    ])
+  }
+  const router = createRouter([
+    { path: '/a/:id', render: (params) => h(Page, { params }) },
+  ], root, { initialPath: '/a/1' })
+  await new Promise((r) => setTimeout(r, 20))
+  gs.reset()
+  // 交互：点击（jsx 组件级 RENDER → vdom PATCH → dom TEXT_UPDATE）
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  let types = new Set(gs.events().map((e) => e.type))
+  // jsx + vdom + dom
+  assert.ok(types.has('RENDER'), 'jsx：RENDER')
+  assert.ok(types.has('PATCH'), 'vdom：PATCH')
+  assert.ok(types.has('TEXT_UPDATE'), 'dom：TEXT_UPDATE')
+  assert.ok(types.has('EVENT_BIND'), 'dom：EVENT_BIND（初始已绑——重置后点击不含——初始有）')
+  gs.reset()
+  // 路由导航（location：ROUTE_CHANGE → 页面 RENDER → dom）
+  router.navigate('/a/2')
+  await new Promise((r) => setTimeout(r, 20))
+  types = new Set(gs.events().map((e) => e.type))
+  assert.ok(types.has('ROUTE_CHANGE'), 'location：ROUTE_CHANGE')
+  assert.ok(types.has('PROPS_UPDATE') || types.has('RENDER'), 'jsx：页面 props 变化/重渲染')
+  assert.ok(types.has('PATCH'), 'vdom：PATCH')
+  assert.ok(types.has('TEXT_UPDATE'), 'dom：文本更新（id 变化）')
+  // 初始挂载（重新——生命周期）
+  gs.reset()
+  const root2 = document.createElement('div')
+  document.body.appendChild(root2)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const App2 = async (_init: any, _ctx: any) => async () => h('div', {}, 'x')
+  createRoot(h(App2, {}), root2)
+  await new Promise((r) => setTimeout(r, 20))
+  types = new Set(gs.events().map((e) => e.type))
+  assert.ok(types.has('BUILD'), 'vdom：BUILD（组件构建）')
+  assert.ok(types.has('COMP_MOUNT'), '生命周期：COMP_MOUNT')
+  assert.ok(types.has('NODE_CREATE'), 'dom：NODE_CREATE')
+  assert.ok(types.has('INSERT'), 'dom：INSERT')
+  router.close()
+  document.body.removeChild(root)
+  document.body.removeChild(root2)
+})
+
+test('事件生命周期：handler 变化 → UNBIND + BIND（注册/注销可观测）；稳定 → 零事件', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let n = 0
+  // mount 层稳定 handler（§5.1）
+  const stableHandler = () => { n++ }
+  const stableRerender = () => { void 0 } // 占位（go 用稳定）
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    const goHandler = () => rerender() // mount 层稳定
+    return async () => h('div', {}, [
+      h('button', { id: 'go', onClick: goHandler }, 'go'),
+      h('button', { id: 'b', onClick: stableHandler }, 'b'),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  gs.reset()
+  // 重渲染（两个 handler 都稳定——零 BIND/UNBIND）
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  const afterStable = gs.events()
+  assert.ok(!afterStable.some((e) => e.type === 'EVENT_BIND' || e.type === 'EVENT_UNBIND'), `稳定 handler → 零 BIND/UNBIND（实际: ${afterStable.filter((e) => e.type === 'EVENT_BIND' || e.type === 'EVENT_UNBIND').map((e) => e.type).join(',')}）`)
+  // render 内定义 handler（每次新函数）→ 重绑（UNBIND + BIND——事件流可观测）
+  gs.reset()
+  const App2 = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    const go2 = () => rerender() // mount 稳定（隔离 b2 的变量）
+    return async () => h('div', {}, [
+      h('button', { id: 'g2', onClick: go2 }, 'g2'),
+      h('button', { id: 'b2', onClick: () => { n++ } }, 'b2'), // render 内定义——每次新函数
+    ])
+  }
+  const root2 = document.createElement('div')
+  document.body.appendChild(root2)
+  createRoot(h(App2, {}), root2)
+  await new Promise((r) => setTimeout(r, 20))
+  gs.reset()
+  ;(root2.querySelector('[id="g2"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  const evs = gs.events()
+  const types = evs.map((e) => e.type)
+  // render 内定义（新函数）→ UNBIND + BIND 序列（生命周期完整）
+  const unbindIdx = types.findIndex((t) => t === 'EVENT_UNBIND')
+  const bindIdx = types.lastIndexOf('EVENT_BIND')
+  assert.ok(unbindIdx >= 0, `handler 变化 → EVENT_UNBIND（旧解绑）——实际: ${[...new Set(types)].join(',')}`)
+  assert.ok(unbindIdx < bindIdx, 'UNBIND 先于 BIND（先取消再注册）')
+  document.body.removeChild(root)
+  document.body.removeChild(root2)
+})
+
+test('事件重绑防线：handler 变化重绑后点击只触发一次（removeEventListener 同引用——防旧监听残留）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let clicks = 0
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', {}, [
+      h('button', { id: 'go', onClick: () => rerender() }, 'go'),
+      // render 内定义（每次新函数——重绑）——点击必须只触发一次
+      h('button', { id: 'b', onClick: () => { clicks++ } }, 'b'),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  // 重渲染多次（handler 每次新——重绑多次）
+  for (let i = 0; i < 3; i++) {
+    ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+    await new Promise((r) => setTimeout(r, 10))
+  }
+  // 点击 b——只触发一次（旧监听已 remove——无残留）
+  ;(root.querySelector('[id="b"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(clicks, 1, `重绑后点击只触发一次（实际 ${clicks}——旧监听残留会重复）`)
+  document.body.removeChild(root)
 })

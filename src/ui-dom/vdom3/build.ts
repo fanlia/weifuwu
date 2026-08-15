@@ -22,10 +22,26 @@ export function isVNode(v: unknown): v is VNode {
   return v != null && typeof v === 'object' && !Array.isArray(v) && 'type' in v
 }
 
+/** props 浅比较（剪枝——vdom2 componentPropsEqual 补齐）：引用比较（含函数——
+ *  稳定引用纪律 §3.1：mount 层定义回调——render 内定义的新函数导致重渲染） */
+function propsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const ka = Object.keys(a)
+  const kb = Object.keys(b)
+  if (ka.length !== kb.length) return false
+  for (const k of ka) {
+    if (a[k] !== b[k]) return false
+  }
+  return true
+}
+
 /** 构建 vnode 树（组件展开——异步；native/text 同步递归）——**纯函数式**：
  *  每层返回克隆（不就地修改入参）——update 的对照树（current）不被污染。
- *  oldV：旧树同位置对照——同类型组件复用 _render（工厂不重跑——内部状态保持）。 */
-export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null): Promise<VNode> {
+ *  oldV：旧树同位置对照——同类型组件复用 _render（工厂不重跑——内部状态保持）。
+ *  isRoot：整树 rerender（createRoot/router 顶层）——根组件不剪枝（内部状态
+ *  （闭包 let）变化时 props 不变——剪枝跳过 renderFn = 读旧闭包值；根必须重跑。
+ *  嵌套剪枝保留：子组件内部状态由自身 ctx.render（组件级——绕开 build）维护，
+ *  父重跑时剪枝复用其最新输出——安全。 */
+export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, isRoot = false): Promise<VNode> {
   if (typeof vnode.type === 'function') {
     // 克隆（组件实例字段 _render/_id/_child 写克隆——旧树保持完整）
     const v = { ...vnode } as VNode
@@ -37,6 +53,16 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null):
       v._id = reuse._id
       // BUILD 事件：组件构建决策（工厂复用——内部状态保持的事件证据）
       stream.emit({ type: 'BUILD', id: v._id!, name: compName(v.type), reused: true, ts: Date.now() })
+      // props 级 diff（剪枝）：新旧 props 浅比较——不变 → 复用旧输出（不重跑 renderFn——
+      // 零 RENDER——父重渲染不波及 props 未变的子组件）；根组件不剪枝（isRoot——
+      // 内部状态变化必须重跑 renderFn）
+      if (!isRoot && propsEqual(reuse.props, v.props)) {
+        v._child = reuse._child
+        return v
+      }
+      // props 变化 → 驱动重渲染（PROPS_UPDATE 事件——变化的 key 可观测）
+      const changedKeys = Object.keys({ ...reuse.props, ...v.props }).filter((k) => reuse.props[k] !== v.props[k])
+      stream.emit({ type: 'PROPS_UPDATE', id: v._id!, name: compName(v.type), keys: changedKeys, ts: Date.now() })
     } else {
       v._id = nextNodeId()
       stream.emit({ type: 'BUILD', id: v._id, name: compName(v.type), reused: false, ts: Date.now() })
@@ -45,9 +71,18 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null):
       // + ui（vdom2 兼容面——hooks shim——组件库零改动）
       const compId = v._id
       // Object.create 保留原型链（vdom2 extendCtx 中间件组合——spread 会丢失链上字段）
+      // 组件级更新：ctx.render/ui.render 绑定"本组件"（vdom2 语义——只刷新自身——
+      // 不触发整树 patch）——_componentRender 由 createRoot/router 注入
+      // 注意：reuse 时工厂不重跑——componentRender 闭包捕获 compId（稳定）
+      const componentRender = () => {
+        const fn = (ctx as { _componentRender?: (id: string) => void })._componentRender
+        if (fn) fn(compId)
+        else ctx.render()
+      }
       const compCtx = Object.assign(Object.create(ctx), {
+        render: componentRender,
         onUnmount: (fn: () => void) => { unmountHooks.set(compId, fn) },
-        ui: createV3Ui(compId, () => { ctx.render() }, (fn) => { unmountHooks.set(compId, fn) }),
+        ui: createV3Ui(compId, componentRender, (fn) => { unmountHooks.set(compId, fn) }),
       }) as V3Ctx
       const renderFn = await (v.type as Component)(v.props, compCtx)
       v._render = renderFn as (props: Record<string, unknown>) => Promise<VNode | null>

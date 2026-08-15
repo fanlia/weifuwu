@@ -106,9 +106,15 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     if (key === 'key' || key === 'children' || key === 'ref') continue
     if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
       const evtKeys = ((el as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys ??= new Set<string>())
+      const evtHandlers = ((el as Element & { __v3evtHandlers?: Map<string, EventListener> }).__v3evtHandlers ??= new Map())
       if (!evtKeys.has(key)) { // 按 key 防重复（多事件全绑定——首事件后不再跳过后续）
-        el.addEventListener(key.slice(2).toLowerCase(), (e) => (val as (e: Event) => void)(e))
+        // 绑定用原始 handler（同一引用——重绑时 removeEventListener 有效——防旧监听残留重复触发）
+        const handler = val as EventListener
+        el.addEventListener(key.slice(2).toLowerCase(), handler)
         evtKeys.add(key)
+        evtHandlers.set(key, handler)
+        // EVENT_BIND 观测（dom 层——绑定关系可审计）
+        stream.emit({ type: 'EVENT_BIND', target: id, event: key.slice(2).toLowerCase(), ts: Date.now() })
       }
       continue
     }
@@ -222,12 +228,8 @@ function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?:
   if (oldIsVNode) {
     const oldEl = (oldV as VNode).el
     if (oldEl && oldEl.parentNode === parent) {
-      const oldRef = (oldV as VNode).props?.ref
-      if (typeof oldRef === 'function') oldRef(null)
-      const rid = registry.idOf(oldEl)
-      stream.emit({ type: 'REMOVE', parent: parentId(parent), child: rid, ts: Date.now() })
-      oldEl.parentNode?.removeChild(oldEl)
-      registry.unregister(rid, oldEl)
+      // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
+      removeNodeWithLifecycle(oldEl, parent, oldV as VNode)
     } else if (oldV && isPortalNode(oldV)) {
       // 旧 portal：清空远程容器（内容全移除——子树 REMOVE 事件）
       removePortalContent(oldV as PortalVNode)
@@ -252,11 +254,30 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
     const ov = oldProps?.[key]
     const nv = newProps?.[key]
     if (ov === nv) continue
+    // 对象属性浅比较（style 等——每次渲染新对象——值相同不重设——
+    // 零变化零事件——避免全树 style 写入导致的布局抖动；key 级比较无序列化开销）
+    if (ov != null && nv != null && typeof ov === 'object' && typeof nv === 'object'
+        && !Array.isArray(ov) && !Array.isArray(nv)
+        && shallowEqual(ov as Record<string, unknown>, nv as Record<string, unknown>)) continue
     if (typeof nv === 'function' && /^on[A-Z]/.test(key)) {
       const evtKeys = ((el as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys ??= new Set<string>())
-      if (!evtKeys.has(key)) { // 按 key 防重复（同一 key 已绑定跳过——新 key 绑定）
-        el.addEventListener(key.slice(2).toLowerCase(), (e) => (nv as (e: Event) => void)(e))
+      const evtHandlers = ((el as Element & { __v3evtHandlers?: Map<string, EventListener> }).__v3evtHandlers ??= new Map())
+      const handler = nv as EventListener
+      if (!evtKeys.has(key)) {
+        // 新 key 绑定（EVENT_BIND——生命周期）
+        el.addEventListener(key.slice(2).toLowerCase(), handler)
         evtKeys.add(key)
+        evtHandlers.set(key, handler)
+        stream.emit({ type: 'EVENT_BIND', target, event: key.slice(2).toLowerCase(), ts: Date.now() })
+      } else if (evtHandlers.get(key) !== handler) {
+        // handler 变化 → 先解绑旧再绑新（EVENT_UNBIND → EVENT_BIND——注册/注销可观测；
+        // 稳定引用（§5.1 mount 定义回调）→ 零事件）
+        const oldHandler = evtHandlers.get(key)
+        if (oldHandler) el.removeEventListener(key.slice(2).toLowerCase(), oldHandler)
+        el.addEventListener(key.slice(2).toLowerCase(), handler)
+        evtHandlers.set(key, handler)
+        stream.emit({ type: 'EVENT_UNBIND', target, event: key.slice(2).toLowerCase(), ts: Date.now() })
+        stream.emit({ type: 'EVENT_BIND', target, event: key.slice(2).toLowerCase(), ts: Date.now() })
       }
       continue
     }
@@ -398,6 +419,7 @@ function moveKeyedNodes(oldKids: VNodeChild[], newKids: VNodeChild[], el: Elemen
 
 /** 全 keyed 列表 diff：DOM 移动（MOVE 事件）+ 按 key 配对 patch + 新增/移除 */
 function patchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: Element): void {
+  console.log('[dbg-key] old:', oldKids.map((k) => (isVNode(k) ? String(k.key) : '?')).join(','), 'new:', newKids.map((k) => (isVNode(k) ? String(k.key) : '?')).join(','), 'elKids:', el.childNodes.length)
   const oldMap = new Map<string, VNode>()
   for (const k of oldKids) if (isVNode(k) && k.key != null) oldMap.set(k.key, k)
   // 新顺序移动 DOM（MOVE 事件——重排不重建）
@@ -428,24 +450,63 @@ function patchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: El
 }
 
 /** 递归调 ref(null)（移除树——ref 纪律：卸载清理（lockScroll/focus）依赖
- *  ——portal/组件输出等嵌套结构的 ref 全部清理） */
-function callRefCleanup(v: VNode | null | undefined): void {
+ *  ——portal/组件输出等嵌套结构的 ref 全部清理——REF_CLEANUP 事件（生命周期可观测））
+ *  导出（组件级 update 用） */
+export function callRefCleanup(v: VNode | null | undefined): void {
   if (v == null || typeof v !== 'object' || Array.isArray(v)) return
   const refFn = (v as VNode).props?.ref
-  if (typeof refFn === 'function') refFn(null)
+  if (typeof refFn === 'function') {
+    // ref 生命周期事件（ref(null)——卸载清理可观测/可断言）
+    const el = (v as VNode).el
+    stream.emit({ type: 'REF_CLEANUP', target: el ? registry.idOf(el) : 'null', ts: Date.now() })
+    refFn(null)
+  }
   for (const c of childrenOf(v as VNode)) {
     if (c != null && typeof c === 'object' && !Array.isArray(c)) callRefCleanup(c as VNode)
   }
 }
 
+/** 节点移除的完整清理（REMOVE 事件 + EVENT_UNBIND（绑定生命周期）+ ref(null) + registry） */
+export function removeNodeWithLifecycle(node: Node, parent: Node, vnodeRef?: VNode | null): void {
+  // 事件绑定生命周期：解绑（EVENT_UNBIND——可观测）
+  const evtKeys = (node as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys
+  if (evtKeys) {
+    for (const key of evtKeys) {
+      stream.emit({ type: 'EVENT_UNBIND', target: registry.idOf(node), event: key.slice(2).toLowerCase(), ts: Date.now() })
+    }
+  }
+  if (vnodeRef) callRefCleanup(vnodeRef)
+  const rid = registry.idOf(node)
+  stream.emit({ type: 'REMOVE', parent: parentId(parent), child: rid, ts: Date.now() })
+  node.parentNode?.removeChild(node)
+  registry.unregister(rid, node)
+}
+
+/** 对象浅比较（key 级——style 等不嵌套——零变化零事件判定） */
+function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const ka = Object.keys(a)
+  const kb = Object.keys(b)
+  if (ka.length !== kb.length) return false
+  for (const k of ka) {
+    if (a[k] !== b[k]) return false
+  }
+  return true
+}
+
 /** 移除 portal 内容（远程容器清空——子树 REMOVE 事件 + ref(null)——ref 纪律：
  *  卸载必须调 ref(null)（usePopup 的 portalPanelRef 清理——lockScroll/focus 恢复）） */
-function removePortalContent(pv: PortalVNode): void {
+export function removePortalContent(pv: PortalVNode): void {
   const portalKey = String(pv.props?.portalKey ?? 'default')
   const container = ensurePortalContainer(portalKey)
-  // 递归 ref(null)（面板根/嵌套的 ref——锁滚动/焦点清理依赖）
+  // 递归 ref(null)（面板根/嵌套的 ref——锁滚动/焦点清理依赖）+ EVENT_UNBIND
   callRefCleanup(pv)
   for (const child of [...container.childNodes]) {
+    const evtKeys = (child as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys
+    if (evtKeys) {
+      for (const key of evtKeys) {
+        stream.emit({ type: 'EVENT_UNBIND', target: registry.idOf(child), event: key.slice(2).toLowerCase(), ts: Date.now() })
+      }
+    }
     const cid = registry.idOf(child)
     stream.emit({ type: 'REMOVE', parent: NodeRegistry.PORTAL(portalKey), child: cid, ts: Date.now() })
     container.removeChild(child)
@@ -477,14 +538,9 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
         removePortalContent(oc as PortalVNode)
         continue
       }
+      // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
       if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
-        const oldRef = (oc as VNode).props?.ref
-        if (typeof oldRef === 'function') oldRef(null)
-        const elNode = (oc as VNode).el!
-        const rid = registry.idOf(elNode)
-        stream.emit({ type: 'REMOVE', parent: nodeId(el), child: rid, ts: Date.now() })
-        elNode.parentNode?.removeChild(elNode)
-        registry.unregister(rid, elNode)
+        removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
       } else {
         const domNode = el.childNodes[i]
         if (domNode) domNode.parentNode?.removeChild(domNode)
@@ -515,14 +571,9 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
         continue
       }
       // 移除（含 ref(null)——卸载清理）；oc 无 el（空洞）跳过——不碰 childNodes[i]
+      // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
       if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
-        const oldRef = (oc as VNode).props?.ref
-        if (typeof oldRef === 'function') oldRef(null)
-        const elNode = (oc as VNode).el!
-        const rid = registry.idOf(elNode)
-        stream.emit({ type: 'REMOVE', parent: nodeId(el), child: rid, ts: Date.now() })
-        elNode.parentNode?.removeChild(elNode)
-        registry.unregister(rid, elNode)
+        removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
       }
       continue
     }

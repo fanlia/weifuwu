@@ -105,8 +105,10 @@ export function usePresence(env: HookEnv, options?: { name?: string }) {
   const ref = (el: HTMLElement | null) => {
     if (el) {
       if (!animEndHandler) {
-        animEndHandler = () => { if (phase === 'exit') finishExit() }
+        animEndHandler = () => { console.log('[dbg-presence] animationend fired, phase:', phase); if (phase === 'exit') finishExit() }
         el.addEventListener('animationend', animEndHandler)
+      } else {
+        console.log('[dbg-presence] ref(el) but animEndHandler exists (reuse)')
       }
     } else {
       animEndHandler = undefined
