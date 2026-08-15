@@ -116,7 +116,8 @@ test('demo：录制 → 回放（用户操作序列 → 事件流 → 重放断�
   const div = [...target.querySelectorAll('div')].find((d) => d.id === 'counter')
   assert.ok(div, '回放：计数器容器重建')
   // 事件序列断言：渲染过程精确可描述
-  expectEventSequence(recorded, ['COMP_MOUNT'])
+  // 全链路事件流：决策先行（BUILD 组件构建）→ 生命周期（COMP_MOUNT）→ dom 指令
+  expectEventSequence(recorded, ['BUILD', 'COMP_MOUNT'])
   document.body.removeChild(root)
   document.body.removeChild(target)
 })
