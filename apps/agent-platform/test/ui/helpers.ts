@@ -88,28 +88,29 @@ export const MOCK_AI_AGENT = {
   is_active: true,
 }
 
-/** 真实中间件链路挂载页面（UIRouter + uiServe——与生产同路径：
- *  中间件注入 ctx.api/auth/route——框架保证组件可达（createVdomContext 手动
- *  assign 字段在组件 ctx 原型链不可达——实测） */
+/** 真实中间件链路挂载页面（vdom3 createRouter——与生产同路径：
+ *  中间件面展开注入 ctx.api/auth/route——框架保证组件可达） */
 export async function mountPage(path: string, view: () => VNode, opts: AppCtxOpts = {}, routePattern?: string) {
-  const { UIRouter, uiServe } = await import('../../../../src/ui-dom/index.ts')
+  const { createRouter, createRoot } = await import('../../../../src/ui-dom/index.ts')
   const browser = createClientBrowser()
   const container = document.createElement('div')
   document.body.appendChild(container)
   const app = makeAppCtx(opts)
-  const router = new UIRouter()
-  router.use((ctx: any) => {
-    Object.assign(ctx, {
+  // 中间件面展开（UIRouter app.use 链 → createRouter options.ctx）
+  let ctx: any = {}
+  ctx = ((c: any) => {
+    Object.assign(c, {
       api: app.api, auth: app.auth,
       app: app.app, toast: app.toast, confirm: app.confirm, ws: app.ws,
     })
-    return ctx
-  })
-  router.get(routePattern ?? path, view)
-  // uiServe 按 location.pathname 匹配路由——jsdom 先 pushState 到目标路径
+    return c
+  })(ctx)
   ;(globalThis as any).history?.pushState?.(null, '', path)
-  const handle = uiServe(router, { root: container })
-  await (handle as any).ready
-  await new Promise((r) => setTimeout(r, 80)) // 异步数据落渲染
-  return { container, handle }
+  const handle = createRouter(
+    [{ path: routePattern ?? path, render: () => view() }],
+    container,
+    { ctx, initialPath: path },
+  )
+  await new Promise((r) => setTimeout(r, 120)) // 异步数据落渲染
+  return { container, handle: handle as any }
 }

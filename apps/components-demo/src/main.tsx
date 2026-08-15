@@ -8,8 +8,8 @@
  */
 
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { UIRouter, uiServe } from 'weifuwu/ui-dom'
-import { v3Toast, v3Confirm } from 'weifuwu/ui-dom/vdom3'
+import { createRouter, h } from 'weifuwu/ui-dom'
+import { v3Toast, v3Confirm } from 'weifuwu/ui-dom'
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -3220,25 +3220,32 @@ const i18nMw = (() => {
       en: 'weifuwu/components · all 113 components · open devtools for code',
     },
   }
-  return (ctx: any) => {
+  // 语言切换 → 页面级重渲染（createRouter.refresh——组件重渲染读最新 ctx.i18n）
+  let onLocaleChange: (() => void) | null = null
+  const mw = (ctx: any) => {
     ctx.i18n = {
       get locale() { return locale },
       setLocale: (l: string) => {
         locale = l
-        // bump ctx 版本 → 组件三态 skip 失效（App 依赖 ctx 变化需重 render）
-        ;(ctx.ui as any).bumpCtxVersion?.()
-        ;(ctx as any).__rerender?.() ?? ctx.ui.render()
+        onLocaleChange?.()
       },
       t: (key: string) => messages[key]?.[locale] ?? messages[key]?.['zh-CN'] ?? key,
       components: {},
     }
     return ctx
   }
+  ;(mw as any).onLocaleChange = (fn: () => void) => { onLocaleChange = fn }
+  return mw
 })()
 
-const app = new UIRouter()
-app.use(i18nMw)
-app.use(v3Toast())
-app.use(v3Confirm())
-app.get('/', () => <App />)
-uiServe(app, { root: '#root' })
+// vdom3 事件流引擎装配（createRouter——中间件面展开为 options.ctx）
+let demoCtx: any = {}
+demoCtx = i18nMw(demoCtx)
+demoCtx = v3Toast()(demoCtx)
+demoCtx = v3Confirm()(demoCtx)
+const router = createRouter(
+  [{ path: '/', render: () => h(App, {}) }],
+  document.querySelector('#root') as HTMLElement,
+  { ctx: demoCtx },
+)
+;(i18nMw as any).onLocaleChange(() => router.refresh())

@@ -8,7 +8,7 @@
  * 卸载：COMP_UNMOUNT 事件（类型/位置变化时——由 patch 顶层判定）。
  */
 
-import type { VNode, VNodeChild, PortalVNode, VKind } from './types.ts'
+import type { VNode, VNodeChild, FlatChild, PortalVNode, VKind } from './types.ts'
 import { Fragment, Portal, childrenOf, classifyKind } from './types.ts'
 
 /** SVG 元素集合（createElementNS——SVG 命名空间：属性大小写敏感（viewBox 等）） */
@@ -140,7 +140,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   return el
 }
 
-function renderVNodeChild(c: VNodeChild, parent: Node, anchor?: Node | null): Node | null {
+function renderVNodeChild(c: FlatChild, parent: Node, anchor?: Node | null): Node | null {
   if (c == null || c === false || c === true) return null
   if (typeof c === 'string' || typeof c === 'number') {
     const t = document.createTextNode(String(c))
@@ -159,7 +159,7 @@ function renderVNodeChild(c: VNodeChild, parent: Node, anchor?: Node | null): No
  * patch：旧树（纯）vs 新树（纯）→ 事件流 → DOM。
  * 同位置同类型（含 key）复用——仅变化发事件；异类型 → REMOVE+CREATE+INSERT（重建事件）。
  */
-export function patch(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?: Node | null, reg?: NodeRegistry): Node | null {
+export function patch(oldV: VNode | null, newV: VNode | string | number | null | undefined | boolean, parent: Node, anchor?: Node | null, reg?: NodeRegistry): Node | null {
   const prev = registry
   if (reg) registry = reg
   try {
@@ -199,8 +199,8 @@ function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?:
     }
     return null
   }
-  // vnode
-  const vn = newV
+  // vnode（text/null 分支已 return——此处必为 vnode）
+  const vn = newV as VNode
   const oldIsVNode = oldV != null && typeof oldV === 'object' && 'type' in oldV
   const sameType = oldIsVNode && (oldV as VNode).type === vn.type && (oldV as VNode).key === vn.key
 
@@ -340,7 +340,7 @@ function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null)
     vn.el = renderVNode(vn, parent, anchor)
   } else {
     // 组件输出变化 → patch 子树（组件 el 保持——输出首节点定位）
-    patch(oldOut as VNode | null, out as VNodeChild, parent, anchor)
+    patch(oldOut as VNode | null, out as VNode, parent, anchor)
     vn.el = ov.el
   }
   return vn.el

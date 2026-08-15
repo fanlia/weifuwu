@@ -2,7 +2,7 @@
  * weifuwu/ui-dom 弹层/滚动位置跟踪系统（实例化——serve 每实例一个）
  *
  * 复制自 client/app.ts 闭包逻辑（createUi 依赖）：scroll/resize 时重算弹层
- * fixed 坐标（rAF 节流）+ 滚动位置跟踪。createApp 与 uiServe 各自持有实例。
+ * fixed 坐标（rAF 节流）+ 滚动位置跟踪。vdom3 引擎（createRouter/createRoot）各自持有实例。
  */
 
 import { clampToViewport } from './popup.ts'

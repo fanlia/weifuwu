@@ -565,8 +565,7 @@ test('同步：A 渲染 + 交互 → 事件日志 → B 增量镜像（DOM 同�
 // ── vdom2 ↔ vdom3 兼容层：迁移路径（ctx.ui.render → ctx.render 适配） ──
 
 test('兼容：vdom2 风格组件（ctx.ui.render）在 vdom3 树运行——交互/复用正常', async () => {
-  const { compat } = await import('../ui-dom/vdom3/compat.ts')
-  // vdom2 风格组件（含内部状态 + ctx.ui.render——不依赖 hooks）
+  // vdom2 风格组件（含内部状态 + ctx.ui.render——不依赖 hooks——签名已统一）
   const V2Counter: any = (initProps: any, ctx: any) => {
     let n = initProps.initial ?? 0
     return async (props: any) =>
@@ -575,8 +574,8 @@ test('兼容：vdom2 风格组件（ctx.ui.render）在 vdom3 树运行——交
         onClick: () => { n += props.step ?? 1; ctx.ui.render() },
       }, [`v2: ${n}`])
   }
-  // 迁移：compat 包裹（模块级稳定引用——工厂复用前提）→ vdom3 树
-  const V2CounterCompat = compat(V2Counter)
+  // vdom2/vdom3 组件签名统一（ctx: V3Ctx extends WfuiContext）——直接使用
+  const V2CounterCompat = V2Counter as any
   const App = async (_init: any, ctx: any) => {
     const rerender = () => ctx.render()
     return async () => h('div', { id: 'v2app' }, [
@@ -604,14 +603,13 @@ test('兼容：vdom2 风格组件（ctx.ui.render）在 vdom3 树运行——交
   document.body.removeChild(root)
 })
 
-test('兼容：真实 vdom2 组件（EmptyState——无状态）在 vdom3 渲染', async () => {
-  const { compat } = await import('../ui-dom/vdom3/compat.ts')
+test('兼容：vdom2 时代组件签名（ctx: WfuiContext）在 vdom3 渲染', async () => {
   // 模拟 vdom2 组件形态（无状态——只用 props）
   const V2Badge: any = (_init: any, _ctx: any) => async (props: any) =>
     h('span', { class: props.variant ? `badge-${props.variant}` : 'badge' }, props.label)
   const App = async (_init: any, _ctx: any) => async () =>
     h('div', {}, [
-      h(compat(V2Badge), { label: '迁移', variant: 'primary' }),
+      h(V2Badge, { label: '迁移', variant: 'primary' }),
       h('div', { id: 'rest' }, 'rest'),
     ])
   const root = document.createElement('div')

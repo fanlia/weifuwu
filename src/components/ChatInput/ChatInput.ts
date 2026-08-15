@@ -17,7 +17,7 @@
 
 import type { Component, VNode } from '../../ui-dom/vnode.ts'
 import { h } from '../../ui-dom/vnode.ts'
-import type { HookEnv } from '../../ui-dom/hooks/types.ts'
+import type { V3Ui } from '../../ui-dom/vdom3/types.ts'
 
 export interface ChatInputLabels {
   send: string
@@ -60,7 +60,7 @@ export interface ChatInputControl {
   setValue: (v: string) => void
 }
 
-export const ChatInput: Component<ChatInputProps, { ui: HookEnv }> = async (_init, ctx) => {
+export const ChatInput: Component<ChatInputProps, { ui: V3Ui }> = async (_init, ctx) => {
   // ── mount（只一次）：无状态初始化（keyword 在 useControlledInput 的 Map 缓存）
   return async (props) => {
     const labels: ChatInputLabels = {

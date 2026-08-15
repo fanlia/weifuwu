@@ -3,8 +3,8 @@
  */
 
 import type { UseChatHandle, UseChatOptions } from './use-chat.ts'
-import type { VNode } from './vnode.ts'
-export type { VNode } from './vnode.ts'
+import type { VNode } from './vdom3/types.ts'
+export type { VNode } from './vdom3/types.ts'
 import type { Placement } from './popup.ts'
 
 /** 弹层位置跟踪配置 — 供 ctx.ui.usePopupPosition 使用 */
@@ -292,8 +292,9 @@ export interface WfuiContext {
 
   /** UI 框架能力（由 createApp.mount 注入） */
   ui: {
-    /** 触发组件重渲染（同步，无参 = 当前组件） */
-    render: (ids?: string[]) => Promise<void>
+    /** 触发组件重渲染（无参 = 当前组件——同步调度（vdom3）或异步（兼容面）——
+     *  统一契约 void | Promise<void>：调用方不 await（fire-and-forget） */
+    render: (ids?: string[]) => void | Promise<void>
     /** 组件卸载钩子（mount 阶段注册——组件卸载时调用 fn；SSR no-op；返回退订） */
     onUnmount?: (fn: () => void) => (() => void) | undefined
     /**
@@ -617,36 +618,6 @@ export {}
 
 // ── ui-dom 专属：路由形态类型（定稿） ──
 
-/** ui-dom ctx：client WfuiContext + 顶层 params/query/data（定稿——对齐后端 ctx.params/ctx.query） */
-export type UIContext<C extends object = {}> = WfuiContext & C & {
-  params: Record<string, string>
-  query: Record<string, string>
-  data: NonNullable<WfuiContext['data']>
-  [key: string]: any
-}
+/** 组件 ctx：WfuiContext（vdom3 V3Ctx extends 统一——组件声明面） */
 
-/** req = window.location（浏览器原生 Location，不包装） */
-export type UIRequest = Location
-
-/** res = VNode（数据结构）；uiServe = VDOM（落地） */
-export type UIResponse = VNode | null
-
-/** handler = 异步组件：async (location, ctx) => vnode（$ 有效） */
-export type UIHandler<C extends object = {}> = (
-  location: Location,
-  ctx: UIContext<C>,
-) => Promise<UIResponse> | UIResponse
-
-/** middleware = 两阶段 async：(location, ctx, children) => async (location, ctx) => vnode */
-export type UIMiddleware<I extends object = {}, O extends object = {}> = (
-  location: Location,
-  ctx: UIContext<I>,
-  children: UIHandler<any>,
-) => Promise<UIHandler<O>> | UIHandler<O>
-
-/** 路由定义（UIRouter.get 内部存储） */
-export interface UIRouteDef {
-  path: string
-  handler: UIHandler
-  title?: string
-}
+/** 路由由 vdom3 createRouter（RouteDef）统一承担——UIRouter 时代类型已删除 */

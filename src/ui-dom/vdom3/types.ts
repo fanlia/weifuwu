@@ -12,32 +12,44 @@
 
 // ── vnode 树（声明式——与 vdom2 同模型） ──
 
+/** WfuiContext（组件 ctx 类型源——192 处组件消费）——V3Ctx extends 统一 */
+import type { WfuiContext } from '../types.ts'
+
 /** vdom3 组件 ctx（正式契约——组件可见最小面 + 中间件扩展（index 签名））
  *  render：调度自身重渲染（同 tick 合并）——render-only 唯一触发
  *  onUnmount：卸载清理注册（COMP_UNMOUNT 时执行）
  *  ui：vdom2 兼容面（hooks shim——组件库零改动运行）
  *  扩展字段（ctx.app/i18n/data/auth...）经 index 签名消费（可选链——中间件注入） */
-export interface V3Ctx {
+/** vdom3 组件 ctx（正式契约——与 WfuiContext 类型唯一化：
+ *  V3Ctx extends WfuiContext——vdom2 时代内联标注 ctx: WfuiContext 的组件
+ *  类型兼容（逆变：接受 WfuiContext 的函数可接收 V3Ctx）；组件库 192 处
+ *  WfuiContext 消费零改动——严格类型，无 any 绕开） */
+export interface V3Ctx extends WfuiContext {
+  /** 调度自身重渲染（同 tick 合并）——render-only 唯一触发 */
   render(): void
+  /** 卸载清理注册（COMP_UNMOUNT 时执行） */
   onUnmount(fn: () => void): void
+  /** vdom2 兼容面（hooks shim——组件库零改动运行——V3Ui 满足放宽后的
+   *  WfuiContext['ui']（render: void ⊂ void | Promise<void>）） */
   ui: V3Ui
-  [key: string]: unknown
 }
 
 /** ctx.ui 兼容面（vdom2 hooks 契约——组件库零改动运行）
  *  方法签名继承 vdom2 ui（hooks 类型源——vdom2 删除后 hooks 保留为共享层）；
  *  render/onUnmount 覆盖为 vdom3 语义（同步 render）。 */
 export interface V3Ui
-  extends Omit<import('../types.ts').WfuiContext['ui'], 'render' | 'onUnmount'> {
+  extends Omit<WfuiContext['ui'], 'render' | 'onUnmount'> {
   render(ids?: string[]): void
   onUnmount(fn: () => void): (() => void) | undefined
 }
 
 /** 两阶段组件契约（正式签名——无 any）
- *  P：props（JSX 自动推断）；C：ctx 注入依赖（V3Ctx——组件可见面） */
+ *  P：props（JSX 自动推断）；C：ctx 注入依赖——**自动 & WfuiContext**（vdom2 语义：
+ *  组件声明 C 只写注入面（ToastInjected 等）——ctx.ui/browser 等基础面自动可用）
+ *  ——严格交叉（无 any）——默认 C = V3Ctx（V3Ctx extends WfuiContext——交叉 = V3Ctx） */
 export type Component<P = Record<string, unknown>, C = V3Ctx> = (
   initProps: P,
-  ctx: C,
+  ctx: C & WfuiContext,
 ) => Promise<(props: P) => Promise<VNode | null>>
 
 export interface VNode {
@@ -56,7 +68,7 @@ export interface VNode {
   _child?: VNode | null
 }
 
-export type VNodeChild = VNode | string | number | null | undefined | boolean
+export type VNodeChild = VNode | string | number | null | undefined | boolean | VNodeChild[]
 
 /** vnode kind 分类（全链路事件流的决策基础——单一规则源）
  *  renderVNode / patchInner / patchChildren / 事件流 全部消费——新增类型只改此处 */
@@ -84,10 +96,13 @@ function flatten(c: VNodeChild | VNodeChild[]): VNodeChild[] {
   return [c]
 }
 
-export function childrenOf(v: VNode): VNodeChild[] {
-  if (v.children != null) return flatten(v.children)
+/** 拍平后元素（flatten 展开嵌套数组——类型层面排除数组——逻辑保证） */
+export type FlatChild = VNode | string | number | null | undefined | boolean
+
+export function childrenOf(v: VNode): FlatChild[] {
+  if (v.children != null) return flatten(v.children) as FlatChild[]
   const c = (v.props?.children ?? []) as VNodeChild | VNodeChild[]
-  return flatten(c)
+  return flatten(c) as FlatChild[]
 }
 
 export const Fragment: unique symbol = Symbol('v3-fragment')

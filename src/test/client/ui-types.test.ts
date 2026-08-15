@@ -1,94 +1,94 @@
 /**
- * UIRouter + VDOM 类型流测试（S1）——编译期验证 ui-types 定义
+ * vdom3 类型流测试（S1）——编译期验证统一类型契约
  *
- * 验证：
- *   - UIHandler = async (location, ctx) => VNode（res = VNode）
- *   - UIMiddleware = 两阶段 async（children 传递）
- *   - 与后端签名对齐（handler/middleware 同形）
- *   - FS-02：ctx 注入类型（C 泛型）编译期保证
+ * vdom2 时代（UIRouter/UIHandler/UIMiddleware）已删除——全面 vdom3：
+ *   - V3Ctx extends WfuiContext（类型唯一化——vdom2 时代组件签名零改动兼容）
+ *   - Component<P, C>：ctx = C & WfuiContext（注入面 + 基础面自动交叉）
+ *   - FS-02：ctx 注入类型（C 泛型）编译期保证（负例 @ts-expect-error）
  */
 
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
-import type { UIRequest, UIResponse, UIHandler, UIMiddleware, UIRouteDef } from '../../ui-dom/types.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import type { VNode } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { V3Ctx, V3Ui, Component, VNode } from '../../ui-dom/vdom3/types.ts'
+import { h } from '../../ui-dom/vdom3/jsx.ts'
 const browser = createClientBrowser()
 
 before(setupJsdom)
 
 // ── 编译期类型断言 ────────────────────────────────────
 
-// ① UIHandler = async (location, ctx) => VNode（对齐后端 handler(req, ctx) => Response）
-const handler: UIHandler = async (location, ctx) => {
-  // location = window.location（req）
-  const p: string = location.pathname
-  // ctx.params / ctx.query（params 在 ctx）
-  const params: Record<string, string> = (ctx as any).params
-  const query: Record<string, string> = (ctx as any).query
-  void p; void params; void query
-  // 返回 VNode（res = VNode）
-  return h('div', {}, 'hi')
+// ① V3Ctx extends WfuiContext——V3Ctx 可赋给 WfuiContext（类型唯一化：
+//    vdom2 时代组件声明 ctx: WfuiContext 在 vdom3 树运行零改动）
+const asWfui = (_c: V3Ctx): WfuiContext => _c
+// V3Ctx 的 ui 满足 WfuiContext['ui']（render: void ⊂ void | Promise<void>）
+const asUi = (_c: V3Ctx): WfuiContext['ui'] => _c.ui
+
+// ② Component 默认 ctx = V3Ctx——组件可用 ctx.render（vdom3 语义）
+const Comp1: Component = async (_init, ctx) => {
+  const fn = () => { ctx.render() } // V3Ctx.render 同步
+  const b = ctx.browser // 继承 WfuiContext 的 browser
+  void fn; void b
+  return async () => h('div', {}, 'x')
 }
 
-// ② 同步 handler 也合法（简单页）
-const syncHandler: UIHandler = (location, ctx) => h('span', {}, 'sync')
-
-// ③ UIMiddleware = 两阶段：外层拿 children，内层调 children 得子 VNode
-const layout: UIMiddleware = async (location, ctx, children) => {
-  // 外层（mount 一次）：可做初始化
-  const inner: UIHandler = async (loc, c) => {
-    // 内层（每次渲染）：调 children 得子 VNode 再包装
-    const child = await children(loc, c)
-    return h('div', { class: 'shell' }, child)
-  }
-  return inner
+// ③ 注入面 C 自动 & WfuiContext（vdom2 语义——demo 的 Component<any, ToastInjected> 模式）
+interface ToastInjected {
+  toast: (msg: string) => void
+}
+const Comp2: Component<Record<string, unknown>, ToastInjected> = async (_init, ctx) => {
+  ctx.toast('hi') // C 注入面
+  ctx.ui.render() // 自动 & WfuiContext 的基础面（vdom2 时代可用性保持）
+  return async () => h('div', {}, 'y')
 }
 
-// ④ UIRouteDef：path + handler
-const route: UIRouteDef = {
-  path: '/users/:id',
-  handler,
-  title: '用户详情',
+// ④ vdom2 时代内联签名（ctx: WfuiContext）组件——赋给 vdom3 Component（逆变兼容）
+const LegacyInline: Component = async (_init, ctx: WfuiContext) => {
+  void ctx
+  return async () => h('span', {}, 'legacy')
+}
+const comp4: Component = LegacyInline
+
+// ⑤ 负例：C 泛型未声明 toast——编译期报错（FS-02 生效）
+// @ts-expect-error ctx.toast 未注入（C = {} 无 toast）
+const badComp: Component<Record<string, unknown>, {}> = async (_init, ctx) => {
+  ctx.toast('x')
+  return async () => h('div', {})
 }
 
-// ⑤ FS-02：中间件注入 ctx 字段后，handler 的 ctx 可访问（编译期保证）
-interface ApiInjected {
-  api: { get: (url: string) => Promise<unknown> }
-}
-const apiHandler: UIHandler<ApiInjected> = async (location, ctx) => {
-  await ctx.api.get('/x')  // ctx.api 由 C 泛型注入
-  return h('div', {})
-}
-// 负例：未注入的字段应报错（FS-02 生效）
-// @ts-expect-error 未注入 i18n——C 泛型 {} 无 i18n
-const badHandler: UIHandler<{}> = async (location, ctx) => {
-  ;(ctx as any).i18n
-  return h('div', {})
+// ⑥ V3Ui 面：hooks 完整（组件库消费面）
+const uiCheck = (_ui: V3Ui) => {
+  const a: typeof _ui.useExternal = _ui.useExternal
+  const b: typeof _ui.usePopup = _ui.usePopup
+  const c: typeof _ui.useControlledInput = _ui.useControlledInput
+  const d: typeof _ui.useChat = _ui.useChat
+  void a; void b; void c; void d
 }
 
 // ── 运行时（仅类型形状，不执行）──
 
-test('UI 类型定义形状正确', () => {
-  assert.equal(typeof handler, 'function')
-  assert.equal(typeof syncHandler, 'function')
-  assert.equal(typeof layout, 'function')
-  assert.equal(route.path, '/users/:id')
-  assert.equal(typeof apiHandler, 'function')
-  assert.equal(typeof badHandler, 'function')
+test('vdom3 统一类型契约形状正确', () => {
+  assert.equal(typeof asWfui, 'function')
+  assert.equal(typeof asUi, 'function')
+  assert.equal(typeof Comp1, 'function')
+  assert.equal(typeof Comp2, 'function')
+  assert.equal(typeof comp4, 'function')
+  assert.equal(typeof badComp, 'function')
+  assert.equal(typeof uiCheck, 'function')
 })
 
-test('UIResponse 与 VNode 兼容（res = VNode）', () => {
-  const v: UIResponse = h('div', {})
-  assert.ok(v && typeof v === 'object')
+test('VNode 工厂统一（vdom3 h——children 单值/数组 vdom2 语义）', () => {
+  const single = h('span', {}, 'x')
+  assert.equal((single.props as Record<string, unknown>).children, 'x', '单子节点存单值')
+  const multi = h('div', {}, h('a', {}), h('b', {}))
+  assert.ok(Array.isArray((multi.props as Record<string, unknown>).children), '多子节点存数组')
+  const arr = h('ul', {}, [h('li', {}), h('li', {})])
+  assert.ok(Array.isArray((arr.props as Record<string, unknown>).children), '单数组参数存数组')
 })
 
-test('UIRequest = Location（浏览器原生）', () => {
-  // 类型层面：UIRequest 就是 Location——运行时是 window.location
-  const req: UIRequest = window.location
-  assert.ok(req)
-  void req
+test('browser 环境（ctx.browser 继承自 WfuiContext）', () => {
+  assert.ok(browser)
+  void browser
 })

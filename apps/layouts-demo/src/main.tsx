@@ -11,7 +11,7 @@
  * 启动: node apps/layouts-demo/server.ts → http://localhost:3001
  */
 
-import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
+import { createRouter, h } from 'weifuwu/ui-dom'
 import type { Component } from 'weifuwu/ui-dom'
 import { Badge, Button, CodeBlock, Drawer, Icon, SearchInput, Tag, Text, Space, ThemeSwitch } from 'weifuwu/components'
 
@@ -174,6 +174,8 @@ const Shell: Component = async (_init, ctx) => {
   }
 }
 
-const app = new UIRouter()
-app.get('/', () => h(Shell, {}))
-uiServe(app, { root: '#root' })
+// vdom3 事件流引擎（createRouter——UIRouter/uiServe 已删除）
+createRouter(
+  [{ path: '/', render: () => h(Shell, {}) }],
+  document.querySelector('#root') as HTMLElement,
+)

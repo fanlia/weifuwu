@@ -27,7 +27,7 @@ test('apps 类型检查（components-demo / layouts-demo / agent-platform 零错
       '-p', `apps/${app}/tsconfig.json`,
     ], { cwd: root, stdio: 'pipe' })
   const errors: string[] = []
-  // 三个 app 全部从包入口引用（weifuwu/ui-dom + vdom3）——uiServe vdom3 兼容
+  // 三个 app 全部从包入口引用（weifuwu/ui-dom——vdom3 事件流引擎——createRouter 统一）
   const jobs = ['components-demo', 'layouts-demo', 'agent-platform'].map((app) =>
     new Promise<void>((resolve) => {
       try { run(app) } catch (e: any) { errors.push(`${app}:\n${e.stdout?.toString() ?? e.message}`) }

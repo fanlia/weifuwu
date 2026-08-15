@@ -74,9 +74,10 @@ export function i18n(opts: I18nOptions = {}): AppMiddleware<{}, I18nInjected> {
       merged = mergeLocales(pkg, messages, components)
       state.locale = lang
       state.components = merged.components
-      // 通知三态 skip：ctx 版本变了，所有组件必须重新 render
-      ;(c.ui as any)?.bumpCtxVersion?.()
-      c.ui?.render()
+      // 语言切换 → 页面级重渲染（vdom3：pageCtx.render 调度——组件重渲染读最新
+      // ctx.i18n；vdom2 的 bumpCtxVersion/三态 skip 机制已随 vdom2 删除）
+      ;(c as { render?: () => void }).render?.()
+      ;(c as any).ui?.render?.()
     }
 
     return ctx as WfuiContext & I18nInjected
