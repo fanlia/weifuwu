@@ -17,6 +17,14 @@ import { Templates } from './pages/Templates'
 import { Departments } from './pages/Departments'
 import { Chat } from './pages/Chat'
 import { Settings } from './pages/Settings'
+import { NewAgent } from './pages/NewAgent'
+import { AgentDetail } from './pages/AgentDetail'
+import { Sandboxes } from './pages/Sandboxes'
+import { NewDepartment } from './pages/NewDepartment'
+import { DepartmentDetail } from './pages/DepartmentDetail'
+import { NewChat } from './pages/NewChat'
+import { Approvals } from './pages/Approvals'
+import { Admin } from './pages/Admin'
 
 // ── 中间件链（复用 vdom2 中间件——(ctx) => ctx' 纯函数） ──
 let ctx: any = {}
@@ -50,5 +58,13 @@ router = createRouter([
   { path: '/templates', render: () => h(Templates, {}), layout },
   { path: '/departments', render: () => h(Departments, {}), layout },
   { path: '/chat/:id', render: () => h(Chat, {}), layout },
+  { path: '/chat/new', render: () => h(NewChat, {}), layout },
   { path: '/settings', render: () => h(Settings, {}), layout },
+  { path: '/agents/new', render: () => h(NewAgent, {}), layout },
+  { path: '/agents/:id', render: () => h(AgentDetail, {}), layout },
+  { path: '/sandboxes', render: () => h(Sandboxes, {}), layout },
+  { path: '/departments/new', render: () => h(NewDepartment, {}), layout },
+  { path: '/departments/:id', render: () => h(DepartmentDetail, {}), layout },
+  { path: '/approvals', render: () => h(Approvals, {}), layout },
+  { path: '/admin', render: () => h(Admin, {}), layout },
 ], root, { ctx })
