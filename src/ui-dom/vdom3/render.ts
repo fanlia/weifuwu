@@ -191,11 +191,18 @@ function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?:
     return t
   }
   if (newV == null || newV === false || newV === true) {
-    if (oldV != null && oldV.el && oldV.el.parentNode === parent) {
-      const id = registry.idOf(oldV.el)
-      stream.emit(ev('node', 'remove', id, { parent: parentId(parent) }))
-      oldV.el.parentNode?.removeChild(oldV.el)
-      registry.unregister(id, oldV.el)
+    if (oldV != null && typeof oldV === 'object' && !Array.isArray(oldV)) {
+      // 输出变 null（条件移除）——统一生命周期清理。Portal 输出的 el 为 null
+      // （内容独立挂载）——走 removePortalContent（Tour 完成关闭等嵌套组件
+      // 输出 null 路径——此前只处理 oldV.el → portal 内容残留）
+      if (isPortalNode(oldV)) {
+        removePortalContent(oldV as PortalVNode)
+      } else if (oldV.el && oldV.el.parentNode === parent) {
+        const id = registry.idOf(oldV.el)
+        stream.emit(ev('node', 'remove', id, { parent: parentId(parent) }))
+        oldV.el.parentNode?.removeChild(oldV.el)
+        registry.unregister(id, oldV.el)
+      }
     }
     return null
   }
@@ -326,9 +333,13 @@ function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null)
   const out = vn._child !== undefined ? vn._child : childrenOf(vn)[0] ?? null
   const oldOut = ov._child !== undefined ? ov._child : childrenOf(ov)[0] ?? null
   if (out == null) {
-    // 移除旧输出（递归 ref(null)——ref 纪律：lockScroll/focus 清理依赖
-    // 卸载回调（usePopup 的 portalPanelRef → unlockScroll））
-    if (ov.el) {
+    // 移除旧输出（统一生命周期清理——Portal 输出（el 为 null）走
+    // removePortalContent：Tour 完成关闭等嵌套组件输出 null 的残留根因）
+    if (oldOut && isPortalNode(oldOut)) {
+      removePortalContent(oldOut as PortalVNode)
+    } else if (ov.el) {
+      // 递归 ref(null)——ref 纪律：lockScroll/focus 清理依赖
+      // 卸载回调（usePopup 的 portalPanelRef → unlockScroll）
       callRefCleanup(oldOut as VNode | null)
       ov.el.parentNode?.removeChild(ov.el)
       ov.el = null

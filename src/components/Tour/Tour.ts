@@ -94,6 +94,19 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
     }
   }
 
+  /** 完成/跳过：onFinish 回调 + 自行关闭兜底（真实 bug：受控模式缺 onFinish
+   *  回调 → 点完成 no-op → 弹窗永不消失） */
+  const finish = () => {
+    const controlled = latestProps.open !== undefined
+    latestProps.onFinish?.()
+    if (!controlled || !latestProps.onFinish) {
+      // 非受控 / 受控缺 onFinish：onChange 通知 + 自行关闭（否则弹窗永不消失）
+      latestProps.onChange?.(false)
+      latestOpen = false
+      ctx.ui.render()
+    }
+  }
+
   const refresh = () => {
     targetEl = latestProps.steps[step]?.target
       ? (ctx.browser?.query(latestProps.steps[step].target) as HTMLElement | null)
@@ -150,7 +163,7 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
       h('div', { class: 'wf-tour-actions' }, [
         h('button', {
           class: 'wf-tour-btn wf-tour-btn--ghost',
-          onClick: () => props.onFinish?.(),
+          onClick: () => finish(),
         }, '跳过'),
         current > 0 && h('button', {
           class: 'wf-tour-btn wf-tour-btn--ghost',
@@ -158,7 +171,7 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
         }, '上一步'),
         h('button', {
           class: 'wf-tour-btn wf-tour-btn--primary',
-          onClick: () => isLast ? props.onFinish?.() : goTo(current + 1),
+          onClick: () => isLast ? finish() : goTo(current + 1),
         }, isLast ? '完成' : '下一步'),
       ].filter(Boolean)),
     ])
