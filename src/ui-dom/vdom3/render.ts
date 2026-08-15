@@ -54,7 +54,10 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   for (const [key, val] of Object.entries(vnode.props ?? {})) {
     if (key === 'key' || key === 'children') continue
     if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
-      el.addEventListener(key.slice(2).toLowerCase(), (e) => (val as any)(e))
+      if (!(el as any).__v3evt) { // 事件绑定仅首次（__v3evt 标记——patchProps 同检查防重复）
+        el.addEventListener(key.slice(2).toLowerCase(), (e) => (val as any)(e))
+        ;(el as any).__v3evt = key
+      }
       continue
     }
     if (val != null && val !== false) {
