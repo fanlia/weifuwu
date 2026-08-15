@@ -341,7 +341,7 @@ export function patchChildren(
         const c = newChildren[i]
         if (c != null && typeof c === 'object' && !Array.isArray(c) && isComp(c as VNode) && (c as VNode).key == null) {
           console.error(
-            `[vdom2/audit] 动态数组位置 ${i} 的组件缺少 key——列表增删/重排会错位组件实例状态。` +
+            `[vdom2/audit] 动态数组位置 ${i} 的组件缺少 key（${componentName((c as VNode).type)}）——列表增删/重排会错位组件实例状态。` +
               `请提供业务身份 key（如 key={item.id}）；无状态 native 项豁免。`,
           )
         }

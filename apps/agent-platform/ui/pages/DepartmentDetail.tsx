@@ -146,7 +146,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
     <div class="wf-stack wf-gap-lg">
       <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
 
-      <Card>
+      <Card key="dept-card">
         <div class="wf-row wf-gap-md">
           <Ava name={$.dept?.is_dm ? '💬' : '👥'} type={$.dept?.is_dm ? 'user' : 'knowledge_base'} />
           <div class="wf-fill wf-stack wf-gap-xs">
@@ -165,13 +165,13 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
         </div>
       </Card>
 
-      <Card>
+      <Card key="members-card">
         <div class="wf-row wf-gap-sm wf-mb-sm">
           <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">成员列表</div>
           <Button size="sm" onClick={openMemberPicker}><Icon name="plus" size={14} /> 添加成员</Button>
         </div>
         {$.showMemberPicker && (
-          <div class="wf-bg-tertiary wf-p-md wf-rounded wf-mb-md">
+          <div key="member-picker" class="wf-bg-tertiary wf-p-md wf-rounded wf-mb-md">
             <div class="wf-text-sm wf-text-semibold wf-mb-sm">选择要添加的 Agent（{$.picked.length} 个）</div>
             {$.allAgents.length === 0 && <div class="wf-text-sm wf-text-tertiary">没有可添加的 Agent——先创建 AI 机器人 / Webhook / 知识库</div>}
             <div class="wf-stack wf-gap-none">
@@ -208,15 +208,15 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
           </div>
         ))}
         {$.members.length === 0 && (
-          <div class="wf-py-lg"><EmptyState text="暂无成员" hint="点击右上角添加成员"><Button size="sm" onClick={openMemberPicker}>＋ 添加成员</Button></EmptyState></div>
+          <div key="no-members" class="wf-py-lg"><EmptyState text="暂无成员" hint="点击右上角添加成员"><Button size="sm" onClick={openMemberPicker}>＋ 添加成员</Button></EmptyState></div>
         )}
       </Card>
 
       {/* 三层模型：部门 = 工作目录——单聊也是部门特例，同样有工作空间 */}
-      <FilesSection departmentId={deptId} />
+      <FilesSection key="fs-section" departmentId={deptId} />
 
       {/* 三层模型：sandbox = 计算资源——部门沙盒状态与操作（单聊同样适用） */}
-      <Card id="sec-sandbox">
+      <Card key="sandbox-card" id="sec-sandbox">
           <div class="wf-row wf-gap-sm wf-mb-sm">
             <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="box" size={14} /> 沙盒（计算环境）</div>
             <Button size="sm" variant="ghost" onClick={loadSandbox}><Icon name="refresh" size={13} /> 刷新</Button>
@@ -255,7 +255,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
         </Card>
 
       {/* 执行面板（2026-12：任务总览——AI 成员执行状态/进度） */}
-      <Card id="sec-executions">
+      <Card key="exec-card" id="sec-executions">
         <div class="wf-row wf-gap-sm wf-mb-sm">
           <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="activity" size={14} /> 执行面板</div>
           <Button size="sm" variant="ghost" onClick={loadExecutions}><Icon name="refresh" size={13} /> 刷新</Button>
@@ -301,7 +301,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
       </Card>
 
       {/* 产物审批（2026-12）：AI 产出 → 批准发布到共享目录 */}
-      <Card id="sec-artifacts">
+      <Card key="artifacts-card" id="sec-artifacts">
         <div class="wf-row wf-gap-sm wf-mb-sm">
           <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="shield" size={14} /> 产物审批</div>
           <Button size="sm" variant="ghost" disabled={$.reviewBusy === 'toggle'} onClick={() => toggleReview(!$.artifactReview)}>
