@@ -11,7 +11,7 @@
  * 启动: node apps/layouts-demo/server.ts → http://localhost:3001
  */
 
-import { createRouter, h } from 'weifuwu/ui-dom'
+import { createRouter, h, addGlobalListener } from 'weifuwu/ui-dom'
 import type { Component } from 'weifuwu/ui-dom'
 import { Badge, Button, CodeBlock, Drawer, Icon, SearchInput, Tag, Text, Space, ThemeSwitch } from 'weifuwu/components'
 
@@ -40,7 +40,8 @@ const Shell: Component = async (_init, ctx) => {
     showCode = false
     rerender()
   }
-  window.addEventListener('hashchange', onHash)
+  // 监听统一走事件代理（全局注册表——事件流可观测）
+  const offHash = addGlobalListener(window, 'hashchange', onHash as EventListener)
 
   return async () => {
     const current = PATTERNS.find((p) => p.id === active) ?? PATTERNS[0]

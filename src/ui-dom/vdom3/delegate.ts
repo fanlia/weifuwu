@@ -132,8 +132,10 @@ function ensureRootEvent(root: Element, event: string): void {
 /** 全局监听（document/window 级——hooks 统一入口）：
  *  同事件多 handler 聚合到一个目标监听（EventTarget 每事件一次）——
  *  统一注册/退订 + 事件流可观测（EVENT_BIND/UNBIND——delegated: true）。
+ *  options.capture：scroll 等不冒泡事件的捕获监听（嵌套容器滚动跟踪）。
  *  mql/visualViewport 等浏览器 API 对象（无事件冒泡语义）不纳入——保持直接监听。 */
-export function addGlobalListener(target: EventTarget, event: string, handler: EventListener): () => void {
+export interface GlobalListenerOptions { capture?: boolean; passive?: boolean }
+export function addGlobalListener(target: EventTarget, event: string, handler: EventListener, opts?: GlobalListenerOptions): () => void {
   const realEvent = EVENT_MAP[event] ?? event
   let set = globalHandlers.get(realEvent)
   if (!set) { set = new Set(); globalHandlers.set(realEvent, set) }
@@ -146,17 +148,20 @@ export function addGlobalListener(target: EventTarget, event: string, handler: E
         try { h(e) } catch { /* 全局 handler 失败隔离 */ }
       }
     }
-    target.addEventListener(realEvent, fn)
+    const addOpts = opts?.capture
+      ? ({ capture: true, passive: opts?.passive ?? false } as AddEventListenerOptions)
+      : undefined
+    target.addEventListener(realEvent, fn, addOpts)
     rootMap.set(realEvent, fn)
     globalRoots.set(target, rootMap)
-    stream.emit(ev('event', 'bind', target === window ? 'window' : 'document', { event: realEvent, delegated: true }))
+    stream.emit(ev('event', 'bind', target === window ? 'window' : 'document', { event: realEvent, delegated: true, capture: opts?.capture ?? false }))
   }
   // 退订：移除 handler——空集时移除目标监听（配对清理）
   return () => {
     set.delete(handler)
     if (set.size === 0) {
       const fn = rootMap.get(realEvent)
-      if (fn) target.removeEventListener(realEvent, fn)
+      if (fn) target.removeEventListener(realEvent, fn, opts?.capture ? { capture: true } : undefined)
       rootMap.delete(realEvent)
       if (rootMap.size === 0) globalRoots.delete(target)
       stream.emit(ev('event', 'unbind', target === window ? 'window' : 'document', { event: realEvent }))

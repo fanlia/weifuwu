@@ -38,4 +38,8 @@ export { createV3Ui } from './ui.ts'
 export { createSync, autoSync } from './sync.ts'
 export { v3Confirm, v3Toast, type V3CommandInjected } from './commands.ts'
 export { createEventStream, stream, nextNodeId, ev, evKey } from './events.ts'
+export {
+  addGlobalListener, bindElementListener, bindDelegated, unbindEvent, unbindAll,
+  ensureDelegationRoot, removeDelegationRoot, resetDelegation,
+} from './delegate.ts'
 export type { VNode, VNodeChild, V3Event, EventStream, Renderer } from './types.ts'

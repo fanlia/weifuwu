@@ -11,7 +11,7 @@ import { buildVNode } from './build.ts'
 import { mount, patch, removeNodeWithLifecycle, removePortalContent, isPortalNode } from './render.ts'
 import { stream, ev } from './events.ts'
 import { findComponent } from './root.ts'
-import { ensureDelegationRoot } from './delegate.ts'
+import { ensureDelegationRoot, addGlobalListener } from './delegate.ts'
 
 /** 布局包裹（跨路由复用——layout 函数引用稳定 → patch 同位置同类型复用——
  *  工厂不重跑——内部状态（折叠/高亮）保持——vdom2 布局层语义） */
@@ -224,7 +224,8 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
   }
 
   const onPopState = () => { void handleRoute(window.location.pathname) }
-  window.addEventListener('popstate', onPopState)
+  // 路由导航监听统一走事件代理（全局注册表——EVENT_BIND/UNBIND 可观测）
+  const offPop = addGlobalListener(window, 'popstate', onPopState as EventListener)
 
   // 初始路由
   const initial = options?.initialPath ?? window.location.pathname
@@ -237,6 +238,6 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
     },
     path: () => window.location.pathname,
     refresh: () => { void handleRoute(window.location.pathname) },
-    close: () => { window.removeEventListener('popstate', onPopState) },
+    close: () => { offPop() },
   }
 }

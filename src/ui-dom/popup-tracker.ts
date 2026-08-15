@@ -7,6 +7,7 @@
 
 import { clampToViewport } from './popup.ts'
 import { createClientBrowser } from './browser.ts'
+import { addGlobalListener } from './vdom3/delegate.ts'
 import type { PopupPosition } from './types.ts'
 const browser = createClientBrowser()
 
@@ -71,19 +72,24 @@ export function createPopupTrackerSystem(renderByIds: (ids: string[]) => void): 
     })
   }
 
-  /** 惰性挂载全局 scroll/resize 监听（幂等） */
+  /** 惰性挂载全局 scroll/resize 监听（幂等——统一走事件代理：
+   *  全局注册表聚合 + 事件流可观测——capture 捕获嵌套容器 scroll） */
+  let offScroll: (() => void) | null = null
+  let offResize: (() => void) | null = null
   function ensurePopupListeners() {
     if (popupListenersReady) return
     popupListenersReady = true
     // capture 捕获所有嵌套容器的 scroll（scroll 不冒泡）
-    browser.addEventListener('scroll', schedulePopupRecompute, { capture: true, passive: true })
-    browser.addEventListener('resize', schedulePopupRecompute)
+    offScroll = addGlobalListener(window, 'scroll', schedulePopupRecompute as EventListener, { capture: true, passive: true })
+    offResize = addGlobalListener(window, 'resize', schedulePopupRecompute as EventListener)
   }
 
   function destroyPopupListeners() {
     if (popupListenersReady) {
-      browser.removeEventListener('scroll', schedulePopupRecompute, { capture: true })
-      browser.removeEventListener('resize', schedulePopupRecompute)
+      offScroll?.()
+      offResize?.()
+      offScroll = null
+      offResize = null
       popupListenersReady = false
     }
   }

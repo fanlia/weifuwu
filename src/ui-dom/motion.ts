@@ -6,6 +6,8 @@
  * - 兜底 timeout：类未命中动画（防御）或 animationend 丢失时不挂死
  */
 
+import { bindElementListener } from './vdom3/delegate.ts'
+
 export function animateOut(
   el: HTMLElement,
   onDone: () => void,
@@ -15,10 +17,15 @@ export function animateOut(
   const finish = () => {
     if (finished) return
     finished = true
-    el.removeEventListener('animationend', finish)
+    off()
     clearTimeout(timer)
     onDone()
   }
-  el.addEventListener('animationend', finish)
+  // 动画监听统一走事件代理（once——EVENT_UNBIND 可观测；el 有 data-v3-id
+  // 时注册——无 id（SSR/工具场景）保持直接监听兜底）
+  let off: () => void = () => {}
+  const elId = el.getAttribute?.('data-v3-id')
+  if (elId) off = bindElementListener(el, 'animationend', finish as EventListener, true)
+  else el.addEventListener('animationend', finish)
   const timer = setTimeout(finish, fallbackMs)
 }
