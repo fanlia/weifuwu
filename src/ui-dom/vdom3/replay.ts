@@ -42,6 +42,16 @@ export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry):
       if (child?.parentNode) child.parentNode.removeChild(child)
       break
     }
+    case 'MOVE': {
+      const node = reg.get(ev.node)
+      const parent = ev.parent === NodeRegistry.ROOT ? target : reg.get(ev.parent)
+      const ref = ev.ref ? reg.get(ev.ref) : null
+      if (node && parent && node.parentNode === parent) {
+        if (ref && ref.parentNode === parent) parent.insertBefore(node, ref)
+        else parent.appendChild(node)
+      }
+      break
+    }
     case 'PROP_UPDATE': {
       const el = reg.get(ev.target)
       if (el?.nodeType === 1) {
@@ -70,7 +80,7 @@ export function replay(events: V3Event[], target: HTMLElement, reg = new NodeReg
 export function undo(events: V3Event[], n: number, reg = new NodeRegistry()): void {
   // 取最近的 n 个 DOM 指令（非 COMP/ROUTE）
   const domEvents = events.filter((e) =>
-    e.type === 'INSERT' || e.type === 'REMOVE' || e.type === 'PROP_UPDATE' || e.type === 'TEXT_UPDATE',
+    e.type === 'INSERT' || e.type === 'REMOVE' || e.type === 'PROP_UPDATE' || e.type === 'TEXT_UPDATE' || e.type === 'MOVE',
   )
   const targets = domEvents.slice(-n)
   for (const ev of [...targets].reverse()) {
@@ -99,6 +109,20 @@ export function undo(events: V3Event[], n: number, reg = new NodeRegistry()): vo
       case 'TEXT_UPDATE': {
         const el = reg.get(ev.target)
         if (el?.nodeType === 3) el.nodeValue = ev.prev
+        break
+      }
+      case 'MOVE': {
+        // 逆：移回 prev 之后（prev 为空 → 移到父首）
+        const node = reg.get(ev.node)
+        const parent = ev.parent === NodeRegistry.ROOT ? null : reg.get(ev.parent)
+        if (node && parent && node.parentNode === parent) {
+          if (ev.prev) {
+            const prevNode = reg.get(ev.prev)
+            if (prevNode && prevNode.parentNode === parent) parent.insertBefore(node, prevNode.nextSibling)
+          } else {
+            parent.insertBefore(node, parent.firstChild)
+          }
+        }
         break
       }
       default: break

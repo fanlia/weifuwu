@@ -50,7 +50,7 @@ export type V3Event =
   | { type: 'REMOVE'; parent: string; child: string; ts: number }
   | { type: 'PROP_UPDATE'; target: string; key: string; value: unknown; prev: unknown; ts: number }
   | { type: 'TEXT_UPDATE'; target: string; value: string; prev: string; ts: number }
-  | { type: 'MOVE'; node: string; parent: string; ref: string | null; ts: number }
+  | { type: 'MOVE'; node: string; parent: string; ref: string | null; prev?: string | null; ts: number }
 
 /** 事件流（记录/回放/断言——DOM = fold(events)） */
 export interface EventStream {

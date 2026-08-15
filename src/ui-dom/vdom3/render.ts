@@ -12,7 +12,7 @@ import type { VNode, VNodeChild } from './types.ts'
 import { Fragment } from './types.ts'
 import { stream, nextNodeId } from './events.ts'
 import { NodeRegistry } from './registry.ts'
-import { runUnmountHooks } from './build.ts'
+import { runUnmountHooks, isVNode } from './build.ts'
 
 /** 全局节点注册表（id ↔ Node——事件流指令定位） */
 export const registry = new NodeRegistry()
@@ -195,10 +195,71 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
   }
 }
 
-/** children diff：位置配对（childNodes 索引对齐）；文本特判；keyed 列表复用 */
+/** keyed 移动（重排优化）：新 key 在旧列表存在 → 按新顺序移动（prevNode 跟踪——连续重排正确） */
+function moveKeyedNodes(oldKids: VNodeChild[], newKids: VNodeChild[], el: Element): void {
+  const oldKeyIdx = new Map<string, number>()
+  oldKids.forEach((k, i) => {
+    if (isVNode(k) && k.key != null) oldKeyIdx.set(k.key, i)
+  })
+  let prevNode: Node | null = null // 新序列中前一个已处理项的 DOM（期望位置锚）
+  for (let i = 0; i < newKids.length; i++) {
+    const nc = newKids[i]
+    if (!isVNode(nc) || nc.key == null) { prevNode = null; continue }
+    const oi = oldKeyIdx.get(nc.key)
+    let elNode: Node | null = null
+    if (oi != null && isVNode(oldKids[oi])) elNode = (oldKids[oi] as VNode).el ?? null
+    if (elNode && elNode.parentNode === el) {
+      const target = prevNode ? prevNode.nextSibling : el.firstChild
+      if (target !== elNode) {
+        const prev = elNode.previousSibling ? registry.idOf(elNode.previousSibling) : null
+        el.insertBefore(elNode, target)
+        stream.emit({ type: 'MOVE', node: registry.idOf(elNode), parent: nodeId(el), ref: target ? registry.idOf(target) : null, prev, ts: Date.now() })
+      }
+      prevNode = elNode
+    }
+  }
+}
+
+/** 全 keyed 列表 diff：DOM 移动（MOVE 事件）+ 按 key 配对 patch + 新增/移除 */
+function patchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: Element): void {
+  const oldMap = new Map<string, VNode>()
+  for (const k of oldKids) if (isVNode(k) && k.key != null) oldMap.set(k.key, k)
+  // 新顺序移动 DOM（MOVE 事件——重排不重建）
+  moveKeyedNodes(oldKids, newKids, el)
+  // 按新顺序 patch（同 key 复用；新 key 创建——插到 prev 之后；DOM 锚 = prev 后）
+  let prev: Node | null = null
+  for (const nc of newKids) {
+    const nv = nc as VNode
+    const oc = oldMap.get(nv.key ?? '') ?? null
+    if (oc && oc !== nv) {
+      patch(oc, nv, el)
+      prev = nv.el ?? prev
+    } else if (!oc) {
+      renderVNode(nv, el, prev ? prev.nextSibling : el.firstChild)
+      prev = nv.el ?? prev
+    }
+  }
+  // 移除无新 key 的旧项
+  const newKeys = new Set(newKids.filter((k) => isVNode(k)).map((k) => (k as VNode).key))
+  for (const ok of oldKids) {
+    if (isVNode(ok) && ok.key != null && !newKeys.has(ok.key) && ok.el?.parentNode === el) {
+      const id = registry.idOf(ok.el)
+      stream.emit({ type: 'REMOVE', parent: nodeId(el), child: id, ts: Date.now() })
+      ok.el.parentNode?.removeChild(ok.el)
+      registry.unregister(id, ok.el)
+    }
+  }
+}
+
+/** children diff：全 keyed → 专用路径（MOVE）；无 key/混合 → 位置配对 */
 function patchChildren(oldV: VNode, newV: VNode, el: Element): void {
   const oldKids = oldV.children ?? []
   const newKids = newV.children ?? []
+  // 全 keyed 列表（>1 项且全部有 key）→ keyed diff（重排 MOVE——DOM 状态保持）
+  if (newKids.length > 1 && newKids.every((k) => isVNode(k) && k.key != null)) {
+    patchKeyedChildren(oldKids, newKids, el)
+    return
+  }
 
   const len = Math.max(oldKids.length, newKids.length)
   for (let i = 0; i < len; i++) {

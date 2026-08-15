@@ -624,3 +624,77 @@ test('兼容：真实 vdom2 组件（EmptyState——无状态）在 vdom3 渲�
   assert.ok(root.querySelector('[id="rest"]'), '兄弟节点正常')
   document.body.removeChild(root)
 })
+
+// ── MOVE 事件：keyed 重排（移动而非重建——DOM 状态保持 + 精确事件流） ──
+
+test('MOVE：keyed 列表重排 → MOVE 事件（非 REMOVE+CREATE）→ DOM 顺序正确', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  let order = ['a', 'b', 'c']
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', {}, [
+      h('button', { id: 'rev', onClick: () => { order = ['c', 'b', 'a']; rerender() } }, 'rev'),
+      h('ul', { id: 'ul' }, order.map((it) => h('li', { key: it, 'data-k': it }, it))),
+    ])
+  }
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.deepEqual([...root.querySelectorAll('li')].map((li) => li.textContent), ['a', 'b', 'c'], '初始顺序')
+  // 重排（反转）
+  ;(root.querySelector('[id="rev"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.deepEqual([...root.querySelectorAll('li')].map((li) => li.textContent), ['c', 'b', 'a'], '重排后顺序')
+  const moves = gs.events().filter((e) => e.type === 'MOVE')
+  assert.equal(moves.length, 2, `重排 = 2 个 MOVE 事件（c→首、a→尾）——实际 ${moves.length}`)
+  const removes = gs.events().filter((e) => e.type === 'REMOVE')
+  assert.equal(removes.length, 0, '无 REMOVE（节点复用——状态保持）')
+  document.body.removeChild(root)
+})
+
+test('MOVE：事件流回放含 MOVE（重排可传输）+ undo 恢复原顺序', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  let order = ['a', 'b', 'c']
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'app' }, [
+      h('button', { id: 'swap', onClick: () => { order = ['b', 'a', 'c']; rerender() } }, 'swap'),
+      h('ul', {}, order.map((it) => h('li', { key: it }, it))),
+    ])
+  }
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  ;(root.querySelector('[id="swap"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.deepEqual([...root.querySelectorAll('li')].map((li) => li.textContent), ['b', 'a', 'c'], '交换后')
+  // 回放：事件流 → 新容器（含 MOVE——重排可传输）
+  const { replay, undo } = await import('../ui-dom/vdom3/replay.ts')
+  const { NodeRegistry } = await import('../ui-dom/vdom3/registry.ts')
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  replay(gs.events(), target)
+  assert.deepEqual([...target.querySelectorAll('li')].map((li) => li.textContent), ['b', 'a', 'c'], '回放含 MOVE')
+  // undo：最后一个 MOVE → 恢复 a 到 b 前
+  const reg2 = new NodeRegistry()
+  reg2.register(NodeRegistry.ROOT, target)
+  // 重建 registry 引用（回放用同一 registry 才能 undo）
+  const events = gs.events()
+  const reg = new NodeRegistry()
+  reg.register(NodeRegistry.ROOT, target)
+  target.innerHTML = ''
+  for (const ev of events) {
+    const { applyEvent } = await import('../ui-dom/vdom3/replay.ts')
+    applyEvent(ev, target, reg)
+  }
+  undo(events, 1, reg)
+  assert.deepEqual([...target.querySelectorAll('li')].map((li) => li.textContent), ['a', 'b', 'c'], 'undo 恢复原顺序')
+  document.body.removeChild(root)
+  document.body.removeChild(target)
+})
