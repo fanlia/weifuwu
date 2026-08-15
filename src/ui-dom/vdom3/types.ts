@@ -37,11 +37,17 @@ export type VNodeChild = VNode | string | number | null | undefined | boolean
 
 /** children 读取统一入口（vdom2 兼容：h 存 props.children——vdom3 引擎输出存 v.children）
  *  读取顺序：v.children（引擎写——组件输出）→ props.children（h/组件库产出）→ 空 */
-export function childrenOf(v: VNode): VNodeChild[] {
-  if (v.children != null) return v.children
-  const c = (v.props?.children ?? []) as VNodeChild | VNodeChild[]
+/** 嵌套数组拍平（vdom2 语义：数组项 = 隐式 Fragment——组件库 [props.children, x] 模式） */
+function flatten(c: VNodeChild | VNodeChild[]): VNodeChild[] {
   if (c == null || typeof c === 'boolean') return []
-  return Array.isArray(c) ? c : [c]
+  if (Array.isArray(c)) return c.flatMap((x) => flatten(x))
+  return [c]
+}
+
+export function childrenOf(v: VNode): VNodeChild[] {
+  if (v.children != null) return flatten(v.children)
+  const c = (v.props?.children ?? []) as VNodeChild | VNodeChild[]
+  return flatten(c)
 }
 
 export const Fragment: unique symbol = Symbol('v3-fragment')

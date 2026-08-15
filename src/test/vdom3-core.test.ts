@@ -1256,3 +1256,31 @@ test('createRouter ctx 注入：路由页面消费中间件面（i18n/app）—�
   router.close()
   document.body.removeChild(root)
 })
+
+test('嵌套数组（vdom2 组件库模式 [props.children, x]）：拍平渲染——Field+Input 组件链', async () => {
+  // AuthPage 模式：children 数组嵌套（props.children = [Field, Field]）
+  const Field = async (_init: any, _ctx: any) => async (props: any) =>
+    h('label', { class: 'wf-field' }, [props.label, props.children])
+  const Input = async (_init: any, _ctx: any) => async (props: any) =>
+    h('input', { type: props.type ?? 'text', placeholder: props.placeholder })
+  const AuthPage = async (_init: any, _ctx: any) => async (props: any) =>
+    h('form', { class: 'wf-auth' }, [
+      h('div', { class: 'wf-fields' }, [props.children, h('button', { id: 'submit' }, '提交')]),
+    ])
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const LoginPage = async (_init: any, _ctx: any) => async () =>
+    h(AuthPage, {}, [
+      h(Field, { label: '邮箱' }, h(Input, { type: 'email', placeholder: 'you@example.com' })),
+      h(Field, { label: '密码' }, h(Input, { type: 'password', placeholder: '••••' })),
+    ])
+  createRoot(h(LoginPage, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(root.querySelectorAll('input').length, 2, '嵌套数组拍平——2 个输入框')
+  assert.ok(root.textContent?.includes('邮箱'), 'Field label 渲染')
+  assert.ok(root.querySelector('input[placeholder="you@example.com"]'), 'email input')
+  assert.ok(root.querySelector('[id="submit"]'), '兄弟节点（Button）渲染')
+  assert.ok(root.querySelector('input[type="password"]'), 'password input')
+  document.body.removeChild(root)
+})
