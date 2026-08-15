@@ -35,6 +35,23 @@
   gap: 8px;
 }
 
+.wf-tour-bubble--top {
+  /* 锚点在目标上方（top: 目标.top - gap）——气泡向上展开——不遮挡目标 */
+  transform: translateY(-100%);
+}
+.wf-tour-bubble--bottom {
+  /* 锚点在目标下方——向下展开（默认） */
+  transform: translateY(0);
+}
+.wf-tour-bubble--left {
+  /* 锚点在目标左侧（left: 目标.left - gap）——气泡向左展开——不遮挡目标 */
+  transform: translateX(-100%);
+}
+.wf-tour-bubble--right {
+  /* 锚点在目标右侧——向右展开（默认） */
+  transform: translateX(0);
+}
+
 .wf-tour-bubble-header {
   display: flex;
   align-items: center;
