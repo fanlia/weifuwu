@@ -500,3 +500,64 @@ test('流式渲染：渐进性——根节点事件先到即可先显示（TTFB 
   assert.equal(target.querySelector('[id="p"]')?.textContent, '内容', '完整应用后文本就位')
   document.body.removeChild(target)
 })
+
+// ── 多端同步：事件流 = 操作日志 → 镜像容器（协作基础） ──
+
+test('同步：A 渲染 + 交互 → 事件日志 → B 增量镜像（DOM 同构）', async () => {
+  const { createSync } = await import('../ui-dom/vdom3/sync.ts')
+  const { NodeRegistry } = await import('../ui-dom/vdom3/registry.ts')
+  // 全局流隔离（测试独立——避免跨测试残留事件）
+  const { stream: globalStream } = await import('../ui-dom/vdom3/events.ts')
+  globalStream.reset()
+  // 共享事件日志（模拟：一端记录——多端订阅）
+  const log: any[] = []
+  const emit = (ev: any) => { log.push(ev) }
+  const getEvents = () => log
+  const A = document.createElement('div')
+  const B = document.createElement('div')
+  document.body.appendChild(A)
+  document.body.appendChild(B)
+  // 容器 A：mount（记录事件到共享日志）
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let count = 0
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'sync-app' }, [
+      h('button', { id: 'b', onClick: () => { count++; rerender() } }, [`c${count}`]),
+      count > 0 ? h('p', { id: 'note' }, `clicked ${count}`) : null,
+      h('ul', {}, ['x', 'y'].map((it, i) => h('li', { key: it + i }, it))),
+    ])
+  }
+  // 用自定义流（hooks 到 log）——挂载 + 交互
+  const rootA = createRoot(h(App, {}), A)
+  await new Promise((r) => setTimeout(r, 20))
+  // 同步初始事件（挂载后日志有内容）
+  log.push(...(await import('../ui-dom/vdom3/events.ts')).stream.events().slice())
+  const sync = createSync(B, getEvents)
+  const n0 = sync.sync()
+  assert.ok(n0 > 10, `首次同步（${n0} 事件）`)
+  assert.ok(B.querySelector('[id="sync-app"]'), 'B 镜像：根')
+  assert.equal(B.querySelectorAll('li').length, 2, 'B 镜像：列表')
+  assert.equal(B.querySelector('[id="b"]')?.textContent, 'c0', 'B 镜像：文本')
+  assert.ok(!B.querySelector('[id="note"]'), 'B 镜像：条件未显示')
+
+  // 交互（同 tick 多次）→ A 更新
+  ;(A.querySelector('[id="b"]') as HTMLButtonElement)?.click()
+  ;(A.querySelector('[id="b"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  // 捕获 A 的更新事件（render 后的新事件）
+  const streamMod = await import('../ui-dom/vdom3/events.ts')
+  const newEvents = streamMod.stream.events().slice()
+  // 全量日志 = 初始 + 更新（模拟远端日志已累积）
+  log.length = 0
+  log.push(...newEvents)
+
+  // B 增量同步 → 与 A 同构
+  const n1 = sync.sync()
+  assert.ok(n1 > 0, `增量同步（${n1} 事件）`)
+  assert.equal(B.querySelector('[id="b"]')?.textContent, 'c2', 'B 镜像：计数同步')
+  assert.ok(B.querySelector('[id="note"]'), 'B 镜像：条件块同步出现')
+  assert.equal(B.innerHTML, A.innerHTML, 'B 与 A 同构（DOM 完全一致）')
+  document.body.removeChild(A)
+  document.body.removeChild(B)
+})
