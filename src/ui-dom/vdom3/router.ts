@@ -106,6 +106,11 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
         return
       }
       pageCtx = makePageCtx() // 新页面新 ctx（render 绑定当前实例）
+      // 动态路由参数注入（vdom2 语义：ctx.route.params——组件消费（Chat 的 deptId 等））
+      ;(pageCtx as { route?: Record<string, unknown> }).route = {
+        path,
+        params: matched.params,
+      }
       const page = matched.def.render(matched.params)
       const vnode = matched.def.layout ? matched.def.layout(page) : page
       // oldV 对照（current——同位置同类型复用 _render——layout 工厂不重跑）

@@ -1459,3 +1459,23 @@ test('SVG 命名空间：svg/path 用 createElementNS（viewBox 大小写保留�
   assert.equal(path?.namespaceURI, 'http://www.w3.org/2000/svg', 'path 也在 SVG 命名空间')
   document.body.removeChild(root)
 })
+
+test('路由：ctx.route 注入（动态 params——组件 ctx.route.params 消费——deptId 空回归）', async () => {
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  let seenParams: Record<string, string> | null = null
+  const Chat = async (_init: any, ctx: any) => {
+    seenParams = ctx.route?.params ?? null
+    return async () => h('div', { id: 'chat' }, `dept:${ctx.route?.params?.id ?? 'EMPTY'}`)
+  }
+  const router = createRouter([
+    { path: '/chat/:id', render: () => h(Chat, {}) },
+  ], root, { initialPath: '/chat/d1' })
+  await new Promise((r) => setTimeout(r, 30))
+  assert.ok(seenParams, 'ctx.route.params 注入（非 undefined）')
+  assert.equal(seenParams?.id, 'd1', 'params.id 动态解析')
+  assert.equal(root.querySelector('[id="chat"]')?.textContent, 'dept:d1', '组件消费 params（非 EMPTY）')
+  router.close()
+  document.body.removeChild(root)
+})
