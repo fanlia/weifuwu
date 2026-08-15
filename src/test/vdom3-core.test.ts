@@ -1018,3 +1018,48 @@ test('Select（重头组件——useControlledInput + usePopup + keyed 列表）
   document.body.removeChild(root)
   document.querySelector('#__wf_portal')?.remove()
 })
+
+test('useChat：会话创建 + 流式发送（token 累积→notify→订阅组件重渲染）+ 卸载 dispose', async () => {
+  const { useChat } = await import('../ui-dom/hooks/chat.ts')
+  // mock fetch（aiStream 用 fetch + SSE 解析——协议流）
+  const origFetch = globalThis.fetch
+  const sse = (ev: string, data: unknown) => `event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(sse('wf:token', { text: '你' }) + sse('wf:token', { text: '好' })))
+      controller.enqueue(new TextEncoder().encode(sse('wf:done', {})))
+      controller.close()
+    },
+  })
+  globalThis.fetch = (async () => new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })) as any
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  // AiChat 风格组件：useChat 会话 + useExternal 订阅（流式 → 自动重渲染）
+  let chatHandle: any = null
+  const AiChat = async (_init: any, ctx: any) => {
+    chatHandle = ctx.ui.useChat({ url: '/api/chat' })
+    ctx.ui.useExternal(chatHandle)
+    return async () => h('div', { id: 'chat' }, [
+      h('div', { id: 'msgs' }, chatHandle.messages.map((m: any, i: number) =>
+        h('p', { key: m.id + i }, `${m.role}:${m.content}${m.status === 'streaming' ? '…' : ''}`),
+      )),
+      h('button', { id: 'send', onClick: () => chatHandle.send() }, 'send'),
+    ])
+  }
+  createRoot(h(AiChat, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('[id="send"]'), 'AiChat 渲染')
+  assert.ok(chatHandle, 'useChat handle（会话）')
+  // 发送（mock transport——token 流）
+  chatHandle.input = '你好'
+  ;(root.querySelector('[id="send"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.ok(root.querySelector('#msgs')?.textContent?.includes('user:你好'), 'user 消息追加')
+  assert.ok(root.querySelector('#msgs')?.textContent?.includes('assistant:'), 'assistant 占位（streaming）')
+  await new Promise((r) => setTimeout(r, 30))
+  assert.ok(root.querySelector('#msgs')?.textContent?.includes('assistant:你好'), '流式 token 累积（notify → useExternal 重渲染）')
+  globalThis.fetch = origFetch
+  assert.equal(chatHandle.streaming, false, '流结束')
+  document.body.removeChild(root)
+})
