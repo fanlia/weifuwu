@@ -11,7 +11,7 @@ import { buildVNode } from './build.ts'
 import { patch, mount, removeNodeWithLifecycle, removePortalContent, isPortalNode, registry } from './render.ts'
 import type { PortalVNode } from './types.ts'
 import { scheduler } from './scheduler.ts'
-import { stream } from './events.ts'
+import { stream, ev } from './events.ts'
 
 
 
@@ -76,7 +76,7 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
         dirtyComps.delete(compId)
         const comp = findComponent(current, compId)
         if (!comp || typeof comp.type !== 'function' || !comp._render) break
-        stream.emit({ type: 'RENDER', id: comp._id!, name: compNameOf(comp), ts: Date.now() })
+        stream.emit(ev('comp', 'render', comp._id!, { name: compNameOf(comp) }))
         const output = await comp._render(comp.props)
         const oldOut = comp._child ?? null
         const built = output ? await buildVNode(output, ctx, oldOut ?? undefined) : null
@@ -156,7 +156,7 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
     unmount() {
       // COMP_UNMOUNT（根组件）
       if (current._id) {
-        stream.emit({ type: 'COMP_UNMOUNT', id: current._id, name: 'root', ts: Date.now() })
+        stream.emit(ev('comp', 'unmount', current._id, { name: 'root' }))
       }
       root.innerHTML = ''
     },

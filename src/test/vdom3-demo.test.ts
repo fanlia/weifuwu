@@ -8,6 +8,7 @@ import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
 import { h, createRouter, stream } from '../ui-dom/vdom3/index.ts'
 import { replay, expectEventSequence } from '../ui-dom/vdom3/replay.ts'
+import { evKey } from '../ui-dom/vdom3/events.ts'
 
 before(setupJsdom)
 
@@ -106,7 +107,7 @@ test('demo：录制 → 回放（用户操作序列 → 事件流 → 重放断�
   }
   assert.equal(root.querySelector('#btn')?.textContent, 'count:3', '交互后 count=3')
   const recorded = stream.events()
-  assert.ok(recorded.some((e) => e.type === 'SIGNAL_SET' || e.type === 'COMP_MOUNT'), '录制包含状态/挂载事件')
+  assert.ok(recorded.some((e) => evKey(e) === 'comp:mount'), '录制包含状态/挂载事件')
 
   // 回放：事件流重放到新容器 → 最终状态一致（DOM = fold(事件流)）
   const target = document.createElement('div')
@@ -117,7 +118,7 @@ test('demo：录制 → 回放（用户操作序列 → 事件流 → 重放断�
   assert.ok(div, '回放：计数器容器重建')
   // 事件序列断言：渲染过程精确可描述
   // 全链路事件流：决策先行（BUILD 组件构建）→ 生命周期（COMP_MOUNT）→ dom 指令
-  expectEventSequence(recorded, ['BUILD', 'COMP_MOUNT'])
+  expectEventSequence(recorded, ['comp:build', 'comp:mount'])
   document.body.removeChild(root)
   document.body.removeChild(target)
 })

@@ -27,12 +27,12 @@ test('record：渲染 → 事件流 → 生成测试 → 执行通过（事故�
   const events = stream.events()
   assert.ok(events.length > 10, `录制事件流（${events.length} 条）`)
   const summary = summarizeEvents(events)
-  assert.ok(summary.includes('NODE_CREATE'), '摘要含节点创建')
+  assert.ok(summary.includes('node:create'), '摘要含节点创建')
 
   // 生成测试代码
   const code = recordToTest(events, 'recorded-card-render')
   assert.ok(code.includes('replay(events, root)'), '生成代码含回放')
-  assert.ok(code.includes('NODE_CREATE'), '生成代码含序列断言')
+  assert.ok(code.includes('node:create'), '生成代码含序列断言')
 
   // 写盘并执行（真实闭环——生成的测试可跑）
   const tmpFile = join(process.cwd(), 'src', 'test', 'recorded-tmp-v3.test.ts')

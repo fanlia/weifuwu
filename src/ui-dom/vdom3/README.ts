@@ -14,9 +14,12 @@
  *   4. 更新最小化：同位置同类型（含 key）复用——仅变化发事件
  *      （TEXT_UPDATE/PROP_UPDATE——无整树 diff 决策噪音；异类型 → 重建事件）
  *
- * 事件流覆盖（location → DOM）：
- *   ROUTE_CHANGE → COMP_MOUNT → NODE_CREATE/TEXT_CREATE → INSERT → PROP_UPDATE/
- *   TEXT_UPDATE → REMOVE/MOVE（更新时）→ COMP_UNMOUNT
+ * 事件流覆盖（location → DOM）——统一命名：对象 + 动作 + 参数（entity + action + target + payload）：
+ *   route:change → comp:mount → node:text:create → node:insert → prop:text:update
+ *   → node:remove/move（更新时）→ comp:unmount
+ *   每层同构：location（route:change）/ jsx（comp:render·build·mount·unmount、props:update）
+ *   / vdom（vnode:patch 决策——strategy 参数）/ dom（node:text:prop:event:ref 的 create·insert·
+ *   remove·move·update·bind·unbind·cleanup）——任何事件触发最终落到 dom 层的精准状态变化
  *
  * 模块：
  *   types.ts   — VNode（native/文本/Fragment）+ V3Event + EventStream 契约

@@ -13,7 +13,7 @@
 import type { VNode, V3Event, V3Ctx } from './types.ts'
 import { Fragment, childrenOf } from './types.ts'
 import { buildVNode } from './build.ts'
-import { stream } from './events.ts'
+import { stream, ev } from './events.ts'
 
 /** 服务端渲染 → 事件流（dry-run：只生成指令，不创建 DOM——可传输/回放） */
 export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
@@ -38,18 +38,18 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
     }
     // native
     const id = nextId()
-    events.push({ type: 'NODE_CREATE', id, tag: v.type as string, ts })
+    events.push(ev('node', 'create', id, { tag: v.type as string }))
     for (const [k, val] of Object.entries(v.props ?? {})) {
       if (k === 'key' || k === 'children') continue
       if (typeof val === 'function') continue // 事件/动态——不序列化（客户端需绑定）
-      if (val != null && val !== false) events.push({ type: 'PROP_UPDATE', target: id, key: k, value: val, prev: '', ts })
+      if (val != null && val !== false) events.push(ev('prop', 'update', id, { key: k, value: val, prev: '' }))
     }
-    events.push({ type: 'INSERT', parent: parentId, child: id, ref: null, ts })
+    events.push(ev('node', 'insert', id, { parent: parentId, ref: null }))
     for (const c of childrenOf(v)) {
       if (typeof c === 'string' || typeof c === 'number') {
         const tid = nextId()
-        events.push({ type: 'TEXT_CREATE', id: tid, value: String(c), ts })
-        events.push({ type: 'INSERT', parent: id, child: tid, ref: null, ts })
+        events.push(ev('text', 'create', tid, { value: String(c) }))
+        events.push(ev('node', 'insert', tid, { parent: id, ref: null }))
       } else if (c && typeof c === 'object' && !Array.isArray(c)) {
         walk(c as VNode, id)
       }
@@ -81,18 +81,18 @@ export async function* renderToEventStream(vnode: VNode): AsyncGenerator<V3Event
       return
     }
     const id = nextId()
-    yield { type: 'NODE_CREATE', id, tag: v.type as string, ts }
+    yield ev('node', 'create', id, { tag: v.type as string })
     for (const [k, val] of Object.entries(v.props ?? {})) {
       if (k === 'key' || k === 'children') continue
       if (typeof val === 'function') continue
-      if (val != null && val !== false) yield { type: 'PROP_UPDATE', target: id, key: k, value: val, prev: '', ts }
+      if (val != null && val !== false) yield ev('prop', 'update', id, { key: k, value: val, prev: '' })
     }
-    yield { type: 'INSERT', parent: parentId, child: id, ref: null, ts }
+    yield ev('node', 'insert', id, { parent: parentId, ref: null })
     for (const c of childrenOf(v)) {
       if (typeof c === 'string' || typeof c === 'number') {
         const tid = nextId()
-        yield { type: 'TEXT_CREATE', id: tid, value: String(c), ts }
-        yield { type: 'INSERT', parent: id, child: tid, ref: null, ts }
+        yield ev('text', 'create', tid, { value: String(c) })
+        yield ev('node', 'insert', tid, { parent: id, ref: null })
       } else if (c && typeof c === 'object' && !Array.isArray(c)) {
         yield* walk(c as VNode, id)
       }
@@ -109,20 +109,22 @@ export function eventsToHtml(events: V3Event[]): string {
   const attrs = new Map<string, Map<string, unknown>>()
   const texts = new Map<string, string>()
   for (const e of events) {
-    if (e.type === 'NODE_CREATE') tags.set(e.id, e.tag)
-    else if (e.type === 'PROP_UPDATE') {
-      const m = attrs.get(e.target) ?? new Map()
-      if (e.value == null || e.value === false) m.delete(e.key)
-      else m.set(e.key, e.value)
-      attrs.set(e.target, m)
-    } else if (e.type === 'TEXT_CREATE') texts.set(e.id, e.value)
+    if (e.entity === 'node' && e.action === 'create') tags.set(e.target!, (e.payload as { tag: string }).tag)
+    else if (e.entity === 'prop' && e.action === 'update') {
+      const pl = e.payload as { key: string; value: unknown }
+      const m = attrs.get(e.target!) ?? new Map()
+      if (pl.value == null || pl.value === false) m.delete(pl.key)
+      else m.set(pl.key, pl.value)
+      attrs.set(e.target!, m)
+    } else if (e.entity === 'text' && e.action === 'create') texts.set(e.target!, (e.payload as { value: string }).value)
   }
   const childrenOf = new Map<string, string[]>()
   for (const e of events) {
-    if (e.type === 'INSERT') {
-      const arr = childrenOf.get(e.parent) ?? []
-      arr.push(e.child)
-      childrenOf.set(e.parent, arr)
+    if (e.entity === 'node' && e.action === 'insert') {
+      const pl = e.payload as { parent: string }
+      const arr = childrenOf.get(pl.parent) ?? []
+      arr.push(e.target!)
+      childrenOf.set(pl.parent, arr)
     }
   }
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')

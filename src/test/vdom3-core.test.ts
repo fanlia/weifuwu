@@ -11,7 +11,7 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
-import { h, mount, patch, stream } from '../ui-dom/vdom3/index.ts'
+import { h, mount, patch, stream, evKey } from '../ui-dom/vdom3/index.ts'
 
 before(setupJsdom)
 
@@ -34,10 +34,10 @@ test('mount：vnode 树 → 事件流（CREATE/INSERT/PROP_UPDATE）→ DOM', ()
   assert.equal(root.querySelector('span')?.textContent, 'hello', '文本渲染')
 
   const events = stream.events()
-  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'div'), 'NODE_CREATE 事件（div）')
-  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'button'), 'NODE_CREATE 事件（button）')
-  assert.ok(events.some((e) => e.type === 'INSERT'), 'INSERT 事件')
-  assert.ok(events.some((e) => e.type === 'PROP_UPDATE' && (e as any).key === 'class'), 'PROP_UPDATE 事件（class）')
+  assert.ok(events.some((e) => evKey(e) === 'node:create' && (e as any).payload?.tag === 'div'), 'NODE_CREATE 事件（div）')
+  assert.ok(events.some((e) => evKey(e) === 'node:create' && (e as any).payload?.tag === 'button'), 'NODE_CREATE 事件（button）')
+  assert.ok(events.some((e) => evKey(e) === 'node:insert'), 'INSERT 事件')
+  assert.ok(events.some((e) => evKey(e) === 'prop:update' && (e as any).payload?.key === 'class'), 'PROP_UPDATE 事件（class）')
   document.body.removeChild(root)
 })
 
@@ -60,9 +60,9 @@ test('patch：同位置同类型复用——仅文本/属性变化发事件（�
   assert.equal(root.querySelectorAll('#box').length, 1, '单实例（无重建）')
 
   const events = stream.events()
-  assert.ok(events.some((e) => e.type === 'TEXT_UPDATE'), 'TEXT_UPDATE 事件')
-  assert.ok(events.some((e) => e.type === 'PROP_UPDATE' && (e as any).key === 'class' && e.value === 'b'), 'PROP_UPDATE 事件（class a→b）')
-  assert.ok(!events.some((e) => e.type === 'NODE_CREATE'), '无 NODE_CREATE（未重建）')
+  assert.ok(events.some((e) => evKey(e) === 'text:update'), 'TEXT_UPDATE 事件')
+  assert.ok(events.some((e) => evKey(e) === 'prop:update' && (e as any).payload?.key === 'class' && (e as any).payload?.value === 'b'), 'PROP_UPDATE 事件（class a→b）')
+  assert.ok(!events.some((e) => evKey(e) === 'node:create'), '无 NODE_CREATE（未重建）')
   document.body.removeChild(root)
 })
 
@@ -79,9 +79,9 @@ test('异类型/异 key → REMOVE + CREATE + INSERT（重建事件）', () => {
   assert.ok(!root.querySelector('#old'), '旧元素移除')
   assert.ok(root.querySelector('#new'), '新元素创建')
   const events = stream.events()
-  assert.ok(events.some((e) => e.type === 'REMOVE'), 'REMOVE 事件（旧节点）')
-  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'p'), 'NODE_CREATE 事件（新节点）')
-  assert.ok(events.some((e) => e.type === 'INSERT'), 'INSERT 事件（新节点）')
+  assert.ok(events.some((e) => evKey(e) === 'node:remove'), 'REMOVE 事件（旧节点）')
+  assert.ok(events.some((e) => evKey(e) === 'node:create' && (e as any).payload?.tag === 'p'), 'NODE_CREATE 事件（新节点）')
+  assert.ok(events.some((e) => evKey(e) === 'node:insert'), 'INSERT 事件（新节点）')
   document.body.removeChild(root)
 })
 
@@ -103,7 +103,7 @@ test('列表 keyed：同 key 复用——增删只操作变化项（事件断言
   assert.ok(!root.querySelector('[data-id="b"]'), 'b 移除')
 
   const events = stream.events()
-  const creates = events.filter((e) => e.type === 'NODE_CREATE')
+  const creates = events.filter((e) => evKey(e) === 'node:create')
   assert.equal(creates.length, 1, '仅 c 创建（a/b 复用——无全量重建）')
   document.body.removeChild(root)
 })
@@ -116,10 +116,10 @@ test('事件流可断言：DOM = fold(事件流)——事件序列精确描述�
   const mountEvents = stream.events()
   // 事件序列：NODE_CREATE(div) → ... → TEXT_CREATE → INSERT
   const first = mountEvents[0]
-  assert.equal(first.type, 'NODE_CREATE', '事件流第一条 = 根节点创建')
-  const hasTextCreate = mountEvents.some((e) => e.type === 'TEXT_CREATE' && e.value === '初始')
+  assert.equal(evKey(first), 'node:create', '事件流第一条 = 根节点创建')
+  const hasTextCreate = mountEvents.some((e) => evKey(e) === 'text:create' && (e as any).payload?.value === '初始')
   assert.ok(hasTextCreate, 'TEXT_CREATE 事件携带文本内容')
-  const hasInsert = mountEvents.some((e) => e.type === 'INSERT')
+  const hasInsert = mountEvents.some((e) => evKey(e) === 'node:insert')
   assert.ok(hasInsert, 'INSERT 事件（根入 root）')
   document.body.removeChild(root)
 })
@@ -171,8 +171,8 @@ test('组件：事件流包含 COMP_MOUNT（挂载即事件——引擎本体）
   mount(built, root)
   assert.ok(root.querySelector('#greet'), '组件输出渲染')
   const events = stream.events()
-  assert.ok(events.some((e) => e.type === 'COMP_MOUNT'), 'COMP_MOUNT 事件')
-  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'span'), '组件内部节点创建事件（全链路）')
+  assert.ok(events.some((e) => evKey(e) === 'comp:mount'), 'COMP_MOUNT 事件')
+  assert.ok(events.some((e) => evKey(e) === 'node:create' && (e as any).payload?.tag === 'span'), '组件内部节点创建事件（全链路）')
   document.body.removeChild(root)
 })
 
@@ -297,13 +297,13 @@ test('断言：expectEventSequence——渲染 = 事件序列（精确断言）'
   mount(h('div', { id: 'x' }, '文本'), root)
   const events = stream.events()
   // 断言事件序列（NODE_CREATE 开头 + 包含 INSERT/TEXT_CREATE）
-  expectEventSequence(events, ['NODE_CREATE'])
-  assert.ok(eventsOf(events, 'NODE_CREATE').length >= 1, 'NODE_CREATE 事件')
-  assert.ok(eventsOf(events, 'TEXT_CREATE').length >= 1, 'TEXT_CREATE 事件')
-  assert.ok(eventsOf(events, 'INSERT').length >= 1, 'INSERT 事件')
+  expectEventSequence(events, ['node:create'])
+  assert.ok(eventsOf(events, 'node:create').length >= 1, 'NODE_CREATE 事件')
+  assert.ok(eventsOf(events, 'text:create').length >= 1, 'TEXT_CREATE 事件')
+  assert.ok(eventsOf(events, 'node:insert').length >= 1, 'INSERT 事件')
   // 断言失败应抛错
   let threw = false
-  try { expectEventSequence(events, ['REMOVE']) } catch { threw = true }
+  try { expectEventSequence(events, ['node:remove']) } catch { threw = true }
   assert.ok(threw, '序列不符 → 抛错')
   document.body.removeChild(root)
 })
@@ -329,15 +329,15 @@ test('路由：navigate → ROUTE_CHANGE 事件 → 页面挂载（全链路事�
   assert.ok(!root.querySelector('[id="home"]'), 'Home 移除（页面切换）')
 
   const events = stream.events()
-  const routeEvts = events.filter((e) => e.type === 'ROUTE_CHANGE')
+  const routeEvts = events.filter((e) => evKey(e) === 'route:change')
   assert.equal(routeEvts.length, 2, 'ROUTE_CHANGE 事件（初始 + 导航）')
-  assert.equal((routeEvts[1] as any).path, '/about', '导航事件携带 path')
+  assert.equal((routeEvts[1] as any).payload?.path, '/about', '导航事件携带 path')
   // 全链路：ROUTE_CHANGE → COMP_MOUNT → NODE_CREATE → INSERT
-  const seq = events.slice(events.findIndex((e) => e.type === 'ROUTE_CHANGE' && (e as any).path === '/about'))
-  assert.ok(seq.some((e) => e.type === 'COMP_MOUNT'), '导航后 COMP_MOUNT（页面组件）')
-  assert.ok(seq.some((e) => e.type === 'NODE_CREATE'), '导航后 NODE_CREATE')
-  assert.ok(seq.some((e) => e.type === 'INSERT'), '导航后 INSERT')
-  assert.ok(seq.some((e) => e.type === 'COMP_UNMOUNT'), '导航后 COMP_UNMOUNT（旧页面）')
+  const seq = events.slice(events.findIndex((e) => evKey(e) === 'route:change' && (e as any).payload?.path === '/about'))
+  assert.ok(seq.some((e) => evKey(e) === 'comp:mount'), '导航后 COMP_MOUNT（页面组件）')
+  assert.ok(seq.some((e) => evKey(e) === 'node:create'), '导航后 NODE_CREATE')
+  assert.ok(seq.some((e) => evKey(e) === 'node:insert'), '导航后 INSERT')
+  assert.ok(seq.some((e) => evKey(e) === 'comp:unmount'), '导航后 COMP_UNMOUNT（旧页面）')
   router.close()
   document.body.removeChild(root)
 })
@@ -355,8 +355,8 @@ test('路由：参数解析（:id）→ params 注入 → ROUTE_CHANGE 携带', 
   assert.ok(root.querySelector('[id="user"]'), '用户页渲染')
   assert.equal(root.querySelector('[id="user"]')?.textContent, 'user:123', 'params 注入渲染')
   assert.equal(seenParams.id, '123', 'params 解析')
-  const routeEvt = stream.events().find((e) => e.type === 'ROUTE_CHANGE') as any
-  assert.equal(routeEvt.params.id, '123', 'ROUTE_CHANGE 携带 params')
+  const routeEvt = stream.events().find((e) => evKey(e) === 'route:change') as any
+  assert.equal(routeEvt.payload.params.id, '123', 'ROUTE_CHANGE 携带 params')
   router.close()
   document.body.removeChild(root)
 })
@@ -426,7 +426,7 @@ test('SSR：组件挂载事件（COMP_MOUNT）在服务端事件流中（可审�
   const { renderToEvents } = await import('../ui-dom/vdom3/ssr.ts')
   const Comp = async (_init: any, _ctx: any) => async () => h('span', {}, 'hi')
   const events = await renderToEvents(h(Comp, {}))
-  assert.ok(events.some((e) => e.type === 'NODE_CREATE' && (e as any).tag === 'span'), 'SSR 事件流含节点创建')
+  assert.ok(events.some((e) => evKey(e) === 'node:create' && (e as any).payload?.tag === 'span'), 'SSR 事件流含节点创建')
   // 服务端生成不污染全局流（独立数组）
   assert.ok(!stream.events().includes(events[0]), 'SSR 事件独立于运行时流')
 })
@@ -490,8 +490,8 @@ test('流式渲染：渐进性——根节点事件先到即可先显示（TTFB 
     ev = r.value
     applyEvent(ev, target, reg)
     guard++
-  } while (ev.type !== 'INSERT' && guard < 10)
-  assert.equal(ev.type, 'INSERT', '首批以 INSERT 结束（根已挂载）')
+  } while ((ev.entity !== 'node' || ev.action !== 'insert') && guard < 10)
+  assert.equal(ev.entity, 'node', '首批以 INSERT 结束（根已挂载）')
   assert.ok(target.querySelector('[id="p"]'), '根已挂载（渐进——非空壳）')
   assert.equal(target.querySelector('[id="p"]')?.getAttribute('class'), 'c', '属性已应用')
   const rest: any[] = []
@@ -648,9 +648,9 @@ test('MOVE：keyed 列表重排 → MOVE 事件（非 REMOVE+CREATE）→ DOM �
   ;(root.querySelector('[id="rev"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
   assert.deepEqual([...root.querySelectorAll('li')].map((li) => li.textContent), ['c', 'b', 'a'], '重排后顺序')
-  const moves = gs.events().filter((e) => e.type === 'MOVE')
+  const moves = gs.events().filter((e) => evKey(e) === 'node:move')
   assert.equal(moves.length, 2, `重排 = 2 个 MOVE 事件（c→首、a→尾）——实际 ${moves.length}`)
-  const removes = gs.events().filter((e) => e.type === 'REMOVE')
+  const removes = gs.events().filter((e) => evKey(e) === 'node:remove')
   assert.equal(removes.length, 0, '无 REMOVE（节点复用——状态保持）')
   document.body.removeChild(root)
 })
@@ -732,14 +732,14 @@ test('路由：页面组件交互（ctx.render 重渲染当前页）——点击
 test('事件流：环形缓冲——溢出保留最近 max 条（最旧丢弃）+ 顺序正确', async () => {
   const { createEventStream } = await import('../ui-dom/vdom3/events.ts')
   const s = createEventStream(5)
-  for (let i = 1; i <= 8; i++) s.emit({ type: 'NODE_CREATE', id: `n${i}`, tag: 'div', ts: i })
+  for (let i = 1; i <= 8; i++) s.emit({ entity: 'node', action: 'create', target: `n${i}`, payload: { tag: 'div' }, ts: i })
   const evs = s.events()
   assert.equal(evs.length, 5, '容量 5（保留最近 5）')
-  assert.deepEqual(evs.map((e: any) => e.id), ['n4', 'n5', 'n6', 'n7', 'n8'], '最旧 3 条丢弃——顺序正确')
+  assert.deepEqual(evs.map((e: any) => e.target), ['n4', 'n5', 'n6', 'n7', 'n8'], '最旧 3 条丢弃——顺序正确')
   s.reset()
   assert.equal(s.events().length, 0, 'reset 清空')
   // reset 后可复用
-  s.emit({ type: 'NODE_CREATE', id: 'x', tag: 'span', ts: 1 })
+  s.emit({ entity: 'node', action: 'create', target: 'x', payload: { tag: 'span' }, ts: 1 })
   assert.equal(s.events().length, 1, 'reset 后继续记录')
 })
 
@@ -1499,19 +1499,19 @@ test('全链路事件流：交互 → RENDER → PATCH → dom 事件（location
   ;(root.querySelector('[id="inc"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
   const evs = gs.events()
-  const types = evs.map((e) => e.type)
+  const types = evs.map((e) => evKey(e))
   // jsx 层：组件 renderFn 执行（更新）
-  assert.ok(types.includes('RENDER'), 'jsx 层：RENDER 事件（renderFn 执行）')
+  assert.ok(types.includes('comp:render'), 'jsx 层：RENDER 事件（renderFn 执行）')
   // vdom 层：patch 决策（reuse）
-  const patches = evs.filter((e) => e.type === 'PATCH')
+  const patches = evs.filter((e) => evKey(e) === 'vnode:patch')
   assert.ok(patches.length > 0, 'vdom 层：PATCH 决策事件')
-  assert.ok(patches.some((e: any) => e.action === 'reuse' && e.newKind === 'native'), 'native 同类型 reuse 决策')
+  assert.ok(patches.some((e: any) => (e as any).payload?.strategy === 'reuse' && (e as any).payload?.newKind === 'native'), 'native 同类型 reuse 决策')
   // dom 层：文本更新（结果）
-  assert.ok(types.includes('TEXT_UPDATE'), 'dom 层：TEXT_UPDATE（结果）')
+  assert.ok(types.includes('text:update'), 'dom 层：TEXT_UPDATE（结果）')
   // 因果链顺序：RENDER（jsx）→ PATCH（vdom）→ TEXT_UPDATE（dom）
-  const iRender = types.indexOf('RENDER')
-  const iPatch = types.findIndex((t) => t === 'PATCH')
-  const iDom = types.indexOf('TEXT_UPDATE')
+  const iRender = types.indexOf('comp:render')
+  const iPatch = types.findIndex((t) => t === 'vnode:patch')
+  const iDom = types.indexOf('text:update')
   assert.ok(iRender >= 0 && iPatch >= 0 && iDom >= 0, '三层事件都存在')
   assert.ok(iRender < iDom, 'RENDER 先于 dom 结果')
   document.body.removeChild(root)
@@ -1546,13 +1546,13 @@ test('kind 完整性：patch 决策表覆盖全部 6 种 kind（reuse 路径—�
   await new Promise((r) => setTimeout(r, 20))
   ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
-  const patches = gs.events().filter((e) => e.type === 'PATCH') as any[]
-  const reuseKinds = new Set(patches.filter((p) => p.action === 'reuse').map((p) => p.newKind))
+  const patches = gs.events().filter((e) => evKey(e) === 'vnode:patch') as any[]
+  const reuseKinds = new Set(patches.filter((p) => p.payload?.strategy === 'reuse').map((p) => p.payload?.newKind))
   // native/comp 必须有 reuse（frag/portal/text 由组件库场景覆盖——此处核心断言）
   assert.ok(reuseKinds.has('native'), 'native reuse 决策')
   assert.ok(reuseKinds.has('comp'), 'comp reuse 决策')
   // 无 unhandled（kind 分发完整性——缺 case 会在这里暴露）
-  const unhandled = patches.filter((p) => p.action === 'unhandled')
+  const unhandled = patches.filter((p) => p.payload?.strategy === 'unhandled')
   assert.equal(unhandled.length, 0, `无 unhandled 决策（kind 分发完整）——实际 ${unhandled.length}`)
   document.body.removeChild(root)
 })
@@ -1585,10 +1585,10 @@ test('事件流断言：Modal 关闭应产生 RENDER + REMOVE（组件级 update
   if (m) m.dispatchEvent(new (window as any).Event('animationend', { bubbles: true }))
   await new Promise((r) => setTimeout(r, 50))
   const evs = gs.events()
-  const types = evs.map((e) => e.type)
+  const types = evs.map((e) => evKey(e))
   // 断言：RENDER（Modal 组件级更新）+ REMOVE（输出移除——事件流完整）
-  assert.ok(types.includes('RENDER'), `RENDER 事件（Modal 关闭重渲染）——实际: ${types.join(',')}`)
-  assert.ok(types.includes('REMOVE'), `REMOVE 事件（输出移除可观测）——实际: ${types.join(',')}`)
+  assert.ok(types.includes('comp:render'), `RENDER 事件（Modal 关闭重渲染）——实际: ${types.join(',')}`)
+  assert.ok(types.includes('node:remove'), `REMOVE 事件（输出移除可观测）——实际: ${types.join(',')}`)
   // 滚动锁恢复（ref(null) → unlockScroll）
   assert.equal(document.body.style.overflow, '', '滚动锁恢复')
   document.body.removeChild(root)
@@ -1669,7 +1669,7 @@ test('组件级更新：ctx.render 只重跑该组件（兄弟组件 renderFn �
   ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
   const rendersAfterClick = innerRenders + siblingRenders
-  const renderEvents = gs.events().filter((e) => e.type === 'RENDER')
+  const renderEvents = gs.events().filter((e) => evKey(e) === 'comp:render')
   // 根级 update：Inner + Sibling 都重跑（整树——根组件 render 传播）
   assert.ok(renderEvents.length >= 2, '整树 render：Inner + Sibling 都重跑（根级触发）')
   // 现在测真正的组件级：通过 UI 的 ui.render（组件自身）——用 App 的子组件内部触发
@@ -1714,8 +1714,8 @@ test('组件级更新：Inner 内部 render → 只重跑 Inner（Sibling render
   assert.equal(root.querySelector('[id="inc"]')?.textContent, 'c1', 'Inner 更新')
   assert.equal(siblingRenders, siblingBefore, 'Sibling renderFn 未重跑（组件级——非整树）')
   // 事件流：RENDER 只 Inner（不 Sibling）
-  const renderEvents = gs.events().filter((e) => e.type === 'RENDER')
-  const rendered = renderEvents.map((e: any) => e.name)
+  const renderEvents = gs.events().filter((e) => evKey(e) === 'comp:render')
+  const rendered = renderEvents.map((e: any) => e.payload?.name)
   assert.ok(rendered.includes('Inner'), 'RENDER: Inner')
   assert.ok(!rendered.includes('Sibling'), 'RENDER 不含 Sibling（组件级精准）')
   document.body.removeChild(root)
@@ -1744,10 +1744,10 @@ test('值比较：属性值不变 → 零 PROP_UPDATE（DOM 写入最小化—�
   // 重渲染（count 变化）——属性值不变 → 零 PROP_UPDATE
   ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
-  const props = gs.events().filter((e) => e.type === 'PROP_UPDATE')
+  const props = gs.events().filter((e) => evKey(e) === 'prop:update')
   // 只应有 TEXT_UPDATE（count 文本）——无 PROP_UPDATE（style/class 值相同——浅比较零事件）
   assert.equal(props.length, 0, `属性值不变 → 零 PROP_UPDATE（实际 ${props.length}）`)
-  const texts = gs.events().filter((e) => e.type === 'TEXT_UPDATE')
+  const texts = gs.events().filter((e) => evKey(e) === 'text:update')
   assert.ok(texts.length >= 1, '文本变化有事件（count 更新）')
   // DOM 状态正确（style 保留——未因浅比较跳过而丢失）
   assert.ok(root.querySelector('[id="sty"]')?.getAttribute('style')?.includes('background'), 'style 生效')
@@ -1779,10 +1779,10 @@ test('location 参数级：params 作为 props 传递——:id 变化 → 页面
   assert.equal(root.querySelector('[id="page"]')?.textContent, 'id:2', 'params 变化 → 页面更新')
   assert.ok(renders > before, '页面组件重渲染（params props 变化）')
   // 事件流：ROUTE_CHANGE → RENDER（页面——props 变化）
-  const types = gs.events().map((e) => e.type)
-  assert.ok(types.includes('ROUTE_CHANGE'), 'location：ROUTE_CHANGE')
-  assert.ok(types.includes('RENDER'), 'jsx：页面组件 RENDER（params props 变化驱动）')
-  assert.ok(types.includes('TEXT_UPDATE'), 'dom：文本更新（id 变化）')
+  const types = gs.events().map((e) => evKey(e))
+  assert.ok(types.includes('route:change'), 'location：ROUTE_CHANGE')
+  assert.ok(types.includes('comp:render'), 'jsx：页面组件 RENDER（params props 变化驱动）')
+  assert.ok(types.includes('text:update'), 'dom：文本更新（id 变化）')
   router.close()
   document.body.removeChild(root)
 })
@@ -1800,8 +1800,8 @@ test('EVENT_BIND：事件绑定观测（dom 层——绑定关系可审计）', 
     ])
   createRoot(h(App, {}), root)
   await new Promise((r) => setTimeout(r, 20))
-  const binds = gs.events().filter((e) => e.type === 'EVENT_BIND')
-  const events = binds.map((e: any) => `${e.event}`)
+  const binds = gs.events().filter((e) => evKey(e) === 'event:bind')
+  const events = binds.map((e: any) => `${e.payload?.event}`)
   assert.ok(events.includes('click'), 'click 绑定记录')
   assert.ok(events.includes('mouseover'), 'mouseover 绑定记录（多事件）')
   assert.ok(events.includes('input'), 'input 绑定记录')
@@ -1830,13 +1830,13 @@ test('生命周期事件化：节点移除 → EVENT_UNBIND（绑定解绑可观
   // 移除（show=false——条件 null）
   ;(root.querySelector('[id="t"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
-  const types = gs.events().map((e) => e.type)
+  const types = gs.events().map((e) => evKey(e))
   // 事件绑定解绑（移除的按钮的 onClick）
-  assert.ok(types.includes('EVENT_UNBIND'), `EVENT_UNBIND（绑定生命周期）——实际: ${[...new Set(types)].join(',')}`)
+  assert.ok(types.includes('event:unbind'), `EVENT_UNBIND（绑定生命周期）——实际: ${[...new Set(types)].join(',')}`)
   // ref(null) 清理（REF_CLEANUP）
-  assert.ok(types.includes('REF_CLEANUP'), `REF_CLEANUP（ref 生命周期）——实际: ${[...new Set(types)].join(',')}`)
+  assert.ok(types.includes('ref:cleanup'), `REF_CLEANUP（ref 生命周期）——实际: ${[...new Set(types)].join(',')}`)
   // 结构移除
-  assert.ok(types.includes('REMOVE'), 'REMOVE（节点移除）')
+  assert.ok(types.includes('node:remove'), 'REMOVE（节点移除）')
   assert.ok(!root.querySelector('[id="b"]'), '按钮已移除')
   document.body.removeChild(root)
 })
@@ -1863,21 +1863,21 @@ test('全链路事件流矩阵：每层每事件类型都有断言（location/js
   // 交互：点击（jsx 组件级 RENDER → vdom PATCH → dom TEXT_UPDATE）
   ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
-  let types = new Set(gs.events().map((e) => e.type))
+  let types = new Set(gs.events().map((e) => evKey(e)))
   // jsx + vdom + dom
-  assert.ok(types.has('RENDER'), 'jsx：RENDER')
-  assert.ok(types.has('PATCH'), 'vdom：PATCH')
-  assert.ok(types.has('TEXT_UPDATE'), 'dom：TEXT_UPDATE')
-  assert.ok(types.has('EVENT_BIND'), 'dom：EVENT_BIND（初始已绑——重置后点击不含——初始有）')
+  assert.ok(types.has('comp:render'), 'jsx：RENDER')
+  assert.ok(types.has('vnode:patch'), 'vdom：PATCH')
+  assert.ok(types.has('text:update'), 'dom：TEXT_UPDATE')
+  assert.ok(types.has('event:bind'), 'dom：EVENT_BIND（初始已绑——重置后点击不含——初始有）')
   gs.reset()
   // 路由导航（location：ROUTE_CHANGE → 页面 RENDER → dom）
   router.navigate('/a/2')
   await new Promise((r) => setTimeout(r, 20))
-  types = new Set(gs.events().map((e) => e.type))
-  assert.ok(types.has('ROUTE_CHANGE'), 'location：ROUTE_CHANGE')
-  assert.ok(types.has('PROPS_UPDATE') || types.has('RENDER'), 'jsx：页面 props 变化/重渲染')
-  assert.ok(types.has('PATCH'), 'vdom：PATCH')
-  assert.ok(types.has('TEXT_UPDATE'), 'dom：文本更新（id 变化）')
+  types = new Set(gs.events().map((e) => evKey(e)))
+  assert.ok(types.has('route:change'), 'location：ROUTE_CHANGE')
+  assert.ok(types.has('props:update') || types.has('comp:render'), 'jsx：页面 props 变化/重渲染')
+  assert.ok(types.has('vnode:patch'), 'vdom：PATCH')
+  assert.ok(types.has('text:update'), 'dom：文本更新（id 变化）')
   // 初始挂载（重新——生命周期）
   gs.reset()
   const root2 = document.createElement('div')
@@ -1886,11 +1886,11 @@ test('全链路事件流矩阵：每层每事件类型都有断言（location/js
   const App2 = async (_init: any, _ctx: any) => async () => h('div', {}, 'x')
   createRoot(h(App2, {}), root2)
   await new Promise((r) => setTimeout(r, 20))
-  types = new Set(gs.events().map((e) => e.type))
-  assert.ok(types.has('BUILD'), 'vdom：BUILD（组件构建）')
-  assert.ok(types.has('COMP_MOUNT'), '生命周期：COMP_MOUNT')
-  assert.ok(types.has('NODE_CREATE'), 'dom：NODE_CREATE')
-  assert.ok(types.has('INSERT'), 'dom：INSERT')
+  types = new Set(gs.events().map((e) => evKey(e)))
+  assert.ok(types.has('comp:build'), 'vdom：BUILD（组件构建）')
+  assert.ok(types.has('comp:mount'), '生命周期：COMP_MOUNT')
+  assert.ok(types.has('node:create'), 'dom：NODE_CREATE')
+  assert.ok(types.has('node:insert'), 'dom：INSERT')
   router.close()
   document.body.removeChild(root)
   document.body.removeChild(root2)
@@ -1921,7 +1921,7 @@ test('事件生命周期：handler 变化 → UNBIND + BIND（注册/注销可�
   ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
   const afterStable = gs.events()
-  assert.ok(!afterStable.some((e) => e.type === 'EVENT_BIND' || e.type === 'EVENT_UNBIND'), `稳定 handler → 零 BIND/UNBIND（实际: ${afterStable.filter((e) => e.type === 'EVENT_BIND' || e.type === 'EVENT_UNBIND').map((e) => e.type).join(',')}）`)
+  assert.ok(!afterStable.some((e) => evKey(e) === 'event:bind' || evKey(e) === 'event:unbind'), `稳定 handler → 零 BIND/UNBIND（实际: ${afterStable.filter((e) => evKey(e) === 'event:bind' || evKey(e) === 'event:unbind').map((e) => evKey(e)).join(',')}）`)
   // render 内定义 handler（每次新函数）→ 重绑（UNBIND + BIND——事件流可观测）
   gs.reset()
   const App2 = async (_init: any, ctx: any) => {
@@ -1940,10 +1940,10 @@ test('事件生命周期：handler 变化 → UNBIND + BIND（注册/注销可�
   ;(root2.querySelector('[id="g2"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
   const evs = gs.events()
-  const types = evs.map((e) => e.type)
+  const types = evs.map((e) => evKey(e))
   // render 内定义（新函数）→ UNBIND + BIND 序列（生命周期完整）
-  const unbindIdx = types.findIndex((t) => t === 'EVENT_UNBIND')
-  const bindIdx = types.lastIndexOf('EVENT_BIND')
+  const unbindIdx = types.findIndex((t) => t === 'event:unbind')
+  const bindIdx = types.lastIndexOf('event:bind')
   assert.ok(unbindIdx >= 0, `handler 变化 → EVENT_UNBIND（旧解绑）——实际: ${[...new Set(types)].join(',')}`)
   assert.ok(unbindIdx < bindIdx, 'UNBIND 先于 BIND（先取消再注册）')
   document.body.removeChild(root)

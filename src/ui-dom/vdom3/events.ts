@@ -5,7 +5,20 @@
  * 事件不可变；DOM 指令可逆（取消 = 应用逆事件）。
  */
 
-import type { EventStream, V3Event } from './types.ts'
+import type { EventStream, V3Event, Entity, Action } from './types.ts'
+
+/** 事件构造（统一命名：对象 + 动作 + 参数——每层同构） */
+export function ev(entity: Entity, action: Action, target?: string, payload?: Record<string, unknown>): V3Event {
+  const e: V3Event = { entity, action, ts: Date.now() }
+  if (target != null) e.target = target
+  if (payload != null) e.payload = payload
+  return e
+}
+
+/** 事件键（断言/审计：'comp:render'——对象:动作） */
+export function evKey(ev: V3Event): string {
+  return `${ev.entity}:${ev.action}`
+}
 
 export function createEventStream(max = 20000): EventStream {
   // 环形缓冲（head/tail 指针——溢出不 shift——O(1) emit）
@@ -13,28 +26,28 @@ export function createEventStream(max = 20000): EventStream {
   let head = 0
   let len = 0
   const at = (i: number): V3Event => buf[(head + i) % max]
-  const set = (i: number, ev: V3Event): void => { buf[(head + i) % max] = ev }
+  const set = (i: number, evt: V3Event): void => { buf[(head + i) % max] = evt }
   return {
-    emit(ev: V3Event): void {
-      if (len < max) { set(len, ev); len++ }
-      else { set(0, ev); head = (head + 1) % max }
+    emit(evt: V3Event): void {
+      if (len < max) { set(len, evt); len++ }
+      else { set(0, evt); head = (head + 1) % max }
     },
     events(): V3Event[] {
       const out: V3Event[] = new Array(len)
       for (let i = 0; i < len; i++) out[i] = at(i)
       return out
     },
-    inverse(ev: V3Event): V3Event | null {
-      switch (ev.type) {
-        case 'INSERT':
-          return { type: 'REMOVE', parent: ev.parent, child: ev.child, ts: Date.now() }
-        case 'REMOVE':
+    inverse(evt: V3Event): V3Event | null {
+      switch (evt.entity + ':' + evt.action) {
+        case 'node:insert':
+          return ev('node', 'remove', evt.target, { parent: evt.payload?.parent })
+        case 'node:remove':
           return null // 逆操作需保存被移除节点完整信息——执行器快照配合
-        case 'PROP_UPDATE':
-          return { type: 'PROP_UPDATE', target: ev.target, key: ev.key, value: ev.prev, prev: ev.value, ts: Date.now() }
-        case 'TEXT_UPDATE':
-          return { type: 'TEXT_UPDATE', target: ev.target, value: ev.prev, prev: ev.value, ts: Date.now() }
-        case 'MOVE':
+        case 'prop:update':
+          return ev('prop', 'update', evt.target, { key: evt.payload?.key, value: evt.payload?.prev, prev: evt.payload?.value })
+        case 'text:update':
+          return ev('text', 'update', evt.target, { value: evt.payload?.prev, prev: evt.payload?.value })
+        case 'node:move':
           return null // 需保存旧位置
         default:
           return null

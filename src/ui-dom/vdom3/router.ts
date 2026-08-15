@@ -9,7 +9,7 @@
 import type { VNode, V3Ctx } from './types.ts'
 import { buildVNode } from './build.ts'
 import { mount, patch } from './render.ts'
-import { stream } from './events.ts'
+import { stream, ev } from './events.ts'
 
 /** 布局包裹（跨路由复用——layout 函数引用稳定 → patch 同位置同类型复用——
  *  工厂不重跑——内部状态（折叠/高亮）保持——vdom2 布局层语义） */
@@ -81,7 +81,7 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
       const v = pageVnode
       if (typeof v.type === 'function' && v._render) {
         // RENDER 事件（jsx 层——页面组件渲染可观测）
-        stream.emit({ type: 'RENDER', id: v._id!, name: compNameOf(v), ts: Date.now() })
+        stream.emit(ev('comp', 'render', v._id!, { name: compNameOf(v) }))
         const output = await v._render(v.props)
         if (output == null) return
         const oldOut = v._child ?? null
@@ -105,7 +105,7 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
     busy = true
     try {
       const matched = match(routes, path)
-      stream.emit({ type: 'ROUTE_CHANGE', path, params: matched?.params ?? {}, ts: Date.now() })
+      stream.emit(ev('route', 'change', undefined, { path, params: matched?.params ?? {} }))
       if (!matched) {
         root.innerHTML = '' // 无匹配 → 清空（404 由上层处理）
         current = null

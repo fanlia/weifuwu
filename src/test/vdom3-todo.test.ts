@@ -142,7 +142,7 @@ test('TodoApp：异步加载 → 渲染数据 → 表单添加 → 切换 → �
   assert.ok(doneVisible, 'done 过滤只显示已完成')
 
   // 7. 事件流审计：列表操作为 keyed 精确（增 = CREATE+INSERT；删 = REMOVE；无整表重建）
-  const moves = eventsOf(stream.events(), 'MOVE')
+  const moves = eventsOf(stream.events(), 'node:move')
   assert.ok(moves.length >= 0, '重排事件（若有）')
   document.body.removeChild(root)
 })

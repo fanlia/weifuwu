@@ -7,7 +7,7 @@
 
 import type { VNode, VNodeChild, Component, PortalVNode, V3Ctx } from './types.ts'
 import { Fragment, Portal, childrenOf } from './types.ts'
-import { stream, nextNodeId } from './events.ts'
+import { stream, ev, nextNodeId } from './events.ts'
 import { createV3Ui } from './ui.ts'
 
 /** 组件卸载钩子注册表（组件 id → 清理函数——COMP_UNMOUNT 时调用） */
@@ -52,7 +52,7 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
       v._render = reuse._render
       v._id = reuse._id
       // BUILD 事件：组件构建决策（工厂复用——内部状态保持的事件证据）
-      stream.emit({ type: 'BUILD', id: v._id!, name: compName(v.type), reused: true, ts: Date.now() })
+      stream.emit(ev('comp', 'build', v._id!, { name: compName(v.type), reused: true }))
       // props 级 diff（剪枝）：新旧 props 浅比较——不变 → 复用旧输出（不重跑 renderFn——
       // 零 RENDER——父重渲染不波及 props 未变的子组件）；根组件不剪枝（isRoot——
       // 内部状态变化必须重跑 renderFn）
@@ -62,11 +62,11 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
       }
       // props 变化 → 驱动重渲染（PROPS_UPDATE 事件——变化的 key 可观测）
       const changedKeys = Object.keys({ ...reuse.props, ...v.props }).filter((k) => reuse.props[k] !== v.props[k])
-      stream.emit({ type: 'PROPS_UPDATE', id: v._id!, name: compName(v.type), keys: changedKeys, ts: Date.now() })
+      stream.emit(ev('props', 'update', v._id!, { name: compName(v.type), keys: changedKeys }))
     } else {
       v._id = nextNodeId()
-      stream.emit({ type: 'BUILD', id: v._id, name: compName(v.type), reused: false, ts: Date.now() })
-      stream.emit({ type: 'COMP_MOUNT', id: v._id, name: compName(v.type), ts: Date.now() })
+      stream.emit(ev('comp', 'build', v._id, { name: compName(v.type), reused: false }))
+      stream.emit(ev('comp', 'mount', v._id, { name: compName(v.type) }))
       // 组件 ctx：onUnmount 钩子（卸载清理注册——COMP_UNMOUNT 时执行）
       // + ui（vdom2 兼容面——hooks shim——组件库零改动）
       const compId = v._id
@@ -88,7 +88,7 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
       v._render = renderFn as (props: Record<string, unknown>) => Promise<VNode | null>
     }
     // RENDER 事件：jsx 层——组件 renderFn 执行（每次渲染可观测——更新链路）
-    stream.emit({ type: 'RENDER', id: v._id!, name: compName(v.type), ts: Date.now() })
+    stream.emit(ev('comp', 'render', v._id!, { name: compName(v.type) }))
     const output = await v._render!(v.props)
     v._child = null
     const oldOut = reuse?._child ?? null

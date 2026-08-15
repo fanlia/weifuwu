@@ -96,35 +96,43 @@ export const Portal: unique symbol = Symbol('v3-portal')
 export type PortalVNode = VNode & { type: typeof Portal; portalKey?: string | null }
 
 // ── 渲染事件流（location→DOM 全链路——引擎本体） ──
+//
+// 统一命名：对象 + 动作 + 参数（entity + action + target + payload）——
+// 每一层（location/jsx/vdom/dom）同构：
+//   location 层：{ entity:'route', action:'change' }         —— 路由变更
+//   jsx 层    ：{ entity:'comp'/'props', action:'render'/'mount'/'unmount'/'build'/'update' }
+//   vdom 层   ：{ entity:'vnode', action:'patch' }           —— diff 决策（strategy 参数）
+//   dom 层    ：{ entity:'node'/'text'/'prop'/'event'/'ref', action:'create'/'insert'/'remove'/'move'/'update'/'bind'/'unbind'/'cleanup' }
+//
+// 不变量：任何事件触发，最终都落到 dom 层事件（node/text/prop/event/ref 的精准状态变化）——
+// 决策层事件（route/comp/vnode）只是解释"为什么"，执行层事件（dom）是"做了什么"。
 
-export type V3Event =
-  /** 路由 */
-  | { type: 'ROUTE_CHANGE'; path: string; params: Record<string, string>; ts: number }
-  /** 组件 */
-  | { type: 'COMP_MOUNT'; id: string; name: string; ts: number }
-  | { type: 'COMP_UNMOUNT'; id: string; name: string; ts: number }
-  /** jsx 层：组件 renderFn 执行（每次渲染——更新可观测） */
-  | { type: 'RENDER'; id: string; name: string; ts: number }
-  /** jsx 层：组件 props 变化（父 diff 剪枝——props 变化才驱动子重渲染） */
-  | { type: 'PROPS_UPDATE'; id: string; name: string; keys: string[]; ts: number }
-  /** vdom 层：组件构建（复用/新建——工厂不重跑的事件证据） */
-  | { type: 'BUILD'; id: string; name: string; reused: boolean; ts: number }
-  /** vdom 层：patch 决策（kind 分发——diff 决策可观测/可断言——缺 case 明确失败） */
-  | { type: 'PATCH'; oldKind: VKind | null; newKind: VKind; action: 'reuse' | 'rebuild' | 'move' | 'remove' | 'unhandled'; ts: number }
-  /** dom 层：事件绑定观测（记录绑定关系——handler 闭包不可序列化——不参与 diff/回放） */
-  | { type: 'EVENT_BIND'; target: string; event: string; ts: number }
-  /** dom 层：事件解绑（节点移除时——绑定生命周期 UNBIND 可观测） */
-  | { type: 'EVENT_UNBIND'; target: string; event: string; ts: number }
-  /** dom 层：ref 生命周期（ref(null)——卸载清理可观测——lockScroll/focus 等清理依赖） */
-  | { type: 'REF_CLEANUP'; target: string; ts: number }
-  /** 渲染指令（DOM 变更——执行器消费；可逆） */
-  | { type: 'NODE_CREATE'; id: string; tag: string; ts: number }
-  | { type: 'TEXT_CREATE'; id: string; value: string; ts: number }
-  | { type: 'INSERT'; parent: string; child: string; ref?: string | null; ts: number }
-  | { type: 'REMOVE'; parent: string; child: string; ts: number }
-  | { type: 'PROP_UPDATE'; target: string; key: string; value: unknown; prev: unknown; ts: number }
-  | { type: 'TEXT_UPDATE'; target: string; value: string; prev: string; ts: number }
-  | { type: 'MOVE'; node: string; parent: string; ref: string | null; prev?: string | null; ts: number }
+export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref'
+
+export type Action =
+  /** location 层 */
+  | 'change'
+  /** jsx 层 */
+  | 'render' | 'build' | 'mount' | 'unmount' | 'update'
+  /** vdom 层 */
+  | 'patch'
+  /** dom 层 */
+  | 'create' | 'insert' | 'remove' | 'move' | 'bind' | 'unbind' | 'cleanup'
+
+export type V3Event = {
+  /** 对象（什么） */
+  entity: Entity
+  /** 动作（怎么了） */
+  action: Action
+  /** 对象 id（目标定位——node id / comp id） */
+  target?: string
+  /** 参数（对象相关数据——旧值/新值/父节点/属性 key 等） */
+  payload?: Record<string, unknown>
+  ts: number
+}
+
+/** patch 决策策略（vnode:patch 的 payload.strategy） */
+export type PatchStrategy = 'reuse' | 'rebuild' | 'move' | 'remove' | 'unhandled'
 
 /** 事件流（记录/回放/断言——DOM = fold(events)） */
 export interface EventStream {

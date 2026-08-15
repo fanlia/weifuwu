@@ -30,7 +30,7 @@ export function isFragmentNode(v: unknown): boolean {
   const t = (v as VNode).type
   return (t === Fragment || typeof t === 'symbol') && (v as VNode).props?.portalKey == null
 }
-import { stream, nextNodeId } from './events.ts'
+import { stream, ev, nextNodeId } from './events.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
 import { auditOrder } from './audit.ts'
@@ -101,7 +101,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   el.setAttribute('data-v3-id', id)
   registry.register(id, el)
   vnode.el = el
-  stream.emit({ type: 'NODE_CREATE', id, tag: vnode.type as string, ts: Date.now() })
+  stream.emit(ev('node', 'create', id, { tag: vnode.type as string }))
   for (const [key, val] of Object.entries(vnode.props ?? {})) {
     if (key === 'key' || key === 'children' || key === 'ref') continue
     if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
@@ -114,7 +114,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
         evtKeys.add(key)
         evtHandlers.set(key, handler)
         // EVENT_BIND 观测（dom 层——绑定关系可审计）
-        stream.emit({ type: 'EVENT_BIND', target: id, event: key.slice(2).toLowerCase(), ts: Date.now() })
+        stream.emit(ev('event', 'bind', id, { event: key.slice(2).toLowerCase() }))
       }
       continue
     }
@@ -127,12 +127,12 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
           .map(([k, v]) => `${k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}:${v}`).join(';')
         el.setAttribute('style', css)
       } else el.setAttribute(key, String(val))
-      stream.emit({ type: 'PROP_UPDATE', target: id, key, value: val, prev: '', ts: Date.now() })
+      stream.emit(ev('prop', 'update', id, { key, value: val, prev: '' }))
     }
   }
   if (anchor && anchor.parentNode === parent) parent.insertBefore(el, anchor)
   else parent.appendChild(el)
-  stream.emit({ type: 'INSERT', parent: parentId(parent), child: id, ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
+  stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null }))
   // ref 回调（挂载——稳定 ref 定义在 mount 层——§5.1 纪律）
   const refFn = vnode.props?.ref
   if (typeof refFn === 'function') refFn(el)
@@ -146,10 +146,10 @@ function renderVNodeChild(c: VNodeChild, parent: Node, anchor?: Node | null): No
     const t = document.createTextNode(String(c))
     const id = nextNodeId()
     registry.register(id, t)
-    stream.emit({ type: 'TEXT_CREATE', id, value: String(c), ts: Date.now() })
+    stream.emit(ev('text', 'create', id, { value: String(c) }))
     if (anchor && anchor.parentNode === parent) parent.insertBefore(t, anchor)
     else parent.appendChild(t)
-    stream.emit({ type: 'INSERT', parent: parentId(parent), child: id, ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
+    stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null }))
     return t
   }
   return renderVNode(c, parent, anchor)
@@ -176,7 +176,7 @@ function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?:
     const existing = oldV && typeof oldV === 'object' ? oldV.el : (parent.childNodes[0] ?? null)
     if (existing && existing.nodeType === 3) {
       if (existing.nodeValue !== str) {
-        stream.emit({ type: 'TEXT_UPDATE', target: nodeId(existing), value: str, prev: existing.nodeValue ?? '', ts: Date.now() })
+        stream.emit(ev('text', 'update', nodeId(existing), { value: str, prev: existing.nodeValue ?? '' }))
         existing.nodeValue = str
       }
       return existing
@@ -184,16 +184,16 @@ function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?:
     const t = document.createTextNode(str)
     const id = nextNodeId()
     registry.register(id, t)
-    stream.emit({ type: 'TEXT_CREATE', id, value: str, ts: Date.now() })
+    stream.emit(ev('text', 'create', id, { value: str }))
     if (anchor && anchor.parentNode === parent) parent.insertBefore(t, anchor)
     else parent.appendChild(t)
-    stream.emit({ type: 'INSERT', parent: parentId(parent), child: id, ref: anchor ? nodeId(anchor) : null, ts: Date.now() })
+    stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null }))
     return t
   }
   if (newV == null || newV === false || newV === true) {
     if (oldV != null && oldV.el && oldV.el.parentNode === parent) {
       const id = registry.idOf(oldV.el)
-      stream.emit({ type: 'REMOVE', parent: parentId(parent), child: id, ts: Date.now() })
+      stream.emit(ev('node', 'remove', id, { parent: parentId(parent) }))
       oldV.el.parentNode?.removeChild(oldV.el)
       registry.unregister(id, oldV.el)
     }
@@ -223,7 +223,7 @@ function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?:
   // 旧组件 → COMP_UNMOUNT；移除旧 + 渲染新
   if (oldIsVNode && typeof (oldV as VNode).type === 'function' && (oldV as VNode)._id) {
     runUnmountHooks((oldV as VNode)._id!)
-    stream.emit({ type: 'COMP_UNMOUNT', id: (oldV as VNode)._id!, name: compName((oldV as VNode).type), ts: Date.now() })
+    stream.emit(ev('comp', 'unmount', (oldV as VNode)._id!, { name: compName((oldV as VNode).type) }))
   }
   if (oldIsVNode) {
     const oldEl = (oldV as VNode).el
@@ -268,7 +268,7 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
         el.addEventListener(key.slice(2).toLowerCase(), handler)
         evtKeys.add(key)
         evtHandlers.set(key, handler)
-        stream.emit({ type: 'EVENT_BIND', target, event: key.slice(2).toLowerCase(), ts: Date.now() })
+        stream.emit(ev('event', 'bind', target, { event: key.slice(2).toLowerCase() }))
       } else if (evtHandlers.get(key) !== handler) {
         // handler 变化 → 先解绑旧再绑新（EVENT_UNBIND → EVENT_BIND——注册/注销可观测；
         // 稳定引用（§5.1 mount 定义回调）→ 零事件）
@@ -276,8 +276,8 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
         if (oldHandler) el.removeEventListener(key.slice(2).toLowerCase(), oldHandler)
         el.addEventListener(key.slice(2).toLowerCase(), handler)
         evtHandlers.set(key, handler)
-        stream.emit({ type: 'EVENT_UNBIND', target, event: key.slice(2).toLowerCase(), ts: Date.now() })
-        stream.emit({ type: 'EVENT_BIND', target, event: key.slice(2).toLowerCase(), ts: Date.now() })
+        stream.emit(ev('event', 'unbind', target, { event: key.slice(2).toLowerCase() }))
+        stream.emit(ev('event', 'bind', target, { event: key.slice(2).toLowerCase() }))
       }
       continue
     }
@@ -294,13 +294,13 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
     } else {
       el.setAttribute(key, String(nv))
     }
-    stream.emit({ type: 'PROP_UPDATE', target, key, value: nv, prev: ov ?? '', ts: Date.now() })
+    stream.emit(ev('prop', 'update', target, { key, value: nv, prev: ov ?? '' }))
   }
 }
 
 /** PATCH 决策事件（全链路事件流——kind 分发可观测/可断言） */
 function emitPatch(oldKind: VKind | null, newKind: VKind, action: 'reuse' | 'rebuild' | 'move' | 'remove' | 'unhandled'): void {
-  stream.emit({ type: 'PATCH', oldKind, newKind, action, ts: Date.now() })
+  stream.emit(ev('vnode', 'patch', undefined, { oldKind, newKind, strategy: action }))
 }
 
 // ── kind 同类型处理器表（kind → 复用路径——显式注册——缺注册明确失败） ──
@@ -410,7 +410,7 @@ function moveKeyedNodes(oldKids: VNodeChild[], newKids: VNodeChild[], el: Elemen
       if (target !== elNode) {
         const prev = elNode.previousSibling ? registry.idOf(elNode.previousSibling) : null
         el.insertBefore(elNode, target)
-        stream.emit({ type: 'MOVE', node: registry.idOf(elNode), parent: nodeId(el), ref: target ? registry.idOf(target) : null, prev, ts: Date.now() })
+        stream.emit(ev('node', 'move', registry.idOf(elNode), { parent: nodeId(el), ref: target ? registry.idOf(target) : null, prev }))
       }
       prevNode = elNode
     }
@@ -442,7 +442,7 @@ function patchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: El
   for (const ok of oldKids) {
     if (isVNode(ok) && ok.key != null && !newKeys.has(ok.key) && ok.el?.parentNode === el) {
       const id = registry.idOf(ok.el)
-      stream.emit({ type: 'REMOVE', parent: nodeId(el), child: id, ts: Date.now() })
+      stream.emit(ev('node', 'remove', id, { parent: nodeId(el) }))
       ok.el.parentNode?.removeChild(ok.el)
       registry.unregister(id, ok.el)
     }
@@ -458,7 +458,7 @@ export function callRefCleanup(v: VNode | null | undefined): void {
   if (typeof refFn === 'function') {
     // ref 生命周期事件（ref(null)——卸载清理可观测/可断言）
     const el = (v as VNode).el
-    stream.emit({ type: 'REF_CLEANUP', target: el ? registry.idOf(el) : 'null', ts: Date.now() })
+    stream.emit(ev('ref', 'cleanup', el ? registry.idOf(el) : 'null'))
     refFn(null)
   }
   for (const c of childrenOf(v as VNode)) {
@@ -472,12 +472,12 @@ export function removeNodeWithLifecycle(node: Node, parent: Node, vnodeRef?: VNo
   const evtKeys = (node as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys
   if (evtKeys) {
     for (const key of evtKeys) {
-      stream.emit({ type: 'EVENT_UNBIND', target: registry.idOf(node), event: key.slice(2).toLowerCase(), ts: Date.now() })
+      stream.emit(ev('event', 'unbind', registry.idOf(node), { event: key.slice(2).toLowerCase() }))
     }
   }
   if (vnodeRef) callRefCleanup(vnodeRef)
   const rid = registry.idOf(node)
-  stream.emit({ type: 'REMOVE', parent: parentId(parent), child: rid, ts: Date.now() })
+  stream.emit(ev('node', 'remove', rid, { parent: parentId(parent) }))
   node.parentNode?.removeChild(node)
   registry.unregister(rid, node)
 }
@@ -504,11 +504,11 @@ export function removePortalContent(pv: PortalVNode): void {
     const evtKeys = (child as Element & { __v3evtKeys?: Set<string> }).__v3evtKeys
     if (evtKeys) {
       for (const key of evtKeys) {
-        stream.emit({ type: 'EVENT_UNBIND', target: registry.idOf(child), event: key.slice(2).toLowerCase(), ts: Date.now() })
+        stream.emit(ev('event', 'unbind', registry.idOf(child), { event: key.slice(2).toLowerCase() }))
       }
     }
     const cid = registry.idOf(child)
-    stream.emit({ type: 'REMOVE', parent: NodeRegistry.PORTAL(portalKey), child: cid, ts: Date.now() })
+    stream.emit(ev('node', 'remove', cid, { parent: NodeRegistry.PORTAL(portalKey) }))
     container.removeChild(child)
     registry.unregister(cid, child)
   }
@@ -552,16 +552,16 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
       const existing = el.childNodes[i]
       if (existing && existing.nodeType === 3) {
         if (existing.nodeValue !== str) {
-          stream.emit({ type: 'TEXT_UPDATE', target: nodeId(existing), value: str, prev: existing.nodeValue ?? '', ts: Date.now() })
+          stream.emit(ev('text', 'update', nodeId(existing), { value: str, prev: existing.nodeValue ?? '' }))
           existing.nodeValue = str
         }
       } else {
         const t = document.createTextNode(str)
         const id = nextNodeId()
         registry.register(id, t)
-        stream.emit({ type: 'TEXT_CREATE', id, value: str, ts: Date.now() })
+        stream.emit(ev('text', 'create', id, { value: str }))
         el.insertBefore(t, el.childNodes[i] ?? null)
-        stream.emit({ type: 'INSERT', parent: nodeId(el), child: id, ref: null, ts: Date.now() })
+        stream.emit(ev('node', 'insert', id, { parent: nodeId(el), ref: null }))
       }
       continue
     }
