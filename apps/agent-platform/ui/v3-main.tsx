@@ -57,4 +57,3 @@ router = createRouter([
   { path: '/chat/:id', render: () => h(Chat, {}), layout },
   { path: '/settings', render: () => h(Settings, {}), layout },
 ], root, { ctx })
-;(window as any).__v3_main.state = 'router-done'
