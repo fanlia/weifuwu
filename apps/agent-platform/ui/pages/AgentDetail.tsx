@@ -265,7 +265,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
         ))}
       </div>
 
-      <Card id="sec-account">
+      <Card key="sec-account" id="sec-account">
         <div class="wf-row wf-gap-md">
           <Avatar name={a.name} color={typeColor[a.type ?? 'ai'] ?? '#64748b'} />
           <div class="wf-fill wf-stack wf-gap-xs">
@@ -281,7 +281,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
       <div class="wf-mb-md">{$.ok && <Alert variant="success">{$.ok}</Alert>}</div>
 
-      <Card id="sec-config">
+      <Card key="sec-config" id="sec-config">
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md">基本设置</div>
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
           <Field label="名称">
@@ -509,7 +509,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       </Card>
 
       {a.type === 'user' && (
-        <Card id="sec-account">
+        <Card key="sec-account" id="sec-account">
           <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="user" size={14} /> 绑定账号</div>
           <div class="wf-split wf-py-sm wf-border-b">
             <span class="wf-text-sm wf-text-secondary">平台用户</span>
@@ -525,16 +525,16 @@ export const AgentDetail: Component = async (_props, ctx) => {
         </Card>
       )}
 
-      {a.type === 'ai' && <SkillsSection agentId={agentId} />}
+      {a.type === 'ai' && <SkillsSection key="sec-skills" agentId={agentId} />}
 
-      {a.type === 'ai' && <PreviewSection agentId={agentId} />}
+      {a.type === 'ai' && <PreviewSection key="sec-preview" agentId={agentId} />}
 
-      {a.type === 'ai' && <LogsSection agentId={agentId} />}
+      {a.type === 'ai' && <LogsSection key="sec-logs" agentId={agentId} />}
 
       {a.type === 'webhook' && (
                 
 
-<Card id="sec-webhook">
+<Card key="sec-webhook" id="sec-webhook">
           <div class="wf-split wf-mb-sm">
             <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="external-link" size={14} /> Webhook 收发测试</div>
             <Button size="sm" variant="ghost" onClick={loadWebhookLogs}>刷新日志</Button>
@@ -604,7 +604,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
         </Card>
       )}
 
-      <VersionsSection agentId={agentId} />
+      <VersionsSection key="sec-versions" agentId={agentId} />
 
       {a.type === 'knowledge_base' && <KnowledgeSection agentId={agentId} agent={a as Agent} />}
     </div>
