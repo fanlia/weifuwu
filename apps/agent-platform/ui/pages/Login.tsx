@@ -14,6 +14,10 @@ export const Login: Component = async (_props, ctx) => {
   const $ = {} as LoginState
   const rerender = () => ctx.ui.render()
   $.email = ''; $.password = ''; $.error = ''; $.loading = false
+  // 稳定回调（mount 层——render 期传同一引用：Field/Input 不重建——受控输入焦点保持）
+  const onEmailInput = (e: Event) => { $.email = inputValue(e); rerender() }
+  const onPasswordInput = (e: Event) => { $.password = inputValue(e); rerender() }
+  const logoVNode = <Avatar name={(window as any).__whiteLabel?.logo || 'A'} size="lg" />
 
   async function handleLogin() {
     if (!$.email || !$.password) { $.error = '请输入邮箱和密码'; rerender(); return }
@@ -62,11 +66,11 @@ export const Login: Component = async (_props, ctx) => {
     <AuthPage
       title="登录"
       subtitle={`${(window as any).__whiteLabel?.name || 'Agent Platform'} — 多租户 AI 平台`}
-      logo={<Avatar name={(window as any).__whiteLabel?.logo || 'A'} size="lg" />}
+      logo={logoVNode}
       submitLabel="登 录"
       loading={$.loading}
       error={$.error || null}
-      onSubmit={() => handleLogin()}
+      onSubmit={handleLogin}
       footer={
         <div class="wf-stack wf-gap-sm wf-center">
           <span>还没有账号？<a onClick={() => ctx.app?.navigate('/register')}>立即注册</a></span>
@@ -80,11 +84,11 @@ export const Login: Component = async (_props, ctx) => {
     >
       <Field label="邮箱" required>
         <Input type="email" placeholder="you@example.com" value={$.email}
-          onInput={(e: Event) => { $.email = inputValue(e); rerender() }} />
+          onInput={onEmailInput} />
       </Field>
       <Field label="密码" required>
         <PasswordInput placeholder="••••••••" value={$.password}
-          onInput={(e: Event) => { $.password = inputValue(e); rerender() }} />
+          onInput={onPasswordInput} />
       </Field>
     </AuthPage>
   )

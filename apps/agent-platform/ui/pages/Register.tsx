@@ -21,6 +21,10 @@ export const Register: Component = async (_props, ctx) => {
   const rerender = () => ctx.ui.render()
   $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
   const invite = inviteParams()
+  // 稳定回调（mount 层——受控输入焦点保持 + AuthPage 不重建）
+  const onNameInput = (e: Event) => { $.name = inputValue(e); rerender() }
+  const onEmailInput = (e: Event) => { $.email = inputValue(e); rerender() }
+  const onPasswordInput = (e: Event) => { $.password = inputValue(e); rerender() }
 
   async function handleRegister() {
     if (!$.email || !$.name || !$.password) { $.error = '请填写所有字段'; rerender(); return }
@@ -53,17 +57,17 @@ export const Register: Component = async (_props, ctx) => {
       submitLabel={invite ? '加入团队' : '注 册'}
       loading={$.loading}
       error={$.error || null}
-      onSubmit={() => handleRegister()}
+      onSubmit={handleRegister}
       footer={<span>已有账号？<a onClick={() => ctx.app?.navigate('/login')}>立即登录</a></span>}
     >
       <Field label="姓名" required>
-        <Input placeholder="你的名字" value={$.name} onInput={(e: Event) => { $.name = inputValue(e); rerender() }} />
+        <Input placeholder="你的名字" value={$.name} onInput={onNameInput} />
       </Field>
       <Field label="邮箱" required>
-        <Input type="email" placeholder="you@example.com" value={$.email} onInput={(e: Event) => { $.email = inputValue(e); rerender() }} />
+        <Input type="email" placeholder="you@example.com" value={$.email} onInput={onEmailInput} />
       </Field>
       <Field label="密码" required>
-        <PasswordInput placeholder="至少 8 位" value={$.password} onInput={(e: Event) => { $.password = inputValue(e); rerender() }} />
+        <PasswordInput placeholder="至少 8 位" value={$.password} onInput={onPasswordInput} />
       </Field>
     </AuthPage>
   )
