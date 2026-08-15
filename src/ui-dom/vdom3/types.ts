@@ -12,11 +12,13 @@
 
 // ── vnode 树（声明式——与 vdom2 同模型） ──
 
-/** 两阶段组件契约（与 vdom2 同模型：mount 工厂一次 + renderFn 每次渲染） */
+/** 两阶段组件契约（与 vdom2 同模型：mount 工厂一次 + renderFn 每次渲染）
+ *  返回 Promise<any>（兼容 vdom2 组件——renderFn 产出 JSX.Element（名义类型
+ *  不同于 VNode——结构兼容）——vdom2 资产零改动迁移的前提） */
 export type Component<P = Record<string, unknown>, C = Record<string, unknown>> = (
   initProps: P,
   ctx: C,
-) => Promise<(props: P) => Promise<VNode | null>>
+) => Promise<(props: P) => Promise<any>>
 
 export interface VNode {
   /** native 标签名 / 组件函数 / Fragment 符号 */

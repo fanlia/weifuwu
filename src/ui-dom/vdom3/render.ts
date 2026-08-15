@@ -271,7 +271,7 @@ function moveKeyedNodes(oldKids: VNodeChild[], newKids: VNodeChild[], el: Elemen
     let elNode: Node | null = null
     if (oi != null && isVNode(oldKids[oi])) elNode = (oldKids[oi] as VNode).el ?? null
     if (elNode && elNode.parentNode === el) {
-      const target = prevNode ? prevNode.nextSibling : el.firstChild
+      const target: Node | null = prevNode ? prevNode.nextSibling : el.firstChild
       if (target !== elNode) {
         const prev = elNode.previousSibling ? registry.idOf(elNode.previousSibling) : null
         el.insertBefore(elNode, target)

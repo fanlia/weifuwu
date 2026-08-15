@@ -75,7 +75,7 @@ export function installDomTrace(): () => void {
   return () => {
     installed = false
     for (const [name, orig] of originals) {
-      const proto = name.startsWith('set') || name.startsWith('remove') ? Element.prototype : Node.prototype
+      const proto = (name.startsWith('set') || name.startsWith('remove') ? Element.prototype : Node.prototype) as any
       proto[name] = orig
     }
     originals.clear()
