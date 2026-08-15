@@ -1229,3 +1229,30 @@ test('ctx 注入（createRoot options.ctx——中间件面）：组件消费 ap
   assert.deepEqual(navs, ['/x'], '注入 ctx.app.navigate 回调')
   document.body.removeChild(root)
 })
+
+test('createRouter ctx 注入：路由页面消费中间件面（i18n/app）——应用入口形态', async () => {
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const navs: string[] = []
+  const Page = async (_init: any, ctx: any) => async () => h('div', { id: 'p1' }, [
+    h('span', { id: 'i18n' }, ctx.i18n?.t('welcome') ?? 'no'),
+    h('button', { id: 'nav', onClick: () => ctx.app?.navigate('/next') }, 'go'),
+  ])
+  const router = createRouter([
+    { path: '/', render: () => h(Page, {}) },
+  ], root, {
+    initialPath: '/',
+    ctx: {
+      i18n: { t: (k: string) => `t:${k}` },
+      app: { navigate: (p: string) => { navs.push(p) } },
+    },
+  })
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(root.querySelector('[id="i18n"]')?.textContent, 't:welcome', '路由页面消费注入 i18n')
+  ;(root.querySelector('[id="nav"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.deepEqual(navs, ['/next'], '路由页面消费注入 app.navigate')
+  router.close()
+  document.body.removeChild(root)
+})

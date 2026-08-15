@@ -46,17 +46,18 @@ function match(routes: RouteDef[], path: string): { def: RouteDef; params: Recor
   return null
 }
 
-/** 创建路由应用（初始挂载 + popstate 导航） */
-export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { initialPath?: string }): RouterHandle {
+/** 创建路由应用（初始挂载 + popstate 导航；options.ctx 注入中间件面——页面组件消费） */
+export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { initialPath?: string; ctx?: Record<string, unknown> }): RouterHandle {
   let current: VNode | null = null
   let pageVnode: VNode | null = null // 当前页面组件 vnode（组件引用——重渲染定位）
   let busy = false
   type Op = { type: 'nav'; path: string } | { type: 'refresh' }
   let queue: Op | null = null
 
-  // 页面组件 ctx：render = 重渲染当前页（组件工厂收到——交互驱动）
+  // 页面组件 ctx：render = 重渲染当前页（组件工厂收到——交互驱动）+ 注入中间件面
   let pageCtx: Record<string, unknown> = {}
   const makePageCtx = (): Record<string, unknown> => ({
+    ...(options?.ctx ?? {}),
     render: () => { void updatePage() },
   })
 
