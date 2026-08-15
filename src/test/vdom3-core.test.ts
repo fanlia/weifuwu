@@ -1160,3 +1160,44 @@ test('空洞对齐（vdom2 提交按钮事故回归）：children [Field, false,
   assert.ok(html.indexOf('alert') < html.indexOf('submit'), '顺序：alert 在 submit 前（prevNode 锚）')
   document.body.removeChild(root)
 })
+
+test('AiChat（agent 对话组件——useChat + subscribe + useVisualViewport/useScrollPosition）在 vdom3 完整对话', async () => {
+  const { AiChat } = await import('../components/AiChat/AiChat.ts')
+  // mock fetch（SSE 协议流）
+  const origFetch = globalThis.fetch
+  const sse = (ev: string, data: unknown) => `event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`
+  globalThis.fetch = (async () => new Response(new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(sse('wf:token', { text: '你好，' }) + sse('wf:token', { text: '我是助手' })))
+      controller.enqueue(new TextEncoder().encode(sse('wf:done', {})))
+      controller.close()
+    },
+  }), { status: 200, headers: { 'Content-Type': 'text/event-stream' } })) as any
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let chatHandle: any = null
+  const ChatPage = async (_init: any, ctx: any) => {
+    chatHandle = ctx.ui.useChat({ url: '/api/chat' })
+    return async () => h(AiChat, { chat: chatHandle })
+  }
+  createRoot(h(ChatPage, {}), root)
+  await new Promise((r) => setTimeout(r, 50))
+  assert.ok(root.querySelector('.wf-aichat'), 'AiChat 渲染')
+  assert.ok(root.textContent?.includes('输入消息开始对话'), '空态')
+  // 发送（模拟打字：input 事件 → keyword 内部态 → 点击发送）
+  const inputEl = root.querySelector('.wf-chat-input input, .wf-chat-input') as HTMLInputElement
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+  setter.call(inputEl, '你好')
+  inputEl.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 10))
+  const sendBtn = [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('发送'))
+  assert.ok(sendBtn, '发送按钮')
+  ;(sendBtn as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.ok(root.textContent?.includes('你好，我是助手'), '流式回复累积渲染（subscribe → 重渲染）')
+  assert.ok(root.querySelector('.wf-aichat-msg--user'), 'user 消息渲染（气泡类）')
+  assert.ok(root.querySelector('.wf-aichat-msg--assistant'), 'assistant 消息渲染')
+  document.body.removeChild(root)
+  globalThis.fetch = origFetch
+})
