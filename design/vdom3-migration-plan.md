@@ -62,18 +62,19 @@
 - **验收**：组件库 1188 测试在引擎大改（纯函数式/hooks shim/Portal 统一/空洞修复）后保持全绿
 - 组件在 vdom3 引擎下的 DOM 级行为：7 个真实组件验证（VNode 层测试 + DOM 级行为双覆盖）
 
-### 阶段 4：生产机制 🔄（SSR 端到端 ✅ / motion ✅ / 空洞对齐 ✅——剩余 audit）
+### 阶段 4：生产机制 ✅ 完成
 - **SSR**：renderToEvents → eventsToHtml（首帧 HTML）→ serialize → 客户端 replay
   （零 DOM 猜测——与服务端 HTML 同构——内部属性除外）✅
 - **motion/退场动画**：Modal 退场状态机（presence exit → animationend → 卸载）✅
 - **空洞对齐**：位置配对 prevNode 锚（vdom2 提交按钮事故等价验证 + 顺序修复）✅
-- **audit**：剩余（开发期不变量校验——阶段 5 应用迁移时按需）
+- **audit**：__WF_V3_AUDIT（重复 id 泄漏检测 + 顺序错位防线——默认开）✅
 
-### 阶段 5：应用迁移（2-3 天）
-- agent-platform：入口换 vdom3（uiServe 等价物——路由 + 挂载 + SSR 数据）
-- 18 路由逐页 jsdom 自动化 + agent-browser 手动验证（交互/弹层/流式）
-- **验收**：18 页面 violations=0/errs=0；核心交互（@提及/搜索/主题/流式/文件生成/审批）回归
-- **风险**：中（真实应用长尾场景——缓解：A.1-A.6 真实 DOM 验证方法论）
+### 阶段 5：应用迁移 🔄（入口形态 + 5 页面模式验证完成——剩余页面同类模式）
+- vdom3 应用入口形态：createRouter + ctx 注入（api/confirm/toast/auth/route/app）✅
+- 5 个真实 tsx 页面模式浏览器验证：Login（表单）/Departments（数据 CRUD）/
+  Chat（消息+工具卡）/AiChat（流式）/AppLayout（应用框架——认证守卫+导航+登出）✅
+- 认证守卫闭环（未登录 → /login 重定向）✅
+- 剩余：其余页面（同类模式——逐个加路由 + mock api）、完整入口文件（v3-app.ts）
 
 ### 阶段 6：vdom2 退役（1 天）
 - 默认入口切 vdom3；vdom2 冻结标记（DEPRECATED 注释 + 发布排除）
