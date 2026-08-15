@@ -2,7 +2,6 @@ import type { Component } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
 import { h } from '../../ui-dom/vnode.ts'
-import { mountCommand } from '../../ui-dom/context.ts'
 import { animateOut } from '../../ui-dom/motion.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
@@ -121,71 +120,3 @@ export interface ToastInjected {
   toast: (message: string, type?: ToastType, duration?: number, action?: { label: string; onClick: () => void }) => void
 }
 
-export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
-  const defaults = {
-    position: opts?.position ?? 'top-right',
-    duration: opts?.duration ?? 3000,
-    max: opts?.max ?? 3,
-  }
-
-  // ── 工厂闭包内状态（per app 隔离） ──
-  let hostApi: { add: (item: ToastItem) => void; remove: (id: string) => void } | null = null
-  let ctxRef: WfuiContext | null = null
-  let seq = 0
-
-  // ToastHost — 内部常驻组件：状态 let + 显式 render（render-only）
-  const ToastHost: Component = async (_init, ctx) => {
-    let toasts: ToastItem[] = []
-    const render = () => ctx.ui.render()
-    hostApi = {
-      add: (item: ToastItem) => { toasts = [...toasts, item]; render() },
-      remove: (id: string) => {
-        // 退场：挂 wf-toast-out 类，有真实动画则播完再移除；无动画环境（jsdom/禁用）立即移除
-        const el = browser.query(`.wf-toast[data-id="${id}"]`) as HTMLElement | null
-        if (el) {
-          el.classList.add('wf-toast-out')
-          const anim = getComputedStyle(el).animationName
-          if (anim && anim !== 'none') {
-            animateOut(el, () => {
-              toasts = toasts.filter((t: ToastItem) => t.id !== id); render()
-            })
-            return
-          }
-        }
-        toasts = toasts.filter((t: ToastItem) => t.id !== id); render()
-      },
-    }
-    // 总是返回包装 div（非 null）——保证 _refNode 有值，scope render 能定位本组件
-    return async () => h('div', { class: 'wf-toast-host' }, [
-        h(Toast, {
-          toasts,
-          position: defaults.position,
-          duration: defaults.duration,
-          max: defaults.max,
-          onRemove: (id: string) => hostApi?.remove(id),
-      }),
-    ])
-  }
-
-  const ensureHost = () => {
-    if (hostApi || !ctxRef) return
-    const container = browser.createElement('div') as HTMLDivElement | null
-    if (!container) return
-    browser.bodyAppend(container)
-    mountCommand(container, h(ToastHost, {}), ctxRef)
-  }
-
-  return (ctx: WfuiContext) => {
-    ctxRef = ctx
-    ;(ctx as any).toast = (message: string, type: ToastType = 'info', duration?: number, action?: { label: string; onClick: () => void }) => {
-      ensureHost()
-      const id = String(++seq)
-      hostApi?.add({ id, type, message, duration, action })
-      const t = duration ?? defaults.duration
-      if (t > 0) {
-        setTimeout(() => hostApi?.remove(id), t)
-      }
-    }
-    return ctx as WfuiContext & ToastInjected
-  }
-}

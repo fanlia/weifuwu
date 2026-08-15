@@ -36,10 +36,10 @@ export type { TableProps, TableColumn } from './Table/Table.ts'
 export { Modal } from './Modal/Modal.ts'
 export type { ModalProps } from './Modal/Modal.ts'
 
-export { Confirm, confirm } from './Confirm/Confirm.ts'
+export { Confirm } from './Confirm/Confirm.ts'
 export type { ConfirmProps, ConfirmOptions } from './Confirm/Confirm.ts'
 
-export { Toast, toast } from './Toast/Toast.ts'
+export { Toast } from './Toast/Toast.ts'
 export type { ToastProps, ToastItem, ToastType, ToastPosition, ToastOptions, ToastInjected } from './Toast/Toast.ts'
 
 export { Alert } from './Alert/Alert.ts'

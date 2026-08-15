@@ -16,11 +16,10 @@ setupJsdom()
 
 import { h } from '../../ui-dom/vnode.ts'
 import { mountToDom } from '../../ui-dom/testing.ts'
-import { Confirm, confirm } from './Confirm.ts'
+import { Confirm } from './Confirm.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { UIRouter, jsx } from '../../ui-dom/index.ts'
 import { uiServe } from '../../ui-dom/middleware/serve.ts'
-import { confirm as uiDomConfirm } from '../../ui-dom/Confirm.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
@@ -204,89 +203,5 @@ describe('Confirm 组件（声明式）', () => {
     const msg = { type: 'div', props: { children: '富文本' } }
     const vnode = await renderVNode(Confirm, { open: true, message: msg }, makeCtx())
     assert.equal(vnode.props.children, msg)
-  })
-})
-
-describe('confirm() 命令式中间件（真实 app ctx）', () => {
-  it('注入 ctx.confirm', async () => {
-    const mw = confirm()
-    const ctx = await mw(makeCtx())
-    assert.equal(typeof (ctx as any).confirm, 'function')
-  })
-
-  it('点确定 resolve(true) 且 DOM 无残留（portal modal 泄漏防线）', async () => {
-    const ctx = await mountConfirmApp()
-    const p = ctx.confirm('确定删除？', { confirmText: '删除', variant: 'danger' })
-    await flush()
-    assert.ok(modal(), '命令式 confirm 应打开 modal')
-
-    const okBtn = buttons().find(b => b.textContent === '删除')!
-    okBtn.click()
-    assert.equal(await p, true, '确定 → resolve(true)')
-    // 模拟宿主 await 续跑重渲染（历史泄漏触发条件）
-    ctx.ui.render()
-    await flush()
-    fireExit()
-    await flush(700) // 兜底 timeout 后
-    assert.equal(document.querySelectorAll('.wf-modal').length, 0, 'resolve 后 modal 必须退场清理（portal 不残留）')
-  })
-
-  it('点取消 resolve(false)', async () => {
-    const ctx = await mountConfirmApp()
-    const p = ctx.confirm('x')
-    await flush()
-    buttons().find(b => b.textContent === '取消')!.click()
-    assert.equal(await p, false)
-    await flush()
-    fireExit()
-    await flush(700)
-    assert.equal(modal(), null)
-  })
-
-  it('ESC resolve(false)', async () => {
-    const ctx = await mountConfirmApp()
-    const p = ctx.confirm('x')
-    await flush()
-    const dialog = modal()!
-    dialog.querySelector('button')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    assert.equal(await p, false)
-  })
-
-  it('遮罩点击默认不取消（命令式，防误触）', async () => {
-    const ctx = await mountConfirmApp()
-    let settled = false
-    const p = ctx.confirm('x').then(r => { settled = true; return r })
-    await flush()
-    ;(document.querySelector('.wf-modal-overlay') as HTMLElement).click()
-    await flush()
-    assert.equal(settled, false, '遮罩点击不应 settle')
-    buttons().find(b => b.textContent === '取消')!.click()
-    assert.equal(await p, false)
-  })
-
-  it('Promise 只 settle 一次（确定后再点取消不重复 resolve）', async () => {
-    const ctx = await mountConfirmApp()
-    let count = 0
-    const p = ctx.confirm('x').then(r => { count++; return r })
-    await flush()
-    buttons().find(b => b.textContent === '确定')!.click()
-    assert.equal(await p, true)
-    buttons().find(b => b.textContent === '取消')?.click()
-    await flush()
-    assert.equal(count, 1)
-  })
-
-  it('连续多次调用：各自独立渲染与 resolve（叠放语义）', async () => {
-    const ctx = await mountConfirmApp()
-    const p1 = ctx.confirm('第一条', { confirmText: '好' })
-    const p2 = ctx.confirm('第二条', { confirmText: '行' })
-    await flush()
-    const modals = document.querySelectorAll('.wf-modal')
-    assert.ok(modals.length >= 1, '至少一条在显示')
-    // 各自独立 resolve
-    const okBtns = Array.from(document.querySelectorAll('.wf-modal .wf-btn')).filter(b => ['好', '行'].includes(b.textContent ?? ''))
-    okBtns.forEach(b => (b as HTMLButtonElement).click())
-    assert.equal(await p1, true)
-    assert.equal(await p2, true)
   })
 })
