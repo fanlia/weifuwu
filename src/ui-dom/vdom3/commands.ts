@@ -41,7 +41,9 @@ function createV3Confirm(message: string, options: Record<string, unknown>, _ctx
         return h('div', { class: 'wf-confirm-host' }, h(Confirm as unknown as Component, {
           open,
           title: options.title,
-          onClose: () => { if (!settled) { settled = true; open = false; resolve(false); c.ui.render() } },
+          // 取消/关闭统一走 onCancel（Confirm 组件内部 Modal 的 onClose 映射到
+          // onCancel——此前只传 onClose → 取消按钮回调丢失 → 点击取消不关闭）
+          onCancel: () => { if (!settled) { settled = true; open = false; resolve(false); c.ui.render() } },
           onConfirm: () => { if (!settled) { settled = true; open = false; resolve(true); c.ui.render() } },
           message,
         }))

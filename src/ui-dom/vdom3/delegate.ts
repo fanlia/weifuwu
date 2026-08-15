@@ -107,6 +107,7 @@ export function bindDelegated(nodeId: string, event: string, handler: EventListe
   }
 }
 
+
 /** 事件分发（挂载点监听回调——冒泡语义：e.target 向上沿祖先链查 handler——
  *  每层有 data-v3-id 的节点都执行（handler 可能在祖先——如 Tabs 容器 onKeyDown）；
  *  handler 内 stopPropagation（cancelBubble）后停止向上——与原生冒泡一致） */

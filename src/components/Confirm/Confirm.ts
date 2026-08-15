@@ -29,6 +29,8 @@ export interface ConfirmProps {
   maskClosable?: boolean
   onConfirm?: () => void
   onCancel?: () => void
+  /** Modal 关闭回调（Escape/遮罩——onCancel 缺省时兜底——命令式兼容） */
+  onClose?: () => void
 }
 
 /** 命令式 ctx.confirm 的选项（ConfirmProps 的子集） */
@@ -70,7 +72,7 @@ export const Confirm: Component<ConfirmProps> = async (_init, _ctx) => {
     return h(Modal, {
       open,
       title,
-      onClose: onCancel,
+      onClose: onCancel ?? props.onClose,
       maskClosable,
       footer,
       width,
