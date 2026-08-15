@@ -71,6 +71,19 @@ const V3DepartmentsPage = async (_init: any, _ctx: any) => async () => {
 // ── agent-platform Chat 页面（消息列表 + 工具调用/审批/附件渲染） ──
 import { Chat } from '../../apps/agent-platform/ui/pages/Chat.tsx'
 
+// ── agent-platform AppLayout（完整应用入口——认证守卫 + 侧边栏导航） ──
+import { AppLayout } from '../../apps/agent-platform/ui/components/AppLayout.tsx'
+import { Departments } from '../../apps/agent-platform/ui/pages/Departments.tsx'
+
+const V3AppPage = async (_init: any, _ctx: any) => async () => {
+  return h('div', { id: 'v3-app' }, [
+    h(AppLayout, {}, h('div', { class: 'wf-p-lg' }, [
+      h('h3', {}, '当前页面内容（AppLayout children）'),
+      h(Departments, {}),
+    ])),
+  ])
+}
+
 const V3ChatPage = async (_init: any, _ctx: any) => async () => {
   return h('div', { id: 'v3-chat' }, [
     h('h2', {}, 'vdom3 — agent-platform Chat'),
@@ -192,6 +205,7 @@ const router = createRouter([
   { path: '/v3-login', render: () => h(V3LoginPage, {}) },
   { path: '/v3-depts', render: () => h(V3DepartmentsPage, {}) },
   { path: '/v3-chat', render: () => h(V3ChatPage, {}) },
+  { path: '/v3-app', render: () => h(V3AppPage, {}) },
 ], root, {
   ctx: {
     // 中间件面 mock（agent-platform 页面消费——ctx.api/confirm/toast）
@@ -220,8 +234,13 @@ const router = createRouter([
     },
     confirm: async () => true,
     toast: (msg: string) => { console.log('[toast]', msg) },
-    route: { params: { id: 'd1' } },
-    auth: { user: { id: 'u1', name: '测试用户' }, role: 'owner' },
+    auth: {
+      isLoggedIn: true,
+      user: { id: 'u1', name: '测试用户', email: 'admin@demo.com' },
+      role: 'owner',
+      logout: () => { console.log('[auth] logout') },
+    },
+    route: { params: { id: 'd1' }, path: '/v3-app' },
     app: { navigate: (p: string) => { router.navigate(p) } },
   },
 })
