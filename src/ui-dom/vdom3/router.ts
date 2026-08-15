@@ -49,11 +49,45 @@ function match(routes: RouteDef[], path: string): { def: RouteDef; params: Recor
 /** 创建路由应用（初始挂载 + popstate 导航） */
 export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { initialPath?: string }): RouterHandle {
   let current: VNode | null = null
+  let pageVnode: VNode | null = null // 当前页面组件 vnode（组件引用——重渲染定位）
   let busy = false
-  let queue: string | null = null
+  type Op = { type: 'nav'; path: string } | { type: 'refresh' }
+  let queue: Op | null = null
+
+  // 页面组件 ctx：render = 重渲染当前页（组件工厂收到——交互驱动）
+  let pageCtx: Record<string, unknown> = {}
+  const makePageCtx = (): Record<string, unknown> => ({
+    render: () => { void updatePage() },
+  })
+
+  /** 重渲染当前页面（页面组件 ctx.render——组件实例复用 + patch） */
+  async function updatePage(): Promise<void> {
+    if (busy) { queue = { type: 'refresh' }; return } // 与导航串行（渲染中触发 → 排队）
+    if (!current || !pageVnode) return
+    busy = true
+    try {
+      const v = pageVnode
+      if (typeof v.type === 'function' && v._render) {
+        const output = await v._render(v.props)
+        if (output == null) return
+        const oldOut = v.children?.[0] ?? null
+        const built = await buildVNode(output, pageCtx, oldOut && typeof oldOut === 'object' ? (oldOut as VNode) : null)
+        v.children = [built]
+        patch(oldOut as VNode | null, built, root)
+      }
+    } finally {
+      busy = false
+      if (queue != null) { const q = queue; queue = null; void runOp(q) }
+    }
+  }
+
+  function runOp(op: Op): void {
+    if (op.type === 'nav') void handleRoute(op.path)
+    else void updatePage()
+  }
 
   async function handleRoute(path: string): Promise<void> {
-    if (busy) { queue = path; return } // 导航串行（快速连续导航排队——防竞态）
+    if (busy) { queue = { type: 'nav', path }; return } // 导航串行（快速连续导航排队——防竞态）
     busy = true
     try {
       const matched = match(routes, path)
@@ -61,19 +95,22 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
       if (!matched) {
         root.innerHTML = '' // 无匹配 → 清空（404 由上层处理）
         current = null
+        pageVnode = null
         return
       }
+      pageCtx = makePageCtx() // 新页面新 ctx（render 绑定当前实例）
       const vnode = matched.def.render(matched.params)
-      await buildVNode(vnode, {})
+      await buildVNode(vnode, pageCtx)
       if (current == null) {
         mount(vnode, root) // 首帧
       } else {
         patch(current, vnode, root) // 页面切换（异类型 → COMP_UNMOUNT+REMOVE / MOUNT+CREATE）
       }
       current = vnode
+      pageVnode = vnode
     } finally {
       busy = false
-      if (queue != null) { const q = queue; queue = null; void handleRoute(q) }
+      if (queue != null) { const q = queue; queue = null; void runOp(q) }
     }
   }
 

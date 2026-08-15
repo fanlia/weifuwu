@@ -698,3 +698,31 @@ test('MOVE：事件流回放含 MOVE（重排可传输）+ undo 恢复原顺序'
   document.body.removeChild(root)
   document.body.removeChild(target)
 })
+
+// ── 路由页面交互：ctx.render 必须可用（createRouter 注入——非空 ctx） ──
+
+test('路由：页面组件交互（ctx.render 重渲染当前页）——点击更新', async () => {
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  let n = 0
+  const CounterPage = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'rpage' }, [
+      h('button', { id: 'rbtn', onClick: () => { n++; rerender() } }, [`n: ${n}`]),
+      n > 0 ? h('p', { id: 'note' }, `clicked ${n}`) : null,
+    ])
+  }
+  const router = createRouter([
+    { path: '/counter', render: () => h(CounterPage, {}) },
+  ], root, { initialPath: '/counter' })
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('[id="rpage"]'), '页面挂载')
+  assert.equal(root.querySelector('[id="rbtn"]')?.textContent, 'n: 0', '初始')
+  ;(root.querySelector('[id="rbtn"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(root.querySelector('[id="rbtn"]')?.textContent, 'n: 1', '点击更新（ctx.render 生效）')
+  assert.ok(root.querySelector('[id="note"]'), '条件块出现')
+  router.close()
+  document.body.removeChild(root)
+})
