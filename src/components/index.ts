@@ -161,6 +161,8 @@ export { Markdown } from './Markdown/Markdown.ts'
 export type { MarkdownProps } from './Markdown/Markdown.ts'
 export { parseMarkdown, parseInline } from './Markdown/parser.ts'
 export { FilePreview } from './FilePreview/FilePreview.ts'
+export { SheetGrid } from './SheetGrid/SheetGrid.ts'
+export type { SheetGridProps } from './SheetGrid/SheetGrid.ts'
 export type { FilePreviewProps, FileType } from './FilePreview/FilePreview.ts'
 export { markdownToHtml, serializeMarkdown } from './FilePreview/markdown.ts'
 
