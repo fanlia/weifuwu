@@ -1330,6 +1330,12 @@ async function main() {
     message: (ws: any, ctx: any, data: string | Buffer) => {
       try {
         const msg = JSON.parse(String(data))
+        // 心跳：ping → pong（前端 ws 中间件 30s ping + 10s 无响应主动断线——
+        // 无 pong → 每 ~40s 断线重连循环——真实 bug：统计页静置时反复断线）
+        if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }))
+          return
+        }
         // 在线报到：填写页连接后发 hello（统计页只订阅不发——不计入在线）
         if (msg.type === 'survey:hello' && msg.source) {
           const source = String(msg.source).slice(0, 40)
