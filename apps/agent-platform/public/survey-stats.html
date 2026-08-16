@@ -141,7 +141,8 @@ const StatsPage = async (_init, ctx) => {
               { class: "prog" },
               QUESTIONS.map((q) => h("div", { class: `prog-dot${p.done >= QUESTIONS.indexOf(q) + 1 ? " on" : ""}` }))
             ),
-            h(ProgressBar, { percent: p.done / 5 * 100, width: 120, showLabel: false }),
+            // ProgressBar 只认 value——percent 被忽略 → indeterminate 扫动动画（提交后仍闪烁）——已修
+h(ProgressBar, { value: p.done / 5 * 100, width: 120, showLabel: false }),
             h("span", { style: { fontSize: "12px", color: "var(--wf-color-text-tertiary)" } }, `${p.done}/5 \u9898`),
             p.locked && h(Badge, { variant: "success" }, "\u5DF2\u63D0\u4EA4")
           )
