@@ -2412,3 +2412,31 @@ test('事件代理：不冒泡事件（img error）用捕获监听——onError 
   assert.equal(img.getAttribute('src'), '/fb.png', 'fallback 也失败——不循环（src 相同跳过）')
   document.body.removeChild(root)
 })
+
+test('不变量：无事件流不渲染——组件输出变 null 的移除入事件流（REMOVE——无静默 DOM 操作）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let show = true
+  const Child = async (_init: any, _ctx: any) => async () => h('div', { id: 'child' }, 'c')
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', {}, [
+      h('button', { id: 'go', onClick: () => { show = !show; rerender() } }, 'go'),
+      show ? h(Child, {}) : null,
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  gs.reset()
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const types = gs.events().map((e) => evKey(e))
+  assert.ok(types.includes('node:remove'), `组件输出移除入事件流（REMOVE）——实际: ${[...new Set(types)].join(',')}`)
+  assert.ok(types.includes('comp:render'), '组件重渲染可观测')
+  assert.ok(!root.querySelector('[id="child"]'), 'DOM 移除生效')
+  // 移除的 DOM 节点与事件一一对应（无静默操作——child 的移除有且仅有事件流里的 REMOVE）
+  document.body.removeChild(root)
+})

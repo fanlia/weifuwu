@@ -322,7 +322,11 @@ function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null)
       // 递归 ref(null)——ref 纪律：lockScroll/focus 清理依赖
       // 卸载回调（usePopup 的 portalPanelRef → unlockScroll）
       callRefCleanup(oldOut as VNode | null)
+      // 不变量：无事件流不渲染——移除必须入事件流（REMOVE——可观测）
+      const rid = registry.idOf(ov.el)
+      stream.emit(ev('node', 'remove', rid, { parent: parentId(parent) }))
       ov.el.parentNode?.removeChild(ov.el)
+      registry.unregister(rid, ov.el)
       ov.el = null
     }
     vn.el = null
