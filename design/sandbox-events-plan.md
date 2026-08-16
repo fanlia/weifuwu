@@ -1,4 +1,4 @@
-# Sandbox 事件流方案（2026-12——执行状态：阶段 1/2/3 已完成——阶段 4 裁剪评估）
+# Sandbox 事件流方案（2026-12——执行状态：阶段 1-4 全部完成）
 
 > 哲学：与前端 vdom3 "DOM = fold(事件流)" 同构——**容器期望状态 = fold(sandbox 事件流)**
 > ——沙盒的一切操作（生命周期/exec/挂载/镜像/调度）都有事件——状态可回放/
@@ -50,11 +50,14 @@
 - `queue:rejected`（预算超限——不静默降级——可审计）
 - 活跃度/配额的事件驱动调度（规模化基础——1000 部门的钥匙）
 
-## 阶段 4：持久化 + TTL——裁剪评估（暂缓）
+## 阶段 4：持久化 + TTL——已完成
 
-- **诚实裁剪**：内存环形缓冲（5000 条）已覆盖近期调试/审计——持久化（DB
-  sandbox_event_log 表 + TTL 归档）是**规模化前置**（1000 部门历史审计需要）——
-  当前单宿主规模内存环形够用——暂缓——规模化时实施（表/订阅入库/定期清理）
+- `subscribeSandboxEvents(fn)`（emit 同步回调——不丢事件——退订返回）
+- manager 订阅：**结果类事件入库**（exec:end/timeout/error + 生命周期（create/
+  status/stop）+ 漂移（reconcile:drift/idle-stop）+ 调度（evict/queue:rejected/
+  quota:rejected）+ container:* → 既有 sandbox_events 表（logEvent——fire-and-forget）
+  ——**降频**（exec:start/queued/ensure:cache-hit 等频繁事件只留内存环形——不入库）
+- **TTL 清理**（reconcile 每轮——`SANDBOX_EVENT_RETENTION` 默认 7 天——历史归档）
 
 ## 风险与裁剪
 

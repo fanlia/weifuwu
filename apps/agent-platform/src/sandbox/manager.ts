@@ -16,7 +16,7 @@
 
 import type { DockerSandbox, ExecResult, SandboxSpec } from './docker.ts'
 import { sandbox as defaultExecutor } from './docker.ts'
-import { sandboxEmit } from './events.ts'
+import { sandboxEmit, subscribeSandboxEvents } from './events.ts'
 
 export interface SandboxRow {
   id: string
@@ -73,6 +73,10 @@ export class SandboxManager {
   private sql: Sql | null = null
   /** 2026-12：事件日志独立连接池（不抢主池——10 角色并发 exec 风暴时事件写入不占 AI 执行连接） */
   private eventsSql: Sql | null = null
+  /** 事件流持久化订阅退订（阶段 4） */
+  private _eventsUnsub: (() => void) | null = null
+  /** 事件流持久化订阅退订（阶段 4） */
+  private _eventsUnsub: (() => void) | null = null
   private exe: DockerSandbox
   private opts: ManagerOptions
   private timer: NodeJS.Timeout | null = null
@@ -89,6 +93,14 @@ export class SandboxManager {
     this.eventsSql = eventsSql ?? sql
     // 2026-12 可观测性：executor exec 事件 → sandbox_events（诊断链）
     this.exe.onExecEvent = (sandboxId, type, detail) => this.logEvent(sandboxId, null, type, detail)
+    // 阶段 4：事件流 → 持久化接通（结果类事件入库——降频：exec:start/queued/
+    // cache-hit 等频繁事件只留内存环形——结果类/生命周期/漂移/调度入库）
+    this._eventsUnsub?.()
+    this._eventsUnsub = subscribeSandboxEvents((e) => {
+      const persistable = /exec:end|exec:timeout|exec:error|create|status|stop|reconcile:drift|reconcile:idle-stop|evict|queue:rejected|quota:rejected|container:/.test(e.action)
+      if (!persistable) return
+      this.logEvent(e.target ?? '', null, e.action, JSON.stringify(e.payload ?? {}).slice(0, 300))
+    })
   }
 
   /** 事件日志（2026-12 可观测性——fire-and-forget，不阻塞主流程） */
@@ -543,6 +555,13 @@ export class SandboxManager {
     if (stats.error > 0) {
       console.warn(`[agent-platform] 沙盒 reconcile：${stats.error} 个环境处于 error 状态`)
     }
+    // 阶段 4：事件日志 TTL 清理（保留 N 天——默认 7——历史归档）
+    try {
+      const retentionDays = Number(process.env.SANDBOX_EVENT_RETENTION ?? 7)
+      await this.sql`
+        DELETE FROM sandbox_events WHERE created_at < NOW() - make_interval(days => ${retentionDays})
+      `
+    } catch { /* 清理失败不阻断 */ }
     sandboxEmit('reconcile:end', undefined, { ...stats })
     return stats
   }

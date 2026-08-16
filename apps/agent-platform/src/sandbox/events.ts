@@ -23,6 +23,8 @@ const MAX_EVENTS = 5000
 const buf: SandboxEvent[] = []
 let head = 0
 let len = 0
+// 持久化订阅（阶段 4——结果类事件入库——emit 同步回调——不丢事件）
+const persistListeners = new Set<(e: SandboxEvent) => void>()
 
 /** 发射（环形缓冲 O(1)——溢出覆盖最旧） */
 export function sandboxEmit(action: string, target?: string, payload?: Record<string, unknown>): void {
@@ -31,6 +33,13 @@ export function sandboxEmit(action: string, target?: string, payload?: Record<st
   if (payload != null) evt.payload = payload
   if (len < MAX_EVENTS) { buf[(head + len) % MAX_EVENTS] = evt; len++ }
   else { buf[head] = evt; head = (head + 1) % MAX_EVENTS }
+  for (const fn of persistListeners) { try { fn(evt) } catch { /* 订阅者失败隔离 */ } }
+}
+
+/** 持久化订阅（阶段 4——manager 订阅结果类事件入库——返回退订） */
+export function subscribeSandboxEvents(fn: (e: SandboxEvent) => void): () => void {
+  persistListeners.add(fn)
+  return () => { persistListeners.delete(fn) }
 }
 
 /** 查询（最近 N 条——可按 sandboxId/action 过滤） */

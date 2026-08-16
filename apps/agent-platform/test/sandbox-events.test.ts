@@ -61,3 +61,17 @@ test('sandbox 事件流：调度事件（预算驱逐 LRU + 超限拒绝——�
   const rejected = sandboxEvents(100, { action: 'queue:rejected' })
   assert.equal(rejected.length, 1, '超限拒绝事件（不静默降级）')
 })
+
+test('sandbox 事件流：持久化订阅机制（emit 同步回调——退订生效）', () => {
+  resetSandboxEvents()
+  const received: string[] = []
+  const unsub = subscribeSandboxEvents((e) => received.push(e.action))
+  sandboxEmit('exec:end', 'sb-1', { ms: 10 })
+  sandboxEmit('reconcile:drift', 'sb-1', { reason: 'orphan' })
+  sandboxEmit('evict', 'sb-1', { reason: 'pool-budget' })
+  unsub()
+  sandboxEmit('status', 'sb-1', { status: 'running' }) // 退订后不收
+  assert.deepEqual(received, ['exec:end', 'reconcile:drift', 'evict'], '订阅收到（emit 同步）——退订后停止')
+})
+
+import { subscribeSandboxEvents } from '../src/sandbox/events.ts'
