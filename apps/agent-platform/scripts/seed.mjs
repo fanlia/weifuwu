@@ -559,14 +559,15 @@ df -h / | awk 'NR==2 {print \"磁盘使用率: \" \$5}'
   // 7c. 沙盒演示记录（三层模型：sandbox = 计算资源——绑定部门）
   // ════════════════════════════════════════════════════
   // requested = 惰性（容器未起——首次 AI 工具调用自动创建）；
-  // 工作台/部门页显示环境状态点「环境待启动（首次干活自动创建）」
+  // 工作台/部门页显示环境状态点「环境待启动（首次干活自动创建）」；
+  // network = true（沙盒默认开通网络——AI 工具可访问外部 API/服务）
   await sql`
     INSERT INTO sandboxes (app_id, department_id, name, status, mode, image, network, memory_mb, cpus, workspace)
     VALUES
-      (${DEMO_APP_ID}, ${devDept.id}, '技术部', 'requested', 'persistent', 'ap-sandbox:latest', false, 512, 1, ${devWs}),
-      (${DEMO_APP_ID}, ${opsDept.id}, '运维组', 'requested', 'persistent', 'ap-sandbox:latest', false, 512, 1, ${opsWs})
+      (${DEMO_APP_ID}, ${devDept.id}, '技术部', 'requested', 'persistent', 'ap-sandbox:latest', true, 512, 1, ${devWs}),
+      (${DEMO_APP_ID}, ${opsDept.id}, '运维组', 'requested', 'persistent', 'ap-sandbox:latest', true, 512, 1, ${opsWs})
   `
-  console.log('  ✓ 沙盒演示记录: 技术部 / 运维组（requested——首次干活自动创建）')
+  console.log('  ✓ 沙盒演示记录: 技术部 / 运维组（requested——首次干活自动创建——network 默认开通）')
 
   // ════════════════════════════════════════════════════
   // 8. Agent 执行日志（Dashboard 面板数据）
