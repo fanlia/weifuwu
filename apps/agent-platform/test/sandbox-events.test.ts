@@ -138,3 +138,27 @@ test('阶段 3：集群调度器——容量视图推导 + 路由决策（事件
   assert.equal(routeEvt.length, 1, '路由决策事件')
   assert.ok(routeEvt[0].payload?.candidates?.length >= 2, '候选宿主列表（容量视图）')
 })
+
+test('阶段 4：宿主健康——事件流心跳超时 → host:down；恢复 → host:up', async () => {
+  resetSandboxEvents()
+  const { sandboxEmit } = await import('../src/sandbox/events.ts')
+  const { checkHostHealth, resetHostHealth } = await import('../src/sandbox/host-health.ts')
+  resetHostHealth()
+  // 远程宿主 host-2 活跃（host:register + ping）
+  sandboxEmit('host:register', undefined, { hostId: 'host-2', memoryMb: 4096 })
+  sandboxEmit('host:ping', 'host-2', { hostId: 'host-2', ts: Date.now() })
+  // 超时模拟（注册 + 最后 ping 都在 200s 前——90s 超时）
+  resetSandboxEvents()
+  const old = Date.now() - 200_000
+  sandboxEmit('host:register', undefined, { hostId: 'host-2', memoryMb: 4096, ts: old })
+  sandboxEmit('host:ping', 'host-2', { hostId: 'host-2', ts: old })
+  const r = checkHostHealth()
+  assert.ok(r.down.includes('host-2'), `超时 → host:down——实际 ${r.down.join(',')}`)
+  // 恢复（新 ping）→ host:up
+  resetSandboxEvents()
+  const now = Date.now()
+  sandboxEmit('host:register', undefined, { hostId: 'host-2', memoryMb: 4096, ts: now })
+  sandboxEmit('host:ping', 'host-2', { hostId: 'host-2', ts: now })
+  const r2 = checkHostHealth()
+  assert.ok(r2.up.includes('host-2'), `恢复 → host:up——实际 ${r2.up.join(',')}`)
+})

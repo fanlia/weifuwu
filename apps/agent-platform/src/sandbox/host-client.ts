@@ -34,5 +34,10 @@ export function startHostReporting(): () => void {
   const unsub = subscribeSandboxEvents((e) => {
     try { ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ type: 'sandbox:event', event: e })) } catch { /* ignore */ }
   })
-  return () => { stopped = true; unsub(); try { ws?.close() } catch { /* ignore */ } }
+  // 心跳（阶段 4：空闲宿主也有活跃证明——中心 health 检测超时判定 down）
+  const pingTimer = setInterval(() => {
+    try { ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ type: 'host:ping', hostId: HOST_ID, ts: Date.now() })) } catch { /* ignore */ }
+  }, 30_000)
+  pingTimer.unref?.()
+  return () => { stopped = true; clearInterval(pingTimer); unsub(); try { ws?.close() } catch { /* ignore */ } }
 }

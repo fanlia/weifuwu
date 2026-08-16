@@ -738,6 +738,15 @@ async function main() {
   // 宿主上报（集群化阶段 2：CENTER_URL 配置时连接中心——单机直连模式零影响）
   const { startHostReporting } = await import('./src/sandbox/host-client.ts')
   startHostReporting()
+  // 宿主健康检查（阶段 4：定期——事件流心跳超时 → host:down/up）
+  const { checkHostHealth } = await import('./src/sandbox/host-health.ts')
+  const healthTimer = setInterval(() => {
+    const r = checkHostHealth()
+    if (r.down.length > 0 || r.up.length > 0) {
+      console.log(`[sandbox] 宿主健康：down=${r.down.join(',') || '-'} up=${r.up.join(',') || '-'}`)
+    }
+  }, 60_000)
+  healthTimer.unref?.()
   // AI 事件流（三端打通——vdom + ai + sandbox）
   registerAiEventRoutes(protectedRoutes)
   // 三端事件契约（精密配合——AI 工具决策 → 沙盒预热；exec 超时 → 跨层标注）
@@ -1342,6 +1351,10 @@ async function main() {
         const { hostEventIngest } = await import('./src/sandbox/events.ts')
         if (msg?.type === 'sandbox:event' && msg.event?.entity === 'sandbox') {
           hostEventIngest(msg.event)
+        } else if (msg?.type === 'host:ping') {
+          // 心跳（阶段 4：宿主活跃证明——health 检测用）
+          const { sandboxEmit } = await import('./src/sandbox/events.ts')
+          sandboxEmit('host:ping', msg.hostId, { hostId: msg.hostId, ts: msg.ts })
         } else if (msg?.type === 'host:register') {
           // 宿主注册（容量视图——调度器基础）
           const { sandboxEmit } = await import('./src/sandbox/events.ts')
