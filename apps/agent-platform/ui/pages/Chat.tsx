@@ -335,7 +335,11 @@ export const Chat: Component = async (_props, ctx) => {
     const updated = $.msgs.map((m: ChatMessage) => {
       if ((m.status === 'thinking' || m.status === 'generating') && m.created_at) {
         if (now - new Date(m.created_at).getTime() > 60000) {
-          changed = true; return { ...m, status: 'complete' }
+          // B.2 超时可见化：明确"超时"态（非静默 complete）——内容空则失败态——
+          // 超时 = 服务端异常线索（wf:done 未达）——不再静默假装完成
+          changed = true
+          if (!m.content) console.warn(`[chat] AI 回复超时（${m.sender_name ?? 'AI'}——60s 无完成）——服务端可能异常`)
+          return { ...m, status: m.content ? 'complete' : 'error' }
         }
       }
       return m

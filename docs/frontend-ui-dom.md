@@ -136,6 +136,7 @@ replay(deserializeEvents(data), root)
 - **浮层 portal**：`ctx.ui.usePopup` + `popup.portal()`（#__wf_portal）——禁止 absolute 相对父容器
 - **浏览器环境**：组件用 `ctx.browser`（禁裸 window/document）——SSR 安全三态
 - **事件 handler**：代理 Map 覆盖——handler 更新零重绑零事件（稳定引用仅为性能建议——结构共享收益前提）
+- **props 不可变（红线——Chat 空 bubble 事故）**：**禁止原地修改 props 引用的对象**（`m.content += text`）——vdom3 剪枝按 props 浅比较判断"未变"→ 复用旧输出 → 渲染不更新。**状态更新必须新建对象**（`$.msgs[i] = { ...m, content: ... }`——引用变 → 剪枝不命中 → 重渲染）。排查"渲染没更新"时看 `__wf_tail` 的 `comp:build` 事件 `reason: 'reuse-skip'`（= 契约：props 引用未变）
 
 ## 与后端共享
 

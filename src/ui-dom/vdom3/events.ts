@@ -124,6 +124,31 @@ export function createEventStream(max = 20000, opts?: { watermark?: number }): E
 /** 全局流（默认实例——后续 per-app 实例化） */
 export const stream = createEventStream()
 
+// ── 阶段 D：框架级全局调试工具（透明度——剪枝决策/事件流浏览器可见） ──
+// __wf_tail(n?, filter?)  最近 N 条事件（filter: { comp?: string; decision?: string }）
+// __wf_builds(comp?)      组件构建决策（reason: mount/reuse-skip/props-changed/root-render）
+// __wf_recent(n)          最近 N 条（简化）
+if (typeof globalThis !== 'undefined') {
+  const w = globalThis as any
+  if (!w.__wf_tail) {
+    w.__wf_tail = (n = 200, filter?: { comp?: string; decision?: string }) => {
+      const evs = stream.events().slice(-n)
+      if (!filter) return evs
+      return evs.filter((e) => {
+        if (filter.comp && e.payload?.name !== filter.comp) return false
+        if (filter.decision && e.payload?.reason !== filter.decision) return false
+        return true
+      })
+    }
+    w.__wf_builds = (comp?: string) => {
+      const evs = stream.events().filter((e) => e.entity === 'comp' && e.action === 'build')
+      if (!comp) return evs.map((e) => ({ name: e.payload?.name, reason: e.payload?.reason, changedKeys: e.payload?.changedKeys }))
+      return evs.filter((e) => e.payload?.name === comp).map((e) => ({ name: e.payload?.name, reason: e.payload?.reason, changedKeys: e.payload?.changedKeys }))
+    }
+    w.__wf_recent = (n = 50) => stream.events().slice(-n)
+  }
+}
+
 /** 节点 id 分配（渲染指令目标定位） */
 let nodeUid = 0
 export function nextNodeId(): string {

@@ -3195,3 +3195,56 @@ test('阶段 5：eventsBySession 按会话过滤（一次渲染的事件全量�
   assert.ok(t1 && t2 && t1.session !== t2.session, `各渲染的更新事件分属各自 session`)
   document.body.removeChild(root)
 })
+
+// ── 阶段 A：剪枝决策透明化（comp:build reason 字段） ──
+
+test('阶段 A：comp:build reason 四类决策可观测（mount/reuse-skip/props-changed/root-render）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let n = 0
+  const Item = async (_init: any) => async (props: any) => h('div', {}, String(props.k))
+  const App = async (_init: any) => async () => h('div', {}, [
+    h(Item, { k: n }),
+    h('div', {}, 'static'),
+  ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const builds = () => stream.events().filter((e) => e.entity === 'comp' && e.action === 'build').map((e) => (e.payload as any)?.reason ?? '?')
+  // 首帧：mount
+  assert.ok(builds().includes('mount'), `首帧 mount——实际 ${builds().join(',')}`)
+  // props 变（n 变化——Item props.k 变）→ props-changed
+  stream.reset()
+  n = 1
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(builds().includes('props-changed'), `props 变 → props-changed——实际 ${builds().join(',')}`)
+  // props 不变（n 同——Item props 引用/值同）→ reuse-skip
+  stream.reset()
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(builds().includes('reuse-skip'), `props 不变 → reuse-skip——实际 ${builds().join(',')}`)
+  document.body.removeChild(root)
+})
+
+// ── 阶段 D：调试工具（__wf_builds 按组件查剪枝决策） ──
+
+test('阶段 D：__wf_builds 按组件查构建决策（reason 可见）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const Item = async (_init: any) => async (props: any) => h('div', {}, String(props.k))
+  const App = async (_init: any) => async () => h('div', {}, [h(Item, { k: 1 })])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  stream.reset()
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const w = globalThis as any
+  const builds = w.__wf_builds?.()
+  assert.ok(Array.isArray(builds) && builds.length > 0, `__wf_builds 可查——实际 ${builds?.length}`)
+  // 决策含 reason（props 未变 → reuse-skip）
+  const reasons = builds.map((b: any) => b.reason)
+  assert.ok(reasons.includes('reuse-skip'), `剪枝决策可见——实际 ${reasons.join(',')}`)
+  document.body.removeChild(root)
+})

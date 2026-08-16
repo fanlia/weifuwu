@@ -60,9 +60,6 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
       v._render = reuse._render
       v._id = reuse._id
       indexComponent(v)
-      // BUILD 事件：组件构建决策（工厂复用——内部状态保持的事件证据）；
-      // index: true——组件实例进入 O(1) 定位表（comp-index 注册——状态可观测）
-      stream.emit(ev('comp', 'build', v._id!, { name: compName(v.type), reused: true, index: true }))
       // props 级 diff（剪枝）：新旧 props 浅比较——不变 → 复用旧输出（不重跑 renderFn——
       // 零 RENDER——父重渲染不波及 props 未变的子组件）；根组件不剪枝（isRoot——
       // 内部状态变化必须重跑 renderFn）
@@ -71,15 +68,22 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
         // 剪枝克隆继承 el（否则 patch 时 ov.el 缺失 → 降级重建 → 重建项插末尾——
         // 审计抓出的 children 顺序错位（统计页 grid 每次重建的真实 bug））
         if (reuse.el != null) v.el = reuse.el
+        // BUILD 事件（透明度 A.1——剪枝决策可见）：reason 'reuse-skip'——
+        // props 浅比较相同 → 复用旧输出（零 RENDER）——业务排查"渲染没更新"时
+        // 一眼看到此原因（= 契约：props 引用未变——需新建对象触发）
+        stream.emit(ev('comp', 'build', v._id!, { name: compName(v.type), reused: true, index: true, reason: 'reuse-skip', propsKeys: Object.keys(v.props) }))
         return v
       }
       // props 变化 → 驱动重渲染（PROPS_UPDATE 事件——变化的 key 可观测）
       const changedKeys = Object.keys({ ...reuse.props, ...v.props }).filter((k) => reuse.props[k] !== v.props[k])
       stream.emit(ev('props', 'update', v._id!, { name: compName(v.type), keys: changedKeys }))
+      // BUILD 事件（透明度 A.1）：reason 'props-changed'（props 变重跑）/
+      // 'root-render'（根组件——内部状态变化必须重跑——即使 props 未变）
+      stream.emit(ev('comp', 'build', v._id!, { name: compName(v.type), reused: true, index: true, reason: isRoot ? 'root-render' : 'props-changed', changedKeys }))
     } else {
       v._id = nextNodeId()
       indexComponent(v)
-      stream.emit(ev('comp', 'build', v._id, { name: compName(v.type), reused: false, index: true }))
+      stream.emit(ev('comp', 'build', v._id, { name: compName(v.type), reused: false, index: true, reason: 'mount' }))
       stream.emit(ev('comp', 'mount', v._id, { name: compName(v.type) }))
       // 组件 ctx：onUnmount 钩子（卸载清理注册——COMP_UNMOUNT 时执行）
       // + ui（vdom2 兼容面——hooks shim——组件库零改动）

@@ -419,8 +419,9 @@ async function runAgentStreamForAgent(
   const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
   const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
 
-  // 消息占位（SSE 路径在内部创建）
+  // 消息占位（SSE 路径在内部创建）——msgId 在 try 外声明（B.1 兜底 catch 可访问）
   let msgId = initialMsgId
+  try {
   if (!msgId) {
     const [replyMsg] = await sql`
       INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
@@ -622,6 +623,17 @@ function isTaskMessage(content: string): boolean {
   // SSE 路径：关闭响应流
   if (!isExternalMsg) {
     // emitter 负责关闭（SSE 需写最后空行）
+  }
+  } catch (err) {
+    // B.1 跨层错误透明化：任何未覆盖异常（作用域/传参/运行时）→ wf:error 必达——
+    // 否则前端永久卡"生成中"（真实事故：messageContent 未定义 ReferenceError
+    // 逃逸 → wf:done/wf:error 都没发 → 前端 60s 兜底才恢复）
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[chat] runAgentStreamForAgent ${agent.id} error:`, msg)
+    try {
+      if (msgId) emit.emit({ type: 'wf:error', messageId: msgId, code: 'internal_error', message: msg.slice(0, 200) })
+      else console.error(`[chat] msgId 未知——无法发 wf:error：${msg}`)
+    } catch { /* 兜底失败不阻断 */ }
   }
 }
 
