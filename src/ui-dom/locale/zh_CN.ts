@@ -11,6 +11,13 @@ export const zhCN = {
       maxSize: '最大 ',
       remove: '删除',
     },
+    Editor: {
+      'ai-polish': '润色', 'ai-translate': '翻译', 'ai-shorten': '缩写',
+      'ai-expand': '扩写', 'ai-fix': '纠错',
+      generating: '生成中…', failed: '失败',
+      reject: '拒绝', accept: '接受', retry: '重试',
+      linkTitle: '插入链接', imageTitle: '插入图片',
+    },
     Pagination: { ariaLabel: '分页' },
     ProgressBar: { ariaLabel: '进度' },
     Switch: { ariaLabel: '切换' },

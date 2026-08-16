@@ -447,6 +447,10 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     ctx.ui.render()
   }
 
+  // 组件文案（i18n：ctx.i18n.components.Editor——locale 包注册；缺省 fallback）
+  const editorText = (key: string, fallback: string): string =>
+    (ctx as any).i18n?.components?.Editor?.[key] ?? fallback
+
   return async (props: EditorProps) => {
     const { value = '', onChange, onUpload, placeholder = '', disabled = false, minHeight = '200px', draftKey } = props
     const toolbarItems = props.toolbar ?? DEFAULT_TOOLBAR
@@ -734,7 +738,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     const linkModal = isRichMode && showLinkInput ? linkPopup.portal(h('div', {
       class: 'wf-editor-link-panel',
     }, [
-      h('div', { class: 'wf-editor-link-panel-title' }, '插入链接'),
+      h('div', { class: 'wf-editor-link-panel-title' }, editorText('linkTitle', '插入链接')),
       h('input', {
         type: 'url', class: 'wf-editor-link-input', placeholder: 'https://...',
         value: linkUrl, 'data-editor-link-input': true,
@@ -784,7 +788,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     const imageModal = isRichMode && showImageInput ? imagePopup.portal(h('div', {
       class: 'wf-editor-link-panel',
     }, [
-      h('div', { class: 'wf-editor-link-panel-title' }, '插入图片'),
+      h('div', { class: 'wf-editor-link-panel-title' }, editorText('imageTitle', '插入图片')),
       h('div', { class: 'wf-stack', style: 'gap:8px' }, imageBodyChildren),
       h('div', { class: 'wf-editor-link-panel-actions' }, [
         h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', disabled: imageUploading || undefined, onClick: cancelImage }, '取消'),
@@ -861,7 +865,10 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
 
     // ── AI 协作（工具栏按钮组 + 建议浮层） ─────────────────────
     const aiOpts = props.ai
-    const aiActions = aiOpts?.actions ?? DEFAULT_AI_ACTIONS
+    const aiActions = (aiOpts?.actions ?? DEFAULT_AI_ACTIONS).map((a) => ({
+      ...a,
+      label: editorText(`ai-${a.id}`, a.label),
+    }))
     let aiButtons: VNode | null = null
     let aiPanel: VNode | null = null
     let historyBtn: VNode | null = null
@@ -949,7 +956,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         const panelContent = h('div', { class: 'wf-editor-ai-panel' }, [
           h('div', { class: 'wf-editor-ai-panel-head' }, [
             h('span', {}, `AI ${p.action.label}`),
-            h('span', { class: 'wf-editor-ai-panel-status' }, p.streaming ? '生成中…' : (p.error ? '失败' : '')),
+            h('span', { class: 'wf-editor-ai-panel-status' }, p.streaming ? editorText('generating', '生成中…') : (p.error ? editorText('failed', '失败') : '')),
           ]),
           p.error
             ? h('div', { class: 'wf-editor-ai-panel-error' }, p.error)
@@ -958,17 +965,17 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
             h('button', {
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button',
               onClick: () => { aiPanelOpen = false; aiPending = null; ctx.ui.render() },
-            }, '拒绝'),
+            }, editorText('reject', '拒绝')),
             p.error
               ? h('button', {
                 class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
                 onClick: () => runAiAction(p.action, aiOpts),
-              }, '重试')
+              }, editorText('retry', '重试'))
               : h('button', {
                 class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
                 disabled: (p.streaming || !p.revised.trim()) ? true : undefined,
                 onClick: () => acceptAi(aiOpts),
-              }, '接受'),
+              }, editorText('accept', '接受')),
           ]),
         ])
         aiPanel = aiPopup.portal(panelContent, 'editor-ai-panel')

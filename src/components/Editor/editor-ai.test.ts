@@ -18,6 +18,26 @@ import { editEvents } from './edit-events.ts'
 before(setupJsdom)
 
 describe('Editor AI 协作（串行——mockFetch 全局竞争）', () => {
+  it('i18n：AI 动作标签/面板文案走 ctx.i18n.components.Editor（en 环境）', async () => {
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const ctx: any = {
+      i18n: {
+        components: {
+          Editor: {
+            'ai-polish': 'Polish', generating: 'Generating…', reject: 'Reject', accept: 'Accept', retry: 'Retry',
+          },
+        },
+      },
+    }
+    const handle = createRoot(h(Editor, { value: '<p>hello</p>', onChange: () => {}, ai: { url: '/x' } } as any), root, { ctx })
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    const polishBtn = root.querySelector('[data-ai-item="polish"]')
+    assert.equal(polishBtn?.textContent, 'Polish', 'AI 动作标签 i18n')
+    root.remove()
+  })
+
 
 /** wf: SSE 流构造（token 序列 → done） */
 function sseBody(tokens: string[]): string {

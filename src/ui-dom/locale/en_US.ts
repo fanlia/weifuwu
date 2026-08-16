@@ -4,6 +4,13 @@
 
 export const enUS = {
   components: {
+    Editor: {
+      'ai-polish': 'Polish', 'ai-translate': 'Translate', 'ai-shorten': 'Shorten',
+      'ai-expand': 'Expand', 'ai-fix': 'Fix',
+      generating: 'Generating…', failed: 'Failed',
+      reject: 'Reject', accept: 'Accept', retry: 'Retry',
+      linkTitle: 'Insert link', imageTitle: 'Insert image',
+    },
     Button: { loading: 'Loading...' },
     FileUpload: {
       placeholder: 'Click or drag to upload',
