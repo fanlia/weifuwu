@@ -140,7 +140,9 @@ export const Chat: Component = async (_props, ctx) => {
     if (atMatch) {
       $.atQuery = atMatch[1]
       $.atMenu = $.membersList.filter((m) => (m.type === 'ai' || m.type === 'knowledge_base' || m.type === 'department') && (String(m.name).includes($.atQuery) || !$.atQuery))
-      $.atMenuOpen = $.atMenu.length > 0
+      // 始终显示 @ 菜单（@所有人 始终可选——无成员也出现——否则 @ 输入无反馈：
+      // 真实 bug——成员 0 的部门 @ 输入无任何反应（atMenuOpen = atMenu.length > 0）
+      $.atMenuOpen = true
     } else {
       $.atMenuOpen = false; $.atQuery = ''
     }
@@ -625,6 +627,8 @@ export const Chat: Component = async (_props, ctx) => {
       </div>
 
       <div class="wf-border-t wf-p-sm">
+        {/* 固定容器：条件切换在容器内部——不漂移父级 children 索引（vdom3 无 key 位置 diff） */}
+        <div>
         {$.atMenuOpen && (
           <div class="wf-stack wf-gap-none wf-p-sm wf-rounded wf-surface wf-mb-sm wf-shadow" style="position: relative; z-index: 10">
             <div class="wf-text-xs wf-text-tertiary wf-px-sm wf-pb-xs">@ 选择成员（可多选——@all 全员）</div>
@@ -632,6 +636,9 @@ export const Chat: Component = async (_props, ctx) => {
               onClick={() => { $.input = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, '@all '); $.atMenuOpen = false; rerender() }}>
               <span class="wf-text-base">@所有人（全部 AI）</span>
             </button>
+            {$.atMenu.length === 0 && (
+              <div class="wf-text-xs wf-text-tertiary wf-px-sm wf-py-xs">暂无其他成员可选——可 @所有人 或去「管理 → Agent」添加</div>
+            )}
             {$.atMenu.map((m: Member) => (
               <button type="button" key={m.id} class="wf-row wf-gap-sm wf-px-sm wf-py-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px"
                 onClick={() => pickAtMember(m)}>
@@ -641,6 +648,8 @@ export const Chat: Component = async (_props, ctx) => {
             ))}
           </div>
         )}
+        </div>
+        <div>
         {$.replyTo && (
           <div class="wf-row wf-gap-sm wf-bg-tertiary wf-px-sm wf-py-xs wf-rounded wf-mb-sm">
             <Icon name="message" size={14} />
@@ -648,6 +657,8 @@ export const Chat: Component = async (_props, ctx) => {
             <Button size="sm" variant="ghost" onClick={() => { $.replyTo = null; rerender() }}><Icon name="close" size={12} /></Button>
           </div>
         )}
+        </div>
+        <div>
         {$.files.length > 0 && (
           <div class="wf-row wf-gap-sm wf-mb-sm">
             {$.files.map((f, i) => (
@@ -658,6 +669,7 @@ export const Chat: Component = async (_props, ctx) => {
             ))}
           </div>
         )}
+        </div>
         <div class="wf-row wf-gap-sm">
           <div class="wf-fill">
             <ChatInput

@@ -576,7 +576,27 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
       continue
     }
     if (nc == null || nc === false || nc === true) {
-      // 空洞（flatten 滤除后不应出现——防御：消费一个旧项）
+      // 空洞（条件渲染的 false/null——children 保留空洞——索引对齐——
+      // 移除对应旧项（portal/组件实例/生命周期统一清理）——修复条件切换错乱：
+      // 滤除空洞时索引漂移 → 同 type 错配 patch 复用错 DOM（Chat @ 菜单重复输入框）
+      if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
+        removePortalContent(oc as PortalVNode)
+        j++
+        continue
+      }
+      if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
+        removePortalContent((oc as VNode)._child as PortalVNode)
+        j++
+        continue
+      }
+      if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
+        removeComponentInstance(oc as VNode, el, j)
+        j++
+        continue
+      }
+      if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
+        removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
+      }
       j++
       continue
     }
