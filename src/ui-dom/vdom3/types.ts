@@ -94,9 +94,11 @@ export function classifyKind(v: VNodeChild | undefined | null): VKind {
 
 /** children 读取统一入口（vdom2 兼容：h 存 props.children——vdom3 引擎输出存 v.children）
  *  读取顺序：v.children（引擎写——组件输出）→ props.children（h/组件库产出）→ 空 */
-/** 嵌套数组拍平（vdom2 语义：数组项 = 隐式 Fragment——组件库 [props.children, x] 模式） */
+/** 嵌套数组拍平（vdom2 语义：数组项 = 隐式 Fragment——组件库 [props.children, x] 模式）
+ *  false/null/boolean **保留**（空洞）——占位法（阶段 1）：children 与 DOM 双同构
+ *  （空洞建占位节点——|DOM| = |children|——条件渲染切换索引不漂移——
+ *  根治 children 错配类 bug：@ 菜单重复输入框等） */
 function flatten(c: VNodeChild | VNodeChild[]): VNodeChild[] {
-  if (c == null || typeof c === 'boolean') return []
   if (Array.isArray(c)) return c.flatMap((x) => flatten(x))
   return [c]
 }

@@ -25,7 +25,14 @@ function key(ev: V3Event): string {
 export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry): void {
   switch (key(ev)) {
     case 'node:create': {
-      const pl = ev.payload as { tag: string }
+      const pl = ev.payload as { tag: string; kind?: string }
+      // 占位（阶段 1——空洞事件化）：kind=hole → 注释节点（DOM 与 children 同构——
+      // 回放重建占位——与渲染同构）
+      if (pl.kind === 'hole') {
+        const hole = document.createComment('wf-hole')
+        reg.register(ev.target!, hole)
+        break
+      }
       const el = document.createElement(pl.tag)
       el.setAttribute('data-v3-id', ev.target!)
       reg.register(ev.target!, el)

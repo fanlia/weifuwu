@@ -46,7 +46,12 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
     }
     events.push(ev('node', 'insert', id, { parent: parentId, ref: null }))
     for (const c of childrenOf(v)) {
-      if (typeof c === 'string' || typeof c === 'number') {
+      if (c == null || c === false || c === true) {
+        // 空洞占位（阶段 1——与客户端渲染同构：children 含空洞——DOM 建占位注释）
+        const hid = nextId()
+        events.push(ev('node', 'create', hid, { kind: 'hole' }))
+        events.push(ev('node', 'insert', hid, { parent: id, ref: null }))
+      } else if (typeof c === 'string' || typeof c === 'number') {
         const tid = nextId()
         events.push(ev('text', 'create', tid, { value: String(c) }))
         events.push(ev('node', 'insert', tid, { parent: id, ref: null }))
@@ -89,7 +94,12 @@ export async function* renderToEventStream(vnode: VNode): AsyncGenerator<V3Event
     }
     yield ev('node', 'insert', id, { parent: parentId, ref: null })
     for (const c of childrenOf(v)) {
-      if (typeof c === 'string' || typeof c === 'number') {
+      if (c == null || c === false || c === true) {
+        // 空洞占位（阶段 1——与客户端渲染同构）
+        const hid = nextId()
+        yield ev('node', 'create', hid, { kind: 'hole' })
+        yield ev('node', 'insert', hid, { parent: id, ref: null })
+      } else if (typeof c === 'string' || typeof c === 'number') {
         const tid = nextId()
         yield ev('text', 'create', tid, { value: String(c) })
         yield ev('node', 'insert', tid, { parent: id, ref: null })
@@ -108,8 +118,13 @@ export function eventsToHtml(events: V3Event[]): string {
   const tags = new Map<string, string>()
   const attrs = new Map<string, Map<string, unknown>>()
   const texts = new Map<string, string>()
+  const holes = new Set<string>()
   for (const e of events) {
-    if (e.entity === 'node' && e.action === 'create') tags.set(e.target!, (e.payload as { tag: string }).tag)
+    if (e.entity === 'node' && e.action === 'create') {
+      const pl = e.payload as { tag: string; kind?: string }
+      if (pl.kind === 'hole') holes.add(e.target!)
+      else tags.set(e.target!, pl.tag)
+    }
     else if (e.entity === 'prop' && e.action === 'update') {
       const pl = e.payload as { key: string; value: unknown }
       const m = attrs.get(e.target!) ?? new Map()
@@ -129,6 +144,7 @@ export function eventsToHtml(events: V3Event[]): string {
   }
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   const emit = (id: string): string => {
+    if (holes.has(id)) return '<!--wf-hole-->'
     const tag = tags.get(id)
     if (tag) {
       const a = attrs.get(id)

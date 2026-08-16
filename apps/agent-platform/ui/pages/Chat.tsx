@@ -627,8 +627,6 @@ export const Chat: Component = async (_props, ctx) => {
       </div>
 
       <div class="wf-border-t wf-p-sm">
-        {/* 固定容器：条件切换在容器内部——不漂移父级 children 索引（vdom3 无 key 位置 diff） */}
-        <div>
         {$.atMenuOpen && (
           <div class="wf-stack wf-gap-none wf-p-sm wf-rounded wf-surface wf-mb-sm wf-shadow" style="position: relative; z-index: 10">
             <div class="wf-text-xs wf-text-tertiary wf-px-sm wf-pb-xs">@ 选择成员（可多选——@all 全员）</div>
@@ -648,8 +646,6 @@ export const Chat: Component = async (_props, ctx) => {
             ))}
           </div>
         )}
-        </div>
-        <div>
         {$.replyTo && (
           <div class="wf-row wf-gap-sm wf-bg-tertiary wf-px-sm wf-py-xs wf-rounded wf-mb-sm">
             <Icon name="message" size={14} />
@@ -657,8 +653,6 @@ export const Chat: Component = async (_props, ctx) => {
             <Button size="sm" variant="ghost" onClick={() => { $.replyTo = null; rerender() }}><Icon name="close" size={12} /></Button>
           </div>
         )}
-        </div>
-        <div>
         {$.files.length > 0 && (
           <div class="wf-row wf-gap-sm wf-mb-sm">
             {$.files.map((f, i) => (
@@ -669,7 +663,6 @@ export const Chat: Component = async (_props, ctx) => {
             ))}
           </div>
         )}
-        </div>
         <div class="wf-row wf-gap-sm">
           <div class="wf-fill">
             <ChatInput

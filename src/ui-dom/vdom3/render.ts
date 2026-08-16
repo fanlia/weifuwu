@@ -142,8 +142,31 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   return el
 }
 
+/** 统一节点移除（发射 node:remove + unregister——占位/文本的直接移除也要事件流——
+ *  不变量"无事件流不渲染"——DOM 变化必须有事件——回放/对照审计依赖） */
+function removeDomNode(n: Node, parent: Node): void {
+  const id = registry.idOf(n)
+  if (id) {
+    stream.emit(ev('node', 'remove', id, { parent: parentId(parent) }))
+    registry.unregister(id, n)
+  }
+  n.parentNode?.removeChild(n)
+}
+
+/** 占位节点（空洞——DOM 与 children 同构——占位法阶段 1——注释节点占槽位） */
+function createHoleNode(parent: Node, anchor?: Node | null): Node | null {
+  const hole = document.createComment('wf-hole')
+  const id = nextNodeId()
+  registry.register(id, hole)
+  stream.emit(ev('node', 'create', id, { kind: 'hole' }))
+  if (anchor && anchor.parentNode === parent) parent.insertBefore(hole, anchor)
+  else parent.appendChild(hole)
+  stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null, kind: 'hole' }))
+  return hole
+}
+
 function renderVNodeChild(c: FlatChild, parent: Node, anchor?: Node | null): Node | null {
-  if (c == null || c === false || c === true) return null
+  if (c == null || c === false || c === true) return createHoleNode(parent, anchor)
   if (typeof c === 'string' || typeof c === 'number') {
     const t = document.createTextNode(String(c))
     const id = nextNodeId()
@@ -561,107 +584,93 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
     return
   }
 
-  // 双游标 diff（无 key 位置语义——children 无空洞（flatten 滤除 false））：
-  // - 同类型（位置匹配）→ patch 复用（j++）
-  // - 异类型 → nc 是新项——插入 prevNode 后（j 不动——oc 保留待后续匹配）
-  // 修复真实 bug（audit 抓出：统计页 ws 断线 Alert 插入——idxs=[0,4,5,1,2,3]）：
-  // 旧实现按索引 oc[i]/nc[i]——中间插入后后续项索引漂移——异类型 patch 重建
-  // （REMOVE oc + CREATE nc）——anchor（prevNode.nextSibling = 已被移除的 oc）
-  // 失效 → appendChild 末尾——children 顺序错位。双游标：异类型时旧项保留
-  // （可能在新树后面出现——后续同类型 patch 复用），末尾统一清理剩余旧项。
-  let prevNode: Node | null = null
-  let j = 0 // 旧树游标（异类型插入不消费——后续同类型匹配）
-  const newLen = newKids.length
-  for (let i = 0; i < newLen; i++) {
-    const nc = newKids[i]
-    const oc = j < oldKids.length ? oldKids[j] : null
+  // 占位法（阶段 1——vdom2 同构语义）：children 含空洞（false/null/true 保留）——
+  // DOM 建占位注释节点——|childNodes| 恒 = |children|——按索引对称处理
+  // （空洞 ↔ 真实 replaceChild/对称互换——不塌缩 childNodes——索引恒有效——
+  // 根治 children 错配类 bug：条件渲染切换（@ 菜单重复输入框/中间插入漂移））
+  const isHoleNode = (n: Node | null): boolean => !!n && n.nodeType === 8 && (n.nodeValue ?? '').includes('wf-hole')
+  const len = Math.max(oldKids.length, newKids.length)
+  for (let i = 0; i < len; i++) {
+    const oc = i < oldKids.length ? oldKids[i] : null
+    const nc = i < newKids.length ? newKids[i] : null
+    const domNode = el.childNodes[i] ?? null // 占位法：槽位 i 的 DOM（占位或真实——恒存在）
+    const removeOld = (): void => {
+      if (oc != null && typeof oc === 'object' && isPortalNode(oc)) { removePortalContent(oc as PortalVNode); return }
+      if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
+        removePortalContent((oc as VNode)._child as PortalVNode); return
+      }
+      if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
+        removeComponentInstance(oc as VNode, el, i); return
+      }
+      if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
+        removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
+      } else if (domNode) {
+        removeDomNode(domNode, el) // 文本/占位移除（事件流）
+      }
+    }
+
+    if (i >= newKids.length) {
+      // 旧项多余（新树已尽）——统一移除（含占位）
+      removeOld()
+      continue
+    }
     if (typeof nc === 'string' || typeof nc === 'number') {
       const str = String(nc)
-      const existing = el.childNodes[i]
-      if (existing && existing.nodeType === 3) {
-        if (existing.nodeValue !== str) {
-          stream.emit(ev('text', 'update', nodeId(existing), { value: str, prev: existing.nodeValue ?? '' }))
-          existing.nodeValue = str
+      if (domNode && domNode.nodeType === 3) {
+        if (domNode.nodeValue !== str) {
+          stream.emit(ev('text', 'update', nodeId(domNode), { value: str, prev: domNode.nodeValue ?? '' }))
+          domNode.nodeValue = str
         }
       } else {
+        // 占位/旧节点 → 文本（占位法对称替换）
         const t = document.createTextNode(str)
         const id = nextNodeId()
         registry.register(id, t)
         stream.emit(ev('text', 'create', id, { value: str }))
-        el.insertBefore(t, el.childNodes[i] ?? null)
+        if (domNode && domNode.parentNode === el) {
+          const oldId = registry.idOf(domNode)
+          if (oldId) {
+            stream.emit(ev('node', 'remove', oldId, { parent: nodeId(el) }))
+            registry.unregister(oldId, domNode)
+          }
+          el.replaceChild(t, domNode)
+        } else el.appendChild(t)
         stream.emit(ev('node', 'insert', id, { parent: nodeId(el), ref: null }))
       }
-      j++
       continue
     }
     if (nc == null || nc === false || nc === true) {
-      // 空洞（条件渲染的 false/null——children 保留空洞——索引对齐——
-      // 移除对应旧项（portal/组件实例/生命周期统一清理）——修复条件切换错乱：
-      // 滤除空洞时索引漂移 → 同 type 错配 patch 复用错 DOM（Chat @ 菜单重复输入框）
-      if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
-        removePortalContent(oc as PortalVNode)
-        j++
-        continue
+      // 空洞：旧占位保留（无操作）；旧真实 → 占位替换（对称——不塌缩——
+      // anchor 先捕获（removeOld 后 domNode 脱离——直接传会 appendChild 末尾——错位）
+      if (!isHoleNode(domNode)) {
+        const anchor = domNode ? domNode.nextSibling : null
+        removeOld()
+        createHoleNode(el, anchor)
       }
-      if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
-        removePortalContent((oc as VNode)._child as PortalVNode)
-        j++
-        continue
-      }
-      if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
-        removeComponentInstance(oc as VNode, el, j)
-        j++
-        continue
-      }
-      if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
-        removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
-      }
-      j++
       continue
     }
     if (oc != null && typeof oc === 'object' && (oc as VNode).type === (nc as VNode).type) {
-      // 同类型（无 key 位置语义）——patch 复用（anchor=prevNode 锚——
-      // 降级重建（el 缺失）时插入位置正确）——j++ 消费
-      patch(oc as VNode, nc as VNode, el, prevNode ? prevNode.nextSibling : el.firstChild)
-      const patched = (nc as VNode).el
-      if (patched && patched.parentNode === el) prevNode = patched
-      j++
+      // 同类型（位置语义）——patch 复用（domNode 锚——降级重建时插入位置正确）
+      patch(oc as VNode, nc as VNode, el, domNode ?? null)
     } else {
-      // 异类型：nc 是新项——插入 prevNode 后（anchor 是存活兄弟——
-      // oc 未移除——anchor 不失效）；j 不动（oc 可能在新树后面——保留待匹配）
-      const anchor = prevNode ? prevNode.nextSibling : el.firstChild
-      const node = renderVNode(nc as VNode, el, anchor)
-      if (node && node.parentNode === el) prevNode = node
-    }
-  }
-  // 清理剩余旧项（新树已尽——j..oldKids.length）
-  for (; j < oldKids.length; j++) {
-    const oc = oldKids[j]
-    if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
-      removePortalContent(oc as PortalVNode)
-      continue
-    }
-    // 组件输出 Portal（oc._child 是 Portal——组件 el 为 null 此前跳过 →
-    // portal 内容残留——多次条件切换后 DOM 与树不一致累积）
-    if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
-      removePortalContent((oc as VNode)._child as PortalVNode)
-      continue
-    }
-    // 组件从树中移除——统一清理（卸载钩子 + comp:unmount + 索引注销）
-    if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
-      removeComponentInstance(oc as VNode, el, j)
-      continue
-    }
-    // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
-    if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
-      removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
-    } else {
-      const domNode = el.childNodes[j]
-      if (domNode) domNode.parentNode?.removeChild(domNode)
+      // 异类型/空洞→真实：新节点插到 domNode 前（占位法对称——占位/旧节点替换）
+      const node = renderVNode(nc as VNode, el, domNode ?? null)
+      if (domNode && !isHoleNode(domNode)) {
+        // 旧真实节点 → 移除（新节点已插到其前——占位法位置保持）
+        removeOld()
+      } else if (domNode && isHoleNode(domNode)) {
+        // 占位 → 真实：renderVNode 已插到占位前——移除占位（事件流）
+        removeDomNode(domNode, el)
+      }
+      if (node == null && !domNode) {
+        // 渲染失败且无旧节点——建占位兜底（保持同构）
+        createHoleNode(el, null)
+      }
     }
   }
   auditOrder(el, newV)
 }
+
 
 function compName(type: unknown): string {
   return typeof type === 'function' ? (type.name || 'anonymous') : String(type)

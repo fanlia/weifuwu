@@ -1154,6 +1154,7 @@ test('空洞对齐（vdom2 提交按钮事故回归）：children [Field, false,
   assert.ok(root.querySelector('[id="submit"]'), '初始渲染：提交按钮')
   assert.equal(root.querySelector('.alert'), null, '初始无错误提示')
   // Field 加错误 → 重渲染（false → alert——空洞位置变化）
+  ;(globalThis as any).__holeDebug = true
   error = '必填'
   handle.rerender()
   await new Promise((r) => setTimeout(r, 20))
@@ -2952,5 +2953,95 @@ test('阶段 0：diff:transition 决策事件——from/to kind 可观测', asyn
   // from/to kind 在决策事件中
   const t = transitions[0]
   assert.ok(t.payload?.from != null && t.payload?.to != null, `决策事件带 from/to——实际 ${JSON.stringify(t.payload)}`)
+  document.body.removeChild(root)
+})
+
+// ── 阶段 1：占位法（空洞事件化——DOM 与 children 同构） ──
+
+test('阶段 1：占位法——条件渲染中间项切换不重复/不嵌套（@ 菜单场景框架层根治）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let open = false
+  const App = async (_init: any, ctx: any) => async () =>
+    h('div', { id: 'container' }, [
+      open && h('div', { class: 'menu' }, '菜单'),
+      h('div', { class: 'inputbar' }, [h('input', { class: 'chat-input' })]),
+      h('div', { class: 'searchbar' }, '搜索'),
+    ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const inputbars = () => root.querySelectorAll('.inputbar').length
+  assert.equal(inputbars(), 1, '初始 1 个输入条')
+  // 打开菜单（false → 元素——中间插入）
+  open = true
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(inputbars(), 1, '菜单打开后仍 1 个输入条（无重复）')
+  assert.ok(root.querySelector('.menu'), '菜单出现')
+  assert.ok(root.querySelector('.searchbar'), '搜索条保留（顺序不漂移）')
+  // 关闭菜单（元素 → false——中间移除）
+  open = false
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(inputbars(), 1, '菜单关闭后仍 1 个输入条')
+  assert.equal(root.querySelector('.menu'), null, '菜单移除')
+  // 多次切换（累积不重复/不嵌套）
+  for (let i = 0; i < 3; i++) {
+    open = !open
+    handle.rerender()
+    await new Promise((r) => setTimeout(r, 20))
+  }
+  assert.equal(inputbars(), 1, `多次切换后仍 1 个输入条——实际 ${inputbars()}`)
+  const menuInInput = root.querySelector('.menu')?.parentElement?.classList.contains('inputbar') ?? false
+  assert.equal(menuInInput, false, '菜单不嵌套进输入条（无 DOM 结构错乱）')
+  document.body.removeChild(root)
+})
+
+test('阶段 1：SSR 空洞——占位序列化 + 客户端 replay 同构', async () => {
+  const { renderToEvents, eventsToHtml } = await import('../ui-dom/vdom3/ssr.ts')
+  const { replay } = await import('../ui-dom/vdom3/replay.ts')
+  let open = false
+  const App = async (_init: any) => async () => h('div', { id: 'ssr-hole' }, [
+    open && h('span', { class: 'cond' }, 'x'),
+    h('span', { class: 'keep' }, 'y'),
+  ])
+  const events = await renderToEvents(h(App, {}))
+  const html = eventsToHtml(events)
+  assert.ok(html.includes('<!--wf-hole-->'), `SSR HTML 含占位注释——实际 ${html}`)
+  // 客户端 replay（事件流含占位——重建同构）
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  replay(events, target)
+  assert.equal(target.querySelectorAll('.keep').length, 1, 'replay 保持元素')
+  const inner = target.firstElementChild?.childNodes.length ?? 0
+  assert.equal(inner, 2, `replay 占位 + 元素（同构——|childNodes| = |children|）——实际 ${inner}`)
+  document.body.removeChild(target)
+})
+
+test('阶段 1：空洞事件流——占位生命周期（create/insert/remove）可观测', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let open = false
+  const App = async (_init: any, ctx: any) => async () => h('div', {}, [
+    open ? h('span', { class: 'a' }, 'x') : false,
+  ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  stream.reset()
+  // 空洞 → 元素（占位 → 真实——占位 remove 事件）
+  open = true
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const removes = stream.events().filter((e) => e.entity === 'node' && e.action === 'remove')
+  assert.ok(removes.length >= 1, `占位 → 真实：占位移除有事件——实际 ${removes.length}`)
+  stream.reset()
+  // 元素 → 空洞（真实 → 占位——占位 create 事件）
+  open = false
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const holes = stream.events().filter((e) => e.entity === 'node' && e.action === 'create' && (e.payload as any)?.kind === 'hole')
+  assert.ok(holes.length >= 1, `真实 → 占位：占位 create 事件（kind=hole）——实际 ${holes.length}`)
   document.body.removeChild(root)
 })
