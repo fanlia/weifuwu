@@ -36,10 +36,18 @@ test('markdownToHtml：代码块 → pre（原样转义）', () => {
   assert.ok(html.includes('const a = &lt;b&gt;'), '代码内容转义')
 })
 
-test('markdownToHtml：表格降级为文本（超 Editor 模型——诚实裁剪）', () => {
+test('markdownToHtml：表格 → <table>（embed 快照——编辑闭环格式保留）', () => {
   const html = markdownToHtml('| a | b |\n|---|---|\n| 1 | 2 |')
-  assert.ok(html.includes('<p>a | b</p>'), '表头降级段落')
-  assert.ok(html.includes('<p>1 | 2</p>'), '行降级段落')
+  assert.ok(html.includes('<table><tbody>'), '表格输出')
+  assert.ok(html.includes('<td>a</td>'), '表头单元格')
+  assert.ok(html.includes('<td>1</td>'), '数据单元格')
+})
+
+test('表格编辑闭环：md 表格 → embed 快照 → 保存还原表格语法', () => {
+  const doc = parseHtml(markdownToHtml('| 名称 | 值 |\n|---|---|\n| 甲 | 1 |'))
+  const out = serializeMarkdown(doc)
+  assert.ok(out.includes('| 名称 | 值 |'), '表头还原')
+  assert.ok(out.includes('| 甲 | 1 |'), '数据行还原')
 })
 
 // ── serializeMarkdown（保存回写） ──────────────────────────────────────

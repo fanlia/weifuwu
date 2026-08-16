@@ -1143,7 +1143,7 @@ const DemoEditor: Component = async (_props, ctx) => {
 }
 
 const DemoFilePreview: Component = async (_props, ctx) => {
-  let md = '# 项目说明\n\n这是 **文件预览** 组件演示——Markdown 文档。\n\n代码示例：\n\n```js\nconst x = 1\n```\n\n\n> 支持预览与编辑（基于事件流）\n\n- 预览：复用 Markdown 安全渲染\n- 编辑：Editor 事件流事务层（撤销/时光机/AI）\n- 保存：序列化回 Markdown\n\n图片示例：![weifuwu](https://picsum.photos/200/100)\n\n---\n\n尾部段落。'
+  let md = '# 项目说明\n\n这是 **文件预览** 组件演示——Markdown 文档。\n\n代码示例：\n\n```js\nconst x = 1\n```\n\n表格：\n\n| 功能 | 状态 |\n|---|---|\n| 预览 | ✅ |\n| 编辑 | ✅ |\n\n\n> 支持预览与编辑（基于事件流）\n\n- 预览：复用 Markdown 安全渲染\n- 编辑：Editor 事件流事务层（撤销/时光机/AI）\n- 保存：序列化回 Markdown\n\n图片示例：![weifuwu](https://picsum.photos/200/100)\n\n---\n\n尾部段落。'
   let saved = ''
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
