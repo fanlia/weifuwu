@@ -735,6 +735,9 @@ async function main() {
   })
   // 沙盒（一级概念：计算资源——CRUD + 生命周期操作）
   registerSandboxRoutes(protectedRoutes)
+  // 宿主上报（集群化阶段 2：CENTER_URL 配置时连接中心——单机直连模式零影响）
+  const { startHostReporting } = await import('./src/sandbox/host-client.ts')
+  startHostReporting()
   // AI 事件流（三端打通——vdom + ai + sandbox）
   registerAiEventRoutes(protectedRoutes)
   // 三端事件契约（精密配合——AI 工具决策 → 沙盒预热；exec 超时 → 跨层标注）
@@ -1326,6 +1329,27 @@ async function main() {
     resend: process.env.RESEND_API_KEY ? { apiKey: process.env.RESEND_API_KEY } : undefined,
   }))
   app.ws('/ws', messagerSystem.client.handler())
+
+  // ── sandbox 集群（阶段 2）：宿主上报端点（sandbox-host 进程连接——
+  //  接收事件 → 中心聚合缓冲——跨宿主统一查询） ──
+  app.ws('/sandbox-host', {
+    open: (ws: any) => {
+      ws.send(JSON.stringify({ type: 'host:ack' }))
+    },
+    message: async (_ws: any, _ctx: any, data: string | Buffer) => {
+      try {
+        const msg = JSON.parse(String(data))
+        const { hostEventIngest } = await import('./src/sandbox/events.ts')
+        if (msg?.type === 'sandbox:event' && msg.event?.entity === 'sandbox') {
+          hostEventIngest(msg.event)
+        } else if (msg?.type === 'host:register') {
+          // 宿主注册（容量视图——调度器基础）
+          const { sandboxEmit } = await import('./src/sandbox/events.ts')
+          sandboxEmit('host:register', undefined, { hostId: msg.hostId, capacity: msg.capacity, at: new Date().toISOString() })
+        }
+      } catch { /* 解析失败忽略 */ }
+    },
+  })
 
   // ── 问卷实时联动 WS（框架 router.ws + hub 房间——逐题同步/提交锁定） ──
   app.ws('/survey-live', {

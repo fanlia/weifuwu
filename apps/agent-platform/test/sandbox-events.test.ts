@@ -96,3 +96,21 @@ test('阶段 1：宿主抽象——hostId 标注（集群化——跨宿主聚�
   const regs = sandboxEvents(100, { action: 'host:register' })
   assert.equal(regs[0].payload?.hostId, 'local', '宿主注册事件（容量视图）')
 })
+
+test('阶段 2：集群聚合——远程宿主事件上报 → 统一查询（host 过滤）', () => {
+  resetSandboxEvents()
+  // 本地事件（hostId: local）
+  sandboxEmit('exec:start', 'sb-1', { departmentId: 'd1', tool: 'bash', hostId: 'local' })
+  // 远程宿主事件（hostEventIngest——模拟 ws 上报）
+  hostEventIngest({ entity: 'sandbox', action: 'exec:start', target: 'sb-9', payload: { departmentId: 'd2', tool: 'read', hostId: 'host-2' }, ts: Date.now() })
+  // 跨宿主统一查询（host 过滤）
+  const all = clusterEvents(100)
+  assert.ok(all.length >= 2, `跨宿主聚合——实际 ${all.length}`)
+  const host2 = clusterEvents(100, { hostId: 'host-2' })
+  assert.equal(host2.length, 1, '按 host 过滤（host-2）')
+  assert.equal(host2[0].payload?.tool, 'read', '远程宿主事件可查')
+  const local = clusterEvents(100, { hostId: 'local' })
+  assert.ok(local.length >= 1, '本地宿主事件（hostId: local）')
+})
+
+import { hostEventIngest, clusterEvents } from '../src/sandbox/events.ts'

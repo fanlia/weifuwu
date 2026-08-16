@@ -10,7 +10,7 @@ export function registerAiEventRoutes(app: Router): void {
   app.get('/api/events', async (req: Request, _ctx: AppCtx): Promise<Response> => {
     try {
       const { aiEvents } = await import('../services/ai-events.ts')
-      const { sandboxEvents } = await import('../sandbox/events.ts')
+      const { sandboxEvents, clusterEvents } = await import('../sandbox/events.ts')
       const url = new URL(req.url)
       const n = Number(url.searchParams.get('n') ?? 200)
       const requestId = url.searchParams.get('requestId') ?? undefined
@@ -18,7 +18,9 @@ export function registerAiEventRoutes(app: Router): void {
       const action = url.searchParams.get('action') ?? undefined
       // 按 requestId 过滤（精确因果——一次用户操作的三端事件链）
       const aiEvs = entity === 'sandbox' ? [] : aiEvents(n, { action })
-      const sbEvs = entity === 'ai' ? [] : sandboxEvents(n, { action })
+      // 集群化（阶段 2）：跨宿主统一查询（本地 + 远程宿主事件——hostId 过滤）
+      const hostId = url.searchParams.get('hostId') ?? undefined
+      const sbEvs = entity === 'ai' ? [] : hostId ? clusterEvents(n, { hostId, action }) : sandboxEvents(n, { action })
       let events = [
         ...aiEvs.map((e) => ({ ...e, _tier: 'ai' })),
         ...sbEvs.map((e) => ({ ...e, _tier: 'sandbox' })),

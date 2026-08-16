@@ -63,11 +63,45 @@ export function resetSandboxEvents(): void {
   len = 0
 }
 
+// ── 集群聚合（阶段 2）：跨宿主事件缓冲（远程宿主上报 → 中心统一查询） ──
+const HOST_MAX = 20000
+const hostBuf: SandboxEvent[] = []
+let hostHead = 0
+let hostLen = 0
+
+/** 中心接收远程宿主事件（sandbox-host ws 上报——hostId 已由宿主标注） */
+export function hostEventIngest(e: SandboxEvent): void {
+  const evt = { ...e, ts: Date.now() }
+  if (hostLen < HOST_MAX) { hostBuf[(hostHead + hostLen) % HOST_MAX] = evt; hostLen++ }
+  else { hostBuf[hostHead] = evt; hostHead = (hostHead + 1) % HOST_MAX }
+}
+
+/** 跨宿主统一查询（本地 + 远程——host 过滤） */
+export function clusterEvents(n = 100, filter?: { hostId?: string; sandboxId?: string; action?: string }): SandboxEvent[] {
+  // local 部分也按 hostId 过滤（本地宿主事件 hostId='local'——远程宿主事件在 hostBuf）
+  const localAll = sandboxEvents(1000, { sandboxId: filter?.sandboxId, action: filter?.action })
+  const local = filter?.hostId
+    ? localAll.filter((e) => e.payload?.hostId === filter.hostId || (filter.hostId === 'local' && !e.payload?.hostId))
+    : localAll
+  const remote: SandboxEvent[] = new Array(hostLen)
+  for (let i = 0; i < hostLen; i++) remote[i] = hostBuf[(hostHead + i) % HOST_MAX]
+  const remoteFiltered = hostLen > 0
+    ? remote.filter((e) => {
+        if (filter?.hostId && e.payload?.hostId !== filter.hostId) return false
+        if (filter?.sandboxId && e.target !== filter.sandboxId) return false
+        if (filter?.action && e.action !== filter.action) return false
+        return true
+      })
+    : []
+  return [...local, ...remoteFiltered].slice(-n)
+}
+
 // 全局调试工具（浏览器/服务端可查——与前端 __wf_tail 同风格）
 if (typeof globalThis !== 'undefined') {
   const g = globalThis as any
   if (!g.__sandbox_events) {
     g.__sandbox_events = (n = 100, filter?: { sandboxId?: string; action?: string }) => sandboxEvents(n, filter)
     g.__sandbox_tail = (n = 50) => sandboxEvents(n)
+    g.__cluster_events = (n = 100, filter?: { hostId?: string; action?: string }) => clusterEvents(n, filter as any)
   }
 }
