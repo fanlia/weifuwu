@@ -3506,3 +3506,24 @@ test('事件代理：onMouseEnter 真实 mouseover 触发（mouseenter 不冒泡
   assert.equal(entered, 1, `真实 mouseover 触发 onMouseEnter——实际 ${entered}`)
   document.body.removeChild(root)
 })
+
+test('事件代理：svg 内元素 onMouseEnter 真实 mouseover 触发（插入后补注册——svg 特定回归）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let entered = 0
+  const App = async (_init: any) => async () =>
+    h('div', {}, [
+      h('svg', { width: 100, height: 100 }, [
+        h('circle', { id: 'dot', cx: 10, cy: 10, r: 5, onMouseEnter: () => { entered++ } }),
+      ]),
+    ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // svg 内 circle——真实 mouseover（冒泡——补注册后挂载点监听应 dispatch）
+  const dot = root.querySelector('#dot') as HTMLElement
+  dot.dispatchEvent(new (window as any).MouseEvent('mouseover', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(entered, 1, `svg 内 circle 真实 mouseover 触发 onMouseEnter——实际 ${entered}`)
+  document.body.removeChild(root)
+})

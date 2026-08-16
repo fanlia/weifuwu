@@ -99,6 +99,21 @@ export function bindElementListener(el: Element, event: string, handler: EventLi
   return () => unbindEvent(id, event)
 }
 
+/** 插入后补注册（真实 bug：svg/深层元素递归渲染时父未挂载——bindDelegated
+ *  的 rootOf(parent) 返回 null——挂载点监听缺失——事件代理不触发——
+ *  agent-browser 实测：Chart 数据点（svg 内 circle）真实 hover 无 tooltip——
+ *  HoverCard（div——父已挂）正常）。插入完成后对事件 props 补注册挂载点。 */
+export function ensureDelegationFor(el: Element, props: Record<string, unknown>): void {
+  const root = rootOf(el)
+  if (!root) return
+  for (const [key, val] of Object.entries(props)) {
+    if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
+      const event = key.slice(2).toLowerCase()
+      if (!registered.get(root)?.has(event)) ensureRootEvent(root, event)
+    }
+  }
+}
+
 /** 测试/调试隔离：清空注册表与挂载点（模块级 handlers 跨测试残留——
  *  节点 id 各测试从 n1 重新分配——旧 handler 可能被错误分发） */
 export function resetDelegation(): void {

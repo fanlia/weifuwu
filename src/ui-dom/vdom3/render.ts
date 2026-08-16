@@ -31,7 +31,7 @@ export function isFragmentNode(v: unknown): boolean {
   return (t === Fragment || typeof t === 'symbol') && (v as VNode).props?.portalKey == null
 }
 import { stream, ev, nextNodeId } from './events.ts'
-import { bindDelegated, unbindAll, unbindEvent, ensureDelegationRoot, listenerCount } from './delegate.ts'
+import { bindDelegated, unbindAll, unbindEvent, ensureDelegationRoot, ensureDelegationFor, listenerCount } from './delegate.ts'
 import { unindexComponent } from './comp-index.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
@@ -145,6 +145,9 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   if (anchor && anchor.parentNode === parent) parent.insertBefore(el, anchor)
   else parent.appendChild(el)
   stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null, causeId: currentCause ?? undefined }))
+  // 插入后补注册（svg/深层元素——父未挂载时 bindDelegated 的挂载点监听缺失——
+  // 真实 hover 事故：Chart 数据点 onMouseEnter 代理不触发）
+  ensureDelegationFor(el, vnode.props ?? {})
   // ref 回调（挂载——稳定 ref 定义在 mount 层——§5.1 纪律）——
   // ref:mount 事件（组件副作用开始点——拿到 el 后组件可能操作 DOM——可观测）
   const refFn = vnode.props?.ref
