@@ -40,10 +40,23 @@ const globalHandlers = new Map<string, Set<EventListener>>()
 /** 目标（document/window）→ 已挂载的 (真实事件 → 统一监听函数) */
 const globalRoots = new Map<EventTarget, Map<string, EventListener>>()
 
-/** 不冒泡事件 → 冒泡等价（focus/blur 用 focusin/focusout——代理依赖冒泡） */
+/** 不冒泡事件 → 冒泡等价（代理依赖冒泡）——
+ *  focus/blur → focusin/focusout；mouseenter/mouseleave → mouseover/mouseout
+ *  （mouseenter 不冒泡——挂载点监听收不到子元素进入——真实 hover 不触发——
+ *  真实事故：Chart 数据点 onMouseEnter 真实鼠标悬停无 tooltip——
+ *  eval dispatchEvent（强制冒泡）能触发——真实 hover 不能） */
 const EVENT_MAP: Record<string, string> = {
   focus: 'focusin',
   blur: 'focusout',
+  mouseenter: 'mouseover',
+  mouseleave: 'mouseout',
+}
+/** 反向映射（分发查 handler——e.type → 原事件） */
+const REVERSE_MAP: Record<string, string> = {
+  focusin: 'focus',
+  focusout: 'blur',
+  mouseover: 'mouseenter',
+  mouseout: 'mouseleave',
 }
 
 /** 无冒泡等价的不冒泡事件（img 的 error/load 等——规范不冒泡——
@@ -271,7 +284,11 @@ export function bindDelegated(nodeId: string, event: string, handler: EventListe
 function dispatch(e: Event): void {
   let el = e.target as Element | null
   if (el && el.nodeType === 3) el = el.parentElement
-  const m = handlers.get(e.type)
+  // 反向映射：挂载点监听 mouseover（映射自 mouseenter）——分发时查原事件 handler
+  // （真实 hover 事故：onMouseEnter 注册 mouseenter——e.type 是 mouseover——
+  // 直接查 handlers[mouseover] 无——需 REVERSE_MAP 解析）
+  const dispatchKey = handlers.has(e.type) ? e.type : (REVERSE_MAP[e.type] ?? e.type)
+  const m = handlers.get(dispatchKey)
   if (!m) return
   while (el) {
     // closest 优化：跳过无 data-v3-id 的中间层（浏览器原生——目标层有 id 时零循环）

@@ -3485,3 +3485,24 @@ test('阶段 5：__wf_comp(id) 聚合组件完整生命周期（时间序）', a
   assert.ok(actions.includes('comp:build'), `含构建决策——实际 ${actions.slice(0, 5).join(',')}`)
   document.body.removeChild(root)
 })
+
+// ── 事件代理：mouseenter 真实 hover（不冒泡 → mouseover 映射——真实事故回归） ──
+
+test('事件代理：onMouseEnter 真实 mouseover 触发（mouseenter 不冒泡映射）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let entered = 0
+  const App = async (_init: any) => async () =>
+    h('div', { id: 'wrap' }, [
+      h('span', { id: 'hot', onMouseEnter: () => { entered++ } }, 'hot'),
+    ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // 真实鼠标语义：mouseover（冒泡——从子元素/目标冒泡到挂载点）——触发 onMouseEnter
+  const hot = root.querySelector('#hot') as HTMLElement
+  hot.dispatchEvent(new (window as any).MouseEvent('mouseover', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(entered, 1, `真实 mouseover 触发 onMouseEnter——实际 ${entered}`)
+  document.body.removeChild(root)
+})
