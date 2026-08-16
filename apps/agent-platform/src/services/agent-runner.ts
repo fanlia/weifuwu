@@ -19,6 +19,7 @@ import { resolveDepartmentWorkspace } from '../middleware/workspace.ts'
 import { getWorkspaceToolDefs, createWorkspaceHandlers } from '../tools/workspace.ts'
 import { getToolHandler } from '../tools/registry.ts'
 import { byokParamsOf } from './byok.ts'
+import { aiEmit, aiActionFromWf } from './ai-events.ts'
 import type { WfEmitter } from 'weifuwu'
 
 export interface AgentRunnerConfig {
@@ -525,9 +526,26 @@ export async function streamAgent(
   let _finished = false
   // C1 断点续跑：步骤落库串行链（emit 同步——fire-and-forget 保序）
   let runStateChain: Promise<unknown> = Promise.resolve()
+  let lastTokenText = ''
 
   // 框架 agent 事件流：wf:* 事件 → 业务回调（onChunk/onToolCall/onToolResult/onFinish）
   const emit: WfEmitter = (name, data) => {
+    // AI 事件流（三端打通——vdom + ai + sandbox）：wf:* → ai:* 统一模型——
+    // target = agentId——payload 含 messageId/departmentId（跨层关联键）
+    try {
+      const aiAction = aiActionFromWf(name)
+      const aiPayload: Record<string, unknown> = { ...(data as Record<string, unknown> ?? {}) }
+      if (config.runMessageId) aiPayload.messageId = config.runMessageId
+      if (config.departmentId) aiPayload.departmentId = config.departmentId
+      // 降频：token 逐字太频——只发首个（流式进度可见）——完整内容由 done 的 content 覆盖
+      if (name === 'wf:token') {
+        if (lastTokenText !== '') return
+        const text = String((data as WfToken).text ?? '')
+        lastTokenText = text
+        aiPayload.text = text
+      }
+      aiEmit(aiAction, config.agentId, aiPayload)
+    } catch { /* ai 事件发射失败不阻断 */ }
     if (name === 'wf:done' && !_finished) {
       _finished = true
       // C3 记忆更新（流式完成后——后台提取，不阻塞回复）

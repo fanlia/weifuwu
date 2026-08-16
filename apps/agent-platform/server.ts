@@ -20,6 +20,7 @@ import { registerAgentRoutes } from './src/routes/agents.ts'
 import { registerWorkspaceRoutes } from './src/routes/workspace.ts'
 import { registerDepartmentRoutes } from './src/routes/departments.ts'
 import { registerSandboxRoutes } from './src/routes/sandboxes.ts'
+import { registerAiEventRoutes } from './src/routes/ai-events.ts'
 import { registerMessageRoutes } from './src/routes/messages.ts'
 import { registerKnowledgeRoutes } from './src/routes/knowledge.ts'
 
@@ -734,6 +735,8 @@ async function main() {
   })
   // 沙盒（一级概念：计算资源——CRUD + 生命周期操作）
   registerSandboxRoutes(protectedRoutes)
+  // AI 事件流（三端打通——vdom + ai + sandbox）
+  registerAiEventRoutes(protectedRoutes)
   // 消息
   registerMessageRoutes(protectedRoutes)
   // 知识库
