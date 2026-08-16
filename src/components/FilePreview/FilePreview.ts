@@ -61,6 +61,11 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let doc: DocState = EMPTY_DOC
+  // 预览/编辑切换（editable 时工具栏切换；同一 DocState 无缝切换）
+  let editMode = false
+  let dirty = false
+  let enteredEdit = false
+  let loaded = false
 
   // ── 远程加载（md/html/text 的 url——fetch 内容 → 预览/编辑；sandbox 文件路径） ──
   let remote = { status: 'idle' as 'idle' | 'loading' | 'error', content: null as string | null, error: null as string | null }
@@ -98,8 +103,10 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       void loadUrl(url)
     }
 
-    // ── 事件流：预览加载可观测（__edit_tail） ──
+    // ── 事件流：预览加载可观测（__edit_tail；同内容只发一次——renderFn 重跑防重复） ──
     const emitLoaded = (chars: number, blocks: number) => {
+      if (loaded) return
+      loaded = true
       editEmit('preview', { type, chars, blocks, status: 'loaded' })
       onLoad?.({ type, chars, blocks })
     }
@@ -108,38 +115,48 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
 
     if (type === 'md') {
       // 预览：复用 Markdown 组件（安全 token 渲染）；编辑：Editor（事件流模型）
-      if (editable) {
-        doc = parseHtml(markdownToHtml(effectiveContent))
+      if (editable && editMode) {
+        // 首次进入编辑才 parse（renderFn 重跑不重置——编辑内容保持——真实事故：
+        // onChange 的 ctx.ui.render 触发重渲染覆盖 doc——保存丢编辑）
+        if (!enteredEdit) {
+          enteredEdit = true
+          doc = parseHtml(markdownToHtml(effectiveContent))
+        }
         const chars = doc.text.replace(/\uFFFC/g, '').length
         emitLoaded(chars, doc.blockProps.length + doc.embeds.length + 1)
         previewBody = h(Editor, {
           value: markdownToHtml(effectiveContent),
           minHeight: height,
           ai,
-          onChange: (v: string) => { doc = parseHtml(v) },
+          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.ui.render() },
         })
       } else {
         emitLoaded(effectiveContent.length, 0)
         previewBody = h('div', { class: 'wf-filepreview-doc', style: { height, overflow: 'auto' } }, [
           fileName ? h('div', { class: 'wf-filepreview-name' }, fileName) : null,
-          h(Markdown, { content: effectiveContent }),
+          // 编辑过显示当前文档（未保存内容可见）；否则原始内容
+          h(Markdown, { content: enteredEdit ? serializeMarkdown(doc) : effectiveContent }),
         ])
       }
     } else if (type === 'text') {
       // 纯文本：pre 预览；编辑：Editor（单段 DocState）
-      doc = parseHtml(`<p>${escapeHtml(effectiveContent)}</p>`)
-      emitLoaded(effectiveContent.length, 1)
-      if (editable) {
+      if (editable && editMode) {
+        if (!enteredEdit) {
+          enteredEdit = true
+          doc = parseHtml(`<p>${escapeHtml(effectiveContent)}</p>`)
+        }
+        emitLoaded(effectiveContent.length, 1)
         previewBody = h(Editor, {
           value: `<p>${escapeHtml(effectiveContent)}</p>`,
           minHeight: height,
           ai,
-          onChange: (v: string) => { doc = parseHtml(v) },
+          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.ui.render() },
         })
       } else {
+        emitLoaded(effectiveContent.length, 1)
         previewBody = h('div', { class: 'wf-filepreview-doc', style: { height, overflow: 'auto' } }, [
           fileName ? h('div', { class: 'wf-filepreview-name' }, fileName) : null,
-          h('pre', { class: 'wf-filepreview-text' }, effectiveContent),
+          h('pre', { class: 'wf-filepreview-text' }, enteredEdit ? doc.text : effectiveContent),
         ])
       }
     } else if (type === 'html') {
@@ -183,10 +200,13 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       if (!onSave || !isEditableType || !editable) return
       const out = type === 'md' ? serializeMarkdown(doc) : doc.text
       onSave(out, type)
+      dirty = false
       editEmit('preview', { type, status: 'saved', chars: out.length })
+      ctx.ui.render()
     }
     const doCopy = async () => {
-      const out = isEditableType ? serializeMarkdown(doc) : content
+      // 编辑模式复制序列化内容（含编辑）；预览模式复制原始内容
+      const out = isEditableType ? (editMode ? serializeMarkdown(doc) : effectiveContent) : content
       await _browser.copyText(out)
       editEmit('preview', { type, status: 'copied', chars: out.length })
     }
@@ -202,15 +222,28 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       },
     }, [
       previewBody,
-      // 工具条：复制（预览/编辑通用）+ 保存（md/text editable）
+      // 工具条：预览/编辑切换 + 复制 + 保存（md/text editable）
       isEditableType || (type === 'html' && !!content)
         ? h('div', { class: 'wf-filepreview-actions' }, [
+          isEditableType && editable
+            ? h('button', {
+              class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'toggle',
+              onClick: () => {
+                editMode = !editMode
+                // 切回预览：内容已同步 doc（未保存内容可见——dirty 保留提示）
+                editEmit('preview', { type, status: editMode ? 'edit-start' : 'view' })
+                ctx.ui.render()
+              },
+            }, editMode ? '预览' : '编辑')
+            : null,
           h('button', {
-            class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button',
+            class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'copy',
+            'data-copy': 'true',
             onClick: () => void doCopy(),
           }, '复制'),
-          ...(isEditableType && editable && onSave
+          ...(isEditableType && editable && onSave && (editMode || dirty)
             ? [
+              dirty ? h('span', { class: 'wf-filepreview-dirty', key: 'dirty' }, '未保存') : null,
               h('span', { class: 'wf-filepreview-actions-hint', key: 'hint' }, 'Ctrl+S 保存'),
               h('button', {
                 class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'save',

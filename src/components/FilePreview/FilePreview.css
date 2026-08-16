@@ -138,3 +138,8 @@
   color: var(--wf-color-error, #dc2626);
   border-color: var(--wf-color-error, #dc2626);
 }
+
+.wf-filepreview-dirty {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-warning, #d97706);
+}

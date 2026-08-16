@@ -12,6 +12,14 @@ import { editEvents, resetEditEvents } from '../Editor/edit-events.ts'
 
 before(setupJsdom)
 
+/** editable 默认预览模式——点击「编辑」切换（同一 DocState） */
+async function switchToEdit(root: HTMLElement): Promise<void> {
+  const btn = root.querySelector('.wf-filepreview-actions .wf-btn--ghost') as HTMLElement | null
+  assert.ok(btn, '切换按钮存在')
+  btn!.click()
+  await new Promise((r) => setTimeout(r, 30))
+}
+
 describe('FilePreview（串行——事件流全局缓冲）', () => {
   it('复制按钮：ctx.browser.copyText 调用（§5.5 唯一入口）', async () => {
     const copied: string[] = []
@@ -26,11 +34,50 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     } as any), root, { ctx })
     await handle.ready
     await new Promise((r) => setTimeout(r, 30))
-    const copyBtn = root.querySelector('.wf-filepreview-actions .wf-btn--ghost') as HTMLElement
+    const copyBtn = root.querySelector('[data-copy]') as HTMLElement
     assert.ok(copyBtn, '复制按钮存在')
     copyBtn!.click()
     await new Promise((r) => setTimeout(r, 20))
     assert.deepEqual(copied, ['# 复制测试'], 'copyText 收到 md 内容')
+    root.remove()
+  })
+
+  it('预览/编辑切换 + 脏标记：view 默认 → 编辑 → 修改 → 未保存提示 → 保存清除', async () => {
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    let saved: string | null = null
+    const handle = createRoot(h(FilePreview, {
+      type: 'md', content: '# 标题', editable: true,
+      onSave: (v: string) => { saved = v },
+    } as any), root)
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    // 默认预览模式（Markdown 渲染——非 Editor）
+    assert.ok(root.querySelector('h1'), '预览模式 Markdown 渲染')
+    assert.equal(root.querySelector('.wf-editor-content'), null, '默认不渲染 Editor')
+    // 切编辑
+    await switchToEdit(root)
+    assert.ok(root.querySelector('.wf-editor-content'), '编辑模式 Editor 渲染')
+    // 修改内容 → 脏标记
+    const ed = root.querySelector('.wf-editor-content') as HTMLElement
+    ed!.innerHTML = '<h1>新标题</h1>'
+    ed!.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 50))
+    assert.ok(root.textContent?.includes('未保存'), '脏标记显示')
+    // 切回预览（内容同步——不强制保存）
+    const toggle = root.querySelector('.wf-filepreview-actions .wf-btn--ghost') as HTMLElement
+    toggle!.click()
+    await new Promise((r) => setTimeout(r, 30))
+    assert.equal(root.querySelector('.wf-editor-content'), null, '切回预览')
+    assert.equal(root.querySelector('h1')?.textContent, '新标题', '预览显示编辑后内容')
+    assert.ok(root.textContent?.includes('未保存'), '未保存内容保留脏标记提示')
+    // 预览模式也可保存（未保存内容）
+    const saveBtn = root.querySelector('.wf-filepreview-actions .wf-btn--primary') as HTMLElement
+    assert.ok(saveBtn, '预览模式保存按钮可用')
+    saveBtn!.click()
+    await new Promise((r) => setTimeout(r, 20))
+    assert.equal(saved, '# 新标题', '保存编辑后内容')
+    assert.ok(!root.textContent?.includes('未保存'), '保存后脏标记清除')
     root.remove()
   })
 
@@ -68,6 +115,7 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     } as any), root)
     await handle.ready
     await new Promise((r) => setTimeout(r, 30))
+    await switchToEdit(root)
     const ed = root.querySelector('.wf-editor-content') as HTMLElement
     // 编辑内容
     ed!.innerHTML = '<h1>新标题</h1>'
@@ -114,6 +162,7 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     } as any), root)
     await handle.ready
     await new Promise((r) => setTimeout(r, 30))
+    await switchToEdit(root)
     // Editor 渲染（contentEditable）
     const editable = root.querySelector('.wf-editor-content')
     assert.ok(editable, '编辑模式渲染 Editor')
@@ -190,6 +239,7 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     } as any), root)
     await handle.ready
     await new Promise((r) => setTimeout(r, 30))
+    await switchToEdit(root)
     const ed = root.querySelector('.wf-editor-content') as HTMLElement
     // 浏览器直写表格内文本（contentEditable 原生）
     const td = ed!.querySelectorAll('table td')[3] as HTMLElement
@@ -216,6 +266,7 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     } as any), root)
     await handle.ready
     await new Promise((r) => setTimeout(r, 80))
+    await switchToEdit(root)
     const editable = root.querySelector('.wf-editor-content')
     assert.ok(editable, '远程内容进入编辑模式')
     assert.equal(editable?.textContent, '远程内容')
