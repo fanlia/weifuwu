@@ -208,7 +208,9 @@ const SurveyForm = async (_init, ctx) => {
           h(Textarea, {
             value: feedback,
             placeholder: "\u8BF7\u7559\u4E0B\u60A8\u7684\u5EFA\u8BAE...",
-            onChange: (v) => {
+            // Textarea 的输入 prop 是 onInput（事件对象）——非 onChange
+            onInput: (e) => {
+              const v = e.target.value;
               feedback = v;
               sync("5.\u5EFA\u8BAE\u53CD\u9988", v);
               rerender();
