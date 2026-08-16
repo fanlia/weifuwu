@@ -711,9 +711,13 @@ import { FilePreview } from 'weifuwu/components'
 | `pdf` | ✅ iframe（浏览器原生查看器） | ❌ | 只读 |
 | `office` | ✅ iframe（服务端转换产物 URL） | ❌ | 转换由服务端提供（前端零依赖——诚实裁剪） |
 
-**Props**：`type`（必需）、`content`（md/html/text）、`url`（pdf/office）、
+**Props**：`type`（可选——按 `fileName`/`url` 扩展名自动探测：md/txt/html/pdf/
+docx 等）、`content`（md/html/text）、`url`（远程加载/文件服务路径）、
 `editable`（md/text 切换 Editor）、`ai`（编辑模式透传 Editor AI 协作）、
 `onSave(content, type)`（保存回写）、`onLoad`（解析完成）、`height`。
+
+**交互**：工具条「复制」（原始内容——`ctx.browser.copyText`）+「保存」；
+编辑模式 `Ctrl+S` 保存。远程文件（sandbox 路径）：`url` 加载 + `onSave` 回写。
 
 **事件流**：预览加载 `editEmit('preview')`（`__edit_tail` 可审计）；编辑走 Editor
 commit 事件流（同一时间线）。**sandbox 集成**：`url` 加载 + `onSave` 回写由消费方接

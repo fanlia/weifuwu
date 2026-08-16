@@ -22,6 +22,7 @@ import type { DocState } from '../Editor/model/types.ts'
 import { EMPTY_DOC } from '../Editor/model/types.ts'
 import { parseHtml } from '../Editor/model/html.ts'
 import { editEmit } from '../Editor/edit-events.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 
 export type FileType = 'md' | 'html' | 'pdf' | 'office' | 'text'
 
@@ -57,6 +58,7 @@ export interface FilePreviewProps {
 }
 
 export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let doc: DocState = EMPTY_DOC
 
@@ -154,7 +156,10 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
     } else if (type === 'pdf' || type === 'office') {
       // 原生查看器 / 服务端转换产物（只读）
       if (!url) {
-        previewBody = h('div', { class: 'wf-filepreview-empty' }, '缺少文件 URL')
+        previewBody = h('div', { class: 'wf-filepreview-empty' },
+          type === 'office'
+            ? 'office 文件需要服务端转换后的 URL（docx/xlsx 前端零依赖解析——诚实裁剪）'
+            : '缺少文件 URL')
       } else {
         emitLoaded(0, 0)
         previewBody = h('div', { class: 'wf-filepreview-frame', style: { height } }, [
@@ -180,6 +185,11 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       onSave(out, type)
       editEmit('preview', { type, status: 'saved', chars: out.length })
     }
+    const doCopy = async () => {
+      const out = isEditableType ? serializeMarkdown(doc) : content
+      await _browser.copyText(out)
+      editEmit('preview', { type, status: 'copied', chars: out.length })
+    }
 
     return h('div', {
       class: `wf-filepreview wf-filepreview--${type}`,
@@ -192,14 +202,22 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       },
     }, [
       previewBody,
-      // 编辑保存工具条（md/text editable——序列化回写）
-      isEditableType && editable && onSave
+      // 工具条：复制（预览/编辑通用）+ 保存（md/text editable）
+      isEditableType || (type === 'html' && !!content)
         ? h('div', { class: 'wf-filepreview-actions' }, [
-          h('span', { class: 'wf-filepreview-actions-hint' }, 'Ctrl+S 保存'),
           h('button', {
-            class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
-            onClick: () => doSave(),
-          }, '保存'),
+            class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button',
+            onClick: () => void doCopy(),
+          }, '复制'),
+          ...(isEditableType && editable && onSave
+            ? [
+              h('span', { class: 'wf-filepreview-actions-hint', key: 'hint' }, 'Ctrl+S 保存'),
+              h('button', {
+                class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'save',
+                onClick: () => doSave(),
+              }, '保存'),
+            ]
+            : []),
         ])
         : null,
     ])

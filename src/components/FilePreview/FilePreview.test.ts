@@ -13,6 +13,27 @@ import { editEvents, resetEditEvents } from '../Editor/edit-events.ts'
 before(setupJsdom)
 
 describe('FilePreview（串行——事件流全局缓冲）', () => {
+  it('复制按钮：ctx.browser.copyText 调用（§5.5 唯一入口）', async () => {
+    const copied: string[] = []
+    const ctx: any = {
+      browser: { copyText: async (t: string) => { copied.push(t) } },
+      ui: { render: () => {}, usePopup: () => ({ portal: () => null, setOpen: () => {}, refresh: () => {}, open: false, wrapProps: {} }) },
+    }
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(FilePreview, {
+      type: 'md', content: '# 复制测试', editable: true,
+    } as any), root, { ctx })
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    const copyBtn = root.querySelector('.wf-filepreview-actions .wf-btn--ghost') as HTMLElement
+    assert.ok(copyBtn, '复制按钮存在')
+    copyBtn!.click()
+    await new Promise((r) => setTimeout(r, 20))
+    assert.deepEqual(copied, ['# 复制测试'], 'copyText 收到 md 内容')
+    root.remove()
+  })
+
   it('detectType：按扩展名自动探测文件类型', () => {
     assert.equal(detectType('README.md'), 'md')
     assert.equal(detectType('notes.txt'), 'text')
@@ -103,7 +124,7 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     ;(editable as HTMLElement).dispatchEvent(new (window as any).Event('input', { bubbles: true }))
     await new Promise((r) => setTimeout(r, 50))
     // 保存 → md 回写
-    const saveBtn = root.querySelector('.wf-filepreview-actions .wf-btn') as HTMLElement
+    const saveBtn = root.querySelector('.wf-filepreview-actions .wf-btn--primary') as HTMLElement
     assert.ok(saveBtn, '保存按钮存在')
     saveBtn!.click()
     await new Promise((r) => setTimeout(r, 20))
@@ -176,7 +197,7 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     ed!.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
     await new Promise((r) => setTimeout(r, 50))
     // 保存 → md 回写含新表格内容
-    const saveBtn = root.querySelector('.wf-filepreview-actions .wf-btn') as HTMLElement
+    const saveBtn = root.querySelector('.wf-filepreview-actions .wf-btn--primary') as HTMLElement
     saveBtn!.click()
     await new Promise((r) => setTimeout(r, 20))
     assert.ok(saved?.includes('| 99 |'), '表格内编辑保存生效')
