@@ -1147,8 +1147,11 @@ const DemoFilePreview: Component = async (_props, ctx) => {
   let saved = ''
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      <FilePreview type="md" content={md} editable ai={{ url: '/api/chat' }} fileName="README.md"
-        onSave={(v: string) => { saved = v; ctx.ui.render() }} />
+      <FilePreview type="md" url="/api/files/README.md" editable ai={{ url: '/api/chat' }} fileName="README.md"
+        onSave={async (v: string) => {
+          await fetch('/api/files/README.md', { method: 'PUT', body: v })
+          saved = v; ctx.ui.render()
+        }} />
       {saved ? <div class="wf-text-xs wf-text-secondary wf-py-xs wf-truncate wf-w-full">已保存: {saved.substring(0, 80)}…</div> : null}
     </div>
   )

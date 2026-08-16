@@ -67,6 +67,33 @@ app.post('/api/approve', async (req: Request): Promise<Response> => {
   return Response.json({ ok: true })
 })
 
+// ── wire-fake 文件服务（sandbox 集成演示：GET 加载 / PUT 保存） ──
+const fileStore = new Map<string, string>()
+fileStore.set('README.md', [
+  '# weifuwu 文件预览',
+  '',
+  '这是 **远程加载** 的 Markdown 文档（wire-fake 文件服务）。',
+  '',
+  '> 支持预览与编辑——基于事件流',
+  '',
+  '- 预览：Markdown 安全渲染',
+  '- 编辑：Editor 事务层（撤销/AI）',
+  '- 保存：PUT 回写文件服务',
+].join('\n'))
+
+app.get('/api/files/:name', async (req: Request, ctx: any) => {
+  const name = ctx.params.name
+  const content = fileStore.get(name)
+  if (content === undefined) return Response.json({ error: 'not found' }, { status: 404 })
+  return new Response(content, { headers: { 'Content-Type': 'text/plain' } })
+})
+app.put('/api/files/:name', async (req: Request, ctx: any) => {
+  const name = ctx.params.name
+  const content = await req.text()
+  fileStore.set(name, content)
+  return Response.json({ ok: true, chars: content.length })
+})
+
 app.get('/app.js', (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
 
 // 组件库 CSS（dev：从 src 运行时聚合——免构建——与 scripts/build.mjs 同逻辑）
