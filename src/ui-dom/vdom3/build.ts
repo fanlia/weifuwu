@@ -6,10 +6,12 @@
  */
 
 import type { VNode, VNodeChild, Component, PortalVNode, V3Ctx } from './types.ts'
-import { Fragment, Portal, childrenOf } from './types.ts'
+import { Fragment, Portal, App, childrenOf } from './types.ts'
 import { stream, ev, nextNodeId } from './events.ts'
 import { createClientBrowser } from '../browser.ts'
 import { indexComponent } from './comp-index.ts'
+import { getAppFactory } from './app.ts'
+import type { AppVNode } from './types.ts'
 import { createV3Ui } from './ui.ts'
 
 /** 组件卸载钩子注册表（组件 id → 清理函数——COMP_UNMOUNT 时调用） */
@@ -44,9 +46,13 @@ function propsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boo
  *  嵌套剪枝保留：子组件内部状态由自身 ctx.render（组件级——绕开 build）维护，
  *  父重跑时剪枝复用其最新输出——安全。 */
 export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, isRoot = false): Promise<VNode> {
-  if (typeof vnode.type === 'function') {
+  if (typeof vnode.type === 'function' || (vnode.type === App)) {
     // 克隆（组件实例字段 _render/_id/_child 写克隆——旧树保持完整）
     const v = { ...vnode } as VNode
+    // ── app 节点（多应用加载——应用编排） ──
+    if (vnode.type === App) {
+      return buildAppNode(v as AppVNode, ctx, oldV as AppVNode | null)
+    }
     const reuse = oldV != null && typeof oldV === 'object' && oldV.type === vnode.type && oldV.key === vnode.key && oldV._render
       ? oldV
       : null
@@ -126,6 +132,40 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
     }
     return v
   }
+/** app 节点构建（多应用加载——不隔离设计）：
+ *  - 注册表查工厂（未注册 → app:error unknown-app——占位 children）
+ *  - 应用实例复用（同 appId 旧节点——工厂不重跑——_appOutput 缓存）
+ *  - 子应用根 vnode → 共享 build 管线（父流构建——全链路可观测）
+ *  - 边界事件：app:mount（首次）/ app:update（props 变化——payload keys） */
+async function buildAppNode(v: AppVNode, ctx: V3Ctx, oldV: AppVNode | null): Promise<VNode> {
+  const appId = String(v.props?.appId ?? '')
+  const factory = getAppFactory(appId)
+  if (!factory) {
+    stream.emit(ev('app', 'error', undefined, { appId, reason: 'unknown-app' }))
+    return v // 占位（children 原样——骨架屏/错误提示由调用方 children 决定）
+  }
+  // 应用实例复用（同 appId——_appOutput 缓存——工厂不重跑）
+  const reuse = oldV != null && oldV.type === App && oldV.appId === appId
+  if (!reuse || !oldV._appOutput) {
+    stream.emit(ev('app', 'mount', undefined, { appId }))
+    const output = await factory((v.props?.props as Record<string, unknown>) ?? {}, ctx)
+    v._appOutput = output
+  } else {
+    v._appOutput = oldV._appOutput
+    // props 变化 → app:update（可观测——payload keys）
+    const oldP = (oldV.props?.props as Record<string, unknown>) ?? {}
+    const newP = (v.props?.props as Record<string, unknown>) ?? {}
+    const changed = [...new Set([...Object.keys(oldP), ...Object.keys(newP)])].filter((k) => oldP[k] !== newP[k])
+    if (changed.length > 0) stream.emit(ev('app', 'update', undefined, { appId, keys: changed }))
+  }
+  // 子应用根在父流构建（共享管线——全链路可观测）
+  const oldOut = reuse ? (oldV._appOutput ? await buildVNode(oldV._appOutput, ctx, null) : null) : null
+  const built = v._appOutput ? await buildVNode(v._appOutput, ctx, oldOut) : null
+  v._child = built
+  v.appId = appId
+  return v
+}
+
   // native / Fragment / Portal：递归 children（跳过文本）——克隆 + 新 children 数组
   const oldKids = childrenOf(oldV ?? ({} as VNode))
   let i = 0

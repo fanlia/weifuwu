@@ -12,6 +12,7 @@
  */
 
 export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts'
+export { App } from './vdom3/types.ts'
 export type { VNode, VNodeChild, Component } from './vnode.ts'
 export { createClientBrowser } from './browser.ts'
 export { animateOut } from './motion.ts'
@@ -40,6 +41,7 @@ export { mount, patch } from './vdom3/render.ts'
 export { buildVNode, isVNode } from './vdom3/build.ts'
 export { createEventStream, stream, ev, evKey } from './vdom3/events.ts'
 export { addGlobalListener, bindElementListener, bindDelegated, unbindEvent, unbindAll, ensureDelegationRoot, removeDelegationRoot } from './vdom3/delegate.ts'
+export { registerApp, getAppFactory, resetAppRegistry } from './vdom3/app.ts'
 export { replay, applyEvent, undo, eventsOf, hasEvent, expectEventSequence } from './vdom3/replay.ts'
 export { NodeRegistry, ensurePortalContainer } from './vdom3/registry.ts'
 export { renderToEvents, renderToEventStream, serializeEvents, deserializeEvents, eventsToHtml } from './vdom3/ssr.ts'

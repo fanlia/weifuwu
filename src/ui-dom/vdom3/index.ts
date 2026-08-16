@@ -32,12 +32,13 @@ export { createRouter, type RouteDef } from './router.ts'
 export { renderToEvents, renderToEventStream, serializeEvents, deserializeEvents, eventsToHtml } from './ssr.ts'
 export { recordToTest, summarizeEvents } from './record.ts'
 export { createPortal } from './jsx.ts'
-export { Portal } from './types.ts'
+export { Portal, App } from './types.ts'
 export { ensurePortalContainer } from './registry.ts'
 export { createV3Ui } from './ui.ts'
 export { createSync, autoSync } from './sync.ts'
 export { v3Confirm, v3Toast, type V3CommandInjected } from './commands.ts'
 export { createEventStream, stream, nextNodeId, ev, evKey } from './events.ts'
+export { registerApp, getAppFactory, resetAppRegistry } from './app.ts'
 export {
   addGlobalListener, bindElementListener, bindDelegated, unbindEvent, unbindAll,
   ensureDelegationRoot, removeDelegationRoot, resetDelegation,

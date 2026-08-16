@@ -2755,3 +2755,77 @@ test('结构共享：静态分支复用旧引用（零克隆零 diff）+ 文本�
   assert.equal(staticCompRenders, rendersBefore, '静态组件复用（渲染次数不变——剪枝/共享）')
   document.body.removeChild(root)
 })
+
+test('app 节点：多应用加载——注册表/工厂/边界事件/同流全链路/卸载', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  const { registerApp, resetAppRegistry, getAppFactory } = await import('../ui-dom/vdom3/app.ts')
+  resetAppRegistry()
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const { App, h } = await import('../ui-dom/vdom3/index.ts')
+  // 子应用注册（工厂——可 await 初始化——应用实例状态闭包持有）
+  let appClicks = 0
+  registerApp('counter-app', (_props: any, _ctx: any) => {
+    // 应用工厂返回子应用根 vnode（应用组件）
+    const SubApp = async (_init: any, ctx: any) => {
+      const rerender = () => ctx.ui.render()
+      return async () => h('div', { class: 'sub' }, [
+        h('button', { id: 'sub-go', onClick: () => { appClicks++; rerender() } }, [`sub:${appClicks}`]),
+      ])
+    }
+    return h(SubApp, {})
+  })
+  assert.ok(getAppFactory('counter-app'), '注册表查询')
+  // 父应用嵌入子应用（app 节点）
+  let subProps = { label: 'x' }
+  const App2 = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', {}, [
+      h('button', { id: 'parent', onClick: () => { subProps = { label: 'y' }; rerender() } }, 'parent'),
+      h(App, { appId: 'counter-app', props: subProps }),
+      h('div', { id: 'after' }, 'after'),
+    ])
+  }
+  createRoot(h(App2, {}), root)
+  await new Promise((r) => setTimeout(r, 40))
+  // 子应用渲染（同流全链路）
+  const subBtn = root.querySelector('[id="sub-go"]') as HTMLButtonElement
+  assert.ok(subBtn, '子应用渲染（父流中）')
+  assert.ok(root.querySelector('#after'), '父应用其他内容正常')
+  // 边界事件：app:mount（带 appId）
+  const mounts = gs.events().filter((e) => evKey(e) === 'app:mount')
+  assert.ok(mounts.length >= 1, `app:mount（子应用挂载）——实际: ${[...new Set(gs.events().map((e) => evKey(e)))].join(',')}`)
+  assert.equal((mounts[0] as any).payload?.appId, 'counter-app', 'mount 带 appId')
+  // 子应用交互（父流事件——id 唯一天然隔离）
+  gs.reset()
+  subBtn.click()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(root.querySelector('[id="sub-go"]')?.textContent, 'sub:1', '子应用交互正常')
+  const evs2 = gs.events()
+  assert.ok(evs2.some((e) => evKey(e) === 'comp:render'), '子应用渲染在父流（同流全链路）')
+  // props 变化 → app:update
+  gs.reset()
+  ;(root.querySelector('[id="parent"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const updates = gs.events().filter((e) => evKey(e) === 'app:update')
+  assert.ok(updates.length >= 1, `app:update（props 变化——可观测）——实际: ${[...new Set(gs.events().map((e) => evKey(e)))].join(',')}`)
+  assert.equal((updates[0] as any).payload?.appId, 'counter-app', 'update 带 appId')
+  assert.deepEqual((updates[0] as any).payload?.keys, ['label'], 'update 带变化的 keys')
+  // 未注册 app → app:error unknown-app（占位）
+  const App3 = async (_init: any, _ctx: any) => async () =>
+    h('div', {}, h(App, { appId: 'missing-app' }, h('div', { id: 'placeholder' }, 'loading')))
+  gs.reset()
+  const root2 = document.createElement('div')
+  document.body.appendChild(root2)
+  createRoot(h(App3, {}), root2)
+  await new Promise((r) => setTimeout(r, 30))
+  const errs = gs.events().filter((e) => evKey(e) === 'app:error')
+  assert.ok(errs.length >= 1, `app:error（unknown-app）——实际: ${[...new Set(gs.events().map((e) => evKey(e)))].join(',')}`)
+  assert.equal((errs[0] as any).payload?.reason, 'unknown-app', '错误原因可观测')
+  assert.ok(root2.querySelector('#placeholder'), '占位保留（children）')
+  document.body.removeChild(root)
+  document.body.removeChild(root2)
+  resetAppRegistry()
+})

@@ -76,7 +76,7 @@ export type VNodeChild = VNode | string | number | null | undefined | boolean | 
 
 /** vnode kind 分类（全链路事件流的决策基础——单一规则源）
  *  renderVNode / patchInner / patchChildren / 事件流 全部消费——新增类型只改此处 */
-export type VKind = 'native' | 'comp' | 'frag' | 'portal' | 'text' | 'null'
+export type VKind = 'native' | 'comp' | 'frag' | 'portal' | 'text' | 'null' | 'app'
 
 export function classifyKind(v: VNodeChild | undefined | null): VKind {
   if (v == null || typeof v === 'boolean') return 'null'
@@ -84,6 +84,7 @@ export function classifyKind(v: VNodeChild | undefined | null): VKind {
   const t = (v as VNode).type
   if (typeof t === 'function') return 'comp'
   if (typeof t === 'symbol') {
+    if (t === App) return 'app'
     // Portal（props.portalKey）优先——Fragment 是 symbol 非 portal
     if ((v as VNode).props?.portalKey != null) return 'portal'
     return 'frag'
@@ -114,6 +115,14 @@ export const Fragment: unique symbol = Symbol('v3-fragment')
 export const Portal: unique symbol = Symbol('v3-portal')
 export type PortalVNode = VNode & { type: typeof Portal; portalKey?: string | null }
 
+/** App（多应用加载——type: App 的节点 = 子应用挂载点——应用编排） */
+export const App: unique symbol = Symbol('v3-app')
+export type AppVNode = VNode & {
+  type: typeof App
+  appId?: string
+  _appOutput?: VNode | null
+}
+
 // ── 渲染事件流（location→DOM 全链路——引擎本体） ──
 //
 // 统一命名：对象 + 动作 + 参数（entity + action + target + payload）——
@@ -126,7 +135,7 @@ export type PortalVNode = VNode & { type: typeof Portal; portalKey?: string | nu
 // 不变量：任何事件触发，最终都落到 dom 层事件（node/text/prop/event/ref 的精准状态变化）——
 // 决策层事件（route/comp/vnode）只是解释"为什么"，执行层事件（dom）是"做了什么"。
 
-export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream' | 'effect'
+export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream' | 'effect' | 'app' | 'app'
 
 export type Action =
   /** location 层 */
@@ -147,6 +156,10 @@ export type Action =
   | 'mount' | 'animate' | 'lock' | 'unlock' | 'focus' | 'scroll'
   /** 用户文本操作层（输入/选区/剪贴板——用户对文本的交互可观测） */
   | 'input' | 'select' | 'copy' | 'cut' | 'paste'
+  /** 应用编排层（app 节点——子应用挂载/更新/卸载/错误——payload.appId 可区分） */
+  | 'mount' | 'unmount' | 'error'
+  /** 应用编排层（app 节点——子应用挂载/更新/卸载/错误——payload.appId 可区分） */
+  | 'mount' | 'unmount' | 'error'
 
 export type V3Event = {
   /** 对象（什么） */

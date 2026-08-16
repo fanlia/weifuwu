@@ -9,7 +9,7 @@
  */
 
 import type { VNode, VNodeChild, FlatChild, PortalVNode, VKind } from './types.ts'
-import { Fragment, Portal, childrenOf, classifyKind } from './types.ts'
+import { Fragment, Portal, App, childrenOf, classifyKind } from './types.ts'
 
 /** SVG 元素集合（createElementNS——SVG 命名空间：属性大小写敏感（viewBox 等）） */
 const SVG_TAGS = new Set([
@@ -61,8 +61,8 @@ export function mount(vnode: VNode, root: HTMLElement, reg?: NodeRegistry): void
 
 /** 渲染 vnode（同步——树已构建） */
 function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | null {
-  // 组件：输出 _child（已构建——直接渲染输出；el 定位组件输出首节点）
-  if (typeof vnode.type === 'function') {
+  // 组件/app 节点：输出 _child（已构建——直接渲染输出；el 定位组件输出首节点）
+  if (typeof vnode.type === 'function' || vnode.type === App) {
     // _child 权威（build 设置——null 是合法输出（条件移除）；undefined = 未 build → fallback）
     const output = vnode._child !== undefined ? vnode._child : childrenOf(vnode)[0] ?? null
     if (output == null) return null
@@ -320,6 +320,7 @@ function patchNativeKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | nul
 function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null): Node | null {
   vn._render = ov._render
   vn._id = ov._id
+  // app 节点：输出 = _child（子应用根构建）——同组件路径
   const out = vn._child !== undefined ? vn._child : childrenOf(vn)[0] ?? null
   const oldOut = ov._child !== undefined ? ov._child : childrenOf(ov)[0] ?? null
   if (out == null) {
@@ -377,6 +378,7 @@ function patchPortalKind(ov: VNode, vn: VNode, _parent: Node, _anchor?: Node | n
 const KIND_PATCHERS: Partial<Record<VKind, (ov: VNode, vn: VNode, parent: Node, anchor?: Node | null) => Node | null>> = {
   native: patchNativeKind,
   comp: patchCompKind,
+  app: patchCompKind, // app 节点同组件路径（输出 _child——子应用根）
   frag: patchFragKind,
   portal: patchPortalKind,
   text: undefined, // 入口已处理（TEXT_UPDATE）
