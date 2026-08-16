@@ -1,6 +1,6 @@
 # ODES — Office Document Event Stream（office 文档事件流标准）设计方案
 
-> 状态：讨论中（阶段 0 协议层实施）
+> 状态：已完成（阶段 0-3 全部实施——浏览器实测三模型编辑闭环）
 > 目标：docx/xlsx/pptx 基于事件流的编辑——文档 = fold(事件流)——与 Editor/ai/sandbox
 > 四端同构；同一 edit 通道审计；导入导出零依赖（服务端转换）。
 
@@ -140,10 +140,10 @@ POST /api/office/export   json { docType, snapshot } → application/vnd.openxml
 
 | 阶段 | 内容 | 验收 |
 |------|------|------|
-| **0（本轮）** | 协议层：ODES 类型 + fold/apply 纯函数 + checkpoint + 测试 | fold 不变量（三模型 fuzz）；checkpoint 往返；事件流外壳接线 |
-| 1 | docx 编辑（OOXML ↔ DocState 服务端转换 + FilePreview office 编辑入口） | 导入 docx → Editor 编辑 → 导出 docx 文本/表格保真 |
-| 2 | xlsx 网格编辑（SheetGrid 组件——单元格编辑/行列增删/样式） | 导入 xlsx → 编辑 → 导出；公式字符串保留 |
-| 3 | pptx 画布编辑（SlideCanvas——shape 增删/移动/缩放） | 导入 pptx → 编辑 → 导出 |
+| 0 | ✅ 协议层：ODES 类型 + fold/apply 纯函数 + checkpoint + 测试 | fold 不变量（三模型 fuzz）；checkpoint 往返；事件流外壳接线 |
+| 1 | ✅ docx：转换（前端零依赖）+ Editor 复用 + AI + 前端化 | 导入 docx → Editor 编辑 → 导出 docx 文本/表格保真 |
+| 2 | ✅ xlsx：转换 + SheetGrid（单元格编辑/行列增删/AI 公式） | 导入 xlsx → 编辑 → 导出；公式字符串保留 |
+| 3 | ✅ pptx：转换 + SlideCanvas（shape 增删/拖拽/缩放/AI 润色） | 导入 pptx → 编辑 → 导出 |
 
 ## 8. 诚实裁剪登记
 
