@@ -719,6 +719,38 @@ docx 等）、`content`（md/html/text）、`url`（远程加载/文件服务路
 **交互**：工具条「复制」（原始内容——`ctx.browser.copyText`）+「保存」；
 编辑模式 `Ctrl+S` 保存。远程文件（sandbox 路径）：`url` 加载 + `onSave` 回写。
 
+### SheetGrid（xlsx 网格编辑器——ODES 事件流）
+
+**Props**：`workbook`（受控 WorkbookState——稀疏 cells Map）、`onChange`、
+`ai`（AI 公式——SSE wf:）、`readonly`、`height`。
+
+**能力**：单元格编辑（点击 → input → Enter/focusout 提交）、行列增删（引用平移）、
+撤销（Ctrl+Z——commit 快照）、sheet 标签切换、**AI 公式**（选中单元格 → 相邻数据
+上下文提示 → 浮层确认 → 接受 = cell-set commit 原子撤销）。
+
+**事件流**：每个编辑 = `OfficeOp` → `__edit_tail(50, 'office')` 审计；AI 接受带
+`target=messageId`（跨端关联 `__ai_events`）。
+
+### SlideCanvas（pptx 画布编辑器——ODES 事件流）
+
+**Props**：`deck`（受控 DeckState——slide → shape 几何集合）、`onChange`、
+`ai`（AI 润色）、`readonly`、`height`。
+
+**能力**：960×540 画布（scale 适配）、shape 拖拽移动/右下角缩放（pointerup 原子
+提交）、双击文本编辑、幻灯片增删、Delete 删除、撤销、**AI 润色**（选中 shape →
+浮层确认 → 接受 = shape-set commit）。
+
+### Office 前端转换（零依赖——无需后端）
+
+`weifuwu/office`（源码 `src/office/`——打包进 components）：docx/xlsx/pptx ↔
+ODES 模型（DocState/WorkbookState/DeckState）双向转换——自研 ZIP（EOCD→central→
+local + `DecompressionStream('deflate-raw')`）+ 轻量 XML 解析器 + VNode 组件化
+生成 OOXML（OOXML 也是 VNode——与前端 VNode → DOM 同构）。
+
+**用法**（FilePreview 内置）：`editable` office 类型 → 打开本地 docx/xlsx/pptx →
+对应编辑器（Editor/SheetGrid/SlideCanvas）→ 下载导出。裁剪：复杂分节/公式计算/
+动画母版——诚实提示。
+
 **事件流**：预览加载 `editEmit('preview')`（`__edit_tail` 可审计）；编辑走 Editor
 commit 事件流（同一时间线）。**sandbox 集成**：`url` 加载 + `onSave` 回写由消费方接
 文件读写工具。

@@ -1163,7 +1163,7 @@ const DemoFilePreviewOffice: Component = async (_props, ctx) => {
     <div class="wf-stack wf-gap-sm wf-w-full">
       <FilePreview type="office" editable fileName="document.docx" />
       <div class="wf-text-xs wf-text-secondary wf-py-xs">
-        点击「打开 docx」选择本地文件 → Editor 编辑（撤销/AI）→ 「下载 docx」导出——全程浏览器内转换（无后端）
+        点击「打开 docx/xlsx/pptx」选择本地文件 → 对应编辑器（Editor/SheetGrid/SlideCanvas）→ 下载导出——全程浏览器内转换（无后端）
       </div>
     </div>
   )
