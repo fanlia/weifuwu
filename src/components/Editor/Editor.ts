@@ -48,7 +48,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
 
   // ── 事件流事务层状态 ───────────────────────────────────
   let doc: DocState = EMPTY_DOC
-  let history = createHistory()
+  let hist = createHistory()
   // 受控回流脏标记：onChange 后父组件 value 回流前不写 innerHTML（光标保持）
   let domDirty = false
 
@@ -74,7 +74,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
   const flushInputCommit = () => {
     if (inputTimer) { clearTimeout(inputTimer); inputTimer = null }
     if (!pendingInput) return
-    pushCommit(history, { label: '输入', events: pendingInput.events, before: pendingInput.startDoc, ts: pendingInput.ts })
+    pushCommit(hist, { label: '输入', events: pendingInput.events, before: pendingInput.startDoc, ts: pendingInput.ts })
     editEmit('commit', { label: '输入', count: pendingInput.events.length })
     const html = serializeHtml(doc)
     if (onChangeRef.current) onChangeRef.current(html)
@@ -134,7 +134,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     const before = doc
     const next = events.reduce((d, e) => applyEdit(d, e), before)
     doc = next
-    pushCommit(history, { label, events, before, caret: caret ?? undefined })
+    pushCommit(hist, { label, events, before, caret: caret ?? undefined })
     writeDom(next, caret)
     const html = serializeHtml(next)
     if (onChangeRef.current) onChangeRef.current(html)
@@ -144,7 +144,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
 
   const undo = () => {
     flushInputCommit()
-    const c = popUndo(history)
+    const c = popUndo(hist)
     if (!c) return
     doc = c.before
     writeDom(doc, c.caret ?? null)
@@ -156,7 +156,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
 
   const redo = () => {
     flushInputCommit()
-    const c = popRedo(history)
+    const c = popRedo(hist)
     if (!c) return
     let d = c.before
     for (const e of c.events) d = applyEdit(d, e)
@@ -317,12 +317,12 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
    *  精确恢复该版本（重放到当前 doc 会触发事件一致性校验失败——prev 快照过期）；
    *  目标之后的 commit 移入 redo（可重做回来） */
   const goToCommit = (targetIndex: number) => {
-    const target = history.undoStack[targetIndex]
+    const target = hist.undoStack[targetIndex]
     if (!target) return
     let d = target.before
     for (const e of target.events) d = applyEdit(d, e)
-    while (history.undoStack.length > targetIndex + 1) {
-      popUndo(history)
+    while (hist.undoStack.length > targetIndex + 1) {
+      popUndo(hist)
     }
     doc = d
     historyOpen = false
@@ -682,7 +682,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         // 输入已入流（阶段 2）——撤销全走自建栈（精确回退输入/格式/AI）
         e.preventDefault()
         flushInputCommit() // 挂起输入先落栈（1s 合并窗口内 Ctrl+Z 也能退）
-        if (canUndo(history)) {
+        if (canUndo(hist)) {
           undo()
           activeFormats = queryFormatsFromDoc(selectionOffsets(editorEl!)?.start ?? 0)
           ctx.ui.render()
@@ -690,7 +690,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       } else if (mod && e.key.toLowerCase() === 'y') {
         e.preventDefault()
         flushInputCommit()
-        if (canRedo(history)) {
+        if (canRedo(hist)) {
           redo()
           activeFormats = queryFormatsFromDoc(selectionOffsets(editorEl!)?.start ?? 0)
           ctx.ui.render()
@@ -895,7 +895,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     }
     if (!disabled && isRichMode) {
       historyBtn = h('button', {
-        key: 'history',
+        key: 'hist',
         class: ['wf-editor-tb-btn', 'wf-editor-tb-btn--ai', historyOpen ? 'wf-editor-tb-btn--active' : ''].filter(Boolean).join(' '),
         type: 'button',
         title: '操作历史',
@@ -906,10 +906,10 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       if (historyOpen) {
         const rows: VNode[] = []
         // undo 栈（新 → 旧）
-        const undoList = history.undoStack.slice().reverse()
+        const undoList = hist.undoStack.slice().reverse()
         for (let i = 0; i < undoList.length; i++) {
           const c = undoList[i]
-          const idx = history.undoStack.length - 1 - i
+          const idx = hist.undoStack.length - 1 - i
           rows.push(h('button', {
             key: `u-${idx}`,
             class: ['wf-editor-hist-item', i === 0 ? 'wf-editor-hist-item--current' : ''].filter(Boolean).join(' '),
@@ -921,14 +921,14 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
           ]))
         }
         // redo 栈（可重做）
-        for (let i = history.redoStack.length - 1; i >= 0; i--) {
-          const c = history.redoStack[i]
+        for (let i = hist.redoStack.length - 1; i >= 0; i--) {
+          const c = hist.redoStack[i]
           rows.push(h('button', {
             key: `r-${i}`,
             class: 'wf-editor-hist-item wf-editor-hist-item--redo',
             type: 'button',
             onClick: () => {
-              while (canRedo(history) && history.redoStack.length > i) redo()
+              while (canRedo(hist) && hist.redoStack.length > i) redo()
               historyOpen = false
               ctx.ui.render()
             },
@@ -940,7 +940,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
           rows.length
             ? h('div', { class: 'wf-editor-hist-panel' }, rows)
             : h('div', { class: 'wf-editor-hist-panel wf-editor-hist-empty' }, '暂无操作记录'),
-          'editor-history',
+          'editor-hist',
         )
       }
     }
@@ -953,6 +953,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
           type: 'button',
           title: a.label,
           'aria-label': `AI ${a.label}`,
+          'aria-expanded': String(!!aiPanelOpen),
           'data-ai-item': a.id,
           disabled: (aiPending?.streaming ? true : undefined) ?? undefined,
           onClick: (e: MouseEvent) => { setAnchor(e.currentTarget as HTMLElement); runAiAction(a, aiOpts) },

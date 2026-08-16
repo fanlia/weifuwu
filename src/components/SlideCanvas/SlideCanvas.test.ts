@@ -51,6 +51,82 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
   before(() => { setupJsdom() })
   after(() => { resetEditEvents() })
 
+  test('缩放 handle：pointerup 提交 resize commit（原子）', async () => {
+    resetEditEvents()
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    const shape = root.querySelector('.wf-slide-shape') as HTMLElement
+    shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true, cancelable: true }))
+    await new Promise((r) => setTimeout(r, 30))
+    const resize = root.querySelector('.wf-slide-shape-resize') as HTMLElement
+    assert.ok(resize, '选中后缩放 handle 出现')
+    const r = shape.getBoundingClientRect()
+    resize.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: r.right, clientY: r.bottom, bubbles: true, cancelable: true }))
+    const scroll = root.querySelector('.wf-slide-canvas-scroll') as HTMLElement
+    scroll.dispatchEvent(new (window as any).PointerEvent('pointermove', { clientX: r.right + 60, clientY: r.bottom + 40, bubbles: true }))
+    scroll.dispatchEvent(new (window as any).PointerEvent('pointerup', { clientX: r.right + 60, clientY: r.bottom + 40, bubbles: true }))
+    await new Promise((r) => setTimeout(r, 50))
+    const ops = editEvents(10, { action: 'office' }).map((e) => (e.payload as any)?.op?.type)
+    assert.ok(ops.includes('shape-resize'), 'resize commit')
+    assert.equal(ops.filter((t: string) => t === 'shape-resize').length, 1, '原子提交一次')
+    resetEditEvents()
+    root.remove()
+  })
+
+  test('Delete 键删除选中 shape → shape-remove op', async () => {
+    resetEditEvents()
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    const shape = root.querySelector('.wf-slide-shape') as HTMLElement
+    shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true }))
+    await new Promise((r) => setTimeout(r, 30))
+    const slideRoot = root.querySelector('.wf-slide') as HTMLElement
+    slideRoot!.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }))
+    await new Promise((r) => setTimeout(r, 30))
+    assert.equal(root.querySelectorAll('.wf-slide-shape').length, 1, '删除后 1 个 shape')
+    const ops = editEvents(10, { action: 'office' }).map((e) => (e.payload as any)?.op?.type)
+    assert.ok(ops.includes('shape-remove'), 'shape-remove 事件')
+    resetEditEvents()
+    root.remove()
+  })
+
+  test('AI 拒绝：不产生 op（状态记录审计）', async () => {
+    resetEditEvents()
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const gFetch = (globalThis as any).fetch
+    ;(globalThis as any).fetch = async () => new Response(
+      'event: wf:token\ndata: {"text":"润色后"}\n\nevent: wf:done\ndata: {"content":"润色后"}\n\n',
+      { headers: { 'content-type': 'text/event-stream' } },
+    )
+    const handle = createRoot(h(SlideCanvas, { deck: mkDeck(), ai: { url: '/api/ai' } } as any), root, { ctx: mkCtx() })
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    const shape = root.querySelector('.wf-slide-shape') as HTMLElement
+    shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true }))
+    await new Promise((r) => setTimeout(r, 30))
+    const aiBtn = Array.from(root.querySelectorAll('.wf-slide-toolbar button')).find((b) => (b as HTMLElement).textContent === 'AI 润色') as HTMLElement
+    aiBtn.click()
+    await new Promise((r) => setTimeout(r, 200))
+    const reject = document.querySelector('#__wf_portal .wf-btn--ghost') as HTMLElement
+    reject?.click()
+    await new Promise((r) => setTimeout(r, 50))
+    const office = editEvents(20, { action: 'office' })
+    const rejected = office.find((e) => (e.payload as any)?.ai?.status === 'rejected')
+    assert.ok(rejected, 'rejected 事件')
+    assert.equal((rejected!.payload as any).op, undefined, '拒绝不落 op')
+    assert.ok(shape.textContent?.includes('标题文本'), '文本未变')
+    ;(globalThis as any).fetch = gFetch
+    resetEditEvents()
+    root.remove()
+  })
+
   test('渲染：幻灯片标签 + shape 几何/文本/层叠', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)

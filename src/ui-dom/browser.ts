@@ -105,6 +105,16 @@ export function createClientBrowser(): BrowserEnv {
     hash: () => (typeof window !== 'undefined' ? window.location?.hash ?? '' : ''),
     setHash: (h) => { if (typeof window !== 'undefined') window.location.hash = h },
     timeout: (fn, ms) => (typeof window !== 'undefined' ? window.setTimeout(fn, ms) : 0),
+    /** 浏览器表单状态恢复（load/pageshow）监听——SSR 安全 no-op */
+    onFormRestore: (cb: () => void): (() => void) => {
+      if (typeof window === 'undefined' || typeof document === 'undefined') return () => {}
+      window.addEventListener('load', cb, { once: true })
+      window.addEventListener('pageshow', cb)
+      return () => {
+        window.removeEventListener('load', cb)
+        window.removeEventListener('pageshow', cb)
+      }
+    },
     rootElement: () => (typeof document !== 'undefined' ? document.documentElement : null),
     storageGet: (key) => {
       try { return typeof window !== 'undefined' ? window.localStorage?.getItem(key) ?? null : null } catch { return null }

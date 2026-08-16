@@ -273,6 +273,8 @@ export interface BrowserEnv {
   setHash(h: string): void
   /** 定时器（SSR no-op） */
   timeout(fn: () => void, ms: number): number
+  /** 表单状态恢复监听（load/pageshow——浏览器刷新/后退导航覆盖受控 value 兜底） */
+  onFormRestore?(cb: () => void): () => void
   /** document.documentElement（主题应用） */
   rootElement(): HTMLElement | null
   /** localStorage 读取（SSR/隐私模式返回 null） */

@@ -2,7 +2,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-115 个 HTML 原语组件。每个是 `async (initProps, ctx) => (props) => Promise<VNode>`（两阶段组件，与前端框架同一模型——外层工厂 + 内层 renderFn 强制异步），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+118 个 HTML 原语组件。每个是 `async (initProps, ctx) => (props) => Promise<VNode>`（两阶段组件，与前端框架同一模型——外层工厂 + 内层 renderFn 强制异步），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 > **组件速查（weifuwu 组件 ↔ antd / Element Plus / shadcn-ui 对应 + 迁移示例）**：见 [`docs/components-map.md`](components-map.md)——从其他组件库迁来的开发者按功能直接找对应组件。
 > **自定义组件开发**：见 [docs/custom-components.md](custom-components.md)——usePopup/useControlled/对话框/AI 组件/类型纪律逐步指南。

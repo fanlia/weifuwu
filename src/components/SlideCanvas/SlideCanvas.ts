@@ -49,6 +49,8 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
   let selected: string | null = null
   let editing: { id: string; text: string } | null = null
   let canvasEl: HTMLElement | null = null
+  const canvasRefStable = (el: unknown): void => { canvasEl = el as HTMLElement | null }
+  const editAreaRef = (el: unknown): void => { if (el) (el as HTMLTextAreaElement).focus() }
   let scale = 0.5
   const undo: UndoEntry[] = []
   // 拖动状态
@@ -56,6 +58,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
   // AI 状态
   let aiPending: { revised: string; streaming: boolean; error: string | null; shapeId: string; messageId: string } | null = null
   let aiAnchor: HTMLElement | null = null
+  const aiAnchorRef = (el: unknown): void => { aiAnchor = el as HTMLElement }
 
   const aiPopup = ctx.ui.usePopup({
     trigger: 'manual',
@@ -246,7 +249,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     }
     scale = fitScale()
 
-    const canvasRef = (el: unknown): void => { canvasEl = el as HTMLElement | null }
+
 
     // shape 渲染
     const shapeNodes: VNode[] = slide.shapes.map((shape, i) => {
@@ -267,7 +270,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
       const body: VNode[] = []
       if (isEditing) {
         body.push(h('textarea', {
-          ref: (el: unknown) => { if (el) (el as HTMLTextAreaElement).focus() },
+          ref: editAreaRef,
           class: 'wf-slide-shape-edit',
           value: editing?.text ?? '',
           onInput: (e: Event) => { editing = { id: shape.id, text: (e.target as HTMLTextAreaElement).value } },
@@ -351,8 +354,9 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
           h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'del', onClick: () => deleteShape(), disabled: !selected }, i18n.deleteShape ?? '删除'),
           ...(_init.ai
             ? [h('button', {
-              ref: (el: unknown) => { aiAnchor = el as HTMLElement },
+              ref: aiAnchorRef,
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ai',
+              'aria-expanded': String(!!aiPending),
               disabled: !selected,
               onClick: () => runAi(),
             }, i18n.aiPolish ?? 'AI 润色')]
@@ -369,7 +373,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
         onPointerLeave: () => onPointerUp(),
       }, [
         h('div', {
-          ref: canvasRef,
+          ref: canvasRefStable,
           class: 'wf-slide-canvas',
           style: { width: `${CANVAS_W * scale}px`, height: `${CANVAS_H * scale}px` },
         }, shapeNodes.map((n) => h('div', {

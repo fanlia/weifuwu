@@ -128,6 +128,18 @@
 | `<AspectRatio>` | 宽高比容器（内容填满） |
 | `<CopyButton>` | 复制（clipboard + execCommand 降级 + 成功状态机） |
 
+## 第十批：文件预览与 Office 编辑（2026-12——ODES 事件流）
+
+> 文档 = fold(事件流)：docx/xlsx/pptx ↔ ODES 模型（DocState/WorkbookState/DeckState）
+> 前端零依赖转换（自研 ZIP/XML + DecompressionStream）——详见 docs/components.md。
+
+| 组件 | 说明 |
+|------|------|
+| `<FilePreview type content url editable ai onSave>` | 文件预览/编辑（md/html/pdf/text/office）——自动类型探测 + Ctrl+S + 复制 + 前端导入导出 |
+| `<SheetGrid workbook onChange ai>` | xlsx 网格编辑器（ODES 事件流）：单元格编辑/行列增删/AI 公式/撤销 |
+| `<SlideCanvas deck onChange ai>` | pptx 画布编辑器：shape 拖拽/缩放/文本编辑/AI 润色/幻灯片管理 |
+| `<OfficeEditor>`（协议层） | ODES 模型：fold/apply/checkpoint + AI 关联（messageId 跨端审计） |
+
 ## 第九批：AI 差异化（109 → 111 组件，2026-08）
 
 > 三库业务组件覆盖 ~100% 后的差异化期——补 AI **输入层 + 推理展示层**。

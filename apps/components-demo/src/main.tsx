@@ -3094,11 +3094,11 @@ const App: Component = async (_props, ctx) => {
       <div class="wf-text-center wf-py-xl">
         <h1 class="wf-text-4xl wf-mb-sm wf-m-0">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p class="wf-text-secondary">{isEn
-          ? '115 HTML primitive components · pure (props, ctx) → VNode · drop-in'
-          : ((ctx as any)?.i18n?.t?.('app.desc') ?? '115 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
+          ? '118 HTML primitive components · pure (props, ctx) → VNode · drop-in'
+          : ((ctx as any)?.i18n?.t?.('app.desc') ?? '118 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
-          <Badge variant="primary">115 组件</Badge>
-          <Badge variant="success">1049 测试</Badge>
+          <Badge variant="primary">118 组件</Badge>
+          <Badge variant="success">1079 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
@@ -3285,8 +3285,8 @@ const i18nMw = (() => {
   const messages: Record<string, Record<string, string>> = {
     'app.title': { 'zh-CN': 'weifuwu/components', en: 'weifuwu/components' },
     'app.desc': {
-      'zh-CN': '115 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
-      en: '115 HTML primitive components · pure (props, ctx) → VNode · drop-in',
+      'zh-CN': '118 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
+      en: '118 HTML primitive components · pure (props, ctx) → VNode · drop-in',
     },
     'app.footer': {
       'zh-CN': 'weifuwu/components · 全部 113 个组件 · 打开 devtools 查看代码',

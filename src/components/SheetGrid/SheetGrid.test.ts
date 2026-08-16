@@ -49,6 +49,92 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
   before(() => { setupJsdom() })
   after(() => { resetEditEvents() })
 
+  test('sheet 标签切换：activeSheet 更新 + 内容切换', async () => {
+    const wb = mkWorkbook()
+    wb.sheets.push({ name: '第二表', cols: 1, cells: new Map([['A1', { kind: 's', value: '另表' }]]) })
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(SheetGrid, { workbook: wb } as any), root, { ctx: mkCtx() })
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    const tabs = Array.from(root.querySelectorAll('.wf-sheet-tab')) as HTMLElement[]
+    tabs[1].click()
+    await new Promise((r) => setTimeout(r, 30))
+    const tds = Array.from(root.querySelectorAll('tbody td')).map((t) => t.textContent)
+    assert.ok(tds.includes('另表'), '切换到第二表')
+    assert.ok(!tds.includes('项目'), '第一表内容不显示')
+    root.remove()
+  })
+
+  test('删除行：引用平移 + 单元格值更新', async () => {
+    resetEditEvents()
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(SheetGrid, { workbook: mkWorkbook() } as any), root, { ctx: mkCtx() })
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    ;(root.querySelector('tbody td:nth-child(2)') as HTMLElement).click() // A1 激活
+    const delRow = Array.from(root.querySelectorAll('.wf-sheet-tools button'))[1] as HTMLElement // 删除行
+    delRow.click()
+    await new Promise((r) => setTimeout(r, 30))
+    const tds = Array.from(root.querySelectorAll('tbody td')).map((t) => t.textContent)
+    assert.equal(tds[0], '营收', '删除行后 A1 = 原 A2')
+    const op = editEvents(10, { action: 'office' }).find((e) => (e.payload as any)?.op?.type === 'delete-rows')
+    assert.ok(op, 'delete-rows 事件')
+    resetEditEvents()
+    root.remove()
+  })
+
+  test('插入列：单元格右移（B1 → C1）', async () => {
+    resetEditEvents()
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(SheetGrid, { workbook: mkWorkbook() } as any), root, { ctx: mkCtx() })
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    ;(root.querySelector('tbody td:nth-child(2)') as HTMLElement).click() // A1
+    const insCol = Array.from(root.querySelectorAll('.wf-sheet-tools button'))[2] as HTMLElement // 插入列
+    insCol.click()
+    await new Promise((r) => setTimeout(r, 30))
+    const tds = Array.from(root.querySelectorAll('tbody td')).map((t) => t.textContent)
+    assert.equal(tds[1], '项目', '插入列后 A1 值右移到第 2 个 td（B1）')
+    assert.equal(tds[2], '金额', '原 B1 右移到 C1')
+    resetEditEvents()
+    root.remove()
+  })
+
+  test('AI 拒绝：不产生 op（状态记录审计——CS-05）', async () => {
+    resetEditEvents()
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const gFetch = (globalThis as any).fetch
+    ;(globalThis as any).fetch = async () => new Response(
+      'event: wf:token\ndata: {"text":"=SUM(B2)"}\n\nevent: wf:done\ndata: {"content":"=SUM(B2)"}\n\n',
+      { headers: { 'content-type': 'text/event-stream' } },
+    )
+    const handle = createRoot(h(SheetGrid, {
+      workbook: mkWorkbook(), ai: { url: '/api/ai' },
+    } as any), root, { ctx: mkCtx() })
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    ;(Array.from(root.querySelectorAll('tbody td'))[0] as HTMLElement).click()
+    await new Promise((r) => setTimeout(r, 30))
+    const aiBtn = Array.from(root.querySelectorAll('.wf-sheet-tools button')).find((b) => (b as HTMLElement).textContent === 'AI 公式') as HTMLElement
+    aiBtn.click()
+    await new Promise((r) => setTimeout(r, 200))
+    const reject = document.querySelector('#__wf_portal .wf-btn--ghost') as HTMLElement
+    reject?.click()
+    await new Promise((r) => setTimeout(r, 50))
+    const office = editEvents(20, { action: 'office' })
+    const rejected = office.find((e) => (e.payload as any)?.ai?.status === 'rejected')
+    assert.ok(rejected, 'rejected 事件（不产生 op）')
+    assert.equal((rejected!.payload as any).op, undefined, '拒绝不落 op')
+    assert.equal(Array.from(root.querySelectorAll('tbody td'))[0]?.textContent, '项目', '单元格未变')
+    ;(globalThis as any).fetch = gFetch
+    resetEditEvents()
+    root.remove()
+  })
+
   test('渲染：列头/行头/单元格值（公式显示 =formula）', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)

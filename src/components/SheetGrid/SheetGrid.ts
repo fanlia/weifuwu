@@ -55,10 +55,12 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
   let activeRef: string | null = null
   let editing: { ref: string; value: string } | null = null
   let editingEl: HTMLInputElement | null = null
+  const editingInputRef = (el: unknown): void => { editingEl = el as HTMLInputElement }
   const undo: UndoEntry[] = []
   // AI 状态（选中格 → 建议浮层——接受 = cell-set commit）
   let aiPending: { revised: string; streaming: boolean; error: string | null; ref: string; messageId: string } | null = null
   let anchorEl: HTMLElement | null = null
+  const aiAnchorRef = (el: unknown): void => { anchorEl = el as HTMLElement }
 
   const aiPopup = ctx.ui.usePopup({
     trigger: 'manual',
@@ -230,7 +232,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
           },
         }, isEditing
           ? h('input', {
-            ref: (el: unknown) => { editingEl = el as HTMLInputElement },
+            ref: editingInputRef,
             class: 'wf-sheet-input',
             value: editing?.value ?? '',
             onInput: (e: Event) => { editing = { ref, value: (e.target as HTMLInputElement).value } },
@@ -304,8 +306,9 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
           h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'dc', onClick: () => deleteCols(), disabled: readonly }, i18n.deleteCol ?? '删除列'),
           ...(_init.ai
             ? [h('button', {
-              ref: (el: unknown) => { anchorEl = el as HTMLElement },
+              ref: aiAnchorRef,
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ai',
+              'aria-expanded': String(!!aiPending),
               disabled: readonly || !activeRef,
               onClick: () => runAi(),
             }, i18n.aiFormula ?? 'AI 公式')]

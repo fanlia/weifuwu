@@ -189,10 +189,10 @@
   background: var(--wf-color-bg);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
-  box-shadow: var(--wf-shadow-md, 0 4px 12px rgba(0,0,0,.12));
+  box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space-sm) var(--wf-space-md);
-  min-width: 260px;
-  max-width: 340px;
+  min-width: var(--wf-editor-popup-min, 260px);
+  max-width: var(--wf-editor-popup-max, 340px);
   display: flex;
   flex-direction: column;
   gap: var(--wf-gap-xs);
@@ -360,7 +360,7 @@
 }
 
 .wf-editor-tb-btn--ai {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
 }
 
 .wf-editor-tb-btn--ai:hover {
@@ -373,10 +373,10 @@
   background: var(--wf-color-bg);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
-  box-shadow: var(--wf-shadow-md, 0 4px 12px rgba(0,0,0,.12));
+  box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space-sm) var(--wf-space-md);
-  min-width: 260px;
-  max-width: 420px;
+  min-width: var(--wf-editor-popup-min, 260px);
+  max-width: var(--wf-editor-popup-max, 420px);
   max-height: 300px;
   display: flex;
   flex-direction: column;
@@ -408,7 +408,7 @@
 
 .wf-editor-ai-panel-error {
   font-size: var(--wf-font-size-sm);
-  color: var(--wf-color-error, #dc2626);
+  color: var(--wf-color-error-text);
 }
 
 .wf-editor-ai-panel-actions {
@@ -425,9 +425,9 @@
   background: var(--wf-color-bg);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
-  box-shadow: var(--wf-shadow-md, 0 4px 12px rgba(0,0,0,.12));
+  box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space-xs);
-  min-width: 220px;
+  min-width: var(--wf-editor-popup-min, 220px);
   max-height: 280px;
   overflow-y: auto;
   display: flex;
@@ -458,12 +458,12 @@
 }
 
 .wf-editor-hist-item:hover {
-  background: var(--wf-color-bg-hover, var(--wf-color-border));
+  background: var(--wf-color-bg-hover);
 }
 
 .wf-editor-hist-item--current {
   background: var(--wf-color-primary-bg);
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
   font-weight: var(--wf-font-weight-semibold);
 }
 
@@ -484,13 +484,13 @@
 }
 
 .wf-editor-ai-diff-del {
-  color: var(--wf-color-error, #dc2626);
+  color: var(--wf-color-error-text);
   text-decoration: line-through;
   opacity: .7;
 }
 
 .wf-editor-ai-diff-ins {
-  color: var(--wf-color-success, #16a34a);
-  background: var(--wf-color-success-bg, rgba(22,163,74,.12));
+  color: var(--wf-color-success-text);
+  background: var(--wf-color-success-bg);
   border-radius: 2px;
 }

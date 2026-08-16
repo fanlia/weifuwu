@@ -312,7 +312,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         if (officeDoc) {
           void import('../../office/docx.ts').then(({ docToDocx }) => {
             const res = docToDocx(doc)
-            const ok = _browser.downloadFile(fileName ?? 'document.docx', res.data as unknown as string,
+            const ok = _browser.downloadFile(fileName ?? 'office-doc.docx', res.data as unknown as string,
               'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
             editEmit('preview', { type: 'office', status: ok ? 'exported' : 'export-error' })
           })

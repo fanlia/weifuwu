@@ -39,11 +39,9 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
       inputEl.value = String(latestValue)
     }
   }
-  if (typeof window !== 'undefined') {
-    window.addEventListener('load', syncAfterRestore, { once: true })
-    window.addEventListener('pageshow', syncAfterRestore)
-    ctx.ui.onUnmount?.(() => window.removeEventListener('pageshow', syncAfterRestore))
-  }
+  // §5.5 浏览器纪律：经 ctx.browser（环境 API——SSR no-op；组件禁直接 addEventListener）
+  const _browser = ctx.browser ?? createClientBrowser()
+  _browser.onFormRestore?.(syncAfterRestore)
   const setTip = (v: boolean) => {
     if (tipOpen === v) return
     tipOpen = v
@@ -107,6 +105,7 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
       type: 'range',
       class: ['wf-slider-input', disabled ? 'wf-slider-input--dis' : ''].filter(Boolean).join(' '),
       ref: inputRef,
+      'aria-expanded': String(tipOpen),
       // 内部 0-100 刻度（min/max/step 同比例映射——浏览器不介入会话恢复）
       value: pct,
       min: 0,

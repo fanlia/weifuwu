@@ -235,6 +235,7 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
     return h('div', {
       class: `wf-chart${className ? ' ' + className : ''}`,
       role: 'img',
+      'aria-expanded': String(!!tooltip),
       'aria-label': title ?? (ctx as any)?.i18n?.components?.Chart?.ariaLabel ?? '图表',
     }, [
       title ? h('div', { class: 'wf-chart-title' }, title) : null,

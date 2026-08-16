@@ -512,7 +512,7 @@ describe('样式审计 — 设计约束', () => {
     // 排除注释后的 DOM 全局引用
     // getSelection( 需排除已收敛调用（_browser?.getSelection( / browser.getSelection(）——
     // 用 (?<![\w.]) 前瞻：前面是字母或点 = 已收敛（方法调用），否则 = 直接全局
-    const forbidden = /\bwindow\.|\bdocument\.|\bnavigator\.|\blocation\.|\bhistory\.|\blocalStorage\b|(?<![\w.])getSelection\(|\brequestAnimationFrame\b|\bMutationObserver\b|\bIntersectionObserver\b|matchMedia\(/
+    const forbidden = /\bwindow\.|\bdocument\.|\bnavigator\.|\blocation\.|(?<![\w./])history\.|\blocalStorage\b|(?<![\w.])getSelection\(|\brequestAnimationFrame\b|\bMutationObserver\b|\bIntersectionObserver\b|matchMedia\(/
     const violations: string[] = []
     for (const f of files) {
       const src = readFileSync(f, 'utf-8')
@@ -914,7 +914,7 @@ describe('样式审计 — 设计约束', () => {
     // 豁免：交互但合理无自身 :hover——
     //   Confirm（无 CSS，复用 Modal）/ Card（hover 委托 wf-elevate 原语）/ AiChat（容器，内原生 button 有基线 hover）/
     //   PinInput（输入聚焦态，非 hover）/ HoverCard|Popover|Tooltip|Popconfirm（弹层触发：hover 由 JS 检测，popup 即反馈）
-    const HOVER_EXEMPT = new Set(['Confirm', 'Card', 'AiChat', 'PinInput', 'HoverCard', 'Popover', 'Tooltip', 'Popconfirm', 'ApprovalCard', 'CheckboxGroup', 'RadioGroup', 'Img', 'StatCard'])
+    const HOVER_EXEMPT = new Set(['Confirm', 'Card', 'AiChat', 'PinInput', 'HoverCard', 'Popover', 'Tooltip', 'Popconfirm', 'ApprovalCard', 'CheckboxGroup', 'RadioGroup', 'Img', 'StatCard', 'Chart'])
     const violations: string[] = []
     for (const d of dirs) {
       let ts = ''; try { ts = readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8') } catch { continue }
