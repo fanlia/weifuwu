@@ -147,6 +147,15 @@ if (typeof globalThis !== 'undefined') {
       return evs.filter((e) => e.payload?.name === comp).map((e) => ({ name: e.payload?.name, reason: e.payload?.reason, changedKeys: e.payload?.changedKeys }))
     }
     w.__wf_recent = (n = 50) => stream.events().slice(-n)
+    // round3 阶段 5：组件完整生命周期聚合（时间序——mount/render/build/props/unmount）
+    w.__wf_comp = (compId?: string) => {
+      const evs = stream.events().filter((e) => {
+        if (e.target === compId) return true
+        if (e.payload?.name && !compId) return true // 无 id——按名称聚合（全部组件）
+        return false
+      })
+      return evs.map((e) => ({ entity: e.entity, action: e.action, target: e.target, payload: e.payload, session: e.session }))
+    }
   }
 }
 

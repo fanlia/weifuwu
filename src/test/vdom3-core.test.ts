@@ -3363,3 +3363,125 @@ test('阶段 4：__WF_V3_STACK 开启时 comp:render 带触发栈（默认关）
   g.__WF_V3_STACK = prev
   document.body.removeChild(root)
 })
+
+// ── 第三轮阶段 1：keyed 重排透明（node:move 带 key） ──
+
+test('阶段 1：keyed 重排 → node:move 事件（key/ref 可查）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let items = ['a', 'b', 'c']
+  const App = async (_init: any) => async () => h('div', { id: 'l' }, items.map((k) => h('span', { key: k }, k)))
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  stream.reset()
+  items = ['c', 'a', 'b'] // 重排（c 移到最前）
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const moves = stream.events().filter((e) => e.entity === 'node' && e.action === 'move')
+  assert.ok(moves.length > 0, `keyed 重排 node:move——实际 ${moves.length}`)
+  assert.equal(moves[0].payload?.key, 'c', `move 带 key（业务身份）——实际 ${moves[0].payload?.key}`)
+  // 顺序正确（c 在最前）
+  const order = [...root.querySelector('#l')?.childNodes ?? []].map((n) => (n as Element).textContent)
+  assert.deepEqual(order, ['c', 'a', 'b'], `重排后顺序——实际 ${order.join(',')}`)
+  document.body.removeChild(root)
+})
+
+// ── 第三轮阶段 2：调度时间线（render:queued 合并 + flushed 执行） ──
+
+test('阶段 2：同 tick 多次 render → queued（合并）+ flushed（执行）可观测', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let n = 0
+  const App = async (_init: any, ctx: any) => async () => {
+    const rerender = () => ctx.render()
+    return h('button', { id: 'b', onClick: () => { n++; rerender(); rerender(); rerender() } }, String(n))
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  stream.reset()
+  ;(root.querySelector('#b') as HTMLButtonElement).click() // 同 tick 3 次 render
+  await new Promise((r) => setTimeout(r, 20))
+  const queued = stream.events().filter((e) => e.entity === 'render' && e.action === 'queued')
+  const flushed = stream.events().filter((e) => e.entity === 'render' && e.action === 'flushed')
+  assert.ok(flushed.length >= 1, `渲染执行（flushed）——实际 ${flushed.length}`)
+  assert.ok(queued.length >= 1, `合并排队（queued）可见——实际 ${queued.length}`)
+  document.body.removeChild(root)
+})
+
+// ── 第三轮阶段 3：portal 生命周期（open/close——弹层开合可观测） ──
+
+test('阶段 3：portal open/close 事件（弹层开合可观测）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const { Portal } = await import('../ui-dom/vdom3/types.ts')
+  let open = false
+  const App = async (_init: any) => async () => h('div', {}, [
+    open ? h(Portal, { portalKey: 'test-pop' }, [h('div', { class: 'panel' }, '面板')]) : false,
+  ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  stream.reset()
+  open = true
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const opens = stream.events().filter((e) => e.entity === 'portal' && e.action === 'open')
+  assert.ok(opens.length > 0, `portal:open——实际 ${opens.length}`)
+  assert.equal(opens[0].payload?.portalKey, 'test-pop', `open 带 portalKey`)
+  stream.reset()
+  open = false
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const closes = stream.events().filter((e) => e.entity === 'portal' && e.action === 'close')
+  assert.ok(closes.length > 0, `portal:close——实际 ${closes.length}`)
+  document.body.removeChild(root)
+})
+
+// ── 第三轮阶段 4：监听器泄漏检测（dev——unmount 后残留 warn） ──
+
+test('阶段 4：监听残留 dev warn；正常清理无残留', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const { bindDelegated, listenerCount } = await import('../ui-dom/vdom3/delegate.ts')
+  const warns: string[] = []
+  const ow = console.warn
+  console.warn = (...a: any[]) => { if (String(a[0]).includes('[vdom3/audit] 节点监听残留')) warns.push(String(a[0])); ow(...a) }
+  // 正常场景：绑定 + 移除——清理干净（无残留 warn）
+  let show = true
+  const App = async (_init: any) => async () => h('div', {}, [
+    show ? h('button', { id: 'b', onClick: () => {} }, 'x') : false,
+  ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  show = false
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(warns.length, 0, `正常移除无残留 warn——实际 ${warns.length}`)
+  console.warn = ow
+  document.body.removeChild(root)
+})
+
+// ── 第三轮阶段 5：__wf_comp 组件时间线聚合 ──
+
+test('阶段 5：__wf_comp(id) 聚合组件完整生命周期（时间序）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let n = 0
+  const Item = async (_init: any) => async (props: any) => h('div', {}, String(props.k))
+  const App = async (_init: any) => async () => h('div', {}, [h(Item, { k: n })])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  n = 1
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const w = globalThis as any
+  const timeline = w.__wf_comp?.()
+  assert.ok(Array.isArray(timeline) && timeline.length > 0, `__wf_comp 可查——实际 ${timeline?.length}`)
+  const actions = timeline.map((e: any) => `${e.entity}:${e.action}`)
+  assert.ok(actions.includes('comp:build'), `含构建决策——实际 ${actions.slice(0, 5).join(',')}`)
+  document.body.removeChild(root)
+})

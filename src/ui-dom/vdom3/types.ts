@@ -143,7 +143,7 @@ export type AppVNode = VNode & {
 // 不变量：任何事件触发，最终都落到 dom 层事件（node/text/prop/event/ref 的精准状态变化）——
 // 决策层事件（route/comp/vnode）只是解释"为什么"，执行层事件（dom）是"做了什么"。
 
-export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream' | 'effect' | 'app' | 'diff' | 'render'
+export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream' | 'effect' | 'app' | 'diff' | 'render' | 'portal'
 
 export type Action =
   /** location 层 */
@@ -167,6 +167,10 @@ export type Action =
   | 'transition' | 'mode' | 'summary'
   /** 渲染性能层（round2 阶段 2——每次渲染耗时可观测） */
   | 'duration'
+  /** 调度时间线层（round3 阶段 2——渲染排队/合并可观测） */
+  | 'queued' | 'flushed'
+  /** portal 生命周期层（round3 阶段 3——弹层开合可观测） */
+  | 'open' | 'close'
   /** 组件副作用层（ref 挂载/动画/滚动锁/焦点 trap/滚动——非渲染的 DOM 行为可观测） */
   | 'mount' | 'animate' | 'lock' | 'unlock' | 'focus' | 'scroll'
   /** 用户文本操作层（输入/选区/剪贴板——用户对文本的交互可观测） */

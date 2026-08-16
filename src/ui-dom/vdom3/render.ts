@@ -31,7 +31,7 @@ export function isFragmentNode(v: unknown): boolean {
   return (t === Fragment || typeof t === 'symbol') && (v as VNode).props?.portalKey == null
 }
 import { stream, ev, nextNodeId } from './events.ts'
-import { bindDelegated, unbindAll, unbindEvent, ensureDelegationRoot } from './delegate.ts'
+import { bindDelegated, unbindAll, unbindEvent, ensureDelegationRoot, listenerCount } from './delegate.ts'
 import { unindexComponent } from './comp-index.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
@@ -97,9 +97,14 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     // 容器 id 注册（事件流 parent 用 portal:key——idOf 经 WeakMap 解析）
     registry.register(NodeRegistry.PORTAL(portalKey), container)
     let first: Node | null = null
+    const wasEmpty = container.childNodes.length === 0
     for (const c of childrenOf(vnode)) {
       const n = renderVNodeChild(c, container)
       if (n && !first) first = n
+    }
+    // round3 阶段 3：portal 生命周期透明——空容器 → 有内容 = 弹层打开
+    if (wasEmpty && container.childNodes.length > 0) {
+      stream.emit(ev('portal', 'open', undefined, { portalKey }))
     }
     vnode.el = container
     return first ?? container
@@ -561,7 +566,8 @@ function moveKeyedNodes(oldKids: VNodeChild[], newKids: VNodeChild[], el: Elemen
       if (target !== elNode) {
         const prev = elNode.previousSibling ? registry.idOf(elNode.previousSibling) : null
         el.insertBefore(elNode, target)
-        stream.emit(ev('node', 'move', registry.idOf(elNode), { parent: nodeId(el), ref: target ? registry.idOf(target) : null, prev }))
+        // round3 阶段 1：keyed 重排透明——node:move 带 key（业务身份）+ causeId
+        stream.emit(ev('node', 'move', registry.idOf(elNode), { parent: nodeId(el), ref: target ? registry.idOf(target) : null, prev, key: nc.key, causeId: currentCause ?? undefined }))
       }
       prevNode = elNode
     }
@@ -637,7 +643,16 @@ function removeComponentInstance(oc: VNode, el: Element, i: number): void {
 /** 节点移除的完整清理（REMOVE 事件 + EVENT_UNBIND（绑定生命周期）+ ref(null) + registry） */
 export function removeNodeWithLifecycle(node: Node, parent: Node, vnodeRef?: VNode | null): void {
   // 事件代理解绑（注册表删除 + EVENT_UNBIND——每事件可观测）
+  const beforeUnbind = (globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0' ? listenerCount(registry.idOf(node)) : 0
   unbindAll(registry.idOf(node))
+  // round3 阶段 4：监听器泄漏检测（dev）——移除前有绑定但 unbindAll 后仍有残留
+  // （delegate 注册表清理不彻底——事件仍会响应——泄漏静默）
+  if (beforeUnbind > 0) {
+    const after = listenerCount(registry.idOf(node))
+    if (after > 0) {
+      console.warn(`[vdom3/audit] 节点监听残留：${after}/${beforeUnbind} 个监听未清理（${String((vnodeRef as any)?.type ?? node.nodeName).slice(0, 20)}）——事件仍会响应——泄漏`)
+    }
+  }
   if (vnodeRef) callRefCleanup(vnodeRef)
   const rid = registry.idOf(node)
   stream.emit(ev('node', 'remove', rid, { parent: parentId(parent), causeId: currentCause ?? undefined }))
@@ -669,6 +684,10 @@ export function removePortalContent(pv: PortalVNode): void {
     stream.emit(ev('node', 'remove', cid, { parent: NodeRegistry.PORTAL(portalKey) }))
     container.removeChild(child)
     registry.unregister(cid, child)
+  }
+  // round3 阶段 3：portal 生命周期透明——容器清空 → portal:close（弹层关闭可观测）
+  if (container.childNodes.length === 0) {
+    stream.emit(ev('portal', 'close', undefined, { portalKey }))
   }
 }
 

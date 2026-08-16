@@ -16,6 +16,15 @@
 import { stream, ev } from './events.ts'
 
 /** event → (nodeId → 条目{handler, once})——模块级全局（节点 id 全局唯一） */
+/** 监听计数 API（round3 阶段 4——泄漏检测：unmount 后残留检查——
+ *  handlers[event][nodeId] 数 = 某节点的绑定数） */
+export function listenerCount(nodeId: string | null): number {
+  if (!nodeId) return 0
+  let n = 0
+  for (const m of handlers.values()) if (m.has(nodeId)) n++
+  return n
+}
+
 const handlers = new Map<string, Map<string, { handler: EventListener; once: boolean }>>()
 /** 已注册监听的挂载点（root + portal 容器） */
 const roots = new Set<Element>()

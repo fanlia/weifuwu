@@ -83,8 +83,14 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
    *  只重跑该组件 renderFn + patch 其输出——不碰整树/兄弟——避免全树 patch
    *  导致的全局 style 重设/布局抖动） */
   async function updateComponent(compId: string): Promise<void> {
-    if (updatingComps.has(compId)) { dirtyComps.add(compId); return }
+    if (updatingComps.has(compId)) {
+      // round3 阶段 2：调度透明——同组件渲染中再次触发 → 合并（排队可见）
+      dirtyComps.add(compId)
+      stream.emit(ev('render', 'queued', compId, { target: 'comp', cause: 'coalesced' }))
+      return
+    }
     updatingComps.add(compId)
+    stream.emit(ev('render', 'flushed', compId, { target: 'comp', cause: 'manual' }))
     // 渲染会话（阶段 0：一次渲染的事件共享 session——按会话过滤/回放）
     stream.setSession()
     const sess = stream.currentSession()
@@ -147,11 +153,16 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
 
   /** 整树重建（根级——native 根/路由等） */
   async function update(): Promise<void> {
-    if (updating) { dirty = true; return }
+    // 渲染会话（阶段 0——setSession 在最前——queued/flushed 也带同一 session）
+    const sess = stream.setSession()
+    if (updating) {
+      // round3 阶段 2：调度透明——同 tick 渲染中再次触发 → 合并（排队可见）
+      dirty = true
+      stream.emit(ev('render', 'queued', undefined, { target: 'root', cause: 'coalesced' }))
+      return
+    }
     updating = true
-    // 渲染会话（阶段 0）
-    stream.setSession()
-    const sess = stream.currentSession()
+    stream.emit(ev('render', 'flushed', undefined, { target: 'root', cause: 'manual' }))
     const t0 = performance.now()
     let tBuild = 0
     try {
