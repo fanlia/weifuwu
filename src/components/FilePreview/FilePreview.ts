@@ -61,8 +61,9 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let doc: DocState = EMPTY_DOC
-  // 前端导入的 office 文档（零依赖转换——docx ↔ DocState；本地文件，不远程）
+  // 前端导入的 office 文档（零依赖转换——docx ↔ DocState / xlsx ↔ WorkbookState）
   let officeDoc: DocState | null = null
+  let officeWorkbook: import('../OfficeEditor/model/types.ts').WorkbookState | null = null
   // 预览/编辑切换（editable 时工具栏切换；同一 DocState 无缝切换）
   let editMode = false
   let dirty = false
@@ -187,10 +188,41 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
           ai,
           onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.ui.render() },
         })
+      } else if (editable && officeWorkbook) {
+        emitLoaded(0, 0)
+        // xlsx 表格预览（阶段 2 SheetGrid 编辑 UI）
+        const ws = officeWorkbook.sheets[0]
+        const rows = new Map<number, Map<number, string>>()
+        for (const [ref, cell] of ws.cells) {
+          const m = /^([A-Z]+)(\d+)$/.exec(ref)
+          if (!m) continue
+          let col = 0
+          for (const ch of m[1]) col = col * 26 + (ch.charCodeAt(0) - 64)
+          const r = Number(m[2]) - 1
+          const rowMap = rows.get(r) ?? new Map<number, string>()
+          rowMap.set(col - 1, String(cell.value))
+          rows.set(r, rowMap)
+        }
+        const maxRow = [...rows.keys()].length > 0 ? Math.max(...rows.keys()) + 1 : 0
+        const maxCol = Math.max(ws.cols, ...[...rows.values()].map((m) => Math.max(...m.keys()) + 1))
+        const grid: import('../../ui-dom/vdom3/types.ts').VNode[] = []
+        for (let r = 0; r < maxRow; r++) {
+          const rowMap = rows.get(r)
+          const tds: import('../../ui-dom/vdom3/types.ts').VNode[] = []
+          for (let c = 0; c < maxCol; c++) {
+            tds.push(h('td', { key: `c${c}` }, rowMap?.get(c) ?? ''))
+          }
+          grid.push(h('tr', { key: `r${r}` }, ...tds))
+        }
+        previewBody = h('div', { class: 'wf-filepreview-frame', style: { height, overflow: 'auto' } }, [
+          h('table', { class: 'wf-filepreview-sheet' },
+            h('tbody', {}, ...grid)),
+          h('div', { class: 'wf-filepreview-empty' }, `xlsx 预览（${ws.name}——${maxRow} 行 × ${maxCol} 列；编辑 UI 阶段 2）`),
+        ])
       } else if (editable) {
         emitLoaded(0, 0)
         previewBody = h('div', { class: 'wf-filepreview-empty' },
-          '打开本地 .docx 文件开始编辑（前端零依赖转换——无需后端）')
+          '打开本地 .docx/.xlsx 文件（前端零依赖转换——无需后端）')
       } else {
         // 只读预览：iframe（浏览器原生/服务端转换 URL）
         emitLoaded(0, 0)
@@ -241,21 +273,31 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         if (!officeInput) {
           officeInput = _browser.createElement('input') as HTMLInputElement
           officeInput.type = 'file'
-          officeInput.accept = '.docx'
+          officeInput.accept = '.docx,.xlsx,.xls'
           officeInput.style.display = 'none'
           officeInput.onchange = () => {
             const f = officeInput!.files?.[0]
             if (!f) return
+            const isXlsx = /\.xlsx?$/i.test(f.name)
             void f.arrayBuffer().then(async (buf) => {
               try {
-                const { docxToDoc } = await import('../../office/docx.ts')
-                const res = await docxToDoc(new Uint8Array(buf))
-                officeDoc = res.doc
-                doc = res.doc
-                enteredEdit = true
-                editMode = true
-                dirty = false
-                editEmit('preview', { type: 'office', status: 'imported', warnings: res.warnings.length })
+                if (isXlsx) {
+                  const { xlsxToWorkbook } = await import('../../office/xlsx.ts')
+                  const res = await xlsxToWorkbook(new Uint8Array(buf))
+                  officeWorkbook = res.workbook
+                  officeDoc = null
+                  editEmit('preview', { type: 'office', status: 'imported', docType: 'xlsx', warnings: res.warnings.length })
+                } else {
+                  const { docxToDoc } = await import('../../office/docx.ts')
+                  const res = await docxToDoc(new Uint8Array(buf))
+                  officeDoc = res.doc
+                  officeWorkbook = null
+                  doc = res.doc
+                  enteredEdit = true
+                  editMode = true
+                  dirty = false
+                  editEmit('preview', { type: 'office', status: 'imported', docType: 'docx', warnings: res.warnings.length })
+                }
                 ctx.ui.render()
               } catch (e) {
                 editEmit('preview', { type: 'office', status: 'import-error', message: String(e) })

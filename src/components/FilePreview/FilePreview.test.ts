@@ -98,6 +98,47 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     root.remove()
   })
 
+  it('xlsx 导入预览：打开 xlsx → 表格渲染（值/公式/多列）', async () => {
+    const { workbookToXlsx } = await import('../../office/xlsx.ts')
+    const wb = {
+      sheets: [{
+        name: '数据', cols: 2,
+        cells: new Map([
+          ['A1', { kind: 's', value: '项目' }],
+          ['B1', { kind: 's', value: '金额' }],
+          ['A2', { kind: 's', value: '营收' }],
+          ['B2', { kind: 'f', value: '', formula: '=SUM(1,2)' }],
+        ]),
+      }],
+      activeSheet: 0,
+    }
+    const exp = workbookToXlsx(wb as any)
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(FilePreview, {
+      type: 'office', editable: true,
+    } as any), root)
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    // 点击打开 → 创建 input → 注入 xlsx 文件
+    const openBtn = root.querySelector('[data-open]') as HTMLElement
+    openBtn!.click()
+    await new Promise((r) => setTimeout(r, 30))
+    const input = (document.body.querySelector('input[type=file][accept]')) as HTMLInputElement
+    const file = new File([exp.data], 'data.xlsx')
+    Object.defineProperty(input, 'files', { value: [file] as unknown as FileList })
+    input.dispatchEvent(new (window as any).Event('change'))
+    await new Promise((r) => setTimeout(r, 150))
+    const tbl = root.querySelector('.wf-filepreview-sheet') as HTMLElement
+    assert.ok(tbl, 'xlsx 表格渲染')
+    const tds = Array.from(tbl!.querySelectorAll('td')).map((t) => t.textContent)
+    assert.ok(tds.includes('项目'), '共享字符串单元格')
+    assert.ok(tds.includes('营收'))
+    assert.ok(root.textContent?.includes('数据'), '预览说明（sheet 名）')
+    assert.ok(root.textContent?.includes('2 行 × 2 列'), '行列范围')
+    root.remove()
+  })
+
   it('detectType：按扩展名自动探测文件类型', () => {
     assert.equal(detectType('README.md'), 'md')
     assert.equal(detectType('notes.txt'), 'text')

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import { readZip, writeZip, crc32 } from './zip.ts'
 import { parseXml } from './xml.ts'
 import { docToDocx, docxToDoc } from './docx.ts'
+import { workbookToXlsx, xlsxToWorkbook } from './xlsx.ts'
 import type { DocState } from '../components/Editor/model/types.ts'
 import { EMBED_CHAR } from '../components/Editor/model/types.ts'
 
@@ -221,5 +222,78 @@ describe('office/docx（docx ↔ ODES DocState——参考 office2json 算法）
     assert.ok(p2.children.some((c) => c.name === 'w:pPr' && c.children.some((j) => j.name === 'w:jc')), '对齐保留')
     const t = ps[1].children.filter((c) => c.name === 'w:r')
     assert.ok(t.some((r) => r.children.some((x) => x.name === 'w:rPr')), 'u mark 保留')
+  })
+})
+
+describe('office/xlsx（xlsx ↔ ODES WorkbookState——参考 office2json 算法）', () => {
+  test('往返：多 sheet + 值/公式/共享字符串', async () => {
+    const wb = {
+      sheets: [
+        {
+          name: '数据',
+          cols: 3,
+          cells: new Map<string, any>([
+            ['A1', { kind: 's', value: '项目' }],
+            ['B1', { kind: 's', value: '金额' }],
+            ['A2', { kind: 's', value: '营收' }],
+            ['B2', { kind: 'n', value: 100 }],
+            ['C2', { kind: 'f', value: '', formula: '=SUM(B2)' }],
+            ['D1', { kind: 'b', value: true }],
+          ]),
+        },
+        { name: '汇总', cols: 1, cells: new Map([['A1', { kind: 's', value: '合计' }]]) },
+      ],
+      activeSheet: 0,
+    }
+    const exp = workbookToXlsx(wb)
+    const imp = await xlsxToWorkbook(exp.data)
+    assert.equal(imp.workbook.sheets.length, 2, '多 sheet')
+    assert.equal(imp.workbook.sheets[0].name, '数据')
+    assert.equal(imp.workbook.sheets[1].name, '汇总')
+    const s0 = imp.workbook.sheets[0]
+    assert.equal(s0.cells.get('A1')?.value, '项目', '共享字符串解析')
+    assert.equal(s0.cells.get('B2')?.value, 100, '数字')
+    assert.equal(s0.cells.get('C2')?.formula, '=SUM(B2)', '公式保留')
+    assert.equal(s0.cells.get('D1')?.value, true, '布尔')
+    assert.equal(s0.cols, 4, '列范围（D 列）')
+  })
+
+  test('往返：中文 + 特殊字符共享字符串（转义）', async () => {
+    const wb = {
+      sheets: [{
+        name: 'Sheet1', cols: 1,
+        cells: new Map([
+          ['A1', { kind: 's', value: '你好 <世界> & "引号"' }],
+          ['A2', { kind: 's', value: '金额: 100%' }],
+        ]),
+      }],
+      activeSheet: 0,
+    }
+    const exp = workbookToXlsx(wb)
+    const imp = await xlsxToWorkbook(exp.data)
+    assert.equal(imp.workbook.sheets[0].cells.get('A1')?.value, '你好 <世界> & "引号"')
+    assert.equal(imp.workbook.sheets[0].cells.get('A2')?.value, '金额: 100%')
+  })
+
+  test('写入结构：VNode 组件化（OOXML 也是 VNode——parseXml 可解析）', async () => {
+    const wb = {
+      sheets: [{
+        name: 'S1', cols: 2,
+        cells: new Map([['A1', { kind: 's', value: 'x' }], ['B1', { kind: 'n', value: 1 }]]),
+      }],
+      activeSheet: 0,
+    }
+    const exp = workbookToXlsx(wb)
+    const files = await readZip(exp.data)
+    const sheetXml = decoder.decode(files.get('xl/worksheets/sheet1.xml')!)
+    const root = parseXml(sheetXml)
+    assert.equal(root.name, 'worksheet')
+    const sheetData = root.children.find((c) => c.name === 'sheetData')!
+    const rows = sheetData.children.filter((c) => c.name === 'row')
+    assert.equal(rows.length, 1)
+    const cs = rows[0].children.filter((c) => c.name === 'c')
+    assert.equal(cs.length, 2)
+    assert.equal(cs[0].attrs.r, 'A1')
+    assert.equal(cs[1].attrs.r, 'B1')
   })
 })
