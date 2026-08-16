@@ -542,38 +542,20 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
     return
   }
 
-  // prevNode 锚：新项插入到前一个已渲染兄弟之后（空洞（false）不产生 DOM——
-  // childNodes 索引与 children 错位——prevNode 保证 vnode 顺序 = DOM 顺序）
+  // 双游标 diff（无 key 位置语义——children 无空洞（flatten 滤除 false））：
+  // - 同类型（位置匹配）→ patch 复用（j++）
+  // - 异类型 → nc 是新项——插入 prevNode 后（j 不动——oc 保留待后续匹配）
+  // 修复真实 bug（audit 抓出：统计页 ws 断线 Alert 插入——idxs=[0,4,5,1,2,3]）：
+  // 旧实现按索引 oc[i]/nc[i]——中间插入后后续项索引漂移——异类型 patch 重建
+  // （REMOVE oc + CREATE nc）——anchor（prevNode.nextSibling = 已被移除的 oc）
+  // 失效 → appendChild 末尾——children 顺序错位。双游标：异类型时旧项保留
+  // （可能在新树后面出现——后续同类型 patch 复用），末尾统一清理剩余旧项。
   let prevNode: Node | null = null
-  const len = Math.max(oldKids.length, newKids.length)
-  for (let i = 0; i < len; i++) {
-    const oc = i < oldKids.length ? oldKids[i] : null
-    const nc = i < newKids.length ? newKids[i] : null
-    if (i >= newKids.length) {
-      if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
-        removePortalContent(oc as PortalVNode)
-        continue
-      }
-      // 组件输出 Portal（oc._child 是 Portal——组件 el 为 null 此前跳过 →
-      // portal 内容残留——多次条件切换后 DOM 与树不一致累积）
-      if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
-        removePortalContent((oc as VNode)._child as PortalVNode)
-        continue
-      }
-      // 组件从树中移除——统一清理（卸载钩子 + comp:unmount + 索引注销）
-      if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
-        removeComponentInstance(oc as VNode, el, i)
-        continue
-      }
-      // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
-      if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
-        removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
-      } else {
-        const domNode = el.childNodes[i]
-        if (domNode) domNode.parentNode?.removeChild(domNode)
-      }
-      continue
-    }
+  let j = 0 // 旧树游标（异类型插入不消费——后续同类型匹配）
+  const newLen = newKids.length
+  for (let i = 0; i < newLen; i++) {
+    const nc = newKids[i]
+    const oc = j < oldKids.length ? oldKids[j] : null
     if (typeof nc === 'string' || typeof nc === 'number') {
       const str = String(nc)
       const existing = el.childNodes[i]
@@ -590,37 +572,53 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
         el.insertBefore(t, el.childNodes[i] ?? null)
         stream.emit(ev('node', 'insert', id, { parent: nodeId(el), ref: null }))
       }
+      j++
       continue
     }
     if (nc == null || nc === false || nc === true) {
-      if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
-        removePortalContent(oc as PortalVNode)
-        continue
-      }
-      // 组件从树中移除——统一清理（卸载钩子 + comp:unmount + 索引注销——
-      // 此前泄漏：条件渲染移除的组件 onUnmount 钩子不执行——监听/tracker 残留）
-      if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
-        removeComponentInstance(oc as VNode, el, i)
-        continue
-      }
-      // 移除（含 ref(null)——卸载清理）；oc 无 el（空洞）跳过——不碰 childNodes[i]
-      // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
-      if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
-        removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
-      }
+      // 空洞（flatten 滤除后不应出现——防御：消费一个旧项）
+      j++
       continue
     }
-    if (oc != null && typeof oc === 'object') {
-      // 传 anchor（prevNode 锚）——降级重建（异类型/el 缺失）时正确插入位置，
-      // 否则 appendChild 末尾——children 顺序错位（审计抓出：统计页 grid 重建）
+    if (oc != null && typeof oc === 'object' && (oc as VNode).type === (nc as VNode).type) {
+      // 同类型（无 key 位置语义）——patch 复用（anchor=prevNode 锚——
+      // 降级重建（el 缺失）时插入位置正确）——j++ 消费
       patch(oc as VNode, nc as VNode, el, prevNode ? prevNode.nextSibling : el.firstChild)
       const patched = (nc as VNode).el
       if (patched && patched.parentNode === el) prevNode = patched
+      j++
     } else {
-      // 新项：渲染（组件输出已在 build 展开）——prevNode 锚（空洞后插入位置正确）
+      // 异类型：nc 是新项——插入 prevNode 后（anchor 是存活兄弟——
+      // oc 未移除——anchor 不失效）；j 不动（oc 可能在新树后面——保留待匹配）
       const anchor = prevNode ? prevNode.nextSibling : el.firstChild
       const node = renderVNode(nc as VNode, el, anchor)
       if (node && node.parentNode === el) prevNode = node
+    }
+  }
+  // 清理剩余旧项（新树已尽——j..oldKids.length）
+  for (; j < oldKids.length; j++) {
+    const oc = oldKids[j]
+    if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
+      removePortalContent(oc as PortalVNode)
+      continue
+    }
+    // 组件输出 Portal（oc._child 是 Portal——组件 el 为 null 此前跳过 →
+    // portal 内容残留——多次条件切换后 DOM 与树不一致累积）
+    if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
+      removePortalContent((oc as VNode)._child as PortalVNode)
+      continue
+    }
+    // 组件从树中移除——统一清理（卸载钩子 + comp:unmount + 索引注销）
+    if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
+      removeComponentInstance(oc as VNode, el, j)
+      continue
+    }
+    // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
+    if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
+      removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
+    } else {
+      const domNode = el.childNodes[j]
+      if (domNode) domNode.parentNode?.removeChild(domNode)
     }
   }
   auditOrder(el, newV)
