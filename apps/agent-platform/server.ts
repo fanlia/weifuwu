@@ -1530,11 +1530,11 @@ async function main() {
   const distRoot = join(__dirname, '..', '..', 'dist')
   app.get('/static/ui-dom/index.js', async (): Promise<Response> => {
     const { readFileSync } = await import('node:fs')
-    return new Response(readFileSync(join(distRoot, 'ui-dom', 'index.js'), 'utf-8'), { headers: { 'Content-Type': 'text/javascript; charset=utf-8' } })
+    return new Response(readFileSync(join(distRoot, 'ui-dom', 'index.js'), 'utf-8'), { headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' } })
   })
   app.get('/static/components/index.js', async (): Promise<Response> => {
     const { readFileSync } = await import('node:fs')
-    return new Response(readFileSync(join(distRoot, 'components', 'index.js'), 'utf-8'), { headers: { 'Content-Type': 'text/javascript; charset=utf-8' } })
+    return new Response(readFileSync(join(distRoot, 'components', 'index.js'), 'utf-8'), { headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' } })
   })
 
   // ── 模拟数据收集问卷（客户 demo——多角色 AI 填写） ──────────

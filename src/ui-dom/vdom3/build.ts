@@ -68,6 +68,9 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
       // 内部状态变化必须重跑 renderFn）
       if (!isRoot && propsEqual(reuse.props, v.props)) {
         v._child = reuse._child
+        // 剪枝克隆继承 el（否则 patch 时 ov.el 缺失 → 降级重建 → 重建项插末尾——
+        // 审计抓出的 children 顺序错位（统计页 grid 每次重建的真实 bug））
+        if (reuse.el != null) v.el = reuse.el
         return v
       }
       // props 变化 → 驱动重渲染（PROPS_UPDATE 事件——变化的 key 可观测）

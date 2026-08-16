@@ -611,7 +611,9 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
       continue
     }
     if (oc != null && typeof oc === 'object') {
-      patch(oc as VNode, nc as VNode, el)
+      // 传 anchor（prevNode 锚）——降级重建（异类型/el 缺失）时正确插入位置，
+      // 否则 appendChild 末尾——children 顺序错位（审计抓出：统计页 grid 重建）
+      patch(oc as VNode, nc as VNode, el, prevNode ? prevNode.nextSibling : el.firstChild)
       const patched = (nc as VNode).el
       if (patched && patched.parentNode === el) prevNode = patched
     } else {

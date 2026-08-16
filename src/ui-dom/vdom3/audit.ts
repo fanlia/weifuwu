@@ -52,7 +52,9 @@ export function auditOrder(_el: Element, v: VNode): void {
       const stack = (globalThis as { __WF_V3_AUDIT_STACK?: string }).__WF_V3_AUDIT_STACK
         ? new Error().stack?.split('\n').slice(2, 5).map((l) => l.trim().slice(0, 70)).join(' | ')
         : ''
-      console.warn(`[vdom3/audit] children 顺序错位 idx=${idx}<${prevIdx} tag=${String((k as VNode).type).slice(0, 30)}${stack ? ' || ' + stack : ''}`)
+      const kinds = kids.map((c) => typeof (c as VNode).type === 'function' ? 'C' : String((c as VNode).type).slice(0, 8))
+      const idxs = kids.map((c) => [...parent.childNodes].indexOf((c as VNode).el as ChildNode))
+      console.warn(`[vdom3/audit] children 顺序错位 idx=${idx}<${prevIdx} tag=${String((k as VNode).type).slice(0, 30)} kinds=[${kinds.join(',')}] idxs=[${idxs.join(',')}] kids=${kids.length} domKids=${parent.childNodes.length}${stack ? ' || ' + stack : ''}`)
       return
     }
     prevIdx = idx

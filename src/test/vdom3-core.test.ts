@@ -2865,3 +2865,44 @@ test('路由：复用布局组件读最新 ctx.route（Sider active 跟随导航
   assert.ok(root.querySelector('#b'), '页面切换正常')
   document.body.removeChild(root)
 })
+
+test('重建项插入位置：children 顺序保持（audit 顺序错位回归——内联 style 重建项不插末尾）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  // 复现统计页场景：内联 style 对象（每次渲染新引用——结构共享失败——重建）
+  // 重建项（grid）必须在 header 后——不插末尾
+  let n = 0
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', {}, [
+      h('div', { id: 'header' }, 'header'),
+      n % 2 === 1 ? h('div', { id: 'alert' }, 'alert') : false,
+      h('div', { id: 'grid', style: { display: 'grid', gridTemplateColumns: 'repeat(2,1fr)' } }, [
+        h('div', { id: 'c1' }, String(n)),
+        h('div', { id: 'c2' }, 'c2'),
+      ]),
+      h('div', { id: 'tail' }, 'tail'),
+    ])
+  }
+  const render = () => h('button', { id: 'go', onClick: () => { n++; render(); } })
+  // 用 App 自触发（onClick 在 App 外不可——用根 handle）
+  const handle = createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  // 多次 rerender（n 变化——grid 的 style 新对象——重建）
+  const rerender = () => { n++; handle.rerender() }
+  rerender()
+  await new Promise((r) => setTimeout(r, 30))
+  rerender()
+  await new Promise((r) => setTimeout(r, 30))
+  // 顺序断言：header → grid → tail（grid 不在末尾）
+  const ids = [...root.firstElementChild?.childNodes ?? []].filter((c) => c.nodeType === 1).map((c) => (c as Element).getAttribute('id'))
+  const gridIdx = ids.indexOf('grid')
+  const headerIdx = ids.indexOf('header')
+  const tailIdx = ids.indexOf('tail')
+  assert.ok(headerIdx >= 0 && gridIdx >= 0 && tailIdx >= 0, `节点齐全——实际: ${ids.join(',')}`)
+  assert.ok(headerIdx < gridIdx && gridIdx < tailIdx, `children 顺序保持（header→grid→tail）——实际: ${ids.join(',')}`)
+  document.body.removeChild(root)
+})

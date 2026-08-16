@@ -30,7 +30,7 @@
     }
   </script>
 
-  <script type="module">import { createRoot, h, ws } from "weifuwu/ui-dom";
+  <script type="module">import { createRoot, h, ws, stream } from "weifuwu/ui-dom";
 import { Card, Badge, Alert, StatCard, Table, EmptyState, ProgressBar, Space } from "weifuwu/components";
 const QUESTIONS = ["1.\u5E74\u9F84", "2.\u884C\u4E1A", "3.\u5173\u6CE8\u80FD\u529B", "4.\u6EE1\u610F\u5EA6", "5.\u5EFA\u8BAE\u53CD\u9988"];
 let ctx0 = {};
@@ -197,7 +197,14 @@ const StatsPage = async (_init, ctx) => {
     );
   };
 };
-createRoot(h(StatsPage, {}), document.getElementById("root"), { ctx: ctx0 });
+    // 事件流暴露（debug：rerender 的 patch 序列——audit 顺序错位定位）
+    window.__wf_tail = [];
+    stream.subscribe((e) => {
+      const arr = window.__wf_tail;
+      arr.push({ k: e.entity + ":" + e.action, t: e.target, p: e.payload });
+      if (arr.length > 1000) arr.splice(0, arr.length - 1000);
+    });
+    createRoot(h(StatsPage, {}), document.getElementById("root"), { ctx: ctx0 });
 </script>
 </body>
 </html>
