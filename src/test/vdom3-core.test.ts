@@ -3083,10 +3083,7 @@ test('阶段 2：组件输出 Fragment 在数组中间——切换不漂移（�
   document.body.removeChild(root)
 })
 
-// 诚实裁剪：多节点相邻（组件输出 Fragment 直接接显式 Fragment）的 domIdx 宽度推进
-// 存在边界残余（patch 后 nc 范围未继承——oc 范围在某些路径不完整）——标记 skip——
-// 记录于 design/vdom2-parts-into-events.md 阶段 2 裁剪——后续精化
-test.skip('阶段 2：组件输出数组直接接数组（理论边界——多节点相邻）', async () => {
+test('阶段 2：组件输出数组直接接数组（理论边界——多节点相邻）', async () => {
   const root = document.createElement('div')
   document.body.appendChild(root)
   const { createRoot } = await import('../ui-dom/vdom3/root.ts')

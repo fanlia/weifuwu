@@ -99,9 +99,9 @@
 - ✅ patchCompKind 的 out==null 漏 false 修复（组件输出 false 不走移除分支）
 - ✅ patchChildren domIdx 推进（多节点项宽度——children 索引与 DOM 索引错位）
 - ✅ 测试 +2：组件输出 Fragment 中间移除/重现（核心场景）；SSR 空洞同构
-- ✂️ 裁剪：多节点**相邻**（组件输出 Fragment 直接接显式 Fragment）的 domIdx
-  宽度推进边界残余（patch 后 nc 范围未继承——oc 范围部分路径不完整——
-  测试 skip 标记——后续精化：patchCompKind/patchFragKind patch 后同步 nc 范围）
+- ✅ 裁剪项已补（2026-12）：patchCompKind/patchFragKind patch 后同步 nc 范围
+  （_outFirst/_outLast——widthOf 推进依赖）——多节点相邻测试取消 skip——
+  114 全绿 0 skip——裁剪清零
 
 ---
 

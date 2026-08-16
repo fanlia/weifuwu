@@ -463,6 +463,10 @@ function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null)
     // 组件输出变化 → patch 子树（组件 el 保持——输出首节点定位）
     patch(oldOut as VNode | null, out as VNode, parent, anchor)
     vn.el = ov.el
+    // 多节点输出范围同步（阶段 2 精化——patch 路径——widthOf 推进依赖——
+    // 组件输出 Fragment 时范围跟随输出——裁剪项：多节点相邻边界）
+    vn._outFirst = (out as VNode)._outFirst ?? vn.el
+    vn._outLast = (out as VNode)._outLast ?? vn.el
   }
   return vn.el
 }
@@ -474,6 +478,12 @@ function patchFragKind(ov: VNode, vn: VNode, parent: Node, _anchor?: Node | null
   // Fragment 的 el = 首 child 的 el（组件输出定位）
   const firstChild = childrenOf(ov).find((c): c is VNode => c != null && typeof c === 'object' && !Array.isArray(c))
   vn.el = ov.el ?? (firstChild?.el ?? null)
+  // 多节点输出范围同步（阶段 2 精化——children 首尾——widthOf 推进依赖）
+  const kids = childrenOf(vn).filter((c): c is VNode => c != null && typeof c === 'object' && !Array.isArray(c))
+  const firstKid = kids[0]
+  const lastKid = kids[kids.length - 1]
+  vn._outFirst = firstKid?.el ?? vn.el
+  vn._outLast = lastKid?._outLast ?? lastKid?.el ?? vn.el
   return vn.el
 }
 
