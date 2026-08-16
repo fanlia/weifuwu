@@ -153,6 +153,9 @@ export function createTestCtx(overrides?: { ui?: Partial<WfuiContext['ui']>; bro
         keyword: opts.value ?? '', setKeyword: () => {}, setSelectedLabel: () => {},
       }),
       useOpen: (opts: any) => ({ get open() { return !!opts.open }, setOpen: opts.onOpenChange ?? (() => {}), triggerProps: {} }),
+      // §5.4 弹窗纪律：usePopup 标准 mock（默认关闭——portal 按 isOpen 条件渲染——
+      // 组件测试可用 overrides.ui.usePopup 注入 createPopupMock）
+      usePopup: (_opts: any) => ({ open: false, setOpen: (_v: boolean) => {}, refresh: () => {}, portal: (_c: any, _k?: string) => null, wrapProps: {} }),
     },
   }
   const merged = overrides

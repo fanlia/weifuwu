@@ -4,7 +4,7 @@
 
 import type { Component } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createPortal, h } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 import {
   scaleLinear, linePath, areaPath, barRects, pieArcs,
@@ -27,19 +27,18 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
   // ── mount（只一次）──
   let tooltip: { label: string; value: number; color?: string } | null = null
   let tooltipEl: Element | null = null
-  let tooltipPanel: HTMLElement | null = null
-  let prevOpen = false
 
-  // §5.1 ref 纪律：稳定引用定义在 mount 作用域（内联 ref 每渲染新函数 → 反复触发）
-  const panelRef = (el: HTMLElement | null) => { tooltipPanel = el }
-
-  // 滚动/resize 时自动重算坐标（tooltip 跟随触发元素）；panel 传入 → 视口夹紧
-  // （getBoundingClientRect 含 translate(-50%,-100%) 变换，clamp 位移同步逻辑成立）
-  const pos = ctx.ui.usePopupPosition({
+  // §5.4 弹窗纪律：浮层一律 usePopup（统一组合器——定位/视口夹紧/Escape/portal）——
+  // tooltip 悬浮跟随数据点（hover 手动触发——isOpen 驱动）——参照组件库 Tooltip
+  const popup = ctx.ui.usePopup({
+    trigger: 'manual', // hover 由数据点事件手动管理（line/bar/pie 的 onMouseEnter）
+    placement: 'top',
+    gap: 8,
     el: () => tooltipEl as HTMLElement | null,
     isOpen: () => tooltip !== null,
-    panel: () => tooltipPanel,
-    compute: (r) => ({ top: r.top - 8, left: r.left + r.width / 2 }),
+    setOpen: (v) => {
+      if (!v && tooltip !== null) { tooltip = null; tooltipEl = null; ctx.ui.render() }
+    },
   })
 
   // ── render（每次 dirty/props 变化）──
@@ -219,22 +218,16 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
       ]))
     ) : null
 
-    // ── 打开瞬间算一次初始坐标 ──
-    const isTipOpen = tooltip !== null
-    if (isTipOpen && !prevOpen) pos.refresh()
-    prevOpen = isTipOpen
-
-    const tip = tooltip ? createPortal(h('div', {
+    // ── tooltip（usePopup 统一弹层——portal 渲染——isOpen 驱动） ──
+    const tip = tooltip ? h('div', {
       class: 'wf-chart-tooltip',
-      ref: panelRef,
-      style: { position: 'fixed', left: pos.left, top: pos.top },
     }, [
       h('div', { class: 'wf-chart-tooltip-label' }, [
         tooltip.color ? h('span', { class: 'wf-chart-tooltip-dot', style: { background: tooltip.color } }) : null,
         h('span', {}, tooltip.label),
       ]),
       h('div', { class: 'wf-chart-tooltip-value' }, String(tooltip.value)),
-    ]), 'chart-tooltip') : null
+    ]) : null
 
     return h('div', {
       class: `wf-chart${className ? ' ' + className : ''}`,
@@ -244,7 +237,7 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
       title ? h('div', { class: 'wf-chart-title' }, title) : null,
       chartContent,
       legend,
-      tip,
+      tip ? popup.portal(tip, 'chart-tooltip') : null,
     ].filter(Boolean))
   }
 }

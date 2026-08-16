@@ -6,9 +6,10 @@ import { renderVNode } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
+// 官方 createTestCtx（testing.ts——usePopup 标准 mock——§7.2 纪律）
 function createTestCtx(): WfuiContext {
   return { ui: { $: {}
-, render: () => {}, dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }), ready: false } } as any
+, render: () => {}, dirty: () => {}, usePopup: () => ({ open: false, setOpen: () => {}, refresh: () => {}, portal: (_c: any, _k?: string) => null, wrapProps: {} }), ready: false } } as any
 }
 
 /** 两阶段组件：mount 后调用 await renderFn(props) */
