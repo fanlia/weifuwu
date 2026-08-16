@@ -1132,7 +1132,8 @@ const DemoEditor: Component = async (_props, ctx) => {
   let html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p class="wf-text-center">居中文字</p>'
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      <Editor value={html} onChange={v => { html = v; ctx.ui.render() }} placeholder="输入内容..." />
+      <Editor value={html} onChange={v => { html = v; ctx.ui.render() }} placeholder="输入内容..."
+        ai={{ url: '/api/chat' }} draftKey="demo-editor-1" />
       <div class="wf-text-xs wf-text-secondary wf-py-xs wf-truncate wf-w-full">
         HTML 输出: {html?.substring(0, 150) || '(空)'}
       </div>

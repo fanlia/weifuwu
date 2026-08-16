@@ -634,7 +634,58 @@ props 变化 ──────────────────────�
 |-----|--------|-----------|------|
 | Chart | `Chart` | `type: ChartType`, `data`, `options`, `title`, `area` | SVG 图表（line/bar/pie）|
 | DatePicker | `DatePicker` | `mode: DatePickerMode`, `value`, `onChange`, `placeholder`, `disabled` | 日期选择器（date/datetime/time/range）|
-| Editor | `Editor` | `value`, `onChange`, `toolbar`, `placeholder`, `disabled` | 富文本编辑器，零依赖 |
+| Editor | `Editor` | `value`, `onChange`, `toolbar`, `placeholder`, `disabled`, `ai?` | 富文本编辑器（事件流事务层：撤销/重做/时光机；AI 协作可选） |
+
+### Editor（富文本编辑器 + AI 协作）
+
+基于 contentEditable 的富文本编辑器，**事件流事务层**：语义操作（格式/链接/图片/表格/AI 替换）→ `edit:commit`（before 快照 + 事件）→ 撤销/重做/时光机精确到任意版本。
+
+```tsx
+import { Editor } from 'weifuwu/components'
+
+<Editor value={html} onChange={v => setHtml(v)} placeholder="输入内容..." />
+```
+
+**Props**：
+
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `value` / `onChange` | `string` / `(html) => void` | 受控 HTML（内部模型为准——输出经序列化归一化） |
+| `toolbar` | `ToolbarItem[]` | 工具栏项（bold/italic/h1-3/align/link/image/table/clear/source…）；默认 18 项 |
+| `placeholder` / `disabled` / `minHeight` | | 占位符 / 禁用 / 最小高度 |
+| `onUpload` | `(file) => Promise<string>` | 图片上传（返回 URL）；不传则 URL 输入 |
+| `ai` | `EditorAiOptions` | **AI 协作（可选）**——见下 |
+| `draftKey` | `string` | **草稿持久化（可选）**：内容自动保存（防抖 500ms），挂载时 `value` 为空且存在草稿 → 自动恢复（刷新/崩溃不丢） |
+
+**撤销/重做/时光机**：
+
+- `Ctrl+Z` / `Ctrl+Y`：一步撤销/重做**语义操作**（输入合并为单步——连续打字一次撤销全退）
+- 工具栏 🕘 **操作历史**：commit 列表（标签 + 时间）→ 点击回到任意版本（redo 保留可重做回来）
+
+**AI 协作**（`ai` prop——不传则无 AI 能力）：
+
+```tsx
+<Editor
+  value={html}
+  onChange={v => setHtml(v)}
+  ai={{ url: '/api/ai-editor' }}          // wf: SSE 端点（docs/ai-contract.md）
+/>
+```
+
+- 工具栏 AI 动作组（默认：润色/翻译/缩写/扩写/纠错）——选中文本（无选区 = 全文）→ 点击 → 浮层**流式**生成建议（原文 diff 对比）→ **接受**（替换 = 一个原子撤销步）/ **拒绝**
+- `Ctrl+Enter`：快速触发最近使用的 AI 动作
+- 自定义动作：`ai.actions`（prompt 模板注入 `{selection}`）
+
+```tsx
+<Editor value={html} onChange={v => setHtml(v)}
+  ai={{
+    url: '/api/ai-editor',
+    actions: [{
+      id: 'tone', label: '改语气',
+      prompt: ({ selection }) => `请把以下文本改为正式语气：\n\n${selection}`,
+    }],
+  }} />
+```
 
 ### 布局
 

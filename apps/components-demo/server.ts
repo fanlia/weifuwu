@@ -1,6 +1,7 @@
 import { serve, Router, ui } from 'weifuwu'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readdir, readFile } from 'node:fs/promises'
 
 // 基于 server.ts 自身位置解析路径，不依赖 CWD
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -68,8 +69,31 @@ app.post('/api/approve', async (req: Request): Promise<Response> => {
 
 app.get('/app.js', (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
 
-// 组件库 CSS（含 Token + 67 布局原语 + 46 组件样式）
-app.get('/components.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css'))
+// 组件库 CSS（dev：从 src 运行时聚合——免构建——与 scripts/build.mjs 同逻辑）
+app.get('/components.css', async (req, ctx) => {
+  const root = resolve(__dirname, '..', '..')
+  const layoutSrc = resolve(root, 'src', 'layout')
+  // layout @import 合并（与 build.mjs mergeLayoutCss 同逻辑——@layer tokens/base/layout/utilities）
+  const entry = await readFile(resolve(layoutSrc, 'weifuwu-layout.css'), 'utf-8')
+  const layoutChunks: string[] = []
+  for (const line of entry.split('\n')) {
+    const m = line.match(/@import\s+['"]([^'"]+)['"]/)
+    if (m) {
+      const content = (await readFile(resolve(layoutSrc, m[1]), 'utf-8')).replace(/@import\s+['"][^'"]+['"]\s*;?\s*\n?/g, '').trim()
+      layoutChunks.push(`@layer layout {\n${content}\n}`)
+    }
+  }
+  let css = '@layer tokens, base, layout, utilities, components;\n\n' + layoutChunks.join('\n\n')
+  css += '\n@layer components {\n'
+  const dirs = await readdir(resolve(root, 'src', 'components'), { withFileTypes: true })
+  for (const d of dirs.filter((x) => x.isDirectory())) {
+    try {
+      css += await readFile(resolve(root, 'src', 'components', d.name, `${d.name}.css`), 'utf-8') + '\n'
+    } catch { /* 无 CSS 组件跳过 */ }
+  }
+  css += '}\n'
+  return new Response(css, { headers: { 'Content-Type': 'text/css' } })
+})
 
 app.get('/*', async (req, ctx) => ctx.ui.html`
 <!DOCTYPE html>
