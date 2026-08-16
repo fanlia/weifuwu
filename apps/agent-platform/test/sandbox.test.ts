@@ -241,7 +241,8 @@ test('T-M1e: 漂移重建——network 变更 → 容器重建（P1-6）', { ski
   await cleanTestData()
   const exe = makeSandbox()
   const m = makeManager(exe)
-  const r1 = await m.runTool(TEST_DEPT, wsDir, 'write', { path: 'c.txt', content: 'net' })
+  // 第一次显式无网络（默认已改 true——制造漂移场景：network false → true）
+  const r1 = await m.runTool(TEST_DEPT, wsDir, 'write', { path: 'c.txt', content: 'net' }, { network: false })
   assert.equal(r1.ok, true)
   const [row] = await sql`SELECT * FROM sandboxes WHERE department_id = ${TEST_DEPT} AND status != 'terminated'`
   const id = String(row.id)
