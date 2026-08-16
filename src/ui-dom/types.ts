@@ -119,7 +119,7 @@ export interface UsePopupHandle {
   /** spread 到触发/包装元素：触发（hover 门控/tap 降级/longpress）+ Escape + focus */
   wrapProps: Record<string, any>
   /** 包装弹层内容：定位 + 视口/宽度 clamp + portal；关闭时返回 null */
-  portal: (content: VNode, portalKey?: string) => VNode | null
+  portal: (content: VNode | null, portalKey?: string) => VNode | null
   /** 立即重算坐标（打开/动画结束后调用） */
   refresh: () => void
 }

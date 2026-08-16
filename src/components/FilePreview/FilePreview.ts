@@ -17,6 +17,7 @@ import { h } from '../../ui-dom/vnode.ts'
 import { Editor } from '../Editor/Editor.ts'
 import type { EditorAiOptions } from '../Editor/Editor.ts'
 import { Markdown } from '../Markdown/Markdown.ts'
+import { SheetGrid } from '../SheetGrid/SheetGrid.ts'
 import { markdownToHtml, serializeMarkdown } from './markdown.ts'
 import { EMPTY_DOC } from '../Editor/model/types.ts'
 import { parseHtml, serializeHtml } from '../Editor/model/html.ts'
@@ -190,35 +191,13 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         })
       } else if (editable && officeWorkbook) {
         emitLoaded(0, 0)
-        // xlsx 表格预览（阶段 2 SheetGrid 编辑 UI）
-        const ws = officeWorkbook.sheets[0]
-        const rows = new Map<number, Map<number, string>>()
-        for (const [ref, cell] of ws.cells) {
-          const m = /^([A-Z]+)(\d+)$/.exec(ref)
-          if (!m) continue
-          let col = 0
-          for (const ch of m[1]) col = col * 26 + (ch.charCodeAt(0) - 64)
-          const r = Number(m[2]) - 1
-          const rowMap = rows.get(r) ?? new Map<number, string>()
-          rowMap.set(col - 1, String(cell.value))
-          rows.set(r, rowMap)
-        }
-        const maxRow = [...rows.keys()].length > 0 ? Math.max(...rows.keys()) + 1 : 0
-        const maxCol = Math.max(ws.cols, ...[...rows.values()].map((m) => Math.max(...m.keys()) + 1))
-        const grid: import('../../ui-dom/vdom3/types.ts').VNode[] = []
-        for (let r = 0; r < maxRow; r++) {
-          const rowMap = rows.get(r)
-          const tds: import('../../ui-dom/vdom3/types.ts').VNode[] = []
-          for (let c = 0; c < maxCol; c++) {
-            tds.push(h('td', { key: `c${c}` }, rowMap?.get(c) ?? ''))
-          }
-          grid.push(h('tr', { key: `r${r}` }, ...tds))
-        }
-        previewBody = h('div', { class: 'wf-filepreview-frame', style: { height, overflow: 'auto' } }, [
-          h('table', { class: 'wf-filepreview-sheet' },
-            h('tbody', {}, ...grid)),
-          h('div', { class: 'wf-filepreview-empty' }, `xlsx 预览（${ws.name}——${maxRow} 行 × ${maxCol} 列；编辑 UI 阶段 2）`),
-        ])
+        // xlsx 网格编辑（SheetGrid——ODES 事件流：cell-set/行列/AI 公式/撤销）
+        previewBody = h(SheetGrid, {
+          workbook: officeWorkbook,
+          ai: ai ? { url: ai.url, headers: (ai as { headers?: Record<string, string> }).headers } : undefined,
+          height,
+          onChange: (wb: import('../OfficeEditor/model/types.ts').WorkbookState) => { officeWorkbook = wb },
+        })
       } else if (editable) {
         emitLoaded(0, 0)
         previewBody = h('div', { class: 'wf-filepreview-empty' },
@@ -309,13 +288,22 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         officeInput.click()
       }
       const downloadDocx = (): void => {
-        if (!officeDoc) return
-        void import('../../office/docx.ts').then(({ docToDocx }) => {
-          const res = docToDocx(doc)
-          const ok = _browser.downloadFile(fileName ?? 'document.docx', res.data as unknown as string,
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-          editEmit('preview', { type: 'office', status: ok ? 'exported' : 'export-error' })
-        })
+        if (officeDoc) {
+          void import('../../office/docx.ts').then(({ docToDocx }) => {
+            const res = docToDocx(doc)
+            const ok = _browser.downloadFile(fileName ?? 'document.docx', res.data as unknown as string,
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            editEmit('preview', { type: 'office', status: ok ? 'exported' : 'export-error' })
+          })
+        } else if (officeWorkbook) {
+          const wb = officeWorkbook // 闭包收窄（let 在异步回调中 TS 不保持）
+          void import('../../office/xlsx.ts').then(({ workbookToXlsx }) => {
+            const res = workbookToXlsx(wb)
+            const ok = _browser.downloadFile(fileName ?? 'sheet.xlsx', res.data as unknown as string,
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            editEmit('preview', { type: 'office', status: ok ? 'exported' : 'export-error' })
+          })
+        }
       }
 
     const doCopy = async () => {
@@ -346,12 +334,12 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
               onClick: () => openDocx(),
             }, officeDoc ? '重新打开' : '打开 docx')
             : null,
-          type === 'office' && editable && officeDoc
+          type === 'office' && editable && (officeDoc || officeWorkbook)
             ? h('button', {
               class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'dl',
               'data-dl': 'true',
               onClick: () => downloadDocx(),
-            }, '下载 docx')
+            }, officeWorkbook ? '下载 xlsx' : '下载 docx')
             : null,
           isEditableType && editable
             ? h('button', {

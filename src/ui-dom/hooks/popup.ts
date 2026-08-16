@@ -263,7 +263,7 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
     }
     if (options.lockScroll && !el && wasLocked) { unlockScroll(); wasLocked = false }
   }
-  const portal = (content: VNode, portalKey = 'popover'): VNode | null => {
+  const portal = (content: VNode | null, portalKey = 'popover'): VNode | null => {
     if (isDisabled()) return null
     // presence 模式：exit 阶段仍需渲染（退场动画）——用 phase 而非 isOpen
     const now = presence ? presence.phase !== 'closed' : isOpen()
@@ -278,7 +278,8 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
       prevOpen = true
       lastEl = el
     }
-    const props = (content.props ?? {}) as Record<string, any>
+    const props = ((content ?? h('span')).props ?? {}) as Record<string, any>
+    if (!content) return null
     latestContentRef = (props.ref as ((el: HTMLElement | null) => void) | null) ?? null
     // positioning 'none'（Modal/Drawer 自定义定位）：不附加 wf-popup（其 max-width:480px
     // 会限制 .wf-modal/.wf-drawer 的 inset:0 全屏尺寸——flex 居中失效）

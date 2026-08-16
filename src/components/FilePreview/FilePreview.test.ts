@@ -129,13 +129,16 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     Object.defineProperty(input, 'files', { value: [file] as unknown as FileList })
     input.dispatchEvent(new (window as any).Event('change'))
     await new Promise((r) => setTimeout(r, 150))
-    const tbl = root.querySelector('.wf-filepreview-sheet') as HTMLElement
-    assert.ok(tbl, 'xlsx 表格渲染')
+    // SheetGrid 渲染（网格编辑器——非只读表格）
+    const tbl = root.querySelector('.wf-sheet-table') as HTMLElement
+    assert.ok(tbl, 'SheetGrid 渲染')
     const tds = Array.from(tbl!.querySelectorAll('td')).map((t) => t.textContent)
     assert.ok(tds.includes('项目'), '共享字符串单元格')
     assert.ok(tds.includes('营收'))
-    assert.ok(root.textContent?.includes('数据'), '预览说明（sheet 名）')
-    assert.ok(root.textContent?.includes('2 行 × 2 列'), '行列范围')
+    assert.ok(tds.includes('=SUM(1,2)'), '公式单元格显示')
+    assert.ok(root.querySelector('.wf-sheet-tab')?.textContent === '数据', 'sheet 标签')
+    // 下载 xlsx 按钮
+    assert.ok(root.querySelector('[data-dl]'), '下载 xlsx 按钮')
     root.remove()
   })
 

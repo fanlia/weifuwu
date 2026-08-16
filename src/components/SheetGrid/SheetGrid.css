@@ -1,0 +1,166 @@
+/* weifuwu/components — SheetGrid（xlsx 网格编辑器——ODES 事件流） */
+
+.wf-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs, 4px);
+  font-size: var(--wf-font-size-sm, 13px);
+  min-height: 0;
+}
+
+.wf-sheet-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm, 8px);
+  flex-wrap: wrap;
+}
+
+.wf-sheet-tabs {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+}
+
+.wf-sheet-tab {
+  font-size: var(--wf-font-size-xs, 12px);
+  padding: 4px 10px;
+  border: 1px solid var(--wf-color-border, #d0d7de);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: var(--wf-color-surface, #fff);
+  cursor: pointer;
+  min-height: 0;
+  min-width: 0;
+}
+
+.wf-sheet-tab--active {
+  background: var(--wf-color-primary, #2563eb);
+  color: var(--wf-color-on-brand, #fff);
+  border-color: var(--wf-color-primary, #2563eb);
+}
+
+.wf-sheet-tools {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.wf-sheet-status {
+  font-size: var(--wf-font-size-xs, 12px);
+  color: var(--wf-color-text-tertiary, #6e7781);
+  margin-left: auto;
+}
+
+.wf-sheet-scroll {
+  border: 1px solid var(--wf-color-border, #d0d7de);
+  border-radius: 6px;
+  max-height: 100%;
+  background: var(--wf-color-surface, #fff);
+}
+
+.wf-sheet-table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: var(--wf-font-size-sm, 13px);
+}
+
+.wf-sheet-table th,
+.wf-sheet-table td {
+  border: 1px solid var(--wf-color-border, #d0d7de);
+  padding: 2px 8px;
+  min-width: 60px;
+  height: 24px;
+  white-space: nowrap;
+}
+
+.wf-sheet-colhead {
+  background: var(--wf-color-bg-subtle, #f6f8fa);
+  font-weight: var(--wf-font-weight-medium, 500);
+  font-size: var(--wf-font-size-xs, 12px);
+  color: var(--wf-color-text-secondary, #57606a);
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.wf-sheet-rowhead {
+  background: var(--wf-color-bg-subtle, #f6f8fa);
+  font-weight: var(--wf-font-weight-medium, 500);
+  font-size: var(--wf-font-size-xs, 12px);
+  color: var(--wf-color-text-secondary, #57606a);
+  text-align: center;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 36px;
+}
+
+.wf-sheet-corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  background: var(--wf-color-bg-subtle, #f6f8fa);
+}
+
+.wf-sheet-cell {
+  cursor: cell;
+}
+
+.wf-sheet-cell--active {
+  outline: 2px solid var(--wf-color-primary, #2563eb);
+  outline-offset: -2px;
+}
+
+.wf-sheet-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  padding: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.wf-sheet-ai-panel {
+  width: 320px;
+  max-height: 260px;
+  overflow: auto;
+  padding: var(--wf-gap-sm, 8px);
+  background: var(--wf-color-surface, #fff);
+  border: 1px solid var(--wf-color-border, #d0d7de);
+  border-radius: 8px;
+  box-shadow: var(--wf-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.12));
+  z-index: var(--wf-z-popover, 100);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs, 4px);
+}
+
+.wf-sheet-ai-title {
+  font-weight: var(--wf-font-weight-semibold, 600);
+  font-size: var(--wf-font-size-sm, 13px);
+}
+
+.wf-sheet-ai-body {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: var(--wf-font-size-sm, 13px);
+  margin: 0;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.wf-sheet-ai-error {
+  color: var(--wf-color-error, #dc2626);
+  font-size: var(--wf-font-size-sm, 13px);
+}
+
+.wf-sheet-ai-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
