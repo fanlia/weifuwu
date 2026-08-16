@@ -3117,3 +3117,46 @@ test.skip('阶段 2：组件输出数组直接接数组（理论边界——多�
   assert.deepEqual(order(), ['x1', 'x2', 'z1', 'z2'], `尾部条件移除——实际 ${order()}`)
   document.body.removeChild(root)
 })
+
+// ── 阶段 4：审计订阅（A 级动态数组 key 检测——事件流化） ──
+
+test('阶段 4：diff:mode 决策事件——keyed/unkeyed 模式可观测', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  stream.reset()
+  const App = async (_init: any) => async () => h('div', {}, [
+    h('span', { key: 'a' }, 'a'),
+    h('span', { key: 'b' }, 'b'),
+  ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  stream.reset()
+  handle.rerender() // patch 路径（mount 无 patchChildren——决策事件在 diff 时）
+  await new Promise((r) => setTimeout(r, 20))
+  const modes = stream.events().filter((e) => e.entity === 'diff' && e.action === 'mode')
+  assert.ok(modes.length > 0, `diff:mode 决策事件发射——实际 ${modes.length}`)
+  assert.equal(modes[0].payload?.mode, 'keyed', `全 keyed 模式——实际 ${modes[0].payload?.mode}`)
+  document.body.removeChild(root)
+})
+
+test('阶段 4：动态数组无 key 组件检测（dev error 引导业务身份）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const warns: string[] = []
+  const ow = console.error
+  console.error = (...a: any[]) => { if (String(a[0]).includes('[vdom3/audit] 动态数组')) warns.push(String(a[0])); ow(...a) }
+  let items = ['a']
+  const Item = async (_init: any) => async (props: any) => h('div', {}, props.k)
+  const App = async (_init: any) => async () => h('div', {}, items.map((k) => h(Item, { k })))
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // 长度变化 + 无 key 组件项 → dev error（独特长度 sig 3:1——避免跨测试去重）
+  items = ['a', 'b', 'c']
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  console.error = ow
+  assert.ok(warns.length > 0, `动态数组无 key 组件触发 dev error——实际 ${warns.length}`)
+  document.body.removeChild(root)
+})

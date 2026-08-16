@@ -646,9 +646,34 @@ export function removePortalContent(pv: PortalVNode): void {
 /** children diff：全 keyed → 专用路径（MOVE）；无 key/混合 → 位置配对 */
 /** children diff（el 父容器；baseIndex = 起始 childNodes 偏移——Fragment 的 children
  *  展开在父容器非 0 位——索引对齐） */
+// 动态数组 key 检测去重（vdom2 A 级检测——同数组签名只报一次——防表单静态字段误报刷屏）
+const warnedDynamicArrays = new Set<string>()
+
 function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): void {
   const oldKids = childrenOf(oldV)
   const newKids = childrenOf(newV)
+  // 决策事件（阶段 4——key 模式选择可观测——业务身份声明协议观测点）
+  const keyMode = newKids.length > 1 && newKids.every((k) => isVNode(k) && k.key != null) ? 'keyed' : 'unkeyed'
+  stream.emit(ev('diff', 'mode', undefined, { mode: keyMode, len: newKids.length, prevLen: oldKids.length, level: 'trace' }))
+  // A 级动态检测（vdom2 机制事件流化——阶段 4）：长度变化 + 无 key 组件项 →
+  // dev error（业务身份只有业务知道——框架提示而非静默错位——列表增删/重排
+  // 会错位组件实例状态）——audit 开关（__WF_V3_AUDIT !== '0' 默认开）
+  if ((globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0' && oldKids.length !== newKids.length) {
+    const sig = `${newKids.length}:${oldKids.length}`
+    if (!warnedDynamicArrays.has(sig)) {
+      warnedDynamicArrays.add(sig)
+      for (let i = 0; i < newKids.length; i++) {
+        const c = newKids[i]
+        if (c != null && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function' && (c as VNode).key == null) {
+          console.error(
+            `[vdom3/audit] 动态数组位置 ${i} 的组件缺少 key（${compName((c as VNode).type)}）——列表增删/重排会错位组件实例状态。` +
+            `请提供业务身份 key（如 key={item.id}）；无状态 native 项豁免。`,
+          )
+          break
+        }
+      }
+    }
+  }
   // 全 keyed 列表（>1 项且全部有 key）→ keyed diff（重排 MOVE——DOM 状态保持）
   if (newKids.length > 1 && newKids.every((k) => isVNode(k) && k.key != null)) {
     patchKeyedChildren(oldKids, newKids, el)
