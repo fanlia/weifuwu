@@ -2388,3 +2388,27 @@ test('事件代理 once：动画监听分发一次后自动解绑（EVENT_UNBIND
   document.body.removeChild(root)
   resetDelegation()
 })
+
+test('事件代理：不冒泡事件（img error）用捕获监听——onError 分发（Img fallback 回归）', async () => {
+  const { h, createRoot, stream, evKey } = await import('../ui-dom/vdom3/index.ts')
+  const { Img } = await import('../components/Img/Img.ts')
+  stream.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', {}, h(Img, { src: '/bad.png', fallback: '/fb.png', alt: 'x' }))
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  const img = root.querySelector('img') as HTMLImageElement
+  assert.ok(img, 'img 渲染')
+  assert.equal(img.getAttribute('src'), '/bad.png', '初始 src')
+  // error 事件不冒泡（规范）——代理捕获监听分发 onError → fallback
+  img.dispatchEvent(new (window as any).Event('error', { bubbles: false }))
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(img.getAttribute('src'), '/fb.png', 'error 分发 → fallback 生效（捕获监听）')
+  // fallback 也失败——防循环（不再替换）
+  img.dispatchEvent(new (window as any).Event('error', { bubbles: false }))
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(img.getAttribute('src'), '/fb.png', 'fallback 也失败——不循环（src 相同跳过）')
+  document.body.removeChild(root)
+})

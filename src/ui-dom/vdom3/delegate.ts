@@ -37,6 +37,10 @@ const EVENT_MAP: Record<string, string> = {
   blur: 'focusout',
 }
 
+/** 无冒泡等价的不冒泡事件（img 的 error/load 等——规范不冒泡——
+ *  捕获阶段才经过祖先——挂载点监听需 capture） */
+const NON_BUBBLING = new Set(['error', 'load', 'loadstart', 'loadend', 'abort', 'unload', 'resize', 'message'])
+
 /** 绑定/更新 handler（Map 覆盖——零重绑零事件） */
 export function bindEvent(nodeId: string, event: string, handler: EventListener, once = false): void {
   let m = handlers.get(event)
@@ -116,9 +120,11 @@ function ensureRootEvent(root: Element, event: string): void {
   registered.set(root, set)
   const realEvent = EVENT_MAP[event] ?? event
   // 冒泡监听（与元素级语义一致：stopPropagation 的 handler 影响后续冒泡——
-  // 组件 handler 内 stopPropagation 与现状一致）——保存引用（卸载可 remove）
+  // 组件 handler 内 stopPropagation 与现状一致）；不冒泡事件（error/load 等）
+  // 用捕获监听（捕获阶段经过祖先——dispatch 才能收到）——保存引用（卸载可 remove）
   const fn: EventListener = (e) => dispatch(e)
-  root.addEventListener(realEvent, fn)
+  const useCapture = NON_BUBBLING.has(realEvent)
+  root.addEventListener(realEvent, fn, useCapture ? { capture: true } : undefined)
   const m = rootListeners.get(root) ?? new Map<string, EventListener>()
   m.set(realEvent, fn)
   rootListeners.set(root, m)
@@ -193,6 +199,13 @@ function dispatch(e: Event): void {
     if (id) {
       const entry = m.get(id)
       if (entry) {
+        // 模拟元素级监听语义：currentTarget = handler 绑定的元素（原生事件
+        // 的 currentTarget 是"正在处理事件的监听器所在元素"——代理监听在挂载点
+        // ——组件库 e.currentTarget 取触发元素（Img fallback/DatePicker 定位/
+        // Menu 锚点/Rate 星等）——必须还原为绑定元素）
+        try {
+          Object.defineProperty(e, 'currentTarget', { value: el, configurable: true })
+        } catch { /* 原生只读属性——尽力而为 */ }
         try { entry.handler(e) } catch { /* handler 失败隔离——错误事件化由上层覆盖 */ }
         // once：分发一次后自动解绑（EVENT_UNBIND——可观测——与 addEventListener
         // { once: true } 等价但生命周期入事件流）
