@@ -9,6 +9,7 @@ import type { VNode, VNodeChild, Component, PortalVNode, V3Ctx } from './types.t
 import { Fragment, Portal, childrenOf } from './types.ts'
 import { stream, ev, nextNodeId } from './events.ts'
 import { createClientBrowser } from '../browser.ts'
+import { indexComponent } from './comp-index.ts'
 import { createV3Ui } from './ui.ts'
 
 /** 组件卸载钩子注册表（组件 id → 清理函数——COMP_UNMOUNT 时调用） */
@@ -52,8 +53,10 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
     if (reuse) {
       v._render = reuse._render
       v._id = reuse._id
-      // BUILD 事件：组件构建决策（工厂复用——内部状态保持的事件证据）
-      stream.emit(ev('comp', 'build', v._id!, { name: compName(v.type), reused: true }))
+      indexComponent(v)
+      // BUILD 事件：组件构建决策（工厂复用——内部状态保持的事件证据）；
+      // index: true——组件实例进入 O(1) 定位表（comp-index 注册——状态可观测）
+      stream.emit(ev('comp', 'build', v._id!, { name: compName(v.type), reused: true, index: true }))
       // props 级 diff（剪枝）：新旧 props 浅比较——不变 → 复用旧输出（不重跑 renderFn——
       // 零 RENDER——父重渲染不波及 props 未变的子组件）；根组件不剪枝（isRoot——
       // 内部状态变化必须重跑 renderFn）
@@ -66,7 +69,8 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
       stream.emit(ev('props', 'update', v._id!, { name: compName(v.type), keys: changedKeys }))
     } else {
       v._id = nextNodeId()
-      stream.emit(ev('comp', 'build', v._id, { name: compName(v.type), reused: false }))
+      indexComponent(v)
+      stream.emit(ev('comp', 'build', v._id, { name: compName(v.type), reused: false, index: true }))
       stream.emit(ev('comp', 'mount', v._id, { name: compName(v.type) }))
       // 组件 ctx：onUnmount 钩子（卸载清理注册——COMP_UNMOUNT 时执行）
       // + ui（vdom2 兼容面——hooks shim——组件库零改动）

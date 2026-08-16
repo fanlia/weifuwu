@@ -2574,3 +2574,92 @@ test('用户剪贴板事件流：text:copy/cut/paste（含内容摘要——全�
   document.body.removeChild(root)
   resetDelegation()
 })
+
+test('组件索引 O(1) 定位：注册/复用/移除一致性（updateComponent 不经 DFS）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  const { resetCompIndex, getIndexedComponent } = await import('../ui-dom/vdom3/comp-index.ts')
+  resetCompIndex()
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let show = true
+  const Inner = async (_init: any, _ctx: any) => async (_p: any) => h('button', { id: 'inner' }, 'go')
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.ui.render()
+    return async () => h('div', {}, [
+      h('button', { id: 'toggle', onClick: () => { show = !show; rerender() } }, 'toggle'),
+      show ? h(Inner, {}) : null,
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  // 组件挂载后索引注册（O(1) 定位可用）
+  assert.ok(root.querySelector('[id="inner"]'), 'Inner 渲染')
+  // 通过事件流找到 Inner 的 compId（comp:mount/render 的 target）
+  const evs = gs.events()
+  const compId = evs.find((e) => e.entity === 'comp' && e.action === 'render' && e.payload?.name === 'Inner')?.target
+  assert.ok(compId, 'Inner compId 可观测')
+  assert.ok(getIndexedComponent(compId as string), '索引注册（O(1) 定位）')
+  // 条件移除（App 级 toggle）→ 索引注销
+  gs.reset()
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.ok(!root.querySelector('[id="inner"]'), '条件移除生效（show=false）')
+  assert.ok(!getIndexedComponent(compId as string), '组件移除后索引注销')
+  // 重新显示——新实例注册（索引指向新实例）
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.ok(root.querySelector('[id="inner"]'), '重新显示')
+  const evs2 = gs.events()
+  const newId = evs2.find((e) => e.entity === 'comp' && e.action === 'render' && e.payload?.name === 'Inner')?.target
+  assert.ok(newId && newId !== compId, '新实例新 id')
+  assert.ok(getIndexedComponent(newId as string), '新实例索引注册')
+  resetCompIndex()
+  document.body.removeChild(root)
+})
+
+test('不变量：所有状态变化都通过事件流——状态覆盖矩阵（组件/索引/节点/事件全可观测）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  const { resetCompIndex, getIndexedComponent } = await import('../ui-dom/vdom3/comp-index.ts')
+  resetCompIndex()
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let show = true
+  const Inner = async (_init: any, _ctx: any) => async () => h('button', { id: 'inner' }, 'go')
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.ui.render()
+    return async () => h('div', {}, [
+      h('button', { id: 'toggle', onClick: () => { show = !show; rerender() } }, 'toggle'),
+      show ? h(Inner, {}) : null,
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  const evs1 = gs.events()
+  // ① 组件挂载状态：build(index:true) + mount + render 可观测
+  const build = evs1.find((e) => evKey(e) === 'comp:build' && e.payload?.name === 'Inner')
+  assert.ok(build, 'comp:build（组件构建）')
+  assert.equal((build as any).payload?.index, true, '索引注册可观测（index: true——进入 O(1) 定位表）')
+  assert.ok(evs1.some((e) => evKey(e) === 'comp:mount' && e.payload?.name === 'Inner'), 'comp:mount')
+  const compId = (build as any).target
+  assert.ok(getIndexedComponent(compId), '索引实际注册（事件与状态一致）')
+  // ② 条件移除：comp:unmount（实例销毁）可观测
+  gs.reset()
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const unmount = gs.events().find((e) => evKey(e) === 'comp:unmount' && e.target === compId)
+  assert.ok(unmount, `comp:unmount（条件移除——实例销毁可观测）——实际: ${[...new Set(gs.events().map((e) => evKey(e)))].join(',')}`)
+  assert.ok(!getIndexedComponent(compId), '索引注销（事件与状态一致）')
+  // ③ 节点/事件/文本状态：初始渲染的 node:create/insert + event:bind 可观测
+  assert.ok(evs1.some((e) => evKey(e) === 'node:create'), 'node:create（节点状态）')
+  assert.ok(evs1.some((e) => evKey(e) === 'node:insert'), 'node:insert（插入状态）')
+  assert.ok(evs1.some((e) => evKey(e) === 'event:bind'), 'event:bind（事件注册状态）')
+  // ④ 错误/内部决策状态（正常渲染零噪音）
+  assert.equal(evs1.filter((e) => e.entity === 'error').length, 0, '正常渲染零错误')
+  assert.equal(evs1.filter((e) => e.entity === 'internal').length, 0, '正常渲染零内部决策噪音')
+  resetCompIndex()
+  document.body.removeChild(root)
+})

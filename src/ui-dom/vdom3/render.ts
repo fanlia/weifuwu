@@ -32,6 +32,7 @@ export function isFragmentNode(v: unknown): boolean {
 }
 import { stream, ev, nextNodeId } from './events.ts'
 import { bindDelegated, unbindAll, unbindEvent, ensureDelegationRoot } from './delegate.ts'
+import { unindexComponent } from './comp-index.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
 import { auditOrder } from './audit.ts'
@@ -318,6 +319,8 @@ function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null)
   const out = vn._child !== undefined ? vn._child : childrenOf(vn)[0] ?? null
   const oldOut = ov._child !== undefined ? ov._child : childrenOf(ov)[0] ?? null
   if (out == null) {
+    // 注意：组件输出 null ≠ 组件从树中移除——实例保留（下次渲染输出恢复）——
+    // 索引不注销（updateComponent 仍可 O(1) 定位）
     // 移除旧输出（统一生命周期清理——Portal 输出（el 为 null）走
     // removePortalContent：Tour 完成关闭等嵌套组件输出 null 的残留根因）
     if (oldOut && isPortalNode(oldOut)) {
@@ -465,6 +468,24 @@ export function callRefCleanup(v: VNode | null | undefined): void {
   }
 }
 
+
+/** 组件实例从树中移除的统一清理（卸载钩子 + comp:unmount 事件 + 索引注销——
+ *  条件渲染/列表删除路径——此前只 patch 顶层异类型移除有——泄漏：usePopup
+ *  的 document 监听/tracker/定时器不退订） */
+function removeComponentInstance(oc: VNode, el: Element, i: number): void {
+  const compId = oc._id as string
+  if (compId) {
+    runUnmountHooks(compId)
+    stream.emit(ev('comp', 'unmount', compId, { name: compName(oc.type) }))
+    unindexComponent(compId)
+  }
+  if (oc.el) {
+    removeNodeWithLifecycle(oc.el!, el, oc)
+  } else {
+    const domNode = el.childNodes[i]
+    if (domNode) domNode.parentNode?.removeChild(domNode)
+  }
+}
 /** 节点移除的完整清理（REMOVE 事件 + EVENT_UNBIND（绑定生命周期）+ ref(null) + registry） */
 export function removeNodeWithLifecycle(node: Node, parent: Node, vnodeRef?: VNode | null): void {
   // 事件代理解绑（注册表删除 + EVENT_UNBIND——每事件可观测）
@@ -533,6 +554,11 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
         removePortalContent((oc as VNode)._child as PortalVNode)
         continue
       }
+      // 组件从树中移除——统一清理（卸载钩子 + comp:unmount + 索引注销）
+      if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
+        removeComponentInstance(oc as VNode, el, i)
+        continue
+      }
       // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
       if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
         removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
@@ -563,6 +589,12 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
     if (nc == null || nc === false || nc === true) {
       if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
         removePortalContent(oc as PortalVNode)
+        continue
+      }
+      // 组件从树中移除——统一清理（卸载钩子 + comp:unmount + 索引注销——
+      // 此前泄漏：条件渲染移除的组件 onUnmount 钩子不执行——监听/tracker 残留）
+      if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
+        removeComponentInstance(oc as VNode, el, i)
         continue
       }
       // 移除（含 ref(null)——卸载清理）；oc 无 el（空洞）跳过——不碰 childNodes[i]

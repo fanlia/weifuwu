@@ -12,6 +12,7 @@ import { mount, patch, removeNodeWithLifecycle, removePortalContent, isPortalNod
 import { stream, ev } from './events.ts'
 import { findComponent } from './root.ts'
 import { ensureDelegationRoot, addGlobalListener } from './delegate.ts'
+import { getIndexedComponent } from './comp-index.ts'
 
 /** 布局包裹（跨路由复用——layout 函数引用稳定 → patch 同位置同类型复用——
  *  工厂不重跑——内部状态（折叠/高亮）保持——vdom2 布局层语义） */
@@ -131,7 +132,8 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
     if (!current) { stream.emit(ev('internal', 'skip', compId, { reason: 'no-current' })); return }
     busy = true
     try {
-      const comp = findComponent(current, compId)
+      // O(1) 索引定位（miss 回退 DFS——防御索引与树失配）
+      const comp = getIndexedComponent(compId) ?? findComponent(current, compId)
       if (!comp || typeof comp.type !== 'function' || !comp._render) {
         stream.emit(ev('internal', 'notfound', compId, { reason: 'comp-missing-or-render-absent' }))
         return
