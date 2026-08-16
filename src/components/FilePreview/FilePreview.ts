@@ -141,7 +141,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         previewBody = h('div', { class: 'wf-filepreview-doc', style: { height, overflow: 'auto' } }, [
           fileName ? h('div', { class: 'wf-filepreview-name' }, fileName) : null,
           // 编辑过显示当前文档（未保存内容可见）；否则原始内容
-          h(Markdown, { content: enteredEdit ? serializeMarkdown(doc) : effectiveContent }),
+          h(Markdown, { key: 'md', content: enteredEdit ? serializeMarkdown(doc) : effectiveContent }),
         ])
       }
     } else if (type === 'text') {
