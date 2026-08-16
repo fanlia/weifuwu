@@ -131,6 +131,23 @@
 - 阶段 4：心跳超时（宿主 down → 事件 + 沙盒标记）——reconcile 分片
 - 每阶段独立提交可回滚
 
+## 五·补：远程执行 RPC 协议（中心 → 宿主指令——多宿主真正执行蓝图）
+
+阶段 2 完成了"宿主 → 中心"上报——**"中心 → 宿主"指令通道**（远程执行）为
+真实多宿主部署的前置：
+
+```
+中心（SandboxManager——SandboxHost 接口）
+  └─ 远程代理实现（RemoteSandboxHost——ws 指令）→ 宿主执行
+中心 → 宿主：{ type:'host:cmd', id, op:'ensure'|'exec'|'stop'|'dispose', payload }
+宿主 → 中心：{ type:'host:result', id, ok, output/error }（结果回传）
+路由集成：manager 的 exe = RemoteSandboxHost（选宿主——阶段 3 的 route 决策）
+工作目录：宿主亲和（阶段 1 方案 A——本地磁盘——沙盒绑定宿主）
+```
+
+**诚实裁剪**：单机开发环境无法验证远程执行（单 docker）——协议设计就绪——
+真实多宿主部署时实施（RemoteSandboxHost + 宿主命令处理）。
+
 ## 六、风险与裁剪
 
 | 项 | 风险 | 缓解 |
