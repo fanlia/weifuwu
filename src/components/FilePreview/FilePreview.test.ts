@@ -108,6 +108,33 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     root2.remove()
   })
 
+  it('表格内编辑 → 保存回写新内容（embed 快照变化同步）', async () => {
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    let saved: string | null = null
+    const handle = createRoot(h(FilePreview, {
+      type: 'md',
+      content: '| a | b |\n|---|---|\n| 1 | 2 |',
+      editable: true,
+      onSave: (v: string) => { saved = v },
+    } as any), root)
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    const ed = root.querySelector('.wf-editor-content') as HTMLElement
+    // 浏览器直写表格内文本（contentEditable 原生）
+    const td = ed!.querySelectorAll('table td')[3] as HTMLElement
+    td!.textContent = '99'
+    ed!.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 50))
+    // 保存 → md 回写含新表格内容
+    const saveBtn = root.querySelector('.wf-filepreview-actions .wf-btn') as HTMLElement
+    saveBtn!.click()
+    await new Promise((r) => setTimeout(r, 20))
+    assert.ok(saved?.includes('| 99 |'), '表格内编辑保存生效')
+    assert.ok(saved?.includes('| 2 |') === false, '旧单元格内容被替换')
+    root.remove()
+  })
+
   it('远程加载 + 编辑：md url → fetch → Editor 编辑 → 保存回写', async () => {
     ;(globalThis as any).fetch = async () => new Response('# 远程\n\n内容', { status: 200 })
     const root = document.createElement('div')

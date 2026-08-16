@@ -658,7 +658,14 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         emitChange(serializeHtml(doc))
         return
       }
-      if (events.length === 0) { doc = newDoc; return }
+      if (events.length === 0) {
+        // embed 快照可能变化（表格内编辑——文本不变但 html 变了——真实事故：
+        // FilePreview 表格编辑保存不生效——doc 同步丢失）
+        const oldHtml = serializeHtml(doc)
+        doc = newDoc
+        if (serializeHtml(newDoc) !== oldHtml) emitChange(serializeHtml(newDoc))
+        return
+      }
       ensureInputCommit(events, newDoc)
       emitChange(serializeHtml(newDoc))
     }
