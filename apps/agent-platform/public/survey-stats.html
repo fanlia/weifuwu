@@ -40,7 +40,7 @@ const StatsPage = async (_init, ctx) => {
   let answers = [];
   let submissions = [];
   let connected = false;
-  let online = { count: 0, sources: [] };
+  let online = { count: 0, sources: [], submitted: [] };
   let wsStatus = "connecting";
   let wsDetail = { attempt: 0, max: 10 };
   const rerender = () => ctx.ui.render();
@@ -55,6 +55,7 @@ const StatsPage = async (_init, ctx) => {
       count = msg.count ?? count;
       answers = msg.answers ?? answers;
       submissions = msg.submissions ?? submissions;
+      online = msg.online ?? online;
       rerender();
     }
     if (msg?.type === "survey:answer") {
@@ -67,7 +68,7 @@ const StatsPage = async (_init, ctx) => {
       rerender();
     }
     if (msg?.type === "survey:online") {
-      online = { count: msg.count ?? 0, sources: msg.sources ?? [] };
+      online = { count: msg.count ?? 0, sources: msg.sources ?? [], submitted: msg.submitted ?? [] };
       rerender();
     }
   });
@@ -86,6 +87,10 @@ const StatsPage = async (_init, ctx) => {
   };
   return () => {
     const progress = sourceProgress();
+    // 合并在线来源（刚连接未答题的——显示 0/5 + 在线标记——浏览器未关保持在线）
+    for (const src of online.sources) {
+      if (!progress.some((p) => p.source === src)) progress.push({ source: src, done: 0, locked: false });
+    }
     const feed = [...answers].reverse().slice(0, 30);
     const wsBadge = wsStatus === "connected" ? h(Badge, { variant: "success" }, "\u25CF \u5DF2\u8FDE\u63A5\uFF08\u5B9E\u65F6\uFF09") : wsStatus === "disconnected" ? h(Badge, { variant: "danger" }, `\u25CF \u8FDE\u63A5\u65AD\u5F00\uFF08\u91CD\u8FDE\u4E2D ${wsDetail.attempt}/${wsDetail.max}\uFF09`) : h(Badge, { variant: "warning" }, "\u25CB \u8FDE\u63A5\u4E2D...");
     return h(
@@ -123,7 +128,8 @@ const StatsPage = async (_init, ctx) => {
         { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" } },
         h(StatCard, { label: "\u5DF2\u63D0\u4EA4\uFF08\u9501\u5B9A\uFF09", value: String(count), variant: "success" }),
         h(StatCard, { label: online.sources.length > 0 ? `\u5728\u7EBF\uFF08${online.sources.slice(0, 3).join("\u3001")}${online.sources.length > 3 ? ` \u7B49 ${online.sources.length} \u4EBA` : ""}\uFF09` : "\u5728\u7EBF\u586B\u5199\u8005", value: String(online.count), variant: "primary" }),
-        h(StatCard, { label: "\u586B\u5199\u4E2D\u7684\u6765\u6E90", value: String(progress.length) }),
+        // 填写中的来源 = 未提交的（已提交/填写完的不算——用户决策）
+h(StatCard, { label: "\u586B\u5199\u4E2D\u7684\u6765\u6E90", value: String(progress.filter((p) => !p.locked).length) }),
         h(StatCard, { label: "\u5DF2\u540C\u6B65\u7684\u7B54\u9898\u6570", value: String(answers.length) })
       ),
       // 填写进度（按来源）
@@ -136,6 +142,7 @@ const StatsPage = async (_init, ctx) => {
             "div",
             { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" } },
             h("span", { style: { width: "100px", fontSize: "13px", fontWeight: 600 } }, p.source),
+            online.sources.includes(p.source) && h("span", { title: "\u5728\u7EBF", style: { width: "8px", height: "8px", borderRadius: "50%", background: "var(--wf-color-success)", flexShrink: 0 } }),
             h(
               "div",
               { class: "prog" },

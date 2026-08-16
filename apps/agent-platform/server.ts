@@ -1372,8 +1372,14 @@ async function main() {
           surveySubmissions.push(record)
           if (surveySubmissions.length > surveyLimit) surveySubmissions.splice(0, surveySubmissions.length - surveyLimit)
           surveyBroadcast({ type: 'survey:submitted', count: surveySubmissions.length, latest: record })
-          // 提交即下线（真人/AI 填完即不在线——统计页在线人数归零）
-          if (surveyOnline.delete(ws)) surveyBroadcastOnline()
+          // 提交后保持在线（浏览器未关——ws 连接保持——统计页在线显示已提交状态——
+          // 下线只发生在 close/bye：用户要求"只要填写者还没关闭浏览器就应该显示在线"）
+          const cur = surveyOnline.get(ws)
+          if (cur) {
+            cur.submitted = true
+            cur.at = new Date().toISOString()
+            surveyBroadcastOnline()
+          }
         }
         // 显式 bye（页面主动离开）
         if (msg.type === 'survey:bye') {
@@ -1489,7 +1495,7 @@ async function main() {
   const surveySubmissions: Array<Record<string, unknown>> = []    // 已提交（内存）
   const surveyLimit = 20
   let surveyHub: import('weifuwu').Hub | null = null              // WS 房间（app.ws open 时捕获）
-  const surveyOnline = new Map<any, { source: string; at: string }>()  // 在线填写者（ws → source）
+  const surveyOnline = new Map<any, { source: string; at: string; submitted?: boolean }>()  // 在线填写者（ws → source + 提交状态——浏览器未关保持在线）
   const surveyBroadcast = (event: Record<string, unknown>) => {
     surveyHub?.send('survey-live', JSON.stringify(event))
   }
@@ -1498,7 +1504,7 @@ async function main() {
     count: surveySubmissions.length,
     answers: surveyAnswers.slice(-surveyLimit),
     submissions: surveySubmissions.slice(-surveyLimit),
-    online: { count: surveyOnline.size, sources: [...surveyOnline.values()].map((v) => v.source) },
+    online: surveyOnlineState(),
   })
   // 在线连接清理（每 30 秒）：①readyState 非 OPEN（僵尸连接——close 丢失）
   // ②超过 10 分钟无活动（AI 填完不关页面/卡住——提交后应已下线，超时兜底）
@@ -1518,12 +1524,16 @@ async function main() {
     } catch { /* 清理失败不影响 */ }
   }, 30 * 1000).unref()
 
+  const surveyOnlineState = () => {
+    const all = [...surveyOnline.values()]
+    return {
+      count: all.length,
+      sources: all.map((v) => v.source),
+      submitted: all.filter((v) => v.submitted).map((v) => v.source), // 已提交但仍在线（浏览器未关）
+    }
+  }
   const surveyBroadcastOnline = () => {
-    surveyBroadcast({
-      type: 'survey:online',
-      count: surveyOnline.size,
-      sources: [...surveyOnline.values()].map((v) => v.source),
-    })
+    surveyBroadcast({ type: 'survey:online', ...surveyOnlineState() })
   }
 
   // ── 本地 CDN：问卷 CDN 页面的框架资源（dist——客户环境可无外网） ──
