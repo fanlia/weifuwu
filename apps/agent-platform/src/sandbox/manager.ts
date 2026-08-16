@@ -61,7 +61,7 @@ const DEFAULT_OPTIONS: ManagerOptions = {
 }
 
 /** 单容器资源默认（env 化——M5-3；创建时快照进记录，配置即声明） */
-const DEFAULT_MEMORY_MB = Number(process.env.SANDBOX_MEMORY_LIMIT ?? 512)
+const DEFAULT_MEMORY_MB = Number(process.env.SANDBOX_MEMORY_LIMIT ?? 1024) // 默认 1GB
 const DEFAULT_CPUS = Number(process.env.SANDBOX_CPU_LIMIT ?? 1)
 /** 池内存预算（M5-2）——默认 10240MB = 20×512MB；0 = 禁用 */
 const DEFAULT_POOL_BUDGET_MB = Number(process.env.SANDBOX_POOL_BUDGET_MB ?? 10240)

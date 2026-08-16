@@ -334,7 +334,7 @@ CREATE TABLE IF NOT EXISTS sandboxes (
   mode        TEXT NOT NULL DEFAULT 'persistent', -- persistent/ephemeral
   image       TEXT NOT NULL DEFAULT 'ap-sandbox:latest',
   network     BOOLEAN NOT NULL DEFAULT FALSE,
-  memory_mb   INT NOT NULL DEFAULT 512,
+  memory_mb   INT NOT NULL DEFAULT 1024,
   cpus        INT NOT NULL DEFAULT 1,
   error       TEXT,
   workspace   TEXT,                            -- 宿主 workspace 路径（卷挂载源）

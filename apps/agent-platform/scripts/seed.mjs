@@ -564,8 +564,8 @@ df -h / | awk 'NR==2 {print \"磁盘使用率: \" \$5}'
   await sql`
     INSERT INTO sandboxes (app_id, department_id, name, status, mode, image, network, memory_mb, cpus, workspace)
     VALUES
-      (${DEMO_APP_ID}, ${devDept.id}, '技术部', 'requested', 'persistent', 'ap-sandbox:latest', true, 512, 1, ${devWs}),
-      (${DEMO_APP_ID}, ${opsDept.id}, '运维组', 'requested', 'persistent', 'ap-sandbox:latest', true, 512, 1, ${opsWs})
+      (${DEMO_APP_ID}, ${devDept.id}, '技术部', 'requested', 'persistent', 'ap-sandbox:latest', true, 1024, 1, ${devWs}),
+      (${DEMO_APP_ID}, ${opsDept.id}, '运维组', 'requested', 'persistent', 'ap-sandbox:latest', true, 1024, 1, ${opsWs})
   `
   console.log('  ✓ 沙盒演示记录: 技术部 / 运维组（requested——首次干活自动创建——network 默认开通）')
 
