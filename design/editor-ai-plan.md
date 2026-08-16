@@ -1,6 +1,7 @@
 # Editor × AI 升级计划（AI 写作/润色/翻译场景）
 
-> 状态：阶段 1-3 核心已完成（2026-12）。收尾项（会话历史/草稿清除 API）可选；归档删除待全部完成。
+> 状态：全部核心能力已完成（2026-12）。沙盒全链路关联裁剪（见 §7——后端场景）；
+> 归档删除待登记后执行。
 > ✅ 阶段 2（diff + 原子撤销）：AI 面板原文 diff 对比（删除线 + 高亮）；接受 = edit:ai-apply
 >    commit 原子撤销一步
 > ✅ 阶段 3 核心：全文操作（无选区）、自定义动作（actions prompt 模板）、Ctrl+Enter 快捷键、
@@ -167,6 +168,7 @@ export interface EditorAiAction {
 | ❌ 默认流式直写正文 | 光标冲突——默认 preview，direct 显式开启 |
 | ❌ 服务端会话持久化 | useChat 无持久化（与 AiChat 一致——会话由消费方持有） |
 | ❌ AI 结果进 ctx.data | 个性化数据 SSR 泄漏红线（§3.4）——留在客户端 |
+| ❌ sandbox 来源 commit 展示（toolCallId 关联） | 后端场景（agent 改文件 → 编辑器预览）——前端组件无消费点，消费方自持关联（事件流已带 toolCallId 字段可扩展） |
 
 ## 8. 测试与验收计划
 
