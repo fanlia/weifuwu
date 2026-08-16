@@ -21,6 +21,7 @@
 import { execFile, spawn } from 'node:child_process'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sandboxEmit } from './events.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -187,6 +188,7 @@ export class DockerSandbox {
     const fingerprint = `${spec.ws}|${spec.image ?? this.opts.image}|${spec.network ? 'bridge' : 'none'}|${spec.memoryMb ?? 512}|${spec.cpus ?? 1}`
     const cached = this.readyCache.get(sandboxId)
     if (cached && cached.fingerprint === fingerprint && Date.now() - cached.at < 30_000) {
+      sandboxEmit('ensure:cache-hit', sandboxId, { fingerprint })
       return true
     }
     const a = await this.probe()
@@ -196,6 +198,7 @@ export class DockerSandbox {
       // 记录快照镜像与默认不同——确保存在
       const img = await dockerCli(['image', 'inspect', image, '--format', '{{.Id}}'], 10_000)
       if (img.exitCode !== 0) {
+        sandboxEmit('image:pull', sandboxId, { image })
         const pull = await dockerCli(['pull', image], 120_000)
         if (pull.exitCode !== 0) return false
       }
@@ -266,6 +269,8 @@ export class DockerSandbox {
   private runArgs(sandboxId: string, spec: SandboxSpec, image: string): string[] {
     const memory = (spec.memoryMb ?? 512) * 1024 * 1024
     const cpus = spec.cpus ?? 1
+    // sandbox 事件流：工作目录挂载（部门身份 ↔ 容器——bind mount 可观测）
+    sandboxEmit('mount:bind', sandboxId, { hostPath: spec.ws, containerPath: '/ws', mode: 'rw' })
     return [
       'run', '-d',
       '--name', containerName(sandboxId),
@@ -377,10 +382,14 @@ export class DockerSandbox {
       return { ok: false, error: '沙盒不可用——命令执行已禁用（docker 不可用或镜像缺失）' }
     }
     // 串行队列：同 sandbox 的 exec 排队执行（并发调用不踩踏容器内状态）
+    // sandbox 事件流：队列等待（排队可见——exec 延迟可审计）
+    sandboxEmit('exec:queued', sandboxId, { tool })
+    const queueT0 = Date.now()
     const chain = this.execChains.get(sandboxId) ?? Promise.resolve()
     const run = chain.then(() => this.execOnce(sandboxId, tool, args))
     this.execChains.set(sandboxId, run.catch(() => {}))
     const r = await run
+    const queueMs = Date.now() - queueT0
     // stopped 自愈重试（P1-5 + readiness 缓存）：容器被外部 stop 时缓存命中 → exec 'not running'
     // → 清缓存 → ensure（start/重建）→ 重试一次——自愈对工具调用透明
     if (!r.ok && !r.timedOut && r.error && r.error.includes('not running')) {
@@ -524,6 +533,7 @@ export class DockerSandbox {
     if (!name.startsWith(CONTAINER_PREFIX)) return { ok: false, message: '非法容器名' }
     // rm 必须强制（运行中容器直接删除——孤儿/终止语义）
     const args = action === 'rm' ? ['rm', '-f', name] : [action, name]
+    sandboxEmit(`container:${action}`, name.replace(CONTAINER_PREFIX, ''), { name })
     const r = await dockerCli(args, 30_000)
     return r.exitCode === 0 ? { ok: true, message: `${action} ${name} 成功` } : { ok: false, message: r.stderr.trim() || `${action} 失败` }
   }

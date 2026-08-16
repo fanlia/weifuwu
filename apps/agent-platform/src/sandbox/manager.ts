@@ -16,6 +16,7 @@
 
 import type { DockerSandbox, ExecResult, SandboxSpec } from './docker.ts'
 import { sandbox as defaultExecutor } from './docker.ts'
+import { sandboxEmit } from './events.ts'
 
 export interface SandboxRow {
   id: string
@@ -207,13 +208,21 @@ export class SandboxManager {
     this.counters.execCount++
     const m = (globalThis as any).__platform_metrics
     if (m) m.sandboxCalls++
+    // sandbox 事件流：exec 开始（队列等待可见——排队的可见性）
+    sandboxEmit('exec:start', row.id, { departmentId, tool, mode: row.mode })
+    const execT0 = Date.now()
     const r = row.mode === 'ephemeral'
       ? await this.exe.runOnce(row.id, spec, tool, args)
       : await this.exe.runTool(row.id, spec, tool, args)
+    const execMs = Date.now() - execT0
     if (!r.ok) {
       if (r.timedOut) this.counters.execTimeouts++
       else this.counters.execErrors++
     }
+    // sandbox 事件流：exec 结束（耗时/退出码/错误——可回放/审计）
+    sandboxEmit(r.ok ? 'exec:end' : r.timedOut ? 'exec:timeout' : 'exec:error', row.id, {
+      departmentId, tool, ms: execMs, error: r.error?.slice(0, 200),
+    })
     // heartbeat 落 DB（exec 后——成功与否都算活动；exec 中由 busy 豁免回收）
     // 成功 → status 校正 running（requested/stopped 经 exec 即运行）；失败 → error 持久化
     const nextStatus = r.ok ? 'running' : r.error?.includes('沙盒不可用') || r.error?.includes('docker') || r.error?.includes('镜像')
@@ -226,6 +235,8 @@ export class SandboxManager {
   /** heartbeat 落库 + 状态校正（exec 后） */
   private async touch(id: string, status: string | null, error?: string | null): Promise<void> {
     if (!this.sql) return
+    // sandbox 事件流：状态变更（requested/running/stopped/error——状态机可观测）
+    if (status) sandboxEmit('status', id, { status, error: error?.slice(0, 200) })
     await this.sql`
       UPDATE sandboxes SET
         last_used_at = NOW(),
@@ -259,6 +270,7 @@ export class SandboxManager {
     `
     if (Number(c?.n ?? 0) >= quota) {
       this.logEvent('quota', String(input.appId), 'quota_rejected', `quota=${quota} name=${input.name}`)
+      sandboxEmit('quota:rejected', undefined, { appId: input.appId, quota, name: input.name })
       throw new Error(`沙盒配额已满（${quota} 个）——请先终止不用的沙盒`)
     }
     // 池内存预算校验（M5-2）：超预算 → 驱逐非 busy 最旧（LRU）→ 仍超 → 明确错误（不静默降级）
@@ -280,6 +292,8 @@ export class SandboxManager {
       `
       this.counters.created++
       this.logEvent(String(rows[0].id), String(input.appId), 'created', `name=${input.name}`)
+      // sandbox 事件流：创建（惰性 requested——首次 exec 才起容器）
+      sandboxEmit('create', String(rows[0].id), { appId: input.appId, departmentId: input.departmentId, name: input.name, memoryMb: input.memoryMb ?? DEFAULT_MEMORY_MB })
       return rows[0] as SandboxRow
     } catch (e: any) {
       // 并发创建冲突（23505）→ 重查返回已有记录（幂等）
@@ -374,6 +388,7 @@ export class SandboxManager {
 
   /** 停止（容器 stop——瞬态保留；状态 → stopped） */
   async stop(id: string, appId: string): Promise<{ ok: boolean; error?: string }> {
+    sandboxEmit('stop', id, { appId })
     if (!this.sql) return { ok: false, error: '沙盒管理器未初始化' }
     const row = await this.get(id, appId)
     if (!row) return { ok: false, error: '沙盒不存在' }
@@ -429,8 +444,12 @@ export class SandboxManager {
 
   /** 对齐 DB 期望状态与 docker 实际状态（启动恢复 + 周期收敛） */
   async reconcile(): Promise<{ created: number; started: number; stopped: number; terminated: number; orphans: number }> {
+    sandboxEmit('reconcile:start', undefined, {})
     const stats = { created: 0, started: 0, stopped: 0, terminated: 0, orphans: 0, error: 0 }
-    if (!this.sql || this.reconciling) return stats
+    if (!this.sql || this.reconciling) {
+      sandboxEmit('reconcile:skip', undefined, { reason: this.reconciling ? 'already-running' : 'no-db' })
+      return stats
+    }
     this.reconciling = true
     try {
       const now = Date.now()
@@ -512,6 +531,7 @@ export class SandboxManager {
     if (stats.error > 0) {
       console.warn(`[agent-platform] 沙盒 reconcile：${stats.error} 个环境处于 error 状态`)
     }
+    sandboxEmit('reconcile:end', undefined, { ...stats })
     return stats
   }
 }
