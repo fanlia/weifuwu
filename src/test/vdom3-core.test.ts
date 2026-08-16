@@ -2497,3 +2497,43 @@ test('组件副作用事件流：ref:mount + effect:animate/lock/unlock/focus/sc
   document.body.removeChild(root2)
   document.querySelector('[id="__wf_portal"]')?.remove()
 })
+
+test('用户文本操作事件流：text:input（输入/组合）+ text:select（选区）可观测', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  const { resetDelegation } = await import('../ui-dom/vdom3/delegate.ts')
+  resetDelegation()
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let val = ''
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', {}, h('input', { id: 'inp', value: val, onInput: (e: any) => { val = e.target.value } }))
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  const input = root.querySelector('[id="inp"]') as HTMLInputElement
+  // 用户输入（input 事件——代理 dispatch → text:input）
+  gs.reset()
+  input.value = '你好'
+  input.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 30))
+  const inputs = gs.events().filter((e) => evKey(e) === 'text:input')
+  assert.ok(inputs.length >= 1, `text:input（用户输入）——实际: ${[...new Set(gs.events().map((e) => evKey(e)))].join(',')}`)
+  assert.equal((inputs[0] as any).payload?.value, '你好', '输入值可观测')
+  // 选区（selectionchange → text:select——jsdom 模拟选中）
+  gs.reset()
+  // jsdom 的 getSelection 支持有限——直接触发 selectionchange 并 mock selection
+  const origSel = document.getSelection
+  ;(document as any).getSelection = () => ({
+    toString: () => '选中文本',
+    anchorNode: input,
+  })
+  document.dispatchEvent(new (window as any).Event('selectionchange'))
+  await new Promise((r) => setTimeout(r, 50)) // rAF 节流
+  ;(document as any).getSelection = origSel
+  const selects = gs.events().filter((e) => evKey(e) === 'text:select')
+  assert.ok(selects.length >= 1, `text:select（用户选区）——实际: ${[...new Set(gs.events().map((e) => evKey(e)))].join(',')}`)
+  assert.equal((selects[0] as any).payload?.length, 4, '选中长度可观测')
+  document.body.removeChild(root)
+  resetDelegation()
+})

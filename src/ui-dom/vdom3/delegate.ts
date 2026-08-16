@@ -41,6 +41,9 @@ const EVENT_MAP: Record<string, string> = {
  *  捕获阶段才经过祖先——挂载点监听需 capture） */
 const NON_BUBBLING = new Set(['error', 'load', 'loadstart', 'loadend', 'abort', 'unload', 'resize', 'message'])
 
+/** 用户文本输入事件（dispatch 时额外发 text:input——用户输入可观测） */
+const TEXT_INPUT_EVENTS = new Set(['input', 'change', 'compositionstart', 'compositionend'])
+
 /** 绑定/更新 handler（Map 覆盖——零重绑零事件） */
 export function bindEvent(nodeId: string, event: string, handler: EventListener, once = false): void {
   let m = handlers.get(event)
@@ -88,6 +91,38 @@ export function resetDelegation(): void {
 /** 注册挂载点（createRoot/createRouter 挂载时调用） */
 export function ensureDelegationRoot(root: Element): void {
   roots.add(root)
+  ensureSelectionTracking()
+}
+
+// ── 用户选区跟踪（text:select——selectionchange——rAF 节流——
+//    拖动选中连续触发不刷屏——只记"选中文本"的可观测事件） ──
+let selectionReady = false
+let selectionRaf = 0
+function ensureSelectionTracking(): void {
+  if (selectionReady) return
+  selectionReady = true
+  if (typeof document === 'undefined') return
+  const onSelection = () => {
+    if (selectionRaf) return
+    selectionRaf = requestAnimationFrame(() => {
+      selectionRaf = 0
+      try {
+        const sel = document.getSelection?.()
+        const text = sel?.toString?.() ?? ''
+        if (!text) return // 无选中（取消/失焦）——不发
+        const anchor = sel?.anchorNode
+        const target = anchor && anchor.nodeType === 1
+          ? (anchor as Element).getAttribute?.('data-v3-id') ?? null
+          : anchor?.parentElement?.getAttribute?.('data-v3-id') ?? null
+        stream.emit(ev('text', 'select', undefined, {
+          target,
+          length: text.length,
+          sample: text.slice(0, 40),
+        }))
+      } catch { /* 选区读取失败隔离 */ }
+    })
+  }
+  document.addEventListener('selectionchange', onSelection)
 }
 
 /** 移除挂载点（卸载——removeEventListener 配对 + 注册表清理；
@@ -207,6 +242,11 @@ function dispatch(e: Event): void {
           Object.defineProperty(e, 'currentTarget', { value: el, configurable: true })
         } catch { /* 原生只读属性——尽力而为 */ }
         try { entry.handler(e) } catch { /* handler 失败隔离——错误事件化由上层覆盖 */ }
+        // 用户文本输入事件（text:input——输入/组合可观测——含当前值）
+        if (TEXT_INPUT_EVENTS.has(e.type)) {
+          const value = (el as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? null
+          stream.emit(ev('text', 'input', id, { event: e.type, value: typeof value === 'string' ? value.slice(0, 100) : null }))
+        }
         // once：分发一次后自动解绑（EVENT_UNBIND——可观测——与 addEventListener
         // { once: true } 等价但生命周期入事件流）
         if (entry.once) {
