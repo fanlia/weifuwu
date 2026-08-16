@@ -324,12 +324,16 @@ export class SandboxManager {
     for (const row of rows) {
       if (usedMb + needMb <= budgetMb) break
       if (this.exe.isBusy(row.id)) continue // busy 豁免——绝不杀执行中的任务
+      // 阶段 3：调度事件（预算驱逐——LRU——任务完整性 > 池吞吐——驱逐可审计）
+      sandboxEmit('evict', row.id, { reason: 'pool-budget', detail: `LRU 驱逐（预算 ${budgetMb}MB——释放 ${row.memory_mb ?? DEFAULT_MEMORY_MB}MB）` })
       await this.exe.dispose(row.id).catch(() => {})
       await this.sql`UPDATE sandboxes SET status = 'terminated', terminated_at = NOW(), updated_at = NOW() WHERE id = ${row.id}`
       usedMb -= Number(row.memory_mb ?? DEFAULT_MEMORY_MB)
       this.counters.evicted++
     }
     if (usedMb + needMb > budgetMb) {
+      // 阶段 3：调度事件（超限拒绝——不静默降级——可审计）
+      sandboxEmit('queue:rejected', undefined, { reason: 'pool-budget', detail: `预算 ${budgetMb}MB——需要 ${needMb}MB` })
       throw new Error(`沙盒池内存不足（预算 ${budgetMb}MB）——请终止不用的沙盒或提升 SANDBOX_POOL_BUDGET_MB`)
     }
   }
@@ -468,6 +472,8 @@ export class SandboxManager {
       // 3) 孤儿清理：容器在、DB 无记录 → rm（容器无状态原则——数据在卷）
       for (const [cid, c] of actual) {
         if (!recordIds.has(cid)) {
+          // 阶段 2：漂移检测（绕过点——容器存在但无记录/无事件——外部创建）
+          sandboxEmit('reconcile:drift', cid, { reason: 'orphan', detail: '容器存在但 DB 无记录（绕过点——外部创建无事件）', action: 'rm' })
           await this.exe.containerAction(c.name, 'rm').catch(() => {})
           stats.orphans++
           this.counters.orphansCleaned++
@@ -483,12 +489,16 @@ export class SandboxManager {
           // 超龄重建（清瞬态残留）
           const created = new Date(row.created_at).getTime()
           if (row.status === 'running' && this.opts.maxLifetimeMs > 0 && now - created > this.opts.maxLifetimeMs && row.mode !== 'ephemeral') {
+            // 阶段 2：生命周期事件（超龄重建——清瞬态残留）
+            sandboxEmit('reconcile:drift', row.id, { reason: 'expired', detail: `超龄重建（${Math.round((now - created) / 60000)}min）`, action: 'recreate' })
             await this.exe.dispose(row.id).catch(() => {})
             stats.terminated++
             continue
           }
           // idle → stop（两级回收第一级）
           if (row.status === 'running' && now - lastUsed > this.opts.idleTimeoutMs && row.mode !== 'ephemeral') {
+            // 阶段 2：生命周期事件（idle 回收——两级回收第一级——可审计）
+            sandboxEmit('reconcile:idle-stop', row.id, { idleMs: now - lastUsed })
             await this.exe.containerAction(`ap-sandbox-${row.id}`, 'stop').catch(() => {})
             await this.sql`UPDATE sandboxes SET status = 'stopped', updated_at = NOW() WHERE id = ${row.id}`
             stats.stopped++
@@ -497,6 +507,8 @@ export class SandboxManager {
           }
           // 期望运行但容器缺失/停止 → 自愈（start/重建——惰性漂移自愈）
           if (row.status !== 'requested' && (!act || !act.running)) {
+            // 阶段 2：漂移检测（期望 running 但容器缺失/停止——外部 stop/重建——绕过点）
+            sandboxEmit('reconcile:drift', row.id, { reason: act ? 'container-stopped' : 'container-missing', detail: `期望 ${row.status} 但容器${act ? '已停止' : '缺失'}（外部操作无事件？）`, action: 'restart' })
             if (row.workspace) {
               const spec: SandboxSpec = { ws: row.workspace, image: row.image, network: row.network, memoryMb: row.memory_mb, cpus: row.cpus }
               const ok = await this.exe.ensure(row.id, spec)

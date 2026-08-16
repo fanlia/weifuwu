@@ -1,4 +1,4 @@
-# Sandbox 事件流方案（2026-12——执行状态：阶段 1 已完成）
+# Sandbox 事件流方案（2026-12——执行状态：阶段 1/2/3 已完成——阶段 4 裁剪评估）
 
 > 哲学：与前端 vdom3 "DOM = fold(事件流)" 同构——**容器期望状态 = fold(sandbox 事件流)**
 > ——沙盒的一切操作（生命周期/exec/挂载/镜像/调度）都有事件——状态可回放/
@@ -37,21 +37,24 @@
 
 ---
 
-## 阶段 2：状态推导（期望 = fold——reconcile 对照）——待实施
+## 阶段 2：状态推导（期望 = fold——reconcile 对照）——已完成
 
-- reconcile 从"DB 快照"改为"事件流推导期望状态"（重放事件——活跃 exec/最近状态）
-- 漂移检测（docker 实际 vs 期望）→ `reconcile:drift` 事件（绕过点——外部操作容器）
+- reconcile 漂移检测事件：`reconcile:drift`（reason: orphan——容器存在无记录
+  绕过点；container-stopped/missing——期望 running 但容器停/缺——外部操作无事件；
+  expired——超龄重建）+ `reconcile:idle-stop`（idle 回收时长可审计）
+- 自愈动作（rm/restart/recreate）随 drift 事件（检测 + 修复成对可审计）
 
-## 阶段 3：调度器事件驱动——待实施
+## 阶段 3：调度器事件驱动——已完成
 
-- 活跃度 = 最近 exec 事件（LRU 驱逐事件驱动——非定时扫描）
-- 容量 = alloc/limit 事件聚合（全局预算——`queue:enqueue/dequeue`）
-- 配额 = 部门 exec 事件计数
+- `evict`（reason: pool-budget——LRU 驱逐——释放内存可见——任务完整性 > 池吞吐）
+- `queue:rejected`（预算超限——不静默降级——可审计）
+- 活跃度/配额的事件驱动调度（规模化基础——1000 部门的钥匙）
 
-## 阶段 4：持久化 + TTL——待实施
+## 阶段 4：持久化 + TTL——裁剪评估（暂缓）
 
-- exec 摘要归档（DB/日志——降频聚合——同前端 stream:overflow 理念）
-- 历史 TTL（活跃最近 N 天）
+- **诚实裁剪**：内存环形缓冲（5000 条）已覆盖近期调试/审计——持久化（DB
+  sandbox_event_log 表 + TTL 归档）是**规模化前置**（1000 部门历史审计需要）——
+  当前单宿主规模内存环形够用——暂缓——规模化时实施（表/订阅入库/定期清理）
 
 ## 风险与裁剪
 
