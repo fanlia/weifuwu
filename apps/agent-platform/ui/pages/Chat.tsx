@@ -254,6 +254,8 @@ export const Chat: Component = async (_props, ctx) => {
       }
       case 'wf:token': {
         const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
+        ;(window as any).__chatDbg = (window as any).__chatDbg ?? []
+        ;(window as any).__chatDbg.push(`token msgId=${event.messageId} idx=${idx}`)
         if (idx !== -1) {
           const m = $.msgs[idx]
           // 新建对象（引用变——vdom3 剪枝不命中——流式 token 逐字渲染）
@@ -272,6 +274,8 @@ export const Chat: Component = async (_props, ctx) => {
       }
       case 'wf:done': {
         const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
+        ;(window as any).__chatDbg = (window as any).__chatDbg ?? []
+        ;(window as any).__chatDbg.push(`done msgId=${event.messageId} idx=${idx} msgs=${$.msgs.length}`)
         if (idx !== -1) {
           const m = $.msgs[idx]
           $.msgs[idx] = { ...m, content: event.content ?? m.content, status: 'complete', usage: event.usage ?? m.usage }

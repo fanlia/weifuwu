@@ -393,6 +393,8 @@ async function runAgentStreamForAgent(
   agent: any,
   chatMessages: import('../ai/types.ts').ChatMessage[],
   initialMsgId: string,  // WS 路径预创建的消息 ID；SSE 路径为 ''（内部创建）
+  messageContent: string, // 原始消息（惰性回复重试的任务检测——真实 bug：未传参
+  // 引用未定义变量 → ReferenceError → wf:done 未发 → 前端状态卡"生成中"）
   emit: StreamEmitter,
   rosterMembers: RosterMember[] = [],
   attachmentLayer = '',
@@ -828,7 +830,7 @@ async function runAllAgents(
     }
 
     // C1：runMessageId 用用户消息 id（attachmentMsgId——WS 路径 msgId 是 AI 回复占位）
-    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, emit, rosterMembers, attachmentLayer, groupMemoryLayer, attachmentMsgId, workspaceLayer)
+    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, messageContent, emit, rosterMembers, attachmentLayer, groupMemoryLayer, attachmentMsgId, workspaceLayer)
   }
 
   // C5 写缓存：AI 回复完成后（通用问题 → 存答案供后续相似问题秒回）

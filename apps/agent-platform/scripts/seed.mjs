@@ -423,7 +423,7 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
   const buildSurveyPrompt = (p) => `${p.prompt}
 
 【问卷填写任务（模拟数据收集）】
-⚠️ 执行纪律：这是真实浏览器任务——你必须**实际调用 agent-browser 工具**完成填写（open/snapshot/fill/select/check/submit），禁止只回复计划不执行；执行失败要重试，绝不假装完成。
+当用户要求填写问卷时（可选工具——不强制）：
 1. 用 agent-browser 打开问卷：agent-browser open "${SURVEY_URL}?s=${encodeURIComponent(p.name)}"
    ⚠️ 容器内访问：你在沙盒容器里——localhost 是容器自身（问卷连不上）——若 open localhost 失败，
    改用宿主地址 agent-browser open "http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(p.name)}"
@@ -432,7 +432,11 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
 4. 提交后 read/snapshot 验证成功页（「✅ 已提交」锁定态）
 5. 完成后把你的作答结果写入工作目录：用 write 工具创建 survey-result.json，内容：
    {"name":"${p.name}","role":"${p.roleLabel}","submitted":true,"answers":{...逐题答案...},"verified":true}
-6. 最后必须执行 agent-browser close 关闭浏览器会话
+6. 完成后执行 agent-browser close 关闭浏览器会话
+
+【工具说明】agent-browser 是浏览器操作工具（真实网页导航/快照/填写/点击）——
+仅在需要真实浏览器操作时使用（如填写问卷）；普通对话/咨询直接回复即可——
+不强制调用任何工具。
 
 【产物纪律】survey-result.json 是本次任务的交付物——写入后工作目录可见。`
   const surveyRoles = []
