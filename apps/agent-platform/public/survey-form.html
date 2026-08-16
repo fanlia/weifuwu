@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- ⚠️ 本页 module script 为 TS 源码（已转译为 JS 内联）——修改后运行：
+     node scripts/transpile-survey.mjs 重新转译（页面是纯 JS 环境——importmap + 浏览器直接执行） -->
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -6,21 +8,6 @@
   <title>模拟数据收集问卷</title>
   <!-- weifuwu CDN（本地）：组件样式一条 link -->
   <link rel="stylesheet" href="/static/style.css" />
-  <style>
-    body { background: var(--wf-color-bg); color: var(--wf-color-text); }
-    .q { font-weight: 600; font-size: 15px; margin: 20px 0 8px; }
-    .hint { color: var(--wf-color-text-tertiary); font-size: 12px; font-weight: 400; margin-left: 6px; }
-    input[type=text], textarea, select { width: 100%; padding: 10px 12px; border: 1px solid var(--wf-color-border, #d1d5db); border-radius: var(--wf-radius, 8px); font-size: 14px; box-sizing: border-box; background: var(--wf-color-surface); color: var(--wf-color-text); }
-    textarea { min-height: 72px; }
-    .opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-    .opts label { font-weight: 400; font-size: 14px; display: flex; gap: 8px; align-items: center; }
-    .stars { display: flex; gap: 12px; margin-top: 6px; }
-    .stars label { display: flex; flex-direction: column; align-items: center; font-size: 12px; gap: 2px; }
-    .stars input { width: 18px; height: 18px; }
-    .error { color: var(--wf-color-error, #dc2626); font-size: 13px; margin-top: 10px; display: none; }
-    .locked { opacity: 0.55; pointer-events: none; }
-    .lock-banner { text-align: center; padding: 10px; background: var(--wf-color-success-bg); color: var(--wf-color-success-text); border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 12px; }
-  </style>
 </head>
 <body>
   <div id="root"></div>
@@ -34,151 +21,215 @@
     }
   </script>
 
-  <script type="module">
-    import { UIRouter, uiServe, h, ws } from 'weifuwu/ui-dom'
-    import { Card, Button, Badge } from 'weifuwu/components'
-
-    // 来源标识（URL ?s= 或随机——统计页按来源分组显示进度）
-    const source = new URLSearchParams(location.search).get('s') || ('访客-' + Math.random().toString(36).slice(2, 5))
-
-    const SurveyForm = async (_init, ctx) => {
-      let submitted = null          // 提交结果 { id, count }
-      let error = ''
-      let submitting = false
-      let connected = false
-      let confirmTimer = null        // 提交确认超时（防假提交）
-
-      // 逐题同步（防抖 400ms——填完一题即推送到统计页）
-      let debounceTimer = null
-      const syncAnswer = (question, answer) => {
-        if (submitted || !answer) return
-        clearTimeout(debounceTimer)
-        debounceTimer = setTimeout(() => {
-          ctx.ws?.send({ type: 'survey:answer', source, question, answer })
-        }, 400)
+  <script type="module">import { createRoot, h, ws } from "weifuwu/ui-dom";
+import {
+  Card,
+  Button,
+  Badge,
+  Alert,
+  Textarea,
+  Select,
+  RadioGroup,
+  CheckboxGroup,
+  Rate
+} from "weifuwu/components";
+const source = new URLSearchParams(location.search).get("s") || "\u8BBF\u5BA2-" + Math.random().toString(36).slice(2, 5);
+let ctx0 = {};
+ctx0 = ws({ url: "/survey-live" })(ctx0);
+const SurveyForm = async (_init, ctx) => {
+  let submitted = null;
+  let error = "";
+  let submitting = false;
+  let wsStatus = "connecting";
+  let wsDetail = { attempt: 0, max: 10 };
+  const rerender = () => ctx.ui.render();
+  ctx.ws?.onStatusChange((st, detail) => {
+    wsStatus = st;
+    if (detail) wsDetail = detail;
+    rerender();
+  });
+  let debounceTimer = null;
+  const syncAnswer = (question, answer) => {
+    if (submitted || !answer) return;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      ctx.ws?.send({ type: "survey:answer", source, question, answer });
+    }, 400);
+  };
+  let age = "";
+  let industry = "";
+  let focus = [];
+  let rating = 0;
+  let feedback = "";
+  const sync = (q, v) => syncAnswer(q, v);
+  const submit = () => {
+    if (submitting || submitted) return;
+    if (wsStatus !== "connected") {
+      error = "WS \u672A\u8FDE\u63A5\u2014\u2014\u8BF7\u7B49\u5F85\u8FDE\u63A5\u6062\u590D\u540E\u91CD\u8BD5";
+      rerender();
+      return;
+    }
+    error = "";
+    if (!age || !industry || !rating) {
+      error = "\u8BF7\u5B8C\u6210\u5FC5\u586B\u9879\uFF08\u5E74\u9F84/\u884C\u4E1A/\u6EE1\u610F\u5EA6\uFF09";
+      rerender();
+      return;
+    }
+    submitting = true;
+    rerender();
+    ctx.ws?.send({ type: "survey:submit", source, data: { age, industry, rating, focus, feedback } });
+    setTimeout(() => {
+      if (submitting && !submitted) {
+        submitting = false;
+        error = "\u63D0\u4EA4\u8D85\u65F6\u672A\u786E\u8BA4\u2014\u2014\u8BF7\u7A0D\u540E\u91CD\u8BD5";
+        rerender();
       }
-      const collect = () => Object.fromEntries(new FormData(document.getElementById('survey')).entries())
-
-      const onFieldChange = (e) => {
-        if (submitted) return
-        const f = e.target
-        const q = { age: '1.年龄', industry: '2.行业', focus: '3.关注能力', rating: '4.满意度', feedback: '5.建议反馈' }[f.name]
-        if (!q) return
-        // 单选/多选：取当前选中值
-        const form = document.getElementById('survey')
-        if (f.type === 'checkbox') {
-          syncAnswer(q, [...form.querySelectorAll(`input[name="${f.name}"]:checked`)].map(x => x.value).join('、'))
-        } else if (f.type === 'radio') {
-          const checked = form.querySelector(`input[name="${f.name}"]:checked`)
-          if (checked) syncAnswer(q, checked.value)
-        } else {
-          syncAnswer(q, f.value)
-        }
-      }
-
-      const submit = (e) => {
-        e.preventDefault()
-        if (submitting || submitted) return
-        const data = collect()
-        error = ''
-        if (!data.age || !data.industry || !data.rating) {
-          error = '请完成必填项（年龄/行业/满意度）'
-          ctx.ui.render()
-          return
-        }
-        submitting = true
-        ctx.ui.render()
-        // WS 提交——等待服务端确认（真实 bug：WS 未连接时 send 排队永不
-        // flush，乐观锁导致'假提交'——AI 看到锁定以为成功，统计页无记录）
-        ctx.ws?.send({ type: 'survey:submit', source, data })
-        clearTimeout(confirmTimer)
-        confirmTimer = setTimeout(() => {
-          if (submitting && !submitted) {
-            submitting = false
-            error = '提交超时未确认（WS 未连接？）——请稍后重试'
-            ctx.ui.render()
-          }
-        }, 25000)
-      }
-
-      // 在线报到（WS 排队机制：连接前 send 自动 flush）
-      ctx.ws?.send({ type: 'survey:hello', source })
-
-      ctx.ws?.onMessage((msg) => {
-        if (msg?.type === 'connected') { connected = true; ctx.ui.render() }
-        if (msg?.type === 'survey:state') {
-          const mine = (msg.submissions ?? []).find((x) => x.source === source)
-          if (mine) { submitted = mine; submitting = false }
-        }
-        if (msg?.type === 'survey:submitted') {
-          // 只锁自己的提交（真实 bug：任何角色提交广播都会让其他页面误锁，
-          // 显示别人的提交编号——AI 看到'已提交'后停止操作 → 假提交）
-          if (msg.latest?.source === source) {
-            submitted = { id: msg.latest.id ?? '', count: msg.count ?? 0 }
-            submitting = false
-            clearTimeout(confirmTimer)
-          }
-          ctx.ui.render()
-        }
-      })
-
-      const q1 = (label, hint) => h('label', { class: 'q' }, label, ' ', h('span', { class: 'hint' }, hint))
-
-      return () => {
-        const lock = !!submitted
-        return h('div', { style: { maxWidth: '640px', margin: '32px auto', padding: '0 20px' } },
-          h(Card, { variant: 'default', padding: 'lg' },
-            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-              h('div', {},
-                h('h1', { style: { margin: '0 0 4px', fontSize: '22px' } }, '模拟数据收集问卷'),
-                h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '13px' } },
-                  `来源：${source} · `, h('a', { href: '/demo-survey/stats', style: { color: 'var(--wf-color-primary)' } }, '实时统计 →'),
-                ),
-              ),
-              connected
-                ? h(Badge, { variant: 'success' }, '● 实时联动')
-                : h(Badge, { variant: 'warning' }, '连接中...'),
-            ),
-            lock && h('div', { class: 'lock-banner', style: { marginTop: '12px' } }, `✅ 已提交（#${submitted.id}）——不可修改`),
-            h('form', { id: 'survey', onSubmit: submit, class: lock ? 'locked' : '', style: lock ? { opacity: 0.6 } : {} },
-              q1('1. 您的年龄', '单选'),
-              h('div', { class: 'opts' },
-                ['18-25', '26-35', '36-45', '46+'].map((v) =>
-                  h('label', {}, h('input', { type: 'radio', name: 'age', value: v, onChange: onFieldChange }), ` ${v}`)),
-              ),
-              q1('2. 您所在的行业', '单选'),
-              h('div', { class: 'opts' },
-                [['互联网', '互联网/IT'], ['制造', '制造/工业'], ['金融', '金融/保险'], ['零售', '零售/消费'], ['教育', '教育/培训']].map(([v, l]) =>
-                  h('label', {}, h('input', { type: 'radio', name: 'industry', value: v, onChange: onFieldChange }), ` ${l}`)),
-              ),
-              q1('3. 您关注的产品能力', '多选'),
-              h('div', { class: 'opts' },
-                ['易用性', '安全性', '性能', '价格', '售后服务'].map((v) =>
-                  h('label', {}, h('input', { type: 'checkbox', name: 'focus', value: v, onChange: onFieldChange }), ` ${v}`)),
-              ),
-              q1('4. 总体满意度', '打分 1-5'),
-              h('div', { class: 'stars' },
-                [1, 2, 3, 4, 5].map((v) =>
-                  h('label', {}, h('input', { type: 'radio', name: 'rating', value: String(v), onChange: onFieldChange }), String(v))),
-              ),
-              q1('5. 建议与反馈', '文本'),
-              h('textarea', { name: 'feedback', placeholder: '请留下您的建议...', onChange: onFieldChange }),
-              error && h('div', { class: 'error', style: { display: 'block' } }, error),
-              h('div', { style: { marginTop: '24px' } },
-                h(Button, { variant: 'primary', type: 'submit', size: 'lg', disabled: submitting || lock },
-                  submitting ? '提交中（等待确认）...' : lock ? '已提交（锁定）' : !connected ? '提交（连接中，稍候）' : '提交问卷'),
-              ),
-            ),
-          ),
-        )
+    }, 25e3);
+  };
+  ctx.ws?.send({ type: "survey:hello", source });
+  ctx.ws?.onMessage((msg) => {
+    if (msg?.type === "survey:state") {
+      const mine = (msg.submissions ?? []).find((x) => x.source === source);
+      if (mine) {
+        submitted = mine;
+        submitting = false;
       }
     }
-
-    const router = new UIRouter()
-    router.use(ws({ url: '/survey-live' }))   // 框架 ws 中间件——问卷联动端点
-    router.get('/', async () => h(SurveyForm, {}))
-    router.notFound(async () => h(SurveyForm, {}))
-    uiServe(router, { root: document.getElementById('root') })
-  </script>
+    if (msg?.type === "survey:submitted") {
+      if (msg.latest?.source === source) {
+        submitted = { id: msg.latest.id ?? "", count: msg.count ?? 0 };
+        submitting = false;
+      }
+      rerender();
+    }
+  });
+  return () => {
+    const lock = !!submitted;
+    const wsBadge = wsStatus === "connected" ? h(Badge, { variant: "success" }, "\u25CF \u5DF2\u8FDE\u63A5\uFF08\u5B9E\u65F6\u8054\u52A8\uFF09") : wsStatus === "disconnected" ? h(Badge, { variant: "danger" }, `\u25CF \u8FDE\u63A5\u65AD\u5F00\uFF08\u91CD\u8FDE\u4E2D ${wsDetail.attempt}/${wsDetail.max}\uFF09`) : h(Badge, { variant: "warning" }, "\u25CB \u8FDE\u63A5\u4E2D...");
+    return h(
+      "div",
+      { style: { maxWidth: "640px", margin: "32px auto", padding: "0 20px" } },
+      h(
+        Card,
+        { variant: "default", padding: "lg" },
+        h(
+          "div",
+          { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+          h(
+            "div",
+            {},
+            h("h1", { style: { margin: "0 0 4px", fontSize: "22px" } }, "\u6A21\u62DF\u6570\u636E\u6536\u96C6\u95EE\u5377"),
+            h(
+              "div",
+              { style: { color: "var(--wf-color-text-tertiary)", fontSize: "13px" } },
+              `\u6765\u6E90\uFF1A${source} \xB7 `,
+              h("a", { href: "/demo-survey/stats", style: { color: "var(--wf-color-primary)" } }, "\u5B9E\u65F6\u7EDF\u8BA1 \u2192")
+            )
+          ),
+          wsBadge
+        ),
+        wsStatus === "disconnected" && h(
+          Alert,
+          { type: "error", title: "WS \u8FDE\u63A5\u65AD\u5F00", style: { marginTop: "12px" } },
+          `\u5B9E\u65F6\u8054\u52A8\u4E0D\u53EF\u7528\u2014\u2014\u81EA\u52A8\u91CD\u8FDE\u4E2D\uFF08\u7B2C ${wsDetail.attempt}/${wsDetail.max} \u6B21\uFF09\u2014\u2014\u6062\u590D\u540E\u81EA\u52A8\u540C\u6B65`
+        ),
+        lock && h(Alert, { type: "success", style: { marginTop: "12px" } }, `\u2705 \u5DF2\u63D0\u4EA4\uFF08#${submitted.id}\uFF09\u2014\u2014\u4E0D\u53EF\u4FEE\u6539`),
+        h(
+          "div",
+          { class: lock ? "wf-tour-layer" : "", style: lock ? { opacity: 0.6, pointerEvents: "none" } : {} },
+          // 1. 年龄（RadioGroup）
+          h(
+            "div",
+            { style: { margin: "18px 0 8px", fontWeight: 600, fontSize: "15px" } },
+            "1. \u60A8\u7684\u5E74\u9F84",
+            h("span", { style: { color: "var(--wf-color-text-tertiary)", fontSize: "12px", fontWeight: 400, marginLeft: "6px" } }, "\u5355\u9009 \xB7 \u5FC5\u586B")
+          ),
+          h(RadioGroup, {
+            options: ["18-25", "26-35", "36-45", "46+"].map((v) => ({ value: v, label: v })),
+            value: age,
+            onChange: (v) => {
+              age = v;
+              sync("1.\u5E74\u9F84", v);
+              rerender();
+            }
+          }),
+          // 2. 行业（Select）
+          h(
+            "div",
+            { style: { margin: "18px 0 8px", fontWeight: 600, fontSize: "15px" } },
+            "2. \u60A8\u6240\u5728\u7684\u884C\u4E1A",
+            h("span", { style: { color: "var(--wf-color-text-tertiary)", fontSize: "12px", fontWeight: 400, marginLeft: "6px" } }, "\u5355\u9009 \xB7 \u5FC5\u586B")
+          ),
+          h(Select, {
+            options: [["\u4E92\u8054\u7F51", "\u4E92\u8054\u7F51/IT"], ["\u5236\u9020", "\u5236\u9020/\u5DE5\u4E1A"], ["\u91D1\u878D", "\u91D1\u878D/\u4FDD\u9669"], ["\u96F6\u552E", "\u96F6\u552E/\u6D88\u8D39"], ["\u6559\u80B2", "\u6559\u80B2/\u57F9\u8BAD"]].map(([v, l]) => ({ value: v, label: l })),
+            value: industry,
+            placeholder: "\u8BF7\u9009\u62E9\u884C\u4E1A",
+            onChange: (v) => {
+              industry = v;
+              sync("2.\u884C\u4E1A", v);
+              rerender();
+            }
+          }),
+          // 3. 关注能力（CheckboxGroup）
+          h(
+            "div",
+            { style: { margin: "18px 0 8px", fontWeight: 600, fontSize: "15px" } },
+            "3. \u60A8\u5173\u6CE8\u7684\u4EA7\u54C1\u80FD\u529B",
+            h("span", { style: { color: "var(--wf-color-text-tertiary)", fontSize: "12px", fontWeight: 400, marginLeft: "6px" } }, "\u591A\u9009")
+          ),
+          h(CheckboxGroup, {
+            options: ["\u6613\u7528\u6027", "\u5B89\u5168\u6027", "\u6027\u80FD", "\u4EF7\u683C", "\u552E\u540E\u670D\u52A1"].map((v) => ({ value: v, label: v })),
+            value: focus,
+            onChange: (v) => {
+              focus = v;
+              sync("3.\u5173\u6CE8\u80FD\u529B", v.join("\u3001"));
+              rerender();
+            }
+          }),
+          // 4. 满意度（Rate）
+          h(
+            "div",
+            { style: { margin: "18px 0 8px", fontWeight: 600, fontSize: "15px" } },
+            "4. \u603B\u4F53\u6EE1\u610F\u5EA6",
+            h("span", { style: { color: "var(--wf-color-text-tertiary)", fontSize: "12px", fontWeight: 400, marginLeft: "6px" } }, "\u6253\u5206 1-5 \xB7 \u5FC5\u586B")
+          ),
+          h(Rate, { value: rating, onChange: (v) => {
+            rating = v;
+            sync("4.\u6EE1\u610F\u5EA6", String(v));
+            rerender();
+          } }),
+          // 5. 建议反馈（Textarea）
+          h(
+            "div",
+            { style: { margin: "18px 0 8px", fontWeight: 600, fontSize: "15px" } },
+            "5. \u5EFA\u8BAE\u4E0E\u53CD\u9988",
+            h("span", { style: { color: "var(--wf-color-text-tertiary)", fontSize: "12px", fontWeight: 400, marginLeft: "6px" } }, "\u6587\u672C")
+          ),
+          h(Textarea, {
+            value: feedback,
+            placeholder: "\u8BF7\u7559\u4E0B\u60A8\u7684\u5EFA\u8BAE...",
+            onChange: (v) => {
+              feedback = v;
+              sync("5.\u5EFA\u8BAE\u53CD\u9988", v);
+              rerender();
+            }
+          }),
+          error && h(Alert, { type: "error", style: { marginTop: "12px" } }, error),
+          h(
+            "div",
+            { style: { marginTop: "24px" } },
+            h(
+              Button,
+              { variant: "primary", size: "lg", disabled: submitting || lock, onClick: submit },
+              submitting ? "\u63D0\u4EA4\u4E2D\uFF08\u7B49\u5F85\u786E\u8BA4\uFF09..." : lock ? "\u5DF2\u63D0\u4EA4\uFF08\u9501\u5B9A\uFF09" : wsStatus !== "connected" ? "\u63D0\u4EA4\uFF08\u7B49\u5F85\u8FDE\u63A5...\uFF09" : "\u63D0\u4EA4\u95EE\u5377"
+            )
+          )
+        )
+      )
+    );
+  };
+};
+createRoot(h(SurveyForm, {}), document.getElementById("root"), { ctx: ctx0 });
+</script>
 </body>
 </html>

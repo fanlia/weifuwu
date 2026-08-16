@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- ⚠️ 本页 module script 为 TS 源码（已转译为 JS 内联）——修改后运行：
+     node scripts/transpile-survey.mjs 重新转译（页面是纯 JS 环境——importmap + 浏览器直接执行） -->
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -6,17 +8,14 @@
   <title>模拟数据收集统计（实时）</title>
   <link rel="stylesheet" href="/static/style.css" />
   <style>
-    body { background: var(--wf-color-bg); color: var(--wf-color-text); }
     /* 实时流动态效果：新条目淡入 + 滑入 */
     @keyframes wf-feed-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
     .feed-item { animation: wf-feed-in 0.35s ease-out; }
-    /* 计数跳动 */
-    @keyframes wf-bump { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
-    .bump { animation: wf-bump 0.4s ease-out; display: inline-block; }
+    .feed { max-height: 300px; overflow-y: auto; }
+    /* 进度点 */
     .prog { display: flex; gap: 4px; }
     .prog-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--wf-color-bg-tertiary); }
     .prog-dot.on { background: var(--wf-color-success); }
-    .feed { max-height: 300px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -31,168 +30,174 @@
     }
   </script>
 
-  <script type="module">
-    import { UIRouter, uiServe, h, ws } from 'weifuwu/ui-dom'
-    import { Card, Badge, Button, EmptyState } from 'weifuwu/components'
-
-    // 5 道题（进度用）
-    const QUESTIONS = ['1.年龄', '2.行业', '3.关注能力', '4.满意度', '5.建议反馈']
-
-    const StatsPage = async (_init, ctx) => {
-      let count = 0
-      let answers = []                 // 实时答题流
-      let submissions = []             // 已提交
-      let bumpTick = 0                 // 计数跳动动画触发
-      let connected = false
-      let online = { count: 0, sources: [] }   // 在线填写者
-
-      const refresh = (s) => {
-        count = s.count ?? count
-        answers = s.answers ?? answers
-        submissions = s.submissions ?? submissions
-        bumpTick++
-        ctx.ui.render()
-      }
-
-      ctx.ws?.onMessage((msg) => {
-        if (msg?.type === 'connected') { connected = true; ctx.ui.render() }
-        if (msg?.type === 'survey:state') refresh(msg)
-        if (msg?.type === 'survey:answer') {
-          answers = [...answers, msg]
-          ctx.ui.render()
-        }
-        if (msg?.type === 'survey:submitted') {
-          count = msg.count ?? count
-          if (msg.latest) submissions = [...submissions, msg.latest]
-          bumpTick++
-          ctx.ui.render()
-        }
-        if (msg?.type === 'survey:online') {
-          online = { count: msg.count ?? 0, sources: msg.sources ?? [] }
-          ctx.ui.render()
-        }
-      })
-
-      // 按来源聚合进度（哪些题已答）
-      const sourceProgress = () => {
-        const map = new Map()
-        for (const a of answers) {
-          const list = map.get(a.source) ?? []
-          list.push(a.question)
-          map.set(a.source, list)
-        }
-        return [...map.entries()].map(([src, qs]) => ({
-          source: src,
-          done: QUESTIONS.filter((q) => qs.includes(q)).length,
-          locked: submissions.some((x) => x.source === src),
-        }))
-      }
-
-      return () => {
-        const progress = sourceProgress()
-        const feed = [...answers].reverse().slice(0, 30)
-        return h('div', { style: { maxWidth: '860px', margin: '32px auto', padding: '0 20px' } },
-          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
-            h('div', {},
-              h('h1', { style: { margin: '0 0 4px', fontSize: '22px' } }, '模拟数据收集统计（实时）'),
-              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '13px' } },
-                'WS 实时联动 · 填完一题即同步 · 提交即锁定 · ',
-                h('a', { href: '/demo-survey', style: { color: 'var(--wf-color-primary)' } }, '← 填写页'),
-              ),
-            ),
-            h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
-              h('span', { style: { fontSize: '12px', color: 'var(--wf-color-text-tertiary)' } }, '让 AI 填写：进入「问卷调研」部门发消息 @全员——10 个角色同时响应（各自独立沙盒并发）'),
-              connected
-                ? h(Badge, { variant: 'success' }, '● 实时')
-                : h(Badge, { variant: 'warning' }, '连接中...'),
-            ),
-          ),
-
-          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' } },
-            h(Card, { variant: 'default', padding: 'md' },
-              h('div', { key: `c${bumpTick}`, class: 'bump', style: { fontSize: '30px', fontWeight: 700, color: 'var(--wf-color-success)' } }, String(count)),
-              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '已提交（锁定）'),
-            ),
-            h(Card, { variant: 'default', padding: 'md' },
-              h('div', { key: `o${online.count}-${bumpTick}`, class: 'bump', style: { fontSize: '30px', fontWeight: 700, color: 'var(--wf-color-primary)' } }, String(online.count)),
-              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } },
-                online.sources.length > 0 ? `在线：${online.sources.slice(0, 3).join('、')}${online.sources.length > 3 ? ` 等 ${online.sources.length} 人` : ''}` : '在线填写者'),
-            ),
-            h(Card, { variant: 'default', padding: 'md' },
-              h('div', { style: { fontSize: '30px', fontWeight: 700 } }, String(progress.length)),
-              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '填写中的来源'),
-            ),
-            h(Card, { variant: 'default', padding: 'md' },
-              h('div', { style: { fontSize: '30px', fontWeight: 700 } }, String(answers.length)),
-              h('div', { style: { color: 'var(--wf-color-text-tertiary)', fontSize: '12px' } }, '已同步的答题数'),
-            ),
-          ),
-
-          // 填写进度（按来源）
-          h(Card, { variant: 'default', padding: 'md', style: { marginBottom: '16px' } },
-            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '填写进度'),
-            progress.length === 0
-              ? h(EmptyState, { icon: '📝', text: '暂无填写者', hint: '打开填写页开始答题——每题实时同步到这里' })
-              : progress.map((p) =>
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' } },
-                    h('span', { style: { width: '100px', fontSize: '13px', fontWeight: 600 } }, p.source),
-                    h('div', { class: 'prog' },
-                      QUESTIONS.map((q) => h('div', { class: `prog-dot${p.done >= QUESTIONS.indexOf(q) + 1 ? ' on' : ''}` })),
-                    ),
-                    h('span', { style: { fontSize: '12px', color: 'var(--wf-color-text-tertiary)' } }, `${p.done}/5 题`),
-                    p.locked && h(Badge, { variant: 'success' }, '已提交'),
-                  ),
-                ),
-          ),
-
-          // 实时答题流（动态效果）
-          h(Card, { variant: 'default', padding: 'md', style: { marginBottom: '16px' } },
-            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, '实时答题流'),
-            h('div', { class: 'feed' },
-              feed.length === 0
-                ? h(EmptyState, { icon: '⚡', text: '等待答题...', hint: '填写页每完成一题，这里实时滚动' })
-                : feed.map((a, i) =>
-                    h('div', { key: `${a.at}-${i}`, class: 'feed-item', style: { display: 'flex', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--wf-color-border, #eef2f7)', fontSize: '13px' } },
-                      h('span', { style: { color: 'var(--wf-color-text-tertiary)' } }, String(a.at ?? '').slice(11, 19)),
-                      h('span', { style: { fontWeight: 600, color: 'var(--wf-color-primary)' } }, a.source),
-                      h('span', {}, `${a.question} →`),
-                      h('span', { style: { color: 'var(--wf-color-text-secondary)' } }, String(a.answer ?? '').slice(0, 80)),
-                    ),
-                  ),
-            ),
-          ),
-
-          // 已提交明细
-          h(Card, { variant: 'default', padding: 'md' },
-            h('h2', { style: { fontSize: '14px', margin: '0 0 12px', color: 'var(--wf-color-text-secondary)' } }, `已提交（${submissions.length} 份——锁定不可改）`),
-            submissions.length === 0
-              ? h(EmptyState, { icon: '📋', text: '暂无提交', hint: '填写页提交后这里实时出现' })
-              : h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: '13px' } },
-                  h('tr', {},
-                    ['来源', '时间', '行业', '年龄', '评分', '关注', '反馈'].map((t) => h('th', { style: { textAlign: 'left', padding: '6px 8px', color: 'var(--wf-color-text-tertiary)' } }, t)),
-                  ),
-                  [...submissions].reverse().map((r) =>
-                    h('tr', {},
-                      h('td', { style: { padding: '6px 8px' } }, r.source),
-                      h('td', { style: { padding: '6px 8px', color: 'var(--wf-color-text-tertiary)' } }, String(r.submitted_at ?? '').slice(5, 16).replace('T', ' ')),
-                      h('td', { style: { padding: '6px 8px' } }, r.industry ?? '—'),
-                      h('td', { style: { padding: '6px 8px' } }, r.age ?? '—'),
-                      h('td', { style: { padding: '6px 8px' } }, h('b', {}, String(r.rating ?? '—'))),
-                      h('td', { style: { padding: '6px 8px', color: 'var(--wf-color-text-tertiary)' } }, (r.focus ?? []).join('、') || '—'),
-                      h('td', { style: { padding: '6px 8px', maxWidth: '240px' } }, String(r.feedback ?? '').slice(0, 100)),
-                    ),
-                  ),
-                ),
-          ),
-        )
-      }
+  <script type="module">import { createRoot, h, ws } from "weifuwu/ui-dom";
+import { Card, Badge, Alert, StatCard, Table, EmptyState, ProgressBar, Space } from "weifuwu/components";
+const QUESTIONS = ["1.\u5E74\u9F84", "2.\u884C\u4E1A", "3.\u5173\u6CE8\u80FD\u529B", "4.\u6EE1\u610F\u5EA6", "5.\u5EFA\u8BAE\u53CD\u9988"];
+let ctx0 = {};
+ctx0 = ws({ url: "/survey-live" })(ctx0);
+const StatsPage = async (_init, ctx) => {
+  let count = 0;
+  let answers = [];
+  let submissions = [];
+  let connected = false;
+  let online = { count: 0, sources: [] };
+  let wsStatus = "connecting";
+  let wsDetail = { attempt: 0, max: 10 };
+  const rerender = () => ctx.ui.render();
+  ctx.ws?.onStatusChange((st, detail) => {
+    wsStatus = st;
+    connected = st === "connected";
+    if (detail) wsDetail = detail;
+    rerender();
+  });
+  ctx.ws?.onMessage((msg) => {
+    if (msg?.type === "survey:state") {
+      count = msg.count ?? count;
+      answers = msg.answers ?? answers;
+      submissions = msg.submissions ?? submissions;
+      rerender();
     }
-
-    const router = new UIRouter()
-    router.use(ws({ url: '/survey-live' }))   // 框架 ws 中间件——问卷联动端点
-    router.get('/', async () => h(StatsPage, {}))
-    router.notFound(async () => h(StatsPage, {}))
-    uiServe(router, { root: document.getElementById('root') })
-  </script>
+    if (msg?.type === "survey:answer") {
+      answers = [...answers, msg];
+      rerender();
+    }
+    if (msg?.type === "survey:submitted") {
+      count = msg.count ?? count;
+      if (msg.latest) submissions = [...submissions, msg.latest];
+      rerender();
+    }
+    if (msg?.type === "survey:online") {
+      online = { count: msg.count ?? 0, sources: msg.sources ?? [] };
+      rerender();
+    }
+  });
+  const sourceProgress = () => {
+    const map = /* @__PURE__ */ new Map();
+    for (const a of answers) {
+      const list = map.get(a.source) ?? [];
+      list.push(a.question);
+      map.set(a.source, list);
+    }
+    return [...map.entries()].map(([src, qs]) => ({
+      source: src,
+      done: QUESTIONS.filter((q) => qs.includes(q)).length,
+      locked: submissions.some((x) => x.source === src)
+    }));
+  };
+  return () => {
+    const progress = sourceProgress();
+    const feed = [...answers].reverse().slice(0, 30);
+    const wsBadge = wsStatus === "connected" ? h(Badge, { variant: "success" }, "\u25CF \u5DF2\u8FDE\u63A5\uFF08\u5B9E\u65F6\uFF09") : wsStatus === "disconnected" ? h(Badge, { variant: "danger" }, `\u25CF \u8FDE\u63A5\u65AD\u5F00\uFF08\u91CD\u8FDE\u4E2D ${wsDetail.attempt}/${wsDetail.max}\uFF09`) : h(Badge, { variant: "warning" }, "\u25CB \u8FDE\u63A5\u4E2D...");
+    return h(
+      "div",
+      { style: { maxWidth: "860px", margin: "32px auto", padding: "0 20px" } },
+      h(
+        "div",
+        { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" } },
+        h(
+          "div",
+          {},
+          h("h1", { style: { margin: "0 0 4px", fontSize: "22px" } }, "\u6A21\u62DF\u6570\u636E\u6536\u96C6\u7EDF\u8BA1\uFF08\u5B9E\u65F6\uFF09"),
+          h(
+            "div",
+            { style: { color: "var(--wf-color-text-tertiary)", fontSize: "13px" } },
+            "WS \u5B9E\u65F6\u8054\u52A8 \xB7 \u586B\u5B8C\u4E00\u9898\u5373\u540C\u6B65 \xB7 \u63D0\u4EA4\u5373\u9501\u5B9A \xB7 ",
+            h("a", { href: "/demo-survey", style: { color: "var(--wf-color-primary)" } }, "\u2190 \u586B\u5199\u9875")
+          )
+        ),
+        h(
+          Space,
+          { size: "sm" },
+          h("span", { style: { fontSize: "12px", color: "var(--wf-color-text-tertiary)" } }, "\u8BA9 AI \u586B\u5199\uFF1A\u8FDB\u5165\u300C\u95EE\u5377\u8C03\u7814\u300D\u90E8\u95E8\u53D1\u6D88\u606F @\u5168\u5458\u2014\u201410 \u4E2A\u89D2\u8272\u540C\u65F6\u54CD\u5E94"),
+          wsBadge
+        )
+      ),
+      wsStatus === "disconnected" && h(
+        Alert,
+        { type: "error", style: { marginBottom: "12px" } },
+        `WS \u8FDE\u63A5\u65AD\u5F00\u2014\u2014\u5B9E\u65F6\u6570\u636E\u6682\u505C\uFF08\u81EA\u52A8\u91CD\u8FDE\u4E2D \u7B2C ${wsDetail.attempt}/${wsDetail.max} \u6B21\uFF09\u2014\u2014\u6062\u590D\u540E\u81EA\u52A8\u540C\u6B65`
+      ),
+      // 统计卡片（StatCard——内置组件）
+      h(
+        "div",
+        { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" } },
+        h(StatCard, { label: "\u5DF2\u63D0\u4EA4\uFF08\u9501\u5B9A\uFF09", value: String(count), variant: "success" }),
+        h(StatCard, { label: online.sources.length > 0 ? `\u5728\u7EBF\uFF08${online.sources.slice(0, 3).join("\u3001")}${online.sources.length > 3 ? ` \u7B49 ${online.sources.length} \u4EBA` : ""}\uFF09` : "\u5728\u7EBF\u586B\u5199\u8005", value: String(online.count), variant: "primary" }),
+        h(StatCard, { label: "\u586B\u5199\u4E2D\u7684\u6765\u6E90", value: String(progress.length) }),
+        h(StatCard, { label: "\u5DF2\u540C\u6B65\u7684\u7B54\u9898\u6570", value: String(answers.length) })
+      ),
+      // 填写进度（按来源）
+      h(
+        Card,
+        { variant: "default", padding: "md", style: { marginBottom: "16px" } },
+        h("h2", { style: { fontSize: "14px", margin: "0 0 12px", color: "var(--wf-color-text-secondary)" } }, "\u586B\u5199\u8FDB\u5EA6"),
+        progress.length === 0 ? h(EmptyState, { text: "\u6682\u65E0\u586B\u5199\u8005", hint: "\u6253\u5F00\u586B\u5199\u9875\u5F00\u59CB\u7B54\u9898\u2014\u2014\u6BCF\u9898\u5B9E\u65F6\u540C\u6B65\u5230\u8FD9\u91CC" }) : progress.map(
+          (p) => h(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" } },
+            h("span", { style: { width: "100px", fontSize: "13px", fontWeight: 600 } }, p.source),
+            h(
+              "div",
+              { class: "prog" },
+              QUESTIONS.map((q) => h("div", { class: `prog-dot${p.done >= QUESTIONS.indexOf(q) + 1 ? " on" : ""}` }))
+            ),
+            h(ProgressBar, { percent: p.done / 5 * 100, width: 120, showLabel: false }),
+            h("span", { style: { fontSize: "12px", color: "var(--wf-color-text-tertiary)" } }, `${p.done}/5 \u9898`),
+            p.locked && h(Badge, { variant: "success" }, "\u5DF2\u63D0\u4EA4")
+          )
+        )
+      ),
+      // 实时答题流
+      h(
+        Card,
+        { variant: "default", padding: "md", style: { marginBottom: "16px" } },
+        h("h2", { style: { fontSize: "14px", margin: "0 0 12px", color: "var(--wf-color-text-secondary)" } }, "\u5B9E\u65F6\u7B54\u9898\u6D41"),
+        h(
+          "div",
+          { class: "feed" },
+          feed.length === 0 ? h(EmptyState, { text: "\u7B49\u5F85\u7B54\u9898...", hint: "\u586B\u5199\u9875\u6BCF\u5B8C\u6210\u4E00\u9898\uFF0C\u8FD9\u91CC\u5B9E\u65F6\u6EDA\u52A8" }) : feed.map(
+            (a, i) => h(
+              "div",
+              { key: `${a.at}-${i}`, class: "feed-item", style: { display: "flex", gap: "8px", padding: "6px 0", borderBottom: "1px solid var(--wf-color-border, #eef2f7)", fontSize: "13px" } },
+              h("span", { style: { color: "var(--wf-color-text-tertiary)" } }, String(a.at ?? "").slice(11, 19)),
+              h("span", { style: { fontWeight: 600, color: "var(--wf-color-primary)" } }, a.source),
+              h("span", {}, `${a.question} \u2192`),
+              h("span", { style: { color: "var(--wf-color-text-secondary)" } }, String(a.answer ?? "").slice(0, 80))
+            )
+          )
+        )
+      ),
+      // 已提交明细（Table——内置组件）
+      h(
+        Card,
+        { variant: "default", padding: "md" },
+        h("h2", { style: { fontSize: "14px", margin: "0 0 12px", color: "var(--wf-color-text-secondary)" } }, `\u5DF2\u63D0\u4EA4\uFF08${submissions.length} \u4EFD\u2014\u2014\u9501\u5B9A\u4E0D\u53EF\u6539\uFF09`),
+        submissions.length === 0 ? h(EmptyState, { text: "\u6682\u65E0\u63D0\u4EA4", hint: "\u586B\u5199\u9875\u63D0\u4EA4\u540E\u8FD9\u91CC\u5B9E\u65F6\u51FA\u73B0" }) : h(Table, {
+          columns: [
+            { key: "source", title: "\u6765\u6E90" },
+            { key: "at", title: "\u65F6\u95F4" },
+            { key: "industry", title: "\u884C\u4E1A" },
+            { key: "age", title: "\u5E74\u9F84" },
+            { key: "rating", title: "\u8BC4\u5206" },
+            { key: "focus", title: "\u5173\u6CE8" },
+            { key: "feedback", title: "\u53CD\u9988" }
+          ],
+          data: [...submissions].reverse().map((r) => ({
+            source: r.source,
+            at: String(r.submitted_at ?? "").slice(5, 16).replace("T", " "),
+            industry: r.industry ?? "\u2014",
+            age: r.age ?? "\u2014",
+            rating: String(r.rating ?? "\u2014"),
+            focus: (r.focus ?? []).join("\u3001") || "\u2014",
+            feedback: String(r.feedback ?? "").slice(0, 100)
+          })),
+          size: "sm"
+        })
+      )
+    );
+  };
+};
+createRoot(h(StatsPage, {}), document.getElementById("root"), { ctx: ctx0 });
+</script>
 </body>
 </html>

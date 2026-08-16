@@ -17,11 +17,17 @@ export interface WsOptions {
 }
 
 /** ws 中间件注入到 ctx 的字段 */
+/** ws 连接状态（页面清晰显示——用户要求"ws 链接状态一定要清晰"） */
+export type WsStatus = 'connecting' | 'connected' | 'disconnected'
+
 /** ws 中间件注入的客户端形状（与 WfuiContext.ws 一致） */
 export interface WsClient {
   send: (msg: unknown) => void
   onMessage: (fn: (data: unknown) => void) => () => void
   isConnected: boolean
+  /** 连接状态通知（open → connected / close → disconnected（重连中）/
+   *  首次连接前 connecting）——页面渲染 + 状态清晰显示；payload 含重连信息 */
+  onStatusChange: (fn: (status: WsStatus, detail?: { attempt: number; max: number }) => void) => () => void
 }
 
 export interface WsInjected {
@@ -46,12 +52,26 @@ export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
     // 连接建立前 send 的消息排队（subscribe 等——首次 mount 时 socket 仍 CONNECTING，
     // 立即发送会被丢弃 → 房间订阅永久丢失 → 收不到推送。OPEN 后 flush 补发）
     let pending: string[] = []
+    // 状态通知（页面清晰显示连接状态——connecting/connected/disconnected）
+    const statusHandlers = new Set<(status: WsStatus, detail?: { attempt: number; max: number }) => void>()
+    const notifyStatus = (status: WsStatus) => {
+      wsClient.isConnected = status === 'connected'
+      const detail = status === 'disconnected' ? { attempt: reconnectAttempts + 1, max: maxReconnect } : undefined
+      for (const fn of statusHandlers) { try { fn(status, detail) } catch { /* 状态通知失败隔离 */ } }
+    }
 
     const wsClient = {
       isConnected: false,
       onMessage: (fn: (data: unknown) => void): (() => void) => {
         messageHandlers.add(fn)
         return () => { messageHandlers.delete(fn) }
+      },
+
+      onStatusChange: (fn: (status: WsStatus, detail?: { attempt: number; max: number }) => void): (() => void) => {
+        statusHandlers.add(fn)
+        // 注册即通知当前状态（页面初始渲染正确显示）
+        queueMicrotask(() => { try { fn(wsClient.isConnected ? 'connected' : 'connecting', { attempt: 0, max: maxReconnect }) } catch { /* 忽略 */ } })
+        return () => { statusHandlers.delete(fn) }
       },
 
       send: (msg: unknown) => {
@@ -84,6 +104,7 @@ export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
         socket.onopen = () => {
           wsClient.isConnected = true
           reconnectAttempts = 0
+          notifyStatus('connected')
           // flush 排队消息（首次 mount 的 subscribe 等）
           for (const s of pending) socket!.send(s)
           pending = []
@@ -99,6 +120,7 @@ export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
         socket.onclose = () => {
           wsClient.isConnected = false
           clearTimers()
+          notifyStatus('disconnected')
           if (!destroyed && reconnectAttempts < maxReconnect) {
             reconnectAttempts++
             reconnectTimer = setTimeout(connect, reconnectInterval * Math.min(reconnectAttempts, 5))
