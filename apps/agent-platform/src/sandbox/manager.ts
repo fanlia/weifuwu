@@ -78,7 +78,6 @@ export class SandboxManager {
   /** 事件流持久化订阅退订（阶段 4） */
   private _eventsUnsub: (() => void) | null = null
   /** 事件流持久化订阅退订（阶段 4） */
-  private _eventsUnsub: (() => void) | null = null
   private exe: DockerSandbox
   private opts: ManagerOptions
   private timer: NodeJS.Timeout | null = null

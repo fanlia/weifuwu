@@ -939,6 +939,7 @@ export async function handleNewMessageStreamSSE(
   ctx: AppCtx,
   departmentId: string,
   messageContent: string,
+  requestId = '', // 三端事件流（阶段 2）：requestId 跨端贯通
   write: (chunk: string) => void,
 ): Promise<void> {
   // P1-3 SSE 路径：从最近一条消息取附件

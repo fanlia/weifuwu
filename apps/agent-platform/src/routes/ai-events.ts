@@ -5,7 +5,7 @@
 import type { Router } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
-export function registerAiEventRoutes(app: Router): void {
+export function registerAiEventRoutes(app: Router<AppCtx>): void {
   // ── 三端统一事件查询（阶段 4）：聚合 ai + sandbox——按 requestId 一条链 ──
   app.get('/api/events', async (req: Request, _ctx: AppCtx): Promise<Response> => {
     try {

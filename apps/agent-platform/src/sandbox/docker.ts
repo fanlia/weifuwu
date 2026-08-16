@@ -307,6 +307,7 @@ export class DockerSandbox implements SandboxHost {
     if (!this.opts.enabled) {
       return { ok: false, error: '沙盒不可用（SANDBOX_DISABLE）——工具已禁用' }
     }
+    const timeoutMs = opts?.execTimeoutMs ?? this.opts.execTimeoutMs // 超时分级（runOnce 路径）
     const a = await this.probe()
     if (!a.dockerOk) return { ok: false, error: '沙盒不可用——命令执行已禁用（docker 不可用或镜像缺失）' }
     const image = spec.image ?? this.opts.image

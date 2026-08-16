@@ -535,11 +535,11 @@ export async function streamAgent(
   const emit: WfEmitter = (name, data) => {
     // AI 事件流（三端打通——vdom + ai + sandbox）：wf:* → ai:* 统一模型——
     // target = agentId——payload 含 messageId/departmentId（跨层关联键）
+    const aiPayload: Record<string, unknown> = { ...(data as Record<string, unknown> ?? {}) }
     // 统一 schema（阶段 1）：ms（任务耗时——从 emit 定义起计时——done 带总耗时）
     if (name === 'wf:done') aiPayload.ms = Date.now() - aiTaskT0
     try {
       const aiAction = aiActionFromWf(name)
-      const aiPayload: Record<string, unknown> = { ...(data as Record<string, unknown> ?? {}) }
       if (config.runMessageId) aiPayload.messageId = config.runMessageId
       if (config.departmentId) aiPayload.departmentId = config.departmentId
       // 三端事件流（阶段 2）：requestId 跨端贯通（精确因果——替代时间窗关联）

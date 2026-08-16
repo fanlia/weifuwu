@@ -88,6 +88,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
 
     // 消息长度上限（后端强制——防无界入库 + AI 上下文浪费）
     const content = String(body.content ?? '').slice(0, 5000)
+    const requestId = String((body as any).request_id ?? '')
 
     // 验证发件人 agent（当前用户绑定的 agent）
     let [sender] = await sql`
@@ -151,7 +152,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
         departmentId: params.id,
         message: { id: message.id, sender_id: message.sender_id, content: message.content, attachments: attachmentMeta },
       })
-      handleNewMessageStream(ctx, params.id, String(sender.id), content, String(message.id), String(body.request_id ?? '')).catch((err) =>
+      handleNewMessageStream(ctx, params.id, String(sender.id), content, String(message.id), requestId).catch((err) =>
         console.error('[messages] handleNewMessageStream error:', err),
       )
       return Response.json({ message }, { status: 201 })
@@ -174,7 +175,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const deepseekKey = process.env.DEEPSEEK_API_KEY
     if (deepseekKey && deepseekKey !== 'sk-your-deepseek-api-key' && !deepseekKey.startsWith('sk-your-')) {
       // 流式：先创建占位消息再触发
-      handleNewMessageStream(ctx, params.id, String(sender.id), body.content, message.id, String(body.request_id ?? '')).catch((err) =>
+      handleNewMessageStream(ctx, params.id, String(sender.id), body.content, message.id, requestId).catch((err) =>
         console.error('[messages] handleNewMessageStream error:', err),
       )
     }
@@ -262,7 +263,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
         // 初始消息 ID
         write(`event: meta\ndata: {"messageId":"${message.id}"}\n\n`)
 
-        await handleNewMessageStreamSSE(ctx, params.id, body.content, write)
+        await handleNewMessageStreamSSE(ctx, params.id, body.content, '', write)
 
         controller.close()
       },

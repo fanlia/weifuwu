@@ -1524,7 +1524,7 @@ async function main() {
     let reply = ''
     let sseBuf = ''
     const { handleNewMessageStreamSSE } = await import('./src/services/chat.ts')
-    await handleNewMessageStreamSSE(ctx, String(whAgent.im_bind_dept), msg.content, (chunk: string) => {
+    await handleNewMessageStreamSSE(ctx, String(whAgent.im_bind_dept), msg.content, '', (chunk: string) => {
       sseBuf += chunk
       const m = sseBuf.match(/event: wf:done[\s\S]*?data: (\{[\s\S]*?\})\n\n/)
       if (m) {

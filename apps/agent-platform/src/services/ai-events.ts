@@ -51,6 +51,9 @@ export function subscribeAiEvents(fn: (e: AiEvent) => void): () => void {
 
 /** 查询（最近 N 条——按 agentId/action/messageId 过滤） */
 export function aiEvents(n = 100, filter?: { agentId?: string; action?: string; messageId?: string }): AiEvent[] {
+  return aiEventsFiltered(n, filter)
+}
+function aiEventsFiltered(n: number, filter?: { agentId?: string; action?: string; messageId?: string }): AiEvent[] {
   const out: AiEvent[] = new Array(len)
   for (let i = 0; i < len; i++) out[i] = buf[(head + i) % MAX_EVENTS]
   const slice = out.slice(-n)
@@ -104,8 +107,8 @@ if (typeof globalThis !== 'undefined') {
     }
   }
 }
-function requireSandboxEvents(): any {
-  // 动态引用（避免循环依赖——sandbox events 是纯模块）
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return { sandboxEvents: (globalThis as any).__sandbox_events ?? (() => []) }
+function requireSandboxEvents(): { sandboxEvents: (n: number) => AiEvent[] } {
+  // 动态引用（避免循环依赖——sandbox events 是纯模块——globalThis 工具或空）
+  const fn = (globalThis as any).__sandbox_events
+  return { sandboxEvents: (n: number) => (typeof fn === 'function' ? fn(n) : []) }
 }
