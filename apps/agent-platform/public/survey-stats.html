@@ -128,8 +128,8 @@ const StatsPage = async (_init, ctx) => {
         { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" } },
         h(StatCard, { label: "\u5DF2\u63D0\u4EA4\uFF08\u9501\u5B9A\uFF09", value: String(count), variant: "success" }),
         h(StatCard, { label: online.sources.length > 0 ? `\u5728\u7EBF\uFF08${online.sources.slice(0, 3).join("\u3001")}${online.sources.length > 3 ? ` \u7B49 ${online.sources.length} \u4EBA` : ""}\uFF09` : "\u5728\u7EBF\u586B\u5199\u8005", value: String(online.count), variant: "primary" }),
-        // 填写中的来源 = 未提交的（已提交/填写完的不算——用户决策）
-h(StatCard, { label: "\u586B\u5199\u4E2D\u7684\u6765\u6E90", value: String(progress.filter((p) => !p.locked).length) }),
+        // 填写中的来源 = 未提交 + 在线（已提交不算；下线了也不算——正在填写的才算）
+h(StatCard, { label: "\u586B\u5199\u4E2D\u7684\u6765\u6E90", value: String(progress.filter((p) => !p.locked && online.sources.includes(p.source)).length) }),
         h(StatCard, { label: "\u5DF2\u540C\u6B65\u7684\u7B54\u9898\u6570", value: String(answers.length) })
       ),
       // 填写进度（按来源）
