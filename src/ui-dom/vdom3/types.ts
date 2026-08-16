@@ -135,7 +135,7 @@ export type AppVNode = VNode & {
 // 不变量：任何事件触发，最终都落到 dom 层事件（node/text/prop/event/ref 的精准状态变化）——
 // 决策层事件（route/comp/vnode）只是解释"为什么"，执行层事件（dom）是"做了什么"。
 
-export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream' | 'effect' | 'app' | 'app'
+export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream' | 'effect' | 'app' | 'diff'
 
 export type Action =
   /** location 层 */
@@ -152,6 +152,11 @@ export type Action =
   | 'queue' | 'notfound' | 'skip'
   /** 事件流自身层（buffer 状态——溢出覆盖/水位预警可观测） */
   | 'overflow' | 'watermark'
+  /** diff 决策层（阶段 0——vdom2 机制事件化）：
+   *  transition = 类型转换决策（from 旧 kind → to 新 kind——patch 查表分派观测）
+   *  mode       = key 模式选择（unkeyed/keyed/mixed——业务身份声明协议观测）
+   *  summary    = children 摘要（old/new/dom 三序列——顺序错乱快速定位） */
+  | 'transition' | 'mode' | 'summary'
   /** 组件副作用层（ref 挂载/动画/滚动锁/焦点 trap/滚动——非渲染的 DOM 行为可观测） */
   | 'mount' | 'animate' | 'lock' | 'unlock' | 'focus' | 'scroll'
   /** 用户文本操作层（输入/选区/剪贴板——用户对文本的交互可观测） */
@@ -170,6 +175,9 @@ export type V3Event = {
   target?: string
   /** 参数（对象相关数据——旧值/新值/父节点/属性 key 等） */
   payload?: Record<string, unknown>
+  /** 渲染会话 id（一次渲染（renderByIds/首帧/导航）内的事件共享同一 session——
+   *  按会话过滤/回放——vdom2 traceId 事件流化）——emit 时注入（stream 持有当前会话） */
+  session?: string
   ts: number
 }
 
@@ -182,6 +190,10 @@ export type ErrorPhase = 'factory' | 'renderFn' | 'build' | 'patch' | 'mount' | 
 /** 事件流（记录/回放/断言——DOM = fold(events)） */
 export interface EventStream {
   emit(ev: V3Event): void
+  /** 新渲染会话开始（每次渲染入口调用——同一次渲染的事件共享 session） */
+  setSession(): string
+  /** 当前会话 id（无渲染进行时 null） */
+  currentSession(): string | null
   /** 实时订阅（emit 同步回调——缓冲溢出也不丢事件——返回退订）
    *  重载：subscribe(fn) 全部事件；subscribe(filter, fn) 按层过滤（entity） */
   subscribe(fn: (ev: V3Event) => void): () => void

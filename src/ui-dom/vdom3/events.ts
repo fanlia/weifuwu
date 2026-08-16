@@ -52,8 +52,18 @@ export function createEventStream(max = 20000, opts?: { watermark?: number }): E
       }
     }
   }
+  // 渲染会话（emit 时注入——事件带 session 字段——按会话过滤/回放）
+  let currentSession: string | null = null
+  let sessionUid = 0
   return {
+    /** 新渲染会话开始（每次渲染入口调用——同一次渲染的事件共享 session id） */
+    setSession(): string {
+      currentSession = `s${++sessionUid}`
+      return currentSession
+    },
+    currentSession(): string | null { return currentSession },
     emit(evt: V3Event): void {
+      if (currentSession != null && evt.session == null) (evt as V3Event & { session: string }).session = currentSession
       emitOne(evt, false)
       // 水位预警（达到阈值发一次 stream:watermark——早于溢出的提醒——可观测；
       // watermark <= 0 禁用——纯溢出语义隔离）

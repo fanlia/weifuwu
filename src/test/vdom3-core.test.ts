@@ -2906,3 +2906,51 @@ test('重建项插入位置：children 顺序保持（audit 顺序错位回归�
   assert.ok(headerIdx < gridIdx && gridIdx < tailIdx, `children 顺序保持（header→grid→tail）——实际: ${ids.join(',')}`)
   document.body.removeChild(root)
 })
+
+// ── 阶段 0：事件流地基扩展（session + diff:transition 决策事件） ──
+
+test('阶段 0：渲染会话 session 注入——同一次渲染的事件共享 session id', async () => {
+  stream.reset() // 隔离前面测试的事件残留
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const handle = createRoot(h('div', {}, [h('span', {}, 'a'), h('span', {}, 'b')]), root)
+  await handle.ready
+  // 首帧渲染的事件带 session（同一次渲染共享）
+  const events = stream.events()
+  const sessioned = events.filter((e) => e.entity === 'node' && e.action === 'create').map((e) => e.session).filter(Boolean)
+  assert.ok(sessioned.length > 0, `首帧 node:create 事件带 session——实际 ${sessioned.length}`)
+  const sessions = new Set(sessioned)
+  assert.equal(sessions.size, 1, `同一次渲染共享同一 session——实际 ${sessions.size}`)
+  // 二次渲染（rerender）→ 新 session
+  stream.reset()
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const s2 = stream.events().map((e) => e.session).filter(Boolean)
+  assert.ok(s2.length > 0 && new Set(s2).size === 1, `rerender 事件带新 session——实际 ${new Set(s2).size}`)
+  document.body.removeChild(root)
+})
+
+test('阶段 0：diff:transition 决策事件——from/to kind 可观测', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let n = 0
+  const App = async (_init: any, ctx: any) => async () => {
+    const rerender = () => ctx.render()
+    return h('div', {}, n === 0 ? h('span', {}, 'x') : '文本')
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  stream.reset()
+  // 触发元素 → 文本 转换（patch 决策）
+  n = 1
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const transitions = stream.events().filter((e) => e.entity === 'diff' && e.action === 'transition')
+  assert.ok(transitions.length > 0, `diff:transition 决策事件发射——实际 ${transitions.length}`)
+  // from/to kind 在决策事件中
+  const t = transitions[0]
+  assert.ok(t.payload?.from != null && t.payload?.to != null, `决策事件带 from/to——实际 ${JSON.stringify(t.payload)}`)
+  document.body.removeChild(root)
+})

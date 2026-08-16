@@ -74,6 +74,8 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
   async function updateComponent(compId: string): Promise<void> {
     if (updatingComps.has(compId)) { dirtyComps.add(compId); return }
     updatingComps.add(compId)
+    // 渲染会话（阶段 0：一次渲染的事件共享 session——按会话过滤/回放）
+    stream.setSession()
     try {
       do {
         dirtyComps.delete(compId)
@@ -128,6 +130,8 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
   async function update(): Promise<void> {
     if (updating) { dirty = true; return }
     updating = true
+    // 渲染会话（阶段 0）
+    stream.setSession()
     try {
       do {
         dirty = false

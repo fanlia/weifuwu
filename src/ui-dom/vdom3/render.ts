@@ -175,7 +175,26 @@ export function patch(oldV: VNode | null, newV: VNode | string | number | null |
   }
 }
 
+/** 单节点 kind 分类（diff:transition 决策事件的 from/to——阶段 0——vdom2 VKind 语义） */
+function vKindOf(v: VNodeChild | null): string {
+  if (v == null || typeof v === 'boolean') return 'hole'
+  if (typeof v === 'string' || typeof v === 'number') return 'text'
+  if (typeof v === 'object' && !Array.isArray(v)) {
+    const t = (v as VNode).type
+    if (typeof t === 'function') return 'comp'
+    if (t === Fragment) return 'frag'
+    if (t === Portal) return 'portal'
+    return 'native'
+  }
+  return 'unknown'
+}
+
 function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?: Node | null): Node | null {
+  // 决策事件（阶段 0.2——diff 转换决策可观测——from 旧 kind → to 新 kind——
+  // 阶段 3 查表化的观测基础；payload.level='trace'——订阅者按需过滤）
+  const fromKind = vKindOf(oldV)
+  const toKind = vKindOf(newV)
+  stream.emit(ev('diff', 'transition', undefined, { from: fromKind, to: toKind, level: 'trace' }))
   // 文本
   if (typeof newV === 'string' || typeof newV === 'number') {
     const str = String(newV)
