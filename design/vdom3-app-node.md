@@ -45,20 +45,34 @@ function patchAppKind(ov, vn, parent, anchor): Node {
 }
 ```
 
-## 3. 隔离设计（关键决策）
+## 3. 边界设计（决策 D2 更新：不隔离 + 边界标记——2026-12 讨论结论）
 
-**per-app 实例**（4.2 的具体化）：
-- **stream**：子应用独立事件流（`createEventStream`）——子应用内部事件不混入父流
-- **delegate**：子应用独立注册表 + 挂载点（子应用 root 容器）——监听不混合
-- **registry/id**：子应用独立 id 分配器（`nextNodeId` per-app）——id 隔离
-- **组件索引**（comp-index）：per-app——子应用组件 O(1) 定位独立
+**关键洞察：天然机制已提供"物理隔离"——显式隔离（per-app 实例化）是重复劳动**：
+- **id 全局唯一**（nextNodeId）——子应用节点 id 无冲突——事件归属天然唯一
+- **挂载点独立**（每挂载点每事件监听）——子应用容器自己的监听——父/子不混合
+- **delegate/索引共享**（按 id 分发）——id 唯一 = 事件只到自己——无需 per-app
+- **同 realm 共享 JS 堆**（模块单例/组件库——AGENTS.md §6.1）——"全隔离"是
+  假隔离（半隔离语义不完整）——诚实"不隔离 + 边界标记"
 
-**边界事件（父流可见——app 节点生命周期）**：
+**事件流统一（全链路可观测）**：
 ```
-app:mount（子应用挂载完成——ready）
+一条流：route:change → app:mount → 子应用 comp:render → node:create ...
+（父 + 子全链路——app 边界事件带 appId——subscribe 过滤区分）
+```
+
+**应用边界（逻辑——非引擎隔离）**：
+```
+应用边界：子应用工厂/状态独立（闭包）——父不直接引用子内部
+渲染边界：子应用容器独立——父 patch 不触碰
+事件边界：app:* 事件带 appId——subscribe 过滤
+```
+
+**边界事件（app 节点生命周期——同一流）**：
+```
+app:mount（子应用挂载完成——ready——含 appId）
 app:unmount（子应用销毁）
 app:error（子应用加载/运行失败——error:app）
-app:update（props 变化——通知子应用）
+app:update（props 变化——自然组件更新——可观测）
 ```
 
 **隔离范围（诚实裁剪）**：
@@ -102,32 +116,31 @@ registerApp('billing', (el, props, ctx) => createRoot(h(BillingApp, { props }), 
 | # | 决策 | 选项 | 建议 |
 |---|---|---|---|
 | D1 | 加载方式 | 本地注册（appId）vs 远程（src） | **本地注册先行**（远程 = 动态 import——可后续） |
-| D2 | 隔离级别 | 全隔离（per-app stream/delegate/id）vs 共享父流 | **全隔离**（app 的意义）——边界事件在父流 |
-| D3 | 子应用渲染 | createRoot（独立根）vs 共享 build 管线 | **createRoot**（per-app 实例——独立 update 链） |
-| D4 | props 更新 | 父 build 时比较 → app:update → 子应用更新 | 父不深渲染子应用（不透明）——props 桥接 |
+| D2 | 隔离级别 | 全隔离（per-app）vs 不隔离（共享流） | **不隔离 + 边界标记**（天然机制已隔离归属——同 realm 共享 JS 堆——全隔离是假隔离） |
+| D3 | 子应用渲染 | createRoot（独立根）vs 共享 build 管线 | **共享 build 管线**（app = 特殊组件——子应用根组件在父流渲染） |
+| D4 | props 更新 | 桥接 vs 自然 | **自然 props**（app 组件 = 组件——props 变化组件级更新） |
 | D5 | 占位 | children（骨架屏）在应用就绪前显示 | 是（loading 语义——与 uiServe loading 对齐） |
 | D6 | 样式 | 全局共享（不隔离） | 是（裁剪 Shadow DOM——组件库 token 共享） |
 
 ## 8. 实施步骤（讨论后）
 
 1. types.ts：`App` Symbol + VKind 'app' + classifyKind
-2. jsx.ts：`createApp`（h('app') 的构造——或直接 type: App）
-3. registerApp/registry（应用注册表）
-4. render.ts：app 节点渲染（挂载/更新/卸载——per-app createRoot）
-5. 事件流：app:mount/update/unmount/error（父流边界）
-6. per-app 实例化：stream/delegate/id/comp-index（createRoot options 注入——4.2 落地）
-7. 测试：多应用隔离（事件流独立/监听独立/id 独立）+ 边界事件 + 卸载清理
-8. 浏览器验证：父应用嵌子应用（计数器/弹层互不干扰）
+2. jsx.ts：`createApp`（h('app') 构造——type: App）
+3. registerApp/registry（应用注册表——模块级）
+4. render.ts：app 节点渲染（挂载/更新/卸载——子应用根组件在父流渲染）
+5. 事件流：app:mount/update/unmount/error（带 appId——同流可区分）
+6. 测试：多应用（边界事件 + 同流全链路 + 卸载清理 + id 唯一性）
+7. 浏览器验证：父应用嵌子应用（计数器/弹层互不干扰——同一事件流可区分）
 
 ## 9. 风险
 
 | 风险 | 缓解 |
 |---|---|
-| per-app id 冲突 | 独立 id 分配器（app 前缀或独立计数器） |
-| 子应用卸载泄漏 | unmount 全量清理（stream/delegate/索引/监听——现有机制 per-app 化） |
+| 事件流噪音（父+子一条流） | appId 标记 + subscribe 过滤（阶段 2.2 已支持按 entity——扩展按 appId） |
+| 子应用卸载泄漏 | 组件卸载路径（现有机制自然覆盖——app 组件 unmount → 子应用工厂清理） |
 | 父 patch 触碰子应用 DOM | app 节点不透明（父只管理占位容器——子应用 DOM 不展开） |
 | 组件库双实例（§6.1） | 同 realm 共享模块单例（不隔离 JS 堆——文档明确） |
-| 嵌套 app（app 内 app） | 递归支持（子应用内再 createRoot——自然） |
+| 嵌套 app（app 内 app） | 递归支持（子应用根组件内再 createApp——自然） |
 
 ## 10. 非目标（诚实裁剪）
 
