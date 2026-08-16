@@ -729,7 +729,7 @@ test('路由：页面组件交互（ctx.render 重渲染当前页）——点击
 
 test('事件流：环形缓冲——溢出保留最近 max 条（最旧丢弃）+ 顺序正确', async () => {
   const { createEventStream } = await import('../ui-dom/vdom3/events.ts')
-  const s = createEventStream(5)
+  const s = createEventStream(5, { watermark: 0 }) // 禁用水位——纯溢出语义
   for (let i = 1; i <= 8; i++) s.emit({ entity: 'node', action: 'create', target: `n${i}`, payload: { tag: 'div' }, ts: i })
   const evs = s.events()
   assert.equal(evs.length, 5, '容量 5（保留最近 5）')
@@ -2277,7 +2277,7 @@ test('错误事件化：正常渲染零内部决策事件（queue/notfound/skip 
 
 test('事件流自身状态：buffer 溢出 → stream:overflow（覆盖可审计——size/capacity/overflowCount API）', async () => {
   const { createEventStream } = await import('../ui-dom/vdom3/events.ts')
-  const s = createEventStream(5)
+  const s = createEventStream(5, { watermark: 0 }) // 禁用水位——纯溢出语义
   // 填满 + 溢出
   for (let i = 1; i <= 8; i++) {
     s.emit({ entity: 'node', action: 'create', target: `n${i}`, payload: { tag: 'div' }, ts: i })

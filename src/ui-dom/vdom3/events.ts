@@ -55,8 +55,9 @@ export function createEventStream(max = 20000, opts?: { watermark?: number }): E
   return {
     emit(evt: V3Event): void {
       emitOne(evt, false)
-      // 水位预警（达到阈值发一次 stream:watermark——早于溢出的提醒——可观测）
-      if (!watermarkFired && len >= max * watermark) {
+      // 水位预警（达到阈值发一次 stream:watermark——早于溢出的提醒——可观测；
+      // watermark <= 0 禁用——纯溢出语义隔离）
+      if (watermark > 0 && !watermarkFired && len >= max * watermark) {
         watermarkFired = true
         emitOne(ev('stream', 'watermark', undefined, { usage: len, capacity: max, ratio: watermark }), true)
       }
