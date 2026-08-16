@@ -86,6 +86,10 @@ export function resetDelegation(): void {
   rootListeners.clear()
   globalHandlers.clear()
   globalRoots.clear()
+  // 文本跟踪退订配对（addGlobalListener 的 off——document 监听移除——测试隔离）
+  for (const off of textTrackingOff) off()
+  textTrackingOff = []
+  selectionReady = false
 }
 
 /** 注册挂载点（createRoot/createRouter 挂载时调用） */
@@ -95,9 +99,11 @@ export function ensureDelegationRoot(root: Element): void {
 }
 
 // ── 用户文本操作跟踪（选区 + 剪贴板——selectionchange rAF 节流 +
-//    copy/cut/paste 全局监听——不依赖组件绑定——任何用户文本交互可观测） ──
+//    copy/cut/paste 全局监听——统一走事件代理（addGlobalListener——聚合注册/
+//    退订 + EVENT_BIND/UNBIND 可观测）——不依赖组件绑定——任何用户文本交互可观测） ──
 let selectionReady = false
 let selectionRaf = 0
+let textTrackingOff: (() => void)[] = []
 
 /** 选中文本摘要（copy/cut/select 共用——含起点元素 id） */
 function selectionInfo(): { target: string | null; text: string } {
@@ -125,7 +131,7 @@ function ensureTextTracking(): void {
       } catch { /* 选区读取失败隔离 */ }
     })
   }
-  document.addEventListener('selectionchange', onSelection)
+  textTrackingOff.push(addGlobalListener(document, 'selectionchange', onSelection as EventListener))
   // 剪贴板操作（copy/cut/paste——用户文本复制粘贴可观测——含内容摘要）
   const clipboardInfo = (e: Event): { target: string | null; sample: string } => {
     const { target, text } = selectionInfo()
@@ -149,9 +155,9 @@ function ensureTextTracking(): void {
       }))
     } catch { /* 剪贴板读取失败隔离（隐私/权限） */ }
   }
-  document.addEventListener('copy', onClip)
-  document.addEventListener('cut', onClip)
-  document.addEventListener('paste', onClip)
+  textTrackingOff.push(addGlobalListener(document, 'copy', onClip as EventListener))
+  textTrackingOff.push(addGlobalListener(document, 'cut', onClip as EventListener))
+  textTrackingOff.push(addGlobalListener(document, 'paste', onClip as EventListener))
 }
 
 /** 移除挂载点（卸载——removeEventListener 配对 + 注册表清理；
