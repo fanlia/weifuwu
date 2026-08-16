@@ -166,6 +166,12 @@
 
 **风险**：低。
 
+**执行状态（2026-12）：已完成——诚实裁剪**：
+- ✅ session 字段（阶段 0）+ `eventsBySession(sessionId)` 消费 API（一次渲染
+  事件全量——按会话隔离/回放）
+- ✂️ diff:children 摘要事件**裁剪**：node:insert 序列天然可推 DOM 顺序（fold
+  不变量）——摘要冗余——auditOrder 已有顺序校验覆盖——不做
+
 ---
 
 ## 执行顺序与依赖

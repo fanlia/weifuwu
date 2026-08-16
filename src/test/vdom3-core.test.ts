@@ -3160,3 +3160,41 @@ test('阶段 4：动态数组无 key 组件检测（dev error 引导业务身份
   assert.ok(warns.length > 0, `动态数组无 key 组件触发 dev error——实际 ${warns.length}`)
   document.body.removeChild(root)
 })
+
+// ── 阶段 5：会话 trace（session 过滤 API） ──
+
+test('阶段 5：eventsBySession 按会话过滤（一次渲染的事件全量）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let n = 0
+  const App = async (_init: any) => async () => h('div', {}, [h('span', {}, String(n))])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  stream.reset()
+  n = 1
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const events = stream.events()
+  const sessionIds = [...new Set(events.map((e) => e.session).filter(Boolean))] as string[]
+  assert.equal(sessionIds.length, 1, `一次渲染一个 session——实际 ${sessionIds.length}`)
+  const bySession = stream.eventsBySession(sessionIds[0])
+  assert.equal(bySession.length, events.length, `eventsBySession 返回该会话全部事件——实际 ${bySession.length}/${events.length}`)
+  // 多次渲染 → 多个 session——按会话隔离
+  stream.reset()
+  n = 2
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  n = 3
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const s2 = [...new Set(stream.events().map((e) => e.session).filter(Boolean))] as string[]
+  assert.equal(s2.length, 2, `两次渲染两个 session——实际 ${s2.length}`)
+  const first = stream.eventsBySession(s2[0])
+  const second = stream.eventsBySession(s2[1])
+  // 两次渲染的 text:update 分属各自会话
+  const t1 = first.find((e) => e.entity === 'text' && e.action === 'update')
+  const t2 = second.find((e) => e.entity === 'text' && e.action === 'update')
+  assert.ok(t1 && t2 && t1.session !== t2.session, `各渲染的更新事件分属各自 session`)
+  document.body.removeChild(root)
+})

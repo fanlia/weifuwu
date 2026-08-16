@@ -205,6 +205,8 @@ export interface EventStream {
   subscribe(fn: (ev: V3Event) => void): () => void
   subscribe(filter: Entity[] | Entity, fn: (ev: V3Event) => void): () => void
   events(): V3Event[]
+  /** 按渲染会话过滤（一次渲染的事件全量——调试/回放按会话） */
+  eventsBySession(sessionId: string): V3Event[]
   /** 当前有效条数（缓冲占用——事件流自身状态可观测） */
   size(): number
   /** 缓冲容量 */

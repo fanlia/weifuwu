@@ -97,6 +97,10 @@ export function createEventStream(max = 20000, opts?: { watermark?: number }): E
       for (let i = 0; i < len; i++) out[i] = at(i)
       return out
     },
+    /** 按渲染会话过滤（阶段 5——session 字段的消费 API——一次渲染的事件全量） */
+    eventsBySession(sessionId: string): V3Event[] {
+      return this.events().filter((e) => e.session === sessionId)
+    },
     inverse(evt: V3Event): V3Event | null {
       switch (evt.entity + ':' + evt.action) {
         case 'node:insert':
