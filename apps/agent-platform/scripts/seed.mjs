@@ -17,6 +17,7 @@
  */
 
 import { postgres, hashPassword } from 'weifuwu'
+import { GROUP_NAME, GROUP_ROLES, buildSurveyPrompt, SURVEY_URL } from './survey-agents-lib.mjs'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -406,6 +407,54 @@ Agent Platform 是一个 AI Agent 平台，基于 weifuwu 框架构建。
   console.log('  ✓ 4 个部门: 技术部 / 客服中心 / 运维组 / 张明-小码')
 
   // ════════════════════════════════════════════════════
+  // 6c. 问卷填写群（seed 自动建好——5 个机器人——用户进群发消息 @全员 填问卷——
+  //     人设/填写纪律来自 survey-agents-lib.mjs（与 seed-survey-agents 单一规则源））
+  // ════════════════════════════════════════════════════
+  // 5 角色独立部门（执行归属 = 独立沙盒——架构不变量：@全员 群消息 + 独立部门沙盒并发）
+  const surveyRoles = []
+  for (const p of GROUP_ROLES) {
+    const [roleDept] = await sql`
+      INSERT INTO departments (app_id, name, is_dm)
+      VALUES (${DEMO_APP_ID}, ${p.name}, false)
+      RETURNING id
+    `
+    const [roleAgent] = await sql`
+      INSERT INTO agents (app_id, type, name, description, model, department_id,
+        system_prompt, temperature, max_tokens,
+        allow_file_tools, allow_command_exec, allow_network, is_active, tools)
+      VALUES (${DEMO_APP_ID}, 'ai', ${p.name}, ${p.roleLabel + '——' + p.expertise},
+        'deepseek-v4-flash', ${roleDept.id}, ${buildSurveyPrompt(p)},
+        0.7, 4096, true, true, true, true, '[]')
+      RETURNING id
+    `
+    await sql`
+      INSERT INTO department_members (department_id, agent_id, role)
+      VALUES (${roleDept.id}, ${roleAgent.id}, 'member')
+    `
+    surveyRoles.push({ agent: roleAgent.id, dept: roleDept.id })
+  }
+  // 问卷填写群（群组——5 机器人 + 管理员 + 张明——用户进群发消息触发全员）
+  const [surveyGroup] = await sql`
+    INSERT INTO departments (app_id, name, is_dm)
+    VALUES (${DEMO_APP_ID}, ${GROUP_NAME}, false)
+    RETURNING id
+  `
+  await sql`
+    INSERT INTO department_members (department_id, agent_id, role)
+    VALUES
+      (${surveyGroup.id}, ${adminAgent.id}, 'admin'),
+      (${surveyGroup.id}, ${userAgent.id}, 'member')
+  `
+  for (const r of surveyRoles) {
+    await sql`
+      INSERT INTO department_members (department_id, agent_id, role)
+      VALUES (${surveyGroup.id}, ${r.agent}, 'member')
+    `
+  }
+  console.log(`  ✓ 问卷填写群：${GROUP_ROLES.length} 个机器人（财务小王/市场小李/产品老张/客服小陈/研发大刘）——进群 @全员 请填写问卷`)
+  console.log(`    问卷页：${SURVEY_URL}——${GROUP_ROLES.length} 个机器人同时响应（各自独立部门沙盒）`)
+
+  // ════════════════════════════════════════════════════
   // 6b. 组织层级：部门经理（department 类型 agent——代表部门对外协作）
   // ════════════════════════════════════════════════════
   // 经理 = 部门代表：加入上级部门（管理委员会）形成组织层级；被 @ 时用 call_agent 分派成员干活
@@ -727,7 +776,8 @@ df -h / | awk 'NR==2 {print \"磁盘使用率: \" \$5}'
   console.log('    4. 进入「技术部」项目空间：三栏工作区——右栏交付物已有演示文件')
   console.log('    5. 聊天 @小码 让 AI 干活（如"在共享目录写一份周报.md"）——呼吸灯/文件卡片/交付物实时刷新')
   console.log('    6. 运营报表：部门维度用量看板')
-  console.log('    7. 沙盒页：查看技术部/运维组环境（requested——首次干活自动启动）')
+  console.log('    7. 沙盒页：查看技术部/运维组环境（requested——首次干活自动启动）
+    8. 「问卷填写群」：发消息 @全员 请填写问卷——5 个机器人（财务小王/市场小李/产品老张/客服小陈/研发大刘）同时响应——统计页 http://localhost:3000/demo-survey/stats 实时查看')
 }
 
 main().catch((err) => {
