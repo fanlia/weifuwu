@@ -59,6 +59,23 @@
   ——**降频**（exec:start/queued/ensure:cache-hit 等频繁事件只留内存环形——不入库）
 - **TTL 清理**（reconcile 每轮——`SANDBOX_EVENT_RETENTION` 默认 7 天——历史归档）
 
+## 执行优化（事件流基础上的第一个收益）
+
+**exec 超时分级**（浏览器任务 vs 轻量命令）：
+- workspace.ts 工具分类（agent-browser/browser → 120s——open 挂起实测痛点）
+- docker runTool/runOnce 接受 opts.execTimeoutMs——execOnce 用分级超时
+- 轻量命令保持默认 35s——浏览器任务 120s（挂起不再误杀）
+
+## 端到端事件关联（全链路一条链）
+
+**关联方法**（前端事件流 ↔ 沙盒事件流）：
+- 前端 `wf:tool_call`（agentId/departmentId/tool）↔ 沙盒 `exec:start/end`
+  （departmentId/tool——exec 事件已带 departmentId）
+- 关联键：**departmentId + tool + 时间窗**（同部门同工具 30s 窗内——AI 工具
+  调用 → 沙盒 exec 一条链）
+- API：`/api/sandboxes/events?departmentId=` 按部门过滤（exec 事件按部门查——
+  与前端 wf:tool_call 对照——一次事故全链路回放）
+
 ## 风险与裁剪
 
 - 事件可能丢（进程崩溃）→ reconcile 兜底（事件流 + docker 实际对照——双源校验）

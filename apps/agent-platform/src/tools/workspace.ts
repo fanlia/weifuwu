@@ -129,7 +129,10 @@ export function createWorkspaceHandlers(
 
   // 容器内工具执行（统一入口——经 SandboxManager：查/建记录 → ensure → exec）
   const runInSandbox = async (tool: string, args: Record<string, unknown>): Promise<string> => {
-    const r = await manager.runTool(departmentId, ws, tool, args, { network: allowNetwork })
+    // exec 超时分级：浏览器任务（agent-browser——open 挂起实测）→ 120s——
+    // 轻量命令（bash/文件）→ 默认 35s（docker 层按工具分类）
+    const isBrowserTask = tool.includes('agent-browser') || tool.includes('browser') || tool.includes('ab_')
+    const r = await manager.runTool(departmentId, ws, tool, args, { network: allowNetwork, execTimeoutMs: isBrowserTask ? 120_000 : undefined })
     if (r.ok) return r.output ?? ''
     // 诚实裁剪：沙盒不可用 → 明确错误（绝不静默回退宿主）
     return `沙盒错误: ${r.error ?? 'unknown'}`

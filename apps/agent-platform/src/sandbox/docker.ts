@@ -301,7 +301,7 @@ export class DockerSandbox {
    * - 天然隔离：无池/心跳/回收/busy/串行队列（调用即焚）
    * - 卷挂载共享：文件状态永远在 /ws（卷）——与常驻模式同一份数据
    */
-  async runOnce(sandboxId: string, spec: SandboxSpec, tool: string, args: Record<string, unknown>): Promise<ExecResult> {
+  async runOnce(sandboxId: string, spec: SandboxSpec, tool: string, args: Record<string, unknown>, opts?: { execTimeoutMs?: number }): Promise<ExecResult> {
     if (!this.opts.enabled) {
       return { ok: false, error: '沙盒不可用（SANDBOX_DISABLE）——工具已禁用' }
     }
@@ -337,7 +337,7 @@ export class DockerSandbox {
     if (r.exitCode !== 0) return { ok: false, error: `一次性容器创建失败: ${r.stderr.trim() || 'unknown'}` }
     try {
       const payload = JSON.stringify({ tool, args })
-      const secs = Math.max(3, Math.floor(this.opts.execTimeoutMs / 1000))
+      const secs = Math.max(3, Math.floor(timeoutMs / 1000))
       const er = await this.dockerExec(tmpName,
         ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), 'node', '/opt/sandbox/tool-runner.js'],
         payload)
@@ -373,6 +373,7 @@ export class DockerSandbox {
     spec: SandboxSpec,
     tool: string,
     args: Record<string, unknown>,
+    opts?: { execTimeoutMs?: number },
   ): Promise<ExecResult> {
     if (!this.opts.enabled) {
       return { ok: false, error: '沙盒不可用（SANDBOX_DISABLE）——工具已禁用' }
@@ -386,7 +387,7 @@ export class DockerSandbox {
     sandboxEmit('exec:queued', sandboxId, { tool })
     const queueT0 = Date.now()
     const chain = this.execChains.get(sandboxId) ?? Promise.resolve()
-    const run = chain.then(() => this.execOnce(sandboxId, tool, args))
+    const run = chain.then(() => this.execOnce(sandboxId, tool, args, opts?.execTimeoutMs))
     this.execChains.set(sandboxId, run.catch(() => {}))
     const r = await run
     const queueMs = Date.now() - queueT0
@@ -406,11 +407,12 @@ export class DockerSandbox {
   }
 
   /** 单次 exec（队列内执行体） */
-  private async execOnce(sandboxId: string, tool: string, args: Record<string, unknown>): Promise<ExecResult> {
+  private async execOnce(sandboxId: string, tool: string, args: Record<string, unknown>, execTimeoutMs?: number): Promise<ExecResult> {
     this.busy.add(sandboxId)
     this.execStats.execCount++
     // 2026-12 可观测性：记录运行中 exec（诊断卡住场景——哪个沙盒在跑什么/多久）
-    this.runningExecs.set(sandboxId, { tool, startedAt: Date.now(), timeoutMs: this.opts.execTimeoutMs })
+    const timeoutMs = execTimeoutMs ?? this.opts.execTimeoutMs
+    this.runningExecs.set(sandboxId, { tool, startedAt: Date.now(), timeoutMs })
     this.onExecEvent?.(sandboxId, 'exec_start', tool)
     try {
       const payload = JSON.stringify({ tool, args })

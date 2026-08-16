@@ -184,7 +184,7 @@ export class SandboxManager {
     ws: string,
     tool: string,
     args: Record<string, unknown>,
-    opts?: { network?: boolean },
+    opts?: { network?: boolean; execTimeoutMs?: number },
   ): Promise<ExecResult> {
     if (!this.sql) return { ok: false, error: '沙盒管理器未初始化' }
     let row = await this.byDepartment(departmentId)
@@ -224,8 +224,8 @@ export class SandboxManager {
     sandboxEmit('exec:start', row.id, { departmentId, tool, mode: row.mode })
     const execT0 = Date.now()
     const r = row.mode === 'ephemeral'
-      ? await this.exe.runOnce(row.id, spec, tool, args)
-      : await this.exe.runTool(row.id, spec, tool, args)
+      ? await this.exe.runOnce(row.id, spec, tool, args, { execTimeoutMs: opts?.execTimeoutMs })
+      : await this.exe.runTool(row.id, spec, tool, args, { execTimeoutMs: opts?.execTimeoutMs })
     const execMs = Date.now() - execT0
     if (!r.ok) {
       if (r.timedOut) this.counters.execTimeouts++

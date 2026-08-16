@@ -134,7 +134,12 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
       const n = Number(new URL(req.url).searchParams.get('n') ?? 100)
       const sandboxId = new URL(req.url).searchParams.get('sandboxId') ?? undefined
       const action = new URL(req.url).searchParams.get('action') ?? undefined
-      return Response.json({ events: sandboxEvents(Math.min(n, 500), { sandboxId, action }) })
+      const events = sandboxEvents(Math.min(n, 500), { sandboxId, action })
+      // 端到端关联：按部门过滤（exec 事件带 departmentId——与前端 wf:tool_call
+      // 的 departmentId 关联——AI 工具调用 ↔ 沙盒 exec 一条链）
+      const departmentId = new URL(req.url).searchParams.get('departmentId') ?? undefined
+      const filtered = departmentId ? events.filter((e) => e.payload?.departmentId === departmentId) : events
+      return Response.json({ events: filtered, departmentId: departmentId ?? null })
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '事件流查询失败' }, { status: 500 })
     }
