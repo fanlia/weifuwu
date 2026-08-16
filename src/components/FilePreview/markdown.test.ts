@@ -58,13 +58,12 @@ test('编辑闭环：md → HTML → DocState（Editor 模型）→ serializeMar
   assert.equal(out, '# 标题\n\n这是加粗和*斜体*段落\n\n> 引用\n\n- 项')
 })
 
-test('serializeMarkdown：图片/分隔线还原；代码块降级纯文本（超 Editor 模型——诚实裁剪）', () => {
+test('serializeMarkdown：图片/分隔线/代码块全还原（pre embed——编辑闭环格式保留）', () => {
   const doc = parseHtml(markdownToHtml('前![图](https://x/a.png)后\n\n---\n\n```\ncode\n```'))
   const out = serializeMarkdown(doc)
   assert.ok(out.includes('![图](https://x/a.png)'), '图片还原')
   assert.ok(out.includes('---'), '分隔线还原')
-  assert.ok(out.includes('code'), '代码块内容保留（降级纯文本——无 ``` 包裹）')
-  assert.ok(!out.includes('```'), '代码块格式降级（Editor 模型无 pre）')
+  assert.ok(out.includes('```\ncode\n```'), '代码块 ``` 保留（pre embed）')
 })
 
 test('serializeMarkdown：纯文本（text 文件保存）', () => {

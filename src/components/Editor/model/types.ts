@@ -36,7 +36,7 @@ export interface MarkSpan {
 export interface EmbedSpan {
   id: string
   at: number
-  type: 'img' | 'table' | 'hr'
+  type: 'img' | 'table' | 'hr' | 'pre'
   html: string
 }
 

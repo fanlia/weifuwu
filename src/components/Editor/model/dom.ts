@@ -13,7 +13,7 @@
 /** 嵌入元素判定（与 html.ts EMBED_TAGS 一致） */
 export function isEmbedElement(el: Element): boolean {
   const t = el.tagName
-  return t === 'IMG' || t === 'TABLE' || t === 'HR'
+  return t === 'IMG' || t === 'TABLE' || t === 'HR' || t === 'PRE'
 }
 
 /** 块级元素（模型 \n 段边界——serialize 输出这些标签；ul/ol 容器不算——li 是段） */

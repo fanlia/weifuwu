@@ -25,7 +25,7 @@ const MARK_TAGS: Record<string, { type: MarkSpan['type']; href?: boolean }> = {
   U: { type: 'u' },
   A: { type: 'link', href: true },
 }
-const EMBED_TAGS: Record<string, EmbedSpan['type']> = { IMG: 'img', TABLE: 'table', HR: 'hr' }
+const EMBED_TAGS: Record<string, EmbedSpan['type']> = { IMG: 'img', TABLE: 'table', HR: 'hr', PRE: 'pre' }
 const ALIGN_CLASSES: Record<string, Align> = {
   'wf-text-center': 'center',
   'wf-text-right': 'right',
