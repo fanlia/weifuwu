@@ -8,7 +8,7 @@
  */
 
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { createRouter, h, stream, evKey } from 'weifuwu/ui-dom'
+import { createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
 import { v3Toast, v3Confirm } from 'weifuwu/ui-dom'
 import {
   Button, Input, Textarea, Select,
@@ -32,6 +32,30 @@ import {
   JsonSchemaForm, ReasoningBlock, CitationCard, SessionList,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
+
+// ── 多应用演示：子应用注册（app 节点——多应用加载——应用编排） ──
+registerApp('mini-todo', (_props: any, _ctx: any) => {
+  // 子应用工厂：返回子应用根组件（应用实例状态闭包持有——appId 复用不重跑）
+  const MiniTodo = async (_init: any, ctx: any) => {
+    let items: string[] = ['子应用任务']
+    let input = ''
+    const rerender = () => ctx.ui.render()
+    return async () => (
+      <div class="wf-stack wf-gap-sm">
+        <div class="wf-row wf-gap-sm">
+          <input class="wf-input" style="flex:1" value={input}
+            onInput={(e: any) => { input = e.target.value; rerender() }}
+            placeholder="子应用输入…" />
+          <Button size="sm" onClick={() => { if (input.trim()) { items.push(input.trim()); input = ''; rerender() } }}>添加</Button>
+        </div>
+        <ul style="margin:0;padding-left:16px">
+          {items.map((it, i) => <li key={it + i} class="wf-text-sm">{it}</li>)}
+        </ul>
+      </div>
+    )
+  }
+  return h(MiniTodo, {})
+})
 
 // ── 布局组件 ──────────────────────────────────────────
 
@@ -2044,6 +2068,21 @@ const DemoSparkline: Component = async () => async () => (
   </div>
 )
 
+const DemoApp: Component = async (_init, ctx) => {
+  let appProps = { title: '独立子应用' }
+  const render = () => ctx.ui.render()
+  return async () => (
+    <div class="wf-stack wf-gap-sm">
+      <div class="wf-text-sm wf-text-secondary">父应用嵌入子应用（app 节点——独立状态/事件可区分——同流全链路）</div>
+      <Button size="sm" onClick={() => { appProps = { title: '更新: ' + Date.now() % 1000 }; render() }}>更新子应用 props</Button>
+      <div class="wf-p-sm wf-border wf-rounded-md" style="--wf-border: var(--wf-color-border)">
+        <h4 class="wf-text-sm" style="margin:0 0 8px">{appProps.title}</h4>
+        {h(AppNode, { appId: 'mini-todo', props: appProps })}
+      </div>
+    </div>
+  )
+}
+
 const DemoTour: Component = async (_props, ctx) => {
   let open = false
   let step = 0
@@ -3157,6 +3196,9 @@ const App: Component = async (_props, ctx) => {
       </Section>
 
       <Section title="新增批次">
+        <DemoCard title="多应用（app 节点）" desc="父应用嵌入子应用：注册表 + 独立状态 + app:* 边界事件（appId 可区分——同流全链路）" code={`registerApp('mini-todo', (props, ctx) => h(MiniTodo, {}))  // 注册子应用
+// 父树中：
+<hApp appId="mini-todo" props={props} />`}><DemoApp /></DemoCard>
         <DemoCard title="Rate" desc="评分：键盘方向键 / allowClear / readOnly，新增 star 图标" code={CODE.rate}><DemoRate /></DemoCard>
         <DemoCard title="Typography" desc="Title/Text/Paragraph：语义标签 + 语义色 -text 变体 + mark/code/删除线" code={CODE.typography}><DemoTypography /></DemoCard>
         <DemoCard title="Label / AspectRatio" desc="独立标签（required 星号）+ 宽高比容器（内容填满）" code={CODE.label}><DemoLabel /><DemoAspectRatio /></DemoCard>

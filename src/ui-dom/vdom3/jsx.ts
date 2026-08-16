@@ -6,7 +6,7 @@
  */
 
 import type { VNode, VNodeChild } from './types.ts'
-import { Fragment, Portal } from './types.ts'
+import { Fragment, Portal, App } from './types.ts'
 import type { Component } from './types.ts'
 
 // type 参数放宽为 Component<any, any>（vdom2 同款——TS 逆变：具体 props 的组件
@@ -56,6 +56,7 @@ declare global {
       | ((props: any, ctx: any) => any)
       | typeof Fragment
       | typeof Portal
+      | typeof App
     interface IntrinsicElements {
       [tag: string]: any
     }
