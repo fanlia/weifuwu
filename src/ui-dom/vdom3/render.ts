@@ -144,6 +144,10 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     }
     if (val != null && val !== false) {
       if (key === 'value' && el instanceof HTMLInputElement) setInputValue(el, String(val))
+      else if (key === 'innerHTML') {
+        // 富文本/内容渲染（Editor contentEditable 等——innerHTML 是属性不是 attribute）
+        el.innerHTML = String(val)
+      }
       else if (key === 'style' && typeof val === 'object' && !Array.isArray(val)) {
         // style 对象 → cssText（camelCase → kebab-case）
         const css = Object.entries(val as Record<string, unknown>)
@@ -814,6 +818,12 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
       continue
     }
     if (nc == null || nc === false || nc === true) {
+      // 旧项是 portal：无论 DOM 占位与否，远程容器内容必须清理——
+      // 条件渲染关闭（portal → null）漏清残留（真实事故：Editor link/image
+      // 浮层取消后面板残留在 #__wf_portal）
+      if (oc != null && typeof oc === 'object' && !Array.isArray(oc) && isPortalNode(oc)) {
+        removePortalContent(oc as PortalVNode)
+      }
       // 空洞：旧占位保留（无操作）；旧真实 → 占位替换（对称——不塌缩——
       // anchor 先捕获（removeOld 后 domNode 脱离——直接传会 appendChild 末尾——错位）
       if (!isHoleNode(domNode)) {

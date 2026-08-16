@@ -140,7 +140,9 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
         // SSR 下 document undefined → null/no-op——组件 36 处 ctx.browser 消费
         // 无需各自 fallback（Tour 曾因 ctx.browser 缺失 → query 返回 undefined →
         // targetEl 永不赋值 → rect 恒 0 → 引导高亮定位失效）
-        browser: createClientBrowser(),
+        // 注入优先（测试/宿主可覆盖——真实事故：ctx.browser 注入被覆盖——
+        // Editor draftKey 的 storageSet 走真实 browser 而非 fake）
+        browser: ctx.browser ?? createClientBrowser(),
         ui: createV3Ui(compId, componentRender, (fn) => { unmountHooks.set(compId, fn) }),
       }) as V3Ctx
       // 组件工厂：失败 → error:throw（事件流可观测——工厂 reject 不静默）

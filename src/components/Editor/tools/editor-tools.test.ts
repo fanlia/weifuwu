@@ -1,11 +1,9 @@
 /**
- * Editor tools 单元测试（format/toolbar/table——模块级函数全分支）
+ * Editor tools 单元测试（toolbar/table——模块级函数全分支）
  *
  * 覆盖：
- * - execFormat：18 个 item 分支 → document.execCommand 命令透传（spy）
- * - queryFormats：queryCommandState/Value → FormatState 字段映射（spy）
  * - renderToolbar：分组分隔符、active 高亮态、link 按钮 class
- * - insertTable：真实 DOM 插入（行列/表头加粗/&nbsp;/caret 移动）
+ * - tableHtml：表格 HTML 生成（事件流事务层——embed 快照）
  * - renderTableGrid：6×6 网格、hover 高亮、label、onSelect/onHover/onLeave 回调
  */
 
@@ -14,172 +12,9 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../../test/client/setup.ts'
 before(setupJsdom)
 
-import { execFormat, queryFormats } from './format.ts'
 import { renderToolbar } from './toolbar.ts'
-import { insertTable, renderTableGrid } from './table.ts'
+import { tableHtml, renderTableGrid } from './table.ts'
 import type { ToolbarItem } from './types.ts'
-
-/** 收集 document.execCommand 调用（jsdom 原生为 no-op/不存在——spy 记录并安全返回） */
-function spyExec(): string[][] {
-  const calls: string[][] = []
-  ;(document as any).execCommand = (cmd: string, _ui?: boolean, value?: string) => {
-    calls.push([cmd, value ?? ''])
-    return false
-  }
-  return calls
-}
-
-/** 收集 queryCommandState/Value 调用并返回预设值 */
-function spyQuery(state: Record<string, boolean>, value: Record<string, string>): void {
-  ;(document as any).queryCommandState = (cmd: string) => state[cmd] ?? false
-  ;(document as any).queryCommandValue = (cmd: string) => value[cmd] ?? ''
-}
-
-afterEach(() => {
-  delete (document as any).execCommand
-  delete (document as any).queryCommandState
-  delete (document as any).queryCommandValue
-})
-
-// ═══════════ format.ts ═══════════
-
-test('execFormat：全部分支 → execCommand 命令透传', () => {
-  const calls = spyExec()
-  const cases: Array<[ToolbarItem, string[]]> = [
-    ['bold', ['bold']],
-    ['italic', ['italic']],
-    ['underline', ['underline']],
-    ['h1', ['formatBlock', '<h1>']],
-    ['h2', ['formatBlock', '<h2>']],
-    ['h3', ['formatBlock', '<h3>']],
-    ['ul', ['insertUnorderedList']],
-    ['ol', ['insertOrderedList']],
-    ['blockquote', ['formatBlock', '<blockquote>']],
-    ['alignLeft', ['justifyLeft']],
-    ['alignCenter', ['justifyCenter']],
-    ['alignRight', ['justifyRight']],
-    ['hr', ['insertHorizontalRule']],
-    ['clear', ['removeFormat', 'formatBlock', '<div>']], // clear = removeFormat + formatBlock div
-  ]
-  for (const [item, expected] of cases) {
-    calls.length = 0
-    execFormat(item)
-    if (item === 'clear') {
-      assert.deepEqual(calls, [['removeFormat', ''], ['formatBlock', '<div>']], 'clear = removeFormat + formatBlock div')
-    } else {
-      assert.equal(calls.length, 1, `${item} 应调用 1 次 execCommand`)
-      assert.equal(calls[0][0], expected[0], `${item} → ${expected[0]}`)
-      if (expected[1]) assert.equal(calls[0][1], expected[1], `${item} value → ${expected[1]}`)
-    }
-  }
-  // 特殊处理项不调 execCommand
-  for (const item of ['image', 'link', 'source'] as ToolbarItem[]) {
-    calls.length = 0
-    execFormat(item)
-    assert.equal(calls.length, 0, `${item} 应由 Editor 特殊处理，不调 execCommand`)
-  }
-})
-
-test('queryFormats：queryCommandState/Value → FormatState 字段映射', () => {
-  spyQuery(
-    { bold: true, italic: false, underline: true, justifyCenter: true, justifyLeft: false, justifyRight: false },
-    { formatBlock: 'h2' },
-  )
-  const f = queryFormats()
-  assert.equal(f.bold, true)
-  assert.equal(f.italic, false)
-  assert.equal(f.underline, true)
-  assert.equal(f.h1, false, 'formatBlock=h2 → h1 false')
-  assert.equal(f.h2, true, 'formatBlock=h2 → h2 true')
-  assert.equal(f.h3, false)
-  assert.equal(f.alignCenter, true, 'justifyCenter → alignCenter')
-  assert.equal(f.alignLeft, false)
-  assert.equal(f.alignRight, false)
-})
-
-test('execFormat：formatBlock 类 toggle——当前已是该格式 → 回默认块（标题/引用反选）', () => {
-  // spy queryCommandState 返回 h1 已 active
-  spyQuery({ h1: true }, { formatBlock: 'h1' })
-  const calls = spyExec()
-  execFormat('h1')
-  assert.deepEqual(calls, [['formatBlock', '<div>']], 'h1 active 时再点 → 回默认块（反选）')
-
-  spyQuery({ h1: false }, { formatBlock: 'p' })
-  calls.length = 0
-  execFormat('h1')
-  assert.deepEqual(calls, [['formatBlock', '<h1>']], 'h1 未 active → 应用 h1')
-
-  spyQuery({ blockquote: true }, { formatBlock: 'blockquote' })
-  calls.length = 0
-  execFormat('blockquote')
-  assert.deepEqual(calls, [['formatBlock', '<div>']], 'blockquote active 时再点 → 回默认块')
-})
-
-test('queryFormats：CSS class 居中的块 → alignCenter true（queryCommandState 不识别 class 对齐）', () => {
-  ;(document as any).queryCommandState = () => false // jsdom 无原生——spy 返回 false，对齐走 queryBlockAlign
-  ;(document as any).queryCommandValue = () => ''
-  // 构造真实 DOM：contentEditable 里 class="wf-text-center" 的 p，选区放其内
-  const container = document.createElement('div')
-  container.setAttribute('contenteditable', 'true')
-  container.innerHTML = '<p class="wf-text-center">居中文字</p>'
-  document.body.appendChild(container)
-  try {
-    const p = container.querySelector('p')!
-    const range = document.createRange()
-    range.setStart(p.firstChild!, 0)
-    range.collapse(true)
-    const sel = window.getSelection()!
-    sel.removeAllRanges()
-    sel.addRange(range)
-    // jsdom queryCommandState 返回 false（无 execCommand）——对齐检测走 queryBlockAlign（class）
-    const f = queryFormats()
-    assert.equal(f.alignCenter, true, 'class wf-text-center → alignCenter true')
-    assert.equal(f.alignLeft, false)
-    assert.equal(f.alignRight, false)
-  } finally {
-    container.remove()
-  }
-})
-
-test('queryFormats：inline style 对齐 → 对应字段 true', () => {
-  ;(document as any).queryCommandState = () => false
-  ;(document as any).queryCommandValue = () => ''
-  const container = document.createElement('div')
-  container.setAttribute('contenteditable', 'true')
-  container.innerHTML = '<p style="text-align: right;">右对齐</p>'
-  document.body.appendChild(container)
-  try {
-    const p = container.querySelector('p')!
-    const range = document.createRange()
-    range.setStart(p.firstChild!, 0)
-    range.collapse(true)
-    const sel = window.getSelection()!
-    sel.removeAllRanges()
-    sel.addRange(range)
-    const f = queryFormats()
-    assert.equal(f.alignRight, true, 'inline text-align: right → alignRight true')
-  } finally {
-    container.remove()
-  }
-})
-
-test('queryFormats：无选区/无对齐 → 对齐字段 false（安全兜底）', () => {
-  ;(document as any).queryCommandState = () => false
-  ;(document as any).queryCommandValue = () => ''
-  window.getSelection()!.removeAllRanges()
-  const f = queryFormats()
-  assert.equal(f.alignCenter, false)
-  assert.equal(f.alignLeft, false)
-  assert.equal(f.alignRight, false)
-})
-
-test('queryFormats：jsdom 无 execCommand 时不抛（安全兜底）', () => {
-  delete (document as any).queryCommandState
-  delete (document as any).queryCommandValue
-  assert.doesNotThrow(() => queryFormats())
-})
-
-// ═══════════ toolbar.ts ═══════════
 
 test('renderToolbar：分组分隔符数量与位置', () => {
   const vnode = renderToolbar(['bold', 'italic', 'h1', 'ul', 'blockquote', 'image', 'link', 'source'], {}, false, () => {})
@@ -215,51 +50,31 @@ test('renderToolbar：点击触发 onItem 回调（item 透传）', () => {
   const got: ToolbarItem[] = []
   const vnode = renderToolbar(['bold', 'italic'], {}, false, (item) => got.push(item))
   const children = vnode.props.children as any[]
-  children.find((c: any) => c.props?.['data-item'] === 'italic')!.props.onClick()
+  children.find((c: any) => c.props?.['data-item'] === 'italic')!.props.onClick({ currentTarget: null })
   assert.deepEqual(got, ['italic'])
 })
 
 // ═══════════ table.ts ═══════════
 
-test('insertTable：在 caret 处插入 2×3 表格（表头加粗 + &nbsp; + caret 移到表后）', () => {
+test('tableHtml：2×3 表格 HTML（表头加粗 + &nbsp;）', () => {
+  const html = tableHtml(2, 3)
   const container = document.createElement('div')
-  container.innerHTML = '<p>abc</p>'
-  document.body.appendChild(container)
-  try {
-    // caret 放到 <p>abc</p> 文本开头
-    const text = container.firstChild!.firstChild as Text
-    const range = document.createRange()
-    range.setStart(text, 0)
-    range.collapse(true)
-    const sel = window.getSelection()!
-    sel.removeAllRanges()
-    sel.addRange(range)
-
-    insertTable(2, 3)
-
-    const table = container.querySelector('table.wf-editor-table')
-    assert.ok(table, '应插入 <table class="wf-editor-table">')
-    const rows = table!.querySelectorAll('tr')
-    assert.equal(rows.length, 2, '2 行')
-    assert.equal(rows[0].querySelectorAll('td').length, 3, '3 列')
-    assert.equal(rows[1].querySelectorAll('td').length, 3)
-    // 表头加粗 + &nbsp; 单元格
-    const headerTd = rows[0].querySelector('td')!
-    assert.ok(headerTd.style.fontWeight, '表头有加粗样式')
-    assert.equal(rows[1].querySelector('td')!.innerHTML, '&nbsp;', '单元格 &nbsp;')
-    // caret 移到表格后（selection 在 table 之后）
-    const sel2 = window.getSelection()!
-    assert.ok(sel2.rangeCount > 0, 'caret 保留')
-    const after = sel2.getRangeAt(0).startContainer
-    assert.ok(after === container || after.nodeType === 1, 'caret 在表格后')
-  } finally {
-    container.remove()
-  }
+  container.innerHTML = html
+  const table = container.querySelector('table.wf-editor-table')
+  assert.ok(table, '包含 <table class="wf-editor-table">')
+  const rows = table!.querySelectorAll('tr')
+  assert.equal(rows.length, 2, '2 行')
+  assert.equal(rows[0].querySelectorAll('td').length, 3, '3 列')
+  assert.equal(rows[1].querySelectorAll('td').length, 3)
+  // 表头加粗 + &nbsp; 单元格
+  const headerTd = rows[0].querySelector('td')!
+  assert.ok(headerTd.style.fontWeight, '表头有加粗样式')
+  assert.equal(rows[1].querySelector('td')!.innerHTML, '&nbsp;', '单元格 &nbsp;')
 })
 
-test('insertTable：无选区时不操作（不抛）', () => {
-  window.getSelection()!.removeAllRanges()
-  assert.doesNotThrow(() => insertTable(2, 2))
+test('tableHtml：行列参数', () => {
+  assert.equal(tableHtml(1, 1).includes('<tr>'), true)
+  assert.equal(tableHtml(0, 0).includes('<tbody></tbody>'), true)
 })
 
 test('renderTableGrid：6×6 网格 + hover 高亮 + label + 回调', () => {

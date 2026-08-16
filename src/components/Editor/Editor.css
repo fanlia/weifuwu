@@ -183,6 +183,33 @@
 
 /* ── 弹窗内输入框 ──────────────────────────────────── */
 
+.wf-editor-link-panel {
+  position: fixed;
+  z-index: var(--wf-z-popover);
+  background: var(--wf-color-bg);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  box-shadow: var(--wf-shadow-md, 0 4px 12px rgba(0,0,0,.12));
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  min-width: 260px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-editor-link-panel-title {
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text);
+}
+
+.wf-editor-link-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--wf-gap-xs);
+}
+
 .wf-editor-link-input {
   display: block;
   width: 100%;
@@ -316,4 +343,154 @@
     min-height: 44px;
     min-width: 44px;
   }
+}
+
+/* ── AI 协作（选区操作 → 建议浮层） ── */
+
+.wf-editor-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.wf-editor-ai-bar {
+  display: inline-flex;
+  align-items: center;
+}
+
+.wf-editor-tb-btn--ai {
+  color: var(--wf-color-primary);
+}
+
+.wf-editor-tb-btn--ai:hover {
+  background: var(--wf-color-primary-bg);
+}
+
+.wf-editor-ai-panel {
+  position: fixed;
+  z-index: var(--wf-z-popover);
+  background: var(--wf-color-bg);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  box-shadow: var(--wf-shadow-md, 0 4px 12px rgba(0,0,0,.12));
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  min-width: 260px;
+  max-width: 420px;
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-editor-ai-panel-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text);
+}
+
+.wf-editor-ai-panel-status {
+  font-weight: normal;
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-xs);
+}
+
+.wf-editor-ai-panel-body {
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  white-space: pre-wrap;
+  overflow-y: auto;
+  max-height: 200px;
+  line-height: 1.6;
+}
+
+.wf-editor-ai-panel-error {
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-error, #dc2626);
+}
+
+.wf-editor-ai-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--wf-gap-xs);
+}
+
+/* ── 操作历史（时光机） ── */
+
+.wf-editor-hist-panel {
+  position: fixed;
+  z-index: var(--wf-z-popover);
+  background: var(--wf-color-bg);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  box-shadow: var(--wf-shadow-md, 0 4px 12px rgba(0,0,0,.12));
+  padding: var(--wf-space-xs);
+  min-width: 220px;
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wf-editor-hist-empty {
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-xs);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+}
+
+.wf-editor-hist-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  border: none;
+  background: transparent;
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.wf-editor-hist-item:hover {
+  background: var(--wf-color-bg-hover, var(--wf-color-border));
+}
+
+.wf-editor-hist-item--current {
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary);
+  font-weight: var(--wf-font-weight-semibold);
+}
+
+.wf-editor-hist-item--redo .wf-editor-hist-label {
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-editor-hist-time {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  flex-shrink: 0;
+}
+
+/* ── AI diff 视图（原文删除线 + 建议高亮） ── */
+
+.wf-editor-ai-diff {
+  white-space: pre-wrap;
+}
+
+.wf-editor-ai-diff-del {
+  color: var(--wf-color-error, #dc2626);
+  text-decoration: line-through;
+  opacity: .7;
+}
+
+.wf-editor-ai-diff-ins {
+  color: var(--wf-color-success, #16a34a);
+  background: var(--wf-color-success-bg, rgba(22,163,74,.12));
+  border-radius: 2px;
 }

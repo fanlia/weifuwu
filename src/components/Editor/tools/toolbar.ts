@@ -73,8 +73,9 @@ export function renderToolbar(
   items: ToolbarItem[],
   active: FormatState,
   isSource: boolean,
-  onItem: (item: ToolbarItem) => void,
+  onItem: (item: ToolbarItem, anchor?: HTMLElement | null) => void,
   customRender?: Record<string, (item: ToolbarItem) => VNode>,
+  extra?: VNode[],
 ): VNode {
   const buttons = items.map(item => {
     if (customRender?.[item]) return customRender[item](item)
@@ -94,7 +95,7 @@ export function renderToolbar(
       title: TOOLBAR_TITLES[item],
       'aria-label': TOOLBAR_TITLES[item],
       'data-item': item,
-      onClick: () => onItem(item),
+      onClick: (e: MouseEvent) => onItem(item, e.currentTarget as HTMLElement | null),
     }, TOOLBAR_LABELS[item])
   })
 
@@ -106,5 +107,5 @@ export function renderToolbar(
     withSeparators.push(buttons[i])
   })
 
-  return h('div', { class: 'wf-editor-toolbar', role: 'toolbar', 'aria-label': '编辑格式' }, withSeparators)
+  return h('div', { class: 'wf-editor-toolbar', role: 'toolbar', 'aria-label': '编辑格式' }, [...withSeparators, ...(extra ?? [])])
 }

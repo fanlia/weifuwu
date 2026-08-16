@@ -1,57 +1,29 @@
 /**
  * weifuwu/components/Editor/tools — 表格工具
+ *
+ * 事件流事务层（design/editor-events-plan.md 阶段 1）：表格 = embed 事件——
+ * 本模块只生成 HTML（不再操作 DOM/execCommand）。
  */
 
 import { h } from '../../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../../ui-dom/browser.ts'
-
-// 编辑器工具：无组件 ctx——模块级 browser（SSR 时 getSelection/createElement 返回安全默认）
-const browser = createClientBrowser()
 
 /** 最大表格行列数 */
 const MAX = 6
 
-/** 在光标处插入表格 HTML */
-export function insertTable(rows: number, cols: number): void {
-  const sel = browser.getSelection()
-  if (!sel || !sel.rangeCount) return
-  const range = sel.getRangeAt(0)
-  if (!range) return
-
-  const table = browser.createElement('table')
-  const tbody = browser.createElement('tbody')
-  if (!table || !tbody) return
-
-  table.className = 'wf-editor-table'
-
+/** 生成表格 HTML（表头行加粗——模型 embed 快照） */
+export function tableHtml(rows: number, cols: number): string {
+  let out = '<table class="wf-editor-table"><tbody>'
   for (let ri = 0; ri < rows; ri++) {
-    const tr = browser.createElement('tr')
-    if (!tr) continue
+    out += '<tr>'
     for (let ci = 0; ci < cols; ci++) {
-      const td = browser.createElement('td')
-      if (!td) continue
-      if (ri === 0) {
-        td.style.fontWeight = 'var(--wf-font-weight-semibold,600)'
-      }
-      td.innerHTML = '&nbsp;'
-      tr.appendChild(td)
+      out += ri === 0
+        ? '<td style="font-weight:var(--wf-font-weight-semibold,600)">&nbsp;</td>'
+        : '<td>&nbsp;</td>'
     }
-    tbody.appendChild(tr)
+    out += '</tr>'
   }
-
-  table.appendChild(tbody)
-
-  const wrapper = browser.createElement('div')
-  if (!wrapper) return
-  wrapper.appendChild(table)
-
-  range.deleteContents()
-  range.insertNode(wrapper)
-
-  range.setStartAfter(wrapper)
-  range.collapse(true)
-  sel.removeAllRanges()
-  sel.addRange(range)
+  out += '</tbody></table>'
+  return out
 }
 
 /** 渲染 6×6 表格选择网格 */
