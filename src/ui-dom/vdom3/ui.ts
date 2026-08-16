@@ -13,7 +13,7 @@
 import type { HookEnv } from '../hooks/types.ts'
 import { useExternal } from '../hooks/external.ts'
 import { useControlled, useControlledInput, useAsync } from '../hooks/input.ts'
-import { usePresence, useAnimationEnd, useStableRef, useHoverCapable, useReducedMotion, useLongPress, useTween } from '../hooks/stable.ts'
+import { usePresence, useStableRef, useHoverCapable, useReducedMotion, useLongPress, useTween } from '../hooks/stable.ts'
 import { useOpen, usePopupPosition, usePopup } from '../hooks/popup.ts'
 import { useMedia, useBreakpoint, useVisualViewport, useInView, useScrollPosition } from '../hooks/media.ts'
 import { useGlobalKey, useDrag, useDragDrop } from '../hooks/events.ts'
@@ -107,7 +107,6 @@ export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn:
     useBreakpoint: (bps, cb) => { useBreakpoint(env, bps, cb) },
     useReducedMotion: () => useReducedMotion(env),
     useStableRef: (init, cleanup) => useStableRef(env, init, cleanup),
-    useAnimationEnd: (cb, opts) => useAnimationEnd(env, cb, opts),
     usePresence: (options) => usePresence(env, options),
     useLongPress: (options) => useLongPress(env, options),
     useHoverCapable: () => useHoverCapable(env),

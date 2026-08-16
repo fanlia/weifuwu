@@ -141,8 +141,8 @@ export type Action =
   | 'throw' | 'caught'
   /** 内部决策层（渲染管线内部状态——busy 排队/组件未定位/跳过——非正常路径可观测） */
   | 'queue' | 'notfound' | 'skip'
-  /** 事件流自身层（buffer 状态——溢出覆盖可观测） */
-  | 'overflow'
+  /** 事件流自身层（buffer 状态——溢出覆盖/水位预警可观测） */
+  | 'overflow' | 'watermark'
   /** 组件副作用层（ref 挂载/动画/滚动锁/焦点 trap/滚动——非渲染的 DOM 行为可观测） */
   | 'mount' | 'animate' | 'lock' | 'unlock' | 'focus' | 'scroll'
   /** 用户文本操作层（输入/选区/剪贴板——用户对文本的交互可观测） */
@@ -169,8 +169,10 @@ export type ErrorPhase = 'factory' | 'renderFn' | 'build' | 'patch' | 'mount' | 
 /** 事件流（记录/回放/断言——DOM = fold(events)） */
 export interface EventStream {
   emit(ev: V3Event): void
-  /** 实时订阅（emit 同步回调——缓冲溢出也不丢事件——返回退订） */
+  /** 实时订阅（emit 同步回调——缓冲溢出也不丢事件——返回退订）
+   *  重载：subscribe(fn) 全部事件；subscribe(filter, fn) 按层过滤（entity） */
   subscribe(fn: (ev: V3Event) => void): () => void
+  subscribe(filter: Entity[] | Entity, fn: (ev: V3Event) => void): () => void
   events(): V3Event[]
   /** 当前有效条数（缓冲占用——事件流自身状态可观测） */
   size(): number

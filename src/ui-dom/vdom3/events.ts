@@ -20,12 +20,14 @@ export function evKey(ev: V3Event): string {
   return `${ev.entity}:${ev.action}`
 }
 
-export function createEventStream(max = 20000): EventStream {
+export function createEventStream(max = 20000, opts?: { watermark?: number }): EventStream {
   // 环形缓冲（head/tail 指针——溢出不 shift——O(1) emit）
   const buf: V3Event[] = []
   let head = 0
   let len = 0
   let overflowCount = 0
+  let watermarkFired = false
+  const watermark = opts?.watermark ?? 0.8
   // 实时订阅（emit 同步回调——缓冲溢出也不丢事件——观测/调试可靠通道）
   const listeners = new Set<(ev: V3Event) => void>()
   const at = (i: number): V3Event => buf[(head + i) % max]
@@ -53,12 +55,25 @@ export function createEventStream(max = 20000): EventStream {
   return {
     emit(evt: V3Event): void {
       emitOne(evt, false)
+      // 水位预警（达到阈值发一次 stream:watermark——早于溢出的提醒——可观测）
+      if (!watermarkFired && len >= max * watermark) {
+        watermarkFired = true
+        emitOne(ev('stream', 'watermark', undefined, { usage: len, capacity: max, ratio: watermark }), true)
+      }
       for (const fn of listeners) { try { fn(evt) } catch { /* 订阅者失败隔离 */ } }
     },
-    /** 实时订阅（emit 同步回调——不丢事件——返回退订） */
-    subscribe(fn: (ev: V3Event) => void): () => void {
-      listeners.add(fn)
-      return () => { listeners.delete(fn) }
+    /** 实时订阅（emit 同步回调——不丢事件——返回退订）。
+     *  重载（见 EventStream 类型）：subscribe(fn) 全部；subscribe(filter, fn) 按层过滤 */
+    subscribe(filterOrFn: Entity[] | Entity | ((ev: V3Event) => void), maybeFn?: (ev: V3Event) => void): () => void {
+      const filter = typeof filterOrFn === 'function' ? null : filterOrFn
+      const fn = typeof filterOrFn === 'function' ? filterOrFn as (ev: V3Event) => void : maybeFn!
+      const wrapped = (ev: V3Event) => {
+        if (filter == null) { fn(ev); return }
+        const list = Array.isArray(filter) ? filter : [filter]
+        if (list.includes(ev.entity)) fn(ev)
+      }
+      listeners.add(wrapped)
+      return () => { listeners.delete(wrapped) }
     },
     /** 当前有效条数（缓冲占用） */
     size(): number { return len },
@@ -87,7 +102,7 @@ export function createEventStream(max = 20000): EventStream {
           return null
       }
     },
-    reset(): void { head = 0; len = 0; overflowCount = 0 },
+    reset(): void { head = 0; len = 0; overflowCount = 0; watermarkFired = false },
   }
 }
 

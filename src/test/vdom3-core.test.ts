@@ -2694,3 +2694,30 @@ test('DOM↔事件流对照审计：注入绕过（直接 removeChild）→ audi
   document.body.removeChild(root)
   document.body.removeChild(root2)
 })
+
+test('subscribe 过滤订阅 + stream:watermark 水位预警（事件流自身状态可观测）', async () => {
+  const { createEventStream } = await import('../ui-dom/vdom3/events.ts')
+  // watermark：容量 10、阈值 0.5——5 条时预警
+  const s = createEventStream(10, { watermark: 0.5 })
+  const all: string[] = []
+  const domOnly: string[] = []
+  s.subscribe((e) => all.push(`${e.entity}:${e.action}`))
+  s.subscribe(['node'], (e) => domOnly.push(`${e.entity}:${e.action}`))
+  for (let i = 0; i < 6; i++) {
+    s.emit({ entity: 'node', action: 'create', target: `n${i}`, ts: i })
+  }
+  // 全部事件 + 过滤订阅（只收 dom 层）
+  assert.ok(all.includes('node:create'), '全量订阅收全部')
+  assert.equal(domOnly.length, 6, `过滤订阅只收 node 层——实际 ${domOnly.join(',')}`)
+  assert.ok(!domOnly.some((k) => !k.startsWith('node:')), '过滤订阅无其他层事件')
+  // 水位事件（5/10 >= 0.5——发一次）
+  const watermark = s.events().filter((e) => e.entity === 'stream' && e.action === 'watermark')
+  assert.ok(watermark.length >= 1, `stream:watermark（水位预警）——实际: ${s.events().map((e) => evKey(e)).join(',')}`)
+  assert.equal((watermark[0] as any).payload?.usage, 5, '水位携带占用')
+  assert.equal((watermark[0] as any).payload?.ratio, 0.5, '水位携带阈值')
+  // 不重复发（watermarkFired 一次）
+  const before = watermark.length
+  s.emit({ entity: 'node', action: 'create', target: 'x', ts: 99 })
+  const after = s.events().filter((e) => e.entity === 'stream' && e.action === 'watermark').length
+  assert.equal(after, before, '水位只发一次（不重复预警）')
+})

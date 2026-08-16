@@ -10,7 +10,6 @@ export type { HookEnv, MediaRegistryItem, PopupTracker, ScrollTracker } from './
 export { useStableRef } from './stable.ts'
 export { useHoverCapable } from './stable.ts'
 export { useReducedMotion } from './stable.ts'
-export { useAnimationEnd } from './stable.ts'
 export { useLongPress } from './stable.ts'
 export { usePresence } from './stable.ts'
 export { useTween } from './stable.ts'

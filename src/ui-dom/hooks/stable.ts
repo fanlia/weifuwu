@@ -35,27 +35,6 @@ export function useReducedMotion(_env: HookEnv): boolean {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 
-/** 元素动画完成回调（animationend）：stableRef——ref 挂载绑定、卸载清理、引用恒定 */
-export function useAnimationEnd(env: HookEnv, cb: () => void, opts?: { once?: boolean }) {
-  void env
-  let off: (() => void) | null = null
-  const handler = () => {
-    cb()
-    if (opts?.once) off?.()
-  }
-  // 动画监听统一走事件代理（once 由代理自动解绑——EVENT_UNBIND 可观测——
-  // 元素 ref 挂载时注册、卸载时退订）
-  const ref = (node: HTMLElement | null) => {
-    if (node) {
-      off = bindElementListener(node, 'animationend', handler as EventListener, !!opts?.once)
-    } else {
-      off?.()
-      off = null
-    }
-  }
-  return ref
-}
-
 /** 长按手势：pointerdown 按住 duration 触发，提前松开/位移取消，桌面右键兼容 */
 export function useLongPress(env: HookEnv, options: UseLongPressOptions): UseLongPressHandle {
   const { onLongPress, duration = 500 } = options
