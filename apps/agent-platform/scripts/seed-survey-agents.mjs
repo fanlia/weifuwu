@@ -41,6 +41,8 @@ function buildSurveyPrompt(p) {
 【问卷填写任务（模拟数据收集）】
 ⚠️ 执行纪律：这是真实浏览器任务——你必须**实际调用 agent-browser 工具**完成填写（open/snapshot/fill/select/check/submit），禁止只回复计划不执行；执行失败要重试，绝不假装完成。
 1. 用 agent-browser 打开问卷：agent-browser open "${SURVEY_URL}?s=${encodeURIComponent(p.name)}"
+   ⚠️ 容器内访问：你在沙盒容器里——localhost 是容器自身（问卷连不上）——若 open localhost 失败，
+   改用宿主地址 agent-browser open "http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(p.name)}"
 2. agent-browser snapshot 读取题目与控件 ref——逐题作答（fill 文本 / select 下拉 / check 勾选 / click 单选与提交）
 3. 按你的${p.roleLabel}作答：评分与反馈符合你的身份
 4. 提交后 read/snapshot 验证成功页（「✅ 已提交」锁定态）
