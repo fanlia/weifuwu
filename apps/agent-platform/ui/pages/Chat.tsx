@@ -237,7 +237,9 @@ export const Chat: Component = async (_props, ctx) => {
           if (idx === -1) {
             $.msgs.push({ id: event.messageId, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'thinking', tools: [] as MessageTool[] })
           } else if ($.msgs[idx].status !== 'complete' && $.msgs[idx].status !== 'error') {
-            $.msgs[idx].status = 'thinking'
+            // 新建对象（引用变——vdom3 props 剪枝浅比较不命中——重渲染——
+            // 否则原地改引用同 → 剪枝 → 状态/内容不更新（流式空 bubble 真实 bug））
+            $.msgs[idx] = { ...$.msgs[idx], status: 'thinking' }
           }
         } else if (event.stepType === 'tool') {
           const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
@@ -251,15 +253,20 @@ export const Chat: Component = async (_props, ctx) => {
         ; break
       }
       case 'wf:token': {
-        const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
-        if (m) { m.content += event.text; if (m.status !== 'complete') m.status = 'generating' }
+        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
+        if (idx !== -1) {
+          const m = $.msgs[idx]
+          // 新建对象（引用变——vdom3 剪枝不命中——流式 token 逐字渲染）
+          $.msgs[idx] = { ...m, content: m.content + event.text, status: m.status !== 'complete' ? 'generating' : m.status }
+        }
         ; break
       }
       case 'wf:tool_result': {
-        const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
-        if (m) {
-          (m.tools ?? []).forEach((t: MessageTool) => { if (t.name === event.name && t.status === 'running') { t.status = 'done'; t.result = event.result } })
-          if (m.status !== 'complete') m.status = 'thinking'
+        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
+        if (idx !== -1) {
+          const m = $.msgs[idx]
+          const tools = (m.tools ?? []).map((t: MessageTool) => t.name === event.name && t.status === 'running' ? { ...t, status: 'done' as const, result: event.result } : t)
+          $.msgs[idx] = { ...m, tools, status: m.status !== 'complete' ? 'thinking' : m.status }
         }
         ; break
       }
@@ -267,16 +274,18 @@ export const Chat: Component = async (_props, ctx) => {
         const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
         if (idx !== -1) {
           const m = $.msgs[idx]
-          if (event.content) m.content = event.content
-          m.status = 'complete'; if (event.usage) m.usage = event.usage
+          $.msgs[idx] = { ...m, content: event.content ?? m.content, status: 'complete', usage: event.usage ?? m.usage }
         }
         // P2-1：AI 干活结束（呼吸灯复位）
         setAiWorking(event.agentId, false)
         ; break
       }
       case 'wf:error': {
-        const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
-        if (m) { if (!m.content) m.content = '⚠️ AI 回复失败'; m.status = 'error' }
+        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
+        if (idx !== -1) {
+          const m = $.msgs[idx]
+          $.msgs[idx] = { ...m, content: m.content || '⚠️ AI 回复失败', status: 'error' }
+        }
         setAiWorking(event.agentId, false)
         ; break
       }
