@@ -92,7 +92,7 @@ const StatsPage = async (_init, ctx) => {
       if (!progress.some((p) => p.source === src)) progress.push({ source: src, done: 0, locked: false });
     }
     const feed = [...answers].reverse().slice(0, 30);
-    const wsBadge = wsStatus === "connected" ? h(Badge, { variant: "success" }, "\u25CF \u5DF2\u8FDE\u63A5\uFF08\u5B9E\u65F6\uFF09") : wsStatus === "disconnected" ? h(Badge, { variant: "danger" }, `\u25CF \u8FDE\u63A5\u65AD\u5F00\uFF08\u91CD\u8FDE\u4E2D ${wsDetail.attempt}/${wsDetail.max}\uFF09`) : h(Badge, { variant: "warning" }, "\u25CB \u8FDE\u63A5\u4E2D...");
+    const wsBadge = wsStatus === "connected" ? h(Badge, { variant: "success" }, "\u25CF \u5DF2\u8FDE\u63A5\uFF08\u5B9E\u65F6\uFF09") : wsStatus === "disconnected" ? h(Badge, { variant: "danger" }, `\u25CB \u8FDE\u63A5\u65AD\u5F00\uFF0C\u81EA\u52A8\u91CD\u8FDE\u4E2D\uFF08${wsDetail.attempt}/${wsDetail.max}\uFF09`) : h(Badge, { variant: "warning" }, "\u25CB \u8FDE\u63A5\u4E2D...");
     return h(
       "div",
       { style: { maxWidth: "860px", margin: "32px auto", padding: "0 20px" } },
@@ -120,7 +120,7 @@ const StatsPage = async (_init, ctx) => {
       wsStatus === "disconnected" && h(
         Alert,
         { type: "error", style: { marginBottom: "12px" } },
-        `WS \u8FDE\u63A5\u65AD\u5F00\u2014\u2014\u5B9E\u65F6\u6570\u636E\u6682\u505C\uFF08\u81EA\u52A8\u91CD\u8FDE\u4E2D \u7B2C ${wsDetail.attempt}/${wsDetail.max} \u6B21\uFF09\u2014\u2014\u6062\u590D\u540E\u81EA\u52A8\u540C\u6B65`
+        `WS \u8FDE\u63A5\u65AD\u5F00\u2014\u2014\u5B9E\u65F6\u6570\u636E\u6682\u505C\uFF08\u81EA\u52A8\u91CD\u8FDE\u4E2D ${wsDetail.attempt}/${wsDetail.max}\uFF09\u2014\u2014\u6062\u590D\u540E\u81EA\u52A8\u540C\u6B65`
       ),
       // 统计卡片（StatCard——内置组件）
       h(

@@ -273,7 +273,7 @@ export class SandboxManager {
       const rows = await this.sql`
         INSERT INTO sandboxes (app_id, department_id, name, status, mode, image, network, memory_mb, cpus, workspace, expires_at)
         VALUES (${input.appId}, ${input.departmentId ?? null}, ${input.name}, 'requested',
-          ${input.mode ?? 'persistent'}, ${input.image ?? 'ap-sandbox:latest'}, ${input.network ?? false},
+          ${input.mode ?? 'persistent'}, ${input.image ?? 'ap-sandbox:latest'}, ${input.network ?? true},
           ${input.memoryMb ?? DEFAULT_MEMORY_MB}, ${input.cpus ?? DEFAULT_CPUS}, ${input.workspace ?? null},
           NOW() + make_interval(secs => ${Math.floor(this.opts.maxLifetimeMs / 1000)}))
         RETURNING *

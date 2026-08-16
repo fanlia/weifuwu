@@ -206,7 +206,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_skills_agent ON agent_skills(agent_id);
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS workspace_path TEXT;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS allow_file_tools BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS allow_command_exec BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE agents ADD COLUMN IF NOT EXISTS allow_network BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS allow_network BOOLEAN NOT NULL DEFAULT TRUE; -- 默认可访问网络（agent-browser 填问卷等需网络——用户决策）
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS template_slug TEXT;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS kb_id UUID;
 
@@ -333,7 +333,7 @@ CREATE TABLE IF NOT EXISTS sandboxes (
   status      TEXT NOT NULL DEFAULT 'requested',  -- requested/running/stopped/terminated/error
   mode        TEXT NOT NULL DEFAULT 'persistent', -- persistent/ephemeral
   image       TEXT NOT NULL DEFAULT 'ap-sandbox:latest',
-  network     BOOLEAN NOT NULL DEFAULT FALSE,
+  network     BOOLEAN NOT NULL DEFAULT TRUE, -- 默认可访问网络（用户决策）
   memory_mb   INT NOT NULL DEFAULT 1024,
   cpus        INT NOT NULL DEFAULT 1,
   error       TEXT,

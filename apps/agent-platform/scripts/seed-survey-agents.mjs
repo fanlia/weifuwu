@@ -29,6 +29,11 @@ const PERSONAS = [
   { name: '实习生阿泽', roleLabel: '新人视角', expertise: '上手/引导/文档', prompt: '你是实习生阿泽，22 岁，刚入职。填问卷时：评分看上手体验，反馈聚焦新人引导与文档质量。语气青涩真诚。' },
 ]
 
+/** 问卷填写群——5 个机器人的群组（seed 自动建好：用户进群发消息 @全员/@all，
+ *  5 个机器人同时响应填写问卷——自然使用路径，无需跑 launch 派单） */
+const GROUP_NAME = '问卷填写群'
+const GROUP_ROLES = PERSONAS.slice(0, 5) // 财务小王/市场小李/产品老张/客服小陈/研发大刘
+
 /** 角色执行提示词：人设 + agent-browser 填写纪律 + 结果落盘（交付物） */
 function buildSurveyPrompt(p) {
   return `${p.prompt}
@@ -69,6 +74,14 @@ async function main() {
   const existingDepts = new Map(depts.departments.map((d) => [d.name, d.id]))
   const agents = await api('/api/agents', { headers: auth })
   const existingAgents = new Map(agents.agents.map((a) => [a.name, a]))
+
+  // 「问卷填写群」——5 个机器人的群组（seed 自动建好——用户进群发消息 @全员 → 全部填写问卷）
+  let groupDeptId = existingDepts.get(GROUP_NAME)
+  if (!groupDeptId) {
+    const d = await api('/api/departments', { method: 'POST', headers: auth, body: JSON.stringify({ name: GROUP_NAME, auto_manager: false }) })
+    groupDeptId = d.department.id
+    existingDepts.set(GROUP_NAME, groupDeptId)
+  }
 
   // 「问卷调研」部门——用户在部门里发消息（@全员 或 @角色）让大家填写（自然使用路径）
   let hubDeptId = existingDepts.get('问卷调研')
@@ -111,14 +124,21 @@ async function main() {
       .catch((e) => console.log(`  ⚠️ 入组失败 ${p.name}: ${e.message}`))
     await api(`/api/departments/${hubDeptId}/members`, { method: 'POST', headers: auth, body: JSON.stringify({ agent_id: agent.id }) })
       .catch((e) => console.log(`  ⚠️ 入问卷调研失败 ${p.name}: ${e.message}`))
+    // 群组 5 机器人入「问卷填写群」
+    if (GROUP_ROLES.some((r) => r.name === p.name)) {
+      await api(`/api/departments/${groupDeptId}/members`, { method: 'POST', headers: auth, body: JSON.stringify({ agent_id: agent.id }) })
+        .catch((e) => console.log(`  ⚠️ 入问卷填写群失败 ${p.name}: ${e.message}`))
+    }
     created++
     console.log(`✅ ${p.name}（${p.roleLabel}）——角色部门=${deptId.slice(0, 8)} agent=${String(agent.id).slice(0, 8)} 已入「问卷调研」`)
   }
 
   console.log(`\n完成：${created} 个角色部门 + agent（每角色独立沙盒——并发填写）`)
   console.log(`问卷页：${SURVEY_URL}`)
-  console.log(`\n【让大家填写问卷（自然路径）】`)
-  console.log(`进入「问卷调研」部门 → 发消息 @全员 请填写问卷——10 个角色同时响应（各自独立沙盒并发）`)
+  console.log(`\n【问卷填写群（seed 自动建好——5 个机器人）】`)
+  console.log(`进入「${GROUP_NAME}」→ 发消息 @全员 请填写问卷——${GROUP_ROLES.length} 个机器人同时响应（各自独立沙盒并发）——无需跑 launch 派单`)
+  console.log(`\n【10 角色批量派单（可选）】`)
+  console.log(`POST /demo-survey/launch 或进入「问卷调研」部门发消息 @全员——10 个角色同时响应`)
   console.log(`汇总：node --env-file=.env scripts/survey-summary.mjs`)
 }
 

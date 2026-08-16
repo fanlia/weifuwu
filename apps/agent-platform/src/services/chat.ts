@@ -662,8 +662,8 @@ async function runAllAgents(
     mentioned.add(m[1])
   }
   if (mentioned.size > 0) {
-    // @all / @所有人：显式全员触发（@ 定向之外的通告语义）
-    if (mentioned.has('all') || mentioned.has('所有人') || mentioned.has('everyone')) {
+    // @all / @所有人 / @全员 / @everyone：显式全员触发（@ 定向之外的通告语义）
+    if (mentioned.has('all') || mentioned.has('所有人') || mentioned.has('everyone') || mentioned.has('全员')) {
       agents = aiAgents
       // 前端提示语（@all 已由 emit 处理——直接放行全员）
     } else {
