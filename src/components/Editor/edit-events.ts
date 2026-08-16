@@ -16,7 +16,7 @@ export type EditAction =
   | 'embed-insert' | 'embed-delete'
   | 'ai-apply' | 'ai-accept' | 'ai-reject'
   | 'commit' | 'undo' | 'redo' | 'clear'
-  | 'preview'
+  | 'preview' | 'office'
 
 export interface EditStreamEvent {
   entity: 'edit'

@@ -153,3 +153,64 @@ POST /api/office/export   json { docType, snapshot } → application/vnd.openxml
 - pptx：动画/母版/备注/幻灯片内表格 → warnings
 - insert-rows/cols 不做公式引用重算（v1）
 - 导入遇不支持能力：转换器返回 warnings——前端显示，绝不静默丢内容（CS-05）
+
+---
+
+## 9. AI 事件流对接（ODES × ai——跨端一条链）
+
+**关联键**：复用既有 messageId 协议（ai-events-plan——`aiEmit` + `aiEvents(n, {messageId})`；
+edit 流 `target` 字段 = messageId 关联——`ai-apply` 先例）。
+
+```
+用户操作（OfficeEditor AI 建议）
+  → aiStream（wf: SSE：wf:token/wf:done——ai 事件流 llm:start/token/done）
+  → AI 回复解析 → OfficeOp[]（普通 op——AI 元数据在 payload）
+  → editEmit('office', { docType, op, ai: { messageId, status } }, messageId)
+  → 审计：editEvents(50, {action:'office'}) ↔ aiEvents(n, {messageId})——一条链
+  → 接受 = commit（before 快照 + ops——原子撤销一步）——拒绝/错误不落 op
+```
+
+**场景矩阵**：
+
+| 场景 | docx | xlsx | pptx |
+|------|------|------|------|
+| 文本写作/润色/翻译 | ✅ **复用 Editor ai prop**（ai-apply commit——零新代码） | — | 文本框 shape-set |
+| 公式生成 | — | 选区 → 提示 → `cell-set`（公式/值） | — |
+| 数据填充/总结 | — | 选区 → 范围写入 | — |
+| 大纲 → 幻灯片 | — | — | slide-add + shape-add 布局 |
+
+**协议扩展**（types.ts）：
+
+```ts
+interface OfficeStreamPayload {
+  docType: DocType
+  op: OfficeOp
+  /** AI 关联（可选——跨端审计：editEvents ↔ aiEvents 一条链） */
+  ai?: { messageId: string; status: 'suggested' | 'accepted' | 'rejected' }
+}
+
+interface OfficeAiOptions {
+  url: string                       // AI SSE 端点（wf: 协议）
+  mode: 'text' | 'formula' | 'shape'  // 上下文模式（docType 感知默认）
+  parse?: (text: string, ctx: AiContext) => OfficeOp[]   // 自定义解析
+}
+```
+
+**AI 落地 = 普通 op + ai 元数据**（不引入 ai-* op 类型——op 集保持小）：
+- 撤销：接受 = commit（before 快照——与 Editor ai-apply 同款原子性）
+- 拒绝/错误：不产生 op——事件流 status 记录（审计可查）
+- 流式：token 降频（done 覆盖——ai 事件流既有语义）
+
+**xlsx 默认解析**（parse-formula——AI 回复 → cell-set ops）：
+- 回复含 `=...` → 公式单元格（`kind:'f'`——值 + formula 字符串）
+- 纯数字 → `kind:'n'`；文本 → `kind:'s'`
+- 位置：活动单元格或回复内嵌 ref（`A1:` 前缀）
+
+**docx**：FilePreview/OfficeEditor 透传 ai prop 到 Editor——AI 协作全链路复用
+（选区 → 建议浮层 → 接受 = ai-apply commit——`edit:ai-apply` 事件已带 messageId）。
+
+**阶段**：
+- 1c（本轮）：协议扩展（payload.ai + OfficeAiOptions）+ xlsx 默认解析器 +
+  事件流桥接测试（edit ↔ ai 关联审计）
+- 2：xlsx 网格 UI + 公式 AI 浮层（选区上下文 → 建议 → 接受 commit）
+- 3：pptx 文本 AI（shape 选中 → shape-set）

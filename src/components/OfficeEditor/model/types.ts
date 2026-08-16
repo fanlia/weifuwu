@@ -118,7 +118,29 @@ export type OfficeOp = EditEvent | SheetOp | SlideOp
 /** 事件流外壳（payload 直接进 edit 通道——action: 'office'） */
 export interface OfficeStreamPayload {
   docType: DocType
-  op: OfficeOp
+  /** 编辑操作（AI 拒绝/状态记录时缺省——不产生 op） */
+  op?: OfficeOp
+  /** AI 关联（可选——跨端审计：editEvents ↔ aiEvents 一条链——messageId 关联键） */
+  ai?: { messageId: string; status: 'suggested' | 'accepted' | 'rejected' }
+}
+
+/** OfficeEditor 的 AI 协作选项（与 Editor ai prop 同构——SSE wf: 协议） */
+export interface OfficeAiOptions {
+  url: string
+  /** 上下文模式（docType 感知默认：docx→text / xlsx→formula / pptx→shape） */
+  mode: 'text' | 'formula' | 'shape'
+  /** 自定义解析（默认按 mode：公式/值/文本 → OfficeOp[]） */
+  parse?: (text: string, ctx: AiContext) => OfficeOp[]
+}
+
+export interface AiContext {
+  docType: DocType
+  /** xlsx：活动单元格 ref（A1）或选区范围（A1:B5） */
+  ref?: string
+  /** pptx：选中 shapeId */
+  shapeId?: string
+  /** docx：选区文本（原文——提示词输入） */
+  selectionText?: string
 }
 
 // ── 编辑事务（撤销单元——同 Editor Commit） ────────────────────────────────
