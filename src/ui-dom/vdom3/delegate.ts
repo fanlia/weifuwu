@@ -265,6 +265,11 @@ function dispatch(e: Event): void {
   const m = handlers.get(e.type)
   if (!m) return
   while (el) {
+    // closest 优化：跳过无 data-v3-id 的中间层（浏览器原生——目标层有 id 时零循环）
+    if (!el.hasAttribute?.('data-v3-id')) {
+      const idEl = el.closest?.('[data-v3-id]')
+      if (idEl && idEl !== el) { el = idEl; continue }
+    }
     const id = el.getAttribute?.('data-v3-id')
     if (id) {
       const entry = m.get(id)

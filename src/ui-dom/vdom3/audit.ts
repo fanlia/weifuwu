@@ -58,3 +58,53 @@ export function auditOrder(_el: Element, v: VNode): void {
     prevIdx = idx
   }
 }
+
+/**
+ * DOM ↔ 事件流对照审计（不变量"无事件流不渲染"的运行时守护——dev 模式）
+ *
+ * 启用：__WF_VDOM_AUDIT === '1'（独立开关——默认关——审计开销仅 dev）。
+ * 机制：MutationObserver 观察挂载点（childList——added/removedNodes）——
+ * 对照事件流（node:insert/remove 的 target）——无事件对应的 DOM 结构变化
+ * = 绕过点（静默渲染）——warn。
+ * 例外（白名单）：无 data-v3-id 的节点（内部容器/文本包装）；挂载点自身清空
+ * （mount/unmount——初始/销毁语义）。
+ */
+export function auditDomEvents(root: Element, getRecent: () => Array<{ target?: string }>): () => void {
+  if ((globalThis as { __WF_VDOM_AUDIT?: string }).__WF_VDOM_AUDIT !== '1') return () => {}
+  const reported = new Set<string>()
+  const report = (kind: string, id: string | null): void => {
+    const key = `${kind}:${id ?? '?'}`
+    if (reported.has(key)) return // 同 id 同类只报一次（防刷屏）
+    reported.add(key)
+    console.warn(`[vdom3/audit] DOM 变化无事件流对应（绕过点）：${kind} id=${id ?? '?'}——无事件流不渲染不变量被破坏`)
+  }
+  const mo = new MutationObserver((muts) => {
+    for (const m of muts) {
+      if (m.type !== 'childList') continue
+      // 移除节点必须有 node:remove（严格——结构变化的主要绕过点——
+      // 精确对照：node:remove 事件且 target 匹配——非任意 target 事件）
+      for (const n of m.removedNodes) {
+        if (n.nodeType !== 1) continue
+        const id = (n as Element).getAttribute?.('data-v3-id') ?? null
+        if (id && !reported.has(`remove:${id}`)) {
+          const evs = getRecent()
+          const ok = evs.some((e) => (e as { entity?: string }).entity === 'node' && (e as { action?: string }).action === 'remove' && e.target === id)
+          if (!ok) report('remove', id)
+        }
+      }
+      // 插入节点必须有 node:insert（move 例外——同 id 同时 added+removed 跳过）
+      for (const n of m.addedNodes) {
+        if (n.nodeType !== 1) continue
+        const id = (n as Element).getAttribute?.('data-v3-id') ?? null
+        if (!id) continue
+        const wasRemoved = [...m.removedNodes].some((r) => (r as Element).getAttribute?.('data-v3-id') === id)
+        if (wasRemoved) continue // move（同批移除+插入）——合法
+        const evs = getRecent()
+        const ok = evs.some((e) => (e as { entity?: string }).entity === 'node' && (e as { action?: string }).action === 'insert' && e.target === id)
+        if (!ok) report('insert', id)
+      }
+    }
+  })
+  mo.observe(root, { childList: true, subtree: true })
+  return () => mo.disconnect()
+}

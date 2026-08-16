@@ -13,6 +13,8 @@ import type { PortalVNode } from './types.ts'
 import { scheduler } from './scheduler.ts'
 import { stream, ev } from './events.ts'
 import { ensureDelegationRoot } from './delegate.ts'
+import { getIndexedComponent } from './comp-index.ts'
+import { auditDomEvents } from './audit.ts'
 
 
 
@@ -178,6 +180,8 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
 
   // 事件代理根（挂载点监听——每挂载点每事件一次——惰性注册）
   ensureDelegationRoot(root)
+  // DOM↔事件流对照审计（dev 开关 __WF_VDOM_AUDIT='1'——无事件流不渲染的运行时守护）
+  auditDomEvents(root, () => stream.events().slice(-200))
 
   // 初始挂载（组件构建——ctx 注入）
   void (async () => {

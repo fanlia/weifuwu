@@ -13,6 +13,7 @@ import { stream, ev } from './events.ts'
 import { findComponent } from './root.ts'
 import { ensureDelegationRoot, addGlobalListener } from './delegate.ts'
 import { getIndexedComponent } from './comp-index.ts'
+import { auditDomEvents } from './audit.ts'
 
 /** 布局包裹（跨路由复用——layout 函数引用稳定 → patch 同位置同类型复用——
  *  工厂不重跑——内部状态（折叠/高亮）保持——vdom2 布局层语义） */
@@ -72,6 +73,8 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
 
   // 事件代理根（挂载点监听——每挂载点每事件一次——惰性注册）
   ensureDelegationRoot(root)
+  // DOM↔事件流对照审计（dev 开关——无事件流不渲染的运行时守护）
+  auditDomEvents(root, () => stream.events().slice(-200))
 
   // 页面组件 ctx：render = 重渲染当前页（组件工厂收到——交互驱动）+ 注入中间件面
   let pageCtx: V3Ctx = {} as V3Ctx

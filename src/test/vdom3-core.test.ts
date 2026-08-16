@@ -2663,3 +2663,34 @@ test('不变量：所有状态变化都通过事件流——状态覆盖矩阵�
   resetCompIndex()
   document.body.removeChild(root)
 })
+
+test('DOM↔事件流对照审计：注入绕过（直接 removeChild）→ audit warn（无事件流不渲染守护）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const App = async (_init: any, _ctx: any) => async () =>
+    h('div', {}, h('button', { id: 'b' }, 'x'))
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  // 注入绕过：直接 removeChild（无事件流）
+  const warns: string[] = []
+  const origWarn = console.warn
+  console.warn = (...a) => { warns.push(a.join(' ')); origWarn(...a) }
+  ;(globalThis as any).__WF_VDOM_AUDIT = '1'
+  // 重新挂载（审计挂载在 createRoot——需审计激活后创建）
+  const root2 = document.createElement('div')
+  document.body.appendChild(root2)
+  const { createRoot: createRoot2 } = await import('../ui-dom/vdom3/root.ts')
+  createRoot2(h(App, {}), root2)
+  await new Promise((r) => setTimeout(r, 30))
+  const btn = root2.querySelector('[id="b"]') as HTMLElement
+  btn.parentElement?.removeChild(btn) // 绕过——直接 DOM 操作
+  await new Promise((r) => setTimeout(r, 50)) // MutationObserver 微任务
+  console.warn = origWarn
+  ;(globalThis as any).__WF_VDOM_AUDIT = undefined
+  assert.ok(warns.some((w) => w.includes('[vdom3/audit]') && w.includes('remove')), `audit 捕获绕过（无事件流移除）——实际: ${warns.slice(0, 2).join(' | ')}`)
+  document.body.removeChild(root)
+  document.body.removeChild(root2)
+})
