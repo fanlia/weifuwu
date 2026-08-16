@@ -34,13 +34,13 @@ describe('Slider', () => {
     assert.equal(label.props.children, '温度')
   })
 
-  it('sets min, max, step', async () => {
+  it('sets min, max, step（内部归一化 0-100——实际值按比例换算）', async () => {
     const vnode = await renderVNode(Slider, { min: 0, max: 10, step: 0.5 }, createTestCtx())!
     const input = findVNode(vnode, (v: any) => v?.props?.type === 'range')
     assert.ok(input)
     assert.equal(input.props.min, 0)
-    assert.equal(input.props.max, 10)
-    assert.equal(input.props.step, 0.5)
+    assert.equal(input.props.max, 100)
+    assert.equal(input.props.step, 5, '内部 step = 实际 step/range*100（0.5/10*100）')
   })
 
   it('displays current value', async () => {
@@ -50,10 +50,12 @@ describe('Slider', () => {
   })
 })
 
-it('min/max/step 传递到原生 range', async () => {
+it('原生 range 为内部 0-100 刻度（value/min/max/step 全部归一化）', async () => {
   const vnode = await renderVNode(Slider, { value: 5, min: 0, max: 10, step: 1 }, createTestCtx())!
   const input = JSON.stringify(vnode)
-  assert.ok(input.includes('"min":0') && input.includes('"max":10') && input.includes('"step":1'))
+  // 内部刻度：value=50（5/10*100）、min=0、max=100、step=10（1/10*100）
+  assert.ok(input.includes('"min":0') && input.includes('"max":100') && input.includes('"step":10'))
+  assert.ok(input.includes('"value":50'), '内部 value = 实际比例*100（5/10*100=50）')
 })
 
 it('onChange 数值化（string → Number）', async () => {
@@ -72,6 +74,27 @@ it('onChange 数值化（string → Number）', async () => {
   find(vnode).props.onChange({ target: { value: '42' } })
   assert.equal(got, 42)
   assert.equal(typeof got, 'number')
+})
+
+it('onInput 拖拽实时回调（内部 0-100 → 实际值按比例换算——气泡实时跟随回归）', async () => {
+  let got: number | undefined
+  const vnode = await renderVNode(Slider, { value: 800, min: 0, max: 2000, step: 50, onChange: (v: number) => { got = v } }, createTestCtx())!
+  const find = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (n.props?.class === 'wf-slider-input') return n
+    const k = n.props?.children
+    if (Array.isArray(k)) { for (const c of k) { const f = find(c); if (f) return f } }
+    return null
+  }
+  const input = find(vnode)
+  assert.equal(typeof input.props.onInput, 'function', '必须绑 onInput（拖拽实时）')
+  assert.equal(input.props.min, 0)
+  assert.equal(input.props.max, 100)
+  // 内部值 40（= 800/2000*100）→ 实际 800；42.5 → 850（step 50 取整）
+  input.props.onInput({ target: { value: '40' } })
+  assert.equal(got, 800, '内部 40 → 实际 800')
+  input.props.onInput({ target: { value: '42.5' } })
+  assert.equal(got, 850, '内部 42.5 → 实际 850（step 取整）')
 })
 
 it('轨道渐变边界 = thumb 中心偏移补偿（value=50 → calc 0.5）', async () => {

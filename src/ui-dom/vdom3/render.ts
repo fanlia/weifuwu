@@ -24,6 +24,20 @@ export function isPortalNode(v: unknown): v is PortalVNode {
   const t = (v as VNode).type
   return t === Portal || (typeof t === 'symbol' && (v as VNode).props?.portalKey != null)
 }
+
+/**
+ * input value 写入：property + range 同步 attribute。
+ *
+ * 浏览器表单状态恢复/默认值机制基于 value attribute 解析（defaultValue）——
+ * 只设 property 时刷新后控件被恢复/重算为旧默认值，组件状态与原生 thumb 错位
+ * （真实事故：components-demo 2000 slider 刷新后 input.value=100 而数值显示 800——
+ * marker 与数值位置不一致）。text input 的 value attribute 语义是 defaultValue
+ * （reset() 回退值）——不能动——仅 range 同步（受控组件 attribute 恒等于当前值）。
+ */
+function setInputValue(el: HTMLInputElement, val: string): void {
+  el.value = val
+  if (el.type === 'range') el.setAttribute('value', val)
+}
 /** Fragment 判定（symbol 且非 Portal——vdom2/vdom3 Fragment 都认） */
 export function isFragmentNode(v: unknown): boolean {
   if (v == null || typeof v !== 'object') return false
@@ -129,7 +143,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
       continue
     }
     if (val != null && val !== false) {
-      if (key === 'value' && el instanceof HTMLInputElement) el.value = String(val)
+      if (key === 'value' && el instanceof HTMLInputElement) setInputValue(el, String(val))
       else if (key === 'style' && typeof val === 'object' && !Array.isArray(val)) {
         // style 对象 → cssText（camelCase → kebab-case）
         const css = Object.entries(val as Record<string, unknown>)
@@ -398,10 +412,13 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
       continue
     }
     if (nv == null || nv === false) {
-      if (key === 'value' && el instanceof HTMLInputElement) (el as HTMLInputElement).value = ''
+      if (key === 'value' && el instanceof HTMLInputElement) {
+        ;(el as HTMLInputElement).value = ''
+        if ((el as HTMLInputElement).type === 'range') (el as HTMLInputElement).removeAttribute('value')
+      }
       else el.removeAttribute(key)
     } else if (key === 'value' && el instanceof HTMLInputElement) {
-      ;(el as HTMLInputElement).value = String(nv)
+      setInputValue(el as HTMLInputElement, String(nv))
     } else if (key === 'style' && typeof nv === 'object' && !Array.isArray(nv)) {
       const css = Object.entries(nv as Record<string, unknown>)
         .filter(([, v]) => v != null && v !== false)
