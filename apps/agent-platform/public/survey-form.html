@@ -48,13 +48,28 @@ const SurveyForm = async (_init, ctx) => {
     if (detail) wsDetail = detail;
     rerender();
   });
+  // 逐题同步：合并 pending（快速连续操作不互相取消——真实用户快填丢题的体验缺口）
+  // + flush（提交前补发全部 pending——统计页答题流完整）——单题失败不中断（保留重试）
   let debounceTimer = null;
+  let pendingSync = {};
+  const flushSync = () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+    const failed = {};
+    for (const q of Object.keys(pendingSync)) {
+      try {
+        ctx.ws?.send({ type: "survey:answer", source, question: q, answer: pendingSync[q] });
+      } catch (e) {
+        failed[q] = pendingSync[q];
+      }
+    }
+    pendingSync = failed;
+  };
   const syncAnswer = (question, answer) => {
     if (submitted || !answer) return;
+    pendingSync[question] = answer;
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      ctx.ws?.send({ type: "survey:answer", source, question, answer });
-    }, 400);
+    debounceTimer = setTimeout(flushSync, 400);
   };
   let age = "";
   let industry = "";
@@ -77,6 +92,8 @@ const SurveyForm = async (_init, ctx) => {
     }
     submitting = true;
     rerender();
+    // 提交前 flush 全部 pending 答题（统计页答题流完整——快速填写不丢题）
+    flushSync();
     ctx.ws?.send({ type: "survey:submit", source, data: { age, industry, rating, focus, feedback } });
     setTimeout(() => {
       if (submitting && !submitted) {

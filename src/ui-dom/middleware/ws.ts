@@ -76,10 +76,17 @@ export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
 
       send: (msg: unknown) => {
         const s = JSON.stringify(msg)
-        if (socket?.readyState === WebSocket.OPEN) {
-          socket.send(s)
-        } else {
-          pending.push(s) // 未连接 → 排队，OPEN 后 flush
+        try {
+          if (socket?.readyState === WebSocket.OPEN) {
+            socket.send(s)
+          } else {
+            pending.push(s) // 未连接 → 排队，OPEN 后 flush
+          }
+        } catch {
+          // 发送异常（socket 竞态关闭等）——降级排队——onopen 后重试——
+          // 不中断调用链（提交/答题同步的 send 失败必须可重试——真实 bug：
+          // socket.send 抛 → flushSync 中断 → 后续题/提交未发送）
+          pending.push(s)
         }
       },
 
