@@ -81,6 +81,51 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     root.remove()
   })
 
+  it('远程加载：md 的 url fetch → 预览；加载失败占位', async () => {
+    ;(globalThis as any).fetch = async (u: string) => {
+      if (u === '/doc/readme.md') return new Response('# 远程文档\n\n内容来自 sandbox', { status: 200 })
+      return new Response('not found', { status: 404 })
+    }
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(FilePreview, { type: 'md', url: '/doc/readme.md' } as any), root)
+    await handle.ready
+    // 加载完成（mock fetch 瞬时——直接断言结果）
+    await new Promise((r) => setTimeout(r, 60))
+    assert.equal(root.querySelector('h1')?.textContent, '远程文档', '远程内容渲染')
+    assert.equal(root.textContent?.includes('内容来自 sandbox'), true)
+    const previews = editEvents(20, { action: 'preview' })
+    assert.equal(previews[0].payload?.status, 'loaded')
+    root.remove()
+
+    // 404 → 错误占位
+    const root2 = document.createElement('div')
+    document.body.appendChild(root2)
+    const handle2 = createRoot(h(FilePreview, { type: 'md', url: '/missing.md' } as any), root2)
+    await handle2.ready
+    await new Promise((r) => setTimeout(r, 80))
+    assert.ok(root2.querySelector('.wf-filepreview-error'), '错误占位')
+    root2.remove()
+  })
+
+  it('远程加载 + 编辑：md url → fetch → Editor 编辑 → 保存回写', async () => {
+    ;(globalThis as any).fetch = async () => new Response('# 远程\n\n内容', { status: 200 })
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    let saved: string | null = null
+    const handle = createRoot(h(FilePreview, {
+      type: 'md', url: '/doc/remote.md', editable: true,
+      onSave: (v: string) => { saved = v },
+    } as any), root)
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 80))
+    const editable = root.querySelector('.wf-editor-content')
+    assert.ok(editable, '远程内容进入编辑模式')
+    assert.equal(editable?.textContent, '远程内容')
+    root.remove()
+    assert.equal(saved, null, '未保存前为空')
+  })
+
   it('pdf/office：iframe src 渲染；无 url 占位', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)

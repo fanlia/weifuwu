@@ -68,6 +68,9 @@ function reportRenderDuration(sessionId: string | null, buildMs: number, patchMs
  *  ——中间件面（app/i18n/auth/data 等——组件 ctx 可选链消费）） */
 export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Record<string, unknown> }): RootHandle {
   let current = vnode
+  // 根组件 vnode（buildVNode 克隆——原始 vnode 无 _id/_render——真实事故：
+  // FilePreview 远程加载 ctx.ui.render 无效——findComponent 找不到根组件）
+  let rootComp: VNode | null = null
 
   // 渲染串行 + dirty 合并（async update 并发 → 同基于初始树 patch → 结构错乱；
   // 渲染中再次触发 → 标记 dirty → 完成后补跑一次读最新状态——防死循环）
@@ -98,8 +101,15 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
     try {
       do {
         dirtyComps.delete(compId)
-        const comp = findComponent(current, compId)
-        if (!comp || typeof comp.type !== 'function' || !comp._render) break
+        // 根组件兜底：current 是输出树（不含根组件 vnode——buildVNode 克隆——
+        // 根组件 ctx.ui.render 的 findComponent 找不到自己——真实事故：
+        // FilePreview 远程加载 render 无效）
+        const comp = findComponent(current, compId) ?? (rootComp && rootComp._id === compId ? rootComp : null)
+        if (!comp || typeof comp.type !== 'function' || !comp._render) {
+          // 挂载中（rootComp 未设——fetch 微任务早于 mount 同步段）——排队补跑
+          dirtyComps.add(compId)
+          break
+        }
         // 阶段 4（round2）：触发源可见——__WF_V3_STACK 调试模式——comp:render 带
         // 调用栈（谁触发了重渲染——事件回调/定时器/滚动一目了然）——默认关（栈开销）
         const withStack = (globalThis as { __WF_V3_STACK?: string }).__WF_V3_STACK === '1'
@@ -178,6 +188,7 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
           patch(current, built, root)
         }
         current = built
+        rootComp = built
       } while (dirty)
       reportRenderDuration(sess, tBuild, performance.now() - t0 - tBuild)
     } finally {
@@ -233,7 +244,12 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
       const tBuild0 = performance.now() - t0
       mount(built, root)
       current = built
+      rootComp = built
       reportRenderDuration(sess0, tBuild0, performance.now() - t0 - tBuild0)
+      // 挂载期间的组件 render 请求（fetch 微任务早于 mount——rootComp 未设被排队）补跑
+      if (dirtyComps.size > 0) {
+        for (const id of [...dirtyComps]) void updateComponent(id)
+      }
     } catch (e) {
       // 初始挂载失败 → error:caught（事件流可观测——组件错误不静默——渲染可诊断）
       const err = e as Error

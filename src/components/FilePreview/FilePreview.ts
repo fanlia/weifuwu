@@ -48,8 +48,38 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let doc: DocState = EMPTY_DOC
 
+  // ── 远程加载（md/html/text 的 url——fetch 内容 → 预览/编辑；sandbox 文件路径） ──
+  let remote = { status: 'idle' as 'idle' | 'loading' | 'error', content: null as string | null, error: null as string | null }
+  let loadedUrl: string | null = null
+  const loadUrl = async (u: string) => {
+    // 已加载过该 url（含失败——避免 render 循环重触发；消费方改 url 重试）
+    if (loadedUrl === u) return
+    loadedUrl = u
+    remote = { status: 'loading', content: null, error: null }
+    editEmit('preview', { type: 'remote', url: u, status: 'loading' })
+    try {
+      // eslint-disable-next-line no-console
+      console.log('[fp-dbg] fetching', u)
+      const res = await fetch(u)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const text = await res.text()
+      remote = { status: 'idle', content: text, error: null }
+      editEmit('preview', { type: 'remote', url: u, status: 'loaded', chars: text.length })
+      ctx.ui.render()
+    } catch (e) {
+      remote = { status: 'error', content: null, error: e instanceof Error ? e.message : String(e) }
+      editEmit('preview', { type: 'remote', url: u, status: 'error', message: remote.error })
+      ctx.ui.render()
+    }
+  }
+
   return async (props: FilePreviewProps) => {
     const { type, content = '', url, fileName, editable, ai, onSave, onLoad, height = '400px' } = props
+    // 远程加载触发（md/html/text 且传 url——content 优先，url 兜底；已加载过不重触发）
+    const effectiveContent = content || (remote.status === 'idle' ? (remote.content ?? '') : '')
+    if ((type === 'md' || type === 'html' || type === 'text') && url && loadedUrl !== url) {
+      void loadUrl(url)
+    }
 
     // ── 事件流：预览加载可观测（__edit_tail） ──
     const emitLoaded = (chars: number, blocks: number) => {
@@ -62,29 +92,29 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
     if (type === 'md') {
       // 预览：复用 Markdown 组件（安全 token 渲染）；编辑：Editor（事件流模型）
       if (editable) {
-        doc = parseHtml(markdownToHtml(content))
+        doc = parseHtml(markdownToHtml(effectiveContent))
         const chars = doc.text.replace(/\uFFFC/g, '').length
         emitLoaded(chars, doc.blockProps.length + doc.embeds.length + 1)
         previewBody = h(Editor, {
-          value: markdownToHtml(content),
+          value: markdownToHtml(effectiveContent),
           minHeight: height,
           ai,
           onChange: (v: string) => { doc = parseHtml(v) },
         })
       } else {
-        emitLoaded(content.length, 0)
+        emitLoaded(effectiveContent.length, 0)
         previewBody = h('div', { class: 'wf-filepreview-doc', style: { height, overflow: 'auto' } }, [
           fileName ? h('div', { class: 'wf-filepreview-name' }, fileName) : null,
-          h(Markdown, { content }),
+          h(Markdown, { content: effectiveContent }),
         ])
       }
     } else if (type === 'text') {
       // 纯文本：pre 预览；编辑：Editor（单段 DocState）
-      doc = parseHtml(`<p>${escapeHtml(content)}</p>`)
-      emitLoaded(content.length, 1)
+      doc = parseHtml(`<p>${escapeHtml(effectiveContent)}</p>`)
+      emitLoaded(effectiveContent.length, 1)
       if (editable) {
         previewBody = h(Editor, {
-          value: `<p>${escapeHtml(content)}</p>`,
+          value: `<p>${escapeHtml(effectiveContent)}</p>`,
           minHeight: height,
           ai,
           onChange: (v: string) => { doc = parseHtml(v) },
@@ -92,17 +122,17 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       } else {
         previewBody = h('div', { class: 'wf-filepreview-doc', style: { height, overflow: 'auto' } }, [
           fileName ? h('div', { class: 'wf-filepreview-name' }, fileName) : null,
-          h('pre', { class: 'wf-filepreview-text' }, content),
+          h('pre', { class: 'wf-filepreview-text' }, effectiveContent),
         ])
       }
     } else if (type === 'html') {
       // 安全隔离：iframe sandbox（untrusted HTML 不直插 DOM——FS-04 红线）
-      emitLoaded(content.length, 0)
+      emitLoaded(effectiveContent.length, 0)
       previewBody = h('div', { class: 'wf-filepreview-frame', style: { height } }, [
         h('iframe', {
           class: 'wf-filepreview-iframe',
           sandbox: 'allow-same-origin',
-          srcDoc: content,
+          srcDoc: effectiveContent,
           style: { width: '100%', height: '100%', border: 'none' },
         }),
       ])
@@ -120,6 +150,13 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
           }),
         ])
       }
+    }
+
+    // 远程加载状态（md/html/text url 场景）
+    if (remote.status === 'loading' && (type === 'md' || type === 'html' || type === 'text')) {
+      previewBody = h('div', { class: 'wf-filepreview-empty' }, '加载中…')
+    } else if (remote.status === 'error' && (type === 'md' || type === 'html' || type === 'text')) {
+      previewBody = h('div', { class: 'wf-filepreview-empty wf-filepreview-error' }, `加载失败: ${remote.error}`)
     }
 
     return h('div', {
