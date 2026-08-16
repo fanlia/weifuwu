@@ -16,8 +16,17 @@
 
 - **统一命名**：对象 + 动作 + 参数（`{ entity, action, target, payload }`——键 `entity:action`）——location（`route:change`）/ jsx（`comp:render`/`props:update`）/ vdom（`vnode:patch`）/ dom（`node:insert` 等）四层同构
 - **DOM = fold(事件流)**：初始 DOM + 事件序列 = 任意时刻 DOM——可记录（`stream.events()`）、回放（`replay`）、断言（`expectEventSequence`/`eventsOf`）
+- **不变量：无事件流不渲染**——所有状态变化都通过事件流（DOM 操作/组件生命周期/索引/事件注册/错误/挂起/内部决策/文本操作/副作用）——静态审计 + 运行时对照审计（`__WF_VDOM_AUDIT='1'`）守护
 - **render-only**：渲染唯一触发 `ctx.render()`（组件级——只重跑该组件 renderFn + patch 其输出，兄弟零执行）；`ctx.ui.render()` 为兼容面（同义）
-- **组件级精准更新**：`ctx.render()` 只刷新自身——props 未变的子组件剪枝（零 RENDER）——事件数 = 实际变化数
+- **组件级精准更新**：`ctx.render()` 只刷新自身——组件 O(1) 索引定位——props 未变的子组件剪枝——事件数 = 实际变化数
+
+### 事件代理（所有监听统一注册表）
+
+元素事件/全局监听/动画钩子全部收敛到**代理注册表**（`delegate.ts`）：
+- 元素事件（onClick 等 props）→ 挂载点监听（每挂载点每事件一次——O(1)）+ 按 data-v3-id 祖先链分发（handler 更新 = Map 覆盖——**零重绑零噪音**）
+- 全局监听（keydown/mousedown/pointer/popstate/scroll/选区/剪贴板）→ `addGlobalListener`（同事件聚合——EventTarget 每事件一次）
+- 动画钩子（animationend）→ `bindElementListener`（once 自动解绑）
+- 不冒泡事件（error/load）→ 捕获监听；`e.currentTarget` 还原为绑定元素（与元素级语义一致）
 
 ## 快速开始（SPA）
 
@@ -80,7 +89,27 @@ eventsOf(events, 'node:create').length   // 创建了几个节点
 // 决策层事件解释"为什么"（reuse/rebuild），执行层事件是"做了什么"——完全可断言
 ```
 
+**完整事件覆盖**（任何问题都在事件流可定位）：
+- **错误**：`error:throw/caught`（工厂/renderFn/挂载/更新失败——phase 定位）+ **挂起超时**（renderFn/buildVNode 永不 resolve → 3s 检测——静默失败不再静默）
+- **内部决策**：`internal:queue/notfound/skip`（busy 排队/组件未定位）
+- **事件流自身**：`stream:overflow`（溢出可审计）/ `stream:watermark`（水位预警）/ `size()`/`capacity()`/`overflowCount()`/`subscribe(filter, fn)`（按层过滤订阅）
+- **文本操作**：`text:input`（输入/组合）/ `text:select`（选区）/ `text:copy/cut/paste`（剪贴板摘要）
+- **组件副作用**：`ref:mount` + `effect:animate/lock/unlock/focus/scroll`（动画/滚动锁/焦点 trap/滚动）
+
 测试纪律（jsdom）：`renderVNode`（VNode 层）/ `mountComponent`（同实例 re-render）/ `expectEventSequence`（精确事件序列）——渲染 = 事件序列断言。
+
+### 多应用加载（app 节点）
+
+```ts
+import { registerApp, App } from 'weifuwu/ui-dom'
+
+// 注册子应用（工厂——可 await 初始化——appId 复用不重跑）
+registerApp('mini-todo', (props, ctx) => h(MiniTodo, {}))
+// 父树中嵌入（不隔离设计——共享流/全局 id——天然归属唯一）
+h(App, { appId: 'mini-todo', props: { title } })
+```
+- 边界事件（同流）：`app:mount` / `app:update`（props keys）/ `app:unmount` / `app:error`（unknown-app）——payload 带 appId 可区分
+- 子应用独立状态（工厂闭包）——渲染/事件与父同流（全链路可观测——调试一条流）
 
 ## SSR（事件流形态——DOM = fold 不变量）
 
@@ -106,7 +135,7 @@ replay(deserializeEvents(data), root)
 - **ref 稳定**：带清理的 ref 定义在 mount 作用域（内联 ref 每次渲染新函数 → ref(null) 反复触发）
 - **浮层 portal**：`ctx.ui.usePopup` + `popup.portal()`（#__wf_portal）——禁止 absolute 相对父容器
 - **浏览器环境**：组件用 `ctx.browser`（禁裸 window/document）——SSR 安全三态
-- **事件 handler 生命周期**：handler 引用变化 → 先 EVENT_UNBIND 再 EVENT_BIND（事件流可观测注册/注销）；稳定引用 → 零事件
+- **事件 handler**：代理 Map 覆盖——handler 更新零重绑零事件（稳定引用仅为性能建议——结构共享收益前提）
 
 ## 与后端共享
 

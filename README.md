@@ -355,7 +355,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu` | **ok / badRequest / …** | HTTP 响应辅助函数（ok/badRequest/... 等 12 个） | — |
 | `weifuwu` | **parseBody** | JSON 请求体安全解析 | — |
 | Router 方法 | **app.graphql()** | GraphQL 端点（支持 GraphiQL），Router 实例方法（无需单独 import） | Router |
-| `weifuwu/ui-dom` | **createRouter / createRoot** | vdom3 事件流引擎：路由（RouteDef[] + ctx 注入）/ 挂载（组件树）——渲染全链路 `entity:action` 事件流（DOM = fold——可记录/回放/断言） | — |
+| `weifuwu/ui-dom` | **createRouter / createRoot** | vdom3 事件流引擎：路由（RouteDef[] + ctx 注入）/ 挂载（组件树）——渲染全链路 `entity:action` 事件流（DOM = fold——可记录/回放/断言）；**事件代理**（监听 O(1)——零重绑——统一注册表）；**app 节点**（多应用加载——registerApp） | — |
 | `weifuwu/ui-dom` | **事件流原语** | `stream` / `ev` / `evKey` / `replay` / `eventsOf` / `expectEventSequence`——渲染可观测/可断言 | — |
 | `weifuwu/ui-dom` | **async 组件** | async 函数即组件（与同步同签名）；数据走 ctx.data 三场景（三条纪律见[核心概念](#核心概念)） | — |
 | `weifuwu/ui-dom` | **ctx.data** | 数据管道：SSR 预取 / hydration 命中 / SPA fetch（`ctx.data.get`） | — |
