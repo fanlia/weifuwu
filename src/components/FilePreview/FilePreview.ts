@@ -18,6 +18,7 @@ import { Editor } from '../Editor/Editor.ts'
 import type { EditorAiOptions } from '../Editor/Editor.ts'
 import { Markdown } from '../Markdown/Markdown.ts'
 import { SheetGrid } from '../SheetGrid/SheetGrid.ts'
+import { SlideCanvas } from '../SlideCanvas/SlideCanvas.ts'
 import { markdownToHtml, serializeMarkdown } from './markdown.ts'
 import { EMPTY_DOC } from '../Editor/model/types.ts'
 import { parseHtml, serializeHtml } from '../Editor/model/html.ts'
@@ -65,6 +66,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
   // 前端导入的 office 文档（零依赖转换——docx ↔ DocState / xlsx ↔ WorkbookState）
   let officeDoc: DocState | null = null
   let officeWorkbook: import('../OfficeEditor/model/types.ts').WorkbookState | null = null
+  let officeDeck: import('../OfficeEditor/model/types.ts').DeckState | null = null
   // 预览/编辑切换（editable 时工具栏切换；同一 DocState 无缝切换）
   let editMode = false
   let dirty = false
@@ -198,10 +200,19 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
           height,
           onChange: (wb: import('../OfficeEditor/model/types.ts').WorkbookState) => { officeWorkbook = wb },
         })
+      } else if (editable && officeDeck) {
+        emitLoaded(0, 0)
+        // pptx 画布编辑（SlideCanvas——ODES 事件流：shape 增删/拖动/缩放/AI 润色）
+        previewBody = h(SlideCanvas, {
+          deck: officeDeck,
+          ai: ai ? { url: ai.url, headers: (ai as { headers?: Record<string, string> }).headers } : undefined,
+          height,
+          onChange: (d: import('../OfficeEditor/model/types.ts').DeckState) => { officeDeck = d },
+        })
       } else if (editable) {
         emitLoaded(0, 0)
         previewBody = h('div', { class: 'wf-filepreview-empty' },
-          '打开本地 .docx/.xlsx 文件（前端零依赖转换——无需后端）')
+          '打开本地 .docx/.xlsx/.pptx 文件（前端零依赖转换——无需后端）')
       } else {
         // 只读预览：iframe（浏览器原生/服务端转换 URL）
         emitLoaded(0, 0)
@@ -252,25 +263,35 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         if (!officeInput) {
           officeInput = _browser.createElement('input') as HTMLInputElement
           officeInput.type = 'file'
-          officeInput.accept = '.docx,.xlsx,.xls'
+          officeInput.accept = '.docx,.xlsx,.xls,.pptx'
           officeInput.style.display = 'none'
           officeInput.onchange = () => {
             const f = officeInput!.files?.[0]
             if (!f) return
             const isXlsx = /\.xlsx?$/i.test(f.name)
+            const isPptx = /\.pptx?$/i.test(f.name)
             void f.arrayBuffer().then(async (buf) => {
               try {
-                if (isXlsx) {
+                if (isPptx) {
+                  const { pptxToDeck } = await import('../../office/pptx.ts')
+                  const res = await pptxToDeck(new Uint8Array(buf))
+                  officeDeck = res.deck
+                  officeDoc = null
+                  officeWorkbook = null
+                  editEmit('preview', { type: 'office', status: 'imported', docType: 'pptx', warnings: res.warnings.length })
+                } else if (isXlsx) {
                   const { xlsxToWorkbook } = await import('../../office/xlsx.ts')
                   const res = await xlsxToWorkbook(new Uint8Array(buf))
                   officeWorkbook = res.workbook
                   officeDoc = null
+                  officeDeck = null
                   editEmit('preview', { type: 'office', status: 'imported', docType: 'xlsx', warnings: res.warnings.length })
                 } else {
                   const { docxToDoc } = await import('../../office/docx.ts')
                   const res = await docxToDoc(new Uint8Array(buf))
                   officeDoc = res.doc
                   officeWorkbook = null
+                  officeDeck = null
                   doc = res.doc
                   enteredEdit = true
                   editMode = true
@@ -301,6 +322,14 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
             const res = workbookToXlsx(wb)
             const ok = _browser.downloadFile(fileName ?? 'sheet.xlsx', res.data as unknown as string,
               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            editEmit('preview', { type: 'office', status: ok ? 'exported' : 'export-error' })
+          })
+        } else if (officeDeck) {
+          const dk = officeDeck
+          void import('../../office/pptx.ts').then(({ deckToPptx }) => {
+            const res = deckToPptx(dk)
+            const ok = _browser.downloadFile(fileName ?? 'deck.pptx', res.data as unknown as string,
+              'application/vnd.openxmlformats-officedocument.presentationml.presentation')
             editEmit('preview', { type: 'office', status: ok ? 'exported' : 'export-error' })
           })
         }
@@ -334,12 +363,12 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
               onClick: () => openDocx(),
             }, officeDoc ? '重新打开' : '打开 docx')
             : null,
-          type === 'office' && editable && (officeDoc || officeWorkbook)
+          type === 'office' && editable && (officeDoc || officeWorkbook || officeDeck)
             ? h('button', {
               class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'dl',
               'data-dl': 'true',
               onClick: () => downloadDocx(),
-            }, officeWorkbook ? '下载 xlsx' : '下载 docx')
+            }, officeDeck ? '下载 pptx' : officeWorkbook ? '下载 xlsx' : '下载 docx')
             : null,
           isEditableType && editable
             ? h('button', {

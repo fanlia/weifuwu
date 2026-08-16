@@ -1,0 +1,384 @@
+/**
+ * weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3）
+ *
+ * 设计（design/office-events-plan.md）：文档 = fold(事件流)——每个编辑 =
+ * OfficeOp（shape-add/remove/move/resize/set）→ editEmit('office') → commit。
+ *
+ * - 画布：960×540 幻灯片区域（缩放适配容器——scale 因子）
+ * - shape：文本（div）/矩形（背景）/图片（占位）/线条
+ * - 选中 + 拖动移动（pointer events）；右下角 handle 缩放
+ * - 双击文本 shape → 编辑文本（textarea——blur/Enter 提交 → shape-set）
+ * - 工具条：添加文本/矩形、删除、幻灯片增删、撤销
+ * - AI：选中 shape → 文本润色（wf: SSE → usePopup 浮层 → 接受 = shape-set commit）
+ * - 事件流：全部操作 → editEmit('office', { docType: 'pptx', op }) + commit
+ */
+
+import { h } from '../../ui-dom/vdom3/jsx.ts'
+import { aiStream } from '../../ui-dom/ai.ts'
+import { editEmit } from '../Editor/edit-events.ts'
+import { applySlideOp } from '../OfficeEditor/model/apply.ts'
+import type { OfficeOp, SlideShape } from '../OfficeEditor/model/types.ts'
+import { parseReplyByMode } from '../OfficeEditor/ai/ai-bridge.ts'
+import type { DeckState } from '../OfficeEditor/model/types.ts'
+import type { Component, VNode } from '../../ui-dom/vdom3/types.ts'
+
+export interface SlideCanvasProps {
+  /** 受控 DeckState */
+  deck: DeckState
+  onChange?: (deck: DeckState) => void
+  ai?: { url: string; headers?: Record<string, string> }
+  height?: string
+  readonly?: boolean
+}
+
+interface UndoEntry {
+  label: string
+  ops: OfficeOp[]
+  before: DeckState
+}
+
+const CANVAS_W = 960
+const CANVAS_H = 540
+
+export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
+  const i18n = ctx.i18n?.components?.SlideCanvas ?? {}
+  // ── mount ──
+  let deck: DeckState = _init.deck
+  let lastPropsDeck = _init.deck
+  let activeSlide = Math.min(_init.deck.activeSlide, _init.deck.slides.length - 1)
+  let selected: string | null = null
+  let editing: { id: string; text: string } | null = null
+  let canvasEl: HTMLElement | null = null
+  let scale = 0.5
+  const undo: UndoEntry[] = []
+  // 拖动状态
+  let drag: { id: string; mode: 'move' | 'resize'; startX: number; startY: number; orig: SlideShape } | null = null
+  // AI 状态
+  let aiPending: { revised: string; streaming: boolean; error: string | null; shapeId: string; messageId: string } | null = null
+  let aiAnchor: HTMLElement | null = null
+
+  const aiPopup = ctx.ui.usePopup({
+    trigger: 'manual',
+    placement: 'bottom',
+    gap: 8,
+    el: () => aiAnchor,
+    isOpen: () => !!aiPending,
+    setOpen: (v) => { if (!v) { aiPending = null; ctx.ui.render() } },
+  })
+
+  // ── 事件流：commit ──
+  const commit = (label: string, ops: OfficeOp[], before: DeckState): void => {
+    let next = before
+    for (const op of ops) next = applySlideOp(next, op as never) as DeckState
+    deck = next
+    for (const op of ops) editEmit('office', { docType: 'pptx', op } as never)
+    undo.push({ label, ops, before })
+    ctx.ui.render()
+    _init.onChange?.(deck)
+  }
+
+  const shapeOf = (id: string): SlideShape | undefined =>
+    deck.slides[activeSlide]?.shapes.find((s) => s.id === id)
+
+  const addShape = (kind: 'text' | 'rect'): void => {
+    const id = `s${Date.now()}`
+    const shape: SlideShape = {
+      id, kind,
+      x: 120, y: 120, w: kind === 'text' ? 320 : 160, h: kind === 'text' ? 48 : 120,
+      props: kind === 'text' ? { text: '双击编辑文本' } : { fill: '#dbeafe' },
+    }
+    commit('添加形状', [{ type: 'shape-add', slide: activeSlide, shape }], deck)
+    selected = id
+  }
+  const deleteShape = (): void => {
+    if (!selected) return
+    const id = selected
+    selected = null
+    commit('删除形状', [{ type: 'shape-remove', slide: activeSlide, shapeId: id }], deck)
+  }
+  const addSlide = (): void => {
+    const at = activeSlide + 1
+    commit('添加幻灯片', [{ type: 'slide-add', at, layout: 'blank' }], deck)
+    activeSlide = at
+  }
+  const deleteSlide = (): void => {
+    if (deck.slides.length <= 1) return
+    commit('删除幻灯片', [{ type: 'slide-delete', slide: activeSlide }], deck)
+    activeSlide = Math.max(0, activeSlide - 1)
+  }
+  const undoLast = (): void => {
+    editing = null
+    const u = undo.pop()
+    if (!u) return
+    deck = u.before
+    editEmit('undo', { label: u.label } as never)
+    ctx.ui.render()
+    _init.onChange?.(deck)
+  }
+
+  // ── 拖动（pointer——move/resize） ──
+  const onPointerDown = (id: string, mode: 'move' | 'resize', e: PointerEvent): void => {
+    if (_init.readonly) return
+    e.preventDefault()
+    e.stopPropagation()
+    const shape = shapeOf(id)
+    if (!shape) return
+    selected = id
+    editing = null
+    drag = { id, mode, startX: e.clientX, startY: e.clientY, orig: shape }
+    ctx.ui.render()
+  }
+  const onPointerMove = (e: PointerEvent): void => {
+    if (!drag) return
+    const dx = (e.clientX - drag.startX) / scale
+    const dy = (e.clientY - drag.startY) / scale
+    if (drag.mode === 'move') {
+      const next: SlideShape = {
+        ...drag.orig,
+        x: Math.max(0, Math.round(drag.orig.x + dx)),
+        y: Math.max(0, Math.round(drag.orig.y + dy)),
+      }
+      applyShapeLive(drag.id, next)
+    } else {
+      const next: SlideShape = {
+        ...drag.orig,
+        w: Math.max(20, Math.round(drag.orig.w + dx)),
+        h: Math.max(16, Math.round(drag.orig.h + dy)),
+      }
+      applyShapeLive(drag.id, next)
+    }
+  }
+  const onPointerUp = (): void => {
+    if (!drag) return
+    const { id, orig } = drag
+    drag = null
+    const now = shapeOf(id)
+    if (!now) return
+    if (now.x === orig.x && now.y === orig.y && now.w === orig.w && now.h === orig.h) return
+    // 提交一次 move/resize commit（拖拽过程 live 不产生事件——结束原子提交）
+    commit('移动/缩放', [
+      { type: 'shape-move', slide: activeSlide, shapeId: id, x: now.x, y: now.y },
+      { type: 'shape-resize', slide: activeSlide, shapeId: id, w: now.w, h: now.h },
+    ], deck)
+    ctx.ui.render()
+  }
+  /** 拖拽 live：直接改 deck（不产生事件——提交在 pointerup） */
+  const applyShapeLive = (id: string, next: SlideShape): void => {
+    deck = {
+      ...deck,
+      slides: deck.slides.map((s, i) => i === activeSlide
+        ? { ...s, shapes: s.shapes.map((sh) => sh.id === id ? next : sh) }
+        : s),
+    }
+    ctx.ui.render()
+  }
+
+  // ── AI（选中 shape 文本润色） ──
+  const runAi = (): void => {
+    if (!_init.ai || !selected) return
+    const shape = shapeOf(selected)
+    if (!shape) return
+    const shapeId = selected
+    const prompt = `请润色以下幻灯片文本，保持原意，输出润色后的完整文本（不要额外解释、不要引号）：\n\n${shape.props?.text ?? ''}`
+    aiPending = { revised: '', streaming: true, error: null, shapeId, messageId: `slide-ai-${Date.now()}` }
+    ctx.ui.render()
+    editEmit('office', { docType: 'pptx', ai: { messageId: aiPending.messageId, status: 'suggested' } } as never)
+    aiStream(_init.ai.url, {
+      messages: [{ role: 'user', content: prompt }],
+    }, {
+      headers: _init.ai.headers,
+      onToken: (text) => {
+        if (!aiPending) return
+        aiPending.revised += text
+        ctx.ui.render()
+      },
+      onDone: () => {
+        if (!aiPending) return
+        aiPending.streaming = false
+        ctx.ui.render()
+      },
+      onError: (e) => {
+        if (!aiPending) return
+        aiPending.streaming = false
+        aiPending.error = e?.message ?? 'AI 请求失败'
+        ctx.ui.render()
+      },
+    })
+  }
+  const acceptAi = (): void => {
+    if (!aiPending) return
+    editing = null
+    const parsed = parseReplyByMode(aiPending.revised, { docType: 'pptx', shapeId: aiPending.shapeId })
+    if (parsed.ops.length === 0) { aiPending.error = parsed.note ?? '无法解析'; ctx.ui.render(); return }
+    const before = deck
+    let next = before
+    for (const op of parsed.ops) next = applySlideOp(next, op as never) as DeckState
+    deck = next
+    for (const op of parsed.ops) {
+      editEmit('office', { docType: 'pptx', op, ai: { messageId: aiPending.messageId, status: 'accepted' } } as never, aiPending.messageId)
+    }
+    undo.push({ label: `AI 润色 ${aiPending.shapeId}`, ops: parsed.ops as never[], before })
+    aiPending = null
+    ctx.ui.render()
+    _init.onChange?.(deck)
+  }
+  const rejectAi = (): void => {
+    if (!aiPending) return
+    editing = null
+    editEmit('office', { docType: 'pptx', ai: { messageId: aiPending.messageId, status: 'rejected' } } as never)
+    aiPending = null
+    ctx.ui.render()
+  }
+
+  // ── 渲染 ──
+  return async (props: SlideCanvasProps) => {
+    if (props.deck !== lastPropsDeck) {
+      lastPropsDeck = props.deck
+      deck = props.deck
+    }
+    const readonly = !!props.readonly
+    const slide = deck.slides[Math.min(activeSlide, deck.slides.length - 1)] ?? { shapes: [] as SlideShape[] }
+
+    // 缩放适配（容器宽 960/高 540——scale 由宽度决定）
+    const fitScale = (): number => {
+      const w = canvasEl?.clientWidth ?? 640
+      return Math.min(1, (w - 24) / CANVAS_W)
+    }
+    scale = fitScale()
+
+    const canvasRef = (el: unknown): void => { canvasEl = el as HTMLElement | null }
+
+    // shape 渲染
+    const shapeNodes: VNode[] = slide.shapes.map((shape, i) => {
+      const isSelected = selected === shape.id
+      const isEditing = editing?.id === shape.id
+      const common = {
+        key: shape.id,
+        class: ['wf-slide-shape', `wf-slide-shape--${shape.kind}`, isSelected ? 'wf-slide-shape--selected' : ''].filter(Boolean).join(' '),
+        style: {
+          left: `${shape.x}px`,
+          top: `${shape.y}px`,
+          width: `${shape.w}px`,
+          height: `${shape.h}px`,
+          ...(shape.props?.fill ? { background: shape.props.fill } : {}),
+        },
+        onPointerDown: (e: PointerEvent) => onPointerDown(shape.id, 'move', e),
+      }
+      const body: VNode[] = []
+      if (isEditing) {
+        body.push(h('textarea', {
+          ref: (el: unknown) => { if (el) (el as HTMLTextAreaElement).focus() },
+          class: 'wf-slide-shape-edit',
+          value: editing?.text ?? '',
+          onInput: (e: Event) => { editing = { id: shape.id, text: (e.target as HTMLTextAreaElement).value } },
+          onBlur: () => { commitEdit() },
+          onKeyDown: (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit() }
+            if (e.key === 'Escape') { editing = null; ctx.ui.render() }
+          },
+          onPointerDown: (e: PointerEvent) => e.stopPropagation(),
+        }))
+      } else if (shape.kind === 'image') {
+        body.push(h('div', { class: 'wf-slide-shape-image' }, '🖼'))
+      } else if (shape.kind === 'line') {
+        body.push(h('div', { class: 'wf-slide-shape-line' }))
+      } else {
+        body.push(h('div', { class: 'wf-slide-shape-label' }, shape.props?.text ?? ''))
+      }
+      return h('div', common, ...body,
+        isSelected && !readonly
+          ? h('div', {
+            class: 'wf-slide-shape-resize',
+            onPointerDown: (e: PointerEvent) => onPointerDown(shape.id, 'resize', e),
+          })
+          : null,
+      )
+    })
+
+    const commitEdit = (): void => {
+      if (!editing) return
+      const { id, text } = editing
+      editing = null
+      const shape = shapeOf(id)
+      if (!shape) return
+      if (shape.props?.text === text) return
+      commit('编辑文本', [{ type: 'shape-set', slide: activeSlide, shapeId: id, props: { text } }], deck)
+    }
+
+    // AI 浮层
+    const aiPanel = aiPending
+      ? h('div', { class: 'wf-slide-ai-panel' }, [
+        h('div', { class: 'wf-slide-ai-title' }, `${i18n.aiTitle ?? 'AI 润色'}`),
+        aiPending.error
+          ? h('div', { class: 'wf-slide-ai-error' }, aiPending.error)
+          : h('pre', { class: 'wf-slide-ai-body' }, aiPending.revised || (aiPending.streaming ? (i18n.aiThinking ?? '思考中…') : '')),
+        h('div', { class: 'wf-slide-ai-actions' }, [
+          h('button', {
+            class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'ok',
+            disabled: aiPending.streaming,
+            onClick: () => acceptAi(),
+          }, i18n.accept ?? '应用'),
+          h('button', {
+            class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'no',
+            onClick: () => rejectAi(),
+          }, i18n.reject ?? '拒绝'),
+        ]),
+      ])
+      : null
+
+    return h('div', {
+      class: 'wf-slide',
+      onKeyDown: (e: KeyboardEvent) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLast() }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'enter' && _init.ai && selected) { e.preventDefault(); runAi() }
+        if (e.key === 'Delete' && selected && !editing) { e.preventDefault(); deleteShape() }
+      },
+    }, [
+      // 工具条
+      h('div', { class: 'wf-slide-toolbar' }, [
+        ...deck.slides.map((s, i) =>
+          h('button', {
+            key: `tab${i}`,
+            class: ['wf-slide-tab', i === activeSlide ? 'wf-slide-tab--active' : ''].filter(Boolean).join(' '),
+            type: 'button',
+            onClick: () => { activeSlide = i; selected = null; editing = null; ctx.ui.render() },
+          }, `${i18n.slide ?? '幻灯片'} ${i + 1}`)),
+        h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-slide', onClick: () => addSlide(), disabled: readonly }, i18n.addSlide ?? '+ 页'),
+        ...(!readonly ? [
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'del-slide', onClick: () => deleteSlide() }, i18n.deleteSlide ?? '删页'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-text', onClick: () => addShape('text') }, i18n.addText ?? '文本'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-rect', onClick: () => addShape('rect') }, i18n.addRect ?? '矩形'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'del', onClick: () => deleteShape(), disabled: !selected }, i18n.deleteShape ?? '删除'),
+          ...(_init.ai
+            ? [h('button', {
+              ref: (el: unknown) => { aiAnchor = el as HTMLElement },
+              class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ai',
+              disabled: !selected,
+              onClick: () => runAi(),
+            }, i18n.aiPolish ?? 'AI 润色')]
+            : []),
+        ] : []),
+        h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'undo', onClick: () => undoLast(), disabled: readonly || undo.length === 0 }, i18n.undo ?? '撤销'),
+      ]),
+      // 画布
+      h('div', {
+        class: 'wf-slide-canvas-scroll',
+        style: { height: props.height },
+        onPointerMove: (e: PointerEvent) => onPointerMove(e),
+        onPointerUp: () => onPointerUp(),
+        onPointerLeave: () => onPointerUp(),
+      }, [
+        h('div', {
+          ref: canvasRef,
+          class: 'wf-slide-canvas',
+          style: { width: `${CANVAS_W * scale}px`, height: `${CANVAS_H * scale}px` },
+        }, shapeNodes.map((n) => h('div', {
+          key: (n as any).key,
+          style: { transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute' },
+          class: 'wf-slide-shape-scaler',
+        }, n))),
+      ]),
+      aiPopup.portal(aiPanel, 'slide-ai'),
+    ])
+  }
+}

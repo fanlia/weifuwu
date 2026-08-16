@@ -11,6 +11,7 @@ import { readZip, writeZip, crc32 } from './zip.ts'
 import { parseXml } from './xml.ts'
 import { docToDocx, docxToDoc } from './docx.ts'
 import { workbookToXlsx, xlsxToWorkbook } from './xlsx.ts'
+import { deckToPptx, pptxToDeck } from './pptx.ts'
 import type { DocState } from '../components/Editor/model/types.ts'
 import { EMBED_CHAR } from '../components/Editor/model/types.ts'
 
@@ -295,5 +296,63 @@ describe('office/xlsx（xlsx ↔ ODES WorkbookState——参考 office2json 算�
     assert.equal(cs.length, 2)
     assert.equal(cs[0].attrs.r, 'A1')
     assert.equal(cs[1].attrs.r, 'B1')
+  })
+})
+
+describe('office/pptx（pptx ↔ ODES DeckState——参考 office2json 算法）', () => {
+  test('往返：多幻灯片 + shape 几何/文本/层叠', async () => {
+    const deck = {
+      slides: [
+        {
+          shapes: [
+            { id: '2', kind: 'text', x: 100, y: 50, w: 400, h: 60, props: { text: '标题' } },
+            { id: '3', kind: 'rect', x: 0, y: 0, w: 200, h: 100, props: { fill: '#ff0000' } },
+          ],
+        },
+        { shapes: [{ id: '2', kind: 'text', x: 10, y: 10, w: 300, h: 40, props: { text: '第二页\n换行' } }] },
+      ],
+      activeSlide: 0,
+      size: { w: 960, h: 540 },
+    }
+    const exp = deckToPptx(deck as any)
+    const imp = await pptxToDeck(exp.data)
+    assert.equal(imp.deck.slides.length, 2, '多幻灯片')
+    const s0 = imp.deck.slides[0].shapes
+    assert.equal(s0.length, 2, 'shape 层叠保留')
+    assert.equal(s0[0].kind, 'text')
+    assert.equal(s0[0].props?.text, '标题', '文本往返')
+    assert.deepEqual({ x: s0[0].x, y: s0[0].y, w: s0[0].w, h: s0[0].h }, { x: 100, y: 50, w: 400, h: 60 }, '几何往返（EMU ↔ px）')
+    assert.equal(s0[1].kind, 'rect', '图形类型')
+    const s1 = imp.deck.slides[1].shapes[0]
+    assert.equal(s1.props?.text, '第二页\n换行', '多行文本（a:p 段落）')
+  })
+
+  test('往返：图片 shape → 占位（媒体导出裁剪 warning）', async () => {
+    const deck = {
+      slides: [{ shapes: [{ id: '2', kind: 'image', x: 10, y: 20, w: 300, h: 200, props: { imageUrl: '#' } }] }],
+      activeSlide: 0,
+      size: { w: 960, h: 540 },
+    }
+    const exp = deckToPptx(deck as any)
+    assert.ok(exp.warnings.some((w) => w.includes('图片导出裁剪')), '图片裁剪 warning')
+    const imp = await pptxToDeck(exp.data)
+    assert.equal(imp.deck.slides[0].shapes[0].kind, 'image', '图片 shape 保留（占位）')
+  })
+
+  test('写入结构：slideN.xml 可被自研解析器解析（OOXML 规整）', async () => {
+    const deck = {
+      slides: [{ shapes: [{ id: '2', kind: 'text', x: 0, y: 0, w: 100, h: 40, props: { text: 'x' } }] }],
+      activeSlide: 0, size: { w: 960, h: 540 },
+    }
+    const exp = deckToPptx(deck as any)
+    const files = await readZip(exp.data)
+    assert.ok(files.has('ppt/slides/slide1.xml'))
+    const root = parseXml(decoder.decode(files.get('ppt/slides/slide1.xml')!))
+    assert.equal(root.name, 'p:sld')
+    const cSld = root.children.find((c) => c.name === 'p:cSld')!
+    const spTree = cSld.children.find((c) => c.name === 'p:spTree')!
+    const sp = spTree.children.find((c) => c.name === 'p:sp')!
+    const off = JSON.stringify(sp).includes('a:off')
+    assert.ok(off, 'xfrm 坐标写入')
   })
 })
