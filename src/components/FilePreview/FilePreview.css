@@ -1,0 +1,122 @@
+/* weifuwu/components — FilePreview */
+
+.wf-filepreview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-filepreview-name {
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text-secondary);
+  padding-bottom: var(--wf-space-xs);
+  border-bottom: 1px solid var(--wf-color-border);
+}
+
+/* md 文档渲染（复用 Editor 模型序列化——样式与 Editor 内容对齐） */
+.wf-filepreview-doc {
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-color-bg);
+  padding: var(--wf-space-md);
+  overflow: auto;
+}
+
+.wf-filepreview-md {
+  line-height: 1.7;
+  color: var(--wf-color-text);
+}
+
+.wf-filepreview-md h1,
+.wf-filepreview-md h2,
+.wf-filepreview-md h3 {
+  margin: var(--wf-space-md) 0 var(--wf-space-sm);
+  line-height: 1.3;
+}
+
+.wf-filepreview-md h1 { font-size: 1.6em; }
+.wf-filepreview-md h2 { font-size: 1.35em; }
+.wf-filepreview-md h3 { font-size: 1.15em; }
+
+.wf-filepreview-md p {
+  margin: var(--wf-space-sm) 0;
+}
+
+.wf-filepreview-md blockquote {
+  margin: var(--wf-space-sm) 0;
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  border-left: 3px solid var(--wf-color-primary);
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-text-secondary);
+  border-radius: 0 var(--wf-radius-sm) var(--wf-radius-sm) 0;
+}
+
+.wf-filepreview-md ul,
+.wf-filepreview-md ol {
+  margin: var(--wf-space-sm) 0;
+  padding-left: var(--wf-space-lg);
+}
+
+.wf-filepreview-md img {
+  max-width: 100%;
+  border-radius: var(--wf-radius-sm);
+}
+
+.wf-filepreview-md pre,
+.wf-filepreview-md code {
+  font-family: var(--wf-font-mono, monospace);
+  font-size: 0.9em;
+}
+
+.wf-filepreview-md pre {
+  background: var(--wf-color-bg-muted, var(--wf-color-border));
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  border-radius: var(--wf-radius-sm);
+  overflow-x: auto;
+}
+
+.wf-filepreview-md code {
+  background: var(--wf-color-bg-muted, var(--wf-color-border));
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.wf-filepreview-md pre code {
+  background: none;
+  padding: 0;
+}
+
+.wf-filepreview-md hr {
+  border: none;
+  border-top: 1px solid var(--wf-color-border);
+  margin: var(--wf-space-md) 0;
+}
+
+/* iframe（html sandbox / pdf / office） */
+.wf-filepreview-frame {
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  overflow: hidden;
+  background: var(--wf-color-bg);
+}
+
+.wf-filepreview-iframe {
+  display: block;
+}
+
+.wf-filepreview-empty {
+  border: 1px dashed var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  padding: var(--wf-space-lg);
+  text-align: center;
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-sm);
+}
+
+/* 编辑保存工具条 */
+.wf-filepreview-actions {
+  display: flex;
+  justify-content: flex-end;
+}

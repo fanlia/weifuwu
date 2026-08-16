@@ -635,6 +635,7 @@ props 变化 ──────────────────────�
 | Chart | `Chart` | `type: ChartType`, `data`, `options`, `title`, `area` | SVG 图表（line/bar/pie）|
 | DatePicker | `DatePicker` | `mode: DatePickerMode`, `value`, `onChange`, `placeholder`, `disabled` | 日期选择器（date/datetime/time/range）|
 | Editor | `Editor` | `value`, `onChange`, `toolbar`, `placeholder`, `disabled`, `ai?` | 富文本编辑器（事件流事务层：撤销/重做/时光机；AI 协作可选） |
+| FilePreview | `FilePreview` | `type`, `content?`, `url?`, `editable?`, `ai?`, `onSave?` | 文件预览（md/html/pdf/office/text）——基于事件流，md/text 可编辑 |
 
 ### Editor（富文本编辑器 + AI 协作）
 
@@ -686,6 +687,40 @@ import { Editor } from 'weifuwu/components'
     }],
   }} />
 ```
+
+### FilePreview（文件预览——基于事件流）
+
+md/html/pdf/office/text 文件预览——**文档 = fold(事件流)**（复用 Editor 文档模型）：
+md/text 解析为 DocState——预览/编辑/撤销/AI 同一模型；编辑后可序列化回 md 保存。
+
+```tsx
+import { FilePreview } from 'weifuwu/components'
+
+// md 预览 + 编辑 + AI 协作（润色文档 = 原子撤销）
+<FilePreview type="md" content={md} editable ai={{ url: '/api/ai' }}
+  onSave={(md) => saveToSandbox(md)} fileName="README.md" />
+```
+
+**类型支持矩阵**：
+
+| 类型 | 预览 | 编辑 | 说明 |
+|------|------|------|------|
+| `md` | ✅ 复用 `<Markdown>`（安全 token 渲染：表格/任务列表/URL 白名单） | ✅ 复用 `<Editor>`（事件流事务层——撤销/时光机/AI） | 编辑保存 = 序列化回 Markdown |
+| `text` | `<pre>` | ✅ 复用 `<Editor>` | 纯文本 |
+| `html` | ✅ iframe `sandbox`（安全隔离——不直插 DOM） | ❌（安全边界） | 只读 |
+| `pdf` | ✅ iframe（浏览器原生查看器） | ❌ | 只读 |
+| `office` | ✅ iframe（服务端转换产物 URL） | ❌ | 转换由服务端提供（前端零依赖——诚实裁剪） |
+
+**Props**：`type`（必需）、`content`（md/html/text）、`url`（pdf/office）、
+`editable`（md/text 切换 Editor）、`ai`（编辑模式透传 Editor AI 协作）、
+`onSave(content, type)`（保存回写）、`onLoad`（解析完成）、`height`。
+
+**事件流**：预览加载 `editEmit('preview')`（`__edit_tail` 可审计）；编辑走 Editor
+commit 事件流（同一时间线）。**sandbox 集成**：`url` 加载 + `onSave` 回写由消费方接
+文件读写工具。
+
+**裁剪**：docx/xlsx/pptx 前端解析不做（零依赖——office 由服务端转换）；代码块/
+表格编辑时降级（超 Editor 模型——见 md 转换文档）。
 
 ### 布局
 

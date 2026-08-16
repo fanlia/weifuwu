@@ -9,6 +9,7 @@
 
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
+import { FilePreview } from 'weifuwu/components'
 import { v3Toast, v3Confirm } from 'weifuwu/ui-dom'
 import {
   Button, Input, Textarea, Select,
@@ -1137,6 +1138,18 @@ const DemoEditor: Component = async (_props, ctx) => {
       <div class="wf-text-xs wf-text-secondary wf-py-xs wf-truncate wf-w-full">
         HTML 输出: {html?.substring(0, 150) || '(空)'}
       </div>
+    </div>
+  )
+}
+
+const DemoFilePreview: Component = async (_props, ctx) => {
+  let md = '# 项目说明\n\n这是 **文件预览** 组件演示——Markdown 文档。\n\n> 支持预览与编辑（基于事件流）\n\n- 预览：复用 Markdown 安全渲染\n- 编辑：Editor 事件流事务层（撤销/时光机/AI）\n- 保存：序列化回 Markdown\n\n图片示例：![weifuwu](https://picsum.photos/200/100)\n\n---\n\n尾部段落。'
+  let saved = ''
+  return async (_p: any) => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <FilePreview type="md" content={md} editable ai={{ url: '/api/chat' }} fileName="README.md"
+        onSave={(v: string) => { saved = v; ctx.ui.render() }} />
+      {saved ? <div class="wf-text-xs wf-text-secondary wf-py-xs wf-truncate wf-w-full">已保存: {saved.substring(0, 80)}…</div> : null}
     </div>
   )
 }
@@ -3152,6 +3165,7 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
         <DemoCard title="Chart" desc="SVG 图表：line/bar/pie" code={CODE.chart}><DemoChart /></DemoCard>
         <DemoCard title="Editor" desc="富文本编辑器，contentEditable + toolbar，零依赖" code={CODE.editor}><DemoEditor /></DemoCard>
+        <DemoCard title="FilePreview" desc="文件预览（md/html/pdf/office）——基于事件流，可编辑" code={''}><DemoFilePreview /></DemoCard>
         <DemoCard title="ThemeSwitch" desc="主题切换：auto/light/dark，localStorage 持久化" code={CODE.themeSwitch}><DemoThemeSwitch /></DemoCard>
       </Section>
 
