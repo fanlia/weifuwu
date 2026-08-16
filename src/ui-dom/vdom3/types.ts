@@ -70,6 +70,10 @@ export interface VNode {
   _id?: string
   /** 组件输出（build 写——独立于 children（props.children 是入参）；避免覆盖污染对照树） */
   _child?: VNode | null
+  /** 多节点输出范围（阶段 2——渲染后回填：首/尾 DOM 节点——组件/Fragment 输出
+   *  多节点时移除/推进用范围（vdom2 getOutputRange 语义——事件流引用替代 DOM 标记） */
+  _outFirst?: Node | null
+  _outLast?: Node | null
 }
 
 export type VNodeChild = VNode | string | number | null | undefined | boolean | VNodeChild[]

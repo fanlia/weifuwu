@@ -70,14 +70,21 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
     if (vnode.el != null && (vnode.el.isConnected || vnode.el.parentNode === parent)) return vnode.el
     const node = renderVNode(output as VNode, parent, anchor)
     vnode.el = node
+    // 多节点输出范围（组件输出 Fragment/数组——范围跟随输出）
+    vnode._outFirst = (output as VNode)._outFirst ?? node
+    vnode._outLast = (output as VNode)._outLast ?? node
     return node
   }
   if (isFragmentNode(vnode)) {
     let first: Node | null = null
+    let last: Node | null = null
     for (const c of childrenOf(vnode)) {
       const n = renderVNodeChild(c, parent, anchor)
-      if (n && !first) first = n
+      if (n) { if (!first) first = n; last = n }
     }
+    // 多节点输出范围（阶段 2——Fragment 展开——组件输出范围跟随）
+    vnode._outFirst = first
+    vnode._outLast = last
     return first
   }
   if (isPortalNode(vnode)) {
@@ -128,6 +135,8 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
       stream.emit(ev('prop', 'update', id, { key, value: val, prev: '' }))
     }
   }
+  vnode._outFirst = el
+  vnode._outLast = el
   if (anchor && anchor.parentNode === parent) parent.insertBefore(el, anchor)
   else parent.appendChild(el)
   stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null }))
@@ -140,6 +149,47 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   }
   for (const c of childrenOf(vnode)) renderVNodeChild(c, el)
   return el
+}
+
+/** 移除旧项输出范围（阶段 2——多节点：组件/Fragment 输出 _outFirst.._outLast——
+ *  首节点生命周期清理（组件卸载/ref）——其余范围节点直接移除（事件流）。
+ *  单节点/文本/占位 → 原有逻辑） */
+function removeOutputRange(oc: VNodeChild | null, el: Element, domNode: Node | null, i: number): void {
+  if (oc != null && typeof oc === 'object' && (oc as VNode)._outFirst && (oc as VNode)._outLast && (oc as VNode)._outLast !== (oc as VNode)._outFirst) {
+    // 多节点范围：首节点生命周期清理（组件卸载钩子/ref(null)）
+    const first = (oc as VNode)._outFirst!
+    const last = (oc as VNode)._outLast!
+    if (typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
+      removeComponentInstance(oc as VNode, el, i)
+    } else if ((oc as VNode).el && (oc as VNode).el!.parentNode === el) {
+      removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
+    } else if (first.parentNode === el) {
+      removeDomNode(first, el)
+    }
+    // 范围其余节点（first 后到 last——含 last——统一移除）
+    let n = first.nextSibling
+    const guard = 64 // 防御：范围异常（循环引用等）截断
+    let g = 0
+    while (n && n !== last && g++ < guard) {
+      const next = n.nextSibling
+      removeDomNode(n, el)
+      n = next
+    }
+    if (last.parentNode === el) removeDomNode(last, el)
+    return
+  }
+  if (oc != null && typeof oc === 'object' && isPortalNode(oc)) { removePortalContent(oc as PortalVNode); return }
+  if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
+    removePortalContent((oc as VNode)._child as PortalVNode); return
+  }
+  if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
+    removeComponentInstance(oc as VNode, el, i); return
+  }
+  if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
+    removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
+  } else if (domNode) {
+    removeDomNode(domNode, el) // 文本/占位移除（事件流）
+  }
 }
 
 /** 统一节点移除（发射 node:remove + unregister——占位/文本的直接移除也要事件流——
@@ -365,7 +415,7 @@ function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null)
   // app 节点：输出 = _child（子应用根构建）——同组件路径
   const out = vn._child !== undefined ? vn._child : childrenOf(vn)[0] ?? null
   const oldOut = ov._child !== undefined ? ov._child : childrenOf(ov)[0] ?? null
-  if (out == null) {
+  if (out == null || out === false || out === true) {
     // 注意：组件输出 null ≠ 组件从树中移除——实例保留（下次渲染输出恢复）——
     // 索引不注销（updateComponent 仍可 O(1) 定位）
     // 移除旧输出（统一生命周期清理——Portal 输出（el 为 null）走
@@ -376,11 +426,32 @@ function patchCompKind(ov: VNode, vn: VNode, parent: Node, anchor?: Node | null)
       // 递归 ref(null)——ref 纪律：lockScroll/focus 清理依赖
       // 卸载回调（usePopup 的 portalPanelRef → unlockScroll）
       callRefCleanup(oldOut as VNode | null)
-      // 不变量：无事件流不渲染——移除必须入事件流（REMOVE——可观测）
-      const rid = registry.idOf(ov.el)
-      stream.emit(ev('node', 'remove', rid, { parent: parentId(parent) }))
-      ov.el.parentNode?.removeChild(ov.el)
-      registry.unregister(rid, ov.el)
+      // 多节点范围移除（阶段 2——组件输出 Fragment 多节点——只移首节点会残留 m2）
+      const first = ov._outFirst ?? ov.el
+      const last = ov._outLast ?? ov.el
+      if (last !== first && first.parentNode === parent) {
+        // 首节点（生命周期清理 + REMOVE 事件）
+        const rid = registry.idOf(first)
+        stream.emit(ev('node', 'remove', rid, { parent: parentId(parent) }))
+        first.parentNode?.removeChild(first)
+        registry.unregister(rid, first)
+        // 范围其余（first 后到 last——统一移除——事件流）
+        let n = first.nextSibling
+        const guard = 64
+        let g = 0
+        while (n && n !== last && g++ < guard) {
+          const nx = n.nextSibling
+          removeDomNode(n, parent)
+          n = nx
+        }
+        if (last.parentNode === parent) removeDomNode(last, parent)
+      } else {
+        // 不变量：无事件流不渲染——移除必须入事件流（REMOVE——可观测）
+        const rid = registry.idOf(ov.el)
+        stream.emit(ev('node', 'remove', rid, { parent: parentId(parent) }))
+        ov.el.parentNode?.removeChild(ov.el)
+        registry.unregister(rid, ov.el)
+      }
       ov.el = null
     }
     vn.el = null
@@ -590,28 +661,37 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
   // 根治 children 错配类 bug：条件渲染切换（@ 菜单重复输入框/中间插入漂移））
   const isHoleNode = (n: Node | null): boolean => !!n && n.nodeType === 8 && (n.nodeValue ?? '').includes('wf-hole')
   const len = Math.max(oldKids.length, newKids.length)
+  // domIdx：DOM 索引推进（阶段 2——多节点项（组件/Fragment 输出宽度 >1）——
+  // children 索引 i 与 DOM 索引错位——每项处理后按宽度推进 domIdx）
+  let domIdx = baseIndex
+  /** 当前项 DOM 宽度（处理后的 nc 范围——多节点宽度；单节点/文本/空洞 = 1） */
+  const widthOf = (v: VNodeChild | null, dNode: Node | null): number => {
+    if (v != null && typeof v === 'object' && !Array.isArray(v)) {
+      const first = (v as VNode)._outFirst
+      const last = (v as VNode)._outLast
+      if (first && last && last !== first) {
+        let w = 1
+        let n: Node | null = first
+        const guard = 64
+        let g = 0
+        while (n && n !== last && g++ < guard) { w++; n = n.nextSibling }
+        return w
+      }
+    }
+    return dNode ? 1 : 0
+  }
   for (let i = 0; i < len; i++) {
     const oc = i < oldKids.length ? oldKids[i] : null
     const nc = i < newKids.length ? newKids[i] : null
-    const domNode = el.childNodes[i] ?? null // 占位法：槽位 i 的 DOM（占位或真实——恒存在）
-    const removeOld = (): void => {
-      if (oc != null && typeof oc === 'object' && isPortalNode(oc)) { removePortalContent(oc as PortalVNode); return }
-      if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
-        removePortalContent((oc as VNode)._child as PortalVNode); return
-      }
-      if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
-        removeComponentInstance(oc as VNode, el, i); return
-      }
-      if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
-        removeNodeWithLifecycle((oc as VNode).el!, el, oc as VNode)
-      } else if (domNode) {
-        removeDomNode(domNode, el) // 文本/占位移除（事件流）
-      }
-    }
+    // baseIndex 偏移（Fragment 的 children 展开在父容器——位置可能非 0——前后有兄弟）
+    const domNode = el.childNodes[domIdx] ?? null // 占位法：槽位 i 的 DOM（占位或真实——恒存在）
+    const removeOld = (): void => removeOutputRange(oc, el, domNode, i)
 
     if (i >= newKids.length) {
-      // 旧项多余（新树已尽）——统一移除（含占位）
+      // 旧项多余（新树已尽）——统一移除（含占位）——推进旧项宽度（多节点）
+      const w = oc != null && typeof oc === 'object' && (oc as VNode)._outFirst && (oc as VNode)._outLast && (oc as VNode)._outLast !== (oc as VNode)._outFirst ? widthOf(oc, domNode) : 1
       removeOld()
+      domIdx += w
       continue
     }
     if (typeof nc === 'string' || typeof nc === 'number') {
@@ -637,6 +717,7 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
         } else el.appendChild(t)
         stream.emit(ev('node', 'insert', id, { parent: nodeId(el), ref: null }))
       }
+      domIdx += 1
       continue
     }
     if (nc == null || nc === false || nc === true) {
@@ -647,6 +728,7 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
         removeOld()
         createHoleNode(el, anchor)
       }
+      domIdx += 1
       continue
     }
     if (oc != null && typeof oc === 'object' && (oc as VNode).type === (nc as VNode).type) {
@@ -667,6 +749,11 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
         createHoleNode(el, null)
       }
     }
+    // 推进 domIdx（多节点项宽度——组件/Fragment 输出范围——
+    // nc 范围未设（同 type patch 未更新）时 fallback oc 范围（同 type 宽度稳定））
+    const w = widthOf(nc, domNode) ||
+      (oc != null && typeof oc === 'object' && !Array.isArray(oc) && (oc as VNode)._outFirst && (oc as VNode)._outLast && (oc as VNode)._outLast !== (oc as VNode)._outFirst ? widthOf(oc as VNode, domNode) : 1)
+    domIdx += w
   }
   auditOrder(el, newV)
 }

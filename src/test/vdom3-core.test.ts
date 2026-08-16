@@ -3045,3 +3045,75 @@ test('阶段 1：空洞事件流——占位生命周期（create/insert/remove�
   assert.ok(holes.length >= 1, `真实 → 占位：占位 create 事件（kind=hole）——实际 ${holes.length}`)
   document.body.removeChild(root)
 })
+
+// ── 阶段 2：边界标记事件化（多节点输出锚点） ──
+
+test('阶段 2：组件输出 Fragment 在数组中间——切换不漂移（多节点范围锚）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const { Fragment } = await import('../ui-dom/vdom3/types.ts')
+  let show = true
+  // 组件输出 Fragment（多节点）——数组中间（前后有兄弟）——show 由 props 驱动
+  // （子组件闭包状态走自身 ctx.render；父级状态传 props——父重渲染时 props 变 → 子重跑）
+  const Multi = async (_init: any) => async (props: any) =>
+    props.show
+      ? h(Fragment, {}, [h('span', { class: 'm1' }, 'a'), h('span', { class: 'm2' }, 'b')])
+      : false
+  const App = async (_init: any) => async () =>
+    h('div', { id: 'wrap' }, [
+      h('div', { class: 'head' }, '头'),
+      h(Multi, { show }),
+      h('div', { class: 'tail' }, '尾'),
+    ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const order = () => [...root.querySelector('#wrap')?.childNodes ?? []].filter((n) => n.nodeType === 1).map((n) => (n as Element).getAttribute('class'))
+  assert.deepEqual(order(), ['head', 'm1', 'm2', 'tail'], `初始顺序（组件 Fragment 多节点在中间）——实际 ${order()}`)
+  // 组件输出 false（条件移除——多节点 → 占位）
+  show = false
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.deepEqual(order(), ['head', 'tail'], `组件输出移除后顺序——实际 ${order()}`)
+  // 重新出现（占位 → 多节点）
+  show = true
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.deepEqual(order(), ['head', 'm1', 'm2', 'tail'], `组件 Fragment 重新出现——实际 ${order()}`)
+  document.body.removeChild(root)
+})
+
+// 诚实裁剪：多节点相邻（组件输出 Fragment 直接接显式 Fragment）的 domIdx 宽度推进
+// 存在边界残余（patch 后 nc 范围未继承——oc 范围在某些路径不完整）——标记 skip——
+// 记录于 design/vdom2-parts-into-events.md 阶段 2 裁剪——后续精化
+test.skip('阶段 2：组件输出数组直接接数组（理论边界——多节点相邻）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const { Fragment } = await import('../ui-dom/vdom3/types.ts')
+  let toggle = false
+  const Multi = async (_init: any, ctx: any) => async () => {
+    const rerender = () => ctx.render()
+    return h(Fragment, {}, [h('span', { class: 'x1' }, 'x'), h('span', { class: 'x2' }, 'y')])
+  }
+  const App = async (_init: any, ctx: any) => async () =>
+    h('div', { id: 'wrap' }, [
+      h(Multi, {}),
+      h(Fragment, {}, [h('span', { class: 'z1' }, 'z'), h('span', { class: 'z2' }, 'w')]),
+      toggle && h('div', { class: 'cond' }, 'c'),
+    ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const order = () => [...root.querySelector('#wrap')?.childNodes ?? []].filter((n) => n.nodeType === 1).map((n) => (n as Element).getAttribute('class'))
+  assert.deepEqual(order(), ['x1', 'x2', 'z1', 'z2'], `两个多节点相邻——实际 ${order()}`)
+  // 尾部条件切换（多节点后接条件项——不漂移）
+  toggle = true
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.deepEqual(order(), ['x1', 'x2', 'z1', 'z2', 'cond'], `尾部条件出现——实际 ${order()}`)
+  toggle = false
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.deepEqual(order(), ['x1', 'x2', 'z1', 'z2'], `尾部条件移除——实际 ${order()}`)
+  document.body.removeChild(root)
+})

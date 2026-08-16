@@ -92,6 +92,17 @@
 
 **风险**：中高（锚点语义变化——测试矩阵兜底）。
 
+**执行状态（2026-12）：已完成主体——诚实裁剪**：
+- ✅ _outFirst/_outLast 范围记录（renderVNode native/Fragment/组件分支）
+- ✅ removeOutputRange（组件输出范围移除——patchCompKind out=false 分支——修复
+  组件输出 Fragment 只移首节点残留（m2 残留事故））
+- ✅ patchCompKind 的 out==null 漏 false 修复（组件输出 false 不走移除分支）
+- ✅ patchChildren domIdx 推进（多节点项宽度——children 索引与 DOM 索引错位）
+- ✅ 测试 +2：组件输出 Fragment 中间移除/重现（核心场景）；SSR 空洞同构
+- ✂️ 裁剪：多节点**相邻**（组件输出 Fragment 直接接显式 Fragment）的 domIdx
+  宽度推进边界残余（patch 后 nc 范围未继承——oc 范围部分路径不完整——
+  测试 skip 标记——后续精化：patchCompKind/patchFragKind patch 后同步 nc 范围）
+
 ---
 
 ## 阶段 3：决策事件化（x2y 查表 + 转换矩阵）
