@@ -114,3 +114,27 @@ test('阶段 2：集群聚合——远程宿主事件上报 → 统一查询（h
 })
 
 import { hostEventIngest, clusterEvents } from '../src/sandbox/events.ts'
+
+test('阶段 3：集群调度器——容量视图推导 + 路由决策（事件流驱动）', async () => {
+  resetSandboxEvents()
+  const { sandboxEmit } = await import('../src/sandbox/events.ts')
+  // 两个宿主：host-1（忙——2 exec 活跃）host-2（闲）
+  sandboxEmit('host:register', undefined, { hostId: 'host-1', memoryMb: 4096, cpus: 2 })
+  sandboxEmit('host:register', undefined, { hostId: 'host-2', memoryMb: 4096, cpus: 2 })
+  sandboxEmit('exec:start', 'sb-1', { hostId: 'host-1', tool: 'bash' })
+  sandboxEmit('exec:start', 'sb-2', { hostId: 'host-1', tool: 'bash' })
+  const { clusterLoad, pickHost, emitRouteDecision } = await import('../src/sandbox/scheduler.ts')
+  const loads = clusterLoad()
+  const h1 = loads.find((h) => h.hostId === 'host-1')
+  const h2 = loads.find((h) => h.hostId === 'host-2')
+  assert.equal(h1?.activeExecs, 2, 'host-1 活跃 exec 2（事件流推导）')
+  assert.equal(h2?.activeExecs, 0, 'host-2 活跃 exec 0')
+  // 路由选负载最低（host-2 或 local——host-2 闲）
+  const route = pickHost()
+  assert.ok(['host-2', 'local'].includes(route.hostId), `路由选最空闲——实际 ${route.hostId}`)
+  // 路由决策事件（可观测）
+  emitRouteDecision('sb-new', 'd1', 1024)
+  const routeEvt = (await import('../src/sandbox/events.ts')).sandboxEvents(100, { action: 'route' })
+  assert.equal(routeEvt.length, 1, '路由决策事件')
+  assert.ok(routeEvt[0].payload?.candidates?.length >= 2, '候选宿主列表（容量视图）')
+})

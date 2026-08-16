@@ -17,6 +17,8 @@
 import type { DockerSandbox, ExecResult, SandboxSpec } from './docker.ts'
 import { sandbox as defaultExecutor } from './docker.ts'
 import { sandboxEmit, subscribeSandboxEvents } from './events.ts'
+import { HOST_ID, hostCapacity } from './host.ts'
+import { emitRouteDecision } from './scheduler.ts'
 
 export interface SandboxRow {
   id: string
@@ -312,6 +314,8 @@ export class SandboxManager {
       sandboxEmit('create', String(rows[0].id), { appId: input.appId, departmentId: input.departmentId, name: input.name, memoryMb: input.memoryMb ?? DEFAULT_MEMORY_MB, hostId: HOST_ID })
       // 宿主注册（集群化阶段 1：首次创建时上报宿主身份/容量——调度器容量视图）
       sandboxEmit('host:register', undefined, { ...hostCapacity(), at: new Date().toISOString() })
+      // 集群调度（阶段 3）：路由决策事件（容量视图——选宿主——决策可观测）
+      emitRouteDecision(String(rows[0].id), input.departmentId ?? null, input.memoryMb ?? DEFAULT_MEMORY_MB)
       return rows[0] as SandboxRow
     } catch (e: any) {
       // 并发创建冲突（23505）→ 重查返回已有记录（幂等）
