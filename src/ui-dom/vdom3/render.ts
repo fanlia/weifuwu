@@ -139,7 +139,7 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   vnode._outLast = el
   if (anchor && anchor.parentNode === parent) parent.insertBefore(el, anchor)
   else parent.appendChild(el)
-  stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null }))
+  stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null, causeId: currentCause ?? undefined }))
   // ref 回调（挂载——稳定 ref 定义在 mount 层——§5.1 纪律）——
   // ref:mount 事件（组件副作用开始点——拿到 el 后组件可能操作 DOM——可观测）
   const refFn = vnode.props?.ref
@@ -197,7 +197,8 @@ function removeOutputRange(oc: VNodeChild | null, el: Element, domNode: Node | n
 function removeDomNode(n: Node, parent: Node): void {
   const id = registry.idOf(n)
   if (id) {
-    stream.emit(ev('node', 'remove', id, { parent: parentId(parent) }))
+    // causeId（阶段 3——移除的决策来源可查）
+    stream.emit(ev('node', 'remove', id, { parent: parentId(parent), causeId: currentCause ?? undefined }))
     registry.unregister(id, n)
   }
   n.parentNode?.removeChild(n)
@@ -211,7 +212,7 @@ function createHoleNode(parent: Node, anchor?: Node | null): Node | null {
   stream.emit(ev('node', 'create', id, { kind: 'hole' }))
   if (anchor && anchor.parentNode === parent) parent.insertBefore(hole, anchor)
   else parent.appendChild(hole)
-  stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null, kind: 'hole' }))
+  stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null, kind: 'hole', causeId: currentCause ?? undefined }))
   return hole
 }
 
@@ -246,6 +247,24 @@ export function patch(oldV: VNode | null, newV: VNode | string | number | null |
   } finally {
     registry = prev
   }
+}
+
+// ── 阶段 3：事件因果链（causeId——重建/移除决策与 DOM 操作的显式关联） ──
+// 决策点（异 type 重建/条件移除）分配 causeId——其产生的 DOM 操作事件带 causeId——
+// __wf_tail(n, { causeId }) 可查"这个操作的决策链"。patch 同步执行——模块级
+// currentCause 无并发问题；嵌套决策用栈（内层覆盖外层——完成恢复）。
+let causeUid = 0
+let currentCause: string | null = null
+const causeStack: (string | null)[] = []
+/** 决策点进入（分配 causeId——压栈） */
+function beginCause(): string {
+  causeStack.push(currentCause)
+  currentCause = `c${++causeUid}`
+  return currentCause
+}
+/** 决策点退出（恢复外层 cause） */
+function endCause(): void {
+  currentCause = causeStack.pop() ?? null
 }
 
 /** 单节点 kind 分类（diff:transition 决策事件的 from/to——阶段 0——vdom2 VKind 语义） */
@@ -621,7 +640,7 @@ export function removeNodeWithLifecycle(node: Node, parent: Node, vnodeRef?: VNo
   unbindAll(registry.idOf(node))
   if (vnodeRef) callRefCleanup(vnodeRef)
   const rid = registry.idOf(node)
-  stream.emit(ev('node', 'remove', rid, { parent: parentId(parent) }))
+  stream.emit(ev('node', 'remove', rid, { parent: parentId(parent), causeId: currentCause ?? undefined }))
   node.parentNode?.removeChild(node)
   registry.unregister(rid, node)
 }
@@ -759,9 +778,13 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
       // 空洞：旧占位保留（无操作）；旧真实 → 占位替换（对称——不塌缩——
       // anchor 先捕获（removeOld 后 domNode 脱离——直接传会 appendChild 末尾——错位）
       if (!isHoleNode(domNode)) {
-        const anchor = domNode ? domNode.nextSibling : null
-        removeOld()
-        createHoleNode(el, anchor)
+        // 决策点（阶段 3——条件移除的因果链）
+        beginCause()
+        try {
+          const anchor = domNode ? domNode.nextSibling : null
+          removeOld()
+          createHoleNode(el, anchor)
+        } finally { endCause() }
       }
       domIdx += 1
       continue
@@ -771,6 +794,9 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
       patch(oc as VNode, nc as VNode, el, domNode ?? null)
     } else {
       // 异类型/空洞→真实：新节点插到 domNode 前（占位法对称——占位/旧节点替换）
+      // 决策点（阶段 3——重建的因果链）
+      beginCause()
+      try {
       const node = renderVNode(nc as VNode, el, domNode ?? null)
       if (domNode && !isHoleNode(domNode)) {
         // 旧真实节点 → 移除（新节点已插到其前——占位法位置保持）
@@ -783,6 +809,7 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
         // 渲染失败且无旧节点——建占位兜底（保持同构）
         createHoleNode(el, null)
       }
+      } finally { endCause() }
     }
     // 推进 domIdx（多节点项宽度——组件/Fragment 输出范围——
     // nc 范围未设（同 type patch 未更新）时 fallback oc 范围（同 type 宽度稳定））

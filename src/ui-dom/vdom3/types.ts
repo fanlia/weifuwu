@@ -74,6 +74,8 @@ export interface VNode {
    *  多节点时移除/推进用范围（vdom2 getOutputRange 语义——事件流引用替代 DOM 标记） */
   _outFirst?: Node | null
   _outLast?: Node | null
+  /** props 内容快照（透明度 round2 阶段 1——dev only——检测原地改对象） */
+  _propsSnap?: string | null
 }
 
 export type VNodeChild = VNode | string | number | null | undefined | boolean | VNodeChild[]
@@ -141,7 +143,7 @@ export type AppVNode = VNode & {
 // 不变量：任何事件触发，最终都落到 dom 层事件（node/text/prop/event/ref 的精准状态变化）——
 // 决策层事件（route/comp/vnode）只是解释"为什么"，执行层事件（dom）是"做了什么"。
 
-export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream' | 'effect' | 'app' | 'diff'
+export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream' | 'effect' | 'app' | 'diff' | 'render'
 
 export type Action =
   /** location 层 */
@@ -163,6 +165,8 @@ export type Action =
    *  mode       = key 模式选择（unkeyed/keyed/mixed——业务身份声明协议观测）
    *  summary    = children 摘要（old/new/dom 三序列——顺序错乱快速定位） */
   | 'transition' | 'mode' | 'summary'
+  /** 渲染性能层（round2 阶段 2——每次渲染耗时可观测） */
+  | 'duration'
   /** 组件副作用层（ref 挂载/动画/滚动锁/焦点 trap/滚动——非渲染的 DOM 行为可观测） */
   | 'mount' | 'animate' | 'lock' | 'unlock' | 'focus' | 'scroll'
   /** 用户文本操作层（输入/选区/剪贴板——用户对文本的交互可观测） */

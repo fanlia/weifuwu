@@ -53,6 +53,17 @@ export function findComponent(v: VNode | null | undefined, compId: string): VNod
   return null
 }
 
+/** 渲染耗时上报（round2 阶段 2——render:duration 事件 + 慢渲染 warn——
+ *  性能黑盒透明：业务感知"卡"时知道哪次渲染/多慢——__v3SlowMs 阈值可配） */
+function reportRenderDuration(sessionId: string | null, buildMs: number, patchMs: number): void {
+  const ms = Math.round(buildMs + patchMs)
+  stream.emit(ev('render', 'duration', sessionId ?? undefined, { ms, buildMs: Math.round(buildMs), patchMs: Math.round(patchMs) }))
+  const slowMs = ((globalThis as { __v3SlowMs?: number }).__v3SlowMs ?? 100)
+  if (ms > slowMs) {
+    console.warn(`[vdom3/audit] 渲染耗时 ${ms}ms（build ${Math.round(buildMs)}ms + patch ${Math.round(patchMs)}ms）——session ${sessionId ?? '?'}——${slowMs}ms 以上视为慢渲染（__v3SlowMs 可调）`)
+  }
+}
+
 /** 创建应用根（挂载组件树——组件获得 ctx.render 调度能力；options.ctx 注入扩展字段
  *  ——中间件面（app/i18n/auth/data 等——组件 ctx 可选链消费）） */
 export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Record<string, unknown> }): RootHandle {
@@ -76,12 +87,20 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
     updatingComps.add(compId)
     // 渲染会话（阶段 0：一次渲染的事件共享 session——按会话过滤/回放）
     stream.setSession()
+    const sess = stream.currentSession()
+    const t0 = performance.now()
     try {
       do {
         dirtyComps.delete(compId)
         const comp = findComponent(current, compId)
         if (!comp || typeof comp.type !== 'function' || !comp._render) break
-        stream.emit(ev('comp', 'render', comp._id!, { name: compNameOf(comp) }))
+        // 阶段 4（round2）：触发源可见——__WF_V3_STACK 调试模式——comp:render 带
+        // 调用栈（谁触发了重渲染——事件回调/定时器/滚动一目了然）——默认关（栈开销）
+        const withStack = (globalThis as { __WF_V3_STACK?: string }).__WF_V3_STACK === '1'
+        stream.emit(ev('comp', 'render', comp._id!, {
+          name: compNameOf(comp),
+          ...(withStack ? { stack: new Error().stack?.split('\n').slice(2, 5).map((l) => l.trim().slice(0, 80)).join(' | ') } : {}),
+        }))
         // await 挂起检测（挂起 = 静默失败——错误事件流必须覆盖；
         // 超时可配置：globalThis.__v3HangMs——测试/调试用短超时）
         const hm = ((globalThis as any).__v3HangMs ?? 3000)
@@ -132,12 +151,16 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
     updating = true
     // 渲染会话（阶段 0）
     stream.setSession()
+    const sess = stream.currentSession()
+    const t0 = performance.now()
+    let tBuild = 0
     try {
       do {
         dirty = false
         // 统一重建：buildVNode（组件根 → renderFn 重跑复用实例；native 根 → 全树递归；
         // oldV 对照复用 _render）→ patch（事件流 → DOM）
         const built = await buildVNode(vnode, ctx, current, true)
+        tBuild = performance.now() - t0
         if (current == null) {
           mount(built, root)
         } else {
@@ -145,6 +168,7 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
         }
         current = built
       } while (dirty)
+      reportRenderDuration(sess, tBuild, performance.now() - t0 - tBuild)
     } finally {
       updating = false
     }
@@ -189,10 +213,16 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
 
   // 初始挂载（组件构建——ctx 注入）
   void (async () => {
+    // 首帧计时（round2 阶段 2——首帧慢也有 render:duration + 慢渲染 warn）
+    stream.setSession()
+    const sess0 = stream.currentSession()
+    const t0 = performance.now()
     try {
       const built = await buildVNode(vnode, ctx)
+      const tBuild0 = performance.now() - t0
       mount(built, root)
       current = built
+      reportRenderDuration(sess0, tBuild0, performance.now() - t0 - tBuild0)
     } catch (e) {
       // 初始挂载失败 → error:caught（事件流可观测——组件错误不静默——渲染可诊断）
       const err = e as Error

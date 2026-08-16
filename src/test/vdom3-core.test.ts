@@ -3248,3 +3248,118 @@ test('阶段 D：__wf_builds 按组件查构建决策（reason 可见）', async
   assert.ok(reasons.includes('reuse-skip'), `剪枝决策可见——实际 ${reasons.join(',')}`)
   document.body.removeChild(root)
 })
+
+// ── 第二轮阶段 1：props 内容级透明（dev 快照检测原地改对象） ──
+
+test('阶段 1：原地改对象 props → dev warn；新建对象 → 无 warn', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const warns: string[] = []
+  const ow = console.warn
+  console.warn = (...a: any[]) => { if (String(a[0]).includes('[vdom3/audit]')) warns.push(String(a[0])); ow(...a) }
+  let data: any = { k: 'a' }
+  const Item = async (_init: any) => async (props: any) => h('div', {}, props.data.k)
+  const App = async (_init: any) => async () => h('div', {}, [h(Item, { data })])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // 原地改对象（引用不变——内容变）
+  ;(data as any).k = 'changed'
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(warns.length > 0, `原地改对象触发 dev warn——实际 ${warns.length}`)
+  assert.ok(warns[0].includes('Item'), `warn 指明组件——实际 ${warns[0].slice(0, 60)}`)
+  // 新建对象（引用变）→ 无新 warn
+  const before = warns.length
+  data = { k: 'new-object' }
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  console.warn = ow
+  assert.equal(warns.length, before, `新建对象不再触发 warn`)
+  document.body.removeChild(root)
+})
+
+// ── 第二轮阶段 2：渲染性能透明（render:duration + 慢渲染 warn） ──
+
+test('阶段 2：render:duration 事件 + 慢渲染 warn（阈值可配）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const warns: string[] = []
+  const ow = console.warn
+  console.warn = (...a: any[]) => { if (String(a[0]).includes('[vdom3/audit] 渲染耗时')) warns.push(String(a[0])); ow(...a) }
+  // 慢组件（sleep 110ms——超过默认 100ms 阈值）
+  const Slow = async (_init: any) => async (props: any) => {
+    await new Promise((r) => setTimeout(r, 110))
+    return h('div', {}, props.k)
+  }
+  const App = async (_init: any) => async () => h('div', {}, [h(Slow, { k: 'x' })])
+  stream.reset() // 隔离前面测试的事件残留
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // duration 事件（首帧 update——含 build）
+  const durations = stream.events().filter((e) => e.entity === 'render' && e.action === 'duration')
+  assert.ok(durations.length > 0, `render:duration 事件——实际 ${durations.length}`)
+  const d = durations[durations.length - 1]
+  assert.ok(typeof d.payload?.ms === 'number' && (d.payload as any).ms > 0, `耗时字段——实际 ${JSON.stringify(d.payload)}`)
+  assert.ok(d.session, `duration 带 session`)
+  // 慢渲染 warn（110ms > 100ms）
+  assert.ok(warns.length > 0, `慢渲染 warn——实际 ${warns.length}`)
+  console.warn = ow
+  document.body.removeChild(root)
+})
+
+// ── 第二轮阶段 3：事件因果链（causeId——重建/移除决策 → DOM 操作） ──
+
+test('阶段 3：重建/移除决策的 DOM 操作带 causeId（因果可查）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let show = true
+  const App = async (_init: any) => async () => h('div', { id: 'w' }, [
+    show ? h('span', { class: 'a' }, 'x') : false,
+  ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  stream.reset()
+  // 元素 → 空洞（条件移除——决策 → remove 操作带 causeId）
+  show = false
+  handle.rerender()
+  await new Promise((r) => setTimeout(r, 20))
+  const removes = stream.events().filter((e) => e.entity === 'node' && e.action === 'remove')
+  assert.ok(removes.length > 0, `移除操作——实际 ${removes.length}`)
+  const causeId = removes[0].payload?.causeId as string | undefined
+  assert.ok(causeId, `移除带 causeId——实际 ${causeId}`)
+  // __wf_tail 按 causeId 过滤——该决策的操作链（移除 + 占位创建）
+  const w = globalThis as any
+  const chain = w.__wf_tail?.(100, { causeId })
+  assert.ok(Array.isArray(chain) && chain.length > 0, `按 causeId 过滤可查——实际 ${chain?.length}`)
+  document.body.removeChild(root)
+})
+
+// ── 第二轮阶段 4：更新触发源（__WF_V3_STACK 调试模式——comp:render 带栈） ──
+
+test('阶段 4：__WF_V3_STACK 开启时 comp:render 带触发栈（默认关）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const g = globalThis as any
+  const prev = g.__WF_V3_STACK
+  let n = 0
+  const App = async (_init: any, ctx: any) => async () => {
+    const rerender = () => ctx.render()
+    return h('button', { id: 'b', onClick: () => { n++; rerender() } }, String(n))
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // 默认关——无栈
+  stream.reset()
+  g.__WF_V3_STACK = '1' // 开启调试模式
+  ;(root.querySelector('#b') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  const renders = stream.events().filter((e) => e.entity === 'comp' && e.action === 'render')
+  const withStack = renders.filter((e) => e.payload?.stack)
+  assert.ok(withStack.length > 0, `调试模式 comp:render 带栈——实际 ${withStack.length}/${renders.length}`)
+  g.__WF_V3_STACK = prev
+  document.body.removeChild(root)
+})

@@ -131,12 +131,13 @@ export const stream = createEventStream()
 if (typeof globalThis !== 'undefined') {
   const w = globalThis as any
   if (!w.__wf_tail) {
-    w.__wf_tail = (n = 200, filter?: { comp?: string; decision?: string }) => {
+    w.__wf_tail = (n = 200, filter?: { comp?: string; decision?: string; causeId?: string }) => {
       const evs = stream.events().slice(-n)
       if (!filter) return evs
       return evs.filter((e) => {
         if (filter.comp && e.payload?.name !== filter.comp) return false
         if (filter.decision && e.payload?.reason !== filter.decision) return false
+        if (filter.causeId && e.payload?.causeId !== filter.causeId) return false
         return true
       })
     }
