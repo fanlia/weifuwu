@@ -1,4 +1,4 @@
-# vdom3 优化计划（2026-12）
+# vdom3 优化计划（2026-12——执行状态：阶段 1-3 + 4.1 已完成）
 
 > 目标：在事件代理/精准事件流的基础上，消除已知热点、强化不变量、简化架构。
 > 每项含：现状 / 问题 / 方案 / 验收 / 风险。按优先级分阶段执行。
@@ -141,15 +141,15 @@ subscribe(filter: Entity[] | Entity | ((e) => boolean), fn?)  // 兼容重载
 
 **验收**：bench（静态子树占多数的更新——克隆/分配下降）；全量测试（diff 语义不变）。
 
-### 4.2 per-root 实例化（stream + delegate）
+### 4.2 per-root 实例化（stream + delegate）——【暂缓——诚实裁剪】
 
 **现状**：全局单例——多应用（微前端/嵌套）事件流混合。
 
-**方案**：createRoot/createRouter options 支持 `stream`/`delegate` 注入（per-app 实例）——默认全局（兼容）——多应用隔离可选。
+**评估**：weifuwu 应用（agent-platform/components-demo/layouts-demo）均为单应用整页——
+多应用共存（微前端/嵌入第三方页）是高级场景——收益低、架构成本高
+（per-root id 分配器、delegate 实例化、事件流注入、测试基建适配）。
 
-**验收**：双 createRoot（独立 stream）测试；现有默认路径不变。
-
-**风险**：中（delegate 的 id 全局唯一 vs per-root id 冲突——per-root 需要 per-root id 分配器——架构影响）。
+**决策**：暂缓（记录——如需多应用隔离，按此方案扩展——当前单应用语义完整）。
 
 ---
 
