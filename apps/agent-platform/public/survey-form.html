@@ -72,7 +72,7 @@ const SurveyForm = async (_init, ctx) => {
     debounceTimer = setTimeout(flushSync, 400);
   };
   let age = "";
-  let industry = "";
+  let industry = "\u4E92\u8054\u7F51"; // 默认选中第一项（互联网/IT——原生 select 自动选第一个可用项）——用户不改也算已选——提交必填通过
   let focus = [];
   let rating = 0;
   let feedback = "";
@@ -93,6 +93,8 @@ const SurveyForm = async (_init, ctx) => {
     submitting = true;
     rerender();
     // 提交前 flush 全部 pending 答题（统计页答题流完整——快速填写不丢题）
+    // 默认值补同步：行业默认选中（用户未改）——提交即确认——答题流/进度完整
+    if (industry && !pendingSync["2.\u884C\u4E1A"]) pendingSync["2.\u884C\u4E1A"] = industry;
     flushSync();
     ctx.ws?.send({ type: "survey:submit", source, data: { age, industry, rating, focus, feedback } });
     setTimeout(() => {
