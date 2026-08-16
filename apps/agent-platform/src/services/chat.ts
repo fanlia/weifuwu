@@ -590,9 +590,17 @@ async function runAgentStreamForAgent(
         }
       }
     } catch { /* 验证失败不阻断 */ }
+/** 任务消息检测（惰性回复重试的前置条件）：含任务指令词才重试——
+ *  普通对话（你好/谢谢等）0 工具调用是正常回复——误判重试会让 AI 跑去
+ *  执行浏览器任务（问卷填写群真实事故：用户说'你好'——5 个 AI 全被重试
+ *  去打开问卷页——没有正常问候 stream 回复） */
+function isTaskMessage(content: string): boolean {
+  return /问卷|填写|任务|执行|处理|完成|汇总|打开|整理|分析|生成|创建|修改|提交|回复|总结|调研|统计|重试/.test(content)
+}
+
     // 2026-12 可靠性：惰性回复检测——本轮 0 次工具调用 = AI 只回复计划没干活
     // （研发大刘演示事故：看到旧结果只回复「收到」不执行）→ 自动重发一次（防循环）
-    if (toolCallCount === 0 && accumulatedContent.trim() && !streamFailed) {
+    if (toolCallCount === 0 && accumulatedContent.trim() && !streamFailed && isTaskMessage(messageContent)) {
       try {
         if (canAutoRetry(String(agent.id))) {
           const [sender] = await sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'user' LIMIT 1`
