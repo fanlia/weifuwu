@@ -109,7 +109,9 @@ export function ensureDelegationFor(el: Element, props: Record<string, unknown>)
   for (const [key, val] of Object.entries(props)) {
     if (typeof val === 'function' && /^on[A-Z]/.test(key)) {
       const event = key.slice(2).toLowerCase()
-      if (!registered.get(root)?.has(event)) ensureRootEvent(root, event)
+      // 去重键用真实事件（映射对齐 ensureRootEvent——避免逻辑键检查漏判重复注册）
+      const realEvent = EVENT_MAP[event] ?? event
+      if (!registered.get(root)?.has(realEvent)) ensureRootEvent(root, event)
     }
   }
 }
@@ -219,13 +221,18 @@ function rootOf(node: Node | null): Element | null {
   return null
 }
 
-/** 挂载点惰性注册事件监听（每挂载点每事件一次——EVENT_BIND 发一次） */
+/** 挂载点惰性注册事件监听（每挂载点每真实事件一次——EVENT_BIND 发一次）
+ *  去重键用 realEvent（非逻辑 event）：mouseenter → mouseover 映射后，
+ *  直接键 onMouseOver 与映射键 onMouseEnter 同时请求时只注册一个 mouseover
+ *  监听（否则同一真实事件双监听——dispatch 跑两遍——handler 双触发——
+ *  真实事故：components-demo root 两个 mouseover 监听——Chart onMouseEnter
+ *  与 Tooltip onMouseOver 并存时重复分发） */
 function ensureRootEvent(root: Element, event: string): void {
-  const set = registered.get(root) ?? new Set<string>()
-  if (set.has(event)) return
-  set.add(event)
-  registered.set(root, set)
   const realEvent = EVENT_MAP[event] ?? event
+  const set = registered.get(root) ?? new Set<string>()
+  if (set.has(realEvent)) return
+  set.add(realEvent)
+  registered.set(root, set)
   // 冒泡监听（与元素级语义一致：stopPropagation 的 handler 影响后续冒泡——
   // 组件 handler 内 stopPropagation 与现状一致）；不冒泡事件（error/load 等）
   // 用捕获监听（捕获阶段经过祖先——dispatch 才能收到）——保存引用（卸载可 remove）
@@ -302,9 +309,15 @@ function dispatch(e: Event): void {
   // 反向映射：挂载点监听 mouseover（映射自 mouseenter）——分发时查原事件 handler
   // （真实 hover 事故：onMouseEnter 注册 mouseenter——e.type 是 mouseover——
   // 直接查 handlers[mouseover] 无——需 REVERSE_MAP 解析）
-  const dispatchKey = handlers.has(e.type) ? e.type : (REVERSE_MAP[e.type] ?? e.type)
-  const m = handlers.get(dispatchKey)
-  if (!m) return
+  // 直接键与映射键必须同时分发：onMouseOver（直接键）与 onMouseEnter（映射键）
+  // 语义不同（每经过触发 vs 进入触发）互不替代——只选一个会静默吞掉另一个
+  // （真实事故：components-demo Tooltip wrapProps.onMouseOver 存在时，
+  // handlers.has('mouseover') 优先走直接键——Chart 数据点 onMouseEnter 永不触发）
+  const keys: string[] = []
+  if (handlers.has(e.type)) keys.push(e.type)
+  const mapped = REVERSE_MAP[e.type]
+  if (mapped && mapped !== e.type && handlers.has(mapped)) keys.push(mapped)
+  if (keys.length === 0) return
   while (el) {
     // closest 优化：跳过无 data-v3-id 的中间层（浏览器原生——目标层有 id 时零循环）
     if (!el.hasAttribute?.('data-v3-id')) {
@@ -313,8 +326,9 @@ function dispatch(e: Event): void {
     }
     const id = el.getAttribute?.('data-v3-id')
     if (id) {
-      const entry = m.get(id)
-      if (entry) {
+      for (const k of keys) {
+        const entry = handlers.get(k)?.get(id)
+        if (!entry) continue
         // 模拟元素级监听语义：currentTarget = handler 绑定的元素（原生事件
         // 的 currentTarget 是"正在处理事件的监听器所在元素"——代理监听在挂载点
         // ——组件库 e.currentTarget 取触发元素（Img fallback/DatePicker 定位/
@@ -331,11 +345,12 @@ function dispatch(e: Event): void {
         // once：分发一次后自动解绑（EVENT_UNBIND——可观测——与 addEventListener
         // { once: true } 等价但生命周期入事件流）
         if (entry.once) {
-          m.delete(id)
+          handlers.get(k)!.delete(id)
           stream.emit(ev('event', 'unbind', id, { event: e.type }))
         }
-        if (e.cancelBubble) break // handler 内 stopPropagation——停止向上分发
+        if (e.cancelBubble) break
       }
+      if (e.cancelBubble) break // handler 内 stopPropagation——停止向上分发
     }
     el = el.parentElement
   }

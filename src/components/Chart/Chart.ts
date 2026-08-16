@@ -200,6 +200,9 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
               'text-anchor': 'middle', style: { fill: 'var(--wf-color-on-brand)' },
               'font-size': '11', 'font-weight': 'bold',
               'font-family': 'var(--wf-font-sans)',
+              // 装饰性文字不拦截鼠标——否则覆盖的弧区 hover 无 tooltip
+              // （text 与 path 是同级——mouseover 不会冒泡到 arc——真实 hover 静默失效）
+              'pointer-events': 'none',
             }, `${Math.round(a.value / data.reduce((s, d) => s + Math.abs(d.value), 0) * 100)}%`)]
             : []),
         ])),
