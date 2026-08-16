@@ -395,6 +395,7 @@ async function runAgentStreamForAgent(
   initialMsgId: string,  // WS 路径预创建的消息 ID；SSE 路径为 ''（内部创建）
   messageContent: string, // 原始消息（惰性回复重试的任务检测——真实 bug：未传参
   // 引用未定义变量 → ReferenceError → wf:done 未发 → 前端状态卡"生成中"）
+  requestId = '', // 三端事件流（阶段 2）：requestId 跨端贯通
   emit: StreamEmitter,
   rosterMembers: RosterMember[] = [],
   attachmentLayer = '',
@@ -472,6 +473,8 @@ async function runAgentStreamForAgent(
 
   try {
     finalUsage = await streamAgent(ctx, {
+      // 三端事件流（阶段 2）：requestId 跨端贯通（传给 emit 桥接——ai 事件带）
+      requestId,
       agentId: agent.id,
       appId: ctx.appId,
       departmentId,
@@ -646,6 +649,7 @@ async function runAllAgents(
   departmentId: string,
   messageContent: string,
   initialMsgIds: string[],  // WS 路径：每个 agent 一个 msgId；SSE：[]
+  requestId = '', // 三端事件流（阶段 2）：requestId 跨端贯通
   attachments: Array<{ name: string; path: string; size: number }> = [],  // P1-3 聊天附件
   attachmentMsgId = '',  // P1-3 用户消息 id（附件区目录名——WS 路径与 AI 回复占位 id 不同）
   createEmitter: (agent: any, msgId: string) => StreamEmitter,
@@ -842,7 +846,7 @@ async function runAllAgents(
     }
 
     // C1：runMessageId 用用户消息 id（attachmentMsgId——WS 路径 msgId 是 AI 回复占位）
-    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, messageContent, emit, rosterMembers, attachmentLayer, groupMemoryLayer, attachmentMsgId, workspaceLayer)
+    await runAgentStreamForAgent(ctx, departmentId, agent, chatMessages, msgId, messageContent, requestId, emit, rosterMembers, attachmentLayer, groupMemoryLayer, attachmentMsgId, workspaceLayer)
   }
 
   // C5 写缓存：AI 回复完成后（通用问题 → 存答案供后续相似问题秒回）
@@ -875,6 +879,7 @@ export async function handleNewMessageStream(
   senderId: string,
   messageContent: string,
   messageId: string,
+  requestId = '', // 三端事件流（阶段 2）：requestId 跨端贯通（前端生成——精确因果）
 ): Promise<void> {
   // WS 路径：每个 agent 共享同一个 messageId
   // createEmitter 返回 WsEmitter
@@ -915,7 +920,7 @@ export async function handleNewMessageStream(
     }
   } catch { /* 缓存查询失败——走正常流程 */ }
 
-  await runAllAgents(ctx, departmentId, messageContent, [], attachments, messageId, (agent, msgId) => ({
+  await runAllAgents(ctx, departmentId, messageContent, [], requestId, attachments, messageId, (agent, msgId) => ({
     emit(event) {
       ctx.msg.broadcast(String(departmentId), event)
       // HTTP/无 WS 路径：wf:done（配额/付费墙提示等非流式回复）直接落库——
@@ -950,7 +955,7 @@ export async function handleNewMessageStreamSSE(
   }
   // SSE 路径：msgId 由 runAgentStreamForAgent 内部创建并设置到 event
   // 不强制覆盖 messageId
-  await runAllAgents(ctx, departmentId, messageContent, [], sseAttachments, '', (agent, msgId) => ({
+  await runAllAgents(ctx, departmentId, messageContent, [], requestId, sseAttachments, '', (agent, msgId) => ({
     emit(event) { sseEmitter.emit(event) },
   }))
 }

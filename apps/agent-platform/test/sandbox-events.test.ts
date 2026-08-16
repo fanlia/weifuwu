@@ -75,3 +75,13 @@ test('sandbox 事件流：持久化订阅机制（emit 同步回调——退订�
 })
 
 import { subscribeSandboxEvents } from '../src/sandbox/events.ts'
+
+test('阶段 1：统一 schema——错误码 code（与 ai error 对齐）', () => {
+  resetSandboxEvents()
+  sandboxEmit('exec:error', 'sb-1', { departmentId: 'd1', tool: 'bash', code: 'exec_error' })
+  sandboxEmit('exec:timeout', 'sb-1', { departmentId: 'd1', tool: 'agent-browser', code: 'timeout' })
+  const errors = sandboxEvents(100, { action: 'exec:error' })
+  assert.equal(errors[0].payload?.code, 'exec_error', 'exec:error 带 code')
+  const timeouts = sandboxEvents(100, { action: 'exec:timeout' })
+  assert.equal(timeouts[0].payload?.code, 'timeout', 'exec:timeout 带 code')
+})

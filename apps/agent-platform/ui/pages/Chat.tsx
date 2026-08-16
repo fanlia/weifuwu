@@ -378,9 +378,13 @@ export const Chat: Component = async (_props, ctx) => {
     $.replyTo = null
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     try {
+      // 三端事件流（阶段 2）：requestId 跨端贯通——一次用户操作精确因果——
+      // 前端生成 → POST → AI 事件 → （沙盒 exec）——全链路同一 requestId
+      const requestId = crypto.randomUUID?.() ?? `r${Date.now().toString(36)}`
       const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, {
         content: trimmed,
         reply_to: replyId,
+        request_id: requestId,
         attachments: savedFiles.map((f) => ({ name: f.name, data: f.data, size: f.size })),
       }).catch(() => null)
       if (data) {

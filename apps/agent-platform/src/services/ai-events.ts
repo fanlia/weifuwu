@@ -20,6 +20,9 @@ export interface AiEvent {
   action: string
   target?: string
   payload?: Record<string, unknown>
+  /** 任务会话（统一 schema——vdom session 同语义——按会话过滤/回放——
+   *  阶段 1 用 messageId（每次 AI 回复一会话）——阶段 2 由 requestId 精确填充） */
+  session?: string
   ts: number
 }
 
@@ -34,6 +37,7 @@ export function aiEmit(action: string, target?: string, payload?: Record<string,
   const evt: AiEvent = { entity: 'ai', action, ts: Date.now() }
   if (target != null) evt.target = target
   if (payload != null) evt.payload = payload
+  if (payload?.messageId) evt.session = String(payload.messageId) // 任务会话 = messageId（阶段 1）
   if (len < MAX_EVENTS) { buf[(head + len) % MAX_EVENTS] = evt; len++ }
   else { buf[head] = evt; head = (head + 1) % MAX_EVENTS }
   for (const fn of persistListeners) { try { fn(evt) } catch { /* 订阅者失败隔离 */ } }

@@ -232,8 +232,11 @@ export class SandboxManager {
       else this.counters.execErrors++
     }
     // sandbox 事件流：exec 结束（耗时/退出码/错误——可回放/审计）
+    // 统一 schema（阶段 1）：错误码 code（机器可读——timeout/exec_error——
+    // 与 ai error 的 code 字段对齐）
     sandboxEmit(r.ok ? 'exec:end' : r.timedOut ? 'exec:timeout' : 'exec:error', row.id, {
       departmentId, tool, ms: execMs, error: r.error?.slice(0, 200),
+      code: r.ok ? undefined : r.timedOut ? 'timeout' : 'exec_error',
     })
     // heartbeat 落 DB（exec 后——成功与否都算活动；exec 中由 busy 豁免回收）
     // 成功 → status 校正 running（requested/stopped 经 exec 即运行）；失败 → error 持久化

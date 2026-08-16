@@ -16,6 +16,8 @@ export interface SandboxEvent {
   action: string
   target?: string
   payload?: Record<string, unknown>
+  /** 任务会话（统一 schema——阶段 2 由 requestId 填充——跨端关联键） */
+  session?: string
   ts: number
 }
 

@@ -46,3 +46,11 @@ test('ai 事件流：订阅机制（emit 同步——退订生效）', () => {
   aiEmit('error', 'a1', {})
   assert.deepEqual(received, ['step', 'done'], '订阅收到——退订后停止')
 })
+
+test('阶段 1：统一 schema——session（任务会话）自动注入 + ms 字段', () => {
+  resetAiEvents()
+  aiEmit('done', 'agent-1', { messageId: 'm-session-1', ms: 1234 })
+  const evs = aiEvents()
+  assert.equal(evs[0].session, 'm-session-1', 'session = messageId（任务会话）')
+  assert.equal(evs[0].payload?.ms, 1234, 'ms 字段（统一耗时）')
+})

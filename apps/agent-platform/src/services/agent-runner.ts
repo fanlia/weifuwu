@@ -28,6 +28,8 @@ export interface AgentRunnerConfig {
   departmentId: string
   /** C1 断点续跑：执行归属消息 id（步骤落库锚点） */
   runMessageId?: string
+  /** 三端事件流（阶段 2）：requestId 跨端贯通（ai 事件 payload 带——精确因果） */
+  requestId?: string
   systemPrompt: string
   model?: string
   tools: unknown[]
@@ -527,16 +529,21 @@ export async function streamAgent(
   // C1 断点续跑：步骤落库串行链（emit 同步——fire-and-forget 保序）
   let runStateChain: Promise<unknown> = Promise.resolve()
   let lastTokenText = ''
+  const aiTaskT0 = Date.now() // 统一 schema：任务耗时起点（done 事件带 ms）
 
   // 框架 agent 事件流：wf:* 事件 → 业务回调（onChunk/onToolCall/onToolResult/onFinish）
   const emit: WfEmitter = (name, data) => {
     // AI 事件流（三端打通——vdom + ai + sandbox）：wf:* → ai:* 统一模型——
     // target = agentId——payload 含 messageId/departmentId（跨层关联键）
+    // 统一 schema（阶段 1）：ms（任务耗时——从 emit 定义起计时——done 带总耗时）
+    if (name === 'wf:done') aiPayload.ms = Date.now() - aiTaskT0
     try {
       const aiAction = aiActionFromWf(name)
       const aiPayload: Record<string, unknown> = { ...(data as Record<string, unknown> ?? {}) }
       if (config.runMessageId) aiPayload.messageId = config.runMessageId
       if (config.departmentId) aiPayload.departmentId = config.departmentId
+      // 三端事件流（阶段 2）：requestId 跨端贯通（精确因果——替代时间窗关联）
+      if (config.requestId) aiPayload.requestId = config.requestId
       // 降频：token 逐字太频——只发首个（流式进度可见）——完整内容由 done 的 content 覆盖
       if (name === 'wf:token') {
         if (lastTokenText !== '') return

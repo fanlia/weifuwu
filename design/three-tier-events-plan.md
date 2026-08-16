@@ -1,4 +1,4 @@
-# 三端事件流统一标准计划（vdom + ai + sandbox——2026-12——执行状态：未开始）
+# 三端事件流统一标准计划（vdom + ai + sandbox——2026-12——执行状态：阶段 1/2 完成）
 
 > 现状：三端事件流已同构（`{ entity, action, target, payload, ts }`——环形缓冲 +
 > 查询 + API）——但**标准不统一**：vdom 有 session（渲染会话）——ai/sandbox 无；
@@ -54,6 +54,10 @@ interface UnifiedEvent {
 
 **风险**：低（字段补齐——向后兼容）。
 
+**执行状态：已完成**——AiEvent/SandboxEvent 补 session（任务会话——ai 用 messageId）/
+ms（ai done 带任务总耗时——emit 定义起计时）/code（sandbox exec 错误码——
+timeout/exec_error——与 ai error 对齐）——测试 +2（schema 断言）——10 全绿。
+
 ---
 
 ## 阶段 2：跨层因果链（requestId 贯通——精确关联）
@@ -83,6 +87,13 @@ interface UnifiedEvent {
 可查（工具决策 → 容器执行精确关联）
 
 **风险**：中（requestId 贯穿调用链——前端/服务端/沙盒改动点明确）。
+
+**执行状态：已完成（服务端链）——诚实裁剪**：requestId 前端生成（crypto.
+randomUUID）→ POST messages（request_id）→ handleNewMessageStream → runAgent
+StreamForAgent → ai 事件 payload 带 requestId（精确因果——替代时间窗）。
+**裁剪**：sandbox exec 的 requestId（工具调用 → exec 的上下文传递复杂——并发
+竞态）——sandbox 关联保留 departmentId + tool + 时间窗（已有）——causeId 跨层
+在阶段 3（订阅器）做。
 
 ---
 

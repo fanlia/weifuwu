@@ -151,7 +151,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
         departmentId: params.id,
         message: { id: message.id, sender_id: message.sender_id, content: message.content, attachments: attachmentMeta },
       })
-      handleNewMessageStream(ctx, params.id, String(sender.id), content, String(message.id)).catch((err) =>
+      handleNewMessageStream(ctx, params.id, String(sender.id), content, String(message.id), String(body.request_id ?? '')).catch((err) =>
         console.error('[messages] handleNewMessageStream error:', err),
       )
       return Response.json({ message }, { status: 201 })
@@ -174,7 +174,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const deepseekKey = process.env.DEEPSEEK_API_KEY
     if (deepseekKey && deepseekKey !== 'sk-your-deepseek-api-key' && !deepseekKey.startsWith('sk-your-')) {
       // 流式：先创建占位消息再触发
-      handleNewMessageStream(ctx, params.id, String(sender.id), body.content, message.id).catch((err) =>
+      handleNewMessageStream(ctx, params.id, String(sender.id), body.content, message.id, String(body.request_id ?? '')).catch((err) =>
         console.error('[messages] handleNewMessageStream error:', err),
       )
     }
@@ -505,7 +505,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
 
     // 复用消息流：重发原内容 + 续跑提示（handleNewMessageStream 重新触发 AI）
     const { handleNewMessageStream } = await import('../services/chat.ts')
-    handleNewMessageStream(ctx, String(msg.department_id), 'system', String(msg.content) + resumeHint, String(msg.id)).catch((err: any) =>
+    handleNewMessageStream(ctx, String(msg.department_id), 'system', String(msg.content) + resumeHint, String(msg.id), '').catch((err: any) =>
       console.error('[messages] continue error:', err),
     )
     return Response.json({ success: true, resumed: true, doneSteps, totalSteps: steps.length })
