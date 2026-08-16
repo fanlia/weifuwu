@@ -51,8 +51,8 @@ export async function AppLayout(_props: {}, ctx: WfuiContext) {
 
   return async (__props: { children?: any }) => {
     // 渲染期读取路由（layout 跨子路由复用，mount 捕获的 route 不随导航更新）
-    // 子路由 'agents' → '/agents'（NAV 匹配用；'/' 保持）
-    const route = '/' + (ctx.route?.path ?? '').replace(/^\/+$/, '')
+    // v3 ctx.route.path = 完整路径（有前导 '/agents'）——去开头斜杠再拼（'/' 保持）
+    const route = '/' + (ctx.route?.path ?? '').replace(/^\/+/, '')
     return (
     <div class="wf-app-shell">
       <aside class="wf-sidebar">

@@ -78,6 +78,14 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
 
   // 页面组件 ctx：render = 重渲染当前页（组件工厂收到——交互驱动）+ 注入中间件面
   let pageCtx: V3Ctx = {} as V3Ctx
+  // route 共享可变对象（导航更新内容——引用恒定）：
+  // 页面组件/布局组件（跨路由复用——工厂不重跑——ctx 是旧 pageCtx 闭包）经
+  // 原型链/引用读 ctx.route——必须读到最新 path/params——否则 active 等
+  // 依赖 route 的复用组件不随导航更新（Sider 高亮不跟随的真实 bug）
+  const routeState: { path: string; params: Record<string, string>; [k: string]: unknown } = {
+    path: '',
+    params: {},
+  }
   const makePageCtx = (): V3Ctx =>
     Object.assign(Object.create(options?.ctx ?? {}), {
       render: () => { void updatePage() },
@@ -85,6 +93,8 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
       // ctx.render/ui.render 只重跑该组件——不经过页面级 build（props 剪枝会吞
       // 组件内部状态变化——count 闭包更新后 props 未变 → 剪枝复用旧输出））
       _componentRender: (compId: string) => { void updateComponent(compId) },
+      // 同一引用（所有 pageCtx 共享——导航只更新内容——复用组件读最新）
+      route: routeState,
     }) as V3Ctx
 
   /** 重渲染当前页面（页面组件 ctx.render——组件实例复用 + patch） */
@@ -206,11 +216,9 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
         return
       }
       pageCtx = makePageCtx() // 新页面新 ctx（render 绑定当前实例）
-      // 动态路由参数注入（vdom2 语义：ctx.route.params——组件消费（Chat 的 deptId 等））
-      ;(pageCtx as { route?: Record<string, unknown> }).route = {
-        path,
-        params: matched.params,
-      }
+      // 动态路由参数更新（共享 routeState——复用组件经同一引用读最新 path/params）
+      routeState.path = path
+      routeState.params = matched.params
       const page = matched.def.render(matched.params)
       const vnode = matched.def.layout ? matched.def.layout(page) : page
       // oldV 对照（current——同位置同类型复用 _render——layout 工厂不重跑）

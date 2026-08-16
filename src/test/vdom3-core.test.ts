@@ -2829,3 +2829,39 @@ test('app 节点：多应用加载——注册表/工厂/边界事件/同流全�
   document.body.removeChild(root2)
   resetAppRegistry()
 })
+
+test('路由：复用布局组件读最新 ctx.route（Sider active 跟随导航——共享 routeState）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRouter } = await import('../ui-dom/vdom3/router.ts')
+  // 布局组件（跨路由复用——工厂不重跑——renderFn 读 ctx.route）
+  const seen: string[] = []
+  const Layout = async (_init: any, ctx: any) => {
+    return async (props: any) => {
+      // ctx.route.path = 完整路径（有前导斜杠——'/a'）——复用组件读最新
+      const route = ctx.route?.path ?? ''
+      seen.push(route)
+      return h('div', { 'data-active': route, class: 'layout' }, [
+        h('nav', {}, ['菜单']),
+        h('main', {}, props.children),
+      ])
+    }
+  }
+  const layout = (page: any) => h(Layout, {}, page)
+  const PageA = async (_init: any, _ctx: any) => async () => h('div', { id: 'a' }, 'A')
+  const PageB = async (_init: any, _ctx: any) => async () => h('div', { id: 'b' }, 'B')
+  const router = createRouter([
+    { path: '/a', render: () => h(PageA, {}), layout },
+    { path: '/b', render: () => h(PageB, {}), layout },
+  ], root, { initialPath: '/a' })
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(root.querySelector('.layout')?.getAttribute('data-active'), '/a', '初始 ctx.route.path=/a')
+  // 导航 → layout 复用（工厂不重跑）但 renderFn 重跑读最新 ctx.route
+  router.navigate('/b')
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(root.querySelector('.layout')?.getAttribute('data-active'), '/b', '导航后 ctx.route.path=/b（共享 routeState——复用组件读最新）')
+  assert.ok(root.querySelector('#b'), '页面切换正常')
+  document.body.removeChild(root)
+})
