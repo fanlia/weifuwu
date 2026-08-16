@@ -17,6 +17,7 @@ import { createPortal, h } from '../vnode.ts'
 import type { VNode } from '../vnode.ts'
 import { useHoverCapable, usePresence } from './stable.ts'
 import { addGlobalListener, bindElementListener } from '../vdom3/delegate.ts'
+import { stream, ev } from '../vdom3/events.ts'
 
 /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标（0 rect 防护） */
 export function usePopupPosition(env: HookEnv, options: PopupPositionOptions): PopupPosition {
@@ -433,6 +434,8 @@ export function __resetPopupLockState(): void {
 
 function lockScroll(): void {
   lockedCount++
+  // 组件副作用事件：滚动锁（effect:lock——锁 body 滚动——可观测）
+  stream.emit(ev('effect', 'lock', undefined, { depth: lockedCount }))
   if (lockedCount > 1) return
   if (!canLock()) return
 
@@ -459,6 +462,8 @@ function unlockScroll(): void {
   // 错误还原 style / scrollTo 覆盖其他锁定者）
   if (lockedCount === 0) return
   lockedCount--
+  // 组件副作用事件：滚动锁释放（effect:unlock——可观测）
+  stream.emit(ev('effect', 'unlock', undefined, { depth: lockedCount }))
   if (lockedCount > 0) return
   if (!canLock()) return
 
@@ -497,12 +502,16 @@ function trapFocus(container: HTMLElement): () => void {
     }
 
     const prevFocused = _browser.activeElement() as HTMLElement | null
+    // 组件副作用事件：焦点 trap 开始（effect:focus——焦点圈入——可观测）
+    stream.emit(ev('effect', 'focus', undefined, { mode: 'trap-start' }))
     first.focus()
 
     // 焦点 trap 的容器键盘——统一走事件代理（聚合注册/退订 + 事件流可观测）
     const offKey = addGlobalListener(container, 'keydown', handler as EventListener)
     cleanup = () => {
       offKey()
+      // 组件副作用事件：焦点归还（effect:focus——trap 退出——可观测）
+      stream.emit(ev('effect', 'focus', undefined, { mode: 'restore' }))
       prevFocused?.focus()
     }
   })

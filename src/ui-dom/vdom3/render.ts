@@ -130,9 +130,13 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
   if (anchor && anchor.parentNode === parent) parent.insertBefore(el, anchor)
   else parent.appendChild(el)
   stream.emit(ev('node', 'insert', id, { parent: parentId(parent), ref: anchor ? nodeId(anchor) : null }))
-  // ref 回调（挂载——稳定 ref 定义在 mount 层——§5.1 纪律）
+  // ref 回调（挂载——稳定 ref 定义在 mount 层——§5.1 纪律）——
+  // ref:mount 事件（组件副作用开始点——拿到 el 后组件可能操作 DOM——可观测）
   const refFn = vnode.props?.ref
-  if (typeof refFn === 'function') refFn(el)
+  if (typeof refFn === 'function') {
+    stream.emit(ev('ref', 'mount', id, {}))
+    refFn(el)
+  }
   for (const c of childrenOf(vnode)) renderVNodeChild(c, el)
   return el
 }

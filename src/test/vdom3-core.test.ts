@@ -2440,3 +2440,60 @@ test('不变量：无事件流不渲染——组件输出变 null 的移除入�
   // 移除的 DOM 节点与事件一一对应（无静默操作——child 的移除有且仅有事件流里的 REMOVE）
   document.body.removeChild(root)
 })
+
+test('组件副作用事件流：ref:mount + effect:animate/lock/unlock/focus/scroll 可观测', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  // ref 挂载（组件副作用开始）→ ref:mount
+  const App = async (_init: any, _ctx: any) => async () => {
+    return h('div', { id: 'x', ref: (el: any) => { if (el) void el } }, 'x')
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  const mounts = gs.events().filter((e) => evKey(e) === 'ref:mount')
+  assert.ok(mounts.length >= 1, `ref:mount（组件副作用开始——拿到 el）——实际: ${[...new Set(gs.events().map((e) => evKey(e)))].join(',')}`)
+  document.body.removeChild(root)
+  // effect:animate（motion.animateOut）
+  gs.reset()
+  const { animateOut } = await import('../ui-dom/motion.ts')
+  const el = document.createElement('div')
+  document.body.appendChild(el)
+  animateOut(el, () => {}, 10)
+  await new Promise((r) => setTimeout(r, 50))
+  const anims = gs.events().filter((e) => evKey(e) === 'effect:animate')
+  assert.ok(anims.length >= 1, 'effect:animate（退场动画开始）')
+  document.body.removeChild(el)
+  // effect:lock/unlock（usePopup 滚动锁——Modal 场景）
+  gs.reset()
+  const { __resetPopupLockState } = await import('../ui-dom/hooks/popup.ts')
+  __resetPopupLockState()
+  document.body.style.overflow = ''
+  const { Modal } = await import('../components/Modal/Modal.ts')
+  const root2 = document.createElement('div')
+  document.body.appendChild(root2)
+  let open = true
+  const WithModal = async (_init: any, ctx: any) => {
+    const close = () => { open = false; ctx.ui.render() }
+    return async () => h('div', {}, [
+      h('button', { id: 'close', onClick: close }, 'close'),
+      h(Modal, { open, onClose: close, title: 't', children: h('div', {}, 'x') }),
+    ])
+  }
+  createRoot(h(WithModal, {}), root2)
+  await new Promise((r) => setTimeout(r, 40))
+  ;(root2.querySelector('[id="close"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  const modal = document.querySelector('.wf-modal')
+  if (modal) modal.dispatchEvent(new (window as any).Event('animationend', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 50))
+  const effects = gs.events().filter((e) => e.entity === 'effect')
+  const lock = effects.find((e) => e.action === 'lock')
+  const unlock = effects.find((e) => e.action === 'unlock')
+  assert.ok(lock, `effect:lock（滚动锁）——实际: ${effects.map((e) => e.action).join(',')}`)
+  assert.ok(unlock, 'effect:unlock（滚动锁释放）')
+  document.body.removeChild(root2)
+  document.querySelector('[id="__wf_portal"]')?.remove()
+})

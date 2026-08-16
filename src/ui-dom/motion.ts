@@ -7,12 +7,15 @@
  */
 
 import { bindElementListener } from './vdom3/delegate.ts'
+import { stream, ev } from './vdom3/events.ts'
 
 export function animateOut(
   el: HTMLElement,
   onDone: () => void,
   fallbackMs = 400,
 ): void {
+  // 组件副作用事件：退场动画开始（effect:animate——可观测）
+  stream.emit(ev('effect', 'animate', undefined, { target: el.getAttribute?.('data-v3-id') ?? null, ms: fallbackMs }))
   let finished = false
   const finish = () => {
     if (finished) return

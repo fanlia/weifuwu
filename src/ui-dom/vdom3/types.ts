@@ -126,7 +126,7 @@ export type PortalVNode = VNode & { type: typeof Portal; portalKey?: string | nu
 // 不变量：任何事件触发，最终都落到 dom 层事件（node/text/prop/event/ref 的精准状态变化）——
 // 决策层事件（route/comp/vnode）只是解释"为什么"，执行层事件（dom）是"做了什么"。
 
-export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream'
+export type Entity = 'route' | 'comp' | 'props' | 'vnode' | 'node' | 'text' | 'prop' | 'event' | 'ref' | 'error' | 'internal' | 'stream' | 'effect'
 
 export type Action =
   /** location 层 */
@@ -143,6 +143,8 @@ export type Action =
   | 'queue' | 'notfound' | 'skip'
   /** 事件流自身层（buffer 状态——溢出覆盖可观测） */
   | 'overflow'
+  /** 组件副作用层（ref 挂载/动画/滚动锁/焦点 trap/滚动——非渲染的 DOM 行为可观测） */
+  | 'mount' | 'animate' | 'lock' | 'unlock' | 'focus' | 'scroll'
 
 export type V3Event = {
   /** 对象（什么） */
