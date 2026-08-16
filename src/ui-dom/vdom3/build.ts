@@ -127,7 +127,6 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
     return v
   }
   // native / Fragment / Portal：递归 children（跳过文本）——克隆 + 新 children 数组
-  const v = { ...vnode } as VNode
   const oldKids = childrenOf(oldV ?? ({} as VNode))
   let i = 0
   let newKids: VNodeChild[] | null = null
@@ -139,6 +138,23 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
     }
     i++
   }
+  // 结构共享：children vnode 全无变化 + props/文本也无变化 → 复用旧引用
+  // （零克隆零分配——patch 顶层同引用跳过——静态分支零 diff）。
+  // 条件必须含 props 浅比较 + children（含文本）逐项比较——否则旧 props/文本
+  // 残留（count 文本变化被复用旧树吞掉——真实回归）。
+  // 纯函数式不变量保持：入参 vnode 不被修改（复用的是旧树 oldV——已弃树可共享）
+  if (newKids == null && oldV != null && typeof oldV === 'object' && !Array.isArray(oldV)) {
+    const oldKids = childrenOf(oldV as VNode)
+    const newKidsAll = childrenOf(vnode)
+    if (
+      propsEqual((oldV as VNode).props ?? {}, vnode.props ?? {})
+      && oldKids.length === newKidsAll.length
+      && oldKids.every((c, idx) => c === newKidsAll[idx])
+    ) {
+      return oldV as VNode
+    }
+  }
+  const v = { ...vnode } as VNode
   if (newKids) v.children = newKids
   return v
 }

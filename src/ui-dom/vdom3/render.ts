@@ -165,6 +165,10 @@ export function patch(oldV: VNode | null, newV: VNode | string | number | null |
   const prev = registry
   if (reg) registry = reg
   try {
+    // 结构共享快路径：同引用（build 复用旧树节点）→ 零 diff 零事件（静态分支）
+    if (oldV !== null && newV !== null && typeof oldV === 'object' && typeof newV === 'object' && oldV === newV) {
+      return (oldV as VNode).el ?? null
+    }
     return patchInner(oldV, newV, parent, anchor)
   } finally {
     registry = prev

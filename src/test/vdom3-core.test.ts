@@ -2721,3 +2721,37 @@ test('subscribe 过滤订阅 + stream:watermark 水位预警（事件流自身�
   const after = s.events().filter((e) => e.entity === 'stream' && e.action === 'watermark').length
   assert.equal(after, before, '水位只发一次（不重复预警）')
 })
+
+test('结构共享：静态分支复用旧引用（零克隆零 diff）+ 文本变化不复用（正确性）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  const { buildVNode } = await import('../ui-dom/vdom3/build.ts')
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let n = 0
+  let staticCompRenders = 0
+  // 静态组件（props 稳定——无内部状态——应被结构共享复用）
+  const Static = async (_init: any, _ctx: any) => async (_p: any) => {
+    staticCompRenders++
+    return h('div', { class: 'static' }, 's')
+  }
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', {}, [
+      h('button', { id: 'go', onClick: () => { n++; rerender() } }, [`count:${n}`]),
+      h(Static, {}),
+    ])
+  }
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  const rendersBefore = staticCompRenders
+  gs.reset()
+  ;(root.querySelector('[id="go"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 30))
+  // 文本更新正确（count:1——结构共享不吞文本变化）
+  assert.equal(root.querySelector('[id="go"]')?.textContent, 'count:1', '文本变化正确（结构共享条件含文本比较）')
+  // 静态组件复用（工厂不重跑——组件级复用）——renderFn 不重跑
+  assert.equal(staticCompRenders, rendersBefore, '静态组件复用（渲染次数不变——剪枝/共享）')
+  document.body.removeChild(root)
+})
