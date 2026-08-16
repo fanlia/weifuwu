@@ -10,8 +10,6 @@
  * - 裁剪：ZIP64/加密/数据描述符（flags bit3）/多盘——不支持（诚实——读到即抛错）
  */
 
-import { inflateRawSync } from 'node:zlib'
-
 const SIG_LOCAL = 0x04034b50
 const SIG_CENTRAL = 0x02014b50
 const SIG_EOCD = 0x06054b50
@@ -41,7 +39,19 @@ export function crc32(buf: Uint8Array): number {
 
 // ── 读取 ────────────────────────────────────────────────────────────────────
 
-export function readZip(u8: Uint8Array): Map<string, Uint8Array> {
+/** inflate（ZIP method 8）——跨环境：浏览器 DecompressionStream / Node 18+（同 API）。
+ *  老环境无 DecompressionStream → 抛错（诚实裁剪：OOXML 必用 deflate）。 */
+export async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
+  const DS = (globalThis as any).DecompressionStream
+  if (!DS) throw new Error('zip: 环境无 DecompressionStream（deflate 解压不支持）')
+  const stream = new DS('deflate-raw')
+  const out = await new Response(
+    new Blob([data as unknown as BlobPart]).stream().pipeThrough(stream),
+  ).arrayBuffer()
+  return new Uint8Array(out)
+}
+
+export async function readZip(u8: Uint8Array): Promise<Map<string, Uint8Array>> {
   // 1. 尾部扫描 EOCD（无注释——签名 + 22 字节）
   let eocd = -1
   for (let i = u8.length - 22; i >= 0; i--) {
@@ -72,7 +82,7 @@ export function readZip(u8: Uint8Array): Map<string, Uint8Array> {
     const lelen = dv.getUint16(lho + 28, true)
     const start = lho + 30 + lnlen + lelen
     const raw = u8.subarray(start, start + csize)
-    out.set(name, method === 8 ? inflateRawSync(raw) : raw)
+    out.set(name, method === 8 ? await inflateRaw(raw) : raw)
     off += 46 + nlen + elen + clen
   }
   return out

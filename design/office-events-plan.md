@@ -214,3 +214,29 @@ interface OfficeAiOptions {
   事件流桥接测试（edit ↔ ai 关联审计）
 - 2：xlsx 网格 UI + 公式 AI 浮层（选区上下文 → 建议 → 接受 commit）
 - 3：pptx 文本 AI（shape 选中 → shape-set）
+
+---
+
+## 10. 前端化（无需后端——用户决策 2026）
+
+**突破**：转换器已自研零依赖——唯一障碍 ZIP deflate——浏览器有
+`DecompressionStream('deflate-raw')`（Chrome 80+/Safari 16.4+/Node 18+）——
+**前端 import/export 完全可行**：
+
+```
+打开 docx（input[type=file]）→ readZip（EOCD→central→local + DecompressionStream）
+  → 轻量 XML 解析 → DocState → Editor（与 md/text 同链路——撤销/AI/表格编辑）
+  → 编辑 → docToDocx（VNode 组件化 → store ZIP）→ browser.downloadFile
+```
+
+**变更**：
+- zip.ts 去 node:zlib——`inflateRaw` 统一 DecompressionStream（跨环境）；
+  readZip 变 async
+- docx.ts 去 Buffer——base64 跨环境（Buffer 守卫 / atob）
+- FilePreview office 类型：editable → 本地导入（懒创建 file input——挂 body
+  隐藏；upload 测试可寻）+ 下载 docx；只读路径保留 iframe
+- 服务端转换仍可用（/api/office/import|export 契约不变——大文件/多用户场景），
+  但不再是必需
+
+**验证**：真实 docx 浏览器实测——打开 → Editor 渲染（h1/表格/粗体）→ 表格编辑
+→ 下载（Blob + 正确 MIME）；deflate 压缩路径测试（手工构造 method 8 ZIP）。

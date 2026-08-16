@@ -43,14 +43,14 @@ function serializeNode(v: VNode): string {
   }
   // children（单值或数组——嵌套数组展开；null/false 占位忽略——XML 无此语义）
   const list = Array.isArray(children) ? children : (children == null ? [] : [children])
-  const flat: VNodeChild[] = []
-  const flatten = (xs: VNodeChild[]): void => {
+  const flat: VNode[] = []
+  const flatten = (xs: unknown[]): void => {
     for (const c of xs) {
-      if (Array.isArray(c)) flatten(c as unknown as VNodeChild[])
-      else flat.push(c)
+      if (Array.isArray(c)) flatten(c as unknown[])
+      else if (c != null && typeof c !== 'boolean') flat.push(c as VNode)
     }
   }
-  flatten(list)
+  flatten(list as unknown[])
   if (flat.length === 0) {
     if (VOID.has(name)) return `<${name}${attrs}/>`
     // 非 void 空元素——显式闭合（Office 某些解析器对自闭合段落敏感）
@@ -59,16 +59,17 @@ function serializeNode(v: VNode): string {
   let inner = ''
   for (const c of flat) {
     if (isTextChild(c)) inner += escXml(String(c))
-    else if (c == null || c === false || c === true) { /* 占位忽略 */ }
     else inner += serializeNode(c)
   }
   return `<${name}${attrs}>${inner}</${name}>`
 }
 
 export function vnodeToXml(v: VNode | VNodeChild, xmlDecl = true): string {
-  const body = isTextChild(v) || v == null || typeof v === 'boolean'
-    ? (isTextChild(v) ? escXml(String(v)) : '')
-    : serializeNode(v)
+  let body: string
+  if (Array.isArray(v)) body = v.map((c) => vnodeToXml(c, false)).join('')
+  else if (isTextChild(v)) body = escXml(String(v))
+  else if (v == null || typeof v === 'boolean') body = ''
+  else body = serializeNode(v)
   return xmlDecl ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n${body}` : body
 }
 

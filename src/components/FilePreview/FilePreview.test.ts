@@ -24,7 +24,11 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
   it('复制按钮：ctx.browser.copyText 调用（§5.5 唯一入口）', async () => {
     const copied: string[] = []
     const ctx: any = {
-      browser: { copyText: async (t: string) => { copied.push(t) } },
+      browser: {
+        copyText: async (t: string) => { copied.push(t) },
+        createElement: (tag: string) => document.createElement(tag),
+        bodyAppend: (el: HTMLElement) => document.body.appendChild(el),
+      },
       ui: { render: () => {}, usePopup: () => ({ portal: () => null, setOpen: () => {}, refresh: () => {}, open: false, wrapProps: {} }) },
     }
     const root = document.createElement('div')
@@ -78,6 +82,19 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     await new Promise((r) => setTimeout(r, 20))
     assert.equal(saved, '# 新标题', '保存编辑后内容')
     assert.ok(!root.textContent?.includes('未保存'), '保存后脏标记清除')
+    root.remove()
+  })
+
+  it('office 编辑入口：打开/下载按钮存在（前端零依赖转换——jsdom 无法模拟文件对话框）', async () => {
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(FilePreview, {
+      type: 'office', editable: true,
+    } as any), root)
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    assert.ok(root.querySelector('[data-open]'), '「打开 docx」按钮存在（本地导入——无需后端）')
+    assert.ok(root.textContent?.includes('前端零依赖转换'), '空态提示')
     root.remove()
   })
 

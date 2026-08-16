@@ -18,9 +18,9 @@ import { Editor } from '../Editor/Editor.ts'
 import type { EditorAiOptions } from '../Editor/Editor.ts'
 import { Markdown } from '../Markdown/Markdown.ts'
 import { markdownToHtml, serializeMarkdown } from './markdown.ts'
-import type { DocState } from '../Editor/model/types.ts'
 import { EMPTY_DOC } from '../Editor/model/types.ts'
-import { parseHtml } from '../Editor/model/html.ts'
+import { parseHtml, serializeHtml } from '../Editor/model/html.ts'
+import type { DocState } from '../Editor/model/types.ts'
 import { editEmit } from '../Editor/edit-events.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 
@@ -61,6 +61,8 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let doc: DocState = EMPTY_DOC
+  // 前端导入的 office 文档（零依赖转换——docx ↔ DocState；本地文件，不远程）
+  let officeDoc: DocState | null = null
   // 预览/编辑切换（editable 时工具栏切换；同一 DocState 无缝切换）
   let editMode = false
   let dirty = false
@@ -170,23 +172,52 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
           style: { width: '100%', height: '100%', border: 'none' },
         }),
       ])
-    } else if (type === 'pdf' || type === 'office') {
-      // 原生查看器 / 服务端转换产物（只读）
-      if (!url) {
-        previewBody = h('div', { class: 'wf-filepreview-empty' },
-          type === 'office'
-            ? 'office 文件需要服务端转换后的 URL（docx/xlsx 前端零依赖解析——诚实裁剪）'
-            : '缺少文件 URL')
-      } else {
+    } else if (type === 'office') {
+      // 前端零依赖转换（自研 ZIP/XML/docx——DecompressionStream 解压）：
+      // 导入 docx → DocState → Editor（与 md/text 同链路）；导出 → 下载
+      if (editable && officeDoc) {
+        if (!enteredEdit) {
+          enteredEdit = true
+          doc = officeDoc
+        }
+        emitLoaded(doc.text.replace(/\uFFFC/g, '').length, doc.blockProps.length + doc.embeds.length + 1)
+        previewBody = h(Editor, {
+          value: serializeHtml(doc),
+          minHeight: height,
+          ai,
+          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.ui.render() },
+        })
+      } else if (editable) {
         emitLoaded(0, 0)
-        previewBody = h('div', { class: 'wf-filepreview-frame', style: { height } }, [
+        previewBody = h('div', { class: 'wf-filepreview-empty' },
+          '打开本地 .docx 文件开始编辑（前端零依赖转换——无需后端）')
+      } else {
+        // 只读预览：iframe（浏览器原生/服务端转换 URL）
+        emitLoaded(0, 0)
+        previewBody = url
+          ? h('div', { class: 'wf-filepreview-frame', style: { height } }, [
+            h('iframe', {
+              class: 'wf-filepreview-iframe',
+              src: url,
+              sandbox: 'allow-same-origin',
+              style: { width: '100%', height: '100%', border: 'none' },
+            }),
+          ])
+          : h('div', { class: 'wf-filepreview-empty' }, 'office 文件需要 URL 或开启 editable 本地导入')
+      }
+    } else if (type === 'pdf') {
+      // 原生查看器（只读）
+      emitLoaded(0, 0)
+      previewBody = url
+        ? h('div', { class: 'wf-filepreview-frame', style: { height } }, [
           h('iframe', {
             class: 'wf-filepreview-iframe',
             src: url,
+            sandbox: 'allow-same-origin',
             style: { width: '100%', height: '100%', border: 'none' },
           }),
         ])
-      }
+        : h('div', { class: 'wf-filepreview-empty' }, '缺少文件 URL')
     }
 
     // 远程加载状态（md/html/text url 场景）
@@ -204,6 +235,47 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       editEmit('preview', { type, status: 'saved', chars: out.length })
       ctx.ui.render()
     }
+      let officeInput: HTMLInputElement | null = null
+      const openDocx = (): void => {
+        // 懒创建（点击时——仅 office 卡片创建；缓存复用）
+        if (!officeInput) {
+          officeInput = _browser.createElement('input') as HTMLInputElement
+          officeInput.type = 'file'
+          officeInput.accept = '.docx'
+          officeInput.style.display = 'none'
+          officeInput.onchange = () => {
+            const f = officeInput!.files?.[0]
+            if (!f) return
+            void f.arrayBuffer().then(async (buf) => {
+              try {
+                const { docxToDoc } = await import('../../office/docx.ts')
+                const res = await docxToDoc(new Uint8Array(buf))
+                officeDoc = res.doc
+                doc = res.doc
+                enteredEdit = true
+                editMode = true
+                dirty = false
+                editEmit('preview', { type: 'office', status: 'imported', warnings: res.warnings.length })
+                ctx.ui.render()
+              } catch (e) {
+                editEmit('preview', { type: 'office', status: 'import-error', message: String(e) })
+              }
+            })
+          }
+          if (typeof document !== 'undefined') _browser.bodyAppend?.(officeInput)
+        }
+        officeInput.click()
+      }
+      const downloadDocx = (): void => {
+        if (!officeDoc) return
+        void import('../../office/docx.ts').then(({ docToDocx }) => {
+          const res = docToDocx(doc)
+          const ok = _browser.downloadFile(fileName ?? 'document.docx', res.data as unknown as string,
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+          editEmit('preview', { type: 'office', status: ok ? 'exported' : 'export-error' })
+        })
+      }
+
     const doCopy = async () => {
       // 编辑模式复制序列化内容（含编辑）；预览模式复制原始内容
       const out = isEditableType ? (editMode ? serializeMarkdown(doc) : effectiveContent) : content
@@ -223,8 +295,22 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
     }, [
       previewBody,
       // 工具条：预览/编辑切换 + 复制 + 保存（md/text editable）
-      isEditableType || (type === 'html' && !!content)
+      isEditableType || type === 'office' || (type === 'html' && !!content)
         ? h('div', { class: 'wf-filepreview-actions' }, [
+          type === 'office' && editable
+            ? h('button', {
+              class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'open',
+              'data-open': 'true',
+              onClick: () => openDocx(),
+            }, officeDoc ? '重新打开' : '打开 docx')
+            : null,
+          type === 'office' && editable && officeDoc
+            ? h('button', {
+              class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'dl',
+              'data-dl': 'true',
+              onClick: () => downloadDocx(),
+            }, '下载 docx')
+            : null,
           isEditableType && editable
             ? h('button', {
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'toggle',

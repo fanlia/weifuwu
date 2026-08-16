@@ -1157,6 +1157,18 @@ const DemoFilePreview: Component = async (_props, ctx) => {
   )
 }
 
+// office 前端导入/导出（零依赖转换——无需后端：自研 ZIP/XML + DecompressionStream）
+const DemoFilePreviewOffice: Component = async (_props, ctx) => {
+  return async () => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <FilePreview type="office" editable fileName="document.docx" />
+      <div class="wf-text-xs wf-text-secondary wf-py-xs">
+        点击「打开 docx」选择本地文件 → Editor 编辑（撤销/AI）→ 「下载 docx」导出——全程浏览器内转换（无后端）
+      </div>
+    </div>
+  )
+}
+
 const DemoThemeSwitch: Component = async (_props, ctx) => {
   let mode = 'auto'
   let preset: any = undefined
@@ -3169,6 +3181,7 @@ const App: Component = async (_props, ctx) => {
         <DemoCard title="Chart" desc="SVG 图表：line/bar/pie" code={CODE.chart}><DemoChart /></DemoCard>
         <DemoCard title="Editor" desc="富文本编辑器，contentEditable + toolbar，零依赖" code={CODE.editor}><DemoEditor /></DemoCard>
         <DemoCard title="FilePreview" desc="文件预览（md/html/pdf/office）——基于事件流，可编辑" code={''}><DemoFilePreview /></DemoCard>
+        <DemoCard title="FilePreview Office" desc="office 前端导入/导出（零依赖转换——无需后端）" code={''}><DemoFilePreviewOffice /></DemoCard>
         <DemoCard title="ThemeSwitch" desc="主题切换：auto/light/dark，localStorage 持久化" code={CODE.themeSwitch}><DemoThemeSwitch /></DemoCard>
       </Section>
 

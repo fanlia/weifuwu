@@ -1,5 +1,5 @@
 /**
- * weifuwu/office/docx — docx ↔ ODES DocState 双向转换（服务端）
+ * weifuwu/office/docx — docx ↔ ODES DocState 双向转换（前端/服务端通用——零依赖）
  *
  * 参考算法：office2json（unzip → XML 树 → 路径提取 w:body → w:p → w:r → w:t），
  * 增强提取到 ODES IR（design/office-events-plan.md）：
@@ -8,9 +8,12 @@
  * - 表格：w:tbl → Editor 表格 embed 快照（HTML 复用现有模型）
  * - 图片：w:drawing r:embed → rels → media → data url → img embed
  *
- * 导出（DocState → minimal docx）：段落/格式/表格/图片——store ZIP（零依赖）。
- * 诚实裁剪：分节/页眉页脚/域代码/批注/修订——导入忽略不静默丢内容？——
- * 裁剪项登记：只提取正文 w:body（其他部件不读）；导出仅含正文。
+ * 导出（DocState → minimal docx）：VNode 组件化（OOXML 也是 VNode——与前端
+ * "VNode → DOM"同构）→ vnodeToXml → store ZIP。块级 embed（pre/hr）打断段落。
+ *
+ * 前端可用（无需后端）：ZIP 解压走 DecompressionStream（浏览器/Node 18+）；
+ * base64 跨环境（Buffer 守卫/atob）。诚实裁剪：分节/页眉页脚/域代码/批注
+ * 不导入；http 图片导出裁剪（warning）。
  */
 
 import { readZip, writeZip } from './zip.ts'
@@ -25,6 +28,23 @@ import { EMBED_CHAR } from '../components/Editor/model/types.ts'
 
 const escHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/** base64 → Uint8Array（跨环境——浏览器 atob / Node Buffer） */
+export function base64ToBytes(b64: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') return new Uint8Array(Buffer.from(b64, 'base64'))
+  const bin = atob(b64)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
+/** Uint8Array → base64（跨环境） */
+export function bytesToBase64(u8: Uint8Array): string {
+  if (typeof Buffer !== 'undefined') return Buffer.from(u8).toString('base64')
+  let bin = ''
+  for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i])
+  return btoa(bin)
+}
 
 /** 样式名 → 块类型（裁剪：仅常见映射；未知样式 → 段落） */
 const STYLE_TO_KIND: Record<string, 'h1' | 'h2' | 'h3'> = {
@@ -46,8 +66,8 @@ export interface DocxImportResult {
   warnings: string[]
 }
 
-export function docxToDoc(u8: Uint8Array): DocxImportResult {
-  const files = readZip(u8)
+export async function docxToDoc(u8: Uint8Array): Promise<DocxImportResult> {
+  const files = await readZip(u8)
   const warnings: string[] = []
   const documentXml = files.get('word/document.xml')
   if (!documentXml) throw new Error('docx: 缺少 word/document.xml（非 docx？）')
@@ -120,7 +140,7 @@ export function docxToDoc(u8: Uint8Array): DocxImportResult {
             if (mediaPath && files.has(mediaPath)) {
               const data = files.get(mediaPath)!
               const mime = dataUrlMime(mediaPath)
-              const html = `<img src="data:${mime};base64,${Buffer.from(data).toString('base64')}" alt="">`
+              const html = `<img src="data:${mime};base64,${bytesToBase64(data)}" alt="">`
               embeds.push({ id: `d${embedSeq++}`, at: text.length, type: 'img', html })
               pushText(EMBED_CHAR)
             } else {
@@ -141,16 +161,15 @@ export function docxToDoc(u8: Uint8Array): DocxImportResult {
         if (align) bp.align = align
         blockProps.push(bp)
       }
-      // 段末空（<w:p/> 空段落）——text 加 \n 已处理
     } else if (el.name === 'w:tbl') {
       const html = tblToHtml(el)
       embeds.push({ id: `d${embedSeq++}`, at: text.length, type: 'table', html })
       pushText(EMBED_CHAR)
+      pushText('\n')
     } else if (el.name === 'w:sectPr') {
-      // 节属性（导出路径自带 pgSz/pgMar——保留正文语义；复杂分节裁剪不提示）
+      // 节属性（导出路径自带 pgSz/pgMar——正文语义保留；复杂分节裁剪不提示）
     }
   }
-  // 末尾多余 \n（body 结尾段落）——保留（Editor 同语义）
 
   return {
     doc: { text, blockProps, marks, embeds },
@@ -159,7 +178,6 @@ export function docxToDoc(u8: Uint8Array): DocxImportResult {
 }
 
 function findEmbedId(drawing: XmlNodeLike): string | null {
-  // wp:inline/wp:anchor → a:graphic → a:graphicData → pic:pic → pic:blipFill → a:blip r:embed
   const walk = (n: XmlNodeLike): string | null => {
     if (n.attrs?.['r:embed']) return n.attrs['r:embed']
     for (const c of n.children ?? []) {
@@ -172,8 +190,10 @@ function findEmbedId(drawing: XmlNodeLike): string | null {
 }
 
 interface XmlNodeLike {
+  name?: string
   attrs?: Record<string, string>
   children?: XmlNodeLike[]
+  text?: string
 }
 
 function dataUrlMime(path: string): string {
@@ -184,15 +204,16 @@ function dataUrlMime(path: string): string {
 
 /** w:tbl → Editor 表格 embed html */
 function tblToHtml(tbl: XmlNodeLike): string {
-  const rows = children2(tbl, 'w:tr')
+  const rows = (tbl.children ?? []).filter((c) => c.name === 'w:tr')
   if (rows.length === 0) return '<table class="wf-editor-table"><tbody></tbody></table>'
   let out = '<table class="wf-editor-table"><tbody>'
   for (const tr of rows) {
     out += '<tr>'
-    const tcs = children2(tr, 'w:tc')
-    for (const tc of tcs) {
-      const p = children2(tc, 'w:p')
-      const cellText = p.map((x) => cellTextOf(x)).join('')
+    for (const tc of (tr.children ?? []).filter((c) => c.name === 'w:tc')) {
+      const cellText = (tc.children ?? []).filter((c) => c.name === 'w:p')
+        .map((p) => (p.children ?? []).filter((c) => c.name === 'w:r')
+          .map((r) => (r.children ?? []).filter((c) => c.name === 'w:t').map((t) => allText2(t)).join(''))
+          .join('')).join('')
       out += `<td>${escHtml(cellText)}</td>`
     }
     out += '</tr>'
@@ -201,20 +222,6 @@ function tblToHtml(tbl: XmlNodeLike): string {
   return out
 }
 
-function cellTextOf(p: XmlNodeLike): string {
-  const rs = children2(p, 'w:r')
-  let t = ''
-  for (const r of rs) {
-    const tEl = children2(r, 'w:t')[0]
-    if (tEl) t += allText2(tEl)
-  }
-  return t
-}
-
-// XmlNode 兼容（我们的解析器）——直接类型化简化
-function children2(n: XmlNodeLike, name: string): XmlNodeLike[] {
-  return (n.children ?? []).filter((c) => c.name === name)
-}
 function allText2(n: XmlNodeLike): string {
   if (!n.children || n.children.length === 0) return n.text ?? ''
   let out = n.text ?? ''
@@ -317,7 +324,6 @@ function buildBody(
 ): VNode[] {
   const out: VNode[] = []
 
-  // 统一事件流：文本段 / embed 按 offset 排序（块级 pre/hr 打断段落）
   const kindAt = (pos: number): { kind: string; align?: string } | null => {
     const bp = doc.blockProps.find((b) => b.start === pos)
     if (!bp) return null
@@ -367,11 +373,10 @@ function buildBody(
 
   // 扫描：段起点 → 段内 items（embed vnode——文本由 para 内部生成）
   let segStart = 0
-  let pending: VNode[] = []
   const items: Array<{ at: number; kind: 'inline' | 'block'; vnode: VNode }> = []
+  const segEndRef = { current: 0 }
   const pushSeg = (): void => {
     if (items.length === 0) {
-      // 纯文本段 / 空段
       if (segStart < segEndRef.current) out.push(para(segStart, segEndRef.current, []))
       else out.push(para(segStart, segStart, []))
       return
@@ -380,7 +385,6 @@ function buildBody(
     let inline: VNode[] = []
     for (const it of items) {
       if (it.kind === 'block') {
-        // 块级打断：闭合当前段落 → 输出块（段落顺序正确）
         out.push(para(pendingStart, it.at, inline))
         inline = []
         out.push(it.vnode)
@@ -391,16 +395,13 @@ function buildBody(
     }
     out.push(para(pendingStart, segEndRef.current, inline))
   }
-  const segEndRef = { current: 0 }
 
-  // 构建 items（文本全部在一个段内——ODES \n 分段）
   const embeds = [...doc.embeds].sort((a, b) => a.at - b.at)
   let ei = 0
   for (;;) {
     const nl = doc.text.indexOf('\n', segStart)
     const segEnd = nl < 0 ? doc.text.length : nl
     segEndRef.current = segEnd
-    // 段内 embeds
     items.length = 0
     while (ei < embeds.length && embeds[ei].at < segEnd) {
       const e = embeds[ei]
@@ -424,14 +425,13 @@ function embedVNode(
   warnings: string[],
 ): VNode {
   if (e.type === 'img') {
-    // data url 提取 → media（http url 裁剪——诚实 warning）
     const m = /src="data:([^;]+);base64,([^"]+)"/.exec(e.html)
     if (m) {
       const idx = media.size + 1
       const rid = `rIdImg${idx + 1}`
       const ext = m[1].includes('png') ? 'png' : m[1].includes('jpeg') || m[1].includes('jpg') ? 'jpeg' : 'png'
       const path = `word/media/image${idx}.${ext}`
-      media.set(path, Buffer.from(m[2], 'base64'))
+      media.set(path, base64ToBytes(m[2]))
       rels.push(h('Relationship', {
         Id: rid,
         Type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
@@ -480,6 +480,11 @@ function embedVNode(
   return h('w:p')
 }
 
+function preText(html: string): string {
+  const m = /<pre[^>]*>([\s\S]*)<\/pre>/.exec(html)
+  return m ? m[1].replace(/<[^>]+>/g, '') : ''
+}
+
 /** 表格 embed html → w:tbl VNode（Editor 生成的规整 HTML——xml 解析器兼容） */
 function tblEmbedVNode(e: EmbedSpan): VNode {
   try {
@@ -500,31 +505,5 @@ function tblEmbedVNode(e: EmbedSpan): VNode {
     )
   } catch {
     return h('w:p', {}, h('w:r', {}, h('w:t', {}, '[表格（导出裁剪——格式无法解析）]')))
-  }
-}
-
-function preText(html: string): string {
-  const m = /<pre[^>]*>([\s\S]*)<\/pre>/.exec(html)
-  return m ? m[1].replace(/<[^>]+>/g, '') : ''
-}
-
-/** 表格 embed html → w:tbl（Editor 生成的规整 HTML——xml 解析器兼容） */
-function tblEmbedToXml(e: EmbedSpan): string {
-  try {
-    const root = parseXml(e.html)
-    let out = '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/></w:tblPr>'
-    const tbody = child(root, 'tbody') ?? root
-    for (const tr of children(tbody, 'tr')) {
-      out += '<w:tr>'
-      for (const tc of children(tr, 'td')) {
-        const cellText = allText(tc)
-        out += `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr><w:p><w:r><w:t xml:space="preserve">${escXml(cellText)}</w:t></w:r></w:p></w:tc>`
-      }
-      out += '</w:tr>'
-    }
-    out += '</w:tbl>'
-    return out
-  } catch {
-    return `<w:p><w:r><w:t>${escXml('[表格（导出裁剪——格式无法解析）]')}</w:t></w:r></w:p>`
   }
 }
