@@ -7,12 +7,61 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from '../../test/client/setup.ts'
 import { h } from '../../ui-dom/vdom3/index.ts'
 import { createRoot } from '../../ui-dom/vdom3/root.ts'
-import { FilePreview } from './FilePreview.ts'
+import { FilePreview, detectType } from './FilePreview.ts'
 import { editEvents, resetEditEvents } from '../Editor/edit-events.ts'
 
 before(setupJsdom)
 
 describe('FilePreview（串行——事件流全局缓冲）', () => {
+  it('detectType：按扩展名自动探测文件类型', () => {
+    assert.equal(detectType('README.md'), 'md')
+    assert.equal(detectType('notes.txt'), 'text')
+    assert.equal(detectType('page.html'), 'html')
+    assert.equal(detectType('doc.pdf'), 'pdf')
+    assert.equal(detectType('report.docx'), 'office')
+    assert.equal(detectType('data.xlsx'), 'office')
+    assert.equal(detectType(undefined, '/files/spec.md'), 'md')
+    assert.equal(detectType(undefined, '/files/unknown.xyz'), 'text', '未知扩展名默认 text')
+    assert.equal(detectType(), 'text')
+  })
+
+  it('type 未传时按 fileName 自动探测渲染', async () => {
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    const handle = createRoot(h(FilePreview, {
+      fileName: 'guide.md', content: '# 自动探测',
+    } as any), root)
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    assert.equal(root.querySelector('h1')?.textContent, '自动探测', 'md 自动探测渲染')
+    root.remove()
+  })
+
+  it('Ctrl+S 保存（编辑模式）', async () => {
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    let saved: string | null = null
+    const handle = createRoot(h(FilePreview, {
+      type: 'md', content: '# 标题', editable: true,
+      onSave: (v: string) => { saved = v },
+    } as any), root)
+    await handle.ready
+    await new Promise((r) => setTimeout(r, 30))
+    const ed = root.querySelector('.wf-editor-content') as HTMLElement
+    // 编辑内容
+    ed!.innerHTML = '<h1>新标题</h1>'
+    ed!.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 50))
+    // Ctrl+S（容器 keydown）
+    const wrap = root.querySelector('.wf-filepreview') as HTMLElement
+    wrap!.dispatchEvent(new (window as any).KeyboardEvent('keydown', {
+      key: 's', ctrlKey: true, bubbles: true, cancelable: true,
+    }))
+    await new Promise((r) => setTimeout(r, 20))
+    assert.equal(saved, '# 新标题', 'Ctrl+S 保存回写')
+    root.remove()
+  })
+
   it('md 预览：复用 Markdown 渲染（安全 token——标题/列表）', async () => {
     resetEditEvents()
     const root = document.createElement('div')

@@ -120,3 +120,21 @@
   display: flex;
   justify-content: flex-end;
 }
+
+/* 编辑保存工具条 */
+.wf-filepreview-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+}
+
+.wf-filepreview-actions-hint {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-filepreview-error {
+  color: var(--wf-color-error, #dc2626);
+  border-color: var(--wf-color-error, #dc2626);
+}

@@ -25,8 +25,20 @@ import { editEmit } from '../Editor/edit-events.ts'
 
 export type FileType = 'md' | 'html' | 'pdf' | 'office' | 'text'
 
+/** 从文件名/URL 推断类型（type 未传时自动探测） */
+export function detectType(fileName?: string, url?: string): FileType {
+  const name = (fileName || url || '').toLowerCase()
+  if (name.endsWith('.md') || name.endsWith('.markdown')) return 'md'
+  if (name.endsWith('.txt')) return 'text'
+  if (name.endsWith('.html') || name.endsWith('.htm')) return 'html'
+  if (name.endsWith('.pdf')) return 'pdf'
+  if (/\.(docx?|xlsx?|pptx?|odt|ods|odp)$/.test(name)) return 'office'
+  return 'text'
+}
+
 export interface FilePreviewProps {
-  type: FileType
+  /** 文件类型（缺省按 fileName/url 扩展名自动探测） */
+  type?: FileType
   /** md/html/text 内容（直接传入）；pdf/office 用 url */
   content?: string
   /** pdf/office 文件 URL（或 html 远程加载） */
@@ -74,7 +86,10 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
   }
 
   return async (props: FilePreviewProps) => {
-    const { type, content = '', url, fileName, editable, ai, onSave, onLoad, height = '400px' } = props
+    const { type: typeProp, content = '', url, fileName, editable, ai, onSave, onLoad, height = '400px' } = props
+    // 自动探测（type 未传——fileName/url 扩展名推断）
+    const type = typeProp ?? detectType(fileName, url)
+    const isEditableType = type === 'md' || type === 'text'
     // 远程加载触发（md/html/text 且传 url——content 优先，url 兜底；已加载过不重触发）
     const effectiveContent = content || (remote.status === 'idle' ? (remote.content ?? '') : '')
     if ((type === 'md' || type === 'html' || type === 'text') && url && loadedUrl !== url) {
@@ -159,20 +174,31 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       previewBody = h('div', { class: 'wf-filepreview-empty wf-filepreview-error' }, `加载失败: ${remote.error}`)
     }
 
+    const doSave = () => {
+      if (!onSave || !isEditableType || !editable) return
+      const out = type === 'md' ? serializeMarkdown(doc) : doc.text
+      onSave(out, type)
+      editEmit('preview', { type, status: 'saved', chars: out.length })
+    }
+
     return h('div', {
       class: `wf-filepreview wf-filepreview--${type}`,
+      onKeyDown: (e: KeyboardEvent) => {
+        // Ctrl+S 保存（编辑模式）
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && isEditableType && editable) {
+          e.preventDefault()
+          doSave()
+        }
+      },
     }, [
       previewBody,
       // 编辑保存工具条（md/text editable——序列化回写）
-      (type === 'md' || type === 'text') && editable && onSave
+      isEditableType && editable && onSave
         ? h('div', { class: 'wf-filepreview-actions' }, [
+          h('span', { class: 'wf-filepreview-actions-hint' }, 'Ctrl+S 保存'),
           h('button', {
             class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
-            onClick: () => {
-              const out = type === 'md' ? serializeMarkdown(doc) : doc.text
-              onSave(out, type)
-              editEmit('preview', { type, status: 'saved', chars: out.length })
-            },
+            onClick: () => doSave(),
           }, '保存'),
         ])
         : null,
