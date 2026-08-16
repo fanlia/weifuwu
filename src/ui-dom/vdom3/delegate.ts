@@ -91,14 +91,26 @@ export function resetDelegation(): void {
 /** 注册挂载点（createRoot/createRouter 挂载时调用） */
 export function ensureDelegationRoot(root: Element): void {
   roots.add(root)
-  ensureSelectionTracking()
+  ensureTextTracking()
 }
 
-// ── 用户选区跟踪（text:select——selectionchange——rAF 节流——
-//    拖动选中连续触发不刷屏——只记"选中文本"的可观测事件） ──
+// ── 用户文本操作跟踪（选区 + 剪贴板——selectionchange rAF 节流 +
+//    copy/cut/paste 全局监听——不依赖组件绑定——任何用户文本交互可观测） ──
 let selectionReady = false
 let selectionRaf = 0
-function ensureSelectionTracking(): void {
+
+/** 选中文本摘要（copy/cut/select 共用——含起点元素 id） */
+function selectionInfo(): { target: string | null; text: string } {
+  const sel = document.getSelection?.()
+  const text = sel?.toString?.() ?? ''
+  const anchor = sel?.anchorNode
+  const target = anchor && anchor.nodeType === 1
+    ? (anchor as Element).getAttribute?.('data-v3-id') ?? null
+    : anchor?.parentElement?.getAttribute?.('data-v3-id') ?? null
+  return { target, text }
+}
+
+function ensureTextTracking(): void {
   if (selectionReady) return
   selectionReady = true
   if (typeof document === 'undefined') return
@@ -107,22 +119,39 @@ function ensureSelectionTracking(): void {
     selectionRaf = requestAnimationFrame(() => {
       selectionRaf = 0
       try {
-        const sel = document.getSelection?.()
-        const text = sel?.toString?.() ?? ''
+        const { target, text } = selectionInfo()
         if (!text) return // 无选中（取消/失焦）——不发
-        const anchor = sel?.anchorNode
-        const target = anchor && anchor.nodeType === 1
-          ? (anchor as Element).getAttribute?.('data-v3-id') ?? null
-          : anchor?.parentElement?.getAttribute?.('data-v3-id') ?? null
-        stream.emit(ev('text', 'select', undefined, {
-          target,
-          length: text.length,
-          sample: text.slice(0, 40),
-        }))
+        stream.emit(ev('text', 'select', undefined, { target, length: text.length, sample: text.slice(0, 40) }))
       } catch { /* 选区读取失败隔离 */ }
     })
   }
   document.addEventListener('selectionchange', onSelection)
+  // 剪贴板操作（copy/cut/paste——用户文本复制粘贴可观测——含内容摘要）
+  const clipboardInfo = (e: Event): { target: string | null; sample: string } => {
+    const { target, text } = selectionInfo()
+    // copy/cut 记选中内容；paste 记剪贴板内容（clipboardData——安全读取）
+    let sample = text
+    if (e.type === 'paste') {
+      const dt = (e as ClipboardEvent).clipboardData
+      sample = dt?.getData?.('text') ?? ''
+    }
+    return { target, sample: sample.slice(0, 40) }
+  }
+  const onClip = (e: Event) => {
+    if (e.type !== 'copy' && e.type !== 'cut' && e.type !== 'paste') return
+    try {
+      const { target, sample } = clipboardInfo(e)
+      if (!sample) return // 无内容——不发（零噪音）
+      stream.emit(ev('text', e.type as 'copy' | 'cut' | 'paste', undefined, {
+        target,
+        length: sample.length,
+        sample,
+      }))
+    } catch { /* 剪贴板读取失败隔离（隐私/权限） */ }
+  }
+  document.addEventListener('copy', onClip)
+  document.addEventListener('cut', onClip)
+  document.addEventListener('paste', onClip)
 }
 
 /** 移除挂载点（卸载——removeEventListener 配对 + 注册表清理；

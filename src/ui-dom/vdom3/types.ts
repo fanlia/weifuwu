@@ -145,8 +145,8 @@ export type Action =
   | 'overflow'
   /** 组件副作用层（ref 挂载/动画/滚动锁/焦点 trap/滚动——非渲染的 DOM 行为可观测） */
   | 'mount' | 'animate' | 'lock' | 'unlock' | 'focus' | 'scroll'
-  /** 用户文本操作层（输入/选区——用户对文本的交互可观测） */
-  | 'input' | 'select'
+  /** 用户文本操作层（输入/选区/剪贴板——用户对文本的交互可观测） */
+  | 'input' | 'select' | 'copy' | 'cut' | 'paste'
 
 export type V3Event = {
   /** 对象（什么） */

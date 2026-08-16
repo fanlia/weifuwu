@@ -2537,3 +2537,40 @@ test('用户文本操作事件流：text:input（输入/组合）+ text:select�
   document.body.removeChild(root)
   resetDelegation()
 })
+
+test('用户剪贴板事件流：text:copy/cut/paste（含内容摘要——全局跟踪不依赖绑定）', async () => {
+  const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
+  const { resetDelegation } = await import('../ui-dom/vdom3/delegate.ts')
+  resetDelegation()
+  gs.reset()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const App = async (_init: any, _ctx: any) => async () => h('div', {}, '文本内容')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 30))
+  // copy（选中内容 → text:copy）
+  gs.reset()
+  const origSel = document.getSelection
+  ;(document as any).getSelection = () => ({
+    toString: () => '复制的文本',
+    anchorNode: root.querySelector('div'),
+  })
+  document.dispatchEvent(new (window as any).Event('copy'))
+  await new Promise((r) => setTimeout(r, 30))
+  ;(document as any).getSelection = origSel
+  const copies = gs.events().filter((e) => evKey(e) === 'text:copy')
+  assert.ok(copies.length >= 1, `text:copy（用户复制）——实际: ${[...new Set(gs.events().map((e) => evKey(e)))].join(',')}`)
+  assert.equal((copies[0] as any).payload?.sample, '复制的文本', '复制内容摘要可观测')
+  // paste（clipboardData → text:paste）
+  gs.reset()
+  const pasteEv = new (window as any).Event('paste', { bubbles: true, cancelable: true })
+  Object.defineProperty(pasteEv, 'clipboardData', { value: { getData: () => '粘贴的内容' } })
+  document.dispatchEvent(pasteEv)
+  await new Promise((r) => setTimeout(r, 30))
+  const pastes = gs.events().filter((e) => evKey(e) === 'text:paste')
+  assert.ok(pastes.length >= 1, `text:paste（用户粘贴）——实际: ${[...new Set(gs.events().map((e) => evKey(e)))].join(',')}`)
+  assert.equal((pastes[0] as any).payload?.sample, '粘贴的内容', '粘贴内容摘要可观测')
+  document.body.removeChild(root)
+  resetDelegation()
+})
