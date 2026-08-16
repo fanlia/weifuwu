@@ -90,4 +90,22 @@ if (typeof globalThis !== 'undefined') {
   if (!g.__ai_events) {
     g.__ai_events = (n = 100, filter?: { agentId?: string; action?: string; messageId?: string }) => aiEvents(n, filter)
   }
+  // 三端统一时间线（阶段 4）：requestId 聚合 ai + sandbox——一次请求的完整链
+  if (!g.__events_timeline) {
+    g.__events_timeline = (requestId: string) => {
+      const { sandboxEvents } = requireSandboxEvents()
+      const ai = aiEvents(2000).filter((e) => e.payload?.requestId === requestId)
+      const sb = sandboxEvents(2000).filter((e) => e.payload?.requestId === requestId)
+      const all = [
+        ...ai.map((e) => ({ tier: 'ai', action: e.action, target: e.target, payload: e.payload, ts: e.ts })),
+        ...sb.map((e) => ({ tier: 'sandbox', action: e.action, target: e.target, payload: e.payload, ts: e.ts })),
+      ].sort((a, b) => a.ts - b.ts)
+      return all
+    }
+  }
+}
+function requireSandboxEvents(): any {
+  // 动态引用（避免循环依赖——sandbox events 是纯模块）
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return { sandboxEvents: (globalThis as any).__sandbox_events ?? (() => []) }
 }

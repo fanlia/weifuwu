@@ -1,4 +1,4 @@
-# 三端事件流统一标准计划（vdom + ai + sandbox——2026-12——执行状态：阶段 1/2 完成）
+# 三端事件流统一标准计划（vdom + ai + sandbox——2026-12——执行状态：全部完成）
 
 > 现状：三端事件流已同构（`{ entity, action, target, payload, ts }`——环形缓冲 +
 > 查询 + API）——但**标准不统一**：vdom 有 session（渲染会话）——ai/sandbox 无；
@@ -128,6 +128,13 @@ onEvent('sandbox:exec:timeout', (e) => {
 
 **风险**：中（订阅器 + ws 推送——事件契约的注册点）。
 
+**执行状态：已完成（骨架 + 内置契约）——诚实裁剪**：
+- 中央订阅器（event-contracts.ts——onEvent 注册表——entity+action+谓词+once——
+  ai + sandbox emit 同步匹配——动作集中）
+- 内置契约：AI 浏览器工具调用 → sandbox warm:hint（预热信号——requestId 关联）；
+  exec:timeout → 跨层标注（warn——requestId 可回溯）
+- 裁剪：前端实时状态同步（ws 推送 AI/沙盒事件——改动面大）——后续独立做
+
 ---
 
 ## 阶段 4：统一消费端（一个查询一个工具）
@@ -147,6 +154,10 @@ GET /api/events?requestId=&entity=&action=&target=&n=
 **验收**：一个查询（requestId 时间线）——一个工具（三端统一）——全链路回放
 
 **风险**：低（聚合 API + 工具）。
+
+**执行状态：已完成**：GET /api/events?requestId=&entity=&action=（聚合 ai + sandbox——
+_tier 标记——时间序）+ __events_timeline(requestId)（全局工具——三端时间线——
+requestId 精确过滤）——统一查询/统一工具/统一心智。
 
 ---
 

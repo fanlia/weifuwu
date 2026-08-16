@@ -737,6 +737,11 @@ async function main() {
   registerSandboxRoutes(protectedRoutes)
   // AI 事件流（三端打通——vdom + ai + sandbox）
   registerAiEventRoutes(protectedRoutes)
+  // 三端事件契约（精密配合——AI 工具决策 → 沙盒预热；exec 超时 → 跨层标注）
+  const { registerBrowserWarmContract, registerExecTimeoutContract, startEventContracts } = await import('./src/services/event-contracts.ts')
+  registerBrowserWarmContract()
+  registerExecTimeoutContract()
+  startEventContracts()
   // 消息
   registerMessageRoutes(protectedRoutes)
   // 知识库
