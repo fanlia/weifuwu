@@ -68,14 +68,15 @@ export async function readZip(u8: Uint8Array): Promise<Map<string, Uint8Array>> 
   for (let i = 0; i < cdCount; i++) {
     if (dv.getUint32(off, true) !== SIG_CENTRAL) throw new Error(`zip: central entry ${i} 签名错误`)
     const method = dv.getUint16(off + 10, true)
-    const flags = dv.getUint16(off + 8, true)
     const csize = dv.getUint32(off + 20, true)
     const nlen = dv.getUint16(off + 28, true)
     const elen = dv.getUint16(off + 30, true)
     const clen = dv.getUint16(off + 32, true)
     const lho = dv.getUint32(off + 42, true)
     const name = new TextDecoder().decode(u8.subarray(off + 46, off + 46 + nlen))
-    if (flags & 0x8) throw new Error(`zip: ${name} 数据描述符不支持（裁剪——常见 OOXML 无）`)
+    // 数据描述符（flags bit 3）：local header 的 crc/size 为 0——但我们按 central
+    // directory 的 csize 读数据（central 恒准确）——无需处理 descriptor（真实事故：
+    // office2json 的 test.docx 带 descriptor——裁剪它导致真实文件导入失败）
     if (method !== 0 && method !== 8) throw new Error(`zip: ${name} 压缩方法 ${method} 不支持（裁剪：store/deflate）`)
     // local header 读数据
     const lnlen = dv.getUint16(lho + 26, true)
