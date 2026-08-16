@@ -17,7 +17,7 @@ function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
 
 function createTestCtx(): WfuiContext {
   return { ui: { $: {}
-, render: () => {}, dirty: () => {}, ready: true } } as any
+, render: () => {}, dirty: () => {}, ready: true, usePopup: () => ({ open: false, setOpen: () => {}, refresh: () => {}, portal: (_c: any, _k?: string) => null, wrapProps: {} }) } } as any
 }
 
 describe('Slider', () => {

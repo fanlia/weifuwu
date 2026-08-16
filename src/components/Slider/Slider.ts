@@ -1,6 +1,6 @@
 import type { Component } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createPortal, h } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 
 export interface SliderMark {
@@ -27,12 +27,23 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
   let inputEl: HTMLInputElement | null = null
   let tipOpen = false
   let dragging = false
+  let tipPos: { left: number; top: number } | null = null
   const inputRef = (el: HTMLInputElement | null) => { inputEl = el }
   const setTip = (v: boolean) => {
     if (tipOpen === v) return
     tipOpen = v
     ctx.ui.render()
   }
+  // §5.4 弹窗纪律：浮层一律 usePopup（统一组合器——定位/视口夹紧/Escape/portal）
+  const popup = ctx.ui.usePopup({
+    trigger: 'manual', // hover/拖动由 input 事件手动管理
+    placement: 'top',
+    gap: 8,
+    el: () => inputEl as HTMLElement | null,
+    isOpen: () => tipOpen,
+    setOpen: (v) => { if (!v) setTip(false) },
+    position: () => tipPos ? { x: tipPos.left, y: tipPos.top } : { x: 0, y: 0 },
+  })
   const browser = ctx.browser ?? createClientBrowser()
 
   return async (props: SliderProps) => {
@@ -52,15 +63,12 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
     const fillStop = `calc(${THUMB_R}px + (100% - ${THUMB_R * 2}px) * ${pct / 100})`
     const trackBg = `linear-gradient(to right, var(--wf-color-primary) ${fillStop}, var(--wf-color-border) ${fillStop})`
 
-    // ── tooltip 坐标：input rect + 进度百分比 → thumb 中心；视口边缘手动 clamp ──
-    let tipStyle: Record<string, string> | null = null
+    // ── tooltip 坐标：input rect + 进度百分比 → thumb 中心（usePopup 视口夹紧） ──
+    tipPos = null
     if (tipOpen && inputEl && !disabled) {
       const r = inputEl.getBoundingClientRect()
       if (r.width > 0) {
-        const vw = browser.viewportWidth?.() ?? 0
-        const left = Math.max(24, Math.min(vw - 24, r.left + thumbX(r.width, pct / 100)))
-        const top = Math.max(8, r.top - 36)
-        tipStyle = { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` }
+        tipPos = { left: Math.round(r.left + thumbX(r.width, pct / 100)), top: Math.round(r.top - 36) }
       }
     }
 
@@ -98,9 +106,8 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
 
     const display = h('span', { class: 'wf-slider-value' }, String(numVal))
 
-    const tip = tipStyle
-      ? createPortal(h('div', { class: 'wf-slider-tip', style: { position: 'fixed', ...tipStyle } }, String(numVal)), 'slider-tooltip')
-      : null
+    // disabled 无 tip（语义——气泡仅在可交互时显示）
+    const tip = disabled ? null : h('div', { class: 'wf-slider-tip' }, String(numVal))
 
     // ── marks 刻度：与 input 同宽容器（flex:1）内绝对定位 ──
     const marksRow = marks?.length
@@ -134,7 +141,7 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
     return h('div', { class: 'wf-slider-wrap' }, [
       h('label', { class: 'wf-slider-label' }, label),
       row,
-      tip,
+      tip ? popup.portal(tip, 'slider-tooltip') : null,
     ])
   }
 }
