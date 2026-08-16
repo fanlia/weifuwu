@@ -127,6 +127,19 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
 
   // ── 详情（含容器资源统计） ──────────────────────────────
 
+  // ── sandbox 事件流（实时——内存环形——含降频的频繁事件——调试/面板消费） ──
+  app.get('/api/sandboxes/events', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    try {
+      const { sandboxEvents } = await import('../sandbox/events.ts')
+      const n = Number(new URL(req.url).searchParams.get('n') ?? 100)
+      const sandboxId = new URL(req.url).searchParams.get('sandboxId') ?? undefined
+      const action = new URL(req.url).searchParams.get('action') ?? undefined
+      return Response.json({ events: sandboxEvents(Math.min(n, 500), { sandboxId, action }) })
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '事件流查询失败' }, { status: 500 })
+    }
+  })
+
   app.get('/api/sandboxes/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params } = ctx
     const { manager } = await import('../sandbox/manager.ts')
@@ -206,11 +219,15 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { sandbox } = await import('../sandbox/docker.ts')
     const running = sandbox.runningExecs.get(String(row.id)) ?? null
     const events = await manager.eventHistory(String(row.id), 30)
+    // sandbox 事件流：内存环形实时事件（含降频不入库的 exec:start/queued——调试完整链）
+    const { sandboxEvents } = await import('../sandbox/events.ts')
+    const liveEvents = sandboxEvents(50, { sandboxId: String(row.id) })
     const procs = await sandbox.containerProcesses(`ap-sandbox-${row.id}`).catch(() => [])
     return Response.json({
       sandbox: { id: row.id, status: row.status, error: row.error, last_used_at: row.last_used_at },
       runningExec: running ? { tool: running.tool, startedAt: new Date(running.startedAt).toISOString(), elapsedMs: Date.now() - running.startedAt, timeoutMs: running.timeoutMs } : null,
       events,
+      liveEvents,
       processes: procs.slice(0, 20),
     })
   })
