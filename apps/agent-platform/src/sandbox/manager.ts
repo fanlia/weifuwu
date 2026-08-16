@@ -221,7 +221,7 @@ export class SandboxManager {
     const m = (globalThis as any).__platform_metrics
     if (m) m.sandboxCalls++
     // sandbox 事件流：exec 开始（队列等待可见——排队的可见性）
-    sandboxEmit('exec:start', row.id, { departmentId, tool, mode: row.mode })
+    sandboxEmit('exec:start', row.id, { departmentId, tool, mode: row.mode, hostId: HOST_ID })
     const execT0 = Date.now()
     const r = row.mode === 'ephemeral'
       ? await this.exe.runOnce(row.id, spec, tool, args, { execTimeoutMs: opts?.execTimeoutMs })
@@ -237,6 +237,7 @@ export class SandboxManager {
     sandboxEmit(r.ok ? 'exec:end' : r.timedOut ? 'exec:timeout' : 'exec:error', row.id, {
       departmentId, tool, ms: execMs, error: r.error?.slice(0, 200),
       code: r.ok ? undefined : r.timedOut ? 'timeout' : 'exec_error',
+      hostId: HOST_ID,
     })
     // heartbeat 落 DB（exec 后——成功与否都算活动；exec 中由 busy 豁免回收）
     // 成功 → status 校正 running（requested/stopped 经 exec 即运行）；失败 → error 持久化
@@ -308,7 +309,9 @@ export class SandboxManager {
       this.counters.created++
       this.logEvent(String(rows[0].id), String(input.appId), 'created', `name=${input.name}`)
       // sandbox 事件流：创建（惰性 requested——首次 exec 才起容器）
-      sandboxEmit('create', String(rows[0].id), { appId: input.appId, departmentId: input.departmentId, name: input.name, memoryMb: input.memoryMb ?? DEFAULT_MEMORY_MB })
+      sandboxEmit('create', String(rows[0].id), { appId: input.appId, departmentId: input.departmentId, name: input.name, memoryMb: input.memoryMb ?? DEFAULT_MEMORY_MB, hostId: HOST_ID })
+      // 宿主注册（集群化阶段 1：首次创建时上报宿主身份/容量——调度器容量视图）
+      sandboxEmit('host:register', undefined, { ...hostCapacity(), at: new Date().toISOString() })
       return rows[0] as SandboxRow
     } catch (e: any) {
       // 并发创建冲突（23505）→ 重查返回已有记录（幂等）

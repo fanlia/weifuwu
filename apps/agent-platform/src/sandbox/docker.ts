@@ -22,6 +22,7 @@ import { execFile, spawn } from 'node:child_process'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sandboxEmit } from './events.ts'
+import { type SandboxHost, HOST_ID } from './host.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -91,7 +92,8 @@ function dockerCli(args: string[], timeoutMs?: number): Promise<{ stdout: string
   })
 }
 
-export class DockerSandbox {
+export class DockerSandbox implements SandboxHost {
+  readonly hostId = HOST_ID
   private opts: SandboxOptions
   /** exec 进行中的 sandbox（回收/驱逐必须跳过——长任务保护 P0-1） */
   private busy = new Set<string>()
@@ -188,7 +190,7 @@ export class DockerSandbox {
     const fingerprint = `${spec.ws}|${spec.image ?? this.opts.image}|${spec.network ? 'bridge' : 'none'}|${spec.memoryMb ?? 512}|${spec.cpus ?? 1}`
     const cached = this.readyCache.get(sandboxId)
     if (cached && cached.fingerprint === fingerprint && Date.now() - cached.at < 30_000) {
-      sandboxEmit('ensure:cache-hit', sandboxId, { fingerprint })
+      sandboxEmit('ensure:cache-hit', sandboxId, { fingerprint, hostId: this.hostId })
       return true
     }
     const a = await this.probe()
@@ -270,7 +272,7 @@ export class DockerSandbox {
     const memory = (spec.memoryMb ?? 512) * 1024 * 1024
     const cpus = spec.cpus ?? 1
     // sandbox 事件流：工作目录挂载（部门身份 ↔ 容器——bind mount 可观测）
-    sandboxEmit('mount:bind', sandboxId, { hostPath: spec.ws, containerPath: '/ws', mode: 'rw' })
+    sandboxEmit('mount:bind', sandboxId, { hostPath: spec.ws, containerPath: '/ws', mode: 'rw', hostId: this.hostId })
     return [
       'run', '-d',
       '--name', containerName(sandboxId),
@@ -384,7 +386,7 @@ export class DockerSandbox {
     }
     // 串行队列：同 sandbox 的 exec 排队执行（并发调用不踩踏容器内状态）
     // sandbox 事件流：队列等待（排队可见——exec 延迟可审计）
-    sandboxEmit('exec:queued', sandboxId, { tool })
+    sandboxEmit('exec:queued', sandboxId, { tool, hostId: this.hostId })
     const queueT0 = Date.now()
     const chain = this.execChains.get(sandboxId) ?? Promise.resolve()
     const run = chain.then(() => this.execOnce(sandboxId, tool, args, opts?.execTimeoutMs))
