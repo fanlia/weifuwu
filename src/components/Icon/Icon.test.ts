@@ -55,3 +55,35 @@ it('className 透传', async () => {
   const vnode = await renderVNode(Icon, { name: 'close', className: 'my-icon' }, createTestCtx())!
   assert.ok(JSON.stringify(vnode).includes('my-icon'))
 })
+
+describe('Icon 全量一致性（04 P2 图标校准可验证部分）', () => {
+  it('每个 IconName 渲染非空（PATHS 全覆盖——缺图标名 = 渲染崩）', async () => {
+    // 从类型定义提取全部 IconName（避免与 PATHS 同源漂移——双层校验）
+    const src = await (await import('node:fs')).readFileSync(new URL('./Icon.ts', import.meta.url), 'utf-8')
+    const typeBlock = src.match(/export type IconName =\n([\s\S]*?)\n\}/)?.[1] ?? ''
+    const names = [...typeBlock.matchAll(/\| '([a-z0-9-]+)'/g)].map((m) => m[1])
+    assert.ok(names.length >= 75, `IconName 类型至少 75 个（实际 ${names.length}）`)
+    // 每个名字渲染为 svg + path（不抛错）
+    for (const name of names) {
+      const vnode = await renderVNode(Icon, { name: name as any }, createTestCtx())
+      assert.ok(vnode, `Icon ${name} 渲染`)
+      const v = JSON.stringify(vnode)
+      assert.ok(v.includes('<path') || v.includes('"type":"path"') || v.includes('path'), `Icon ${name} 含 path`)
+      assert.ok(v.includes('wf-icon'), `Icon ${name} 根类`)
+    }
+  })
+
+  it('stroke 参数统一（1.8 + round 端点——视觉一致性）', async () => {
+    const vnode = await renderVNode(Icon, { name: 'home' }, createTestCtx())!
+    assert.equal(vnode.props['stroke-width'], 1.8)
+    assert.equal(vnode.props['stroke-linecap'], 'round')
+    assert.equal(vnode.props['stroke-linejoin'], 'round')
+    assert.equal(vnode.props.fill, 'none')
+  })
+
+  it('aria-hidden + focusable（装饰性图标纪律）', async () => {
+    const vnode = await renderVNode(Icon, { name: 'home' }, createTestCtx())!
+    assert.equal(vnode.props['aria-hidden'], 'true')
+    assert.equal(vnode.props.focusable, 'false')
+  })
+})

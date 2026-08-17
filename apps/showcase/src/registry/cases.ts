@@ -18,7 +18,7 @@ export const cases: CaseEntry[] = [
     name: 'showcase 平台',
     type: 'showcase',
     desc: '本平台自身——weifuwu 发展引擎（用 weifuwu 构建的网站，自举证明）',
-    highlights: ['六域 500+ 文档', '146 组件活体', 'SSR + SPA 双轨', 'LLM 友好'],
+    highlights: ['六域 500+ 文档', '157 组件活体', 'SSR + SPA 双轨', 'LLM 友好'],
     url: 'https://weifuwu.dev',
   },
   {

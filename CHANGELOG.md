@@ -1,5 +1,42 @@
 # Changelog
 
+> 版本节奏纪律（01 生态计划 P2）：每版强制更新——发布时 `node scripts/release.mjs <version>`
+> 自动从 git log 生成 `## [version]` 条目（conventional commits 分组）；0.86 前历史为手工标题式。
+> 0.x 阶段：快速迭代 + 破坏性变更提前 1 版本 console.warn 标记。
+
+## [Unreleased]
+
+（release.mjs 发布时自动生成——不要手写）
+
+## [0.86.0] (129 组件 + 文档库 + 计划体系收口)
+
+- feat: 组件缺口 P0/P1 全量（TabBar/ActionSheet/Slider range/Tabs editable/Table 固定列/Tree 虚拟化/PromptTemplate）
+- feat: 命名治理（FilePreview 家族命名空间/family 字段/分类审计/易混对照 12 组）
+- feat: content/ 文档库（157 组件典型场景 + 纪律·坑 25 组件归类 + 防漂移测试）
+- feat: /community 社区组件收录域 + 首页 hero 微流明三面孔改版
+- fix: vdom3 textarea value 走 property / keyed diff 同引用 prev 推进 / Tabs 混合数组 key
+- fix: SSR header 暗色模式闪白（未定义 token 恒回落 #fff）
+
+## [0.85.0] (sandbox 集群化)
+
+- feat: 宿主事件上报 + 集群调度器 + 远程执行 RPC + 健康检测
+- fix: 发布前 agent-platform TS 类型修复
+
+## [0.84.0] (app 节点 + 共享 routeState)
+
+- feat: 多应用加载（应用编排——不隔离 + 边界标记）
+- feat: createRouter 共享 routeState（Sider active 跟随修复）
+
+## [0.83.0] (vdom3 发布形态)
+
+- feat: vdom3 dist 入口 + package 导出 + vdom2 冻结标记 + 命令式 confirm/toast
+- fix: vdom3 类型兼容（vdom2 组件资产）
+
+## [0.82.0] (WUI 设计语言)
+
+- feat: seed 单值换肤 / 预设主题 / 状态层 / 浮层抬升
+- feat: ThemeSwitch 预设行 + 品牌 seed 实时换肤
+
 ## 0.63.1 (文档同步 92 组件 + AGENTS.md 纪律沉淀)
 
 > 发布后核对：组件实际导出 92（Typography 家族 Title/Text/Paragraph 独立计数）；全文档同步 + 框架纪律补充。
@@ -138,6 +175,43 @@
 ---
 
 # Changelog
+
+> 版本节奏纪律（01 生态计划 P2）：每版强制更新——发布时 `node scripts/release.mjs <version>`
+> 自动从 git log 生成 `## [version]` 条目（conventional commits 分组）；0.86 前历史为手工标题式。
+> 0.x 阶段：快速迭代 + 破坏性变更提前 1 版本 console.warn 标记。
+
+## [Unreleased]
+
+（release.mjs 发布时自动生成——不要手写）
+
+## [0.86.0] (129 组件 + 文档库 + 计划体系收口)
+
+- feat: 组件缺口 P0/P1 全量（TabBar/ActionSheet/Slider range/Tabs editable/Table 固定列/Tree 虚拟化/PromptTemplate）
+- feat: 命名治理（FilePreview 家族命名空间/family 字段/分类审计/易混对照 12 组）
+- feat: content/ 文档库（157 组件典型场景 + 纪律·坑 25 组件归类 + 防漂移测试）
+- feat: /community 社区组件收录域 + 首页 hero 微流明三面孔改版
+- fix: vdom3 textarea value 走 property / keyed diff 同引用 prev 推进 / Tabs 混合数组 key
+- fix: SSR header 暗色模式闪白（未定义 token 恒回落 #fff）
+
+## [0.85.0] (sandbox 集群化)
+
+- feat: 宿主事件上报 + 集群调度器 + 远程执行 RPC + 健康检测
+- fix: 发布前 agent-platform TS 类型修复
+
+## [0.84.0] (app 节点 + 共享 routeState)
+
+- feat: 多应用加载（应用编排——不隔离 + 边界标记）
+- feat: createRouter 共享 routeState（Sider active 跟随修复）
+
+## [0.83.0] (vdom3 发布形态)
+
+- feat: vdom3 dist 入口 + package 导出 + vdom2 冻结标记 + 命令式 confirm/toast
+- fix: vdom3 类型兼容（vdom2 组件资产）
+
+## [0.82.0] (WUI 设计语言)
+
+- feat: seed 单值换肤 / 预设主题 / 状态层 / 浮层抬升
+- feat: ThemeSwitch 预设行 + 品牌 seed 实时换肤
 
 ## 0.62.0 (scheduler 计划任务 + 数据层优化 + queue 重写 + 组件 +13)
 

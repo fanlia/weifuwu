@@ -42,7 +42,10 @@
 CONTRIBUTING.md / Issue+PR 模板（.github/）已上线；本轮修正 desc 组件计数（121→129）。
 P1：/community 域落地（社区组件收录页 + 提交指引 5 步 + 空态占位——首个外部 PR 的承接台阶）；
 案例墙已有（首页"用 weifuwu 做的应用"——agent-platform/showcase/模板）。
-剩余：**首个外部 PR 合入（里程碑——需社区行动，非代码）** + P2（弃用纪律/版本节奏）。
+P2 本轮落地：**版本节奏**（CHANGELOG.md 建立——0.82-0.86 历史 + Unreleased + release.mjs
+自动生成集成：发布时从 git log 分组提取，禁止手工维护）。剩余：**首个外部 PR 合入
+（里程碑——需社区行动，非代码）** + 弃用纪律（无进行中 breaking change——纪律已写入
+CHANGELOG 头部）。
 
 ## 状态
 

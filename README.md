@@ -236,11 +236,7 @@ createRouter(routes, root)                                  // 之后正常交�
 cd apps/showcase && node server.ts
 # 打开 http://localhost:3200（LLM: curl /llms.txt）
 
-# ② 组件走查面——139 组件全部可交互预览（零依赖，5 秒起）
-cd apps/components-demo && node server.ts
-# 打开 http://localhost:3100
-
-# ③ 全栈 SaaS 示例——多租户 AI 平台（auth / AI 对话 / 部门聊天 / 知识库 / HITL 审批）
+# ② 全栈 SaaS 示例——多租户 AI 平台（auth / AI 对话 / 部门聊天 / 知识库 / HITL 审批）
 docker compose up -d postgres redis   # 仓库根目录
 cd apps/agent-platform && npm run seed && npm run dev
 # 打开 http://localhost:3000（admin@demo.com / admin123）
@@ -377,7 +373,7 @@ npx weifuwu docs    # → http://localhost:4000 本地文档站（组件 API 表
 | `weifuwu/ui-dom` | **renderToEvents / eventsToHtml / serializeEvents** | 服务端渲染：vnode → 事件流 → HTML + `__DATA__` 序列化（客户端 `replay` 收养） | — |
 | `weifuwu/ui-dom` | **useChat / AiChat 原语** | AI 会话（流式/工具调用/HITL） | — |
 | `weifuwu/ui-dom` | **事件原语** | `usePopup`（统一弹窗能力层）/ `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [content/guides/mobile-guide.md](content/guides/mobile-guide.md)） | — |
-| `weifuwu/components` | **113 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/ui-dom |
+| `weifuwu/components` | **129 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/ui-dom |
 | `weifuwu/layout` | **CSS 布局** | 66 个布局原语 + 156 个工具类 + 177 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
@@ -400,7 +396,7 @@ npx weifuwu docs    # → http://localhost:4000 本地文档站（组件 API 表
 | 后台任务/定时 | `queue()` → `ctx.queue` · `scheduler()` → `ctx.schedule/cron` | [content/guides/saas-guide.md](content/guides/saas-guide.md) |
 | AI 对话 / Agent / HITL 审批 | `ai()` → `ctx.ai` + `ctx.ui.useChat()` + `AiChat` | [content/guides/saas-guide.md](content/guides/saas-guide.md) |
 | GraphQL / WebSocket | `app.graphql(handler)` · `app.ws(path, handler)` | [content/guides/realtime-guide.md](content/guides/realtime-guide.md) |
-| 前端 UI 组件 | `weifuwu/components`（113 个：Button/Table/Modal/AiChat/...） | [content/guides/components-guide.md](content/guides/components-guide.md) |
+| 前端 UI 组件 | `weifuwu/components`（129 个：Button/Table/Modal/AiChat/...） | [content/guides/components-guide.md](content/guides/components-guide.md) |
 | 布局/主题/暗色 | `weifuwu/layout`（58 原语 + 156 工具类 + 177 Token） | [content/guides/layout-guide.md](content/guides/layout-guide.md) |
 | 样式定制（零自定义 CSS） | `--wf-*` 变量覆盖 + 组件定制钩子 | [content/guides/styling.md](content/guides/styling.md) |
 | 移动端适配（tap/长按/键盘/弹层） | `usePopup` / `useHoverCapable` / `useLongPress` / `useVisualViewport` | [content/guides/mobile-guide.md](content/guides/mobile-guide.md) |
@@ -531,7 +527,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [content/guides/frontend.md](content/guides/frontend.md) | 前端核心：应用引导（createRouter/createRoot——vdom3 事件流）/ 组件模型 / 异步组件 / 状态管理 / 条件与列表 / ref / 类型（weifuwu/client 已并入 ui-dom） |
 | [content/guides/ui-dom-guide.md](content/guides/ui-dom-guide.md) | **ui-dom**：vdom3 精准事件流引擎（createRouter/createRoot + 事件流）——components 复用 + SSR（事件流形态）（前端唯一运行时） |
 | [content/guides/middleware.md](content/guides/middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
-| [content/guides/components-guide.md](content/guides/components-guide.md) | 组件库（113 个组件 + 使用示例 + 组件列表） |
+| [content/guides/components-guide.md](content/guides/components-guide.md) | 组件库（129 个组件 + 使用示例 + 组件列表） |
 | [content/guides/layout-guide.md](content/guides/layout-guide.md) | 布局系统：66 个布局原语 + 156 个工具类 + 177 个主题 Token |
 | [docs/style-guide.md](docs/style-guide.md) | 样式学习路径与命名规范：三档学习（组件 → 原语 → 速查）|
 | [content/guides/styling.md](content/guides/styling.md) | 样式定制指南：零自定义 CSS 模式 / 暗色 / 组件级覆盖 / 作用域主题 |

@@ -264,7 +264,7 @@ app.get('/', async (req: Request): Promise<Response> => {
       <p style="color:var(--wf-color-text-secondary);max-width:560px;margin:8px auto 0">组件 / 布局原语 / 页面模式 / 应用模板 / 后端能力 / 框架能力 / 指南——全部可复制、可验证、可深链</p>
       <div class="wf-surface wf-border wf-rounded-md" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin:12px auto 0;padding:12px 16px;font-size:12px">
         <div><span style="color:var(--wf-color-primary)">$</span> npx weifuwu docs</div>
-        <div style="color:var(--wf-color-text-tertiary)">→ 文档站已就绪（127 组件 · 20 指南）</div>
+        <div style="color:var(--wf-color-text-tertiary)">→ 文档站已就绪（129 组件 · 20 指南）</div>
         <div><span style="color:var(--wf-color-primary)">$</span> node server.ts</div>
         <div style="color:var(--wf-color-text-tertiary)">→ 你的第一个页面，跑起来了</div>
       </div>
@@ -285,7 +285,7 @@ app.get('/', async (req: Request): Promise<Response> => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="weifuwu — AI SaaS 全栈框架：127 组件 + 布局原语 + 应用模板 + 文档随包。用 weifuwu 构建的网站（自举）。">
+  <meta name="description" content="weifuwu — AI SaaS 全栈框架：129 组件 + 布局原语 + 应用模板 + 文档随包。用 weifuwu 构建的网站（自举）。">
   ${themeNoFouc}
   <link rel="stylesheet" href="/components.css">
   <title>weifuwu showcase — 发展引擎</title>

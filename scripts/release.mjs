@@ -78,13 +78,39 @@ async function main() {
   }
   console.log(`  ✓ content/ 完整（${compDocs} 篇组件文档 · ${readdirSync(join(root, 'examples')).filter((d) => d !== 'patterns' || existsSync(join(root, 'examples/patterns'))).length + 1} 个示例域）`)
 
+  // Step 3.75: CHANGELOG 自动生成（版本节奏纪律——01 生态计划 P2：每版强制）
+  // 从上一 tag 到 HEAD 的 conventional commits 分组提取——禁止手工维护
+  const changelogPath = join(root, 'CHANGELOG.md')
+  try {
+    const prevTag = execSync('git describe --tags --abbrev=0 HEAD~1', { cwd: root }).toString().trim()
+    const log = execSync(`git log --oneline ${prevTag}..HEAD --invert-grep "release:"`, { cwd: root }).toString().trim()
+    const groups = { feat: [], fix: [], docs: [], test: [], chore: [], other: [] }
+    for (const line of log.split('\n')) {
+      const m = line.match(/^\w+ (feat|fix|docs|test|chore)\([^)]*\): (.+)$/)
+      if (m) groups[m[1]].push(m[2].trim())
+      else if (line) groups.other.push(line.replace(/^\w+\s/, '').trim())
+    }
+    const title = { feat: '### Added', fix: '### Fixed', docs: '### Docs', test: '### Tests', chore: '### Chore' }
+    const entry = [`## [${version}] - ${new Date().toISOString().slice(0, 10)}`, '']
+    for (const [k, label] of Object.entries(title)) {
+      if (groups[k].length) entry.push(label, '', ...groups[k].map((x) => `- ${x}`), '')
+    }
+    let changelog = readFileSync(changelogPath, 'utf-8')
+    const UNREL = '## [Unreleased]\n\n（release.mjs 发布时自动生成——不要手写）\n\n'
+    changelog = changelog.replace(UNREL, `## [Unreleased]\n\n（release.mjs 发布时自动生成——不要手写）\n\n${entry.join('\n').trim()}\n\n`)
+    writeFileSync(changelogPath, changelog)
+    console.log(`  ✓ CHANGELOG → ${version}（${groups.feat.length + groups.fix.length + groups.docs.length + groups.test.length + groups.chore.length} 条主题）`)
+  } catch (e) {
+    console.warn('  ⚠ CHANGELOG 生成跳过（无上一 tag：' + (e.message ?? e).slice(0, 80) + '）')
+  }
+
   if (dryRun) {
     console.log('\n  Dry run complete.')
     return
   }
 
   // Step 4: Commit version bump
-  run('git add package.json')
+  run('git add package.json CHANGELOG.md')
   run(`git commit -m "release: v${version}"`)
 
   // Step 5: Publish
