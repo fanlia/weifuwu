@@ -6,6 +6,24 @@ import type { Component } from 'weifuwu/ui-dom'
 import { Markdown, Tag } from 'weifuwu/components'
 import { fetchIndex, fetchMd, type IndexJson } from '../data.ts'
 
+
+const FAMILIES: Record<string, { name: string; path: string; desc: string }> = {
+  'file-preview': { name: 'FilePreview 家族', path: '/guides/file-preview-family', desc: 'office 文档域（预览/xlsx/pptx）' },
+  'ai-chat': { name: 'AI 会话家族', path: '/guides/ai-chat-family', desc: 'AI 会话场景（对话/工具/审批/模板）' },
+}
+
+/** 家族徽标（链接家族页——组件卡片/详情页复用） */
+const FamilyTag = (f: string | null | undefined) => {
+  const meta = f ? FAMILIES[f] : null
+  if (!meta) return null
+  return h('a', {
+    href: meta.path,
+    class: 'wf-tag wf-tag--primary',
+    style: 'text-decoration:none',
+    title: meta.desc,
+  }, meta.name)
+}
+
 export const CATEGORIES = [
   ['core', '基础通用'], ['input', '输入选择'], ['form', '表单'],
   ['display', '数据展示'], ['viz', '可视化'], ['feedback', '反馈'],
@@ -19,7 +37,12 @@ export const ComponentsIndex: Component = async (_init: any, ctx: any) => {
   let q = ''
   return async (_p: any) => {
     const kw = q.trim().toLowerCase()
-    const all = idx.components.filter((c) => !kw || c.name.toLowerCase().includes(kw) || c.desc.toLowerCase().includes(kw))
+    // family 维度搜索（07：输入家族名/office/ai-chat 也能找到家族成员）
+    const all = idx.components.filter((c) => !kw
+      || c.name.toLowerCase().includes(kw)
+      || c.desc.toLowerCase().includes(kw)
+      || (c.family ?? '').toLowerCase().includes(kw)
+      || (c.family ? (FAMILIES[c.family]?.name ?? '').toLowerCase().includes(kw) : false))
     return (
       <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:20px;padding:24px 16px">
         <div class="wf-row wf-between">
@@ -38,6 +61,7 @@ export const ComponentsIndex: Component = async (_init: any, ctx: any) => {
                 <a key={c.id} href={`/components/${c.category}/${c.id}`} class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
                   <b class="wf-text-base">{c.name} <span class="wf-text-xs wf-text-tertiary">· {c.category}</span></b>
                   <span class="wf-text-xs wf-text-secondary">{c.desc}</span>
+                  <span class="wf-cluster wf-gap-xs">{FamilyTag(c.family)}</span>
                 </a>
               ))}
             </div>
@@ -93,6 +117,7 @@ export const CategoryPage: Component = async (initProps: any, ctx: any) => {
               <b class="wf-text-base">{c.name}</b>
               <span class="wf-text-xs wf-text-secondary">{c.desc}</span>
               <span class="wf-cluster wf-gap-xs">
+                {FamilyTag(c.family)}
                 {c.usedInPatterns.length > 0 && <Tag>用于 {c.usedInPatterns.length} 模式</Tag>}
                 {c.usedInApps.length > 0 && <Tag>用于 {c.usedInApps.length} 应用</Tag>}
               </span>
@@ -113,6 +138,7 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
   let hasDemo = false
   let compTags: string[] = []
   let isVariant = false
+  let compFamily: string | null = null
   let variantDemo: string | null = null
   let variantsOf: { id: string; name: string; desc: string }[] = []
   try {
@@ -122,6 +148,7 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
     name = comp?.name ?? id
     category = comp?.category ?? 'others'
     compTags = comp?.tags ?? []
+    compFamily = comp?.family ?? null
     // 变体聚合：变体 id → 渲染主组件页 + 变体 demo 突出（一页一组件心智）
     if (comp?.variantOf) {
       const parent = idx.components.find((c) => c.id === comp.variantOf)
@@ -155,8 +182,9 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
           <div class="wf-row wf-between">
             <div class="wf-stack wf-gap-xs">
               <h1 class="wf-text-2xl wf-m-0">{name}</h1>
-              {compTags.length > 0 && (
+              {(compTags.length > 0 || compFamily) && (
                 <div class="wf-cluster wf-gap-xs">
+                  {FamilyTag(compFamily)}
                   {compTags.map((t) => <Tag key={t}>{t}</Tag>)}
                 </div>
               )}

@@ -257,6 +257,7 @@ const VARIANT_PARENT_ID = {
 
 const relComp = (c) => ({
   id: c.id, name: c.name, category: c.category, desc: c.desc,
+  family: c.family ?? null,
   variantOf: VARIANT_PARENT_ID[c.id] ?? null,
   tags: tagOfAll(c.name),
   sourceFile: c.sourceFile ?? null, cssFile: c.cssFile ?? null, testFile: c.testFile ?? null,

@@ -99,4 +99,6 @@
 
 ## 状态
 
-**规划中**——待评审后按 P0 → P1 顺序实施（P0 第一批，P1 第二批）。
+**P0+P1 全部完成 ✅**（07 计划实施）——TabBar/ActionSheet/Slider range + Tabs editable /
+Table 固定列 / Tree·TreeSelect 虚拟化 / PromptTemplate 落地；Select 虚拟化与 Img 画廊
+维持裁剪登记（零依赖成本/低频——冲突裁决见 07）。

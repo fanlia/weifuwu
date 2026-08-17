@@ -14,6 +14,7 @@
       "name": "VideoPlayer",
       "category": "core",
       "desc": "视频播放器——原生 video 封装（controls/封面/宽高比/事件——零依赖）",
+      "family": null,
       "variantOf": null,
       "tags": [],
       "sourceFile": "src/components/VideoPlayer/VideoPlayer.ts",
@@ -29,6 +30,7 @@
       "name": "Math",
       "category": "core",
       "desc": "轻量公式渲染——自研 LaTeX 子集（上下标/分数/根号/希腊字母——零依赖不引 KaTeX）",
+      "family": null,
       "variantOf": null,
       "tags": [],
       "sourceFile": "src/components/Math/Math.ts",
@@ -44,6 +46,7 @@
       "name": "MarkdownEditor",
       "category": "editor",
       "desc": "分屏 Markdown 编辑器——textarea + 实时预览（复用 Markdown parser 零漂移）",
+      "family": null,
       "variantOf": null,
       "tags": [],
       "sourceFile": "src/components/MarkdownEditor/MarkdownEditor.ts",
@@ -59,6 +62,7 @@
       "name": "CodeEditor",
       "category": "editor",
       "desc": "轻量代码编辑器——textarea + 行号 + Tab 缩进（零依赖，不引 Monaco）",
+      "family": null,
       "variantOf": null,
       "tags": [],
       "sourceFile": "src/components/CodeEditor/CodeEditor.ts",
@@ -74,6 +78,7 @@
       "name": "ImageCropper",
       "category": "editor",
       "desc": "图片裁剪——canvas 原生 API + 拖拽裁剪框 + 比例控制（零依赖）",
+      "family": null,
       "variantOf": null,
       "tags": [],
       "sourceFile": "src/components/ImageCropper/ImageCropper.ts",
@@ -89,6 +94,7 @@
       "name": "Wave",
       "category": "core",
       "desc": "点击水波纹动效——包装任意可点击元素（纯 CSS，reduced-motion 自动降级）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -106,6 +112,7 @@
       "name": "SortableList",
       "category": "viz",
       "desc": "拖拽排序列表——useDragDrop 原语 + keyed 身份（任务/字段/配置排序）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -123,6 +130,7 @@
       "name": "ExportCSV",
       "category": "display",
       "desc": "数据导出 CSV——RFC 4180 转义 + BOM（Excel 兼容）零依赖",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -140,6 +148,7 @@
       "name": "Button",
       "category": "core",
       "desc": "4 variants × 3 sizes + loading + block + disabled",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -170,6 +179,7 @@
       "name": "Input",
       "category": "input",
       "desc": "text/email/password/number，支持 label/error/hint/required",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -194,6 +204,7 @@
       "name": "Textarea",
       "category": "input",
       "desc": "多行文本，支持 rows/label/error/hint",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -211,6 +222,7 @@
       "name": "Select",
       "category": "input",
       "desc": "原生下拉选择器",
+      "family": null,
       "variantOf": null,
       "tags": [
         "选择"
@@ -230,6 +242,7 @@
       "name": "Select (searchable)",
       "category": "input",
       "desc": "搜索过滤下拉，输入即搜",
+      "family": null,
       "variantOf": "select",
       "tags": [
         "选择"
@@ -247,6 +260,7 @@
       "name": "Checkbox",
       "category": "input",
       "desc": "带 label 的复选框，支持 checked/disabled",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -268,6 +282,7 @@
       "name": "Switch",
       "category": "input",
       "desc": "开关切换，视觉替代 checkbox",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -288,6 +303,7 @@
       "name": "RadioGroup",
       "category": "input",
       "desc": "单选组，支持 inline/options/value",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -305,6 +321,7 @@
       "name": "SegmentedControl",
       "category": "input",
       "desc": "分段单选（模式切换/筛选/模板），支持 sm/block",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -324,6 +341,7 @@
       "name": "Slider",
       "category": "input",
       "desc": "范围滑块，支持 min/max/step/label",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -341,6 +359,7 @@
       "name": "Form",
       "category": "form",
       "desc": "内置验证规则：required/pattern/minLength/自定义",
+      "family": null,
       "variantOf": null,
       "tags": [
         "表单"
@@ -368,6 +387,7 @@
       "name": "Form 提交",
       "category": "form",
       "desc": "loading 提交 + 校验错误（状态矩阵覆盖）",
+      "family": null,
       "variantOf": "form",
       "tags": [
         "表单"
@@ -385,6 +405,7 @@
       "name": "Field",
       "category": "form",
       "desc": "label+error+hint 容器",
+      "family": null,
       "variantOf": null,
       "tags": [
         "表单"
@@ -405,6 +426,7 @@
       "name": "FileUpload",
       "category": "editor",
       "desc": "文件上传，拖拽区 + 文件列表 + accept/maxSize",
+      "family": null,
       "variantOf": null,
       "tags": [
         "编辑文件"
@@ -422,6 +444,7 @@
       "name": "FileUpload 禁用",
       "category": "editor",
       "desc": "disabled + accept 限定（状态矩阵覆盖）",
+      "family": null,
       "variantOf": "fileupload",
       "tags": [
         "编辑文件"
@@ -439,6 +462,7 @@
       "name": "SearchInput",
       "category": "input",
       "desc": "搜索输入框，带清除按钮",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -459,6 +483,7 @@
       "name": "ProgressBar",
       "category": "feedback",
       "desc": "进度条，支持 label/showValue",
+      "family": null,
       "variantOf": null,
       "tags": [
         "反馈"
@@ -478,6 +503,7 @@
       "name": "InputNumber",
       "category": "input",
       "desc": "数字输入：min/max/step + 增减按钮 + precision",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -495,6 +521,7 @@
       "name": "PasswordInput",
       "category": "input",
       "desc": "密码输入：眼睛按钮切换可见性",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -514,6 +541,7 @@
       "name": "TagsInput",
       "category": "input",
       "desc": "标签输入：回车/逗号添加 + 中文输入法感知",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -531,6 +559,7 @@
       "name": "TagsInput 限制/错误",
       "category": "input",
       "desc": "maxTags 限制 + error 校验态（状态矩阵覆盖）",
+      "family": null,
       "variantOf": "tagsinput",
       "tags": [
         "输入"
@@ -548,6 +577,7 @@
       "name": "Table",
       "category": "display",
       "desc": "可排序 + 自定义 render + 空状态",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -575,6 +605,7 @@
       "name": "Table 行选择",
       "category": "display",
       "desc": "rowSelection 勾选列 + 受控 keys（状态矩阵覆盖）",
+      "family": null,
       "variantOf": "table",
       "tags": [
         "展示"
@@ -592,6 +623,7 @@
       "name": "Card",
       "category": "core",
       "desc": "容器，支持 default/outlined/clickable",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -620,6 +652,7 @@
       "name": "Badge",
       "category": "core",
       "desc": "状态标签 + 圆点，6 种 variant",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -645,6 +678,7 @@
       "name": "Tag",
       "category": "core",
       "desc": "标签，支持 closable/onClose",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -670,6 +704,7 @@
       "name": "Avatar",
       "category": "core",
       "desc": "头像（首字母/图片），3 种 size",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -692,6 +727,7 @@
       "name": "Img",
       "category": "display",
       "desc": "图片 \\<img\\> 组件：fallback / lazy / preview 点击放大",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示",
@@ -710,6 +746,7 @@
       "name": "InView",
       "category": "display",
       "desc": "进入视窗后懒加载内容，支持 IntersectionObserver",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -727,6 +764,7 @@
       "name": "Timeline",
       "category": "display",
       "desc": "时间线：节点状态色 + 时间 + 内容（执行日志/审批历史）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -746,6 +784,7 @@
       "name": "Descriptions",
       "category": "display",
       "desc": "描述列表：label/value 栅格 + bordered + span（详情页）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -766,6 +805,7 @@
       "name": "Descriptions 紧凑",
       "category": "display",
       "desc": "size=small 详情页密度（变体覆盖）",
+      "family": null,
       "variantOf": "descriptions",
       "tags": [
         "展示"
@@ -783,6 +823,7 @@
       "name": "AvatarGroup",
       "category": "core",
       "desc": "头像组：堆叠 + max 溢出 +N",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -800,6 +841,7 @@
       "name": "Markdown",
       "category": "display",
       "desc": "AI 回复渲染：安全子集 parser + 代码块 + 链接白名单",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示",
@@ -818,6 +860,7 @@
       "name": "CodeBlock",
       "category": "display",
       "desc": "代码块：语言标签 + 复制按钮 + 横向滚动",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示",
@@ -839,6 +882,7 @@
       "name": "LogViewer",
       "category": "display",
       "desc": "日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -856,6 +900,7 @@
       "name": "LogViewer 自定义",
       "category": "display",
       "desc": "自定义日志源 + 行号 + 复制（变体覆盖）",
+      "family": null,
       "variantOf": "logviewer",
       "tags": [
         "展示"
@@ -873,6 +918,7 @@
       "name": "JSONViewer",
       "category": "display",
       "desc": "结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -890,6 +936,7 @@
       "name": "JSONViewer 深展开",
       "category": "display",
       "desc": "defaultExpandDepth 深度展开嵌套对象（变体覆盖）",
+      "family": null,
       "variantOf": "jsonviewer",
       "tags": [
         "展示"
@@ -907,6 +954,7 @@
       "name": "DiffView",
       "category": "display",
       "desc": "代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -924,6 +972,7 @@
       "name": "DiffView 标题",
       "category": "display",
       "desc": "oldTitle/newTitle 标记版本对比（变体覆盖）",
+      "family": null,
       "variantOf": "diffview",
       "tags": [
         "展示"
@@ -941,6 +990,7 @@
       "name": "Sparkline",
       "category": "viz",
       "desc": "迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充",
+      "family": null,
       "variantOf": null,
       "tags": [
         "可视化"
@@ -960,6 +1010,7 @@
       "name": "Tour",
       "category": "overlay",
       "desc": "新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -977,6 +1028,7 @@
       "name": "Kanban",
       "category": "viz",
       "desc": "看板：原生 DnD 拖拽 + 跨列/重排 + 悬停高亮",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -994,6 +1046,7 @@
       "name": "Pipeline",
       "category": "ai",
       "desc": "Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测",
+      "family": null,
       "variantOf": null,
       "tags": [
         "可视化",
@@ -1012,6 +1065,7 @@
       "name": "TreeSelect",
       "category": "advanced",
       "desc": "树形选择：单选/多选（父子联动）+ 选中 label 回显 + 受控纪律",
+      "family": null,
       "variantOf": null,
       "tags": [
         "选择"
@@ -1029,6 +1083,7 @@
       "name": "Layout",
       "category": "core",
       "desc": "布局外壳：Sider 折叠 + Header/Content/Footer 骨架（antd Layout / shadcn Sidebar 等价）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航",
@@ -1049,6 +1104,7 @@
       "name": "LayoutHeader",
       "category": "core",
       "desc": "布局顶栏——Layout 家族（Layout/LayoutHeader/LayoutSider/LayoutContent/LayoutFooter）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -1066,6 +1122,7 @@
       "name": "LayoutSider",
       "category": "core",
       "desc": "布局侧栏（可折叠 collapsed/collapsible）——Layout 家族",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -1083,6 +1140,7 @@
       "name": "LayoutContent",
       "category": "core",
       "desc": "布局内容区——Layout 家族",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -1100,6 +1158,7 @@
       "name": "Popconfirm",
       "category": "overlay",
       "desc": "气泡确认：危险操作防误触 + 复用 usePopup 基座",
+      "family": null,
       "variantOf": null,
       "tags": [
         "反馈",
@@ -1118,6 +1177,7 @@
       "name": "AutoComplete",
       "category": "advanced",
       "desc": "输入联想：自由输入 + 过滤下拉 + 键盘流 + 选中回填",
+      "family": null,
       "variantOf": null,
       "tags": [
         "选择"
@@ -1135,6 +1195,7 @@
       "name": "AutoComplete 禁用态",
       "category": "input",
       "desc": "disabled 时不可输入（状态矩阵覆盖）",
+      "family": null,
       "variantOf": "autocomplete",
       "tags": [
         "选择"
@@ -1152,6 +1213,7 @@
       "name": "Link",
       "category": "core",
       "desc": "文字链接：语义色/下划线/disabled/新窗口",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -1171,6 +1233,7 @@
       "name": "FloatButton",
       "category": "core",
       "desc": "悬浮按钮组：展开状态机 + badge",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -1188,6 +1251,7 @@
       "name": "NavMenu",
       "category": "navigation",
       "desc": "顶部导航：多级 hover 弹出 + 键盘（shadcn NavigationMenu）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -1207,6 +1271,7 @@
       "name": "Space",
       "category": "core",
       "desc": "间距容器：size/direction/wrap + split 分隔符",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -1235,6 +1300,7 @@
       "name": "Grid",
       "category": "core",
       "desc": "24 栅格 + gutter + flex 容器模式（Row/Col/Flex 等价）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -1252,6 +1318,7 @@
       "name": "Scrollbar",
       "category": "core",
       "desc": "自定义滚动容器：webkit 样式 + hover 显示",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -1269,6 +1336,7 @@
       "name": "AlertGroup",
       "category": "feedback",
       "desc": "通知合并组：≥3 条折叠为 +N，点击展开",
+      "family": null,
       "variantOf": null,
       "tags": [
         "反馈"
@@ -1286,6 +1354,7 @@
       "name": "StatCard Countdown",
       "category": "display",
       "desc": "倒计时模式：剩余 HH:MM:SS + 结束回调",
+      "family": null,
       "variantOf": "statcard",
       "tags": [
         "展示",
@@ -1304,6 +1373,7 @@
       "name": "MessageBubble",
       "category": "ai",
       "desc": "消息气泡：user/assistant + streaming/error 状态 + actions",
+      "family": "ai-chat",
       "variantOf": null,
       "tags": [
         "展示",
@@ -1322,6 +1392,7 @@
       "name": "Highlight",
       "category": "display",
       "desc": "搜索词高亮：分词渲染 mark，大小写不敏感",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -1339,6 +1410,7 @@
       "name": "Highlight 多词",
       "category": "display",
       "desc": "query 数组多词高亮（变体覆盖）",
+      "family": null,
       "variantOf": "highlight",
       "tags": [
         "展示"
@@ -1356,6 +1428,7 @@
       "name": "List",
       "category": "display",
       "desc": "通用列表：renderItem + divided + header/footer/empty",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -1376,6 +1449,7 @@
       "name": "Result",
       "category": "feedback",
       "desc": "结果页：success/error/warning/info + extra 操作区",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示",
@@ -1394,6 +1468,7 @@
       "name": "Confirm",
       "category": "feedback",
       "desc": "确认对话框，Promise 化 await 调用",
+      "family": null,
       "variantOf": null,
       "tags": [
         "反馈"
@@ -1411,6 +1486,7 @@
       "name": "StatCard",
       "category": "viz",
       "desc": "KPI 指标卡，支持 trend/icon",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示",
@@ -1436,6 +1512,7 @@
       "name": "Chart",
       "category": "viz",
       "desc": "SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘",
+      "family": null,
       "variantOf": null,
       "tags": [
         "可视化"
@@ -1455,6 +1532,7 @@
       "name": "Editor",
       "category": "editor",
       "desc": "富文本编辑器，contentEditable + toolbar，零依赖",
+      "family": null,
       "variantOf": null,
       "tags": [
         "编辑文件"
@@ -1472,6 +1550,7 @@
       "name": "FilePreview",
       "category": "editor",
       "desc": "文件预览（md/html/pdf/office）——基于事件流，可编辑",
+      "family": "file-preview",
       "variantOf": null,
       "tags": [
         "编辑文件"
@@ -1489,6 +1568,7 @@
       "name": "FilePreview Office",
       "category": "editor",
       "desc": "office 前端导入/导出（零依赖转换——无需后端）",
+      "family": null,
       "variantOf": "filepreview",
       "tags": [
         "编辑文件"
@@ -1506,6 +1586,7 @@
       "name": "ThemeSwitch",
       "category": "core",
       "desc": "主题切换：auto/light/dark，localStorage 持久化",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -1526,6 +1607,7 @@
       "name": "DatePicker",
       "category": "advanced",
       "desc": "日期选择器，四种模式：date/datetime/time/range",
+      "family": null,
       "variantOf": null,
       "tags": [
         "选择"
@@ -1543,6 +1625,7 @@
       "name": "Modal",
       "category": "overlay",
       "desc": "自定义宽度 + closable 控制关闭按钮",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -1562,6 +1645,7 @@
       "name": "Drawer",
       "category": "overlay",
       "desc": "侧边面板，左右滑入 + ESC 关闭",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -1581,6 +1665,7 @@
       "name": "Popover",
       "category": "overlay",
       "desc": "通用弹出层，click/hover 触发，4 方向",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -1598,6 +1683,7 @@
       "name": "Tooltip",
       "category": "overlay",
       "desc": "hover 浮动提示，4 方向",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -1615,6 +1701,7 @@
       "name": "Toast",
       "category": "feedback",
       "desc": "5 种位置 + 自动消失 + 数量限制",
+      "family": null,
       "variantOf": null,
       "tags": [
         "反馈"
@@ -1632,6 +1719,7 @@
       "name": "Alert",
       "category": "feedback",
       "desc": "信息提示条，4 种 variant + closable",
+      "family": null,
       "variantOf": null,
       "tags": [
         "反馈"
@@ -1654,6 +1742,7 @@
       "name": "Loading",
       "category": "feedback",
       "desc": "加载状态，支持自定义文字",
+      "family": null,
       "variantOf": null,
       "tags": [
         "反馈"
@@ -1671,6 +1760,7 @@
       "name": "Skeleton",
       "category": "display",
       "desc": "text/circle/rect/image/avatar/table 六种变体",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -1688,6 +1778,7 @@
       "name": "EmptyState",
       "category": "feedback",
       "desc": "空状态占位，支持 icon/text/hint/action",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -1709,6 +1800,7 @@
       "name": "Breadcrumb",
       "category": "navigation",
       "desc": "面包屑导航，支持 aria-current",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -1728,6 +1820,7 @@
       "name": "Menu",
       "category": "navigation",
       "desc": "侧栏导航：分组 + 图标 + 选中态 + 方向键",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -1748,6 +1841,7 @@
       "name": "Tabs",
       "category": "navigation",
       "desc": "标签页切换，支持 active/onChange",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -1770,6 +1864,7 @@
       "name": "Dropdown",
       "category": "overlay",
       "desc": "下拉菜单，支持 danger variant",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -1787,6 +1882,7 @@
       "name": "Pagination",
       "category": "navigation",
       "desc": "分页器，自动计算页码范围",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -1807,6 +1903,7 @@
       "name": "Steps",
       "category": "navigation",
       "desc": "分步指示器，支持 active/current",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -1824,6 +1921,7 @@
       "name": "Accordion",
       "category": "navigation",
       "desc": "折叠面板，支持多个 items",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -1841,6 +1939,7 @@
       "name": "AiChat",
       "category": "ai",
       "desc": "useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明",
+      "family": "ai-chat",
       "variantOf": null,
       "tags": [
         "AI"
@@ -1864,6 +1963,7 @@
       "name": "ChatInput",
       "category": "ai",
       "desc": "独立聊天输入条（AiChat 抽取）：单行/多行 + streaming 停止 + IME 安全——不自带聊天逻辑",
+      "family": "ai-chat",
       "variantOf": null,
       "tags": [
         "AI"
@@ -1881,6 +1981,7 @@
       "name": "AuthPage",
       "category": "ai",
       "desc": "认证页骨架：居中卡片 + logo + 表单插槽 + 错误条 + 提交 loading（登录/注册复用）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "AI"
@@ -1902,6 +2003,7 @@
       "name": "ToolCallCard",
       "category": "ai",
       "desc": "工具调用卡片：running / ok / error 状态机（call/progress/result 三字段驱动）",
+      "family": "ai-chat",
       "variantOf": null,
       "tags": [
         "AI"
@@ -1921,6 +2023,7 @@
       "name": "JsonSchemaForm",
       "category": "form",
       "desc": "JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套/数组（AI 工具参数输入面）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "表单",
@@ -1939,6 +2042,7 @@
       "name": "ReasoningBlock",
       "category": "ai",
       "desc": "CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲（thinking 模式 reasoning_content）",
+      "family": "ai-chat",
       "variantOf": null,
       "tags": [
         "AI"
@@ -1956,6 +2060,7 @@
       "name": "CitationCard",
       "category": "ai",
       "desc": "RAG 引用来源：折叠「引用 N 条」+ 条目列表（序号/标题/来源/片段/链接）+ 溢出 +N",
+      "family": "ai-chat",
       "variantOf": null,
       "tags": [
         "AI"
@@ -1973,6 +2078,7 @@
       "name": "SessionList",
       "category": "ai",
       "desc": "会话管理列表：分组（今天/昨天/更早）+ 搜索 + 选中 + 重命名/删除/新建 + 键盘导航",
+      "family": "ai-chat",
       "variantOf": null,
       "tags": [
         "AI"
@@ -1990,6 +2096,7 @@
       "name": "ApprovalCard",
       "category": "ai",
       "desc": "HITL 审批卡片：pending 可批/拒 + 修改参数（JsonSchemaForm）· approved/rejected/timeout 终态",
+      "family": "ai-chat",
       "variantOf": null,
       "tags": [
         "AI"
@@ -2009,6 +2116,7 @@
       "name": "PageHeader",
       "category": "navigation",
       "desc": "页面标题栏，支持 sub + 右侧操作区 + display 大标题",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -2034,6 +2142,7 @@
       "name": "Icon",
       "category": "core",
       "desc": "stroke SVG 图标集，currentColor 着色，随字号缩放",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -2061,6 +2170,7 @@
       "name": "Divider",
       "category": "core",
       "desc": "分割线，支持 horizontal/vertical/带文字",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -2087,6 +2197,7 @@
       "name": "多应用（app 节点）",
       "category": "ai",
       "desc": "父应用嵌入子应用：注册表 + 独立状态 + app:* 边界事件（appId 可区分——同流全链路）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -2104,6 +2215,7 @@
       "name": "Rate",
       "category": "input",
       "desc": "评分：键盘方向键 / allowClear / readOnly，新增 star 图标",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -2121,6 +2233,7 @@
       "name": "Typography",
       "category": "core",
       "desc": "Title/Text/Paragraph：语义标签 + 语义色 -text 变体 + mark/code/删除线",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -2138,6 +2251,7 @@
       "name": "Label",
       "category": "core",
       "desc": "独立标签（required 星号）+ 宽高比容器（内容填满）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -2155,6 +2269,7 @@
       "name": "AspectRatio",
       "category": "core",
       "desc": "独立标签（required 星号）+ 宽高比容器（内容填满）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -2172,6 +2287,7 @@
       "name": "Toggle / ToggleGroup",
       "category": "input",
       "desc": "切换按钮：single/multiple 双模式（shadcn 对齐）",
+      "family": null,
       "variantOf": "togglegroup",
       "tags": [
         "输入"
@@ -2189,6 +2305,7 @@
       "name": "CheckboxGroup",
       "category": "input",
       "desc": "复选框组：数组受控 + 栅格列数（antd Checkbox.Group）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -2206,6 +2323,7 @@
       "name": "PinInput",
       "category": "input",
       "desc": "验证码输入：自动聚焦/粘贴分派/Backspace 回退（shadcn InputOTP）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -2223,6 +2341,7 @@
       "name": "PinInput 禁用态",
       "category": "input",
       "desc": "disabled 不可编辑（状态矩阵覆盖）",
+      "family": null,
       "variantOf": "pininput",
       "tags": [
         "输入"
@@ -2240,6 +2359,7 @@
       "name": "CopyButton",
       "category": "core",
       "desc": "复制按钮：clipboard + execCommand 降级 + 成功状态机",
+      "family": null,
       "variantOf": null,
       "tags": [
         "编辑文件"
@@ -2257,6 +2377,7 @@
       "name": "ColorPicker",
       "category": "overlay",
       "desc": "颜色选择：预设色板 + hex 输入（Popover 弹层）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入",
@@ -2275,6 +2396,7 @@
       "name": "HoverCard",
       "category": "overlay",
       "desc": "悬停富内容卡：openDelay 延迟 + 任意 VNode（shadcn）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -2292,6 +2414,7 @@
       "name": "Notification",
       "category": "feedback",
       "desc": "队列式通知：notification.success/error/warning 命令式（antd 对齐）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "反馈"
@@ -2309,6 +2432,7 @@
       "name": "BackTop",
       "category": "navigation",
       "desc": "回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -2329,6 +2453,7 @@
       "name": "Affix",
       "category": "navigation",
       "desc": "回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -2346,6 +2471,7 @@
       "name": "Anchor",
       "category": "navigation",
       "desc": "锚点导航：滚动高亮跟随 + 点击平滑滚动",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -2365,6 +2491,7 @@
       "name": "ContextMenu",
       "category": "overlay",
       "desc": "右键菜单：光标定位 + 方向键 + danger 变体（shadcn）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -2382,6 +2509,7 @@
       "name": "Mentions",
       "category": "advanced",
       "desc": "@提及：composition 抑制 + 过滤插入（antd Mentions）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -2399,6 +2527,7 @@
       "name": "Mentions 禁用态",
       "category": "input",
       "desc": "disabled 时不可输入（状态矩阵覆盖）",
+      "family": null,
       "variantOf": "mentions",
       "tags": [
         "输入"
@@ -2416,6 +2545,7 @@
       "name": "Collapse",
       "category": "navigation",
       "desc": "行内折叠：异步 loading + extra 操作区（区别于 Accordion）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "导航"
@@ -2433,6 +2563,7 @@
       "name": "Tree",
       "category": "advanced",
       "desc": "树形：递归模型 + 勾选父子联动 + indeterminate（antd/EP Tree）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "选择"
@@ -2450,6 +2581,7 @@
       "name": "Tree 勾选",
       "category": "advanced",
       "desc": "checkable 父子联动 + 受控 checkedKeys（变体覆盖）",
+      "family": null,
       "variantOf": "tree",
       "tags": [
         "选择"
@@ -2467,6 +2599,7 @@
       "name": "Cascader",
       "category": "advanced",
       "desc": "级联选择：多列面板逐级推进（antd/EP Cascader）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "选择"
@@ -2484,6 +2617,7 @@
       "name": "Cascader 禁用/错误",
       "category": "advanced",
       "desc": "disabled + error 校验态（状态矩阵覆盖）",
+      "family": null,
       "variantOf": "cascader",
       "tags": [
         "选择"
@@ -2501,6 +2635,7 @@
       "name": "Transfer",
       "category": "advanced",
       "desc": "穿梭框：双列表 + 选中移动（antd/EP Transfer）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "选择"
@@ -2518,6 +2653,7 @@
       "name": "Command",
       "category": "overlay",
       "desc": "命令面板：⌘K 全局快捷键 + 键盘流（shadcn Command）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -2535,6 +2671,7 @@
       "name": "Menubar",
       "category": "navigation",
       "desc": "水平菜单栏：←→ 切换 + ↓ 展开（shadcn Menubar）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "弹层"
@@ -2552,6 +2689,7 @@
       "name": "Carousel",
       "category": "virtual",
       "desc": "轮播：箭头/圆点/循环 + 自动播放（三库共识）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "虚拟化"
@@ -2569,6 +2707,7 @@
       "name": "Resizable",
       "category": "virtual",
       "desc": "拖拽分割面板：pointer + 键盘方向键 + clamp（shadcn）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "虚拟化"
@@ -2586,6 +2725,7 @@
       "name": "Calendar",
       "category": "advanced",
       "desc": "月历：事件点 + 月切换 + 日期选择（antd/EP Calendar）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "选择"
@@ -2603,6 +2743,7 @@
       "name": "Calendar 事件",
       "category": "advanced",
       "desc": "事件标记 + 日期选择交互（变体覆盖）",
+      "family": null,
       "variantOf": "calendar",
       "tags": [
         "选择"
@@ -2620,6 +2761,7 @@
       "name": "Watermark",
       "category": "display",
       "desc": "水印：canvas 平铺绘制 + overlay（antd Watermark）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -2637,6 +2779,7 @@
       "name": "VirtualList",
       "category": "virtual",
       "desc": "虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM",
+      "family": null,
       "variantOf": null,
       "tags": [
         "虚拟化"
@@ -2654,6 +2797,7 @@
       "name": "VirtualTable",
       "category": "virtual",
       "desc": "虚拟表格：10k 行固定表头 + 可见窗口渲染 + 排序",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示",
@@ -2672,6 +2816,7 @@
       "name": "VirtualTable 大数据",
       "category": "virtual",
       "desc": "10 万行虚拟滚动（只渲染可见窗口——性能展示）",
+      "family": null,
       "variantOf": "virtualtable",
       "tags": [
         "展示",
@@ -2690,6 +2835,7 @@
       "name": "InfiniteScroll",
       "category": "virtual",
       "desc": "无限滚动：底部哨兵触底加载 + loading/end 态",
+      "family": null,
       "variantOf": null,
       "tags": [
         "虚拟化"
@@ -2707,6 +2853,7 @@
       "name": "InfiniteScroll 失败重试",
       "category": "virtual",
       "desc": "加载失败提示 + 滚动重试（状态矩阵覆盖）",
+      "family": null,
       "variantOf": "infinitescroll",
       "tags": [
         "虚拟化"
@@ -2724,6 +2871,7 @@
       "name": "QRCode",
       "category": "display",
       "desc": "二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG",
+      "family": null,
       "variantOf": null,
       "tags": [
         "展示"
@@ -2741,6 +2889,7 @@
       "name": "SheetGrid",
       "category": "editor",
       "desc": "weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（design/office-events-plan.md）：文档 = fold(事件流)——SheetGrid 的每个",
+      "family": "file-preview",
       "variantOf": null,
       "tags": [
         "编辑文件"
@@ -2758,6 +2907,7 @@
       "name": "SlideCanvas",
       "category": "editor",
       "desc": "weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（design/office-events-plan.md）：文档 = fold(事件流)——每个编辑 =",
+      "family": "file-preview",
       "variantOf": null,
       "tags": [
         "编辑文件"
@@ -2775,6 +2925,7 @@
       "name": "ToggleGroup",
       "category": "input",
       "desc": "（无 demo 卡片——组件目录存在）",
+      "family": null,
       "variantOf": null,
       "tags": [
         "输入"
@@ -2792,6 +2943,7 @@
       "name": "Title",
       "category": "core",
       "desc": "标题排版（语义标签 + 语义色 -text 变体）——Typography 家族",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -2813,6 +2965,7 @@
       "name": "Text",
       "category": "core",
       "desc": "正文排版（语义色 -text 变体 + mark/code/删除线）——Typography 家族",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -2838,6 +2991,7 @@
       "name": "Paragraph",
       "category": "core",
       "desc": "段落排版——Typography 家族",
+      "family": null,
       "variantOf": null,
       "tags": [
         "通用布局"
@@ -2858,6 +3012,7 @@
       "name": "TabBar",
       "category": "navigation",
       "desc": "底部标签栏——移动端 App 主导航（3-5 tab + icon/badge/受控激活 + safe-area 避让）",
+      "family": null,
       "variantOf": null,
       "tags": [],
       "sourceFile": "src/components/TabBar/TabBar.ts",
@@ -2873,6 +3028,7 @@
       "name": "ActionSheet",
       "category": "overlay",
       "desc": "动作面板——移动端底部滑出（命令列表 + 取消按钮，usePopup 会话级模态）",
+      "family": null,
       "variantOf": null,
       "tags": [],
       "sourceFile": "src/components/ActionSheet/ActionSheet.ts",
@@ -2888,6 +3044,7 @@
       "name": "PromptTemplate",
       "category": "ai",
       "desc": "提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）",
+      "family": null,
       "variantOf": null,
       "tags": [],
       "sourceFile": "src/components/PromptTemplate/PromptTemplate.ts",

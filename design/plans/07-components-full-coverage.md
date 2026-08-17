@@ -111,5 +111,19 @@ ReasoningBlock / ToolCallCard / CitationCard / ApprovalCard / PromptTemplate(新
 
 ## 状态
 
-**规划中**——P0 品类（TabBar/ActionSheet/Slider range）与命名治理（家族归并）并行推进；
-P1 深度补全随后；P2 移动端扩展等场景数据。
+**全部完成 ✅**——P0 品类（TabBar/ActionSheet/Slider range）+ P1 深度补全（Tabs editable /
+Table 固定列 / Tree·TreeSelect 虚拟化 / PromptTemplate）+ 命名治理（FilePreview 家族
+命名空间 + family 字段 + 分类审计 + 易混对照 12 组）+ Mobile.tsx TabBar 化 +
+showcase 搜索 family 维度（搜索/徽标/家族页反链）。
+
+**验收核对（2026-12）**：
+- □ 品类：126 → 129（+3 新组件：TabBar/ActionSheet/PromptTemplate）+ 能力补全 4 项
+- □ 命名：FilePreview.Sheet/.Slide 命名空间 + 顶层别名保留；AI 家族导航页上线
+- □ 分类：MessageBubble/Pipeline→ai、StatCard→viz 修正 + family 字段 11 条 + 计数防线绿
+- □ 文档：易混对照 12 组入 components-guide + choose.md 决策树扩充
+- □ 搜索：showcase 组件搜索 family 维度（office/ai-chat/家族名可搜 + 徽标反链）
+- □ 全量测试绿（1854）+ agent-browser 活体走查（含 390×640 移动端：TabBar 四 tab
+  均分无溢出 + ActionSheet 底部滑出 portal）
+
+**P2 移动端扩展候选（等场景数据再立项）**：PullToRefresh / Picker（滚轮选择）/
+日历移动视图——07 口径：移动端库品类，非三库对照缺口。

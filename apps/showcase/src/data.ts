@@ -5,7 +5,7 @@
  */
 export interface IndexJson {
   counts: Record<string, number>
-  components: { id: string; name: string; category: string; desc: string; variantOf: string | null; tags: string[]; sourceFile: string | null; cssFile: string | null; testFile: string | null; gotchas: string[]; usedInPatterns: string[]; usedInApps: string[]; relatedBackend: string[] }[]
+  components: { id: string; name: string; category: string; desc: string; family: string | null; variantOf: string | null; tags: string[]; sourceFile: string | null; cssFile: string | null; testFile: string | null; gotchas: string[]; usedInPatterns: string[]; usedInApps: string[]; relatedBackend: string[] }[]
   primitives: { id: string; name: string; cssFile: string; desc: string; classes: string[]; kind: string }[]
   patterns: { id: string; name: string; group: string; desc: string; file: string; uses: string[]; usedInApps: string[] }[]
   apps: { id: string; name: string; desc: string; dir: string; usesPatterns: string[]; uses: string[]; production: boolean; quality: string[] }[]
