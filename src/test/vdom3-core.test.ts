@@ -1446,6 +1446,35 @@ test('命令式 toast（v3——createRoot 挂载 Toast 组件）', async () => 
   document.querySelector('.wf-toast-host')?.remove()
 })
 
+test('命令式 notification（v3——createRoot 挂载 Notification 组件——队列 + 自动消失）', async () => {
+  const { v3Notification } = await import('../ui-dom/vdom3/commands.ts')
+  let ctx: any = {}
+  ctx = v3Notification()(ctx)
+  // 命令式注入 + 渲染（portal）
+  ctx.notification.success({ title: '部署成功', description: 'v0.63.0 已上线' })
+  await new Promise((r) => setTimeout(r, 80))
+  const notif = () => [...document.querySelectorAll('.wf-notification')]
+  assert.ok(notif().length === 1, 'notification 渲染（portal）')
+  assert.ok(document.querySelector('.wf-notification')?.textContent?.includes('部署成功'), 'notification 标题')
+  assert.ok(document.querySelector('.wf-notification')?.textContent?.includes('v0.63.0 已上线'), 'notification 描述')
+  // 队列：第二条（warning 变体）
+  ctx.notification.warning({ title: '磁盘空间不足', description: '已使用 92%' })
+  await new Promise((r) => setTimeout(r, 40))
+  assert.equal(notif().length, 2, '队列两条')
+  // 关闭按钮移除
+  const closeBtns = [...document.querySelectorAll('.wf-notification .wf-notification-close')]
+  ;(closeBtns[0] as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 40))
+  assert.equal(notif().length, 1, '关闭按钮移除一条')
+  // 短 duration 自动消失
+  ctx.notification.open({ type: 'info', title: '短时通知', duration: 100 })
+  await new Promise((r) => setTimeout(r, 200))
+  assert.ok(![...document.querySelectorAll('.wf-notification-title')].some((t) => t.textContent === '短时通知'), 'duration 后自动消失')
+  // 清理 host + portal
+  document.querySelector('.wf-notification-host')?.remove()
+  document.querySelector('#__wf_portal')?.remove()
+})
+
 test('防线：enumerated 属性 draggable 显式字符串（Kanban 教训——空串解析为 false）', async () => {
   const root = document.createElement('div')
   document.body.appendChild(root)

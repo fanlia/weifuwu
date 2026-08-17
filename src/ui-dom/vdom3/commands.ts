@@ -11,6 +11,8 @@ import { h } from './jsx.ts'
 import { createRoot } from './root.ts'
 import { bindElementListener } from './delegate.ts'
 import { Confirm } from '../../components/Confirm/Confirm.ts'
+import { Notification } from '../../components/Notification/Notification.ts'
+import type { NotificationItem, NotificationPosition, NotificationType } from '../../components/Notification/Notification.ts'
 
 // ── confirm ──────────────────────────────────────────────
 
@@ -95,4 +97,100 @@ function createV3Toast(message: string, variant: 'success' | 'error' | 'warning'
     handle.unmount()
     container.remove()
   }, 3000)
+}
+
+// ── notification ──────────────────────────────────────────
+
+/** 命令式通知注入类型（vdom3——createRoot 挂载 Notification 组件） */
+export interface V3NotificationInjected {
+  notification: {
+    (title: string, opts?: { type?: NotificationType; description?: string; duration?: number; action?: NotificationItem['action'] }): void
+    open: (opts: { type?: NotificationType; title: string; description?: string; duration?: number; action?: NotificationItem['action'] }) => void
+    success: (opts: { title: string; description?: string; duration?: number }) => void
+    error: (opts: { title: string; description?: string; duration?: number }) => void
+    info: (opts: { title: string; description?: string; duration?: number }) => void
+    warning: (opts: { title: string; description?: string; duration?: number }) => void
+  }
+}
+
+/** 通知全局默认配置（位置/时长/最大条数——antd notification.config 等价） */
+export interface V3NotificationOptions {
+  position?: NotificationPosition
+  duration?: number
+  max?: number
+}
+
+/** 命令式通知（vdom3——createRoot 挂载 Notification 组件——队列 + 自动消失）
+ *  v2 的 notification() 中间件依赖 mountVNode/$——vdom2 删除后 demo 的
+ *  ctx.notification 变静默 no-op（真实事故）——本实现为 vdom3 等价 */
+export function v3Notification<C extends { [key: string]: unknown }>(
+  opts?: V3NotificationOptions,
+): (ctx: C) => C & V3NotificationInjected {
+  const defaults = {
+    position: opts?.position ?? 'top-right',
+    duration: opts?.duration ?? 4500,
+    max: opts?.max ?? 5,
+  }
+  // 队列状态（中间件实例级——惰性挂载首个通知时创建 host）
+  let host: { add: (item: NotificationItem) => void } | null = null
+  let seq = 0
+  const emit = (item: Omit<NotificationItem, 'id'>) => {
+    if (!host) host = createV3NotificationHost(defaults)
+    host.add({ ...item, id: String(++seq) })
+  }
+  return (ctx: C) => {
+    const api: V3NotificationInjected['notification'] = Object.assign(
+      (title: string, item?: { type?: NotificationType; description?: string; duration?: number; action?: NotificationItem['action'] }) =>
+        emit({ type: item?.type ?? 'info', title, description: item?.description, duration: item?.duration ?? defaults.duration, action: item?.action }),
+      {
+        open: (o: { type?: NotificationType; title: string; description?: string; duration?: number; action?: NotificationItem['action'] }) =>
+          emit({ type: o.type ?? 'info', title: o.title, description: o.description, duration: o.duration ?? defaults.duration, action: o.action }),
+        success: (o: { title: string; description?: string; duration?: number }) =>
+          emit({ type: 'success', title: o.title, description: o.description, duration: o.duration ?? defaults.duration }),
+        error: (o: { title: string; description?: string; duration?: number }) =>
+          emit({ type: 'error', title: o.title, description: o.description, duration: o.duration ?? defaults.duration }),
+        info: (o: { title: string; description?: string; duration?: number }) =>
+          emit({ type: 'info', title: o.title, description: o.description, duration: o.duration ?? defaults.duration }),
+        warning: (o: { title: string; description?: string; duration?: number }) =>
+          emit({ type: 'warning', title: o.title, description: o.description, duration: o.duration ?? defaults.duration }),
+      },
+    )
+    ;(ctx as C & V3NotificationInjected).notification = api
+    return ctx as C & V3NotificationInjected
+  }
+}
+
+/** v3 notification host：持久挂载 Notification 组件（items 队列状态驱动） */
+function createV3NotificationHost(defaults: { position: NotificationPosition; duration: number; max: number }): {
+  add: (item: NotificationItem) => void
+} {
+  const container = document.createElement('div')
+  container.className = 'wf-notification-host'
+  document.body.appendChild(container)
+  let items: NotificationItem[] = []
+  const timers = new Map<string, ReturnType<typeof setTimeout>>()
+  const remove = (id: string) => {
+    const t = timers.get(id)
+    if (t) { clearTimeout(t); timers.delete(id) }
+    items = items.filter((i) => i.id !== id)
+    handle.rerender()
+  }
+  const Host: Component = async () => async () =>
+    h('div', { class: 'wf-notification-host' }, h(Notification as unknown as Component, {
+      items,
+      position: defaults.position,
+      duration: defaults.duration,
+      max: defaults.max,
+      onRemove: (id: string) => remove(id),
+    }))
+  const handle = createRoot(h(Host, {}), container)
+  return {
+    add: (item: NotificationItem) => {
+      items = [...items, item]
+      handle.rerender()
+      if (item.duration && item.duration > 0) {
+        timers.set(item.id, setTimeout(() => remove(item.id), item.duration))
+      }
+    },
+  }
 }

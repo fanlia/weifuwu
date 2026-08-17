@@ -567,6 +567,15 @@ export interface WfuiContext {
   confirm?: (message: string, options?: Record<string, any>) => Promise<boolean>
   /** 命令式轻提示（由 components 的 toast() 中间件注入）：ctx.toast(msg, type?, duration?, action?) */
   toast?: (message: string, type?: string, duration?: number, action?: { label: string; onClick: () => void }) => void
+  /** 命令式通知（由 components 的 notification() 中间件注入）：ctx.notification.success({ title }) */
+  notification?: {
+    (title: string, opts?: { type?: string; description?: string; duration?: number; action?: { label: string; onClick: () => void } }): void
+    open: (opts: { type?: string; title: string; description?: string; duration?: number; action?: { label: string; onClick: () => void } }) => void
+    success: (opts: { title: string; description?: string; duration?: number }) => void
+    error: (opts: { title: string; description?: string; duration?: number }) => void
+    info: (opts: { title: string; description?: string; duration?: number }) => void
+    warning: (opts: { title: string; description?: string; duration?: number }) => void
+  }
 }
 
 /** 中间件签名 */

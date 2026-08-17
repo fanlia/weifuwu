@@ -10,7 +10,7 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
 import { FilePreview } from 'weifuwu/components'
-import { v3Toast, v3Confirm } from 'weifuwu/ui-dom'
+import { v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -3098,7 +3098,7 @@ const App: Component = async (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '118 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">118 组件</Badge>
-          <Badge variant="success">1079 测试</Badge>
+          <Badge variant="success">1083 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
@@ -3333,6 +3333,7 @@ let demoCtx: any = {}
 demoCtx = i18nMw(demoCtx)
 demoCtx = v3Toast()(demoCtx)
 demoCtx = v3Confirm()(demoCtx)
+demoCtx = v3Notification()(demoCtx)
 const router = createRouter(
   [{ path: '/', render: () => h(App, {}) }],
   document.querySelector('#root') as HTMLElement,

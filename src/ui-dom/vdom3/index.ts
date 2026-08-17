@@ -36,7 +36,7 @@ export { Portal, App } from './types.ts'
 export { ensurePortalContainer } from './registry.ts'
 export { createV3Ui } from './ui.ts'
 export { createSync, autoSync } from './sync.ts'
-export { v3Confirm, v3Toast, type V3CommandInjected } from './commands.ts'
+export { v3Confirm, v3Toast, v3Notification, type V3CommandInjected, type V3NotificationInjected, type V3NotificationOptions } from './commands.ts'
 export { createEventStream, stream, nextNodeId, ev, evKey } from './events.ts'
 export { registerApp, getAppFactory, resetAppRegistry } from './app.ts'
 export {

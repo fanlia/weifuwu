@@ -59,6 +59,7 @@ let ctx: any = {}
 ctx = await api({ baseURL: '', token: ... })(ctx)
 ctx = auth({ ... })(ctx)
 ctx = v3Toast()(ctx)
+ctx = v3Notification()(ctx)
 createRouter([...], root, { ctx })
 ```
 

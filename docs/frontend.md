@@ -35,6 +35,7 @@ let ctx: any = {}
 ctx = await api({ baseURL: '' })(ctx)
 ctx = await auth({ ... })(ctx)
 ctx = v3Toast()(ctx)
+ctx = v3Notification()(ctx)
 
 // 路由（RouteDef[]）+ 落地（事件流渲染）
 const handle = createRouter(
@@ -101,6 +102,7 @@ const Home: Component<{}, ApiInjected & RouteInjected> = async (_init, ctx) => {
 let ctx: any = {}
 ctx = api()(ctx)                 // 注入 ctx.api
 ctx = v3Toast()(ctx)             // 注入 ctx.toast
+ctx = v3Notification()(ctx)     // 注入 ctx.notification
 createRouter(routes, root, { ctx })
 ```
 
@@ -891,6 +893,7 @@ import type { RouterOptions } from 'weifuwu/ui-dom'
 | `ConfirmProps` | `{ open?, title?, message?, confirmText?, cancelText?, variant?, width?, onConfirm?, onCancel? }` |
 | `ConfirmOptions` | `{ title?, confirmText?, cancelText?, variant?, width? }` — 命令式 ctx.confirm 选项 |
 | `ToastOptions` | `{ position?, duration?, max? }` — 命令式 ctx.toast 配置 |
+| `NotificationOptions` | `{ position?, duration?, max? }` — 命令式 ctx.notification 配置 |
 | `PopupPositionOptions` | `{ el, isOpen, compute }` — 弹层位置跟踪配置（见 usePopupPosition） |
 | `PopupPosition` | `{ top, left, width?, refresh }` — 弹层位置跟踪器 |
 

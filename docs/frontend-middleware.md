@@ -11,6 +11,7 @@ import { createRouter, h } from 'weifuwu/ui-dom'
 
 let ctx: any = {}
 ctx = v3Toast()(ctx)                  // 中间件面展开（ctx 注入——对齐后端 app.use）
+ctx = v3Notification()(ctx)          // 注入 ctx.notification
 
 const handle = createRouter(
   [
@@ -385,6 +386,33 @@ ctx.toast?.('普通消息')          // 默认 type = 'info'
 单条可覆盖自动消失时间：`ctx.toast('慢一点消失', 'info', 5000)`。
 
 与声明式 `<Toast toasts={...}/>` 共存：声明式用于局部列表（合并消息、自定义布局），命令式用于全局一次性反馈。
+
+---
+
+## notification — 命令式通知
+
+`ctx.notification()` 是 `<Notification>` 组件的全局命令式封装：队列式通知（title + description + icon + 操作），自动消失、手动关闭、四角定位。
+
+```tsx
+import { v3Notification } from 'weifuwu/ui-dom'
+
+let ctx: any = {}
+ctx = v3Notification({ position: 'top-right', duration: 4500, max: 5 })(ctx)
+
+// 任意代码中（组件事件、api 拦截器、WS 回调、定时器）
+ctx.notification?.success({ title: '部署成功', description: 'v0.63.0 已上线' })
+ctx.notification?.warning({ title: '磁盘空间不足', description: '已使用 92%' })
+ctx.notification?.('普通通知')
+ctx.notification?.open({ type: 'error', title: '请求失败', duration: 8000, action: { label: '重试', onClick: retry } })
+```
+
+| NotificationOptions | 类型 | 默认值 | 说明 |
+|-------------|------|--------|------|
+| `position` | `NotificationPosition` | `'top-right'` | 容器位置（top-right/top-left/bottom-right/bottom-left） |
+| `duration` | `number` | `4500` | 默认自动消失时间（ms），0 = 不消失 |
+| `max` | `number` | `5` | 最大显示条数，超出移除最早 |
+
+单条可覆盖自动消失时间：`ctx.notification({ title: 'x', duration: 8000 })`。
 
 ---
 

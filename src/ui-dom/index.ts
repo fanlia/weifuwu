@@ -48,7 +48,7 @@ export { renderToEvents, renderToEventStream, serializeEvents, deserializeEvents
 export { recordToTest, summarizeEvents } from './vdom3/record.ts'
 export { createV3Ui } from './vdom3/ui.ts'
 export { createSync, autoSync } from './vdom3/sync.ts'
-export { v3Confirm, v3Toast } from './vdom3/commands.ts'
+export { v3Confirm, v3Toast, v3Notification } from './vdom3/commands.ts'
 export type { V3CommandInjected } from './vdom3/commands.ts'
 export { scheduler, Scheduler } from './vdom3/scheduler.ts'
 export type { V3Event, Entity, Action, PatchStrategy, EventStream } from './vdom3/types.ts'
