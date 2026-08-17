@@ -749,18 +749,27 @@ function patchChildren(oldV: VNode, newV: VNode, el: Element, baseIndex = 0): vo
   // A 级动态检测（vdom2 机制事件流化——阶段 4）：长度变化 + 无 key 组件项 →
   // dev error（业务身份只有业务知道——框架提示而非静默错位——列表增删/重排
   // 会错位组件实例状态）——audit 开关（__WF_V3_AUDIT !== '0' 默认开）
+  // portal 槽豁免：浮层插槽（[children, popup.portal()] 模式——HoverCard/
+  // Tooltip/Popover/Dropdown/ContextMenu/Popconfirm 族）由框架管理——打开/
+  // 关闭改变数组长度是插槽切换而非业务列表增删——比较业务子项（排除 portal
+  // 项）长度（真实误报：HoverCard 打开 → 位置 0 的 Button 触发器无 key 误报）
   if ((globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0' && oldKids.length !== newKids.length) {
-    const sig = `${newKids.length}:${oldKids.length}`
-    if (!warnedDynamicArrays.has(sig)) {
-      warnedDynamicArrays.add(sig)
-      for (let i = 0; i < newKids.length; i++) {
-        const c = newKids[i]
-        if (c != null && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function' && (c as VNode).key == null) {
-          console.error(
-            `[vdom3/audit] 动态数组位置 ${i} 的组件缺少 key（${compName((c as VNode).type)}）——列表增删/重排会错位组件实例状态。` +
-            `请提供业务身份 key（如 key={item.id}）；无状态 native 项豁免。`,
-          )
-          break
+    // 业务子项（排除 portal 槽）长度一致 → 变化全部来自插槽切换 → 不触发
+    const bizOld = oldKids.filter((k) => !isPortalNode(k))
+    const bizNew = newKids.filter((k) => !isPortalNode(k))
+    if (bizOld.length !== bizNew.length) {
+      const sig = `${bizNew.length}:${bizOld.length}`
+      if (!warnedDynamicArrays.has(sig)) {
+        warnedDynamicArrays.add(sig)
+        for (let i = 0; i < newKids.length; i++) {
+          const c = newKids[i]
+          if (c != null && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function' && (c as VNode).key == null) {
+            console.error(
+              `[vdom3/audit] 动态数组位置 ${i} 的组件缺少 key（${compName((c as VNode).type)}）——列表增删/重排会错位组件实例状态。` +
+              `请提供业务身份 key（如 key={item.id}）；无状态 native 项豁免。`,
+            )
+            break
+          }
         }
       }
     }

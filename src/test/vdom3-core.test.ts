@@ -3219,6 +3219,35 @@ test('阶段 4：动态数组无 key 组件检测（dev error 引导业务身份
   document.body.removeChild(root)
 })
 
+test('阶段 4：portal 槽切换不触发动态数组检测（[children, portal] 模式——HoverCard 误报）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot, createPortal } = await import('../ui-dom/vdom3/index.ts')
+  const warns: string[] = []
+  const ow = console.error
+  console.error = (...a: any[]) => { if (String(a[0]).includes('[vdom3/audit] 动态数组')) warns.push(String(a[0])); ow(...a) }
+  let open = false
+  const Trigger = async (_init: any) => async () => h('span', {}, '触发')
+  const App = async (_init: any, ctx: any) => async () => h('div', { id: 'main' }, [
+    h('button', { id: 'toggle', onClick: () => { open = !open; ctx.render() } }, '开'),
+    h('div', {}, [
+      h(Trigger, {}), // 无 key 组件（触发器）——业务子项
+      open ? createPortal(h('div', { id: 'pop' }, '浮层'), 'audit-pop') : null,
+    ]),
+  ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // 打开 → 数组 2→3（trigger + 条件 + portal）——portal 槽切换不得误报
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  console.error = ow
+  assert.equal(warns.length, 0, `portal 槽切换不触发检测——实际 ${warns.join(' | ')}`)
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})
+
 // ── 阶段 5：会话 trace（session 过滤 API） ──
 
 test('阶段 5：eventsBySession 按会话过滤（一次渲染的事件全量）', async () => {
