@@ -626,6 +626,10 @@ function patchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: El
     } else if (!oc) {
       renderVNode(nv, el, prev ? prev.nextSibling : el.firstChild)
       prev = nv.el ?? prev
+    } else {
+      // 同引用复用（结构共享快路径——build 复用旧树节点）：DOM 已在位、零 diff——
+      // prev 必须推进（真实事故：4→5 末尾追加 T2 插到 firstChild——prev 恒 null）
+      prev = nv.el ?? oc.el ?? prev
     }
   }
   // 移除无新 key 的旧项

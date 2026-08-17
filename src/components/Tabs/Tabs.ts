@@ -122,6 +122,7 @@ export const Tabs: Component<TabsProps> = async (_init, ctx) => {
   // 新增 + 按钮（addable 模式）
   const addBtn = addable
     ? h('button', {
+        key: 'wf-tab-add', // 稳定 key（同上——全 keyed 防位置配对错位）
         class: 'wf-tab-add',
         role: 'tab',
         'aria-label': '新增标签页',
@@ -131,6 +132,7 @@ export const Tabs: Component<TabsProps> = async (_init, ctx) => {
 
   // ink bar：滑动指示器（transform 过渡，定位到 active tab 下方）
   const ink = h('span', {
+    key: 'wf-tab-ink', // 稳定 key：tabList+ink+addBtn 全 keyed——混合数组无 key 会退 unkeyed 位置配对（新增 tab 错位事故）
     class: 'wf-tab-ink',
     style: { transform: `translateX(${inkLeft}px)`, width: `${inkWidth}px` },
     'aria-hidden': 'true',

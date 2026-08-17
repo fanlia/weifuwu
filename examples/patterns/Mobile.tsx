@@ -1,5 +1,5 @@
 import type { Component } from 'weifuwu/ui-dom'
-import {Text, Avatar, Badge, Divider, Icon, List, SearchInput, Space } from 'weifuwu/components'
+import { Text, Avatar, Badge, Divider, Icon, List, SearchInput, Space, TabBar } from 'weifuwu/components'
 
 
 // ─────────────────────────────────────────────────────────────
@@ -35,10 +35,10 @@ const CHATS = [
 ]
 
 const TABS = [
-  { icon: 'message' as const, label: '消息' },
-  { icon: 'users' as const, label: '通讯录' },
-  { icon: 'grid' as const, label: '发现' },
-  { icon: 'user' as const, label: '我' },
+  { key: '消息', icon: 'message' as const, label: '消息' },
+  { key: '通讯录', icon: 'users' as const, label: '通讯录' },
+  { key: '发现', icon: 'grid' as const, label: '发现' },
+  { key: '我', icon: 'user' as const, label: '我' },
 ]
 
 export const Mobile: Component = async (_init, ctx) => {
@@ -140,19 +140,12 @@ export const Mobile: Component = async (_init, ctx) => {
           )}
         </div>
 
-        {/* 底部 Tab（安全区避让——点击切换内容） */}
-        <div class="wf-safe-bottom wf-row wf-p-md wf-gap-none wf-border-t wf-around">
-          {TABS.map((t) => (
-            <div
-              key={t.label}
-              class={`wf-stack wf-gap-none wf-center wf-pointer${tab === t.label ? ' wf-text-primary' : ' wf-text-tertiary'}`}
-              onClick={() => { tab = t.label; rerender() }}
-            >
-              <Icon name={t.icon} size={20} />
-              <Text className={`wf-text-xs${tab === t.label ? '' : ' wf-text-tertiary'}`}>{t.label}</Text>
-            </div>
-          ))}
-        </div>
+        {/* 底部 Tab（TabBar 组件——safe-area 避让 + 受控激活 + 键盘方向键） */}
+        <TabBar
+          items={TABS}
+          activeKey={tab}
+          onChange={(k: string) => { tab = k; rerender() }}
+        />
       </div>
     </div>
     )

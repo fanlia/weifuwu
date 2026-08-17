@@ -58,13 +58,21 @@ const DemoSteps: Component = async (_props, ctx) => {
 
 const DemoTabs: Component = async (_props, ctx) => {
   let tab = 'a'
+  let items = [
+    { key: 'a', label: '详情', content: <p class="wf-m-0">这是详情内容。点击其他标签切换。</p> },
+    { key: 'b', label: '设置', content: <p class="wf-m-0">这是设置内容。可以在这里修改配置。</p> },
+    { key: 'c', label: '日志', content: <p class="wf-m-0">这是日志内容。显示操作记录。</p> },
+  ]
+  let n = 0
+  const rerender = () => ctx.ui.render()
   return async (_p: any) => (
-    <div class="wf-w-full">
-      <Tabs items={[
-        { key: 'a', label: '详情', content: <p class="wf-m-0">这是详情内容。点击其他标签切换。</p> },
-        { key: 'b', label: '设置', content: <p class="wf-m-0">这是设置内容。可以在这里修改配置。</p> },
-        { key: 'c', label: '日志', content: <p class="wf-m-0">这是日志内容。显示操作记录。</p> },
-      ]} active={tab} onChange={v => { tab = v; ctx.ui.render() }} />
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <Tabs items={items} active={tab} onChange={v => { tab = v; rerender() }}
+        closable
+        onClose={(k) => { items = items.filter(i => i.key !== k); rerender() }}
+        addable
+        onAdd={() => { n++; const key = `tab-${n}`; items = [...items, { key, label: `新标签 ${n}`, content: <p class="wf-m-0">标签 {n} 的内容——可关闭。</p> }]; tab = key; rerender() }} />
+      <div class="wf-text-xs wf-text-secondary">可关闭（关闭激活 tab 自动激活邻居）+ 可新增——浏览器标签类应用</div>
     </div>
   )
 }

@@ -45,9 +45,9 @@ const DemoTable: Component = async (_props, ctx) => {
   let view = 'data' // 'data' | 'empty'
   const rerender = () => ctx.ui.render()
   const data = [
-    { id: 1, name: '张三', role: '管理员', status: '活跃' },
-    { id: 2, name: '李四', role: '编辑', status: '离线' },
-    { id: 3, name: '王五', role: '访客', status: '活跃' },
+    { id: 1, name: '张三', role: '管理员', status: '活跃', email: 'zhang@wf.dev', phone: '138-0000-0001', dept: '平台组' },
+    { id: 2, name: '李四', role: '编辑', status: '离线', email: 'li@wf.dev', phone: '138-0000-0002', dept: '内容组' },
+    { id: 3, name: '王五', role: '访客', status: '活跃', email: 'wang@wf.dev', phone: '138-0000-0003', dept: '设计组' },
   ]
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
@@ -57,13 +57,16 @@ const DemoTable: Component = async (_props, ctx) => {
       </div>
       <Table data={view === 'empty' ? [] : data} columns={[
         { key: 'id', label: 'ID', width: 60 },
-        { key: 'name', label: '姓名', sortable: true },
+        { key: 'name', label: '姓名', sortable: true, fixed: 'left', width: 120 },
         { key: 'role', label: '角色', sortable: true },
         { key: 'status', label: '状态', render: v => <Badge variant={v === '活跃' ? 'success' : 'default'}>{v}</Badge> },
+        { key: 'email', label: '邮箱', render: v => <span class="wf-text-secondary">{v}</span> },
+        { key: 'phone', label: '电话', render: v => <span class="wf-text-secondary">{v}</span> },
+        { key: 'dept', label: '部门', render: v => <span class="wf-text-secondary">{v}</span> },
       ]}
         sortKey={sortKey} sortOrder={sortOrder}
-        onSort={(key, order) => { sortKey = key; sortOrder = order; rerender() }} emptyText="暂无数据" />
-      <div class="wf-text-xs wf-text-secondary">点击列头排序（姓名 / 角色）；切换查看空态</div>
+        onSort={(key, order) => { sortKey = key; sortOrder = order; rerender() }} emptyText="暂无数据" minWidth="640px" />
+      <div class="wf-text-xs wf-text-secondary">点击列头排序；姓名列固定（横向滚动时保持可见——sticky 首列）；切换查看空态</div>
     </div>
   )
 }
