@@ -5,31 +5,69 @@ import { h } from 'weifuwu/ui-dom'
 import type { Component } from 'weifuwu/ui-dom'
 import { Badge, Tag } from 'weifuwu/components'
 import { fetchIndex } from '../data.ts'
+import { createClientBrowser } from 'weifuwu/ui-dom'
 import { DOMAINS } from '../shell.tsx'
 
-export const Home: Component = async (_init: any, _ctx: any) => {
+export const Home: Component = async (_init: any, ctx: any) => {
   const idx = await fetchIndex()
+  // ── 进行态语言活体（微流明·流）：打字机循环——"进行中"是可见的流 ──
+  const WORDS = ['AI 对话', '数据看板', '管理后台', 'SaaS 地基']
+  const browser = ctx.browser ?? createClientBrowser()
+  let word = 0
+  let chars = 0
+  let timerId = 0
+  const tick = () => {
+    const w = WORDS[word]
+    chars += 1
+    if (chars > w.length + 6) { word = (word + 1) % WORDS.length; chars = 0 }
+    ctx.ui.render()
+    timerId = browser.timeout(tick, chars > w.length ? 500 : 120)
+  }
+  timerId = browser.timeout(tick, 400)
+  ctx.ui.onUnmount?.(() => { if (timerId) clearTimeout(timerId) })
+  const typed = () => WORDS[word].slice(0, chars)
+
   return async (_p: any) => (
     <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:24px;padding:32px 16px">
       <div class="wf-border wf-rounded-lg wf-clip" style="background:linear-gradient(180deg,var(--wf-color-bg) 0%,var(--wf-color-bg-secondary) 100%)">
-        <div class="wf-stack wf-gap-md" style="padding:48px 32px;text-align:center">
-          <div>
+        <div class="wf-stack wf-gap-lg" style="padding:48px 32px;text-align:center">
+          <div class="wf-stack wf-gap-sm">
             <h1 class="wf-text-4xl wf-m-0" style="letter-spacing:-0.02em">
               weifuwu <span class="wf-text-primary">发展引擎</span>
             </h1>
-            <p class="wf-text-secondary wf-text-base wf-m-0 wf-mt-sm" style="max-width:560px;margin-inline:auto">
-              组件 / 布局原语 / 页面模式 / 应用模板 / 后端能力 / 框架能力 / 指南
-              ——全部可复制、可验证、可深链
+            <p class="wf-text-secondary wf-text-base wf-m-0" style="max-width:560px;margin-inline:auto">
+              一个 npm 包 = 后端 HTTP + 前端 VDOM + <b class="wf-text-primary">{idx.counts.components}</b> 组件
+              + CSS 设计系统 + SaaS 地基——全自研、零构建
             </p>
           </div>
-          {/* 微流明 · 进行态语言的活体示范：流式代码行 */}
+          {/* 进行态语言活体：打字机（微流明·流——AI 界面活着） */}
+          <div class="wf-center">
+            <div class="wf-row wf-gap-xs" style="font-size:15px">
+              <span class="wf-text-tertiary">你正在构建</span>
+              <span class="wf-text-primary" style="font-weight:600;min-width:130px;text-align:left">{typed()}<span class="wf-hero-cursor">▍</span></span>
+            </div>
+          </div>
+          {/* 流式代码行（可解释表面：命令即所得） */}
           <div>
             <div class="wf-surface wf-border wf-rounded-md wf-text-xs" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin-inline:auto;padding:12px 16px;background:var(--wf-color-bg)">
               <div><span class="wf-text-primary">$</span> npx weifuwu docs</div>
-              <div class="wf-text-tertiary">→ http://localhost:4000 · 文档站已就绪（127 组件 · 20 指南）</div>
+              <div class="wf-text-tertiary">→ http://localhost:4000 · 文档站已就绪（{idx.counts.components} 组件 · {idx.counts.guides} 指南）</div>
               <div><span class="wf-text-primary">$</span> node server.ts</div>
               <div class="wf-text-tertiary">→ 你的第一个页面，跑起来了</div>
             </div>
+          </div>
+          {/* 微流明三面孔（边界即结构：1px 细边框卡片——层级 = 表面 + 边界） */}
+          <div class="wf-grid" style="--wf-cols:repeat(auto-fit,minmax(min(100%,210px),1fr));--wf-gap:10px;text-align:left">
+            {[
+              ['微 · 边界即结构', '1px 细边框是设计主角——层级 = 表面 + 边界组合，非阴影堆叠'],
+              ['流 · 进行态语言', '加载是流动的进行态——流式渐显 / thinking 脉冲 / 进度透明'],
+              ['明 · 可解释表面', '状态链完整可推导——数据身份可见（data-wf-key / data-wf-id 落 DOM）'],
+            ].map(([t, d]) => (
+              <div key={t} class="wf-surface wf-border wf-rounded-md wf-p-sm">
+                <b class="wf-text-sm wf-text-primary">{t}</b>
+                <p class="wf-text-xs wf-text-secondary wf-m-0 wf-mt-xs">{d}</p>
+              </div>
+            ))}
           </div>
           <div class="wf-cluster wf-gap-sm" style="justify-content:center">
             <Badge variant="primary">{idx.counts.components} 组件</Badge>

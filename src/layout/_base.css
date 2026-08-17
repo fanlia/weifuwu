@@ -261,3 +261,14 @@ body.wf-dragging {
     animation-duration: 0.01ms;
   }
 }
+
+/* ── 首页 hero 打字机光标（微流明·进行态——reduced-motion 由下方降级块处理） ── */
+.wf-hero-cursor {
+  animation: wf-hero-blink 1s step-end infinite;
+  color: var(--wf-color-primary);
+}
+
+@keyframes wf-hero-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
