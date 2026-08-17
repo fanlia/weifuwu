@@ -148,7 +148,12 @@ function renderVNode(vnode: VNode, parent: Node, anchor?: Node | null): Node | n
       continue
     }
     if (val != null && val !== false) {
-      if (key === 'value' && el instanceof HTMLInputElement) setInputValue(el, String(val))
+      if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+        // input/textarea value 必须走 property（textarea attribute 只是 defaultValue——
+        // 曾漏掉 textarea：DOM value 恒空、selection 恒 0——PromptTemplate 光标插入事故）
+        if (el instanceof HTMLInputElement) setInputValue(el, String(val))
+        else (el as HTMLTextAreaElement).value = String(val)
+      }
       else if (key === 'innerHTML') {
         // 富文本/内容渲染（Editor contentEditable 等——innerHTML 是属性不是 attribute）
         el.innerHTML = String(val)
@@ -421,13 +426,14 @@ function patchProps(el: Element, oldProps: Record<string, unknown>, newProps: Re
       continue
     }
     if (nv == null || nv === false) {
-      if (key === 'value' && el instanceof HTMLInputElement) {
-        ;(el as HTMLInputElement).value = ''
-        if ((el as HTMLInputElement).type === 'range') (el as HTMLInputElement).removeAttribute('value')
+      if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+        ;(el as HTMLInputElement | HTMLTextAreaElement).value = ''
+        if (el instanceof HTMLInputElement && el.type === 'range') el.removeAttribute('value')
       }
       else el.removeAttribute(key)
-    } else if (key === 'value' && el instanceof HTMLInputElement) {
-      setInputValue(el as HTMLInputElement, String(nv))
+    } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+      if (el instanceof HTMLInputElement) setInputValue(el as HTMLInputElement, String(nv))
+      else (el as HTMLTextAreaElement).value = String(nv)
     } else if (key === 'style' && typeof nv === 'object' && !Array.isArray(nv)) {
       const css = Object.entries(nv as Record<string, unknown>)
         .filter(([, v]) => v != null && v !== false)

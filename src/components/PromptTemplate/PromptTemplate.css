@@ -1,0 +1,95 @@
+/* weifuwu/components — PromptTemplate 提示词模板编辑器 */
+
+.wf-prompt-template {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm);
+}
+
+.wf-prompt-label {
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+}
+
+/* 变量 chips 行 */
+.wf-prompt-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-prompt-chips-hint {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-prompt-chip {
+  padding: 2px var(--wf-space-sm);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg-secondary);
+  font-family: var(--wf-font-mono);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-primary-text);
+  cursor: pointer;
+  transition: border-color var(--wf-dur-fast) var(--wf-ease-out),
+              background-color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-prompt-chip:hover:not(:disabled) {
+  border-color: var(--wf-color-primary);
+  background: var(--wf-color-primary-bg);
+}
+
+.wf-prompt-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-prompt-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 模板编辑区 */
+.wf-prompt-editor {
+  width: 100%;
+  min-height: 120px;
+  padding: var(--wf-space-md);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-color-bg-elevated);
+  color: var(--wf-color-text);
+  font-family: var(--wf-font-mono);
+  font-size: var(--wf-font-size-sm);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.wf-prompt-editor:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+/* 预览区（填充结果） */
+.wf-prompt-preview {
+  border: 1px dashed var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  padding: var(--wf-space-md);
+  background: var(--wf-color-bg-secondary);
+}
+
+.wf-prompt-preview-title {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  margin-bottom: var(--wf-space-xs);
+}
+
+.wf-prompt-preview-body {
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

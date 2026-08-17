@@ -76,7 +76,17 @@ export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry):
       const pl = ev.payload as { key: string; value: unknown }
       const el = reg.get(ev.target!)
       if (el?.nodeType === 1) {
-        if (pl.value == null || pl.value === false) (el as Element).removeAttribute(pl.key)
+        if (pl.value == null || pl.value === false) {
+          // input/textarea value 清空走 property（attribute 是 defaultValue 语义）
+          if (pl.key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+            ;(el as HTMLInputElement | HTMLTextAreaElement).value = ''
+          }
+          else (el as Element).removeAttribute(pl.key)
+        }
+        else if (pl.key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+          // 与 render.ts 同源：value 走 property（textarea attribute 只是 defaultValue——回放同坑）
+          ;(el as HTMLInputElement | HTMLTextAreaElement).value = String(pl.value)
+        }
         else if (pl.key === 'style' && typeof pl.value === 'object' && !Array.isArray(pl.value)) {
           (el as Element).setAttribute('style', styleToCss(pl.value as Record<string, unknown>))
         }

@@ -15,6 +15,8 @@
 | `placeholder` | `string` | 否 |  |
 | `disabled` | `boolean` | 否 |  |
 | `error` | `string` | 否 |  |
+| `virtual` | `boolean` | 否 | 虚拟滚动（大数据树——透传 Tree；固定行高 28） |
+| `height` | `number` | 否 | 虚拟滚动视口高度（px） |
 | `className` | `string` | 否 |  |
 
 ## 用法示例

@@ -29,3 +29,12 @@ test('渲染：placeholder', async () => {
   const vnode = await renderVNode(TreeSelect, { options: tree, placeholder: '请选择' }, createTestCtx()) as any
   assert.ok(JSON.stringify(vnode).includes('请选择'), 'placeholder')
 })
+
+test('虚拟滚动：virtual/height 透传到 Tree（portal mock 透传）', async () => {
+  const bigTree = Array.from({ length: 300 }, (_, i) => ({ key: `n${i}`, label: `节点 ${i}` }))
+  // usePopup mock：portal 透传内容（默认返回 null——Tree 不会出现在 vnode 树）
+  const ctx = createTestCtx({ ui: { usePopup: () => ({ open: true, setOpen: () => {}, refresh: () => {}, portal: (c: any) => c, wrapProps: {} }) } })
+  const vnode = await renderVNode(TreeSelect, { options: bigTree, virtual: true, height: 280 }, ctx) as any
+  const v = JSON.stringify(vnode)
+  assert.ok(v.includes('"virtual":true') && v.includes('"height":280'), 'virtual/height 透传到 Tree')
+})

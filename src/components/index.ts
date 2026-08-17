@@ -56,6 +56,8 @@ export { TabBar } from './TabBar/TabBar.ts'
 export type { TabBarProps, TabBarItem } from './TabBar/TabBar.ts'
 export { ActionSheet } from './ActionSheet/ActionSheet.ts'
 export type { ActionSheetProps, ActionSheetItem } from './ActionSheet/ActionSheet.ts'
+export { PromptTemplate } from './PromptTemplate/PromptTemplate.ts'
+export type { PromptTemplateProps, PromptTemplateVariable } from './PromptTemplate/PromptTemplate.ts'
 export type { TabsProps, TabItem } from './Tabs/Tabs.ts'
 
 export { Dropdown } from './Dropdown/Dropdown.ts'

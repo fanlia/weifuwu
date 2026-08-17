@@ -221,3 +221,82 @@ it('Table：行内编辑（editable 列 → 点击 → input → Enter 提交）
   assert.ok(typeof cell.props.onClick === 'function', '点击进入编辑')
   document.body.removeChild(container)
 })
+
+describe('Table 固定列（fixed）', () => {
+  const cols = [
+    { key: 'name', label: '名称', fixed: 'left' as const, width: 120 },
+    { key: 'age', label: '年龄' },
+    { key: 'city', label: '城市', fixed: 'right' as const, width: 100 },
+  ]
+  const rows = [{ id: 1, name: '张三', age: 30, city: '北京' }]
+
+  it('fixed left 列：th/td sticky + 累计偏移 + bg-elevated 背景', async () => {
+    const vnode = await renderVNode(Table, { columns: cols, data: rows }, createTestCtx())!
+    const v = JSON.stringify(vnode)
+    // 表头 th
+    const ths: any[] = []
+    const walk = (n: any) => {
+      if (!n || typeof n !== 'object') return
+      if (n?.props?.class === 'wf-table-th') ths.push(n)
+      const kids = n.props?.children
+      if (Array.isArray(kids)) kids.forEach(walk)
+      else if (kids && typeof kids === 'object') walk(kids)
+    }
+    walk(vnode)
+    assert.equal(ths.length, 3)
+    const thName = ths[0]
+    assert.equal(thName.props.style.position, 'sticky')
+    assert.equal(thName.props.style.left, '0px', '首个左固定列 offset 0')
+    assert.equal(thName.props.style.zIndex, 2)
+    // 第二个列（非固定）无 sticky
+    assert.ok(!ths[1].props.style?.position, '非固定列无 sticky')
+    // 右固定列
+    assert.equal(ths[2].props.style.position, 'sticky')
+    assert.equal(ths[2].props.style.right, '0px')
+  })
+
+  it('左固定列偏移累计（两列固定：第二列 left=第一列宽）', async () => {
+    const cols2 = [
+      { key: 'a', label: 'A', fixed: 'left' as const, width: 80 },
+      { key: 'b', label: 'B', fixed: 'left' as const, width: 120 },
+      { key: 'c', label: 'C' },
+    ]
+    const vnode = await renderVNode(Table, { columns: cols2, data: rows }, createTestCtx())!
+    const ths: any[] = []
+    const walk = (n: any) => {
+      if (!n || typeof n !== 'object') return
+      if (n?.props?.class === 'wf-table-th') ths.push(n)
+      const kids = n.props?.children
+      if (Array.isArray(kids)) kids.forEach(walk)
+      else if (kids && typeof kids === 'object') walk(kids)
+    }
+    walk(vnode)
+    assert.equal(ths[0].props.style.left, '0px')
+    assert.equal(ths[1].props.style.left, '80px', '第二列累计第一列宽度')
+  })
+
+  it('fixed 列缺 width → console.warn（sticky 偏移估算）', async () => {
+    const warns: string[] = []
+    const orig = console.warn
+    console.warn = (m: string) => warns.push(String(m))
+    try {
+      await renderVNode(Table, { columns: [{ key: 'a', label: 'A', fixed: 'left' }], data: rows }, createTestCtx())!
+    } finally { console.warn = orig }
+    assert.ok(warns.some((w) => w.includes('[Table]') && w.includes('width')), '提示固定列必须 width')
+  })
+
+  it('body td 也 sticky（固定列数据单元格）', async () => {
+    const vnode = await renderVNode(Table, { columns: cols, data: rows }, createTestCtx())!
+    const tds: any[] = []
+    const walk = (n: any) => {
+      if (!n || typeof n !== 'object') return
+      if (n?.props?.class === 'wf-table-td') tds.push(n)
+      const kids = n.props?.children
+      if (Array.isArray(kids)) kids.forEach(walk)
+      else if (kids && typeof kids === 'object') walk(kids)
+    }
+    walk(vnode)
+    const tdName = tds.find((t) => t.props.style?.position === 'sticky' && t.props.style.left === '0px')
+    assert.ok(tdName, '名称列 td sticky left 0')
+  })
+})

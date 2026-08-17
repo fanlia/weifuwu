@@ -43,4 +43,4 @@
 
 ## 验证
 
-> agent-browser 走查：打开 `/components/display/messagebubble` ——（P1 填充具体步骤）
+> agent-browser 走查：打开 `/components/ai/messagebubble` ——（P1 填充具体步骤）

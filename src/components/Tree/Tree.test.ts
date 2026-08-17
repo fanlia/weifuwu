@@ -3,6 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Tree } from './Tree.ts'
+import { VirtualList } from '../VirtualList/VirtualList.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
 
@@ -260,5 +261,43 @@ describe('Tree 空态（F2 状态矩阵）', () => {
     const empty = findVNode(vnode, (v: any) => String(v.props?.class).includes('wf-tree-empty'))
     assert.ok(empty, '空态节点存在')
     assert.equal(empty.props.children, '暂无数据')
+  })
+})
+
+describe('Tree 虚拟滚动（virtual）', () => {
+  const bigTree = Array.from({ length: 500 }, (_, i) => ({
+    key: `n${i}`, label: `节点 ${i}`,
+    children: Array.from({ length: 5 }, (_, j) => ({ key: `n${i}-${j}`, label: `子节点 ${i}-${j}` })),
+  }))
+
+  // renderVNode 只渲染一层——VirtualList 是子组件（type 函数引用），断言其 props
+  it('virtual 渲染 VirtualList（items=可见扁平行 + 固定行高 28）', async () => {
+    const vnode = await renderVNode(Tree, { data: bigTree, virtual: true, height: 300 }, createTestCtx())!
+    const vl = vnode.props.children[0]
+    assert.equal(vl.type, VirtualList, '虚拟模式渲染 VirtualList 组件')
+    assert.equal(vl.props.items.length, 500, '未展开：500 可见行')
+    assert.equal(vl.props.itemHeight, 28)
+    assert.equal(vl.props.height, 300)
+    assert.equal(typeof vl.props.renderItem, 'function')
+  })
+
+  it('virtual 展开后可见行数变化（子节点进扁平集）', async () => {
+    const vnode = await renderVNode(Tree, { data: bigTree, virtual: true, height: 300, expandedKeys: ['n0'] }, createTestCtx())!
+    // 501 行（500 + n0 的 5 个子节点）
+    const vl = vnode.props.children[0]
+    assert.equal(vl.props.items.length, 505, '展开 n0 后可见行 = 500 + 5')
+    assert.equal(vl.props.items[1].node.label, '子节点 0-0', 'DFS：n0 的子节点紧跟其后')
+    assert.equal(vl.props.items[6].node.label, '节点 1', 'n0 子树结束后回到下一个根')
+  })
+
+  it('virtual 行 key = 节点 key（展开/折叠后身份稳定）', async () => {
+    const vnode = await renderVNode(Tree, { data: bigTree, virtual: true, height: 300 }, createTestCtx())!
+    const vl = vnode.props.children[0]
+    assert.equal(vl.props.keyBy(vl.props.items[10], 10), 'n10')
+  })
+
+  it('非 virtual 保持递归渲染（无 VirtualList）', async () => {
+    const vnode = await renderVNode(Tree, { data: bigTree }, createTestCtx())!
+    assert.ok(!JSON.stringify(vnode).includes('wf-virtual-list'), '非虚拟模式不走 VirtualList')
   })
 })

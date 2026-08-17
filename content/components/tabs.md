@@ -11,6 +11,10 @@
 | `items` | `TabItem[]` | 否 |  |
 | `active` | `string` | 否 |  |
 | `onChange` | `(key: string) => void` | 否 |  |
+| `closable` | `boolean` | 否 | 可关闭 tab（浏览器标签类应用——关闭中间 tab 自动激活邻居） |
+| `onClose` | `(key: string) => void` | 否 | 关闭回调（父负责从 items 移除；受控纪律：closable 必须配 onClose） |
+| `addable` | `boolean` | 否 | 显示新增 + 按钮 |
+| `onAdd` | `() => void` | 否 | 新增回调（父负责追加 items） |
 
 ## 用法示例
 

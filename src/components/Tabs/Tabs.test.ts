@@ -37,12 +37,13 @@ describe('Tabs', () => {
     const vnode = await renderVNode(Tabs, { items }, createTestCtx())!
     const tabList = vnode.props.children[0]
     // tabList.children = [...tabButtons, inkBar]（末位为滑动指示器）
-    const tabs = tabList.props.children.filter((c: any) => c.props?.role === 'tab')
+    const tabs = tabList.props.children.filter((c: any) => c?.props?.role === 'tab')
     assert.equal(tabs.length, 2)
-    assert.equal(tabs[0].props.children, '标签A')
-    assert.equal(tabs[1].props.children, '标签B')
+    // children = [label, closableSlot]（closable 槽位——非 closable 时为 null）
+    assert.equal(tabs[0].props.children[0], '标签A')
+    assert.equal(tabs[1].props.children[0], '标签B')
     // ink bar 存在
-    assert.ok(tabList.props.children.some((c: any) => c.props?.class === 'wf-tab-ink'))
+    assert.ok(tabList.props.children.some((c: any) => c?.props?.class === 'wf-tab-ink'))
   })
 
   it('returns null when no items', async () => {
@@ -116,3 +117,108 @@ it('受控 active + onChange（点击切换通知）', async () => {
   tabs[1].props.onClick()
   assert.equal(got, 'b', '点击 B 通知 onChange(b)')
 })
+
+describe('Tabs editable（closable/addable）', () => {
+  it('closable 渲染关闭按钮（aria-label）', async () => {
+    const vnode = await renderVNode(Tabs, {
+      items: [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }],
+      closable: true, onClose: () => {},
+    }, createTestCtx())!
+    const v = JSON.stringify(vnode)
+    assert.ok(v.includes('wf-tab-close'), '关闭按钮存在')
+    assert.ok(v.includes('关闭 A'), 'aria-label 带 tab 名')
+  })
+
+  it('关闭激活 tab → 自动激活右邻居 + onClose(key)', async () => {
+    const closed: string[] = []
+    const active: string[] = []
+    // 受控模式：active='a'，关闭 a → select b（onChange 通知）
+    const vnode = await renderVNode(Tabs, {
+      items: [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }, { key: 'c', label: 'C' }],
+      active: 'a', closable: true,
+      onClose: (k: string) => closed.push(k),
+      onChange: (k: string) => active.push(k),
+    }, createTestCtx())!
+    // 找到第一个 tab 的关闭按钮
+    const findClose = (v: any): any => {
+      const walk = (n: any): any => {
+        if (!n || typeof n !== 'object') return null
+        if (n?.props?.class === 'wf-tab-close') return n
+        const kids = n.props?.children
+        if (Array.isArray(kids)) { for (const k of kids) { const f = walk(k); if (f) return f } }
+        else if (kids && typeof kids === 'object') return walk(kids)
+        return null
+      }
+      return walk(v)
+    }
+    const closeBtn = findClose(vnode)
+    assert.ok(closeBtn, '关闭按钮')
+    closeBtn.props.onClick({ stopPropagation: () => {} })
+    assert.deepEqual(closed, ['a'], 'onClose(a)')
+    assert.deepEqual(active, ['b'], '关闭激活 tab → 激活右邻居 b')
+  })
+
+  it('关闭中间 tab（非激活）→ 不切换激活', async () => {
+    const active: string[] = []
+    const vnode = await renderVNode(Tabs, {
+      items: [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }, { key: 'c', label: 'C' }],
+      active: 'c', closable: true,
+      onClose: () => {},
+      onChange: (k: string) => active.push(k),
+    }, createTestCtx())!
+    // 第二个 tab（b）的关闭按钮
+    const tabs: any[] = []
+    const walk = (n: any) => {
+      if (!n || typeof n !== 'object') return
+      if (n?.props?.class === 'wf-tab-close') tabs.push(n)
+      const kids = n.props?.children
+      if (Array.isArray(kids)) kids.forEach(walk)
+      else if (kids && typeof kids === 'object') walk(kids)
+    }
+    walk(vnode)
+    assert.equal(tabs.length, 3, '三个关闭按钮')
+    tabs[1].props.onClick({ stopPropagation: () => {} })
+    assert.deepEqual(active, [], '关闭非激活 tab 不切换激活')
+  })
+
+  it('closable 无 onClose → console.warn（受控纪律）', async () => {
+    const warns: string[] = []
+    const orig = console.warn
+    console.warn = (m: string) => warns.push(String(m))
+    try {
+      await renderVNode(Tabs, { items: [{ key: 'a', label: 'A' }], closable: true }, createTestCtx())!
+    } finally { console.warn = orig }
+    assert.ok(warns.some((w) => w.includes('[Tabs]') && w.includes('onClose')))
+  })
+
+  it('tab.closable=false 白名单豁免（不渲染关闭按钮）', async () => {
+    const vnode = await renderVNode(Tabs, {
+      items: [{ key: 'a', label: 'A', closable: false }, { key: 'b', label: 'B' }],
+      closable: true, onClose: () => {},
+    }, createTestCtx())!
+    const v = JSON.stringify(vnode)
+    assert.ok(!v.includes('关闭 A'), 'a 无关闭按钮')
+    assert.ok(v.includes('关闭 B'), 'b 有关闭按钮')
+  })
+
+  it('addable 渲染 + 按钮 → onAdd', async () => {
+    let added = 0
+    const vnode = await renderVNode(Tabs, {
+      items: [{ key: 'a', label: 'A' }],
+      addable: true, onAdd: () => { added++ },
+    }, createTestCtx())!
+    const addBtn: any[] = []
+    const walk = (n: any) => {
+      if (!n || typeof n !== 'object') return
+      if (n?.props?.class === 'wf-tab-add') addBtn.push(n)
+      const kids = n.props?.children
+      if (Array.isArray(kids)) kids.forEach(walk)
+      else if (kids && typeof kids === 'object') walk(kids)
+    }
+    walk(vnode)
+    assert.equal(addBtn.length, 1, '+ 按钮存在')
+    addBtn[0].props.onClick()
+    assert.equal(added, 1)
+  })
+})
+

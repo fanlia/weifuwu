@@ -2,6 +2,7 @@ import type { Component } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { h } from '../../ui-dom/vnode.ts'
+import { VirtualList } from '../VirtualList/VirtualList.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface TreeNode {
@@ -28,6 +29,10 @@ export interface TreeProps {
   onCheck?: (keys: string[]) => void
   /** 搜索过滤（label 含 searchValue 的节点 + 祖先；自动展开匹配路径 + 高亮） */
   searchValue?: string
+  /** 虚拟滚动（大数据树——固定行高 28px，只渲染可见窗口） */
+  virtual?: boolean
+  /** 虚拟滚动视口高度（px） */
+  height?: number
   className?: string
 }
 
@@ -182,13 +187,11 @@ export const Tree: Component<TreeProps> = async (_init, ctx) => {
     // 键盘：容器方向键移动焦点
     let flatNodes: TreeNode[] = []
 
-    const renderNode = (node: TreeNode, level: number): any => {
-      flatNodes.push(node)
-      const rowIndex = flatNodes.length - 1
+    // 单行渲染（虚拟/非虚拟共用——行内容同一实现，防双份漂移）
+    const renderRow = (node: TreeNode, level: number, rowIndex: number): any => {
       if (!rowRefs[rowIndex]) {
         rowRefs[rowIndex] = (el: HTMLElement | null) => { rowEls[rowIndex] = el }
       }
-
       const hasChildren = !!node.children?.length
       const open = isExpanded(node.key)
       const selected = (selCtrl?.value ?? []).includes(node.key)
@@ -224,33 +227,55 @@ export const Tree: Component<TreeProps> = async (_init, ctx) => {
         h('span', { class: 'wf-tree-label' }, highlightLabel(node.label, q)),
       ].filter(Boolean)
 
+      return h('div', {
+        class: [
+          'wf-tree-row',
+          selected ? 'wf-tree-row--selected' : '',
+          node.disabled ? 'wf-tree-row--disabled' : '',
+        ].filter(Boolean).join(' '),
+        style: { paddingLeft: `${level * 20}px` },
+        ref: rowRefs[rowIndex],
+        tabIndex: node.disabled ? undefined : 0,
+        'aria-selected': selected ? 'true' : 'false',
+        onClick: node.disabled ? undefined : () => {
+          // expandOnClick：有子节点 → 展开/折叠；叶子 → 选中
+          if (hasChildren && expandOnClick) toggleExpand(node.key)
+          else toggleSelect(node.key)
+        },
+        onKeyDown: node.disabled ? undefined : (e: any) => {
+          if (e.key === 'Enter') { e.preventDefault(); toggleSelect(node.key) }
+          else if (e.key === ' ' && checkable) { e.preventDefault(); toggleCheck(node) }
+          else if (e.key === 'ArrowRight' && hasChildren) { e.preventDefault(); if (!open) toggleExpand(node.key) }
+          else if (e.key === 'ArrowLeft' && hasChildren) { e.preventDefault(); if (open) toggleExpand(node.key) }
+        },
+      }, rowChildren)
+    }
+
+    // 非虚拟：递归渲染（renderNode = 行 + 子节点容器）
+    const renderNode = (node: TreeNode, level: number): any => {
+      flatNodes.push(node)
+      const rowIndex = flatNodes.length - 1
+      const hasChildren = !!node.children?.length
+      const open = isExpanded(node.key)
       return h('div', { class: 'wf-tree-node', key: node.key }, [
-        h('div', {
-          class: [
-            'wf-tree-row',
-            selected ? 'wf-tree-row--selected' : '',
-            node.disabled ? 'wf-tree-row--disabled' : '',
-          ].filter(Boolean).join(' '),
-          style: { paddingLeft: `${level * 20}px` },
-          ref: rowRefs[rowIndex],
-          tabIndex: node.disabled ? undefined : 0,
-          'aria-selected': selected ? 'true' : 'false',
-          onClick: node.disabled ? undefined : () => {
-            // expandOnClick：有子节点 → 展开/折叠；叶子 → 选中
-            if (hasChildren && expandOnClick) toggleExpand(node.key)
-            else toggleSelect(node.key)
-          },
-          onKeyDown: node.disabled ? undefined : (e: any) => {
-            if (e.key === 'Enter') { e.preventDefault(); toggleSelect(node.key) }
-            else if (e.key === ' ' && checkable) { e.preventDefault(); toggleCheck(node) }
-            else if (e.key === 'ArrowRight' && hasChildren) { e.preventDefault(); if (!open) toggleExpand(node.key) }
-            else if (e.key === 'ArrowLeft' && hasChildren) { e.preventDefault(); if (open) toggleExpand(node.key) }
-          },
-        }, rowChildren),
+        renderRow(node, level, rowIndex),
         open && hasChildren
           ? h('div', { class: 'wf-tree-children' }, node.children!.map(c => renderNode(c, level + 1)))
           : null,
       ].filter(Boolean))
+    }
+
+    // 虚拟模式：可见节点扁平收集（展开态 DFS）——固定行高 28px
+    const collectVisible = (nodes: TreeNode[], level: number): Array<{ node: TreeNode; level: number }> => {
+      const out: Array<{ node: TreeNode; level: number }> = []
+      const walk = (list: TreeNode[], lv: number) => {
+        for (const n of list) {
+          out.push({ node: n, level: lv })
+          if (n.children?.length && isExpanded(n.key)) walk(n.children, lv + 1)
+        }
+      }
+      walk(nodes, level)
+      return out
     }
 
     // 空态提示：搜索无结果 vs 无数据（F2 状态矩阵——容器类基线）
@@ -272,6 +297,32 @@ export const Tree: Component<TreeProps> = async (_init, ctx) => {
     }
 
     flatNodes = []
+    const { virtual, height = 400 } = props
+    if (virtual) {
+      // 虚拟滚动：只渲染可见窗口（裁剪登记：virtual 模式键盘导航限于可见窗口——
+      // VirtualList 无 scrollTo，跨窗口焦点移动不可达；滚动条滚动可达）
+      const visible = collectVisible(filteredData, 0)
+      flatNodes = visible.map((v) => v.node)
+      const items = visible.map((v, i) => {
+        // key = 节点 key（虚拟行身份——展开/折叠后行集合变化，key 防状态错位）
+        return { key: v.node.key, node: v.node, level: v.level, i }
+      })
+      return h('div', {
+        class: ['wf-tree', className].filter(Boolean).join(' '),
+        role: 'tree',
+      }, [
+        h(VirtualList, {
+          items,
+          height,
+          itemHeight: 28,
+          overscan: 6,
+          keyBy: (item: any) => item.key,
+          renderItem: (item: any) => renderRow(item.node, item.level, item.i),
+          emptyText: q ? '无匹配节点' : '暂无数据',
+        }),
+      ])
+    }
+
     const roots = filteredData.map(n => renderNode(n, 0))
 
     return h('div', {

@@ -535,7 +535,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "pipeline",
     "name": "Pipeline",
-    "category": "viz",
+    "category": "ai",
     "desc": "Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测",
     "codeKey": "pipeline",
     "demo": "DemoPipeline",
@@ -710,7 +710,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "messagebubble",
     "name": "MessageBubble",
-    "category": "display",
+    "category": "ai",
     "desc": "消息气泡：user/assistant + streaming/error 状态 + actions",
     "codeKey": "messageBubble",
     "demo": "DemoMessageBubble",
@@ -772,7 +772,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "statcard",
     "name": "StatCard",
-    "category": "display",
+    "category": "viz",
     "desc": "KPI 指标卡，支持 trend/icon",
     "codeKey": "stat",
     "demo": "DemoStatCard",
@@ -1613,5 +1613,15 @@ export const components: ComponentEntry[] = [
     "sourceFile": "src/components/ActionSheet/ActionSheet.ts",
     "cssFile": "src/components/ActionSheet/ActionSheet.css",
     "testFile": "src/components/ActionSheet/ActionSheet.test.ts"
+  }
+,
+  {
+    "id": "prompttemplate",
+    "name": "PromptTemplate",
+    "category": "ai",
+    "desc": "提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）",
+    "sourceFile": "src/components/PromptTemplate/PromptTemplate.ts",
+    "cssFile": "src/components/PromptTemplate/PromptTemplate.css",
+    "testFile": "src/components/PromptTemplate/PromptTemplate.test.ts"
   }
 ]

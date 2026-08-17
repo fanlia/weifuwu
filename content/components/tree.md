@@ -18,6 +18,8 @@
 | `checkedKeys` | `string[]` | 否 |  |
 | `onCheck` | `(keys: string[]) => void` | 否 |  |
 | `searchValue` | `string` | 否 | 搜索过滤（label 含 searchValue 的节点 + 祖先；自动展开匹配路径 + 高亮） |
+| `virtual` | `boolean` | 否 | 虚拟滚动（大数据树——固定行高 28px，只渲染可见窗口） |
+| `height` | `number` | 否 | 虚拟滚动视口高度（px） |
 | `className` | `string` | 否 |  |
 
 ## 用法示例

@@ -42,4 +42,4 @@ Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检�
 
 ## 验证
 
-> agent-browser 走查：打开 `/components/viz/pipeline` ——（P1 填充具体步骤）
+> agent-browser 走查：打开 `/components/ai/pipeline` ——（P1 填充具体步骤）

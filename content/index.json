@@ -1,6 +1,6 @@
 {
   "counts": {
-    "components": 156,
+    "components": 157,
     "primitives": 20,
     "patterns": 11,
     "apps": 5,
@@ -992,7 +992,7 @@
     {
       "id": "pipeline",
       "name": "Pipeline",
-      "category": "viz",
+      "category": "ai",
       "desc": "Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测",
       "variantOf": null,
       "tags": [
@@ -1302,7 +1302,7 @@
     {
       "id": "messagebubble",
       "name": "MessageBubble",
-      "category": "display",
+      "category": "ai",
       "desc": "消息气泡：user/assistant + streaming/error 状态 + actions",
       "variantOf": null,
       "tags": [
@@ -1409,7 +1409,7 @@
     {
       "id": "statcard",
       "name": "StatCard",
-      "category": "display",
+      "category": "viz",
       "desc": "KPI 指标卡，支持 trend/icon",
       "variantOf": null,
       "tags": [
@@ -2878,6 +2878,21 @@
       "sourceFile": "src/components/ActionSheet/ActionSheet.ts",
       "cssFile": "src/components/ActionSheet/ActionSheet.css",
       "testFile": "src/components/ActionSheet/ActionSheet.test.ts",
+      "gotchas": [],
+      "usedInPatterns": [],
+      "usedInApps": [],
+      "relatedBackend": []
+    },
+    {
+      "id": "prompttemplate",
+      "name": "PromptTemplate",
+      "category": "ai",
+      "desc": "提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）",
+      "variantOf": null,
+      "tags": [],
+      "sourceFile": "src/components/PromptTemplate/PromptTemplate.ts",
+      "cssFile": "src/components/PromptTemplate/PromptTemplate.css",
+      "testFile": "src/components/PromptTemplate/PromptTemplate.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],

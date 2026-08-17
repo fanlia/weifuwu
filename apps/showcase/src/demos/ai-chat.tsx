@@ -11,9 +11,12 @@
  */
 
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
-import { FilePreview } from 'weifuwu/components'
-import { v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
+import {
+  createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
+import {
+  FilePreview } from 'weifuwu/components'
+import {
+  v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -24,6 +27,7 @@ import {
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
   InView, DatePicker, Chart, Editor, ThemeSwitch,
   AiChat, ChatInput, AuthPage, ToolCallCard, ApprovalCard, PageHeader, Icon,
+  PromptTemplate,
   Markdown, CodeBlock, Timeline, InputNumber, Descriptions, AvatarGroup, MessageBubble,
   Menu, PasswordInput, TagsInput, Highlight, List, Result,
   Rate, Title, Text, Paragraph, Label, AspectRatio,
@@ -295,6 +299,27 @@ const DemoAuthPage: Component = async (_props, ctx) => {
 // ── 新增组件 Demo（全量实现批次）────────────────────
 
 
+
+/** PromptTemplate：提示词模板编辑器（变量插入 + 预览填充） */
+export const DemoPromptTemplate: Component = async (_props: any, ctx: any) => {
+  let value = '你是一位{{role}}，请用{{tone}}的语气介绍{{topic}}。'
+  return async () => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <PromptTemplate
+        label="系统提示词模板"
+        value={value}
+        onChange={(v: string) => { value = v; ctx.ui.render() }}
+        variables={[
+          { name: 'role', description: '角色' },
+          { name: 'tone', description: '语气' },
+          { name: 'topic', description: '主题' },
+        ]}
+        values={{ role: 'AI 助手', tone: '专业', topic: '组件库' }}
+      />
+    </div>
+  )
+}
+
 export const DEMOS: Record<string, any> = {
   "AiChat": DemoAiChat,
   "ChatInput": DemoChatInput,
@@ -305,4 +330,5 @@ export const DEMOS: Record<string, any> = {
   "CitationCard": DemoCitationCard,
   "SessionList": DemoSessionList,
   "ApprovalCard": DemoApprovalCard,
+  "PromptTemplate": DemoPromptTemplate,
 }

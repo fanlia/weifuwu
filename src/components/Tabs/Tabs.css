@@ -25,6 +25,8 @@
 }
 
 .wf-tab {
+  display: inline-flex;
+  align-items: center;
   padding: var(--wf-space) var(--wf-space-md);
   border: none;
   background: none;
@@ -63,4 +65,48 @@
 }
 .wf-tab-list::-webkit-scrollbar {
   display: none;
+}
+
+/* ── 可关闭 tab（closable） ── */
+.wf-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  border-radius: var(--wf-radius-sm);
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out),
+              color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-tab-close:hover {
+  background: var(--wf-state-hover);
+  color: var(--wf-color-error-text);
+}
+
+/* ── 新增 + 按钮（addable） ── */
+.wf-tab-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: auto 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--wf-radius-sm);
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out),
+              color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-tab-add:hover {
+  background: var(--wf-state-hover);
+  color: var(--wf-color-primary-text);
 }

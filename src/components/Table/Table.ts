@@ -15,6 +15,8 @@ export interface TableColumn {
   render?: (value: any, row: any, index: number) => any
   /** 行内编辑（点击单元格 → input → Enter/失焦提交）——需配合 TableProps.onCellEdit */
   editable?: boolean
+  /** 固定列（横向滚动时保持可见）——fixed='left'/'right' 必须显式 width */
+  fixed?: 'left' | 'right'
 }
 
 export interface TableRowSelection {
@@ -88,6 +90,33 @@ export const Table: Component<TableProps> = async (_init, ctx) => {
 
   const sortedData = sortData(data, columns, sortKey, sortOrder)
 
+  // 固定列偏移（sticky left 累计宽度——fixed 列必须显式 width；缺省 140 估算 + warn）
+  const pxOf = (w: number | string | undefined): number => {
+    if (typeof w === 'number') return w
+    if (typeof w === 'string' && /^\d+px$/.test(w)) return Number(w.slice(0, -2))
+    return 140
+  }
+  const fixedLeft: Map<string, number> = new Map()
+  {
+    let acc = 0
+    for (const col of columns) {
+      if (col.fixed === 'left') {
+        if (col.width === undefined) console.warn(`[Table] 固定列「${col.label}」未指定 width——sticky 偏移按 140px 估算（固定列必须显式 width）`)
+        fixedLeft.set(col.key, acc)
+        acc += pxOf(col.width)
+      }
+    }
+  }
+  const fixedStyle = (col: TableColumn): any => {
+    if (col.fixed === 'left') {
+      return { position: 'sticky', left: `${fixedLeft.get(col.key) ?? 0}px`, zIndex: 2, background: 'var(--wf-color-bg-elevated)' }
+    }
+    if (col.fixed === 'right') {
+      return { position: 'sticky', right: '0px', zIndex: 2, background: 'var(--wf-color-bg-elevated)' }
+    }
+    return undefined
+  }
+
   const rowKeyOf = (row: any, i: number) => row[rowSelection?.rowKey ?? 'id'] ?? i
 
   // 行选择：全选态（全部选中 / 部分选中 indeterminate）
@@ -159,7 +188,7 @@ export const Table: Component<TableProps> = async (_init, ctx) => {
       class: `wf-table-th${col.sortable ? ' wf-table-th--sortable' : ''}${isSorted ? ' wf-table-th--sorted' : ''}`,
       scope: 'col',
       tabindex: col.sortable ? 0 : undefined,
-      style: col.width ? { width: col.width } : undefined,
+      style: { ...(col.width ? { width: col.width } : {}), ...(fixedStyle(col) ?? {}) },
       onClick: sortFn,
       onKeyDown: sortFn
         ? (e: KeyboardEvent) => {
@@ -212,12 +241,16 @@ export const Table: Component<TableProps> = async (_init, ctx) => {
               }))
           }
           return h('td', { class: 'wf-table-td wf-table-td--editable', key: `${i}-${col.key}`,
-            style: { cursor: 'text' },
+            style: { cursor: 'text', ...(fixedStyle(col) ?? {}) },
             onClick: () => beginEdit(i, col.key, val) },
             col.render ? col.render(val, row, i) : String(val ?? ''))
         }
         const content = col.render ? col.render(val, row, i) : String(val ?? '')
-        return h('td', { class: 'wf-table-td' }, content)
+        return h('td', {
+          class: 'wf-table-td',
+          key: `${i}-${col.key}`,
+          style: fixedStyle(col),
+        }, content)
       })
       const rowSelCell = selCell(row, i)
       return h('tr', {

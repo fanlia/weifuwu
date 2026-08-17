@@ -47,4 +47,4 @@ KPI 指标卡，支持 trend/icon
 
 ## 验证
 
-> agent-browser 走查：打开 `/components/display/statcard` ——（P1 填充具体步骤）
+> agent-browser 走查：打开 `/components/viz/statcard` ——（P1 填充具体步骤）

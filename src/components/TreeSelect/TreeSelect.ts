@@ -16,6 +16,10 @@ export interface TreeSelectProps {
   placeholder?: string
   disabled?: boolean
   error?: string
+  /** 虚拟滚动（大数据树——透传 Tree；固定行高 28） */
+  virtual?: boolean
+  /** 虚拟滚动视口高度（px） */
+  height?: number
   className?: string
 }
 
@@ -104,6 +108,8 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
 
     const tree = h(Tree, {
       data: options,
+      virtual: props.virtual,
+      height: props.height ?? 320,
       // 点击有子节点行 = 展开/折叠（直观）；叶子行 = 选中
       expandOnClick: true,
       selectedKeys: isMultiple ? undefined : value ? [value as string] : [],
