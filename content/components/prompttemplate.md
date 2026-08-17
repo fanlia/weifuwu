@@ -4,6 +4,10 @@
 
 提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）
 
+## 典型场景
+
+- AI 对话/工具调用/审批/提示词——agent 场景全链路
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -23,7 +27,8 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+- textarea value 必须走 property（attribute 只是 defaultValue——DOM value 恒空/光标失效事故，vdom3 渲染器已修）
+- 受控输入纪律：value 由父控制 + onChange 通知
 
 ## 关系
 

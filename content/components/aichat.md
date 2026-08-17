@@ -4,6 +4,11 @@
 
 useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明
 
+## 典型场景
+
+- 应用模板：agent-platform（examples/apps/ 完整可跑）
+- AI 对话/工具调用/审批/提示词——agent 场景全链路
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -30,7 +35,7 @@ return () => <AiChat chat={chat} />
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> AI 协议纪律：消息流事件驱动（useChat 订阅）——高频 notify 由写者控制频率
 
 ## 关系
 

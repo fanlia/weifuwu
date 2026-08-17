@@ -4,6 +4,10 @@
 
 树形：递归模型 + 勾选父子联动 + indeterminate（antd/EP Tree）
 
+## 典型场景
+
+- 复杂数据交互——穿梭、树、级联、看板、流水线
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -31,7 +35,9 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+- 受控纪律：selectedKeys/checkedKeys/expandedKeys 必须配回调（缺回调 console.warn）
+- 小尺寸 button 固定 min/max-height（§5.6）：checkbox 14x36 竖条事故
+- 虚拟模式（virtual）键盘导航限于可见窗口（VirtualList 无 scrollTo——裁剪登记）
 
 ## 关系
 

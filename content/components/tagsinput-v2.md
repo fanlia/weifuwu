@@ -4,6 +4,10 @@
 
 maxTags 限制 + error 校验态（状态矩阵覆盖）
 
+## 典型场景
+
+- 表单输入/搜索/筛选——查询区、编辑表单、设置页
+
 ## API
 
 > props 提取降级（接口格式特殊）——见源码：`—`
@@ -16,7 +20,7 @@ maxTags 限制 + error 校验态（状态矩阵覆盖）
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 受控输入纪律（§5.3）：输入期间 value 走内部态（useControlledInput）——依赖回流会重挂 input 丢焦点；IME composition 门控
 
 ## 关系
 

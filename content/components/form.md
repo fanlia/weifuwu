@@ -4,6 +4,12 @@
 
 内置验证规则：required/pattern/minLength/自定义
 
+## 典型场景
+
+- 页面模式：focus-task、settings-page（复制即用蓝本——examples/patterns/）
+- 应用模板：todo、auth、admin、agent-platform（examples/apps/ 完整可跑）
+- 创建/编辑表单页——提交、校验、字段编排
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -31,7 +37,8 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+- 三层一致（§6.3）：条件渲染 false 是空洞占位——{cond && <Alert/>} 不滤除不塌缩（提交按钮消失事故）
+- 受控纪律：受控 value 必须配 onChange——缺回调静默不可点
 
 ## 关系
 

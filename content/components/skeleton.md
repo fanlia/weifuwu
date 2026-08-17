@@ -4,6 +4,10 @@
 
 text/circle/rect/image/avatar/table 六种变体
 
+## 典型场景
+
+- 数据展示——列表页、详情页、信息呈现
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -29,7 +33,7 @@ text/circle/rect/image/avatar/table 六种变体
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 三层一致（§6.3）：条件渲染 false 是空洞占位——数组项 key 由业务声明
 
 ## 关系
 

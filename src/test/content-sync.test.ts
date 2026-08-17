@@ -122,3 +122,13 @@ test('关系图连通性（单向声明 → 反链可达）', () => {
   assert.ok(withRel.length >= 5, `关系图过空（仅 ${withRel.length} 组件有反链）`)
   assert.deepEqual(broken, [], `关系断裂：\n${broken.join('\n')}`)
 })
+
+test('组件文档无残留/纪律节无待补写（02 学习体验防线）', () => {
+  const docs = readdirSync(join(root, 'content/components')).filter((f) => f.endsWith('.md'))
+  const index = JSON.parse(readFileSync(join(root, 'content/index.json'), 'utf-8'))
+  const ids = new Set(index.components.map((c) => c.id))
+  const orphans = docs.filter((f) => !ids.has(f.replace(/\.md$/, '')) && !f.endsWith('-family.md'))
+  assert.deepEqual(orphans, [], '孤儿文档（registry 无此 id——scaffold id 变更残留）')
+  const todo = docs.filter((f) => readFileSync(join(root, 'content/components', f), 'utf-8').includes('待补写'))
+  assert.deepEqual(todo, [], '纪律/坑节仍有「待补写」（02 P2 已按组件归类——分类兜底生效）')
+})

@@ -4,6 +4,12 @@
 
 标签页切换，支持 active/onChange
 
+## 典型场景
+
+- 页面模式：workspace、settings-page（复制即用蓝本——examples/patterns/）
+- 应用模板：multi（examples/apps/ 完整可跑）
+- 页面导航——侧栏、页头、标签页、步骤、分页
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -27,7 +33,8 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+- 混合数组稳定 key：tabList+addBtn+ink 全 keyed——无 key 项退 unkeyed 位置配对（新增 tab 错位事故）
+- closable 必须配 onClose / addable 必须配 onAdd（受控纪律——console.warn）
 
 ## 关系
 

@@ -101,6 +101,46 @@ function write(outPath, content) {
   changed++
 }
 
+// ── 分类通用纪律兜底（02 P2：AGENTS.md 事故按分类归类——组件级事故优先登记 registry gotchas） ──
+const CATEGORY_GOTCHA = {
+  form: '> 受控纪律（§5.2）：受控 props 必须配回调——缺回调静默不可点；受控输入（§5.3）输入态不依赖 value 回流（焦点丢失）',
+  input: '> 受控输入纪律（§5.3）：输入期间 value 走内部态（useControlledInput）——依赖回流会重挂 input 丢焦点；IME composition 门控',
+  overlay: '> 弹窗纪律（§5.4）：浮层必须 createPortal 渲染（#__wf_portal）——禁 absolute 相对父容器（overflow/transform 裁剪）；统一走 ctx.ui.usePopup',
+  navigation: '> 键盘可达（P1）：方向键导航焦点跟随（roving tabindex）；受控 props 配回调',
+  display: '> 三层一致（§6.3）：条件渲染 false 是空洞占位——数组项 key 由业务声明',
+  feedback: '> 退场动画（§8）：exit 类必须挂载（animationend 驱动）+ reduced-motion 降级',
+  ai: '> AI 协议纪律：消息流事件驱动（useChat 订阅）——高频 notify 由写者控制频率',
+  virtual: '> 大数据渲染：固定行高 + 窗口化（VirtualList）——动态高度裁剪登记',
+  editor: '> 内容编辑：textarea value 走 property（attribute 只是 defaultValue）；受控输入纪律',
+  viz: '> 图表自研 SVG：数据点 label 为轴名；交互 tooltip 经 usePopup（视口夹紧）',
+  core: '> 浏览器纪律（§5.5）：组件能力经 ctx.browser / ctx.ui.useXXX——禁裸 window/document',
+}
+
+// ── 典型场景推导（02 计划：组件"活在哪里"可见——分类场景模板 + 共现关系） ──
+const CATEGORY_SCENE = {
+  core: '基础元素（按钮/图标/文本/卡片/标签）——任意页面的构成单元',
+  input: '表单输入/搜索/筛选——查询区、编辑表单、设置页',
+  form: '创建/编辑表单页——提交、校验、字段编排',
+  display: '数据展示——列表页、详情页、信息呈现',
+  viz: '数据看板/统计报表——指标卡、图表、趋势',
+  feedback: '操作反馈/结果页/确认——保存成功、删除确认、空态/加载态',
+  navigation: '页面导航——侧栏、页头、标签页、步骤、分页',
+  overlay: '浮层交互——弹窗、下拉、气泡、抽屉、命令面板',
+  advanced: '复杂数据交互——穿梭、树、级联、看板、流水线',
+  virtual: '大数据列表/表格/树——千级+数据量的性能场景',
+  editor: 'office 文档/代码/内容编辑——xlsx/pptx/代码/公式/裁剪',
+  ai: 'AI 对话/工具调用/审批/提示词——agent 场景全链路',
+}
+const sceneOf = (e) => {
+  const scenes = []
+  const ups = usedInPatterns.get(e.name) ?? []
+  const upa = usedInApps.get(e.name) ?? []
+  if (ups.length) scenes.push(`页面模式：${ups.join('、')}（复制即用蓝本——examples/patterns/）`)
+  if (upa.length) scenes.push(`应用模板：${upa.join('、')}（examples/apps/ 完整可跑）`)
+  scenes.push(CATEGORY_SCENE[e.category] ?? '通用交互元素')
+  return scenes
+}
+
 // ── 组件文档（七节模板） ──
 function compDoc(e) {
   const code = codeOf(e)
@@ -108,6 +148,9 @@ function compDoc(e) {
   const lines = []
   lines.push(`# ${e.name} · components`)
   lines.push('', `## 概述`, '', `${e.desc}`)
+  lines.push('', `## 典型场景`)
+  const scene = sceneOf(e)
+  if (scene) lines.push('', ...scene.map((x) => `- ${x}`))
   lines.push('', `## API`)
   if (api && api.length) {
     lines.push('', '| prop | 类型 | 必填 | 说明 |', '|------|------|------|------|')
@@ -123,7 +166,7 @@ function compDoc(e) {
   else lines.push('', '> （P1 迁移 CODE 字符串）')
   lines.push('', `## 纪律/坑`)
   if (e.gotchas?.length) lines.push('', ...e.gotchas.map((g) => `- ${g}`))
-  else lines.push('', '> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）')
+  else lines.push('', CATEGORY_GOTCHA[e.category] ?? '> （该分类暂无通用纪律——组件级事故见源码注释）')
   const ups = usedInPatterns.get(e.name) ?? []
   const upa = usedInApps.get(e.name) ?? []
   const rb = relatedBackend.get(e.name) ?? []

@@ -4,6 +4,10 @@
 
 图片裁剪——canvas 原生 API + 拖拽裁剪框 + 比例控制（零依赖）
 
+## 典型场景
+
+- office 文档/代码/内容编辑——xlsx/pptx/代码/公式/裁剪
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -20,7 +24,7 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 内容编辑：textarea value 走 property（attribute 只是 defaultValue）；受控输入纪律
 
 ## 关系
 

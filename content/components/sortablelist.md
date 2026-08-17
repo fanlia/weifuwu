@@ -4,6 +4,10 @@
 
 拖拽排序列表——useDragDrop 原语 + keyed 身份（任务/字段/配置排序）
 
+## 典型场景
+
+- 数据看板/统计报表——指标卡、图表、趋势
+
 ## API
 
 > props 提取降级（接口格式特殊）——见源码：`src/components/SortableList/SortableList.ts`
@@ -14,7 +18,7 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 图表自研 SVG：数据点 label 为轴名；交互 tooltip 经 usePopup（视口夹紧）
 
 ## 关系
 

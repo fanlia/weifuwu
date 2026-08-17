@@ -22,7 +22,7 @@ weifuwu 从"高质量仓库"成为"可生存、可增长、可感知的开源项
 | # | 子计划 | 目标（验收） | P0 任务 | 状态 |
 |---|--------|-------------|---------|------|
 | 01 | [开源生态](01-ecosystem.md) | npm 可安装 + 首个外部 PR 合入 | 发布门面 / CONTRIBUTING / Issue+PR 模板 | 未开始 |
-| 02 | [学习体验](02-learning-experience.md) | 新手 30 分钟从需求到可运行页面 | 组件搜索 / 需求目录 | 未开始 |
+| 02 | [学习体验](02-learning-experience.md) | 新手 30 分钟从需求到可运行页面 | 组件搜索 / 需求目录 | **已完成 ✅** |
 | 03 | [组件治理](03-component-governance.md) | 缺失清单清零 + 治理报告落地 | 缺失补全 A 组（5 个） | 未开始 |
 | 04 | [设计质量](04-design-quality.md) | 微流明文档 + 页面视觉改版可感知 | 设计语言 2.0 文档 | 未开始 |
 | 05 | [showcase 演进](05-showcase-evolution.md) | weifuwu.dev 可访问 + 可索引 | PORT env / Dockerfile / 首页 SSR | 未开始 |

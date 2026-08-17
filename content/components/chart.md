@@ -4,6 +4,11 @@
 
 SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘
 
+## 典型场景
+
+- 应用模板：admin（examples/apps/ 完整可跑）
+- 数据看板/统计报表——指标卡、图表、趋势
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -26,7 +31,7 @@ SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 图表自研 SVG：数据点 label 为轴名；交互 tooltip 经 usePopup（视口夹紧）
 
 ## 关系
 

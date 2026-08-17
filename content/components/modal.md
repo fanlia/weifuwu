@@ -4,6 +4,11 @@
 
 自定义宽度 + closable 控制关闭按钮
 
+## 典型场景
+
+- 应用模板：agent-platform（examples/apps/ 完整可跑）
+- 浮层交互——弹窗、下拉、气泡、抽屉、命令面板
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -31,7 +36,8 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+- 退场动画：exit 类必须挂载（animationend 驱动卸载）——reduced-motion 下动画降为 0.01ms 等效瞬时
+- 会话级模态四件套：presence/trapFocus/lockScroll 由 usePopup 统一提供
 
 ## 关系
 

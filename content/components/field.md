@@ -4,6 +4,11 @@
 
 label+error+hint 容器
 
+## 典型场景
+
+- 页面模式：focus-task、settings-page（复制即用蓝本——examples/patterns/）
+- 创建/编辑表单页——提交、校验、字段编排
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -27,7 +32,7 @@ label+error+hint 容器
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 受控纪律（§5.2）：受控 props 必须配回调——缺回调静默不可点；受控输入（§5.3）输入态不依赖 value 回流（焦点丢失）
 
 ## 关系
 

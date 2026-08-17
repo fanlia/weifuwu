@@ -4,6 +4,12 @@
 
 可排序 + 自定义 render + 空状态
 
+## 典型场景
+
+- 页面模式：app-shell、dashboard、list-page（复制即用蓝本——examples/patterns/）
+- 应用模板：admin、agent-platform（examples/apps/ 完整可跑）
+- 数据展示——列表页、详情页、信息呈现
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -36,7 +42,9 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+- 固定列必须显式 width（缺省 140 估算 + console.warn——sticky 偏移累计依赖）
+- 数组空洞：children 里 {cond && <X/>} 是占位——不得误删下一个兄弟（提交按钮消失事故同源）
+- 行内编辑（editable 列）必须配 onCellEdit（受控纪律）
 
 ## 关系
 

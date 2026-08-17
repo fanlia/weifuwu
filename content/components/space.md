@@ -4,6 +4,11 @@
 
 间距容器：size/direction/wrap + split 分隔符
 
+## 典型场景
+
+- 页面模式：app-shell、workspace、focus-task、docs、dashboard、data-screen、landing、mobile、detail-page、settings-page（复制即用蓝本——examples/patterns/）
+- 基础元素（按钮/图标/文本/卡片/标签）——任意页面的构成单元
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -25,7 +30,7 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 浏览器纪律（§5.5）：组件能力经 ctx.browser / ctx.ui.useXXX——禁裸 window/document
 
 ## 关系
 

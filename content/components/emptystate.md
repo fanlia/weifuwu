@@ -4,6 +4,12 @@
 
 空状态占位，支持 icon/text/hint/action
 
+## 典型场景
+
+- 页面模式：list-page（复制即用蓝本——examples/patterns/）
+- 应用模板：todo（examples/apps/ 完整可跑）
+- 操作反馈/结果页/确认——保存成功、删除确认、空态/加载态
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -23,7 +29,7 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 退场动画（§8）：exit 类必须挂载（animationend 驱动）+ reduced-motion 降级
 
 ## 关系
 

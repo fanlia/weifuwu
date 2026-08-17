@@ -4,6 +4,10 @@
 
 结果页：success/error/warning/info + extra 操作区
 
+## 典型场景
+
+- 操作反馈/结果页/确认——保存成功、删除确认、空态/加载态
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -23,7 +27,7 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 退场动画（§8）：exit 类必须挂载（animationend 驱动）+ reduced-motion 降级
 
 ## 关系
 

@@ -4,6 +4,12 @@
 
 页面标题栏，支持 sub + 右侧操作区 + display 大标题
 
+## 典型场景
+
+- 页面模式：app-shell、dashboard、list-page、detail-page、settings-page（复制即用蓝本——examples/patterns/）
+- 应用模板：todo（examples/apps/ 完整可跑）
+- 页面导航——侧栏、页头、标签页、步骤、分页
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -25,7 +31,7 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 键盘可达（P1）：方向键导航焦点跟随（roving tabindex）；受控 props 配回调
 
 ## 关系
 

@@ -4,6 +4,12 @@
 
 KPI 指标卡，支持 trend/icon
 
+## 典型场景
+
+- 页面模式：app-shell、dashboard、data-screen（复制即用蓝本——examples/patterns/）
+- 应用模板：admin、agent-platform（examples/apps/ 完整可跑）
+- 数据看板/统计报表——指标卡、图表、趋势
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -28,7 +34,7 @@ KPI 指标卡，支持 trend/icon
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 图表自研 SVG：数据点 label 为轴名；交互 tooltip 经 usePopup（视口夹紧）
 
 ## 关系
 

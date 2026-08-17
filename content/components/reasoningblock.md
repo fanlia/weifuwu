@@ -4,6 +4,10 @@
 
 CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲（thinking 模式 reasoning_content）
 
+## 典型场景
+
+- AI 对话/工具调用/审批/提示词——agent 场景全链路
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -21,7 +25,7 @@ CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲（thinking 
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> AI 协议纪律：消息流事件驱动（useChat 订阅）——高频 notify 由写者控制频率
 
 ## 关系
 

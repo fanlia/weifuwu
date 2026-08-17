@@ -4,6 +4,10 @@
 
 disabled + accept 限定（状态矩阵覆盖）
 
+## 典型场景
+
+- office 文档/代码/内容编辑——xlsx/pptx/代码/公式/裁剪
+
 ## API
 
 > props 提取降级（接口格式特殊）——见源码：`—`
@@ -16,7 +20,7 @@ disabled + accept 限定（状态矩阵覆盖）
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 内容编辑：textarea value 走 property（attribute 只是 defaultValue）；受控输入纪律
 
 ## 关系
 

@@ -4,6 +4,11 @@
 
 原生下拉选择器
 
+## 典型场景
+
+- 页面模式：settings-page（复制即用蓝本——examples/patterns/）
+- 表单输入/搜索/筛选——查询区、编辑表单、设置页
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -37,7 +42,9 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+- 受控输入纪律：searchable 输入焦点丢失——useControlledInput 内部态
+- 事件 prop 判定：on+大写（EVENT_RE）——once/only 等 on 开头属性防误判
+- 浮层必须 portal（§5.4）——absolute 相对父容器在 overflow 下裁剪
 
 ## 关系
 

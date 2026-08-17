@@ -4,6 +4,10 @@
 
 新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape
 
+## 典型场景
+
+- 浮层交互——弹窗、下拉、气泡、抽屉、命令面板
+
 ## API
 
 | prop | 类型 | 必填 | 说明 |
@@ -24,7 +28,7 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 弹窗纪律（§5.4）：浮层必须 createPortal 渲染（#__wf_portal）——禁 absolute 相对父容器（overflow/transform 裁剪）；统一走 ctx.ui.usePopup
 
 ## 关系
 

@@ -230,7 +230,11 @@
       "sourceFile": "src/components/Select/Select.ts",
       "cssFile": "src/components/Select/Select.css",
       "testFile": "src/components/Select/Select.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "受控输入纪律：searchable 输入焦点丢失——useControlledInput 内部态",
+        "事件 prop 判定：on+大写（EVENT_RE）——once/only 等 on 开头属性防误判",
+        "浮层必须 portal（§5.4）——absolute 相对父容器在 overflow 下裁剪"
+      ],
       "usedInPatterns": [
         "settings-page"
       ],
@@ -349,7 +353,10 @@
       "sourceFile": "src/components/Slider/Slider.ts",
       "cssFile": "src/components/Slider/Slider.css",
       "testFile": "src/components/Slider/Slider.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "浏览器表单状态恢复（刷新/后退）覆盖受控 value——autocomplete=off + 内部 0-100 归一化刻度（2000 slider 刷新跳动事故）",
+        "拖拽中气泡位置冻结——usePopup 锚点恒定需 popup.refresh() 跟随 thumb"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -367,7 +374,10 @@
       "sourceFile": "src/components/Form/Form.ts",
       "cssFile": "src/components/Form/Form.css",
       "testFile": "src/components/Form/Form.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "三层一致（§6.3）：条件渲染 false 是空洞占位——{cond && <Alert/>} 不滤除不塌缩（提交按钮消失事故）",
+        "受控纪律：受控 value 必须配 onChange——缺回调静默不可点"
+      ],
       "usedInPatterns": [
         "focus-task",
         "settings-page"
@@ -585,7 +595,11 @@
       "sourceFile": "src/components/Table/Table.ts",
       "cssFile": "src/components/Table/Table.css",
       "testFile": "src/components/Table/Table.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "固定列必须显式 width（缺省 140 估算 + console.warn——sticky 偏移累计依赖）",
+        "数组空洞：children 里 {cond && <X/>} 是占位——不得误删下一个兄弟（提交按钮消失事故同源）",
+        "行内编辑（editable 列）必须配 onCellEdit（受控纪律）"
+      ],
       "usedInPatterns": [
         "app-shell",
         "dashboard",
@@ -1036,7 +1050,9 @@
       "sourceFile": "src/components/Kanban/Kanban.ts",
       "cssFile": "src/components/Kanban/Kanban.css",
       "testFile": "src/components/Kanban/Kanban.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "enumerated 属性（§6.2）：draggable 空字符串解析为 false——必须显式 setAttribute true/false（拖动变文本选中事故）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -1073,7 +1089,10 @@
       "sourceFile": "src/components/TreeSelect/TreeSelect.ts",
       "cssFile": "src/components/TreeSelect/TreeSelect.css",
       "testFile": "src/components/TreeSelect/TreeSelect.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "弹窗纪律（§5.4）：曾遗漏 portal——absolute 在父容器 overflow/transform 下裁剪/错位——统一 usePopup",
+        "选项量小场景搜索过滤已裁剪（components-cuts.md 永久裁剪）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -1167,7 +1186,9 @@
       "sourceFile": "src/components/Popconfirm/Popconfirm.ts",
       "cssFile": "src/components/Popconfirm/Popconfirm.css",
       "testFile": "src/components/Popconfirm/Popconfirm.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "气泡内表单/自定义箭头已裁剪（Popover 基座 + 定位全套复用）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -1185,7 +1206,10 @@
       "sourceFile": "src/components/AutoComplete/AutoComplete.ts",
       "cssFile": "src/components/AutoComplete/AutoComplete.css",
       "testFile": "src/components/AutoComplete/AutoComplete.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "受控输入纪律（§5.3）：受控 input 焦点丢失事故——输入期间 value 走内部 keyword（useControlledInput），不依赖受控 value 回流",
+        "IME composition：中文输入组合期间受控 value 重置打断——isComposing 门控"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -1203,7 +1227,9 @@
       "sourceFile": null,
       "cssFile": null,
       "testFile": null,
-      "gotchas": [],
+      "gotchas": [
+        "受控输入纪律：焦点丢失——useControlledInput（与 autocomplete 同源事故）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -1615,7 +1641,9 @@
       "sourceFile": "src/components/DatePicker/DatePicker.ts",
       "cssFile": "src/components/DatePicker/DatePicker.css",
       "testFile": "src/components/DatePicker/DatePicker.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "受控纪律：受控 value/month 必须配回调——缺回调静默不可点"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -1633,7 +1661,10 @@
       "sourceFile": "src/components/Modal/Modal.ts",
       "cssFile": "src/components/Modal/Modal.css",
       "testFile": "src/components/Modal/Modal.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "退场动画：exit 类必须挂载（animationend 驱动卸载）——reduced-motion 下动画降为 0.01ms 等效瞬时",
+        "会话级模态四件套：presence/trapFocus/lockScroll 由 usePopup 统一提供"
+      ],
       "usedInPatterns": [],
       "usedInApps": [
         "agent-platform"
@@ -1653,7 +1684,9 @@
       "sourceFile": "src/components/Drawer/Drawer.ts",
       "cssFile": "src/components/Drawer/Drawer.css",
       "testFile": "src/components/Drawer/Drawer.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "退场动画：--enter/--exit 类必须成对（audit 强制）——只定义不挂是死代码（CS-01）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [
         "agent-platform"
@@ -1673,7 +1706,10 @@
       "sourceFile": "src/components/Popover/Popover.ts",
       "cssFile": "src/components/Popover/Popover.css",
       "testFile": "src/components/Popover/Popover.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "portal 槽豁免（同 HoverCard）",
+        "富内容自动判定已裁剪——HoverCard 补富内容（components-cuts.md）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -1691,7 +1727,9 @@
       "sourceFile": "src/components/Tooltip/Tooltip.ts",
       "cssFile": "src/components/Tooltip/Tooltip.css",
       "testFile": "src/components/Tooltip/Tooltip.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "portal 槽豁免（同 HoverCard）——浮层插槽非业务列表"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -1849,7 +1887,10 @@
       "sourceFile": "src/components/Tabs/Tabs.ts",
       "cssFile": "src/components/Tabs/Tabs.css",
       "testFile": "src/components/Tabs/Tabs.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "混合数组稳定 key：tabList+addBtn+ink 全 keyed——无 key 项退 unkeyed 位置配对（新增 tab 错位事故）",
+        "closable 必须配 onClose / addable 必须配 onAdd（受控纪律——console.warn）"
+      ],
       "usedInPatterns": [
         "workspace",
         "settings-page"
@@ -1872,7 +1913,10 @@
       "sourceFile": "src/components/Dropdown/Dropdown.ts",
       "cssFile": "src/components/Dropdown/Dropdown.css",
       "testFile": "src/components/Dropdown/Dropdown.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点",
+        "portal 槽豁免：浮层插槽 [children, popup.portal()] 打开/关闭不触发 A 级动态数组检测"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -2223,7 +2267,9 @@
       "sourceFile": "src/components/Rate/Rate.ts",
       "cssFile": "src/components/Rate/Rate.css",
       "testFile": "src/components/Rate/Rate.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "小尺寸 button 固定 min/max-height（§5.6）：星 16x36 竖条事故"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -2404,7 +2450,9 @@
       "sourceFile": "src/components/HoverCard/HoverCard.ts",
       "cssFile": "src/components/HoverCard/HoverCard.css",
       "testFile": "src/components/HoverCard/HoverCard.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "portal 槽豁免：浮层插槽打开/关闭不触发 A 级动态数组检测（框架管理切换槽）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -2499,7 +2547,9 @@
       "sourceFile": "src/components/ContextMenu/ContextMenu.ts",
       "cssFile": "src/components/ContextMenu/ContextMenu.css",
       "testFile": "src/components/ContextMenu/ContextMenu.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "portal 槽豁免；右键 + 触屏长按双通道"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -2553,7 +2603,9 @@
       "sourceFile": "src/components/Collapse/Collapse.ts",
       "cssFile": "src/components/Collapse/Collapse.css",
       "testFile": "src/components/Collapse/Collapse.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "受控纪律（§5.2）：受控 activeKeys 必须配回调——缺回调静默不可点（console.warn 防护）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -2571,7 +2623,11 @@
       "sourceFile": "src/components/Tree/Tree.ts",
       "cssFile": "src/components/Tree/Tree.css",
       "testFile": "src/components/Tree/Tree.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "受控纪律：selectedKeys/checkedKeys/expandedKeys 必须配回调（缺回调 console.warn）",
+        "小尺寸 button 固定 min/max-height（§5.6）：checkbox 14x36 竖条事故",
+        "虚拟模式（virtual）键盘导航限于可见窗口（VirtualList 无 scrollTo——裁剪登记）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -2607,7 +2663,10 @@
       "sourceFile": "src/components/Cascader/Cascader.ts",
       "cssFile": "src/components/Cascader/Cascader.css",
       "testFile": "src/components/Cascader/Cascader.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "受控纪律：受控 value 必须配回调——缺回调静默不可点",
+        "多选（multiple）已裁剪（低频——单选+搜索已够，见 components-cuts.md）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -2697,7 +2756,9 @@
       "sourceFile": "src/components/Carousel/Carousel.ts",
       "cssFile": "src/components/Carousel/Carousel.css",
       "testFile": "src/components/Carousel/Carousel.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "小尺寸 button 固定 min/max-height（§5.6）：圆点 8x45 竖条事故"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -2733,7 +2794,9 @@
       "sourceFile": "src/components/Calendar/Calendar.ts",
       "cssFile": "src/components/Calendar/Calendar.css",
       "testFile": "src/components/Calendar/Calendar.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "受控纪律：受控 month/value 必须配回调——缺回调静默不可点（console.warn 防护）"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
@@ -3050,7 +3113,10 @@
       "sourceFile": "src/components/PromptTemplate/PromptTemplate.ts",
       "cssFile": "src/components/PromptTemplate/PromptTemplate.css",
       "testFile": "src/components/PromptTemplate/PromptTemplate.test.ts",
-      "gotchas": [],
+      "gotchas": [
+        "textarea value 必须走 property（attribute 只是 defaultValue——DOM value 恒空/光标失效事故，vdom3 渲染器已修）",
+        "受控输入纪律：value 由父控制 + onChange 通知"
+      ],
       "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []

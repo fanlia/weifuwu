@@ -4,6 +4,11 @@
 
 通用列表：renderItem + divided + header/footer/empty
 
+## 典型场景
+
+- 页面模式：workspace、mobile（复制即用蓝本——examples/patterns/）
+- 数据展示——列表页、详情页、信息呈现
+
 ## API
 
 > props 提取降级（接口格式特殊）——见源码：`src/components/List/List.ts`
@@ -17,7 +22,7 @@
 
 ## 纪律/坑
 
-> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+> 三层一致（§6.3）：条件渲染 false 是空洞占位——数组项 key 由业务声明
 
 ## 关系
 
