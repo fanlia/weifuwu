@@ -93,6 +93,10 @@ export const Home: Component = async (_init: any, _ctx: any) => {
               {c.url && <a class="wf-text-xs wf-text-primary" href={c.url} target="_blank" style="text-decoration:none">查看 →</a>}
             </div>
           ))}
+          <a href="/community" class="wf-surface wf-border wf-rounded-md wf-p-sm wf-stack wf-gap-xs" style="text-decoration:none;color:inherit;border-style:dashed">
+            <b class="wf-text-sm wf-text-primary">+ 社区组件</b>
+            <span class="wf-text-xs wf-text-secondary">外部贡献收录——你的第一个组件从这里开始</span>
+          </a>
         </div>
       </div>
 

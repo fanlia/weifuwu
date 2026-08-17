@@ -154,3 +154,15 @@ export interface Registry {
   capabilities: CapabilityEntry[]
   guides: GuideEntry[]
 }
+
+/** 社区组件收录（/community 域——外部贡献展示） */
+export interface CommunityEntry {
+  id: string
+  name: string
+  desc: string
+  author: string
+  /** 仓库/包地址 */
+  url: string
+  /** 质量 checklist（与内置组件同标） */
+  quality: string[]
+}

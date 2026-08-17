@@ -37,6 +37,7 @@ const { capabilities } = await import(`${REG}/capabilities.ts`)
 const { guides } = await import(`${REG}/guides.ts`)
 const { needs } = await import(`${REG}/needs.ts`)
 const { cases } = await import(`${REG}/cases.ts`)
+const { community } = await import(`${REG}/community.ts`)
 const { componentTags } = await import(`${REG}/tags.ts`)
 
 // 功能标签反查（组件名 → tags）
@@ -310,13 +311,14 @@ const relComp = (c) => ({
   relatedBackend: relatedBackend.get(c.name) ?? [],
 })
 write('content/index.json', JSON.stringify({
-  counts: { components: components.length, primitives: primitives.length, patterns: patterns.length, apps: apps.length, backend: backend.length, capabilities: capabilities.length, guides: guides.length },
+  counts: { components: components.length, primitives: primitives.length, patterns: patterns.length, apps: apps.length, backend: backend.length, capabilities: capabilities.length, guides: guides.length, community: community.length },
   components: components.map(relComp),
   primitives,
   patterns: patterns.map((p) => ({ id: p.id, name: p.name, group: p.group, desc: p.desc, file: p.file, uses: p.uses, usedInApps: patternUsedInApps.get(p.id) ?? [] })),
   apps: apps.map((a) => ({ id: a.id, name: a.name, desc: a.desc, dir: a.dir, usesPatterns: a.usesPatterns, uses: a.uses, production: !!a.production, quality: a.quality ?? [] })),
   backend: backend.map((b) => ({ id: b.id, name: b.name, group: b.group, desc: b.desc, middleware: b.middleware, endpoint: b.endpoint ?? null, relatedComponents: b.relatedComponents ?? [] })),
   capabilities: capabilities.map((c) => ({ id: c.id, name: c.name, desc: c.desc, srcFile: c.srcFile, selfUsedIn: c.selfUsedIn })),
+  community,
   guides: guides.map((g) => ({ id: g.id, name: g.name, desc: g.desc })),
   needs,
   cases,

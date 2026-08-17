@@ -6,7 +6,8 @@
     "apps": 5,
     "backend": 14,
     "capabilities": 12,
-    "guides": 20
+    "guides": 20,
+    "community": 0
   },
   "components": [
     {
@@ -3956,6 +3957,7 @@
       ]
     }
   ],
+  "community": [],
   "guides": [
     {
       "id": "start",

@@ -42,6 +42,13 @@
 □ 与本地开发零差异（同一 server.ts 代码）
 ```
 
+## 状态（2026-12 核对）
+
+**P0-P1 全部完成 ✅**——PORT env + Dockerfile / 首页 SSR（hero 静态 + shellHeader）/
+文档页 SSR（renderDocPage——157 组件文档可索引）/ 需求目录（首页"我要做什么"）。
+P2 本轮落地：**/community 域**（社区组件收录页 + 提交指引 + 首页案例墙入口）；
+案例墙已有（首页"用 weifuwu 做的应用"）。剩余：weifuwu.dev 真实部署（域名/托管动作）。
+
 ## 状态
 
 进行中——**P0 ✅**（PORT env + Dockerfile + 首页 SSR + **文档页 SSR**——146 组件文档/指南全可索引；含框架 bug 修复：Router 根路径与通配并存）；P1（需求目录接入/案例墙）待做

@@ -14,6 +14,7 @@ export interface IndexJson {
   guides: { id: string; name: string; desc: string }[]
   needs: { id: string; name: string; desc: string; template?: string; patterns: string[]; components: string[]; backend: string[]; guide: string }[]
   cases: { id: string; name: string; type: string; desc: string; highlights: string[]; url?: string }[]
+  community: { id: string; name: string; desc: string; author: string; url: string; quality: string[] }[]
 }
 
 const mdCache = new Map<string, string>()

@@ -36,6 +36,14 @@
 □ 组件贡献走 scaffold（三件套 + 场景 demo + registry 自动登记）——与内部开发同一流程
 ```
 
+## 状态（2026-12 核对）
+
+**P0 全部完成 ✅**——npm 门面（package.json name/desc/keywords + README 首屏）/
+CONTRIBUTING.md / Issue+PR 模板（.github/）已上线；本轮修正 desc 组件计数（121→129）。
+P1：/community 域落地（社区组件收录页 + 提交指引 5 步 + 空态占位——首个外部 PR 的承接台阶）；
+案例墙已有（首页"用 weifuwu 做的应用"——agent-platform/showcase/模板）。
+剩余：**首个外部 PR 合入（里程碑——需社区行动，非代码）** + P2（弃用纪律/版本节奏）。
+
 ## 状态
 
 进行中——**P0 ✅ + 案例墙 ✅**（npm 门面/CONTRIBUTING/Issue+PR 模板 + 案例墙：registry cases 表 6 案例——agent-platform 生产级/showcase 自举/4 模板 + 首页"提交你的案例"入口）；community 收录机制待做

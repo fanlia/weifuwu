@@ -20,6 +20,7 @@ import { Home } from './pages/home.tsx'
 import { ComponentsIndex, CategoryPage, ComponentPage } from './pages/components.tsx'
 import { LayoutIndex, LayoutPage, PatternsIndex, PatternPage, AppsIndex, AppPage, BackendIndex, BackendPage, CapabilitiesIndex, CapabilityPage, GuidesIndex, GuidePage } from './pages/domains.tsx'
 import { NotFound } from './pages/not-found.tsx'
+import { Community } from './pages/community.tsx'
 import { Shell } from './shell.tsx'
 
 // ── 事件流观测（平台自带的调试工具——capabilities/events 自证） ──
@@ -55,6 +56,7 @@ const router = createRouter(
     { path: '/capabilities/:id', render: (p: Record<string, string>) => h(CapabilityPage, p) },
     { path: '/guides', render: () => h(GuidesIndex, {}) },
     { path: '/guides/:id', render: (p: Record<string, string>) => h(GuidePage, p) },
+    { path: '/community', render: () => h(Community, {}) },
     { path: '*', render: () => h(NotFound, {}) },
   ].map((r) => ({ ...r, layout: (page: any) => h(Shell, { page }) })),
   document.querySelector('#root') as HTMLElement,
