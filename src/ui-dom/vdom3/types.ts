@@ -114,7 +114,11 @@ export type FlatChild = VNode | string | number | null | undefined | boolean
 
 export function childrenOf(v: VNode): FlatChild[] {
   if (v.children != null) return flatten(v.children) as FlatChild[]
-  const c = (v.props?.children ?? []) as VNodeChild | VNodeChild[]
+  // 占位法：显式 null children 保留为空洞（与 false 一致——同构不变量）。
+  // `?? []` 会吞掉 null → 单子节点条件渲染（cond ? <X/> : null）数组长度 0↔1
+  // 变化 → A 级动态数组检测误报（真实事故：ColorPicker 选中态 check Icon
+  // 切换——swatch 按钮 children [Icon] ↔ [] 长度变化）
+  const c = (v.props?.children === undefined ? [] : v.props.children) as VNodeChild | VNodeChild[]
   return flatten(c) as FlatChild[]
 }
 

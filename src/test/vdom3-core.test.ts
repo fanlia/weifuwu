@@ -3248,6 +3248,34 @@ test('阶段 4：portal 槽切换不触发动态数组检测（[children, portal
   document.querySelector('#__wf_portal')?.remove()
 })
 
+test('阶段 4：单子节点条件渲染（cond ? <X/> : null）不触发检测（ColorPicker check Icon 误报）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/index.ts')
+  const warns: string[] = []
+  const ow = console.error
+  console.error = (...a: any[]) => { if (String(a[0]).includes('[vdom3/audit] 动态数组')) warns.push(String(a[0])); ow(...a) }
+  let sel = true
+  const Mark = async (_init: any) => async () => h('span', {}, '✓')
+  const App = async (_init: any, ctx: any) => async () => h('div', { id: 'main' }, [
+    h('button', { id: 'toggle', onClick: () => { sel = !sel; ctx.render() } }, '切'),
+    // ColorPicker swatch 同款：单子节点条件渲染（null ↔ 组件）
+    h('button', { class: 'wf-swatch' }, sel ? h(Mark, {}) : null),
+  ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  console.error = ow
+  assert.equal(warns.length, 0, `null ↔ 组件切换不触发检测——实际 ${warns.join(' | ')}`)
+  // 空洞占位：null 态按钮内是占位注释（同构不变量）
+  const btn = root.querySelector('.wf-swatch')
+  assert.ok(btn?.childNodes.length === 1, `按钮 children 同构（占位或真实恒存在）——实际 ${btn?.childNodes.length}`)
+  document.body.removeChild(root)
+})
+
 // ── 阶段 5：会话 trace（session 过滤 API） ──
 
 test('阶段 5：eventsBySession 按会话过滤（一次渲染的事件全量）', async () => {

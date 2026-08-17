@@ -508,7 +508,7 @@ const MyComp: Component = (_init, ctx) => {
 | **有内部状态的组件实例列表 + 动态增删/重排** | **必须显式 key**（身份跟随内容——避免状态继承错位；组件内部已知身份时由组件生成） | Tabs(tab.key) / TagsInput(t) / Accordion(item.key) / SessionList(s.id) / VirtualList(keyBy) / JsonSchemaForm 数组字段(key={i} 受控)——已正确 |
 | **通用列表 API** | 提供 `keyBy`（可选，默认无 key = 位置身份）——renderItem 可能渲染有状态组件，动态增删需用户传 | List（keyBy 已加，2026-12） |
 
-- **key 业务身份声明协议**：key 只有业务知道——框架不自动生成身份 key（`pos:{i}` 仅混合数组位置接管，命名空间隔离）。三层分工：数据层 keyBy / 组件层内部 key / 用户层显式 key；A 级检测（数组长度变化 + 无 key 组件项 → dev error 提示）引导用户层（portal 槽豁免：`[children, popup.portal()]` 浮层插槽是框架管理的切换槽而非业务列表——检测比较排除 portal 项的业务子项长度——HoverCard/Tooltip/Popover/Dropdown/ContextMenu/Popconfirm 族打开/关闭不误报）
+- **key 业务身份声明协议**：key 只有业务知道——框架不自动生成身份 key（`pos:{i}` 仅混合数组位置接管，命名空间隔离）。三层分工：数据层 keyBy / 组件层内部 key / 用户层显式 key；A 级检测（数组长度变化 + 无 key 组件项 → dev error 提示）引导用户层（豁免一：portal 槽——`[children, popup.portal()]` 浮层插槽是框架管理的切换槽而非业务列表——检测比较排除 portal 项的业务子项长度——HoverCard/Tooltip/Popover/Dropdown/ContextMenu/Popconfirm 族打开/关闭不误报；豁免二：单子节点条件渲染——`cond ? <X/> : null` 的 null 是空洞占位（childrenOf 保留——同构不变量）而非列表项——ColorPicker 选中态 check Icon 切换不误报）
 
 - **新增列表类组件**：先判断列表类型——渲染有内部状态的组件 + 动态增删/重排 → 设计显式 key 来源（项 id / keyBy prop，组件内部已知身份则组件生成）；纯元素/无状态列表无 key（位置身份）即可
 - **验证标准**：动态场景实测（拖拽重排 / 展开折叠 / 增删项 / 滚动）后项身份不漂移——keyed diff 下 DOM 操作与变化量成正比（规则表 §5 实测表）
