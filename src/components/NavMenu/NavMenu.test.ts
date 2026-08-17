@@ -100,6 +100,97 @@ describe('NavMenu', () => {
     assert.equal(sub, null, 'Escape 关闭子菜单')
   })
 
+  test('hover 离开菜单域：文档/API 子菜单延迟自动关闭', async () => {
+    const ctx = makeCtx()
+    const inst = await mount(NavMenu, { items }, ctx)
+    let vnode = await inst.render({ items })
+    // 打开文档子菜单（hover）+ API 嵌套
+    vnode.props.children[1].props.onMouseEnter()
+    vnode = await inst.render({ items })
+    const walkSub = (v: any): any => {
+      if (!v || typeof v !== 'object') return null
+      if (String(v.props?.class ?? '').includes('wf-navmenu-sub-item') && v.props.children?.some?.(c => String(c?.props?.children ?? '') === 'API')) return v
+      const ks = v.props?.children
+      if (Array.isArray(ks)) { for (const k of ks) { const f = walkSub(k); if (f) return f } }
+      else if (ks && typeof ks === 'object') return walkSub(ks)
+      return null
+    }
+    const api = walkSub(vnode)
+    assert.ok(api, '找到 API 嵌套项')
+    api.props.onMouseEnter()
+    vnode = await inst.render({ items })
+    const nested0 = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--nested'))
+    assert.ok(nested0, 'API 嵌套已展开')
+    // 鼠标移出菜单域（到页面空白：relatedTarget 不在导航条/面板内）→ 延迟后自动关闭
+    vnode.props.onMouseLeave({ relatedTarget: null })
+    await new Promise(r => setTimeout(r, 200))
+    vnode = await inst.render({ items })
+    const sub = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--open'))
+    const nested = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--nested'))
+    assert.equal(sub, null, '移出菜单域后顶层子菜单自动关闭')
+    assert.equal(nested, null, '移出菜单域后嵌套子菜单自动关闭')
+  })
+
+  test('叶子子项 hover：关闭已展开的嵌套子菜单（指南关闭 API 嵌套）', async () => {
+    const ctx = makeCtx()
+    const inst = await mount(NavMenu, { items }, ctx)
+    let vnode = await inst.render({ items })
+    // 打开文档子菜单 + API 嵌套
+    vnode.props.children[1].props.onMouseEnter()
+    vnode = await inst.render({ items })
+    const walkSub = (v: any, label: string): any => {
+      if (!v || typeof v !== 'object') return null
+      if (String(v.props?.class ?? '').includes('wf-navmenu-sub-item') && v.props.children?.some?.(c => String(c?.props?.children ?? '') === label)) return v
+      const ks = v.props?.children
+      if (Array.isArray(ks)) { for (const k of ks) { const f = walkSub(k, label); if (f) return f } }
+      else if (ks && typeof ks === 'object') return walkSub(ks, label)
+      return null
+    }
+    walkSub(vnode, 'API')!.props.onMouseEnter()
+    vnode = await inst.render({ items })
+    assert.ok(findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--nested')), 'API 嵌套已展开')
+    // hover 指南（叶子子项）→ 嵌套子菜单关闭
+    walkSub(vnode, '指南')!.props.onMouseEnter()
+    vnode = await inst.render({ items })
+    const nested = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--nested'))
+    assert.equal(nested, null, 'hover 叶子子项后嵌套子菜单关闭')
+    // 顶层子菜单保持打开（pointer 在面板内）
+    const sub = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--open'))
+    assert.ok(sub, '顶层子菜单保持打开')
+  })
+
+  test('hover 其他顶层叶子项：已展开子菜单自动关闭', async () => {
+    const ctx = makeCtx()
+    const inst = await mount(NavMenu, { items }, ctx)
+    let vnode = await inst.render({ items })
+    vnode.props.children[1].props.onMouseEnter() // hover 文档
+    vnode = await inst.render({ items })
+    assert.ok(findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--open')), '文档子菜单已打开')
+    // hover 关于（叶子项）→ 子菜单关闭（shadcn NavigationMenu 行为）
+    vnode.props.children[2].props.onMouseEnter()
+    vnode = await inst.render({ items })
+    const sub = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--open'))
+    assert.equal(sub, null, 'hover 叶子项后子菜单关闭')
+  })
+
+  test('trigger→面板 间隙穿越不误关：进入面板取消延迟关闭', async () => {
+    const ctx = makeCtx()
+    const inst = await mount(NavMenu, { items }, ctx)
+    let vnode = await inst.render({ items })
+    vnode.props.children[1].props.onMouseEnter() // hover 文档
+    vnode = await inst.render({ items })
+    // 鼠标从导航条移出（relatedTarget=页面元素——间隙穿越瞬间）→ 延迟关闭已排定
+    vnode.props.onMouseLeave({ relatedTarget: {} })
+    // 但在延迟窗口内进入面板 → cancel，不误关
+    const panel = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--open'))
+    assert.ok(panel, '面板存在')
+    panel.props.onMouseEnter()
+    await new Promise(r => setTimeout(r, 200))
+    vnode = await inst.render({ items })
+    const sub = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--open'))
+    assert.ok(sub, '进入面板取消延迟关闭——子菜单保持打开')
+  })
+
   test('嵌套子菜单：默认不渲染，hover 展开（不无条件拼接）', async () => {
     const ctx = makeCtx()
     const inst = await mount(NavMenu, { items }, ctx)

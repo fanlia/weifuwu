@@ -31,6 +31,10 @@ export interface NavMenuProps {
   onSelect?: (key: string) => void
 }
 
+/** hover 关闭延迟：覆盖 pointer 穿越 trigger→面板 间隙（fixed 面板与触发项间 gap
+ * 区域不属于面板——mouseout relatedTarget 是页面元素——进入面板前不误关） */
+const HOVER_CLOSE_DELAY = 120
+
 export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
   let openKey: string | null = null
@@ -57,6 +61,42 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
     }
     return fn
   }
+
+  // ── hover 自动关闭（shadcn NavigationMenu 行为）──
+  // 菜单域 = 导航条 + 已展开面板（顶层 + 嵌套）。pointer 离开域 → 延迟关闭；
+  // 延迟覆盖 trigger→panel 间隙穿越：fixed 面板与触发项之间有 gap，pointer 移入
+  // 面板前会短暂落在页面元素上（mouseout relatedTarget 是页面元素而非面板）——
+  // 即时关闭会误关，进入面板的 mouseenter 会 cancel。
+  let navEl: HTMLElement | null = null
+  let subPanelEl: HTMLElement | null = null
+  let nestedPanelEl: HTMLElement | null = null
+  let closeTimer: ReturnType<typeof setTimeout> | undefined
+  const navRef = (el: HTMLElement | null) => { navEl = el }
+  const subPanelRef = (el: HTMLElement | null) => { subPanelEl = el }
+  const nestedPanelRef = (el: HTMLElement | null) => { nestedPanelEl = el }
+  const inMenuDomain = (rt: unknown): boolean => {
+    if (!rt || typeof rt !== 'object') return false
+    const node = rt as Node
+    return !!(
+      (navEl && navEl.contains(node)) ||
+      (subPanelEl && subPanelEl.contains(node)) ||
+      (nestedPanelEl && nestedPanelEl.contains(node))
+    )
+  }
+  const cancelClose = () => { clearTimeout(closeTimer); closeTimer = undefined }
+  const scheduleClose = () => {
+    if (closeTimer) return
+    closeTimer = setTimeout(() => {
+      closeTimer = undefined
+      if (openKey !== null || nestedKey !== null) {
+        openKey = null; nestedKey = null
+        ctx.ui.render()
+      }
+    }, HOVER_CLOSE_DELAY)
+  }
+  const onDomainLeave = (e: any) => { if (!inMenuDomain(e?.relatedTarget ?? null)) scheduleClose() }
+  const onDomainEnter = () => cancelClose()
+  ctx.ui.onUnmount?.(() => { clearTimeout(closeTimer) })
 
   // 顶层子菜单：usePopup 组合器（portal + 定位 + Escape + 外部点击）
   const popup = ctx.ui.usePopup({
@@ -113,8 +153,13 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); activate() }
         },
         onMouseEnter: () => {
-          if (!item.disabled && hasNested && nestedKey !== item.key) {
-            nestedKey = item.key
+          cancelClose() // 移回菜单域——取消延迟关闭
+          if (item.disabled) return
+          if (hasNested) {
+            if (nestedKey !== item.key) { nestedKey = item.key; ctx.ui.render() }
+          } else if (nestedKey !== null) {
+            // 叶子子项 hover：关闭已展开的嵌套子菜单（shadcn NavigationMenu 行为）
+            nestedKey = null
             ctx.ui.render()
           }
         },
@@ -128,7 +173,9 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
               h('div', {
                 class: 'wf-navmenu-sub wf-navmenu-sub--nested wf-navmenu-sub--open',
                 role: 'menu',
-                onMouseEnter: () => { if (nestedKey !== item.key) { nestedKey = item.key; ctx.ui.render() } },
+                ref: nestedPanelRef,
+                onMouseEnter: () => { cancelClose(); if (nestedKey !== item.key) { nestedKey = item.key; ctx.ui.render() } },
+                onMouseLeave: onDomainLeave,
               }, renderSub(item.children || [], activeKey, onSelect, depth + 1)),
               'wf-navmenu-nested',
             )
@@ -144,6 +191,8 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
       class: 'wf-navmenu',
       role: 'navigation',
       'aria-label': '主导航',
+      ref: navRef,
+      onMouseLeave: onDomainLeave,
     }, items.map(item => {
       const hasChildren = !!item.children?.length
       const isOpen = openKey === item.key
@@ -169,10 +218,14 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
           }
         },
         onMouseEnter: () => {
+          cancelClose() // 移回菜单域——取消延迟关闭
           // hover 打开子菜单（桌面主通道；移动端点击切换）
-          if (!item.disabled && hasChildren && openKey !== item.key) {
-            openKey = item.key
-            nestedKey = null
+          if (item.disabled) return
+          if (hasChildren) {
+            if (openKey !== item.key) { openKey = item.key; nestedKey = null; ctx.ui.render() }
+          } else if (openKey !== null || nestedKey !== null) {
+            // 叶子项 hover：关闭已展开的子菜单（shadcn NavigationMenu 行为）
+            openKey = null; nestedKey = null
             ctx.ui.render()
           }
         },
@@ -199,6 +252,9 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
               h('div', {
                 class: 'wf-navmenu-sub wf-navmenu-sub--open',
                 role: 'menu',
+                ref: subPanelRef,
+                onMouseEnter: onDomainEnter,
+                onMouseLeave: onDomainLeave,
               }, renderSub(item.children || [], activeKey, onSelect, 1)),
               'wf-navmenu-sub',
             )

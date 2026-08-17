@@ -695,9 +695,28 @@ function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): b
   return true
 }
 
+/** 嵌套 portal 清理：外层 portal 内容移除时，内容 vnode 树里的嵌套 portal
+ * （DOM 挂各自独立容器）必须一并清空——否则幽灵面板残留
+ * （真实事故：NavMenu 嵌套子菜单——顶层子菜单关闭后 API 嵌套面板仍挂在
+ *  #__wf_portal——vnode 已移除但 DOM 不清理） */
+function removeNestedPortals(v: VNodeChild | null | undefined): void {
+  if (v == null || typeof v !== 'object' || Array.isArray(v)) return
+  const node = v as VNode
+  if (isPortalNode(node)) {
+    // 嵌套 portal：先递归清自身内容子树（深层嵌套），再清自身容器
+    for (const c of childrenOf(node)) removeNestedPortals(c)
+    removePortalContent(node)
+    return
+  }
+  for (const c of childrenOf(node)) removeNestedPortals(c)
+}
+
 /** 移除 portal 内容（远程容器清空——子树 REMOVE 事件 + ref(null)——ref 纪律：
  *  卸载必须调 ref(null)（usePopup 的 portalPanelRef 清理——lockScroll/focus 恢复）） */
 export function removePortalContent(pv: PortalVNode): void {
+  // 嵌套 portal 先清：父容器清空走 DOM 循环（container.removeChild）不经过内容
+  // vnode 树——不递归清理会残留（NavMenu 嵌套子菜单幽灵面板事故）
+  for (const c of childrenOf(pv)) removeNestedPortals(c)
   const portalKey = String(pv.props?.portalKey ?? 'default')
   const container = ensurePortalContainer(portalKey)
   // 递归 ref(null)（面板根/嵌套的 ref——锁滚动/焦点清理依赖）+ EVENT_UNBIND

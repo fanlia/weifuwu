@@ -777,6 +777,38 @@ test('Portal：渲染到 #__wf_portal（父节点位置无内容）+ 更新 + �
   document.querySelector('#__wf_portal')?.remove()
 })
 
+test('Portal：嵌套 portal 随外层关闭一起清理（NavMenu 嵌套子菜单幽灵面板）', async () => {
+  const { createPortal } = await import('../ui-dom/vdom3/index.ts')
+  const App = async (_init: any, ctx: any) => {
+    let outerOpen = true
+    let innerOpen = true
+    return async () => h('div', { id: 'main' }, [
+      h('button', { id: 'toggle', onClick: () => { outerOpen = false; innerOpen = false; ctx.render() } }, 'close'),
+      outerOpen ? createPortal(
+        h('div', { id: 'outer-panel' }, [
+          h('span', {}, 'outer'),
+          // 嵌套 portal：vnode 在外层面板内容里，DOM 挂在独立容器
+          innerOpen ? createPortal(h('div', { id: 'inner-pop' }, 'inner'), 'inner-pop') : null,
+        ]),
+        'outer-pop',
+      ) : null,
+    ])
+  }
+  const root = mkRoot()
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(document.querySelector('#outer-panel'), '外层 portal 渲染')
+  assert.ok(document.querySelector('#inner-pop'), '嵌套 portal 渲染')
+  // 关闭外层（嵌套 portal vnode 随外层子树一起移除）→ 嵌套容器也必须清空
+  ;(root.querySelector('[id="toggle"]') as HTMLButtonElement)?.click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(document.querySelector('#outer-panel'), null, '外层 portal 卸载')
+  assert.equal(document.querySelector('#inner-pop'), null, '嵌套 portal 内容随外层清理（无幽灵面板）')
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})
+
 test('Portal：事件流可回放（INSERT parent=portal:key——replay 重建浮层）', async () => {
   const { createPortal, replay } = await import('../ui-dom/vdom3/index.ts')
   const { stream: gs } = await import('../ui-dom/vdom3/events.ts')
