@@ -1,0 +1,27 @@
+.wf-sortable {
+  list-style: none;
+}
+
+.wf-sortable-item {
+  cursor: grab;
+  user-select: none;
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out), box-shadow var(--wf-dur-fast) var(--wf-ease-out);
+  border-radius: var(--wf-radius-sm);
+}
+
+.wf-sortable-item:active {
+  cursor: grabbing;
+}
+
+.wf-sortable-item.wf-sortable-dragging {
+  opacity: 0.6;
+}
+
+.wf-sortable-item.wf-sortable-over {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 2px var(--wf-color-primary-bg), 0 0 0 1px var(--wf-color-primary);
+}
+
+.wf-sortable-item:hover {
+  background: var(--wf-color-bg-hover);
+}

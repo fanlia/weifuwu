@@ -27,6 +27,9 @@ export type { WsClient, WsInjected } from './middleware/ws.ts'
 export type {
   WfuiContext,
 } from './types.ts'
+// aiStream 传输解码（AiChat/Editor/SheetGrid/SlideCanvas 经 build.mjs externalize 改写为包名导入——导出面必须聚合）
+export { aiStream } from './ai.ts'
+export type { AiStreamHandle, AiStreamOptions } from './ai.ts'
 
 // ── 共享状态（render-only）──
 export { createStore } from './store.ts'

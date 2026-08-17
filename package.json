@@ -2,7 +2,7 @@
   "name": "weifuwu",
   "type": "module",
   "version": "0.86.0",
-  "description": "AI SaaS framework — (req, ctx) => Response",
+  "description": "AI SaaS full-stack framework — backend HTTP + frontend VDOM + 121 components + CSS design system + SaaS foundation (auth/queue/AI). Zero-build, zero-dependency.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -36,8 +36,13 @@
   "files": [
     "dist/",
     "README.md",
-    "docs/"
+    "docs/",
+    "content/",
+    "examples/"
   ],
+  "bin": {
+    "weifuwu": "./dist/cli/docs.mjs"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
@@ -78,5 +83,28 @@
     "postgres": "^3.4.9",
     "tailwindcss": "^4.3.3"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "keywords": [
+    "ai",
+    "saas",
+    "framework",
+    "fullstack",
+    "vdom",
+    "components",
+    "ui",
+    "middleware",
+    "websocket",
+    "sse",
+    "graphql",
+    "postgres",
+    "redis",
+    "zero-build",
+    "typescript"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/weifuwu/weifuwu.git"
+  },
+  "homepage": "https://weifuwu.dev"
 }

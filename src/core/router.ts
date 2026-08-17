@@ -24,10 +24,14 @@ export type { Hub } from './ws.ts'
 
 type TrieNode = {
   children: Map<string, TrieNode>
+  /** 精确路径 handler（路径完全匹配——root 上 '/' 与 '/*' 通配并存的关键） */
   handlers: Map<string, Handler>
   middlewares: Map<string, Middleware[]>
   param?: string
   wildcard?: boolean
+  /** 通配路径 handler（独立槽——不被精确 handler 覆盖；反之亦然——showcase SSR 事故） */
+  wildcardHandler?: Handler
+  wildcardMiddlewares?: Middleware[]
 }
 
 type WsTrieNode = {
@@ -261,12 +265,23 @@ export class Router<T extends object = Context> {
     const mws: Middleware[] = args
     let node = this.root
 
-    for (const segment of this.splitPath(path)) {
+    const segments = this.splitPath(path)
+    // 根路径 '/'：splitPath 过滤空段返回 []——handler 必须绑定 root 节点
+    // （真实事故：showcase 首页 SSR 路由被 /* 通配抢先——/ 从未注册成功）
+    if (segments.length === 0) {
+      node.handlers.set(method, handler)
+      if (mws.length > 0) node.middlewares.set(method, mws)
+      return this
+    }
+
+    for (const segment of segments) {
       if (segment === '*') {
         this._hasWildcard = true
         node.wildcard = true
-        node.handlers.set(method, handler)
-        if (mws.length > 0) node.middlewares.set(method, mws)
+        // 通配独立槽（真实事故：'/' + '/*' 并存时通配覆盖精确 handler——
+        // showcase 首页 SSR 路由被通配抢先）
+        node.wildcardHandler = handler
+        if (mws.length > 0) node.wildcardMiddlewares = mws
         return this
       }
       node = getOrCreateChild(node, segment, createTrieNode, false)
@@ -370,6 +385,12 @@ export class Router<T extends object = Context> {
   } | null {
     let node = this.root
     const params: Record<string, string> = {}
+    // 根路径 '/'（空 segments）：直接解析 root（精确优先于 /* 通配）
+    if (segments.length === 0) {
+      const resolved = this._resolveMatch(node, method, params, 0)
+      if (resolved) return resolved
+      return this._wildcardMatch(method, segments)
+    }
     for (const seg of segments) {
       const next = matchChild(node, seg, params, false)
       if (!next) return this._wildcardMatch(method, segments)
@@ -390,10 +411,11 @@ export class Router<T extends object = Context> {
     const params: Record<string, string> = {}
     for (let i = 0; i < segments.length; i++) {
       if (node.wildcard) {
-        const h = node.handlers.get('*') || node.handlers.get(method) || (method === 'HEAD' ? node.handlers.get('GET') : undefined)
+        // 通配独立槽优先（'/' 精确 + '/*' 通配并存——handlers 是精确槽）
+        const h = node.wildcardHandler
         if (h) {
           params['*'] = segments.slice(i).join('/')
-          return { kind: 'route', handler: h, mws: node.middlewares.get(method) || node.middlewares.get('*') || [], params }
+          return { kind: 'route', handler: h, mws: node.wildcardMiddlewares ?? [], params }
         }
       }
       const next = matchChild(node, segments[i], params, false)

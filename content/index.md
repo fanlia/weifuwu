@@ -1,0 +1,175 @@
+# weifuwu 文档库（content/）
+
+> weifuwu 全栈能力参考——随 npm 包发布（`node_modules/weifuwu/content/`）。
+> LLM 开发路径：先读本文件 → 按域打开目标 `.md` → 复制 examples/ 源码。
+
+## 域索引
+
+- **组件**（154）：逐一组件文档（API 表/纪律/关系/验证）——[components/](components/)
+- **布局原语**（20 族）：wf-* 原语与工具类——[layout/](layout/)
+- **页面模式**（11）：复制即用的完整页面——[patterns/](patterns/)
+- **应用模板**（5）：完整可运行应用（含 agent-platform 生产级案例）——[apps/](apps/)
+- **后端能力**（14）：ctx 注入链/数据/实时/AI/SaaS——[backend/](backend/)
+- **框架能力**（12）：框架怎么工作（平台自证）——[capabilities/](capabilities/)
+- **指南**（20）：学习路径/选型/质量标准——[guides/](guides/)
+
+## 结构化索引
+
+- `index.json`：六表全量 + 关系推导字段（uses/usedIn/usesPatterns——机器可遍历）
+
+## 组件速查
+
+- [VideoPlayer](components/videoplayer.md) — 视频播放器——原生 video 封装（controls/封面/宽高比/事件——零依赖）
+- [Math](components/math.md) — 轻量公式渲染——自研 LaTeX 子集（上下标/分数/根号/希腊字母——零依赖不引 KaTeX）
+- [MarkdownEditor](components/markdowneditor.md) — 分屏 Markdown 编辑器——textarea + 实时预览（复用 Markdown parser 零漂移）
+- [CodeEditor](components/codeeditor.md) — 轻量代码编辑器——textarea + 行号 + Tab 缩进（零依赖，不引 Monaco）
+- [ImageCropper](components/imagecropper.md) — 图片裁剪——canvas 原生 API + 拖拽裁剪框 + 比例控制（零依赖）
+- [Wave](components/wave.md) — 点击水波纹动效——包装任意可点击元素（纯 CSS，reduced-motion 自动降级）
+- [SortableList](components/sortablelist.md) — 拖拽排序列表——useDragDrop 原语 + keyed 身份（任务/字段/配置排序）
+- [ExportCSV](components/exportcsv.md) — 数据导出 CSV——RFC 4180 转义 + BOM（Excel 兼容）零依赖
+- [Button](components/button.md) — 4 variants × 3 sizes + loading + block + disabled
+- [Input](components/input.md) — text/email/password/number，支持 label/error/hint/required
+- [Textarea](components/textarea.md) — 多行文本，支持 rows/label/error/hint
+- [Select](components/select.md) — 原生下拉选择器
+- [Select (searchable)](components/select-searchable.md) — 搜索过滤下拉，输入即搜
+- [Checkbox](components/checkbox.md) — 带 label 的复选框，支持 checked/disabled
+- [Switch](components/switch.md) — 开关切换，视觉替代 checkbox
+- [RadioGroup](components/radiogroup.md) — 单选组，支持 inline/options/value
+- [SegmentedControl](components/segmentedcontrol.md) — 分段单选（模式切换/筛选/模板），支持 sm/block
+- [Slider](components/slider.md) — 范围滑块，支持 min/max/step/label
+- [Form](components/form.md) — 内置验证规则：required/pattern/minLength/自定义
+- [Form 提交](components/form-v2.md) — loading 提交 + 校验错误（状态矩阵覆盖）
+- [Field](components/field.md) — label+error+hint 容器
+- [FileUpload](components/fileupload.md) — 文件上传，拖拽区 + 文件列表 + accept/maxSize
+- [FileUpload 禁用](components/fileupload-v2.md) — disabled + accept 限定（状态矩阵覆盖）
+- [SearchInput](components/searchinput.md) — 搜索输入框，带清除按钮
+- [ProgressBar](components/progressbar.md) — 进度条，支持 label/showValue
+- [InputNumber](components/inputnumber.md) — 数字输入：min/max/step + 增减按钮 + precision
+- [PasswordInput](components/passwordinput.md) — 密码输入：眼睛按钮切换可见性
+- [TagsInput](components/tagsinput.md) — 标签输入：回车/逗号添加 + 中文输入法感知
+- [TagsInput 限制/错误](components/tagsinput-v2.md) — maxTags 限制 + error 校验态（状态矩阵覆盖）
+- [Table](components/table.md) — 可排序 + 自定义 render + 空状态
+- [Table 行选择](components/table-v2.md) — rowSelection 勾选列 + 受控 keys（状态矩阵覆盖）
+- [Card](components/card.md) — 容器，支持 default/outlined/clickable
+- [Badge](components/badge.md) — 状态标签 + 圆点，6 种 variant
+- [Tag](components/tag.md) — 标签，支持 closable/onClose
+- [Avatar](components/avatar.md) — 头像（首字母/图片），3 种 size
+- [Img](components/img.md) — 图片 \<img\> 组件：fallback / lazy / preview 点击放大
+- [InView](components/inview.md) — 进入视窗后懒加载内容，支持 IntersectionObserver
+- [Timeline](components/timeline.md) — 时间线：节点状态色 + 时间 + 内容（执行日志/审批历史）
+- [Descriptions](components/descriptions.md) — 描述列表：label/value 栅格 + bordered + span（详情页）
+- [Descriptions 紧凑](components/descriptions-v2.md) — size=small 详情页密度（变体覆盖）
+- [AvatarGroup](components/avatargroup.md) — 头像组：堆叠 + max 溢出 +N
+- [Markdown](components/markdown.md) — AI 回复渲染：安全子集 parser + 代码块 + 链接白名单
+- [CodeBlock](components/codeblock.md) — 代码块：语言标签 + 复制按钮 + 横向滚动
+- [LogViewer](components/logviewer.md) — 日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制
+- [LogViewer 自定义](components/logviewer-v2.md) — 自定义日志源 + 行号 + 复制（变体覆盖）
+- [JSONViewer](components/jsonviewer.md) — 结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开
+- [JSONViewer 深展开](components/jsonviewer-v2.md) — defaultExpandDepth 深度展开嵌套对象（变体覆盖）
+- [DiffView](components/diffview.md) — 代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色
+- [DiffView 标题](components/diffview-v2.md) — oldTitle/newTitle 标记版本对比（变体覆盖）
+- [Sparkline](components/sparkline.md) — 迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充
+- [Tour](components/tour.md) — 新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape
+- [Kanban](components/kanban.md) — 看板：原生 DnD 拖拽 + 跨列/重排 + 悬停高亮
+- [Pipeline](components/pipeline.md) — Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测
+- [TreeSelect](components/treeselect.md) — 树形选择：单选/多选（父子联动）+ 选中 label 回显 + 受控纪律
+- [Layout](components/layout.md) — 布局外壳：Sider 折叠 + Header/Content/Footer 骨架（antd Layout / shadcn Sidebar 等价）
+- [LayoutHeader](components/layoutheader.md) — 布局顶栏——Layout 家族（Layout/LayoutHeader/LayoutSider/LayoutContent/LayoutFooter）
+- [LayoutSider](components/layoutsider.md) — 布局侧栏（可折叠 collapsed/collapsible）——Layout 家族
+- [LayoutContent](components/layoutcontent.md) — 布局内容区——Layout 家族
+- [Popconfirm](components/popconfirm.md) — 气泡确认：危险操作防误触 + 复用 usePopup 基座
+- [AutoComplete](components/autocomplete.md) — 输入联想：自由输入 + 过滤下拉 + 键盘流 + 选中回填
+- [AutoComplete 禁用态](components/autocomplete-v2.md) — disabled 时不可输入（状态矩阵覆盖）
+- [Link](components/link.md) — 文字链接：语义色/下划线/disabled/新窗口
+- [FloatButton](components/floatbutton.md) — 悬浮按钮组：展开状态机 + badge
+- [NavMenu](components/navmenu.md) — 顶部导航：多级 hover 弹出 + 键盘（shadcn NavigationMenu）
+- [Space](components/space.md) — 间距容器：size/direction/wrap + split 分隔符
+- [Grid](components/grid.md) — 24 栅格 + gutter + flex 容器模式（Row/Col/Flex 等价）
+- [Scrollbar](components/scrollbar.md) — 自定义滚动容器：webkit 样式 + hover 显示
+- [AlertGroup](components/alertgroup.md) — 通知合并组：≥3 条折叠为 +N，点击展开
+- [StatCard Countdown](components/statcard-countdown.md) — 倒计时模式：剩余 HH:MM:SS + 结束回调
+- [MessageBubble](components/messagebubble.md) — 消息气泡：user/assistant + streaming/error 状态 + actions
+- [Highlight](components/highlight.md) — 搜索词高亮：分词渲染 mark，大小写不敏感
+- [Highlight 多词](components/highlight-v2.md) — query 数组多词高亮（变体覆盖）
+- [List](components/list.md) — 通用列表：renderItem + divided + header/footer/empty
+- [Result](components/result.md) — 结果页：success/error/warning/info + extra 操作区
+- [Confirm](components/confirm.md) — 确认对话框，Promise 化 await 调用
+- [StatCard](components/statcard.md) — KPI 指标卡，支持 trend/icon
+- [Chart](components/chart.md) — SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘
+- [Editor](components/editor.md) — 富文本编辑器，contentEditable + toolbar，零依赖
+- [FilePreview](components/filepreview.md) — 文件预览（md/html/pdf/office）——基于事件流，可编辑
+- [FilePreview Office](components/filepreview-office.md) — office 前端导入/导出（零依赖转换——无需后端）
+- [ThemeSwitch](components/themeswitch.md) — 主题切换：auto/light/dark，localStorage 持久化
+- [DatePicker](components/datepicker.md) — 日期选择器，四种模式：date/datetime/time/range
+- [Modal](components/modal.md) — 自定义宽度 + closable 控制关闭按钮
+- [Drawer](components/drawer.md) — 侧边面板，左右滑入 + ESC 关闭
+- [Popover](components/popover.md) — 通用弹出层，click/hover 触发，4 方向
+- [Tooltip](components/tooltip.md) — hover 浮动提示，4 方向
+- [Toast](components/toast.md) — 5 种位置 + 自动消失 + 数量限制
+- [Alert](components/alert.md) — 信息提示条，4 种 variant + closable
+- [Loading](components/loading.md) — 加载状态，支持自定义文字
+- [Skeleton](components/skeleton.md) — text/circle/rect/image/avatar/table 六种变体
+- [EmptyState](components/emptystate.md) — 空状态占位，支持 icon/text/hint/action
+- [Breadcrumb](components/breadcrumb.md) — 面包屑导航，支持 aria-current
+- [Menu](components/menu.md) — 侧栏导航：分组 + 图标 + 选中态 + 方向键
+- [Tabs](components/tabs.md) — 标签页切换，支持 active/onChange
+- [Dropdown](components/dropdown.md) — 下拉菜单，支持 danger variant
+- [Pagination](components/pagination.md) — 分页器，自动计算页码范围
+- [Steps](components/steps.md) — 分步指示器，支持 active/current
+- [Accordion](components/accordion.md) — 折叠面板，支持多个 items
+- [AiChat](components/aichat.md) — useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明
+- [ChatInput](components/chatinput.md) — 独立聊天输入条（AiChat 抽取）：单行/多行 + streaming 停止 + IME 安全——不自带聊天逻辑
+- [AuthPage](components/authpage.md) — 认证页骨架：居中卡片 + logo + 表单插槽 + 错误条 + 提交 loading（登录/注册复用）
+- [ToolCallCard](components/toolcallcard.md) — 工具调用卡片：running / ok / error 状态机（call/progress/result 三字段驱动）
+- [JsonSchemaForm](components/jsonschemaform.md) — JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套/数组（AI 工具参数输入面）
+- [ReasoningBlock](components/reasoningblock.md) — CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲（thinking 模式 reasoning_content）
+- [CitationCard](components/citationcard.md) — RAG 引用来源：折叠「引用 N 条」+ 条目列表（序号/标题/来源/片段/链接）+ 溢出 +N
+- [SessionList](components/sessionlist.md) — 会话管理列表：分组（今天/昨天/更早）+ 搜索 + 选中 + 重命名/删除/新建 + 键盘导航
+- [ApprovalCard](components/approvalcard.md) — HITL 审批卡片：pending 可批/拒 + 修改参数（JsonSchemaForm）· approved/rejected/timeout 终态
+- [PageHeader](components/pageheader.md) — 页面标题栏，支持 sub + 右侧操作区 + display 大标题
+- [Icon](components/icon.md) — stroke SVG 图标集，currentColor 着色，随字号缩放
+- [Divider](components/divider.md) — 分割线，支持 horizontal/vertical/带文字
+- [多应用（app 节点）](components/app.md) — 父应用嵌入子应用：注册表 + 独立状态 + app:* 边界事件（appId 可区分——同流全链路）
+- [Rate](components/rate.md) — 评分：键盘方向键 / allowClear / readOnly，新增 star 图标
+- [Typography](components/typography.md) — Title/Text/Paragraph：语义标签 + 语义色 -text 变体 + mark/code/删除线
+- [Label](components/label.md) — 独立标签（required 星号）+ 宽高比容器（内容填满）
+- [AspectRatio](components/aspectratio.md) — 独立标签（required 星号）+ 宽高比容器（内容填满）
+- [Toggle / ToggleGroup](components/toggle-togglegroup.md) — 切换按钮：single/multiple 双模式（shadcn 对齐）
+- [CheckboxGroup](components/checkboxgroup.md) — 复选框组：数组受控 + 栅格列数（antd Checkbox.Group）
+- [PinInput](components/pininput.md) — 验证码输入：自动聚焦/粘贴分派/Backspace 回退（shadcn InputOTP）
+- [PinInput 禁用态](components/pininput-v2.md) — disabled 不可编辑（状态矩阵覆盖）
+- [CopyButton](components/copybutton.md) — 复制按钮：clipboard + execCommand 降级 + 成功状态机
+- [ColorPicker](components/colorpicker.md) — 颜色选择：预设色板 + hex 输入（Popover 弹层）
+- [HoverCard](components/hovercard.md) — 悬停富内容卡：openDelay 延迟 + 任意 VNode（shadcn）
+- [Notification](components/notification.md) — 队列式通知：notification.success/error/warning 命令式（antd 对齐）
+- [BackTop](components/backtop.md) — 回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）
+- [Affix](components/affix.md) — 回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）
+- [Anchor](components/anchor.md) — 锚点导航：滚动高亮跟随 + 点击平滑滚动
+- [ContextMenu](components/contextmenu.md) — 右键菜单：光标定位 + 方向键 + danger 变体（shadcn）
+- [Mentions](components/mentions.md) — @提及：composition 抑制 + 过滤插入（antd Mentions）
+- [Mentions 禁用态](components/mentions-v2.md) — disabled 时不可输入（状态矩阵覆盖）
+- [Collapse](components/collapse.md) — 行内折叠：异步 loading + extra 操作区（区别于 Accordion）
+- [Tree](components/tree.md) — 树形：递归模型 + 勾选父子联动 + indeterminate（antd/EP Tree）
+- [Tree 勾选](components/tree-v2.md) — checkable 父子联动 + 受控 checkedKeys（变体覆盖）
+- [Cascader](components/cascader.md) — 级联选择：多列面板逐级推进（antd/EP Cascader）
+- [Cascader 禁用/错误](components/cascader-v2.md) — disabled + error 校验态（状态矩阵覆盖）
+- [Transfer](components/transfer.md) — 穿梭框：双列表 + 选中移动（antd/EP Transfer）
+- [Command](components/command.md) — 命令面板：⌘K 全局快捷键 + 键盘流（shadcn Command）
+- [Menubar](components/menubar.md) — 水平菜单栏：←→ 切换 + ↓ 展开（shadcn Menubar）
+- [Carousel](components/carousel.md) — 轮播：箭头/圆点/循环 + 自动播放（三库共识）
+- [Resizable](components/resizable.md) — 拖拽分割面板：pointer + 键盘方向键 + clamp（shadcn）
+- [Calendar](components/calendar.md) — 月历：事件点 + 月切换 + 日期选择（antd/EP Calendar）
+- [Calendar 事件](components/calendar-v2.md) — 事件标记 + 日期选择交互（变体覆盖）
+- [Watermark](components/watermark.md) — 水印：canvas 平铺绘制 + overlay（antd Watermark）
+- [VirtualList](components/virtuallist.md) — 虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM
+- [VirtualTable](components/virtualtable.md) — 虚拟表格：10k 行固定表头 + 可见窗口渲染 + 排序
+- [VirtualTable 大数据](components/virtualtable-v2.md) — 10 万行虚拟滚动（只渲染可见窗口——性能展示）
+- [InfiniteScroll](components/infinitescroll.md) — 无限滚动：底部哨兵触底加载 + loading/end 态
+- [InfiniteScroll 失败重试](components/infinitescroll-v2.md) — 加载失败提示 + 滚动重试（状态矩阵覆盖）
+- [QRCode](components/qrcode.md) — 二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG
+- [SheetGrid](components/sheetgrid.md) — weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（design/office-events-plan.md）：文档 = fold(事件流)——SheetGrid 的每个
+- [SlideCanvas](components/slidecanvas.md) — weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（design/office-events-plan.md）：文档 = fold(事件流)——每个编辑 =
+- [ToggleGroup](components/togglegroup.md) — （无 demo 卡片——组件目录存在）
+- [Title](components/title.md) — 标题排版（语义标签 + 语义色 -text 变体）——Typography 家族
+- [Text](components/text.md) — 正文排版（语义色 -text 变体 + mark/code/删除线）——Typography 家族
+- [Paragraph](components/paragraph.md) — 段落排版——Typography 家族

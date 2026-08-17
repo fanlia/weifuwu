@@ -13,6 +13,8 @@ export interface TableColumn {
   sorter?: (a: any, b: any) => number
   /** 自定义渲染 */
   render?: (value: any, row: any, index: number) => any
+  /** 行内编辑（点击单元格 → input → Enter/失焦提交）——需配合 TableProps.onCellEdit */
+  editable?: boolean
 }
 
 export interface TableRowSelection {
@@ -40,6 +42,8 @@ export interface TableProps {
   emptyText?: string
   /** 表格最小宽度（窄屏横向滚动，如 '720px'） */
   minWidth?: string
+  /** 行内编辑提交回调（editable 列必配——受控纪律） */
+  onCellEdit?: (key: string, rowIndex: number, value: string, row: any) => void
   /** 加载中：保留表头，渲染骨架行 */
   loading?: boolean
   /** 骨架行数，默认 3 */
@@ -61,9 +65,26 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
   return sorted
 }
 
-export const Table: Component<TableProps> = async (_init, _ctx) =>
-  async (props) => {
+export const Table: Component<TableProps> = async (_init, ctx) => {
+  // ── 行内编辑态（render-only：editing 位置 + 输入值——工厂闭包跨渲染保持） ──
+  let editing: { row: number; col: string; value: string } | null = null
+  const propsRef: { onCellEdit?: TableProps['onCellEdit']; data?: any[] } = {}
+  const beginEdit = (row: number, col: string, val: unknown) => {
+    editing = { row, col, value: String(val ?? '') }
+    ctx.ui.render()
+  }
+  const commitEdit = () => {
+    if (editing) {
+      const { row, col, value } = editing
+      editing = null
+      ctx.ui.render()
+      propsRef.onCellEdit?.(col, row, value, propsRef.data?.[row])
+    }
+  }
+  return async (props) => {
   const { data = [], columns, onRowClick, sortKey, sortOrder, onSort, emptyText, rowSelection } = props
+  propsRef.data = data
+  propsRef.onCellEdit = props.onCellEdit
 
   const sortedData = sortData(data, columns, sortKey, sortOrder)
 
@@ -174,6 +195,27 @@ export const Table: Component<TableProps> = async (_init, _ctx) =>
     bodyRows = sortedData.map((row, i) => {
       const cells = columns.map(col => {
         const val = row[col.key]
+        // 行内编辑：editable 列 → 点击进入 input（Enter/失焦提交——受控纪律）
+        if (col.editable) {
+          if (editing && editing.row === i && editing.col === col.key) {
+            return h('td', { class: 'wf-table-td wf-table-td--editing', key: `${i}-${col.key}` },
+              h('input', {
+                class: 'wf-input wf-input--table-edit',
+                value: editing.value,
+                'data-wf-edit': `${i}:${col.key}`,
+                onInput: (e: any) => { editing!.value = (e.target as HTMLInputElement).value },
+                onKeyDown: (e: KeyboardEvent) => {
+                  if (e.key === 'Enter') commitEdit()
+                  if (e.key === 'Escape') { editing = null; ctx.ui.render() }
+                },
+                onBlur: () => commitEdit(),
+              }))
+          }
+          return h('td', { class: 'wf-table-td wf-table-td--editable', key: `${i}-${col.key}`,
+            style: { cursor: 'text' },
+            onClick: () => beginEdit(i, col.key, val) },
+            col.render ? col.render(val, row, i) : String(val ?? ''))
+        }
         const content = col.render ? col.render(val, row, i) : String(val ?? '')
         return h('td', { class: 'wf-table-td' }, content)
       })
@@ -195,4 +237,5 @@ export const Table: Component<TableProps> = async (_init, _ctx) =>
 
   // 响应式：窄屏下横向滚动（可用 props.minWidth 设置表格最小宽度）
   return h('div', { class: 'wf-table-wrap' }, table)
+  }
 }

@@ -121,3 +121,11 @@
 | QRCode / Watermark | ✅ 已实现 | 自研 Reed-Solomon / canvas |
 | Anchor / Affix | ✅ 已实现 | 滚动高亮 / sticky |
 | TreeSelect 搜索过滤 | ❌ 永久裁剪 | 选项量小；搜索成本高 |
+
+## Map（地图）——裁剪登记（2026-08）
+
+真实地图渲染需要瓦片服务（OSM/高德/Mapbox）+ 网络请求——**零依赖原则下无法实现**。
+替代方案：
+- 静态占位/坐标点标注（SVG 简化）——业务自绘
+- 集成第三方地图 SDK（如 Leaflet）——超出 weifuwu 组件库边界（用户自行集成）
+- 需求场景：位置展示/门店地图——建议用 patterns 组合（wf-grid + Card + 链接）呈现位置卡片而非地图

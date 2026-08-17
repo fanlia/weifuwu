@@ -55,5 +55,9 @@ export class Scheduler {
   }
 }
 
-/** 全局调度器（默认实例——后续 per-app 实例化） */
-export const scheduler = new Scheduler()
+/** 全局调度器（默认实例——后续 per-app 实例化）
+ * 内部名 v3Scheduler：避免 esbuild bundle 顶层 var 提升为全局与
+ * Chrome 只读 Web API window.scheduler 冲突（真实事故：普通 script 加载
+ * 顶层 var 泄漏为全局 → Cannot assign to read only property 'scheduler'） */
+const v3Scheduler = new Scheduler()
+export { v3Scheduler as scheduler }

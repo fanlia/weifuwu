@@ -659,8 +659,8 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 - **可聚焦就必须可操作**：`role="button"`/`tabindex` 的元素必须有 Enter/Space 处理；方向键导航（Tabs/DatePicker）必须焦点跟随
 - 浮层类（Modal/Drawer/Dropdown/Popover/Tooltip）Escape 关闭；Modal 系焦点 trap + 归还；Confirm 默认 `maskClosable=false`（危险操作防误触）
 
-### 布局蓝本纪律（apps/layouts-demo，红线）
-`apps/layouts-demo` 的每个布局模式是"复制即用"蓝本——**开发者抄的就是规范用法**，因此：
+### 布局蓝本纪律（examples/patterns，红线）
+`examples/patterns` 的每个布局模式是"复制即用"蓝本（随 npm 包发布）——**开发者抄的就是规范用法**，因此：
 - **新功能先查框架**：实现任何能力前，先查 weifuwu/client（ctx.ui.* 原语）、weifuwu/layout（wf-* 原语）、weifuwu/components（组件）是否已提供——已提供优先用框架能力，绝不重复造轮子（如吸顶：页面级滚动用 Affix 组件，嵌套滚动容器用 wf-sticky 原语——都是框架能力，按场景选型而非自研）
 - **加组件前先审布局/颜色**：向模式添加组件前，先用 agent-browser 审查当前页面布局（间距/对齐/层次/溢出/响应式）与颜色（对比度 ≥4.5:1、语义色一致性、亮暗双适配）是否合理——发现问题先修布局/颜色，再决定加组件（避免组件越加越多掩盖布局问题）
 - **只使用 weifuwu/layout 原语（wf-* 类）与 weifuwu/components 组件**——布局结构用原语类，内容元素用组件，不自己写组件（裸 div/span 手搓结构），不自己写样式（内联 style / 自定义 CSS）
@@ -684,8 +684,11 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 
 **维护规则**：
 - 新增用户可见能力 → 写 `docs/`（按角色对号入座），README 文档导航同步
+- **新增/修改组件 → 三件套同步**（showcase 计划纪律，design/showcase-plan.md）：① 组件三件套（.ts/.css/.test.ts）② registry 自动登记（scaffold：`.pi/skills/weifuwu-dev/scripts/scaffold.mjs component <Name>`）③ 补 demo（`apps/showcase/src/demos/<cat>.tsx`）④ `node scripts/gen-content.mjs` 重新生成 content/（防漂移测试 content-sync 驱动）
+- **content/ examples/ 根级随包发布**：`files: ['dist/', 'README.md', 'docs/', 'content/', 'examples/']`——三处同源（仓库 = 平台 serve = npm 包），零复制零漂移；`npx weifuwu docs` 起本地文档站
+- **showcase = weifuwu 发展引擎**（apps/showcase）：教学/文档/验证/模板一体化——平台自身必须全部由 weifuwu 能力构成（自举纪律）；agent-platform 是实战驱动上游（框架能力变更先实战验证再沉淀文档）
 - **`design/` 属内部文档——文件与内容一律不得写入 `README.md` / `docs/`**：既禁止在 README/docs 中引用 `design/` 路径，也禁止把 design 文档的正文/要点复制迁移到 docs 或 README（docs 随包发布而 design 不发布——引用与复制必然断裂/超范围）。用户可见的设计内容（协议契约 ai-contract、命名规范 style-guide）直接放 `docs/`；裁剪清单等内部登记在 docs 里只描述概念不带路径；仅**源码注释/AGENTS.md** 可引用 `design/`（开发导向）
-- 新增 ctx.ui 原语 → 同步 `docs/custom-components.md`（自定义组件指南）+ `docs/frontend.md` 方法速查表
+- 新增 ctx.ui 原语 → 同步 `content/guides/custom-component.md`（自定义组件指南）+ `content/guides/frontend.md` 方法速查表
 - 新增设计决策/概念 → 写 `design/`；实施计划完成 → 归档删除（git 历史可追溯，不留残骸）
 - README 保持门面（~400 行）：简介/设计理念/快速开始/CDN/模块总览/核心概念 + 文档导航，不堆 API 细节
 - 改协议 → `docs/ai-contract.md`；改裁剪清单 → `design/components-cuts.md`（源码注释引用同步）

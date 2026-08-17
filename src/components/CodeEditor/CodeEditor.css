@@ -1,0 +1,11 @@
+.wf-codeeditor {
+  width: 100%;
+}
+.wf-codeeditor-area {
+  width: 100%;
+  color: var(--wf-color-text);
+}
+.wf-codeeditor-gutter {
+  border-right: 1px solid var(--wf-color-border);
+  background: var(--wf-color-bg-secondary);
+}

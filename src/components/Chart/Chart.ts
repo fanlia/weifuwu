@@ -209,9 +209,88 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
       ])
     }
 
+    // ── radar：多轴雷达图（SVG 多边形——数据点 label 为轴名） ──
+    const renderRadar = () => {
+      const W = 300, H = 260, CX = W / 2, CY = H / 2 + 10, R = 95
+      const max = Math.max(...data.map((d) => Math.abs(d.value)), 1)
+      const n = data.length
+      const angle = (i: number) => (Math.PI * 2 * i) / n - Math.PI / 2
+      const point = (i: number, ratio: number) => [CX + Math.cos(angle(i)) * R * ratio, CY + Math.sin(angle(i)) * R * ratio] as const
+      // 网格层（n 边形 × 3 环）
+      const rings = [0.33, 0.66, 1].map((r) =>
+        h('polygon', { key: `ring-${r}`, points: Array.from({ length: n }, (_, i) => point(i, r).join(',')).join(' '), fill: 'none', stroke: 'var(--wf-color-border)', 'stroke-width': 1 }))
+      const spokes = Array.from({ length: n }, (_, i) =>
+        h('line', { key: `spoke-${i}`, x1: CX, y1: CY, x2: point(i, 1)[0], y2: point(i, 1)[1], stroke: 'var(--wf-color-border)', 'stroke-width': 1 }))
+      // 数据多边形
+      const dataPoly = data.map((d, i) => point(i, Math.abs(d.value) / max).join(',')).join(' ')
+      const labels = data.map((d, i) => {
+        const [x, y] = point(i, 1.18)
+        return h('text', { key: `lb-${i}`, x, y, 'text-anchor': 'middle', 'dominant-baseline': 'middle', class: 'wf-chart-label', 'font-size': 10 }, d.label)
+      })
+      return h('svg', { viewBox: `0 0 ${W} ${H}`, class: 'wf-chart-svg', role: 'img' }, [
+        ...rings, ...spokes,
+        h('polygon', { key: 'data', points: dataPoly, fill: 'var(--wf-color-primary-bg)', stroke: 'var(--wf-color-primary)', 'stroke-width': 1.5, opacity: 0.85 }),
+        ...labels,
+      ])
+    }
+
+    // ── gauge：仪表盘（半圆弧 + 指针） ──
+    const renderGauge = () => {
+      const W = 300, H = 180, CX = W / 2, CY = H - 10, R = 130
+      const value = data[0]?.value ?? 0
+      const min = options?.min ?? 0
+      const max = options?.max ?? 100
+      const ratio = Math.min(Math.max((value - min) / (max - min), 0), 1)
+      // 背景弧 + 值弧（arc 路径——简单圆角线）
+      const arcPath = (r: number, from: number, to: number) => {
+        const a = (ratio2: number) => Math.PI * (1 - ratio2)
+        const [x1, y1] = [CX - Math.cos(a(from)) * r, CY - Math.sin(a(from)) * r]
+        const [x2, y2] = [CX - Math.cos(a(to)) * r, CY - Math.sin(a(to)) * r]
+        const large = Math.abs(a(from) - a(to)) > Math.PI ? 1 : 0
+        return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`
+      }
+      const valArc = arcPath(R - 12, 0, ratio)
+      const bgArc = arcPath(R - 12, 0, 1)
+      // 指针角度（-90° 起点，顺时针 180°）
+      const pa = -Math.PI / 2 + ratio * Math.PI
+      const [px, py] = [CX + Math.cos(pa) * (R - 30), CY + Math.sin(pa) * (R - 30)]
+      return h('svg', { viewBox: `0 0 ${W} ${H}`, class: 'wf-chart-svg', role: 'img' }, [
+        h('path', { key: 'bg', d: bgArc, fill: 'none', stroke: 'var(--wf-color-border)', 'stroke-width': 12, 'stroke-linecap': 'round' }),
+        h('path', { key: 'val', d: valArc, fill: 'none', stroke: 'var(--wf-color-primary)', 'stroke-width': 12, 'stroke-linecap': 'round' }),
+        h('line', { key: 'needle', x1: CX, y1: CY, x2: px, y2: py, stroke: 'var(--wf-color-text)', 'stroke-width': 3, 'stroke-linecap': 'round' }),
+        h('text', { key: 'val-t', x: CX, y: CY + 38, 'text-anchor': 'middle', class: 'wf-chart-value', 'font-size': 22, 'font-weight': 600 }, `${value}`),
+        h('text', { key: 'min', x: 24, y: CY - 6, 'text-anchor': 'middle', class: 'wf-chart-label', 'font-size': 10 }, `${min}`),
+        h('text', { key: 'max', x: W - 24, y: CY - 6, 'text-anchor': 'middle', class: 'wf-chart-label', 'font-size': 10 }, `${max}`),
+      ])
+    }
+
+    // ── scatter：散点图（x/y 双数值——value 为 y，label 为 x 数值） ──
+    const renderScatter = () => {
+      const W = 320, H = 220, PAD = 34
+      const maxY = Math.max(...data.map((d) => Math.abs(d.value)), 1) * 1.1
+      const maxX = Math.max(...data.map((d) => Number(d.label) || 0), data.length, 1) * 1.1
+      const xOf = (i: number) => PAD + (Number(data[i]?.label) || i) / maxX * (W - PAD * 2)
+      const yOf = (v: number) => H - PAD - Math.abs(v) / maxY * (H - PAD * 2)
+      const dots = data.map((d, i) =>
+        h('circle', { key: `dot-${i}`, cx: xOf(i), cy: yOf(d.value), r: 4.5, fill: d.color ?? getDefaultColor(i),
+          onMouseEnter: () => { tooltip = { label: d.label, value: d.value }; ctx.ui.render() },
+          onMouseLeave: () => { tooltip = null; ctx.ui.render() } }))
+      const yTicks = [0, 0.5, 1].map((r) => {
+        const y = yOf(r * maxY)
+        return h('g', { key: `yt-${r}` }, [
+          h('line', { x1: PAD, y1: y, x2: W - PAD, y2: y, stroke: 'var(--wf-color-border)', 'stroke-width': 1, 'stroke-dasharray': '3 3' }),
+          h('text', { x: PAD - 6, y: y + 3, 'text-anchor': 'end', class: 'wf-chart-label', 'font-size': 10 }, `${Math.round(r * maxY)}`),
+        ])
+      })
+      return h('svg', { viewBox: `0 0 ${W} ${H}`, class: 'wf-chart-svg', role: 'img' }, [...yTicks, ...dots])
+    }
+
     let chartContent: any
     if (type === 'bar') chartContent = renderBar()
     else if (type === 'pie') chartContent = renderPie()
+    else if (type === 'radar') chartContent = renderRadar()
+    else if (type === 'gauge') chartContent = renderGauge()
+    else if (type === 'scatter') chartContent = renderScatter()
     else chartContent = renderLine()
 
     const legend = data.length > 1 ? h('div', { class: 'wf-chart-legend' },

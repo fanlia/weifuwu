@@ -65,9 +65,14 @@ export function mount(vnode: VNode, root: HTMLElement, reg?: NodeRegistry): void
   try {
     // 事件代理根（任何挂载点——含测试基建 mountToDom——挂载即注册监听）
     ensureDelegationRoot(root)
-    root.innerHTML = ''
+    // ★ 同帧追加 + 移除旧内容（SSR 首帧无白屏）
+    // （原：先 root.innerHTML='' 再渲染——SSR 内容被清空后有渲染间隙白帧 = 首页刷新闪白；
+    //   现：渲染追加到 root（事件流 parent 保持 root）→ 同步移除旧 SSR 内容——
+    //   同一帧完成，浏览器只渲染最终状态——无中间白屏）
     registry.register(NodeRegistry.ROOT, root) // root id 映射（事件流 parent 定位）
+    const ssrOld = [...root.childNodes] // SSR 首帧旧内容（为空时无影响）
     renderVNode(vnode, root)
+    for (const n of ssrOld) if (n.parentNode === root) root.removeChild(n)
   } finally {
     registry = prev
   }

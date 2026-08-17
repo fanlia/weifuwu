@@ -198,3 +198,16 @@ describe('Router', () => {
     })
   })
 })
+
+it('根路径 "/" 与通配 "/*" 并存（精确优先——showcase SSR 事故回归）', async () => {
+  const app = new Router()
+  app.get('/', () => new Response('ROOT'))
+  app.get('/*', () => new Response('WILD'))
+  const handler = app.handler()
+  const r1 = await handler(new Request('http://x/'), { params: {} })
+  assert.equal(await r1.text(), 'ROOT', '根路径精确命中')
+  const r2 = await handler(new Request('http://x/other'), { params: {} })
+  assert.equal(await r2.text(), 'WILD', '其他路径通配命中')
+  const r3 = await handler(new Request('http://x/deep/path'), { params: {} })
+  assert.equal(await r3.text(), 'WILD', '深层路径通配命中')
+})

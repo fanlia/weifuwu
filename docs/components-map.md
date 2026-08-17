@@ -131,7 +131,7 @@
 ## 第十批：文件预览与 Office 编辑（2026-12——ODES 事件流）
 
 > 文档 = fold(事件流)：docx/xlsx/pptx ↔ ODES 模型（DocState/WorkbookState/DeckState）
-> 前端零依赖转换（自研 ZIP/XML + DecompressionStream）——详见 docs/components.md。
+> 前端零依赖转换（自研 ZIP/XML + DecompressionStream）——详见 content/guides/components-guide.md。
 
 | 组件 | 说明 |
 |------|------|

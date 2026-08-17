@@ -1,0 +1,904 @@
+# 前端总览与 API 速查
+
+> 从 docs/frontend.md 迁移（content/ 文档库——随 npm 包发布，与框架版本同步）。
+> 本页为叙述性指南——组件/能力逐项参考见 content/ 各域目录。
+
+# 前端 API 核心（weifuwu/ui-dom）
+
+> ⚠️ **引擎演进（2026-08）**：下一代引擎 **vdom3**（vnode + stream——渲染执行 = 事件流，
+> 可回放/可逆/可断言）已进入转正阶段——入口 `weifuwu/ui-dom/vdom3`（createRouter +
+> createRoot + 事件流）。vdom2（本文档）为当前生产引擎（冻结中——bug 修复在 vdom3）。
+> 迁移路线图见仓库 `design/vdom3-migration-plan.md`。
+
+> ⚠️ **`weifuwu/client` 已并入 `weifuwu/ui-dom`**（`src/client/` 已删除）——本页 import 均用 `weifuwu/ui-dom`。前端运行时唯一入口是 **`weifuwu/ui-dom`**（vdom3 精准事件流引擎：createRouter + createRoot——渲染全链路 `entity:action` 事件流），权威参考见 **[ui-dom 指南](ui-dom-guide.md)**。
+
+> 以下为完整 API 参考，按需查阅。新手建议先阅读 README 的「核心概念」和「快速开始」。
+
+零外部 npm 运行时依赖。组件签名：`async (initProps, ctx) => (props) => Promise<VNode>`（两阶段模型，外层 mount 只一次可 await 数据，内层 renderFn 每次变化时执行——强制异步）。同步组件已不支持；无状态组件可简写为 `async (_init) => (props) => VNode`。
+
+构建配置（esbuild）：
+
+```js
+esbuild.build({
+  jsx: 'automatic',
+  jsxImportSource: 'weifuwu/ui-dom',
+  bundle: true,
+})
+```
+
+---
+
+## 应用引导（vdom3 事件流引擎——createRouter）
+
+```tsx
+import { createRouter } from 'weifuwu/ui-dom'
+
+// 中间件面展开（对齐后端 app.use 链——ctx 注入）
+let ctx: any = {}
+ctx = await api({ baseURL: '' })(ctx)
+ctx = await auth({ ... })(ctx)
+ctx = v3Toast()(ctx)
+ctx = v3Notification()(ctx)
+
+// 路由（RouteDef[]）+ 落地（事件流渲染）
+const handle = createRouter(
+  [
+    { path: '/', render: () => h(Home, {}) },
+    { path: '/users/:id', render: (params) => h(UserPage, { id: params.id }) },
+  ],
+  document.querySelector('#root')!,
+  { ctx },
+)
+```
+
+| API | 说明 |
+|------|------|
+| `createRouter(routes, root, { ctx })` | vdom3 路由：RouteDef[]（`{ path, render, layout? }`）+ 中间件面 ctx 注入 |
+| `handle.navigate(path)` / `refresh()` / `close()` | 导航 / 重渲染当前页 / 卸载 |
+| `ctx.route` | 当前路由 `{ path, params }`（对齐后端 ctx.params） |
+| `createRoot(vnode, root, { ctx })` | 无路由组件树挂载（`handle.ready` 首帧完成） |
+
+---
+
+## 组件模型
+
+```tsx
+import type { Component, WfuiContext } from 'weifuwu/ui-dom'
+
+// 两阶段组件：mount（只一次）→ render（每次 dirty/props 变化）
+const Counter: Component = async (_init, ctx) => {
+  // ── mount ──
+  let count = 0
+
+  // ── render ──
+  return async (props) =>
+    h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
+}
+
+// 无状态组件：只有 render
+const Badge: Component = () =>
+  (props) => h('span', { class: `badge-${props.variant}` }, props.children)
+```
+
+### 类型流（props 泛型 + ctx 注入）
+
+```tsx
+import type { Component } from 'weifuwu/ui-dom'
+import type { ApiInjected, RouteInjected } from 'weifuwu/ui-dom'
+
+// ① props 泛型：JSX 使用时自动类型检查（传错类型编译期报错）
+interface DeckCardProps { title: string; pages: number }
+const DeckCard: Component<DeckCardProps> = (_init, ctx) =>
+  (props) => <div>{props.title} / {props.pages} 页</div>
+// <DeckCard title="x" pages={8} />     ✓
+// <DeckCard title="x" pages="8" />     ✗ 编译期报错
+
+// ② ctx 注入声明：use(api()).use(router()) 后组件声明依赖，ctx 直接访问
+const Home: Component<{}, ApiInjected & RouteInjected> = async (_init, ctx) => {
+  ctx.api.get('/users')   // ✓ 有类型
+  ctx.app.navigate('/x')  // ✓ 有类型
+  return () => <h1>Home</h1>
+}
+// 未声明的注入字段编译期报错——注入从"文档约定"变成"类型保证"
+
+// 中间件面展开 + createRouter（options.ctx 注入——类型由中间件函数累积）
+let ctx: any = {}
+ctx = api()(ctx)                 // 注入 ctx.api
+ctx = v3Toast()(ctx)             // 注入 ctx.toast
+ctx = v3Notification()(ctx)     // 注入 ctx.notification
+createRouter(routes, root, { ctx })
+```
+
+> 各中间件的注入接口：`api()` → `ApiInjected`、`auth()` → `AuthInjected`、`ws()` → `WsInjected`、`i18n()` → `I18nInjected`、`router()` → `RouteInjected`（均可从 `weifuwu/ui-dom` 导入）。
+
+| 规则 | 说明 |
+|------|------|
+| 组件签名 | `(initProps: P, ctx: WfuiContext) => (props: P) => VNode \| null` |
+| mount 阶段 | 外层函数只执行一次，初始化状态 |
+| render 阶段 | 内层函数每次 dirty/props 变化时执行，返回 VNode |
+| 无 class | 无 `this`，无实例方法 |
+| 无 hook | 无 `useState` / `useEffect` / `useMemo` |
+| 状态 | 闭包变量 `let` + `ctx.ui.render()` 手动触发；跨组件共享用 `createStore()` + `ctx.ui.useExternal()` |
+| ref 引用 | `ref={el => { if (el) init; else cleanup }}` 获取 DOM |
+
+### JSX 工厂
+
+```tsx
+// 由 esbuild 自动调用（jsxImportSource: 'weifuwu/ui-dom'）
+import { h, jsx, jsxs, jsxDEV, Fragment } from 'weifuwu/ui-dom'
+
+// h 支持 variadic children
+h('div', { class: 'x' }, child1, child2)
+
+// Fragment
+<><div>A</div><div>B</div></>
+```
+
+| 导出 | 用途 |
+|------|------|
+| `h(type, props, ...children)` | hyperscript |
+| `jsx` / `jsxs` / `jsxDEV` | JSX 编译目标 |
+| `Fragment` | 片段 |
+| `Portal` / `createPortal(children, portalKey?)` | 渲染到 `document.body#__wf_portal` 独立容器（弹层/对话框，脱离父级 overflow 裁剪） |
+
+```tsx
+import { createPortal } from 'weifuwu/ui-dom'
+
+// 内容渲染到 body 下的独立容器（不在父组件的 DOM 树内）
+const Tooltip = (_init, ctx) =>
+  (props) => createPortal(
+    <div class="tooltip">{props.text}</div>
+  )
+
+// 配合 ctx.ui.selfId('name') 可从任何地方精准刷新 portal 内容
+ctx.ui.render(['name'])
+```
+
+---
+
+## 浏览器环境抽象（ctx.browser）
+
+> 组件**不直接引用 window/document**——统一经 `ctx.browser`（环境 API）：
+> SSR 安全（shim 返回安全默认）+ 测试可 mock + 环境差异单点隔离。
+
+| 方法 | 说明 |
+|------|------|
+| `activeElement()` | 当前焦点元素（键盘导航） |
+| `byId(id)` / `query(sel)` | 元素查询（getElementById / querySelector） |
+| `createElement(tag)` / `bodyAppend(el)` / `bodyRemove(el)` | 动态创建/挂载容器 |
+| `copyText(text)` | **复制统一入口**（clipboard API + execCommand 降级） |
+| `downloadFile(filename, content, mime?)` | 下载文本文件（Blob + a[download]；SSR no-op）——导出/报表 |
+| `execCommand(cmd, value?)` | 富文本编辑器命令 |
+| `selectionText()` / `getSelection()` | 编辑器选区（文本 / 完整 Selection 对象） |
+| `viewportHeight()` / `scrollTop()` | 视口高度 / 滚动量（scrollingElement 优先） |
+| `hash()` / `setHash(h)` | 锚点 hash |
+| `timeout(fn, ms)` | 定时器（SSR no-op） |
+| `rootElement()` | document.documentElement（主题应用） |
+| `storageGet(key)` / `storageSet(key, val)` | localStorage（SSR/隐私模式安全） |
+
+**三态实现**：客户端 `createClientBrowser`（惰性 typeof 防御）· SSR shim（null/0/no-op）· 测试 mock 或 jsdom fallback。
+
+```tsx
+// 组件内（mount 层）
+const browser = ctx.browser ?? createClientBrowser()
+// 事件回调
+await browser.copyText(text)
+```
+
+## 状态管理
+
+### ctx.ui 方法速查
+
+| 方法 | 签名 | 一句话说明 |
+|------|------|-----------|
+| `$()` | `$(): Record<string, any>` | 深度 Proxy 响应式状态容器，赋值自动触发渲染（**推荐首选**） |
+| `render()` | `render(ids?: string[])` | 同步强制渲染；无参 = 当前组件，传参 = 指定组件列表 |
+| `dirty()` | `dirty(ids?: string[])` | 异步渲染（微任务批处理合并）；`$` 内部就是调它 |
+| `selfId()` | `selfId(name: string)` | 注册组件自定义 ID，配合 `render(['id'])` 跨组件精准刷新 |
+| `useChat()` | `useChat({ url, approveUrl?, body? })` | AI 对话会话：消息/流式/工具/审批，与 `$` 同容器（AiChat 配套） |
+| `useAsync()` | `useAsync(fetcher)` | 异步取数：`data/loading/error` 响应式 + `reload()` |
+| `useControlled()` | `useControlled({ value, onChange, name })` | 受控/非受控统一：受控判定 + 缺回调 warn + 内部状态跨渲染保持 |
+| `useStableRef()` | `useStableRef(init, cleanup?)` | 稳定 ref 引用（根治内联 ref 陷阱） |
+| `usePopup()` 会话级模态 | `usePopup({ presence, trapFocus, lockScroll, positioning })` | **统一弹窗能力**：锚定浮层 + 会话级模态（Modal/Drawer 同款——退场状态机 + 滚动锁 + 焦点 trap + 居中定位）——一个入口按 options 组合 |
+| `useGlobalKey()` | `useGlobalKey(handler)` | 全局键盘监听（window keydown：mount 注册 + 卸载清理） |
+| `useDrag()` | `useDrag({ onMove, onStart?, onEnd? })` | 指针拖拽（pointerdown 捕获 → window move delta / up 释放） |
+| `useDragDrop()` | `useDragDrop({ onDrop, onDragOver?, onDragLeave? })` | 原生 DnD（drop/dragover/dragleave + preventDefault，dropProps spread） |
+| `useReducedMotion()` | `useReducedMotion()` | 响应式系统偏好（JS 动画侧跳过；CSS 动画已有全局降级） |
+| `useAnimationEnd()` | `useAnimationEnd(cb, { once? })` | 元素动画完成回调（stableRef：挂载绑定/卸载清理/引用恒定） |
+| `useTween()` | `useTween(target, { duration?, ease? })` | 数值补间（rAF + easeOutCubic + reduced-motion 直落；幂等 reset） |
+| `usePresence()` | `usePresence({ name? })` | 通用显隐状态机（open→exit→closed，animationend 延迟卸载；usePopup presence 模式内部使用） |
+| `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
+| `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
+| `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |
+| `usePopup()` | `usePopup(opts)` | **统一弹窗能力层**：触发（hover/tap 降级/longpress）+ Escape + 外部点击 + 定位/clamp + portal + 会话级模态（presence/trapFocus/lockScroll/positioning none——Modal/Drawer 同款） |
+| `useHoverCapable()` | `useHoverCapable()` | 设备是否支持 hover（`matchMedia '(hover: hover)'`），触屏降级判断 |
+| `useLongPress()` | `useLongPress({ onLongPress, duration })` | 长按手势（pointer 事件 + 位移取消 + 桌面右键兼容） |
+| `useVisualViewport()` | `useVisualViewport()` | 可视视口跟踪（键盘弹起/缩放），`{ height, offsetTop, keyboardOpen }` 响应式 |
+| `useInView()` | `useInView(opts)` | 可见性观察（IntersectionObserver 封装，替代组件自建 scroll 监听）；`isIn` 响应式 + `ready` |
+| `useScrollPosition()` | `useScrollPosition({ getScroller? })` | 滚动位置跟踪（全局 scroll 监听 + rAF 节流）；`y` 响应式，容器/视口通用 |
+
+> 每个方法的完整说明见下文对应章节。
+
+### Render 机制总览
+
+| API | 触发时机 | 渲染方式 | 作用域 | 使用场景 |
+|------|---------|---------|--------|---------|
+| `ctx.ui.render()` | 主动调用 | 异步落地（fire-and-forget，`await` 可精确等待） | 当前组件 | **唯一渲染触发** — 改状态后调用；`await` 后拿最新 DOM（测量/动画） |
+| `ctx.ui.render(['id'])` | 主动调用 | 异步落地 | 指定组件 | **跨组件精准刷新** — 全局事件、Portal 远程控制 |
+| `ctx.ui.useExternal(store)` | 订阅共享状态 | store 变更自动重渲染（unmount 退订） | 当前组件 | **跨组件共享状态** — createStore 唯一消费通道 |
+| `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化时自动重渲染 |
+| `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动重渲染 |
+| `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 时自动重算 fixed 坐标 |
+| `ctx.ui.usePopup()` | 注册监听 | 事件驱动 + document 监听 | 当前组件 | **弹层组合器** — 触发 + Escape + 外部点击 + 定位/clamp + portal（移动端友好由构造保证） |
+| `ctx.ui.useHoverCapable()` | mount 期判定 | 一次 matchMedia | 当前组件 | **hover 能力检测** — 触屏降级 tap 判断 |
+| `ctx.ui.useLongPress()` | 事件驱动 | pointer 事件 | 当前组件 | **长按手势** — ContextMenu 触屏触发、自定义长按操作 |
+| `ctx.ui.useVisualViewport()` | 注册监听 | visualViewport resize/scroll | 当前组件 | **键盘/缩放跟踪** — fixed 底部栏防键盘遮挡（AiChat `raiseOnKeyboard`） |
+| `ctx.ui.useInView()` | 注册监听 | IO 合成器线程评估 | 当前组件 | **可见性观察**（IO 封装，无 scroll-linked 警告）— Affix/BackTop/InView 统一使用；rootMargin/threshold 支持函数 |
+| `ctx.ui.useScrollPosition()` | 注册监听 | 全局 scroll + rAF 节流 | 当前组件 | **滚动位置跟踪** — `y` 响应式（视口/内部容器通用），Affix/VirtualList 使用 |
+
+`render()` 无参 = 当前组件（闭包绑定），传参 = 指定组件列表。hooks（useMedia/useInView 等）是事件驱动重渲染——与"赋值自动"本质不同。
+
+### 闭包变量 + `ctx.ui.render()`（唯一状态模式）
+
+```tsx
+const Counter: Component = async (_init, ctx) => {
+  let count = 0
+  return async (props) =>
+    h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
+}
+```
+
+**render-only 唯一规则**：渲染只发生在 `render()` 调用处——
+状态是普通对象（`let` / `createStore`），**没有 `$` Proxy、没有赋值自动渲染**。改状态后必须显式 `ctx.ui.render()`。
+
+### `createStore` + `ctx.ui.useExternal()` — 跨组件共享状态
+
+需要多个组件共享同一状态时（登录态、主题、全局缓存），用 `createStore`（`weifuwu/ui-dom`）订阅：
+
+```tsx
+// 模块级单例（或组件内 createStore 传递）
+const store = createStore({ user: null, theme: 'light' })
+
+const NavBar: Component = async (_init, ctx) => {
+  const state = ctx.ui.useExternal(store)   // 订阅：store 变更 → 自身自动重渲染
+  return async (props) => h('div', { class: 'nav' }, state.user?.name ?? '未登录')
+}
+
+// 任意位置更新（写入方不需要知道谁在订阅）：
+store.set({ theme: 'dark' })         // 合并写 + 通知
+store.update((s) => { s.user = user })  // 可变写 + 通知
+store.notify()                       // 手动通知
+```
+
+- `useExternal` 在 mount 阶段订阅、unmount 自动退订（无需手动清理）
+- `store.state` 是普通对象（非 Proxy）——渲染期读最新值，无隐式触发
+- SSR 无害：服务端 shim 返回 `store.state` 只读不订阅
+
+### 响应式自适应组件
+
+#### `ctx.ui.useMedia(query, callback)` — 响应式媒体查询
+
+注册媒体查询监听，值变化时自动重渲染当前组件（回调内改状态 + `ctx.ui.render()`）：
+
+```tsx
+const Card = async (_init, ctx) => {
+  let isMobile = false
+  // 立即回调一次（取当前值），之后变化时自动重渲染
+  ctx.ui.useMedia('(max-width: 640px)', (v) => { isMobile = v; ctx.ui.render() })
+
+  return async (props) => (
+    <div class={isMobile ? 'wf-stack' : 'wf-row'}>
+      {!isMobile && <Sidebar />}
+      <Content />
+    </div>
+  )
+}
+```
+
+`callback` 在 mount 时立即执行一次，之后断点变化时再次执行。回调里改状态后调 `ctx.ui.render()` 触发渲染（hooks 内部已封装——组件内通常无需手动 render）。
+
+#### `ctx.ui.useBreakpoint(callback)` — 命名断点
+
+预设三个断点名称：`mobile`（<640px）、`tablet`（640-1023px）、`desktop`（≥1024px）：
+
+```tsx
+const Layout = async (_init, ctx) => {
+  let vp = 'desktop'
+  ctx.ui.useBreakpoint((next) => { vp = next; ctx.ui.render() })
+
+  return async (props) =>
+    <div class={`sidebar-${vp}`}>
+      {vp === 'mobile' ? <BottomNav /> : <SideNav />}
+      {vp === 'mobile' ? <MobileContent /> : <Content />}
+    </div>
+}
+```
+
+也支持自定义断点：
+
+```tsx
+ctx.ui.useBreakpoint(
+  { narrow: '(max-width: 480px)', wide: '(min-width: 1200px)' },
+  (vp) => { size = vp; ctx.ui.render() },
+)
+```
+
+#### `ctx.ui.usePopupPosition(options)` — 弹层坐标跟随
+
+解决弹出层（Popover / Tooltip / Dropdown / DatePicker 等）在 **页面滚动 / 窗口缩放后不跟随触发元素** 的问题。基于 `position: fixed` + `getBoundingClientRect()`（视口坐标）的弹层，滚动后坐标需要重算——本 API 用全局 scroll/resize 监听（rAF 节流）自动重算并精准刷新当前组件。
+
+> **使用场景**：`usePopup` 内部已集成 usePopupPosition（弹窗组件无需直接使用）；本 API 供**坐标工具**独立使用（Affix 阈值重算 / Chart tooltip）或**自定义弹层**场景。
+
+```tsx
+const CustomPopup = async (_init, ctx) => {
+  let show = false
+  let inputEl: HTMLElement | null = null
+  let prevOpen = false
+
+  // mount 阶段注册：scroll/resize 时自动重算 pos
+  const pos = ctx.ui.usePopupPosition({
+    el: () => inputEl,                  // 锚定元素（ref 保存）
+    isOpen: () => show,                 // 弹层是否显示
+    compute: (r) => ({ top: r.bottom + 4, left: r.left }),  // rect → 坐标
+  })
+
+  return async (props) => {
+    const isOpen = show
+    // 打开瞬间算一次初始坐标（受控/非受控统一覆盖）
+    if (isOpen && !prevOpen) pos.refresh()
+    prevOpen = isOpen
+
+    return h('div', {}, [
+      h('input', {
+        ref: (el) => { inputEl = el as HTMLElement },
+        onClick: () => { show = !show; ctx.ui.render() },
+      }),
+      isOpen ? h('div', { style: { top: pos.top, left: pos.left } }) : null,
+    ].filter(Boolean))
+  }
+}
+```
+
+要点：
+
+- `pos` 是稳定对象，render 闭包直接读取 `top/left/width`，滚动重算原地更新，无需重新绑定
+- `pos.refresh()` 只重算不渲染——配合打开路径上已有的 `render()`，避免重复渲染
+- 监听是**全局单例**（capture 捕获所有嵌套滚动容器 + rAF 节流），按组件 selfId 注册，组件多时开销 O(1)
+- `compute` 是纯函数（rect → 坐标），可单独单测
+
+已内置接入的组件：**Popover / Tooltip / Dropdown / DatePicker / Chart**（tooltip）——它们的弹出层在页面滚动、嵌套容器滚动、窗口缩放时都会自动跟随触发元素，无需额外配置。
+
+#### `ctx.ui.usePopup(options)` — 弹层组合器（推荐：移动端友好由构造保证）
+
+`usePopupPosition` 的**上层封装**：把弹层组件的完整生命周期（打开状态 + 触发 + Escape + 外部点击 + 定位/视口 clamp + portal）收敛成一个原语。弹层组件用它替代手写样板，**移动端行为自动正确**：
+
+- **hover 触发在触屏自动降级为 tap**（内部 `matchMedia '(hover: hover)'` 判定）
+- **Escape 关闭是 document 级**——焦点在 portal 弹层内按 Escape 也能关
+- **外部点击关闭**（document mousedown，点弹层内部不关）
+- **宽度自动 clamp 视口**（≤ `100vw - 32px`，375px 屏不横向溢出）；`width` 支持 getter（DatePicker 跟随 trigger 宽）
+- **定位 + 视口夹紧**（复用 `usePopupPosition`，超高/超宽面板平移回视口）
+- **mask 遮罩**（`mask: true`——全屏遮罩 + 点击关闭；`maskCentered` 全屏居中——Modal 缩放预览/Command 面板；`mask: VNode` 自定义遮罩内容——Tour 挖洞高亮）
+- **trigger `'focus'`**（DatePicker）——focus 开 + blur 延迟关（`closeDelay` 窗口内面板交互生效）
+- 支持受控（`open`/`onOpenChange`）、动态 props（`placement`/`trigger`/`openDelay` 支持 getter）
+
+```tsx
+const Tooltip = async (_init, ctx) => {
+  let show = false
+  let wrapEl: HTMLElement | null = null
+  const wrapRef = (el) => { wrapEl = el }
+
+  const popup = ctx.ui.usePopup({
+    trigger: 'hover',            // 触屏自动降级 tap
+    placement: () => latestPos,  // getter：动态读最新 props
+    el: () => wrapEl,
+    isOpen: () => show,
+    setOpen: (v) => { show = v; ctx.ui.render() },
+    width: 320,                  // 自动 clamp 视口
+    disabled: () => disabled,
+    openDelay: () => delay,      // hover 延迟（HoverCard 用）
+  })
+
+  return async (props) => h('div', { ref: wrapRef, ...popup.wrapProps }, [
+    props.children,
+    popup.portal(h('div', { class: 'wf-tooltip' }, props.content), 'tooltip'),
+  ].filter(Boolean))
+}
+```
+
+- `popup.wrapProps` — 触发 + Escape + focus 处理，spread 到包装/触发元素
+- `popup.portal(content, portalKey)` — 定位 + clamp + portal（挂载 `#__wf_portal`），关闭时返回 null；自动附加 `wf-popup` 基类；`positioning: 'none'` 时不加坐标（只 `position: fixed`——组件自定义定位，Modal/Toast 用）
+- `popup.open` / `popup.setOpen()` — 状态读取与设置
+- `popup.sync(open)` / `popup.phase` — 会话级模态模式（`presence: true`）render 期同步打开状态 + 读退场 phase（`'closed' | 'open' | 'exit'`——exit 阶段保留退场动画）
+
+**会话级模态模式**（Modal/Drawer/Confirm 同款）：`presence: true`（退场状态机）+ `trapFocus: true`（焦点 trap）+ `lockScroll: true`（滚动锁）+ `positioning: 'none'`（自定义定位）——全部能力 usePopup 内部实现（`trapFocus`/`lockScroll` 不对外导出）。
+
+**已迁移组件（全部弹窗统一 usePopup 单一入口）**：Tooltip / HoverCard / Popover / Dropdown / Menubar / Mentions / Cascader / ContextMenu / Select / AutoComplete / NavMenu / Popconfirm / DatePicker（focus 触发）/ Tour（mask 自定义遮罩）/ Toast / Notification（positioning 'none' 常驻容器）/ Modal / Drawer / Confirm / Command / Img（mask 全屏遮罩）/ TreeSelect。
+
+**usePopupPosition 独立用户**：Affix / Chart（tooltip）——坐标工具（非弹窗组合器），滚动跟随自动。
+
+#### `ctx.ui.useHoverCapable()` / `useLongPress()` / `useVisualViewport()` — 移动端原语
+
+- **`useHoverCapable()`** — 设备是否支持 hover（`matchMedia '(hover: hover)'`，mount 期一次判定）。hover 触发组件用它降级 tap。
+
+```ts
+const canHover = ctx.ui.useHoverCapable()
+// canHover=false（触屏）→ 用 tap 打开而非 mouseenter
+```
+
+- **`useLongPress({ onLongPress, duration })`** — 长按手势：`pointerdown` 按住 `duration`（默认 500ms）触发，提前松开/位移 >10px 取消，`contextmenu` 兼容。返回的 props spread 到目标元素。ContextMenu 已内置桌面右键 + 触屏长按双通道。
+
+```ts
+const press = ctx.ui.useLongPress({ onLongPress: (e) => openAt(e), duration: 500 })
+return h('div', { ...press }, children)  // onPointerDown/Up/Leave/Move + onContextMenu
+```
+
+- **`useVisualViewport()`** — 可视视口跟踪（`visualViewport` resize/scroll 监听）：虚拟键盘弹起/页面缩放时自动更新并 dirty。返回响应式 `{ height, offsetTop, keyboardOpen }`；无 `visualViewport` 环境（桌面）降级 `innerHeight`。fixed 底部栏防键盘遮挡用（AiChat `raiseOnKeyboard` prop）。
+
+```ts
+const vv = ctx.ui.useVisualViewport()
+// vv.keyboardOpen → 输入区 fixed 抬升到键盘上方
+```
+
+#### `ctx.ui.selfId(name)` — 跨组件精准刷新
+
+用于全局事件通知、Portal 远程控制、兄弟组件协调等场景——绕过多层 props 传递，直接按 ID 刷新目标组件：
+
+```tsx
+// 组件 A：mount 阶段注册自定义 ID
+const StatsPanel = async (_init, ctx) => {
+  ctx.ui.selfId('stats')
+  let data: unknown[] = []
+  return async (props) => h('div', {}, String(data.length))
+}
+
+// 组件 B（或其他任何地方）用 ID 精准刷新
+ctx.ui.render(['stats'])
+```
+
+**语义**：
+
+- 必须在 **mount 阶段**调用（组件初始化时），注册后组件即可被 `render(['id'])` 精准定位
+- **同名冲突直接抛错**，每个自定义 ID 必须全局唯一
+- 配合 `selfId` 注册的组件在跨组件场景下无需把刷新逻辑层层传 props
+
+#### `ctx.ui.useChat(options)` — AI 对话会话（AiChat 配套）
+
+会话语义的流式 AI 状态容器：消息累积 / 工具调用内嵌 / HITL 审批 / stop / retry，协议对页面完全透明（wf: 协议见 [`ai-contract`](../../docs/ai-contract.md)）。返回 handle 带 `subscribe(cb)`——子组件用 `ctx.ui.useExternal(chat)` 订阅会话变化（render-only 共享状态原语）：
+
+```tsx
+// mount 阶段（服务端 `ai()` 中间件 + `AiChat` 组件配套）
+const chat = ctx.ui.useChat({
+  url: '/api/chat',          // POST 端点（返回 wf: SSE 流）
+  approveUrl: '/api/approve', // HITL 审批上行（缺省时 approve() 只清卡片）
+  body: (messages) => ({ messages, mode: 'agent' }),  // 定制请求体
+  onEvent: (name, data) => { console.log('x:' + name, data) },  // x:* 透传
+})
+
+// 子组件订阅会话变化（AiChat 已内置 useExternal）：
+// const state = ctx.ui.useExternal(chat)
+
+return async (props) =>
+  h('div', {},
+    h(AiChat, { chat }),             // 标准对话界面：流式 token/工具卡/审批卡/自动滚动
+    chat.streaming ? '生成中…' : '',  // 会话状态（直接读 handle）
+  )
+```
+
+**状态（handle 上）**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `chat.messages` | `UiMessage[]` | 消息列表（`{ id, role, content, status, toolCalls?, approval?, usage?, error? }`） |
+| `chat.input` | `string` | 输入框值（双向绑定） |
+| `chat.streaming` | `boolean` | 是否正在流式生成 |
+| `chat.error` | `WfError \| null` | 最近错误（code + message） |
+| `chat.usage` | `WfUsage \| null` | token 用量（prompt/completion/total） |
+| `chat.step` | `WfStep \| null` | 最近 agent 步骤指示（思考/工具），done/error 时清空 |
+
+**操作（handle 上的方法）**：`chat.send()`（发送当前输入）/ `chat.stop()`（中止）/ `chat.retry()`（截断到最后一条 user 重生成）/ `chat.clear()`（清空）/ `chat.approve(decision, note?)`（响应审批）/ `chat.dispose()`（卸载时释放流）。
+
+**共享 handle 的子组件**（如 `<AiChat chat={chat}>`）：会话状态变化 → `notify()` → `useExternal` 订阅者自动重渲染（AiChat 已内置——替代已删除的 `__watch`）。
+
+#### `ctx.ui.useAsync(fetcher)` — 异步取数
+
+`data/loading/error` 响应式 + `reload()` 重跑；数据就绪自动渲染当前组件。
+
+```tsx
+const list = ctx.ui.useAsync(() => ctx.api.get<User[]>('/users'))
+
+return () => list.loading ? h(Loading) : list.data?.map(u => h('div', {}, u.name))
+```
+
+- `list.data` / `list.loading` / `list.error` 变化自动重渲染当前组件
+- `list.reload()` 重跑；组件卸载后旧 Promise resolve 不再触发渲染（idRegistry 查无此组件，安全忽略）
+
+#### 动画原语（4 层能力）
+
+动画能力按层组织（CSS 语言已有：`--wf-dur-*`/`--wf-ease-*`/`--wf-motion-*` Token + `--enter`/`--exit` 成对纪律）：
+
+| 原语 | 层 | 说明 |
+|------|----|------|
+| `useAnimationEnd(cb, { once? })` | 生命周期 | 元素动画完成回调（stableRef：挂载绑定/卸载清理/引用恒定）——**组件内动画事件唯一入口** |
+| `usePresence({ name? })` | 生命周期 | 显隐状态机：open → exit → closed（animationend 延迟卸载）；`usePopup` presence 模式内部使用 |
+| `useTween(target, { duration?, ease? })` | 数值驱动 | 数值补间（rAF + easeOutCubic + reduced-motion 直落；幂等 reset + 每帧自动渲染） |
+| `useReducedMotion()` | 偏好感知 | 响应式系统偏好——**JS 动画**（rAF/tween）侧跳过（CSS 动画已有全局降级） |
+| `useInView` / `useScrollPosition` | 数值驱动 | 进入视口播 / 滚动位置联动（已有） |
+
+```tsx
+// 入场 settle（面板坐标夹紧：动画期间矩形非稳态，结束后按稳态几何计算）
+const settleRef = ctx.ui.useAnimationEnd(() => pos.refresh(), { once: true })
+return () => h('div', { class: 'wf-panel', ref: settleRef }, ...)
+
+// 退场（显隐状态机：open=false 播退场动画，animationend 后才真正卸载）
+const { phase, ref, sync } = ctx.ui.usePresence()
+const p = sync(props.open)
+if (p === 'closed') return null
+return h('div', { class: `wf-panel ${p === 'exit' ? '--exit' : '--enter'}`, ref }, ...)
+
+// 数值动画（count-up：0 → 42，每帧自动渲染）
+const n = ctx.ui.useTween(42, { duration: 400 })
+return () => h('span', { class: 'wf-nums' }, String(n.value))
+
+// 偏好感知（JS 动画侧跳过；CSS 动画 _base.css 已全局降级）
+if (!ctx.ui.useReducedMotion()) { /* 启动 rAF/动画 */ }
+```
+
+> 完整动画纪律见 [custom-component.md](custom-component.md) 的「8.5 动画」章节。
+
+#### CSS 层响应式（不碰 JS）
+
+配合 `weifuwu/layout` 的断点变体，纯 CSS 实现布局方向切换：
+
+```html
+<!-- 小屏堆叠，桌面并排 -->
+<div class="wf-stack wf-stack@md"></div>
+
+<!-- 小屏隐藏侧栏 -->
+<aside class="wf-hidden wf-block@md"></aside>
+```
+
+可用断点变体：
+
+| 原语 | 变体 | 效果 |
+|------|------|------|
+| `wf-stack` | `@sm` `@md` `@lg` | 断点以上改为横向排列 |
+| `wf-row` | `@sm` `@md` `@lg` | 断点以上保持横向 |
+| `wf-hidden` | `@sm` `@md` `@lg` | 断点以上隐藏 |
+| `wf-block` | `@sm` `@md` `@lg` | 断点以上显示 |
+
+断点尺寸：`--wf-bp-sm: 640px` / `--wf-bp-md: 768px` / `--wf-bp-lg: 1024px` / `--wf-bp-xl: 1280px`
+
+**移动端专用工具**（`weifuwu/layout`）：
+
+| 工具 | 效果 |
+|------|------|
+| `wf-popup` | 浮层基类：宽度视口 clamp（`min(var(--wf-popup-max, 480px), calc(100vw - 32px))`）——手动浮层防横向溢出 |
+| `wf-safe-bottom` / `wf-safe-top` | iOS 安全区：`padding: env(safe-area-inset-bottom/top)`（刘海屏/Home 条） |
+| `@media (pointer: coarse)` 44px | 触屏命中区：button/input/select 全局覆盖；非 button 交互元素由 style-audit 规则强制登记 |
+
+> **移动端开发指南**：断点体系 / 44px 命中区纪律 / usePopup / 手势原语 / safe-area / 验收清单 → [`移动端指南`](mobile-guide.md)
+
+### `ctx.ui.render()` — 渲染唯一入口（render-only）
+
+**渲染只发生在 `render()` 调用处**——改状态后必须调 `ctx.ui.render()`（无参 = 当前组件，传参 = 指定组件列表）。异步落地（fire-and-forget，`await` 可精确等待），多次调用合并为一次渲染。
+
+**何时必须用 `render()`**：
+
+```tsx
+// 1. DOM 测量（读取 offsetHeight/scrollWidth 等）
+// 用 ref 在 DOM 创建后操作；需要最新 DOM 时 await render()
+ref: async (el) => {
+  if (!el) return
+  el.style.height = 'auto'
+  await ctx.ui.render()          // await 等 VDOM patch 完成
+  const h = el.offsetHeight
+  el.style.height = h + 'px'
+}
+
+// 2. 动画触发（需要确保上一帧 DOM 已提交）
+function startAnimation() {
+  animating = true
+  ctx.ui.render()
+  el.startViewTransition(...)    // 拿到最新 DOM 启动动画
+}
+
+// 3. 第三方库需要在事件回调中读取最新 DOM
+onClick: async () => {
+  selected = !selected
+  await ctx.ui.render()          // 确保 DOM 已更新
+  thirdPartyLib.measure(el)      // 读取最新状态
+}
+```
+
+**规则**：状态是普通对象（`let` / `createStore`），改状态后必须显式 `render()`；共享状态用 `createStore` + `useExternal`（store 变更自动重渲染订阅组件）。
+
+### 三种方式速查
+
+```tsx
+// 手动：ctx.ui.render() — 异步落地（fire-and-forget），无参=当前，传参=指定
+let count = 0
+count++
+ctx.ui.render()          // DOM 更新（await 可精确等待）
+ctx.ui.render(['stats']) // 精准刷新指定组件
+
+// 共享：createStore + useExternal — store 变更自动重渲染订阅组件
+const store = createStore({ count: 0 })
+store.set({ count: store.state.count + 1 })  // 通知订阅者
+```
+
+**性能说明**：
+- `render()` 精准渲染目标组件（renderByIds），兄弟组件不遍历
+- **剪枝/三态 skip 自动优化**：组件重新渲染时，框架自动检查：
+  - **props**（含 children 元素级比较）——值没变则复用旧 _child（renderFn 不重跑）
+  - **ctx 版本**——`bumpCtxVersion` 后版本变化强制重跑（i18n 切换语言）
+  全部满足时跳过整个子树（零 `_render` 调用、零 `patchValue` 遍历）
+- **lastIndex keyed diff**：列表 diff 采用正向 lastIndex 算法（React 同款），顺序不变时零 `insertBefore`。对比传统的逆序循环全量移动，DOM 修改从 O(N) 降到 O(0)。
+- 示例：DemoButton 点击一次，DOM 修改从 34 次降到 **1 次**（仅变更文本节点的 `textContent`）
+
+### 实践建议（render-only 唯一模式）
+
+**组件库与业务层同一模式**：
+
+```tsx
+const DatePicker = async (_init, ctx) => {
+  let show = false             // let 不触发渲染
+  return async (props) =>
+    h('input', {
+      onClick: () => { show = true; ctx.ui.render() }
+    })
+}
+```
+
+行为只由 `render()` 显式控制，测试中 `render()` mock 为空即可。
+
+**跨组件共享**（业务层）：
+
+```tsx
+const store = createStore({ orders: [], loading: false })
+
+const OrderPage = async (_init, ctx) => {
+  const state = ctx.ui.useExternal(store)   // 订阅：store 变更自动重渲染
+  return async (props) => h('div', {}, state.loading ? h(Spinner) : h(OrderList, { orders: state.orders }))
+}
+
+// 数据到达：store.set({ orders, loading: false }) → 订阅组件自动更新
+```
+
+内部状态用 `let` + `render()`，共享状态用 `store` + `useExternal`。
+
+**配置式数据定义在 mount 层 / 模块层**（剪枝命中率——三态 skip 的组件侧纪律）：
+
+```tsx
+// ❌ 差：columns/options 内联 renderFn——每次 render 新建数组 + 内联函数 → Table 全量重跑
+const DemoTable = async (_init, ctx) =>
+  async () => h(Table, { columns: [{ key: 'name', render: v => <Badge>{v}</Badge> }], ... })
+
+// ✅ 好：静态配置定义在 mount 层 / 模块层——引用稳定 → 子组件 props 稳定 → 剪枝命中不重跑
+const COLS = [{ key: 'name', sortable: true }]   // 模块层（纯静态）
+const DemoTable2 = async (_init, ctx) => {
+  const cols = COLS                                // 或工厂层（读 ctx/状态时）
+  return async () => h(Table, { columns: cols, ... })
+}
+```
+
+**规则**：不依赖 render 期数据的配置（columns/options/items/NAV）→ mount 层或模块层定义（引用稳定，子组件剪枝命中）；依赖 render 期派生数据（过滤后的列表）→ 才在 render 内构建。
+
+**薄封装用普通函数**（不建组件——组件有工厂 + childCtx 开销）：
+
+```tsx
+// ❌ 薄封装组件：TypeBadge 无状态无实例需求，却是 async 组件形态 → 每实例走 mountAsyncComponent
+const TypeBadge: Component = async (_init) => async (props) => h(Badge, {...}, props.label)
+
+// ✅ 普通函数：在父 renderFn 内调用（不参与 vdom 组件树——无工厂/childCtx 开销）
+const typeBadge = (label: string, type: string) => h(Badge, { variant: ... }, label)
+```
+
+**规则**：纯透传 / 派生渲染 → 普通函数（父 renderFn 内调用）；有状态 / 需实例化 / props 驱动重渲染 → 组件形态。
+
+### VDOM diff 优化机制
+
+weifuwu 的 VDOM 在每次渲染时自动执行**剪枝 + 三态 skip 判定**，减少不必要的组件渲染和 DOM 操作：
+
+```
+canSkip = (props 没变) AND (ctx 版本一致) AND (旧 _child 已构建)
+          ↑ 值级浅比较    ↑ bumpCtxVersion 后强制重跑  ↑ renderFn 不重跑
+```
+
+条件全部满足时复用旧 `_child`（零 `_render` 调用、零 `patchValue` 遍历）——
+版本变化（i18n 切换）时剪枝失效，所有组件重跑 renderFn。
+
+---
+
+## 条件与列表
+
+使用原生 JS 控制流：
+
+```tsx
+// 条件
+{cond ? <A /> : <B />}
+{cond && <A />}
+
+// 列表 — 必须指定 key
+{items.map(item => (
+  <div key={item.id}>{item.name}</div>
+))}
+```
+
+### 列表性能（v3——剪枝命中率是唯一性能变量）
+
+渲染引擎对**大列表**的性能模型：剪枝命中（props 同 + 版本同）→ 复用旧子树（renderFn 不重跑 + diff 零递归）。
+**剪枝只对组件生效**——native 元素（`<div>`/`<tr>` 等）每次渲染都会全量 patch：
+
+| 列表行形态 | 更新单行 | 说明 |
+|---|---|---|---|
+| **组件包裹**（推荐） | 剪枝命中，~O(1) | 行 props 不变 → renderFn 不重跑 + diff 跳过 |
+| 裸 native 元素 | 全量 patch O(n) | 每次 render 重建整树 + 全量 diff（1000 行 ~30-40ms jsdom） |
+
+```tsx
+// ✅ 大列表行用组件包裹（剪枝生效——更新单行 O(1)）
+const Row = (_init, ctx) =>
+  (props) => h('div', { class: 'row' }, h('span', {}, props.label))
+
+const List = (_init, ctx) =>
+  (props) => h('div', {}, props.items.map(r => h(Row, { key: r.id, label: r.label })))
+
+// ❌ 裸 native 行：每次 render 全量 patch（1000 行 = 全量遍历）
+{items.map(item => <div key={item.id}>{item.name}</div>)}
+```
+
+- **更新单行/单单元格**：数据模型建议行级状态（行组件各自持有状态 + `ctx.ui.render()` 精准刷新该行），
+  而非整表状态（整表 renderFn 重跑必然重建全部行）
+- **稳定数组透传**：renderFn 直接返回 `props.items`（不 map 重建）时，引用短路生效——未变项零 diff
+  （V3-3a）
+- 基准（1000 行 keyed 列表，jsdom）：首帧 build 0.6ms + render 26ms；更新单行（组件剪枝）DOM 写 0；
+  头部插入 DOM 写 1
+
+---
+
+## ref 管理 DOM
+
+使用 `ref` prop 获取元素引用，适合管理第三方库或读取 DOM：
+
+```tsx
+const Timer: Component = async (_init, ctx) => {
+  let timer: ReturnType<typeof setInterval> | undefined
+
+  return async (props) =>
+    h('div', {
+      ref: (el) => {
+        if (el) {
+          timer = setInterval(() => console.log('tick'), 1000)
+        } else {
+          clearInterval(timer)
+        }
+      },
+    }, 'Timer')
+}
+```
+
+`ref` 在元素创建时调用 `ref(el)`，元素移除时调用 `ref(null)`。
+`ref` 不接受返回值，清理逻辑直接在 `else` 分支处理。
+
+对于**内嵌元素**（非根元素），直接在目标元素上放 `ref`：
+
+```tsx
+return h('div', {},
+  h('input', {
+    type: 'text',
+    ref: (el) => el?.focus(),
+  })
+)
+```
+
+### 异步组件
+
+在 mount 阶段发起请求，数据到达后 `ctx.ui.render()` 触发渲染：
+
+```tsx
+const UserProfile: Component = async (initProps, ctx) => {
+  let loading = true
+  let user: { name?: string } | null = null
+
+  fetch(`/api/user/${initProps.id}`)
+    .then(r => r.json())
+    .then(u => { user = u; loading = false; ctx.ui.render() })
+
+  return async (props) =>
+    loading
+      ? h('div', {}, '加载中...')
+      : h('div', {}, user?.name ?? '')
+}
+```
+
+### async 组件（原生）
+
+组件 = 函数，async 组件 = async 函数：**两阶段都异步**（统一签名 `async (initProps, ctx) => async (props) => Promise<VNode>`）——工厂层（mount 一次）与 renderFn（每次 dirty/props 变化）都可 await 数据。渲染器在 buildVNode 阶段 await 全部；diff 永不执行 renderFn。数据经闭包注入，渲染无 loading 分支：
+
+```tsx
+const UserProfile = async (initProps, ctx) => {
+  const user = await ctx.data.get(`/api/user/${initProps.userId}`)   // ① 工厂层：数据不随 props 变（三场景：SSR→__DATA__ / hydration 种子 / SPA fetch）
+  let liked = false                        // 客户端状态（交互后变化，render-only）
+  return async (props) => {
+    const related = await ctx.data.get(`/api/user/${props.userId}/related`)  // ② renderFn 层：数据随 props 变（每次重跑取新数据）
+    return h('div', {},
+      h('p', {}, user.name),               // 服务端状态（闭包，SSR 进 HTML）
+      h('span', {}, `相关 ${related.length}`),
+      h('button', { onClick: () => { liked = !liked; ctx.ui.render() } }, liked ? '❤️' : '🤍'),
+    )
+  }
+}
+```
+
+- **两阶段数据分层**：数据不随 props 变 → 工厂层 await（只一次，`ctx.data` 缓存）；随 props/状态变 → renderFn 层 await（每次重跑，props 变化自动刷新）
+- **客户端**：主路径 `buildVNode` async 预构建（await 全部工厂 + renderFn；**兄弟组件并行取数**）→ 落地零占位；运行时首次挂载的 async 组件在 buildVNode 阶段 await（无占位/补全回调）——N 处实例 = N 次工厂调用，数据走 `ctx.data` 则零成本（缓存 + 并发合并）
+- **服务端**：`ctx.ui.ssr()` 直接 await 工厂 + renderFn → 数据进 HTML（无占位；数组分支 Promise.all 并行取数）
+- 初始状态必须确定性（禁止 `window.innerWidth` 直接初始化 → SSR/hydration mismatch）
+
+### 取数模式（机制与策略分离——不绑定 ctx.data）
+
+renderFn 内可 await **任意 Promise**（fetch / `ctx.api` / 第三方 SDK / `ctx.data`）——渲染管线对三种模式一视同仁（并发取数 + 原子落地 + props 自动刷新都成立）。取数是**策略**（开发者决定），框架只提供机制：
+
+| 模式 | 写法 | 语义 | 适用 |
+|---|---|---|---|
+| **ctx.data 管道** | `await ctx.data.get(key, fetcher)` | 缓存 + 并发合并 + SSR 三场景（fetcher 可以是任意函数） | 重复执行 / 跨组件共享 / 需要 SSR 的数据 |
+| **直接 await** | `await fetch(...)` / `ctx.api.get(...)` / SDK | **每次 renderFn 重跑重新执行**（无缓存） | 一次性局部取数 |
+| **事件驱动** | 闭包 `let` + fetch + `ctx.ui.render()` | 只执行一次，renderFn 读闭包 | 需精确控制触发时机 / 有副作用 |
+
+**决策规则**：数据会重复执行或跨组件共享？→ ctx.data；一次性局部数据？→ 直接 await；需精确控制时机？→ 事件驱动。
+
+**红线**：
+- 直接 await = **每次 renderFn 重跑重新请求**（父组件无关状态变化也会触发）——高频数据用 ctx.data 缓存防重复
+- renderFn 内 await 应为**幂等取数**（副作用走事件驱动）
+- ctx.data 的 fetcher 可以是**任意函数**（不只框架 API）：`ctx.data.get('/key', () => sdk.query(...))`
+
+**页面形态纪律（B-1）**：路由 handler（UIHandler）直接返回 vnode——**页面根是 native vnode，无组件 `_render`/`_id`，handler 闭包内的 `let` 状态 + `ctx.ui.render()` 无效**（静默空操作——`render()` 无参无目标会 console.warn 提示）。页面内部状态两种正确写法：
+1. **async 组件形态**（推荐）：`const Page: Component = async (initProps, ctx) => { let state = ...; return async (props) => h(...) }`——handler 返回 `h(Page, {})`
+2. **createStore + useExternal**：跨页面共享状态
+
+```tsx
+// ❌ UIHandler 闭包内部状态（render() 空操作）
+const Home: UIHandler = async (_loc, ctx) => { let clicks = 0; return h(Button, { onClick: () => { clicks++; ctx.ui.render() } }) }
+// ✅ handler 只返回组件 vnode，状态在组件里
+const ClickCounter: Component = async (_init, ctx) => { let clicks = 0; return async () => h(Button, { onClick: () => { clicks++; ctx.ui.render() } }) }
+const Home: UIHandler = async () => h('div', {}, h(ClickCounter, {}))
+```
+
+---
+
+## 前端类型
+
+```tsx
+import type { VNode, VNodeType, Component, WfuiContext, AppMiddleware, RouteDef } from 'weifuwu/ui-dom'
+import type { ApiClient, ApiOptions, ApiRequestOptions, ApiError } from 'weifuwu/ui-dom'
+import type { AuthClient, AuthOptions } from 'weifuwu/ui-dom'
+import type { ErrorBoundaryProps } from 'weifuwu/ui-dom'
+import type { I18nOptions, I18nState, LocalePackage } from 'weifuwu/ui-dom'
+import type { PopupPositionOptions, PopupPosition } from 'weifuwu/ui-dom'
+import type { ConfirmProps, ConfirmOptions } from 'weifuwu/components'
+import type { ToastOptions, ToastPosition } from 'weifuwu/components'
+import type { RouterOptions } from 'weifuwu/ui-dom'
+```
+
+| 类型 | 说明 |
+|------|------|
+| `VNode` | `{ type, props, key? }` |
+| `VNodeType` | `string \| Component \| typeof Fragment` |
+| `Component<P>` | `(initProps: P, ctx: WfuiContext) => (props: P) => VNode \| null` |
+| `WfuiContext` | `{ ui, route?, app?, ws?, api?, auth?, i18n?, confirm?, toast?, [key]: unknown }` |
+| `AppMiddleware` | `(ctx: WfuiContext) => WfuiContext` |
+| `RouteDef` | `{ path, component?, layout?, children?, auth?, title? }` |
+| `ApiClient` | `{ get, post, put, patch, delete }` |
+| `ApiError` | `class { status, body } extends Error` |
+| `AuthClient` | `{ token, user, isLoggedIn, login, logout, setUser, refresh }` |
+| `I18nOptions` | `{ locale?, messages?, components? }` |
+| `I18nState` | `{ locale, t, setLocale, components }` |
+| `ErrorBoundaryProps` | `{ fallback?, children? }` |
+| `ConfirmProps` | `{ open?, title?, message?, confirmText?, cancelText?, variant?, width?, onConfirm?, onCancel? }` |
+| `ConfirmOptions` | `{ title?, confirmText?, cancelText?, variant?, width? }` — 命令式 ctx.confirm 选项 |
+| `ToastOptions` | `{ position?, duration?, max? }` — 命令式 ctx.toast 配置 |
+| `NotificationOptions` | `{ position?, duration?, max? }` — 命令式 ctx.notification 配置 |
+| `PopupPositionOptions` | `{ el, isOpen, compute }` — 弹层位置跟踪配置（见 usePopupPosition） |
+| `PopupPosition` | `{ top, left, width?, refresh }` — 弹层位置跟踪器 |
+
+---
+

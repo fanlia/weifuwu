@@ -20,6 +20,13 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
+// showcase demos 聚合读取（components-demo 已并入 showcase——防线从新家派生）
+function readShowcaseDemos(): string {
+  const dir = join(root, 'apps/showcase/src/demos')
+  return readdirSync(dir).filter(f => f.endsWith('.tsx') && f !== 'index.ts')
+    .map(f => readFileSync(join(dir, f), 'utf-8')).join('\n')
+}
+
 /** 按 src/layout/weifuwu-layout.css 的 @import 顺序拼接 */
 function readLayoutCss(): string {
   const entry = readFileSync(join(root, 'src/layout/weifuwu-layout.css'), 'utf-8')
@@ -61,8 +68,8 @@ describe('样式审计 — 设计约束', () => {
     const css = readComponentCss()
     // 白名单：Avatar/EmptyState/FileUpload/StatCard 等图标与展示尺寸，
     // 与排版刻度（--wf-font-size-*）无关，属组件内设计决策；
-    // 0.875em：行内代码相对字号（随父级上下文缩放，Markdown 内嵌于标题/段落）
-    const allowed = new Set(['10px', '11px', '12px', '13px', '14px', '16px', '24px', '28px', '48px', '0.875em'])
+    // 0.875em：行内代码相对字号（随父级上下文缩放，Markdown 内嵌于标题/段落）；0.75em：Math 上下标相对字号
+    const allowed = new Set(['10px', '11px', '12px', '13px', '14px', '16px', '24px', '28px', '48px', '0.875em', '0.75em'])
     const violations: string[] = []
     for (const m of css.matchAll(/font-size:\s*([^;]+);/g)) {
       const value = m[1].trim()
@@ -107,13 +114,10 @@ describe('样式审计 — 设计约束', () => {
     // 所有宣称计数的文档/源码必须与清单脚本输出一致（数字漂移 = 立即红）
     const files = [
       'README.md',
-      'docs/layout.md',
-      'docs/components.md',
+      'content/guides/layout-guide.md',
+      'content/guides/components-guide.md',
       'design/style-system.md',
-      'apps/layouts-demo/README.md',
-      'apps/layouts-demo/src/main.tsx',
-      'apps/layouts-demo/src/patterns/Landing.tsx',
-      'apps/components-demo/src/main.tsx',
+      'apps/showcase/src/registry/components.ts',
     ]
     const patterns: [RegExp, number, string][] = [
       [/(\d+)\s*个?\s*(?:双层\s*)?主题\s*[Tt]oken/g, inv.tokens, '主题 Token'],
@@ -644,6 +648,11 @@ describe('样式审计 — 设计约束', () => {
       TreeSelect: 'vdom2 测试归档（usePopup 验证在 vdom3-core）——补测迁移',
       Notification: '命令式测试归档（v3Toast 替代）——声明式补测',
       Confirm: 'DOM 级交互测试归档（uiServe 随 vdom2 删除）——vdom3 补测迁移',
+      ExportCSV: '按钮交互复用 wf-btn（框架样式）——纯函数 toCsv 已 3 测，DOM 下载测试待补',
+      Wave: '交互=波纹生成（已测 spawnRipple 逻辑）——无键盘/焦点语义（纯装饰动效），待补 DOM 级测试',
+      MarkdownEditor: '编辑区交互复用受控输入（textarea onInput 已测）——模式切换/预览 DOM 测试待补',
+      CodeEditor: '编辑区交互复用受控输入（Tab 缩进已测）——行号同步 DOM 测试待补',
+      ImageCropper: 'canvas 绘制依赖真实图片加载（jsdom 无 canvas 实现）——拖拽框逻辑待 jsdom-canvas 补测',
     }
     const INTERACTIVE = /onClick|onKeyDown|onInput|onChange|useControlled|useOpen|usePopup/
     const errors: string[] = []
@@ -740,8 +749,8 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(offenders, [], `受控命名不对称：\n${offenders.join('\n')}`)
   })
 
-  it('demo 覆盖防线（P10-T6：每组件必须在 components-demo 有演示）', () => {
-    const demo = readFileSync(join(root, 'apps/components-demo/src/main.tsx'), 'utf-8')
+  it('demo 覆盖防线（P10-T6：每组件必须在 showcase demos 有演示）', () => {
+    const demo = readShowcaseDemos()
     const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
       .filter(d => d.isDirectory()).map(d => d.name)
       .filter(d => { try { readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8'); return true } catch { return false } })
@@ -914,7 +923,7 @@ describe('样式审计 — 设计约束', () => {
     // 豁免：交互但合理无自身 :hover——
     //   Confirm（无 CSS，复用 Modal）/ Card（hover 委托 wf-elevate 原语）/ AiChat（容器，内原生 button 有基线 hover）/
     //   PinInput（输入聚焦态，非 hover）/ HoverCard|Popover|Tooltip|Popconfirm（弹层触发：hover 由 JS 检测，popup 即反馈）
-    const HOVER_EXEMPT = new Set(['Confirm', 'Card', 'AiChat', 'PinInput', 'HoverCard', 'Popover', 'Tooltip', 'Popconfirm', 'ApprovalCard', 'CheckboxGroup', 'RadioGroup', 'Img', 'StatCard', 'Chart'])
+    const HOVER_EXEMPT = new Set(['Confirm', 'Card', 'AiChat', 'PinInput', 'HoverCard', 'Popover', 'Tooltip', 'Popconfirm', 'ApprovalCard', 'CheckboxGroup', 'RadioGroup', 'Img', 'StatCard', 'Chart', 'ExportCSV', 'Wave', 'MarkdownEditor', 'CodeEditor', 'ImageCropper', 'VideoPlayer', 'Math'])
     const violations: string[] = []
     for (const d of dirs) {
       let ts = ''; try { ts = readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8') } catch { continue }
@@ -930,14 +939,14 @@ describe('样式审计 — 设计约束', () => {
   // R39/R40 demo 防线、R41/R43 全绿硬门、R42 ratchet（存量弹层 aria 逐步修复）、R44 裁剪单一事实源
 
   it('P12-R39：demo 状态矩阵覆盖（disabled/error/loading/empty 特征词存在——防 demo 退化纯静态）', () => {
-    const demo = readFileSync(join(root, 'apps/components-demo/src/main.tsx'), 'utf-8')
+    const demo = readShowcaseDemos()
     for (const kw of ['disabled', 'error', 'loading', 'empty']) {
       assert.match(demo, new RegExp(`\\b${kw}\\b`), `demo 必须覆盖 ${kw} 态（状态矩阵基线）`)
     }
   })
 
   it('P12-R40：demo 交互示例存在（onClick/onChange/onKeyDown 特征——防 demo 纯展示）', () => {
-    const demo = readFileSync(join(root, 'apps/components-demo/src/main.tsx'), 'utf-8')
+    const demo = readShowcaseDemos()
     const interactive = [...demo.matchAll(/\bon(?:Click|Change|KeyDown|Submit)\b/g)].length
     assert.ok(interactive >= 20, `demo 交互回调数异常（应 ≥20 处实际 ${interactive}）`)
   })

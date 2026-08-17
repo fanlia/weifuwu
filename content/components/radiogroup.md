@@ -1,0 +1,49 @@
+# RadioGroup · components
+
+## 概述
+
+单选组，支持 inline/options/value
+
+## API
+
+| prop | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | `string` | 否 |  |
+| `value` | `string` | 否 |  |
+| `options` | `RadioOption[]` | 否 |  |
+| `inline` | `boolean` | 否 |  |
+| `onChange` | `(value: string) => void` | 否 |  |
+
+## 用法示例
+
+```tsx
+<RadioGroup name="gender"
+  value={gender}
+  onChange={v => gender = v}
+  options={[
+    {value:'male',label:'男'},
+  ]} />
+```
+
+## 纪律/坑
+
+> 待补写（AGENTS.md 事故记录按组件归类——高频组件优先）
+
+## 关系
+
+- ↑ 用于页面模式：（暂无）
+- ↑ 用于应用：（暂无）
+- → 后端能力：（暂无）
+
+## 文件位置
+
+| 文件 | 路径 |
+|------|------|
+| 源码 | `src/components/RadioGroup/RadioGroup.ts` |
+| 样式 | `src/components/RadioGroup/RadioGroup.css` |
+| 测试 | `src/components/RadioGroup/RadioGroup.test.ts` |
+| demo | `apps/showcase/src/demos/DemoRadio.tsx`（P1 拆分） |
+
+## 验证
+
+> agent-browser 走查：打开 `/components/input/radiogroup` ——（P1 填充具体步骤）

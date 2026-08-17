@@ -90,3 +90,15 @@ describe('Chart', () => {
     assert.ok(vnode, 'should render with empty data')
   })
 })
+
+it('Chart：radar/gauge/scatter 类型渲染（SVG 输出）', async () => {
+  const { renderVNode, createTestCtx, findByClass } = await import('../../ui-dom/testing.ts')
+  const ctx = createTestCtx()
+  const data = [{ label: 'A', value: 3 }, { label: 'B', value: 5 }]
+  const radar: any = await renderVNode(Chart, { type: 'radar', data }, ctx)
+  assert.ok(findByClass(radar, 'wf-chart-svg').length > 0, 'radar SVG 渲染')
+  const gauge: any = await renderVNode(Chart, { type: 'gauge', data: [{ label: '进度', value: 75 }], options: { min: 0, max: 100 } }, ctx)
+  assert.ok(findByClass(gauge, 'wf-chart-svg').length > 0, 'gauge SVG 渲染')
+  const scatter: any = await renderVNode(Chart, { type: 'scatter', data }, ctx)
+  assert.ok(findByClass(scatter, 'wf-chart-svg').length > 0, 'scatter SVG 渲染')
+})

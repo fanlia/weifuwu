@@ -52,6 +52,22 @@ await esbuild.build({
   external,
 })
 
+// weifuwu CLI（bin: weifuwu → weifuwu docs）——文档服务器
+await esbuild.build({
+  entryPoints: [join(srcDir, 'cli', 'docs.ts')],
+  outfile: join(distDir, 'cli', 'docs.mjs'),
+  format: 'esm',
+  platform: 'node',
+  bundle: true,
+  external,
+})
+
+// 构建后同步：content/ 随包（files 字段）——无复制（根级同源）；仅校验
+for (const d of ['content', 'examples']) {
+  const p = join(root, d)
+  await mkdir(p, { recursive: true })
+}
+
 // ui-dom bundle（前端运行时——UIRouter/uiServe/渲染器/契约）
 await esbuild.build({
   entryPoints: [join(srcDir, 'ui-dom', 'index.ts')],

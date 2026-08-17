@@ -8,7 +8,7 @@
  */
 
 import { execSync } from 'node:child_process'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -53,6 +53,30 @@ async function main() {
     process.exit(1)
   }
   console.log('  ✓ weifuwu ready')
+
+  // Step 3.5: content/examples 完整性（随包文档——showcase 计划 §7）
+  for (const dir of ['content', 'examples']) {
+    if (!existsSync(join(root, dir))) {
+      console.error(`  ✗ ${dir}/ missing!`)
+      process.exit(1)
+    }
+  }
+  // 文档与 registry 同步（防漂移硬门）
+  try {
+    execSync('node scripts/gen-content.mjs --check', { cwd: root, stdio: 'pipe' })
+    console.log('  ✓ content/ 与 registry 同步')
+  } catch (e) {
+    console.error('  ✗ content/ 漂移（运行 node scripts/gen-content.mjs 后重新发布）：\n' + (e.stdout?.toString() ?? ''))
+    process.exit(1)
+  }
+  // 组件文档覆盖（每组件一篇——139+ 全量）
+  const compDocs = readdirSync(join(root, 'content/components')).filter((f) => f.endsWith('.md')).length
+  const compDirs = readdirSync(join(root, 'src/components')).filter((d) => existsSync(join(root, 'src/components', d, `${d}.ts`))).length
+  if (compDocs < compDirs) {
+    console.error(`  ✗ 组件文档覆盖不足（${compDocs}/${compDirs}）`)
+    process.exit(1)
+  }
+  console.log(`  ✓ content/ 完整（${compDocs} 篇组件文档 · ${readdirSync(join(root, 'examples')).filter((d) => d !== 'patterns' || existsSync(join(root, 'examples/patterns'))).length + 1} 个示例域）`)
 
   if (dryRun) {
     console.log('\n  Dry run complete.')

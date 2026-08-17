@@ -28,13 +28,35 @@
 
 import { build } from 'esbuild'
 import { readFile, stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { resolve, dirname, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
 import { renderToEvents, eventsToHtml } from '../ui-dom/vdom3/ssr.ts'
 import { h } from '../ui-dom/vdom3/jsx.ts'
 import type { Component } from '../ui-dom/vnode.ts'
+
+// 浏览器端编译 alias：weifuwu/* → 同构源码/产物（与 weifuwu/dev 的 BARE_ALIASES 一致——
+// 全单图防 dist/src 双实例（AGENTS.md §6.1）；显式 alias 绕开 esbuild self-reference
+// 解析断裂（dist/components 内部 import 'weifuwu/ui-dom' 曾解析到 src 而失败）
+// src 模式：指向 src 下的 .ts；dist 模式：指向 dist 下的 .js（同一目录结构）
+const HERE = dirname(fileURLToPath(import.meta.url))
+const IS_SRC = fileURLToPath(import.meta.url).includes(`${sep}src${sep}`)
+const JS_ALIASES: Record<string, string> = IS_SRC
+  ? {
+      'weifuwu/ui-dom/jsx-runtime': HERE + '/../ui-dom/jsx-runtime.ts',
+      'weifuwu/ui-dom/testing': HERE + '/../ui-dom/testing.ts',
+      'weifuwu/ui-dom': HERE + '/../ui-dom/index.ts',
+      'weifuwu/components': HERE + '/../components/index.ts',
+      'weifuwu': HERE + '/../index.ts',
+    }
+  : {
+      'weifuwu/ui-dom/jsx-runtime': HERE + '/ui-dom/jsx-runtime.js',
+      'weifuwu/ui-dom/testing': HERE + '/ui-dom/testing.js',
+      'weifuwu/ui-dom': HERE + '/ui-dom/index.js',
+      'weifuwu/components': HERE + '/components/index.js',
+      'weifuwu': HERE + '/index.js',
+    }
 
 declare module '../types.ts' {
   interface Context {
@@ -178,6 +200,7 @@ export function ui(): Middleware {
           platform: 'browser',
           jsx: 'automatic',
           jsxImportSource: 'weifuwu/ui-dom',
+          alias: JS_ALIASES,
           write: false,
           metafile: true,
         })

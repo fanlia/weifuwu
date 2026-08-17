@@ -1,0 +1,23 @@
+.wf-wave {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  border-radius: inherit; /* 跟随子元素圆角（Button 波纹圆角一致） */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wf-wave-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  transform: scale(0);
+  animation: wf-wave-pop var(--wf-dur-base) var(--wf-ease-out) forwards;
+}
+
+@keyframes wf-wave-pop {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}

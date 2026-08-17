@@ -33,7 +33,21 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
       return
     }
     if (v.type === Fragment) {
-      for (const c of childrenOf(v)) if (c && typeof c === 'object' && !Array.isArray(c)) walk(c as VNode, parentId)
+      for (const c of childrenOf(v)) {
+        if (c == null || c === false || c === true) {
+          // 空洞占位（与客户端同构）
+          const hid = nextId()
+          events.push(ev('node', 'create', hid, { kind: 'hole' }))
+          events.push(ev('node', 'insert', hid, { parent: parentId, ref: null }))
+        } else if (typeof c === 'string' || typeof c === 'number') {
+          // 文本子节点（Fragment 包裹的文本——renderInline default 分支）
+          const tid = nextId()
+          events.push(ev('text', 'create', tid, { value: String(c) }))
+          events.push(ev('node', 'insert', tid, { parent: parentId, ref: null }))
+        } else if (c && typeof c === 'object' && !Array.isArray(c)) {
+          walk(c as VNode, parentId)
+        }
+      }
       return
     }
     // native
@@ -129,6 +143,7 @@ export function eventsToHtml(events: V3Event[]): string {
       const pl = e.payload as { key: string; value: unknown }
       const m = attrs.get(e.target!) ?? new Map()
       if (pl.value == null || pl.value === false) m.delete(pl.key)
+      else if (pl.key === 'style' && typeof pl.value === 'object' && !Array.isArray(pl.value)) m.set(pl.key, styleToCss(pl.value as Record<string, unknown>))
       else m.set(pl.key, pl.value)
       attrs.set(e.target!, m)
     } else if (e.entity === 'text' && e.action === 'create') texts.set(e.target!, (e.payload as { value: string }).value)
@@ -159,6 +174,13 @@ export function eventsToHtml(events: V3Event[]): string {
     return esc(texts.get(id) ?? '')
   }
   return (childrenOf.get('root') ?? []).map(emit).join('')
+}
+
+/** style 对象 → cssText（camelCase → kebab-case——事件流消费端共用：SSR + replay） */
+export function styleToCss(val: Record<string, unknown>): string {
+  return Object.entries(val)
+    .filter(([, v]) => v != null && v !== false)
+    .map(([k, v]) => `${k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}:${v}`).join(';')
 }
 
 /** 序列化（传输——事件流 JSON 化） */

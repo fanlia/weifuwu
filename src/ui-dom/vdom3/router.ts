@@ -61,8 +61,11 @@ function compNameOf(v: VNode): string {
   return typeof v.type === 'function' ? ((v.type as { name?: string }).name || 'anonymous') : 'anonymous'
 }
 
-/** 创建路由应用（初始挂载 + popstate 导航；options.ctx 注入中间件面——页面组件消费） */
-export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { initialPath?: string; ctx?: Record<string, unknown> }): RouterHandle {
+/** 创建路由应用（初始挂载 + popstate 导航；options.ctx 注入中间件面——页面组件消费）。
+ * 隔离模式（options.history === false）：不注册 popstate、navigate 不碰 URL——
+ * 页面内嵌子路由用（嵌套 createRouter 共享 history 会互踩 popstate——子导航清空父页面的真实风险）；
+ * 初始路径 = initialPath ?? '/'。 */
+export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { initialPath?: string; ctx?: Record<string, unknown>; history?: boolean }): RouterHandle {
   let current: VNode | null = null
   let pageVnode: VNode | null = null // 当前页面组件 vnode（组件引用——重渲染定位）
   let busy = false
@@ -86,6 +89,20 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
     path: '',
     params: {},
   }
+  // ctx.data 数据管道（README 承诺能力——vdom3 SPA 实现：缓存 + 并发合并）
+  const dataCache = new Map<string, Promise<unknown>>()
+  const data = {
+    get: async (key: string, fetcher?: () => Promise<unknown>): Promise<unknown> => {
+      let p = dataCache.get(key)
+      if (!p) {
+        p = fetcher ? Promise.resolve(fetcher()) : fetch(key).then((r) => r.json())
+        dataCache.set(key, p)
+      }
+      return p
+    },
+    set: (key: string, value: unknown): void => { dataCache.set(key, Promise.resolve(value)) },
+    has: (key: string): boolean => dataCache.has(key),
+  }
   const makePageCtx = (): V3Ctx =>
     Object.assign(Object.create(options?.ctx ?? {}), {
       render: () => { void updatePage() },
@@ -95,6 +112,8 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
       _componentRender: (compId: string) => { void updateComponent(compId) },
       // 同一引用（所有 pageCtx 共享——导航只更新内容——复用组件读最新）
       route: routeState,
+      // 数据管道（SPA：fetch/缓存/并发合并——SSR/hydration 场景由服务端注入）
+      data,
     }) as V3Ctx
 
   /** 重渲染当前页面（页面组件 ctx.render——组件实例复用 + patch） */
@@ -238,19 +257,42 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
 
   const onPopState = () => { void handleRoute(window.location.pathname) }
   // 路由导航监听统一走事件代理（全局注册表——EVENT_BIND/UNBIND 可观测）
-  const offPop = addGlobalListener(window, 'popstate', onPopState as EventListener)
+  // 隔离模式（history:false）不注册——与宿主路由互不干扰
+  const isolated = options?.history === false
+  const offPop = isolated ? () => {} : addGlobalListener(window, 'popstate', onPopState as EventListener)
 
-  // 初始路由
-  const initial = options?.initialPath ?? window.location.pathname
+  // ★ 同站链接点击拦截 → SPA 导航（消除整页刷新闪白——SSR/SPA 页面导航体验统一）
+  // 匹配：<a href> 同源 + 左键无修饰键 + 非 _blank/download/external + 非页内锚点
+  const onClick = (e: Event) => {
+    if (isolated) return
+    const me = e as MouseEvent
+    if (me.button !== 0 || me.metaKey || me.ctrlKey || me.shiftKey || me.altKey) return
+    const a = (e.target as HTMLElement)?.closest?.('a')
+    if (!a || !a.href) return
+    if (a.target && a.target !== '_self') return
+    if (a.hasAttribute('download') || a.getAttribute('rel')?.includes('external')) return
+    const url = new URL(a.href)
+    if (url.origin !== window.location.origin) return
+    if (url.hash && url.pathname === window.location.pathname) return
+    if (url.pathname === window.location.pathname && !url.search) return
+    e.preventDefault()
+    window.history.pushState(null, '', url.pathname + url.search)
+    void handleRoute(url.pathname + url.search)
+  }
+  const offClick = isolated ? () => {} : addGlobalListener(document, 'click', onClick as EventListener)
+
+  // 初始路由（隔离模式无 URL 参与——initialPath 显式指定，缺省 '/'）
+  const initial = options?.initialPath ?? (isolated ? '/' : window.location.pathname)
   void handleRoute(initial)
 
   return {
     navigate(path: string): void {
-      window.history.pushState(null, '', path)
+      // 隔离模式：纯内部路由切换（不写 URL——嵌入场景宿主 URL 不被污染）
+      if (!isolated) window.history.pushState(null, '', path)
       void handleRoute(path)
     },
-    path: () => window.location.pathname,
-    refresh: () => { void handleRoute(window.location.pathname) },
-    close: () => { offPop() },
+    path: () => (isolated ? routeState.path : window.location.pathname),
+    refresh: () => { void handleRoute(isolated ? routeState.path : window.location.pathname) },
+    close: () => { offPop(); offClick() },
   }
 }

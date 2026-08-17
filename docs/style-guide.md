@@ -15,7 +15,7 @@ weifuwu 的设计语言与框架哲学同源（确定性、诚实裁剪、render
 | 4 | **专业** Instrumental | 面向 AI 应用/管理后台/数据工具：键盘可达、数据密度、三态完整 | 键盘焦点全局；compact 预设；加载/空/错误三态规范 |
 | 5 | **中文原生** CJK-Native | 字阶/行高/断行针对中文；表头不做 uppercase；数字防抖 | `--wf-heading-case: none`；`wf-nums`（tabular-nums） |
 
-主题配置三档（详见 [docs/styling.md](styling.md)）：**① 改 `--wf-brand-seed` 一个值换肤**（色阶 color-mix 自动派生，暗色自动跟随）→ **② `<html data-preset="minimal|compact|rounded">` 预设**（与 data-theme 正交）→ **③ 深度定制**（组件钩子 + @layer 覆盖）。
+主题配置三档（详见 [content/guides/styling.md](styling.md)）：**① 改 `--wf-brand-seed` 一个值换肤**（色阶 color-mix 自动派生，暗色自动跟随）→ **② `<html data-preset="minimal|compact|rounded">` 预设**（与 data-theme 正交）→ **③ 深度定制**（组件钩子 + @layer 覆盖）。
 
 ## 统一语法：`wf-<域>-<名字>`
 

@@ -4,7 +4,7 @@
  * 无 DOM 依赖，可测试。
  */
 
-export type ChartType = 'line' | 'bar' | 'pie'
+export type ChartType = 'line' | 'bar' | 'pie' | 'radar' | 'gauge' | 'scatter'
 
 export interface DataPoint {
   label: string
@@ -16,6 +16,10 @@ export interface ChartOptions {
   width?: number
   height?: number
   padding?: number
+  /** gauge 最小值（默认 0） */
+  min?: number
+  /** gauge 最大值（默认 100） */
+  max?: number
 }
 
 // ── 线性比例尺 ──────────────────────────────────────

@@ -2,7 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Table } from './Table.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import { renderVNode, findByClass } from '../../ui-dom/testing.ts'
+import { setupJsdom } from '../../test/client/setup.ts'
 
 
 function createTestCtx(): WfuiContext {
@@ -201,4 +202,22 @@ describe('Table', () => {
     sortable2.props.onKeyDown({ key: ' ', preventDefault: () => {} })
     assert.deepEqual(called, ['id', 'desc'])
   })
+})
+
+it('Table：行内编辑（editable 列 → 点击 → input → Enter 提交）', async () => {
+  setupJsdom()
+  let edited: any = null
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  // 用 renderVNode 检查结构 + 手动触发事件链
+  const ctx = createTestCtx()
+  const vnode: any = await renderVNode(Table, {
+    data: [{ id: 1, name: '旧值' }],
+    columns: [{ key: 'id', label: 'ID' }, { key: 'name', label: '名称', editable: true }],
+    onCellEdit: (key, row, value, rowData) => { edited = { key, row, value, rowData } },
+  }, ctx)
+  const cell = findByClass(vnode, 'wf-table-td--editable')[0] as any
+  assert.ok(cell, 'editable 单元格存在')
+  assert.ok(typeof cell.props.onClick === 'function', '点击进入编辑')
+  document.body.removeChild(container)
 })

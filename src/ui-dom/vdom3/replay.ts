@@ -13,6 +13,7 @@
  * 键格式 `entity:action`（如 'node:create'）。
  */
 
+import { styleToCss } from './ssr.ts'
 import type { V3Event, EventStream } from './types.ts'
 import { NodeRegistry } from './registry.ts'
 
@@ -76,6 +77,9 @@ export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry):
       const el = reg.get(ev.target!)
       if (el?.nodeType === 1) {
         if (pl.value == null || pl.value === false) (el as Element).removeAttribute(pl.key)
+        else if (pl.key === 'style' && typeof pl.value === 'object' && !Array.isArray(pl.value)) {
+          (el as Element).setAttribute('style', styleToCss(pl.value as Record<string, unknown>))
+        }
         else (el as Element).setAttribute(pl.key, String(pl.value))
       }
       break
