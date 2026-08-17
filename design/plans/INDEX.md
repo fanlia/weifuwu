@@ -27,6 +27,7 @@ weifuwu 从"高质量仓库"成为"可生存、可增长、可感知的开源项
 | 04 | [设计质量](04-design-quality.md) | 微流明文档 + 页面视觉改版可感知 | 设计语言 2.0 文档 | 未开始 |
 | 05 | [showcase 演进](05-showcase-evolution.md) | weifuwu.dev 可访问 + 可索引 | PORT env / Dockerfile / 首页 SSR | 未开始 |
 | 06 | [组件缺口](06-components-gap.md) | 三库对照缺口清零（移动端/虚拟化/深度能力） | TabBar / ActionSheet / Slider range | 未开始 |
+| 07 | [全覆盖与命名](07-components-full-coverage.md) | 品类/能力全覆盖 + 命名治理（家族归并/近义区分/分类审计）+ 用户入口 | P0 品类 + FilePreview 家族合并 | 未开始 |
 
 ## 依赖关系
 
