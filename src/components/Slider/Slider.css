@@ -154,3 +154,37 @@
 .wf-slider-input:disabled { cursor: not-allowed; }
 .wf-slider-input:disabled::-webkit-slider-thumb,
 .wf-slider-input:disabled::-moz-range-thumb { cursor: not-allowed; }
+
+/* ── range 模式：双滑块（lo/hi input 叠加——轨道透明，填充分离绘制） ── */
+.wf-slider-range {
+  position: relative;
+  /* thumb 18px 超出轨道——容器高度容纳（原 margin:8px 0 语义移至容器） */
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+.wf-slider-range .wf-slider-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  background: transparent;
+  pointer-events: none; /* 轨道不响应——点击/拖拽只走 thumb（双 thumb 互不抢事件） */
+  /* 层级 = DOM 顺序（hi 后渲染天然在上——重叠时点最上层 = 上限）——audit 禁 z-index 数字 */
+}
+
+/* thumb 可交互（pointer-events 只在 thumb 上——轨道命中不抢） */
+.wf-slider-range .wf-slider-input::-webkit-slider-thumb { pointer-events: auto; }
+.wf-slider-range .wf-slider-input::-moz-range-thumb { pointer-events: auto; }
+
+/* range 模式轨道填充（双 thumb 之间） */
+.wf-slider-range-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  margin: auto;
+  height: 6px;
+  background: var(--wf-color-primary);
+  border-radius: var(--wf-radius-xs);
+  pointer-events: none;
+}

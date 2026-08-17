@@ -1,0 +1,98 @@
+/* weifuwu/components — TabBar 底部标签栏 */
+
+.wf-tab-bar {
+  display: flex;
+  align-items: stretch;
+  background: var(--wf-color-bg-elevated);
+  border-top: 1px solid var(--wf-color-border);
+  /* 小按钮固定尺寸纪律（§5.6）：防全局 button min-height:36px 撑高 tab */
+  min-height: 56px;
+}
+
+/* 底部固定：safe-area 避让手势条 + 浮层层级 */
+.wf-tab-bar--fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--wf-z-popover);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.wf-tab-bar-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--wf-color-text-tertiary);
+  transition: color var(--wf-dur-fast) var(--wf-ease-out),
+              background-color var(--wf-dur-fast) var(--wf-ease-out);
+  position: relative;
+}
+
+.wf-tab-bar-item:hover:not(:disabled) {
+  color: var(--wf-color-text-secondary);
+  background: var(--wf-state-hover);
+}
+
+.wf-tab-bar-item:active:not(:disabled) {
+  background: var(--wf-state-pressed);
+}
+
+.wf-tab-bar-item--active {
+  color: var(--wf-color-primary-text);
+  font-weight: var(--wf-font-weight-semibold);
+}
+
+.wf-tab-bar-item--active::before {
+  /* 激活指示条（细边框美学——层级用边界表达） */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--wf-color-primary);
+}
+
+.wf-tab-bar-item:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-tab-bar-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  line-height: 1;
+}
+
+/* 角标（右上角小圆点——badge 数字） */
+.wf-tab-bar-badge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--wf-radius-xl);
+  background: var(--wf-color-error);
+  color: var(--wf-color-on-brand);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-weight: var(--wf-font-weight-semibold);
+  pointer-events: none;
+}
+
+.wf-tab-bar-label {
+  font-size: var(--wf-font-size-xs);
+  line-height: 1.2;
+  white-space: nowrap;
+}

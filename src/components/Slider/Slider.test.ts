@@ -158,3 +158,91 @@ describe('Slider disabled（F2 状态矩阵）', () => {
     assert.ok(!input.props.disabled, '非 disabled 无 disabled prop')
   })
 })
+
+describe('Slider range 模式', () => {
+  it('range 渲染双滑块（lo/hi input + 区间填充）', async () => {
+    const vnode = await renderVNode(Slider, { range: true, value: [20, 80], min: 0, max: 100 }, createTestCtx())!
+    const inputs = (() => {
+      const out: any[] = []
+      const walk = (v: any) => {
+        if (!v || typeof v !== 'object') return
+        if (v?.props?.type === 'range') out.push(v)
+        const kids = v.props?.children
+        if (Array.isArray(kids)) kids.forEach(walk)
+        else if (kids && typeof kids === 'object') walk(kids)
+      }
+      walk(vnode)
+      return out
+    })()
+    assert.equal(inputs.length, 2, '双 input')
+    assert.ok(inputs[0].props.class.includes('wf-slider-input--lo'))
+    assert.ok(inputs[1].props.class.includes('wf-slider-input--hi'))
+    assert.equal(inputs[0].props.value, 20, 'lo 内部刻度 20')
+    assert.equal(inputs[1].props.value, 80, 'hi 内部刻度 80')
+  })
+
+  it('range 显示区间值 lo - hi', async () => {
+    const vnode = await renderVNode(Slider, { range: true, value: [30, 70] }, createTestCtx())!
+    const display = findVNode(vnode, (v: any) => v?.props?.class === 'wf-slider-value')
+    assert.equal(display.props.children, '30 - 70')
+  })
+
+  it('range 传反自动纠正（[80, 20] → lo=20 hi=80）', async () => {
+    const vnode = await renderVNode(Slider, { range: true, value: [80, 20] }, createTestCtx())!
+    const inputs: any[] = []
+    const walk = (v: any) => {
+      if (!v || typeof v !== 'object') return
+      if (v?.props?.type === 'range') inputs.push(v)
+      const kids = v.props?.children
+      if (Array.isArray(kids)) kids.forEach(walk)
+      else if (kids && typeof kids === 'object') walk(kids)
+    }
+    walk(vnode)
+    assert.equal(inputs[0].props.value, 20, 'lo=20')
+    assert.equal(inputs[1].props.value, 80, 'hi=80')
+  })
+
+  it('range 区间填充：left=lo 偏移、width=区间比例', async () => {
+    const vnode = await renderVNode(Slider, { range: true, value: [25, 75], min: 0, max: 100 }, createTestCtx())!
+    const fill = findVNode(vnode, (v: any) => v?.props?.class === 'wf-slider-range-fill')
+    assert.ok(fill, '填充层存在')
+    assert.match(fill.props.style.left, /\* 0.25/, 'left = lo 偏移')
+    assert.match(fill.props.style.width, /\* 0.5/, 'width = (hi-lo)/100')
+  })
+
+  it('range 单值回调不受影响（onChange 不随 range 触发——类型隔离）', async () => {
+    const calls: any[] = []
+    const ctx = createTestCtx()
+    const vnode = await renderVNode(Slider, { range: true, value: [10, 90], onRangeChange: (v) => calls.push(v), onChange: () => calls.push('single') }, ctx)!
+    const inputs: any[] = []
+    const walk = (v: any) => {
+      if (!v || typeof v !== 'object') return
+      if (v?.props?.type === 'range') inputs.push(v)
+      const kids = v.props?.children
+      if (Array.isArray(kids)) kids.forEach(walk)
+      else if (kids && typeof kids === 'object') walk(kids)
+    }
+    walk(vnode)
+    // 触发 lo input 的 onInput（内部 0-100 刻度 10 → 20）
+    inputs[0].props.onInput({ target: { value: 20 } })
+    assert.equal(calls.length, 1)
+    assert.deepEqual(calls[0], [20, 90], 'onRangeChange 收到 [lo, hi]')
+  })
+
+  it('range clamp：lo 不超过 hi - step（防交叉）', async () => {
+    const calls: any[] = []
+    const vnode = await renderVNode(Slider, { range: true, value: [40, 60], step: 10, onRangeChange: (v) => calls.push(v) }, createTestCtx())!
+    const inputs: any[] = []
+    const walk = (v: any) => {
+      if (!v || typeof v !== 'object') return
+      if (v?.props?.type === 'range') inputs.push(v)
+      const kids = v.props?.children
+      if (Array.isArray(kids)) kids.forEach(walk)
+      else if (kids && typeof kids === 'object') walk(kids)
+    }
+    walk(vnode)
+    // lo 拖到 70（超过 hi-10=50）→ clamp 到 50
+    inputs[0].props.onInput({ target: { value: 70 } })
+    assert.deepEqual(calls[0], [50, 60], 'lo 被 clamp 到 hi-step')
+  })
+})

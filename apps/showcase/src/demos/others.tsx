@@ -36,6 +36,7 @@ import {
   Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
   Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
   JsonSchemaForm, ReasoningBlock, CitationCard, SessionList,
+  TabBar, ActionSheet,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
@@ -138,6 +139,57 @@ export const DemoMath: Component = async (_props: any) => async (_p: any) => (
   </div>
 )
 
+/** TabBar：底部标签栏（移动端导航——MUI BottomNavigation 对位） */
+export const DemoTabBar: Component = async (_props: any, ctx: any) => {
+  let tab = 'home'
+  return async () => (
+    <div class="wf-stack wf-gap-sm wf-border wf-rounded-md" style="position:relative;min-height:320px;overflow:hidden">
+      <div class="wf-p-lg wf-fill wf-text-sm wf-text-secondary">
+        {tab === 'home' && '🏠 首页——组件/页面/应用/后端/能力/指南 一站式'}
+        {tab === 'message' && '💬 消息——会话列表 + 审批通知'}
+        {tab === 'search' && '🔍 发现——文档与模板搜索'}
+        {tab === 'me' && '👤 我的——主题/预设/设置'}
+      </div>
+      <TabBar
+        items={[
+          { key: 'home', label: '首页', icon: 'home' },
+          { key: 'message', label: '消息', icon: 'message', badge: 3 },
+          { key: 'search', label: '发现', icon: 'search' },
+          { key: 'me', label: '我的', icon: 'user' },
+        ]}
+        activeKey={tab}
+        onChange={(k: string) => { tab = k; ctx.ui.render() }}
+      />
+    </div>
+  )
+}
+
+/** ActionSheet：动作面板（移动端底部滑出——照片选择/更多操作） */
+export const DemoActionSheet: Component = async (_props: any, ctx: any) => {
+  let open = false
+  let last = '未选择'
+  return async () => (
+    <div class="wf-stack wf-gap-sm wf-border wf-rounded-md" style="min-height:120px">
+      <div class="wf-p-md wf-text-sm wf-text-secondary">选择结果：{last}</div>
+      <div class="wf-p-md">
+        <button class="wf-btn" type="button" onClick={() => { open = true; ctx.ui.render() }}>选择操作</button>
+      </div>
+      <ActionSheet
+        open={open}
+        title="选择操作"
+        items={[
+          { key: 'camera', label: '拍照', icon: 'camera' },
+          { key: 'album', label: '从相册选择', icon: 'image' },
+          { key: 'share', label: '分享', icon: 'share' },
+          { key: 'delete', label: '删除', icon: 'trash', danger: true },
+        ]}
+        onSelect={(k: string) => { last = k; ctx.ui.render() }}
+        onClose={() => { open = false; ctx.ui.render() }}
+      />
+    </div>
+  )
+}
+
 export const DEMOS: Record<string, any> = {
   VideoPlayer: DemoVideoPlayer,
   Math: DemoMath,
@@ -147,4 +199,6 @@ export const DEMOS: Record<string, any> = {
   "PageHeader": DemoPageHeader,
   "Icon": DemoIcon,
   "Divider": DemoDivider,
+  "TabBar": DemoTabBar,
+  "ActionSheet": DemoActionSheet,
 }

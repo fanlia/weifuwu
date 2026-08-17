@@ -9,14 +9,17 @@
 | prop | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `label` | `string` | 否 |  |
-| `value` | `number \| string` | 否 |  |
+| `value` | `number \| string \| [number, number]` | 否 | 单值模式 value；range 模式 [lo, hi]（传反自动纠正） |
 | `min` | `number` | 否 |  |
 | `max` | `number` | 否 |  |
 | `step` | `number` | 否 |  |
 | `disabled` | `boolean` | 否 |  |
+| `range` | `boolean` | 否 | range 模式：双滑块区间（价格/日期/年龄筛选——三库标配） |
 | `marks` | `SliderMark[]` | 否 | 刻度标记（轨道下方刻度线 + 可选文字标签） |
-| `onChangeEnd` | `(value: number) => void` | 否 | 拖拽结束回调（pointerup） |
-| `onChange` | `(value: number) => void` | 否 |  |
+| `onChangeEnd` | `(value: number) => void` | 否 | 单值拖拽结束回调（pointerup） |
+| `onChange` | `(value: number) => void` | 否 | 单值实时回调 |
+| `onRangeChange` | `(value: [number, number]) => void` | 否 | range 实时回调（range 模式专用——类型独立防单值误用） |
+| `onRangeChangeEnd` | `(value: [number, number]) => void` | 否 | range 拖拽结束回调 |
 
 ## 用法示例
 

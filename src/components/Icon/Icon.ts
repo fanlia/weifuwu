@@ -27,6 +27,8 @@ export type IconName =
   | 'inbox' | 'shield' | 'zap' | 'target' | 'mail' | 'external-link' | 'log-out'
   | 'lock' | 'list' | 'bar-chart' | 'gauge' | 'paperclip' | 'filter' | 'layers' | 'map-pin'
   | 'book-open' | 'github' | 'tag' | 'phone' | 'more-vertical' | 'check-circle' | 'alert-circle' | 'wifi' | 'cpu' | 'hard-drive' | 'globe' | 'briefcase' | 'layout'
+  // 移动端/媒体（ActionSheet 场景——2026-12 扩充）
+  | 'camera' | 'image' | 'share'
 
 export interface IconProps {
   name: IconName
@@ -116,6 +118,9 @@ const PATHS: Record<IconName, string[]> = {
   globe: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M2 12h20', 'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'],
   briefcase: ['M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16', 'M2 20h20', 'M4 4h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'],
   layout: ['M3 3h18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M9 3v18', 'M3 9h18'],
+  camera: ['M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z', 'M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
+  image: ['M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', 'M21 15l-5-5L5 21'],
+  share: ['M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8', 'M16 6l-4-4-4 4', 'M12 2v13'],
 }
 
 export const Icon: Component<IconProps> = async (_init, _ctx) =>

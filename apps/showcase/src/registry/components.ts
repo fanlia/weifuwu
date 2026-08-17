@@ -1594,4 +1594,24 @@ export const components: ComponentEntry[] = [
     "cssFile": "src/components/Typography/Typography.css",
     "testFile": "src/components/Typography/Typography.test.ts"
   }
+,
+  {
+    "id": "tabbar",
+    "name": "TabBar",
+    "category": "navigation",
+    "desc": "底部标签栏——移动端 App 主导航（3-5 tab + icon/badge/受控激活 + safe-area 避让）",
+    "sourceFile": "src/components/TabBar/TabBar.ts",
+    "cssFile": "src/components/TabBar/TabBar.css",
+    "testFile": "src/components/TabBar/TabBar.test.ts"
+  }
+,
+  {
+    "id": "actionsheet",
+    "name": "ActionSheet",
+    "category": "overlay",
+    "desc": "动作面板——移动端底部滑出（命令列表 + 取消按钮，usePopup 会话级模态）",
+    "sourceFile": "src/components/ActionSheet/ActionSheet.ts",
+    "cssFile": "src/components/ActionSheet/ActionSheet.css",
+    "testFile": "src/components/ActionSheet/ActionSheet.test.ts"
+  }
 ]

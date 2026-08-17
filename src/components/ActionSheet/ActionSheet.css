@@ -1,0 +1,150 @@
+/* weifuwu/components — ActionSheet 动作面板（移动端底部滑出） */
+
+.wf-actionsheet {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wf-z-popover);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--wf-space-md);
+}
+
+/* 遮罩（禁裸 rgba——audit 强制） */
+.wf-actionsheet-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--wf-overlay);
+  border: none;
+  cursor: pointer;
+}
+
+/* 面板：底部滑出（enter/exit 成对——audit 强制） */
+.wf-actionsheet-panel {
+  position: relative;
+  background: var(--wf-color-bg-elevated);
+  border-radius: var(--wf-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--wf-shadow-lg);
+}
+
+.wf-actionsheet--enter .wf-actionsheet-panel {
+  animation: wf-actionsheet-slidein var(--wf-dur-base) var(--wf-ease-out);
+}
+
+.wf-actionsheet--exit .wf-actionsheet-panel {
+  animation: wf-actionsheet-slideout var(--wf-dur-base) var(--wf-ease-in);
+}
+
+.wf-actionsheet--enter .wf-actionsheet-overlay {
+  animation: wf-actionsheet-overlay-fadein var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-actionsheet--exit .wf-actionsheet-overlay {
+  animation: wf-actionsheet-overlay-fadeout var(--wf-dur-fast) var(--wf-ease-in);
+}
+
+@keyframes wf-actionsheet-slidein {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes wf-actionsheet-slideout {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+@keyframes wf-actionsheet-overlay-fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes wf-actionsheet-overlay-fadeout {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.wf-actionsheet-title {
+  padding: var(--wf-space-md);
+  text-align: center;
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+  border-bottom: 1px solid var(--wf-color-border-light);
+}
+
+/* 项：固定 min/max-height（§5.6——全局 button min-height:36px 防撑高） */
+.wf-actionsheet-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wf-gap-xs);
+  width: 100%;
+  min-height: 48px;
+  max-height: 48px;
+  padding: 0 var(--wf-space-md);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--wf-color-border-light);
+  font-size: var(--wf-font-size-base);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-actionsheet-item:hover:not(:disabled) {
+  background: var(--wf-state-hover);
+}
+
+.wf-actionsheet-item:active:not(:disabled) {
+  background: var(--wf-state-pressed);
+}
+
+.wf-actionsheet-item:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-actionsheet-item--danger {
+  color: var(--wf-color-error-text);
+}
+
+.wf-actionsheet-item--disabled {
+  color: var(--wf-color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* 分隔（取消按钮上方的结构分隔——细边框美学） */
+.wf-actionsheet-divider {
+  height: 8px;
+  background: var(--wf-color-bg-secondary);
+}
+
+.wf-actionsheet-cancel {
+  width: 100%;
+  min-height: 48px;
+  max-height: 48px;
+  background: transparent;
+  border: none;
+  font-size: var(--wf-font-size-base);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-actionsheet-cancel:hover {
+  background: var(--wf-state-hover);
+}
+
+.wf-actionsheet-cancel:active {
+  background: var(--wf-state-pressed);
+}
+
+.wf-actionsheet-cancel:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-actionsheet-icon {
+  color: inherit;
+}

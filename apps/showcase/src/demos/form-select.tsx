@@ -118,6 +118,9 @@ const DemoSlider: Component = async (_props, ctx) => {
         marks={[{ value: 0, label: '0' }, { value: 500 }, { value: 1000 }, { value: 1500 }, { value: 2000, label: '2000' }]}
         onChange={v => { price = v; ctx.ui.render() }}
         onChangeEnd={v => console.log('价格调整完成:', v)} />
+      <Slider label="价格区间" range value={[300, 1500]} min={0} max={2000} step={50}
+        onChange={v => { console.log('区间:', v) }}
+        onRangeChange={v => { console.log('区间实时:', v) }} />
     </div>
   )
 }

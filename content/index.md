@@ -5,7 +5,7 @@
 
 ## 域索引
 
-- **组件**（154）：逐一组件文档（API 表/纪律/关系/验证）——[components/](components/)
+- **组件**（156）：逐一组件文档（API 表/纪律/关系/验证）——[components/](components/)
 - **布局原语**（20 族）：wf-* 原语与工具类——[layout/](layout/)
 - **页面模式**（11）：复制即用的完整页面——[patterns/](patterns/)
 - **应用模板**（5）：完整可运行应用（含 agent-platform 生产级案例）——[apps/](apps/)
@@ -173,3 +173,5 @@
 - [Title](components/title.md) — 标题排版（语义标签 + 语义色 -text 变体）——Typography 家族
 - [Text](components/text.md) — 正文排版（语义色 -text 变体 + mark/code/删除线）——Typography 家族
 - [Paragraph](components/paragraph.md) — 段落排版——Typography 家族
+- [TabBar](components/tabbar.md) — 底部标签栏——移动端 App 主导航（3-5 tab + icon/badge/受控激活 + safe-area 避让）
+- [ActionSheet](components/actionsheet.md) — 动作面板——移动端底部滑出（命令列表 + 取消按钮，usePopup 会话级模态）
