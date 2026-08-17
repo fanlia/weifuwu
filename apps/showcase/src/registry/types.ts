@@ -24,6 +24,8 @@ export interface ComponentEntry {
   category: CategoryId
   /** 一句话描述（概述节——精确、无营销文案） */
   desc: string
+  /** 家族标识（同名域组件导航——file-preview / ai-chat；搜索反链数据源） */
+  family?: 'file-preview' | 'ai-chat'
   /** 迁移期：CODE 引用键（main.tsx CODE.xxx） */
   codeKey?: string
   /** 迁移期：demo 组件名（main.tsx DemoXxx） */

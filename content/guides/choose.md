@@ -44,6 +44,20 @@
 | 弹层（下拉/弹窗/tooltip） | ✅ 组件（usePopup 基座） | ❌ |
 | 纯视觉容器（卡片面/分隔） | 两者皆可 | ✅ wf-surface/wf-border |
 
+## 近义组件选型（名字相近/功能重叠——一句话决策）
+
+```
+列表类：List（<500 条）→ VirtualList / VirtualTable（>500 条）
+选择类：固定选项 → Select；自由输入联想 → AutoComplete；纯搜索 → SearchInput
+编辑类：轻量 md → Editor；代码 → CodeEditor；分屏预览 → MarkdownEditor
+树形类：展示/勾选 → Tree；下拉选择 → TreeSelect；路径级联 → Cascader
+折叠类：多开 → Collapse；单开（互斥）→ Accordion
+通知类：轻反馈 → Toast；持久通知 → Notification
+主题类：pressed 语义 → ToggleGroup；选中态样式 → SegmentedControl
+图片类：展示 → Img；裁剪 → ImageCropper；头像 → Avatar
+Office 文档：预览/编辑 → FilePreview；xlsx → FilePreview.Sheet；pptx → FilePreview.Slide
+```
+
 ## 关键纪律（选型时就要知道）
 
 1. **浮层必须组件 + portal**：dropdown/select/datepicker/menubar/cascader/mentions/contextmenu/tooltip/popover/hovercard/modal/drawer/toast/notification/confirm/tour/command——这些已有组件，直接复用；新弹层组件必须 `ctx.ui.usePopup`

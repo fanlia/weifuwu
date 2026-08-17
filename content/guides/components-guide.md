@@ -790,3 +790,24 @@ commit 事件流（同一时间线）。**sandbox 集成**：`url` 加载 + `onS
 
 ---
 
+---
+
+## 易混组件对照（选型必读——名字相近或功能重叠时的一句话决策）
+
+| 易混组 | 选型规则（一句话） |
+|--------|------------------|
+| Toast vs Notification | 操作反馈（轻、自动消失） vs 系统通知（重、持久列表）——命令式 API 同源 |
+| Menu vs Menubar vs NavMenu | 侧栏菜单（分组+方向键） vs 水平菜单栏（顶层+子菜单） vs 页面主导航（子菜单折叠态） |
+| List vs VirtualList | 数据量 <500 用 List；>500 或未知用 VirtualList（固定行高） |
+| Table vs VirtualTable | 同 List 规则（VirtualTable 虚拟行渲染） |
+| Select vs AutoComplete vs SearchInput | 固定选项单选 vs 自由输入联想（带下拉） vs 搜索框（无下拉语义） |
+| Editor vs CodeEditor vs MarkdownEditor | 轻量 markdown vs 代码（行号/Tab） vs 分屏实时预览 |
+| Collapse vs Accordion | 多开（互不干扰） vs 单开（互斥语义） |
+| Alert vs AlertGroup | 单条静态 vs 多条轮播（自动/手动切换） |
+| ToggleGroup vs SegmentedControl | pressed 状态语义（shadcn） vs 选中态样式（antd Segmented） |
+| Img vs ImageCropper vs Avatar | 展示+预览 vs 裁剪流程 vs 头像（名字哈希色） |
+| Tree vs TreeSelect vs Cascader | 树形展示/勾选 vs 树形选择（下拉） vs 级联选择（路径语义） |
+| SheetGrid vs SlideCanvas（FilePreview.Sheet/.Slide） | xlsx 网格编辑 vs pptx 画布编辑——均从 FilePreview 入口发现 |
+
+> **家族导航**：`FilePreview`（预览入口）→ `FilePreview.Sheet`（xlsx）/ `FilePreview.Slide`（pptx）；
+> AI 会话族（AiChat/ChatInput/MessageBubble/SessionList/ReasoningBlock/ToolCallCard/CitationCard/ApprovalCard）统一归 ai 分类。

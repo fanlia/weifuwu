@@ -166,10 +166,24 @@ export type { AuthPageProps } from './AuthPage/AuthPage.ts'
 export { Markdown } from './Markdown/Markdown.ts'
 export type { MarkdownProps } from './Markdown/Markdown.ts'
 export { parseMarkdown, parseInline } from './Markdown/parser.ts'
-export { FilePreview } from './FilePreview/FilePreview.ts'
-export { SheetGrid } from './SheetGrid/SheetGrid.ts'
+// ── FilePreview 家族（命名空间合并——07 组件治理：office 文档域单入口） ──
+// FilePreview = 预览/编辑入口 · FilePreview.Sheet = xlsx 网格编辑器 · FilePreview.Slide = pptx 画布编辑器
+// 顶层 SheetGrid/SlideCanvas 别名保留（向后兼容——新代码引导走命名空间）
+import { FilePreview as _FilePreview } from './FilePreview/FilePreview.ts'
+import { SheetGrid as _SheetGrid } from './SheetGrid/SheetGrid.ts'
+import { SlideCanvas as _SlideCanvas } from './SlideCanvas/SlideCanvas.ts'
+export const FilePreview = Object.assign(_FilePreview, {
+  /** xlsx 网格编辑器（SheetGrid） */
+  Sheet: _SheetGrid,
+  /** pptx 画布编辑器（SlideCanvas） */
+  Slide: _SlideCanvas,
+})
+export type FilePreviewComponent = typeof _FilePreview & {
+  Sheet: typeof _SheetGrid
+  Slide: typeof _SlideCanvas
+}
+export { _SheetGrid as SheetGrid, _SlideCanvas as SlideCanvas }
 export type { SheetGridProps } from './SheetGrid/SheetGrid.ts'
-export { SlideCanvas } from './SlideCanvas/SlideCanvas.ts'
 export type { SlideCanvasProps } from './SlideCanvas/SlideCanvas.ts'
 export type { FilePreviewProps, FileType } from './FilePreview/FilePreview.ts'
 export { markdownToHtml, serializeMarkdown } from './FilePreview/markdown.ts'
