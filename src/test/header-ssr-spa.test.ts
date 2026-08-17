@@ -25,6 +25,18 @@ test('Header SSR/SPA 差异分析：SSR 内联版 vs SPA Shell 类版', async ()
   const ssrEl = document.createElement('div')
   ssrEl.innerHTML = ssr
 
+  // ── SSR header 使用的 var() 必须全部是已定义 token（防闪白事故回归：
+  //    曾用不存在的 --wf-color-bg-primary → 恒回落 #fff → 暗色模式 SSR 白底 header） ──
+  const varNames = [...ssr.matchAll(/var\((--wf-[a-z0-9-]+)/g)].map((m) => m[1])
+  const tokenSrc = ['_tokens.css', '_dark.css', '_base.css']
+    .map((f) => readFileSync(join(root, 'src/layout', f), 'utf-8'))
+    .join('\n')
+  const definedVars = new Set([...tokenSrc.matchAll(/(--wf-[a-z0-9-]+)\s*:/g)].map((m) => m[1]))
+  const undefinedVars = [...new Set(varNames)].filter((v) => !definedVars.has(v))
+  assert.deepEqual(undefinedVars, [], `SSR header 使用了未定义 token: ${undefinedVars.join(', ')}（会回落 fallback——暗色模式闪白）`)
+  // 背景变量必须与 SPA Shell 的 wf-bg-primary 同源（var(--wf-color-primary-bg)）——接管前后底色一致
+  assert.match(ssr, /background:var\(--wf-color-primary-bg/, 'SSR header 背景必须用 --wf-color-primary-bg（wf-bg-primary 同源）')
+
   // ── SPA header（Shell.tsx——wf-* 类版）——用 esbuild 编译（.tsx node 无法直 import） ──
   const esbuild = await import('esbuild')
   const code = await esbuild.transform(

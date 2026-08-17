@@ -1,6 +1,10 @@
 /**
  * SSR 共享 header（shellHeader）——首页/文档页 SSR 首帧的导航壳
  * 与 SPA Shell（shell.tsx）视觉一致——抽独立模块供测试对比（SSR vs SPA 差异分析）
+ *
+ * 颜色变量必须与 SPA Shell 的 wf-* 类同变量（wf-bg-primary = var(--wf-color-primary-bg)）：
+ * 曾用 var(--wf-color-bg-primary)（不存在的变量）→ 恒回落 #fff → 暗色模式 SSR 白底 header，
+ * SPA 接管后变暗色——刷新闪白事故（agent-browser 实测确认）。
  */
 export const NAV_ITEMS = [
   ['components', '组件'], ['layout', '布局原语'], ['patterns', '页面模式'],
@@ -9,7 +13,7 @@ export const NAV_ITEMS = [
 
 /** SSR header HTML（inline style——与 SPA Shell 的 wf-* 类等效；active 为当前域高亮）
  * 含 ThemeSwitch 静态占位（与 SPA 同宽同文——接管时右侧不重排——header 闪白/变样的主因） */
-export const shellHeader = (active: string): string => `<div style="position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--wf-color-bg-primary,#fff);border-bottom:1px solid var(--wf-color-border,#e2e8f0)">
+export const shellHeader = (active: string): string => `<div style="position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--wf-color-primary-bg,#fff);border-bottom:1px solid var(--wf-color-border,#e2e8f0)">
   <a href="/" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:inherit;white-space:nowrap;font-weight:700;font-size:14px">wf/showcase</a>
   <nav style="display:flex;gap:4px;flex:1;overflow-x:auto">
     ${NAV_ITEMS.map(([id, name]) => `<a href="/${id}" style="padding:4px 10px;border-radius:6px;text-decoration:none;font-size:13px;white-space:nowrap;${active === id ? 'color:var(--wf-color-primary,#2563eb);font-weight:600' : 'color:var(--wf-color-text-secondary,#64748b)'}">${name}</a>`).join('')}
