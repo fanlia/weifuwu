@@ -585,3 +585,69 @@ test('vdom4 迁移试点：真实 Toast（usePopup 常驻容器 + keyed 增删�
   handle.unmount()
   document.body.removeChild(root)
 })
+
+// ── 组件库试金石第 4 批：Tabs（keyed + 键盘导航 + useControlled） + Popover（usePopupPosition 锚点定位） ──
+
+test('vdom4 迁移试点：真实 Tabs（keyed + useControlled + 方向键导航）', async () => {
+  const { Tabs } = await import('../components/Tabs/Tabs.ts')
+  const root = mkRoot()
+  let active = 'tab1'
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    return () => h('div', {}, [
+      h(Tabs, {
+        items: [
+          { key: 'tab1', label: '概览', content: h('div', {}, '内容1') },
+          { key: 'tab2', label: '详情', content: h('div', {}, '内容2') },
+          { key: 'tab3', label: '设置', content: h('div', {}, '内容3') },
+        ],
+        active,
+        onChange: (k: string) => { active = k; ctx.render() },
+      }),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const tabs = [...root.querySelectorAll('.wf-tab')] as HTMLElement[]
+  assert.strictEqual(tabs.length, 3, '3 个 tab')
+  assert.ok(tabs[0].classList.contains('wf-tab--active'), '初始第一个激活')
+  // 点击第二个（keyed 更新——active 切换）
+  ;(tabs[1] as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok((root.querySelectorAll('.wf-tab')[1] as HTMLElement).classList.contains('wf-tab--active'), '点击后第二个激活')
+  assert.ok(root.querySelector('.wf-tab-content')?.textContent?.includes('内容2'), '内容面板切换')
+  // 键盘导航（方向键——roving tabindex——focus 跟随——jsdom 需先 focus tab）
+  ;(root.querySelectorAll('.wf-tab')[1] as HTMLElement).focus()
+  const list = root.querySelector('.wf-tab-list') as HTMLElement
+  list.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok((root.querySelectorAll('.wf-tab')[2] as HTMLElement).classList.contains('wf-tab--active'), 'ArrowRight → 第三个激活')
+  handle.unmount()
+  document.body.removeChild(root)
+})
+
+test('vdom4 迁移试点：真实 Popover（usePopupPosition 锚点定位 + portal 切换）', async () => {
+  const { Popover } = await import('../components/Popover/Popover.ts')
+  const root = mkRoot()
+  const App = (_init: Record<string, unknown>) => {
+    return () => h('div', {}, [
+      h(Popover, { content: h('div', { class: 'pv-content' }, '提示内容'), position: 'bottom' },
+        h('button', { id: 'pv-trigger' }, '悬浮提示')),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  assert.ok(root.querySelector('#pv-trigger'), 'trigger 渲染')
+  assert.ok(!document.querySelector('.wf-popover'), '初始关闭（无 portal）')
+  // 点击 trigger → 打开（usePopup——portal + 定位）
+  ;(root.querySelector('#pv-trigger') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 30))
+  const popover = document.querySelector('.wf-popover') as HTMLElement | null
+  assert.ok(popover, '点击后 popover 打开（portal）')
+  assert.ok(popover?.textContent?.includes('提示内容'), '内容渲染')
+  // 外部点击关闭（usePopup click 触发只开不关——Select 教训——关闭走外部 mousedown）
+  document.body.dispatchEvent(new (window as any).MouseEvent('mousedown', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 30))
+  assert.ok(!document.querySelector('.wf-popover'), '外部点击关闭（portal 移除）')
+  handle.unmount()
+  document.body.removeChild(root)
+})

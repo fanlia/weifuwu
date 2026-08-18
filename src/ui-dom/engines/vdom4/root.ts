@@ -15,6 +15,7 @@ import { diffTree } from './diff.ts'
 import { diffComponent } from './diff.ts'
 import { applyCommands, type ApplyEnv } from './apply.ts'
 import { createV4Ui } from './ui.ts'
+import { createClientBrowser } from '../../browser.ts'
 
 /** 组件 ctx 组装（vdom4 面——**每组件实例一份**——render 闭包绑定 compId：
  *  ctx.render() 无参 = 本组件级更新（事件回调里调用——非 build 上下文——必须闭包绑定） */
@@ -32,7 +33,7 @@ function makeCompCtx(
     data,
     // onUnmount 绑定本组件（工厂期注册——卸载时执行）
     onUnmount: (fn: () => void) => { engine.unmountHooksFor(compId).push(fn) },
-    browser: (inject as { browser?: unknown })?.browser ?? (typeof document !== 'undefined' ? {} : null),
+    browser: (inject as { browser?: unknown })?.browser ?? createClientBrowser(),
     ui: createV4Ui(compId, () => engine.renderComp(compId), (fn) => engine.unmountHooksFor(compId).push(fn)),
     __compId: compId,
   }) as Ctx

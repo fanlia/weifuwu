@@ -139,8 +139,16 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
     const oldAnchor = oldAnchors[cursor] ?? null
 
     if (c == null && i >= kids.length) {
-      // 旧项多余——移除槽位（锚 + 内容区间）
+      // 旧项多余——移除槽位（锚 + 内容区间）——portal 内容在远程容器需显式清
       if (oldAnchor) cmds.push({ op: 'remove', id: oldAnchor })
+      if (oc != null) {
+        if (typeof (oc as VNode).type === 'function') {
+          cmds.push({ op: 'unmountComp', compId: contentPath })
+        }
+        if (typeof (oc as VNode).type === 'symbol' && (oc as VNode).props?.portalKey != null) {
+          cmds.push({ op: 'remove', id: `${contentPath}.p` })
+        }
+      }
       cursor++
       continue
     }
