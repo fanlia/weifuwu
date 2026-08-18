@@ -8,7 +8,8 @@
 
 import type { VNode, Component, V3Ctx } from './types.ts'
 import { h } from './jsx.ts'
-import { createRoot } from './root.ts'
+import { getRenderer } from '../services/render-service.ts'
+import '../engines/vdom3/adapter.ts' // 引擎自注册（命令式挂载依赖渲染服务——子路径/测试直接加载）
 import { bindElementListener } from './delegate.ts'
 import { Confirm } from '../../components/Confirm/Confirm.ts'
 import { Notification } from '../../components/Notification/Notification.ts'
@@ -52,7 +53,7 @@ function createV3Confirm(message: string, options: Record<string, unknown>, _ctx
         }))
       }
     }
-    const handle = createRoot(h(Host, {}), container, { ctx: { ..._ctx } })
+    const handle = getRenderer().mountCommand(h(Host, {}), container, { ctx: { ..._ctx } })
     // 退场后清理（animationend 或兜底）
     const cleanup = () => {
       handle.unmount()
@@ -91,7 +92,7 @@ function createV3Toast(message: string, variant: 'success' | 'error' | 'warning'
   document.body.appendChild(container)
   const Host: Component = async () => async () =>
     h('div', { class: `wf-toast wf-toast--${variant}` }, h('span', { class: 'wf-toast-msg' }, message))
-  const handle = createRoot(h(Host, {}), container)
+  const handle = getRenderer().mountCommand(h(Host, {}), container)
   // 自动消失（兜底清理）
   setTimeout(() => {
     handle.unmount()
@@ -183,7 +184,7 @@ function createV3NotificationHost(defaults: { position: NotificationPosition; du
       max: defaults.max,
       onRemove: (id: string) => remove(id),
     }))
-  const handle = createRoot(h(Host, {}), container)
+  const handle = getRenderer().mountCommand(h(Host, {}), container)
   return {
     add: (item: NotificationItem) => {
       items = [...items, item]

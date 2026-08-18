@@ -15,19 +15,9 @@ import { stream, ev } from './events.ts'
 import { ensureDelegationRoot } from './delegate.ts'
 import { getIndexedComponent } from './comp-index.ts'
 import { auditDomEvents } from './audit.ts'
+import type { RootHandle } from '../contracts/renderer.ts'
 
-
-
-export interface RootHandle {
-  ctx: V3Ctx
-  /** 组件重渲染（ctx.render 内部路径——同 tick 合并） */
-  rerender(): void
-  /** 立即刷新（测试） */
-  flush(): void
-  unmount(): void
-  /** 首帧完成 Promise（初始挂载——工厂 await + 渲染落地） */
-  ready: Promise<void>
-}
+export type { RootHandle } from '../contracts/renderer.ts'
 
 /** 组件名（事件可观测） */
 function compNameOf(v: VNode): string {

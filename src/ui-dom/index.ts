@@ -13,6 +13,13 @@
 
 export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts'
 export { App } from './vdom3/types.ts'
+
+// ── 渲染引擎注册（v5 换引擎 = 改这一行 + engines/vdom5/ 新增——ui-dom 其余零改动） ──
+import { vdom3Renderer } from './engines/vdom3/adapter.ts'
+import { setRenderer } from './services/render-service.ts'
+setRenderer(vdom3Renderer)
+export { getRenderer, setRenderer, hasRenderer } from './services/render-service.ts'
+export type { RendererService } from './contracts/renderer.ts'
 export type { VNode, VNodeChild, Component } from './vnode.ts'
 export { createClientBrowser } from './browser.ts'
 export { animateOut } from './motion.ts'
