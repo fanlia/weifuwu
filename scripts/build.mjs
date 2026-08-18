@@ -34,7 +34,7 @@ const external = [
 
 // 后端 bundle
 await esbuild.build({
-  entryPoints: [join(srcDir, 'index.ts')],
+  entryPoints: [join(srcDir, 'server', 'index.ts')],
   outfile: join(distDir, 'index.js'),
   format: 'esm',
   platform: 'node',
@@ -70,7 +70,7 @@ for (const d of ['content', 'examples']) {
 
 // ui-dom bundle（前端运行时——UIRouter/uiServe/渲染器/契约）
 await esbuild.build({
-  entryPoints: [join(srcDir, 'ui-dom', 'index.ts')],
+  entryPoints: [join(srcDir, 'client', 'ui-dom', 'index.ts')],
   outfile: join(distDir, 'ui-dom', 'index.js'),
   format: 'esm',
   platform: 'browser',
@@ -82,7 +82,7 @@ await esbuild.build({
 
 // ui-dom/jsx-runtime
 await esbuild.build({
-  entryPoints: [join(srcDir, 'ui-dom', 'jsx-runtime.ts')],
+  entryPoints: [join(srcDir, 'client', 'ui-dom', 'jsx-runtime.ts')],
   outfile: join(distDir, 'ui-dom', 'jsx-runtime.js'),
   format: 'esm',
   platform: 'browser',
@@ -92,7 +92,7 @@ await esbuild.build({
 
 // ui-dom/vdom3（下一代引擎——vnode + stream；独立入口——转正 minor 发布）
 await esbuild.build({
-  entryPoints: [join(srcDir, 'ui-dom', 'vdom3', 'index.ts')],
+  entryPoints: [join(srcDir, 'client', 'ui-dom', 'vdom3', 'index.ts')],
   outfile: join(distDir, 'ui-dom', 'vdom3.js'),
   format: 'esm',
   platform: 'browser',
@@ -102,7 +102,7 @@ await esbuild.build({
 
 // ui-dom/testing（组件测试原语子路径——vue/test-utils 模式；不污染主 index）
 await esbuild.build({
-  entryPoints: [join(srcDir, 'ui-dom', 'testing.ts')],
+  entryPoints: [join(srcDir, 'client', 'ui-dom', 'testing.ts')],
   outfile: join(distDir, 'ui-dom', 'testing.js'),
   format: 'esm',
   platform: 'browser',
@@ -111,7 +111,7 @@ await esbuild.build({
 })
 
 // 编译组件 JS
-// 关键：把组件源码对 src/ui-dom/* 的相对导入外部化为 weifuwu/ui-dom——
+// 关键：把组件源码对 src/client/ui-dom/* 的相对导入外部化为 weifuwu/ui-dom——
 // 运行时与 ui-dom bundle 共享同一模块实例（registry/组件 id 等状态不重复）。
 // 若不外部化：components bundle 内联一份 ui-dom 源码 → 命令式中间件（toast host）挂载的
 // 组件注册在 components 的 registry，而 $ 的 dirty 走 app 的 renderByIds（查 app 的 registry）
@@ -128,7 +128,7 @@ const externalizeUiDomPlugin = {
 }
 
 await esbuild.build({
-  entryPoints: [join(srcDir, 'components', 'index.ts')],
+  entryPoints: [join(srcDir, 'client', 'components', 'index.ts')],
   tsconfigRaw: { compilerOptions: { jsxImportSource: 'weifuwu/ui-dom' } },
   outfile: join(distDir, 'components', 'index.js'),
   format: 'esm',
@@ -142,7 +142,7 @@ await esbuild.build({
 })
 
 // 编译 layout CSS → 单文件（按文件映射 @layer，源文件零侵入）
-const layoutSrc = join(srcDir, 'layout')
+const layoutSrc = join(srcDir, 'client', 'layout')
 const layoutDist = join(distDir, 'layout')
 
 const LAYER_OF = {
@@ -190,12 +190,12 @@ await writeFile(join(layoutDist, 'weifuwu-layout.css'), layoutCss)
 
 // 编译组件 CSS = layout 全部 CSS（Token + 暗色 + 基础 + 布局原语 + 工具类）+ 组件 CSS（@layer components）
 // 动态扫描目录（新增组件自动包含，硬编码列表会静默漏 CSS）
-const componentDirs = (await readdir(join(srcDir, 'components'), { withFileTypes: true }))
+const componentDirs = (await readdir(join(srcDir, 'client', 'components'), { withFileTypes: true }))
   .filter(d => d.isDirectory())
   .map(d => d.name)
 let componentCss = layoutCss + '\n@layer components {\n'
 for (const dir of componentDirs) {
-  const cssPath = join(srcDir, 'components', dir, `${dir}.css`)
+  const cssPath = join(srcDir, 'client', 'components', dir, `${dir}.css`)
   try {
     componentCss += await readFile(cssPath, 'utf-8') + '\n'
   } catch (e) {

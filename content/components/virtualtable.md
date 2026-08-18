@@ -45,9 +45,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/VirtualTable/VirtualTable.ts` |
-| 样式 | `src/components/VirtualTable/VirtualTable.css` |
-| 测试 | `src/components/VirtualTable/VirtualTable.test.ts` |
+| 源码 | `src/client/components/VirtualTable/VirtualTable.ts` |
+| 样式 | `src/client/components/VirtualTable/VirtualTable.css` |
+| 测试 | `src/client/components/VirtualTable/VirtualTable.test.ts` |
 | demo | `apps/showcase/src/demos/DemoVirtualTable.tsx`（P1 拆分） |
 
 ## 验证

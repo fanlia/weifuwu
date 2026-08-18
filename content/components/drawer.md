@@ -45,9 +45,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Drawer/Drawer.ts` |
-| 样式 | `src/components/Drawer/Drawer.css` |
-| 测试 | `src/components/Drawer/Drawer.test.ts` |
+| 源码 | `src/client/components/Drawer/Drawer.ts` |
+| 样式 | `src/client/components/Drawer/Drawer.css` |
+| 测试 | `src/client/components/Drawer/Drawer.test.ts` |
 | demo | `apps/showcase/src/demos/DemoDrawer.tsx`（P1 拆分） |
 
 ## 验证

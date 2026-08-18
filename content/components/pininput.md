@@ -40,9 +40,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/PinInput/PinInput.ts` |
-| 样式 | `src/components/PinInput/PinInput.css` |
-| 测试 | `src/components/PinInput/PinInput.test.ts` |
+| 源码 | `src/client/components/PinInput/PinInput.ts` |
+| 样式 | `src/client/components/PinInput/PinInput.css` |
+| 测试 | `src/client/components/PinInput/PinInput.test.ts` |
 | demo | `apps/showcase/src/demos/DemoPinInput.tsx`（P1 拆分） |
 
 ## 验证

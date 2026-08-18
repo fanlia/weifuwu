@@ -39,9 +39,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Scrollbar/Scrollbar.ts` |
-| 样式 | `src/components/Scrollbar/Scrollbar.css` |
-| 测试 | `src/components/Scrollbar/Scrollbar.test.ts` |
+| 源码 | `src/client/components/Scrollbar/Scrollbar.ts` |
+| 样式 | `src/client/components/Scrollbar/Scrollbar.css` |
+| 测试 | `src/client/components/Scrollbar/Scrollbar.test.ts` |
 | demo | `apps/showcase/src/demos/DemoScrollbar.tsx`（P1 拆分） |
 
 ## 验证

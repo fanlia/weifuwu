@@ -15,7 +15,7 @@
 
 ## 源码
 
-`src/layout/_spacing.css`
+`src/client/layout/_spacing.css`
 
 ## 验证
 

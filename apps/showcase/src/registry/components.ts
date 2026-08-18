@@ -9,71 +9,71 @@ export const components: ComponentEntry[] = [
     "name": "VideoPlayer",
     "category": "core",
     "desc": "视频播放器——原生 video 封装（controls/封面/宽高比/事件——零依赖）",
-    "sourceFile": "src/components/VideoPlayer/VideoPlayer.ts",
-    "cssFile": "src/components/VideoPlayer/VideoPlayer.css",
-    "testFile": "src/components/VideoPlayer/VideoPlayer.test.ts"
+    "sourceFile": "src/client/components/VideoPlayer/VideoPlayer.ts",
+    "cssFile": "src/client/components/VideoPlayer/VideoPlayer.css",
+    "testFile": "src/client/components/VideoPlayer/VideoPlayer.test.ts"
   },
   {
     "id": "math",
     "name": "Math",
     "category": "core",
     "desc": "轻量公式渲染——自研 LaTeX 子集（上下标/分数/根号/希腊字母——零依赖不引 KaTeX）",
-    "sourceFile": "src/components/Math/Math.ts",
-    "cssFile": "src/components/Math/Math.css",
-    "testFile": "src/components/Math/Math.test.ts"
+    "sourceFile": "src/client/components/Math/Math.ts",
+    "cssFile": "src/client/components/Math/Math.css",
+    "testFile": "src/client/components/Math/Math.test.ts"
   },
   {
     "id": "markdowneditor",
     "name": "MarkdownEditor",
     "category": "editor",
     "desc": "分屏 Markdown 编辑器——textarea + 实时预览（复用 Markdown parser 零漂移）",
-    "sourceFile": "src/components/MarkdownEditor/MarkdownEditor.ts",
-    "cssFile": "src/components/MarkdownEditor/MarkdownEditor.css",
-    "testFile": "src/components/MarkdownEditor/MarkdownEditor.test.ts"
+    "sourceFile": "src/client/components/MarkdownEditor/MarkdownEditor.ts",
+    "cssFile": "src/client/components/MarkdownEditor/MarkdownEditor.css",
+    "testFile": "src/client/components/MarkdownEditor/MarkdownEditor.test.ts"
   },
   {
     "id": "codeeditor",
     "name": "CodeEditor",
     "category": "editor",
     "desc": "轻量代码编辑器——textarea + 行号 + Tab 缩进（零依赖，不引 Monaco）",
-    "sourceFile": "src/components/CodeEditor/CodeEditor.ts",
-    "cssFile": "src/components/CodeEditor/CodeEditor.css",
-    "testFile": "src/components/CodeEditor/CodeEditor.test.ts"
+    "sourceFile": "src/client/components/CodeEditor/CodeEditor.ts",
+    "cssFile": "src/client/components/CodeEditor/CodeEditor.css",
+    "testFile": "src/client/components/CodeEditor/CodeEditor.test.ts"
   },
   {
     "id": "imagecropper",
     "name": "ImageCropper",
     "category": "editor",
     "desc": "图片裁剪——canvas 原生 API + 拖拽裁剪框 + 比例控制（零依赖）",
-    "sourceFile": "src/components/ImageCropper/ImageCropper.ts",
-    "cssFile": "src/components/ImageCropper/ImageCropper.css",
-    "testFile": "src/components/ImageCropper/ImageCropper.test.ts"
+    "sourceFile": "src/client/components/ImageCropper/ImageCropper.ts",
+    "cssFile": "src/client/components/ImageCropper/ImageCropper.css",
+    "testFile": "src/client/components/ImageCropper/ImageCropper.test.ts"
   },
   {
     "id": "wave",
     "name": "Wave",
     "category": "core",
     "desc": "点击水波纹动效——包装任意可点击元素（纯 CSS，reduced-motion 自动降级）",
-    "sourceFile": "src/components/Wave/Wave.ts",
-    "cssFile": "src/components/Wave/Wave.css",
-    "testFile": "src/components/Wave/Wave.test.ts"
+    "sourceFile": "src/client/components/Wave/Wave.ts",
+    "cssFile": "src/client/components/Wave/Wave.css",
+    "testFile": "src/client/components/Wave/Wave.test.ts"
   },
   {
     "id": "sortablelist",
     "name": "SortableList",
     "category": "viz",
     "desc": "拖拽排序列表——useDragDrop 原语 + keyed 身份（任务/字段/配置排序）",
-    "sourceFile": "src/components/SortableList/SortableList.ts",
-    "cssFile": "src/components/SortableList/SortableList.css",
-    "testFile": "src/components/SortableList/SortableList.test.ts"
+    "sourceFile": "src/client/components/SortableList/SortableList.ts",
+    "cssFile": "src/client/components/SortableList/SortableList.css",
+    "testFile": "src/client/components/SortableList/SortableList.test.ts"
   },
   {
     "id": "exportcsv",
     "name": "ExportCSV",
     "category": "display",
     "desc": "数据导出 CSV——RFC 4180 转义 + BOM（Excel 兼容）零依赖",
-    "sourceFile": "src/components/ExportCSV/ExportCSV.ts",
-    "testFile": "src/components/ExportCSV/ExportCSV.test.ts"
+    "sourceFile": "src/client/components/ExportCSV/ExportCSV.ts",
+    "testFile": "src/client/components/ExportCSV/ExportCSV.test.ts"
   },
   {
     "id": "button",
@@ -82,9 +82,9 @@ export const components: ComponentEntry[] = [
     "desc": "4 variants × 3 sizes + loading + block + disabled",
     "codeKey": "button",
     "demo": "DemoButton",
-    "sourceFile": "src/components/Button/Button.ts",
-    "cssFile": "src/components/Button/Button.css",
-    "testFile": "src/components/Button/Button.test.ts"
+    "sourceFile": "src/client/components/Button/Button.ts",
+    "cssFile": "src/client/components/Button/Button.css",
+    "testFile": "src/client/components/Button/Button.test.ts"
   },
   {
     "id": "input",
@@ -93,9 +93,9 @@ export const components: ComponentEntry[] = [
     "desc": "text/email/password/number，支持 label/error/hint/required",
     "codeKey": "input",
     "demo": "DemoInput",
-    "sourceFile": "src/components/Input/Input.ts",
-    "cssFile": "src/components/Input/Input.css",
-    "testFile": "src/components/Input/Input.test.ts"
+    "sourceFile": "src/client/components/Input/Input.ts",
+    "cssFile": "src/client/components/Input/Input.css",
+    "testFile": "src/client/components/Input/Input.test.ts"
   },
   {
     "id": "textarea",
@@ -104,9 +104,9 @@ export const components: ComponentEntry[] = [
     "desc": "多行文本，支持 rows/label/error/hint",
     "codeKey": "textarea",
     "demo": "DemoTextarea",
-    "sourceFile": "src/components/Textarea/Textarea.ts",
-    "cssFile": "src/components/Textarea/Textarea.css",
-    "testFile": "src/components/Textarea/Textarea.test.ts"
+    "sourceFile": "src/client/components/Textarea/Textarea.ts",
+    "cssFile": "src/client/components/Textarea/Textarea.css",
+    "testFile": "src/client/components/Textarea/Textarea.test.ts"
   },
   {
     "id": "select",
@@ -116,9 +116,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["受控输入纪律：searchable 输入焦点丢失——useControlledInput 内部态", "事件 prop 判定：on+大写（EVENT_RE）——once/only 等 on 开头属性防误判", "浮层必须 portal（§5.4）——absolute 相对父容器在 overflow 下裁剪"],
     "codeKey": "select",
     "demo": "DemoSelect",
-    "sourceFile": "src/components/Select/Select.ts",
-    "cssFile": "src/components/Select/Select.css",
-    "testFile": "src/components/Select/Select.test.ts"
+    "sourceFile": "src/client/components/Select/Select.ts",
+    "cssFile": "src/client/components/Select/Select.css",
+    "testFile": "src/client/components/Select/Select.test.ts"
   },
   {
     "id": "select-searchable",
@@ -135,9 +135,9 @@ export const components: ComponentEntry[] = [
     "desc": "带 label 的复选框，支持 checked/disabled",
     "codeKey": "checkbox",
     "demo": "DemoCheckbox",
-    "sourceFile": "src/components/Checkbox/Checkbox.ts",
-    "cssFile": "src/components/Checkbox/Checkbox.css",
-    "testFile": "src/components/Checkbox/Checkbox.test.ts"
+    "sourceFile": "src/client/components/Checkbox/Checkbox.ts",
+    "cssFile": "src/client/components/Checkbox/Checkbox.css",
+    "testFile": "src/client/components/Checkbox/Checkbox.test.ts"
   },
   {
     "id": "switch",
@@ -146,9 +146,9 @@ export const components: ComponentEntry[] = [
     "desc": "开关切换，视觉替代 checkbox",
     "codeKey": "switch",
     "demo": "DemoSwitch",
-    "sourceFile": "src/components/Switch/Switch.ts",
-    "cssFile": "src/components/Switch/Switch.css",
-    "testFile": "src/components/Switch/Switch.test.ts"
+    "sourceFile": "src/client/components/Switch/Switch.ts",
+    "cssFile": "src/client/components/Switch/Switch.css",
+    "testFile": "src/client/components/Switch/Switch.test.ts"
   },
   {
     "id": "radiogroup",
@@ -157,9 +157,9 @@ export const components: ComponentEntry[] = [
     "desc": "单选组，支持 inline/options/value",
     "codeKey": "radio",
     "demo": "DemoRadio",
-    "sourceFile": "src/components/RadioGroup/RadioGroup.ts",
-    "cssFile": "src/components/RadioGroup/RadioGroup.css",
-    "testFile": "src/components/RadioGroup/RadioGroup.test.ts"
+    "sourceFile": "src/client/components/RadioGroup/RadioGroup.ts",
+    "cssFile": "src/client/components/RadioGroup/RadioGroup.css",
+    "testFile": "src/client/components/RadioGroup/RadioGroup.test.ts"
   },
   {
     "id": "segmentedcontrol",
@@ -168,9 +168,9 @@ export const components: ComponentEntry[] = [
     "desc": "分段单选（模式切换/筛选/模板），支持 sm/block",
     "codeKey": "segmented",
     "demo": "DemoSegmented",
-    "sourceFile": "src/components/SegmentedControl/SegmentedControl.ts",
-    "cssFile": "src/components/SegmentedControl/SegmentedControl.css",
-    "testFile": "src/components/SegmentedControl/SegmentedControl.test.ts"
+    "sourceFile": "src/client/components/SegmentedControl/SegmentedControl.ts",
+    "cssFile": "src/client/components/SegmentedControl/SegmentedControl.css",
+    "testFile": "src/client/components/SegmentedControl/SegmentedControl.test.ts"
   },
   {
     "id": "slider",
@@ -180,9 +180,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["浏览器表单状态恢复（刷新/后退）覆盖受控 value——autocomplete=off + 内部 0-100 归一化刻度（2000 slider 刷新跳动事故）", "拖拽中气泡位置冻结——usePopup 锚点恒定需 popup.refresh() 跟随 thumb"],
     "codeKey": "slider",
     "demo": "DemoSlider",
-    "sourceFile": "src/components/Slider/Slider.ts",
-    "cssFile": "src/components/Slider/Slider.css",
-    "testFile": "src/components/Slider/Slider.test.ts"
+    "sourceFile": "src/client/components/Slider/Slider.ts",
+    "cssFile": "src/client/components/Slider/Slider.css",
+    "testFile": "src/client/components/Slider/Slider.test.ts"
   },
   {
     "id": "form",
@@ -192,9 +192,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["三层一致（§6.3）：条件渲染 false 是空洞占位——{cond && <Alert/>} 不滤除不塌缩（提交按钮消失事故）", "受控纪律：受控 value 必须配 onChange——缺回调静默不可点"],
     "codeKey": "form",
     "demo": "DemoForm",
-    "sourceFile": "src/components/Form/Form.ts",
-    "cssFile": "src/components/Form/Form.css",
-    "testFile": "src/components/Form/Form.test.ts"
+    "sourceFile": "src/client/components/Form/Form.ts",
+    "cssFile": "src/client/components/Form/Form.css",
+    "testFile": "src/client/components/Form/Form.test.ts"
   },
   {
     "id": "form-v2",
@@ -211,9 +211,9 @@ export const components: ComponentEntry[] = [
     "desc": "label+error+hint 容器",
     "codeKey": "field",
     "demo": "DemoField",
-    "sourceFile": "src/components/Field/Field.ts",
-    "cssFile": "src/components/Field/Field.css",
-    "testFile": "src/components/Field/Field.test.ts"
+    "sourceFile": "src/client/components/Field/Field.ts",
+    "cssFile": "src/client/components/Field/Field.css",
+    "testFile": "src/client/components/Field/Field.test.ts"
   },
   {
     "id": "fileupload",
@@ -222,9 +222,9 @@ export const components: ComponentEntry[] = [
     "desc": "文件上传，拖拽区 + 文件列表 + accept/maxSize",
     "codeKey": "fileUpload",
     "demo": "DemoFileUpload",
-    "sourceFile": "src/components/FileUpload/FileUpload.ts",
-    "cssFile": "src/components/FileUpload/FileUpload.css",
-    "testFile": "src/components/FileUpload/FileUpload.test.ts"
+    "sourceFile": "src/client/components/FileUpload/FileUpload.ts",
+    "cssFile": "src/client/components/FileUpload/FileUpload.css",
+    "testFile": "src/client/components/FileUpload/FileUpload.test.ts"
   },
   {
     "id": "fileupload-v2",
@@ -241,9 +241,9 @@ export const components: ComponentEntry[] = [
     "desc": "搜索输入框，带清除按钮",
     "codeKey": "search",
     "demo": "DemoSearchInput",
-    "sourceFile": "src/components/SearchInput/SearchInput.ts",
-    "cssFile": "src/components/SearchInput/SearchInput.css",
-    "testFile": "src/components/SearchInput/SearchInput.test.ts"
+    "sourceFile": "src/client/components/SearchInput/SearchInput.ts",
+    "cssFile": "src/client/components/SearchInput/SearchInput.css",
+    "testFile": "src/client/components/SearchInput/SearchInput.test.ts"
   },
   {
     "id": "progressbar",
@@ -252,9 +252,9 @@ export const components: ComponentEntry[] = [
     "desc": "进度条，支持 label/showValue",
     "codeKey": "progress",
     "demo": "DemoProgress",
-    "sourceFile": "src/components/ProgressBar/ProgressBar.ts",
-    "cssFile": "src/components/ProgressBar/ProgressBar.css",
-    "testFile": "src/components/ProgressBar/ProgressBar.test.ts"
+    "sourceFile": "src/client/components/ProgressBar/ProgressBar.ts",
+    "cssFile": "src/client/components/ProgressBar/ProgressBar.css",
+    "testFile": "src/client/components/ProgressBar/ProgressBar.test.ts"
   },
   {
     "id": "inputnumber",
@@ -263,9 +263,9 @@ export const components: ComponentEntry[] = [
     "desc": "数字输入：min/max/step + 增减按钮 + precision",
     "codeKey": "inputNumber",
     "demo": "DemoInputNumber",
-    "sourceFile": "src/components/InputNumber/InputNumber.ts",
-    "cssFile": "src/components/InputNumber/InputNumber.css",
-    "testFile": "src/components/InputNumber/InputNumber.test.ts"
+    "sourceFile": "src/client/components/InputNumber/InputNumber.ts",
+    "cssFile": "src/client/components/InputNumber/InputNumber.css",
+    "testFile": "src/client/components/InputNumber/InputNumber.test.ts"
   },
   {
     "id": "passwordinput",
@@ -274,9 +274,9 @@ export const components: ComponentEntry[] = [
     "desc": "密码输入：眼睛按钮切换可见性",
     "codeKey": "passwordInput",
     "demo": "DemoPasswordInput",
-    "sourceFile": "src/components/PasswordInput/PasswordInput.ts",
-    "cssFile": "src/components/PasswordInput/PasswordInput.css",
-    "testFile": "src/components/PasswordInput/PasswordInput.test.ts"
+    "sourceFile": "src/client/components/PasswordInput/PasswordInput.ts",
+    "cssFile": "src/client/components/PasswordInput/PasswordInput.css",
+    "testFile": "src/client/components/PasswordInput/PasswordInput.test.ts"
   },
   {
     "id": "tagsinput",
@@ -285,9 +285,9 @@ export const components: ComponentEntry[] = [
     "desc": "标签输入：回车/逗号添加 + 中文输入法感知",
     "codeKey": "tagsInput",
     "demo": "DemoTagsInput",
-    "sourceFile": "src/components/TagsInput/TagsInput.ts",
-    "cssFile": "src/components/TagsInput/TagsInput.css",
-    "testFile": "src/components/TagsInput/TagsInput.test.ts"
+    "sourceFile": "src/client/components/TagsInput/TagsInput.ts",
+    "cssFile": "src/client/components/TagsInput/TagsInput.css",
+    "testFile": "src/client/components/TagsInput/TagsInput.test.ts"
   },
   {
     "id": "tagsinput-v2",
@@ -305,9 +305,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["固定列必须显式 width（缺省 140 估算 + console.warn——sticky 偏移累计依赖）", "数组空洞：children 里 {cond && <X/>} 是占位——不得误删下一个兄弟（提交按钮消失事故同源）", "行内编辑（editable 列）必须配 onCellEdit（受控纪律）"],
     "codeKey": "table",
     "demo": "DemoTable",
-    "sourceFile": "src/components/Table/Table.ts",
-    "cssFile": "src/components/Table/Table.css",
-    "testFile": "src/components/Table/Table.test.ts"
+    "sourceFile": "src/client/components/Table/Table.ts",
+    "cssFile": "src/client/components/Table/Table.css",
+    "testFile": "src/client/components/Table/Table.test.ts"
   },
   {
     "id": "table-v2",
@@ -324,9 +324,9 @@ export const components: ComponentEntry[] = [
     "desc": "容器，支持 default/outlined/clickable",
     "codeKey": "card",
     "demo": "DemoCardShowcase",
-    "sourceFile": "src/components/Card/Card.ts",
-    "cssFile": "src/components/Card/Card.css",
-    "testFile": "src/components/Card/Card.test.ts"
+    "sourceFile": "src/client/components/Card/Card.ts",
+    "cssFile": "src/client/components/Card/Card.css",
+    "testFile": "src/client/components/Card/Card.test.ts"
   },
   {
     "id": "badge",
@@ -335,9 +335,9 @@ export const components: ComponentEntry[] = [
     "desc": "状态标签 + 圆点，6 种 variant",
     "codeKey": "badge",
     "demo": "DemoBadge",
-    "sourceFile": "src/components/Badge/Badge.ts",
-    "cssFile": "src/components/Badge/Badge.css",
-    "testFile": "src/components/Badge/Badge.test.ts"
+    "sourceFile": "src/client/components/Badge/Badge.ts",
+    "cssFile": "src/client/components/Badge/Badge.css",
+    "testFile": "src/client/components/Badge/Badge.test.ts"
   },
   {
     "id": "tag",
@@ -346,9 +346,9 @@ export const components: ComponentEntry[] = [
     "desc": "标签，支持 closable/onClose",
     "codeKey": "tag",
     "demo": "DemoTag",
-    "sourceFile": "src/components/Tag/Tag.ts",
-    "cssFile": "src/components/Tag/Tag.css",
-    "testFile": "src/components/Tag/Tag.test.ts"
+    "sourceFile": "src/client/components/Tag/Tag.ts",
+    "cssFile": "src/client/components/Tag/Tag.css",
+    "testFile": "src/client/components/Tag/Tag.test.ts"
   },
   {
     "id": "avatar",
@@ -357,9 +357,9 @@ export const components: ComponentEntry[] = [
     "desc": "头像（首字母/图片），3 种 size",
     "codeKey": "avatar",
     "demo": "DemoAvatar",
-    "sourceFile": "src/components/Avatar/Avatar.ts",
-    "cssFile": "src/components/Avatar/Avatar.css",
-    "testFile": "src/components/Avatar/Avatar.test.ts"
+    "sourceFile": "src/client/components/Avatar/Avatar.ts",
+    "cssFile": "src/client/components/Avatar/Avatar.css",
+    "testFile": "src/client/components/Avatar/Avatar.test.ts"
   },
   {
     "id": "img",
@@ -368,9 +368,9 @@ export const components: ComponentEntry[] = [
     "desc": "图片 \\<img\\> 组件：fallback / lazy / preview 点击放大",
     "codeKey": "image",
     "demo": "DemoImage",
-    "sourceFile": "src/components/Img/Img.ts",
-    "cssFile": "src/components/Img/Img.css",
-    "testFile": "src/components/Img/Img.test.ts"
+    "sourceFile": "src/client/components/Img/Img.ts",
+    "cssFile": "src/client/components/Img/Img.css",
+    "testFile": "src/client/components/Img/Img.test.ts"
   },
   {
     "id": "inview",
@@ -379,9 +379,9 @@ export const components: ComponentEntry[] = [
     "desc": "进入视窗后懒加载内容，支持 IntersectionObserver",
     "codeKey": "inview",
     "demo": "DemoInView",
-    "sourceFile": "src/components/InView/InView.ts",
-    "cssFile": "src/components/InView/InView.css",
-    "testFile": "src/components/InView/InView.test.ts"
+    "sourceFile": "src/client/components/InView/InView.ts",
+    "cssFile": "src/client/components/InView/InView.css",
+    "testFile": "src/client/components/InView/InView.test.ts"
   },
   {
     "id": "timeline",
@@ -390,9 +390,9 @@ export const components: ComponentEntry[] = [
     "desc": "时间线：节点状态色 + 时间 + 内容（执行日志/审批历史）",
     "codeKey": "timeline",
     "demo": "DemoTimeline",
-    "sourceFile": "src/components/Timeline/Timeline.ts",
-    "cssFile": "src/components/Timeline/Timeline.css",
-    "testFile": "src/components/Timeline/Timeline.test.ts"
+    "sourceFile": "src/client/components/Timeline/Timeline.ts",
+    "cssFile": "src/client/components/Timeline/Timeline.css",
+    "testFile": "src/client/components/Timeline/Timeline.test.ts"
   },
   {
     "id": "descriptions",
@@ -401,9 +401,9 @@ export const components: ComponentEntry[] = [
     "desc": "描述列表：label/value 栅格 + bordered + span（详情页）",
     "codeKey": "descriptions",
     "demo": "DemoDescriptions",
-    "sourceFile": "src/components/Descriptions/Descriptions.ts",
-    "cssFile": "src/components/Descriptions/Descriptions.css",
-    "testFile": "src/components/Descriptions/Descriptions.test.ts"
+    "sourceFile": "src/client/components/Descriptions/Descriptions.ts",
+    "cssFile": "src/client/components/Descriptions/Descriptions.css",
+    "testFile": "src/client/components/Descriptions/Descriptions.test.ts"
   },
   {
     "id": "descriptions-v2",
@@ -420,9 +420,9 @@ export const components: ComponentEntry[] = [
     "desc": "头像组：堆叠 + max 溢出 +N",
     "codeKey": "avatarGroup",
     "demo": "DemoAvatarGroup",
-    "sourceFile": "src/components/AvatarGroup/AvatarGroup.ts",
-    "cssFile": "src/components/AvatarGroup/AvatarGroup.css",
-    "testFile": "src/components/AvatarGroup/AvatarGroup.test.ts"
+    "sourceFile": "src/client/components/AvatarGroup/AvatarGroup.ts",
+    "cssFile": "src/client/components/AvatarGroup/AvatarGroup.css",
+    "testFile": "src/client/components/AvatarGroup/AvatarGroup.test.ts"
   },
   {
     "id": "markdown",
@@ -431,9 +431,9 @@ export const components: ComponentEntry[] = [
     "desc": "AI 回复渲染：安全子集 parser + 代码块 + 链接白名单",
     "codeKey": "markdown",
     "demo": "DemoMarkdown",
-    "sourceFile": "src/components/Markdown/Markdown.ts",
-    "cssFile": "src/components/Markdown/Markdown.css",
-    "testFile": "src/components/Markdown/Markdown.test.ts"
+    "sourceFile": "src/client/components/Markdown/Markdown.ts",
+    "cssFile": "src/client/components/Markdown/Markdown.css",
+    "testFile": "src/client/components/Markdown/Markdown.test.ts"
   },
   {
     "id": "codeblock",
@@ -442,9 +442,9 @@ export const components: ComponentEntry[] = [
     "desc": "代码块：语言标签 + 复制按钮 + 横向滚动",
     "codeKey": "codeblock",
     "demo": "DemoCodeBlock",
-    "sourceFile": "src/components/CodeBlock/CodeBlock.ts",
-    "cssFile": "src/components/CodeBlock/CodeBlock.css",
-    "testFile": "src/components/CodeBlock/CodeBlock.test.ts"
+    "sourceFile": "src/client/components/CodeBlock/CodeBlock.ts",
+    "cssFile": "src/client/components/CodeBlock/CodeBlock.css",
+    "testFile": "src/client/components/CodeBlock/CodeBlock.test.ts"
   },
   {
     "id": "logviewer",
@@ -453,9 +453,9 @@ export const components: ComponentEntry[] = [
     "desc": "日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制",
     "codeKey": "logviewer",
     "demo": "DemoLogViewer",
-    "sourceFile": "src/components/LogViewer/LogViewer.ts",
-    "cssFile": "src/components/LogViewer/LogViewer.css",
-    "testFile": "src/components/LogViewer/LogViewer.test.ts"
+    "sourceFile": "src/client/components/LogViewer/LogViewer.ts",
+    "cssFile": "src/client/components/LogViewer/LogViewer.css",
+    "testFile": "src/client/components/LogViewer/LogViewer.test.ts"
   },
   {
     "id": "logviewer-v2",
@@ -472,9 +472,9 @@ export const components: ComponentEntry[] = [
     "desc": "结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开",
     "codeKey": "jsonviewer",
     "demo": "DemoJSONViewer",
-    "sourceFile": "src/components/JSONViewer/JSONViewer.ts",
-    "cssFile": "src/components/JSONViewer/JSONViewer.css",
-    "testFile": "src/components/JSONViewer/JSONViewer.test.ts"
+    "sourceFile": "src/client/components/JSONViewer/JSONViewer.ts",
+    "cssFile": "src/client/components/JSONViewer/JSONViewer.css",
+    "testFile": "src/client/components/JSONViewer/JSONViewer.test.ts"
   },
   {
     "id": "jsonviewer-v2",
@@ -491,9 +491,9 @@ export const components: ComponentEntry[] = [
     "desc": "代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色",
     "codeKey": "diffview",
     "demo": "DemoDiffView",
-    "sourceFile": "src/components/DiffView/DiffView.ts",
-    "cssFile": "src/components/DiffView/DiffView.css",
-    "testFile": "src/components/DiffView/DiffView.test.ts"
+    "sourceFile": "src/client/components/DiffView/DiffView.ts",
+    "cssFile": "src/client/components/DiffView/DiffView.css",
+    "testFile": "src/client/components/DiffView/DiffView.test.ts"
   },
   {
     "id": "diffview-v2",
@@ -510,9 +510,9 @@ export const components: ComponentEntry[] = [
     "desc": "迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充",
     "codeKey": "sparkline",
     "demo": "DemoSparkline",
-    "sourceFile": "src/components/Sparkline/Sparkline.ts",
-    "cssFile": "src/components/Sparkline/Sparkline.css",
-    "testFile": "src/components/Sparkline/Sparkline.test.ts"
+    "sourceFile": "src/client/components/Sparkline/Sparkline.ts",
+    "cssFile": "src/client/components/Sparkline/Sparkline.css",
+    "testFile": "src/client/components/Sparkline/Sparkline.test.ts"
   },
   {
     "id": "tour",
@@ -521,9 +521,9 @@ export const components: ComponentEntry[] = [
     "desc": "新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape",
     "codeKey": "tour",
     "demo": "DemoTour",
-    "sourceFile": "src/components/Tour/Tour.ts",
-    "cssFile": "src/components/Tour/Tour.css",
-    "testFile": "src/components/Tour/Tour.test.ts"
+    "sourceFile": "src/client/components/Tour/Tour.ts",
+    "cssFile": "src/client/components/Tour/Tour.css",
+    "testFile": "src/client/components/Tour/Tour.test.ts"
   },
   {
     "id": "kanban",
@@ -533,9 +533,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["enumerated 属性（§6.2）：draggable 空字符串解析为 false——必须显式 setAttribute true/false（拖动变文本选中事故）"],
     "codeKey": "kanban",
     "demo": "DemoKanban",
-    "sourceFile": "src/components/Kanban/Kanban.ts",
-    "cssFile": "src/components/Kanban/Kanban.css",
-    "testFile": "src/components/Kanban/Kanban.test.ts"
+    "sourceFile": "src/client/components/Kanban/Kanban.ts",
+    "cssFile": "src/client/components/Kanban/Kanban.css",
+    "testFile": "src/client/components/Kanban/Kanban.test.ts"
   },
   {
     "id": "pipeline",
@@ -544,9 +544,9 @@ export const components: ComponentEntry[] = [
     "desc": "Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测",
     "codeKey": "pipeline",
     "demo": "DemoPipeline",
-    "sourceFile": "src/components/Pipeline/Pipeline.ts",
-    "cssFile": "src/components/Pipeline/Pipeline.css",
-    "testFile": "src/components/Pipeline/Pipeline.test.ts"
+    "sourceFile": "src/client/components/Pipeline/Pipeline.ts",
+    "cssFile": "src/client/components/Pipeline/Pipeline.css",
+    "testFile": "src/client/components/Pipeline/Pipeline.test.ts"
   },
   {
     "id": "treeselect",
@@ -556,9 +556,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["弹窗纪律（§5.4）：曾遗漏 portal——absolute 在父容器 overflow/transform 下裁剪/错位——统一 usePopup", "选项量小场景搜索过滤已裁剪（components-cuts.md 永久裁剪）"],
     "codeKey": "treeselect",
     "demo": "DemoTreeSelect",
-    "sourceFile": "src/components/TreeSelect/TreeSelect.ts",
-    "cssFile": "src/components/TreeSelect/TreeSelect.css",
-    "testFile": "src/components/TreeSelect/TreeSelect.test.ts"
+    "sourceFile": "src/client/components/TreeSelect/TreeSelect.ts",
+    "cssFile": "src/client/components/TreeSelect/TreeSelect.css",
+    "testFile": "src/client/components/TreeSelect/TreeSelect.test.ts"
   },
   {
     "id": "layout",
@@ -567,36 +567,36 @@ export const components: ComponentEntry[] = [
     "desc": "布局外壳：Sider 折叠 + Header/Content/Footer 骨架（antd Layout / shadcn Sidebar 等价）",
     "codeKey": "layout",
     "demo": "DemoLayout",
-    "sourceFile": "src/components/Layout/Layout.ts",
-    "cssFile": "src/components/Layout/Layout.css",
-    "testFile": "src/components/Layout/Layout.test.ts"
+    "sourceFile": "src/client/components/Layout/Layout.ts",
+    "cssFile": "src/client/components/Layout/Layout.css",
+    "testFile": "src/client/components/Layout/Layout.test.ts"
   },
   {
     "id": "layoutheader",
     "name": "LayoutHeader",
     "category": "core",
     "desc": "布局顶栏——Layout 家族（Layout/LayoutHeader/LayoutSider/LayoutContent/LayoutFooter）",
-    "sourceFile": "src/components/Layout/Layout.ts",
-    "cssFile": "src/components/Layout/Layout.css",
-    "testFile": "src/components/Layout/Layout.test.ts"
+    "sourceFile": "src/client/components/Layout/Layout.ts",
+    "cssFile": "src/client/components/Layout/Layout.css",
+    "testFile": "src/client/components/Layout/Layout.test.ts"
   },
   {
     "id": "layoutsider",
     "name": "LayoutSider",
     "category": "core",
     "desc": "布局侧栏（可折叠 collapsed/collapsible）——Layout 家族",
-    "sourceFile": "src/components/Layout/Layout.ts",
-    "cssFile": "src/components/Layout/Layout.css",
-    "testFile": "src/components/Layout/Layout.test.ts"
+    "sourceFile": "src/client/components/Layout/Layout.ts",
+    "cssFile": "src/client/components/Layout/Layout.css",
+    "testFile": "src/client/components/Layout/Layout.test.ts"
   },
   {
     "id": "layoutcontent",
     "name": "LayoutContent",
     "category": "core",
     "desc": "布局内容区——Layout 家族",
-    "sourceFile": "src/components/Layout/Layout.ts",
-    "cssFile": "src/components/Layout/Layout.css",
-    "testFile": "src/components/Layout/Layout.test.ts"
+    "sourceFile": "src/client/components/Layout/Layout.ts",
+    "cssFile": "src/client/components/Layout/Layout.css",
+    "testFile": "src/client/components/Layout/Layout.test.ts"
   },
   {
     "id": "popconfirm",
@@ -606,9 +606,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["气泡内表单/自定义箭头已裁剪（Popover 基座 + 定位全套复用）"],
     "codeKey": "popconfirm",
     "demo": "DemoPopconfirm",
-    "sourceFile": "src/components/Popconfirm/Popconfirm.ts",
-    "cssFile": "src/components/Popconfirm/Popconfirm.css",
-    "testFile": "src/components/Popconfirm/Popconfirm.test.ts"
+    "sourceFile": "src/client/components/Popconfirm/Popconfirm.ts",
+    "cssFile": "src/client/components/Popconfirm/Popconfirm.css",
+    "testFile": "src/client/components/Popconfirm/Popconfirm.test.ts"
   },
   {
     "id": "autocomplete",
@@ -618,9 +618,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["受控输入纪律（§5.3）：受控 input 焦点丢失事故——输入期间 value 走内部 keyword（useControlledInput），不依赖受控 value 回流", "IME composition：中文输入组合期间受控 value 重置打断——isComposing 门控"],
     "codeKey": "autocomplete",
     "demo": "DemoAutoComplete",
-    "sourceFile": "src/components/AutoComplete/AutoComplete.ts",
-    "cssFile": "src/components/AutoComplete/AutoComplete.css",
-    "testFile": "src/components/AutoComplete/AutoComplete.test.ts"
+    "sourceFile": "src/client/components/AutoComplete/AutoComplete.ts",
+    "cssFile": "src/client/components/AutoComplete/AutoComplete.css",
+    "testFile": "src/client/components/AutoComplete/AutoComplete.test.ts"
   },
   {
     "id": "autocomplete-v2",
@@ -638,9 +638,9 @@ export const components: ComponentEntry[] = [
     "desc": "文字链接：语义色/下划线/disabled/新窗口",
     "codeKey": "link",
     "demo": "DemoLink",
-    "sourceFile": "src/components/Link/Link.ts",
-    "cssFile": "src/components/Link/Link.css",
-    "testFile": "src/components/Link/Link.test.ts"
+    "sourceFile": "src/client/components/Link/Link.ts",
+    "cssFile": "src/client/components/Link/Link.css",
+    "testFile": "src/client/components/Link/Link.test.ts"
   },
   {
     "id": "floatbutton",
@@ -649,9 +649,9 @@ export const components: ComponentEntry[] = [
     "desc": "悬浮按钮组：展开状态机 + badge",
     "codeKey": "floatbutton",
     "demo": "DemoFloatButton",
-    "sourceFile": "src/components/FloatButton/FloatButton.ts",
-    "cssFile": "src/components/FloatButton/FloatButton.css",
-    "testFile": "src/components/FloatButton/FloatButton.test.ts"
+    "sourceFile": "src/client/components/FloatButton/FloatButton.ts",
+    "cssFile": "src/client/components/FloatButton/FloatButton.css",
+    "testFile": "src/client/components/FloatButton/FloatButton.test.ts"
   },
   {
     "id": "navmenu",
@@ -660,9 +660,9 @@ export const components: ComponentEntry[] = [
     "desc": "顶部导航：多级 hover 弹出 + 键盘（shadcn NavigationMenu）",
     "codeKey": "navmenu",
     "demo": "DemoNavMenu",
-    "sourceFile": "src/components/NavMenu/NavMenu.ts",
-    "cssFile": "src/components/NavMenu/NavMenu.css",
-    "testFile": "src/components/NavMenu/NavMenu.test.ts"
+    "sourceFile": "src/client/components/NavMenu/NavMenu.ts",
+    "cssFile": "src/client/components/NavMenu/NavMenu.css",
+    "testFile": "src/client/components/NavMenu/NavMenu.test.ts"
   },
   {
     "id": "space",
@@ -671,9 +671,9 @@ export const components: ComponentEntry[] = [
     "desc": "间距容器：size/direction/wrap + split 分隔符",
     "codeKey": "space",
     "demo": "DemoSpace",
-    "sourceFile": "src/components/Space/Space.ts",
-    "cssFile": "src/components/Space/Space.css",
-    "testFile": "src/components/Space/Space.test.ts"
+    "sourceFile": "src/client/components/Space/Space.ts",
+    "cssFile": "src/client/components/Space/Space.css",
+    "testFile": "src/client/components/Space/Space.test.ts"
   },
   {
     "id": "grid",
@@ -682,9 +682,9 @@ export const components: ComponentEntry[] = [
     "desc": "24 栅格 + gutter + flex 容器模式（Row/Col/Flex 等价）",
     "codeKey": "grid",
     "demo": "DemoGrid",
-    "sourceFile": "src/components/Grid/Grid.ts",
-    "cssFile": "src/components/Grid/Grid.css",
-    "testFile": "src/components/Grid/Grid.test.ts"
+    "sourceFile": "src/client/components/Grid/Grid.ts",
+    "cssFile": "src/client/components/Grid/Grid.css",
+    "testFile": "src/client/components/Grid/Grid.test.ts"
   },
   {
     "id": "scrollbar",
@@ -693,9 +693,9 @@ export const components: ComponentEntry[] = [
     "desc": "自定义滚动容器：webkit 样式 + hover 显示",
     "codeKey": "scrollbar",
     "demo": "DemoScrollbar",
-    "sourceFile": "src/components/Scrollbar/Scrollbar.ts",
-    "cssFile": "src/components/Scrollbar/Scrollbar.css",
-    "testFile": "src/components/Scrollbar/Scrollbar.test.ts"
+    "sourceFile": "src/client/components/Scrollbar/Scrollbar.ts",
+    "cssFile": "src/client/components/Scrollbar/Scrollbar.css",
+    "testFile": "src/client/components/Scrollbar/Scrollbar.test.ts"
   },
   {
     "id": "alertgroup",
@@ -704,9 +704,9 @@ export const components: ComponentEntry[] = [
     "desc": "通知合并组：≥3 条折叠为 +N，点击展开",
     "codeKey": "alertgroup",
     "demo": "DemoAlertGroup",
-    "sourceFile": "src/components/AlertGroup/AlertGroup.ts",
-    "cssFile": "src/components/AlertGroup/AlertGroup.css",
-    "testFile": "src/components/AlertGroup/AlertGroup.test.ts"
+    "sourceFile": "src/client/components/AlertGroup/AlertGroup.ts",
+    "cssFile": "src/client/components/AlertGroup/AlertGroup.css",
+    "testFile": "src/client/components/AlertGroup/AlertGroup.test.ts"
   },
   {
     "id": "statcard-countdown",
@@ -724,9 +724,9 @@ export const components: ComponentEntry[] = [
     "family": "ai-chat",
     "codeKey": "messageBubble",
     "demo": "DemoMessageBubble",
-    "sourceFile": "src/components/MessageBubble/MessageBubble.ts",
-    "cssFile": "src/components/MessageBubble/MessageBubble.css",
-    "testFile": "src/components/MessageBubble/MessageBubble.test.ts"
+    "sourceFile": "src/client/components/MessageBubble/MessageBubble.ts",
+    "cssFile": "src/client/components/MessageBubble/MessageBubble.css",
+    "testFile": "src/client/components/MessageBubble/MessageBubble.test.ts"
   },
   {
     "id": "highlight",
@@ -735,9 +735,9 @@ export const components: ComponentEntry[] = [
     "desc": "搜索词高亮：分词渲染 mark，大小写不敏感",
     "codeKey": "highlight",
     "demo": "DemoHighlight",
-    "sourceFile": "src/components/Highlight/Highlight.ts",
-    "cssFile": "src/components/Highlight/Highlight.css",
-    "testFile": "src/components/Highlight/Highlight.test.ts"
+    "sourceFile": "src/client/components/Highlight/Highlight.ts",
+    "cssFile": "src/client/components/Highlight/Highlight.css",
+    "testFile": "src/client/components/Highlight/Highlight.test.ts"
   },
   {
     "id": "highlight-v2",
@@ -754,9 +754,9 @@ export const components: ComponentEntry[] = [
     "desc": "通用列表：renderItem + divided + header/footer/empty",
     "codeKey": "list",
     "demo": "DemoList",
-    "sourceFile": "src/components/List/List.ts",
-    "cssFile": "src/components/List/List.css",
-    "testFile": "src/components/List/List.test.ts"
+    "sourceFile": "src/client/components/List/List.ts",
+    "cssFile": "src/client/components/List/List.css",
+    "testFile": "src/client/components/List/List.test.ts"
   },
   {
     "id": "result",
@@ -765,9 +765,9 @@ export const components: ComponentEntry[] = [
     "desc": "结果页：success/error/warning/info + extra 操作区",
     "codeKey": "result",
     "demo": "DemoResult",
-    "sourceFile": "src/components/Result/Result.ts",
-    "cssFile": "src/components/Result/Result.css",
-    "testFile": "src/components/Result/Result.test.ts"
+    "sourceFile": "src/client/components/Result/Result.ts",
+    "cssFile": "src/client/components/Result/Result.css",
+    "testFile": "src/client/components/Result/Result.test.ts"
   },
   {
     "id": "confirm",
@@ -776,8 +776,8 @@ export const components: ComponentEntry[] = [
     "desc": "确认对话框，Promise 化 await 调用",
     "codeKey": "confirm",
     "demo": "DemoConfirm",
-    "sourceFile": "src/components/Confirm/Confirm.ts",
-    "testFile": "src/components/Confirm/Confirm.test.ts"
+    "sourceFile": "src/client/components/Confirm/Confirm.ts",
+    "testFile": "src/client/components/Confirm/Confirm.test.ts"
   },
   {
     "id": "statcard",
@@ -786,9 +786,9 @@ export const components: ComponentEntry[] = [
     "desc": "KPI 指标卡，支持 trend/icon",
     "codeKey": "stat",
     "demo": "DemoStatCard",
-    "sourceFile": "src/components/StatCard/StatCard.ts",
-    "cssFile": "src/components/StatCard/StatCard.css",
-    "testFile": "src/components/StatCard/StatCard.test.ts"
+    "sourceFile": "src/client/components/StatCard/StatCard.ts",
+    "cssFile": "src/client/components/StatCard/StatCard.css",
+    "testFile": "src/client/components/StatCard/StatCard.test.ts"
   },
   {
     "id": "chart",
@@ -797,9 +797,9 @@ export const components: ComponentEntry[] = [
     "desc": "SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘",
     "codeKey": "chart",
     "demo": "DemoChart",
-    "sourceFile": "src/components/Chart/Chart.ts",
-    "cssFile": "src/components/Chart/Chart.css",
-    "testFile": "src/components/Chart/Chart.test.ts"
+    "sourceFile": "src/client/components/Chart/Chart.ts",
+    "cssFile": "src/client/components/Chart/Chart.css",
+    "testFile": "src/client/components/Chart/Chart.test.ts"
   },
   {
     "id": "editor",
@@ -808,9 +808,9 @@ export const components: ComponentEntry[] = [
     "desc": "富文本编辑器，contentEditable + toolbar，零依赖",
     "codeKey": "editor",
     "demo": "DemoEditor",
-    "sourceFile": "src/components/Editor/Editor.ts",
-    "cssFile": "src/components/Editor/Editor.css",
-    "testFile": "src/components/Editor/Editor.test.ts"
+    "sourceFile": "src/client/components/Editor/Editor.ts",
+    "cssFile": "src/client/components/Editor/Editor.css",
+    "testFile": "src/client/components/Editor/Editor.test.ts"
   },
   {
     "id": "filepreview",
@@ -819,9 +819,9 @@ export const components: ComponentEntry[] = [
     "desc": "文件预览（md/html/pdf/office）——基于事件流，可编辑",
     "family": "file-preview",
     "demo": "DemoFilePreview",
-    "sourceFile": "src/components/FilePreview/FilePreview.ts",
-    "cssFile": "src/components/FilePreview/FilePreview.css",
-    "testFile": "src/components/FilePreview/FilePreview.test.ts"
+    "sourceFile": "src/client/components/FilePreview/FilePreview.ts",
+    "cssFile": "src/client/components/FilePreview/FilePreview.css",
+    "testFile": "src/client/components/FilePreview/FilePreview.test.ts"
   },
   {
     "id": "filepreview-office",
@@ -837,9 +837,9 @@ export const components: ComponentEntry[] = [
     "desc": "主题切换：auto/light/dark，localStorage 持久化",
     "codeKey": "themeSwitch",
     "demo": "DemoThemeSwitch",
-    "sourceFile": "src/components/ThemeSwitch/ThemeSwitch.ts",
-    "cssFile": "src/components/ThemeSwitch/ThemeSwitch.css",
-    "testFile": "src/components/ThemeSwitch/ThemeSwitch.test.ts"
+    "sourceFile": "src/client/components/ThemeSwitch/ThemeSwitch.ts",
+    "cssFile": "src/client/components/ThemeSwitch/ThemeSwitch.css",
+    "testFile": "src/client/components/ThemeSwitch/ThemeSwitch.test.ts"
   },
   {
     "id": "datepicker",
@@ -849,9 +849,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["受控纪律：受控 value/month 必须配回调——缺回调静默不可点"],
     "codeKey": "datepicker",
     "demo": "DemoDatePicker",
-    "sourceFile": "src/components/DatePicker/DatePicker.ts",
-    "cssFile": "src/components/DatePicker/DatePicker.css",
-    "testFile": "src/components/DatePicker/DatePicker.test.ts"
+    "sourceFile": "src/client/components/DatePicker/DatePicker.ts",
+    "cssFile": "src/client/components/DatePicker/DatePicker.css",
+    "testFile": "src/client/components/DatePicker/DatePicker.test.ts"
   },
   {
     "id": "modal",
@@ -861,9 +861,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["退场动画：exit 类必须挂载（animationend 驱动卸载）——reduced-motion 下动画降为 0.01ms 等效瞬时", "会话级模态四件套：presence/trapFocus/lockScroll 由 usePopup 统一提供"],
     "codeKey": "modal",
     "demo": "DemoModal",
-    "sourceFile": "src/components/Modal/Modal.ts",
-    "cssFile": "src/components/Modal/Modal.css",
-    "testFile": "src/components/Modal/Modal.test.ts"
+    "sourceFile": "src/client/components/Modal/Modal.ts",
+    "cssFile": "src/client/components/Modal/Modal.css",
+    "testFile": "src/client/components/Modal/Modal.test.ts"
   },
   {
     "id": "drawer",
@@ -873,9 +873,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["退场动画：--enter/--exit 类必须成对（audit 强制）——只定义不挂是死代码（CS-01）"],
     "codeKey": "drawer",
     "demo": "DemoDrawer",
-    "sourceFile": "src/components/Drawer/Drawer.ts",
-    "cssFile": "src/components/Drawer/Drawer.css",
-    "testFile": "src/components/Drawer/Drawer.test.ts"
+    "sourceFile": "src/client/components/Drawer/Drawer.ts",
+    "cssFile": "src/client/components/Drawer/Drawer.css",
+    "testFile": "src/client/components/Drawer/Drawer.test.ts"
   },
   {
     "id": "popover",
@@ -885,9 +885,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["portal 槽豁免（同 HoverCard）", "富内容自动判定已裁剪——HoverCard 补富内容（components-cuts.md）"],
     "codeKey": "popover",
     "demo": "DemoPopover",
-    "sourceFile": "src/components/Popover/Popover.ts",
-    "cssFile": "src/components/Popover/Popover.css",
-    "testFile": "src/components/Popover/Popover.test.ts"
+    "sourceFile": "src/client/components/Popover/Popover.ts",
+    "cssFile": "src/client/components/Popover/Popover.css",
+    "testFile": "src/client/components/Popover/Popover.test.ts"
   },
   {
     "id": "tooltip",
@@ -897,9 +897,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["portal 槽豁免（同 HoverCard）——浮层插槽非业务列表"],
     "codeKey": "tooltip",
     "demo": "DemoTooltip",
-    "sourceFile": "src/components/Tooltip/Tooltip.ts",
-    "cssFile": "src/components/Tooltip/Tooltip.css",
-    "testFile": "src/components/Tooltip/Tooltip.test.ts"
+    "sourceFile": "src/client/components/Tooltip/Tooltip.ts",
+    "cssFile": "src/client/components/Tooltip/Tooltip.css",
+    "testFile": "src/client/components/Tooltip/Tooltip.test.ts"
   },
   {
     "id": "toast",
@@ -908,9 +908,9 @@ export const components: ComponentEntry[] = [
     "desc": "5 种位置 + 自动消失 + 数量限制",
     "codeKey": "toast",
     "demo": "DemoToast",
-    "sourceFile": "src/components/Toast/Toast.ts",
-    "cssFile": "src/components/Toast/Toast.css",
-    "testFile": "src/components/Toast/Toast.test.ts"
+    "sourceFile": "src/client/components/Toast/Toast.ts",
+    "cssFile": "src/client/components/Toast/Toast.css",
+    "testFile": "src/client/components/Toast/Toast.test.ts"
   },
   {
     "id": "alert",
@@ -919,9 +919,9 @@ export const components: ComponentEntry[] = [
     "desc": "信息提示条，4 种 variant + closable",
     "codeKey": "alert",
     "demo": "DemoAlert",
-    "sourceFile": "src/components/Alert/Alert.ts",
-    "cssFile": "src/components/Alert/Alert.css",
-    "testFile": "src/components/Alert/Alert.test.ts"
+    "sourceFile": "src/client/components/Alert/Alert.ts",
+    "cssFile": "src/client/components/Alert/Alert.css",
+    "testFile": "src/client/components/Alert/Alert.test.ts"
   },
   {
     "id": "loading",
@@ -930,9 +930,9 @@ export const components: ComponentEntry[] = [
     "desc": "加载状态，支持自定义文字",
     "codeKey": "loading",
     "demo": "DemoLoading",
-    "sourceFile": "src/components/Loading/Loading.ts",
-    "cssFile": "src/components/Loading/Loading.css",
-    "testFile": "src/components/Loading/Loading.test.ts"
+    "sourceFile": "src/client/components/Loading/Loading.ts",
+    "cssFile": "src/client/components/Loading/Loading.css",
+    "testFile": "src/client/components/Loading/Loading.test.ts"
   },
   {
     "id": "skeleton",
@@ -941,9 +941,9 @@ export const components: ComponentEntry[] = [
     "desc": "text/circle/rect/image/avatar/table 六种变体",
     "codeKey": "skeleton",
     "demo": "DemoSkeleton",
-    "sourceFile": "src/components/Skeleton/Skeleton.ts",
-    "cssFile": "src/components/Skeleton/Skeleton.css",
-    "testFile": "src/components/Skeleton/Skeleton.test.ts"
+    "sourceFile": "src/client/components/Skeleton/Skeleton.ts",
+    "cssFile": "src/client/components/Skeleton/Skeleton.css",
+    "testFile": "src/client/components/Skeleton/Skeleton.test.ts"
   },
   {
     "id": "emptystate",
@@ -952,9 +952,9 @@ export const components: ComponentEntry[] = [
     "desc": "空状态占位，支持 icon/text/hint/action",
     "codeKey": "empty",
     "demo": "DemoEmptyState",
-    "sourceFile": "src/components/EmptyState/EmptyState.ts",
-    "cssFile": "src/components/EmptyState/EmptyState.css",
-    "testFile": "src/components/EmptyState/EmptyState.test.ts"
+    "sourceFile": "src/client/components/EmptyState/EmptyState.ts",
+    "cssFile": "src/client/components/EmptyState/EmptyState.css",
+    "testFile": "src/client/components/EmptyState/EmptyState.test.ts"
   },
   {
     "id": "breadcrumb",
@@ -963,9 +963,9 @@ export const components: ComponentEntry[] = [
     "desc": "面包屑导航，支持 aria-current",
     "codeKey": "breadcrumb",
     "demo": "DemoBreadcrumb",
-    "sourceFile": "src/components/Breadcrumb/Breadcrumb.ts",
-    "cssFile": "src/components/Breadcrumb/Breadcrumb.css",
-    "testFile": "src/components/Breadcrumb/Breadcrumb.test.ts"
+    "sourceFile": "src/client/components/Breadcrumb/Breadcrumb.ts",
+    "cssFile": "src/client/components/Breadcrumb/Breadcrumb.css",
+    "testFile": "src/client/components/Breadcrumb/Breadcrumb.test.ts"
   },
   {
     "id": "menu",
@@ -974,9 +974,9 @@ export const components: ComponentEntry[] = [
     "desc": "侧栏导航：分组 + 图标 + 选中态 + 方向键",
     "codeKey": "menu",
     "demo": "DemoMenu",
-    "sourceFile": "src/components/Menu/Menu.ts",
-    "cssFile": "src/components/Menu/Menu.css",
-    "testFile": "src/components/Menu/Menu.test.ts"
+    "sourceFile": "src/client/components/Menu/Menu.ts",
+    "cssFile": "src/client/components/Menu/Menu.css",
+    "testFile": "src/client/components/Menu/Menu.test.ts"
   },
   {
     "id": "tabs",
@@ -986,9 +986,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["混合数组稳定 key：tabList+addBtn+ink 全 keyed——无 key 项退 unkeyed 位置配对（新增 tab 错位事故）", "closable 必须配 onClose / addable 必须配 onAdd（受控纪律——console.warn）"],
     "codeKey": "tabs",
     "demo": "DemoTabs",
-    "sourceFile": "src/components/Tabs/Tabs.ts",
-    "cssFile": "src/components/Tabs/Tabs.css",
-    "testFile": "src/components/Tabs/Tabs.test.ts"
+    "sourceFile": "src/client/components/Tabs/Tabs.ts",
+    "cssFile": "src/client/components/Tabs/Tabs.css",
+    "testFile": "src/client/components/Tabs/Tabs.test.ts"
   },
   {
     "id": "dropdown",
@@ -998,9 +998,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点", "portal 槽豁免：浮层插槽 [children, popup.portal()] 打开/关闭不触发 A 级动态数组检测"],
     "codeKey": "dropdown",
     "demo": "DemoDropdown",
-    "sourceFile": "src/components/Dropdown/Dropdown.ts",
-    "cssFile": "src/components/Dropdown/Dropdown.css",
-    "testFile": "src/components/Dropdown/Dropdown.test.ts"
+    "sourceFile": "src/client/components/Dropdown/Dropdown.ts",
+    "cssFile": "src/client/components/Dropdown/Dropdown.css",
+    "testFile": "src/client/components/Dropdown/Dropdown.test.ts"
   },
   {
     "id": "pagination",
@@ -1009,9 +1009,9 @@ export const components: ComponentEntry[] = [
     "desc": "分页器，自动计算页码范围",
     "codeKey": "pagination",
     "demo": "DemoPagination",
-    "sourceFile": "src/components/Pagination/Pagination.ts",
-    "cssFile": "src/components/Pagination/Pagination.css",
-    "testFile": "src/components/Pagination/Pagination.test.ts"
+    "sourceFile": "src/client/components/Pagination/Pagination.ts",
+    "cssFile": "src/client/components/Pagination/Pagination.css",
+    "testFile": "src/client/components/Pagination/Pagination.test.ts"
   },
   {
     "id": "steps",
@@ -1020,9 +1020,9 @@ export const components: ComponentEntry[] = [
     "desc": "分步指示器，支持 active/current",
     "codeKey": "steps",
     "demo": "DemoSteps",
-    "sourceFile": "src/components/Steps/Steps.ts",
-    "cssFile": "src/components/Steps/Steps.css",
-    "testFile": "src/components/Steps/Steps.test.ts"
+    "sourceFile": "src/client/components/Steps/Steps.ts",
+    "cssFile": "src/client/components/Steps/Steps.css",
+    "testFile": "src/client/components/Steps/Steps.test.ts"
   },
   {
     "id": "accordion",
@@ -1031,9 +1031,9 @@ export const components: ComponentEntry[] = [
     "desc": "折叠面板，支持多个 items",
     "codeKey": "accordion",
     "demo": "DemoAccordion",
-    "sourceFile": "src/components/Accordion/Accordion.ts",
-    "cssFile": "src/components/Accordion/Accordion.css",
-    "testFile": "src/components/Accordion/Accordion.test.ts"
+    "sourceFile": "src/client/components/Accordion/Accordion.ts",
+    "cssFile": "src/client/components/Accordion/Accordion.css",
+    "testFile": "src/client/components/Accordion/Accordion.test.ts"
   },
   {
     "id": "aichat",
@@ -1043,9 +1043,9 @@ export const components: ComponentEntry[] = [
     "family": "ai-chat",
     "codeKey": "aichat",
     "demo": "DemoAiChat",
-    "sourceFile": "src/components/AiChat/AiChat.ts",
-    "cssFile": "src/components/AiChat/AiChat.css",
-    "testFile": "src/components/AiChat/AiChat.test.ts"
+    "sourceFile": "src/client/components/AiChat/AiChat.ts",
+    "cssFile": "src/client/components/AiChat/AiChat.css",
+    "testFile": "src/client/components/AiChat/AiChat.test.ts"
   },
   {
     "id": "chatinput",
@@ -1055,9 +1055,9 @@ export const components: ComponentEntry[] = [
     "family": "ai-chat",
     "codeKey": "chatinput",
     "demo": "DemoChatInput",
-    "sourceFile": "src/components/ChatInput/ChatInput.ts",
-    "cssFile": "src/components/ChatInput/ChatInput.css",
-    "testFile": "src/components/ChatInput/ChatInput.test.ts"
+    "sourceFile": "src/client/components/ChatInput/ChatInput.ts",
+    "cssFile": "src/client/components/ChatInput/ChatInput.css",
+    "testFile": "src/client/components/ChatInput/ChatInput.test.ts"
   },
   {
     "id": "authpage",
@@ -1066,8 +1066,8 @@ export const components: ComponentEntry[] = [
     "desc": "认证页骨架：居中卡片 + logo + 表单插槽 + 错误条 + 提交 loading（登录/注册复用）",
     "codeKey": "authpage",
     "demo": "DemoAuthPage",
-    "sourceFile": "src/components/AuthPage/AuthPage.ts",
-    "testFile": "src/components/AuthPage/AuthPage.test.ts"
+    "sourceFile": "src/client/components/AuthPage/AuthPage.ts",
+    "testFile": "src/client/components/AuthPage/AuthPage.test.ts"
   },
   {
     "id": "toolcallcard",
@@ -1077,9 +1077,9 @@ export const components: ComponentEntry[] = [
     "family": "ai-chat",
     "codeKey": "toolcall",
     "demo": "DemoToolCallCard",
-    "sourceFile": "src/components/ToolCallCard/ToolCallCard.ts",
-    "cssFile": "src/components/ToolCallCard/ToolCallCard.css",
-    "testFile": "src/components/ToolCallCard/ToolCallCard.test.ts"
+    "sourceFile": "src/client/components/ToolCallCard/ToolCallCard.ts",
+    "cssFile": "src/client/components/ToolCallCard/ToolCallCard.css",
+    "testFile": "src/client/components/ToolCallCard/ToolCallCard.test.ts"
   },
   {
     "id": "jsonschemaform",
@@ -1088,9 +1088,9 @@ export const components: ComponentEntry[] = [
     "desc": "JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套/数组（AI 工具参数输入面）",
     "codeKey": "jsonschemaform",
     "demo": "DemoJsonSchemaForm",
-    "sourceFile": "src/components/JsonSchemaForm/JsonSchemaForm.ts",
-    "cssFile": "src/components/JsonSchemaForm/JsonSchemaForm.css",
-    "testFile": "src/components/JsonSchemaForm/JsonSchemaForm.test.ts"
+    "sourceFile": "src/client/components/JsonSchemaForm/JsonSchemaForm.ts",
+    "cssFile": "src/client/components/JsonSchemaForm/JsonSchemaForm.css",
+    "testFile": "src/client/components/JsonSchemaForm/JsonSchemaForm.test.ts"
   },
   {
     "id": "reasoningblock",
@@ -1100,9 +1100,9 @@ export const components: ComponentEntry[] = [
     "family": "ai-chat",
     "codeKey": "reasoningblock",
     "demo": "DemoReasoningBlock",
-    "sourceFile": "src/components/ReasoningBlock/ReasoningBlock.ts",
-    "cssFile": "src/components/ReasoningBlock/ReasoningBlock.css",
-    "testFile": "src/components/ReasoningBlock/ReasoningBlock.test.ts"
+    "sourceFile": "src/client/components/ReasoningBlock/ReasoningBlock.ts",
+    "cssFile": "src/client/components/ReasoningBlock/ReasoningBlock.css",
+    "testFile": "src/client/components/ReasoningBlock/ReasoningBlock.test.ts"
   },
   {
     "id": "citationcard",
@@ -1112,9 +1112,9 @@ export const components: ComponentEntry[] = [
     "family": "ai-chat",
     "codeKey": "citationcard",
     "demo": "DemoCitationCard",
-    "sourceFile": "src/components/CitationCard/CitationCard.ts",
-    "cssFile": "src/components/CitationCard/CitationCard.css",
-    "testFile": "src/components/CitationCard/CitationCard.test.ts"
+    "sourceFile": "src/client/components/CitationCard/CitationCard.ts",
+    "cssFile": "src/client/components/CitationCard/CitationCard.css",
+    "testFile": "src/client/components/CitationCard/CitationCard.test.ts"
   },
   {
     "id": "sessionlist",
@@ -1124,9 +1124,9 @@ export const components: ComponentEntry[] = [
     "family": "ai-chat",
     "codeKey": "sessionlist",
     "demo": "DemoSessionList",
-    "sourceFile": "src/components/SessionList/SessionList.ts",
-    "cssFile": "src/components/SessionList/SessionList.css",
-    "testFile": "src/components/SessionList/SessionList.test.ts"
+    "sourceFile": "src/client/components/SessionList/SessionList.ts",
+    "cssFile": "src/client/components/SessionList/SessionList.css",
+    "testFile": "src/client/components/SessionList/SessionList.test.ts"
   },
   {
     "id": "approvalcard",
@@ -1136,9 +1136,9 @@ export const components: ComponentEntry[] = [
     "family": "ai-chat",
     "codeKey": "approval",
     "demo": "DemoApprovalCard",
-    "sourceFile": "src/components/ApprovalCard/ApprovalCard.ts",
-    "cssFile": "src/components/ApprovalCard/ApprovalCard.css",
-    "testFile": "src/components/ApprovalCard/ApprovalCard.test.ts"
+    "sourceFile": "src/client/components/ApprovalCard/ApprovalCard.ts",
+    "cssFile": "src/client/components/ApprovalCard/ApprovalCard.css",
+    "testFile": "src/client/components/ApprovalCard/ApprovalCard.test.ts"
   },
   {
     "id": "pageheader",
@@ -1147,9 +1147,9 @@ export const components: ComponentEntry[] = [
     "desc": "页面标题栏，支持 sub + 右侧操作区 + display 大标题",
     "codeKey": "pageheader",
     "demo": "DemoPageHeader",
-    "sourceFile": "src/components/PageHeader/PageHeader.ts",
-    "cssFile": "src/components/PageHeader/PageHeader.css",
-    "testFile": "src/components/PageHeader/PageHeader.test.ts"
+    "sourceFile": "src/client/components/PageHeader/PageHeader.ts",
+    "cssFile": "src/client/components/PageHeader/PageHeader.css",
+    "testFile": "src/client/components/PageHeader/PageHeader.test.ts"
   },
   {
     "id": "icon",
@@ -1158,9 +1158,9 @@ export const components: ComponentEntry[] = [
     "desc": "stroke SVG 图标集，currentColor 着色，随字号缩放",
     "codeKey": "icon",
     "demo": "DemoIcon",
-    "sourceFile": "src/components/Icon/Icon.ts",
-    "cssFile": "src/components/Icon/Icon.css",
-    "testFile": "src/components/Icon/Icon.test.ts"
+    "sourceFile": "src/client/components/Icon/Icon.ts",
+    "cssFile": "src/client/components/Icon/Icon.css",
+    "testFile": "src/client/components/Icon/Icon.test.ts"
   },
   {
     "id": "divider",
@@ -1169,9 +1169,9 @@ export const components: ComponentEntry[] = [
     "desc": "分割线，支持 horizontal/vertical/带文字",
     "codeKey": "divider",
     "demo": "DemoDivider",
-    "sourceFile": "src/components/Divider/Divider.ts",
-    "cssFile": "src/components/Divider/Divider.css",
-    "testFile": "src/components/Divider/Divider.test.ts"
+    "sourceFile": "src/client/components/Divider/Divider.ts",
+    "cssFile": "src/client/components/Divider/Divider.css",
+    "testFile": "src/client/components/Divider/Divider.test.ts"
   },
   {
     "id": "app",
@@ -1188,9 +1188,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["小尺寸 button 固定 min/max-height（§5.6）：星 16x36 竖条事故"],
     "codeKey": "rate",
     "demo": "DemoRate",
-    "sourceFile": "src/components/Rate/Rate.ts",
-    "cssFile": "src/components/Rate/Rate.css",
-    "testFile": "src/components/Rate/Rate.test.ts"
+    "sourceFile": "src/client/components/Rate/Rate.ts",
+    "cssFile": "src/client/components/Rate/Rate.css",
+    "testFile": "src/client/components/Rate/Rate.test.ts"
   },
   {
     "id": "typography",
@@ -1199,9 +1199,9 @@ export const components: ComponentEntry[] = [
     "desc": "Title/Text/Paragraph：语义标签 + 语义色 -text 变体 + mark/code/删除线",
     "codeKey": "typography",
     "demo": "DemoTypography",
-    "sourceFile": "src/components/Typography/Typography.ts",
-    "cssFile": "src/components/Typography/Typography.css",
-    "testFile": "src/components/Typography/Typography.test.ts"
+    "sourceFile": "src/client/components/Typography/Typography.ts",
+    "cssFile": "src/client/components/Typography/Typography.css",
+    "testFile": "src/client/components/Typography/Typography.test.ts"
   },
   {
     "id": "label",
@@ -1210,9 +1210,9 @@ export const components: ComponentEntry[] = [
     "desc": "独立标签（required 星号）+ 宽高比容器（内容填满）",
     "codeKey": "label",
     "demo": "DemoLabel",
-    "sourceFile": "src/components/Label/Label.ts",
-    "cssFile": "src/components/Label/Label.css",
-    "testFile": "src/components/Label/Label.test.ts"
+    "sourceFile": "src/client/components/Label/Label.ts",
+    "cssFile": "src/client/components/Label/Label.css",
+    "testFile": "src/client/components/Label/Label.test.ts"
   },
   {
     "id": "aspectratio",
@@ -1221,9 +1221,9 @@ export const components: ComponentEntry[] = [
     "desc": "独立标签（required 星号）+ 宽高比容器（内容填满）",
     "codeKey": "label",
     "demo": "DemoAspectRatio",
-    "sourceFile": "src/components/AspectRatio/AspectRatio.ts",
-    "cssFile": "src/components/AspectRatio/AspectRatio.css",
-    "testFile": "src/components/AspectRatio/AspectRatio.test.ts"
+    "sourceFile": "src/client/components/AspectRatio/AspectRatio.ts",
+    "cssFile": "src/client/components/AspectRatio/AspectRatio.css",
+    "testFile": "src/client/components/AspectRatio/AspectRatio.test.ts"
   },
   {
     "id": "toggle-togglegroup",
@@ -1232,9 +1232,9 @@ export const components: ComponentEntry[] = [
     "desc": "切换按钮：single/multiple 双模式（shadcn 对齐）",
     "codeKey": "togglegroup",
     "demo": "DemoToggleGroup",
-    "sourceFile": "src/components/ToggleGroup/ToggleGroup.ts",
-    "cssFile": "src/components/ToggleGroup/ToggleGroup.css",
-    "testFile": "src/components/ToggleGroup/ToggleGroup.test.ts"
+    "sourceFile": "src/client/components/ToggleGroup/ToggleGroup.ts",
+    "cssFile": "src/client/components/ToggleGroup/ToggleGroup.css",
+    "testFile": "src/client/components/ToggleGroup/ToggleGroup.test.ts"
   },
   {
     "id": "checkboxgroup",
@@ -1243,9 +1243,9 @@ export const components: ComponentEntry[] = [
     "desc": "复选框组：数组受控 + 栅格列数（antd Checkbox.Group）",
     "codeKey": "checkboxgroup",
     "demo": "DemoCheckboxGroup",
-    "sourceFile": "src/components/CheckboxGroup/CheckboxGroup.ts",
-    "cssFile": "src/components/CheckboxGroup/CheckboxGroup.css",
-    "testFile": "src/components/CheckboxGroup/CheckboxGroup.test.ts"
+    "sourceFile": "src/client/components/CheckboxGroup/CheckboxGroup.ts",
+    "cssFile": "src/client/components/CheckboxGroup/CheckboxGroup.css",
+    "testFile": "src/client/components/CheckboxGroup/CheckboxGroup.test.ts"
   },
   {
     "id": "pininput",
@@ -1254,9 +1254,9 @@ export const components: ComponentEntry[] = [
     "desc": "验证码输入：自动聚焦/粘贴分派/Backspace 回退（shadcn InputOTP）",
     "codeKey": "pininput",
     "demo": "DemoPinInput",
-    "sourceFile": "src/components/PinInput/PinInput.ts",
-    "cssFile": "src/components/PinInput/PinInput.css",
-    "testFile": "src/components/PinInput/PinInput.test.ts"
+    "sourceFile": "src/client/components/PinInput/PinInput.ts",
+    "cssFile": "src/client/components/PinInput/PinInput.css",
+    "testFile": "src/client/components/PinInput/PinInput.test.ts"
   },
   {
     "id": "pininput-v2",
@@ -1273,9 +1273,9 @@ export const components: ComponentEntry[] = [
     "desc": "复制按钮：clipboard + execCommand 降级 + 成功状态机",
     "codeKey": "copybtn",
     "demo": "DemoCopyButton",
-    "sourceFile": "src/components/CopyButton/CopyButton.ts",
-    "cssFile": "src/components/CopyButton/CopyButton.css",
-    "testFile": "src/components/CopyButton/CopyButton.test.ts"
+    "sourceFile": "src/client/components/CopyButton/CopyButton.ts",
+    "cssFile": "src/client/components/CopyButton/CopyButton.css",
+    "testFile": "src/client/components/CopyButton/CopyButton.test.ts"
   },
   {
     "id": "colorpicker",
@@ -1284,9 +1284,9 @@ export const components: ComponentEntry[] = [
     "desc": "颜色选择：预设色板 + hex 输入（Popover 弹层）",
     "codeKey": "colorpicker",
     "demo": "DemoColorPicker",
-    "sourceFile": "src/components/ColorPicker/ColorPicker.ts",
-    "cssFile": "src/components/ColorPicker/ColorPicker.css",
-    "testFile": "src/components/ColorPicker/ColorPicker.test.ts"
+    "sourceFile": "src/client/components/ColorPicker/ColorPicker.ts",
+    "cssFile": "src/client/components/ColorPicker/ColorPicker.css",
+    "testFile": "src/client/components/ColorPicker/ColorPicker.test.ts"
   },
   {
     "id": "hovercard",
@@ -1296,9 +1296,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["portal 槽豁免：浮层插槽打开/关闭不触发 A 级动态数组检测（框架管理切换槽）"],
     "codeKey": "hovercard",
     "demo": "DemoHoverCard",
-    "sourceFile": "src/components/HoverCard/HoverCard.ts",
-    "cssFile": "src/components/HoverCard/HoverCard.css",
-    "testFile": "src/components/HoverCard/HoverCard.test.ts"
+    "sourceFile": "src/client/components/HoverCard/HoverCard.ts",
+    "cssFile": "src/client/components/HoverCard/HoverCard.css",
+    "testFile": "src/client/components/HoverCard/HoverCard.test.ts"
   },
   {
     "id": "notification",
@@ -1307,9 +1307,9 @@ export const components: ComponentEntry[] = [
     "desc": "队列式通知：notification.success/error/warning 命令式（antd 对齐）",
     "codeKey": "notification",
     "demo": "DemoNotification",
-    "sourceFile": "src/components/Notification/Notification.ts",
-    "cssFile": "src/components/Notification/Notification.css",
-    "testFile": "src/components/Notification/Notification.test.ts"
+    "sourceFile": "src/client/components/Notification/Notification.ts",
+    "cssFile": "src/client/components/Notification/Notification.css",
+    "testFile": "src/client/components/Notification/Notification.test.ts"
   },
   {
     "id": "backtop",
@@ -1318,9 +1318,9 @@ export const components: ComponentEntry[] = [
     "desc": "回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）",
     "codeKey": "backtop",
     "demo": "DemoBackTop",
-    "sourceFile": "src/components/BackTop/BackTop.ts",
-    "cssFile": "src/components/BackTop/BackTop.css",
-    "testFile": "src/components/BackTop/BackTop.test.ts"
+    "sourceFile": "src/client/components/BackTop/BackTop.ts",
+    "cssFile": "src/client/components/BackTop/BackTop.css",
+    "testFile": "src/client/components/BackTop/BackTop.test.ts"
   },
   {
     "id": "affix",
@@ -1329,9 +1329,9 @@ export const components: ComponentEntry[] = [
     "desc": "回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）",
     "codeKey": "backtop",
     "demo": "DemoAffix",
-    "sourceFile": "src/components/Affix/Affix.ts",
-    "cssFile": "src/components/Affix/Affix.css",
-    "testFile": "src/components/Affix/Affix.test.ts"
+    "sourceFile": "src/client/components/Affix/Affix.ts",
+    "cssFile": "src/client/components/Affix/Affix.css",
+    "testFile": "src/client/components/Affix/Affix.test.ts"
   },
   {
     "id": "anchor",
@@ -1340,9 +1340,9 @@ export const components: ComponentEntry[] = [
     "desc": "锚点导航：滚动高亮跟随 + 点击平滑滚动",
     "codeKey": "anchor",
     "demo": "DemoAnchor",
-    "sourceFile": "src/components/Anchor/Anchor.ts",
-    "cssFile": "src/components/Anchor/Anchor.css",
-    "testFile": "src/components/Anchor/Anchor.test.ts"
+    "sourceFile": "src/client/components/Anchor/Anchor.ts",
+    "cssFile": "src/client/components/Anchor/Anchor.css",
+    "testFile": "src/client/components/Anchor/Anchor.test.ts"
   },
   {
     "id": "contextmenu",
@@ -1352,9 +1352,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["portal 槽豁免；右键 + 触屏长按双通道"],
     "codeKey": "contextmenu",
     "demo": "DemoContextMenu",
-    "sourceFile": "src/components/ContextMenu/ContextMenu.ts",
-    "cssFile": "src/components/ContextMenu/ContextMenu.css",
-    "testFile": "src/components/ContextMenu/ContextMenu.test.ts"
+    "sourceFile": "src/client/components/ContextMenu/ContextMenu.ts",
+    "cssFile": "src/client/components/ContextMenu/ContextMenu.css",
+    "testFile": "src/client/components/ContextMenu/ContextMenu.test.ts"
   },
   {
     "id": "mentions",
@@ -1363,9 +1363,9 @@ export const components: ComponentEntry[] = [
     "desc": "@提及：composition 抑制 + 过滤插入（antd Mentions）",
     "codeKey": "mentions",
     "demo": "DemoMentions",
-    "sourceFile": "src/components/Mentions/Mentions.ts",
-    "cssFile": "src/components/Mentions/Mentions.css",
-    "testFile": "src/components/Mentions/Mentions.test.ts"
+    "sourceFile": "src/client/components/Mentions/Mentions.ts",
+    "cssFile": "src/client/components/Mentions/Mentions.css",
+    "testFile": "src/client/components/Mentions/Mentions.test.ts"
   },
   {
     "id": "mentions-v2",
@@ -1383,9 +1383,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["受控纪律（§5.2）：受控 activeKeys 必须配回调——缺回调静默不可点（console.warn 防护）"],
     "codeKey": "collapse",
     "demo": "DemoCollapse",
-    "sourceFile": "src/components/Collapse/Collapse.ts",
-    "cssFile": "src/components/Collapse/Collapse.css",
-    "testFile": "src/components/Collapse/Collapse.test.ts"
+    "sourceFile": "src/client/components/Collapse/Collapse.ts",
+    "cssFile": "src/client/components/Collapse/Collapse.css",
+    "testFile": "src/client/components/Collapse/Collapse.test.ts"
   },
   {
     "id": "tree",
@@ -1395,9 +1395,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["受控纪律：selectedKeys/checkedKeys/expandedKeys 必须配回调（缺回调 console.warn）", "小尺寸 button 固定 min/max-height（§5.6）：checkbox 14x36 竖条事故", "虚拟模式（virtual）键盘导航限于可见窗口（VirtualList 无 scrollTo——裁剪登记）"],
     "codeKey": "tree",
     "demo": "DemoToggleTree",
-    "sourceFile": "src/components/Tree/Tree.ts",
-    "cssFile": "src/components/Tree/Tree.css",
-    "testFile": "src/components/Tree/Tree.test.ts"
+    "sourceFile": "src/client/components/Tree/Tree.ts",
+    "cssFile": "src/client/components/Tree/Tree.css",
+    "testFile": "src/client/components/Tree/Tree.test.ts"
   },
   {
     "id": "tree-v2",
@@ -1415,9 +1415,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["受控纪律：受控 value 必须配回调——缺回调静默不可点", "多选（multiple）已裁剪（低频——单选+搜索已够，见 components-cuts.md）"],
     "codeKey": "cascader",
     "demo": "DemoCascader",
-    "sourceFile": "src/components/Cascader/Cascader.ts",
-    "cssFile": "src/components/Cascader/Cascader.css",
-    "testFile": "src/components/Cascader/Cascader.test.ts"
+    "sourceFile": "src/client/components/Cascader/Cascader.ts",
+    "cssFile": "src/client/components/Cascader/Cascader.css",
+    "testFile": "src/client/components/Cascader/Cascader.test.ts"
   },
   {
     "id": "cascader-v2",
@@ -1434,9 +1434,9 @@ export const components: ComponentEntry[] = [
     "desc": "穿梭框：双列表 + 选中移动（antd/EP Transfer）",
     "codeKey": "transfer",
     "demo": "DemoTransfer",
-    "sourceFile": "src/components/Transfer/Transfer.ts",
-    "cssFile": "src/components/Transfer/Transfer.css",
-    "testFile": "src/components/Transfer/Transfer.test.ts"
+    "sourceFile": "src/client/components/Transfer/Transfer.ts",
+    "cssFile": "src/client/components/Transfer/Transfer.css",
+    "testFile": "src/client/components/Transfer/Transfer.test.ts"
   },
   {
     "id": "command",
@@ -1445,9 +1445,9 @@ export const components: ComponentEntry[] = [
     "desc": "命令面板：⌘K 全局快捷键 + 键盘流（shadcn Command）",
     "codeKey": "command",
     "demo": "DemoCommand",
-    "sourceFile": "src/components/Command/Command.ts",
-    "cssFile": "src/components/Command/Command.css",
-    "testFile": "src/components/Command/Command.test.ts"
+    "sourceFile": "src/client/components/Command/Command.ts",
+    "cssFile": "src/client/components/Command/Command.css",
+    "testFile": "src/client/components/Command/Command.test.ts"
   },
   {
     "id": "menubar",
@@ -1456,9 +1456,9 @@ export const components: ComponentEntry[] = [
     "desc": "水平菜单栏：←→ 切换 + ↓ 展开（shadcn Menubar）",
     "codeKey": "menubar",
     "demo": "DemoMenubar",
-    "sourceFile": "src/components/Menubar/Menubar.ts",
-    "cssFile": "src/components/Menubar/Menubar.css",
-    "testFile": "src/components/Menubar/Menubar.test.ts"
+    "sourceFile": "src/client/components/Menubar/Menubar.ts",
+    "cssFile": "src/client/components/Menubar/Menubar.css",
+    "testFile": "src/client/components/Menubar/Menubar.test.ts"
   },
   {
     "id": "carousel",
@@ -1468,9 +1468,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["小尺寸 button 固定 min/max-height（§5.6）：圆点 8x45 竖条事故"],
     "codeKey": "carousel",
     "demo": "DemoCarousel",
-    "sourceFile": "src/components/Carousel/Carousel.ts",
-    "cssFile": "src/components/Carousel/Carousel.css",
-    "testFile": "src/components/Carousel/Carousel.test.ts"
+    "sourceFile": "src/client/components/Carousel/Carousel.ts",
+    "cssFile": "src/client/components/Carousel/Carousel.css",
+    "testFile": "src/client/components/Carousel/Carousel.test.ts"
   },
   {
     "id": "resizable",
@@ -1479,9 +1479,9 @@ export const components: ComponentEntry[] = [
     "desc": "拖拽分割面板：pointer + 键盘方向键 + clamp（shadcn）",
     "codeKey": "resizable",
     "demo": "DemoResizable",
-    "sourceFile": "src/components/Resizable/Resizable.ts",
-    "cssFile": "src/components/Resizable/Resizable.css",
-    "testFile": "src/components/Resizable/Resizable.test.ts"
+    "sourceFile": "src/client/components/Resizable/Resizable.ts",
+    "cssFile": "src/client/components/Resizable/Resizable.css",
+    "testFile": "src/client/components/Resizable/Resizable.test.ts"
   },
   {
     "id": "calendar",
@@ -1491,9 +1491,9 @@ export const components: ComponentEntry[] = [
     "gotchas": ["受控纪律：受控 month/value 必须配回调——缺回调静默不可点（console.warn 防护）"],
     "codeKey": "calendar",
     "demo": "DemoCalendar",
-    "sourceFile": "src/components/Calendar/Calendar.ts",
-    "cssFile": "src/components/Calendar/Calendar.css",
-    "testFile": "src/components/Calendar/Calendar.test.ts"
+    "sourceFile": "src/client/components/Calendar/Calendar.ts",
+    "cssFile": "src/client/components/Calendar/Calendar.css",
+    "testFile": "src/client/components/Calendar/Calendar.test.ts"
   },
   {
     "id": "calendar-v2",
@@ -1510,9 +1510,9 @@ export const components: ComponentEntry[] = [
     "desc": "水印：canvas 平铺绘制 + overlay（antd Watermark）",
     "codeKey": "watermark",
     "demo": "DemoWatermark",
-    "sourceFile": "src/components/Watermark/Watermark.ts",
-    "cssFile": "src/components/Watermark/Watermark.css",
-    "testFile": "src/components/Watermark/Watermark.test.ts"
+    "sourceFile": "src/client/components/Watermark/Watermark.ts",
+    "cssFile": "src/client/components/Watermark/Watermark.css",
+    "testFile": "src/client/components/Watermark/Watermark.test.ts"
   },
   {
     "id": "virtuallist",
@@ -1521,9 +1521,9 @@ export const components: ComponentEntry[] = [
     "desc": "虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM",
     "codeKey": "virtuallist",
     "demo": "DemoVirtualList",
-    "sourceFile": "src/components/VirtualList/VirtualList.ts",
-    "cssFile": "src/components/VirtualList/VirtualList.css",
-    "testFile": "src/components/VirtualList/VirtualList.test.ts"
+    "sourceFile": "src/client/components/VirtualList/VirtualList.ts",
+    "cssFile": "src/client/components/VirtualList/VirtualList.css",
+    "testFile": "src/client/components/VirtualList/VirtualList.test.ts"
   },
   {
     "id": "virtualtable",
@@ -1532,9 +1532,9 @@ export const components: ComponentEntry[] = [
     "desc": "虚拟表格：10k 行固定表头 + 可见窗口渲染 + 排序",
     "codeKey": "virtualtable",
     "demo": "DemoVirtualTable",
-    "sourceFile": "src/components/VirtualTable/VirtualTable.ts",
-    "cssFile": "src/components/VirtualTable/VirtualTable.css",
-    "testFile": "src/components/VirtualTable/VirtualTable.test.ts"
+    "sourceFile": "src/client/components/VirtualTable/VirtualTable.ts",
+    "cssFile": "src/client/components/VirtualTable/VirtualTable.css",
+    "testFile": "src/client/components/VirtualTable/VirtualTable.test.ts"
   },
   {
     "id": "virtualtable-v2",
@@ -1551,9 +1551,9 @@ export const components: ComponentEntry[] = [
     "desc": "无限滚动：底部哨兵触底加载 + loading/end 态",
     "codeKey": "infinitescroll",
     "demo": "DemoInfiniteScroll",
-    "sourceFile": "src/components/InfiniteScroll/InfiniteScroll.ts",
-    "cssFile": "src/components/InfiniteScroll/InfiniteScroll.css",
-    "testFile": "src/components/InfiniteScroll/InfiniteScroll.test.ts"
+    "sourceFile": "src/client/components/InfiniteScroll/InfiniteScroll.ts",
+    "cssFile": "src/client/components/InfiniteScroll/InfiniteScroll.css",
+    "testFile": "src/client/components/InfiniteScroll/InfiniteScroll.test.ts"
   },
   {
     "id": "infinitescroll-v2",
@@ -1570,8 +1570,8 @@ export const components: ComponentEntry[] = [
     "desc": "二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG",
     "codeKey": "qrcode",
     "demo": "DemoQRCode",
-    "sourceFile": "src/components/QRCode/QRCode.ts",
-    "testFile": "src/components/QRCode/QRCode.test.ts"
+    "sourceFile": "src/client/components/QRCode/QRCode.ts",
+    "testFile": "src/client/components/QRCode/QRCode.test.ts"
   },
   {
     "id": "sheetgrid",
@@ -1579,9 +1579,9 @@ export const components: ComponentEntry[] = [
     "category": "editor",
     "desc": "weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（design/office-events-plan.md）：文档 = fold(事件流)——SheetGrid 的每个",
     "family": "file-preview",
-    "sourceFile": "src/components/SheetGrid/SheetGrid.ts",
-    "cssFile": "src/components/SheetGrid/SheetGrid.css",
-    "testFile": "src/components/SheetGrid/SheetGrid.test.ts"
+    "sourceFile": "src/client/components/SheetGrid/SheetGrid.ts",
+    "cssFile": "src/client/components/SheetGrid/SheetGrid.css",
+    "testFile": "src/client/components/SheetGrid/SheetGrid.test.ts"
   },
   {
     "id": "slidecanvas",
@@ -1589,45 +1589,45 @@ export const components: ComponentEntry[] = [
     "category": "editor",
     "desc": "weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（design/office-events-plan.md）：文档 = fold(事件流)——每个编辑 =",
     "family": "file-preview",
-    "sourceFile": "src/components/SlideCanvas/SlideCanvas.ts",
-    "cssFile": "src/components/SlideCanvas/SlideCanvas.css",
-    "testFile": "src/components/SlideCanvas/SlideCanvas.test.ts"
+    "sourceFile": "src/client/components/SlideCanvas/SlideCanvas.ts",
+    "cssFile": "src/client/components/SlideCanvas/SlideCanvas.css",
+    "testFile": "src/client/components/SlideCanvas/SlideCanvas.test.ts"
   },
   {
     "id": "togglegroup",
     "name": "ToggleGroup",
     "category": "input",
     "desc": "（无 demo 卡片——组件目录存在）",
-    "sourceFile": "src/components/ToggleGroup/ToggleGroup.ts",
-    "cssFile": "src/components/ToggleGroup/ToggleGroup.css",
-    "testFile": "src/components/ToggleGroup/ToggleGroup.test.ts"
+    "sourceFile": "src/client/components/ToggleGroup/ToggleGroup.ts",
+    "cssFile": "src/client/components/ToggleGroup/ToggleGroup.css",
+    "testFile": "src/client/components/ToggleGroup/ToggleGroup.test.ts"
   },
   {
     "id": "title",
     "name": "Title",
     "category": "core",
     "desc": "标题排版（语义标签 + 语义色 -text 变体）——Typography 家族",
-    "sourceFile": "src/components/Typography/Typography.ts",
-    "cssFile": "src/components/Typography/Typography.css",
-    "testFile": "src/components/Typography/Typography.test.ts"
+    "sourceFile": "src/client/components/Typography/Typography.ts",
+    "cssFile": "src/client/components/Typography/Typography.css",
+    "testFile": "src/client/components/Typography/Typography.test.ts"
   },
   {
     "id": "text",
     "name": "Text",
     "category": "core",
     "desc": "正文排版（语义色 -text 变体 + mark/code/删除线）——Typography 家族",
-    "sourceFile": "src/components/Typography/Typography.ts",
-    "cssFile": "src/components/Typography/Typography.css",
-    "testFile": "src/components/Typography/Typography.test.ts"
+    "sourceFile": "src/client/components/Typography/Typography.ts",
+    "cssFile": "src/client/components/Typography/Typography.css",
+    "testFile": "src/client/components/Typography/Typography.test.ts"
   },
   {
     "id": "paragraph",
     "name": "Paragraph",
     "category": "core",
     "desc": "段落排版——Typography 家族",
-    "sourceFile": "src/components/Typography/Typography.ts",
-    "cssFile": "src/components/Typography/Typography.css",
-    "testFile": "src/components/Typography/Typography.test.ts"
+    "sourceFile": "src/client/components/Typography/Typography.ts",
+    "cssFile": "src/client/components/Typography/Typography.css",
+    "testFile": "src/client/components/Typography/Typography.test.ts"
   }
 ,
   {
@@ -1635,9 +1635,9 @@ export const components: ComponentEntry[] = [
     "name": "TabBar",
     "category": "navigation",
     "desc": "底部标签栏——移动端 App 主导航（3-5 tab + icon/badge/受控激活 + safe-area 避让）",
-    "sourceFile": "src/components/TabBar/TabBar.ts",
-    "cssFile": "src/components/TabBar/TabBar.css",
-    "testFile": "src/components/TabBar/TabBar.test.ts"
+    "sourceFile": "src/client/components/TabBar/TabBar.ts",
+    "cssFile": "src/client/components/TabBar/TabBar.css",
+    "testFile": "src/client/components/TabBar/TabBar.test.ts"
   }
 ,
   {
@@ -1645,9 +1645,9 @@ export const components: ComponentEntry[] = [
     "name": "ActionSheet",
     "category": "overlay",
     "desc": "动作面板——移动端底部滑出（命令列表 + 取消按钮，usePopup 会话级模态）",
-    "sourceFile": "src/components/ActionSheet/ActionSheet.ts",
-    "cssFile": "src/components/ActionSheet/ActionSheet.css",
-    "testFile": "src/components/ActionSheet/ActionSheet.test.ts"
+    "sourceFile": "src/client/components/ActionSheet/ActionSheet.ts",
+    "cssFile": "src/client/components/ActionSheet/ActionSheet.css",
+    "testFile": "src/client/components/ActionSheet/ActionSheet.test.ts"
   }
 ,
   {
@@ -1656,8 +1656,8 @@ export const components: ComponentEntry[] = [
     "category": "ai",
     "desc": "提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）",
     "gotchas": ["textarea value 必须走 property（attribute 只是 defaultValue——DOM value 恒空/光标失效事故，vdom3 渲染器已修）", "受控输入纪律：value 由父控制 + onChange 通知"],
-    "sourceFile": "src/components/PromptTemplate/PromptTemplate.ts",
-    "cssFile": "src/components/PromptTemplate/PromptTemplate.css",
-    "testFile": "src/components/PromptTemplate/PromptTemplate.test.ts"
+    "sourceFile": "src/client/components/PromptTemplate/PromptTemplate.ts",
+    "cssFile": "src/client/components/PromptTemplate/PromptTemplate.css",
+    "testFile": "src/client/components/PromptTemplate/PromptTemplate.test.ts"
   }
 ]

@@ -16,7 +16,7 @@ flex row 容器——/between/around/evenly/right 分布变体
 
 ## 源码
 
-`src/layout/_row.css`
+`src/client/layout/_row.css`
 
 ## 验证
 

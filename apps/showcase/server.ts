@@ -12,13 +12,13 @@
  *   /api/chat /api/approve /api/files/:name   wire-fake（AiChat/FilePreview 演示）
  *   /llms.txt             全站 LLM 索引（= content/index.md）
  */
-import { serve, Router, ui } from '../../src/index.ts'
-import { HtmlSafe } from '../../src/ui/html-safe.ts'
+import { serve, Router, ui } from '../../src/server/index.ts'
+import { HtmlSafe } from '../../src/client/ui/html-safe.ts'
 import { shellHeader } from './src/ssr-header.ts'
 // ctx.ui.html 标签模板会转义插值——HTML 插值（header/防闪脚本）需 unsafe 包裹
 const unsafe = (s: string): string => new HtmlSafe(s) as unknown as string
-import { h, renderToEvents, eventsToHtml } from '../../src/ui-dom/index.ts'
-import { Markdown } from '../../src/components/index.ts'
+import { h, renderToEvents, eventsToHtml } from '../../src/client/ui-dom/index.ts'
+import { Markdown } from '../../src/client/components/index.ts'
 import { installDemoBackend } from './src/demo-backend.ts'
 import { registerTodoApi } from '../../examples/apps/todo/api.ts'
 import { registerAuthApi, ensureAuthTables } from '../../examples/apps/auth/api.ts'

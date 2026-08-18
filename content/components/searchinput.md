@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/SearchInput/SearchInput.ts` |
-| 样式 | `src/components/SearchInput/SearchInput.css` |
-| 测试 | `src/components/SearchInput/SearchInput.test.ts` |
+| 源码 | `src/client/components/SearchInput/SearchInput.ts` |
+| 样式 | `src/client/components/SearchInput/SearchInput.css` |
+| 测试 | `src/client/components/SearchInput/SearchInput.test.ts` |
 | demo | `apps/showcase/src/demos/DemoSearchInput.tsx`（P1 拆分） |
 
 ## 验证

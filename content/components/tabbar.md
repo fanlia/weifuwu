@@ -36,9 +36,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/TabBar/TabBar.ts` |
-| 样式 | `src/components/TabBar/TabBar.css` |
-| 测试 | `src/components/TabBar/TabBar.test.ts` |
+| 源码 | `src/client/components/TabBar/TabBar.ts` |
+| 样式 | `src/client/components/TabBar/TabBar.css` |
+| 测试 | `src/client/components/TabBar/TabBar.test.ts` |
 
 ## 验证
 

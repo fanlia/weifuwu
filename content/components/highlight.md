@@ -36,9 +36,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Highlight/Highlight.ts` |
-| 样式 | `src/components/Highlight/Highlight.css` |
-| 测试 | `src/components/Highlight/Highlight.test.ts` |
+| 源码 | `src/client/components/Highlight/Highlight.ts` |
+| 样式 | `src/client/components/Highlight/Highlight.css` |
+| 测试 | `src/client/components/Highlight/Highlight.test.ts` |
 | demo | `apps/showcase/src/demos/DemoHighlight.tsx`（P1 拆分） |
 
 ## 验证

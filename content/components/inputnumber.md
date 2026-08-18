@@ -48,9 +48,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/InputNumber/InputNumber.ts` |
-| 样式 | `src/components/InputNumber/InputNumber.css` |
-| 测试 | `src/components/InputNumber/InputNumber.test.ts` |
+| 源码 | `src/client/components/InputNumber/InputNumber.ts` |
+| 样式 | `src/client/components/InputNumber/InputNumber.css` |
+| 测试 | `src/client/components/InputNumber/InputNumber.test.ts` |
 | demo | `apps/showcase/src/demos/DemoInputNumber.tsx`（P1 拆分） |
 
 ## 验证

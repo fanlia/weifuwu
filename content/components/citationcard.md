@@ -38,9 +38,9 @@ RAG 引用来源：折叠「引用 N 条」+ 条目列表（序号/标题/来源
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/CitationCard/CitationCard.ts` |
-| 样式 | `src/components/CitationCard/CitationCard.css` |
-| 测试 | `src/components/CitationCard/CitationCard.test.ts` |
+| 源码 | `src/client/components/CitationCard/CitationCard.ts` |
+| 样式 | `src/client/components/CitationCard/CitationCard.css` |
+| 测试 | `src/client/components/CitationCard/CitationCard.test.ts` |
 | demo | `apps/showcase/src/demos/DemoCitationCard.tsx`（P1 拆分） |
 
 ## 验证

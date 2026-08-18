@@ -18,9 +18,9 @@ import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { resolve, dirname, join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Router, serve } from '../index.ts'
-import { h, renderToEvents, eventsToHtml } from '../ui-dom/index.ts'
-import { Markdown } from '../components/index.ts'
+import { Router, serve } from '../server/index.ts'
+import { h, renderToEvents, eventsToHtml } from '../client/ui-dom/index.ts'
+import { Markdown } from '../client/components/index.ts'
 
 // ── 定位 content/（向上逐级找含 index.md 的 content 目录） ──
 function findContentRoot(): string {

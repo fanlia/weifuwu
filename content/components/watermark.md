@@ -43,9 +43,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Watermark/Watermark.ts` |
-| 样式 | `src/components/Watermark/Watermark.css` |
-| 测试 | `src/components/Watermark/Watermark.test.ts` |
+| 源码 | `src/client/components/Watermark/Watermark.ts` |
+| 样式 | `src/client/components/Watermark/Watermark.css` |
+| 测试 | `src/client/components/Watermark/Watermark.test.ts` |
 | demo | `apps/showcase/src/demos/DemoWatermark.tsx`（P1 拆分） |
 
 ## 验证

@@ -40,9 +40,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Tour/Tour.ts` |
-| 样式 | `src/components/Tour/Tour.css` |
-| 测试 | `src/components/Tour/Tour.test.ts` |
+| 源码 | `src/client/components/Tour/Tour.ts` |
+| 样式 | `src/client/components/Tour/Tour.css` |
+| 测试 | `src/client/components/Tour/Tour.test.ts` |
 | demo | `apps/showcase/src/demos/DemoTour.tsx`（P1 拆分） |
 
 ## 验证

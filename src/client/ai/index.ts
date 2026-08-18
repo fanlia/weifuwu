@@ -27,7 +27,7 @@
  *   defaultModel: DEEPSEEK_MODEL        → 'deepseek-v4-flash'
  */
 
-import type { Context, Middleware } from '../types.ts'
+import type { Context, Middleware } from '../../server/types.ts'
 import { createAiClient, type AiClient, type AiClientOptions, type AiEmbeddingOptions } from './client.ts'
 import { createAgent, type AgentConfig, type AgentRunner } from './agent.ts'
 import type { Ai } from './contracts.ts'
@@ -50,7 +50,7 @@ export interface AiClientModule extends Middleware<Context, Context & AiInjected
   streamStep: AiClient['streamStep']
 }
 
-declare module '../types.ts' {
+declare module '../../server/types.ts' {
   interface Context {
     /** 注入模块本身（含 agent / approve），worker 场景直接 a.chat() */
     ai?: Ai

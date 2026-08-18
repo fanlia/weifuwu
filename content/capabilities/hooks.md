@@ -6,7 +6,7 @@ useMedia/useInView/useChat/usePopup…——事件驱动重渲染
 
 ## 框架源码
 
-`src/ui-dom/vdom3/`
+`src/client/ui-dom/vdom3/`
 
 ## 平台自证
 

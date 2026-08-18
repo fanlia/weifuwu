@@ -15,7 +15,7 @@ wf-hidden/wf-block/wf-flex…（含 @lg 断点变体——响应式切换）
 
 ## 源码
 
-`src/layout/_hidden.css`
+`src/client/layout/_hidden.css`
 
 ## 验证
 

@@ -49,9 +49,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Tree/Tree.ts` |
-| 样式 | `src/components/Tree/Tree.css` |
-| 测试 | `src/components/Tree/Tree.test.ts` |
+| 源码 | `src/client/components/Tree/Tree.ts` |
+| 样式 | `src/client/components/Tree/Tree.css` |
+| 测试 | `src/client/components/Tree/Tree.test.ts` |
 | demo | `apps/showcase/src/demos/DemoToggleTree.tsx`（P1 拆分） |
 
 ## 验证

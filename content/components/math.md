@@ -33,9 +33,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Math/Math.ts` |
-| 样式 | `src/components/Math/Math.css` |
-| 测试 | `src/components/Math/Math.test.ts` |
+| 源码 | `src/client/components/Math/Math.ts` |
+| 样式 | `src/client/components/Math/Math.css` |
+| 测试 | `src/client/components/Math/Math.test.ts` |
 
 ## 验证
 

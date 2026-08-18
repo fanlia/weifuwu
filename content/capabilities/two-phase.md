@@ -6,7 +6,7 @@ mount（工厂，只一次）+ render（每次渲染）——工厂可 await，r
 
 ## 框架源码
 
-`src/ui-dom/vdom3/build.ts`
+`src/client/ui-dom/vdom3/build.ts`
 
 ## 平台自证
 

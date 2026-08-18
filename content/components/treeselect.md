@@ -44,9 +44,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/TreeSelect/TreeSelect.ts` |
-| 样式 | `src/components/TreeSelect/TreeSelect.css` |
-| 测试 | `src/components/TreeSelect/TreeSelect.test.ts` |
+| 源码 | `src/client/components/TreeSelect/TreeSelect.ts` |
+| 样式 | `src/client/components/TreeSelect/TreeSelect.css` |
+| 测试 | `src/client/components/TreeSelect/TreeSelect.test.ts` |
 | demo | `apps/showcase/src/demos/DemoTreeSelect.tsx`（P1 拆分） |
 
 ## 验证

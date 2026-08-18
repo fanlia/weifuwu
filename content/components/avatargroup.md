@@ -37,9 +37,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/AvatarGroup/AvatarGroup.ts` |
-| 样式 | `src/components/AvatarGroup/AvatarGroup.css` |
-| 测试 | `src/components/AvatarGroup/AvatarGroup.test.ts` |
+| 源码 | `src/client/components/AvatarGroup/AvatarGroup.ts` |
+| 样式 | `src/client/components/AvatarGroup/AvatarGroup.css` |
+| 测试 | `src/client/components/AvatarGroup/AvatarGroup.test.ts` |
 | demo | `apps/showcase/src/demos/DemoAvatarGroup.tsx`（P1 拆分） |
 
 ## 验证

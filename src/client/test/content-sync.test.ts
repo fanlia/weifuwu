@@ -16,7 +16,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
 test('content 生成无漂移（gen-content --check）', { timeout: 30_000 }, () => {
   try {
@@ -27,7 +27,7 @@ test('content 生成无漂移（gen-content --check）', { timeout: 30_000 }, ()
 })
 
 test('组件文档与组件目录一一对应（计数防线）', () => {
-  const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+  const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true })
     .filter((d) => d.isDirectory() && existsSync(join(root, 'src/components', d.name, `${d.name}.ts`)))
     .map((d) => d.name)
   const docs = new Set(readdirSync(join(root, 'content/components')).filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')))

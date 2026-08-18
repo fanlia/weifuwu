@@ -4,7 +4,7 @@
  * 覆盖：消费成功/XACK、失败重试（固定间隔 = visibilityTimeout）、
  * attempts 用尽 → DLQ、崩溃 worker 接管（XAUTOCLAIM）、并发、
  * 多 worker 实例消费组隔离、空队列不崩溃、length。
- * （引擎协议层测试见 src/db/redis/*.test.ts——CS-04 真库）
+ * （引擎协议层测试见 src/server/db/redis/*.test.ts——CS-04 真库）
  */
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'

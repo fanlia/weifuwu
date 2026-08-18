@@ -38,9 +38,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Label/Label.ts` |
-| 样式 | `src/components/Label/Label.css` |
-| 测试 | `src/components/Label/Label.test.ts` |
+| 源码 | `src/client/components/Label/Label.ts` |
+| 样式 | `src/client/components/Label/Label.css` |
+| 测试 | `src/client/components/Label/Label.test.ts` |
 | demo | `apps/showcase/src/demos/DemoLabel.tsx`（P1 拆分） |
 
 ## 验证

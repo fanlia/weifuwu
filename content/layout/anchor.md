@@ -12,7 +12,7 @@ wf-anchor（锚定定位——fixed 相对容器）
 
 ## 源码
 
-`src/layout/_anchor.css`
+`src/client/layout/_anchor.css`
 
 ## 验证
 

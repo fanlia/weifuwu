@@ -36,9 +36,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ImageCropper/ImageCropper.ts` |
-| 样式 | `src/components/ImageCropper/ImageCropper.css` |
-| 测试 | `src/components/ImageCropper/ImageCropper.test.ts` |
+| 源码 | `src/client/components/ImageCropper/ImageCropper.ts` |
+| 样式 | `src/client/components/ImageCropper/ImageCropper.css` |
+| 测试 | `src/client/components/ImageCropper/ImageCropper.test.ts` |
 
 ## 验证
 

@@ -51,9 +51,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Popover/Popover.ts` |
-| 样式 | `src/components/Popover/Popover.css` |
-| 测试 | `src/components/Popover/Popover.test.ts` |
+| 源码 | `src/client/components/Popover/Popover.ts` |
+| 样式 | `src/client/components/Popover/Popover.css` |
+| 测试 | `src/client/components/Popover/Popover.test.ts` |
 | demo | `apps/showcase/src/demos/DemoPopover.tsx`（P1 拆分） |
 
 ## 验证

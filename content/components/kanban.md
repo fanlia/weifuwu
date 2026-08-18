@@ -36,9 +36,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Kanban/Kanban.ts` |
-| 样式 | `src/components/Kanban/Kanban.css` |
-| 测试 | `src/components/Kanban/Kanban.test.ts` |
+| 源码 | `src/client/components/Kanban/Kanban.ts` |
+| 样式 | `src/client/components/Kanban/Kanban.css` |
+| 测试 | `src/client/components/Kanban/Kanban.test.ts` |
 | demo | `apps/showcase/src/demos/DemoKanban.tsx`（P1 拆分） |
 
 ## 验证

@@ -46,9 +46,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Img/Img.ts` |
-| 样式 | `src/components/Img/Img.css` |
-| 测试 | `src/components/Img/Img.test.ts` |
+| 源码 | `src/client/components/Img/Img.ts` |
+| 样式 | `src/client/components/Img/Img.css` |
+| 测试 | `src/client/components/Img/Img.test.ts` |
 | demo | `apps/showcase/src/demos/DemoImage.tsx`（P1 拆分） |
 
 ## 验证

@@ -39,9 +39,9 @@ Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检�
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Pipeline/Pipeline.ts` |
-| 样式 | `src/components/Pipeline/Pipeline.css` |
-| 测试 | `src/components/Pipeline/Pipeline.test.ts` |
+| 源码 | `src/client/components/Pipeline/Pipeline.ts` |
+| 样式 | `src/client/components/Pipeline/Pipeline.css` |
+| 测试 | `src/client/components/Pipeline/Pipeline.test.ts` |
 | demo | `apps/showcase/src/demos/DemoPipeline.tsx`（P1 拆分） |
 
 ## 验证

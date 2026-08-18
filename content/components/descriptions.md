@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Descriptions/Descriptions.ts` |
-| 样式 | `src/components/Descriptions/Descriptions.css` |
-| 测试 | `src/components/Descriptions/Descriptions.test.ts` |
+| 源码 | `src/client/components/Descriptions/Descriptions.ts` |
+| 样式 | `src/client/components/Descriptions/Descriptions.css` |
+| 测试 | `src/client/components/Descriptions/Descriptions.test.ts` |
 | demo | `apps/showcase/src/demos/DemoDescriptions.tsx`（P1 拆分） |
 
 ## 验证

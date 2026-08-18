@@ -53,9 +53,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Button/Button.ts` |
-| 样式 | `src/components/Button/Button.css` |
-| 测试 | `src/components/Button/Button.test.ts` |
+| 源码 | `src/client/components/Button/Button.ts` |
+| 样式 | `src/client/components/Button/Button.css` |
+| 测试 | `src/client/components/Button/Button.test.ts` |
 | demo | `apps/showcase/src/demos/DemoButton.tsx`（P1 拆分） |
 
 ## 验证

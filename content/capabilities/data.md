@@ -6,7 +6,7 @@ get/set/has + 并发合并——SSR/hydration/SPA 三场景自动适配
 
 ## 框架源码
 
-`src/ui-dom/`
+`src/client/ui-dom/`
 
 ## 平台自证
 

@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Avatar/Avatar.ts` |
-| 样式 | `src/components/Avatar/Avatar.css` |
-| 测试 | `src/components/Avatar/Avatar.test.ts` |
+| 源码 | `src/client/components/Avatar/Avatar.ts` |
+| 样式 | `src/client/components/Avatar/Avatar.css` |
+| 测试 | `src/client/components/Avatar/Avatar.test.ts` |
 | demo | `apps/showcase/src/demos/DemoAvatar.tsx`（P1 拆分） |
 
 ## 验证

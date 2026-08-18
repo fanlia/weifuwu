@@ -40,9 +40,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/PromptTemplate/PromptTemplate.ts` |
-| 样式 | `src/components/PromptTemplate/PromptTemplate.css` |
-| 测试 | `src/components/PromptTemplate/PromptTemplate.test.ts` |
+| 源码 | `src/client/components/PromptTemplate/PromptTemplate.ts` |
+| 样式 | `src/client/components/PromptTemplate/PromptTemplate.css` |
+| 测试 | `src/client/components/PromptTemplate/PromptTemplate.test.ts` |
 
 ## 验证
 

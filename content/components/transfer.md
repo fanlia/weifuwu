@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Transfer/Transfer.ts` |
-| 样式 | `src/components/Transfer/Transfer.css` |
-| 测试 | `src/components/Transfer/Transfer.test.ts` |
+| 源码 | `src/client/components/Transfer/Transfer.ts` |
+| 样式 | `src/client/components/Transfer/Transfer.css` |
+| 测试 | `src/client/components/Transfer/Transfer.test.ts` |
 | demo | `apps/showcase/src/demos/DemoTransfer.tsx`（P1 拆分） |
 
 ## 验证

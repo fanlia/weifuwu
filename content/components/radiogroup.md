@@ -43,9 +43,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/RadioGroup/RadioGroup.ts` |
-| 样式 | `src/components/RadioGroup/RadioGroup.css` |
-| 测试 | `src/components/RadioGroup/RadioGroup.test.ts` |
+| 源码 | `src/client/components/RadioGroup/RadioGroup.ts` |
+| 样式 | `src/client/components/RadioGroup/RadioGroup.css` |
+| 测试 | `src/client/components/RadioGroup/RadioGroup.test.ts` |
 | demo | `apps/showcase/src/demos/DemoRadio.tsx`（P1 拆分） |
 
 ## 验证

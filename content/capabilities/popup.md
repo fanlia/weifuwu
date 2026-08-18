@@ -6,7 +6,7 @@ portal + 定位 + 外部点击/Escape + 会话级模态——新弹层一律复�
 
 ## 框架源码
 
-`src/ui-dom/popup.ts`
+`src/client/ui-dom/popup.ts`
 
 ## 平台自证
 

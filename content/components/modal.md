@@ -49,9 +49,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Modal/Modal.ts` |
-| 样式 | `src/components/Modal/Modal.css` |
-| 测试 | `src/components/Modal/Modal.test.ts` |
+| 源码 | `src/client/components/Modal/Modal.ts` |
+| 样式 | `src/client/components/Modal/Modal.css` |
+| 测试 | `src/client/components/Modal/Modal.test.ts` |
 | demo | `apps/showcase/src/demos/DemoModal.tsx`（P1 拆分） |
 
 ## 验证

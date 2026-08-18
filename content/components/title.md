@@ -36,9 +36,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Typography/Typography.ts` |
-| 样式 | `src/components/Typography/Typography.css` |
-| 测试 | `src/components/Typography/Typography.test.ts` |
+| 源码 | `src/client/components/Typography/Typography.ts` |
+| 样式 | `src/client/components/Typography/Typography.css` |
+| 测试 | `src/client/components/Typography/Typography.test.ts` |
 
 ## 验证
 

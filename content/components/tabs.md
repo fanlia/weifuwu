@@ -46,9 +46,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Tabs/Tabs.ts` |
-| 样式 | `src/components/Tabs/Tabs.css` |
-| 测试 | `src/components/Tabs/Tabs.test.ts` |
+| 源码 | `src/client/components/Tabs/Tabs.ts` |
+| 样式 | `src/client/components/Tabs/Tabs.css` |
+| 测试 | `src/client/components/Tabs/Tabs.test.ts` |
 | demo | `apps/showcase/src/demos/DemoTabs.tsx`（P1 拆分） |
 
 ## 验证

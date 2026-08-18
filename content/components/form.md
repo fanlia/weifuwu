@@ -50,9 +50,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Form/Form.ts` |
-| 样式 | `src/components/Form/Form.css` |
-| 测试 | `src/components/Form/Form.test.ts` |
+| 源码 | `src/client/components/Form/Form.ts` |
+| 样式 | `src/client/components/Form/Form.css` |
+| 测试 | `src/client/components/Form/Form.test.ts` |
 | demo | `apps/showcase/src/demos/DemoForm.tsx`（P1 拆分） |
 
 ## 验证

@@ -46,9 +46,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/InView/InView.ts` |
-| 样式 | `src/components/InView/InView.css` |
-| 测试 | `src/components/InView/InView.test.ts` |
+| 源码 | `src/client/components/InView/InView.ts` |
+| 样式 | `src/client/components/InView/InView.css` |
+| 测试 | `src/client/components/InView/InView.test.ts` |
 | demo | `apps/showcase/src/demos/DemoInView.tsx`（P1 拆分） |
 
 ## 验证

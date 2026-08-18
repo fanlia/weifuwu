@@ -43,9 +43,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/PageHeader/PageHeader.ts` |
-| 样式 | `src/components/PageHeader/PageHeader.css` |
-| 测试 | `src/components/PageHeader/PageHeader.test.ts` |
+| 源码 | `src/client/components/PageHeader/PageHeader.ts` |
+| 样式 | `src/client/components/PageHeader/PageHeader.css` |
+| 测试 | `src/client/components/PageHeader/PageHeader.test.ts` |
 | demo | `apps/showcase/src/demos/DemoPageHeader.tsx`（P1 拆分） |
 
 ## 验证

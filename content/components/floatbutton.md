@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/FloatButton/FloatButton.ts` |
-| 样式 | `src/components/FloatButton/FloatButton.css` |
-| 测试 | `src/components/FloatButton/FloatButton.test.ts` |
+| 源码 | `src/client/components/FloatButton/FloatButton.ts` |
+| 样式 | `src/client/components/FloatButton/FloatButton.css` |
+| 测试 | `src/client/components/FloatButton/FloatButton.test.ts` |
 | demo | `apps/showcase/src/demos/DemoFloatButton.tsx`（P1 拆分） |
 
 ## 验证

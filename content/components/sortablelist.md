@@ -10,7 +10,7 @@
 
 ## API
 
-> props 提取降级（接口格式特殊）——见源码：`src/components/SortableList/SortableList.ts`
+> props 提取降级（接口格式特殊）——见源码：`src/client/components/SortableList/SortableList.ts`
 
 ## 用法示例
 
@@ -30,9 +30,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/SortableList/SortableList.ts` |
-| 样式 | `src/components/SortableList/SortableList.css` |
-| 测试 | `src/components/SortableList/SortableList.test.ts` |
+| 源码 | `src/client/components/SortableList/SortableList.ts` |
+| 样式 | `src/client/components/SortableList/SortableList.css` |
+| 测试 | `src/client/components/SortableList/SortableList.test.ts` |
 
 ## 验证
 

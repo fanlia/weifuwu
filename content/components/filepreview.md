@@ -39,9 +39,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/FilePreview/FilePreview.ts` |
-| 样式 | `src/components/FilePreview/FilePreview.css` |
-| 测试 | `src/components/FilePreview/FilePreview.test.ts` |
+| 源码 | `src/client/components/FilePreview/FilePreview.ts` |
+| 样式 | `src/client/components/FilePreview/FilePreview.css` |
+| 测试 | `src/client/components/FilePreview/FilePreview.test.ts` |
 | demo | `apps/showcase/src/demos/DemoFilePreview.tsx`（P1 拆分） |
 
 ## 验证

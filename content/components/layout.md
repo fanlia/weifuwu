@@ -44,9 +44,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Layout/Layout.ts` |
-| 样式 | `src/components/Layout/Layout.css` |
-| 测试 | `src/components/Layout/Layout.test.ts` |
+| 源码 | `src/client/components/Layout/Layout.ts` |
+| 样式 | `src/client/components/Layout/Layout.css` |
+| 测试 | `src/client/components/Layout/Layout.test.ts` |
 | demo | `apps/showcase/src/demos/DemoLayout.tsx`（P1 拆分） |
 
 ## 验证

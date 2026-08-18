@@ -15,7 +15,7 @@ import { setupJsdom } from './client/setup.ts'
 import { h, createRouter } from '../ui-dom/vdom3/index.ts'
 import { renderToEvents, eventsToHtml } from '../ui-dom/vdom3/ssr.ts'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
 before(setupJsdom)
 

@@ -6,7 +6,7 @@ pathname 路由 + :param + layout 包裹复用 + 隔离模式（页面内嵌子�
 
 ## 框架源码
 
-`src/ui-dom/vdom3/router.ts`
+`src/client/ui-dom/vdom3/router.ts`
 
 ## 平台自证
 

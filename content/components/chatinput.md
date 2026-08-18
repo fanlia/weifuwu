@@ -23,6 +23,7 @@
 | `multiline` | `boolean` | 否 | 多行 textarea（Enter 发送 / Shift+Enter 换行）；默认 false = 单行 input |
 | `labels` | `Partial<ChatInputLabels>` | 否 | 标签（i18n 覆盖） |
 | `actions` | `VNode \| null` | 否 | 扩展位（附件/知识库/模型选择等） |
+| `onControl` | `(handle: ChatInputControl) => void` | 否 | 外部程序化控制（@ 补全等场景）——mount 期回调上抛稳定 handle（{ setKeyword, setValue }）—— |
 
 ## 用法示例
 
@@ -52,9 +53,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ChatInput/ChatInput.ts` |
-| 样式 | `src/components/ChatInput/ChatInput.css` |
-| 测试 | `src/components/ChatInput/ChatInput.test.ts` |
+| 源码 | `src/client/components/ChatInput/ChatInput.ts` |
+| 样式 | `src/client/components/ChatInput/ChatInput.css` |
+| 测试 | `src/client/components/ChatInput/ChatInput.test.ts` |
 | demo | `apps/showcase/src/demos/DemoChatInput.tsx`（P1 拆分） |
 
 ## 验证

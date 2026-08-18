@@ -48,8 +48,8 @@ if (ok) { /* 执行 */ }
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Confirm/Confirm.ts` |
-| 测试 | `src/components/Confirm/Confirm.test.ts` |
+| 源码 | `src/client/components/Confirm/Confirm.ts` |
+| 测试 | `src/client/components/Confirm/Confirm.test.ts` |
 | demo | `apps/showcase/src/demos/DemoConfirm.tsx`（P1 拆分） |
 
 ## 验证

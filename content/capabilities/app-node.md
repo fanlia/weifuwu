@@ -6,7 +6,7 @@
 
 ## 框架源码
 
-`src/ui-dom/vdom3/registry.ts`
+`src/client/ui-dom/vdom3/registry.ts`
 
 ## 平台自证
 

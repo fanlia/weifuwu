@@ -39,9 +39,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Result/Result.ts` |
-| 样式 | `src/components/Result/Result.css` |
-| 测试 | `src/components/Result/Result.test.ts` |
+| 源码 | `src/client/components/Result/Result.ts` |
+| 样式 | `src/client/components/Result/Result.css` |
+| 测试 | `src/client/components/Result/Result.test.ts` |
 | demo | `apps/showcase/src/demos/DemoResult.tsx`（P1 拆分） |
 
 ## 验证

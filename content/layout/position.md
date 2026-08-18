@@ -15,7 +15,7 @@ fixed/sticky + top/bottom/right 吸附（吸顶/悬浮/回顶）
 
 ## 源码
 
-`src/layout/_fixed.css`
+`src/client/layout/_fixed.css`
 
 ## 验证
 

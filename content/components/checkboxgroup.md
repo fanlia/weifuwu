@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/CheckboxGroup/CheckboxGroup.ts` |
-| 样式 | `src/components/CheckboxGroup/CheckboxGroup.css` |
-| 测试 | `src/components/CheckboxGroup/CheckboxGroup.test.ts` |
+| 源码 | `src/client/components/CheckboxGroup/CheckboxGroup.ts` |
+| 样式 | `src/client/components/CheckboxGroup/CheckboxGroup.css` |
+| 测试 | `src/client/components/CheckboxGroup/CheckboxGroup.test.ts` |
 | demo | `apps/showcase/src/demos/DemoCheckboxGroup.tsx`（P1 拆分） |
 
 ## 验证

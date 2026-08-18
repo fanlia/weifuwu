@@ -17,26 +17,26 @@
     "rootDir": "src",
     "outDir": "dist",
     "paths": {
-      "weifuwu/ui-dom": ["./src/ui-dom/index.ts"],
-      "weifuwu/ui-dom/jsx-runtime": ["./src/ui-dom/jsx-runtime.ts"]
+      "weifuwu/ui-dom": ["./src/client/ui-dom/index.ts"],
+      "weifuwu/ui-dom/jsx-runtime": ["./src/client/ui-dom/jsx-runtime.ts"]
     }
   },
   "include": [
-    "src/*.ts",
-    "src/core/*.ts",
-    "src/middleware/*.ts",
-    "src/postgres/*.ts",
-    "src/redis/*.ts",
-    "src/graphql.ts",
-    "src/types.ts",
-    "src/ui-dom/*.ts",
-    "src/ui-dom/**/*.ts",
-    "src/ui/*.ts",
-    "src/components/*.ts",
-    "src/components/**/*.ts",
-    "src/components/**/*.tsx"
+    "src/server/*.ts",
+    "src/server/**/*.ts",
+    "src/client/*.ts",
+    "src/client/**/*.ts",
+    "src/client/**/*.tsx",
+    "src/cli/*.ts",
+    "src/dev/*.ts"
   ],
   "exclude": [
-    "src/components/**/*.test.ts"
+    "src/client/components/**/*.test.ts",
+    "src/client/test/**/*.ts",
+    "src/server/test/**/*.ts",
+    "src/server/**/*.test.ts",
+    "src/client/**/*.test.ts",
+    "src/server/db/postgres-server.ts",
+    "src/server/db/redis/ast.ts"
   ]
 }

@@ -10,7 +10,7 @@
 
 ## API
 
-> props 提取降级（接口格式特殊）——见源码：`src/components/Editor/Editor.ts`
+> props 提取降级（接口格式特殊）——见源码：`src/client/components/Editor/Editor.ts`
 
 ## 用法示例
 
@@ -39,9 +39,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Editor/Editor.ts` |
-| 样式 | `src/components/Editor/Editor.css` |
-| 测试 | `src/components/Editor/Editor.test.ts` |
+| 源码 | `src/client/components/Editor/Editor.ts` |
+| 样式 | `src/client/components/Editor/Editor.css` |
+| 测试 | `src/client/components/Editor/Editor.test.ts` |
 | demo | `apps/showcase/src/demos/DemoEditor.tsx`（P1 拆分） |
 
 ## 验证

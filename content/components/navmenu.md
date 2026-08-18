@@ -37,9 +37,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/NavMenu/NavMenu.ts` |
-| 样式 | `src/components/NavMenu/NavMenu.css` |
-| 测试 | `src/components/NavMenu/NavMenu.test.ts` |
+| 源码 | `src/client/components/NavMenu/NavMenu.ts` |
+| 样式 | `src/client/components/NavMenu/NavMenu.css` |
+| 测试 | `src/client/components/NavMenu/NavMenu.test.ts` |
 | demo | `apps/showcase/src/demos/DemoNavMenu.tsx`（P1 拆分） |
 
 ## 验证

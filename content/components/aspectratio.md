@@ -37,9 +37,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/AspectRatio/AspectRatio.ts` |
-| 样式 | `src/components/AspectRatio/AspectRatio.css` |
-| 测试 | `src/components/AspectRatio/AspectRatio.test.ts` |
+| 源码 | `src/client/components/AspectRatio/AspectRatio.ts` |
+| 样式 | `src/client/components/AspectRatio/AspectRatio.css` |
+| 测试 | `src/client/components/AspectRatio/AspectRatio.test.ts` |
 | demo | `apps/showcase/src/demos/DemoAspectRatio.tsx`（P1 拆分） |
 
 ## 验证

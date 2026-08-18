@@ -40,9 +40,9 @@ stroke SVG 图标集，currentColor 着色，随字号缩放
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Icon/Icon.ts` |
-| 样式 | `src/components/Icon/Icon.css` |
-| 测试 | `src/components/Icon/Icon.test.ts` |
+| 源码 | `src/client/components/Icon/Icon.ts` |
+| 样式 | `src/client/components/Icon/Icon.css` |
+| 测试 | `src/client/components/Icon/Icon.test.ts` |
 | demo | `apps/showcase/src/demos/DemoIcon.tsx`（P1 拆分） |
 
 ## 验证

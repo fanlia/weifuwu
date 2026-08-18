@@ -5,8 +5,8 @@
  * makeExecutableSchema/Router 路由）——"接口与实现分离"的活体教材：
  * 演示用内存实现（零 docker），文档诚实标注"真实部署换 postgres()/redis() 一行代码"。
  */
-import { createMemorySql, MemoryRedis, queue, rateLimit } from '../../../src/index.ts'
-import type { Router, Context } from '../../../src/index.ts'
+import { createMemorySql, MemoryRedis, queue, rateLimit } from '../../../src/server/index.ts'
+import type { Router, Context } from '../../../src/server/index.ts'
 
 const json = (data: unknown, status = 200): Response =>
   new Response(JSON.stringify(data, null, 2), {

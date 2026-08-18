@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Sparkline/Sparkline.ts` |
-| 样式 | `src/components/Sparkline/Sparkline.css` |
-| 测试 | `src/components/Sparkline/Sparkline.test.ts` |
+| 源码 | `src/client/components/Sparkline/Sparkline.ts` |
+| 样式 | `src/client/components/Sparkline/Sparkline.css` |
+| 测试 | `src/client/components/Sparkline/Sparkline.test.ts` |
 | demo | `apps/showcase/src/demos/DemoSparkline.tsx`（P1 拆分） |
 
 ## 验证

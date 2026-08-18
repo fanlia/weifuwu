@@ -14,7 +14,7 @@
 
 ## 源码
 
-`src/layout/_scroll.css`
+`src/client/layout/_scroll.css`
 
 ## 验证
 

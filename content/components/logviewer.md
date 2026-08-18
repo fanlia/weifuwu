@@ -43,9 +43,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/LogViewer/LogViewer.ts` |
-| 样式 | `src/components/LogViewer/LogViewer.css` |
-| 测试 | `src/components/LogViewer/LogViewer.test.ts` |
+| 源码 | `src/client/components/LogViewer/LogViewer.ts` |
+| 样式 | `src/client/components/LogViewer/LogViewer.css` |
+| 测试 | `src/client/components/LogViewer/LogViewer.test.ts` |
 | demo | `apps/showcase/src/demos/DemoLogViewer.tsx`（P1 拆分） |
 
 ## 验证

@@ -39,9 +39,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/JSONViewer/JSONViewer.ts` |
-| 样式 | `src/components/JSONViewer/JSONViewer.css` |
-| 测试 | `src/components/JSONViewer/JSONViewer.test.ts` |
+| 源码 | `src/client/components/JSONViewer/JSONViewer.ts` |
+| 样式 | `src/client/components/JSONViewer/JSONViewer.css` |
+| 测试 | `src/client/components/JSONViewer/JSONViewer.test.ts` |
 | demo | `apps/showcase/src/demos/DemoJSONViewer.tsx`（P1 拆分） |
 
 ## 验证

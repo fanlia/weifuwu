@@ -13,7 +13,7 @@ align-self 系列（stretch/start/end/center——单元格对齐）
 
 ## 源码
 
-`src/layout/_align-self.css`
+`src/client/layout/_align-self.css`
 
 ## 验证
 

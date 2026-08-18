@@ -38,9 +38,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/CodeEditor/CodeEditor.ts` |
-| 样式 | `src/components/CodeEditor/CodeEditor.css` |
-| 测试 | `src/components/CodeEditor/CodeEditor.test.ts` |
+| 源码 | `src/client/components/CodeEditor/CodeEditor.ts` |
+| 样式 | `src/client/components/CodeEditor/CodeEditor.css` |
+| 测试 | `src/client/components/CodeEditor/CodeEditor.test.ts` |
 
 ## 验证
 

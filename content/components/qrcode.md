@@ -41,8 +41,8 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/QRCode/QRCode.ts` |
-| 测试 | `src/components/QRCode/QRCode.test.ts` |
+| 源码 | `src/client/components/QRCode/QRCode.ts` |
+| 测试 | `src/client/components/QRCode/QRCode.test.ts` |
 | demo | `apps/showcase/src/demos/DemoQRCode.tsx`（P1 拆分） |
 
 ## 验证

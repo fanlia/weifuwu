@@ -43,9 +43,9 @@ SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Chart/Chart.ts` |
-| 样式 | `src/components/Chart/Chart.css` |
-| 测试 | `src/components/Chart/Chart.test.ts` |
+| 源码 | `src/client/components/Chart/Chart.ts` |
+| 样式 | `src/client/components/Chart/Chart.css` |
+| 测试 | `src/client/components/Chart/Chart.test.ts` |
 | demo | `apps/showcase/src/demos/DemoChart.tsx`（P1 拆分） |
 
 ## 验证

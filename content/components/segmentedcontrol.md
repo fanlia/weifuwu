@@ -49,9 +49,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/SegmentedControl/SegmentedControl.ts` |
-| 样式 | `src/components/SegmentedControl/SegmentedControl.css` |
-| 测试 | `src/components/SegmentedControl/SegmentedControl.test.ts` |
+| 源码 | `src/client/components/SegmentedControl/SegmentedControl.ts` |
+| 样式 | `src/client/components/SegmentedControl/SegmentedControl.css` |
+| 测试 | `src/client/components/SegmentedControl/SegmentedControl.test.ts` |
 | demo | `apps/showcase/src/demos/DemoSegmented.tsx`（P1 拆分） |
 
 ## 验证

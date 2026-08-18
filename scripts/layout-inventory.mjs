@@ -2,7 +2,7 @@
 /**
  * weifuwu/layout 清单脚本（design/layout-optimize.md L0）——布局层单一事实源。
  *
- * 解析 src/layout/*.css → 输出：
+ * 解析 src/client/layout/*.css → 输出：
  *   ① 类清单（断点变体 @sm/@md/@lg 归并到基类；--modifier 状态变体单列）
  *   ② 属性指纹（每个类设置的 CSS 属性集合——L1 冲突矩阵输入）
  *   ③ 权威计数（布局原语 / 工具类 / 主题 Token）
@@ -15,7 +15,7 @@
  *   node scripts/layout-inventory.mjs          # 摘要
  *   node scripts/layout-inventory.mjs --json   # 完整 JSON（含属性指纹）
  *
- * 消费方：src/test/style-audit.test.ts（计数/组合防线）、docs 计数同步。
+ * 消费方：src/client/test/style-audit.test.ts（计数/组合防线）、docs 计数同步。
  */
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
@@ -23,7 +23,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const LAYOUT_DIR = join(root, 'src/layout')
+const LAYOUT_DIR = join(root, 'src/client/layout')
 
 /** 非类文件（token/暗色/基础层——不参与类清单） */
 const NON_CLASS_FILES = new Set(['_tokens.css', '_dark.css', '_base.css'])
@@ -158,7 +158,7 @@ function collectCorpus() {
 
 /** 组件清单（P9）：组件数（含同名 .ts 的目录）+ 组件测试数（it/test 计数） */
 export function componentInventory() {
-  const compDir = join(root, 'src/components')
+  const compDir = join(root, 'src/client/components')
   const dirs = readdirSync(compDir).filter((d) => {
     try { return statSync(join(compDir, d)).isDirectory() && existsSync(join(compDir, d, `${d}.ts`)) } catch { return false }
   })

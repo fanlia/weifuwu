@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Checkbox/Checkbox.ts` |
-| 样式 | `src/components/Checkbox/Checkbox.css` |
-| 测试 | `src/components/Checkbox/Checkbox.test.ts` |
+| 源码 | `src/client/components/Checkbox/Checkbox.ts` |
+| 样式 | `src/client/components/Checkbox/Checkbox.css` |
+| 测试 | `src/client/components/Checkbox/Checkbox.test.ts` |
 | demo | `apps/showcase/src/demos/DemoCheckbox.tsx`（P1 拆分） |
 
 ## 验证

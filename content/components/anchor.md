@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Anchor/Anchor.ts` |
-| 样式 | `src/components/Anchor/Anchor.css` |
-| 测试 | `src/components/Anchor/Anchor.test.ts` |
+| 源码 | `src/client/components/Anchor/Anchor.ts` |
+| 样式 | `src/client/components/Anchor/Anchor.css` |
+| 测试 | `src/client/components/Anchor/Anchor.test.ts` |
 | demo | `apps/showcase/src/demos/DemoAnchor.tsx`（P1 拆分） |
 
 ## 验证

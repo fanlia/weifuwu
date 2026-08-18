@@ -10,7 +10,7 @@
 
 ## API
 
-> props 提取降级（接口格式特殊）——见源码：`src/components/ExportCSV/ExportCSV.ts`
+> props 提取降级（接口格式特殊）——见源码：`src/client/components/ExportCSV/ExportCSV.ts`
 
 ## 用法示例
 
@@ -30,8 +30,8 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ExportCSV/ExportCSV.ts` |
-| 测试 | `src/components/ExportCSV/ExportCSV.test.ts` |
+| 源码 | `src/client/components/ExportCSV/ExportCSV.ts` |
+| 测试 | `src/client/components/ExportCSV/ExportCSV.test.ts` |
 
 ## 验证
 

@@ -46,9 +46,9 @@ KPI 指标卡，支持 trend/icon
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/StatCard/StatCard.ts` |
-| 样式 | `src/components/StatCard/StatCard.css` |
-| 测试 | `src/components/StatCard/StatCard.test.ts` |
+| 源码 | `src/client/components/StatCard/StatCard.ts` |
+| 样式 | `src/client/components/StatCard/StatCard.css` |
+| 测试 | `src/client/components/StatCard/StatCard.test.ts` |
 | demo | `apps/showcase/src/demos/DemoStatCard.tsx`（P1 拆分） |
 
 ## 验证

@@ -46,9 +46,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Menu/Menu.ts` |
-| 样式 | `src/components/Menu/Menu.css` |
-| 测试 | `src/components/Menu/Menu.test.ts` |
+| 源码 | `src/client/components/Menu/Menu.ts` |
+| 样式 | `src/client/components/Menu/Menu.css` |
+| 测试 | `src/client/components/Menu/Menu.test.ts` |
 | demo | `apps/showcase/src/demos/DemoMenu.tsx`（P1 拆分） |
 
 ## 验证

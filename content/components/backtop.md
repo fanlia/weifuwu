@@ -43,9 +43,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/BackTop/BackTop.ts` |
-| 样式 | `src/components/BackTop/BackTop.css` |
-| 测试 | `src/components/BackTop/BackTop.test.ts` |
+| 源码 | `src/client/components/BackTop/BackTop.ts` |
+| 样式 | `src/client/components/BackTop/BackTop.css` |
+| 测试 | `src/client/components/BackTop/BackTop.test.ts` |
 | demo | `apps/showcase/src/demos/DemoBackTop.tsx`（P1 拆分） |
 
 ## 验证

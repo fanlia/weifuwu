@@ -249,7 +249,7 @@ function primDoc(f) {
     `# ${f.name} · layout（${f.kind === 'utility' ? '工具类' : '原语'}）`, '',
     `## 概述`, '', f.desc, '',
     `## 代表类`, '', '```css', ...f.classes.map((c) => `.${c}`), '```', '',
-    `## 源码`, '', `\`src/layout/${f.cssFile}\``, '',
+    `## 源码`, '', `\`src/client/layout/${f.cssFile}\``, '',
     `## 验证`, '', `> agent-browser 走查：打开 \`/layout/${f.id}\` ——（P1 填充）`, '',
   ].join('\n')
 }

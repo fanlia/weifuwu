@@ -35,9 +35,9 @@ weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——�
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/SlideCanvas/SlideCanvas.ts` |
-| 样式 | `src/components/SlideCanvas/SlideCanvas.css` |
-| 测试 | `src/components/SlideCanvas/SlideCanvas.test.ts` |
+| 源码 | `src/client/components/SlideCanvas/SlideCanvas.ts` |
+| 样式 | `src/client/components/SlideCanvas/SlideCanvas.css` |
+| 测试 | `src/client/components/SlideCanvas/SlideCanvas.test.ts` |
 
 ## 验证
 

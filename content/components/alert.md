@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Alert/Alert.ts` |
-| 样式 | `src/components/Alert/Alert.css` |
-| 测试 | `src/components/Alert/Alert.test.ts` |
+| 源码 | `src/client/components/Alert/Alert.ts` |
+| 样式 | `src/client/components/Alert/Alert.css` |
+| 测试 | `src/client/components/Alert/Alert.test.ts` |
 | demo | `apps/showcase/src/demos/DemoAlert.tsx`（P1 拆分） |
 
 ## 验证

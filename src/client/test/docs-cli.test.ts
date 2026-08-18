@@ -14,7 +14,7 @@ import { spawn } from 'node:child_process'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
 test('weifuwu docs：本地文档服务器端到端', { timeout: 30_000 }, async () => {
   const child = spawn('node', ['src/cli/docs.ts', '--port', '0'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })

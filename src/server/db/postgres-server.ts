@@ -16,6 +16,7 @@
 import net from 'node:net'
 import type { Socket } from 'node:net'
 import { MemorySql } from './memory-sql.ts'
+import type { Row } from './contracts.ts'
 import { MessageStream, encodeMessage, type Message } from './postgres/protocol.ts'
 import { ProtocolError } from './errors.ts'
 import type { DBServer } from './server.ts'
@@ -31,8 +32,9 @@ export interface PostgresServerOptions {
 
 // ── PG 类型 OID ──────────────────────────────────────────
 const OID = {
-  INT8: 20, INT4: 23, FLOAT8: 701, BOOL: 16, TEXT: 25,
-  JSONB: 3802, UUID: 2950, TIMESTAMPTZ: 1184, TIMESTAMP: 1114, DATE: 1082,
+  INT8: 20, INT2: 21, INT4: 23, FLOAT4: 700, FLOAT8: 701,
+  NUMERIC: 1700, JSON: 114, JSONB: 3802, BOOL: 16, TEXT: 25,
+  UUID: 2950, TIMESTAMPTZ: 1184, TIMESTAMP: 1114, DATE: 1082,
 } as const
 
 const _encoder = new TextEncoder()
@@ -88,8 +90,6 @@ export class MemoryPostgresServer implements DBServer {
   private opts: Required<Pick<PostgresServerOptions, 'port' | 'password'>>
   private closed = false
   private queryLog: string[] = []
-  /** 查询日志（测试 debug） */
-  get queries(): string[] { return this.queryLog }
   private txSnap: Map<string, Row[]> | null = null
   /** 命名 prepared statement 缓存（客户端复用——同 sql 不发 Parse） */
   private statements = new Map<string, { sql: string; paramTypes: number[]; bindParams: unknown[] | null }>()
@@ -140,7 +140,7 @@ export class MemoryPostgresServer implements DBServer {
     sock.on('data', (chunk) => {
       if (!startupDone) {
         // startup 消息：4 字节 length + payload（无 type 字节——协议特殊）
-        startupBuf = Buffer.concat([startupBuf, chunk])
+        startupBuf = Buffer.concat([startupBuf, Buffer.from(chunk as Uint8Array)])
         if (startupBuf.length < 4) return
         const len = startupBuf.readUInt32BE(0) // 消息总长（含 4 字节 length 字段）
         if (startupBuf.length < len) return
@@ -188,7 +188,7 @@ export class MemoryPostgresServer implements DBServer {
     if (!getAuthed()) {
       if (msg.type === 'p') {
         // password message（cleartext 认证）
-        const pw = msg.payload.subarray(0, msg.payload.indexOf(0)).toString('utf8')
+        const pw = Buffer.from((msg.payload as Uint8Array).subarray(0, (msg.payload as Uint8Array).indexOf(0))).toString('utf8')
         if (pw === this.opts.password) {
           sock.write(encodeMessage('R', u32(0)))
           sock.write(encodeMessage('S', concat(cstr('server_version'), cstr('16.0-memory'))))
@@ -204,7 +204,7 @@ export class MemoryPostgresServer implements DBServer {
     switch (msg.type) {
       case 'Q': {
         // 简单查询
-        const sql = msg.payload.subarray(0, msg.payload.indexOf(0)).toString('utf8').replace(/;$/, '')
+        const sql = Buffer.from((msg.payload as Uint8Array).subarray(0, (msg.payload as Uint8Array).indexOf(0))).toString('utf8').replace(/;$/, '')
         this.queryLog.push(sql)
         void this.runQuery(sock, sql, [], getTx, setTx)
         break
@@ -387,7 +387,7 @@ export class MemoryPostgresServer implements DBServer {
     const isReturning = /RETURNING/.test(sql)
     if (isSelect || isReturning) {
       // RowDescription：静态列名 + OID（cast 优先；无 cast 用值推断——常量 SELECT 1 → int）
-      const cols = rows.length ? Object.keys(rows[0]) : extractColumns(sql)
+      const cols = rows.length ? Object.keys(rows[0] as Record<string, unknown>) : extractColumns(sql)
       const oids = cols.map((c) => {
         const cast = inferOidFromSql(sql, c)
         if (cast !== OID.TEXT) return cast
@@ -395,10 +395,10 @@ export class MemoryPostgresServer implements DBServer {
         const tbl = /^SELECT\s+.*\s+FROM\s+(\w+)/i.exec(sql)?.[1]
         const t = tbl ? this.engine.getColumnType(tbl, c) : undefined
         if (t && t !== 'text' && t !== 'varchar') return typeOid(t)
-        return rows.length ? inferOid(rows[0][c]) : OID.TEXT
+        return rows.length ? inferOid(((rows[0] as Record<string, unknown>)[c] as unknown)) : OID.TEXT
       })
       sock.write(rowDescriptionTyped(cols, oids))
-      for (const row of rows) sock.write(dataRow(row))
+      for (const row of rows) sock.write(dataRow(row as Record<string, unknown>))
       sock.write(encodeMessage('C', cstr(isSelect ? 'SELECT ' + rows.length : 'INSERT 0 ' + rows.length)))
     } else if (/^(INSERT|UPDATE|DELETE)/.test(head)) {
       const affected = (result as { affectedRows?: number }).affectedRows ?? rows.length

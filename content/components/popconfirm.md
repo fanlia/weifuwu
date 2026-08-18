@@ -48,9 +48,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Popconfirm/Popconfirm.ts` |
-| 样式 | `src/components/Popconfirm/Popconfirm.css` |
-| 测试 | `src/components/Popconfirm/Popconfirm.test.ts` |
+| 源码 | `src/client/components/Popconfirm/Popconfirm.ts` |
+| 样式 | `src/client/components/Popconfirm/Popconfirm.css` |
+| 测试 | `src/client/components/Popconfirm/Popconfirm.test.ts` |
 | demo | `apps/showcase/src/demos/DemoPopconfirm.tsx`（P1 拆分） |
 
 ## 验证

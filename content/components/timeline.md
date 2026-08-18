@@ -40,9 +40,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Timeline/Timeline.ts` |
-| 样式 | `src/components/Timeline/Timeline.css` |
-| 测试 | `src/components/Timeline/Timeline.test.ts` |
+| 源码 | `src/client/components/Timeline/Timeline.ts` |
+| 样式 | `src/client/components/Timeline/Timeline.css` |
+| 测试 | `src/client/components/Timeline/Timeline.test.ts` |
 | demo | `apps/showcase/src/demos/DemoTimeline.tsx`（P1 拆分） |
 
 ## 验证

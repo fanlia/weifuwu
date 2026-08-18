@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/VirtualList/VirtualList.ts` |
-| 样式 | `src/components/VirtualList/VirtualList.css` |
-| 测试 | `src/components/VirtualList/VirtualList.test.ts` |
+| 源码 | `src/client/components/VirtualList/VirtualList.ts` |
+| 样式 | `src/client/components/VirtualList/VirtualList.css` |
+| 测试 | `src/client/components/VirtualList/VirtualList.test.ts` |
 | demo | `apps/showcase/src/demos/DemoVirtualList.tsx`（P1 拆分） |
 
 ## 验证

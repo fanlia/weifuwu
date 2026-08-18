@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ToolCallCard/ToolCallCard.ts` |
-| 样式 | `src/components/ToolCallCard/ToolCallCard.css` |
-| 测试 | `src/components/ToolCallCard/ToolCallCard.test.ts` |
+| 源码 | `src/client/components/ToolCallCard/ToolCallCard.ts` |
+| 样式 | `src/client/components/ToolCallCard/ToolCallCard.css` |
+| 测试 | `src/client/components/ToolCallCard/ToolCallCard.test.ts` |
 | demo | `apps/showcase/src/demos/DemoToolCallCard.tsx`（P1 拆分） |
 
 ## 验证

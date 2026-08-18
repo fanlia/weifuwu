@@ -52,8 +52,8 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/AuthPage/AuthPage.ts` |
-| 测试 | `src/components/AuthPage/AuthPage.test.ts` |
+| 源码 | `src/client/components/AuthPage/AuthPage.ts` |
+| 测试 | `src/client/components/AuthPage/AuthPage.test.ts` |
 | demo | `apps/showcase/src/demos/DemoAuthPage.tsx`（P1 拆分） |
 
 ## 验证

@@ -59,9 +59,9 @@ getTheme()  // 'auto' | 'light' | 'dark'
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ThemeSwitch/ThemeSwitch.ts` |
-| 样式 | `src/components/ThemeSwitch/ThemeSwitch.css` |
-| 测试 | `src/components/ThemeSwitch/ThemeSwitch.test.ts` |
+| 源码 | `src/client/components/ThemeSwitch/ThemeSwitch.ts` |
+| 样式 | `src/client/components/ThemeSwitch/ThemeSwitch.css` |
+| 测试 | `src/client/components/ThemeSwitch/ThemeSwitch.test.ts` |
 | demo | `apps/showcase/src/demos/DemoThemeSwitch.tsx`（P1 拆分） |
 
 ## 验证

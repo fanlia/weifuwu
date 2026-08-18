@@ -15,7 +15,7 @@
 
 ## 源码
 
-`src/layout/_text.css`
+`src/client/layout/_text.css`
 
 ## 验证
 

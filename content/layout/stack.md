@@ -12,7 +12,7 @@ flex column 容器——--wf-gap 控制间距（页面/卡片骨架首选）
 
 ## 源码
 
-`src/layout/_stack.css`
+`src/client/layout/_stack.css`
 
 ## 验证
 

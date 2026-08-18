@@ -40,9 +40,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Command/Command.ts` |
-| 样式 | `src/components/Command/Command.css` |
-| 测试 | `src/components/Command/Command.test.ts` |
+| 源码 | `src/client/components/Command/Command.ts` |
+| 样式 | `src/client/components/Command/Command.css` |
+| 测试 | `src/client/components/Command/Command.test.ts` |
 | demo | `apps/showcase/src/demos/DemoCommand.tsx`（P1 拆分） |
 
 ## 验证

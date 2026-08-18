@@ -43,9 +43,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/VideoPlayer/VideoPlayer.ts` |
-| 样式 | `src/components/VideoPlayer/VideoPlayer.css` |
-| 测试 | `src/components/VideoPlayer/VideoPlayer.test.ts` |
+| 源码 | `src/client/components/VideoPlayer/VideoPlayer.ts` |
+| 样式 | `src/client/components/VideoPlayer/VideoPlayer.css` |
+| 测试 | `src/client/components/VideoPlayer/VideoPlayer.test.ts` |
 
 ## 验证
 

@@ -37,9 +37,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ActionSheet/ActionSheet.ts` |
-| 样式 | `src/components/ActionSheet/ActionSheet.css` |
-| 测试 | `src/components/ActionSheet/ActionSheet.test.ts` |
+| 源码 | `src/client/components/ActionSheet/ActionSheet.ts` |
+| 样式 | `src/client/components/ActionSheet/ActionSheet.css` |
+| 测试 | `src/client/components/ActionSheet/ActionSheet.test.ts` |
 
 ## 验证
 

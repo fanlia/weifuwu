@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/CopyButton/CopyButton.ts` |
-| 样式 | `src/components/CopyButton/CopyButton.css` |
-| 测试 | `src/components/CopyButton/CopyButton.test.ts` |
+| 源码 | `src/client/components/CopyButton/CopyButton.ts` |
+| 样式 | `src/client/components/CopyButton/CopyButton.css` |
+| 测试 | `src/client/components/CopyButton/CopyButton.test.ts` |
 | demo | `apps/showcase/src/demos/DemoCopyButton.tsx`（P1 拆分） |
 
 ## 验证

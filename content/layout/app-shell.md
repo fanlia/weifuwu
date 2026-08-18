@@ -16,7 +16,7 @@ wf-app-shell 可折叠侧栏 + wf-nav 导航（菜单/分组/激活态）
 
 ## 源码
 
-`src/layout/_app-shell.css`
+`src/client/layout/_app-shell.css`
 
 ## 验证
 

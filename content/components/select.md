@@ -56,9 +56,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Select/Select.ts` |
-| 样式 | `src/components/Select/Select.css` |
-| 测试 | `src/components/Select/Select.test.ts` |
+| 源码 | `src/client/components/Select/Select.ts` |
+| 样式 | `src/client/components/Select/Select.css` |
+| 测试 | `src/client/components/Select/Select.test.ts` |
 | demo | `apps/showcase/src/demos/DemoSelect.tsx`（P1 拆分） |
 
 ## 验证

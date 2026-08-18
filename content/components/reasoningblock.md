@@ -37,9 +37,9 @@ CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲（thinking 
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ReasoningBlock/ReasoningBlock.ts` |
-| 样式 | `src/components/ReasoningBlock/ReasoningBlock.css` |
-| 测试 | `src/components/ReasoningBlock/ReasoningBlock.test.ts` |
+| 源码 | `src/client/components/ReasoningBlock/ReasoningBlock.ts` |
+| 样式 | `src/client/components/ReasoningBlock/ReasoningBlock.css` |
+| 测试 | `src/client/components/ReasoningBlock/ReasoningBlock.test.ts` |
 | demo | `apps/showcase/src/demos/DemoReasoningBlock.tsx`（P1 拆分） |
 
 ## 验证

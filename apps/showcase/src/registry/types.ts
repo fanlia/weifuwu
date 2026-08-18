@@ -6,7 +6,7 @@
  *   组件页"↑用于"反链由 gen-content.mjs 自动推导——禁止手维护反向关系
  * - 组件表由 scripts/migrate-demo-registry.mjs 从 components-demo 迁移生成，
  *   新增组件走 scaffold（registry 自动登记）——禁止手写 components 条目
- * - 计数防线：style-audit 断言 registry 条目与 src/components 目录同步
+ * - 计数防线：style-audit 断言 registry 条目与 src/client/components 目录同步
  */
 
 /** 组件分类（与 components-demo 9 分组对应，显示名走 i18n） */

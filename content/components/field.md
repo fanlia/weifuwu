@@ -44,9 +44,9 @@ label+error+hint 容器
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Field/Field.ts` |
-| 样式 | `src/components/Field/Field.css` |
-| 测试 | `src/components/Field/Field.test.ts` |
+| 源码 | `src/client/components/Field/Field.ts` |
+| 样式 | `src/client/components/Field/Field.css` |
+| 测试 | `src/client/components/Field/Field.test.ts` |
 | demo | `apps/showcase/src/demos/DemoField.tsx`（P1 拆分） |
 
 ## 验证

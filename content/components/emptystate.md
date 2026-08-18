@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/EmptyState/EmptyState.ts` |
-| 样式 | `src/components/EmptyState/EmptyState.css` |
-| 测试 | `src/components/EmptyState/EmptyState.test.ts` |
+| 源码 | `src/client/components/EmptyState/EmptyState.ts` |
+| 样式 | `src/client/components/EmptyState/EmptyState.css` |
+| 测试 | `src/client/components/EmptyState/EmptyState.test.ts` |
 | demo | `apps/showcase/src/demos/DemoEmptyState.tsx`（P1 拆分） |
 
 ## 验证

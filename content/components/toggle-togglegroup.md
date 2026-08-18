@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ToggleGroup/ToggleGroup.ts` |
-| 样式 | `src/components/ToggleGroup/ToggleGroup.css` |
-| 测试 | `src/components/ToggleGroup/ToggleGroup.test.ts` |
+| 源码 | `src/client/components/ToggleGroup/ToggleGroup.ts` |
+| 样式 | `src/client/components/ToggleGroup/ToggleGroup.css` |
+| 测试 | `src/client/components/ToggleGroup/ToggleGroup.test.ts` |
 | demo | `apps/showcase/src/demos/DemoToggleGroup.tsx`（P1 拆分） |
 
 ## 验证

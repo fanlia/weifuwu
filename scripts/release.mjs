@@ -71,7 +71,7 @@ async function main() {
   }
   // 组件文档覆盖（每组件一篇——139+ 全量）
   const compDocs = readdirSync(join(root, 'content/components')).filter((f) => f.endsWith('.md')).length
-  const compDirs = readdirSync(join(root, 'src/components')).filter((d) => existsSync(join(root, 'src/components', d, `${d}.ts`))).length
+  const compDirs = readdirSync(join(root, 'src/client/components')).filter((d) => existsSync(join(root, 'src/components', d, `${d}.ts`))).length
   if (compDocs < compDirs) {
     console.error(`  ✗ 组件文档覆盖不足（${compDocs}/${compDirs}）`)
     process.exit(1)

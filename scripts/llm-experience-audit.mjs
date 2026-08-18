@@ -81,7 +81,7 @@ if (appTsx) {
 // ── 环节 5：写（组件 API 一致性检查）──
 console.log('\n【5. 写】agent 按文档 API 开发——文档 vs 源码一致性')
 const tableDoc = read('content/components/table.md') ?? ''
-const tableSrc = read('src/components/Table/Table.ts') ?? ''
+const tableSrc = read('src/client/components/Table/Table.ts') ?? ''
 const tableProps = (tableSrc.match(/export interface TableProps \{[\s\S]*?\n\}/)?.[0] ?? '')
 const docProps = [...tableDoc.matchAll(/`([a-zA-Z][a-zA-Z0-9]*)`/g)].map((m) => m[1])
 const srcProps = [...tableProps.matchAll(/^\s{2}([a-zA-Z][a-zA-Z0-9]*)\??:/gm)].map((m) => m[1])
@@ -100,7 +100,7 @@ const checks = (quality.match(/^## □/gm) ?? []).length
 checks >= 5 ? ok(`quality.md 验收清单 ${checks} 节`) : warn(`quality checklist 仅 ${checks} 节`)
 const verify = read('.pi/skills/weifuwu-dev/scripts/verify.mjs')
 verify ? ok('verify.mjs 存在（质量自检可执行）') : fail('verify.mjs 缺失')
-existsSync(R('src/test/content-sync.test.ts')) && ok('防漂移测试存在（content 与 registry 同步）')
+existsSync(R('src/client/test/content-sync.test.ts')) && ok('防漂移测试存在（content 与 registry 同步）')
 
 // ── 全局死链扫描 ──
 console.log('\n【7. 全局健康——content/ 链接有效性】')

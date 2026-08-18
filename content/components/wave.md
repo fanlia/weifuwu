@@ -34,9 +34,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Wave/Wave.ts` |
-| 样式 | `src/components/Wave/Wave.css` |
-| 测试 | `src/components/Wave/Wave.test.ts` |
+| 源码 | `src/client/components/Wave/Wave.ts` |
+| 样式 | `src/client/components/Wave/Wave.css` |
+| 测试 | `src/client/components/Wave/Wave.test.ts` |
 
 ## 验证
 

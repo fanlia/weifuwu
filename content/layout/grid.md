@@ -12,7 +12,7 @@ CSS Grid 容器——--wf-cols 控制列（auto-fill/模板/比例）
 
 ## 源码
 
-`src/layout/_grid.css`
+`src/client/layout/_grid.css`
 
 ## 验证
 

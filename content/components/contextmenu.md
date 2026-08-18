@@ -38,9 +38,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ContextMenu/ContextMenu.ts` |
-| 样式 | `src/components/ContextMenu/ContextMenu.css` |
-| 测试 | `src/components/ContextMenu/ContextMenu.test.ts` |
+| 源码 | `src/client/components/ContextMenu/ContextMenu.ts` |
+| 样式 | `src/client/components/ContextMenu/ContextMenu.css` |
+| 测试 | `src/client/components/ContextMenu/ContextMenu.test.ts` |
 | demo | `apps/showcase/src/demos/DemoContextMenu.tsx`（P1 拆分） |
 
 ## 验证

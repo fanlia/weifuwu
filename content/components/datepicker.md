@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/DatePicker/DatePicker.ts` |
-| 样式 | `src/components/DatePicker/DatePicker.css` |
-| 测试 | `src/components/DatePicker/DatePicker.test.ts` |
+| 源码 | `src/client/components/DatePicker/DatePicker.ts` |
+| 样式 | `src/client/components/DatePicker/DatePicker.css` |
+| 测试 | `src/client/components/DatePicker/DatePicker.test.ts` |
 | demo | `apps/showcase/src/demos/DemoDatePicker.tsx`（P1 拆分） |
 
 ## 验证

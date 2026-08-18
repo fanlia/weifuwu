@@ -47,9 +47,9 @@ return () => <AiChat chat={chat} />
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/AiChat/AiChat.ts` |
-| 样式 | `src/components/AiChat/AiChat.css` |
-| 测试 | `src/components/AiChat/AiChat.test.ts` |
+| 源码 | `src/client/components/AiChat/AiChat.ts` |
+| 样式 | `src/client/components/AiChat/AiChat.css` |
+| 测试 | `src/client/components/AiChat/AiChat.test.ts` |
 | demo | `apps/showcase/src/demos/DemoAiChat.tsx`（P1 拆分） |
 
 ## 验证

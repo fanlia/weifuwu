@@ -35,7 +35,7 @@ test('record：渲染 → 事件流 → 生成测试 → 执行通过（事故�
   assert.ok(code.includes('node:create'), '生成代码含序列断言')
 
   // 写盘并执行（真实闭环——生成的测试可跑）
-  const tmpFile = join(process.cwd(), 'src', 'test', 'recorded-tmp-v3.test.ts')
+  const tmpFile = join(process.cwd(), 'src', 'client', 'test', 'recorded-tmp-v3.test.ts')
   const patched = code
     .replace("from './client/setup.ts'", "from './client/setup.ts'")
     .replace("from '../ui-dom/vdom3/index.ts'", "from '../ui-dom/vdom3/index.ts'")

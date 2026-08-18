@@ -40,9 +40,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/DiffView/DiffView.ts` |
-| 样式 | `src/components/DiffView/DiffView.css` |
-| 测试 | `src/components/DiffView/DiffView.test.ts` |
+| 源码 | `src/client/components/DiffView/DiffView.ts` |
+| 样式 | `src/client/components/DiffView/DiffView.css` |
+| 测试 | `src/client/components/DiffView/DiffView.test.ts` |
 | demo | `apps/showcase/src/demos/DemoDiffView.tsx`（P1 拆分） |
 
 ## 验证

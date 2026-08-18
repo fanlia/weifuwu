@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Grid/Grid.ts` |
-| 样式 | `src/components/Grid/Grid.css` |
-| 测试 | `src/components/Grid/Grid.test.ts` |
+| 源码 | `src/client/components/Grid/Grid.ts` |
+| 样式 | `src/client/components/Grid/Grid.css` |
+| 测试 | `src/client/components/Grid/Grid.test.ts` |
 | demo | `apps/showcase/src/demos/DemoGrid.tsx`（P1 拆分） |
 
 ## 验证

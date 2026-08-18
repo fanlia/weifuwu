@@ -8,9 +8,9 @@
  *   node scripts/dev-links.mjs
  *
  * 结构：
- *   node_modules/weifuwu/ui-dom        → ../../src/ui-dom        （主入口）
- *   node_modules/weifuwu/ui-dom/vdom3  → ../../src/ui-dom/vdom3  （子路径——自动）
- *   node_modules/weifuwu/components    → ../../src/components
+ *   node_modules/weifuwu/ui-dom        → ../../src/client/ui-dom        （主入口）
+ *   node_modules/weifuwu/ui-dom/vdom3  → ../../src/client/ui-dom/vdom3  （子路径——自动）
+ *   node_modules/weifuwu/components    → ../../src/client/components
  *   node_modules/weifuwu/layout        → ../../src/layout
  */
 import { mkdirSync, symlinkSync, rmSync, existsSync } from 'node:fs'
@@ -19,9 +19,9 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const links = [
-  ['ui-dom', '../../src/ui-dom'],
-  ['components', '../../src/components'],
-  ['layout', '../../src/layout'],
+  ['ui-dom', '../../src/client/ui-dom'],
+  ['components', '../../src/client/components'],
+  ['layout', '../../src/client/layout'],
 ]
 
 mkdirSync(join(root, 'node_modules/weifuwu'), { recursive: true })

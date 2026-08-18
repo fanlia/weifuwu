@@ -34,9 +34,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Menubar/Menubar.ts` |
-| 样式 | `src/components/Menubar/Menubar.css` |
-| 测试 | `src/components/Menubar/Menubar.test.ts` |
+| 源码 | `src/client/components/Menubar/Menubar.ts` |
+| 样式 | `src/client/components/Menubar/Menubar.css` |
+| 测试 | `src/client/components/Menubar/Menubar.test.ts` |
 | demo | `apps/showcase/src/demos/DemoMenubar.tsx`（P1 拆分） |
 
 ## 验证

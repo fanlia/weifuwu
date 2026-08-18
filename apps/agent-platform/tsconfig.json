@@ -11,19 +11,19 @@
     "noEmit": true,
     "paths": {
       "weifuwu": [
-        "../../src/index.ts"
+        "../../src/server/index.ts"
       ],
       "weifuwu/ui-dom": [
-        "../../src/ui-dom/index.ts"
+        "../../src/client/ui-dom/index.ts"
       ],
       "weifuwu/ui-dom/jsx-runtime": [
-        "../../src/ui-dom/jsx-runtime.ts"
+        "../../src/client/ui-dom/jsx-runtime.ts"
       ],
       "weifuwu/components": [
-        "../../src/components/index.ts"
+        "../../src/client/components/index.ts"
       ],
       "weifuwu/ui-dom/vdom3": [
-        "../../src/ui-dom/vdom3/index.ts"
+        "../../src/client/ui-dom/vdom3/index.ts"
       ]
     }
   },

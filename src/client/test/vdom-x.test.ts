@@ -6,7 +6,7 @@
  * 契约测试：**新引擎（vdom5）实现后，引擎入口一行替换——本文件全绿 =
  * 组件库可零改动迁移**。不再需要逐个组件试点。
  *
- * 能力面（来自 src/components/* 全量调研——2026-12 使用矩阵）：
+ * 能力面（来自 src/client/components/* 全量调研——2026-12 使用矩阵）：
  *   [核心] render 原语 / 组件复用剪枝 / keyed 列表 / Portal（经 usePopup——内化）/
  *           Fragment / 空洞占位
  *   [hooks] usePopup(28) / useControlled(11) / useScrollPosition(6) / useGlobalKey(6) /

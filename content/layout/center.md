@@ -12,7 +12,7 @@
 
 ## 源码
 
-`src/layout/_center.css`
+`src/client/layout/_center.css`
 
 ## 验证
 

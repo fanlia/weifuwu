@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Space/Space.ts` |
-| 样式 | `src/components/Space/Space.css` |
-| 测试 | `src/components/Space/Space.test.ts` |
+| 源码 | `src/client/components/Space/Space.ts` |
+| 样式 | `src/client/components/Space/Space.css` |
+| 测试 | `src/client/components/Space/Space.test.ts` |
 | demo | `apps/showcase/src/demos/DemoSpace.tsx`（P1 拆分） |
 
 ## 验证

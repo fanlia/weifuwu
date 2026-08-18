@@ -12,7 +12,7 @@
 
 ## 源码
 
-`src/layout/_split.css`
+`src/client/layout/_split.css`
 
 ## 验证
 

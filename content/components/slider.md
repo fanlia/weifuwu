@@ -52,9 +52,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Slider/Slider.ts` |
-| 样式 | `src/components/Slider/Slider.css` |
-| 测试 | `src/components/Slider/Slider.test.ts` |
+| 源码 | `src/client/components/Slider/Slider.ts` |
+| 样式 | `src/client/components/Slider/Slider.css` |
+| 测试 | `src/client/components/Slider/Slider.test.ts` |
 | demo | `apps/showcase/src/demos/DemoSlider.tsx`（P1 拆分） |
 
 ## 验证

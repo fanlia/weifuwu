@@ -137,7 +137,7 @@ export class MemoryRedisServer implements DBServer {
     sock.on('data', (chunk) => {
       try {
         // pushAll：一次 data 事件可能含多个命令（pipeline batch）——全部解析并 dispatch
-        const values = parser.pushAll(chunk)
+        const values = parser.pushAll(Buffer.from(chunk as Uint8Array))
         for (const value of values) {
           const decoded = decodeCommandArray(value)
           if (decoded === null) continue

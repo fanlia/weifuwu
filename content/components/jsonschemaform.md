@@ -43,9 +43,9 @@ JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/JsonSchemaForm/JsonSchemaForm.ts` |
-| 样式 | `src/components/JsonSchemaForm/JsonSchemaForm.css` |
-| 测试 | `src/components/JsonSchemaForm/JsonSchemaForm.test.ts` |
+| 源码 | `src/client/components/JsonSchemaForm/JsonSchemaForm.ts` |
+| 样式 | `src/client/components/JsonSchemaForm/JsonSchemaForm.css` |
+| 测试 | `src/client/components/JsonSchemaForm/JsonSchemaForm.test.ts` |
 | demo | `apps/showcase/src/demos/DemoJsonSchemaForm.tsx`（P1 拆分） |
 
 ## 验证

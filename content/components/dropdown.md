@@ -43,9 +43,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Dropdown/Dropdown.ts` |
-| 样式 | `src/components/Dropdown/Dropdown.css` |
-| 测试 | `src/components/Dropdown/Dropdown.test.ts` |
+| 源码 | `src/client/components/Dropdown/Dropdown.ts` |
+| 样式 | `src/client/components/Dropdown/Dropdown.css` |
+| 测试 | `src/client/components/Dropdown/Dropdown.test.ts` |
 | demo | `apps/showcase/src/demos/DemoDropdown.tsx`（P1 拆分） |
 
 ## 验证

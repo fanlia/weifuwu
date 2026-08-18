@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Link/Link.ts` |
-| 样式 | `src/components/Link/Link.css` |
-| 测试 | `src/components/Link/Link.test.ts` |
+| 源码 | `src/client/components/Link/Link.ts` |
+| 样式 | `src/client/components/Link/Link.css` |
+| 测试 | `src/client/components/Link/Link.test.ts` |
 | demo | `apps/showcase/src/demos/DemoLink.tsx`（P1 拆分） |
 
 ## 验证

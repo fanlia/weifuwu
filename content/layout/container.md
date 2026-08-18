@@ -12,7 +12,7 @@
 
 ## 源码
 
-`src/layout/_container.css`
+`src/client/layout/_container.css`
 
 ## 验证
 

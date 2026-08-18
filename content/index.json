@@ -18,9 +18,9 @@
       "family": null,
       "variantOf": null,
       "tags": [],
-      "sourceFile": "src/components/VideoPlayer/VideoPlayer.ts",
-      "cssFile": "src/components/VideoPlayer/VideoPlayer.css",
-      "testFile": "src/components/VideoPlayer/VideoPlayer.test.ts",
+      "sourceFile": "src/client/components/VideoPlayer/VideoPlayer.ts",
+      "cssFile": "src/client/components/VideoPlayer/VideoPlayer.css",
+      "testFile": "src/client/components/VideoPlayer/VideoPlayer.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -34,9 +34,9 @@
       "family": null,
       "variantOf": null,
       "tags": [],
-      "sourceFile": "src/components/Math/Math.ts",
-      "cssFile": "src/components/Math/Math.css",
-      "testFile": "src/components/Math/Math.test.ts",
+      "sourceFile": "src/client/components/Math/Math.ts",
+      "cssFile": "src/client/components/Math/Math.css",
+      "testFile": "src/client/components/Math/Math.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -50,9 +50,9 @@
       "family": null,
       "variantOf": null,
       "tags": [],
-      "sourceFile": "src/components/MarkdownEditor/MarkdownEditor.ts",
-      "cssFile": "src/components/MarkdownEditor/MarkdownEditor.css",
-      "testFile": "src/components/MarkdownEditor/MarkdownEditor.test.ts",
+      "sourceFile": "src/client/components/MarkdownEditor/MarkdownEditor.ts",
+      "cssFile": "src/client/components/MarkdownEditor/MarkdownEditor.css",
+      "testFile": "src/client/components/MarkdownEditor/MarkdownEditor.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -66,9 +66,9 @@
       "family": null,
       "variantOf": null,
       "tags": [],
-      "sourceFile": "src/components/CodeEditor/CodeEditor.ts",
-      "cssFile": "src/components/CodeEditor/CodeEditor.css",
-      "testFile": "src/components/CodeEditor/CodeEditor.test.ts",
+      "sourceFile": "src/client/components/CodeEditor/CodeEditor.ts",
+      "cssFile": "src/client/components/CodeEditor/CodeEditor.css",
+      "testFile": "src/client/components/CodeEditor/CodeEditor.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -82,9 +82,9 @@
       "family": null,
       "variantOf": null,
       "tags": [],
-      "sourceFile": "src/components/ImageCropper/ImageCropper.ts",
-      "cssFile": "src/components/ImageCropper/ImageCropper.css",
-      "testFile": "src/components/ImageCropper/ImageCropper.test.ts",
+      "sourceFile": "src/client/components/ImageCropper/ImageCropper.ts",
+      "cssFile": "src/client/components/ImageCropper/ImageCropper.css",
+      "testFile": "src/client/components/ImageCropper/ImageCropper.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -100,9 +100,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Wave/Wave.ts",
-      "cssFile": "src/components/Wave/Wave.css",
-      "testFile": "src/components/Wave/Wave.test.ts",
+      "sourceFile": "src/client/components/Wave/Wave.ts",
+      "cssFile": "src/client/components/Wave/Wave.css",
+      "testFile": "src/client/components/Wave/Wave.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -118,9 +118,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/SortableList/SortableList.ts",
-      "cssFile": "src/components/SortableList/SortableList.css",
-      "testFile": "src/components/SortableList/SortableList.test.ts",
+      "sourceFile": "src/client/components/SortableList/SortableList.ts",
+      "cssFile": "src/client/components/SortableList/SortableList.css",
+      "testFile": "src/client/components/SortableList/SortableList.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -136,9 +136,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/ExportCSV/ExportCSV.ts",
+      "sourceFile": "src/client/components/ExportCSV/ExportCSV.ts",
       "cssFile": null,
-      "testFile": "src/components/ExportCSV/ExportCSV.test.ts",
+      "testFile": "src/client/components/ExportCSV/ExportCSV.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -154,9 +154,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Button/Button.ts",
-      "cssFile": "src/components/Button/Button.css",
-      "testFile": "src/components/Button/Button.test.ts",
+      "sourceFile": "src/client/components/Button/Button.ts",
+      "cssFile": "src/client/components/Button/Button.css",
+      "testFile": "src/client/components/Button/Button.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -185,9 +185,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/Input/Input.ts",
-      "cssFile": "src/components/Input/Input.css",
-      "testFile": "src/components/Input/Input.test.ts",
+      "sourceFile": "src/client/components/Input/Input.ts",
+      "cssFile": "src/client/components/Input/Input.css",
+      "testFile": "src/client/components/Input/Input.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "focus-task",
@@ -210,9 +210,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/Textarea/Textarea.ts",
-      "cssFile": "src/components/Textarea/Textarea.css",
-      "testFile": "src/components/Textarea/Textarea.test.ts",
+      "sourceFile": "src/client/components/Textarea/Textarea.ts",
+      "cssFile": "src/client/components/Textarea/Textarea.css",
+      "testFile": "src/client/components/Textarea/Textarea.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -228,9 +228,9 @@
       "tags": [
         "选择"
       ],
-      "sourceFile": "src/components/Select/Select.ts",
-      "cssFile": "src/components/Select/Select.css",
-      "testFile": "src/components/Select/Select.test.ts",
+      "sourceFile": "src/client/components/Select/Select.ts",
+      "cssFile": "src/client/components/Select/Select.css",
+      "testFile": "src/client/components/Select/Select.test.ts",
       "gotchas": [
         "受控输入纪律：searchable 输入焦点丢失——useControlledInput 内部态",
         "事件 prop 判定：on+大写（EVENT_RE）——once/only 等 on 开头属性防误判",
@@ -270,9 +270,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/Checkbox/Checkbox.ts",
-      "cssFile": "src/components/Checkbox/Checkbox.css",
-      "testFile": "src/components/Checkbox/Checkbox.test.ts",
+      "sourceFile": "src/client/components/Checkbox/Checkbox.ts",
+      "cssFile": "src/client/components/Checkbox/Checkbox.css",
+      "testFile": "src/client/components/Checkbox/Checkbox.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "focus-task"
@@ -292,9 +292,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/Switch/Switch.ts",
-      "cssFile": "src/components/Switch/Switch.css",
-      "testFile": "src/components/Switch/Switch.test.ts",
+      "sourceFile": "src/client/components/Switch/Switch.ts",
+      "cssFile": "src/client/components/Switch/Switch.css",
+      "testFile": "src/client/components/Switch/Switch.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "dashboard",
@@ -313,9 +313,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/RadioGroup/RadioGroup.ts",
-      "cssFile": "src/components/RadioGroup/RadioGroup.css",
-      "testFile": "src/components/RadioGroup/RadioGroup.test.ts",
+      "sourceFile": "src/client/components/RadioGroup/RadioGroup.ts",
+      "cssFile": "src/client/components/RadioGroup/RadioGroup.css",
+      "testFile": "src/client/components/RadioGroup/RadioGroup.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -331,9 +331,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/SegmentedControl/SegmentedControl.ts",
-      "cssFile": "src/components/SegmentedControl/SegmentedControl.css",
-      "testFile": "src/components/SegmentedControl/SegmentedControl.test.ts",
+      "sourceFile": "src/client/components/SegmentedControl/SegmentedControl.ts",
+      "cssFile": "src/client/components/SegmentedControl/SegmentedControl.css",
+      "testFile": "src/client/components/SegmentedControl/SegmentedControl.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "dashboard"
@@ -351,9 +351,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/Slider/Slider.ts",
-      "cssFile": "src/components/Slider/Slider.css",
-      "testFile": "src/components/Slider/Slider.test.ts",
+      "sourceFile": "src/client/components/Slider/Slider.ts",
+      "cssFile": "src/client/components/Slider/Slider.css",
+      "testFile": "src/client/components/Slider/Slider.test.ts",
       "gotchas": [
         "浏览器表单状态恢复（刷新/后退）覆盖受控 value——autocomplete=off + 内部 0-100 归一化刻度（2000 slider 刷新跳动事故）",
         "拖拽中气泡位置冻结——usePopup 锚点恒定需 popup.refresh() 跟随 thumb"
@@ -372,9 +372,9 @@
       "tags": [
         "表单"
       ],
-      "sourceFile": "src/components/Form/Form.ts",
-      "cssFile": "src/components/Form/Form.css",
-      "testFile": "src/components/Form/Form.test.ts",
+      "sourceFile": "src/client/components/Form/Form.ts",
+      "cssFile": "src/client/components/Form/Form.css",
+      "testFile": "src/client/components/Form/Form.test.ts",
       "gotchas": [
         "三层一致（§6.3）：条件渲染 false 是空洞占位——{cond && <Alert/>} 不滤除不塌缩（提交按钮消失事故）",
         "受控纪律：受控 value 必须配 onChange——缺回调静默不可点"
@@ -421,9 +421,9 @@
       "tags": [
         "表单"
       ],
-      "sourceFile": "src/components/Field/Field.ts",
-      "cssFile": "src/components/Field/Field.css",
-      "testFile": "src/components/Field/Field.test.ts",
+      "sourceFile": "src/client/components/Field/Field.ts",
+      "cssFile": "src/client/components/Field/Field.css",
+      "testFile": "src/client/components/Field/Field.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "focus-task",
@@ -442,9 +442,9 @@
       "tags": [
         "编辑文件"
       ],
-      "sourceFile": "src/components/FileUpload/FileUpload.ts",
-      "cssFile": "src/components/FileUpload/FileUpload.css",
-      "testFile": "src/components/FileUpload/FileUpload.test.ts",
+      "sourceFile": "src/client/components/FileUpload/FileUpload.ts",
+      "cssFile": "src/client/components/FileUpload/FileUpload.css",
+      "testFile": "src/client/components/FileUpload/FileUpload.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -478,9 +478,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/SearchInput/SearchInput.ts",
-      "cssFile": "src/components/SearchInput/SearchInput.css",
-      "testFile": "src/components/SearchInput/SearchInput.test.ts",
+      "sourceFile": "src/client/components/SearchInput/SearchInput.ts",
+      "cssFile": "src/client/components/SearchInput/SearchInput.css",
+      "testFile": "src/client/components/SearchInput/SearchInput.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "mobile",
@@ -499,9 +499,9 @@
       "tags": [
         "反馈"
       ],
-      "sourceFile": "src/components/ProgressBar/ProgressBar.ts",
-      "cssFile": "src/components/ProgressBar/ProgressBar.css",
-      "testFile": "src/components/ProgressBar/ProgressBar.test.ts",
+      "sourceFile": "src/client/components/ProgressBar/ProgressBar.ts",
+      "cssFile": "src/client/components/ProgressBar/ProgressBar.css",
+      "testFile": "src/client/components/ProgressBar/ProgressBar.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "dashboard"
@@ -519,9 +519,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/InputNumber/InputNumber.ts",
-      "cssFile": "src/components/InputNumber/InputNumber.css",
-      "testFile": "src/components/InputNumber/InputNumber.test.ts",
+      "sourceFile": "src/client/components/InputNumber/InputNumber.ts",
+      "cssFile": "src/client/components/InputNumber/InputNumber.css",
+      "testFile": "src/client/components/InputNumber/InputNumber.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -537,9 +537,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/PasswordInput/PasswordInput.ts",
-      "cssFile": "src/components/PasswordInput/PasswordInput.css",
-      "testFile": "src/components/PasswordInput/PasswordInput.test.ts",
+      "sourceFile": "src/client/components/PasswordInput/PasswordInput.ts",
+      "cssFile": "src/client/components/PasswordInput/PasswordInput.css",
+      "testFile": "src/client/components/PasswordInput/PasswordInput.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [
@@ -557,9 +557,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/TagsInput/TagsInput.ts",
-      "cssFile": "src/components/TagsInput/TagsInput.css",
-      "testFile": "src/components/TagsInput/TagsInput.test.ts",
+      "sourceFile": "src/client/components/TagsInput/TagsInput.ts",
+      "cssFile": "src/client/components/TagsInput/TagsInput.css",
+      "testFile": "src/client/components/TagsInput/TagsInput.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -593,9 +593,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Table/Table.ts",
-      "cssFile": "src/components/Table/Table.css",
-      "testFile": "src/components/Table/Table.test.ts",
+      "sourceFile": "src/client/components/Table/Table.ts",
+      "cssFile": "src/client/components/Table/Table.css",
+      "testFile": "src/client/components/Table/Table.test.ts",
       "gotchas": [
         "固定列必须显式 width（缺省 140 估算 + console.warn——sticky 偏移累计依赖）",
         "数组空洞：children 里 {cond && <X/>} 是占位——不得误删下一个兄弟（提交按钮消失事故同源）",
@@ -643,9 +643,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Card/Card.ts",
-      "cssFile": "src/components/Card/Card.css",
-      "testFile": "src/components/Card/Card.test.ts",
+      "sourceFile": "src/client/components/Card/Card.ts",
+      "cssFile": "src/client/components/Card/Card.css",
+      "testFile": "src/client/components/Card/Card.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -672,9 +672,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Badge/Badge.ts",
-      "cssFile": "src/components/Badge/Badge.css",
-      "testFile": "src/components/Badge/Badge.test.ts",
+      "sourceFile": "src/client/components/Badge/Badge.ts",
+      "cssFile": "src/client/components/Badge/Badge.css",
+      "testFile": "src/client/components/Badge/Badge.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -698,9 +698,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Tag/Tag.ts",
-      "cssFile": "src/components/Tag/Tag.css",
-      "testFile": "src/components/Tag/Tag.test.ts",
+      "sourceFile": "src/client/components/Tag/Tag.ts",
+      "cssFile": "src/client/components/Tag/Tag.css",
+      "testFile": "src/client/components/Tag/Tag.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "docs",
@@ -724,9 +724,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Avatar/Avatar.ts",
-      "cssFile": "src/components/Avatar/Avatar.css",
-      "testFile": "src/components/Avatar/Avatar.test.ts",
+      "sourceFile": "src/client/components/Avatar/Avatar.ts",
+      "cssFile": "src/client/components/Avatar/Avatar.css",
+      "testFile": "src/client/components/Avatar/Avatar.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "landing",
@@ -748,9 +748,9 @@
         "展示",
         "编辑文件"
       ],
-      "sourceFile": "src/components/Img/Img.ts",
-      "cssFile": "src/components/Img/Img.css",
-      "testFile": "src/components/Img/Img.test.ts",
+      "sourceFile": "src/client/components/Img/Img.ts",
+      "cssFile": "src/client/components/Img/Img.css",
+      "testFile": "src/client/components/Img/Img.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -766,9 +766,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/InView/InView.ts",
-      "cssFile": "src/components/InView/InView.css",
-      "testFile": "src/components/InView/InView.test.ts",
+      "sourceFile": "src/client/components/InView/InView.ts",
+      "cssFile": "src/client/components/InView/InView.css",
+      "testFile": "src/client/components/InView/InView.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -784,9 +784,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Timeline/Timeline.ts",
-      "cssFile": "src/components/Timeline/Timeline.css",
-      "testFile": "src/components/Timeline/Timeline.test.ts",
+      "sourceFile": "src/client/components/Timeline/Timeline.ts",
+      "cssFile": "src/client/components/Timeline/Timeline.css",
+      "testFile": "src/client/components/Timeline/Timeline.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "detail-page"
@@ -804,9 +804,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Descriptions/Descriptions.ts",
-      "cssFile": "src/components/Descriptions/Descriptions.css",
-      "testFile": "src/components/Descriptions/Descriptions.test.ts",
+      "sourceFile": "src/client/components/Descriptions/Descriptions.ts",
+      "cssFile": "src/client/components/Descriptions/Descriptions.css",
+      "testFile": "src/client/components/Descriptions/Descriptions.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "workspace",
@@ -843,9 +843,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/AvatarGroup/AvatarGroup.ts",
-      "cssFile": "src/components/AvatarGroup/AvatarGroup.css",
-      "testFile": "src/components/AvatarGroup/AvatarGroup.test.ts",
+      "sourceFile": "src/client/components/AvatarGroup/AvatarGroup.ts",
+      "cssFile": "src/client/components/AvatarGroup/AvatarGroup.css",
+      "testFile": "src/client/components/AvatarGroup/AvatarGroup.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -862,9 +862,9 @@
         "展示",
         "编辑文件"
       ],
-      "sourceFile": "src/components/Markdown/Markdown.ts",
-      "cssFile": "src/components/Markdown/Markdown.css",
-      "testFile": "src/components/Markdown/Markdown.test.ts",
+      "sourceFile": "src/client/components/Markdown/Markdown.ts",
+      "cssFile": "src/client/components/Markdown/Markdown.css",
+      "testFile": "src/client/components/Markdown/Markdown.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -881,9 +881,9 @@
         "展示",
         "编辑文件"
       ],
-      "sourceFile": "src/components/CodeBlock/CodeBlock.ts",
-      "cssFile": "src/components/CodeBlock/CodeBlock.css",
-      "testFile": "src/components/CodeBlock/CodeBlock.test.ts",
+      "sourceFile": "src/client/components/CodeBlock/CodeBlock.ts",
+      "cssFile": "src/client/components/CodeBlock/CodeBlock.css",
+      "testFile": "src/client/components/CodeBlock/CodeBlock.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "workspace",
@@ -902,9 +902,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/LogViewer/LogViewer.ts",
-      "cssFile": "src/components/LogViewer/LogViewer.css",
-      "testFile": "src/components/LogViewer/LogViewer.test.ts",
+      "sourceFile": "src/client/components/LogViewer/LogViewer.ts",
+      "cssFile": "src/client/components/LogViewer/LogViewer.css",
+      "testFile": "src/client/components/LogViewer/LogViewer.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -938,9 +938,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/JSONViewer/JSONViewer.ts",
-      "cssFile": "src/components/JSONViewer/JSONViewer.css",
-      "testFile": "src/components/JSONViewer/JSONViewer.test.ts",
+      "sourceFile": "src/client/components/JSONViewer/JSONViewer.ts",
+      "cssFile": "src/client/components/JSONViewer/JSONViewer.css",
+      "testFile": "src/client/components/JSONViewer/JSONViewer.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -974,9 +974,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/DiffView/DiffView.ts",
-      "cssFile": "src/components/DiffView/DiffView.css",
-      "testFile": "src/components/DiffView/DiffView.test.ts",
+      "sourceFile": "src/client/components/DiffView/DiffView.ts",
+      "cssFile": "src/client/components/DiffView/DiffView.css",
+      "testFile": "src/client/components/DiffView/DiffView.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1010,9 +1010,9 @@
       "tags": [
         "可视化"
       ],
-      "sourceFile": "src/components/Sparkline/Sparkline.ts",
-      "cssFile": "src/components/Sparkline/Sparkline.css",
-      "testFile": "src/components/Sparkline/Sparkline.test.ts",
+      "sourceFile": "src/client/components/Sparkline/Sparkline.ts",
+      "cssFile": "src/client/components/Sparkline/Sparkline.css",
+      "testFile": "src/client/components/Sparkline/Sparkline.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "data-screen"
@@ -1030,9 +1030,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/Tour/Tour.ts",
-      "cssFile": "src/components/Tour/Tour.css",
-      "testFile": "src/components/Tour/Tour.test.ts",
+      "sourceFile": "src/client/components/Tour/Tour.ts",
+      "cssFile": "src/client/components/Tour/Tour.css",
+      "testFile": "src/client/components/Tour/Tour.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1048,9 +1048,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Kanban/Kanban.ts",
-      "cssFile": "src/components/Kanban/Kanban.css",
-      "testFile": "src/components/Kanban/Kanban.test.ts",
+      "sourceFile": "src/client/components/Kanban/Kanban.ts",
+      "cssFile": "src/client/components/Kanban/Kanban.css",
+      "testFile": "src/client/components/Kanban/Kanban.test.ts",
       "gotchas": [
         "enumerated 属性（§6.2）：draggable 空字符串解析为 false——必须显式 setAttribute true/false（拖动变文本选中事故）"
       ],
@@ -1069,9 +1069,9 @@
         "可视化",
         "AI"
       ],
-      "sourceFile": "src/components/Pipeline/Pipeline.ts",
-      "cssFile": "src/components/Pipeline/Pipeline.css",
-      "testFile": "src/components/Pipeline/Pipeline.test.ts",
+      "sourceFile": "src/client/components/Pipeline/Pipeline.ts",
+      "cssFile": "src/client/components/Pipeline/Pipeline.css",
+      "testFile": "src/client/components/Pipeline/Pipeline.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1087,9 +1087,9 @@
       "tags": [
         "选择"
       ],
-      "sourceFile": "src/components/TreeSelect/TreeSelect.ts",
-      "cssFile": "src/components/TreeSelect/TreeSelect.css",
-      "testFile": "src/components/TreeSelect/TreeSelect.test.ts",
+      "sourceFile": "src/client/components/TreeSelect/TreeSelect.ts",
+      "cssFile": "src/client/components/TreeSelect/TreeSelect.css",
+      "testFile": "src/client/components/TreeSelect/TreeSelect.test.ts",
       "gotchas": [
         "弹窗纪律（§5.4）：曾遗漏 portal——absolute 在父容器 overflow/transform 下裁剪/错位——统一 usePopup",
         "选项量小场景搜索过滤已裁剪（components-cuts.md 永久裁剪）"
@@ -1109,9 +1109,9 @@
         "导航",
         "通用布局"
       ],
-      "sourceFile": "src/components/Layout/Layout.ts",
-      "cssFile": "src/components/Layout/Layout.css",
-      "testFile": "src/components/Layout/Layout.test.ts",
+      "sourceFile": "src/client/components/Layout/Layout.ts",
+      "cssFile": "src/client/components/Layout/Layout.css",
+      "testFile": "src/client/components/Layout/Layout.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [
@@ -1129,9 +1129,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Layout/Layout.ts",
-      "cssFile": "src/components/Layout/Layout.css",
-      "testFile": "src/components/Layout/Layout.test.ts",
+      "sourceFile": "src/client/components/Layout/Layout.ts",
+      "cssFile": "src/client/components/Layout/Layout.css",
+      "testFile": "src/client/components/Layout/Layout.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1147,9 +1147,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Layout/Layout.ts",
-      "cssFile": "src/components/Layout/Layout.css",
-      "testFile": "src/components/Layout/Layout.test.ts",
+      "sourceFile": "src/client/components/Layout/Layout.ts",
+      "cssFile": "src/client/components/Layout/Layout.css",
+      "testFile": "src/client/components/Layout/Layout.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1165,9 +1165,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Layout/Layout.ts",
-      "cssFile": "src/components/Layout/Layout.css",
-      "testFile": "src/components/Layout/Layout.test.ts",
+      "sourceFile": "src/client/components/Layout/Layout.ts",
+      "cssFile": "src/client/components/Layout/Layout.css",
+      "testFile": "src/client/components/Layout/Layout.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1184,9 +1184,9 @@
         "反馈",
         "弹层"
       ],
-      "sourceFile": "src/components/Popconfirm/Popconfirm.ts",
-      "cssFile": "src/components/Popconfirm/Popconfirm.css",
-      "testFile": "src/components/Popconfirm/Popconfirm.test.ts",
+      "sourceFile": "src/client/components/Popconfirm/Popconfirm.ts",
+      "cssFile": "src/client/components/Popconfirm/Popconfirm.css",
+      "testFile": "src/client/components/Popconfirm/Popconfirm.test.ts",
       "gotchas": [
         "气泡内表单/自定义箭头已裁剪（Popover 基座 + 定位全套复用）"
       ],
@@ -1204,9 +1204,9 @@
       "tags": [
         "选择"
       ],
-      "sourceFile": "src/components/AutoComplete/AutoComplete.ts",
-      "cssFile": "src/components/AutoComplete/AutoComplete.css",
-      "testFile": "src/components/AutoComplete/AutoComplete.test.ts",
+      "sourceFile": "src/client/components/AutoComplete/AutoComplete.ts",
+      "cssFile": "src/client/components/AutoComplete/AutoComplete.css",
+      "testFile": "src/client/components/AutoComplete/AutoComplete.test.ts",
       "gotchas": [
         "受控输入纪律（§5.3）：受控 input 焦点丢失事故——输入期间 value 走内部 keyword（useControlledInput），不依赖受控 value 回流",
         "IME composition：中文输入组合期间受控 value 重置打断——isComposing 门控"
@@ -1245,9 +1245,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Link/Link.ts",
-      "cssFile": "src/components/Link/Link.css",
-      "testFile": "src/components/Link/Link.test.ts",
+      "sourceFile": "src/client/components/Link/Link.ts",
+      "cssFile": "src/client/components/Link/Link.css",
+      "testFile": "src/client/components/Link/Link.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "landing"
@@ -1265,9 +1265,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/FloatButton/FloatButton.ts",
-      "cssFile": "src/components/FloatButton/FloatButton.css",
-      "testFile": "src/components/FloatButton/FloatButton.test.ts",
+      "sourceFile": "src/client/components/FloatButton/FloatButton.ts",
+      "cssFile": "src/client/components/FloatButton/FloatButton.css",
+      "testFile": "src/client/components/FloatButton/FloatButton.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1283,9 +1283,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/NavMenu/NavMenu.ts",
-      "cssFile": "src/components/NavMenu/NavMenu.css",
-      "testFile": "src/components/NavMenu/NavMenu.test.ts",
+      "sourceFile": "src/client/components/NavMenu/NavMenu.ts",
+      "cssFile": "src/client/components/NavMenu/NavMenu.css",
+      "testFile": "src/client/components/NavMenu/NavMenu.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [
@@ -1303,9 +1303,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Space/Space.ts",
-      "cssFile": "src/components/Space/Space.css",
-      "testFile": "src/components/Space/Space.test.ts",
+      "sourceFile": "src/client/components/Space/Space.ts",
+      "cssFile": "src/client/components/Space/Space.css",
+      "testFile": "src/client/components/Space/Space.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -1332,9 +1332,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Grid/Grid.ts",
-      "cssFile": "src/components/Grid/Grid.css",
-      "testFile": "src/components/Grid/Grid.test.ts",
+      "sourceFile": "src/client/components/Grid/Grid.ts",
+      "cssFile": "src/client/components/Grid/Grid.css",
+      "testFile": "src/client/components/Grid/Grid.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1350,9 +1350,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Scrollbar/Scrollbar.ts",
-      "cssFile": "src/components/Scrollbar/Scrollbar.css",
-      "testFile": "src/components/Scrollbar/Scrollbar.test.ts",
+      "sourceFile": "src/client/components/Scrollbar/Scrollbar.ts",
+      "cssFile": "src/client/components/Scrollbar/Scrollbar.css",
+      "testFile": "src/client/components/Scrollbar/Scrollbar.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1368,9 +1368,9 @@
       "tags": [
         "反馈"
       ],
-      "sourceFile": "src/components/AlertGroup/AlertGroup.ts",
-      "cssFile": "src/components/AlertGroup/AlertGroup.css",
-      "testFile": "src/components/AlertGroup/AlertGroup.test.ts",
+      "sourceFile": "src/client/components/AlertGroup/AlertGroup.ts",
+      "cssFile": "src/client/components/AlertGroup/AlertGroup.css",
+      "testFile": "src/client/components/AlertGroup/AlertGroup.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1406,9 +1406,9 @@
         "展示",
         "AI"
       ],
-      "sourceFile": "src/components/MessageBubble/MessageBubble.ts",
-      "cssFile": "src/components/MessageBubble/MessageBubble.css",
-      "testFile": "src/components/MessageBubble/MessageBubble.test.ts",
+      "sourceFile": "src/client/components/MessageBubble/MessageBubble.ts",
+      "cssFile": "src/client/components/MessageBubble/MessageBubble.css",
+      "testFile": "src/client/components/MessageBubble/MessageBubble.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1424,9 +1424,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Highlight/Highlight.ts",
-      "cssFile": "src/components/Highlight/Highlight.css",
-      "testFile": "src/components/Highlight/Highlight.test.ts",
+      "sourceFile": "src/client/components/Highlight/Highlight.ts",
+      "cssFile": "src/client/components/Highlight/Highlight.css",
+      "testFile": "src/client/components/Highlight/Highlight.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1460,9 +1460,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/List/List.ts",
-      "cssFile": "src/components/List/List.css",
-      "testFile": "src/components/List/List.test.ts",
+      "sourceFile": "src/client/components/List/List.ts",
+      "cssFile": "src/client/components/List/List.css",
+      "testFile": "src/client/components/List/List.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "workspace",
@@ -1482,9 +1482,9 @@
         "展示",
         "反馈"
       ],
-      "sourceFile": "src/components/Result/Result.ts",
-      "cssFile": "src/components/Result/Result.css",
-      "testFile": "src/components/Result/Result.test.ts",
+      "sourceFile": "src/client/components/Result/Result.ts",
+      "cssFile": "src/client/components/Result/Result.css",
+      "testFile": "src/client/components/Result/Result.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1500,9 +1500,9 @@
       "tags": [
         "反馈"
       ],
-      "sourceFile": "src/components/Confirm/Confirm.ts",
+      "sourceFile": "src/client/components/Confirm/Confirm.ts",
       "cssFile": null,
-      "testFile": "src/components/Confirm/Confirm.test.ts",
+      "testFile": "src/client/components/Confirm/Confirm.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1519,9 +1519,9 @@
         "展示",
         "可视化"
       ],
-      "sourceFile": "src/components/StatCard/StatCard.ts",
-      "cssFile": "src/components/StatCard/StatCard.css",
-      "testFile": "src/components/StatCard/StatCard.test.ts",
+      "sourceFile": "src/client/components/StatCard/StatCard.ts",
+      "cssFile": "src/client/components/StatCard/StatCard.css",
+      "testFile": "src/client/components/StatCard/StatCard.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -1544,9 +1544,9 @@
       "tags": [
         "可视化"
       ],
-      "sourceFile": "src/components/Chart/Chart.ts",
-      "cssFile": "src/components/Chart/Chart.css",
-      "testFile": "src/components/Chart/Chart.test.ts",
+      "sourceFile": "src/client/components/Chart/Chart.ts",
+      "cssFile": "src/client/components/Chart/Chart.css",
+      "testFile": "src/client/components/Chart/Chart.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [
@@ -1564,9 +1564,9 @@
       "tags": [
         "编辑文件"
       ],
-      "sourceFile": "src/components/Editor/Editor.ts",
-      "cssFile": "src/components/Editor/Editor.css",
-      "testFile": "src/components/Editor/Editor.test.ts",
+      "sourceFile": "src/client/components/Editor/Editor.ts",
+      "cssFile": "src/client/components/Editor/Editor.css",
+      "testFile": "src/client/components/Editor/Editor.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1582,9 +1582,9 @@
       "tags": [
         "编辑文件"
       ],
-      "sourceFile": "src/components/FilePreview/FilePreview.ts",
-      "cssFile": "src/components/FilePreview/FilePreview.css",
-      "testFile": "src/components/FilePreview/FilePreview.test.ts",
+      "sourceFile": "src/client/components/FilePreview/FilePreview.ts",
+      "cssFile": "src/client/components/FilePreview/FilePreview.css",
+      "testFile": "src/client/components/FilePreview/FilePreview.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1618,9 +1618,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/ThemeSwitch/ThemeSwitch.ts",
-      "cssFile": "src/components/ThemeSwitch/ThemeSwitch.css",
-      "testFile": "src/components/ThemeSwitch/ThemeSwitch.test.ts",
+      "sourceFile": "src/client/components/ThemeSwitch/ThemeSwitch.ts",
+      "cssFile": "src/client/components/ThemeSwitch/ThemeSwitch.css",
+      "testFile": "src/client/components/ThemeSwitch/ThemeSwitch.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [
@@ -1639,9 +1639,9 @@
       "tags": [
         "选择"
       ],
-      "sourceFile": "src/components/DatePicker/DatePicker.ts",
-      "cssFile": "src/components/DatePicker/DatePicker.css",
-      "testFile": "src/components/DatePicker/DatePicker.test.ts",
+      "sourceFile": "src/client/components/DatePicker/DatePicker.ts",
+      "cssFile": "src/client/components/DatePicker/DatePicker.css",
+      "testFile": "src/client/components/DatePicker/DatePicker.test.ts",
       "gotchas": [
         "受控纪律：受控 value/month 必须配回调——缺回调静默不可点"
       ],
@@ -1659,9 +1659,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/Modal/Modal.ts",
-      "cssFile": "src/components/Modal/Modal.css",
-      "testFile": "src/components/Modal/Modal.test.ts",
+      "sourceFile": "src/client/components/Modal/Modal.ts",
+      "cssFile": "src/client/components/Modal/Modal.css",
+      "testFile": "src/client/components/Modal/Modal.test.ts",
       "gotchas": [
         "退场动画：exit 类必须挂载（animationend 驱动卸载）——reduced-motion 下动画降为 0.01ms 等效瞬时",
         "会话级模态四件套：presence/trapFocus/lockScroll 由 usePopup 统一提供"
@@ -1682,9 +1682,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/Drawer/Drawer.ts",
-      "cssFile": "src/components/Drawer/Drawer.css",
-      "testFile": "src/components/Drawer/Drawer.test.ts",
+      "sourceFile": "src/client/components/Drawer/Drawer.ts",
+      "cssFile": "src/client/components/Drawer/Drawer.css",
+      "testFile": "src/client/components/Drawer/Drawer.test.ts",
       "gotchas": [
         "退场动画：--enter/--exit 类必须成对（audit 强制）——只定义不挂是死代码（CS-01）"
       ],
@@ -1704,9 +1704,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/Popover/Popover.ts",
-      "cssFile": "src/components/Popover/Popover.css",
-      "testFile": "src/components/Popover/Popover.test.ts",
+      "sourceFile": "src/client/components/Popover/Popover.ts",
+      "cssFile": "src/client/components/Popover/Popover.css",
+      "testFile": "src/client/components/Popover/Popover.test.ts",
       "gotchas": [
         "portal 槽豁免（同 HoverCard）",
         "富内容自动判定已裁剪——HoverCard 补富内容（components-cuts.md）"
@@ -1725,9 +1725,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/Tooltip/Tooltip.ts",
-      "cssFile": "src/components/Tooltip/Tooltip.css",
-      "testFile": "src/components/Tooltip/Tooltip.test.ts",
+      "sourceFile": "src/client/components/Tooltip/Tooltip.ts",
+      "cssFile": "src/client/components/Tooltip/Tooltip.css",
+      "testFile": "src/client/components/Tooltip/Tooltip.test.ts",
       "gotchas": [
         "portal 槽豁免（同 HoverCard）——浮层插槽非业务列表"
       ],
@@ -1745,9 +1745,9 @@
       "tags": [
         "反馈"
       ],
-      "sourceFile": "src/components/Toast/Toast.ts",
-      "cssFile": "src/components/Toast/Toast.css",
-      "testFile": "src/components/Toast/Toast.test.ts",
+      "sourceFile": "src/client/components/Toast/Toast.ts",
+      "cssFile": "src/client/components/Toast/Toast.css",
+      "testFile": "src/client/components/Toast/Toast.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1763,9 +1763,9 @@
       "tags": [
         "反馈"
       ],
-      "sourceFile": "src/components/Alert/Alert.ts",
-      "cssFile": "src/components/Alert/Alert.css",
-      "testFile": "src/components/Alert/Alert.test.ts",
+      "sourceFile": "src/client/components/Alert/Alert.ts",
+      "cssFile": "src/client/components/Alert/Alert.css",
+      "testFile": "src/client/components/Alert/Alert.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "focus-task",
@@ -1786,9 +1786,9 @@
       "tags": [
         "反馈"
       ],
-      "sourceFile": "src/components/Loading/Loading.ts",
-      "cssFile": "src/components/Loading/Loading.css",
-      "testFile": "src/components/Loading/Loading.test.ts",
+      "sourceFile": "src/client/components/Loading/Loading.ts",
+      "cssFile": "src/client/components/Loading/Loading.css",
+      "testFile": "src/client/components/Loading/Loading.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1804,9 +1804,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Skeleton/Skeleton.ts",
-      "cssFile": "src/components/Skeleton/Skeleton.css",
-      "testFile": "src/components/Skeleton/Skeleton.test.ts",
+      "sourceFile": "src/client/components/Skeleton/Skeleton.ts",
+      "cssFile": "src/client/components/Skeleton/Skeleton.css",
+      "testFile": "src/client/components/Skeleton/Skeleton.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1822,9 +1822,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/EmptyState/EmptyState.ts",
-      "cssFile": "src/components/EmptyState/EmptyState.css",
-      "testFile": "src/components/EmptyState/EmptyState.test.ts",
+      "sourceFile": "src/client/components/EmptyState/EmptyState.ts",
+      "cssFile": "src/client/components/EmptyState/EmptyState.css",
+      "testFile": "src/client/components/EmptyState/EmptyState.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "list-page"
@@ -1844,9 +1844,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/Breadcrumb/Breadcrumb.ts",
-      "cssFile": "src/components/Breadcrumb/Breadcrumb.css",
-      "testFile": "src/components/Breadcrumb/Breadcrumb.test.ts",
+      "sourceFile": "src/client/components/Breadcrumb/Breadcrumb.ts",
+      "cssFile": "src/client/components/Breadcrumb/Breadcrumb.css",
+      "testFile": "src/client/components/Breadcrumb/Breadcrumb.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "docs"
@@ -1864,9 +1864,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/Menu/Menu.ts",
-      "cssFile": "src/components/Menu/Menu.css",
-      "testFile": "src/components/Menu/Menu.test.ts",
+      "sourceFile": "src/client/components/Menu/Menu.ts",
+      "cssFile": "src/client/components/Menu/Menu.css",
+      "testFile": "src/client/components/Menu/Menu.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [
@@ -1885,9 +1885,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/Tabs/Tabs.ts",
-      "cssFile": "src/components/Tabs/Tabs.css",
-      "testFile": "src/components/Tabs/Tabs.test.ts",
+      "sourceFile": "src/client/components/Tabs/Tabs.ts",
+      "cssFile": "src/client/components/Tabs/Tabs.css",
+      "testFile": "src/client/components/Tabs/Tabs.test.ts",
       "gotchas": [
         "混合数组稳定 key：tabList+addBtn+ink 全 keyed——无 key 项退 unkeyed 位置配对（新增 tab 错位事故）",
         "closable 必须配 onClose / addable 必须配 onAdd（受控纪律——console.warn）"
@@ -1911,9 +1911,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/Dropdown/Dropdown.ts",
-      "cssFile": "src/components/Dropdown/Dropdown.css",
-      "testFile": "src/components/Dropdown/Dropdown.test.ts",
+      "sourceFile": "src/client/components/Dropdown/Dropdown.ts",
+      "cssFile": "src/client/components/Dropdown/Dropdown.css",
+      "testFile": "src/client/components/Dropdown/Dropdown.test.ts",
       "gotchas": [
         "受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点",
         "portal 槽豁免：浮层插槽 [children, popup.portal()] 打开/关闭不触发 A 级动态数组检测"
@@ -1932,9 +1932,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/Pagination/Pagination.ts",
-      "cssFile": "src/components/Pagination/Pagination.css",
-      "testFile": "src/components/Pagination/Pagination.test.ts",
+      "sourceFile": "src/client/components/Pagination/Pagination.ts",
+      "cssFile": "src/client/components/Pagination/Pagination.css",
+      "testFile": "src/client/components/Pagination/Pagination.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -1953,9 +1953,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/Steps/Steps.ts",
-      "cssFile": "src/components/Steps/Steps.css",
-      "testFile": "src/components/Steps/Steps.test.ts",
+      "sourceFile": "src/client/components/Steps/Steps.ts",
+      "cssFile": "src/client/components/Steps/Steps.css",
+      "testFile": "src/client/components/Steps/Steps.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1971,9 +1971,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/Accordion/Accordion.ts",
-      "cssFile": "src/components/Accordion/Accordion.css",
-      "testFile": "src/components/Accordion/Accordion.test.ts",
+      "sourceFile": "src/client/components/Accordion/Accordion.ts",
+      "cssFile": "src/client/components/Accordion/Accordion.css",
+      "testFile": "src/client/components/Accordion/Accordion.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -1989,9 +1989,9 @@
       "tags": [
         "AI"
       ],
-      "sourceFile": "src/components/AiChat/AiChat.ts",
-      "cssFile": "src/components/AiChat/AiChat.css",
-      "testFile": "src/components/AiChat/AiChat.test.ts",
+      "sourceFile": "src/client/components/AiChat/AiChat.ts",
+      "cssFile": "src/client/components/AiChat/AiChat.css",
+      "testFile": "src/client/components/AiChat/AiChat.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [
@@ -2013,9 +2013,9 @@
       "tags": [
         "AI"
       ],
-      "sourceFile": "src/components/ChatInput/ChatInput.ts",
-      "cssFile": "src/components/ChatInput/ChatInput.css",
-      "testFile": "src/components/ChatInput/ChatInput.test.ts",
+      "sourceFile": "src/client/components/ChatInput/ChatInput.ts",
+      "cssFile": "src/client/components/ChatInput/ChatInput.css",
+      "testFile": "src/client/components/ChatInput/ChatInput.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2031,9 +2031,9 @@
       "tags": [
         "AI"
       ],
-      "sourceFile": "src/components/AuthPage/AuthPage.ts",
+      "sourceFile": "src/client/components/AuthPage/AuthPage.ts",
       "cssFile": null,
-      "testFile": "src/components/AuthPage/AuthPage.test.ts",
+      "testFile": "src/client/components/AuthPage/AuthPage.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [
@@ -2053,9 +2053,9 @@
       "tags": [
         "AI"
       ],
-      "sourceFile": "src/components/ToolCallCard/ToolCallCard.ts",
-      "cssFile": "src/components/ToolCallCard/ToolCallCard.css",
-      "testFile": "src/components/ToolCallCard/ToolCallCard.test.ts",
+      "sourceFile": "src/client/components/ToolCallCard/ToolCallCard.ts",
+      "cssFile": "src/client/components/ToolCallCard/ToolCallCard.css",
+      "testFile": "src/client/components/ToolCallCard/ToolCallCard.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2074,9 +2074,9 @@
         "表单",
         "AI"
       ],
-      "sourceFile": "src/components/JsonSchemaForm/JsonSchemaForm.ts",
-      "cssFile": "src/components/JsonSchemaForm/JsonSchemaForm.css",
-      "testFile": "src/components/JsonSchemaForm/JsonSchemaForm.test.ts",
+      "sourceFile": "src/client/components/JsonSchemaForm/JsonSchemaForm.ts",
+      "cssFile": "src/client/components/JsonSchemaForm/JsonSchemaForm.css",
+      "testFile": "src/client/components/JsonSchemaForm/JsonSchemaForm.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2092,9 +2092,9 @@
       "tags": [
         "AI"
       ],
-      "sourceFile": "src/components/ReasoningBlock/ReasoningBlock.ts",
-      "cssFile": "src/components/ReasoningBlock/ReasoningBlock.css",
-      "testFile": "src/components/ReasoningBlock/ReasoningBlock.test.ts",
+      "sourceFile": "src/client/components/ReasoningBlock/ReasoningBlock.ts",
+      "cssFile": "src/client/components/ReasoningBlock/ReasoningBlock.css",
+      "testFile": "src/client/components/ReasoningBlock/ReasoningBlock.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2110,9 +2110,9 @@
       "tags": [
         "AI"
       ],
-      "sourceFile": "src/components/CitationCard/CitationCard.ts",
-      "cssFile": "src/components/CitationCard/CitationCard.css",
-      "testFile": "src/components/CitationCard/CitationCard.test.ts",
+      "sourceFile": "src/client/components/CitationCard/CitationCard.ts",
+      "cssFile": "src/client/components/CitationCard/CitationCard.css",
+      "testFile": "src/client/components/CitationCard/CitationCard.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2128,9 +2128,9 @@
       "tags": [
         "AI"
       ],
-      "sourceFile": "src/components/SessionList/SessionList.ts",
-      "cssFile": "src/components/SessionList/SessionList.css",
-      "testFile": "src/components/SessionList/SessionList.test.ts",
+      "sourceFile": "src/client/components/SessionList/SessionList.ts",
+      "cssFile": "src/client/components/SessionList/SessionList.css",
+      "testFile": "src/client/components/SessionList/SessionList.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2146,9 +2146,9 @@
       "tags": [
         "AI"
       ],
-      "sourceFile": "src/components/ApprovalCard/ApprovalCard.ts",
-      "cssFile": "src/components/ApprovalCard/ApprovalCard.css",
-      "testFile": "src/components/ApprovalCard/ApprovalCard.test.ts",
+      "sourceFile": "src/client/components/ApprovalCard/ApprovalCard.ts",
+      "cssFile": "src/client/components/ApprovalCard/ApprovalCard.css",
+      "testFile": "src/client/components/ApprovalCard/ApprovalCard.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2166,9 +2166,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/PageHeader/PageHeader.ts",
-      "cssFile": "src/components/PageHeader/PageHeader.css",
-      "testFile": "src/components/PageHeader/PageHeader.test.ts",
+      "sourceFile": "src/client/components/PageHeader/PageHeader.ts",
+      "cssFile": "src/client/components/PageHeader/PageHeader.css",
+      "testFile": "src/client/components/PageHeader/PageHeader.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -2192,9 +2192,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Icon/Icon.ts",
-      "cssFile": "src/components/Icon/Icon.css",
-      "testFile": "src/components/Icon/Icon.test.ts",
+      "sourceFile": "src/client/components/Icon/Icon.ts",
+      "cssFile": "src/client/components/Icon/Icon.css",
+      "testFile": "src/client/components/Icon/Icon.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -2220,9 +2220,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Divider/Divider.ts",
-      "cssFile": "src/components/Divider/Divider.css",
-      "testFile": "src/components/Divider/Divider.test.ts",
+      "sourceFile": "src/client/components/Divider/Divider.ts",
+      "cssFile": "src/client/components/Divider/Divider.css",
+      "testFile": "src/client/components/Divider/Divider.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -2265,9 +2265,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/Rate/Rate.ts",
-      "cssFile": "src/components/Rate/Rate.css",
-      "testFile": "src/components/Rate/Rate.test.ts",
+      "sourceFile": "src/client/components/Rate/Rate.ts",
+      "cssFile": "src/client/components/Rate/Rate.css",
+      "testFile": "src/client/components/Rate/Rate.test.ts",
       "gotchas": [
         "小尺寸 button 固定 min/max-height（§5.6）：星 16x36 竖条事故"
       ],
@@ -2285,9 +2285,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Typography/Typography.ts",
-      "cssFile": "src/components/Typography/Typography.css",
-      "testFile": "src/components/Typography/Typography.test.ts",
+      "sourceFile": "src/client/components/Typography/Typography.ts",
+      "cssFile": "src/client/components/Typography/Typography.css",
+      "testFile": "src/client/components/Typography/Typography.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2303,9 +2303,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Label/Label.ts",
-      "cssFile": "src/components/Label/Label.css",
-      "testFile": "src/components/Label/Label.test.ts",
+      "sourceFile": "src/client/components/Label/Label.ts",
+      "cssFile": "src/client/components/Label/Label.css",
+      "testFile": "src/client/components/Label/Label.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2321,9 +2321,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/AspectRatio/AspectRatio.ts",
-      "cssFile": "src/components/AspectRatio/AspectRatio.css",
-      "testFile": "src/components/AspectRatio/AspectRatio.test.ts",
+      "sourceFile": "src/client/components/AspectRatio/AspectRatio.ts",
+      "cssFile": "src/client/components/AspectRatio/AspectRatio.css",
+      "testFile": "src/client/components/AspectRatio/AspectRatio.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2339,9 +2339,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/ToggleGroup/ToggleGroup.ts",
-      "cssFile": "src/components/ToggleGroup/ToggleGroup.css",
-      "testFile": "src/components/ToggleGroup/ToggleGroup.test.ts",
+      "sourceFile": "src/client/components/ToggleGroup/ToggleGroup.ts",
+      "cssFile": "src/client/components/ToggleGroup/ToggleGroup.css",
+      "testFile": "src/client/components/ToggleGroup/ToggleGroup.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2357,9 +2357,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/CheckboxGroup/CheckboxGroup.ts",
-      "cssFile": "src/components/CheckboxGroup/CheckboxGroup.css",
-      "testFile": "src/components/CheckboxGroup/CheckboxGroup.test.ts",
+      "sourceFile": "src/client/components/CheckboxGroup/CheckboxGroup.ts",
+      "cssFile": "src/client/components/CheckboxGroup/CheckboxGroup.css",
+      "testFile": "src/client/components/CheckboxGroup/CheckboxGroup.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2375,9 +2375,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/PinInput/PinInput.ts",
-      "cssFile": "src/components/PinInput/PinInput.css",
-      "testFile": "src/components/PinInput/PinInput.test.ts",
+      "sourceFile": "src/client/components/PinInput/PinInput.ts",
+      "cssFile": "src/client/components/PinInput/PinInput.css",
+      "testFile": "src/client/components/PinInput/PinInput.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2411,9 +2411,9 @@
       "tags": [
         "编辑文件"
       ],
-      "sourceFile": "src/components/CopyButton/CopyButton.ts",
-      "cssFile": "src/components/CopyButton/CopyButton.css",
-      "testFile": "src/components/CopyButton/CopyButton.test.ts",
+      "sourceFile": "src/client/components/CopyButton/CopyButton.ts",
+      "cssFile": "src/client/components/CopyButton/CopyButton.css",
+      "testFile": "src/client/components/CopyButton/CopyButton.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2430,9 +2430,9 @@
         "输入",
         "弹层"
       ],
-      "sourceFile": "src/components/ColorPicker/ColorPicker.ts",
-      "cssFile": "src/components/ColorPicker/ColorPicker.css",
-      "testFile": "src/components/ColorPicker/ColorPicker.test.ts",
+      "sourceFile": "src/client/components/ColorPicker/ColorPicker.ts",
+      "cssFile": "src/client/components/ColorPicker/ColorPicker.css",
+      "testFile": "src/client/components/ColorPicker/ColorPicker.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2448,9 +2448,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/HoverCard/HoverCard.ts",
-      "cssFile": "src/components/HoverCard/HoverCard.css",
-      "testFile": "src/components/HoverCard/HoverCard.test.ts",
+      "sourceFile": "src/client/components/HoverCard/HoverCard.ts",
+      "cssFile": "src/client/components/HoverCard/HoverCard.css",
+      "testFile": "src/client/components/HoverCard/HoverCard.test.ts",
       "gotchas": [
         "portal 槽豁免：浮层插槽打开/关闭不触发 A 级动态数组检测（框架管理切换槽）"
       ],
@@ -2468,9 +2468,9 @@
       "tags": [
         "反馈"
       ],
-      "sourceFile": "src/components/Notification/Notification.ts",
-      "cssFile": "src/components/Notification/Notification.css",
-      "testFile": "src/components/Notification/Notification.test.ts",
+      "sourceFile": "src/client/components/Notification/Notification.ts",
+      "cssFile": "src/client/components/Notification/Notification.css",
+      "testFile": "src/client/components/Notification/Notification.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2486,9 +2486,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/BackTop/BackTop.ts",
-      "cssFile": "src/components/BackTop/BackTop.css",
-      "testFile": "src/components/BackTop/BackTop.test.ts",
+      "sourceFile": "src/client/components/BackTop/BackTop.ts",
+      "cssFile": "src/client/components/BackTop/BackTop.css",
+      "testFile": "src/client/components/BackTop/BackTop.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "docs",
@@ -2507,9 +2507,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/Affix/Affix.ts",
-      "cssFile": "src/components/Affix/Affix.css",
-      "testFile": "src/components/Affix/Affix.test.ts",
+      "sourceFile": "src/client/components/Affix/Affix.ts",
+      "cssFile": "src/client/components/Affix/Affix.css",
+      "testFile": "src/client/components/Affix/Affix.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2525,9 +2525,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/Anchor/Anchor.ts",
-      "cssFile": "src/components/Anchor/Anchor.css",
-      "testFile": "src/components/Anchor/Anchor.test.ts",
+      "sourceFile": "src/client/components/Anchor/Anchor.ts",
+      "cssFile": "src/client/components/Anchor/Anchor.css",
+      "testFile": "src/client/components/Anchor/Anchor.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "docs"
@@ -2545,9 +2545,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/ContextMenu/ContextMenu.ts",
-      "cssFile": "src/components/ContextMenu/ContextMenu.css",
-      "testFile": "src/components/ContextMenu/ContextMenu.test.ts",
+      "sourceFile": "src/client/components/ContextMenu/ContextMenu.ts",
+      "cssFile": "src/client/components/ContextMenu/ContextMenu.css",
+      "testFile": "src/client/components/ContextMenu/ContextMenu.test.ts",
       "gotchas": [
         "portal 槽豁免；右键 + 触屏长按双通道"
       ],
@@ -2565,9 +2565,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/Mentions/Mentions.ts",
-      "cssFile": "src/components/Mentions/Mentions.css",
-      "testFile": "src/components/Mentions/Mentions.test.ts",
+      "sourceFile": "src/client/components/Mentions/Mentions.ts",
+      "cssFile": "src/client/components/Mentions/Mentions.css",
+      "testFile": "src/client/components/Mentions/Mentions.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2601,9 +2601,9 @@
       "tags": [
         "导航"
       ],
-      "sourceFile": "src/components/Collapse/Collapse.ts",
-      "cssFile": "src/components/Collapse/Collapse.css",
-      "testFile": "src/components/Collapse/Collapse.test.ts",
+      "sourceFile": "src/client/components/Collapse/Collapse.ts",
+      "cssFile": "src/client/components/Collapse/Collapse.css",
+      "testFile": "src/client/components/Collapse/Collapse.test.ts",
       "gotchas": [
         "受控纪律（§5.2）：受控 activeKeys 必须配回调——缺回调静默不可点（console.warn 防护）"
       ],
@@ -2621,9 +2621,9 @@
       "tags": [
         "选择"
       ],
-      "sourceFile": "src/components/Tree/Tree.ts",
-      "cssFile": "src/components/Tree/Tree.css",
-      "testFile": "src/components/Tree/Tree.test.ts",
+      "sourceFile": "src/client/components/Tree/Tree.ts",
+      "cssFile": "src/client/components/Tree/Tree.css",
+      "testFile": "src/client/components/Tree/Tree.test.ts",
       "gotchas": [
         "受控纪律：selectedKeys/checkedKeys/expandedKeys 必须配回调（缺回调 console.warn）",
         "小尺寸 button 固定 min/max-height（§5.6）：checkbox 14x36 竖条事故",
@@ -2661,9 +2661,9 @@
       "tags": [
         "选择"
       ],
-      "sourceFile": "src/components/Cascader/Cascader.ts",
-      "cssFile": "src/components/Cascader/Cascader.css",
-      "testFile": "src/components/Cascader/Cascader.test.ts",
+      "sourceFile": "src/client/components/Cascader/Cascader.ts",
+      "cssFile": "src/client/components/Cascader/Cascader.css",
+      "testFile": "src/client/components/Cascader/Cascader.test.ts",
       "gotchas": [
         "受控纪律：受控 value 必须配回调——缺回调静默不可点",
         "多选（multiple）已裁剪（低频——单选+搜索已够，见 components-cuts.md）"
@@ -2700,9 +2700,9 @@
       "tags": [
         "选择"
       ],
-      "sourceFile": "src/components/Transfer/Transfer.ts",
-      "cssFile": "src/components/Transfer/Transfer.css",
-      "testFile": "src/components/Transfer/Transfer.test.ts",
+      "sourceFile": "src/client/components/Transfer/Transfer.ts",
+      "cssFile": "src/client/components/Transfer/Transfer.css",
+      "testFile": "src/client/components/Transfer/Transfer.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2718,9 +2718,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/Command/Command.ts",
-      "cssFile": "src/components/Command/Command.css",
-      "testFile": "src/components/Command/Command.test.ts",
+      "sourceFile": "src/client/components/Command/Command.ts",
+      "cssFile": "src/client/components/Command/Command.css",
+      "testFile": "src/client/components/Command/Command.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2736,9 +2736,9 @@
       "tags": [
         "弹层"
       ],
-      "sourceFile": "src/components/Menubar/Menubar.ts",
-      "cssFile": "src/components/Menubar/Menubar.css",
-      "testFile": "src/components/Menubar/Menubar.test.ts",
+      "sourceFile": "src/client/components/Menubar/Menubar.ts",
+      "cssFile": "src/client/components/Menubar/Menubar.css",
+      "testFile": "src/client/components/Menubar/Menubar.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2754,9 +2754,9 @@
       "tags": [
         "虚拟化"
       ],
-      "sourceFile": "src/components/Carousel/Carousel.ts",
-      "cssFile": "src/components/Carousel/Carousel.css",
-      "testFile": "src/components/Carousel/Carousel.test.ts",
+      "sourceFile": "src/client/components/Carousel/Carousel.ts",
+      "cssFile": "src/client/components/Carousel/Carousel.css",
+      "testFile": "src/client/components/Carousel/Carousel.test.ts",
       "gotchas": [
         "小尺寸 button 固定 min/max-height（§5.6）：圆点 8x45 竖条事故"
       ],
@@ -2774,9 +2774,9 @@
       "tags": [
         "虚拟化"
       ],
-      "sourceFile": "src/components/Resizable/Resizable.ts",
-      "cssFile": "src/components/Resizable/Resizable.css",
-      "testFile": "src/components/Resizable/Resizable.test.ts",
+      "sourceFile": "src/client/components/Resizable/Resizable.ts",
+      "cssFile": "src/client/components/Resizable/Resizable.css",
+      "testFile": "src/client/components/Resizable/Resizable.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2792,9 +2792,9 @@
       "tags": [
         "选择"
       ],
-      "sourceFile": "src/components/Calendar/Calendar.ts",
-      "cssFile": "src/components/Calendar/Calendar.css",
-      "testFile": "src/components/Calendar/Calendar.test.ts",
+      "sourceFile": "src/client/components/Calendar/Calendar.ts",
+      "cssFile": "src/client/components/Calendar/Calendar.css",
+      "testFile": "src/client/components/Calendar/Calendar.test.ts",
       "gotchas": [
         "受控纪律：受控 month/value 必须配回调——缺回调静默不可点（console.warn 防护）"
       ],
@@ -2830,9 +2830,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/Watermark/Watermark.ts",
-      "cssFile": "src/components/Watermark/Watermark.css",
-      "testFile": "src/components/Watermark/Watermark.test.ts",
+      "sourceFile": "src/client/components/Watermark/Watermark.ts",
+      "cssFile": "src/client/components/Watermark/Watermark.css",
+      "testFile": "src/client/components/Watermark/Watermark.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2848,9 +2848,9 @@
       "tags": [
         "虚拟化"
       ],
-      "sourceFile": "src/components/VirtualList/VirtualList.ts",
-      "cssFile": "src/components/VirtualList/VirtualList.css",
-      "testFile": "src/components/VirtualList/VirtualList.test.ts",
+      "sourceFile": "src/client/components/VirtualList/VirtualList.ts",
+      "cssFile": "src/client/components/VirtualList/VirtualList.css",
+      "testFile": "src/client/components/VirtualList/VirtualList.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2867,9 +2867,9 @@
         "展示",
         "虚拟化"
       ],
-      "sourceFile": "src/components/VirtualTable/VirtualTable.ts",
-      "cssFile": "src/components/VirtualTable/VirtualTable.css",
-      "testFile": "src/components/VirtualTable/VirtualTable.test.ts",
+      "sourceFile": "src/client/components/VirtualTable/VirtualTable.ts",
+      "cssFile": "src/client/components/VirtualTable/VirtualTable.css",
+      "testFile": "src/client/components/VirtualTable/VirtualTable.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2904,9 +2904,9 @@
       "tags": [
         "虚拟化"
       ],
-      "sourceFile": "src/components/InfiniteScroll/InfiniteScroll.ts",
-      "cssFile": "src/components/InfiniteScroll/InfiniteScroll.css",
-      "testFile": "src/components/InfiniteScroll/InfiniteScroll.test.ts",
+      "sourceFile": "src/client/components/InfiniteScroll/InfiniteScroll.ts",
+      "cssFile": "src/client/components/InfiniteScroll/InfiniteScroll.css",
+      "testFile": "src/client/components/InfiniteScroll/InfiniteScroll.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2940,9 +2940,9 @@
       "tags": [
         "展示"
       ],
-      "sourceFile": "src/components/QRCode/QRCode.ts",
+      "sourceFile": "src/client/components/QRCode/QRCode.ts",
       "cssFile": null,
-      "testFile": "src/components/QRCode/QRCode.test.ts",
+      "testFile": "src/client/components/QRCode/QRCode.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2958,9 +2958,9 @@
       "tags": [
         "编辑文件"
       ],
-      "sourceFile": "src/components/SheetGrid/SheetGrid.ts",
-      "cssFile": "src/components/SheetGrid/SheetGrid.css",
-      "testFile": "src/components/SheetGrid/SheetGrid.test.ts",
+      "sourceFile": "src/client/components/SheetGrid/SheetGrid.ts",
+      "cssFile": "src/client/components/SheetGrid/SheetGrid.css",
+      "testFile": "src/client/components/SheetGrid/SheetGrid.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2976,9 +2976,9 @@
       "tags": [
         "编辑文件"
       ],
-      "sourceFile": "src/components/SlideCanvas/SlideCanvas.ts",
-      "cssFile": "src/components/SlideCanvas/SlideCanvas.css",
-      "testFile": "src/components/SlideCanvas/SlideCanvas.test.ts",
+      "sourceFile": "src/client/components/SlideCanvas/SlideCanvas.ts",
+      "cssFile": "src/client/components/SlideCanvas/SlideCanvas.css",
+      "testFile": "src/client/components/SlideCanvas/SlideCanvas.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -2994,9 +2994,9 @@
       "tags": [
         "输入"
       ],
-      "sourceFile": "src/components/ToggleGroup/ToggleGroup.ts",
-      "cssFile": "src/components/ToggleGroup/ToggleGroup.css",
-      "testFile": "src/components/ToggleGroup/ToggleGroup.test.ts",
+      "sourceFile": "src/client/components/ToggleGroup/ToggleGroup.ts",
+      "cssFile": "src/client/components/ToggleGroup/ToggleGroup.css",
+      "testFile": "src/client/components/ToggleGroup/ToggleGroup.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -3012,9 +3012,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Typography/Typography.ts",
-      "cssFile": "src/components/Typography/Typography.css",
-      "testFile": "src/components/Typography/Typography.test.ts",
+      "sourceFile": "src/client/components/Typography/Typography.ts",
+      "cssFile": "src/client/components/Typography/Typography.css",
+      "testFile": "src/client/components/Typography/Typography.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "docs",
@@ -3034,9 +3034,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Typography/Typography.ts",
-      "cssFile": "src/components/Typography/Typography.css",
-      "testFile": "src/components/Typography/Typography.test.ts",
+      "sourceFile": "src/client/components/Typography/Typography.ts",
+      "cssFile": "src/client/components/Typography/Typography.css",
+      "testFile": "src/client/components/Typography/Typography.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "app-shell",
@@ -3060,9 +3060,9 @@
       "tags": [
         "通用布局"
       ],
-      "sourceFile": "src/components/Typography/Typography.ts",
-      "cssFile": "src/components/Typography/Typography.css",
-      "testFile": "src/components/Typography/Typography.test.ts",
+      "sourceFile": "src/client/components/Typography/Typography.ts",
+      "cssFile": "src/client/components/Typography/Typography.css",
+      "testFile": "src/client/components/Typography/Typography.test.ts",
       "gotchas": [],
       "usedInPatterns": [
         "docs",
@@ -3079,9 +3079,9 @@
       "family": null,
       "variantOf": null,
       "tags": [],
-      "sourceFile": "src/components/TabBar/TabBar.ts",
-      "cssFile": "src/components/TabBar/TabBar.css",
-      "testFile": "src/components/TabBar/TabBar.test.ts",
+      "sourceFile": "src/client/components/TabBar/TabBar.ts",
+      "cssFile": "src/client/components/TabBar/TabBar.css",
+      "testFile": "src/client/components/TabBar/TabBar.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -3095,9 +3095,9 @@
       "family": null,
       "variantOf": null,
       "tags": [],
-      "sourceFile": "src/components/ActionSheet/ActionSheet.ts",
-      "cssFile": "src/components/ActionSheet/ActionSheet.css",
-      "testFile": "src/components/ActionSheet/ActionSheet.test.ts",
+      "sourceFile": "src/client/components/ActionSheet/ActionSheet.ts",
+      "cssFile": "src/client/components/ActionSheet/ActionSheet.css",
+      "testFile": "src/client/components/ActionSheet/ActionSheet.test.ts",
       "gotchas": [],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -3111,9 +3111,9 @@
       "family": null,
       "variantOf": null,
       "tags": [],
-      "sourceFile": "src/components/PromptTemplate/PromptTemplate.ts",
-      "cssFile": "src/components/PromptTemplate/PromptTemplate.css",
-      "testFile": "src/components/PromptTemplate/PromptTemplate.test.ts",
+      "sourceFile": "src/client/components/PromptTemplate/PromptTemplate.ts",
+      "cssFile": "src/client/components/PromptTemplate/PromptTemplate.css",
+      "testFile": "src/client/components/PromptTemplate/PromptTemplate.test.ts",
       "gotchas": [
         "textarea value 必须走 property（attribute 只是 defaultValue——DOM value 恒空/光标失效事故，vdom3 渲染器已修）",
         "受控输入纪律：value 由父控制 + onChange 通知"
@@ -3848,7 +3848,7 @@
       "id": "two-phase",
       "name": "两阶段异步组件",
       "desc": "mount（工厂，只一次）+ render（每次渲染）——工厂可 await，renderFn 强制异步",
-      "srcFile": "src/ui-dom/vdom3/build.ts",
+      "srcFile": "src/client/ui-dom/vdom3/build.ts",
       "selfUsedIn": [
         "showcase 所有页面"
       ]
@@ -3857,7 +3857,7 @@
       "id": "render-only",
       "name": "render-only 状态",
       "desc": "只有 ctx.ui.render() 一种触发——状态是普通对象（let/createStore），无 $ Proxy 无隐式触发",
-      "srcFile": "src/ui-dom/vdom3/router.ts",
+      "srcFile": "src/client/ui-dom/vdom3/router.ts",
       "selfUsedIn": [
         "搜索框",
         "主题切换",
@@ -3868,7 +3868,7 @@
       "id": "store",
       "name": "createStore + useExternal",
       "desc": "共享状态原语：普通对象 + subscribe/set/update/notify——跨组件通道",
-      "srcFile": "src/ui-dom/store.ts",
+      "srcFile": "src/client/ui-dom/store.ts",
       "selfUsedIn": [
         "主题/语言偏好跨页同步"
       ]
@@ -3877,7 +3877,7 @@
       "id": "router",
       "name": "UIRouter 路由",
       "desc": "pathname 路由 + :param + layout 包裹复用 + 隔离模式（页面内嵌子路由）",
-      "srcFile": "src/ui-dom/vdom3/router.ts",
+      "srcFile": "src/client/ui-dom/vdom3/router.ts",
       "selfUsedIn": [
         "showcase 八域导航",
         "app demo 嵌入"
@@ -3887,7 +3887,7 @@
       "id": "data",
       "name": "ctx.data 数据管道",
       "desc": "get/set/has + 并发合并——SSR/hydration/SPA 三场景自动适配",
-      "srcFile": "src/ui-dom/",
+      "srcFile": "src/client/ui-dom/",
       "selfUsedIn": [
         "（P2：示例页）"
       ]
@@ -3896,7 +3896,7 @@
       "id": "events",
       "name": "事件流（stream）",
       "desc": "DOM↔事件流全链路因果可回放——__wf_tail 实时观测",
-      "srcFile": "src/ui-dom/vdom3/events.ts",
+      "srcFile": "src/client/ui-dom/vdom3/events.ts",
       "selfUsedIn": [
         "__wf_tail 观测面板"
       ]
@@ -3905,7 +3905,7 @@
       "id": "app-node",
       "name": "多应用（registerApp/hApp）",
       "desc": "注册表 + 独立状态 + app:* 边界事件——应用编排",
-      "srcFile": "src/ui-dom/vdom3/registry.ts",
+      "srcFile": "src/client/ui-dom/vdom3/registry.ts",
       "selfUsedIn": [
         "multi 应用模板"
       ]
@@ -3914,7 +3914,7 @@
       "id": "hooks",
       "name": "hooks 族",
       "desc": "useMedia/useInView/useChat/usePopup…——事件驱动重渲染",
-      "srcFile": "src/ui-dom/vdom3/",
+      "srcFile": "src/client/ui-dom/vdom3/",
       "selfUsedIn": [
         "懒渲染",
         "弹层"
@@ -3924,7 +3924,7 @@
       "id": "popup",
       "name": "usePopup 弹窗基座",
       "desc": "portal + 定位 + 外部点击/Escape + 会话级模态——新弹层一律复用",
-      "srcFile": "src/ui-dom/popup.ts",
+      "srcFile": "src/client/ui-dom/popup.ts",
       "selfUsedIn": [
         "Drawer/代码抽屉/下拉"
       ]
@@ -3933,7 +3933,7 @@
       "id": "self-id",
       "name": "selfId 精准刷新",
       "desc": "自定义组件 ID——任意位置 render([id]) 跨组件精准定位",
-      "srcFile": "src/ui-dom/vdom3/",
+      "srcFile": "src/client/ui-dom/vdom3/",
       "selfUsedIn": [
         "（示例页）"
       ]
@@ -3942,7 +3942,7 @@
       "id": "i18n",
       "name": "i18n 中间件",
       "desc": "locale/setLocale/t + 页面级重渲染（demo 专用 AppMiddleware）",
-      "srcFile": "src/ui-dom/i18n.ts",
+      "srcFile": "src/client/ui-dom/i18n.ts",
       "selfUsedIn": [
         "中英切换"
       ]

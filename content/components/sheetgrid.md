@@ -35,9 +35,9 @@ weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/SheetGrid/SheetGrid.ts` |
-| 样式 | `src/components/SheetGrid/SheetGrid.css` |
-| 测试 | `src/components/SheetGrid/SheetGrid.test.ts` |
+| 源码 | `src/client/components/SheetGrid/SheetGrid.ts` |
+| 样式 | `src/client/components/SheetGrid/SheetGrid.css` |
+| 测试 | `src/client/components/SheetGrid/SheetGrid.test.ts` |
 
 ## 验证
 

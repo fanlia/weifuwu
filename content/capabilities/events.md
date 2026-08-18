@@ -6,7 +6,7 @@ DOM↔事件流全链路因果可回放——__wf_tail 实时观测
 
 ## 框架源码
 
-`src/ui-dom/vdom3/events.ts`
+`src/client/ui-dom/vdom3/events.ts`
 
 ## 平台自证
 

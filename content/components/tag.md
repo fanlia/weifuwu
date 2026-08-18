@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Tag/Tag.ts` |
-| 样式 | `src/components/Tag/Tag.css` |
-| 测试 | `src/components/Tag/Tag.test.ts` |
+| 源码 | `src/client/components/Tag/Tag.ts` |
+| 样式 | `src/client/components/Tag/Tag.css` |
+| 测试 | `src/client/components/Tag/Tag.test.ts` |
 | demo | `apps/showcase/src/demos/DemoTag.tsx`（P1 拆分） |
 
 ## 验证

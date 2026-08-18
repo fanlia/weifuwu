@@ -18,7 +18,7 @@ import { basename } from 'node:path'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
 // showcase demos 聚合读取（components-demo 已并入 showcase——防线从新家派生）
 function readShowcaseDemos(): string {
@@ -27,24 +27,24 @@ function readShowcaseDemos(): string {
     .map(f => readFileSync(join(dir, f), 'utf-8')).join('\n')
 }
 
-/** 按 src/layout/weifuwu-layout.css 的 @import 顺序拼接 */
+/** 按 src/client/layout/weifuwu-layout.css 的 @import 顺序拼接 */
 function readLayoutCss(): string {
-  const entry = readFileSync(join(root, 'src/layout/weifuwu-layout.css'), 'utf-8')
+  const entry = readFileSync(join(root, 'src/client/layout/weifuwu-layout.css'), 'utf-8')
   const files = [...entry.matchAll(/@import '\.\/([^']+)'/g)].map(m => m[1])
   assert.ok(files.length > 20, 'layout 导入文件数异常')
-  return files.map(f => readFileSync(join(root, 'src/layout', f), 'utf-8')).join('\n')
+  return files.map(f => readFileSync(join(root, 'src/client/layout', f), 'utf-8')).join('\n')
 }
 
 /** 拼接所有组件 CSS（目录名 = 文件名） */
 function readComponentCss(): string {
-  const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+  const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true })
     .filter(d => d.isDirectory())
     .map(d => d.name)
     .sort()
   assert.ok(dirs.length > 30, '组件目录数异常')
   return dirs
     .map(d => {
-      try { return readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { return '' }
+      try { return readFileSync(join(root, 'src/client/components', d, `${d}.css`), 'utf-8') } catch { return '' }
     })
     .join('\n')
 }
@@ -81,7 +81,7 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('非 button 交互类有 focus 规则；基础 button:focus-visible 存在', () => {
-    const base = readFileSync(join(root, 'src/layout/_base.css'), 'utf-8')
+    const base = readFileSync(join(root, 'src/client/layout/_base.css'), 'utf-8')
     assert.match(base, /button:focus-visible/, '基础 button:focus-visible 规则缺失')
 
     const compCss = readComponentCss()
@@ -104,7 +104,7 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('token/原语/工具类计数与全部文档声明同步（L0 单一事实源）', async () => {
-    const { inventory, componentInventory } = await import('../../scripts/layout-inventory.mjs')
+    const { inventory, componentInventory } = await import('../../../scripts/layout-inventory.mjs')
     const inv = inventory()
     const comp = componentInventory()
     assert.ok(comp.components > 80, `组件数异常: ${comp.components}`)
@@ -138,13 +138,13 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('prefers-reduced-motion 降级块存在', () => {
-    const base = readFileSync(join(root, 'src/layout/_base.css'), 'utf-8')
+    const base = readFileSync(join(root, 'src/client/layout/_base.css'), 'utf-8')
     assert.match(base, /prefers-reduced-motion/)
     assert.match(base, /animation-duration: 0\.01ms !important/)
   })
 
   it('暗色模式双段激活（手动 data-theme + 系统偏好）', () => {
-    const dark = readFileSync(join(root, 'src/layout/_dark.css'), 'utf-8')
+    const dark = readFileSync(join(root, 'src/client/layout/_dark.css'), 'utf-8')
     assert.match(dark, /\[data-theme="dark"\]/, '手动 data-theme 段缺失')
     assert.match(dark, /prefers-color-scheme: dark/, '系统偏好段缺失')
     assert.match(dark, /:root:not\(\[data-theme="light"\]\)/, 'data-theme="light" 强制亮色覆盖缺失')
@@ -181,12 +181,12 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('暗色段无硬编码色值（值必须经 --wf-dark-* 间接层）', () => {
-    const dark = readFileSync(join(root, 'src/layout/_dark.css'), 'utf-8')
+    const dark = readFileSync(join(root, 'src/client/layout/_dark.css'), 'utf-8')
     const raw = dark.match(/#[0-9a-fA-F]{3,8}|rgba?\(/g) ?? []
     assert.deepEqual(raw, [], '暗色段不得出现裸色值，必须引用 --wf-dark-* 原始层')
 
     // 原始层必须定义全部 --wf-dark-* 值
-    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const tokens = readFileSync(join(root, 'src/client/layout/_tokens.css'), 'utf-8')
     const darkVars = [...dark.matchAll(/var\((--wf-dark-[\w-]+)\)/g)].map(m => m[1])
     for (const v of new Set(darkVars)) {
       assert.match(tokens, new RegExp(`${v}:`), `原始层缺少暗色值定义: ${v}`)
@@ -234,7 +234,7 @@ describe('样式审计 — 设计约束', () => {
   }
 
   it('语义文字色对比度 ≥ 4.5（-text 对 -50 底，亮暗双验证；seed 派生色板可解析）', () => {
-    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const tokens = readFileSync(join(root, 'src/client/layout/_tokens.css'), 'utf-8')
     const get = (name: string) => resolveHex(name, tokens)
     // 亮色：700 级文字色 on 50 级底色（color-mix 派生链自动解析）
     const light: [string, string][] = [
@@ -266,14 +266,14 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('状态层 token 存在（hover/pressed/selected + 暗色双段映射）', () => {
-    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const tokens = readFileSync(join(root, 'src/client/layout/_tokens.css'), 'utf-8')
     for (const t of ['--wf-state-hover', '--wf-state-pressed', '--wf-state-selected', '--wf-color-bg-elevated']) {
       assert.match(tokens, new RegExp(`${t}:`), `语义层缺少状态层 token: ${t}`)
     }
     for (const t of ['--wf-dark-state-hover', '--wf-dark-state-pressed']) {
       assert.match(tokens, new RegExp(`${t}:`), `原始层缺少暗色状态值: ${t}`)
     }
-    const dark = readFileSync(join(root, 'src/layout/_dark.css'), 'utf-8')
+    const dark = readFileSync(join(root, 'src/client/layout/_dark.css'), 'utf-8')
     const manual = dark.slice(0, dark.indexOf('@media'))
     const auto = dark.slice(dark.indexOf('@media'))
     for (const seg of [manual, auto]) {
@@ -321,7 +321,7 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('预设主题完整（data-preset 三套 + 各自 token 覆盖齐全）', () => {
-    const presets = readFileSync(join(root, 'src/layout/_presets.css'), 'utf-8')
+    const presets = readFileSync(join(root, 'src/client/layout/_presets.css'), 'utf-8')
     const block = (name: string) => {
       const m = presets.match(new RegExp(`\\[data-preset="${name}"\\][^{]*\\{([^}]*)\\}`))
       assert.ok(m, `预设缺失: ${name}`)
@@ -371,7 +371,7 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('动效 Token 存在（时长阶梯/缓动/位移）', () => {
-    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const tokens = readFileSync(join(root, 'src/client/layout/_tokens.css'), 'utf-8')
     const required = [
       '--wf-dur-fast', '--wf-dur-base', '--wf-dur-slow',
       '--wf-ease-out', '--wf-ease-in', '--wf-ease-snap',
@@ -383,13 +383,13 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('浮层组件 --enter/--exit 类必须成对（防退场死代码回归）', () => {
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name)
     const violations: string[] = []
     for (const d of dirs) {
       let css: string
-      try { css = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
+      try { css = readFileSync(join(root, 'src/client/components', d, `${d}.css`), 'utf-8') } catch { continue }
       if (!css.includes('--enter')) continue
       if (!css.includes('--exit')) violations.push(d)
     }
@@ -397,22 +397,22 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('表头/分组标题无裸 uppercase（必须 var(--wf-heading-case)，CJK 感知）', () => {
-    const base = readFileSync(join(root, 'src/layout/_base.css'), 'utf-8')
-    const shell = readFileSync(join(root, 'src/layout/_app-shell.css'), 'utf-8')
+    const base = readFileSync(join(root, 'src/client/layout/_base.css'), 'utf-8')
+    const shell = readFileSync(join(root, 'src/client/layout/_app-shell.css'), 'utf-8')
     assert.match(base, /text-transform: var\(--wf-heading-case\)/, 'th 必须引用 heading-case token')
     assert.match(shell, /text-transform: var\(--wf-heading-case\)/, 'nav-group 必须引用 heading-case token')
-    const text = readFileSync(join(root, 'src/layout/_text.css'), 'utf-8')
+    const text = readFileSync(join(root, 'src/client/layout/_text.css'), 'utf-8')
     assert.match(text, /\.wf-nums/, 'wf-nums 工具类（tabular-nums）缺失')
     assert.match(text, /\.wf-text-display/, 'wf-text-display 工具类缺失')
   })
 
   it('组件 .ts 禁止裸文本字形（统一走 Icon 组件）', () => {
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name)
     const violations: string[] = []
     for (const d of dirs) {
-      const ts = join(root, 'src/components', d, `${d}.ts`)
+      const ts = join(root, 'src/client/components', d, `${d}.ts`)
       try {
         const src = readFileSync(ts, 'utf-8')
         if (/[✕✓⚠ℹ⇅▲▼‹›⏸]/.test(src)) violations.push(`${d}.ts`)
@@ -481,9 +481,9 @@ describe('样式审计 — 设计约束', () => {
     const INTERACTIVE = new Set(['menuitem', 'button', 'tab', 'switch', 'checkbox', 'radio', 'slider', 'treeitem'])
     const NATIVE = new Set(['button', 'input', 'a', 'select', 'textarea'])
     const offenders: string[] = []
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory())
     for (const d of dirs) {
-      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      const f = join(root, 'src/client/components', d.name, `${d.name}.ts`)
       let src = ''
       try { src = readFileSync(f, 'utf-8') } catch { continue }
       for (const block of src.split(/\bh\(/).slice(1)) {
@@ -503,7 +503,7 @@ describe('样式审计 — 设计约束', () => {
     // 浏览器环境纪律：内置组件使用浏览器能力必须经 ctx.browser（环境 API）
     // 与 ctx.ui.useXXX（框架原语）——直接 window./document./navigator./
     // localStorage/matchMedia(/IntersectionObserver 等 DOM 全局 = 违例
-    const dir = join(root, 'src/components')
+    const dir = join(root, 'src/client/components')
     const files: string[] = []
     const walk = (d: string) => {
       for (const ent of readdirSync(d, { withFileTypes: true })) {
@@ -531,7 +531,7 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('布局原语组合冲突防线（wf-nav×wf-row 静默失效教训——L1）', async () => {
-    const { inventory, conflictMatrix } = await import('../../scripts/layout-inventory.mjs')
+    const { inventory, conflictMatrix } = await import('../../../scripts/layout-inventory.mjs')
     const inv = inventory()
     // 用户可组合的布局身份类（语义内部类 nav-item/sidebar-* 与纯工具不参与组合，排除）
     const CONTAINER = new Set([
@@ -560,7 +560,7 @@ describe('样式审计 — 设计约束', () => {
     // 扫描 apps 蓝本 + 组件源码的 class 字符串
     const targets = [
       ...globSync('apps/*/src/**/*.tsx', { cwd: root }),
-      ...globSync('src/components/**/*.ts', { cwd: root }),
+      ...globSync('src/client/components/**/*.ts', { cwd: root }),
     ]
     const offenders: string[] = []
     for (const rel of targets) {
@@ -585,7 +585,7 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('wf-* class 引用必须存在（幽灵类防线——wf-mt-auto 未定义静默失效教训）', async () => {
-    const { inventory } = await import('../../scripts/layout-inventory.mjs')
+    const { inventory } = await import('../../../scripts/layout-inventory.mjs')
     const inv = inventory()
     const known = new Set(inv.classes.map((c: any) => c.name))
     const bpOk = new Set(inv.withBreakpoints)
@@ -595,7 +595,7 @@ describe('样式审计 — 设计约束', () => {
 
     const targets = [
       ...globSync('apps/*/src/**/*.tsx', { cwd: root }),
-      ...globSync('src/components/**/*.ts', { cwd: root }),
+      ...globSync('src/client/components/**/*.ts', { cwd: root }),
     ]
     const ghosts: string[] = []
     for (const rel of targets) {
@@ -619,8 +619,8 @@ describe('样式审计 — 设计约束', () => {
     // 注释中的 `*/` 会提前终止注释，后续规则的选择器被垃圾文本污染 → Chrome 静默丢规则
     // （.wf-row{display:flex} 曾因此整规则丢失，且 Curl 看源码完全正常——只有解析能暴露）
     const files = [
-      ...globSync('src/layout/_*.css', { cwd: root }),
-      ...globSync('src/components/*/*.css', { cwd: root }),
+      ...globSync('src/client/layout/_*.css', { cwd: root }),
+      ...globSync('src/client/components/*/*.css', { cwd: root }),
     ]
     const bad: string[] = []
     for (const rel of files) {
@@ -636,9 +636,9 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('组件测试基线（P10：Confirm 0 测试防线——交互 ≥8 目标注册递减，全体 ≥3 硬地板）', () => {
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true })
       .filter(d => d.isDirectory()).map(d => d.name)
-      .filter(d => { try { readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8'); return true } catch { return false } })
+      .filter(d => { try { readFileSync(join(root, 'src/client/components', d, `${d}.ts`), 'utf-8'); return true } catch { return false } })
     // 低于交互基线（8）的组件必须在此登记（含 Wave 批次）——P10 已全部补齐，
     // 注册表保持为空：新组件低于基线必须登记（集合强一致校验）
     const TEST_GAP: Record<string, string> = {
@@ -658,10 +658,10 @@ describe('样式审计 — 设计约束', () => {
     const errors: string[] = []
     const actualGap = new Set<string>()
     for (const d of dirs) {
-      const ts = readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8')
+      const ts = readFileSync(join(root, 'src/client/components', d, `${d}.ts`), 'utf-8')
       let tests = -1
       try {
-        const test = readFileSync(join(root, 'src/components', d, `${d}.test.ts`), 'utf-8')
+        const test = readFileSync(join(root, 'src/client/components', d, `${d}.test.ts`), 'utf-8')
         tests = (test.match(/^\s*(it|test)\(/gm) || []).length
       } catch { /* 无测试文件 */ }
       if (tests < 0) { errors.push(`${d}: 无 .test.ts`); continue }
@@ -681,14 +681,14 @@ describe('样式审计 — 设计约束', () => {
     // 未登记的手抄 = 违规（新组件手抄即红）；已迁移的从表移除（强一致校验）
     const LEGACY: Record<string, string> = {
       }
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true })
       .filter(d => d.isDirectory()).map(d => d.name)
     const errors: string[] = []
     const registered = new Set(Object.keys(LEGACY))
     const seen = new Set<string>()
     for (const d of dirs) {
       let test: string
-      try { test = readFileSync(join(root, 'src/components', d, `${d}.test.ts`), 'utf-8') } catch { continue }
+      try { test = readFileSync(join(root, 'src/client/components', d, `${d}.test.ts`), 'utf-8') } catch { continue }
       const handwritten = /function renderVNode\(/.test(test) || /function mockCtx\(/.test(test)
       if (!handwritten) continue
       seen.add(d)
@@ -724,12 +724,12 @@ describe('样式审计 — 设计约束', () => {
       'Steps.active',       // 纯展示进度，无交互
       'Steps.current',      // 同上
     ])
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true })
       .filter(d => d.isDirectory()).map(d => d.name)
     const offenders: string[] = []
     for (const d of dirs) {
       let src = ''
-      try { src = readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8') } catch { continue }
+      try { src = readFileSync(join(root, 'src/client/components', d, `${d}.ts`), 'utf-8') } catch { continue }
       const callbacks = new Set([...src.matchAll(/on[A-Z]\w*(?=\??:)/g)].map(m => m[0]))
       for (const [prop, re] of Object.entries(SYMMETRIC)) {
         if (prop === 'month2') continue
@@ -751,9 +751,9 @@ describe('样式审计 — 设计约束', () => {
 
   it('demo 覆盖防线（P10-T6：每组件必须在 showcase demos 有演示）', () => {
     const demo = readShowcaseDemos()
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true })
       .filter(d => d.isDirectory()).map(d => d.name)
-      .filter(d => { try { readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8'); return true } catch { return false } })
+      .filter(d => { try { readFileSync(join(root, 'src/client/components', d, `${d}.ts`), 'utf-8'); return true } catch { return false } })
     const missing = dirs.filter(d => !demo.includes(d))
     assert.deepEqual(missing, [], `组件缺 demo：${missing.join(', ')}`)
   })
@@ -778,12 +778,12 @@ describe('样式审计 — 设计约束', () => {
     // 内联 ref = `ref: (el) =>` 直接写在 render 返回的 props 里——
     // 每次渲染新函数 → ref-diff 反复触发旧 ref(null)+新 ref(el)（AGENTS.md 纪律）
     // 正确：mount 层定义稳定函数（const xxxRef = async (el) => {}）后 ref: xxxRef 引用
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name)
     const violations: string[] = []
     for (const d of dirs) {
-      const ts = join(root, 'src/components', d, `${d}.ts`)
+      const ts = join(root, 'src/client/components', d, `${d}.ts`)
       try {
         const src = readFileSync(ts, 'utf-8')
         const m = src.match(/ref:\s*\(/g)
@@ -796,7 +796,7 @@ describe('样式审计 — 设计约束', () => {
   it('弹层定位 transform 防线：动画含 transform 的组件不得有定位 transform（动画覆盖定位→弹层跳位）', () => {
     // 收集所有 fixed 弹层组件：动画 transform 与定位 transform 的冲突检测。
     // 定位 transform = 主类（含 position:fixed）或 --top/bottom/left/right 变体的 transform
-    const compFiles = globSync(join(root, 'src/components/*/*.css'))
+    const compFiles = globSync(join(root, 'src/client/components/*/*.css'))
     const conflicts: string[] = []
     for (const f of compFiles) {
       const text = readFileSync(f, 'utf-8')
@@ -816,13 +816,13 @@ describe('样式审计 — 设计约束', () => {
   it('组件 CSS 假 token 防线：var(--wf-*) 引用必须可解析（定义或 fallback）', () => {
     // 收集 layout 定义的所有 --wf-* token
     const layoutDefs = new Set()
-    for (const f of readdirSync(join(root, 'src/layout')).filter(x => x.endsWith('.css'))) {
-      const text = readFileSync(join(root, 'src/layout', f), 'utf-8')
+    for (const f of readdirSync(join(root, 'src/client/layout')).filter(x => x.endsWith('.css'))) {
+      const text = readFileSync(join(root, 'src/client/layout', f), 'utf-8')
       for (const m of text.matchAll(/--(wf-[a-z0-9-]+)\s*:/g)) layoutDefs.add('--' + m[1])
     }
     // 收集组件自身定义的 token（局部变量）
     const compDefs = new Set()
-    const compFiles = globSync(join(root, 'src/components/*/*.css'))
+    const compFiles = globSync(join(root, 'src/client/components/*/*.css'))
     for (const f of compFiles) {
       const text = readFileSync(f, 'utf-8')
       for (const m of text.matchAll(/--(wf-[a-z0-9-]+)\s*:/g)) compDefs.add('--' + m[1])
@@ -842,7 +842,7 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('focus-ring 双层：含 primary 线（系统暗色偏好下聚焦可见——C5）', () => {
-    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const tokens = readFileSync(join(root, 'src/client/layout/_tokens.css'), 'utf-8')
     const m = tokens.match(/--wf-focus-ring:\s*([^;]+);/)
     assert.ok(m, 'focus-ring token 存在')
     const value = m[1]
@@ -853,7 +853,7 @@ describe('样式审计 — 设计约束', () => {
   it('渲染器防线存在：enumerated 属性渲染（CDD 启发回归防线——render-only 无 $/无内置类型降级）', () => {
     // draggable enumerated 语义防线（Kanban 教训：setAttribute('draggable','') = false）
     // vdom diff 测试固化（v1 draggable.test.ts 随 v1 退役删除——vdom diff.test.ts 覆盖）
-    const diffTest = readFileSync(join(root, 'src/test/vdom3-core.test.ts'), 'utf-8')
+    const diffTest = readFileSync(join(root, 'src/client/test/vdom3-core.test.ts'), 'utf-8')
     assert.match(diffTest, /enumerated 属性 draggable 显式字符串/, 'vdom3 测试必须覆盖 enumerated 属性')
     assert.match(diffTest, /el\.draggable, true/, '渲染器必须显式 setAttribute(\'true\')')
   })
@@ -863,15 +863,15 @@ describe('样式审计 — 设计约束', () => {
   // deepEqual 断言——Wave 修复后递减、归零后快照为 {} 即硬门。R38 为护栏（豁免登记）。
 
   it('P11-R34：禁 var(--token, fallback) 双真相源（仅 token 层已定义的 token——定制钩子 fallback 是默认值，豁免；ratchet）', () => {
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
     // token 层已定义集合：fallback 对已定义 token 是死代码；未定义的（如 --wf-drawer-width）是定制钩子默认值，豁免
     // _presets.css 排除：预设变量是有条件覆盖（仅 [data-preset] 作用域生效），fallback 是真正的默认值
-    const tokenFiles = readdirSync(join(root, 'src/layout')).filter(f => f.endsWith('.css') && f !== '_presets.css').map(f => join(root, 'src/layout', f))
+    const tokenFiles = readdirSync(join(root, 'src/client/layout')).filter(f => f.endsWith('.css') && f !== '_presets.css').map(f => join(root, 'src/client/layout', f))
     const defined = new Set<string>()
     for (const f of tokenFiles) { try { const c = readFileSync(f, 'utf-8'); for (const m of c.matchAll(/^\s*(--wf-[\w-]+)\s*:/gm)) defined.add(m[1]) } catch {} }
     const actual: Record<string, number> = {}
     for (const d of dirs) {
-      let c = ''; try { c = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
+      let c = ''; try { c = readFileSync(join(root, 'src/client/components', d, `${d}.css`), 'utf-8') } catch { continue }
       const n = [...c.matchAll(/var\((--wf-[\w-]+)\s*,\s*[^)]+\)/g)].filter(m => defined.has(m[1])).length
       if (n) actual[d] = n
     }
@@ -881,10 +881,10 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('P11-R35：box-shadow 全 token 化（ratchet：修复后递减）', () => {
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
     const actual: Record<string, number> = {}
     for (const d of dirs) {
-      let c = ''; try { c = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
+      let c = ''; try { c = readFileSync(join(root, 'src/client/components', d, `${d}.css`), 'utf-8') } catch { continue }
       const n = [...c.matchAll(/box-shadow:\s*([^;]+);/g)].filter(m => { const v=m[1].trim(); return v!=='none'&&v!=='inherit'&&!v.includes('var(--wf-') }).length
       if (n) actual[d] = n
     }
@@ -893,10 +893,10 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('P11-R36：间距阶梯化（padding/margin/gap 非 4 倍数 px，1px 边框豁免；ratchet）', () => {
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
     const actual: Record<string, number> = {}
     for (const d of dirs) {
-      let c = ''; try { c = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
+      let c = ''; try { c = readFileSync(join(root, 'src/client/components', d, `${d}.css`), 'utf-8') } catch { continue }
       let n = 0
       for (const m of c.matchAll(/(padding|margin|gap):\s*([^;]+);/g)) for (const v of m[2].trim().split(/\s+/)) { const px=v.match(/^(-?\d+(?:\.\d+)?)px$/); if(!px)continue; const num=parseFloat(px[1]); if(Math.abs(num)<=2)continue; if(num%4!==0) n++ }
       if (n) actual[d] = n
@@ -906,10 +906,10 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('P11-R37：组件 CSS 禁裸 hex/rgba/hsla 色（ratchet：修复后递减）', () => {
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
     const actual: Record<string, number> = {}
     for (const d of dirs) {
-      let c = ''; try { c = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
+      let c = ''; try { c = readFileSync(join(root, 'src/client/components', d, `${d}.css`), 'utf-8') } catch { continue }
       const nc = c.replace(/\/\*[\s\S]*?\*\//g, '')
       const n = [...nc.matchAll(/[^\/]\s*(#[0-9a-fA-F]{3,8})\b/g)].length + [...nc.matchAll(/\brgba?\(/g)].length + [...nc.matchAll(/\bhsla?\(/g)].length
       if (n) actual[d] = n
@@ -919,15 +919,15 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('P11-R38：交互组件 hover 态完备（豁免登记：容器/输入/弹层触发/委托原语等合理无 hover）', () => {
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
     // 豁免：交互但合理无自身 :hover——
     //   Confirm（无 CSS，复用 Modal）/ Card（hover 委托 wf-elevate 原语）/ AiChat（容器，内原生 button 有基线 hover）/
     //   PinInput（输入聚焦态，非 hover）/ HoverCard|Popover|Tooltip|Popconfirm（弹层触发：hover 由 JS 检测，popup 即反馈）
     const HOVER_EXEMPT = new Set(['Confirm', 'Card', 'AiChat', 'PinInput', 'HoverCard', 'Popover', 'Tooltip', 'Popconfirm', 'ApprovalCard', 'CheckboxGroup', 'RadioGroup', 'Img', 'StatCard', 'Chart', 'ExportCSV', 'Wave', 'MarkdownEditor', 'CodeEditor', 'ImageCropper', 'VideoPlayer', 'Math'])
     const violations: string[] = []
     for (const d of dirs) {
-      let ts = ''; try { ts = readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8') } catch { continue }
-      let css = ''; try { css = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { css = '' }
+      let ts = ''; try { ts = readFileSync(join(root, 'src/client/components', d, `${d}.ts`), 'utf-8') } catch { continue }
+      let css = ''; try { css = readFileSync(join(root, 'src/client/components', d, `${d}.css`), 'utf-8') } catch { css = '' }
       if (!/\bonClick\b|\bonKeyDown\b|\buseControlled\b|\busePopup\b/.test(ts)) continue
       if (HOVER_EXEMPT.has(d)) continue
       if (!/:hover\b/.test(css)) violations.push(d)
@@ -954,9 +954,9 @@ describe('样式审计 — 设计约束', () => {
   it('P12-R41：交互 role 必须有可访问名（aria-label/aria-labelledby 或文本/元素 children）', () => {
     const ARIA_ROLES = ['button', 'tab', 'option', 'switch', 'checkbox', 'radio', 'menuitem', 'treeitem']
     const offenders: string[] = []
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory())
     for (const d of dirs) {
-      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      const f = join(root, 'src/client/components', d.name, `${d.name}.ts`)
       let src = ''
       try { src = readFileSync(f, 'utf-8') } catch { continue }
       for (const block of src.split(/\bh\(/).slice(1)) {
@@ -980,10 +980,10 @@ describe('样式审计 — 设计约束', () => {
     // 右键触发（ContextMenu——无 trigger 按钮语义）
     const EXEMPT = new Set(['Toast', 'Notification', 'Confirm', 'Modal', 'Drawer', 'Command', 'Img', 'ContextMenu', 'Tour', 'ActionSheet'])
     const actual: Record<string, number> = {}
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory())
     for (const d of dirs) {
       if (EXEMPT.has(d.name)) continue
-      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      const f = join(root, 'src/client/components', d.name, `${d.name}.ts`)
       let src = ''
       try { src = readFileSync(f, 'utf-8') } catch { continue }
       if (!/\busePopup\b/.test(src)) continue
@@ -1000,11 +1000,11 @@ describe('样式审计 — 设计约束', () => {
   it('P12-R43：键盘导航组件必须有 onKeyDown（tablist/menu/tree/listbox——方向键导航必须实现）', () => {
     // 豁免（P12 W1 高频表单 Wave 修复——不得永久豁免）：Cascader listbox / Dropdown menu 方向键导航
     const KEYBOARD_EXEMPT = new Set(['Cascader', 'Dropdown'])
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory())
     const offenders: string[] = []
     for (const d of dirs) {
       if (KEYBOARD_EXEMPT.has(d.name)) continue
-      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      const f = join(root, 'src/client/components', d.name, `${d.name}.ts`)
       let src = ''
       try { src = readFileSync(f, 'utf-8') } catch { continue }
       if (/role:\s*'(tablist|menu|tree|listbox)'/.test(src) && !/onKeyDown|onKeydown/.test(src)) {
@@ -1015,10 +1015,10 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('P12-R44：裁剪声明引用单一事实源（禁「见 roadmap」残留——Triage 已清零）', () => {
-    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    const dirs = readdirSync(join(root, 'src/client/components'), { withFileTypes: true }).filter(d => d.isDirectory())
     const offenders: string[] = []
     for (const d of dirs) {
-      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      const f = join(root, 'src/client/components', d.name, `${d.name}.ts`)
       let src = ''
       try { src = readFileSync(f, 'utf-8') } catch { continue }
       if (/见 roadmap/.test(src)) offenders.push(`${d.name}.ts`)

@@ -41,9 +41,9 @@ AI 回复渲染：安全子集 parser + 代码块 + 链接白名单
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Markdown/Markdown.ts` |
-| 样式 | `src/components/Markdown/Markdown.css` |
-| 测试 | `src/components/Markdown/Markdown.test.ts` |
+| 源码 | `src/client/components/Markdown/Markdown.ts` |
+| 样式 | `src/client/components/Markdown/Markdown.css` |
+| 测试 | `src/client/components/Markdown/Markdown.test.ts` |
 | demo | `apps/showcase/src/demos/DemoMarkdown.tsx`（P1 拆分） |
 
 ## 验证

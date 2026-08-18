@@ -47,9 +47,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/PasswordInput/PasswordInput.ts` |
-| 样式 | `src/components/PasswordInput/PasswordInput.css` |
-| 测试 | `src/components/PasswordInput/PasswordInput.test.ts` |
+| 源码 | `src/client/components/PasswordInput/PasswordInput.ts` |
+| 样式 | `src/client/components/PasswordInput/PasswordInput.css` |
+| 测试 | `src/client/components/PasswordInput/PasswordInput.test.ts` |
 | demo | `apps/showcase/src/demos/DemoPasswordInput.tsx`（P1 拆分） |
 
 ## 验证

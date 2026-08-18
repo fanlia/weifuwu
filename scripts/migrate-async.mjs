@@ -13,7 +13,7 @@ if (args.length === 0) { console.error('usage: node scripts/migrate-async.mjs <d
 
 let changed = 0
 for (const dir of args) {
-  const test = join('src/components', dir, dir + '.test.ts')
+  const test = join('src/client/components', dir, dir + '.test.ts')
   if (!existsSync(test)) continue
   let src = readFileSync(test, 'utf8')
   const orig = src

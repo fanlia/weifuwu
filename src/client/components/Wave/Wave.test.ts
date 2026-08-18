@@ -48,7 +48,7 @@ test('Wave：点击产生波纹元素（spawnRipple 逻辑）', async () => {
 
 test('Wave：reduced-motion 下波纹 CSS 使用 token 动效（无硬编码）', () => {
   setupJsdom()
-  const css = readFileSync('src/components/Wave/Wave.css', 'utf-8')
+  const css = readFileSync('src/client/components/Wave/Wave.css', 'utf-8')
   assert.match(css, /var\(--wf-dur-base\)/, '动效时长 token 化')
   assert.match(css, /@keyframes wf-wave-pop/, '关键帧命名规范（wf- + 动作后缀）')
 })

@@ -48,9 +48,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Card/Card.ts` |
-| 样式 | `src/components/Card/Card.css` |
-| 测试 | `src/components/Card/Card.test.ts` |
+| 源码 | `src/client/components/Card/Card.ts` |
+| 样式 | `src/client/components/Card/Card.css` |
+| 测试 | `src/client/components/Card/Card.test.ts` |
 | demo | `apps/showcase/src/demos/DemoCardShowcase.tsx`（P1 拆分） |
 
 ## 验证

@@ -26,8 +26,8 @@ export type { MessagerOptions, MessagerInjected, MessagerClient, MessagerSystem,
 export { queue } from './queue/index.ts'
 export { scheduler } from './scheduler/index.ts'
 export type { QueueOptions, QueueClient, QueueInjected, QueueWorker, WorkerOptions, AddOptions, Job } from './queue/index.ts'
-export { ai } from './ai/index.ts'
-export type { Ai, ApprovalRequest } from './ai/contracts.ts'
+export { ai } from '../client/ai/index.ts'
+export type { Ai, ApprovalRequest } from '../client/ai/contracts.ts'
 export type {
   AiOptions,
   AiInjected,
@@ -41,7 +41,7 @@ export type {
   AgentRunResult,
   AgentStep,
   WfEmitter,
-} from './ai/index.ts'
+} from '../client/ai/index.ts'
 export type {
   WfStreamEvent,
   WfMessageStart,
@@ -62,8 +62,8 @@ export type {
   MessageRole,
   ToolCall,
   ToolDefinition,
-} from './ai/types.ts'
-export { ui } from './ui/index.ts'
+} from '../client/ai/types.ts'
+export { ui } from '../client/ui/index.ts'
 export type { GraphQLOptions, GraphQLHandler } from './graphql.ts'
 export { postgres, MIGRATIONS_TABLE } from './postgres/index.ts'
 export type { PostgresOptions, PostgresClient, PostgresInjected } from './postgres/types.ts'

@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/SessionList/SessionList.ts` |
-| 样式 | `src/components/SessionList/SessionList.css` |
-| 测试 | `src/components/SessionList/SessionList.test.ts` |
+| 源码 | `src/client/components/SessionList/SessionList.ts` |
+| 样式 | `src/client/components/SessionList/SessionList.css` |
+| 测试 | `src/client/components/SessionList/SessionList.test.ts` |
 | demo | `apps/showcase/src/demos/DemoSessionList.tsx`（P1 拆分） |
 
 ## 验证

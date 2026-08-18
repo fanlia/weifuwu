@@ -56,9 +56,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Table/Table.ts` |
-| 样式 | `src/components/Table/Table.css` |
-| 测试 | `src/components/Table/Table.test.ts` |
+| 源码 | `src/client/components/Table/Table.ts` |
+| 样式 | `src/client/components/Table/Table.css` |
+| 测试 | `src/client/components/Table/Table.test.ts` |
 | demo | `apps/showcase/src/demos/DemoTable.tsx`（P1 拆分） |
 
 ## 验证

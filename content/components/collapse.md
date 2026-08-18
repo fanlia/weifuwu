@@ -39,9 +39,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Collapse/Collapse.ts` |
-| 样式 | `src/components/Collapse/Collapse.css` |
-| 测试 | `src/components/Collapse/Collapse.test.ts` |
+| 源码 | `src/client/components/Collapse/Collapse.ts` |
+| 样式 | `src/client/components/Collapse/Collapse.css` |
+| 测试 | `src/client/components/Collapse/Collapse.test.ts` |
 | demo | `apps/showcase/src/demos/DemoCollapse.tsx`（P1 拆分） |
 
 ## 验证

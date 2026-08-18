@@ -30,7 +30,7 @@ import { build } from 'esbuild'
 import { readFile, stat } from 'node:fs/promises'
 import { resolve, dirname, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Middleware, Context } from '../types.ts'
+import type { Middleware, Context } from '../../server/types.ts'
 import { HtmlSafe } from './html-safe.ts'
 import { renderToEvents, eventsToHtml } from '../ui-dom/vdom3/ssr.ts'
 import { h } from '../ui-dom/vdom3/jsx.ts'
@@ -58,7 +58,7 @@ const JS_ALIASES: Record<string, string> = IS_SRC
       'weifuwu': HERE + '/index.js',
     }
 
-declare module '../types.ts' {
+declare module '../../server/types.ts' {
   interface Context {
     ui: {
       /** Tagged template → HTML Response */

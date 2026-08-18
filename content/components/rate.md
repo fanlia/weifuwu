@@ -43,9 +43,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Rate/Rate.ts` |
-| 样式 | `src/components/Rate/Rate.css` |
-| 测试 | `src/components/Rate/Rate.test.ts` |
+| 源码 | `src/client/components/Rate/Rate.ts` |
+| 样式 | `src/client/components/Rate/Rate.css` |
+| 测试 | `src/client/components/Rate/Rate.test.ts` |
 | demo | `apps/showcase/src/demos/DemoRate.tsx`（P1 拆分） |
 
 ## 验证

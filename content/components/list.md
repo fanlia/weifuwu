@@ -11,7 +11,7 @@
 
 ## API
 
-> props 提取降级（接口格式特殊）——见源码：`src/components/List/List.ts`
+> props 提取降级（接口格式特殊）——见源码：`src/client/components/List/List.ts`
 
 ## 用法示例
 
@@ -34,9 +34,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/List/List.ts` |
-| 样式 | `src/components/List/List.css` |
-| 测试 | `src/components/List/List.test.ts` |
+| 源码 | `src/client/components/List/List.ts` |
+| 样式 | `src/client/components/List/List.css` |
+| 测试 | `src/client/components/List/List.test.ts` |
 | demo | `apps/showcase/src/demos/DemoList.tsx`（P1 拆分） |
 
 ## 验证

@@ -41,9 +41,9 @@ notification.success({
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Notification/Notification.ts` |
-| 样式 | `src/components/Notification/Notification.css` |
-| 测试 | `src/components/Notification/Notification.test.ts` |
+| 源码 | `src/client/components/Notification/Notification.ts` |
+| 样式 | `src/client/components/Notification/Notification.css` |
+| 测试 | `src/client/components/Notification/Notification.test.ts` |
 | demo | `apps/showcase/src/demos/DemoNotification.tsx`（P1 拆分） |
 
 ## 验证

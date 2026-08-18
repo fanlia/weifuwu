@@ -45,9 +45,9 @@ text/circle/rect/image/avatar/table 六种变体
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Skeleton/Skeleton.ts` |
-| 样式 | `src/components/Skeleton/Skeleton.css` |
-| 测试 | `src/components/Skeleton/Skeleton.test.ts` |
+| 源码 | `src/client/components/Skeleton/Skeleton.ts` |
+| 样式 | `src/client/components/Skeleton/Skeleton.css` |
+| 测试 | `src/client/components/Skeleton/Skeleton.test.ts` |
 | demo | `apps/showcase/src/demos/DemoSkeleton.tsx`（P1 拆分） |
 
 ## 验证

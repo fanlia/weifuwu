@@ -45,9 +45,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Badge/Badge.ts` |
-| 样式 | `src/components/Badge/Badge.css` |
-| 测试 | `src/components/Badge/Badge.test.ts` |
+| 源码 | `src/client/components/Badge/Badge.ts` |
+| 样式 | `src/client/components/Badge/Badge.css` |
+| 测试 | `src/client/components/Badge/Badge.test.ts` |
 | demo | `apps/showcase/src/demos/DemoBadge.tsx`（P1 拆分） |
 
 ## 验证

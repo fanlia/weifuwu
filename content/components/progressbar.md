@@ -40,9 +40,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/ProgressBar/ProgressBar.ts` |
-| 样式 | `src/components/ProgressBar/ProgressBar.css` |
-| 测试 | `src/components/ProgressBar/ProgressBar.test.ts` |
+| 源码 | `src/client/components/ProgressBar/ProgressBar.ts` |
+| 样式 | `src/client/components/ProgressBar/ProgressBar.css` |
+| 测试 | `src/client/components/ProgressBar/ProgressBar.test.ts` |
 | demo | `apps/showcase/src/demos/DemoProgress.tsx`（P1 拆分） |
 
 ## 验证

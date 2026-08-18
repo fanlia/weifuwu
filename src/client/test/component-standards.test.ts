@@ -91,15 +91,15 @@ test('S4.1 受控缺回调 warn（useControlled——按 name 幂等）', async 
 
 test('S6.3 浏览器审计基线（组件库无裸 window./document. 等 DOM 全局）', async () => {
   const { readdir, readFile } = await import('node:fs/promises')
-  const dirs = await readdir('src/components', { withFileTypes: true })
+  const dirs = await readdir('src/client/components', { withFileTypes: true })
   const pattern = /\bwindow\.|\bdocument\.|\bnavigator\.|\blocation\.|\bhistory\.|\blocalStorage|\bgetSelection\(|\brequestAnimationFrame|\bMutationObserver|\bIntersectionObserver|matchMedia\(/
   const hits: string[] = []
   for (const d of dirs) {
     if (!d.isDirectory()) continue
-    const files = await readdir(`src/components/${d.name}`)
+    const files = await readdir(`src/client/components/${d.name}`)
     for (const f of files) {
       if (!f.endsWith('.ts') || f.endsWith('.test.ts')) continue
-      const src = await readFile(`src/components/${d.name}/${f}`, 'utf-8')
+      const src = await readFile(`src/client/components/${d.name}/${f}`, 'utf-8')
       src.split('\n').forEach((l, i) => {
         const t = l.trim()
         // 注释行（// 或 /*/*** 块）+ import 行（路径含 history.ts 等误报）——跳过

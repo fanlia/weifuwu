@@ -3,7 +3,7 @@
  *
  * 覆盖：fixed/sliding 算法、窗口过期重置、响应头、ctx.limit 手动限流、
  * 池共享计数、自定义 key、HttpError 状态码。
- * （引擎协议层测试见 src/db/redis/*.test.ts——CS-04 真库）
+ * （引擎协议层测试见 src/server/db/redis/*.test.ts——CS-04 真库）
  */
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'

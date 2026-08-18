@@ -6,7 +6,7 @@
 
 ## 框架源码
 
-`src/ui-dom/store.ts`
+`src/client/ui-dom/store.ts`
 
 ## 平台自证
 

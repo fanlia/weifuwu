@@ -13,7 +13,7 @@ wf-safe-top/bottom（移动端刘海/底部栏适配）
 
 ## 源码
 
-`src/layout/_safe-area.css`
+`src/client/layout/_safe-area.css`
 
 ## 验证
 

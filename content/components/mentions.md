@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Mentions/Mentions.ts` |
-| 样式 | `src/components/Mentions/Mentions.css` |
-| 测试 | `src/components/Mentions/Mentions.test.ts` |
+| 源码 | `src/client/components/Mentions/Mentions.ts` |
+| 样式 | `src/client/components/Mentions/Mentions.css` |
+| 测试 | `src/client/components/Mentions/Mentions.test.ts` |
 | demo | `apps/showcase/src/demos/DemoMentions.tsx`（P1 拆分） |
 
 ## 验证

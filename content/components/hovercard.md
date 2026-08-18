@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/HoverCard/HoverCard.ts` |
-| 样式 | `src/components/HoverCard/HoverCard.css` |
-| 测试 | `src/components/HoverCard/HoverCard.test.ts` |
+| 源码 | `src/client/components/HoverCard/HoverCard.ts` |
+| 样式 | `src/client/components/HoverCard/HoverCard.css` |
+| 测试 | `src/client/components/HoverCard/HoverCard.test.ts` |
 | demo | `apps/showcase/src/demos/DemoHoverCard.tsx`（P1 拆分） |
 
 ## 验证

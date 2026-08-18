@@ -40,9 +40,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/MessageBubble/MessageBubble.ts` |
-| 样式 | `src/components/MessageBubble/MessageBubble.css` |
-| 测试 | `src/components/MessageBubble/MessageBubble.test.ts` |
+| 源码 | `src/client/components/MessageBubble/MessageBubble.ts` |
+| 样式 | `src/client/components/MessageBubble/MessageBubble.css` |
+| 测试 | `src/client/components/MessageBubble/MessageBubble.test.ts` |
 | demo | `apps/showcase/src/demos/DemoMessageBubble.tsx`（P1 拆分） |
 
 ## 验证

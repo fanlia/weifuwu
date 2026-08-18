@@ -12,10 +12,10 @@ import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { setupJsdom } from './client/setup.ts'
-import { shellHeader, NAV_ITEMS } from '../../apps/showcase/src/ssr-header.ts'
+import { setupJsdom } from '../../client/test/client/setup.ts'
+import { shellHeader, NAV_ITEMS } from '../../../apps/showcase/src/ssr-header.ts'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
 before(setupJsdom)
 
@@ -29,7 +29,7 @@ test('Header SSR/SPA 差异分析：SSR 内联版 vs SPA Shell 类版', async ()
   //    曾用不存在的 --wf-color-bg-primary → 恒回落 #fff → 暗色模式 SSR 白底 header） ──
   const varNames = [...ssr.matchAll(/var\((--wf-[a-z0-9-]+)/g)].map((m) => m[1])
   const tokenSrc = ['_tokens.css', '_dark.css', '_base.css']
-    .map((f) => readFileSync(join(root, 'src/layout', f), 'utf-8'))
+    .map((f) => readFileSync(join(root, 'src/client/layout', f), 'utf-8'))
     .join('\n')
   const definedVars = new Set([...tokenSrc.matchAll(/(--wf-[a-z0-9-]+)\s*:/g)].map((m) => m[1]))
   const undefinedVars = [...new Set(varNames)].filter((v) => !definedVars.has(v))
@@ -46,9 +46,9 @@ test('Header SSR/SPA 差异分析：SSR 内联版 vs SPA Shell 类版', async ()
   // 包名 → src 绝对路径（weifuwu 自引用包在 node_modules 无实体）
   const SRC = join(root, 'src')
   const finalCode = code
-    .replaceAll('"weifuwu/ui-dom/jsx-runtime"', `"${join(SRC, 'ui-dom/jsx-runtime.ts')}"`)
-    .replaceAll('"weifuwu/ui-dom"', `"${join(SRC, 'ui-dom/index.ts')}"`)
-    .replaceAll('"weifuwu/components"', `"${join(SRC, 'components/index.ts')}"`)
+    .replaceAll('"weifuwu/ui-dom/jsx-runtime"', `"${join(SRC, 'client/ui-dom/jsx-runtime.ts')}"`)
+    .replaceAll('"weifuwu/ui-dom"', `"${join(SRC, 'client/ui-dom/index.ts')}"`)
+    .replaceAll('"weifuwu/components"', `"${join(SRC, 'client/components/index.ts')}"`)
   // 编译产物写临时文件（data URL 无法解析包名——文件 import 走 node_modules 解析）
   const tmpFile = join(root, 'node_modules/.cache/header-shell-test.mjs')
   const { mkdirSync, writeFileSync } = await import('node:fs')
@@ -56,8 +56,8 @@ test('Header SSR/SPA 差异分析：SSR 内联版 vs SPA Shell 类版', async ()
   writeFileSync(tmpFile, finalCode)
   const shellModule = await import(tmpFile + '?t=' + Date.now())
   const Shell = shellModule.Shell
-  const { createRouter } = await import('../ui-dom/vdom3/index.ts')
-  const { h } = await import('../ui-dom/vdom3/jsx.ts')
+  const { createRouter } = await import('../../client/ui-dom/vdom3/index.ts')
+  const { h } = await import('../../client/ui-dom/vdom3/jsx.ts')
   const host = document.createElement('div')
   document.body.appendChild(host)
   const router = createRouter([{ path: '/', render: () => h(Shell, { page: h('div', {}, 'x') }) }], host)

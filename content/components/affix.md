@@ -41,9 +41,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Affix/Affix.ts` |
-| 样式 | `src/components/Affix/Affix.css` |
-| 测试 | `src/components/Affix/Affix.test.ts` |
+| 源码 | `src/client/components/Affix/Affix.ts` |
+| 样式 | `src/client/components/Affix/Affix.css` |
+| 测试 | `src/client/components/Affix/Affix.test.ts` |
 | demo | `apps/showcase/src/demos/DemoAffix.tsx`（P1 拆分） |
 
 ## 验证

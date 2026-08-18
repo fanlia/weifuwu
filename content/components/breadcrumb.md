@@ -39,9 +39,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Breadcrumb/Breadcrumb.ts` |
-| 样式 | `src/components/Breadcrumb/Breadcrumb.css` |
-| 测试 | `src/components/Breadcrumb/Breadcrumb.test.ts` |
+| 源码 | `src/client/components/Breadcrumb/Breadcrumb.ts` |
+| 样式 | `src/client/components/Breadcrumb/Breadcrumb.css` |
+| 测试 | `src/client/components/Breadcrumb/Breadcrumb.test.ts` |
 | demo | `apps/showcase/src/demos/DemoBreadcrumb.tsx`（P1 拆分） |
 
 ## 验证

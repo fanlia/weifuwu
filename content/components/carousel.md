@@ -42,9 +42,9 @@
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Carousel/Carousel.ts` |
-| 样式 | `src/components/Carousel/Carousel.css` |
-| 测试 | `src/components/Carousel/Carousel.test.ts` |
+| 源码 | `src/client/components/Carousel/Carousel.ts` |
+| 样式 | `src/client/components/Carousel/Carousel.css` |
+| 测试 | `src/client/components/Carousel/Carousel.test.ts` |
 | demo | `apps/showcase/src/demos/DemoCarousel.tsx`（P1 拆分） |
 
 ## 验证

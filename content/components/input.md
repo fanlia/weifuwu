@@ -55,9 +55,9 @@ text/email/password/number，支持 label/error/hint/required
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Input/Input.ts` |
-| 样式 | `src/components/Input/Input.css` |
-| 测试 | `src/components/Input/Input.test.ts` |
+| 源码 | `src/client/components/Input/Input.ts` |
+| 样式 | `src/client/components/Input/Input.css` |
+| 测试 | `src/client/components/Input/Input.test.ts` |
 | demo | `apps/showcase/src/demos/DemoInput.tsx`（P1 拆分） |
 
 ## 验证

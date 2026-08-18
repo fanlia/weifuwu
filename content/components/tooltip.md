@@ -40,9 +40,9 @@ hover 浮动提示，4 方向
 
 | 文件 | 路径 |
 |------|------|
-| 源码 | `src/components/Tooltip/Tooltip.ts` |
-| 样式 | `src/components/Tooltip/Tooltip.css` |
-| 测试 | `src/components/Tooltip/Tooltip.test.ts` |
+| 源码 | `src/client/components/Tooltip/Tooltip.ts` |
+| 样式 | `src/client/components/Tooltip/Tooltip.css` |
+| 测试 | `src/client/components/Tooltip/Tooltip.test.ts` |
 | demo | `apps/showcase/src/demos/DemoTooltip.tsx`（P1 拆分） |
 
 ## 验证

@@ -13,7 +13,7 @@
 
 ## 源码
 
-`src/layout/_border.css`
+`src/client/layout/_border.css`
 
 ## 验证
 
