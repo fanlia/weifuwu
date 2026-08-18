@@ -73,6 +73,21 @@ string·number（文本）/ 空洞（`false`·`null`·`undefined`·`true`——�
 
 ---
 
+## S8 路由与 SSR（引擎标准——每个 vdom 必须实现——vdom-x 验收）
+
+| # | 标准 | 强制 | 违反时 |
+|---|------|------|--------|
+| S8.1 | **UIRouter**：`get(path, handler)` / `notFound`——Trie 匹配（静态段优先参数段优先通配段——`:id` 参数 + `*` 通配）——类比后端 Router | **L3** | 契约 X-R1 |
+| S8.2 | **uiServe**（客户端）：SSR 首帧收养（hydrate——路径 id 精确吸收零重建）+ 导航（navigate/链接拦截/popstate） | **L3** | 契约 X-R2/X-R3 |
+| S8.3 | **uiSsr**（服务端）：match → 页面 → SSR HTML + 数据种子——同一 UIRouter 实例两端共享（匹配/参数同源） | **L3** | 契约 X-R3 |
+| S8.4 | 导航渲染：根级异类型 = 整树原子替换；同类型（params 变化）= 实例复用 | **L3** | 契约 X-R2 |
+| S8.5 | 页面组件 ctx.route（path/params——共享可变对象——导航更新内容引用恒定） | 文档红线 | 复用组件读旧 params |
+
+> **引擎兼容契约**：UIRouter/uiServe/uiSsr 是每个 vdom 的**必选项**（公共面
+> `weifuwu/ui-dom` 导出——vdom5 替换实现即切换——X-R1~R3 验收）。
+> **vdom3 退役条件**：vdom4 通过全部 vdom-x 契约（含 X-R）→ vdom3 删除
+> （组件库测试引擎切换 + 公共面去 v3 导出——见 design/vdom4-risk.md）。
+
 ## 强制执行机制总览
 
 | 机制 | 覆盖 | 位置 |

@@ -42,6 +42,14 @@ export type { AiStreamHandle, AiStreamOptions } from './ai.ts'
 export { createStore } from './store.ts'
 export type { ExternalStore } from './store.ts'
 
+// ── vdom4 引擎面（vdom-x 契约标准——UIRouter/uiServe 每个 vdom 必须实现——
+//  vdom3 删除后去 v4 后缀） ──
+export { UIRouter } from './engines/vdom4/router.ts'
+export type { PageHandler } from './engines/vdom4/router.ts'
+export { uiServe, uiSsr } from './engines/vdom4/serve.ts'
+export { createRoot as createRootV4 } from './engines/vdom4/root.ts'
+export { h as hV4, Fragment as FragmentV4, createPortal as createPortalV4 } from './engines/vdom4/jsx.ts'
+
 // ── vdom3 精准事件流引擎（主入口一等能力——应用无需 ./vdom3 子路径） ──
 export { createRoot } from './vdom3/root.ts'
 export type { RootHandle } from './vdom3/root.ts'

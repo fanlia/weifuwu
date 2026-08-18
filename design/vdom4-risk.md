@@ -92,6 +92,25 @@ props 变化 → 父 build 驱动重渲染；内部状态变化 → 组件级渲
 
 **契约**：X-R1（Trie 匹配）/ X-R2（导航原子切换）/ X-R3（SSR→hydration 零重建 + 交互）。
 
+## vdom3 退役规划（vdom4 达标后删除）
+
+**条件**：vdom4 通过全部 vdom-x 契约测试（A~H + R 系列——当前 46 全绿）+
+组件库全量在 vdom4 引擎下通过（当前组件测试跑 vdom3 的 renderVNode——需迁移）。
+
+**删除清单**（vdom4 达标后）：
+1. `src/ui-dom/vdom3/` 整目录（root/router/render/build/events/scheduler/delegate/
+   registry/replay/ssr/record/ui/commands/sync/shadow/comp-index/audit/app/types）
+2. `src/ui-dom/engines/vdom3/`（adapter）
+3. 组件库测试引擎切换：renderVNode/mountComponent（`ui-dom/testing`）→ vdom4 版
+4. 公共面去 v3 导出（createRoot/createRouter/mount/patch/replay/事件流等——
+   vdom4 对应面接管——v4 后缀去除）
+5. 迁移测试：vdom3-core 147 中「vdom3 专属机制」测试（事件流/回放/审计/同步）删除
+   或按契约重写；契约面（空洞/keyed/portal/ref）已有 vdom-x 覆盖
+6. 契约测试迁移：vdom-x 的引擎入口区切 vdom4（当前已是）——X-R 走公共面 ✓
+
+**过渡期**：vdom3 保持生产引擎（组件库/应用零改动）——vdom4 并行验证——
+达标后一次性删除（git 历史可追溯）。
+
 ## 结论
 
 vdom4 核心调度/锚点/实例表语义经本轮审查基本安全（S1~S6）；

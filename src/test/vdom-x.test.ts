@@ -31,10 +31,13 @@
 import { test, before, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
-// ── 引擎入口（vdom5：替换此 import 即切换）──
+// ── 引擎入口（vdom5：替换此区 import 即切换——X-R 走公共面 weifuwu/ui-dom）──
 import { createRoot } from '../ui-dom/engines/vdom4/root.ts'
 import { h, Fragment } from '../ui-dom/engines/vdom4/jsx.ts'
 import { createPortal } from '../ui-dom/engines/vdom4/jsx.ts'
+// UIRouter/uiServe/uiSsr = 契约标准（每个 vdom 必须实现——公共面导出——
+// vdom5 替换 index.ts 的实现即切换——X-R1~R3 验收）
+import { UIRouter, uiServe, uiSsr } from '../ui-dom/index.ts'
 // ── 组件库（兼容契约——零改动验证）──
 
 before(setupJsdom)
@@ -1150,7 +1153,6 @@ test('X-A7 await ctx.ui.render() 后 DOM 最新（契约 §4.2——测量/动�
 })
 
 test('X-R1 UIRouter 匹配（Trie——静态/参数/通配/404——类比后端 Router）', async () => {
-  const { UIRouter } = await import('../ui-dom/engines/vdom4/router.ts')
   const router = new UIRouter()
   const seen: string[] = []
   router.get('/', () => { seen.push('home'); return h('div', {}, 'Home') })
@@ -1169,8 +1171,6 @@ test('X-R1 UIRouter 匹配（Trie——静态/参数/通配/404——类比后�
 })
 
 test('X-R2 uiServe 导航（页面切换——根 vnode 替换 + 立即渲染——原子切换）', async () => {
-  const { UIRouter } = await import('../ui-dom/engines/vdom4/router.ts')
-  const { uiServe } = await import('../ui-dom/engines/vdom4/serve.ts')
   const root = mkRoot()
   const router = new UIRouter()
   const PageA = () => () => h('div', { class: 'page-a' }, '页面A')
@@ -1189,8 +1189,6 @@ test('X-R2 uiServe 导航（页面切换——根 vnode 替换 + 立即渲染—
 })
 
 test('X-R3 uiSsr → uiServe hydration（同一 UIRouter——SSR HTML 收养——零重建 + 交互可用）', async () => {
-  const { UIRouter } = await import('../ui-dom/engines/vdom4/router.ts')
-  const { uiSsr, uiServe } = await import('../ui-dom/engines/vdom4/serve.ts')
   const router = new UIRouter()
   let clicks = 0
   const Home = (_i: Record<string, unknown>, ctx: any) => {
