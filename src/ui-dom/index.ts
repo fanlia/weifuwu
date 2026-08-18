@@ -11,7 +11,10 @@
  * createRouter/createRoot = 事件流渲染落地；组件 = 两阶段异步组件。
  */
 
-export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts'
+// 结构符号内化（2026-12）：Fragment/Portal/createPortal 不在公共面导出——
+// 数组 = 隐式 Fragment（任意嵌套）；浮层 = usePopup（createPortal 内部机制）；
+// `<></>` 经 jsx-runtime 自动导入（子路径契约——主入口不导出）
+export { h, jsx, jsxs, jsxDEV } from './vnode.ts'
 export { App } from './vdom3/types.ts'
 
 // ── 渲染引擎注册（v5 换引擎 = 改这一行 + engines/vdom5/ 新增——ui-dom 其余零改动） ──
@@ -48,7 +51,7 @@ export { UIRouter } from './engines/vdom4/router.ts'
 export type { PageHandler } from './engines/vdom4/router.ts'
 export { uiServe, uiSsr } from './engines/vdom4/serve.ts'
 export { createRoot as createRootV4 } from './engines/vdom4/root.ts'
-export { h as hV4, Fragment as FragmentV4, createPortal as createPortalV4 } from './engines/vdom4/jsx.ts'
+export { h as hV4 } from './engines/vdom4/jsx.ts'
 
 // ── vdom3 精准事件流引擎（主入口一等能力——应用无需 ./vdom3 子路径） ──
 export { createRoot } from './vdom3/root.ts'

@@ -93,7 +93,7 @@ string·number（文本）/ 空洞（`false`·`null`·`undefined`·`true`——�
 | # | 标准 | 强制 | 违反时 |
 |---|------|------|--------|
 | S9.1 | **`weifuwu/ui-dom` 公共面 = 对外契约**——内部引擎实现（vdom4/vdom5）切换**不影响功能**——应用/组件只依赖公共面 | **L3** | 契约 X-S1/X-S2 |
-| S9.2 | 契约 API 清单（vdom 无关面）：`h/jsx/jsxs/jsxDEV/Fragment/Portal/createPortal` + `createStore` + `createClientBrowser` + 中间件（`api/auth/ws/i18n`） | **L3** | X-S1 |
+| S9.2 | 契约 API 清单（vdom 无关面）：`h/jsx/jsxs/jsxDEV` + `createStore` + `createClientBrowser` + 中间件（`api/auth/ws/i18n`）——**结构符号内化：`Fragment/Portal/createPortal` 不在公共面**（数组 = 隐式 Fragment；浮层 = usePopup；`<></>` 经 jsx-runtime 子路径自动导入） | **L3** | X-S1 |
 | S9.3 | 引擎契约面：`createRoot`（handle: ready/engine/unmount）+ `UIRouter/uiServe/uiSsr`（S8） | **L3** | X-S2/X-R |
 | S9.4 | **禁止公共面泄漏引擎专属实现**（v3 专属导出过渡期标注——vdom3 退役时移除——不得成为契约） | 文档红线 | 切换时功能变化 |
 

@@ -34,7 +34,7 @@ import { setupJsdom } from './client/setup.ts'
 // ── 引擎入口（vdom-x 公共面契约：**全部经 weifuwu/ui-dom 的 index.ts**——
 //  内部实现（vdom4/vdom5）切换不影响功能——公共面 API 稳定——vdom5 只改
 //  index.ts 的 v4 面实现——本文件零改动——X-A~R 全绿 = 契约达标）──
-import { createRootV4 as createRoot, hV4 as h, FragmentV4 as Fragment, createPortalV4 as createPortal, UIRouter, uiServe, uiSsr } from '../ui-dom/index.ts'
+import { createRootV4 as createRoot, hV4 as h, UIRouter, uiServe, uiSsr } from '../ui-dom/index.ts'
 // ── 组件库（兼容契约——零改动验证）──
 
 before(setupJsdom)
@@ -389,9 +389,9 @@ test('X-C3 keyed 列表项内各自 usePopup（多浮层并存——portalKey �
   document.body.removeChild(root)
 })
 
-test('X-C4 Fragment 多根输出（组件输出数组 = 隐式 Fragment）', async () => {
+test('X-C4 数组多根输出（隐式 Fragment——无需 Fragment 符号）', async () => {
   const root = mkRoot()
-  const Pair = () => () => h(Fragment, {}, [h('span', { class: 'a' }, 'A'), h('span', { class: 'b' }, 'B')])
+  const Pair = () => () => [h('span', { class: 'a' }, 'A'), h('span', { class: 'b' }, 'B')]
   const App = () => () => h('div', {}, h(Pair, {}))
   const handle = mount(h(App, {}), root)
   await handle.ready
@@ -1219,9 +1219,8 @@ test('X-S1 公共面契约（index.ts 导出集稳定——内部引擎切换不
   // 从公共面（weifuwu/ui-dom 同源）取全部契约 API——验证存在 + 形状
   const uiDom = await import('../ui-dom/index.ts')
   const required = [
-    // 渲染原语（vdom 无关——统一 JSX 面）
+    // 渲染原语（vdom 无关——统一 JSX 面——结构符号内化：Fragment/createPortal 不导出）
     ['h', 'function'], ['jsx', 'function'], ['jsxs', 'function'], ['jsxDEV', 'function'],
-    ['Fragment', 'symbol'], ['Portal', 'symbol'], ['createPortal', 'function'],
     // 渲染引擎（契约——createRoot 最终形态无后缀——当前 v4 面带后缀过渡）
     ['createRootV4', 'function'],
     // 路由/SSR（S8——每个 vdom 必选）
@@ -1236,6 +1235,10 @@ test('X-S1 公共面契约（index.ts 导出集稳定——内部引擎切换不
     if (kind === 'function') assert.equal(typeof v, 'function', `${name} 应为函数`)
     if (kind === 'symbol') assert.equal(typeof v, 'symbol', `${name} 应为 symbol`)
   }
+  // 结构符号内化（S9.4：不泄漏引擎专属实现）——主入口禁止导出
+  assert.ok((uiDom as any).createPortal === undefined, 'createPortal 不在公共面（usePopup 内部机制）')
+  assert.ok((uiDom as any).Fragment === undefined, 'Fragment 不在公共面（数组 = 隐式 Fragment）')
+  assert.ok((uiDom as any).Portal === undefined, 'Portal 不在公共面（内部机制）')
   // 公共面冒烟：createRootV4 可用（真实渲染——X-A 同款能力经公共面）
   const root = mkRoot()
   const App = () => () => h('div', { class: 'smoke' }, '公共面冒烟')

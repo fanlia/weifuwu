@@ -61,7 +61,10 @@ export async function buildVNode(
       const output = await inst.renderFn(vnode.props)
       inst.lastProps = { ...vnode.props }
       if (output) {
-        const built = await buildVNode(output, ctx, shadow, inst.lastOutput, `${compPath}.c`, createCompCtx, false)
+        // 组件输出数组 = 隐式 Fragment（X-C4——与 children 层同语义——Fragment 包装
+        // 走 f 空间——路径稳定）
+        const outVNode = Array.isArray(output) ? { type: Fragment, props: { children: output }, key: null } as VNode : output
+        const built = await buildVNode(outVNode, ctx, shadow, inst.lastOutput, `${compPath}.c`, createCompCtx, false)
         inst.nextOutput = built // 暂存（diff 后 commit——旧对照保持）
         inst.outputNull = false
       } else {
@@ -79,7 +82,9 @@ export async function buildVNode(
     shadow.setInstance(compPath, inst)
     const output = await renderFn(vnode.props)
     if (output) {
-      const built = await buildVNode(output, ctx, shadow, null, `${compPath}.c`, createCompCtx, false)
+      // 组件输出数组 = 隐式 Fragment（mount 分支同）
+      const outVNode = Array.isArray(output) ? { type: Fragment, props: { children: output }, key: null } as VNode : output
+      const built = await buildVNode(outVNode, ctx, shadow, null, `${compPath}.c`, createCompCtx, false)
       inst.nextOutput = built
     }
     return v
