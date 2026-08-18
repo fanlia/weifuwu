@@ -11,14 +11,16 @@
 
 /** 组件（两阶段——vdom4 方式）：
  *  工厂 = mount（一次——初始化状态/订阅/数据预取（await ctx.data——管道保证））
- *  renderFn = 每次渲染（**同步**——输出确定性 vnode——异步数据未就绪输出加载态） */
+ *  renderFn = 每次渲染（同步或 async——await 只允许 ctx.data（命中同步/管道管理）——
+ *  无挂起竞速——渲染管线的推进不依赖用户异步完成（数据未就绪输出加载态）） */
 export type Component<P = Record<string, unknown>, C = Ctx> = (
   initProps: P,
   ctx: C,
 ) => RenderFn<P> | Promise<RenderFn<P>>
 
-/** renderFn：同步（类型强制——await 只允许 ctx.data 且命中同步——挂起不可能） */
-export type RenderFn<P = Record<string, unknown>> = (props: P) => VNode | null
+/** renderFn：同步或 async（await 只允许 ctx.data——管道保证 resolve——挂起不可能；
+ *  无 Promise.race 竞速——挂起 = 非 ctx.data await 的用户违规——dev 文档红线） */
+export type RenderFn<P = Record<string, unknown>> = (props: P) => VNode | null | Promise<VNode | null>
 
 /** vnode——纯数据（无回填字段——可自由克隆/比较/序列化） */
 export interface VNode {

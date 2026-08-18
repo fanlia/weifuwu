@@ -392,3 +392,62 @@ test('vdom4：ctx.data 三场景——SSR 收集种子 → hydration preload 同
   document.body.removeChild(root)
   document.body.removeChild(root2)
 })
+
+// ── 组件库组件迁移试点（真实组件零改动在 vdom4 引擎跑——UI-4 矩阵雏形） ──
+
+test('vdom4 迁移试点：真实 Button 组件（组件库零改动——vdom3 h/Fragment 结构兼容）', async () => {
+  const { Button } = await import('../components/Button/Button.ts')
+  const root = mkRoot()
+  let clicked = 0
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    return () => h('div', {}, [
+      h(Button, { variant: 'primary', onClick: () => { clicked++; ctx.render() } }, '按钮'),
+      h('span', { id: 'count' }, `点击:${clicked}`),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  assert.ok(root.querySelector('.wf-btn'), 'Button 渲染（组件库组件——vdom4 引擎）')
+  ;(root.querySelector('.wf-btn') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(root.querySelector('#count')?.textContent, '点击:1', 'Button 交互（onClick + 组件级更新）')
+  handle.unmount()
+  document.body.removeChild(root)
+})
+
+test('vdom4 迁移试点：真实 Select 组件（useControlledInput + usePopup + keyed 列表——复杂组件）', async () => {
+  const { Select } = await import('../components/Select/Select.ts')
+  const root = mkRoot()
+  const options = [
+    { label: '苹果', value: 'apple' },
+    { label: '香蕉', value: 'banana' },
+    { label: '橙子', value: 'orange' },
+  ]
+  let selected = ''
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    return () => h('div', {}, [
+      h(Select, {
+        options, placeholder: '选择水果', searchable: true,
+        value: selected, onChange: (v: string) => { selected = v; ctx.render() },
+      }),
+      h('button', { id: 'after', onClick: () => ctx.render() }, 'after'),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  assert.ok(root.querySelector('.wf-select-search-trigger'), 'Select 渲染（searchable——usePopup 模式）')
+  // 打开下拉（trigger onClick + usePopup——portal）
+  ;(root.querySelector('.wf-select-search-trigger') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 30))
+  const popupHtml = document.querySelector('#__wf_portal')?.innerHTML ?? ''
+  assert.ok(popupHtml.includes('苹果'), `Select 下拉打开（portal——options 渲染）——实际 ${popupHtml.slice(0, 80)}`)
+  // 选择项（keyed 列表交互）
+  const opt = [...document.querySelectorAll('#__wf_portal .wf-select-search-opt')].find((n) => n.textContent?.includes('香蕉'))
+  assert.ok(opt, '下拉选项（keyed 列表）')
+  ;(opt as HTMLElement).dispatchEvent(new (window as any).MouseEvent('mousedown', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 20))
+  const inputVal = (root.querySelector('.wf-select-search-trigger input') as HTMLInputElement)?.value
+  assert.equal(inputVal, '香蕉', `选中回填（受控回传——input value）——实际 ${inputVal}`)
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})

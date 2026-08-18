@@ -58,8 +58,8 @@ export async function buildVNode(
         inst.nextOutput = inst.lastOutput
         return v // 纯数据 vnode——输出在影子（lastOutput）——diff 自然零命令
       }
-      // props 变/根重跑 → 重跑 renderFn（同步——类型强制——无 await 无挂起）
-      const output = inst.renderFn(vnode.props)
+      // props 变/根重跑 → 重跑 renderFn（await——ctx.data 管道保证——无竞速）
+      const output = await inst.renderFn(vnode.props)
       inst.lastProps = { ...vnode.props }
       if (output) {
         const built = await buildVNode(output, ctx, shadow, inst.lastOutput, `${compPath}.c`, createCompCtx, false)
@@ -76,7 +76,8 @@ export async function buildVNode(
     if (!renderFn) throw new Error(`[vdom4] 工厂未返回 renderFn：${compPath}`)
     const inst: import('./shadow.ts').CompInstance = { type: vnode.type, renderFn, lastProps: { ...vnode.props }, lastOutput: null, nextOutput: null }
     shadow.setInstance(compPath, inst)
-    const output = renderFn(vnode.props)
+    const output = await renderFn(vnode.props)
+    if (process.env.WF_DBG_V4) console.log('[dbg-v4-mp]', compPath, 'propsKeys=', Object.keys(vnode.props).join(','))
     if (output) {
       const built = await buildVNode(output, ctx, shadow, null, `${compPath}.c`, createCompCtx, false)
       inst.nextOutput = built
@@ -84,7 +85,8 @@ export async function buildVNode(
     return v
   }
   // Fragment：展开在父空间（f 空间——输出内部）
-  if (vnode.type === Fragment) {
+  // 结构判定（symbol 且非 portal——兼容组件库的 v3 Fragment symbol——不依赖恒等）
+  if (typeof vnode.type === 'symbol' && vnode.props?.portalKey == null) {
     const r = await buildChildren(vnode, ctx, shadow, oldV ?? null, compPath, true, createCompCtx)
     if (r.unchanged && oldV != null && propsEqual(oldV.props, vnode.props)) return oldV
     return { ...vnode, children: r.newKids }

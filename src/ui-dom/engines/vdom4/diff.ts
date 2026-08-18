@@ -62,8 +62,9 @@ function genVNode(vnode: VNode, path: string, oldV: VNode | null, cmds: Command[
     // 输出 null（nextOutput = null）：槽位清空由 genSlot 处理（组件路径的槽位锚）
     return slotAnchor
   }
-  if (vnode.type === Fragment) {
-    // Fragment 内容展开在**所在容器**（DOM 父 = genVNode 的 domParent——非 path——
+  if (typeof vnode.type === 'symbol' && vnode.props?.portalKey == null) {
+    // Fragment（结构判定——symbol 非 portal——兼容组件库 v3 Fragment symbol）
+    // 内容展开在**所在容器**（DOM 父 = genVNode 的 domParent——非 path——
     // 组件输出场景 path 是输出空间（.c）——DOM 父是组件的容器）
     // 首槽位锚插到 slotAnchor 后（Fragment 内容在组件槽位锚后——非父末尾）
     return genChildren(vnode, path, oldV, cmds, shadow, true, domParent, slotAnchor)
@@ -236,6 +237,22 @@ function genKeyedChildren(kids: VNode[], oldKids: VNodeChild[], path: string, sl
   for (const vn of kids) {
     const oc = oldMap.get(vn.key!)
     const contentPath = isFrag ? `${path}.f${i}` : `${path}.k${vn.key}`
+    // Portal 项（keyed 列表里的浮层——Select 菜单等——内容渲染到远程容器）
+    if (typeof vn.type === 'symbol' && vn.props?.portalKey != null) {
+      const portalKey = String(vn.props.portalKey)
+      const containerPath = `portal:${portalKey}`
+      const ocPortal = oc && typeof oc.vn.type === 'symbol' && oc.vn.props?.portalKey != null ? oc.vn : null
+      const content = childrenOf(vn)[0] ?? null
+      const oldContent = ocPortal ? (childrenOf(ocPortal)[0] ?? null) : null
+      if (content != null && typeof content === 'object' && !Array.isArray(content)) {
+        genVNode(content as VNode, `${contentPath}.p`, oldContent != null && typeof oldContent === 'object' ? oldContent as VNode : null, cmds, shadow, null, containerPath)
+      } else if (oldContent != null && typeof oldContent === 'object') {
+        cmds.push({ op: 'remove', id: `${contentPath}.p` })
+      }
+      lastAnchor = oldAnchors[i] ?? null
+      i++
+      continue
+    }
     if (oc) {
       const oldAnchor = oldAnchors[oc.idx] ?? null
       if (oldAnchor) {

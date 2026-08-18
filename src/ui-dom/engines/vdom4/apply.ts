@@ -50,6 +50,7 @@ export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement)
   for (const c of cmds) {
     switch (c.op) {
       case 'create': {
+        if (typeof c.tag !== 'string') console.log('[dbg-v4-tag]', 'SYMBOL TAG:', String(c.tag), 'id:', c.id)
         // hydration 吸收（SSR 零重建——**路径 id 精确匹配**（确定性 id——同声明同路径））
         let el: Element | null = shadow.absorbIdMap ? (shadow.takeAbsorbedById(c.id) as Element | null) : null
         if (!el && shadow.absorbQueue) {

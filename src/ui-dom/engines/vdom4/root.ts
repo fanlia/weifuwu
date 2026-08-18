@@ -177,7 +177,7 @@ export class Engine {
     if (!inst) return
     this.currentCompId = compId
     try {
-      const output = inst.renderFn(inst.lastProps)
+      const output = await inst.renderFn(inst.lastProps)
       const oldOut = inst.lastOutput
           if (output) {
         const built = await buildVNode(output, this.ctx, this.shadow, oldOut, `${compId}.c`, this.createCompCtx.bind(this))
