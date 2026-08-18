@@ -105,3 +105,59 @@ test('browser 注入隔离：两个实例互不干扰（独立 jsdom——无全
   assert.equal(b2.document.querySelector('#root')?.textContent, '', '独立实例——b2 未渲染')
   assert.notEqual(b1.document, b2.document)
 })
+
+test('route 闭环：navigate() 编程式导航——root 异类型整树替换', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'home' }, '首页')))
+  router.get('/about', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'about' }, '关于')))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.equal(browser.document.querySelector('.home')?.textContent, '首页')
+
+  await serve.navigate('/about')
+  assert.equal(browser.document.querySelector('.about')?.textContent, '关于', '导航切换页面')
+  assert.equal(browser.document.querySelector('.home'), null, '旧页移除（整树替换）')
+  assert.equal(browser.window.location.pathname, '/about', 'URL 更新')
+
+  await serve.navigate('/')
+  assert.equal(browser.document.querySelector('.home')?.textContent, '首页', '返回首页')
+})
+
+test('route 闭环：链接拦截——同源 a[href] 点击 → 导航（外链/锚点不拦截）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const App = (init: Record<string, unknown>) => {
+    const rc = init.ctx as RenderCtx
+    return () => h('div', {},
+      h('a', { href: '/about', id: 'in' }, '内部'),
+      h('a', { href: 'https://external.com', id: 'out' }, '外部'),
+      h('a', { href: '#section', id: 'anchor' }, '锚点'),
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(App, { ctx })))
+  router.get('/about', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'about' }, '关于')))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+
+  ;(browser.document.querySelector('#in') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.about') !== null)
+  assert.equal(browser.window.location.pathname, '/about', '同源链接拦截导航')
+})
+
+test('route 闭环：popstate——浏览器前进/后退', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'home' }, '首页')))
+  router.get('/detail', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'detail' }, '详情')))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  await serve.navigate('/detail')
+  assert.equal(browser.document.querySelector('.detail')?.textContent, '详情')
+
+  // 后退（history.back → popstate）
+  browser.window.history.back()
+  await waitFor(() => browser.document.querySelector('.home') !== null)
+  assert.equal(browser.window.location.pathname, '/', '后退回首页')
+  assert.equal(browser.document.querySelector('.home')?.textContent, '首页')
+})

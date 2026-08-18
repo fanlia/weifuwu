@@ -15,7 +15,7 @@
  * TransformStream 流式吐 HTML）后续实现。
  */
 
-import { UIRouter, frontRequest } from './router.ts'
+import { UIRouter, frontRequest, type FrontRequest } from './router.ts'
 import { CommandApplier } from './patch.ts'
 import { renderToStream } from './build.ts'
 import { diffStream } from './diff.ts'
@@ -98,6 +98,9 @@ export interface UiServeOptions {
 export interface UiServeHandle {
   /** 首帧渲染完成 Promise（await 精确等待） */
   ready: Promise<void>
+  /** 编程式导航（URL 变化 → 重新 resolve → 新命令事件流 → 消费——
+   *   root 异类型 = 整树替换；同类型 = diff 精准） */
+  navigate(path: string): Promise<void>
   /** 卸载（清理 DOM/监听） */
   unmount(): void
 }
@@ -111,6 +114,7 @@ export interface RenderCtx extends Ctx {
 
 export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   const doc = opts.browser.document
+  const win = opts.browser.window
   const rootEl = typeof opts.root === 'string'
     ? (doc.querySelector(opts.root) as HTMLElement | null)
     : opts.root
@@ -120,20 +124,32 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   const fnTable = createFnTable()
   const registry = createComponentRegistry()
   const applier = new CommandApplier(rootEl, doc)
-  const req = frontRequest(opts.browser.window.location.pathname)
+  let req = frontRequest(win.location.pathname)
   /** 影子树（当前渲染的 vnode——diff 对照——精准增量命令流） */
   let currentTree: VNode | null = null
+
+  /** 渲染循环（ctx.render 同 URL 重渲染 / navigate 新 URL——同一机制） */
+  const render = async (target: FrontRequest): Promise<void> => {
+    req = target
+    const res = await router.resolve(req, ctx)
+    if (!res.body) return
+    for await (const cmd of commandReader(res.body.getReader(), fnTable)) {
+      applier.apply(cmd)
+    }
+  }
+
+  /** 编程式导航（pushState + 渲染——popstate 语义） */
+  const navigate = async (path: string): Promise<void> => {
+    win.history.pushState({}, '', path)
+    await render(frontRequest(path))
+  }
 
   // ── ctx（render = 重新渲染唯一入口——事件/fetch/定时器回调） ──
   const ctx = {
     /** 重新渲染：重新 resolve（handler 重跑——registry 复用——工厂不重跑）→
      *  新的 Response command 事件流 → 消费（patch 对照现有 DOM——就地更新） */
     async render(): Promise<void> {
-      const res = await router.resolve(req, ctx)
-      if (!res.body) return
-      for await (const cmd of commandReader(res.body.getReader(), fnTable)) {
-        applier.apply(cmd)
-      }
+      await render(req)
     },
   } as Ctx
 
@@ -153,13 +169,34 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     })
   }
 
+  // ── 链接拦截（同源 a[href] → 导航——外链/锚点不拦截） ──
+  const onDocClick = (e: Event): void => {
+    const target = e.target as HTMLElement | null
+    const a = target?.closest?.('a[href]')
+    if (!a) return
+    const href = a.getAttribute('href')
+    if (!href || href.startsWith('http') || href.startsWith('#')) return
+    e.preventDefault()
+    void navigate(href)
+  }
+  doc.addEventListener('click', onDocClick)
+
+  // ── popstate（浏览器前进/后退 → 渲染当前 URL） ──
+  const onPopstate = (): void => {
+    void render(frontRequest(win.location.pathname))
+  }
+  win.addEventListener('popstate', onPopstate)
+
   const ready = (async () => {
-    await ctx.render()
+    await render(req)
   })()
 
   return {
     ready,
+    navigate,
     unmount() {
+      doc.removeEventListener('click', onDocClick)
+      win.removeEventListener('popstate', onPopstate)
       rootEl.innerHTML = ''
     },
   }
