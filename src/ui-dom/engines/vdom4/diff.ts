@@ -110,6 +110,11 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
   // 逻辑容器 key：native = path（自身容器）；Fragment = domParent（所在容器——
   // Fragment 内容展开在父容器——锚列表登记到容器）
   const slotKey = domParent
+  // keyed 检测（>1 且全部有 key——vnode 项）→ keyed diff（业务身份——重排复用）
+  const isVNodeObj = (x: VNodeChild): x is VNode => x != null && typeof x === 'object' && !Array.isArray(x)
+  if (kids.length > 1 && kids.every((k) => isVNodeObj(k) && (k as VNode).key != null)) {
+    return genKeyedChildren(kids as VNode[], oldKids, path, slotKey, cmds, shadow, initAnchor, isFrag)
+  }
   const oldAnchors = shadow.anchorsOf(slotKey)
   let lastAnchor: string | null = initAnchor // 首槽位锚的 ref（Fragment = 组件槽位锚）
   let cursor = 0 // 旧锚游标（每槽 +1）
@@ -192,7 +197,7 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
         continue
       }
       const out = inst.nextOutput
-      if (out) {
+        if (out) {
         lastAnchor = genVNode(out, `${contentPath}.c`, inst.lastOutput, cmds, shadow, slotAnchor, slotKey) ?? slotAnchor
       } else {
         // 输出变 null——清空槽位内容（锚保留）
@@ -210,6 +215,70 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
         cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
       }
       lastAnchor = genVNode(vn, contentPath, null, cmds, shadow, slotAnchor, slotKey) ?? slotAnchor
+    }
+  }
+  return lastAnchor
+}
+
+/** keyed children diff（业务身份——同 key 配对复用——重排 = moveSlot 区间移动——
+ *  组件实例路径 .k{key}（重排稳定——工厂不重跑——状态保持）） */
+function genKeyedChildren(kids: VNode[], oldKids: VNodeChild[], path: string, slotKey: string, cmds: Command[], shadow: ShadowState, initAnchor: string | null, isFrag: boolean): string | null {
+  // 旧 keyMap（key → { vnode, 旧槽位 index——旧锚定位 }）
+  const oldMap = new Map<string, { vn: VNode; idx: number }>()
+  oldKids.forEach((k, i) => {
+    if (k != null && typeof k === 'object' && !Array.isArray(k) && (k as VNode).key != null) {
+      oldMap.set((k as VNode).key!, { vn: k as VNode, idx: i })
+    }
+  })
+  const oldAnchors = shadow.anchorsOf(slotKey)
+  let lastAnchor: string | null = initAnchor
+  let i = 0
+  for (const vn of kids) {
+    const oc = oldMap.get(vn.key!)
+    const contentPath = isFrag ? `${path}.f${i}` : `${path}.k${vn.key}`
+    if (oc) {
+      const oldAnchor = oldAnchors[oc.idx] ?? null
+      if (oldAnchor) {
+        // 位置变化 → moveSlot（锚 + 内容区间整体移动——ref = 新序前一项锚）
+        if (oldAnchor !== lastAnchor) {
+          cmds.push({ op: 'moveSlot', anchorId: oldAnchor, parent: slotKey, ref: lastAnchor, nextAnchorId: shadow.anchorAfter(slotKey, oldAnchor) })
+        }
+        lastAnchor = oldAnchor
+        // 内容 patch（同 key 同类型——组件剪枝/复用走组件分支）
+        if (typeof vn.type === 'function') {
+          const inst = shadow.getInstance(contentPath)
+          if (inst) {
+            if (inst.nextOutput === inst.lastOutput) { i++; continue } // 剪枝
+            const out = inst.nextOutput
+            if (out) lastAnchor = genVNode(out, `${contentPath}.c`, inst.lastOutput, cmds, shadow, oldAnchor, slotKey) ?? oldAnchor
+          }
+        } else {
+          lastAnchor = genVNode(vn, contentPath, oc.vn, cmds, shadow, oldAnchor, slotKey) ?? oldAnchor
+        }
+      } else {
+        // 旧锚缺失（异常）——重建（锚 + 内容）
+        const anchorId = `${path}.a${i}`
+        cmds.push({ op: 'createAnchor', id: anchorId })
+        cmds.push({ op: 'insert', id: anchorId, parent: slotKey, ref: lastAnchor, after: lastAnchor != null })
+        lastAnchor = anchorId
+        genVNode(vn, contentPath, null, cmds, shadow, anchorId, slotKey)
+      }
+    } else {
+      // 新 key：创建（锚 + 内容）
+      const anchorId = `${path}.a${i}`
+      cmds.push({ op: 'createAnchor', id: anchorId })
+      cmds.push({ op: 'insert', id: anchorId, parent: slotKey, ref: lastAnchor, after: lastAnchor != null })
+      lastAnchor = anchorId
+      genVNode(vn, contentPath, null, cmds, shadow, anchorId, slotKey)
+    }
+    i++
+  }
+  // 移除无新 key 的旧项（锚区间）
+  const newKeys = new Set(kids.map((k) => k.key))
+  for (const [key, { idx }] of oldMap) {
+    if (!newKeys.has(key)) {
+      const oldAnchor = oldAnchors[idx] ?? null
+      if (oldAnchor) cmds.push({ op: 'remove', id: oldAnchor })
     }
   }
   return lastAnchor

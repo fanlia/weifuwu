@@ -47,6 +47,7 @@ export async function buildVNode(
     const v = { ...vnode }
     const reuse = oldV != null && typeof oldV === 'object' && oldV.type === vnode.type && oldV.key === vnode.key
       if (reuse) {
+        const instP = shadow.getInstance(compPath)
       const inst = shadow.getInstance(compPath)
       if (!inst) throw new Error(`[vdom4] 组件实例缺失：${compPath}（影子未注册——复用判定与实例表失配）`)
       // 剪枝：props 未变 → 复用 lastOutput（零展开零 RENDER）——nextOutput 设同引用
@@ -84,15 +85,49 @@ export async function buildVNode(
   }
   // Fragment：展开在父空间（f 空间——输出内部）
   if (vnode.type === Fragment) {
-    let i = 0
-    let changed = false
-    const kids = childrenOf(vnode)
-    const oldKids = oldV ? childrenOf(oldV) : []
-    const newKids: VNodeChild[] = []
+    const r = await buildChildren(vnode, ctx, shadow, oldV ?? null, compPath, true, createCompCtx)
+    if (r.unchanged && oldV != null && propsEqual(oldV.props, vnode.props)) return oldV
+    return { ...vnode, children: r.newKids }
+  }
+  // native：children 递归（槽位路径 / keyed 业务路径）
+  const r = await buildChildren(vnode, ctx, shadow, oldV ?? null, compPath, false, createCompCtx)
+  // 结构共享：无变化 + props 相同 → 复用旧 vnode（零克隆——diff 零命令）
+  if (r.unchanged && oldV != null && propsEqual(oldV.props, vnode.props) && childrenOf(oldV).length === childrenOf(vnode).length) return oldV
+  return { ...vnode, children: r.newKids }
+}
+
+/** children 构建（keyed 配对 / 位置配对——路径：keyed 项 .k{key}（业务身份——
+ *  重排稳定——组件实例复用）；unkeyed 项 .{i}/.f{i}（位置身份）） */
+async function buildChildren(
+  vnode: VNode, ctx: Ctx, shadow: ShadowState, oldV: VNode | null,
+  compPath: string, isFrag: boolean, createCompCtx?: (compId: string) => Ctx,
+): Promise<{ newKids: VNodeChild[]; unchanged: boolean }> {
+  const kids = childrenOf(vnode)
+  const oldKids = oldV ? childrenOf(oldV) : []
+  const newKids: VNodeChild[] = []
+  let changed = false
+  const isVNodeObj = (x: VNodeChild): x is VNode => x != null && typeof x === 'object' && !Array.isArray(x)
+  const isKeyed = kids.length > 1 && kids.every((k) => isVNodeObj(k) && (k as VNode).key != null)
+
+  if (isKeyed) {
+    // keyed：同 key 配对（旧 vnode 对照——重排后组件实例复用）
+    const oldMap = new Map<string, VNode>()
+    oldKids.forEach((k, i) => { if (isVNodeObj(k) && (k as VNode).key != null) oldMap.set((k as VNode).key!, k as VNode) })
+    let idx = 0
     for (const c of kids) {
-      if (c != null && typeof c === 'object' && !Array.isArray(c)) {
+      const vn = c as VNode
+      const oc = oldMap.get(vn.key!) ?? null
+      const built = await buildVNode(vn, ctx, shadow, oc, `${compPath}.k${vn.key}`, createCompCtx, false)
+      newKids.push(built)
+      if (built !== c) changed = true
+      idx++
+    }
+  } else {
+    let i = 0
+    for (const c of kids) {
+      if (isVNodeObj(c)) {
         const oc = oldKids[i]
-        const built = await buildVNode(c as VNode, ctx, shadow, oc != null && typeof oc === 'object' ? (oc as VNode) : null, `${compPath}.f${i}`, createCompCtx, false)
+        const built = await buildVNode(c, ctx, shadow, oc != null && typeof oc === 'object' ? oc : null, isFrag ? `${compPath}.f${i}` : `${compPath}.${i}`, createCompCtx, false)
         newKids.push(built)
         if (built !== c) changed = true
       } else {
@@ -100,29 +135,8 @@ export async function buildVNode(
       }
       i++
     }
-    if (!changed && oldV != null && propsEqual(oldV.props, vnode.props)) return oldV
-    return { ...vnode, children: newKids }
   }
-  // native：children 递归（槽位路径）
-  const kids = childrenOf(vnode)
-  const oldKids = oldV ? childrenOf(oldV) : []
-  let i = 0
-  let changed = false
-  const newKids: VNodeChild[] = []
-  for (const c of kids) {
-    if (c != null && typeof c === 'object' && !Array.isArray(c)) {
-      const oc = oldKids[i]
-      const built = await buildVNode(c as VNode, ctx, shadow, oc != null && typeof oc === 'object' ? (oc as VNode) : null, `${compPath}.${i}`, createCompCtx, false)
-      newKids.push(built)
-      if (built !== c) changed = true
-    } else {
-      newKids.push(c)
-    }
-    i++
-  }
-  // 结构共享：无变化 + props 相同 → 复用旧 vnode（零克隆——diff 零命令）
-  if (!changed && oldV != null && propsEqual(oldV.props, vnode.props) && oldKids.length === kids.length) return oldV
-  return { ...vnode, children: newKids }
+  return { newKids, unchanged: !changed }
 }
 
 export { deepFreeze }

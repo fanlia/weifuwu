@@ -111,14 +111,17 @@ export class Engine {
   }
 
   private schedule(target: Target): void {
-    // 同目标合并（同 tick 多次 render —— 只执行最后一次）
+    // 同目标合并（同 tick 多次 render —— 只执行最后一次）——fn 返回 run 的 Promise
+    // （drain 串行 await——void 吞 Promise 会让 await 立即返回——并发交错——
+    //  commitAll 覆盖剪枝标记——子组件输出误清）
+    const mk = (t: Target) => Object.assign(() => this.run(t), { t: t.kind + ':' + (t.kind === 'comp' ? t.id : '') })
     if (this.pending.some((p) => (p as { t?: string }).t === target.kind + ':' + (target.kind === 'comp' ? target.id : ''))) {
       // 已有同目标排队——替换为最新（合并）
       const idx = this.pending.findIndex((p) => (p as { t?: string }).t === target.kind + ':' + (target.kind === 'comp' ? target.id : ''))
-      this.pending[idx] = Object.assign(() => void this.run(target), { t: target.kind + ':' + (target.kind === 'comp' ? target.id : '') })
+      this.pending[idx] = mk(target)
       return
     }
-    this.pending.push(Object.assign(() => void this.run(target), { t: target.kind + ':' + (target.kind === 'comp' ? target.id : '') }))
+    this.pending.push(mk(target))
     if (!this.running) {
       this.running = true
       this.iterations = 0

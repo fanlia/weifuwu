@@ -300,3 +300,41 @@ test('vdom4：组件输出 Fragment（多节点——f 空间路径——位置�
   handle.unmount()
   document.body.removeChild(root)
 })
+
+// ── keyed 列表（业务身份——重排复用——组件实例状态保持） ──
+
+test('vdom4：keyed 列表重排——同 key 复用（moveSlot 区间移动）+ 组件状态保持', async () => {
+  const root = mkRoot()
+  let items = ['a', 'b', 'c']
+  const clicks: Record<string, number> = {}
+  const Row = (initProps: { k: string }, ctx: any) => {
+    clicks[initProps.k] = 0
+    return (props: { k: string }) =>
+      h('span', { 'data-k': props.k, onClick: () => { clicks[props.k]++; ctx.render() } }, `${props.k}:${clicks[props.k]}`)
+  }
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    return () => h('div', { id: 'list' }, [
+      h('ul', {}, items.map((it) => h(Row, { key: it, k: it }))),
+      h('button', { id: 'rev', onClick: () => { items = [...items].reverse(); ctx.render() } }, 'rev'),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // 点击 a 一次（状态 1）
+  ;(root.querySelector('#list ul [data-k="a"]') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(root.querySelector('#list ul [data-k="a"]')?.textContent, 'a:1', 'a 点击一次')
+  // 重排（reverse——b,a,c）
+  ;(root.querySelector('#rev') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  const order = [...root.querySelectorAll('#list ul [data-k]')].map((n) => n.getAttribute('data-k'))
+  assert.deepEqual(order, ['c', 'b', 'a'], `重排后顺序——实际 ${order.join(',')}`)
+  // 组件实例状态保持（a 的点击计数不丢——keyed 复用）
+  assert.equal(root.querySelector('#list ul [data-k="a"]')?.textContent, 'a:1', '重排后 a 状态保持（同 key 复用——工厂不重跑）')
+  // 再点 a → 2
+  ;(root.querySelector('#list ul [data-k="a"]') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(root.querySelector('#list ul [data-k="a"]')?.textContent, 'a:2', '重排后交互正常（状态持续）')
+  handle.unmount()
+  document.body.removeChild(root)
+})

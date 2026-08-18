@@ -93,10 +93,12 @@ export class ShadowState {
   deleteInstance(compId: string): void {
     this.instances.delete(compId)
   }
-  /** 落地提交（diff/apply 完成后——nextOutput → lastOutput） */
+  /** 落地提交（diff/apply 完成后——nextOutput → lastOutput）
+   *  同引用（剪枝标记——next === last——diff 判定用）跳过——不 commit（last 已最新——
+   *  commit 会把标记置 null——下次 diff 误判输出 null——clearSlot 误清） */
   commitOutput(compId: string): void {
     const inst = this.instances.get(compId)
-    if (inst?.nextOutput != null) {
+    if (inst?.nextOutput != null && inst.nextOutput !== inst.lastOutput) {
       inst.lastOutput = inst.nextOutput
       inst.nextOutput = null
     }
