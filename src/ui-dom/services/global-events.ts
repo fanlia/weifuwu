@@ -20,6 +20,14 @@ const globalRoots = new Map<EventTarget, Map<string, EventListener>>()
 
 export interface GlobalListenerOptions { capture?: boolean; passive?: boolean }
 
+/** 元素级监听（引擎无关——直接 addEventListener——once 自动解绑。
+ *  vdom3 的 delegate 版（bindEvent + 代理分发）读 data-v3-id——vdom4 节点用
+ *  data-v4-id——失效——hooks 统一走本服务（直接绑定——无代理依赖）） */
+export function bindElementListener(el: Element, event: string, handler: EventListener, once = false): () => void {
+  el.addEventListener(event, handler, once ? { once: true } : undefined)
+  return () => el.removeEventListener(event, handler)
+}
+
 /** 全局监听（document/window 级——同事件多 handler 聚合——每目标每事件一次监听） */
 export function addGlobalListener(target: EventTarget, event: string, handler: EventListener, opts?: GlobalListenerOptions): () => void {
   const realEvent = EVENT_MAP[event] ?? event

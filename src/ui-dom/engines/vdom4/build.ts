@@ -77,12 +77,21 @@ export async function buildVNode(
     const inst: import('./shadow.ts').CompInstance = { type: vnode.type, renderFn, lastProps: { ...vnode.props }, lastOutput: null, nextOutput: null }
     shadow.setInstance(compPath, inst)
     const output = await renderFn(vnode.props)
-    if (process.env.WF_DBG_V4) console.log('[dbg-v4-mp]', compPath, 'propsKeys=', Object.keys(vnode.props).join(','))
     if (output) {
       const built = await buildVNode(output, ctx, shadow, null, `${compPath}.c`, createCompCtx, false)
       inst.nextOutput = built
     }
     return v
+  }
+  // Portal：内容构建（路径 .p 空间——与 diff 的 portal 分支一致——内容组件实例注册）
+  if (typeof vnode.type === 'symbol' && vnode.props?.portalKey != null) {
+    const content = childrenOf(vnode)[0] ?? null
+    const oldContent = oldV && typeof oldV.type === 'symbol' && oldV.props?.portalKey != null ? (childrenOf(oldV)[0] ?? null) : null
+    if (content != null && typeof content === 'object' && !Array.isArray(content)) {
+      const built = await buildVNode(content as VNode, ctx, shadow, oldContent != null && typeof oldContent === 'object' ? oldContent as VNode : null, `${compPath}.p`, createCompCtx, false)
+      return { ...vnode, children: [built] }
+    }
+    return vnode
   }
   // Fragment：展开在父空间（f 空间——输出内部）
   // 结构判定（symbol 且非 portal——兼容组件库的 v3 Fragment symbol——不依赖恒等）

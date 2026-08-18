@@ -6,7 +6,7 @@
  */
 
 import type { HookEnv } from '../contracts/hooks.ts'
-import { bindElementListener } from '../index.ts'
+import { bindElementListener } from '../services/global-events.ts'
 import type {
   UseLongPressOptions,
   UseLongPressHandle,

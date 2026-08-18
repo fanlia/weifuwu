@@ -48,6 +48,17 @@ function compSlotOf(compId: string): number {
 /** 渲染 vnode——path = 节点路径（确定性）；oldV = 旧树对照（null = 全量创建）
  *  ——纯函数（只读影子——命令是唯一输出） */
 function genVNode(vnode: VNode, path: string, oldV: VNode | null, cmds: Command[], shadow: ShadowState, slotAnchor: string | null = null, domParent = parentOfPath(path)): string | null {
+  // Portal（输出根直接是浮层——Modal 等会话级模态——内容渲染到远程容器）
+  if (typeof vnode.type === 'symbol' && vnode.props?.portalKey != null) {
+    const portalKey = String(vnode.props.portalKey)
+    const containerPath = `portal:${portalKey}`
+    const content = childrenOf(vnode)[0] ?? null
+    const oldContent = oldV && typeof oldV.type === 'symbol' && oldV.props?.portalKey != null ? (childrenOf(oldV)[0] ?? null) : null
+    if (content != null && typeof content === 'object' && !Array.isArray(content)) {
+      genVNode(content as VNode, `${path}.p`, oldContent != null && typeof oldContent === 'object' ? oldContent as VNode : null, cmds, shadow, null, containerPath)
+    }
+    return slotAnchor
+  }
   // 组件：输出从影子实例读（build 已展开——nextOutput 暂存/lastOutput 落地）
   if (typeof vnode.type === 'function') {
     const inst = shadow.getInstance(path)
@@ -79,7 +90,7 @@ function genVNode(vnode: VNode, path: string, oldV: VNode | null, cmds: Command[
   // 全量创建（内容插槽位锚后——slotAnchor）
   cmds.push({ op: 'create', id: path, tag: vnode.type as string, vn: vnode })
   for (const [k, val] of Object.entries(vnode.props ?? {})) {
-    if (k === 'key' || k === 'children') continue
+    if (k === 'key' || k === 'children' || k === 'ref') continue
     if (val != null && val !== false) cmds.push({ op: 'setProp', id: path, key: k, value: val })
   }
   cmds.push({ op: 'insert', id: path, parent: domParent, ref: slotAnchor, after: slotAnchor != null })
@@ -93,7 +104,7 @@ function genPatchProps(vnode: VNode, oldV: VNode, path: string, cmds: Command[])
   const newProps = vnode.props ?? {}
   const keys = new Set([...Object.keys(oldProps), ...Object.keys(newProps)])
   for (const k of keys) {
-    if (k === 'key' || k === 'children') continue
+    if (k === 'key' || k === 'children' || k === 'ref') continue
     if (oldProps[k] === newProps[k]) continue
     if (newProps[k] == null || newProps[k] === false) {
       cmds.push({ op: 'setProp', id: path, key: k, value: null, prev: oldProps[k] })
