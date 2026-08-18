@@ -27,8 +27,8 @@ function makeCompCtx(
 ): Ctx {
   return Object.assign(Object.create(inject ?? {}), {
     render: (ids?: string[]) => {
-      if (ids && ids.length > 0) engine.render(ids)
-      else engine.renderComp(compId) // 无参 = 本组件（统一原语的 comp target）
+      if (ids && ids.length > 0) return engine.render(ids)
+      return engine.renderComp(compId) // 无参 = 本组件（统一原语的 comp target）
     },
     data,
     // onUnmount 绑定本组件（工厂期注册——卸载时执行）
@@ -99,6 +99,8 @@ export class Engine {
   private rendering = false
   /** 渲染中触发的目标（单槽位——最新覆盖）——null = root */
   private dirtyTarget: string[] | null | undefined
+  /** 当前渲染 Promise（await render() 精确等待——含补跑完成——渲染中调用返回它） */
+  private drainPromise: Promise<void> | null = null
 
   private inject: Record<string, unknown> | undefined
 
@@ -116,8 +118,8 @@ export class Engine {
   }
 
   /** 组件级渲染（统一原语 comp target） */
-  renderComp(compId: string): void {
-    this.render([compId])
+  renderComp(compId: string): Promise<void> {
+    return this.render([compId])
   }
 
   unmountHooksFor(compId: string): Array<() => void> {
@@ -126,18 +128,21 @@ export class Engine {
     return arr
   }
 
-  /** 统一渲染原语（root/comp/语义 id——同一入口）
+  /** 统一渲染原语（root/comp/语义 id——同一入口）——**返回 Promise**
+   *  （`await ctx.ui.render()` 精确等待——含补跑——完成后 DOM 最新——
+   *  契约 §4.2「测量/动画」；不 await 则 fire-and-forget——行为不变）
    *  **确定性（2026-12 决策——确定性高于 render 次数——无 magic）**：
    *  render() 调用 = 立即启动一次渲染（无微任务延迟/队列/合并——同步进入 build）；
    *  渲染中调用 → 单槽位补跑（记录最新目标——当前渲染完成后执行一次——不丢）；
    *  无外力 → 零渲染。多目标（render(['a','b'])）串行 await。 */
-  render(ids?: string[]): void {
+  render(ids?: string[]): Promise<void> {
     if (this.rendering) {
-      this.dirtyTarget = ids && ids.length > 0 ? ids : null // 单槽位（最新覆盖）
-      return
+      // 渲染中——单槽位补跑（最新覆盖）——返回当前渲染 Promise（含补跑——最终完成）
+      this.dirtyTarget = ids && ids.length > 0 ? ids : null
+      return this.drainPromise ?? Promise.resolve()
     }
     this.rendering = true
-    void (async () => {
+    const p = (async () => {
       try {
         for (;;) {
           const t = this.dirtyTarget
@@ -159,8 +164,11 @@ export class Engine {
         console.error('[vdom4] render error:', e)
       } finally {
         this.rendering = false
+        this.drainPromise = null
       }
     })()
+    this.drainPromise = p
+    return p
   }
 
   /** 根更新（整树——build + diff + apply） */

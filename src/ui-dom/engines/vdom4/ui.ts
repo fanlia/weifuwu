@@ -49,15 +49,16 @@ export interface V4Ui {
 }
 
 /** 组装 ctx.ui（组件实例级——引擎注入调度/卸载） */
-export function createV4Ui(compId: string, scheduleRender: () => void, onUnmountCb: (fn: () => void) => void): V4Ui {
+export function createV4Ui(compId: string, scheduleRender: () => void | Promise<void>, onUnmountCb: (fn: () => void) => void): V4Ui {
   const env: HookEnv = createHookEnv(compId, scheduleRender, onUnmountCb)
   // 实现宽松（TS 推断）——接口严格（组件库调用处类型检查）
   const ui = {
-    render: (ids?: string[]) => {
-      if (!ids || ids.length === 0) { env.scheduleRender(); return }
+    render: (ids?: string[]): Promise<void> => {
+      if (!ids || ids.length === 0) return Promise.resolve(env.scheduleRender())
       const others = ids.filter((i) => i !== compId)
-      if (others.length < ids.length) env.scheduleRender()
+      const own = others.length < ids.length ? Promise.resolve(env.scheduleRender()) : undefined
       if (others.length > 0) renderSemanticIds(others)
+      return own ?? Promise.resolve()
     },
     onUnmount: (fn: () => void) => { onUnmountCb(fn); return undefined },
     selfId: (name: string) => env.registerSemanticId(name),

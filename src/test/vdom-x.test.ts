@@ -1118,3 +1118,33 @@ test('X-G4 组件输出 null → 恢复（lastOutput 同步——旧对照失配
   handle.unmount()
   document.body.removeChild(root)
 })
+
+test('X-A7 await ctx.ui.render() 后 DOM 最新（契约 §4.2——测量/动画；含渲染中 await 补跑）', async () => {
+  const root = mkRoot()
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    let n = 0
+    return () => h('div', {}, [
+      h('span', { id: 'val' }, `n:${n}`),
+      h('button', { id: 'seq', onClick: async () => {
+        n = 1
+        await ctx.render()          // 等待渲染完成（含补跑）
+        const v1 = root.querySelector('#val')?.textContent
+        n = 2
+        await ctx.render()          // 渲染中再渲染（同回调内两次）
+        const v2 = root.querySelector('#val')?.textContent
+        ;(globalThis as any).__seq = [v1, v2]
+      } }, 'seq'),
+    ])
+  }
+  const handle = mount(h(App, {}), root)
+  await handle.ready
+  ;(root.querySelector('[id="seq"]') as HTMLElement).click()
+  await sleep(10)
+  const seq = (globalThis as any).__seq as string[]
+  assert.equal(seq[0], 'n:1', '第一次 await render 后 DOM 已更新（n:1）')
+  assert.equal(seq[1], 'n:2', '第二次 await render 后 DOM 已更新（n:2——渲染中调用也精确等待）')
+  assert.equal(root.querySelector('#val')?.textContent, 'n:2', '最终 DOM 最新')
+  delete (globalThis as any).__seq
+  handle.unmount()
+  document.body.removeChild(root)
+})
