@@ -46,6 +46,7 @@ string·number（文本）/ 空洞（`false`·`null`·`undefined`·`true`——�
 | S4.2 | 受控输入用 `ctx.ui.useControlledInput`（输入态不依赖受控 value 回流——防焦点丢失） | 文档红线 | 输入失焦 |
 | S4.3 | 共享状态 `createStore` + `ctx.ui.useExternal` | 文档红线 | — |
 | S4.4 | 内部状态闭包 `let` + 显式 render（不触发渲染的缓存用 let 不 render） | 文档红线 | — |
+| S4.5 | **props 里的对象变更必须换引用**（不可变更新——`[...items, x]` 而非 `items.push(x)`）——剪枝是引用比较——同引用内容变化永远不触发重渲染（deepFreeze 豁免对象——含函数属性——不被冻结） | 文档红线 | 内容变了 UI 不更新 |
 
 ## S5 浮层
 
