@@ -85,6 +85,40 @@ export class ShadowState {
     this.isAnchor.delete(id)
     this.parentOf.delete(id)
   }
+
+  // ── hydration 吸收（P5——SSR 首帧零重建：现有 DOM 按结构队列复用） ──
+  /** 吸收队列（现有 DOM 节点——DFS 序——与 gen 命令序同构——apply 的 create 按序消耗） */
+  absorbQueue: Node[] | null = null
+  /** 吸收复用的节点（保留标记——未标记的旧节点 mount 后移除） */
+  absorbedNodes = new WeakSet<Node>()
+
+  /** 开始吸收（mount 检测到 SSR 内容时）——DFS 收集现有节点 */
+  beginAbsorb(root: Element): void {
+    const queue: Node[] = []
+    const walk = (el: Element): void => {
+      for (const n of [...el.childNodes]) {
+        queue.push(n)
+        if (n.nodeType === 1) walk(n as Element)
+      }
+    }
+    walk(root)
+    this.absorbQueue = queue
+  }
+
+  /** 消耗队列头（create 复用尝试——类型匹配返回节点并登记保留标记——否则 null） */
+  takeAbsorbed(match: (n: Node) => boolean): Node | null {
+    if (!this.absorbQueue || this.absorbQueue.length === 0) return null
+    const n = this.absorbQueue[0]
+    if (!match(n)) return null // 类型不符——不消耗（重建——旧节点后续移除）
+    this.absorbQueue.shift()
+    this.absorbedNodes.add(n)
+    return n
+  }
+
+  /** 吸收结束（mount apply 后——清理队列状态） */
+  endAbsorb(): void {
+    this.absorbQueue = null
+  }
 }
 
 /** 模块级单例（vdom4 P4 会话实例化——当前与 registry 同生命周期） */

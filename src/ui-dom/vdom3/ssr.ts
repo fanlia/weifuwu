@@ -54,6 +54,8 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
     // native
     const id = nextId()
     events.push(ev('node', 'create', id, { tag: v.type as string }))
+    // data-v3-id 输出（hydration 吸收标记——客户端 create 时覆盖为客户端 id 空间）
+    events.push(ev('prop', 'update', id, { key: 'data-v3-id', value: id, prev: '' }))
     for (const [k, val] of Object.entries(v.props ?? {})) {
       if (k === 'key' || k === 'children') continue
       if (typeof val === 'function') continue // 事件/动态——不序列化（客户端需绑定）
@@ -103,6 +105,7 @@ export async function* renderToEventStream(vnode: VNode): AsyncGenerator<V3Event
     }
     const id = nextId()
     yield ev('node', 'create', id, { tag: v.type as string })
+    yield ev('prop', 'update', id, { key: 'data-v3-id', value: id, prev: '' })
     for (const [k, val] of Object.entries(v.props ?? {})) {
       if (k === 'key' || k === 'children') continue
       if (typeof val === 'function') continue
@@ -168,7 +171,8 @@ export function eventsToHtml(events: V3Event[]): string {
       const a = attrs.get(id)
       const attrStr = a
         ? [...a.entries()]
-            .filter(([k, v]) => typeof v !== 'function' && k !== 'data-v3-id' && k !== 'key' && k !== 'ref')
+            // data-v3-id 保留（hydration 吸收标记——服务端 id 客户端覆盖为客户端 id 空间）
+            .filter(([k, v]) => typeof v !== 'function' && k !== 'key' && k !== 'ref')
             .map(([k, v]) => ` ${k}="${esc(String(v))}"`).join('')
         : ''
       const kids = (childrenOf.get(id) ?? []).map(emit).join('')

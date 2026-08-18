@@ -1114,9 +1114,9 @@ test('SSR 端到端：renderToEvents → eventsToHtml（首帧 HTML）→ 客户
   // 服务端：事件流 + HTML 序列化
   const events = await renderToEvents(h(Page, {}))
   const html = eventsToHtml(events)
-  assert.ok(html.startsWith('<div id="ssr-page" class="card">'), 'HTML 序列化（根元素+属性）')
+  assert.ok(html.startsWith('<div data-v3-id="s1" id="ssr-page" class="card">'), 'HTML 序列化（根元素+属性——含 data-v3-id 吸收标记）')
   assert.ok(html.includes('SSR 标题'), 'HTML 序列化（文本——锚点法 h1 含锚注释）')
-  assert.ok(html.includes('<li><!--wf-anchor-->a</li>') && html.includes('<li><!--wf-anchor-->b</li>'), 'HTML 序列化（列表——锚点法每槽位锚）')
+  assert.ok(/<li data-v3-id="s\d+"><!--wf-anchor-->a<\/li>/.test(html), 'HTML 序列化（列表——含 data-v3-id 吸收标记）')
   // 传输：事件流 JSON
   const json = serializeEvents(events)
   const parsed = deserializeEvents(json)
@@ -1129,7 +1129,7 @@ test('SSR 端到端：renderToEvents → eventsToHtml（首帧 HTML）→ 客户
   replay(parsed, root2)
   // 剔除运行时内部属性（data-v3-id——replay 节点定位用）后同构
   const strip = (h: string) => h.replace(/ data-v3-id="[^"]*"/g, '')
-  assert.equal(strip(root2.innerHTML), root.innerHTML, '客户端重建与服务端 HTML 同构（零 DOM 猜测——内部属性除外）')
+  assert.equal(strip(root2.innerHTML), strip(root.innerHTML), '客户端重建与服务端 HTML 同构（零 DOM 猜测——内部属性除外）')
   document.body.removeChild(root)
   document.body.removeChild(root2)
 })
@@ -3729,4 +3729,54 @@ test('P3：unmount 清理 portal 容器内容（幽灵面板消除）', async ()
   assert.equal(document.querySelector('#__wf_portal [data-wf-portal-key="p3-test"] #pop-panel'), null, 'unmount 清空 portal 内容（幽灵面板消除）')
   document.body.removeChild(root)
   document.querySelector('#__wf_portal')?.remove()
+})
+
+// ── P5：hydration 结构吸收——SSR 首帧零重建（DOM 复用——焦点/状态保持） ──
+
+test('P5：SSR HTML → mount 吸收复用（首帧零重建——DOM 引用保持 + 交互正常）', async () => {
+  const { renderToEvents, eventsToHtml } = await import('../ui-dom/vdom3/ssr.ts')
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  // 服务端渲染（与客户端同一份声明——确定性）
+  let count = 0
+  const App = async (_init: any, ctx: any) => {
+    const rerender = () => ctx.render()
+    return async () => h('div', { id: 'app' }, [
+      h('button', { id: 'plus', onClick: () => { count++; rerender() } }, `count ${count}`),
+      h('ul', {}, ['a', 'b'].map((it) => h('li', { key: it }, it))),
+      false, // 空洞（锚）
+    ])
+  }
+  const events = await renderToEvents(h(App, {}))
+  const html = eventsToHtml(events)
+  // 客户端：SSR HTML 已就位 → mount（吸收）
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  root.innerHTML = html
+  const ssrButton = root.querySelector('#plus') as HTMLElement
+  const ssrLi = root.querySelectorAll('li')[0]
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // 零重建：DOM 引用保持（未 createElement 重建）
+  assert.equal(root.querySelector('#plus'), ssrButton, 'button DOM 复用（吸收——非重建）')
+  assert.equal(root.querySelectorAll('li')[0], ssrLi, '列表项 DOM 复用')
+  assert.equal(root.querySelectorAll('li').length, 2, '列表完整')
+  // 交互正常（吸收后事件绑定生效）
+  ;(root.querySelector('#plus') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('#plus')?.textContent?.includes('count 1'), '吸收后交互正常（count 更新）')
+  handle.unmount()
+  document.body.removeChild(root)
+})
+
+test('P5：无 SSR 内容时 mount 行为不变（boot-loading 占位清除）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  root.innerHTML = '<div class="boot-loading">加载中...</div>'
+  const App = async () => async () => h('div', { id: 'app' }, 'hello')
+  createRoot(h(App, {}), root)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('#app'), '应用渲染')
+  assert.equal(root.querySelector('.boot-loading'), null, 'boot-loading 占位清除（非 SSR 内容）')
+  document.body.removeChild(root)
 })

@@ -99,28 +99,40 @@ export function applyCommands(cmds: Command[], binds: GenOut['binds'] = []): voi
   for (const c of cmds) {
     switch (c.op) {
       case 'create': {
-        const el = SVG_TAGS.has(c.tag)
-          ? document.createElementNS('http://www.w3.org/2000/svg', c.tag)
-          : document.createElement(c.tag)
-        el.setAttribute('data-v3-id', c.id)
+        // hydration 吸收（P5）：现有 DOM 节点按结构队列复用——首帧零重建
+        // （DOM 状态保持：焦点/选区/第三方库——SSR 与客户端同构保证顺序一致）
+        let el: Element
+        const existing = shadow.takeAbsorbed((n) => n.nodeType === 1 && (n as Element).tagName.toLowerCase() === c.tag.toLowerCase())
+        if (existing) {
+          el = existing as Element
+          el.setAttribute('data-v3-id', c.id) // 覆盖为客户端 id（registry/事件代理定位）
+        } else {
+          el = SVG_TAGS.has(c.tag)
+            ? document.createElementNS('http://www.w3.org/2000/svg', c.tag)
+            : document.createElement(c.tag)
+          el.setAttribute('data-v3-id', c.id)
+        }
         registry.register(c.id, el)
         shadow.registerNode(c.id, null)
         c.vn.el = el
-        stream.emit(ev('node', 'create', c.id, { tag: c.tag }))
+        stream.emit(ev('node', 'create', c.id, { tag: c.tag, absorbed: existing != null || undefined }))
         break
       }
       case 'createText': {
-        const t = document.createTextNode(c.value)
+        const existing = shadow.takeAbsorbed((n) => n.nodeType === 3)
+        const t = (existing as Text) ?? document.createTextNode(c.value)
+        if (existing) t.nodeValue = c.value // 复用文本——值对齐（SSR 确定性——通常无变化）
         registry.register(c.id, t)
         shadow.registerNode(c.id, null)
-        stream.emit(ev('text', 'create', c.id, { value: c.value }))
+        stream.emit(ev('text', 'create', c.id, { value: c.value, absorbed: existing != null || undefined }))
         break
       }
       case 'createAnchor': {
-        const hole = document.createComment('wf-anchor')
+        const existing = shadow.takeAbsorbed((n) => n.nodeType === 8 && (n.nodeValue ?? '').includes('wf-anchor'))
+        const hole = (existing as Comment) ?? document.createComment('wf-anchor')
         registry.register(c.id, hole)
         shadow.registerAnchor(c.id, '')
-        stream.emit(ev('node', 'create', c.id, { kind: 'anchor' }))
+        stream.emit(ev('node', 'create', c.id, { kind: 'anchor', absorbed: existing != null || undefined }))
         break
       }
       case 'insert': {
@@ -154,8 +166,11 @@ export function applyCommands(cmds: Command[], binds: GenOut['binds'] = []): voi
           const refNode = typeof c.ref === 'string' ? registry.get(c.ref) : c.ref
           insPoint = c.after && refNode ? refNode.nextSibling : refNode
         }
-        if (insPoint && insPoint.parentNode === parentNode) parentNode.insertBefore(node, insPoint)
-        else parentNode.appendChild(node)
+        // 吸收节点已在位（SSR DOM）——跳过插入（结构同构保证位置一致——零重建）
+        if (!shadow.absorbedNodes.has(node)) {
+          if (insPoint && insPoint.parentNode === parentNode) parentNode.insertBefore(node, insPoint)
+          else parentNode.appendChild(node)
+        }
         shadow.registerNode(c.id, c.parent)
         stream.emit(ev('node', 'insert', c.id, { parent: parentId(parentNode), ref: typeof c.ref === 'string' ? c.ref : c.ref ? nodeId(c.ref) : null, after: c.after ?? false, isAnchor: isAnchor || undefined, causeId: c.causeId ?? undefined }))
         // 插入后补注册（svg/深层元素——挂载点监听缺失——真实 hover 事故）
@@ -481,11 +496,21 @@ export function mount(vnode: VNode, root: HTMLElement, reg?: NodeRegistry): void
     ensureDelegationRoot(root)
     registry.register(NodeRegistry.ROOT, root)
     const ssrOld = [...root.childNodes]
+    // hydration 吸收（P5）：检测 SSR 内容（data-v3-id 节点 / wf-anchor 注释——引擎标记——
+    // boot-loading 等无标记占位不误判）→ 结构队列——apply 复用零重建
+    const hasSsr = ssrOld.some((n) =>
+      (n.nodeType === 1 && (n as Element).hasAttribute('data-v3-id'))
+      || (n.nodeType === 8 && (n.nodeValue ?? '').includes('wf-anchor')))
+    if (hasSsr) shadow.beginAbsorb(root)
     const cmds: Command[] = []
     const binds: GenOut['binds'] = []
     genRender(vnode, NodeRegistry.ROOT, null, cmds, binds)
     applyCommands(cmds, binds)
-    for (const n of ssrOld) if (n.parentNode === root) root.removeChild(n)
+    // 移除未吸收的旧内容（SSR 结构之外的——boot-loading 占位等——吸收节点保留）
+    for (const n of ssrOld) {
+      if (n.parentNode === root && !shadow.absorbedNodes.has(n)) root.removeChild(n)
+    }
+    shadow.endAbsorb()
   } finally {
     registry = prev
   }
