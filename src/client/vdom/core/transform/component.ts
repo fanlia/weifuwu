@@ -19,10 +19,11 @@
 import type { TransformContext, TransitionFn } from './index.ts'
 
 /** component → X：组件卸载（onUnmounts）+ 输出节点移除（让位） */
-export const transitionComponent: TransitionFn = (_old, _next, ctx) => {
+export const transitionComponent: TransitionFn = async (_old, next, ctx) => {
   // 1. 组件卸载清理（onUnmounts——实例注册表消费）
   if (ctx.oldCompId) ctx.emit({ op: 'unmountComp', compId: ctx.oldCompId })
-  // 2. 输出节点移除（组件锚/输出区间——多根由 diff 的锚点区间清理负责——
-  //    首锚 remove——区间内节点由 diff 遍历移除）
+  // 2. 旧输出区间移除（首锚让位——区间由 diff 的锚点区间清理负责）
   ctx.emit({ op: 'remove', id: ctx.oldId })
+  // 3. 新侧渲染（同一位置）
+  await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

@@ -16,6 +16,7 @@
 import type { TransformContext, TransitionFn } from './index.ts'
 
 /** portal → X：主树插槽锚移除（让位——浮层内容由 diff 清理 portal 区间） */
-export const transitionPortal: TransitionFn = (_old, _next, ctx) => {
+export const transitionPortal: TransitionFn = async (_old, next, ctx) => {
   ctx.emit({ op: 'remove', id: ctx.oldId })
+  await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

@@ -13,6 +13,7 @@
 import type { TransformContext, TransitionFn } from './index.ts'
 
 /** element → X：旧元素移除（含子树——让位） */
-export const transitionElement: TransitionFn = (_old, _next, ctx) => {
+export const transitionElement: TransitionFn = async (_old, next, ctx) => {
   ctx.emit({ op: 'remove', id: ctx.oldId })
+  await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

@@ -1,10 +1,11 @@
 /**
- * vdom transform — 状态机测试（转换表选择 + 策略命令生成）
+ * vdom transform — 状态机测试（转换表选择 + **完整转换**策略命令）
  *
  * 锁定规则（AGENTS §4.0/§6.3——占位法）：
  * - 同态（text→text/element→element/component→component/hole→hole/
  *   fragment→fragment/portal→portal）= null 策略（diff 就地 patch——不重建）
- * - 异态走转换：旧侧让位（remove/unmountComp）——新侧 diff 渲染到同一位置
+ * - **异态 = 完整转换**（状态机——各状态文件）：旧侧让位（remove/
+ *   unmountComp）+ ctx.emitNode 新侧渲染——diff 只查表调用——不手写转换
  * - component → X 先 unmountComp（onUnmounts 清理）再移除
  */
 
@@ -13,6 +14,14 @@ import assert from 'node:assert/strict'
 import { transitionOf, runTransition, TRANSITIONS } from './table.ts'
 import { stateOf } from './states.ts'
 import type { TransformContext } from './index.ts'
+
+function mkCtx(cmds: unknown[], emitted: unknown[] = []): TransformContext {
+  return {
+    emit: (c) => cmds.push(c),
+    emitNode: async (v) => { emitted.push(v) },
+    oldId: 'root.1', newId: 'root.1', parent: 'root.0', index: 1, ref: 'root.0.0',
+  }
+}
 
 test('转换表完整性：7×7 全策略（同态 null + 异态函数）', () => {
   const states = ['text', 'hole', 'element', 'component', 'fragment', 'portal', 'array']
@@ -38,35 +47,43 @@ test('stateOf：vnode 形态 → 转换状态', () => {
   assert.equal(stateOf([]), 'array')
 })
 
-test('null <-> component：hole → component 策略 = 锚让位（remove）', () => {
+test('null <-> component：hole → component 完整转换（锚让位 + 新侧渲染）', async () => {
   const cmds: unknown[] = []
-  const ctx: TransformContext = { emit: (c) => cmds.push(c), oldId: 'root.1', newId: 'root.1', parent: 'root.0', ref: 'root.0.0' }
-  runTransition('hole', 'component', null, { type: () => () => null }, ctx)
-  assert.deepEqual(cmds, [{ op: 'remove', id: 'root.1' }], '旧锚移除——新组件 diff 渲染')
+  const emitted: unknown[] = []
+  const comp = { type: () => () => null, props: {}, key: null }
+  await runTransition('hole', 'component', null, comp as never, mkCtx(cmds, emitted))
+  assert.deepEqual(cmds, [{ op: 'remove', id: 'root.1' }], '旧锚移除')
+  assert.deepEqual(emitted, [comp], '新侧经 emitNode 渲染（状态机完整）')
 })
 
-test('null <-> fragment：hole → fragment 策略（条件渲染空数组）', () => {
+test('null <-> fragment：hole → fragment 完整转换（条件渲染空数组）', async () => {
   const cmds: unknown[] = []
-  const ctx: TransformContext = { emit: (c) => cmds.push(c), oldId: 'root.1', newId: 'root.1', parent: 'root.0', ref: null }
-  runTransition('hole', 'fragment', null, [], ctx)
+  const emitted: unknown[] = []
+  await runTransition('hole', 'fragment', null, [], mkCtx(cmds, emitted))
   assert.equal(cmds.length, 1)
+  assert.deepEqual(emitted, [[]])
 })
 
-test('component <-> fragment：component 先 unmountComp 再移除', () => {
+test('component <-> fragment：component 先 unmountComp 再移除 + 新侧渲染', async () => {
   const cmds: unknown[] = []
-  const ctx: TransformContext = { emit: (c) => cmds.push(c), oldId: 'root.0', newId: 'root.0', parent: 'root', ref: null, oldCompId: 'root.0' }
-  runTransition('component', 'fragment', { type: () => () => null }, [], ctx)
+  const emitted: unknown[] = []
+  const ctx = mkCtx(cmds, emitted)
+  ctx.oldCompId = 'root.1'
+  await runTransition('component', 'fragment', { type: () => () => null }, [], ctx)
   assert.deepEqual(cmds, [
-    { op: 'unmountComp', compId: 'root.0' },
-    { op: 'remove', id: 'root.0' },
+    { op: 'unmountComp', compId: 'root.1' },
+    { op: 'remove', id: 'root.1' },
   ], '卸载清理先于移除')
+  assert.deepEqual(emitted, [[]], '新侧渲染')
 })
 
-test('element <-> component：元素让位（无组件卸载）', () => {
+test('element <-> component：元素让位 + 新侧渲染（无组件卸载）', async () => {
   const cmds: unknown[] = []
-  const ctx: TransformContext = { emit: (c) => cmds.push(c), oldId: 'root.2', newId: 'root.2', parent: 'root', ref: null }
-  runTransition('element', 'component', { type: 'div', props: {}, key: null }, { type: () => () => null }, ctx)
-  assert.deepEqual(cmds, [{ op: 'remove', id: 'root.2' }])
+  const emitted: unknown[] = []
+  const comp = { type: () => () => null, props: {}, key: null }
+  await runTransition('element', 'component', { type: 'div', props: {}, key: null }, comp as never, mkCtx(cmds, emitted))
+  assert.deepEqual(cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(emitted, [comp])
 })
 
 test('transitionOf：同态 null / 异态函数', () => {

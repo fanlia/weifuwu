@@ -49,15 +49,16 @@ export function diffStream(
       const newState = stateOf(newTree)
       const t = transitionOf(oldState, newState)
       if (t) {
-        // 异类型（导航/整树替换）：transform 旧侧让位——新侧全量渲染
+        // 异类型（导航/整树替换）：transform 完整转换（旧侧让位 + 新侧渲染）
         await t(oldTree, newTree, {
           emit: emitCommand,
+          emitNode: emit,
           oldId: 'root.0',
           newId: 'root.0',
           parent: 'root',
+          index: 0,
           ref: null,
         })
-        await emit(newTree, 'root', 0, null)
       } else {
         // 同态：对照（组件复用/元素精准 diff/children 递归）
         await diffSame(oldTree, newTree, 'root', 0, null, emit, emitCommand, ctx, registry)
@@ -88,12 +89,30 @@ async function diffSame(
   // 组件同类型复用（工厂不重跑——renderFn 重新调用——输出对照上次——精准 patch）
   if (typeof newV.type === 'function') {
     const rec = registry.get(id)
-    const oldOut = rec?.lastOutput ?? null
+    const oldOut = rec?.lastOutput
     await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
-      if (oldOut !== null && oldOut !== undefined && typeof oldV.type === 'function') {
+      const outId = pathId(p, i)
+      // **输出级转换（状态机统一——transform 完整转换）**：
+      //   vnode → null：element→hole（remove 旧 + 占位锚——wf-hole——同构保持）
+      //   null → vnode：hole→element（remove 锚 + 新侧渲染——X-G4 恢复）
+      if (out === null || out === undefined) {
+        if (oldOut !== undefined && oldOut !== null) {
+          const t = transitionOf(stateOf(oldOut), 'hole')
+          if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+        }
+        // 旧输出已为 null（锚保持——no-op）
+        return
+      }
+      if (oldOut === null) {
+        const t = transitionOf('hole', stateOf(out))
+        if (t) await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+        return
+      }
+      if (oldOut !== undefined && typeof oldV.type === 'function' && !Array.isArray(oldOut) && !Array.isArray(out)) {
         // 上次输出对照（同实例——精准增量）
         await diffSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
       } else {
+        // 首帧 / 多根输出（数组——锚点区间——首版新侧渲染）
         await emit(out, p, i, r)
       }
     })
@@ -193,12 +212,11 @@ async function diffSlot(
     await diffSame(oldC as VNode, newC as VNode, parent, index, ref, emit, emitCommand, ctx, registry)
     return
   }
-  // 异类型转换（transform——旧侧让位 + 新侧渲染）
+  // 异类型转换（transform——**完整转换**：旧侧让位 + 新侧渲染——状态机统一）
   const t = transitionOf(stateOf(oldC), stateOf(newC))
   if (t) {
-    await t(oldC, newC, { emit: emitCommand, oldId: cid, newId: cid, parent, ref })
+    await t(oldC, newC, { emit: emitCommand, emitNode: emit, oldId: cid, newId: cid, parent, index, ref })
   }
-  await emit(newC, parent, index, ref)
 }
 
 /** keyed 列表对照（身份映射——planKeyedDiff——增删/重排状态跟随 key）

@@ -18,6 +18,7 @@
 import type { TransformContext, TransitionFn } from './index.ts'
 
 /** fragment → X：旧展开区间移除（首锚让位——区间由 diff 清理） */
-export const transitionFragment: TransitionFn = (_old, _next, ctx) => {
+export const transitionFragment: TransitionFn = async (_old, next, ctx) => {
   ctx.emit({ op: 'remove', id: ctx.oldId })
+  await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

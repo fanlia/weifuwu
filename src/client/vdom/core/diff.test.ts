@@ -286,3 +286,46 @@ test('A 级检测：长度一致（无 key）不 warn；长度变化（全 keyed
     console.warn = origWarn
   }
 })
+
+test('组件输出 null：条件渲染组件切换（div → null → div——占位锚 ↔ 真实节点——X-G4）', async () => {
+  const hz = harness(testBrowser())
+  const Cond = (_init: Record<string, unknown>) => {
+    // 受控 props：renderFn 读最新 props（闭包 let 不同步——AGENTS §3.1）
+    return (props: Record<string, unknown>) => props.show ? h('div', { class: 'box' }, '内容') : null
+  }
+  const page = (show: boolean, toggle: () => void) => h('div', {}, h(Cond, { show, ctx: { toggle } }))
+  let toggle = () => {}
+  await hz.mount(page(true, toggle))
+  const div = hz.root.querySelector('.box')
+  assert.ok(div, '组件输出 div')
+  // 输出 → null：占位锚替换（同构——长度保持）
+  toggle = () => {}
+  await hz.update(page(true, toggle), page(false, toggle))
+  const container = hz.root.querySelector('div')!
+  assert.equal(container.childNodes.length, 1, '长度恒定（div → 锚）')
+  assert.equal(container.childNodes[0].nodeType, 8, '组件输出 null → wf-hole 占位锚')
+  // null → 输出：锚 → 真实节点（X-G4 恢复）
+  await hz.update(page(false, toggle), page(true, toggle))
+  assert.equal(hz.root.querySelector('.box')?.textContent, '内容', '恢复渲染')
+  assert.equal(container.childNodes.length, 1, '同构保持（锚 → div）')
+})
+
+test('组件输出 null 精准命令流：div → null 只发 remove + 锚（无重建噪音）', async () => {
+  const hz = harness(testBrowser())
+  const Cond = (_init: Record<string, unknown>) => {
+    return (props: Record<string, unknown>) => props.show ? h('div', { class: 'box' }, 'x') : null
+  }
+  const page = (show: boolean) => h('div', {}, h(Cond, { show }))
+  await hz.mount(page(true))
+  const cmds: unknown[] = []
+  const stream = diffStream(page(true), page(false), {} as Ctx, hz.registry)
+  const reader = stream.getReader()
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    cmds.push(value)
+  }
+  const ops = cmds.map((c) => (c as { op: string }).op)
+  assert.deepEqual(ops, ['remove', 'createAnchor', 'insert', 'done'],
+    '精准：组件输出 div → null——remove 旧 + 占位锚')
+})

@@ -16,27 +16,39 @@
  *   text.ts / hole.ts / element.ts / component.ts / fragment.ts / portal.ts
  */
 
+import type { VNodeChild } from '../vnode.ts'
+
 export type NodeState = 'text' | 'hole' | 'element' | 'component' | 'fragment' | 'portal' | 'array'
 
-/** 转换上下文（diff 调用——命令发射 + 位置信息） */
+/** 转换上下文（diff 调用——命令发射 + 新侧渲染 + 位置信息） */
 export interface TransformContext {
-  /** 命令发射（diff 生成的命令序列——apply 侧执行） */
+  /** 命令发射（旧侧让位：remove/unmountComp——diff 生成的命令序列） */
   emit(cmd: unknown): void
+  /** 新侧渲染（sink——共享分发器——转换函数内部完成完整转换） */
+  emitNode(v: VNodeChild, parent: string, index: number, ref: string | null): Promise<void>
   /** 旧节点锚/元素 id（旧树 id——diff 的 oldId 空间） */
   oldId: string
   /** 新节点 id（新树 id——diff 的 newId 空间） */
   newId: string
   /** 父节点 id（'root' = 根容器） */
   parent: string
+  /** 新侧位置 index（emitNode 用） */
+  index: number
   /** 前一个兄弟 id（插入位置——null = 尾部） */
   ref: string | null
   /** 旧组件实例 id（component 转换时——卸载/复用） */
   oldCompId?: string
 }
 
-/** 转换策略函数（各状态文件实现——返回 Promise 支持异步组件） */
+/** 新侧渲染 sink（与 build 的 RenderSink 同形——transform 不依赖 build） */
+export type TransformSink = (
+  v: VNodeChild, parent: string, index: number, ref: string | null,
+) => Promise<void>
+
+/** 转换策略函数（各状态文件实现——**完整转换**：旧侧让位命令 + ctx.emitNode
+ *  新侧渲染——返回 Promise 支持异步组件） */
 export type TransitionFn = (
   oldNode: unknown,
-  nextNode: unknown,
+  nextNode: VNodeChild,
   ctx: TransformContext,
 ) => Promise<void> | void

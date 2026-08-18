@@ -19,6 +19,7 @@
  *   portal.ts    —— portal ↔ 其余（浮层槽位切换）
  */
 
+import type { VNodeChild } from '../vnode.ts'
 import type { NodeState, TransformContext, TransitionFn } from './index.ts'
 import { transitionText } from './text.ts'
 import { transitionHole } from './hole.ts'
@@ -48,7 +49,7 @@ export function runTransition(
   oldState: NodeState,
   newState: NodeState,
   oldNode: unknown,
-  nextNode: unknown,
+  nextNode: VNodeChild,
   ctx: TransformContext,
 ): Promise<void> | void {
   const fn = transitionOf(oldState, newState)
