@@ -21,7 +21,7 @@ import type {
   WfToolProgress,
   WfToolResult,
   WfUsage,
-} from '../ai/types.ts'
+} from '../../server/ai/types.ts'
 
 export interface AiStreamCallbacks {
   /** wf:token — 增量文本，直接 append */

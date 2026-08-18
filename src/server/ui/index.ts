@@ -30,11 +30,11 @@ import { build } from 'esbuild'
 import { readFile, stat } from 'node:fs/promises'
 import { resolve, dirname, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Middleware, Context } from '../../server/types.ts'
+import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
-import { renderToEvents, eventsToHtml } from '../ui-dom/vdom3/ssr.ts'
-import { h } from '../ui-dom/vdom3/jsx.ts'
-import type { Component } from '../ui-dom/vnode.ts'
+import { renderToEvents, eventsToHtml } from '../../client/ui-dom/vdom3/ssr.ts'
+import { h } from '../../client/ui-dom/vdom3/jsx.ts'
+import type { Component } from '../../client/ui-dom/vnode.ts'
 
 // 浏览器端编译 alias：weifuwu/* → 同构源码/产物（与 weifuwu/dev 的 BARE_ALIASES 一致——
 // 全单图防 dist/src 双实例（AGENTS.md §6.1）；显式 alias 绕开 esbuild self-reference

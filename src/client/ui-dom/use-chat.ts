@@ -29,7 +29,7 @@ import type {
   WfToolProgress,
   WfToolResult,
   WfUsage,
-} from '../ai/types.ts'
+} from '../../server/ai/types.ts'
 
 // ── 类型 ─────────────────────────────────────────────────
 

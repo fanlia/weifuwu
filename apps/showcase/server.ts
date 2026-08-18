@@ -13,7 +13,7 @@
  *   /llms.txt             全站 LLM 索引（= content/index.md）
  */
 import { serve, Router, ui } from '../../src/server/index.ts'
-import { HtmlSafe } from '../../src/client/ui/html-safe.ts'
+import { HtmlSafe } from '../../src/server/ui/html-safe.ts'
 import { shellHeader } from './src/ssr-header.ts'
 // ctx.ui.html 标签模板会转义插值——HTML 插值（header/防闪脚本）需 unsafe 包裹
 const unsafe = (s: string): string => new HtmlSafe(s) as unknown as string

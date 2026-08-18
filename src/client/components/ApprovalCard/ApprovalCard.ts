@@ -2,7 +2,7 @@ import type { Component } from '../../ui-dom/vnode.ts'
 import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 import { JsonSchemaForm, type JsonSchema } from '../JsonSchemaForm/JsonSchemaForm.ts'
-import type { WfApprovalRequest } from '../../ai/types.ts'
+import type { WfApprovalRequest } from '../../../server/ai/types.ts'
 
 /**
  * ApprovalCard — 人工审批卡片（wf: 协议 §4.5 交互原语）

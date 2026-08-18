@@ -3,7 +3,7 @@ import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 import { JSONViewer } from '../JSONViewer/JSONViewer.ts'
 import type { IconName } from '../Icon/Icon.ts'
-import type { WfToolCall, WfToolProgress, WfToolResult } from '../../ai/types.ts'
+import type { WfToolCall, WfToolProgress, WfToolResult } from '../../../server/ai/types.ts'
 
 /**
  * ToolCallCard — 工具调用卡片（wf: 协议 §4 交互原语）
