@@ -21,7 +21,7 @@ import { childrenOf } from './node/children.ts'
 import { kindOf } from './node/index.ts'
 import { stateOf } from './transform/states.ts'
 import { transitionOf } from './transform/table.ts'
-import { listKind, planKeyedDiff, keyOf } from './node/keyed.ts'
+import { listKind, planKeyedDiff, keyOf, detectMissingKey } from './node/keyed.ts'
 import { createRenderDispatcher, type RenderSink } from './build.ts'
 import { renderComponent, type ComponentRegistry } from './node/component.ts'
 import { pathId, serializableAttrs } from './node/native.ts'
@@ -139,6 +139,11 @@ async function diffChildren(
 ): Promise<void> {
   const oldCs = childrenOf(oldV)
   const newCs = childrenOf(newV)
+  // A 级检测（长度变化 + 无 key 组件项 → warn 引导声明 key——
+  // 无 key = 位置身份——长度变化时有状态组件位置继承漂移）
+  if (oldCs.length !== newCs.length) {
+    detectMissingKey(newCs, `children（长度 ${oldCs.length} → ${newCs.length}）`)
+  }
   // 全 keyed：身份映射复用（增删/重排——状态跟随 key）
   if (listKind(newCs) === 'all-keyed' && listKind(oldCs) === 'all-keyed') {
     await diffKeyedChildren(oldCs, newCs, id, emit, emitCommand, ctx, registry)

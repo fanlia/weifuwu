@@ -247,3 +247,42 @@ test('keyed 列表：重排——组件实例复用（工厂不重跑——状�
   assert.equal(items[1].textContent, 'a')
   assert.equal(items[2].textContent, 'b')
 })
+
+test('A 级检测：长度变化 + 无 key 组件项 → warn 引导声明 key（位置继承漂移防护）', async () => {
+  const hz = harness(testBrowser())
+  const warns: string[] = []
+  const origWarn = console.warn
+  console.warn = (m: unknown) => { warns.push(String(m)) }
+  try {
+    const Item = () => () => h('span', {}, 'x')
+    const list = (n: number) => h('div', {}, Array.from({ length: n }, () => h(Item, {})))
+    await hz.mount(list(2))
+    await hz.update(list(2), list(3))
+    assert.equal(warns.length, 1, '长度变化 + 无 key 组件 → warn')
+    assert.match(warns[0], /key/)
+  } finally {
+    console.warn = origWarn
+  }
+})
+
+test('A 级检测：长度一致（无 key）不 warn；长度变化（全 keyed）不 warn', async () => {
+  const hz = harness(testBrowser())
+  const warns: string[] = []
+  const origWarn = console.warn
+  console.warn = (m: unknown) => { warns.push(String(m)) }
+  try {
+    const Item = () => () => h('span', {}, 'x')
+    // 长度一致（2 → 2——无 key 组件）——位置对照正确——不 warn
+    const list = (keys?: string[]) => h('div', {}, keys
+      ? keys.map((k) => h(Item, { key: k }))
+      : [h(Item, {}), h(Item, {})])
+    await hz.mount(list())
+    await hz.update(list(), list())
+    assert.equal(warns.length, 0, '长度一致——位置身份正确——不 warn')
+    // 长度变化（2 → 3——全 keyed）——身份复用——不 warn
+    await hz.update(list(['a', 'b']), list(['a', 'b', 'c']))
+    assert.equal(warns.length, 0, '全 keyed——身份复用——不 warn')
+  } finally {
+    console.warn = origWarn
+  }
+})
