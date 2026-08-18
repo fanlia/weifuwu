@@ -3370,33 +3370,27 @@ test('阶段 D：__wf_builds 按组件查构建决策（reason 可见）', async
   document.body.removeChild(root)
 })
 
-// ── 第二轮阶段 1：props 内容级透明（dev 快照检测原地改对象） ──
+// ── P2a：props 不可变契约机制化（dev 深度冻结——原地改立即 TypeError） ──
 
-test('阶段 1：原地改对象 props → dev warn；新建对象 → 无 warn', async () => {
+test('P2a：dev 深度冻结 props——原地改对象立即抛错；新建对象正常渲染', async () => {
   const root = document.createElement('div')
   document.body.appendChild(root)
   const { createRoot } = await import('../ui-dom/vdom3/root.ts')
-  const warns: string[] = []
-  const ow = console.warn
-  console.warn = (...a: any[]) => { if (String(a[0]).includes('[vdom3/audit]')) warns.push(String(a[0])); ow(...a) }
   let data: any = { k: 'a' }
   const Item = async (_init: any) => async (props: any) => h('div', {}, props.data.k)
   const App = async (_init: any) => async () => h('div', {}, [h(Item, { data })])
   const handle = createRoot(h(App, {}), root)
   await handle.ready
-  // 原地改对象（引用不变——内容变）
-  ;(data as any).k = 'changed'
-  handle.rerender()
-  await new Promise((r) => setTimeout(r, 20))
-  assert.ok(warns.length > 0, `原地改对象触发 dev warn——实际 ${warns.length}`)
-  assert.ok(warns[0].includes('Item'), `warn 指明组件——实际 ${warns[0].slice(0, 60)}`)
-  // 新建对象（引用变）→ 无新 warn
-  const before = warns.length
+  assert.ok(Object.isFrozen(data), `props 对象已冻结（机制强制——原地改不可行）`)
+  // 原地改对象 → strict mode 立即 TypeError（不再是事后 warn——静默失效从根上消灭）
+  assert.throws(() => { (data as any).k = 'changed' }, TypeError, '原地改冻结对象抛 TypeError')
+  assert.equal(data.k, 'a', '原地修改被冻结拦截（内容未变）')
+  // 新建对象（引用变）→ 正常渲染 + 新对象也被冻结
   data = { k: 'new-object' }
   handle.rerender()
   await new Promise((r) => setTimeout(r, 20))
-  console.warn = ow
-  assert.equal(warns.length, before, `新建对象不再触发 warn`)
+  assert.equal(root.textContent?.includes('new-object'), true, '新建对象正常渲染')
+  assert.ok(Object.isFrozen(data), '新 props 对象也被冻结')
   document.body.removeChild(root)
 })
 

@@ -26,23 +26,18 @@ export function isVNode(v: unknown): v is VNode {
   return v != null && typeof v === 'object' && !Array.isArray(v) && 'type' in v
 }
 
-/** props 内容快照（透明度 round2 阶段 1——dev only）：引用类型字段 JSON 序列化——
- *  对比上次快照检测"内容变但引用没变"（业务原地改对象——Chat 空 bubble 事故变体） */
-function propsSnap(props: Record<string, unknown>): string | null {
-  try {
-    const picked: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(props)) {
-      // 仅引用类型（对象/数组）——函数/原始值跳过（引用比较已覆盖）
-      if (v != null && typeof v === 'object') {
-        const s = JSON.stringify(v)
-        if (s != null && s.length <= 10000) picked[k] = s // 大小防御（>10KB 跳过）
-      }
-    }
-    return Object.keys(picked).length > 0 ? JSON.stringify(picked) : null
-  } catch { return null }
+/** props 深度冻结（vdom4 P2a——dev only）：props 不可变契约**机制化**——
+ *  原地修改对象 → strict mode 立即 TypeError（不再事后 propsSnap warn）——
+ *  剪枝的引用比较由此获得内容不变性保证（冻结 = 引用相同则内容必相同）。
+ *  __WF_V3_AUDIT !== '0' 时启用（默认开——dev/测试）——生产可关（开销零） */
+function deepFreeze<T>(obj: T): T {
+  if (obj == null || typeof obj !== 'object') return obj
+  for (const k of Object.keys(obj as Record<string, unknown>)) {
+    const v = (obj as Record<string, unknown>)[k]
+    if (v != null && typeof v === 'object') deepFreeze(v)
+  }
+  return Object.freeze(obj)
 }
-// 内容变更告警去重（同组件同 key——dev 常亮不刷屏——只在真发生时提示）
-const warnedContentChange = new Set<string>()
 
 /** props 浅比较（剪枝——vdom2 componentPropsEqual 补齐）：引用比较（含函数——
  *  稳定引用纪律 §3.1：mount 层定义回调——render 内定义的新函数导致重渲染） */
@@ -86,32 +81,19 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
         // 剪枝克隆继承 el（否则 patch 时 ov.el 缺失 → 降级重建 → 重建项插末尾——
         // 审计抓出的 children 顺序错位（统计页 grid 每次重建的真实 bug））
         if (reuse.el != null) v.el = reuse.el
-        // 透明度 round2 阶段 1（dev only）：内容变但引用没变检测——快照对比
-        // （业务原地改 props 对象（Object.assign/数组 push）——剪枝跳过——渲染不更新）
-        if ((globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0' && reuse._propsSnap != null) {
-          const cur = propsSnap(v.props)
-          if (cur != null && cur !== reuse._propsSnap) {
-            const key = `${compName(v.type)}:${cur.slice(0, 40)}`
-            if (!warnedContentChange.has(key)) {
-              warnedContentChange.add(key)
-              console.warn(
-                `[vdom3/audit] 组件 ${compName(v.type)} 的 props 对象内容已变但引用未变` +
-                `（原地修改对象？）——剪枝将跳过重渲染——请新建对象传 props（props 不可变契约）`,
-              )
-            }
-          }
-        }
+        // P2a：dev 深度冻结 props——原地修改立即 TypeError（机制强制——替代 propsSnap
+        // 事后 warn——引用比较由此获得内容不变性保证）
+        if ((globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0') deepFreeze(v.props)
         // BUILD 事件（透明度 A.1——剪枝决策可见）：reason 'reuse-skip'——
         // props 浅比较相同 → 复用旧输出（零 RENDER）——业务排查"渲染没更新"时
         // 一眼看到此原因（= 契约：props 引用未变——需新建对象触发）
         stream.emit(ev('comp', 'build', v._id!, { name: compName(v.type), reused: true, index: true, reason: 'reuse-skip', propsKeys: Object.keys(v.props) }))
-        v._propsSnap = propsSnap(v.props)
         return v
       }
       // props 变化 → 驱动重渲染（PROPS_UPDATE 事件——变化的 key 可观测）
       const changedKeys = Object.keys({ ...reuse.props, ...v.props }).filter((k) => reuse.props[k] !== v.props[k])
       stream.emit(ev('props', 'update', v._id!, { name: compName(v.type), keys: changedKeys }))
-      v._propsSnap = propsSnap(v.props)
+      if ((globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0') deepFreeze(v.props)
       // BUILD 事件（透明度 A.1）：reason 'props-changed'（props 变重跑）/
       // 'root-render'（根组件——内部状态变化必须重跑——即使 props 未变）
       stream.emit(ev('comp', 'build', v._id!, { name: compName(v.type), reused: true, index: true, reason: isRoot ? 'root-render' : 'props-changed', changedKeys }))
@@ -155,7 +137,7 @@ export async function buildVNode(vnode: VNode, ctx: V3Ctx, oldV?: VNode | null, 
         throw e // 保持传播——上层（updateComponent/handleRoute）捕获并记录
       }
       v._render = renderFn
-      v._propsSnap = propsSnap(v.props) // 透明度 round2 阶段 1：首次也记录快照（对比基线）
+      if ((globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0') deepFreeze(v.props)
     }
     // RENDER 事件：jsx 层——组件 renderFn 执行（每次渲染可观测——更新链路）
     stream.emit(ev('comp', 'render', v._id!, { name: compName(v.type) }))
