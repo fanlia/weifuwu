@@ -22,7 +22,7 @@ export function testBrowser(): Browser {
     pretendToBeVisual: true,
   })
   return {
+    window: dom.window as unknown as Window,
     document: dom.window.document,
-    location: dom.window.location,
   }
 }

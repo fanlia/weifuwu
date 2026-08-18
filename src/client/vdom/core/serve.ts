@@ -67,7 +67,7 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   const ctx = {} as Ctx // 组件 ctx（render/data/ui...）后续实现——当前最小
 
   const ready = (async () => {
-    const req = frontRequest(opts.browser.location.pathname)
+    const req = frontRequest(opts.browser.window.location.pathname)
     const res = await router.resolve(req, ctx)
     if (!res.body) return
     const applier = new CommandApplier(rootEl, doc)
