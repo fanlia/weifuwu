@@ -8,10 +8,10 @@
 
 import type { VNode, V3Ctx, PortalVNode } from './types.ts'
 import { buildVNode } from './build.ts'
-import { mount, patch, removeNodeWithLifecycle, removePortalContent, isPortalNode } from './render.ts'
+import { mount, patch, removeNodeWithLifecycle, removePortalContent, isPortalNode, disposeTree } from './render.ts'
 import { stream, ev } from './events.ts'
 import { findComponent } from './root.ts'
-import { ensureDelegationRoot, addGlobalListener } from './delegate.ts'
+import { ensureDelegationRoot, addGlobalListener, removeDelegationRoot } from './delegate.ts'
 import { getIndexedComponent } from './comp-index.ts'
 import { auditDomEvents } from './audit.ts'
 import type { RouteDef, RouterHandle } from '../contracts/renderer.ts'
@@ -279,6 +279,11 @@ export function createRouter(routes: RouteDef[], root: HTMLElement, options?: { 
     },
     path: () => (isolated ? routeState.path : window.location.pathname),
     refresh: () => { void handleRoute(isolated ? routeState.path : window.location.pathname) },
-    close: () => { offPop(); offClick() },
+    close: () => {
+      offPop(); offClick()
+      // dispose 协议（P3）：页面树清理（钩子/ref/事件解绑——路由关闭泄漏消除）
+      if (current) disposeTree(current)
+      removeDelegationRoot(root)
+    },
   }
 }

@@ -412,7 +412,10 @@ function removeNestedPortals(v: VNodeChild | null | undefined): void {
 /** removePortal 命令执行：远程容器清空（子树 REMOVE 事件 + ref(null)——ref 纪律） */
 export function removePortalContentExec(portalKey: string, pv: VNode | null | undefined, causeId?: string | null): void {
   if (pv) for (const c of childrenOf(pv)) removeNestedPortals(c)
-  const container = ensurePortalContainer(portalKey)
+  // 容器不存在 → 无内容可清（不创建——关闭/清理不产生副作用——幽灵空容器消除）
+  const container = document.getElementById('__wf_portal')
+    ?.querySelector(`[data-wf-portal-key="${portalKey}"]`) as HTMLElement | null
+  if (!container) return
   if (pv) callRefCleanup(pv)
   for (const child of [...container.childNodes]) {
     unbindAll(registry.idOf(child))
@@ -430,6 +433,40 @@ export function removePortalContentExec(portalKey: string, pv: VNode | null | un
 /** 兼容导出（vdom2/vdom3 调用方签名——PortalVNode → portalKey+vn） */
 export function removePortalContent(pv: PortalVNode): void {
   removePortalContentExec(String(pv.props?.portalKey ?? 'default'), pv, null)
+}
+
+/** 卸载树（dispose 协议——P3——应用/根销毁的统一清理）：
+ *  组件卸载钩子 → ref(null) 递归 → 事件解绑（delegate）→ 索引注销 → portal 容器清空
+ *  ——修复 RootHandle.unmount 只清 innerHTML 的泄漏（监听残留/钩子不跑/ref 不清理） */
+export function disposeTree(v: VNode | null | undefined): void {
+  if (v == null || typeof v !== 'object' || Array.isArray(v)) return
+  const vn = v as VNode
+  // portal：内容独立挂载（远程容器）——清空（含 ref/嵌套 portal）——子节点不在本容器
+  if (isPortalNode(vn)) {
+    removePortalContentExec(String(vn.props?.portalKey ?? 'default'), vn, null)
+    return
+  }
+  // 组件：卸载钩子 + COMP_UNMOUNT 事件 + 索引注销
+  if (typeof vn.type === 'function' && vn._id) {
+    runUnmountHooks(vn._id)
+    stream.emit(ev('comp', 'unmount', vn._id, { name: compName(vn.type) }))
+    unindexComponent(vn._id)
+  }
+  // ref(null)（ref 纪律：卸载清理——lockScroll/focus 依赖）
+  const refFn = vn.props?.ref
+  if (typeof refFn === 'function') {
+    const el = vn.el
+    stream.emit(ev('ref', 'cleanup', el ? registry.idOf(el) : 'null'))
+    try { refFn(null) } catch { /* ref 失败隔离 */ }
+  }
+  // 事件解绑（delegate 注册表——移除后事件仍响应的泄漏）
+  if (vn.el) unbindAll(registry.idOf(vn.el))
+  // 递归：组件输出 + children
+  const child = vn._child
+  if (child != null && typeof child === 'object' && !Array.isArray(child)) disposeTree(child as VNode)
+  for (const c of childrenOf(vn)) {
+    if (c != null && typeof c === 'object' && !Array.isArray(c)) disposeTree(c as VNode)
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════

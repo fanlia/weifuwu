@@ -3678,3 +3678,55 @@ test('UI-3：selfId + render([\'id\']) 跨组件精准刷新——只重渲染�
   assert.throws(() => registerSemanticId('dup', 'c2'), /冲突/, '同 id 二次注册（不同组件）抛错')
   document.body.removeChild(root)
 })
+
+// ── P3：dispose 协议——unmount 完整清理（钩子/ref/事件解绑/portal——泄漏消除） ──
+
+test('P3：unmount dispose 协议——组件钩子 + ref(null) + 事件解绑 + portal 清空', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  const { listenerCount } = await import('../ui-dom/vdom3/delegate.ts')
+  let hookCalls = 0
+  let refCleans = 0
+  const innerRef = (el: any) => { if (!el) refCleans++ }
+  const Inner = async (_init: any, ctx: any) => {
+    ctx.ui.onUnmount(() => { hookCalls++ })
+    return async () => h('button', { id: 'inner-btn', onClick: () => {}, ref: innerRef }, 'go')
+  }
+  const App = async (_init: any) => async () => h('div', {}, [
+    h(Inner, {}),
+    h('button', { id: 'keep' }, 'keep'),
+  ])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const btn = root.querySelector('#inner-btn') as HTMLElement
+  const btnId = btn.getAttribute('data-v3-id')!
+  assert.ok(listenerCount(btnId) > 0, '卸载前有事件绑定')
+  handle.unmount()
+  assert.equal(hookCalls, 1, '组件 onUnmount 钩子执行')
+  assert.equal(refCleans, 1, 'ref(null) 调用（卸载清理）')
+  assert.equal(listenerCount(btnId), 0, '事件绑定解绑（delegate 零残留）')
+  assert.equal(root.innerHTML, '', '容器清空')
+  document.body.removeChild(root)
+})
+
+test('P3：unmount 清理 portal 容器内容（幽灵面板消除）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let open = true
+  const App = async (_init: any) => async () => h('div', {},
+    open ? h('div', { id: 'body' }, 'x') : null,
+  )
+  // 用 createPortal 渲染浮层
+  const { createPortal } = await import('../ui-dom/vdom3/index.ts')
+  const WithPortal = async (_init: any) => async () =>
+    h('div', {}, [h('span', {}, 'main'), createPortal(h('div', { id: 'pop-panel' }, '浮层'), 'p3-test')])
+  const handle = createRoot(h(WithPortal, {}), root)
+  await handle.ready
+  assert.ok(document.querySelector('#__wf_portal [data-wf-portal-key="p3-test"] #pop-panel'), 'portal 内容渲染')
+  handle.unmount()
+  assert.equal(document.querySelector('#__wf_portal [data-wf-portal-key="p3-test"] #pop-panel'), null, 'unmount 清空 portal 内容（幽灵面板消除）')
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})

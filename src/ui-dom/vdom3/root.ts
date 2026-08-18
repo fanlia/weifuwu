@@ -8,11 +8,11 @@
 import type { VNode, V3Ctx } from './types.ts'
 import { childrenOf } from './types.ts'
 import { buildVNode } from './build.ts'
-import { patch, mount, removeNodeWithLifecycle, removePortalContent, isPortalNode, registry } from './render.ts'
+import { patch, mount, removeNodeWithLifecycle, removePortalContent, isPortalNode, registry, disposeTree } from './render.ts'
 import type { PortalVNode } from './types.ts'
 import { scheduler } from './scheduler.ts'
 import { stream, ev } from './events.ts'
-import { ensureDelegationRoot } from './delegate.ts'
+import { ensureDelegationRoot, removeDelegationRoot } from './delegate.ts'
 import { getIndexedComponent } from './comp-index.ts'
 import { auditDomEvents } from './audit.ts'
 import type { RootHandle } from '../contracts/renderer.ts'
@@ -210,10 +210,10 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
     rerender: () => scheduler.schedule(() => void update()),
     flush: () => scheduler.flush(),
     unmount() {
-      // COMP_UNMOUNT（根组件）
-      if (current._id) {
-        stream.emit(ev('comp', 'unmount', current._id, { name: 'root' }))
-      }
+      // dispose 协议（P3）：组件钩子/ref(null)/事件解绑/索引注销/portal 清空——树递归
+      disposeTree(current)
+      // 挂载点监听移除（removeEventListener 配对——delegate 残留消除）
+      removeDelegationRoot(root)
       root.innerHTML = ''
     },
   }
