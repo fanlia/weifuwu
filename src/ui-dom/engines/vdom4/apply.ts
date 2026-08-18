@@ -50,9 +50,9 @@ export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement)
   for (const c of cmds) {
     switch (c.op) {
       case 'create': {
-        // hydration 吸收（SSR 零重建——结构队列）
-        let el: Element | null = null
-        if (shadow.absorbQueue) {
+        // hydration 吸收（SSR 零重建——**路径 id 精确匹配**（确定性 id——同声明同路径））
+        let el: Element | null = shadow.absorbIdMap ? (shadow.takeAbsorbedById(c.id) as Element | null) : null
+        if (!el && shadow.absorbQueue) {
           const existing = shadow.takeAbsorbed((n) => n.nodeType === 1 && (n as Element).tagName.toLowerCase() === c.tag.toLowerCase())
           if (existing) el = existing as Element
         }

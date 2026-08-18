@@ -47,31 +47,33 @@ function compSlotOf(compId: string): number {
 
 /** 渲染 vnode——path = 节点路径（确定性）；oldV = 旧树对照（null = 全量创建）
  *  ——纯函数（只读影子——命令是唯一输出） */
-function genVNode(vnode: VNode, path: string, oldV: VNode | null, cmds: Command[], shadow: ShadowState, slotAnchor: string | null = null, domParent = parentOfPath(path)): void {
+function genVNode(vnode: VNode, path: string, oldV: VNode | null, cmds: Command[], shadow: ShadowState, slotAnchor: string | null = null, domParent = parentOfPath(path)): string | null {
   // 组件：输出从影子实例读（build 已展开——nextOutput 暂存/lastOutput 落地）
   if (typeof vnode.type === 'function') {
     const inst = shadow.getInstance(path)
     if (!inst) throw new Error(`[vdom4] 组件实例缺失：${path}`)
     // 剪枝（nextOutput === lastOutput 同引用 = props 未变——零命令）
-    if (inst.nextOutput === inst.lastOutput) return
+    if (inst.nextOutput === inst.lastOutput) return slotAnchor
     const out = inst.nextOutput
     if (out) {
       // 输出内联在组件容器——DOM 父 = 组件 DOM 父（非路径父——.c 是路径空间非 DOM 层）
-      genVNode(out, `${path}.c`, inst.lastOutput, cmds, shadow, slotAnchor, domParent)
+      return genVNode(out, `${path}.c`, inst.lastOutput, cmds, shadow, slotAnchor, domParent) ?? slotAnchor
     }
     // 输出 null（nextOutput = null）：槽位清空由 genSlot 处理（组件路径的槽位锚）
-    return
+    return slotAnchor
   }
   if (vnode.type === Fragment) {
-    genChildren(vnode, path, oldV, cmds, shadow, true)
-    return
+    // Fragment 内容展开在**所在容器**（DOM 父 = genVNode 的 domParent——非 path——
+    // 组件输出场景 path 是输出空间（.c）——DOM 父是组件的容器）
+    // 首槽位锚插到 slotAnchor 后（Fragment 内容在组件槽位锚后——非父末尾）
+    return genChildren(vnode, path, oldV, cmds, shadow, true, domParent, slotAnchor)
   }
   // native
   if (oldV != null) {
-    // 同类型复用：props diff + children 槽位（锚不动）
+    // 同类型复用：props diff + children 槽位（锚不动）——native 自身是容器（slotKey=path）
     genPatchProps(vnode, oldV, path, cmds)
     genChildren(vnode, path, oldV, cmds, shadow, false)
-    return
+    return slotAnchor
   }
   // 全量创建（内容插槽位锚后——slotAnchor）
   cmds.push({ op: 'create', id: path, tag: vnode.type as string, vn: vnode })
@@ -81,6 +83,7 @@ function genVNode(vnode: VNode, path: string, oldV: VNode | null, cmds: Command[
   }
   cmds.push({ op: 'insert', id: path, parent: domParent, ref: slotAnchor, after: slotAnchor != null })
   genChildren(vnode, path, null, cmds, shadow, false)
+  return slotAnchor
 }
 
 /** props diff（同类型复用——仅变化发 setProp——含事件 handler 更新（apply 重绑）） */
@@ -101,12 +104,14 @@ function genPatchProps(vnode: VNode, oldV: VNode, path: string, cmds: Command[])
 
 /** children 槽位 diff（锚点法——每槽 [锚, 内容]——槽位游标）
  *  isFrag：Fragment 空间（路径 .f{i}）vs 内容空间（.{i}） */
-function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Command[], shadow: ShadowState, isFrag: boolean): void {
+function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Command[], shadow: ShadowState, isFrag: boolean, domParent = path, initAnchor: string | null = null): string | null {
   const kids = childrenOf(vnode)
   const oldKids = oldV ? childrenOf(oldV) : []
-  const slotKey = path // 逻辑容器（native 自身 / Fragment 输出空间）
+  // 逻辑容器 key：native = path（自身容器）；Fragment = domParent（所在容器——
+  // Fragment 内容展开在父容器——锚列表登记到容器）
+  const slotKey = domParent
   const oldAnchors = shadow.anchorsOf(slotKey)
-  let lastAnchor: string | null = null // 新序列最后已处理锚（新锚插它后）
+  let lastAnchor: string | null = initAnchor // 首槽位锚的 ref（Fragment = 组件槽位锚）
   let cursor = 0 // 旧锚游标（每槽 +1）
   const len = Math.max(kids.length, oldKids.length)
   for (let i = 0; i < len; i++) {
@@ -183,28 +188,31 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
       if (!inst) throw new Error(`[vdom4] 组件实例缺失：${contentPath}`)
           if (inst.nextOutput === inst.lastOutput) {
         // 剪枝（props 未变——输出复用——零命令）
+        lastAnchor = slotAnchor
         continue
       }
       const out = inst.nextOutput
       if (out) {
-        genVNode(out, `${contentPath}.c`, inst.lastOutput, cmds, shadow, slotAnchor, slotKey)
+        lastAnchor = genVNode(out, `${contentPath}.c`, inst.lastOutput, cmds, shadow, slotAnchor, slotKey) ?? slotAnchor
       } else {
         // 输出变 null——清空槽位内容（锚保留）
         if (inst.lastOutput) cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
+        lastAnchor = slotAnchor
       }
       continue
     }
     // native/Fragment：同类型 patch 或异类型重建
     if (oc != null && typeof oc === 'object' && !Array.isArray(oc) && (oc as VNode).type === vn.type && (oc as VNode).key === vn.key) {
-      genVNode(vn, contentPath, oc as VNode, cmds, shadow, slotAnchor, slotKey)
+      lastAnchor = genVNode(vn, contentPath, oc as VNode, cmds, shadow, slotAnchor, slotKey) ?? slotAnchor
     } else {
       if (oc != null) {
         if (typeof (oc as VNode).type === 'symbol' && (oc as VNode).props?.portalKey != null) cmds.push({ op: 'remove', id: `${contentPath}.p` })
         cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
       }
-      genVNode(vn, contentPath, null, cmds, shadow, slotAnchor, slotKey)
+      lastAnchor = genVNode(vn, contentPath, null, cmds, shadow, slotAnchor, slotKey) ?? slotAnchor
     }
   }
+  return lastAnchor
 }
 
 /** 父路径（路径约定——去掉最后一段） */

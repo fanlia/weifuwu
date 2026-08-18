@@ -105,20 +105,37 @@ export class ShadowState {
     for (const id of [...this.instances.keys()]) this.commitOutput(id)
   }
 
-  // ── hydration 吸收（SSR 首帧零重建——结构队列） ──
+  // ── hydration 吸收（SSR 首帧零重建——**路径 id 精确匹配**（元素——确定性 id）+
+  //  结构队列（文本/锚注释——无 id 标记——DFS 序）） ──
+  absorbIdMap: Map<string, Node> | null = null
   absorbQueue: Node[] | null = null
   absorbedNodes = new WeakSet<Node>()
   beginAbsorb(root: Element): void {
+    const idMap = new Map<string, Node>()
     const queue: Node[] = []
     const walk = (el: Element): void => {
       for (const n of [...el.childNodes]) {
-        queue.push(n)
-        if (n.nodeType === 1) walk(n as Element)
+        if (n.nodeType === 1) {
+          const id = (n as Element).getAttribute('data-v4-id')
+          if (id) idMap.set(id, n)
+          walk(n as Element)
+        } else {
+          queue.push(n)
+        }
       }
     }
     walk(root)
+    this.absorbIdMap = idMap
     this.absorbQueue = queue
   }
+  /** 按路径 id 精确匹配（元素） */
+  takeAbsorbedById(id: string): Node | null {
+    if (!this.absorbIdMap) return null
+    const n = this.absorbIdMap.get(id) ?? null
+    if (n) { this.absorbIdMap.delete(id); this.absorbedNodes.add(n) }
+    return n
+  }
+  /** 结构队列匹配（文本/锚——无 id 标记） */
   takeAbsorbed(match: (n: Node) => boolean): Node | null {
     if (!this.absorbQueue || this.absorbQueue.length === 0) return null
     const n = this.absorbQueue[0]
@@ -128,6 +145,7 @@ export class ShadowState {
     return n
   }
   endAbsorb(): void {
+    this.absorbIdMap = null
     this.absorbQueue = null
   }
 }

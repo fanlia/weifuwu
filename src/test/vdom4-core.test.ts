@@ -239,3 +239,64 @@ test('vdom4：usePopup 组件（popup.portal——打开/关闭/外部点击）�
   document.body.removeChild(root)
   document.querySelector('#__wf_portal')?.remove()
 })
+
+// ── vdom4 SSR：renderToCommands → HTML → 客户端路径 id 精确吸收（首帧零重建） ──
+
+test('vdom4 SSR：命令 → HTML → 客户端吸收（路径 id 精确匹配——DOM 引用保持 + 交互正常）', async () => {
+  const { renderToCommands, commandsToHtml } = await import('../ui-dom/engines/vdom4/ssr.ts')
+  let count = 0
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    return () => h('div', { id: 'app' }, [
+      h('button', { id: 'plus', onClick: () => { count++; ctx.render() } }, `count:${count}`),
+      h('ul', {}, ['a', 'b'].map((it) => h('li', { key: it, 'data-k': it }, it))),
+      false,
+    ])
+  }
+  // 服务端：命令 → HTML（含 data-v4-id——确定性路径）
+  const commands = await renderToCommands(h(App, {}))
+  const html = commandsToHtml(commands)
+  assert.ok(html.includes('data-v4-id='), 'HTML 含 data-v4-id（吸收标记）')
+  assert.ok(html.includes('<!--wf-anchor-->'), 'HTML 含锚注释')
+  // 客户端：SSR HTML 就位 → mount（吸收）
+  const root = mkRoot()
+  root.innerHTML = html
+  const ssrButton = root.querySelector('#plus') as HTMLElement
+  const ssrLi = root.querySelectorAll('li')[0]
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  // 零重建：DOM 引用保持（路径 id 精确匹配）
+  assert.equal(root.querySelector('#plus'), ssrButton, 'button DOM 复用（路径 id 吸收）')
+  assert.equal(root.querySelectorAll('li')[0], ssrLi, '列表项 DOM 复用')
+  assert.equal(root.querySelectorAll('li').length, 2, '列表完整')
+  // 交互正常（吸收后事件绑定生效）
+  ;(root.querySelector('#plus') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.ok(root.querySelector('#plus')?.textContent?.includes('count:1'), '吸收后交互正常')
+  handle.unmount()
+  document.body.removeChild(root)
+})
+
+// ── Fragment 输出（diff 的 Fragment 分支——f 空间路径） ──
+
+test('vdom4：组件输出 Fragment（多节点——f 空间路径——位置正确）', async () => {
+  const root = mkRoot()
+  const Multi = (_init: Record<string, unknown>) => {
+    return () => h(Fragment, {}, [
+      h('span', { class: 'm1' }, 'a'),
+      h('span', { class: 'm2' }, 'b'),
+    ])
+  }
+  const App = (_init: Record<string, unknown>) => {
+    return () => h('div', { id: 'wrap' }, [
+      h('div', { class: 'head' }, '头'),
+      h(Multi, {}),
+      h('div', { class: 'tail' }, '尾'),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const order = [...root.querySelectorAll('#wrap > *')].filter((n) => n.nodeType === 1).map((n) => (n as Element).getAttribute('class') ?? (n as Element).textContent)
+  assert.deepEqual(order, ['head', 'm1', 'm2', 'tail'], `Fragment 多节点在中间——实际 ${order.join(',')}`)
+  handle.unmount()
+  document.body.removeChild(root)
+})
