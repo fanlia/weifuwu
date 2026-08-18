@@ -18,7 +18,9 @@ export type UnmountCompCommand = {
   compId: string
 }
 
-/** 流结束 = 渲染完成 */
+/** 流结束 = 渲染完成（full = 全量流标记——patch 据此清理旧树多余节点；
+ *  增量流（diff）不清理——旧节点都是存活） */
 export type DoneCommand = {
   op: 'done'
+  full?: boolean
 }

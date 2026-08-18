@@ -1,14 +1,22 @@
 /**
- * vdom core — applyCommand（命令 → DOM 操作——客户端消费）
+ * vdom core — patch 阶段（command 事件流 → DOM——**唯一 DOM 接触点**）
  *
- * 设计（design/vdom-plan.md §3）：res.body.getReader() → 逐条 command →
- * apply 到 DOM。节点表（id → DOM 节点）随命令流构建。
+ * 设计（design/vdom-plan.md §3）：serve 消费 Response body（command 事件流）
+ * → 逐条 apply。**对照现有 DOM 节点**（2026-12 决策——diff/patch 的标准
+ * 就是现有 DOM 节点——就地更新——不重建整树）：
  *
- * 属性三通道（AGENTS §4.0）：setProp 按通道分发——
- *   on[A-Z] → events（事件绑定）
- *   PROPERTY_KEYS → props（DOM property——value/checked...）
- *   ref → props.applyRef（挂载/卸载回调）
- *   其余 → attributes（setAttribute/style/enumerated 白名单）
+ * 幂等语义（跨流保持节点表——ctx.render() 全量流重放时就地更新）：
+ * - create：id 已存在且同标签 → **attrs 就地更新**（不重建）；类型不符 →
+ *   replaceWith 替换（div ↔ 锚/文本互换——同构保持）
+ * - createText/createAnchor：已存在同类节点 → 复用（锚 detail 更新）；
+ *   类型不符 → 替换
+ * - insert：已挂载 → 跳过（位置调整后续）；未挂 → insertBefore（ref 前兄弟）
+ * - setText/setProp：就地更新（不重建——焦点保持）
+ * - remove：移除 + 节点表删除
+ * - done：**清理本流未触及的节点**（旧树多余——组件输出变化后的残留）
+ *
+ * 属性三通道（field/）：on[A-Z] → events；PROPERTY_KEYS → props；
+ * ref → ref.ts；其余 → attributes（enumerated 白名单显式 true/false）。
  */
 
 import type { Command } from './command/index.ts'
@@ -50,6 +58,10 @@ export class CommandApplier {
   private container: HTMLElement
   private doc: Document
   private portalContainers = new Map<string, HTMLElement>()
+  /** 本流已创建 id（done 清理——旧树多余节点） */
+  private touched = new Set<string>()
+  /** 属性 prev 记忆（id:key → 上次值——事件解绑/属性还原——重复绑定根治） */
+  private propPrev = new Map<string, unknown>()
 
   constructor(container: HTMLElement, doc: Document) {
     this.container = container
@@ -88,20 +100,49 @@ export class CommandApplier {
   apply(cmd: Command): void {
     switch (cmd.op) {
       case 'create': {
-        const el = this.doc.createElement(cmd.tag)
-        applyAttrs(el, cmd.attrs)
-        this.nodes.set(cmd.id, el)
+        this.touched.add(cmd.id)
+        const existing = this.nodes.get(cmd.id)
+        if (existing && existing.nodeType === 1 && (existing as HTMLElement).tagName.toLowerCase() === cmd.tag) {
+          // 同标签已存在 → attrs 就地更新（不重建——事件/焦点保持）
+          applyAttrs(existing as HTMLElement, cmd.attrs)
+        } else {
+          const el = this.doc.createElement(cmd.tag)
+          applyAttrs(el, cmd.attrs)
+          if (existing) existing.replaceWith(el) // 类型不符 → 替换（同构保持）
+          this.nodes.set(cmd.id, el)
+        }
         break
       }
-      case 'createText':
-        this.nodes.set(cmd.id, this.doc.createTextNode(cmd.value))
+      case 'createText': {
+        this.touched.add(cmd.id)
+        const existing = this.nodes.get(cmd.id)
+        if (existing && existing.nodeType === 3) {
+          if (existing.textContent !== cmd.value) existing.textContent = cmd.value
+        } else {
+          const t = this.doc.createTextNode(cmd.value)
+          if (existing) existing.replaceWith(t)
+          this.nodes.set(cmd.id, t)
+        }
         break
-      case 'createAnchor':
-        this.nodes.set(cmd.id, this.doc.createComment(cmd.detail ? `wf-hole: ${cmd.detail}` : 'wf-hole'))
+      }
+      case 'createAnchor': {
+        this.touched.add(cmd.id)
+        const existing = this.nodes.get(cmd.id)
+        if (existing && existing.nodeType === 8) {
+          const detail = cmd.detail ? `wf-hole: ${cmd.detail}` : 'wf-hole'
+          if (existing.textContent !== detail) existing.textContent = detail
+        } else {
+          const anchor = this.doc.createComment(cmd.detail ? `wf-hole: ${cmd.detail}` : 'wf-hole')
+          if (existing) existing.replaceWith(anchor)
+          this.nodes.set(cmd.id, anchor)
+        }
         break
+      }
       case 'insert': {
         const el = this.nodes.get(cmd.id)
         if (!el) return
+        // 已挂载 → 跳过（全量流重放——就地更新不重建）
+        if (el.isConnected) return
         const parent = this.parentOf(cmd)
         if (!parent) return
         // ref = 已插入的**前一个兄弟**（流式渲染——后一个尚未插入）——
@@ -118,17 +159,37 @@ export class CommandApplier {
       case 'setProp': {
         const el = this.nodes.get(cmd.id)
         // nodeType 判断（jsdom 隔离环境——instanceof 跨 realm 恒 false）
-        if (el && el.nodeType === 1) applySetProp(el as HTMLElement, cmd.key, cmd.value, cmd.prev)
+        if (el && el.nodeType === 1) {
+          const prev = this.propPrev.get(`${cmd.id}:${cmd.key}`)
+          applySetProp(el as HTMLElement, cmd.key, cmd.value, prev)
+          // 记忆 prev（下次更新时解绑旧监听——重复绑定根治）
+          this.propPrev.set(`${cmd.id}:${cmd.key}`, cmd.value)
+        }
         break
       }
       case 'remove': {
         this.nodes.get(cmd.id)?.remove()
+        this.nodes.delete(cmd.id)
         break
       }
       case 'close':
       case 'unmountComp':
-      case 'done':
         break
+      case 'done': {
+        // 清理仅**全量流**（done.full）——touched = 存活集合——
+        // 表 − touched = 旧树多余残留（组件输出变化后的节点）；
+        // diff 增量流（无 full）不清理——旧节点都是存活
+        if (cmd.full && this.touched.size > 0) {
+          for (const [id, el] of [...this.nodes]) {
+            if (!this.touched.has(id)) {
+              el.remove()
+              this.nodes.delete(id)
+            }
+          }
+        }
+        this.touched.clear()
+        break
+      }
     }
   }
 }

@@ -108,7 +108,7 @@ export function renderToStream(
         }
       }
       await emit(root, 'root', 0, null)
-      controller.enqueue({ op: 'done' })
+      controller.enqueue({ op: 'done', full: true })
       controller.close()
     },
   })
