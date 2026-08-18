@@ -159,11 +159,23 @@ async function diffSame(
     })
     return
   }
-  // 元素同标签：属性更新 + children 递归对照
+  // 元素同标签：属性 diff（**精准——只发变化的键**）+ children 递归对照
   if (typeof newV.type === 'string' && oldV && typeof oldV.type === 'string' && oldV.type === newV.type) {
-    // 属性 diff（首版：序列化面全量 setProp——增量比较后续）
-    for (const [k, v] of Object.entries(serializableAttrs(newV.props))) {
-      emitCommand({ op: 'setProp', id, key: k, value: v })
+    // 静态面（可序列化）——值比较——只发变化键；旧有新的没有 → 移除
+    const oldAttrs = serializableAttrs(oldV.props)
+    const newAttrs = serializableAttrs(newV.props)
+    for (const [k, v] of Object.entries(newAttrs)) {
+      if (oldAttrs[k] !== v) emitCommand({ op: 'setProp', id, key: k, value: v })
+    }
+    for (const k of Object.keys(oldAttrs)) {
+      if (!(k in newAttrs)) emitCommand({ op: 'setProp', id, key: k, value: undefined })
+    }
+    // 函数面（事件/ref）——引用比较——变化才重发（prev 传递——patch 解绑重绑）
+    for (const [k, v] of Object.entries(newV.props)) {
+      if (k === 'children' || k === 'key') continue
+      if (typeof v === 'function' && oldV.props[k] !== v) {
+        emitCommand({ op: 'setProp', id, key: k, value: v, prev: oldV.props[k] })
+      }
     }
     // children 对照（位置递归）
     const oldCs = oldV ? childrenOf(oldV) : []
@@ -174,11 +186,11 @@ async function diffSame(
       const oldC = oldCs[i] ?? null
       const newC = newCs[i] ?? null
       const cid = pathId(id, i)
-      // 文本 ↔ 文本：就地 setText（不重建节点——焦点保持）
+      // 文本 ↔ 文本：值变化才 setText（精准——无变化不发命令）
       if (typeof oldC === 'string' && typeof newC === 'string') {
-        emitCommand({ op: 'setText', id: cid, value: newC })
+        if (oldC !== newC) emitCommand({ op: 'setText', id: cid, value: newC })
       } else if (typeof oldC === 'number' && typeof newC === 'number') {
-        emitCommand({ op: 'setText', id: cid, value: String(newC) })
+        if (oldC !== newC) emitCommand({ op: 'setText', id: cid, value: String(newC) })
       } else if (newC === null || newC === undefined) {
         // 旧项多余——移除（旧侧让位）
         emitCommand({ op: 'remove', id: cid })

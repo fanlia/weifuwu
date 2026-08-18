@@ -130,3 +130,57 @@ test('条件渲染：null → 元素（空洞 ↔ 真实节点互换——长度
   assert.equal(div.childNodes.length, 3, '长度恒定（锚 → b 互换）')
   assert.equal(div.childNodes[1].textContent, 'new', '空洞位置被新元素占据')
 })
+
+test('diff 本质：精准命令流——counter 点击只发文本 setText（不重建/不重发属性）', async () => {
+  const browser = testBrowser()
+  const hz = harness(browser)
+  let count = 0
+  let rc: { render: () => void } = { render: () => {} }
+  const onInc = () => { count++; rc.render() } // 工厂层稳定引用（AGENTS §3.1——零重绑）
+  const Counter = () => {
+    return () => h('div', {},
+      h('button', { id: 'inc', onClick: onInc }, `count:${count}`),
+    )
+  }
+  // 首帧（全量 build）
+  await hz.mount(h(Counter, {}))
+  assert.equal(hz.root.querySelector('#inc')?.textContent, 'count:0')
+
+  // 点击模拟：count++ → 新树 → diff —— 捕获命令流断言精准性
+  const oldTree = h(Counter, {})
+  count = 1
+  const newTree = h(Counter, {})
+  const cmds: unknown[] = []
+  const stream = diffStream(oldTree, newTree, {} as Ctx, hz.registry)
+  const reader = stream.getReader()
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    cmds.push(value)
+  }
+  // 精准断言：只 setText（文本节点）+ done——无 create/insert/remove/setProp
+  const ops = cmds.map((c) => (c as { op: string }).op)
+  assert.deepEqual(ops, ['setText', 'done'], '精准命令流——只修改文本节点')
+  const setText = cmds[0] as { id: string; value: string }
+  assert.equal(setText.id, 'root.0.0.0', '文本节点 id 精准定位')
+  assert.equal(setText.value, 'count:1')
+})
+
+test('diff 本质：属性变化只发 setProp（不重建元素）', async () => {
+  const hz = harness(testBrowser())
+  await hz.mount(h('div', { class: 'a', id: 'x' }, 'text'))
+  const cmds: unknown[] = []
+  const stream = diffStream(
+    h('div', { class: 'a', id: 'x' }, 'text'),
+    h('div', { class: 'b', id: 'x' }, 'text'),
+    {} as Ctx, hz.registry,
+  )
+  const reader = stream.getReader()
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    cmds.push(value)
+  }
+  const ops = cmds.map((c) => (c as { op: string }).op)
+  assert.deepEqual(ops, ['setProp', 'done'], '只发属性更新——元素不重建')
+})

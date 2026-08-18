@@ -18,6 +18,7 @@
 import { UIRouter, frontRequest } from './router.ts'
 import { CommandApplier } from './patch.ts'
 import { renderToStream } from './build.ts'
+import { diffStream } from './diff.ts'
 import type { VNode } from './vnode.ts'
 import { createComponentRegistry } from './node/component.ts'
 import type { Ctx, DataPipe } from '../context/Ctx.ts'
@@ -120,6 +121,8 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   const registry = createComponentRegistry()
   const applier = new CommandApplier(rootEl, doc)
   const req = frontRequest(opts.browser.window.location.pathname)
+  /** 影子树（当前渲染的 vnode——diff 对照——精准增量命令流） */
+  let currentTree: VNode | null = null
 
   // ── ctx（render = 重新渲染唯一入口——事件/fetch/定时器回调） ──
   const ctx = {
@@ -137,7 +140,13 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   // ── 页面作者渲染入口（vnode → Response 事件流——函数表编码） ──
   const renderCtx = ctx as RenderCtx
   renderCtx.stream = (vnode: VNode, init?: ResponseInit): Response => {
-    const stream = renderToStream(vnode, ctx, registry)
+    // **diff 本质（2026-12）：精准生成需要 patch 的事件流**——
+    // 有影子树 → diff（增量命令——counter 点击只发文本 setText）；
+    // 无影子树（首帧）→ build 全量。
+    const stream = currentTree
+      ? diffStream(currentTree, vnode, ctx, registry)
+      : renderToStream(vnode, ctx, registry)
+    currentTree = vnode // 影子树更新（下次对照）
     return new Response(encodeCommands(stream, fnTable), {
       status: init?.status ?? 200,
       headers: init?.headers,
