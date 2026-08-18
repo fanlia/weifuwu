@@ -293,7 +293,7 @@ function genKeyedChildren(kids: VNode[], oldKids: VNodeChild[], path: string, sl
         }
       } else {
         // 旧锚缺失（异常）——重建（锚 + 内容）
-        const anchorId = `${path}.a${i}`
+        const anchorId = `${path}.ak${vn.key}`
         cmds.push({ op: 'createAnchor', id: anchorId })
         cmds.push({ op: 'insert', id: anchorId, parent: slotKey, ref: lastAnchor, after: lastAnchor != null })
         lastAnchor = anchorId
@@ -301,7 +301,7 @@ function genKeyedChildren(kids: VNode[], oldKids: VNodeChild[], path: string, sl
       }
     } else {
       // 新 key：创建（锚 + 内容）
-      const anchorId = `${path}.a${i}`
+        const anchorId = `${path}.ak${vn.key}`
       cmds.push({ op: 'createAnchor', id: anchorId })
       cmds.push({ op: 'insert', id: anchorId, parent: slotKey, ref: lastAnchor, after: lastAnchor != null })
       lastAnchor = anchorId

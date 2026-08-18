@@ -651,3 +651,79 @@ test('vdom4 迁移试点：真实 Popover（usePopupPosition 锚点定位 + port
   handle.unmount()
   document.body.removeChild(root)
 })
+
+// ── 组件库试金石第 5 批：Collapse（useControlled + keyed 展开/折叠） + VirtualList（滚动窗口 + keyBy） ──
+
+test('vdom4 迁移试点：真实 Collapse（useControlled + keyed 展开/折叠——非受控 + 受控切换）', async () => {
+  const { Collapse } = await import('../components/Collapse/Collapse.ts')
+  const root = mkRoot()
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    let controlled: string[] = []
+    let mode = 'uncontrolled' as 'uncontrolled' | 'controlled'
+    return () => h('div', {}, [
+      h(Collapse, {
+        items: [
+          { key: 'p1', title: '面板一', content: h('div', { class: 'panel-a' }, '内容A') },
+          { key: 'p2', title: '面板二', content: h('div', { class: 'panel-b' }, '内容B') },
+        ],
+        ...(mode === 'controlled' ? { activeKeys: controlled, onChange: (k: string[]) => { controlled = k; ctx.render() } } : {}),
+      }),
+      h('button', { id: 'switch', onClick: () => { mode = mode === 'uncontrolled' ? 'controlled' : 'uncontrolled'; ctx.render() } }, 'switch'),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  assert.ok(root.querySelector('.wf-collapse-header'), 'Collapse 渲染')
+  assert.ok(!root.querySelector('.panel-a'), '初始折叠')
+  // 非受控展开
+  ;(root.querySelector('.wf-collapse-header') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('.panel-a'), '非受控展开（内容出现）')
+  ;(root.querySelector('.wf-collapse-header') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(!root.querySelector('.panel-a'), '再点折叠')
+  // 受控模式：点击 → onChange 驱动
+  ;(root.querySelector('#switch') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  ;(root.querySelectorAll('.wf-collapse-header')[0] as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(root.querySelector('.panel-a'), '受控展开（onChange 回传）')
+  ;(root.querySelectorAll('.wf-collapse-header')[0] as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(!root.querySelector('.panel-a'), '受控折叠')
+  handle.unmount()
+  document.body.removeChild(root)
+})
+
+test('vdom4 迁移试点：真实 VirtualList（useScrollPosition 滚动窗口 + keyBy）', async () => {
+  const { VirtualList } = await import('../components/VirtualList/VirtualList.ts')
+  const root = mkRoot()
+  const items = Array.from({ length: 100 }, (_, i) => ({ id: `i${i}`, label: `条目${i}` }))
+  const App = (_init: Record<string, unknown>) => {
+    return () => h('div', {}, [
+      h(VirtualList, {
+        items,
+        height: 400,
+        itemHeight: 40,
+        keyBy: (item: { id: string }) => item.id,
+        renderItem: (item: { id: string; label: string }) => h('div', { class: 'vit-item' }, item.label),
+      }),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const listEl = root.querySelector('.wf-virtual-list') as HTMLElement | null
+  assert.ok(listEl, 'VirtualList 渲染')
+  const rendered = root.querySelectorAll('.vit-item').length
+  assert.ok(rendered < 100, `窗口渲染（非全量）——实际 ${rendered}`)
+  assert.ok(rendered >= 10, `窗口有内容（400/40 + overscan）——实际 ${rendered}`)
+  // 滚动到中部（设置 scrollTop + dispatch scroll——capture 监听 + rAF 节流）
+  listEl!.scrollTop = 2000
+  listEl!.dispatchEvent(new (window as any).Event('scroll'))
+  await new Promise((r) => setTimeout(r, 30))
+  const texts = [...root.querySelectorAll('.vit-item')].map((n) => n.textContent)
+  assert.ok(texts.some((t) => t?.includes('条目50')), `滚动后窗口含中部条目——实际 ${texts[0]}-${texts[texts.length - 1]}`)
+  assert.ok(!texts.some((t) => t?.includes('条目0')), `滚动后窗口不含顶部条目`)
+  handle.unmount()
+  document.body.removeChild(root)
+})
