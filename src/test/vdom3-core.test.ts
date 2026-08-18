@@ -3642,3 +3642,39 @@ test('事件代理：svg 内元素 onMouseEnter 真实 mouseover 触发（插入
   assert.equal(entered, 1, `svg 内 circle 真实 mouseover 触发 onMouseEnter——实际 ${entered}`)
   document.body.removeChild(root)
 })
+
+// ── UI-3：语义 id 服务——render(['id']) 跨组件精准渲染（vdom3 此前 warn 降级的能力） ──
+
+test('UI-3：selfId + render([\'id\']) 跨组件精准刷新——只重渲染目标组件', async () => {
+  const { resetSemanticService } = await import('../ui-dom/services/hook-env.ts')
+  resetSemanticService()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const { createRoot } = await import('../ui-dom/vdom3/root.ts')
+  let renders = { a: 0, b: 0 }
+  // A：selfId('stats')——B 点击后只刷新 A（B 自身零执行）
+  const A = async (_init: any, ctx: any) => {
+    ctx.ui.selfId('stats')
+    return async () => { renders.a++; return h('div', { id: 'stats-panel' }, `统计 ${renders.a}`) }
+  }
+  const B = async (_init: any, ctx: any) => async () => {
+    renders.b++
+    return h('button', { id: 'refresh-stats', onClick: () => ctx.ui.render(['stats']) }, '刷新统计')
+  }
+  const App = async () => async () => h('div', {}, [h(A, {}), h(B, {})])
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const a0 = renders.a
+  const b0 = renders.b
+  ;(root.querySelector('#refresh-stats') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(renders.a, a0 + 1, `A 精准刷新（render(['stats']) → selfId 定位）——实际 ${renders.a}`)
+  assert.equal(renders.b, b0, `B 零执行（兄弟不波及）——实际 ${renders.b}`)
+  // selfId 冲突 → 服务层明确抛错（防错位静默——引擎在异步 build 捕获为 error:caught——
+  // 服务层同步语义直接断言）
+  const { registerSemanticId } = await import('../ui-dom/services/hook-env.ts')
+  assert.throws(() => registerSemanticId('stats', 'other-comp'), /冲突/, '语义 id 冲突抛错（全局唯一）')
+  registerSemanticId('dup', 'c1') // 首次注册——不抛
+  assert.throws(() => registerSemanticId('dup', 'c2'), /冲突/, '同 id 二次注册（不同组件）抛错')
+  document.body.removeChild(root)
+})

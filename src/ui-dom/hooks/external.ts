@@ -12,7 +12,7 @@
  * SSR 无害：createSsrUi 的 useExternal shim 只返回 store 不订阅。
  */
 
-import type { HookEnv } from './types.ts'
+import type { HookEnv } from '../contracts/hooks.ts'
 
 /** 可订阅状态（useExternal 入参——结构化类型，不要求专用 store） */
 export interface Subscribable {
@@ -21,10 +21,10 @@ export interface Subscribable {
 }
 
 export function useExternal(env: HookEnv, store: Subscribable): Subscribable {
-  const id = env.selfId()
+  const id = env.compId
   let unsub: (() => void) | undefined
   if (id) {
-    unsub = store.subscribe(() => env.render([id]))
+    unsub = store.subscribe(() => env.scheduleRender())
     env.onUnmount(() => unsub?.())
   }
   return store

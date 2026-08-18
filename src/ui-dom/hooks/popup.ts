@@ -4,7 +4,7 @@
  * usePopupPosition / usePopup / useOpen
  */
 
-import type { HookEnv } from './types.ts'
+import type { HookEnv } from '../contracts/hooks.ts'
 import type {
   PopupPositionOptions,
   PopupPosition,
@@ -21,7 +21,7 @@ import { stream, ev } from '../vdom3/events.ts'
 
 /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标（0 rect 防护） */
 export function usePopupPosition(env: HookEnv, options: PopupPositionOptions): PopupPosition {
-  const selfId = env.selfId()
+  const selfId = env.compId
   const pos: PopupPosition = { top: 0, left: 0, refresh: () => {} }
   if (!selfId) return pos
 
@@ -36,8 +36,8 @@ export function usePopupPosition(env: HookEnv, options: PopupPositionOptions): P
   env.popupTrackers.set(selfId, tracker)
   env.ensurePopupListeners() // 惰性挂载全局单例监听
   // 卸载清理 tracker（组件销毁后 scroll/resize 重算不再引用已卸载组件）
-  const unsub = env.onUnmount((id) => {
-    if (id === selfId) { env.popupTrackers.delete(selfId); unsub() }
+  const unsub = env.onUnmount(() => {
+    env.popupTrackers.delete(selfId); unsub()
   })
 
   // 手动重算：只更新坐标，不触发渲染（调用方负责 render）
@@ -58,7 +58,7 @@ export function usePopupPosition(env: HookEnv, options: PopupPositionOptions): P
  * 外部点击 + 定位/视口 clamp + portal。
  */
 export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle {
-  const selfId = env.selfId()
+  const selfId = env.compId
   const b = env.browser
   const canHover = useHoverCapable(env)
   const triggerOf = (): PopupTrigger => (typeof options.trigger === 'function' ? options.trigger() : (options.trigger ?? 'manual'))
@@ -136,12 +136,10 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
   const offMouse = addGlobalListener(b as unknown as EventTarget, 'mousedown', onDocMouseDown as EventListener)
   const offKey = addGlobalListener(b as unknown as EventTarget, 'keydown', onDocKeyDown as EventListener)
   if (selfId) {
-    const unsub = env.onUnmount((id) => {
-      if (id === selfId) {
-        offMouse()
-        offKey()
-        unsub()
-      }
+    const unsub = env.onUnmount(() => {
+      offMouse()
+      offKey()
+      unsub()
     })
   }
 
@@ -234,7 +232,7 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
   }
   // 组件卸载时清理悬停计时器
   if (selfId) {
-    const unsub = env.onUnmount((id) => { if (id === selfId) { clearHoverTimers(); unsub() } })
+    const unsub = env.onUnmount(() => { clearHoverTimers(); unsub() })
   }
 
   // ── 面板元素捕获（视口夹紧用；动画结束后重算坐标） ──
@@ -373,11 +371,11 @@ export function useOpen(env: HookEnv, options: {
   openOnFocus?: boolean
   name?: string
 }) {
-  const selfId = env.selfId()
+  const selfId = env.compId
   // render 阶段调用——非受控内部态 Map 缓存跨渲染保持
   if (selfId && !env.openStates.has(selfId)) {
     env.openStates.set(selfId, false)
-    const unsub = env.onUnmount((id) => { if (id === selfId) { env.openStates.delete(selfId); unsub() } })
+    const unsub = env.onUnmount(() => { env.openStates.delete(selfId); unsub() })
   }
   const controlled = options.open !== undefined
   // 受控缺回调 warn（对齐 useControlled）
@@ -390,8 +388,8 @@ export function useOpen(env: HookEnv, options: {
   }
   const isOpen = () => (controlled ? !!options.open : (selfId ? env.openStates.get(selfId) ?? false : false))
   const dirty = () => {
-    if (selfId) env.render([selfId])
-    else env.render()
+    if (selfId) env.scheduleRender()
+    else env.scheduleRender()
   }
   const setOpen = (v: boolean) => {
     if (controlled) { options.onOpenChange?.(v); return }

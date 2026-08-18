@@ -5,7 +5,7 @@
  * 签名统一 `useXXX(env, ...args)`。ui.ts 组装 HookEnv + 薄转发。
  */
 
-export type { HookEnv, MediaRegistryItem, PopupTracker, ScrollTracker } from './types.ts'
+export type { HookEnv, MediaRegistryItem, PopupTracker, ScrollTracker } from '../contracts/hooks.ts'
 
 export { useStableRef } from './stable.ts'
 export { useHoverCapable } from './stable.ts'

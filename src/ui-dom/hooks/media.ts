@@ -4,7 +4,7 @@
  * useMedia / useBreakpoint / useVisualViewport / useInView / useScrollPosition
  */
 
-import type { HookEnv } from './types.ts'
+import type { HookEnv } from '../contracts/hooks.ts'
 import { addGlobalListener } from '../vdom3/delegate.ts'
 import type {
   UseInViewOptions,
@@ -16,7 +16,7 @@ import type {
 
 /** 响应式媒体查询：注册监听，值变化时自动 dirty。callback 立即执行一次当前值。 */
 export function useMedia(env: HookEnv, query: string, callback: (matches: boolean) => void): void {
-  const selfId = env.selfId()
+  const selfId = env.compId
   const b = env.browser
   const key = `media:${selfId}:${query}`
   if (!env.mediaRegistry.has(key)) {
@@ -28,9 +28,8 @@ export function useMedia(env: HookEnv, query: string, callback: (matches: boolea
     env.mediaRegistry.set(key, { mql, handler })
     // 卸载清理 mql 监听（组件销毁后 media 变化不再回调已卸载组件——
     // 无此清理则重复 mount/unmount 累积监听）
-    const unsub = env.onUnmount((id) => {
-      if (id !== selfId) return
-      const item = env.mediaRegistry.get(key)
+    const unsub = env.onUnmount(() => {
+            const item = env.mediaRegistry.get(key)
       if (item?.mql && item.handler) {
         try { (item.mql as any).removeEventListener('change', item.handler) } catch (e) { /* 清理尽力而为 */ }
       }
@@ -52,7 +51,7 @@ export function useBreakpoint(
       ? { mobile: '(max-width: 639px)', tablet: '(min-width: 640px) and (max-width: 1023px)', desktop: '(min-width: 1024px)' }
       : bpsOrCallback
   const cb = typeof bpsOrCallback === 'function' ? bpsOrCallback : callback!
-  const selfId = env.selfId()
+  const selfId = env.compId
   const key = `bp:${selfId}`
 
   function evaluate(): string {
@@ -74,9 +73,8 @@ export function useBreakpoint(
     }
     env.mediaRegistry.set(key, { mqls })
     // 卸载清理 mql 监听（同 useMedia）
-    const unsub = env.onUnmount((id) => {
-      if (id !== selfId) return
-      const item = env.mediaRegistry.get(key)
+    const unsub = env.onUnmount(() => {
+            const item = env.mediaRegistry.get(key)
       if (item?.mqls) {
         for (const m of item.mqls) {
           try { (m.mql as any).removeEventListener('change', m.handler) } catch (e) { /* 清理尽力而为 */ }
@@ -90,7 +88,7 @@ export function useBreakpoint(
 
 /** 可视视口跟踪（visualViewport）：键盘弹起/缩放时自动更新 + dirty */
 export function useVisualViewport(env: HookEnv): VisualViewportHandle {
-  const selfId = env.selfId()
+  const selfId = env.compId
   const b = env.browser
   const handle: VisualViewportHandle = {
     height: b.viewportHeight(),
@@ -98,8 +96,8 @@ export function useVisualViewport(env: HookEnv): VisualViewportHandle {
     keyboardOpen: false,
   }
   const dirty = () => {
-    if (selfId) env.render([selfId])
-    else env.render()
+    if (selfId) env.scheduleRender()
+    else env.scheduleRender()
   }
   const update = () => {
     const vv = b.visualViewport()
@@ -119,9 +117,8 @@ export function useVisualViewport(env: HookEnv): VisualViewportHandle {
     offWin = addGlobalListener(window, 'resize', update as EventListener)
   }
   if (selfId) {
-    const unsub = env.onUnmount((id) => {
-      if (id !== selfId) return
-      offVv?.()
+    const unsub = env.onUnmount(() => {
+            offVv?.()
       offWin?.()
       unsub()
     })
@@ -131,7 +128,7 @@ export function useVisualViewport(env: HookEnv): VisualViewportHandle {
 
 /** 可见性观察（IntersectionObserver 封装）：isIn 响应式——变化自动 dirty 当前组件 */
 export function useInView(env: HookEnv, options: UseInViewOptions): UseInViewHandle {
-  const selfId = env.selfId()
+  const selfId = env.compId
   const handle: UseInViewHandle = {
     isIn: false,
     ready: false,
@@ -144,8 +141,8 @@ export function useInView(env: HookEnv, options: UseInViewOptions): UseInViewHan
   let io: IntersectionObserver | null = null
 
   const dirty = () => {
-    if (selfId) env.render([selfId])
-    else env.render()
+    if (selfId) env.scheduleRender()
+    else env.scheduleRender()
   }
 
   function createIO() {
@@ -195,7 +192,7 @@ export function useInView(env: HookEnv, options: UseInViewOptions): UseInViewHan
   // 组件卸载时自动断开 IO（防御：组件若只用 observe(el) 未接 ref(null)，
   // 卸载后 IO 仍观察已移除元素——泄漏）
   if (selfId) {
-    const unsub = env.onUnmount((id) => { if (id === selfId) { disconnect(); unsub() } })
+    const unsub = env.onUnmount(() => { disconnect(); unsub() })
   }
 
   return handle
@@ -203,7 +200,7 @@ export function useInView(env: HookEnv, options: UseInViewOptions): UseInViewHan
 
 /** 滚动位置跟踪（全局 scroll 监听 + rAF 节流）：返回响应式 y，变化自动 dirty */
 export function useScrollPosition(env: HookEnv, options: UseScrollPositionOptions): UseScrollPositionHandle {
-  const selfId = env.selfId()
+  const selfId = env.compId
   const b = env.browser
   const handle: UseScrollPositionHandle = {
     y: 0,
@@ -226,8 +223,8 @@ export function useScrollPosition(env: HookEnv, options: UseScrollPositionOption
   env.ensurePopupListeners() // 复用全局 scroll/resize 监听（rAF 节流）
   handle.refresh() // 初始值
   // 卸载清理 tracker（组件销毁后 scroll 重算不再引用已卸载组件）
-  const unsub = env.onUnmount((id) => {
-    if (id === selfId) { env.scrollTrackers.delete(selfId); unsub() }
+  const unsub = env.onUnmount(() => {
+    env.scrollTrackers.delete(selfId); unsub()
   })
   return handle
 }

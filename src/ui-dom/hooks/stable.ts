@@ -5,7 +5,7 @@
  * useLongPress / usePresence / useTween
  */
 
-import type { HookEnv } from './types.ts'
+import type { HookEnv } from '../contracts/hooks.ts'
 import { bindElementListener } from '../vdom3/delegate.ts'
 import type {
   UseLongPressOptions,
@@ -44,9 +44,9 @@ export function useLongPress(env: HookEnv, options: UseLongPressOptions): UseLon
   let startEvent: PointerEvent | null = null
   const clear = () => { clearTimeout(timer); timer = undefined }
   // 组件卸载时清除挂起定时器（长按中卸载：onLongPress 仍会触发——泄漏）
-  const selfId = env.selfId()
+  const selfId = env.compId
   if (selfId) {
-    const unsub = env.onUnmount((id) => { if (id === selfId) { clear(); unsub() } })
+    const unsub = env.onUnmount(() => { clear(); unsub() })
   }
   return {
     onPointerDown: (e: PointerEvent) => {
@@ -73,14 +73,14 @@ export function useLongPress(env: HookEnv, options: UseLongPressOptions): UseLon
  */
 export function usePresence(env: HookEnv, options?: { name?: string }) {
   void options
-  const selfId = env.selfId()
+  const selfId = env.compId
   let phase: 'closed' | 'open' | 'exit' = 'closed'
   let animEndHandler: (() => void) | undefined
 
   const finishExit = () => {
     phase = 'closed'
-    if (selfId) env.render([selfId])
-    else env.render()
+    if (selfId) env.scheduleRender()
+    else env.scheduleRender()
   }
 
   let animEndOff: (() => void) | null = null
@@ -112,7 +112,7 @@ export function usePresence(env: HookEnv, options?: { name?: string }) {
 
 /** 数值补间：rAF + ease + reduced-motion 直落终值。目标变化自动补间。 */
 export function useTween(env: HookEnv, target: number, opts?: { duration?: number; ease?: 'linear' | 'easeOutCubic' }) {
-  const selfId = env.selfId()
+  const selfId = env.compId
   const reduced = useReducedMotion(env)
   const duration = opts?.duration ?? 400
   const easeFn = opts?.ease === 'linear'
@@ -126,8 +126,8 @@ export function useTween(env: HookEnv, target: number, opts?: { duration?: numbe
   }
   // 每帧渲染（rAF 只更新闭包 value，不触发渲染则 DOM 冻结）
   const rerender = () => {
-    if (selfId) env.render([selfId])
-    else env.render()
+    if (selfId) env.scheduleRender()
+    else env.scheduleRender()
   }
 
   const tweenTo = (to: number) => {
@@ -158,9 +158,8 @@ export function useTween(env: HookEnv, target: number, opts?: { duration?: numbe
 
   // 组件卸载时取消 rAF（否则动画持续回调 rerender → 渲染已卸载组件——泄漏）
   if (selfId) {
-    const unsub = env.onUnmount((id) => {
-      if (id !== selfId) return
-      if (rafId) { cancelAnimationFrame(rafId); rafId = undefined }
+    const unsub = env.onUnmount(() => {
+            if (rafId) { cancelAnimationFrame(rafId); rafId = undefined }
       unsub()
     })
   }

@@ -4,17 +4,17 @@
  * useGlobalKey / useDrag / useDragDrop
  */
 
-import type { HookEnv } from './types.ts'
+import type { HookEnv } from '../contracts/hooks.ts'
 import { addGlobalListener } from '../vdom3/delegate.ts'
 
 /** 全局键盘监听：window keydown，mount 注册 + 卸载清理。返回退订函数。 */
 export function useGlobalKey(env: HookEnv, handler: (e: KeyboardEvent) => void): () => void {
-  const selfId = env.selfId()
+  const selfId = env.compId
   if (typeof window === 'undefined') return () => {}
   // 全局监听统一走事件代理（聚合注册/退订 + 事件流可观测）
   const off = addGlobalListener(window, 'keydown', handler as EventListener)
   if (selfId) {
-    const unsub = env.onUnmount((id) => { if (id === selfId) { off(); unsub() } })
+    const unsub = env.onUnmount(() => { off(); unsub() })
   }
   return off
 }
@@ -58,11 +58,10 @@ export function useDrag(env: HookEnv, options: {
   }
 
   // 组件卸载时释放活动期监听（拖拽中卸载：pointermove/pointerup 残留 window——泄漏）
-  const selfId = env.selfId()
+  const selfId = env.compId
   if (selfId) {
-    const unsub = env.onUnmount((id) => {
-      if (id !== selfId) return
-      if (active) {
+    const unsub = env.onUnmount(() => {
+            if (active) {
         releasePointers()
         active = false
       }

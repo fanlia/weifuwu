@@ -6,7 +6,7 @@
  * handle 带 subscribe——共享会话的子组件用 ctx.ui.useExternal(handle) 订阅。
  */
 
-import type { HookEnv } from './types.ts'
+import type { HookEnv } from '../contracts/hooks.ts'
 import type { UseChatHandle, UseChatOptions, UseChatState } from '../use-chat.ts'
 import { createChatSession } from '../use-chat.ts'
 import { aiStream } from '../ai.ts'
@@ -35,10 +35,10 @@ export function useChat(env: HookEnv, options: UseChatOptions): UseChatHandle {
     }
   }
   // 自动 dispose：组件卸载时中止 in-flight 流，防泄漏
-  const selfId = env.selfId()
+  const selfId = env.compId
   if (selfId) {
-    const unsub = env.onUnmount((id) => {
-      if (id === selfId) { api.dispose(); unsub() }
+    const unsub = env.onUnmount(() => {
+      api.dispose(); unsub()
     })
   }
   return state as unknown as UseChatHandle
