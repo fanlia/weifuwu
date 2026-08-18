@@ -31,24 +31,26 @@ export function applyAttrs(el: HTMLElement, attrs: Record<string, unknown>): voi
 export class CommandApplier {
   private nodes = new Map<string, WfNode>()
   private container: HTMLElement
+  private doc: Document
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, doc: Document) {
     this.container = container
+    this.doc = doc
   }
 
   apply(cmd: Command): void {
     switch (cmd.op) {
       case 'create': {
-        const el = document.createElement(cmd.tag)
+        const el = this.doc.createElement(cmd.tag)
         applyAttrs(el, cmd.attrs)
         this.nodes.set(cmd.id, el)
         break
       }
       case 'createText':
-        this.nodes.set(cmd.id, document.createTextNode(cmd.value))
+        this.nodes.set(cmd.id, this.doc.createTextNode(cmd.value))
         break
       case 'createAnchor':
-        this.nodes.set(cmd.id, document.createComment('wf-hole'))
+        this.nodes.set(cmd.id, this.doc.createComment('wf-hole'))
         break
       case 'insert': {
         const el = this.nodes.get(cmd.id)

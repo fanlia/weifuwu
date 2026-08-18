@@ -13,6 +13,7 @@ import { UIRouter, frontRequest } from './router.ts'
 import { CommandApplier } from './apply.ts'
 import type { Ctx } from '../context/Ctx.ts'
 import type { Command } from './commands.ts'
+import type { Browser } from '../browser/Browser.ts'
 
 /** NDJSON 命令流解析（行缓冲——命令可能跨 chunk） */
 function commandReader(reader: ReadableStreamDefaultReader<Uint8Array>): AsyncGenerator<Command> {
@@ -45,6 +46,8 @@ function commandReader(reader: ReadableStreamDefaultReader<Uint8Array>): AsyncGe
 export interface UiServeOptions {
   /** 根容器（选择器或元素——'#root'） */
   root: string | HTMLElement
+  /** 浏览器环境（依赖注入——测试 testBrowser() / 生产 createClientBrowser()） */
+  browser: Browser
 }
 
 export interface UiServeHandle {
@@ -55,18 +58,19 @@ export interface UiServeHandle {
 }
 
 export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
+  const doc = opts.browser.document
   const rootEl = typeof opts.root === 'string'
-    ? (document.querySelector(opts.root) as HTMLElement | null)
+    ? (doc.querySelector(opts.root) as HTMLElement | null)
     : opts.root
   if (!rootEl) throw new Error(`uiServe: root 未找到 — ${String(opts.root)}`)
 
   const ctx = {} as Ctx // 组件 ctx（render/data/ui...）后续实现——当前最小
 
   const ready = (async () => {
-    const req = frontRequest(window.location.pathname)
+    const req = frontRequest(opts.browser.location.pathname)
     const res = await router.resolve(req, ctx)
     if (!res.body) return
-    const applier = new CommandApplier(rootEl)
+    const applier = new CommandApplier(rootEl, doc)
     for await (const cmd of commandReader(res.body.getReader())) {
       applier.apply(cmd)
     }
