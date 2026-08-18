@@ -1,9 +1,16 @@
-# vdom4 计划——精准事件流引擎 + ui-dom 端口化（2026-12——执行状态：P0/P1/P2a/P3/P5 + UI-1/2/3/5 已完成 ✅）
+# vdom4 计划——精准事件流引擎 + ui-dom 端口化（2026-12——方向调整：独立引擎 ✅）
 
-> **执行状态（2026-12）**：P0（命令化 diff）/ P1（锚点法+影子）/ P2a（props 冻结）/
-> P3（dispose）/ P5（hydration 吸收）+ UI-1（契约）/ UI-2（RendererService）/
-> UI-3（HookEnv）/ UI-5（边界审计）已完成——vdom3 测试 144 + 组件全量 1327 全绿。
-> 剩余：P2b（vnode 值化）/ P4（会话实例化）/ UI-4（双引擎矩阵——vdom4 独立引擎落地后）。
+> **执行状态（2026-12）**：方向调整——**vdom4 = 独立引擎（engines/vdom4/），不兼容
+> vdom2/vdom3，组件直接改为 vdom4 方式**（不再在 vdom3 兼容面内打补丁——P2b 的
+> vdom3 内值化已回滚）。vdom3 内已完成的机制（命令化 diff/锚点法/影子/dispose/
+> hydration——4bf4fe11..f684f4cd）是 vdom4 的**概念验证**——架构原则不变，实现重写。
+> 已完成的 ui-dom 端口化（UI-1/2/3/5——contracts/services/边界审计）是 vdom4 的
+> 骨架——组件库迁移时保留（组件经门面接触引擎）。
+>
+> **新方向的关键决策（用户 2026-12）**：
+> ① **不兼容**：组件/ctx 面按 vdom4 方式重设计——不需要 V3Ctx/V3Ui 兼容 shim
+> ② **消灭挂起超时 hack**：vdom4 禁止 `Promise.race([renderFn(), setTimeout rej])`
+>    ——渲染管线的推进不依赖「用户 renderFn 的完成」——架构本身支持
 
 > 目标：消除 vdom3 的「历史同步」类 bug 类别（锚点捕获/剪枝吞更新/双轨竞态——同款
 > 修复 6 次的土壤），建立「**一份历史 + 两个纯函数 + 一个薄执行器**」的引擎架构；
@@ -371,3 +378,96 @@ SSR：build + diff(∅) → 全量命令 → HTML（带 data-wf-id=root.0.0.0）
 hydration：吸收器按 id 建影子（props 无 handler）→ 常规 diff → [ bind ]（唯一增量）
           —— 完全一致时命令 []（零 DOM 操作——无重建）
 ```
+
+---
+
+## 9. 方向调整附录（2026-12——独立引擎 vdom4）
+
+### 9.1 为什么独立引擎（不兼容）
+
+vdom3 内改造的教训：**兼容面（V3Ctx/V3Ui/hooks shim）拖累架构**——
+P2b（值化）在 vdom3 内推进时，`updateComponent` 双轨（busy/dirty/updatingComps）、
+挂起超时 hack、组件级更新的 comp 定位（findComponent + _render 字段）全部成为
+「值化」的阻碍——因为兼容面要求 vnode 保留字段、ctx 保留旧形状。
+
+vdom4 独立引擎：**组件/ctx/vnode 全部按新架构设计——无兼容包袱**。
+
+### 9.2 组件模型（vdom4 方式——非兼容）
+
+```ts
+// 两阶段保留（工厂 + renderFn）——但 ctx 面重设计：
+// ctx.render()（统一渲染原语——root/comp 同一入口）
+// ctx.data（唯一异步边界——数据管道：缓存/并发合并/错误/超时由管道管理）
+// ctx.ui.*（hooks——浏览器能力——保留但形状 vdom4 化）
+// ctx.browser（环境抽象）
+const Counter = (initProps, ctx) => {
+  let count = initProps.initial ?? 0
+  return (props) => h('button', { onClick: () => { count++; ctx.render() } }, count)
+}
+```
+
+### 9.3 消灭挂起超时 hack（架构原则——禁止 `Promise.race + setTimeout rej`）
+
+**vdom3 为什么需要它**：`updateComponent` await 用户 renderFn——永不 resolve →
+busy 卡死 → 管线瘫痪。超时竞速是补丁（且有害：3s 后 resolve 的正常渲染被丢弃）。
+
+**vdom4 消灭它的三个机制**（渲染推进不依赖用户异步完成）：
+
+1. **ctx.data 是唯一异步边界**：renderFn 的 await 只允许 `ctx.data.get`（缓存命中
+   同步返回——未命中管道 fetch——**请求生命周期/超时/错误由管道管理**——不是渲染
+   管线竞速）。渲染期确定性红线扩展：**renderFn 禁止直接 fetch/定时器/任意 await**
+   （dev audit 检测——违规 warn）
+2. **同步骨架先行**：build 的同步部分（props/结构）立即推进——异步数据未就绪 →
+   组件输出确定性加载态（骨架/占位）——**管线不等待**——数据就绪 → ctx.data 通知
+   → 统一渲染原语补渲染该组件（与 vdom2 的 ctx.data 三场景同语义——但由管道驱动）
+3. **统一渲染原语 + 串行调度**：`engine.update(target)`（root/comp 一个入口——
+   一个调度队列——epoch 世代）——**无 busy/dirty/updatingComps 双轨**（vdom3 的
+   并发复杂性来源）——渲染中触发 = 世代校验合并/丢弃——**无「等待」语义**
+
+**验收**：vdom4 源码 grep `Promise.race` / `setTimeout.*rej` = 0；挂起场景（renderFn
+永不 resolve）下管线照常推进（该组件保持旧输出——其余正常渲染——dev 报错定位）。
+
+### 9.4 组件迁移（改为 vdom4 方式）
+
+| vdom2/vdom3 面 | vdom4 面 | 迁移 |
+|---|---|---|
+| `ctx.ui.render()` / `ctx.render()` | `ctx.render()`（统一） | 机械替换 |
+| `ctx.ui.selfId + render(['id'])` | `ctx.render(['id'])`（语义 id 服务保留） | 保留 |
+| `ctx.ui.useXXX` hooks | `ctx.ui.useXXX`（形状 vdom4 化——HookEnv 契约已引擎无关） | 小改 |
+| `ctx.data` | 同（管道——三场景） | 保留 |
+| 组件内部状态 | 闭包 `let` + `ctx.render()`（render-only 不变） | 保留 |
+| `ctx.browser` | 同 | 保留 |
+
+迁移顺序：引擎最小闭环（build/diff/fold/apply 同步组件）→ ctx 面 → 组件库
+批量迁移（机械）→ 异步数据（ctx.data 管道）→ 测试基线（组件全量 1327 复绿）。
+
+### 9.5 独立引擎文件结构
+
+```
+src/ui-dom/engines/vdom4/
+├── types.ts      — vnode（纯数据——无回填字段）+ Command + 影子类型
+├── shadow.ts     — 影子（实例表（路径 compId）+ 锚列表 + 节点登记——fold 唯一推进）
+├── build.ts      — 纯展开（查影子复用实例——**无副作用**——输出暂存 nextOutput）
+├── diff.ts       — 纯 diff（新树 vs 影子 → Command[]）
+├── fold.ts       — 影子推进（Command[] → 影子'）
+├── apply.ts      — 执行器（薄——DOM + ref/事件/生命周期/dispose）
+├── scheduler.ts  — 统一调度（engine.update(target) + epoch——无双轨）
+├── ctx.ts        — 组件 ctx（vdom4 面）
+├── root.ts       — createRoot（会话 Engine 实例）
+├── router.ts     — createRouter
+├── data.ts       — ctx.data 管道（缓存/并发合并/错误/超时——唯一异步边界）
+└── ssr.ts        — 统一管线（事件流 + 吸收——复用 vdom3 验证的语义）
+```
+
+### 9.6 与 vdom3 内改造的关系（资产复用）
+
+| vdom3 机制 | vdom4 复用方式 |
+|---|---|
+| 命令化 diff（gen/apply） | 重写为纯函数（diff/fold/apply 分离——vdom3 的 gen 与 apply 已分但同文件） |
+| 锚点法/逻辑容器锚列表 | **直接复用**（shadow.ts 的语义——P1 验证） |
+| props 深度冻结 | **直接复用**（build.ts 的 deepFreeze） |
+| dispose 协议 | **直接复用**（disposeTree 语义） |
+| hydration 结构吸收 | **直接复用**（absorb 队列语义） |
+| 语义 id 服务 | **直接复用**（services/hook-env.ts——引擎无关） |
+| 路径 compId（P2b-1 验证） | **直接复用**（c0.0.c.1 格式——确定性） |
+| 事件流观测 | vdom4 可选（观测层降级——不阻塞执行） |
