@@ -155,6 +155,9 @@ const UserProfile = async (initProps, ctx) => {
 ### 3.5 SSR（SPA/SSR 透明）
 
 - **SSR 与客户端共享同一 UIRouter**：`uiSsr`（RouteDef[] 声明式 SSR 中间件）已删除——路由定义只有 UIRouter（`get/use/notFound`）一份，`ssrPage(router, { url })` 服务端落地、`uiServe(router, { hydrate: true })` 客户端收养；匹配/参数注入两端同源
+- **vdom3 hydration 结构吸收（2026-12）**：SSR 输出 data-v3-id + wf-anchor 注释 → 客户端 mount
+  检测后结构队列吸收（复用现有 DOM——首帧零重建——焦点/状态保持）；SSR 事件流（renderToEvents/
+  eventsToHtml）与客户端锚语义同构（每槽位锚序列化/回放）
 - **`weifuwu/dev`**（`src/dev/index.ts`）：Node `registerHooks` + esbuild 同步编译 `.ts/.tsx`，服务端直接跑 `.tsx`——与 `ctx.ui.js` 前端动态编译对称，两端同一 JSX 运行时
 - **`ctx.ui.ssr(Comp, props, { data })`** → HtmlSafe HTML 片段；`ctx.ui.ssrData(data)` → `__DATA__` 脚本：
 
@@ -219,6 +222,51 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 - mount 保护期（工厂执行）`render()` 调用被 `_render` 守卫天然拦截（未挂载组件跳过）
 
 **实现位置**：`src/ui-dom/vdom/`（build.ts / diff.ts / render.ts / mount.ts / registry.ts / hydration.ts / ssr.ts / serve.ts）——第 2 代引擎，替代第 1 代（render.ts/diff.ts 顶层文件）的占位/补全/批处理机制。
+
+### 4.0.x vdom3 引擎（2026-12 改造——**生产引擎**，`src/ui-dom/vdom3/`）
+
+> vdom3 是当前生产引擎（agent-platform 默认入口）。2026-12 vdom4 计划落地了
+> 以下机制（命令化 diff/锚点法/影子状态/冻结/dispose/hydration）——**改引擎必须先跑
+> `src/test/vdom3*.test.ts`（144）**。vdom2（src/ui-dom/vdom/）为历史实现。
+
+**架构（决策与执行分离——DOM = fold(命令)）**：
+```
+build（展开组件）→ gen 系列（diff 决策——零 DOM 写——grep 审计）→ Command[] → applyCommands（执行——写 DOM + 影子 fold + DOM 层事件单点发射）
+```
+- 决策层事件（diff:transition/vnode:patch/diff:mode）在 gen 发射；DOM 层事件
+  （node/prop/text/ref/event/portal）统一在 apply 发射——**DOM = fold(命令) 数学成立**
+- **命令引用协议**：节点用 id（apply 时 registry 解析——新节点 gen 阶段未创建）；
+  锚（ref）支持 Node/string 双形式；causeId 随命令携带（决策链不丢）
+
+**锚点法（P1——每槽恒一锚）**：
+- **每个 children 数组槽位恒有一个注释锚**（`<!--wf-anchor-->`——内容在其后）——
+  空洞（false/null）槽位 = 只有锚（占位法并入锚点法）——槽位 i ⟷ 锚列表[i]——O(1) 定位
+- **逻辑容器锚列表**（shadow.ts）：组件/Fragment 输出内部锚登记到输出锚的列表
+  （不混入父列表——槽位线性索引保持）——影子由 apply（fold）唯一推进——gen 只读
+- **消灭的机制**：domIdx/widthOf/_outFirst/_outLast 宽度推导、anchor 捕获类 bug
+  （历史 6 次同款修复）——锚失效 = 结构损坏（不再静默 append）
+- 命令：createAnchor/clearSlot（清内容留锚）/moveSlot（区间移动——锚+内容整体）
+
+**props 深度冻结（P2a——契约机制化）**：
+- dev（`__WF_V3_AUDIT` 开——默认）进入组件前递归 Object.freeze props——**原地改对象
+  → strict mode 立即 TypeError**（不再是静默失效 + 事后 warn）——剪枝的引用比较获得
+  内容不变性保证。**豁免**：含函数属性的对象（useChat handle/state 等引擎共享可变
+  状态——冻结破坏流式累积）与类实例（Date/Map）——契约只覆盖纯数据
+
+**dispose 协议（P3）**：`disposeTree`（组件钩子 → ref(null) → 事件解绑 → 索引注销
+→ portal 清空）+ `removeDelegationRoot`——`RootHandle.unmount`/`RouterHandle.close`
+完整清理（不再只清 innerHTML——监听残留/钩子不跑/ref 不清理三类泄漏消除）
+
+**hydration 结构吸收（P5）**：mount 检测 SSR 内容（data-v3-id/锚注释标记——boot-loading
+等无标记不误判）→ 结构队列（DFS 序与 gen 命令序同构）→ apply 复用现有 DOM
+（类型匹配——元素/文本/锚）——**SSR 首帧零重建**（焦点/选区/第三方库保持）——
+SSR 输出 data-v3-id（吸收标记——客户端 create 时覆盖为客户端 id 空间）
+
+**语义 id 服务（UI-3）**：`selfId(name)` 注册 + `render(['id'])` 跨组件精准渲染
+（语义 id → compId → 组件级调度——目标刷新兄弟零执行）——冲突明确抛错
+
+**事件流语义**：insert 带 after/isAnchor（回放锚语义）；move 浓缩区间（range——
+回放/undo 整体移动——prev 移动前捕获）
 
 ### 4.1 状态存放位置
 
@@ -522,6 +570,9 @@ const MyComp: Component = (_init, ctx) => {
 - **症状**：命令式中间件（`toast()` 等）挂载的组件注册在 components 自己的 idRegistry，但 `renderByIds` 走 app 的 registry（查 app 的 registry）→ 命中无关组件/漏渲染——真实 app 实测：toast 永不渲染，单测全绿（node --test 单模块图掩盖）
 - **两道防线**：① `scripts/build.mjs` 组件构建外部化 `src/client/*` 导入 → `weifuwu/client`（dist 消费端共享）；② **app 的 tsconfig `paths` 必须同时映射 `weifuwu/client` 和 `weifuwu/components` 到 src**（dev 全 src 单图）——只映射 client 不映射 components 时，app 用 src 的 client、components 用 dist 的 client，状态仍重复
 - 排查手段：浏览器探针 + 检查 bundle 内 `var _idCounter` 出现次数（>1 = 状态重复）；esbuild metafile 看 `src/client` 与 `dist/client` 是否同时被引用
+- **第三道防线（2026-12）**：`services/render-service.ts` 双实例探针（`__wf_ui_dom_instance`——
+  ui-dom 模块被加载两次即 console.warn——模块状态分裂早期检测）；`src/test/ui-dom-boundary.test.ts`
+  import 边界审计（components/hooks/middleware/services/contracts 零 import engines/——门面 index.ts 允许）
 
 ### 6.2 enumerated 属性必须显式字符串（draggable 踩过）
 
@@ -592,6 +643,12 @@ const MyComp: Component = (_init, ctx) => {
 - 文件级内存服务器必须 `after(close)`（node --test 文件结束需事件循环清空——net server 不关 = 文件挂起）
 - 新增 sql/redis 协议测试前先问：属于三部分哪一类？不属于 → 不写
 - 业务测试（user/queue/messager/rate-limit/email mock）独立于上述范围——仍跑 MemorySql/MemoryRedis 与协议 mock
+
+### 7.1.2 vdom3 引擎测试组
+
+- **开发迭代**：`timeout 15 node --env-file=.env --test --test-timeout=8000 'src/test/vdom3*.test.ts'`（144 测试——命令化/锚点法/冻结/dispose/hydration/语义 id 全组）
+- **边界审计**：`src/test/ui-dom-boundary.test.ts`（v5 隔离性——components/hooks/services 零 import engines/）
+- 改引擎核心（render/build/shadow/delegate）后：vdom3 组 + 边界审计 + 组件抽样（Select/Tree/ChatInput/Popover/Modal）全绿才可提交
 
 ### 7.2 UI 组件测试纪律（jsdom + VNode 断言）
 
