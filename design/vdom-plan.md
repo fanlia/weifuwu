@@ -74,8 +74,17 @@ export type Command =
   remove/insert/事件 setProp → 无输出、done → 终止）
 - `res.body.pipeThrough(commandToHtml())` → 直接作为 HTTP 响应体——
   **流式 SSR**（边构建边吐 HTML——React Fizz 同模式）
-- `__DATA__` 种子：done 前注入（ctx.data.seed()——序列化进流尾部脚本）
 - res.headers 直接映射 HTTP 响应头；redirect = status 3xx + Location
+
+### 无 hydration（2026-12 决策）
+
+- **裁剪 hydration**：客户端接管**不收养服务端 HTML**——直接 build 渲染
+  （首帧覆盖）——SSR HTML 只做首屏（SEO/首帧可读）
+- **diff/patch 的标准 = 现有 DOM 节点**：增量命令就地更新
+  （setText/setProp/remove/insert——不重建整树——焦点保持）——
+  旧树 = 影子状态（组件 lastOutput 对照）——不是服务端 HTML
+- `__DATA__` 种子/`preload` 同步命中语义随 hydration 裁剪暂缓
+  （ctx.data 三场景后续定）
 
 ## 4. 派生能力（原生白拿）
 

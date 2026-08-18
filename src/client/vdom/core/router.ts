@@ -1,16 +1,15 @@
 /**
- * vdom core — UIRouter（应用唯一入口——公共面）
+ * vdom core — route 阶段（UIRouter——应用唯一入口——公共面）
  *
- * 设计（design/vdom-plan.md §2/§4）：Handler 签名字面同构后端——
+ * 设计（design/vdom-plan.md §2）：Handler 签名字面同构后端——
  * `(req: Request, ctx) => Response`——原生 Request/Response——
- * 路由核心（Trie + 中间件链）后续提取为前后端共享（src/shared/router/）。
- *
- * 本文件为初始最小实现：路径 Map 精确匹配 + notFound 兜底——
- * Trie 匹配（静态优先 → :param → *）与中间件链后续实现。
+ * 路由核心 = shared Trie（src/shared/router/trie.ts——前后端共用）——
+ * 静态段优先 → :param → * 通配——params 注入 req。
  */
 
 import type { Ctx } from '../context/Ctx.ts'
 import type { Command } from './command/index.ts'
+import { createTrie, trieRegister, trieMatch, splitPath, type TrieNode } from '../../../shared/router/trie.ts'
 
 /** 前端请求 = 原生 Request + params/path 注入（类型扩展——匹配结果挂 req） */
 export type FrontRequest = Request & { params: Record<string, string>; path: string }
@@ -40,12 +39,12 @@ export function frontRequest(path: string): FrontRequest {
 }
 
 export class UIRouter {
-  private routes = new Map<string, PageHandler>()
+  private root: TrieNode<PageHandler> = createTrie<PageHandler>()
   private notFoundHandler: PageHandler | null = null
 
-  /** 注册路由（path 精确匹配——Trie 后续） */
+  /** 注册路由（shared Trie——静态/:param/*——params 注入 req） */
   get(path: string, handler: PageHandler): this {
-    this.routes.set(path, handler)
+    trieRegister(this.root, path, handler)
     return this
   }
 
@@ -55,10 +54,12 @@ export class UIRouter {
     return this
   }
 
-  /** 解析请求 → 响应（匹配 + 参数注入 + handler 调用） */
+  /** 解析请求 → 响应（Trie 匹配 + params 注入 + handler 调用） */
   async resolve(req: FrontRequest, ctx: Ctx): Promise<Response> {
-    const handler = this.routes.get(req.path) ?? this.notFoundHandler
+    const m = trieMatch(this.root, splitPath(req.path))
+    const handler = m?.value ?? this.notFoundHandler
     if (!handler) return new Response(null, { status: 404 })
+    if (m) Object.assign(req.params, m.params)
     return handler(req, ctx)
   }
 }

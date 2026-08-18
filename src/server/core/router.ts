@@ -8,6 +8,7 @@ import {
 } from './ws.ts'
 import type { GraphQLHandler } from '../graphql.ts'
 import { createGraphqlRouter } from '../graphql.ts'
+import { createTrie, trieRegister, trieMatch, trieFind, splitPath, type TrieNode } from '../../shared/router/trie.ts'
 
 /**
  * WebSocket room hub — manages pub/sub groups for real-time messaging.
@@ -20,92 +21,28 @@ import { createGraphqlRouter } from '../graphql.ts'
  */
 export type { Hub } from './ws.ts'
 
-// ── Trie types ──────────────────────────────────────────────────
+// ── Trie 负载（method 表——精确与通配同构——shared Trie 泛型 value） ──
 
-type TrieNode = {
-  children: Map<string, TrieNode>
-  /** 精确路径 handler（路径完全匹配——root 上 '/' 与 '/*' 通配并存的关键） */
+type RouteValue = {
   handlers: Map<string, Handler>
   middlewares: Map<string, Middleware[]>
-  param?: string
-  wildcard?: boolean
-  /** 通配路径 handler（独立槽——不被精确 handler 覆盖；反之亦然——showcase SSR 事故） */
-  wildcardHandler?: Handler
-  wildcardMiddlewares?: Middleware[]
 }
 
-type WsTrieNode = {
-  children: Map<string, WsTrieNode>
-  handler?: WebSocketHandler
+type WsValue = {
+  handler: WebSocketHandler
   middlewares: Middleware[]
-  param?: string
-  wildcard?: boolean
 }
 
-const createTrieNode = (): TrieNode => ({
-  children: new Map(),
+const createRouteValue = (): RouteValue => ({
   handlers: new Map(),
   middlewares: new Map(),
 })
 
-const createWsNode = (): WsTrieNode => ({
-  children: new Map(),
-  middlewares: [],
-})
-
-// ── Trie helpers (generic) ──────────────────────────────────────
-
-interface TrieNodeBase<T> {
-  children: Map<string, T>
-  param?: string
-  wildcard?: boolean
-}
-
-function createParamChild<T extends TrieNodeBase<T>>(
-  node: T, segment: string, createNode: () => T,
-): T {
-  const paramName = segment.slice(1)
-  if (!node.children.has(':')) {
-    const child = createNode()
-    child.param = paramName
-    node.children.set(':', child)
-  }
-  const child = node.children.get(':')!
-  if (child.param !== paramName) {
-    throw new Error(
-      `Param name conflict: ":${child.param}" already registered, cannot register ":"${paramName}"`,
-    )
-  }
-  return child
-}
-
-function getOrCreateChild<T extends TrieNodeBase<T>>(
-  node: T, segment: string, createNode: () => T, allowWildcard: boolean,
-): T {
-  if (allowWildcard && segment === '*') { node.wildcard = true; return node }
-  if (segment.startsWith(':')) return createParamChild(node, segment, createNode)
-  if (!node.children.has(segment)) node.children.set(segment, createNode())
-  return node.children.get(segment)!
-}
-
-function matchChild<T extends TrieNodeBase<T>>(
-  node: T, segment: string, params: Record<string, string>, allowWildcard = false,
-): T | null {
-  if (node.children.has(segment)) return node.children.get(segment)!
-  if (node.children.has(':')) {
-    const child = node.children.get(':')!
-    if (child.param) params[child.param] = decodeURIComponent(segment)
-    return child
-  }
-  if (allowWildcard && node.wildcard) return node
-  return null
-}
-
 // ── Router ──────────────────────────────────────────────────────
 
 export class Router<T extends object = Context> {
-  private root = createTrieNode()
-  private wsRoot = createWsNode()
+  private root = createTrie<RouteValue>()
+  private wsRoot = createTrie<WsValue>()
   private globalMws: Middleware[] = []
   private errorHandler?: ErrorHandler<T>
   private _hasWildcard = false
@@ -192,12 +129,7 @@ export class Router<T extends object = Context> {
   ws(path: string, ...args: [...Middleware[], WebSocketHandler]): Router<T> {
     const handler = args.pop()! as WebSocketHandler
     const mws = args as Middleware[]
-    let node = this.wsRoot
-    for (const segment of this.splitPath(path)) {
-      node = getOrCreateChild(node, segment, createWsNode, true)
-    }
-    node.handler = handler
-    node.middlewares = mws
+    trieRegister(this.wsRoot, path, { handler, middlewares: mws })
     return this
   }
 
@@ -226,7 +158,7 @@ export class Router<T extends object = Context> {
   handler(): Handler<T> {
     return (req, ctx) => {
       const url = new URL(req.url)
-      return this.handle(req, ctx, this.splitPath(url.pathname))
+      return this.handle(req, ctx, splitPath(url.pathname))
     }
   }
 
@@ -263,35 +195,22 @@ export class Router<T extends object = Context> {
     }
     const handler = args.pop()
     const mws: Middleware[] = args
-    let node = this.root
 
-    const segments = this.splitPath(path)
-    // 根路径 '/'：splitPath 过滤空段返回 []——handler 必须绑定 root 节点
-    // （真实事故：showcase 首页 SSR 路由被 /* 通配抢先——/ 从未注册成功）
-    if (segments.length === 0) {
-      node.handlers.set(method, handler)
-      if (mws.length > 0) node.middlewares.set(method, mws)
-      return this
-    }
-
-    for (const segment of segments) {
-      if (segment === '*') {
-        this._hasWildcard = true
-        node.wildcard = true
-        // 通配独立槽（真实事故：'/' + '/*' 并存时通配覆盖精确 handler——
-        // showcase 首页 SSR 路由被通配抢先）
-        node.wildcardHandler = handler
-        if (mws.length > 0) node.wildcardMiddlewares = mws
-        return this
-      }
-      node = getOrCreateChild(node, segment, createTrieNode, false)
-    }
-
-    if (node.handlers.has(method)) {
+    // 多方法合并（get+post 同路径并存——value 累积 method 表）
+    const existing = trieFind(this.root, path)
+    const isWildcard = path.includes('*')
+    const prev = isWildcard ? existing?.wildcardValue : existing?.value
+    // 同 method 重复注册抛错（set 前检查——合并对象同引用）
+    if (!isWildcard && prev?.handlers.has(method)) {
       throw new Error(`[router] route conflict: ${method} ${path} already registered`)
     }
-    node.handlers.set(method, handler)
-    if (mws.length > 0) node.middlewares.set(method, mws)
+    const value: RouteValue = prev ?? createRouteValue()
+    value.handlers.set(method, handler)
+    if (mws.length > 0) value.middlewares.set(method, mws)
+
+    const node = trieRegister(this.root, path, value, isWildcard)
+    if (isWildcard) this._hasWildcard = true
+
     return this
   }
 
@@ -314,51 +233,52 @@ export class Router<T extends object = Context> {
       this._checkMiddlewareMeta(mw, `mount:${prefix}`)
     }
 
-    const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
-    this._collect(sub.root, '', routes)
+    const routes = this._collectAll(sub.root)
     for (const { method, path, handler, middlewares } of routes) {
       this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler])
     }
 
-    const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
-    this._collectWs(sub.wsRoot, '', wsRoutes)
+    const wsRoutes = this._collectAllWs(sub.wsRoot)
     for (const { path, handler, middlewares } of wsRoutes) {
       this.ws(base + path, ...allExtra as any[], ...middlewares, handler)
     }
   }
 
-  private _collect(node: TrieNode, prefix: string, result: Array<{
+  // ── Private: Mount collect（新结构——node.value 负载） ──
+
+  private _collectAll(node: TrieNode<RouteValue>, prefix = ''): Array<{
     method: string; path: string; handler: Handler; middlewares: Middleware[]
-  }>): void {
-    for (const [method, handler] of node.handlers) {
-      const rmws = node.middlewares.get(method) || []
+  }> {
+    const out: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
+    for (const [method, handler] of node.value?.handlers ?? []) {
+      const rmws = node.value?.middlewares.get(method) || []
       const suffix = node.wildcard ? '/*' : ''
-      result.push({ method, path: (prefix || '/') + suffix, handler, middlewares: [...rmws] })
+      out.push({ method, path: (prefix || '/') + suffix, handler, middlewares: [...rmws] })
     }
     for (const [seg, child] of node.children) {
-      this._collect(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg), result)
+      out.push(...this._collectAll(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg)))
     }
+    return out
   }
 
-  private _collectWs(node: WsTrieNode, prefix: string, result: Array<{
+  private _collectAllWs(node: TrieNode<WsValue>, prefix = ''): Array<{
     path: string; handler: WebSocketHandler; middlewares: Middleware[]
-  }>, mwsAcc: Middleware[] = []): void {
-    const mws = [...mwsAcc, ...node.middlewares]
-    if (node.handler) result.push({ path: prefix || '/', handler: node.handler, middlewares: mws })
+  }> {
+    const out: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
+    if (node.value?.handler) out.push({ path: prefix || '/', handler: node.value.handler, middlewares: [...node.value.middlewares] })
     for (const [seg, child] of node.children) {
-      this._collectWs(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg), result, mws)
+      out.push(...this._collectAllWs(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg)))
     }
+    return out
   }
 
   // ── Private: Matching ──────────────────────────────────────
 
-  private splitPath(path: string): string[] { return path.split('/').filter(Boolean) }
-
-  private _collectRoutes(node: TrieNode, prefix: string, result: string[]): void {
-    for (const [method] of node.handlers) {
+  private _collectRoutes(node: TrieNode<RouteValue>, prefix: string, result: string[]): void {
+    for (const [method] of node.value?.handlers ?? []) {
       const m = method === '*' ? 'ANY' : method
       const path = (prefix || '/') + (node.wildcard ? '/*' : '')
-      const middlewares = node.middlewares.get(method)
+      const middlewares = node.value?.middlewares.get(method)
       const mwCount = middlewares ? ` (+${middlewares.length} mw)` : ''
       result.push(`${m.padEnd(7)} ${path}${mwCount}`)
     }
@@ -368,10 +288,10 @@ export class Router<T extends object = Context> {
     }
   }
 
-  private _collectWsRoutes(node: WsTrieNode, prefix: string, result: string[]): void {
-    if (node.handler) {
+  private _collectWsRoutes(node: TrieNode<WsValue>, prefix: string, result: string[]): void {
+    if (node.value?.handler) {
       const path = prefix || '/'
-      const mwCount = node.middlewares.length ? ` (+${node.middlewares.length} mw)` : ''
+      const mwCount = node.value.middlewares.length ? ` (+${node.value.middlewares.length} mw)` : ''
       result.push(`WS       ${path}${mwCount}`)
     }
     for (const [seg, child] of node.children) {
@@ -383,80 +303,45 @@ export class Router<T extends object = Context> {
   private matchTrie(method: string, segments: string[]): {
     kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
   } | null {
-    let node = this.root
-    const params: Record<string, string> = {}
-    // 根路径 '/'（空 segments）：直接解析 root（精确优先于 /* 通配）
-    if (segments.length === 0) {
-      const resolved = this._resolveMatch(node, method, params, 0)
-      if (resolved) return resolved
-      return this._wildcardMatch(method, segments)
+    const m = trieMatch(this.root, segments)
+    if (!m) return null
+    const value = m.value
+    // 通配命中：method 表直接查（route 或 null——通配不产生 405）
+    if (m.wildcard) {
+      const handler = value.handlers.get(method) || value.handlers.get('*')
+      return handler
+        ? { kind: 'route', handler, mws: value.middlewares.get(method) || value.middlewares.get('*') || [], params: m.params }
+        : null
     }
-    for (const seg of segments) {
-      const next = matchChild(node, seg, params, false)
-      if (!next) return this._wildcardMatch(method, segments)
-      node = next
-    }
-    const resolved = this._resolveMatch(node, method, params, segments.length)
-    if (resolved) return resolved
-    // 终端节点是纯前缀（如 /dashboard 只有 /dashboard/overview 子路由）：
-    // 无 handler 时回退到通配符（SPA catch-all 场景）
-    return this._wildcardMatch(method, segments)
+    return this._resolveMatch(value, method, m.params)
   }
 
-  private _wildcardMatch(method: string, segments: string[]): {
-    kind: 'route'; handler: Handler; mws: Middleware[]; params: Record<string, string>
-  } | null {
-    if (!this._hasWildcard) return null
-    let node = this.root
-    const params: Record<string, string> = {}
-    for (let i = 0; i < segments.length; i++) {
-      if (node.wildcard) {
-        // 通配独立槽优先（'/' 精确 + '/*' 通配并存——handlers 是精确槽）
-        const h = node.wildcardHandler
-        if (h) {
-          params['*'] = segments.slice(i).join('/')
-          return { kind: 'route', handler: h, mws: node.wildcardMiddlewares ?? [], params }
-        }
-      }
-      const next = matchChild(node, segments[i], params, false)
-      if (!next) return null
-      node = next
-    }
-    return null
-  }
-
-  private _resolveMatch(node: TrieNode, method: string, params: Record<string, string>, _segLen: number): {
+  private _resolveMatch(value: RouteValue, method: string, params: Record<string, string>): {
     kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
   } | null {
-    let handler = node.handlers.get(method) || node.handlers.get('*')
-    if (!handler && method === 'HEAD') handler = node.handlers.get('GET')
-    if (node.wildcard) params['*'] = ''
+    let handler = value.handlers.get(method) || value.handlers.get('*')
+    if (!handler && method === 'HEAD') handler = value.handlers.get('GET')
     if (handler) {
-      return { kind: 'route', handler, mws: node.middlewares.get(method) || node.middlewares.get('*') || [], params }
+      return { kind: 'route', handler, mws: value.middlewares.get(method) || value.middlewares.get('*') || [], params }
     }
-    if (node.handlers.size > 0) {
+    if (value.handlers.size > 0) {
       return {
         kind: 'not-allowed',
         handler: () => new Response('', { status: 405 }),
         mws: [],
         params,
-        methods: [...node.handlers.keys()].filter((k: string) => k !== '*'),
+        methods: [...value.handlers.keys()].filter((k: string) => k !== '*'),
       }
     }
     return null
   }
 
-  private matchWsTrie(root: WsTrieNode, segments: string[]): {
+  private matchWsTrie(root: TrieNode<WsValue>, segments: string[]): {
     handler: WebSocketHandler; middlewares: Middleware[]; params: Record<string, string>
   } | null {
-    let node: WsTrieNode = root
-    const params: Record<string, string> = {}
-    for (const seg of segments) {
-      const next = matchChild(node, seg, params, true)
-      if (!next) return null
-      node = next
-    }
-    return node.handler ? { handler: node.handler, middlewares: node.middlewares, params } : null
+    const m = trieMatch(root, segments)
+    if (!m) return null
+    return { handler: m.value.handler, middlewares: m.value.middlewares, params: m.params }
   }
 
   // ── Private: Request handling ──────────────────────────────

@@ -18,7 +18,7 @@ import assert from 'node:assert/strict'
 import { testBrowser } from './setup.ts'
 import { UIRouter, uiServe } from './index.ts'
 import { h } from './core/vnode.ts'
-import { renderToStream } from './core/render.ts'
+import { renderToStream } from './core/build.ts'
 import { commandResponse } from './core/router.ts'
 
 test('uiServe + UIRouter：单路由 / 渲染 hello world（uiServe(router, { root: "#root", browser })）', async () => {

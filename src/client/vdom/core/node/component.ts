@@ -28,6 +28,8 @@ export interface ComponentRecord {
   renderFn: RenderFn
   /** 卸载清理回调（ctx.onUnmount 收集——unmountComp 时执行） */
   onUnmounts: (() => void)[]
+  /** 上次渲染输出（diff 对照——同实例更新就地 patch——不重建） */
+  lastOutput?: VNodeChild | null
 }
 
 /** 组件实例注册表（uiServe 持有——renderToStream 写入——diff/unmount 消费） */
@@ -80,6 +82,8 @@ export async function renderComponent(
 
   // renderFn = 每次渲染（读最新 props——可 await——输出 null/数组/vnode）
   const out = await rec.renderFn(vn.props)
+  // 记录输出（diff 对照——同实例更新就地对上次输出 patch）
+  rec.lastOutput = out
   await sink(out, parent, index, ref)
 }
 

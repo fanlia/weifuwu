@@ -10,7 +10,7 @@
  */
 
 import { UIRouter, frontRequest } from './router.ts'
-import { CommandApplier } from './apply.ts'
+import { CommandApplier } from './patch.ts'
 import type { Ctx } from '../context/Ctx.ts'
 import type { Command } from './command/index.ts'
 import type { Browser } from '../browser/Browser.ts'

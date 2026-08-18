@@ -11,8 +11,8 @@ import assert from 'node:assert/strict'
 import { testBrowser } from '../../setup.ts'
 import { isHole, isInvalid, invalidDiagnostic, holeCommands, emitHole } from './hole.ts'
 import { h } from '../vnode.ts'
-import { renderToStream } from '../render.ts'
-import { CommandApplier } from '../apply.ts'
+import { renderToStream } from '../build.ts'
+import { CommandApplier } from '../patch.ts'
 import type { Command } from '../command/index.ts'
 
 test('isHole：false/null/undefined/true 全部是空洞（无渲染值）', () => {
