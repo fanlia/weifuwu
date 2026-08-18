@@ -49,8 +49,10 @@ export interface ChatInputProps {
   labels?: Partial<ChatInputLabels>
   /** 扩展位（附件/知识库/模型选择等） */
   actions?: VNode | null
-  /** 外部程序化控制（@ 补全等场景）——mount 后写入 { setKeyword, setValue } */
-  control?: { current: ChatInputControl | null }
+  /** 外部程序化控制（@ 补全等场景）——mount 期回调上抛稳定 handle（{ setKeyword, setValue }）——
+   *  回调必须 mount 层定义（稳定引用——vdom3 props 剪枝）；禁止 out-param 对象（props 不可变契约——
+   *  原地写 control.current 触发 vdom3 audit） */
+  onControl?: (handle: ChatInputControl) => void
 }
 
 export interface ChatInputControl {
@@ -79,12 +81,12 @@ export const ChatInput: Component<ChatInputProps, { ui: V3Ui }> = async (_init, 
       name: 'ChatInput',
     })
     // §5.3 外部程序化控制：@ 补全等需要改写输入态（不触发 onChange 的 setKeyword——
-    // 由消费方自行决定是否回传共享态）
-    if (props.control) {
-      props.control.current = {
+    // 由消费方自行决定是否回传共享态）——回调上抛（props 不可变契约：不写 out-param）
+    if (props.onControl) {
+      props.onControl({
         setKeyword: (v: string) => { input.setKeyword(v) },
         setValue: (v: string) => { input.setKeyword(v); props.onChange?.(v) },
-      }
+      })
     }
     let composing = false
 

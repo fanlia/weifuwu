@@ -388,8 +388,14 @@ function patchInner(oldV: VNode | null, newV: VNodeChild, parent: Node, anchor?:
   if (oldIsVNode) {
     const oldEl = (oldV as VNode).el
     if (oldEl && oldEl.parentNode === parent) {
+      // 重建锚点先捕获（移除前）：anchor 可能 === oldEl（unkeyed 列表位置重建——
+      // 同 type 异 key 走此路径）——移除后 anchor 脱离 → renderVNode insertBefore
+      // 落到 appendChild 末尾（真实 bug：聊天搜索替换消息列表——首个新项被
+      // append 到列表末尾 + audit children 顺序错位；与空洞路径的 anchor 先捕获同款）
+      const rebuildAnchor = oldEl.nextSibling ?? anchor
       // 统一生命周期清理（REMOVE + EVENT_UNBIND + REF_CLEANUP）
       removeNodeWithLifecycle(oldEl, parent, oldV as VNode)
+      return renderVNode(vn, parent, rebuildAnchor)
     } else if (oldV && isPortalNode(oldV)) {
       // 旧 portal：清空远程容器（内容全移除——子树 REMOVE 事件）
       removePortalContent(oldV as PortalVNode)

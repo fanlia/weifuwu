@@ -173,6 +173,36 @@ describe('ChatInput', () => {
     assert.equal(changes.at(-1), '中', 'compositionend 同步最终值')
   })
 
+  it('onControl：mount 期回调上抛 handle——setKeyword 写内部输入态（不触发 onChange）', async () => {
+    const changes: string[] = []
+    let handle: any = null
+    const kw = { v: '' }
+    const ctx = {
+      ...createTestCtx(),
+      ui: {
+        ...createTestCtx().ui,
+        useControlledInput: () => ({
+          value: '', setValue: () => {},
+          get keyword() { return kw.v },
+          setKeyword(v: string) { kw.v = v },
+          get selectedLabel() { return '' },
+          setSelectedLabel: () => {},
+        }),
+      },
+    }
+    const v = await renderVNode(ChatInput, {
+      value: '', onChange: (t) => changes.push(t), onSend: () => {},
+      onControl: (h) => { handle = h },
+    }, ctx)
+    assert.ok(handle, 'onControl 回调收到 handle（props 不可变契约——禁止 out-param 写 control.current）')
+    handle.setKeyword('@小码 ')
+    assert.equal(kw.v, '@小码 ', 'setKeyword 写入内部输入态（消费方随后 render() 回显）')
+    assert.equal(changes.length, 0, 'setKeyword 不触发 onChange（由消费方决定是否回传共享态）')
+    handle.setValue('hi')
+    assert.equal(kw.v, 'hi', 'setValue 写内部态')
+    assert.deepEqual(changes, ['hi'], 'setValue 触发 onChange（受控回传）')
+  })
+
   it('labels 覆盖 + actions 插槽渲染', async () => {
     const ctx = createTestCtx()
     const actions = { type: 'span', props: { class: 'wf-chat-actions-test' }, key: null }

@@ -33,6 +33,8 @@ interface ChatState {
   subDepts: Array<{ id: string; name: string; managerId: string; managerName: string; memberCount: number; files: Array<{ name: string; type: string; size: number; mtime: string }> }>
   /** 产物审批：聊天流内操作中标记 */
   reviewBusy: string
+  /** ChatInput labels（placeholder 随搜索态切换——切换时新建对象：props 不可变契约） */
+  chatLabels: { placeholder: string }
 }
 
 export const Chat: Component = async (_props, ctx) => {
@@ -70,8 +72,10 @@ export const Chat: Component = async (_props, ctx) => {
       const r = await ctx.api!.post(`/api/departments/${deptId}/artifacts/${action}`, { path })
       if (r.success) {
         ctx.toast!(action === 'approve' ? `已发布 ${path}` : `已拒绝 ${path}`, 'success')
-        const m = $.msgs.find((x: ChatMessage) => x.msg_type === 'file_card' && x.content === path)
-        if (m) { m.pending = false; m.content = `${path}（已${action === 'approve' ? '发布' : '拒绝'}）` }
+        // props 不可变契约：新建对象（原地改 msg → vdom3 audit + MessageItem 剪枝不更新审批态）
+        $.msgs = $.msgs.map((x: ChatMessage) => x.msg_type === 'file_card' && x.content === path
+          ? { ...x, pending: false, content: `${path}（已${action === 'approve' ? '发布' : '拒绝'}）` }
+          : x)
         bumpFilesVersion()
         notifyFilesReload()
       } else {
@@ -107,13 +111,18 @@ export const Chat: Component = async (_props, ctx) => {
   $.expandedTool = null
   $.env = { status: 'none', label: '' }
   $.subDepts = []
+  $.chatLabels = { placeholder: '输入消息，回车发送；@ 可定向 AI' }
   const chatControl = { current: null as ChatInputControl | null }
+  // onControl：mount 层稳定回调（ChatInput 回调上抛 handle——props 不可变契约：
+  // 旧 control={{ current }} out-param 被 ChatInput 原地写 → vdom3 audit + 剪枝噪音）
+  const onControl = (h: ChatInputControl) => { chatControl.current = h }
 
-  // ChatInput labels（引用稳定——剪枝命中不重建；placeholder 内容在搜索状态切换点更新）
-  const CHAT_INPUT_LABELS = { placeholder: '输入消息，回车发送；@ 可定向 AI' }
+  // ChatInput labels（placeholder 随搜索态切换——每次切换新建对象（props 不可变契约：
+  // 原地改 labels → vdom3 audit + ChatInput 剪枝后 placeholder 永不更新）；
+  // 非切换渲染引用不变 → 剪枝仍命中不重建）
   const setSearchQ = (q: string) => {
     $.searchQ = q
-    CHAT_INPUT_LABELS.placeholder = q ? '搜索模式：输入新消息退出搜索' : '输入消息，回车发送；@ 可定向 AI'
+    $.chatLabels = { placeholder: q ? '搜索模式：输入新消息退出搜索' : '输入消息，回车发送；@ 可定向 AI' }
   }
 
   // ── 稳定回调（mount 层定义——render 期传同一引用：MessageItem/ChatInput 的 props
@@ -242,11 +251,12 @@ export const Chat: Component = async (_props, ctx) => {
             $.msgs[idx] = { ...$.msgs[idx], status: 'thinking' }
           }
         } else if (event.stepType === 'tool') {
-          const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
-          if (m) {
-            if (!m.tools) m.tools = []
-            if (!m.tools.some((t: MessageTool) => t.name === event.name && t.status === 'running')) {
-              m.tools.push({ name: event.name, args: event.args, status: 'running' })
+          if (idx !== -1) {
+            const m = $.msgs[idx]
+            const tools = m.tools ?? []
+            if (!tools.some((t: MessageTool) => t.name === event.name && t.status === 'running')) {
+              // 新建对象（tools 数组 + msg——原地 push → vdom3 audit + 剪枝工具条不出现）
+              $.msgs[idx] = { ...m, tools: [...tools, { name: event.name, args: event.args, status: 'running' }] }
             }
           }
         }
@@ -315,8 +325,9 @@ export const Chat: Component = async (_props, ctx) => {
         ; break
       }
       case 'message_edited': {
-        const m = $.msgs.find((m: ChatMessage) => m.id === event.messageId)
-        if (m) m.content = event.content; break
+        // 新建对象（原地改 msg.content → vdom3 audit + MessageItem 剪枝显示旧内容）
+        $.msgs = $.msgs.map((m: ChatMessage) => m.id === event.messageId ? { ...m, content: event.content } : m)
+        ; break
       }
       case 'message_deleted': {
         $.msgs = $.msgs.filter((m: ChatMessage) => m.id !== event.messageId); break
@@ -445,8 +456,9 @@ export const Chat: Component = async (_props, ctx) => {
   async function feedbackMsg(msg: any, fb: 'like' | 'dislike' | null) {
     try {
       await ctx.api!.post(`/api/messages/${msg.id}/feedback`, { feedback: fb })
-      msg.feedback = fb
-      ctx.ui.render()
+      // 新建对象（原地改 msg.feedback → vdom3 audit + MessageItem 剪枝点赞态不更新）
+      $.msgs = $.msgs.map((m: ChatMessage) => m.id === msg.id ? { ...m, feedback: fb } : m)
+      rerender()
     } catch { /* 反馈失败静默 */ }
   }
 
@@ -688,11 +700,11 @@ export const Chat: Component = async (_props, ctx) => {
           <div class="wf-fill">
             <ChatInput
               value={$.input}
-              control={chatControl}
+              onControl={onControl}
               onChange={onInputChange}
               onSend={handleSend}
               disabled={inputDisabled}
-              labels={CHAT_INPUT_LABELS}
+              labels={$.chatLabels}
             />
           </div>
           <Button variant="ghost" onClick={pickFile} title="上传附件（csv/xlsx/pdf/docx/pptx/txt/md/json/log/png/jpg，≤20MB）"><Icon name="paperclip" size={15} /></Button>
