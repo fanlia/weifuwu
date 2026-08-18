@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 setupJsdom()
 import { parseAnsi, LogViewer } from './LogViewer.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'

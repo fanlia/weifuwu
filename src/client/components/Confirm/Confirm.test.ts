@@ -11,7 +11,7 @@
 
 import { describe, it, afterEach } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 setupJsdom()
 
 import { h } from '../../ui-dom/vnode.ts'

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 setupJsdom()
 import { Dropdown } from './Dropdown.ts'
 import { h, Portal } from '../../ui-dom/vnode.ts'

@@ -1,6 +1,6 @@
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 import { renderVNode, findByClass, createTestCtx, mountComponent } from '../../ui-dom/testing.ts'
 import { ActionSheet } from './ActionSheet.ts'
 

@@ -100,7 +100,7 @@ const checks = (quality.match(/^## □/gm) ?? []).length
 checks >= 5 ? ok(`quality.md 验收清单 ${checks} 节`) : warn(`quality checklist 仅 ${checks} 节`)
 const verify = read('.pi/skills/weifuwu-dev/scripts/verify.mjs')
 verify ? ok('verify.mjs 存在（质量自检可执行）') : fail('verify.mjs 缺失')
-existsSync(R('src/client/test/content-sync.test.ts')) && ok('防漂移测试存在（content 与 registry 同步）')
+existsSync(R('src/cli/content-sync.test.ts')) && ok('防漂移测试存在（content 与 registry 同步）')
 
 // ── 全局死链扫描 ──
 console.log('\n【7. 全局健康——content/ 链接有效性】')

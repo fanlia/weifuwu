@@ -9,7 +9,7 @@
 
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../../test/client/setup.ts'
+import { setupJsdom } from '../../../ui-dom/setup.ts'
 before(setupJsdom)
 
 import { renderToolbar } from './toolbar.ts'

@@ -4,7 +4,7 @@
 
 import { test, describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 import { h } from '../../ui-dom/vdom3/index.ts'
 import { createRoot } from '../../ui-dom/vdom3/root.ts'
 import { FilePreview, detectType } from './FilePreview.ts'

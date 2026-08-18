@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { Table } from './Table.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode, findByClass } from '../../ui-dom/testing.ts'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 
 
 function createTestCtx(): WfuiContext {

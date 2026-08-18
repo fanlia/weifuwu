@@ -11,7 +11,7 @@ import { Popover } from './Popover.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { h, Portal } from '../../ui-dom/vnode.ts'
 import { mountToDom, patchToDom, buildToDom } from '../../ui-dom/testing.ts'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
 setupJsdom()
 

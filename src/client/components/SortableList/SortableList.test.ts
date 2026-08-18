@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 import { renderVNode, findByClass, createTestCtx } from '../../ui-dom/testing.ts'
 import { SortableList } from './SortableList.ts'
 

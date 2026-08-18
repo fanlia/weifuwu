@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 setupJsdom()
 import { CopyButton } from './CopyButton.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'

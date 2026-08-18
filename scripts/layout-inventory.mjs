@@ -15,7 +15,7 @@
  *   node scripts/layout-inventory.mjs          # 摘要
  *   node scripts/layout-inventory.mjs --json   # 完整 JSON（含属性指纹）
  *
- * 消费方：src/client/test/style-audit.test.ts（计数/组合防线）、docs 计数同步。
+ * 消费方：src/client/layout/style-audit.test.ts（计数/组合防线）、docs 计数同步。
  */
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'

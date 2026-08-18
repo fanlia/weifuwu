@@ -4,7 +4,7 @@
 
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../test/client/setup.ts'
+import { setupJsdom } from '../../../ui-dom/setup.ts'
 import { parseHtml, serializeHtml } from './html.ts'
 import { applyEdit } from './apply.ts'
 import { rangeToOffsets, offsetsToRange, selectionOffsets, setSelectionOffsets, isEmbedElement } from './dom.ts'

@@ -47,7 +47,7 @@
     "build": "node scripts/build.mjs",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "typecheck": "tsc --noEmit",
-    "test": "node --env-file=.env --test --test-concurrency=8 'src/server/test/**/*.test.ts' 'src/server/db/**/*.test.ts' 'src/server/**/*.test.ts' 'src/client/test/**/*.test.ts' 'src/client/components/**/*.test.ts'",
+    "test": "node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts' 'src/client/**/*.test.ts'",
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run"
   },

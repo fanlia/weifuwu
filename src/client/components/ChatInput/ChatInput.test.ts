@@ -10,7 +10,7 @@ import assert from 'node:assert'
 import { ChatInput } from './ChatInput.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
-import { setupJsdom } from '../../test/client/setup.ts'
+import { setupJsdom } from '../../ui-dom/setup.ts'
 
 before(setupJsdom)
 

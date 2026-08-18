@@ -32,8 +32,6 @@
   ],
   "exclude": [
     "src/client/components/**/*.test.ts",
-    "src/client/test/**/*.ts",
-    "src/server/test/**/*.ts",
     "src/server/**/*.test.ts",
     "src/client/**/*.test.ts",
     "src/server/db/postgres-server.ts",
