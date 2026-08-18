@@ -58,7 +58,9 @@ export type Command =
 
 // ── 组件 ctx（vdom4 面——非兼容） ──
 
-/** 数据管道（唯一异步边界——缓存/并发合并/错误/超时由管道管理） */
+/** 数据管道（唯一异步边界——缓存/并发合并/错误/超时由管道管理——
+ *  **三场景**：SSR（服务端真 fetch——渲染后收集种子）/ hydration（客户端 preload
+ *  种子——同步命中——零二次 fetch）/ SPA（未命中 fetch）） */
 export interface DataPipe {
   /** 取数：命中同步返回（Promise.resolve）——未命中调 fetcher 缓存并发合并；
    *  未命中且无 fetcher（SPA 默认 fetch）——管道管理——不挂起（错误/超时 reject） */
@@ -66,6 +68,10 @@ export interface DataPipe {
   set<T = unknown>(key: string, value: T): void
   /** 数据是否已就绪（渲染期判断——未就绪输出加载态——管线不等待） */
   has(key: string): boolean
+  /** 种子注入（hydration——SSR 收集的数据预热——命中同步——零二次 fetch） */
+  preload(seed: Record<string, unknown>): void
+  /** 收集已解析数据（SSR——渲染后取种子——序列化进 __DATA__） */
+  seed(): Record<string, unknown>
 }
 
 /** 组件 ctx（vdom4 面） */

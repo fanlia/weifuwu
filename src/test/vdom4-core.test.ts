@@ -228,7 +228,6 @@ test('vdom4：usePopup 组件（popup.portal——打开/关闭/外部点击）�
   }
   const handle = createRoot(h(Popover, {}), root)
   await handle.ready
-  console.log('[v4-dbg] trig:', !!root.querySelector('#trig'))
   ;(root.querySelector('#trig') as HTMLButtonElement).click()
   await new Promise((r) => setTimeout(r, 10))
   assert.ok(document.querySelector('#__wf_portal [data-wf-portal-key="v4-popover"] #pop-content'), '浮层打开（portal——非受控）')
@@ -253,7 +252,7 @@ test('vdom4 SSR：命令 → HTML → 客户端吸收（路径 id 精确匹配�
     ])
   }
   // 服务端：命令 → HTML（含 data-v4-id——确定性路径）
-  const commands = await renderToCommands(h(App, {}))
+  const { commands } = await renderToCommands(h(App, {}))
   const html = commandsToHtml(commands)
   assert.ok(html.includes('data-v4-id='), 'HTML 含 data-v4-id（吸收标记）')
   assert.ok(html.includes('<!--wf-anchor-->'), 'HTML 含锚注释')
@@ -337,4 +336,59 @@ test('vdom4：keyed 列表重排——同 key 复用（moveSlot 区间移动）+
   assert.equal(root.querySelector('#list ul [data-k="a"]')?.textContent, 'a:2', '重排后交互正常（状态持续）')
   handle.unmount()
   document.body.removeChild(root)
+})
+
+// ── ctx.data 三场景（SSR 种子收集 → hydration 同步命中 / SPA fetch——唯一异步边界） ──
+
+test('vdom4：ctx.data 三场景——SSR 收集种子 → hydration preload 同步命中（零二次 fetch）', async () => {
+  const { renderToCommands, commandsToHtml } = await import('../ui-dom/engines/vdom4/ssr.ts')
+  // mock fetch（SSR 真 fetch + 客户端计数）
+  let serverFetches = 0
+  let clientFetches = 0
+  const origFetch = globalThis.fetch
+  globalThis.fetch = (async (url: string) => {
+    if (url === '/api/user') {
+      serverFetches++
+      return new Response(JSON.stringify({ name: '服务端用户' }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    return new Response('{}', { status: 200 })
+  }) as any
+
+  // SSR：工厂 ctx.data.get → 真 fetch → 命令 + 种子
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    const user = ctx.data.get('/api/user')
+    return () => h('div', { id: 'app' },
+      user ? `user:${user.name}` : 'loading')  // 同步 renderFn——数据就绪后补渲染
+  }
+  // 注：vdom4 的 renderFn 同步——工厂 await ctx.data——数据就绪才有输出——
+  // 这里工厂先 await（管道管理——SSR 服务端等待）
+  const AppAsync = async (_init: Record<string, unknown>, ctx: any) => {
+    const user = await ctx.data.get<{ name: string }>('/api/user')
+    return () => h('div', { id: 'app' }, `user:${user.name}`)
+  }
+  const { commands, seed } = await renderToCommands(h(AppAsync, {}))
+  assert.equal(serverFetches, 1, 'SSR 真 fetch 一次')
+  assert.ok(seed['/api/user'], '种子收集（key → 值）')
+  const html = commandsToHtml(commands)
+
+  // hydration：客户端 preload 种子——工厂 get 同步命中——零 fetch
+  const root = mkRoot()
+  root.innerHTML = html
+  globalThis.fetch = (async () => { clientFetches++; return new Response(JSON.stringify({ name: 'SPA用户' }), { status: 200, headers: { 'Content-Type': 'application/json' } }) }) as any
+  const handle = createRoot(h(AppAsync, {}), root, { dataSeed: seed })
+  await handle.ready
+  assert.equal(clientFetches, 0, 'hydration 零二次 fetch（种子同步命中）')
+  assert.equal(root.querySelector('#app')?.textContent, 'user:服务端用户', 'hydration 渲染种子数据')
+
+  // SPA：无种子 → fetch
+  const root2 = mkRoot()
+  const handle2 = createRoot(h(AppAsync, {}), root2)
+  await handle2.ready
+  assert.equal(clientFetches, 1, 'SPA 未命中 → fetch（唯一异步边界）')
+  // jsdom id 缓存怪癖：动态 setAttribute('id') 后 querySelector('#id') 失效——用 [id="x"]
+  assert.equal(root2.querySelector('[id="app"]')?.textContent, 'user:SPA用户', 'SPA 数据渲染（fetch）')
+
+  globalThis.fetch = origFetch
+  document.body.removeChild(root)
+  document.body.removeChild(root2)
 })

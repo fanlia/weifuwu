@@ -38,20 +38,32 @@ function makeCompCtx(
   }) as Ctx
 }
 
-/** 数据管道（缓存/并发合并——错误/超时由 fetcher 或调用方管理——不挂起管线） */
+/** 数据管道（缓存/并发合并 + **三场景**：SSR 种子收集 / hydration preload 预热 /
+ *  SPA fetch——错误/超时由 fetcher 或调用方管理——不挂起管线） */
 export function createDataPipe(): DataPipe {
   const cache = new Map<string, Promise<unknown>>()
+  const resolved = new Map<string, unknown>() // 已解析值（SSR 种子收集）
   return {
     get: <T = unknown>(key: string, fetcher?: () => Promise<T>): Promise<T> => {
       let p = cache.get(key)
       if (!p) {
         p = fetcher ? Promise.resolve(fetcher()) : (fetch(key).then((r) => r.json()) as Promise<T>)
         cache.set(key, p)
+        // 种子收集（SSR——渲染后 seed() 取——resolve 后记录）
+        p.then((v) => resolved.set(key, v)).catch(() => {})
       }
       return p as Promise<T>
     },
-    set: (key, value) => { cache.set(key, Promise.resolve(value)) },
+    set: (key, value) => { cache.set(key, Promise.resolve(value)); resolved.set(key, value) },
     has: (key) => cache.has(key),
+    preload: (seed) => {
+      // hydration 种子预热（同步命中——零二次 fetch）
+      for (const [k, v] of Object.entries(seed)) {
+        cache.set(k, Promise.resolve(v))
+        resolved.set(k, v)
+      }
+    },
+    seed: () => Object.fromEntries(resolved),
   }
 }
 
@@ -68,7 +80,7 @@ export class Engine {
   private current: VNode | null = null
   private root: HTMLElement
   ctx: Ctx
-  private data: DataPipe
+  data: DataPipe
   private pending: Array<() => void> = []
   private running = false
   private iterations = 0
@@ -224,9 +236,11 @@ export class Engine {
   }
 }
 
-/** 创建应用根（vdom4 入口） */
-export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Record<string, unknown> }): { ready: Promise<void>; unmount(): void; engine: Engine } {
+/** 创建应用根（vdom4 入口——options.dataSeed = hydration 种子（SSR 收集——preload
+ *  预热——工厂的 ctx.data.get 同步命中——零二次 fetch）） */
+export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Record<string, unknown>; dataSeed?: Record<string, unknown> }): { ready: Promise<void>; unmount(): void; engine: Engine } {
   const engine = new Engine(vnode, root, options)
+  if (options?.dataSeed) engine.data.preload(options.dataSeed)
   const ready = engine.mount(vnode)
   return {
     ready,
