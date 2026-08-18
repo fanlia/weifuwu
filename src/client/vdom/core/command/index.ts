@@ -8,13 +8,14 @@
 import type { CreateCommand, CreateTextCommand, CreateAnchorCommand } from './create.ts'
 import type { InsertCommand, RemoveCommand } from './insert.ts'
 import type { SetPropCommand, SetTextCommand } from './props.ts'
-import type { CloseCommand, UnmountCompCommand, DoneCommand } from './lifecycle.ts'
+import type { RefCommand, UnrefCommand, MountCommand, UnmountCommand, CloseCommand, DoneCommand } from './lifecycle.ts'
 
 export type {
   CreateCommand, CreateTextCommand, CreateAnchorCommand,
   InsertCommand, RemoveCommand,
   SetPropCommand, SetTextCommand,
-  CloseCommand, UnmountCompCommand, DoneCommand,
+  RefCommand, UnrefCommand, MountCommand, UnmountCommand,
+  CloseCommand, DoneCommand,
 }
 
 /** 渲染指令（流元素——修改 DOM 的最小操作集） */
@@ -26,8 +27,11 @@ export type Command =
   | RemoveCommand
   | SetPropCommand
   | SetTextCommand
+  | RefCommand
+  | UnrefCommand
+  | MountCommand
+  | UnmountCommand
   | CloseCommand
-  | UnmountCompCommand
   | DoneCommand
 
 /** 命令名（调试/审计——op 类型收窄） */

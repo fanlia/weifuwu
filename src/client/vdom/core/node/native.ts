@@ -30,7 +30,8 @@ export function serializableAttrs(props: Record<string, unknown>): Record<string
   return out
 }
 
-/** 原生元素渲染（create → insert → children 递归 → close） */
+/** 原生元素渲染（create → insert → children 递归 → close——
+ *  ref prop → **ref 指令**（insert 后——挂载完成）） */
 export async function renderNative(
   vn: VNode,
   id: string,
@@ -40,13 +41,17 @@ export async function renderNative(
   sink: ComponentSink,
 ): Promise<void> {
   emitCommand({ op: 'create', id, tag: vn.type as string, attrs: serializableAttrs(vn.props) })
-  // 运行时面（事件/ref——函数值）→ setProp 命令（apply 绑定——
+  // 运行时面（事件——函数值）→ setProp 命令（apply 绑定——
   // create 后立即发——节点已在表——挂载前绑定无碍）
   for (const [k, v] of Object.entries(vn.props)) {
-    if (k === 'children' || k === 'key') continue
+    if (k === 'children' || k === 'key' || k === 'ref') continue
     if (typeof v === 'function') emitCommand({ op: 'setProp', id, key: k, value: v })
   }
   emitCommand({ op: 'insert', id, parent, ref })
+  // **ref 指令（DOM 生命周期——挂载完成）**：insert 后发——patch 消费时
+  // el 已连接——ref(el) 回调
+  const refFn = vn.props.ref
+  if (typeof refFn === 'function') emitCommand({ op: 'ref', id, fn: refFn })
   const cs = childrenOf(vn)
   let lastRef: string | null = null
   for (const [i, c] of cs.entries()) {

@@ -13,7 +13,7 @@
  * - 工厂调用（可 await）→ renderFn 调用（可 await）→ 输出 vnode 递归 emit
  *   （null → 空洞占位；数组 → 隐式 Fragment；元素/组件嵌套）
  * - per-instance ctx：Object.create(shared) + onUnmount 覆盖——收集回调
- *   到实例记录（组件卸载时执行——unmountComp 命令由 diff 发出）
+ *   到实例记录（组件卸载时执行——unmount 命令由 diff 发出）
  * - 实例记录注册表（compId → { renderFn, onUnmounts }）——同位置同类型
  *   组件复用（工厂不重跑——let/ref 状态保持——diff 消费）
  */
@@ -26,7 +26,7 @@ import type { Ctx } from '../../context/Ctx.ts'
 export interface ComponentRecord {
   /** renderFn（工厂产物——每次渲染调用——读最新 props） */
   renderFn: RenderFn
-  /** 卸载清理回调（ctx.onUnmount 收集——unmountComp 时执行） */
+  /** 卸载清理回调（ctx.onUnmount 收集——unmount 时执行） */
   onUnmounts: (() => void)[]
   /** 上次渲染输出（diff 对照——同实例更新就地 patch——不重建） */
   lastOutput?: VNodeChild | null
@@ -87,7 +87,7 @@ export async function renderComponent(
   await sink(out, parent, index, ref)
 }
 
-/** 执行组件卸载（unmountComp 命令消费——onUnmounts 逆序执行） */
+/** 执行组件卸载（unmount 命令消费——onUnmounts 逆序执行） */
 export function disposeComponent(id: string, registry: ComponentRegistry): void {
   const rec = registry.get(id)
   if (!rec) return

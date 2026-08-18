@@ -6,7 +6,7 @@
  *   fragment→fragment/portal→portal）= null 策略（diff 就地 patch——不重建）
  * - **异态 = 完整转换**（状态机——各状态文件）：旧侧让位（remove/
  *   unmountComp）+ ctx.emitNode 新侧渲染——diff 只查表调用——不手写转换
- * - component → X 先 unmountComp（onUnmounts 清理）再移除
+ * - component → X 先 unmount（onUnmounts 清理）再移除
  */
 
 import { test } from 'node:test'
@@ -64,14 +64,14 @@ test('null <-> fragment：hole → fragment 完整转换（条件渲染空数组
   assert.deepEqual(emitted, [[]])
 })
 
-test('component <-> fragment：component 先 unmountComp 再移除 + 新侧渲染', async () => {
+test('component <-> fragment：component 先 unmount 再移除 + 新侧渲染', async () => {
   const cmds: unknown[] = []
   const emitted: unknown[] = []
   const ctx = mkCtx(cmds, emitted)
   ctx.oldCompId = 'root.1'
   await runTransition('component', 'fragment', { type: () => () => null }, [], ctx)
   assert.deepEqual(cmds, [
-    { op: 'unmountComp', compId: 'root.1' },
+    { op: 'unmount', compId: 'root.1' },
     { op: 'remove', id: 'root.1' },
   ], '卸载清理先于移除')
   assert.deepEqual(emitted, [[]], '新侧渲染')

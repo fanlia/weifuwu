@@ -366,8 +366,49 @@ test('patch 生命周期：unmountComp 执行 onUnmounts（组件卸载清理）
     : [h('div', { class: 'empty' }, '空')])
   await hz.mount(page(true))
   assert.equal(cleaned.length, 0, '挂载时未清理')
-  // 异类型转换（component → element——整块让位）→ unmountComp 命令 → onUnmounts 执行
+  // 异类型转换（component → element——整块让位）→ unmount 命令 → onUnmounts 执行
   await hz.update(page(true), page(false))
   assert.deepEqual(cleaned.sort(), ['item-cleanup', 'page-cleanup'], '卸载时 onUnmounts 执行（patch 消费 unmountComp）')
   assert.equal(hz.root.querySelector('.empty')?.textContent, '空')
+})
+
+test('生命周期指令：ref（insert 后挂载完成——el 已连接）/unref（ref(null)）', async () => {
+  const browser = testBrowser()
+  const reg = createComponentRegistry()
+  const root = browser.document.querySelector('#root') as HTMLElement
+  const applier = new CommandApplier(root, browser.document, reg)
+  const calls: string[] = []
+  const myRef = (el: HTMLElement | null) => { calls.push(el ? `mount:${el.isConnected}` : 'unmount') }
+  // 首帧（ref prop → ref 指令——insert 后——挂载完成）
+  const s1 = renderToStream(h('div', {}, h('span', { ref: myRef }, 'x')), {} as Ctx, reg)
+  const r1 = s1.getReader()
+  while (true) { const { value, done } = await r1.read(); if (done) break; applier.apply(value) }
+  assert.deepEqual(calls, ['mount:true'], 'ref 指令：insert 后执行（el 已连接）')
+  // 显式 unref 指令 → ref(null)
+  applier.apply({ op: 'unref', id: 'root.0.0' })
+  assert.deepEqual(calls, ['mount:true', 'unmount'], 'unref 指令：ref(null) 清理')
+})
+
+test('生命周期指令：mount（新实例初始化完成）/unmount（onUnmounts 清理）', async () => {
+  const hz = harness(testBrowser())
+  const events: string[] = []
+  const Comp = (_init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('cleanup'))
+    return () => h('span', { class: 'c' }, 'x')
+  }
+  const page = (show: boolean) => h('div', {}, show ? h(Comp, {}) : null)
+  await hz.mount(page(true))
+  assert.deepEqual(events, [], '挂载不清理')
+  // 组件移除（数组缩短——unmount 指令）→ onUnmounts 执行
+  await hz.update(page(true), page(false))
+  assert.deepEqual(events, ['cleanup'], 'unmount 指令：onUnmounts 执行')
+})
+
+test('生命周期指令：mount 标记实例已挂载（审计配对——patch 消费）', async () => {
+  const hz = harness(testBrowser())
+  const Comp = () => () => h('span', {}, 'x')
+  await hz.mount(h('div', {}, h(Comp, {})))
+  // 实例已标记 mounted（patch 消费 mount 指令）
+  const rec = (hz.registry as any).get('root.0.0')
+  assert.equal(rec?.mounted, true, 'mount 指令标记实例已挂载')
 })

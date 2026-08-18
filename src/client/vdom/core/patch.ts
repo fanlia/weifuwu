@@ -212,7 +212,29 @@ export class CommandApplier {
         this.nodes.delete(cmd.id)
         break
       }
-      case 'unmountComp': {
+      case 'ref': {
+        // **DOM 生命周期——挂载完成**（insert 后——el 已连接）
+        const el = this.nodes.get(cmd.id)
+        if (el && el.nodeType === 1 && typeof cmd.fn === 'function') {
+          applyRef(el as HTMLElement, cmd.fn)
+          this.refs.set(cmd.id, cmd.fn) // 注册（unref/remove 清理用）
+          this.propPrev.set(`${cmd.id}:ref`, cmd.fn)
+        }
+        break
+      }
+      case 'unref': {
+        // **DOM 生命周期——卸载**（ref(null)）
+        this.clearNodeRefs(cmd.id)
+        break
+      }
+      case 'mount': {
+        // **组件生命周期——初始化完成**（工厂已执行——实例已注册）
+        // 标记实例已挂载（审计/配对——unmount 消费）
+        const rec = this.registry?.get(cmd.compId)
+        if (rec) (rec as { mounted?: boolean }).mounted = true
+        break
+      }
+      case 'unmount': {
         // **组件卸载指令**——onUnmounts 清理（实例注册表消费——逆序执行）
         if (this.registry) disposeComponent(cmd.compId, this.registry)
         break

@@ -12,7 +12,7 @@
  * 消除重复）：
  * - 同态（text→setText / element→属性+children 递归 / component→复用）：
  *   值比较——**无变化不发命令**（精准原则）
- * - 异类型：transform 转换表（旧侧让位 remove/unmountComp——新侧渲染）
+ * - 异类型：transform 转换表（旧侧让位 remove/unmount——新侧渲染）
  * - keyed 列表：身份映射复用（planKeyedDiff——增删/重排状态跟随 key）
  */
 
@@ -90,6 +90,7 @@ async function diffSame(
   if (typeof newV.type === 'function') {
     const rec = registry.get(id)
     const oldOut = rec?.lastOutput
+    const isNew = !rec
     await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
       const outId = pathId(p, i)
       // **输出级转换（状态机统一——transform 完整转换）**：
@@ -116,6 +117,8 @@ async function diffSame(
         await emit(out, p, i, r)
       }
     })
+    // **mount 指令（组件生命周期——初始化完成——仅新实例）**
+    if (isNew) emitCommand({ op: 'mount', compId: id })
     return
   }
   // 元素同标签：属性精准 diff + children 递归对照
@@ -196,12 +199,12 @@ async function diffSlot(
     if (oldC !== newC) emitCommand({ op: 'setText', id: cid, value: String(newC) })
     return
   }
-  // 新项不存在（数组缩短）→ 移除（旧项是组件 → 先 unmountComp——onUnmounts 清理）
+  // 新项不存在（数组缩短）→ 移除（旧项是组件 → 先 unmount——onUnmounts 清理）
   if (newC === null || newC === undefined) {
     const oldVn = oldC as VNode | null
     if (oldVn && typeof oldVn.type === 'function') {
       const compId = oldVn.key !== null ? `${parent}.k${oldVn.key}` : cid
-      emitCommand({ op: 'unmountComp', compId })
+      emitCommand({ op: 'unmount', compId })
     }
     emitCommand({ op: 'remove', id: cid })
     return
@@ -223,7 +226,7 @@ async function diffSlot(
     await t(oldC, newC, {
       emit: emitCommand, emitNode: emit,
       oldId: cid, newId: cid, parent, index, ref,
-      // 旧组件卸载（unmountComp——onUnmounts 清理——位置身份 compId = cid）
+      // 旧组件卸载（unmount——onUnmounts 清理——位置身份 compId = cid）
       oldCompId: typeof (oldC as VNode)?.type === 'function' ? cid : undefined,
     })
   }

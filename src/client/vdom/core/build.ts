@@ -92,7 +92,10 @@ export function createRenderDispatcher(
       case 'component': {
         const vn = v as VNode
         const compId = vn.key !== null ? `${parent}.k${vn.key}` : id
+        const isNew = !registry.get(compId)
         await renderComponent(vn, parent, index, ref, compId, ctx, registry, emit)
+        // **mount 指令（组件生命周期——初始化完成——仅新实例）**
+        if (isNew) emitCommand({ op: 'mount', compId })
         return
       }
       // 非法输入——诊断占位 + warn（hole.ts——不崩溃不静默）

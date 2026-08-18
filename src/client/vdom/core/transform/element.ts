@@ -7,7 +7,7 @@
  * 转换职责（old=element → new=X）：
  * 1. 旧元素移除（remove oldId——含子树——事件监听随元素 GC）
  * 2. 新节点由 diff 渲染到同一位置
- * —— 旧元素若为组件输出根（组件卸载语义）——组件侧先 unmountComp
+ * —— 旧元素若为组件输出根（组件卸载语义）——组件侧先 unmount
  */
 
 import type { TransformContext, TransitionFn } from './index.ts'
