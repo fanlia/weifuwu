@@ -27,10 +27,9 @@ export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry):
   switch (key(ev)) {
     case 'node:create': {
       const pl = ev.payload as { tag: string; kind?: string }
-      // 占位（阶段 1——空洞事件化）：kind=hole → 注释节点（DOM 与 children 同构——
-      // 回放重建占位——与渲染同构）
-      if (pl.kind === 'hole') {
-        const hole = document.createComment('wf-hole')
+      // 占位/锚（占位法/锚点法）：kind=hole → wf-hole 注释；kind=anchor → wf-anchor 注释
+      if (pl.kind === 'hole' || pl.kind === 'anchor') {
+        const hole = document.createComment(pl.kind === 'anchor' ? 'wf-anchor' : 'wf-hole')
         reg.register(ev.target!, hole)
         break
       }
@@ -46,12 +45,23 @@ export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry):
       break
     }
     case 'node:insert': {
-      const pl = ev.payload as { parent: string; ref?: string | null }
+      const pl = ev.payload as { parent: string; ref?: string | null; after?: boolean; isAnchor?: boolean }
       const parent = pl.parent === NodeRegistry.ROOT ? target : reg.resolveParent(pl.parent)
       const child = reg.get(ev.target!)
       const ref = pl.ref ? reg.get(pl.ref) : null
       if (parent && child) {
-        if (ref && ref.parentNode === parent) parent.insertBefore(child, ref)
+        let ins: Node | null
+        if (ref && pl.after) {
+          if (pl.isAnchor) {
+            // 锚：插到 ref 的**区间末尾**（ref 后遍历到下一锚/父末尾——与 apply 一致）
+            let n = ref.nextSibling
+            while (n && !(n.nodeType === 8 && (n.nodeValue ?? '').includes('wf-anchor'))) n = n.nextSibling
+            ins = n
+          } else {
+            ins = ref.nextSibling
+          }
+        } else ins = ref
+        if (ins && ins.parentNode === parent) parent.insertBefore(child, ins)
         else parent.appendChild(child)
       }
       break
@@ -62,10 +72,22 @@ export function applyEvent(ev: V3Event, target: HTMLElement, reg: NodeRegistry):
       break
     }
     case 'node:move': {
-      const pl = ev.payload as { parent: string; ref?: string | null }
-      const node = reg.get(ev.target!)
+      const pl = ev.payload as { parent: string; ref?: string | null; range?: string[] }
       const parent = pl.parent === NodeRegistry.ROOT ? target : reg.resolveParent(pl.parent)
       const ref = pl.ref ? reg.get(pl.ref) : null
+      if (!parent) break
+      if (pl.range) {
+        // 区间移动（锚点法——锚 + 内容整体移动——逐个插到 ref 前——相对序保持）
+        for (const rid of pl.range) {
+          const node = reg.get(rid)
+          if (node && node.parentNode === parent) {
+            if (ref && ref.parentNode === parent) parent.insertBefore(node, ref)
+            else parent.appendChild(node)
+          }
+        }
+        break
+      }
+      const node = reg.get(ev.target!)
       if (node && parent && node.parentNode === parent) {
         if (ref && ref.parentNode === parent) parent.insertBefore(node, ref)
         else parent.appendChild(node)
@@ -150,16 +172,24 @@ export function undo(events: V3Event[], n: number, reg = new NodeRegistry()): vo
         break
       }
       case 'node:move': {
-        // 逆：移回 prev 之后（prev 为空 → 移到父首）
-        const pl = ev.payload as { parent: string; prev?: string | null }
-        const node = reg.get(ev.target!)
+        // 逆：移回 prev 之后（prev 为空 → 移到父首）——区间移动（range）整体逆恢复
+        const pl = ev.payload as { parent: string; prev?: string | null; range?: string[] }
         const parent = pl.parent === NodeRegistry.ROOT ? null : reg.get(pl.parent)
-        if (node && parent && node.parentNode === parent) {
-          if (pl.prev) {
-            const prevNode = reg.get(pl.prev)
-            if (prevNode && prevNode.parentNode === parent) parent.insertBefore(node, prevNode.nextSibling)
-          } else {
-            parent.insertBefore(node, parent.firstChild)
+        if (!parent) break
+        const nodes = pl.range ? pl.range.map((rid) => reg.get(rid)).filter(Boolean) : [reg.get(ev.target!)]
+        if (pl.prev) {
+          const prevNode = reg.get(pl.prev)
+          if (prevNode && prevNode.parentNode === parent) {
+            // 逆序插入（相对序恢复）
+            for (let i = nodes.length - 1; i >= 0; i--) {
+              const n = nodes[i]
+              if (n && n.parentNode === parent) parent.insertBefore(n, prevNode.nextSibling)
+            }
+          }
+        } else {
+          for (let i = nodes.length - 1; i >= 0; i--) {
+            const n = nodes[i]
+            if (n && n.parentNode === parent) parent.insertBefore(n, parent.firstChild)
           }
         }
         break

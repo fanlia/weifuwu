@@ -34,30 +34,33 @@ export function auditAfterRender(root: Element): void {
 }
 
 /** vnode/DOM 顺序一致性（children 有 el 的项——DOM 顺序 = children 顺序）
- *  索引比较（父下 childNodes indexOf——无 compareDocumentPosition 的跨树/同节点歧义） */
+ *  O(n)：一次遍历建位置映射（替代逐项 indexOf——O(n²)——大列表每次 patch 的 hot 路径） */
 export function auditOrder(_el: Element, v: VNode): void {
   if (!enabled) return
   const kids = childrenOf(v).filter((c): c is VNode => c != null && typeof c === 'object' && (c as VNode).el != null)
   if (kids.length < 2) return
   const parent = (kids[0] as VNode).el?.parentNode
   if (!parent) return
+  const pos = new Map<Node, number>()
+  let idx = 0
+  for (const n of parent.childNodes) pos.set(n, idx++)
   let prevIdx = -1
   for (const k of kids) {
     const node = (k as VNode).el as Node
     if (node.parentNode !== parent) return // 跨树（portal 等）跳过
-    const idx = [...parent.childNodes].indexOf(node as ChildNode)
-    if (idx < 0) return
-    if (idx < prevIdx) {
+    const i = pos.get(node)
+    if (i == null) return
+    if (i < prevIdx) {
       // 单行（避免多行源码噪音——console 历史累积可读性）
       const stack = (globalThis as { __WF_V3_AUDIT_STACK?: string }).__WF_V3_AUDIT_STACK
         ? new Error().stack?.split('\n').slice(2, 5).map((l) => l.trim().slice(0, 70)).join(' | ')
         : ''
       const kinds = kids.map((c) => typeof (c as VNode).type === 'function' ? 'C' : String((c as VNode).type).slice(0, 8))
-      const idxs = kids.map((c) => [...parent.childNodes].indexOf((c as VNode).el as ChildNode))
-      console.warn(`[vdom3/audit] children 顺序错位 idx=${idx}<${prevIdx} tag=${String((k as VNode).type).slice(0, 30)} kinds=[${kinds.join(',')}] idxs=[${idxs.join(',')}] kids=${kids.length} domKids=${parent.childNodes.length}${stack ? ' || ' + stack : ''}`)
+      const idxs = kids.map((c) => pos.get((c as VNode).el as Node))
+      console.warn(`[vdom3/audit] children 顺序错位 idx=${i}<${prevIdx} tag=${String((k as VNode).type).slice(0, 30)} kinds=[${kinds.join(',')}] idxs=[${idxs.join(',')}] kids=${kids.length} domKids=${parent.childNodes.length}${stack ? ' || ' + stack : ''}`)
       return
     }
-    prevIdx = idx
+    prevIdx = i
   }
 }
 

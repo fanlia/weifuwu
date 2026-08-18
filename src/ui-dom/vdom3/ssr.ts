@@ -34,11 +34,12 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
     }
     if (v.type === Fragment) {
       for (const c of childrenOf(v)) {
+        // 锚点法：每槽位恒一锚（与客户端 genSlot 同构——[锚, 内容]）
+        const aid = nextId()
+        events.push(ev('node', 'create', aid, { kind: 'anchor' }))
+        events.push(ev('node', 'insert', aid, { parent: parentId, ref: null }))
         if (c == null || c === false || c === true) {
-          // 空洞占位（与客户端同构）
-          const hid = nextId()
-          events.push(ev('node', 'create', hid, { kind: 'hole' }))
-          events.push(ev('node', 'insert', hid, { parent: parentId, ref: null }))
+          // 空洞 = 只有锚
         } else if (typeof c === 'string' || typeof c === 'number') {
           // 文本子节点（Fragment 包裹的文本——renderInline default 分支）
           const tid = nextId()
@@ -60,11 +61,12 @@ export async function renderToEvents(vnode: VNode): Promise<V3Event[]> {
     }
     events.push(ev('node', 'insert', id, { parent: parentId, ref: null }))
     for (const c of childrenOf(v)) {
+      // 锚点法：每槽位恒一锚（与客户端 genSlot 同构——[锚, 内容]）
+      const aid = nextId()
+      events.push(ev('node', 'create', aid, { kind: 'anchor' }))
+      events.push(ev('node', 'insert', aid, { parent: id, ref: null }))
       if (c == null || c === false || c === true) {
-        // 空洞占位（阶段 1——与客户端渲染同构：children 含空洞——DOM 建占位注释）
-        const hid = nextId()
-        events.push(ev('node', 'create', hid, { kind: 'hole' }))
-        events.push(ev('node', 'insert', hid, { parent: id, ref: null }))
+        // 空洞 = 只有锚
       } else if (typeof c === 'string' || typeof c === 'number') {
         const tid = nextId()
         events.push(ev('text', 'create', tid, { value: String(c) }))
@@ -108,11 +110,12 @@ export async function* renderToEventStream(vnode: VNode): AsyncGenerator<V3Event
     }
     yield ev('node', 'insert', id, { parent: parentId, ref: null })
     for (const c of childrenOf(v)) {
+      // 锚点法：每槽位恒一锚
+      const aid = nextId()
+      yield ev('node', 'create', aid, { kind: 'anchor' })
+      yield ev('node', 'insert', aid, { parent: id, ref: null })
       if (c == null || c === false || c === true) {
-        // 空洞占位（阶段 1——与客户端渲染同构）
-        const hid = nextId()
-        yield ev('node', 'create', hid, { kind: 'hole' })
-        yield ev('node', 'insert', hid, { parent: id, ref: null })
+        // 空洞 = 只有锚
       } else if (typeof c === 'string' || typeof c === 'number') {
         const tid = nextId()
         yield ev('text', 'create', tid, { value: String(c) })
@@ -136,7 +139,7 @@ export function eventsToHtml(events: V3Event[]): string {
   for (const e of events) {
     if (e.entity === 'node' && e.action === 'create') {
       const pl = e.payload as { tag: string; kind?: string }
-      if (pl.kind === 'hole') holes.add(e.target!)
+      if (pl.kind === 'hole' || pl.kind === 'anchor') holes.add(e.target!)
       else tags.set(e.target!, pl.tag)
     }
     else if (e.entity === 'prop' && e.action === 'update') {
@@ -159,7 +162,7 @@ export function eventsToHtml(events: V3Event[]): string {
   }
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   const emit = (id: string): string => {
-    if (holes.has(id)) return '<!--wf-hole-->'
+    if (holes.has(id)) return '<!--wf-anchor-->'
     const tag = tags.get(id)
     if (tag) {
       const a = attrs.get(id)

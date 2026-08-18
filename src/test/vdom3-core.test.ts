@@ -49,14 +49,14 @@ test('patch：同位置同类型复用——仅文本/属性变化发事件（�
   const v2 = h('div', { id: 'box', class: 'b' }, ['新文本'])
   mount(v1, root)
   const box = root.querySelector('#box')!
-  const text = box.firstChild as Text
+  const text = box.childNodes[1] as Text // 锚点法：槽位 = [锚, 文本]
   stream.reset() // 清掉 mount 事件——只测 patch 事件
 
   patch(v1, v2, root)
 
   assert.equal(text.nodeValue, '新文本', '文本更新（同一节点——未重建）')
   assert.equal(box.getAttribute('class'), 'b', '属性更新（同一元素）')
-  assert.equal(box.childNodes.length, 1, '无节点增删（复用）')
+  assert.equal(box.childNodes.length, 2, '无节点增删（复用）——[锚, 文本]')
   assert.equal(root.querySelectorAll('#box').length, 1, '单实例（无重建）')
 
   const events = stream.events()
@@ -103,8 +103,8 @@ test('列表 keyed：同 key 复用——增删只操作变化项（事件断言
   assert.ok(!root.querySelector('[data-id="b"]'), 'b 移除')
 
   const events = stream.events()
-  const creates = events.filter((e) => evKey(e) === 'node:create')
-  assert.equal(creates.length, 1, '仅 c 创建（a/b 复用——无全量重建）')
+  const creates = events.filter((e) => evKey(e) === 'node:create' && !(e.payload as any)?.kind)
+  assert.equal(creates.length, 1, '仅 c 创建（a/b 复用——无全量重建；锚 create 不计）')
   document.body.removeChild(root)
 })
 
@@ -285,7 +285,7 @@ test('取消：undo 应用逆操作——INSERT→REMOVE、PROP/TEXT_UPDATE→�
   // undo 最近 2 个 DOM 指令（TEXT_UPDATE + PROP_UPDATE）→ 恢复旧值
   undo(events, 2, (await import('../ui-dom/vdom3/render.ts')).registry)
   assert.equal(box.getAttribute('class'), 'a', 'undo：属性恢复旧值')
-  assert.equal(box.firstChild?.nodeValue, '旧', 'undo：文本恢复旧值')
+  assert.equal(box.childNodes[1]?.nodeValue, '旧', 'undo：文本恢复旧值（锚点法：锚后为文本）')
   document.body.removeChild(root)
 })
 
@@ -647,7 +647,8 @@ test('MOVE：keyed 列表重排 → MOVE 事件（非 REMOVE+CREATE）→ DOM �
   await new Promise((r) => setTimeout(r, 20))
   assert.deepEqual([...root.querySelectorAll('li')].map((li) => li.textContent), ['c', 'b', 'a'], '重排后顺序')
   const moves = gs.events().filter((e) => evKey(e) === 'node:move')
-  assert.equal(moves.length, 2, `重排 = 2 个 MOVE 事件（c→首、a→尾）——实际 ${moves.length}`)
+  const anchorMoves = moves.filter((m) => m.payload?.key != null)
+  assert.equal(anchorMoves.length, 2, `重排 = 2 个锚 MOVE 事件（c→首、a→尾）——实际 ${anchorMoves.length}`)
   const removes = gs.events().filter((e) => evKey(e) === 'node:remove')
   assert.equal(removes.length, 0, '无 REMOVE（节点复用——状态保持）')
   document.body.removeChild(root)
@@ -1114,8 +1115,8 @@ test('SSR 端到端：renderToEvents → eventsToHtml（首帧 HTML）→ 客户
   const events = await renderToEvents(h(Page, {}))
   const html = eventsToHtml(events)
   assert.ok(html.startsWith('<div id="ssr-page" class="card">'), 'HTML 序列化（根元素+属性）')
-  assert.ok(html.includes('<h1>SSR 标题</h1>'), 'HTML 序列化（文本）')
-  assert.ok(html.includes('<li>a</li><li>b</li>'), 'HTML 序列化（列表）')
+  assert.ok(html.includes('SSR 标题'), 'HTML 序列化（文本——锚点法 h1 含锚注释）')
+  assert.ok(html.includes('<li><!--wf-anchor-->a</li>') && html.includes('<li><!--wf-anchor-->b</li>'), 'HTML 序列化（列表——锚点法每槽位锚）')
   // 传输：事件流 JSON
   const json = serializeEvents(events)
   const parsed = deserializeEvents(json)
@@ -3069,14 +3070,14 @@ test('阶段 1：SSR 空洞——占位序列化 + 客户端 replay 同构', asy
   ])
   const events = await renderToEvents(h(App, {}))
   const html = eventsToHtml(events)
-  assert.ok(html.includes('<!--wf-hole-->'), `SSR HTML 含占位注释——实际 ${html}`)
-  // 客户端 replay（事件流含占位——重建同构）
+  assert.ok(html.includes('<!--wf-anchor-->'), `SSR HTML 含锚注释——实际 ${html}`)
+  // 客户端 replay（事件流含锚——重建同构）
   const target = document.createElement('div')
   document.body.appendChild(target)
   replay(events, target)
   assert.equal(target.querySelectorAll('.keep').length, 1, 'replay 保持元素')
   const inner = target.firstElementChild?.childNodes.length ?? 0
-  assert.equal(inner, 2, `replay 占位 + 元素（同构——|childNodes| = |children|）——实际 ${inner}`)
+  assert.equal(inner, 3, `replay 锚 + 元素（锚点法：空洞槽位 = 锚 + 元素槽位 = [锚, 元素]）——实际 ${inner}`)
   document.body.removeChild(target)
 })
 
@@ -3091,19 +3092,21 @@ test('阶段 1：空洞事件流——占位生命周期（create/insert/remove�
   const handle = createRoot(h(App, {}), root)
   await handle.ready
   stream.reset()
-  // 空洞 → 元素（占位 → 真实——占位 remove 事件）
+  // 空洞 → 元素（锚保留——内容插锚后——锚点法语义：锚恒在）
   open = true
   handle.rerender()
   await new Promise((r) => setTimeout(r, 20))
-  const removes = stream.events().filter((e) => e.entity === 'node' && e.action === 'remove')
-  assert.ok(removes.length >= 1, `占位 → 真实：占位移除有事件——实际 ${removes.length}`)
+  const inserts = stream.events().filter((e) => e.entity === 'node' && e.action === 'insert')
+  assert.ok(inserts.length >= 1, `空洞 → 元素：内容插入有事件——实际 ${inserts.length}`)
   stream.reset()
-  // 元素 → 空洞（真实 → 占位——占位 create 事件）
+  // 元素 → 空洞（内容清除——锚保留——clearSlot）
   open = false
   handle.rerender()
   await new Promise((r) => setTimeout(r, 20))
-  const holes = stream.events().filter((e) => e.entity === 'node' && e.action === 'create' && (e.payload as any)?.kind === 'hole')
-  assert.ok(holes.length >= 1, `真实 → 占位：占位 create 事件（kind=hole）——实际 ${holes.length}`)
+  const removes = stream.events().filter((e) => e.entity === 'node' && e.action === 'remove')
+  assert.ok(removes.length >= 1, `元素 → 空洞：内容移除有事件——实际 ${removes.length}`)
+  const holes = stream.events().filter((e) => e.entity === 'node' && e.action === 'create' && (e.payload as any)?.kind === 'anchor')
+  assert.equal(holes.length, 0, `元素 → 空洞：锚不重建（锚保留——锚点法）——实际 ${holes.length}`)
   document.body.removeChild(root)
 })
 
@@ -3270,9 +3273,9 @@ test('阶段 4：单子节点条件渲染（cond ? <X/> : null）不触发检测
   await new Promise((r) => setTimeout(r, 20))
   console.error = ow
   assert.equal(warns.length, 0, `null ↔ 组件切换不触发检测——实际 ${warns.join(' | ')}`)
-  // 空洞占位：null 态按钮内是占位注释（同构不变量）
+  // 锚点法：内容态按钮 = [锚, 内容]（两次点击后 sel=true——Mark 在）
   const btn = root.querySelector('.wf-swatch')
-  assert.ok(btn?.childNodes.length === 1, `按钮 children 同构（占位或真实恒存在）——实际 ${btn?.childNodes.length}`)
+  assert.ok(btn?.childNodes.length === 2, `按钮 children 同构（锚 + 内容）——实际 ${btn?.childNodes.length}`)
   document.body.removeChild(root)
 })
 
@@ -3499,8 +3502,8 @@ test('阶段 1：keyed 重排 → node:move 事件（key/ref 可查）', async (
   const moves = stream.events().filter((e) => e.entity === 'node' && e.action === 'move')
   assert.ok(moves.length > 0, `keyed 重排 node:move——实际 ${moves.length}`)
   assert.equal(moves[0].payload?.key, 'c', `move 带 key（业务身份）——实际 ${moves[0].payload?.key}`)
-  // 顺序正确（c 在最前）
-  const order = [...root.querySelector('#l')?.childNodes ?? []].map((n) => (n as Element).textContent)
+  // 顺序正确（c 在最前——过滤锚注释——锚点法 childNodes 含锚）
+  const order = [...root.querySelector('#l')?.childNodes ?? []].filter((n) => n.nodeType !== 8).map((n) => (n as Element).textContent)
   assert.deepEqual(order, ['c', 'a', 'b'], `重排后顺序——实际 ${order.join(',')}`)
   document.body.removeChild(root)
 })

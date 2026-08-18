@@ -4,15 +4,16 @@
  * vdom4 P0（命令化 diff）：决策与执行分离——
  *   gen 系列（diff）：读 vnode/DOM 状态 → 决策 → 生成 Command[]（**不写 DOM**）
  *   applyCommands（执行）：消费命令 → DOM 操作 + DOM 层事件流发射（单点）
- * 决策层事件（diff:transition/vnode:patch/diff:mode）在 gen 阶段发射（决策可观测）；
- * DOM 层事件（node:create/insert/remove/move/prop:update/text:update/ref/event/portal）
- * 统一在 apply 发射（命令是唯一执行依据——DOM = fold(命令)）。
  *
- * 命令引用协议：节点用 id（字符串——apply 时 registry 解析——新节点 gen 阶段
- * 尚未创建——必须 id 引用）；锚（ref）可以是旧 DOM 节点（Node）或新节点（id）。
+ * vdom4 P1（锚点法 + 影子状态）：**每个 children 数组槽位恒有一个注释锚**
+ * （`<!--wf-anchor-->`——内容在其后）——槽位 i ⟷ shadow.anchors[parent][i]——
+ * 位置 O(1) 查询——domIdx/widthOf/_outFirst/_outLast 宽度推导全部消灭；
+ * 空洞（false/null）槽位 = 只有锚（占位法并入锚点法）；
+ * 锚恒在 → 重建/移除的 anchor 捕获 bug 类别从根上消除（锚失效 = 结构损坏）。
+ * 影子由 apply（fold）唯一推进——gen 只读（声明可以陈旧，影子不能）。
  *
- * 组件 vnode（已 build）：输出 _child（渲染组件输出——无重复构建）；
- * 卸载：unmountComp 命令（COMP_UNMOUNT 事件——由 apply 执行清理）。
+ * 决策层事件（diff:transition/vnode:patch/diff:mode）在 gen 阶段发射；
+ * DOM 层事件（node/prop/text/ref/event/portal 的 create/insert/remove/update 等）统一在 apply 发射。
  */
 
 import type { VNode, VNodeChild, FlatChild, PortalVNode, VKind } from './types.ts'
@@ -37,9 +38,7 @@ export function isPortalNode(v: unknown): v is PortalVNode {
  *
  * 浏览器表单状态恢复/默认值机制基于 value attribute 解析（defaultValue）——
  * 只设 property 时刷新后控件被恢复/重算为旧默认值，组件状态与原生 thumb 错位
- * （真实事故：components-demo 2000 slider 刷新后 input.value=100 而数值显示 800——
- * marker 与数值位置不一致）。text input 的 value attribute 语义是 defaultValue
- * （reset() 回退值）——不能动——仅 range 同步（受控组件 attribute 恒等于当前值）。
+ * （真实事故：components-demo 2000 slider 刷新后 input.value=100 而数值显示 800）。
  */
 function setInputValue(el: HTMLInputElement, val: string): void {
   el.value = val
@@ -57,47 +56,45 @@ import { unindexComponent } from './comp-index.ts'
 import { NodeRegistry, ensurePortalContainer } from './registry.ts'
 import { runUnmountHooks, isVNode } from './build.ts'
 import { auditOrder } from './audit.ts'
+import { shadow } from './shadow.ts'
 
-/** 节点注册表（id ↔ Node——命令执行定位）——模块级可变（mount/patch 支持
- *  per-call 注入（测试隔离）——同步段切换安全（并发交错在 await 点） */
+/** 节点注册表（id ↔ Node——命令执行定位）——模块级可变（per-call 注入——测试隔离） */
 let registry = new NodeRegistry()
 export { registry }
 
 // ══════════════════════════════════════════════════════════════════════
-// 命令（P0——diff 决策的产物——DOM = fold(命令)）
+// 命令（P0/P1——diff 决策的产物——DOM = fold(命令)）
 // ══════════════════════════════════════════════════════════════════════
 
-/** 命令（引擎内部——vn 是内部引用（props/ref 读取——序列化剥离）；
- *  parent 是父节点 id（字符串——apply 时 registry 解析——新节点 gen 阶段未创建）；
- *  ref 是锚（旧 DOM 节点 Node 或新节点 id）；causeId 是决策链（apply 事件携带） */
+/** 命令（vn 是内部引用（props/ref——序列化剥离）；parent 是父节点 id；
+ *  ref 是锚（Node 或 id——after=true 时插到 ref 之后——锚语义）；causeId 决策链） */
 export type Command =
   | { op: 'create'; id: string; tag: string; vn: VNode }
   | { op: 'createText'; id: string; value: string }
-  | { op: 'createHole'; id: string }
-  | { op: 'insert'; id: string; parent: string; ref: Node | string | null; vn?: VNode | null; causeId?: string | null }
+  | { op: 'createAnchor'; id: string }
+  | { op: 'insert'; id: string; parent: string; ref: Node | string | null; after?: boolean; slotParent?: string; slotRef?: string | null; vn?: VNode | null; causeId?: string | null }
   | { op: 'setProp'; id: string; key: string; value: unknown; prev: unknown; vn?: VNode | null }
   | { op: 'setText'; id: string; value: string; vn?: VNode | null }
   | { op: 'bind'; id: string; event: string; handler: EventListener; parent: string | null }
   | { op: 'callRef'; id: string; kind: 'mount' | 'cleanup'; fn: (el: any) => void }
-  | { op: 'remove'; id: string; vn?: VNode | null; causeId?: string | null }
-  | { op: 'removeRange'; first: Node; last: Node; vn?: VNode | null; causeId?: string | null }
+  | { op: 'remove'; id: string; parent?: string; vn?: VNode | null; nextAnchorId?: string | null; causeId?: string | null }
+  | { op: 'clearSlot'; anchorId: string; parent: string; nextAnchorId?: string | null; vn?: VNode | null; causeId?: string | null }
   | { op: 'removePortal'; portalKey: string; vn?: VNode | null; causeId?: string | null }
   | { op: 'unmountComp'; compId: string; type: unknown }
-  | { op: 'move'; id: string; parent: Element; ref: string | null; key?: string | null; causeId?: string | null }
+  | { op: 'moveSlot'; anchorId: string; parent: string; ref: string | null; nextAnchorId?: string | null; key?: string | null; causeId?: string | null }
   | { op: 'portalOpenCheck'; portalKey: string; wasEmpty: boolean }
 
-/** gen 输出：命令 + 回填计划（组件/Fragment 输出范围的 el/_outFirst/_outLast——
- *  apply 完成后按 id 查 registry 回填——gen 阶段不接触 DOM） */
+/** gen 输出：命令 + 回填计划（组件 el 定位——apply 后按 id 回填——gen 不接触 DOM） */
 export interface GenOut {
   cmds: Command[]
-  binds: Array<{ vn: VNode; firstId: string | null; lastId: string | null; portalKey?: string }>
+  binds: Array<{ vn: VNode; firstId: string | null; portalKey?: string }>
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// apply（执行器——写 DOM + DOM 层事件发射——唯一副作用点）
+// apply（执行器——写 DOM + 影子 fold + DOM 层事件发射——唯一副作用点）
 // ══════════════════════════════════════════════════════════════════════
 
-/** 执行命令序列（同步——命令顺序 = 原操作顺序——事件流 = fold(命令)） */
+/** 执行命令序列（同步——命令顺序 = 原操作顺序——影子/事件流 = fold(命令)） */
 export function applyCommands(cmds: Command[], binds: GenOut['binds'] = []): void {
   for (const c of cmds) {
     switch (c.op) {
@@ -107,6 +104,7 @@ export function applyCommands(cmds: Command[], binds: GenOut['binds'] = []): voi
           : document.createElement(c.tag)
         el.setAttribute('data-v3-id', c.id)
         registry.register(c.id, el)
+        shadow.registerNode(c.id, null)
         c.vn.el = el
         stream.emit(ev('node', 'create', c.id, { tag: c.tag }))
         break
@@ -114,13 +112,15 @@ export function applyCommands(cmds: Command[], binds: GenOut['binds'] = []): voi
       case 'createText': {
         const t = document.createTextNode(c.value)
         registry.register(c.id, t)
+        shadow.registerNode(c.id, null)
         stream.emit(ev('text', 'create', c.id, { value: c.value }))
         break
       }
-      case 'createHole': {
-        const hole = document.createComment('wf-hole')
+      case 'createAnchor': {
+        const hole = document.createComment('wf-anchor')
         registry.register(c.id, hole)
-        stream.emit(ev('node', 'create', c.id, { kind: 'hole' }))
+        shadow.registerAnchor(c.id, '')
+        stream.emit(ev('node', 'create', c.id, { kind: 'anchor' }))
         break
       }
       case 'insert': {
@@ -128,11 +128,37 @@ export function applyCommands(cmds: Command[], binds: GenOut['binds'] = []): voi
         if (!node) break
         const parentNode = resolveParent(c.parent)
         if (!parentNode) break
-        const refNode = typeof c.ref === 'string' ? registry.get(c.ref) : c.ref
-        if (refNode && refNode.parentNode === parentNode) parentNode.insertBefore(node, refNode)
+        const isAnchor = shadow.isAnchor.get(c.id) ?? false
+        const slotKey = c.slotParent ?? c.parent
+        let insPoint: Node | null
+        if (isAnchor) {
+          // 锚插入：DOM 插到 ref（DOM 前驱 = 上一槽位锚）的**区间末尾**——
+          // （ref 锚后的内容之后/下一锚前——ref.nextSibling 是内容第一个——插那里会反序）
+          // **列表定位用 slotRef（前一槽位锚——ref 可能是子锚不在列表）**
+          const refNode = typeof c.ref === 'string' ? registry.get(c.ref) : c.ref
+          let insPoint2: Node | null = null
+          if (refNode && refNode.parentNode === parentNode) {
+            let n = refNode.nextSibling
+            while (n && !(n.nodeType === 8 && (n.nodeValue ?? '').includes('wf-anchor'))) n = n.nextSibling
+            insPoint2 = n // 下一锚（区间边界）或 null（父末尾——append）
+          }
+          insPoint = insPoint2
+          if (c.slotRef) {
+            const refIdx = shadow.indexOfAnchor(slotKey, c.slotRef)
+            shadow.insertAnchor(slotKey, c.id, refIdx + 1)
+          } else {
+            shadow.insertAnchor(slotKey, c.id, 0)
+          }
+          shadow.registerAnchor(c.id, slotKey)
+        } else {
+          const refNode = typeof c.ref === 'string' ? registry.get(c.ref) : c.ref
+          insPoint = c.after && refNode ? refNode.nextSibling : refNode
+        }
+        if (insPoint && insPoint.parentNode === parentNode) parentNode.insertBefore(node, insPoint)
         else parentNode.appendChild(node)
-        stream.emit(ev('node', 'insert', c.id, { parent: parentId(parentNode), ref: refNode ? nodeId(refNode) : null, causeId: c.causeId ?? undefined }))
-        // 插入后补注册（svg/深层元素——父未挂载时挂载点监听缺失——真实 hover 事故）
+        shadow.registerNode(c.id, c.parent)
+        stream.emit(ev('node', 'insert', c.id, { parent: parentId(parentNode), ref: typeof c.ref === 'string' ? c.ref : c.ref ? nodeId(c.ref) : null, after: c.after ?? false, isAnchor: isAnchor || undefined, causeId: c.causeId ?? undefined }))
+        // 插入后补注册（svg/深层元素——挂载点监听缺失——真实 hover 事故）
         ensureDelegationFor(node as Element, (c.vn as VNode)?.props ?? {})
         // ref 回调（挂载——稳定 ref 定义在 mount 层——§5.1 纪律）——ref:mount 事件
         const refFn = (c.vn as VNode)?.props?.ref
@@ -167,13 +193,18 @@ export function applyCommands(cmds: Command[], binds: GenOut['binds'] = []): voi
         break
       }
       case 'remove': {
+        if (shadow.isAnchor.get(c.id)) {
+          execRemoveSlot(c.id, c.parent ?? '', c.nextAnchorId ?? null, c.vn, c.causeId)
+          break
+        }
         const node = registry.get(c.id)
         if (!node) break
         removeNodeWithLifecycle(node, node.parentNode ?? document.body, c.vn, c.causeId)
+        shadow.unregister(c.id)
         break
       }
-      case 'removeRange': {
-        removeOutputRangeExec(c, c.causeId)
+      case 'clearSlot': {
+        execClearSlot(c.anchorId, c.parent, c.nextAnchorId ?? null, c.vn, c.causeId)
         break
       }
       case 'removePortal': {
@@ -186,18 +217,8 @@ export function applyCommands(cmds: Command[], binds: GenOut['binds'] = []): voi
         unindexComponent(c.compId)
         break
       }
-      case 'move': {
-        const elNode = registry.get(c.id)
-        if (!elNode || elNode.parentNode !== c.parent) break
-        // ref = 新序列前一项的 id——target 推导移到 apply（此时 DOM 已按前序命令更新——
-        // gen 阶段 DOM 未移动——nextSibling 是旧位置——延迟执行会错位）
-        const prevEl = c.ref ? registry.get(c.ref) : null
-        const target: Node | null = prevEl ? prevEl.nextSibling : c.parent.firstChild
-        if (target !== elNode) {
-          const prev = elNode.previousSibling ? registry.idOf(elNode.previousSibling) : null
-          c.parent.insertBefore(elNode, target)
-          stream.emit(ev('node', 'move', c.id, { parent: nodeId(c.parent), ref: target ? registry.idOf(target) : null, prev, key: c.key ?? null, causeId: c.causeId ?? undefined }))
-        }
+      case 'moveSlot': {
+        execMoveSlot(c.anchorId, c.parent, c.ref, c.nextAnchorId ?? null, c.key, c.causeId)
         break
       }
       case 'portalOpenCheck': {
@@ -209,19 +230,13 @@ export function applyCommands(cmds: Command[], binds: GenOut['binds'] = []): voi
       }
     }
   }
-  // 回填计划（组件/Fragment 输出范围——apply 完成后统一回填）
+  // 回填计划（组件 el 定位——apply 完成后统一回填）
   for (const b of binds) {
     if (b.portalKey != null) {
       b.vn.el = ensurePortalContainer(b.portalKey)
-      b.vn._outFirst = null
-      b.vn._outLast = null
       continue
     }
-    const first = b.firstId ? registry.get(b.firstId) : null
-    const last = b.lastId ? registry.get(b.lastId) : null
-    b.vn.el = first
-    b.vn._outFirst = first
-    b.vn._outLast = last
+    b.vn.el = b.firstId ? registry.get(b.firstId) : null
   }
 }
 
@@ -230,7 +245,87 @@ function resolveParent(id: string): Node | null {
   return registry.get(id)
 }
 
-/** 属性应用（create/setProp 共用——renderVNode/patchProps 的 set 逻辑收敛单点） */
+/** 锚槽位内容区间（锚后到下一锚前——apply 时遍历移除——含子锚的 anchors 同步 + 监听清理） */
+function removeSlotContent(anchorId: string, nextAnchorId: string | null, parent: Node, parentIdStr: string, causeId?: string | null): void {
+  const anchor = registry.get(anchorId)
+  if (!anchor?.parentNode) return
+  const nextAnchor = nextAnchorId ? registry.get(nextAnchorId) : null
+  let n = anchor.nextSibling
+  while (n && n !== nextAnchor) {
+    const nx = n.nextSibling
+    const id = registry.idOf(n)
+    if (shadow.isAnchor.get(id)) shadow.removeAnchor(parentIdStr, id)
+    unbindAll(id)
+    removeDomNode(n, parent, causeId)
+    shadow.unregister(id)
+    n = nx
+  }
+}
+
+/** remove（锚）命令执行：锚 + 内容区间移除（anchors splice） */
+function execRemoveSlot(anchorId: string, parentId: string, nextAnchorId: string | null, vn: VNode | null | undefined, causeId?: string | null): void {
+  const anchor = registry.get(anchorId)
+  const parent = anchor?.parentNode
+  if (vn) callRefCleanup(vn)
+  if (anchor && parent) {
+    removeSlotContent(anchorId, nextAnchorId, parent, parentId, causeId)
+    unbindAll(registry.idOf(anchor))
+    removeDomNode(anchor, parent, causeId)
+  }
+  shadow.removeAnchor(parentId, anchorId)
+  shadow.unregister(anchorId)
+}
+
+/** clearSlot 命令执行：清空锚后内容（锚保留——空洞） */
+function execClearSlot(anchorId: string, parentId: string, nextAnchorId: string | null, vn: VNode | null | undefined, causeId?: string | null): void {
+  const anchor = registry.get(anchorId)
+  const parent = anchor?.parentNode
+  if (vn) callRefCleanup(vn)
+  if (anchor && parent) removeSlotContent(anchorId, nextAnchorId, parent, parentId, causeId)
+  void parentId
+}
+
+/** moveSlot 命令执行：区间 [锚, 下一锚) 整体移动到 **ref 锚区间的末尾**（ref 的下一锚前/父末尾——
+ *  keyed 重排——锚随内容走。insPoint 不得用 ref.nextSibling（那是 ref 区间的第一个内容——
+ *  区间应插到 ref 区间之后）。已在目标位置（prevAid === ref / 已是首锚）→ 零操作。 */
+function execMoveSlot(anchorId: string, parentId: string, ref: string | null, nextAnchorId: string | null, key: string | null | undefined, causeId?: string | null): void {
+  const anchor = registry.get(anchorId)
+  if (!anchor?.parentNode) return
+  const parent = anchor.parentNode as Element
+  const anchors = shadow.anchorsOf(parentId)
+  const curIdx = anchors.indexOf(anchorId)
+  // 跳过判定：锚已在 ref 之后（或已是首锚——ref=null）
+  const prevAid = curIdx > 0 ? anchors[curIdx - 1] : null
+  if (ref === null ? anchors[0] === anchorId : prevAid === ref) {
+    return
+  }
+  const refIdx = ref ? anchors.indexOf(ref) : -1
+  const insPoint = ref
+    ? (anchors[refIdx + 1] ? registry.get(anchors[refIdx + 1]) : null)
+    : parent.firstChild
+  if (insPoint === anchor) return
+  const nextAnchor = nextAnchorId ? registry.get(nextAnchorId) : null
+  // 收集区间（移动前——移动中 nextSibling 变化）——prev 也移动前捕获（undo 恢复用）
+  const range: Node[] = []
+  let n: Node | null = anchor
+  while (n && n !== nextAnchor) { range.push(n); n = n.nextSibling }
+  const prev = anchor.previousSibling ? registry.idOf(anchor.previousSibling) : null
+  // 逐个 insertBefore（从前往后——相对顺序保持）
+  for (const node of range) parent.insertBefore(node, insPoint)
+  shadow.moveAnchorTo(parentId, anchorId, ref)
+  // 锚 move 事件浓缩区间（range = 区间节点 id 列表——回放/undo 可整体移动——
+  // 单锚事件保持 undo 的「最近一个指令 = 一次区间移动」语义）
+  stream.emit(ev('node', 'move', anchorId, {
+    parent: nodeId(parent),
+    ref: insPoint ? registry.idOf(insPoint) : null,
+    prev,
+    key: key ?? null,
+    range: range.map((n) => registry.idOf(n)),
+    causeId: causeId ?? undefined,
+  }))
+}
+
+/** 属性应用（create/setProp 共用——set 逻辑收敛单点） */
 function applyProp(el: Element, key: string, value: unknown): void {
   if (value == null || value === false) {
     if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
@@ -260,8 +355,7 @@ export function styleToCss(val: Record<string, unknown>): string {
     .map(([k, v]) => `${k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}:${v}`).join(';')
 }
 
-/** 统一节点移除（node:remove 事件 + unregister——占位/文本的直接移除也要事件流——
- *  不变量"无事件流不渲染"——DOM 变化必须有事件） */
+/** 统一节点移除（node:remove 事件 + unregister——占位/文本的直接移除也要事件流） */
 function removeDomNode(n: Node, parent: Node, causeId?: string | null): void {
   const id = registry.idOf(n)
   if (id && id !== 'el' && id !== 'node') {
@@ -271,12 +365,10 @@ function removeDomNode(n: Node, parent: Node, causeId?: string | null): void {
   n.parentNode?.removeChild(n)
 }
 
-/** 节点移除的完整清理（REMOVE 事件 + EVENT_UNBIND（绑定生命周期）+ ref(null) + registry） */
+/** 节点移除的完整清理（REMOVE 事件 + EVENT_UNBIND + ref(null) + registry） */
 export function removeNodeWithLifecycle(node: Node, parent: Node, vnodeRef?: VNode | null, causeId?: string | null): void {
-  // 事件代理解绑（注册表删除 + EVENT_UNBIND——每事件可观测）
   const beforeUnbind = (globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0' ? listenerCount(registry.idOf(node)) : 0
   unbindAll(registry.idOf(node))
-  // round3 阶段 4：监听器泄漏检测（dev）——移除前有绑定但 unbindAll 后仍有残留
   if (beforeUnbind > 0) {
     const after = listenerCount(registry.idOf(node))
     if (after > 0) {
@@ -290,9 +382,7 @@ export function removeNodeWithLifecycle(node: Node, parent: Node, vnodeRef?: VNo
   registry.unregister(rid, node)
 }
 
-/** 递归调 ref(null)（移除树——ref 纪律：卸载清理（lockScroll/focus）依赖
- *  ——portal/组件输出等嵌套结构的 ref 全部清理——REF_CLEANUP 事件（生命周期可观测））
- *  导出（组件级 update 用） */
+/** 递归调 ref(null)（移除树——ref 纪律：卸载清理（lockScroll/focus）依赖——REF_CLEANUP 事件） */
 export function callRefCleanup(v: VNode | null | undefined): void {
   if (v == null || typeof v !== 'object' || Array.isArray(v)) return
   const refFn = (v as VNode).props?.ref
@@ -307,9 +397,7 @@ export function callRefCleanup(v: VNode | null | undefined): void {
 }
 
 /** 嵌套 portal 清理：外层 portal 内容移除时，内容 vnode 树里的嵌套 portal
- * （DOM 挂各自独立容器）必须一并清空——否则幽灵面板残留
- * （真实事故：NavMenu 嵌套子菜单——顶层子菜单关闭后 API 嵌套面板仍挂在
- *  #__wf_portal——vnode 已移除但 DOM 不清理） */
+ * （DOM 挂各自独立容器）必须一并清空——否则幽灵面板残留（NavMenu 事故） */
 function removeNestedPortals(v: VNodeChild | null | undefined): void {
   if (v == null || typeof v !== 'object' || Array.isArray(v)) return
   const node = v as VNode
@@ -321,8 +409,7 @@ function removeNestedPortals(v: VNodeChild | null | undefined): void {
   for (const c of childrenOf(node)) removeNestedPortals(c)
 }
 
-/** removePortal 命令执行：远程容器清空（子树 REMOVE 事件 + ref(null)——ref 纪律：
- *  卸载必须调 ref(null)（usePopup 的 portalPanelRef 清理——lockScroll/focus 恢复）） */
+/** removePortal 命令执行：远程容器清空（子树 REMOVE 事件 + ref(null)——ref 纪律） */
 export function removePortalContentExec(portalKey: string, pv: VNode | null | undefined, causeId?: string | null): void {
   if (pv) for (const c of childrenOf(pv)) removeNestedPortals(c)
   const container = ensurePortalContainer(portalKey)
@@ -333,6 +420,7 @@ export function removePortalContentExec(portalKey: string, pv: VNode | null | un
     stream.emit(ev('node', 'remove', cid, { parent: NodeRegistry.PORTAL(portalKey), causeId: causeId ?? undefined }))
     container.removeChild(child)
     registry.unregister(cid, child)
+    shadow.unregister(cid)
   }
   if (container.childNodes.length === 0) {
     stream.emit(ev('portal', 'close', undefined, { portalKey }))
@@ -344,46 +432,16 @@ export function removePortalContent(pv: PortalVNode): void {
   removePortalContentExec(String(pv.props?.portalKey ?? 'default'), pv, null)
 }
 
-/** removeRange 命令执行：多节点输出范围移除（首节点生命周期清理 + 范围其余直接移除） */
-function removeOutputRangeExec(c: Extract<Command, { op: 'removeRange' }>, causeId?: string | null): void {
-  const { first, last, vn } = c
-  const el = first.parentNode as Element
-  if (typeof (vn as VNode)?.type === 'function' && (vn as VNode)._id) {
-    // 首节点生命周期清理（组件卸载钩子/ref(null)）
-    const compId = (vn as VNode)._id as string
-    runUnmountHooks(compId)
-    stream.emit(ev('comp', 'unmount', compId, { name: compName((vn as VNode).type) }))
-    unindexComponent(compId)
-    removeNodeWithLifecycle(first, el, vn, causeId)
-  } else if ((vn as VNode)?.el && (vn as VNode).el!.parentNode === el) {
-    removeNodeWithLifecycle((vn as VNode).el!, el, vn, causeId)
-  } else if (first.parentNode === el) {
-    removeDomNode(first, el, causeId)
-  }
-  // 范围其余节点（first 后到 last——含 last——统一移除）
-  let n = first.nextSibling
-  const guard = 64 // 防御：范围异常（循环引用等）截断
-  let g = 0
-  while (n && n !== last && g++ < guard) {
-    const next = n.nextSibling
-    removeDomNode(n, el, causeId)
-    n = next
-  }
-  if (last.parentNode === el) removeDomNode(last, el, causeId)
-}
-
 // ══════════════════════════════════════════════════════════════════════
 // diff（决策——gen 系列——不写 DOM——生成命令）
 // ══════════════════════════════════════════════════════════════════════
 
-/** 挂载：纯树 → 命令 → DOM（reg 可选——per-call 隔离；默认全局）
- *  挂载前清空容器语义保持（SSR 旧内容同帧移除——见下） */
+/** 挂载：纯树 → 命令 → DOM（SSR 旧内容同帧移除——保持语义） */
 export function mount(vnode: VNode, root: HTMLElement, reg?: NodeRegistry): void {
   const prev = registry
   if (reg) registry = reg
   try {
     ensureDelegationRoot(root)
-    // ★ 同帧追加 + 移除旧内容（SSR 首帧无白屏）——apply 后同步移除（保持语义）
     registry.register(NodeRegistry.ROOT, root)
     const ssrOld = [...root.childNodes]
     const cmds: Command[] = []
@@ -396,50 +454,57 @@ export function mount(vnode: VNode, root: HTMLElement, reg?: NodeRegistry): void
   }
 }
 
-/** 渲染 vnode（gen——同步——树已构建——生成命令 + 回填计划）
+/** 渲染 vnode（gen——同步——生成命令 + 回填计划）
  *  parentId：父节点 id（'root'/'portal:key'/native id——apply 时解析）
- *  返回：该子树在命令序列中的 DOM 范围（firstId/lastId——空输出 null） */
-function genRender(vn0: VNode, parentId: string, anchor: Node | string | null, cmds: Command[], binds: GenOut['binds']): { firstId: string; lastId: string } | null {
+ *  anchor：插入锚（string = 锚 id——内容插锚后；Node = insertBefore；null = append）
+ *  返回：该子树在命令序列中的 DOM 范围（firstId = 首内容节点 id——空输出 null） */
+function genRender(vn0: VNode, parentId: string, anchor: Node | string | null, cmds: Command[], binds: GenOut['binds'], slotKey?: string): { firstId: string; lastId: string; lastAnchorId: string | null } | null {
   const vnode = vn0 as VNode
   // 组件/app 节点：输出 _child（已构建——直接渲染输出；el 定位组件输出首节点）
   if (typeof vnode.type === 'function' || vnode.type === App) {
     const output = vnode._child !== undefined ? vnode._child : childrenOf(vnode)[0] ?? null
-    if (output == null) { binds.push({ vn: vnode, firstId: null, lastId: null }); return null }
+    if (output == null) { binds.push({ vn: vnode, firstId: null }); return null }
     // 已渲染（isConnected（真实 DOM/portal 容器）或 el 在父内（测试容器未连接））→ 复用
     if (vnode.el != null && (vnode.el.isConnected || vnode.el.parentNode === resolveParent(parentId))) return null
     const r = genRender(output as VNode, parentId, anchor, cmds, binds)
-    binds.push({ vn: vnode, firstId: r?.firstId ?? null, lastId: r?.lastId ?? null })
+    binds.push({ vn: vnode, firstId: r?.firstId ?? null })
     return r
   }
   if (isFragmentNode(vnode)) {
     let first: string | null = null
     let last: string | null = null
+    // Fragment 输出锚（anchor）作为首项锚基线——内容项锚序列插输出锚后
+    // （mount：null（append）；组件输出恢复：输出锚后——不得 append 到父末尾）
+    let refAnchor = typeof anchor === 'string' ? anchor : null
+    let prevSlotAnchor: string | null = null
+    // 逻辑容器：Fragment 输出内部锚登记到 Fragment 锚（不混入父列表——槽位线性索引保持）
+    const fragKey = typeof anchor === 'string' ? anchor : (slotKey ?? parentId)
     for (const c of childrenOf(vnode)) {
-      const r = genRenderChild(c, parentId, anchor, cmds, binds)
-      if (r) { if (!first) first = r.firstId; last = r.lastId }
+      const r = genSlot(c, parentId, refAnchor, prevSlotAnchor, cmds, binds, fragKey)
+      if (r) { if (!first) first = r.firstId; last = r.lastId; refAnchor = r.lastAnchorId; prevSlotAnchor = r.anchorId }
     }
-    binds.push({ vn: vnode, firstId: first, lastId: last })
-    return first ? { firstId: first, lastId: last! } : null
+    binds.push({ vn: vnode, firstId: first })
+    return first ? { firstId: first, lastId: last!, lastAnchorId: refAnchor } : null
   }
   if (isPortalNode(vnode)) {
     const pv = vnode as PortalVNode
     const portalKey = String(pv.props?.portalKey ?? 'default')
-    // 容器 id 注册（事件流 parent 用 portal:key——idOf 经 WeakMap 解析）
     const container = ensurePortalContainer(portalKey)
     registry.register(NodeRegistry.PORTAL(portalKey), container)
     ensureDelegationRoot(container)
     let first: string | null = null
     let last: string | null = null
     const wasEmpty = container.childNodes.length === 0
+    let prevSlotAnchor: string | null = null
     for (const c of childrenOf(pv)) {
-      const r = genRenderChild(c, NodeRegistry.PORTAL(portalKey), null, cmds, binds)
-      if (r) { if (!first) first = r.firstId; last = r.lastId }
+      const r = genSlot(c, NodeRegistry.PORTAL(portalKey), null, prevSlotAnchor, cmds, binds, NodeRegistry.PORTAL(portalKey))
+      if (r) { if (!first) first = r.firstId; last = r.lastId; prevSlotAnchor = r.anchorId }
     }
-    // round3 阶段 3：portal 生命周期透明——空容器 → 有内容 = 弹层打开
     cmds.push({ op: 'portalOpenCheck', portalKey, wasEmpty })
-    binds.push({ vn: pv, firstId: null, lastId: null, portalKey })
-    return first ? { firstId: first, lastId: last! } : null
+    binds.push({ vn: pv, firstId: null, portalKey })
+    return first ? { firstId: first, lastId: last!, lastAnchorId: null } : null
   }
+  // native
   const id = nextNodeId()
   cmds.push({ op: 'create', id, tag: vnode.type as string, vn: vnode })
   for (const [key, val] of Object.entries(vnode.props ?? {})) {
@@ -452,41 +517,54 @@ function genRender(vn0: VNode, parentId: string, anchor: Node | string | null, c
       cmds.push({ op: 'setProp', id, key, value: val, prev: '' })
     }
   }
-  cmds.push({ op: 'insert', id, parent: parentId, ref: anchor, vn: vnode, causeId: currentCause })
+  cmds.push({ op: 'insert', id, parent: parentId, ref: anchor, after: typeof anchor === 'string', vn: vnode, causeId: currentCause })
+  // children：每槽位 [锚, 内容]（P1 锚点法——空洞 = 只有锚）
+  let lastAnchorId: string | null = null
+  let prevSlotAnchor: string | null = null
   for (const c of childrenOf(vnode)) {
-    genRenderChild(c, id, null, cmds, binds) // 子节点 parent = 本元素 id
+    const r = genSlot(c, id, lastAnchorId, prevSlotAnchor, cmds, binds, slotKey)
+    if (r) { lastAnchorId = r.lastAnchorId; prevSlotAnchor = r.anchorId }
   }
-  // native 单节点——范围 = 自身（原 renderVNode：_outFirst = _outLast = el——
-  // 不得推进到子节点——否则组件/Fragment 的 _outLast 回填到文本——移除范围错位）
-  return { firstId: id, lastId: id }
+  // native 单节点——范围 = 自身；lastAnchorId = null（children 的锚在自身内部——
+  // 不属于父层——genSlot 的 vnode 分支以自身锚兜底）
+  return { firstId: id, lastId: id, lastAnchorId: null }
 }
 
-/** 渲染子节点（gen——文本/空洞/native/组件/portal——parentId 引用） */
-function genRenderChild(c: FlatChild, parentId: string, anchor: Node | string | null, cmds: Command[], binds: GenOut['binds']): { firstId: string; lastId: string } | null {
+/** 渲染子节点（gen——文本/空洞/native/组件/portal——**每槽位恒一锚**：
+ *  [锚, 内容...]——空洞槽位 = 只有锚——内容插锚后（after=true））
+ *  refAnchor：前一槽位锚（新锚插它之后——顺序保持）；返回 { firstId, lastId, anchorId } */
+function genSlot(c: FlatChild, parentId: string, refAnchor: string | null, slotRefAnchor: string | null, cmds: Command[], binds: GenOut['binds'], slotKey?: string): { firstId: string; lastId: string; anchorId: string; lastAnchorId: string } | null {
+  // 锚（每槽恒一——空洞也建）——slotParent = 逻辑容器（Fragment 输出内部登记到 Fragment 锚）
+  // refAnchor = DOM 前驱（上一槽位区间末尾锚——可能为子锚）；slotRefAnchor = 前一槽位锚（列表定位）
+  const anchorId = nextNodeId()
+  cmds.push({ op: 'createAnchor', id: anchorId })
+  cmds.push({ op: 'insert', id: anchorId, parent: parentId, ref: refAnchor, after: refAnchor != null, slotParent: slotKey, slotRef: slotRefAnchor })
   if (c == null || c === false || c === true) {
-    const id = nextNodeId()
-    cmds.push({ op: 'createHole', id })
-    cmds.push({ op: 'insert', id, parent: parentId, ref: anchor })
-    return { firstId: id, lastId: id }
+    // 空洞：只有锚（占位法并入锚点法）
+    return { firstId: anchorId, lastId: anchorId, anchorId, lastAnchorId: anchorId }
   }
   if (typeof c === 'string' || typeof c === 'number') {
     const id = nextNodeId()
     cmds.push({ op: 'createText', id, value: String(c) })
-    cmds.push({ op: 'insert', id, parent: parentId, ref: anchor })
-    return { firstId: id, lastId: id }
+    cmds.push({ op: 'insert', id, parent: parentId, ref: anchorId, after: true })
+    return { firstId: id, lastId: id, anchorId, lastAnchorId: anchorId }
   }
-  return genRender(c, parentId, anchor, cmds, binds)
+  // vnode 项：锚记录（组件/Fragment 的 patch 定位）——lastAnchorId = 输出区间末尾锚
+  const vn = c as VNode
+  vn._anchorId = anchorId
+  const r = genRender(vn, parentId, anchorId, cmds, binds)
+  const lastAnchorId = r?.lastAnchorId ?? anchorId
+  vn._lastAnchorId = lastAnchorId
+  return { firstId: r?.firstId ?? anchorId, lastId: r?.lastId ?? anchorId, anchorId, lastAnchorId }
 }
 
 /**
- * patch：旧树（纯）vs 新树（纯）→ 命令 → apply。
- * 同位置同类型（含 key）复用——仅变化发命令；异类型 → REMOVE+CREATE+INSERT（重建）。
+ * patch：旧树 vs 新树 → 命令 → apply。同位置同类型（含 key）复用——仅变化发命令。
  */
 export function patch(oldV: VNode | null, newV: VNode | string | number | null | undefined | boolean, parent: Node, anchor?: Node | null, reg?: NodeRegistry): Node | null {
   const prev = registry
   if (reg) registry = reg
   try {
-    // 结构共享快路径：同引用（build 复用旧树节点）→ 零 diff 零命令（静态分支）
     if (oldV !== null && newV !== null && typeof oldV === 'object' && typeof newV === 'object' && oldV === newV) {
       return (oldV as VNode).el ?? null
     }
@@ -506,18 +584,16 @@ export function patch(oldV: VNode | null, newV: VNode | string | number | null |
 let causeUid = 0
 let currentCause: string | null = null
 const causeStack: (string | null)[] = []
-/** 决策点进入（分配 causeId——压栈） */
 function beginCause(): string {
   causeStack.push(currentCause)
   currentCause = `c${++causeUid}`
   return currentCause
 }
-/** 决策点退出（恢复外层 cause） */
 function endCause(): void {
   currentCause = causeStack.pop() ?? null
 }
 
-/** 单节点 kind 分类（diff:transition 决策事件的 from/to——阶段 0——vdom2 VKind 语义） */
+/** 单节点 kind 分类（diff:transition 决策事件的 from/to） */
 function vKindOf(v: VNodeChild | null): string {
   if (v == null || typeof v === 'boolean') return 'hole'
   if (typeof v === 'string' || typeof v === 'number') return 'text'
@@ -532,7 +608,6 @@ function vKindOf(v: VNodeChild | null): string {
 }
 
 function genPatchInner(oldV: VNode | null, newV: VNodeChild, parentIdStr: string, anchor: Node | null, cmds: Command[], binds: GenOut['binds']): void {
-  // 决策事件（阶段 0.2——diff 转换决策可观测——from 旧 kind → to 新 kind）
   const fromKind = vKindOf(oldV)
   const toKind = vKindOf(newV)
   stream.emit(ev('diff', 'transition', undefined, { from: fromKind, to: toKind, level: 'trace' }))
@@ -548,12 +623,11 @@ function genPatchInner(oldV: VNode | null, newV: VNodeChild, parentIdStr: string
     }
     const id = nextNodeId()
     cmds.push({ op: 'createText', id, value: str })
-    cmds.push({ op: 'insert', id, parent: parentIdStr, ref: anchor })
+    cmds.push({ op: 'insert', id, parent: parentIdStr, ref: anchor, after: anchor != null })
     return
   }
   if (newV == null || newV === false || newV === true) {
     if (oldV != null && typeof oldV === 'object' && !Array.isArray(oldV)) {
-      // 输出变 null（条件移除）——统一生命周期清理（Portal 输出的 el 为 null——内容独立挂载）
       if (isPortalNode(oldV)) {
         cmds.push({ op: 'removePortal', portalKey: String((oldV as PortalVNode).props?.portalKey ?? 'default'), vn: oldV as VNode })
       } else if (oldV.el && oldV.el.parentNode === resolveParent(parentIdStr)) {
@@ -562,7 +636,6 @@ function genPatchInner(oldV: VNode | null, newV: VNodeChild, parentIdStr: string
     }
     return
   }
-  // vnode（text/null 分支已 return——此处必为 vnode）
   const vn = newV as VNode
   const oldIsVNode = oldV != null && typeof oldV === 'object' && 'type' in oldV
   const sameType = oldIsVNode && (oldV as VNode).type === vn.type && (oldV as VNode).key === vn.key
@@ -582,15 +655,12 @@ function genPatchInner(oldV: VNode | null, newV: VNodeChild, parentIdStr: string
     return
   }
 
-  // 异类型：rebuild（PATCH 决策事件——异类型走通用重建）
+  // 异类型：rebuild（非槽位单节点场景——槽位场景在 genPatchChildren 走 clearSlot+新内容）
   emitPatch(oldIsVNode ? classifyKind(oldV) : null, classifyKind(vn), 'rebuild')
   if (oldIsVNode) {
     const oldEl = (oldV as VNode).el
     if (oldEl && oldEl.parentNode === resolveParent(parentIdStr)) {
-      // 重建锚点先捕获（移除前）：anchor 可能 === oldEl（unkeyed 列表位置重建——
-      // 同 type 异 key 走此路径）——移除后 anchor 脱离 → insert 落 appendChild 末尾
       const rebuildAnchor = oldEl.nextSibling ?? anchor
-      // 旧组件 → unmountComp 命令；移除旧 + 渲染新（命令顺序：清理先、创建后）
       if (typeof (oldV as VNode).type === 'function' && (oldV as VNode)._id) {
         cmds.push({ op: 'unmountComp', compId: (oldV as VNode)._id!, type: (oldV as VNode).type })
       }
@@ -598,7 +668,6 @@ function genPatchInner(oldV: VNode | null, newV: VNodeChild, parentIdStr: string
       genRender(vn, parentIdStr, rebuildAnchor, cmds, binds)
       return
     } else if (isPortalNode(oldV)) {
-      // 旧 portal：清空远程容器
       cmds.push({ op: 'removePortal', portalKey: String((oldV as PortalVNode).props?.portalKey ?? 'default'), vn: oldV as VNode })
     }
   }
@@ -609,7 +678,6 @@ function genPatchInner(oldV: VNode | null, newV: VNodeChild, parentIdStr: string
 function genPatchProps(el: Element, oldProps: Record<string, unknown>, newProps: Record<string, unknown>, cmds: Command[]): void {
   const target = nodeId(el)
   const allKeys = new Set([...Object.keys(oldProps ?? {}), ...Object.keys(newProps ?? {})])
-  // ref 切换（引用变化 → 旧(null) + 新(el)——稳定 ref 不重绑）
   const oldRef = oldProps?.ref
   const newRef = newProps?.ref
   if (oldRef !== newRef) {
@@ -621,12 +689,10 @@ function genPatchProps(el: Element, oldProps: Record<string, unknown>, newProps:
     const ov = oldProps?.[key]
     const nv = newProps?.[key]
     if (ov === nv) continue
-    // 对象属性浅比较（style 等——每次渲染新对象——值相同不重设——零变化零命令）
     if (ov != null && nv != null && typeof ov === 'object' && typeof nv === 'object'
         && !Array.isArray(ov) && !Array.isArray(nv)
         && shallowEqual(ov as Record<string, unknown>, nv as Record<string, unknown>)) continue
     if (typeof nv === 'function' && /^on[A-Z]/.test(key)) {
-      // 事件代理：handler 更新 = Map 覆盖（零重绑零事件）
       cmds.push({ op: 'bind', id: target, event: key.slice(2).toLowerCase(), handler: nv as EventListener, parent: null })
       continue
     }
@@ -634,12 +700,12 @@ function genPatchProps(el: Element, oldProps: Record<string, unknown>, newProps:
   }
 }
 
-/** PATCH 决策事件（全链路事件流——kind 分发可观测/可断言） */
+/** PATCH 决策事件（kind 分发可观测/可断言） */
 function emitPatch(oldKind: VKind | null, newKind: VKind, action: 'reuse' | 'rebuild' | 'move' | 'remove' | 'unhandled'): void {
   stream.emit(ev('vnode', 'patch', undefined, { oldKind, newKind, strategy: action }))
 }
 
-// ── kind 同类型处理器表（kind → 复用路径——显式注册——缺注册明确失败） ──
+// ── kind 同类型处理器表 ──
 
 /** native：属性 diff + children patch（el 守卫——ov.el 缺失 → 明确失败 + 降级） */
 function genPatchNativeKind(ov: VNode, vn: VNode, parentIdStr: string, anchor: Node | null, cmds: Command[], binds: GenOut['binds']): void {
@@ -651,6 +717,8 @@ function genPatchNativeKind(ov: VNode, vn: VNode, parentIdStr: string, anchor: N
     return
   }
   vn.el = el
+  vn._anchorId = ov._anchorId
+  vn._lastAnchorId = ov._lastAnchorId
   genPatchProps(el, ov.props, vn.props, cmds)
   genPatchChildren(ov, vn, el, cmds, binds)
 }
@@ -659,56 +727,41 @@ function genPatchNativeKind(ov: VNode, vn: VNode, parentIdStr: string, anchor: N
 function genPatchCompKind(ov: VNode, vn: VNode, parentIdStr: string, anchor: Node | null, cmds: Command[], binds: GenOut['binds']): void {
   vn._render = ov._render
   vn._id = ov._id
-  // app 节点：输出 = _child（子应用根构建）——同组件路径
+  vn._anchorId = ov._anchorId
   const out = vn._child !== undefined ? vn._child : childrenOf(vn)[0] ?? null
   const oldOut = ov._child !== undefined ? ov._child : childrenOf(ov)[0] ?? null
   if (out == null || out === false || out === true) {
-    // 注意：组件输出 null ≠ 组件从树中移除——实例保留（下次渲染输出恢复）——
-    // 索引不注销（updateComponent 仍可 O(1) 定位）
+    // 组件输出 null：清空槽位内容（锚保留——实例保留——下次输出恢复）
     if (oldOut && isPortalNode(oldOut)) {
       cmds.push({ op: 'removePortal', portalKey: String((oldOut as PortalVNode).props?.portalKey ?? 'default'), vn: oldOut as VNode })
+    } else if (ov._anchorId) {
+      // 区间边界 = **首锚的下一锚（父列表）**——组件输出内部子锚登记在输出锚的
+      // 逻辑容器（Fragment 列表）——不在父列表——末尾锚查父列表 = 空——必须用首锚
+      cmds.push({ op: 'clearSlot', anchorId: ov._anchorId, parent: parentIdStr, nextAnchorId: shadow.anchorAfter(parentIdStr, ov._anchorId), vn: ov })
     } else if (ov.el) {
-      // 递归 ref(null)——ref 纪律：lockScroll/focus 清理依赖
-      // 多节点范围移除（阶段 2——组件输出 Fragment 多节点——只移首节点会残留 m2）
-      const first = ov._outFirst ?? ov.el
-      const last = ov._outLast ?? ov.el
-      if (last !== first && first.parentNode === resolveParent(parentIdStr)) {
-        cmds.push({ op: 'removeRange', first, last, vn: ov })
-      } else {
-        cmds.push({ op: 'remove', id: nodeId(ov.el), vn: ov })
-      }
+      cmds.push({ op: 'remove', id: nodeId(ov.el), vn: ov })
       ov.el = null
     }
     vn.el = null
     return
   }
   if (ov.el == null || !(ov.el.isConnected || ov.el.parentNode === resolveParent(parentIdStr))) {
-    // 输出重新渲染（此前为 null/脱离）——genRender（binds 回填 el）
-    genRender(vn, parentIdStr, anchor, cmds, binds)
+    genRender(vn, parentIdStr, ov._anchorId ?? anchor, cmds, binds)
     return
   }
   // 组件输出变化 → patch 子树（组件 el 保持——输出首节点定位）
   genPatchInner(oldOut as VNode | null, out as VNode, parentIdStr, anchor, cmds, binds)
   vn.el = ov.el
-  // 多节点输出范围同步（阶段 2 精化——patch 路径——widthOf 推进依赖——
-  // 组件输出 Fragment 时范围跟随输出——裁剪项：多节点相邻边界）
-  vn._outFirst = (out as VNode)._outFirst ?? vn.el
-  vn._outLast = (out as VNode)._outLast ?? vn.el
 }
 
-/** Fragment：children 级 patch（Fragment 无自身 el——children 的 DOM 展开在父容器——
- *  baseIndex 对齐 Fragment 的起始位置（前后可有兄弟）） */
+/** Fragment：children 级 patch（children 展开在父容器——锚列表偏移对齐） */
 function genPatchFragKind(ov: VNode, vn: VNode, parentIdStr: string, _anchor: Node | null, cmds: Command[], binds: GenOut['binds']): void {
-  genPatchChildren(ov, vn, resolveParent(parentIdStr) as Element, cmds, binds, fragmentBaseIndex(ov))
-  // Fragment 的 el = 首 child 的 el（组件输出定位）
+  // Fragment 逻辑容器：子项锚登记在 Fragment 锚列表（基 0——不偏移父列表）
+  const fragKey = ov._anchorId ?? fragmentBaseIndex(ov)
+  const base = typeof fragKey === 'string' ? 0 : fragKey
+  genPatchChildren(ov, vn, resolveParent(parentIdStr) as Element, cmds, binds, base, typeof fragKey === 'string' ? fragKey : undefined)
   const firstChild = childrenOf(ov).find((c): c is VNode => c != null && typeof c === 'object' && !Array.isArray(c))
   vn.el = ov.el ?? (firstChild?.el ?? null)
-  // 多节点输出范围同步（阶段 2 精化——children 首尾——widthOf 推进依赖）
-  const kids = childrenOf(vn).filter((c): c is VNode => c != null && typeof c === 'object' && !Array.isArray(c))
-  const firstKid = kids[0]
-  const lastKid = kids[kids.length - 1]
-  vn._outFirst = firstKid?.el ?? vn.el
-  vn._outLast = lastKid?._outLast ?? lastKid?.el ?? vn.el
 }
 
 /** portal：内容 patch 到远程容器（同 key 复用） */
@@ -720,19 +773,17 @@ function genPatchPortalKind(ov: VNode, vn: VNode, _parentIdStr: string, _anchor:
   vn.el = container
 }
 
-/** kind 同类型处理器表（显式注册——text/null 在 genPatchInner 入口已处理——此处占位） */
 const KIND_PATCHERS: Partial<Record<VKind, (ov: VNode, vn: VNode, parentIdStr: string, anchor: Node | null, cmds: Command[], binds: GenOut['binds']) => void>> = {
   native: genPatchNativeKind,
   comp: genPatchCompKind,
-  app: genPatchCompKind, // app 节点同组件路径（输出 _child——子应用根）
+  app: genPatchCompKind,
   frag: genPatchFragKind,
   portal: genPatchPortalKind,
-  text: undefined, // 入口已处理（TEXT_UPDATE）
-  null: undefined, // 入口已处理（移除）
+  text: undefined,
+  null: undefined,
 }
 
-/** Fragment 首节点在父容器的索引（children patch 的 baseIndex——Fragment 的
- *  children 展开在父容器——位置可能非 0（前后有兄弟）——索引偏移对齐） */
+/** Fragment 首节点在父容器的索引（兜底——无锚时——DOM 扫描） */
 function fragmentBaseIndex(ov: VNode): number {
   const firstChild = childrenOf(ov).find((c): c is VNode => c != null && typeof c === 'object' && !Array.isArray(c))
   const el0 = firstChild?.el
@@ -747,74 +798,72 @@ function fragmentBaseIndex(ov: VNode): number {
   return 0
 }
 
-/** keyed 移动（重排优化）：新 key 在旧列表存在 → 按新顺序移动（命令携带新序列
- *  前一项的 id——apply 时推导 target（DOM 已更新）——与即时操作的语义一致） */
+/** keyed 移动（重排优化）：moveSlot 命令（锚 + 内容区间整体移动） */
 function genMoveKeyedNodes(oldKids: VNodeChild[], newKids: VNodeChild[], el: Element, cmds: Command[]): void {
   const oldKeyIdx = new Map<string, number>()
   oldKids.forEach((k, i) => {
     if (isVNode(k) && k.key != null) oldKeyIdx.set(k.key, i)
   })
-  let prevId: string | null = null // 新序列中前一个已处理项的 id（期望位置锚）
+  const parentIdStr = nodeId(el)
+  let prevAnchorId: string | null = null // 新序列前一个已处理项的锚
   for (let i = 0; i < newKids.length; i++) {
     const nc = newKids[i]
-    if (!isVNode(nc) || nc.key == null) { prevId = null; continue }
+    if (!isVNode(nc) || nc.key == null) { prevAnchorId = null; continue }
     const oi = oldKeyIdx.get(nc.key)
-    let elNode: Node | null = null
-    if (oi != null && isVNode(oldKids[oi])) elNode = (oldKids[oi] as VNode).el ?? null
-    if (elNode && elNode.parentNode === el) {
-      cmds.push({ op: 'move', id: nodeId(elNode), parent: el, ref: prevId, key: nc.key, causeId: currentCause })
-      prevId = nodeId(elNode)
+    let anchorId: string | null = null
+    if (oi != null && isVNode(oldKids[oi])) anchorId = (oldKids[oi] as VNode)._anchorId ?? null
+    if (anchorId && shadow.anchorsOf(parentIdStr).includes(anchorId)) {
+      cmds.push({ op: 'moveSlot', anchorId, parent: parentIdStr, ref: prevAnchorId, nextAnchorId: shadow.anchorAfter(parentIdStr, anchorId), key: nc.key, causeId: currentCause })
+      prevAnchorId = anchorId
     }
   }
 }
 
-/** 全 keyed 列表 diff：DOM 移动（MOVE 命令）+ 按 key 配对 patch + 新增/移除 */
+/** 全 keyed 列表 diff：区间移动（MOVE）+ 按 key 配对 patch + 新增/移除 */
 function genPatchKeyedChildren(oldKids: VNodeChild[], newKids: VNodeChild[], el: Element, cmds: Command[], binds: GenOut['binds']): void {
   const oldMap = new Map<string, VNode>()
   for (const k of oldKids) if (isVNode(k) && k.key != null) oldMap.set(k.key, k)
-  // 新顺序移动 DOM（MOVE 命令——重排不重建）
+  const parentIdStr = nodeId(el)
   genMoveKeyedNodes(oldKids, newKids, el, cmds)
-  // 按新顺序 patch（同 key 复用；新 key 创建——插到 prev 之后；DOM 锚 = prev 后）
-  let prev: Node | string | null = null
+  let prevAnchorId: string | null = null
   for (const nc of newKids) {
     const nv = nc as VNode
     const oc = oldMap.get(nv.key ?? '') ?? null
     if (oc && oc !== nv) {
       genPatch(oc, nv, el, null, cmds, binds)
-      prev = nv.el ?? prev
+      prevAnchorId = nv._anchorId ?? oc._anchorId ?? prevAnchorId
     } else if (!oc) {
-      const out = genRender(nv, nodeId(el), prev ? (typeof prev === 'string' ? prev : prev.nextSibling) : el.firstChild, cmds, binds)
-      prev = out?.firstId ?? prev
+      const r = genSlot(nv, parentIdStr, prevAnchorId, prevAnchorId, cmds, binds)
+      prevAnchorId = r?.anchorId ?? prevAnchorId
     } else {
-      // 同引用复用（结构共享快路径——build 复用旧树节点）：DOM 已在位、零 diff——
-      // prev 必须推进（真实事故：4→5 末尾追加 T2 插到 firstChild——prev 恒 null）
-      prev = nv.el ?? oc.el ?? prev
+      // 同引用复用（结构共享——DOM 已在位、零 diff）——prev 锚推进
+      prevAnchorId = nv._anchorId ?? oc._anchorId ?? prevAnchorId
     }
   }
-  // 移除无新 key 的旧项
+  // 移除无新 key 的旧项（锚区间）
   const newKeys = new Set(newKids.filter((k) => isVNode(k)).map((k) => (k as VNode).key))
   for (const ok of oldKids) {
-    if (isVNode(ok) && ok.key != null && !newKeys.has(ok.key) && ok.el?.parentNode === el) {
-      if (typeof ok.type === 'function' && ok._id) {
-        cmds.push({ op: 'unmountComp', compId: ok._id, type: ok.type })
+    if (isVNode(ok) && ok.key != null && !newKeys.has(ok.key) && (ok as VNode)._anchorId) {
+      const aid = (ok as VNode)._anchorId!
+      if (shadow.anchorsOf(parentIdStr).includes(aid)) {
+        if (typeof ok.type === 'function' && ok._id) {
+          cmds.push({ op: 'unmountComp', compId: ok._id, type: ok.type })
+        }
+        cmds.push({ op: 'remove', id: aid, parent: parentIdStr, nextAnchorId: shadow.anchorAfter(parentIdStr, aid), vn: ok })
       }
-      cmds.push({ op: 'remove', id: nodeId(ok.el), vn: ok })
     }
   }
 }
 
-/** children diff（el 父容器；baseIndex = 起始 childNodes 偏移——Fragment 的 children
- *  展开在父容器非 0 位——索引对齐） */
-// 动态数组 key 检测去重（vdom2 A 级检测——同数组签名只报一次——防表单静态字段误报刷屏）
+/** children diff（锚点法——槽位 i ⟷ shadow.anchors[parent][anchorBase+i]——O(1) 定位） */
 const warnedDynamicArrays = new Set<string>()
 
-function genPatchChildren(oldV: VNode, newV: VNode, el: Element, cmds: Command[], binds: GenOut['binds'], baseIndex = 0): void {
+function genPatchChildren(oldV: VNode, newV: VNode, el: Element, cmds: Command[], binds: GenOut['binds'], anchorBase = 0, slotKey?: string): void {
   const oldKids = childrenOf(oldV)
   const newKids = childrenOf(newV)
-  // 决策事件（阶段 4——key 模式选择可观测——业务身份声明协议观测点）
   const keyMode = newKids.length > 1 && newKids.every((k) => isVNode(k) && k.key != null) ? 'keyed' : 'unkeyed'
   stream.emit(ev('diff', 'mode', undefined, { mode: keyMode, len: newKids.length, prevLen: oldKids.length, level: 'trace' }))
-  // A 级动态检测（阶段 4）：长度变化 + 无 key 组件项 → dev error——portal 槽豁免
+  // A 级动态检测（长度变化 + 无 key 组件项 → dev error——portal 槽豁免）
   if ((globalThis as { __WF_V3_AUDIT?: string }).__WF_V3_AUDIT !== '0' && oldKids.length !== newKids.length) {
     const bizOld = oldKids.filter((k) => !isPortalNode(k))
     const bizNew = newKids.filter((k) => !isPortalNode(k))
@@ -835,146 +884,110 @@ function genPatchChildren(oldV: VNode, newV: VNode, el: Element, cmds: Command[]
       }
     }
   }
-  // 全 keyed 列表（>1 项且全部有 key）→ keyed diff（重排 MOVE——DOM 状态保持）
+  // 全 keyed 列表 → keyed diff（区间移动——DOM 状态保持）
   if (newKids.length > 1 && newKids.every((k) => isVNode(k) && k.key != null)) {
     genPatchKeyedChildren(oldKids, newKids, el, cmds, binds)
     return
   }
 
-  // 占位法：children 含空洞（false/null/true 保留）——DOM 建占位注释节点——
-  // |childNodes| 恒 = |children|——按索引对称处理（空洞 ↔ 真实对称互换——不塌缩）
-  const isHoleNode = (n: Node | null): boolean => !!n && n.nodeType === 8 && (n.nodeValue ?? '').includes('wf-hole')
-  const len = Math.max(oldKids.length, newKids.length)
-  // domIdx：DOM 索引推进（多节点项（组件/Fragment 输出宽度 >1）——宽度推进）
-  let domIdx = baseIndex
-  /** 当前项 DOM 宽度（处理后的 nc 范围——多节点宽度；单节点/文本/空洞 = 1） */
-  const widthOf = (v: VNodeChild | null, dNode: Node | null): number => {
-    if (v != null && typeof v === 'object' && !Array.isArray(v)) {
-      const first = (v as VNode)._outFirst
-      const last = (v as VNode)._outLast
-      if (first && last && last !== first) {
-        let w = 1
-        let n: Node | null = first
-        const guard = 64
-        let g = 0
-        while (n && n !== last && g++ < guard) { w++; n = n.nextSibling }
-        return w
-      }
-    }
-    return dNode ? 1 : 0
-  }
+  // ── 锚点法（P1）：槽位游标推进——oldAnchors 只含数组项锚（组件/Fragment 输出
+  //  内部锚登记到各自逻辑容器——不混入——每槽消费一个锚——无 domIdx/widthOf 推导） ──
   const parentIdStr = nodeId(el)
+  const slotKeyStr = slotKey ?? parentIdStr
+  const oldAnchors = shadow.anchorsOf(slotKeyStr)
+  const len = Math.max(oldKids.length, newKids.length)
+  let lastAnchorId: string | null = null // 新序列最后一个已处理槽位锚（新锚插它之后）
+  let anchorCursor = anchorBase // 旧锚游标（每槽 +1——列表 = 数组项锚）
   for (let i = 0; i < len; i++) {
     const oc = i < oldKids.length ? oldKids[i] : null
     const nc = i < newKids.length ? newKids[i] : null
-    // baseIndex 偏移（Fragment 的 children 展开在父容器——位置可能非 0）
-    const domNode = el.childNodes[domIdx] ?? null // 占位法：槽位 i 的 DOM（占位或真实——恒存在）
+    const oldAnchor = oldAnchors[anchorCursor] ?? null
 
     if (i >= newKids.length) {
-      // 旧项多余（新树已尽）——统一移除（含占位）——推进旧项宽度（多节点）
-      const w = oc != null && typeof oc === 'object' && (oc as VNode)._outFirst && (oc as VNode)._outLast && (oc as VNode)._outLast !== (oc as VNode)._outFirst ? widthOf(oc, domNode) : 1
-      genRemoveOutputRange(oc, el, domNode, i, cmds)
-      domIdx += w
+      // 旧项多余——移除槽位（锚 + 内容区间）——组件实例先卸载；portal 远程容器先清
+      // （filter(Boolean) 类输出收缩——portal 项走移除分支而非空洞分支——漏清远程 = 幽灵面板）
+      if (oldAnchor) {
+        if (oc != null && typeof oc === 'object' && !Array.isArray(oc) && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
+          cmds.push({ op: 'unmountComp', compId: (oc as VNode)._id!, type: (oc as VNode).type })
+        }
+        if (oc != null && typeof oc === 'object' && !Array.isArray(oc) && isPortalNode(oc)) {
+          cmds.push({ op: 'removePortal', portalKey: String((oc as PortalVNode).props?.portalKey ?? 'default'), vn: oc as VNode })
+        }
+        cmds.push({ op: 'remove', id: oldAnchor, parent: slotKeyStr, nextAnchorId: oldAnchors[anchorCursor + 1] ?? null, vn: (oc != null && typeof oc === 'object' && !Array.isArray(oc)) ? (oc as VNode) : null })
+      }
+      anchorCursor++
       continue
     }
+    // 槽位锚：复用旧锚（同位置）或新建（插到前一锚后）
+    let slotAnchor = oldAnchor
+    if (!slotAnchor) {
+      slotAnchor = nextNodeId()
+      cmds.push({ op: 'createAnchor', id: slotAnchor })
+      cmds.push({ op: 'insert', id: slotAnchor, parent: parentIdStr, ref: lastAnchorId, after: lastAnchorId != null, slotParent: slotKeyStr, slotRef: lastAnchorId })
+    }
+    lastAnchorId = slotAnchor
+    anchorCursor++
+    const nextAnchor = oldAnchors[anchorCursor] ?? null
+
     if (typeof nc === 'string' || typeof nc === 'number') {
       const str = String(nc)
-      if (domNode && domNode.nodeType === 3) {
-        if (domNode.nodeValue !== str) {
-          cmds.push({ op: 'setText', id: nodeId(domNode), value: str })
+      // 旧槽位内容（锚后兄弟——O(1) DOM 读）
+      const anchorNode = registry.get(slotAnchor)
+      const firstContent = anchorNode?.nextSibling ?? null
+      if (oc != null && typeof oc !== 'object' && firstContent?.nodeType === 3) {
+        // 旧文本 → 更新（同一文本节点——无需重建）
+        if (firstContent.nodeValue !== str) {
+          cmds.push({ op: 'setText', id: nodeId(firstContent), value: str })
         }
       } else {
-        // 占位/旧节点 → 文本（占位法对称替换——createText + insert(domNode 前) + remove）
+        // 占位/旧节点 → 文本（clearSlot + createText 插锚后）
+        if (firstContent) {
+          cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: parentIdStr, nextAnchorId: nextAnchor })
+        }
         const id = nextNodeId()
         cmds.push({ op: 'createText', id, value: str })
-        cmds.push({ op: 'insert', id, parent: parentIdStr, ref: domNode })
-        if (domNode && domNode.parentNode === el) {
-          cmds.push({ op: 'remove', id: nodeId(domNode) })
-        }
+        cmds.push({ op: 'insert', id, parent: parentIdStr, ref: slotAnchor, after: true })
       }
-      domIdx += 1
       continue
     }
     if (nc == null || nc === false || nc === true) {
-      // 旧项是 portal：远程容器内容必须清理（条件渲染关闭 portal → null 残留）
+      // 空洞：清空旧内容（锚保留——锚即空洞——占位法并入锚点法）
+      // 组件项从 children 移除 = 实例销毁（索引注销）——区别于「组件输出 null」（实例保留）
+      if (oc != null && typeof oc === 'object' && !Array.isArray(oc) && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
+        cmds.push({ op: 'unmountComp', compId: (oc as VNode)._id!, type: (oc as VNode).type })
+      }
       if (oc != null && typeof oc === 'object' && !Array.isArray(oc) && isPortalNode(oc)) {
         cmds.push({ op: 'removePortal', portalKey: String((oc as PortalVNode).props?.portalKey ?? 'default'), vn: oc as VNode })
       }
-      // 空洞：旧占位保留（无操作）；旧真实 → 占位替换（对称——不塌缩——锚先捕获）
-      if (!isHoleNode(domNode)) {
-        // 决策点（阶段 3——条件移除的因果链）
+      const anchorNode = registry.get(slotAnchor)
+      if (anchorNode?.nextSibling) {
         beginCause()
         try {
-          const anchor = domNode ? domNode.nextSibling : null
-          genRemoveOutputRange(oc, el, domNode, i, cmds)
-          const id = nextNodeId()
-          cmds.push({ op: 'createHole', id })
-          cmds.push({ op: 'insert', id, parent: parentIdStr, ref: anchor, causeId: currentCause })
+          cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: parentIdStr, nextAnchorId: nextAnchor, vn: (oc != null && typeof oc === 'object' && !Array.isArray(oc)) ? (oc as VNode) : null, causeId: currentCause })
         } finally { endCause() }
       }
-      domIdx += 1
       continue
     }
     if (oc != null && typeof oc === 'object' && (oc as VNode).type === (nc as VNode).type) {
-      // 同类型（位置语义）——patch 复用
-      genPatch(oc as VNode, nc as VNode, el, domNode ?? null, cmds, binds)
+      // 同类型（位置语义）——patch 复用（锚不动）
+      genPatch(oc as VNode, nc as VNode, el, null, cmds, binds, slotKeyStr)
     } else {
-      // 异类型/空洞→真实：新节点插到 domNode 前（占位法对称——占位/旧节点替换）
+      // 异类型/空洞→真实：**先清旧内容**（clearSlot——锚保留）→ 新内容插锚后
+      // （顺序必须：先 clear 后 render——clearSlot 移除锚后全部内容——含新内容）
       beginCause()
       try {
-        const out = genRender(nc as VNode, parentIdStr, domNode ?? null, cmds, binds)
-        if (domNode && !isHoleNode(domNode)) {
-          genRemoveOutputRange(oc, el, domNode, i, cmds)
-        } else if (domNode && isHoleNode(domNode)) {
-          cmds.push({ op: 'remove', id: nodeId(domNode) })
+        const anchorNode = registry.get(slotAnchor)
+        const hasContent = !!anchorNode?.nextSibling
+        if (oc != null && typeof oc === 'object' && !Array.isArray(oc) && isPortalNode(oc)) {
+          cmds.push({ op: 'removePortal', portalKey: String((oc as PortalVNode).props?.portalKey ?? 'default'), vn: oc as VNode })
+        } else if (hasContent) {
+          cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: parentIdStr, nextAnchorId: nextAnchor, vn: (oc != null && typeof oc === 'object' && !Array.isArray(oc)) ? (oc as VNode) : null })
         }
-        if (out?.firstId == null && !domNode) {
-          // 渲染失败且无旧节点——建占位兜底（保持同构）
-          const id = nextNodeId()
-          cmds.push({ op: 'createHole', id })
-          cmds.push({ op: 'insert', id, parent: parentIdStr, ref: null })
-        }
+        genRender(nc as VNode, parentIdStr, slotAnchor, cmds, binds)
       } finally { endCause() }
     }
-    // 推进 domIdx（多节点项宽度——组件/Fragment 输出范围）
-    const w = widthOf(nc, domNode) ||
-      (oc != null && typeof oc === 'object' && !Array.isArray(oc) && (oc as VNode)._outFirst && (oc as VNode)._outLast && (oc as VNode)._outLast !== (oc as VNode)._outFirst ? widthOf(oc as VNode, domNode) : 1)
-    domIdx += w
   }
   auditOrder(el, newV)
-}
-
-/** 移除旧项输出范围（命令生成——多节点：removeRange；单节点/文本/占位：remove） */
-function genRemoveOutputRange(oc: VNodeChild | null, el: Element, domNode: Node | null, _i: number, cmds: Command[]): void {
-  if (oc != null && typeof oc === 'object' && (oc as VNode)._outFirst && (oc as VNode)._outLast && (oc as VNode)._outLast !== (oc as VNode)._outFirst) {
-    cmds.push({ op: 'removeRange', first: (oc as VNode)._outFirst!, last: (oc as VNode)._outLast!, vn: oc as VNode, causeId: currentCause })
-    return
-  }
-  if (oc != null && typeof oc === 'object' && isPortalNode(oc)) {
-    cmds.push({ op: 'removePortal', portalKey: String((oc as PortalVNode).props?.portalKey ?? 'default'), vn: oc as VNode, causeId: currentCause })
-    return
-  }
-  if (oc != null && typeof oc === 'object' && (oc as VNode)._child && isPortalNode((oc as VNode)._child)) {
-    cmds.push({ op: 'removePortal', portalKey: String(((oc as VNode)._child as PortalVNode).props?.portalKey ?? 'default'), vn: (oc as VNode)._child as VNode, causeId: currentCause })
-    return
-  }
-  if (oc != null && typeof oc === 'object' && typeof (oc as VNode).type === 'function' && (oc as VNode)._id) {
-    cmds.push({ op: 'unmountComp', compId: (oc as VNode)._id!, type: (oc as VNode).type })
-    if ((oc as VNode).el) {
-      cmds.push({ op: 'remove', id: nodeId((oc as VNode).el!), vn: oc as VNode, causeId: currentCause })
-    } else {
-      const dn = domNode
-      if (dn && dn.parentNode === el) {
-        cmds.push({ op: 'remove', id: nodeId(dn), causeId: currentCause })
-      }
-    }
-    return
-  }
-  if (oc != null && typeof oc === 'object' && (oc as VNode).el) {
-    cmds.push({ op: 'remove', id: nodeId((oc as VNode).el!), vn: oc as VNode, causeId: currentCause })
-  } else if (domNode) {
-    cmds.push({ op: 'remove', id: nodeId(domNode), causeId: currentCause })
-  }
 }
 
 /** 对象浅比较（key 级——style 等不嵌套——零变化零命令判定） */
@@ -1001,9 +1014,10 @@ function parentId(p: Node): string {
 }
 
 /** 统一 patch 入口（gen——组件/children 的复用路径调用） */
-function genPatch(oldV: VNode, newV: VNode, parent: Node, anchor: Node | string | null, cmds: Command[], binds: GenOut['binds']): void {
+function genPatch(oldV: VNode, newV: VNode, parent: Node, anchor: Node | string | null, cmds: Command[], binds: GenOut['binds'], slotKey?: string): void {
   if (oldV === newV) return
-  genPatchInner(oldV, newV, parentId(parent), typeof anchor === 'string' ? null : anchor, cmds, binds)
+  genPatchInner(oldV, newV, parentId(parent), anchor ? (typeof anchor === 'string' ? null : anchor) : null, cmds, binds)
+  void slotKey
 }
 
 export { Fragment }

@@ -44,6 +44,10 @@ export interface VNode {
   _outLast?: Node | null
   /** props 内容快照（透明度 round2 阶段 1——dev only——检测原地改对象） */
   _propsSnap?: string | null
+  /** 槽位锚 id（vdom4 P1 锚点法——数组项 vnode 的输出锚——P2 值化时入影子） */
+  _anchorId?: string | null
+  /** 输出区间末尾锚（组件/Fragment 多锚展开——clearSlot 区间边界用） */
+  _lastAnchorId?: string | null
 }
 
 export type VNodeChild = VNode | string | number | null | undefined | boolean | VNodeChild[]

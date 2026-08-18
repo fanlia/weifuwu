@@ -24,7 +24,11 @@ export function recordToTest(events: V3Event[], name = 'recorded-render'): strin
   // 最终 tag 计数 = NODE_CREATE − REMOVE 子树（折叠语义——移除父节点隐含移除后代）
   const idTag = new Map<string, string>()
   for (const e of events) {
-    if (key(e) === 'node:create') idTag.set(e.target!, (e.payload as { tag: string }).tag)
+    if (key(e) === 'node:create') {
+      const pl = e.payload as { tag: string; kind?: string }
+      if (pl.kind === 'anchor' || pl.kind === 'hole') continue // 锚/占位注释——不计 tag
+      idTag.set(e.target!, pl.tag)
+    }
   }
   const childrenOf = new Map<string, string[]>()
   for (const e of events) {
