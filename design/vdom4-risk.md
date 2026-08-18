@@ -74,6 +74,24 @@ deepFreeze 保证纯数据；**豁免**：含函数属性的对象/类实例不�
 props 变化 → 父 build 驱动重渲染；内部状态变化 → 组件级渲染（renderComp）。
 **剪枝错误的本质 = 这两个驱动源的交叉点状态不一致**（lastOutput 失配/引用失效）。
 
+## UIRouter + uiServe（2026-12 补齐——类比后端 Router/serve）
+
+**定位**：vdom4 路由 = 后端 Router 语义前端化（Trie 匹配 + 路径参数 + 通配符）——
+同一 UIRouter 实例服务端/客户端共享（匹配/参数注入两端同源——AGENTS 架构承诺）。
+
+| 模块 | 职责 | 类比后端 |
+|------|------|---------|
+| `router.ts` UIRouter | get(path, handler) / notFound / match（Trie——静态段优先参数段优先通配段——:id 参数 + * 通配） | `src/core/router.ts` Router |
+| `serve.ts` uiSsr | 服务端落地：match → 页面 vnode → renderToCommands → HTML + 数据种子 | serve |
+| `serve.ts` uiServe | 客户端收养（hydrate——SSR HTML 路径 id 精确吸收零重建）+ 导航（navigate/链接拦截/popstate） | serve |
+
+**导航渲染**：根 vnode 替换 + 立即渲染（vdom4 机制——无 schedule）——
+根级异类型（页面切换）= 整树原子替换（build 前清旧树——X-R2 抓出 diff oldV 链
+断裂——新组件实例 lastOutput null 旧 DOM 无对照）；同类型（页面 params 变化）=
+组件实例复用正常 patch。
+
+**契约**：X-R1（Trie 匹配）/ X-R2（导航原子切换）/ X-R3（SSR→hydration 零重建 + 交互）。
+
 ## 结论
 
 vdom4 核心调度/锚点/实例表语义经本轮审查基本安全（S1~S6）；

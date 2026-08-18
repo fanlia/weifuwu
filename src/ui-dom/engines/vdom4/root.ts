@@ -171,9 +171,24 @@ export class Engine {
     return p
   }
 
-  /** 根更新（整树——build + diff + apply） */
+  /** 根更新（整树——build + diff + apply）
+   *  根级异类型（路由导航——页面切换——rootVNode.type 变化）：整树原子替换——
+   *  先清旧树（卸载钩子/实例/锚/DOM——build 用全新 shadow——防 diff oldV 链断裂
+   *  （新组件实例 lastOutput null——旧 DOM 无对照——X-R2 抓出：旧页面残留））；
+   *  同类型（页面 params 变化——组件实例复用——正常 patch） */
   private async updateRoot(): Promise<void> {
     if (!this.rootVNode) return
+    if (this.current && this.rootVNode.type !== this.current.type) {
+      for (const hooks of this.unmountHooks.values()) {
+        for (const h of hooks) { try { h() } catch { /* 隔离 */ } }
+      }
+      this.unmountHooks.clear()
+      this.shadow = new ShadowState()
+      this.registry.clear()
+      this.refs.clear()
+      this.root.innerHTML = ''
+      this.current = null
+    }
     const built = await buildVNode(this.rootVNode, this.ctx, this.shadow, this.current, 'root', this.createCompCtx.bind(this), true)
     const cmds = diffTree(built, this.shadow)
       this.apply(cmds)
@@ -225,6 +240,11 @@ export class Engine {
 
   private absorbed = false
   private rootVNode: VNode | null = null
+
+  /** 根 vnode 替换（路由导航——下次 render() 用新根整树渲染） */
+  setRootVNode(vnode: VNode): void {
+    this.rootVNode = vnode
+  }
 
   /** 挂载（首帧——mount 时渲染守卫占用——ready 后释放——交互在 ready 后） */
   async mount(vnode: VNode): Promise<void> {

@@ -1148,3 +1148,74 @@ test('X-A7 await ctx.ui.render() 后 DOM 最新（契约 §4.2——测量/动�
   handle.unmount()
   document.body.removeChild(root)
 })
+
+test('X-R1 UIRouter 匹配（Trie——静态/参数/通配/404——类比后端 Router）', async () => {
+  const { UIRouter } = await import('../ui-dom/engines/vdom4/router.ts')
+  const router = new UIRouter()
+  const seen: string[] = []
+  router.get('/', () => { seen.push('home'); return h('div', {}, 'Home') })
+  router.get('/users/:id', (p) => { seen.push(`user:${p.id}`); return h('div', {}, `User ${p.id}`) })
+  router.get('/files/*', (p) => { seen.push(`files:${p['*']}`); return h('div', {}, p['*']) })
+  router.notFound(() => { seen.push('404'); return h('div', {}, '404') })
+  const call = (p: string) => { const r = router.resolve(p)!; r.handler(r.params) }
+  call('/')
+  call('/users/42')
+  call('/files/a/b/c')
+  call('/nope')
+  assert.deepEqual(seen, ['home', 'user:42', 'files:a/b/c', '404'], '静态/参数/通配/404 全匹配')
+  // 参数解码
+  const m = router.match('/users/%E6%9D%8E%E5%9B%9B')
+  assert.ok(m && m.params.id === '李四', '参数 decodeURIComponent')
+})
+
+test('X-R2 uiServe 导航（页面切换——根 vnode 替换 + 立即渲染——原子切换）', async () => {
+  const { UIRouter } = await import('../ui-dom/engines/vdom4/router.ts')
+  const { uiServe } = await import('../ui-dom/engines/vdom4/serve.ts')
+  const root = mkRoot()
+  const router = new UIRouter()
+  const PageA = () => () => h('div', { class: 'page-a' }, '页面A')
+  const PageB = () => () => h('div', { class: 'page-b' }, '页面B')
+  router.get('/', () => h(PageA, {}))
+  router.get('/b', () => h(PageB, {}))
+  const serve = uiServe(router, root, { initialPath: '/' })
+  await serve.ready
+  assert.ok(root.querySelector('.page-a'), '初始页面 A')
+  serve.navigate('/b')
+  await sleep(20)
+  assert.ok(root.querySelector('.page-b'), '导航 → 页面 B')
+  assert.ok(!root.querySelector('.page-a'), '旧页面卸载（原子切换）')
+  serve.unmount()
+  document.body.removeChild(root)
+})
+
+test('X-R3 uiSsr → uiServe hydration（同一 UIRouter——SSR HTML 收养——零重建 + 交互可用）', async () => {
+  const { UIRouter } = await import('../ui-dom/engines/vdom4/router.ts')
+  const { uiSsr, uiServe } = await import('../ui-dom/engines/vdom4/serve.ts')
+  const router = new UIRouter()
+  let clicks = 0
+  const Home = (_i: Record<string, unknown>, ctx: any) => {
+    return () => h('div', {}, [
+      h('span', { class: 'hydrated' }, 'SSR内容'),
+      h('button', { id: 'ct', onClick: () => { clicks++; ctx.render() } }, `点击:${clicks}`),
+    ])
+  }
+  router.get('/', () => h(Home, {}))
+  // 服务端：SSR HTML + 数据种子
+  const { html, data } = await uiSsr(router, { url: '/' })
+  assert.ok(html.includes('SSR内容'), 'SSR HTML 含页面内容')
+  assert.ok(html.includes('data-v4-id'), 'SSR HTML 带路径 id 标记（吸收锚点）')
+  // 客户端：收养 SSR HTML（同一 UIRouter——同一路径——零重建）
+  const root = mkRoot()
+  root.innerHTML = html
+  const serve = uiServe(router, root, { initialPath: '/' })
+  await serve.ready
+  assert.ok(root.querySelector('.hydrated'), 'hydration 收养（内容保留）')
+  const idCount = root.querySelectorAll('[data-v4-id]').length
+  assert.ok(idCount > 0, `路径 id 保留（${idCount} 个）——零重建（非重新插入）`)
+  // 收养后交互可用（事件绑定）
+  ;(root.querySelector('[id="ct"]') as HTMLElement).click()
+  await sleep(20)
+  assert.equal(root.querySelector('#ct')?.textContent, '点击:1', '收养后交互（事件 + 组件级渲染）')
+  serve.unmount()
+  document.body.removeChild(root)
+})
