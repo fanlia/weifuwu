@@ -5,7 +5,7 @@
  */
 
 import type { HookEnv } from '../contracts/hooks.ts'
-import { addGlobalListener } from '../vdom3/delegate.ts'
+import { addGlobalListener } from '../services/global-events.ts'
 
 /** 全局键盘监听：window keydown，mount 注册 + 卸载清理。返回退订函数。 */
 export function useGlobalKey(env: HookEnv, handler: (e: KeyboardEvent) => void): () => void {

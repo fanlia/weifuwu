@@ -8,6 +8,16 @@
 
 import type { RendererService } from '../contracts/renderer.ts'
 
+// ── 双实例校验（§6.1 第三道防线——构建外部化/paths 映射问题导致 ui-dom 模块
+//  状态分裂（idRegistry/_idCounter 双份）——组件库与客户端各持一份的早期检测） ──
+const g = globalThis as { __wf_ui_dom_instance?: boolean }
+if (g.__wf_ui_dom_instance) {
+  console.warn('[ui-dom/audit] 双实例检测：ui-dom 已被加载两次——模块状态将分裂' +
+    '（idRegistry/共享表各持一份——命令式中间件/跨组件渲染可能错位）——' +
+    '请检查构建外部化（scripts/build.mjs）与 tsconfig paths 映射')
+}
+g.__wf_ui_dom_instance = true
+
 let renderer: RendererService | null = null
 
 /** 引擎注册（门面调用——v5 换引擎 = 改这里） */

@@ -13,14 +13,14 @@
  * - sheet 标签切换（activeSheet op——只读切换 v1）
  */
 
-import { h } from '../../ui-dom/vdom3/jsx.ts'
+import { h } from '../../ui-dom/index.ts'
 import { aiStream } from '../../ui-dom/ai.ts'
 import { editEmit } from '../Editor/edit-events.ts'
 import { applySheetOp } from '../OfficeEditor/model/apply.ts'
 import type { OfficeOp, SheetCell, SheetState, WorkbookState } from '../OfficeEditor/model/types.ts'
 import { parseReplyByMode } from '../OfficeEditor/ai/ai-bridge.ts'
 import type { AiContext } from '../OfficeEditor/model/types.ts'
-import type { Component, VNode } from '../../ui-dom/vdom3/types.ts'
+import type { Component, VNode } from '../../ui-dom/index.ts'
 
 export interface SheetGridProps {
   /** 受控工作簿（FilePreview 传入——编辑经 onChange 回写） */

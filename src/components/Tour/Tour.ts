@@ -1,7 +1,7 @@
 import type { Component } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { h } from '../../ui-dom/vnode.ts'
-import { stream, ev } from '../../ui-dom/vdom3/events.ts'
+import { stream, ev } from '../../ui-dom/index.ts'
 
 export type TourPlacement = 'top' | 'bottom' | 'left' | 'right'
 

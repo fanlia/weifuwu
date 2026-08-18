@@ -6,7 +6,7 @@
  */
 
 import type { HookEnv } from '../contracts/hooks.ts'
-import { bindElementListener } from '../vdom3/delegate.ts'
+import { bindElementListener } from '../index.ts'
 import type {
   UseLongPressOptions,
   UseLongPressHandle,

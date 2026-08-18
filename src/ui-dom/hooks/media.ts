@@ -5,7 +5,7 @@
  */
 
 import type { HookEnv } from '../contracts/hooks.ts'
-import { addGlobalListener } from '../vdom3/delegate.ts'
+import { addGlobalListener } from '../services/global-events.ts'
 import type {
   UseInViewOptions,
   UseInViewHandle,

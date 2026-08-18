@@ -13,14 +13,14 @@
  * - 事件流：全部操作 → editEmit('office', { docType: 'pptx', op }) + commit
  */
 
-import { h } from '../../ui-dom/vdom3/jsx.ts'
+import { h } from '../../ui-dom/index.ts'
 import { aiStream } from '../../ui-dom/ai.ts'
 import { editEmit } from '../Editor/edit-events.ts'
 import { applySlideOp } from '../OfficeEditor/model/apply.ts'
 import type { OfficeOp, SlideShape } from '../OfficeEditor/model/types.ts'
 import { parseReplyByMode } from '../OfficeEditor/ai/ai-bridge.ts'
 import type { DeckState } from '../OfficeEditor/model/types.ts'
-import type { Component, VNode } from '../../ui-dom/vdom3/types.ts'
+import type { Component, VNode } from '../../ui-dom/index.ts'
 
 export interface SlideCanvasProps {
   /** 受控 DeckState */

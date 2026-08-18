@@ -16,8 +16,9 @@ import { clampToViewport, computeFixedPosRect } from '../popup.ts'
 import { createPortal, h } from '../vnode.ts'
 import type { VNode } from '../vnode.ts'
 import { useHoverCapable, usePresence } from './stable.ts'
-import { addGlobalListener, bindElementListener } from '../vdom3/delegate.ts'
-import { stream, ev } from '../vdom3/events.ts'
+import { addGlobalListener } from '../services/global-events.ts'
+import { bindElementListener, stream, ev } from '../index.ts'
+
 
 /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标（0 rect 防护） */
 export function usePopupPosition(env: HookEnv, options: PopupPositionOptions): PopupPosition {

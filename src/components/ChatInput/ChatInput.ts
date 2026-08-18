@@ -17,7 +17,7 @@
 
 import type { Component, VNode } from '../../ui-dom/vnode.ts'
 import { h } from '../../ui-dom/vnode.ts'
-import type { V3Ui } from '../../ui-dom/vdom3/types.ts'
+import type { V3Ui } from '../../ui-dom/index.ts'
 
 export interface ChatInputLabels {
   send: string
