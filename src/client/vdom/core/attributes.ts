@@ -3,7 +3,7 @@
  *
  * 规则（AGENTS §4.0 属性三通道——attribute/property/event）：
  * - class/className → setAttribute('class')
- * - style（对象）→ el.style[k]（undefined/null 清空——防 style diff 只设不删）
+ * - style → style.ts（对象应用/数字单位/undefined 清空——独立复杂面）
  * - enumerated 白名单（draggable/contenteditable/spellcheck）——**空字符串解析
  *   为 false**（Kanban 教训）——显式 'true'/'false'
  * - boolean attribute（disabled/hidden 等）→ setAttribute(key, '')
@@ -12,23 +12,6 @@
 
 /** enumerated 属性白名单（HTML 规范——空字符串语义非 true） */
 export const ENUMERATED_KEYS = new Set(['draggable', 'contenteditable', 'spellcheck'])
-
-/** style 对象应用（undefined/null → 移除——防残留） */
-export function applyStyle(el: HTMLElement, style: unknown): void {
-  if (typeof style === 'string') {
-    el.setAttribute('style', style)
-    return
-  }
-  if (style && typeof style === 'object') {
-    for (const [k, v] of Object.entries(style)) {
-      if (v === undefined || v === null || v === false) {
-        ;(el.style as any).removeProperty?.(k) ?? ((el.style as any)[k] = '')
-      } else {
-        ;(el.style as any)[k] = v
-      }
-    }
-  }
-}
 
 /** attribute 通道——单键应用 */
 export function applyAttribute(el: HTMLElement, key: string, value: unknown): void {
@@ -48,10 +31,6 @@ export function applyAttribute(el: HTMLElement, key: string, value: unknown): vo
   }
   if (key === 'class' || key === 'className') {
     el.setAttribute('class', String(value))
-    return
-  }
-  if (key === 'style') {
-    applyStyle(el, value)
     return
   }
   if (typeof value === 'boolean') {

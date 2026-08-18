@@ -16,6 +16,7 @@
  */
 
 import type { Ctx } from '../context/Ctx.ts'
+import { extractKey, stripKey } from './key.ts'
 
 /** Fragment 内部符号（数组 = 隐式 Fragment——`<></>` 经 jsx-runtime 自动展开） */
 export const Fragment: unique symbol = Symbol('vdom-fragment')
@@ -52,18 +53,16 @@ type HType = string | symbol | Component
  *  children 原样：单子节点直接存、多子节点存数组、无子节点不存——false/嵌套
  *  数组保留（不 filter——空洞占位法在消费侧） */
 export function h(type: HType, props?: Record<string, unknown> | null, ...children: VNodeChild[]): VNode {
-  const { key, ...rest } = props ?? {}
-  const p = { ...rest }
+  const p = stripKey(props)
   if (children.length === 1) p.children = children[0]
   else if (children.length > 1) p.children = children
-  return { type, props: p, key: (key as string | null) ?? null }
+  return { type, props: p, key: extractKey(props) }
 }
 
 /** jsx 运行时（自动导入——`<div/>` 编译目标——React 兼容签名 jsx(type, props, key)——
  *  props 内 key 同样剥离；jsxs/jsxDEV 同形状（children 已在 props.children） */
 export function jsx(type: HType, props: Record<string, unknown> | null, key?: string | null): VNode {
-  const { key: k, ...rest } = props ?? {}
-  return { type, props: rest as Record<string, unknown>, key: (key ?? (k as string | null)) ?? null }
+  return { type, props: stripKey(props), key: (key ?? extractKey(props)) ?? null }
 }
 export const jsxs = jsx
 export const jsxDEV = jsx

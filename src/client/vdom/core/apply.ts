@@ -12,8 +12,10 @@
  */
 
 import type { Command } from './commands.ts'
-import { applyAttribute, applyStyle } from './attributes.ts'
-import { applyProperty, applyRef, isPropertyKey } from './props.ts'
+import { applyAttribute } from './attributes.ts'
+import { applyStyle } from './style.ts'
+import { applyProperty, isPropertyKey } from './props.ts'
+import { applyRef } from './ref.ts'
 import { bindEvent, EVENT_RE } from './events.ts'
 
 export type WfNode = HTMLElement | Text | Comment

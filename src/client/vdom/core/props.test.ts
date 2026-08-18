@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { testBrowser } from '../setup.ts'
-import { applyProperty, applyRef, isPropertyKey, PROPERTY_KEYS } from './props.ts'
+import { applyProperty, isPropertyKey, PROPERTY_KEYS } from './props.ts'
 
 function doc(): Document {
   return testBrowser().document
@@ -41,25 +41,4 @@ test('checked 勾选态（property 语义）', () => {
   assert.equal(cb.checked, true)
   applyProperty(cb, 'checked', false)
   assert.equal(cb.checked, false)
-})
-
-test('ref：挂载回调 el + 卸载回调 null（prev 清理——引用变化先退旧）', () => {
-  const d = doc()
-  const e = d.createElement('div')
-  const calls: Array<HTMLElement | null> = []
-  const ref = (x: HTMLElement | null) => { calls.push(x) }
-  applyRef(e, ref)                       // 挂载
-  applyRef(null, null, ref)              // 卸载（prev = ref → ref(null)）
-  assert.deepEqual(calls, [e, null])
-})
-
-test('ref：引用变化——旧 ref 退 null + 新 ref 接 el', () => {
-  const d = doc()
-  const e = d.createElement('div')
-  const calls: string[] = []
-  const r1 = (x: HTMLElement | null) => { calls.push(`r1:${x === null ? 'null' : 'el'}`) }
-  const r2 = (x: HTMLElement | null) => { calls.push(`r2:${x === null ? 'null' : 'el'}`) }
-  applyRef(e, r1)
-  applyRef(e, r2, r1)
-  assert.deepEqual(calls, ['r1:el', 'r1:null', 'r2:el'], '旧 ref 退 null 后新 ref 接 el')
 })

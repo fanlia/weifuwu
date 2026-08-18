@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { testBrowser } from '../setup.ts'
-import { applyAttribute, applyStyle, ENUMERATED_KEYS } from './attributes.ts'
+import { applyAttribute, ENUMERATED_KEYS } from './attributes.ts'
 
 function el(): HTMLElement {
   return testBrowser().document.createElement('div')
@@ -35,19 +35,6 @@ test('boolean attribute：存在 = 空字符串（disabled/hidden 语义）', ()
   applyAttribute(a, 'disabled', false)
   assert.equal(a.hasAttribute('disabled'), false, 'false → removeAttribute')
   assert.equal(a.disabled, false)
-})
-
-test('style：对象应用 + undefined 清空（防残留——style diff 只设不删教训）', () => {
-  const a = el()
-  applyStyle(a, { display: 'none', width: '10px' })
-  assert.equal(a.style.display, 'none')
-  assert.equal(a.style.width, '10px')
-  applyStyle(a, { display: undefined, width: null })
-  assert.equal(a.style.display, '', 'undefined 清空——不残留')
-  assert.equal(a.style.width, '')
-  const b = el()
-  applyStyle(b, 'color: red')
-  assert.equal(b.getAttribute('style'), 'color: red', 'style 字符串直通')
 })
 
 test('null/undefined/false → removeAttribute；其余字符串化', () => {
