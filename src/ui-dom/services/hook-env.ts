@@ -3,7 +3,7 @@
  *
  * 共享表（媒体查询/popup tracker/输入态/打开态——跨组件）与语义 id 服务
  * （render(['id']) 跨组件精准渲染——vdom2 能力补全）的宿主。
- * 引擎（engines/）经 createHookEnv 注入 compId/scheduleRender/卸载清理——
+ * 引擎（engines/）经 createHookEnv 注入 compId/requestRender/卸载清理——
  * hooks 只消费 contracts/hooks.ts 的接口——v5 换引擎本模块零改动。
  */
 
@@ -65,16 +65,16 @@ const trackerSystem = createPopupTrackerSystem((ids) => {
   for (const id of ids) compRenders.get(id)?.()
 })
 
-/** 创建 HookEnv（引擎注入调度能力——组件实例级） */
+/** 创建 HookEnv（引擎注入渲染请求能力——组件实例级——引擎实现：vdom3 调度/vdom4 立即） */
 export function createHookEnv(
   compId: string,
-  scheduleRender: () => void,
+  requestRender: () => void,
   onUnmountCb: (fn: () => void) => void,
 ): HookEnv {
-  registerCompRender(compId, scheduleRender)
+  registerCompRender(compId, requestRender)
   return {
     compId,
-    scheduleRender,
+    requestRender,
     onUnmount: (fn) => {
       onUnmountCb(() => { try { fn() } catch { /* 清理失败隔离 */ } unregisterCompRender(compId) })
       return () => { /* 退订由卸载钩子管理 */ }

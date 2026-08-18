@@ -6,7 +6,7 @@
  *
  * 与 vdom2 时代 HookEnv 的差异（UI-3 重构）：
  *  - selfId() → compId（引擎分配——恒有——无 undefined 分支）
- *  - render(ids) → scheduleRender()（组件级渲染请求——「跨组件 render(['id'])」
+ *  - render(ids) → requestRender()（组件级渲染请求——「跨组件 render(['id'])」
  *    语义上移为 services 的语义 id 服务——引擎只懂 compId）
  *  - registry.idRegistry → registerSemanticId（语义 id 注册——定位表在服务层）
  *  - isMounting 删除（渲染保护由调度器语义保证——无暴露面）
@@ -42,7 +42,7 @@ export interface HookEnv {
   /** 当前组件 id（引擎分配——实例唯一——恒有） */
   compId: string
   /** 渲染请求（组件级——render-only 唯一触发）——引擎无关 */
-  scheduleRender(): void
+  requestRender(): void
   /** 组件卸载回调注册（hooks 清理用——返回退订函数） */
   onUnmount(fn: () => void): () => void
   /** 语义化 id 注册（render(['id']) 跨组件精准渲染的定位基础——冲突抛错） */

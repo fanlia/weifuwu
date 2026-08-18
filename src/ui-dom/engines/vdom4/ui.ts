@@ -2,7 +2,8 @@
  * vdom4 ui — ctx.ui hooks 面（复用 services/hook-env——引擎无关契约——UI-3 资产）
  *
  * hooks（useExternal/usePopup/useMedia...）消费 contracts/hooks.ts 的 HookEnv——
- * vdom4 的 ctx.ui 经 createHookEnv 组装（注入 compId/scheduleRender/onUnmount）——
+ * vdom4 的 ctx.ui 经 createHookEnv 组装（注入 compId/renderComp/onUnmount——
+ *  **立即渲染语义（无 schedule——2026-12 决策）**）——
  * hooks 零改动复用（组件库 192 处消费兼容——v5 换引擎 hooks 零改动）。
  */
 
@@ -49,14 +50,14 @@ export interface V4Ui {
 }
 
 /** 组装 ctx.ui（组件实例级——引擎注入调度/卸载） */
-export function createV4Ui(compId: string, scheduleRender: () => void | Promise<void>, onUnmountCb: (fn: () => void) => void): V4Ui {
-  const env: HookEnv = createHookEnv(compId, scheduleRender, onUnmountCb)
+export function createV4Ui(compId: string, renderComp: () => void | Promise<void>, onUnmountCb: (fn: () => void) => void): V4Ui {
+  const env: HookEnv = createHookEnv(compId, renderComp, onUnmountCb)
   // 实现宽松（TS 推断）——接口严格（组件库调用处类型检查）
   const ui = {
     render: (ids?: string[]): Promise<void> => {
-      if (!ids || ids.length === 0) return Promise.resolve(env.scheduleRender())
+      if (!ids || ids.length === 0) return Promise.resolve(env.requestRender())
       const others = ids.filter((i) => i !== compId)
-      const own = others.length < ids.length ? Promise.resolve(env.scheduleRender()) : undefined
+      const own = others.length < ids.length ? Promise.resolve(env.requestRender()) : undefined
       if (others.length > 0) renderSemanticIds(others)
       return own ?? Promise.resolve()
     },

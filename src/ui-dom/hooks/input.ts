@@ -36,8 +36,8 @@ export function useControlled<T>(env: HookEnv, options: {
       return
     }
     if (selfId) env.uncontrolledValues.set(selfId, v)
-    if (selfId) env.scheduleRender()
-    else env.scheduleRender()
+    if (selfId) env.requestRender()
+    else env.requestRender()
   }
   return {
     value: controlled ? options.value : (selfId ? env.uncontrolledValues.get(selfId) : options.value),
@@ -61,8 +61,8 @@ export function useControlledInput(env: HookEnv, options: {
   }
   const state = selfId ? env.inputStates.get(selfId)! : { keyword: '', selectedLabel: '' }
   const dirty = () => {
-    if (selfId) env.scheduleRender()
-    else env.scheduleRender()
+    if (selfId) env.requestRender()
+    else env.requestRender()
   }
   return {
     ...ctrl,
@@ -84,8 +84,8 @@ export function useAsync<T>(env: HookEnv, fetcher: () => Promise<T>): UseAsyncHa
   // render-only：普通对象状态（非 Proxy）——每次变更显式 render
   const render = () => {
     if (disposed) return
-    if (selfId) env.scheduleRender()
-    else env.scheduleRender()
+    if (selfId) env.requestRender()
+    else env.requestRender()
   }
   const state: any = { data: undefined, loading: false, error: undefined }
   // stale-close 保护：每次 reload 递增 token，过期 Promise resolve 静默丢弃

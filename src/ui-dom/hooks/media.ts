@@ -96,8 +96,8 @@ export function useVisualViewport(env: HookEnv): VisualViewportHandle {
     keyboardOpen: false,
   }
   const dirty = () => {
-    if (selfId) env.scheduleRender()
-    else env.scheduleRender()
+    if (selfId) env.requestRender()
+    else env.requestRender()
   }
   const update = () => {
     const vv = b.visualViewport()
@@ -141,8 +141,8 @@ export function useInView(env: HookEnv, options: UseInViewOptions): UseInViewHan
   let io: IntersectionObserver | null = null
 
   const dirty = () => {
-    if (selfId) env.scheduleRender()
-    else env.scheduleRender()
+    if (selfId) env.requestRender()
+    else env.requestRender()
   }
 
   function createIO() {

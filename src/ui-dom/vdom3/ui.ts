@@ -2,7 +2,7 @@
  * vdom3 ui — ctx.ui 兼容面（vdom4 UI-3：createHookEnv 引擎无关实现——V3Ui 形状保持）
  *
  * 组件库零改动：V3Ui 的 useXXX 转发 hooks（签名 useXXX(env, ...)——env 是新形状）；
- * render(ids) 语义补全：含自身 → scheduleRender（组件级）；其他 id → 语义 id 服务
+ * render(ids) 语义补全：含自身 → requestRender（组件级——引擎实现：vdom3 调度）；其他 id → 语义 id 服务
  * （selfId 注册——跨组件精准渲染——vdom3 此前 warn 降级的能力现已实现）。
  */
 
@@ -30,9 +30,9 @@ export function createV3Ui(compId: string, render: () => void, onUnmountCb: (fn:
     __compId: compId,
     render: (ids?: string[]) => {
       // 含自身 → 组件级渲染；其他 id → 语义 id 服务（跨组件精准渲染——UI-3 补全）
-      if (!ids || ids.length === 0) { env.scheduleRender(); return }
+      if (!ids || ids.length === 0) { env.requestRender(); return }
       const others = ids.filter((i) => i !== compId)
-      if (others.length < ids.length) env.scheduleRender()
+      if (others.length < ids.length) env.requestRender()
       if (others.length > 0) renderSemanticIds(others)
     },
     onUnmount: (fn) => {

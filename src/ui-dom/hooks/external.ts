@@ -24,7 +24,7 @@ export function useExternal(env: HookEnv, store: Subscribable): Subscribable {
   const id = env.compId
   let unsub: (() => void) | undefined
   if (id) {
-    unsub = store.subscribe(() => env.scheduleRender())
+    unsub = store.subscribe(() => env.requestRender())
     env.onUnmount(() => unsub?.())
   }
   return store

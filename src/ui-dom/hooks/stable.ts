@@ -79,7 +79,7 @@ export function usePresence(env: HookEnv, options?: { name?: string }) {
 
   const finishExit = () => {
     phase = 'closed'
-    env.scheduleRender()
+    env.requestRender()
   }
 
   let animEndOff: (() => void) | null = null
@@ -125,8 +125,8 @@ export function useTween(env: HookEnv, target: number, opts?: { duration?: numbe
   }
   // 每帧渲染（rAF 只更新闭包 value，不触发渲染则 DOM 冻结）
   const rerender = () => {
-    if (selfId) env.scheduleRender()
-    else env.scheduleRender()
+    if (selfId) env.requestRender()
+    else env.requestRender()
   }
 
   const tweenTo = (to: number) => {
