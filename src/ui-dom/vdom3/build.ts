@@ -29,12 +29,17 @@ export function isVNode(v: unknown): v is VNode {
 /** props 深度冻结（vdom4 P2a——dev only）：props 不可变契约**机制化**——
  *  原地修改对象 → strict mode 立即 TypeError（不再事后 propsSnap warn）——
  *  剪枝的引用比较由此获得内容不变性保证（冻结 = 引用相同则内容必相同）。
+ *  **豁免**：含函数属性的对象（能力/混合对象——useChat handle/state 等引擎共享
+ *  可变状态——冻结会破坏流式累积）——契约只覆盖纯数据（无函数属性）。
  *  __WF_V3_AUDIT !== '0' 时启用（默认开——dev/测试）——生产可关（开销零） */
 function deepFreeze<T>(obj: T): T {
   if (obj == null || typeof obj !== 'object') return obj
+  // 类实例（非普通对象/数组——Date/Map/引擎对象）跳过（宿主类型不可冻结语义）
+  if (!Array.isArray(obj) && Object.getPrototypeOf(obj) !== Object.prototype && Object.getPrototypeOf(obj) !== null) return obj
+  // 含函数属性 = 能力/混合对象（handle/state——引擎共享可变状态）跳过——契约只覆盖纯数据
+  if (Object.values(obj as Record<string, unknown>).some((v) => typeof v === 'function')) return obj
   for (const k of Object.keys(obj as Record<string, unknown>)) {
-    const v = (obj as Record<string, unknown>)[k]
-    if (v != null && typeof v === 'object') deepFreeze(v)
+    deepFreeze((obj as Record<string, unknown>)[k])
   }
   return Object.freeze(obj)
 }
