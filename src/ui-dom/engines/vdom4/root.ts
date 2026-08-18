@@ -14,6 +14,7 @@ import { buildVNode } from './build.ts'
 import { diffTree } from './diff.ts'
 import { diffComponent } from './diff.ts'
 import { applyCommands, type ApplyEnv } from './apply.ts'
+import { createV4Ui } from './ui.ts'
 
 /** 组件 ctx 组装（vdom4 面——**每组件实例一份**——render 闭包绑定 compId：
  *  ctx.render() 无参 = 本组件级更新（事件回调里调用——非 build 上下文——必须闭包绑定） */
@@ -32,7 +33,7 @@ function makeCompCtx(
     // onUnmount 绑定本组件（工厂期注册——卸载时执行）
     onUnmount: (fn: () => void) => { engine.unmountHooksFor(compId).push(fn) },
     browser: (inject as { browser?: unknown })?.browser ?? (typeof document !== 'undefined' ? {} : null),
-    ui: {},
+    ui: createV4Ui(compId, () => engine.renderComp(compId), (fn) => engine.unmountHooksFor(compId).push(fn)),
     __compId: compId,
   }) as Ctx
 }
@@ -121,12 +122,13 @@ export class Engine {
     if (!this.running) {
       this.running = true
       this.iterations = 0
-      queueMicrotask(() => { this.drain(); this.running = false })
+      queueMicrotask(() => { void this.drain().finally(() => { this.running = false }) })
     }
   }
 
-  private drain(): void {
-    // 串行队列——渲染中触发 → 排队下一轮（合并）——循环上限防死循环
+  private async drain(): Promise<void> {
+    // 串行队列（await 每个——渲染中触发排队下一轮——无并发交错——
+    // 并发 await 会交错（buildVNode 挂起期间另一更新 commit——覆盖剪枝标记））
     if (++this.iterations > this.MAX_ITERATIONS) {
       console.error('[vdom4] 渲染循环超限（疑似死循环）——中止本轮')
       this.pending = []
@@ -134,8 +136,10 @@ export class Engine {
     }
     const batch = this.pending
     this.pending = []
-    for (const fn of batch) { try { fn() } catch (e) { console.error('[vdom4] render error:', e) } }
-    if (this.pending.length > 0) queueMicrotask(() => this.drain())
+    for (const fn of batch) {
+      try { await fn() } catch (e) { console.error('[vdom4] render error:', e) }
+    }
+    if (this.pending.length > 0) await this.drain()
   }
 
   private async run(target: Target): Promise<void> {
@@ -148,19 +152,19 @@ export class Engine {
     if (!this.rootVNode) return
     const built = await buildVNode(this.rootVNode, this.ctx, this.shadow, this.current, 'root', this.createCompCtx.bind(this))
     const cmds = diffTree(built, this.shadow)
-    this.apply(cmds)
+      this.apply(cmds)
     this.current = built
   }
 
   /** 组件级更新（统一原语——同一 diff/apply 管线——只动该组件子树） */
   private async updateComponent(compId: string): Promise<void> {
-    const inst = this.shadow.getInstance(compId)
+      const inst = this.shadow.getInstance(compId)
     if (!inst) return
     this.currentCompId = compId
     try {
       const output = inst.renderFn(inst.lastProps)
       const oldOut = inst.lastOutput
-      if (output) {
+          if (output) {
         const built = await buildVNode(output, this.ctx, this.shadow, oldOut, `${compId}.c`, this.createCompCtx.bind(this))
         inst.nextOutput = built
       } else {

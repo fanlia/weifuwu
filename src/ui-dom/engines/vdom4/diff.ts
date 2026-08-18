@@ -159,7 +159,7 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
     if (typeof vn.type === 'function') {
       const inst = shadow.getInstance(contentPath)
       if (!inst) throw new Error(`[vdom4] 组件实例缺失：${contentPath}`)
-      if (inst.nextOutput === inst.lastOutput) {
+          if (inst.nextOutput === inst.lastOutput) {
         // 剪枝（props 未变——输出复用——零命令）
         continue
       }

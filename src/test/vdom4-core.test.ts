@@ -132,3 +132,52 @@ test('vdom4：onUnmount 钩子（工厂期注册——卸载执行）', async ()
   handle.unmount()
   document.body.removeChild(root)
 })
+
+// ── hooks 面（ctx.ui——复用 services/hook-env——scheduleRender 绑定组件） ──
+
+test('vdom4：useOpen 非受控展开态（hooks 的 scheduleRender 绑定组件级更新）', async () => {
+  const root = mkRoot()
+  const Panel = (_init: Record<string, unknown>, ctx: any) => {
+    const open = ctx.ui.useOpen({ name: 'v4-panel' })
+    return () => h('div', {},
+      h('button', { id: 't', ...open.triggerProps }, 'toggle'),
+      h('button', { id: 'c', onClick: () => open.setOpen(false) }, 'close'),
+      open.open ? h('div', { id: 'panel' }, '内容') : null,
+    )
+  }
+  const handle = createRoot(h(Panel, {}), root)
+  await handle.ready
+  assert.equal(root.querySelector('#panel'), null, '初始关闭')
+  ;(root.querySelector('#t') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.ok(root.querySelector('#panel'), '点击展开（useOpen + 组件级更新）')
+  ;(root.querySelector('#c') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(root.querySelector('#panel'), null, 'setOpen(false) 关闭（输出内部条件移除）')
+  handle.unmount()
+  document.body.removeChild(root)
+})
+
+test('vdom4：useExternal 订阅共享 store（跨组件状态 → 自动重渲染）', async () => {
+  const root = mkRoot()
+  const { createStore } = await import('../ui-dom/store.ts')
+  const store = createStore({ user: null as string | null })
+  const Badge = (_init: Record<string, unknown>, ctx: any) => {
+    const s = ctx.ui.useExternal(store)
+    return () => h('span', { id: 'badge' }, s.state.user ?? '未登录')
+  }
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    return () => h('div', {},
+      h(Badge, {}),
+      h('button', { id: 'login', onClick: () => { store.set({ user: '小码' }); ctx.render() } }, 'login'),
+    )
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  assert.equal(root.querySelector('#badge')?.textContent, '未登录', '初始')
+  ;(root.querySelector('#login') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(root.querySelector('#badge')?.textContent, '小码', 'store 变化 → 订阅组件自动重渲染')
+  handle.unmount()
+  document.body.removeChild(root)
+})

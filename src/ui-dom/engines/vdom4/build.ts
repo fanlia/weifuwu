@@ -45,16 +45,16 @@ export async function buildVNode(
   if (typeof vnode.type === 'function') {
     const v = { ...vnode }
     const reuse = oldV != null && typeof oldV === 'object' && oldV.type === vnode.type && oldV.key === vnode.key
-    if (reuse) {
+      if (reuse) {
       const inst = shadow.getInstance(compPath)
       if (!inst) throw new Error(`[vdom4] 组件实例缺失：${compPath}（影子未注册——复用判定与实例表失配）`)
       // 剪枝：props 未变 → 复用 lastOutput（零展开零 RENDER）——nextOutput 设同引用
       // （diff 判定：nextOutput === lastOutput = 剪枝——区别于「输出 null」（null））
       if (propsEqual(inst.lastProps, vnode.props)) {
-        inst.nextOutput = inst.lastOutput
-        return v // 纯数据 vnode——输出在影子（lastOutput）——diff 自然零命令
+              inst.nextOutput = inst.lastOutput
+              return v // 纯数据 vnode——输出在影子（lastOutput）——diff 自然零命令
       }
-      // props 变 → 重跑 renderFn（同步——类型强制——无 await 无挂起）
+          // props 变 → 重跑 renderFn（同步——类型强制——无 await 无挂起）
       const output = inst.renderFn(vnode.props)
       inst.lastProps = { ...vnode.props }
       if (output) {

@@ -132,7 +132,7 @@ export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement)
       }
       case 'setText': {
         const t = resolve(c.id)
-        if (t?.nodeType === 3) (t as Text).nodeValue = c.value
+              if (t?.nodeType === 3) (t as Text).nodeValue = c.value
         break
       }
       case 'remove': {
