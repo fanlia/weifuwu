@@ -11,7 +11,7 @@
  *   其余 → attributes（setAttribute/style/enumerated 白名单）
  */
 
-import type { Command } from './commands.ts'
+import type { Command } from './command/index.ts'
 import { applyAttribute } from './attributes.ts'
 import { applyStyle } from './style.ts'
 import { applyProperty, isPropertyKey } from './props.ts'
@@ -112,12 +112,13 @@ export class CommandApplier {
       }
       case 'setText': {
         const t = this.nodes.get(cmd.id)
-        if (t instanceof Text) t.textContent = cmd.value
+        if (t && t.nodeType === 3) t.textContent = cmd.value
         break
       }
       case 'setProp': {
         const el = this.nodes.get(cmd.id)
-        if (el instanceof HTMLElement) applySetProp(el, cmd.key, cmd.value, cmd.prev)
+        // nodeType 判断（jsdom 隔离环境——instanceof 跨 realm 恒 false）
+        if (el && el.nodeType === 1) applySetProp(el as HTMLElement, cmd.key, cmd.value, cmd.prev)
         break
       }
       case 'remove': {

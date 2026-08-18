@@ -22,7 +22,7 @@ import { isPortal, PORTAL_ID_PREFIX } from './portal.ts'
 import { pathId, renderNative } from './native.ts'
 import { renderComponent, createComponentRegistry, type ComponentRegistry } from './component.ts'
 import type { Ctx } from '../context/Ctx.ts'
-import type { Command } from './commands.ts'
+import type { Command } from './command/index.ts'
 
 /**
  * vnode → ReadableStream<Command>

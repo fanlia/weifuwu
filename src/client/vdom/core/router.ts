@@ -10,7 +10,7 @@
  */
 
 import type { Ctx } from '../context/Ctx.ts'
-import type { Command } from './commands.ts'
+import type { Command } from './command/index.ts'
 
 /** 前端请求 = 原生 Request + params/path 注入（类型扩展——匹配结果挂 req） */
 export type FrontRequest = Request & { params: Record<string, string>; path: string }

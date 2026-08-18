@@ -13,7 +13,7 @@ import { isHole, isInvalid, invalidDiagnostic, holeCommands, emitHole } from './
 import { h } from './vnode.ts'
 import { renderToStream } from './render.ts'
 import { CommandApplier } from './apply.ts'
-import type { Command } from './commands.ts'
+import type { Command } from './command/index.ts'
 
 test('isHole：false/null/undefined/true 全部是空洞（无渲染值）', () => {
   assert.equal(isHole(false), true)

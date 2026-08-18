@@ -12,7 +12,7 @@
 import { UIRouter, frontRequest } from './router.ts'
 import { CommandApplier } from './apply.ts'
 import type { Ctx } from '../context/Ctx.ts'
-import type { Command } from './commands.ts'
+import type { Command } from './command/index.ts'
 import type { Browser } from '../browser/Browser.ts'
 
 /** NDJSON 命令流解析（行缓冲——命令可能跨 chunk） */

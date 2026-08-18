@@ -11,7 +11,7 @@
 
 import type { VNode } from './vnode.ts'
 import { childrenOf } from './children.ts'
-import type { Command } from './commands.ts'
+import type { Command } from './command/index.ts'
 import type { ComponentSink } from './component.ts'
 
 /** 节点 id——确定性路径（root.0.a0——锚点法——组件实例隔离） */
@@ -40,6 +40,12 @@ export async function renderNative(
   sink: ComponentSink,
 ): Promise<void> {
   emitCommand({ op: 'create', id, tag: vn.type as string, attrs: serializableAttrs(vn.props) })
+  // 运行时面（事件/ref——函数值）→ setProp 命令（apply 绑定——
+  // create 后立即发——节点已在表——挂载前绑定无碍）
+  for (const [k, v] of Object.entries(vn.props)) {
+    if (k === 'children' || k === 'key') continue
+    if (typeof v === 'function') emitCommand({ op: 'setProp', id, key: k, value: v })
+  }
   emitCommand({ op: 'insert', id, parent, ref })
   const cs = childrenOf(vn)
   let lastRef: string | null = null

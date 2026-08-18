@@ -10,7 +10,7 @@
  * - 占位是静态的零 resolve 回调——≠ 动态挂载占位——不触发任何补渲染
  */
 
-import type { Command } from './commands.ts'
+import type { Command } from './command/index.ts'
 
 /** 空洞判定（无渲染值——false/null/undefined/true——占位法保同构） */
 export function isHole(v: unknown): boolean {

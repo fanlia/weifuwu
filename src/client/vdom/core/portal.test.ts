@@ -13,7 +13,7 @@ import { Portal, isPortal, createPortal, portalContainerId, PORTAL_CONTAINER_ID,
 import { h } from './vnode.ts'
 import { renderToStream } from './render.ts'
 import { CommandApplier } from './apply.ts'
-import type { Command } from './commands.ts'
+import type { Command } from './command/index.ts'
 
 test('Portal 内部符号 + createPortal 工厂（纯数据——key 语义化）', () => {
   const p = createPortal(h('div', {}, 'dropdown'), 'menu')
