@@ -460,7 +460,7 @@ const input = ctx.ui.useControlledInput({ value, onChange, name: 'AutoComplete' 
 
 ### 5.4 弹窗纪律：浮层必须 portal 渲染 + usePopup 复用
 
-**所有脱离文档流的浮层（dropdown/select/datepicker/menubar/cascader/mentions/contextmenu/tooltip/popover/hovercard/modal/drawer/toast/notification/confirm/tour/command 等）必须 `createPortal` 渲染到 `#__wf_portal`（body）——禁止 `position: absolute` 相对父容器**（absolute 方案在父容器 overflow:hidden/transform/z-index 上下文下裁剪/错位——TreeSelect 曾遗漏）：
+**所有脱离文档流的浮层（dropdown/select/datepicker/menubar/cascader/mentions/contextmenu/tooltip/popover/hovercard/modal/drawer/toast/notification/confirm/tour/command 等）必须 `ctx.ui.usePopup` 渲染到 `#__wf_portal`（body）——禁止 `position: absolute` 相对父容器**（absolute 方案在父容器 overflow:hidden/transform/z-index 上下文下裁剪/错位——TreeSelect 曾遗漏）。**`createPortal` 是 usePopup 的内部实现机制——用户不直接调用**（Portal 内化决策 2026-12：组件库 28 浮层组件 0 处直接使用 createPortal——契约测试 X-C1~C3 全部经 usePopup 验证）：
 
 ```tsx
 // ✅ portal：渲染到 body——z-index/Escape/夹紧/跟随统一管理

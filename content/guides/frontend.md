@@ -139,19 +139,29 @@ h('div', { class: 'x' }, child1, child2)
 | `h(type, props, ...children)` | hyperscript |
 | `jsx` / `jsxs` / `jsxDEV` | JSX 编译目标 |
 | `Fragment` | 片段 |
-| `Portal` / `createPortal(children, portalKey?)` | 渲染到 `document.body#__wf_portal` 独立容器（弹层/对话框，脱离父级 overflow 裁剪） |
+| `ctx.ui.usePopup(...)` | 弹层唯一入口（内部经 Portal 渲染到 `#__wf_portal`——用户不直接调 `createPortal`） |
+
+> **Portal 内化（2026-12）**：`createPortal` 是 `usePopup` 的内部实现机制——
+> 组件作者不直接调用。所有浮层（dropdown/select/datepicker/menubar/cascader/
+> tooltip/popover/modal/drawer/toast 等）一律 `ctx.ui.usePopup`——定位/外部点击
+> 关闭/Escape/视口夹紧/portal 渲染全包。
 
 ```tsx
-import { createPortal } from 'weifuwu/ui-dom'
-
-// 内容渲染到 body 下的独立容器（不在父组件的 DOM 树内）
-const Tooltip = (_init, ctx) =>
-  (props) => createPortal(
-    <div class="tooltip">{props.text}</div>
-  )
-
-// 配合 ctx.ui.selfId('name') 可从任何地方精准刷新 portal 内容
-ctx.ui.render(['name'])
+// 浮层正确姿势：usePopup（唯一入口——锚点定位 + 外部点击关闭 + Escape + portal）
+const Tooltip = (_init, ctx) => {
+  let anchor: HTMLElement | null = null
+  const open = ctx.ui.useOpen({ name: 'Tooltip' })
+  const popup = ctx.ui.usePopup({
+    el: () => anchor,
+    isOpen: () => open.open,
+    setOpen: (v) => open.setOpen(v),
+  })
+  return (props) =>
+    h('div', {}, [
+      h('span', { ref: (el) => { anchor = el }, ...open.triggerProps }, props.children),
+      popup.portal(h('div', { class: 'tooltip' }, props.text), 'tooltip'),
+    ])
+}
 ```
 
 ---

@@ -15,7 +15,7 @@ const EVENT_MAP: Record<string, string> = {
   mouseleave: 'mouseout',
 }
 
-const globalHandlers = new Map<string, Set<EventListener>>()
+const globalHandlers = new Map<EventTarget, Map<string, Set<EventListener>>>()
 const globalRoots = new Map<EventTarget, Map<string, EventListener>>()
 
 export interface GlobalListenerOptions { capture?: boolean; passive?: boolean }
@@ -31,13 +31,20 @@ export function bindElementListener(el: Element, event: string, handler: EventLi
 /** 全局监听（document/window 级——同事件多 handler 聚合——每目标每事件一次监听） */
 export function addGlobalListener(target: EventTarget, event: string, handler: EventListener, opts?: GlobalListenerOptions): () => void {
   const realEvent = EVENT_MAP[event] ?? event
-  let set = globalHandlers.get(realEvent)
-  if (!set) { set = new Set(); globalHandlers.set(realEvent, set) }
+  // handler 集合按 (target, event) 分组——同事件多个 target（document + window）
+  // 各自只调自己集合的 handler（X-F1 抓出：跨 target 共享集合 → 同一 handler
+  // 在传播路径上被多个聚合监听重复调用——closed=2）
+  let set = globalHandlers.get(target)?.get(realEvent)
+  if (!set) {
+    if (!globalHandlers.has(target)) globalHandlers.set(target, new Map())
+    set = new Set()
+    globalHandlers.get(target)!.set(realEvent, set)
+  }
   set.add(handler)
   const rootMap = globalRoots.get(target) ?? new Map<string, EventListener>()
   if (!rootMap.has(realEvent)) {
     const fn: EventListener = (e) => {
-      for (const h of globalHandlers.get(realEvent) ?? []) {
+      for (const h of globalHandlers.get(target)?.get(realEvent) ?? []) {
         try { h(e) } catch { /* 全局 handler 失败隔离 */ }
       }
     }
@@ -56,6 +63,8 @@ export function addGlobalListener(target: EventTarget, event: string, handler: E
       if (fn) target.removeEventListener(realEvent, fn, opts?.capture ? { capture: true } : undefined)
       rootMap.delete(realEvent)
       if (rootMap.size === 0) globalRoots.delete(target)
+      globalHandlers.get(target)?.delete(realEvent)
+      if (globalHandlers.get(target)?.size === 0) globalHandlers.delete(target)
     }
   }
 }

@@ -7,7 +7,8 @@
  * 组件库可零改动迁移**。不再需要逐个组件试点。
  *
  * 能力面（来自 src/components/* 全量调研——2026-12 使用矩阵）：
- *   [核心] render 原语 / 组件复用剪枝 / keyed 列表 / Portal / Fragment / 空洞占位
+ *   [核心] render 原语 / 组件复用剪枝 / keyed 列表 / Portal（经 usePopup——内化）/
+ *           Fragment / 空洞占位
  *   [hooks] usePopup(28) / useControlled(11) / useScrollPosition(6) / useGlobalKey(6) /
  *           useOpen(4) / useControlledInput(3) / useInView(3) / useDragDrop(3) /
  *           useChat(1) / useBreakpoint(3) / useExternal / useTween / useDrag
@@ -17,8 +18,12 @@
  *
  * 引擎接口（契约——实现方必须提供）：
  *   createRoot(vnode, container) → { ready, engine, unmount() }
- *   h / Fragment / createPortal（jsx 面——vnode 纯数据）
+ *   h / Fragment（jsx 面——vnode 纯数据）
  *   ctx.render()（组件级）/ ctx.ui.useXXX / ctx.browser / ctx.data / ctx.onUnmount
+ *
+ * Portal 内化（2026-12 决策）：createPortal 是 usePopup 的内部实现机制——
+ * 组件作者不直接调用（组件库 28 浮层组件 0 直接使用）——浮层一律 usePopup。
+ * 契约测试的 Portal 面全部经 usePopup 验证（引擎 portal 机制间接覆盖）。
  *
  * 纪律：本文件只测契约（引擎实现无关）——禁止 import 引擎内部文件；
  * 引擎入口在文件头 Engine 常量处一行替换。
@@ -287,71 +292,99 @@ test('X-B4 空洞占位：{cond && <X/>} false 不塌缩兄弟（提交按钮消
 
 /* ═══════════════════ C. Portal / Fragment ═══════════════════ */
 
-test('X-C1 Portal 渲染到 #__wf_portal + 内容更新 + 移除清理', async () => {
+test('X-C1 usePopup 常驻容器（positioning none——Toast 型——远程渲染 + 内容增删）', async () => {
   const root = mkRoot()
+  const Host = (_init: Record<string, unknown>, ctx: any) => {
+    const popup = ctx.ui.usePopup({
+      positioning: 'none', closeOnOutside: false, closeOnEscape: false,
+      isOpen: () => true, setOpen: () => {},
+    })
+    return (props: any) => {
+      if (props.items.length === 0) return null
+      return popup.portal(h('div', { class: 'toast-box' }, props.items.map((t: string) => h('div', { key: t, class: 'toast-item' }, t))), 'toast-x')
+    }
+  }
   const App = (_init: Record<string, unknown>, ctx: any) => {
-    let open = false
-    let msg = 'hello'
+    let items: string[] = []
+    let n = 0
     return () => h('div', {}, [
-      h('button', { id: 'open', onClick: () => { open = true; ctx.render() } }, 'open'),
-      open ? createPortal(h('div', { class: 'panel', id: 'p' }, msg), 'test-portal') : null,
-      h('button', { id: 'close', onClick: () => { open = false; ctx.render() } }, 'close'),
-      h('button', { id: 'msg', onClick: () => { msg = 'world'; ctx.render() } }, 'msg'),
+      h(Host, { items }),
+      h('button', { id: 'push', onClick: () => { n++; items = [...items, `m${n}`]; ctx.render() } }, 'push'),
+      h('button', { id: 'clear', onClick: () => { items = []; ctx.render() } }, 'clear'),
     ])
   }
   const handle = mount(h(App, {}), root)
   await handle.ready
-  ;(root.querySelector('#open') as HTMLElement).click()
+  assert.ok(!document.querySelector('#__wf_portal .toast-box'), '初始无内容')
+  ;(root.querySelector('#push') as HTMLElement).click()
   await sleep(10)
-  const panel = document.querySelector('#__wf_portal [data-wf-portal-key="test-portal"] .panel')
-  assert.ok(panel, 'portal 内容渲染到远程容器')
-  // 内容更新（portal 内 diff）
-  ;(root.querySelector('#msg') as HTMLElement).click()
+  assert.ok(document.querySelector('#__wf_portal .toast-item'), 'usePopup 常驻容器——远程渲染')
+  ;(root.querySelector('#push') as HTMLElement).click()
   await sleep(10)
-  assert.equal(document.querySelector('#__wf_portal .panel')?.textContent, 'world', 'portal 内容更新')
-  // 移除清理
-  ;(root.querySelector('#close') as HTMLElement).click()
+  assert.strictEqual(document.querySelectorAll('#__wf_portal .toast-item').length, 2, '内容增（keyed）')
+  ;(root.querySelector('#clear') as HTMLElement).click()
   await sleep(10)
-  assert.ok(!document.querySelector('#__wf_portal .panel'), 'portal 关闭——远程内容清除')
+  assert.ok(!document.querySelector('#__wf_portal .toast-box'), '内容清空——远程容器清理')
   handle.unmount()
   document.body.removeChild(root)
 })
 
-test('X-C2 组件输出根直接是 Portal（Modal 型——符号根判定）', async () => {
+test('X-C2 组件输出根 = popup.portal（Modal 型——无包装 div——符号根判定）', async () => {
   const root = mkRoot()
+  let anchor: HTMLElement | null = null
   const Modal = (_init: Record<string, unknown>, ctx: any) => {
-    let open = false
+    const openCtrl = ctx.ui.useOpen({ name: 'XM2' })
+    const popup = ctx.ui.usePopup({
+      el: () => anchor, isOpen: () => openCtrl.open, setOpen: (v) => openCtrl.setOpen(v),
+    })
     return () => {
-      if (!open) return h('button', { id: 'm', onClick: () => { open = true; ctx.render() } }, '开')
-      return createPortal(h('div', { class: 'm-body' }, 'modal内容'), 'modal-x')
+      if (!openCtrl.open) return h('button', { id: 'm', ref: (el: HTMLElement | null) => { anchor = el }, ...openCtrl.triggerProps }, '开')
+      return popup.portal(h('div', { class: 'm-body' }, 'modal内容'), 'modal-x')
     }
   }
   const handle = mount(h(Modal, {}), root)
   await handle.ready
   ;(root.querySelector('#m') as HTMLElement).click()
   await sleep(10)
-  assert.ok(document.querySelector('#__wf_portal .m-body'), '输出根是 Portal——内容渲染')
+  assert.ok(document.querySelector('#__wf_portal .m-body'), '输出根是 popup.portal——远程渲染')
   handle.unmount()
   document.body.removeChild(root)
 })
 
-test('X-C3 Portal 在 keyed 列表（Select 菜单型——keyed 项内浮层）', async () => {
+test('X-C3 keyed 列表项内各自 usePopup（多浮层并存——portalKey 隔离）', async () => {
   const root = mkRoot()
+  const Row = (_init: { id: string }, ctx: any) => {
+    let anchor: HTMLElement | null = null
+    const openCtrl = ctx.ui.useOpen({ name: `XR${_init.id}` })
+    const popup = ctx.ui.usePopup({
+      el: () => anchor, isOpen: () => openCtrl.open, setOpen: (v) => openCtrl.setOpen(v),
+    })
+    return () => h('div', { class: 'row' }, [
+      h('button', { ref: (el: HTMLElement | null) => { anchor = el }, ...openCtrl.triggerProps }, `行${_init.id}`),
+      popup.portal(openCtrl.open ? h('div', { class: `menu menu-${_init.id}` }, `菜单${_init.id}`) : null, `menu-${_init.id}`),
+    ])
+  }
   const App = (_init: Record<string, unknown>, ctx: any) => {
-    let open = false
+    let keys = ['a', 'b']
     return () => h('div', {}, [
-      h('button', { key: 'trigger', id: 't', onClick: () => { open = !open; ctx.render() } }, 'toggle'),
-      h('div', { key: 'menu' }, open ? createPortal(h('div', { class: 'menu' }, '菜单'), 'menu-x') : null),
+      ...keys.map((k) => h(Row, { key: k, id: k })),
+      h('button', { key: 'sw', id: 'sw', onClick: () => { keys = ['a']; ctx.render() } }, '删一行'),
     ])
   }
   const handle = mount(h(App, {}), root)
   await handle.ready
-  ;(root.querySelector('#t') as HTMLElement).click()
+  // 两行各自的浮层
+  ;(root.querySelectorAll('.row button')[0] as HTMLElement).click()
   await sleep(10)
-  assert.ok(document.querySelector('#__wf_portal .menu'), 'keyed 列表内 portal 渲染')
-  ;(root.querySelector('#t') as HTMLElement).click()
+  assert.ok(document.querySelector('#__wf_portal .menu-a'), '行 a 浮层打开（portalKey 隔离）')
+  ;(root.querySelectorAll('.row button')[1] as HTMLElement).click()
   await sleep(10)
-  assert.ok(!document.querySelector('#__wf_portal .menu'), 'keyed 项内 portal 移除清理')
+  assert.ok(document.querySelector('#__wf_portal .menu-b'), '行 b 浮层打开（并存）')
+  // keyed 删一行——b 的浮层（含远程内容）清理
+  ;(root.querySelector('#sw') as HTMLElement).click()
+  await sleep(10)
+  assert.ok(!document.querySelector('#__wf_portal .menu-b'), 'keyed 删除——远程浮层内容清理')
+  assert.ok(document.querySelector('#__wf_portal .menu-a'), 'a 的浮层保留')
   handle.unmount()
   document.body.removeChild(root)
 })

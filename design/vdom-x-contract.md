@@ -66,13 +66,19 @@
 **引擎责任上移（组件不该管的）**：
 `useStableRef` → 引擎自动稳定 ref（ref 函数引用不变——组件零成本）
 
-### Fragment / Portal 标准（纳入正式契约）
+### Fragment / Portal 标准（2026-12 内化决策）
 
 | 原语 | 使用 | 结论 |
 |------|------|------|
-| `createPortal` | 28 组件（usePopup 生态）| **标准原语**（契约 X-C1~C3） |
+| `createPortal` | 组件库 **0 处直接调用**（28 浮层组件全走 usePopup）；hooks 内部 2 处 | **内化**：usePopup 的内部实现机制——用户不直接调用 |
+| `usePopup` | 28 组件 | **弹层唯一入口**（定位/关闭/Escape/夹紧/presence/mask/portal 全包） |
 | `Fragment` | 组件输出数组 = 隐式 Fragment | **标准原语**（契约 X-C4） |
-| portal 判定 | 结构性（symbol + props.portalKey——不依赖 symbol 恒等）| 标准（vdom3 产物兼容） |
+| portal 判定 | 结构性（symbol + props.portalKey——不依赖 symbol 恒等）| 引擎内部机制（vdom3 产物兼容） |
+
+**内化理由**：① 组件库 0 直接使用（无迁移成本）；② usePopup 是完整弹层抽象——
+createPortal 是裸机制（暴露 = 用户自管定位/关闭/Escape/夹紧）；③ 单一入口 =
+一致行为/测试/文档；④ 引擎可自由改 portal 实现。vdom3 导出保留（兼容）。
+契约测试的 Portal 面全部经 usePopup 验证（引擎 portal 机制间接覆盖）。
 
 ## 3. vdom-x.test.ts 契约设计
 

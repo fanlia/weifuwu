@@ -188,6 +188,15 @@ export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement)
         const hooks = env.unmountHooks.get(c.compId)
         if (hooks) { for (const h of hooks) { try { h() } catch { /* 清理失败隔离 */ } } env.unmountHooks.delete(c.compId) }
         shadow.deleteInstance(c.compId)
+        // 子树 portal 远程内容清理（X-C3：keyed 组件项移除——Row 内 usePopup 浮层残留）
+        // id 前缀匹配组件路径 + .p 后缀（输出根 portal：{compId}.c.p / {compId}.p）
+        for (const [id, node] of registry) {
+          if (id.startsWith(c.compId + '.') && id.endsWith('.p') && node.parentNode) {
+            node.parentNode.removeChild(node)
+            registry.delete(id)
+            shadow.unregister(id)
+          }
+        }
         break
       }
     }

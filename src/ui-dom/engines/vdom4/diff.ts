@@ -229,8 +229,14 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
         if (out) {
         lastAnchor = genVNode(out, `${contentPath}.c`, inst.lastOutput, cmds, shadow, slotAnchor, slotKey) ?? slotAnchor
       } else {
-        // 输出变 null——清空槽位内容（锚保留）
-        if (inst.lastOutput) cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
+        // 输出变 null——清空槽位内容（锚保留）+ 输出根 portal 远程内容
+        // （X-C1：Host 型——上次输出是 popup.portal——清空时远程内容残留）
+        if (inst.lastOutput) {
+          cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
+          if (typeof inst.lastOutput.type === 'symbol' && (inst.lastOutput.props as Record<string, unknown> | undefined)?.portalKey != null) {
+            cmds.push({ op: 'remove', id: `${contentPath}.c.p` })
+          }
+        }
         lastAnchor = slotAnchor
       }
       continue
@@ -324,6 +330,10 @@ function genKeyedChildren(kids: VNode[], oldKids: VNodeChild[], path: string, sl
     if (!newKeys.has(key)) {
       const oldAnchor = oldAnchors[idx] ?? null
       if (oldAnchor) cmds.push({ op: 'remove', id: oldAnchor })
+      // 组件项——unmountComp（卸载钩子 + 子树 portal 远程内容清理——apply 侧前缀匹配）
+      if (typeof oldVn.type === 'function') {
+        cmds.push({ op: 'unmountComp', compId: `${path}.k${key}` })
+      }
       // 旧 portal 项（keyed 直接是浮层——Select 菜单关闭）——远程内容也要清
       if (typeof oldVn.type === 'symbol' && oldVn.props?.portalKey != null) {
         cmds.push({ op: 'remove', id: `${path}.k${key}.p` })
