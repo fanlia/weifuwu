@@ -516,3 +516,72 @@ test('vdom4 迁移试点：真实 Tree（useOpen + useControlled + keyed 列表 
   handle.unmount()
   document.body.removeChild(root)
 })
+
+// ── 组件库迁移试点扩展：Carousel（箭头交互 + 状态流转） + Toast（常驻容器 + keyed 增删） ──
+
+test('vdom4 迁移试点：真实 Carousel（箭头交互 + 状态流转 + autoplay 定时器）', async () => {
+  const { Carousel } = await import('../components/Carousel/Carousel.ts')
+  const root = mkRoot()
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    return () => h('div', {}, [
+      h(Carousel, { 'aria-label': '演示轮播' }, [
+        h('div', { class: 'slide-a' }, '第一张'),
+        h('div', { class: 'slide-b' }, '第二张'),
+        h('div', { class: 'slide-c' }, '第三张'),
+      ]),
+      h('button', { id: 'after', onClick: () => ctx.render() }, 'after'),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  const track = root.querySelector('.wf-carousel-track') as HTMLElement | null
+  assert.ok(track, 'Carousel 渲染')
+  assert.match(track!.getAttribute('style') ?? '', /translateX\(-0%\)/, '初始第 0 张')
+  const next = root.querySelector('.wf-carousel-arrow--next') as HTMLElement | null
+  assert.ok(next, '下一张箭头')
+  ;(next as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.match(track!.getAttribute('style') ?? '', /translateX\(-100%\)/, '点下一张 → 第 1 张')
+  const prev = root.querySelector('.wf-carousel-arrow--prev') as HTMLElement | null
+  ;(prev as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.match(track!.getAttribute('style') ?? '', /translateX\(-0%\)/, '点上一张 → 回第 0 张')
+  handle.unmount()
+  document.body.removeChild(root)
+})
+
+test('vdom4 迁移试点：真实 Toast（usePopup 常驻容器 + keyed 增删）', async () => {
+  const { Toast } = await import('../components/Toast/Toast.ts')
+  const root = mkRoot()
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    let toasts: { id: string; message: string }[] = []
+    let n = 0
+    return () => h('div', {}, [
+      h(Toast, {
+        toasts,
+        position: 'top-right',
+        onRemove: (id: string) => { toasts = toasts.filter((t) => t.id !== id); ctx.render() },
+      }),
+      h('button', {
+        id: 'push',
+        onClick: () => { n += 1; toasts = [...toasts, { id: `t${n}`, message: `消息${n}` }]; ctx.render() },
+      }, 'push'),
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  assert.ok(!document.querySelector('.wf-toast'), '初始无 toast')
+  ;(root.querySelector('#push') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(document.querySelector('.wf-toast'), 'push 后 toast 出现（portal 常驻容器）')
+  assert.ok(document.querySelector('.wf-toast')?.textContent?.includes('消息1'), '消息1 渲染')
+  ;(root.querySelector('#push') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.strictEqual(document.querySelectorAll('.wf-toast').length, 2, '两条 toast')
+  // 点击第一条移除（onRemove → keyed 列表删除）
+  ;(document.querySelectorAll('.wf-toast')[0] as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  assert.strictEqual(document.querySelectorAll('.wf-toast').length, 1, '移除后剩 1 条')
+  handle.unmount()
+  document.body.removeChild(root)
+})

@@ -118,7 +118,9 @@ async function buildChildren(
   const newKids: VNodeChild[] = []
   let changed = false
   const isVNodeObj = (x: VNodeChild): x is VNode => x != null && typeof x === 'object' && !Array.isArray(x)
-  const isKeyed = kids.length > 1 && kids.every((k) => isVNodeObj(k) && (k as VNode).key != null)
+  // keyed 判定：全部带 key 即 keyed（不依赖长度——单 keyed 项也走 .k{key} 路径——
+  // 长度依赖会导致路径格式翻转（.0 → .k1——组件实例漂移——Toast 增删抓出））
+  const isKeyed = kids.length > 0 && kids.every((k) => isVNodeObj(k) && (k as VNode).key != null)
 
   if (isKeyed) {
     // keyed：同 key 配对（旧 vnode 对照——重排后组件实例复用）

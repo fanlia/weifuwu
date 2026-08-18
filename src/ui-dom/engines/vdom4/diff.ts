@@ -124,7 +124,7 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
   const slotKey = domParent
   // keyed 检测（>1 且全部有 key——vnode 项）→ keyed diff（业务身份——重排复用）
   const isVNodeObj = (x: VNodeChild): x is VNode => x != null && typeof x === 'object' && !Array.isArray(x)
-  if (kids.length > 1 && kids.every((k) => isVNodeObj(k) && (k as VNode).key != null)) {
+  if (kids.length > 0 && kids.every((k) => isVNodeObj(k) && (k as VNode).key != null)) {
     return genKeyedChildren(kids as VNode[], oldKids, path, slotKey, cmds, shadow, initAnchor, isFrag)
   }
   const oldAnchors = shadow.anchorsOf(slotKey)

@@ -101,12 +101,13 @@ export const Toast: Component<ToastProps> = async (_init, ctx) =>
   )
   }
 
-function iconFor(type: ToastType): IconName {
+function iconFor(type?: ToastType): IconName {
   switch (type) {
     case 'success': return 'check'
     case 'error': return 'close'
     case 'warning': return 'alert'
     case 'info': return 'info'
+    default: return 'info'
   }
 }
 
