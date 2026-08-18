@@ -13,8 +13,8 @@ export type Command =
   | { op: 'create'; id: string; tag: string; attrs: Record<string, unknown> }
   /** 创建文本节点 */
   | { op: 'createText'; id: string; value: string }
-  /** 创建占位锚（空洞/portal 槽——childNodes 同构） */
-  | { op: 'createAnchor'; id: string }
+  /** 创建占位锚（空洞/portal 槽——childNodes 同构——detail 诊断信息） */
+  | { op: 'createAnchor'; id: string; detail?: string }
   /** 离开子树——服务端闭合标签——客户端 no-op */
   | { op: 'close'; id: string }
   /** 挂载节点（parent/ref 均为节点 id——ref null = 追加尾部） */

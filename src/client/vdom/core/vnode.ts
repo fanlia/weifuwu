@@ -18,11 +18,6 @@
 import type { Ctx } from '../context/Ctx.ts'
 import { extractKey, stripKey } from './key.ts'
 
-/** Fragment 内部符号（数组 = 隐式 Fragment——`<></>` 经 jsx-runtime 自动展开） */
-export const Fragment: unique symbol = Symbol('vdom-fragment')
-/** Portal 内部符号（usePopup 内部机制——浮层渲染到 #__wf_portal） */
-export const Portal: unique symbol = Symbol('vdom-portal')
-
 /** vnode——纯数据 */
 export interface VNode {
   /** 标签名 / 组件 / 内部符号（Fragment/Portal） */
@@ -67,12 +62,3 @@ export function jsx(type: HType, props: Record<string, unknown> | null, key?: st
 export const jsxs = jsx
 export const jsxDEV = jsx
 
-/** children 读取（单一规则源——五消费方共用）：
- *  统一 children 序列（数组/`<></>`/嵌套数组全部递归展开——隐式 Fragment——
- *  纯函数一次到位——路径按展开后位置——深度变化不漂移）；
- *  空洞（false/null/undefined）保留不滤除（占位法——长度恒定） */
-export function childrenOf(v: VNode): VNodeChild[] {
-  const c = v.children ?? (v.props.children === undefined ? [] : v.props.children)
-  const flat = (x: VNodeChild): VNodeChild[] => (Array.isArray(x) ? x.flatMap(flat) : [x])
-  return (Array.isArray(c) ? c.flatMap(flat) : [c]) as VNodeChild[]
-}

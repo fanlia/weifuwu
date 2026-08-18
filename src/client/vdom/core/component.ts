@@ -1,0 +1,94 @@
+/**
+ * vdom core — component（组件渲染——两阶段工厂 + renderFn——独立文件）
+ *
+ * 模型（AGENTS §3——两阶段组件）：
+ * ```ts
+ * Component<P, C> = (initProps, ctx) => RenderFn<P> | Promise<RenderFn<P>>
+ * RenderFn<P> = (props) => VNode | null | Promise<VNode | null>
+ * ```
+ * - 工厂 = mount（一次——初始化状态/订阅/数据预取（await ctx.data——管道保证））
+ * - renderFn = 每次渲染（读最新 props——同步或 async——异步边界 = ctx.data）
+ *
+ * 渲染流集成（render.ts 消费）：
+ * - 工厂调用（可 await）→ renderFn 调用（可 await）→ 输出 vnode 递归 emit
+ *   （null → 空洞占位；数组 → 隐式 Fragment；元素/组件嵌套）
+ * - per-instance ctx：Object.create(shared) + onUnmount 覆盖——收集回调
+ *   到实例记录（组件卸载时执行——unmountComp 命令由 diff 发出）
+ * - 实例记录注册表（compId → { renderFn, onUnmounts }）——同位置同类型
+ *   组件复用（工厂不重跑——let/ref 状态保持——diff 消费）
+ */
+
+import type { VNode, VNodeChild } from './vnode.ts'
+import type { Component, RenderFn } from './vnode.ts'
+import type { Ctx } from '../context/Ctx.ts'
+
+/** 组件实例记录（跨渲染保持——diff 复用） */
+export interface ComponentRecord {
+  /** renderFn（工厂产物——每次渲染调用——读最新 props） */
+  renderFn: RenderFn
+  /** 卸载清理回调（ctx.onUnmount 收集——unmountComp 时执行） */
+  onUnmounts: (() => void)[]
+}
+
+/** 组件实例注册表（uiServe 持有——renderToStream 写入——diff/unmount 消费） */
+export interface ComponentRegistry {
+  get(id: string): ComponentRecord | undefined
+  set(id: string, rec: ComponentRecord): void
+  delete(id: string): void
+}
+
+/** 创建注册表（per serve 实例） */
+export function createComponentRegistry(): ComponentRegistry {
+  const map = new Map<string, ComponentRecord>()
+  return {
+    get: (id) => map.get(id),
+    set: (id, rec) => { map.set(id, rec) },
+    delete: (id) => { map.delete(id) },
+  }
+}
+
+/** 组件渲染 sink（render.ts 的 emit——子节点递归出口） */
+export type ComponentSink = (
+  v: VNodeChild, parent: string, index: number, ref: string | null,
+) => Promise<void>
+
+/** 渲染一个组件（mount + renderFn——可 await——输出经 sink 递归 emit） */
+export async function renderComponent(
+  vn: VNode,
+  parent: string,
+  index: number,
+  ref: string | null,
+  compId: string,
+  sharedCtx: Ctx,
+  registry: ComponentRegistry,
+  sink: ComponentSink,
+): Promise<void> {
+  const factory = vn.type as Component
+
+  // 实例记录（同位置同类型复用——工厂不重跑）
+  let rec = registry.get(compId)
+  if (!rec) {
+    // per-instance ctx（共享面继承 + onUnmount 收集到实例记录）
+    const onUnmounts: (() => void)[] = []
+    const instCtx = Object.create(sharedCtx) as Ctx
+    instCtx.onUnmount = (fn) => { onUnmounts.push(fn) }
+    // 工厂 = mount（一次——可 await ctx.data——管道保证 resolve）
+    const maybeRenderFn = factory(vn.props, instCtx)
+    rec = { renderFn: await maybeRenderFn, onUnmounts }
+    registry.set(compId, rec)
+  }
+
+  // renderFn = 每次渲染（读最新 props——可 await——输出 null/数组/vnode）
+  const out = await rec.renderFn(vn.props)
+  await sink(out, parent, index, ref)
+}
+
+/** 执行组件卸载（unmountComp 命令消费——onUnmounts 逆序执行） */
+export function disposeComponent(id: string, registry: ComponentRegistry): void {
+  const rec = registry.get(id)
+  if (!rec) return
+  for (const fn of rec.onUnmounts.reverse()) {
+    try { fn() } catch (e) { console.error('[vdom] onUnmount:', e) }
+  }
+  registry.delete(id)
+}

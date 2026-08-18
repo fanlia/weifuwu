@@ -17,6 +17,7 @@ import { applyStyle } from './style.ts'
 import { applyProperty, isPropertyKey } from './props.ts'
 import { applyRef } from './ref.ts'
 import { bindEvent, EVENT_RE } from './events.ts'
+import { PORTAL_CONTAINER_ID, PORTAL_ID_PREFIX, portalContainerId } from './portal.ts'
 
 export type WfNode = HTMLElement | Text | Comment
 
@@ -48,10 +49,40 @@ export class CommandApplier {
   private nodes = new Map<string, WfNode>()
   private container: HTMLElement
   private doc: Document
+  private portalContainers = new Map<string, HTMLElement>()
 
   constructor(container: HTMLElement, doc: Document) {
     this.container = container
     this.doc = doc
+  }
+
+  /** portal 容器（#__wf_portal 下按 key——惰性创建——挂 body） */
+  private portalContainer(key: string): HTMLElement {
+    let c = this.portalContainers.get(key)
+    if (c) return c
+    let host = this.doc.getElementById(PORTAL_CONTAINER_ID)
+    if (!host) {
+      host = this.doc.createElement('div')
+      host.id = PORTAL_CONTAINER_ID
+      this.doc.body.appendChild(host)
+    }
+    c = this.doc.createElement('div')
+    c.id = portalContainerId(key)
+    host.appendChild(c)
+    this.portalContainers.set(key, c)
+    return c
+  }
+
+  /** 父节点解析（root/portal 容器/节点表）——portal 子节点在节点表
+   *  （id 前缀 portal:——'portal:menu.0' 是内容节点；'portal:menu' 是容器） */
+  private parentOf(cmd: { parent: string }): HTMLElement | null {
+    if (cmd.parent === 'root') return this.container
+    if (cmd.parent.startsWith(PORTAL_ID_PREFIX)) {
+      const node = this.nodes.get(cmd.parent)
+      if (node) return node as HTMLElement
+      return this.portalContainer(cmd.parent.slice(PORTAL_ID_PREFIX.length))
+    }
+    return (this.nodes.get(cmd.parent) as HTMLElement | null) ?? null
   }
 
   apply(cmd: Command): void {
@@ -66,15 +97,17 @@ export class CommandApplier {
         this.nodes.set(cmd.id, this.doc.createTextNode(cmd.value))
         break
       case 'createAnchor':
-        this.nodes.set(cmd.id, this.doc.createComment('wf-hole'))
+        this.nodes.set(cmd.id, this.doc.createComment(cmd.detail ? `wf-hole: ${cmd.detail}` : 'wf-hole'))
         break
       case 'insert': {
         const el = this.nodes.get(cmd.id)
         if (!el) return
-        const parent = cmd.parent === 'root' ? this.container : (this.nodes.get(cmd.parent) as HTMLElement | null)
+        const parent = this.parentOf(cmd)
         if (!parent) return
-        const ref = cmd.ref ? (this.nodes.get(cmd.ref) ?? null) : null
-        parent.insertBefore(el, ref)
+        // ref = 已插入的**前一个兄弟**（流式渲染——后一个尚未插入）——
+        // 插到 prev 之后；ref null = 追加尾部
+        const prev = cmd.ref ? (this.nodes.get(cmd.ref) ?? null) : null
+        parent.insertBefore(el, prev ? prev.nextSibling : null)
         break
       }
       case 'setText': {

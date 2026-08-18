@@ -1,0 +1,51 @@
+/**
+ * vdom core — native（原生元素节点渲染——独立文件）
+ *
+ * 规则（AGENTS §4.0——原生元素 = string type）：
+ * - 渲染序列：create（attrs 序列化面）→ insert → children 递归（sink——
+ *   任意嵌套/空洞/组件统一出口——async）→ close（服务端闭合标签时机）
+ * - attrs 序列化面：事件/ref/children/key 排除（函数值不可序列化——
+ *   服务端吐 HTML 用——运行时面走 setProp）
+ * - 单文本子节点扁平（h 单子节点形态——childrenOf 统一序列）
+ */
+
+import type { VNode } from './vnode.ts'
+import { childrenOf } from './children.ts'
+import type { Command } from './commands.ts'
+import type { ComponentSink } from './component.ts'
+
+/** 节点 id——确定性路径（root.0.a0——锚点法——组件实例隔离） */
+export function pathId(parent: string, i: number): string {
+  return `${parent}.${i}`
+}
+
+/** 可序列化属性面（服务端吐 HTML 用）——事件/ref/函数值排除 */
+export function serializableAttrs(props: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'children' || k === 'key' || k === 'ref') continue
+    if (typeof v === 'function') continue
+    out[k] = v
+  }
+  return out
+}
+
+/** 原生元素渲染（create → insert → children 递归 → close） */
+export async function renderNative(
+  vn: VNode,
+  id: string,
+  parent: string,
+  ref: string | null,
+  emitCommand: (cmd: Command) => void,
+  sink: ComponentSink,
+): Promise<void> {
+  emitCommand({ op: 'create', id, tag: vn.type as string, attrs: serializableAttrs(vn.props) })
+  emitCommand({ op: 'insert', id, parent, ref })
+  const cs = childrenOf(vn)
+  let lastRef: string | null = null
+  for (const [i, c] of cs.entries()) {
+    await sink(c, id, i, lastRef)
+    lastRef = pathId(id, i)
+  }
+  emitCommand({ op: 'close', id })
+}
