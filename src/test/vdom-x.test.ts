@@ -1034,3 +1034,60 @@ test('X-B7 值域协议：零/空串/非法输入（0 是文本——条件红�
   }
   document.body.removeChild(root)
 })
+
+test('X-B8 filter(Boolean) 位置漂移 vs 占位法（有状态组件状态保持对比）', async () => {
+  const root = mkRoot()
+  const Counter = (_init: Record<string, unknown>, ctx: any) => {
+    let n = 0
+    return () => h('button', { class: 'cnt', onClick: () => { n++; ctx.render() } }, `n:${n}`)
+  }
+  // ✅ 占位法（标准）：false 占位——B 位置恒定——状态保持
+  const Good = (_init: Record<string, unknown>, ctx: any) => {
+    let cond = true
+    return () => h('div', {}, [
+      h('button', { id: 'tog', onClick: () => { cond = !cond; ctx.render() } }, 'tog'),
+      h('div', { class: 'slot' }, [
+        cond && h(Counter, {}),   // 空洞占位（false 保留——长度恒定）
+        h(Counter, {}),           // 位置 1 恒定
+      ]),
+    ])
+  }
+  const handle = mount(h(Good, {}), root)
+  await handle.ready
+  ;(root.querySelectorAll('.slot .cnt')[1] as HTMLElement).click()  // 第二个 Counter n=1
+  await sleep(10)
+  ;(root.querySelector('[id="tog"]') as HTMLElement).click()       // cond false——第一个消失
+  await sleep(10)
+  ;(root.querySelectorAll('.slot .cnt')[0] as HTMLElement).click()  // 现在唯一的 Counter（原第二个）n=2
+  await sleep(10)
+  assert.equal(root.querySelector('.slot .cnt')?.textContent, 'n:2', '占位法——位置恒定——状态保持（1→2）')
+  handle.unmount()
+
+  // ❌ filter(Boolean) 写法：长度变化——位置漂移——状态重置
+  const errs: string[] = []
+  const oe = console.error
+  console.error = (m: string) => { errs.push(String(m)) }
+  const Bad = (_init: Record<string, unknown>, ctx: any) => {
+    let cond = true
+    return () => h('div', {}, [
+      h('button', { id: 'tog', onClick: () => { cond = !cond; ctx.render() } }, 'tog'),
+      h('div', { class: 'slot' }, [cond && h(Counter, {}), h(Counter, {})].filter(Boolean)),
+    ])
+  }
+  const root2 = mkRoot()
+  const handle2 = mount(h(Bad, {}), root2)
+  await handle2.ready
+  ;(root2.querySelectorAll('.slot .cnt')[1] as HTMLElement).click()  // 第二个 n=1
+  await sleep(10)
+  ;(root2.querySelector('[id="tog"]') as HTMLElement).click()       // cond false——filter 后 [B]
+  await sleep(10)
+  ;(root2.querySelector('.slot .cnt') as HTMLElement).click()        // B 现在位置 0——重建？
+  await sleep(10)
+  // filter 消除空洞 → 数组长度变化 → unkeyed 位置配对——B 重建（状态丢）
+  assert.equal(root2.querySelector('.slot .cnt')?.textContent, 'n:1', 'filter 写法——位置漂移——B 重建（状态重置——红线案例）')
+  console.error = oe
+  assert.ok(errs.some((e) => e.includes('[vdom4/audit]') && e.includes('缺少 key')), 'A 级检测：长度变化 + 无 key 组件项 → dev error（filter 写法被抓）')
+  handle2.unmount()
+  document.body.removeChild(root)
+  document.body.removeChild(root2)
+})

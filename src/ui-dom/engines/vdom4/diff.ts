@@ -132,6 +132,28 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
   if (kids.length > 0 && kids.every((k) => isVNodeObj(k) && (k as VNode).key != null)) {
     return genKeyedChildren(kids as VNode[], oldKids, path, slotKey, cmds, shadow, initAnchor, isFrag)
   }
+  // A 级动态检测（长度变化 + 无 key 组件项 → dev error——portal 槽豁免）
+  // filter(Boolean) 消除空洞 → 长度变化 → 无 key 有状态组件位置漂移（X-B8 红线案例）
+  if (oldKids.length !== kids.length) {
+    const bizOld = oldKids.filter((k) => !(k != null && typeof k === 'object' && !Array.isArray(k) && typeof (k as VNode).type === 'symbol' && (k as VNode).props?.portalKey != null))
+    const bizNew = kids.filter((k) => !(k != null && typeof k === 'object' && !Array.isArray(k) && typeof (k as VNode).type === 'symbol' && (k as VNode).props?.portalKey != null))
+    if (bizOld.length !== bizNew.length) {
+      const sig = `${path}:${bizNew.length}:${bizOld.length}`
+      if (!genChildrenWarned.has(sig)) {
+        genChildrenWarned.add(sig)
+        for (let i = 0; i < kids.length; i++) {
+          const c = kids[i]
+          if (c != null && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function' && (c as VNode).key == null) {
+            console.error(
+              `[vdom4/audit] 动态数组位置 ${i} 的组件缺少 key（${((c as VNode).type as any).name ?? 'anonymous'}）——列表增删/重排会错位组件实例状态。` +
+              `请提供业务身份 key（如 key={item.id}）；或改用占位法（false/null 占位——长度恒定——filter(Boolean) 消除空洞是位置漂移源）。`,
+            )
+            break
+          }
+        }
+      }
+    }
+  }
   const oldAnchors = shadow.anchorsOf(slotKey)
   let lastAnchor: string | null = initAnchor // 首槽位锚的 ref（Fragment = 组件槽位锚）
   let cursor = 0 // 旧锚游标（每槽 +1）

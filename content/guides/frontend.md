@@ -179,6 +179,11 @@ x || <Fallback/>               // ❌ x 为 0/''/NaN 时返回 x 本身——渲
                                //    用：x != null ? <Fallback/> : null
 0 && <X/>                      // ❌ 渲染 "0"（JS 真值陷阱——cond 应保证 boolean）
 { a: 1 }                       // ❌ 对象直接作 children（warn + 占位）
+[cond && <A/>, <B/>].filter(Boolean)  // ❌ filter 消除空洞 → 数组长度变化 →
+                               //    无 key 有状态组件位置漂移（状态重置——
+                               //    A 级检测 dev error）。占位法已处理空洞：
+                               //    直接写 [cond && <A/>, <B/>]（false 占位——
+                               //    长度恒定——B 位置稳定）
 ```
 
 **为什么不会错**：条件表达式产出的值域是受限的（vnode/数组/文本/空洞）——引擎对
