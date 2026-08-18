@@ -46,13 +46,13 @@ export function holeCommands(id: string, parent: string, ref: string | null, det
   ]
 }
 
-/** 占位锚入队（controller 直发——render/hydrate 共用） */
+/** 占位锚入队（emitCommand 直发——render/hydrate 共用） */
 export function emitHole(
-  controller: ReadableStreamDefaultController<Command>,
+  emit: (cmd: Command) => void,
   id: string,
   parent: string,
   ref: string | null,
   detail?: string,
 ): void {
-  for (const cmd of holeCommands(id, parent, ref, detail)) controller.enqueue(cmd)
+  for (const cmd of holeCommands(id, parent, ref, detail)) emit(cmd)
 }

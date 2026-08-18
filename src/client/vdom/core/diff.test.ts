@@ -184,3 +184,66 @@ test('diff 本质：属性变化只发 setProp（不重建元素）', async () =
   const ops = cmds.map((c) => (c as { op: string }).op)
   assert.deepEqual(ops, ['setProp', 'done'], '只发属性更新——元素不重建')
 })
+
+test('keyed 列表：增/删——组件状态跟随 key（身份复用——不按位置继承）', async () => {
+  const hz = harness(testBrowser())
+  const clicks = new Map<string, number>([['a', 0], ['b', 0]])
+  let mounts = 0
+  const Item = (init: Record<string, unknown>) => {
+    mounts++
+    const id = init.id as string
+    return () => h('button', { class: 'it' }, `${id}:${clicks.get(id) ?? 0}`)
+  }
+  const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
+  await hz.mount(list(['a', 'b']))
+  assert.equal(mounts, 2)
+  assert.equal(hz.root.querySelectorAll('.it')[0].textContent, 'a:0')
+  // 增：c 加入（a/b 保持）
+  await hz.update(list(['a', 'b']), list(['a', 'b', 'c']))
+  assert.equal(mounts, 3, '只 mount c——a/b 复用')
+  assert.equal(hz.root.querySelectorAll('.it').length, 3)
+  // 删：b 移除——a 状态保持
+  await hz.update(list(['a', 'b', 'c']), list(['a', 'c']))
+  assert.equal(hz.root.querySelectorAll('.it').length, 2)
+  assert.equal(hz.root.querySelectorAll('.it')[0].textContent, 'a:0')
+  assert.equal(hz.root.querySelectorAll('.it')[1].textContent, 'c:0', 'c 顶位——身份跟随 key')
+})
+
+test('keyed 列表：重排——组件状态跟随 key（不按位置继承——身份不漂移）', async () => {
+  const hz = harness(testBrowser())
+  const clicks = new Map<string, number>([['a', 1], ['b', 5], ['c', 9]])
+  let mounts = 0
+  const Item = (init: Record<string, unknown>) => {
+    mounts++
+    const id = init.id as string
+    return () => h('button', { class: 'it' }, `${id}:${clicks.get(id) ?? 0}`)
+  }
+  const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
+  await hz.mount(list(['a', 'b', 'c']))
+  // 重排：c 移到首位——状态跟随 key（c:9 在首位）
+  await hz.update(list(['a', 'b', 'c']), list(['c', 'a', 'b']))
+  const items = hz.root.querySelectorAll('.it')
+  assert.equal(items.length, 3)
+  assert.equal(items[0].textContent, 'c:9', 'c 首位——状态保持（key 身份）')
+  assert.equal(items[1].textContent, 'a:1', 'a 状态保持')
+  assert.equal(items[2].textContent, 'b:5', 'b 状态保持')
+})
+
+test('keyed 列表：重排——组件实例复用（工厂不重跑——状态保持）', async () => {
+  const hz = harness(testBrowser())
+  let mounts = 0
+  const Item = (init: Record<string, unknown>) => {
+    mounts++
+    return () => h('span', { class: 'it' }, String(init.id))
+  }
+  const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
+  await hz.mount(list(['a', 'b', 'c']))
+  assert.equal(mounts, 3)
+  await hz.update(list(['a', 'b', 'c']), list(['c', 'a', 'b']))
+  assert.equal(mounts, 3, '重排——组件实例复用（.k{key} 身份——工厂不重跑）')
+  const items = hz.root.querySelectorAll('.it')
+  assert.equal(items.length, 3)
+  assert.equal(items[0].textContent, 'c', '新顺序正确')
+  assert.equal(items[1].textContent, 'a')
+  assert.equal(items[2].textContent, 'b')
+})
