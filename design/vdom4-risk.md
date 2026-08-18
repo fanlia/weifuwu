@@ -113,6 +113,15 @@ vdom5 只改 index.ts 的 v4 面实现——测试零改动——X-S1（导出�
 - vdom4（engines/vdom4）保持为「契约验证参考」——不迁移不删除，替换时
   连同 vdom3 一并退役
 
+**公共面形状（2026-12 决策——vdom/ 对外接口收窄）**：
+- 只有 `h/jsx`、`uiServe`、`UIRouter` 三个导出符号（h/jsx 为 JSX 运行时面）
+- `createRoot` **不导出**——必须使用 UIRouter（路由是唯一应用入口——类比
+  后端 Router/serve——req = location、res = VNode——uiServe 内部创建 root）
+- `uiSsr` 不单独导出——uiServe 双端一体（SSR HTML + 种子 + 客户端收养）
+- 结构符号内化不变：createPortal/Fragment/Portal 不导出
+- 实施顺序：vnode+h/jsx（纯数据）→ router（Trie）→ serve（hydration）→
+  index.ts 接通 → 契约验收（vdom-x 引擎入口切换）
+
 ## vdom3 退役规划（vdom4 达标后删除——已被上方实现区决策取代，保留为历史）
 
 **条件**：vdom4 通过全部 vdom-x 契约测试（A~H + R 系列——当前 46 全绿）+
