@@ -100,7 +100,20 @@ createPortalV4/UIRouter/uiServe/uiSsr——v4 面——vdom3 退役后去后缀�
 vdom5 只改 index.ts 的 v4 面实现——测试零改动——X-S1（导出集）/X-S2（handle
 形状 + 交互）验收公共面稳定。
 
-## vdom3 退役规划（vdom4 达标后删除）
+## 新版本实现区（2026-12 决策——覆盖旧退役规划）
+
+**用户决策**：`src/client/vdom/` = 新版本 vdom 实现区（当前为空，.gitkeep
+占位）——**完全实现后一次性替换 ui-dom**。
+
+- **ui-dom 保持不变**：生产引擎（vdom3）+ 契约参考（engines/vdom4）均不动——
+  组件库/应用零影响，并行演进
+- **替换条件**：vdom/ 完全实现（功能对等：渲染/事件/列表/portal/路由/SSR/
+  hydration/组件测试引擎）+ 通过全部 vdom-x 契约测试（公共面零改动）后
+  一次性替换（git 历史可追溯）
+- vdom4（engines/vdom4）保持为「契约验证参考」——不迁移不删除，替换时
+  连同 vdom3 一并退役
+
+## vdom3 退役规划（vdom4 达标后删除——已被上方实现区决策取代，保留为历史）
 
 **条件**：vdom4 通过全部 vdom-x 契约测试（A~H + R 系列——当前 46 全绿）+
 组件库全量在 vdom4 引擎下通过（当前组件测试跑 vdom3 的 renderVNode——需迁移）。
