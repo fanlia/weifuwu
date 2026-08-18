@@ -1,20 +1,25 @@
 /**
- * vdom core — diff 阶段（旧树 vs 新树 → 转换命令流）
+ * vdom core — diff 阶段（旧树 vs 新树 → **command 事件流**）
  *
  * 四阶段管线（2026-12 决策）：route → build → diff → patch
  * - route：UIRouter 匹配（shared Trie）
- * - build：vnode → 命令流（build.ts——首帧/新树构建）
- * - diff：旧树 vs 新树 → 更新命令（本文件——transform 状态机消费）
- * - patch：命令 → DOM（patch.ts）
+ * - build：vnode → command 事件流（build.ts——首帧/新树构建）
+ * - diff：旧树 vs 新树 → **command 事件流**（本文件——transform 状态机消费）
+ * - patch：command 事件流 → DOM（patch.ts——**唯一 DOM 接触点**——
+ *   diff/build 零 DOM 操作——纯事件流生产者——可流式/可序列化/可重放）
+ *
+ * **不是就地 patch**：diff 的产物是 command 事件流（增量更新命令——
+ * setText/setProp/remove/insert/unmountComp）——事件流经 NDJSON 字节
+ * 可传输（Response body）——patch 阶段消费（同一进程或服务端）。
  *
  * 首版范围（诚实裁剪）：
  * - 首帧（oldTree 不存在）→ 全量 build 命令流（等价 build）
- * - root 级重渲染（ctx.render()——新树与旧树同位置对照）：
- *   同位置同类型（element→element 同标签）→ 属性 setProp + children 递归；
- *   异类型 → transform 转换（旧侧让位 remove/unmountComp——新侧 build）
- * - 组件复用（同位置同类型组件——工厂不重跑——renderFn 重新调用）
+ * - 更新（oldTree 存在）→ 增量命令：同位置同类型元素 → 属性 setProp +
+ *   children 递归；文本 → setText；组件同类型复用（工厂不重跑——
+ *   renderFn 重新调用——lastOutput 对照）；异类型 → transform 转换
+ *   （旧侧让位 remove/unmountComp——新侧 build）
  *
- * 增量迭代：keyed 列表/空洞↔真实互换/portal 区间清理（transform 完整落地）。
+ * 增量迭代：keyed 列表/空洞↔真实互换（transform 完整落地）。
  */
 
 import type { VNode, VNodeChild } from './vnode.ts'
