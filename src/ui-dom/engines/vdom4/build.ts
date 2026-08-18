@@ -40,6 +40,7 @@ export async function buildVNode(
   oldV?: VNode | null,
   compPath = 'root',
   createCompCtx?: (compId: string) => Ctx,
+  isRoot = false,
 ): Promise<VNode> {
   // 组件
   if (typeof vnode.type === 'function') {
@@ -50,15 +51,17 @@ export async function buildVNode(
       if (!inst) throw new Error(`[vdom4] 组件实例缺失：${compPath}（影子未注册——复用判定与实例表失配）`)
       // 剪枝：props 未变 → 复用 lastOutput（零展开零 RENDER）——nextOutput 设同引用
       // （diff 判定：nextOutput === lastOutput = 剪枝——区别于「输出 null」（null））
-      if (propsEqual(inst.lastProps, vnode.props)) {
-              inst.nextOutput = inst.lastOutput
-              return v // 纯数据 vnode——输出在影子（lastOutput）——diff 自然零命令
+      // 根组件不剪枝（isRoot——内部状态（闭包 let）变化时 props 不变——剪枝跳过
+      // renderFn = 读旧闭包值——根必须重跑——vdom3 同款语义）
+      if (!isRoot && propsEqual(inst.lastProps, vnode.props)) {
+        inst.nextOutput = inst.lastOutput
+        return v // 纯数据 vnode——输出在影子（lastOutput）——diff 自然零命令
       }
-          // props 变 → 重跑 renderFn（同步——类型强制——无 await 无挂起）
+      // props 变/根重跑 → 重跑 renderFn（同步——类型强制——无 await 无挂起）
       const output = inst.renderFn(vnode.props)
       inst.lastProps = { ...vnode.props }
       if (output) {
-        const built = await buildVNode(output, ctx, shadow, inst.lastOutput, `${compPath}.c`, createCompCtx)
+        const built = await buildVNode(output, ctx, shadow, inst.lastOutput, `${compPath}.c`, createCompCtx, false)
         inst.nextOutput = built // 暂存（diff 后 commit——旧对照保持）
       } else {
         inst.nextOutput = null
@@ -74,7 +77,7 @@ export async function buildVNode(
     shadow.setInstance(compPath, inst)
     const output = renderFn(vnode.props)
     if (output) {
-      const built = await buildVNode(output, ctx, shadow, null, `${compPath}.c`, createCompCtx)
+      const built = await buildVNode(output, ctx, shadow, null, `${compPath}.c`, createCompCtx, false)
       inst.nextOutput = built
     }
     return v
@@ -89,7 +92,7 @@ export async function buildVNode(
     for (const c of kids) {
       if (c != null && typeof c === 'object' && !Array.isArray(c)) {
         const oc = oldKids[i]
-        const built = await buildVNode(c as VNode, ctx, shadow, oc != null && typeof oc === 'object' ? (oc as VNode) : null, `${compPath}.f${i}`, createCompCtx)
+        const built = await buildVNode(c as VNode, ctx, shadow, oc != null && typeof oc === 'object' ? (oc as VNode) : null, `${compPath}.f${i}`, createCompCtx, false)
         newKids.push(built)
         if (built !== c) changed = true
       } else {
@@ -109,7 +112,7 @@ export async function buildVNode(
   for (const c of kids) {
     if (c != null && typeof c === 'object' && !Array.isArray(c)) {
       const oc = oldKids[i]
-      const built = await buildVNode(c as VNode, ctx, shadow, oc != null && typeof oc === 'object' ? (oc as VNode) : null, `${compPath}.${i}`, createCompCtx)
+      const built = await buildVNode(c as VNode, ctx, shadow, oc != null && typeof oc === 'object' ? (oc as VNode) : null, `${compPath}.${i}`, createCompCtx, false)
       newKids.push(built)
       if (built !== c) changed = true
     } else {

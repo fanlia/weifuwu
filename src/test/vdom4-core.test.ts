@@ -181,3 +181,61 @@ test('vdom4：useExternal 订阅共享 store（跨组件状态 → 自动重渲�
   handle.unmount()
   document.body.removeChild(root)
 })
+
+// ── Portal + usePopup 集成（组件迁移试点——组件库浮层模式在 vdom4） ──
+
+test('vdom4：Portal 渲染到 #__wf_portal（浮层基础）', async () => {
+  const root = mkRoot()
+  const { createPortal } = await import('../ui-dom/engines/vdom4/jsx.ts')
+  let show = true
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    return () => h('div', { id: 'main' }, [
+      h('span', {}, '主体'),
+      show ? createPortal(h('div', { id: 'pop' }, '浮层'), 'v4-test') : null,
+    ])
+  }
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  assert.ok(document.querySelector('#__wf_portal [data-wf-portal-key="v4-test"] #pop'), 'portal 内容在远程容器')
+  assert.equal(root.querySelector('#pop'), null, '浮层不在主树')
+  // 关闭（条件移除 → portal 内容清除）
+  show = false
+  handle.engine.render()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(document.querySelector('#__wf_portal [data-wf-portal-key="v4-test"] #pop'), null, '关闭清除 portal 内容')
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})
+
+test('vdom4：usePopup 组件（popup.portal——打开/关闭/外部点击）——迁移试点', async () => {
+  const root = mkRoot()
+  const { usePopup } = await import('../ui-dom/hooks/popup.ts')
+  // 模拟组件库 Popover 的写法（usePopup + popup.portal）——vdom4 方式
+  const Popover = (_init: Record<string, unknown>, ctx: any) => {
+    // 组件库标准组合：useOpen（内部态）+ usePopup（isOpen/setOpen 接线——非受控）
+    const open = ctx.ui.useOpen({ name: 'v4-pop' })
+    const popup = ctx.ui.usePopup({
+      trigger: 'click',
+      placement: 'bottom',
+      el: () => root.querySelector('#trig') as HTMLElement,
+      isOpen: () => open.open,
+      setOpen: (v: boolean) => open.setOpen(v),
+    })
+    return () => h('div', { id: 'wrap' }, [
+      h('button', { id: 'trig', ...popup.wrapProps }, '触发'),
+      popup.portal(h('div', { id: 'pop-content' }, '浮层内容'), 'v4-popover'),
+    ])
+  }
+  const handle = createRoot(h(Popover, {}), root)
+  await handle.ready
+  console.log('[v4-dbg] trig:', !!root.querySelector('#trig'))
+  ;(root.querySelector('#trig') as HTMLButtonElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.ok(document.querySelector('#__wf_portal [data-wf-portal-key="v4-popover"] #pop-content'), '浮层打开（portal——非受控）')
+  // 关闭（外部点击——usePopup 的 document mousedown 监听）
+  document.dispatchEvent(new (window as any).MouseEvent('mousedown', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(document.querySelector('#__wf_portal [data-wf-portal-key="v4-popover"] #pop-content'), null, '外部点击关闭')
+  document.body.removeChild(root)
+  document.querySelector('#__wf_portal')?.remove()
+})

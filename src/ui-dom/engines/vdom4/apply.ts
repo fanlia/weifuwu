@@ -11,6 +11,23 @@
 import type { Command } from './types.ts'
 import type { ShadowState } from './shadow.ts'
 
+/** portal 容器（#__wf_portal > [data-wf-portal-key]——lazy 创建） */
+export function ensurePortalContainer(key: string): HTMLElement {
+  let rootEl = document.getElementById('__wf_portal')
+  if (!rootEl) {
+    rootEl = document.createElement('div')
+    rootEl.id = '__wf_portal'
+    document.body.appendChild(rootEl)
+  }
+  let c = rootEl.querySelector(`[data-wf-portal-key="${key}"]`) as HTMLElement | null
+  if (!c) {
+    c = document.createElement('div')
+    c.setAttribute('data-wf-portal-key', key)
+    rootEl.appendChild(c)
+  }
+  return c
+}
+
 /** 执行器上下文（引擎注入——节点注册表 + 卸载钩子表） */
 export interface ApplyEnv {
   registry: Map<string, Node>
@@ -24,7 +41,11 @@ const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', '
 export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement): void {
   const { registry, shadow } = env
   const resolve = (id: string): Node | null => registry.get(id) ?? null
-  const parentOf = (id: string): Node | null => id === 'root' ? root : resolve(id)
+  const parentOf = (id: string): Node | null => {
+    if (id === 'root') return root
+    if (id.startsWith('portal:')) return ensurePortalContainer(id.slice(7))
+    return resolve(id)
+  }
 
   for (const c of cmds) {
     switch (c.op) {

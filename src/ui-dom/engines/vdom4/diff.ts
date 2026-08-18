@@ -9,7 +9,7 @@
  */
 
 import type { VNode, VNodeChild, Command } from './types.ts'
-import { Fragment, childrenOf } from './types.ts'
+import { Fragment, Portal, childrenOf } from './types.ts'
 import type { ShadowState } from './shadow.ts'
 
 /** 顶层 diff（root 挂载/整树 patch——新树 vs 影子 → 命令） */
@@ -132,11 +132,14 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
     const nextAnchor = oldAnchors[cursor] ?? null
     const slotAnchor = oldAnchor ?? anchorId
 
-    // 空洞：只有锚（旧内容清除——锚保留）——组件项移除 = 实例销毁（钩子执行）
+    // 空洞：只有锚（旧内容清除——锚保留）——组件项移除 = 实例销毁；portal 项 = 远程内容清除
     if (c == null || c === false || c === true) {
       if (oc != null) {
         if (typeof (oc as VNode).type === 'function') {
           cmds.push({ op: 'unmountComp', compId: contentPath })
+        }
+        if (typeof (oc as VNode).type === 'symbol' && (oc as VNode).props?.portalKey != null) {
+          cmds.push({ op: 'remove', id: `${contentPath}.p` }) // portal 内容在远程容器
         }
         cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
       }
@@ -156,6 +159,25 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
     }
     // vnode 项
     const vn = c as VNode
+    // Portal：内容渲染到远程容器（#__wf_portal > [data-wf-portal-key]——单内容简化）
+    // 判定：结构性（symbol + props.portalKey——hooks 的 createPortal 可能来自不同
+    // symbol 实例（vdom3 兼容）——不依赖 symbol 恒等）
+    if (typeof vn.type === 'symbol' && vn.props?.portalKey != null) {
+      const portalKey = String(vn.props?.portalKey ?? 'default')
+      const containerPath = `portal:${portalKey}`
+      const ocPortal = oc != null && typeof oc === 'object' && !Array.isArray(oc) && typeof (oc as VNode).type === 'symbol' && (oc as VNode).props?.portalKey != null
+        ? ((oc as VNode).props?.portalKey === vn.props?.portalKey ? oc as VNode : null)
+        : null
+      const content = childrenOf(vn)[0] ?? null
+      const oldContent = ocPortal ? (childrenOf(ocPortal)[0] ?? null) : null
+      if (content != null && typeof content === 'object' && !Array.isArray(content)) {
+        genVNode(content as VNode, `${contentPath}.p`, oldContent != null && typeof oldContent === 'object' ? oldContent as VNode : null, cmds, shadow, null, containerPath)
+      } else if (oldContent != null && typeof oldContent === 'object') {
+        // 内容变空——移除旧内容
+        cmds.push({ op: 'remove', id: `${contentPath}.p` })
+      }
+      continue
+    }
     if (typeof vn.type === 'function') {
       const inst = shadow.getInstance(contentPath)
       if (!inst) throw new Error(`[vdom4] 组件实例缺失：${contentPath}`)
@@ -176,7 +198,10 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
     if (oc != null && typeof oc === 'object' && !Array.isArray(oc) && (oc as VNode).type === vn.type && (oc as VNode).key === vn.key) {
       genVNode(vn, contentPath, oc as VNode, cmds, shadow, slotAnchor, slotKey)
     } else {
-      if (oc != null) cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
+      if (oc != null) {
+        if (typeof (oc as VNode).type === 'symbol' && (oc as VNode).props?.portalKey != null) cmds.push({ op: 'remove', id: `${contentPath}.p` })
+        cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
+      }
       genVNode(vn, contentPath, null, cmds, shadow, slotAnchor, slotKey)
     }
   }

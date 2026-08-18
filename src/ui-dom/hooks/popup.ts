@@ -393,7 +393,7 @@ export function useOpen(env: HookEnv, options: {
     else env.scheduleRender()
   }
   const setOpen = (v: boolean) => {
-    if (controlled) { options.onOpenChange?.(v); return }
+      if (controlled) { options.onOpenChange?.(v); return }
     if (selfId) env.openStates.set(selfId, v)
     dirty()
   }

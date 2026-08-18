@@ -150,7 +150,7 @@ export class Engine {
   /** 根更新（整树——build + diff + apply） */
   private async updateRoot(): Promise<void> {
     if (!this.rootVNode) return
-    const built = await buildVNode(this.rootVNode, this.ctx, this.shadow, this.current, 'root', this.createCompCtx.bind(this))
+    const built = await buildVNode(this.rootVNode, this.ctx, this.shadow, this.current, 'root', this.createCompCtx.bind(this), true)
     const cmds = diffTree(built, this.shadow)
       this.apply(cmds)
     this.current = built
@@ -203,7 +203,7 @@ export class Engine {
   /** 挂载（首帧） */
   async mount(vnode: VNode): Promise<void> {
     this.rootVNode = vnode
-    const built = await buildVNode(vnode, this.ctx, this.shadow, null, 'root', this.createCompCtx.bind(this))
+    const built = await buildVNode(vnode, this.ctx, this.shadow, null, 'root', this.createCompCtx.bind(this), true)
     const cmds = diffTree(built, this.shadow)
     this.apply(cmds)
     this.current = built
