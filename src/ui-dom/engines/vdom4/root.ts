@@ -89,10 +89,16 @@ export class Engine {
   private root: HTMLElement
   ctx: Ctx
   data: DataPipe
-  private pending: Array<() => void> = []
-  private running = false
-  private iterations = 0
-  private readonly MAX_ITERATIONS = 10
+  /** 渲染守卫 + 单槽位补跑（渲染中 render() 调用 → 记录最新目标——完成后执行一次
+   *  ——不丢不排队：每个 render 请求要么立即执行（空闲）要么确保最终执行（合并到
+   *  补跑——最终 DOM = 所有请求的最新状态）。渲染中窗口仅在真 await（ctx.data
+   *  fetch）期间存在——同步 renderFn 时渲染是微任务链（事件在宏任务——不重叠）；
+   *  真 await 期间的事件状态更新被当前 build 吸收（renderFn 恢复读最新闭包）。
+   *  单槽位天然限流（事件风暴合并为一个补跑）——确定性：无队列/无微任务启动/
+   *  无合并魔法——补跑执行最新目标） */
+  private rendering = false
+  /** 渲染中触发的目标（单槽位——最新覆盖）——null = root */
+  private dirtyTarget: string[] | null | undefined
 
   private inject: Record<string, unknown> | undefined
 
@@ -111,7 +117,7 @@ export class Engine {
 
   /** 组件级渲染（统一原语 comp target） */
   renderComp(compId: string): void {
-    this.schedule({ kind: 'comp', id: compId })
+    this.render([compId])
   }
 
   unmountHooksFor(compId: string): Array<() => void> {
@@ -120,54 +126,41 @@ export class Engine {
     return arr
   }
 
-  /** 统一渲染原语（root/comp/语义 id——同一入口） */
+  /** 统一渲染原语（root/comp/语义 id——同一入口）
+   *  **确定性（2026-12 决策——确定性高于 render 次数——无 magic）**：
+   *  render() 调用 = 立即启动一次渲染（无微任务延迟/队列/合并——同步进入 build）；
+   *  渲染中调用 → 单槽位补跑（记录最新目标——当前渲染完成后执行一次——不丢）；
+   *  无外力 → 零渲染。多目标（render(['a','b'])）串行 await。 */
   render(ids?: string[]): void {
-    if (ids && ids.length > 0) {
-      // 语义 id → comp（服务层映射——最小闭环：id 即 compId）
-      for (const id of ids) this.schedule({ kind: 'comp', id })
-    } else {
-      this.schedule({ kind: 'root' })
-    }
-  }
-
-  private schedule(target: Target): void {
-    // 同目标合并（同 tick 多次 render —— 只执行最后一次）——fn 返回 run 的 Promise
-    // （drain 串行 await——void 吞 Promise 会让 await 立即返回——并发交错——
-    //  commitAll 覆盖剪枝标记——子组件输出误清）
-    const mk = (t: Target) => Object.assign(() => this.run(t), { t: t.kind + ':' + (t.kind === 'comp' ? t.id : '') })
-    if (this.pending.some((p) => (p as { t?: string }).t === target.kind + ':' + (target.kind === 'comp' ? target.id : ''))) {
-      // 已有同目标排队——替换为最新（合并）
-      const idx = this.pending.findIndex((p) => (p as { t?: string }).t === target.kind + ':' + (target.kind === 'comp' ? target.id : ''))
-      this.pending[idx] = mk(target)
+    if (this.rendering) {
+      this.dirtyTarget = ids && ids.length > 0 ? ids : null // 单槽位（最新覆盖）
       return
     }
-    this.pending.push(mk(target))
-    if (!this.running) {
-      this.running = true
-      this.iterations = 0
-      queueMicrotask(() => { void this.drain().finally(() => { this.running = false }) })
-    }
-  }
-
-  private async drain(): Promise<void> {
-    // 串行队列（await 每个——渲染中触发排队下一轮——无并发交错——
-    // 并发 await 会交错（buildVNode 挂起期间另一更新 commit——覆盖剪枝标记））
-    if (++this.iterations > this.MAX_ITERATIONS) {
-      console.error('[vdom4] 渲染循环超限（疑似死循环）——中止本轮')
-      this.pending = []
-      return
-    }
-    const batch = this.pending
-    this.pending = []
-    for (const fn of batch) {
-      try { await fn() } catch (e) { console.error('[vdom4] render error:', e) }
-    }
-    if (this.pending.length > 0) await this.drain()
-  }
-
-  private async run(target: Target): Promise<void> {
-    if (target.kind === 'comp') await this.updateComponent(target.id)
-    else await this.updateRoot()
+    this.rendering = true
+    void (async () => {
+      try {
+        for (;;) {
+          const t = this.dirtyTarget
+          this.dirtyTarget = undefined
+          if (t === undefined) {
+            if (ids && ids.length > 0) {
+              for (const id of ids) await this.updateComponent(id)
+            } else {
+              await this.updateRoot()
+            }
+          } else if (t === null) {
+            await this.updateRoot()
+          } else {
+            for (const id of t) await this.updateComponent(id)
+          }
+          if (this.dirtyTarget === undefined) break
+        }
+      } catch (e) {
+        console.error('[vdom4] render error:', e)
+      } finally {
+        this.rendering = false
+      }
+    })()
   }
 
   /** 根更新（整树——build + diff + apply） */
@@ -225,13 +218,18 @@ export class Engine {
   private absorbed = false
   private rootVNode: VNode | null = null
 
-  /** 挂载（首帧） */
+  /** 挂载（首帧——mount 时渲染守卫占用——ready 后释放——交互在 ready 后） */
   async mount(vnode: VNode): Promise<void> {
     this.rootVNode = vnode
-    const built = await buildVNode(vnode, this.ctx, this.shadow, null, 'root', this.createCompCtx.bind(this), true)
-    const cmds = diffTree(built, this.shadow)
-    this.apply(cmds)
-    this.current = built
+    this.rendering = true
+    try {
+      const built = await buildVNode(vnode, this.ctx, this.shadow, null, 'root', this.createCompCtx.bind(this), true)
+      const cmds = diffTree(built, this.shadow)
+      this.apply(cmds)
+      this.current = built
+    } finally {
+      this.rendering = false
+    }
   }
 
   unmount(): void {
