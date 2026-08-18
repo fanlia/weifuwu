@@ -10,7 +10,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Fragment, isFragment } from './fragment.ts'
 import { childrenOf } from './children.ts'
-import { h } from './vnode.ts'
+import { h } from '../vnode.ts'
 
 test('Fragment 内部符号：isFragment 判定', () => {
   const f = h(Fragment as unknown as string, {}, h('span', {}))

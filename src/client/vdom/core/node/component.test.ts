@@ -8,13 +8,13 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { testBrowser } from '../setup.ts'
-import { h, type Component } from './vnode.ts'
-import { renderToStream } from './render.ts'
+import { testBrowser } from '../../setup.ts'
+import { h, type Component } from '../vnode.ts'
+import { renderToStream } from '../render.ts'
 import { renderComponent, createComponentRegistry, disposeComponent } from './component.ts'
-import { CommandApplier } from './apply.ts'
+import { CommandApplier } from '../apply.ts'
 import { pathId } from './native.ts'
-import type { Ctx } from '../context/Ctx.ts'
+import type { Ctx } from '../../context/Ctx.ts'
 
 async function applyAll(browser: ReturnType<typeof testBrowser>, rootV: ReturnType<typeof h>) {
   const stream = renderToStream(rootV)

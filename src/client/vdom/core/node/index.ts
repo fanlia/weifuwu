@@ -12,7 +12,7 @@
  * - invalid：对象/数字 type/未知 Symbol → 诊断占位 + warn（hole.ts——不崩溃不静默）
  */
 
-import type { VNode, VNodeChild } from './vnode.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
 import { isFragment } from './fragment.ts'
 import { isPortal } from './portal.ts'
 import { isHole, isInvalid } from './hole.ts'

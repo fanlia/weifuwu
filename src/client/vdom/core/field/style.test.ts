@@ -8,7 +8,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { testBrowser } from '../setup.ts'
+import { testBrowser } from '../../setup.ts'
 import { applyStyle, applyStyleValue, UNITLESS_KEYS } from './style.ts'
 
 function el(): HTMLElement {

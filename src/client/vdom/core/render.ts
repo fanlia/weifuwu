@@ -15,12 +15,12 @@
  */
 
 import type { VNode, VNodeChild } from './vnode.ts'
-import { childrenOf } from './children.ts'
-import { kindOf, textOf } from './node.ts'
-import { emitHole, invalidDiagnostic } from './hole.ts'
-import { isPortal, PORTAL_ID_PREFIX } from './portal.ts'
-import { pathId, renderNative } from './native.ts'
-import { renderComponent, createComponentRegistry, type ComponentRegistry } from './component.ts'
+import { childrenOf } from './node/children.ts'
+import { kindOf, textOf } from './node/index.ts'
+import { emitHole, invalidDiagnostic } from './node/hole.ts'
+import { isPortal, PORTAL_ID_PREFIX } from './node/portal.ts'
+import { pathId, renderNative } from './node/native.ts'
+import { renderComponent, createComponentRegistry, type ComponentRegistry } from './node/component.ts'
 import type { Ctx } from '../context/Ctx.ts'
 import type { Command } from './command/index.ts'
 

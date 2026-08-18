@@ -8,7 +8,7 @@
  * - 单节点分类 → node.ts（kindOf——fragment 分支判定）
  */
 
-import type { VNode } from './vnode.ts'
+import type { VNode } from '../vnode.ts'
 
 /** Fragment 内部符号（`<></>` 编译目标——数组 = 隐式 Fragment） */
 export const Fragment: unique symbol = Symbol('vdom-fragment')

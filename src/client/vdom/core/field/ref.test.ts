@@ -7,7 +7,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { testBrowser } from '../setup.ts'
+import { testBrowser } from '../../setup.ts'
 import { applyRef, REF_KEY } from './ref.ts'
 
 test('ref 挂载/卸载：ref(el) → ref(null)', () => {

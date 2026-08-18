@@ -9,7 +9,7 @@
  * - 五消费方共用（buildVNode/renderValue/patchChildren/renderSsr/hydrate）
  */
 
-import type { VNode, VNodeChild } from './vnode.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
 
 /** children 读取（单一规则源）：统一 children 序列——任意嵌套递归展开 */
 export function childrenOf(v: VNode): VNodeChild[] {

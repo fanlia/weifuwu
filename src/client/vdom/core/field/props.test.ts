@@ -7,7 +7,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { testBrowser } from '../setup.ts'
+import { testBrowser } from '../../setup.ts'
 import { applyProperty, isPropertyKey, PROPERTY_KEYS } from './props.ts'
 
 function doc(): Document {

@@ -12,12 +12,12 @@
  */
 
 import type { Command } from './command/index.ts'
-import { applyAttribute } from './attributes.ts'
-import { applyStyle } from './style.ts'
-import { applyProperty, isPropertyKey } from './props.ts'
-import { applyRef } from './ref.ts'
-import { bindEvent, EVENT_RE } from './events.ts'
-import { PORTAL_CONTAINER_ID, PORTAL_ID_PREFIX, portalContainerId } from './portal.ts'
+import { applyAttribute } from './field/attributes.ts'
+import { applyStyle } from './field/style.ts'
+import { applyProperty, isPropertyKey } from './field/props.ts'
+import { applyRef } from './field/ref.ts'
+import { bindEvent, EVENT_RE } from './field/events.ts'
+import { PORTAL_CONTAINER_ID, PORTAL_ID_PREFIX, portalContainerId } from './node/portal.ts'
 
 export type WfNode = HTMLElement | Text | Comment
 

@@ -7,7 +7,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { testBrowser } from '../setup.ts'
+import { testBrowser } from '../../setup.ts'
 import { bindEvent, eventName, EVENT_RE } from './events.ts'
 
 function el(): HTMLElement {

@@ -11,8 +11,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, jsx, type VNode, type Component } from './vnode.ts'
-import { Fragment } from './fragment.ts'
-import { childrenOf } from './children.ts'
+import { Fragment } from './node/fragment.ts'
+import { childrenOf } from './node/children.ts'
 
 test('h：纯数据 vnode——type/props/key/children 形状', () => {
   const v = h('div', { id: 'x', key: 'k1' }, 'text')

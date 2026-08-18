@@ -18,9 +18,9 @@
  *   组件复用（工厂不重跑——let/ref 状态保持——diff 消费）
  */
 
-import type { VNode, VNodeChild } from './vnode.ts'
-import type { Component, RenderFn } from './vnode.ts'
-import type { Ctx } from '../context/Ctx.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
+import type { Component, RenderFn } from '../vnode.ts'
+import type { Ctx } from '../../context/Ctx.ts'
 
 /** 组件实例记录（跨渲染保持——diff 复用） */
 export interface ComponentRecord {

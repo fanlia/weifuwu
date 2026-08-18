@@ -16,7 +16,7 @@
  */
 
 import type { Ctx } from '../context/Ctx.ts'
-import { extractKey, stripKey } from './key.ts'
+import { extractKey, stripKey } from './field/key.ts'
 
 /** vnode——纯数据 */
 export interface VNode {

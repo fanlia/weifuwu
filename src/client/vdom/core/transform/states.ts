@@ -14,7 +14,7 @@
  */
 
 import type { VNodeChild } from '../vnode.ts'
-import { kindOf } from '../node.ts'
+import { kindOf } from '../node/index.ts'
 import type { NodeState } from './index.ts'
 
 /** 节点状态判定（kindOf → NodeState——语义别名——invalid 归 hole 占位） */

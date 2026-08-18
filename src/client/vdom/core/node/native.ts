@@ -9,9 +9,9 @@
  * - 单文本子节点扁平（h 单子节点形态——childrenOf 统一序列）
  */
 
-import type { VNode } from './vnode.ts'
+import type { VNode } from '../vnode.ts'
 import { childrenOf } from './children.ts'
-import type { Command } from './command/index.ts'
+import type { Command } from '../command/index.ts'
 import type { ComponentSink } from './component.ts'
 
 /** 节点 id——确定性路径（root.0.a0——锚点法——组件实例隔离） */

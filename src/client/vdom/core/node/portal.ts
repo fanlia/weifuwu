@@ -13,7 +13,7 @@
  *   hydration 收养）
  */
 
-import type { VNode, VNodeChild } from './vnode.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
 
 /** Portal 内部符号（usePopup 内部机制——浮层渲染到 #__wf_portal） */
 export const Portal: unique symbol = Symbol('vdom-portal')
