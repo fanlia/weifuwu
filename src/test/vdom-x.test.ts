@@ -1091,3 +1091,30 @@ test('X-B8 filter(Boolean) 位置漂移 vs 占位法（有状态组件状态保�
   document.body.removeChild(root)
   document.body.removeChild(root2)
 })
+
+test('X-G4 组件输出 null → 恢复（lastOutput 同步——旧对照失配回归）', async () => {
+  const root = mkRoot()
+  const Child = (_i: Record<string, unknown>, _ctx: any) => {
+    return (props: any) => (props.show ? h('div', { class: 'c' }, '内容') : null)
+  }
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    let show = true
+    return () => h('div', {}, [
+      h(Child, { show }),
+      h('button', { id: 't', onClick: () => { show = !show; ctx.render() } }, 't'),
+      h('span', { class: 'after' }, 'after'),
+    ])
+  }
+  const handle = mount(h(App, {}), root)
+  await handle.ready
+  assert.ok(root.querySelector('.c'), '初始渲染')
+  ;(root.querySelector('[id="t"]') as HTMLElement).click()   // show=false → 输出 null
+  await sleep(10)
+  assert.ok(!root.querySelector('.c'), '输出 null——内容清除')
+  ;(root.querySelector('[id="t"]') as HTMLElement).click()   // show=true → 再输出
+  await sleep(10)
+  assert.ok(root.querySelector('.c'), '输出 null 后恢复（lastOutput 同步——防旧对照失配）')
+  assert.ok(root.querySelector('.after'), '兄弟保留')
+  handle.unmount()
+  document.body.removeChild(root)
+})

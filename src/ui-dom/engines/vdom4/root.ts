@@ -55,6 +55,12 @@ export function createDataPipe(): DataPipe {
       }
       return p as Promise<T>
     },
+    /** 失败重试（fetch 失败/业务错误——缓存中 reject 的 promise 可清除重取——
+     *  默认失败缓存永不 resolve（组件挂起态）——显式重试入口） */
+    invalidate: (key: string): void => {
+      cache.delete(key)
+      resolved.delete(key)
+    },
     set: (key, value) => { cache.set(key, Promise.resolve(value)); resolved.set(key, value) },
     has: (key) => cache.has(key),
     preload: (seed) => {
@@ -184,8 +190,10 @@ export class Engine {
           if (output) {
         const built = await buildVNode(output, this.ctx, this.shadow, oldOut, `${compId}.c`, this.createCompCtx.bind(this))
         inst.nextOutput = built
+        inst.outputNull = false
       } else {
         inst.nextOutput = null
+        inst.outputNull = true // 输出 null——diff 用旧 lastOutput 判定——commit 时清
       }
       const cmds = diffComponent(compId, this.shadow)
       this.apply(cmds)

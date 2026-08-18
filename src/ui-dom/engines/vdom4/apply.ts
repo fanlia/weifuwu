@@ -42,6 +42,10 @@ const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', '
 
 export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement): void {
   const { registry, shadow, refs } = env
+  // create 映射预建（insert 的 ref 查找 O(1)——大列表免 cmds.find O(n²)——
+  // VirtualList 100 项 = 1 万次扫描 → 100 次）
+  const createVn = new Map<string, { vn?: { props?: Record<string, unknown> } }>()
+  for (const c of cmds) if (c.op === 'create') createVn.set(c.id, c as never)
   const resolve = (id: string): Node | null => registry.get(id) ?? null
   const parentOf = (id: string): Node | null => {
     if (id === 'root') return root
@@ -127,8 +131,7 @@ export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement)
         }
         shadow.registerNode(c.id, c.parent)
         // ref 回调（挂载）
-        const vn = (cmds.find((x) => x.op === 'create' && x.id === c.id) as { vn?: { props?: Record<string, unknown> } } | undefined)
-        const refFn = vn?.vn?.props?.ref as ((el: unknown) => void) | undefined
+        const refFn = createVn.get(c.id)?.vn?.props?.ref as ((el: unknown) => void) | undefined
         if (typeof refFn === 'function') { try { refFn(node) } catch { /* ref 失败隔离 */ } }
         break
       }

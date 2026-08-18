@@ -77,6 +77,8 @@ export interface DataPipe {
   has(key: string): boolean
   /** 种子注入（hydration——SSR 收集的数据预热——命中同步——零二次 fetch） */
   preload(seed: Record<string, unknown>): void
+  /** 失败重试（清除缓存中 reject 的 promise——显式入口——默认失败缓存不重试） */
+  invalidate(key: string): void
   /** 收集已解析数据（SSR——渲染后取种子——序列化进 __DATA__） */
   seed(): Record<string, unknown>
 }

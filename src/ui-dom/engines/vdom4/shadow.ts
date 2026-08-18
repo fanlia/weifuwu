@@ -18,6 +18,9 @@ export interface CompInstance {
   lastOutput: VNode | null
   /** 本次构建暂存（diff 完成后 commit——提前更新丢失旧对照） */
   nextOutput: VNode | null
+  /** 本次渲染明确输出 null（commit 时 lastOutput 同步置 null——防旧对照失配——
+   *  区别于「未重渲染」（nextOutput null 但保留 lastOutput）——R1 误伤回归） */
+  outputNull?: boolean
 }
 
 /** 影子状态 */
@@ -95,13 +98,25 @@ export class ShadowState {
   }
   /** 落地提交（diff/apply 完成后——nextOutput → lastOutput）
    *  同引用（剪枝标记——next === last——diff 判定用）跳过——不 commit（last 已最新——
-   *  commit 会把标记置 null——下次 diff 误判输出 null——clearSlot 误清） */
+   *  commit 会把标记置 null——下次 diff 误判输出 null——clearSlot 误清）
+   *  **输出变 null（nextOutput === null 且 lastOutput 非 null）：DOM 已 clearSlot——
+   *  lastOutput 必须同步置 null——否则下次 build/diff 用旧树对照（DOM 已清）——
+   *  组件再输出内容时恢复失败（tmpdbg5 验证）** */
   commitOutput(compId: string): void {
     const inst = this.instances.get(compId)
-    if (inst?.nextOutput != null && inst.nextOutput !== inst.lastOutput) {
-      inst.lastOutput = inst.nextOutput
-      inst.nextOutput = null
+    if (!inst) return
+    if (inst.nextOutput != null) {
+      if (inst.nextOutput !== inst.lastOutput) {
+        inst.lastOutput = inst.nextOutput
+        inst.nextOutput = null
+      }
+      // 剪枝标记（next === last 同引用）——保留不置 null（diff 判定用——
+      // 置 null 会让下次 diff 误判输出 null——clearSlot 误清——12 测试回归验证）
+    } else if (inst.outputNull && inst.lastOutput != null) {
+      // 本次渲染明确输出 null——DOM 已清（clearSlot）——lastOutput 同步置 null（R1）
+      inst.lastOutput = null
     }
+    inst.outputNull = false
   }
   commitAll(): void {
     for (const id of [...this.instances.keys()]) this.commitOutput(id)

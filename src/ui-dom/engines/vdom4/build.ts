@@ -47,7 +47,6 @@ export async function buildVNode(
     const v = { ...vnode }
     const reuse = oldV != null && typeof oldV === 'object' && oldV.type === vnode.type && oldV.key === vnode.key
       if (reuse) {
-        const instP = shadow.getInstance(compPath)
       const inst = shadow.getInstance(compPath)
       if (!inst) throw new Error(`[vdom4] 组件实例缺失：${compPath}（影子未注册——复用判定与实例表失配）`)
       // 剪枝：props 未变 → 复用 lastOutput（零展开零 RENDER）——nextOutput 设同引用
@@ -64,8 +63,10 @@ export async function buildVNode(
       if (output) {
         const built = await buildVNode(output, ctx, shadow, inst.lastOutput, `${compPath}.c`, createCompCtx, false)
         inst.nextOutput = built // 暂存（diff 后 commit——旧对照保持）
+        inst.outputNull = false
       } else {
         inst.nextOutput = null
+        inst.outputNull = true // 输出 null——diff 用旧 lastOutput 判定——commit 时清
       }
       return v
     }
