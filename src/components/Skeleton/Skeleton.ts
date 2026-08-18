@@ -55,5 +55,7 @@ export const Skeleton: Component<SkeletonProps> = async (_init) =>
       return h('div', { class: itemCls, style: Object.keys(style).length ? style : undefined })
     })
 
+    // Fragment 包装（引擎无关兼容写法——vdom3 引擎的组件输出数组支持未落地；
+    // vdom4/vdom5 契约：数组 = 隐式 Fragment（X-B5）——两种写法 DOM 等价）
     return h(Fragment, null, items)
   }

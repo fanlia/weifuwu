@@ -138,8 +138,12 @@ h('div', { class: 'x' }, child1, child2)
 |------|------|
 | `h(type, props, ...children)` | hyperscript |
 | `jsx` / `jsxs` / `jsxDEV` | JSX 编译目标 |
-| `Fragment` | 片段 |
 | `ctx.ui.usePopup(...)` | 弹层唯一入口（内部经 Portal 渲染到 `#__wf_portal`——用户不直接调 `createPortal`） |
+
+> **Fragment 内化（2026-12）**：不需要 import Fragment——**数组 = 隐式 Fragment**
+> （任意嵌套递归展开——扁平化为同一 children 序列）；`<></>` 也可（JSX 编译器
+> 自动从运行时导入）。统一写法：多节点用数组，不需要任何结构符号。
+> Fragment 符号保留仅用于 keyed 文本/多根列表项（`h(Fragment, { key }, ...)`）。
 
 > **Portal 内化（2026-12）**：`createPortal` 是 `usePopup` 的内部实现机制——
 > 组件作者不直接调用。所有浮层（dropdown/select/datepicker/menubar/cascader/

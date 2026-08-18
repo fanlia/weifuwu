@@ -72,13 +72,23 @@
 |------|------|------|
 | `createPortal` | 组件库 **0 处直接调用**（28 浮层组件全走 usePopup）；hooks 内部 2 处 | **内化**：usePopup 的内部实现机制——用户不直接调用 |
 | `usePopup` | 28 组件 | **弹层唯一入口**（定位/关闭/Escape/夹紧/presence/mask/portal 全包） |
-| `Fragment` | 组件输出数组 = 隐式 Fragment | **标准原语**（契约 X-C4） |
+| `Fragment` | 组件库 1 处（Markdown keyed 文本——数组无法带 key） | **内化**：用户不 import——数组 = 隐式 Fragment（任意嵌套递归展开——X-B5）；`<></>` 编译器自动导入；符号保留仅 keyed 文本/多根项 |
 | portal 判定 | 结构性（symbol + props.portalKey——不依赖 symbol 恒等）| 引擎内部机制（vdom3 产物兼容） |
 
-**内化理由**：① 组件库 0 直接使用（无迁移成本）；② usePopup 是完整弹层抽象——
-createPortal 是裸机制（暴露 = 用户自管定位/关闭/Escape/夹紧）；③ 单一入口 =
-一致行为/测试/文档；④ 引擎可自由改 portal 实现。vdom3 导出保留（兼容）。
-契约测试的 Portal 面全部经 usePopup 验证（引擎 portal 机制间接覆盖）。
+**内化理由（统一写法——开发者不易写错）**：① 组件库 0 直接使用（无迁移成本）；
+② usePopup 是完整弹层抽象——createPortal 是裸机制（暴露 = 用户自管全部细节）；
+③ **结构符号不暴露**——数组（隐式 Fragment 任意嵌套展开）/`<></>`/usePopup——
+开发者只写业务结构，不写引擎结构；④ 单一入口 = 一致行为/测试/文档。
+vdom3 导出保留（兼容）。契约测试的 Portal 面全部经 usePopup 验证。
+
+**嵌套数组语义（X-B5）**：`[x, [y, [z, k], l], m]` = 递归展开为扁平 children
+序列（任意深度——纯函数一次到位——路径按展开后位置——深度变化不漂移）。
+取代「两层 flatMap + 每轮 build 再展开」的隐式累积行为。
+
+**兼容边界（vdom3）**：vdom3 的 buildVNode 不接受数组输入——组件输出数组
+（隐式 Fragment）是 vdom4/vdom5 契约（X-B5）；组件库存量保持 `h(Fragment, ...)`
+包装（引擎无关兼容写法——两种写法 DOM 等价）。vdom5 必须支持数组输出——
+组件库可逐步去 Fragment。
 
 ## 3. vdom-x.test.ts 契约设计
 

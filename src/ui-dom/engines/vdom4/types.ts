@@ -37,10 +37,15 @@ export const Fragment: unique symbol = Symbol('v4-fragment')
 export const Portal: unique symbol = Symbol('v4-portal')
 export type PortalVNode = VNode & { type: typeof Portal; portalKey?: string | null }
 
-/** children 读取（h 存 props.children——拍平嵌套数组——空洞保留） */
+/** children 读取（h 存 props.children——**递归展开嵌套数组**——任意深度 = 隐式
+ *  Fragment——空洞（false/null）保留不滤除）。
+ *  统一写法（2026-12）：数组/`<></>`/嵌套数组全部扁平化为同一 children 序列——
+ *  纯函数展开（一次到位——不依赖「每轮 build 再展开一层」的隐式行为）——
+ *  路径按展开后位置（深度变化不漂移）。 */
 export function childrenOf(v: VNode): Array<VNode | string | number | null | undefined | boolean> {
   const c = v.children ?? (v.props?.children === undefined ? [] : v.props.children)
-  return (Array.isArray(c) ? c.flatMap((x) => Array.isArray(x) ? x.flatMap((y) => Array.isArray(y) ? y : [y]) : [x]) : [c]) as Array<VNode | string | number | null | undefined | boolean>
+  const flat = (x: VNodeChild): VNodeChild[] => (Array.isArray(x) ? x.flatMap(flat) : [x])
+  return (Array.isArray(c) ? c.flatMap(flat) : [c]) as Array<VNode | string | number | null | undefined | boolean>
 }
 
 // ── 命令（diff 的产物——纯数据——DOM = fold(命令)） ──

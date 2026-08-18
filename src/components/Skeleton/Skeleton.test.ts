@@ -39,7 +39,7 @@ describe('Skeleton', () => {
     assert.ok(vnode.props?.class?.includes('my-extra'))
   })
 
-  it('lines=3 渲染 Fragment 含 3 个 div', async () => {
+  it('lines=3 渲染 Fragment 含 3 个 div（引擎无关包装）', async () => {
     const vnode = await renderVNode(Skeleton, { lines: 3 }, createTestCtx()) as any
     assert.equal(vnode.type, Fragment)
     const children = vnode.props?.children ?? []

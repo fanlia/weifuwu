@@ -928,3 +928,46 @@ test('X-H10 VirtualList 冒烟（useScrollPosition 滚动窗口 + keyBy）', asy
   handle.unmount()
   document.body.removeChild(root)
 })
+
+test('X-B5 嵌套数组 = 隐式 Fragment（任意深度递归展开——统一写法——深度变化不漂移）', async () => {
+  const root = mkRoot()
+  const App = (_init: Record<string, unknown>, ctx: any) => {
+    let deep = false
+    return () => h('div', {}, [
+      h('span', { class: 'a' }, 'x'),
+      [h('span', { class: 'b' }, 'y'), [h('span', { class: 'c' }, 'z'), h('span', { class: 'k' }, 'k')], h('span', { class: 'l' }, 'l')],
+      h('span', { class: 'm' }, 'm'),
+      h('button', { id: 'deep', onClick: () => { deep = !deep; ctx.render() } }, 'deep'),
+    ])
+  }
+  const handle = mount(h(App, {}), root)
+  await handle.ready
+  const cls = [...root.querySelectorAll('span')].map((n) => n.className).join(',')
+  assert.equal(cls, 'a,b,c,k,l,m', '嵌套数组任意深度展开（顺序保持）')
+  // 深度变化：内层 [c, k] → [[c, k]]（更深）——展开序列不变——位置不漂移
+  const App2 = (_i: Record<string, unknown>, ctx: any) => {
+    let deep = false
+    return () => {
+      const mid = deep
+        ? [[h('span', { class: 'c' }, 'z'), h('span', { class: 'k' }, 'k')]]
+        : [h('span', { class: 'b' }, 'y'), [h('span', { class: 'c' }, 'z'), h('span', { class: 'k' }, 'k')], h('span', { class: 'l' }, 'l')]
+      return h('div', {}, [
+        h('span', { class: 'a' }, 'x'),
+        mid,
+        h('span', { class: 'm' }, 'm'),
+        h('button', { id: 'deep', onClick: () => { deep = !deep; ctx.render() } }, 'deep'),
+      ])
+    }
+  }
+  const root2 = mkRoot()
+  const handle2 = mount(h(App2, {}), root2)
+  await handle2.ready
+  ;(root2.querySelector('[id="deep"]') as HTMLElement).click()
+  await sleep(10)
+  const cls2 = [...root2.querySelectorAll('span')].map((n) => n.className).join(',')
+  assert.equal(cls2, 'a,c,k,m', '深度变化——展开序列正确（纯函数扁平化）')
+  handle.unmount()
+  handle2.unmount()
+  document.body.removeChild(root)
+  document.body.removeChild(root2)
+})
