@@ -88,6 +88,18 @@ string·number（文本）/ 空洞（`false`·`null`·`undefined`·`true`——�
 > **vdom3 退役条件**：vdom4 通过全部 vdom-x 契约（含 X-R）→ vdom3 删除
 > （组件库测试引擎切换 + 公共面去 v3 导出——见 design/vdom4-risk.md）。
 
+## S9 公共面稳定契约（weifuwu/ui-dom index.ts——对外接口）
+
+| # | 标准 | 强制 | 违反时 |
+|---|------|------|--------|
+| S9.1 | **`weifuwu/ui-dom` 公共面 = 对外契约**——内部引擎实现（vdom4/vdom5）切换**不影响功能**——应用/组件只依赖公共面 | **L3** | 契约 X-S1/X-S2 |
+| S9.2 | 契约 API 清单（vdom 无关面）：`h/jsx/jsxs/jsxDEV/Fragment/Portal/createPortal` + `createStore` + `createClientBrowser` + 中间件（`api/auth/ws/i18n`） | **L3** | X-S1 |
+| S9.3 | 引擎契约面：`createRoot`（handle: ready/engine/unmount）+ `UIRouter/uiServe/uiSsr`（S8） | **L3** | X-S2/X-R |
+| S9.4 | **禁止公共面泄漏引擎专属实现**（v3 专属导出过渡期标注——vdom3 退役时移除——不得成为契约） | 文档红线 | 切换时功能变化 |
+
+> **公共面 = 兼容性承诺**：vdom-x 全部测试（X-A~R + X-S）经公共面取引擎入口——
+> vdom5 只改 index.ts 的 v4 面实现——测试零改动——全绿 = 公共面功能不变。
+
 ## 强制执行机制总览
 
 | 机制 | 覆盖 | 位置 |

@@ -92,6 +92,14 @@ props 变化 → 父 build 驱动重渲染；内部状态变化 → 组件级渲
 
 **契约**：X-R1（Trie 匹配）/ X-R2（导航原子切换）/ X-R3（SSR→hydration 零重建 + 交互）。
 
+## 公共面稳定契约（2026-12 决策）
+
+`weifuwu/ui-dom/index.ts` = **对外接口**——内部引擎（vdom4/vdom5）切换不影响功能。
+vdom-x 全部测试（X-A~R/S）经公共面取引擎入口（createRootV4/hV4/FragmentV4/
+createPortalV4/UIRouter/uiServe/uiSsr——v4 面——vdom3 退役后去后缀）。
+vdom5 只改 index.ts 的 v4 面实现——测试零改动——X-S1（导出集）/X-S2（handle
+形状 + 交互）验收公共面稳定。
+
 ## vdom3 退役规划（vdom4 达标后删除）
 
 **条件**：vdom4 通过全部 vdom-x 契约测试（A~H + R 系列——当前 46 全绿）+

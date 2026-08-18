@@ -31,13 +31,10 @@
 import { test, before, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
-// ── 引擎入口（vdom5：替换此区 import 即切换——X-R 走公共面 weifuwu/ui-dom）──
-import { createRoot } from '../ui-dom/engines/vdom4/root.ts'
-import { h, Fragment } from '../ui-dom/engines/vdom4/jsx.ts'
-import { createPortal } from '../ui-dom/engines/vdom4/jsx.ts'
-// UIRouter/uiServe/uiSsr = 契约标准（每个 vdom 必须实现——公共面导出——
-// vdom5 替换 index.ts 的实现即切换——X-R1~R3 验收）
-import { UIRouter, uiServe, uiSsr } from '../ui-dom/index.ts'
+// ── 引擎入口（vdom-x 公共面契约：**全部经 weifuwu/ui-dom 的 index.ts**——
+//  内部实现（vdom4/vdom5）切换不影响功能——公共面 API 稳定——vdom5 只改
+//  index.ts 的 v4 面实现——本文件零改动——X-A~R 全绿 = 契约达标）──
+import { createRootV4 as createRoot, hV4 as h, FragmentV4 as Fragment, createPortalV4 as createPortal, UIRouter, uiServe, uiSsr } from '../ui-dom/index.ts'
 // ── 组件库（兼容契约——零改动验证）──
 
 before(setupJsdom)
@@ -1215,5 +1212,59 @@ test('X-R3 uiSsr → uiServe hydration（同一 UIRouter——SSR HTML 收养—
   await sleep(20)
   assert.equal(root.querySelector('#ct')?.textContent, '点击:1', '收养后交互（事件 + 组件级渲染）')
   serve.unmount()
+  document.body.removeChild(root)
+})
+
+test('X-S1 公共面契约（index.ts 导出集稳定——内部引擎切换不影响对外接口）', async () => {
+  // 从公共面（weifuwu/ui-dom 同源）取全部契约 API——验证存在 + 形状
+  const uiDom = await import('../ui-dom/index.ts')
+  const required = [
+    // 渲染原语（vdom 无关——统一 JSX 面）
+    ['h', 'function'], ['jsx', 'function'], ['jsxs', 'function'], ['jsxDEV', 'function'],
+    ['Fragment', 'symbol'], ['Portal', 'symbol'], ['createPortal', 'function'],
+    // 渲染引擎（契约——createRoot 最终形态无后缀——当前 v4 面带后缀过渡）
+    ['createRootV4', 'function'],
+    // 路由/SSR（S8——每个 vdom 必选）
+    ['UIRouter', 'function'], ['uiServe', 'function'], ['uiSsr', 'function'],
+    // 状态/环境/中间件（vdom 无关面）
+    ['createStore', 'function'], ['createClientBrowser', 'function'],
+    ['api', 'function'], ['auth', 'function'], ['ws', 'function'], ['i18n', 'function'],
+  ] as const
+  for (const [name, kind] of required) {
+    const v = (uiDom as any)[name]
+    assert.ok(v != null, `公共面缺少 ${name}（${kind}）`)
+    if (kind === 'function') assert.equal(typeof v, 'function', `${name} 应为函数`)
+    if (kind === 'symbol') assert.equal(typeof v, 'symbol', `${name} 应为 symbol`)
+  }
+  // 公共面冒烟：createRootV4 可用（真实渲染——X-A 同款能力经公共面）
+  const root = mkRoot()
+  const App = () => () => h('div', { class: 'smoke' }, '公共面冒烟')
+  const handle = createRoot(h(App, {}), root)
+  await handle.ready
+  assert.ok(root.querySelector('.smoke'), '公共面 createRoot 渲染可用')
+  handle.unmount()
+  document.body.removeChild(root)
+})
+
+test('X-S2 公共面 API 语义契约（X-A~R 全部经公共面——切换实现功能不变）', async () => {
+  // 本文件的全部测试（X-A1~R3）都从公共面取引擎入口（文件头 import）——
+  // vdom5 切换 index.ts 的 v4 面实现后，同一测试集必须全绿 = 公共面功能不变
+  const uiDom = await import('../ui-dom/index.ts')
+  // 契约面形状验证：createRoot 返回 handle（ready/engine/unmount）——
+  // vdom4/vdom5 实现一致——组件/应用无需感知引擎差异
+  const root = mkRoot()
+  const Counter = (_i: Record<string, unknown>, ctx: any) => {
+    let n = 0
+    return () => h('button', { id: 'c', onClick: () => { n++; ctx.render() } }, `n:${n}`)
+  }
+  const handle = createRoot(h(Counter, {}), root)
+  await handle.ready
+  assert.equal(typeof handle.ready?.then, 'function', 'handle.ready 是 Promise')
+  assert.ok(handle.engine, 'handle.engine 存在（调度/数据面）')
+  assert.equal(typeof handle.unmount, 'function', 'handle.unmount 是函数')
+  ;(root.querySelector('#c') as HTMLElement).click()
+  await sleep(20)
+  assert.equal(root.querySelector('#c')?.textContent, 'n:1', '公共面 handle 交互可用')
+  handle.unmount()
   document.body.removeChild(root)
 })
