@@ -145,6 +145,46 @@ h('div', { class: 'x' }, child1, child2)
 > 自动从运行时导入）。统一写法：多节点用数组，不需要任何结构符号。
 > Fragment 符号保留仅用于 keyed 文本/多根列表项（`h(Fragment, { key }, ...)`）。
 
+### 条件渲染统一标准（值域协议）
+
+**children 值域**（引擎契约——写组件只需要记这张表）：
+
+| 值 | 渲染 | 说明 |
+|----|------|------|
+| vnode / 数组（任意嵌套） | 元素 / 隐式 Fragment | 正常 |
+| string / number | 文本（含 `0`/`NaN`——显示为 "0"/"NaN"） | 合法——**但条件表达式避免产生** |
+| `false` / `null` / `undefined` / `true` | 空洞占位（不渲染——兄弟不错位） | 条件渲染的自然产物 |
+| 对象 / 函数 / Symbol | 诊断占位 + `console.warn` | 非法输入（开发期暴露） |
+
+**写法标准**（按优先级）：
+
+```tsx
+// ① 首选：显式三元（双分支零歧义）
+cond ? <X/> : null
+cond ? <A/> : <B/>
+
+// ② 条件渲染（cond 必须是 boolean/确定真值——禁止 0/''/NaN 语义）
+cond && <X/>
+cond && [<A/>, <B/>]          // 多节点条件（数组 = 隐式 Fragment）
+[<A/>, cond && <B/>]           // 嵌套在数组内——自然工作
+
+// ③ 多节点分支
+cond ? [<A/>, <B/>] : null
+```
+
+**红线**（会写出 bug 的写法）：
+
+```tsx
+x || <Fallback/>               // ❌ x 为 0/''/NaN 时返回 x 本身——渲染 "0"/空文本
+                               //    用：x != null ? <Fallback/> : null
+0 && <X/>                      // ❌ 渲染 "0"（JS 真值陷阱——cond 应保证 boolean）
+{ a: 1 }                       // ❌ 对象直接作 children（warn + 占位）
+```
+
+**为什么不会错**：条件表达式产出的值域是受限的（vnode/数组/文本/空洞）——引擎对
+空洞做占位（同构——兄弟不错位——提交按钮事故免疫）；对非法输入 warn（不静默）。
+开发者只需遵守三条：三元优先、`&&` 的左侧保证 boolean、不写 `||` 条件渲染。
+
 > **Portal 内化（2026-12）**：`createPortal` 是 `usePopup` 的内部实现机制——
 > 组件作者不直接调用。所有浮层（dropdown/select/datepicker/menubar/cascader/
 > tooltip/popover/modal/drawer/toast 等）一律 `ctx.ui.usePopup`——定位/外部点击

@@ -971,3 +971,66 @@ test('X-B5 嵌套数组 = 隐式 Fragment（任意深度递归展开——统一
   document.body.removeChild(root)
   document.body.removeChild(root2)
 })
+
+test('X-B6 条件表达式统一标准（值域协议——空洞/文本/数组/非法输入矩阵）', async () => {
+  const root = mkRoot()
+  const warns: string[] = []
+  const ow = console.warn
+  console.warn = (m: string) => { warns.push(String(m)) }
+  try {
+    const App = (_init: Record<string, unknown>, ctx: any) => {
+      let cond = true
+      let mode = 'on' as 'on' | 'off'
+      return () => h('div', { id: 'box' }, [
+        h('span', { class: 'a' }, 'A'),
+        cond && h('span', { class: 'and1' }, 'and1'),          // cond && y
+        cond && [h('span', { class: 'and2' }, 'and2a'), h('span', { class: 'and3' }, 'and2b')], // cond && [y,z]
+        cond ? h('span', { class: 'tern1' }, 'tern-y') : h('span', { class: 'tern2' }, 'tern-n'), // 三元
+        mode === 'on' ? [h('span', { class: 'multi1' }, 'm1'), h('span', { class: 'multi2' }, 'm2')] : null, // 三元数组
+        h('span', { class: 'z' }, 'Z'),
+        h('button', { id: 'off', onClick: () => { cond = false; mode = 'off'; ctx.render() } }, 'off'),
+      ])
+    }
+    const handle = mount(h(App, {}), root)
+    await handle.ready
+    const cls = [...root.querySelectorAll('#box span')].map((n) => n.className).join(',')
+    assert.equal(cls, 'a,and1,and2,and3,tern1,multi1,multi2,z', '全真值——全部渲染')
+    ;(root.querySelector('[id="off"]') as HTMLElement).click()
+    await sleep(10)
+    const cls2 = [...root.querySelectorAll('#box span')].map((n) => n.className).join(',')
+    // 三元是二选一（false 分支 tern2 显示）——&& 与 null 分支是空洞
+    assert.equal(cls2, 'a,tern2,z', 'cond&&/cond&&[多]/三元数组全部空洞；三元显示 false 分支')
+    handle.unmount()
+  } finally {
+    console.warn = ow
+  }
+  document.body.removeChild(root)
+})
+
+test('X-B7 值域协议：零/空串/非法输入（0 是文本——条件红线；对象/Symbol 诊断占位 + warn）', async () => {
+  const root = mkRoot()
+  const warns: string[] = []
+  const ow = console.warn
+  console.warn = (m: string) => { warns.push(String(m)) }
+  try {
+    const App = () => () => h('div', { id: 'box' }, [
+      h('span', { class: 'a' }, 'A'),
+      0,                       // 0 && y 的脏值——渲染 "0"（合法文本——条件红线）
+      '',                      // 空文本（无可见内容）
+      ({ a: 1 }) as any,       // 非法——诊断占位 + warn
+      Symbol('x') as any,      // 非法——诊断占位 + warn
+      h('span', { class: 'b' }, 'B'),
+    ])
+    const handle = mount(h(App, {}), root)
+    await handle.ready
+    const box = root.querySelector('#box') as HTMLElement
+    assert.ok(box.textContent?.includes('0'), '0 渲染为文本（"0"——值域协议：number 是文本）')
+    const cls = [...box.querySelectorAll('span')].map((n) => n.className).join(',')
+    assert.equal(cls, 'a,b', '非法输入不渲染（占位）——正常兄弟保留')
+    assert.ok(warns.some((w) => w.includes('非法 children 值')), '非法输入 warn（开发期暴露）')
+    handle.unmount()
+  } finally {
+    console.warn = ow
+  }
+  document.body.removeChild(root)
+})

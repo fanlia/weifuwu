@@ -20,6 +20,9 @@ export function diffTree(newV: VNode, shadow: ShadowState): Command[] {
 }
 
 /** 组件级 diff（组件路径 → 输出 patch——统一渲染原语的 comp target） */
+/** 非法输入 warn 幂等（按槽位——重复渲染不刷屏） */
+const genChildrenWarned = new Set<string>()
+
 export function diffComponent(compId: string, shadow: ShadowState): Command[] {
   const inst = shadow.getInstance(compId)
   if (!inst) return []
@@ -164,8 +167,30 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
     const nextAnchor = oldAnchors[cursor] ?? null
     const slotAnchor = oldAnchor ?? anchorId
 
+    // 非法输入（对象/函数/Symbol——非 vnode 非文本非空洞）——诊断占位 + warn
+    // （值域协议：children 只接受 vnode/数组/string/number/空洞——其余开发期暴露）
+    if (c != null && typeof c !== 'string' && typeof c !== 'number' && !(typeof c === 'object' && !Array.isArray(c) && 'type' in c)) {
+      const desc = typeof c === 'object' ? `object ${JSON.stringify(c).slice(0, 40)}` : typeof c
+      if (!genChildrenWarned.has(contentPath)) {
+        genChildrenWarned.add(contentPath)
+        console.warn(`[vdom4] 非法 children 值（${desc}）——槽位 ${contentPath}——渲染占位（不崩溃不静默）`)
+      }
+      if (oc != null) {
+        if (typeof (oc as VNode).type === 'function') {
+          cmds.push({ op: 'unmountComp', compId: contentPath })
+        }
+        if (typeof (oc as VNode).type === 'symbol' && (oc as VNode).props?.portalKey != null) {
+          const ocKey = (oc as VNode).key
+          const oldAllKeyed = oldKids.length > 0 && oldKids.every((k) => k != null && typeof k === 'object' && !Array.isArray(k) && (k as VNode).key != null)
+          const parentP = contentPath.slice(0, contentPath.lastIndexOf('.'))
+          cmds.push({ op: 'remove', id: oldAllKeyed && ocKey != null ? `${parentP}.k${ocKey}.p` : `${contentPath}.p` })
+        }
+        cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
+      }
+      continue
+    }
     // 空洞：只有锚（旧内容清除——锚保留）——组件项移除 = 实例销毁；portal 项 = 远程内容清除
-    if (c == null || c === false || c === true) {
+    if (c == null || (c as unknown) === false || (c as unknown) === true) {
       if (oc != null) {
         if (typeof (oc as VNode).type === 'function') {
           cmds.push({ op: 'unmountComp', compId: contentPath })
