@@ -4,27 +4,41 @@
  * 设计（design/vdom-plan.md §3）：res.body.getReader() → 逐条 command →
  * apply 到 DOM。节点表（id → DOM 节点）随命令流构建。
  *
- * 本文件为初始最小实现：create/createText/createAnchor/insert/setText/
- * close(no-op)/done(no-op)——事件/ref 绑定（setProp）后续实现。
+ * 属性三通道（AGENTS §4.0）：setProp 按通道分发——
+ *   on[A-Z] → events（事件绑定）
+ *   PROPERTY_KEYS → props（DOM property——value/checked...）
+ *   ref → props.applyRef（挂载/卸载回调）
+ *   其余 → attributes（setAttribute/style/enumerated 白名单）
  */
 
 import type { Command } from './commands.ts'
+import { applyAttribute, applyStyle } from './attributes.ts'
+import { applyProperty, applyRef, isPropertyKey } from './props.ts'
+import { bindEvent, EVENT_RE } from './events.ts'
 
 export type WfNode = HTMLElement | Text | Comment
 
-/** 静态属性应用（create 携带的 attrs——可序列化面） */
+/** create 携带的 attrs——静态可序列化面（class/id/style/data-*） */
 export function applyAttrs(el: HTMLElement, attrs: Record<string, unknown>): void {
   for (const [k, v] of Object.entries(attrs)) {
-    if (v === null || v === undefined) continue
-    if (k === 'class' || k === 'className') {
-      el.setAttribute('class', String(v))
-    } else if (k === 'style' && typeof v === 'object' && v !== null) {
-      for (const [sk, sv] of Object.entries(v)) {
-        ;(el.style as any)[sk] = sv
-      }
+    if (k === 'style') {
+      applyStyle(el, v)
     } else {
-      el.setAttribute(k, String(v))
+      applyAttribute(el, k, v)
     }
+  }
+}
+
+/** setProp 三通道分发 */
+export function applySetProp(el: HTMLElement, key: string, value: unknown, prev?: unknown): void {
+  if (key === 'ref') {
+    applyRef(el, value, prev)
+  } else if (EVENT_RE.test(key)) {
+    bindEvent(el, key, value, prev)
+  } else if (isPropertyKey(key)) {
+    applyProperty(el, key, value)
+  } else {
+    applyAttribute(el, key, value)
   }
 }
 
@@ -66,9 +80,11 @@ export class CommandApplier {
         if (t instanceof Text) t.textContent = cmd.value
         break
       }
-      case 'setProp':
-        // 运行时面（事件/ref/property）——后续实现
+      case 'setProp': {
+        const el = this.nodes.get(cmd.id)
+        if (el instanceof HTMLElement) applySetProp(el, cmd.key, cmd.value, cmd.prev)
         break
+      }
       case 'remove': {
         this.nodes.get(cmd.id)?.remove()
         break

@@ -19,8 +19,9 @@ export type Command =
   | { op: 'close'; id: string }
   /** 挂载节点（parent/ref 均为节点 id——ref null = 追加尾部） */
   | { op: 'insert'; id: string; parent: string; ref: string | null }
-  /** 运行时属性/事件/ref（不可序列化面——服务端 no-op——客户端 apply） */
-  | { op: 'setProp'; id: string; key: string; value: unknown }
+  /** 运行时属性/事件/ref（不可序列化面——服务端 no-op——客户端 apply）
+   *  prev = 旧值（diff 提供——事件解绑/属性还原） */
+  | { op: 'setProp'; id: string; key: string; value: unknown; prev?: unknown }
   /** 文本更新 */
   | { op: 'setText'; id: string; value: string }
   /** 移除节点（含子树） */
