@@ -79,8 +79,7 @@ export function usePresence(env: HookEnv, options?: { name?: string }) {
 
   const finishExit = () => {
     phase = 'closed'
-    if (selfId) env.scheduleRender()
-    else env.scheduleRender()
+    env.scheduleRender()
   }
 
   let animEndOff: (() => void) | null = null

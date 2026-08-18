@@ -76,6 +76,7 @@ export class Engine {
   shadow: ShadowState = new ShadowState()
   registry = new Map<string, Node>()
   unmountHooks = new Map<string, Array<() => void>>()
+  private refs = new Map<string, (el: unknown) => void>()
   currentCompId: string | null = null
 
   private current: VNode | null = null
@@ -194,7 +195,7 @@ export class Engine {
   }
 
   private apply(cmds: Command[]): void {
-    const env: ApplyEnv = { registry: this.registry, shadow: this.shadow, unmountHooks: this.unmountHooks }
+    const env: ApplyEnv = { registry: this.registry, shadow: this.shadow, unmountHooks: this.unmountHooks, refs: this.refs }
     // 首帧：检测 SSR 内容（吸收）
     if (this.current == null && !this.absorbed) {
       const ssrOld = [...this.root.childNodes]

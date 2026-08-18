@@ -34,12 +34,14 @@ export interface ApplyEnv {
   shadow: ShadowState
   /** 卸载钩子（compId → fn[]——unmountComp 时执行） */
   unmountHooks: Map<string, Array<() => void>>
+  /** ref 表（id → refFn——create 时记录——移除时 ref(null)——ref 纪律） */
+  refs: Map<string, (el: unknown) => void>
 }
 
 const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'defs', 'use', 'text', 'tspan', 'ellipse', 'title', 'desc', 'marker', 'symbol', 'linearGradient', 'radialGradient', 'stop', 'mask', 'pattern', 'clipPath'])
 
 export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement): void {
-  const { registry, shadow } = env
+  const { registry, shadow, refs } = env
   const resolve = (id: string): Node | null => registry.get(id) ?? null
   const parentOf = (id: string): Node | null => {
     if (id === 'root') return root
@@ -61,6 +63,9 @@ export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement)
         }
         el.setAttribute('data-v4-id', c.id)
         registry.set(c.id, el)
+        // ref 记录（insert 后调用 el——移除时 ref(null)）
+        const refFn = c.vn.props?.ref as ((el: unknown) => void) | undefined
+        if (typeof refFn === 'function') refs.set(c.id, refFn)
         // props 应用（create 路径全量——事件绑定/ref 在 insert 时）
         applyProps(el, c.vn.props ?? {})
         break
@@ -163,7 +168,7 @@ export function applyCommands(cmds: Command[], env: ApplyEnv, root: HTMLElement)
         } else {
           const node = resolve(c.id)
           if (node?.parentNode) {
-            callRefCleanupNode(node)
+            callRefCleanupNode(node, refs)
             node.parentNode.removeChild(node)
           }
           registry.delete(c.id)
@@ -218,7 +223,7 @@ export function styleToCss(val: Record<string, unknown>): string {
 
 /** 锚槽位区间移除（锚 + 内容——含子锚 anchors 同步/ref(null)） */
 function execRemoveSlot(anchorId: string, env: ApplyEnv): void {
-  const { registry, shadow } = env
+  const { registry, shadow, refs } = env
   const anchor = registry.get(anchorId)
   const parent = anchor?.parentNode
   if (!anchor || !parent) return
@@ -231,12 +236,12 @@ function execRemoveSlot(anchorId: string, env: ApplyEnv): void {
     const nx = n.nextSibling
     const id = registryIdOf(n, registry)
     if (id && shadow.isAnchor.get(id)) shadow.removeAnchor(parentId, id)
-    callRefCleanupNode(n)
+    callRefCleanupNode(n, refs)
     parent.removeChild(n)
     if (id) { registry.delete(id); shadow.unregister(id) }
     n = nx
   }
-  callRefCleanupNode(anchor)
+  callRefCleanupNode(anchor, refs)
   parent.removeChild(anchor)
   shadow.removeAnchor(parentId, anchorId)
   shadow.unregister(anchorId)
@@ -245,7 +250,7 @@ function execRemoveSlot(anchorId: string, env: ApplyEnv): void {
 
 /** clearSlot：清内容留锚（空洞） */
 function execClearSlot(anchorId: string, parentId: string, nextAnchorId: string | null, env: ApplyEnv): void {
-  const { registry, shadow } = env
+  const { registry, shadow, refs } = env
   const anchor = registry.get(anchorId)
   const parent = anchor?.parentNode
   if (!anchor || !parent) return
@@ -255,7 +260,7 @@ function execClearSlot(anchorId: string, parentId: string, nextAnchorId: string 
     const nx = n.nextSibling
     const id = registryIdOf(n, registry)
     if (id && shadow.isAnchor.get(id)) shadow.removeAnchor(parentId, id)
-    callRefCleanupNode(n)
+    callRefCleanupNode(n, refs)
     parent.removeChild(n)
     if (id) { registry.delete(id); shadow.unregister(id) }
     n = nx
@@ -289,7 +294,12 @@ function registryIdOf(n: Node, registry: Map<string, Node>): string | null {
   return null
 }
 
-/** ref(null) 递归（卸载——ref 纪律） */
-function callRefCleanupNode(_n: Node): void {
-  // 最小闭环：ref(null) 由组件卸载路径处理（disposeTree 语义后续扩展）
+/** ref(null)（卸载/清槽——ref 纪律：ref 函数引用变化时旧 ref(null)；
+ *  稳定 ref（mount 定义）只在真正卸载时调用） */
+function callRefCleanupNode(n: Node, refs: Map<string, (el: unknown) => void>): void {
+  const id = n.nodeType === 1 ? (n as Element).getAttribute('data-v4-id') : null
+  if (id) {
+    const refFn = refs.get(id)
+    if (refFn) { try { refFn(null) } catch { /* ref 清理失败隔离 */ } refs.delete(id) }
+  }
 }

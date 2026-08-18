@@ -28,10 +28,12 @@ export function diffComponent(compId: string, shadow: ShadowState): Command[] {
   if (out) {
     genVNode(out, `${compId}.c`, inst.lastOutput, cmds, shadow)
   } else if (inst.lastOutput && inst.nextOutput === null) {
-    // 输出变 null——清空组件槽位（锚保留——槽位锚 = 输出锚？——组件路径 → 槽位锚
-    // 不在 diff 范围（组件级更新不动父槽位——父的 clearSlot 由父 diff 处理）——
-    // 组件输出 null 且父未重渲染：锚后的内容需要清除——最小闭环：组件级输出 null
-    // 直接由父 diff 处理（父重建时）——此处仅当 lastOutput 存在且无父重建时兜底）
+    // 输出变 null——清空组件槽位 + portal 远程内容（组件输出根是 portal——Modal 型：
+    // X-H3 抓出——presence 退场 finishExit → renderFn 返回 null——portal 内容残留
+    // #__wf_portal——clearSlot 只清本地锚区间）
+    if (inst.lastOutput && typeof inst.lastOutput.type === 'symbol' && (inst.lastOutput.props as Record<string, unknown> | undefined)?.portalKey != null) {
+      cmds.push({ op: 'remove', id: `${compId}.c.p` })
+    }
     const parentId = `${compId}`.slice(0, `${compId}`.lastIndexOf('.'))
     const aid = `${parentId}.a${compSlotOf(compId)}`
     cmds.push({ op: 'clearSlot', anchorId: aid, parent: parentId, nextAnchorId: null })
@@ -169,7 +171,14 @@ function genChildren(vnode: VNode, path: string, oldV: VNode | null, cmds: Comma
           cmds.push({ op: 'unmountComp', compId: contentPath })
         }
         if (typeof (oc as VNode).type === 'symbol' && (oc as VNode).props?.portalKey != null) {
-          cmds.push({ op: 'remove', id: `${contentPath}.p` }) // portal 内容在远程容器
+          // portal 内容路径约定：旧数组全 keyed → keyed 分支（.{parent}.k{key}.p）；
+          // 否则 unkeyed 槽位（.{contentPath}.p）——空洞移除必须同 create 路径
+          // （X-C3 抓出：单项 [portal] 判定 keyed（.kmenu.kmenu-x.p）——变 [null]
+          // 后判定翻转 unkeyed（.kmenu.0.p）——远程内容残留）
+          const ocKey = (oc as VNode).key
+          const oldAllKeyed = oldKids.length > 0 && oldKids.every((k) => k != null && typeof k === 'object' && !Array.isArray(k) && (k as VNode).key != null)
+          const parentP = contentPath.slice(0, contentPath.lastIndexOf('.'))
+          cmds.push({ op: 'remove', id: oldAllKeyed && ocKey != null ? `${parentP}.k${ocKey}.p` : `${contentPath}.p` })
         }
         cmds.push({ op: 'clearSlot', anchorId: slotAnchor, parent: slotKey, nextAnchorId: nextAnchor })
       }
@@ -311,10 +320,14 @@ function genKeyedChildren(kids: VNode[], oldKids: VNodeChild[], path: string, sl
   }
   // 移除无新 key 的旧项（锚区间）
   const newKeys = new Set(kids.map((k) => k.key))
-  for (const [key, { idx }] of oldMap) {
+  for (const [key, { vn: oldVn, idx }] of oldMap) {
     if (!newKeys.has(key)) {
       const oldAnchor = oldAnchors[idx] ?? null
       if (oldAnchor) cmds.push({ op: 'remove', id: oldAnchor })
+      // 旧 portal 项（keyed 直接是浮层——Select 菜单关闭）——远程内容也要清
+      if (typeof oldVn.type === 'symbol' && oldVn.props?.portalKey != null) {
+        cmds.push({ op: 'remove', id: `${path}.k${key}.p` })
+      }
     }
   }
   return lastAnchor

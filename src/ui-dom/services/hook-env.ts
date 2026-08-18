@@ -39,10 +39,16 @@ export function renderSemanticIds(ids: string[]): void {
   }
 }
 
-/** 测试隔离（跨测试残留——semanticIds/compRenders 清空） */
+/** 测试隔离（跨测试残留——全部模块级状态清空） */
 export function resetSemanticService(): void {
   semanticIds.clear()
   compRenders.clear()
+  openStates.clear()
+  uncontrolledValues.clear()
+  inputStates.clear()
+  warned.clear()
+  mediaRegistry.clear()
+  trackerSystem.destroyPopupListeners?.()
 }
 
 /** 语义 id 注册（selfId——冲突明确抛错——防错位静默） */
