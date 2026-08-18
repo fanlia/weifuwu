@@ -26,7 +26,7 @@ import type { Ctx } from '../context/Ctx.ts'
 function harness(browser: ReturnType<typeof testBrowser>) {
   const registry = createComponentRegistry()
   const root = browser.document.querySelector('#root') as HTMLElement
-  const applier = new CommandApplier(root, browser.document)
+  const applier = new CommandApplier(root, browser.document, registry)
   const apply = async (stream: ReadableStream) => {
     const reader = stream.getReader()
     while (true) {
@@ -328,4 +328,46 @@ test('组件输出 null 精准命令流：div → null 只发 remove + 锚（无
   const ops = cmds.map((c) => (c as { op: string }).op)
   assert.deepEqual(ops, ['remove', 'createAnchor', 'insert', 'done'],
     '精准：组件输出 div → null——remove 旧 + 占位锚')
+})
+
+test('patch 生命周期：ref 挂载后执行（insert 后 el 已连接）+ 移除时 ref(null) 清理', async () => {
+  const browser = testBrowser()
+  const reg = createComponentRegistry()
+  const root = browser.document.querySelector('#root') as HTMLElement
+  const applier = new CommandApplier(root, browser.document, reg)
+  const calls: string[] = []
+  const myRef = (el: HTMLElement | null) => { calls.push(el ? `mount:${el.isConnected}` : 'unmount') }
+  // 首帧（全量 build——ref 挂起——insert 后执行）
+  const s1 = renderToStream(h('div', {}, h('span', { ref: myRef }, 'x')), {} as Ctx, reg)
+  const r1 = s1.getReader()
+  while (true) { const { value, done } = await r1.read(); if (done) break; applier.apply(value) }
+  assert.deepEqual(calls, ['mount:true'], 'ref 在挂载后执行（el.isConnected = true）')
+  // 移除节点 → ref(null)（卸载清理）
+  const s2 = renderToStream(h('div', {}), {} as Ctx, reg)
+  const r2 = s2.getReader()
+  while (true) { const { value, done } = await r2.read(); if (done) break; applier.apply(value) }
+  assert.deepEqual(calls, ['mount:true', 'unmount'], '移除 → ref(null)')
+})
+
+test('patch 生命周期：unmountComp 执行 onUnmounts（组件卸载清理）', async () => {
+  const hz = harness(testBrowser())
+  const cleaned: string[] = []
+  const Page = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const onUnmount = _init.onUnmount as (s: string) => void
+    ctx.onUnmount(() => onUnmount('page-cleanup'))   // 注册——卸载时执行
+    return () => h('div', { class: 'page' }, '页')
+  }
+  const Item = (init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => (init.onUnmount as (s: string) => void)('item-cleanup'))
+    return () => h('span', { class: 'it' }, '项')
+  }
+  const page = (show: boolean) => h('div', {}, show
+    ? [h(Page, { onUnmount: (s: string) => cleaned.push(s) }), h(Item, { onUnmount: (s: string) => cleaned.push(s) })]
+    : [h('div', { class: 'empty' }, '空')])
+  await hz.mount(page(true))
+  assert.equal(cleaned.length, 0, '挂载时未清理')
+  // 异类型转换（component → element——整块让位）→ unmountComp 命令 → onUnmounts 执行
+  await hz.update(page(true), page(false))
+  assert.deepEqual(cleaned.sort(), ['item-cleanup', 'page-cleanup'], '卸载时 onUnmounts 执行（patch 消费 unmountComp）')
+  assert.equal(hz.root.querySelector('.empty')?.textContent, '空')
 })

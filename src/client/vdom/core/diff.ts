@@ -196,8 +196,13 @@ async function diffSlot(
     if (oldC !== newC) emitCommand({ op: 'setText', id: cid, value: String(newC) })
     return
   }
-  // 新项不存在（数组缩短）→ 移除
+  // 新项不存在（数组缩短）→ 移除（旧项是组件 → 先 unmountComp——onUnmounts 清理）
   if (newC === null || newC === undefined) {
+    const oldVn = oldC as VNode | null
+    if (oldVn && typeof oldVn.type === 'function') {
+      const compId = oldVn.key !== null ? `${parent}.k${oldVn.key}` : cid
+      emitCommand({ op: 'unmountComp', compId })
+    }
     emitCommand({ op: 'remove', id: cid })
     return
   }
@@ -215,7 +220,12 @@ async function diffSlot(
   // 异类型转换（transform——**完整转换**：旧侧让位 + 新侧渲染——状态机统一）
   const t = transitionOf(stateOf(oldC), stateOf(newC))
   if (t) {
-    await t(oldC, newC, { emit: emitCommand, emitNode: emit, oldId: cid, newId: cid, parent, index, ref })
+    await t(oldC, newC, {
+      emit: emitCommand, emitNode: emit,
+      oldId: cid, newId: cid, parent, index, ref,
+      // 旧组件卸载（unmountComp——onUnmounts 清理——位置身份 compId = cid）
+      oldCompId: typeof (oldC as VNode)?.type === 'function' ? cid : undefined,
+    })
   }
 }
 

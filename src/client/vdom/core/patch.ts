@@ -26,6 +26,7 @@ import { applyProperty, isPropertyKey } from './field/props.ts'
 import { applyRef } from './field/ref.ts'
 import { bindEvent, EVENT_RE } from './field/events.ts'
 import { PORTAL_CONTAINER_ID, PORTAL_ID_PREFIX, portalContainerId } from './node/portal.ts'
+import { disposeComponent, type ComponentRegistry } from './node/component.ts'
 
 export type WfNode = HTMLElement | Text | Comment
 
@@ -57,15 +58,21 @@ export class CommandApplier {
   private nodes = new Map<string, WfNode>()
   private container: HTMLElement
   private doc: Document
+  private registry: ComponentRegistry | null
   private portalContainers = new Map<string, HTMLElement>()
   /** 本流已创建 id（done 清理——旧树多余节点） */
   private touched = new Set<string>()
   /** 属性 prev 记忆（id:key → 上次值——事件解绑/属性还原——重复绑定根治） */
   private propPrev = new Map<string, unknown>()
+  /** ref 注册表（id → 回调——remove 时 ref(null) 清理） */
+  private refs = new Map<string, unknown>()
+  /** 挂起 ref（create 后未挂载——insert 后执行——挂载完成信号） */
+  private pendingRefs = new Map<string, unknown>()
 
-  constructor(container: HTMLElement, doc: Document) {
+  constructor(container: HTMLElement, doc: Document, registry?: ComponentRegistry) {
     this.container = container
     this.doc = doc
+    this.registry = registry ?? null
   }
 
   /** portal 容器（#__wf_portal 下按 key——惰性创建——挂 body） */
@@ -95,6 +102,18 @@ export class CommandApplier {
       return this.portalContainer(cmd.parent.slice(PORTAL_ID_PREFIX.length))
     }
     return (this.nodes.get(cmd.parent) as HTMLElement | null) ?? null
+  }
+
+  /** 子树 ref 清理（id 前缀匹配——卸载指令：remove/done 清理共用） */
+  private clearNodeRefs(id: string): void {
+    for (const [rid, rfn] of [...this.refs]) {
+      if (rid === id || rid.startsWith(id + '.')) {
+        applyRef(null, null, rfn)
+        this.refs.delete(rid)
+        this.pendingRefs.delete(rid)
+        this.propPrev.delete(`${rid}:ref`)
+      }
+    }
   }
 
   apply(cmd: Command): void {
@@ -149,6 +168,12 @@ export class CommandApplier {
         // 插到 prev 之后；ref null = 追加尾部
         const prev = cmd.ref ? (this.nodes.get(cmd.ref) ?? null) : null
         parent.insertBefore(el, prev ? prev.nextSibling : null)
+        // **挂载完成**（insert = mount 指令）——执行挂起 ref（el 已连接）
+        const refFn = this.pendingRefs.get(cmd.id)
+        if (refFn) {
+          applyRef(el as HTMLElement, refFn)
+          this.pendingRefs.delete(cmd.id)
+        }
         break
       }
       case 'setText': {
@@ -160,6 +185,19 @@ export class CommandApplier {
         const el = this.nodes.get(cmd.id)
         // nodeType 判断（jsdom 隔离环境——instanceof 跨 realm 恒 false）
         if (el && el.nodeType === 1) {
+          // **ref 指令（patch 生命周期处理）**：已挂载 → 立即（prev 传递）；
+          // 未挂载（create 后 insert 前）→ 挂起——insert 后执行（挂载完成）
+          if (cmd.key === 'ref') {
+            const prev = this.propPrev.get(`${cmd.id}:ref`)
+            if ((el as HTMLElement).isConnected) {
+              applyRef(el as HTMLElement, cmd.value, prev)
+            } else {
+              this.pendingRefs.set(cmd.id, cmd.value)
+            }
+            this.refs.set(cmd.id, cmd.value)
+            this.propPrev.set(`${cmd.id}:ref`, cmd.value)
+            break
+          }
           const prev = this.propPrev.get(`${cmd.id}:${cmd.key}`)
           applySetProp(el as HTMLElement, cmd.key, cmd.value, prev)
           // 记忆 prev（下次更新时解绑旧监听——重复绑定根治）
@@ -168,13 +206,17 @@ export class CommandApplier {
         break
       }
       case 'remove': {
+        // **卸载指令**——子树 ref(null) 清理（id 前缀匹配——子树所有注册 ref）
+        this.clearNodeRefs(cmd.id)
         this.nodes.get(cmd.id)?.remove()
         this.nodes.delete(cmd.id)
         break
       }
-      case 'close':
-      case 'unmountComp':
+      case 'unmountComp': {
+        // **组件卸载指令**——onUnmounts 清理（实例注册表消费——逆序执行）
+        if (this.registry) disposeComponent(cmd.compId, this.registry)
         break
+      }
       case 'done': {
         // 清理仅**全量流**（done.full）——touched = 存活集合——
         // 表 − touched = 旧树多余残留（组件输出变化后的节点）；
@@ -182,6 +224,8 @@ export class CommandApplier {
         if (cmd.full && this.touched.size > 0) {
           for (const [id, el] of [...this.nodes]) {
             if (!this.touched.has(id)) {
+              // 清理即卸载——ref(null) 同步（子树）
+              this.clearNodeRefs(id)
               el.remove()
               this.nodes.delete(id)
             }

@@ -123,7 +123,7 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   // ── serve 级单例（跨渲染保持——patch 幂等对照现有 DOM + 组件注册表复用） ──
   const fnTable = createFnTable()
   const registry = createComponentRegistry()
-  const applier = new CommandApplier(rootEl, doc)
+  const applier = new CommandApplier(rootEl, doc, registry)
   let req = frontRequest(win.location.pathname)
   /** 影子树（当前渲染的 vnode——diff 对照——精准增量命令流） */
   let currentTree: VNode | null = null
