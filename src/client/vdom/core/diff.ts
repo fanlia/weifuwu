@@ -122,8 +122,8 @@ export function diffStream(
           })
           await emit(newTree, 'root', 0, null)
         } else {
-          // 同态：就地 patch（首版——同位置同类型组件复用/元素属性更新）
-          await patchSame(oldTree, newTree, 'root', 0, null, emit, emitCommand, ctx, registry)
+          // 同态：diffSame（增量命令——同位置同类型组件复用/元素属性更新）
+          await diffSame(oldTree, newTree, 'root', 0, null, emit, emitCommand, ctx, registry)
         }
       }
       emitCommand({ op: 'done' })
@@ -132,8 +132,8 @@ export function diffStream(
   })
 }
 
-/** 同态就地 patch（同位置同类型——组件复用/元素 diff——children 递归） */
-async function patchSame(
+/** 同态对照（同位置同类型——生成增量命令：属性 setProp/文本 setText/children 递归） */
+async function diffSame(
   oldV: VNode | null,
   newV: VNode,
   parent: string,
@@ -152,7 +152,7 @@ async function patchSame(
     await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
       // 上次输出对照：就地 patch（不重建）；无上次输出（首帧）→ 全量 build
       if (oldOut !== null && oldOut !== undefined) {
-        await patchSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
+        await diffSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
       } else {
         await emit(out, p, i, r)
       }
@@ -189,7 +189,7 @@ async function patchSame(
         }
         await emit(newC, id, i, lastRef)
       } else if (kindOf(oldC) === kindOf(newC)) {
-        await patchSame(oldC as VNode, newC as VNode, id, i, lastRef, emit, emitCommand, ctx, registry)
+        await diffSame(oldC as VNode, newC as VNode, id, i, lastRef, emit, emitCommand, ctx, registry)
       } else {
         // 异类型转换（transform——旧侧让位 + 新侧 build）
         const t = transitionOf(stateOf(oldC), stateOf(newC))
