@@ -94,6 +94,11 @@ export interface UiServeOptions {
   root: string | HTMLElement
   /** 浏览器环境（依赖注入——测试 testBrowser() / 生产 createClientBrowser()） */
   browser: Browser
+  /** 中间件注入面（ctx.api/auth/ws/i18n——组件/页面可用——可选） */
+  api?: import('../middlewares/api.ts').ApiClient
+  auth?: import('../middlewares/auth-i18n.ts').AuthClient
+  ws?: import('../middlewares/ws.ts').WsClient
+  i18n?: import('../middlewares/auth-i18n.ts').I18nState
 }
 
 export interface UiServeHandle {
@@ -208,6 +213,11 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     afterRender(fn: () => void): void {
       afterRenderFns.push(fn)
     },
+    // 中间件注入面（可选——ctx.api/auth/ws/i18n——组件/页面消费）
+    ...(opts.api ? { api: opts.api } : {}),
+    ...(opts.auth ? { auth: opts.auth } : {}),
+    ...(opts.ws ? { ws: opts.ws } : {}),
+    ...(opts.i18n ? { i18n: opts.i18n } : {}),
   } as unknown as Ctx
 
   // ── 页面作者渲染入口（vnode → Response 事件流——函数表编码） ──
