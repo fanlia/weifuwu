@@ -10,7 +10,7 @@ import { setupJsdom } from './setup.ts'
 before(setupJsdom)
 
 const { ws } = await import('./middleware/ws.ts')
-import type { WfuiContext } from './types.ts'
+import type { UIContext } from './types.ts'
 const browser = createClientBrowser()
 
 // ── WebSocket mock ─────────────────────────────────────────
@@ -70,7 +70,7 @@ afterEach(() => {
 
 function makeWs(opts?: any) {
   const mw = ws({ reconnectInterval: 99999, pingInterval: 0, ...opts })
-  const ctx: WfuiContext = {} as any
+  const ctx: UIContext = {} as any
   const result = mw(ctx) as any
   clients.push(result.ws)
   return result

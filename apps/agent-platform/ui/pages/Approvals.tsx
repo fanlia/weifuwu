@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Badge, Button, Card, Icon } from 'weifuwu/components'
 import type { PendingApproval } from '../lib/types'
@@ -11,7 +11,7 @@ interface ApprovalsState {
 /** 审批待办 — 管理员集中处理所有 AI 草稿（HITL 核心入口） */
 export const Approvals: Component = async (_props, ctx) => {
   const $ = {} as ApprovalsState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   $.items = []; $.loading = true; $.handling = ''
   $.editingId = ''; $.editDraft = ''
 

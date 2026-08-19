@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { PageHeader, Tabs, Form, Field, Input, Switch, Select, Button, Alert, Space } from 'weifuwu/components'
 
 // ─────────────────────────────────────────────────────────────
@@ -27,8 +27,8 @@ export const SettingsPage: Component = async (_init: any, ctx: any) => {
   const save = () => {
     saving = true
     saved = false
-    ctx.ui.render()
-    setTimeout(() => { saving = false; saved = true; ctx.ui.render() }, 800)
+    ctx.render()
+    setTimeout(() => { saving = false; saved = true; ctx.render() }, 800)
   }
 
   return async (_p: any) => (
@@ -46,16 +46,16 @@ export const SettingsPage: Component = async (_init: any, ctx: any) => {
           { key: 'security', label: '安全' },
         ]}
         active={tab}
-        onChange={(k: string) => { tab = k; saved = false; ctx.ui.render() }}
+        onChange={(k: string) => { tab = k; saved = false; ctx.render() }}
       />
 
       {tab === 'basic' && (
         <div class="wf-stack wf-gap-sm" style="max-width:480px">
           <Field label="工作区名称" hint="团队成员可见">
-            <Input value={name} onInput={(e: any) => { name = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
+            <Input value={name} onInput={(e: any) => { name = (e.target as HTMLInputElement).value; ctx.render() }} />
           </Field>
           <Field label="管理员邮箱" required>
-            <Input type="email" value={email} onInput={(e: any) => { email = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
+            <Input type="email" value={email} onInput={(e: any) => { email = (e.target as HTMLInputElement).value; ctx.render() }} />
           </Field>
         </div>
       )}
@@ -67,14 +67,14 @@ export const SettingsPage: Component = async (_init: any, ctx: any) => {
               <b class="wf-text-sm">订单通知</b>
               <span class="wf-text-xs wf-text-secondary">新订单到达时推送</span>
             </div>
-            <Switch checked={notifyOrder} onChange={(v: boolean) => { notifyOrder = v; ctx.ui.render() }} />
+            <Switch checked={notifyOrder} onChange={(v: boolean) => { notifyOrder = v; ctx.render() }} />
           </div>
           <div class="wf-surface wf-border wf-rounded-sm wf-p-sm wf-row wf-between">
             <div class="wf-stack wf-gap-xs">
               <b class="wf-text-sm">每日摘要</b>
               <span class="wf-text-xs wf-text-secondary">每天早上 9 点发送昨日汇总</span>
             </div>
-            <Switch checked={notifyDigest} onChange={(v: boolean) => { notifyDigest = v; ctx.ui.render() }} />
+            <Switch checked={notifyDigest} onChange={(v: boolean) => { notifyDigest = v; ctx.render() }} />
           </div>
         </div>
       )}
@@ -86,7 +86,7 @@ export const SettingsPage: Component = async (_init: any, ctx: any) => {
               <b class="wf-text-sm">两步验证</b>
               <span class="wf-text-xs wf-text-secondary">登录时要求验证码</span>
             </div>
-            <Switch checked={twoFactor} onChange={(v: boolean) => { twoFactor = v; ctx.ui.render() }} />
+            <Switch checked={twoFactor} onChange={(v: boolean) => { twoFactor = v; ctx.render() }} />
           </div>
           <Field label="登录密码">
             <Input type="password" placeholder="输入新密码（留空不修改）" />

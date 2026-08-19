@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import {Text, Badge, Card, Icon, Sparkline, StatCard, Space } from 'weifuwu/components'
 
 
@@ -45,7 +45,7 @@ export const DataScreen: Component = async (_init, ctx) => {
   const timer = setInterval(() => {
     for (const c of CARDS) series[c.key] = tick(series[c.key])
     time = new Date().toTimeString().slice(0, 8)
-    ctx.ui.render()
+    ctx.render()
   }, 2000)
 
   // ref 纪律：稳定引用定义在 mount 作用域——ref(null) 只在真正卸载时调用

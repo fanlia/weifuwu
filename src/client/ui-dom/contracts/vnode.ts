@@ -13,16 +13,16 @@
 import type { V3Ctx } from './ctx.ts'
 
 /** 两阶段组件契约（正式签名——无 any）
- *  P：props（JSX 自动推断）；C：ctx 注入依赖——**自动 & WfuiContext**（vdom2 语义：
+ *  P：props（JSX 自动推断）；C：ctx 注入依赖——**自动 & UIContext**（vdom2 语义：
  *  组件声明 C 只写注入面（ToastInjected 等）——ctx.ui/browser 等基础面自动可用）
- *  ——严格交叉（无 any）——默认 C = V3Ctx（V3Ctx extends WfuiContext——交叉 = V3Ctx） */
+ *  ——严格交叉（无 any）——默认 C = V3Ctx（V3Ctx extends UIContext——交叉 = V3Ctx） */
 export type Component<P = Record<string, unknown>, C = V3Ctx> = (
   initProps: P,
-  ctx: C & WfuiContext,
+  ctx: C & UIContext,
 ) => Promise<(props: P) => Promise<VNode | null>>
 
-/** WfuiContext（组件 ctx 类型源——192 处组件消费）——V3Ctx extends 统一 */
-import type { WfuiContext } from '../types.ts'
+/** UIContext（组件 ctx 类型源——192 处组件消费）——V3Ctx extends 统一 */
+import type { UIContext } from '../types.ts'
 
 export interface VNode {
   /** native 标签名 / 组件函数 / Fragment/Portal 符号 */

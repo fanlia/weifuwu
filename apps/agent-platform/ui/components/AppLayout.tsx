@@ -1,5 +1,5 @@
-import type { WfuiContext } from 'weifuwu/ui-dom'
-import { h } from 'weifuwu/ui-dom'
+import type { UIContext } from 'weifuwu/vdom'
+import { h } from 'weifuwu/vdom'
 import { Avatar, Button, Icon, Menu } from 'weifuwu/components'
 import { Loading } from './ui'
 
@@ -28,7 +28,7 @@ const ADMIN_NAV: NavDef[] = [
   { path: '/admin', icon: h(Icon, { name: 'shield' }), label: '租户管理', group: '管理', match: p => p.startsWith('/admin') },
 ]
 
-export async function AppLayout(_props: {}, ctx: WfuiContext) {
+export async function AppLayout(_props: {}, ctx: UIContext) {
   // ── 认证守卫 ──
   if (!ctx.auth?.isLoggedIn) {
     queueMicrotask(() => ctx.app?.navigate('/login'))
@@ -41,7 +41,7 @@ export async function AppLayout(_props: {}, ctx: WfuiContext) {
   // 管理员导航（G2）：/api/admin/me 判定，仅管理员可见「租户管理」入口
   let isAdmin = false
   void ctx.api?.get<{ isAdmin: boolean }>('/api/admin/me')
-    .then((d) => { isAdmin = !!d.isAdmin; ctx.ui.render() })
+    .then((d) => { isAdmin = !!d.isAdmin; ctx.render() })
     .catch(() => {})
 
   function logout() {

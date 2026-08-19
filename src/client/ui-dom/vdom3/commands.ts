@@ -24,7 +24,7 @@ export interface V3CommandInjected {
 }
 
 /** 命令式确认（vdom3——createRoot 挂载 Confirm 组件——Modal portal 退场）
- *  泛型 ctx（兼容 UIRouter（WfuiContext）与 vdom3（V3Ctx）双入口） */
+ *  泛型 ctx（兼容 UIRouter（UIContext）与 vdom3（V3Ctx）双入口） */
 export function v3Confirm<C extends { [key: string]: unknown }>(): (ctx: C) => C & V3CommandInjected {
   return (ctx: C) => {
     ;(ctx as C & V3CommandInjected).confirm = (message: string, options?: Record<string, unknown>) =>

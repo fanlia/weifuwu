@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Badge, Button, Card, Input, StatCard, Table, Icon } from 'weifuwu/components'
 
@@ -31,11 +31,11 @@ export const Admin: Component = async (_props, ctx) => {
   const loadContainers = () => {
     void ctx.api!.get<any>('/api/sandbox/containers').then((d) => {
       sbContainers = d.containers ?? []
-      ctx.ui.render()
+      ctx.render()
     }).catch(() => {})
   }
   const containerAction = async (name: string, action: string) => {
-    sbBusy = name + action; ctx.ui.render()
+    sbBusy = name + action; ctx.render()
     await ctx.api!.post(`/api/sandbox/containers/${name}/${action}`).catch(() => {})
     sbBusy = ''
     loadContainers()
@@ -43,7 +43,7 @@ export const Admin: Component = async (_props, ctx) => {
   const showProcesses = (name: string) => {
     void ctx.api!.get<any>(`/api/sandbox/containers/${name}/processes`).then((d) => {
       sbProcs = { name, list: d.processes ?? [] }
-      ctx.ui.render()
+      ctx.render()
     }).catch(() => {})
   }
   let enterprises: any[] = []
@@ -52,19 +52,19 @@ export const Admin: Component = async (_props, ctx) => {
   let entErr = ''
   const load = () => {
     loading = true; error = ''
-    ctx.ui.render()
+    ctx.render()
     return ctx.api!.get<{ apps: AdminApp[] }>('/api/admin/apps')
-      .then((d) => { apps = d.apps ?? []; loading = false; ctx.ui.render() })
-      .catch((e) => { error = errMsg(e, '加载租户列表失败'); loading = false; ctx.ui.render() })
+      .then((d) => { apps = d.apps ?? []; loading = false; ctx.render() })
+      .catch((e) => { error = errMsg(e, '加载租户列表失败'); loading = false; ctx.render() })
   }
   void load()
   // 平台使用概览（G11）
-  void ctx.api!.get<any>('/api/admin/overview').then((d) => { overview = d; ctx.ui.render() }).catch(() => {})
-  void ctx.api!.get<any>('/api/ops').then((d) => { opsInfo = d; ctx.ui.render() }).catch(() => {})
-  void ctx.api!.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.ui.render() }).catch(() => {})
+  void ctx.api!.get<any>('/api/admin/overview').then((d) => { overview = d; ctx.render() }).catch(() => {})
+  void ctx.api!.get<any>('/api/ops').then((d) => { opsInfo = d; ctx.render() }).catch(() => {})
+  void ctx.api!.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.render() }).catch(() => {})
 
   async function createEnterprise() {
-    if (!entName.trim()) { entErr = '企业名必填'; ctx.ui.render(); return }
+    if (!entName.trim()) { entErr = '企业名必填'; ctx.render(); return }
     entErr = ''
     try {
       await ctx.api!.post('/api/admin/enterprises', { name: entName.trim(), ownerEmail: entEmail.trim() || undefined })
@@ -72,28 +72,28 @@ export const Admin: Component = async (_props, ctx) => {
       const d = await ctx.api!.get<any>('/api/admin/enterprises')
       enterprises = d.enterprises ?? []
     } catch (e: any) { entErr = e?.message ?? '创建失败' }
-    ctx.ui.render()
+    ctx.render()
   }
 
   async function openPro(a: AdminApp) {
     busyId = a.id
-    ctx.ui.render()
+    ctx.render()
     try {
       await ctx.api!.post(`/api/admin/apps/${a.id}/plan`, { plan: 'pro', monthlyTokenLimit: 1000000 })
       await load()
-    } catch (e) { error = errMsg(e, '操作失败'); ctx.ui.render() }
+    } catch (e) { error = errMsg(e, '操作失败'); ctx.render() }
     finally { busyId = '' }
   }
 
   async function toggleStatus(a: AdminApp) {
     busyId = a.id
-    ctx.ui.render()
+    ctx.render()
     try {
       await ctx.api!.post(`/api/admin/apps/${a.id}/status`, { status: a.status === 'disabled' ? 'active' : 'disabled' })
       await load()
     } catch (e) {
       error = errMsg(e, '操作失败')
-      ctx.ui.render()
+      ctx.render()
     } finally { busyId = '' }
   }
 
@@ -170,9 +170,9 @@ export const Admin: Component = async (_props, ctx) => {
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="briefcase" size={14} /> 企业账户（子租户）</div>
         <div class="wf-row wf-gap-sm wf-mb-sm wf-cluster">
           <Input placeholder="企业名" value={entName} style={{ width: 180 }}
-            onInput={(e: any) => { entName = e.target.value; ctx.ui.render() }} />
+            onInput={(e: any) => { entName = e.target.value; ctx.render() }} />
           <Input placeholder="管理员邮箱（可选）" value={entEmail} style={{ width: 220 }}
-            onInput={(e: any) => { entEmail = e.target.value; ctx.ui.render() }} />
+            onInput={(e: any) => { entEmail = e.target.value; ctx.render() }} />
           <Button size="sm" variant="primary" onClick={createEnterprise}>建企业</Button>
           {entErr && <span class="wf-text-xs wf-text-error">{entErr}</span>}
         </div>
@@ -189,7 +189,7 @@ export const Admin: Component = async (_props, ctx) => {
                 <Button size="sm" variant="ghost" onClick={() => {
                   const appId = window.prompt('挂入租户的 appId（管理后台列表可见）')
                   if (appId) void ctx.api!.post(`/api/admin/enterprises/${e.id}/apps`, { appId }).then(() => {
-                    void ctx.api!.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.ui.render() })
+                    void ctx.api!.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.render() })
                   })
                 }}>挂租户</Button>
               </div>

@@ -22,7 +22,7 @@ export const apps: AppEntry[] = [
     guide: [
       '1. 改数据模型：编辑 api.ts 的 SQL 表结构（todos 表字段）——MemorySql 与 postgres() 同契约，换库只改 server.ts 一行',
       '2. 加页面：app.tsx 的路由表加一行 { path, render } + 新建页面组件（组件写法见 guides/component-model.md）',
-      '3. 改交互/状态：页面组件内 let + ctx.ui.render()（render-only——见 guides/render-only.md）',
+      '3. 改交互/状态：页面组件内 let + ctx.render()（render-only——见 guides/render-only.md）',
       '4. 换样式：组件文档「用法示例」+ layout 原语（wf-* 类，零手写 CSS）',
       '5. 接真实后端：server.ts 把 createMemorySql() 换成 postgres()（见 content/backend/sql.md）',
     ],

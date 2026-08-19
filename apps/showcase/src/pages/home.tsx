@@ -1,11 +1,11 @@
 /**
  * 首页——六域入口 + 计数（registry 计算，非硬编码）+ 快速开始
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { Badge, Tag } from 'weifuwu/components'
 import { fetchIndex } from '../data.ts'
-import { createClientBrowser } from 'weifuwu/ui-dom'
+import { createClientBrowser } from 'weifuwu/vdom'
 import { DOMAINS } from '../shell.tsx'
 
 export const Home: Component = async (_init: any, ctx: any) => {
@@ -20,7 +20,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
     const w = WORDS[word]
     chars += 1
     if (chars > w.length + 6) { word = (word + 1) % WORDS.length; chars = 0 }
-    ctx.ui.render()
+    ctx.render()
     timerId = browser.timeout(tick, chars > w.length ? 500 : 120)
   }
   timerId = browser.timeout(tick, 400)

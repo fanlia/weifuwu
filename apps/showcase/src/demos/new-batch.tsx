@@ -5,15 +5,15 @@
  * weifuwu/components cheatsheet
  *
  * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
- * 使用闭包变量 + ctx.ui.render() 管理交互状态。
+ * 使用闭包变量 + ctx.render() 管理交互状态。
  *
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
+import { h } from 'weifuwu/vdom'
 import { FilePreview } from 'weifuwu/components'
-import { v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
+
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -37,12 +37,11 @@ import {
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
-registerApp('mini-todo', (_props: any, _ctx: any) => {
-  // 子应用工厂：返回子应用根组件（应用实例状态闭包持有——appId 复用不重跑）
-  const MiniTodo = async (_init: any, ctx: any) => {
+// 子应用组件（vdom——普通组件嵌入——应用实例状态闭包持有）
+const MiniTodo = async (_init: any, ctx: any) => {
     let items: string[] = ['子应用任务']
     let input = ''
-    const rerender = () => ctx.ui.render()
+    const rerender = () => ctx.render()
     return async () => (
       <div class="wf-stack wf-gap-sm">
         <div class="wf-row wf-gap-sm">
@@ -56,9 +55,7 @@ registerApp('mini-todo', (_props: any, _ctx: any) => {
         </ul>
       </div>
     )
-  }
-  return h(MiniTodo, {})
-})
+}
 
 // ── 布局组件 ──────────────────────────────────────────
 
@@ -115,7 +112,7 @@ function DemoCard(initProps: { title: string; desc: string; code: string; childr
           <button
             type="button"
             class="wf-btn wf-btn--sm"
-            onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); void (ctx as any)?.browser?.copyText?.(props.code); copied = true; ctx.ui.render() }}
+            onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); void (ctx as any)?.browser?.copyText?.(props.code); copied = true; ctx.render() }}
           >复制</button>
         </summary>
         <pre class="wf-bg-tertiary wf-p-md wf-text-xs wf-m-0 wf-scroll">{props.code}</pre>
@@ -130,11 +127,11 @@ const DemoRate: Component = async (_props, ctx) => {
   let v = 3
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <Rate value={v} onChange={(n: number) => { v = n; ctx.ui.render() }} />
+      <Rate value={v} onChange={(n: number) => { v = n; ctx.render() }} />
       <Rate value={4} readOnly />
-      <Rate value={v} allowHalf onChange={(n: number) => { v = n; ctx.ui.render() }} />
+      <Rate value={v} allowHalf onChange={(n: number) => { v = n; ctx.render() }} />
       <div class="wf-text-xs wf-text-secondary">半星（与第一行同步）</div>
-      <Rate size="lg" allowClear onChange={(n: number) => { v = n; ctx.ui.render() }} />
+      <Rate size="lg" allowClear onChange={(n: number) => { v = n; ctx.render() }} />
       <div class="wf-text-sm wf-text-secondary">当前：{v} 星</div>
     </div>
   )
@@ -178,10 +175,10 @@ const DemoToggleGroup: Component = async (_props, ctx) => {
   let pressed = false
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <ToggleGroup type="single" options={[{ value: 'bold', label: 'B' }, { value: 'italic', label: 'I' }, { value: 'underline', label: 'U' }]} value={single} onChange={(v: any) => { single = v; ctx.ui.render() }} />
-      <ToggleGroup type="multiple" options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }]} value={multi} onChange={(v: any) => { multi = v; ctx.ui.render() }} />
+      <ToggleGroup type="single" options={[{ value: 'bold', label: 'B' }, { value: 'italic', label: 'I' }, { value: 'underline', label: 'U' }]} value={single} onChange={(v: any) => { single = v; ctx.render() }} />
+      <ToggleGroup type="multiple" options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }]} value={multi} onChange={(v: any) => { multi = v; ctx.render() }} />
       <div class="wf-row wf-gap-sm">
-        <Toggle pressed={pressed} onPressedChange={(p: boolean) => { pressed = p; ctx.ui.render() }}>单个切换</Toggle>
+        <Toggle pressed={pressed} onPressedChange={(p: boolean) => { pressed = p; ctx.render() }}>单个切换</Toggle>
         <span class="wf-text-sm wf-text-secondary">状态：{pressed ? '已按下' : '未按下'}</span>
       </div>
     </div>
@@ -192,7 +189,7 @@ const DemoCheckboxGroup: Component = async (_props, ctx) => {
   let v: string[] = ['a']
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <CheckboxGroup label="选择成员" options={[{ value: 'a', label: '张三' }, { value: 'b', label: '李四' }, { value: 'c', label: '王五' }]} value={v} onChange={(k: string[]) => { v = k; ctx.ui.render() }} />
+      <CheckboxGroup label="选择成员" options={[{ value: 'a', label: '张三' }, { value: 'b', label: '李四' }, { value: 'c', label: '王五' }]} value={v} onChange={(k: string[]) => { v = k; ctx.render() }} />
       <div class="wf-text-sm wf-text-secondary">已选：{v.join(', ') || '无'}</div>
     </div>
   )
@@ -202,7 +199,7 @@ const DemoPinInput: Component = async (_props, ctx) => {
   let v = ''
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <PinInput length={6} value={v} onChange={(s: string) => { v = s; ctx.ui.render() }} />
+      <PinInput length={6} value={v} onChange={(s: string) => { v = s; ctx.render() }} />
       <div class="wf-text-sm wf-text-secondary">验证码：{v || '等待输入'}</div>
     </div>
   )
@@ -219,10 +216,10 @@ const DemoColorPicker: Component = async (_props, ctx) => {
   let c = '#4f6ef7'
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <ColorPicker value={c} showInput onChange={(v: string) => { c = v; ctx.ui.render() }} />
+      <ColorPicker value={c} showInput onChange={(v: string) => { c = v; ctx.render() }} />
       <div class="wf-row wf-gap-sm">
-        <ColorPicker value={c} size="sm" onChange={(v: string) => { c = v; ctx.ui.render() }} />
-        <ColorPicker value={c} size="lg" onChange={(v: string) => { c = v; ctx.ui.render() }} />
+        <ColorPicker value={c} size="sm" onChange={(v: string) => { c = v; ctx.render() }} />
+        <ColorPicker value={c} size="lg" onChange={(v: string) => { c = v; ctx.render() }} />
         <ColorPicker value={c} disabled onChange={() => {}} />
       </div>
       <div class="wf-text-sm wf-text-secondary">当前：{c}</div>
@@ -294,7 +291,7 @@ const DemoAnchor: Component = async (_props, ctx) => {
       </div>
       <div class="wf-surface wf-border wf-rounded wf-p-md" style="width: 140px; position: sticky; top: 16px">
         <Anchor items={sections.map(s => ({ href: `#${s.id}`, title: s.title }))}
-          activeKey={active} onAnchorChange={h => { active = h; ctx.ui.render() }} />
+          activeKey={active} onAnchorChange={h => { active = h; ctx.render() }} />
         <div class="wf-text-xs wf-text-secondary wf-mt-sm">滚动页面跟随高亮</div>
       </div>
     </div>
@@ -315,7 +312,7 @@ const DemoMentions: Component = async (_props, ctx) => {
   let v = '输入 @ 提及成员：@ali'
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <Mentions options={[{ value: 'alice', label: 'Alice' }, { value: 'bob', label: 'Bob' }, { value: 'carol', label: 'Carol' }]} value={v} onChange={(s: string) => { v = s; ctx.ui.render() }} />
+      <Mentions options={[{ value: 'alice', label: 'Alice' }, { value: 'bob', label: 'Bob' }, { value: 'carol', label: 'Carol' }]} value={v} onChange={(s: string) => { v = s; ctx.render() }} />
       <div class="wf-text-sm wf-text-secondary">文本：{v}</div>
     </div>
   )
@@ -328,7 +325,7 @@ const DemoCollapse: Component = async (_props, ctx) => {
       { key: '1', title: '知识库文档', content: '文档分块内容展示（行内展开，区别于 Accordion 卡片面板）' },
       { key: '2', title: '异步加载示例', loading: true },
       { key: '3', title: '带操作区', extra: <Button size="sm" variant="ghost">操作</Button>, content: '标题右侧可放操作按钮' },
-    ]} active={active} onChange={(keys: string[]) => { active = keys; ctx.ui.render() }} />
+    ]} active={active} onChange={(keys: string[]) => { active = keys; ctx.render() }} />
   )
 }
 
@@ -344,10 +341,10 @@ const DemoToggleTree: Component = async (_props, ctx) => {
   ]
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <input class="wf-input" placeholder="搜索节点…" value={search} onInput={(e: any) => { search = e.target.value; ctx.ui.render() }} />
-      <Tree data={treeData} expandedKeys={expanded} onExpand={(keys: string[]) => { expanded = keys; ctx.ui.render() }}
+      <input class="wf-input" placeholder="搜索节点…" value={search} onInput={(e: any) => { search = e.target.value; ctx.render() }} />
+      <Tree data={treeData} expandedKeys={expanded} onExpand={(keys: string[]) => { expanded = keys; ctx.render() }}
         searchValue={search}
-        checkable checkedKeys={checked} onCheck={(keys: string[]) => { checked = keys; ctx.ui.render() }} />
+        checkable checkedKeys={checked} onCheck={(keys: string[]) => { checked = keys; ctx.render() }} />
     </div>
   )
 }
@@ -358,7 +355,7 @@ const DemoCascader: Component = async (_props, ctx) => {
     <Cascader options={[
       { value: 'zj', label: '浙江', children: [{ value: 'hz', label: '杭州' }, { value: 'nb', label: '宁波' }] },
       { value: 'gd', label: '广东', children: [{ value: 'sz', label: '深圳' }] },
-    ]} value={value} onChange={(v: string[]) => { value = v; ctx.ui.render() }} showSearch />
+    ]} value={value} onChange={(v: string[]) => { value = v; ctx.render() }} showSearch />
   )
 }
 
@@ -372,8 +369,8 @@ const DemoCascaderDis: Component = async (_p, ctx) => {
         { value: 'gd', label: '广东', children: [{ value: 'sz', label: '深圳' }] },
       ]} disabled={disabled} error={err} placeholder={disabled ? '禁用中' : '选择地区'} />
       <div class="wf-row wf-gap-sm">
-        <Button onClick={() => { disabled = !disabled; err = ''; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button>
-        <Button variant="danger" onClick={() => { disabled = false; err = '地区必填（校验示例）'; ctx.ui.render() }}>触发错误</Button>
+        <Button onClick={() => { disabled = !disabled; err = ''; ctx.render() }}>{disabled ? '启用' : '禁用'}</Button>
+        <Button variant="danger" onClick={() => { disabled = false; err = '地区必填（校验示例）'; ctx.render() }}>触发错误</Button>
       </div>
     </div>
   )
@@ -384,7 +381,7 @@ const DemoMentionsDis: Component = async (_p, ctx) => {
   return async () => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <Mentions options={[{ value: 'alice', label: 'Alice' }, { value: 'bob', label: 'Bob' }]} disabled={disabled} rows={2} placeholder={disabled ? '禁用中' : '输入 @ 提及成员…'} />
-      <div><Button onClick={() => { disabled = !disabled; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
+      <div><Button onClick={() => { disabled = !disabled; ctx.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
     </div>
   )
 }
@@ -394,7 +391,7 @@ const DemoPinInputDis: Component = async (_p, ctx) => {
   return async () => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <PinInput length={6} disabled={disabled} />
-      <div><Button onClick={() => { disabled = !disabled; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
+      <div><Button onClick={() => { disabled = !disabled; ctx.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
     </div>
   )
 }
@@ -417,7 +414,7 @@ const DemoToggleTreeCheck: Component = async (_props, ctx) => {
   return async () => (
     <div class="wf-w-full wf-stack wf-gap-sm">
       <Tree data={treeData} checkable checkedKeys={checked}
-        onCheck={(k: string[]) => { checked = k; ctx.ui.render() }} />
+        onCheck={(k: string[]) => { checked = k; ctx.render() }} />
       <div class="wf-text-xs wf-text-secondary">勾选：{checked.join(' / ') || '（无）'}——父子联动</div>
     </div>
   )
@@ -437,14 +434,14 @@ const DemoInfiniteScrollRetry: Component = async (_props, ctx) => {
         endText="已全部加载"
         onLoadMore={() => {
           if (loading) return
-          loading = true; ctx.ui.render()
+          loading = true; ctx.render()
           setTimeout(() => {
             page++
             // 第 2 页模拟失败（重试演示）
-            if (page === 2) { failed = true; loading = false; ctx.ui.render(); return }
+            if (page === 2) { failed = true; loading = false; ctx.render(); return }
             failed = false
             items = [...items, ...Array.from({ length: 8 }, (_, i) => `条目 ${items.length + i + 1}`)]
-            loading = false; ctx.ui.render()
+            loading = false; ctx.render()
           }, 800)
         }}>
         {items.map(it => <div class="wf-surface wf-border wf-rounded-md wf-p-sm wf-mb-xs">{it}</div>)}
@@ -458,7 +455,7 @@ const DemoTransfer: Component = async (_props, ctx) => {
   let target = ['a']
   return async () => (
     <Transfer data={[{ key: 'a', label: '成员A' }, { key: 'b', label: '成员B' }, { key: 'c', label: '成员C' }, { key: 'd', label: '成员D' }]}
-      targetKeys={target} onChange={(k: string[]) => { target = k; ctx.ui.render() }} titles={['可选成员', '已选成员']} showSearch />
+      targetKeys={target} onChange={(k: string[]) => { target = k; ctx.render() }} titles={['可选成员', '已选成员']} showSearch />
   )
 }
 
@@ -475,8 +472,8 @@ const DemoCalendarEvents: Component = async (_props, ctx) => {
           { key: 'e2', date: '2025-06-18', title: '发布 v0.78', color: 'var(--wf-color-success)' },
           { key: 'e3', date: '2025-06-25', title: '代码评审', color: 'var(--wf-color-warning)' },
         ]}
-        onMonthChange={(m, y) => { view = { month: m, year: y }; ctx.ui.render() }}
-        onSelectDate={(d) => { selected = d; ctx.ui.render() }} />
+        onMonthChange={(m, y) => { view = { month: m, year: y }; ctx.render() }}
+        onSelectDate={(d) => { selected = d; ctx.render() }} />
     </div>
   )
 }
@@ -484,14 +481,14 @@ const DemoCalendarEvents: Component = async (_props, ctx) => {
 const DemoCommand: Component = async (_props, ctx) => {
   let open = false
   const items = [
-    { key: 'new', label: '新建聊天', shortcut: 'N', onSelect: () => { open = false; ctx.ui.render() } },
+    { key: 'new', label: '新建聊天', shortcut: 'N', onSelect: () => { open = false; ctx.render() } },
     { key: 'search', label: '搜索', shortcut: 'S' },
     { key: 'settings', label: '设置', shortcut: 'G S' },
   ]
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <Button variant="secondary" onClick={() => { open = true; ctx.ui.render() }}>打开命令面板（⌘K）</Button>
-      <Command items={items} open={open} onOpenChange={(o: boolean) => { open = o; ctx.ui.render() }} />
+      <Button variant="secondary" onClick={() => { open = true; ctx.render() }}>打开命令面板（⌘K）</Button>
+      <Command items={items} open={open} onOpenChange={(o: boolean) => { open = o; ctx.render() }} />
     </div>
   )
 }
@@ -526,7 +523,7 @@ const DemoCalendar: Component = async (_props, ctx) => {
   let view = { month: 5, year: 2025 }
   return async () => (
     <Calendar month={view.month} year={view.year} selectedDate="2025-06-10"
-      onMonthChange={(m: number, y: number) => { view = { month: m, year: y }; ctx.ui.render() }}
+      onMonthChange={(m: number, y: number) => { view = { month: m, year: y }; ctx.render() }}
       events={[
         { key: 'e1', date: '2025-06-10', title: '产品评审' },
         { key: 'e2', date: '2025-06-15', title: '团队周会' },
@@ -547,14 +544,14 @@ const DemoVirtualList: Component = async () => async () => (
 
 const DemoApp: Component = async (_init, ctx) => {
   let appProps = { title: '独立子应用' }
-  const render = () => ctx.ui.render()
+  const render = () => ctx.render()
   return async () => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-text-sm wf-text-secondary">父应用嵌入子应用（app 节点——独立状态/事件可区分——同流全链路）</div>
       <Button size="sm" onClick={() => { appProps = { title: '更新: ' + Date.now() % 1000 }; render() }}>更新子应用 props</Button>
       <div class="wf-p-sm wf-border wf-rounded-md" style="--wf-border: var(--wf-color-border)">
         <h4 class="wf-text-sm" style="margin:0 0 8px">{appProps.title}</h4>
-        {h(AppNode, { appId: 'mini-todo', props: appProps })}
+        {h(MiniTodo, { title: appProps.title })}
       </div>
     </div>
   )
@@ -580,8 +577,8 @@ const DemoVirtualTable: Component = async (_props, ctx) => {
     <div class="wf-w-full">
       <VirtualTable columns={cols} data={data} height={320} rowHeight={40}
         sortKey={sortKey} sortOrder={sortOrder}
-        onSort={(k: string, o: 'asc' | 'desc') => { sortKey = k; sortOrder = o; ctx.ui.render() }}
-        rowSelection={{ selectedRowKeys: selectedKeys, onChange: (k: (string|number)[]) => { selectedKeys = k; ctx.ui.render() } }} />
+        onSort={(k: string, o: 'asc' | 'desc') => { sortKey = k; sortOrder = o; ctx.render() }}
+        rowSelection={{ selectedRowKeys: selectedKeys, onChange: (k: (string|number)[]) => { selectedKeys = k; ctx.render() } }} />
       <div class="wf-text-xs wf-text-secondary wf-mt-sm">10,000 行仅渲染可见窗口（滚动流畅）；表头可排序 + 行选择（已选 {selectedKeys.length}）</div>
     </div>
   )
@@ -603,13 +600,13 @@ const DemoInfiniteScroll: Component = async (_props, ctx) => {
       loading={loading}
       hasMore={hasMore}
       onLoadMore={() => {
-        loading = true; ctx.ui.render()
+        loading = true; ctx.render()
         setTimeout(() => {
           const next = Array.from({ length: 5 }, (_, i) => `条目 ${items.length + i + 1}`)
           items = [...items, ...next]
           loading = false
           if (items.length >= 30) hasMore = false
-          ctx.ui.render()
+          ctx.render()
         }, 600)
       }}>
       <div class="wf-stack wf-gap-xs">

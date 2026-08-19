@@ -1,11 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { createClientBrowser } from './browser.ts'
-import type { WfuiContext } from './types.ts'
+import type { UIContext } from './types.ts'
 import { i18n } from './i18n.ts'
 const browser = createClientBrowser()
 
-function mockCtx(): WfuiContext {
+function mockCtx(): UIContext {
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true }, app: {} } as any
 }
 

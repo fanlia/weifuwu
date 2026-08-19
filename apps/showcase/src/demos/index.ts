@@ -2,7 +2,7 @@
  * demo 注册表——组件页活体区按组件名（卡片 title）查找
  * 自动生成（scripts/migrate-demos.mjs）——勿手改
  */
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { DEMOS as C_ai_chat } from './ai-chat.tsx'
 import { DEMOS as C_data_display } from './data-display.tsx'
 import { DEMOS as C_data_feedback } from './data-feedback.tsx'

@@ -150,7 +150,7 @@ node server.ts   # 或 node --env-file=.env server.ts（需要环境变量时）
 ## □ 7. 框架纪律
 
 - [ ] 无裸 \`window.\`/\`document.\`/\`localStorage\`（ctx.browser）
-- [ ] 渲染只发生在 \`ctx.ui.render()\` 调用处（无隐式触发）
+- [ ] 渲染只发生在 \`ctx.render()\` 调用处（无隐式触发）
 - [ ] 无 eval/new Function；无 npm 运行时依赖（前端）
 - [ ] 请求路径无同步 I/O（后端）
 
@@ -173,7 +173,7 @@ node server.ts   # 或 node --env-file=.env server.ts（需要环境变量时）
 const MyComp: Component = async (initProps, ctx) => {   // ── mount（只一次）
   let count = initProps.initial ?? 0                    // 状态初始化/订阅/定时器
   return async (props) => {                             // ── render（每次渲染）
-    return h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
+    return h('button', { onClick: () => { count++; ctx.render() } }, count)
   }
 }
 \`\`\`
@@ -206,23 +206,23 @@ const MyComp: Component = async (initProps, ctx) => {   // ── mount（只一
     desc: '改状态 → 显式 render()；createStore 跨组件；selfId 精准刷新',
     body: `# render-only 状态
 
-> 唯一规则：**渲染只发生在 \`ctx.ui.render()\` 调用处**。状态是普通 JS 对象——
+> 唯一规则：**渲染只发生在 \`ctx.render()\` 调用处**。状态是普通 JS 对象——
 > 行为可静态推导（代码审查看事件回调里有无 render() 即可验证渲染逻辑）。
 
 ## 三通道
 
 | 场景 | 写法 | 触发 |
 |------|------|------|
-| 组件内部状态 | \`let count\` + 改后 \`ctx.ui.render()\` | 显式调用 |
+| 组件内部状态 | \`let count\` + 改后 \`ctx.render()\` | 显式调用 |
 | 跨组件共享 | \`createStore(init)\` + \`ctx.ui.useExternal(store)\` | store.set/update/notify 自动 |
-| 跨组件精准刷新 | mount 时 \`ctx.ui.selfId('name')\` → 任意处 \`ctx.ui.render(['name'])\` | 显式调用 |
+| 跨组件精准刷新 | mount 时 \`ctx.ui.selfId('name')\` → 任意处 \`ctx.render(['name'])\` | 显式调用 |
 
 \`\`\`tsx
 // 内部状态
 const Counter = (_init, ctx) => {
   let count = 0
   return (props) => h('button', {
-    onClick: () => { count++; ctx.ui.render() },
+    onClick: () => { count++; ctx.render() },
   }, count)
 }
 

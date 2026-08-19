@@ -2,8 +2,8 @@
  * /community——社区组件收录（01 生态计划 P1）
  * 中级贡献台阶：组件（三件套 + demo + 质量 checklist）→ 提交 PR → 收录展示。
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { Tag, EmptyState } from 'weifuwu/components'
 import { fetchIndex } from '../data.ts'
 

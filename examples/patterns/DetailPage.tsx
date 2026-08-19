@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { PageHeader, Descriptions, Timeline, Tag, Button, Space, Card, Divider } from 'weifuwu/components'
 
 // ─────────────────────────────────────────────────────────────
@@ -37,10 +37,10 @@ export const DetailPage: Component = async (_init: any, ctx: any) => {
       <PageHeader title={`订单 ${ORDER.id}`} sub={`客户：${ORDER.customer} · 下单时间：${ORDER.date}`}>
         <Space size="md">
           <Tag variant="primary">{ORDER.status}</Tag>
-          <Button variant="ghost" onClick={() => ctx.ui.render()}>
+          <Button variant="ghost" onClick={() => ctx.render()}>
             <Icon name="copy" size={14} /> 导出
           </Button>
-          <Button variant="danger" disabled={cancelled} onClick={() => { cancelled = true; ctx.ui.render() }}>
+          <Button variant="danger" disabled={cancelled} onClick={() => { cancelled = true; ctx.render() }}>
             {cancelled ? '已取消' : '取消订单'}
           </Button>
         </Space>

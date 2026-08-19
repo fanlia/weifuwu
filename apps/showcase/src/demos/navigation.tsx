@@ -5,15 +5,15 @@
  * weifuwu/components cheatsheet
  *
  * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
- * 使用闭包变量 + ctx.ui.render() 管理交互状态。
+ * 使用闭包变量 + ctx.render() 管理交互状态。
  *
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
+import { h } from 'weifuwu/vdom'
 import { FilePreview } from 'weifuwu/components'
-import { v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
+
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -47,9 +47,9 @@ const DemoSteps: Component = async (_props, ctx) => {
         { key: 'done', label: '完成', description: '订单生效' },
       ]} active={step} />
       <div class="wf-row wf-gap-sm" style="justify-content:center">
-        <Button size="sm" variant="secondary" onClick={() => { step = 'info'; ctx.ui.render() }}>第一步</Button>
-        <Button size="sm" variant="secondary" onClick={() => { step = 'pay'; ctx.ui.render() }}>第二步</Button>
-        <Button size="sm" variant="secondary" onClick={() => { step = 'done'; ctx.ui.render() }}>第三步</Button>
+        <Button size="sm" variant="secondary" onClick={() => { step = 'info'; ctx.render() }}>第一步</Button>
+        <Button size="sm" variant="secondary" onClick={() => { step = 'pay'; ctx.render() }}>第二步</Button>
+        <Button size="sm" variant="secondary" onClick={() => { step = 'done'; ctx.render() }}>第三步</Button>
       </div>
       <div class="wf-text-xs wf-text-secondary">三步流程 + 描述；aria-current="step" 标识当前步</div>
     </div>
@@ -64,7 +64,7 @@ const DemoTabs: Component = async (_props, ctx) => {
     { key: 'c', label: '日志', content: <p class="wf-m-0">这是日志内容。显示操作记录。</p> },
   ]
   let n = 0
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <Tabs items={items} active={tab} onChange={v => { tab = v; rerender() }}
@@ -84,16 +84,16 @@ const DemoDropdown: Component = async (_props, ctx) => {
     <div class="wf-row wf-gap-md" style="min-height:120px">
       <Dropdown
         trigger={
-          <Button variant="ghost" onClick={() => { open = !open; ctx.ui.render() }}>
+          <Button variant="ghost" onClick={() => { open = !open; ctx.render() }}>
             操作 ▾（点击切换）
           </Button>
         }
         open={open}
-        onOpenChange={(o: boolean) => { open = o; ctx.ui.render() }}
+        onOpenChange={(o: boolean) => { open = o; ctx.render() }}
         items={[
-          { label: '编辑', onClick: () => { lastAction = '编辑'; open = false; ctx.ui.render() } },
-          { label: '复制', onClick: () => { lastAction = '复制'; open = false; ctx.ui.render() } },
-          { label: '删除', variant: 'danger', onClick: () => { lastAction = '删除'; open = false; ctx.ui.render() } },
+          { label: '编辑', onClick: () => { lastAction = '编辑'; open = false; ctx.render() } },
+          { label: '复制', onClick: () => { lastAction = '复制'; open = false; ctx.render() } },
+          { label: '删除', variant: 'danger', onClick: () => { lastAction = '删除'; open = false; ctx.render() } },
         ]} />
       {lastAction && <span class="wf-text-xs wf-text-secondary">上次: {lastAction}</span>}
     </div>
@@ -104,7 +104,7 @@ const DemoPagination: Component = async (_props, ctx) => {
   let page = 3
   return async (_p: any) => (
     <div class="wf-center wf-gap-sm">
-      <Pagination total={200} page={page} onChange={p => { page = p; ctx.ui.render() }} />
+      <Pagination total={200} page={page} onChange={p => { page = p; ctx.render() }} />
       <div class="wf-text-xs wf-text-secondary">当前页: {page}</div>
     </div>
   )
@@ -150,8 +150,8 @@ const DemoMenu: Component = async (_props, ctx) => {
   return async (_p: any) => (
     <div class="wf-w-full">
       <div style={{ width: collapsed ? '56px' : '220px', transition: 'width 0.2s' }} class="wf-p-sm wf-border wf-rounded wf-bg-secondary">
-        <Menu items={items} activeKey={active} onSelect={k => { active = k; ctx.ui.render() }}
-          collapsible collapsed={collapsed} onCollapseChange={c => { collapsed = c; ctx.ui.render() }} />
+        <Menu items={items} activeKey={active} onSelect={k => { active = k; ctx.render() }}
+          collapsible collapsed={collapsed} onCollapseChange={c => { collapsed = c; ctx.render() }} />
       </div>
       <div class="wf-text-xs wf-text-secondary wf-mt-sm">当前: {active}（方向键导航；子菜单 Enter 展开 / Esc 收起；折叠态点图标弹出子菜单浮层；底部按钮折叠）</div>
     </div>

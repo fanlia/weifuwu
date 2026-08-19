@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { Ava, Loading, TypeBadge, StatusDot } from '../components/ui'
 import { Badge, Button, Card, Checkbox, EmptyState, Icon } from 'weifuwu/components'
 import type { Agent, AgentListResponse, Department, Member } from '../lib/types'
@@ -27,7 +27,7 @@ interface DepartmentDetailState {
 
 export const DepartmentDetail: Component = async (_props, ctx) => {
   const $ = {} as DepartmentDetailState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   const deptId = ctx.route?.params?.id ?? ''
 
   $.dept = null; $.members = []; $.loading = true; $.notFound = false

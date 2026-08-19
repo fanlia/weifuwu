@@ -1,7 +1,7 @@
 /**
  * 测试对话区（AgentDetail 拆分子组件）
  */
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Input } from 'weifuwu/components'
 import { errMsg } from '../../components/ui'
 import { inputValue } from '../../lib/types'
@@ -10,7 +10,7 @@ export const PreviewSection: Component<{ agentId: string }> = async (_init, ctx)
   let previewQuery = ''
   let previewText = ''
   let previewing = false
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   const agentId = _init.agentId
 
   async function previewSend() {

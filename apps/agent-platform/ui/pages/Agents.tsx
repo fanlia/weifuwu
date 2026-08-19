@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot } from '../components/ui'
 import { Button, Card, Icon, Skeleton } from 'weifuwu/components'
 import type { Agent, AgentListResponse } from '../lib/types'
@@ -9,7 +9,7 @@ interface AgentsState {
 
 export const Agents: Component = async (_props, ctx) => {
   const $ = {} as AgentsState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   $.agents = []; $.loading = true
   ctx.api!.get<AgentListResponse>('/api/agents')

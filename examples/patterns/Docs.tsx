@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import {Title,Paragraph, Anchor, BackTop, Breadcrumb, Button, CodeBlock, Divider, Icon, Tag, Space, } from 'weifuwu/components'
 
 

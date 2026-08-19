@@ -2,7 +2,7 @@
  * 运营报表页（P0 从 Dashboard 拆出——工作台聚焦「项目空间」，报表归管理面）
  * 管理员/运营视角：统计卡 / 趋势 / 成本 / 活跃成员 / 激活漏斗
  */
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
 import { Ava, PageHeader } from '../components/ui'
 import type { AgentListResponse, CostAgentRow, FunnelData, StatsData } from '../lib/types'
@@ -20,7 +20,7 @@ interface ReportsState {
 
 export const Reports: Component = async (_props, ctx) => {
   const $ = {} as ReportsState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   $.loading = true; $.stats = {}; $.agents = []; $.costAgents = []; $.funnel = null
   $.deptStats = []; $.quotaPressure = false
   Promise.all([

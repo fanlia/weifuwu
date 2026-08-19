@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Title, Text, StatCard, PageHeader, ProgressBar, SegmentedControl, Switch, Table, Badge, Card, Divider, Icon, Space } from 'weifuwu/components'
 
 // ─────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ const DATA: Record<string, PeriodData> = {
 export const Dashboard: Component = async (_init, ctx) => {
   let period = '30d'
   let showGoal = true
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   return async () => {
     const data = DATA[period] ?? DATA['30d']

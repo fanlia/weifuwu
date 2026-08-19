@@ -5,15 +5,15 @@
  * weifuwu/components cheatsheet
  *
  * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
- * 使用闭包变量 + ctx.ui.render() 管理交互状态。
+ * 使用闭包变量 + ctx.render() 管理交互状态。
  *
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
+import { h } from 'weifuwu/vdom'
 import { FilePreview } from 'weifuwu/components'
-import { v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
+
 import {
   Wave, Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -41,7 +41,7 @@ const DemoModal: Component = async (_props, ctx) => {
   let open = false
   let width = '420px'
   let closable = true
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-row wf-gap-sm">
@@ -68,7 +68,7 @@ const DemoModal: Component = async (_props, ctx) => {
 const DemoToast: Component = async (_props, ctx) => {
   let toasts = [] as ToastItem[]
   let position: ToastPosition = 'top-right'
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   function add(type: ToastType) {
     const id = String(Date.now())
     const msgs: Record<ToastType, string> = { success: '操作成功完成', error: '发生了一个错误', warning: '请注意：此操作不可撤销', info: '这是一条提示信息' }
@@ -104,10 +104,10 @@ const DemoAlert: Component = async (_props, ctx) => {
   let showInfo = true
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      {showInfo && <Alert variant="info" closable onClose={() => { showInfo = false; ctx.ui.render() }}>这是一条提示信息（可关闭）</Alert>}
+      {showInfo && <Alert variant="info" closable onClose={() => { showInfo = false; ctx.render() }}>这是一条提示信息（可关闭）</Alert>}
       <Alert variant="success">操作成功完成</Alert>
       <Alert variant="warning">请注意：此操作不可撤销</Alert>
-      {showErr && <Alert variant="error" closable onClose={() => { showErr = false; ctx.ui.render() }}>发生了一个错误（可关闭）</Alert>}
+      {showErr && <Alert variant="error" closable onClose={() => { showErr = false; ctx.render() }}>发生了一个错误（可关闭）</Alert>}
     </div>
   )
 }
@@ -118,7 +118,7 @@ const DemoLoading: Component = async (_props, ctx) => {
   return async (_p: any) => {
     if (!started) {
       started = true
-      setTimeout(() => { loading = false; ctx.ui.render() }, 3000)
+      setTimeout(() => { loading = false; ctx.render() }, 3000)
     }
     return (
     <div class="wf-row wf-gap-lg">
@@ -152,10 +152,10 @@ const DemoEmptyState: Component = async (_props, ctx) => {
       {hasData
         ? <div class="wf-stack wf-gap-sm wf-text-center wf-p-lg">
             <p>数据已添加</p>
-            <Button variant="ghost" onClick={() => { hasData = false; ctx.ui.render() }}>清空</Button>
+            <Button variant="ghost" onClick={() => { hasData = false; ctx.render() }}>清空</Button>
           </div>
         : <EmptyState text="暂无数据" hint="点击按钮创建第一个项目">
-            <Button variant="primary" onClick={() => { hasData = true; ctx.ui.render() }}>创建项目</Button>
+            <Button variant="primary" onClick={() => { hasData = true; ctx.render() }}>创建项目</Button>
           </EmptyState>}
     </div>
   )
@@ -175,17 +175,17 @@ const DemoDrawer: Component = async (_props, ctx) => {
   let leftOpen = false
   return async (_p: any) => (
     <div class="wf-row wf-gap-sm">
-      <Button variant="primary" onClick={() => { rightOpen = true; ctx.ui.render() }}>右侧抽屉</Button>
-      <Button onClick={() => { leftOpen = true; ctx.ui.render() }}>左侧抽屉</Button>
-      <Drawer open={rightOpen} title="编辑用户" position="right" onClose={() => { rightOpen = false; ctx.ui.render() }}
+      <Button variant="primary" onClick={() => { rightOpen = true; ctx.render() }}>右侧抽屉</Button>
+      <Button onClick={() => { leftOpen = true; ctx.render() }}>左侧抽屉</Button>
+      <Drawer open={rightOpen} title="编辑用户" position="right" onClose={() => { rightOpen = false; ctx.render() }}
         footer={<>
-          <Button variant="ghost" onClick={() => { rightOpen = false; ctx.ui.render() }}>取消</Button>
-          <Button variant="primary" onClick={() => { rightOpen = false; ctx.ui.render() }}>保存</Button>
+          <Button variant="ghost" onClick={() => { rightOpen = false; ctx.render() }}>取消</Button>
+          <Button variant="primary" onClick={() => { rightOpen = false; ctx.render() }}>保存</Button>
         </>}>
         <Input label="姓名" placeholder="请输入姓名" />
         <Input label="邮箱" type="email" placeholder="email@example.com" />
       </Drawer>
-      <Drawer open={leftOpen} title="导航菜单" position="left" onClose={() => { leftOpen = false; ctx.ui.render() }}>
+      <Drawer open={leftOpen} title="导航菜单" position="left" onClose={() => { leftOpen = false; ctx.render() }}>
         <p>左侧面板内容</p>
       </Drawer>
     </div>
@@ -215,16 +215,16 @@ const DemoDatePicker: Component = async (_props, ctx) => {
   return async (_p: any) => (
     <div class="wf-row wf-gap-md wf-cluster wf-w-full">
       <div class="wf-w-full" style="max-width:220px">
-        <DatePicker mode="date" onChange={v => { result = v; ctx.ui.render() }} placeholder="选择日期" />
+        <DatePicker mode="date" onChange={v => { result = v; ctx.render() }} placeholder="选择日期" />
       </div>
       <div class="wf-w-full" style="max-width:220px">
-        <DatePicker mode="datetime" onChange={v => { result = v; ctx.ui.render() }} placeholder="日期+时间" />
+        <DatePicker mode="datetime" onChange={v => { result = v; ctx.render() }} placeholder="日期+时间" />
       </div>
       <div class="wf-w-full" style="max-width:180px">
-        <DatePicker mode="time" onChange={v => { result = v; ctx.ui.render() }} placeholder="选择时间" />
+        <DatePicker mode="time" onChange={v => { result = v; ctx.render() }} placeholder="选择时间" />
       </div>
       <div class="wf-w-full" style="max-width:220px">
-        <DatePicker mode="range" onChange={v => { result = v; ctx.ui.render() }} placeholder="日期范围" />
+        <DatePicker mode="range" onChange={v => { result = v; ctx.render() }} placeholder="日期范围" />
       </div>
       {result && <div class="wf-text-xs wf-text-secondary wf-w-full">已选: {result}</div>}
     </div>

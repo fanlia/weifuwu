@@ -5,15 +5,15 @@
  * weifuwu/components cheatsheet
  *
  * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
- * 使用闭包变量 + ctx.ui.render() 管理交互状态。
+ * 使用闭包变量 + ctx.render() 管理交互状态。
  *
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
+import { h } from 'weifuwu/vdom'
 import { FilePreview } from 'weifuwu/components'
-import { v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
+
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -42,8 +42,8 @@ const DemoCheckbox: Component = async (_props, ctx) => {
   let remember = true
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm">
-      <Checkbox label="已阅读并同意协议" checked={agree} onChange={v => { agree = v; ctx.ui.render() }} />
-      <Checkbox label="记住登录状态" checked={remember} onChange={v => { remember = v; ctx.ui.render() }} />
+      <Checkbox label="已阅读并同意协议" checked={agree} onChange={v => { agree = v; ctx.render() }} />
+      <Checkbox label="记住登录状态" checked={remember} onChange={v => { remember = v; ctx.render() }} />
       <Checkbox label="不可选 (disabled)" disabled />
       <div class="wf-text-xs wf-text-secondary">同意: {String(agree)}, 记住: {String(remember)}</div>
     </div>
@@ -55,8 +55,8 @@ const DemoSwitch: Component = async (_props, ctx) => {
   let auto = false
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm">
-      <Switch label="启用通知" checked={notify} onChange={v => { notify = v; ctx.ui.render() }} />
-      <Switch label="自动更新" checked={auto} onChange={v => { auto = v; ctx.ui.render() }} />
+      <Switch label="启用通知" checked={notify} onChange={v => { notify = v; ctx.render() }} />
+      <Switch label="自动更新" checked={auto} onChange={v => { auto = v; ctx.render() }} />
       <Switch label="已禁用 (disabled)" disabled checked />
       <div class="wf-text-xs wf-text-secondary">通知: {notify ? '开' : '关'}, 自动更新: {auto ? '开' : '关'}</div>
     </div>
@@ -68,13 +68,13 @@ const DemoRadio: Component = async (_props, ctx) => {
   let inline = 'a'
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      <RadioGroup name="gender" value={gender} onChange={v => { gender = v; ctx.ui.render() }}
+      <RadioGroup name="gender" value={gender} onChange={v => { gender = v; ctx.render() }}
         options={[
           { value: 'male', label: '男' },
           { value: 'female', label: '女' },
           { value: 'other', label: '其他' },
         ]} />
-      <RadioGroup name="inline" value={inline} inline onChange={v => { inline = v; ctx.ui.render() }}
+      <RadioGroup name="inline" value={inline} inline onChange={v => { inline = v; ctx.render() }}
         options={[
           { value: 'a', label: '选项 A' },
           { value: 'b', label: '选项 B' },
@@ -91,7 +91,7 @@ const DemoSegmented: Component = async (_props, ctx) => {
     <div class="wf-stack wf-gap-sm wf-w-full">
       <SegmentedControl ariaLabel="生成方式"
         value={mode}
-        onChange={v => { mode = v; ctx.ui.render() }}
+        onChange={v => { mode = v; ctx.render() }}
         options={[
           { value: 'ai', label: '🤖 AI 生成' },
           { value: 'manual', label: '手动编写' },
@@ -99,7 +99,7 @@ const DemoSegmented: Component = async (_props, ctx) => {
         ]} />
       <SegmentedControl size="sm" ariaLabel="尺寸"
         value={size}
-        onChange={v => { size = v as any; ctx.ui.render() }}
+        onChange={v => { size = v as any; ctx.render() }}
         options={[{ value: 'sm', label: '小' }, { value: 'md', label: '中' }]} />
       <div class="wf-text-xs wf-text-secondary">当前模式: {mode}</div>
     </div>
@@ -112,11 +112,11 @@ const DemoSlider: Component = async (_props, ctx) => {
   let price = 800
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      <Slider label="音量" value={volume} onChange={v => { volume = v; ctx.ui.render() }} />
-      <Slider label="亮度" value={brightness} min={0} max={100} onChange={v => { brightness = v; ctx.ui.render() }} />
+      <Slider label="音量" value={volume} onChange={v => { volume = v; ctx.render() }} />
+      <Slider label="亮度" value={brightness} min={0} max={100} onChange={v => { brightness = v; ctx.render() }} />
       <Slider label="价格" value={price} min={0} max={2000} step={50}
         marks={[{ value: 0, label: '0' }, { value: 500 }, { value: 1000 }, { value: 1500 }, { value: 2000, label: '2000' }]}
-        onChange={v => { price = v; ctx.ui.render() }}
+        onChange={v => { price = v; ctx.render() }}
         onChangeEnd={v => console.log('价格调整完成:', v)} />
       <Slider label="价格区间" range value={[300, 1500]} min={0} max={2000} step={50}
         onChange={v => { console.log('区间:', v) }}

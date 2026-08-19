@@ -5,15 +5,15 @@
  * weifuwu/components cheatsheet
  *
  * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
- * 使用闭包变量 + ctx.ui.render() 管理交互状态。
+ * 使用闭包变量 + ctx.render() 管理交互状态。
  *
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import { createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
+import { h } from 'weifuwu/vdom'
 import { FilePreview } from 'weifuwu/components'
-import { v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
+
 import {
   VideoPlayer, Math,
   MarkdownEditor, CodeEditor, ImageCropper,
@@ -49,7 +49,7 @@ const DemoPageHeader: Component = async (_props, ctx) => {
         <Button size="sm">导出</Button>
       </PageHeader>
       <PageHeader display title="大标题模式" sub="display 档 30px 页面大标题" />
-      <Button size="sm" variant="ghost" onClick={() => { display = !display; ctx.ui.render() }}>切换: {display ? '普通' : 'display'}</Button>
+      <Button size="sm" variant="ghost" onClick={() => { display = !display; ctx.render() }}>切换: {display ? '普通' : 'display'}</Button>
       <PageHeader display={display} title="可切换标题" sub="点击上方按钮切换 display 档" />
     </div>
   )
@@ -98,7 +98,7 @@ export const DemoMarkdownEditor: Component = async (_props, ctx) => {
   return async (_p: any) => (
     <div class="wf-w-full wf-stack wf-gap-xs">
       <div class="wf-text-xs wf-text-secondary">分屏编辑 + 实时预览（复用 Markdown parser——零漂移）</div>
-      <MarkdownEditor value={md} onChange={(v: string) => { md = v; ctx.ui.render() }} rows={6} />
+      <MarkdownEditor value={md} onChange={(v: string) => { md = v; ctx.render() }} rows={6} />
     </div>
   )
 }
@@ -108,7 +108,7 @@ export const DemoCodeEditor: Component = async (_props, ctx) => {
   return async (_p: any) => (
     <div class="wf-w-full wf-stack wf-gap-xs">
       <div class="wf-text-xs wf-text-secondary">轻量代码编辑——行号 + Tab 缩进（零依赖，不引 Monaco）</div>
-      <CodeEditor value={code} lang="ts" onChange={(v: string) => { code = v; ctx.ui.render() }} rows={6} />
+      <CodeEditor value={code} lang="ts" onChange={(v: string) => { code = v; ctx.render() }} rows={6} />
     </div>
   )
 }
@@ -158,7 +158,7 @@ export const DemoTabBar: Component = async (_props: any, ctx: any) => {
           { key: 'me', label: '我的', icon: 'user' },
         ]}
         activeKey={tab}
-        onChange={(k: string) => { tab = k; ctx.ui.render() }}
+        onChange={(k: string) => { tab = k; ctx.render() }}
       />
     </div>
   )
@@ -172,7 +172,7 @@ export const DemoActionSheet: Component = async (_props: any, ctx: any) => {
     <div class="wf-stack wf-gap-sm wf-border wf-rounded-md" style="min-height:120px">
       <div class="wf-p-md wf-text-sm wf-text-secondary">选择结果：{last}</div>
       <div class="wf-p-md">
-        <button class="wf-btn" type="button" onClick={() => { open = true; ctx.ui.render() }}>选择操作</button>
+        <button class="wf-btn" type="button" onClick={() => { open = true; ctx.render() }}>选择操作</button>
       </div>
       <ActionSheet
         open={open}
@@ -183,8 +183,8 @@ export const DemoActionSheet: Component = async (_props: any, ctx: any) => {
           { key: 'share', label: '分享', icon: 'share' },
           { key: 'delete', label: '删除', icon: 'trash', danger: true },
         ]}
-        onSelect={(k: string) => { last = k; ctx.ui.render() }}
-        onClose={() => { open = false; ctx.ui.render() }}
+        onSelect={(k: string) => { last = k; ctx.render() }}
+        onClose={() => { open = false; ctx.render() }}
       />
     </div>
   )

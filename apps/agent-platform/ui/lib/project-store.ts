@@ -4,7 +4,7 @@
  * filesVersion：AI 写入/编辑文件后 bump——FilesSection 订阅自动刷新（交付物实时可见）
  * aiStatus：agentId → 'working' | 'idle'（wf:step/wf:done 驱动——左栏 AI 状态呼吸灯）
  */
-import { createStore } from 'weifuwu/ui-dom'
+import { createStore } from 'weifuwu/vdom'
 
 export const filesVersion = createStore({ v: 0 })
 

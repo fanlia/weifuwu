@@ -129,7 +129,7 @@ export class Engine {
   }
 
   /** 统一渲染原语（root/comp/语义 id——同一入口）——**返回 Promise**
-   *  （`await ctx.ui.render()` 精确等待——含补跑——完成后 DOM 最新——
+   *  （`await ctx.render()` 精确等待——含补跑——完成后 DOM 最新——
    *  契约 §4.2「测量/动画」；不 await 则 fire-and-forget——行为不变）
    *  **确定性（2026-12 决策——确定性高于 render 次数——无 magic）**：
    *  render() 调用 = 立即启动一次渲染（无微任务延迟/队列/合并——同步进入 build）；

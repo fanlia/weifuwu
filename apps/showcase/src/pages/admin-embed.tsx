@@ -1,8 +1,8 @@
 /**
  * admin 活体嵌入——showcase /apps/admin 页面
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { createAdminApp, pathFromHash } from '../../../../examples/apps/admin/app.tsx'
 
 export const AdminEmbed: Component = async (_init: any, _ctx: any) => {

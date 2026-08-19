@@ -562,19 +562,19 @@ test('同步：A 渲染 + 交互 → 事件日志 → B 增量镜像（DOM 同�
   document.body.removeChild(B)
 })
 
-// ── vdom2 ↔ vdom3 兼容层：迁移路径（ctx.ui.render → ctx.render 适配） ──
+// ── vdom2 ↔ vdom3 兼容层：迁移路径（ctx.render → ctx.render 适配） ──
 
-test('兼容：vdom2 风格组件（ctx.ui.render）在 vdom3 树运行——交互/复用正常', async () => {
-  // vdom2 风格组件（含内部状态 + ctx.ui.render——不依赖 hooks——签名已统一）
+test('兼容：vdom2 风格组件（ctx.render）在 vdom3 树运行——交互/复用正常', async () => {
+  // vdom2 风格组件（含内部状态 + ctx.render——不依赖 hooks——签名已统一）
   const V2Counter: any = (initProps: any, ctx: any) => {
     let n = initProps.initial ?? 0
     return async (props: any) =>
       h('button', {
         id: 'v2btn',
-        onClick: () => { n += props.step ?? 1; ctx.ui.render() },
+        onClick: () => { n += props.step ?? 1; ctx.render() },
       }, [`v2: ${n}`])
   }
-  // vdom2/vdom3 组件签名统一（ctx: V3Ctx extends WfuiContext）——直接使用
+  // vdom2/vdom3 组件签名统一（ctx: V3Ctx extends UIContext）——直接使用
   const V2CounterCompat = V2Counter as any
   const App = async (_init: any, ctx: any) => {
     const rerender = () => ctx.render()
@@ -591,7 +591,7 @@ test('兼容：vdom2 风格组件（ctx.ui.render）在 vdom3 树运行——交
   assert.ok(root.querySelector('[id="v2btn"]'), 'v2 组件挂载')
   assert.equal(root.querySelector('[id="v2btn"]')?.textContent, 'v2: 5', '初始状态')
 
-  // v2 组件内部交互（ctx.ui.render → v3 render）
+  // v2 组件内部交互（ctx.render → v3 render）
   ;(root.querySelector('[id="v2btn"]') as HTMLButtonElement)?.click()
   await new Promise((r) => setTimeout(r, 20))
   assert.equal(root.querySelector('[id="v2btn"]')?.textContent, 'v2: 6', 'v2 组件交互（ui.render 适配）')
@@ -603,7 +603,7 @@ test('兼容：vdom2 风格组件（ctx.ui.render）在 vdom3 树运行——交
   document.body.removeChild(root)
 })
 
-test('兼容：vdom2 时代组件签名（ctx: WfuiContext）在 vdom3 渲染', async () => {
+test('兼容：vdom2 时代组件签名（ctx: UIContext）在 vdom3 渲染', async () => {
   // 模拟 vdom2 组件形态（无状态——只用 props）
   const V2Badge: any = (_init: any, _ctx: any) => async (props: any) =>
     h('span', { class: props.variant ? `badge-${props.variant}` : 'badge' }, props.label)
@@ -866,7 +866,7 @@ test('hooks shim：useOpen（受控/非受控打开态）+ useControlled（输�
   const Dropdown = async (_init: any, ctx: any) => {
     const ctrl = ctx.ui.useOpen({ name: 'TestDropdown' })
     return async () => h('div', {}, [
-      h('button', { id: 'dd-btn', onClick: () => { ctrl.setOpen(!ctrl.open); ctx.ui.render() } }, 'toggle'),
+      h('button', { id: 'dd-btn', onClick: () => { ctrl.setOpen(!ctrl.open); ctx.render() } }, 'toggle'),
       ctrl.open ? h('div', { id: 'dd-panel' }, '面板') : null,
     ])
   }
@@ -2062,7 +2062,7 @@ test('路由页面下组件 ctx.render 组件级更新：props 剪枝不吞内�
   let count = 0
   const Counter = async (_init: any, ctx: any) => {
     return async (_props: any) =>
-      h('button', { id: 'cnt', onClick: () => { count++; ctx.ui.render() } }, [`count:${count}`])
+      h('button', { id: 'cnt', onClick: () => { count++; ctx.render() } }, [`count:${count}`])
   }
   const App = async (_init: any, _ctx: any) => async () => h('div', { id: 'page' }, [
     h('div', {}, 'static'),
@@ -2131,7 +2131,7 @@ test('Tour 受控缺 onFinish 完成关闭：open 已传但无回调——点完
   // 非受控：不传 open——靠 ref 打开（演示内部打开方式）
   let tourRef: any = null
   const App = async (_init: any, ctx: any) => {
-    const render = () => ctx.ui.render()
+    const render = () => ctx.render()
     return async () => h('div', {}, [
       h('button', { id: 't-a', onClick: () => { tourRef?.(); render() } }, 'a'),
       h('button', { id: 't-b' }, 'b'),
@@ -2156,7 +2156,7 @@ test('Tour 受控完成关闭（open=false 回流）：最后一步点完成 →
   let step = 0
   let finished = false
   const App = async (_init: any, ctx: any) => {
-    const render = () => ctx.ui.render()
+    const render = () => ctx.render()
     return async () => h('div', {}, [
       h('button', { id: 't-a' }, 'a'),
       h('button', { id: 't-b' }, 'b'),
@@ -2237,7 +2237,7 @@ test('错误事件化：组件级更新失败 → error:caught（渲染管线不
   const { createRoot } = await import('./vdom3/root.ts')
   let fail = false
   const Flaky = async (_init: any, ctx: any) => {
-    const rerender = () => ctx.ui.render()
+    const rerender = () => ctx.render()
     return async (_props: any) => {
       if (fail) throw new Error('flaky-boom')
       return h('button', { id: 'f', onClick: () => { fail = true; rerender() } }, 'go')
@@ -2270,7 +2270,7 @@ test('错误事件化：正常渲染零错误事件（事件流无噪音）', as
   document.body.appendChild(root)
   const { createRoot } = await import('./vdom3/root.ts')
   const App = async (_init: any, ctx: any) => {
-    const rerender = () => ctx.ui.render()
+    const rerender = () => ctx.render()
     let n = 0
     return async () => h('div', {}, [
       h('button', { id: 'go', onClick: () => { n++; rerender() } }, [`n:${n}`]),
@@ -2295,7 +2295,7 @@ test('错误事件化：renderFn 挂起 → error:caught（挂起超时——静
   // 挂起 renderFn（永不 resolve——静默失败）
   let hangs = false
   const Hanging = async (_init: any, ctx: any) => {
-    const rerender = () => ctx.ui.render()
+    const rerender = () => ctx.render()
     return async (_props: any) => {
       if (hangs) return new Promise<never>(() => {}) // 永不 resolve
       return h('button', { id: 'h', onClick: () => { hangs = true; rerender() } }, 'go')
@@ -2325,7 +2325,7 @@ test('错误事件化：正常渲染零内部决策事件（queue/notfound/skip 
   const { createRoot } = await import('./vdom3/root.ts')
   let n = 0
   const App = async (_init: any, ctx: any) => {
-    const rerender = () => ctx.ui.render()
+    const rerender = () => ctx.render()
     return async () => h('button', { id: 'go', onClick: () => { n++; rerender() } }, [`n:${n}`])
   }
   createRoot(h(App, {}), root)
@@ -2539,7 +2539,7 @@ test('组件副作用事件流：ref:mount + effect:animate/lock/unlock/focus/sc
   document.body.appendChild(root2)
   let open = true
   const WithModal = async (_init: any, ctx: any) => {
-    const close = () => { open = false; ctx.ui.render() }
+    const close = () => { open = false; ctx.render() }
     return async () => h('div', {}, [
       h('button', { id: 'close', onClick: close }, 'close'),
       h(Modal, { open, onClose: close, title: 't', children: h('div', {}, 'x') }),
@@ -2649,7 +2649,7 @@ test('组件索引 O(1) 定位：注册/复用/移除一致性（updateComponent
   let show = true
   const Inner = async (_init: any, _ctx: any) => async (_p: any) => h('button', { id: 'inner' }, 'go')
   const App = async (_init: any, ctx: any) => {
-    const rerender = () => ctx.ui.render()
+    const rerender = () => ctx.render()
     return async () => h('div', {}, [
       h('button', { id: 'toggle', onClick: () => { show = !show; rerender() } }, 'toggle'),
       show ? h(Inner, {}) : null,
@@ -2693,7 +2693,7 @@ test('不变量：所有状态变化都通过事件流——状态覆盖矩阵�
   let show = true
   const Inner = async (_init: any, _ctx: any) => async () => h('button', { id: 'inner' }, 'go')
   const App = async (_init: any, ctx: any) => {
-    const rerender = () => ctx.ui.render()
+    const rerender = () => ctx.render()
     return async () => h('div', {}, [
       h('button', { id: 'toggle', onClick: () => { show = !show; rerender() } }, 'toggle'),
       show ? h(Inner, {}) : null,
@@ -2833,7 +2833,7 @@ test('app 节点：多应用加载——注册表/工厂/边界事件/同流全�
   registerApp('counter-app', (_props: any, _ctx: any) => {
     // 应用工厂返回子应用根 vnode（应用组件）
     const SubApp = async (_init: any, ctx: any) => {
-      const rerender = () => ctx.ui.render()
+      const rerender = () => ctx.render()
       return async () => h('div', { class: 'sub' }, [
         h('button', { id: 'sub-go', onClick: () => { appClicks++; rerender() } }, [`sub:${appClicks}`]),
       ])
@@ -3659,7 +3659,7 @@ test('UI-3：selfId + render([\'id\']) 跨组件精准刷新——只重渲染�
   }
   const B = async (_init: any, ctx: any) => async () => {
     renders.b++
-    return h('button', { id: 'refresh-stats', onClick: () => ctx.ui.render(['stats']) }, '刷新统计')
+    return h('button', { id: 'refresh-stats', onClick: () => ctx.render(['stats']) }, '刷新统计')
   }
   const App = async () => async () => h('div', {}, [h(A, {}), h(B, {})])
   const handle = createRoot(h(App, {}), root)

@@ -59,7 +59,7 @@ function reportRenderDuration(sessionId: string | null, buildMs: number, patchMs
 export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Record<string, unknown> }): RootHandle {
   let current = vnode
   // 根组件 vnode（buildVNode 克隆——原始 vnode 无 _id/_render——真实事故：
-  // FilePreview 远程加载 ctx.ui.render 无效——findComponent 找不到根组件）
+  // FilePreview 远程加载 ctx.render 无效——findComponent 找不到根组件）
   let rootComp: VNode | null = null
 
   // 渲染串行 + dirty 合并（async update 并发 → 同基于初始树 patch → 结构错乱；
@@ -92,7 +92,7 @@ export function createRoot(vnode: VNode, root: HTMLElement, options?: { ctx?: Re
       do {
         dirtyComps.delete(compId)
         // 根组件兜底：current 是输出树（不含根组件 vnode——buildVNode 克隆——
-        // 根组件 ctx.ui.render 的 findComponent 找不到自己——真实事故：
+        // 根组件 ctx.render 的 findComponent 找不到自己——真实事故：
         // FilePreview 远程加载 render 无效）
         const comp = findComponent(current, compId) ?? (rootComp && rootComp._id === compId ? rootComp : null)
         if (!comp || typeof comp.type !== 'function' || !comp._render) {

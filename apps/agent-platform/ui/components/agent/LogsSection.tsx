@@ -1,14 +1,14 @@
 /**
  * 执行日志区（AgentDetail 拆分子组件——ai 类型自动加载）
  */
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Loading, Timeline } from 'weifuwu/components'
 import type { AgentLog } from '../../lib/types'
 
 export const LogsSection: Component<{ agentId: string }> = async (_init, ctx) => {
   let logs: AgentLog[] = []
   let logsLoading = true
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   const agentId = _init.agentId
 
   async function loadLogs() {

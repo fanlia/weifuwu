@@ -17,7 +17,9 @@ import { HtmlSafe } from '../../src/server/ui/html-safe.ts'
 import { shellHeader } from './src/ssr-header.ts'
 // ctx.ui.html 标签模板会转义插值——HTML 插值（header/防闪脚本）需 unsafe 包裹
 const unsafe = (s: string): string => new HtmlSafe(s) as unknown as string
-import { h, renderToEvents, eventsToHtml } from '../../src/client/ui-dom/index.ts'
+import { h } from '../../src/client/vdom/index.ts'
+import { renderToStream } from '../../src/client/vdom/core/build.ts'
+import { commandToHtml } from '../../src/client/vdom/core/html.ts'
 import { Markdown } from '../../src/client/components/index.ts'
 import { installDemoBackend } from './src/demo-backend.ts'
 import { registerTodoApi } from '../../examples/apps/todo/api.ts'
@@ -201,8 +203,14 @@ async function renderDocPage(domain: string, id: string): Promise<Response> {
   const file = resolve(contentRoot, domain, `${id}.md`)
   if (!file.startsWith(contentRoot) || !existsSync(file)) return Response.json({ error: 'not found' }, { status: 404 })
   const md = await readFile(file, 'utf-8')
-  const events = await renderToEvents(h(Markdown, { content: md }))
-  const body = eventsToHtml(events)
+  // vdom SSR 管线（renderToStream → commandToHtml 流式）
+  const reader = renderToStream(h(Markdown, { content: md })).pipeThrough(commandToHtml()).getReader()
+  let body = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    body += value
+  }
   const nav = shellHeader(domain)
   return new Response(`<!DOCTYPE html>
 <html lang="zh-CN">

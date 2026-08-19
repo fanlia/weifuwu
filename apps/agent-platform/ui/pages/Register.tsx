@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { AuthPage, Avatar, Field, Input, PasswordInput } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 import { authErrorKey } from '../lib/i18n'
@@ -18,7 +18,7 @@ function inviteParams(): { app: string; invite: string } | null {
 
 export const Register: Component = async (_props, ctx) => {
   const $ = {} as RegisterState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
   const invite = inviteParams()
   // 稳定回调（mount 层——受控输入焦点保持 + AuthPage 不重建）

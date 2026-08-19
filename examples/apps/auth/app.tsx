@@ -7,8 +7,8 @@
  *   - 后端：内存用户表 + 会话（api.ts 注册函数——独立/嵌入共享）
  *   - 会话持久化：ctx.browser.storage（浏览器纪律）
  */
-import { createRouter, h, createStore } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { UIRouter, uiServe, h, createStore, createClientBrowser } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { AuthPage, Input, Button, Alert, PageHeader, Avatar, Space } from 'weifuwu/components'
 
 export interface User { id: string; email: string; name: string }
@@ -36,9 +36,9 @@ const AuthFormPage = (mode: 'login' | 'register'): Component =>
     let loading = false
     const submit = async () => {
       error = ''
-      if (!email.includes('@')) { error = '请输入有效邮箱'; ctx.ui.render(); return }
-      if (password.length < 6) { error = '密码至少 6 位'; ctx.ui.render(); return }
-      loading = true; ctx.ui.render()
+      if (!email.includes('@')) { error = '请输入有效邮箱'; ctx.render(); return }
+      if (password.length < 6) { error = '密码至少 6 位'; ctx.render(); return }
+      loading = true; ctx.render()
       const res = await api(browser, `/api/auth/${mode}`, { email, password, name })
       loading = false
       if (res.ok && res.user) {
@@ -48,7 +48,7 @@ const AuthFormPage = (mode: 'login' | 'register'): Component =>
       } else {
         error = res.error ?? '请求失败'
       }
-      ctx.ui.render()
+      ctx.render()
     }
     return async (_p: any) => (
       <AuthPage
@@ -62,10 +62,10 @@ const AuthFormPage = (mode: 'login' | 'register'): Component =>
         footer={<a href={mode === 'login' ? '#/register' : '#/login'} class="wf-link" style="cursor:pointer">{mode === 'login' ? '没有账号？注册' : '已有账号？登录'}</a>}
       >
         {mode === 'register' && (
-          <Input label="昵称" value={name} onInput={(e: any) => { name = (e.target as HTMLInputElement).value; ctx.ui.render() }} placeholder="如何称呼你" />
+          <Input label="昵称" value={name} onInput={(e: any) => { name = (e.target as HTMLInputElement).value; ctx.render() }} placeholder="如何称呼你" />
         )}
-        <Input label="邮箱" type="email" value={email} onInput={(e: any) => { email = (e.target as HTMLInputElement).value; ctx.ui.render() }} placeholder="name@example.com" required />
-        <Input label="密码" type="password" value={password} onInput={(e: any) => { password = (e.target as HTMLInputElement).value; ctx.ui.render() }} placeholder="至少 6 位" />
+        <Input label="邮箱" type="email" value={email} onInput={(e: any) => { email = (e.target as HTMLInputElement).value; ctx.render() }} placeholder="name@example.com" required />
+        <Input label="密码" type="password" value={password} onInput={(e: any) => { password = (e.target as HTMLInputElement).value; ctx.render() }} placeholder="至少 6 位" />
       </AuthPage>
     )
   }
@@ -126,8 +126,12 @@ export const authRoutes = [
 
 export const pathFromHash = (): string => location.hash.replace(/^#/, '') || '/'
 
-export function createAuthApp(root: HTMLElement, options?: { history?: boolean }): ReturnType<typeof createRouter> {
-  return createRouter(authRoutes, root, options?.history === false
-    ? { history: false, initialPath: pathFromHash() }
-    : undefined)
+export function createAuthApp(root: HTMLElement, _options?: { history?: boolean }): ReturnType<typeof uiServe> {
+  // vdom 规范面：UIRouter + uiServe——布局共享精准路由
+  const router = new UIRouter()
+  for (const r of authRoutes) {
+    router.get(r.path, (req: Request, ctx: any) =>
+      (ctx as { stream: (v: unknown) => Response }).stream(r.render()))
+  }
+  return uiServe(router, { root, browser: createClientBrowser()! })
 }

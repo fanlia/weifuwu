@@ -4,8 +4,8 @@
  * P0 补丁的用武之地：页面内嵌独立 router（history: false——不碰宿主 URL/popstate）。
  * §5.1 ref 纪律：ref 定义在 mount 作用域（卸载时 close 子路由 + 注销 hashchange）。
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { createTodoApp, pathFromHash } from '../../../../examples/apps/todo/app.tsx'
 
 export const TodoEmbed: Component = async (_init: any, _ctx: any) => {

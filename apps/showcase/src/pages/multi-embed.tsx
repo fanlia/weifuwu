@@ -1,8 +1,8 @@
 /**
  * multi 活体嵌入——showcase /apps/multi 页面
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { createMultiApp, pathFromHash } from '../../../../examples/apps/multi/app.tsx'
 
 export const MultiEmbed: Component = async (_init: any, _ctx: any) => {

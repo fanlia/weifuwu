@@ -48,7 +48,7 @@ registerHooks({
       const result = transformSync(code, {
         loader: url.endsWith('.tsx') ? 'tsx' : 'ts',
         jsx: 'automatic',
-        jsxImportSource: 'weifuwu/ui-dom',
+        jsxImportSource: 'weifuwu/vdom',
         format: 'esm',
         sourcemap: 'inline',
         target: 'node22',

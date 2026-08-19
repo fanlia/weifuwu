@@ -3,8 +3,8 @@
  *
  * 自举：ThemeSwitch（主题能力）、wf-* 原语（布局）、Icon 组件（图标纪律）。
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { ThemeSwitch, Icon } from 'weifuwu/components'
 
 export const DOMAINS = [

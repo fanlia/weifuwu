@@ -51,10 +51,13 @@ export { uiServe } from './core/serve.ts'
 export type { UIContext, DataPipe } from './context/UIContext.ts'
 export type { Component, RenderFn, VNode, VNodeChild } from './core/vnode.ts'
 export type { Ui } from './hooks/env.ts'
+/** 页面作者渲染入口（ctx.stream——vnode → Response 命令流） */
+export type { RenderCtx } from './core/serve.ts'
 export type { Browser } from './browser/Browser.ts'
 export type { ApiClient } from './middlewares/api.ts'
 export type { AuthClient, I18nState } from './middlewares/auth-i18n.ts'
 export type { WsClient } from './middlewares/ws.ts'
+export { createStore } from './store.ts'
 export type { ExternalStore } from './store.ts'
 
 /** 中间件类型（ui-dom 兼容——组件命令式中间件签名：confirm()/toast() 等

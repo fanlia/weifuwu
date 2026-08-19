@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, TypeBadge, Loading, errMsg } from '../components/ui'
 import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Icon, Input, Select, Slider, Textarea, Timeline } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
@@ -37,7 +37,7 @@ interface AgentDetailState {
 export const AgentDetail: Component = async (_props, ctx) => {
   const $ = {} as AgentDetailState
 
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   // 稳定回调（mount 层——Field/Input/Select 不随交互重建；受控输入焦点保持）
   const onNameInput = (e: Event) => { $.name = inputValue(e); rerender() }
   const onDescriptionInput = (e: Event) => { $.description = inputValue(e); rerender() }

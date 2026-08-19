@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Button, Card, Icon } from 'weifuwu/components'
 import type { Department, DepartmentListResponse } from '../lib/types'
@@ -23,7 +23,7 @@ function plainPreview(src: string): string {
 
 export const NewChat: Component = async (_props, ctx) => {
   const $ = {} as NewChatState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   $.depts = []; $.loading = true
   ctx.api!.get<DepartmentListResponse>('/api/departments')

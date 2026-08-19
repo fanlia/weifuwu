@@ -3,7 +3,7 @@
  * weifuwu/ui-dom — 前端路由 + 渲染运行时（v2 vdom 引擎，render-only）
  *
  * 渲染运行时 = vdom（第 2 代引擎，design 归档）：
- * - 渲染触发唯一原语 ctx.ui.render()（无 $ / dirty——无自动渲染）
+ * - 渲染触发唯一原语 ctx.render()（无 $ / dirty——无自动渲染）
  * - 共享状态：createStore + ctx.ui.useExternal
  * - 命令式挂载：mountCommand/unmountCommand（弹窗中间件在 components 各组件内部）
  *
@@ -35,7 +35,7 @@ export { i18n } from './i18n.ts'
 export type { I18nState, I18nInjected, I18nOptions } from './i18n.ts'
 export type { WsClient, WsInjected } from './middleware/ws.ts'
 export type {
-  WfuiContext,
+  UIContext,
 } from './types.ts'
 // aiStream 传输解码（AiChat/Editor/SheetGrid/SlideCanvas 经 build.mjs externalize 改写为包名导入——导出面必须聚合）
 export { aiStream } from './ai.ts'

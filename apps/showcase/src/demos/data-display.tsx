@@ -5,16 +5,16 @@
  * weifuwu/components cheatsheet
  *
  * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
- * 使用闭包变量 + ctx.ui.render() 管理交互状态。
+ * 使用闭包变量 + ctx.render() 管理交互状态。
  *
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 
-import { createRouter, h, stream, evKey, App as AppNode, registerApp, createClientBrowser } from 'weifuwu/ui-dom'
+import { h, createClientBrowser } from 'weifuwu/vdom'
 import { FilePreview } from 'weifuwu/components'
-import { v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
+
 import {
   SortableList, ExportCSV,
   Button, Input, Textarea, Select,
@@ -43,7 +43,7 @@ const DemoTable: Component = async (_props, ctx) => {
   let sortKey = 'name'
   let sortOrder: 'asc' | 'desc' = 'asc'
   let view = 'data' // 'data' | 'empty'
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   const data = [
     { id: 1, name: '张三', role: '管理员', status: '活跃', email: 'zhang@wf.dev', phone: '138-0000-0001', dept: '平台组' },
     { id: 2, name: '李四', role: '编辑', status: '离线', email: 'li@wf.dev', phone: '138-0000-0002', dept: '内容组' },
@@ -77,7 +77,7 @@ const DemoCardShowcase: Component = async (_props, ctx) => {
     <div class="wf-row wf-gap-md wf-cluster">
       <Card>默认卡片</Card>
       <Card variant="outlined">线框卡片</Card>
-      <Card clickable onClick={() => { clicked = true; ctx.ui.render() }}>可点击卡片</Card>
+      <Card clickable onClick={() => { clicked = true; ctx.render() }}>可点击卡片</Card>
       {clicked && <div class="wf-text-xs wf-w-full wf-text-secondary">卡片被点击了</div>}
     </div>
   )
@@ -108,7 +108,7 @@ const DemoTag: Component = async (_props, ctx) => {
       <Tag variant="success">完成</Tag>
       <Tag variant="danger">错误</Tag>
       {tags.map((t: string, i: number) => (
-        <Tag key={t} closable onClose={() => { tags = tags.filter((_: any, j: number) => j !== i); ctx.ui.render() }}>{t}</Tag>
+        <Tag key={t} closable onClose={() => { tags = tags.filter((_: any, j: number) => j !== i); ctx.render() }}>{t}</Tag>
       ))}
     </div>
   )
@@ -209,7 +209,7 @@ const DemoTimeline: Component = async (_props, ctx) => {
       <div class="wf-text-xs wf-text-secondary">竖向（默认）</div>
       <Timeline items={hItems} mode="horizontal" />
       <div class="wf-text-xs wf-text-secondary">横向模式（步骤进度）</div>
-      <Button size="sm" variant="ghost" onClick={() => { logs = [...logs.slice(1), { key: String(Date.now()), title: '新事件', time: '现在', status: 'warning' as const, content: '点击追加' }]; ctx.ui.render() }}>追加事件</Button>
+      <Button size="sm" variant="ghost" onClick={() => { logs = [...logs.slice(1), { key: String(Date.now()), title: '新事件', time: '现在', status: 'warning' as const, content: '点击追加' }]; ctx.render() }}>追加事件</Button>
     </div>
   )
 }
@@ -239,10 +239,10 @@ const DemoMessageBubble: Component = async (_props, ctx) => {
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <MessageBubble role="user" content="北京天气如何？" />
-      <MessageBubble role="assistant" status={st} content={st === 'error' ? '请求失败，请重试' : '北京 25°C，晴。'} actions={st === 'error' ? <Button size="sm" variant="ghost" onClick={() => { st = 'complete'; ctx.ui.render() }}>🔄 重试</Button> : undefined} />
+      <MessageBubble role="assistant" status={st} content={st === 'error' ? '请求失败，请重试' : '北京 25°C，晴。'} actions={st === 'error' ? <Button size="sm" variant="ghost" onClick={() => { st = 'complete'; ctx.render() }}>🔄 重试</Button> : undefined} />
       <div class="wf-row wf-gap-xs">
         {(['complete', 'streaming', 'error'] as const).map(s => (
-          <Button size="sm" variant={st === s ? 'primary' : 'ghost'} onClick={() => { st = s; ctx.ui.render() }}>{s}</Button>
+          <Button size="sm" variant={st === s ? 'primary' : 'ghost'} onClick={() => { st = s; ctx.render() }}>{s}</Button>
         ))}
       </div>
     </div>
@@ -295,7 +295,7 @@ const DemoInView: Component = async (_props, ctx) => {
     <div class="wf-stack wf-gap-sm wf-w-full">
       <p class="wf-text-sm wf-text-secondary">向下滚动，下方的懒加载区域将在进入视窗后渲染👇</p>
       <div class="wf-center wf-bg-secondary wf-rounded wf-text-sm wf-text-tertiary" style="height:120px">上方留白区域，需要滚动</div>
-      <InView onEnter={() => { log = [...log, '已加载']; ctx.ui.render() }}>
+      <InView onEnter={() => { log = [...log, '已加载']; ctx.render() }}>
         <div class="wf-p-lg wf-text-center wf-bg-brand wf-rounded">
           <div class="wf-text-3xl wf-mb-sm wf-m-0">🎉</div>
           <p class="wf-m-0 wf-text-semibold">懒加载内容已加载！</p>
@@ -312,7 +312,7 @@ const DemoEditor: Component = async (_props, ctx) => {
   let html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p class="wf-text-center">居中文字</p>'
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      <Editor value={html} onChange={v => { html = v; ctx.ui.render() }} placeholder="输入内容..."
+      <Editor value={html} onChange={v => { html = v; ctx.render() }} placeholder="输入内容..."
         ai={{ url: '/api/chat' }} draftKey="demo-editor-1" />
       <div class="wf-text-xs wf-text-secondary wf-py-xs wf-truncate wf-w-full">
         HTML 输出: {html?.substring(0, 150) || '(空)'}
@@ -329,7 +329,7 @@ const DemoFilePreview: Component = async (_props, ctx) => {
       <FilePreview type="md" url="/api/files/README.md" editable ai={{ url: '/api/chat' }} fileName="README.md"
         onSave={async (v: string) => {
           await fetch('/api/files/README.md', { method: 'PUT', body: v })
-          saved = v; ctx.ui.render()
+          saved = v; ctx.render()
         }} />
       {saved ? <div class="wf-text-xs wf-text-secondary wf-py-xs wf-truncate wf-w-full">已保存: {saved.substring(0, 80)}…</div> : null}
     </div>
@@ -355,7 +355,7 @@ const DemoThemeSwitch: Component = async (_props, ctx) => {
   // 品牌 seed 实时换肤（演示 WUI 设计语言第一档：改一个值全站跟随）
   let brandSeed = '#4f6ef7'
   let darkBrandSeed = '#6b8aff'
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   const rootEl = () => (ctx.browser ?? createClientBrowser()).rootElement() as HTMLElement
   const applySeeds = (light: string, dark: string) => {
     rootEl().style.setProperty('--wf-brand-seed', light)
@@ -427,12 +427,12 @@ const DemoConfirm: Component = async (_props, ctx) => {
       variant: 'danger',
     })
     result = ok ? '已删除' : '已取消'
-    ctx.ui.render()
+    ctx.render()
   }
   const handleSave = async () => {
     const ok = await (ctx as any).confirm?.('保存修改？')
     result = ok ? '已保存' : '已取消'
-    ctx.ui.render()
+    ctx.render()
   }
   return async (_p: any) => (
     <div class="wf-row wf-gap-sm">
@@ -455,7 +455,7 @@ const DemoAutoCompleteDis: Component = async (_p, ctx) => {
         { value: 'pay-admin', label: '支付平台管理' },
         { value: 'order-center', label: '订单中心' },
       ]} disabled={disabled} placeholder="禁用时不可输入…" />
-      <div><Button onClick={() => { disabled = !disabled; ctx.ui.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
+      <div><Button onClick={() => { disabled = !disabled; ctx.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
     </div>
   )
 }
@@ -465,7 +465,7 @@ const DemoTableRowSelect: Component = async (_props, ctx) => {
   return async () => (
     <div class="wf-w-full wf-stack wf-gap-sm">
       <Table
-        rowSelection={{ selectedRowKeys: keys, onChange: (k: (string | number)[]) => { keys = k; ctx.ui.render() } }}
+        rowSelection={{ selectedRowKeys: keys, onChange: (k: (string | number)[]) => { keys = k; ctx.render() } }}
         data={[
           { id: 1, name: '张三', role: '管理员' },
           { id: 2, name: '李四', role: '编辑' },
@@ -554,11 +554,11 @@ const DemoLogViewer: Component = async (_props, ctx) => {
             : `[12:00:${String(idx).padStart(2, '0')}] 普通日志行 ${idx}`
           lines = [...lines, log]
           idx++
-          ctx.ui.render()
+          ctx.render()
         }}>追加日志（模拟流）</Button>
         <Button size="sm" onClick={() => {
           lines = Array.from({ length: 10000 }, (_, i) => `[12:00:${String(i % 60).padStart(2, '0')}] 批量日志 ${i} 行`)
-          ctx.ui.render()
+          ctx.render()
         }}>加载 10k 行</Button>
       </div>
     </div>
@@ -587,7 +587,7 @@ const DemoSparkline: Component = async () => async () => (
 const DemoTour: Component = async (_props, ctx) => {
   let open = false
   let step = 0
-  const render = () => ctx.ui.render()
+  const render = () => ctx.render()
   return async () => (
     <div class="wf-stack wf-gap-md">
       <div class="wf-row wf-gap-md wf-cluster">
@@ -619,7 +619,7 @@ const DemoKanban: Component = async (_props, ctx) => {
     { key: 'doing', title: '进行中', items: [{ id: 'k3', title: 'Tour 定位修复', tag: '开发' }] },
     { key: 'done', title: '已完成', items: [{ id: 'k4', title: 'ctx.browser 迁移', tag: '架构' }, { id: 'k5', title: 'v0.66.0 发布', tag: '发布' }] },
   ]
-  const render = () => ctx.ui.render()
+  const render = () => ctx.render()
   return async () => (
     <Kanban
       columns={cols}
@@ -664,7 +664,7 @@ const DemoPipeline: Component = async () => async () => (
 
 const DemoTreeSelect: Component = async (_props, ctx) => {
   let value: string | string[] | undefined = undefined
-  const render = () => ctx.ui.render()
+  const render = () => ctx.render()
   return async () => (
     <div class="wf-stack wf-gap-md">
       <div class="wf-row wf-gap-lg wf-cluster">
@@ -733,7 +733,7 @@ const DemoLayout: Component = async (_props, ctx) => {
   let collapsed = false
   return async () => (
     <Layout style={{ height: 360, borderRadius: 12, overflow: 'hidden' }}>
-      <LayoutSider collapsible collapsed={collapsed} onCollapse={(v) => { collapsed = v; ctx.ui.render() }}>
+      <LayoutSider collapsible collapsed={collapsed} onCollapse={(v) => { collapsed = v; ctx.render() }}>
         <div class="wf-p-md wf-text-secondary wf-stack wf-gap-sm">
           <b>导航</b>
           <span>仪表盘</span>
@@ -818,7 +818,7 @@ const DemoNavMenu: Component<any, ToastInjected> = async (_p, ctx) => {
         { key: 'about', label: '关于' },
       ]}
       activeKey={active}
-      onSelect={(k) => { active = k; ctx.toast(k, 'info'); ctx.ui.render() }}
+      onSelect={(k) => { active = k; ctx.toast(k, 'info'); ctx.render() }}
     />
   )
 }
@@ -914,7 +914,7 @@ export const DemoSortableList: Component = async (_props, ctx) => {
       <SortableList
         items={items}
         keyField="id"
-        onReorder={(next: any) => { items = next; ctx.ui.render() }}
+        onReorder={(next: any) => { items = next; ctx.render() }}
         renderItem={(it: any) => (
           <div class="wf-surface wf-border wf-rounded-sm wf-p-sm wf-row wf-between">
             <span class="wf-text-sm">≡ {it.name}</span>

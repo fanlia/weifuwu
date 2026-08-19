@@ -1,7 +1,7 @@
 /**
  * 知识库文档区（AgentDetail 拆分子组件——KB 类型：上传/批量/检索/删除/分块配置）
  */
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Field, Icon, Input, Textarea } from 'weifuwu/components'
 import { errMsg } from '../../components/ui'
 import { inputValue } from '../../lib/types'
@@ -22,7 +22,7 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
   let reindexing = false
   let kbChunkSize = String(_init.agent?.chunk_size ?? 500)
   let kbChunkOverlap = String(_init.agent?.chunk_overlap ?? 50)
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   const agentId = _init.agentId
 
   async function reloadDocs() {

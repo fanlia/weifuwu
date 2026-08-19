@@ -6,8 +6,8 @@
  *   - 后端：MemorySql 持久化（契约层——生产换 postgres() 一行）
  *   - 嵌入方式：createRouter(routes, root, { history: false })——showcase 页面内嵌
  */
-import { createRouter, h, createStore } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { UIRouter, uiServe, h, createStore, createClientBrowser } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { Button, Input, Checkbox, Tag, EmptyState, PageHeader, Form, Field, Alert } from 'weifuwu/components'
 
 export interface Todo {
@@ -78,8 +78,8 @@ export const TodoNew: Component = async (_init: any, ctx: any) => {
   let error = ''
   let saving = false
   const submit = async () => {
-    if (!name.trim()) { error = '任务名不能为空'; ctx.ui.render(); return }
-    saving = true; error = ''; ctx.ui.render()
+    if (!name.trim()) { error = '任务名不能为空'; ctx.render(); return }
+    saving = true; error = ''; ctx.render()
     try {
       await fetch('/api/todos', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -88,7 +88,7 @@ export const TodoNew: Component = async (_init: any, ctx: any) => {
       await loadTodos()
       location.hash = '#/'
     } catch (e) {
-      error = (e as Error).message; saving = false; ctx.ui.render()
+      error = (e as Error).message; saving = false; ctx.render()
     }
   }
   return async (_p: any) => (
@@ -96,7 +96,7 @@ export const TodoNew: Component = async (_init: any, ctx: any) => {
       <PageHeader title="新建任务" sub="填写任务名称——提交后写入 MemorySql" />
       <Form onSubmit={() => void submit()}>
         <Field label="任务名称" error={error}>
-          <Input value={name} onInput={(e: any) => { name = (e.target as HTMLInputElement).value; ctx.ui.render() }}
+          <Input value={name} onInput={(e: any) => { name = (e.target as HTMLInputElement).value; ctx.render() }}
             placeholder="例如：完成 showcase Phase 2" autoFocus />
         </Field>
         <div class="wf-row wf-gap-sm">
@@ -118,8 +118,12 @@ export const todoRoutes = [
 export const pathFromHash = (): string => location.hash.replace(/^#/, '') || '/'
 
 /** 应用入口：createTodoApp(root)——独立运行（main.tsx）与嵌入（showcase）复用 */
-export function createTodoApp(root: HTMLElement, options?: { history?: boolean }): ReturnType<typeof createRouter> {
-  return createRouter(todoRoutes, root, options?.history === false
-    ? { history: false, initialPath: pathFromHash() }
-    : undefined)
+export function createTodoApp(root: HTMLElement, _options?: { history?: boolean }): ReturnType<typeof uiServe> {
+  // vdom 规范面：UIRouter + uiServe——布局共享精准路由
+  const router = new UIRouter()
+  for (const r of todoRoutes) {
+    router.get(r.path, (req: Request, ctx: any) =>
+      (ctx as { stream: (v: unknown) => Response }).stream(r.render()))
+  }
+  return uiServe(router, { root, browser: createClientBrowser()! })
 }

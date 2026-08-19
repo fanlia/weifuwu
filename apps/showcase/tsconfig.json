@@ -5,7 +5,7 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "weifuwu/ui-dom",
+    "jsxImportSource": "weifuwu/vdom",
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
@@ -13,10 +13,10 @@
       "weifuwu": [
         "../../src/server/index.ts"
       ],
-      "weifuwu/ui-dom/jsx-runtime": [
+      "weifuwu/vdom/jsx-runtime": [
         "../../src/client/ui-dom/jsx-runtime.ts"
       ],
-      "weifuwu/ui-dom": [
+      "weifuwu/vdom": [
         "../../src/client/ui-dom/index.ts"
       ],
       "weifuwu/components": [

@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
 import { Ava } from '../components/ui'
 import type { Agent, AgentListResponse, CostAgentRow, DepartmentListResponse, FunnelData, PendingApproval, StatsData } from '../lib/types'
@@ -25,7 +25,7 @@ function greeting(): string {
 
 export const Dashboard: Component = async (_props, ctx) => {
   const $ = {} as DashboardState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0; $.pendingCount = 0; $.costAgents = []; $.funnel = null
   Promise.all([
     ctx.api!.get<StatsData>('/api/stats').catch(() => ({})),

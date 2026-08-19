@@ -3,7 +3,7 @@
  * 按部门浏览（/api/departments/:id/workspace/*）——成员共享同一目录：
  * AI 在沙盒里写文件 / 用户放资料，双向可见。
  */
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Button, Card, EmptyState, Icon, Loading } from 'weifuwu/components'
 import { errMsg } from '../../components/ui'
 import { onFilesReload, offFilesReload } from '../../lib/project-store.ts'
@@ -15,7 +15,7 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
   let wsOpenFile: { path: string; content: string; binary: boolean; truncated: boolean; size: number } | null = null
   let wsEditContent = ''
   let wsSaving = false
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   const departmentId = _init.departmentId
   // P1-3：AI 写文件 → Chat 的 file_updated 事件 → notifyFilesReload → 自动刷新
   // （注册表方案：render-only 模型下 useExternal 的 render([id]) 对动态子组件不可靠）

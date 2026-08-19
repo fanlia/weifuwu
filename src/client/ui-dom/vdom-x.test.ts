@@ -1119,7 +1119,7 @@ test('X-G4 组件输出 null → 恢复（lastOutput 同步——旧对照失配
   document.body.removeChild(root)
 })
 
-test('X-A7 await ctx.ui.render() 后 DOM 最新（契约 §4.2——测量/动画；含渲染中 await 补跑）', async () => {
+test('X-A7 await ctx.render() 后 DOM 最新（契约 §4.2——测量/动画；含渲染中 await 补跑）', async () => {
   const root = mkRoot()
   const App = (_init: Record<string, unknown>, ctx: any) => {
     let n = 0

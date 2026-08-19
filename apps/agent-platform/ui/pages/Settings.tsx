@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Badge, Button, Card, Field, Icon, Input, PasswordInput, Select, ThemeSwitch } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
@@ -33,18 +33,18 @@ export const Settings: Component = async (_props, ctx) => {
     const q = action ? `&action=${encodeURIComponent(action)}` : ''
     return ctx.api!.get<{ entries: AuditEntry[] }>(`/api/audit?limit=20${q}`).then((d) => {
       auditEntries.push(...(d.entries ?? []))
-      ctx.ui.render()
+      ctx.render()
     }).catch(() => {})
   }
   void loadAudit()
   const $ = {} as SettingsState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   $.name = ctx.auth?.user?.name ?? ''
   $.auditFilter = ''
   $.sysHealth = null
   // 系统状态（运营视角：健康 + 沙盒 + 今日审计）
-  void ctx.api!.get('/api/ops').then((d) => { $.sysHealth = d; ctx.ui.render() }).catch(() => {})
+  void ctx.api!.get('/api/ops').then((d) => { $.sysHealth = d; ctx.render() }).catch(() => {})
   $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
@@ -52,9 +52,9 @@ export const Settings: Component = async (_props, ctx) => {
     $.plan = null
     $.byok = null; $.byokSubmitting = false; $.byokOk = ''; $.byokErr = ''
     // 计划状态（G1 付费墙：试用剩余/配额用量）
-    void ctx.api!.get('/api/plan').then((d: any) => { $.plan = d; ctx.ui.render() }).catch(() => {})
+    void ctx.api!.get('/api/plan').then((d: any) => { $.plan = d; ctx.render() }).catch(() => {})
     // BYOK（G4：租户自带模型 Key）
-    void ctx.api!.get('/api/settings/ai-config').then((d: any) => { $.byok = d; ctx.ui.render() }).catch(() => {})
+    void ctx.api!.get('/api/settings/ai-config').then((d: any) => { $.byok = d; ctx.render() }).catch(() => {})
 
   async function saveByok() {
     if (!$.byok) return

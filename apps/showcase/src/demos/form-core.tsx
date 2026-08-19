@@ -2,7 +2,7 @@
  * 表单核心分类 demo（从 components-demo 迁移——P1 第一批活体 demo）
  * 组件页活体区渲染：DEMOS[组件名] —— 未迁移分类显示文档（P2 批量接入）
  */
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Button, Input, Textarea, Select, SearchInput } from 'weifuwu/components'
 
 export const DemoButton: Component = async (_props, ctx) => {
@@ -11,7 +11,7 @@ export const DemoButton: Component = async (_props, ctx) => {
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-row">
-        <Button variant="primary" onClick={() => { count++; ctx.ui.render() }}>点击 {count} 次</Button>
+        <Button variant="primary" onClick={() => { count++; ctx.render() }}>点击 {count} 次</Button>
         <Button variant="secondary">Secondary</Button>
         <Button variant="ghost">Ghost</Button>
         <Button variant="danger">Danger</Button>
@@ -22,7 +22,7 @@ export const DemoButton: Component = async (_props, ctx) => {
         <Button size="lg">Large</Button>
       </div>
       <div class="wf-row">
-        <Button loading={loading} onClick={() => { loading = true; ctx.ui.render(); setTimeout(() => { loading = false; ctx.ui.render() }, 1500) }}>点我 Loading</Button>
+        <Button loading={loading} onClick={() => { loading = true; ctx.render(); setTimeout(() => { loading = false; ctx.render() }, 1500) }}>点我 Loading</Button>
         <Button disabled>Disabled</Button>
         <Button variant="primary" block>Block</Button>
       </div>
@@ -36,9 +36,9 @@ export const DemoInput: Component = async (_props, ctx) => {
   let pwd = ''
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      <Input label="文本" value={text} onInput={e => { text = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
-      <Input label="邮箱" type="email" placeholder="name@example.com" required value={email} onInput={e => { email = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
-      <Input label="密码" type="password" placeholder="••••••••" value={pwd} onInput={e => { pwd = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
+      <Input label="文本" value={text} onInput={e => { text = (e.target as HTMLInputElement).value; ctx.render() }} />
+      <Input label="邮箱" type="email" placeholder="name@example.com" required value={email} onInput={e => { email = (e.target as HTMLInputElement).value; ctx.render() }} />
+      <Input label="密码" type="password" placeholder="••••••••" value={pwd} onInput={e => { pwd = (e.target as HTMLInputElement).value; ctx.render() }} />
       <Input label="错误状态" error="请输入有效内容" />
       <Input label="带提示" hint="只能包含字母和数字" />
     </div>
@@ -49,7 +49,7 @@ export const DemoTextarea: Component = async (_props, ctx) => {
   let bio = '可编辑文本'
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      <Textarea label="简介" value={bio} onInput={e => { bio = (e.target as HTMLTextAreaElement).value; ctx.ui.render() }} rows={3} />
+      <Textarea label="简介" value={bio} onInput={e => { bio = (e.target as HTMLTextAreaElement).value; ctx.render() }} rows={3} />
       <Textarea label="错误状态" error="内容不能为空" rows={2} />
       <Textarea label="带提示" hint="最多 500 字" rows={2} />
     </div>
@@ -62,7 +62,7 @@ export const DemoSelect: Component = async (_props, ctx) => {
     <div class="wf-stack wf-gap-sm wf-w-full">
       <Select label="原生 select" placeholder="请选择"
         value={role}
-        onChange={v => { role = v as string; ctx.ui.render() }}
+        onChange={v => { role = v as string; ctx.render() }}
         options={[
           { value: 'admin', label: '管理员' },
           { value: 'user', label: '普通用户' },
@@ -84,7 +84,7 @@ export const DemoSearchInput: Component = async (_props, ctx) => {
   let query = ''
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      <SearchInput placeholder="搜索用户..." value={query} onInput={e => { query = (e.target as HTMLInputElement).value; ctx.ui.render() }} onClear={() => { query = ''; ctx.ui.render() }} />
+      <SearchInput placeholder="搜索用户..." value={query} onInput={e => { query = (e.target as HTMLInputElement).value; ctx.render() }} onClear={() => { query = ''; ctx.render() }} />
       <div class="wf-text-xs wf-text-secondary">搜索词: {query || '(空)'}</div>
     </div>
   )

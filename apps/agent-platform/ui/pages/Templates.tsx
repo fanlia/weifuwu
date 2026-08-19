@@ -6,7 +6,7 @@
  * 数据在工厂层 await（§3.3 异步工厂——首次渲染即带数据；导航往返工厂重跑重拉）。
  */
 
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { Button, Card, EmptyState, Icon, Tag } from 'weifuwu/components'
 
 interface RoleTemplate {
@@ -43,7 +43,7 @@ export const Templates: Component = async (_props, ctx) => {
     error = '加载模板失败'
   }
   // 分类由 location.hash 驱动（#cat-engineering）——hash 导航触发路由重渲染，
-  // 工厂重跑读新 hash 初始化（绕开路由页 ctx.ui.render 不落地的框架坑——真实调试发现）
+  // 工厂重跑读新 hash 初始化（绕开路由页 ctx.render 不落地的框架坑——真实调试发现）
   // 分类筛选：框架路由页 rerender bug（renderOne patch 不落地——登记专项任务）
   // 暂以 query 驱动（navigate 触发 renderPath 重渲染），路由 query 解析待框架修复后启用
   let category = ''
@@ -56,13 +56,13 @@ export const Templates: Component = async (_props, ctx) => {
   let createError = ''
 
   async function createFromTemplate(t: RoleTemplate) {
-    creating = t.slug; createError = ''; ctx.ui.render()
+    creating = t.slug; createError = ''; ctx.render()
     const ok = await ctx.api!.post<{ agent: { id: string } }>('/api/agents/from-template', {
       template_slug: t.slug,
       name: t.name,
     }).catch((e: unknown) => {
       createError = (e as { message?: string })?.message ?? '创建失败'
-      ctx.ui.render()
+      ctx.render()
       return null
     })
     if (ok?.agent?.id) {

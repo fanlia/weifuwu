@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { Alert, Button, Card, Checkbox, Field, Icon, Input } from 'weifuwu/components'
 import { PageHeader, Loading, TypeBadge, errMsg } from '../components/ui'
 import { inputValue } from '../lib/types'
@@ -12,7 +12,7 @@ interface NewDepartmentState {
 
 export const NewDepartment: Component = async (_props, ctx) => {
   const $ = {} as NewDepartmentState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   $.name = ''; $.selected = []; $.submitting = false; $.error = ''
   $.agents = []; $.loading = true

@@ -1,8 +1,8 @@
 /**
  * auth 活体嵌入——showcase /apps/auth 页面（独立 router 隔离模式 + hash 桥接）
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { createAuthApp, pathFromHash } from '../../../../examples/apps/auth/app.tsx'
 
 export const AuthEmbed: Component = async (_init: any, _ctx: any) => {

@@ -6,7 +6,7 @@ import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { createClientBrowser } from './browser.ts'
 import { auth } from './middleware/auth.ts'
-import type { WfuiContext } from './types.ts'
+import type { UIContext } from './types.ts'
 const browser = createClientBrowser()
 
 // localStorage mock
@@ -32,7 +32,7 @@ beforeEach(() => {
 
 function makeAuth(opts?: any) {
   const mw = auth({ tokenKey: 't', userKey: 'u', ...opts })
-  const ctx: WfuiContext = {} as any
+  const ctx: UIContext = {} as any
   return mw(ctx) as any
 }
 

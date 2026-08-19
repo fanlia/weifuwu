@@ -2,8 +2,8 @@
  * patterns 活体预览——pattern 详情页渲染真实组件（复制即用的活体示范）
  * 静态 import 映射（ctx.ui.js 编译不支持动态 import 变量）
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { AppShell } from '../../../../examples/patterns/AppShell.tsx'
 import { SplitWorkspace } from '../../../../examples/patterns/SplitWorkspace.tsx'
 import { FocusTask } from '../../../../examples/patterns/FocusTask.tsx'

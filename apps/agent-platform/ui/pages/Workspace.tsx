@@ -7,7 +7,7 @@
  * - 空状态引导：建项目 → 加 AI → 放文件
  * 运营报表已拆至 /reports（管理组）
  */
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { Button, Card, EmptyState, Icon, Skeleton } from 'weifuwu/components'
 import { Ava } from '../components/ui'
 import type { AgentListResponse, DepartmentListResponse, PendingApproval } from '../lib/types'
@@ -61,7 +61,7 @@ function timeAgo(iso: string | null): string {
 
 export const Workspace: Component = async (_props, ctx) => {
   const $ = {} as WorkspaceState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   $.loading = true; $.projects = []; $.pendingCount = 0; $.aiCount = 0; $.hasAgents = false
 
   Promise.all([

@@ -1,8 +1,8 @@
 /**
  * 组件域页面——总览（分类网格）/ 分类页（卡片）/ 详情页（活体 demo + 文档）
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { Markdown, Tag } from 'weifuwu/components'
 import { fetchIndex, fetchMd, type IndexJson } from '../data.ts'
 
@@ -51,7 +51,7 @@ export const ComponentsIndex: Component = async (_init: any, ctx: any) => {
             <p class="wf-text-secondary wf-text-sm wf-m-0">逐组件文档（API 表 / 纪律 / 关系 / 验证）——每组件一个稳定 URL</p>
           </div>
           <input class="wf-input" style="max-width:260px" placeholder="🔍 搜索组件（名称/功能）…" value={q}
-            onInput={(e: any) => { q = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
+            onInput={(e: any) => { q = (e.target as HTMLInputElement).value; ctx.render() }} />
         </div>
         {kw ? (
           <div class="wf-stack wf-gap-sm">
@@ -108,7 +108,7 @@ export const CategoryPage: Component = async (initProps: any, ctx: any) => {
             style="max-width:240px"
             placeholder="过滤组件…"
             value={q}
-            onInput={(e: any) => { q = (e.target as HTMLInputElement).value; ctx.ui.render() }}
+            onInput={(e: any) => { q = (e.target as HTMLInputElement).value; ctx.render() }}
           />
         </div>
         <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,300px),1fr));--wf-gap:12px">

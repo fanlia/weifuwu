@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Badge, Button, Card, Checkbox, Field, Input, InputNumber, Loading, Select, Slider, Textarea } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
@@ -42,7 +42,7 @@ interface NewAgentState {
 
 export const NewAgent: Component = async (_props, ctx) => {
   const $ = {} as NewAgentState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   $.step = 'template'; $.selectedTemplate = null
   $.type = 'ai'; $.name = ''; $.description = ''; $.roleLabel = ''; $.expertise = ''; $.systemPrompt = ''

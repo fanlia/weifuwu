@@ -9,7 +9,7 @@
  *   ctx.i18n?.setLocale('zh-CN') // → 切换语言，自动重渲染
  */
 
-import type { AppMiddleware, WfuiContext } from './types.ts'
+import type { AppMiddleware, UIContext } from './types.ts'
 import { zhCN } from './locale/zh_CN.ts'
 import { enUS } from './locale/en_US.ts'
 
@@ -62,9 +62,9 @@ export function i18n(opts: I18nOptions = {}): AppMiddleware<{}, I18nInjected> {
     components: merged.components,
   }
 
-  return (ctx: WfuiContext) => {
+  return (ctx: UIContext) => {
     // 中间件注入 ctx.i18n（I18nInjected）——局部类型化引用替代 as any
-    const c = ctx as WfuiContext & I18nInjected
+    const c = ctx as UIContext & I18nInjected
     c.i18n = state
 
     state.setLocale = (raw: string) => {
@@ -80,7 +80,7 @@ export function i18n(opts: I18nOptions = {}): AppMiddleware<{}, I18nInjected> {
       ;(c as any).ui?.render?.()
     }
 
-    return ctx as WfuiContext & I18nInjected
+    return ctx as UIContext & I18nInjected
   }
 }
 

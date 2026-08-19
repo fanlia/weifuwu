@@ -112,6 +112,8 @@ export interface UiServeOptions {
   auth?: import('../middlewares/auth-i18n.ts').AuthClient
   ws?: import('../middlewares/ws.ts').WsClient
   i18n?: import('../middlewares/auth-i18n.ts').I18nState
+  /** 命令式轻提示（ctx.toast——应用装配） */
+  toast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning', duration?: number) => void
 }
 
 export interface UiServeHandle {
@@ -253,6 +255,7 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     ...(opts.auth ? { auth: opts.auth } : {}),
     ...(opts.ws ? { ws: opts.ws } : {}),
     ...(opts.i18n ? { i18n: opts.i18n } : {}),
+    ...(opts.toast ? { toast: opts.toast } : {}),
   } as unknown as UIContext
 
   // ── 页面作者渲染入口（vnode → Response 事件流——函数表编码） ──

@@ -6,8 +6,8 @@
  *   - Table 排序 + StatCard KPI + 菜单导航（源于 agent-platform 架构提炼）
  *   - 后端：MemorySql 订单表（api.ts 注册函数——独立/嵌入共享）
  */
-import { createRouter, h, createStore } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { UIRouter, uiServe, h, createStore, createClientBrowser } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { Layout, LayoutHeader, LayoutSider, LayoutContent, Menu, StatCard, Table, Badge, Tag, ThemeSwitch, PageHeader, EmptyState } from 'weifuwu/components'
 
 export interface Order { id: string; customer: string; amount: number; status: 'pending' | 'paid' | 'shipped'; date: string }
@@ -66,7 +66,7 @@ export const OrdersPage: Component = async (_init: any, ctx: any) => {
       <div class="wf-stack wf-gap-md">
         <PageHeader title="订单管理" sub={`共 ${list.length} 条`}>
           <input class="wf-input" style="max-width:200px" placeholder="搜索客户/订单号…" value={q}
-            onInput={(e: any) => { q = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
+            onInput={(e: any) => { q = (e.target as HTMLInputElement).value; ctx.render() }} />
         </PageHeader>
         {list.length === 0 && !state.state.loading ? <EmptyState text="无匹配订单" /> : (
           <Table
@@ -97,7 +97,7 @@ const AppShell: Component = async (_init: any, ctx: any) => {
   const current = () => location.hash.replace('#/', '') || '/'
   return async (props: any) => (
     <Layout style="min-height:420px;border:1px solid var(--wf-color-border);border-radius:8px;overflow:hidden">
-      <LayoutSider collapsed={collapsed} collapsible onCollapse={(c) => { collapsed = c; ctx.ui.render() }} width={200}>
+      <LayoutSider collapsed={collapsed} collapsible onCollapse={(c) => { collapsed = c; ctx.render() }} width={200}>
         <div style={{ background: "var(--wf-color-bg-secondary)", height: "100%" }}>
         <div class="wf-p-sm wf-text-bold" style="color:var(--wf-color-text)">⚙️ 管理后台</div>
         <Menu
@@ -108,7 +108,7 @@ const AppShell: Component = async (_init: any, ctx: any) => {
           activeKey={current()}
           collapsible
           collapsed={collapsed}
-          onCollapseChange={(c) => { collapsed = c; ctx.ui.render() }}
+          onCollapseChange={(c) => { collapsed = c; ctx.render() }}
           onSelect={(k: string) => { location.hash = `#/${k === '/' ? '' : k}` }}
         />
         </div>
@@ -126,11 +126,19 @@ const AppShell: Component = async (_init: any, ctx: any) => {
 
 export const adminAppShell = AppShell
 
-export function createAdminApp(root: HTMLElement, options?: { history?: boolean }): ReturnType<typeof createRouter> {
-  const routes = adminRoutes.map((r) => ({ ...r, layout: (page: any) => h(AppShell, { page }) }))
-  return createRouter(routes, root, options?.history === false
-    ? { history: false, initialPath: location.hash.replace('#/', '') || '/' }
-    : undefined)
+export function createAdminApp(root: HTMLElement, options?: { history?: boolean }): ReturnType<typeof uiServe> {
+  // vdom 规范面：UIRouter（Trie 匹配）+ uiServe（渲染落地）——布局共享
+  // （root 稳定——AppShell 包裹——精准路由切换）
+  const router = new UIRouter()
+  for (const r of adminRoutes) {
+    router.get(r.path, (req: Request, ctx: any) =>
+      (ctx as { stream: (v: unknown) => Response }).stream(h(AppShell, { page: r.render() })))
+  }
+  return uiServe(router, {
+    root,
+    browser: createClientBrowser()!,
+    ...(options?.history === false ? {} : {}),
+  })
 }
 
 export const pathFromHash = (): string => location.hash.replace(/^#/, '') || '/'

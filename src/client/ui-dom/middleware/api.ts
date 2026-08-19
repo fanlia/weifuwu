@@ -5,13 +5,13 @@
  * 支持 baseURL、默认 headers、请求/响应拦截器。
  *
  * ```ts
- * import { UIRouter, api } from 'weifuwu/ui-dom'
+ * import { UIRouter, api } from 'weifuwu/vdom'
  *
  * const app = new UIRouter()
  * app.use(api({ baseURL: '/api' }))
  *
  * // 在组件中：
- * function UsersPage(_props: {}, ctx: WfuiContext) {
+ * function UsersPage(_props: {}, ctx: UIContext) {
  *   const [users, { loading }] = createResource(() => ctx.api.get<User[]>('/users'))
  *   // ...
  * }

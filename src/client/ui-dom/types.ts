@@ -283,7 +283,7 @@ export interface BrowserEnv {
   storageSet(key: string, value: string): void
 }
 
-export interface WfuiContext {
+export interface UIContext {
   [key: string]: unknown
 
   /** 浏览器环境抽象（SSR shim 安全默认）——组件禁直接 window/document */
@@ -324,7 +324,7 @@ export interface WfuiContext {
      *   trigger: 'hover',          // 触屏自动降级 tap
      *   el: () => wrapEl,
      *   isOpen: () => $.open,
-     *   setOpen: (v) => { $.open = v; ctx.ui.render() },
+     *   setOpen: (v) => { $.open = v; ctx.render() },
      *   width: 320,                // 自动 clamp 视口
      * })
      * return () => h('div', { ref: wrapRef, ...popup.wrapProps }, [
@@ -585,14 +585,14 @@ export interface WfuiContext {
  *   router()→ AppMiddleware<{}, RouteInjected> 注入 ctx.route / ctx.app
  */
 export type AppMiddleware<I extends object = {}, O extends object = I> = (
-  ctx: WfuiContext & I,
-) => (WfuiContext & O) | Promise<WfuiContext & O>
+  ctx: UIContext & I,
+) => (UIContext & O) | Promise<UIContext & O>
 
 /** 路由定义 */
 export interface RouteDef {
   path: string
-  component?: (props: any, ctx: WfuiContext) => any
-  layout?: (props: any, ctx: WfuiContext) => any
+  component?: (props: any, ctx: UIContext) => any
+  layout?: (props: any, ctx: UIContext) => any
   children?: RouteDef[]
   auth?: boolean
   title?: string
@@ -601,10 +601,10 @@ export interface RouteDef {
 
 /** 扩展 ctx — 创建新对象，原 ctx 的 getter 通过原型链继承 */
 export function extendCtx<T extends Record<string, unknown>>(
-  ctx: WfuiContext,
+  ctx: UIContext,
   fields: T,
-): WfuiContext & T {
-  return Object.assign(Object.create(ctx), fields) as WfuiContext & T
+): UIContext & T {
+  return Object.assign(Object.create(ctx), fields) as UIContext & T
 }
 
 /** SSR 数据种子（ssr.ts 序列化进 window.__DATA__ 脚本，hydration 时客户端读取） */
@@ -619,6 +619,6 @@ export {}
 
 // ── ui-dom 专属：路由形态类型（定稿） ──
 
-/** 组件 ctx：WfuiContext（vdom3 V3Ctx extends 统一——组件声明面） */
+/** 组件 ctx：UIContext（vdom3 V3Ctx extends 统一——组件声明面） */
 
 /** 路由由 vdom3 createRouter（RouteDef）统一承担——UIRouter 时代类型已删除 */

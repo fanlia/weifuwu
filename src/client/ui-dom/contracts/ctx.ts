@@ -6,20 +6,20 @@
  * v5 换引擎时本文件不动（HookEnv 引擎无关形状见 UI-3——届时 V3Ui 转发之）。
  */
 
-/** WfuiContext（组件 ctx 类型源——192 处组件消费）——V3Ctx extends 统一 */
-import type { WfuiContext } from '../types.ts'
+/** UIContext（组件 ctx 类型源——192 处组件消费）——V3Ctx extends 统一 */
+import type { UIContext } from '../types.ts'
 
-/** vdom3 组件 ctx（正式契约——与 WfuiContext 类型唯一化：
- *  V3Ctx extends WfuiContext——vdom2 时代内联标注 ctx: WfuiContext 的组件
- *  类型兼容（逆变：接受 WfuiContext 的函数可接收 V3Ctx）；组件库 192 处
- *  WfuiContext 消费零改动——严格类型，无 any 绕开） */
-export interface V3Ctx extends WfuiContext {
+/** vdom3 组件 ctx（正式契约——与 UIContext 类型唯一化：
+ *  V3Ctx extends UIContext——vdom2 时代内联标注 ctx: UIContext 的组件
+ *  类型兼容（逆变：接受 UIContext 的函数可接收 V3Ctx）；组件库 192 处
+ *  UIContext 消费零改动——严格类型，无 any 绕开） */
+export interface V3Ctx extends UIContext {
   /** 调度自身重渲染（同 tick 合并）——render-only 唯一触发 */
   render(): void
   /** 卸载清理注册（COMP_UNMOUNT 时执行） */
   onUnmount(fn: () => void): void
   /** vdom2 兼容面（hooks shim——组件库零改动运行——V3Ui 满足放宽后的
-   *  WfuiContext['ui']（render: void ⊂ void | Promise<void>）） */
+   *  UIContext['ui']（render: void ⊂ void | Promise<void>）） */
   ui: V3Ui
 }
 
@@ -27,7 +27,7 @@ export interface V3Ctx extends WfuiContext {
  *  方法签名继承 vdom2 ui（hooks 类型源——vdom2 删除后 hooks 保留为共享层）；
  *  render/onUnmount 覆盖为 vdom3 语义（同步 render）。 */
 export interface V3Ui
-  extends Omit<WfuiContext['ui'], 'render' | 'onUnmount'> {
+  extends Omit<UIContext['ui'], 'render' | 'onUnmount'> {
   render(ids?: string[]): void
   onUnmount(fn: () => void): (() => void) | undefined
   /** 实例标记（debug：ctx.ui 来源审计——双实例定位） */

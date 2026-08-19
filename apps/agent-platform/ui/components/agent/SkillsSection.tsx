@@ -1,7 +1,7 @@
 /**
  * 技能管理区（AgentDetail 拆分子组件——自有状态，工厂 await 取数）
  */
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Input } from 'weifuwu/components'
 import type { AvailableSkill, BoundSkill } from '../../lib/types'
 
@@ -12,7 +12,7 @@ export const SkillsSection: Component<SectionProps> = async (_init, ctx) => {
   let availableSkills: AvailableSkill[] = []
   let showSkillPicker = false
   let skillSearch = ''
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   // C6 技能市场：评分（每租户每技能一次，可改评）
   async function rateSkill(skill: AvailableSkill, liked: boolean) {

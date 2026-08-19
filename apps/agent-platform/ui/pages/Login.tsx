@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { setRefreshToken } from '../lib/api'
 import { AuthPage, Avatar, Field, Icon, Input, PasswordInput } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
@@ -10,9 +10,9 @@ interface LoginState {
 
 export const Login: Component = async (_props, ctx) => {
   let ssoEnabled = false
-  void fetch('/api/auth/sso/enabled').then(r => r.json()).then((d: any) => { ssoEnabled = !!d.enabled; ctx.ui.render() }).catch(() => {})
+  void fetch('/api/auth/sso/enabled').then(r => r.json()).then((d: any) => { ssoEnabled = !!d.enabled; ctx.render() }).catch(() => {})
   const $ = {} as LoginState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   $.email = ''; $.password = ''; $.error = ''; $.loading = false
   // 稳定回调（mount 层——render 期传同一引用：Field/Input 不重建——受控输入焦点保持）
   const onEmailInput = (e: Event) => { $.email = inputValue(e); rerender() }

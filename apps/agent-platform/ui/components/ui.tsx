@@ -2,7 +2,7 @@
  * 共享 UI 原语 — 全部基于 weifuwu/components，无自定义 CSS
  */
 
-import type { WfuiContext } from 'weifuwu/ui-dom'
+import type { UIContext } from 'weifuwu/vdom'
 import { Avatar, Badge, EmptyState, Loading, PageHeader } from 'weifuwu/components'
 
 export { PageHeader, EmptyState, Loading }
@@ -30,7 +30,7 @@ export const TYPE_META: Record<string, { label: string; icon: string; color: str
 }
 
 /** 类型徽章 */
-export async function TypeBadge(_init: { type: string }, _ctx: WfuiContext) {
+export async function TypeBadge(_init: { type: string }, _ctx: UIContext) {
   return (props: { type: string }) => {
     const meta = TYPE_META[props.type] ?? { label: props.type, icon: '❓', color: '#64748b' }
     return <Badge variant={props.type === 'webhook' ? 'warning' : props.type === 'knowledge_base' ? 'success' : 'primary'}>{meta.icon} {meta.label}</Badge>
@@ -38,7 +38,7 @@ export async function TypeBadge(_init: { type: string }, _ctx: WfuiContext) {
 }
 
 /** 头像（按类型着色） */
-export async function Ava(_init: { name?: string; type?: string; small?: boolean }, _ctx: WfuiContext) {
+export async function Ava(_init: { name?: string; type?: string; small?: boolean }, _ctx: UIContext) {
   return (props: { name?: string; type?: string; small?: boolean }) => {
     const meta = TYPE_META[props.type ?? 'user']
     return <Avatar name={props.name} color={meta.color} size={props.small ? 'sm' : 'md'} />
@@ -46,7 +46,7 @@ export async function Ava(_init: { name?: string; type?: string; small?: boolean
 }
 
 /** 状态点 + 文字 */
-export async function StatusDot(_init: { on?: boolean; label?: string }, _ctx: WfuiContext) {
+export async function StatusDot(_init: { on?: boolean; label?: string }, _ctx: UIContext) {
   return (props: { on?: boolean; label?: string }) =>
     (
     <span class="wf-row wf-gap-xs wf-text-sm">

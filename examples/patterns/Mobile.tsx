@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Text, Avatar, Badge, Divider, Icon, List, SearchInput, Space, TabBar } from 'weifuwu/components'
 
 
@@ -44,7 +44,7 @@ const TABS = [
 export const Mobile: Component = async (_init, ctx) => {
   let query = ''
   let tab = '消息'
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   return async () => {
     const filtered = CHATS.filter((c) => c.name.includes(query) || c.msg.includes(query))

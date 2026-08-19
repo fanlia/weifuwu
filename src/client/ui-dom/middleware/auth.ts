@@ -2,7 +2,7 @@
  * weifuwu/ui-dom auth — 认证状态管理中间件
  *
  * 管理 token 存储、登录/登出、当前用户信息。
- * 不依赖 signal，状态为普通对象，组件通过 ctx.ui.render() 刷新。
+ * 不依赖 signal，状态为普通对象，组件通过 ctx.render() 刷新。
  */
 
 import type { AppMiddleware } from '../types.ts'

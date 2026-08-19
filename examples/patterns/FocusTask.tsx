@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import {Text, Button, Card, Checkbox, Field, Form, Icon, Input, Space, Alert, Divider } from 'weifuwu/components'
 
 
@@ -13,7 +13,7 @@ import {Text, Button, Card, Checkbox, Field, Form, Icon, Input, Space, Alert, Di
 export const FocusTask: Component = async (_init, ctx) => {
   let ok = false
   let errors = {} as Record<string, string>
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   return async () => (
     <div class="wf-fill wf-center wf-p-md wf-bg-secondary" style={{ minHeight: 'calc(100vh - 48px)' }}>

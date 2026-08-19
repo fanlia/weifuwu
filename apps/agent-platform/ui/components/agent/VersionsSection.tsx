@@ -1,7 +1,7 @@
 /**
  * 版本管理区（AgentDetail 拆分子组件——保存快照/回滚）
  */
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Input } from 'weifuwu/components'
 import { inputValue, type AgentVersion } from '../../lib/types'
 
@@ -10,7 +10,7 @@ export const VersionsSection: Component<{ agentId: string }> = async (_init, ctx
   let versionNote = ''
   let savingVersion = false
   let rollingBack: string | null = null
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   const agentId = _init.agentId
 
   function fmtVersionTime(t: string): string {

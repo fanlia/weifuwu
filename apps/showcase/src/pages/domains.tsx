@@ -2,8 +2,8 @@
  * 通用域页面工厂——layout / patterns / apps / backend / capabilities / guides
  * 每个域：索引页（index.json 卡片网格）+ 详情页（content/.md 渲染——与 LLM 同源）
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { Markdown, Tag } from 'weifuwu/components'
 import { fetchIndex, fetchMd, type IndexJson } from '../data.ts'
 import { TodoEmbed } from './todo-embed.tsx'

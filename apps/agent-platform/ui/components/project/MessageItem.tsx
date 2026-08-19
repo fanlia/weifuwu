@@ -4,7 +4,7 @@
  * 职责：消息渲染（内容/工具步骤/审批/操作/编辑态）——纯展示 + 回调上抛，
  * 状态与 WS 逻辑留在 Chat 页（createStore 化 P2）。
  */
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Ava } from '../../components/ui'
 import { Alert, Badge, Button, CopyButton, Icon, Input, Markdown, MessageBubble } from 'weifuwu/components'
 import { inputValue } from '../../lib/types'

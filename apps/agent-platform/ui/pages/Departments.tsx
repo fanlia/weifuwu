@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Badge, Button, Card, Icon } from 'weifuwu/components'
 import type { Department, DepartmentListResponse } from '../lib/types'
@@ -9,7 +9,7 @@ interface DepartmentsState {
 
 export const Departments: Component = async (_props, ctx) => {
   const $ = {} as DepartmentsState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   $.depts = []; $.loading = true
   ctx.api!.get<DepartmentListResponse>('/api/departments')
     .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })

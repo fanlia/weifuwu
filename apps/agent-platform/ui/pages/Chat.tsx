@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
 import { Ava } from '../components/ui'
 import { Badge, Button, ChatInput, EmptyState, Icon, Input } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
@@ -39,7 +39,7 @@ interface ChatState {
 
 export const Chat: Component = async (_props, ctx) => {
   const $ = {} as ChatState
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   // P1-3 附件：隐藏 file input + FileReader（无 npm 依赖）
   let fileInputEl: HTMLInputElement | null = null
   const fileInputRef = (el: any) => { fileInputEl = el }

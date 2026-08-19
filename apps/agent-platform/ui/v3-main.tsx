@@ -4,9 +4,9 @@
  * 与 main.tsx 同构：中间件链（vdom2 中间件复用——纯函数注入）+
  * createRouter（vdom3 路由——RouteDef.layout 布局复用）+ 页面路由。
  */
-import { api, auth, ws, i18n } from 'weifuwu/ui-dom'
-import { v3Confirm, v3Toast } from 'weifuwu/ui-dom'
-import { createRouter, h } from 'weifuwu/ui-dom'
+import { api, auth, ws, i18n } from 'weifuwu/vdom'
+import { v3Confirm, v3Toast } from 'weifuwu/vdom'
+import { createRouter, h } from 'weifuwu/vdom'
 
 import { AppLayout } from './components/AppLayout'
 import { Login } from './pages/Login'

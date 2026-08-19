@@ -84,9 +84,9 @@ describe('ui-dom/testing — walkVNode / findVNode / findByClass', () => {
 describe('ui-dom/testing — createTestCtx / createPopupMock', () => {
   it('默认 ctx：render / ready（render-only 无 $ / dirty）', () => {
     const ctx = createTestCtx()
-    assert.equal(typeof ctx.ui.render, 'function')
+    assert.equal(typeof ctx.render, 'function')
     assert.equal((ctx.ui as any).ready, true)
-    assert.doesNotThrow(() => ctx.ui.render())
+    assert.doesNotThrow(() => ctx.render())
   })
 
   it('覆盖任意原语（usePopup 注入）', () => {

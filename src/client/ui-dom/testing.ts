@@ -18,7 +18,7 @@
  */
 
 import type { VNode } from './vnode.ts'
-import type { WfuiContext } from './types.ts'
+import type { UIContext } from './types.ts'
 // vdom3 引擎（vdom2 删除后——mount/patch/build 的 vdom3 实现——同 API）
 import { mount as v3Mount, patch as v3Patch, registry as v3Registry } from './vdom3/render.ts'
 import { NodeRegistry } from './vdom3/registry.ts'
@@ -84,7 +84,7 @@ export function buildToDom(vnode: any, _ctx: any): Promise<any> {
  * 统一 async 签名（weifuwu 只支持 async 两阶段组件）——总是返回 Promise<VNode>。
  * 注意：每次调用是**新 mount**——内部 `let` 状态不保留；测状态流转用 `mountComponent`。
  */
-export async function renderVNode(Comp: any, props: Record<string, any>, ctx: WfuiContext): Promise<VNode | null> {
+export async function renderVNode(Comp: any, props: Record<string, any>, ctx: UIContext): Promise<VNode | null> {
   const renderFn = await Comp(props, ctx)
   return typeof renderFn === 'function' ? renderFn(props) : renderFn
 }
@@ -93,7 +93,7 @@ export async function renderVNode(Comp: any, props: Record<string, any>, ctx: Wf
  * 同实例渲染器：await 工厂（mount 一次），之后每次调用重跑内层 render（保留内部 `let` 状态）。
  * 交互测试（点击/输入后状态流转）必须用这个——`renderVNode` 每次是新 mount 会丢状态。
  */
-export async function mountComponent(Comp: any, props: Record<string, any>, ctx: WfuiContext): Promise<() => VNode | null> {
+export async function mountComponent(Comp: any, props: Record<string, any>, ctx: UIContext): Promise<() => VNode | null> {
   const inner = await Comp(props, ctx)
   return () => (typeof inner === 'function' ? inner(props) : inner)
 }
@@ -135,7 +135,7 @@ export function findByClass(vnode: unknown, cls: string): any[] {
  * 标准测试 ctx：`{ ui: { render, ready: true } }` + 覆盖。
  * overrides.ui 部分覆盖（可注入 usePopup/useScrollPosition 等任意原语 mock）。
  */
-export function createTestCtx(overrides?: { ui?: Partial<WfuiContext['ui']>; browser?: WfuiContext['browser'] }): WfuiContext {
+export function createTestCtx(overrides?: { ui?: Partial<UIContext['ui']>; browser?: UIContext['browser'] }): UIContext {
   const base: any = {
     ui: {
       render: () => {},
@@ -161,7 +161,7 @@ export function createTestCtx(overrides?: { ui?: Partial<WfuiContext['ui']>; bro
   const merged = overrides
     ? { ui: { ...base.ui, ...(overrides.ui ?? {}) }, ...(overrides.browser ? { browser: overrides.browser } : {}) }
     : base
-  return merged as WfuiContext
+  return merged as UIContext
 }
 
 /**

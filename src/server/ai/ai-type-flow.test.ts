@@ -89,11 +89,11 @@ void callbacks
 
 // ⑦ ctx.ui.useChat：url 必填、返回 $ 超集（状态 + 操作）、messages 是 UiMessage[]
 // 运行时零执行（函数从不调用）；tsc 编译期完成全部类型断言
-import type { WfuiContext, UseChatHandle, UiMessage } from '../../client/ui-dom/index.ts'
+import type { UIContext, UseChatHandle, UiMessage } from '../../client/ui-dom/index.ts'
 
-declare const wfuiCtx: WfuiContext
-declare const wfuiCtx2: WfuiContext
-declare const wfuiCtx3: WfuiContext
+declare const wfuiCtx: UIContext
+declare const wfuiCtx2: UIContext
+declare const wfuiCtx3: UIContext
 
 function typeFlowChat(): void {
   const chat: UseChatHandle = wfuiCtx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })

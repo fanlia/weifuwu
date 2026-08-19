@@ -4,9 +4,9 @@
  * 新手必读（概念见 content/guides/component-model.md）：
  * - 外层 async 工厂 = mount（只一次）：await 数据 / 初始化状态
  * - 内层 async renderFn = 每次渲染：读最新 props / 输出视图
- * - 状态 = 普通对象 let + 改后 ctx.ui.render()（render-only）
+ * - 状态 = 普通对象 let + 改后 ctx.render()（render-only）
  */
-import { h } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
 
 // 两阶段异步组件：工厂层 await 数据（ctx.data——缓存 + 并发合并）
 const Home = async (_init: any, ctx: any) => {
@@ -18,7 +18,7 @@ const Home = async (_init: any, ctx: any) => {
       h('p', { class: 'wf-text-secondary' }, `数据管道：${(data as any).msg}`),
       h('button', {
         class: 'wf-btn wf-btn--primary',
-        onClick: () => { count++; ctx.ui.render() }, // 改状态 → 显式 render()
+        onClick: () => { count++; ctx.render() }, // 改状态 → 显式 render()
       }, `点击 ${count} 次`),
     )
 }

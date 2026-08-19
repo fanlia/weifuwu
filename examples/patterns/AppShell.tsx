@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { Button, PageHeader, Table, Badge, Icon, Divider, Pagination, StatCard, Space, Card, Text } from 'weifuwu/components'
 
 // ─────────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ export const AppShell: Component = async (_init, ctx) => {
   let collapsed = false
   let nav = 'dashboard'
   let page = 1
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
 
   // 订单数据（分页演示——12 条 → 每页 5 条）
   const ORDERS_ALL = Array.from({ length: 12 }, (_, i) => ({

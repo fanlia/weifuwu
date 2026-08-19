@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import { PageHeader, SearchInput, Table, Tag, Pagination, Button, Icon, EmptyState, Card } from 'weifuwu/components'
 
 // ─────────────────────────────────────────────────────────────
@@ -42,9 +42,9 @@ export const ListPage: Component = async (_init: any, ctx: any) => {
         <PageHeader title="订单列表" sub={`共 ${total} 条订单`}>
           <div class="wf-row wf-gap-sm">
             <SearchInput placeholder="搜索客户/订单号…" value={q}
-              onInput={(e: any) => { q = (e.target as HTMLInputElement).value; page = 1; ctx.ui.render() }}
-              onClear={() => { q = ''; page = 1; ctx.ui.render() }} />
-            <Button variant="primary" onClick={() => ctx.ui.render()}>
+              onInput={(e: any) => { q = (e.target as HTMLInputElement).value; page = 1; ctx.render() }}
+              onClear={() => { q = ''; page = 1; ctx.render() }} />
+            <Button variant="primary" onClick={() => ctx.render()}>
               <Icon name="plus" size={14} /> 新建订单
             </Button>
           </div>
@@ -69,7 +69,7 @@ export const ListPage: Component = async (_init: any, ctx: any) => {
         <div class="wf-row wf-between">
           <span class="wf-text-xs wf-text-tertiary">第 {cur}/{pages} 页 · 每页 {PAGE_SIZE} 条</span>
           <Pagination total={total} page={cur} pageSize={PAGE_SIZE}
-            onChange={(p: number) => { page = p; ctx.ui.render() }} />
+            onChange={(p: number) => { page = p; ctx.render() }} />
         </div>
       </div>
     )

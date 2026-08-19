@@ -6,7 +6,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createClientBrowser } from './browser.ts'
 import { jsx, jsxs, jsxDEV, h, Fragment } from './vnode.ts'
-import type { VNode, Component, WfuiContext } from './vnode.ts'
+import type { VNode, Component, UIContext } from './vnode.ts'
 const browser = createClientBrowser()
 
 describe('jsx', () => {
@@ -88,7 +88,7 @@ describe('Component 类型', () => {
   it('组件返回 VNode', async () => {
     const Greeting: Component<{ name: string }> = async (props) =>
       () => jsx('div', { children: `Hello, ${props.name}` })
-    const renderFn = await Greeting({ name: 'Alice' }, {} as WfuiContext)
+    const renderFn = await Greeting({ name: 'Alice' }, {} as UIContext)
     const v = renderFn!({ name: 'Alice' })
     assert.equal(v.type, 'div')
     assert.equal(v.props.children, 'Hello, Alice')
@@ -96,7 +96,7 @@ describe('Component 类型', () => {
 
   it('组件返回 null', () => {
     const Empty: Component = () => null
-    assert.equal(Empty({}, {} as WfuiContext), null)
+    assert.equal(Empty({}, {} as UIContext), null)
   })
 
   it('组件接收 ctx', () => {
@@ -112,14 +112,14 @@ describe('Component 类型', () => {
 
   it('组件返回数组（Fragment 语法糖）', () => {
     const Multi: Component = () => [jsx('div', { children: 'a' }), jsx('div', { children: 'b' })] as any
-    const v = Multi({}, {} as WfuiContext)
+    const v = Multi({}, {} as UIContext)
     assert.equal(Array.isArray(v), true)
     assert.equal(v[0].props.children, 'a')
   })
 
   it('组件返回布尔值', () => {
     const Conditional: Component = () => false as any
-    assert.equal(Conditional({}, {} as WfuiContext), false)
+    assert.equal(Conditional({}, {} as UIContext), false)
   })
 })
 

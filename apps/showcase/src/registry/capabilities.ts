@@ -6,7 +6,7 @@ import type { CapabilityEntry } from './types.ts'
 
 export const capabilities: CapabilityEntry[] = [
   { id: 'two-phase', name: '两阶段异步组件', desc: 'mount（工厂，只一次）+ render（每次渲染）——工厂可 await，renderFn 强制异步', srcFile: 'src/client/ui-dom/vdom3/build.ts', selfUsedIn: ['showcase 所有页面'], discipline: 'AGENTS.md §3.1' },
-  { id: 'render-only', name: 'render-only 状态', desc: '只有 ctx.ui.render() 一种触发——状态是普通对象（let/createStore），无 $ Proxy 无隐式触发', srcFile: 'src/client/ui-dom/vdom3/router.ts', selfUsedIn: ['搜索框', '主题切换', '应用页内嵌 router'], discipline: 'AGENTS.md §4' },
+  { id: 'render-only', name: 'render-only 状态', desc: '只有 ctx.render() 一种触发——状态是普通对象（let/createStore），无 $ Proxy 无隐式触发', srcFile: 'src/client/ui-dom/vdom3/router.ts', selfUsedIn: ['搜索框', '主题切换', '应用页内嵌 router'], discipline: 'AGENTS.md §4' },
   { id: 'store', name: 'createStore + useExternal', desc: '共享状态原语：普通对象 + subscribe/set/update/notify——跨组件通道', srcFile: 'src/client/ui-dom/store.ts', selfUsedIn: ['主题/语言偏好跨页同步'], discipline: 'AGENTS.md §4.5' },
   { id: 'router', name: 'UIRouter 路由', desc: 'pathname 路由 + :param + layout 包裹复用 + 隔离模式（页面内嵌子路由）', srcFile: 'src/client/ui-dom/vdom3/router.ts', selfUsedIn: ['showcase 八域导航', 'app demo 嵌入'], discipline: 'AGENTS.md §3.5' },
   { id: 'data', name: 'ctx.data 数据管道', desc: 'get/set/has + 并发合并——SSR/hydration/SPA 三场景自动适配', srcFile: 'src/client/ui-dom/', selfUsedIn: ['（P2：示例页）'], discipline: 'AGENTS.md §3.4' },

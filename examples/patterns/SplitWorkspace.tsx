@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/ui-dom'
+import type { Component } from 'weifuwu/vdom'
 import {Text, Button, CodeBlock, Descriptions, Divider, Icon, List, Tabs, Space } from 'weifuwu/components'
 
 
@@ -26,7 +26,7 @@ console.log('http://localhost:3000')` },
   { name: 'ui.ts', icon: 'file-text' as const, depth: 0, code: `// ui.ts —— 组件 + 响应式状态
 export const Counter: Component = async (_init, ctx) => {
   let count = 0
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   return () => h('button', {
     onClick: () => { count++; rerender() },
   }, '计数：' + count)
@@ -39,7 +39,7 @@ export function patchKeyedChildren(...) {
 ]
 
 export const SplitWorkspace: Component = async (_init, ctx) => {
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   let file = 'server.ts'
   let tab = 'server.ts'
 

@@ -1,8 +1,8 @@
 /**
  * 404——未匹配路由（六域回退）
  */
-import { h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/ui-dom'
+import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/vdom'
 import { DOMAINS } from '../shell.tsx'
 
 export const NotFound: Component = async (_init: any, _ctx: any) => async (_p: any) => (

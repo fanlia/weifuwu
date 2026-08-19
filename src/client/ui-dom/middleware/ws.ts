@@ -2,10 +2,10 @@
  * ws middleware — 注入 ctx.ws
  *
  * WebSocket 客户端，自动重连，支持房间。
- * 状态为普通值，组件通过 ctx.ui.render() 刷新。
+ * 状态为普通值，组件通过 ctx.render() 刷新。
  */
 
-import type { WfuiContext, AppMiddleware } from '../types.ts'
+import type { UIContext, AppMiddleware } from '../types.ts'
 import { extendCtx } from '../types.ts'
 
 export interface WsOptions {
@@ -20,7 +20,7 @@ export interface WsOptions {
 /** ws 连接状态（页面清晰显示——用户要求"ws 链接状态一定要清晰"） */
 export type WsStatus = 'connecting' | 'connected' | 'disconnected'
 
-/** ws 中间件注入的客户端形状（与 WfuiContext.ws 一致） */
+/** ws 中间件注入的客户端形状（与 UIContext.ws 一致） */
 export interface WsClient {
   send: (msg: unknown) => void
   onMessage: (fn: (data: unknown) => void) => () => void
@@ -41,7 +41,7 @@ export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
   const pingIntervalMs = options.pingInterval ?? 30_000
   const pingTimeoutMs = options.pingTimeout ?? 10_000
 
-  return (ctx: WfuiContext) => {
+  return (ctx: UIContext) => {
     const messageHandlers = new Set<(data: unknown) => void>()
     let socket: WebSocket | null = null
     let reconnectAttempts = 0

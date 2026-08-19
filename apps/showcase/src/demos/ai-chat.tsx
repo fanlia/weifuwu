@@ -5,18 +5,14 @@
  * weifuwu/components cheatsheet
  *
  * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
- * 使用闭包变量 + ctx.ui.render() 管理交互状态。
+ * 使用闭包变量 + ctx.render() 管理交互状态。
  *
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { WfuiContext, Component } from 'weifuwu/ui-dom'
-import {
-  createRouter, h, stream, evKey, App as AppNode, registerApp } from 'weifuwu/ui-dom'
-import {
-  FilePreview } from 'weifuwu/components'
-import {
-  v3Toast, v3Confirm, v3Notification } from 'weifuwu/ui-dom'
+import type { UIContext, Component } from 'weifuwu/vdom'
+import { h } from 'weifuwu/vdom'
+import { FilePreview } from 'weifuwu/components'
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -91,7 +87,7 @@ const DemoReasoningBlock: Component = async (_p, ctx) => {
         label="已思考"
         streaming={streaming}
       />
-      <button class="wf-btn wf-btn--sm" onClick={() => { streaming = !streaming; ctx.ui.render() }}>
+      <button class="wf-btn wf-btn--sm" onClick={() => { streaming = !streaming; ctx.render() }}>
         {streaming ? '停止模拟流式' : '模拟流式'}
       </button>
     </div>
@@ -137,10 +133,10 @@ const DemoSessionList: Component = async (_p, ctx) => {
             sessions={sessions}
             activeId={active}
             searchable
-            onSelect={(id) => { active = id; ctx.ui.render() }}
-            onNew={() => { sessions = [{ id: `s${idc++}`, title: '新会话', updatedAt: Date.now() }, ...sessions]; ctx.ui.render() }}
-            onRename={(id, title) => { sessions = sessions.map((s) => s.id === id ? { ...s, title } : s); ctx.ui.render() }}
-            onDelete={(id) => { sessions = sessions.filter((s) => s.id !== id); if (active === id) active = ''; ctx.ui.render() }}
+            onSelect={(id) => { active = id; ctx.render() }}
+            onNew={() => { sessions = [{ id: `s${idc++}`, title: '新会话', updatedAt: Date.now() }, ...sessions]; ctx.render() }}
+            onRename={(id, title) => { sessions = sessions.map((s) => s.id === id ? { ...s, title } : s); ctx.render() }}
+            onDelete={(id) => { sessions = sessions.filter((s) => s.id !== id); if (active === id) active = ''; ctx.render() }}
           />
         </div>
       </div>
@@ -159,14 +155,14 @@ const DemoApprovalCard: Component = async (_p, ctx) => {
       <ApprovalCard
         request={{ id: 'ap1', toolCallId: 't1', name: 'place_order', args: { qty: 2 }, reason: '单笔超限，需人工确认' }}
         loading={loading}
-        onApprove={() => { loading = true; ctx.ui.render(); setTimeout(() => { loading = false; ctx.ui.render() }, 1500) }}
+        onApprove={() => { loading = true; ctx.render(); setTimeout(() => { loading = false; ctx.render() }, 1500) }}
         onReject={() => {}}
       />
       <div class="wf-text-xs wf-text-secondary">↑ 点「允许」看提交中状态（loading 防连点）</div>
       <ApprovalCard
         request={{ id: 'ap4', toolCallId: 't4', name: 'place_order', args: { qty: 2, note: '' }, reason: '单笔超限——可修改参数后批准（modified 决策）' }}
         argsSchema={{ type: 'object', properties: { qty: { type: 'integer', title: '数量', minimum: 1, maximum: 10 }, note: { type: 'string', title: '备注' } }, required: ['qty'] }}
-        onApprove={(m) => { modified = m ? `qty=${m.qty}` : '原参数批准'; ctx.ui.render() }}
+        onApprove={(m) => { modified = m ? `qty=${m.qty}` : '原参数批准'; ctx.render() }}
         onReject={() => {}}
       />
       <div class="wf-text-xs wf-text-secondary">↑ 点「修改参数」改数量后批准：{modified ?? '（尚未操作）'}</div>
@@ -219,7 +215,7 @@ const DemoChatInput: Component = async (_props, ctx) => {
   let value = ''
   let streaming = false
   const sent: string[] = []
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   return async () => (
     <div class="wf-stack wf-gap-md">
       <div class="wf-stack wf-gap-xs">
@@ -261,7 +257,7 @@ const DemoAuthPage: Component = async (_props, ctx) => {
   let mode: 'login' | 'register' = 'login'
   let loading = false
   let error = ''
-  const rerender = () => ctx.ui.render()
+  const rerender = () => ctx.render()
   return async () => (
     <div class="wf-stack wf-gap-md">
       <div class="wf-row wf-gap-sm">
@@ -308,7 +304,7 @@ export const DemoPromptTemplate: Component = async (_props: any, ctx: any) => {
       <PromptTemplate
         label="系统提示词模板"
         value={value}
-        onChange={(v: string) => { value = v; ctx.ui.render() }}
+        onChange={(v: string) => { value = v; ctx.render() }}
         variables={[
           { name: 'role', description: '角色' },
           { name: 'tone', description: '语气' },

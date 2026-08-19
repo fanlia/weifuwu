@@ -32,9 +32,10 @@ import { resolve, dirname, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
-import { renderToEvents, eventsToHtml } from '../../client/ui-dom/vdom3/ssr.ts'
-import { h } from '../../client/ui-dom/vdom3/jsx.ts'
-import type { Component } from '../../client/ui-dom/vnode.ts'
+import { renderToStream } from '../../client/vdom/core/build.ts'
+import { commandToHtml } from '../../client/vdom/core/html.ts'
+import { h } from '../../client/vdom/index.ts'
+import type { Component } from '../../client/vdom/index.ts'
 
 // 浏览器端编译 alias：weifuwu/* → 同构源码/产物（与 weifuwu/dev 的 BARE_ALIASES 一致——
 // 全单图防 dist/src 双实例（AGENTS.md §6.1）；显式 alias 绕开 esbuild self-reference
@@ -44,17 +45,23 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const IS_SRC = fileURLToPath(import.meta.url).includes(`${sep}src${sep}`)
 const JS_ALIASES: Record<string, string> = IS_SRC
   ? {
-      'weifuwu/ui-dom/jsx-runtime': HERE + '/../ui-dom/jsx-runtime.ts',
-      'weifuwu/ui-dom/testing': HERE + '/../ui-dom/testing.ts',
-      'weifuwu/ui-dom': HERE + '/../ui-dom/index.ts',
-      'weifuwu/components': HERE + '/../components/index.ts',
+      'weifuwu/vdom/jsx-runtime': HERE + '/../../client/vdom/jsx-runtime.ts',
+      'weifuwu/vdom/testing': HERE + '/../../client/vdom/testing.ts',
+      'weifuwu/vdom': HERE + '/../../client/vdom/index.ts',
+      'weifuwu/ui-dom/jsx-runtime': HERE + '/../../client/ui-dom/jsx-runtime.ts',
+      'weifuwu/ui-dom/testing': HERE + '/../../client/ui-dom/testing.ts',
+      'weifuwu/ui-dom': HERE + '/../../client/ui-dom/index.ts',
+      'weifuwu/components': HERE + '/../../client/components/index.ts',
       'weifuwu': HERE + '/../index.ts',
     }
   : {
-      'weifuwu/ui-dom/jsx-runtime': HERE + '/ui-dom/jsx-runtime.js',
-      'weifuwu/ui-dom/testing': HERE + '/ui-dom/testing.js',
-      'weifuwu/ui-dom': HERE + '/ui-dom/index.js',
-      'weifuwu/components': HERE + '/components/index.js',
+      'weifuwu/vdom/jsx-runtime': HERE + '/../../dist/vdom/jsx-runtime.js',
+      'weifuwu/vdom/testing': HERE + '/../../dist/vdom/testing.js',
+      'weifuwu/vdom': HERE + '/../../dist/vdom/index.js',
+      'weifuwu/ui-dom/jsx-runtime': HERE + '/../../dist/ui-dom/jsx-runtime.js',
+      'weifuwu/ui-dom/testing': HERE + '/../../dist/ui-dom/testing.js',
+      'weifuwu/ui-dom': HERE + '/../../dist/ui-dom/index.js',
+      'weifuwu/components': HERE + '/../../dist/components/index.js',
       'weifuwu': HERE + '/index.js',
     }
 
@@ -171,10 +178,16 @@ export function ui(): Middleware {
     ctx.ui = {
       html: Object.assign(htmlTag, { unsafe }) as any,
 
-      /** SSR 渲染组件 → HTML 片段（vdom3 事件流形态：组件构建 → 事件流 → HTML 序列化） */
+      /** SSR 渲染组件 → HTML 片段（vdom 管线：renderToStream → commandToHtml 流式） */
       async ssr(Comp: Component, props?: Record<string, any>): Promise<string> {
-        const events = await renderToEvents(h(Comp as never, props ?? {}))
-        return new HtmlSafe(eventsToHtml(events)) as unknown as string
+        const reader = renderToStream(h(Comp as never, props ?? {})).pipeThrough(commandToHtml()).getReader()
+        let html = ''
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          html += value
+        }
+        return new HtmlSafe(html) as unknown as string
       },
 
       /** 序列化 SSR 数据存储 → window.__DATA__ 脚本（HtmlSafe——< 转义防注入） */
