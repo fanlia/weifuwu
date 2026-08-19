@@ -24,7 +24,7 @@ import { stateOf } from './transform/states.ts'
 import { transitionOf } from './transform/table.ts'
 import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed } from './node/keyed.ts'
 import { createRenderDispatcher, type RenderSink } from './build.ts'
-import { renderComponent, type ComponentRegistry } from './node/component.ts'
+import { renderComponent, disposeComponent, type ComponentRegistry } from './node/component.ts'
 import { pathId, serializableAttrs } from './node/native.ts'
 import type { UIContext } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
@@ -87,9 +87,23 @@ async function diffSame(
   registry: ComponentRegistry,
 ): Promise<void> {
   const id = pathId(parent, index)
-  // 组件同类型复用（工厂不重跑——renderFn 重新调用——输出对照上次——精准 patch）
+  // 组件复用（工厂不重跑——renderFn 重新调用——输出对照上次——精准 patch）
   if (typeof newV.type === 'function') {
     const rec = registry.get(id)
+    // **类型比较**：同位置不同类型（条件切换 A → B）——卸载旧实例 + 重建
+    if (rec && rec.type !== newV.type) {
+      // **同步卸载**（onUnmounts + 删 rec——不等 patch 消费 unmount 命令——
+      // 否则 renderComponent 立即复用旧 rec——类型错位）
+      disposeComponent(id, registry)
+      // 旧输出清理（递归 remove——lastOutput 结构）
+      if (rec.lastOutput !== undefined && rec.lastOutput !== null) {
+        removeVNodeTree(rec.lastOutput as VNode, pathId(parent, index), emitCommand)
+      }
+      // 新实例（rec 已删——重新 mount——工厂执行）
+      await renderComponent(newV, parent, index, ref, id, ctx, registry, emit)
+      emitCommand({ op: 'mount', compId: id })
+      return
+    }
     const oldOut = rec?.lastOutput
     const isNew = !rec
     await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
@@ -261,6 +275,17 @@ async function diffSlot(
       oldCompId: typeof (oldC as VNode)?.type === 'function' ? cid : undefined,
     })
   }
+}
+
+/** 旧输出递归清理（组件类型切换——remove 命令——同构保持） */
+function removeVNodeTree(v: VNode, id: string, emitCommand: (cmd: Command) => void): void {
+  const cs = childrenOf(v)
+  cs.forEach((c, i) => {
+    if (c !== null && c !== undefined && typeof c !== 'boolean' && typeof c !== 'string' && typeof c !== 'number' && !Array.isArray(c)) {
+      removeVNodeTree(c as VNode, pathId(id, i), emitCommand)
+    }
+  })
+  emitCommand({ op: 'remove', id })
 }
 
 /** 数组是否含 keyed 项（混合判定） */

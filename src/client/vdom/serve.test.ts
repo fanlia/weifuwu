@@ -1026,3 +1026,74 @@ test('uiSsr：notFound 兜底（无匹配路由 → 空 root 文档）', async (
   const html = await uiSsr(router, '/missing')
   assert.ok(html.includes('<div class="nf">404</div>'))
 })
+
+test('组件生命周期：导航到组件页面——root 类型变化 → 全量 build（旧实例卸载 + 新页完整）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const events: string[] = []
+  const HomePage = (_init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('home-unmount'))
+    return () => h('div', { class: 'home' }, h('a', { href: '/posts/1' }, '去文章'))
+  }
+  const PostPage = async (init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('post-unmount'))
+    const post = await ctx.data.get<{ title: string }>(`/api/posts/${init.id}`)
+    return () => h('article', { class: 'post' }, post.title)
+  }
+  const origFetch = (globalThis as any).fetch
+  ;(globalThis as any).fetch = async (url: string) => ({ ok: true, json: async () => ({ title: `文章-${url.split('/').pop()}` }) })
+  try {
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(HomePage, {})))
+  router.get('/posts/:id', (req, ctx) => (ctx as RenderCtx).stream(h(PostPage, { id: ctx.params!.id })))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.ok(browser.document.querySelector('.home'), '首页渲染')
+  // 链接点击 → 导航 → PostPage（root 类型变化——HomePage 卸载 + 全量 build）
+  ;(browser.document.querySelector('a') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.post') !== null)
+  assert.equal(browser.document.querySelector('.post')?.textContent, '文章-1', 'PostPage 渲染（ctx.params.id 取数）')
+  assert.equal(browser.document.querySelector('.home'), null, '旧页移除（done.full 清理）')
+  assert.deepEqual(events, ['home-unmount'], '旧组件卸载清理')
+  // 返回首页 → PostPage 卸载
+  ;(serve as unknown as { navigate: (p: string) => Promise<void> }).navigate('/')
+  await waitFor(() => browser.document.querySelector('.home') !== null)
+  assert.deepEqual(events, ['home-unmount', 'post-unmount'], '新页卸载清理')
+  } finally {
+    ;(globalThis as any).fetch = origFetch
+  }
+})
+
+test('组件生命周期：子组件类型切换（A → B 条件渲染——卸载重建 + onUnmounts）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const events: string[] = []
+  const A = (_i: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('a-unmount'))
+    return () => h('div', { class: 'a' }, 'A组件')
+  }
+  const B = (_i: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('b-unmount'))
+    return () => h('div', { class: 'b' }, 'B组件')
+  }
+  const Page = (init: Record<string, unknown>, ctx: Ctx) => {
+    let show = init.show as boolean
+    const onToggle = () => { show = !show; void ctx.render() }
+    return () => h('div', {},
+      h('button', { id: 't', onClick: onToggle }, '切换'),
+      show ? h(A, {}) : h(B, {}),
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, { show: true })))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.ok(browser.document.querySelector('.a'), 'A 渲染')
+  // 点击切换 A → B（同位置不同类型——卸载重建）
+  ;(browser.document.querySelector('#t') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.b') !== null)
+  assert.equal(browser.document.querySelector('.a'), null, 'A 移除')
+  assert.deepEqual(events, ['a-unmount'], 'A 卸载清理')
+  // B → A
+  ;(browser.document.querySelector('#t') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.a') !== null)
+  assert.deepEqual(events, ['a-unmount', 'b-unmount'], 'B 卸载清理')
+})

@@ -26,6 +26,8 @@ import type { Browser } from '../../browser/Browser.ts'
 
 /** 组件实例记录（跨渲染保持——diff 复用） */
 export interface ComponentRecord {
+  /** 组件函数引用（类型比较——同位置不同类型 → 卸载重建） */
+  type: Component
   /** renderFn（工厂产物——每次渲染调用——读最新 props） */
   renderFn: RenderFn
   /** 卸载清理回调（ctx.onUnmount 收集——unmount 时执行） */
@@ -43,6 +45,8 @@ export interface ComponentRegistry {
   get(id: string): ComponentRecord | undefined
   set(id: string, rec: ComponentRecord): void
   delete(id: string): void
+  /** 全部实例 id（整树替换遍历卸载） */
+  keys(): string[]
 }
 
 /** 创建注册表（per serve 实例） */
@@ -52,7 +56,13 @@ export function createComponentRegistry(): ComponentRegistry {
     get: (id) => map.get(id),
     set: (id, rec) => { map.set(id, rec) },
     delete: (id) => { map.delete(id) },
+    keys: () => [...map.keys()],
   }
+}
+
+/** 整树替换：全部组件实例卸载（onUnmounts 逆序——导航/root 类型变化） */
+export function disposeAllComponents(registry: ComponentRegistry): void {
+  for (const id of registry.keys()) disposeComponent(id, registry)
 }
 
 /** 组件渲染 sink（render.ts 的 emit——子节点递归出口） */
@@ -95,7 +105,7 @@ export async function renderComponent(
     })
     // 工厂 = mount（一次——可 await ctx.data——管道保证 resolve）
     const maybeRenderFn = factory(vn.props, instCtx)
-    rec = { renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates }
+    rec = { type: factory, renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates }
     registry.set(compId, rec)
   }
 

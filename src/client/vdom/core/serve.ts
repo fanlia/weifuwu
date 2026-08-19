@@ -21,7 +21,7 @@ import { CommandApplier } from './patch.ts'
 import { renderToStream } from './build.ts'
 import { diffStream } from './diff.ts'
 import type { VNode } from './vnode.ts'
-import { createComponentRegistry } from './node/component.ts'
+import { createComponentRegistry, disposeAllComponents } from './node/component.ts'
 import { createDataPipe } from '../context/data.ts'
 import type { UIContext, DataPipe } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
@@ -232,8 +232,17 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     // **diff 本质（2026-12）：精准生成需要 patch 的事件流**——
     // 有影子树 → diff（增量命令——counter 点击只发文本 setText）；
     // 无影子树（首帧）→ build 全量。
+    // root 类型变化（导航/组件切换）→ **全量 build**（done.full 清理旧树）；
+    // 同类型 → diff 精准
     const stream = currentTree
-      ? diffStream(currentTree, vnode, ctx, registry)
+      ? (currentTree.type !== vnode.type
+        ? (() => {
+          // 整树替换（导航/root 组件切换）——**旧组件实例全部卸载**
+          //（onUnmounts 清理——否则 renderComponent 复用旧 rec——类型错位）
+          disposeAllComponents(registry)
+          return renderToStream(vnode, ctx, registry)
+        })()
+        : diffStream(currentTree, vnode, ctx, registry))
       : renderToStream(vnode, ctx, registry)
     currentTree = vnode // 影子树更新（下次对照）
     return new Response(encodeCommands(stream, fnTable), {
