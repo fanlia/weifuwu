@@ -165,31 +165,35 @@ test('route 闭环：popstate——浏览器前进/后退', async () => {
   assert.equal(browser.document.querySelector('.home')?.textContent, '首页')
 })
 
-test('并发守卫：快速连续触发（渲染中 render——单槽位补跑——不丢不排队）', async () => {
+test('渲染队列 FIFO：快速连续触发（渲染中 render → push 入队——每个请求最终执行）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
   let count = 0
-  const Counter = () => {
-    return () => {
-      const rc = (arguments[0] as { ctx: RenderCtx })?.ctx
-      return h('button', { id: 'fast', onClick: () => { count++; void rc.render() } }, `c:${count}`)
-    }
-  }
-  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', {}, h('button', {
-    id: 'fast',
-    onClick: () => { count++; void (ctx as RenderCtx).render() },
-  }, `c:${count}`))))
+  let handlerCalls = 0 // handler 调用次数（= 渲染请求执行次数）
+  router.get('/', (req, ctx) => {
+    handlerCalls++
+    return (ctx as RenderCtx).stream(h('div', {}, h('button', {
+      id: 'fast',
+      onClick: () => { count++; void (ctx as RenderCtx).render() },
+    }, `c:${count}`)))
+  })
   const serve = uiServe(router, { root: '#root', browser })
   await serve.ready
   const btn = () => browser.document.querySelector('#fast') as HTMLElement
   assert.equal(btn().textContent, 'c:0')
-  // 连续点击 5 次（渲染中触发——补跑）——最终 DOM = 最新状态（c:5）
+  assert.equal(handlerCalls, 1, '首帧一次')
+  // 连续点击 5 次（渲染中触发 → push 入队——FIFO——**每个请求最终执行**）
+  // 确定性：渲染读最新闭包状态（count=5）——但**每个请求都执行渲染**
+  // （handler 调用次数 = 请求次数——区别于旧单槽位合并：只补跑一次）
   for (let i = 0; i < 5; i++) btn().click()
+  await waitFor(() => handlerCalls >= 6) // 首帧 1 + 5 次请求 = 6 次 handler 调用
+  assert.equal(handlerCalls, 6, 'FIFO 逐条执行——每个请求都渲染（无合并）')
+  // 最终：全部请求执行完——DOM = 最新状态（c:5——渲染读最新闭包）
   await waitFor(() => btn()?.textContent === 'c:5')
-  assert.equal(btn().textContent, 'c:5', '快速连续触发——最终 DOM = 最新状态（不丢）')
+  assert.equal(btn().textContent, 'c:5', '快速连续触发——每个请求最终执行（无丢失）')
 })
 
-test('并发守卫：渲染中 await ctx.render()——精确等待最终（含补跑）', async () => {
+test('渲染队列 FIFO：渲染中 await ctx.render()——精确等待全部队列执行完', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
   let n = 0
@@ -467,31 +471,35 @@ test('usePopup：外部点击关闭 + Escape 关闭', async () => {
   assert.equal(browser.document.querySelector('.panel'), null, 'Escape 关闭')
 })
 
-test('并发守卫：快速连续触发（渲染中 render——单槽位补跑——不丢不排队）', async () => {
+test('渲染队列 FIFO：快速连续触发（渲染中 render → push 入队——每个请求最终执行）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
   let count = 0
-  const Counter = () => {
-    return () => {
-      const rc = (arguments[0] as { ctx: RenderCtx })?.ctx
-      return h('button', { id: 'fast', onClick: () => { count++; void rc.render() } }, `c:${count}`)
-    }
-  }
-  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', {}, h('button', {
-    id: 'fast',
-    onClick: () => { count++; void (ctx as RenderCtx).render() },
-  }, `c:${count}`))))
+  let handlerCalls = 0 // handler 调用次数（= 渲染请求执行次数）
+  router.get('/', (req, ctx) => {
+    handlerCalls++
+    return (ctx as RenderCtx).stream(h('div', {}, h('button', {
+      id: 'fast',
+      onClick: () => { count++; void (ctx as RenderCtx).render() },
+    }, `c:${count}`)))
+  })
   const serve = uiServe(router, { root: '#root', browser })
   await serve.ready
   const btn = () => browser.document.querySelector('#fast') as HTMLElement
   assert.equal(btn().textContent, 'c:0')
-  // 连续点击 5 次（渲染中触发——补跑）——最终 DOM = 最新状态（c:5）
+  assert.equal(handlerCalls, 1, '首帧一次')
+  // 连续点击 5 次（渲染中触发 → push 入队——FIFO——**每个请求最终执行**）
+  // 确定性：渲染读最新闭包状态（count=5）——但**每个请求都执行渲染**
+  // （handler 调用次数 = 请求次数——区别于旧单槽位合并：只补跑一次）
   for (let i = 0; i < 5; i++) btn().click()
+  await waitFor(() => handlerCalls >= 6) // 首帧 1 + 5 次请求 = 6 次 handler 调用
+  assert.equal(handlerCalls, 6, 'FIFO 逐条执行——每个请求都渲染（无合并）')
+  // 最终：全部请求执行完——DOM = 最新状态（c:5——渲染读最新闭包）
   await waitFor(() => btn()?.textContent === 'c:5')
-  assert.equal(btn().textContent, 'c:5', '快速连续触发——最终 DOM = 最新状态（不丢）')
+  assert.equal(btn().textContent, 'c:5', '快速连续触发——每个请求最终执行（无丢失）')
 })
 
-test('并发守卫：渲染中 await ctx.render()——精确等待最终（含补跑）', async () => {
+test('渲染队列 FIFO：渲染中 await ctx.render()——精确等待全部队列执行完', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
   let n = 0
