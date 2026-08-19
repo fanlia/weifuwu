@@ -111,7 +111,16 @@ export class CommandApplier {
         applyRef(null, null, rfn)
         this.refs.delete(rid)
         this.pendingRefs.delete(rid)
-        this.propPrev.delete(`${rid}:ref`)
+      }
+    }
+  }
+
+  /** 子树 propPrev 清理（卸载指令——事件旧值引用释放——防表泄漏） */
+  private clearPropPrev(id: string): void {
+    for (const k of [...this.propPrev.keys()]) {
+      // 键格式 id:key / id.key（子树）——前缀匹配
+      if (k === id || k.startsWith(id + ':') || k.startsWith(id + '.')) {
+        this.propPrev.delete(k)
       }
     }
   }
@@ -241,8 +250,9 @@ export class CommandApplier {
         break
       }
       case 'remove': {
-        // **卸载指令**——子树 ref(null) 清理（id 前缀匹配——子树所有注册 ref）
+        // **卸载指令**——子树 ref(null) + propPrev 清理（资源释放完整）
         this.clearNodeRefs(cmd.id)
+        this.clearPropPrev(cmd.id)
         this.nodes.get(cmd.id)?.remove()
         this.nodes.delete(cmd.id)
         break
@@ -291,8 +301,9 @@ export class CommandApplier {
         if (cmd.full && this.touched.size > 0) {
           for (const [id, el] of [...this.nodes]) {
             if (!this.touched.has(id)) {
-              // 清理即卸载——ref(null) 同步（子树）
+              // 清理即卸载——ref(null) + propPrev（资源释放完整）
               this.clearNodeRefs(id)
+              this.clearPropPrev(id)
               el.remove()
               this.nodes.delete(id)
             }

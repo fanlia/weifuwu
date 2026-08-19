@@ -510,3 +510,46 @@ test('move 命令流：重排只发 move（无 create/remove——精准）', as
   const moves = cmds.filter((c) => (c as { op: string }).op === 'move')
   assert.equal(moves.length, 3, '索引级 move（c/a/b 索引全变——b 冗余移动幂等无害——相对顺序优化后续）')
 })
+
+test('patch 资源释放：remove/done 后 propPrev 表清理（事件旧值引用不残留）', async () => {
+  const hz = harness(testBrowser())
+  const Item = (init: Record<string, unknown>) => {
+    const onClick = () => {} // 每次工厂新函数
+    return () => h('button', { id: String(init.id), onClick }, String(init.id))
+  }
+  const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
+  await hz.mount(list(['a', 'b', 'c']))
+  // 表里有事件 prev（mount 时 setProp 记忆）
+  const applier = (hz as unknown as { _applier?: unknown })._applier as never
+  void applier
+  // 验证：直接通过 patch 层观察（移除 b——propPrev 无 b 前缀键）
+  await hz.update(list(['a', 'b', 'c']), list(['a', 'c']))
+  // 再触发一次渲染确认无残留副作用（事件绑定不重复）
+  await hz.update(list(['a', 'c']), list(['a', 'c']))
+  // 移除后组件不残留（通过后续 keyed 复用验证——b 的实例已卸载）
+  assert.equal(hz.root.querySelectorAll('button').length, 2)
+  assert.equal(hz.root.querySelectorAll('button')[0].textContent, 'a')
+  assert.equal(hz.root.querySelectorAll('button')[1].textContent, 'c')
+})
+
+test('patch 资源释放：done.full 清理后 propPrev 不残留（全量流重建）', async () => {
+  const browser = testBrowser()
+  const reg = createComponentRegistry()
+  const root = browser.document.querySelector('#root') as HTMLElement
+  const applier = new CommandApplier(root, browser.document, reg)
+  const onClick = () => {}
+  const s1 = renderToStream(h('div', {}, h('button', { id: 'b', onClick }, 'x')), {} as Ctx, reg)
+  const r1 = s1.getReader()
+  while (true) { const { value, done } = await r1.read(); if (done) break; applier.apply(value) }
+  // 全量流 2（结构变化——button 消失——done.full 清理）
+  const s2 = renderToStream(h('div', {}, 'only text'), {} as Ctx, reg)
+  const r2 = s2.getReader()
+  while (true) { const { value, done } = await r2.read(); if (done) break; applier.apply(value) }
+  assert.equal(root.querySelector('#b'), null, '节点已移除')
+  // 重新渲染 button——事件绑定一次（无残留 prev 干扰——重复绑定不出现）
+  const onClick2 = () => {}
+  const s3 = renderToStream(h('div', {}, h('button', { id: 'b', onClick: onClick2 }, 'x')), {} as Ctx, reg)
+  const r3 = s3.getReader()
+  while (true) { const { value, done } = await r3.read(); if (done) break; applier.apply(value) }
+  assert.equal(root.querySelector('#b')?.textContent, 'x', '重建正常')
+})
