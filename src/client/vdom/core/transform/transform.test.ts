@@ -14,6 +14,7 @@ import assert from 'node:assert/strict'
 import { transitionOf, runTransition, TRANSITIONS } from './table.ts'
 import { stateOf } from './states.ts'
 import { h } from '../vnode.ts'
+import { Fragment } from '../node/fragment.ts'
 import type { TransformContext } from './index.ts'
 
 function mkCtx(cmds: unknown[], emitted: unknown[] = [], oldCompId?: string): TransformContext {
@@ -222,4 +223,72 @@ test('全分支：text → X / hole → X / element → X / component → X（�
     assert.deepEqual(ops, ['unmount', 'remove'], `component → ${next} 卸载 + 移除`)
     assert.deepEqual(t.emitted, [node])
   }
+})
+
+test('全分支补全：array → X（数组 → 单节点/空洞/浮层——组件输出收窄）', async () => {
+  const arr = [h('span', {}), h('i', {})]
+  const comp = { type: () => () => null, props: {}, key: null }
+  // array → element：旧区间清理 + 单节点
+  const t1 = runT('array', 'element', arr, h('div', {}))
+  await t1.run()
+  assert.equal(t1.cmds.filter((c) => (c as { op: string }).op === 'remove').length, 2, '数组项逐项清理')
+  assert.deepEqual(t1.emitted, [h('div', {}) as never])
+  // array → text / array → hole：收窄为单值/空洞
+  const t2 = runT('array', 'text', arr, 'x')
+  await t2.run()
+  assert.equal(t2.cmds.filter((c) => (c as { op: string }).op === 'remove').length, 2)
+  assert.deepEqual(t2.emitted, ['x'])
+  const t3 = runT('array', 'hole', arr, null)
+  await t3.run()
+  assert.equal(t3.cmds.filter((c) => (c as { op: string }).op === 'remove').length, 2)
+  assert.deepEqual(t3.emitted, [null])
+  // array → component：卸载数组 + 组件渲染
+  const t4 = runT('array', 'component', arr, comp, { oldCompId: 'root.1' })
+  await t4.run()
+  assert.deepEqual(t4.emitted, [comp])
+  // array → fragment / array → portal：同义展开/浮层槽位
+  const t5 = runT('array', 'fragment', arr, h(Fragment, {}, 'a'))
+  await t5.run()
+  assert.deepEqual(t5.emitted, [h(Fragment, {}, 'a') as never])
+  const p = { type: Symbol('portal'), props: {}, key: 'k' }
+  const t6 = runT('array', 'portal', arr, p)
+  await t6.run()
+  assert.deepEqual(t6.emitted, [p])
+})
+
+test('全分支补全：portal → text/component/fragment/array（浮层槽位被条件渲染替换）', async () => {
+  const portal = { type: Symbol('portal'), props: {}, key: 'dd' }
+  const comp = { type: () => () => null, props: {}, key: null }
+  // portal → text / portal → component
+  const t1 = runT('portal', 'text', portal, 'x')
+  await t1.run()
+  assert.deepEqual(t1.cmds, [{ op: 'remove', id: 'root.1' }], '浮层锚让位')
+  assert.deepEqual(t1.emitted, ['x'])
+  const t2 = runT('portal', 'component', portal, comp)
+  await t2.run()
+  assert.deepEqual(t2.cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(t2.emitted, [comp])
+  // portal → fragment / portal → array
+  const t3 = runT('portal', 'fragment', portal, h(Fragment, {}, 'a'))
+  await t3.run()
+  assert.deepEqual(t3.cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(t3.emitted, [h(Fragment, {}, 'a') as never])
+  const t4 = runT('portal', 'array', portal, [h('span', {})])
+  await t4.run()
+  assert.deepEqual(t4.cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(t4.emitted, [[h('span', {})]])
+})
+
+test('全分支补全：text → hole（文本消失——条件渲染收窄）', async () => {
+  const t = runT('text', 'hole', '旧文本', null)
+  await t.run()
+  assert.deepEqual(t.cmds, [{ op: 'remove', id: 'root.1' }], '文本让位')
+  assert.deepEqual(t.emitted, [null], '新侧空洞（占位锚——同构保持）')
+})
+
+test('全分支补全：fragment → array（Fragment 符号 → 数组——同义展开）', async () => {
+  const t = runT('fragment', 'array', h(Fragment, {}, 'a'), [h('span', {})])
+  await t.run()
+  assert.equal(t.cmds.filter((c) => (c as { op: string }).op === 'remove').length, 1, '旧展开项清理')
+  assert.deepEqual(t.emitted, [[h('span', {})]])
 })
