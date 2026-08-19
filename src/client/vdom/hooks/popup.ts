@@ -36,14 +36,22 @@ export interface PopupOptions {
   /** 受控（父独占——setOpen 唯一出口） */
   isOpen?: boolean
   setOpen?: (open: boolean) => void
+  /** 会话级模态（Modal/Drawer 同款——退场状态机 open→exit→closed——
+   *  presence 时 portal 在 exit 阶段仍渲染（退场动画）） */
+  presence?: boolean
+  /** 定位模式（none = 组件自定义定位——.wf-modal inset:0 居中） */
+  positioning?: 'anchor' | 'none'
 }
+
+export type PopupPhase = 'closed' | 'open' | 'exit'
 
 export interface Popup {
   /** open getter（渲染期读最新） */
   open: boolean
   /** 打开/关闭 */
   setOpen(open: boolean): void
-  /** portal 输出（open 时 → createPortal——关闭 → null） */
+  /** portal 输出（open 时 → createPortal；presence 时 exit 阶段仍渲染——
+   *  退场动画——否则关闭 → null） */
   portal(content: VNodeChild, key?: string): VNode | null
   /** 重算坐标（打开后/锚点变化） */
   refresh(): void
@@ -51,6 +59,10 @@ export interface Popup {
   panelRef(el: HTMLElement | null): void
   /** 坐标 getter（渲染期读——panel style 应用——refresh 后重渲染） */
   pos: { top: number; left: number }
+  /** presence 阶段（会话级模态——渲染期读：open→exit→closed） */
+  phase: PopupPhase
+  /** 渲染期同步（presence 状态机驱动——open 变化检测） */
+  sync(open: boolean): void
 }
 
 /** 定位计算（锚点 rect → fixed 坐标——视口夹紧——0-rect 防护） */
@@ -126,14 +138,15 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
     env.requestRender() // 坐标落地（面板 style 更新）
   }
 
-  /** 打开变化检测（渲染期——打开后微任务定位——面板已挂载） */
+  /** presence 状态机（会话级模态：open→exit→closed——退场动画） */
+  const phaseIdx = env.nextHookIndex()
+  const phaseState = env.getHookState<{ phase: PopupPhase; exitDone: boolean }>(phaseIdx) ?? { phase: 'closed', exitDone: false }
+  env.setHookState(phaseIdx, phaseState)
+  /** 渲染期 open 变化检测（prev 记忆——portal/sync 共用） */
   const openIdx = env.nextHookIndex()
-  const prev = env.getHookState<{ open: boolean; registered: boolean }>(openIdx) ?? { open: false, registered: false }
-  if (prev.open !== open.open) {
-    prev.open = open.open
-    if (open.open) queueMicrotask(refresh)
-  }
+  const prev = env.getHookState<{ open: boolean }>(openIdx) ?? { open: false }
   env.setHookState(openIdx, prev)
+
 
   /** Escape 关闭（常驻——open 时生效） */
   useGlobalKey(env, 'Escape', () => {
@@ -166,7 +179,27 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
       open.setOpen(v)
     },
     portal(content: VNodeChild, key?: string): VNode | null {
-      return open.open ? createPortal(content, key ?? 'popup') : null
+      // **渲染期 open 变化检测**（portal 每次渲染调用——phase 同步——
+      // presence 状态机驱动）
+      if (prev.open !== open.open) {
+        prev.open = open.open
+        if (open.open) {
+          phaseState.phase = 'open'
+          phaseState.exitDone = false
+          if (opts.positioning !== 'none') queueMicrotask(refresh)
+        } else if (opts.presence) {
+          phaseState.phase = 'exit' // 退场——动画后 closed（panelRef 监听 animationend）
+          // **无动画环境立即 closed**（Toast 模式——animationName 检查——
+          // jsdom/无 CSS 动画环境 animationend 不触发——不挂死）
+          if (panel.current && win) {
+            const anim = win.getComputedStyle(panel.current).animationName
+            if (!anim || anim === 'none') phaseState.phase = 'closed'
+          }
+        }
+      }
+      // presence：exit 阶段仍渲染（退场动画）——closed 后移除
+      const show = opts.presence ? phaseState.phase !== 'closed' : open.open
+      return show ? createPortal(content, key ?? 'popup') : null
     },
     get pos() {
       return pos.current
@@ -174,7 +207,37 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
     refresh,
     panelRef(el: HTMLElement | null): void {
       panel.current = el
-      if (el && open.open) queueMicrotask(refresh) // 面板挂载 → 定位
+      if (el && open.open && opts.positioning !== 'none') queueMicrotask(refresh) // 面板挂载 → 定位
+      // presence：监听退场动画结束（exit → closed）
+      if (el && opts.presence) {
+        const onAnimEnd = (e: AnimationEvent): void => {
+          if (e.animationName.includes('wf-exit') || e.animationName.includes('exit')) {
+            phaseState.phase = 'closed'
+            env.requestRender()
+          }
+        }
+        el.addEventListener('animationend', onAnimEnd)
+        env.onUnmount(() => el.removeEventListener('animationend', onAnimEnd))
+      }
+    },
+    get phase() {
+      return phaseState.phase
+    },
+    sync(openNow: boolean): void {
+      // 渲染期同步（组件显式驱动——与 portal 内检测同逻辑——双保险）
+      if (prev.open !== openNow) {
+        prev.open = openNow
+        if (openNow) {
+          phaseState.phase = 'open'
+          phaseState.exitDone = false
+        } else if (opts.presence) {
+          phaseState.phase = 'exit'
+          if (panel.current && win) {
+            const anim = win.getComputedStyle(panel.current).animationName
+            if (!anim || anim === 'none') phaseState.phase = 'closed'
+          }
+        }
+      }
     },
   }
 }

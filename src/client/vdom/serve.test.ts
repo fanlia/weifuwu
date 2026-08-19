@@ -20,6 +20,7 @@ import { UIRouter, uiServe } from './index.ts'
 import { h } from './core/vnode.ts'
 import type { RenderCtx } from './core/serve.ts'
 import { createStore } from './store.ts'
+import { createClientBrowser } from './browser/create-client-browser.ts'
 
 /** 确定性等待（不依赖 sleep 长度——渲染链路异步完成信号） */
 async function waitFor(fn: () => boolean, timeout = 500): Promise<void> {
@@ -940,4 +941,50 @@ test('useChat：HITL 审批（工具调用 approve——状态更新）', async 
   ;(browser.document.querySelector('#ok') as HTMLElement).click()
   await waitFor(() => browser.document.querySelector('#st')?.textContent === 'true')
   assert.equal(browser.document.querySelector('#st')?.textContent, 'true', 'HITL 审批 → 工具调用状态更新')
+})
+
+test('createClientBrowser：SSR 安全（无全局 window → null）+ 浏览器环境', () => {
+  const origW = (globalThis as any).window
+  const origD = (globalThis as any).document
+  // node 环境（无全局）——SSR 安全
+  delete (globalThis as any).window
+  delete (globalThis as any).document
+  assert.equal(createClientBrowser(), null, 'SSR 无全局 window → null')
+  // 浏览器环境（全局 window/document）
+  const b = testBrowser()
+  ;(globalThis as any).window = b.window
+  ;(globalThis as any).document = b.document
+  const cb = createClientBrowser()
+  assert.equal(cb?.window, b.window)
+  assert.equal(cb?.document, b.document)
+  // 还原
+  ;(globalThis as any).window = origW
+  ;(globalThis as any).document = origD
+})
+
+test('usePopup presence：会话级模态——关闭退场（exit → 无动画环境立即 closed）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Modal = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const popup = (ctx.ui as { usePopup: (o: object) => {
+      open: boolean; setOpen: (v: boolean) => void; portal: (c: unknown, k?: string) => unknown;
+      panelRef: (el: HTMLElement | null) => void; pos: { top: number; left: number }
+    } }).usePopup({ presence: true, positioning: 'none' })
+    return () => h('div', {},
+      h('button', { id: 'm', onClick: () => popup.setOpen(!popup.open) }, '弹窗'),
+      popup.portal(
+        h('div', { ref: popup.panelRef as never, class: 'modal', style: { position: 'fixed', inset: '0' } }, '模态'),
+        'modal',
+      ) as never,
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Modal, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  ;(browser.document.querySelector('#m') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.modal') !== null)
+  assert.ok(browser.document.querySelector('.modal'), '打开 → 模态渲染')
+  ;(browser.document.querySelector('#m') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.modal') === null)
+  assert.equal(browser.document.querySelector('.modal'), null, '关闭 → 退场后移除（无动画环境立即）')
 })
