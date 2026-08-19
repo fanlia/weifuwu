@@ -1,185 +1,33 @@
 /**
- * vdom core — diff 阶段（旧树 vs 新树 → **精准 command 事件流**）
+ * vdom core/diff — children（children 对照 + keyed 列表策略——细节模块）
  *
- * 四阶段管线（route → build → diff → patch）：
- * - build：vnode → 全量命令事件流（首帧/导航——done.full）
- * - diff：旧树 vs 新树 → **精准增量命令事件流**（本文件——**diff 的本质：
- *   精准生成需要 patch 的事件流**——counter 点击 = 只 setText 文本节点）
- * - patch：command 事件流 → DOM（**唯一 DOM 接触点**——diff/build 零 DOM
- *   操作——纯事件流生产者——可流式/可序列化/可重放）
+ * 职责：children 列表对照——A 级检测（长度变化 + 无 key 组件 warn）、
+ * 列表分类（all-keyed/含 keyed/unkeyed）、diffSlot 单槽对照（位置身份——
+ * 含 null ↔ null 空洞保持）、diffKeyedChildren（相对顺序检测——顺移
+ * noMove remap / 交换重建 / 实例复用）、emitWithKey（keyed 项渲染）。
  *
- * 对照决策（diff 职责——新侧渲染复用 build 的 createRenderDispatcher——
- * 消除重复）：
- * - 同态（text→setText / element→属性+children 递归 / component→复用）：
- *   值比较——**无变化不发命令**（精准原则）
- * - 异类型：transform 转换表（旧侧让位 remove/unmount——新侧渲染）
- * - keyed 列表：身份映射复用（planKeyedDiff——增删/重排状态跟随 key）
+ * diff/same 只做中转——本文件为列表策略细节。
  */
 
-import type { VNode, VNodeChild } from './vnode.ts'
-import { childrenOf } from './node/children.ts'
-import { isPortal } from './node/portal.ts'
-import { kindOf } from './node/index.ts'
-import { stateOf } from './transform/states.ts'
-import { transitionOf } from './transform/table.ts'
-import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed } from './node/keyed.ts'
-import { createRenderDispatcher, type RenderSink } from './build.ts'
-import { renderComponent, disposeComponent, type ComponentRegistry } from './node/component.ts'
-import { pathId, serializableAttrs } from './node/native.ts'
-import type { UIContext } from '../context/UIContext.ts'
-import type { Command } from './command/index.ts'
+import type { VNode, VNodeChild } from '../vnode.ts'
+import { childrenOf } from '../node/children.ts'
+import { kindOf } from '../node/index.ts'
+import { stateOf } from '../transform/states.ts'
+import { transitionOf } from '../transform/table.ts'
+import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed } from '../node/keyed.ts'
+import { isPortal } from '../node/portal.ts'
+import { pathId } from '../node/native.ts'
+import { renderComponent, type ComponentRegistry } from '../node/component.ts'
+import type { Command } from '../command/index.ts'
+import type { RenderSink } from '../build.ts'
+import type { UIContext } from '../../context/UIContext.ts'
+import { diffSame } from './same.ts'
 
-/**
- * diff：旧树 → 新树——精准增量命令事件流
- * ctx：组件共享上下文（serve 创建）；registry：组件实例注册表（跨渲染保持）
- */
-export function diffStream(
-  oldTree: VNode,
-  newTree: VNode,
-  ctx: UIContext,
-  registry: ComponentRegistry,
-): ReadableStream<Command> {
-  return new ReadableStream<Command>({
-    async start(controller) {
-      const emitCommand = (cmd: Command) => controller.enqueue(cmd)
-      // 新侧渲染（共享分发器——build/diff 同一实现）
-      const emit = createRenderDispatcher(emitCommand, ctx, registry)
 
-      // ── diff 主循环（同位置对照）──
-      const oldState = stateOf(oldTree)
-      const newState = stateOf(newTree)
-      const t = transitionOf(oldState, newState)
-      if (t) {
-        // 异类型（导航/整树替换）：transform 完整转换（旧侧让位 + 新侧渲染）
-        await t(oldTree, newTree, {
-          emit: emitCommand,
-          emitNode: emit,
-          oldId: 'root.0',
-          newId: 'root.0',
-          parent: 'root',
-          index: 0,
-          ref: null,
-        })
-      } else {
-        // 同态：对照（组件复用/元素精准 diff/children 递归）
-        await diffSame(oldTree, newTree, 'root', 0, null, emit, emitCommand, ctx, registry)
-      }
-      emitCommand({ op: 'done' })
-      controller.close()
-    },
-  })
-}
 
-/**
- * 同态对照（同位置同类型——**精准命令生成**）：
- * 组件 → renderComponent 复用（工厂不重跑——lastOutput 对照递归）；
- * 元素 → 属性值比较（只发变化）+ 函数面引用比较 + children 递归（列表分类）
- */
-async function diffSame(
-  oldV: VNode,
-  newV: VNode,
-  parent: string,
-  index: number,
-  ref: string | null,
-  emit: RenderSink,
-  emitCommand: (cmd: Command) => void,
-  ctx: UIContext,
-  registry: ComponentRegistry,
-): Promise<void> {
-  const id = pathId(parent, index)
-  // 组件复用（工厂不重跑——renderFn 重新调用——输出对照上次——精准 patch）
-  if (typeof newV.type === 'function') {
-    const rec = registry.get(id)
-    // **类型比较**：同位置不同类型（条件切换 A → B）——卸载旧实例 + 重建
-    if (rec && rec.type !== newV.type) {
-      // **同步卸载**（onUnmounts + 删 rec——不等 patch 消费 unmount 命令——
-      // 否则 renderComponent 立即复用旧 rec——类型错位）
-      disposeComponent(id, registry)
-      // 旧输出清理（递归 remove——lastOutput 结构）
-      if (rec.lastOutput !== undefined && rec.lastOutput !== null) {
-        removeVNodeTree(rec.lastOutput as VNode, pathId(parent, index), emitCommand)
-      }
-      // 新实例（rec 已删——重新 mount——工厂执行）
-      await renderComponent(newV, parent, index, ref, id, ctx, registry, emit)
-      emitCommand({ op: 'mount', compId: id })
-      return
-    }
-    const oldOut = rec?.lastOutput
-    const isNew = await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
-      const outId = pathId(p, i)
-      // **输出级转换（状态机统一——transform 完整转换）**：
-      //   vnode → null：element→hole（remove 旧 + 占位锚——wf-hole——同构保持）
-      //   null → vnode：hole→element（remove 锚 + 新侧渲染——X-G4 恢复）
-      if (out === null || out === undefined) {
-        if (oldOut !== undefined && oldOut !== null) {
-          const t = transitionOf(stateOf(oldOut), 'hole')
-          if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
-        }
-        // 旧输出已为 null（锚保持——no-op）
-        return
-      }
-      if (oldOut === null) {
-        const t = transitionOf('hole', stateOf(out))
-        if (t) await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
-        return
-      }
-      if (oldOut !== undefined && typeof oldV.type === 'function') {
-        if (!Array.isArray(oldOut) && !Array.isArray(out)) {
-          // 单节点输出对照（同实例——精准增量）
-          await diffSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
-        } else if (Array.isArray(oldOut) && Array.isArray(out)) {
-          // **数组输出对照**（隐式 Fragment——逐项 diffSlot——portal 关闭 →
-          // removePortal 清理——不做全量重建残留）
-          await diffChildrenItems(oldOut, out, p, emit, emitCommand, ctx, registry)
-        } else {
-          // **数组 ↔ 单节点**——transform 状态机（transitionFragment——
-          // 旧展开区间递归完整清理 + 新侧渲染）
-          const t = transitionOf(stateOf(oldOut), stateOf(out))
-          if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: pathId(p, i), newId: pathId(p, i), parent: p, index: i, ref: r })
-        }
-      } else {
-        await emit(out, p, i, r)
-      }
-    })
-    // **mount 指令（组件生命周期——初始化完成——仅新实例）**
-    if (isNew) emitCommand({ op: 'mount', compId: id })
-    return
-  }
-  // 元素同标签：属性精准 diff + children 递归对照
-  if (typeof newV.type === 'string' && typeof oldV.type === 'string' && oldV.type === newV.type) {
-    diffAttrs(oldV, newV, id, emitCommand)
-    await diffChildren(oldV, newV, id, emit, emitCommand, ctx, registry)
-    return
-  }
-  // 其余同态（text/fragment 等）——首版：新侧重建（位置对照）
-  await emit(newV, parent, index, ref)
-}
-
-/** 属性精准 diff（值比较——只发变化的键；函数面引用比较——prev 传递） */
-function diffAttrs(
-  oldV: VNode, newV: VNode, id: string, emitCommand: (cmd: Command) => void,
-): void {
-  // 静态面（可序列化）——值比较——只发变化键；旧有新的没有 → 移除
-  const oldAttrs = serializableAttrs(oldV.props)
-  const newAttrs = serializableAttrs(newV.props)
-  for (const [k, v] of Object.entries(newAttrs)) {
-    if (oldAttrs[k] !== v) emitCommand({ op: 'setProp', id, key: k, value: v })
-  }
-  for (const k of Object.keys(oldAttrs)) {
-    if (!(k in newAttrs)) emitCommand({ op: 'setProp', id, key: k, value: undefined })
-  }
-  // 函数面（事件/ref）——引用比较——变化才重发（prev 传递——patch 解绑重绑）
-  for (const [k, v] of Object.entries(newV.props)) {
-    if (k === 'children' || k === 'key') continue
-    if (typeof v === 'function' && oldV.props[k] !== v) {
-      console.log('[attrs-dbg] fn change:', id, k)
-      emitCommand({ op: 'setProp', id, key: k, value: v, prev: oldV.props[k] })
-    }
-  }
-}
 
 /** children 对照（列表分类：全 unkeyed 位置身份 / 全 keyed 身份复用 / 混合） */
-async function diffChildren(
+export async function diffChildren(
   oldV: VNode, newV: VNode, id: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void,
   ctx: UIContext, registry: ComponentRegistry,
@@ -191,7 +39,7 @@ async function diffChildren(
 
 /** children 项对照（列表分类：全 unkeyed 位置身份 / 全 keyed 身份复用 / 混合——
  *  组件数组输出（隐式 Fragment）同用——portal 关闭 → removePortal 清理） */
-async function diffChildrenItems(
+export async function diffChildrenItems(
   oldCs: VNodeChild[], newCs: VNodeChild[],
   id: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void,
@@ -280,19 +128,10 @@ async function diffSlot(
   }
 }
 
-/** 旧输出递归清理（组件类型切换——remove 命令——同构保持） */
-function removeVNodeTree(v: VNode, id: string, emitCommand: (cmd: Command) => void): void {
-  const cs = childrenOf(v)
-  cs.forEach((c, i) => {
-    if (c !== null && c !== undefined && typeof c !== 'boolean' && typeof c !== 'string' && typeof c !== 'number' && !Array.isArray(c)) {
-      removeVNodeTree(c as VNode, pathId(id, i), emitCommand)
-    }
-  })
-  emitCommand({ op: 'remove', id })
-}
+// ── keyed 列表策略（细节模块） ──
 
-/** 数组是否含 keyed 项（混合判定） */
-function hasKeyed(items: VNodeChild[]): boolean {
+// ── keyed 列表策略（细节模块） ──
+export function hasKeyed(items: VNodeChild[]): boolean {
   return items.some(isKeyed)
 }
 
@@ -300,7 +139,7 @@ function hasKeyed(items: VNodeChild[]): boolean {
  *  **move 版**（2026-12）：复用项位置变化 → **move 命令**（DOM 不重建——
  *  节点移动 + 子树 id 重映射——焦点保持）；位置不变 → 组件输出对照（精准）；
  *  真移除 → unmount + remove；新增 → 新侧渲染 */
-async function diffKeyedChildren(
+export async function diffKeyedChildren(
   oldCs: VNodeChild[], newCs: VNodeChild[], parent: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void,
   ctx: UIContext, registry: ComponentRegistry,
@@ -403,7 +242,7 @@ async function diffKeyedChildren(
 
 /** keyed 项渲染（compId = 位置路径 + .k{key}——身份稳定——增删/重排复用）
  *  组件输出对照（lastOutput → diffSame 精准——move 后节点已在新位置） */
-async function emitWithKey(
+export async function emitWithKey(
   v: VNodeChild, parent: string, index: number, ref: string | null, key: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void, ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
