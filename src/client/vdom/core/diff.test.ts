@@ -16,10 +16,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { testBrowser } from '../setup.ts'
 import { h } from './vnode.ts'
+import { createPortal } from './node/portal.ts'
 import { diffStream } from './diff.ts'
 import { renderToStream } from './build.ts'
 import { CommandApplier } from './patch.ts'
-import { createComponentRegistry } from './node/component.ts'
+import { createComponentRegistry, disposeAllComponents } from './node/component.ts'
 import type { UIContext } from '../context/UIContext.ts'
 
 /** 两阶段 harness：首帧 build（渲染旧树）→ diff 增量（就地 patch） */
@@ -457,7 +458,7 @@ test('混合数组：keyed 项身份复用（状态跟随 key）+ 无 key 项重
   assert.ok(texts.includes('k1:3'), 'k1 状态保持（k1:3）')
 })
 
-test('move：keyed 重排——节点移动（DOM 不重建——isConnected 保持）', async () => {
+test('move：keyed 删除顺移——节点移动（DOM 不重建——isConnected 保持）', async () => {
   const hz = harness(testBrowser())
   const Item = (init: Record<string, unknown>) => {
     return () => h('input', { class: 'it', id: String(init.id), value: String(init.id) })
@@ -466,13 +467,12 @@ test('move：keyed 重排——节点移动（DOM 不重建——isConnected 保
   await hz.mount(list(['a', 'b', 'c']))
   // 记录节点引用（验证移动而非重建）
   const before = [...hz.root.querySelectorAll('.it')]
-  await hz.update(list(['a', 'b', 'c']), list(['c', 'a', 'b']))
+  // 删除 b——c 顺移（单移动——无 id 冲突——move 路径）
+  await hz.update(list(['a', 'b', 'c']), list(['a', 'c']))
   const after = [...hz.root.querySelectorAll('.it')]
-  assert.deepEqual(after.map((e) => e.id), ['c', 'a', 'b'], '新顺序正确')
+  assert.deepEqual(after.map((e) => e.id), ['a', 'c'], '新顺序正确')
   // 移动：同一节点引用（DOM 不重建——焦点/输入状态保持）
-  assert.equal(after[0], before[2], 'c 节点移动（非重建）')
-  assert.equal(after[1], before[0], 'a 节点移动')
-  assert.equal(after[2], before[1], 'b 节点移动')
+  assert.equal(after[1], before[2], 'c 节点移动（非重建）')
 })
 
 test('move：子树 id 重映射——子节点引用保持（深层结构移动）', async () => {
@@ -482,22 +482,23 @@ test('move：子树 id 重映射——子节点引用保持（深层结构移动
     return () => h('div', { class: 'card' }, h('span', { class: 'title' }, `t-${id}`))
   }
   const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Card, { key: id, id })))
-  await hz.mount(list(['x', 'y']))
+  await hz.mount(list(['x', 'y', 'z']))
   const titles = [...hz.root.querySelectorAll('.title')]
-  await hz.update(list(['x', 'y']), list(['y', 'x']))
+  // 删除 x——y/z 顺移（单移动——无 id 冲突——move 路径——子树重映射）
+  await hz.update(list(['x', 'y', 'z']), list(['y', 'z']))
   const after = [...hz.root.querySelectorAll('.title')]
-  assert.equal(after[0], titles[1], '子节点移动保持（子树重映射）')
+  assert.equal(after[1], titles[2], 'z 子节点移动保持（子树重映射）')
   assert.equal(after[0].textContent, 't-y')
-  assert.equal(after[1], titles[0], 'x 子节点保持')
+  assert.equal(after[1].textContent, 't-z')
 })
 
-test('move 命令流：重排只发 move（无 create/remove——精准）', async () => {
+test('move 命令流：删除顺移只发 noMove remap（无 create/remove——节点复用）', async () => {
   const hz = harness(testBrowser())
   const Item = (init: Record<string, unknown>) => () => h('span', { class: 'it' }, String(init.id))
   const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
   await hz.mount(list(['a', 'b', 'c']))
   const cmds: unknown[] = []
-  const stream = diffStream(list(['a', 'b', 'c']), list(['c', 'a', 'b']), {} as UIContext, hz.registry)
+  const stream = diffStream(list(['a', 'b', 'c']), list(['a', 'c']), {} as UIContext, hz.registry)
   const reader = stream.getReader()
   while (true) {
     const { value, done } = await reader.read()
@@ -505,10 +506,10 @@ test('move 命令流：重排只发 move（无 create/remove——精准）', as
     cmds.push(value)
   }
   const ops = cmds.map((c) => (c as { op: string }).op)
-  assert.ok(!ops.includes('create') && !ops.includes('remove'), '重排无 create/remove')
-  assert.ok(ops.includes('move'), '重排 = move 指令')
-  const moves = cmds.filter((c) => (c as { op: string }).op === 'move')
-  assert.equal(moves.length, 3, '索引级 move（c/a/b 索引全变——b 冗余移动幂等无害——相对顺序优化后续）')
+  assert.ok(!ops.includes('create'), '顺移无 create（节点复用）')
+  const moves = cmds.filter((c) => (c as { op: string }).op === 'move') as Array<{ noMove?: boolean }>
+  assert.equal(moves.length, 1, 'c 单顺移（b 移除——a 位置不变）')
+  assert.equal(moves[0].noMove, true, '顺移 = noMove remap（位置自然到位——id 前缀迁移）')
 })
 
 test('patch 资源释放：remove/done 后 propPrev 表清理（事件旧值引用不残留）', async () => {
@@ -520,8 +521,6 @@ test('patch 资源释放：remove/done 后 propPrev 表清理（事件旧值引�
   const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
   await hz.mount(list(['a', 'b', 'c']))
   // 表里有事件 prev（mount 时 setProp 记忆）
-  const applier = (hz as unknown as { _applier?: unknown })._applier as never
-  void applier
   // 验证：直接通过 patch 层观察（移除 b——propPrev 无 b 前缀键）
   await hz.update(list(['a', 'b', 'c']), list(['a', 'c']))
   // 再触发一次渲染确认无残留副作用（事件绑定不重复）
@@ -572,4 +571,172 @@ test('组件输出数组 ↔ 单节点：双向转换——旧输出完整清理
   await hz.update(page('single'), page('multi'))
   assert.equal(hz.root.querySelectorAll('span').length, 2, '数组恢复')
   assert.equal(hz.root.querySelector('.single'), null, '单节点移除')
+})
+
+test('四层集成：build/diff/transform/patch 全职责——命令级验证', async () => {
+  const browser = testBrowser()
+  const reg = createComponentRegistry()
+  const root = browser.document.querySelector('#root') as HTMLElement
+  const applier = new CommandApplier(root, browser.document, reg)
+  const events: string[] = []
+  const refCalls: string[] = []
+
+  /** 命令捕获应用（每层产物断言） */
+  const run = async (stream: ReadableStream): Promise<unknown[]> => {
+    const cmds: unknown[] = []
+    const reader = stream.getReader()
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      cmds.push(value)
+      applier.apply(value)
+    }
+    return cmds
+  }
+
+  // ── 组件：列表项（keyed——投票状态）/ 条件渲染 / 页面（布局 + 浮层） ──
+  const Item = (init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push(`un:item:${init.id}`))
+    let votes = 0
+    const onVote = () => { votes++; void ctx.render?.() }
+    return () => h('li', { class: 'it' }, h('span', { class: 't' }, `${String(init.id)}(${votes})`), h('button', { class: 'v', onClick: onVote }, '赞'))
+  }
+  const Extra = (_i: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('un:extra'))
+    return () => h('div', { class: 'extra' }, 'X')
+  }
+  const Layout = (init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('un:layout'))
+    // ref 工厂层稳定引用（AGENTS §5.1——零重绑）
+    const hdRef = (el: HTMLElement | null) => { refCalls.push(el ? 'hd-mount' : 'hd-unmount') }
+    return (props: Record<string, unknown>) => {
+      const page = props.page as never
+      return h('div', { class: 'layout' },
+        h('header', { class: 'hd', ref: hdRef }, '头'),
+        page,
+      )
+    }
+  }
+  const PageA = (init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('un:pageA'))
+    const popup = (ctx.ui as { usePopup: (o: object) => {
+      open: boolean; setOpen: (v: boolean) => void; portal: (c: unknown, k?: string) => unknown; panelRef: (el: HTMLElement | null) => void
+    } }).usePopup({})
+    let ids = init.ids as string[]
+    let more = false
+    let likes = 0
+    const onLike = () => { likes++; void ctx.render?.() }
+    const onAdd = () => { ids = [...ids, `i${ids.length}`]; void ctx.render?.() }
+    const onReorder = () => { ids = [...ids].reverse(); void ctx.render?.() }
+    const onMore = () => { more = !more; void ctx.render?.() }
+    const onDd = () => popup.setOpen(!popup.open)
+    return () => {
+      const panel = popup.portal(h('div', { ref: popup.panelRef as never, class: 'panel' }, '浮层'), 'dd')
+      return h('main', { class: 'pageA' },
+        h('button', { id: 'like', onClick: onLike }, `赞${likes}`),
+        more ? h(Extra, {}) : null,                                    // 条件渲染（transform）
+        h('ul', { class: 'list' }, ids.map((id) => h(Item, { key: id, id }))), // keyed 列表
+        h('button', { id: 'add', onClick: onAdd }, '加'),
+        h('button', { id: 're', onClick: onReorder }, '重排'),
+        h('button', { id: 'mo', onClick: onMore }, '展开'),
+        h('button', { id: 'dd', onClick: onDd }, '弹'),
+        panel,
+      )
+    }
+  }
+  const PageB = (_i: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('un:pageB'))
+    return () => h('main', { class: 'pageB' }, 'B页')
+  }
+  const pageA = (ids: string[]) => h(Layout, { page: h(PageA, { ids }) })
+  const pageB = h(Layout, { page: h(PageB, {}) })
+
+  // ── ① build 层：首帧全量（Layout + PageA + Item×2 + ref + mount 指令 + done.full） ──
+  const cmds1 = await run(renderToStream(pageA(['a', 'b']), {} as Ctx, reg))
+  const ops1 = cmds1.map((c) => (c as { op: string }).op)
+  assert.ok(ops1.includes('ref'), 'build 层：ref 指令（挂载完成）')
+  assert.ok(ops1.includes('mount'), 'build 层：mount 指令（组件初始化）')
+  assert.ok(ops1.includes('setProp'), 'build 层：setProp（事件代理注册）')
+  assert.deepEqual((cmds1[cmds1.length - 1] as { op: string }), { op: 'done', full: true }, 'build 层：done.full')
+  assert.equal(root.querySelectorAll('.it').length, 2, 'keyed 列表 2 项')
+  assert.deepEqual(refCalls, ['hd-mount'], 'ref 挂载（isConnected）')
+
+  // ── ② diff 层：值比较精准（点赞 → 只 setText——无重建无属性噪音） ──
+  const likeBtn = root.querySelector('#like') as HTMLElement
+  likeBtn.click() // likes 闭包 0 → 1（harness 无 render——仅闭包变化）
+  const cmds2 = await run(diffStream(pageA(['a', 'b']), pageA(['a', 'b']), {} as Ctx, reg))
+  const ops2 = cmds2.map((c) => (c as { op: string }).op)
+  assert.deepEqual(ops2, ['setText', 'done'], 'diff 层：点赞 → 只 setText（值比较——最小命令集）')
+  // 无变化 → 无命令（再 diff 相同状态——零噪音）
+  const cmds2b = await run(diffStream(pageA(['a', 'b']), pageA(['a', 'b']), {} as Ctx, reg))
+  assert.deepEqual(cmds2b, [{ op: 'done' }], 'diff 层：无变化不发命令')
+
+  // ── ③ transform 层：条件渲染（null → 组件——占位锚 ↔ 元素） ──
+  // 手动驱动 more（通过直接 diff 新树——PageA 的 more 是闭包——用 props 受控）
+  const PageA2 = (init: Record<string, unknown>, ctx: Ctx) => {
+    const popup = (ctx.ui as { usePopup: (o: object) => { portal: (c: unknown, k?: string) => unknown; panelRef: (el: HTMLElement | null) => void } }).usePopup({})
+    return (props: Record<string, unknown>) => {
+      const panel = popup.portal(h('div', { ref: popup.panelRef as never, class: 'panel' }, '浮层'), 'dd')
+      return h('main', { class: 'pageA' },
+        props.more ? h(Extra, {}) : null,
+        h('ul', { class: 'list' }, (props.ids as string[]).map((id) => h(Item, { key: id, id }))),
+        panel,
+      )
+    }
+  }
+  const pageA2 = (ids: string[], more: boolean) => h(PageA2, { ids, more })
+  await run(renderToStream(pageA2(['a', 'b'], false), {} as Ctx, reg))
+  const cmds3 = await run(diffStream(pageA2(['a', 'b'], false), pageA2(['a', 'b'], true), {} as Ctx, reg))
+  const ops3 = cmds3.map((c) => (c as { op: string }).op)
+  assert.ok(ops3.includes('remove') && ops3.includes('create'), 'transform 层：null → 组件（占位锚让位 + 新侧渲染）')
+  assert.ok(root.querySelector('.extra'), 'Extra 渲染')
+
+  // ── ④ diff 列表层：keyed 增（新 mount） + 重排（move 命令——节点复用） ──
+  const cmds4 = await run(diffStream(pageA2(['a', 'b'], true), pageA2(['a', 'b', 'c'], true), {} as Ctx, reg))
+  const ops4 = cmds4.map((c) => (c as { op: string }).op)
+  assert.ok(ops4.includes('mount'), 'keyed 增：新实例 mount')
+  assert.equal(root.querySelectorAll('.it').length, 3)
+  // a 的投票（④ 增后——重新查询——闭包 votes 1——DOM 无 render 不变）
+  ;(root.querySelectorAll('.v')[0] as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  // 重排（a b c → c b a——**循环移位——move id 冲突 → 重建路径**——
+  // 组件实例 .k{key} 复用——状态保持）
+  const cmds5 = await run(diffStream(pageA2(['a', 'b', 'c'], true), pageA2(['c', 'b', 'a'], true), {} as Ctx, reg))
+  const ops5 = cmds5.map((c) => (c as { op: string }).op)
+  assert.ok(ops5.includes('remove') && ops5.includes('create'), '循环移位：冲突检测 → 重建路径（move id 覆盖事故的根治）')
+  const after = [...root.querySelectorAll('.it')]
+  assert.deepEqual(after.map((e) => e.querySelector('.t')?.textContent), ['c(0)', 'b(0)', 'a(1)'], '重排顺序正确 + 实例复用（a 投票状态保持）')
+  // 重建后事件代理仍工作（新节点点击——闭包 votes 1——再次 diff 验证）
+  ;(after[0].querySelector('.v') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 20))
+  await run(diffStream(pageA2(['c', 'b', 'a'], true), pageA2(['c', 'b', 'a'], true), {} as Ctx, reg))
+  assert.equal(after[0].querySelector('.t')?.textContent, 'c(1)', 'patch 层：重建后事件代理仍分发（diff 精准 setText）')
+
+  // ── ⑤ patch 层：浮层开关（portal → removePortal 容器清理） ──
+  // 直接切换 popup（通过 props 受控浮层——简化：发 setProp？——用完整页面驱动）
+  // 此处验证 removePortal 命令（关闭语义）
+  const Panel = (_init: Record<string, unknown>) => {
+    return (props: Record<string, unknown>) => h('div', {},
+      props.open ? createPortal(h('div', { class: 'panel' }, '浮层'), 'dd') as never : null,
+    )
+  }
+  const panelPage = (open: boolean) => h(Panel, { open })
+  const doc = root.ownerDocument
+  await run(renderToStream(panelPage(true), {} as Ctx, reg))
+  assert.ok(doc.querySelector('.panel'), '浮层打开（#__wf_portal）')
+  const cmds6 = await run(diffStream(panelPage(true), panelPage(false), {} as Ctx, reg))
+  const ops6 = cmds6.map((c) => (c as { op: string }).op)
+  assert.ok(ops6.includes('removePortal'), 'patch 层：浮层关闭 → removePortal（容器清理）')
+  assert.equal(doc.querySelector('.panel'), null, '浮层移除')
+
+  // ── ⑥ route 层：root 类型变化（导航等价——disposeAll + 全量 build + 卸载） ──
+  disposeAllComponents(reg) // 模拟 serve 导航的整树替换（旧实例全部卸载）
+  const cmds7 = await run(renderToStream(pageB, {} as Ctx, reg))
+  const ops7 = cmds7.map((c) => (c as { op: string }).op)
+  assert.ok(ops7.includes('mount'), 'route 层：新页全量 build（mount 指令）')
+  assert.equal(root.querySelector('.pageB')?.textContent, 'B页', '新页渲染')
+  // 卸载顺序（整树替换——LIFO）
+  assert.deepEqual(refCalls, ['hd-mount', 'hd-unmount', 'hd-mount'], 'ref 生命周期（卸载 + 新挂载）')
+  assert.ok(events.includes('un:pageA'), 'PageA 卸载')
+  assert.ok(events.includes('un:item:a'), 'Item 卸载（keyed 实例清理）')
 })

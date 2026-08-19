@@ -24,6 +24,8 @@ export type MoveCommand = {
   ref: string | null
   newId: string
   first?: boolean
+  /** 顺移 remap-only（相对顺序一致——DOM 位置自然到位——只做 id 前缀迁移） */
+  noMove?: boolean
 }
 
 /** 移除节点（含子树——事件监听随元素 GC） */

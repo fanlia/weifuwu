@@ -81,11 +81,18 @@ export async function renderComponent(
   sharedCtx: UIContext,
   registry: ComponentRegistry,
   sink: ComponentSink,
-): Promise<void> {
+): Promise<boolean> {
   const factory = vn.type as Component
 
   // 实例记录（同位置同类型复用——工厂不重跑）
   let rec = registry.get(compId)
+  // **类型检查**（统一——build/diff/emitWithKey 全部受益）：同位置不同
+  // 类型（PageA2 → Panel 等）——旧实例卸载 + 重 mount（rec.type 错位事故）
+  if (rec && rec.type !== factory) {
+    disposeComponent(compId, registry)
+    rec = undefined
+  }
+  const isNew = !rec
   if (!rec) {
     // per-instance ctx（共享面继承 + onUnmount 收集到实例记录 + hooks 注入面）
     const onUnmounts: (() => void)[] = []
@@ -116,6 +123,7 @@ export async function renderComponent(
   // 记录输出（diff 对照——同实例更新就地对上次输出 patch）
   rec.lastOutput = out
   await sink(out, parent, index, ref)
+  return isNew
 }
 
 /** 执行组件卸载（unmount 命令消费——onUnmounts 逆序执行） */

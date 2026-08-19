@@ -208,15 +208,18 @@ export class CommandApplier {
         break
       }
       case 'move': {
-        // **keyed 重排（DOM 不重建）**：节点移动到新位置 + 子树 id 重映射
+        // **keyed 顺移/重排（DOM 不重建）**：子树 id 重映射——noMove =
+        // 顺移（位置自然到位——只 remap）；否则移动到新位置 + remap
         const el = this.nodes.get(cmd.id)
         if (!el) return
-        const parent = this.parentOf(cmd)
-        if (!parent) return
-        const prev = cmd.ref ? (this.nodes.get(cmd.ref) ?? null) : null
-        if (prev) parent.insertBefore(el, prev.nextSibling)
-        else if (cmd.first) parent.insertBefore(el, parent.firstChild)
-        else parent.appendChild(el)
+        if (!cmd.noMove) {
+          const parent = this.parentOf(cmd)
+          if (!parent) return
+          const prev = cmd.ref ? (this.nodes.get(cmd.ref) ?? null) : null
+          if (prev) parent.insertBefore(el, prev.nextSibling)
+          else if (cmd.first) parent.insertBefore(el, parent.firstChild)
+          else parent.appendChild(el)
+        }
         this.remapSubtree(cmd.id, cmd.newId)
         break
       }

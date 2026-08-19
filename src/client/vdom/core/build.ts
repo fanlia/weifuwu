@@ -92,9 +92,9 @@ export function createRenderDispatcher(
       case 'component': {
         const vn = v as VNode
         const compId = vn.key !== null ? `${parent}.k${vn.key}` : id
-        const isNew = !registry.get(compId)
-        await renderComponent(vn, parent, index, ref, compId, ctx, registry, emit)
-        // **mount 指令（组件生命周期——初始化完成——仅新实例）**
+        // **mount 指令（组件生命周期——初始化完成——返回值判定——
+        //  类型切换重 mount 后正确标记）**
+        const isNew = await renderComponent(vn, parent, index, ref, compId, ctx, registry, emit)
         if (isNew) emitCommand({ op: 'mount', compId })
         return
       }

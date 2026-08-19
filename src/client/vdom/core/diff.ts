@@ -105,8 +105,7 @@ async function diffSame(
       return
     }
     const oldOut = rec?.lastOutput
-    const isNew = !rec
-    await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
+    const isNew = await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
       const outId = pathId(p, i)
       // **输出级转换（状态机统一——transform 完整转换）**：
       //   vnode → null：element→hole（remove 旧 + 占位锚——wf-hole——同构保持）
@@ -173,6 +172,7 @@ function diffAttrs(
   for (const [k, v] of Object.entries(newV.props)) {
     if (k === 'children' || k === 'key') continue
     if (typeof v === 'function' && oldV.props[k] !== v) {
+      console.log('[attrs-dbg] fn change:', id, k)
       emitCommand({ op: 'setProp', id, key: k, value: v, prev: oldV.props[k] })
     }
   }
@@ -243,7 +243,9 @@ async function diffSlot(
   }
   // 新项不存在（数组缩短）→ 移除（旧项是组件 → 先 unmount——onUnmounts 清理；
   // 旧项是 portal → removePortal——浮层内容清理）
+  // **空洞 ↔ 空洞（null vs null——条件渲染保持）→ no-op**（不误删）
   if (newC === null || newC === undefined) {
+    if (oldC === null || oldC === undefined || typeof oldC === 'boolean') return
     const oldVn = oldC as VNode | null
     if (oldVn && typeof oldVn.type === 'function') {
       const compId = oldVn.key !== null ? `${parent}.k${oldVn.key}` : cid
@@ -318,7 +320,61 @@ async function diffKeyedChildren(
     }
   }
 
-  // 2. 按新顺序：move（复用项位置变化）/ 输出对照（位置不变）/ 新增
+  // 2. **相对顺序检测**（keyed 重排的正确语义——move 的 id 覆盖事故根治）：
+  //    - **相对顺序一致**（顺移——移除/插入导致的索引变化——DOM 位置自然
+  //      到位——无需移动）→ remap-only（id 前缀迁移——节点复用）
+  //    - **相对顺序变化**（交换/循环移位——move id 空间重叠）→ 整块重建
+  //      （实例复用——状态保持）
+  const keptOld: Array<string | null> = oldCs.map((c) => keyOf(c)).filter((k): k is string => k !== null && newKeys.has(k))
+  const keptNew: Array<string | null> = newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null)
+  let subseq = true
+  {
+    let p = 0
+    for (const k of keptNew) {
+      const idx = keptOld.indexOf(k, p)
+      if (idx === -1) { subseq = false; break }
+      p = idx + 1
+    }
+  }
+  if (!subseq) {
+    // **冲突重建**：remove 全部 + 按新序渲染（组件实例 .k{key} 复用——状态保持）
+    for (const [k, oldIdx] of oldIdxByKey) {
+      if (!newKeys.has(k)) emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
+    }
+    oldCs.forEach((_, i) => emitCommand({ op: 'remove', id: pathId(parent, i) }))
+    let r: string | null = null
+    for (let i = 0; i < newCs.length; i++) {
+      const newC = newCs[i]
+      const k = keyOf(newC)
+      if (k !== null && typeof (newC as VNode).type === 'function') {
+        // **全量渲染（节点已删——无对照——sink = emit）**——组件实例
+        // .k{key} 复用（状态保持）
+        const keyedId = `${parent}.k${k}`
+        const isNew = await renderComponent(newC as VNode, parent, i, r, keyedId, ctx, registry, emit)
+        if (isNew) emitCommand({ op: 'mount', compId: keyedId })
+      } else {
+        await emit(newC, parent, i, r)
+      }
+      r = pathId(parent, i)
+    }
+    return
+  }
+  // 3. **顺移（相对顺序一致）**：remap-only（id 前缀迁移——节点复用——
+  //    DOM 位置自然到位）+ 位置不变项对照 + 移除项 remove
+  //    顺移项按新位置从前往后 remap（链式——每个 oldId 释放后复用——无覆盖）
+  const moved: Array<{ oldIdx: number; newIdx: number }> = []
+  newCs.forEach((newC, i) => {
+    const k = keyOf(newC)
+    if (k === null) return
+    const oldIdx = oldIdxByKey.get(k)
+    if (oldIdx !== undefined && oldIdx !== i) moved.push({ oldIdx, newIdx: i })
+  })
+  moved.sort((a, b) => a.newIdx - b.newIdx) // 从前往后（链式 remap 无覆盖）
+  for (const m of moved) {
+    emitCommand({ op: 'move', id: pathId(parent, m.oldIdx), parent, ref: null, newId: pathId(parent, m.newIdx), noMove: true })
+  }
+  // 顺移模式：位置变化项只对照（节点已 remap——id 新）——不移动
+  const isShift = true
   let lastRef: string | null = null
   for (let i = 0; i < newCs.length; i++) {
     const newC = newCs[i]
@@ -330,9 +386,9 @@ async function diffKeyedChildren(
         // 新增项——新侧渲染（新实例——mount 指令）
         await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
       } else if (oldIdx !== i) {
-        // **复用项位置变化 → move**（节点移动——DOM 不重建——子树重映射）
-        emitCommand({ op: 'move', id: pathId(parent, oldIdx), parent, ref: lastRef, newId: cid, first: i === 0 })
+        // **顺移（位置变化）——已 noMove remap（id 新）——只输出对照**
         await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
+        void isShift
       } else {
         // 位置不变——组件输出对照（精准增量）
         await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
@@ -357,8 +413,7 @@ async function emitWithKey(
     const keyedId = `${parent}.k${key}`
     const rec = registry.get(keyedId)
     const oldOut = rec?.lastOutput
-    const isNew = !rec
-    await renderComponent(vn, parent, index, ref, keyedId, ctx, registry, async (out, p, i, r) => {
+    const isNew = await renderComponent(vn, parent, index, ref, keyedId, ctx, registry, async (out, p, i, r) => {
       const outId = pathId(p, i)
       // 输出级空值转换（x => null——占位锚替换——同构保持）
       if (out === null || out === undefined) {
