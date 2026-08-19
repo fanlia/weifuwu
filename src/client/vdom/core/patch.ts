@@ -23,7 +23,7 @@ import type { Command } from './command/index.ts'
 import { applyAttribute } from './field/attributes.ts'
 import { applyStyle } from './field/style.ts'
 import { applyProperty, isPropertyKey } from './field/props.ts'
-import { applyRef } from './field/ref.ts'
+import { RefRegistry } from './field/ref.ts'
 import { EventRegistry, eventName, EVENT_RE } from './field/events.ts'
 import { PORTAL_CONTAINER_ID, PORTAL_ID_PREFIX, portalContainerId } from './node/portal.ts'
 import { disposeComponent, type ComponentRegistry } from './node/component.ts'
@@ -46,7 +46,8 @@ export function applySetProp(
   registry: EventRegistry, nodeId: string, el: HTMLElement, key: string, value: unknown, prev?: unknown,
 ): void {
   if (key === 'ref') {
-    applyRef(el, value, prev)
+    // ref 由 RefRegistry 管理（patch 处理——此处不直接应用）
+    return
   } else if (EVENT_RE.test(key)) {
     const name = eventName(key)
     if (name) registry.set(nodeId, name, value)
@@ -67,10 +68,8 @@ export class CommandApplier {
   private touched = new Set<string>()
   /** 属性 prev 记忆（id:key → 上次值——事件解绑/属性还原——重复绑定根治） */
   private propPrev = new Map<string, unknown>()
-  /** ref 注册表（id → 回调——remove 时 ref(null) 清理） */
-  private refs = new Map<string, unknown>()
-  /** 挂起 ref（create 后未挂载——insert 后执行——挂载完成信号） */
-  private pendingRefs = new Map<string, unknown>()
+  /** ref 全局注册表（挂载/卸载查表触发——对齐事件代理模式） */
+  private refRegistry = new RefRegistry()
   /** 事件代理注册表（document 捕获监听——分发） */
   private eventRegistry: EventRegistry
 
@@ -81,9 +80,10 @@ export class CommandApplier {
     this.eventRegistry = new EventRegistry(doc)
   }
 
-  /** 卸载清理（移除根代理监听——serve unmount 调用） */
+  /** 卸载清理（移除根代理监听 + ref 表——serve unmount 调用） */
   dispose(): void {
     this.eventRegistry.dispose()
+    this.refRegistry.dispose()
   }
 
   /** portal 容器（#__wf_portal 下按 key——惰性创建——挂 body） */
@@ -115,25 +115,9 @@ export class CommandApplier {
     return (this.nodes.get(cmd.parent) as HTMLElement | null) ?? null
   }
 
-  /** 子树 ref 清理（id 前缀匹配——卸载指令：remove/done 清理共用） */
+  /** 子树 ref 清理（卸载指令——ref(null) + 表删除——remove/done 共用） */
   private clearNodeRefs(id: string): void {
-    for (const [rid, rfn] of [...this.refs]) {
-      if (rid === id || rid.startsWith(id + '.')) {
-        applyRef(null, null, rfn)
-        this.refs.delete(rid)
-        this.pendingRefs.delete(rid)
-      }
-    }
-  }
-
-  /** 子树 propPrev 清理（卸载指令——事件旧值引用释放——防表泄漏） */
-  private clearPropPrev(id: string): void {
-    for (const k of [...this.propPrev.keys()]) {
-      // 键格式 id:key / id.key（子树）——前缀匹配
-      if (k === id || k.startsWith(id + ':') || k.startsWith(id + '.')) {
-        this.propPrev.delete(k)
-      }
-    }
+    this.refRegistry.unmount(id)
   }
 
   /** 子树 id 重映射（move——旧前缀 → 新前缀——nodes/refs/propPrev/pending） */
@@ -147,15 +131,7 @@ export class CommandApplier {
     for (const id of [...this.nodes.keys()]) {
       if (id === oldPrefix || id.startsWith(oldPrefix + '.')) remap(this.nodes as unknown as Map<string, unknown>, id)
     }
-    for (const id of [...this.refs.keys()]) {
-      if (id === oldPrefix || id.startsWith(oldPrefix + '.')) remap(this.refs, id)
-    }
-    for (const id of [...this.pendingRefs.keys()]) {
-      if (id === oldPrefix || id.startsWith(oldPrefix + '.')) remap(this.pendingRefs, id)
-    }
-    for (const k of [...this.propPrev.keys()]) {
-      if (k === oldPrefix || k.startsWith(oldPrefix + ':') || k.startsWith(oldPrefix + '.')) remap(this.propPrev, k)
-    }
+    this.refRegistry.remap(oldPrefix, newPrefix)
     // 事件表重映射（旧前缀 → 新前缀——移动后查表定位正确）
     for (const id of [...this.eventRegistry['table'].keys()]) {
       if (id === oldPrefix || id.startsWith(oldPrefix + '.')) {
@@ -221,12 +197,8 @@ export class CommandApplier {
         // 插到 prev 之后；ref null = 追加尾部
         const prev = cmd.ref ? (this.nodes.get(cmd.ref) ?? null) : null
         parent.insertBefore(el, prev ? prev.nextSibling : null)
-        // **挂载完成**（insert = mount 指令）——执行挂起 ref（el 已连接）
-        const refFn = this.pendingRefs.get(cmd.id)
-        if (refFn) {
-          applyRef(el as HTMLElement, refFn)
-          this.pendingRefs.delete(cmd.id)
-        }
+        // **挂载完成**（insert = mount 指令）——查 ref 表触发（已连接）
+        if (el.nodeType === 1) this.refRegistry.mount(cmd.id, el as HTMLElement)
         break
       }
       case 'move': {
@@ -254,14 +226,12 @@ export class CommandApplier {
           // **ref 指令（patch 生命周期处理）**：已挂载 → 立即（prev 传递）；
           // 未挂载（create 后 insert 前）→ 挂起——insert 后执行（挂载完成）
           if (cmd.key === 'ref') {
-            const prev = this.propPrev.get(`${cmd.id}:ref`)
-            if ((el as HTMLElement).isConnected) {
-              applyRef(el as HTMLElement, cmd.value, prev)
-            } else {
-              this.pendingRefs.set(cmd.id, cmd.value)
-            }
-            this.refs.set(cmd.id, cmd.value)
-            this.propPrev.set(`${cmd.id}:ref`, cmd.value)
+            // 注册表（prev 旧引用退 null——diff 重绑）——已挂载立即触发——
+            // 未挂载等 insert（mount 查表）
+            const el2 = el as HTMLElement
+            const prev = this.refRegistry['refs'].get(cmd.id) as unknown
+            this.refRegistry.set(cmd.id, cmd.value, prev)
+            if (el2.isConnected) this.refRegistry.mount(cmd.id, el2)
             break
           }
           // 事件 → **代理注册**（事件表——prev 解绑由表替换取代）
@@ -272,19 +242,17 @@ export class CommandApplier {
       case 'remove': {
         // **卸载指令**——子树 ref(null) + propPrev + 事件表清理（资源释放完整）
         this.clearNodeRefs(cmd.id)
-        this.clearPropPrev(cmd.id)
         this.eventRegistry.remove(cmd.id)
         this.nodes.get(cmd.id)?.remove()
         this.nodes.delete(cmd.id)
         break
       }
       case 'ref': {
-        // **DOM 生命周期——挂载完成**（insert 后——el 已连接）
+        // **DOM 生命周期——挂载完成**（insert 后——已挂载——注册 + 触发）
         const el = this.nodes.get(cmd.id)
         if (el && el.nodeType === 1 && typeof cmd.fn === 'function') {
-          applyRef(el as HTMLElement, cmd.fn)
-          this.refs.set(cmd.id, cmd.fn) // 注册（unref/remove 清理用）
-          this.propPrev.set(`${cmd.id}:ref`, cmd.fn)
+          this.refRegistry.set(cmd.id, cmd.fn)
+          this.refRegistry.mount(cmd.id, el as HTMLElement)
         }
         break
       }
@@ -324,7 +292,6 @@ export class CommandApplier {
             if (!this.touched.has(id)) {
               // 清理即卸载——ref(null) + propPrev + 事件表（资源释放完整）
               this.clearNodeRefs(id)
-              this.clearPropPrev(id)
               this.eventRegistry.remove(id)
               el.remove()
               this.nodes.delete(id)
