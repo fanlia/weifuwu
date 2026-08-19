@@ -28,6 +28,7 @@ import { testBrowser } from '../setup.ts'
 import { UIRouter, uiServe } from '../index.ts'
 import { h } from './vnode.ts'
 import { Fragment } from './node/fragment.ts'
+import { assertIsomorphic, assertKept, assertSlot, shapeOf } from '../testing.ts'
 import { createPortal } from './node/portal.ts'
 import type { Ctx } from '../context/Ctx.ts'
 import type { RenderCtx } from './serve.ts'
@@ -119,19 +120,28 @@ test('节点 → DOM 映射 + 类型转化全流程（映射规则 + 转化规�
   // Portal：关闭 → 插槽锚（注释）在主树——无浮层内容
   assert.equal(page.querySelector('.menu'), null, 'Portal 关闭——无浮层内容')
   // 同构：7 槽 + 7 按钮 = 14 个 childNodes（数组第 i 项 ⟷ 第 i 个节点）
-  assert.equal(slotCount(page), 14, '首帧 childNodes 长度 = 14（7 槽 + 7 按钮）')
+  assertIsomorphic(page, [
+    'hole', 'hole', 'element', 'element', 'hole', 'element', 'hole',
+    'element', 'element', 'element', 'element', 'element', 'element', 'element',
+  ], '首帧 14 项（7 槽 + 7 按钮）——逐位同构')
 
   // ═══════════════════ ② 转化①：空洞 ↔ 元素（条件渲染） ═══════════════════
   btn('t-cond').click()
   await waitFor(() => page.querySelector('.cond') !== null)
   assert.equal(page.querySelector('.cond')?.textContent, '条件元素', '空洞 → 元素（占位锚 ↔ 真实节点互换）')
+  assertSlot(page, 0, 'element', '位置 0 = 条件元素（原空洞位置——边界位置）')
   assert.equal(slotCount(page), 14, '互换后长度仍 14（同构——占位法）')
-  // 位置 0（第一个子节点）是条件元素
-  assert.equal(page.childNodes[0].nodeName, 'SPAN', '位置 0 = 条件元素（原空洞位置）')
   btn('t-cond').click()
   await waitFor(() => page.querySelector('.cond') === null)
-  assert.equal(page.childNodes[0].nodeType, 8, '元素 → 空洞（注释占位回来——长度不塌缩）')
+  assertSlot(page, 0, 'hole', '元素 → 空洞（注释占位回来——长度不塌缩）')
   assert.equal(slotCount(page), 14, '再次互换长度仍 14')
+  // **往返可逆**：再开一次（A→B→A→B）——位置 0 状态不漂移
+  btn('t-cond').click()
+  await waitFor(() => page.querySelector('.cond') !== null)
+  assertSlot(page, 0, 'element', '往返后再开——位置 0 仍正确')
+  btn('t-cond').click()
+  await waitFor(() => page.querySelector('.cond') === null)
+  assertSlot(page, 0, 'hole', '往返后再关——回到空洞（可逆）')
 
   // ═══════════════════ ③ 转化②：空洞 ↔ 组件（条件渲染组件） ═══════════════════
   btn('t-comp').click()
@@ -185,7 +195,7 @@ test('节点 → DOM 映射 + 类型转化全流程（映射规则 + 转化规�
   btn('t-add').click()
   await waitFor(() => list().querySelectorAll('li').length === 3)
   assert.equal(list().querySelectorAll('li').length, 3, 'keyed 增——新项 3（身份跟随 key）')
-  assert.equal(list().querySelectorAll('li')[0], li1Before, '旧项 DOM 节点引用保持（keyed 身份复用——不重建）')
+  assertKept(list(), 'li', li1Before, 'keyed 增——旧项 DOM 引用保持（身份复用——不重建）')
   assert.equal(list().querySelectorAll('li')[2]?.textContent, '项3', '新项在末尾')
 
   // ═══════════════════ ⑧ 转化⑦：Portal 开/关（插槽锚 ↔ 浮层内容） ═══════════════════
@@ -209,3 +219,40 @@ async function waitFor(fn: () => boolean, timeout = 500): Promise<void> {
     await new Promise((r) => setTimeout(r, 5))
   }
 }
+
+
+test('边界位置：末尾槽转化（空洞 ↔ 元素——末尾 insert 语义）+ 三处边界矩阵', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+    let show = false
+    return () => h('div', { class: 'page' },
+      h('span', { class: 'first' }, '首'),
+      h('span', { class: 'mid' }, '中'),
+      // 末尾槽（位置 2——边界：insert 语义与位置 0 对称验证）
+      show ? h('span', { class: 'last' }, '末') : null,
+      h('button', { id: 't', onClick: () => { show = !show; void ctx.render() } }, '切换'),
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const page = browser.document.querySelector('.page') as HTMLElement
+  // 边界矩阵：位置 0（mapping 主测试）/ 中间（mapping ⑤ 文本槽）/ 末尾（本测试）
+  assertIsomorphic(page, ['element', 'element', 'hole', 'element'], '首帧：2 元素 + 末尾空洞 + 按钮')
+  // 末尾空洞 → 元素：元素出现在位置 2（按钮之前——不是 append 到按钮后）
+  ;(browser.document.querySelector('#t') as HTMLElement).click()
+  await waitFor(() => page.querySelector('.last') !== null)
+  assertSlot(page, 2, 'element', '末尾空洞 → 元素（位置 2——按钮前）')
+  assert.equal(page.querySelector('.last')?.textContent, '末')
+  assert.equal(page.childNodes[3].nodeName, 'BUTTON', '按钮保持位置 3（不位移）')
+  // 往返 ×2（可逆——末尾状态不漂移）
+  for (let r = 0; r < 2; r++) {
+    ;(browser.document.querySelector('#t') as HTMLElement).click()
+    await waitFor(() => page.querySelector('.last') === null)
+    assertSlot(page, 2, 'hole', `往返 ${r + 1} 关——回到空洞（可逆）`)
+    ;(browser.document.querySelector('#t') as HTMLElement).click()
+    await waitFor(() => page.querySelector('.last') !== null)
+    assertSlot(page, 2, 'element', `往返 ${r + 1} 开——位置 2（可逆）`)
+  }
+})
