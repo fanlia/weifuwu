@@ -24,7 +24,7 @@ import { applyAttribute } from './field/attributes.ts'
 import { applyStyle } from './field/style.ts'
 import { applyProperty, isPropertyKey } from './field/props.ts'
 import { applyRef } from './field/ref.ts'
-import { bindEvent, EVENT_RE } from './field/events.ts'
+import { EventRegistry, eventName, EVENT_RE } from './field/events.ts'
 import { PORTAL_CONTAINER_ID, PORTAL_ID_PREFIX, portalContainerId } from './node/portal.ts'
 import { disposeComponent, type ComponentRegistry } from './node/component.ts'
 
@@ -41,12 +41,15 @@ export function applyAttrs(el: HTMLElement, attrs: Record<string, unknown>): voi
   }
 }
 
-/** setProp 三通道分发 */
-export function applySetProp(el: HTMLElement, key: string, value: unknown, prev?: unknown): void {
+/** setProp 三通道分发（事件 → **代理注册**（事件表——不直接绑定）） */
+export function applySetProp(
+  registry: EventRegistry, nodeId: string, el: HTMLElement, key: string, value: unknown, prev?: unknown,
+): void {
   if (key === 'ref') {
     applyRef(el, value, prev)
   } else if (EVENT_RE.test(key)) {
-    bindEvent(el, key, value, prev)
+    const name = eventName(key)
+    if (name) registry.set(nodeId, name, value)
   } else if (isPropertyKey(key)) {
     applyProperty(el, key, value)
   } else {
@@ -68,11 +71,19 @@ export class CommandApplier {
   private refs = new Map<string, unknown>()
   /** 挂起 ref（create 后未挂载——insert 后执行——挂载完成信号） */
   private pendingRefs = new Map<string, unknown>()
+  /** 事件代理注册表（document 捕获监听——分发） */
+  private eventRegistry: EventRegistry
 
   constructor(container: HTMLElement, doc: Document, registry?: ComponentRegistry) {
     this.container = container
     this.doc = doc
     this.registry = registry ?? null
+    this.eventRegistry = new EventRegistry(doc)
+  }
+
+  /** 卸载清理（移除根代理监听——serve unmount 调用） */
+  dispose(): void {
+    this.eventRegistry.dispose()
   }
 
   /** portal 容器（#__wf_portal 下按 key——惰性创建——挂 body） */
@@ -145,6 +156,14 @@ export class CommandApplier {
     for (const k of [...this.propPrev.keys()]) {
       if (k === oldPrefix || k.startsWith(oldPrefix + ':') || k.startsWith(oldPrefix + '.')) remap(this.propPrev, k)
     }
+    // 事件表重映射（旧前缀 → 新前缀——移动后查表定位正确）
+    for (const id of [...this.eventRegistry['table'].keys()]) {
+      if (id === oldPrefix || id.startsWith(oldPrefix + '.')) {
+        const v = this.eventRegistry['table'].get(id)!
+        this.eventRegistry['table'].delete(id)
+        this.eventRegistry['table'].set(newPrefix + id.slice(oldPrefix.length), v)
+      }
+    }
   }
 
   apply(cmd: Command): void {
@@ -161,6 +180,9 @@ export class CommandApplier {
           if (existing) existing.replaceWith(el) // 类型不符 → 替换（同构保持）
           this.nodes.set(cmd.id, el)
         }
+        // data-wf-id 标记（事件代理定位——元素节点）
+        const el = this.nodes.get(cmd.id)
+        if (el && el.nodeType === 1) (el as HTMLElement).setAttribute('data-wf-id', cmd.id)
         break
       }
       case 'createText': {
@@ -242,17 +264,16 @@ export class CommandApplier {
             this.propPrev.set(`${cmd.id}:ref`, cmd.value)
             break
           }
-          const prev = this.propPrev.get(`${cmd.id}:${cmd.key}`)
-          applySetProp(el as HTMLElement, cmd.key, cmd.value, prev)
-          // 记忆 prev（下次更新时解绑旧监听——重复绑定根治）
-          this.propPrev.set(`${cmd.id}:${cmd.key}`, cmd.value)
+          // 事件 → **代理注册**（事件表——prev 解绑由表替换取代）
+          applySetProp(this.eventRegistry, cmd.id, el as HTMLElement, cmd.key, cmd.value)
         }
         break
       }
       case 'remove': {
-        // **卸载指令**——子树 ref(null) + propPrev 清理（资源释放完整）
+        // **卸载指令**——子树 ref(null) + propPrev + 事件表清理（资源释放完整）
         this.clearNodeRefs(cmd.id)
         this.clearPropPrev(cmd.id)
+        this.eventRegistry.remove(cmd.id)
         this.nodes.get(cmd.id)?.remove()
         this.nodes.delete(cmd.id)
         break
@@ -301,9 +322,10 @@ export class CommandApplier {
         if (cmd.full && this.touched.size > 0) {
           for (const [id, el] of [...this.nodes]) {
             if (!this.touched.has(id)) {
-              // 清理即卸载——ref(null) + propPrev（资源释放完整）
+              // 清理即卸载——ref(null) + propPrev + 事件表（资源释放完整）
               this.clearNodeRefs(id)
               this.clearPropPrev(id)
+              this.eventRegistry.remove(id)
               el.remove()
               this.nodes.delete(id)
             }

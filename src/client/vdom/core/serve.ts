@@ -271,6 +271,7 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     unmount() {
       doc.removeEventListener('click', onDocClick)
       win.removeEventListener('popstate', onPopstate)
+      applier.dispose() // 事件代理根监听移除（资源释放完整）
       for (const fn of serveUnmounts.reverse()) { try { fn() } catch (e) { console.error('[vdom] unmount:', e) } }
       serveUnmounts.length = 0
       rootEl.innerHTML = ''
