@@ -785,3 +785,89 @@ test('useInView：IntersectionObserver——isIn 响应式（IO 回调 → 重�
   await waitFor(() => browser.document.querySelector('#vis')?.textContent === '可见')
   assert.equal(browser.document.querySelector('#vis')?.textContent, '可见', 'IO 回调 → isIn 响应式')
 })
+
+test('useControlledInput：内部输入态（keyword——焦点保持）+ IME 门控', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Search = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const input = (ctx.ui as { useControlledInput: (c: object) => {
+      value: string; keyword: string; setKeyword: (v: string) => void; setValue: (v: string) => void
+      isComposing: boolean; onCompositionStart: () => void; onCompositionEnd: () => void
+    } }).useControlledInput({})
+    return () => h('input', {
+      id: 'kw',
+      value: input.keyword,
+      onInput: (e: Event) => input.setKeyword((e.target as HTMLInputElement).value),
+      onCompositionStart: () => input.onCompositionStart(),
+      onCompositionEnd: () => input.onCompositionEnd(),
+    })
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Search, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const el = () => browser.document.querySelector('#kw') as HTMLInputElement
+  // 输入（非组合——keyword 内部态 + value 回流）
+  el().value = '支'
+  el().dispatchEvent(new browser.window.Event('input', { bubbles: true }))
+  await waitFor(() => el()?.value === '支')
+  assert.equal(el().value, '支', '内部输入态（keyword）——输入不丢')
+  // IME 组合门控（组合期间 setKeyword 不触发 onChange——不打断）
+  el().dispatchEvent(new browser.window.Event('compositionstart'))
+  el().value = '支付'
+  el().dispatchEvent(new browser.window.Event('input', { bubbles: true }))
+  el().dispatchEvent(new browser.window.Event('compositionend'))
+  await waitFor(() => el()?.value === '支付')
+  assert.equal(el().value, '支付', '组合结束——最终值保留')
+})
+
+test('useDragDrop：draggable enumerated + 拖拽事件 + dataTransfer 数据', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let dropped: unknown = null
+  const Card = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const dd = (ctx.ui as { useDragDrop: (o: { data: unknown; onDrop: (e: Event, d: unknown) => void }) => {
+      draggableProps: { draggable: boolean }; dropProps: { onDrop: (e: Event) => void }
+    } }).useDragDrop({ data: { id: 7 }, onDrop: (e, d) => { dropped = d } })
+    return () => h('div', { class: 'zone', ...dd.dropProps as never },
+      h('div', { class: 'card', ...dd.draggableProps as never }, '拖我'))
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Card, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const card = browser.document.querySelector('.card') as HTMLElement
+  assert.equal(card.draggable, true, 'draggable enumerated 显式 true')
+  // 模拟 drop（dataTransfer）
+  const dt = { getData: () => JSON.stringify({ id: 7 }) } as DataTransfer
+  const dropEv = new browser.window.Event('drop', { bubbles: true }) as Event & { dataTransfer?: DataTransfer }
+  dropEv.dataTransfer = dt
+  browser.document.querySelector('.zone')?.dispatchEvent(dropEv)
+  assert.deepEqual(dropped, { id: 7 }, 'drop 事件 → dataTransfer 数据传递')
+})
+
+test('useBreakpoint：命名断点（matchMedia mock——min-width 语义——事件驱动）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  // mock matchMedia
+  let width = 600
+  const listeners: Array<() => void> = []
+  ;(browser.window as any).matchMedia = (q: string) => ({
+    get matches() { return width >= parseInt(q.match(/(\d+)/)?.[1] ?? '0', 10) },
+    addEventListener: (_t: string, cb: () => void) => { listeners.push(cb) },
+    removeEventListener: () => {},
+  })
+  const Page = (_init: Record<string, unknown>, ctx: Ctx) => {
+    // 渲染期调用（useMedia 状态实时——事件驱动重渲染读最新断点）
+    return () => {
+      const bp = (ctx.ui as { useBreakpoint: (b: Record<string, number>) => string }).useBreakpoint({ mobile: 0, tablet: 768, desktop: 1024 })
+      return h('span', { id: 'bp' }, bp)
+    }
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.equal(browser.document.querySelector('#bp')?.textContent, 'mobile', '600px → mobile')
+  width = 900
+  listeners.forEach((cb) => cb())   // 媒体变化 → 重渲染
+  await waitFor(() => browser.document.querySelector('#bp')?.textContent === 'tablet')
+  assert.equal(browser.document.querySelector('#bp')?.textContent, 'tablet', '900px → tablet（事件驱动）')
+})

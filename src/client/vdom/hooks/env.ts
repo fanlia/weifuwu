@@ -14,6 +14,8 @@ import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
 import { usePopup } from './popup.ts'
 import { useControlled } from './controlled.ts'
 import { useScrollPosition, useInView } from './observe.ts'
+import { useControlledInput } from './input.ts'
+import { useDragDrop, useMedia, useBreakpoint } from './drag-media.ts'
 
 /** hooks 环境（per 组件实例——renderComponent 注入） */
 export interface HookEnv {
@@ -49,6 +51,14 @@ export interface Ui {
   useScrollPosition(target?: HTMLElement | (() => HTMLElement | null)): import('./observe.ts').ScrollPosition
   /** 可见性观察（IntersectionObserver——isIn 响应式——环境无 IO → 恒 false） */
   useInView(target: HTMLElement | (() => HTMLElement | null)): import('./observe.ts').InView
+  /** 受控输入（内部输入态——焦点保持——IME 门控——选中回填） */
+  useControlledInput(controlled: { value?: string; onChange?: (v: string) => void }, opts?: { name?: string }): import('./input.ts').ControlledInput
+  /** 拖拽（draggable enumerated + drag 事件——dataTransfer 数据） */
+  useDragDrop(opts: import('./drag-media.ts').DragDropOptions): import('./drag-media.ts').DragDrop
+  /** 媒体查询匹配（change 监听 → 重渲染——环境无 matchMedia → 恒 false） */
+  useMedia(query: string): boolean
+  /** 命名断点（min-width 语义——当前匹配的最大宽度断点） */
+  useBreakpoint(breakpoints: Record<string, number>): string
 }
 
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
@@ -69,5 +79,10 @@ export function createUi(env: HookEnv): Ui {
       useControlled(env, controlled, defaultValue),
     useScrollPosition: (target?: HTMLElement | (() => HTMLElement | null)) => useScrollPosition(env, target),
     useInView: (target: HTMLElement | (() => HTMLElement | null)) => useInView(env, target),
+    useControlledInput: (controlled: { value?: string; onChange?: (v: string) => void }, opts?: { name?: string }) =>
+      useControlledInput(env, controlled, opts),
+    useDragDrop: (opts) => useDragDrop(env, opts),
+    useMedia: (query: string) => useMedia(env, query),
+    useBreakpoint: (breakpoints: Record<string, number>) => useBreakpoint(env, breakpoints),
   }
 }
