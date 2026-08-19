@@ -31,6 +31,18 @@
     "./ui-dom/vdom3": {
       "types": "./dist/ui-dom/vdom3/index.d.ts",
       "default": "./dist/ui-dom/vdom3.js"
+    },
+    "./vdom": {
+      "types": "./dist/vdom/index.d.ts",
+      "default": "./dist/vdom/index.js"
+    },
+    "./vdom/jsx-runtime": {
+      "types": "./dist/vdom/index.d.ts",
+      "default": "./dist/vdom/jsx-runtime.js"
+    },
+    "./vdom/testing": {
+      "types": "./dist/vdom/testing.d.ts",
+      "default": "./dist/vdom/testing.js"
     }
   },
   "files": [

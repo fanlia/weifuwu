@@ -19,6 +19,9 @@ import { transformSync } from 'esbuild'
 // 防 dist/src 双实例：页面 JSX 编出的 weifuwu/ui-dom import 必须与测试同图）
 const SRC_ROOT = new URL('..', import.meta.url).pathname
 const BARE_ALIASES: Record<string, string> = {
+  'weifuwu/vdom/jsx-runtime': SRC_ROOT + 'vdom/jsx-runtime.ts',
+  'weifuwu/vdom/testing': SRC_ROOT + 'vdom/testing.ts',
+  'weifuwu/vdom': SRC_ROOT + 'vdom/index.ts',
   'weifuwu/ui-dom/jsx-runtime': SRC_ROOT + 'ui-dom/jsx-runtime.ts',
   'weifuwu/ui-dom/testing': SRC_ROOT + 'ui-dom/testing.ts',
   'weifuwu/ui-dom': SRC_ROOT + 'ui-dom/index.ts',

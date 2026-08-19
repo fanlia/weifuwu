@@ -9,7 +9,17 @@
  * - **资源**：remove/done 后事件表/ref 表/portal 容器清理（残留即 bug）
  */
 
-import assert from 'node:assert/strict'
+/** 简易断言（browser 平台——不依赖 node:assert——测试基建 bundle 安全） */
+function assert(cond: unknown, msg: string): asserts cond {
+  if (!cond) throw new Error(msg)
+}
+
+function assertEqual(a: unknown, b: unknown, msg?: string): void {
+  if (a !== b) throw new Error(`${msg ?? 'assertEqual'}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`)
+}
+function assertOk(cond: unknown, msg?: string): asserts cond {
+  if (!cond) throw new Error(msg ?? 'assertOk')
+}
 
 export type Shape = 'element' | 'text' | 'hole' | 'comment'
 
@@ -30,9 +40,9 @@ export function assertIsomorphic(
   expectShapes: Shape[],
   msg = '同构（childNodes 长度 + 位置 + 类型）',
 ): void {
-  assert.equal(container.childNodes.length, expectShapes.length, `${msg}——长度（塌缩/多余即 bug）`)
+  assertEqual(container.childNodes.length, expectShapes.length, `${msg}——长度（塌缩/多余即 bug）`)
   for (let i = 0; i < expectShapes.length; i++) {
-    assert.equal(
+    assertEqual(
       shapeOf(container.childNodes[i]),
       expectShapes[i],
       `${msg}——位置 ${i}（第 i 项 ⟷ childNodes 第 i 个）`,
@@ -47,8 +57,8 @@ export function assertSlot(
   expect: Shape,
   msg = `位置 ${index}`,
 ): void {
-  assert.ok(container.childNodes[index], `${msg}——存在`)
-  assert.equal(shapeOf(container.childNodes[index]), expect, `${msg}——类型`)
+  assertOk(container.childNodes[index], `${msg}——存在`)
+  assertEqual(shapeOf(container.childNodes[index]), expect, `${msg}——类型`)
 }
 
 /** 引用断言：复用项 DOM 节点引用不变（重建即 bug——焦点/状态丢失） */
@@ -59,8 +69,8 @@ export function assertKept<T extends Node>(
   msg = '复用项 DOM 引用保持（不重建）',
 ): asserts before is T {
   const after = container.querySelector(selector)
-  assert.ok(after, `${msg}——新项存在`)
-  assert.equal(after, before, msg)
+  assertOk(after, `${msg}——新项存在`)
+  assertEqual(after, before, msg)
 }
 
 /** 往返断言：状态切换后回到原 DOM 形态（可逆性——状态不漂移） */

@@ -68,7 +68,41 @@ for (const d of ['content', 'examples']) {
   await mkdir(p, { recursive: true })
 }
 
-// ui-dom bundle（前端运行时——UIRouter/uiServe/渲染器/契约）
+// ── vdom bundle（新一代前端运行时——h/jsx/uiServe/UIRouter 公共面——
+//   P3 包面切换——组件库已迁移到 src/client/vdom——构建为 weifuwu/vdom）──
+await mkdir(join(distDir, 'vdom'), { recursive: true })
+await esbuild.build({
+  entryPoints: [join(srcDir, 'client', 'vdom', 'index.ts')],
+  outfile: join(distDir, 'vdom', 'index.js'),
+  format: 'esm',
+  platform: 'browser',
+  jsx: 'automatic',
+  jsxImportSource: 'weifuwu/vdom',
+  bundle: true,
+  minify: true,
+})
+
+// vdom/jsx-runtime
+await esbuild.build({
+  entryPoints: [join(srcDir, 'client', 'vdom', 'jsx-runtime.ts')],
+  outfile: join(distDir, 'vdom', 'jsx-runtime.js'),
+  format: 'esm',
+  platform: 'browser',
+  bundle: true,
+  minify: true,
+})
+
+// vdom/testing（组件测试原语——同签名 ui-dom/testing 兼容）
+await esbuild.build({
+  entryPoints: [join(srcDir, 'client', 'vdom', 'testing.ts')],
+  outfile: join(distDir, 'vdom', 'testing.js'),
+  format: 'esm',
+  platform: 'browser',
+  bundle: true,
+  minify: true,
+})
+
+// ui-dom bundle（前端运行时——P4 apps 迁移完成后退役——共存期保留）
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'ui-dom', 'index.ts')],
   outfile: join(distDir, 'ui-dom', 'index.js'),
@@ -119,9 +153,9 @@ await esbuild.build({
 const externalizeUiDomPlugin = {
   name: 'externalize-ui-dom',
   setup(build) {
-    // 匹配相对导入：../../ui-dom/xxx.ts（components 契约归 ui-dom）
-    build.onResolve({ filter: /\.\.\/(ui-dom)\// }, (args) => ({
-      path: 'weifuwu/ui-dom',
+    // 匹配相对导入：../../vdom/xxx.ts（components 契约归 weifuwu/vdom）
+    build.onResolve({ filter: /\.\.\/(vdom)\// }, (args) => ({
+      path: 'weifuwu/vdom',
       external: true,
     }))
   },
@@ -129,15 +163,15 @@ const externalizeUiDomPlugin = {
 
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'components', 'index.ts')],
-  tsconfigRaw: { compilerOptions: { jsxImportSource: 'weifuwu/ui-dom' } },
+  tsconfigRaw: { compilerOptions: { jsxImportSource: 'weifuwu/vdom' } },
   outfile: join(distDir, 'components', 'index.js'),
   format: 'esm',
   platform: 'browser',
   jsx: 'automatic',
-  jsxImportSource: 'weifuwu/ui-dom',
+  jsxImportSource: 'weifuwu/vdom',
   bundle: true,
   minify: true,
-  external: ['weifuwu/ui-dom', 'weifuwu/ui-dom/jsx-runtime'],
+  external: ['weifuwu/vdom', 'weifuwu/vdom/jsx-runtime'],
   plugins: [externalizeUiDomPlugin],
 })
 
