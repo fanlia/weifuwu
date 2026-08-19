@@ -64,7 +64,13 @@ export class CommandApplier {
       map.set(newPrefix + key.slice(oldPrefix.length), v)
     }
     for (const id of [...this.nodes.keys()]) {
-      if (id === oldPrefix || id.startsWith(oldPrefix + '.')) remap(this.nodes as unknown as Map<string, unknown>, id)
+      if (id === oldPrefix || id.startsWith(oldPrefix + '.')) {
+        remap(this.nodes as unknown as Map<string, unknown>, id)
+        // **DOM 属性同步**（真实 bug）：分发按 DOM 的 data-wf-id 查表——
+        // remap 只迁移表——DOM 属性残留旧 id——keyed 顺移后 click 未命中
+        const el = this.nodes.get(newPrefix + id.slice(oldPrefix.length))
+        if (el && el.nodeType === 1) (el as HTMLElement).setAttribute('data-wf-id', newPrefix + id.slice(oldPrefix.length))
+      }
     }
     this.refRegistry.remap(oldPrefix, newPrefix)
     for (const id of [...this.eventRegistry['table'].keys()]) {

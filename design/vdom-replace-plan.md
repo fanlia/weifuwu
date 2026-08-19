@@ -140,8 +140,8 @@
 5. **FilePreview 14 全绿 ✅**（mountPreview 串行队列 + ready 守卫——
    loadUrl mount 期 fetch 竞态；input 查询取最后一个——并发残留；
    createRoot 清零）
-6. **剩余（约 5 个）**：SlideCanvas（幻灯片增删——del-slide 顺移 remap
-   后 click 分发边界/拖拽/双击编辑/AI 浮层）+ editor-flow——登记——
-   SlideCanvas 的 del-slide：addSlide 后删页按钮（keyed 顺移 remap——
-   新 id root.0.0.2）click 未触发（vdom 分发查表未命中——事件表迁移
-   与 diffSame setProp 的边界——专项排查）
+6. **SlideCanvas 幻灯片增删 ✅**（moved 降序 + remap DOM 属性——真实 bug）
+7. **剩余（6 个）**：SlideCanvas（拖拽 live 渲染/双击编辑/AI 拒绝——
+   画布交互深链——pointermove 到 scroll 的 live 更新边界）+ editor-flow
+   （表格/link/image 浮层——工具条按钮 → usePopup——历史面板同模式已过
+   ——三者差异排查中）

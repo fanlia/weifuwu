@@ -238,7 +238,7 @@ export async function diffKeyedChildren(
     const oldIdx = oldIdxByKey.get(k)
     if (oldIdx !== undefined && oldIdx !== i) moved.push({ oldIdx, newIdx: i })
   })
-  moved.sort((a, b) => a.newIdx - b.newIdx) // 从前往后（链式 remap 无覆盖）
+  moved.sort((a, b) => b.newIdx - a.newIdx)
   for (const m of moved) {
     emitCommand({ op: 'move', id: pathId(parent, m.oldIdx), parent, ref: null, newId: pathId(parent, m.newIdx), noMove: true })
   }

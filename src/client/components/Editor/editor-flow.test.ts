@@ -9,7 +9,7 @@ import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from '../../vdom/setup.ts'
 import { h } from '../../vdom/index.ts'
-import { mountToDom } from '../../vdom/testing.ts'
+import { mountToDom, patchToDom, createTestCtx } from '../../vdom/testing.ts'
 import { Editor } from './Editor.ts'
 import { setSelectionOffsets } from './model/dom.ts'
 import { editEvents } from './edit-events.ts'
@@ -28,11 +28,21 @@ async function mount(value: string): Promise<Harness> {
   const root = document.createElement('div')
   document.body.appendChild(root)
   const calls: string[] = []
-  await mountToDom(root, h(Editor, {
-    value,
-    onChange: (v: string) => { calls.push(v) },
-  })
-  }), createTestCtx())
+  // patch 驱动 ctx.render（浮层交互——同 editor-ai 模式）
+  let renderFn: (() => any) | null = null
+  let prev: any = null
+  let readyResolve: () => void = () => {}
+  const ready = new Promise<void>((r) => { readyResolve = r })
+  const ctx: any = {
+    render: async () => { await ready; const next = await renderFn!(); await patchToDom(root, root.firstChild, prev, next, ctx); prev = next },
+    onUnmount: () => {}, params: {}, query: {},
+    ui: { usePopup: (opts: any) => { const isOpen = () => (typeof opts?.isOpen === 'function' ? opts.isOpen() : !!opts?.isOpen); return { get open() { return isOpen() }, setOpen: (v: boolean) => opts?.setOpen?.(v), refresh: () => {}, portal: (c: any) => (isOpen() ? c : null), wrapProps: {} } } },
+  }
+  const result = await Editor({ value, onChange: (v: string) => calls.push(v) } as any, ctx)
+  renderFn = () => result({ value, onChange: (v: string) => calls.push(v) } as any)
+  prev = await renderFn()
+  await mountToDom(root, prev, ctx)
+  readyResolve()
   const content = () => root.querySelector('.wf-editor-content') as HTMLElement | null
   const clickToolbar = (item: string) => {
     const btn = root.querySelector(`[data-item="${item}"]`) as HTMLElement | null
