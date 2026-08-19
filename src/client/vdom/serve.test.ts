@@ -307,3 +307,91 @@ test('useExternal：unmount 自动退订（订阅泄漏防护）', async () => {
   assert.equal(active, 1)
   serve.unmount()
 })
+
+test('useOpen：非受控开关——setOpen → 重渲染显示', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Dropdown = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const open = (ctx.ui as { useOpen: (i: boolean) => { open: boolean; setOpen: (v: boolean) => void } }).useOpen(false)
+    return () => h('div', {},
+      h('button', { id: 'toggle', onClick: () => open.setOpen(!open.open) }, '开关'),
+      open.open ? h('div', { class: 'panel' }, '面板') : null,
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Dropdown, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.equal(browser.document.querySelector('.panel'), null, '初始关闭')
+  ;(browser.document.querySelector('#toggle') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.panel') !== null)
+  assert.equal(browser.document.querySelector('.panel')?.textContent, '面板', 'setOpen → 重渲染')
+  ;(browser.document.querySelector('#toggle') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.panel') === null)
+  assert.equal(browser.document.querySelector('.panel'), null, '再点关闭')
+})
+
+test('useOpen：受控——父 props 独占（onOpenChange 回调出口）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Parent = (_init: Record<string, unknown>, ctx: Ctx) => {
+    let open = false
+    return () => h('div', {},
+      h('button', { id: 'p', onClick: () => { open = !open; void ctx.render() } }, '父'),
+      h(Child, { open, onOpenChange: (v: boolean) => { open = v; void ctx.render() } }),
+    )
+  }
+  const Child = (_init: Record<string, unknown>, ctx: Ctx) => {
+    // 受控 hooks 渲染期调用（renderFn 内——读最新 props——AGENTS §3.1）
+    return (props: Record<string, unknown>) => {
+      const open = (ctx.ui as { useOpen: (i: boolean, c?: { open?: boolean; onOpenChange?: (v: boolean) => void }) => { open: boolean; setOpen: (v: boolean) => void } })
+        .useOpen(false, { open: props.open as boolean, onOpenChange: props.onOpenChange as (v: boolean) => void })
+      return h('button', { id: 'c', onClick: () => open.setOpen(!open.open) }, open.open ? '开' : '关')
+    }
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Parent, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const c = () => browser.document.querySelector('#c') as HTMLElement
+  assert.equal(c().textContent, '关')
+  c().click()   // 受控——onOpenChange → 父更新 → 重渲染 → props 回流
+  await waitFor(() => c()?.textContent === '开')
+  assert.equal(c().textContent, '开', '受控——回调出口驱动')
+})
+
+test('useGlobalKey：Escape 关闭（window keydown——unmount 清理）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Modal = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const open = (ctx.ui as { useOpen: (i: boolean) => { open: boolean; setOpen: (v: boolean) => void } }).useOpen(true)
+    ;(ctx.ui as { useGlobalKey: (m: string, h: (e: Event) => void) => void }).useGlobalKey('Escape', () => open.setOpen(false))
+    return () => open.open ? h('div', { class: 'modal' }, '弹窗') : null
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Modal, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.ok(browser.document.querySelector('.modal'), '弹窗显示')
+  browser.window.dispatchEvent(new browser.window.KeyboardEvent('keydown', { key: 'Escape' }))
+  await waitFor(() => browser.document.querySelector('.modal') === null)
+  assert.equal(browser.document.querySelector('.modal'), null, 'Escape → useGlobalKey → setOpen(false)')
+})
+
+test('useStableRef：跨渲染稳定引用', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Comp = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const ref = (ctx.ui as { useStableRef: <T>(i: T) => { current: T } }).useStableRef({ n: 0 })
+    let renders = 0
+    return () => {
+      renders++
+      ref.current.n++
+      return h('span', { id: 'r' }, `n:${ref.current.n}`)
+    }
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', {}, h(Comp, {}))))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const v1 = browser.document.querySelector('#r')?.textContent
+  await (serve as unknown as { navigate: (p: string) => Promise<void> }).navigate('/')
+  await waitFor(() => browser.document.querySelector('#r')?.textContent !== v1)
+  assert.equal(browser.document.querySelector('#r')?.textContent, 'n:2', '稳定引用跨渲染保持')
+})

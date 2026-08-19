@@ -22,6 +22,7 @@ import type { VNode, VNodeChild } from '../vnode.ts'
 import type { Component, RenderFn } from '../vnode.ts'
 import type { Ctx } from '../../context/Ctx.ts'
 import { createUi } from '../../hooks/env.ts'
+import type { Browser } from '../../browser/Browser.ts'
 
 /** 组件实例记录（跨渲染保持——diff 复用） */
 export interface ComponentRecord {
@@ -31,6 +32,10 @@ export interface ComponentRecord {
   onUnmounts: (() => void)[]
   /** 上次渲染输出（diff 对照——同实例更新就地 patch——不重建） */
   lastOutput?: VNodeChild | null
+  /** hook 调用顺序（渲染期重置——状态按 index 缓存） */
+  hookSeq: { n: number }
+  /** hook 状态缓存（per-instance——useOpen 等渲染期 hooks） */
+  hookStates: Map<number, unknown>
 }
 
 /** 组件实例注册表（uiServe 持有——renderToStream 写入——diff/unmount 消费） */
@@ -73,20 +78,28 @@ export async function renderComponent(
   if (!rec) {
     // per-instance ctx（共享面继承 + onUnmount 收集到实例记录 + hooks 注入面）
     const onUnmounts: (() => void)[] = []
+    // hook 状态缓存（渲染期调用——按调用顺序 index——per-instance）
+    const hookStates = new Map<number, unknown>()
+    const hookSeq = { n: 0 }
     const instCtx = Object.create(sharedCtx) as Ctx
     instCtx.onUnmount = (fn) => { onUnmounts.push(fn) }
     // hooks 注入面（ctx.ui——env 绑定当前组件实例）
     instCtx.ui = createUi({
       requestRender: () => { void instCtx.render?.() },
       onUnmount: (fn) => { onUnmounts.push(fn) },
+      getBrowser: () => (sharedCtx.browser as Browser | null) ?? null,
+      nextHookIndex: () => hookSeq.n++,
+      getHookState: <T>(idx: number) => hookStates.get(idx) as T | undefined,
+      setHookState: (idx, v) => { hookStates.set(idx, v) },
     })
     // 工厂 = mount（一次——可 await ctx.data——管道保证 resolve）
     const maybeRenderFn = factory(vn.props, instCtx)
-    rec = { renderFn: await maybeRenderFn, onUnmounts }
+    rec = { renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates }
     registry.set(compId, rec)
   }
 
   // renderFn = 每次渲染（读最新 props——可 await——输出 null/数组/vnode）
+  rec.hookSeq.n = 0 // 渲染期 hook 调用顺序重置（状态按 index 缓存保持）
   const out = await rec.renderFn(vn.props)
   // 记录输出（diff 对照——同实例更新就地对上次输出 patch）
   rec.lastOutput = out
