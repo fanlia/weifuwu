@@ -871,3 +871,73 @@ test('useBreakpoint：命名断点（matchMedia mock——min-width 语义——
   await waitFor(() => browser.document.querySelector('#bp')?.textContent === 'tablet')
   assert.equal(browser.document.querySelector('#bp')?.textContent, 'tablet', '900px → tablet（事件驱动）')
 })
+
+test('useChat：发送 → 流式消息累积（NDJSON 分块——useExternal 订阅重渲染）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  // mock fetch（POST /api/chat——NDJSON 流式响应）
+  const origFetch = (globalThis as any).fetch
+  ;(globalThis as any).fetch = async (_url: string, init: { body?: string }) => {
+    const enc = new TextEncoder()
+    const chunks = [
+      enc.encode('{"content":"你好"}\n'),
+      enc.encode('{"content":"，我是"}\n'),
+      enc.encode('{"content":"AI助手"}\n'),
+    ]
+    const stream = new ReadableStream({
+      async start(c) {
+        for (const ch of chunks) { c.enqueue(ch); await new Promise((r) => setTimeout(r, 5)) }
+        c.close()
+      },
+    })
+    return { ok: true, body: stream }
+  }
+  try {
+    const Chat = (_init: Record<string, unknown>, ctx: Ctx) => {
+      const chat = (ctx.ui as { useChat: (o: object) => { messages: Array<{ role: string; content: string }>; send: (t: string) => Promise<void> } }).useChat({})
+      ;(ctx.ui as { useExternal: (s: unknown) => void }).useExternal(chat as never)
+      return () => h('div', {},
+        h('button', { id: 'send', onClick: () => void chat.send('你好') }, '发送'),
+        h('div', { id: 'msgs' }, chat.messages.map((m) => `${m.role}:${m.content}`).join('|')),
+      )
+    }
+    router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Chat, {})))
+    const serve = uiServe(router, { root: '#root', browser })
+    await serve.ready
+    assert.equal(browser.document.querySelector('#msgs')?.textContent, '')
+    ;(browser.document.querySelector('#send') as HTMLElement).click()
+    await waitFor(() => (browser.document.querySelector('#msgs')?.textContent ?? '').includes('你好'))
+    await waitFor(() => (browser.document.querySelector('#msgs')?.textContent ?? '').includes('AI助手'))
+    const msgs = browser.document.querySelector('#msgs')?.textContent ?? ''
+    assert.ok(msgs.includes('user:你好'), '用户消息')
+    assert.ok(msgs.includes('assistant:你好，我是AI助手'), '助手流式累积')
+  } finally {
+    ;(globalThis as any).fetch = origFetch
+  }
+})
+
+test('useChat：HITL 审批（工具调用 approve——状态更新）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const initMsg = [{
+    id: 'm1', role: 'assistant' as const, content: '需要审批',
+    toolCalls: [{ id: 'tc1', name: 'sendEmail', args: { to: 'a@b.c' } }],
+  }]
+  const Chat = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const chat = (ctx.ui as { useChat: (o: object) => {
+      messages: Array<{ toolCalls?: Array<{ id: string; approved?: boolean }> }>; approve: (id: string, ok: boolean) => void
+    } }).useChat({ initialMessages: initMsg as never })
+    ;(ctx.ui as { useExternal: (s: unknown) => void }).useExternal(chat as never)
+    return () => h('div', {},
+      h('button', { id: 'ok', onClick: () => chat.approve('tc1', true) }, '批准'),
+      h('span', { id: 'st' }, String(chat.messages[0]?.toolCalls?.[0]?.approved ?? 'none')),
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Chat, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.equal(browser.document.querySelector('#st')?.textContent, 'none')
+  ;(browser.document.querySelector('#ok') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('#st')?.textContent === 'true')
+  assert.equal(browser.document.querySelector('#st')?.textContent, 'true', 'HITL 审批 → 工具调用状态更新')
+})

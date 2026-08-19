@@ -16,6 +16,7 @@ import { useControlled } from './controlled.ts'
 import { useScrollPosition, useInView } from './observe.ts'
 import { useControlledInput } from './input.ts'
 import { useDragDrop, useMedia, useBreakpoint } from './drag-media.ts'
+import { useChat } from './chat.ts'
 
 /** hooks 环境（per 组件实例——renderComponent 注入） */
 export interface HookEnv {
@@ -59,6 +60,8 @@ export interface Ui {
   useMedia(query: string): boolean
   /** 命名断点（min-width 语义——当前匹配的最大宽度断点） */
   useBreakpoint(breakpoints: Record<string, number>): string
+  /** AI 对话会话（流式消息累积——handle 兼容 useExternal 订阅） */
+  useChat(opts: import('./chat.ts').ChatOptions): import('./chat.ts').ChatHandle
 }
 
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
@@ -84,5 +87,6 @@ export function createUi(env: HookEnv): Ui {
     useDragDrop: (opts) => useDragDrop(env, opts),
     useMedia: (query: string) => useMedia(env, query),
     useBreakpoint: (breakpoints: Record<string, number>) => useBreakpoint(env, breakpoints),
+    useChat: (opts) => useChat(env, opts),
   }
 }
