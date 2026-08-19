@@ -41,15 +41,19 @@ export function useScrollPosition(
 
   const getEl = (): HTMLElement | null => (typeof target === 'function' ? target() : target ?? null)
 
-  /** 注册（目标元素未挂载 → 微任务重试——限次） */
+  /** 注册（目标元素未挂载 → 微任务重试——限次；窗口场景 el null → 直接 win） */
   const ensureRegistered = (): void => {
     if (state.handler) return
     const el = getEl()
-    const scroller: HTMLElement | Window = el ?? win
-    if (!el) {
+    if (!el && typeof target === 'function') {
+      // 显式目标（函数）未挂载 → 重试（限次——防无限微任务循环）
       if (state.retries++ < 10) env.scheduleAfterRender(ensureRegistered)
       return
     }
+    // el null（窗口场景——target 未提供）→ scroller = win——注册窗口监听
+    // （覆盖度量抓出：旧逻辑 el null 一律重试——窗口场景 10 次后放弃——
+    // 窗口滚动从未工作）
+    const scroller: HTMLElement | Window = el ?? win
     const onScroll = (): void => {
       if (state.raf) return
       state.raf = win.requestAnimationFrame(() => {

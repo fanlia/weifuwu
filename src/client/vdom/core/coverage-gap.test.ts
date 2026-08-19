@@ -421,3 +421,167 @@ test('hooks：useDragDrop 数据传递（dragstart setData + drop）', async () 
   assert.equal(dropped, null, '未触发 drop（无真实拖拽序列）——draggable 属性已保证可拖拽')
   void dt
 })
+
+test('popup：placement top/left/right + 视口夹紧（面板坐标正确）', async () => {
+  const { computePos } = await import('../hooks/popup.ts')
+  const win = { innerWidth: 800, innerHeight: 600 } as Window
+  // bottom + center
+  const elBottom = { getBoundingClientRect: () => ({ left: 100, top: 200, right: 300, bottom: 260, width: 200, height: 60 }) } as HTMLElement
+  const p1 = computePos(elBottom, win, 100, 50, 'bottom', 8, 8, true)
+  assert.deepEqual(p1, { top: 268, left: 150 }, 'bottom + center（锚点下方居中：left = r.left + w/2 - panelW/2）')
+  // top（不 center——左对齐）
+  const p2 = computePos(elBottom, win, 100, 50, 'top', 8, 8, false)
+  assert.deepEqual(p2, { top: 142, left: 100 }, 'top（锚点上方——左对齐）')
+  // left（锚点左侧）
+  const p3 = computePos(elBottom, win, 100, 50, 'left', 8, 8, false)
+  assert.deepEqual(p3, { top: 200, left: 8 }, 'left（锚点左侧——负值已夹紧到 margin 8）')
+  // right（锚点右侧）
+  const p4 = computePos(elBottom, win, 100, 50, 'right', 8, 8, false)
+  assert.deepEqual(p4, { top: 200, left: 308 }, 'right（锚点右侧）')
+  // 视口夹紧：left 超界（左出 8px）→ clamp 到 margin 8；right 超界 → clamp
+  const p5 = computePos(elBottom, win, 100, 50, 'left', 8, 8, false)
+  assert.equal(p5?.left, 8, '左出界 → 夹紧到 margin（8）')
+  const elRight = { getBoundingClientRect: () => ({ left: 750, top: 200, right: 780, bottom: 260, width: 30, height: 60 }) } as HTMLElement
+  const p6 = computePos(elRight, win, 100, 50, 'right', 8, 8, false)
+  assert.equal(p6?.left, 692, '右出界 → 夹紧（800 - 100 - 8）')
+  // 0-rect 防护（scroll/ref 间隙——返回 null——保留上一坐标）
+  const zero = { getBoundingClientRect: () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }) } as HTMLElement
+  assert.equal(computePos(zero, win, 100, 50, 'bottom', 8, 8, true), null, '0-rect → null（A.4 防护）')
+})
+
+test('usePopup sync presence：关闭 → exit 阶段 + 无动画立即 closed（会话级模态）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+    const popup = (ctx.ui as { usePopup: (o: object) => {
+      open: boolean; setOpen: (v: boolean) => void; portal: (c: unknown, k?: string) => unknown;
+      panelRef: (el: HTMLElement | null) => void; sync: (v: boolean) => void; phase: string
+    } }).usePopup({ presence: true, placement: 'bottom' })
+    return () => h('div', {},
+      h('button', { id: 'dd', onClick: () => popup.setOpen(!popup.open) }, '开'),
+      h('button', { id: 'sync', onClick: () => popup.sync(!popup.open) }, '同步'),
+      popup.portal(h('div', { ref: popup.panelRef as never, class: 'panel' }, '面板'), 'dd') as never,
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  ;(browser.document.querySelector('#dd') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.panel') !== null)
+  assert.ok(browser.document.querySelector('.panel'), 'presence 打开 → 面板挂载（computePos 定位路径）')
+  // 关闭：presence → exit（面板保留——播退场动画）
+  ;(browser.document.querySelector('#dd') as HTMLElement).click()
+  // 无动画环境（jsdom getComputedStyle animationName none）→ 立即 closed
+  await waitFor(() => browser.document.querySelector('.panel') === null)
+  assert.equal(browser.document.querySelector('.panel'), null, '无动画 → 立即移除（退场完成——sync presence 分支）')
+})
+
+test('observe useScrollPosition：rAF 节流（连续 scroll 合并一次渲染）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let renders = 0
+  const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+    const sc = (ctx.ui as { useScrollPosition: () => { y: number; x: number } }).useScrollPosition()
+    ;(ctx.ui as { afterRender?: (fn: () => void) => void }).afterRender?.(() => { renders++ })
+    return () => h('div', {}, h('span', { id: 'y' }, String(sc.y)))
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const win = browser.window as Window & { scrollY: number }
+  // jsdom scrollingElement 为 null（win 场景）——注入（测试环境）
+  Object.defineProperty(browser.document, 'scrollingElement', {
+    value: browser.document.documentElement, configurable: true,
+  })
+  // 连续两次 scroll（raf 节流——第二次合并——仅一次 requestRender）
+  ;(win as unknown as { scrollY: number }).scrollY = 100
+  ;(browser.document.scrollingElement as HTMLElement).scrollTop = 100
+  win.dispatchEvent(new browser.window.Event('scroll'))
+  win.dispatchEvent(new browser.window.Event('scroll'))
+  await new Promise((r) => setTimeout(r, 50))
+  await waitFor(() => browser.document.querySelector('#y')?.textContent === '100')
+  assert.equal(browser.document.querySelector('#y')?.textContent, '100', '滚动 → y 响应式（rAF 落地）')
+})
+
+test('useInView：IO 回调 isIntersecting 变化 → 重渲染 + el 缺失重试', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let observed: (entries: Array<{ isIntersecting: boolean }>) => void = () => {}
+  ;(browser.window as any).IntersectionObserver = class {
+    constructor(cb: (entries: Array<{ isIntersecting: boolean }>) => void) { observed = cb }
+    observe() {}
+    disconnect() {}
+  }
+  const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+    const io = (ctx.ui as { useInView: (o: object) => { isIn: boolean; ref: (el: HTMLElement | null) => void } }).useInView({})
+    return () => h('div', { ref: io.ref as never }, h('span', { id: 'in' }, io.isIn ? '可见' : '不可见'))
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.equal(browser.document.querySelector('#in')?.textContent, '不可见', '初始不可见')
+  observed([{ isIntersecting: true }])
+  await waitFor(() => browser.document.querySelector('#in')?.textContent === '可见')
+  assert.equal(browser.document.querySelector('#in')?.textContent, '可见', 'IO 回调 → 重渲染')
+  observed([{ isIntersecting: false }])
+  await waitFor(() => browser.document.querySelector('#in')?.textContent === '不可见')
+})
+
+test('useControlledInput：composition 门控（组合期 setValue 不触发 onChange）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const changes: string[] = []
+  const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+    const input = (ctx.ui as { useControlledInput: (o: object, n?: object) => {
+      keyword: string; setKeyword: (v: string) => void; isComposing: boolean;
+      onCompositionStart: () => void; onCompositionEnd: () => void
+    } }).useControlledInput({ value: '', onChange: (v: string) => changes.push(v) })
+    return () => h('div', {},
+      h('button', { id: 'cs', onClick: () => input.onCompositionStart() }, '组开始'),
+      h('button', { id: 'ce', onClick: () => input.onCompositionEnd() }, '组结束'),
+      h('button', { id: 'set', onClick: () => { input.setKeyword('中'); (input as never) } }, '设'),
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  ;(browser.document.querySelector('#cs') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  ;(browser.document.querySelector('#ce') as HTMLElement).click()
+  await new Promise((r) => setTimeout(r, 10))
+  assert.equal(changes.length, 0, 'composition 门控：仅方法调用无 onChange 触发（组合期由 input 事件驱动）')
+})
+
+test('useChat stop：AbortError 分支（stop → abort → idle——不置 error）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let controller: AbortController | null = null
+  ;(globalThis as any).fetch = async (_url: string, init: { signal?: AbortSignal }) => {
+    controller = new AbortController()
+    return new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+      // 永不 resolve（stop 场景）
+    })
+  }
+  try {
+    const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+      const chat = (ctx.ui as { useChat: (o: object) => { status: string; send: (t: string) => Promise<void>; stop: () => void } }).useChat({})
+      ;(ctx.ui as { useExternal: (s: unknown) => void }).useExternal(chat as never)
+      return () => h('div', {},
+        h('button', { id: 's', onClick: () => void chat.send('hi') }, '发'),
+        h('button', { id: 'stop', onClick: () => chat.stop() }, '停'),
+        h('span', { id: 'st' }, chat.status ?? 'idle'),
+      )
+    }
+    router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+    const serve = uiServe(router, { root: '#root', browser })
+    await serve.ready
+    ;(browser.document.querySelector('#s') as HTMLElement).click()
+    await waitFor(() => (browser.document.querySelector('#st')?.textContent ?? '') === 'streaming')
+    ;(browser.document.querySelector('#stop') as HTMLElement).click()
+    await waitFor(() => (browser.document.querySelector('#st')?.textContent ?? '') === 'idle')
+    assert.equal(browser.document.querySelector('#st')?.textContent, 'idle', 'stop → AbortError → idle（不置 error）')
+  } finally {
+    ;(globalThis as any).fetch = undefined
+  }
+})

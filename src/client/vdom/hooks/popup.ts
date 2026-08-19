@@ -66,7 +66,7 @@ export interface Popup {
 }
 
 /** 定位计算（锚点 rect → fixed 坐标——视口夹紧——0-rect 防护） */
-function computePos(
+export function computePos(
   el: HTMLElement, win: Window, panelW: number, panelH: number,
   placement: PopupPlacement, gap: number, margin: number, center: boolean,
 ): { top: number; left: number } | null {

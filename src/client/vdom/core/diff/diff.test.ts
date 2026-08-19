@@ -740,3 +740,20 @@ test('四层集成：build/diff/transform/patch 全职责——命令级验证',
   assert.ok(events.includes('un:pageA'), 'PageA 卸载')
   assert.ok(events.includes('un:item:a'), 'Item 卸载（keyed 实例清理）')
 })
+
+test('diffStream root 异态转换：元素 → 组件（transitionOf root 分支——完整转换）', async () => {
+  const hz = harness(testBrowser())
+  // 首帧：元素根
+  await hz.mount(h('div', { class: 'el' }, '元素'))
+  assert.ok(hz.root.querySelector('.el'), '首帧元素根')
+  const Comp = () => () => h('span', { class: 'comp' }, '组件')
+  // diff：元素 → 组件（异态——transform 完整转换——旧让位 + 新侧）
+  await hz.update(h('div', { class: 'el' }, '元素'), h(Comp, {}))
+  assert.equal(hz.root.querySelector('.el'), null, '旧元素移除（root 异态转换）')
+  assert.ok(hz.root.querySelector('.comp'), '新组件渲染')
+  assert.equal(hz.root.querySelector('.comp')?.textContent, '组件')
+  // 往返：组件 → 元素（可逆）
+  await hz.update(h(Comp, {}), h('div', { class: 'el2' }, '元素2'))
+  assert.ok(hz.root.querySelector('.el2'), '组件 → 元素（往返可逆）')
+  assert.equal(hz.root.querySelector('.comp'), null)
+})
