@@ -127,22 +127,6 @@ async function diffSlot(
     if (oldC !== newC) emitCommand({ op: 'setText', id: cid, value: String(newC) })
     return
   }
-  // 新项不存在（数组缩短）→ 移除（旧项是组件 → 先 unmount——onUnmounts 清理；
-  // 旧项是 portal → removePortal——浮层内容清理）
-  // **空洞 ↔ 空洞（null vs null——条件渲染保持）→ no-op**（不误删）
-  if (newC === null || newC === undefined) {
-    if (oldC === null || oldC === undefined || typeof oldC === 'boolean') return
-    const oldVn = oldC as VNode | null
-    if (oldVn && typeof oldVn.type === 'function') {
-      const compId = oldVn.key !== null ? `${parent}.k${oldVn.key}` : cid
-      emitCommand({ op: 'unmount', compId })
-    }
-    if (oldVn && isPortal(oldVn)) {
-      emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
-    }
-    emitCommand({ op: 'remove', id: cid })
-    return
-  }
   // 旧位是空洞（锚）→ 锚移除 + 新侧渲染
   if (oldC === null || oldC === undefined || typeof oldC === 'boolean') {
     emitCommand({ op: 'remove', id: cid })
@@ -300,6 +284,10 @@ export async function emitWithKey(
         if (oldOut !== undefined && oldOut !== null) {
           const t = transitionOf(stateOf(oldOut), 'hole')
           if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+        } else if (oldOut === undefined) {
+          // **新实例首帧输出 null——占位锚**（同构保持——build 路径由
+          // emit 分发器 hole case 建锚——此处内联 sink 必须等价——真实 bug）
+          emitHole(emitCommand, outId, p, r)
         }
         return
       }

@@ -60,40 +60,10 @@ export async function diffSame(
     }
     const oldOut = rec?.lastOutput
     const isNew = await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
-      const outId = pathId(p, i)
-      // **输出级转换（状态机统一——transform 完整转换）**：
-      //   vnode → null：element→hole（remove 旧 + 占位锚——wf-hole——同构保持）
-      //   null → vnode：hole→element（remove 锚 + 新侧渲染——X-G4 恢复）
-      if (out === null || out === undefined) {
-        if (oldOut !== undefined && oldOut !== null) {
-          const t = transitionOf(stateOf(oldOut), 'hole')
-          if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
-        }
-        // 旧输出已为 null（锚保持——no-op）
-        return
-      }
-      if (oldOut === null) {
-        const t = transitionOf('hole', stateOf(out))
-        if (t) await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
-        return
-      }
-      if (oldOut !== undefined && typeof oldV.type === 'function') {
-        if (!Array.isArray(oldOut) && !Array.isArray(out)) {
-          // 单节点输出对照（同实例——精准增量）
-          await diffSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
-        } else if (Array.isArray(oldOut) && Array.isArray(out)) {
-          // **数组输出对照**（隐式 Fragment——逐项 diffSlot——portal 关闭 →
-          // removePortal 清理——不做全量重建残留）
-          await diffChildrenItems(oldOut, out, p, emit, emitCommand, ctx, registry)
-        } else {
-          // **数组 ↔ 单节点**——transform 状态机（transitionFragment——
-          // 旧展开区间递归完整清理 + 新侧渲染）
-          const t = transitionOf(stateOf(oldOut), stateOf(out))
-          if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: pathId(p, i), newId: pathId(p, i), parent: p, index: i, ref: r })
-        }
-      } else {
-        await emit(out, p, i, r)
-      }
+      // **组件输出对照（中转——细节在 output.ts——单一实现源——
+      //  禁止内联双实现漂移）**：null↔vnode 转换/单节点对照/数组对照/
+      //  数组↔单节点 transform
+      await diffComponentOutput(oldOut, out, p, i, r, emit, emitCommand, ctx, registry, diffSame)
     })
     // **mount 指令（组件生命周期——初始化完成——仅新实例）**
     if (isNew) emitCommand({ op: 'mount', compId: id })

@@ -49,7 +49,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts' 'src/client/**/*.test.ts'",
     "release": "node scripts/release.mjs",
-    "release:dry": "node scripts/release.mjs --dry-run"
+    "release:dry": "node scripts/release.mjs --dry-run",
+    "test:cov:vdom": "node --env-file=.env --test --experimental-test-coverage --test-coverage-include-all --test-coverage-include='src/client/vdom/**' --test-coverage-exclude='node_modules/**' --test-timeout=8000 'src/client/vdom/**/*.test.ts'"
   },
   "dependencies": {
     "esbuild": "^0.28.1",

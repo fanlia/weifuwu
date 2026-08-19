@@ -20,7 +20,7 @@ import { pathId } from '../node/native.ts'
 import type { TransformContext, TransitionFn } from './index.ts'
 
 /** 子树递归移除（旧展开区间完整清理——数组/嵌套/元素逐项） */
-function removeChildTree(v: VNodeChild, id: string, ctx: TransformContext): void {
+export function removeChildTree(v: VNodeChild, id: string, ctx: TransformContext): void {
   if (v === null || v === undefined || typeof v === 'boolean') {
     ctx.emit({ op: 'remove', id })
     return

@@ -98,7 +98,10 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
   const handle: ChatHandle = {
     get state() { return state.messages },
     get messages() { return state.messages },
-    status: state.status,
+    // **getter（读最新）**：普通属性快照会在 mount 时固化 status——
+    // send/stop/reset/error 后 handle.status 永不更新——覆盖率抓出
+    // （messages 已是 getter——status 必须一致）
+    get status() { return state.status },
 
     subscribe(cb: () => void): () => void {
       state.subs.add(cb)
