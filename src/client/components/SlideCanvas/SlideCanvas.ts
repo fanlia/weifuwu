@@ -90,8 +90,10 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
       x: 120, y: 120, w: kind === 'text' ? 320 : 160, h: kind === 'text' ? 48 : 120,
       props: kind === 'text' ? { text: '双击编辑文本' } : { fill: '#dbeafe' },
     }
-    commit('添加形状', [{ type: 'shape-add', slide: activeSlide, shape }], deck)
+    // selected 在 commit 前设置（commit 内 ctx.render——渲染时已选中——
+    //  删除按钮 disabled 正确解除——渲染时机正确性——真实 bug）
     selected = id
+    commit('添加形状', [{ type: 'shape-add', slide: activeSlide, shape }], deck)
   }
   const deleteShape = (): void => {
     if (!selected) return
@@ -274,7 +276,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
           class: 'wf-slide-shape-edit',
           value: editing?.text ?? '',
           onInput: (e: Event) => { editing = { id: shape.id, text: (e.target as HTMLTextAreaElement).value } },
-          onBlur: () => { commitEdit() },
+          onFocusout: () => { commitEdit() }, // focusout 冒泡（blur 不冒泡——事件代理不可达）
           onKeyDown: (e: KeyboardEvent) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit() }
             if (e.key === 'Escape') { editing = null; ctx.render() }

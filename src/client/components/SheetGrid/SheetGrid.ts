@@ -236,7 +236,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
             class: 'wf-sheet-input',
             value: editing?.value ?? '',
             onInput: (e: Event) => { editing = { ref, value: (e.target as HTMLInputElement).value } },
-            onBlur: () => { commitEdit() },
+            onFocusout: () => { commitEdit() }, // focusout 冒泡（blur 不冒泡——事件代理不可达）
             onClick: (e: Event) => e.stopPropagation(),
           })
           : cellVal(ref)))

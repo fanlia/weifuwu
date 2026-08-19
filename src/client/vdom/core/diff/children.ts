@@ -254,13 +254,16 @@ export async function diffKeyedChildren(
       if (oldIdx === undefined) {
         // 新增项——新侧渲染（新实例——mount 指令）
         await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
-      } else if (oldIdx !== i) {
-        // **顺移（位置变化）——已 noMove remap（id 新）——只输出对照**
+      } else if (typeof (newC as VNode).type === 'function') {
+        // **组件项——emitWithKey（keyedId `.k{key}`——位置无关——实例复用——
+        //  lastOutput 对照——精准增量）**
         await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
-        void isShift
       } else {
-        // 位置不变——组件输出对照（精准增量）
-        await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
+        // **原生 keyed 项（旧存在——位置不变/顺移——noMove remap 后 id 已
+        //   更新）——精准对照（diffSame——属性变化走 diffAttrs——disabled
+        //   移除等——**非重建**——真实 bug：keyed 按钮 disabled 残留——
+        //   emit 幂等 create 只应用新 attrs——旧属性（disabled）残留）**
+        await diffSame(oldCs[oldIdx] as VNode, newC as VNode, parent, i, lastRef, emit, emitCommand, ctx, registry)
       }
     } else {
       // 无 key 项（混合数组）——重建

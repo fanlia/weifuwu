@@ -6,13 +6,32 @@ import { test, describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from '../../vdom/setup.ts'
 import { h } from '../../vdom/index.ts'
-import { mountToDom } from '../../vdom/testing.ts'
+import { mountToDom, patchToDom, createTestCtx } from '../../vdom/testing.ts'
 import { FilePreview, detectType } from './FilePreview.ts'
 import { editEvents, resetEditEvents } from '../Editor/edit-events.ts'
 
 before(setupJsdom)
 
 /** editable 默认预览模式——点击「编辑」切换（同一 DocState） */
+
+/** patch 驱动 mount（交互后 ctx.render → 真实 diff——createRoot 迁移模式） */
+async function mountPreview(root: HTMLElement, props: any, base: any = mkCtx()): Promise<{ ctx: any }> {
+  let renderFn: (() => any) | null = null
+  let prev: any = null
+  const ctx: any = { ...base, render: async () => { const next = await renderFn!(); await patchToDom(root, root.firstChild, prev, next, ctx); prev = next } }
+  const result = await FilePreview(props, ctx)
+  renderFn = () => result(props)
+  prev = await renderFn()
+  await mountToDom(root, prev, ctx)
+  return { ctx }
+}
+
+
+function mkCtx(): any {
+  return { render: async () => {}, onUnmount: () => {}, params: {}, query: {},
+    ui: { usePopup: () => ({ portal: () => null, setOpen: () => {}, refresh: () => {}, open: false, wrapProps: {} }) } }
+}
+
 async function switchToEdit(root: HTMLElement): Promise<void> {
   const btn = root.querySelector('.wf-filepreview-actions .wf-btn--ghost') as HTMLElement | null
   assert.ok(btn, '切换按钮存在')
@@ -29,13 +48,15 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
         createElement: (tag: string) => document.createElement(tag),
         bodyAppend: (el: HTMLElement) => document.body.appendChild(el),
       },
+      render: async () => {}, onUnmount: () => {}, params: {}, query: {},
+      data: { get: async () => undefined, set: () => {}, has: () => false },
       ui: { render: () => {}, usePopup: () => ({ portal: () => null, setOpen: () => {}, refresh: () => {}, open: false, wrapProps: {} }) },
     }
     const root = document.createElement('div')
     document.body.appendChild(root)
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'md', content: '# 复制测试', editable: true,
-    } as any), ctx)
+    } as any, ctx)
       await new Promise((r) => setTimeout(r, 30))
     const copyBtn = root.querySelector('[data-copy]') as HTMLElement
     assert.ok(copyBtn, '复制按钮存在')
@@ -208,12 +229,12 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     let saved: string | null = null
-    const handle = createRoot(h(FilePreview, {
+    await mountToDom(root, h(FilePreview, {
       type: 'md',
       content: '# 标题\n\n这是**粗体**段落',
       editable: true,
       onSave: (content: string) => { saved = content },
-    } as any), root)
+    } as any), createTestCtx())
       await new Promise((r) => setTimeout(r, 30))
     await switchToEdit(root)
     // Editor 渲染（contentEditable）
@@ -271,9 +292,8 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     // 404 → 错误占位
     const root2 = document.createElement('div')
     document.body.appendChild(root2)
-    const handle2 = createRoot(h(FilePreview, { type: 'md', url: '/missing.md' } as any), root2)
-    await handle2.ready
-    await new Promise((r) => setTimeout(r, 80))
+    await mountPreview(root2, { type: 'md', url: '/missing.md' } as any)
+      await new Promise((r) => setTimeout(r, 80))
     assert.ok(root2.querySelector('.wf-filepreview-error'), '错误占位')
     root2.remove()
   })
@@ -282,12 +302,12 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     let saved: string | null = null
-    const handle = createRoot(h(FilePreview, {
+    await mountToDom(root, h(FilePreview, {
       type: 'md',
       content: '| a | b |\n|---|---|\n| 1 | 2 |',
       editable: true,
       onSave: (v: string) => { saved = v },
-    } as any), root)
+    } as any), createTestCtx())
       await new Promise((r) => setTimeout(r, 30))
     await switchToEdit(root)
     const ed = root.querySelector('.wf-editor-content') as HTMLElement
@@ -310,10 +330,10 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     let saved: string | null = null
-    const handle = createRoot(h(FilePreview, {
+    await mountToDom(root, h(FilePreview, {
       type: 'md', url: '/doc/remote.md', editable: true,
       onSave: (v: string) => { saved = v },
-    } as any), root)
+    } as any), createTestCtx())
       await new Promise((r) => setTimeout(r, 80))
     await switchToEdit(root)
     const editable = root.querySelector('.wf-editor-content')
@@ -333,9 +353,8 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
 
     const root2 = document.createElement('div')
     document.body.appendChild(root2)
-    const handle2 = createRoot(h(FilePreview, { type: 'office' } as any), root2)
-    await handle2.ready
-    await new Promise((r) => setTimeout(r, 20))
+    await mountPreview(root2, { type: 'office' } as any)
+      await new Promise((r) => setTimeout(r, 20))
     assert.ok(root2.querySelector('.wf-filepreview-empty'), '缺 URL 占位')
     root2.remove()
   })

@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from '../../vdom/setup.ts'
 import { SlideCanvas } from './SlideCanvas.ts'
 import { h } from '../../vdom/index.ts'
-import { mountToDom } from '../../vdom/testing.ts'
+import { mountToDom, patchToDom } from '../../vdom/testing.ts'
 import { editEvents, resetEditEvents } from '../Editor/edit-events.ts'
 import type { DeckState } from '../OfficeEditor/model/types.ts'
 
@@ -31,11 +31,24 @@ const mkDeck = (): DeckState => ({
   size: { w: 960, h: 540 },
 })
 
+
+/** patch 驱动 mount（交互后 ctx.render → 真实 diff——createRoot 迁移模式） */
+async function mountCanvas(root: HTMLElement, props: any, base: any = mkCtx()): Promise<{ ctx: any }> {
+  let renderFn: (() => any) | null = null
+  let prev: any = null
+  const ctx: any = { ...base, render: async () => { const next = await renderFn!(); await patchToDom(root, root.firstChild, prev, next, ctx); prev = next } }
+  const result = await SlideCanvas(props, ctx)
+  renderFn = () => result(props)
+  prev = await renderFn()
+  await mountToDom(root, prev, ctx)
+  return { ctx }
+}
+
 function mkCtx(): any {
   return {
+    render: async () => {},
     i18n: {},
     ui: {
-      render: () => {},
       usePopup: () => ({
         portal: (content: any) => content,
         setOpen: () => {},
@@ -55,7 +68,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
+    await mountCanvas(root, { deck: mkDeck() } as any)
       await new Promise((r) => setTimeout(r, 30))
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
     shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true, cancelable: true }))
@@ -79,7 +92,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
+    await mountCanvas(root, { deck: mkDeck() } as any)
       await new Promise((r) => setTimeout(r, 30))
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
     shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true }))
@@ -103,7 +116,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
       'event: wf:token\ndata: {"text":"润色后"}\n\nevent: wf:done\ndata: {"content":"润色后"}\n\n',
       { headers: { 'content-type': 'text/event-stream' } },
     )
-    const handle = createRoot(h(SlideCanvas, { deck: mkDeck(), ai: { url: '/api/ai' } } as any), root, { ctx: mkCtx() })
+    await mountCanvas(root, { deck: mkDeck(), ai: { url: '/api/ai' } } as any)
       await new Promise((r) => setTimeout(r, 30))
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
     shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true }))
@@ -127,7 +140,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
   test('渲染：幻灯片标签 + shape 几何/文本/层叠', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
+    await mountCanvas(root, { deck: mkDeck() } as any)
       await new Promise((r) => setTimeout(r, 30))
     const tabs = Array.from(root.querySelectorAll('.wf-slide-tab')).map((t) => t.textContent)
     assert.deepEqual(tabs, ['幻灯片 1', '幻灯片 2'], '幻灯片标签')
@@ -143,7 +156,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
+    await mountCanvas(root, { deck: mkDeck() } as any)
       await new Promise((r) => setTimeout(r, 30))
     // 添加文本
     const addText = Array.from(root.querySelectorAll('.wf-slide-toolbar button')).find((b) => (b as HTMLElement).textContent === '文本') as HTMLElement
@@ -169,7 +182,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
+    await mountCanvas(root, { deck: mkDeck() } as any)
       await new Promise((r) => setTimeout(r, 30))
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
     // pointerdown（move）→ pointermove（拖 50,30）→ pointerup
@@ -201,7 +214,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
       'event: wf:token\ndata: {"text":"润色后的标题"}\n\nevent: wf:done\ndata: {"content":"润色后的标题"}\n\n',
       { headers: { 'content-type': 'text/event-stream' } },
     )
-    const handle = createRoot(h(SlideCanvas, { deck: mkDeck(), ai: { url: '/api/ai' } } as any), root, { ctx })
+    await mountCanvas(root, { deck: mkDeck(), ai: { url: '/api/ai' } } as any, ctx)
       await new Promise((r) => setTimeout(r, 30))
     // 选中 shape（pointerdown 即可选中）
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
@@ -236,7 +249,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
+    await mountCanvas(root, { deck: mkDeck() } as any)
       await new Promise((r) => setTimeout(r, 30))
     const addSlide = Array.from(root.querySelectorAll('.wf-slide-toolbar button')).find((b) => (b as HTMLElement).textContent === '+ 页') as HTMLElement
     addSlide.click()

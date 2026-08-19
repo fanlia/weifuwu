@@ -85,6 +85,7 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
     await mountGrid(root, { workbook: mkWorkbook() } as any)
       await new Promise((r) => setTimeout(r, 30))
     ;(root.querySelector('tbody td:nth-child(2)') as HTMLElement).click() // A1 激活
+    await new Promise((r) => setTimeout(r, 20))
     const delRow = Array.from(root.querySelectorAll('.wf-sheet-tools button'))[1] as HTMLElement // 删除行
     delRow.click()
     await new Promise((r) => setTimeout(r, 30))
@@ -131,7 +132,8 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
     const aiBtn = Array.from(root.querySelectorAll('.wf-sheet-tools button')).find((b) => (b as HTMLElement).textContent === 'AI 公式') as HTMLElement
     aiBtn.click()
     await new Promise((r) => setTimeout(r, 200))
-    const reject = document.querySelector('#__wf_portal .wf-btn--ghost') as HTMLElement
+    // mock portal 直接内容（不产生 #__wf_portal 容器）——查 root 内浮层
+    const reject = root.querySelector('.wf-sheet-ai-panel .wf-btn--ghost') as HTMLElement
     reject?.click()
     await new Promise((r) => setTimeout(r, 50))
     const office = editEvents(20, { action: 'office' })
@@ -196,9 +198,10 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
     document.body.appendChild(root)
     await mountGrid(root, { workbook: mkWorkbook() } as any)
       await new Promise((r) => setTimeout(r, 30))
-    // 点 A1 → 插入行
+    // 点 A1 → 插入行（click 间 await——patch 顺序——避免渲染竞态）
     const a1 = root.querySelector('tbody td') as HTMLElement
     a1.click()
+    await new Promise((r) => setTimeout(r, 20))
     const btns = Array.from(root.querySelectorAll('.wf-sheet-tools button')).map((b) => (b as HTMLElement).textContent)
     const insertBtn = Array.from(root.querySelectorAll('.wf-sheet-tools button'))[0] as HTMLElement
     insertBtn.click()
@@ -243,10 +246,10 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
     aiBtn.click()
     await new Promise((r) => setTimeout(r, 50))
     await new Promise((r) => setTimeout(r, 300))
-    // 浮层 + 接受（usePopup portal → #__wf_portal——§5.4 弹窗纪律）
+    // 浮层 + 接受（mock portal 直接内容——root 内——真实引擎 #__wf_portal）
     assert.ok(fetchCalled > 0, `aiStream fetch 调用（${fetchCalled}）`)
-    const panel = document.querySelector('#__wf_portal .wf-sheet-ai-panel') as HTMLElement
-    assert.ok(panel, 'AI 建议浮层（portal 容器内）')
+    const panel = root.querySelector('.wf-sheet-ai-panel') as HTMLElement
+    assert.ok(panel, 'AI 建议浮层')
     const acceptBtn = panel.querySelector('.wf-btn--primary') as HTMLElement
     acceptBtn.click()
     await new Promise((r) => setTimeout(r, 50))

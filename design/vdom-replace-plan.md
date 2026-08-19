@@ -128,14 +128,16 @@
 
 ## P5 遗留（登记——2026-XX 提交时）
 
-1. **SheetGrid/SlideCanvas/FilePreview/editor-flow 深交互测试（28 个）**：
-   createRoot 交互迁移（patch 驱动 ctx）——SheetGrid 大部分已迁移
-   （mountGrid helper）——剩余「编辑/增删/AI 公式」的 blur 提交/浮层
-   交互断言——每个都是深交互链路（单元格编辑 → cell-set op 审计）——
-   逐一定位中
-2. **keyed 按钮重建 disabled 残留**（Editor 重试按钮——vdom diff 边界）：
-   组件 vnode 无 disabled 但 DOM 残留——测试已适配绕过——专项排查
-3. **ref 时序修复**（renderNative children 后触发——Editor innerHTML
-   初始化依赖）+ **innerHTML property 通道修复**（create attrs setAttribute
-   不生效——真实 bug）+ **mountToDom 透传 ctx 修复**（真实 bug）——
-   本提交已修——全量验证中
+1. **SheetGrid 8 全绿 ✅**（onFocusout 提交/click await/portal 查询适配）
+2. **Editor AI 9 全绿 ✅**（diffKeyedChildren 精准对照修复后——适配撤销）
+3. **keyed 按钮 disabled 残留 ✅ 已修**（真实 bug）：diffKeyedChildren
+   的原生 keyed 旧项走 emit（幂等 create 只应用新 attrs——旧 disabled
+   残留）——改精准对照（diffSame——diffAttrs 移除）——Editor 重试 +
+   SlideCanvas 删除按钮双实例验证
+4. **SlideCanvas selected 渲染时机 ✅ 已修**（真实 bug）：selected = id
+   在 commit（含 ctx.render）后——渲染看不到选中态（删除按钮 disabled
+   残留）——移到 commit 前
+5. **剩余（约 15 个）**：FilePreview（编辑模式切换/xlsx/远程加载/Ctrl+S）
+   + SlideCanvas（幻灯片增删/拖拽/双击编辑/AI 浮层）+ editor-flow——
+   同一模式（手写 ctx render no-op → patch 驱动 mount helper 改造中——
+   FilePreview 已加 mountPreview helper）——逐文件继续
