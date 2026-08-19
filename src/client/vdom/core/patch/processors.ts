@@ -69,15 +69,22 @@ export function procCreateAnchor(applier: CommandApplier, cmd: Extract<Command, 
   }
 }
 
-/** insert 处理器（挂载——ref 查表触发） */
+/** insert 处理器（挂载——ref 查表触发）
+ *  **ref=null 语义 = 容器头部**（diff 逐槽对照首项/新增首项——位置 0
+ *  ——append 会把位置 0 的新项追加到末尾——错位——真实 bug） */
 export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 'insert' }>): void {
   const el = applier.nodes.get(cmd.id)
   if (!el) return
   if (el.isConnected) return
   const parent = applier.parentOf(cmd)
   if (!parent) return
-  const prev = cmd.ref ? (applier.nodes.get(cmd.ref) ?? null) : null
-  parent.insertBefore(el, prev ? prev.nextSibling : null)
+  if (cmd.ref) {
+    const prev = applier.nodes.get(cmd.ref) ?? null
+    parent.insertBefore(el, prev ? prev.nextSibling : parent.firstChild)
+  } else {
+    // 容器头部（空容器 = append——等价）
+    parent.insertBefore(el, parent.firstChild)
+  }
   if (el.nodeType === 1) applier.refRegistry.mount(cmd.id, el as HTMLElement)
 }
 

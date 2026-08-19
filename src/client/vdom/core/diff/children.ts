@@ -17,6 +17,7 @@ import { transitionOf } from '../transform/table.ts'
 import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed } from '../node/keyed.ts'
 import { isPortal } from '../node/portal.ts'
 import { pathId } from '../node/native.ts'
+import { emitHole } from '../node/hole.ts'
 import { renderComponent, type ComponentRegistry } from '../node/component.ts'
 import type { Command } from '../command/index.ts'
 import type { RenderSink } from '../build.ts'
@@ -34,7 +35,11 @@ export async function diffChildren(
 ): Promise<void> {
   const oldCs = childrenOf(oldV)
   const newCs = childrenOf(newV)
-  await diffChildrenItems(oldCs, newCs, id, emit, emitCommand, ctx, registry)
+  // **数组 ↔ 单节点形态转换豁免 A 级检测**：childrenOf 递归展开后长度
+  // 变化（单节点展开 2 项 vs 原 1 项）——但这是同一槽的**形态转换**（非
+  // 列表增删）——warn 误报——豁免：原始 props.children 一侧数组一侧非数组
+  const shapeChanged = Array.isArray(oldV.props.children) !== Array.isArray(newV.props.children)
+  await diffChildrenItems(oldCs, newCs, id, emit, emitCommand, ctx, registry, shapeChanged)
 }
 
 /** children 项对照（列表分类：全 unkeyed 位置身份 / 全 keyed 身份复用 / 混合——
@@ -44,10 +49,12 @@ export async function diffChildrenItems(
   id: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void,
   ctx: UIContext, registry: ComponentRegistry,
+  shapeChanged = false,
 ): Promise<void> {
   // A 级检测（长度变化 + 无 key 组件项 → warn 引导声明 key——
-  // 无 key = 位置身份——长度变化时有状态组件位置继承漂移）
-  if (oldCs.length !== newCs.length) {
+  // 无 key = 位置身份——长度变化时有状态组件位置继承漂移——
+  // **豁免**：数组 ↔ 单节点形态转换（shapeChanged——非列表增删））
+  if (oldCs.length !== newCs.length && !shapeChanged) {
     detectMissingKey(newCs, `children（长度 ${oldCs.length} → ${newCs.length}）`)
   }
   // 全 keyed：身份映射复用（增删/重排——状态跟随 key）
@@ -63,14 +70,45 @@ export async function diffChildrenItems(
   }
   // 全 unkeyed：位置身份对照（混合数组——无 key 项位置接管）
   let lastRef: string | null = null
-  const maxLen = Math.max(oldCs.length, newCs.length)
-  for (let i = 0; i < maxLen; i++) {
+  const minLen = Math.min(oldCs.length, newCs.length)
+  for (let i = 0; i < minLen; i++) {
     const oldC = oldCs[i] ?? null
     const newC = newCs[i] ?? null
     const cid = pathId(id, i)
-    await diffSlot(oldC, newC, id, i, lastRef, cid, emit, emitCommand, ctx, registry)
+    if (newC === null || newC === undefined) {
+      // **占位（空洞保持——同构不变量）**：数组长度不变但该项为 null
+      // （条件渲染元素/组件/浮层关闭）——旧项移除（unmount/removePortal/
+      // remove）+ **占位锚**——childNodes 长度恒定（不塌缩）
+      // null ↔ null：no-op（锚已在 DOM——保持——不重建）
+      if (oldC !== null && oldC !== undefined && typeof oldC !== 'boolean') {
+        await removeOldSlot(oldC, id, cid, emitCommand)
+        emitHole(emitCommand, cid, id, lastRef)
+      }
+    } else {
+      await diffSlot(oldC, newC, id, i, lastRef, cid, emit, emitCommand, ctx, registry)
+    }
     lastRef = cid
   }
+  // 尾部缩短（数组变短——remove——**不发锚**——数组长度变化本身即同构）
+  for (let i = newCs.length; i < oldCs.length; i++) {
+    await removeOldSlot(oldCs[i]!, id, pathId(id, i), emitCommand)
+  }
+}
+
+/** 旧槽移除（unmount/removePortal/remove——占位/尾部缩短共用） */
+async function removeOldSlot(
+  oldC: VNodeChild, parent: string, cid: string, emitCommand: (cmd: Command) => void,
+): Promise<void> {
+  if (oldC === null || oldC === undefined || typeof oldC === 'boolean') return
+  const oldVn = oldC as VNode | null
+  if (oldVn && typeof oldVn.type === 'function') {
+    const compId = oldVn.key !== null ? `${parent}.k${oldVn.key}` : cid
+    emitCommand({ op: 'unmount', compId })
+  }
+  if (oldVn && isPortal(oldVn)) {
+    emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
+  }
+  emitCommand({ op: 'remove', id: cid })
 }
 
 /** 单槽对照（unkeyed 位置身份——文本/插入/移除/同态递归/异类型转换） */
@@ -165,7 +203,10 @@ export async function diffKeyedChildren(
   //    - **相对顺序变化**（交换/循环移位——move id 空间重叠）→ 整块重建
   //      （实例复用——状态保持）
   const keptOld: Array<string | null> = oldCs.map((c) => keyOf(c)).filter((k): k is string => k !== null && newKeys.has(k))
-  const keptNew: Array<string | null> = newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null)
+  // **顺序检测只比较新旧共有的 key**（新增/移除不参与——否则增项/删项
+  // 被误判冲突重建——remove 全部 + 重建——非组件项引用丢失/焦点丢失——
+  // diff 本质受损——真实 bug）
+  const keptNew: Array<string | null> = newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null && oldIdxByKey.has(k))
   let subseq = true
   {
     let p = 0

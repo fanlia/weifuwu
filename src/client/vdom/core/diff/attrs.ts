@@ -26,7 +26,6 @@ export function diffAttrs(
   for (const [k, v] of Object.entries(newV.props)) {
     if (k === 'children' || k === 'key') continue
     if (typeof v === 'function' && oldV.props[k] !== v) {
-      console.log('[attrs-dbg] fn change:', id, k)
       emitCommand({ op: 'setProp', id, key: k, value: v, prev: oldV.props[k] })
     }
   }
