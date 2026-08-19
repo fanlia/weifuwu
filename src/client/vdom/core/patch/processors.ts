@@ -154,12 +154,13 @@ export function procUnmount(applier: CommandApplier, cmd: Extract<Command, { op:
   if (applier.registry) disposeComponent(cmd.compId, applier.registry)
 }
 
-/** removePortal 处理器（浮层容器清理） */
+/** removePortal 处理器（浮层容器清理——**容器移除**——#__wf_portal 下
+ *  无残留空容器——同 key 重开惰性重建） */
 export function procRemovePortal(applier: CommandApplier, cmd: Extract<Command, { op: 'removePortal' }>): void {
   const container = applier.portalContainers.get(cmd.key)
   if (container) {
     applier.clearNodeRefs(PORTAL_ID_PREFIX + cmd.key)
-    container.innerHTML = ''
+    container.remove()
   }
   applier.portalContainers.delete(cmd.key)
 }

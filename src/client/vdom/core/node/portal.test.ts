@@ -92,3 +92,45 @@ test('portal 容器按 key 区分（同组件多弹层隔离）', async () => {
   assert.equal(a?.parentElement?.id, `${PORTAL_CONTAINER_ID}-menu`)
   assert.equal(b?.parentElement?.id, `${PORTAL_CONTAINER_ID}-tooltip`)
 })
+
+test('portal 同 key 内容更新：精准对照到 portal 容器（插槽锚保持——不重建）', async () => {
+  const browser = testBrowser()
+  const doc = browser.document
+  const root = doc.createElement('div')
+  doc.body.appendChild(root)
+  const applier = new CommandApplier(root, doc)
+  // 首帧：portal 内容 'a'（id portal:dd.0）
+  applier.apply({ op: 'create', id: 'root.0', tag: 'div', attrs: {} })
+  applier.apply({ op: 'insert', id: 'root.0', parent: 'root', ref: null })
+  applier.apply({ op: 'createAnchor', id: 'root.0.0', detail: 'portal' })
+  applier.apply({ op: 'insert', id: 'root.0.0', parent: 'root.0', ref: null })
+  applier.apply({ op: 'createText', id: 'portal:dd.0', value: 'a' })
+  applier.apply({ op: 'insert', id: 'portal:dd.0', parent: 'portal:dd', ref: null })
+  // 更新：内容 'a' → 'b'（同 key——diff 精准——setText 不重建）
+  applier.apply({ op: 'setText', id: 'portal:dd.0', value: 'b' })
+  assert.equal(doc.querySelector('#__wf_portal-dd')?.textContent, 'b', '同 key 内容更新（就地 setText）')
+  assert.equal(root.querySelector('#root\\.0\\.0'), null, '插槽锚在主树（不在 portal 容器）')
+})
+
+test('portal 异 key 切换：旧容器清理（removePortal——无残留）+ 新容器渲染', async () => {
+  const browser = testBrowser()
+  const doc = browser.document
+  const root = doc.createElement('div')
+  doc.body.appendChild(root)
+  const applier = new CommandApplier(root, doc)
+  // 首帧：portal 'a'（内容 'old'）
+  applier.apply({ op: 'create', id: 'root.0', tag: 'div', attrs: {} })
+  applier.apply({ op: 'insert', id: 'root.0', parent: 'root', ref: null })
+  applier.apply({ op: 'createAnchor', id: 'root.0.0', detail: 'portal' })
+  applier.apply({ op: 'insert', id: 'root.0.0', parent: 'root.0', ref: null })
+  applier.apply({ op: 'createText', id: 'portal:a.0', value: 'old' })
+  applier.apply({ op: 'insert', id: 'portal:a.0', parent: 'portal:a', ref: null })
+  assert.equal(doc.querySelector('#__wf_portal-a')?.textContent, 'old')
+  // 异 key 切换：portal 'b'——旧容器 removePortal 清理
+  applier.apply({ op: 'removePortal', key: 'a' })
+  assert.equal(doc.querySelector('#__wf_portal-a'), null, '旧容器移除（无残留）')
+  applier.apply({ op: 'createText', id: 'portal:b.0', value: 'new' })
+  applier.apply({ op: 'insert', id: 'portal:b.0', parent: 'portal:b', ref: null })
+  assert.equal(doc.querySelector('#__wf_portal-b')?.textContent, 'new', '新容器渲染')
+  assert.equal(doc.querySelectorAll('#__wf_portal > div').length, 1, '仅新容器（旧容器已清）')
+})
