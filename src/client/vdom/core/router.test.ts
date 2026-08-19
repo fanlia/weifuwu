@@ -78,3 +78,19 @@ test('params 每次渲染替换（不残留旧路由键）', async () => {
   await router.resolve(frontRequest('/'), c)
   assert.deepEqual(c.params, {}, '无参路由 params 清空（不残留）')
 })
+
+test('query 注入 ctx（对齐后端 Object.fromEntries(searchParams)）', async () => {
+  const router = new UIRouter()
+  let seen: Record<string, string> | null = null
+  router.get('/search', (req, c) => {
+    seen = c.query ?? null
+    return new Response('ok')
+  })
+  const c = ctx()
+  await router.resolve(frontRequest('/search?q=vdom&page=2'), c)
+  assert.deepEqual(seen, { q: 'vdom', page: '2' }, 'query 解析到 ctx')
+  assert.equal(c.query?.q, 'vdom', '调用方 ctx 同步')
+  // 无 query 路由——替换为空（不残留旧 query）
+  await router.resolve(frontRequest('/search'), c)
+  assert.deepEqual(c.query, {}, '无 query 时清空（不残留）')
+})

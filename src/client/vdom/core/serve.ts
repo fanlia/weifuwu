@@ -15,7 +15,7 @@
  * TransformStream 流式吐 HTML）后续实现。
  */
 
-import { UIRouter, frontRequest, type FrontRequest } from './router.ts'
+import { UIRouter, frontRequest } from './router.ts'
 import { commandToHtml, htmlDocument } from './html.ts'
 import { CommandApplier } from './patch/index.ts'
 import { renderToStream } from './build.ts'
@@ -75,10 +75,17 @@ export function encodeCommands(
   fnTable: Map<number, unknown>,
 ): ReadableStream<Uint8Array> {
   const enc = new TextEncoder()
+  // 函数 → 序号（WeakMap——同函数流内复用同序号——减少重复条目；
+  // 渲染流消费完清表（fnTable.clear()——历史函数已解码到事件表——
+  // $fn 仅传输层——跨流不需要——长会话零累积））
+  const fnToId = new WeakMap<object, number>()
   const mark = (k: string, v: unknown): unknown => {
     if (typeof v === 'function') {
-      const n = fnTable.size + 1 // 只增不减——序号单调（多次 render 不冲突）
+      const known = fnToId.get(v as object)
+      if (known !== undefined) return { $fn: known }
+      const n = fnTable.size + 1
       fnTable.set(n, v)
+      fnToId.set(v as object, n)
       return { $fn: n }
     }
     return v
@@ -143,23 +150,34 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
    *  每次渲染完成 → shift 取队头继续——直到队列空——**确定性**：
    *  每个渲染请求最终执行（FIFO——先触发先执行——无丢失无合并歧义） */
   let rendering = false
-  let queue: FrontRequest[] = []
+  let queue: Request[] = []
   let drainPromise: Promise<void> | null = null
 
   /** 渲染循环（ctx.render 同 URL 重渲染 / navigate 新 URL——同一机制）
    *  **队列确定性**：渲染中触发 → push 入队（FIFO）——当前渲染完成 →
    *  shift 取队头继续——直到队列空；渲染中 await 返回 drainPromise
-   *  （精确等待全部队列执行完——含后续入队的渲染） */
+   *  （精确等待全部队列执行完——含后续入队的渲染）
+   *  **redirect 消费**：handler 返回 3xx + Location → replaceState（重定向
+   *  语义——不 push 历史）+ 渲染目标 URL（不渲染空响应）
+   *  **错误传播**：工厂 reject → 本轮渲染中断（console.error——CS-03——
+   *  事件回调不 throw）——**队列继续**（下一个渲染目标自愈——不丢弃） */
   /** afterRender 队列（渲染完成信号——hook 注册等挂载后动作） */
   let afterRenderFns: Array<() => void> = []
 
-  const runRender = async (initial: FrontRequest): Promise<void> => {
+  const runRender = async (initial: Request): Promise<void> => {
     let target = initial
     rendering = true
     try {
       while (true) {
         req = target
         const res = await router.resolve(req, ctx)
+        // **redirect 消费（3xx + Location → replaceState + 渲染目标）**
+        const loc = res.headers.get('Location')
+        if (res.status >= 300 && res.status < 400 && loc) {
+          win.history.replaceState({}, '', loc)
+          target = frontRequest(loc)
+          continue // 不渲染空响应——直接渲染目标 URL
+        }
         if (res.body) {
           for await (const cmd of commandReader(res.body.getReader(), fnTable)) {
             applier.apply(cmd)
@@ -172,6 +190,14 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
           break
         }
       }
+    } catch (e) {
+      // 渲染错误（组件工厂 reject / 流消费异常）——中断本轮——队列继续
+      // **影子树重置**：ReadableStream start reject 会丢弃已缓冲命令——
+      // DOM 与影子树不一致——后续 diff 全部 no-op（静默失效）——
+      // 重置后下次渲染走全量 build（create 幂等/insert 幂等/done.full
+      // 清理——自愈完整）
+      currentTree = null
+      console.error('[vdom] render:', e)
     } finally {
       // **渲染完成信号**：flush afterRender（hook 注册——元素已挂载）
       const fns = afterRenderFns
@@ -179,10 +205,13 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
       for (const fn of fns) { try { fn() } catch (e) { console.error('[vdom] afterRender:', e) } }
       rendering = false
       drainPromise = null
+      // **函数表清理**：$fn 仅传输层（历史函数已解码到事件表/ref 表——
+      // 跨流不需要）——消费完即清——长会话零累积
+      fnTable.clear()
     }
   }
 
-  const render = (target: FrontRequest): Promise<void> => {
+  const render = (target: Request): Promise<void> => {
     if (rendering && drainPromise) {
       // 渲染中触发 → push 入队（确定性：每个请求最终执行）
       queue.push(target)

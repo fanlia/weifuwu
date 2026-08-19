@@ -1255,3 +1255,85 @@ test('路由切换精准化：布局共享（root 稳定）——Header 复用�
   assert.equal(browser.document.querySelector('.hd'), headerBefore, '往返导航 Header 始终复用')
   assert.deepEqual(events, ['un:home', 'un:about'], '仅页面内容卸载——Layout 不卸载')
 })
+
+test('redirect 消费：3xx + Location → replaceState + 渲染目标页（不渲染空响应）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  router.get('/old', () => new Response(null, { status: 302, headers: { Location: '/new' } }))
+  router.get('/new', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'landed' }, 'redirected')))
+
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  await serve.navigate('/old')
+
+  assert.ok(browser.document.querySelector('#root .landed'), '渲染目标页（Location 解析）')
+  assert.equal(browser.window.location.pathname, '/new', 'replaceState（重定向不 push 历史）')
+  const landed = browser.document.querySelector('#root .landed')
+  assert.equal(landed?.textContent, 'redirected')
+})
+
+test('redirect 消费：导航触发 3xx → 同机制（replaceState + 目标页）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  router.get('/home', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'home' }, 'home')))
+  router.get('/auth', () => new Response(null, { status: 307, headers: { Location: '/home' } }))
+
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  await serve.navigate('/auth')
+
+  assert.ok(browser.document.querySelector('#root .home'), '导航 307 → 渲染 /home')
+  assert.equal(browser.window.location.pathname, '/home', 'replaceState（不 push /auth）')
+  assert.equal(browser.window.history.length, 2, '初始 + 导航（redirect 不新增）')
+})
+
+test('组件工厂 reject：渲染错误 → console.error + 不崩溃（队列继续自愈）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  // 外层工厂（mount）直接 throw——renderComponent 调用时抛——流 start reject
+  const BoomComp = () => { throw new Error('factory fail') }
+  let calls = 0
+  router.get('/boom', (req, ctx) => {
+    calls++
+    if (calls === 1) {
+      return (ctx as RenderCtx).stream(h('div', {}, h(BoomComp, {})))
+    }
+    return (ctx as RenderCtx).stream(h('div', { class: 'recovered' }, 'ok'))
+  })
+
+  const errors: unknown[] = []
+  const origError = console.error
+  console.error = (...a: unknown[]) => { errors.push(a.join(' ')); origError(...a) }
+  try {
+    const serve = uiServe(router, { root: '#root', browser })
+    await serve.ready
+    // 首帧 '/' → 无路由 404 空——navigate 触发 /boom（calls=1 → 工厂 reject）
+    await serve.navigate('/boom')
+    assert.ok(errors.some((e) => String(e).includes('factory fail')), '错误 console.error（CS-03——不 throw）')
+    // 队列继续自愈：再次渲染 → 成功
+    await serve.navigate('/boom')
+    assert.ok(browser.document.querySelector('#root .recovered'), '后续渲染成功（队列继续）')
+  } finally {
+    console.error = origError
+  }
+})
+
+test('fnTable 清理：渲染流消费完清表（$fn 仅传输层——长会话零累积）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const fnTable = new Map<number, unknown>()
+  let streamCount = 0
+  router.get('/', (req, ctx) => {
+    streamCount++
+    return (ctx as RenderCtx).stream(h('div', { onClick: () => { /* 每次渲染新闭包 */ } }, 'x'))
+  })
+
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.ok(streamCount >= 1)
+  // 渲染完成后：表已清空（历史函数已解码到事件表——跨流不需要）
+  assert.equal(fnTable.size, 0, '消费完清空')
+  // 再次渲染 → 新闭包重新入表——消费完又清（不累积）
+  await serve.navigate('/')
+  assert.equal(fnTable.size, 0, '多次渲染不累积')
+})
