@@ -243,37 +243,59 @@ function hasKeyed(items: VNodeChild[]): boolean {
   return items.some(isKeyed)
 }
 
-/** keyed 列表对照（身份映射——planKeyedDiff——增删/重排状态跟随 key）
- *  首版：整块重建 + 组件实例复用（.k{key}——工厂不重跑——状态保持——
- *  DOM 重建；位置保持项 diffSame 精准/移动节点 move 为后续优化——已知限制） */
+/** keyed 列表对照（身份映射——增删/重排状态跟随 key）
+ *  **move 版**（2026-12）：复用项位置变化 → **move 命令**（DOM 不重建——
+ *  节点移动 + 子树 id 重映射——焦点保持）；位置不变 → 组件输出对照（精准）；
+ *  真移除 → unmount + remove；新增 → 新侧渲染 */
 async function diffKeyedChildren(
   oldCs: VNodeChild[], newCs: VNodeChild[], parent: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void,
   ctx: Ctx, registry: ComponentRegistry,
 ): Promise<void> {
-  // 1. **真移除项卸载**（不在新列表的 key → unmount——onUnmounts 清理；
-  //   复用项不 unmount——实例保持——状态跟随 key）——全部旧节点 remove（重建）
+  // 旧 key → 旧索引（身份映射）
+  const oldIdxByKey = new Map<string, number>()
+  oldCs.forEach((c, i) => { const k = keyOf(c); if (k !== null) oldIdxByKey.set(k, i) })
   const newKeys = new Set(newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null))
-  oldCs.forEach((oldC, i) => {
-    const k = keyOf(oldC)
-    if (k !== null && !newKeys.has(k)) emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
-    emitCommand({ op: 'remove', id: pathId(parent, i) })
-  })
-  // 2. 按新顺序渲染（组件复用——工厂不重跑——输出全量）
+
+  // 1. **真移除**（不在新列表——unmount（组件）+ remove）
+  for (const [k, oldIdx] of oldIdxByKey) {
+    if (!newKeys.has(k)) {
+      if (typeof (oldCs[oldIdx] as VNode).type === 'function') {
+        emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
+      }
+      emitCommand({ op: 'remove', id: pathId(parent, oldIdx) })
+    }
+  }
+
+  // 2. 按新顺序：move（复用项位置变化）/ 输出对照（位置不变）/ 新增
   let lastRef: string | null = null
   for (let i = 0; i < newCs.length; i++) {
     const newC = newCs[i]
     const k = keyOf(newC)
-    if (k !== null && typeof (newC as VNode).type === 'function') {
-      await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
+    const cid = pathId(parent, i)
+    if (k !== null) {
+      const oldIdx = oldIdxByKey.get(k)
+      if (oldIdx === undefined) {
+        // 新增项——新侧渲染（新实例——mount 指令）
+        await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
+      } else if (oldIdx !== i) {
+        // **复用项位置变化 → move**（节点移动——DOM 不重建——子树重映射）
+        emitCommand({ op: 'move', id: pathId(parent, oldIdx), parent, ref: lastRef, newId: cid, first: i === 0 })
+        await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
+      } else {
+        // 位置不变——组件输出对照（精准增量）
+        await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
+      }
     } else {
+      // 无 key 项（混合数组）——重建
       await emit(newC, parent, i, lastRef)
     }
-    lastRef = pathId(parent, i)
+    lastRef = cid
   }
 }
 
-/** keyed 项渲染（compId = 位置路径 + .k{key}——身份稳定——增删/重排复用） */
+/** keyed 项渲染（compId = 位置路径 + .k{key}——身份稳定——增删/重排复用）
+ *  组件输出对照（lastOutput → diffSame 精准——move 后节点已在新位置） */
 async function emitWithKey(
   v: VNodeChild, parent: string, index: number, ref: string | null, key: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void, ctx: Ctx, registry: ComponentRegistry,
@@ -282,8 +304,31 @@ async function emitWithKey(
   if (typeof vn.type === 'function') {
     // 组件：keyed compId（`{parent}.k{key}`——**位置无关**——增删/重排复用）
     const keyedId = `${parent}.k${key}`
-    const isNew = !registry.get(keyedId)
-    await renderComponent(vn, parent, index, ref, keyedId, ctx, registry, emit)
+    const rec = registry.get(keyedId)
+    const oldOut = rec?.lastOutput
+    const isNew = !rec
+    await renderComponent(vn, parent, index, ref, keyedId, ctx, registry, async (out, p, i, r) => {
+      const outId = pathId(p, i)
+      // 输出级空值转换（x => null——占位锚替换——同构保持）
+      if (out === null || out === undefined) {
+        if (oldOut !== undefined && oldOut !== null) {
+          const t = transitionOf(stateOf(oldOut), 'hole')
+          if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+        }
+        return
+      }
+      if (oldOut === null) {
+        const t = transitionOf('hole', stateOf(out))
+        if (t) await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+        return
+      }
+      if (oldOut !== undefined && !Array.isArray(oldOut) && !Array.isArray(out)) {
+        // 上次输出对照（同实例——精准增量）
+        await diffSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
+      } else {
+        await emit(out, p, i, r)
+      }
+    })
     // **mount 指令（新实例——初始化完成）**
     if (isNew) emitCommand({ op: 'mount', compId: keyedId })
     return

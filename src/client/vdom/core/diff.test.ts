@@ -456,3 +456,57 @@ test('混合数组：keyed 项身份复用（状态跟随 key）+ 无 key 项重
   assert.ok(texts.includes('k2:7'), 'k2 状态保持（k2:7）')
   assert.ok(texts.includes('k1:3'), 'k1 状态保持（k1:3）')
 })
+
+test('move：keyed 重排——节点移动（DOM 不重建——isConnected 保持）', async () => {
+  const hz = harness(testBrowser())
+  const Item = (init: Record<string, unknown>) => {
+    return () => h('input', { class: 'it', id: String(init.id), value: String(init.id) })
+  }
+  const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
+  await hz.mount(list(['a', 'b', 'c']))
+  // 记录节点引用（验证移动而非重建）
+  const before = [...hz.root.querySelectorAll('.it')]
+  await hz.update(list(['a', 'b', 'c']), list(['c', 'a', 'b']))
+  const after = [...hz.root.querySelectorAll('.it')]
+  assert.deepEqual(after.map((e) => e.id), ['c', 'a', 'b'], '新顺序正确')
+  // 移动：同一节点引用（DOM 不重建——焦点/输入状态保持）
+  assert.equal(after[0], before[2], 'c 节点移动（非重建）')
+  assert.equal(after[1], before[0], 'a 节点移动')
+  assert.equal(after[2], before[1], 'b 节点移动')
+})
+
+test('move：子树 id 重映射——子节点引用保持（深层结构移动）', async () => {
+  const hz = harness(testBrowser())
+  const Card = (init: Record<string, unknown>) => {
+    const id = init.id as string
+    return () => h('div', { class: 'card' }, h('span', { class: 'title' }, `t-${id}`))
+  }
+  const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Card, { key: id, id })))
+  await hz.mount(list(['x', 'y']))
+  const titles = [...hz.root.querySelectorAll('.title')]
+  await hz.update(list(['x', 'y']), list(['y', 'x']))
+  const after = [...hz.root.querySelectorAll('.title')]
+  assert.equal(after[0], titles[1], '子节点移动保持（子树重映射）')
+  assert.equal(after[0].textContent, 't-y')
+  assert.equal(after[1], titles[0], 'x 子节点保持')
+})
+
+test('move 命令流：重排只发 move（无 create/remove——精准）', async () => {
+  const hz = harness(testBrowser())
+  const Item = (init: Record<string, unknown>) => () => h('span', { class: 'it' }, String(init.id))
+  const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
+  await hz.mount(list(['a', 'b', 'c']))
+  const cmds: unknown[] = []
+  const stream = diffStream(list(['a', 'b', 'c']), list(['c', 'a', 'b']), {} as Ctx, hz.registry)
+  const reader = stream.getReader()
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    cmds.push(value)
+  }
+  const ops = cmds.map((c) => (c as { op: string }).op)
+  assert.ok(!ops.includes('create') && !ops.includes('remove'), '重排无 create/remove')
+  assert.ok(ops.includes('move'), '重排 = move 指令')
+  const moves = cmds.filter((c) => (c as { op: string }).op === 'move')
+  assert.equal(moves.length, 3, '索引级 move（c/a/b 索引全变——b 冗余移动幂等无害——相对顺序优化后续）')
+})

@@ -116,6 +116,28 @@ export class CommandApplier {
     }
   }
 
+  /** 子树 id 重映射（move——旧前缀 → 新前缀——nodes/refs/propPrev/pending） */
+  private remapSubtree(oldPrefix: string, newPrefix: string): void {
+    const remap = (map: Map<string, unknown>, key: string): void => {
+      const v = map.get(key)
+      if (v === undefined) return
+      map.delete(key)
+      map.set(newPrefix + key.slice(oldPrefix.length), v)
+    }
+    for (const id of [...this.nodes.keys()]) {
+      if (id === oldPrefix || id.startsWith(oldPrefix + '.')) remap(this.nodes as unknown as Map<string, unknown>, id)
+    }
+    for (const id of [...this.refs.keys()]) {
+      if (id === oldPrefix || id.startsWith(oldPrefix + '.')) remap(this.refs, id)
+    }
+    for (const id of [...this.pendingRefs.keys()]) {
+      if (id === oldPrefix || id.startsWith(oldPrefix + '.')) remap(this.pendingRefs, id)
+    }
+    for (const k of [...this.propPrev.keys()]) {
+      if (k === oldPrefix || k.startsWith(oldPrefix + ':') || k.startsWith(oldPrefix + '.')) remap(this.propPrev, k)
+    }
+  }
+
   apply(cmd: Command): void {
     switch (cmd.op) {
       case 'create': {
@@ -174,6 +196,19 @@ export class CommandApplier {
           applyRef(el as HTMLElement, refFn)
           this.pendingRefs.delete(cmd.id)
         }
+        break
+      }
+      case 'move': {
+        // **keyed 重排（DOM 不重建）**：节点移动到新位置 + 子树 id 重映射
+        const el = this.nodes.get(cmd.id)
+        if (!el) return
+        const parent = this.parentOf(cmd)
+        if (!parent) return
+        const prev = cmd.ref ? (this.nodes.get(cmd.ref) ?? null) : null
+        if (prev) parent.insertBefore(el, prev.nextSibling)
+        else if (cmd.first) parent.insertBefore(el, parent.firstChild)
+        else parent.appendChild(el)
+        this.remapSubtree(cmd.id, cmd.newId)
         break
       }
       case 'setText': {

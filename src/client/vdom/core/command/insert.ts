@@ -14,6 +14,18 @@ export type InsertCommand = {
   ref: string | null
 }
 
+/** 移动节点（keyed 重排——**DOM 不重建**——子树 id 重映射——
+ *  id = 旧 id；ref = 前一个兄弟（insertAfter 语义——null = 尾部）；
+ *  first = 移到父最前（首位标记）；newId = 新位置 id（子树前缀迁移）） */
+export type MoveCommand = {
+  op: 'move'
+  id: string
+  parent: string
+  ref: string | null
+  newId: string
+  first?: boolean
+}
+
 /** 移除节点（含子树——事件监听随元素 GC） */
 export type RemoveCommand = {
   op: 'remove'
