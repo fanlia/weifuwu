@@ -4,3 +4,4 @@ node_modules/
 dist/
 .env
 apps/agent-platform/data/
+src/**/*.js
