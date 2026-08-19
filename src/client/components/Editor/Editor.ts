@@ -378,6 +378,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     const start = sel?.start ?? 0
     const end = sel && sel.start !== sel.end ? sel.end : doc.text.length
     const original = doc.text.slice(start, end)
+    console.log('[runAi] original:', JSON.stringify(original), 'start:', start, 'end:', end)
     if (!original.trim()) return
     aiPending?.handle?.abort()
     lastAiAction = action

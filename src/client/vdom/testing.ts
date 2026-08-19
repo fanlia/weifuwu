@@ -158,10 +158,16 @@ function defaultUi(): Ui {
       keys.push(fn)
       return () => {}
     }) as never,
-    // usePopup 标准 mock：open 读 opts（函数/值）——portal 按 isOpen 条件渲染
-    // （open 时返回面板内容——组件测试断言 panel 结构）
-    usePopup: ((opts: { isOpen?: boolean | (() => boolean); setOpen?: (v: boolean) => void }) =>
-      createPopupMock(() => (typeof opts?.isOpen === 'function' ? opts.isOpen() : (opts?.isOpen ?? false)), opts?.setOpen)) as never,
+    // usePopup 标准 mock：open 读 opts（函数/值——受控）——**非受控时
+    // setOpen 更新内部状态**（组件内部驱动——AI 面板/浮层交互场景）——
+    // portal 按 isOpen 条件渲染（open 时返回面板内容——组件测试断言 panel）
+    usePopup: ((opts: { isOpen?: boolean | (() => boolean); setOpen?: (v: boolean) => void }) => {
+      let internal = false
+      const isOpen = () => (typeof opts?.isOpen === 'function' ? opts.isOpen() : (opts?.isOpen ?? internal))
+      const setOpen = (v: boolean) => { if (opts?.setOpen) opts.setOpen(v); else internal = v }
+      const mock = createPopupMock(isOpen, setOpen)
+      return { ...mock, panelRef: () => {}, sync: () => 'closed' as const, phase: 'closed' as const, pos: { top: 0, left: 0 } }
+    }) as never,
     usePopupPosition: () => ({ top: 0, left: 0, refresh: () => {} }),
     // useControlled mock：对齐真实语义（受控 → onChange 唯一出口；非受控 →
     // 内部态——不调 onChange——组件 wasControlled 判定依赖 controlled 字段）
@@ -305,7 +311,7 @@ export async function mountToDom(container: Element, vnode: any, _ctx: any): Pro
   const registry = createComponentRegistry()
   const applier = new CommandApplier(container as HTMLElement, doc, registry)
   domCache.set(container, { registry, applier })
-  const stream = renderToStream(vnode, {} as UIContext, registry)
+  const stream = renderToStream(vnode, _ctx ?? ({} as UIContext), registry)
   for await (const cmd of stream) applier.apply(cmd)
 }
 
@@ -317,7 +323,7 @@ export async function patchToDom(container: Element, _node: Node | null, prev: a
     return null
   }
   if (cached) {
-    const stream = diffStream(prev, next, {} as UIContext, cached.registry)
+    const stream = diffStream(prev, next, _ctx ?? ({} as UIContext), cached.registry)
     for await (const cmd of stream) cached.applier.apply(cmd)
   } else {
     await mountToDom(container, next, _ctx)

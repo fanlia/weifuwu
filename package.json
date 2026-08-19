@@ -8,18 +8,6 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./ui-dom": {
-      "types": "./dist/ui-dom/index.d.ts",
-      "default": "./dist/ui-dom/index.js"
-    },
-    "./ui-dom/jsx-runtime": {
-      "types": "./dist/ui-dom/index.d.ts",
-      "default": "./dist/ui-dom/jsx-runtime.js"
-    },
-    "./ui-dom/testing": {
-      "types": "./dist/ui-dom/testing.d.ts",
-      "default": "./dist/ui-dom/testing.js"
-    },
     "./layout": "./dist/layout/weifuwu-layout.css",
     "./layout/style.css": "./dist/layout/weifuwu-layout.css",
     "./components": {
@@ -28,10 +16,6 @@
     },
     "./components/style.css": "./dist/components/style.css",
     "./dev": "./dist/dev/index.js",
-    "./ui-dom/vdom3": {
-      "types": "./dist/ui-dom/vdom3/index.d.ts",
-      "default": "./dist/ui-dom/vdom3.js"
-    },
     "./vdom": {
       "types": "./dist/vdom/index.d.ts",
       "default": "./dist/vdom/index.js"

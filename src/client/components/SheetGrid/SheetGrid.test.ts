@@ -11,8 +11,8 @@ import { test, describe, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from '../../vdom/setup.ts'
 import { SheetGrid } from './SheetGrid.ts'
-import { h } from '../../ui-dom/vdom3/jsx.ts'
-import { createRoot } from '../../ui-dom/vdom3/root.ts'
+import { h } from '../../vdom/index.ts'
+import { mountToDom, patchToDom } from '../../vdom/testing.ts'
 import { editEvents, resetEditEvents } from '../Editor/edit-events.ts'
 import type { WorkbookState } from '../OfficeEditor/model/types.ts'
 
@@ -29,11 +29,24 @@ const mkWorkbook = (): WorkbookState => ({
   activeSheet: 0,
 })
 
+
+/** patch 驱动 mount（交互后 ctx.render → 真实 diff——createRoot 迁移模式） */
+async function mountGrid(root: HTMLElement, props: any, base: any = mkCtx()): Promise<{ ctx: any }> {
+  let renderFn: (() => any) | null = null
+  let prev: any = null
+  const ctx: any = { ...base, render: async () => { const next = await renderFn!(); await patchToDom(root, root.firstChild, prev, next, ctx); prev = next } }
+  const result = await SheetGrid(props, ctx)
+  renderFn = () => result(props)
+  prev = await renderFn()
+  await mountToDom(root, prev, ctx)
+  return { ctx }
+}
+
 function mkCtx(): any {
   return {
+    render: async () => {},
     i18n: {},
     ui: {
-      render: () => {},
       usePopup: () => ({
         portal: (content: any) => content,
         setOpen: () => {},
@@ -54,9 +67,8 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
     wb.sheets.push({ name: '第二表', cols: 1, cells: new Map([['A1', { kind: 's', value: '另表' }]]) })
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SheetGrid, { workbook: wb } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+    await mountGrid(root, { workbook: wb } as any)
+      await new Promise((r) => setTimeout(r, 30))
     const tabs = Array.from(root.querySelectorAll('.wf-sheet-tab')) as HTMLElement[]
     tabs[1].click()
     await new Promise((r) => setTimeout(r, 30))
@@ -70,9 +82,8 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SheetGrid, { workbook: mkWorkbook() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+    await mountGrid(root, { workbook: mkWorkbook() } as any)
+      await new Promise((r) => setTimeout(r, 30))
     ;(root.querySelector('tbody td:nth-child(2)') as HTMLElement).click() // A1 激活
     const delRow = Array.from(root.querySelectorAll('.wf-sheet-tools button'))[1] as HTMLElement // 删除行
     delRow.click()
@@ -89,9 +100,8 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SheetGrid, { workbook: mkWorkbook() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+    await mountGrid(root, { workbook: mkWorkbook() } as any)
+      await new Promise((r) => setTimeout(r, 30))
     ;(root.querySelector('tbody td:nth-child(2)') as HTMLElement).click() // A1
     const insCol = Array.from(root.querySelectorAll('.wf-sheet-tools button'))[2] as HTMLElement // 插入列
     insCol.click()
@@ -112,11 +122,10 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
       'event: wf:token\ndata: {"text":"=SUM(B2)"}\n\nevent: wf:done\ndata: {"content":"=SUM(B2)"}\n\n',
       { headers: { 'content-type': 'text/event-stream' } },
     )
-    const handle = createRoot(h(SheetGrid, {
+    await mountGrid(root, {
       workbook: mkWorkbook(), ai: { url: '/api/ai' },
-    } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+    } as any)
+      await new Promise((r) => setTimeout(r, 30))
     ;(Array.from(root.querySelectorAll('tbody td'))[0] as HTMLElement).click()
     await new Promise((r) => setTimeout(r, 30))
     const aiBtn = Array.from(root.querySelectorAll('.wf-sheet-tools button')).find((b) => (b as HTMLElement).textContent === 'AI 公式') as HTMLElement
@@ -138,9 +147,8 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
   test('渲染：列头/行头/单元格值（公式显示 =formula）', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SheetGrid, { workbook: mkWorkbook() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+    await mountGrid(root, { workbook: mkWorkbook() } as any)
+      await new Promise((r) => setTimeout(r, 30))
     const heads = Array.from(root.querySelectorAll('.wf-sheet-colhead')).map((t) => t.textContent)
     assert.deepEqual(heads, ['A', 'B'], '列头')
     assert.equal(root.querySelector('.wf-sheet-rowhead')?.textContent, '1', '行头')
@@ -155,9 +163,8 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SheetGrid, { workbook: mkWorkbook() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+    await mountGrid(root, { workbook: mkWorkbook() } as any)
+      await new Promise((r) => setTimeout(r, 30))
     // 点击 B2（第 2 行第 2 列 = 100）
     const tds = Array.from(root.querySelectorAll('tbody td'))
     const b2 = tds[3] as HTMLElement
@@ -187,9 +194,8 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    const handle = createRoot(h(SheetGrid, { workbook: mkWorkbook() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+    await mountGrid(root, { workbook: mkWorkbook() } as any)
+      await new Promise((r) => setTimeout(r, 30))
     // 点 A1 → 插入行
     const a1 = root.querySelector('tbody td') as HTMLElement
     a1.click()
@@ -224,11 +230,10 @@ describe('SheetGrid（xlsx 网格编辑器——ODES 事件流）', () => {
         { headers: { 'content-type': 'text/event-stream' } },
       )
     }
-    const handle = createRoot(h(SheetGrid, {
+    await mountGrid(root, {
       workbook: mkWorkbook(), ai: { url: '/api/ai' },
-    } as any), root, { ctx })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+    } as any, ctx)
+      await new Promise((r) => setTimeout(r, 30))
     // 激活单元格（tds 顺序 A1,B1,A2,B2——tds[2]=A2）→ AI 按钮
     const tds = Array.from(root.querySelectorAll('tbody td'))
     ;(tds[2] as HTMLElement).click()

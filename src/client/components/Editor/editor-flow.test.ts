@@ -8,8 +8,8 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from '../../vdom/setup.ts'
-import { h } from '../../ui-dom/vdom3/index.ts'
-import { createRoot } from '../../ui-dom/vdom3/root.ts'
+import { h } from '../../vdom/index.ts'
+import { mountToDom } from '../../vdom/testing.ts'
 import { Editor } from './Editor.ts'
 import { setSelectionOffsets } from './model/dom.ts'
 import { editEvents } from './edit-events.ts'
@@ -28,11 +28,11 @@ async function mount(value: string): Promise<Harness> {
   const root = document.createElement('div')
   document.body.appendChild(root)
   const calls: string[] = []
-  const handle = createRoot(h(Editor, {
+  await mountToDom(root, h(Editor, {
     value,
     onChange: (v: string) => { calls.push(v) },
-  }), root)
-  await handle.ready
+  })
+  }), createTestCtx())
   const content = () => root.querySelector('.wf-editor-content') as HTMLElement | null
   const clickToolbar = (item: string) => {
     const btn = root.querySelector(`[data-item="${item}"]`) as HTMLElement | null

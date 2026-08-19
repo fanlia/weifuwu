@@ -15,6 +15,13 @@ export const ENUMERATED_KEYS = new Set(['draggable', 'contenteditable', 'spellch
 
 /** attribute 通道——单键应用 */
 export function applyAttribute(el: HTMLElement, key: string, value: unknown): void {
+  // **innerHTML/textContent 走 property 通道**（setAttribute 不生效——
+  // Editor 等组件首帧 innerHTML 初始化——真实 bug——setProp 路径已
+  // property——create attrs 路径必须一致）
+  if (key === 'innerHTML' || key === 'textContent') {
+    ;(el as any)[key] = value
+    return
+  }
   if (value === null || value === undefined) {
     el.removeAttribute(key)
     return

@@ -15,8 +15,8 @@ import type { SelectProps } from './Select/Select.ts'
 import type { DatePickerProps } from './DatePicker/DatePicker.ts'
 import type { ModalProps } from './Modal/Modal.ts'
 import type { TreeProps } from './Tree/Tree.ts'
-import type { Component } from '../ui-dom/vnode.ts'
-import type { UsePopupOptions } from '../ui-dom/types.ts'
+import type { Component } from '../vdom/index.ts'
+import type { PopupOptions as UsePopupOptions } from '../vdom/hooks/popup.ts'
 
 // ① 负例：字面量联合 props 传错值 → 编译期报错
 // @ts-expect-error variant 不允许 'bogus'（仅 primary/secondary/ghost/danger）

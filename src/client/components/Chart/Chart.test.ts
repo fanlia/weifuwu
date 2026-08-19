@@ -89,7 +89,7 @@ describe('Chart', () => {
 })
 
 it('Chart：radar/gauge/scatter 类型渲染（SVG 输出）', async () => {
-  const { renderVNode, createTestCtx, findByClass } = await import('../../ui-dom/testing.ts')
+  const { renderVNode, createTestCtx, findByClass } = await import('../../vdom/testing.ts')
   const ctx = createTestCtx()
   const data = [{ label: 'A', value: 3 }, { label: 'B', value: 5 }]
   const radar: any = await renderVNode(Chart, { type: 'radar', data }, ctx)

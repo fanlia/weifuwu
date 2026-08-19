@@ -5,8 +5,8 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from '../../vdom/setup.ts'
-import { h } from '../../ui-dom/vdom3/index.ts'
-import { createRoot } from '../../ui-dom/vdom3/root.ts'
+import { h } from '../../vdom/index.ts'
+import { mountToDom } from '../../vdom/testing.ts'
 import { Editor } from './Editor.ts'
 import { setSelectionOffsets } from './model/dom.ts'
 
@@ -28,14 +28,14 @@ function fakeBrowser(): FakeBrowser {
 }
 
 function makeCtxWithBrowser(b: FakeBrowser): any {
-  return { browser: b, ui: { render: () => {}, usePopup: () => ({ portal: () => null, setOpen: () => {}, refresh: () => {}, open: false, wrapProps: {} }) } }
+  return { browser: b, render: async () => {}, onUnmount: () => {}, params: {}, query: {},
+    ui: { usePopup: () => ({ portal: () => null, setOpen: () => {}, refresh: () => {}, open: false, wrapProps: {} }) } }
 }
 
 async function mountWith(ctx: any, props: Record<string, unknown>): Promise<{ root: HTMLElement; content: () => HTMLElement | null }> {
   const root = document.createElement('div')
   document.body.appendChild(root)
-  const handle = createRoot(h(Editor, props as any), root, { ctx })
-  await handle.ready
+  await mountToDom(root, h(Editor, props as any), ctx)
   await new Promise((r) => setTimeout(r, 30))
   const content = () => root.querySelector('.wf-editor-content') as HTMLElement | null
   return { root, content }
@@ -93,8 +93,7 @@ test('无 browser 时静默跳过（SSR/无环境安全）', async () => {
   const ctx: any = { ui: { render: () => {}, usePopup: () => ({ portal: () => null, setOpen: () => {}, refresh: () => {}, open: false, wrapProps: {} }) } }
   const root = document.createElement('div')
   document.body.appendChild(root)
-  const handle = createRoot(h(Editor, { value: '<p>hello</p>', onChange: () => {}, draftKey: 'doc-5' } as any), root, { ctx })
-  await handle.ready
+  await mountToDom(root, h(Editor, { value: '<p>hello</p>', onChange: () => {}, draftKey: 'doc-5' } as any), ctx)
   await new Promise((r) => setTimeout(r, 30))
   const el = root.querySelector('.wf-editor-content') as HTMLElement
   assert.equal(el.textContent, 'hello', '无 browser 正常渲染（存储 no-op）')

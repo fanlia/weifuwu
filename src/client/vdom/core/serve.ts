@@ -266,6 +266,11 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     // 无影子树（首帧）→ build 全量。
     // root 类型变化（导航/组件切换）→ **全量 build**（done.full 清理旧树）；
     // 同类型 → diff 精准
+    if (!currentTree && rootEl.childNodes.length > 0) {
+      // **SSR 接管**（无 hydration——首帧清 root 预置内容——SSR 首屏被
+      // 新树原子替换——接管语义——home-flash 测试锁定）
+      rootEl.innerHTML = ''
+    }
     const stream = currentTree
       ? (currentTree.type !== vnode.type
         ? (() => {

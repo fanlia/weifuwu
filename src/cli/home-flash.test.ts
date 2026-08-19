@@ -1,7 +1,7 @@
 /**
  * 首页接管闪白复现测试——SPA 接管 SSR 内容后的首帧可见性
  *
- * 复现链：SSR 首帧（可见 hero）→ createRouter 挂载 → root 内容替换
+ * 复现链：SSR 首帧（可见 hero）→ UIRouter/uiServe 接管 → root 内容替换
  * 闪白根因候选：新树首帧带透明起始动画（wf-stream-in opacity 0）→
  * 替换瞬间旧内容消失、新内容透明——白屏直到动画完成。
  * 断言：接管后的首页新树首帧必须立即可见（无透明起始）。
@@ -11,11 +11,10 @@ import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { setupJsdom } from '../client/ui-dom/setup.ts'
-import { h, createRouter } from '../client/ui-dom/vdom3/index.ts'
-import { renderToEvents, eventsToHtml } from '../client/ui-dom/vdom3/ssr.ts'
+import { setupJsdom, testBrowser } from '../client/vdom/setup.ts'
+import { h, UIRouter, uiServe } from '../client/vdom/index.ts'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 before(setupJsdom)
 
@@ -34,13 +33,16 @@ test('首页接管时序：SSR 内容保持 → 新树就绪后替换（root 始
   root.innerHTML = '<div class="wf-container" style="padding:32px">SSR 首帧内容（应保持到新树就绪）</div>'
   // 用等效静态组件（不 import .tsx——node 测试限制）
   const Landing = async (_init: any, _ctx: any) => async () => h('div', { class: 'wf-container' }, h('h1', {}, '首页新树'))
-  const router = createRouter([{ path: '/', render: () => h(Landing, {}) }], root)
-  await new Promise((r) => setTimeout(r, 50))
+  const router = new UIRouter()
+  router.get('/', (req: Request, ctx: any) =>
+    (ctx as { stream: (v: unknown) => Response }).stream(h(Landing, {})))
+  const serve = uiServe(router, { root, browser: testBrowser() })
+  await serve.ready
   // 接管后：root 有内容（新树）且无 SSR 残留标记
   assert.ok(root.childNodes.length > 0, '接管后 root 有内容')
   assert.ok(!root.innerHTML.includes('SSR 首帧内容'), 'SSR 旧内容已替换')
   assert.ok(root.querySelector('h1'), '新树渲染（h1 存在）')
-  router.close()
+  serve.unmount()
   document.body.removeChild(root)
 })
 
@@ -49,11 +51,14 @@ test('首页 hero 在接管后立即可见（无透明元素占位）', async ()
   document.body.appendChild(root)
   root.innerHTML = '<h1>SSR hero</h1>'
   const Landing = async (_init: any, _ctx: any) => async () => h('div', {}, h('h1', {}, '接管后 hero'))
-  const router = createRouter([{ path: '/', render: () => h(Landing, {}) }], root)
-  await new Promise((r) => setTimeout(r, 50))
+  const router = new UIRouter()
+  router.get('/', (req: Request, ctx: any) =>
+    (ctx as { stream: (v: unknown) => Response }).stream(h(Landing, {})))
+  const serve = uiServe(router, { root, browser: testBrowser() })
+  await serve.ready
   const h1 = root.querySelector('h1')
   assert.ok(h1, '接管后 h1 存在')
   assert.ok(h1.textContent?.length > 0, 'h1 有可见文本')
-  router.close()
+  serve.unmount()
   document.body.removeChild(root)
 })

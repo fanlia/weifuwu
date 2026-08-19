@@ -12,8 +12,8 @@ import { test, describe, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from '../../vdom/setup.ts'
 import { SlideCanvas } from './SlideCanvas.ts'
-import { h } from '../../ui-dom/vdom3/jsx.ts'
-import { createRoot } from '../../ui-dom/vdom3/root.ts'
+import { h } from '../../vdom/index.ts'
+import { mountToDom } from '../../vdom/testing.ts'
 import { editEvents, resetEditEvents } from '../Editor/edit-events.ts'
 import type { DeckState } from '../OfficeEditor/model/types.ts'
 
@@ -56,8 +56,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+      await new Promise((r) => setTimeout(r, 30))
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
     shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true, cancelable: true }))
     await new Promise((r) => setTimeout(r, 30))
@@ -81,8 +80,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+      await new Promise((r) => setTimeout(r, 30))
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
     shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true }))
     await new Promise((r) => setTimeout(r, 30))
@@ -106,8 +104,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
       { headers: { 'content-type': 'text/event-stream' } },
     )
     const handle = createRoot(h(SlideCanvas, { deck: mkDeck(), ai: { url: '/api/ai' } } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+      await new Promise((r) => setTimeout(r, 30))
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
     shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true }))
     await new Promise((r) => setTimeout(r, 30))
@@ -131,8 +128,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+      await new Promise((r) => setTimeout(r, 30))
     const tabs = Array.from(root.querySelectorAll('.wf-slide-tab')).map((t) => t.textContent)
     assert.deepEqual(tabs, ['幻灯片 1', '幻灯片 2'], '幻灯片标签')
     const shapes = Array.from(root.querySelectorAll('.wf-slide-shape'))
@@ -148,8 +144,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+      await new Promise((r) => setTimeout(r, 30))
     // 添加文本
     const addText = Array.from(root.querySelectorAll('.wf-slide-toolbar button')).find((b) => (b as HTMLElement).textContent === '文本') as HTMLElement
     addText.click()
@@ -175,8 +170,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+      await new Promise((r) => setTimeout(r, 30))
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
     // pointerdown（move）→ pointermove（拖 50,30）→ pointerup
     shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true, cancelable: true }))
@@ -208,8 +202,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
       { headers: { 'content-type': 'text/event-stream' } },
     )
     const handle = createRoot(h(SlideCanvas, { deck: mkDeck(), ai: { url: '/api/ai' } } as any), root, { ctx })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+      await new Promise((r) => setTimeout(r, 30))
     // 选中 shape（pointerdown 即可选中）
     const shape = root.querySelector('.wf-slide-shape') as HTMLElement
     shape.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true }))
@@ -244,8 +237,7 @@ describe('SlideCanvas（pptx 画布编辑器——ODES 事件流）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     const handle = createRoot(h(SlideCanvas, { deck: mkDeck() } as any), root, { ctx: mkCtx() })
-    await handle.ready
-    await new Promise((r) => setTimeout(r, 30))
+      await new Promise((r) => setTimeout(r, 30))
     const addSlide = Array.from(root.querySelectorAll('.wf-slide-toolbar button')).find((b) => (b as HTMLElement).textContent === '+ 页') as HTMLElement
     addSlide.click()
     await new Promise((r) => setTimeout(r, 30))

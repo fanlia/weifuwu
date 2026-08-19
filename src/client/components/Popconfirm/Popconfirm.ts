@@ -18,7 +18,7 @@ import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
-import type { Placement } from '../../ui-dom/popup.ts'
+import type { Placement } from '../../vdom/hooks/popup.ts'
 
 export interface PopconfirmProps {
   title?: any

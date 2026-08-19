@@ -22,9 +22,6 @@ const BARE_ALIASES: Record<string, string> = {
   'weifuwu/vdom/jsx-runtime': SRC_ROOT + 'vdom/jsx-runtime.ts',
   'weifuwu/vdom/testing': SRC_ROOT + 'vdom/testing.ts',
   'weifuwu/vdom': SRC_ROOT + 'vdom/index.ts',
-  'weifuwu/ui-dom/jsx-runtime': SRC_ROOT + 'ui-dom/jsx-runtime.ts',
-  'weifuwu/ui-dom/testing': SRC_ROOT + 'ui-dom/testing.ts',
-  'weifuwu/ui-dom': SRC_ROOT + 'ui-dom/index.ts',
   'weifuwu/components': SRC_ROOT + 'components/index.ts',
   'weifuwu': SRC_ROOT + 'index.ts',
 }

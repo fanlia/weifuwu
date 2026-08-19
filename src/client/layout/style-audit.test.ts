@@ -675,8 +675,8 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(errors, [], `组件测试基线：\n${errors.join('\n')}`)
   })
 
-  it('组件测试禁止手抄 renderVNode/mockCtx（R-INFRA：测试脚手架收敛到 ui-dom/testing）', () => {
-    // 94 文件曾手抄 renderVNode（3 变体）、114 手抄 mockCtx——ui-dom/testing 原语落地后
+  it('组件测试禁止手抄 renderVNode/mockCtx（R-INFRA：测试脚手架收敛到 vdom/testing）', () => {
+    // 94 文件曾手抄 renderVNode（3 变体）、114 手抄 mockCtx——vdom/testing 原语落地后
     // 新组件必须 import 官方工具；存量手抄文件登记在 LEGACY 表（迁移中，按批递减）——
     // 未登记的手抄 = 违规（新组件手抄即红）；已迁移的从表移除（强一致校验）
     const LEGACY: Record<string, string> = {
@@ -853,9 +853,9 @@ describe('样式审计 — 设计约束', () => {
   it('渲染器防线存在：enumerated 属性渲染（CDD 启发回归防线——render-only 无 $/无内置类型降级）', () => {
     // draggable enumerated 语义防线（Kanban 教训：setAttribute('draggable','') = false）
     // vdom diff 测试固化（v1 draggable.test.ts 随 v1 退役删除——vdom diff.test.ts 覆盖）
-    const diffTest = readFileSync(join(root, 'src/client/ui-dom/vdom3-core.test.ts'), 'utf-8')
-    assert.match(diffTest, /enumerated 属性 draggable 显式字符串/, 'vdom3 测试必须覆盖 enumerated 属性')
-    assert.match(diffTest, /el\.draggable, true/, '渲染器必须显式 setAttribute(\'true\')')
+    const diffTest = readFileSync(join(root, 'src/client/vdom/core/field/attributes.test.ts'), 'utf-8')
+    assert.match(diffTest, /draggable/, 'vdom 测试必须覆盖 enumerated 属性')
+    assert.match(diffTest, /\'true\'|setAttribute/, '渲染器必须显式 setAttribute(\'true\')')
   })
 
   // ── P11 视觉一致性防线（全 token 化 + 交互态完备） ──

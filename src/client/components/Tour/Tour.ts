@@ -1,7 +1,6 @@
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
-import { stream, ev } from '../../ui-dom/index.ts'
 
 export type TourPlacement = 'top' | 'bottom' | 'left' | 'right'
 
@@ -132,7 +131,6 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
           // 打开/步骤切换：目标带进视口（引导标准行为——highlight/bubble 可见；
           // 仅目标变化时滚动——滚动跟随的 renderFn 重跑（t 不变）不触发——防死循环）
           // 组件副作用事件：滚动到目标（effect:scroll——可观测）
-          stream.emit(ev('effect', 'scroll', undefined, { target: t.getAttribute?.('data-v3-id') ?? null }))
           try { t.scrollIntoView({ block: 'center' }) } catch { /* 无 scrollIntoView 环境（SSR） */ }
         }
         popup.refresh()

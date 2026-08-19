@@ -2,7 +2,6 @@ import type { Component } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext, AppMiddleware } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
-import { animateOut } from '../../ui-dom/motion.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
 

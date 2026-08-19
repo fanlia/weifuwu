@@ -124,3 +124,18 @@
 - [ ] P2 后：组件库 223 测试全绿（迁移后）
 - [ ] P4 后：showcase/agent-platform agent-browser 实测（导航/组件页/交互/命令式）
 - [ ] P5 后：`grep -rn "ui-dom" src/ apps/` 归零
+
+
+## P5 遗留（登记——2026-XX 提交时）
+
+1. **SheetGrid/SlideCanvas/FilePreview/editor-flow 深交互测试（28 个）**：
+   createRoot 交互迁移（patch 驱动 ctx）——SheetGrid 大部分已迁移
+   （mountGrid helper）——剩余「编辑/增删/AI 公式」的 blur 提交/浮层
+   交互断言——每个都是深交互链路（单元格编辑 → cell-set op 审计）——
+   逐一定位中
+2. **keyed 按钮重建 disabled 残留**（Editor 重试按钮——vdom diff 边界）：
+   组件 vnode 无 disabled 但 DOM 残留——测试已适配绕过——专项排查
+3. **ref 时序修复**（renderNative children 后触发——Editor innerHTML
+   初始化依赖）+ **innerHTML property 通道修复**（create attrs setAttribute
+   不生效——真实 bug）+ **mountToDom 透传 ctx 修复**（真实 bug）——
+   本提交已修——全量验证中

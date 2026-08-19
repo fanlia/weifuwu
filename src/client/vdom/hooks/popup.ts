@@ -71,6 +71,8 @@ export interface PopupOptions {
 }
 
 export type PopupPhase = 'closed' | 'open' | 'exit'
+/** Placement 别名（ui-dom 兼容——HoverCard/Popover/Tooltip 消费） */
+export type Placement = PopupPlacement
 
 export interface Popup {
   /** open getter（渲染期读最新） */

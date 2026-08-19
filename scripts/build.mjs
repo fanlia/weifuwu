@@ -17,7 +17,6 @@ await rm(distDir, { recursive: true, force: true })
 await mkdir(distDir, { recursive: true })
 await mkdir(join(distDir, 'layout'), { recursive: true })
 await mkdir(join(distDir, 'components'), { recursive: true })
-await mkdir(join(distDir, 'ui-dom'), { recursive: true })
 
 
 const external = [
@@ -102,47 +101,9 @@ await esbuild.build({
   minify: true,
 })
 
-// ui-dom bundle（前端运行时——P4 apps 迁移完成后退役——共存期保留）
-await esbuild.build({
-  entryPoints: [join(srcDir, 'client', 'ui-dom', 'index.ts')],
-  outfile: join(distDir, 'ui-dom', 'index.js'),
-  format: 'esm',
-  platform: 'browser',
-  jsx: 'automatic',
-  jsxImportSource: 'weifuwu/ui-dom',
-  bundle: true,
-  minify: true,
-})
 
-// ui-dom/jsx-runtime
-await esbuild.build({
-  entryPoints: [join(srcDir, 'client', 'ui-dom', 'jsx-runtime.ts')],
-  outfile: join(distDir, 'ui-dom', 'jsx-runtime.js'),
-  format: 'esm',
-  platform: 'browser',
-  bundle: true,
-  minify: true,
-})
 
-// ui-dom/vdom3（下一代引擎——vnode + stream；独立入口——转正 minor 发布）
-await esbuild.build({
-  entryPoints: [join(srcDir, 'client', 'ui-dom', 'vdom3', 'index.ts')],
-  outfile: join(distDir, 'ui-dom', 'vdom3.js'),
-  format: 'esm',
-  platform: 'browser',
-  bundle: true,
-  minify: true,
-})
 
-// ui-dom/testing（组件测试原语子路径——vue/test-utils 模式；不污染主 index）
-await esbuild.build({
-  entryPoints: [join(srcDir, 'client', 'ui-dom', 'testing.ts')],
-  outfile: join(distDir, 'ui-dom', 'testing.js'),
-  format: 'esm',
-  platform: 'browser',
-  bundle: true,
-  minify: true,
-})
 
 // 编译组件 JS
 // 关键：把组件源码对 src/client/ui-dom/* 的相对导入外部化为 weifuwu/ui-dom——
