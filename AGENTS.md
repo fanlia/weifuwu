@@ -650,6 +650,40 @@ const MyComp: Component = (_init, ctx) => {
 - **边界审计**：`src/client/ui-dom/ui-dom-boundary.test.ts`（v5 隔离性——components/hooks/services 零 import engines/）
 - 改引擎核心（render/build/shadow/delegate）后：vdom3 组 + 边界审计 + 组件抽样（Select/Tree/ChatInput/Popover/Modal）全绿才可提交
 
+### 7.1.3 测试覆盖度量（v26.7 `--test-coverage-include-all`——**宣称「充分测试」前的客观依据**）
+
+> 纪律来源：**多次「充分测试」声明后被真实例子抓出 bug**（insert ref=null 语义/占位塌缩/keyed 误判冲突重建/A 级检测误报/useChat status 快照/useScrollPosition 窗口失效）。根因：测试从**实现反推**而非**契约正推**；覆盖的是**路径**而非**语义空间**；「全绿」= 断言都过 ≠ 断言充分。完整标准见 `design/vdom-test-standard.md`。
+
+**命令**（npm script `test:cov:vdom`）：
+
+```bash
+node --env-file=.env --test --experimental-test-coverage --test-coverage-include-all \
+  --test-coverage-include='src/client/vdom/**' --test-coverage-exclude='node_modules/**' \
+  --test-timeout=8000 'src/client/vdom/**/*.test.ts'
+```
+
+- **include-all 语义**：把**从未被加载**的源文件也纳入统计（不只测试直接引用的）——全局视角的真实覆盖
+- **踩坑（必须显式 exclude）**：v26.7 默认 exclude 排除**路径含 `/test/` 的目录**——项目在 `/home/x/test/ai/` 下——不传显式 `--test-coverage-exclude` 时报告全空（all files 100% 假象）
+- **分类豁免**：类型/接口/命令定义文件（`Browser.ts`/`UIContext.ts`/`command/*`/re-export `index.ts`）行覆盖无意义——不视为缺口；**行为代码**（逻辑/分支）必须 ≥ 90% 且关键路径 100%
+
+**度量流程（提交前/宣称「充分」前）**：
+
+1. 跑 `test:cov:vdom`——行为代码缺口归零（<90% 的文件必须补测）
+2. 未覆盖行逐行审查：真缺口 → 补测试；死代码 → CS-01 删除；类型声明 → 豁免
+3. 补测用例对照 `design/vdom-test-standard.md`（不变量断言/转化闭环/边界位置）
+
+**度量抓过的真实 bug（教训——覆盖率工具的价值）**：
+
+| 症状 | 根因 | 修复 |
+| --- | --- | --- |
+| output.ts 0% funcs | 中转站声明与实现漂移（same.ts 内联输出对照——output.ts 成孤儿） | 接线（32.8% → 95.5%） |
+| children.ts null 分支死代码 | 新循环占位逻辑取代后未删 | CS-01 删除 |
+| keyed 组件首帧输出 null 塌缩 | emitWithKey 内联 sink 缺 emitHole（不等价 build 的 hole case） | 补 emitHole |
+| useChat status 永不更新 | handle.status 是 mount 快照（messages 是 getter 而 status 不是） | 改 getter |
+| useScrollPosition 窗口失效 | el null 一律重试（10 次后放弃——窗口场景永不注册） | 仅显式目标才重试 |
+
+**不变量断言 helper**（`src/client/vdom/testing.ts`——禁止手抄）：`assertIsomorphic`（childNodes 逐位同构——长度+位置+类型）/`assertSlot`（边界位置——位置 0/末尾重点）/`assertKept`（同 key 复用项 DOM 引用不变）/`assertRoundTrip`（往返可逆——状态不漂移）
+
 ### 7.2 UI 组件测试纪律（jsdom + VNode 断言）
 
 **官方测试原语 `weifuwu/ui-dom/testing`**（`src/client/ui-dom/testing.ts`）——禁止手抄
