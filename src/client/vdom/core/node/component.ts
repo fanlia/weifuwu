@@ -21,6 +21,7 @@
 import type { VNode, VNodeChild } from '../vnode.ts'
 import type { Component, RenderFn } from '../vnode.ts'
 import type { Ctx } from '../../context/Ctx.ts'
+import { createUi } from '../../hooks/env.ts'
 
 /** 组件实例记录（跨渲染保持——diff 复用） */
 export interface ComponentRecord {
@@ -70,10 +71,15 @@ export async function renderComponent(
   // 实例记录（同位置同类型复用——工厂不重跑）
   let rec = registry.get(compId)
   if (!rec) {
-    // per-instance ctx（共享面继承 + onUnmount 收集到实例记录）
+    // per-instance ctx（共享面继承 + onUnmount 收集到实例记录 + hooks 注入面）
     const onUnmounts: (() => void)[] = []
     const instCtx = Object.create(sharedCtx) as Ctx
     instCtx.onUnmount = (fn) => { onUnmounts.push(fn) }
+    // hooks 注入面（ctx.ui——env 绑定当前组件实例）
+    instCtx.ui = createUi({
+      requestRender: () => { void instCtx.render?.() },
+      onUnmount: (fn) => { onUnmounts.push(fn) },
+    })
     // 工厂 = mount（一次——可 await ctx.data——管道保证 resolve）
     const maybeRenderFn = factory(vn.props, instCtx)
     rec = { renderFn: await maybeRenderFn, onUnmounts }
