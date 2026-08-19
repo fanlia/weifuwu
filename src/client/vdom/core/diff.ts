@@ -21,7 +21,7 @@ import { childrenOf } from './node/children.ts'
 import { kindOf } from './node/index.ts'
 import { stateOf } from './transform/states.ts'
 import { transitionOf } from './transform/table.ts'
-import { listKind, planKeyedDiff, keyOf, detectMissingKey } from './node/keyed.ts'
+import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed } from './node/keyed.ts'
 import { createRenderDispatcher, type RenderSink } from './build.ts'
 import { renderComponent, type ComponentRegistry } from './node/component.ts'
 import { pathId, serializableAttrs } from './node/native.ts'
@@ -171,7 +171,13 @@ async function diffChildren(
     await diffKeyedChildren(oldCs, newCs, id, emit, emitCommand, ctx, registry)
     return
   }
-  // 全 unkeyed / 混合：位置身份对照（混合数组——无 key 项位置接管）
+  // **混合数组**（部分 key）：keyed 项身份复用（.k{key}）+ 无 key 项重建
+  // （无 key = 位置身份——重建状态丢失——混合数组少见——A 级检测已引导）
+  if (hasKeyed(newCs) || hasKeyed(oldCs)) {
+    await diffKeyedChildren(oldCs, newCs, id, emit, emitCommand, ctx, registry)
+    return
+  }
+  // 全 unkeyed：位置身份对照（混合数组——无 key 项位置接管）
   let lastRef: string | null = null
   const maxLen = Math.max(oldCs.length, newCs.length)
   for (let i = 0; i < maxLen; i++) {
@@ -232,6 +238,11 @@ async function diffSlot(
   }
 }
 
+/** 数组是否含 keyed 项（混合判定） */
+function hasKeyed(items: VNodeChild[]): boolean {
+  return items.some(isKeyed)
+}
+
 /** keyed 列表对照（身份映射——planKeyedDiff——增删/重排状态跟随 key）
  *  首版：整块重建 + 组件实例复用（.k{key}——工厂不重跑——状态保持——
  *  DOM 重建；位置保持项 diffSame 精准/移动节点 move 为后续优化——已知限制） */
@@ -240,15 +251,21 @@ async function diffKeyedChildren(
   emit: RenderSink, emitCommand: (cmd: Command) => void,
   ctx: Ctx, registry: ComponentRegistry,
 ): Promise<void> {
-  // 1. 移除旧全部（重建——组件实例经 .k{key} 复用——状态保持）
-  oldCs.forEach((_, i) => emitCommand({ op: 'remove', id: pathId(parent, i) }))
+  // 1. **真移除项卸载**（不在新列表的 key → unmount——onUnmounts 清理；
+  //   复用项不 unmount——实例保持——状态跟随 key）——全部旧节点 remove（重建）
+  const newKeys = new Set(newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null))
+  oldCs.forEach((oldC, i) => {
+    const k = keyOf(oldC)
+    if (k !== null && !newKeys.has(k)) emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
+    emitCommand({ op: 'remove', id: pathId(parent, i) })
+  })
   // 2. 按新顺序渲染（组件复用——工厂不重跑——输出全量）
   let lastRef: string | null = null
   for (let i = 0; i < newCs.length; i++) {
     const newC = newCs[i]
     const k = keyOf(newC)
     if (k !== null && typeof (newC as VNode).type === 'function') {
-      await emitWithKey(newC, parent, i, lastRef, k, emit, ctx, registry)
+      await emitWithKey(newC, parent, i, lastRef, k, emit, emitCommand, ctx, registry)
     } else {
       await emit(newC, parent, i, lastRef)
     }
@@ -259,13 +276,16 @@ async function diffKeyedChildren(
 /** keyed 项渲染（compId = 位置路径 + .k{key}——身份稳定——增删/重排复用） */
 async function emitWithKey(
   v: VNodeChild, parent: string, index: number, ref: string | null, key: string,
-  emit: RenderSink, ctx: Ctx, registry: ComponentRegistry,
+  emit: RenderSink, emitCommand: (cmd: Command) => void, ctx: Ctx, registry: ComponentRegistry,
 ): Promise<void> {
   const vn = v as VNode
   if (typeof vn.type === 'function') {
     // 组件：keyed compId（`{parent}.k{key}`——**位置无关**——增删/重排复用）
     const keyedId = `${parent}.k${key}`
+    const isNew = !registry.get(keyedId)
     await renderComponent(vn, parent, index, ref, keyedId, ctx, registry, emit)
+    // **mount 指令（新实例——初始化完成）**
+    if (isNew) emitCommand({ op: 'mount', compId: keyedId })
     return
   }
   await emit(v, parent, index, ref)

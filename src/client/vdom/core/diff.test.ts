@@ -412,3 +412,47 @@ test('生命周期指令：mount 标记实例已挂载（审计配对——patch
   const rec = (hz.registry as any).get('root.0.0')
   assert.equal(rec?.mounted, true, 'mount 指令标记实例已挂载')
 })
+
+test('keyed 真移除：不在新列表的 key → unmount（onUnmounts 清理）——复用项不清理', async () => {
+  const hz = harness(testBrowser())
+  const cleaned: string[] = []
+  let mounts = 0
+  const Item = (init: Record<string, unknown>, ctx: Ctx) => {
+    mounts++
+    const id = init.id as string
+    ctx.onUnmount(() => cleaned.push(`un:${id}`))
+    return () => h('span', { class: 'it' }, String(init.id))
+  }
+  const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
+  await hz.mount(list(['a', 'b', 'c']))
+  await hz.update(list(['a', 'b', 'c']), list(['a', 'c']))
+  assert.deepEqual(cleaned, ['un:b'], '真移除项 b 卸载清理——复用项 a/c 不清理')
+  assert.equal(mounts, 3, '复用项工厂不重跑')
+})
+
+test('混合数组：keyed 项身份复用（状态跟随 key）+ 无 key 项重建', async () => {
+  const hz = harness(testBrowser())
+  const clicks = new Map<string, number>([['k1', 3], ['k2', 7]])
+  let mounts = 0
+  const Keyed = (init: Record<string, unknown>) => {
+    mounts++
+    const id = init.id as string
+    return () => h('span', { class: `k-${id}` }, `${id}:${clicks.get(id) ?? 0}`)
+  }
+  // 混合：[k1(keyed), plain(无 key), k2(keyed)]
+  const list = (order: Array<string | { k: string }>) => h('div', {}, order.map((o, i) =>
+    typeof o === 'string' ? h('span', { class: `p-${i}` }, o) : h(Keyed, { key: o.k, id: o.k }),
+  ))
+  await hz.mount(list(['p1', { k: 'k1' }, 'p2', { k: 'k2' }]))
+  assert.equal(mounts, 2)
+  // 重排：k1 与 k2 交换（keyed 项身份复用——状态保持）
+  await hz.update(
+    list(['p1', { k: 'k1' }, 'p2', { k: 'k2' }]),
+    list(['p1', { k: 'k2' }, 'p2', { k: 'k1' }]),
+  )
+  assert.equal(mounts, 2, 'keyed 项复用——工厂不重跑')
+  const items = hz.root.querySelectorAll('span')
+  const texts = [...items].map((s) => s.textContent)
+  assert.ok(texts.includes('k2:7'), 'k2 状态保持（k2:7）')
+  assert.ok(texts.includes('k1:3'), 'k1 状态保持（k1:3）')
+})
