@@ -137,7 +137,11 @@
 4. **SlideCanvas selected 渲染时机 ✅ 已修**（真实 bug）：selected = id
    在 commit（含 ctx.render）后——渲染看不到选中态（删除按钮 disabled
    残留）——移到 commit 前
-5. **剩余（约 15 个）**：FilePreview（编辑模式切换/xlsx/远程加载/Ctrl+S）
-   + SlideCanvas（幻灯片增删/拖拽/双击编辑/AI 浮层）+ editor-flow——
-   同一模式（手写 ctx render no-op → patch 驱动 mount helper 改造中——
-   FilePreview 已加 mountPreview helper）——逐文件继续
+5. **FilePreview 14 全绿 ✅**（mountPreview 串行队列 + ready 守卫——
+   loadUrl mount 期 fetch 竞态；input 查询取最后一个——并发残留；
+   createRoot 清零）
+6. **剩余（约 5 个）**：SlideCanvas（幻灯片增删——del-slide 顺移 remap
+   后 click 分发边界/拖拽/双击编辑/AI 浮层）+ editor-flow——登记——
+   SlideCanvas 的 del-slide：addSlide 后删页按钮（keyed 顺移 remap——
+   新 id root.0.0.2）click 未触发（vdom 分发查表未命中——事件表迁移
+   与 diffSame setProp 的边界——专项排查）

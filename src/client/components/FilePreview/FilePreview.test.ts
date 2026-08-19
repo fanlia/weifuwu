@@ -14,15 +14,34 @@ before(setupJsdom)
 
 /** editable 默认预览模式——点击「编辑」切换（同一 DocState） */
 
-/** patch 驱动 mount（交互后 ctx.render → 真实 diff——createRoot 迁移模式） */
+/** patch 驱动 mount（交互后 ctx.render → 真实 diff——createRoot 迁移模式）
+ *  **串行队列 + ready 守卫**：mount 完成前 render 挂起等待（loadUrl 等
+ *  mount 期异步——fetch 完成与 mountToDom 竞争——真实竞态）；渲染串行
+ *  （对齐 serve FIFO——patch 顺序——防并发错位） */
 async function mountPreview(root: HTMLElement, props: any, base: any = mkCtx()): Promise<{ ctx: any }> {
   let renderFn: (() => any) | null = null
   let prev: any = null
-  const ctx: any = { ...base, render: async () => { const next = await renderFn!(); await patchToDom(root, root.firstChild, prev, next, ctx); prev = next } }
+  let readyResolve: () => void = () => {}
+  const ready = new Promise<void>((r) => { readyResolve = r })
+  let rendering = false
+  const queue: Array<() => Promise<void>> = []
+  const ctx: any = { ...base, render: async () => {
+    await ready
+    const run = async () => {
+      const next = await renderFn!()
+      await patchToDom(root, root.firstChild, prev, next, ctx)
+      prev = next
+    }
+    if (rendering) { queue.push(run); return }
+    rendering = true
+    try { await run(); while (queue.length > 0) { const q = queue.shift()!; await q() } }
+    finally { rendering = false }
+  } }
   const result = await FilePreview(props, ctx)
   renderFn = () => result(props)
   prev = await renderFn()
   await mountToDom(root, prev, ctx)
+  readyResolve()
   return { ctx }
 }
 
@@ -70,10 +89,10 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     let saved: string | null = null
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'md', content: '# 标题', editable: true,
       onSave: (v: string) => { saved = v },
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 30))
     // 默认预览模式（Markdown 渲染——非 Editor）
     assert.ok(root.querySelector('h1'), '预览模式 Markdown 渲染')
@@ -107,9 +126,9 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
   it('office 编辑入口：打开/下载按钮存在（前端零依赖转换——jsdom 无法模拟文件对话框）', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'office', editable: true,
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 30))
     assert.ok(root.querySelector('[data-open]'), '「打开 docx」按钮存在（本地导入——无需后端）')
     assert.ok(root.textContent?.includes('前端零依赖转换'), '空态提示')
@@ -133,15 +152,19 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     const exp = workbookToXlsx(wb as any)
     const root = document.createElement('div')
     document.body.appendChild(root)
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'office', editable: true,
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 30))
     // 点击打开 → 创建 input → 注入 xlsx 文件
+    // （并发 it——清理其他测试残留的 file input——全局查询竞争）
+    document.body.querySelectorAll('input[type=file]').forEach((i) => i.remove())
     const openBtn = root.querySelector('[data-open]') as HTMLElement
     openBtn!.click()
     await new Promise((r) => setTimeout(r, 30))
-    const input = (document.body.querySelector('input[type=file][accept]')) as HTMLInputElement
+    // 取最后创建的 input（并发/残留干扰——自己的 openBtn.click 刚创建）
+    const inputs = document.body.querySelectorAll('input[type=file][accept]')
+    const input = inputs[inputs.length - 1] as HTMLInputElement
     const file = new File([exp.data], 'data.xlsx')
     Object.defineProperty(input, 'files', { value: [file] as unknown as FileList })
     input.dispatchEvent(new (window as any).Event('change'))
@@ -174,9 +197,9 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
   it('type 未传时按 fileName 自动探测渲染', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       fileName: 'guide.md', content: '# 自动探测',
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 30))
     assert.equal(root.querySelector('h1')?.textContent, '自动探测', 'md 自动探测渲染')
     root.remove()
@@ -186,10 +209,10 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     let saved: string | null = null
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'md', content: '# 标题', editable: true,
       onSave: (v: string) => { saved = v },
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 30))
     await switchToEdit(root)
     const ed = root.querySelector('.wf-editor-content') as HTMLElement
@@ -211,9 +234,9 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     resetEditEvents()
     const root = document.createElement('div')
     document.body.appendChild(root)
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'md', content: '# 标题\n\n- 甲\n- 乙',
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 30))
     assert.ok(root.querySelector('h1'), '标题渲染')
     assert.equal(root.querySelector('h1')?.textContent, '标题')
@@ -229,12 +252,12 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     let saved: string | null = null
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'md',
       content: '# 标题\n\n这是**粗体**段落',
       editable: true,
       onSave: (content: string) => { saved = content },
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 30))
     await switchToEdit(root)
     // Editor 渲染（contentEditable）
@@ -261,9 +284,9 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
   it('html 预览：iframe sandbox 隔离（不直插 DOM）', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'html', content: '<script>window.x=1</script><h1>hi</h1>',
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 30))
     const iframe = root.querySelector('iframe')
     assert.ok(iframe, 'iframe 渲染')
@@ -280,7 +303,7 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     }
     const root = document.createElement('div')
     document.body.appendChild(root)
-    await mountToDom(root, h(FilePreview, { type: 'md', url: '/doc/readme.md' } as any), createTestCtx())
+    await mountPreview(root, { type: 'md', url: '/doc/readme.md' } as any)
       // 加载完成（mock fetch 瞬时——直接断言结果）
     await new Promise((r) => setTimeout(r, 60))
     assert.equal(root.querySelector('h1')?.textContent, '远程文档', '远程内容渲染')
@@ -302,12 +325,12 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     let saved: string | null = null
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'md',
       content: '| a | b |\n|---|---|\n| 1 | 2 |',
       editable: true,
       onSave: (v: string) => { saved = v },
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 30))
     await switchToEdit(root)
     const ed = root.querySelector('.wf-editor-content') as HTMLElement
@@ -330,10 +353,10 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     let saved: string | null = null
-    await mountToDom(root, h(FilePreview, {
+    await mountPreview(root, {
       type: 'md', url: '/doc/remote.md', editable: true,
       onSave: (v: string) => { saved = v },
-    } as any), createTestCtx())
+    } as any)
       await new Promise((r) => setTimeout(r, 80))
     await switchToEdit(root)
     const editable = root.querySelector('.wf-editor-content')
@@ -346,7 +369,7 @@ describe('FilePreview（串行——事件流全局缓冲）', () => {
   it('pdf/office：iframe src 渲染；无 url 占位', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
-    await mountToDom(root, h(FilePreview, { type: 'pdf', url: '/f.pdf' } as any), createTestCtx())
+    await mountPreview(root, { type: 'pdf', url: '/f.pdf' } as any)
       await new Promise((r) => setTimeout(r, 20))
     assert.equal(root.querySelector('iframe')?.getAttribute('src'), '/f.pdf')
     root.remove()
