@@ -133,3 +133,25 @@ test('试点：Button + ctx.i18n 注入（组件读 i18n 面——middlewares �
   const btn = browser.document.querySelector('#lb') as HTMLElement
   assert.equal(btn?.textContent?.trim(), '提交中', '组件读 ctx.i18n（loading 文案）')
 })
+
+test('S3 路由参数：注入 ctx.params（对齐后端 Object.assign(ctx.params)——Request 零修改）', async () => {
+  const router = new pub.UIRouter()
+  let seenReq: Request | null = null
+  let seenParams: Record<string, string> | null = null
+  router.get('/users/:id', (req, ctx) => {
+    seenReq = req
+    seenParams = ctx.params ?? null
+    return (ctx as RenderCtx).stream(pub.h('div', { id: 'p' }, String(ctx.params?.id)))
+  })
+  const browser = testBrowser()
+  const serve = pub.uiServe(router, { root: '#root', browser })
+  await serve.ready
+  // 导航到带参路由
+  await serve.navigate('/users/42')
+  await waitFor(() => browser.document.querySelector('#p')?.textContent === '42')
+  assert.equal(browser.document.querySelector('#p')?.textContent, '42', 'ctx.params.id 注入')
+  // Request 零修改（原生对象——无 params/path 扩展）
+  assert.equal((seenReq as unknown as Record<string, unknown>).params, undefined, 'Request 无 params 扩展')
+  assert.equal((seenReq as unknown as Record<string, unknown>).path, undefined, 'Request 无 path 扩展')
+  assert.equal(seenParams?.id, '42', 'params 在 ctx')
+})

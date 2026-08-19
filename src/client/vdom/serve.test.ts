@@ -1012,7 +1012,7 @@ test('uiSsr：组件渲染（工厂 + ctx.data 服务端取数——mock fetch�
       const post = await ctx.data.get<{ title: string }>(`/api/posts/${init.id}`)
       return () => h('article', {}, post.title)
     }
-    router.get('/posts/:id', (req, ctx) => (ctx as RenderCtx).stream(h(Post, { id: req.params.id })))
+    router.get('/posts/:id', (req, ctx) => (ctx as RenderCtx).stream(h(Post, { id: ctx.params!.id })))
     const html = await uiSsr(router, '/posts/7')
     assert.ok(html.includes('<article>文章-7</article>'), '服务端取数 → HTML')
   } finally {

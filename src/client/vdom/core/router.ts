@@ -12,9 +12,10 @@ import type { Command } from './command/index.ts'
 import { createTrie, trieRegister, trieMatch, splitPath, type TrieNode } from '../../../shared/router/trie.ts'
 
 /** 前端请求 = 原生 Request + params/path 注入（类型扩展——匹配结果挂 req） */
-export type FrontRequest = Request & { params: Record<string, string>; path: string }
+export type FrontRequest = Request
 
-/** 页面 handler——返回原生 Response（body = 命令流字节——NDJSON） */
+/** 页面 handler——返回原生 Response（body = 命令流字节——NDJSON）——
+ *  与后端 Handler 签名字面同构：(req, ctx) => Response */
 export type PageHandler = (req: FrontRequest, ctx: Ctx) => Response | Promise<Response>
 
 /** 渲染入口封装：命令流 → 原生 Response（body = NDJSON 字节流——
@@ -29,13 +30,9 @@ export function commandResponse(stream: ReadableStream<Command>, init?: Response
   return new Response(body, { status: init?.status ?? 200, headers: init?.headers })
 }
 
-/** 构造前端请求（path → Request + params 占位 + path 挂载） */
+/** 构造前端请求（纯原生 Request——零扩展） */
 export function frontRequest(path: string): FrontRequest {
-  const url = new URL(path, 'http://localhost')
-  const req = new Request(url) as FrontRequest
-  req.params = {}
-  Object.defineProperty(req, 'path', { value: url.pathname, enumerable: true })
-  return req
+  return new Request(new URL(path, 'http://localhost'))
 }
 
 export class UIRouter {
@@ -54,12 +51,17 @@ export class UIRouter {
     return this
   }
 
-  /** 解析请求 → 响应（Trie 匹配 + params 注入 + handler 调用） */
+  /** 解析请求 → 响应（Trie 匹配 + **params 注入 ctx**——对齐后端
+   *  `Object.assign(ctx.params, match.params)`——不修改原始 Request） */
   async resolve(req: FrontRequest, ctx: Ctx): Promise<Response> {
-    const m = trieMatch(this.root, splitPath(req.path))
+    const segments = splitPath(new URL(req.url).pathname)
+    const m = trieMatch(this.root, segments)
     const handler = m?.value ?? this.notFoundHandler
     if (!handler) return new Response(null, { status: 404 })
-    if (m) Object.assign(req.params, m.params)
+    // params 注入 ctx（每次渲染替换——不残留旧路由键）
+    const params: Record<string, string> = {}
+    if (m) Object.assign(params, m.params)
+    ctx.params = params
     return handler(req, ctx)
   }
 }
