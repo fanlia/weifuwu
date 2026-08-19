@@ -11,6 +11,7 @@
 
 import type { ExternalStore } from '../store.ts'
 import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
+import { usePopup } from './popup.ts'
 
 /** hooks 环境（per 组件实例——renderComponent 注入） */
 export interface HookEnv {
@@ -36,6 +37,8 @@ export interface Ui {
   useOpen(init: boolean, controlled?: { open?: boolean; onOpenChange?: (v: boolean) => void }): import('./basic.ts').OpenState
   /** 全局键盘监听（Escape 关闭等——unmount 自动清理） */
   useGlobalKey(match: string | ((e: KeyboardEvent) => boolean), handler: (e: KeyboardEvent) => void): void
+  /** 浮层弹窗（portal/定位/外部点击/Escape——28 浮层组件核心依赖） */
+  usePopup(opts: import('./popup.ts').PopupOptions): import('./popup.ts').Popup
 }
 
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
@@ -51,5 +54,6 @@ export function createUi(env: HookEnv): Ui {
       useOpen(env, init, controlled),
     useGlobalKey: (match: string | ((e: KeyboardEvent) => boolean), handler: (e: KeyboardEvent) => void) =>
       useGlobalKey(env, match, handler),
+    usePopup: (opts) => usePopup(env, opts),
   }
 }

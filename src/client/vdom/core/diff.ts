@@ -18,6 +18,7 @@
 
 import type { VNode, VNodeChild } from './vnode.ts'
 import { childrenOf } from './node/children.ts'
+import { isPortal } from './node/portal.ts'
 import { kindOf } from './node/index.ts'
 import { stateOf } from './transform/states.ts'
 import { transitionOf } from './transform/table.ts'
@@ -109,11 +110,20 @@ async function diffSame(
         if (t) await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
         return
       }
-      if (oldOut !== undefined && typeof oldV.type === 'function' && !Array.isArray(oldOut) && !Array.isArray(out)) {
-        // 上次输出对照（同实例——精准增量）
-        await diffSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
+      if (oldOut !== undefined && typeof oldV.type === 'function') {
+        if (!Array.isArray(oldOut) && !Array.isArray(out)) {
+          // 单节点输出对照（同实例——精准增量）
+          await diffSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
+        } else if (Array.isArray(oldOut) && Array.isArray(out)) {
+          // **数组输出对照**（隐式 Fragment——逐项 diffSlot——portal 关闭 →
+          // removePortal 清理——不做全量重建残留）
+          await diffChildrenItems(oldOut, out, p, emit, emitCommand, ctx, registry)
+        } else {
+          // 数组 ↔ 单节点——转换（状态机——旧侧让位 + 新侧渲染）
+          const t = transitionOf(stateOf(oldOut), stateOf(out))
+          if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: pathId(p, i), newId: pathId(p, i), parent: p, index: i, ref: r })
+        }
       } else {
-        // 首帧 / 多根输出（数组——锚点区间——首版新侧渲染）
         await emit(out, p, i, r)
       }
     })
@@ -161,6 +171,17 @@ async function diffChildren(
 ): Promise<void> {
   const oldCs = childrenOf(oldV)
   const newCs = childrenOf(newV)
+  await diffChildrenItems(oldCs, newCs, id, emit, emitCommand, ctx, registry)
+}
+
+/** children 项对照（列表分类：全 unkeyed 位置身份 / 全 keyed 身份复用 / 混合——
+ *  组件数组输出（隐式 Fragment）同用——portal 关闭 → removePortal 清理） */
+async function diffChildrenItems(
+  oldCs: VNodeChild[], newCs: VNodeChild[],
+  id: string,
+  emit: RenderSink, emitCommand: (cmd: Command) => void,
+  ctx: Ctx, registry: ComponentRegistry,
+): Promise<void> {
   // A 级检测（长度变化 + 无 key 组件项 → warn 引导声明 key——
   // 无 key = 位置身份——长度变化时有状态组件位置继承漂移）
   if (oldCs.length !== newCs.length) {
@@ -205,12 +226,16 @@ async function diffSlot(
     if (oldC !== newC) emitCommand({ op: 'setText', id: cid, value: String(newC) })
     return
   }
-  // 新项不存在（数组缩短）→ 移除（旧项是组件 → 先 unmount——onUnmounts 清理）
+  // 新项不存在（数组缩短）→ 移除（旧项是组件 → 先 unmount——onUnmounts 清理；
+  // 旧项是 portal → removePortal——浮层内容清理）
   if (newC === null || newC === undefined) {
     const oldVn = oldC as VNode | null
     if (oldVn && typeof oldVn.type === 'function') {
       const compId = oldVn.key !== null ? `${parent}.k${oldVn.key}` : cid
       emitCommand({ op: 'unmount', compId })
+    }
+    if (oldVn && isPortal(oldVn)) {
+      emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
     }
     emitCommand({ op: 'remove', id: cid })
     return

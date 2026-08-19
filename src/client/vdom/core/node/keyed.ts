@@ -15,16 +15,22 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
+import { isPortal } from './portal.ts'
 
 /** 位置 key 前缀（混合数组——无 key 项位置接管——命名空间隔离） */
 export const POS_KEY_PREFIX = 'pos:'
 
-/** 数组项 key（vnode.key——纯数据面——非 vnode 项 = null） */
+/** 数组项 key（vnode.key——纯数据面——非 vnode 项 = null）
+ *  **portal 除外**：portal 的 key 是 portalKey（#__wf_portal 容器标识）——
+ *  不是列表身份 key——按无 key 处理（位置身份——diffSlot 对照——
+ *  关闭时 removePortal 清理） */
 export function keyOf(v: VNodeChild): string | null {
   if (v === null || v === undefined || typeof v === 'boolean') return null
   if (typeof v === 'string' || typeof v === 'number') return null
   if (Array.isArray(v)) return null
-  return (v as VNode).key
+  const vn = v as VNode
+  if (isPortal(vn)) return null
+  return vn.key
 }
 
 /** 数组项是否显式 keyed（业务声明——vnode.key 非 null） */

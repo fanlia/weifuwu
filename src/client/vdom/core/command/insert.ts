@@ -31,3 +31,9 @@ export type RemoveCommand = {
   op: 'remove'
   id: string
 }
+
+/** 移除 portal 容器内容（浮层关闭清理——主树锚移除 + 容器内容清空） */
+export type RemovePortalCommand = {
+  op: 'removePortal'
+  key: string
+}

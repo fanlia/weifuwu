@@ -128,23 +128,22 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   let req = frontRequest(win.location.pathname)
   /** 影子树（当前渲染的 vnode——diff 对照——精准增量命令流） */
   let currentTree: VNode | null = null
-  /** 并发守卫：渲染中触发 → 单槽位补跑（不丢不排队——最终 DOM = 最新请求状态） */
+  /** 渲染队列（用户决策 2026-12）：渲染期间发生的 render → push 入队——
+   *  每次渲染完成 → shift 取队头继续——直到队列空——**确定性**：
+   *  每个渲染请求最终执行（FIFO——先触发先执行——无丢失无合并歧义） */
   let rendering = false
-  let dirtyTarget: FrontRequest | null = null
+  let queue: FrontRequest[] = []
   let drainPromise: Promise<void> | null = null
 
   /** 渲染循环（ctx.render 同 URL 重渲染 / navigate 新 URL——同一机制）
-   *  **守卫语义（确定性高于 render 次数）**：渲染中触发 → 记录最新目标——
-   *  当前渲染完成后补跑一次（单槽位——不丢不排队）；渲染中 await
-   *  返回 drainPromise（精确等待最终渲染——含补跑——X-A7 契约） */
+   *  **队列确定性**：渲染中触发 → push 入队（FIFO）——当前渲染完成 →
+   *  shift 取队头继续——直到队列空；渲染中 await 返回 drainPromise
+   *  （精确等待全部队列执行完——含后续入队的渲染） */
   const runRender = async (initial: FrontRequest): Promise<void> => {
     let target = initial
     rendering = true
     try {
       while (true) {
-        const current = dirtyTarget ?? target
-        dirtyTarget = null
-        target = current
         req = target
         const res = await router.resolve(req, ctx)
         if (res.body) {
@@ -152,7 +151,12 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
             applier.apply(cmd)
           }
         }
-        if (!dirtyTarget) break
+        // 渲染完成 → 取队头继续（FIFO——先触发先执行）
+        if (queue.length > 0) {
+          target = queue.shift()!
+        } else {
+          break
+        }
       }
     } finally {
       rendering = false
@@ -162,9 +166,9 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
 
   const render = (target: FrontRequest): Promise<void> => {
     if (rendering && drainPromise) {
-      // 渲染中触发——单槽位补跑（记录最新目标——完成后执行一次）
-      dirtyTarget = target
-      return drainPromise // await 最终（含补跑）
+      // 渲染中触发 → push 入队（确定性：每个请求最终执行）
+      queue.push(target)
+      return drainPromise // await 全部队列执行完（含后续入队）
     }
     const p = runRender(target)
     drainPromise = p

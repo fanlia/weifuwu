@@ -269,6 +269,16 @@ export class CommandApplier {
         if (rec) (rec as { mounted?: boolean }).mounted = true
         break
       }
+      case 'removePortal': {
+        // 浮层关闭清理（portal 容器内容清空——含 ref(null) 子树清理）
+        const container = this.portalContainers.get(cmd.key)
+        if (container) {
+          this.clearNodeRefs(PORTAL_ID_PREFIX + cmd.key)
+          container.innerHTML = ''
+        }
+        this.portalContainers.delete(cmd.key)
+        break
+      }
       case 'unmount': {
         // **组件卸载指令**——onUnmounts 清理（实例注册表消费——逆序执行）
         if (this.registry) disposeComponent(cmd.compId, this.registry)
