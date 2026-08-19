@@ -13,13 +13,15 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { transitionOf, runTransition, TRANSITIONS } from './table.ts'
 import { stateOf } from './states.ts'
+import { h } from '../vnode.ts'
 import type { TransformContext } from './index.ts'
 
-function mkCtx(cmds: unknown[], emitted: unknown[] = []): TransformContext {
+function mkCtx(cmds: unknown[], emitted: unknown[] = [], oldCompId?: string): TransformContext {
   return {
     emit: (c) => cmds.push(c),
     emitNode: async (v) => { emitted.push(v) },
     oldId: 'root.1', newId: 'root.1', parent: 'root.0', index: 1, ref: 'root.0.0',
+    ...(oldCompId ? { oldCompId } : {}),
   }
 }
 
@@ -97,4 +99,127 @@ test('transitionOf：同态 null / 异态函数', () => {
 
 test('转换表缺省安全：未知状态对 → null（no-op）', () => {
   assert.equal(transitionOf('unknown' as never, 'element'), null)
+})
+
+// ── 状态机全分支测试（每个异态对的转换行为——旧侧清理 + 新侧渲染） ──
+
+function runT(oldState: string, newState: string, oldNode: unknown, nextNode: unknown, opts?: { oldCompId?: string }) {
+  const cmds: unknown[] = []
+  const emitted: unknown[] = []
+  return {
+    cmds, emitted,
+    run: () => runTransition(oldState as never, newState as never, oldNode, nextNode, mkCtx(cmds, emitted, opts?.oldCompId)),
+  }
+}
+
+test('全分支：fragment → element（数组 → 单节点——旧区间完整递归清理）', async () => {
+  const t = runT('fragment', 'element',
+    [h('span', {}, 'a'), h('div', {}, [h('b', {}, 'x'), 'txt'])],
+    h('p', {}, '单'),
+  )
+  await t.run()
+  // 旧展开区间逐项递归 remove（span、span 文本、div、b、txt、div）——
+  // 非只清首锚——完整子树清理
+  const removes = t.cmds.filter((c) => (c as { op: string }).op === 'remove')
+  assert.equal(removes.length, 6, '数组 + 嵌套完整递归清理（span/a/div/b/txt/div）')
+  assert.deepEqual(removes.map((c) => (c as { id: string }).id),
+    ['root.0.1.0', 'root.0.1', 'root.0.2.0.0', 'root.0.2.0', 'root.0.2.1', 'root.0.2'],
+    '展开位置连续（pathId(parent, index+ci)——递归子先父后）')
+  assert.deepEqual(t.emitted, [h('p', {}, '单') as never], '新侧渲染')
+})
+
+test('全分支：fragment → component（数组 → 组件）', async () => {
+  const comp = { type: () => () => null, props: {}, key: null }
+  const t = runT('fragment', 'component', [h('span', {}), 't'], comp)
+  await t.run()
+  assert.equal(t.cmds.filter((c) => (c as { op: string }).op === 'remove').length, 2, '两项清理')
+  assert.deepEqual(t.emitted, [comp])
+})
+
+test('全分支：fragment → text / fragment → hole / fragment → portal', async () => {
+  const arr = [h('span', {}), h('i', {})]
+  const t1 = runT('fragment', 'text', arr, '文本')
+  await t1.run()
+  assert.equal(t1.cmds.filter((c) => (c as { op: string }).op === 'remove').length, 2, '数组清理')
+  assert.deepEqual(t1.emitted, ['文本'])
+  const t2 = runT('fragment', 'hole', arr, null)
+  await t2.run()
+  assert.equal(t2.cmds.filter((c) => (c as { op: string }).op === 'remove').length, 2)
+  assert.deepEqual(t2.emitted, [null], '新侧 hole（占位锚）')
+  const p = { type: Symbol('portal'), props: {}, key: 'k' }
+  const t3 = runT('fragment', 'portal', arr, p)
+  await t3.run()
+  assert.deepEqual(t3.emitted, [p])
+})
+
+test('全分支：element → fragment / component → fragment / text → fragment / hole → fragment', async () => {
+  const arr = [h('span', {}), h('i', {})]
+  // element → fragment：旧元素移除 + 数组渲染
+  const t1 = runT('element', 'fragment', h('div', {}, 'x'), arr)
+  await t1.run()
+  assert.deepEqual(t1.cmds, [{ op: 'remove', id: 'root.1' }], '旧元素让位')
+  assert.deepEqual(t1.emitted, [arr])
+  // component → fragment：unmountComp + 移除 + 数组
+  const t2 = runT('component', 'fragment', { type: () => () => null, props: {}, key: null }, arr, { oldCompId: 'root.1' })
+  await t2.run()
+  const ops2 = t2.cmds.map((c) => (c as { op: string }).op)
+  assert.ok(ops2.includes('unmount') && ops2.includes('remove'), '组件卸载 + 移除')
+  assert.deepEqual(t2.emitted, [arr])
+  // text → fragment / hole → fragment：旧侧让位
+  const t3 = runT('text', 'fragment', '旧文本', arr)
+  await t3.run()
+  assert.deepEqual(t3.cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(t3.emitted, [arr])
+  const t4 = runT('hole', 'fragment', null, arr)
+  await t4.run()
+  assert.deepEqual(t4.cmds, [{ op: 'remove', id: 'root.1' }], '锚让位')
+  assert.deepEqual(t4.emitted, [arr])
+})
+
+test('全分支：portal → X / X → portal（浮层槽位切换）', async () => {
+  const portal = { type: Symbol('portal'), props: {}, key: 'dd' }
+  const t1 = runT('portal', 'hole', portal, null)
+  await t1.run()
+  assert.deepEqual(t1.cmds, [{ op: 'remove', id: 'root.1' }], '浮层锚让位')
+  assert.deepEqual(t1.emitted, [null])
+  const t2 = runT('hole', 'portal', null, portal)
+  await t2.run()
+  assert.deepEqual(t2.emitted, [portal])
+  const t3 = runT('portal', 'element', portal, h('div', {}))
+  await t3.run()
+  assert.deepEqual(t3.cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(t3.emitted, [h('div', {}) as never])
+})
+
+test('全分支：text → X / hole → X / element → X / component → X（旧侧统一让位）', async () => {
+  const comp = { type: () => () => null, props: {}, key: null }
+  // text → element / text → component / text → portal
+  for (const [next, node] of [['element', h('div', {})], ['component', comp], ['portal', { type: Symbol('p'), props: {}, key: 'k' }]] as const) {
+    const t = runT('text', next, '旧文本', node)
+    await t.run()
+    assert.deepEqual(t.cmds, [{ op: 'remove', id: 'root.1' }], `text → ${next} 文本让位`)
+    assert.deepEqual(t.emitted, [node])
+  }
+  // hole → element / hole → component / hole → text / hole → portal
+  for (const [next, node] of [['element', h('div', {})], ['component', comp], ['text', 'x'], ['portal', { type: Symbol('p'), props: {}, key: 'k' }]] as const) {
+    const t = runT('hole', next, null, node)
+    await t.run()
+    assert.deepEqual(t.cmds, [{ op: 'remove', id: 'root.1' }], `hole → ${next} 锚让位`)
+    assert.deepEqual(t.emitted, [node])
+  }
+  // element → text / element → hole / element → component / element → portal
+  for (const [next, node] of [['text', 'x'], ['hole', null], ['component', comp], ['portal', { type: Symbol('p'), props: {}, key: 'k' }]] as const) {
+    const t = runT('element', next, h('div', {}, 'x'), node)
+    await t.run()
+    assert.deepEqual(t.cmds, [{ op: 'remove', id: 'root.1' }], `element → ${next} 元素让位`)
+    assert.deepEqual(t.emitted, [node])
+  }
+  // component → text / component → element / component → hole / component → portal
+  for (const [next, node] of [['text', 'x'], ['element', h('div', {})], ['hole', null], ['portal', { type: Symbol('p'), props: {}, key: 'k' }]] as const) {
+    const t = runT('component', next, comp, node, { oldCompId: 'root.1' })
+    await t.run()
+    const ops = t.cmds.map((c) => (c as { op: string }).op)
+    assert.deepEqual(ops, ['unmount', 'remove'], `component → ${next} 卸载 + 移除`)
+    assert.deepEqual(t.emitted, [node])
+  }
 })

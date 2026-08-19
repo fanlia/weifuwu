@@ -133,23 +133,10 @@ async function diffSame(
           // removePortal 清理——不做全量重建残留）
           await diffChildrenItems(oldOut, out, p, emit, emitCommand, ctx, registry)
         } else {
-          // **数组 ↔ 单节点**——旧数组逐项递归清理（transform 的 fragment
-          // 转换只 remove 首锚——数组多项残留——此处按 lastOutput 结构完整清理；
-          // 数组项 id = 连续位置 pathId(p, i + ci)——与 emit 展开一致）
-          if (Array.isArray(oldOut)) {
-            oldOut.forEach((c, ci) => {
-              const cid = pathId(p, i + ci)
-              if (c !== null && typeof c !== 'string' && typeof c !== 'number' && typeof c !== 'boolean') {
-                removeVNodeTree(c as VNode, cid, emitCommand)
-              } else {
-                emitCommand({ op: 'remove', id: cid })
-              }
-            })
-          } else if (oldOut !== undefined && oldOut !== null) {
-            removeVNodeTree(oldOut as VNode, pathId(p, i), emitCommand)
-          }
-          // 新侧渲染（单节点/数组）
-          await emit(out, p, i, r)
+          // **数组 ↔ 单节点**——transform 状态机（transitionFragment——
+          // 旧展开区间递归完整清理 + 新侧渲染）
+          const t = transitionOf(stateOf(oldOut), stateOf(out))
+          if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: pathId(p, i), newId: pathId(p, i), parent: p, index: i, ref: r })
         }
       } else {
         await emit(out, p, i, r)
