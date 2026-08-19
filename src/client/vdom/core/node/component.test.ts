@@ -12,7 +12,7 @@ import { testBrowser } from '../../setup.ts'
 import { h, type Component } from '../vnode.ts'
 import { renderToStream } from '../build.ts'
 import { renderComponent, createComponentRegistry, disposeComponent } from './component.ts'
-import { CommandApplier } from '../patch.ts'
+import { CommandApplier } from '../patch/index.ts'
 import { pathId } from './native.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 

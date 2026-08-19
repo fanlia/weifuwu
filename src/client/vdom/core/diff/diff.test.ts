@@ -14,13 +14,13 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { testBrowser } from '../setup.ts'
-import { h } from './vnode.ts'
-import { createPortal } from './node/portal.ts'
-import { diffStream } from './diff/index.ts'
-import { renderToStream } from './build.ts'
-import { CommandApplier } from './patch.ts'
-import { createComponentRegistry, disposeAllComponents } from './node/component.ts'
+import { testBrowser } from '../../setup.ts'
+import { h } from '../vnode.ts'
+import { createPortal } from '../node/portal.ts'
+import { diffStream } from './index.ts'
+import { renderToStream } from '../build.ts'
+import { CommandApplier } from '../patch/index.ts'
+import { createComponentRegistry, disposeAllComponents } from '../node/component.ts'
 import type { UIContext } from '../context/UIContext.ts'
 
 /** 两阶段 harness：首帧 build（渲染旧树）→ diff 增量（就地 patch） */

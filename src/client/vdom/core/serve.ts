@@ -17,7 +17,7 @@
 
 import { UIRouter, frontRequest, type FrontRequest } from './router.ts'
 import { commandToHtml, htmlDocument } from './html.ts'
-import { CommandApplier } from './patch.ts'
+import { CommandApplier } from './patch/index.ts'
 import { renderToStream } from './build.ts'
 import { diffStream } from './diff/index.ts'
 import type { VNode } from './vnode.ts'

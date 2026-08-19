@@ -14,7 +14,7 @@ import { testBrowser } from '../setup.ts'
 import { h } from './vnode.ts'
 import { jsx, jsxs, jsxDEV, Fragment } from '../jsx-runtime.ts'
 import { renderToStream } from './build.ts'
-import { CommandApplier } from './patch.ts'
+import { CommandApplier } from './patch/index.ts'
 import { createComponentRegistry } from './node/component.ts'
 import type { UIContext } from '../context/UIContext.ts'
 
