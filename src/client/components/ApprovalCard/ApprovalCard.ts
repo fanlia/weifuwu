@@ -1,5 +1,5 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import { JsonSchemaForm, type JsonSchema } from '../JsonSchemaForm/JsonSchemaForm.ts'
 import type { WfApprovalRequest } from '../../../server/ai/types.ts'
@@ -72,7 +72,7 @@ export const ApprovalCard: Component<ApprovalCardProps> = async (_init, ctx) => 
           h('button', {
             type: 'button',
             class: 'wf-approval-modify-cancel wf-btn wf-btn--secondary wf-btn--sm',
-            onClick: () => { showModify = false; ctx.ui.render() },
+            onClick: () => { showModify = false; ctx.render() },
           }, '取消修改'),
         ])
       : null
@@ -103,7 +103,7 @@ export const ApprovalCard: Component<ApprovalCardProps> = async (_init, ctx) => 
                   class: 'wf-btn wf-btn--secondary wf-btn--sm wf-approval-modify-btn',
                   type: 'button',
                   disabled: loading || undefined,
-                  onClick: loading ? undefined : () => { showModify = true; ctx.ui.render() },
+                  onClick: loading ? undefined : () => { showModify = true; ctx.render() },
                 }, '修改参数')
               : null,
             h('button', {
@@ -111,7 +111,7 @@ export const ApprovalCard: Component<ApprovalCardProps> = async (_init, ctx) => 
               type: 'button',
               disabled: loading || undefined,
               onClick: loading ? undefined : () => {
-                if (!showNote) { showNote = true; ctx.ui.render(); return }
+                if (!showNote) { showNote = true; ctx.render(); return }
                 onReject?.(note)
               },
             }, showNote ? '确认拒绝' : '拒绝'),
@@ -120,7 +120,7 @@ export const ApprovalCard: Component<ApprovalCardProps> = async (_init, ctx) => 
                   class: 'wf-btn wf-btn--secondary wf-btn--sm',
                   type: 'button',
                   disabled: loading || undefined,
-                  onClick: () => { showNote = false; note = ''; ctx.ui.render() },
+                  onClick: () => { showNote = false; note = ''; ctx.render() },
                 }, '取消')
               : null,
           ].filter(Boolean)),

@@ -24,21 +24,48 @@ import type { HookEnv } from './env.ts'
 export type PopupPlacement = 'top' | 'bottom' | 'left' | 'right'
 
 export interface PopupOptions {
-  /** 锚点元素（或 getter——嵌套弹层首帧未挂载场景） */
-  trigger?: HTMLElement | (() => HTMLElement | null)
-  placement?: PopupPlacement
+  /** 锚点元素（或 getter——嵌套弹层首帧未挂载场景；字符串 = 触发方式
+   *  装饰性（ui-dom 兼容——vdom 由组件显式 setOpen 驱动——忽略））
+   *  el：ui-dom 兼容别名（同 trigger） */
+  trigger?: HTMLElement | (() => HTMLElement | null | string) | string
+  el?: HTMLElement | (() => HTMLElement | null | string)
+  placement?: PopupPlacement | (() => PopupPlacement)
+  /** position（ui-dom 兼容：placement 别名 或 自定义坐标 getter——
+   *  函数返回 {x,y} = 组件自定坐标（positioning 'none' 语义）） */
+  position?: PopupPlacement | (() => PopupPlacement) | (() => { x: number; y: number })
   /** 左对齐（默认居中于锚点） */
   center?: boolean
   /** 锚点与面板间距 */
   gap?: number
   /** 视口边距（夹紧） */
   margin?: number
-  /** 受控（父独占——setOpen 唯一出口） */
-  isOpen?: boolean
+  /** 受控（父独占——setOpen 唯一出口——ui-dom 兼容函数形状） */
+  isOpen?: boolean | (() => boolean)
   setOpen?: (open: boolean) => void
   /** 会话级模态（Modal/Drawer 同款——退场状态机 open→exit→closed——
    *  presence 时 portal 在 exit 阶段仍渲染（退场动画）） */
   presence?: boolean
+  /** 会话级模态四件套（ui-dom 兼容——trapFocus 焦点陷阱/lockScroll 滚动锁） */
+  trapFocus?: boolean
+  lockScroll?: boolean
+  /** 外部点击/ESC 关闭开关（ui-dom 兼容——危险操作防误触——Confirm 默认 false） */
+  closeOnOutside?: boolean
+  closeOnEscape?: boolean
+  /** 触发禁用（ui-dom 兼容——渲染期 getter 形状） */
+  disabled?: boolean | (() => boolean)
+  /** hover 延迟（ui-dom 兼容——渲染期 getter——vdom 无 hover 自动触发——记录用） */
+  openDelay?: number | (() => number)
+  closeDelay?: number | (() => number)
+  /** open 渲染期 getter（ui-dom 兼容——同 isOpen） */
+  open?: boolean | (() => boolean)
+  onOpenChange?: (v: boolean) => void
+  /** 遮罩（ui-dom 兼容——Img preview 等轻量居中弹层） */
+  mask?: boolean
+  maskCentered?: boolean
+  /** 遮罩点击关闭（ui-dom 兼容——危险操作防误触——Confirm 默认 false） */
+  maskClosable?: boolean
+  /** 触发回调（ui-dom 兼容——ContextMenu 自管 contextmenu——渲染期注册） */
+  onTrigger?: (e: MouseEvent) => void
   /** 定位模式（none = 组件自定义定位——.wf-modal inset:0 居中） */
   positioning?: 'anchor' | 'none'
 }
@@ -50,6 +77,8 @@ export interface Popup {
   open: boolean
   /** 打开/关闭 */
   setOpen(open: boolean): void
+  /** 触发回调（ui-dom 兼容——ContextMenu 自管 contextmenu 事件） */
+  onTrigger?(e: Event): void
   /** portal 输出（open 时 → createPortal；presence 时 exit 阶段仍渲染——
    *  退场动画——否则关闭 → null） */
   portal(content: VNodeChild, key?: string): VNode | null
@@ -61,8 +90,12 @@ export interface Popup {
   pos: { top: number; left: number }
   /** presence 阶段（会话级模态——渲染期读：open→exit→closed） */
   phase: PopupPhase
-  /** 渲染期同步（presence 状态机驱动——open 变化检测） */
-  sync(open: boolean): void
+  /** 渲染期同步（presence 状态机驱动——open 变化检测）——返回当前相位
+   *  （ui-dom 兼容：`const phase = popup.sync(open)`——组件读渲染分支） */
+  sync(open: boolean): PopupPhase
+  /** 触发器包装属性（ui-dom 兼容——组件 spread 到 trigger 元素——空对象：
+   *  vdom 组件自管触发（setOpen 显式驱动）——无自动触发包装） */
+  wrapProps: Record<string, unknown>
 }
 
 /** 定位计算（锚点 rect → fixed 坐标——视口夹紧——0-rect 防护） */
@@ -103,14 +136,33 @@ export function computePos(
   return { top, left }
 }
 
+/** 锚点解析（trigger/el——字符串 = 触发方式装饰性（ui-dom 兼容——vdom
+ *  组件显式 setOpen 驱动）→ null；函数 → 求值） */
+function resolveTrigger(opts: PopupOptions): HTMLElement | null {
+  const t = opts.trigger ?? opts.el
+  if (!t) return null
+  const el = typeof t === 'function' ? t() : t
+  return typeof el === 'string' ? null : el
+}
+
 /** usePopup（渲染期调用——renderFn 内 ctx.ui.usePopup） */
 export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
-  const open: OpenState = useOpen(env, false, { open: opts.isOpen, onOpenChange: opts.setOpen })
-  const pos: StableRef<{ top: number; left: number }> = useStableRef(env, { top: 0, left: 0 })
-  const panel: StableRef<HTMLElement | null> = useStableRef(env, null)
+  // isOpen 解析（ui-dom 兼容：函数 = 渲染期 getter；布尔 = 受控值；
+  // **未传 = 非受控**——内部状态——popup.setOpen 驱动——测试/组件缺省场景）
+  const isOpenFn = typeof opts.isOpen === 'function' ? opts.isOpen : undefined
+  const isOpenVal = typeof opts.isOpen === 'boolean' ? opts.isOpen : undefined
+  const controlled: { open?: boolean; onOpenChange?: (v: boolean) => void } | undefined =
+    isOpenFn || isOpenVal !== undefined
+      ? { get open() { return isOpenFn ? isOpenFn() : isOpenVal }, onOpenChange: opts.setOpen }
+      : undefined
+  const open: OpenState = useOpen(env, false, controlled)
+  // useStableRef 双形状（容器 | ref 回调）——popup 内部用容器形状
+  const pos = useStableRef(env, { top: 0, left: 0 }) as StableRef<{ top: number; left: number }>
+  const panel = useStableRef(env, null) as StableRef<HTMLElement | null>
   const win = env.getBrowser()?.window
 
-  const placement = opts.placement ?? 'bottom'
+  // placement 函数解析（ui-dom 兼容——渲染期 getter）
+  const placement = typeof opts.placement === 'function' ? opts.placement() : (opts.placement ?? 'bottom')
   const gap = opts.gap ?? 8
   const margin = opts.margin ?? 8
   const center = opts.center ?? true
@@ -118,7 +170,7 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
   /** 重算坐标（锚点 rect + 面板尺寸——0-rect 防护——el-null 微任务重试限次） */
   let retries = 0
   const refresh = (): void => {
-    const el = typeof opts.trigger === 'function' ? opts.trigger() : opts.trigger
+    const el = resolveTrigger(opts)
     if (!el || !panel.current) {
       // el-null fallback（嵌套弹层首帧锚点未挂载——限次重试——防无限微任务循环）
       if (retries++ < 10) queueMicrotask(refresh)
@@ -160,7 +212,7 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
     const onDown = (e: MouseEvent): void => {
       if (!open.open) return
       const t = e.target as Node | null
-      const el = typeof opts.trigger === 'function' ? opts.trigger() : opts.trigger
+      const el = resolveTrigger(opts)
       if (t && el?.contains(t)) return
       if (t && panel.current?.contains(t)) return
       open.setOpen(false)
@@ -223,7 +275,7 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
     get phase() {
       return phaseState.phase
     },
-    sync(openNow: boolean): void {
+    sync(openNow: boolean): PopupPhase {
       // 渲染期同步（组件显式驱动——与 portal 内检测同逻辑——双保险）
       if (prev.open !== openNow) {
         prev.open = openNow
@@ -238,7 +290,10 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
           }
         }
       }
+      return phaseState.phase
     },
+    wrapProps: {},
+    onTrigger: () => {},
   }
 }
 

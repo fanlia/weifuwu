@@ -14,9 +14,9 @@
  * gutter 仅水平（垂直 gutter 低频）。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface GridProps {
   gutter?: number
@@ -40,7 +40,7 @@ export function gridColumns(span: number): string {
   return `${(span / 24) * 100}%`
 }
 
-export const Grid: Component<GridProps> = async (_init, _ctx: WfuiContext) =>
+export const Grid: Component<GridProps> = async (_init, _ctx: UIContext) =>
   async (props) => {
     const { gutter, flex, gap, direction = 'row', align, children } = props
     const half = gutter ? gutter / 2 : 0
@@ -62,7 +62,7 @@ export const Grid: Component<GridProps> = async (_init, _ctx: WfuiContext) =>
     }, kids)
   }
 
-export const Col: Component<ColProps> = async (_init, _ctx: WfuiContext) =>
+export const Col: Component<ColProps> = async (_init, _ctx: UIContext) =>
   async (props) => {
     const { span = 24, gutter, children } = props
     const half = gutter ? gutter / 2 : 0

@@ -1,5 +1,5 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface RateProps {
@@ -27,7 +27,7 @@ export const Rate: Component<RateProps> = async (_init, ctx) => {
   const setHover = (v: number) => {
     if (hover === v) return
     hover = v
-    ctx.ui.render()
+    ctx.render()
   }
 
   return async (props) => {
@@ -43,7 +43,7 @@ export const Rate: Component<RateProps> = async (_init, ctx) => {
     const ctrl = ctx?.ui?.useControlled<number>({ value: props.value, onChange: props.onChange, name: inert ? undefined : 'Rate' })
     const value = ctrl?.value ?? 0
     const setRate = (v: number) => {
-      const wasControlled = ctrl?.controlled
+      const wasControlled = ctrl?.controlled?.value !== undefined
       ctrl?.setValue(v)
       // onChange 通知语义（非受控也调）；受控时 setValue 已调
       if (!wasControlled) props.onChange?.(v)

@@ -5,8 +5,8 @@
  * 是裁剪边界（Monaco 600KB+ 违背零依赖哲学——design/components-cuts.md 登记）。
  * 受控纪律：value 受控 + 缺 onChange → warn。
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface CodeEditorProps {
   value: string

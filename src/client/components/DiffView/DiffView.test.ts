@@ -2,7 +2,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { diffLines } from './diff-utils.ts'
 import { DiffView } from './DiffView.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
 describe('diffLines — LCS 行 diff 算法', () => {

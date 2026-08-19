@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { PasswordInput } from './PasswordInput.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 function findInput(v: any): any {
   if (v?.props?.type === 'password' || v?.props?.type === 'text') return v
@@ -32,7 +32,7 @@ describe('PasswordInput', () => {
     let eye = findEye(vnode)
     assert.ok(eye, '眼睛按钮存在')
     assert.equal(eye.props['aria-label'], '显示密码')
-    eye.props.onClick() // toggle → ctx.ui.render()（mock 空）→ 重新 render 拿新状态
+    eye.props.onClick() // toggle → ctx.render()（mock 空）→ 重新 render 拿新状态
     vnode = await inner({ value: 'secret' })
     eye = findEye(vnode)
     assert.equal(findInput(vnode).props.type, 'text')

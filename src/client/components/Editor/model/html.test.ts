@@ -4,7 +4,7 @@
 
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../ui-dom/setup.ts'
+import { setupJsdom } from '../../../vdom/setup.ts'
 import { parseHtml, serializeHtml, normalizeHtml } from './html.ts'
 import { EMPTY_DOC } from './types.ts'
 

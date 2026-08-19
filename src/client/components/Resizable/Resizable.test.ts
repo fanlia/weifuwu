@@ -1,12 +1,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Resizable } from './Resizable.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   return createTestCtx({ ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
     // useDrag mock：onPointerDown 透传（拖拽逻辑由 useDrag 单测覆盖，组件层测结构）

@@ -13,9 +13,9 @@
  * 折叠态交还 useBreakpoint 由用户驱动。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface NavMenuItem {
@@ -35,7 +35,7 @@ export interface NavMenuProps {
  * 区域不属于面板——mouseout relatedTarget 是页面元素——进入面板前不误关） */
 const HOVER_CLOSE_DELAY = 120
 
-export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) => {
+export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let openKey: string | null = null
   let nestedKey: string | null = null
@@ -90,7 +90,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
       closeTimer = undefined
       if (openKey !== null || nestedKey !== null) {
         openKey = null; nestedKey = null
-        ctx.ui.render()
+        ctx.render()
       }
     }, HOVER_CLOSE_DELAY)
   }
@@ -106,7 +106,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
     gap: 4,
     el: () => (openKey ? itemEls.get(openKey) ?? null : null),
     isOpen: () => !!openKey,
-    setOpen: (v) => { if (!v) { openKey = null; nestedKey = null; ctx.ui.render() } },
+    setOpen: (v) => { if (!v) { openKey = null; nestedKey = null; ctx.render() } },
   })
 
   // 嵌套子菜单（第二级）：独立 usePopup（portal + right 弹出）
@@ -117,7 +117,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
     gap: 4,
     el: () => (nestedKey ? nestedEls.get(nestedKey) ?? null : null),
     isOpen: () => !!nestedKey,
-    setOpen: (v) => { if (!v) { nestedKey = null; ctx.ui.render() } },
+    setOpen: (v) => { if (!v) { nestedKey = null; ctx.render() } },
   })
 
   const renderSub = (
@@ -133,7 +133,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
         if (hasNested) {
           // 嵌套 hover 已展开——点击收起（或直接选中）
           nestedKey = nestedKey === item.key ? null : item.key
-          ctx.ui.render()
+          ctx.render()
         } else {
           onSelect?.(item.key)
           popup.setOpen(false)
@@ -156,11 +156,11 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
           cancelClose() // 移回菜单域——取消延迟关闭
           if (item.disabled) return
           if (hasNested) {
-            if (nestedKey !== item.key) { nestedKey = item.key; ctx.ui.render() }
+            if (nestedKey !== item.key) { nestedKey = item.key; ctx.render() }
           } else if (nestedKey !== null) {
             // 叶子子项 hover：关闭已展开的嵌套子菜单（shadcn NavigationMenu 行为）
             nestedKey = null
-            ctx.ui.render()
+            ctx.render()
           }
         },
       }, [
@@ -174,7 +174,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
                 class: 'wf-navmenu-sub wf-navmenu-sub--nested wf-navmenu-sub--open',
                 role: 'menu',
                 ref: nestedPanelRef,
-                onMouseEnter: () => { cancelClose(); if (nestedKey !== item.key) { nestedKey = item.key; ctx.ui.render() } },
+                onMouseEnter: () => { cancelClose(); if (nestedKey !== item.key) { nestedKey = item.key; ctx.render() } },
                 onMouseLeave: onDomainLeave,
               }, renderSub(item.children || [], activeKey, onSelect, depth + 1)),
               'wf-navmenu-nested',
@@ -209,7 +209,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
           if (hasChildren) {
             openKey = isOpen ? null : item.key
             nestedKey = null
-            ctx.ui.render()
+            ctx.render()
           } else {
             onSelect?.(item.key)
             // 点击叶子项：关闭已展开的子菜单（shadcn NavigationMenu 行为）
@@ -222,26 +222,26 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
           // hover 打开子菜单（桌面主通道；移动端点击切换）
           if (item.disabled) return
           if (hasChildren) {
-            if (openKey !== item.key) { openKey = item.key; nestedKey = null; ctx.ui.render() }
+            if (openKey !== item.key) { openKey = item.key; nestedKey = null; ctx.render() }
           } else if (openKey !== null || nestedKey !== null) {
             // 叶子项 hover：关闭已展开的子菜单（shadcn NavigationMenu 行为）
             openKey = null; nestedKey = null
-            ctx.ui.render()
+            ctx.render()
           }
         },
         onKeyDown: (e: any) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault?.()
             if (item.disabled) return
-            if (hasChildren) { openKey = isOpen ? null : item.key; nestedKey = null; ctx.ui.render() }
+            if (hasChildren) { openKey = isOpen ? null : item.key; nestedKey = null; ctx.render() }
             else { onSelect?.(item.key); popup.setOpen(false); nestedPopup.setOpen(false) }
           } else if (e.key === 'ArrowRight' && hasChildren) {
             openKey = item.key
-            ctx.ui.render()
+            ctx.render()
           } else if (e.key === 'Escape') {
             openKey = null
             nestedKey = null
-            ctx.ui.render()
+            ctx.render()
           }
         },
       }, [

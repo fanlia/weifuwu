@@ -1,11 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { VirtualTable } from './VirtualTable.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
 // 可控 useScrollPosition mock（VirtualList 同款）
-function makeCtx(scrollY = 0): { ctx: WfuiContext; setY: (y: number) => void } {
+function makeCtx(scrollY = 0): { ctx: UIContext; setY: (y: number) => void } {
   const scroll = { y: scrollY, refresh: () => {} }
   const ctx = createTestCtx({ ui: { useScrollPosition: () => scroll } }) as any
   return { ctx, setY: (y: number) => { scroll.y = y } }

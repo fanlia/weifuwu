@@ -2,8 +2,8 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Popconfirm } from './Popconfirm.ts'
 import { Icon } from '../Icon/Icon.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode } from '../../vdom/testing.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {

@@ -2,9 +2,9 @@
  * weifuwu/components — Chart
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 import {
   scaleLinear, linePath, areaPath, barRects, pieArcs,
@@ -37,7 +37,7 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
     el: () => tooltipEl as HTMLElement | null,
     isOpen: () => tooltip !== null,
     setOpen: (v) => {
-      if (!v && tooltip !== null) { tooltip = null; tooltipEl = null; ctx.ui.render() }
+      if (!v && tooltip !== null) { tooltip = null; tooltipEl = null; ctx.render() }
     },
   })
 
@@ -71,9 +71,9 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
         const enter = (e: Event) => {
           tooltipEl = e.target as Element
           tooltip = { label: d.label, value: d.value, color: d.color ?? getDefaultColor(i) }
-          ctx.ui.render()
+          ctx.render()
         }
-        const leave = () => { tooltipEl = null; tooltip = null; ctx.ui.render() }
+        const leave = () => { tooltipEl = null; tooltip = null; ctx.render() }
         return h('g', { key: `dot-${i}` }, [
           // 视觉点
           h('circle', {
@@ -160,9 +160,9 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
           fill: r.color, rx: 2,
           onMouseEnter: (e: Event) => {
             tooltipEl = e.target as Element
-            tooltip = { label: r.label, value: r.value, color: r.color }; ctx.ui.render()
+            tooltip = { label: r.label, value: r.value, color: r.color }; ctx.render()
           },
-          onMouseLeave: () => { tooltipEl = null; tooltip = null; ctx.ui.render() },
+          onMouseLeave: () => { tooltipEl = null; tooltip = null; ctx.render() },
         })),
         ...data.map((d, i) => {
           const x = xScale(i) + pad
@@ -190,9 +190,9 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
             'stroke-width': 1.5,
             onMouseEnter: (e: Event) => {
               tooltipEl = e.target as Element
-              tooltip = { label: a.label, value: a.value, color: a.color }; ctx.ui.render()
+              tooltip = { label: a.label, value: a.value, color: a.color }; ctx.render()
             },
-            onMouseLeave: () => { tooltipEl = null; tooltip = null; ctx.ui.render() },
+            onMouseLeave: () => { tooltipEl = null; tooltip = null; ctx.render() },
           }),
           ...(a.value / data.reduce((s, d) => s + Math.abs(d.value), 0) > 0.05
             ? [h('text', {
@@ -273,8 +273,8 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
       const yOf = (v: number) => H - PAD - Math.abs(v) / maxY * (H - PAD * 2)
       const dots = data.map((d, i) =>
         h('circle', { key: `dot-${i}`, cx: xOf(i), cy: yOf(d.value), r: 4.5, fill: d.color ?? getDefaultColor(i),
-          onMouseEnter: () => { tooltip = { label: d.label, value: d.value }; ctx.ui.render() },
-          onMouseLeave: () => { tooltip = null; ctx.ui.render() } }))
+          onMouseEnter: () => { tooltip = { label: d.label, value: d.value }; ctx.render() },
+          onMouseLeave: () => { tooltip = null; ctx.render() } }))
       const yTicks = [0, 0.5, 1].map((r) => {
         const y = yOf(r * maxY)
         return h('g', { key: `yt-${r}` }, [

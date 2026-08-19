@@ -8,31 +8,18 @@
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert'
 import { ChatInput } from './ChatInput.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 
 before(setupJsdom)
 
-function createTestCtx(): WfuiContext {
-  return {
-    ui: {
-      render: () => {},
-      useExternal: () => undefined,
-      // §5.3 受控输入 mock：内部 keyword（闭包有状态——同 vnode 内输入→发送读同一状态）
-      useControlledInput: () => {
-        const st = { keyword: '' }
-        return {
-          value: '', setValue: () => {},
-          get keyword() { return st.keyword },
-          setKeyword(v: string) { st.keyword = v },
-          get selectedLabel() { return '' },
-          setSelectedLabel: () => {},
-        }
-      },
-    },
-  } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 /** class 匹配：token 精确或后代前缀 */
 function classHit(cls: string, classPart: string): boolean {

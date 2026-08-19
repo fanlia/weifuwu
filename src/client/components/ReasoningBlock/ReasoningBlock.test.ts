@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { ReasoningBlock } from './ReasoningBlock.ts'
-import { renderVNode, mountComponent, findByClass, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, mountComponent, findByClass, createTestCtx } from '../../vdom/testing.ts'
 
 describe('ReasoningBlock', () => {
   it('默认折叠：aria-expanded=false + 正文不可见', async () => {

@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { AlertGroup } from './AlertGroup.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   if (!vnode || typeof vnode !== 'object') return null

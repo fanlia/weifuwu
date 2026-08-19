@@ -14,14 +14,17 @@ import type { HookEnv } from './env.ts'
 export interface DragDrop {
   /** 拖拽源属性（draggable + drag 事件） */
   draggableProps: { draggable: true; onDragStart: (e: DragEvent) => void; onDragEnd: (e: DragEvent) => void }
+  /** 拖拽源属性别名（ui-dom 兼容——Kanban 用） */
+  dragProps: { draggable: true; onDragStart: (e: DragEvent) => void; onDragEnd: (e: DragEvent) => void }
   /** 放置目标属性 */
-  dropProps: { onDragOver: (e: DragEvent) => void; onDrop: (e: DragEvent) => void }
+  dropProps: { onDragOver: (e: DragEvent) => void; onDragLeave: (e: DragEvent) => void; onDrop: (e: DragEvent) => void }
 }
 
 export interface DragDropOptions {
   onDragStart?: (e: DragEvent, data?: unknown) => void
   onDragEnd?: (e: DragEvent) => void
   onDragOver?: (e: DragEvent) => void
+  onDragLeave?: (e: DragEvent) => void
   onDrop?: (e: DragEvent, data?: unknown) => void
   /** 拖拽数据（dataTransfer 传递） */
   data?: unknown
@@ -29,20 +32,23 @@ export interface DragDropOptions {
 
 /** 拖拽（draggable enumerated 显式 'true'——事件回调——组件层传 data） */
 export function useDragDrop(env: HookEnv, opts: DragDropOptions): DragDrop {
-  return {
-    draggableProps: {
-      draggable: true, // enumerated——field/attributes 显式 'true'
-      onDragStart: (e: DragEvent) => {
-        if (opts.data !== undefined) e.dataTransfer?.setData('text/plain', JSON.stringify(opts.data))
-        opts.onDragStart?.(e, opts.data)
-      },
-      onDragEnd: (e: DragEvent) => opts.onDragEnd?.(e),
+  const source = {
+    draggable: true as const, // enumerated——field/attributes 显式 'true'
+    onDragStart: (e: DragEvent) => {
+      if (opts.data !== undefined) e.dataTransfer?.setData('text/plain', JSON.stringify(opts.data))
+      opts.onDragStart?.(e, opts.data)
     },
+    onDragEnd: (e: DragEvent) => opts.onDragEnd?.(e),
+  }
+  return {
+    draggableProps: source,
+    dragProps: source,
     dropProps: {
       onDragOver: (e: DragEvent) => {
         e.preventDefault() // 允许放置
         opts.onDragOver?.(e)
       },
+      onDragLeave: (e: DragEvent) => opts.onDragLeave?.(e),
       onDrop: (e: DragEvent) => {
         e.preventDefault()
         let data: unknown
@@ -65,7 +71,9 @@ export function useMedia(env: HookEnv, query: string): boolean {
   const state = env.getHookState<{ matches: boolean; mql: Mql | null }>(idx) ?? { matches: false, mql: null }
   env.setHookState(idx, state)
   const win = env.getBrowser()?.window as (Window & { matchMedia?: (q: string) => Mql }) | null
-  const mql = win?.matchMedia?.(query)
+  // 全局 matchMedia 兜底（jsdom 测试 mock 通道——生产走注入）
+  const mm = win?.matchMedia ?? ((typeof matchMedia === 'function' ? matchMedia.bind(undefined) : undefined) as ((q: string) => Mql) | undefined)
+  const mql = mm?.(query)
   if (mql) {
     state.matches = mql.matches
     if (!state.mql) {

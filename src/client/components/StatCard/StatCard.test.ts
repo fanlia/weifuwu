@@ -2,8 +2,8 @@ import { describe, it, test } from 'node:test'
 import assert from 'node:assert'
 import { StatCard } from './StatCard.ts'
 import { Icon } from '../Icon/Icon.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
@@ -20,16 +20,12 @@ function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   return null
 }
 
-function createTestCtx(): WfuiContext {
-  return { ui: {
-    $: {}, render: () => {}, dirty: () => {}, ready: true,
-    useReducedMotion: () => false,
-    useTween: (target: number) => {
-      const handle: any = { value: target, reset: (to: number) => { handle.value = to } }
-      return handle
-    },
-  } } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 describe('StatCard', () => {
   it('renders label and value', async () => {
@@ -91,7 +87,7 @@ describe('StatCard', () => {
 
   it('animate：动画步进中的 render 不重启动画（值必须收敛到目标，不冻结在低档）', async () => {
     // 回归：Dashboard 等页面实测动画冻结在 4/0/0/8（应为 8/4/4/12）——
-    // 每个 step 调 ctx.ui.render() → 组件重渲染 → 旧实现每次重渲染都重启动画
+    // 每个 step 调 ctx.render() → 组件重渲染 → 旧实现每次重渲染都重启动画
     // （新 t0 + cancel 待调度帧），eased 进度永远只前进 ~11.5%/帧 → Math.round 平台期。
     const rafCallbacks: Array<(t: number) => void> = []
     const origRaf = globalThis.requestAnimationFrame
@@ -147,8 +143,8 @@ describe('StatCard', () => {
       await renderFn({ label: 'x', value: 8, animate: true })
       assert.equal(rafCallbacks.length, 1, '动画启动时调度一个 rAF')
 
-      // 真实链路：step 内 ctx.ui.render() 会同步重渲染组件（同 props）
-      ctx.ui.render = async () => { await renderFn({ label: 'x', value: 8, animate: true }) }
+      // 真实链路：step 内 ctx.render() 会同步重渲染组件（同 props）
+      ctx.render = async () => { await renderFn({ label: 'x', value: 8, animate: true }) }
 
       // 模拟 60 帧（960ms > 400ms 动画时长）
       for (let i = 0; i < 60; i++) {

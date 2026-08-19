@@ -5,7 +5,7 @@
 import { describe, it } from 'node:test'
 import * as assert from 'node:assert'
 import { Img } from './Img.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 function makeCtx(): any {
   return createTestCtx({ ui: { useGlobalKey: () => () => {} } }) as any

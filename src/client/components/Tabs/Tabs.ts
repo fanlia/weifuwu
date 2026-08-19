@@ -1,7 +1,7 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface TabItem {
   key: string
@@ -35,7 +35,7 @@ export const Tabs: Component<TabsProps> = async (_init, ctx) => {
     if (!el) return
     inkLeft = el.offsetLeft
     inkWidth = el.offsetWidth
-    ctx.ui.render()
+    ctx.render()
   }
   const measureActive = () => {
     if (!listEl) return
@@ -56,7 +56,7 @@ export const Tabs: Component<TabsProps> = async (_init, ctx) => {
   // 原实现非受控时 onClick 为 undefined = 静默不可点，受控纪律违规）
   const ctrl = ctx?.ui?.useControlled<string>({ value: props.active, onChange: props.onChange, name: 'Tabs' })
   const select = (key: string) => {
-    const wasControlled = ctrl?.controlled
+    const wasControlled = ctrl?.controlled?.value !== undefined
     ctrl?.setValue(key)
     // onChange 是通知语义（非受控也调——antd Tabs 切换回调）；受控时 setValue 已调
     if (!wasControlled) props.onChange?.(key)

@@ -14,6 +14,8 @@
 import type { HookEnv } from './env.ts'
 
 export interface ControlledInput {
+  /** 原受控选项（ui-dom 兼容——Mentions 读 controlled 原引用） */
+  controlled: { value?: string; onChange?: (v: string) => void; name?: string }
   /** 受控值（渲染期读 props） */
   value: string
   /** 触发 onChange（受控回流） */
@@ -39,7 +41,7 @@ interface InputState {
 /** 受控输入（渲染期调用——受控值读最新 props——内部态 hook 缓存） */
 export function useControlledInput(
   env: HookEnv,
-  controlled: { value?: string; onChange?: (v: string) => void },
+  controlled: { value?: string; onChange?: (v: string) => void; name?: string },
   opts?: { name?: string },
 ): ControlledInput {
   const idx = env.nextHookIndex()
@@ -47,6 +49,7 @@ export function useControlledInput(
   env.setHookState(idx, state)
   const isControlled = controlled.value !== undefined
   return {
+    controlled,
     get value() {
       return controlled.value ?? state.keyword
     },

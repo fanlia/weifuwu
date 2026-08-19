@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Select } from './Select.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
+import type { UIContext } from '../../vdom/index.ts'
 
 function childrenOf(vnode: any){
   if (!vnode) return []
@@ -31,7 +31,8 @@ function allNodes(vnode: any){
 
 describe('Select (native)', () => {
   function nativeCtx(){
-    const ctx = { ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
+    const ctx = { render: async () => {}, onUnmount: () => {}, params: {}, query: {},
+    ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
     return ctx
   }
 
@@ -85,7 +86,8 @@ describe('Select (native)', () => {
 
 describe('Select (searchable)', () => {
   async function searchableCtx(){
-    const ctx = { ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
+    const ctx = { render: async () => {}, onUnmount: () => {}, params: {}, query: {},
+    ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
     // render-only：内部状态为闭包 let——测试通过真实交互处理器（onClick/onInput）驱动
     const render = await Select({}, ctx)!
     return { ctx, render }
@@ -187,7 +189,8 @@ describe('Select (searchable)', () => {
   })
 
   it('disabled 透传（原生 select 禁用）', async () => {
-    const ctx = { ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
+    const ctx = { render: async () => {}, onUnmount: () => {}, params: {}, query: {},
+    ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
     const render = await Select({}, ctx)!
     const vnode = await render({ disabled: true, options: [{ value: 'a', label: 'A' }] })
     const select = childrenOf(vnode).find((c: any) => c?.type === 'select')

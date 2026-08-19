@@ -1,9 +1,9 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Tour } from './Tour.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
+import { renderVNode } from '../../vdom/testing.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
 
 
 const makeCtx = () => {

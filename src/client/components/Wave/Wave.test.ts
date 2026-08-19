@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
-import { renderVNode, findByClass, createTestCtx, mountComponent } from '../../ui-dom/testing.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
+import { renderVNode, findByClass, createTestCtx, mountComponent } from '../../vdom/testing.ts'
 import { Wave } from './Wave.ts'
 import { readFileSync } from 'node:fs'
 

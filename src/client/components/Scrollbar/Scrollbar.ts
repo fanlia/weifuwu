@@ -9,9 +9,9 @@
  * 裁剪（CS-05，见 design/components-cuts.md）：不做虚拟滚动/拖动滚动条 thumb（VirtualList 覆盖虚拟化）。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface ScrollbarProps {
   maxHeight?: number | string
@@ -23,7 +23,7 @@ export interface ScrollbarProps {
   style?: any
 }
 
-export const Scrollbar: Component<ScrollbarProps> = async (_init, _ctx: WfuiContext) =>
+export const Scrollbar: Component<ScrollbarProps> = async (_init, _ctx: UIContext) =>
   async (props) => {
     const { maxHeight, height, orientation = 'vertical', always, children, style } = props
     const hAxis = orientation === 'horizontal'

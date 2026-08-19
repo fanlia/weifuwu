@@ -6,9 +6,9 @@
  * 裁剪（CS-05，见 design/components-cuts.md）：hover 展开 tooltip（Tooltip 可组合）。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Avatar, type AvatarProps } from '../Avatar/Avatar.ts'
 
 export interface AvatarGroupItem {

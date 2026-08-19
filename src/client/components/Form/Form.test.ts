@@ -1,13 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Form, validateValues } from './Form.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
-function createTestCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
-}
+
 
 /** 创建模拟 form 的 target，返回 FormData 友好的对象 */
 function mockForm(values: Record<string, string>): HTMLFormElement {

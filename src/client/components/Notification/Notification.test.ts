@@ -1,14 +1,14 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Notification } from './Notification.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   return { ui: {
     $: () => ({}), render: () => {}, dirty: () => {}, ready: true, useExternal: () => undefined,
     usePopup: () => ({ get open() { return true }, setOpen: () => {}, wrapProps: {}, portal: (c: any) => c, refresh: () => {} }),

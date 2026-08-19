@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface CascaderOption {
@@ -77,7 +77,7 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
     gap: 6,
     el: () => triggerEl,
     isOpen: () => open,
-    setOpen: (v) => { open = v; ctx.ui.render() }, // 外部点击/Escape 关闭必须显式渲染
+    setOpen: (v) => { open = v; ctx.render() }, // 外部点击/Escape 关闭必须显式渲染
   })
 
   return async (props) => {
@@ -95,7 +95,7 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       open = !open
       activePath = Array.isArray(value) ? [...value] : []
       if (open) { hl = { col: 0, idx: 0 }; hlSearch = 0 } // 打开重置键盘高亮
-      ctx.ui.render()
+      ctx.render()
     }
 
     const resolve = (path: string[]): CascaderOption[] => {
@@ -114,14 +114,14 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       if (opt.children?.length) {
         activePath = nextPath
         hl = { col: hl.col + 1, idx: 0 } // 键盘焦点跟随推进列（否则 Enter 后仍操作旧列）
-        ctx.ui.render()
+        ctx.render()
       } else {
         if (Array.isArray(value) && !onChange) {
           // 受控（value 已传）但无 onChange：选中无法生效——开发期提示（与 Collapse/Tree/Calendar 一致）
           console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。\n非受控：去掉 value；受控：传入 onChange={(path) => setPath(path)}`)
         }
         open = false
-        ctx.ui.render()
+        ctx.render()
         onChange?.(nextPath)
       }
     }
@@ -132,7 +132,7 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
         console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。`)
       }
       open = false; kw = ''
-      ctx.ui.render()
+      ctx.render()
       onChange?.(m.path)
     }
 
@@ -209,7 +209,7 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
           type: 'text',
           placeholder: searchPlaceholder,
           value: kw,
-          onInput: (e: any) => { kw = e.target.value; ctx.ui.render() },
+          onInput: (e: any) => { kw = e.target.value; ctx.render() },
         })
       : null
 
@@ -221,10 +221,10 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       if (showSearch && kwLower) {
         const total = matched.length
         if (!total) return
-        if (k === 'ArrowDown') { e.preventDefault(); hlSearch = Math.min(hlSearch + 1, total - 1); ctx.ui.render() }
-        else if (k === 'ArrowUp') { e.preventDefault(); hlSearch = Math.max(hlSearch - 1, 0); ctx.ui.render() }
-        else if (k === 'Home') { e.preventDefault(); hlSearch = 0; ctx.ui.render() }
-        else if (k === 'End') { e.preventDefault(); hlSearch = total - 1; ctx.ui.render() }
+        if (k === 'ArrowDown') { e.preventDefault(); hlSearch = Math.min(hlSearch + 1, total - 1); ctx.render() }
+        else if (k === 'ArrowUp') { e.preventDefault(); hlSearch = Math.max(hlSearch - 1, 0); ctx.render() }
+        else if (k === 'Home') { e.preventDefault(); hlSearch = 0; ctx.render() }
+        else if (k === 'End') { e.preventDefault(); hlSearch = total - 1; ctx.render() }
         else if (k === 'Enter' && matched[hlSearch]) { e.preventDefault(); pickMatched(matched[hlSearch]) }
         return
       }
@@ -232,17 +232,17 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       const col = colData[hl.col]
       if (!col || !col.options.length) return
       const n = col.options.length
-      if (k === 'ArrowDown') { e.preventDefault(); hl = { col: hl.col, idx: Math.min(hl.idx + 1, n - 1) }; ctx.ui.render() }
-      else if (k === 'ArrowUp') { e.preventDefault(); hl = { col: hl.col, idx: Math.max(hl.idx - 1, 0) }; ctx.ui.render() }
-      else if (k === 'Home') { e.preventDefault(); hl = { col: hl.col, idx: 0 }; ctx.ui.render() }
-      else if (k === 'End') { e.preventDefault(); hl = { col: hl.col, idx: n - 1 }; ctx.ui.render() }
+      if (k === 'ArrowDown') { e.preventDefault(); hl = { col: hl.col, idx: Math.min(hl.idx + 1, n - 1) }; ctx.render() }
+      else if (k === 'ArrowUp') { e.preventDefault(); hl = { col: hl.col, idx: Math.max(hl.idx - 1, 0) }; ctx.render() }
+      else if (k === 'Home') { e.preventDefault(); hl = { col: hl.col, idx: 0 }; ctx.render() }
+      else if (k === 'End') { e.preventDefault(); hl = { col: hl.col, idx: n - 1 }; ctx.render() }
       else if (k === 'ArrowRight') {
         const opt = col.options[Math.min(hl.idx, n - 1)]
         if (opt?.children?.length) {
           e.preventDefault()
           activePath = [...col.path, opt.value]
           hl = { col: hl.col + 1, idx: 0 }
-          ctx.ui.render()
+          ctx.render()
         }
       }
       else if (k === 'ArrowLeft') {
@@ -252,7 +252,7 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
           const target = colData[hl.col - 1]
           activePath = [...target.path]
           hl = { col: hl.col - 1, idx: 0 }
-          ctx.ui.render()
+          ctx.render()
         }
       }
       else if (k === 'Enter' && !col.options[Math.min(hl.idx, n - 1)]?.disabled) {

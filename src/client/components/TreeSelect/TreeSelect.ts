@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Tree } from '../Tree/Tree.ts'
 import type { TreeNode } from '../Tree/Tree.ts'
 
@@ -56,7 +56,7 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
     gap: 4,
     el: () => triggerEl,
     isOpen: () => open,
-    setOpen: (v) => { open = v; ctx.ui.render() }, // 外部点击/Escape 关闭必须显式渲染
+    setOpen: (v) => { open = v; ctx.render() }, // 外部点击/Escape 关闭必须显式渲染
   }) ?? {
     open: false, setOpen: () => {}, wrapProps: {},
     portal: () => null, refresh: () => {},
@@ -126,7 +126,7 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
       expandedKeys: expanded,
       onExpand: (keys: string[]) => {
         expanded = keys
-        ctx.ui.render()
+        ctx.render()
       },
     })
 

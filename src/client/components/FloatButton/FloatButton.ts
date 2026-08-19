@@ -12,9 +12,9 @@
  * 裁剪（CS-05，见 design/components-cuts.md）：不做拖拽悬浮（Resizable 可组合）；回顶用 BackTop 语义更清晰。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export type FloatButtonPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
@@ -31,7 +31,7 @@ export interface FloatButtonProps {
 }
 
 /** 单个悬浮按钮 */
-export const FloatButton: Component<FloatButtonProps> = async (_init, _ctx: WfuiContext) =>
+export const FloatButton: Component<FloatButtonProps> = async (_init, _ctx: UIContext) =>
   async (props) => {
     const { icon, badge, position = 'bottom-right', static: isStatic, disabled, onClick, children } = props
     return h('button', {
@@ -53,7 +53,7 @@ export interface FloatButtonGroupProps {
 }
 
 /** 悬浮按钮组：主按钮展开/收起子按钮 */
-export const FloatButtonGroup: Component<FloatButtonGroupProps> = async (_init, ctx: WfuiContext) => {
+export const FloatButtonGroup: Component<FloatButtonGroupProps> = async (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let open = false
 
@@ -74,7 +74,7 @@ export const FloatButtonGroup: Component<FloatButtonGroupProps> = async (_init, 
         class: 'wf-float-group-main',
         'aria-label': open ? '收起' : '展开',
         'aria-expanded': open ? 'true' : 'false',
-        onClick: () => { open = !open; ctx.ui.render() },
+        onClick: () => { open = !open; ctx.render() },
       }, h('span', { class: `wf-float-group-icon${open ? ' is-open' : ''}` }, '+')),
     ])
   }

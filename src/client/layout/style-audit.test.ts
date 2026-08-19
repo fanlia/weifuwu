@@ -693,7 +693,7 @@ describe('样式审计 — 设计约束', () => {
       if (!handwritten) continue
       seen.add(d)
       if (registered.has(d)) continue // 存量迁移中：允许
-      errors.push(`${d}: 手抄 renderVNode/mockCtx——改用 import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'`)
+      errors.push(`${d}: 手抄 renderVNode/mockCtx——改用 import { renderVNode, createTestCtx } from '../../vdom/testing.ts'`)
     }
     // 已迁移但仍在登记表 → 移除（强一致：表与实际手抄集合必须一致）
     for (const d of registered) if (!seen.has(d)) errors.push(`${d}: 已迁移——请从 LEGACY 表移除登记`)

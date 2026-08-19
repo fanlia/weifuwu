@@ -12,8 +12,8 @@
  * commit 事件流（同一时间线）。sandbox 集成：url 加载 + onSave 回写由消费方接。
  */
 
-import type { Component, VNode } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component, VNode } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Editor } from '../Editor/Editor.ts'
 import type { EditorAiOptions } from '../Editor/Editor.ts'
 import { Markdown } from '../Markdown/Markdown.ts'
@@ -24,7 +24,7 @@ import { EMPTY_DOC } from '../Editor/model/types.ts'
 import { parseHtml, serializeHtml } from '../Editor/model/html.ts'
 import type { DocState } from '../Editor/model/types.ts'
 import { editEmit } from '../Editor/edit-events.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
 
 export type FileType = 'md' | 'html' | 'pdf' | 'office' | 'text'
 
@@ -90,11 +90,11 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       const text = await res.text()
       remote = { status: 'idle', content: text, error: null }
       editEmit('preview', { type: 'remote', url: u, status: 'loaded', chars: text.length })
-      ctx.ui.render()
+      ctx.render()
     } catch (e) {
       remote = { status: 'error', content: null, error: e instanceof Error ? e.message : String(e) }
       editEmit('preview', { type: 'remote', url: u, status: 'error', message: remote.error })
-      ctx.ui.render()
+      ctx.render()
     }
   }
 
@@ -123,7 +123,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       // 预览：复用 Markdown 组件（安全 token 渲染）；编辑：Editor（事件流模型）
       if (editable && editMode) {
         // 首次进入编辑才 parse（renderFn 重跑不重置——编辑内容保持——真实事故：
-        // onChange 的 ctx.ui.render 触发重渲染覆盖 doc——保存丢编辑）
+        // onChange 的 ctx.render 触发重渲染覆盖 doc——保存丢编辑）
         if (!enteredEdit) {
           enteredEdit = true
           doc = parseHtml(markdownToHtml(effectiveContent))
@@ -134,7 +134,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
           value: markdownToHtml(effectiveContent),
           minHeight: height,
           ai,
-          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.ui.render() },
+          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.render() },
         })
       } else {
         emitLoaded(effectiveContent.length, 0)
@@ -156,7 +156,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
           value: `<p>${escapeHtml(effectiveContent)}</p>`,
           minHeight: height,
           ai,
-          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.ui.render() },
+          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.render() },
         })
       } else {
         emitLoaded(effectiveContent.length, 1)
@@ -189,7 +189,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
           value: serializeHtml(doc),
           minHeight: height,
           ai,
-          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.ui.render() },
+          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.render() },
         })
       } else if (editable && officeWorkbook) {
         emitLoaded(0, 0)
@@ -255,7 +255,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
       onSave(out, type)
       dirty = false
       editEmit('preview', { type, status: 'saved', chars: out.length })
-      ctx.ui.render()
+      ctx.render()
     }
       let officeInput: HTMLInputElement | null = null
       const openDocx = (): void => {
@@ -298,7 +298,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
                   dirty = false
                   editEmit('preview', { type: 'office', status: 'imported', docType: 'docx', warnings: res.warnings.length })
                 }
-                ctx.ui.render()
+                ctx.render()
               } catch (e) {
                 editEmit('preview', { type: 'office', status: 'import-error', message: String(e) })
               }
@@ -377,7 +377,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
                 editMode = !editMode
                 // 切回预览：内容已同步 doc（未保存内容可见——dirty 保留提示）
                 editEmit('preview', { type, status: editMode ? 'edit-start' : 'view' })
-                ctx.ui.render()
+                ctx.render()
               },
             }, editMode ? '预览' : '编辑')
             : null,

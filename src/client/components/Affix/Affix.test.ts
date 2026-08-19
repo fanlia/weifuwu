@@ -1,13 +1,13 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Affix } from './Affix.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
 // 可控 useScrollPosition mock：scrollY 响应式驱动 fixed 判定（fixed = scroll.y >= threshold）
-function makeCtx(scrollY = 0): { ctx: WfuiContext; setScrollY: (y: number) => void } {
+function makeCtx(scrollY = 0): { ctx: UIContext; setScrollY: (y: number) => void } {
   const scroll = { y: scrollY, refresh: () => {} }
   const ctx = createTestCtx({
     ui: {

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { CitationCard, type Citation } from './CitationCard.ts'
-import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx } from '../../vdom/testing.ts'
 
 /** 收集所有匹配节点（findVNode 谓词版） */
 function collect(v: any, pred: (n: any) => boolean): any[] {

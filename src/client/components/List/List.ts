@@ -5,9 +5,9 @@
  * 定位：Table 大材小用的消息/文件/成员列表场景。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface ListProps<T = any> {
   items: T[]

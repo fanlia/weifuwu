@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { renderVNode, findByClass, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, findByClass, createTestCtx } from '../../vdom/testing.ts'
 import { VideoPlayer } from './VideoPlayer.ts'
 
 it('VideoPlayer：video 元素 + 控制属性渲染', async () => {

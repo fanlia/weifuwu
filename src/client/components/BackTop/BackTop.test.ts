@@ -1,13 +1,13 @@
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { BackTop } from './BackTop.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
 // 可控 useInView mock：isIn=true = 哨兵仍在扩展区（未滚动超阈值）→ 按钮隐藏
-function makeCtx(initialIsIn = true): { ctx: WfuiContext; inView: { isIn: boolean } } {
+function makeCtx(initialIsIn = true): { ctx: UIContext; inView: { isIn: boolean } } {
   const inView = { isIn: initialIsIn, ready: true, observe: () => {}, refresh: () => {}, disconnect: () => {} }
   const ctx = createTestCtx({ ui: { useInView: () => inView } }) as any
   return { ctx, inView }

@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { FloatButton, FloatButtonGroup } from './FloatButton.ts'
-import { h } from '../../ui-dom/vnode.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { h } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {

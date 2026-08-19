@@ -1,14 +1,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Table } from './Table.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, findByClass } from '../../ui-dom/testing.ts'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, findByClass, createTestCtx } from '../../vdom/testing.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 
 
-function createTestCtx(): WfuiContext {
-  return { ui: { render: () => {}, ready: true } } as any
-}
+
 
 /** Table 现在包在 .wf-table-wrap 滚动容器里，取内层 table VNode */
 function tableOf(root: any): any {

@@ -15,9 +15,9 @@
  * 使用两阶段模型 + render-only。状态：内部 keyword（useControlledInput Map 缓存）。
  */
 
-import type { Component, VNode } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
-import type { V3Ui } from '../../ui-dom/index.ts'
+import type { Component, VNode } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
+import type { Ui } from '../../vdom/index.ts'
 
 export interface ChatInputLabels {
   send: string
@@ -62,7 +62,7 @@ export interface ChatInputControl {
   setValue: (v: string) => void
 }
 
-export const ChatInput: Component<ChatInputProps, { ui: V3Ui }> = async (_init, ctx) => {
+export const ChatInput: Component<ChatInputProps, { ui: Ui }> = async (_init, ctx) => {
   // ── mount（只一次）：无状态初始化（keyword 在 useControlledInput 的 Map 缓存）
   return async (props) => {
     const labels: ChatInputLabels = {

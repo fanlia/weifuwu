@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { stream, ev } from '../../ui-dom/index.ts'
 
 export type TourPlacement = 'top' | 'bottom' | 'left' | 'right'
@@ -91,7 +91,7 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
     latestProps.onChange?.(false)
     if (latestProps.open === undefined) {
       latestOpen = false
-      ctx.ui.render()
+      ctx.render()
     }
   }
 
@@ -104,7 +104,7 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
       // 非受控 / 受控缺 onFinish：onChange 通知 + 自行关闭（否则弹窗永不消失）
       latestProps.onChange?.(false)
       latestOpen = false
-      ctx.ui.render()
+      ctx.render()
     }
   }
 
@@ -113,7 +113,7 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
       ? (ctx.browser?.query(latestProps.steps[step].target) as HTMLElement | null)
       : null
     popup.refresh()
-    ctx.ui.render()
+    ctx.render()
   }
 
   return async (props) => {

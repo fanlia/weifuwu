@@ -1,6 +1,6 @@
-import type { Component, VNode } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component, VNode } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface StatCardProps {
@@ -57,7 +57,7 @@ export const StatCard: Component<StatCardProps> = async (_init, ctx) => {
             stopTimer()
             latestOnFinish?.()
           }
-          ctx.ui.render()
+          ctx.render()
         }, 1000)
       }
     } else if (timer) {

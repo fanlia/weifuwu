@@ -5,10 +5,10 @@
  * 命令式：confirm() 中间件注入 ctx.confirm()，返回 Promise<boolean>。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
-import { h, type VNode } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext, AppMiddleware } from '../../vdom/index.ts'
+import { h, type VNode } from '../../vdom/index.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { Button } from '../Button/Button.ts'
 

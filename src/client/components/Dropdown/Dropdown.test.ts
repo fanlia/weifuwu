@@ -1,14 +1,15 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Dropdown } from './Dropdown.ts'
-import { h, Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { h } from '../../vdom/index.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 /** usePopup mock：镜像真实语义（受控 isOpen + wf-popup 合并 + Escape via wrapProps） */
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   const openStates = new Map<string, boolean>()
   return createTestCtx({ ui: {
     useOpen: (opts: any) => {

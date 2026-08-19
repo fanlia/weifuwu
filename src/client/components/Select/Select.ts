@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface SelectOption {
@@ -114,7 +114,7 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
     gap: 4,
     el: () => triggerEl,
     isOpen: () => open,
-    setOpen: (v) => { open = v; ctx.ui.render() }, // 外部点击/Escape 关闭必须显式渲染
+    setOpen: (v) => { open = v; ctx.render() }, // 外部点击/Escape 关闭必须显式渲染
   })
 
   return async (props) => {
@@ -152,10 +152,10 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
       keyword = kw
       open = true
       highlight = 0
-      ctx.ui.render()
+      ctx.render()
       if (onSearch && kw) {
         const result = await onSearch(kw)
-        if (result) { filteredOptions = (result as SelectOption[]); ctx.ui.render() }
+        if (result) { filteredOptions = (result as SelectOption[]); ctx.render() }
       }
     }
 
@@ -170,7 +170,7 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
       } else {
         keyword = ''
         open = false
-        ctx.ui.render()
+        ctx.render()
         onChange?.(opt.value)
       }
     }
@@ -186,17 +186,17 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault(); open = true
         highlight = Math.min(highlight + 1, displayOptions.length - 1)
-        ctx.ui.render()
+        ctx.render()
       } else if (e.key === 'ArrowUp') {
         e.preventDefault(); open = true
         highlight = Math.max(highlight - 1, 0)
-        ctx.ui.render()
+        ctx.render()
       } else if (e.key === 'Enter') {
         e.preventDefault()
         const opt = displayOptions[highlight]
         if (opt) handleSelect(opt)
       } else if (e.key === 'Escape') {
-        e.preventDefault(); open = false; keyword = ''; ctx.ui.render()
+        e.preventDefault(); open = false; keyword = ''; ctx.render()
       }
     }
 
@@ -231,7 +231,7 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
       // ——'先弹出后自动关闭'根因）。关闭走：外部点击（usePopup）/Escape/选中（handleSelect）
       onClick: disabled ? undefined : () => {
         open = true
-        ctx.ui.render()
+        ctx.render()
         inputEl?.focus() // 点击 Select → 输入框聚焦（光标 + focus 样式）
       },
     }, [
@@ -247,8 +247,8 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
         disabled,
         readOnly: !open || undefined,
         onInput: (e: any) => handleInput(e.target.value),
-        onFocus: () => { if (!disabled) { open = true; ctx.ui.render() } },
-        onBlur: () => { blurTimer = setTimeout(() => { if (!disposed) { open = false; keyword = ''; ctx.ui.render() } }, 150) },
+        onFocus: () => { if (!disabled) { open = true; ctx.render() } },
+        onBlur: () => { blurTimer = setTimeout(() => { if (!disposed) { open = false; keyword = ''; ctx.render() } }, 150) },
         onKeyDown: handleKeyDown,
       }),
     ])

@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 /**
@@ -40,14 +40,14 @@ export interface CitationCardProps {
   onOpen?: (citation: Citation) => void
 }
 
-export const CitationCard: Component<CitationCardProps, WfuiContext> = async (initProps, ctx) => {
+export const CitationCard: Component<CitationCardProps, UIContext> = async (initProps, ctx) => {
   let expanded = !!initProps.defaultExpanded
 
   return async (props) => {
     const { items, label = '引用来源', maxVisible = 3, onOpen } = props
     if (!items?.length) return null
 
-    const toggle = () => { expanded = !expanded; ctx.ui.render() }
+    const toggle = () => { expanded = !expanded; ctx.render() }
 
     // 折叠时最多 maxVisible 条；溢出追加 +N 汇总条目（点击整条展开）
     const shown = items.slice(0, maxVisible)

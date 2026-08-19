@@ -1,27 +1,17 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Toggle, ToggleGroup } from './ToggleGroup.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
-function createTestCtx(): WfuiContext {
-  const uncontrolled = new Map<string, any>()
-  return { ui: {
-    $: {}, render: () => {}, dirty: () => {}, ready: true,
-    useControlled: (opts: any) => {
-      const controlled = opts.value !== undefined
-      const key = opts.name ?? 'default'
-      if (!uncontrolled.has(key)) uncontrolled.set(key, opts.value)
-      const setValue = (v: any) => {
-        if (controlled) opts.onChange?.(v)
-        else uncontrolled.set(key, v)
-      }
-      return { value: controlled ? opts.value : uncontrolled.get(key), setValue, controlled }
-    },
-  } } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 describe('Toggle', () => {
   it('renders button with pressed state', async () => {

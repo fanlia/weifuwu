@@ -5,9 +5,9 @@
  * size/direction/wrap/align + split 分隔符。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface SpaceProps {
   size?: number | 'sm' | 'md' | 'lg'
@@ -24,7 +24,7 @@ const SIZE_MAP: Record<string, string> = {
   lg: 'var(--wf-space-lg, 24px)',
 }
 
-export const Space: Component<SpaceProps> = async (_init, _ctx: WfuiContext) =>
+export const Space: Component<SpaceProps> = async (_init, _ctx: UIContext) =>
   async (props) => {
     const { size = 'md', direction = 'horizontal', wrap, align, split, children } = props
     const gap = typeof size === 'number' ? `${size}px` : (SIZE_MAP[size] ?? 'var(--wf-space-md, 16px)')

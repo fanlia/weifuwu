@@ -1,7 +1,7 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { VirtualList } from '../VirtualList/VirtualList.ts'
 import { Icon } from '../Icon/Icon.ts'
 
@@ -129,14 +129,14 @@ export const Tree: Component<TreeProps> = async (_init, ctx) => {
         ? expanded.filter(k => k !== key)
         : [...expanded, key]
       if (isControlledExpand) onExpand?.(next)
-      else { internalExpanded = next; ctx.ui.render() }
+      else { internalExpanded = next; ctx.render() }
     }
 
     // 选中（useControlled：非受控内部态 + 受控走 onSelect；缺回调 warn 幂等）
     const toggleSelect = (key: string) => {
       const current = selCtrl?.value ?? []
       const next = current.includes(key) ? [] : [key]
-      const wasControlled = selCtrl?.controlled
+      const wasControlled = selCtrl?.controlled?.value !== undefined
       selCtrl?.setValue(next)
       // onSelect 通知语义（非受控也调）；受控时 setValue 已调
       if (!wasControlled) props.onSelect?.(next)

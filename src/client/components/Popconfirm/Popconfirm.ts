@@ -14,9 +14,9 @@
  * - 裁剪（CS-05，见 design/components-cuts.md）：不做气泡内表单/自定义箭头
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { Placement } from '../../ui-dom/popup.ts'
 
@@ -37,7 +37,7 @@ export interface PopconfirmProps {
   children?: any
 }
 
-export const Popconfirm: Component<PopconfirmProps> = async (_init, ctx: WfuiContext) => {
+export const Popconfirm: Component<PopconfirmProps> = async (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let latestPosition: Placement = 'top'
   let latestOnConfirm: (() => void) | undefined
@@ -46,7 +46,7 @@ export const Popconfirm: Component<PopconfirmProps> = async (_init, ctx: WfuiCon
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
 
   // useOpen：受控/非受控 open 统一（close 走 setOpen——受控通知父组件）
-  let openCtrl: ReturnType<WfuiContext['ui']['useOpen']> | null = null
+  let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
 
   const popup = ctx.ui.usePopup({
     trigger: () => 'click',

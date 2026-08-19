@@ -10,7 +10,7 @@
 
 import { test, describe, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../ui-dom/setup.ts'
+import { setupJsdom } from '../../../vdom/setup.ts'
 import { applyOfficeOp, emptySnapshot, foldOffice } from './apply.ts'
 import type { OfficeCheckpoint, OfficeOp, OfficeSnapshot } from './types.ts'
 import { opBelongsTo } from './apply.ts'

@@ -939,7 +939,7 @@ test('useChat：HITL 审批（工具调用 approve——状态更新）', async 
     } }).useChat({ initialMessages: initMsg as never })
     ;(ctx.ui as { useExternal: (s: unknown) => void }).useExternal(chat as never)
     return () => h('div', {},
-      h('button', { id: 'ok', onClick: () => chat.approve('tc1', true) }, '批准'),
+      h('button', { id: 'ok', onClick: () => void chat.approve('approved') }, '批准'),
       h('span', { id: 'st' }, String(chat.messages[0]?.toolCalls?.[0]?.approved ?? 'none')),
     )
   }
@@ -952,13 +952,16 @@ test('useChat：HITL 审批（工具调用 approve——状态更新）', async 
   assert.equal(browser.document.querySelector('#st')?.textContent, 'true', 'HITL 审批 → 工具调用状态更新')
 })
 
-test('createClientBrowser：SSR 安全（无全局 window → null）+ 浏览器环境', () => {
+test('createClientBrowser：SSR 安全（惰性——方法安全空值）+ 浏览器环境', () => {
   const origW = (globalThis as any).window
   const origD = (globalThis as any).document
-  // node 环境（无全局）——SSR 安全
+  // node 环境（无全局）——SSR 安全（惰性设计——方法返回空值不抛）
   delete (globalThis as any).window
   delete (globalThis as any).document
-  assert.equal(createClientBrowser(), null, 'SSR 无全局 window → null')
+  const ssr = createClientBrowser()!
+  assert.equal(ssr.storageGet('k'), null, 'SSR 无全局——storageGet null')
+  assert.equal(ssr.scrollTop(), 0, 'SSR scrollTop 0')
+  assert.equal(ssr.activeElement(), null, 'SSR activeElement null')
   // 浏览器环境（全局 window/document）
   const b = testBrowser()
   ;(globalThis as any).window = b.window

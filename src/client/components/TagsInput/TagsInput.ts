@@ -6,9 +6,9 @@
  * 裁剪（CS-05，见 design/components-cuts.md）：不做下拉建议（组合 Select searchable）。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface TagsInputProps {
@@ -38,7 +38,7 @@ export const TagsInput: Component<TagsInputProps> = async (_init, ctx) => {
     const ctrl = ctx?.ui?.useControlled<string[]>({ value: props.value, onChange: props.onChange, name: 'TagsInput' })
     const value = ctrl?.value ?? []
     const setTags = (next: string[]) => {
-      const wasControlled = ctrl?.controlled
+      const wasControlled = ctrl?.controlled?.value !== undefined
       ctrl?.setValue(next)
       if (!wasControlled) props.onChange?.(next)
     }

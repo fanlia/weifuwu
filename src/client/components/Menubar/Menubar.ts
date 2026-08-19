@@ -1,7 +1,7 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface MenubarItem {
   key: string
@@ -66,14 +66,14 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
   const close = () => {
     if (openMenu !== null) {
       openMenu = null
-      ctx.ui.render()
+      ctx.render()
     }
   }
 
   const toggle = (key: string) => {
     openMenu = openMenu === key ? null : key
     highlight = 0
-    ctx.ui.render()
+    ctx.render()
   }
 
   return async (props) => {

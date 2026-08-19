@@ -1,13 +1,13 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Mentions } from './Mentions.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   const states = new Map<string, { keyword: string; selectedLabel: string }>()
   const values = new Map<string, any>()
   return createTestCtx({ ui: {

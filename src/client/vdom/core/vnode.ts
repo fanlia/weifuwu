@@ -42,7 +42,9 @@ export type Component<P = Record<string, unknown>, C = UIContext> = (
   ctx: C,
 ) => RenderFn<P> | Promise<RenderFn<P>>
 
-type HType = string | symbol | Component
+// type 参数放宽为 Component<any, any>（ui-dom 同款——TS 逆变：具体 props
+// 的组件可赋给宽松签名——JSX 生态惯例；严格默认参数会拒绝 Component<IconProps>）
+type HType = string | symbol | Component<any, any>
 
 /** h()——创建 vnode（纯数据——除 key 剥离外零转换）
  *  children 原样：单子节点直接存、多子节点存数组、无子节点不存——false/嵌套

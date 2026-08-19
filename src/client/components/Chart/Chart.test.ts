@@ -1,19 +1,16 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Chart } from './Chart.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
 // 官方 createTestCtx（testing.ts——usePopup 标准 mock——§7.2 纪律）
-function createTestCtx(): WfuiContext {
-  return { ui: { $: {}
-, render: () => {}, dirty: () => {}, usePopup: () => ({ open: false, setOpen: () => {}, refresh: () => {}, portal: (_c: any, _k?: string) => null, wrapProps: {} }), ready: false } } as any
-}
+
 
 /** 两阶段组件：mount 后调用 await renderFn(props) */
-async function renderrenderVNode(Chart, props: any, ctx: WfuiContext) {
+async function renderrenderVNode(Chart, props: any, ctx: UIContext) {
   const result = await renderVNode(Chart, props, ctx)
   if (typeof result === 'function') return result(props)
   return result

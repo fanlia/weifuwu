@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { renderVNode, findByClass, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, findByClass, createTestCtx } from '../../vdom/testing.ts'
 import { MarkdownEditor } from './MarkdownEditor.ts'
 
 it('MarkdownEditor：分屏渲染（编辑 + 预览）', async () => {

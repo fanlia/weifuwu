@@ -1,17 +1,17 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { FileUpload } from './FileUpload.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
-function createTestCtx(): WfuiContext {
-  return { ui: {
-    $: {}, render: () => {}, dirty: () => {}, ready: true,
-    useDragDrop: () => ({ dropProps: {} }),
-  } } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 describe('FileUpload', () => {
   it('renders drop zone with default text', async () => {

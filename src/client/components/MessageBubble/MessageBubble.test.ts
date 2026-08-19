@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { MessageBubble } from './MessageBubble.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
 describe('MessageBubble', () => {

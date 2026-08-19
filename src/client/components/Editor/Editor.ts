@@ -9,17 +9,17 @@
  * - 受控 value 契约保留：onChange 发 serializeHtml(doc)
  */
 
-import type { Component, VNode } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component, VNode } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { FileUpload } from '../FileUpload/FileUpload.ts'
 import { Popover } from '../Popover/Popover.ts'
 import type { ToolbarItem, EditorProps, FormatState, EditorAiAction, EditorAiOptions } from './tools/types.ts'
 import { renderToolbar, DEFAULT_TOOLBAR } from './tools/toolbar.ts'
 import { tableHtml, renderTableGrid } from './tools/table.ts'
-import { aiStream } from '../../ui-dom/ai.ts'
-import type { AiStreamHandle } from '../../ui-dom/ai.ts'
+import { aiStream } from '../../vdom/hooks/ai-stream.ts'
+import type { AiStreamHandle } from '../../vdom/hooks/ai-stream.ts'
 import type { DocState, EditEvent, MarkType, BlockKind, Align, MarkSpan } from './model/types.ts'
 import { EMPTY_DOC } from './model/types.ts'
 import { applyEdit, segmentStartAt, blockPropAt } from './model/apply.ts'
@@ -309,7 +309,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     el: () => anchorEl,
     isOpen: () => historyOpen,
     setOpen: (v) => {
-      if (!v) { historyOpen = false; ctx.ui.render() }
+      if (!v) { historyOpen = false; ctx.render() }
     },
   })
 
@@ -331,7 +331,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     if (onChangeRef.current) onChangeRef.current(html)
     saveDraft(html)
     editEmit('commit', { label: 'time-travel', to: targetIndex })
-    ctx.ui.render()
+    ctx.render()
   }
 
   // 浮层锚点：最后点击的工具栏按钮（table Popover 同款——弹窗跟按钮走）
@@ -345,7 +345,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     gap: 8,
     el: () => anchorEl,
     isOpen: () => showLinkInput,
-    setOpen: (v) => { if (!v) { showLinkInput = false; ctx.ui.render() } },
+    setOpen: (v) => { if (!v) { showLinkInput = false; ctx.render() } },
   })
   const imagePopup = ctx.ui.usePopup({
     trigger: 'manual',
@@ -353,7 +353,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     gap: 8,
     el: () => anchorEl,
     isOpen: () => showImageInput,
-    setOpen: (v) => { if (!v) { showImageInput = false; ctx.ui.render() } },
+    setOpen: (v) => { if (!v) { showImageInput = false; ctx.render() } },
   })
 
   const aiPopup = ctx.ui.usePopup({
@@ -366,7 +366,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       if (!v) {
         aiPanelOpen = false
         aiPending?.handle?.abort()
-        ctx.ui.render()
+        ctx.render()
       }
     },
   })
@@ -386,7 +386,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       revised: '', streaming: true, error: null, handle: null,
     }
     aiPanelOpen = true
-    ctx.ui.render()
+    ctx.render()
     const prompt = action.prompt({ selection: original })
     editEmit('ai-apply', { action: action.id, status: 'start' })
     const handle = aiStream(aiOpts.url, {
@@ -396,20 +396,20 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       onToken: (text) => {
         if (!aiPending) return
         aiPending.revised += text
-        ctx.ui.render()
+        ctx.render()
       },
       onDone: () => {
         if (!aiPending) return
         aiPending.streaming = false
         editEmit('ai-apply', { action: action.id, status: 'done', chars: aiPending.revised.length })
-        ctx.ui.render()
+        ctx.render()
       },
       onError: (e) => {
         if (!aiPending) return
         aiPending.streaming = false
         aiPending.error = e?.message ?? 'AI 请求失败'
         editEmit('ai-apply', { action: action.id, status: 'error', message: aiPending.error })
-        ctx.ui.render()
+        ctx.render()
       },
       onEvent: aiOpts.onEvent,
     })
@@ -425,14 +425,14 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     // 选区文本可能已被用户编辑——校验 original 匹配（不匹配 → 放弃，诚实失败）
     if (doc.text.slice(p.start, p.end) !== p.original) {
       editEmit('ai-apply', { action: p.action.id, status: 'rejected', reason: 'stale-selection' })
-      ctx.ui.render()
+      ctx.render()
       return
     }
     // AI 回复首尾空白清理（模型输出格式噪音——\n 开头会产生空段 + 格式错位）
     const revised = p.revised.trim()
     if (!revised) {
       editEmit('ai-apply', { action: p.action.id, status: 'rejected', reason: 'empty' })
-      ctx.ui.render()
+      ctx.render()
       return
     }
     const removedEmbeds = doc.embeds.filter((e) => e.at >= p.start && e.at < p.end)
@@ -444,7 +444,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     }], `ai-${p.action.id}`, { start: p.start + revised.length, end: p.start + revised.length })
     editEmit('ai-apply', { action: p.action.id, status: 'accepted' })
     void aiOpts
-    ctx.ui.render()
+    ctx.render()
   }
 
   // 组件文案（i18n：ctx.i18n.components.Editor——locale 包注册；缺省 fallback）
@@ -473,13 +473,13 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         if (isRichMode) {
           sourceText = editorEl?.innerHTML ?? value
           mode = 'source'
-          ctx.ui.render()
+          ctx.render()
         } else {
           mode = 'rich'
           activeFormats = {}
           domDirty = false
           doc = parseHtml(value) // 切回富文本：强制同步受控值到模型
-          ctx.ui.render()
+          ctx.render()
           onChange?.(value)
         }
         return
@@ -504,7 +504,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         case 'image': {
           showImageInput = true
           imageUrl = ''
-          ctx.ui.render()
+          ctx.render()
           return
         }
         case 'link': {
@@ -513,7 +513,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
           if (!sel || sel.start === sel.end) {
             showLinkInput = true
             linkUrl = ''
-            ctx.ui.render()
+            ctx.render()
             return
           }
           // 已有链接 → unlink；否则输入 URL
@@ -521,11 +521,11 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
           if (hasLink) {
             restoreSelection()
             linkCmd('', true)
-            ctx.ui.render()
+            ctx.render()
           } else {
             showLinkInput = true
             linkUrl = ''
-            ctx.ui.render()
+            ctx.render()
           }
           return
         }
@@ -533,23 +533,23 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         default: return
       }
       activeFormats = queryFormatsFromDoc(selectionOffsets(editorEl!)?.start ?? 0)
-      ctx.ui.render()
+      ctx.render()
     }
 
     // ── 链接 ────────────────────────────────────────────
     const confirmLink = (url: string) => {
       showLinkInput = false
-      ctx.ui.render()
+      ctx.render()
       if (!url) return
       restoreSelection()
       linkCmd(url)
-      ctx.ui.render()
+      ctx.render()
     }
 
     const cancelLink = () => {
       showLinkInput = false
       linkUrl = ''
-      ctx.ui.render()
+      ctx.render()
     }
 
     // ── 图片 ────────────────────────────────────────────
@@ -557,25 +557,25 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       const file = files[0]
       if (!file) return
       imageUploading = true
-      ctx.ui.render()
+      ctx.render()
       try {
         const url = await onUpload!(file)
         restoreSelection()
         insertEmbedCmd(`<img src="${url}" alt="">`, 'img')
         showImageInput = false
         imageUrl = ''
-        ctx.ui.render()
+        ctx.render()
       } catch {
       } finally {
         imageUploading = false
-        ctx.ui.render()
+        ctx.render()
       }
     }
 
     const confirmImageUrl = (url: string) => {
       showImageInput = false
       imageUrl = ''
-      ctx.ui.render()
+      ctx.render()
       restoreSelection()
       insertEmbedCmd(`<img src="${url}" alt="">`, 'img')
     }
@@ -583,7 +583,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     const cancelImage = () => {
       showImageInput = false
       imageUrl = ''
-      ctx.ui.render()
+      ctx.render()
     }
 
     // ── 表格 ────────────────────────────────────────────
@@ -593,19 +593,19 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       tableHoverCol = -1
       restoreSelection()
       insertEmbedCmd(tableHtml(rows, cols), 'table')
-      ctx.ui.render()
+      ctx.render()
     }
 
     const handleTableHover = (row: number, col: number) => {
       tableHoverRow = row
       tableHoverCol = col
-      ctx.ui.render()
+      ctx.render()
     }
 
     const handleTableLeave = () => {
       tableHoverRow = -1
       tableHoverCol = -1
-      ctx.ui.render()
+      ctx.render()
     }
 
     const tableButton = h('button', {
@@ -628,7 +628,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       onOpenChange: (v: boolean) => {
         showTableGrid = v
         if (v) saveSelection()
-        ctx.ui.render()
+        ctx.render()
       },
       content: tableGrid,
     }, tableButton)
@@ -685,7 +685,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         if (canUndo(hist)) {
           undo()
           activeFormats = queryFormatsFromDoc(selectionOffsets(editorEl!)?.start ?? 0)
-          ctx.ui.render()
+          ctx.render()
         }
       } else if (mod && e.key.toLowerCase() === 'y') {
         e.preventDefault()
@@ -693,7 +693,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         if (canRedo(hist)) {
           redo()
           activeFormats = queryFormatsFromDoc(selectionOffsets(editorEl!)?.start ?? 0)
-          ctx.ui.render()
+          ctx.render()
         }
       } else if (mod && e.key === 'Enter') {
         // Ctrl+Enter：快速触发最近使用的 AI 动作（无记录 = 第一个；无 ai = 不拦截）
@@ -714,12 +714,12 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         saveSelection()
         applyMarkCmd(e.key.toLowerCase() === 'b' ? 'b' : e.key.toLowerCase() === 'i' ? 'i' : 'u')
         activeFormats = queryFormatsFromDoc(selectionOffsets(editorEl!)?.start ?? 0)
-        ctx.ui.render()
+        ctx.render()
         return
       }
       // 光标移动 → 更新工具栏高亮
       activeFormats = queryFormatsFromDoc(selectionOffsets(editorEl!)?.start ?? 0)
-      ctx.ui.render()
+      ctx.render()
     }
 
     const handleMouseUp = () => {
@@ -729,7 +729,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       const newFormats = queryFormatsFromDoc(caret)
       if (activeFormats === null || !shallowEqual(activeFormats, newFormats)) {
         activeFormats = newFormats
-        ctx.ui.render()
+        ctx.render()
       }
     }
 
@@ -738,7 +738,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       let needsRender = false
       if (showLinkInput) { showLinkInput = false; needsRender = true }
       if (showImageInput) { showImageInput = false; needsRender = true }
-      if (needsRender) ctx.ui.render()
+      if (needsRender) ctx.render()
     }
 
     // ── Link 输入浮层（usePopup 锚定浮层——非会话级模态） ──────
@@ -749,7 +749,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       h('input', {
         type: 'url', class: 'wf-editor-link-input', placeholder: 'https://...',
         value: linkUrl, 'data-editor-link-input': true,
-        onInput: (e: Event) => { linkUrl = (e.target as HTMLInputElement).value; ctx.ui.render() },
+        onInput: (e: Event) => { linkUrl = (e.target as HTMLInputElement).value; ctx.render() },
         onKeyDown: (e: KeyboardEvent) => {
           if (e.key === 'Enter') confirmLink((e.target as HTMLInputElement).value)
           if (e.key === 'Escape') cancelLink()
@@ -785,7 +785,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       placeholder: onUpload ? '粘贴图片链接' : 'https://...',
       value: imageUrl, 'data-image-input': true,
       disabled: imageUploading || undefined,
-      onInput: (e: Event) => { imageUrl = (e.target as HTMLInputElement).value; ctx.ui.render() },
+      onInput: (e: Event) => { imageUrl = (e.target as HTMLInputElement).value; ctx.render() },
       onKeyDown: (e: KeyboardEvent) => {
         if (e.key === 'Enter') confirmImageUrl((e.target as HTMLInputElement).value)
         if (e.key === 'Escape') cancelImage()
@@ -901,7 +901,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
         title: '操作历史',
         'aria-label': '操作历史',
         'data-item': 'history',
-        onClick: (e: MouseEvent) => { setAnchor(e.currentTarget as HTMLElement); historyOpen = !historyOpen; ctx.ui.render() },
+        onClick: (e: MouseEvent) => { setAnchor(e.currentTarget as HTMLElement); historyOpen = !historyOpen; ctx.render() },
       }, '🕘')
       if (historyOpen) {
         const rows: VNode[] = []
@@ -930,7 +930,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
             onClick: () => {
               while (canRedo(hist) && hist.redoStack.length > i) redo()
               historyOpen = false
-              ctx.ui.render()
+              ctx.render()
             },
           }, [
             h('span', { class: 'wf-editor-hist-label' }, `↩ ${c.label}`),
@@ -972,7 +972,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
           h('div', { class: 'wf-editor-ai-panel-actions' }, [
             h('button', {
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button',
-              onClick: () => { aiPanelOpen = false; aiPending = null; ctx.ui.render() },
+              onClick: () => { aiPanelOpen = false; aiPending = null; ctx.render() },
             }, editorText('reject', '拒绝')),
             p.error
               ? h('button', {

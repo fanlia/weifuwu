@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface TableColumn {
@@ -73,13 +73,13 @@ export const Table: Component<TableProps> = async (_init, ctx) => {
   const propsRef: { onCellEdit?: TableProps['onCellEdit']; data?: any[] } = {}
   const beginEdit = (row: number, col: string, val: unknown) => {
     editing = { row, col, value: String(val ?? '') }
-    ctx.ui.render()
+    ctx.render()
   }
   const commitEdit = () => {
     if (editing) {
       const { row, col, value } = editing
       editing = null
-      ctx.ui.render()
+      ctx.render()
       propsRef.onCellEdit?.(col, row, value, propsRef.data?.[row])
     }
   }
@@ -235,7 +235,7 @@ export const Table: Component<TableProps> = async (_init, ctx) => {
                 onInput: (e: any) => { editing!.value = (e.target as HTMLInputElement).value },
                 onKeyDown: (e: KeyboardEvent) => {
                   if (e.key === 'Enter') commitEdit()
-                  if (e.key === 'Escape') { editing = null; ctx.ui.render() }
+                  if (e.key === 'Escape') { editing = null; ctx.render() }
                 },
                 onBlur: () => commitEdit(),
               }))

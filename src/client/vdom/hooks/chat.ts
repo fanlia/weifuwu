@@ -14,14 +14,37 @@ import type { HookEnv } from './env.ts'
 import type { ExternalStore } from '../store.ts'
 
 /** 聊天消息（AI 会话——工具调用/HITL 审批位） */
+/** 工具调用（assistant 发起——HITL 审批——ui-dom 兼容 call/progress/result 状态面） */
+export interface ChatToolCall {
+  id: string
+  name: string
+  args: unknown
+  approved?: boolean
+  feedback?: string
+  status?: 'running' | 'ok' | 'error'
+  call?: unknown
+  progress?: unknown
+  result?: unknown
+  /** HITL 审批请求（ui-dom 兼容——AiChat 读 toolCall 级 approval） */
+  approval?: import('../../../server/ai/types.ts').WfApprovalRequest
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  /** 推理过程（wf:done 后挂上——ReasoningBlock 展示——ui-dom 兼容） */
+  reasoning?: string
   /** 工具调用（assistant 发起——HITL 审批） */
-  toolCalls?: Array<{ id: string; name: string; args: unknown; approved?: boolean; feedback?: string }>
+  toolCalls?: ChatToolCall[]
   /** 消息状态（流式中/错误） */
   status?: 'streaming' | 'error'
+  /** 用量（ui-dom 兼容） */
+  usage?: import('../../../server/ai/types.ts').WfUsage
+  /** HITL 审批请求（ui-dom 兼容——AiChat 读消息级 approval） */
+  approval?: import('../../../server/ai/types.ts').WfApprovalRequest
+  /** 错误（ui-dom 兼容） */
+  error?: import('../../../server/ai/types.ts').WfError
 }
 
 export interface ChatOptions {
@@ -42,16 +65,30 @@ export type ChatStatus = 'idle' | 'streaming' | 'error'
 export interface ChatHandle extends ExternalStore<ChatMessage[]> {
   /** 消息列表（= state——getter） */
   messages: ChatMessage[]
-  /** 发送消息（用户消息 + 助手流式累积） */
-  send(text: string): Promise<void>
+  /** 发送消息（用户消息 + 助手流式累积——无参用 state.input——ui-dom 兼容） */
+  send(text?: string): Promise<void>
   /** 中断流式 */
   stop(): void
+  /** 重试（ui-dom 兼容——AiChat onRetry——重发最后一条用户消息） */
+  retry(): void
   /** 清空会话 */
   reset(): void
   /** 会话状态 */
   status: ChatStatus
-  /** HITL 审批（工具调用） */
-  approve(toolCallId: string, approved: boolean, feedback?: string): void
+  /** 输入态（ui-dom 兼容——AiChat 受控输入） */
+  input: string
+  setInput(v: string): void
+  /** 流式中（ui-dom 兼容） */
+  streaming: boolean
+  /** 最近错误（ui-dom 兼容） */
+  error: import('../../../server/ai/types.ts').WfError | null
+  /** 用量（ui-dom 兼容——wf:usage） */
+  usage: import('../../../server/ai/types.ts').WfUsage | null
+  /** 最近 wf:step（思考/工具指示——done/error 清空） */
+  step: import('../../../server/ai/types.ts').WfStep | null
+  /** 响应 HITL 审批（协议 §4.5——ui-dom 兼容：
+   *  approve(decision, note?, modifiedArgs?)——modified 决策带修改后参数） */
+  approve(decision: string, note?: string, modifiedArgs?: Record<string, unknown>): Promise<void>
 }
 
 interface ChatState {
@@ -60,6 +97,10 @@ interface ChatState {
   subs: Set<() => void>
   controller: AbortController | null
   seq: number
+  input: string
+  error: import('../../../server/ai/types.ts').WfError | null
+  usage: import('../../../server/ai/types.ts').WfUsage | null
+  step: import('../../../server/ai/types.ts').WfStep | null
 }
 
 let _idSeq = 0
@@ -74,6 +115,10 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
     subs: new Set(),
     controller: null,
     seq: 0,
+    input: '',
+    error: null,
+    usage: null,
+    step: null,
   }
   env.setHookState(idx, state)
 
@@ -102,6 +147,12 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
     // send/stop/reset/error 后 handle.status 永不更新——覆盖率抓出
     // （messages 已是 getter——status 必须一致）
     get status() { return state.status },
+    get input() { return state.input ?? '' },
+    setInput(v: string) { state.input = v },
+    get streaming() { return state.status === 'streaming' },
+    get error() { return state.error ?? null },
+    get usage() { return state.usage ?? null },
+    get step() { return state.step ?? null },
 
     subscribe(cb: () => void): () => void {
       state.subs.add(cb)
@@ -176,16 +227,34 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
       state.controller?.abort()
     },
 
+    retry(): void {
+      // 重发最后一条用户消息（send 在 handle 内定义——此处经 handle 自身调用）
+      const lastUser = [...state.messages].reverse().find((m) => m.role === 'user')
+      if (lastUser) void handle.send(lastUser.content)
+    },
+
     reset(): void {
       state.messages = []
       state.status = 'idle'
       notify()
     },
 
-    approve(toolCallId: string, approved: boolean, feedback?: string): void {
+    async approve(decision: string, note?: string, modifiedArgs?: Record<string, unknown>): Promise<void> {
+      // 决策应用到最后一个未审批工具调用（HITL——decision/note/modifiedArgs）
+      let applied = false
       state.messages = state.messages.map((m) => ({
         ...m,
-        toolCalls: m.toolCalls?.map((tc) => (tc.id === toolCallId ? { ...tc, approved, feedback } : tc)),
+        toolCalls: m.toolCalls?.map((tc) => {
+          if (applied || tc.approved) return tc
+          applied = true
+          return {
+            ...tc,
+            approved: decision !== 'rejected',
+            feedback: note,
+            // modified 决策：修改后参数挂 args
+            ...(decision === 'modified' && modifiedArgs ? { args: modifiedArgs } : {}),
+          }
+        }),
       }))
       notify()
     },

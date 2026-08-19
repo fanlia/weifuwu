@@ -5,7 +5,7 @@
  * 本模块只生成 HTML（不再操作 DOM/execCommand）。
  */
 
-import { h } from '../../../ui-dom/vnode.ts'
+import { h } from '../../../vdom/index.ts'
 
 /** 最大表格行列数 */
 const MAX = 6

@@ -1,14 +1,15 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { DatePicker } from './DatePicker.ts'
-import { Portal, h } from '../../ui-dom/vnode.ts'
-import { mountToDom, patchToDom, buildToDom } from '../../ui-dom/testing.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx, renderVNode } from '../../ui-dom/testing.ts'
+import { h } from '../../vdom/index.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import { mountToDom, patchToDom, buildToDom } from '../../vdom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx, renderVNode } from '../../vdom/testing.ts'
 
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   return createTestCtx({ ui: {
     $: () => ({}), render: () => {}, dirty: () => {},
     // usePopup mock：focus 触发 + mask + portal 返回 Portal 包装（测试断言 type===Portal）
@@ -22,7 +23,7 @@ function makeCtx(): WfuiContext {
 }
 
 /** 两阶段组件：mount → 获取 renderFn，后续反复调用 renderFn(props) 获取 VNode */
-async function mount(Comp: any, props: any, ctx: WfuiContext) {
+async function mount(Comp: any, props: any, ctx: UIContext) {
   const result = await Comp(props, ctx)
   const renderFn = typeof result === 'function' ? result : null
   return (overrides?: any) => renderFn!(overrides ?? props)
@@ -124,19 +125,23 @@ describe('DatePicker', () => {
     const container = document.createElement('div')
     document.body.appendChild(container) // jsdom：未连接文档的元素 .focus() 无效
     const ctx: any = {
+      // 模拟真实 ctx.render：同树 patch（含 portal 增删），避免 remount 留脏节点
+      render: async () => {
+        const next = await renderFn!()
+        await patchToDom(container, container.firstChild, prev, next, ctx)
+        prev = next
+      },
+      onUnmount: () => {}, params: {}, query: {},
       ui: {
-        $: () => ({}), dirty: () => {},
-        // 模拟真实 ctx.ui.render：同树 patch（含 portal 增删），避免 remount 留脏节点
-        render: async () => {
-          const next = await renderFn!()
-          await patchToDom(container, container.firstChild, prev, next, ctx)
-          prev = next
+        usePopup: (opts: any) => {
+          // 受控驱动（opts.isOpen/setOpen——DatePicker 受控模式）
+          const isOpen = () => (typeof opts?.isOpen === 'function' ? opts.isOpen() : !!opts?.isOpen)
+          return {
+            get open() { return isOpen() }, setOpen: (v: boolean) => opts?.setOpen?.(v),
+            get phase() { return isOpen() ? 'open' : 'closed' }, sync: (o: boolean) => (o ? 'open' : 'closed'),
+            wrapProps: {}, portal: (c: any) => (isOpen() ? c : null), refresh: () => {},
+          }
         },
-        usePopup: () => ({
-          get open() { return false }, setOpen: () => {},
-          get phase() { return 'closed' }, sync: (o: boolean) => (o ? 'open' : 'closed'),
-          wrapProps: {}, portal: (c: any) => c, refresh: () => {},
-        }),
         useGlobalKey: () => () => {},
       },
     }

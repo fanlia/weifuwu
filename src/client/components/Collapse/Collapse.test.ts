@@ -1,30 +1,19 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Collapse } from './Collapse.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
-function createTestCtx(): WfuiContext {
-  const state = new Proxy({}, {
-    set(t: any, k, v) { t[k] = v; return true },
-    get(t: any, k) { return t[k] },
-  })
-  // 非受控内部状态（useControlled 的 selfId 缓存不在 mock 场景，用闭包模拟）
-  let internal: string[] | undefined = undefined
-  const ctrl = (opts: any) => {
-    const controlled = opts.value !== undefined
-    const setValue = (v: string[]) => {
-      if (controlled) { opts.onChange?.(v); return }
-      internal = v; state.internalActive = v
-    }
-    return { value: controlled ? opts.value : internal, setValue, controlled }
-  }
-  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true, useControlled: ctrl } } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 const items = [
   { key: 'a', title: '标题A', content: '内容A' },

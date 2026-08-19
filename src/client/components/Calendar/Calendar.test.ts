@@ -1,16 +1,15 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Calendar } from './Calendar.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
-function createTestCtx(): WfuiContext {
-  const state = new Proxy({}, {
-    set(t: any, k, v) { t[k] = v; return true },
-    get(t: any, k) { return t[k] },
-  })
-  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true } } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 
 const events = [

@@ -6,8 +6,8 @@
  * 裁剪边界（design/components-cuts.md）：完整 LaTeX 引擎是独立项目——
  * 本组件覆盖教学/文档场景 80% 公式；复杂排版（矩阵/多行对齐）不渲染（诚实渲染原文）。
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface MathProps {
   /** LaTeX 公式（如 'x^2 + \\frac{1}{2}'） */

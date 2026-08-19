@@ -8,15 +8,13 @@
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert'
 import { AuthPage } from './AuthPage.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 
 before(setupJsdom)
 
-function createTestCtx(): WfuiContext {
-  return { ui: { render: () => {}, useExternal: () => undefined } } as any
-}
+
 
 /** 按 class 在 VNode 树中查找 */
 async function find(node: any, classPart: string, ctx: any): Promise<any> {

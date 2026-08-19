@@ -1,12 +1,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Tooltip } from './Tooltip.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 /** usePopup mock：镜像真实语义（closed/disabled → portal null；open → Portal + wf-popup 前缀） */
-function makeCtx(show = false, disabled = false): WfuiContext {
+function makeCtx(show = false, disabled = false): UIContext {
   return createTestCtx({ ui: {
     $: { show },
     usePopup: () => {

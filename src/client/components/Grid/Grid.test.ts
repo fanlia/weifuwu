@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Grid, Col, gridColumns } from './Grid.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
 describe('gridColumns（纯函数）', () => {

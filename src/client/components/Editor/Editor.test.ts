@@ -1,17 +1,17 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Editor } from './Editor.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   return createTestCtx() as any
 }
 
 /** 两阶段 Editor：mount 后每次修改状态后调用 renderFn(props) 获取最新 VNode */
-async function makeEditor(props: any, ctx: WfuiContext) {
+async function makeEditor(props: any, ctx: UIContext) {
   const result = await Editor(props, ctx)
   const renderFn = typeof result === 'function' ? result : null
   return {

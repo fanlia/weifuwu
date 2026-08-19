@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 /**
@@ -55,7 +55,7 @@ export function groupKey(t: number, now = Date.now()): 'today' | 'yesterday' | '
 
 const GROUP_LABEL: Record<string, string> = { today: '今天', yesterday: '昨天', earlier: '更早' }
 
-export const SessionList: Component<SessionListProps, WfuiContext> = async (_init, ctx) => {
+export const SessionList: Component<SessionListProps, UIContext> = async (_init, ctx) => {
   // ── 手动状态（组件库纪律：let + render()）──
   let keyword = ''
   let renamingId: string | undefined
@@ -91,7 +91,7 @@ export const SessionList: Component<SessionListProps, WfuiContext> = async (_ini
       else return
       e.preventDefault()
       focusId = flat[next].id
-      ctx.ui.render()
+      ctx.render()
     }
 
     // 行渲染
@@ -116,14 +116,14 @@ export const SessionList: Component<SessionListProps, WfuiContext> = async (_ini
               const v = renameValue.trim()
               if (v) onRename?.(s.id, v)
               renamingId = undefined
-              ctx.ui.render()
+              ctx.render()
             } else if (e.key === 'Escape') {
               e.preventDefault()
               renamingId = undefined
-              ctx.ui.render()
+              ctx.render()
             }
           },
-          onBlur: () => { if (renamingId === s.id) { renamingId = undefined; ctx.ui.render() } },
+          onBlur: () => { if (renamingId === s.id) { renamingId = undefined; ctx.render() } },
         }))
       }
 
@@ -142,7 +142,7 @@ export const SessionList: Component<SessionListProps, WfuiContext> = async (_ini
               type: 'button',
               class: 'wf-session-rename',
               'aria-label': `重命名 ${s.title}`,
-              onClick: (e: Event) => { e.stopPropagation(); renamingId = s.id; renameValue = s.title; ctx.ui.render() },
+              onClick: (e: Event) => { e.stopPropagation(); renamingId = s.id; renameValue = s.title; ctx.render() },
             }, h(Icon, { name: 'edit' }))
           : null,
         onDelete
@@ -172,7 +172,7 @@ export const SessionList: Component<SessionListProps, WfuiContext> = async (_ini
               placeholder: '搜索会话…',
               'aria-label': '搜索会话',
               value: keyword,
-              onInput: (e: any) => { keyword = e.target.value; ctx.ui.render() },
+              onInput: (e: any) => { keyword = e.target.value; ctx.render() },
             })
           : null,
         onNew

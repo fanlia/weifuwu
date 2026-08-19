@@ -10,9 +10,9 @@
  * 不做时间线分组/虚拟化。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface AlertGroupItem {
@@ -29,7 +29,7 @@ export interface AlertGroupProps {
 
 const THRESHOLD = 3
 
-export const AlertGroup: Component<AlertGroupProps> = async (_init, ctx: WfuiContext) => {
+export const AlertGroup: Component<AlertGroupProps> = async (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let expanded = false
 
@@ -55,7 +55,7 @@ export const AlertGroup: Component<AlertGroupProps> = async (_init, ctx: WfuiCon
 
     return h('div', { class: 'wf-alertgroup', role: 'group' }, [
       collapsible && !expanded
-        ? h('button', { class: 'wf-alertgroup-summary', onClick: () => { expanded = true; ctx.ui.render() } },
+        ? h('button', { class: 'wf-alertgroup-summary', onClick: () => { expanded = true; ctx.render() } },
             h('span', {}, `+${items.length} 条通知`))
         : null,
       expanded && collapsible

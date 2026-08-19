@@ -12,9 +12,9 @@
  * - 插入走 textarea selectionStart（光标处插入——无光标则末尾追加）
  * - 预览替换只认 `{{name}}` 精确匹配；values 缺失的变量保持占位（诚实可见）
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface PromptTemplateVariable {
   /** 变量名（插入后为 {{name}}） */
@@ -39,7 +39,7 @@ export interface PromptTemplateProps {
   className?: string
 }
 
-export const PromptTemplate: Component<PromptTemplateProps> = async (_init, ctx: WfuiContext) => {
+export const PromptTemplate: Component<PromptTemplateProps> = async (_init, ctx: UIContext) => {
   // ── mount（只一次）：textarea DOM 引用（光标插入需要） ──
   let taEl: HTMLTextAreaElement | null = null
   const taRef = (el: HTMLTextAreaElement | null) => { taEl = el }

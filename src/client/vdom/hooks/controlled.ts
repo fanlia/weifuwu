@@ -8,28 +8,40 @@
 
 import type { HookEnv } from './env.ts'
 
+/** useControlled 选项（ui-dom 兼容——含 name——组件消费） */
+export interface ControlledOptions<T> {
+  value?: T
+  onChange?: (v: T) => void
+  name?: string
+}
+
 /** useControlled 结果 */
 export interface ControlledValue<T> {
   /** 当前值（受控读 props——非受控读内部状态） */
   value: T
   /** 设置（受控 → onChange 回调；非受控 → 内部 + 重渲染） */
   setValue(v: T): void
+  /** 原受控选项（ui-dom 兼容——组件读 controlled 原引用） */
+  controlled: ControlledOptions<T>
 }
 
-/** 受控/非受控值（渲染期调用——受控读最新 props） */
+/** 受控/非受控值（渲染期调用——受控读最新 props）
+ *  **双形状**：useControlled(controlled, defaultValue?)——defaultValue 可选
+ *  （ui-dom 兼容单参对象——无默认值时非受控初始为 undefined） */
 export function useControlled<T>(
   env: HookEnv,
-  controlled: { value?: T; onChange?: (v: T) => void },
-  defaultValue: T,
+  controlled: ControlledOptions<T>,
+  defaultValue?: T,
 ): ControlledValue<T> {
   const idx = env.nextHookIndex()
-  const state = env.getHookState<{ value: T }>(idx) ?? { value: defaultValue }
+  const state = env.getHookState<{ value: T | undefined }>(idx) ?? { value: defaultValue }
   env.setHookState(idx, state)
   const isControlled = controlled.value !== undefined
   return {
     get value() {
-      return controlled.value ?? state.value
+      return (controlled.value ?? state.value) as T
     },
+    controlled,
     setValue(v: T): void {
       if (isControlled) {
         // 受控：唯一出口是回调（缺回调 = 静默不可用——AGENTS §5.2 warn）

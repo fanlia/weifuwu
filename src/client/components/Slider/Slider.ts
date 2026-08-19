@@ -1,7 +1,7 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
 
 export interface SliderMark {
   value: number
@@ -59,7 +59,7 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
   const setTip = (v: boolean) => {
     if (tipOpen === v) return
     tipOpen = v
-    ctx.ui.render()
+    ctx.render()
   }
   // §5.4 弹窗纪律：浮层一律 usePopup（统一组合器——定位/视口夹紧/Escape/portal）
   // range 模式：anchor = 活动 thumb 的 input（hover/focus/拖拽的当前 thumb）

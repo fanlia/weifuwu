@@ -1,14 +1,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Icon } from './Icon.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
-function createTestCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
-}
+
 
 describe('Icon', () => {
   it('renders svg with aria-hidden + currentColor', async () => {

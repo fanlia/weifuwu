@@ -10,9 +10,9 @@
  * 使用两阶段模型 + render-only。无状态（props 驱动）。
  */
 
-import type { Component, VNode } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
-import type { HookEnv } from '../../ui-dom/hooks/types.ts'
+import type { Component, VNode } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
+import type { HookEnv } from '../../vdom/hooks/env.ts'
 import { Alert } from '../Alert/Alert.ts'
 import { Button } from '../Button/Button.ts'
 import { Card } from '../Card/Card.ts'

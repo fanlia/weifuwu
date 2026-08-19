@@ -37,7 +37,9 @@
  *   6. hooks/browser/middlewares 独立实现——待
  */
 export { h, jsx, jsxs, jsxDEV } from './core/vnode.ts'
+export { Fragment } from './core/node/fragment.ts'
 export { UIRouter } from './core/router.ts'
+export { createClientBrowser } from './browser/create-client-browser.ts'
 export { uiServe } from './core/serve.ts'
 
 // ── 类型面（值面仍只有 h/jsx/uiServe/UIRouter——类型不占公共面）──
@@ -54,3 +56,9 @@ export type { ApiClient } from './middlewares/api.ts'
 export type { AuthClient, I18nState } from './middlewares/auth-i18n.ts'
 export type { WsClient } from './middlewares/ws.ts'
 export type { ExternalStore } from './store.ts'
+
+/** 中间件类型（ui-dom 兼容——组件命令式中间件签名：confirm()/toast() 等
+ *  注入 ctx 面——(ctx) => ctx' 形状） */
+export type AppMiddleware<I extends object = {}, O extends object = I> = (
+  ctx: import('./context/UIContext.ts').UIContext & I,
+) => (import('./context/UIContext.ts').UIContext & O) | Promise<import('./context/UIContext.ts').UIContext & O>

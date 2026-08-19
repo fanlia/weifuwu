@@ -6,10 +6,10 @@
  * 裁剪（CS-05，见 design/components-cuts.md）：水平菜单栏（Menubar，独立组件）、子菜单自动互斥。折叠态子菜单浮层已实现（usePopup 基座）。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface MenuItem {
@@ -56,7 +56,7 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
     gap: 6,
     el: () => popupAnchor,
     isOpen: () => collapsedPopupKey !== null,
-    setOpen: (v) => { if (!v) collapsedPopupKey = null; ctx.ui.render() },
+    setOpen: (v) => { if (!v) collapsedPopupKey = null; ctx.render() },
   })
   // 稳定 ref（mount 作用域）：仅保存容器，避免内联 ref 每渲染重建
   const navRef = (el: any) => { if (el) navEl = el }
@@ -90,7 +90,7 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
 
     const setOpen = (keys: string[]) => {
       if (isOpenControlled) onOpenChange?.(keys)
-      else { internalOpen = keys; ctx.ui.render() }
+      else { internalOpen = keys; ctx.render() }
     }
     const toggleOpen = (key: string, force?: boolean) => {
       const next = force != null
@@ -102,7 +102,7 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
     const toggleCollapse = () => {
       const next = !isCollapsed
       if (isCollapsedControlled) onCollapseChange?.(next)
-      else { internalCollapsed = next; ctx.ui.render() }
+      else { internalCollapsed = next; ctx.render() }
     }
 
 
@@ -121,16 +121,16 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
           'aria-haspopup': 'menu',
           'aria-expanded': popupOpen ? 'true' : 'false',
           onClick: (e: MouseEvent) => {
-            if (popupOpen) { collapsedPopupKey = null; ctx.ui.render() }
+            if (popupOpen) { collapsedPopupKey = null; ctx.render() }
             else {
               popupAnchor = e.currentTarget as HTMLElement
               collapsedPopupKey = item.key
-              ctx.ui.render()
+              ctx.render()
             }
           },
           onKeyDown: (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); if (!popupOpen) { popupAnchor = e.currentTarget as HTMLElement; collapsedPopupKey = item.key; ctx.ui.render() } }
-            else if (e.key === 'Escape') { e.preventDefault(); collapsedPopupKey = null; ctx.ui.render() }
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); if (!popupOpen) { popupAnchor = e.currentTarget as HTMLElement; collapsedPopupKey = item.key; ctx.render() } }
+            else if (e.key === 'Escape') { e.preventDefault(); collapsedPopupKey = null; ctx.render() }
           },
         }, [
           item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,

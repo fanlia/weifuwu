@@ -1,18 +1,18 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { InView } from './InView.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
+import { h } from '../../vdom/index.ts'
 
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   return createTestCtx({ ui: { useInView: () => ({ isIn: false, ready: true, observe: () => {}, refresh: () => {}, disconnect: () => {} }) } }) as any
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) */
-async function renderInView(props: any, ctx: WfuiContext) {
+async function renderInView(props: any, ctx: UIContext) {
   const result = await InView(props, ctx)
   if (typeof result === 'function') return result(props)
   return result

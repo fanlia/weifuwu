@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 import { Math } from './Math.ts'
 
 function findClass(vnode: any, cls: string): any {

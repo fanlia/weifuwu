@@ -19,10 +19,10 @@
  * ```
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import { h } from '../../ui-dom/vnode.ts'
-import type { UseChatHandle, UiMessage } from '../../ui-dom/use-chat.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
+import type { ChatHandle as UseChatHandle, ChatMessage as UiMessage } from '../../vdom/hooks/chat.ts'
 import type { WfError, WfUsage, WfApprovalRequest } from '../../../server/ai/types.ts'
 import type { JsonSchema } from '../JsonSchemaForm/JsonSchemaForm.ts'
 import { ToolCallCard } from '../ToolCallCard/ToolCallCard.ts'
@@ -91,7 +91,7 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
   const resubscribe = () => {
     unsubChat?.()
     const c = currentChat as UseChatHandle & { subscribe?: (cb: () => void) => () => void }
-    unsubChat = c?.subscribe ? c.subscribe(() => ctx.ui.render()) : undefined
+    unsubChat = c?.subscribe ? c.subscribe(() => ctx.render()) : undefined
   }
   resubscribe()
   // 卸载退订（ref 纪律：稳定 ref + null 分支只在真卸载触发）

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { SessionList, type Session } from './SessionList.ts'
-import { renderVNode, mountComponent, findByClass, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, mountComponent, findByClass, createTestCtx } from '../../vdom/testing.ts'
 
 const now = Date.now()
 const day = 24 * 3600 * 1000

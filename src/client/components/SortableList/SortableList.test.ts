@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
-import { renderVNode, findByClass, createTestCtx } from '../../ui-dom/testing.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
+import { renderVNode, findByClass, createTestCtx } from '../../vdom/testing.ts'
 import { SortableList } from './SortableList.ts'
 
 function ctxWithDragDrop() {
@@ -31,8 +31,8 @@ test('SortableList：渲染列表项（keyField 业务身份）', async () => {
   const items2 = findByClass(vnode, 'wf-sortable-item')
   assert.equal(items2.length, 2, '两项渲染')
   const first = items2[0] as any
-  assert.equal(first.props.key, '1', 'key = 业务 id')
-  assert.equal(first.props['data-wf-key'], '1', 'data-wf-key = 业务 id')
+  assert.equal(first.key, '1', 'key = 业务 id（vnode.key——vdom key 剥离语义）')
+  // data-wf-key 是 DOM 层属性（patch 时写——vdom 规则表——vnode 层断言 key）
   assert.ok(first.props.draggable, 'draggable')
   assert.ok(typeof first.props.onDragStart === 'function', 'onDragStart 存在')
 })

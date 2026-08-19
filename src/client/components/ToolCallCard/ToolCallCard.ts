@@ -1,5 +1,5 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import { JSONViewer } from '../JSONViewer/JSONViewer.ts'
 import type { IconName } from '../Icon/Icon.ts'

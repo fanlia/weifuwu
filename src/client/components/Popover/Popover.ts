@@ -5,9 +5,9 @@
  * 外部点击（document 级，取代原 overlay）+ 定位/视口 clamp + Escape + portal。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import type { Placement } from '../../ui-dom/popup.ts'
 
 export type PopoverPosition = Placement
@@ -31,7 +31,7 @@ export const Popover: Component<PopoverProps> = async (_init, ctx) => {
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
 
   // useOpen：受控/非受控 open 统一（warn 缺回调——受控纪律自动化）
-  let openCtrl: ReturnType<WfuiContext['ui']['useOpen']> | null = null
+  let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
 
   const popup = ctx.ui.usePopup({
     trigger: () => latestTrigger,

@@ -6,9 +6,9 @@
  * 裁剪（CS-05，见 design/components-cuts.md）：不做内置路由跳转（页面自身处理）。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
 

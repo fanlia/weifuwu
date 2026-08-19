@@ -14,9 +14,19 @@
 import type { HookEnv } from './env.ts'
 
 /** 响应式系统偏好（prefers-reduced-motion）。mount 期一次判定 */
-export function useReducedMotion(env: HookEnv): boolean {
+/** matchMedia 解析（browser 注入优先——全局兜底（jsdom/测试 mock 通道——
+ *  AGENTS §5.5 生产走注入——兜底仅测试/无注入环境） */
+function resolveMatchMedia(env: HookEnv): ((q: string) => MediaQueryList) | null {
   const win = env.getBrowser()?.window
-  return !!(win && win.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+  if (win?.matchMedia) return win.matchMedia.bind(win)
+  // 全局兜底（jsdom 测试 mock——组件测试广泛用 globalThis.matchMedia）
+  if (typeof matchMedia === 'function') return matchMedia.bind(undefined)
+  return null
+}
+
+export function useReducedMotion(env: HookEnv): boolean {
+  const mm = resolveMatchMedia(env)
+  return !!(mm && mm('(prefers-reduced-motion: reduce)').matches)
 }
 
 export interface TweenOptions {

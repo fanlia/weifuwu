@@ -1,14 +1,14 @@
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { InfiniteScroll } from './InfiniteScroll.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
 // ── mock ctx.ui.useInView（组件层不跑真实 IO）──
 let inViewHandles: any[] = []
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   return createTestCtx({ ui: {
       $: {}, render: () => {}, dirty: () => {}, ready: true,
       useInView: (opts: any) => {

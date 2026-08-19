@@ -12,9 +12,9 @@
  * - 危险操作项 danger（--wf-color-error-text 语义文字色）
  * - 图标走 Icon 组件（IconName）或任意 VNode
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import type { IconName } from '../Icon/Icon.ts'
 import { Icon } from '../Icon/Icon.ts'
 
@@ -40,7 +40,7 @@ export interface ActionSheetProps {
   title?: string
 }
 
-export const ActionSheet: Component<ActionSheetProps> = async (_init, ctx: WfuiContext) => {
+export const ActionSheet: Component<ActionSheetProps> = async (_init, ctx: UIContext) => {
   // ── mount（只一次）：会话级模态（Modal/Drawer 同款四件套——presence/trap/lock/定位） ──
   let latestOpen = false
   /** 键盘焦点项（方向键移动——menu 语义） */
@@ -82,7 +82,7 @@ export const ActionSheet: Component<ActionSheetProps> = async (_init, ctx: WfuiC
         }
         if (next === -1) return
         focusKey = items[next].key
-        ctx.ui.render()
+        ctx.render()
         return
       }
       if (e.key === 'Enter' && focusKey) {

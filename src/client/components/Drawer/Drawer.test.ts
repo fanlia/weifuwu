@@ -1,11 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Drawer } from './Drawer.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   let phase: 'closed' | 'open' | 'exit' = 'closed'
   return createTestCtx({ ui: {
     $: () => ({}), render: () => {}, dirty: () => {},
@@ -25,7 +25,7 @@ function makeCtx(): WfuiContext {
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) */
-async function renderDrawer(props: any, ctx: WfuiContext) {
+async function renderDrawer(props: any, ctx: UIContext) {
   const result = await Drawer(props, ctx)
   if (typeof result === 'function') return result(props)
   return result

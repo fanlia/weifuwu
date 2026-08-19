@@ -1,20 +1,19 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Accordion } from './Accordion.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
-function createTestCtx(): WfuiContext {
-  const state = new Proxy({}, {
-    set(t: any, k, v) { t[k] = v; return true },
-    get(t: any, k) { return t[k] },
-  })
-  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true } } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 describe('Accordion', () => {
   const items = [

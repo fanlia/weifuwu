@@ -89,6 +89,11 @@ export async function diffChildrenItems(
     }
     lastRef = cid
   }
+  // 尾部新增（数组变长——新项渲染——位置身份追加）
+  for (let i = oldCs.length; i < newCs.length; i++) {
+    await emit(newCs[i], id, i, lastRef)
+    lastRef = pathId(id, i)
+  }
   // 尾部缩短（数组变短——remove——**不发锚**——数组长度变化本身即同构）
   for (let i = newCs.length; i < oldCs.length; i++) {
     await removeOldSlot(oldCs[i]!, id, pathId(id, i), emitCommand)

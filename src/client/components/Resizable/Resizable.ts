@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface ResizableProps {
   /** horizontal 左右分割（默认）/ vertical 上下分割 */
@@ -32,7 +32,7 @@ export const Resizable: Component<ResizableProps> = async (_init, ctx) => {
     if (next !== size) {
       size = next
       propsRef.onResize?.(next)
-      ctx.ui.render()
+      ctx.render()
     }
   }
 

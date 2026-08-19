@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { ApprovalCard } from './ApprovalCard.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx } from '../../vdom/testing.ts'
 import { JsonSchemaForm } from '../JsonSchemaForm/JsonSchemaForm.ts'
 
 

@@ -1,15 +1,15 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Modal } from './Modal.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import { mountToDom, patchToDom, buildToDom } from '../../ui-dom/testing.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import { mountToDom, patchToDom, buildToDom } from '../../vdom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
 const globalKeys: ((e: any) => void)[] = []
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   let phase: 'closed' | 'open' | 'exit' = 'closed'
   return createTestCtx({ ui: {
     $: () => ({}), render: () => {}, dirty: () => {}, ready: true,
@@ -30,7 +30,7 @@ function makeCtx(): WfuiContext {
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) 获取 VNode */
-async function renderModal(props: any, ctx: WfuiContext) {
+async function renderModal(props: any, ctx: UIContext) {
   const result = await Modal(props, ctx)
   if (typeof result === 'function') return result(props)
   return result
@@ -190,14 +190,14 @@ describe('Modal', () => {
     let open = true
     let phase: 'closed' | 'open' | 'exit' = 'closed'
     const ctx: any = {
+      render: async () => {
+        const next = await renderFn!()
+        await patchToDom(container, container.firstChild, prev, next, ctx)
+        prev = next
+      },
+      onUnmount: () => {}, params: {}, query: {},
       ui: {
-        $: () => ({}), dirty: () => {},
         useGlobalKey: () => () => {},
-        render: async () => {
-          const next = await renderFn!()
-          await patchToDom(container, container.firstChild, prev, next, ctx)
-          prev = next
-        },
         usePopup: () => {
           let animEndHandler: (() => void) | undefined
           return {
@@ -235,14 +235,14 @@ describe('Modal', () => {
 
     // 父组件关闭 → 退场帧（不立刻卸载）
     open = false
-    await ctx.ui.render()
+    await ctx.render()
     const el = document.querySelector('.wf-modal') as HTMLElement
     assert.ok(el, '关闭瞬间仍保留在 DOM（播退场动画）')
     assert.match(el.className, /wf-modal--exit/, '退场帧应挂 --exit 类')
 
     // animationend → 真正卸载
     el.dispatchEvent(new (window as any).Event('animationend'))
-    await ctx.ui.render()
+    await ctx.render()
     assert.ok(!document.querySelector('.wf-modal'), 'animationend 后应卸载')
   })
 })

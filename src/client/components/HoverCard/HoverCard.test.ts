@@ -1,14 +1,14 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { HoverCard } from './HoverCard.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
 /** usePopup mock：镜像真实语义（openDelay/closeDelay 定时 + disabled/closed → portal null） */
-function makeCtx(show = false): WfuiContext {
+function makeCtx(show = false): UIContext {
   const openStates = new Map<string, boolean>()
   return createTestCtx({ ui: {
     useOpen: (opts: any) => {

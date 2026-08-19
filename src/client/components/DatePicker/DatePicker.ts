@@ -4,13 +4,13 @@
  * 四合一日期选择器，支持 mode: date | datetime | time | range
  * 统一 usePopup：focus 触发 + mask 遮罩 + 自由定位（left 对齐 + width 跟随 trigger）。
  *
- * 状态管理：闭包变量 + ctx.ui.render()
+ * 状态管理：闭包变量 + ctx.render()
  */
 
-import type { Component, VNode } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component, VNode } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
 import {
@@ -53,7 +53,7 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
 
   // ESC 关闭（document 级——面板 keydown 只在焦点内生效；这里覆盖全局）
   ctx.ui.useGlobalKey((e: KeyboardEvent) => {
-    if (e.key === 'Escape' && show) { show = false; ctx.ui.render() }
+    if (e.key === 'Escape' && show) { show = false; ctx.render() }
   })
   // 统一 usePopup：focus 触发 + mask 遮罩（点外部关）+ 自由定位（left 对齐 + width 跟随 trigger）
   const popup = ctx.ui.usePopup({
@@ -64,7 +64,7 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
     closeDelay: 120,        // blur 延迟关闭窗口（面板内选中日期的 click 先于关闭生效）
     el: () => inputEl,
     isOpen: () => show,
-    setOpen: (v) => { show = v; ctx.ui.render() },
+    setOpen: (v) => { show = v; ctx.render() },
     position: () => {
       const r = inputEl?.getBoundingClientRect()
       if (!r) return { x: 0, y: 0 }
@@ -82,7 +82,7 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
     const isOpen = show
     const setOpen = (v: boolean) => {
       show = v
-      ctx.ui.render()
+      ctx.render()
     }
 
     const toggle = (e: Event) => {
@@ -95,12 +95,12 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
       if (mode === 'datetime') {
         selYear = day.year; selMonth = day.month; selDay = day.day
         viewYear = day.year; viewMonth = day.month
-        ctx.ui.render()
+        ctx.render()
       } else if (mode === 'range') {
         if (!rangeStart || (rangeStart && rangeEnd)) {
           rangeStart = formatDate(day.year, day.month, day.day)
           rangeEnd = null
-          ctx.ui.render()
+          ctx.render()
         } else {
           rangeEnd = formatDate(day.year, day.month, day.day)
           const ds = rangeStart < rangeEnd ? rangeStart : rangeEnd
@@ -119,13 +119,13 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
     const prevMonth = () => {
       if (viewMonth === 0) { viewYear--; viewMonth = 11 }
       else viewMonth--
-      ctx.ui.render()
+      ctx.render()
     }
 
     const nextMonth = () => {
       if (viewMonth === 11) { viewYear++; viewMonth = 0 }
       else viewMonth++
-      ctx.ui.render()
+      ctx.render()
     }
 
     const confirmTime = () => {
@@ -219,7 +219,7 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
                 hours.map(hv => h('button', {
                   class: `wf-time-opt${hv === hour ? ' wf-time-opt--selected' : ''}`,
                   type: 'button', key: hv,
-                  onClick: () => { hour = hv; ctx.ui.render() },
+                  onClick: () => { hour = hv; ctx.render() },
                 }, String(hv).padStart(2, '0')))),
             ]),
             h('div', { class: 'wf-time-col' }, [
@@ -228,7 +228,7 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
                 minutes.map(mv => h('button', {
                   class: `wf-time-opt${mv === minute ? ' wf-time-opt--selected' : ''}`,
                   type: 'button', key: mv,
-                  onClick: () => { minute = mv; ctx.ui.render() },
+                  onClick: () => { minute = mv; ctx.render() },
                 }, String(mv).padStart(2, '0')))),
             ]),
           ]),
@@ -289,13 +289,13 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
               h('select', {
                 class: 'wf-datetime-select',
                 value: hour,
-                onChange: (e: Event) => { hour = parseInt((e.target as HTMLSelectElement).value); ctx.ui.render() },
+                onChange: (e: Event) => { hour = parseInt((e.target as HTMLSelectElement).value); ctx.render() },
               }, hourOptions().map(hv => h('option', { value: hv, key: hv }, String(hv).padStart(2, '0')))),
               h('span', { class: 'wf-datetime-sep' }, ':'),
               h('select', {
                 class: 'wf-datetime-select',
                 value: minute,
-                onChange: (e: Event) => { minute = parseInt((e.target as HTMLSelectElement).value); ctx.ui.render() },
+                onChange: (e: Event) => { minute = parseInt((e.target as HTMLSelectElement).value); ctx.render() },
               }, minuteOptions().map(mv => h('option', { value: mv, key: mv }, String(mv).padStart(2, '0')))),
             ]),
           ]))

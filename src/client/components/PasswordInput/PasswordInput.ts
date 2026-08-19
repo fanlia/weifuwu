@@ -4,9 +4,9 @@
  * 密码输入：眼睛按钮切换可见性。Input 子集（label/error/hint/required/autoComplete 透传）。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface PasswordInputProps {
@@ -36,7 +36,7 @@ export const PasswordInput: Component<PasswordInputProps> = async (_init, ctx) =
     const toggle = () => {
       if (disabled) return
       show = !show
-      ctx.ui.render()
+      ctx.render()
     }
 
     const labelEl = label

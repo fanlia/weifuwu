@@ -1,15 +1,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { CodeBlock } from './CodeBlock.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
-function createTestCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true },
-    browser: { copyText: async (t: string) => { (globalThis as any).__copied = t; return true } } } as any
-}
+
 
 describe('CodeBlock', () => {
   it('渲染代码内容（pre > code）', async () => {
@@ -45,7 +42,8 @@ describe('CodeBlock', () => {
 
   it('点击复制 → 调 ctx.browser.copyText + 反馈图标', async () => {
     let copied = ''
-    const ctx = { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true },
+    const ctx = { render: async () => {}, onUnmount: () => {}, params: {}, query: {},
+      ui: {},
       browser: { copyText: async (t: string) => { copied = t; return true } } } as any
     const vnode = await renderVNode(CodeBlock, { code: 'const a = 1' }, ctx)!
     const btn = vnode.props.children[0].props.children.find((c: any) => c?.props?.type === 'button')

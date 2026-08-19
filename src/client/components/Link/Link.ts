@@ -9,9 +9,9 @@
  * 裁剪（CS-05，见 design/components-cuts.md）：不做 hover 弹层预览/图标内置枚举（icon 任意 VNode）。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface LinkProps {
   href?: string
@@ -24,7 +24,7 @@ export interface LinkProps {
   children?: any
 }
 
-export const Link: Component<LinkProps> = async (_init, _ctx: WfuiContext) =>
+export const Link: Component<LinkProps> = async (_init, _ctx: UIContext) =>
   async (props) => {
     const {
       href, variant = 'default', underline = true, disabled, target, icon, onClick, children,

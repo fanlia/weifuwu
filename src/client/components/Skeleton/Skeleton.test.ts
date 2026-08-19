@@ -5,8 +5,8 @@
 import { describe, it } from 'node:test'
 import * as assert from 'node:assert'
 import { Skeleton } from './Skeleton.ts'
-import { h, Fragment } from '../../ui-dom/vnode.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { h, Fragment } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
 

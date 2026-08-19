@@ -4,8 +4,8 @@
  */
 import { test, before } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 import { AiChat } from './AiChat.ts'
 
 before(setupJsdom)

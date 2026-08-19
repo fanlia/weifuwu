@@ -1,10 +1,10 @@
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { CopyButton } from './CopyButton.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get render fn (two-phase) */
 async function mount(Comp: any, props: any, ctx: any) {
@@ -12,7 +12,7 @@ async function mount(Comp: any, props: any, ctx: any) {
   return typeof result === 'function' ? result : null
 }
 
-function makeCtx(opts: { copyText?: (t: string) => Promise<boolean> } = {}): WfuiContext {
+function makeCtx(opts: { copyText?: (t: string) => Promise<boolean> } = {}): UIContext {
   return createTestCtx({
     browser: { copyText: opts.copyText ?? (async (t: string) => { (globalThis as any).__copied = t; return true }) },
   }) as any

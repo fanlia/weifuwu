@@ -7,7 +7,7 @@
 
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 import { h } from '../../ui-dom/vdom3/index.ts'
 import { createRoot } from '../../ui-dom/vdom3/root.ts'
 import { Editor } from './Editor.ts'

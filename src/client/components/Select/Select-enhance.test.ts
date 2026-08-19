@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Select } from './Select.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
+import type { UIContext } from '../../vdom/index.ts'
 
 function childrenOf(vnode: any){
   if (!vnode) return []
@@ -31,7 +31,13 @@ function allNodes(vnode: any){
 
 function mockCtx(){
   const state = createState({})
-  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
+  return {
+    render: async () => {}, data: { get: async () => undefined, set: () => {}, has: () => false },
+    onUnmount: () => {}, params: {}, query: {},
+    ui: {
+      usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }),
+    },
+  } as any
 }
 
 describe('Select 增强（键盘导航 + multiple）', () => {

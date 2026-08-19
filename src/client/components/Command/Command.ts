@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface CommandItem {
@@ -96,11 +96,11 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         highlight = Math.min(highlight + 1, Math.max(filtered.length - 1, 0))
-        ctx.ui.render()
+        ctx.render()
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
         highlight = Math.max(highlight - 1, 0)
-        ctx.ui.render()
+        ctx.render()
       } else if (e.key === 'Enter') {
         e.preventDefault()
         const item = filtered[highlight]
@@ -138,7 +138,7 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
           type: 'text',
           placeholder,
           value: query,
-          onInput: (e: any) => { query = e.target.value; highlight = 0; ctx.ui.render() },
+          onInput: (e: any) => { query = e.target.value; highlight = 0; ctx.render() },
           onKeyDown: inputKeyDown,
           ref: inputRef,
         }),

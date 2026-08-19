@@ -1,12 +1,10 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Menu } from './Menu.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
-function createTestCtx(): WfuiContext {
-  return { ui: { render: () => {}, ready: true, usePopup: () => ({ wrapProps: {}, portal: (c: any) => c }) } } as any
-}
+
 
 const items = [
   { key: 'home', label: '首页', icon: '🏠' },

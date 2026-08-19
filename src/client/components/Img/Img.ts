@@ -2,9 +2,9 @@
  * weifuwu/components — Img
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface ImgProps {
   src?: string
@@ -34,7 +34,7 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
     placement: 'bottom',
     el: () => triggerEl,
     isOpen: () => previewOpen,
-    setOpen: (v) => { previewOpen = v; scale = v ? scale : 1; ctx.ui.render() },
+    setOpen: (v) => { previewOpen = v; scale = v ? scale : 1; ctx.render() },
     mask: true, // 全屏遮罩：模态预览（点击遮罩关闭，maskClosable 默认 true）
     maskCentered: true, // 图片预览居中显示（覆盖 trigger 定位）
   }) ?? {
@@ -77,7 +77,7 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
         src: src ?? fallback ?? '',
         alt,
         style: { transform: `scale(${scale * previewScale})`, maxWidth: '90vw', maxHeight: '90vh' },
-        onClick: (e: Event) => { e.stopPropagation(); scale = scale === 1 ? 2 : 1; ctx.ui.render() },
+        onClick: (e: Event) => { e.stopPropagation(); scale = scale === 1 ? 2 : 1; ctx.render() },
       }),
       'img-preview',
     )
@@ -90,7 +90,7 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
         class: 'wf-img-preview-trigger',
         'aria-label': '放大预览',
         ref: triggerRef,
-        onClick: () => { previewOpen = true; ctx.ui.render() },
+        onClick: () => { previewOpen = true; ctx.render() },
       }, h('img', imgProps)),
       previewLayer,
     ].filter(Boolean))

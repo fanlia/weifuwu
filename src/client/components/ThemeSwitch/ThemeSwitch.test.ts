@@ -1,9 +1,9 @@
 import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 import { ThemeSwitch, applyTheme, applyPreset, getTheme } from './ThemeSwitch.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
 before(setupJsdom)
 
@@ -15,17 +15,12 @@ beforeEach(() => {
 
 /** Call component and get VNode (two-phase compat) */
 
-function createTestCtx(): WfuiContext {
-  const renders: Array<() => void> = []
-  return {
-    ui: {
-      $: () => ({}),
-      render: () => { for (const fn of renders) fn() },
-      dirty: () => {},
-      ready: true,
-    },
-  } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 describe('ThemeSwitch', () => {
   it('renders segmented control with 3 modes', async () => {

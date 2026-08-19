@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface CopyButtonProps {
@@ -37,11 +37,11 @@ export const CopyButton: Component<CopyButtonProps> = async (_init, ctx) => {
       await ctx.browser?.copyText(value)
       copied = true
       onCopied?.()
-      ctx.ui.render()
+      ctx.render()
       clearTimeout(timer)
       timer = setTimeout(() => {
         copied = false
-        ctx.ui.render()
+        ctx.render()
       }, 2000)
     }
 

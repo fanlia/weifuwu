@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface TransferItem {
@@ -47,14 +47,14 @@ export const Transfer: Component<TransferProps> = async (_init, ctx) => {
       const next = arr.includes(key) ? arr.filter((k: string) => k !== key) : [...arr, key]
       if (side === 'left') selLeft = next
       else selRight = next
-      ctx.ui.render()
+      ctx.render()
     }
 
     const moveRight = () => {
       if (!onChange || selLeft.length === 0) return
       const next = [...targetKeys, ...selLeft]
       selLeft = []
-      ctx.ui.render()
+      ctx.render()
       onChange(next)
     }
 
@@ -62,7 +62,7 @@ export const Transfer: Component<TransferProps> = async (_init, ctx) => {
       if (!onChange || selRight.length === 0) return
       const next = targetKeys.filter(k => !selRight.includes(k))
       selRight = []
-      ctx.ui.render()
+      ctx.render()
       onChange(next)
     }
 
@@ -76,7 +76,7 @@ export const Transfer: Component<TransferProps> = async (_init, ctx) => {
             type: 'text',
             placeholder: searchPlaceholder,
             value: side === 'left' ? kwLeft : kwRight,
-            onInput: (e: any) => { if (side === 'left') kwLeft = e.target.value; else kwRight = e.target.value; ctx.ui.render() },
+            onInput: (e: any) => { if (side === 'left') kwLeft = e.target.value; else kwRight = e.target.value; ctx.render() },
           })
         : null
       return h('div', { class: `wf-transfer-list wf-transfer-list--${side}` }, [

@@ -5,9 +5,9 @@
  * 实现：ctx.ui.useInView（IO 封装）——滚动/尺寸变化由合成器线程评估，无 scroll 监听。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface InViewProps {
   once?: boolean

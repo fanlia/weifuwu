@@ -11,10 +11,10 @@
  * 用户选择后持久化。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 const browser = createClientBrowser()
 
@@ -46,30 +46,30 @@ const DEFAULT_KEY = 'wf_theme'
 const DEFAULT_PRESET_KEY = 'wf_theme_preset'
 
 function readStored(key: string): ThemeMode | null {
-  const v = browser.storageGet(key)
+  const v = browser?.storageGet(key) ?? null
   return v === 'light' || v === 'dark' || v === 'auto' ? v : null
 }
 
 function writeStored(key: string, value: string): void {
-  browser.storageSet(key, value)
+  browser?.storageSet(key, value)
 }
 
 /** 应用主题：auto 移除属性，light/dark 显式设置 */
 export function applyTheme(mode: ThemeMode): void {
-  const root = browser.rootElement()
+  const root = browser?.rootElement()
   if (!root) return
   if (mode === 'auto') root.removeAttribute('data-theme')
   else root.setAttribute('data-theme', mode)
 }
 
 function readStoredPreset(key: string): PresetName | null {
-  const v = browser.storageGet(key)
+  const v = browser?.storageGet(key) ?? null
   return v === 'minimal' || v === 'compact' || v === 'rounded' || v === 'default' ? v : null
 }
 
 /** 应用预设主题：default 移除属性，其余显式设置 data-preset（与 data-theme 正交） */
 export function applyPreset(preset: PresetName): void {
-  const root = browser.rootElement()
+  const root = browser?.rootElement()
   if (!root) return
   if (preset === 'default') root.removeAttribute('data-preset')
   else root.setAttribute('data-preset', preset)
@@ -113,7 +113,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = async (initProps, ctx) =
           applyTheme(mode)
           writeStored(storageKey, mode)
           props.onChange?.(mode)
-          ctx.ui.render()
+          ctx.render()
         },
       }, m.label),
     )
@@ -132,7 +132,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = async (initProps, ctx) =
           applyPreset(preset)
           writeStored(presetKey, preset)
           props.onPresetChange?.(preset)
-          ctx.ui.render()
+          ctx.render()
         },
       }, p.label),
     )

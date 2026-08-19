@@ -5,9 +5,9 @@
  * 定位/视口 clamp + Escape + portal。对应 shadcn HoverCard。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import type { Placement } from '../../ui-dom/popup.ts'
 
 export type HoverCardPosition = Placement
@@ -34,7 +34,7 @@ export const HoverCard: Component<HoverCardProps> = async (_props, ctx) => {
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
 
   // useOpen：受控/非受控 open 统一（hover 触发由 usePopup trigger 驱动）
-  let openCtrl: ReturnType<WfuiContext['ui']['useOpen']> | null = null
+  let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
 
   const popup = ctx.ui.usePopup({
     trigger: 'hover',

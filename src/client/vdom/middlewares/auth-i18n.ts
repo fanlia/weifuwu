@@ -65,6 +65,9 @@ export interface I18nState {
   setLocale(locale: string): void
   /** 取文本（{name} 插值——缺失 key 返回 key 本身——不静默） */
   t(key: string, params?: Record<string, unknown>): string
+  /** 组件文案面（ui-dom 兼容——SheetGrid/SlideCanvas 读组件级文案——
+   *  可选——无注入时 undefined） */
+  components?: Record<string, Record<string, string>>
 }
 
 /** 创建 i18n（locale/messages——t 插值） */

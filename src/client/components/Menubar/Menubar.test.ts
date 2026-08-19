@@ -1,38 +1,18 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Menubar } from './Menubar.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
-function createTestCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {},
-    usePopup: (opts: any) => {
-      const isOpen = () => !!opts.isOpen?.()
-      const portal = (content: any) => {
-        if (!isOpen()) return null
-        return {
-          type: Portal,
-          props: {
-            children: { ...content, props: { ...content.props, class: ['wf-popup', content.props?.class].filter(Boolean).join(' '), style: { ...content.props?.style, position: 'fixed', top: '0px', left: '0px' } } },
-            portalKey: 'popover',
-          },
-          key: undefined,
-          _placement: 'remote',
-        }
-      }
-      return {
-        open: isOpen(),
-        setOpen: (v: boolean) => { if (!v) opts.setOpen?.(false) },
-        wrapProps: {},
-        portal,
-        refresh: () => {},
-      }
-    },
-  } } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 
 const inner = (v: any) => v?.type === Portal ? v.props.children : v

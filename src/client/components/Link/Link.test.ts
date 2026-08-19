@@ -1,7 +1,7 @@
 import { test, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Link } from './Link.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
 describe('Link', () => {

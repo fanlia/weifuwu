@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface MentionsOption {
   value: string
@@ -34,7 +34,7 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
 
   // useControlledInput：受控/非受控统一（原非受控 textarea value='' 固定——
   // 每次 render 清空用户输入——严重违规）
-  let inputCtrl: ReturnType<WfuiContext['ui']['useControlledInput']> | null = null
+  let inputCtrl: ReturnType<UIContext['ui']['useControlledInput']> | null = null
 
   // usePopup：借用面板定位/视口 clamp + 外部点击关闭（不 spread wrapProps——
   // 打开由输入 '@' 驱动，非 wrap 触发）；Escape 由 textarea 自己的 onKeyDown 处理
@@ -51,7 +51,7 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
   const close = () => {
     if (open) {
       open = false
-      ctx.ui.render()
+      ctx.render()
     }
   }
 
@@ -78,7 +78,7 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
       keywordStart = idx
       highlight = 0
       open = true
-      ctx.ui.render()
+      ctx.render()
     }
 
     const filtered = keyword
@@ -90,7 +90,7 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
       const after = value.slice(keywordStart + 1 + keyword.length) // prefix + keyword 之后
       const next = `${before}${prefix}${opt.value} ${after}`
       open = false
-      const wasControlled = inputCtrl?.controlled
+      const wasControlled = inputCtrl?.controlled?.value !== undefined
       inputCtrl?.setValue(next)
       // onChange 通知语义（非受控也调）；受控时 setValue 已调
       if (!wasControlled) props.onChange?.(next)
@@ -107,11 +107,11 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         highlight = Math.min(highlight + 1, Math.max(filtered.length - 1, 0))
-        ctx.ui.render()
+        ctx.render()
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
         highlight = Math.max(highlight - 1, 0)
-        ctx.ui.render()
+        ctx.render()
       } else if (e.key === 'Enter') {
         e.preventDefault()
         const opt = filtered[highlight]

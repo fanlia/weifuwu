@@ -5,9 +5,9 @@
  * 实现：图片绘制到 canvas → 裁剪框（useDrag 拖动/缩放）→ onCrop 输出 dataURL。
  * 纪律：canvas 浏览器 API 经 ctx.browser（SSR 无害——null 检查）。
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
 
 export interface ImageCropperProps {
   src: string
@@ -109,7 +109,7 @@ export const ImageCropper: Component<ImageCropperProps> = async (_init, ctx) => 
         h('button', { type: 'button', class: 'wf-btn wf-btn--sm wf-btn--primary', disabled: !img,
           onClick: () => crop() }, '裁剪'),
         h('button', { type: 'button', class: 'wf-btn wf-btn--sm', disabled: !img,
-          onClick: () => { box = { x: viewW * 0.1, y: viewH * 0.1, w: viewW * 0.8, h: viewH * 0.8 }; draw(); ctx.ui.render() } }, '重置'),
+          onClick: () => { box = { x: viewW * 0.1, y: viewH * 0.1, w: viewW * 0.8, h: viewH * 0.8 }; draw(); ctx.render() } }, '重置'),
       ),
     ])
   }

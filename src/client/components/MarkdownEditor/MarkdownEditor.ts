@@ -4,8 +4,8 @@
  * 复用 Markdown 组件 parser（同一渲染——预览与最终展示零漂移）。
  * 受控纪律：value 受控 + 缺 onChange → warn（防静默不可用）。
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Markdown } from '../Markdown/Markdown.ts'
 
 export interface MarkdownEditorProps {
@@ -49,7 +49,7 @@ export const MarkdownEditor: Component<MarkdownEditorProps> = async (_init, ctx)
           key: k,
           type: 'button',
           class: `wf-btn wf-btn--sm${mode === k ? ' wf-btn--primary' : ''}`,
-          onClick: () => { mode = k as any; ctx.ui.render() },
+          onClick: () => { mode = k as any; ctx.render() },
         }, label))),
       mode === 'preview' ? preview
         : mode === 'write' ? editor

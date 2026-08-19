@@ -1,5 +1,5 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Checkbox } from '../Checkbox/Checkbox.ts'
 
 export interface CheckboxGroupOption {
@@ -40,7 +40,7 @@ export const CheckboxGroup: Component<CheckboxGroupProps> = async (_init, ctx) =
       const next = checked
         ? [...new Set([...value, v])]
         : value.filter(x => x !== v)
-      const wasControlled = ctrl?.controlled
+      const wasControlled = ctrl?.controlled?.value !== undefined
       ctrl?.setValue(next)
       // onChange 通知语义（非受控也调）；受控时 setValue 已调
       if (!wasControlled) props.onChange?.(next)

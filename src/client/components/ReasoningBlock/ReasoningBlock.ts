@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 /**
@@ -26,12 +26,12 @@ export interface ReasoningBlockProps {
   streaming?: boolean
 }
 
-export const ReasoningBlock: Component<ReasoningBlockProps, WfuiContext> = async (initProps, ctx) => {
+export const ReasoningBlock: Component<ReasoningBlockProps, UIContext> = async (initProps, ctx) => {
   let expanded = !!initProps.defaultExpanded
 
   return async (props) => {
     const { content, streaming, label = '已思考' } = props
-    const toggle = () => { expanded = !expanded; ctx.ui.render() }
+    const toggle = () => { expanded = !expanded; ctx.render() }
 
     return h('div', {
       class: `wf-reasoning${streaming ? ' wf-reasoning--streaming' : ''}`,

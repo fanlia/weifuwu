@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface PaginationProps {
@@ -18,7 +18,7 @@ export const Pagination: Component<PaginationProps> = async (_init, ctx) =>
   const ctrl = ctx?.ui?.useControlled<number>({ value: props.page, onChange: props.onChange, name: 'Pagination' })
   const page = ctrl?.value ?? 1
   const go = (p: number) => {
-    const wasControlled = ctrl?.controlled
+    const wasControlled = ctrl?.controlled?.value !== undefined
     ctrl?.setValue(p)
     if (!wasControlled) props.onChange?.(p)
   }

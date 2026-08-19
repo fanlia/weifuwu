@@ -5,8 +5,8 @@
  *   exportCSV({ data: rows, filename: 'orders.csv', columns: [{ key, label }] })
  *   <ExportCSV data={rows} filename="orders.csv">导出</ExportCSV>
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface CsvColumn {
   key: string

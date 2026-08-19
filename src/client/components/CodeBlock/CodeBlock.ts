@@ -6,9 +6,9 @@
  * 由 Markdown 代码围栏复用；也可独立使用。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import { tokenize } from './highlight.ts'
 
@@ -26,9 +26,9 @@ export const CodeBlock: Component<CodeBlockProps> = async (_init, ctx) => {
   const copy = async () => {
     await ctx.browser?.copyText(latestCode)
     copied = true
-    ctx.ui.render()
+    ctx.render()
     clearTimeout(timer)
-    timer = setTimeout(() => { copied = false; ctx.ui.render() }, 1600)
+    timer = setTimeout(() => { copied = false; ctx.render() }, 1600)
   }
 
   return async (props: CodeBlockProps) => {

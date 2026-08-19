@@ -1,27 +1,17 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Rate } from './Rate.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, mountComponent } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, mountComponent, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
-function createTestCtx(): WfuiContext {
-  const uncontrolled = new Map<string, any>()
-  return { ui: {
-    $: {}, render: () => {}, dirty: () => {}, ready: true,
-    useControlled: (opts: any) => {
-      const controlled = opts.value !== undefined
-      const key = opts.name ?? 'default'
-      if (!uncontrolled.has(key)) uncontrolled.set(key, opts.value)
-      const setValue = (v: any) => {
-        if (controlled) opts.onChange?.(v)
-        else uncontrolled.set(key, v)
-      }
-      return { value: controlled ? opts.value : uncontrolled.get(key), setValue, controlled }
-    },
-  } } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 describe('Rate', () => {
   it('renders count stars (default 5)', async () => {
@@ -123,16 +113,16 @@ describe('Rate', () => {
     }
   })
 
-  // 回归：hover 是手动状态（let + ctx.ui.render）——旧实现只赋值不 render，
+  // 回归：hover 是手动状态（let + ctx.render）——旧实现只赋值不 render，
   // effective = hover + 1 是死代码，hover/focus 预览永不落地（§4.1 纪律）
   it('hover: mouseenter 第 4 星 → 前 4 颗亮（render 触发预览）', async () => {
     const ctx = createTestCtx()
     const render = await mountComponent(Rate, { value: 2 }, ctx)!
     let vnode = await render()
-    // 接线：ctx.ui.render 真实重跑内层 render（模拟 vdom 渲染器）
-    ctx.ui.render = async () => { vnode = await render() }
+    // 接线：ctx.render 真实重跑内层 render（模拟 vdom 渲染器）
+    ctx.render = async () => { vnode = await render() }
     vnode.props.children[3].props.onMouseEnter()
-    await ctx.ui.render()
+    await ctx.render()
     assert.match(vnode.props.children[3].props.class, /wf-rate-star--on/, '悬停第 4 星应亮')
     assert.doesNotMatch(vnode.props.children[4].props.class, /--on/, '第 5 星不亮')
   })
@@ -141,12 +131,12 @@ describe('Rate', () => {
     const ctx = createTestCtx()
     const render = await mountComponent(Rate, { value: 2 }, ctx)!
     let vnode = await render()
-    ctx.ui.render = async () => { vnode = await render() }
+    ctx.render = async () => { vnode = await render() }
     vnode.props.children[3].props.onMouseEnter()
-    await ctx.ui.render()
+    await ctx.render()
     assert.match(vnode.props.children[3].props.class, /--on/)
     vnode.props.children[3].props.onMouseLeave()
-    await ctx.ui.render()
+    await ctx.render()
     assert.doesNotMatch(vnode.props.children[3].props.class, /--on/, '离开后恢复 value=2')
     assert.doesNotMatch(vnode.props.children[2].props.class, /--on/, '第 3 星按 value=2 不亮')
   })
@@ -155,9 +145,9 @@ describe('Rate', () => {
     const ctx = createTestCtx()
     const render = await mountComponent(Rate, { value: 1 }, ctx)!
     let vnode = await render()
-    ctx.ui.render = async () => { vnode = await render() }
+    ctx.render = async () => { vnode = await render() }
     vnode.props.children[4].props.onMouseEnter()
-    await ctx.ui.render()
+    await ctx.render()
     assert.match(vnode.props.children[4].props.class, /--on/)
     assert.match(vnode.props.children[0].props.class, /--on/)
   })

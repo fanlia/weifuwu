@@ -14,9 +14,9 @@
  * 自定义渲染用 `renderOption` 透传。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface AutoCompleteOption {
   value: string
@@ -50,7 +50,7 @@ export function filterOptions(options: AutoCompleteOption[], query: string): Aut
   })
 }
 
-export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: WfuiContext) => {
+export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: UIContext) => {
   // render-only：内部状态 let + 显式 render（open 经闭包绑定——§4.5 无 this 陷阱）；
   // keyword/selected 由 useControlledInput 管理（render 层调用——C3 原语）
   let open = _init?.open ?? false
@@ -75,7 +75,7 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
     isOpen: () => open,
     setOpen: (v) => {
       open = v
-      ctx.ui.render() // 显式渲染（外部点击/Escape 关闭必须落地）
+      ctx.render() // 显式渲染（外部点击/Escape 关闭必须落地）
       latestOnOpenChange?.(v)
     },
   })
@@ -85,7 +85,7 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
   }
 
   // useControlledInput 原语句柄（render 层调用——闭包变量供 pick 用）
-  let inputCtrl: ReturnType<WfuiContext['ui']['useControlledInput']> | null = null
+  let inputCtrl: ReturnType<UIContext['ui']['useControlledInput']> | null = null
 
   const pick = (option: AutoCompleteOption) => {
     inputCtrl?.setValue(option.value)
@@ -146,11 +146,11 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         activeIndex = (activeIndex + 1) % filtered.length
-        ctx.ui.render()
+        ctx.render()
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
         activeIndex = activeIndex <= 0 ? filtered.length - 1 : activeIndex - 1
-        ctx.ui.render()
+        ctx.render()
       } else if (e.key === 'Enter') {
         if (open && activeIndex >= 0 && filtered[activeIndex]) {
           e.preventDefault()

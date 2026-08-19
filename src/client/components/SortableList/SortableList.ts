@@ -7,8 +7,8 @@
  *
  * 纪律：受控 items + 缺 onReorder → warn（防静默失效）；keyField 必须业务唯一
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface SortableListProps<T extends Record<string, any>> {
   items: T[]
@@ -38,7 +38,7 @@ export const SortableList: Component<SortableListProps<any>> = async (_init, ctx
       }
       dragIndex = null
       overIndex = null
-      ctx.ui.render()
+      ctx.render()
     },
   })
 
@@ -63,13 +63,13 @@ export const SortableList: Component<SortableListProps<any>> = async (_init, ctx
             dragIndex = i
             e.dataTransfer?.setData('text/plain', String(item[keyField] ?? i))
             e.dataTransfer!.effectAllowed = 'move'
-            ctx.ui.render()
+            ctx.render()
           },
           onDragOver: (e: DragEvent) => {
             e.preventDefault()
             if (overIndex !== i) {
               overIndex = i
-              ctx.ui.render()
+              ctx.render()
             }
           },
           onDragLeave: () => {

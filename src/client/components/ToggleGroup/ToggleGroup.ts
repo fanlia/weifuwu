@@ -1,5 +1,5 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface ToggleProps {
   /** 按下状态（受控） */
@@ -84,7 +84,7 @@ export const ToggleGroup: Component<ToggleGroupProps> = async (_init, ctx) =>
       } else {
         next = v
       }
-      const wasControlled = ctrl?.controlled
+      const wasControlled = ctrl?.controlled?.value !== undefined
       ctrl?.setValue(next)
       // onChange 通知语义（非受控也调）；受控时 setValue 已调
       if (!wasControlled) props.onChange?.(next)

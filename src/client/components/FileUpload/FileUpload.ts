@@ -2,9 +2,9 @@
  * weifuwu/components — FileUpload
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface FileUploadProps {
@@ -64,7 +64,7 @@ export const FileUpload: Component<FileUploadProps> = async (_init, ctx) => {
   const { dropProps } = ctx.ui.useDragDrop({
     onDrop: (e) => {
       isDragging = false
-      ctx.ui.render()
+      ctx.render()
       if (propsRef.disabled) return
       const dropped = Array.from(e.dataTransfer?.files ?? [])
       if (propsRef.maxSize) {
@@ -74,10 +74,10 @@ export const FileUpload: Component<FileUploadProps> = async (_init, ctx) => {
       propsRef.onChange?.(dropped)
     },
     onDragOver: () => {
-      if (!isDragging) { isDragging = true; ctx.ui.render() }
+      if (!isDragging) { isDragging = true; ctx.render() }
     },
     onDragLeave: () => {
-      if (isDragging) { isDragging = false; ctx.ui.render() }
+      if (isDragging) { isDragging = false; ctx.render() }
     },
   })
 

@@ -13,14 +13,14 @@
  * - sheet 标签切换（activeSheet op——只读切换 v1）
  */
 
-import { h } from '../../ui-dom/index.ts'
-import { aiStream } from '../../ui-dom/ai.ts'
+import { h } from '../../vdom/index.ts'
+import { aiStream } from '../../vdom/hooks/ai-stream.ts'
 import { editEmit } from '../Editor/edit-events.ts'
 import { applySheetOp } from '../OfficeEditor/model/apply.ts'
 import type { OfficeOp, SheetCell, SheetState, WorkbookState } from '../OfficeEditor/model/types.ts'
 import { parseReplyByMode } from '../OfficeEditor/ai/ai-bridge.ts'
 import type { AiContext } from '../OfficeEditor/model/types.ts'
-import type { Component, VNode } from '../../ui-dom/index.ts'
+import type { Component, VNode } from '../../vdom/index.ts'
 
 export interface SheetGridProps {
   /** 受控工作簿（FilePreview 传入——编辑经 onChange 回写） */
@@ -69,7 +69,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
     el: () => anchorEl,
     isOpen: () => !!aiPending,
     setOpen: (v) => {
-      if (!v) { aiPending = null; ctx.ui.render() }
+      if (!v) { aiPending = null; ctx.render() }
     },
   })
 
@@ -80,7 +80,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
     wb = next
     for (const op of ops) editEmit('office', { docType: 'xlsx', op } as never)
     undo.push({ label, ops, before })
-    ctx.ui.render()
+    ctx.render()
     _init.onChange?.(wb)
   }
 
@@ -114,7 +114,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
     if (!u) return
     wb = u.before
     editEmit('undo', { entity: 'sheet', label: u.label } as never)
-    ctx.ui.render()
+    ctx.render()
     _init.onChange?.(wb)
   }
 
@@ -131,7 +131,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
       '- 若是数值/文本：直接输出值\n' +
       '- 若单元格是表头/汇总类，输出合适的值或公式'
     aiPending = { revised: '', streaming: true, error: null, ref, messageId: `sheet-ai-${Date.now()}` }
-    ctx.ui.render()
+    ctx.render()
     editEmit('office', { docType: 'xlsx', ai: { messageId: aiPending.messageId, status: 'suggested' } } as never)
     aiStream(_init.ai.url, {
       messages: [{ role: 'user', content: prompt }],
@@ -140,18 +140,18 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
       onToken: (text) => {
         if (!aiPending) return
         aiPending.revised += text
-        ctx.ui.render()
+        ctx.render()
       },
       onDone: () => {
         if (!aiPending) return
         aiPending.streaming = false
-        ctx.ui.render()
+        ctx.render()
       },
       onError: (e) => {
         if (!aiPending) return
         aiPending.streaming = false
         aiPending.error = e?.message ?? 'AI 请求失败'
-        ctx.ui.render()
+        ctx.render()
       },
     })
   }
@@ -160,7 +160,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
     editing = null // 编辑态与 AI 提交互斥（input 覆盖 td 文本）
     const ctxInfo: AiContext = { docType: 'xlsx', ref: aiPending.ref }
     const parsed = parseReplyByMode(aiPending.revised, ctxInfo)
-    if (parsed.ops.length === 0) { aiPending.error = parsed.note ?? '无法解析'; ctx.ui.render(); return }
+    if (parsed.ops.length === 0) { aiPending.error = parsed.note ?? '无法解析'; ctx.render(); return }
     const before = wb
     let next = before
     for (const op of parsed.ops) next = applySheetOp(next, op as never) as WorkbookState
@@ -170,7 +170,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
     }
     undo.push({ label: `AI 公式 ${aiPending.ref}`, ops: parsed.ops as never[], before })
     aiPending = null
-    ctx.ui.render()
+    ctx.render()
     _init.onChange?.(wb)
   }
   const rejectAi = (): void => {
@@ -178,7 +178,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
     editing = null
     editEmit('office', { docType: 'xlsx', ai: { messageId: aiPending.messageId, status: 'rejected' } } as never)
     aiPending = null
-    ctx.ui.render()
+    ctx.render()
   }
 
   // ── 渲染 ──
@@ -223,12 +223,12 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
             if (readonly) return
             activeRef = ref
             editing = { ref, value: cellVal(ref) }
-            ctx.ui.render()
+            ctx.render()
           },
           onKeyDown: (e: KeyboardEvent) => {
             if (readonly) return
-            if (e.key === 'Enter' && editing?.ref === ref) { e.preventDefault(); commitEdit(); ctx.ui.render() }
-            if (e.key === 'Escape' && editing?.ref === ref) { editing = null; ctx.ui.render() }
+            if (e.key === 'Enter' && editing?.ref === ref) { e.preventDefault(); commitEdit(); ctx.render() }
+            if (e.key === 'Escape' && editing?.ref === ref) { editing = null; ctx.render() }
           },
         }, isEditing
           ? h('input', {
@@ -297,7 +297,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
               key: `tab${i}`,
               class: ['wf-sheet-tab', i === wb.activeSheet ? 'wf-sheet-tab--active' : ''].filter(Boolean).join(' '),
               type: 'button',
-              onClick: () => { if (i !== wb.activeSheet) { wb = { ...wb, activeSheet: i }; ctx.ui.render() } },
+              onClick: () => { if (i !== wb.activeSheet) { wb = { ...wb, activeSheet: i }; ctx.render() } },
             }, s.name))),
         h('div', { class: 'wf-sheet-tools', key: 'tools' }, [
           h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ir', onClick: () => insertRows(), disabled: readonly }, i18n.insertRow ?? '插入行'),

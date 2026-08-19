@@ -2,7 +2,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { computeLayers, layoutGraph, detectCycle } from './dag-utils.ts'
 import { Pipeline } from './Pipeline.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
 describe('computeLayers — 层级分配', () => {

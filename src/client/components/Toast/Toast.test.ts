@@ -1,17 +1,17 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Toast } from './Toast.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
 
-function createTestCtx(): WfuiContext {
-  return { ui: {
-    $: () => ({}), render: () => {}, dirty: () => {}, ready: true,
-    usePopup: () => ({ get open() { return true }, setOpen: () => {}, wrapProps: {}, portal: (c: any) => c, refresh: () => {} }),
-  } } as any
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 const inner = (v: any) => v?.type === Portal ? v.props.children : v
 

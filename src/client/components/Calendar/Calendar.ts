@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import { getCalendarGrid, getWeekdays, formatDate } from '../DatePicker/calendar-utils.ts'
 
@@ -54,12 +54,12 @@ export const Calendar: Component<CalendarProps> = async (_init, ctx) => {
       if (m < 0) { m = 11; y-- }
       else if (m > 11) { m = 0; y++ }
       if (isControlled) onMonthChange?.(m, y)
-      else { viewMonth = m; viewYear = y; ctx.ui.render() }
+      else { viewMonth = m; viewYear = y; ctx.render() }
     }
 
     const goToday = () => {
       if (isControlled) onMonthChange?.(now.getMonth(), now.getFullYear())
-      else { viewMonth = now.getMonth(); viewYear = now.getFullYear(); ctx.ui.render() }
+      else { viewMonth = now.getMonth(); viewYear = now.getFullYear(); ctx.render() }
     }
 
     const grid = getCalendarGrid(currentYear, currentMonth)

@@ -1,7 +1,7 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface CollapseItem {
@@ -63,7 +63,7 @@ export const Collapse: Component<CollapseProps> = async (_init, ctx) => {
 
     const toggle = (key: string) => {
       // 受控但无 onChange：状态由父组件独占，点击无法生效（warn 已由 useControlled 提示）
-      if (ctrl.controlled && !props.onChange) return
+      if (ctrl.controlled?.value !== undefined && !props.onChange) return
       if (isOpen(key)) {
         ctrl.setValue(activeKeys.filter(k => k !== key))
       } else {

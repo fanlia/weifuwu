@@ -39,24 +39,31 @@ export interface HookEnv {
 export interface Ui {
   /** 共享状态订阅（store 变化 → 组件重渲染——unmount 自动退订） */
   useExternal<T>(store: ExternalStore<T>): T
-  /** 稳定引用容器（跨渲染保持——hooks 内部传递） */
-  useStableRef<T>(initial: T): import('./basic.ts').StableRef<T>
-  /** 受控/非受控开关（受控缺回调 warn——静默不可用防护） */
-  useOpen(init: boolean, controlled?: { open?: boolean; onOpenChange?: (v: boolean) => void }): import('./basic.ts').OpenState
-  /** 全局键盘监听（Escape 关闭等——unmount 自动清理） */
-  useGlobalKey(match: string | ((e: KeyboardEvent) => boolean), handler: (e: KeyboardEvent) => void): void
+  /** 稳定引用（双形状：容器 { current } / ref 回调 (el) => void——ui-dom 兼容） */
+  useStableRef<T>(initial: T | ((el: T | null) => void), cleanup?: () => void): import('./basic.ts').StableRef<T> | ((el: T | null) => void)
+  /** 受控/非受控开关（受控缺回调 warn——静默不可用防护——
+   *  双形状：useOpen(init, controlled?) / useOpen({ open, onOpenChange, name })） */
+  useOpen(initOrOpts: boolean | import('./basic.ts').UseOpenOptions, controlled?: { open?: boolean; onOpenChange?: (v: boolean) => void }): import('./basic.ts').OpenState
+  /** 卸载注册（ui-dom 兼容——ctx.ui.onUnmount） */
+  onUnmount(fn: () => void): void
+  /** 全局键盘监听（Escape 关闭等——unmount 自动清理——
+   *  ui-dom 兼容单参：useGlobalKey((e) => ...) 无条件监听） */
+  useGlobalKey(matchOrHandler: string | ((e: KeyboardEvent) => boolean) | ((e: KeyboardEvent) => void), handler?: (e: KeyboardEvent) => void): () => void
   /** 浮层弹窗（portal/定位/外部点击/Escape——28 浮层组件核心依赖） */
   usePopup(opts: import('./popup.ts').PopupOptions): import('./popup.ts').Popup
   /** 弹层位置跟踪（scroll/resize 重算——Affix 阈值/宽度——0-rect 防护） */
   usePopupPosition(options: import('./popup.ts').PopupPositionOptions): { top: number; left: number; refresh: () => void }
   /** 受控值（受控 props 语义——onChange 唯一出口——受控缺回调 warn） */
-  useControlled<T>(controlled: { value?: T; onChange?: (v: T) => void }, defaultValue: T): import('./controlled.ts').ControlledValue<T>
-  /** 滚动位置跟踪（rAF 节流——事件驱动重渲染——视口/内部容器通用） */
-  useScrollPosition(target?: HTMLElement | (() => HTMLElement | null)): import('./observe.ts').ScrollPosition
-  /** 可见性观察（IntersectionObserver——isIn 响应式——环境无 IO → 恒 false） */
-  useInView(target: HTMLElement | (() => HTMLElement | null)): import('./observe.ts').InView
+  useControlled<T>(controlled: import('./controlled.ts').ControlledOptions<T>, defaultValue?: T): import('./controlled.ts').ControlledValue<T>
+  /** 滚动位置跟踪（rAF 节流——事件驱动重渲染——视口/内部容器通用——
+   *  ui-dom 兼容：{ getScroller } 对象 / 字符串 / 元素 / 函数） */
+  useScrollPosition(target?: import('./observe.ts').ScrollTarget): import('./observe.ts').ScrollPosition
+  /** 可见性观察（IntersectionObserver——isIn 响应式——环境无 IO → 恒 false——
+   *  ui-dom 兼容：{ root, threshold, target } 对象 / 元素 / 函数——
+   *  返回 observe/disconnect/ready——组件自管模式） */
+  useInView(options?: import('./observe.ts').UseInViewOptions | HTMLElement | (() => HTMLElement | null)): import('./observe.ts').InView
   /** 受控输入（内部输入态——焦点保持——IME 门控——选中回填） */
-  useControlledInput(controlled: { value?: string; onChange?: (v: string) => void }, opts?: { name?: string }): import('./input.ts').ControlledInput
+  useControlledInput(controlled: { value?: string; onChange?: (v: string) => void; name?: string }, opts?: { name?: string }): import('./input.ts').ControlledInput
   /** 拖拽（draggable enumerated + drag 事件——dataTransfer 数据） */
   useDragDrop(opts: import('./drag-media.ts').DragDropOptions): import('./drag-media.ts').DragDrop
   /** 媒体查询匹配（change 监听 → 重渲染——环境无 matchMedia → 恒 false） */
@@ -83,14 +90,16 @@ export function createUi(env: HookEnv): Ui {
       env.onUnmount(store.subscribe(() => env.requestRender()))
       return store.state
     },
-    useStableRef: <T>(initial: T) => useStableRef(env, initial),
+    useStableRef: <T>(initial: T | ((el: T | null) => void), cleanup?: () => void) =>
+      useStableRef(env, initial, cleanup),
     useOpen: (init: boolean, controlled?: { open?: boolean; onOpenChange?: (v: boolean) => void }) =>
       useOpen(env, init, controlled),
-    useGlobalKey: (match: string | ((e: KeyboardEvent) => boolean), handler: (e: KeyboardEvent) => void) =>
-      useGlobalKey(env, match, handler),
+    onUnmount: (fn: () => void) => env.onUnmount(fn),
+    useGlobalKey: (matchOrHandler: string | ((e: KeyboardEvent) => boolean) | ((e: KeyboardEvent) => void), handler?: (e: KeyboardEvent) => void) =>
+      useGlobalKey(env, matchOrHandler, handler),
     usePopup: (opts) => usePopup(env, opts),
     usePopupPosition: (options) => usePopupPosition(env, options),
-    useControlled: <T>(controlled: { value?: T; onChange?: (v: T) => void }, defaultValue: T) =>
+    useControlled: <T>(controlled: import('./controlled.ts').ControlledOptions<T>, defaultValue?: T) =>
       useControlled(env, controlled, defaultValue),
     useScrollPosition: (target?: HTMLElement | (() => HTMLElement | null)) => useScrollPosition(env, target),
     useInView: (target: HTMLElement | (() => HTMLElement | null)) => useInView(env, target),

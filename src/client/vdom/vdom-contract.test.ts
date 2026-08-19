@@ -26,16 +26,21 @@ async function waitFor(fn: () => boolean, timeout = 500): Promise<void> {
   }
 }
 
-test('S1 公共面导出集：只有 h/jsx/jsxs/jsxDEV/uiServe/UIRouter（结构符号禁导出）', () => {
+test('S1 公共面导出集：h/jsx/jsxs/jsxDEV/uiServe/UIRouter + 组件消费白名单', () => {
   for (const name of ['h', 'jsx', 'jsxs', 'jsxDEV', 'uiServe', 'UIRouter']) {
     assert.equal(typeof (pub as Record<string, unknown>)[name], 'function', `${name} 应为函数`)
   }
   // createRoot 不导出（UIRouter 唯一入口）
   assert.equal((pub as Record<string, unknown>).createRoot, undefined, 'createRoot 不导出')
-  // 结构符号内化（X-S1 S9.4）
+  // 结构符号：createPortal/Portal 禁导出（X-S1 S9.4——usePopup 内部机制）
   assert.equal((pub as Record<string, unknown>).createPortal, undefined)
-  assert.equal((pub as Record<string, unknown>).Fragment, undefined)
   assert.equal((pub as Record<string, unknown>).Portal, undefined)
+  // **组件消费白名单（P2 组件库迁移——2026-XX 决策）**：Fragment（JSX
+  // 多根符号——Skeleton/Markdown 用）、createClientBrowser（浏览器环境
+  // 工厂——组件 19 处）、AppMiddleware（命令式中间件类型——Confirm/
+  // Toast/Notification）——非引擎符号——组件库必要面
+  assert.equal(typeof (pub as Record<string, unknown>).Fragment, 'symbol', 'Fragment 白名单（组件消费）')
+  assert.equal(typeof (pub as Record<string, unknown>).createClientBrowser, 'function', 'createClientBrowser 白名单')
 })
 
 test('S2 jsx-runtime 子路径：jsx/jsxs/jsxDEV/Fragment（`<></>` 编译目标）', () => {

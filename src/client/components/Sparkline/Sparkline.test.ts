@@ -2,7 +2,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { computeSparklinePoints } from './sparkline-utils.ts'
 import { Sparkline } from './Sparkline.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 
 describe('computeSparklinePoints — 归一化', () => {

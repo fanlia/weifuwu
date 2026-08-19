@@ -1,17 +1,20 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Img } from './Img.ts'
-import { renderVNode, mountToDom, patchToDom, createPopupMock } from '../../ui-dom/testing.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode, mountToDom, patchToDom, createPopupMock } from '../../vdom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
 
 function mockCtx(){
-  return { ui: {
-    $: {}, render: () => {}, dirty: () => {}, ready: true,
-    // usePopup mask 模式统一（createPopupMock：open getter + setOpen 转发 + portal 条件渲染）
-    usePopup: (opts: any) => createPopupMock(() => opts.isOpen(), opts.setOpen),
-  } } as any
+  return {
+    render: async () => {}, data: { get: async () => undefined, set: () => {}, has: () => false },
+    onUnmount: () => {}, params: {}, query: {},
+    ui: {
+      // usePopup mask 模式统一（createPopupMock：open getter + setOpen 转发 + portal 条件渲染）
+      usePopup: (opts: any) => createPopupMock(() => opts.isOpen(), opts.setOpen),
+    },
+  } as any
 }
 
 

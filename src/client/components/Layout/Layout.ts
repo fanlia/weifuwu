@@ -19,9 +19,9 @@
  * - 静态外壳见 layout `_app-shell.css`（wf-app-shell/wf-sidebar/wf-main）
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface LayoutProps {
   style?: any
@@ -61,7 +61,7 @@ export const Layout: Component<LayoutProps> = async (_init) =>
   }
 
 /** 侧边栏（唯一可折叠部件） */
-export const LayoutSider: Component<LayoutSiderProps> = async (_init, ctx: WfuiContext) => {
+export const LayoutSider: Component<LayoutSiderProps> = async (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let collapsed = _init?.collapsed ?? false
   let latestCollapsed: boolean | undefined = _init?.collapsed
@@ -74,7 +74,7 @@ export const LayoutSider: Component<LayoutSiderProps> = async (_init, ctx: WfuiC
       latestOnCollapse(next) // 受控：回调由父组件更新 collapsed
     } else {
       collapsed = next // 非受控：内部切换
-      ctx.ui.render()
+      ctx.render()
     }
   }
 

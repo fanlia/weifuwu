@@ -1,13 +1,13 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { ContextMenu } from './ContextMenu.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
 // mock ctx.ui.usePopup（组件层不跑真实弹层：onContextMenu 触发 + portal 定位简化）
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   return createTestCtx({ ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
     usePopup: (opts: any) => {

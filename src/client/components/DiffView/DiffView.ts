@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { diffLines, groupDiffLines } from './diff-utils.ts'
 import type { DiffLine } from './diff-utils.ts'
 
@@ -65,14 +65,14 @@ export const DiffView: Component<DiffViewProps> = async (_init, ctx) => {
             onClick: () => {
               if (expanded.has(gi)) expanded.delete(gi)
               else expanded.add(gi)
-              ctx.ui.render()
+              ctx.render()
             },
             onKeyDown: (e: KeyboardEvent) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
                 if (expanded.has(gi)) expanded.delete(gi)
                 else expanded.add(gi)
-                ctx.ui.render()
+                ctx.render()
               }
             },
           }, foldOpen ? '展开中' : `↕ ${g.sameCount} 行未变`),

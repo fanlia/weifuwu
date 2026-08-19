@@ -11,9 +11,9 @@
  * - fixed 模式：position:fixed 底部 + env(safe-area-inset-bottom) 避让手势条
  * - 动效走 --wf-dur-*（指示条位移/淡入——reduced-motion 由 _base.css 降级）
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import type { IconName } from '../Icon/Icon.ts'
 import { Icon } from '../Icon/Icon.ts'
 
@@ -38,7 +38,7 @@ export interface TabBarProps {
   className?: string
 }
 
-export const TabBar: Component<TabBarProps> = async (_init, ctx: WfuiContext) => {
+export const TabBar: Component<TabBarProps> = async (_init, ctx: UIContext) => {
   // ── mount（只一次）：非受控自管理激活态 ──
   let internalActive: string | null = null
 
@@ -66,7 +66,7 @@ export const TabBar: Component<TabBarProps> = async (_init, ctx: WfuiContext) =>
       const target = items[next]
       if (!controlled) internalActive = target.key
       onChange?.(target.key)
-      ctx.ui.render()
+      ctx.render()
       // 焦点跟随（方向键导航必须焦点跟随——键盘可达红线）
       const el = ctx.browser?.byId?.(`wf-tab-${target.key}`) as HTMLElement | null
       el?.focus()
@@ -93,7 +93,7 @@ export const TabBar: Component<TabBarProps> = async (_init, ctx: WfuiContext) =>
         onClick: t.disabled ? undefined : () => {
           if (!controlled) internalActive = t.key
           onChange?.(t.key)
-          ctx.ui.render()
+          ctx.render()
         },
       }, [
         h('span', { class: 'wf-tab-bar-icon-wrap' }, [

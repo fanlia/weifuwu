@@ -8,7 +8,7 @@
 
 import { test, describe, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../ui-dom/setup.ts'
+import { setupJsdom } from '../../../vdom/setup.ts'
 import {
   emitAiApply, emitAiReject, parseFormulaReply, parseReplyByMode, parseShapeTextReply,
 } from './ai-bridge.ts'

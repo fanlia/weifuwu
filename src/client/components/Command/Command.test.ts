@@ -1,22 +1,20 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Command } from './Command.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, createPopupMock } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createPopupMock, createTestCtx as officialCreateTestCtx } from '../../vdom/testing.ts'
 
-// 捕获 useGlobalKey 注册的 handler（测试直接触发）
-const globalKeys: ((e: any) => void)[] = []
-function createTestCtx(): WfuiContext {
-  return { ui: {
-    $: {}, render: () => {}, dirty: () => {}, ready: true,
-    useGlobalKey: (h: any) => { globalKeys.push(h); return () => {} },
-    // usePopup mask 模式统一（createPopupMock：open getter + setOpen 转发 + portal 条件渲染）
-    usePopup: (opts: any) => createPopupMock(() => opts.isOpen(), opts.setOpen),
-  } } as any
+// 捕获 useGlobalKey 注册的 handler（测试直接触发——mock 收集到全局通道）
+const globalKeys: ((e: any) => void)[] = (globalThis as any).__wf_test_global_keys ??= []
+
+function createTestCtx(overrides?: Record<string, unknown>): UIContext {
+  // 官方测试 ctx（vdom/testing——render/ui hooks mock——组件消费面）
+  return officialCreateTestCtx(overrides as never)
 }
+
 
 
 const inner = (v: any) => v?.type === Portal ? v.props.children : v

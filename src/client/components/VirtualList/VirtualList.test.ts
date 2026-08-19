@@ -1,13 +1,13 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { VirtualList } from './VirtualList.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx, renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx, renderVNode } from '../../vdom/testing.ts'
 
 // 可控 useScrollPosition mock：y 驱动可见窗口（scrollTop 响应式）
-function makeCtx(scrollY = 0): { ctx: WfuiContext; setY: (y: number) => void } {
+function makeCtx(scrollY = 0): { ctx: UIContext; setY: (y: number) => void } {
   const scroll = { y: scrollY, refresh: () => {} }
   const ctx = createTestCtx({ ui: { useScrollPosition: () => scroll } }) as any
   return { ctx, setY: (y: number) => { scroll.y = y } }

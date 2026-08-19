@@ -6,10 +6,10 @@
  * 裁剪（CS-05，见 design/components-cuts.md）：嵌套滚动容器、滚动容器非视口（container 未提供时仅视口）、自动生成标题锚点。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface AnchorItem {
   href: string

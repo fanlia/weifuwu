@@ -6,9 +6,9 @@
  * 裁剪（CS-05，见 design/components-cuts.md）：JSON 编辑、超大对象流式渲染（懒展开覆盖 100 键级）。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface JSONViewerProps {
@@ -40,7 +40,7 @@ function formatValue(v: unknown): string {
 
 export const JSONViewer: Component<JSONViewerProps> = async (_init, ctx) => {
   // render-only：内部状态 let + 显式 render（闭包绑定——§4.5 selfId 错位陷阱
-  // 根治：事件回调里的 ctx.ui.render() 永远渲染本组件，无 this/重挂载错位）
+  // 根治：事件回调里的 ctx.render() 永远渲染本组件，无 this/重挂载错位）
   let expanded = {} as Record<string, boolean>
   let copiedPath = undefined as string | undefined
 
@@ -48,7 +48,7 @@ export const JSONViewer: Component<JSONViewerProps> = async (_init, ctx) => {
   // 展开中点击 → 收起（true）
   const toggle = (path: string, collapsed?: boolean) => {
     expanded[path] = collapsed === undefined ? !expanded[path] : (collapsed ? false : true)
-    ctx.ui.render()
+    ctx.render()
   }
 
   // 复制：clipboard API + execCommand 降级（非 secure context 下 clipboard 不可用——

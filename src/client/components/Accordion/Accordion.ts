@@ -1,7 +1,7 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface AccordionItem {
@@ -57,7 +57,7 @@ export const Accordion: Component<AccordionProps> = async (_init, ctx) => {
 
     const setActive = (next: string[]) => {
       if (isControlled) onChange?.(next)
-      else { internalActive = next; ctx.ui.render() }
+      else { internalActive = next; ctx.render() }
     }
 
     const toggle = (key: string) => {

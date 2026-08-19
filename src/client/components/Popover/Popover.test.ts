@@ -8,15 +8,16 @@
 import { describe, it } from 'node:test'
 import * as assert from 'node:assert'
 import { Popover } from './Popover.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h, Portal } from '../../ui-dom/vnode.ts'
-import { mountToDom, patchToDom, buildToDom } from '../../ui-dom/testing.ts'
-import { setupJsdom } from '../../ui-dom/setup.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import { mountToDom, patchToDom, buildToDom } from '../../vdom/testing.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
+import { renderVNode } from '../../vdom/testing.ts'
 setupJsdom()
 
 /** usePopup mock：镜像真实语义（受控 isOpen + wf-popup 合并 + disabled/closed → portal null） */
-function createMockCtx(): WfuiContext {
+function createMockCtx(): UIContext {
   const openStates = new Map<string, boolean>()
   return { ui: {
     render: () => {}, $: () => ({}), dirty: () => {},

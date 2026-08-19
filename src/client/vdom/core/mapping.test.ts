@@ -174,12 +174,12 @@ test('节点 → DOM 映射 + 类型转化全流程（映射规则 + 转化规�
   assert.equal(page.querySelector('.a1'), null, '单节点 → 数组（旧元素让位）')
   assert.equal(page.querySelector('.a2')?.textContent, '乙')
   assert.equal(page.querySelector('.a3')?.textContent, '丙')
-  assert.equal(slotCount(page), 14, '数组展开 2 节点——长度仍 14（隐式 Fragment）')
+  assert.equal(slotCount(page), 15, '数组展开——长度 15（隐式 Fragment 展开 2 项替换 1 项——位置身份）')
   btn('t-arr').click()
   await waitFor(() => page.querySelector('.a1') !== null)
   assert.equal(page.querySelector('.a2'), null, '数组 → 单节点（旧区间递归清理——收拢）')
   assert.equal(page.querySelector('.a3'), null)
-  assert.equal(slotCount(page), 14)
+  assert.equal(slotCount(page), 14, '收拢——回到 14（可逆）')
 
   // ═══════════════════ ⑥ 转化⑤：文本 ↔ 空洞 ═══════════════════
   btn('t-txt').click()

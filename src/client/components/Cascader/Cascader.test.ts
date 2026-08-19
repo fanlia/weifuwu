@@ -1,18 +1,19 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { Cascader } from './Cascader.ts'
-import { Portal } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import { Portal } from '../../vdom/core/node/portal.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { createTestCtx } from '../../vdom/testing.ts'
 
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   const state = new Proxy({}, {
     set(t: any, k, v) { t[k] = v; return true },
     get(t: any, k) { return t[k] },
   })
-  return createTestCtx({ ui: { $: () => state, usePopup: (opts: any) => {
+  return createTestCtx({ render: async () => {}, onUnmount: () => {}, params: {}, query: {},
+    ui: { $: () => state, usePopup: (opts: any) => {
       // 镜像 usePopup 的 document 级 Escape（portal 中按 Escape 也能关）
       const onDocKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && opts.isOpen?.()) opts.setOpen?.(false) }
       document.addEventListener('keydown', onDocKey)

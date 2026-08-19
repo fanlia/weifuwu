@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Slider } from './Slider.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
   if (!vnode || typeof vnode !== 'object') return null
@@ -15,10 +15,7 @@ function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
 
 /** Call component and get VNode (two-phase compat) */
 
-function createTestCtx(): WfuiContext {
-  return { ui: { $: {}
-, render: () => {}, dirty: () => {}, ready: true, usePopup: () => ({ open: false, setOpen: () => {}, refresh: () => {}, portal: (_c: any, _k?: string) => null, wrapProps: {} }) } } as any
-}
+
 
 describe('Slider', () => {
   it('renders range input', async () => {

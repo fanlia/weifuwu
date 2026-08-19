@@ -13,14 +13,14 @@
  * - 事件流：全部操作 → editEmit('office', { docType: 'pptx', op }) + commit
  */
 
-import { h } from '../../ui-dom/index.ts'
-import { aiStream } from '../../ui-dom/ai.ts'
+import { h } from '../../vdom/index.ts'
+import { aiStream } from '../../vdom/hooks/ai-stream.ts'
 import { editEmit } from '../Editor/edit-events.ts'
 import { applySlideOp } from '../OfficeEditor/model/apply.ts'
 import type { OfficeOp, SlideShape } from '../OfficeEditor/model/types.ts'
 import { parseReplyByMode } from '../OfficeEditor/ai/ai-bridge.ts'
 import type { DeckState } from '../OfficeEditor/model/types.ts'
-import type { Component, VNode } from '../../ui-dom/index.ts'
+import type { Component, VNode } from '../../vdom/index.ts'
 
 export interface SlideCanvasProps {
   /** 受控 DeckState */
@@ -66,7 +66,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     gap: 8,
     el: () => aiAnchor,
     isOpen: () => !!aiPending,
-    setOpen: (v) => { if (!v) { aiPending = null; ctx.ui.render() } },
+    setOpen: (v) => { if (!v) { aiPending = null; ctx.render() } },
   })
 
   // ── 事件流：commit ──
@@ -76,7 +76,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     deck = next
     for (const op of ops) editEmit('office', { docType: 'pptx', op } as never)
     undo.push({ label, ops, before })
-    ctx.ui.render()
+    ctx.render()
     _init.onChange?.(deck)
   }
 
@@ -115,7 +115,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     if (!u) return
     deck = u.before
     editEmit('undo', { label: u.label } as never)
-    ctx.ui.render()
+    ctx.render()
     _init.onChange?.(deck)
   }
 
@@ -129,7 +129,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     selected = id
     editing = null
     drag = { id, mode, startX: e.clientX, startY: e.clientY, orig: shape }
-    ctx.ui.render()
+    ctx.render()
   }
   const onPointerMove = (e: PointerEvent): void => {
     if (!drag) return
@@ -163,7 +163,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
       { type: 'shape-move', slide: activeSlide, shapeId: id, x: now.x, y: now.y },
       { type: 'shape-resize', slide: activeSlide, shapeId: id, w: now.w, h: now.h },
     ], deck)
-    ctx.ui.render()
+    ctx.render()
   }
   /** 拖拽 live：直接改 deck（不产生事件——提交在 pointerup） */
   const applyShapeLive = (id: string, next: SlideShape): void => {
@@ -173,7 +173,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
         ? { ...s, shapes: s.shapes.map((sh) => sh.id === id ? next : sh) }
         : s),
     }
-    ctx.ui.render()
+    ctx.render()
   }
 
   // ── AI（选中 shape 文本润色） ──
@@ -184,7 +184,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     const shapeId = selected
     const prompt = `请润色以下幻灯片文本，保持原意，输出润色后的完整文本（不要额外解释、不要引号）：\n\n${shape.props?.text ?? ''}`
     aiPending = { revised: '', streaming: true, error: null, shapeId, messageId: `slide-ai-${Date.now()}` }
-    ctx.ui.render()
+    ctx.render()
     editEmit('office', { docType: 'pptx', ai: { messageId: aiPending.messageId, status: 'suggested' } } as never)
     aiStream(_init.ai.url, {
       messages: [{ role: 'user', content: prompt }],
@@ -193,18 +193,18 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
       onToken: (text) => {
         if (!aiPending) return
         aiPending.revised += text
-        ctx.ui.render()
+        ctx.render()
       },
       onDone: () => {
         if (!aiPending) return
         aiPending.streaming = false
-        ctx.ui.render()
+        ctx.render()
       },
       onError: (e) => {
         if (!aiPending) return
         aiPending.streaming = false
         aiPending.error = e?.message ?? 'AI 请求失败'
-        ctx.ui.render()
+        ctx.render()
       },
     })
   }
@@ -212,7 +212,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     if (!aiPending) return
     editing = null
     const parsed = parseReplyByMode(aiPending.revised, { docType: 'pptx', shapeId: aiPending.shapeId })
-    if (parsed.ops.length === 0) { aiPending.error = parsed.note ?? '无法解析'; ctx.ui.render(); return }
+    if (parsed.ops.length === 0) { aiPending.error = parsed.note ?? '无法解析'; ctx.render(); return }
     const before = deck
     let next = before
     for (const op of parsed.ops) next = applySlideOp(next, op as never) as DeckState
@@ -222,7 +222,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     }
     undo.push({ label: `AI 润色 ${aiPending.shapeId}`, ops: parsed.ops as never[], before })
     aiPending = null
-    ctx.ui.render()
+    ctx.render()
     _init.onChange?.(deck)
   }
   const rejectAi = (): void => {
@@ -230,7 +230,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     editing = null
     editEmit('office', { docType: 'pptx', ai: { messageId: aiPending.messageId, status: 'rejected' } } as never)
     aiPending = null
-    ctx.ui.render()
+    ctx.render()
   }
 
   // ── 渲染 ──
@@ -277,7 +277,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
           onBlur: () => { commitEdit() },
           onKeyDown: (e: KeyboardEvent) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit() }
-            if (e.key === 'Escape') { editing = null; ctx.ui.render() }
+            if (e.key === 'Escape') { editing = null; ctx.render() }
           },
           onPointerDown: (e: PointerEvent) => e.stopPropagation(),
         }))
@@ -344,7 +344,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
             key: `tab${i}`,
             class: ['wf-slide-tab', i === activeSlide ? 'wf-slide-tab--active' : ''].filter(Boolean).join(' '),
             type: 'button',
-            onClick: () => { activeSlide = i; selected = null; editing = null; ctx.ui.render() },
+            onClick: () => { activeSlide = i; selected = null; editing = null; ctx.render() },
           }, `${i18n.slide ?? '幻灯片'} ${i + 1}`)),
         h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-slide', onClick: () => addSlide(), disabled: readonly }, i18n.addSlide ?? '+ 页'),
         ...(!readonly ? [

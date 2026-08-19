@@ -19,7 +19,9 @@ import { existsSync } from 'node:fs'
 import { resolve, dirname, join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Router, serve } from '../server/index.ts'
-import { h, renderToEvents, eventsToHtml } from '../client/ui-dom/index.ts'
+import { h } from '../client/vdom/index.ts'
+import { renderToStream } from '../client/vdom/core/build.ts'
+import { commandToHtml } from '../client/vdom/core/html.ts'
 import { Markdown } from '../client/components/index.ts'
 
 // ── 定位 content/（向上逐级找含 index.md 的 content 目录） ──
@@ -42,10 +44,18 @@ const cssFile = [
   resolve(contentRoot, '..', 'components.css'),
 ].find((f) => existsSync(f)) ?? resolve(contentRoot, '..', 'dist', 'components', 'style.css')
 
-// ── 框架 SSR 渲染 Markdown 文档 → HTML ──
+// ── 框架 SSR 渲染 Markdown 文档 → HTML（vdom 管线：renderToStream →
+// 命令流 → commandToHtml 流式）──
 async function renderMd(md: string): Promise<string> {
-  const events = await renderToEvents(h(Markdown, { content: md }))
-  return eventsToHtml(events)
+  // Command 流直接 → commandToHtml（同进程不经编码解码——事件面 no-op）
+  const reader = renderToStream(h(Markdown, { content: md })).pipeThrough(commandToHtml()).getReader()
+  let html = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    html += value
+  }
+  return html
 }
 
 // ── 文档域 → content 子目录 ──

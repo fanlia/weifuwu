@@ -5,8 +5,8 @@
  * 能力：controls 原生控制 / poster 封面 / 宽高比容器 / 事件回调
  * 裁剪边界：非 IDE 级播放器（无字幕/倍速菜单/画中画定制——原生能力透传）
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface VideoPlayerProps {
   src: string

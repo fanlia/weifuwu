@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface KanbanItem {
   id: string
@@ -46,7 +46,7 @@ export const Kanban: Component<KanbanProps> = async (_init, ctx) => {
     onDragOver: () => { /* preventDefault 自动 */ },
     onDragEnd: () => {
       drag = null
-      ctx.ui.render()
+      ctx.render()
     },
   })
 
@@ -65,7 +65,7 @@ export const Kanban: Component<KanbanProps> = async (_init, ctx) => {
         { columnKey: toColumn, index: toIndex },
       )
       drag = null
-      ctx.ui.render()
+      ctx.render()
     }
 
     const cols = columns.map(col => {

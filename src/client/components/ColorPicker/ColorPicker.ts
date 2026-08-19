@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { Popover } from '../Popover/Popover.ts'
 import { Icon } from '../Icon/Icon.ts'
 
@@ -38,7 +38,7 @@ export const ColorPicker: Component<ColorPickerProps> = async (_init, ctx) => {
     // useControlled：受控/非受控统一（原非受控不可选色——受控纪律违规）
     const ctrl = ctx?.ui?.useControlled<string>({ value: props.value, onChange: props.onChange, name: 'ColorPicker' })
     const select = (v: string) => {
-      const wasControlled = ctrl?.controlled
+      const wasControlled = ctrl?.controlled?.value !== undefined
       ctrl?.setValue(v)
       if (!wasControlled) props.onChange?.(v)
     }
@@ -92,7 +92,7 @@ export const ColorPicker: Component<ColorPickerProps> = async (_init, ctx) => {
       position: 'bottom',
       disabled,
       open,
-      onOpenChange: (o: boolean) => { open = o; ctx.ui.render() },
+      onOpenChange: (o: boolean) => { open = o; ctx.render() },
     }, trigger)
   }
 }

@@ -11,17 +11,17 @@
 
 import { describe, it, afterEach } from 'node:test'
 import assert from 'node:assert'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 
-import { h } from '../../ui-dom/vnode.ts'
-import { mountToDom } from '../../ui-dom/testing.ts'
+import { h } from '../../vdom/index.ts'
+import { mountToDom } from '../../vdom/testing.ts'
 import { Confirm } from './Confirm.ts'
 import { Modal } from '../Modal/Modal.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
-function makeCtx(): WfuiContext {
+function makeCtx(): UIContext {
   return createTestCtx({ ui: {
     render: () => {}, $: () => ({}), dirty: () => {},
     usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),

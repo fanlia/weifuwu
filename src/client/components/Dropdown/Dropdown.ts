@@ -5,9 +5,9 @@
  * 弹层在 portal 中按 Escape 也能关）+ 定位/视口 clamp + portal。
  */
 
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface DropdownItem {
   label: string
@@ -31,7 +31,7 @@ export const Dropdown: Component<DropdownProps> = async (_init, ctx) => {
   const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
 
   // useOpen：受控/非受控 open 统一（warn 缺回调——受控纪律自动化）
-  let openCtrl: ReturnType<WfuiContext['ui']['useOpen']> | null = null
+  let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
 
   // 键盘导航高亮（R43 W1：menu 方向键 + Enter/Home/End + disabled 跳过）
   let hl = 0
@@ -64,11 +64,11 @@ export const Dropdown: Component<DropdownProps> = async (_init, ctx) => {
       const pos = enabled.indexOf(hl)
       const cur = pos >= 0 ? pos : 0
       if (k === 'ArrowDown' || k === 'ArrowRight') {
-        e.preventDefault(); hl = enabled[Math.min(cur + 1, enabled.length - 1)]; ctx.ui.render()
+        e.preventDefault(); hl = enabled[Math.min(cur + 1, enabled.length - 1)]; ctx.render()
       } else if (k === 'ArrowUp' || k === 'ArrowLeft') {
-        e.preventDefault(); hl = enabled[Math.max(cur - 1, 0)]; ctx.ui.render()
-      } else if (k === 'Home') { e.preventDefault(); hl = enabled[0]; ctx.ui.render() }
-      else if (k === 'End') { e.preventDefault(); hl = enabled[enabled.length - 1]; ctx.ui.render() }
+        e.preventDefault(); hl = enabled[Math.max(cur - 1, 0)]; ctx.render()
+      } else if (k === 'Home') { e.preventDefault(); hl = enabled[0]; ctx.render() }
+      else if (k === 'End') { e.preventDefault(); hl = enabled[enabled.length - 1]; ctx.render() }
       else if (k === 'Enter' || k === ' ') {
         const item = items[hl]
         if (item && !item.disabled) {

@@ -1,12 +1,13 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Table } from './Table.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
+import { renderVNode } from '../../vdom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
 
 
 function mockCtx(){
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { render: async () => {}, onUnmount: () => {}, params: {}, query: {},
+    ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
 const columns = [

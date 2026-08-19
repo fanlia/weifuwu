@@ -5,9 +5,9 @@
  * 实现：点击 → 在点击坐标生成波纹元素（absolute 圆形）→ 动画扩散消失
  * 纪律：动效走 --wf-dur-*；reduced-motion 自动降级（_base.css）
  */
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
+import { createClientBrowser } from '../../vdom/index.ts'
 
 export interface WaveProps {
   children?: any

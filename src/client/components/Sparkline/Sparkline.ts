@@ -1,5 +1,5 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 import { computeSparklinePoints, polylinePoints, smoothPath } from './sparkline-utils.ts'
 
 export interface SparklineProps {

@@ -9,7 +9,7 @@
 
 import { test, describe, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 import { SheetGrid } from './SheetGrid.ts'
 import { h } from '../../ui-dom/vdom3/jsx.ts'
 import { createRoot } from '../../ui-dom/vdom3/root.ts'

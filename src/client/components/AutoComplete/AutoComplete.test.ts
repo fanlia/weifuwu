@@ -1,7 +1,7 @@
 import { test, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { AutoComplete, filterOptions } from './AutoComplete.ts'
-import { renderVNode, createTestCtx, createPopupMock } from '../../ui-dom/testing.ts'
+import { renderVNode, createTestCtx, createPopupMock } from '../../vdom/testing.ts'
 
 
 function findVNode(vnode: any, pred: (v: any) => boolean): any | null {

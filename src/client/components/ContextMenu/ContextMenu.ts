@@ -1,6 +1,6 @@
-import type { Component } from '../../ui-dom/vnode.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import type { Component } from '../../vdom/index.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { h } from '../../vdom/index.ts'
 
 export interface ContextMenuItem {
   key: string
@@ -36,7 +36,7 @@ export const ContextMenu: Component<ContextMenuProps> = async (_init, ctx) => {
     trigger: 'longpress',
     el: () => wrapEl,
     isOpen: () => show,
-    setOpen: (v) => { show = v; ctx.ui.render() },
+    setOpen: (v) => { show = v; ctx.render() },
     position: () => ({ x: cursorX, y: cursorY }),
     closeOnOutside: true, // document mousedown（含右键别处——mousedown 先于 contextmenu 触发）
     closeOnEscape: true,
@@ -56,13 +56,13 @@ export const ContextMenu: Component<ContextMenuProps> = async (_init, ctx) => {
       e.preventDefault()
       for (let i = 1; i <= items.length; i++) {
         const idx = (highlight + i) % items.length
-        if (!items[idx].disabled) { highlight = idx; ctx.ui.render(); break }
+        if (!items[idx].disabled) { highlight = idx; ctx.render(); break }
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       for (let i = 1; i <= items.length; i++) {
         const idx = (highlight - i + items.length) % items.length
-        if (!items[idx].disabled) { highlight = idx; ctx.ui.render(); break }
+        if (!items[idx].disabled) { highlight = idx; ctx.render(); break }
       }
     } else if (e.key === 'Enter') {
       e.preventDefault()

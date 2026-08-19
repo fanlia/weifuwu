@@ -6,7 +6,7 @@ import { Input } from '../Input/Input.ts'
 import { InputNumber } from '../InputNumber/InputNumber.ts'
 import { Select } from '../Select/Select.ts'
 import { Switch } from '../Switch/Switch.ts'
-import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx } from '../../ui-dom/testing.ts'
+import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx } from '../../vdom/testing.ts'
 
 const ofType = (v: any, T: any) => {
   const out: any[] = []

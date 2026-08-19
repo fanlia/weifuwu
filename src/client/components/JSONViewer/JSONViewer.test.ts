@@ -1,14 +1,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../ui-dom/setup.ts'
+import { setupJsdom } from '../../vdom/setup.ts'
 setupJsdom()
 import { JSONViewer } from './JSONViewer.ts'
-import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import type { UIContext } from '../../vdom/index.ts'
+import { renderVNode, createTestCtx } from '../../vdom/testing.ts'
 
-function createTestCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
-}
+
 
 
 function collectText(n: any): string[] {
