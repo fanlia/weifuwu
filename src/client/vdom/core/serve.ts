@@ -139,6 +139,9 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
    *  **队列确定性**：渲染中触发 → push 入队（FIFO）——当前渲染完成 →
    *  shift 取队头继续——直到队列空；渲染中 await 返回 drainPromise
    *  （精确等待全部队列执行完——含后续入队的渲染） */
+  /** afterRender 队列（渲染完成信号——hook 注册等挂载后动作） */
+  let afterRenderFns: Array<() => void> = []
+
   const runRender = async (initial: FrontRequest): Promise<void> => {
     let target = initial
     rendering = true
@@ -159,6 +162,10 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
         }
       }
     } finally {
+      // **渲染完成信号**：flush afterRender（hook 注册——元素已挂载）
+      const fns = afterRenderFns
+      afterRenderFns = []
+      for (const fn of fns) { try { fn() } catch (e) { console.error('[vdom] afterRender:', e) } }
       rendering = false
       drainPromise = null
     }
@@ -197,7 +204,11 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     onUnmount(fn: () => void): void {
       serveUnmounts.push(fn)
     },
-  } as Ctx
+    /** 渲染完成回调注册（hook 挂载后动作——元素已挂载） */
+    afterRender(fn: () => void): void {
+      afterRenderFns.push(fn)
+    },
+  } as unknown as Ctx
 
   // ── 页面作者渲染入口（vnode → Response 事件流——函数表编码） ──
   const renderCtx = ctx as RenderCtx

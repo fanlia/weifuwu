@@ -719,3 +719,69 @@ test('usePopup：打开 → portal 面板（#__wf_portal 下 + fixed 定位）',
   // 无触发按钮联动——直接验证 portal 形态：当前 open=false → 无面板
   assert.equal(browser.document.querySelector('.menu'), null, '关闭态无面板')
 })
+
+test('useControlled：非受控内部状态——setValue → 重渲染；受控 onChange 出口', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Input = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const c = (ctx.ui as { useControlled: <T>(c: object, d: T) => { value: T; setValue: (v: T) => void } }).useControlled({}, '')
+    return () => h('input', {
+      id: 'in', value: c.value as string,
+      onInput: (e: Event) => c.setValue((e.target as HTMLInputElement).value),
+    })
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Input, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const input = () => browser.document.querySelector('#in') as HTMLInputElement
+  input().value = 'hello'
+  input().dispatchEvent(new browser.window.Event('input', { bubbles: true }))
+  await waitFor(() => input()?.value === 'hello')
+  assert.equal(input().value, 'hello', '非受控——内部状态 + 重渲染（input value 保持）')
+})
+
+test('useScrollPosition：内部容器滚动——y 响应式（事件驱动重渲染）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const Scroller = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const pos = (ctx.ui as { useScrollPosition: (t: () => HTMLElement | null) => { y: number } }).useScrollPosition(() => browser.document.querySelector('.sc') as HTMLElement | null)
+    return () => h('div', { class: 'wrap' },
+      h('div', { class: 'sc', style: { height: '100px', overflow: 'auto' } }, h('div', { style: { height: '300px' } }, '长内容')),
+      h('span', { id: 'y' }, `y:${pos.y}`),
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Scroller, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.equal(browser.document.querySelector('#y')?.textContent, 'y:0')
+  const sc = browser.document.querySelector('.sc') as HTMLElement
+  sc.scrollTop = 100
+  sc.dispatchEvent(new browser.window.Event('scroll', { bubbles: true }))
+  await waitFor(() => browser.document.querySelector('#y')?.textContent === 'y:100')
+  assert.equal(browser.document.querySelector('#y')?.textContent, 'y:100', '滚动 → y 响应式更新')
+})
+
+test('useInView：IntersectionObserver——isIn 响应式（IO 回调 → 重渲染）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  // mock IO（jsdom 无——注入）
+  let ioCb: ((entries: Array<{ isIntersecting: boolean }>) => void) | null = null
+  ;(browser.window as any).IntersectionObserver = class {
+    constructor(cb: (entries: Array<{ isIntersecting: boolean }>) => void) { ioCb = cb }
+    observe() {}
+    disconnect() {}
+  }
+  const View = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const v = (ctx.ui as { useInView: (t: () => HTMLElement | null) => { isIn: boolean } }).useInView(() => browser.document.querySelector('.box') as HTMLElement | null)
+    return () => h('div', {},
+      h('div', { class: 'box' }, '目标'),
+      h('span', { id: 'vis' }, v.isIn ? '可见' : '隐藏'))
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(View, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.equal(browser.document.querySelector('#vis')?.textContent, '隐藏', '初始不可见')
+  ioCb?.([{ isIntersecting: true }])
+  await waitFor(() => browser.document.querySelector('#vis')?.textContent === '可见')
+  assert.equal(browser.document.querySelector('#vis')?.textContent, '可见', 'IO 回调 → isIn 响应式')
+})

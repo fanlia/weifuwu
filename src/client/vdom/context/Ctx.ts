@@ -38,6 +38,8 @@ export interface Ctx {
   data: DataPipe
   /** 卸载清理注册（ref cleanup/监听退订——unmount 时执行） */
   onUnmount(fn: () => void): void
+  /** 渲染完成回调注册（hook 挂载后动作——元素已挂载——serve 提供） */
+  afterRender?(fn: () => void): void
   /** 浏览器环境 API（browser/ 实现——copyText/byId/scrollTop/storage...） */
   browser: unknown
   /** hooks 注入面（hooks/ 实现——usePopup/useControlled/useExternal...） */

@@ -12,6 +12,8 @@
 import type { ExternalStore } from '../store.ts'
 import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
 import { usePopup } from './popup.ts'
+import { useControlled } from './controlled.ts'
+import { useScrollPosition, useInView } from './observe.ts'
 
 /** hooks 环境（per 组件实例——renderComponent 注入） */
 export interface HookEnv {
@@ -25,6 +27,8 @@ export interface HookEnv {
   nextHookIndex(): number
   getHookState<T>(idx: number): T | undefined
   setHookState<T>(idx: number, v: T): void
+  /** 渲染完成后回调（挂载后动作——目标元素已就绪） */
+  scheduleAfterRender(fn: () => void): void
 }
 
 /** hooks 注入面（ctx.ui） */
@@ -39,6 +43,12 @@ export interface Ui {
   useGlobalKey(match: string | ((e: KeyboardEvent) => boolean), handler: (e: KeyboardEvent) => void): void
   /** 浮层弹窗（portal/定位/外部点击/Escape——28 浮层组件核心依赖） */
   usePopup(opts: import('./popup.ts').PopupOptions): import('./popup.ts').Popup
+  /** 受控值（受控 props 语义——onChange 唯一出口——受控缺回调 warn） */
+  useControlled<T>(controlled: { value?: T; onChange?: (v: T) => void }, defaultValue: T): import('./controlled.ts').ControlledValue<T>
+  /** 滚动位置跟踪（rAF 节流——事件驱动重渲染——视口/内部容器通用） */
+  useScrollPosition(target?: HTMLElement | (() => HTMLElement | null)): import('./observe.ts').ScrollPosition
+  /** 可见性观察（IntersectionObserver——isIn 响应式——环境无 IO → 恒 false） */
+  useInView(target: HTMLElement | (() => HTMLElement | null)): import('./observe.ts').InView
 }
 
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
@@ -55,5 +65,9 @@ export function createUi(env: HookEnv): Ui {
     useGlobalKey: (match: string | ((e: KeyboardEvent) => boolean), handler: (e: KeyboardEvent) => void) =>
       useGlobalKey(env, match, handler),
     usePopup: (opts) => usePopup(env, opts),
+    useControlled: <T>(controlled: { value?: T; onChange?: (v: T) => void }, defaultValue: T) =>
+      useControlled(env, controlled, defaultValue),
+    useScrollPosition: (target?: HTMLElement | (() => HTMLElement | null)) => useScrollPosition(env, target),
+    useInView: (target: HTMLElement | (() => HTMLElement | null)) => useInView(env, target),
   }
 }
