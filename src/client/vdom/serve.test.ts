@@ -161,3 +161,59 @@ test('route 闭环：popstate——浏览器前进/后退', async () => {
   assert.equal(browser.window.location.pathname, '/', '后退回首页')
   assert.equal(browser.document.querySelector('.home')?.textContent, '首页')
 })
+
+test('并发守卫：快速连续触发（渲染中 render——单槽位补跑——不丢不排队）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let count = 0
+  const Counter = () => {
+    return () => {
+      const rc = (arguments[0] as { ctx: RenderCtx })?.ctx
+      return h('button', { id: 'fast', onClick: () => { count++; void rc.render() } }, `c:${count}`)
+    }
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', {}, h('button', {
+    id: 'fast',
+    onClick: () => { count++; void (ctx as RenderCtx).render() },
+  }, `c:${count}`))))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const btn = () => browser.document.querySelector('#fast') as HTMLElement
+  assert.equal(btn().textContent, 'c:0')
+  // 连续点击 5 次（渲染中触发——补跑）——最终 DOM = 最新状态（c:5）
+  for (let i = 0; i < 5; i++) btn().click()
+  await waitFor(() => btn()?.textContent === 'c:5')
+  assert.equal(btn().textContent, 'c:5', '快速连续触发——最终 DOM = 最新状态（不丢）')
+})
+
+test('并发守卫：渲染中 await ctx.render()——精确等待最终（含补跑）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let n = 0
+  const Page = () => {
+    return () => {
+      const rc = (globalThis as any).__rc
+      return h('div', {},
+        h('span', { id: 'v' }, `v:${n}`),
+        h('button', { id: 'seq', onClick: async () => {
+          n = 1
+          await rc.render()          // 渲染中 await（第一次）
+          const v1 = browser.document.querySelector('#v')?.textContent
+          n = 2
+          await rc.render()          // 渲染中再 render（同回调）
+          const v2 = browser.document.querySelector('#v')?.textContent
+          ;(globalThis as any).__seq = [v1, v2]
+        } }, 'seq'),
+      )
+    }
+  }
+  router.get('/', (req, ctx) => {
+    ;(globalThis as any).__rc = ctx
+    return (ctx as RenderCtx).stream(h(Page, {}))
+  })
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  ;(browser.document.querySelector('#seq') as HTMLElement).click()
+  await waitFor(() => (globalThis as any).__seq !== undefined)
+  assert.deepEqual((globalThis as any).__seq, ['v:1', 'v:2'], '渲染中 await——精确等待（含补跑）——DOM 最新')
+})

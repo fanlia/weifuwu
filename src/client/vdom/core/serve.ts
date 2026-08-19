@@ -127,15 +127,47 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   let req = frontRequest(win.location.pathname)
   /** 影子树（当前渲染的 vnode——diff 对照——精准增量命令流） */
   let currentTree: VNode | null = null
+  /** 并发守卫：渲染中触发 → 单槽位补跑（不丢不排队——最终 DOM = 最新请求状态） */
+  let rendering = false
+  let dirtyTarget: FrontRequest | null = null
+  let drainPromise: Promise<void> | null = null
 
-  /** 渲染循环（ctx.render 同 URL 重渲染 / navigate 新 URL——同一机制） */
-  const render = async (target: FrontRequest): Promise<void> => {
-    req = target
-    const res = await router.resolve(req, ctx)
-    if (!res.body) return
-    for await (const cmd of commandReader(res.body.getReader(), fnTable)) {
-      applier.apply(cmd)
+  /** 渲染循环（ctx.render 同 URL 重渲染 / navigate 新 URL——同一机制）
+   *  **守卫语义（确定性高于 render 次数）**：渲染中触发 → 记录最新目标——
+   *  当前渲染完成后补跑一次（单槽位——不丢不排队）；渲染中 await
+   *  返回 drainPromise（精确等待最终渲染——含补跑——X-A7 契约） */
+  const runRender = async (initial: FrontRequest): Promise<void> => {
+    let target = initial
+    rendering = true
+    try {
+      while (true) {
+        const current = dirtyTarget ?? target
+        dirtyTarget = null
+        target = current
+        req = target
+        const res = await router.resolve(req, ctx)
+        if (res.body) {
+          for await (const cmd of commandReader(res.body.getReader(), fnTable)) {
+            applier.apply(cmd)
+          }
+        }
+        if (!dirtyTarget) break
+      }
+    } finally {
+      rendering = false
+      drainPromise = null
     }
+  }
+
+  const render = (target: FrontRequest): Promise<void> => {
+    if (rendering && drainPromise) {
+      // 渲染中触发——单槽位补跑（记录最新目标——完成后执行一次）
+      dirtyTarget = target
+      return drainPromise // await 最终（含补跑）
+    }
+    const p = runRender(target)
+    drainPromise = p
+    return p
   }
 
   /** 编程式导航（pushState + 渲染——popstate 语义） */
@@ -147,7 +179,8 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   // ── ctx（render = 重新渲染唯一入口——事件/fetch/定时器回调） ──
   const ctx = {
     /** 重新渲染：重新 resolve（handler 重跑——registry 复用——工厂不重跑）→
-     *  新的 Response command 事件流 → 消费（patch 对照现有 DOM——就地更新） */
+     *  新的 Response command 事件流 → 消费（patch 对照现有 DOM——就地更新）
+     *  **并发守卫**：渲染中触发 → 单槽位补跑——await 精确等待最终渲染 */
     async render(): Promise<void> {
       await render(req)
     },
