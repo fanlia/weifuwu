@@ -553,3 +553,23 @@ test('patch 资源释放：done.full 清理后 propPrev 不残留（全量流重
   while (true) { const { value, done } = await r3.read(); if (done) break; applier.apply(value) }
   assert.equal(root.querySelector('#b')?.textContent, 'x', '重建正常')
 })
+
+test('组件输出数组 ↔ 单节点：双向转换——旧输出完整清理（残留 bug 修复）', async () => {
+  const hz = harness(testBrowser())
+  const Multi = (_init: Record<string, unknown>) => {
+    return (props: Record<string, unknown>) => (props.mode as string) === 'multi'
+      ? [h('span', { class: 'm1' }, '一'), h('span', { class: 'm2' }, '二')]
+      : h('div', { class: 'single' }, '单')
+  }
+  const page = (mode: string) => h('div', {}, h(Multi, { mode }))
+  await hz.mount(page('multi'))
+  assert.equal(hz.root.querySelectorAll('span').length, 2, '数组输出（隐式 Fragment）')
+  // 数组 → 单节点：旧数组逐项清理（无残留）
+  await hz.update(page('multi'), page('single'))
+  assert.equal(hz.root.querySelector('.single')?.textContent, '单', '单节点渲染')
+  assert.equal(hz.root.querySelectorAll('span').length, 0, '旧数组项完整移除（无 m1/m2 残留）')
+  // 单节点 → 数组：反向转换
+  await hz.update(page('single'), page('multi'))
+  assert.equal(hz.root.querySelectorAll('span').length, 2, '数组恢复')
+  assert.equal(hz.root.querySelector('.single'), null, '单节点移除')
+})
