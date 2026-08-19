@@ -18,7 +18,7 @@ import { emitHole, invalidDiagnostic } from './node/hole.ts'
 import { isPortal, PORTAL_ID_PREFIX } from './node/portal.ts'
 import { pathId, renderNative } from './node/native.ts'
 import { renderComponent, createComponentRegistry, type ComponentRegistry } from './node/component.ts'
-import type { Ctx } from '../context/Ctx.ts'
+import type { UIContext } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 
 /** 渲染 sink（子节点递归出口——build/diff 共用） */
@@ -32,7 +32,7 @@ export type RenderSink = (
  */
 export function createRenderDispatcher(
   emitCommand: (cmd: Command) => void,
-  ctx: Ctx,
+  ctx: UIContext,
   registry: ComponentRegistry,
 ): RenderSink {
   const emit = async (v: VNodeChild, parent: string, index: number, ref: string | null): Promise<void> => {
@@ -115,10 +115,10 @@ export function createRenderDispatcher(
  */
 export function renderToStream(
   root: VNode,
-  ctx?: Ctx,
+  ctx?: UIContext,
   registry?: ComponentRegistry,
 ): ReadableStream<Command> {
-  const sharedCtx = (ctx ?? {}) as Ctx
+  const sharedCtx = (ctx ?? {}) as UIContext
   const reg = registry ?? createComponentRegistry()
   return new ReadableStream<Command>({
     async start(controller) {

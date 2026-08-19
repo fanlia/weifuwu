@@ -58,7 +58,7 @@ test('A2 组件渲染 + 交互（公共面）：事件 → ctx.render() → 精�
   const browser = testBrowser()
   const router = new pub.UIRouter()
   let count = 0
-  const Counter = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Counter = (_init: Record<string, unknown>, ctx: UIContext) => {
     const onInc = () => { count++; void ctx.render() } // 工厂层稳定引用（§3.1）
     return () => pub.h('button', { id: 'c', onClick: onInc }, `c:${count}`)
   }

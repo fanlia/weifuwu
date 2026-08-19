@@ -16,12 +16,12 @@ import { jsx, jsxs, jsxDEV, Fragment } from '../jsx-runtime.ts'
 import { renderToStream } from './build.ts'
 import { CommandApplier } from './patch.ts'
 import { createComponentRegistry } from './node/component.ts'
-import type { Ctx } from '../context/Ctx.ts'
+import type { UIContext } from '../context/UIContext.ts'
 
 async function render(browser: ReturnType<typeof testBrowser>, tree: ReturnType<typeof h>) {
   const root = browser.document.querySelector('#root') as HTMLElement
   const applier = new CommandApplier(root, browser.document)
-  const stream = renderToStream(tree, {} as Ctx, createComponentRegistry())
+  const stream = renderToStream(tree, {} as UIContext, createComponentRegistry())
   const reader = stream.getReader()
   while (true) {
     const { value, done } = await reader.read()
@@ -86,12 +86,12 @@ test('build 全量流标记：done.full（patch 清理旧树多余节点）', as
   const root = browser.document.querySelector('#root') as HTMLElement
   const applier = new CommandApplier(root, browser.document)
   // 全量流 1
-  const s1 = renderToStream(h('div', {}, [h('span', {}, 'a'), h('span', {}, 'b')]), {} as Ctx, createComponentRegistry())
+  const s1 = renderToStream(h('div', {}, [h('span', {}, 'a'), h('span', {}, 'b')]), {} as UIContext, createComponentRegistry())
   const r1 = s1.getReader()
   while (true) { const { value, done } = await r1.read(); if (done) break; applier.apply(value) }
   assert.equal(root.querySelectorAll('span').length, 2)
   // 全量流 2（结构变化——b 消失——done.full 清理残留）
-  const s2 = renderToStream(h('div', {}, h('span', {}, 'a')), {} as Ctx, createComponentRegistry())
+  const s2 = renderToStream(h('div', {}, h('span', {}, 'a')), {} as UIContext, createComponentRegistry())
   const r2 = s2.getReader()
   while (true) { const { value, done } = await r2.read(); if (done) break; applier.apply(value) }
   assert.equal(root.querySelectorAll('span').length, 1, 'done.full 清理旧树多余')

@@ -15,7 +15,7 @@
  *    createPortal = usePopup 内部机制；`<></>` 经 jsx-runtime 子路径）
  */
 
-import type { Ctx } from '../context/Ctx.ts'
+import type { UIContext } from '../context/UIContext.ts'
 import { extractKey, stripKey } from './field/key.ts'
 
 /** vnode——纯数据 */
@@ -37,7 +37,7 @@ export type RenderFn<P = Record<string, unknown>> = (props: P) => VNode | null |
 /** 组件（两阶段）：
  *  工厂 = mount（一次——初始化状态/订阅/数据预取（await ctx.data——管道保证））
  *  renderFn = 每次渲染（ctx.render()/props 变化触发） */
-export type Component<P = Record<string, unknown>, C = Ctx> = (
+export type Component<P = Record<string, unknown>, C = UIContext> = (
   initProps: P,
   ctx: C,
 ) => RenderFn<P> | Promise<RenderFn<P>>

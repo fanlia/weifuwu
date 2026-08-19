@@ -20,7 +20,7 @@
 
 import type { VNode, VNodeChild } from '../vnode.ts'
 import type { Component, RenderFn } from '../vnode.ts'
-import type { Ctx } from '../../context/Ctx.ts'
+import type { UIContext } from '../../context/UIContext.ts'
 import { createUi } from '../../hooks/env.ts'
 import type { Browser } from '../../browser/Browser.ts'
 
@@ -67,7 +67,7 @@ export async function renderComponent(
   index: number,
   ref: string | null,
   compId: string,
-  sharedCtx: Ctx,
+  sharedCtx: UIContext,
   registry: ComponentRegistry,
   sink: ComponentSink,
 ): Promise<void> {
@@ -81,13 +81,13 @@ export async function renderComponent(
     // hook 状态缓存（渲染期调用——按调用顺序 index——per-instance）
     const hookStates = new Map<number, unknown>()
     const hookSeq = { n: 0 }
-    const instCtx = Object.create(sharedCtx) as Ctx
+    const instCtx = Object.create(sharedCtx) as UIContext
     instCtx.onUnmount = (fn) => { onUnmounts.push(fn) }
     // hooks 注入面（ctx.ui——env 绑定当前组件实例）
     instCtx.ui = createUi({
       requestRender: () => { void instCtx.render?.() },
       onUnmount: (fn) => { onUnmounts.push(fn) },
-      getBrowser: () => (sharedCtx.browser as Browser | null) ?? null,
+      getBrowser: () => sharedCtx.browser ?? null,
       nextHookIndex: () => hookSeq.n++,
       getHookState: <T>(idx: number) => hookStates.get(idx) as T | undefined,
       setHookState: (idx, v) => { hookStates.set(idx, v) },

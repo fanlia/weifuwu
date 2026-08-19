@@ -14,7 +14,7 @@ import { renderToStream } from '../build.ts'
 import { renderComponent, createComponentRegistry, disposeComponent } from './component.ts'
 import { CommandApplier } from '../patch.ts'
 import { pathId } from './native.ts'
-import type { Ctx } from '../../context/Ctx.ts'
+import type { UIContext } from '../../context/UIContext.ts'
 
 async function applyAll(browser: ReturnType<typeof testBrowser>, rootV: ReturnType<typeof h>) {
   const stream = renderToStream(rootV)
@@ -106,7 +106,7 @@ test('onUnmount 收集：per-instance ctx——dispose 执行清理', async () =
   const browser = testBrowser()
   const registry = createComponentRegistry()
   const cleaned: string[] = []
-  const Watch: Component = (_init, ctx: Ctx) => {
+  const Watch: Component = (_init, ctx: UIContext) => {
     ctx.onUnmount(() => cleaned.push('cleanup'))
     return () => h('div', { class: 'w' }, 'w')
   }
@@ -132,7 +132,7 @@ test('renderComponent 独立调用：工厂 + renderFn 输出经 sink', async ()
   const sink = async (v: unknown) => { seen.push((v as { type: string }).type as string) }
   await renderComponent(
     h(Comp, { label: 'x' }) as never,
-    'p', 0, null, 'cid', {} as Ctx, createComponentRegistry(),
+    'p', 0, null, 'cid', {} as UIContext, createComponentRegistry(),
     sink as never,
   )
   assert.deepEqual(seen, ['span'], '输出 vnode 经 sink 递归')

@@ -26,7 +26,7 @@ import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed } from './nod
 import { createRenderDispatcher, type RenderSink } from './build.ts'
 import { renderComponent, type ComponentRegistry } from './node/component.ts'
 import { pathId, serializableAttrs } from './node/native.ts'
-import type { Ctx } from '../context/Ctx.ts'
+import type { UIContext } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 
 /**
@@ -36,7 +36,7 @@ import type { Command } from './command/index.ts'
 export function diffStream(
   oldTree: VNode,
   newTree: VNode,
-  ctx: Ctx,
+  ctx: UIContext,
   registry: ComponentRegistry,
 ): ReadableStream<Command> {
   return new ReadableStream<Command>({
@@ -83,7 +83,7 @@ async function diffSame(
   ref: string | null,
   emit: RenderSink,
   emitCommand: (cmd: Command) => void,
-  ctx: Ctx,
+  ctx: UIContext,
   registry: ComponentRegistry,
 ): Promise<void> {
   const id = pathId(parent, index)
@@ -167,7 +167,7 @@ function diffAttrs(
 async function diffChildren(
   oldV: VNode, newV: VNode, id: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void,
-  ctx: Ctx, registry: ComponentRegistry,
+  ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
   const oldCs = childrenOf(oldV)
   const newCs = childrenOf(newV)
@@ -180,7 +180,7 @@ async function diffChildrenItems(
   oldCs: VNodeChild[], newCs: VNodeChild[],
   id: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void,
-  ctx: Ctx, registry: ComponentRegistry,
+  ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
   // A 级检测（长度变化 + 无 key 组件项 → warn 引导声明 key——
   // 无 key = 位置身份——长度变化时有状态组件位置继承漂移）
@@ -215,7 +215,7 @@ async function diffSlot(
   oldC: VNodeChild | null, newC: VNodeChild | null,
   parent: string, index: number, ref: string | null, cid: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void,
-  ctx: Ctx, registry: ComponentRegistry,
+  ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
   // 文本 ↔ 文本：值变化才 setText（精准——无变化不发命令）
   if (typeof oldC === 'string' && typeof newC === 'string') {
@@ -275,7 +275,7 @@ function hasKeyed(items: VNodeChild[]): boolean {
 async function diffKeyedChildren(
   oldCs: VNodeChild[], newCs: VNodeChild[], parent: string,
   emit: RenderSink, emitCommand: (cmd: Command) => void,
-  ctx: Ctx, registry: ComponentRegistry,
+  ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
   // 旧 key → 旧索引（身份映射）
   const oldIdxByKey = new Map<string, number>()
@@ -323,7 +323,7 @@ async function diffKeyedChildren(
  *  组件输出对照（lastOutput → diffSame 精准——move 后节点已在新位置） */
 async function emitWithKey(
   v: VNodeChild, parent: string, index: number, ref: string | null, key: string,
-  emit: RenderSink, emitCommand: (cmd: Command) => void, ctx: Ctx, registry: ComponentRegistry,
+  emit: RenderSink, emitCommand: (cmd: Command) => void, ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
   const vn = v as VNode
   if (typeof vn.type === 'function') {

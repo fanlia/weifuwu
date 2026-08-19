@@ -29,7 +29,7 @@
  * `<></>` 经 jsx-runtime 自动导入。
  *
  * 实施进度：
- *   1. core/vnode + context/Ctx（已完成——纯数据面）
+ *   1. core/vnode + context/UIContext（已完成——纯数据面）
  *   2. core/commands + render（命令流——首帧同步）✓
  *   3. core/router + serve（UIRouter/uiServe——最小闭环）✓
  *   4. shared/router 核心提取（Trie + 中间件链）——待
@@ -39,3 +39,18 @@
 export { h, jsx, jsxs, jsxDEV } from './core/vnode.ts'
 export { UIRouter } from './core/router.ts'
 export { uiServe } from './core/serve.ts'
+
+// ── 类型面（值面仍只有 h/jsx/uiServe/UIRouter——类型不占公共面）──
+// UIContext = 前端 ctx 类型（对齐后端 Context 模式——接口 + 索引签名 +
+// **declare module 合并增强**（应用/中间件扩展））：
+// ```ts
+// declare module 'weifuwu/vdom' { interface UIContext { api: ApiClient } }
+// ```
+export type { UIContext, DataPipe } from './context/UIContext.ts'
+export type { Component, RenderFn, VNode, VNodeChild } from './core/vnode.ts'
+export type { Ui } from './hooks/env.ts'
+export type { Browser } from './browser/Browser.ts'
+export type { ApiClient } from './middlewares/api.ts'
+export type { AuthClient, I18nState } from './middlewares/auth-i18n.ts'
+export type { WsClient } from './middlewares/ws.ts'
+export type { ExternalStore } from './store.ts'

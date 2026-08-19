@@ -231,7 +231,7 @@ test('ctx.data：组件工厂 await 取数渲染（SPA fetch——mock 全局 fe
     json: async () => ({ name: `user-${url.split('/').pop()}` }),
   })
   try {
-    const UserCard = async (initProps: Record<string, unknown>, ctx: Ctx) => {
+    const UserCard = async (initProps: Record<string, unknown>, ctx: UIContext) => {
       const user = await ctx.data.get<{ name: string }>(`/api/user/${initProps.id}`)
       return () => h('div', { class: 'user' }, user.name)
     }
@@ -251,7 +251,7 @@ test('ctx.data：并发合并——两组件同 key 取数（fetcher 一次）',
   let calls = 0
   ;(globalThis as any).fetch = async () => { calls++; return { ok: true, json: async () => ({ v: 'shared' }) } }
   try {
-    const Card = async (_init: Record<string, unknown>, ctx: Ctx) => {
+    const Card = async (_init: Record<string, unknown>, ctx: UIContext) => {
       const d = await ctx.data.get<{ v: string }>('/api/shared')
       return () => h('span', { class: 'card' }, d.v)
     }
@@ -269,7 +269,7 @@ test('useExternal：store 共享状态——变化 → 组件重渲染（跨组�
   const browser = testBrowser()
   const router = new UIRouter()
   const store = createStore({ count: 0 })
-  const Counter = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Counter = (_init: Record<string, unknown>, ctx: UIContext) => {
     // 订阅（unmount 自动退订）——渲染期读 store.state 最新值（AGENTS §4.5）
     ;(ctx.ui as { useExternal: (s: unknown) => void }).useExternal(store as never)
     return () => h('div', {},
@@ -294,7 +294,7 @@ test('useExternal：unmount 自动退订（订阅泄漏防护）', async () => {
   let active = 0
   const origSubscribe = subs.bind(store)
   ;(store as any).subscribe = (cb: () => void) => { active++; return origSubscribe(cb) }
-  const Comp = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Comp = (_init: Record<string, unknown>, ctx: UIContext) => {
     ;(ctx.ui as { useExternal: (s: unknown) => unknown }).useExternal(store as never)
     return () => h('span', {}, 'x')
   }
@@ -313,7 +313,7 @@ test('useExternal：unmount 自动退订（订阅泄漏防护）', async () => {
 test('useOpen：非受控开关——setOpen → 重渲染显示', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Dropdown = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Dropdown = (_init: Record<string, unknown>, ctx: UIContext) => {
     const open = (ctx.ui as { useOpen: (i: boolean) => { open: boolean; setOpen: (v: boolean) => void } }).useOpen(false)
     return () => h('div', {},
       h('button', { id: 'toggle', onClick: () => open.setOpen(!open.open) }, '开关'),
@@ -335,14 +335,14 @@ test('useOpen：非受控开关——setOpen → 重渲染显示', async () => {
 test('useOpen：受控——父 props 独占（onOpenChange 回调出口）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Parent = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Parent = (_init: Record<string, unknown>, ctx: UIContext) => {
     let open = false
     return () => h('div', {},
       h('button', { id: 'p', onClick: () => { open = !open; void ctx.render() } }, '父'),
       h(Child, { open, onOpenChange: (v: boolean) => { open = v; void ctx.render() } }),
     )
   }
-  const Child = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Child = (_init: Record<string, unknown>, ctx: UIContext) => {
     // 受控 hooks 渲染期调用（renderFn 内——读最新 props——AGENTS §3.1）
     return (props: Record<string, unknown>) => {
       const open = (ctx.ui as { useOpen: (i: boolean, c?: { open?: boolean; onOpenChange?: (v: boolean) => void }) => { open: boolean; setOpen: (v: boolean) => void } })
@@ -363,7 +363,7 @@ test('useOpen：受控——父 props 独占（onOpenChange 回调出口）', as
 test('useGlobalKey：Escape 关闭（window keydown——unmount 清理）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Modal = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Modal = (_init: Record<string, unknown>, ctx: UIContext) => {
     const open = (ctx.ui as { useOpen: (i: boolean) => { open: boolean; setOpen: (v: boolean) => void } }).useOpen(true)
     ;(ctx.ui as { useGlobalKey: (m: string, h: (e: Event) => void) => void }).useGlobalKey('Escape', () => open.setOpen(false))
     return () => open.open ? h('div', { class: 'modal' }, '弹窗') : null
@@ -380,7 +380,7 @@ test('useGlobalKey：Escape 关闭（window keydown——unmount 清理）', asy
 test('useStableRef：跨渲染稳定引用', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Comp = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Comp = (_init: Record<string, unknown>, ctx: UIContext) => {
     const ref = (ctx.ui as { useStableRef: <T>(i: T) => { current: T } }).useStableRef({ n: 0 })
     let renders = 0
     return () => {
@@ -401,7 +401,7 @@ test('useStableRef：跨渲染稳定引用', async () => {
 test('usePopup：打开 → portal 面板（#__wf_portal + fixed 定位——placement bottom）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Dropdown = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Dropdown = (_init: Record<string, unknown>, ctx: UIContext) => {
     const popup = (ctx.ui as { usePopup: (o: { placement?: string }) => {
       open: boolean; setOpen: (v: boolean) => void; portal: (c: unknown, k?: string) => unknown;
       panelRef: (el: HTMLElement | null) => void; pos: { top: number; left: number }
@@ -434,7 +434,7 @@ test('usePopup：打开 → portal 面板（#__wf_portal + fixed 定位——pla
 test('usePopup：外部点击关闭 + Escape 关闭', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Dropdown = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Dropdown = (_init: Record<string, unknown>, ctx: UIContext) => {
     const popup = (ctx.ui as { usePopup: (o: object) => {
       open: boolean; setOpen: (v: boolean) => void; portal: (c: unknown, k?: string) => unknown;
       panelRef: (el: HTMLElement | null) => void; pos: { top: number; left: number }
@@ -533,7 +533,7 @@ test('ctx.data：组件工厂 await 取数渲染（SPA fetch——mock 全局 fe
     json: async () => ({ name: `user-${url.split('/').pop()}` }),
   })
   try {
-    const UserCard = async (initProps: Record<string, unknown>, ctx: Ctx) => {
+    const UserCard = async (initProps: Record<string, unknown>, ctx: UIContext) => {
       const user = await ctx.data.get<{ name: string }>(`/api/user/${initProps.id}`)
       return () => h('div', { class: 'user' }, user.name)
     }
@@ -553,7 +553,7 @@ test('ctx.data：并发合并——两组件同 key 取数（fetcher 一次）',
   let calls = 0
   ;(globalThis as any).fetch = async () => { calls++; return { ok: true, json: async () => ({ v: 'shared' }) } }
   try {
-    const Card = async (_init: Record<string, unknown>, ctx: Ctx) => {
+    const Card = async (_init: Record<string, unknown>, ctx: UIContext) => {
       const d = await ctx.data.get<{ v: string }>('/api/shared')
       return () => h('span', { class: 'card' }, d.v)
     }
@@ -571,7 +571,7 @@ test('useExternal：store 共享状态——变化 → 组件重渲染（跨组�
   const browser = testBrowser()
   const router = new UIRouter()
   const store = createStore({ count: 0 })
-  const Counter = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Counter = (_init: Record<string, unknown>, ctx: UIContext) => {
     // 订阅（unmount 自动退订）——渲染期读 store.state 最新值（AGENTS §4.5）
     ;(ctx.ui as { useExternal: (s: unknown) => void }).useExternal(store as never)
     return () => h('div', {},
@@ -596,7 +596,7 @@ test('useExternal：unmount 自动退订（订阅泄漏防护）', async () => {
   let active = 0
   const origSubscribe = subs.bind(store)
   ;(store as any).subscribe = (cb: () => void) => { active++; return origSubscribe(cb) }
-  const Comp = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Comp = (_init: Record<string, unknown>, ctx: UIContext) => {
     ;(ctx.ui as { useExternal: (s: unknown) => unknown }).useExternal(store as never)
     return () => h('span', {}, 'x')
   }
@@ -615,7 +615,7 @@ test('useExternal：unmount 自动退订（订阅泄漏防护）', async () => {
 test('useOpen：非受控开关——setOpen → 重渲染显示', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Dropdown = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Dropdown = (_init: Record<string, unknown>, ctx: UIContext) => {
     const open = (ctx.ui as { useOpen: (i: boolean) => { open: boolean; setOpen: (v: boolean) => void } }).useOpen(false)
     return () => h('div', {},
       h('button', { id: 'toggle', onClick: () => open.setOpen(!open.open) }, '开关'),
@@ -637,14 +637,14 @@ test('useOpen：非受控开关——setOpen → 重渲染显示', async () => {
 test('useOpen：受控——父 props 独占（onOpenChange 回调出口）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Parent = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Parent = (_init: Record<string, unknown>, ctx: UIContext) => {
     let open = false
     return () => h('div', {},
       h('button', { id: 'p', onClick: () => { open = !open; void ctx.render() } }, '父'),
       h(Child, { open, onOpenChange: (v: boolean) => { open = v; void ctx.render() } }),
     )
   }
-  const Child = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Child = (_init: Record<string, unknown>, ctx: UIContext) => {
     // 受控 hooks 渲染期调用（renderFn 内——读最新 props——AGENTS §3.1）
     return (props: Record<string, unknown>) => {
       const open = (ctx.ui as { useOpen: (i: boolean, c?: { open?: boolean; onOpenChange?: (v: boolean) => void }) => { open: boolean; setOpen: (v: boolean) => void } })
@@ -665,7 +665,7 @@ test('useOpen：受控——父 props 独占（onOpenChange 回调出口）', as
 test('useGlobalKey：Escape 关闭（window keydown——unmount 清理）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Modal = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Modal = (_init: Record<string, unknown>, ctx: UIContext) => {
     const open = (ctx.ui as { useOpen: (i: boolean) => { open: boolean; setOpen: (v: boolean) => void } }).useOpen(true)
     ;(ctx.ui as { useGlobalKey: (m: string, h: (e: Event) => void) => void }).useGlobalKey('Escape', () => open.setOpen(false))
     return () => open.open ? h('div', { class: 'modal' }, '弹窗') : null
@@ -682,7 +682,7 @@ test('useGlobalKey：Escape 关闭（window keydown——unmount 清理）', asy
 test('useStableRef：跨渲染稳定引用', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Comp = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Comp = (_init: Record<string, unknown>, ctx: UIContext) => {
     const ref = (ctx.ui as { useStableRef: <T>(i: T) => { current: T } }).useStableRef({ n: 0 })
     let renders = 0
     return () => {
@@ -703,7 +703,7 @@ test('useStableRef：跨渲染稳定引用', async () => {
 test('usePopup：打开 → portal 面板（#__wf_portal 下 + fixed 定位）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Menu = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Menu = (_init: Record<string, unknown>, ctx: UIContext) => {
     const popup = (ctx.ui as { usePopup: (o: { placement?: string; isOpen?: boolean; setOpen?: (v: boolean) => void }) => {
       open: boolean; setOpen: (v: boolean) => void; portal: (c: unknown, k?: string) => unknown; panelRef: (el: HTMLElement | null) => void
     } }).usePopup({ placement: 'bottom' })
@@ -725,7 +725,7 @@ test('usePopup：打开 → portal 面板（#__wf_portal 下 + fixed 定位）',
 test('useControlled：非受控内部状态——setValue → 重渲染；受控 onChange 出口', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Input = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Input = (_init: Record<string, unknown>, ctx: UIContext) => {
     const c = (ctx.ui as { useControlled: <T>(c: object, d: T) => { value: T; setValue: (v: T) => void } }).useControlled({}, '')
     return () => h('input', {
       id: 'in', value: c.value as string,
@@ -745,7 +745,7 @@ test('useControlled：非受控内部状态——setValue → 重渲染；受控
 test('useScrollPosition：内部容器滚动——y 响应式（事件驱动重渲染）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Scroller = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Scroller = (_init: Record<string, unknown>, ctx: UIContext) => {
     const pos = (ctx.ui as { useScrollPosition: (t: () => HTMLElement | null) => { y: number } }).useScrollPosition(() => browser.document.querySelector('.sc') as HTMLElement | null)
     return () => h('div', { class: 'wrap' },
       h('div', { class: 'sc', style: { height: '100px', overflow: 'auto' } }, h('div', { style: { height: '300px' } }, '长内容')),
@@ -773,7 +773,7 @@ test('useInView：IntersectionObserver——isIn 响应式（IO 回调 → 重�
     observe() {}
     disconnect() {}
   }
-  const View = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const View = (_init: Record<string, unknown>, ctx: UIContext) => {
     const v = (ctx.ui as { useInView: (t: () => HTMLElement | null) => { isIn: boolean } }).useInView(() => browser.document.querySelector('.box') as HTMLElement | null)
     return () => h('div', {},
       h('div', { class: 'box' }, '目标'),
@@ -791,7 +791,7 @@ test('useInView：IntersectionObserver——isIn 响应式（IO 回调 → 重�
 test('useControlledInput：内部输入态（keyword——焦点保持）+ IME 门控', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Search = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Search = (_init: Record<string, unknown>, ctx: UIContext) => {
     const input = (ctx.ui as { useControlledInput: (c: object) => {
       value: string; keyword: string; setKeyword: (v: string) => void; setValue: (v: string) => void
       isComposing: boolean; onCompositionStart: () => void; onCompositionEnd: () => void
@@ -826,7 +826,7 @@ test('useDragDrop：draggable enumerated + 拖拽事件 + dataTransfer 数据', 
   const browser = testBrowser()
   const router = new UIRouter()
   let dropped: unknown = null
-  const Card = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Card = (_init: Record<string, unknown>, ctx: UIContext) => {
     const dd = (ctx.ui as { useDragDrop: (o: { data: unknown; onDrop: (e: Event, d: unknown) => void }) => {
       draggableProps: { draggable: boolean }; dropProps: { onDrop: (e: Event) => void }
     } }).useDragDrop({ data: { id: 7 }, onDrop: (e, d) => { dropped = d } })
@@ -857,7 +857,7 @@ test('useBreakpoint：命名断点（matchMedia mock——min-width 语义——
     addEventListener: (_t: string, cb: () => void) => { listeners.push(cb) },
     removeEventListener: () => {},
   })
-  const Page = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Page = (_init: Record<string, unknown>, ctx: UIContext) => {
     // 渲染期调用（useMedia 状态实时——事件驱动重渲染读最新断点）
     return () => {
       const bp = (ctx.ui as { useBreakpoint: (b: Record<string, number>) => string }).useBreakpoint({ mobile: 0, tablet: 768, desktop: 1024 })
@@ -895,7 +895,7 @@ test('useChat：发送 → 流式消息累积（NDJSON 分块——useExternal �
     return { ok: true, body: stream }
   }
   try {
-    const Chat = (_init: Record<string, unknown>, ctx: Ctx) => {
+    const Chat = (_init: Record<string, unknown>, ctx: UIContext) => {
       const chat = (ctx.ui as { useChat: (o: object) => { messages: Array<{ role: string; content: string }>; send: (t: string) => Promise<void> } }).useChat({})
       ;(ctx.ui as { useExternal: (s: unknown) => void }).useExternal(chat as never)
       return () => h('div', {},
@@ -925,7 +925,7 @@ test('useChat：HITL 审批（工具调用 approve——状态更新）', async 
     id: 'm1', role: 'assistant' as const, content: '需要审批',
     toolCalls: [{ id: 'tc1', name: 'sendEmail', args: { to: 'a@b.c' } }],
   }]
-  const Chat = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Chat = (_init: Record<string, unknown>, ctx: UIContext) => {
     const chat = (ctx.ui as { useChat: (o: object) => {
       messages: Array<{ toolCalls?: Array<{ id: string; approved?: boolean }> }>; approve: (id: string, ok: boolean) => void
     } }).useChat({ initialMessages: initMsg as never })
@@ -966,7 +966,7 @@ test('createClientBrowser：SSR 安全（无全局 window → null）+ 浏览器
 test('usePopup presence：会话级模态——关闭退场（exit → 无动画环境立即 closed）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  const Modal = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Modal = (_init: Record<string, unknown>, ctx: UIContext) => {
     const popup = (ctx.ui as { usePopup: (o: object) => {
       open: boolean; setOpen: (v: boolean) => void; portal: (c: unknown, k?: string) => unknown;
       panelRef: (el: HTMLElement | null) => void; pos: { top: number; left: number }
@@ -1008,7 +1008,7 @@ test('uiSsr：组件渲染（工厂 + ctx.data 服务端取数——mock fetch�
   const origFetch = (globalThis as any).fetch
   ;(globalThis as any).fetch = async (url: string) => ({ ok: true, json: async () => ({ title: `文章-${url.split('/').pop()}` }) })
   try {
-    const Post = async (init: Record<string, unknown>, ctx: Ctx) => {
+    const Post = async (init: Record<string, unknown>, ctx: UIContext) => {
       const post = await ctx.data.get<{ title: string }>(`/api/posts/${init.id}`)
       return () => h('article', {}, post.title)
     }

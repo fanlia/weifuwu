@@ -7,7 +7,7 @@
  * 静态段优先 → :param → * 通配——params 注入 req。
  */
 
-import type { Ctx } from '../context/Ctx.ts'
+import type { UIContext } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 import { createTrie, trieRegister, trieMatch, splitPath, type TrieNode } from '../../../shared/router/trie.ts'
 
@@ -16,7 +16,7 @@ export type FrontRequest = Request
 
 /** 页面 handler——返回原生 Response（body = 命令流字节——NDJSON）——
  *  与后端 Handler 签名字面同构：(req, ctx) => Response */
-export type PageHandler = (req: FrontRequest, ctx: Ctx) => Response | Promise<Response>
+export type PageHandler = (req: FrontRequest, ctx: UIContext) => Response | Promise<Response>
 
 /** 渲染入口封装：命令流 → 原生 Response（body = NDJSON 字节流——
  *  HTTP 传输层即字节——命令纯数据可序列化——服务端同源解析） */
@@ -53,7 +53,7 @@ export class UIRouter {
 
   /** 解析请求 → 响应（Trie 匹配 + **params 注入 ctx**——对齐后端
    *  `Object.assign(ctx.params, match.params)`——不修改原始 Request） */
-  async resolve(req: FrontRequest, ctx: Ctx): Promise<Response> {
+  async resolve(req: FrontRequest, ctx: UIContext): Promise<Response> {
     const segments = splitPath(new URL(req.url).pathname)
     const m = trieMatch(this.root, segments)
     const handler = m?.value ?? this.notFoundHandler

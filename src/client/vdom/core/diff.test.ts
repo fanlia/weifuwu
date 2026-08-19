@@ -20,7 +20,7 @@ import { diffStream } from './diff.ts'
 import { renderToStream } from './build.ts'
 import { CommandApplier } from './patch.ts'
 import { createComponentRegistry } from './node/component.ts'
-import type { Ctx } from '../context/Ctx.ts'
+import type { UIContext } from '../context/UIContext.ts'
 
 /** 两阶段 harness：首帧 build（渲染旧树）→ diff 增量（就地 patch） */
 function harness(browser: ReturnType<typeof testBrowser>) {
@@ -37,9 +37,9 @@ function harness(browser: ReturnType<typeof testBrowser>) {
   }
   return {
     root, registry,
-    mount: (tree: ReturnType<typeof h>) => apply(renderToStream(tree, {} as Ctx, registry)),
+    mount: (tree: ReturnType<typeof h>) => apply(renderToStream(tree, {} as UIContext, registry)),
     update: (oldTree: ReturnType<typeof h>, newTree: ReturnType<typeof h>) =>
-      apply(diffStream(oldTree, newTree, {} as Ctx, registry)),
+      apply(diffStream(oldTree, newTree, {} as UIContext, registry)),
   }
 }
 
@@ -151,7 +151,7 @@ test('diff 本质：精准命令流——counter 点击只发文本 setText（�
   count = 1
   const newTree = h(Counter, {})
   const cmds: unknown[] = []
-  const stream = diffStream(oldTree, newTree, {} as Ctx, hz.registry)
+  const stream = diffStream(oldTree, newTree, {} as UIContext, hz.registry)
   const reader = stream.getReader()
   while (true) {
     const { value, done } = await reader.read()
@@ -173,7 +173,7 @@ test('diff 本质：属性变化只发 setProp（不重建元素）', async () =
   const stream = diffStream(
     h('div', { class: 'a', id: 'x' }, 'text'),
     h('div', { class: 'b', id: 'x' }, 'text'),
-    {} as Ctx, hz.registry,
+    {} as UIContext, hz.registry,
   )
   const reader = stream.getReader()
   while (true) {
@@ -318,7 +318,7 @@ test('组件输出 null 精准命令流：div → null 只发 remove + 锚（无
   const page = (show: boolean) => h('div', {}, h(Cond, { show }))
   await hz.mount(page(true))
   const cmds: unknown[] = []
-  const stream = diffStream(page(true), page(false), {} as Ctx, hz.registry)
+  const stream = diffStream(page(true), page(false), {} as UIContext, hz.registry)
   const reader = stream.getReader()
   while (true) {
     const { value, done } = await reader.read()
@@ -338,12 +338,12 @@ test('patch 生命周期：ref 挂载后执行（insert 后 el 已连接）+ 移
   const calls: string[] = []
   const myRef = (el: HTMLElement | null) => { calls.push(el ? `mount:${el.isConnected}` : 'unmount') }
   // 首帧（全量 build——ref 挂起——insert 后执行）
-  const s1 = renderToStream(h('div', {}, h('span', { ref: myRef }, 'x')), {} as Ctx, reg)
+  const s1 = renderToStream(h('div', {}, h('span', { ref: myRef }, 'x')), {} as UIContext, reg)
   const r1 = s1.getReader()
   while (true) { const { value, done } = await r1.read(); if (done) break; applier.apply(value) }
   assert.deepEqual(calls, ['mount:true'], 'ref 在挂载后执行（el.isConnected = true）')
   // 移除节点 → ref(null)（卸载清理）
-  const s2 = renderToStream(h('div', {}), {} as Ctx, reg)
+  const s2 = renderToStream(h('div', {}), {} as UIContext, reg)
   const r2 = s2.getReader()
   while (true) { const { value, done } = await r2.read(); if (done) break; applier.apply(value) }
   assert.deepEqual(calls, ['mount:true', 'unmount'], '移除 → ref(null)')
@@ -352,12 +352,12 @@ test('patch 生命周期：ref 挂载后执行（insert 后 el 已连接）+ 移
 test('patch 生命周期：unmountComp 执行 onUnmounts（组件卸载清理）', async () => {
   const hz = harness(testBrowser())
   const cleaned: string[] = []
-  const Page = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Page = (_init: Record<string, unknown>, ctx: UIContext) => {
     const onUnmount = _init.onUnmount as (s: string) => void
     ctx.onUnmount(() => onUnmount('page-cleanup'))   // 注册——卸载时执行
     return () => h('div', { class: 'page' }, '页')
   }
-  const Item = (init: Record<string, unknown>, ctx: Ctx) => {
+  const Item = (init: Record<string, unknown>, ctx: UIContext) => {
     ctx.onUnmount(() => (init.onUnmount as (s: string) => void)('item-cleanup'))
     return () => h('span', { class: 'it' }, '项')
   }
@@ -380,7 +380,7 @@ test('生命周期指令：ref（insert 后挂载完成——el 已连接）/unr
   const calls: string[] = []
   const myRef = (el: HTMLElement | null) => { calls.push(el ? `mount:${el.isConnected}` : 'unmount') }
   // 首帧（ref prop → ref 指令——insert 后——挂载完成）
-  const s1 = renderToStream(h('div', {}, h('span', { ref: myRef }, 'x')), {} as Ctx, reg)
+  const s1 = renderToStream(h('div', {}, h('span', { ref: myRef }, 'x')), {} as UIContext, reg)
   const r1 = s1.getReader()
   while (true) { const { value, done } = await r1.read(); if (done) break; applier.apply(value) }
   assert.deepEqual(calls, ['mount:true'], 'ref 指令：insert 后执行（el 已连接）')
@@ -392,7 +392,7 @@ test('生命周期指令：ref（insert 后挂载完成——el 已连接）/unr
 test('生命周期指令：mount（新实例初始化完成）/unmount（onUnmounts 清理）', async () => {
   const hz = harness(testBrowser())
   const events: string[] = []
-  const Comp = (_init: Record<string, unknown>, ctx: Ctx) => {
+  const Comp = (_init: Record<string, unknown>, ctx: UIContext) => {
     ctx.onUnmount(() => events.push('cleanup'))
     return () => h('span', { class: 'c' }, 'x')
   }
@@ -417,7 +417,7 @@ test('keyed 真移除：不在新列表的 key → unmount（onUnmounts 清理�
   const hz = harness(testBrowser())
   const cleaned: string[] = []
   let mounts = 0
-  const Item = (init: Record<string, unknown>, ctx: Ctx) => {
+  const Item = (init: Record<string, unknown>, ctx: UIContext) => {
     mounts++
     const id = init.id as string
     ctx.onUnmount(() => cleaned.push(`un:${id}`))
@@ -497,7 +497,7 @@ test('move 命令流：重排只发 move（无 create/remove——精准）', as
   const list = (ids: string[]) => h('div', {}, ids.map((id) => h(Item, { key: id, id })))
   await hz.mount(list(['a', 'b', 'c']))
   const cmds: unknown[] = []
-  const stream = diffStream(list(['a', 'b', 'c']), list(['c', 'a', 'b']), {} as Ctx, hz.registry)
+  const stream = diffStream(list(['a', 'b', 'c']), list(['c', 'a', 'b']), {} as UIContext, hz.registry)
   const reader = stream.getReader()
   while (true) {
     const { value, done } = await reader.read()

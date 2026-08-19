@@ -29,8 +29,18 @@ export interface DataPipe {
   seed(): Record<string, unknown>
 }
 
-/** 组件 ctx */
-export interface Ctx {
+import type { Browser } from '../browser/Browser.ts'
+import type { Ui } from '../hooks/env.ts'
+
+/** 组件 ctx（类型增强方案——对齐后端 Context：
+ *  - 内建面：render/data/ui/browser/onUnmount/params——具体类型
+ *  - 中间件注入面：`[key: string]: unknown` 索引签名 + **declare module 合并**
+ *    （应用/中间件作者扩展——同后端 `declare module 'weifuwu' { interface Context }`）：
+ *    ```ts
+ *    declare module 'weifuwu/vdom' { interface UIContext { api: ApiClient } }
+ *    ```
+ *  - 组件泛型：Component<P, C = UIContext>——默认增强后的 UIContext） */
+export interface UIContext {
   /** 统一渲染原语（组件级闭包绑定——root/comp/语义 id 同一入口——串行调度；
    *  返回 Promise——await 精确等待（含渲染中触发的补跑——X-A7） */
   render(ids?: string[]): Promise<void>
@@ -40,10 +50,10 @@ export interface Ctx {
   onUnmount(fn: () => void): void
   /** 渲染完成回调注册（hook 挂载后动作——元素已挂载——serve 提供） */
   afterRender?(fn: () => void): void
-  /** 浏览器环境 API（browser/ 实现——copyText/byId/scrollTop/storage...） */
-  browser: unknown
-  /** hooks 注入面（hooks/ 实现——usePopup/useControlled/useExternal...） */
-  ui: unknown
+  /** 浏览器环境 API（注入的 window/document） */
+  browser: Browser
+  /** hooks 注入面（usePopup/useControlled/useExternal 等 14 个——类型安全） */
+  ui: Ui
   /** 路由参数（页面组件——UIRouter 注入） */
   params?: Record<string, string>
   /** 中间件注入面（api/auth/ws/i18n...——可选链消费） */

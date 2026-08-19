@@ -23,7 +23,7 @@ import { diffStream } from './diff.ts'
 import type { VNode } from './vnode.ts'
 import { createComponentRegistry } from './node/component.ts'
 import { createDataPipe } from '../context/data.ts'
-import type { Ctx, DataPipe } from '../context/Ctx.ts'
+import type { UIContext, DataPipe } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 import type { Browser } from '../browser/Browser.ts'
 
@@ -119,7 +119,7 @@ export interface UiServeHandle {
 
 /** 页面作者渲染入口（ctx 面——vnode → Response command 事件流——
  *  公共面仍只有 h/jsx/uiServe/UIRouter——本入口经 ctx 提供） */
-export interface RenderCtx extends Ctx {
+export interface RenderCtx extends UIContext {
   /** vnode → Response（command 事件流——函数表编码——事件绑定跨流保持） */
   stream(vnode: VNode, init?: ResponseInit): Response
 }
@@ -224,7 +224,7 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     ...(opts.auth ? { auth: opts.auth } : {}),
     ...(opts.ws ? { ws: opts.ws } : {}),
     ...(opts.i18n ? { i18n: opts.i18n } : {}),
-  } as unknown as Ctx
+  } as unknown as UIContext
 
   // ── 页面作者渲染入口（vnode → Response 事件流——函数表编码） ──
   const renderCtx = ctx as RenderCtx
@@ -326,13 +326,13 @@ export async function uiSsr(router: UIRouter, url: string, opts: SsrOptions = {}
   const ctx = {
     /** 服务端渲染入口（vnode → Response 命令流——空函数表） */
     stream: (vnode: VNode, init?: ResponseInit): Response => {
-      const stream = renderToStream(vnode, ctx as Ctx, createComponentRegistry())
+      const stream = renderToStream(vnode, ctx as UIContext, createComponentRegistry())
       return new Response(encodeCommands(stream, fnTable), { status: init?.status ?? 200 })
     },
     /** 数据管道（SSR 真 fetch——组件工厂取数） */
     data: createDataPipe(),
   } as RenderCtx
-  const res = await router.resolve(req, ctx as Ctx)
+  const res = await router.resolve(req, ctx as UIContext)
   if (!res.body) return htmlDocument('', opts)
   const html = await streamToString(
     res.body.pipeThrough(ndjsonDecode(fnTable)).pipeThrough(commandToHtml()),

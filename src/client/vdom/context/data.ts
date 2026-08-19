@@ -14,7 +14,7 @@
  * - 未命中且无 fetcher → 默认 fetch(key)（key = URL——JSON 解析）
  */
 
-import type { DataPipe } from './Ctx.ts'
+import type { DataPipe } from './UIContext.ts'
 
 export function createDataPipe(): DataPipe {
   const cache = new Map<string, Promise<unknown>>()
