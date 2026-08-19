@@ -19,6 +19,7 @@ import { testBrowser } from './setup.ts'
 import { UIRouter, uiServe } from './index.ts'
 import { h } from './core/vnode.ts'
 import type { RenderCtx } from './core/serve.ts'
+import { uiSsr } from './core/serve.ts'
 import { createStore } from './store.ts'
 import { createClientBrowser } from './browser/create-client-browser.ts'
 
@@ -987,4 +988,41 @@ test('usePopup presence：会话级模态——关闭退场（exit → 无动画
   ;(browser.document.querySelector('#m') as HTMLElement).click()
   await waitFor(() => browser.document.querySelector('.modal') === null)
   assert.equal(browser.document.querySelector('.modal'), null, '关闭 → 退场后移除（无动画环境立即）')
+})
+
+test('uiSsr：同一 handler → 完整 HTML 文档（SSR——无 hydration 决策）', async () => {
+  const router = new UIRouter()
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'home' }, '你好 <SSR>')))
+  router.get('/about', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'about' }, '关于')))
+  const html = await uiSsr(router, '/', { title: '首页' })
+  assert.ok(html.startsWith('<!DOCTYPE html>'), '完整文档')
+  assert.ok(html.includes('<title>首页</title>'))
+  assert.ok(html.includes('<div id="root"><div class="home">你好 &lt;SSR&gt;</div></div>'), '内容 + 转义')
+  // 另一路由
+  const about = await uiSsr(router, '/about')
+  assert.ok(about.includes('<div class="about">关于</div>'))
+})
+
+test('uiSsr：组件渲染（工厂 + ctx.data 服务端取数——mock fetch）', async () => {
+  const router = new UIRouter()
+  const origFetch = (globalThis as any).fetch
+  ;(globalThis as any).fetch = async (url: string) => ({ ok: true, json: async () => ({ title: `文章-${url.split('/').pop()}` }) })
+  try {
+    const Post = async (init: Record<string, unknown>, ctx: Ctx) => {
+      const post = await ctx.data.get<{ title: string }>(`/api/posts/${init.id}`)
+      return () => h('article', {}, post.title)
+    }
+    router.get('/posts/:id', (req, ctx) => (ctx as RenderCtx).stream(h(Post, { id: req.params.id })))
+    const html = await uiSsr(router, '/posts/7')
+    assert.ok(html.includes('<article>文章-7</article>'), '服务端取数 → HTML')
+  } finally {
+    ;(globalThis as any).fetch = origFetch
+  }
+})
+
+test('uiSsr：notFound 兜底（无匹配路由 → 空 root 文档）', async () => {
+  const router = new UIRouter()
+  router.notFound((req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'nf' }, '404')))
+  const html = await uiSsr(router, '/missing')
+  assert.ok(html.includes('<div class="nf">404</div>'))
 })

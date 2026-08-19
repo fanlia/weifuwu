@@ -16,6 +16,7 @@
  */
 
 import { UIRouter, frontRequest, type FrontRequest } from './router.ts'
+import { commandToHtml, htmlDocument } from './html.ts'
 import { CommandApplier } from './patch.ts'
 import { renderToStream } from './build.ts'
 import { diffStream } from './diff.ts'
@@ -26,6 +27,16 @@ import type { Ctx, DataPipe } from '../context/Ctx.ts'
 import type { Command } from './command/index.ts'
 import type { Browser } from '../browser/Browser.ts'
 
+/** 函数表还原（$fn 标记 → 函数——编码/解码同进程共享） */
+export function reviveFn(fnTable: Map<number, unknown>) {
+  return (k: string, v: unknown): unknown => {
+    if (v && typeof v === 'object' && typeof (v as { $fn?: unknown }).$fn === 'number') {
+      return fnTable.get((v as { $fn: number }).$fn)
+    }
+    return v
+  }
+}
+
 /** NDJSON 命令流解析（行缓冲——命令可能跨 chunk——函数表还原） */
 function commandReader(
   reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -33,12 +44,7 @@ function commandReader(
 ): AsyncGenerator<Command> {
   const decoder = new TextDecoder()
   let buf = ''
-  const revive = (k: string, v: unknown): unknown => {
-    if (v && typeof v === 'object' && typeof (v as { $fn?: unknown }).$fn === 'number') {
-      return fnTable.get((v as { $fn: number }).$fn)
-    }
-    return v
-  }
+  const revive = reviveFn(fnTable)
   const pump = async (): Promise<IteratorResult<Command>> => {
     while (true) {
       const nl = buf.indexOf('\n')
@@ -270,4 +276,66 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
       rootEl.innerHTML = ''
     },
   }
+}
+
+/** 服务端渲染（SSR——同一 router 同一 handler——命令流 → HTML 文档）
+ *  **无 hydration**（客户端接管 build 重建）——SSR = 首屏/SEO；
+ *  函数面（事件）经空函数表编码为 $fn 标记——解码 undefined——
+ *  commandToHtml 的 setProp no-op——HTML 无运行时面 */
+export interface SsrOptions {
+  title?: string
+  /** __DATA__ 种子（ctx.data 预取结果——序列化进文档） */
+  data?: Record<string, unknown>
+}
+
+/** 字节流 → 命令流（NDJSON 解码 TransformStream——服务端/跨进程消费） */
+export function ndjsonDecode(fnTable: Map<number, unknown>): TransformStream<Uint8Array, Command> {
+  const decoder = new TextDecoder()
+  const revive = reviveFn(fnTable)
+  let buf = ''
+  return new TransformStream<Uint8Array, Command>({
+    transform(chunk, controller) {
+      buf += decoder.decode(chunk, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.trim()) continue
+        controller.enqueue(JSON.parse(line, revive) as Command)
+      }
+    },
+    flush(controller) {
+      if (buf.trim()) controller.enqueue(JSON.parse(buf.trim(), revive) as Command)
+    },
+  })
+}
+
+async function streamToString(stream: ReadableStream<string>): Promise<string> {
+  const reader = stream.getReader()
+  let out = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    out += value
+  }
+  return out
+}
+
+export async function uiSsr(router: UIRouter, url: string, opts: SsrOptions = {}): Promise<string> {
+  const fnTable = createFnTable()
+  const req = frontRequest(url)
+  const ctx = {
+    /** 服务端渲染入口（vnode → Response 命令流——空函数表） */
+    stream: (vnode: VNode, init?: ResponseInit): Response => {
+      const stream = renderToStream(vnode, ctx as Ctx, createComponentRegistry())
+      return new Response(encodeCommands(stream, fnTable), { status: init?.status ?? 200 })
+    },
+    /** 数据管道（SSR 真 fetch——组件工厂取数） */
+    data: createDataPipe(),
+  } as RenderCtx
+  const res = await router.resolve(req, ctx as Ctx)
+  if (!res.body) return htmlDocument('', opts)
+  const html = await streamToString(
+    res.body.pipeThrough(ndjsonDecode(fnTable)).pipeThrough(commandToHtml()),
+  )
+  return htmlDocument(html, opts)
 }
