@@ -1210,3 +1210,48 @@ test('综合生命周期：浮层 + keyed 列表 + 条件渲染 + Fragment + ref
   // 卸载顺序：**LIFO（后挂载先卸载）**——c2（列表增后）→ extra（条件开后）→ c1/c0 → page
   assert.deepEqual(events, ['un:comment:c2', 'un:extra', 'un:comment:c1', 'un:comment:c0', 'un:page'], 'onUnmounts LIFO（栈语义）')
 })
+
+test('路由切换精准化：布局共享（root 稳定）——Header 复用不重建 + 页面内容精准替换', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const events: string[] = []
+  // 共享布局（root 稳定——跨路由复用）
+  const Layout = (init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('un:layout'))
+    return (props: Record<string, unknown>) => h('div', { class: 'layout' },
+      h('header', { class: 'hd' }, '站点头'),
+      props.page as never,  // 页面内容（组件——类型变化 → 局部替换）
+    )
+  }
+  const HomePage = (_i: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('un:home'))
+    return () => h('main', { class: 'home' }, '首页')
+  }
+  const AboutPage = (_i: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('un:about'))
+    return () => h('main', { class: 'about' }, '关于')
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Layout, { page: h(HomePage, {}) })))
+  router.get('/about', (req, ctx) => (ctx as RenderCtx).stream(h(Layout, { page: h(AboutPage, {}) })))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const headerBefore = browser.document.querySelector('.hd')
+  assert.ok(headerBefore, 'Header 渲染')
+  assert.ok(browser.document.querySelector('.home'), '首页内容')
+
+  // 导航 → /about（root 相同 Layout——diff 精准——Header 复用）
+  await serve.navigate('/about')
+  await waitFor(() => browser.document.querySelector('.about') !== null)
+  const headerAfter = browser.document.querySelector('.hd')
+  assert.equal(headerAfter, headerBefore, '**Header 节点复用（不重建——布局共享精准）**')
+  assert.equal(headerAfter?.textContent, '站点头')
+  assert.equal(browser.document.querySelector('.home'), null, '首页内容移除（局部替换）')
+  assert.deepEqual(events, ['un:home'], '仅 HomePage 卸载——Layout 保持')
+  assert.equal(browser.document.querySelector('.layout'), headerAfter?.parentElement, 'Layout 结构保持')
+
+  // 返回首页——AboutPage 卸载——HomePage 重建（Layout/Header 仍复用）
+  await serve.navigate('/')
+  await waitFor(() => browser.document.querySelector('.home') !== null)
+  assert.equal(browser.document.querySelector('.hd'), headerBefore, '往返导航 Header 始终复用')
+  assert.deepEqual(events, ['un:home', 'un:about'], '仅页面内容卸载——Layout 不卸载')
+})
