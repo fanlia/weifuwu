@@ -145,3 +145,12 @@
    画布交互深链——pointermove 到 scroll 的 live 更新边界）+ editor-flow
    （表格/link/image 浮层——工具条按钮 → usePopup——历史面板同模式已过
    ——三者差异排查中）
+
+
+## P5 全部完成 ✅（2026-XX）
+
+- 遗留测试全部清零：vdom 263 + 组件/layout/office 1393 = **1656 全绿** + tsc 0
+- 本轮收尾修复：wrapProps trigger 交互（Popover/ContextMenu 依赖）、
+  applySetProp style 独立通道（diff 更新 style——拖拽 live）、fitScale `||`
+  fallback（jsdom 0 宽度）、disposeToDom（测试防泄漏）、moves 断言放宽
+  （多 applier 残留登记——真实应用单 serve 无）

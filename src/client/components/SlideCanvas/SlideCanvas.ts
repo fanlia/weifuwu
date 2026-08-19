@@ -246,7 +246,10 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
 
     // 缩放适配（容器宽 960/高 540——scale 由宽度决定）
     const fitScale = (): number => {
-      const w = canvasEl?.clientWidth ?? 640
+      // `||` 而非 `??`（真实 bug）：jsdom/无布局环境 clientWidth 为 0——
+      // ?? 不 fallback（0 非 null）——scale 变负——拖拽反向——测试注释
+      // 期望 0 → fallback 640
+      const w = canvasEl?.clientWidth || 640
       return Math.min(1, (w - 24) / CANVAS_W)
     }
     scale = fitScale()

@@ -33,6 +33,11 @@ export function applySetProp(
   } else if (EVENT_RE.test(key)) {
     const name = eventName(key)
     if (name) registry.set(nodeId, name, value)
+  } else if (key === 'style') {
+    // **style 独立通道**（真实 bug）：diff 更新走 applyAttribute（对象
+    // String 化不生效——style 永不更新——拖拽 live 等）——create 路径
+    // 有 style 分支——setProp 路径必须一致
+    applyStyle(el, value)
   } else if (isPropertyKey(key)) {
     applyProperty(el, key, value)
   } else {

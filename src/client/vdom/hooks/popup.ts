@@ -294,7 +294,12 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
       }
       return phaseState.phase
     },
-    wrapProps: {},
+    // **wrapProps trigger 交互**（真实缺口）：Popover/ContextMenu 等依赖
+    // wrapProps 的 trigger 行为（不自管触发）——onClick 切换（受控转发
+    // setOpen——onOpenChange）——组件自管触发的（TreeSelect 等不 spread）
+    wrapProps: {
+      onClick: (e: Event) => { e.stopPropagation?.(); open.setOpen(!open.open) },
+    },
     onTrigger: () => {},
   }
 }

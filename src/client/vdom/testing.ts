@@ -331,6 +331,15 @@ export async function patchToDom(container: Element, _node: Node | null, prev: a
   return next
 }
 
+/** 卸载清理（applier.dispose——移除 document 事件监听——测试防泄漏——
+ *  多 mount 残留监听导致 pointerup 等触发旧实例（拖拽多次 commit——
+ *  真实事故）） */
+export function disposeToDom(container: Element): void {
+  const cached = domCache.get(container)
+  cached?.applier.dispose()
+  domCache.delete(container)
+}
+
 /** build（无调用方语义——兼容签名：返回 vnode 本身） */
 export function buildToDom(vnode: any, _ctx: any): Promise<any> {
   return Promise.resolve(vnode)
