@@ -153,7 +153,13 @@ export class CommandApplier {
         } else {
           const el = this.doc.createElement(cmd.tag)
           applyAttrs(el, cmd.attrs)
-          if (existing) existing.replaceWith(el) // 类型不符 → 替换（同构保持）
+          if (existing) {
+            // 类型不符 → 替换（同构保持）——**旧节点卸载资源释放**
+            //（ref(null) + 事件表——整树替换时旧树节点被新树同 id 覆盖）
+            this.clearNodeRefs(cmd.id)
+            this.eventRegistry.remove(cmd.id)
+            existing.replaceWith(el)
+          }
           this.nodes.set(cmd.id, el)
         }
         // data-wf-id 标记（事件代理定位——元素节点）

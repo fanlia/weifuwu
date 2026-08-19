@@ -1097,3 +1097,116 @@ test('组件生命周期：子组件类型切换（A → B 条件渲染——卸
   await waitFor(() => browser.document.querySelector('.a') !== null)
   assert.deepEqual(events, ['a-unmount', 'b-unmount'], 'B 卸载清理')
 })
+
+test('综合生命周期：浮层 + keyed 列表 + 条件渲染 + Fragment + ref——完整命令流', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const events: string[] = []
+  const refCalls: string[] = []
+  const titleRef = (el: HTMLElement | null) => { refCalls.push(el ? `ref-mount:${el.isConnected}` : 'ref-unmount') }
+
+  // keyed 列表项（有内部状态——身份跟随 key）
+  const Comment = (init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push(`un:comment:${init.id}`))
+    let votes = 0
+    const onVote = () => { votes++; void ctx.render() }
+    return () => h('li', { class: 'cmt' },
+      h('span', { class: 'txt' }, `${String(init.text)}(${votes})`),
+      h('button', { class: 'vote', onClick: onVote }, '赞'),
+    )
+  }
+  // 条件渲染组件
+  const Extra = (_init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('un:extra'))
+    return () => h('div', { class: 'extra' }, '扩展')
+  }
+  // 页面（浮层 + 列表 + 条件 + Fragment）
+  const Page = (init: Record<string, unknown>, ctx: Ctx) => {
+    ctx.onUnmount(() => events.push('un:page'))
+    const popup = (ctx.ui as { usePopup: (o: object) => {
+      open: boolean; setOpen: (v: boolean) => void; portal: (c: unknown, k?: string) => unknown;
+      panelRef: (el: HTMLElement | null) => void; pos: { top: number; left: number }
+    } }).usePopup({ placement: 'bottom' })
+    let ids = init.ids as string[]
+    let showMore = false
+    let likes = 0
+    const onLike = () => { likes++; void ctx.render() }
+    const onAdd = () => { ids = [...ids, `c${ids.length}`]; void ctx.render() }
+    const onMore = () => { showMore = !showMore; void ctx.render() }
+    return () => h('article', { class: 'post' },
+      h('h1', { ref: titleRef as never }, '文章'),                      // ref
+      h('button', { id: 'like', onClick: onLike }, `赞${likes}`),       // 交互
+      // Fragment（数组展开——隐式 Fragment）
+      h('span', { class: 'tag-a' }, '#a'),
+      h('span', { class: 'tag-b' }, '#b'),
+      // 条件渲染（false 占位 ↔ 组件）
+      showMore ? h(Extra, {}) : null,
+      // keyed 列表（增删——身份复用）
+      h('ul', { class: 'list' }, ids.map((id) => h(Comment, { key: id, id, text: `评论${id}` }))),
+      h('button', { id: 'add', onClick: onAdd }, '加评论'),
+      h('button', { id: 'more', onClick: onMore }, '展开'),
+      // 浮层（usePopup——portal）
+      h('button', { id: 'dd', onClick: () => popup.setOpen(!popup.open) }, '菜单'),
+      popup.portal(
+        h('div', { ref: popup.panelRef as never, class: 'menu', style: { position: 'fixed', top: '0px', left: '0px' } }, '下拉项'),
+        'dd',
+      ) as never,
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, { ids: ['c0', 'c1'] })))
+  router.get('/about', (req, ctx) => (ctx as RenderCtx).stream(h('div', { class: 'about' }, '关于')))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+
+  // ── ① 首帧（mount：page + comment×2 + ref 挂载 + Fragment 展开） ──
+  const article = browser.document.querySelector('.post') as HTMLElement
+  assert.ok(article, '页面渲染')
+  assert.equal(article.querySelectorAll('.cmt').length, 2, 'keyed 列表 2 项')
+  assert.equal(article.querySelector('.tag-a')?.textContent, '#a', 'Fragment 数组展开')
+  assert.equal(article.querySelector('.tag-b')?.textContent, '#b')
+  assert.deepEqual(refCalls, ['ref-mount:true'], 'ref 挂载后触发（el 已连接）')
+  assert.equal(article.querySelector('.extra'), null, '条件渲染初始关闭（false 占位）')
+
+  // ── ② 交互：点赞（diff 精准——状态保持） ──
+  ;(browser.document.querySelector('#like') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('#like')?.textContent === '赞1')
+  assert.equal(browser.document.querySelector('#like')?.textContent, '赞1')
+
+  // ── ③ 条件渲染开（null → 组件——占位锚 ↔ 元素转换） ──
+  ;(browser.document.querySelector('#more') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.extra') !== null)
+  assert.equal(browser.document.querySelector('.extra')?.textContent, '扩展', 'Extra mount（占位锚转换）')
+
+  // ── ④ keyed 列表增（新项 mount——旧项身份复用不重建） ──
+  ;(browser.document.querySelector('#add') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelectorAll('.cmt').length === 3)
+  assert.equal(browser.document.querySelectorAll('.cmt').length, 3, 'keyed 增——身份复用')
+  // 旧项投票状态保持（点击第一个评论的赞——闭包状态）
+  ;(article.querySelectorAll('.vote')[0] as HTMLElement).click()
+  await waitFor(() => article.querySelectorAll('.txt')[0]?.textContent === '评论c0(1)')
+  assert.equal(article.querySelectorAll('.txt')[0]?.textContent, '评论c0(1)', '列表增后旧项状态保持')
+
+  // ── ⑤ 浮层开（portal——插槽锚 + 容器内容） ──
+  ;(browser.document.querySelector('#dd') as HTMLElement).click()
+  await waitFor(() => browser.document.querySelector('.menu') !== null)
+  const menu = browser.document.querySelector('.menu') as HTMLElement
+  assert.equal(menu.closest('#__wf_portal') !== null, true, '浮层 portal 到 #__wf_portal')
+  assert.equal(menu.textContent, '下拉项')
+  // 浮层内点击不触发外部关闭（事件代理——面板内）
+  menu.click()
+  await new Promise((r) => setTimeout(r, 30))
+  assert.ok(browser.document.querySelector('.menu'), '面板内点击不关闭')
+
+  // ── ⑥ 浮层关（removePortal——容器清空） ──
+  browser.document.body.dispatchEvent(new browser.window.MouseEvent('mousedown', { bubbles: true }))
+  await waitFor(() => browser.document.querySelector('.menu') === null)
+  assert.equal(browser.document.querySelector('.menu'), null, '外部点击关闭——容器清理')
+
+  // ── ⑦ 导航离开（整树卸载——onUnmounts 逆序 + ref(null) + 资源清理） ──
+  await serve.navigate('/about')
+  await waitFor(() => browser.document.querySelector('.about') !== null)
+  assert.equal(browser.document.querySelector('.post'), null, '旧页移除')
+  assert.deepEqual(refCalls, ['ref-mount:true', 'ref-unmount'], 'ref(null) 卸载清理')
+  // 卸载顺序：**LIFO（后挂载先卸载）**——c2（列表增后）→ extra（条件开后）→ c1/c0 → page
+  assert.deepEqual(events, ['un:comment:c2', 'un:extra', 'un:comment:c1', 'un:comment:c0', 'un:page'], 'onUnmounts LIFO（栈语义）')
+})

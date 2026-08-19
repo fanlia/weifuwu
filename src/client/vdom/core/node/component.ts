@@ -60,9 +60,10 @@ export function createComponentRegistry(): ComponentRegistry {
   }
 }
 
-/** 整树替换：全部组件实例卸载（onUnmounts 逆序——导航/root 类型变化） */
+/** 整树替换：全部组件实例卸载（**LIFO——后挂载先卸载**——导航/root
+ *  类型变化——与单组件 onUnmounts 逆序一致——栈语义） */
 export function disposeAllComponents(registry: ComponentRegistry): void {
-  for (const id of registry.keys()) disposeComponent(id, registry)
+  for (const id of [...registry.keys()].reverse()) disposeComponent(id, registry)
 }
 
 /** 组件渲染 sink（render.ts 的 emit——子节点递归出口） */
