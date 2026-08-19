@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { transformSync } from 'esbuild'
 
 // bare specifier → 源码路径（与 tsconfig paths 一致——测试/dev 单模块图，
-// 防 dist/src 双实例：页面 JSX 编出的 weifuwu/ui-dom import 必须与测试同图）
+// 防 dist/src 双实例：页面 JSX 编出的 weifuwu/vdom import 必须与测试同图）
 const SRC_ROOT = new URL('..', import.meta.url).pathname
 const BARE_ALIASES: Record<string, string> = {
   'weifuwu/vdom/jsx-runtime': SRC_ROOT + 'vdom/jsx-runtime.ts',

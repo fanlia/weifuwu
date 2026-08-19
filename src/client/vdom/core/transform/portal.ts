@@ -14,9 +14,15 @@
  */
 
 import type { TransformContext, TransitionFn } from './index.ts'
+import type { VNode } from '../vnode.ts'
 
-/** portal → X：主树插槽锚移除（让位——浮层内容由 diff 清理 portal 区间） */
-export const transitionPortal: TransitionFn = async (_old, next, ctx) => {
+/** portal → X：主树插槽锚移除 + **portal 容器清理**（真实 bug——
+ *  组件输出级浮层关闭（Modal/Drawer open=false——renderFn 返回 null——
+ *  diffComponentOutput → transitionPortal）只 remove 锚——#__wf_portal
+ *  容器残留（Escape/关闭后弹层仍挂 DOM——agent-browser 实测抓出；
+ *  mock portal 测试不涉及真实容器——掩盖）——removePortal 命令清容器） */
+export const transitionPortal: TransitionFn = async (old, next, ctx) => {
+  ctx.emit({ op: 'removePortal', key: (old as VNode).key ?? 'default' })
   ctx.emit({ op: 'remove', id: ctx.oldId })
   await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

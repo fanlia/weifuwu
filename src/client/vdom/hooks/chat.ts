@@ -135,9 +135,25 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
   }
 
   /** 流式行解析（默认：{ content } 累积） */
-  const parseChunk = opts.parseChunk ?? ((line: string) => {
-    const data = JSON.parse(line) as { content?: string; toolCalls?: ChatMessage['toolCalls'] }
-    return data
+  const parseChunk: (line: string) => { content?: string; toolCalls?: ChatMessage['toolCalls'] } | null =
+    opts.parseChunk ?? ((line: string) => {
+    // **协议漂移（真实 bug）**：服务端是 wf: SSE（event/data 行——data: {...}——
+    // token 用 { text } 字段）——默认按裸 JSON 行解析——data: 前缀/event 行全丢——
+    // 助手消息永不显示（agent-browser 实测：流式断——气泡 '…'）——同时兼容
+    // 裸 JSON 行（旧/简单服务端）
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('event:')) return null
+    const json = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed
+    if (!json) return null
+    try {
+      const d = JSON.parse(json) as { content?: string; text?: string; toolCalls?: ChatMessage['toolCalls'] }
+      if (d.toolCalls) return d as { toolCalls: ChatMessage['toolCalls'] }
+      // wf:token 的 { text } → content（协议映射）
+      if (d.text !== undefined) return { content: String(d.text) }
+      return d.content !== undefined ? { content: d.content } : null
+    } catch {
+      return null
+    }
   })
 
   const handle: ChatHandle = {
@@ -165,7 +181,11 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
 
     notify,
 
-    async send(text: string): Promise<void> {
+    async send(text: string = state.input): Promise<void> {
+      // **默认值 bug**：接口注释「无参用 state.input」——实现漏默认值——
+      // AiChat onSend 调 send()（无参）——content undefined——消息渲染
+      // '…'（m.content || '…'）——body 的 content 也被 JSON.stringify 丢弃——
+      // agent-browser 实测：用户消息不显示
       const url = typeof opts.url === 'function' ? opts.url() : (opts.url ?? '/api/chat')
       const userMsg: ChatMessage = { id: newId(), role: 'user', content: text }
       state.messages = [...state.messages, userMsg]

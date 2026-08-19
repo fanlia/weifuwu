@@ -12,4 +12,23 @@
  */
 
 export { jsx, jsxs, jsxDEV } from './core/vnode.ts'
+import { Fragment as _Fragment } from './core/node/fragment.ts'
 export { Fragment } from './core/node/fragment.ts'
+const Fragment = _Fragment
+
+/** JSX 类型声明（jsxImportSource: weifuwu/vdom——组件/用户 JSX 编译产物类型） */
+declare global {
+  namespace JSX {
+    type Element = import('./core/vnode.ts').VNode | null
+    type ElementType =
+      | string
+      | ((props: any, ctx: any) => any)
+      | typeof Fragment
+    interface IntrinsicElements {
+      [tag: string]: any
+    }
+    interface IntrinsicAttributes {
+      key?: string | number | null
+    }
+  }
+}

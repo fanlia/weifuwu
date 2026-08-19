@@ -177,9 +177,9 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
       }, [
         h(ChatInput, {
           value: chat.input ?? '',
-          onChange: (v: string) => { chat.input = v }, // 输入期每键同步共享 handle（发送读 state.input）
+          onChange: (v: string) => { chat.setInput(v) }, // 输入期每键同步共享 handle（发送读 state.input）
           onSend: (text: string) => {
-            chat.input = text // 写入共享 handle（send 读 state.input）
+            chat.setInput(text) // 写入共享 handle（send 读 state.input）
             chat.send()
           },
           streaming: chat.streaming,

@@ -181,14 +181,15 @@ test('全分支：portal → X / X → portal（浮层槽位切换）', async ()
   const portal = { type: Symbol('portal'), props: {}, key: 'dd' }
   const t1 = runT('portal', 'hole', portal, null)
   await t1.run()
-  assert.deepEqual(t1.cmds, [{ op: 'remove', id: 'root.1' }], '浮层锚让位')
+  // 组件输出级浮层关闭：removePortal（容器清理——真实 bug）+ 锚让位
+  assert.deepEqual(t1.cmds, [{ op: 'removePortal', key: 'dd' }, { op: 'remove', id: 'root.1' }], '浮层容器清理 + 锚让位')
   assert.deepEqual(t1.emitted, [null])
   const t2 = runT('hole', 'portal', null, portal)
   await t2.run()
   assert.deepEqual(t2.emitted, [portal])
   const t3 = runT('portal', 'element', portal, h('div', {}))
   await t3.run()
-  assert.deepEqual(t3.cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(t3.cmds, [{ op: 'removePortal', key: 'dd' }, { op: 'remove', id: 'root.1' }], 'portal → element 清容器 + 锚让位')
   assert.deepEqual(t3.emitted, [h('div', {}) as never])
 })
 
@@ -260,22 +261,23 @@ test('全分支补全：portal → text/component/fragment/array（浮层槽位�
   const portal = { type: Symbol('portal'), props: {}, key: 'dd' }
   const comp = { type: () => () => null, props: {}, key: null }
   // portal → text / portal → component
+  const RP = { op: 'removePortal', key: 'dd' }
   const t1 = runT('portal', 'text', portal, 'x')
   await t1.run()
-  assert.deepEqual(t1.cmds, [{ op: 'remove', id: 'root.1' }], '浮层锚让位')
+  assert.deepEqual(t1.cmds, [RP, { op: 'remove', id: 'root.1' }], '浮层容器清理 + 锚让位')
   assert.deepEqual(t1.emitted, ['x'])
   const t2 = runT('portal', 'component', portal, comp)
   await t2.run()
-  assert.deepEqual(t2.cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(t2.cmds, [RP, { op: 'remove', id: 'root.1' }])
   assert.deepEqual(t2.emitted, [comp])
   // portal → fragment / portal → array
   const t3 = runT('portal', 'fragment', portal, h(Fragment, {}, 'a'))
   await t3.run()
-  assert.deepEqual(t3.cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(t3.cmds, [RP, { op: 'remove', id: 'root.1' }])
   assert.deepEqual(t3.emitted, [h(Fragment, {}, 'a') as never])
   const t4 = runT('portal', 'array', portal, [h('span', {})])
   await t4.run()
-  assert.deepEqual(t4.cmds, [{ op: 'remove', id: 'root.1' }])
+  assert.deepEqual(t4.cmds, [RP, { op: 'remove', id: 'root.1' }])
   assert.deepEqual(t4.emitted, [[h('span', {})]])
 })
 

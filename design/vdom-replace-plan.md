@@ -154,3 +154,34 @@
   applySetProp style 独立通道（diff 更新 style——拖拽 live）、fitScale `||`
   fallback（jsdom 0 宽度）、disposeToDom（测试防泄漏）、moves 断言放宽
   （多 applier 残留登记——真实应用单 serve 无）
+
+
+## showcase agent-browser 实测（P5 后——真实引擎验证）
+
+**实测范围**：首页/路由导航/主题切换/组件详情/搜索/Dropdown/Modal/Tabs/AiChat 流式——
+全部通过。**抓出 14 个真实 bug（全修 + 单测回归）**：
+
+**编译/配置层**（showcase tsc 0 + app.js 200）：
+1. showcase/agent-platform tsconfig paths 残留 ui-dom（P4 后从未跑 tsc）
+2. P5 删除 ui-dom 时 JSX 全局声明丢失（jsx-runtime.ts 缺 declare global——
+   showcase 编译 717 个 TS2786/TS7026）
+3. declare global 里 `typeof Fragment` 引用失败（仅 re-export 无本地名——TS2304）
+4. 根 tsconfig/server/ui/dev 的 jsxImportSource 残留 ui-dom（esbuild 编译全断）
+5. server/ui JS_ALIASES ui-dom 残留
+6. showcase server.ts 的 layout/components 路径（P5 目录分组残留）
+
+**引擎层**（agent-browser 实测抓出——mock 测试掩盖）：
+7. transitionPortal 只 remove 锚——不清理 portal 容器（组件输出级浮层关闭残留——
+   Modal/Escape 后弹层仍挂 DOM）
+8. usePopup.portal 不注入 panelRef/定位包装（panelRef 从未接线——退场挂死）
+9. 无动画检查只看根（Modal/Drawer 动画在子元素——退场截断/误判）
+10. resolveTrigger `trigger ?? el`——trigger 字符串优先——el 锚点恒 null——
+    Dropdown 定位 0,0（左上角）
+11. Dropdown CSS transform translateX(-50%) 残留（旧居中方案——JS 坐标冲突）
+
+**组件/AI 层**：
+12. AiChat `chat.input = v` 赋值写 getter-only——TypeError（应 setInput）
+13. useChat send() 无参时 content undefined（接口注释「无参用 state.input」——
+    实现漏默认值——消息渲染 '…'）
+14. useChat 默认解析裸 JSON 行 vs 服务端 wf: SSE（event/data 行 + {text}）——
+    协议漂移——流式断——助手消息永不显示

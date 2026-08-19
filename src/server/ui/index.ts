@@ -48,9 +48,6 @@ const JS_ALIASES: Record<string, string> = IS_SRC
       'weifuwu/vdom/jsx-runtime': HERE + '/../../client/vdom/jsx-runtime.ts',
       'weifuwu/vdom/testing': HERE + '/../../client/vdom/testing.ts',
       'weifuwu/vdom': HERE + '/../../client/vdom/index.ts',
-      'weifuwu/ui-dom/jsx-runtime': HERE + '/../../client/ui-dom/jsx-runtime.ts',
-      'weifuwu/ui-dom/testing': HERE + '/../../client/ui-dom/testing.ts',
-      'weifuwu/ui-dom': HERE + '/../../client/ui-dom/index.ts',
       'weifuwu/components': HERE + '/../../client/components/index.ts',
       'weifuwu': HERE + '/../index.ts',
     }
@@ -58,9 +55,6 @@ const JS_ALIASES: Record<string, string> = IS_SRC
       'weifuwu/vdom/jsx-runtime': HERE + '/../../dist/vdom/jsx-runtime.js',
       'weifuwu/vdom/testing': HERE + '/../../dist/vdom/testing.js',
       'weifuwu/vdom': HERE + '/../../dist/vdom/index.js',
-      'weifuwu/ui-dom/jsx-runtime': HERE + '/../../dist/ui-dom/jsx-runtime.js',
-      'weifuwu/ui-dom/testing': HERE + '/../../dist/ui-dom/testing.js',
-      'weifuwu/ui-dom': HERE + '/../../dist/ui-dom/index.js',
       'weifuwu/components': HERE + '/../../dist/components/index.js',
       'weifuwu': HERE + '/index.js',
     }
@@ -212,7 +206,7 @@ export function ui(): Middleware {
           format: 'esm',
           platform: 'browser',
           jsx: 'automatic',
-          jsxImportSource: 'weifuwu/ui-dom',
+          jsxImportSource: 'weifuwu/vdom',
           alias: JS_ALIASES,
           write: false,
           metafile: true,

@@ -750,7 +750,7 @@ const DemoLayout: Component = async (_props, ctx) => {
   )
 }
 
-const DemoPopconfirm: Component<any, ToastInjected> = async (_p, ctx) => async () => (
+const DemoPopconfirm: Component<any, UIContext & ToastInjected> = async (_p, ctx) => async () => (
   <div class="wf-row wf-gap-lg wf-cluster">
     <Popconfirm title="确定删除这条数据？" danger onConfirm={() => ctx.toast('已删除', 'success')}>
       <Button variant="danger">删除</Button>
@@ -796,7 +796,7 @@ const DemoLink: Component = async () => async () => (
   </div>
 )
 
-const DemoFloatButton: Component<any, ToastInjected> = async (_p, ctx) => async () => (
+const DemoFloatButton: Component<any, UIContext & ToastInjected> = async (_p, ctx) => async () => (
   <FloatButtonGroup>
     <FloatButton icon={<Icon name="edit" size={18} />} onClick={() => ctx.toast('编辑', 'info')} />
     <FloatButton icon={<Icon name="bar-chart" size={18} />} onClick={() => ctx.toast('报表', 'info')} />
@@ -804,7 +804,7 @@ const DemoFloatButton: Component<any, ToastInjected> = async (_p, ctx) => async 
   </FloatButtonGroup>
 )
 
-const DemoNavMenu: Component<any, ToastInjected> = async (_p, ctx) => {
+const DemoNavMenu: Component<any, UIContext & ToastInjected> = async (_p, ctx) => {
   // 受控纪律（§5.2）：activeKey 必须配 onSelect 更新——否则点击静默失效
   let active = 'home'
   return async () => (

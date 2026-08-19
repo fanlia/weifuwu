@@ -49,15 +49,6 @@ const MiniTodo = async (_init: any, ctx: any) => {
 
 // ── 父应用：工作台（嵌入子应用 + 边界事件观测） ──
 export const WorkbenchPage: Component = async (_init: any, ctx: any) => {
-  // 边界事件观测（stream——app:mount/update 可观测）
-  let appEvents: string[] = []
-  const off = stream.subscribe((e: any) => {
-    if (e.entity === 'app' && appEvents.length < 12) {
-      appEvents.push(`${e.action}:${(e.payload as any)?.appId ?? ''}`)
-      ctx.render()
-    }
-  })
-  ctx.ui.onUnmount?.(off)
   return async (_p: any) => (
     <div class="wf-stack wf-gap-md">
       <PageHeader title="应用编排工作台" sub="父应用嵌入子应用——registerApp 注册 · <App appId /> 渲染 · 独立状态" />
@@ -70,12 +61,6 @@ export const WorkbenchPage: Component = async (_init: any, ctx: any) => {
           <b class="wf-text-sm">迷你任务（子应用 2）</b>
           {h(MiniTodo, {})}
         </div>
-      </div>
-      <div class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs">
-        <b class="wf-text-sm">边界事件（stream 实时观测）</b>
-        {appEvents.length === 0 ? <span class="wf-text-xs wf-text-tertiary">（等待 app:* 事件——切换页面再回来可看到 app:unmount/mount）</span> : (
-          appEvents.map((e, i) => <code key={i} class="wf-text-xs" style="font-family:var(--wf-font-mono)">app:{e}</code>)
-        )}
       </div>
     </div>
   )

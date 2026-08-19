@@ -16,8 +16,9 @@
   box-shadow: var(--wf-shadow-md);
   z-index: var(--wf-z-dropdown);
   padding: var(--wf-space-xs) 0;
-
-  transform: translateX(-50%);
+  /* **真实 bug**：JS 坐标定位（fixed top/left——usePopup 计算）——transform
+     残留（旧 CSS 居中方案）把面板推移（-50% 宽度）——视口外不可见（下拉
+     出现在左上角——agent-browser 实测：rect -70,0）——删除 */
 }
 
 .wf-dropdown--open {

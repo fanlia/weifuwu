@@ -14,16 +14,13 @@
         "../../src/server/index.ts"
       ],
       "weifuwu/vdom/jsx-runtime": [
-        "../../src/client/ui-dom/jsx-runtime.ts"
+        "../../src/client/vdom/jsx-runtime.ts"
       ],
       "weifuwu/vdom": [
-        "../../src/client/ui-dom/index.ts"
+        "../../src/client/vdom/index.ts"
       ],
       "weifuwu/components": [
         "../../src/client/components/index.ts"
-      ],
-      "weifuwu/ui-dom/vdom3": [
-        "../../src/client/ui-dom/vdom3/index.ts"
       ]
     }
   },

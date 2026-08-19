@@ -22,7 +22,7 @@ export const TodoEmbed: Component = async (_init: any, _ctx: any) => {
     } else if (!el && sub) {
       // 卸载：清理（子路由 close + hashchange 注销）
       removeHash?.()
-      sub.close()
+      sub.unmount()
       sub = null
     }
   }

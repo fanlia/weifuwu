@@ -181,29 +181,13 @@ const DemoApprovalCard: Component = async (_p, ctx) => {
 /** AiChat：useChat + 标准对话界面（流式 / 工具 / 审批 / 自动滚动） */
 
 const DemoAiChat: Component = async (_props, ctx) => {
+  // vdom useChat：body 按协议固定（messages 数组）——工具调用/审批随事件处理
   const chat = ctx.ui.useChat({
     url: '/api/chat',
-    approveUrl: '/api/approve',
-    body: (messages) => ({
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      mode: chat.mode, // chat | agent
-    }),
   })
-  chat.mode = 'chat'
 
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <div class="wf-row">
-        {(['chat', 'agent'] as const).map((m) => (
-          <button
-            class={`wf-btn wf-btn--sm ${chat.mode === m ? 'wf-btn--primary' : ''}`}
-            type="button"
-            onClick={() => { chat.mode = m; chat.clear() }}
-          >
-            {m === 'chat' ? '流式对话' : 'Agent（工具+审批）'}
-          </button>
-        ))}
-      </div>
       <AiChat chat={chat} maxHeight="300px" />
     </div>
   )

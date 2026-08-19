@@ -161,7 +161,7 @@ app.put('/api/files/:name', async (req: Request, ctx: any): Promise<Response> =>
 app.get('/app.js', (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
 
 app.get('/components.css', async (req, ctx) => {
-  const layoutSrc = resolve(root, 'src', 'layout')
+  const layoutSrc = resolve(root, 'src', 'client', 'layout')
   const entry = await readFile(resolve(layoutSrc, 'weifuwu-layout.css'), 'utf-8')
   const layoutChunks: string[] = []
   for (const line of entry.split('\n')) {
@@ -173,10 +173,10 @@ app.get('/components.css', async (req, ctx) => {
   }
   let css = '@layer tokens, base, layout, utilities, components;\n\n' + layoutChunks.join('\n\n')
   css += '\n@layer components {\n'
-  const dirs = await readdir(resolve(root, 'src', 'components'), { withFileTypes: true })
+  const dirs = await readdir(resolve(root, 'src', 'client', 'components'), { withFileTypes: true })
   for (const d of dirs.filter((x) => x.isDirectory())) {
     try {
-      css += await readFile(resolve(root, 'src', 'components', d.name, `${d.name}.css`), 'utf-8') + '\n'
+      css += await readFile(resolve(root, 'src', 'client', 'components', d.name, `${d.name}.css`), 'utf-8') + '\n'
     } catch { /* 无 CSS 组件跳过 */ }
   }
   css += '}\n'

@@ -17,7 +17,7 @@ export const AuthEmbed: Component = async (_init: any, _ctx: any) => {
       removeHash = () => window.removeEventListener('hashchange', onHash)
     } else if (!el && sub) {
       removeHash?.()
-      sub.close()
+      sub.unmount()
       sub = null
     }
   }

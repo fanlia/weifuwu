@@ -10,7 +10,7 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "weifuwu/ui-dom",
+    "jsxImportSource": "weifuwu/vdom",
     "types": [
       "node"
     ],

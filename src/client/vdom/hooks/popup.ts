@@ -138,10 +138,23 @@ export function computePos(
   return { top, left }
 }
 
-/** 锚点解析（trigger/el——字符串 = 触发方式装饰性（ui-dom 兼容——vdom
- *  组件显式 setOpen 驱动）→ null；函数 → 求值） */
+/** 动画检查（根 + 直接子元素——Modal/Drawer 动画在子元素——jsdom 无动画） */
+export function hasAnim(el: HTMLElement, win: Window): boolean {
+  const self = win.getComputedStyle(el).animationName
+  if (self && self !== 'none') return true
+  for (const c of el.children) {
+    const n = win.getComputedStyle(c as HTMLElement).animationName
+    if (n && n !== 'none') return true
+  }
+  return false
+}
+
+/** 锚点解析（**el 优先**——真实 bug：`trigger ?? el` 让 trigger 字符串
+ * （'click'——触发方式装饰——vdom 组件显式 setOpen 驱动）优先——el getter
+ * 被忽略——refresh 锚点恒 null——浮层定位 0,0（左上角——agent-browser
+ * 实测 Dropdown 面板 rect 0,0）——ui-dom 语义：el 是锚点，trigger 是方式） */
 function resolveTrigger(opts: PopupOptions): HTMLElement | null {
-  const t = opts.trigger ?? opts.el
+  const t = opts.el ?? opts.trigger
   if (!t) return null
   const el = typeof t === 'function' ? t() : t
   return typeof el === 'string' ? null : el
@@ -173,6 +186,8 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
   let retries = 0
   const refresh = (): void => {
     const el = resolveTrigger(opts)
+    const rawEl = typeof opts.el === 'function' ? opts.el() : opts.el
+    console.log('[popup-refresh] el:', !!el, 'rawEl:', !!rawEl, 'panel:', !!panel.current, 'retries:', retries)
     if (!el || !panel.current) {
       // el-null fallback（嵌套弹层首帧锚点未挂载——限次重试——防无限微任务循环）
       if (retries++ < 10) queueMicrotask(refresh)
@@ -190,6 +205,28 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
     retries = 0
     pos.current = p
     env.requestRender() // 坐标落地（面板 style 更新）
+  }
+
+  /** panelRef 实现（局部函数——portal 引用（对象方法名不提升——TS 报错）——
+   *  接口 panelRef 方法转发） */
+  const panelRefImpl = (el: HTMLElement | null): void => {
+    panel.current = el
+    if (el && open.open && opts.positioning !== 'none') queueMicrotask(refresh) // 面板挂载 → 定位
+    // presence：监听退场动画结束（exit → closed）
+    if (el && opts.presence) {
+      const onAnimEnd = (e: AnimationEvent): void => {
+        // **真实 bug**：Modal/Drawer 退场动画名是 unpop/fadeout——
+        // 检查 includes('exit') 不匹配——animationend 被忽略——phase
+        // 卡 exit 永不 closed（Escape 关闭后弹层残留）——exit 阶段任意
+        // animationend 即退场完成（enter 动画在 open 阶段——忽略）
+        if (phaseState.phase === 'exit') {
+          phaseState.phase = 'closed'
+          env.requestRender()
+        }
+      }
+      el.addEventListener('animationend', onAnimEnd)
+      env.onUnmount(() => el.removeEventListener('animationend', onAnimEnd))
+    }
   }
 
   /** presence 状态机（会话级模态：open→exit→closed——退场动画） */
@@ -243,37 +280,40 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
           if (opts.positioning !== 'none') queueMicrotask(refresh)
         } else if (opts.presence) {
           phaseState.phase = 'exit' // 退场——动画后 closed（panelRef 监听 animationend）
-          // **无动画环境立即 closed**（Toast 模式——animationName 检查——
-          // jsdom/无 CSS 动画环境 animationend 不触发——不挂死）
-          if (panel.current && win) {
-            const anim = win.getComputedStyle(panel.current).animationName
-            if (!anim || anim === 'none') phaseState.phase = 'closed'
-          }
+          // **无动画环境立即 closed**（jsdom/无 CSS 动画环境 animationend 不触发——
+          // 不挂死）——**根+子元素检查**（真实 bug：Modal/Drawer 动画在子元素
+          // （overlay/content）——只查根（none）误判无动画——退场截断）
+          if (panel.current && win && !hasAnim(panel.current, win)) phaseState.phase = 'closed'
         }
       }
       // presence：exit 阶段仍渲染（退场动画）——closed 后移除
       const show = opts.presence ? phaseState.phase !== 'closed' : open.open
-      return show ? createPortal(content, key ?? 'popup') : null
+      if (!show) return null
+      // **panelRef 接线 + 定位包装**（真实 bug：ui-dom 的 portal 注入
+      // ref/class/style——vdom 原样 content——panelRef 从未被调用——退场
+      // 监听/无动画检查全部失效（panel.current 恒 null）——Escape/关闭后
+      // phase 卡 exit 永不 closed——弹层残留 DOM）
+      const pv = content as VNode
+      const props = (pv.props ?? {}) as Record<string, any>
+      const cls = opts.positioning === 'none'
+        ? (props.class ?? '')
+        : ['wf-popup', props.class].filter(Boolean).join(' ')
+      const style = opts.positioning === 'none'
+        ? { ...(props.style ?? {}), position: 'fixed' }
+        : {
+            ...(props.style ?? {}),
+            position: 'fixed',
+            top: `${pos.current.top}px`,
+            left: `${pos.current.left}px`,
+          }
+      const panelVn = { ...pv, props: { ...props, class: cls, style, ref: panelRefImpl } } as VNode
+      return createPortal(panelVn, key ?? 'popup')
     },
     get pos() {
       return pos.current
     },
     refresh,
-    panelRef(el: HTMLElement | null): void {
-      panel.current = el
-      if (el && open.open && opts.positioning !== 'none') queueMicrotask(refresh) // 面板挂载 → 定位
-      // presence：监听退场动画结束（exit → closed）
-      if (el && opts.presence) {
-        const onAnimEnd = (e: AnimationEvent): void => {
-          if (e.animationName.includes('wf-exit') || e.animationName.includes('exit')) {
-            phaseState.phase = 'closed'
-            env.requestRender()
-          }
-        }
-        el.addEventListener('animationend', onAnimEnd)
-        env.onUnmount(() => el.removeEventListener('animationend', onAnimEnd))
-      }
-    },
+    panelRef: panelRefImpl,
     get phase() {
       return phaseState.phase
     },
@@ -286,10 +326,7 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
           phaseState.exitDone = false
         } else if (opts.presence) {
           phaseState.phase = 'exit'
-          if (panel.current && win) {
-            const anim = win.getComputedStyle(panel.current).animationName
-            if (!anim || anim === 'none') phaseState.phase = 'closed'
-          }
+          if (panel.current && win && !hasAnim(panel.current, win)) phaseState.phase = 'closed'
         }
       }
       return phaseState.phase
