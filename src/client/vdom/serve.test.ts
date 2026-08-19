@@ -217,3 +217,47 @@ test('并发守卫：渲染中 await ctx.render()——精确等待最终（含�
   await waitFor(() => (globalThis as any).__seq !== undefined)
   assert.deepEqual((globalThis as any).__seq, ['v:1', 'v:2'], '渲染中 await——精确等待（含补跑）——DOM 最新')
 })
+
+test('ctx.data：组件工厂 await 取数渲染（SPA fetch——mock 全局 fetch）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  // mock fetch（SPA 默认 fetch——key = URL）
+  const origFetch = (globalThis as any).fetch
+  ;(globalThis as any).fetch = async (url: string) => ({
+    ok: true,
+    json: async () => ({ name: `user-${url.split('/').pop()}` }),
+  })
+  try {
+    const UserCard = async (initProps: Record<string, unknown>, ctx: Ctx) => {
+      const user = await ctx.data.get<{ name: string }>(`/api/user/${initProps.id}`)
+      return () => h('div', { class: 'user' }, user.name)
+    }
+    router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', {}, h(UserCard, { id: 7 }))))
+    const serve = uiServe(router, { root: '#root', browser })
+    await serve.ready
+    assert.equal(browser.document.querySelector('.user')?.textContent, 'user-7', '工厂 await ctx.data.get → 渲染数据')
+  } finally {
+    ;(globalThis as any).fetch = origFetch
+  }
+})
+
+test('ctx.data：并发合并——两组件同 key 取数（fetcher 一次）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  const origFetch = (globalThis as any).fetch
+  let calls = 0
+  ;(globalThis as any).fetch = async () => { calls++; return { ok: true, json: async () => ({ v: 'shared' }) } }
+  try {
+    const Card = async (_init: Record<string, unknown>, ctx: Ctx) => {
+      const d = await ctx.data.get<{ v: string }>('/api/shared')
+      return () => h('span', { class: 'card' }, d.v)
+    }
+    router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', {}, [h(Card, {}), h(Card, {})])))
+    const serve = uiServe(router, { root: '#root', browser })
+    await serve.ready
+    assert.equal(browser.document.querySelectorAll('.card').length, 2)
+    assert.equal(calls, 1, '并发合并——同 key 一次 fetch')
+  } finally {
+    ;(globalThis as any).fetch = origFetch
+  }
+})

@@ -21,6 +21,7 @@ import { renderToStream } from './build.ts'
 import { diffStream } from './diff.ts'
 import type { VNode } from './vnode.ts'
 import { createComponentRegistry } from './node/component.ts'
+import { createDataPipe } from '../context/data.ts'
 import type { Ctx, DataPipe } from '../context/Ctx.ts'
 import type { Command } from './command/index.ts'
 import type { Browser } from '../browser/Browser.ts'
@@ -184,6 +185,14 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     async render(): Promise<void> {
       await render(req)
     },
+    /** 数据管道（组件工厂取数——唯一异步边界——缓存/并发合并/失败缓存） */
+    data: createDataPipe(),
+    /** 浏览器环境（注入的 window/document） */
+    browser: opts.browser,
+    /** serve 级卸载注册（unmount 时执行——组件外清理） */
+    onUnmount(fn: () => void): void {
+      serveUnmounts.push(fn)
+    },
   } as Ctx
 
   // ── 页面作者渲染入口（vnode → Response 事件流——函数表编码） ──
@@ -223,6 +232,7 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   const ready = (async () => {
     await render(req)
   })()
+  const serveUnmounts: Array<() => void> = []
 
   return {
     ready,
@@ -230,6 +240,8 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     unmount() {
       doc.removeEventListener('click', onDocClick)
       win.removeEventListener('popstate', onPopstate)
+      for (const fn of serveUnmounts.reverse()) { try { fn() } catch (e) { console.error('[vdom] unmount:', e) } }
+      serveUnmounts.length = 0
       rootEl.innerHTML = ''
     },
   }
