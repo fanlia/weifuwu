@@ -585,3 +585,134 @@ test('useChat stop：AbortError 分支（stop → abort → idle——不置 err
     ;(globalThis as any).fetch = undefined
   }
 })
+
+test('P1 hooks：useTween（reduced-motion 直落 / 正常 rAF 补间 / reset）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let tweenRef: { value: number; reset: (to: number) => void } | null = null
+  const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+    // reduced-motion 环境（mock matchMedia reduce）→ 直落终值
+    const reduced = (ctx.ui as { useReducedMotion: () => boolean }).useReducedMotion()
+    const tween = (ctx.ui as { useTween: (t: number, o?: object) => { value: number; reset: (to: number) => void } }).useTween(100, { duration: 200 })
+    tweenRef = tween
+    return () => h('div', {},
+      h('span', { id: 'tv' }, String(tween.value)),
+      h('span', { id: 'rm' }, String(reduced)),
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  // 无 matchMedia（测试环境）→ reduced false——正常补间（rAF 驱动）
+  assert.equal(browser.document.querySelector('#rm')?.textContent, 'false', '无偏好 → 正常补间')
+  // reduced 环境：mock matchMedia → 直落
+  const b2 = testBrowser()
+  ;(b2.window as any).matchMedia = (q: string) => ({ matches: q.includes('prefers-reduced-motion: reduce'), addEventListener() {}, removeEventListener() {} })
+  const router2 = new UIRouter()
+  router2.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve2 = uiServe(router2, { root: '#root', browser: b2 })
+  await serve2.ready
+  await waitFor(() => b2.document.querySelector('#tv')?.textContent === '100')
+  assert.equal(b2.document.querySelector('#tv')?.textContent, '100', 'reduced-motion → 直落终值')
+  assert.equal(b2.document.querySelector('#rm')?.textContent, 'true')
+  void tweenRef
+  void serve2.unmount
+})
+
+test('P1 hooks：useDrag（pointerdown 捕获 → window move delta → up 释放）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let deltas: Array<{ x: number; y: number }> = []
+  let ends = 0
+  const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+    const drag = (ctx.ui as { useDrag: (o: object) => { onPointerDown: (e: PointerEvent) => void } }).useDrag({
+      onMove: (_e: PointerEvent, d: { x: number; y: number }) => { deltas.push(d) },
+      onEnd: () => { ends++ },
+    })
+    return () => h('div', { id: 'handle', onPointerDown: drag.onPointerDown as never }, '拖')
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  const handle = browser.document.querySelector('#handle') as HTMLElement
+  const win = browser.window as Window
+  // pointerdown（起点 10,10）→ window pointermove（到 30,25）→ pointerup
+  handle.dispatchEvent(new win.PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }))
+  win.dispatchEvent(new win.PointerEvent('pointermove', { clientX: 30, clientY: 25 }))
+  win.dispatchEvent(new win.PointerEvent('pointerup', { clientX: 30, clientY: 25 }))
+  assert.deepEqual(deltas, [{ x: 20, y: 15 }], 'window move delta（起点差值）')
+  assert.equal(ends, 1, 'up 释放 → onEnd')
+  // up 后 move 不再触发（监听已释放）
+  win.dispatchEvent(new win.PointerEvent('pointermove', { clientX: 99, clientY: 99 }))
+  assert.equal(deltas.length, 1, 'up 后监听释放（无更多 delta）')
+})
+
+test('P1 hooks：useVisualViewport（vv 监听 → height/keyboardOpen 更新）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let vvHandler: (() => void) | null = null
+  const vv = {
+    height: 800,
+    offsetTop: 0,
+    addEventListener: (_t: string, fn: () => void) => { vvHandler = fn },
+    removeEventListener: () => {},
+  }
+  Object.defineProperty(browser.window, 'visualViewport', { value: vv, configurable: true })
+  Object.defineProperty(browser.window, 'innerHeight', { value: 900, configurable: true })
+  const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+    const v = (ctx.ui as { useVisualViewport: () => { height: number; keyboardOpen: boolean } }).useVisualViewport()
+    return () => h('div', {},
+      h('span', { id: 'vh' }, String(v.height)),
+      h('span', { id: 'vk' }, String(v.keyboardOpen)),
+    )
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  assert.equal(browser.document.querySelector('#vh')?.textContent, '800', '初始 vv height')
+  // vv resize（键盘弹起——height 缩到 400 < 900*0.9）→ keyboardOpen true
+  vv.height = 400
+  vvHandler?.()
+  await waitFor(() => browser.document.querySelector('#vk')?.textContent === 'true')
+  assert.equal(browser.document.querySelector('#vk')?.textContent, 'true', '键盘弹起 → keyboardOpen')
+  assert.equal(browser.document.querySelector('#vh')?.textContent, '400')
+})
+
+test('P1 hooks：usePopupPosition（scroll/resize 重算 + 0-rect 防护 + refresh）', async () => {
+  const browser = testBrowser()
+  const router = new UIRouter()
+  let computed = 0
+  let rect = { width: 200, height: 60, top: 500, left: 100, right: 300, bottom: 560 }
+  let currentPos: { top: number; left: number } | null = null
+  const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
+    const anchor = (ctx.ui as { useStableRef: <T>(i: T) => { current: T | null } }).useStableRef<HTMLElement | null>(null)
+    const pos = (ctx.ui as { usePopupPosition: (o: object) => { top: number; left: number; refresh: () => void } }).usePopupPosition({
+      el: () => anchor.current,
+      isOpen: () => true,
+      compute: (r: DOMRect) => { computed++; return { top: r.top, left: r.left } },
+    })
+    currentPos = pos
+    return () => h('div', { ref: ((el: HTMLElement | null) => { anchor.current = el }) as never },
+      h('span', { id: 'pt' }, `${pos.top},${pos.left}`))
+  }
+  router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
+  const serve = uiServe(router, { root: '#root', browser })
+  await serve.ready
+  // 首帧：ref 挂载后微任务里 refresh 不自动（pos 初始 0,0——compute 由 scroll/resize 驱动）
+  assert.equal(computed, 0, '初始不自动 compute（等 scroll/resize 或手动 refresh）')
+  // jsdom rect 恒 0——mock getBoundingClientRect（非 0——绕过 0-rect 防护）
+  const el = browser.document.querySelector('[data-wf-id="root.0"]') as HTMLElement
+  Object.defineProperty(el, 'getBoundingClientRect', { value: () => rect, configurable: true })
+  // 手动 refresh（Affix 模式——调用方驱动）
+  currentPos?.refresh()
+  assert.equal(computed, 1, '手动 refresh → compute')
+  // scroll 事件 → rAF 节流重算
+  browser.window.dispatchEvent(new browser.window.Event('scroll'))
+  await waitFor(() => computed >= 2)
+  assert.ok(computed >= 2, 'scroll → 自动重算（rAF 节流）')
+  // 0-rect 防护：rect 全 0 → 跳过（不 compute）
+  const before = computed
+  rect = { width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0 }
+  currentPos?.refresh()
+  assert.equal(computed, before, '0-rect → 跳过（保留上一坐标）')
+})

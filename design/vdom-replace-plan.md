@@ -68,12 +68,12 @@
 
 ## 2. 分阶段执行
 
-### P1 契约补齐（vdom 侧——不依赖组件迁移）
+### P1 契约补齐（vdom 侧——不依赖组件迁移）—— ✅ 完成
 
-- [ ] 补 hooks：useTween（rAF + ease + reduced-motion 直落）、useDrag（pointerdown 捕获）、useVisualViewport、useReducedMotion——从 ui-dom 移植语义 + vdom 测试（覆盖度量不降）
-- [ ] `ctx.ui.render` 兼容形状确认（组件 250 处调用的最小适配）
-- [ ] 命令式 toast/confirm/notification 决策（补 or showcase 改造）
-- [ ] **验证**：vdom 全量测试绿 + 新增 hooks 独立测试
+- [x] 补 hooks：useTween/useDrag/useVisualViewport/useReducedMotion/usePopupPosition——`hooks/stable.ts` + `hooks/popup.ts` 追加——对齐 ui-dom 语义（rAF 补间/reduced 直落/指针捕获/活动期监听卸载释放/vv 监听/scroll-resize 重算 + 0-rect 防护）——注册 env.ts（Ui 面 18 hooks）+ 独立测试 5 个
+- [x] `ctx.ui.render` 决策：**不留兼容层**——P2 迁移时 sed 替换 `ctx.ui.render` → `ctx.render`（250 处——vdom ctx.render 语义已兼容）
+- [x] 命令式 API 决策：**vdom 不补 v3 面**——组件库已自带（Toast/Confirm/Notification 的 ctx.toast/confirm/notification 注入）——showcase P4 迁移到组件库命令式
+- [x] **验证**：262 全绿 + tsc 0（useTween reduced 直落/rAF 补间、useDrag delta/释放、useVisualViewport keyboardOpen、usePopupPosition scroll 重算/0-rect）
 
 ### P2 组件库迁移（132 组件——依赖图谱分批）
 

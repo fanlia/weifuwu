@@ -241,3 +241,57 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
     },
   }
 }
+
+/** usePopupPosition 选项（弹层/吸顶定位跟踪） */
+export interface PopupPositionOptions {
+  /** 锚点元素（函数——ref 挂载后可用） */
+  el: () => HTMLElement | null
+  /** 是否打开（关闭时跳过重算） */
+  isOpen?: () => boolean
+  /** 重算回调（rect → 坐标）——Affix 阈值/宽度重算等 */
+  compute: (r: DOMRect) => { top: number; left: number }
+  /** 面板元素（视口夹紧用） */
+  panel?: () => HTMLElement | null
+  margin?: number
+}
+
+/** 弹层位置跟踪：scroll/resize 时自动重算 fixed 坐标（0 rect 防护） */
+export function usePopupPosition(env: HookEnv, options: PopupPositionOptions) {
+  const win = env.getBrowser()?.window
+  const pos = { top: 0, left: 0, refresh: () => {} }
+
+  const refresh = (): void => {
+    const el = options.el()
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    // 0 rect 防护：元素替换中/未布局/隐藏时 rect 全 0——跳过刷新（保留上一坐标）
+    if (r.width === 0 && r.height === 0) return
+    const p = options.compute(r)
+    pos.top = p.top
+    pos.left = p.left
+  }
+
+  // scroll（捕获——容器滚动也收到）/resize 全局监听 + rAF 节流
+  let raf: number | undefined
+  const schedule = (): void => {
+    if (raf) return
+    if (!win) return
+    raf = win.requestAnimationFrame(() => {
+      raf = undefined
+      if (options.isOpen?.() ?? true) refresh()
+    })
+  }
+  if (win) {
+    win.addEventListener('scroll', schedule, true)
+    win.addEventListener('resize', schedule)
+    env.onUnmount(() => {
+      if (raf !== undefined) win.cancelAnimationFrame(raf)
+      win.removeEventListener('scroll', schedule, true)
+      win.removeEventListener('resize', schedule)
+    })
+  }
+
+  // 手动重算：只更新坐标，不触发渲染（调用方负责 render）
+  pos.refresh = refresh
+  return pos
+}

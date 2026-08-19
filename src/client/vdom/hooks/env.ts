@@ -11,12 +11,13 @@
 
 import type { ExternalStore } from '../store.ts'
 import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
-import { usePopup } from './popup.ts'
+import { usePopup, usePopupPosition } from './popup.ts'
 import { useControlled } from './controlled.ts'
 import { useScrollPosition, useInView } from './observe.ts'
 import { useControlledInput } from './input.ts'
 import { useDragDrop, useMedia, useBreakpoint } from './drag-media.ts'
 import { useChat } from './chat.ts'
+import { useTween, useDrag, useVisualViewport, useReducedMotion, type TweenOptions } from './stable.ts'
 
 /** hooks 环境（per 组件实例——renderComponent 注入） */
 export interface HookEnv {
@@ -46,6 +47,8 @@ export interface Ui {
   useGlobalKey(match: string | ((e: KeyboardEvent) => boolean), handler: (e: KeyboardEvent) => void): void
   /** 浮层弹窗（portal/定位/外部点击/Escape——28 浮层组件核心依赖） */
   usePopup(opts: import('./popup.ts').PopupOptions): import('./popup.ts').Popup
+  /** 弹层位置跟踪（scroll/resize 重算——Affix 阈值/宽度——0-rect 防护） */
+  usePopupPosition(options: import('./popup.ts').PopupPositionOptions): { top: number; left: number; refresh: () => void }
   /** 受控值（受控 props 语义——onChange 唯一出口——受控缺回调 warn） */
   useControlled<T>(controlled: { value?: T; onChange?: (v: T) => void }, defaultValue: T): import('./controlled.ts').ControlledValue<T>
   /** 滚动位置跟踪（rAF 节流——事件驱动重渲染——视口/内部容器通用） */
@@ -62,6 +65,14 @@ export interface Ui {
   useBreakpoint(breakpoints: Record<string, number>): string
   /** AI 对话会话（流式消息累积——handle 兼容 useExternal 订阅） */
   useChat(opts: import('./chat.ts').ChatOptions): import('./chat.ts').ChatHandle
+  /** 数值补间（rAF + ease + reduced-motion 直落——目标变化自动补间） */
+  useTween(target: number, opts?: TweenOptions): { value: number; reset: (to: number) => void }
+  /** 指针拖拽（pointerdown 捕获 → window move/up 活动期监听——卸载释放） */
+  useDrag(options: import('./stable.ts').DragOptions): { onPointerDown: (e: PointerEvent) => void }
+  /** 可视视口跟踪（键盘弹起/缩放——vv 不可用 → window resize fallback） */
+  useVisualViewport(): import('./stable.ts').VisualViewportHandle
+  /** 响应式系统偏好（prefers-reduced-motion——mount 期一次判定） */
+  useReducedMotion(): boolean
 }
 
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
@@ -78,6 +89,7 @@ export function createUi(env: HookEnv): Ui {
     useGlobalKey: (match: string | ((e: KeyboardEvent) => boolean), handler: (e: KeyboardEvent) => void) =>
       useGlobalKey(env, match, handler),
     usePopup: (opts) => usePopup(env, opts),
+    usePopupPosition: (options) => usePopupPosition(env, options),
     useControlled: <T>(controlled: { value?: T; onChange?: (v: T) => void }, defaultValue: T) =>
       useControlled(env, controlled, defaultValue),
     useScrollPosition: (target?: HTMLElement | (() => HTMLElement | null)) => useScrollPosition(env, target),
@@ -88,5 +100,9 @@ export function createUi(env: HookEnv): Ui {
     useMedia: (query: string) => useMedia(env, query),
     useBreakpoint: (breakpoints: Record<string, number>) => useBreakpoint(env, breakpoints),
     useChat: (opts) => useChat(env, opts),
+    useTween: (target: number, opts?: TweenOptions) => useTween(env, target, opts),
+    useDrag: (options) => useDrag(env, options),
+    useVisualViewport: () => useVisualViewport(env),
+    useReducedMotion: () => useReducedMotion(env),
   }
 }
