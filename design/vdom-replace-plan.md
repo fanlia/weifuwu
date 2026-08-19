@@ -75,12 +75,13 @@
 - [x] 命令式 API 决策：**vdom 不补 v3 面**——组件库已自带（Toast/Confirm/Notification 的 ctx.toast/confirm/notification 注入）——showcase P4 迁移到组件库命令式
 - [x] **验证**：262 全绿 + tsc 0（useTween reduced 直落/rAF 补间、useDrag delta/释放、useVisualViewport keyboardOpen、usePopupPosition scroll 重算/0-rect）
 
-### P2 组件库迁移（132 组件——依赖图谱分批）
+### P2 组件库迁移（132 组件——依赖图谱分批）—— ✅ 完成
 
-- [ ] 依赖分析：按「无 ui-dom 依赖组件 → 依赖组件 → 复合组件」分批（grep 统计依赖图）
-- [ ] 每批：导入面重定向（`../../ui-dom/*` → `../vdom/*`）+ 类型替换（WfuiContext → UIContext）+ hooks 签名适配
-- [ ] 组件测试迁移：`ui-dom/testing.ts` → vdom 测试基建（renderVNode/mountComponent 等价物或映射）
-- [ ] **验证**：每批组件测试全绿（223 测试）+ tsc 0
+- [x] 导入面重定向（700+ 处——`../../ui-dom/*` → `../vdom/index.ts`）+ WfuiContext → UIContext + hooks 签名适配（18 个——以组件消费为准）
+- [x] 组件测试迁移：vdom/testing.ts 完整基建（renderVNode/mountComponent/createTestCtx/createPopupMock/mountToDom/patchToDom——同签名）+ 44 个手抄 ctx 批量替换 + per-ctx hook 缓存（非受控状态跨渲染保持）
+- [x] office 迁移（pptx/docx/xlsx/xml-serialize——vdom3 jsx → vdom）
+- [x] 迁移抓出 5 个真实 bug（diffChildrenItems 尾部新增丢失/useControlled mock 双调/12 组件受控判定/useMedia 全局兜底/useTween 可写 value）——全修
+- [x] **验证**：vdom 262 + 组件 1327 + layout/office 66 = 全绿 + tsc 0
 
 ### P3 包面切换（weifuwu/client = vdom）
 

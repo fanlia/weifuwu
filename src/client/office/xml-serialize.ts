@@ -13,7 +13,7 @@
  * - 函数/symbol type、事件 props（on*）→ 抛错（诚实——序列化器不支持）
  */
 
-import type { VNode, VNodeChild } from '../ui-dom/vdom3/types.ts'
+import type { VNode, VNodeChild } from '../vdom/index.ts'
 
 const escXml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

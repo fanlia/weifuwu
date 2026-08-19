@@ -16,8 +16,8 @@
 import { readZip, writeZip } from './zip.ts'
 import { allText, child, children, parseXml } from './xml.ts'
 import { vnodeToXml } from './xml-serialize.ts'
-import { h } from '../ui-dom/vdom3/jsx.ts'
-import type { VNode } from '../ui-dom/vdom3/types.ts'
+import { h } from '../vdom/index.ts'
+import type { VNode } from '../vdom/index.ts'
 import type { SheetCell, SheetState, WorkbookState } from '../components/OfficeEditor/model/types.ts'
 
 // ── 读：xlsx → WorkbookState ────────────────────────────────────────────────
