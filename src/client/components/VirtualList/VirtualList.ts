@@ -29,7 +29,11 @@ export const VirtualList: Component<VirtualListProps> = async (_init, ctx) => {
   let el: HTMLElement | null = null
 
   // 容器 scrollTop 响应式（capture 监听捕获子容器滚动，rAF 节流更新）
-  const scroll = ctx.ui.useScrollPosition({ getScroller: () => el ?? window })
+  // **el ?? window fallback 真实 bug**：el 未挂载时 fallback window——
+  // useScrollPosition 认为目标有效（注册到 window——容器滚动不冒泡——
+  // 永不触发）且不重试——虚拟列表滚动失效（首项永不更新）——
+  // 改为 null（未挂载 → 微任务重试 → 挂载后注册容器）
+  const scroll = ctx.ui.useScrollPosition({ getScroller: () => el ?? null })
 
   const stableRef = (node: HTMLElement | null) => {
     if (node) {
