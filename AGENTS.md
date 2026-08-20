@@ -619,11 +619,14 @@ const MyComp: Component = (_init, ctx) => {
 
 ### 7.1 命令与预算
 
-- **开发迭代只跑单文件**（快速定位）：`timeout 15 node --env-file=.env --test --test-timeout=8000 <单文件>`——改动只影响该文件的测试（如 `src/client/ui-dom/vdom-diff.test.ts`、`src/client/components/Table/Table.test.ts`）；涉及引擎/渲染管线的改动跑相关测试组（`'src/client/ui-dom/vdom*.test.ts'`）即可
-- **全量测试只在发布版本之前运行**（`npm test` = `node --env-file=.env --test --test-concurrency=8 'src/client/test/**/*.test.ts' 'src/client/components/**/*.test.ts' 'src/server/db/**/*.test.ts'`）——开发中不跑全量（~17s + db 真库依赖 docker），避免干扰定位；发布前（`node scripts/release.mjs <version>`）跑全量确认全绿
+- **开发迭代只跑单文件**（快速定位）：`timeout 15 node --env-file=.env --test --test-timeout=8000 <单文件>`——改动只影响该文件的测试（如 `src/client/vdom/serve.test.ts`、`src/client/vdom/setup-proxy.test.ts`）；涉及引擎/渲染管线的改动跑相关测试组（`'src/client/vdom/**/*.test.ts'`）即可
+- **全量测试只在发布版本之前运行**（`npm test` = `node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts' 'src/client/**/*.test.ts'`）——开发中不跑全量（client 297 + db 真库依赖 docker），避免干扰定位；发布前（`node scripts/release.mjs <version>`）跑全量确认全绿
 - `node --test` 无 Jest/Mocha；`npm test` 无 pretest、**零外部依赖**（docker 不参与测试——见 §7.4 测试范围）
 - **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（**≤15 秒**），并优先加 `--test-timeout`（如 `timeout 15 node --env-file=.env --test --test-timeout=8000 ...`）——真库/集成测试卡住时能快速定位；卡住时用更短 timeout 复跑缩小范围
-- **全量测试总时长预算：≤ 15 秒**（实测 ~11.5s，db 真库 191 个测试占 ~4.3s）。**超过 15 秒 = 必须排查**：
+- **全量测试总时长预算：≤ 25 秒**（client 实测 ~21s——**testBrowser 纪律的固有成本**：
+  每个测试文件独立 worker 进程 + 首次加载 jsdom ~66ms/文件 × ~140 文件 ≈ +9s，
+  2026-12 实测基线：旧（部分文件无 jsdom）~11.5s → 新（全文件 testBrowser）~21s；
+  db 真库 191 个测试占 ~4.3s）。**超过 25 秒 = 必须排查**：
   1. **资源未释放**：db 连接未 `close()`、redis 订阅未退订、jsdom 定时器未清（setTimeout/interval 未 clear——挂起比失败更难定位）、全局 document/mutation 监听未 remove
   2. **新增测试自身慢**：长按/动画测试的 sleep（`usePopup` longpress 500ms×2 是已知最慢项）；改为事件驱动断言
   3. **串行瓶颈**：`--test-concurrency=1` 文件串行；db 真库测试耗时占比大
@@ -648,7 +651,7 @@ const MyComp: Component = (_init, ctx) => {
 
 - **开发迭代**：`timeout 15 node --env-file=.env --test --test-timeout=8000 'src/client/ui-dom/vdom3*.test.ts'`（144 测试——命令化/锚点法/冻结/dispose/hydration/语义 id 全组）
 - **边界审计**：`src/client/ui-dom/ui-dom-boundary.test.ts`（v5 隔离性——components/hooks/services 零 import engines/）
-- 改引擎核心（render/build/shadow/delegate）后：vdom3 组 + 边界审计 + 组件抽样（Select/Tree/ChatInput/Popover/Modal）全绿才可提交
+- 改引擎核心（render/build/shadow/delegate）后：vdom 全组 + 边界审计全绿才可提交
 
 ### 7.1.3 测试覆盖度量（v26.7 `--test-coverage-include-all`——**宣称「充分测试」前的客观依据**）
 
@@ -684,6 +687,35 @@ node --env-file=.env --test --experimental-test-coverage --test-coverage-include
 
 **不变量断言 helper**（`src/client/vdom/testing.ts`——禁止手抄）：`assertIsomorphic`（childNodes 逐位同构——长度+位置+类型）/`assertSlot`（边界位置——位置 0/末尾重点）/`assertKept`（同 key 复用项 DOM 引用不变）/`assertRoundTrip`（往返可逆——状态不漂移）
 
+### 7.1.4 测试环境统一纪律（红线——vdom/components/layout 测试必须基于 testBrowser）
+
+> 决策（2026-12）：**所有 client 测试（vdom/components/layout）必须基于
+> `testBrowser()`**——独立 JSDOM 实例（零全局污染）+ 真实 hooks；浏览器能力
+> mock 一律收敛到 testBrowser 提供的 jsdom 能力，禁止各测试手搓。
+
+- **`testBrowser()` 是唯一测试浏览器入口**（`src/client/vdom/setup.ts`）——
+  client 全部测试（vdom/office；2026-12 组件/layout 测试已全量删除）一律经它
+  创建 jsdom；**`setupJsdom()` 已删除**（全局注入 globalThis——测试间共享状态/
+  加载时序敏感——任何测试不得再引入等价全局注入模式）
+- **需要 DOM 全局的测试**用 `installJsdomGlobals(browser)`/`restoreJsdomGlobals()`
+  （before/after 成对——来自独立实例——隔离保留）；断言优先走 `browser.document`
+- **浏览器能力 mock 收敛**（禁止各测手搓）：`matchMedia`→`browser.setMediaQueries()`、
+  `IntersectionObserver`→`browser.fireIO()`、`visualViewport`/`innerHeight`→
+  `browser.setViewport()`、`scrollTo`（jsdom 桩）→ polyfill 真写、
+  `navigator.clipboard`→`browser.copyText` 注入、`CSS.escape`/`URL.createObjectURL`
+  → polyfill——**禁止** `globalThis.matchMedia = ...`、`(window as any).xxx = ...`
+  等旁路（trace 运行时双通道；静态 grep 通道随 style-audit 测试删除）
+- **hooks 必须跑真实实现**：`createTestCtx({ browser })` 传 browser → `ctx.ui` =
+  真实 `createUi(env)`（hooks/env.ts——与 renderComponent 同源）——**usePopup 等
+  禁止 mock**（portal/外部点击/Escape 走真实 jsdom 事件——曾覆盖 23 个浮层组件
+  测试；2026-12 组件/layout 测试全量删除后规则适用于 vdom 测试与未来新增测试）；
+  mock 保留白名单（诚实裁剪——jsdom 不可实现）：useChat 流式后端、
+  useTween 动画时序
+- **testBrowser 内置 window/document Proxy 全调用追踪**：每次调用记录到
+  `browser.trace.entries`（call/get/set 三态）——失败诊断 `trace.print()` dump；
+  `WF_JS_TRACE=1` 或 `testBrowser({ log: true, filter })` 每次调用打印
+- **审计基线**（提交前归零）：`grep -rn "setupJsdom\|globalThis.matchMedia\|\(window as any\)" src/client --include='*.test.ts'`
+
 ### 7.2 UI 组件测试纪律（jsdom + VNode 断言）
 
 **官方测试原语 `weifuwu/ui-dom/testing`**（`src/client/ui-dom/testing.ts`）——禁止手抄
@@ -695,8 +727,9 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 // renderVNode：两阶段组件渲染到 VNode 层（**只一层**——子组件保留函数引用，断言 type 而非 DOM）
 // mountComponent：**同实例 re-render**（内部 let 状态流转测试）——renderVNode 每次是新 mount，状态会丢
 // findByClass：class token 精确匹配（split(' ')——includes 会误匹配 wf-a ⊃ wf-a-b）
-// createTestCtx(overrides)：标准 ctx（render / ready + hooks mock）
-// createPopupMock(isOpen)：usePopup 标准 mock（portal 按 isOpen 条件渲染）
+// createTestCtx(overrides)：标准 ctx（render / ready + hooks mock）；
+// **传 browser → 真实 hooks**（createUi(env)——usePopup/useMedia/useScrollPosition 等真实实现——禁止 mock）
+// createPopupMock(isOpen)：仅纯 VNode 结构断言过渡用（浮层行为测试一律真实 usePopup）
 
 // 无状态：const vnode = renderVNode(Button, { variant: 'primary' }, createTestCtx())
 // 有状态（VNode 层）：const ctx = createTestCtx(); const vnode = renderVNode(Popover, { content: 'hello' }, ctx)

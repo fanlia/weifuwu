@@ -101,6 +101,8 @@ import { renderToStream } from './core/build.ts'
 import { diffStream } from './core/diff/index.ts'
 import { CommandApplier } from './core/patch/index.ts'
 import { createComponentRegistry, type ComponentRegistry } from './core/node/component.ts'
+import { createUi } from './hooks/env.ts'
+import type { Browser } from './browser/Browser.ts'
 
 /** 两阶段组件渲染到 VNode 层（只一层——子组件保留函数引用——断言 type） */
 export async function renderVNode(Comp: any, props: Record<string, any>, ctx: UIContext): Promise<VNode | null> {
@@ -216,10 +218,17 @@ function defaultUi(): Ui {
   }
 }
 
-/** 标准测试 ctx（vdom 形状：ctx.render 顶层 + ctx.ui hooks mock）
- *  **per-ctx hook 缓存**：有状态 hooks（useControlled/useOpen/
- *  useControlledInput）跨渲染保持——对齐 vdom hook 状态缓存语义——
- *  非受控内部态在多次 render（mountComponent/同实例 render）间不丢失 */
+/**
+ * 标准测试 ctx（vdom 形状：ctx.render 顶层 + ctx.ui hooks）
+ *
+ * **传 `{ browser }` → 真实 hooks**（AGENTS §7.1.4——client 测试必须基于
+ * testBrowser——usePopup/useMedia/useScrollPosition/useInView/useControlled/
+ * useOpen 等跑真实实现（hooks/env.ts createUi——与 renderComponent 同源）——
+ * 禁止 mock；不传 browser → 保留 mock 面（纯 VNode 结构断言过渡））。
+ * **per-ctx hook 缓存**：有状态 hooks（useControlled/useOpen/
+ * useControlledInput）跨渲染保持——对齐 vdom hook 状态缓存语义——
+ * 非受控内部态在多次 render（mountComponent/同实例 render）间不丢失
+ */
 export function createTestCtx(overrides?: { ui?: Partial<Ui>; browser?: unknown }): UIContext {
   // hook 缓存按类型固定槽（组件每次渲染同 hook 同槽——跨渲染保持——
   // 对齐 vdom「每次渲染 hook 序号从头计」语义）
@@ -230,16 +239,51 @@ export function createTestCtx(overrides?: { ui?: Partial<Ui>; browser?: unknown 
     return { state }
   }
   const baseUi = defaultUi()
+  // 真实 hooks（传 browser 时——createUi(env) 同源 renderComponent——
+  // 监听 dispose 由 ctx.dispose 逆序清理）
+  const unmounts: (() => void)[] = []
+  const hookStates = new Map<number, unknown>()
+  const hookSeq = { n: 0 }
+  const afterRenderQueue: (() => void)[] = []
+  const realUi = overrides?.browser
+    ? createUi({
+      requestRender: () => { void (base as { render?: () => Promise<void> }).render?.() },
+      onUnmount: (fn) => { unmounts.push(fn) },
+      getBrowser: () => overrides.browser as Browser,
+      nextHookIndex: () => hookSeq.n++,
+      getHookState: <T>(idx: number) => hookStates.get(idx) as T | undefined,
+      setHookState: (idx, v) => { hookStates.set(idx, v) },
+      scheduleAfterRender: (fn) => { afterRenderQueue.push(fn) },
+    })
+    : null
   const base: any = {
-    render: async () => {},
+    render: async () => {
+      // 真实 hooks：渲染后 flush afterRender（对齐 serve 渲染完成信号）
+      const fns = afterRenderQueue
+      afterRenderQueue.length = 0
+      for (const fn of fns) { try { fn() } catch (e) { console.error('[test-ctx] afterRender:', e) } }
+    },
     data: { get: async () => undefined, set: () => {}, has: () => false },
-    onUnmount: () => {},
-    afterRender: () => {},
+    onUnmount: (fn: () => void) => { unmounts.push(fn) },
+    afterRender: (fn: () => void) => { afterRenderQueue.push(fn) },
+    /** 真实 hooks 监听清理（每用例 after 调用——防 document 监听泄漏） */
+    dispose: () => { for (const fn of unmounts.reverse()) { try { fn() } catch { /* 忽略 */ } } },
     params: {},
     query: {},
     ui: {
-      ...baseUi,
-      // 有状态 hooks：per-ctx 缓存（非受控内部态跨渲染保持）
+      ...(realUi ?? baseUi),
+      // 诚实裁剪白名单（jsdom 不可实现——保持 mock）：useTween 动画时序
+      // （rAF 驱动测试挂起/flaky）· useChat 流式后端——其余 hooks 全真实
+      ...(!realUi ? {} : {
+        useTween: ((target: number) => {
+          const handle: { value: number; reset: (to: number) => void } = { value: target, reset: () => {} }
+          handle.reset = (to: number) => { handle.value = to }
+          return handle
+        }) as never,
+        useChat: (() => ({ messages: [], status: 'idle', send: async () => {}, stop: () => {}, reset: () => {}, approve: () => {}, subscribe: () => () => {} })) as never,
+      }),
+      // 有状态 hooks（仅 mock 面——真实 hooks 已由 createUi 提供）
+      ...(!realUi ? {
       useControlled: ((controlled: { value?: unknown; onChange?: (v: unknown) => void }, def: unknown) => {
         const { state } = hook('useControlled', { value: def })
         const isControlled = controlled?.value !== undefined
@@ -282,6 +326,7 @@ export function createTestCtx(overrides?: { ui?: Partial<Ui>; browser?: unknown 
         handle.reset = (to: number) => { handle.value = to; state.value = to }
         return handle
       }) as never,
+      } : {}),
       ...(overrides?.ui ?? {}),
     },
     ...(overrides?.browser ? { browser: overrides.browser } : {}),

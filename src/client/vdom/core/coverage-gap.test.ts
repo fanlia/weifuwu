@@ -506,12 +506,6 @@ test('observe useScrollPosition：rAF 节流（连续 scroll 合并一次渲染�
 test('useInView：IO 回调 isIntersecting 变化 → 重渲染 + el 缺失重试', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  let observed: (entries: Array<{ isIntersecting: boolean }>) => void = () => {}
-  ;(browser.window as any).IntersectionObserver = class {
-    constructor(cb: (entries: Array<{ isIntersecting: boolean }>) => void) { observed = cb }
-    observe() {}
-    disconnect() {}
-  }
   const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
     const io = (ctx.ui as { useInView: (o: object) => { isIn: boolean; ref: (el: HTMLElement | null) => void } }).useInView({})
     return () => h('div', { ref: io.ref as never }, h('span', { id: 'in' }, io.isIn ? '可见' : '不可见'))
@@ -520,10 +514,10 @@ test('useInView：IO 回调 isIntersecting 变化 → 重渲染 + el 缺失重�
   const serve = uiServe(router, { root: '#root', browser })
   await serve.ready
   assert.equal(browser.document.querySelector('#in')?.textContent, '不可见', '初始不可见')
-  observed([{ isIntersecting: true }])
+  browser.fireIO(browser.document.querySelector('#root div') as Element, { isIntersecting: true })
   await waitFor(() => browser.document.querySelector('#in')?.textContent === '可见')
   assert.equal(browser.document.querySelector('#in')?.textContent, '可见', 'IO 回调 → 重渲染')
-  observed([{ isIntersecting: false }])
+  browser.fireIO(browser.document.querySelector('#root div') as Element, { isIntersecting: false })
   await waitFor(() => browser.document.querySelector('#in')?.textContent === '不可见')
 })
 
@@ -607,7 +601,7 @@ test('P1 hooks：useTween（reduced-motion 直落 / 正常 rAF 补间 / reset）
   assert.equal(browser.document.querySelector('#rm')?.textContent, 'false', '无偏好 → 正常补间')
   // reduced 环境：mock matchMedia → 直落
   const b2 = testBrowser()
-  ;(b2.window as any).matchMedia = (q: string) => ({ matches: q.includes('prefers-reduced-motion: reduce'), addEventListener() {}, removeEventListener() {} })
+  b2.setMediaQueries({ '(prefers-reduced-motion: reduce)': true })
   const router2 = new UIRouter()
   router2.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
   const serve2 = uiServe(router2, { root: '#root', browser: b2 })

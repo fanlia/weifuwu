@@ -774,13 +774,6 @@ test('useScrollPosition：内部容器滚动——y 响应式（事件驱动重�
 test('useInView：IntersectionObserver——isIn 响应式（IO 回调 → 重渲染）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  // mock IO（jsdom 无——注入）
-  let ioCb: ((entries: Array<{ isIntersecting: boolean }>) => void) | null = null
-  ;(browser.window as any).IntersectionObserver = class {
-    constructor(cb: (entries: Array<{ isIntersecting: boolean }>) => void) { ioCb = cb }
-    observe() {}
-    disconnect() {}
-  }
   const View = (_init: Record<string, unknown>, ctx: UIContext) => {
     const v = (ctx.ui as { useInView: (t: () => HTMLElement | null) => { isIn: boolean } }).useInView(() => browser.document.querySelector('.box') as HTMLElement | null)
     return () => h('div', {},
@@ -791,7 +784,7 @@ test('useInView：IntersectionObserver——isIn 响应式（IO 回调 → 重�
   const serve = uiServe(router, { root: '#root', browser })
   await serve.ready
   assert.equal(browser.document.querySelector('#vis')?.textContent, '隐藏', '初始不可见')
-  ioCb?.([{ isIntersecting: true }])
+  browser.fireIO(browser.document.querySelector('.box') as Element, { isIntersecting: true })
   await waitFor(() => browser.document.querySelector('#vis')?.textContent === '可见')
   assert.equal(browser.document.querySelector('#vis')?.textContent, '可见', 'IO 回调 → isIn 响应式')
 })
@@ -854,17 +847,11 @@ test('useDragDrop：draggable enumerated + 拖拽事件 + dataTransfer 数据', 
   assert.deepEqual(dropped, { id: 7 }, 'drop 事件 → dataTransfer 数据传递')
 })
 
-test('useBreakpoint：命名断点（matchMedia mock——min-width 语义——事件驱动）', async () => {
+test('useBreakpoint：命名断点（matchMedia polyfill——min-width 语义——事件驱动）', async () => {
   const browser = testBrowser()
   const router = new UIRouter()
-  // mock matchMedia
-  let width = 600
-  const listeners: Array<() => void> = []
-  ;(browser.window as any).matchMedia = (q: string) => ({
-    get matches() { return width >= parseInt(q.match(/(\d+)/)?.[1] ?? '0', 10) },
-    addEventListener: (_t: string, cb: () => void) => { listeners.push(cb) },
-    removeEventListener: () => {},
-  })
+  // 初始 600px：全部断点不匹配（polyfill 驱动面——禁止 (window as any) 手搓）
+  browser.setMediaQueries({ '(min-width: 768px)': false, '(min-width: 1024px)': false })
   const Page = (_init: Record<string, unknown>, ctx: UIContext) => {
     // 渲染期调用（useMedia 状态实时——事件驱动重渲染读最新断点）
     return () => {
@@ -876,10 +863,18 @@ test('useBreakpoint：命名断点（matchMedia mock——min-width 语义——
   const serve = uiServe(router, { root: '#root', browser })
   await serve.ready
   assert.equal(browser.document.querySelector('#bp')?.textContent, 'mobile', '600px → mobile')
-  width = 900
-  listeners.forEach((cb) => cb())   // 媒体变化 → 重渲染
+  // 900px：tablet 断点匹配（change 事件 → 重渲染）
+  browser.setMediaQueries({ '(min-width: 768px)': true })
   await waitFor(() => browser.document.querySelector('#bp')?.textContent === 'tablet')
   assert.equal(browser.document.querySelector('#bp')?.textContent, 'tablet', '900px → tablet（事件驱动）')
+  // 1200px：desktop
+  browser.setMediaQueries({ '(min-width: 1024px)': true })
+  await waitFor(() => browser.document.querySelector('#bp')?.textContent === 'desktop')
+  assert.equal(browser.document.querySelector('#bp')?.textContent, 'desktop', '1200px → desktop')
+  // 回退 600px
+  browser.setMediaQueries({ '(min-width: 768px)': false, '(min-width: 1024px)': false })
+  await waitFor(() => browser.document.querySelector('#bp')?.textContent === 'mobile')
+  assert.equal(browser.document.querySelector('#bp')?.textContent, 'mobile', '回退 → mobile')
 })
 
 test('useChat：发送 → 流式消息累积（NDJSON 分块——useExternal 订阅重渲染）', async () => {
@@ -1360,7 +1355,7 @@ test('命令式 toast：vdom 引擎渲染（独立容器——自动消失）', 
   void origBodyAppend
   assert.equal(typeof toast, 'function', 'toast 命令式入口')
   // 容器渲染验证（用注入 document 的间接方式——commands 用全局 document——
-  // 通过 setupJsdom 场景由组件测试覆盖——此处断言接口形状）
+  // 通过 testBrowser 场景由组件测试覆盖——此处断言接口形状）
   const inject = await import('./commands.ts')
   const ctx: Record<string, unknown> = {}
   const injected = (inject as { injectCommands: (c: Record<string, unknown>) => Record<string, unknown> }).injectCommands(ctx)
