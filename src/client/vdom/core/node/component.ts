@@ -122,7 +122,15 @@ export async function renderComponent(
   const out = await rec.renderFn(vn.props)
   // 记录输出（diff 对照——同实例更新就地对上次输出 patch）
   rec.lastOutput = out
-  await sink(out, parent, index, ref)
+  // **组件输出组件时挂自身 compId 下**（compId.0——真实 bug：组件直接输出
+  // 组件（单 vnode 或数组首项——无中间元素包裹）时子组件继承父组件 compId——
+  // 注册表同 key 覆盖——类型检查触发连环重挂——状态丢失（HoverCard 悬停
+  // 失效事故）——输出组件 id 唯一化修复；元素/数组首元素输出保持原样
+  // （输出 id = 组件 id——锚点法 compId = 锚点 id 语义））
+  const outIsComponent =
+    typeof (out as VNode)?.type === 'function'
+    || (Array.isArray(out) && typeof (out[0] as VNode)?.type === 'function')
+  await sink(out, outIsComponent ? compId : parent, outIsComponent ? 0 : index, ref)
   return isNew
 }
 

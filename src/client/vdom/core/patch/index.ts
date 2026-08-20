@@ -107,7 +107,20 @@ export class CommandApplier {
       if (node) return node as HTMLElement
       return this.portalContainer(cmd.parent.slice(PORTAL_ID_PREFIX.length))
     }
-    return (this.nodes.get(cmd.parent) as HTMLElement | null) ?? null
+    const direct = this.nodes.get(cmd.parent)
+    if (direct) return direct as HTMLElement
+    // **组件逻辑父回退**（真实 bug：组件直接输出组件时子输出挂组件 compId
+    // 下（compId.0——注册表隔离）——组件 id 不是 DOM 节点（nodes 表无）——
+    // 逐段截断回退到最近 DOM 祖先——插入位置由 ref（组件槽锚）定位——
+    // 父容器只需是 ref 的真实祖先——HoverCard 悬停失效事故的配套修复）
+    const segs = cmd.parent.split('.')
+    for (let i = segs.length - 1; i > 0; i--) {
+      const p = segs.slice(0, i).join('.')
+      if (p === 'root') return this.container
+      const node = this.nodes.get(p)
+      if (node) return node as HTMLElement
+    }
+    return null
   }
 
   /** 中转——命令 → 处理器（细节在 processors.ts） */

@@ -182,6 +182,34 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
   const margin = opts.margin ?? 8
   const center = opts.center ?? true
 
+  // ── hover trigger（真实缺口修复：HoverCard/Tooltip 依赖 trigger:'hover'
+  // 语义——vdom 曾无 hover 自动触发（wrapProps 仅 onClick——hover 组件只能
+  // 点击切换——悬停卡片/提示永不出现）——mouseenter/mouseleave + 延迟驱动） ──
+  const isHoverTrigger = opts.trigger === 'hover'
+  let hoverTimer: ReturnType<Window['setTimeout']> | null = null
+  const resolveDelay = (d: number | (() => number) | undefined): number =>
+    typeof d === 'function' ? d() : (d ?? 0)
+  const clearHoverTimer = (): void => {
+    if (hoverTimer !== null) { clearTimeout(hoverTimer); hoverTimer = null }
+  }
+  const hoverOpen = (): void => {
+    clearHoverTimer()
+    if (typeof opts.disabled === 'function' ? opts.disabled() : opts.disabled) return
+    hoverTimer = (win?.setTimeout ?? window.setTimeout)(() => {
+      hoverTimer = null
+      if (!open.open) open.setOpen(true)
+    }, resolveDelay(opts.openDelay))
+  }
+  const hoverClose = (): void => {
+    clearHoverTimer()
+    hoverTimer = (win?.setTimeout ?? window.setTimeout)(() => {
+      hoverTimer = null
+      if (open.open) open.setOpen(false)
+    }, resolveDelay(opts.closeDelay))
+  }
+  // 卸载清理（hover 定时器泄漏——mount 常驻组件）
+  env.onUnmount(clearHoverTimer)
+
   /** 重算坐标（锚点 rect + 面板尺寸——0-rect 防护——el-null 微任务重试限次） */
   let retries = 0
   const refresh = (): void => {
@@ -329,11 +357,19 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
       }
       return phaseState.phase
     },
-    // **wrapProps trigger 交互**（真实缺口）：Popover/ContextMenu 等依赖
+    // **wrapProps trigger 交互**：Popover/ContextMenu 等依赖
     // wrapProps 的 trigger 行为（不自管触发）——onClick 切换（受控转发
-    // setOpen——onOpenChange）——组件自管触发的（TreeSelect 等不 spread）
+    // setOpen——onOpenChange）；**trigger:'hover' → mouseenter/mouseleave
+    // 延迟驱动**（HoverCard/Tooltip 悬停语义——vdom 补齐——openDelay/
+    // closeDelay 生效）——组件自管触发的（TreeSelect 等不 spread）
     wrapProps: {
       onClick: (e: Event) => { e.stopPropagation?.(); open.setOpen(!open.open) },
+      ...(isHoverTrigger
+        ? {
+            onMouseEnter: () => { hoverOpen() },
+            onMouseLeave: () => { hoverClose() },
+          }
+        : {}),
     },
     onTrigger: () => {},
   }
