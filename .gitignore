@@ -5,3 +5,4 @@ dist/
 .env
 apps/agent-platform/data/
 src/**/*.js
+coverage/
