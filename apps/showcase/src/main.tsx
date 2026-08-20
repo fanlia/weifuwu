@@ -16,6 +16,8 @@
 import { UIRouter, uiServe, h } from 'weifuwu/vdom'
 import type { Component, RenderCtx, UIContext } from 'weifuwu/vdom'
 import { toast } from '../../../src/client/vdom/commands.ts'
+import { confirm } from '../../../src/client/components/Confirm/Confirm.ts'
+import { notification } from '../../../src/client/components/Notification/Notification.ts'
 import { Home } from './pages/home.tsx'
 import { ComponentsIndex, CategoryPage, ComponentPage } from './pages/components.tsx'
 import { LayoutIndex, LayoutPage, PatternsIndex, PatternPage, AppsIndex, AppPage, BackendIndex, BackendPage, CapabilitiesIndex, CapabilityPage, GuidesIndex, GuidePage } from './pages/domains.tsx'
@@ -26,6 +28,8 @@ import { Shell } from './shell.tsx'
 // ── 命令式 API（vdom commands——ctx.toast 注入） ──
 const demoCtx: any = {}
 demoCtx.toast = toast
+demoCtx.confirm = confirm
+demoCtx.notification = notification
 
 // ── 六域路由（layout 包裹 = 全站壳：导航/主题/搜索） ──
 // 页面 handler（Shell 布局包裹——root 稳定——布局共享精准路由）
@@ -57,5 +61,7 @@ router.notFound(() => new Response(null, { status: 404 }))
 const serve = uiServe(router, {
   root: '#root',
   toast,
+  confirm,
+  notification,
 })
 ;(window as any).__wf_router = router

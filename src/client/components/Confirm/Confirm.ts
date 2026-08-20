@@ -51,9 +51,50 @@ export interface ConfirmInjected {
 /**
  * 命令式中间件：注入 ctx.confirm()
  *
- * 每次调用挂载 Confirm 组件到独立容器（mountVNode），
- * resolve 后 callRefCleanup 清理（含 Modal 的 portal DOM）+ 移除容器。
+ * 每次调用挂载 Confirm 组件到独立容器（vdom 引擎渲染——真实组件实例——
+ * Modal portal 完整工作），resolve 后清理（applier.dispose + 移除容器）。
+ *
+ * 真实 bug（2026-12 showcase QA）：契约注释声称命令式中间件但实现缺失——
+ * showcase Confirm demo 点击按钮静默失效（ctx.confirm undefined——`?.()`
+ * 跳过——无弹窗无报错）——补全实现。
  */
+import { renderToStream } from '../../vdom/core/build.ts'
+import { CommandApplier } from '../../vdom/core/patch/index.ts'
+import { createComponentRegistry } from '../../vdom/core/node/component.ts'
+
+export function confirm(message: string, options?: ConfirmOptions): Promise<boolean> {
+  return new Promise((resolve) => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const registry = createComponentRegistry()
+    const applier = new CommandApplier(container, document, registry)
+    let done = false
+    const close = (result: boolean): void => {
+      if (done) return
+      done = true
+      applier.dispose()
+      container.remove()
+      resolve(result)
+    }
+    // 基础 ctx（组件实例的 hooks 由 renderComponent 自动注入——Modal 内部
+    // usePopup/useOpen 正常）——render/onUnmount 仅 serve 语义占位
+    const ctx = {
+      render: async () => {},
+      onUnmount: () => {},
+      data: { get: async () => undefined, set: () => {}, has: () => false },
+    } as unknown as UIContext
+    const vnode = h(Confirm, {
+      open: true,
+      message,
+      ...options,
+      onConfirm: () => close(true),
+      onCancel: () => close(false),
+    }) as VNode
+    renderToStream(vnode, ctx, registry).pipeTo(new WritableStream({
+      write(cmd) { applier.apply(cmd) },
+    })).catch(() => close(false))
+  })
+}
 
 export const Confirm: Component<ConfirmProps> = async (_init, _ctx) => {
   // ── render（每次 dirty/props 变化）──

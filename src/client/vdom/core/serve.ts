@@ -114,6 +114,10 @@ export interface UiServeOptions {
   i18n?: import('../middlewares/auth-i18n.ts').I18nState
   /** 命令式轻提示（ctx.toast——应用装配） */
   toast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning', duration?: number) => void
+  /** 命令式确认（ctx.confirm——应用装配——返回 Promise<boolean>） */
+  confirm?: (message: string, options?: Record<string, unknown>) => Promise<boolean>
+  /** 命令式通知（ctx.notification——应用装配） */
+  notification?: unknown
 }
 
 export interface UiServeHandle {
@@ -257,6 +261,8 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     ...(opts.ws ? { ws: opts.ws } : {}),
     ...(opts.i18n ? { i18n: opts.i18n } : {}),
     ...(opts.toast ? { toast: opts.toast } : {}),
+    ...(opts.confirm ? { confirm: opts.confirm } : {}),
+    ...(opts.notification ? { notification: opts.notification } : {}),
   } as unknown as UIContext
 
   // ── 页面作者渲染入口（vnode → Response 事件流——函数表编码） ──

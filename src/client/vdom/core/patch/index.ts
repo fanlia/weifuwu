@@ -48,6 +48,11 @@ export class CommandApplier {
   dispose(): void {
     this.eventRegistry.dispose()
     this.refRegistry.dispose()
+    // **portal 容器清理**（P3 dispose 协议——命令式宿主（confirm/toast）
+    // dispose 后 #__wf_portal 下容器残留——真实 bug：命令式 Confirm 取消后
+    // Modal 弹窗残留（host 容器移除不影响 body 下的 portal））
+    for (const c of this.portalContainers.values()) c.remove()
+    this.portalContainers.clear()
   }
 
   /** 子树 ref 清理（卸载指令——ref(null) + 表删除——remove/done 共用） */
