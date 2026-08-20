@@ -22,9 +22,8 @@
  *   - Portal 开/关（插槽锚 ↔ 浮层内容——removePortal 容器清理）
  */
 
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { testBrowser } from '../setup.ts'
+import { test } from 'vitest'
+import { expect } from 'vitest'
 import { UIRouter, uiServe } from '../index.ts'
 import { h } from './vnode.ts'
 import { Fragment } from './node/fragment.ts'
@@ -39,7 +38,6 @@ function slotCount(page: HTMLElement): number {
 }
 
 test('节点 → DOM 映射 + 类型转化全流程（映射规则 + 转化规则教学验证）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   const unEvents: string[] = []
 
@@ -93,32 +91,32 @@ test('节点 → DOM 映射 + 类型转化全流程（映射规则 + 转化规�
     )
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
 
-  const page = browser.document.querySelector('.page') as HTMLElement
-  const list = () => browser.document.querySelector('.list') as HTMLElement
-  const btn = (id: string) => browser.document.querySelector(`#${id}`) as HTMLElement
+  const page = document.querySelector('.page') as HTMLElement
+  const list = () => document.querySelector('.list') as HTMLElement
+  const btn = (id: string) => document.querySelector(`#${id}`) as HTMLElement
 
   // ═══════════════════ ① 首帧：节点 → DOM 映射 ═══════════════════
   // 元素：data-wf-id 标记（事件代理查表基础）
   const pageEl = page
-  assert.equal(pageEl.getAttribute('data-wf-id'), 'root.0', '元素 → 标签 + data-wf-id（事件代理查表）')
+  expect(pageEl.getAttribute('data-wf-id'), '元素 → 标签 + data-wf-id（事件代理查表）').toBe('root.0')
   // 空洞 ×4（①show=false / ②comp=false / ⑤txt=false / ⑦portal=false）：
   // 注释占位——同构（portal 关闭槽 = null → 插槽锚）
   const holes = [...page.childNodes].filter((n) => n.nodeType === 8)
-  assert.equal(holes.length, 4, '空洞 → 注释占位（<!--wf-hole-->——childNodes 长度恒定）')
-  assert.ok(holes.every((n) => (n as Comment).textContent?.startsWith('wf-hole')), '占位锚内容 wf-hole')
+  expect(holes.length, '空洞 → 注释占位（<!--wf-hole-->——childNodes 长度恒定）').toBe(4)
+  expect(holes.every((n) => (n as Comment).textContent?.startsWith('wf-hole')), '占位锚内容 wf-hole').toBeTruthy()
   // 组件：两阶段工厂输出（CompB——swap=false）
-  assert.equal(page.querySelector('.b')?.textContent, 'B组件', '组件 → 工厂输出（B 分支）')
-  assert.equal(page.querySelector('.a'), null, 'A 分支未渲染')
+  expect(page.querySelector('.b')?.textContent, '组件 → 工厂输出（B 分支）').toBe('B组件')
+  expect(page.querySelector('.a'), 'A 分支未渲染').toBe(null)
   // 单节点（arr=false）
-  assert.equal(page.querySelector('.a1')?.textContent, '甲', '单节点 → 单一元素')
+  expect(page.querySelector('.a1')?.textContent, '单节点 → 单一元素').toBe('甲')
   // keyed 列表：业务 key——li ×2
-  assert.equal(list().querySelectorAll('li').length, 2, 'keyed 列表 2 项')
-  assert.equal(list().querySelectorAll('li')[0]?.textContent, '项1')
+  expect(list().querySelectorAll('li').length, 'keyed 列表 2 项').toBe(2)
+  expect(list().querySelectorAll('li')[0]?.textContent).toBe('项1')
   // Portal：关闭 → 插槽锚（注释）在主树——无浮层内容
-  assert.equal(page.querySelector('.menu'), null, 'Portal 关闭——无浮层内容')
+  expect(page.querySelector('.menu'), 'Portal 关闭——无浮层内容').toBe(null)
   // 同构：7 槽 + 7 按钮 = 14 个 childNodes（数组第 i 项 ⟷ 第 i 个节点）
   assertIsomorphic(page, [
     'hole', 'hole', 'element', 'element', 'hole', 'element', 'hole',
@@ -128,13 +126,13 @@ test('节点 → DOM 映射 + 类型转化全流程（映射规则 + 转化规�
   // ═══════════════════ ② 转化①：空洞 ↔ 元素（条件渲染） ═══════════════════
   btn('t-cond').click()
   await waitFor(() => page.querySelector('.cond') !== null)
-  assert.equal(page.querySelector('.cond')?.textContent, '条件元素', '空洞 → 元素（占位锚 ↔ 真实节点互换）')
+  expect(page.querySelector('.cond')?.textContent, '空洞 → 元素（占位锚 ↔ 真实节点互换）').toBe('条件元素')
   assertSlot(page, 0, 'element', '位置 0 = 条件元素（原空洞位置——边界位置）')
-  assert.equal(slotCount(page), 14, '互换后长度仍 14（同构——占位法）')
+  expect(slotCount(page), '互换后长度仍 14（同构——占位法）').toBe(14)
   btn('t-cond').click()
   await waitFor(() => page.querySelector('.cond') === null)
   assertSlot(page, 0, 'hole', '元素 → 空洞（注释占位回来——长度不塌缩）')
-  assert.equal(slotCount(page), 14, '再次互换长度仍 14')
+  expect(slotCount(page), '再次互换长度仍 14').toBe(14)
   // **往返可逆**：再开一次（A→B→A→B）——位置 0 状态不漂移
   btn('t-cond').click()
   await waitFor(() => page.querySelector('.cond') !== null)
@@ -146,69 +144,69 @@ test('节点 → DOM 映射 + 类型转化全流程（映射规则 + 转化规�
   // ═══════════════════ ③ 转化②：空洞 ↔ 组件（条件渲染组件） ═══════════════════
   btn('t-comp').click()
   await waitFor(() => page.querySelector('.chip') !== null)
-  assert.equal(page.querySelector('.chip')?.textContent?.includes('C1'), true, '空洞 → 组件（mount——两阶段工厂）')
-  assert.equal(slotCount(page), 14, '组件输出单节点——长度仍 14')
+  expect(page.querySelector('.chip')?.textContent?.includes('C1'), '空洞 → 组件（mount——两阶段工厂）').toBe(true)
+  expect(slotCount(page), '组件输出单节点——长度仍 14').toBe(14)
   // 组件内部交互（mount 闭包状态——组件自身 render）
   ;(page.querySelector('.chip-add') as HTMLElement).click()
   await waitFor(() => page.querySelector('.chip')?.textContent?.includes('C1(1)'))
-  assert.equal(page.querySelector('.chip')?.textContent?.includes('C1(1)'), true, '组件内部状态（let + render）')
+  expect(page.querySelector('.chip')?.textContent?.includes('C1(1)'), '组件内部状态（let + render）').toBe(true)
   btn('t-comp').click()
   await waitFor(() => page.querySelector('.chip') === null)
-  assert.equal(page.querySelector('.chip'), null, '组件 → 空洞（unmount——占位锚回来）')
-  assert.deepEqual(unEvents, ['un:chip:C1'], '组件卸载 → onUnmounts 执行')
-  assert.equal(slotCount(page), 14, '长度仍 14')
+  expect(page.querySelector('.chip'), '组件 → 空洞（unmount——占位锚回来）').toBe(null)
+  expect(unEvents, '组件卸载 → onUnmounts 执行').toEqual(['un:chip:C1'])
+  expect(slotCount(page), '长度仍 14').toBe(14)
 
   // ═══════════════════ ④ 转化③：组件 A ↔ B（同位置异类型——卸载重建） ═══════════════════
   btn('t-swap').click()
   await waitFor(() => page.querySelector('.a') !== null)
-  assert.equal(page.querySelector('.b'), null, 'A 替换 B（同位置——异类型组件——rec.type 比较）')
-  assert.equal(page.querySelector('.a')?.textContent, 'A组件')
-  assert.equal(slotCount(page), 14)
+  expect(page.querySelector('.b'), 'A 替换 B（同位置——异类型组件——rec.type 比较）').toBe(null)
+  expect(page.querySelector('.a')?.textContent).toBe('A组件')
+  expect(slotCount(page)).toBe(14)
   btn('t-swap').click()
   await waitFor(() => page.querySelector('.b') !== null)
-  assert.equal(page.querySelector('.a'), null, 'B 替换 A（往返切换——重建）')
+  expect(page.querySelector('.a'), 'B 替换 A（往返切换——重建）').toBe(null)
 
   // ═══════════════════ ⑤ 转化④：单节点 ↔ 数组（transform 完整转换） ═══════════════════
   btn('t-arr').click()
   await waitFor(() => page.querySelector('.a2') !== null)
-  assert.equal(page.querySelector('.a1'), null, '单节点 → 数组（旧元素让位）')
-  assert.equal(page.querySelector('.a2')?.textContent, '乙')
-  assert.equal(page.querySelector('.a3')?.textContent, '丙')
-  assert.equal(slotCount(page), 15, '数组展开——长度 15（隐式 Fragment 展开 2 项替换 1 项——位置身份）')
+  expect(page.querySelector('.a1'), '单节点 → 数组（旧元素让位）').toBe(null)
+  expect(page.querySelector('.a2')?.textContent).toBe('乙')
+  expect(page.querySelector('.a3')?.textContent).toBe('丙')
+  expect(slotCount(page), '数组展开——长度 15（隐式 Fragment 展开 2 项替换 1 项——位置身份）').toBe(15)
   btn('t-arr').click()
   await waitFor(() => page.querySelector('.a1') !== null)
-  assert.equal(page.querySelector('.a2'), null, '数组 → 单节点（旧区间递归清理——收拢）')
-  assert.equal(page.querySelector('.a3'), null)
-  assert.equal(slotCount(page), 14, '收拢——回到 14（可逆）')
+  expect(page.querySelector('.a2'), '数组 → 单节点（旧区间递归清理——收拢）').toBe(null)
+  expect(page.querySelector('.a3')).toBe(null)
+  expect(slotCount(page), '收拢——回到 14（可逆）').toBe(14)
 
   // ═══════════════════ ⑥ 转化⑤：文本 ↔ 空洞 ═══════════════════
   btn('t-txt').click()
   await waitFor(() => page.childNodes[4]?.nodeType === 3)
-  assert.equal((page.childNodes[4] as Text).textContent, '内联文本', '空洞 → 文本节点（位置 4）')
-  assert.equal(slotCount(page), 14)
+  expect((page.childNodes[4] as Text).textContent, '空洞 → 文本节点（位置 4）').toBe('内联文本')
+  expect(slotCount(page)).toBe(14)
   btn('t-txt').click()
   await waitFor(() => page.childNodes[4]?.nodeType === 8)
-  assert.equal(page.childNodes[4].nodeType, 8, '文本 → 空洞（占位锚回来）')
+  expect(page.childNodes[4].nodeType, '文本 → 空洞（占位锚回来）').toBe(8)
 
   // ═══════════════════ ⑦ 转化⑥：keyed 列表增（身份复用） ═══════════════════
   const li1Before = list().querySelectorAll('li')[0]
   btn('t-add').click()
   await waitFor(() => list().querySelectorAll('li').length === 3)
-  assert.equal(list().querySelectorAll('li').length, 3, 'keyed 增——新项 3（身份跟随 key）')
+  expect(list().querySelectorAll('li').length, 'keyed 增——新项 3（身份跟随 key）').toBe(3)
   assertKept(list(), 'li', li1Before, 'keyed 增——旧项 DOM 引用保持（身份复用——不重建）')
-  assert.equal(list().querySelectorAll('li')[2]?.textContent, '项3', '新项在末尾')
+  expect(list().querySelectorAll('li')[2]?.textContent, '新项在末尾').toBe('项3')
 
   // ═══════════════════ ⑧ 转化⑦：Portal 开/关（插槽锚 ↔ 浮层内容） ═══════════════════
   btn('t-portal').click()
-  await waitFor(() => browser.document.querySelector('.menu') !== null)
-  const menu = browser.document.querySelector('.menu') as HTMLElement
-  assert.equal(menu.closest('#__wf_portal') !== null, true, 'Portal 开——内容渲染到 #__wf_portal（body）')
-  assert.equal(menu.textContent, '浮层内容')
-  assert.equal(slotCount(page), 14, '插槽锚保持（主树同构——浮层内容不进主树）')
+  await waitFor(() => document.querySelector('.menu') !== null)
+  const menu = document.querySelector('.menu') as HTMLElement
+  expect(menu.closest('#__wf_portal') !== null, 'Portal 开——内容渲染到 #__wf_portal（body）').toBe(true)
+  expect(menu.textContent).toBe('浮层内容')
+  expect(slotCount(page), '插槽锚保持（主树同构——浮层内容不进主树）').toBe(14)
   btn('t-portal').click()
-  await waitFor(() => browser.document.querySelector('.menu') === null)
-  assert.equal(browser.document.querySelector('#__wf_portal-dd'), null, 'Portal 关——removePortal 容器移除（无残留）')
-  assert.equal(slotCount(page), 14)
+  await waitFor(() => document.querySelector('.menu') === null)
+  expect(document.querySelector('#__wf_portal-dd'), 'Portal 关——removePortal 容器移除（无残留）').toBe(null)
+  expect(slotCount(page)).toBe(14)
 })
 
 /** 确定性等待（渲染链路异步完成信号） */
@@ -220,9 +218,7 @@ async function waitFor(fn: () => boolean, timeout = 500): Promise<void> {
   }
 }
 
-
 test('边界位置：末尾槽转化（空洞 ↔ 元素——末尾 insert 语义）+ 三处边界矩阵', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
     let show = false
@@ -235,23 +231,23 @@ test('边界位置：末尾槽转化（空洞 ↔ 元素——末尾 insert 语�
     )
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  const page = browser.document.querySelector('.page') as HTMLElement
+  const page = document.querySelector('.page') as HTMLElement
   // 边界矩阵：位置 0（mapping 主测试）/ 中间（mapping ⑤ 文本槽）/ 末尾（本测试）
   assertIsomorphic(page, ['element', 'element', 'hole', 'element'], '首帧：2 元素 + 末尾空洞 + 按钮')
   // 末尾空洞 → 元素：元素出现在位置 2（按钮之前——不是 append 到按钮后）
-  ;(browser.document.querySelector('#t') as HTMLElement).click()
+  ;(document.querySelector('#t') as HTMLElement).click()
   await waitFor(() => page.querySelector('.last') !== null)
   assertSlot(page, 2, 'element', '末尾空洞 → 元素（位置 2——按钮前）')
-  assert.equal(page.querySelector('.last')?.textContent, '末')
-  assert.equal(page.childNodes[3].nodeName, 'BUTTON', '按钮保持位置 3（不位移）')
+  expect(page.querySelector('.last')?.textContent).toBe('末')
+  expect(page.childNodes[3].nodeName, '按钮保持位置 3（不位移）').toBe('BUTTON')
   // 往返 ×2（可逆——末尾状态不漂移）
   for (let r = 0; r < 2; r++) {
-    ;(browser.document.querySelector('#t') as HTMLElement).click()
+    ;(document.querySelector('#t') as HTMLElement).click()
     await waitFor(() => page.querySelector('.last') === null)
     assertSlot(page, 2, 'hole', `往返 ${r + 1} 关——回到空洞（可逆）`)
-    ;(browser.document.querySelector('#t') as HTMLElement).click()
+    ;(document.querySelector('#t') as HTMLElement).click()
     await waitFor(() => page.querySelector('.last') !== null)
     assertSlot(page, 2, 'element', `往返 ${r + 1} 开——位置 2（可逆）`)
   }

@@ -2,7 +2,8 @@
  * vdom core — uiServe（渲染落地——公共面——双端一体）
  *
  * 设计（design/vdom-plan.md §3/§4）：
- * - UIRouter 唯一应用入口——uiServe(router, { root, browser }) 收养渲染
+ * - UIRouter 唯一应用入口——uiServe(router, { root }) 收养渲染（真实浏览器全局
+ *   document/window——2026-12 删除 browser 注入——测试与生产同环境）
  * - 渲染循环：初始 URL resolve → Response（command 事件流）→ patch
  * - **ctx.render() = 重新渲染**（事件触发/fetch 结束/定时器回调的唯一入口）：
  *   重新 resolve（handler 重跑——registry 复用——组件工厂不重跑——
@@ -26,6 +27,7 @@ import { createDataPipe } from '../context/data.ts'
 import type { UIContext, DataPipe } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 import type { Browser } from '../browser/Browser.ts'
+import { createClientBrowser } from '../browser/create-client-browser.ts'
 
 /** 函数表还原（$fn 标记 → 函数——编码/解码同进程共享） */
 export function reviveFn(fnTable: Map<number, unknown>) {
@@ -105,8 +107,6 @@ export function createFnTable(): Map<number, unknown> {
 export interface UiServeOptions {
   /** 根容器（选择器或元素——'#root'） */
   root: string | HTMLElement
-  /** 浏览器环境（依赖注入——测试 testBrowser() / 生产 createClientBrowser()） */
-  browser: Browser
   /** 中间件注入面（ctx.api/auth/ws/i18n——组件/页面可用——可选） */
   api?: import('../middlewares/api.ts').ApiClient
   auth?: import('../middlewares/auth-i18n.ts').AuthClient
@@ -134,8 +134,9 @@ export interface RenderCtx extends UIContext {
 }
 
 export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
-  const doc = opts.browser.document
-  const win = opts.browser.window
+  // 真实浏览器全局（uiServe 仅浏览器端——SSR 走 uiSsr 独立路径）
+  const doc = document
+  const win = window
   const rootEl = typeof opts.root === 'string'
     ? (doc.querySelector(opts.root) as HTMLElement | null)
     : opts.root
@@ -240,8 +241,8 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     },
     /** 数据管道（组件工厂取数——唯一异步边界——缓存/并发合并/失败缓存） */
     data: createDataPipe(),
-    /** 浏览器环境（注入的 window/document） */
-    browser: opts.browser,
+    /** 浏览器环境（生产适配——惰性全局访问——SSR 安全） */
+    browser: createClientBrowser(),
     /** serve 级卸载注册（unmount 时执行——组件外清理） */
     onUnmount(fn: () => void): void {
       serveUnmounts.push(fn)

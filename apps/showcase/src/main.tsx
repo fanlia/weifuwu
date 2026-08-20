@@ -13,7 +13,7 @@
  *
  * 页面正文 = content/ 的 .md 渲染（Markdown 组件）——HTML 与 LLM 读的 .md 同源。
  */
-import { UIRouter, uiServe, h, createClientBrowser } from 'weifuwu/vdom'
+import { UIRouter, uiServe, h } from 'weifuwu/vdom'
 import type { Component, RenderCtx, UIContext } from 'weifuwu/vdom'
 import { toast } from '../../../src/client/vdom/commands.ts'
 import { Home } from './pages/home.tsx'
@@ -56,7 +56,6 @@ router.notFound(() => new Response(null, { status: 404 }))
 // ── 渲染落地（uiServe——UIRouter 唯一应用入口） ──
 const serve = uiServe(router, {
   root: '#root',
-  browser: createClientBrowser()!,
   toast,
 })
 ;(window as any).__wf_router = router

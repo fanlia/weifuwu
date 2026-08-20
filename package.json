@@ -43,10 +43,12 @@
     "build": "node scripts/build.mjs",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "typecheck": "tsc --noEmit",
-    "test": "node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts' 'src/client/**/*.test.ts'",
+    "test": "npm run test:client && npm run test:server",
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run",
-    "test:cov:vdom": "node --env-file=.env --test --experimental-test-coverage --test-coverage-include-all --test-coverage-include='src/client/vdom/**' --test-coverage-exclude='node_modules/**' --test-timeout=8000 'src/client/vdom/**/*.test.ts'"
+    "test:client": "vitest run",
+    "test:server": "node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts'",
+    "test:cov:vdom": "vitest run --coverage.enabled --coverage.include='src/client/vdom/**' src/client/vdom/**/*.test.ts"
   },
   "dependencies": {
     "esbuild": "^0.28.1",
@@ -74,11 +76,16 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^25",
     "@types/ws": "^8",
+    "@vitest/browser": "^4.1.11",
+    "@vitest/browser-playwright": "^4.1.11",
+    "@vitest/coverage-istanbul": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.11",
     "ioredis": "^5.11.1",
-    "jsdom": "^29.1.1",
+    "playwright": "^1.62.1",
     "postcss": "^8.5.19",
     "postgres": "^3.4.9",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "vitest": "^4.1.11"
   },
   "sideEffects": false,
   "keywords": [

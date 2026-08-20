@@ -186,8 +186,6 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
   let retries = 0
   const refresh = (): void => {
     const el = resolveTrigger(opts)
-    const rawEl = typeof opts.el === 'function' ? opts.el() : opts.el
-    console.log('[popup-refresh] el:', !!el, 'rawEl:', !!rawEl, 'panel:', !!panel.current, 'retries:', retries)
     if (!el || !panel.current) {
       // el-null fallback（嵌套弹层首帧锚点未挂载——限次重试——防无限微任务循环）
       if (retries++ < 10) queueMicrotask(refresh)

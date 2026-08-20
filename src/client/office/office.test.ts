@@ -1,3 +1,6 @@
+// @vitest-environment node
+// office 是纯编解码逻辑（zip/xml/docx/xlsx/pptx——无 DOM）——依赖 node 专属 API
+// （zlib/Buffer/DecompressionStream）——vitest node 环境（非 node:test——runner 仍 vitest）
 /**
  * office/docx 双向转换测试（参考算法 office2json——自研零依赖实现）：
  * - 往返：DocState → docx（导出）→ DocState（导入）——文本/块/marks/表格/图片
@@ -5,8 +8,8 @@
  * - ZIP 读写往返
  */
 
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { test, describe } from 'vitest'
+import { expect } from 'vitest'
 import { readZip, writeZip, crc32 } from './zip.ts'
 import { parseXml } from './xml.ts'
 import { docToDocx, docxToDoc } from './docx.ts'
@@ -35,15 +38,15 @@ describe('office/zip（自研容器——零依赖）', () => {
     ])
     const zip = writeZip(files)
     // CRC32 已知值验证（'123456789' → 0xCBF43926）
-    assert.equal(crc32(encoder.encode('123456789')), 0xcbf43926)
+    expect(crc32(encoder.encode('123456789'))).toBe(0xcbf43926)
     const back = await readZip(zip)
-    assert.equal(back.size, 3)
-    assert.equal(decoder.decode(back.get('word/document.xml')), '<w:document>你好</w:document>')
-    assert.equal(back.get('word/media/image1.png')![0], 0x89)
+    expect(back.size).toBe(3)
+    expect(decoder.decode(back.get('word/document.xml'))).toBe('<w:document>你好</w:document>')
+    expect(back.get('word/media/image1.png')![0]).toBe(0x89)
     // 中文文件名
     const zip2 = writeZip(new Map([['测试/文件.txt', encoder.encode('ok')]]))
     const back2 = await readZip(zip2)
-    assert.equal(back2.get('测试/文件.txt')![0], 0x6f)
+    expect(back2.get('测试/文件.txt')![0]).toBe(0x6f)
   })
 
   test('readZip：deflate 压缩路径（真实 docx——method 8 + DecompressionStream）', async () => {
@@ -82,23 +85,23 @@ describe('office/zip（自研容器——零依赖）', () => {
     edv.setUint32(16, local.length, true)
     const zip = concatU8(local, central, eocd)
     const back = await readZip(zip)
-    assert.equal(decoder.decode(back.get('word/document.xml')), xml, 'deflate 解压正确')
+    expect(decoder.decode(back.get('word/document.xml'))).toBe(xml, 'deflate 解压正确')
   })
 
   test('readZip：损坏输入抛错（诚实——非静默）', async () => {
-    await assert.rejects(() => readZip(new Uint8Array([1, 2, 3])), /EOCD/)
+    await expect(readZip(new Uint8Array([1, 2, 3]))).rejects.toThrow(/EOCD/)
   })
 
   test('parseXml：元素树 + 属性 + 文本 + 自闭合 + 指令', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <w:document xmlns:w="ns"><w:p><w:r><w:t xml:space="preserve">你好&amp;世界</w:t></w:r></w:p><w:empty/></w:document>`
     const root = parseXml(xml)
-    assert.equal(root.name, 'w:document')
-    assert.equal(root.attrs['xmlns:w'], 'ns')
+    expect(root.name).toBe('w:document')
+    expect(root.attrs['xmlns:w']).toBe('ns')
     const p = root.children.find((c) => c.name === 'w:p')!
     const t = p.children.find((c) => c.name === 'w:r')!.children.find((c) => c.name === 'w:t')!
-    assert.equal(t.text, '你好&世界')
-    assert.equal(root.children.some((c) => c.name === 'w:empty'), true)
+    expect(t.text).toBe('你好&世界')
+    expect(root.children.some((c) => c.name === 'w:empty')).toBe(true)
   })
 })
 
@@ -115,10 +118,10 @@ describe('office/docx（docx ↔ ODES DocState——参考 office2json 算法）
     }
     const exp = docToDocx(doc)
     const imp = await docxToDoc(exp.data)
-    assert.equal(imp.doc.text, doc.text, '文本往返')
-    assert.deepEqual(imp.doc.blockProps, doc.blockProps, '块属性往返')
-    assert.deepEqual(imp.doc.marks, doc.marks, 'marks 往返')
-    assert.equal(imp.warnings.length, 0)
+    expect(imp.doc.text).toBe(doc.text, '文本往返')
+    expect(imp.doc.blockProps).toEqual(doc.blockProps, '块属性往返')
+    expect(imp.doc.marks).toEqual(doc.marks, 'marks 往返')
+    expect(imp.warnings.length).toBe(0)
   })
 
   test('往返：表格 embed（w:tbl ↔ 表格 html 快照）', async () => {
@@ -133,12 +136,12 @@ describe('office/docx（docx ↔ ODES DocState——参考 office2json 算法）
     }
     const exp = docToDocx(doc)
     const imp = await docxToDoc(exp.data)
-    assert.equal(imp.doc.embeds.length, 1, '表格 embed 往返')
+    expect(imp.doc.embeds.length).toBe(1, '表格 embed 往返')
     const tbl = imp.doc.embeds[0]
-    assert.equal(tbl.type, 'table')
-    assert.ok(tbl.html.includes('<td>功能</td>'), '单元格内容保留')
-    assert.ok(tbl.html.includes('<td>✅</td>'))
-    assert.ok(!imp.doc.text.includes('功能'), '表格文本不泄漏到正文')
+    expect(tbl.type).toBe('table')
+    expect(tbl.html.includes('<td>功能</td>'), '单元格内容保留').toBeTruthy()
+    expect(tbl.html.includes('<td>✅</td>')).toBeTruthy()
+    expect(!imp.doc.text.includes('功能'), '表格文本不泄漏到正文').toBeTruthy()
   })
 
   test('往返：图片 embed（data url → media → w:drawing → data url）', async () => {
@@ -155,12 +158,12 @@ describe('office/docx（docx ↔ ODES DocState——参考 office2json 算法）
     }
     const exp = docToDocx(doc)
     const zip = await readZip(exp.data)
-    assert.ok(zip.has('word/media/image1.png'), 'media 文件写入')
+    expect(zip.has('word/media/image1.png'), 'media 文件写入').toBeTruthy()
     const imp = await docxToDoc(exp.data)
-    assert.equal(imp.doc.embeds.length, 1)
+    expect(imp.doc.embeds.length).toBe(1)
     const img = imp.doc.embeds[0]
-    assert.ok(img.html.includes('data:image/png;base64,'), '图片 data url 往返')
-    assert.ok(!img.html.includes('http'), '无外部 url')
+    expect(img.html.includes('data:image/png;base64,'), '图片 data url 往返').toBeTruthy()
+    expect(!img.html.includes('http'), '无外部 url').toBeTruthy()
   })
 
   test('往返：pre 代码块 → 每行一段（格式裁剪——文本保留）', async () => {
@@ -175,8 +178,8 @@ describe('office/docx（docx ↔ ODES DocState——参考 office2json 算法）
     }
     const exp = docToDocx(doc)
     const imp = await docxToDoc(exp.data)
-    assert.ok(imp.doc.text.includes('const a = 1'), 'pre 文本保留')
-    assert.ok(imp.doc.text.includes('const b = 2'))
+    expect(imp.doc.text.includes('const a = 1'), 'pre 文本保留').toBeTruthy()
+    expect(imp.doc.text.includes('const b = 2')).toBeTruthy()
   })
 
   test('导入：样式名/对齐映射 + 空段落 + 裁剪 warning', async () => {
@@ -196,12 +199,12 @@ describe('office/docx（docx ↔ ODES DocState——参考 office2json 算法）
     ])
     const zip = writeZip(files)
     const imp = await docxToDoc(zip)
-    assert.equal(imp.doc.text, '一级标题\n居中粗斜\n\n', '段落文本 + 空段落')
-    assert.deepEqual(imp.doc.blockProps, [
+    expect(imp.doc.text).toBe('一级标题\n居中粗斜\n\n', '段落文本 + 空段落')
+    expect(imp.doc.blockProps).toEqual([
       { start: 0, kind: 'h1' },
       { start: 5, kind: 'p', align: 'center' },
     ])
-    assert.equal(imp.doc.marks.length, 2, '粗斜 marks')
+    expect(imp.doc.marks!.length, '粗斜 marks').toBe(2)
   })
 
   test('导出格式：document.xml 可被自研解析器解析（OOXML 规整）', async () => {
@@ -215,14 +218,14 @@ describe('office/docx（docx ↔ ODES DocState——参考 office2json 算法）
     const zip = await readZip(exp.data)
     const xml = decoder.decode(zip.get('word/document.xml')!)
     const root = parseXml(xml)
-    assert.equal(root.name, 'w:document')
+    expect(root.name).toBe('w:document')
     const body = root.children.find((c) => c.name === 'w:body')!
     const ps = body.children.filter((c) => c.name === 'w:p')
-    assert.equal(ps.length, 2)
+    expect(ps.length, '两段 → 两个 w:p').toBe(2)
     const p2 = ps[1]
-    assert.ok(p2.children.some((c) => c.name === 'w:pPr' && c.children.some((j) => j.name === 'w:jc')), '对齐保留')
+    expect(p2.children.some((c) => c.name === 'w:pPr' && c.children.some((j) => j.name === 'w:jc')), '对齐保留').toBeTruthy()
     const t = ps[1].children.filter((c) => c.name === 'w:r')
-    assert.ok(t.some((r) => r.children.some((x) => x.name === 'w:rPr')), 'u mark 保留')
+    expect(t.some((r) => r.children.some((x) => x.name === 'w:rPr')), 'u mark 保留').toBeTruthy()
   })
 })
 
@@ -248,15 +251,15 @@ describe('office/xlsx（xlsx ↔ ODES WorkbookState——参考 office2json 算�
     }
     const exp = workbookToXlsx(wb)
     const imp = await xlsxToWorkbook(exp.data)
-    assert.equal(imp.workbook.sheets.length, 2, '多 sheet')
-    assert.equal(imp.workbook.sheets[0].name, '数据')
-    assert.equal(imp.workbook.sheets[1].name, '汇总')
+    expect(imp.workbook.sheets.length).toBe(2, '多 sheet')
+    expect(imp.workbook.sheets[0].name).toBe('数据')
+    expect(imp.workbook.sheets[1].name).toBe('汇总')
     const s0 = imp.workbook.sheets[0]
-    assert.equal(s0.cells.get('A1')?.value, '项目', '共享字符串解析')
-    assert.equal(s0.cells.get('B2')?.value, 100, '数字')
-    assert.equal(s0.cells.get('C2')?.formula, '=SUM(B2)', '公式保留')
-    assert.equal(s0.cells.get('D1')?.value, true, '布尔')
-    assert.equal(s0.cols, 4, '列范围（D 列）')
+    expect(s0.cells.get('A1')?.value).toBe('项目', '共享字符串解析')
+    expect(s0.cells.get('B2')?.value).toBe(100, '数字')
+    expect(s0.cells.get('C2')?.formula).toBe('=SUM(B2)', '公式保留')
+    expect(s0.cells.get('D1')?.value).toBe(true, '布尔')
+    expect(s0.cols).toBe(4, '列范围（D 列）')
   })
 
   test('往返：中文 + 特殊字符共享字符串（转义）', async () => {
@@ -272,8 +275,8 @@ describe('office/xlsx（xlsx ↔ ODES WorkbookState——参考 office2json 算�
     }
     const exp = workbookToXlsx(wb)
     const imp = await xlsxToWorkbook(exp.data)
-    assert.equal(imp.workbook.sheets[0].cells.get('A1')?.value, '你好 <世界> & "引号"')
-    assert.equal(imp.workbook.sheets[0].cells.get('A2')?.value, '金额: 100%')
+    expect(imp.workbook.sheets[0].cells.get('A1')?.value).toBe('你好 <世界> & "引号"')
+    expect(imp.workbook.sheets[0].cells.get('A2')?.value).toBe('金额: 100%')
   })
 
   test('写入结构：VNode 组件化（OOXML 也是 VNode——parseXml 可解析）', async () => {
@@ -288,14 +291,14 @@ describe('office/xlsx（xlsx ↔ ODES WorkbookState——参考 office2json 算�
     const files = await readZip(exp.data)
     const sheetXml = decoder.decode(files.get('xl/worksheets/sheet1.xml')!)
     const root = parseXml(sheetXml)
-    assert.equal(root.name, 'worksheet')
+    expect(root.name).toBe('worksheet')
     const sheetData = root.children.find((c) => c.name === 'sheetData')!
     const rows = sheetData.children.filter((c) => c.name === 'row')
-    assert.equal(rows.length, 1)
+    expect(rows.length).toBe(1)
     const cs = rows[0].children.filter((c) => c.name === 'c')
-    assert.equal(cs.length, 2)
-    assert.equal(cs[0].attrs.r, 'A1')
-    assert.equal(cs[1].attrs.r, 'B1')
+    expect(cs.length).toBe(2)
+    expect(cs[0].attrs.r).toBe('A1')
+    expect(cs[1].attrs.r).toBe('B1')
   })
 })
 
@@ -316,15 +319,15 @@ describe('office/pptx（pptx ↔ ODES DeckState——参考 office2json 算法�
     }
     const exp = deckToPptx(deck as any)
     const imp = await pptxToDeck(exp.data)
-    assert.equal(imp.deck.slides.length, 2, '多幻灯片')
+    expect(imp.deck.slides.length).toBe(2, '多幻灯片')
     const s0 = imp.deck.slides[0].shapes
-    assert.equal(s0.length, 2, 'shape 层叠保留')
-    assert.equal(s0[0].kind, 'text')
-    assert.equal(s0[0].props?.text, '标题', '文本往返')
-    assert.deepEqual({ x: s0[0].x, y: s0[0].y, w: s0[0].w, h: s0[0].h }, { x: 100, y: 50, w: 400, h: 60 }, '几何往返（EMU ↔ px）')
-    assert.equal(s0[1].kind, 'rect', '图形类型')
+    expect(s0.length).toBe(2, 'shape 层叠保留')
+    expect(s0[0].kind).toBe('text')
+    expect(s0[0].props?.text).toBe('标题', '文本往返')
+    expect({ x: s0[0].x, y: s0[0].y, w: s0[0].w, h: s0[0].h }, '几何往返（EMU ↔ px）').toEqual({ x: 100, y: 50, w: 400, h: 60 })
+    expect(s0[1].kind).toBe('rect', '图形类型')
     const s1 = imp.deck.slides[1].shapes[0]
-    assert.equal(s1.props?.text, '第二页\n换行', '多行文本（a:p 段落）')
+    expect(s1.props?.text).toBe('第二页\n换行', '多行文本（a:p 段落）')
   })
 
   test('往返：图片 shape → 占位（媒体导出裁剪 warning）', async () => {
@@ -334,9 +337,9 @@ describe('office/pptx（pptx ↔ ODES DeckState——参考 office2json 算法�
       size: { w: 960, h: 540 },
     }
     const exp = deckToPptx(deck as any)
-    assert.ok(exp.warnings.some((w) => w.includes('图片导出裁剪')), '图片裁剪 warning')
+    expect(exp.warnings.some((w) => w.includes('图片导出裁剪')), '图片裁剪 warning').toBeTruthy()
     const imp = await pptxToDeck(exp.data)
-    assert.equal(imp.deck.slides[0].shapes[0].kind, 'image', '图片 shape 保留（占位）')
+    expect(imp.deck.slides[0].shapes[0].kind).toBe('image', '图片 shape 保留（占位）')
   })
 
   test('写入结构：slideN.xml 可被自研解析器解析（OOXML 规整）', async () => {
@@ -346,13 +349,13 @@ describe('office/pptx（pptx ↔ ODES DeckState——参考 office2json 算法�
     }
     const exp = deckToPptx(deck as any)
     const files = await readZip(exp.data)
-    assert.ok(files.has('ppt/slides/slide1.xml'))
+    expect(files.has('ppt/slides/slide1.xml')).toBeTruthy()
     const root = parseXml(decoder.decode(files.get('ppt/slides/slide1.xml')!))
-    assert.equal(root.name, 'p:sld')
+    expect(root.name).toBe('p:sld')
     const cSld = root.children.find((c) => c.name === 'p:cSld')!
     const spTree = cSld.children.find((c) => c.name === 'p:spTree')!
     const sp = spTree.children.find((c) => c.name === 'p:sp')!
     const off = JSON.stringify(sp).includes('a:off')
-    assert.ok(off, 'xfrm 坐标写入')
+    expect(off, 'xfrm 坐标写入').toBeTruthy()
   })
 })

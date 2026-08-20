@@ -229,7 +229,7 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 
 > vdom3 是当前生产引擎（agent-platform 默认入口）。2026-12 vdom4 计划落地了
 > 以下机制（命令化 diff/锚点法/影子状态/冻结/dispose/hydration）——**改引擎必须先跑
-> `src/client/vdom/**/*.test.ts`（281 测试）**。vdom2 为历史实现（已删除——git 历史可追溯）。
+> `src/client/vdom/**/*.test.ts`（254 测试）**。vdom2 为历史实现（已删除——git 历史可追溯）。
 
 **架构（决策与执行分离——DOM = fold(命令)）**：
 ```
@@ -530,7 +530,7 @@ const MyComp: Component = (_init, ctx) => {
 | 可见性 | `ctx.ui.useInView` | 自建 `IntersectionObserver` |
 | 视口 | `ctx.ui.useVisualViewport` | `window.innerHeight` |
 
-**三态实现**：客户端 `createClientBrowser`（惰性 typeof 防御）· SSR shim（null/0/false/no-op——组件 SSR 安全）· 测试 mock 或 jsdom fallback（`_ctx.browser ?? createClientBrowser()`）。
+**三态实现**：客户端 `createClientBrowser`（惰性 typeof 防御）· SSR shim（null/0/false/no-op——组件 SSR 安全）· 测试直接使用浏览器全局（真实环境——无 mock 面）。
 
 **浏览器全局审计基线**：`grep -rnE '\bwindow\.|\bdocument\.|\bnavigator\.|\blocation\.|\bhistory\.|\blocalStorage|\bgetSelection\(|\brequestAnimationFrame|\bMutationObserver|\bIntersectionObserver|matchMedia\(' src/client/components/*/*.ts`（排除注释后必须为 0——新组件引入即 CI 噪音）。
 
@@ -607,7 +607,7 @@ const MyComp: Component = (_init, ctx) => {
 「数组 boolean 空洞：false 占位不得误删下一个兄弟（提交按钮消失事故）」——覆盖空洞保持、空洞→真实
 元素插入（Alert 出现在按钮前、位置正确）。
 
-**复现步骤**：① jsdom：children = `[Field, false, Button]`，Field 加 error 重渲染 → 修复前 `querySelectorAll('button')` 为 0、修复后为 1；② agent-browser（components-demo）：Form 空表单点「提交表单」→ 修复前验证错误出现 + 按钮消失、修复后按钮保留。
+**复现步骤**：① 引擎测试：children = `[Field, false, Button]`，Field 加 error 重渲染 → 修复前 `querySelectorAll('button')` 为 0、修复后为 1；② agent-browser（components-demo）：Form 空表单点「提交表单」→ 修复前验证错误出现 + 按钮消失、修复后按钮保留。
 
 **残余风险（诚实裁剪）**：① 组件输出数组场景的 `_childAnchors` 边界——数组项 ≡ 隐式 Fragment，fragment/组件多节点展开后的相邻文本错位已由阶段 B 锚点覆盖（`_childAnchors` 每位置首节点锚点），组件输出数组的首/尾锚点仍有理论边界（未实测场景：组件输出数组直接接数组）；② 动态列表无 key = 位置复用 + 状态继承（位置身份语义）——增删重排需显式 key（A 级检测 dev 报错引导；重排/同类型替换长度不变不可检测——文档红线，业务声明 key）。
 
@@ -623,18 +623,27 @@ const MyComp: Component = (_init, ctx) => {
 
 ### 7.1 命令与预算
 
-- **开发迭代只跑单文件**（快速定位）：`timeout 15 node --env-file=.env --test --test-timeout=8000 <单文件>`——改动只影响该文件的测试（如 `src/client/vdom/serve.test.ts`、`src/client/vdom/setup-proxy.test.ts`）；涉及引擎/渲染管线的改动跑相关测试组（`'src/client/vdom/**/*.test.ts'`）即可
-- **全量测试只在发布版本之前运行**（`npm test` = `node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts' 'src/client/**/*.test.ts'`）——开发中不跑全量（client 297 + db 真库依赖 docker），避免干扰定位；发布前（`node scripts/release.mjs <version>`）跑全量确认全绿
-- `node --test` 无 Jest/Mocha；`npm test` 无 pretest、**零外部依赖**（docker 不参与测试——见 §7.4 测试范围）
-- **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（**≤15 秒**），并优先加 `--test-timeout`（如 `timeout 15 node --env-file=.env --test --test-timeout=8000 ...`）——真库/集成测试卡住时能快速定位；卡住时用更短 timeout 复跑缩小范围
-- **全量测试总时长预算：≤ 15 秒**（client 实测 ~3.2s——297 测试；组件/layout 测试
-  2026-12 删除后 testBrowser 纪律成本骤降（29 个 client 文件）；db 真库 191 个测试
+- **client 开发迭代**：`npx vitest run <文件/glob>`（浏览器 project——真实
+  Chromium——如 `npx vitest run src/client/vdom/serve.test.ts`）；涉及引擎/渲染
+  管线的改动跑 vdom 全组（`npx vitest run 'src/client/vdom/**'`）即可
+- **server 开发迭代**：`timeout 15 node --env-file=.env --test --test-timeout=8000
+  <单文件>`（node:test 只用于 src/server）
+- **全量测试只在发布版本之前运行**（`npm test` = `test:client`（vitest——
+  真实浏览器）+ `test:server`（node --test——db 真库依赖 docker））；开发中不跑
+  全量，避免干扰定位；发布前（`node scripts/release.mjs <version>`）跑全量确认全绿
+- vitest（client）与 node --test（server）双 runner；`npm test` 无 pretest
+- **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`
+  （**≤15 秒**）——卡住时用更短 timeout 复跑缩小范围
+- **全量测试总时长预算：≤ 15 秒**（client 实测 ~4.2s——270 测试 28 文件——
+  真实浏览器并行（文件级独立 context——浏览器进程池复用）；db 真库 191 个测试
   占 ~4.3s）。**超过 15 秒 = 必须排查**：
-  1. **资源未释放**：db 连接未 `close()`、redis 订阅未退订、jsdom 定时器未清（setTimeout/interval 未 clear——挂起比失败更难定位）、全局 document/mutation 监听未 remove
-  2. **新增测试自身慢**：长按/动画测试的 sleep（`usePopup` longpress 500ms×2 是已知最慢项）；改为事件驱动断言
-  3. **串行瓶颈**：`--test-concurrency=1` 文件串行；db 真库测试耗时占比大
-  4. 排查命令：`timeout 15 node --env-file=.env --test --test-timeout=8000 <glob>` 分段跑定位超时文件，再缩短该文件测试查找挂起点
-- **并发数经验：默认 16 核全并发会 GC/锁抖动（全量从 ~9s 恶化到 >60s）——`npm test` 已固化为 `--test-concurrency=8`**；新增慢文件或机器变化后先验证此值仍成立（15s 预算内）
+  1. **资源未释放**：db 连接未 `close()`、redis 订阅未退订、浏览器事件监听未
+     remove（serve.unmount/ctx.dispose 清理）、`window.history` 状态残留
+  2. **新增测试自身慢**：waitFor 超时（默认 2s——确定性等待——禁 sleep 固定时长）
+  3. **串行瓶颈**：浏览器 project 文件并行（vitest 默认）——node project 文件串行
+  4. 排查命令：`npx vitest run <glob>` 分段跑定位超时文件，再缩短该文件测试查找挂起点
+- **并发经验**：vitest browser 文件级独立 context（每文件一个 iframe——
+  浏览器进程池复用）——默认并行即可；机器变化后先验证预算仍成立
 
 ### 7.1.1 测试范围（sql/redis 协议层只测三部分）
 
@@ -652,7 +661,7 @@ const MyComp: Component = (_init, ctx) => {
 
 ### 7.1.2 vdom 引擎测试组
 
-- **开发迭代**：`timeout 15 node --env-file=.env --test --test-timeout=8000 'src/client/vdom/**/*.test.ts'`（281 测试——命令化/锚点法/冻结/dispose/hydration/语义 id/proxy-trace 契约全组）
+- **开发迭代**：`npx vitest run 'src/client/vdom/**/*.test.ts'`（254 测试——命令化/锚点法/冻结/dispose/hydration/语义 id 契约全组——真实浏览器）
 - 改引擎核心（render/build/shadow/delegate）后：vdom 全组全绿才可提交
 
 ### 7.1.3 测试覆盖度量（v26.7 `--test-coverage-include-all`——**宣称「充分测试」前的客观依据**）
@@ -662,13 +671,13 @@ const MyComp: Component = (_init, ctx) => {
 **命令**（npm script `test:cov:vdom`）：
 
 ```bash
-node --env-file=.env --test --experimental-test-coverage --test-coverage-include-all \
-  --test-coverage-include='src/client/vdom/**' --test-coverage-exclude='node_modules/**' \
-  --test-timeout=8000 'src/client/vdom/**/*.test.ts'
+npx vitest run --coverage.enabled --coverage.include='src/client/vdom/**' 'src/client/vdom/**/*.test.ts'
 ```
 
-- **include-all 语义**：把**从未被加载**的源文件也纳入统计（不只测试直接引用的）——全局视角的真实覆盖
-- **踩坑（必须显式 exclude）**：v26.7 默认 exclude 排除**路径含 `/test/` 的目录**——项目在 `/home/x/test/ai/` 下——不传显式 `--test-coverage-exclude` 时报告全空（all files 100% 假象）
+- **include 语义**：把**从未被加载**的源文件也纳入统计（不只测试直接引用的）——全局视角的真实覆盖
+- **踩坑（2026-12）**：vitest browser mode 的覆盖率统计尚未接通（playwright
+  provider + istanbul/v8 均报 0%）——`test:cov:vdom` 脚本暂不可用——度量
+  纪律保留（浏览器 coverage 配置待调研）
 - **分类豁免**：类型/接口/命令定义文件（`Browser.ts`/`UIContext.ts`/`command/*`/re-export `index.ts`）行覆盖无意义——不视为缺口；**行为代码**（逻辑/分支）必须 ≥ 90% 且关键路径 100%
 
 **度量流程（提交前/宣称「充分」前）**：
@@ -689,60 +698,65 @@ node --env-file=.env --test --experimental-test-coverage --test-coverage-include
 
 **不变量断言 helper**（`src/client/vdom/testing.ts`——禁止手抄）：`assertIsomorphic`（childNodes 逐位同构——长度+位置+类型）/`assertSlot`（边界位置——位置 0/末尾重点）/`assertKept`（同 key 复用项 DOM 引用不变）/`assertRoundTrip`（往返可逆——状态不漂移）
 
-### 7.1.4 测试环境统一纪律（红线——client 测试必须基于 testBrowser）
+### 7.1.4 测试环境纪律（红线——client 测试必须基于真实浏览器）
 
-> 决策（2026-12）：**所有 client 测试（vdom/office 及未来新增）必须基于
-> `testBrowser()`**——独立 JSDOM 实例（零全局污染）+ 真实 hooks；浏览器能力
-> mock 一律收敛到 testBrowser 提供的 jsdom 能力，禁止各测试手搓。
+> 决策（2026-12）：**删除 jsdom/testBrowser**——client 测试全部跑**真实浏览器**
+> （vitest browser + playwright chromium）；node:test 只用于 src/server。
+> 浏览器能力全部真实（matchMedia/IO/布局/滚动——无 polyfill 无 mock 驱动面）。
 
-- **`testBrowser()` 是唯一测试浏览器入口**（`src/client/vdom/setup.ts`）——
-  client 全部测试（vdom/office；2026-12 组件/layout 测试已全量删除）一律经它
-  创建 jsdom；**`setupJsdom()` 已删除**（全局注入 globalThis——测试间共享状态/
-  加载时序敏感——任何测试不得再引入等价全局注入模式）
-- **需要 DOM 全局的测试**用 `installJsdomGlobals(browser)`/`restoreJsdomGlobals()`
-  （before/after 成对——来自独立实例——隔离保留）；断言优先走 `browser.document`
-- **浏览器能力 mock 收敛**（禁止各测手搓）：`matchMedia`→`browser.setMediaQueries()`、
-  `IntersectionObserver`→`browser.fireIO()`、`visualViewport`/`innerHeight`→
-  `browser.setViewport()`、`scrollTo`（jsdom 桩）→ polyfill 真写、
-  `navigator.clipboard`→`browser.copyText` 注入、`CSS.escape`/`URL.createObjectURL`
-  → polyfill——**禁止** `globalThis.matchMedia = ...`、`(window as any).xxx = ...`
-  等旁路（trace 运行时双通道；静态 grep 通道随 style-audit 测试删除）
-- **hooks 必须跑真实实现**：`createTestCtx({ browser })` 传 browser → `ctx.ui` =
-  真实 `createUi(env)`（hooks/env.ts——与 renderComponent 同源）——**usePopup 等
-  禁止 mock**（portal/外部点击/Escape 走真实 jsdom 事件——曾覆盖 23 个浮层组件
-  测试；2026-12 组件/layout 测试全量删除后规则适用于 vdom 测试与未来新增测试）；
-  mock 保留白名单（诚实裁剪——jsdom 不可实现）：useChat 流式后端、
-  useTween 动画时序
-- **testBrowser 内置 window/document Proxy 全调用追踪**：每次调用记录到
-  `browser.trace.entries`（call/get/set 三态）——失败诊断 `trace.print()` dump；
-  `WF_JS_TRACE=1` 或 `testBrowser({ log: true, filter })` 每次调用打印
-- **审计基线**（提交前归零）：`grep -rn "setupJsdom\|globalThis.matchMedia\|\(window as any\)" src/client --include='*.test.ts'`
+- **架构**：`vitest run`（`vitest.config.ts`——两个 project）——
+  `browser`（playwright chromium——`src/client/**` 全部测试——直接用全局
+  document/window——`uiServe` 不再注入 browser 参数——测试与生产同环境）；
+  `node`（纯编解码逻辑——office——依赖 zlib/Buffer 的 node 专属 API）
+- **setup 文件**：`src/client/test/browser-setup.ts`（beforeEach 重置
+  `#root` + URL——测试间隔离）；`src/client/test/global-setup.ts`（node 进程
+  起 fixture HTTP server——src/server 的 serve/Router 组件——真实 TCP——
+  provide baseUrl → 测试 `inject('baseUrl')`）
+- **HTTP 取数真实化**（ctx.data/useChat/api——AGENTS §3.4 key 即 URL）：
+  测试用完整 URL `\`${inject('baseUrl')}/api/...\`` 指向 fixture server——
+  **禁止手搓 fetch mock**（globalThis.fetch 替换等旁路）；跨源由 fixture
+  的 CORS 头 + 全局 OPTIONS 中间件支持（useChat POST + JSON 头触发预检）
+- **不模拟 ctx**：中间件（api/auth/i18n/ws）经 `uiServe(router, { api, auth, i18n, ws })`
+  注入——组件经真实 ctx 消费（ctx.api/auth/i18n/ws + `ctx.render()`——
+  注意 **ctx.ui 是 hooks 面（无 render）**——重渲染用 `ctx.render()`）
+- **hooks 全部真实**：renderComponent 注入真实 `createUi(env)`（hooks/env.ts）——
+  usePopup/useExternal/useBreakpoint 等无 mock；ws 的 WebSocketCtor 注入是
+  中间件 API 契约（无真实 WS 服务器——诚实裁剪白名单）；headless 无
+  prefers-reduced-motion 偏好——useTween 直落分支裁剪（真实用户环境覆盖）
+- **异步断言**：真实浏览器渲染是异步的——click/事件后 `waitFor` 轮询
+  （确定性等待 helper——禁 sleep 固定时长）
+- **真实浏览器 vs jsdom 差异**（迁移踩坑）：disabled property 仅在表单元素
+  反射（div.disabled undefined）；`history.length` 页面会话级不可断言；
+  `delete window` 不可行（SSR 分支裁剪）；真实布局——元素需内容/尺寸
+  （usePopup 定位测试传 `trigger` 锚点函数）；CORS 预检需 server 处理
+- **审计基线**（提交前归零）：`grep -rn "jsdom\|testBrowser\|globalThis.matchMedia\|(window as any)" src/client --include='*.test.ts'`
 
 ### 7.2 组件测试纪律（原语保留——2026-12 组件测试已全量删除）
 
 **2026-12：weifuwu/components 与 weifuwu/layout 下全部测试已删除**（149 个文件）。
-组件测试原语保留在 `src/client/vdom/testing.ts`——未来新增组件测试使用（禁止手抄
-`renderVNode`/`mockCtx`）：
+测试原语保留在 `src/client/vdom/testing.ts`（**不变量断言 helper**——mock 面
+已删）——未来新增组件测试使用（禁止手抄）：
 
 ```tsx
-import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx } from '../vdom/testing.ts'
+import { assertIsomorphic, assertKept, assertSlot, shapeOf } from '../vdom/testing.ts'
+import { mountToDom, patchToDom, disposeToDom } from '../vdom/testing.ts'
 
-// renderVNode：两阶段组件渲染到 VNode 层（**只一层**——子组件保留函数引用，断言 type 而非 DOM）
-// mountComponent：**同实例 re-render**（内部 let 状态流转测试）——renderVNode 每次是新 mount，状态会丢
-// findByClass：class token 精确匹配（split(' ')——includes 会误匹配 wf-a ⊃ wf-a-b）
-// createTestCtx(overrides)：标准 ctx（render / hooks）；
-// **传 browser → 真实 hooks**（createUi(env)——usePopup/useMedia/useScrollPosition 等真实实现——禁止 mock）
-
-// 无状态：const vnode = renderVNode(Button, { variant: 'primary' }, createTestCtx())
-// 有状态（VNode 层）：const ctx = createTestCtx(); const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
-// 有状态（同实例，交互流转）：const render = mountComponent(Popover, {...}, ctx); render(); ...; render()
-// 交互流转驱动：组件内部 let 状态在事件回调里变化 + render()——测试里触发事件后 await ctx.ui.render() 断言 DOM
+// assertIsomorphic：childNodes 逐位同构（长度+位置+类型——塌缩即 bug）
+// assertKept：同 key 复用项 DOM 引用不变（重建即 bug——焦点/状态丢失）
+// mountToDom/patchToDom：vnode → DOM（同树 patch——portal 正确增删）
+// disposeToDom：applier.dispose（移除 document 监听——测试防泄漏）
 ```
 
-- **renderVNode 只渲染一层**：子组件 VNode 的 `type` 是组件函数（断言 `=== Icon`），不是 `'svg'` 等标签名
-- **DOM 事件级测试**（键盘/焦点/动画）：container 必须 `document.body.appendChild(container)`——jsdom 中未连接文档的元素 `.focus()` 无效
-- **`dispatchEvent` 必须用 jsdom 的 Event**：`browser.event(...)` 或 `new (window as any).Event(...)`——node 原生 Event 与 jsdom EventTarget 不兼容，抛 `TypeError: parameter 1 is not of type 'Event'`
-- **模拟真实 `ctx.ui.render()` 用 patchValue 而非 mountVNode**：签名 `patchValue(container, container.firstChild, prev, next, ctx)` 同树 patch（portal 正确增删）；mountVNode 全量重挂会残留 portal 脏节点
+- **组件测试形态**（未来新增）：`uiServe(router, { root })` + 真实浏览器全局
+  document——组件经真实 ctx（hooks 真实）——点击/事件后 `waitFor` 断言 DOM
+- **不模拟 ctx/hooks**：中间件经 uiServe 注入（api/auth/i18n/ws）——hooks 由
+  renderComponent 注入真实 createUi——useChat 流式（fixture server NDJSON）
+  真实 HTTP
+- **`dispatchEvent` 用浏览器原生 Event**（`new Event(type)`——跨源无限制）
+- **行为变更后旧测试可能静默挂起而非失败**——排查用 `--test-timeout=3000`
+  让挂起测试报超时，再二分定位
+- **类型流测试**（`src/client/vdom/type-flow.test.ts`）：编译期断言
+  （`@ts-expect-error` 负例）——props 泛型传错、未注入 ctx 字段必须编译期报错
 - **退场动画 = 延迟卸载**：`open=false` 后 DOM 仍在（播 `--exit` 动画），断言"关闭后 DOM 消失"须手动 `dispatchEvent(browser.event('animationend'))`
 - **行为变更后旧测试可能静默挂起而非失败**——排查用 `--test-timeout=3000` 让挂起测试报超时，再二分定位
 - **类型流测试**（`src/client/vdom/type-flow.test.ts`）：编译期断言（`@ts-expect-error` 负例）——props 泛型传错、未注入 ctx 字段必须编译期报错

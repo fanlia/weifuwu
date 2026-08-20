@@ -9,8 +9,8 @@
  * 负例（@ts-expect-error）：类型错误必须编译期报错。
  */
 
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
+import { test } from 'vitest'
+import { expect } from 'vitest'
 import type { UIContext, Component, Ui } from './index.ts'
 
 // ── declare module 增强（应用/中间件作者扩展——对齐后端 Context） ──
@@ -24,23 +24,23 @@ declare module './index.ts' {
 test('UIContext 内建面：ui/browser 具体类型（组件零断言——直接调用）', () => {
   // 编译期验证：ctx.ui.usePopup 类型可见（无断言）
   const useUi = (_ctx: UIContext): Ui => _ctx.ui
-  assert.equal(typeof useUi, 'function')
+  expect(typeof useUi).toBe('function')
   const useBrowser = (ctx: UIContext): Window => ctx.browser.window
-  assert.equal(typeof useBrowser, 'function')
+  expect(typeof useBrowser).toBe('function')
 })
 
 test('UIContext 增强面：declare module 合并后字段类型可见', () => {
   const useApi = (ctx: UIContext): string => ctx.myField
-  assert.equal(typeof useApi, 'function')
+  expect(typeof useApi).toBe('function')
   // 增强字段类型（api.get<T> 返回 Promise<T>）
   const callApi = async (ctx: UIContext): Promise<number> => {
     const v = await ctx.api.get<number>('/x')
     return v
   }
-  assert.equal(typeof callApi, 'function')
+  expect(typeof callApi).toBe('function')
   // @ts-expect-error——增强字段拼错——编译期报错
   const bad = (_ctx: UIContext): unknown => (_ctx as { notField?: unknown }).notField
-  assert.equal(typeof bad, 'function')
+  expect(typeof bad).toBe('function')
 })
 
 test('Component 泛型：默认 UIContext——P 类型约束', () => {
@@ -51,7 +51,7 @@ test('Component 泛型：默认 UIContext——P 类型约束', () => {
     void bad
     return () => null
   }
-  assert.equal(typeof Comp, 'function')
+  expect(typeof Comp).toBe('function')
   // @ts-expect-error——C 泛型约束（C 必须是对象）
   const Bad: Component<Record<string, unknown>, string> = (_i, _c) => () => null
   void Bad

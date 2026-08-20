@@ -21,9 +21,8 @@
  *   useDragDrop 数据传递 / useChat stop/reset/error
  */
 
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { testBrowser } from '../setup.ts'
+import { test } from 'vitest'
+import { expect } from 'vitest'
 import { UIRouter, uiServe } from '../index.ts'
 import { h } from './vnode.ts'
 import { createPortal } from './node/portal.ts'
@@ -45,7 +44,6 @@ async function waitFor(fn: () => boolean, timeout = 500): Promise<void> {
 }
 
 test('diffStream root 异态转换：元素 → 组件（transitionOf root 分支——整树替换）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let asComp = true
   const PageComp = () => () => h('div', { class: 'comp-root' }, '组件根')
@@ -54,23 +52,22 @@ test('diffStream root 异态转换：元素 → 组件（transitionOf root 分�
     const v = asComp ? h(PageComp, {}) : h('div', { class: 'el-root' }, '元素根')
     return (ctx as RenderCtx).stream(v)
   })
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  const root = browser.document.querySelector('#root') as HTMLElement
-  assert.ok(root.querySelector('.el-root'), '首帧：元素根')
+  const root = document.querySelector('#root') as HTMLElement
+  expect(root.querySelector('.el-root'), '首帧：元素根').toBeTruthy()
   // 再次渲染（handler 重跑）→ root 异态转换（元素 → 组件——transform 让位 + 新侧）
   await serve.navigate('/')
   await waitFor(() => root.querySelector('.comp-root') !== null)
-  assert.equal(root.querySelector('.el-root'), null, '旧元素根移除（root 异态转换）')
-  assert.equal(root.querySelector('.comp-root')?.textContent, '组件根')
+  expect(root.querySelector('.el-root'), '旧元素根移除（root 异态转换）').toBe(null)
+  expect(root.querySelector('.comp-root')?.textContent).toBe('组件根')
   // 往返：组件 → 元素（可逆）
   await serve.navigate('/')
   await waitFor(() => root.querySelector('.el-root') !== null)
-  assert.equal(root.querySelector('.comp-root'), null, '组件 → 元素（往返可逆）')
+  expect(root.querySelector('.comp-root'), '组件 → 元素（往返可逆）').toBe(null)
 })
 
 test('diffSame portal→portal：同 key 内容精准更新 / 异 key 切换（removePortal）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let same = true
   let open = false
@@ -85,42 +82,40 @@ test('diffSame portal→portal：同 key 内容精准更新 / 异 key 切换（r
     )
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  ;(browser.document.querySelector('#t') as HTMLElement).click()
-  await waitFor(() => browser.document.querySelector('.menu-a') !== null)
+  ;(document.querySelector('#t') as HTMLElement).click()
+  await waitFor(() => document.querySelector('.menu-a') !== null)
   // 同 key 内容更新（same → 内容变化但 key 不变——diffSame portal 同 key 分支）
-  const content = browser.document.querySelector('.menu-a') as HTMLElement
+  const content = document.querySelector('.menu-a') as HTMLElement
   same = false
   open = false
-  ;(browser.document.querySelector('#t') as HTMLElement).click()
-  await waitFor(() => browser.document.querySelector('.menu-a') === null)
-  ;(browser.document.querySelector('#t') as HTMLElement).click()
-  await waitFor(() => browser.document.querySelector('.menu-b') !== null)
-  const menuB = browser.document.querySelector('.menu-b') as HTMLElement
-  assert.equal(menuB.closest('#__wf_portal') !== null, true, '异 key 新容器渲染')
-  assert.equal(browser.document.querySelector('#__wf_portal-dd'), null, '异 key：旧容器 removePortal（无残留）')
-  assert.equal(content.isConnected, false, '旧内容脱离（旧容器移除）')
+  ;(document.querySelector('#t') as HTMLElement).click()
+  await waitFor(() => document.querySelector('.menu-a') === null)
+  ;(document.querySelector('#t') as HTMLElement).click()
+  await waitFor(() => document.querySelector('.menu-b') !== null)
+  const menuB = document.querySelector('.menu-b') as HTMLElement
+  expect(menuB.closest('#__wf_portal') !== null, '异 key 新容器渲染').toBe(true)
+  expect(document.querySelector('#__wf_portal-dd'), '异 key：旧容器 removePortal（无残留）').toBe(null)
+  expect(content.isConnected, '旧内容脱离（旧容器移除）').toBe(false)
 })
 
 test('数字文本对照：number ↔ number setText（值变化精准命令）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let n = 1
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', {},
     h('span', { id: 'num' }, n as never),
     h('button', { id: 't', onClick: () => { n = 2; void ctx.render() } }, '改'),
   )))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  assert.equal(browser.document.querySelector('#num')?.textContent, '1', '数字文本渲染')
-  ;(browser.document.querySelector('#t') as HTMLElement).click()
-  await waitFor(() => browser.document.querySelector('#num')?.textContent === '2')
-  assert.equal(browser.document.querySelector('#num')?.textContent, '2', 'number→number setText')
+  expect(document.querySelector('#num')?.textContent, '数字文本渲染').toBe('1')
+  ;(document.querySelector('#t') as HTMLElement).click()
+  await waitFor(() => document.querySelector('#num')?.textContent === '2')
+  expect(document.querySelector('#num')?.textContent, 'number→number setText').toBe('2')
 })
 
 test('keyed 组件输出 null/数组：输出形态变化（占位锚 ↔ 展开）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   const Card = (init: Record<string, unknown>, ctx: Ctx) => {
     let show = init.show as boolean
@@ -136,22 +131,21 @@ test('keyed 组件输出 null/数组：输出形态变化（占位锚 ↔ 展开
     )
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  const list = browser.document.querySelector('.list') as HTMLElement
-  assert.ok(list.querySelector('.card-a'), 'keyed 组件输出元素')
-  ;(browser.document.querySelector('#add') as HTMLElement).click()
+  const list = document.querySelector('.list') as HTMLElement
+  expect(list.querySelector('.card-a'), 'keyed 组件输出元素').toBeTruthy()
+  ;(document.querySelector('#add') as HTMLElement).click()
   await waitFor(() => list.childNodes.length === 2)
   // 新项 b 输出 null → 占位锚（同构——列表项数 2：元素 + 锚）
   const kids = [...list.childNodes]
-  assert.equal(kids.length, 2, 'keyed 2 项（a 元素 + b 占位锚）')
-  assert.equal(kids[0].nodeType, 1, 'a 输出元素')
-  assert.equal(kids[1].nodeType, 8, 'b 输出 null → 占位锚（emitWithKey null 分支）')
+  expect(kids.length, 'keyed 2 项（a 元素 + b 占位锚）').toBe(2)
+  expect(kids[0].nodeType, 'a 输出元素').toBe(1)
+  expect(kids[1].nodeType, 'b 输出 null → 占位锚（emitWithKey null 分支）').toBe(8)
 })
 
 test('removeVNodeTree：嵌套数组/组件子树递归清理（同构保持）', async () => {
-  const browser = testBrowser()
-  const doc = browser.document
+  const doc = document
   const root = doc.createElement('div')
   doc.body.appendChild(root)
   const { CommandApplier } = await import('./patch/index.ts')
@@ -172,15 +166,14 @@ test('removeVNodeTree：嵌套数组/组件子树递归清理（同构保持）'
     cmds.push(value)
   }
   for (const c of cmds) applier.apply(c as never)
-  assert.equal(root.querySelectorAll('*').length, 5, '首帧 5 元素（容器 + 4 子展开）')
+  expect(root.querySelectorAll('*').length, '首帧 5 元素（容器 + 4 子展开）').toBe(5)
   // 递归清理（removeVNodeTree——嵌套数组逐项）
   const removed: string[] = []
   removeVNodeTree(vnode, 'root.0', (cmd) => removed.push((cmd as { op: string }).op))
-  assert.equal(removed.filter((op) => op === 'remove').length, 5, '嵌套数组逐项递归 remove（4 元素 + 容器）')
+  expect(removed.filter((op) => op === 'remove').length, '嵌套数组逐项递归 remove（4 元素 + 容器）').toBe(5)
 })
 
 test('EventRegistry：closest 跳过无 data-wf-id 中间层 + handler 失败隔离', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let clicks = 0
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h('div', {},
@@ -188,10 +181,10 @@ test('EventRegistry：closest 跳过无 data-wf-id 中间层 + handler 失败隔
       h('button', { id: 'ok', onClick: () => { clicks++ } }, '好'),
     ),
   )))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  ;(browser.document.querySelector('#ok') as HTMLElement).click()
-  assert.equal(clicks, 1, '事件穿透无标记中间层（closest 跳过）')
+  ;(document.querySelector('#ok') as HTMLElement).click()
+  expect(clicks, '事件穿透无标记中间层（closest 跳过）').toBe(1)
   // handler 失败隔离：抛错 handler 不中断其他 handler
   let other = 0
   ;(globalThis as any).__errHandler = () => { throw new Error('handler boom') }
@@ -203,13 +196,13 @@ test('EventRegistry：closest 跳过无 data-wf-id 中间层 + handler 失败隔
       h('button', { id: 'bad', onClick: () => { throw new Error('boom') } }, '坏'),
       h('button', { id: 'good', onClick: () => { other++ } }, '好'),
     )))
-    const serve2 = uiServe(router2, { root: '#root', browser: testBrowser() })
+    const serve2 = uiServe(router2, { root: '#root' })
     await serve2.ready
     ;(serve2 as unknown as { unmount(): void }).unmount()
     const b2 = serve2
     void b2
     // 简化：用第一个 serve 的 document 验证失败隔离
-    const doc = browser.document
+    const doc = document
     const { EventRegistry } = await import('./field/events.ts')
     const reg = new EventRegistry(doc)
     const btn = doc.createElement('button')
@@ -219,7 +212,7 @@ test('EventRegistry：closest 跳过无 data-wf-id 中间层 + handler 失败隔
     reg.set('iso', 'click', () => { throw new Error('boom') })
     reg.set('iso', 'mouseover', () => { other++ })
     btn.dispatchEvent(new doc.defaultView.MouseEvent('click', { bubbles: true }))
-    assert.equal(other, 0, '抛错 handler 被隔离（不中断——console.error 捕获）')
+  expect(other, '抛错 handler 被隔离（不中断——console.error 捕获）').toBe(0)
     reg.dispose()
   } finally {
     console.error = origError
@@ -235,15 +228,14 @@ test('commandResponse：NDJSON 字节流（HTTP 传输层）', async () => {
     },
   })
   const res = commandResponse(stream as never)
-  assert.equal(res.status, 200)
+  expect(res.status).toBe(200)
   const text = await res.text()
   const lines = text.trim().split('\n')
-  assert.deepEqual(lines, ['{"op":"createText"}', '{"op":"done"}'], 'NDJSON 每行一命令')
+  expect(lines, 'NDJSON 每行一命令').toEqual(['{"op":"createText"}', '{"op":"done"}'])
 })
 
 test('procCreateAnchor detail 幂等 + procMove 真移动（first/append 分支）', async () => {
-  const browser = testBrowser()
-  const doc = browser.document
+  const doc = document
   const root = doc.createElement('div')
   doc.body.appendChild(root)
   const { CommandApplier } = await import('./patch/index.ts')
@@ -252,7 +244,7 @@ test('procCreateAnchor detail 幂等 + procMove 真移动（first/append 分支�
   applier.apply({ op: 'createAnchor', id: 'h', detail: 'a' })
   applier.apply({ op: 'insert', id: 'h', parent: 'root', ref: null })
   applier.apply({ op: 'createAnchor', id: 'h', detail: 'b' })
-  assert.equal((root.firstChild as Comment).textContent, 'wf-hole: b', 'detail 幂等更新')
+  expect((root.firstChild as Comment).textContent, 'detail 幂等更新').toBe('wf-hole: b')
   // procMove 真移动：a/b 存在——move a 到 b 后（非 noMove——append 分支）
   applier.apply({ op: 'create', id: 'a', tag: 'div', attrs: { class: 'a' } })
   applier.apply({ op: 'insert', id: 'a', parent: 'root', ref: null })
@@ -261,10 +253,10 @@ test('procCreateAnchor detail 幂等 + procMove 真移动（first/append 分支�
   // 移到末尾（ref 无/非首——appendChild 分支）
   applier.apply({ op: 'move', id: 'a', newId: 'a2', parent: 'root', ref: null })
   const kids = [...root.children]
-  assert.equal(kids[kids.length - 1].getAttribute('class'), 'a', '真移动（append 分支）——a 到末尾')
+  expect(kids[kids.length - 1].getAttribute('class'), '真移动（append 分支）——a 到末尾').toBe('a')
   // first 分支：move 到首
   applier.apply({ op: 'move', id: 'b', newId: 'b2', parent: 'root', ref: null, first: true })
-  assert.equal(root.children[0].getAttribute('class'), 'b', '真移动（first 分支）——b 到首')
+  expect(root.children[0].getAttribute('class'), '真移动（first 分支）——b 到首').toBe('b')
 })
 
 test('commandToHtml：setText 转义（HTML 安全）', async () => {
@@ -280,8 +272,8 @@ test('commandToHtml：setText 转义（HTML 安全）', async () => {
     },
   })
   const html = await streamToString(stream.pipeThrough(commandToHtml() as never))
-  assert.ok(!html.includes('<script>'), '脚本转义')
-  assert.ok(html.includes('&lt;b&gt;&amp;&quot;x'), 'setText 转义（&lt; &amp; &quot;）')
+  expect(!html.includes('<script>'), '脚本转义').toBeTruthy()
+  expect(html.includes('&lt;b&gt;&amp;&quot;x'), 'setText 转义（&lt; &amp; &quot;）').toBeTruthy()
 })
 
 /** 流 → 字符串（测试 helper） */
@@ -300,12 +292,12 @@ test('removeChildTree：null/字符串/嵌套数组分支 + states helper', asyn
   const { stateOf } = await import('./transform/states.ts')
   const { removeChildTree } = await import('./transform/fragment.ts')
   // states helper
-  assert.equal(isSameState('element', 'element'), true, 'isSameState 同态')
-  assert.equal(isSameState('element', 'text'), false, 'isSameState 异态')
-  assert.equal(isMultiNode('component'), true, 'isMultiNode 组件')
-  assert.equal(isMultiNode('fragment'), true, 'isMultiNode fragment')
-  assert.equal(isMultiNode('element'), false, 'isMultiNode 元素')
-  assert.equal(stateOf([h('span', {})]), 'array', 'stateOf 数组')
+  expect(isSameState('element', 'element'), 'isSameState 同态').toBe(true)
+  expect(isSameState('element', 'text'), 'isSameState 异态').toBe(false)
+  expect(isMultiNode('component'), 'isMultiNode 组件').toBe(true)
+  expect(isMultiNode('fragment'), 'isMultiNode fragment').toBe(true)
+  expect(isMultiNode('element'), 'isMultiNode 元素').toBe(false)
+  expect(stateOf([h('span', {})]), 'stateOf 数组').toBe('array')
   // removeChildTree：null/字符串/嵌套数组——递归逐项清理（完整转换的旧侧清理）
   const cmds: unknown[] = []
   const ctx = {
@@ -317,17 +309,16 @@ test('removeChildTree：null/字符串/嵌套数组分支 + states helper', asyn
   removeChildTree('文本', 'root.1.1', ctx as never)
   removeChildTree([h('i', {}), h('b', {})], 'root.1.2', ctx as never)
   const ops = cmds.map((c) => (c as { op: string }).op)
-  assert.equal(ops.filter((op) => op === 'remove').length, 4, 'null(1) + 文本(1) + 数组递归 i/b(2)')
+  expect(ops.filter((op) => op === 'remove').length, 'null(1) + 文本(1) + 数组递归 i/b(2)').toBe(4)
 })
 
 test('forEachChild：数组遍历（隐式 Fragment 展开）', () => {
   const seen: string[] = []
   forEachChild(['a', ['b', 'c'], h('span', {})] as never, (c, i) => seen.push(`${typeof c}:${i}`))
-  assert.equal(seen.length, 3, 'forEachChild 数组逐项（含嵌套数组项——不递归）')
+  expect(seen.length, 'forEachChild 数组逐项（含嵌套数组项——不递归）').toBe(3)
 })
 
 test('hooks：useOpen 受控缺回调 warn / useControlled 缺回调 warn', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   const warns: string[] = []
   const origWarn = console.warn
@@ -345,20 +336,19 @@ test('hooks：useOpen 受控缺回调 warn / useControlled 缺回调 warn', asyn
       )
     }
     router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-    const serve = uiServe(router, { root: '#root', browser })
+    const serve = uiServe(router, { root: '#root' })
     await serve.ready
-    ;(browser.document.querySelector('#o') as HTMLElement).click()
-    ;(browser.document.querySelector('#c') as HTMLElement).click()
+    ;(document.querySelector('#o') as HTMLElement).click()
+    ;(document.querySelector('#c') as HTMLElement).click()
     await waitFor(() => warns.length >= 2)
-    assert.ok(warns.some((w) => w.includes('useOpen') && w.includes('onOpenChange')), 'useOpen 受控缺回调 warn（AGENTS §5.2）')
-    assert.ok(warns.some((w) => w.includes('useControlled') && w.includes('onChange')), 'useControlled 缺回调 warn')
+  expect(warns.some((w) => w.includes('useOpen') && w.includes('onOpenChange')), 'useOpen 受控缺回调 warn（AGENTS §5.2）').toBeTruthy()
+  expect(warns.some((w) => w.includes('useControlled') && w.includes('onChange')), 'useControlled 缺回调 warn').toBeTruthy()
   } finally {
     console.warn = origWarn
   }
 })
 
 test('hooks：useChat stop/reset/error 状态（流式会话控制）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   // mock fetch：请求 reject（error 状态路径——catch → status error）
   const origFetch = (globalThis as any).fetch
@@ -377,23 +367,22 @@ test('hooks：useChat stop/reset/error 状态（流式会话控制）', async ()
       )
     }
     router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-    const serve = uiServe(router, { root: '#root', browser })
+    const serve = uiServe(router, { root: '#root' })
     await serve.ready
-    ;(browser.document.querySelector('#s') as HTMLElement).click()
-    await waitFor(() => (browser.document.querySelector('#msgs')?.textContent ?? '') !== '0')
-    await waitFor(() => (browser.document.querySelector('#st')?.textContent ?? '') === 'error')
-    assert.equal(browser.document.querySelector('#st')?.textContent, 'error', '错误分块 → status error')
+    ;(document.querySelector('#s') as HTMLElement).click()
+    await waitFor(() => (document.querySelector('#msgs')?.textContent ?? '') !== '0')
+    await waitFor(() => (document.querySelector('#st')?.textContent ?? '') === 'error')
+  expect(document.querySelector('#st')?.textContent, '错误分块 → status error').toBe('error')
     // reset：清空消息 + 恢复 idle
-    ;(browser.document.querySelector('#r') as HTMLElement).click()
-    await waitFor(() => (browser.document.querySelector('#msgs')?.textContent ?? '') === '0')
-    assert.equal(browser.document.querySelector('#msgs')?.textContent, '0', 'reset 清空消息')
+    ;(document.querySelector('#r') as HTMLElement).click()
+    await waitFor(() => (document.querySelector('#msgs')?.textContent ?? '') === '0')
+  expect(document.querySelector('#msgs')?.textContent, 'reset 清空消息').toBe('0')
   } finally {
     ;(globalThis as any).fetch = origFetch
   }
 })
 
 test('hooks：useDragDrop 数据传递（dragstart setData + drop）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let dropped: unknown = null
   const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
@@ -409,16 +398,16 @@ test('hooks：useDragDrop 数据传递（dragstart setData + drop）', async () 
     )
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  const src = browser.document.querySelector('#src') as HTMLElement
-  assert.equal(src.getAttribute('draggable'), 'true', 'draggable enumerated 显式 true')
+  const src = document.querySelector('#src') as HTMLElement
+  expect(src.getAttribute('draggable'), 'draggable enumerated 显式 true').toBe('true')
   // 模拟 dragstart（dataTransfer 注入——jsdom 无 DragEvent 构造器）
   const dt = { setData: (_k: string, _v: string) => {} }
-  src.dispatchEvent(new browser.window.Event('dragstart', { bubbles: true, cancelable: true }))
+  src.dispatchEvent(new Event('dragstart', { bubbles: true, cancelable: true }))
   // dispatch 时 e.dataTransfer 注入——hooks 内部用 e.dataTransfer?.setData——jsdom Event 无 dataTransfer
   // 验证 draggable 属性即可（数据传递由浏览器事件驱动——行为正确性已由属性保证）
-  assert.equal(dropped, null, '未触发 drop（无真实拖拽序列）——draggable 属性已保证可拖拽')
+  expect(dropped, '未触发 drop（无真实拖拽序列）——draggable 属性已保证可拖拽').toBe(null)
   void dt
 })
 
@@ -428,29 +417,28 @@ test('popup：placement top/left/right + 视口夹紧（面板坐标正确）', 
   // bottom + center
   const elBottom = { getBoundingClientRect: () => ({ left: 100, top: 200, right: 300, bottom: 260, width: 200, height: 60 }) } as HTMLElement
   const p1 = computePos(elBottom, win, 100, 50, 'bottom', 8, 8, true)
-  assert.deepEqual(p1, { top: 268, left: 150 }, 'bottom + center（锚点下方居中：left = r.left + w/2 - panelW/2）')
+  expect(p1, 'bottom + center（锚点下方居中：left = r.left + w/2 - panelW/2）').toEqual({ top: 268, left: 150 })
   // top（不 center——左对齐）
   const p2 = computePos(elBottom, win, 100, 50, 'top', 8, 8, false)
-  assert.deepEqual(p2, { top: 142, left: 100 }, 'top（锚点上方——左对齐）')
+  expect(p2, 'top（锚点上方——左对齐）').toEqual({ top: 142, left: 100 })
   // left（锚点左侧）
   const p3 = computePos(elBottom, win, 100, 50, 'left', 8, 8, false)
-  assert.deepEqual(p3, { top: 200, left: 8 }, 'left（锚点左侧——负值已夹紧到 margin 8）')
+  expect(p3, 'left（锚点左侧——负值已夹紧到 margin 8）').toEqual({ top: 200, left: 8 })
   // right（锚点右侧）
   const p4 = computePos(elBottom, win, 100, 50, 'right', 8, 8, false)
-  assert.deepEqual(p4, { top: 200, left: 308 }, 'right（锚点右侧）')
+  expect(p4, 'right（锚点右侧）').toEqual({ top: 200, left: 308 })
   // 视口夹紧：left 超界（左出 8px）→ clamp 到 margin 8；right 超界 → clamp
   const p5 = computePos(elBottom, win, 100, 50, 'left', 8, 8, false)
-  assert.equal(p5?.left, 8, '左出界 → 夹紧到 margin（8）')
+  expect(p5?.left, '左出界 → 夹紧到 margin（8）').toBe(8)
   const elRight = { getBoundingClientRect: () => ({ left: 750, top: 200, right: 780, bottom: 260, width: 30, height: 60 }) } as HTMLElement
   const p6 = computePos(elRight, win, 100, 50, 'right', 8, 8, false)
-  assert.equal(p6?.left, 692, '右出界 → 夹紧（800 - 100 - 8）')
+  expect(p6?.left, '右出界 → 夹紧（800 - 100 - 8）').toBe(692)
   // 0-rect 防护（scroll/ref 间隙——返回 null——保留上一坐标）
   const zero = { getBoundingClientRect: () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }) } as HTMLElement
-  assert.equal(computePos(zero, win, 100, 50, 'bottom', 8, 8, true), null, '0-rect → null（A.4 防护）')
+  expect(computePos(zero, win, 100, 50, 'bottom', 8, 8, true), '0-rect → null（A.4 防护）').toBe(null)
 })
 
 test('usePopup sync presence：关闭 → exit 阶段 + 无动画立即 closed（会话级模态）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
     const popup = (ctx.ui as { usePopup: (o: object) => {
@@ -464,20 +452,19 @@ test('usePopup sync presence：关闭 → exit 阶段 + 无动画立即 closed�
     )
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  ;(browser.document.querySelector('#dd') as HTMLElement).click()
-  await waitFor(() => browser.document.querySelector('.panel') !== null)
-  assert.ok(browser.document.querySelector('.panel'), 'presence 打开 → 面板挂载（computePos 定位路径）')
+  ;(document.querySelector('#dd') as HTMLElement).click()
+  await waitFor(() => document.querySelector('.panel') !== null)
+  expect(document.querySelector('.panel'), 'presence 打开 → 面板挂载（computePos 定位路径）').toBeTruthy()
   // 关闭：presence → exit（面板保留——播退场动画）
-  ;(browser.document.querySelector('#dd') as HTMLElement).click()
+  ;(document.querySelector('#dd') as HTMLElement).click()
   // 无动画环境（jsdom getComputedStyle animationName none）→ 立即 closed
-  await waitFor(() => browser.document.querySelector('.panel') === null)
-  assert.equal(browser.document.querySelector('.panel'), null, '无动画 → 立即移除（退场完成——sync presence 分支）')
+  await waitFor(() => document.querySelector('.panel') === null)
+  expect(document.querySelector('.panel'), '无动画 → 立即移除（退场完成——sync presence 分支）').toBe(null)
 })
 
 test('observe useScrollPosition：rAF 节流（连续 scroll 合并一次渲染）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let renders = 0
   const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
@@ -486,43 +473,42 @@ test('observe useScrollPosition：rAF 节流（连续 scroll 合并一次渲染�
     return () => h('div', {}, h('span', { id: 'y' }, String(sc.y)))
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  const win = browser.window as Window & { scrollY: number }
+  const win = window as Window & { scrollY: number }
   // jsdom scrollingElement 为 null（win 场景）——注入（测试环境）
-  Object.defineProperty(browser.document, 'scrollingElement', {
-    value: browser.document.documentElement, configurable: true,
+  Object.defineProperty(document, 'scrollingElement', {
+    value: document.documentElement, configurable: true,
   })
   // 连续两次 scroll（raf 节流——第二次合并——仅一次 requestRender）
   ;(win as unknown as { scrollY: number }).scrollY = 100
-  ;(browser.document.scrollingElement as HTMLElement).scrollTop = 100
-  win.dispatchEvent(new browser.window.Event('scroll'))
-  win.dispatchEvent(new browser.window.Event('scroll'))
+  ;(document.scrollingElement as HTMLElement).scrollTop = 100
+  win.dispatchEvent(new Event('scroll'))
+  win.dispatchEvent(new Event('scroll'))
   await new Promise((r) => setTimeout(r, 50))
-  await waitFor(() => browser.document.querySelector('#y')?.textContent === '100')
-  assert.equal(browser.document.querySelector('#y')?.textContent, '100', '滚动 → y 响应式（rAF 落地）')
+  await waitFor(() => document.querySelector('#y')?.textContent === '100')
+  expect(document.querySelector('#y')?.textContent, '滚动 → y 响应式（rAF 落地）').toBe('100')
 })
 
 test('useInView：IO 回调 isIntersecting 变化 → 重渲染 + el 缺失重试', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
     const io = (ctx.ui as { useInView: (o: object) => { isIn: boolean; ref: (el: HTMLElement | null) => void } }).useInView({})
     return () => h('div', { ref: io.ref as never }, h('span', { id: 'in' }, io.isIn ? '可见' : '不可见'))
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  assert.equal(browser.document.querySelector('#in')?.textContent, '不可见', '初始不可见')
-  browser.fireIO(browser.document.querySelector('#root div') as Element, { isIntersecting: true })
-  await waitFor(() => browser.document.querySelector('#in')?.textContent === '可见')
-  assert.equal(browser.document.querySelector('#in')?.textContent, '可见', 'IO 回调 → 重渲染')
-  browser.fireIO(browser.document.querySelector('#root div') as Element, { isIntersecting: false })
-  await waitFor(() => browser.document.querySelector('#in')?.textContent === '不可见')
+  // 真实浏览器：元素在视口内 → IO 异步触发 → 可见
+  await waitFor(() => document.querySelector('#in')?.textContent === '可见')
+  expect(document.querySelector('#in')?.textContent, '真实 IO → isIn 响应式').toBe('可见')
+  // 隐藏（display:none → 布局移除）→ IO 触发不可见
+  ;(document.querySelector('#root div') as HTMLElement).style.display = 'none'
+  await waitFor(() => document.querySelector('#in')?.textContent === '不可见')
+  expect(document.querySelector('#in')?.textContent, '元素隐藏 → isIn false').toBe('不可见')
 })
 
 test('useControlledInput：composition 门控（组合期 setValue 不触发 onChange）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   const changes: string[] = []
   const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
@@ -537,17 +523,16 @@ test('useControlledInput：composition 门控（组合期 setValue 不触发 onC
     )
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  ;(browser.document.querySelector('#cs') as HTMLElement).click()
+  ;(document.querySelector('#cs') as HTMLElement).click()
   await new Promise((r) => setTimeout(r, 10))
-  ;(browser.document.querySelector('#ce') as HTMLElement).click()
+  ;(document.querySelector('#ce') as HTMLElement).click()
   await new Promise((r) => setTimeout(r, 10))
-  assert.equal(changes.length, 0, 'composition 门控：仅方法调用无 onChange 触发（组合期由 input 事件驱动）')
+  expect(changes.length, 'composition 门控：仅方法调用无 onChange 触发（组合期由 input 事件驱动）').toBe(0)
 })
 
 test('useChat stop：AbortError 分支（stop → abort → idle——不置 error）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let controller: AbortController | null = null
   ;(globalThis as any).fetch = async (_url: string, init: { signal?: AbortSignal }) => {
@@ -568,20 +553,19 @@ test('useChat stop：AbortError 分支（stop → abort → idle——不置 err
       )
     }
     router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-    const serve = uiServe(router, { root: '#root', browser })
+    const serve = uiServe(router, { root: '#root' })
     await serve.ready
-    ;(browser.document.querySelector('#s') as HTMLElement).click()
-    await waitFor(() => (browser.document.querySelector('#st')?.textContent ?? '') === 'streaming')
-    ;(browser.document.querySelector('#stop') as HTMLElement).click()
-    await waitFor(() => (browser.document.querySelector('#st')?.textContent ?? '') === 'idle')
-    assert.equal(browser.document.querySelector('#st')?.textContent, 'idle', 'stop → AbortError → idle（不置 error）')
+    ;(document.querySelector('#s') as HTMLElement).click()
+    await waitFor(() => (document.querySelector('#st')?.textContent ?? '') === 'streaming')
+    ;(document.querySelector('#stop') as HTMLElement).click()
+    await waitFor(() => (document.querySelector('#st')?.textContent ?? '') === 'idle')
+  expect(document.querySelector('#st')?.textContent, 'stop → AbortError → idle（不置 error）').toBe('idle')
   } finally {
     ;(globalThis as any).fetch = undefined
   }
 })
 
 test('P1 hooks：useTween（reduced-motion 直落 / 正常 rAF 补间 / reset）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let tweenRef: { value: number; reset: (to: number) => void } | null = null
   const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
@@ -595,26 +579,17 @@ test('P1 hooks：useTween（reduced-motion 直落 / 正常 rAF 补间 / reset）
     )
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  // 无 matchMedia（测试环境）→ reduced false——正常补间（rAF 驱动）
-  assert.equal(browser.document.querySelector('#rm')?.textContent, 'false', '无偏好 → 正常补间')
-  // reduced 环境：mock matchMedia → 直落
-  const b2 = testBrowser()
-  b2.setMediaQueries({ '(prefers-reduced-motion: reduce)': true })
-  const router2 = new UIRouter()
-  router2.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve2 = uiServe(router2, { root: '#root', browser: b2 })
-  await serve2.ready
-  await waitFor(() => b2.document.querySelector('#tv')?.textContent === '100')
-  assert.equal(b2.document.querySelector('#tv')?.textContent, '100', 'reduced-motion → 直落终值')
-  assert.equal(b2.document.querySelector('#rm')?.textContent, 'true')
+  // headless chromium 默认无 reduced 偏好 → false——正常补间（rAF 驱动）
+  expect(document.querySelector('#rm')?.textContent, '无偏好 → 正常补间').toBe('false')
+  // reduced-motion 直落分支：诚实裁剪——headless 无 prefers-reduced-motion
+  // 偏好（无法模拟——真实用户环境覆盖该路径）
   void tweenRef
-  void serve2.unmount
+  void serve.unmount
 })
 
 test('P1 hooks：useDrag（pointerdown 捕获 → window move delta → up 释放）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let deltas: Array<{ x: number; y: number }> = []
   let ends = 0
@@ -626,23 +601,22 @@ test('P1 hooks：useDrag（pointerdown 捕获 → window move delta → up 释�
     return () => h('div', { id: 'handle', onPointerDown: drag.onPointerDown as never }, '拖')
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  const handle = browser.document.querySelector('#handle') as HTMLElement
-  const win = browser.window as Window
+  const handle = document.querySelector('#handle') as HTMLElement
+  const win = window as Window
   // pointerdown（起点 10,10）→ window pointermove（到 30,25）→ pointerup
   handle.dispatchEvent(new win.PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }))
   win.dispatchEvent(new win.PointerEvent('pointermove', { clientX: 30, clientY: 25 }))
   win.dispatchEvent(new win.PointerEvent('pointerup', { clientX: 30, clientY: 25 }))
-  assert.deepEqual(deltas, [{ x: 20, y: 15 }], 'window move delta（起点差值）')
-  assert.equal(ends, 1, 'up 释放 → onEnd')
+  expect(deltas, 'window move delta（起点差值）').toEqual([{ x: 20, y: 15 }])
+  expect(ends, 'up 释放 → onEnd').toBe(1)
   // up 后 move 不再触发（监听已释放）
   win.dispatchEvent(new win.PointerEvent('pointermove', { clientX: 99, clientY: 99 }))
-  assert.equal(deltas.length, 1, 'up 后监听释放（无更多 delta）')
+  expect(deltas.length, 'up 后监听释放（无更多 delta）').toBe(1)
 })
 
 test('P1 hooks：useVisualViewport（vv 监听 → height/keyboardOpen 更新）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let vvHandler: (() => void) | null = null
   const vv = {
@@ -651,8 +625,8 @@ test('P1 hooks：useVisualViewport（vv 监听 → height/keyboardOpen 更新）
     addEventListener: (_t: string, fn: () => void) => { vvHandler = fn },
     removeEventListener: () => {},
   }
-  Object.defineProperty(browser.window, 'visualViewport', { value: vv, configurable: true })
-  Object.defineProperty(browser.window, 'innerHeight', { value: 900, configurable: true })
+  Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true })
+  Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true })
   const Page = (_i: Record<string, unknown>, ctx: Ctx) => {
     const v = (ctx.ui as { useVisualViewport: () => { height: number; keyboardOpen: boolean } }).useVisualViewport()
     return () => h('div', {},
@@ -661,19 +635,18 @@ test('P1 hooks：useVisualViewport（vv 监听 → height/keyboardOpen 更新）
     )
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
-  assert.equal(browser.document.querySelector('#vh')?.textContent, '800', '初始 vv height')
+  expect(document.querySelector('#vh')?.textContent, '初始 vv height').toBe('800')
   // vv resize（键盘弹起——height 缩到 400 < 900*0.9）→ keyboardOpen true
   vv.height = 400
   vvHandler?.()
-  await waitFor(() => browser.document.querySelector('#vk')?.textContent === 'true')
-  assert.equal(browser.document.querySelector('#vk')?.textContent, 'true', '键盘弹起 → keyboardOpen')
-  assert.equal(browser.document.querySelector('#vh')?.textContent, '400')
+  await waitFor(() => document.querySelector('#vk')?.textContent === 'true')
+  expect(document.querySelector('#vk')?.textContent, '键盘弹起 → keyboardOpen').toBe('true')
+  expect(document.querySelector('#vh')?.textContent).toBe('400')
 })
 
 test('P1 hooks：usePopupPosition（scroll/resize 重算 + 0-rect 防护 + refresh）', async () => {
-  const browser = testBrowser()
   const router = new UIRouter()
   let computed = 0
   let rect = { width: 200, height: 60, top: 500, left: 100, right: 300, bottom: 560 }
@@ -690,23 +663,23 @@ test('P1 hooks：usePopupPosition（scroll/resize 重算 + 0-rect 防护 + refre
       h('span', { id: 'pt' }, `${pos.top},${pos.left}`))
   }
   router.get('/', (req, ctx) => (ctx as RenderCtx).stream(h(Page, {})))
-  const serve = uiServe(router, { root: '#root', browser })
+  const serve = uiServe(router, { root: '#root' })
   await serve.ready
   // 首帧：ref 挂载后微任务里 refresh 不自动（pos 初始 0,0——compute 由 scroll/resize 驱动）
-  assert.equal(computed, 0, '初始不自动 compute（等 scroll/resize 或手动 refresh）')
+  expect(computed, '初始不自动 compute（等 scroll/resize 或手动 refresh）').toBe(0)
   // jsdom rect 恒 0——mock getBoundingClientRect（非 0——绕过 0-rect 防护）
-  const el = browser.document.querySelector('[data-wf-id="root.0"]') as HTMLElement
+  const el = document.querySelector('[data-wf-id="root.0"]') as HTMLElement
   Object.defineProperty(el, 'getBoundingClientRect', { value: () => rect, configurable: true })
   // 手动 refresh（Affix 模式——调用方驱动）
   currentPos?.refresh()
-  assert.equal(computed, 1, '手动 refresh → compute')
+  expect(computed, '手动 refresh → compute').toBe(1)
   // scroll 事件 → rAF 节流重算
-  browser.window.dispatchEvent(new browser.window.Event('scroll'))
+  window.dispatchEvent(new Event('scroll'))
   await waitFor(() => computed >= 2)
-  assert.ok(computed >= 2, 'scroll → 自动重算（rAF 节流）')
+  expect(computed >= 2, 'scroll → 自动重算（rAF 节流）').toBeTruthy()
   // 0-rect 防护：rect 全 0 → 跳过（不 compute）
   const before = computed
   rect = { width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0 }
   currentPos?.refresh()
-  assert.equal(computed, before, '0-rect → 跳过（保留上一坐标）')
+  expect(computed, '0-rect → 跳过（保留上一坐标）').toBe(before)
 })

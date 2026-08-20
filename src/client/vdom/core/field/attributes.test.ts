@@ -6,45 +6,44 @@
  * style 对象/undefined 清空（防残留）；null/undefined/false → removeAttribute。
  */
 
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { testBrowser } from '../../setup.ts'
+import { test } from 'vitest'
+import { expect } from 'vitest'
 import { applyAttribute, ENUMERATED_KEYS } from './attributes.ts'
 
 function el(): HTMLElement {
-  return testBrowser().document.createElement('div')
+  return document.createElement('div')
 }
 
 test('enumerated 白名单：draggable 显式 true/false（空字符串解析 false 的坑）', () => {
-  assert.ok(ENUMERATED_KEYS.has('draggable'))
+  expect(ENUMERATED_KEYS.has('draggable')).toBeTruthy()
   const a = el()
   applyAttribute(a, 'draggable', true)
-  assert.equal(a.getAttribute('draggable'), 'true')
-  assert.equal(a.draggable, true, 'el.draggable 真值（非空字符串误判）')
+  expect(a.getAttribute('draggable')).toBe('true')
+  expect(a.draggable, 'el.draggable 真值（非空字符串误判）').toBe(true)
   const b = el()
   applyAttribute(b, 'draggable', false)
-  assert.equal(b.getAttribute('draggable'), 'false')
-  assert.equal(b.draggable, false)
+  expect(b.getAttribute('draggable')).toBe('false')
+  expect(b.draggable).toBe(false)
 })
 
 test('boolean attribute：存在 = 空字符串（disabled/hidden 语义）', () => {
-  const a = testBrowser().document.createElement('button')
+  const a = document.createElement('button') // disabled property 仅在表单元素反射
   applyAttribute(a, 'disabled', true)
-  assert.equal(a.getAttribute('disabled'), '')
-  assert.equal(a.disabled, true, 'button.disabled property 随 attribute 存在')
+  expect(a.getAttribute('disabled')).toBe('')
+  expect(a.disabled, 'button.disabled property 随 attribute 存在').toBe(true)
   applyAttribute(a, 'disabled', false)
-  assert.equal(a.hasAttribute('disabled'), false, 'false → removeAttribute')
-  assert.equal(a.disabled, false)
+  expect(a.hasAttribute('disabled'), 'false → removeAttribute').toBe(false)
+  expect(a.disabled).toBe(false)
 })
 
 test('null/undefined/false → removeAttribute；其余字符串化', () => {
   const a = el()
   applyAttribute(a, 'id', 'x1')
-  assert.equal(a.getAttribute('id'), 'x1')
+  expect(a.getAttribute('id')).toBe('x1')
   applyAttribute(a, 'id', null)
-  assert.equal(a.hasAttribute('id'), false)
+  expect(a.hasAttribute('id')).toBe(false)
   applyAttribute(a, 'data-n', 42)
-  assert.equal(a.getAttribute('data-n'), '42', '数字字符串化')
+  expect(a.getAttribute('data-n'), '数字字符串化').toBe('42')
   applyAttribute(a, 'class', 'a b')
-  assert.equal(a.getAttribute('class'), 'a b')
+  expect(a.getAttribute('class')).toBe('a b')
 })
