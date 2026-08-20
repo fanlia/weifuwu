@@ -10,7 +10,8 @@
  * serve.test「SSR 接管」测试覆盖（真实浏览器）——本文件保留**静态源码
  * 断言**（hero 不得含 wf-stream-in）——vitest node project（fs 访问）。
  */
-import { test, expect } from 'vitest'
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -21,5 +22,5 @@ test('首页 hero 首帧不得带透明起始动画类（wf-stream-in——接�
   const src = readFileSync(join(root, 'apps/showcase/src/pages/home.tsx'), 'utf-8')
   // hero 区 = 从文件头到「我要做什么」（需求区）——含 hero 全部元素
   const heroSection = src.slice(0, src.indexOf('我要做什么'))
-  expect(heroSection.includes('wf-stream-in'), `hero 含 wf-stream-in（透明起始动画）→ 接管闪白\n${heroSection.slice(0, 200)}`).toBe(false)
+  assert.ok(!heroSection.includes('wf-stream-in'), `hero 含 wf-stream-in（透明起始动画）→ 接管闪白\n${heroSection.slice(0, 200)}`)
 })

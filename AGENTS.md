@@ -623,15 +623,15 @@ const MyComp: Component = (_init, ctx) => {
 
 ### 7.1 命令与预算
 
-- **client 开发迭代**：`npx vitest run <文件/glob>`（浏览器 project——真实
-  Chromium——如 `npx vitest run src/client/vdom/serve.test.ts`）；涉及引擎/渲染
-  管线的改动跑 vdom 全组（`npx vitest run 'src/client/vdom/**'`）即可
+- **client 契约测试**：`node --env-file=.env --test --test-timeout=8000
+  'src/test/contract/*.test.ts'`（68 测试——node 直跑——命令流/纯逻辑断言——
+  无浏览器——引擎决策层）
 - **server 开发迭代**：`timeout 15 node --env-file=.env --test --test-timeout=8000
-  <单文件>`（node:test 只用于 src/server）
-- **全量测试只在发布版本之前运行**（`npm test` = `test:client`（vitest——
-  真实浏览器）+ `test:server`（node --test——db 真库依赖 docker））；开发中不跑
+  <单文件>`（node:test）
+- **全量测试只在发布版本之前运行**（`npm test` = `test:client`（契约测试——
+  node 直跑）+ `test:server`（node --test——db 真库依赖 docker））；开发中不跑
   全量，避免干扰定位；发布前（`node scripts/release.mjs <version>`）跑全量确认全绿
-- vitest（client）与 node --test（server）双 runner；`npm test` 无 pretest
+- 双 node:test runner（src/test/contract + src/server）；`npm test` 无 pretest
 - **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`
   （**≤15 秒**）——卡住时用更短 timeout 复跑缩小范围
 - **全量测试总时长预算：≤ 15 秒**（client 实测 ~4.2s——270 测试 28 文件——
@@ -698,44 +698,29 @@ npx vitest run --coverage.enabled --coverage.include='src/client/vdom/**' 'src/c
 
 **不变量断言 helper**（`src/client/vdom/testing.ts`——禁止手抄）：`assertIsomorphic`（childNodes 逐位同构——长度+位置+类型）/`assertSlot`（边界位置——位置 0/末尾重点）/`assertKept`（同 key 复用项 DOM 引用不变）/`assertRoundTrip`（往返可逆——状态不漂移）
 
-### 7.1.4 测试环境纪律（红线——client 测试必须基于真实浏览器）
+### 7.1.4 测试架构纪律（契约测试——node 直跑命令流）
 
-> 决策（2026-12）：**删除 jsdom/testBrowser**——client 测试全部跑**真实浏览器**
-> （vitest browser + playwright chromium）；node:test 只用于 src/server。
-> 浏览器能力全部真实（matchMedia/IO/布局/滚动——无 polyfill 无 mock 驱动面）。
+> 决策（2026-12）：**删除 vitest/jsdom/testBrowser**——测试分两层：
+> - **契约层（`src/test/contract/`）**：引擎决策（build/diff/transform/命令流）
+>   是**纯数据**（Command[]——只有 apply 需要 DOM）——node:test 直跑断言
+>   命令流——零浏览器——引擎内部状态可达
+> - **场景层（未来）**：DOM 行为（apply/交互/portal）→ SSR 场景服务化
+>   （weifuwu Router + renderToStream + commandToHtml——真实页面）+
+>   playwright 访问断言（真实用户路径）——框架已验证（hovercard/contextmenu/
+>   virtual-list 场景跑通——BUG 回归锁定）
 
-- **架构**：`vitest run`（`vitest.config.ts`——两个 project）——
-  `browser`（playwright chromium——`src/client/**` 全部测试——直接用全局
-  document/window——`uiServe` 不再注入 browser 参数——测试与生产同环境）；
-  `node`（纯编解码逻辑——office——依赖 zlib/Buffer 的 node 专属 API）
-- **setup 文件**：`src/client/test/browser-setup.ts`（beforeEach 重置
-  `#root` + URL——测试间隔离）；`src/client/test/global-setup.ts`（node 进程
-  起 fixture HTTP server——src/server 的 serve/Router 组件——真实 TCP——
-  provide baseUrl → 测试 `inject('baseUrl')`）
-- **HTTP 取数真实化**（ctx.data/useChat/api——AGENTS §3.4 key 即 URL）：
-  测试用完整 URL `\`${inject('baseUrl')}/api/...\`` 指向 fixture server——
-  **禁止手搓 fetch mock**（globalThis.fetch 替换等旁路）；跨源由 fixture
-  的 CORS 头 + 全局 OPTIONS 中间件支持（useChat POST + JSON 头触发预检）
-- **不模拟 ctx**：中间件（api/auth/i18n/ws）经 `uiServe(router, { api, auth, i18n, ws })`
-  注入——组件经真实 ctx 消费（ctx.api/auth/i18n/ws + `ctx.render()`——
-  注意 **ctx.ui 是 hooks 面（无 render）**——重渲染用 `ctx.render()`）
-- **hooks 全部真实**：renderComponent 注入真实 `createUi(env)`（hooks/env.ts）——
-  usePopup/useExternal/useBreakpoint 等无 mock；ws 的 WebSocketCtor 注入是
-  中间件 API 契约（无真实 WS 服务器——诚实裁剪白名单）；headless 无
-  prefers-reduced-motion 偏好——useTween 直落分支裁剪（真实用户环境覆盖）
-- **异步断言**：真实浏览器渲染是异步的——click/事件后 `waitFor` 轮询
-  （确定性等待 helper——禁 sleep 固定时长）
-- **真实浏览器 vs jsdom 差异**（迁移踩坑）：disabled property 仅在表单元素
-  反射（div.disabled undefined）；`history.length` 页面会话级不可断言；
-  `delete window` 不可行（SSR 分支裁剪）；真实布局——元素需内容/尺寸
-  （usePopup 定位测试传 `trigger` 锚点函数）；CORS 预检需 server 处理
-- **审计基线**（提交前归零）：`grep -rn "jsdom\|testBrowser\|globalThis.matchMedia\|(window as any)" src/client --include='*.test.ts'`
+- **契约测试纪律**：断言命令流（create/insert/move/remove/setProp 的 id/顺序/
+  语义）——不依赖 DOM——node:test（与 server 同 runner）——**禁 mock 网络层**
+- **场景测试纪律**（未来新增）：场景注册表（`src/test/scenarios.ts`——vnode）
+  + SSR 服务化（`src/test/server.ts`——weifuwu Router）——playwright 断言
+  DOM 行为——真实浏览器——场景即回归样本（真实 bug 修复锁定）
+- **组件库测试**（2026-12 已全量删除 149 个）——未来新增组件测试走场景层
+- **审计基线**：`grep -rn "jsdom\|vitest\|testBrowser" src --include='*.test.ts'`
 
 ### 7.2 组件测试纪律（原语保留——2026-12 组件测试已全量删除）
 
-**2026-12：weifuwu/components 与 weifuwu/layout 下全部测试已删除**（149 个文件）。
-测试原语保留在 `src/client/vdom/testing.ts`（**不变量断言 helper**——mock 面
-已删）——未来新增组件测试使用（禁止手抄）：
+**2026-12：weifuwu/components 与 weifuwu/layout 下全部测试已删除**（149 个文件）；
+引擎 DOM 测试（19 个）已删（git 可恢复——未来场景化重建）。
 
 ```tsx
 import { assertIsomorphic, assertKept, assertSlot, shapeOf } from '../vdom/testing.ts'

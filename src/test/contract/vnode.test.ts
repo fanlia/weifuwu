@@ -8,30 +8,30 @@
  * - 组件两阶段类型（工厂 mount 一次 + renderFn 每次渲染）
  */
 
-import { test } from 'vitest'
-import { expect } from 'vitest'
-import { h, jsx, type VNode, type Component } from './vnode.ts'
-import { Fragment } from './node/fragment.ts'
-import { childrenOf } from './node/children.ts'
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { h, jsx, type VNode, type Component } from '../../client/vdom/core/vnode.ts'
+import { Fragment } from '../../client/vdom/core/node/fragment.ts'
+import { childrenOf } from '../../client/vdom/core/node/children.ts'
 
 test('h：纯数据 vnode——type/props/key/children 形状', () => {
   const v = h('div', { id: 'x', key: 'k1' }, 'text')
-  expect(v.type).toBe('div')
-  expect(v.key).toBe('k1')
-  expect(v.props.id).toBe('x')
-  expect(v.props.key, 'key 从 props 剥离——组件不见 key').toBe(undefined)
-  expect(v.props.children).toBe('text')
-  expect(Object.keys(v.props).sort(), '除 key 剥离外零转换').toEqual(['children', 'id'])
+  assert.equal(v.type, 'div')
+  assert.equal(v.key, 'k1')
+  assert.equal(v.props.id, 'x')
+  assert.equal(v.props.key, undefined, 'key 从 props 剥离——组件不见 key')
+  assert.equal(v.props.children, 'text')
+  assert.deepEqual(Object.keys(v.props).sort(), ['children', 'id'], '除 key 剥离外零转换')
 })
 
 test('h：children 原样——false/嵌套数组保留（不 filter）', () => {
   const v = h('div', {}, false, [h('span', {}), [h('i', {})]], null, 0)
   const c = v.props.children as unknown[]
-  expect(Array.isArray(c)).toBeTruthy()
-  expect(c.length, '多子节点存数组——false/null/0 保留').toBe(4)
-  expect(c[0]).toBe(false)
-  expect(c[1][0].type).toBe('span')
-  expect(c[1][1][0].type, '嵌套数组原样（childrenOf 消费侧展开）').toBe('i')
+  assert.ok(Array.isArray(c))
+  assert.equal(c.length, 4, '多子节点存数组——false/null/0 保留')
+  assert.equal(c[0], false)
+  assert.equal(c[1][0].type, 'span')
+  assert.equal(c[1][1][0].type, 'i', '嵌套数组原样（childrenOf 消费侧展开）')
 })
 
 test('childrenOf：递归展开 + 空洞保留（长度恒定——占位法前提）', () => {
@@ -43,24 +43,24 @@ test('childrenOf：递归展开 + 空洞保留（长度恒定——占位法前�
     0,
   ])
   const c = childrenOf(v)
-  expect(c.length, '任意嵌套展开为同一序列——空洞占位保留（span/false/i/null/b/text/0）').toBe(7)
-  expect(c[0].type).toBe('span')
-  expect(c[1]).toBe(false)
-  expect(c[2].type).toBe('i')
-  expect(c[3]).toBe(null)
-  expect(c[4].type).toBe('b')
-  expect(c[5]).toBe('text')
-  expect(c[6]).toBe(0)
+  assert.equal(c.length, 7, '任意嵌套展开为同一序列——空洞占位保留（span/false/i/null/b/text/0）')
+  assert.equal(c[0].type, 'span')
+  assert.equal(c[1], false)
+  assert.equal(c[2].type, 'i')
+  assert.equal(c[3], null)
+  assert.equal(c[4].type, 'b')
+  assert.equal(c[5], 'text')
+  assert.equal(c[6], 0)
 })
 
 test('jsx 运行时：React 兼容签名——props.key 与第三参 key 双源', () => {
   const a = jsx('div', { id: 'a' }, 'ka')
-  expect(a.key).toBe('ka')
+  assert.equal(a.key, 'ka')
   const b = jsx('div', { id: 'b', key: 'kb' })
-  expect(b.key).toBe('kb')
-  expect(b.props.key, 'props 内 key 同样剥离').toBe(undefined)
+  assert.equal(b.key, 'kb')
+  assert.equal(b.props.key, undefined, 'props 内 key 同样剥离')
   const c = jsx(Fragment as unknown as string, { children: [h('span', {})] })
-  expect(c.props.children.length).toBe(1)
+  assert.equal(c.props.children.length, 1)
 })
 
 test('组件两阶段类型：工厂 mount 一次 + renderFn 每次渲染', () => {
@@ -70,13 +70,16 @@ test('组件两阶段类型：工厂 mount 一次 + renderFn 每次渲染', () =
   }
   // 形状验证（编译期）——运行时仅验证 h 调用链
   const v = h(Counter, { step: 1 })
-  expect(v.type).toBe(Counter)
-  expect(v.props.step).toBe(1)
+  assert.equal(v.type, Counter)
+  assert.equal(v.props.step, 1)
 })
 
 test('childrenOf：单子节点形态（非数组——h 直接存）', () => {
   const v = h('p', {}, 'single')
-  expect(childrenOf(v)).toEqual(['single'])
+  assert.deepEqual(childrenOf(v), ['single'])
   const none = h('p', {})
-  expect(childrenOf(none), '无 children → 空序列').toEqual([])
+  assert.deepEqual(childrenOf(none), [], '无 children → 空序列')
 })
+
+// 浏览器测试 runner 入口标记（sideEffects 摇除防护——scripts/test-browser.ts 引用）
+export const __wf_tests = (): void => {}
