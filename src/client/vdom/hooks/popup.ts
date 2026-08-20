@@ -361,13 +361,24 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
     // wrapProps 的 trigger 行为（不自管触发）——onClick 切换（受控转发
     // setOpen——onOpenChange）；**trigger:'hover' → mouseenter/mouseleave
     // 延迟驱动**（HoverCard/Tooltip 悬停语义——vdom 补齐——openDelay/
-    // closeDelay 生效）——组件自管触发的（TreeSelect 等不 spread）
+    // closeDelay 生效）；**trigger:'longpress' → contextmenu（右键）**
+    // （ContextMenu 右键菜单——onTrigger 记录光标坐标——setOpen 切换）——
+    // 组件自管触发的（TreeSelect 等不 spread）
     wrapProps: {
       onClick: (e: Event) => { e.stopPropagation?.(); open.setOpen(!open.open) },
       ...(isHoverTrigger
         ? {
             onMouseEnter: () => { hoverOpen() },
             onMouseLeave: () => { hoverClose() },
+          }
+        : {}),
+      ...(opts.trigger === 'longpress'
+        ? {
+            onContextMenu: (e: MouseEvent) => {
+              e.preventDefault()
+              opts.onTrigger?.(e)
+              open.setOpen(!open.open)
+            },
           }
         : {}),
     },
