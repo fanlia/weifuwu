@@ -197,7 +197,7 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 > `$` Proxy / `ctx.ui.dirty()` 已删除——状态是普通对象（`let` / `createStore`），改状态后必须显式 `render()`。
 > 行为可静态推导：代码审查看事件回调里有无 `render()` 即可验证渲染逻辑。
 
-**禁止的自动渲染机制**（vdom 引擎红线——`src/client/ui-dom/vdom/`）：
+**禁止的自动渲染机制**（vdom 引擎红线——`src/client/vdom/`——vdom2/vdom3 通用）：
 - ❌ **无响应式引擎/Proxy 赋值触发**——状态是普通对象，无 `set` trap、无隐式 dirty
 - ❌ **无 flush/微任务批处理调度层**——`render()` 直接 fire-and-forget 渲染（`renderByIds`），不经过"dirtySet → 微任务批量 flush"
 - ❌ **无 resolve 回调补渲染**——async 组件工厂 resolve 即构建完、构建完即渲染，**没有"resolve 后触发父级重渲染"的回调**（第 1 代死循环根因：mountComponent → resolve → scheduleLocalRefresh → renderByIds → diff 又动态挂载 → 无限）
@@ -217,17 +217,19 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 - 防重入：同一组件 id 同时只跑一次渲染（渲染中再次触发 → 跳过——错过由下次用户操作捕获，**不补跑**）
 - 工厂只跑一次：vnode 级缓存 + 旧树同位置同类型复用（跨渲染保持组件内部状态）
 - **ctx 版本（bumpCtxVersion）**：i18n 等全局状态变化时递增——buildVNode 剪枝 + diff 三态 skip 比较 `_ctxVersion`，版本不同强制重跑 renderFn（`_ctxVersion` 未接线是 i18n 切换不更新的根因，已修复 + 回归测试）
-- **用户的想法/vnode/DOM 三层一致（§6.3 提交按钮消失事故）**：① 用户 renderFn/JSX 写的结构（含 false 占位）必须**原样**成为 vnode——**禁止对用户 vnode 做 magic**（filter/转换/mutation——过渡 filter 已删除）；② DOM 必须**同构**镜像 vnode——render 阶段对无渲染值**建占位节点**（`childNodes.length` 恒等于 children 数组长度，数组第 i 项 ⟷ childNodes 第 i 个节点，已实施）；③ 就地 patch 不校验同构、错位不报错不自愈（错误静默传播，整树重建/刷新才恢复）——由 `__WF_VDOM_AUDIT` 运行时校验兜底。改 diff 必须先跑 `src/client/ui-dom/vdom*.test.ts`
+- **用户的想法/vnode/DOM 三层一致（§6.3 提交按钮消失事故）**：① 用户 renderFn/JSX 写的结构（含 false 占位）必须**原样**成为 vnode——**禁止对用户 vnode 做 magic**（filter/转换/mutation——过渡 filter 已删除）；② DOM 必须**同构**镜像 vnode——render 阶段对无渲染值**建占位节点**（`childNodes.length` 恒等于 children 数组长度，数组第 i 项 ⟷ childNodes 第 i 个节点，已实施）；③ 就地 patch 不校验同构、错位不报错不自愈（错误静默传播，整树重建/刷新才恢复）——由 `__WF_VDOM_AUDIT` 运行时校验兜底。改 diff 必须先跑 `src/client/vdom/**/*.test.ts`
 - **children 转化规则单一实现（单一规则源，vdom 一致性设计阶段 0）**：children 形态判定（占位/数组项=隐式 Fragment/非法输入分类/锚点）收敛到 `transform.ts` 单一模块——buildVNode / renderValue / patchChildren / renderSsr / hydrateVNode 全部调用它，**禁止各路径各自实现形态判定**（同一语义多套实现 = 漂移 = 转化分叉——SSR 对空洞 `return ''` vs 客户端建占位 / build 把任意 Symbol 当 native vs render 无 symbol 分支，都是既有漂移证据）。新增 children 形态只改一处；验收用 grep 审计五消费方判定收敛
 - mount 保护期（工厂执行）`render()` 调用被 `_render` 守卫天然拦截（未挂载组件跳过）
 
-**实现位置**：`src/client/ui-dom/vdom/`（build.ts / diff.ts / render.ts / mount.ts / registry.ts / hydration.ts / ssr.ts / serve.ts）——第 2 代引擎，替代第 1 代（render.ts/diff.ts 顶层文件）的占位/补全/批处理机制。
+**实现位置**：本段为 vdom2（第 2 代引擎）机制说明——**2026-12 已被 vdom3 替代**
+（见 §4.0.x——生产引擎 `src/client/vdom/`）——红线条目（render-only/无自动渲染/
+无占位/无 runLoop）对 vdom3 同样成立，机制名以 §4.0.x 为准。
 
-### 4.0.x vdom3 引擎（2026-12 改造——**生产引擎**，`src/client/ui-dom/vdom3/`）
+### 4.0.x vdom3 引擎（2026-12 改造——**生产引擎**，`src/client/vdom/`）
 
 > vdom3 是当前生产引擎（agent-platform 默认入口）。2026-12 vdom4 计划落地了
 > 以下机制（命令化 diff/锚点法/影子状态/冻结/dispose/hydration）——**改引擎必须先跑
-> `src/client/ui-dom/vdom3*.test.ts`（144）**。vdom2（src/client/ui-dom/vdom/）为历史实现。
+> `src/client/vdom/**/*.test.ts`（281 测试）**。vdom2 为历史实现（已删除——git 历史可追溯）。
 
 **架构（决策与执行分离——DOM = fold(命令)）**：
 ```
@@ -375,7 +377,7 @@ const UserBadge = (_init, ctx) => {
 
 ### 4.5 共享状态原语：`createStore` + `ctx.ui.useExternal`（替代 $ 的跨组件通道）
 
-`createStore(init)`（`src/client/ui-dom/store.ts`）——普通对象状态 + subscribe/set/update/notify，**无响应式引擎**：
+`createStore(init)`（`src/client/vdom/store.ts`）——普通对象状态 + subscribe/set/update/notify，**无响应式引擎**：
 
 ```ts
 interface ExternalStore<T> {
@@ -570,9 +572,9 @@ const MyComp: Component = (_init, ctx) => {
 - **症状**：命令式中间件（`toast()` 等）挂载的组件注册在 components 自己的 idRegistry，但 `renderByIds` 走 app 的 registry（查 app 的 registry）→ 命中无关组件/漏渲染——真实 app 实测：toast 永不渲染，单测全绿（node --test 单模块图掩盖）
 - **两道防线**：① `scripts/build.mjs` 组件构建外部化 `src/client/*` 导入 → `weifuwu/client`（dist 消费端共享）；② **app 的 tsconfig `paths` 必须同时映射 `weifuwu/client` 和 `weifuwu/components` 到 src**（dev 全 src 单图）——只映射 client 不映射 components 时，app 用 src 的 client、components 用 dist 的 client，状态仍重复
 - 排查手段：浏览器探针 + 检查 bundle 内 `var _idCounter` 出现次数（>1 = 状态重复）；esbuild metafile 看 `src/client` 与 `dist/client` 是否同时被引用
-- **第三道防线（2026-12）**：`services/render-service.ts` 双实例探针（`__wf_ui_dom_instance`——
-  ui-dom 模块被加载两次即 console.warn——模块状态分裂早期检测）；`src/client/ui-dom/ui-dom-boundary.test.ts`
-  import 边界审计（components/hooks/middleware/services/contracts 零 import engines/——门面 index.ts 允许）
+- **第三道防线（2026-12）**：双实例探针与 import 边界审计测试曾由 ui-dom 时代提供
+  （`services/render-service.ts` 的 `__wf_ui_dom_instance` warn + `ui-dom-boundary.test.ts`）——
+  **均已随 ui-dom 迁移删除**——模块状态分裂早期检测目前依赖浏览器探针 + bundle 检查
 
 ### 6.2 enumerated 属性必须显式字符串（draggable 踩过）
 
@@ -580,11 +582,11 @@ const MyComp: Component = (_init, ctx) => {
 
 - render.ts/diff.ts 对 `draggable` 显式 `setAttribute('draggable', value ? 'true' : 'false')`
 - 新 enumerated 属性（contenteditable 等）同理——**空字符串语义需查 HTML 规范**
-- 防线：`src/client/ui-dom/draggable.test.ts`（el.draggable 真值断言——jsdom 可测）
+- 防线：`src/client/vdom/core/field/attributes.test.ts`「enumerated 白名单：draggable 显式 true/false」（el.draggable 真值断言——jsdom 可测）
 
 ### 6.3 数组 diff 与三层一致性：用户的想法 = vnode = DOM（C1 已治本 + 空洞事故已修）
 
-**`patchChildren`（`src/client/ui-dom/vdom/diff.ts`）**：
+**`patchChildren`（`src/client/vdom/core/diff/children.ts`）**：
 - **全无 key**（含 portal——createPortal 的内部 key 不算用户 keyed，C1 修复）→ **按位置复用 + patch**（不重建）——受控 input 焦点保持
 - **用户 keyed 混合**：无 key 项 Step 1 移除重建（React 等价——C1 治本边界）
 
@@ -601,7 +603,9 @@ const MyComp: Component = (_init, ctx) => {
 
 **占位法落地细节（用户决策）**：数组项 key 由业务声明（`ensureArrayKeys` 仅字符串化显式 key——框架不生成身份 key，取消自动 key 2026-12）；`data-wf-key` 只写用户 key（无 key 项不写——位置身份 DOM 诚实；组件项穿透到输出每个顶层节点，多根全部写）；组件实例 id 落 `data-wf-id`（输出每个顶层节点，SSR 不输出——id 客户端运行时分配）；非法输入（对象/数字 type/未知 Symbol）→ 诊断占位 `<!--wf-hole: object {...}-->` + warn，不崩溃不静默；`__WF_VDOM_AUDIT`/`__WF_VDOM_DEBUG`/`?vdom_debug=1` 运行时校验与 trace。规则表：design/vdom-transform-rules.md。**filter 已删除**——占位法落地后无任何对用户 vnode 的 magic。
 
-**回归测试**：`src/client/ui-dom/vdom-diff.test.ts`「数组 boolean 空洞：{cond && <X/>}=false 占位不得误删下一个兄弟（提交按钮消失事故）」——覆盖空洞保持、空洞→真实元素插入（Alert 出现在按钮前、位置正确）。
+**回归测试**：`src/client/vdom/core/node/hole.test.ts`（占位法——空洞保持/互换不塌缩）+ `core/mapping.test.ts`
+「数组 boolean 空洞：false 占位不得误删下一个兄弟（提交按钮消失事故）」——覆盖空洞保持、空洞→真实
+元素插入（Alert 出现在按钮前、位置正确）。
 
 **复现步骤**：① jsdom：children = `[Field, false, Button]`，Field 加 error 重渲染 → 修复前 `querySelectorAll('button')` 为 0、修复后为 1；② agent-browser（components-demo）：Form 空表单点「提交表单」→ 修复前验证错误出现 + 按钮消失、修复后按钮保留。
 
@@ -611,7 +615,7 @@ const MyComp: Component = (_init, ctx) => {
 
 ### 6.4 其他渲染器坑
 
-- **style diff 只设不删**：`display: undefined` 残留旧 none → 条件显隐组件失效（已修——`src/client/ui-dom/style-patch.test.ts` 防线）
+- **style diff 只设不删**：`display: undefined` 残留旧 none → 条件显隐组件失效（已修——`src/client/vdom/core/field/style.test.ts` 防线）
 - **事件 prop 判定必须 `on + 大写`（EVENT_RE）**：`diff.ts` 曾用 `key.startsWith('on')`——`once`/`only` 等 on 开头属性被误判为事件 → `addEventListener('ce', true)` 抛 TypeError 中断渲染。统一用 `EVENT_RE = /^on[A-Z]/`（render.ts 导出，diff.ts 复用）
 - **事件 prop 非函数值守卫**：`onClick={true}` / 字符串不抛 DOMException——`console.warn` + 跳过（不中断渲染管线）；`addEventListener` 前 `typeof value === 'function'` 检查
 
@@ -623,22 +627,21 @@ const MyComp: Component = (_init, ctx) => {
 - **全量测试只在发布版本之前运行**（`npm test` = `node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts' 'src/client/**/*.test.ts'`）——开发中不跑全量（client 297 + db 真库依赖 docker），避免干扰定位；发布前（`node scripts/release.mjs <version>`）跑全量确认全绿
 - `node --test` 无 Jest/Mocha；`npm test` 无 pretest、**零外部依赖**（docker 不参与测试——见 §7.4 测试范围）
 - **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（**≤15 秒**），并优先加 `--test-timeout`（如 `timeout 15 node --env-file=.env --test --test-timeout=8000 ...`）——真库/集成测试卡住时能快速定位；卡住时用更短 timeout 复跑缩小范围
-- **全量测试总时长预算：≤ 25 秒**（client 实测 ~21s——**testBrowser 纪律的固有成本**：
-  每个测试文件独立 worker 进程 + 首次加载 jsdom ~66ms/文件 × ~140 文件 ≈ +9s，
-  2026-12 实测基线：旧（部分文件无 jsdom）~11.5s → 新（全文件 testBrowser）~21s；
-  db 真库 191 个测试占 ~4.3s）。**超过 25 秒 = 必须排查**：
+- **全量测试总时长预算：≤ 15 秒**（client 实测 ~3.2s——297 测试；组件/layout 测试
+  2026-12 删除后 testBrowser 纪律成本骤降（29 个 client 文件）；db 真库 191 个测试
+  占 ~4.3s）。**超过 15 秒 = 必须排查**：
   1. **资源未释放**：db 连接未 `close()`、redis 订阅未退订、jsdom 定时器未清（setTimeout/interval 未 clear——挂起比失败更难定位）、全局 document/mutation 监听未 remove
   2. **新增测试自身慢**：长按/动画测试的 sleep（`usePopup` longpress 500ms×2 是已知最慢项）；改为事件驱动断言
   3. **串行瓶颈**：`--test-concurrency=1` 文件串行；db 真库测试耗时占比大
   4. 排查命令：`timeout 15 node --env-file=.env --test --test-timeout=8000 <glob>` 分段跑定位超时文件，再缩短该文件测试查找挂起点
-- **并发数经验：默认 16 核全并发会 GC/锁抖动（全量从 ~9s 恶化到 >60s）——`npm test` 已固化为 `--test-concurrency=8`**；新增慢文件或机器变化后先验证此值仍成立（<15s 预算内）
+- **并发数经验：默认 16 核全并发会 GC/锁抖动（全量从 ~9s 恶化到 >60s）——`npm test` 已固化为 `--test-concurrency=8`**；新增慢文件或机器变化后先验证此值仍成立（15s 预算内）
 
 ### 7.1.1 测试范围（sql/redis 协议层只测三部分）
 
 **db 协议层（`src/server/db/**/*.test.ts`）只测三部分，其它情况一律不测**：
 
 1. **connection：连接 / 执行命令 / 断开** — `postgres/connection.test.ts`（连接/认证/简单查询/参数化/错误码/断开）、`redis/connection.test.ts`（连接/命令/重连/订阅/CLIENT KILL/超时）
-2. **AST parse/stringify** — `redis/resp.test.ts` + `postgres/protocol.test.ts`（字节编解码 = parse/stringify 底层）、`src/client/test/redis-ast.test.ts`（RESP ⇄ RedisCommand）、`src/client/test/query-language.test.ts`（SQL ⇄ Query Language AST + compileQuery）
+2. **AST parse/stringify** — `redis/resp.test.ts` + `postgres/protocol.test.ts`（字节编解码 = parse/stringify 底层）、`src/server/db/redis/redis-ast.test.ts`（RESP ⇄ RedisCommand）、`src/server/db/query-language.test.ts`（SQL ⇄ Query Language AST + compileQuery）
 3. **其它不测** — 协议引擎特性（pool 语义/管道/pipeline/类型映射/事务隔离/statement_timeout/prepare cache/流式推送）、schema 层、MemorySql/MemoryRedis 实现细节——**一律删除或不再新增**（生产实现由业务测试间接覆盖）
 
 **规则**：
@@ -647,11 +650,10 @@ const MyComp: Component = (_init, ctx) => {
 - 新增 sql/redis 协议测试前先问：属于三部分哪一类？不属于 → 不写
 - 业务测试（user/queue/messager/rate-limit/email mock）独立于上述范围——仍跑 MemorySql/MemoryRedis 与协议 mock
 
-### 7.1.2 vdom3 引擎测试组
+### 7.1.2 vdom 引擎测试组
 
-- **开发迭代**：`timeout 15 node --env-file=.env --test --test-timeout=8000 'src/client/ui-dom/vdom3*.test.ts'`（144 测试——命令化/锚点法/冻结/dispose/hydration/语义 id 全组）
-- **边界审计**：`src/client/ui-dom/ui-dom-boundary.test.ts`（v5 隔离性——components/hooks/services 零 import engines/）
-- 改引擎核心（render/build/shadow/delegate）后：vdom 全组 + 边界审计全绿才可提交
+- **开发迭代**：`timeout 15 node --env-file=.env --test --test-timeout=8000 'src/client/vdom/**/*.test.ts'`（281 测试——命令化/锚点法/冻结/dispose/hydration/语义 id/proxy-trace 契约全组）
+- 改引擎核心（render/build/shadow/delegate）后：vdom 全组全绿才可提交
 
 ### 7.1.3 测试覆盖度量（v26.7 `--test-coverage-include-all`——**宣称「充分测试」前的客观依据**）
 
@@ -687,9 +689,9 @@ node --env-file=.env --test --experimental-test-coverage --test-coverage-include
 
 **不变量断言 helper**（`src/client/vdom/testing.ts`——禁止手抄）：`assertIsomorphic`（childNodes 逐位同构——长度+位置+类型）/`assertSlot`（边界位置——位置 0/末尾重点）/`assertKept`（同 key 复用项 DOM 引用不变）/`assertRoundTrip`（往返可逆——状态不漂移）
 
-### 7.1.4 测试环境统一纪律（红线——vdom/components/layout 测试必须基于 testBrowser）
+### 7.1.4 测试环境统一纪律（红线——client 测试必须基于 testBrowser）
 
-> 决策（2026-12）：**所有 client 测试（vdom/components/layout）必须基于
+> 决策（2026-12）：**所有 client 测试（vdom/office 及未来新增）必须基于
 > `testBrowser()`**——独立 JSDOM 实例（零全局污染）+ 真实 hooks；浏览器能力
 > mock 一律收敛到 testBrowser 提供的 jsdom 能力，禁止各测试手搓。
 
@@ -716,20 +718,20 @@ node --env-file=.env --test --experimental-test-coverage --test-coverage-include
   `WF_JS_TRACE=1` 或 `testBrowser({ log: true, filter })` 每次调用打印
 - **审计基线**（提交前归零）：`grep -rn "setupJsdom\|globalThis.matchMedia\|\(window as any\)" src/client --include='*.test.ts'`
 
-### 7.2 UI 组件测试纪律（jsdom + VNode 断言）
+### 7.2 组件测试纪律（原语保留——2026-12 组件测试已全量删除）
 
-**官方测试原语 `weifuwu/ui-dom/testing`**（`src/client/ui-dom/testing.ts`）——禁止手抄
-`renderVNode`/`mockCtx`（audit R-INFRA 强制；存量 LEGACY 表迁移中）：
+**2026-12：weifuwu/components 与 weifuwu/layout 下全部测试已删除**（149 个文件）。
+组件测试原语保留在 `src/client/vdom/testing.ts`——未来新增组件测试使用（禁止手抄
+`renderVNode`/`mockCtx`）：
 
 ```tsx
-import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, createPopupMock } from '../../ui-dom/testing.ts'
+import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx } from '../vdom/testing.ts'
 
 // renderVNode：两阶段组件渲染到 VNode 层（**只一层**——子组件保留函数引用，断言 type 而非 DOM）
 // mountComponent：**同实例 re-render**（内部 let 状态流转测试）——renderVNode 每次是新 mount，状态会丢
 // findByClass：class token 精确匹配（split(' ')——includes 会误匹配 wf-a ⊃ wf-a-b）
-// createTestCtx(overrides)：标准 ctx（render / ready + hooks mock）；
+// createTestCtx(overrides)：标准 ctx（render / hooks）；
 // **传 browser → 真实 hooks**（createUi(env)——usePopup/useMedia/useScrollPosition 等真实实现——禁止 mock）
-// createPopupMock(isOpen)：仅纯 VNode 结构断言过渡用（浮层行为测试一律真实 usePopup）
 
 // 无状态：const vnode = renderVNode(Button, { variant: 'primary' }, createTestCtx())
 // 有状态（VNode 层）：const ctx = createTestCtx(); const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
@@ -738,12 +740,12 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 ```
 
 - **renderVNode 只渲染一层**：子组件 VNode 的 `type` 是组件函数（断言 `=== Icon`），不是 `'svg'` 等标签名
-- **DOM 事件级测试**（键盘/焦点/动画）：container 必须 `document.body.appendChild(container)`——jsdom 中未连接文档的元素 `.focus()` 无效（Tabs 方向键/DatePicker 导航踩过）
-- **`dispatchEvent` 必须用 jsdom 的 Event**：`new (window as any).Event(...)`——node 原生 Event 与 jsdom EventTarget 不兼容，抛 `TypeError: parameter 1 is not of type 'Event'`
+- **DOM 事件级测试**（键盘/焦点/动画）：container 必须 `document.body.appendChild(container)`——jsdom 中未连接文档的元素 `.focus()` 无效
+- **`dispatchEvent` 必须用 jsdom 的 Event**：`browser.event(...)` 或 `new (window as any).Event(...)`——node 原生 Event 与 jsdom EventTarget 不兼容，抛 `TypeError: parameter 1 is not of type 'Event'`
 - **模拟真实 `ctx.ui.render()` 用 patchValue 而非 mountVNode**：签名 `patchValue(container, container.firstChild, prev, next, ctx)` 同树 patch（portal 正确增删）；mountVNode 全量重挂会残留 portal 脏节点
-- **退场动画 = 延迟卸载**：`open=false` 后 DOM 仍在（播 `--exit` 动画），断言"关闭后 DOM 消失"须手动 `dispatchEvent(new (window as any).Event('animationend'))`
-- **行为变更后旧测试可能静默挂起而非失败**（如 maskClosable 默认 false 后，旧测试点遮罩后 `await promise` 永不 resolve）——排查用 `--test-timeout=3000` 让挂起测试报超时，再二分定位
-- **类型流测试**（`src/client/type-flow.test.ts`）：编译期断言（`@ts-expect-error` 负例）——props 泛型传错、未注入 ctx 字段必须编译期报错
+- **退场动画 = 延迟卸载**：`open=false` 后 DOM 仍在（播 `--exit` 动画），断言"关闭后 DOM 消失"须手动 `dispatchEvent(browser.event('animationend'))`
+- **行为变更后旧测试可能静默挂起而非失败**——排查用 `--test-timeout=3000` 让挂起测试报超时，再二分定位
+- **类型流测试**（`src/client/vdom/type-flow.test.ts`）：编译期断言（`@ts-expect-error` 负例）——props 泛型传错、未注入 ctx 字段必须编译期报错
 
 ### 7.3 DB 真库测试（CS-04）
 
@@ -756,7 +758,8 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 
 ## 8. 设计系统维护（layout/components）
 
-`style-audit`（`src/client/test/style-audit.test.ts`，30 条规则）是设计约束的防护网——改 CSS/组件不得违反，违反即测试红：
+`style-audit` 测试（原 `src/client/test/style-audit.test.ts`，30 条规则）**2026-12 已删除**
+（随 layout/components 测试全量移除）——以下规则仍为设计约束文档，改 CSS/组件不得违反：
 
 ### 动效语言（P0）
 - 动效 Token：`--wf-dur-*`（时长阶梯）、`--wf-ease-*`（缓动曲线）、`--wf-motion-*`（位移量）——组件动效统一引用，禁止各自硬编码
@@ -808,7 +811,7 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 
 **维护规则**：
 - 新增用户可见能力 → 写 `docs/`（按角色对号入座），README 文档导航同步
-- **新增/修改组件 → 三件套同步**（showcase 计划纪律，design/showcase-plan.md）：① 组件三件套（.ts/.css/.test.ts）② registry 自动登记（scaffold：`.pi/skills/weifuwu-dev/scripts/scaffold.mjs component <Name>`）③ 补 demo（`apps/showcase/src/demos/<cat>.tsx`）④ `node scripts/gen-content.mjs` 重新生成 content/（防漂移测试 content-sync 驱动）
+- **新增/修改组件 → 三件套同步**（showcase 计划纪律，design/showcase-plan.md）：① 组件三件套（.ts/.css/.test.ts——2026-12 组件测试已全量删除，测试可暂缓）② registry 自动登记（scaffold：`.pi/skills/weifuwu-dev/scripts/scaffold.mjs component <Name>`）③ 补 demo（`apps/showcase/src/demos/<cat>.tsx`）④ `node scripts/gen-content.mjs` 重新生成 content/（防漂移测试 content-sync 驱动）
 - **content/ examples/ 根级随包发布**：`files: ['dist/', 'README.md', 'docs/', 'content/', 'examples/']`——三处同源（仓库 = 平台 serve = npm 包），零复制零漂移；`npx weifuwu docs` 起本地文档站
 - **showcase = weifuwu 发展引擎**（apps/showcase）：教学/文档/验证/模板一体化——平台自身必须全部由 weifuwu 能力构成（自举纪律）；agent-platform 是实战驱动上游（框架能力变更先实战验证再沉淀文档）
 - **`design/` 属内部文档——文件与内容一律不得写入 `README.md` / `docs/`**：既禁止在 README/docs 中引用 `design/` 路径，也禁止把 design 文档的正文/要点复制迁移到 docs 或 README（docs 随包发布而 design 不发布——引用与复制必然断裂/超范围）。用户可见的设计内容（协议契约 ai-contract、命名规范 style-guide）直接放 `docs/`；裁剪清单等内部登记在 docs 里只描述概念不带路径；仅**源码注释/AGENTS.md** 可引用 `design/`（开发导向）
