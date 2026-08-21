@@ -47,8 +47,9 @@ export interface PopupOpenOptions {
   margin?: number
   /** 定位模式（none = 组件自定义定位——.wf-modal inset:0 居中） */
   positioning?: 'anchor' | 'none'
-  /** 自定义坐标（光标处等——覆盖 computePos——同 usePopup position 语义） */
-  position?: () => { x: number; y: number }
+  /** 自定义坐标（光标处等——覆盖 computePos——width 面板宽度跟随 trigger——
+   *  同 usePopup position 语义） */
+  position?: () => { x: number; y: number; width?: number }
   /** 遮罩 + 居中（Img preview 等轻量居中弹层） */
   mask?: boolean
   maskCentered?: boolean
@@ -91,7 +92,7 @@ interface PopupState {
   phase: PopupPhase
   disposed: boolean
   panel: HTMLElement | null
-  pos: { top: number; left: number }
+  pos: { top: number; left: number; width?: number }
 }
 
 /** 内容解析（工厂延迟构建） */
@@ -172,7 +173,7 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
     if (opts.position) {
       const pv = opts.position()
       if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') {
-        state.pos = { top: pv.y, left: pv.x }
+        state.pos = { top: pv.y, left: pv.x, width: pv.width }
         // 坐标落地（面板 style 更新）
         if (state.applier) {
           const panelVn = buildPanelVn(state.tree)
@@ -238,7 +239,11 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       : ['wf-popup', props.class].filter(Boolean).join(' ')
     const style = opts.positioning === 'none'
       ? { ...(props.style ?? {}), position: 'fixed' }
-      : { ...(props.style ?? {}), position: 'fixed', top: `${state.pos.top}px`, left: `${state.pos.left}px` }
+      : {
+          ...(props.style ?? {}),
+          position: 'fixed', top: `${state.pos.top}px`, left: `${state.pos.left}px`,
+          ...(state.pos.width !== undefined ? { width: `${state.pos.width}px` } : {}),
+        }
     return { ...panelVn, props: { ...props, class: cls, style, ref: panelRefImpl } } as VNode
   }
 
@@ -406,7 +411,7 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       // 自定义坐标同步（position getter——update 前读最新——Slider/ContextMenu）
       if (opts.position) {
         const pv = opts.position()
-        if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') state.pos = { top: pv.y, left: pv.x }
+        if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') state.pos = { top: pv.y, left: pv.x, width: pv.width }
       }
       render(buildPanelVn(content as VNode) as VNode)
     },
@@ -414,7 +419,7 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       if (state.disposed || !state.open || !state.tree) return
       if (opts.position) {
         const pv = opts.position()
-        if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') state.pos = { top: pv.y, left: pv.x }
+        if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') state.pos = { top: pv.y, left: pv.x, width: pv.width }
       }
       const panelVn = buildPanelVn(state.tree)
       if (panelVn) render(panelVn)

@@ -38,15 +38,21 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
 
   // usePopup：借用面板定位/视口 clamp + 外部点击关闭（不 spread wrapProps——
   // 打开由输入 '@' 驱动，非 wrap 触发）；Escape 由 textarea 自己的 onKeyDown 处理
-  const popup = ctx.ui.usePopup({
-    trigger: 'click',
-    placement: 'bottom',
-    center: false,
-    gap: 4,
-    el: () => taEl,
-    isOpen: () => open,
-    setOpen: (v) => { if (!v) close() },
-  })
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncPanel = (panel: import('../../vdom/index.ts').VNode | null): void => {
+    if (open && panel && !handle)
+      handle = ctx.ui.openPopup({
+        anchor: () => taEl,
+        placement: 'bottom',
+        center: false,
+        gap: 4,
+        content: () => panel,
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(panel)
+  }
 
   const close = () => {
     if (open) {
@@ -121,24 +127,20 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
       }
     }
 
-    // 打开瞬间先算坐标由 usePopup.portal 内部处理（prevOpen 跟踪）
-    // **方案 B：槽恒在（portal 恒调用——引擎自动开合）**
-    const panel = popup.portal(open && filtered.length > 0 ? 
-      h('div', {
-        class: 'wf-mentions-panel',
-        role: 'listbox',
-      }, filtered.map((opt, i) =>
-        h('button', {
-          type: 'button',
-          class: `wf-mentions-option${highlight === i ? ' wf-mentions-option--hl' : ''}`,
-          key: opt.value,
-          role: 'option',
-          onClick: () => insert(opt),
-          onMouseEnter: () => { highlight = i },
-        }, opt.label ?? opt.value)
-      )) : null,
-      'popover',
-    )
+    // 打开瞬间坐标由 openPopup 内部处理（anchor + refresh）
+    const panel = open && filtered.length > 0 ? h('div', {
+      class: 'wf-mentions-panel',
+      role: 'listbox',
+    }, filtered.map((opt, i) =>
+      h('button', {
+        type: 'button',
+        class: `wf-mentions-option${highlight === i ? ' wf-mentions-option--hl' : ''}`,
+        key: opt.value,
+        role: 'option',
+        onClick: () => insert(opt),
+        onMouseEnter: () => { highlight = i },
+      }, opt.label ?? opt.value)
+    )) : null
 
     const ta = h('textarea', {
       class: `wf-mentions-input wf-mentions-input--${size}`,
@@ -156,7 +158,8 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
       onCompositionEnd: () => { composing = false },
     })
 
-    // **方案 B：保留 portal 槽（不 filter——长度恒定——同构）**
-    return h('div', { class: 'wf-mentions' }, [ta, panel])
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncPanel(panel)
+    return h('div', { class: 'wf-mentions' }, [ta])
   }
 }

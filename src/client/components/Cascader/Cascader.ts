@@ -68,17 +68,23 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
   let hl: { col: number; idx: number } = { col: 0, idx: 0 }
   let hlSearch = 0
 
-  // usePopup：借用外部点击/Escape 关闭 + 面板定位/视口 clamp + portal
-  // （触发仍走 trigger 自身 onClick=toggleOpen，不 spread wrapProps）
-  const popup = ctx.ui.usePopup({
-    trigger: 'click',
-    placement: 'bottom',
-    center: false,
-    gap: 6,
-    el: () => triggerEl,
-    isOpen: () => open,
-    setOpen: (v) => { open = v; ctx.render() }, // 外部点击/Escape 关闭必须显式渲染
-  })
+  // 命令式弹窗（唯一形态 openPopup）：外部点击/Escape 关闭 + 面板定位/视口 clamp
+  // （触发仍走 trigger 自身 onClick=toggleOpen）
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncPanel = (panel: import('../../vdom/index.ts').VNode): void => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        anchor: () => triggerEl,
+        placement: 'bottom',
+        center: false,
+        gap: 6,
+        content: () => panel,
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } }, // 外部点击/Escape 关闭必须显式渲染
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(panel)
+  }
 
   return async (props) => {
     const {
@@ -261,11 +267,11 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       }
     }
 
-    const panel = popup.portal(h('div', {
+    const panel = h('div', {
       class: 'wf-cascader-panel',
       role: 'listbox',
       onKeyDown: onPanelKeyDown,
-    }, showSearch ? [searchInput, panelBody].filter(Boolean) : panelBody), 'popover')
+    }, showSearch ? [searchInput, panelBody].filter(Boolean) : panelBody)
 
     const display = Array.isArray(value) && value.length
       ? findPathLabel(options, value)
@@ -289,7 +295,9 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       h('span', { class: `wf-cascader-arrow${open ? ' wf-cascader-arrow--open' : ''}` }, h(Icon, { name: 'chevron-down', size: 12 })),
     ])
 
-    wrapChildren.push(h('div', { class: 'wf-cascader' }, [trigger, panel].filter(Boolean)))
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncPanel(panel)
+    wrapChildren.push(h('div', { class: 'wf-cascader' }, [trigger]))
     if (error) wrapChildren.push(h('div', { class: 'wf-cascader-err' }, error))
 
     return h('div', {

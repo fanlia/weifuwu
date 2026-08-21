@@ -55,24 +55,30 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
   ctx.ui.useGlobalKey((e: KeyboardEvent) => {
     if (e.key === 'Escape' && show) { show = false; ctx.render() }
   })
-  // 统一 usePopup：focus 触发 + mask 遮罩（点外部关）+ 自由定位（left 对齐 + width 跟随 trigger）
-  const popup = ctx.ui.usePopup({
-    trigger: 'focus',
-    mask: true,
-    maskClosable: true,
-    closeOnEscape: false,   // 组件自控（useGlobalKey）
-    closeDelay: 120,        // blur 延迟关闭窗口（面板内选中日期的 click 先于关闭生效）
-    el: () => inputEl,
-    isOpen: () => show,
-    setOpen: (v) => { show = v; ctx.render() },
-    position: () => {
-      const r = inputEl?.getBoundingClientRect()
-      if (!r) return { x: 0, y: 0 }
-      // range 模式双面板自适应宽度（不塞 trigger 宽）；其余跟随 trigger
-      const isRange = latestMode === 'range'
-      return { x: r.left, y: r.bottom + 4, width: isRange ? undefined : r.width }
-    },
-  })
+  // 统一命令式弹窗（openPopup）：mask 遮罩（点外部关）+ 自由定位（left 对齐 +
+  // width 跟随 trigger）
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncPanel = (panel: import('../../vdom/index.ts').VNode | null): void => {
+    if (show && panel && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'dp-calendar',
+        mask: true,
+        maskClosable: true,
+        closeOnEscape: false,   // 组件自控（useGlobalKey）
+        content: () => panel,
+        position: () => {
+          const r = inputEl?.getBoundingClientRect()
+          if (!r) return { x: 0, y: 0 }
+          // range 模式双面板自适应宽度（不塞 trigger 宽）；其余跟随 trigger
+          const isRange = latestMode === 'range'
+          return { x: r.left, y: r.bottom + 4, width: isRange ? undefined : r.width }
+        },
+        onClose: () => { handle = null; if (show) { show = false; ctx.render() } },
+      })
+    else if (!show && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(panel)
+  }
 
   return async (props: DatePickerProps) => {
     const L = (ctx as any)?.i18n?.components?.DatePicker ?? {}
@@ -312,8 +318,8 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
       }
     }
 
-    // **方案 B：槽恒在（portal 恒调用——引擎自动开合）**
-    const portalContent = popup.portal(isOpen && panel ? panel : null, 'dp-calendar')
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncPanel(isOpen ? panel : null)
     const displayValue = value ?? selectedValue ?? ''
 
     return h('div', { class: `wf-datepicker${disabled ? ' wf-datepicker--disabled' : ''}` }, [
@@ -331,7 +337,6 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
         'aria-expanded': String(isOpen),
         onClick: toggle,
       }),
-      portalContent,
-    ].filter(Boolean))
+    ])
   }
 }

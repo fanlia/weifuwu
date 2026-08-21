@@ -49,21 +49,27 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
   let triggerEl: HTMLElement | null = null
 
   // 弹层组合器：portal + 定位/夹紧 + 外部点击/Escape 关闭（统一能力）
-  const popup = ctx.ui.usePopup?.({
-    trigger: () => 'click',
-    placement: () => 'bottom',
-    center: false,
-    gap: 4,
-    el: () => triggerEl,
-    isOpen: () => open,
-    setOpen: (v) => { open = v; ctx.render() }, // 外部点击/Escape 关闭必须显式渲染
-  }) ?? {
-    open: false, setOpen: () => {}, wrapProps: {},
-    portal: () => null, refresh: () => {},
+  // 命令式弹窗（唯一形态 openPopup）：外部点击/Escape 关闭 + 定位（trigger 自管切换）
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncDropdown = (dropdown: import('../../vdom/index.ts').VNode): void => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'treeselect',
+        anchor: () => triggerEl,
+        placement: 'bottom',
+        center: false,
+        gap: 4,
+        content: () => dropdown,
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } }, // 外部点击/Escape 关闭必须显式渲染
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(dropdown)
   }
 
   const toggle = () => {
-    popup.setOpen(!popup.open)
+    open = !open
+    ctx.render()
   }
 
   const pickLabel = (value: string | string[] | undefined, options: TreeNode[]): string => {
@@ -83,7 +89,7 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
   const triggerRef = (el: any) => {
     triggerEl = el as HTMLElement | null
     // 首次挂载后（含重渲染）若已打开 → 跟随定位
-    if (el && popup.open) popup.refresh()
+    if (el && handle?.open) handle.refresh()
   }
 
   return async (props) => {
@@ -116,7 +122,8 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
       onSelect: (keys: string[]) => {
         if (keys.length === 0) return
         onChange?.(keys[0])
-        popup.setOpen(false)
+        open = false
+        ctx.render()
       },
       checkable: multiple || undefined,
       checkedKeys: isMultiple ? (value as string[]) : undefined,
@@ -130,14 +137,11 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
       },
     })
 
-    const dropdown = popup.portal(
-      h('div', { class: 'wf-treeselect-dropdown' }, tree),
-      'treeselect',
-    )
+    const dropdown = h('div', { class: 'wf-treeselect-dropdown' }, tree)
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncDropdown(dropdown)
 
-    // 不 spread popup.wrapProps：TreeSelect 自管 trigger（click 切换开/关）——
-    // usePopup 的 wrapProps.onClick 是「只开不关」（Select 教训），spread 会导致
-    // 外层 div 点击误开。只用 portal（外部点击关闭/Escape/定位）能力。
+    // 不 spread wrapProps：TreeSelect 自管 trigger（click 切换开/关）
     return h('div', {
       class: `wf-treeselect${className ? ` ${className}` : ''}`,
     }, [
@@ -166,7 +170,6 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
         h('span', { class: label ? 'wf-treeselect-label' : 'wf-treeselect-placeholder' }, label || placeholder),
         h('span', { class: `wf-treeselect-arrow${open ? ' wf-treeselect-arrow--open' : ''}` }),
       ]),
-      dropdown,
-    ].filter(Boolean))
+    ])
   }
 }

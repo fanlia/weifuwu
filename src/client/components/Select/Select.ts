@@ -100,22 +100,29 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
   ctx.ui.useStableRef?.(() => {}, () => { disposed = true; if (blurTimer) clearTimeout(blurTimer) })
 
   // 弹层纪律（）：menu 必须 portal——此前 absolute 会被父容器
-  // overflow/transform 裁剪（AutoComplete 同款教训）。usePopup 提供
-  // portal + 定位 + 外部点击 + Escape + 锚点感知。
+  // overflow/transform 裁剪（AutoComplete 同款教训）。命令式弹窗（唯一形态
+  // openPopup——定位 + 外部点击 + Escape + 锚点感知）。
   let triggerEl: HTMLElement | null = null
   let inputEl: HTMLInputElement | null = null
   const triggerRef = (el: HTMLElement | null) => { if (el) triggerEl = el }
   // 稳定 ref：trigger 点击聚焦 input（用户点击 Select 应有输入光标）
   const searchInputRef = (el: HTMLInputElement | null) => { if (el) inputEl = el }
-  const popup = ctx.ui.usePopup({
-    trigger: () => 'click',
-    placement: () => 'bottom',
-    center: false, // 左对齐 trigger
-    gap: 4,
-    el: () => triggerEl,
-    isOpen: () => open,
-    setOpen: (v) => { open = v; ctx.render() }, // 外部点击/Escape 关闭必须显式渲染
-  })
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncMenu = (menu: import('../../vdom/index.ts').VNode): void => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'wf-select-menu',
+        anchor: () => triggerEl,
+        placement: 'bottom',
+        center: false, // 左对齐 trigger
+        gap: 4,
+        content: () => menu,
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } }, // 外部点击/Escape 关闭必须显式渲染
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(menu)
+  }
 
   return async (props) => {
     const { label, value, options = [], placeholder, required, disabled, error, onChange, onSearch, multiple } = props
@@ -293,9 +300,9 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
 
     const menu = h('div', { class: 'wf-select-search-menu' }, menuChildren)
 
-    const menuPortal = popup.portal(menu, 'wf-select-menu')
-    // **方案 B：保留 portal 槽（不 filter——长度恒定——同构）**
-    wrapChildren.push(h('div', { class: 'wf-select-search' }, [trigger, menuPortal]))
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncMenu(menu)
+    wrapChildren.push(h('div', { class: 'wf-select-search' }, [trigger]))
     if (error) wrapChildren.push(h('div', { class: 'wf-select-err' }, error))
 
     return h('div', { class: `wf-select-wrap${error ? ' wf-select--err' : ''}` }, wrapChildren)

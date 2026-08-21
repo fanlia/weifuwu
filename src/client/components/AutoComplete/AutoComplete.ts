@@ -63,25 +63,37 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: UIC
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
 
-  // usePopup 组合器：portal + 定位 + 打开自动 refresh + 锚点感知 +
+  // 命令式弹窗（唯一形态 openPopup）：定位 + 打开自动 refresh + 锚点感知 +
   // Escape + 外部点击（弹窗纪律——此前普通 fixed div + 手动
   // usePopupPosition：pos 初始 0 且打开不 refresh → 下拉 0,0 宽 0 不可见）
-  const popup = ctx.ui.usePopup({
-    trigger: () => 'click',
-    placement: () => 'bottom',
-    center: false, // 左对齐输入框
-    gap: 4,
-    el: () => wrapEl,
-    isOpen: () => open,
-    setOpen: (v) => {
-      open = v
-      ctx.render() // 显式渲染（外部点击/Escape 关闭必须落地）
-      latestOnOpenChange?.(v)
-    },
-  })
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncDropdown = (dropdown: import('../../vdom/index.ts').VNode | null): void => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'wf-autocomplete',
+        anchor: () => wrapEl,
+        placement: 'bottom',
+        center: false, // 左对齐输入框
+        gap: 4,
+        content: () => dropdown,
+        onClose: () => {
+          handle = null
+          if (open) {
+            open = false
+            ctx.render() // 显式渲染（外部点击/Escape 关闭必须落地）
+            latestOnOpenChange?.(false)
+          }
+        },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(dropdown)
+  }
 
   const setOpen = (v: boolean) => {
-    popup.setOpen(v)
+    open = v
+    ctx.render()
+    latestOnOpenChange?.(v)
   }
 
   // useControlledInput 原语句柄（render 层调用——闭包变量供 pick 用）
@@ -175,7 +187,7 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: UIC
       }, renderOption ? renderOption(opt) : (opt.label ?? opt.value)),
     ))
 
-    return h('div', { class: 'wf-autocomplete-wrap', ref: wrapRef }, [
+    const vn = h('div', { class: 'wf-autocomplete-wrap', ref: wrapRef }, [
       h('input', {
         // C1 修复后：portal 内部 key 不算用户 keyed → allUnkeyed 按位置复用
         // input 不重建（此前需手动 key 防焦点丢失——现已治本）
@@ -194,7 +206,9 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: UIC
         onCompositionEnd,
         onFocus: () => { if (!open) setOpen(true) },
       }),
-      popup.portal(dropdown, 'wf-autocomplete'),
     ])
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncDropdown(dropdown)
+    return vn
   }
 }
