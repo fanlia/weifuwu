@@ -45,6 +45,26 @@ app.get('/scenario/:id', async (req, ctx: any) => {
 // 场景索引（dev 便利）
 app.get('/', () => new Response('scenario server: /scenario/:id', { headers: { 'content-type': 'text/plain' } }))
 
+// AI 流式端点（NDJSON——分块吐 content——useChat 场景 fixture）
+app.post('/api/chat', () =>
+  new Response(new ReadableStream({
+    start(c) {
+      const enc = new TextEncoder()
+      const chunks = ['你', '好', '！']
+      let i = 0
+      const t = setInterval(() => {
+        if (i < chunks.length) {
+          c.enqueue(enc.encode(JSON.stringify({ content: chunks[i++] }) + '\n'))
+        } else {
+          c.enqueue(enc.encode('{"done":true}\n'))
+          clearInterval(t)
+          c.close()
+        }
+      }, 30)
+    },
+  }), { headers: { 'content-type': 'application/x-ndjson' } }),
+)
+
 // 客户端 bundle（ctx.ui.js——esbuild 编译 scenario main）
 app.get('/app.js', (req, ctx) => ctx.ui.js('./src/test/scenario/main.tsx'))
 

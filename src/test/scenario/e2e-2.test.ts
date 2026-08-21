@@ -241,3 +241,39 @@ test('drag-drop：draggable enumerated + 数据传递 + drop 回调', async () =
     await page.close()
   }
 })
+
+// ── 场景 19：useScrollPosition（容器滚动跟踪——事件驱动重渲染） ────────
+test('scroll-position：容器 scrollTop 变化 → y 更新（滚动监听——非手动 render）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'scroll-position')
+
+    assert.equal(await page.locator('.scroll-y').textContent(), 'y:0', '初始 y:0')
+    await page.evaluate(() => {
+      const wrap = document.querySelector('.scroll-wrap') as HTMLElement
+      wrap.scrollTop = 500
+      wrap.dispatchEvent(new Event('scroll'))
+    })
+    await page.waitForFunction(() => document.querySelector('.scroll-y')?.textContent === 'y:500', '滚动后 y:500（rAF 节流事件驱动）')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 20：useChat（AI 流式——NDJSON 分块累积——自动重渲染） ────────
+test('use-chat：send → 流式分块累积（订阅自动重渲染——真实 HTTP）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'use-chat')
+
+    await page.click('.chat-send')
+    // 流式累积（分块 30ms——最终内容完整）
+    await page.waitForFunction(() => document.querySelector('.msg-assistant')?.textContent === 'assistant:你好！', '流式累积完成（NDJSON 分块——订阅驱动重渲染）', { timeout: 5000 })
+    // 用户消息也在
+    assert.equal(await page.locator('.msg-user').textContent(), 'user:你好', '用户消息')
+    // 状态回归 idle
+    await page.waitForFunction(() => document.querySelector('.chat-status')?.textContent === 'idle', '流式结束 status: idle')
+  } finally {
+    await page.close()
+  }
+})

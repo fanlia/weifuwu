@@ -1,0 +1,79 @@
+/**
+ * api 中间件契约——真实 HTTP（node 直跑——本地 fixture server——不 mock 网络层）
+ *
+ * CS-04 精神（协议层测试连真实服务）：apiClient 是 fetch 封装——
+ * 测试起真实 HTTP fixture——GET/POST JSON 往返/错误码/超时。
+ */
+import { test, before, after } from 'node:test'
+import assert from 'node:assert/strict'
+import { createServer, type Server } from 'node:http'
+import { api, ApiError } from '../../client/vdom/middlewares/api.ts'
+
+let server: Server
+let base = ''
+
+before(async () => {
+  server = createServer((req, res) => {
+    const url = new URL(req.url ?? '/', `http://localhost`)
+    res.setHeader('content-type', 'application/json')
+    if (url.pathname === '/api/posts/1') {
+      res.end(JSON.stringify({ id: 1, title: '你好' }))
+    } else if (url.pathname === '/api/posts' && req.method === 'POST') {
+      let body = ''
+      req.on('data', (c) => { body += c })
+      req.on('end', () => {
+        const data = JSON.parse(body)
+        res.end(JSON.stringify({ id: 2, ...data }))
+      })
+    } else if (url.pathname === '/api/error') {
+      res.statusCode = 500
+      res.end('boom')
+    } else {
+      res.statusCode = 404
+      res.end('not found')
+    }
+  })
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+  const addr = server.address() as { port: number }
+  base = `http://127.0.0.1:${addr.port}`
+})
+
+after(async () => {
+  await new Promise<void>((r) => server.close(() => r()))
+})
+
+test('get：JSON 往返（真实 HTTP——非 mock）', async () => {
+  const client = api({ baseUrl: base })
+  const post = await client.get<{ id: number; title: string }>('/api/posts/1')
+  assert.equal(post.id, 1)
+  assert.equal(post.title, '你好', '中文 JSON 往返')
+})
+
+test('post：JSON body 序列化 + 响应解析', async () => {
+  const client = api({ baseUrl: base })
+  const created = await client.post<{ id: number; title: string }>('/api/posts', { title: '新帖' })
+  assert.equal(created.id, 2)
+  assert.equal(created.title, '新帖')
+})
+
+test('非 2xx → ApiError（状态码透传）', async () => {
+  const client = api({ baseUrl: base })
+  await assert.rejects(
+    client.get('/api/error'),
+    (e: unknown) => e instanceof ApiError && (e as ApiError).status === 500,
+    '500 → ApiError(status 500)',
+  )
+})
+
+test('404 → ApiError（路由缺失——非静默）', async () => {
+  const client = api({ baseUrl: base })
+  await assert.rejects(client.get('/api/missing'), (e: unknown) => e instanceof ApiError)
+})
+
+test('onError 回调（错误上报钩子——不吞错误）', async () => {
+  let seen: ApiError | null = null
+  const client = api({ baseUrl: base, onError: (e) => { seen = e } })
+  await assert.rejects(client.get('/api/error'))
+  assert.ok(seen instanceof ApiError, 'onError 收到错误')
+  assert.equal(seen.status, 500)
+})

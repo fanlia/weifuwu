@@ -282,6 +282,38 @@ const DragScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 19：useScrollPosition（容器滚动跟踪——rAF 节流事件驱动） ─────
+const ScrollScene = (_init: Record<string, never>, ctx: any) => {
+  let wrapRef: HTMLElement | null = null
+  const pos = ctx.ui.useScrollPosition({ getScroller: () => wrapRef })
+  return () =>
+    h('div', {
+      class: 'scroll-wrap',
+      style: { height: '200px', overflow: 'auto' },
+      ref: (el: unknown) => { if (el) wrapRef = el as HTMLElement },
+    },
+      h('div', { class: 'scroll-inner', style: { height: '800px' } }, '长内容'),
+      h('span', { class: 'scroll-y' }, `y:${pos.y}`),
+    )
+}
+
+// ── 场景 20：useChat（AI 流式——NDJSON 分块累积——自动重渲染） ────────
+// 契约：messages 是数组替换（非原地）——useExternal mount 闭包失效——
+// 用 AiChat 标准模式：subscribe(cb → ctx.render) + 渲染期读 chat.messages
+const ChatScene = (_init: Record<string, never>, ctx: any) => {
+  const chat = ctx.ui.useChat({ url: '/api/chat' })
+  ctx.ui.onUnmount(chat.subscribe(() => ctx.render()))
+  return () =>
+    h('div', { class: 'chat-scene' },
+      h('button', { class: 'chat-send', onClick: () => { void chat.send('你好') } }, '发送'),
+      h('span', { class: 'chat-status' }, chat.status),
+      h('div', { class: 'chat-msgs' },
+        (chat.messages ?? []).map((m: { role: string; content: string }, i: number) =>
+          h('p', { class: `msg-${m.role}` }, `${m.role}:${m.content}`)),
+      ),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -301,6 +333,8 @@ export const scenarios: Scenario[] = [
   { id: 'event-guard', title: '事件非函数守卫（warn + 跳过——不中断渲染）', render: GuardScene },
   { id: 'dispose-hooks', title: '组件 dispose（卸载触发 onUnmount 清理钩子）', render: DisposeScene },
   { id: 'drag-drop', title: 'useDragDrop（HTML5 拖拽——数据传递 + 放置）', render: DragScene },
+  { id: 'scroll-position', title: 'useScrollPosition（容器滚动跟踪——事件驱动）', render: ScrollScene },
+  { id: 'use-chat', title: 'useChat（AI 流式——NDJSON 分块累积）', render: ChatScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
