@@ -30,16 +30,22 @@ const PATTERN_COMPONENTS: Record<string, Component> = {
   'settings-page': SettingsPage,
 }
 
-/** 活体预览（pattern 详情页嵌入） */
+/** 活体预览（pattern 详情页嵌入）——**demo 选择必须在 renderFn**（真实 bug：
+ *  SPA 导航 app-shell → 列表 → workspace 时 PatternLive 复用（同位置同类型
+ *  复用 _render——工厂不重跑）——工厂闭包捕获 initProps.id 固定——
+ *  两个 pattern 的 demo 一样（AppShell 残留）——renderFn 读最新 props.id */
 export const PatternLive: Component = async (initProps: any, _ctx: any) => {
-  const Comp = PATTERN_COMPONENTS[initProps.id]
-  if (!Comp) return async () => null
-  return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm">
-      <div class="wf-text-xs wf-text-secondary">← 活体预览（此页面的完整源码 = 复制即用的蓝本）</div>
-      <div class="wf-surface wf-border wf-rounded-md" style="padding:2px">
-        <Comp />
+  return async (props: any) => {
+    const id = props.id ?? (initProps as any).id
+    const Comp = PATTERN_COMPONENTS[id]
+    if (!Comp) return null
+    return (
+      <div class="wf-stack wf-gap-sm">
+        <div class="wf-text-xs wf-text-secondary">← 活体预览（此页面的完整源码 = 复制即用的蓝本）</div>
+        <div class="wf-surface wf-border wf-rounded-md" style="padding:2px">
+          <Comp />
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 }
