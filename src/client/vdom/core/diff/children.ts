@@ -53,9 +53,18 @@ export async function diffChildrenItems(
 ): Promise<void> {
   // A 级检测（长度变化 + 无 key 组件项 → warn 引导声明 key——
   // 无 key = 位置身份——长度变化时有状态组件位置继承漂移——
-  // **豁免**：数组 ↔ 单节点形态转换（shapeChanged——非列表增删））
-  if (oldCs.length !== newCs.length && !shapeChanged) {
-    detectMissingKey(newCs, `children（长度 ${oldCs.length} → ${newCs.length}）`)
+  // **豁免**：① 数组 ↔ 单节点形态转换（shapeChanged——非列表增删）
+  // ② portal 槽（[children, popup.portal()]——浮层插槽是框架管理的切换
+  // 槽而非业务列表——排除 portal 项的业务子项长度比较——Popconfirm 等
+  // 打开 1→2 误报）
+  if (!shapeChanged) {
+    const isBizNode = (i: VNodeChild): i is VNode =>
+      i !== null && i !== undefined && typeof i !== 'boolean' && typeof i !== 'string' && typeof i !== 'number' && !Array.isArray(i) && !isPortal(i)
+    const bizOld = oldCs.filter(isBizNode)
+    const bizNew = newCs.filter(isBizNode)
+    if (bizOld.length !== bizNew.length) {
+      detectMissingKey(bizNew, `children（长度 ${bizOld.length} → ${bizNew.length}）`)
+    }
   }
   // 全 keyed：身份映射复用（增删/重排——状态跟随 key）
   if (listKind(newCs) === 'all-keyed' && listKind(oldCs) === 'all-keyed') {
