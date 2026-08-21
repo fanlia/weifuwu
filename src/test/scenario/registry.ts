@@ -19,6 +19,7 @@ import { Form as CForm, Field as CField, JsonSchemaForm as CJsonSchemaForm, Sort
 import { Kanban as CKanban, InfiniteScroll as CInfiniteScroll, CodeEditor as CCodeEditor, MarkdownEditor as CMarkdownEditor, Editor as CEditor, Table as CTable2 } from '../../client/components/index.ts'
 import { AiChat as CAiChat, FileUpload as CFileUpload } from '../../client/components/index.ts'
 import { SheetGrid as CSheetGrid, SlideCanvas as CSlideCanvas } from '../../client/components/index.ts'
+import { ImageCropper as CImageCropper, VideoPlayer as CVideoPlayer, AuthPage as CAuthPage } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -1175,6 +1176,45 @@ const DeepSlideCanvas = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+// ── 深度场景组 9：媒体 + 认证 ──────────────────────────────────────────
+const DEEP_IMG = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="#4f6ef7"/><circle cx="100" cy="100" r="60" fill="#fff"/></svg>')
+
+const DeepImageCropper = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-imagecropper-scene' },
+      h(CImageCropper, { src: DEEP_IMG, aspect: 1, onCrop: (d: string) => { log += `v:${d.length > 0};`; ctx.render() } }),
+      h('span', { class: 'deep-imagecropper-log' }, log),
+    )
+}
+
+const DeepVideoPlayer = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-videoplayer-scene' },
+      h(CVideoPlayer, { src: 'https://example.com/video.mp4', controls: true, onError: () => { log += 'err;'; ctx.render() } }),
+      h('span', { class: 'deep-videoplayer-log' }, log),
+    )
+}
+
+const DeepAuthPage = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-authpage-scene' },
+      h(CAuthPage, {
+        title: '登录',
+        subtitle: '欢迎回来',
+        onSubmit: () => { const v = (document.querySelector('.auth-username') as HTMLInputElement)?.value; log += `v:${v};`; ctx.render() },
+        children: h('div', {},
+          h('input', { name: 'username', class: 'auth-username', placeholder: '用户名' }),
+          h('input', { name: 'password', type: 'password', class: 'auth-password', placeholder: '密码' }),
+        ),
+      }),
+      h('span', { class: 'deep-authpage-log' }, log),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -1271,6 +1311,9 @@ export const scenarios: Scenario[] = [
   { id: 'deep-editor', title: 'Editor（编辑 onChange）', render: DeepEditor },
   { id: 'deep-sheetgrid', title: 'SheetGrid（工作簿渲染）', render: DeepSheetGrid },
   { id: 'deep-slidecanvas', title: 'SlideCanvas（幻灯片渲染）', render: DeepSlideCanvas },
+  { id: 'deep-imagecropper', title: 'ImageCropper（图片裁剪）', render: DeepImageCropper },
+  { id: 'deep-videoplayer', title: 'VideoPlayer（视频渲染）', render: DeepVideoPlayer },
+  { id: 'deep-authpage', title: 'AuthPage（登录表单提交）', render: DeepAuthPage },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
