@@ -15,6 +15,7 @@ import { Input as CInput, InputNumber as CInputNumber, Textarea as CTextarea, Se
 import { Select as CSelect, AutoComplete as CAutoComplete, Cascader as CCascader, TreeSelect as CTreeSelect, Transfer as CTransfer, ColorPicker as CColorPicker, DatePicker as CDatePicker, Calendar as CCalendar } from '../../client/components/index.ts'
 import { Tabs as CTabs, Menu as CMenu, Pagination as CPagination, Table as CTable, Collapse as CCollapse, Accordion as CAccordion, Carousel as CCarousel, Steps as CSteps, List as CList } from '../../client/components/index.ts'
 import { Modal as CModal, Drawer as CDrawer, Popover as CPopover, Tooltip as CTooltip, Dropdown as CDropdown, Popconfirm as CPopconfirm, HoverCard as CHoverCard, ActionSheet as CActionSheet, Command as CCommand, Menubar as CMenubar } from '../../client/components/index.ts'
+import { Form as CForm, Field as CField, JsonSchemaForm as CJsonSchemaForm, SortableList as CSortableList, Resizable as CResizable } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -672,7 +673,7 @@ const DeepCheckbox = (_i: Record<string, never>, ctx: any) => {
   let log = ''
   return () =>
     h('div', { class: 'deep-checkbox-scene' },
-      h(CCheckbox, { checked: false, onChange: (c: boolean) => { log += `c:${c};`; ctx.render() } }, '勾选'),
+      h(CCheckbox, { label: '勾选', checked: false, onChange: (c: boolean) => { log += `c:${c};`; ctx.render() } }),
       h('span', { class: 'deep-checkbox-log' }, log),
     )
 }
@@ -994,6 +995,62 @@ const DeepMenubar = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+// ── 深度场景组 5：表单校验 + 特殊交互（参数行为断言） ─────────────────
+const DeepForm = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  let errors: Record<string, string> = {}
+  return () =>
+    h('div', { class: 'deep-form-scene' },
+      h(CForm, {
+        validation: { name: [{ required: true, message: '请输入用户名' }], age: [{ min: 18, message: '年龄需≥18' }] },
+        onSubmit: (v: Record<string, unknown>) => { log += `ok:${String(v.name)};`; ctx.render() },
+        onError: (e: Record<string, string>) => { errors = e; log += `err:${e.name ?? ''};`; ctx.render() },
+      },
+        h(CField, { name: 'name', label: '用户名' }, h('input', { name: 'name', class: 'form-name-input' })),
+        h(CField, { name: 'age', label: '年龄' }, h('input', { name: 'age', class: 'form-age-input', type: 'number' })),
+        h('button', { type: 'submit', class: 'form-submit' }, '提交'),
+      ),
+      h('span', { class: 'deep-form-err' }, errors.name ?? ''),
+      h('span', { class: 'deep-form-log' }, log),
+    )
+}
+
+const DeepJsonForm = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-jsonform-scene' },
+      h(CJsonSchemaForm, {
+        schema: { type: 'object', properties: { title: { type: 'string', title: '标题' }, count: { type: 'number', title: '数量' } } },
+        onChange: (v: Record<string, unknown>) => { log += `v:${String(v.title)};`; ctx.render() },
+      }),
+      h('span', { class: 'deep-jsonform-log' }, log),
+    )
+}
+
+const DeepSortable = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  let items = [{ id: 'a', label: '甲' }, { id: 'b', label: '乙' }]
+  return () =>
+    h('div', { class: 'deep-sortable-scene' },
+      h(CSortableList, {
+        items, keyField: 'id',
+        onReorder: (it: Array<{ id: string; label: string }>) => { items = it; log += `v:${it.map((x) => x.label).join(',')};`; ctx.render() },
+        renderItem: (item: { id: string; label: string }, i: number) => h('div', { class: 'sortable-item', 'data-id': item.id }, `${i}:${item.label}`),
+      }),
+      h('span', { class: 'deep-sortable-log' }, log),
+    )
+}
+
+const DeepResizable = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-resizable-scene', style: { height: '200px' } },
+      h(CResizable, { defaultSize: 200, min: 50, onResize: (s: number) => { log += `v:${s};`; ctx.render() } }, h('div', {}, '左'), h('div', {}, '右')),
+      h('span', { class: 'deep-resizable-log' }, log),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -1076,6 +1133,10 @@ export const scenarios: Scenario[] = [
   { id: 'deep-actionsheet', title: 'ActionSheet 参数（选项选择）', render: DeepActionSheet },
   { id: 'deep-command', title: 'Command 参数（搜索选择）', render: DeepCommand },
   { id: 'deep-menubar', title: 'Menubar 参数（菜单展开选择）', render: DeepMenubar },
+  { id: 'deep-form', title: 'Form 参数（校验/onError/onSubmit）', render: DeepForm },
+  { id: 'deep-jsonform', title: 'JsonSchemaForm 参数（schema 编辑）', render: DeepJsonForm },
+  { id: 'deep-sortable', title: 'SortableList 参数（拖拽重排）', render: DeepSortable },
+  { id: 'deep-resizable', title: 'Resizable 参数（拖拽调整）', render: DeepResizable },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

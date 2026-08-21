@@ -120,9 +120,9 @@ test('deep-switch：点击切换（onChange 回调）+ disabled 拦截', async (
   const page = await browser.newPage()
   try {
     await openScenario(page, BASE, 'deep-switch')
-    await page.locator('.deep-switch-scene input[type="checkbox"]').first().click({ force: true })
+    await page.locator('.deep-switch-scene .wf-switch').first().click()
     await page.waitForFunction(() => (document.querySelector('.deep-switch-log')?.textContent ?? '').includes('c:true'), 'onChange(true)')
-    await page.locator('.deep-switch-scene input[type="checkbox"]').nth(1).click({ force: true })
+    await page.locator('.deep-switch-scene .wf-switch').nth(1).click({ force: true })
     await page.waitForTimeout(200)
     assert.equal((await page.locator('.deep-switch-log').textContent())?.includes('c:false'), false, 'disabled 不触发 onChange')
   } finally {
@@ -134,7 +134,7 @@ test('deep-checkbox：勾选切换 onChange', async () => {
   const page = await browser.newPage()
   try {
     await openScenario(page, BASE, 'deep-checkbox')
-    await page.locator('.deep-checkbox-scene input[type="checkbox"]').click({ force: true })
+    await page.locator('.deep-checkbox-scene .wf-checkbox-label').click()
     await page.waitForFunction(() => (document.querySelector('.deep-checkbox-log')?.textContent ?? '').includes('c:true'))
   } finally {
     await page.close()

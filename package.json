@@ -48,7 +48,7 @@
     "release:dry": "node scripts/release.mjs --dry-run",
     "test:client": "node --env-file=.env --test --test-concurrency=4 'src/test/contract/**/*.test.ts'",
     "test:server": "node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts'",
-    "test:scenario": "node --env-file=.env --test --test-timeout=8000 --test-concurrency=6 'src/test/scenario/e2e*.test.ts'",
+    "test:scenario": "node --env-file=.env --test --test-timeout=8000 --test-concurrency=8 'src/test/scenario/e2e*.test.ts'",
     "test:components": "node --env-file=.env --test --test-timeout=8000 --test-concurrency=2 src/test/scenario/e2e-6.test.ts"
   },
   "dependencies": {

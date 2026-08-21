@@ -9,6 +9,8 @@
  * 启动：node src/test/scenario/server.ts（端口 3299）
  */
 import { Router, serve } from '../../server/index.ts'
+import { readFile, readdir } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { ui } from '../../server/ui/index.ts'
 import { UIRouter, h } from '../../client/vdom/index.ts'
 import { uiSsr } from '../../client/vdom/core/ssr/index.ts'
@@ -28,7 +30,7 @@ app.get('/scenario/:id', async (req, ctx: any) => {
     const router = new UIRouter()
     router.get(`/scenario/${id}`, (_req, rctx: any) => rctx.stream(h(s.render, {})))
     const html = await uiSsr(router, `/scenario/${id}`, { title: 'scenario-ssr' })
-    return new Response(html.replace('</body>', '<script src="/app.js"></script></body>'), {
+    return new Response(html.replace('</body>', '<link rel="stylesheet" href="/components.css"><script src="/app.js"></script></body>'), {
       headers: { 'content-type': 'text/html; charset=utf-8' },
     })
   }
@@ -36,10 +38,37 @@ app.get('/scenario/:id', async (req, ctx: any) => {
 <html>
 <head><meta charset="utf-8"><title>scenario</title></head>
 <body>
+  <link rel="stylesheet" href="/components.css">
   <div id="root"></div>
   <script src="/app.js"></script>
 </body>
 </html>`
+})
+
+
+// 组件 CSS 聚合（layout + 全部组件——真实布局测试环境）
+app.get('/components.css', async (req, ctx: any) => {
+  const root = resolve(process.cwd())
+  const layoutSrc = resolve(root, 'src', 'client', 'layout')
+  const entry = await readFile(resolve(layoutSrc, 'weifuwu-layout.css'), 'utf-8')
+  const layoutChunks: string[] = []
+  for (const line of entry.split('\n')) {
+    const m = line.match(/@import\s+['"]([^'"]+)['"]/)
+    if (m) {
+      const content = (await readFile(resolve(layoutSrc, m[1]), 'utf-8')).replace(/@import\s+['"][^'"]+['"]\s*;?\s*\n?/g, '').trim()
+      layoutChunks.push(`@layer layout {\n${content}\n}`)
+    }
+  }
+  let css = '@layer tokens, base, layout, utilities, components;\n\n' + layoutChunks.join('\n\n')
+  css += '\n@layer components {\n'
+  const dirs = await readdir(resolve(root, 'src', 'client', 'components'), { withFileTypes: true })
+  for (const d of dirs.filter((x) => x.isDirectory())) {
+    try {
+      css += await readFile(resolve(root, 'src', 'client', 'components', d.name, `${d.name}.css`), 'utf-8') + '\n'
+    } catch { /* 无 CSS 组件跳过 */ }
+  }
+  css += '}\n'
+  return new Response(css, { headers: { 'content-type': 'text/css; charset=utf-8' } })
 })
 
 // 场景索引（dev 便利）
