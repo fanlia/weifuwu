@@ -19,7 +19,7 @@ import { shellHeader } from './src/ssr-header.ts'
 const unsafe = (s: string): string => new HtmlSafe(s) as unknown as string
 import { h } from '../../src/client/vdom/index.ts'
 import { renderToStream } from '../../src/client/vdom/core/build.ts'
-import { commandToHtml } from '../../src/client/vdom/core/html.ts'
+import { commandToHtml } from '../../src/client/vdom/core/ssr/html.ts'
 import { Markdown } from '../../src/client/components/index.ts'
 import { installDemoBackend } from './src/demo-backend.ts'
 import { registerTodoApi } from '../../examples/apps/todo/api.ts'

@@ -36,8 +36,7 @@ export async function loadTodos(): Promise<void> {
 /** 列表页 */
 export const TodoList: Component = async (_init: any, ctx: any) => {
   void loadTodos()
-  const store = ctx.ui.useExternal(todoStore)
-  const state = store.state
+  const state = ctx.ui.useExternal(todoStore)
   const toggle = async (t: Todo) => {
     await fetch(`/api/todos/${t.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: !t.done }) })
     await loadTodos()

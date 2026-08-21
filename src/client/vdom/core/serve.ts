@@ -198,6 +198,14 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
             continue
           }
         }
+        // **首帧吸收失败（同导航流程——uiServe mount 时 root 预置静态
+        // HTML 无 v3 标记——类型错位匹配失败——无回退则错位 DOM 污染
+        // 影子树——后续 diff 锚失效（showcase 首页 procInsert 崩溃）**
+        if (!currentTree && applier.absorb.failed) {
+          rootEl.innerHTML = ''
+          applier.absorb.reset()
+          continue
+        }
         // 渲染完成 → 取队头继续（FIFO——先触发先执行）
         if (queue.length > 0) {
           target = queue.shift()!
@@ -282,10 +290,20 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     // root 类型变化（导航/组件切换）→ **全量 build**（done.full 清理旧树）；
     // 同类型 → diff 精准
     if (!currentTree && rootEl.childNodes.length > 0) {
-      // **SSR 接管（结构吸收）**：首帧复用已有 DOM（焦点/状态保持）——
-      // 结构对齐（DFS 序游标——create 匹配类型复用）——mismatch → 失败
-      // 回退清空重建（原子性——runRender 检测 absorbFailed 重跑）
-      applier.absorb.begin(rootEl)
+      // **SSR 接管（结构吸收）判定**：仅当 root 含 SSR 吸收标记
+      // （<!--wf-hole--> 锚注释——SSR 输出端 createAnchor 序列化）才
+      // 吸收——无标记（静态预置 HTML/骨架屏——showcase 首页 shellHeader+
+      // hero）→ **清空重建**（吸收跳过机制跨结构错配——next 跳过非目标
+      // 节点会错配到深层同类元素——错位 DOM 污染影子树——后续 diff 锚
+      // 失效 procInsert 崩溃——showcase 首页 8 次报错根因）
+      const hasSsrMark = Array.from(rootEl.querySelectorAll('*')).some((el) =>
+        [...el.childNodes].some((n) => n.nodeType === 8 && (n as Comment).textContent?.includes('wf')),
+      )
+      if (hasSsrMark) {
+        applier.absorb.begin(rootEl)
+      } else {
+        rootEl.innerHTML = ''
+      }
     }
     const stream = currentTree
       ? (currentTree.type !== vnode.type

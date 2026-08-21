@@ -1215,6 +1215,54 @@ const DeepAuthPage = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+
+
+
+// ── 引擎场景：高频重复渲染（打字机模式——渲染循环锚稳定） ─────────────
+const Typewriter = (_i: Record<string, never>, ctx: any) => {
+  const WORDS = ['AI 对话', '数据看板']
+  let word = 0
+  let chars = 0
+  let timerId = 0
+  const tick = () => {
+    const w = WORDS[word]
+    chars += 1
+    if (chars > w.length + 3) { word = (word + 1) % WORDS.length; chars = 0 }
+    ctx.render()
+    timerId = ctx.browser?.timeout(tick, chars > w.length ? 100 : 50) ?? setTimeout(tick, 50)
+  }
+  timerId = ctx.browser?.timeout(tick, 60) ?? setTimeout(tick, 60)
+  ctx.ui.onUnmount?.(() => { clearTimeout(timerId) })
+  const typed = () => WORDS[word].slice(0, chars)
+  return () =>
+    h('div', { class: 'tw-scene' },
+      h('span', {}, '你正在构建 '),
+      h('span', { class: 'tw-word', style: { minWidth: '60px' } }, typed(), h('span', { class: 'tw-cursor' }, '▍')),
+      h('div', { class: 'tw-static' }, '静态内容'),
+    )
+}
+
+const RenderLoop = (_i: Record<string, never>, ctx: any) => {
+  let n = 0
+  let timerId = 0
+  const tick = () => { n += 1; ctx.render(); timerId = setTimeout(tick, 40) }
+  timerId = setTimeout(tick, 40)
+  ctx.ui.onUnmount?.(() => { clearTimeout(timerId) })
+  return () => h('div', { class: 'loop-scene' }, `计数:${n}`, h('div', {}, '尾随'))
+}
+
+const DeepTypewriter = (_i: Record<string, never>, ctx: any) =>
+  () => h('div', { class: 'tw-scene' }, h(Typewriter, {}))
+
+const DeepRenderLoop = (_i: Record<string, never>, ctx: any) =>
+  () => h('div', { class: 'loop-scene' }, h(RenderLoop, {}))
+
+
+
+const TWS = { id: 'typewriter-loop', title: '打字机高频渲染（锚稳定）', render: DeepTypewriter }
+const RLS = { id: 'render-loop', title: '渲染循环（结构稳定计数）', render: DeepRenderLoop }
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -1314,6 +1362,8 @@ export const scenarios: Scenario[] = [
   { id: 'deep-imagecropper', title: 'ImageCropper（图片裁剪）', render: DeepImageCropper },
   { id: 'deep-videoplayer', title: 'VideoPlayer（视频渲染）', render: DeepVideoPlayer },
   { id: 'deep-authpage', title: 'AuthPage（登录表单提交）', render: DeepAuthPage },
+  TWS,
+  RLS,
 ]
 
 export function findScenario(id: string): Scenario | undefined {

@@ -36,12 +36,12 @@ export const ImageCropper: Component<ImageCropperProps> = async (_init, ctx) => 
       viewH = viewW / (ctx2.aspect)
       box = { x: viewW * 0.1, y: viewH * 0.1, w: viewW * 0.8, h: viewH * 0.8 }
       draw()
-      ctx2.ui.render()
+      ctx.render()
     }
     image.onerror = () => ctx2.onError?.(new Error('图片加载失败'))
     image.src = ctx2.src
   }
-  const ctx2: any = { aspect: 1, src: '', onError: undefined, ui: ctx.ui }
+  const ctx2: any = { aspect: 1, src: '', onError: undefined }
 
   const draw = () => {
     if (!canvasEl || !img) return
