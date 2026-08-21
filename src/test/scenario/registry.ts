@@ -8,7 +8,7 @@
  * 每个场景 = 一个 vnode 工厂（客户端执行——组件状态真实流转）+ e2e 断言。
  * 场景是引擎真实 bug 的回归样本（§6.3 占位事故 / 组件复用 / keyed 身份 / portal）。
  */
-import { h, type Component, type VNode } from '../../client/vdom/index.ts'
+import { h, type Component, type VNode, createStore } from '../../client/vdom/index.ts'
 import { createPortal } from '../../client/vdom/core/node/portal.ts'
 
 export interface Scenario {
@@ -186,6 +186,49 @@ const UnmountScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 12：useExternal（共享状态——跨组件自动重渲染） ────────────────
+const extStore = createStore({ count: 0 })
+const ExtA = (_i: Record<string, never>, ctx: any) => {
+  const s = ctx.ui.useExternal(extStore)
+  return () => h('span', { class: 'ext-a' }, `A:${s.count}`)
+}
+const ExtB = (_i: Record<string, never>, ctx: any) => {
+  const s = ctx.ui.useExternal(extStore)
+  return () => h('span', { class: 'ext-b' }, `B:${s.count}`)
+}
+const ExternalScene = (_i: Record<string, never>, ctx: any) =>
+  () =>
+    h('div', { class: 'ext-scene' },
+      h(ExtA, {}),
+      h(ExtB, {}),
+      h('button', { class: 'ext-inc', onClick: () => extStore.update((s) => { s.count += 1 }) }, '+1'),
+    )
+
+// ── 场景 13：useMedia（媒体查询——视口变化自动重渲染） ──────────────────
+// hooks 契约：useMedia 返回快照（非 getter）——必须在 renderFn 内调用
+// （每次渲染重新读——change → requestRender → renderFn 重跑 → 新快照）
+const MediaScene = (_init: Record<string, never>, ctx: any) =>
+  () => {
+    const isNarrow = ctx.ui.useMedia('(max-width: 700px)')
+    return h('div', { class: 'media-scene' }, h('span', { class: 'media-state' }, isNarrow ? '窄' : '宽'))
+  }
+
+// ── 场景 14：usePopup（弹层——portal + 外部点击/Escape 关闭） ──────────
+const PopupScene = (_init: Record<string, never>, ctx: any) => {
+  let triggerEl: HTMLElement | null = null
+  const triggerRef = (el: unknown) => { if (el) triggerEl = el as HTMLElement }
+  const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: 'bottom' })
+  return () =>
+    h('div', { class: 'popup-scene' },
+      h('button', {
+        class: 'pop-trigger',
+        ref: triggerRef,
+        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+      }, '弹层开关'),
+      popup.portal(h('div', { class: 'pop-panel' }, '弹层面板'), 'scenario-popup'),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -198,6 +241,9 @@ export const scenarios: Scenario[] = [
   { id: 'navigate', title: 'navigate（链接拦截 → pushState + 整树替换）', render: NavigateScene },
   { id: 'unmount-dispose', title: 'unmount（handle.unmount——DOM/portal 清理）', render: UnmountScene },
   { id: 'ssr-adopt', title: 'SSR 吸收（首帧结构复用——输入焦点保持）', render: SsrAdopt, ssr: true },
+  { id: 'use-external', title: 'useExternal（共享状态——跨组件自动重渲染）', render: ExternalScene },
+  { id: 'use-media', title: 'useMedia（媒体查询——视口变化自动重渲染）', render: MediaScene },
+  { id: 'use-popup', title: 'usePopup（弹层——portal + 外部点击关闭）', render: PopupScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

@@ -298,3 +298,68 @@ test('ssr-adopt：首帧复用 SSR DOM（同一节点引用——输入焦点保
     await page.close()
   }
 })
+
+// ── 场景 12：useExternal（共享状态——跨组件自动重渲染） ─────────────────
+test('use-external：store 变化 → 订阅组件自动重渲染（无需手动 render）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'use-external')
+
+    assert.equal(await page.locator('.ext-a').textContent(), 'A:0')
+    assert.equal(await page.locator('.ext-b').textContent(), 'B:0')
+    await page.click('.ext-inc')
+    await page.waitForFunction(() => document.querySelector('.ext-a')?.textContent === 'A:1')
+    assert.equal(await page.locator('.ext-b').textContent(), 'B:1', '两个订阅组件都自动更新（跨组件——store 驱动）')
+    await page.click('.ext-inc')
+    await page.waitForFunction(() => document.querySelector('.ext-a')?.textContent === 'A:2')
+    assert.equal(await page.locator('.ext-b').textContent(), 'B:2')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 13：useMedia（媒体查询——视口变化自动重渲染） ─────────────────
+test('use-media：视口变化 → 自动重渲染（事件驱动——非手动 render）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'use-media')
+
+    assert.equal(await page.locator('.media-state').textContent(), '宽', '默认视口（宽于 700px）')
+    await page.setViewportSize({ width: 500, height: 500 })
+    await page.waitForFunction(() => document.querySelector('.media-state')?.textContent === '窄')
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await page.waitForFunction(() => document.querySelector('.media-state')?.textContent === '宽', '恢复视口 → 自动切回')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 14：usePopup（弹层——portal + 定位 + 外部点击关闭） ──────────
+test('use-popup：弹层 portal + 外部点击关闭（z-index 层叠纪律）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'use-popup')
+
+    await page.click('.pop-trigger')
+    await page.waitForSelector('.pop-panel')
+    const inPortal = await page.evaluate(() => Boolean(document.querySelector('.pop-panel')?.closest('#__wf_portal')))
+    assert.equal(inPortal, true, '弹层在 #__wf_portal（portal 纪律）')
+    const style = await page.evaluate(() => (document.querySelector('.pop-panel') as HTMLElement)?.getAttribute('style') ?? '')
+    assert.ok(style.includes('position: fixed'), 'fixed 定位（浮层纪律）')
+    assert.ok(style.includes('top:') && style.includes('left:'), 'JS 坐标定位')
+    // 锚点定位（el getter——按钮下方——非 0,0）
+    const pos = await page.evaluate(() => {
+      const btn = document.querySelector('.pop-trigger')!.getBoundingClientRect()
+      const panel = document.querySelector('.pop-panel')!.getBoundingClientRect()
+      return { panelTop: panel.top, btnBottom: btn.bottom }
+    })
+    assert.ok(pos.panelTop >= pos.btnBottom, '面板在按钮下方（bottom placement）')
+
+    // 外部点击关闭（document mousedown——el/panel 外——远离面板）
+    await page.mouse.click(400, 300)
+    await page.waitForFunction(() => !document.querySelector('.pop-panel'))
+    assert.equal(await page.locator('.pop-panel').count(), 0, '外部点击关闭')
+  } finally {
+    await page.close()
+  }
+})
