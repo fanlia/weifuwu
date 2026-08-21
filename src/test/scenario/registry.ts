@@ -659,6 +659,23 @@ const TrapScene = (_init: Record<string, never>, ctx: any) => {
   }
 }
 
+// ── 场景 32.5：组件切换残留（PatternLive 场景——SPA 导航 demo 混合回归） ─
+// A（含 nav）→ 列表 → B（同位置）——procRemove 清子树 nodes（旧 DOM 复活修复）
+const PatternReuseScene = (_init: Record<string, never>, ctx: any) => {
+  let page = 'a'
+  const CompA = () => () => h('aside', {}, [
+    h('nav', { class: 'pr-nav-a' }, 'A-nav'),
+    h('div', { class: 'pr-file-a' }, 'A-files'),
+  ])
+  const CompB = () => () => h('aside', {}, [h('div', { class: 'pr-file-b' }, 'B-files')])
+  const render = () => {
+    if (page === 'a') return h('div', { class: 'pr-scene' }, [h(CompA, {}), h('button', { class: 'pr-to-list', onClick: () => { page = 'list'; ctx.render() } }, '到列表')])
+    if (page === 'list') return h('div', { class: 'pr-scene' }, [h('ul', { class: 'pr-list' }, '列表'), h('button', { class: 'pr-to-b', onClick: () => { page = 'b'; ctx.render() } }, '到 B')])
+    return h('div', { class: 'pr-scene' }, [h(CompB, {})])
+  }
+  return () => render()
+}
+
 // ── 场景 33：toast（命令式轻提示——显示 + 自动消失） ───────────────────
 const ToastScene = (_init: Record<string, never>, ctx: any) =>
   () =>
@@ -1505,6 +1522,7 @@ export const scenarios: Scenario[] = [
   { id: 'ssr-adopt', title: 'SSR 吸收（首帧结构复用——输入焦点保持）', render: SsrAdopt, ssr: true },
   { id: 'use-external', title: 'useExternal（共享状态——跨组件自动重渲染）', render: ExternalScene },
   { id: 'use-media', title: 'useMedia（媒体查询——视口变化自动重渲染）', render: MediaScene },
+  { id: 'pattern-reuse', title: '组件切换残留（A→列表→B——旧 DOM 复活回归）', render: PatternReuseScene },
   { id: 'use-popup', title: 'usePopup（弹层——portal + 外部点击关闭）', render: PopupScene },
   { id: 'style-update', title: 'style 只设不删（display 残留回归——§6.4）', render: StyleScene },
   { id: 'event-guard', title: '事件非函数守卫（warn + 跳过——不中断渲染）', render: GuardScene },

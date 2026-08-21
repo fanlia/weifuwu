@@ -1,0 +1,73 @@
+/**
+ * PatternLive 场景契约——组件切换残留（SPA 导航 demo 混合）
+ *
+ * 场景：组件 A（AppShell 结构）→ 卸载（列表页）→ 同位置挂组件 B
+ * （SplitWorkspace 结构）——断言：A 节点全 remove、B 全新 create（零复用残留）
+ */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { h, type VNode } from '../../client/vdom/core/vnode.ts'
+import type { Command } from '../../client/vdom/core/command/index.ts'
+import { diffStream } from '../../client/vdom/core/diff/index.ts'
+import { renderToStream } from '../../client/vdom/core/build.ts'
+import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
+import type { UIContext } from '../../client/vdom/context/UIContext.ts'
+
+async function diff(oldTree: VNode, newTree: VNode, registry = createComponentRegistry()): Promise<Command[]> {
+  const cmds: Command[] = []
+  const reader = diffStream(oldTree, newTree, {} as UIContext, registry).getReader()
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    cmds.push(value)
+  }
+  return cmds
+}
+async function build(tree: VNode, registry = createComponentRegistry()): Promise<Command[]> {
+  const cmds: Command[] = []
+  const reader = renderToStream(tree, {} as UIContext, registry).getReader()
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    cmds.push(value)
+  }
+  return cmds
+}
+const ops = (cmds: Command[]) => cmds.map((c: any) => c.op + (c.id ? ':' + c.id : ''))
+
+test('组件切换：A → 列表（卸载）→ 同位置 B——命令流正确（PatternLive 场景）', async () => {
+  const CompA = () => () => h('aside', {}, [h('nav', {}, 'A-nav'), h('div', {}, 'A-files')])
+  const CompB = () => () => h('aside', {}, [h('div', {}, 'B-files')])
+  const registry = createComponentRegistry()
+  const v0 = h('div', {}, [h(CompA, {})])
+  const v1 = h('div', {}, [h('ul', {}, '列表')])
+  const v2 = h('div', {}, [h(CompB, {})])
+  // 0. 先挂载 A（registry 有 A 的 rec——模拟真实导航历史）
+  await build(v0, registry)
+  // 1. A → 列表：A 卸载 + 首节点 remove（transform 组件→X——子树由 patch 层
+  //    procRemove 前缀清理——契约层只验证命令流正确）
+  const c1 = await diff(v0, v1, registry)
+  const ops1 = ops(c1)
+  assert.ok(ops1.some(o => o === 'unmount'), `A 组件卸载（实际 ${ops1.join(',')}）`)
+  assert.ok(ops1.some(o => o.startsWith('remove:')), `A 首节点 remove（实际 ${ops1.join(',')}）`)
+  // 2. 列表 → B：B 全新 create（旧树是列表——remove 只清 ul）
+  const c2 = await diff(v1, v2, registry)
+  const ops2 = ops(c2)
+  assert.ok(ops2.some(o => o.startsWith('create:')), `B 创建（实际 ${ops2.join(',')}）`)
+})
+
+test('组件同位置异类型切换：A → B 直接（diffSame 异类型分支——卸载+重建）', async () => {
+  const CompA = () => () => h('aside', {}, [h('nav', {}, 'A-nav')])
+  const CompB = () => () => h('aside', {}, [h('div', {}, 'B-file')])
+  const registry = createComponentRegistry()
+  const v0 = h('div', {}, [h(CompA, {})])
+  const v2 = h('div', {}, [h(CompB, {})])
+  await build(v0, registry) // A 先挂载（registry 有 rec——diffSame 异类型分支触发）
+  const c = await diff(v0, v2, registry)
+  const ops2 = ops(c)
+  // diffSame 异类型：同步 disposeComponent（registry——非 unmount 命令）+
+  // removeVNodeTree 递归 remove（A 的 nav 子节点也 remove——完整清理）
+  assert.ok(ops2.some(o => o.startsWith('remove:root.0.0.0')), `A 子节点 nav remove（实际 ${ops2.join(',')}）`)
+  assert.ok(ops2.some(o => o.startsWith('remove:root.0.0')), `A 首节点 remove（实际 ${ops2.join(',')}）`)
+  assert.ok(ops2.some(o => o.startsWith('create:')), `B 重建（实际 ${ops2.join(',')}）`)
+})

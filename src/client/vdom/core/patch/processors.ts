@@ -157,6 +157,20 @@ export function procRemove(applier: CommandApplier, cmd: Extract<Command, { op: 
   applier.clearNodeRefs(cmd.id)
   applier.eventRegistry.remove(cmd.id)
   applier.nodes.get(cmd.id)?.remove()
+  // **子树 nodes 记录清理（真实 bug——PatternLive 场景——SPA 导航 demo 混合）**：
+  // transform 组件→X 只发首节点 remove（无旧 vnode 引用无法递归发命令）——
+  // 子节点记录残留——procCreate 同 tag 复用残留记录（旧 DOM 对象——含旧
+  // 子树 children）→ 插入 DOM 时旧子树复活（workspace 页残留 AppShell 导航
+  // ——data-wf-id 相同实证）——按 id 路径前缀清全部后代记录（keyed 子树
+  // root.0.1.k3.0 同样路径前缀——事件/ref 表同步清）
+  const prefix = cmd.id + '.'
+  for (const id of [...applier.nodes.keys()]) {
+    if (id.startsWith(prefix)) {
+      applier.clearNodeRefs(id)
+      applier.eventRegistry.remove(id)
+      applier.nodes.delete(id)
+    }
+  }
   applier.nodes.delete(cmd.id)
 }
 
