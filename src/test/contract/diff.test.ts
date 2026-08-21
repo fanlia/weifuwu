@@ -144,3 +144,34 @@ test('keyed 数组移除 portal vnode → removePortal 命令（Menubar 面板�
   const hasRemove = cmds1.some((c) => c.op === 'remove')
   assert.equal(hasRemove, true, 'remove 命令')
 })
+
+test('A 级检测：静态组件列表 + 条件元素尾部不误报（confirm 2→3 回归）', async () => {
+  const warns: string[] = []
+  const origWarn = console.warn
+  console.warn = (...a) => { warns.push(String(a[0])) }
+  try {
+    const Btn = () => () => h('button', {}, 'b')
+    const make = (show: boolean) => h('div', {}, [
+      h(Btn, {}), h(Btn, {}), show ? h('span', {}, 'result') : null,
+    ])
+    await diff(make(false), make(true))
+    assert.ok(!warns.some((w) => w.includes('[vdom] children')), `静态+条件尾部不误报（实际: ${warns[0] ?? '无'}）`)
+  } finally {
+    console.warn = origWarn
+  }
+})
+
+test('A 级检测：动态追加组件项仍报（真实动态增删引导）', async () => {
+  const warns: string[] = []
+  const origWarn = console.warn
+  console.warn = (...a) => { warns.push(String(a[0])) }
+  try {
+    const Btn = () => () => h('button', {}, 'b')
+    const make = (n: number) => h('div', {}, Array.from({ length: n }, (_, i) => h(Btn, { key: i === 0 ? undefined : 'k' + i })))
+    // [Btn(无key), Btn(k2)] → [Btn(无key), Btn(k2), Btn(k3)]——动态追加组件项
+    await diff(make(2), make(3))
+    assert.ok(warns.some((w) => w.includes('[vdom] children')), '动态追加组件项应提示声明 key')
+  } finally {
+    console.warn = origWarn
+  }
+})

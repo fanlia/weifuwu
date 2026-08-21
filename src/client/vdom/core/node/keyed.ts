@@ -113,8 +113,18 @@ export function detectMissingKey(items: VNodeChild[], context: string): void {
   const hasComponent = items.some((i) => typeof (i as VNode | null)?.type === 'function')
   const hasMissing = items.some((i) => !isKeyed(i) && typeof (i as VNode | null)?.type === 'function')
   if (hasComponent && hasMissing) {
+    const kinds = items.map((i) => {
+      const v = i as VNode | null
+      if (v === null || v === undefined) return 'null'
+      if (typeof v === 'boolean') return 'bool'
+      if (typeof v === 'string' || typeof v === 'number') return 'text'
+      if (Array.isArray(v)) return 'arr'
+      return typeof v.type === 'function' ? 'comp:' + ((v.type as any).name ?? '?') : 'el:' + String(v.type)
+    })
+    // eslint-disable-next-line no-console
     console.warn(
       `[vdom] ${context}：列表含无 key 的组件项（长度 ${items.length}）——` +
+      `项: [${kinds.join(', ')}]——` +
       '动态增删/重排时状态会按位置继承——请为组件项声明 key（数据 id → keyBy）',
     )
   }

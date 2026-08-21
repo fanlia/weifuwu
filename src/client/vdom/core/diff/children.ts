@@ -62,8 +62,15 @@ export async function diffChildrenItems(
       i !== null && i !== undefined && typeof i !== 'boolean' && typeof i !== 'string' && typeof i !== 'number' && !Array.isArray(i) && !isPortal(i)
     const bizOld = oldCs.filter(isBizNode)
     const bizNew = newCs.filter(isBizNode)
-    if (bizOld.length !== bizNew.length) {
-      detectMissingKey(bizNew, `children（长度 ${bizOld.length} → ${bizNew.length}）`)
+    // **检测条件细化（误报根治）**：长度变化（[按钮, 按钮] → [按钮, 按钮,
+    // 条件span]——静态组件列表 + 条件元素尾部——位置身份正确）→ **组件项
+    // 序列变化**（新增/移除/替换组件项才是真实动态增删——序列含 key+类型）
+    const compSeq = (cs: VNodeChild[]): string =>
+      cs.filter((i) => typeof (i as VNode | null)?.type === 'function')
+        .map((i) => String((i as VNode).key ?? '') + ':' + String((i as VNode).type))
+        .join('|')
+    if (compSeq(bizOld) !== compSeq(bizNew)) {
+      detectMissingKey(bizNew, `children（组件序列 ${compSeq(bizOld)} → ${compSeq(bizNew)}）`)
     }
   }
   // 全 keyed：身份映射复用（增删/重排——状态跟随 key）
