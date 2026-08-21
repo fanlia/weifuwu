@@ -137,7 +137,11 @@ test('use-popup：弹层 portal + 外部点击关闭（z-index 层叠纪律）',
     const style = await page.evaluate(() => (document.querySelector('.pop-panel') as HTMLElement)?.getAttribute('style') ?? '')
     assert.ok(style.includes('position: fixed'), 'fixed 定位（浮层纪律）')
     assert.ok(style.includes('top:') && style.includes('left:'), 'JS 坐标定位')
-    // 锚点定位（el getter——按钮下方——非 0,0）
+    // 锚点定位（el getter——按钮下方——非 0,0）——等待定位完成（rAF 异步）
+    await page.waitForFunction(() => {
+      const panel = document.querySelector('.pop-panel') as HTMLElement | null
+      return panel ? panel.style.top !== '' && panel.style.top !== '0px' : false
+    })
     const pos = await page.evaluate(() => {
       const btn = document.querySelector('.pop-trigger')!.getBoundingClientRect()
       const panel = document.querySelector('.pop-panel')!.getBoundingClientRect()

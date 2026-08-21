@@ -386,6 +386,90 @@ const WsScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 26：placement 矩阵（四方向 + center:false + gap + margin 夹紧） ─
+const mkPlace = (name: string, placement: string, center?: boolean): Component => {
+  const P = (_init: Record<string, never>, ctx: any) => {
+    let triggerEl: HTMLElement | null = null
+    const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: placement as never, center, gap: 12, margin: 20 })
+    return () =>
+      h('div', { class: `place-${name}`, style: { marginTop: '60px' } },
+        h('button', {
+          class: `place-btn-${name}`,
+          ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
+          onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+        }, name),
+        popup.portal(h('div', { class: `place-panel-${name}` }, `面板-${name}`), `place-${name}`),
+      )
+  }
+  return P
+}
+const PlaceBottom = mkPlace('bottom', 'bottom')
+const PlaceTop = mkPlace('top', 'top')
+const PlaceLeft = mkPlace('left', 'left')
+const PlaceRight = mkPlace('right', 'right')
+const PlaceLeftAlign = mkPlace('leftalign', 'bottom', false)
+const PlacementScene = (_init: Record<string, never>, ctx: any) =>
+  () =>
+    h('div', { class: 'placement-scene', style: { paddingTop: '220px', paddingLeft: '220px' } },
+      h(PlaceBottom, {}),
+      h(PlaceTop, {}),
+      h(PlaceLeft, {}),
+      h(PlaceRight, {}),
+      h(PlaceLeftAlign, {}),
+    )
+
+// ── 场景 27：closeOnOutside/closeOnEscape 开关（默认 true——显式 false 禁用） ─
+const CloseSwitchScene = (_init: Record<string, never>, ctx: any) => {
+  let triggerEl: HTMLElement | null = null
+  const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: 'bottom', closeOnOutside: false, closeOnEscape: false })
+  return () =>
+    h('div', { class: 'close-switch-scene' },
+      h('button', {
+        class: 'cs-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
+        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+      }, '开关'),
+      popup.portal(h('div', { class: 'cs-panel' }, '面板'), 'close-switch'),
+    )
+}
+
+// ── 场景 28：hover 触发（trigger hover + openDelay/closeDelay + disabled） ─
+const HoverTriggerScene = (_init: Record<string, never>, ctx: any) => {
+  let triggerEl: HTMLElement | null = null
+  let disabled = false
+  const popup = ctx.ui.usePopup({
+    el: () => triggerEl, trigger: 'hover', placement: 'bottom',
+    openDelay: 200, closeDelay: 300, disabled: () => disabled,
+  })
+  return () =>
+    h('div', { class: 'hover-trigger-scene' },
+      h('button', {
+        class: 'ht-trigger',
+        ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
+        ...popup.wrapProps, // hover 自动触发（mouseenter/leave + 延迟 + disabled）
+      }, '悬停'),
+      h('button', { class: 'ht-disable', onClick: () => { disabled = true; ctx.render() } }, '禁用'),
+      popup.portal(h('div', { class: 'ht-panel' }, '悬停面板'), 'hover-trigger'),
+    )
+}
+
+// ── 场景 29：受控 getter + positioning none（自定义定位——无 top/left） ─
+const ControlledNoneScene = (_init: Record<string, never>, ctx: any) => {
+  let open2 = false
+  let triggerEl: HTMLElement | null = null
+  const popup = ctx.ui.usePopup({
+    el: () => triggerEl, isOpen: () => open2, setOpen: (v: boolean) => { open2 = v; ctx.render() },
+    positioning: 'none',
+  })
+  return () =>
+    h('div', { class: 'controlled-none-scene' },
+      h('button', {
+        class: 'cn-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
+        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+      }, '开关'),
+      popup.portal(h('div', { class: 'cn-panel', style: { inset: '0 auto auto 0' } }, '自定义面板'), 'controlled-none'),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -412,6 +496,10 @@ export const scenarios: Scenario[] = [
   { id: 'controlled-input', title: 'useControlledInput（§5.3 受控输入——内部态+IME）', render: ControlledInputScene },
   { id: 'open-guard', title: 'useOpen 受控缺回调（§5.2——warn 防护）', render: OpenGuardScene },
   { id: 'ws-echo', title: 'ws 中间件（WebSocket——欢迎 + echo 往返）', render: WsScene },
+  { id: 'popup-placement', title: 'usePopup placement 矩阵（四方向/center/gap/margin）', render: PlacementScene },
+  { id: 'popup-close-switch', title: 'usePopup closeOnOutside/Escape 开关', render: CloseSwitchScene },
+  { id: 'popup-hover', title: 'usePopup hover 触发（延迟 + disabled）', render: HoverTriggerScene },
+  { id: 'popup-controlled-none', title: 'usePopup 受控 getter + positioning none', render: ControlledNoneScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

@@ -222,6 +222,15 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
     if (!win) return
     const pw = panel.current.offsetWidth || panel.current.getBoundingClientRect().width
     const ph = panel.current.offsetHeight || panel.current.getBoundingClientRect().height
+    // **面板未布局重试（真实 bug）**：ref 在 appendChild 前触发——首帧
+    // panelH/W = 0——top/left 定位只偏移 gap（面板覆盖按钮）——rAF 优先
+    // （微任务在帧边界前——布局未计算——offsetHeight 恒 0——10 次重试全
+    // 在布局前耗尽）——rAF 后布局就绪（限次——防无限循环）
+    if ((pw === 0 || ph === 0) && retries++ < 10) {
+      if (win && typeof win.requestAnimationFrame === 'function') win.requestAnimationFrame(refresh)
+      else queueMicrotask(refresh)
+      return
+    }
     const p = computePos(el, win, pw, ph, placement, gap, margin, center)
     if (!p) {
       // 0-rect（scroll/ref 间隙——限次重试）
@@ -237,7 +246,11 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
    *  接口 panelRef 方法转发） */
   const panelRefImpl = (el: HTMLElement | null): void => {
     panel.current = el
-    if (el && open.open && opts.positioning !== 'none') queueMicrotask(refresh) // 面板挂载 → 定位
+    if (el && open.open && opts.positioning !== 'none') {
+      // 面板挂载 → 定位（rAF 优先——帧边界后布局就绪——top/left 尺寸正确）
+      if (win && typeof win.requestAnimationFrame === 'function') win.requestAnimationFrame(refresh)
+      else queueMicrotask(refresh)
+    }
     // presence：监听退场动画结束（exit → closed）
     if (el && opts.presence) {
       const onAnimEnd = (e: AnimationEvent): void => {
@@ -265,17 +278,19 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
   env.setHookState(openIdx, prev)
 
 
-  /** Escape 关闭（常驻——open 时生效） */
+  /** Escape 关闭（常驻——open 时生效——closeOnEscape 显式 false 禁用——
+   *  组件自控（Modal 危险操作差异留组件层）） */
   useGlobalKey(env, 'Escape', () => {
-    if (open.open) open.setOpen(false)
+    if (open.open && (opts.closeOnEscape ?? true)) open.setOpen(false)
   })
 
-  /** 外部点击关闭（常驻监听——open 时生效——el/panel 外关闭） */
+  /** 外部点击关闭（常驻监听——open 时生效——el/panel 外关闭——
+   *  closeOnOutside 显式 false 禁用（Confirm 默认 false 防误触——组件自控）） */
   const downIdx = env.nextHookIndex()
   const downState = env.getHookState<{ fn: ((e: MouseEvent) => void) | null }>(downIdx) ?? { fn: null }
   if (!downState.fn && win) {
     const onDown = (e: MouseEvent): void => {
-      if (!open.open) return
+      if (!open.open || !(opts.closeOnOutside ?? true)) return
       const t = e.target as Node | null
       const el = resolveTrigger(opts)
       if (t && el?.contains(t)) return
