@@ -205,7 +205,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
   return async (props: NavMenuProps) => {
     const { items, activeKey, onSelect } = props
 
-    return h('nav', {
+    const navVn = h('nav', {
       class: 'wf-navmenu',
       role: 'navigation',
       'aria-label': '主导航',
@@ -280,5 +280,10 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
         },
       }, itemChildren)
     }))
+    // 顶层关闭兜底（nested fallback 只在 renderSub 内——顶层子菜单关闭后
+    // renderSub 不再被调——nestedHandle 残留（点击叶子项嵌套面板残留实证）——
+    // **必须在 return 前**（return 后 = 死代码——同 SheetGrid 教训）
+    syncNestedFallback()
+    return navVn
   }
 }

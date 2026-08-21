@@ -60,3 +60,23 @@ test('能力：点击 onSelect（active class）+ hover 子菜单展开（aria-e
     assert.ok(subItems >= 2, `子菜单项渲染（实际 ${subItems}——含 portal）`)
   } finally { await page.close() }
 })
+
+test('嵌套残留回归：hover API → 点击叶子 → portal 全空（死代码修复）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    // hover「文档」→ 子菜单
+    await page.locator('main .wf-navmenu-item', { hasText: '文档' }).first().hover()
+    await page.waitForFunction(() => document.querySelector('.wf-navmenu-sub-item') !== null, '子菜单展开', { timeout: 3000 })
+    // hover「API」→ 嵌套子菜单（REST/WebSocket）
+    await page.locator('.wf-navmenu-sub-item', { hasText: 'API' }).first().hover()
+    await page.waitForFunction(() => document.querySelector('.wf-navmenu-sub--nested') !== null, '嵌套展开', { timeout: 3000 })
+    // 点击叶子「REST」→ onSelect + 全部关闭（portal 零残留）
+    await page.locator('.wf-navmenu-sub--nested .wf-navmenu-sub-item', { hasText: 'REST' }).first().click()
+    await page.waitForFunction(() => (document.querySelector('#__wf_portal')?.children.length ?? 0) === 0, 'portal 全空（无残留）', { timeout: 3000 })
+    // 状态同步（aria-expanded 清除）
+    const expanded = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('main .wf-navmenu-item')).some((x) => x.getAttribute('aria-expanded') === 'true'))
+    assert.equal(expanded, false, '关闭后 aria-expanded 全清除')
+  } finally { await page.close() }
+})
