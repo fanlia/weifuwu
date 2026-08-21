@@ -369,6 +369,23 @@ const OpenGuardScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 25：ws 中间件（WebSocket——欢迎 + echo 往返） ─────────────────
+const WsScene = (_init: Record<string, never>, ctx: any) => {
+  const client = ctx.ws
+  // mount 连接 + 订阅（消息 → 状态 → render）
+  let received: string[] = []
+  ctx.ui.onUnmount(client.onMessage((data: unknown) => {
+    received = [...received, String(data)]
+    ctx.render()
+  }))
+  client.connect(`ws://${location.host}/ws`)
+  return () =>
+    h('div', { class: 'ws-scene' },
+      h('button', { class: 'ws-send', onClick: () => client.send('你好') }, '发送'),
+      h('div', { class: 'ws-msgs' }, received.map((m: string, i: number) => h('p', { class: 'ws-msg', key: i }, m))),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -394,6 +411,7 @@ export const scenarios: Scenario[] = [
   { id: 'in-view', title: 'useInView（IntersectionObserver——滚动进出视口）', render: InViewScene },
   { id: 'controlled-input', title: 'useControlledInput（§5.3 受控输入——内部态+IME）', render: ControlledInputScene },
   { id: 'open-guard', title: 'useOpen 受控缺回调（§5.2——warn 防护）', render: OpenGuardScene },
+  { id: 'ws-echo', title: 'ws 中间件（WebSocket——欢迎 + echo 往返）', render: WsScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

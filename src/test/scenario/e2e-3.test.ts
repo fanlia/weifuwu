@@ -214,3 +214,24 @@ test('open-guard：受控缺 onOpenChange → warn（静默不可用防护——
     await page.close()
   }
 })
+
+// ── 场景 25：ws 中间件（WebSocket——欢迎 + echo 往返） ─────────────────
+test('ws-echo：连接收欢迎消息 + 发送收 echo（真实 WebSocket 往返）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'ws-echo')
+
+    // 欢迎消息（open 事件发送）
+    await page.waitForFunction(() => document.querySelector('.ws-msg')?.textContent === '欢迎连接', '连接收到欢迎消息', { timeout: 4000 })
+    // 发送 → echo 往返
+    await page.click('.ws-send')
+    await page.waitForFunction(() => {
+      const msgs = Array.from(document.querySelectorAll('.ws-msg')).map((el) => el.textContent)
+      return msgs.includes('echo:你好')
+    }, 'echo 往返', { timeout: 4000 })
+    const all = await page.evaluate(() => Array.from(document.querySelectorAll('.ws-msg')).map((el) => el.textContent))
+    assert.deepEqual(all, ['欢迎连接', 'echo:你好'], '消息顺序（欢迎 → echo）')
+  } finally {
+    await page.close()
+  }
+})

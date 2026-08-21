@@ -45,6 +45,16 @@ app.get('/scenario/:id', async (req, ctx: any) => {
 // 场景索引（dev 便利）
 app.get('/', () => new Response('scenario server: /scenario/:id', { headers: { 'content-type': 'text/plain' } }))
 
+// WebSocket 端点（ws 中间件场景 fixture——欢迎消息 + echo）
+app.ws('/ws', {
+  open: (ws: import('../../server/types.ts').WebSocket) => {
+    ws.send('欢迎连接')
+  },
+  message: (ws: import('../../server/types.ts').WebSocket, _ctx: unknown, data: string | Buffer) => {
+    ws.send(`echo:${String(data)}`)
+  },
+})
+
 // AI 流式端点（NDJSON——分块吐 content——useChat 场景 fixture）
 app.post('/api/chat', () =>
   new Response(new ReadableStream({
