@@ -143,3 +143,26 @@ test('deep-editor：输入编辑 → onChange', async () => {
     await page.close()
   }
 })
+
+// ── 场景 10/11：SheetGrid/SlideCanvas（数据上下文渲染） ────────────────
+test('deep-sheetgrid：工作簿数据渲染（单元格内容）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'deep-sheetgrid')
+    const text = await page.evaluate(() => document.querySelector('.deep-sheetgrid-scene')?.textContent ?? '')
+    assert.ok(text.includes('值1') && text.includes('值2'), `单元格内容渲染（实际 ${text.slice(0, 80)}）`)
+  } finally {
+    await page.close()
+  }
+})
+
+test('deep-slidecanvas：幻灯片形状渲染（文本）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'deep-slidecanvas')
+    const text = await page.evaluate(() => document.querySelector('.deep-slidecanvas-scene')?.textContent ?? '')
+    assert.ok(text.includes('标题'), `形状文本渲染（实际 ${text.slice(0, 80)}）`)
+  } finally {
+    await page.close()
+  }
+})

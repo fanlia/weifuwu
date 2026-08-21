@@ -15,7 +15,7 @@
 
 ```
 npm run test:client    → 契约层（100 测试——node 直跑命令流——零浏览器——~0.2s）
-npm run test:scenario  → 场景层（39 场景——SSR 服务化 + playwright——真实浏览器——~7s）
+npm run test:scenario  → 场景层（96 场景——SSR 服务化 + playwright——真实浏览器——14 文件并发——~15s）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 ```
 
@@ -55,6 +55,8 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | popup-placement/close-switch/hover/controlled-none/presence/mask/trap | usePopup 参数矩阵（placement 四方向/center/gap/margin 夹紧/关闭开关/受控/none/presence 退场/mask 遮罩/trapFocus+lockScroll） |
 | toast-fire/confirm-command | 命令式中间件（toast 自动消失/confirm resolve/notification——BUG#3 回归） |
 | use-controlled/breakpoint/tween/drag/visual-viewport | 剩余 hooks（受控/断点/补间/指针拖拽/视口） |
+| component-smoke | 组件冒烟（127 项陈列——渲染全 + 点击扫描 console.error 零） |
+| deep-*（54 组件） | 组件深度交互（表单输入/选择/导航展示/浮层/表单校验/重组件/AI 对话/文件上传——参数行为断言） |
 | style-update / event-guard / open-guard | style 整体替换清空 / 事件非函数 warn / 受控缺回调 warn |
 
 ### 已探明契约（测试反向校准——用法红线）

@@ -18,6 +18,7 @@ import { Modal as CModal, Drawer as CDrawer, Popover as CPopover, Tooltip as CTo
 import { Form as CForm, Field as CField, JsonSchemaForm as CJsonSchemaForm, SortableList as CSortableList, Resizable as CResizable } from '../../client/components/index.ts'
 import { Kanban as CKanban, InfiniteScroll as CInfiniteScroll, CodeEditor as CCodeEditor, MarkdownEditor as CMarkdownEditor, Editor as CEditor, Table as CTable2 } from '../../client/components/index.ts'
 import { AiChat as CAiChat, FileUpload as CFileUpload } from '../../client/components/index.ts'
+import { SheetGrid as CSheetGrid, SlideCanvas as CSlideCanvas } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -1148,6 +1149,32 @@ const DeepEditor = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+// ── 深度场景组 8：AI 表格/画布（数据上下文） ──────────────────────────
+const DeepSheetGrid = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-sheetgrid-scene', style: { height: '250px' } },
+      h(CSheetGrid, {
+        workbook: { sheets: [{ name: 'Sheet1', cols: 3, cells: new Map([['A1', { kind: 's', value: '值1' }], ['B1', { kind: 's', value: '值2' }]]) }], activeSheet: 0 },
+        onChange: (wb: unknown) => { log += 'change;'; ctx.render() },
+      }),
+      h('span', { class: 'deep-sheetgrid-log' }, log),
+    )
+}
+
+const DeepSlideCanvas = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-slidecanvas-scene', style: { height: '250px' } },
+      h(CSlideCanvas, {
+        deck: { slides: [{ shapes: [{ id: 's1', kind: 'text', x: 10, y: 10, w: 200, h: 50, props: { text: '标题' } }] }], activeSlide: 0 },
+        onChange: (d: unknown) => { log += 'change;'; ctx.render() },
+      }),
+      h('span', { class: 'deep-slidecanvas-log' }, log),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -1242,6 +1269,8 @@ export const scenarios: Scenario[] = [
   { id: 'deep-aichat', title: 'AiChat（流式对话）', render: DeepAiChat },
   { id: 'deep-fileupload', title: 'FileUpload（文件选择）', render: DeepFileUpload },
   { id: 'deep-editor', title: 'Editor（编辑 onChange）', render: DeepEditor },
+  { id: 'deep-sheetgrid', title: 'SheetGrid（工作簿渲染）', render: DeepSheetGrid },
+  { id: 'deep-slidecanvas', title: 'SlideCanvas（幻灯片渲染）', render: DeepSlideCanvas },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
