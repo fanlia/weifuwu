@@ -105,3 +105,29 @@ test('demo 交互：价格区间（range）hover thumb 不卡死 + tooltip 值',
     await page.close()
   }
 })
+
+test('demo 交互：价格区间拖拽 thumb → 显示值实时更新（受控回流）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.waitForFunction(() => (document.body.textContent ?? '').includes('600 - 1500') || (document.body.textContent ?? '').includes('300 - 1500'), '初始区间', { timeout: 3000 })
+    const inputs = page.locator('main input[type="range"]')
+    const r = await inputs.nth(3).boundingBox()
+    const THUMB_R = 9
+    const y = r.y + r.height / 2
+    // 拖 lo：15% → 30%（600）
+    await page.mouse.move(r.x + THUMB_R + 0.15 * (r.width - THUMB_R * 2), y)
+    await page.waitForTimeout(300)
+    await page.mouse.down()
+    await page.mouse.move(r.x + THUMB_R + 0.30 * (r.width - THUMB_R * 2), y, { steps: 5 })
+    await page.waitForTimeout(200)
+    await page.mouse.up()
+    // 显示值实时更新（受控回流——thumb/显示/mark 一致）
+    await page.waitForFunction(() => (document.body.textContent ?? '').includes('600 - 1500'), '显示 600 - 1500', { timeout: 3000 })
+    // thumb 位置与显示一致（input 值 30 = 600）
+    const v = await inputs.nth(3).inputValue()
+    assert.equal(v, '30', `lo thumb 值（实际 ${v}——显示 600）`)
+  } finally {
+    await page.close()
+  }
+})

@@ -110,6 +110,7 @@ const DemoSlider: Component = async (_props, ctx) => {
   let volume = 60
   let brightness = 30
   let price = 800
+  let rangeV: [number, number] = [300, 1500]
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <Slider label="音量" value={volume} onChange={v => { volume = v; ctx.render() }} />
@@ -118,9 +119,9 @@ const DemoSlider: Component = async (_props, ctx) => {
         marks={[{ value: 0, label: '0' }, { value: 500 }, { value: 1000 }, { value: 1500 }, { value: 2000, label: '2000' }]}
         onChange={v => { price = v; ctx.render() }}
         onChangeEnd={v => console.log('价格调整完成:', v)} />
-      <Slider label="价格区间" range value={[300, 1500]} min={0} max={2000} step={50}
-        onChange={v => { console.log('区间:', v) }}
-        onRangeChange={v => { console.log('区间实时:', v) }} />
+      <Slider label="价格区间" range value={rangeV} min={0} max={2000} step={50}
+        onChange={v => { rangeV = v as [number, number]; ctx.render() }}
+        onRangeChange={v => { rangeV = v as [number, number]; ctx.render() }} />
     </div>
   )
 }
