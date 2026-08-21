@@ -39,6 +39,30 @@ describe('Router', () => {
           .get('/dup', () => new Response('b'))
       })
     })
+
+    it('静态/参数并存不误报 + value 不污染（trieFind 精确匹配——agent-platform 沙盒路由事故）', async () => {
+      // `:id/:action`（POST）与 `:id/debug|processes|stats`（GET）并存——
+      // 旧 trieFind 静态段用参数槽兜底——debug 注册时 GET 写进 POST action
+      // 的 value——后续 :id/<静态段> 误报 conflict
+      const r = new Router()
+        .get('/api/sandboxes', () => new Response('list'))
+        .get('/api/sandboxes/:id', () => new Response('one'))
+        .post('/api/sandboxes/:id/:action', () => new Response('act'))
+        .get('/api/sandboxes/:id/debug', () => new Response('dbg'))
+        .get('/api/sandboxes/:id/processes', () => new Response('procs'))
+        .get('/api/sandboxes/:id/stats', () => new Response('stats'))
+      // 匹配正确：:action 参数段命中 POST；静态段命中各自 GET——无串台
+      const res1 = await r.handler()(new Request('http://localhost/api/sandboxes/abc/start', { method: 'POST' }), mkCtx())
+      assert.equal(await res1.text(), 'act')
+      const res2 = await r.handler()(new Request('http://localhost/api/sandboxes/abc/processes'), mkCtx())
+      assert.equal(await res2.text(), 'procs')
+      const res3 = await r.handler()(new Request('http://localhost/api/sandboxes/abc/debug'), mkCtx())
+      assert.equal(await res3.text(), 'dbg')
+      // 未注册的 :id/<其他段> 命中 :action 槽——405（方法不符）——而非 200
+      // （若 action 槽 value 被 GET handler 污染——会返回 'dbg' 串台）
+      const res4 = await r.handler()(new Request('http://localhost/api/sandboxes/abc/other'), mkCtx())
+      assert.equal(res4.status, 405)
+    })
   })
 
   describe('path params', () => {

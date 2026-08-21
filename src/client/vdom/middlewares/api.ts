@@ -15,6 +15,10 @@ export interface ApiOptions {
   timeout?: number
   /** 错误钩子（请求失败——不吞错误） */
   onError?: (err: ApiError) => void
+  /** 自动鉴权 token（函数/静态——注入 Authorization: Bearer 头） */
+  token?: string | (() => string | null)
+  /** 401 钩子（返回 true = 已刷新可重试——false/undefined = 走错误路径） */
+  onUnauthorized?: () => Promise<boolean> | boolean
 }
 
 export class ApiError extends Error {
@@ -50,9 +54,11 @@ export function api(opts: ApiOptions = {}): ApiClient {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
+      const token = typeof opts.token === 'function' ? opts.token() : opts.token
       const headers: Record<string, string> = {
         'content-type': 'application/json',
         ...(typeof opts.headers === 'function' ? opts.headers() : opts.headers),
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
         ...reqOpts.headers,
       }
       const res = await fetch(baseUrl + url, {
@@ -61,6 +67,11 @@ export function api(opts: ApiOptions = {}): ApiClient {
         body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       })
+      // 401：onUnauthorized 钩子（刷新重试一次——失败/无钩子走错误路径）
+      if (res.status === 401 && opts.onUnauthorized) {
+        const ok = await opts.onUnauthorized()
+        if (ok) return request<T>(method, url, body, reqOpts)
+      }
       if (!res.ok) throw new ApiError(`[api] 请求失败 ${res.status}: ${method} ${url}`, res.status)
       const text = await res.text()
       return (text ? JSON.parse(text) : undefined) as T

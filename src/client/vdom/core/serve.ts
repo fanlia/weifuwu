@@ -279,6 +279,9 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     ...(opts.toast ? { toast: opts.toast } : {}),
     ...(opts.confirm ? { confirm: opts.confirm } : {}),
     ...(opts.notification ? { notification: opts.notification } : {}),
+    /** 应用面导航（ctx.app.navigate——button onClick 编程式导航——
+     *  与 a[href] 拦截同一 navigate——pushState + 渲染循环） */
+    app: { navigate },
   } as unknown as UIContext
 
   // ── 页面作者渲染入口（vnode → Response 事件流——函数表编码） ──

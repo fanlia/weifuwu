@@ -58,6 +58,12 @@ export type { ApiClient } from './middlewares/api.ts'
 export type { AuthClient, I18nState } from './middlewares/auth-i18n.ts'
 export type { WsClient } from './middlewares/ws.ts'
 export { createStore } from './store.ts'
+// 中间件值导出（应用装配——api/auth/i18n/ws 工厂——agent-platform 等完整消费方）
+export { api } from './middlewares/api.ts'
+export { auth, i18n } from './middlewares/auth-i18n.ts'
+export { ws } from './middlewares/ws.ts'
+// 命令式 API（toast 独立函数 + injectCommands 注入——ctx.toast）
+export { toast, injectCommands, type ToastType } from './commands.ts'
 
 // ── 命令式宿主/AI 能力（组件库 dist 消费形态需要——components 构建外部化
 //  '../../vdom/*' 为 weifuwu/vdom——非公共面导入也必须可解析）──

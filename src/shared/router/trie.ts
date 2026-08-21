@@ -70,6 +70,14 @@ function getOrCreateChild<T>(
 /**
  * 查找路径终点节点（不含通配语义——用于冲突检查/多方法合并）——
  * 遇 '*' 段返回当前节点（通配槽）；未注册路径返回 null。
+ *
+ * **精确匹配纪律（真实事故——agent-platform 沙盒路由）**：静态段只匹配
+ * 静态子节点——参数段（:xxx）只匹配参数槽。此前静态段用 `children.get(':')`
+ * 兜底——`:id/debug` 会命中 `:id/:action` 参数槽（children key ':'）——
+ * 冲突检查返回 POST action 节点——value.handlers.set('GET', debugHandler)
+ * **污染共享 value**（GET 写进 POST action 的 handlers）——后续
+ * `:id/<静态段>`（processes/stats）注册时再次命中 action 槽——误报
+ * `route conflict already registered`。
  */
 export function trieFind<T>(root: TrieNode<T>, path: string): TrieNode<T> | null {
   const segments = splitPath(path)
@@ -77,7 +85,9 @@ export function trieFind<T>(root: TrieNode<T>, path: string): TrieNode<T> | null
   for (const segment of segments) {
     if (!node) return null
     if (segment === '*') return node
-    node = node.children.get(segment) ?? node.children.get(':') ?? null
+    node = segment.startsWith(':')
+      ? (node.children.get(':') ?? null)
+      : (node.children.get(segment) ?? null)
   }
   return node
 }

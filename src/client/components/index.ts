@@ -36,7 +36,7 @@ export type { TableProps, TableColumn } from './Table/Table.ts'
 export { Modal } from './Modal/Modal.ts'
 export type { ModalProps } from './Modal/Modal.ts'
 
-export { Confirm } from './Confirm/Confirm.ts'
+export { Confirm, confirm } from './Confirm/Confirm.ts'
 export type { ConfirmProps, ConfirmOptions } from './Confirm/Confirm.ts'
 
 export { Toast } from './Toast/Toast.ts'
@@ -260,7 +260,7 @@ export type { AffixProps } from './Affix/Affix.ts'
 export { HoverCard } from './HoverCard/HoverCard.ts'
 export type { HoverCardProps, HoverCardPosition } from './HoverCard/HoverCard.ts'
 
-export { Notification } from './Notification/Notification.ts'
+export { Notification, notification, notificationMiddleware } from './Notification/Notification.ts'
 export type { NotificationProps, NotificationItem, NotificationType, NotificationPosition, NotificationOptions, NotificationInjected } from './Notification/Notification.ts'
 
 export { ContextMenu } from './ContextMenu/ContextMenu.ts'

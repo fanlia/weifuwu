@@ -56,7 +56,8 @@ export const Login: Component = async (_props, ctx) => {
       ctx.auth?.login(appData.token, appData.user, appData.refreshToken)
       if (appData.refreshToken) setRefreshToken(appData.refreshToken)
       ctx.app?.navigate('/')
-    } catch {
+    } catch (e) {
+      console.error('[login-catch]', e)
       $.error = '网络错误，请检查连接后重试'
       $.loading = false
       rerender()

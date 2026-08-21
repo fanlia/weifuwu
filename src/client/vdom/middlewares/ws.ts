@@ -8,6 +8,8 @@
 export interface WsOptions {
   /** WebSocket 构造器（注入——测试 mock——默认全局 WebSocket） */
   WebSocketCtor?: new (url: string) => WsLike
+  /** 默认连接 URL（未传时 connect(url) 必需） */
+  url?: string
 }
 
 /** 最小 WS 形状（兼容浏览器 WebSocket 与测试 mock） */
@@ -21,8 +23,10 @@ export interface WsLike {
 }
 
 export interface WsClient {
-  /** 连接（切换 URL——旧连接关闭） */
-  connect(url: string): void
+  /** 连接（切换 URL——旧连接关闭——未传用 opts.url） */
+  connect(url?: string): void
+  /** 连接状态（onopen 置 true——onclose 置 false） */
+  isConnected: boolean
   /** 发送（JSON 序列化） */
   send(data: unknown): void
   /** 消息订阅（返回退订） */
@@ -45,13 +49,18 @@ export function ws(opts: WsOptions = {}): WsClient {
     for (const cb of [...subs]) cb(data)
   }
 
+  const connected = { current: false }
   return {
-    connect(url: string): void {
+    connect(url?: string): void {
       sock?.close()
       if (!WsCtor) return // 环境无 WS——静默（测试不连）
-      sock = new WsCtor(url)
+      sock = new WsCtor(url ?? opts.url ?? '')
       sock.onmessage = handleMessage
-      sock.onclose = () => { sock = null }
+      sock.onopen = () => { connected.current = true }
+      sock.onclose = () => { connected.current = false; sock = null }
+    },
+    get isConnected() {
+      return connected.current
     },
     send(data: unknown): void {
       sock?.send(typeof data === 'string' ? data : JSON.stringify(data))

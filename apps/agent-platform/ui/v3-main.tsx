@@ -1,12 +1,12 @@
 /**
- * agent-platform vdom3 入口（v3-main）——默认引擎切换验证
+ * agent-platform UI 入口（2027-03 迁移——当前 API：UIRouter + uiServe）
  *
- * 与 main.tsx 同构：中间件链（vdom2 中间件复用——纯函数注入）+
- * createRouter（vdom3 路由——RouteDef.layout 布局复用）+ 页面路由。
+ * 形态与 showcase 同构：UIRouter（路径 → 页面 handler）+ uiServe 渲染落地；
+ * 中间件（api/auth/i18n/ws）+ 命令式（toast/confirm/notification）经
+ * uiServe options 注入 ctx——页面 ctx.api/ctx.auth/ctx.toast 等消费面不变。
  */
-import { api, auth, ws, i18n } from 'weifuwu/vdom'
-import { v3Confirm, v3Toast } from 'weifuwu/vdom'
-import { createRouter, h } from 'weifuwu/vdom'
+import { UIRouter, uiServe, h, api, auth, i18n, ws, toast, injectCommands } from 'weifuwu/vdom'
+import { confirm, notification } from 'weifuwu/components'
 
 import { AppLayout } from './components/AppLayout'
 import { Login } from './pages/Login'
@@ -27,10 +27,10 @@ import { NewChat } from './pages/NewChat'
 import { Approvals } from './pages/Approvals'
 import { Admin } from './pages/Admin'
 
-// ── 中间件链（复用 vdom2 中间件——(ctx) => ctx' 纯函数） ──
+// ── 中间件装配（当前 API——工厂返回 client——uiServe options 注入 ctx） ──
 const authRef: { current: null | { refresh: () => Promise<boolean> } } = { current: null }
-let ctx: any = {}
-ctx = await api({
+
+const apiClient = api({
   baseURL: '',
   // 自动鉴权：请求自动带 Bearer token
   token: () => localStorage.getItem('agent_platform_token'),
@@ -44,44 +44,54 @@ ctx = await api({
     if (!window.location.pathname.startsWith('/login')) window.location.href = '/login'
     return false
   },
-})(ctx)
-ctx = auth({
+})
+const authClient = auth({
   onAuth: (auth: any) => { authRef.current = { refresh: () => auth.refresh() } },
-  storage: localStorage,
+  // StorageAdapter 形状（get/set——localStorage 是 getItem/setItem——适配）
+  storage: {
+    get: (k: string) => localStorage.getItem(k),
+    set: (k: string, v: string) => { localStorage.setItem(k, v) },
+  },
   tokenKey: 'agent_platform_token',
   userKey: 'agent_platform_user',
   refreshTokenKey: 'agent_platform_refresh',
-})(ctx)
-ctx = i18n({ locale: 'zh-CN' })(ctx)
-ctx = ws({ url: '/ws' })(ctx)
-// 命令式 confirm/toast（vdom3 适配——createRoot 挂载 Confirm/Toast 组件）
-ctx = v3Confirm()(ctx)
-ctx = v3Toast()(ctx)
+})
+const i18nState = i18n({ locale: 'zh-CN' })
+const wsClient = ws({ url: '/ws' })
 
-// ── 路由（AppLayout 布局——跨路由复用） ──
-// 页面组件（vdom3 组件签名——工厂复用前提：模块级稳定引用）
-const layout = (page: any) => h(AppLayout, {}, page)
-const root = document.getElementById('root')!
-// ctx.app（登录后跳转——router 引用后绑定）
-let router: ReturnType<typeof createRouter>
-ctx.app = { navigate: (p: string) => router.navigate(p) }
-router = createRouter([
-  { path: '/login', render: () => h(Login, {}) },
-  { path: '/register', render: () => h(Register, {}) },
-  { path: '/', render: () => h(Workspace, {}), layout },
-  { path: '/dashboard', render: () => h(Workspace, {}), layout },
-  { path: '/reports', render: () => h(Reports, {}), layout },
-  { path: '/agents', render: () => h(Agents, {}), layout },
-  { path: '/templates', render: () => h(Templates, {}), layout },
-  { path: '/departments', render: () => h(Departments, {}), layout },
-  { path: '/chat/new', render: () => h(NewChat, {}), layout },
-  { path: '/chat/:id', render: () => h(Chat, {}), layout },
-  { path: '/settings', render: () => h(Settings, {}), layout },
-  { path: '/agents/new', render: () => h(NewAgent, {}), layout },
-  { path: '/agents/:id', render: () => h(AgentDetail, {}), layout },
-  { path: '/sandboxes', render: () => h(Sandboxes, {}), layout },
-  { path: '/departments/new', render: () => h(NewDepartment, {}), layout },
-  { path: '/departments/:id', render: () => h(DepartmentDetail, {}), layout },
-  { path: '/approvals', render: () => h(Approvals, {}), layout },
-  { path: '/admin', render: () => h(Admin, {}), layout },
-], root, { ctx })
+// ── 路由（AppLayout 布局包裹——vnode 形态——跨路由同位置同类型复用——
+//   AppLayout 的 let 状态跨导航保持；handler 返回 stream Response） ──
+import type { RenderCtx } from 'weifuwu/vdom'
+const page = (Comp: any, props: Record<string, unknown> = {}) =>
+  (req: Request, ctx: any) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(Comp, props)))
+const router = new UIRouter()
+router.get('/login', (req, ctx) => (ctx as RenderCtx).stream(h(Login, {})))
+router.get('/register', (req, ctx) => (ctx as RenderCtx).stream(h(Register, {})))
+router.get('/', page(Workspace))
+router.get('/dashboard', page(Workspace))
+router.get('/reports', page(Reports))
+router.get('/agents', page(Agents))
+router.get('/templates', page(Templates))
+router.get('/departments', page(Departments))
+router.get('/chat/new', page(NewChat))
+router.get('/chat/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(Chat, { ...(ctx.params ?? {}) }))))
+router.get('/settings', page(Settings))
+router.get('/agents/new', page(NewAgent))
+router.get('/agents/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(AgentDetail, { ...(ctx.params ?? {}) }))))
+router.get('/sandboxes', page(Sandboxes))
+router.get('/departments/new', page(NewDepartment))
+router.get('/departments/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(DepartmentDetail, { ...(ctx.params ?? {}) }))))
+router.get('/approvals', page(Approvals))
+router.get('/admin', page(Admin))
+
+// ── 渲染落地（uiServe——UIRouter 唯一应用入口——中间件注入 ctx） ──
+uiServe(router, {
+  root: '#root',
+  api: apiClient,
+  auth: authClient,
+  ws: wsClient,
+  i18n: i18nState,
+  toast,
+  confirm,
+  notification,
+})
