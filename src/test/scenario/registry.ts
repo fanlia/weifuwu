@@ -470,6 +470,51 @@ const ControlledNoneScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 30：presence 退场状态机（exit 阶段仍渲染——无动画立即 closed） ─
+const PresenceScene = (_init: Record<string, never>, ctx: any) => {
+  let triggerEl: HTMLElement | null = null
+  const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: 'bottom', presence: true })
+  return () =>
+    h('div', { class: 'presence-scene' },
+      h('button', {
+        class: 'ps-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
+        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+      }, '开关'),
+      popup.portal(h('div', { class: 'ps-panel' }, '退场面板'), 'presence'),
+    )
+}
+
+// ── 场景 31：mask/maskCentered/maskClosable（遮罩渲染 + 点击关闭） ──────
+const MaskScene = (_init: Record<string, never>, ctx: any) => {
+  let triggerEl: HTMLElement | null = null
+  const popup = ctx.ui.usePopup({ el: () => triggerEl, mask: true, maskCentered: true, maskClosable: true, positioning: 'none' })
+  return () =>
+    h('div', { class: 'mask-scene' },
+      h('button', {
+        class: 'mk-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
+        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+      }, '打开'),
+      popup.portal(h('div', { class: 'mk-content' }, '居中内容'), 'mask'),
+    )
+}
+
+// ── 场景 32：trapFocus + lockScroll（焦点陷阱 + 滚动锁） ────────────────
+const TrapScene = (_init: Record<string, never>, ctx: any) => {
+  let triggerEl: HTMLElement | null = null
+  const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: 'bottom', trapFocus: true, lockScroll: true })
+  return () =>
+    h('div', { class: 'trap-scene' },
+      h('button', {
+        class: 'tr-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
+        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+      }, '开关'),
+      popup.portal(h('div', { class: 'tr-panel' },
+        h('button', { class: 'tr-focus-1' }, '第一'),
+        h('button', { class: 'tr-focus-2' }, '第二'),
+      ), 'trap'),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -500,6 +545,9 @@ export const scenarios: Scenario[] = [
   { id: 'popup-close-switch', title: 'usePopup closeOnOutside/Escape 开关', render: CloseSwitchScene },
   { id: 'popup-hover', title: 'usePopup hover 触发（延迟 + disabled）', render: HoverTriggerScene },
   { id: 'popup-controlled-none', title: 'usePopup 受控 getter + positioning none', render: ControlledNoneScene },
+  { id: 'popup-presence', title: 'usePopup presence（退场状态机）', render: PresenceScene },
+  { id: 'popup-mask', title: 'usePopup mask（遮罩渲染 + 点击关闭）', render: MaskScene },
+  { id: 'popup-trap', title: 'usePopup trapFocus + lockScroll（焦点陷阱 + 滚动锁）', render: TrapScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

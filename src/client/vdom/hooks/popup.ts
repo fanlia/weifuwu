@@ -17,6 +17,7 @@
  */
 
 import type { VNode, VNodeChild } from '../core/vnode.ts'
+import { h } from '../core/vnode.ts'
 import { createPortal } from '../core/node/portal.ts'
 import { useOpen, useStableRef, useGlobalKey, type OpenState, type StableRef } from './basic.ts'
 import type { HookEnv } from './env.ts'
@@ -220,6 +221,19 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
       return
     }
     if (!win) return
+    // **position 自定义坐标（真实缺口）**：函数返回 {x,y}——组件自定坐标
+    // （positioning 'none' 语义——Img 预览等覆盖 computePos）——无需面板尺寸
+    if (typeof opts.position === 'function') {
+      const pv = opts.position()
+      if (pv && typeof pv === 'object' && !Array.isArray(pv)) {
+        const c = pv as { x: number; y: number }
+        if (typeof c.x === 'number' && typeof c.y === 'number') {
+          pos.current = { top: c.y, left: c.x }
+          env.requestRender()
+          return
+        }
+      }
+    }
     const pw = panel.current.offsetWidth || panel.current.getBoundingClientRect().width
     const ph = panel.current.offsetHeight || panel.current.getBoundingClientRect().height
     // **面板未布局重试（真实 bug）**：ref 在 appendChild 前触发——首帧
@@ -286,6 +300,68 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
 
   /** 外部点击关闭（常驻监听——open 时生效——el/panel 外关闭——
    *  closeOnOutside 显式 false 禁用（Confirm 默认 false 防误触——组件自控）） */
+  const bodyPrevOverflowRef = useStableRef(env, '') as StableRef<string>
+  const trapPrevFocusRef = useStableRef(env, null) as StableRef<HTMLElement | null>
+  const lockEngagedRef = useStableRef(env, false) as StableRef<boolean>
+  /** 会话级模态清理（滚动锁恢复 + 焦点归还——关闭/退场结束） */
+  const restoreModalLock = (): void => {
+    if (lockEngagedRef.current) {
+      // 无条件恢复（旧值为空串也赋值——body overflow 空串 = 不锁定）
+      if (win?.document?.body) win.document.body.style.overflow = bodyPrevOverflowRef.current
+      bodyPrevOverflowRef.current = ''
+      if (trapPrevFocusRef.current) {
+        trapPrevFocusRef.current.focus?.()
+        trapPrevFocusRef.current = null
+      }
+      lockEngagedRef.current = false
+    }
+  }
+
+  /** Tab 焦点陷阱（trapFocus——面板内循环） */
+  const trapKeyIdx = env.nextHookIndex()
+  const trapState = env.getHookState<{ fn: ((e: KeyboardEvent) => void) | null }>(trapKeyIdx) ?? { fn: null }
+  if (!trapState.fn && win) {
+    const onTrapKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Tab' || !opts.trapFocus || !open.open || !panel.current) return
+      const focusables = Array.from(panel.current.querySelectorAll?.('input, button, [tabindex], select, textarea') ?? [])
+        .filter((el) => !(el as HTMLButtonElement).disabled && (el as HTMLElement).offsetParent !== null) as HTMLElement[]
+      if (focusables.length === 0) return
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      const active = win?.document.activeElement as HTMLElement | null
+      if (e.shiftKey && (active === first || active === panel.current || !panel.current.contains(active))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (active === last || !panel.current.contains(active))) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    win.addEventListener('keydown', onTrapKey)
+    env.onUnmount(() => win.removeEventListener('keydown', onTrapKey))
+    trapState.fn = onTrapKey
+  }
+  env.setHookState(trapKeyIdx, trapState)
+
+  /** 会话级模态接线（打开——trapFocus/lockScroll） */
+  const engageModalLock = (): void => {
+    lockEngagedRef.current = true
+    if (opts.lockScroll && win?.document?.body) {
+      bodyPrevOverflowRef.current = win.document.body.style.overflow
+      win.document.body.style.overflow = 'hidden'
+    }
+    if (opts.trapFocus && win) {
+      trapPrevFocusRef.current = win.document.activeElement as HTMLElement | null
+      win.setTimeout(() => {
+        const el = panel.current
+        if (el) {
+          const f = el.querySelector?.('input, button, [tabindex], select, textarea') as HTMLElement | null
+          ;(f ?? el).focus?.()
+        }
+      }, 0)
+    }
+  }
+
   const downIdx = env.nextHookIndex()
   const downState = env.getHookState<{ fn: ((e: MouseEvent) => void) | null }>(downIdx) ?? { fn: null }
   if (!downState.fn && win) {
@@ -319,22 +395,62 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
           phaseState.phase = 'open'
           phaseState.exitDone = false
           if (opts.positioning !== 'none') queueMicrotask(refresh)
+          // **会话级模态接线（真实缺口）**：trapFocus 焦点陷阱 + lockScroll
+          // 滚动锁——打开时生效（Modal/Img 依赖——之前接口声明未实现——
+          // Modal 传 trapFocus/lockScroll 但无焦点 trap/滚动锁）
+          // **会话级模态接线（真实缺口）**：trapFocus 焦点陷阱 + lockScroll
+          // 滚动锁——打开时生效（Modal/Img 依赖——之前接口声明未实现）
+          if (opts.trapFocus || opts.lockScroll) engageModalLock()
         } else if (opts.presence) {
           phaseState.phase = 'exit' // 退场——动画后 closed（panelRef 监听 animationend）
           // **无动画环境立即 closed**（jsdom/无 CSS 动画环境 animationend 不触发——
           // 不挂死）——**根+子元素检查**（真实 bug：Modal/Drawer 动画在子元素
           // （overlay/content）——只查根（none）误判无动画——退场截断）
           if (panel.current && win && !hasAnim(panel.current, win)) phaseState.phase = 'closed'
+        } else {
+          // 关闭（非 presence）：恢复滚动锁 + 归还焦点
+          restoreModalLock()
         }
       }
       // presence：exit 阶段仍渲染（退场动画）——closed 后移除
       const show = opts.presence ? phaseState.phase !== 'closed' : open.open
-      if (!show) return null
+      if (!show) {
+        // 退场结束（closed）——恢复滚动锁 + 归还焦点
+        if (opts.presence && phaseState.phase === 'closed') restoreModalLock()
+        return null
+      }
+      // **mask 遮罩（真实缺口）**：mask/maskCentered/maskClosable——
+      // 全屏遮罩 + 居中（Img 预览依赖——接口声明未实现——Img 传 mask:true
+      // 但遮罩从未渲染）——遮罩 + 内容并排（flex 居中）
+      let panelVn = content as VNode
+      if (opts.mask) {
+        const props0 = (panelVn.props ?? {}) as Record<string, any>
+        const maskEl = h('div', {
+          class: 'wf-popup-mask',
+          style: {
+            position: 'fixed', inset: '0', background: 'var(--wf-overlay, rgba(0,0,0,0.5))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 'var(--wf-z-modal, 1000)',
+          },
+          onClick: (e: Event) => {
+            // 遮罩点击关闭（maskClosable 默认 true——危险操作显式 false 防误触）
+            if (opts.maskClosable !== false && e.target === e.currentTarget) {
+              open.setOpen(false)
+              env.requestRender()
+            }
+          },
+        },
+          opts.maskCentered
+            ? { ...panelVn, props: { ...props0 } }
+            : h('div', { class: 'wf-popup-mask-inner' }, panelVn),
+        )
+        panelVn = maskEl
+      }
       // **panelRef 接线 + 定位包装**（真实 bug：ui-dom 的 portal 注入
       // ref/class/style——vdom 原样 content——panelRef 从未被调用——退场
       // 监听/无动画检查全部失效（panel.current 恒 null）——Escape/关闭后
       // phase 卡 exit 永不 closed——弹层残留 DOM）
-      const pv = content as VNode
+      const pv = panelVn as VNode
       const props = (pv.props ?? {}) as Record<string, any>
       const cls = opts.positioning === 'none'
         ? (props.class ?? '')
@@ -347,8 +463,8 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
             top: `${pos.current.top}px`,
             left: `${pos.current.left}px`,
           }
-      const panelVn = { ...pv, props: { ...props, class: cls, style, ref: panelRefImpl } } as VNode
-      return createPortal(panelVn, key ?? 'popup')
+      const panelFinal = { ...pv, props: { ...props, class: cls, style, ref: panelRefImpl } } as VNode
+      return createPortal(panelFinal, key ?? 'popup')
     },
     get pos() {
       return pos.current

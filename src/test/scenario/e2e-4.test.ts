@@ -131,3 +131,73 @@ test('popup-controlled-none：isOpen getter 受控 + positioning none（自定�
     await page.close()
   }
 })
+
+// ── 场景 30：presence 退场状态机 ───────────────────────────────────────
+test('popup-presence：关闭后 exit 阶段仍渲染（无动画立即 closed——不残留）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'popup-presence')
+
+    await page.click('.ps-trigger')
+    await page.waitForSelector('.ps-panel')
+    assert.equal(await page.locator('.ps-panel').count(), 1, '打开渲染')
+    await page.keyboard.press('Escape')
+    // 无动画环境：exit → 立即 closed（不挂死）——面板移除
+    await page.waitForFunction(() => !document.querySelector('.ps-panel'), '无动画环境退场立即 closed（不残留）', { timeout: 2000 })
+    assert.equal(await page.locator('.ps-panel').count(), 0, '关闭后面板移除（presence 状态机走完）')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 31：mask 遮罩 ─────────────────────────────────────────────────
+test('popup-mask：遮罩渲染（--wf-overlay + 点击遮罩关闭——内容居中）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'popup-mask')
+
+    await page.click('.mk-trigger')
+    await page.waitForSelector('.wf-popup-mask')
+    assert.equal(await page.locator('.mk-content').count(), 1, '内容渲染（遮罩内）')
+    const maskStyle = await page.evaluate(() => (document.querySelector('.wf-popup-mask') as HTMLElement)?.getAttribute('style') ?? '')
+    assert.ok(maskStyle.includes('position: fixed') && maskStyle.includes('inset: 0'), '全屏遮罩（fixed + inset 0）')
+    // 内容居中（flex）
+    const center = await page.evaluate(() => {
+      const mask = document.querySelector('.wf-popup-mask')!.getBoundingClientRect()
+      const content = document.querySelector('.mk-content')!.getBoundingClientRect()
+      return { cx: Math.abs(content.left + content.width / 2 - (mask.left + mask.width / 2)), cy: Math.abs(content.top + content.height / 2 - (mask.top + mask.height / 2)) }
+    })
+    assert.ok(center.cx < 5 && center.cy < 5, `maskCentered 居中（cx:${center.cx.toFixed(1)} cy:${center.cy.toFixed(1)}）`)
+    // 点击遮罩关闭（maskClosable——e.target === currentTarget）
+    await page.mouse.click(5, 5)
+    await page.waitForFunction(() => !document.querySelector('.wf-popup-mask'), '点击遮罩关闭', { timeout: 2000 })
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 32：trapFocus + lockScroll ────────────────────────────────────
+test('popup-trap：焦点陷阱（打开聚焦 + Tab 循环）+ 滚动锁（body overflow）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'popup-trap')
+
+    await page.click('.tr-trigger')
+    await page.waitForSelector('.tr-panel')
+    // lockScroll：body overflow hidden
+    assert.equal(await page.evaluate(() => document.body.style.overflow), 'hidden', '滚动锁（body overflow hidden）')
+    // trapFocus：打开聚焦面板内首个可聚焦
+    await page.waitForFunction(() => document.activeElement?.classList.contains('tr-focus-1'), '打开聚焦首个可聚焦', { timeout: 2000 })
+    // Tab 循环（最后一个 Tab → 回到第一个）
+    await page.keyboard.press('Tab')
+    await page.waitForFunction(() => document.activeElement?.classList.contains('tr-focus-2'), 'Tab 到第二')
+    await page.keyboard.press('Tab')
+    await page.waitForFunction(() => document.activeElement?.classList.contains('tr-focus-1'), 'Tab 循环回第一（焦点陷阱）')
+    // 关闭 → 滚动锁恢复 + 焦点归还
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => !document.querySelector('.tr-panel'))
+    assert.equal(await page.evaluate(() => document.body.style.overflow), '', '关闭后滚动锁恢复')
+  } finally {
+    await page.close()
+  }
+})
