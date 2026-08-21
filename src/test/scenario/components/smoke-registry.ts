@@ -21,6 +21,10 @@ import {
   Popover, QRCode, Resizable, Result, Scrollbar, SegmentedControl, SessionList,
   Skeleton, SortableList, Sparkline, TabBar, ThemeSwitch, ToggleGroup, Tooltip,
   Tour, Transfer, Tree, TreeSelect, VirtualList, VirtualTable,
+  AlertGroup, Anchor, AspectRatio, ApprovalCard, CodeBlock, DiffView, ExportCSV,
+  Highlight, LogViewer, PromptTemplate, ReasoningBlock, ToolCallCard,
+  Watermark, Wave, ActionSheet, AuthPage, ChatInput, CitationCard, CodeEditor,
+  Editor, MarkdownEditor, AiChat, ImageCropper, VideoPlayer,
 } from '../../../client/components/index.ts'
 
 /** 陈列项（组件名 → 简单实例化——渲染不崩为基线） */
@@ -125,6 +129,30 @@ export const smokeItems: SmokeItem[] = [
   { name: 'TreeSelect', vnode: () => h('div', { class: 'smoke-TreeSelect' }, h(TreeSelect, { treeData: [{ value: '1', label: '节点1' }], placeholder: '选树' })) },
   { name: 'VirtualList', vnode: () => h('div', { class: 'smoke-VirtualList' }, h(VirtualList, { items: Array.from({ length: 50 }, (_, i) => `行${i}`), height: 100, itemHeight: 20, renderItem: (i: string) => h('div', {}, i) })) },
   { name: 'VirtualTable', vnode: () => h('div', { class: 'smoke-VirtualTable' }, h(VirtualTable, { columns: [{ key: 'a', title: 'A' }], data: [{ a: '1' }], height: 100 })) },
+  { name: 'AlertGroup', vnode: () => h('div', { class: 'smoke-AlertGroup' }, h(AlertGroup, { items: [{ type: 'success', title: '成功' }, { type: 'info', title: '提示' }] })) },
+  { name: 'Anchor', vnode: () => h('div', { class: 'smoke-Anchor' }, h(Anchor, { items: [{ key: 's1', title: '节1', href: '#s1' }] })) },
+  { name: 'AspectRatio', vnode: () => h('div', { class: 'smoke-AspectRatio' }, h(AspectRatio, { ratio: 16 / 9 }, '内容')) },
+  { name: 'ApprovalCard', vnode: () => h('div', { class: 'smoke-ApprovalCard' }, h(ApprovalCard, { request: { id: 'a1', toolName: '查询', args: {}, status: 'pending' } })) },
+  { name: 'CodeBlock', vnode: () => h('div', { class: 'smoke-CodeBlock' }, h(CodeBlock, { code: 'const a = 1', language: 'ts' })) },
+  { name: 'DiffView', vnode: () => h('div', { class: 'smoke-DiffView' }, h(DiffView, { oldText: '旧', newText: '新' })) },
+  { name: 'ExportCSV', vnode: () => h('div', { class: 'smoke-ExportCSV' }, h(ExportCSV, { data: [{ a: 1 }], filename: 'x.csv' }, '导出')) },
+  { name: 'Highlight', vnode: () => h('div', { class: 'smoke-Highlight' }, h(Highlight, { text: '高亮文本', query: '高亮' })) },
+  { name: 'LogViewer', vnode: () => h('div', { class: 'smoke-LogViewer' }, h(LogViewer, { lines: ['info 日志1', 'error 日志2'] })) },
+  { name: 'PromptTemplate', vnode: () => h('div', { class: 'smoke-PromptTemplate' }, h(PromptTemplate, { template: '你好 {name}', variables: { name: '张三' } })) },
+  { name: 'ReasoningBlock', vnode: () => h('div', { class: 'smoke-ReasoningBlock' }, h(ReasoningBlock, { content: '思考过程' })) },
+  { name: 'ToolCallCard', vnode: () => h('div', { class: 'smoke-ToolCallCard' }, h(ToolCallCard, { call: { id: 't1', name: '查询', args: {} } })) },
+  { name: 'Watermark', vnode: () => h('div', { class: 'smoke-Watermark' }, h(Watermark, { text: '水印' }, '内容')) },
+  { name: 'Wave', vnode: () => h('div', { class: 'smoke-Wave' }, h(Wave, {}, '波纹')) },
+  { name: 'ActionSheet', vnode: () => h('div', { class: 'smoke-ActionSheet' }, h(ActionSheet, { open: false, items: [{ key: '1', label: '选项1' }] })) },
+  { name: 'AuthPage', vnode: () => h('div', { class: 'smoke-AuthPage' }, h(AuthPage, {})) },
+  { name: 'ChatInput', vnode: () => h('div', { class: 'smoke-ChatInput' }, h(ChatInput, {})) },
+  { name: 'CitationCard', vnode: () => h('div', { class: 'smoke-CitationCard' }, h(CitationCard, { source: '文档A', snippet: '引用内容' })) },
+  { name: 'CodeEditor', vnode: () => h('div', { class: 'smoke-CodeEditor' }, h(CodeEditor, { value: 'const a = 1', language: 'ts' })) },
+  { name: 'Editor', vnode: () => h('div', { class: 'smoke-Editor' }, h(Editor, { value: '文本' })) },
+  { name: 'MarkdownEditor', vnode: () => h('div', { class: 'smoke-MarkdownEditor' }, h(MarkdownEditor, { value: '# 标题' })) },
+  { name: 'AiChat', vnode: () => h('div', { class: 'smoke-AiChat' }, h(AiChat, { chat: {} as never })) },
+  { name: 'ImageCropper', vnode: () => h('div', { class: 'smoke-ImageCropper' }, h(ImageCropper, { src: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' })) },
+  { name: 'VideoPlayer', vnode: () => h('div', { class: 'smoke-VideoPlayer' }, h(VideoPlayer, { src: 'https://example.com/v.mp4' })) },
 ]
 
 /** 冒烟陈列场景（全部渲染——data-smoke 标记） */
