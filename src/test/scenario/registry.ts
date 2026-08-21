@@ -515,6 +515,47 @@ const TrapScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 33：toast（命令式轻提示——显示 + 自动消失） ───────────────────
+const ToastScene = (_init: Record<string, never>, ctx: any) =>
+  () =>
+    h('div', { class: 'toast-scene' },
+      h('button', { class: 'toast-fire', onClick: () => ctx.toast('操作成功', 'success', 500) }, '弹提示'),
+    )
+
+// ── 场景 34：useControlled（受控/非受控/受控缺回调 warn） ──────────────
+const ControlledScene = (_init: Record<string, never>, ctx: any) => {
+  let lastChange: string | null = null
+  // 受控：value 显式（父控制——setValue 只走 onChange 不回流）
+  const ctrl = ctx.ui.useControlled<string>({ value: '父值', onChange: (v: string) => { lastChange = v; ctx.render() } })
+  const unctrl = ctx.ui.useControlled<string>({}, '非受控默认')
+  return () =>
+    h('div', { class: 'controlled-scene' },
+      h('span', { class: 'ctrl-val' }, ctrl.value ?? '无'),
+      h('button', { class: 'ctrl-set', onClick: () => ctrl.setValue('新值') }, '设置受控'),
+      h('span', { class: 'unctrl-val' }, unctrl.value ?? '无'),
+      h('button', { class: 'unctrl-set', onClick: () => unctrl.setValue('内部') }, '设置非受控'),
+      h('span', { class: 'ctrl-change' }, lastChange ?? '无回调'),
+    )
+}
+
+// ── 场景 35：useBreakpoint（命名断点——min-width 语义） ────────────────
+const BreakpointScene = (_init: Record<string, never>, ctx: any) =>
+  () => {
+    const bp = ctx.ui.useBreakpoint({ mobile: 0, tablet: 768, desktop: 1024 })
+    return h('div', { class: 'bp-scene' }, h('span', { class: 'bp-name' }, bp))
+  }
+
+// ── 场景 36：useTween（数值补间——rAF 驱动到目标） ─────────────────────
+const TweenScene = (_init: Record<string, never>, ctx: any) => {
+  // 契约：useTween 的 target 是 mount 快照——目标变化经 tween.reset(to) 显式驱动
+  const tween = ctx.ui.useTween(0, { duration: 200 })
+  return () =>
+    h('div', { class: 'tween-scene' },
+      h('span', { class: 'tween-val' }, tween.value.toFixed(0)),
+      h('button', { class: 'tween-go', onClick: () => tween.reset(100) }, '到 100'),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -548,6 +589,10 @@ export const scenarios: Scenario[] = [
   { id: 'popup-presence', title: 'usePopup presence（退场状态机）', render: PresenceScene },
   { id: 'popup-mask', title: 'usePopup mask（遮罩渲染 + 点击关闭）', render: MaskScene },
   { id: 'popup-trap', title: 'usePopup trapFocus + lockScroll（焦点陷阱 + 滚动锁）', render: TrapScene },
+  { id: 'toast-fire', title: 'toast（命令式轻提示——显示 + 自动消失）', render: ToastScene },
+  { id: 'use-controlled', title: 'useControlled（受控/非受控/warn）', render: ControlledScene },
+  { id: 'use-breakpoint', title: 'useBreakpoint（命名断点切换）', render: BreakpointScene },
+  { id: 'use-tween', title: 'useTween（数值补间到目标）', render: TweenScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

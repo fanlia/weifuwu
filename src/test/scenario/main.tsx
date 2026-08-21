@@ -8,6 +8,7 @@
 import { uiServe, UIRouter, h } from '../../client/vdom/index.ts'
 import { i18n } from '../../client/vdom/middlewares/auth-i18n.ts'
 import { ws } from '../../client/vdom/middlewares/ws.ts'
+import { toast } from '../../client/vdom/commands.ts'
 import { scenarios } from './registry.ts'
 
 const router = new UIRouter()
@@ -25,6 +26,6 @@ const i18nState = i18n({
     en: { hello: 'Hello', count: 'Count {n}' },
   },
 })
-const handle = uiServe(router, { root: '#root', i18n: i18nState, ws: ws() })
+const handle = uiServe(router, { root: '#root', i18n: i18nState, ws: ws(), toast })
 // unmount-dispose 场景：暴露 handle（场景按钮触发卸载）
 ;(window as unknown as { __scenarioHandle?: unknown }).__scenarioHandle = handle
