@@ -122,7 +122,8 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
     }
 
     // 打开瞬间先算坐标由 usePopup.portal 内部处理（prevOpen 跟踪）
-    const panel = open && filtered.length > 0 ? popup.portal(
+    // **方案 B：槽恒在（portal 恒调用——引擎自动开合）**
+    const panel = popup.portal(open && filtered.length > 0 ? 
       h('div', {
         class: 'wf-mentions-panel',
         role: 'listbox',
@@ -135,9 +136,9 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
           onClick: () => insert(opt),
           onMouseEnter: () => { highlight = i },
         }, opt.label ?? opt.value)
-      )),
+      )) : null,
       'popover',
-    ) : null
+    )
 
     const ta = h('textarea', {
       class: `wf-mentions-input wf-mentions-input--${size}`,
@@ -155,6 +156,7 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
       onCompositionEnd: () => { composing = false },
     })
 
-    return h('div', { class: 'wf-mentions' }, [ta, panel].filter(Boolean))
+    // **方案 B：保留 portal 槽（不 filter——长度恒定——同构）**
+    return h('div', { class: 'wf-mentions' }, [ta, panel])
   }
 }

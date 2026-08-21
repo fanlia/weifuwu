@@ -408,6 +408,8 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
 
   /** 独立渲染（首帧 build / 更新 diff——串行链防竞态） */
   const renderPortal = (key: string, content: VNode): void => {
+    // eslint-disable-next-line no-console
+    if ((window as any).__dbgNav) console.error('[dbg-rp]', key, 'active:', open.open, 'content:', !!content)
     const isActive = open.open || phaseState.phase === 'exit'
     if (!isActive) {
       if (portal.applier) disposePortal()
@@ -434,21 +436,34 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
     const registry = createComponentRegistry()
     if (!portal.applier) portal.applier = new CommandApplier(container, doc, registry)
     const applier = portal.applier
+    // eslint-disable-next-line no-console
+    if ((window as any).__dbgNav) console.error('[dbg-rp2] container:', !!container, 'applier:', !!applier)
     const ctx = env.getSharedContext() ?? ({} as import('../context/UIContext.ts').UIContext)
     const prev = portal.tree
     portal.tree = content
+    // eslint-disable-next-line no-console
+    if ((window as any).__dbgNav) console.error('[dbg-rp5] chain:', typeof portal.chain, portal.chain === Promise.resolve() ? 'RESOLVED' : 'other')
     portal.chain = portal.chain.then(async () => {
-      if (portal.applier !== applier) return
+      // eslint-disable-next-line no-console
+      if ((window as any).__dbgNav) console.error('[dbg-rp6] then entered, prev:', !!prev, 'applierSame:', portal.applier === applier)
+      if (!portal.applier) return
       const stream = prev
         ? diffStream(prev, content, ctx, registry)
         : renderToStream(content, ctx, registry)
       const reader = stream.getReader()
+      // eslint-disable-next-line no-console
+      if ((window as any).__dbgNav) console.error('[dbg-rp3] stream start')
       while (true) {
         const { value, done } = await reader.read()
         if (done) break
         if (portal.applier !== applier) return
         applier.apply(value)
       }
+      // eslint-disable-next-line no-console
+      if ((window as any).__dbgNav) console.error('[dbg-rp4] stream done')
+    }).catch((e) => {
+      // eslint-disable-next-line no-console
+      if ((window as any).__dbgNav) console.error('[dbg-rp-err]', String(e).slice(0, 150))
     })
   }
 

@@ -75,11 +75,9 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
     latest = { open, onOpenChange, shortcut: globalShortcut }
 
     if (!open) {
-      // 关闭：返回 null（usePopup portal 只在 open 渲染；全局快捷键监听在 mount 注册
-      // 不依赖 DOM——host div 无意义且会造成 Portal→div 切换的引擎边界问题）
-      // **portal 独立通道：关闭态显式清空**（组件 return null 不调 portal——
-      // 面板残留——同 Toast 模式）
-      return popup.portal(null, 'command')
+      // 关闭：**方案 B（保留 hole 槽）**——数组恒含 portal() 调用（槽恒在——
+      // 引擎自动清空——组件无特殊关闭路径）
+      return [popup.portal(null, 'command')]
     }
 
     const filtered = query

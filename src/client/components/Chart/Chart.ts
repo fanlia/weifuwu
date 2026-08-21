@@ -28,18 +28,10 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
   let tooltip: { label: string; value: number; color?: string } | null = null
   let tooltipEl: Element | null = null
 
-  // §5.4 弹窗纪律：浮层一律 usePopup（统一组合器——定位/视口夹紧/Escape/portal）——
-  // tooltip 悬浮跟随数据点（hover 手动触发——isOpen 驱动）——参照组件库 Tooltip
-  const popup = ctx.ui.usePopup({
-    trigger: 'manual', // hover 由数据点事件手动管理（line/bar/pie 的 onMouseEnter）
-    placement: 'top',
-    gap: 8,
-    el: () => tooltipEl as HTMLElement | null,
-    isOpen: () => tooltip !== null,
-    setOpen: (v) => {
-      if (!v && tooltip !== null) { tooltip = null; tooltipEl = null; ctx.render() }
-    },
-  })
+  // §5.4 弹窗纪律：浮层一律命令式弹窗（唯一形态——openPopup——定位/视口夹紧/
+  // Escape/外部点击）——tooltip 悬浮跟随数据点（hover 手动触发——tooltip 状态驱动）
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
   // ── render（每次 dirty/props 变化）──
   return async (props: ChartProps) => {
@@ -300,7 +292,7 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
       ]))
     ) : null
 
-    // ── tooltip（usePopup 统一弹层——portal 渲染——isOpen 驱动） ──
+    // ── tooltip（命令式弹层——openPopup 渲染——tooltip 状态驱动） ──
     const tip = tooltip ? h('div', {
       class: 'wf-chart-tooltip',
     }, [
@@ -311,6 +303,19 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
       h('div', { class: 'wf-chart-tooltip-value' }, String(tooltip.value)),
     ]) : null
 
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    if (tooltip && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'chart-tooltip',
+        anchor: () => tooltipEl as HTMLElement | null,
+        placement: 'top',
+        gap: 8,
+        content: () => tip,
+        onClose: () => { handle = null; if (tooltip) { tooltip = null; tooltipEl = null; ctx.render() } },
+      })
+    else if (!tooltip && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(tip)
+
     return h('div', {
       class: `wf-chart${className ? ' ' + className : ''}`,
       role: 'img',
@@ -320,7 +325,6 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
       title ? h('div', { class: 'wf-chart-title' }, title) : null,
       chartContent,
       legend,
-      tip ? popup.portal(tip, 'chart-tooltip') : null,
     ].filter(Boolean))
   }
 }

@@ -312,7 +312,8 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
       }
     }
 
-    const portalContent = isOpen && panel ? popup.portal(panel, 'dp-calendar') : null
+    // **方案 B：槽恒在（portal 恒调用——引擎自动开合）**
+    const portalContent = popup.portal(isOpen && panel ? panel : null, 'dp-calendar')
     const displayValue = value ?? selectedValue ?? ''
 
     return h('div', { class: `wf-datepicker${disabled ? ' wf-datepicker--disabled' : ''}` }, [

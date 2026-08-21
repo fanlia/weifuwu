@@ -122,10 +122,9 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
 
     const openMenuData = menus.find(m => m.key === openMenu)
 
-    // **portal 独立通道（方案 1）**：关闭路径显式清空（不调 portal →
-    // 面板残留——改造后引擎不自动移除）
-    if (!openMenuData) popup.portal(null, 'menubar')
-    const panel = openMenuData ? popup.portal(h('div', {
+    // **方案 B（保留 hole 槽）**：panel 恒 portal() 调用（槽恒在——引擎
+    // 自动开合——组件无特殊关闭路径）
+    const panel = popup.portal(openMenuData ? h('div', {
       class: 'wf-menubar-panel',
       role: 'menu',
     }, (openMenuData.items ?? []).map((item, i) =>
@@ -144,13 +143,14 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
         h('span', { class: 'wf-menubar-item-label' }, item.label),
         item.shortcut ? h('kbd', { class: 'wf-menubar-shortcut' }, item.shortcut) : null,
       ].filter(Boolean))
-    )), 'popover') : null
+    )) : null, 'popover')
 
     return h('div', {
       class: 'wf-menubar',
       role: 'menubar',
       'aria-label': ariaLabel,
       onKeyDown,
-    }, [...triggers, panel].filter(Boolean))
+      // **方案 B：保留 portal 槽（不 filter——数组长度恒定——同构）**
+    }, [...triggers, panel])
   }
 }

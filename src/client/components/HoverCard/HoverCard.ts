@@ -1,13 +1,15 @@
 /**
  * weifuwu/components — HoverCard
  *
- * usePopup 组合器：hover 触发（触屏自动降级 tap）+ openDelay/closeDelay +
- * 定位/视口 clamp + Escape + portal。对应 shadcn HoverCard。
+ * 命令式弹窗（一个形态——ctx.ui.openPopup——toast 心智）：hover 触发
+ * （触屏自动降级 tap）+ openDelay/closeDelay + 定位/视口 clamp + Escape。
+ * 对应 shadcn HoverCard。
  */
 
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
+import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
 import type { Placement } from '../../vdom/hooks/popup.ts'
 
 export type HoverCardPosition = Placement
@@ -32,25 +34,38 @@ export const HoverCard: Component<HoverCardProps> = async (_props, ctx) => {
   let latestDelay = { open: 150, close: 0 }
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: PopupHandle | null = null
 
-  // useOpen：受控/非受控 open 统一（hover 触发由 usePopup trigger 驱动）
+  // useOpen：受控/非受控 open 统一（hover 触发内联）
   let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
 
-  const popup = ctx.ui.usePopup({
-    trigger: 'hover',
-    placement: () => latestPosition,
-    gap: 8,
-    el: () => wrapEl,
-    isOpen: () => openCtrl?.open ?? false,
-    setOpen: (v) => openCtrl?.setOpen(v),
-    disabled: () => disabled,
-    openDelay: () => latestDelay.open,
-    closeDelay: () => latestDelay.close,
-  })
+  // hover 触发（延迟——openDelay/closeDelay——原 usePopup trigger 语义）
+  let hoverTimer: ReturnType<typeof setTimeout> | null = null
+  const clearHover = (): void => {
+    if (hoverTimer !== null) { clearTimeout(hoverTimer); hoverTimer = null }
+  }
+  const hoverOpen = (): void => {
+    clearHover()
+    if (disabled) return
+    hoverTimer = setTimeout(() => {
+      hoverTimer = null
+      if (!openCtrl?.open) openCtrl?.setOpen(true)
+    }, latestDelay.open)
+  }
+  const hoverClose = (): void => {
+    clearHover()
+    hoverTimer = setTimeout(() => {
+      hoverTimer = null
+      if (openCtrl?.open) openCtrl?.setOpen(false)
+    }, latestDelay.close)
+  }
+  ctx.ui.onUnmount?.(clearHover)
+  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
   return async (props: HoverCardProps) => {
     const { content, position = 'top', children } = props
-    // HoverCard 非受控（hover 显隐由 usePopup trigger 驱动——无 open prop）
+    // HoverCard 非受控（hover 显隐由 hover 触发驱动——无 open prop）
     openCtrl = ctx.ui.useOpen({ name: 'HoverCard' })
     latestPosition = position
     disabled = !!props.disabled
@@ -61,12 +76,26 @@ export const HoverCard: Component<HoverCardProps> = async (_props, ctx) => {
       role: 'tooltip',
     }, content)
 
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    if (openCtrl?.open && !handle)
+      handle = ctx.ui.openPopup({
+        anchor: () => wrapEl,
+        placement: () => latestPosition,
+        gap: 8,
+        content: () => card,
+        onClose: () => { handle = null; openCtrl?.setOpen(false) },
+      })
+    else if (!openCtrl?.open && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(card)
+
     return h('div', {
       class: 'wf-hover-card-wrap',
       ref: wrapRef,
       'aria-haspopup': 'dialog',
       'aria-expanded': String(!!openCtrl?.open),
-      ...popup.wrapProps,
-    }, [children, popup.portal(card, 'popover')].filter(Boolean))
+      onMouseEnter: hoverOpen,
+      onMouseLeave: hoverClose,
+      onClick: () => { openCtrl?.setOpen(!openCtrl.open) }, // 触屏降级 tap
+    }, children)
   }
 }

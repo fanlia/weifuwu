@@ -18,6 +18,7 @@ import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
+import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
 import type { Placement } from '../../vdom/hooks/popup.ts'
 
 export interface PopconfirmProps {
@@ -47,16 +48,8 @@ export const Popconfirm: Component<PopconfirmProps> = async (_init, ctx: UIConte
 
   // useOpen：受控/非受控 open 统一（close 走 setOpen——受控通知父组件）
   let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
-
-  const popup = ctx.ui.usePopup({
-    trigger: () => 'click',
-    placement: () => latestPosition,
-    gap: 8,
-    el: () => wrapEl,
-    isOpen: () => openCtrl?.open ?? false,
-    setOpen: (v) => openCtrl?.setOpen(v),
-    disabled: () => disabled,
-  })
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: PopupHandle | null = null
 
   const close = () => { openCtrl?.setOpen(false) }
 
@@ -103,9 +96,22 @@ export const Popconfirm: Component<PopconfirmProps> = async (_init, ctx: UIConte
       ]),
     ])
 
-    return h('span', { class: 'wf-popconfirm-wrap', ref: wrapRef, 'aria-haspopup': 'dialog', 'aria-expanded': String(isOpen), ...popup.wrapProps }, [
-      props.children,
-      popup.portal(bubble, 'wf-popconfirm'),
-    ].filter(x => x !== null && x !== undefined && x !== false))
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    if (isOpen && !handle)
+      handle = ctx.ui.openPopup({
+        anchor: () => wrapEl,
+        placement: () => latestPosition,
+        gap: 8,
+        content: () => bubble,
+        onClose: () => { handle = null; openCtrl?.setOpen(false) },
+      })
+    else if (!isOpen && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(bubble)
+
+    return h('span', {
+      class: 'wf-popconfirm-wrap', ref: wrapRef,
+      'aria-haspopup': 'dialog', 'aria-expanded': String(isOpen),
+      onClick: (e: Event) => { e.stopPropagation?.(); if (!disabled) openCtrl?.setOpen(!openCtrl.open) }, // click 触发
+    }, props.children)
   }
 }

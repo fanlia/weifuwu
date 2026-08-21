@@ -168,19 +168,17 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
         hasNested
           ? h('span', { class: 'wf-navmenu-sub-arrow' }, h(Icon, { name: 'chevron-right' }))
           : null,
-        (hasNested && nestedKey === item.key
-          ? nestedPopup.portal(
-              h('div', {
+        // **方案 B：槽恒在（portal 恒调用——引擎自动开合）**
+        nestedPopup.portal(hasNested && nestedKey === item.key ? h('div', {
                 class: 'wf-navmenu-sub wf-navmenu-sub--nested wf-navmenu-sub--open',
                 role: 'menu',
                 ref: nestedPanelRef,
                 onMouseEnter: () => { cancelClose(); if (nestedKey !== item.key) { nestedKey = item.key; ctx.render() } },
                 onMouseLeave: onDomainLeave,
-              }, renderSub(item.children || [], activeKey, onSelect, depth + 1)),
+              }, renderSub(item.children || [], activeKey, onSelect, depth + 1)) : null,
               'wf-navmenu-nested',
-            )
-          : null) ?? null,
-      ].filter(x => x !== null && x !== undefined))
+            ),
+      ])
     })
 
   // ── render（每次 dirty/props 变化）──
@@ -247,19 +245,19 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
       }, [
         h('span', { class: 'wf-navmenu-label' }, item.label),
         hasChildren && h('span', { class: 'wf-navmenu-arrow' }, h(Icon, { name: 'chevron-down' })),
-        hasChildren && isOpen
-          ? popup.portal(
-              h('div', {
-                class: 'wf-navmenu-sub wf-navmenu-sub--open',
-                role: 'menu',
-                ref: subPanelRef,
-                onMouseEnter: onDomainEnter,
-                onMouseLeave: onDomainLeave,
-              }, renderSub(item.children || [], activeKey, onSelect, 1)),
-              'wf-navmenu-sub',
-            )
+        // **方案 B：槽恒在（portal 恒调用——引擎自动开合）**
+        popup.portal(hasChildren && isOpen
+          ? h('div', {
+              class: 'wf-navmenu-sub wf-navmenu-sub--open',
+              role: 'menu',
+              ref: subPanelRef,
+              onMouseEnter: onDomainEnter,
+              onMouseLeave: onDomainLeave,
+            }, renderSub(item.children || [], activeKey, onSelect, 1))
           : null,
-      ].filter(x => x !== false && x !== null && x !== undefined))
+          'wf-navmenu-sub',
+        ),
+      ])
     }))
   }
 }

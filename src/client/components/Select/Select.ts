@@ -294,7 +294,8 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
     const menu = h('div', { class: 'wf-select-search-menu' }, menuChildren)
 
     const menuPortal = popup.portal(menu, 'wf-select-menu')
-    wrapChildren.push(h('div', { class: 'wf-select-search' }, [trigger, menuPortal].filter(Boolean)))
+    // **方案 B：保留 portal 槽（不 filter——长度恒定——同构）**
+    wrapChildren.push(h('div', { class: 'wf-select-search' }, [trigger, menuPortal]))
     if (error) wrapChildren.push(h('div', { class: 'wf-select-err' }, error))
 
     return h('div', { class: `wf-select-wrap${error ? ' wf-select--err' : ''}` }, wrapChildren)

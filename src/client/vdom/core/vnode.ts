@@ -32,7 +32,7 @@ export interface VNode {
 export type VNodeChild = VNode | string | number | boolean | null | undefined | VNodeChild[]
 
 /** renderFn——每次渲染（读最新 props——同步或 async——异步边界 = ctx.data） */
-export type RenderFn<P = Record<string, unknown>> = (props: P) => VNode | null | Promise<VNode | null>
+export type RenderFn<P = Record<string, unknown>> = (props: P) => VNode | null | (VNode | null)[] | Promise<VNode | null | (VNode | null)[]>
 
 /** 组件（两阶段）：
  *  工厂 = mount（一次——初始化状态/订阅/数据预取（await ctx.data——管道保证））

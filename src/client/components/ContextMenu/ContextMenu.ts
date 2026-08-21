@@ -28,26 +28,14 @@ export const ContextMenu: Component<ContextMenuProps> = async (_init, ctx) => {
   let wrapEl: HTMLElement | null = null
   // items 由 render 阶段更新（menuKeyDown 闭包读最新）
   let items: ContextMenuItem[] = []
-  // 光标坐标（onTrigger 打开瞬间记录；position getter 供 usePopup 定位）
+  // 光标坐标（右键打开瞬间记录；position getter 供 openPopup 定位）
   let cursorX = 0
   let cursorY = 0
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
-  const popup = ctx.ui.usePopup({
-    trigger: 'longpress',
-    el: () => wrapEl,
-    isOpen: () => show,
-    setOpen: (v) => { show = v; ctx.render() },
-    position: () => ({ x: cursorX, y: cursorY }),
-    closeOnOutside: true, // document mousedown（含右键别处——mousedown 先于 contextmenu 触发）
-    closeOnEscape: true,
-    onTrigger: (e) => {
-      cursorX = e.clientX
-      cursorY = e.clientY
-      highlight = items.findIndex(i => !i.disabled)
-    },
-  })
-
-  const close = () => popup.setOpen(false)
+  const close = () => { show = false; ctx.render() }
+  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
   const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
 
@@ -104,10 +92,29 @@ export const ContextMenu: Component<ContextMenuProps> = async (_init, ctx) => {
       onKeyDown: menuKeyDown,
     }, menuItems)
 
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    if (show && !handle)
+      handle = ctx.ui.openPopup({
+        position: () => ({ x: cursorX, y: cursorY }),
+        content: () => menu,
+        closeOnOutside: true, // document mousedown（含右键别处——mousedown 先于 contextmenu 触发）
+        closeOnEscape: true,
+        onClose: () => { handle = null; if (show) { show = false; ctx.render() } },
+      })
+    else if (!show && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(menu)
+
     return h('div', {
       class: ['wf-context-menu-trigger', className].filter(Boolean).join(' '),
       ref: wrapRef,
-      ...popup.wrapProps, // longpress 触发（含右键兼容）+ Escape + 外部点击
-    }, [children, popup.portal(menu, 'context-menu')].filter(Boolean))
+      onContextMenu: (e: MouseEvent) => {
+        e.preventDefault()
+        cursorX = e.clientX
+        cursorY = e.clientY
+        highlight = items.findIndex(i => !i.disabled)
+        show = true
+        ctx.render()
+      }, // 右键触发（含触屏长按兼容）
+    }, children)
   }
 }

@@ -12,6 +12,7 @@
 import type { ExternalStore } from '../store.ts'
 import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
 import { usePopup, usePopupPosition } from './popup.ts'
+import { openPopup, type PopupHandle, type PopupOpenOptions } from './popup-manager.ts'
 import { useControlled } from './controlled.ts'
 import { useScrollPosition, useInView } from './observe.ts'
 import { useControlledInput } from './input.ts'
@@ -53,6 +54,9 @@ export interface Ui {
   useGlobalKey(matchOrHandler: string | ((e: KeyboardEvent) => boolean) | ((e: KeyboardEvent) => void), handler?: (e: KeyboardEvent) => void): () => void
   /** 浮层弹窗（portal/定位/外部点击/Escape——28 浮层组件核心依赖） */
   usePopup(opts: import('./popup.ts').PopupOptions): import('./popup.ts').Popup
+  /** 命令式弹窗（唯一形态——2027-03：ctx.popup.open——toast 心智——
+   *  调用点构建内容——内核自管理挂载/更新/卸载——组件内部句柄同步样板） */
+  openPopup(opts: PopupOpenOptions): PopupHandle
   /** 弹层位置跟踪（scroll/resize 重算——Affix 阈值/宽度——0-rect 防护） */
   usePopupPosition(options: import('./popup.ts').PopupPositionOptions): { top: number; left: number; refresh: () => void }
   /** 受控值（受控 props 语义——onChange 唯一出口——受控缺回调 warn） */
@@ -100,6 +104,7 @@ export function createUi(env: HookEnv): Ui {
     useGlobalKey: (matchOrHandler: string | ((e: KeyboardEvent) => boolean) | ((e: KeyboardEvent) => void), handler?: (e: KeyboardEvent) => void) =>
       useGlobalKey(env, matchOrHandler, handler),
     usePopup: (opts) => usePopup(env, opts),
+    openPopup: (opts) => openPopup(env, opts),
     usePopupPosition: (options) => usePopupPosition(env, options),
     useControlled: <T>(controlled: import('./controlled.ts').ControlledOptions<T>, defaultValue?: T) =>
       useControlled(env, controlled, defaultValue),

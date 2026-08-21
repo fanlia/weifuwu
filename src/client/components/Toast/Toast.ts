@@ -67,8 +67,8 @@ export const Toast: Component<ToastProps> = async (_init, ctx) =>
   // 限制最大显示条数
   const visible = max > 0 && toasts.length > max ? toasts.slice(-max) : toasts
 
-  // **方案 1（取消 portal vnode）**：portal 调用作为内容声明（不进输出——
-  // 返回 null——组件输出纯业务）——renderPortal 独立渲染到 #__wf_portal
+  // **方案 B（保留 hole 槽）**：输出数组恒含 portal() 调用（槽恒在——
+  // 数组长度恒定——引擎自动开合：show 检查渲染/清空——组件无特殊关闭路径）
   const items = visible.map(t =>
     h('div', {
       class: `wf-toast wf-toast--${t.type}`,
@@ -91,16 +91,17 @@ export const Toast: Component<ToastProps> = async (_init, ctx) =>
     ].filter(Boolean))
   )
 
-  // portal 内容声明（独立渲染——不放入输出）
-  popup.portal(
-    h('div', {
-      class: `wf-toast-container ${positionClass(position)}`,
-      'data-max': max || undefined,
-    }, items),
-    'toast',
-  )
-  // 组件输出纯业务（null——无占位）
-  return null
+  return [
+    popup.portal(
+      visible.length > 0
+        ? h('div', {
+            class: `wf-toast-container ${positionClass(position)}`,
+            'data-max': max || undefined,
+          }, items)
+        : null,
+      'toast',
+    ),
+  ]
   }
 
 function iconFor(type?: ToastType): IconName {

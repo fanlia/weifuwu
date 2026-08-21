@@ -27,19 +27,21 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
   let scale = 1
   let triggerEl: HTMLElement | null = null
 
-  // 预览层经 usePopup mask 模式统一（§5.4）：全屏遮罩（--wf-overlay + 点击关闭）+
-  // Escape 关闭 + portal——不再手写 createPortal/overlay/Escape（统一遮罩处理）
-  const popup = ctx.ui.usePopup?.({
-    trigger: 'click',
-    placement: 'bottom',
-    el: () => triggerEl,
-    isOpen: () => previewOpen,
-    setOpen: (v) => { previewOpen = v; scale = v ? scale : 1; ctx.render() },
-    mask: true, // 全屏遮罩：模态预览（点击遮罩关闭，maskClosable 默认 true）
-    maskCentered: true, // 图片预览居中显示（覆盖 trigger 定位）
-  }) ?? {
-    open: false, setOpen: () => {}, wrapProps: {},
-    portal: () => null, refresh: () => {},
+  // 预览层经命令式弹窗 mask 模式统一（§5.4——唯一形态 openPopup）：全屏遮罩
+  // （--wf-overlay + 点击关闭）+ Escape 关闭——不再手写 createPortal/overlay/Escape
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncPreview = (previewLayer: import('../../vdom/index.ts').VNode | null): void => {
+    if (previewOpen && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'img-preview',
+        mask: true, // 全屏遮罩：模态预览（点击遮罩关闭，maskClosable 默认 true）
+        maskCentered: true, // 图片预览居中显示
+        content: () => previewLayer,
+        onClose: () => { handle = null; if (previewOpen) { previewOpen = false; scale = 1; ctx.render() } },
+      })
+    else if (!previewOpen && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(previewLayer)
   }
 
   const triggerRef = (el: any) => { triggerEl = el as HTMLElement | null }
@@ -70,17 +72,15 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
 
     if (!preview) return h('img', imgProps)
 
-    // 预览模式：usePopup mask 遮罩 + 图片层（点击图片缩放，stopPropagation 不触发遮罩关闭）
-    const previewLayer = popup.portal(
-      h('img', {
-        class: 'wf-img-preview-image',
-        src: src ?? fallback ?? '',
-        alt,
-        style: { transform: `scale(${scale * previewScale})`, maxWidth: '90vw', maxHeight: '90vh' },
-        onClick: (e: Event) => { e.stopPropagation(); scale = scale === 1 ? 2 : 1; ctx.render() },
-      }),
-      'img-preview',
-    )
+    // 预览模式：openPopup mask 遮罩 + 图片层（点击图片缩放，stopPropagation 不触发遮罩关闭）
+    const previewLayer = h('img', {
+      class: 'wf-img-preview-image',
+      src: src ?? fallback ?? '',
+      alt,
+      style: { transform: `scale(${scale * previewScale})`, maxWidth: '90vw', maxHeight: '90vh' },
+      onClick: (e: Event) => { e.stopPropagation(); scale = scale === 1 ? 2 : 1; ctx.render() },
+    })
+    syncPreview(previewLayer)
 
     return h('div', {
       class: 'wf-img-preview-wrap',
@@ -92,7 +92,6 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
         ref: triggerRef,
         onClick: () => { previewOpen = true; ctx.render() },
       }, h('img', imgProps)),
-      previewLayer,
-    ].filter(Boolean))
+    ])
   }
 }

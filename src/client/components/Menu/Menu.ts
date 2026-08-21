@@ -47,17 +47,25 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
   // 非受控内部状态（手动：闭包 let + render，不触发 Proxy 依赖）
   let internalOpen: string[] = []
   let internalCollapsed = false
-  // 折叠态子菜单浮层（roadmap DO）：复用 usePopup 基座（外部点击/Escape/portal/定位，零 document/window）
+  // 折叠态子菜单浮层（roadmap DO）：命令式弹窗（唯一形态 openPopup——外部点击/
+  // Escape/定位——零 document/window 自建）
   let collapsedPopupKey: string | null = null
   let popupAnchor: HTMLElement | null = null
-  const popup = ctx.ui.usePopup({
-    trigger: 'click',
-    placement: 'right',
-    gap: 6,
-    el: () => popupAnchor,
-    isOpen: () => collapsedPopupKey !== null,
-    setOpen: (v) => { if (!v) collapsedPopupKey = null; ctx.render() },
-  })
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncCollapsedPopup = (item: any, popupOpen: boolean, content: () => import('../../vdom/index.ts').VNode): void => {
+    if (popupOpen && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'menu-popup',
+        anchor: () => popupAnchor,
+        placement: 'right',
+        gap: 6,
+        content,
+        onClose: () => { handle = null; if (collapsedPopupKey) { collapsedPopupKey = null; ctx.render() } },
+      })
+    else if (!popupOpen && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(content())
+  }
   // 稳定 ref（mount 作用域）：仅保存容器，避免内联 ref 每渲染重建
   const navRef = (el: any) => { if (el) navEl = el }
 
@@ -135,11 +143,11 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
         }, [
           item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,
         ].filter(Boolean))
-        // 浮层：usePopup.portal（定位/外部点击/Escape 基座内置）
-        const popupContent = popup.portal(h('div', {
+        // 浮层：命令式弹窗（openPopup——定位/外部点击/Escape 内置）
+        syncCollapsedPopup(item, popupOpen, () => h('div', {
           class: 'wf-menu-popup',
-        }, (item.children ?? []).map(child => renderItem(child, true, true))), 'menu-popup')
-        return h('div', { key: item.key, 'data-key': item.key, class: 'wf-menu-submenu wf-menu-submenu--collapsed' }, [titleEl, popupOpen ? popupContent : null])
+        }, (item.children ?? []).map(child => renderItem(child, true, true))))
+        return h('div', { key: item.key, 'data-key': item.key, class: 'wf-menu-submenu wf-menu-submenu--collapsed' }, [titleEl])
       }
       // 折叠态：icon-only 标题（无 label/无展开交互——浮层裁剪，见 design/components-cuts.md）
       const titleChildren = [

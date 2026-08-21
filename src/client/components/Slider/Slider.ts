@@ -61,17 +61,22 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
     tipOpen = v
     ctx.render()
   }
-  // §5.4 弹窗纪律：浮层一律 usePopup（统一组合器——定位/视口夹紧/Escape/portal）
-  // range 模式：anchor = 活动 thumb 的 input（hover/focus/拖拽的当前 thumb）
-  const popup = ctx.ui.usePopup({
-    trigger: 'manual', // hover/拖动由 input 事件手动管理
-    placement: 'top',
-    gap: 8,
-    el: () => (activeThumb === 'lo' ? loInputEl : activeThumb === 'hi' ? hiInputEl : inputEl) as HTMLElement | null,
-    isOpen: () => tipOpen,
-    setOpen: (v) => { if (!v) setTip(false) },
-    position: () => tipPos ? { x: tipPos.left, y: tipPos.top } : { x: 0, y: 0 },
-  })
+  // §5.4 弹窗纪律：浮层一律命令式弹窗（唯一形态——openPopup——定位/视口夹紧/
+  // Escape/外部点击——range 模式：anchor = 活动 thumb 的 input）
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncTip = (tip: import('../../vdom/index.ts').VNode | null): void => {
+    if (tipOpen && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'slider-tooltip',
+        anchor: () => (activeThumb === 'lo' ? loInputEl : activeThumb === 'hi' ? hiInputEl : inputEl) as HTMLElement | null,
+        position: () => tipPos ? { x: tipPos.left, y: tipPos.top } : { x: 0, y: 0 },
+        content: () => tip,
+        onClose: () => { handle = null; if (tipOpen) setTip(false) },
+      })
+    else if (!tipOpen && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(tip)
+  }
   const browser = ctx.browser ?? createClientBrowser()
 
   return async (props: SliderProps) => {
@@ -118,7 +123,7 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
         const r = activeEl.getBoundingClientRect()
         if (r.width > 0) {
           tipPos = { left: Math.round(r.left + thumbX(r.width, activePct / 100)), top: Math.round(r.top - 36) }
-          // **禁止 renderFn 里 popup.refresh()（真实 bug——hover 卡死）**：
+          // **禁止 renderFn 里 handle?.refresh()（真实 bug——hover 卡死）**：
           // refresh 的 position 分支末尾 env.requestRender() → 重渲染 →
           // renderFn → refresh → **无限循环**（页面主线程忙死——hover slider
           // 立即卡死——playwright 复现）——拖拽跟随改由值变化事件（onInput/
@@ -148,12 +153,12 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
         onInput: disabled ? undefined : (e: Event) => {
           const v = clamp(toActual(Number((e.target as HTMLInputElement).value)))
           onRangeChange?.([which === 'lo' ? v : rangeVal[0], which === 'hi' ? v : rangeVal[1]])
-          popup.refresh()
+          handle?.refresh()
         },
         onChange: disabled ? undefined : (e: Event) => {
           const v = clamp(toActual(Number((e.target as HTMLInputElement).value)))
           onRangeChange?.([which === 'lo' ? v : rangeVal[0], which === 'hi' ? v : rangeVal[1]])
-          popup.refresh()
+          handle?.refresh()
         },
         onPointerDown: disabled ? undefined : () => { dragging = true; activeThumb = which; setTip(true) },
         onPointerUp: disabled ? undefined : (e: Event) => {
@@ -193,11 +198,11 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
         marksRow,
       ])
       const row = h('div', { class: 'wf-slider' }, [trackWrap, display])
-      if (!label) return h('div', { class: 'wf-slider-wrap' }, [row, tip])
+      syncTip(tip)
+      if (!label) return h('div', { class: 'wf-slider-wrap' }, [row])
       return h('div', { class: 'wf-slider-wrap' }, [
         h('label', { class: 'wf-slider-label' }, label),
         row,
-        tip ? popup.portal(tip, 'slider-tooltip') : null,
       ])
     }
 
@@ -221,8 +226,8 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
       // 只绑 onChange 时拖拽中气泡/数值显示陈旧（marker 与数值不一致——真实事故：
       // components-demo 2000 slider 拖到 1500 气泡仍显示 1000）。
       // onChange 绑 input（实时）+ onChangeEnd 收尾（pointerup——commit 语义）
-      onInput: disabled || !onChange ? undefined : (e: Event) => { onChange(toActual(Number((e.target as HTMLInputElement).value))); popup.refresh() },
-      onChange: disabled || !onChange ? undefined : (e: Event) => { onChange(toActual(Number((e.target as HTMLInputElement).value))); popup.refresh() },
+      onInput: disabled || !onChange ? undefined : (e: Event) => { onChange(toActual(Number((e.target as HTMLInputElement).value))); handle?.refresh() },
+      onChange: disabled || !onChange ? undefined : (e: Event) => { onChange(toActual(Number((e.target as HTMLInputElement).value))); handle?.refresh() },
       // 专业交互：hover/focus/拖拽显示当前值气泡；拖拽结束回调
       onPointerDown: disabled ? undefined : () => { dragging = true; setTip(true) },
       onPointerUp: disabled ? undefined : (e: Event) => {
@@ -274,12 +279,12 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
       display,
     ])
 
-    if (!label) return h('div', { class: 'wf-slider-wrap' }, [row, tip])
+    syncTip(tip)
+    if (!label) return h('div', { class: 'wf-slider-wrap' }, [row])
 
     return h('div', { class: 'wf-slider-wrap' }, [
       h('label', { class: 'wf-slider-label' }, label),
       row,
-      tip ? popup.portal(tip, 'slider-tooltip') : null,
     ])
   }
 }
