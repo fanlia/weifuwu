@@ -36,6 +36,9 @@ export interface ComponentRecord {
   lastOutput?: VNodeChild | null
   /** hook 调用顺序（渲染期重置——状态按 index 缓存） */
   hookSeq: { n: number }
+  /** 渲染期 hook 基准（mount 阶段 hook 计数——渲染 hook 用其后空间——
+   *  与 mount 的 usePopup 等分离——索引冲突根治） */
+  renderBase: number
   /** hook 状态缓存（per-instance——useOpen 等渲染期 hooks） */
   hookStates: Map<number, unknown>
 }
@@ -96,7 +99,11 @@ export async function renderComponent(
   if (!rec) {
     // per-instance ctx（共享面继承 + onUnmount 收集到实例记录 + hooks 注入面）
     const onUnmounts: (() => void)[] = []
-    // hook 状态缓存（渲染期调用——按调用顺序 index——per-instance）
+    // hook 状态缓存（mount 与渲染分离——mount 的 usePopup 等占用 0..N；
+    // 渲染期 hook（useControlledInput/useMedia）从 renderBase 起——
+    // **真实 bug（AutoComplete 抓出）**：渲染期 hook idx=0 撞 mount 的
+    // usePopup idx 0——读到 usePopup 的 state（无 keyword 字段——undefined
+    // ——输入框显示 'undefined'）
     const hookStates = new Map<number, unknown>()
     const hookSeq = { n: 0 }
     const instCtx = Object.create(sharedCtx) as UIContext
@@ -113,12 +120,18 @@ export async function renderComponent(
     })
     // 工厂 = mount（一次——可 await ctx.data——管道保证 resolve）
     const maybeRenderFn = factory(vn.props, instCtx)
-    rec = { type: factory, renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates }
+    rec = { type: factory, renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0 }
+    // **mount 阶段 hook 计数 → 渲染期基准**（渲染 hook idx = renderBase + seq）
+    rec.renderBase = hookSeq.n
     registry.set(compId, rec)
   }
 
   // renderFn = 每次渲染（读最新 props——可 await——输出 null/数组/vnode）
-  rec.hookSeq.n = 0 // 渲染期 hook 调用顺序重置（状态按 index 缓存保持）
+  // **渲染期 hook 从 renderBase 起**（mount 的 usePopup 等占用 0..N——
+  // 渲染 hook（useControlledInput/useMedia）用 mount 之后的空间——
+  // 真实 bug（AutoComplete 抓出）：idx 撞 mount 的 usePopup——读到
+  // usePopup 的 state（无 keyword 字段——undefined——输入框显示 'undefined'））
+  rec.hookSeq.n = rec.renderBase
   const out = await rec.renderFn(vn.props)
   // 记录输出（diff 对照——同实例更新就地对上次输出 patch）
   rec.lastOutput = out

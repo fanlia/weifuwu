@@ -12,6 +12,7 @@ import { h, type Component, type VNode, createStore } from '../../client/vdom/in
 import { createPortal } from '../../client/vdom/core/node/portal.ts'
 import { SmokeScene } from './components/smoke-registry.ts'
 import { Input as CInput, InputNumber as CInputNumber, Textarea as CTextarea, SearchInput as CSearchInput, PasswordInput as CPasswordInput, PinInput as CPinInput, Switch as CSwitch, Checkbox as CCheckbox, RadioGroup as CRadioGroup, Slider as CSlider, Rate as CRate, TagsInput as CTagsInput, SegmentedControl as CSegmentedControl, ToggleGroup as CToggleGroup } from '../../client/components/index.ts'
+import { Select as CSelect, AutoComplete as CAutoComplete, Cascader as CCascader, TreeSelect as CTreeSelect, Transfer as CTransfer, ColorPicker as CColorPicker, DatePicker as CDatePicker, Calendar as CCalendar } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -730,6 +731,80 @@ const DeepToggle = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+// ── 深度场景组 2：选择组件（参数行为断言） ─────────────────────────────
+const DeepSelect = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-select-scene' },
+      h(CSelect, { options: [{ value: 'a', label: '苹果' }, { value: 'b', label: '香蕉' }, { value: 'c', label: '橙子' }], placeholder: '选水果', onChange: (v: string | string[]) => { log += `v:${String(v)};`; ctx.render() } }),
+      h('span', { class: 'deep-select-log' }, log),
+    )
+}
+
+const DeepAutoComplete = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-autocomplete-scene' },
+      h(CAutoComplete, { options: [{ value: '支付平台管理' }, { value: '支付平账系统' }, { value: '用户中心' }], value: '', placeholder: '搜索', onChange: (v: string) => { log += `v:${v};`; ctx.render() } }),
+      h('span', { class: 'deep-autocomplete-log' }, log),
+    )
+}
+
+const DeepCascader = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-cascader-scene' },
+      h(CCascader, { options: [{ value: 'zhejiang', label: '浙江', children: [{ value: 'hangzhou', label: '杭州' }, { value: 'ningbo', label: '宁波' }] }, { value: 'jiangsu', label: '江苏', children: [{ value: 'nanjing', label: '南京' }] }], placeholder: '省市区', onChange: (v: unknown) => { log += `v:${String(v)};`; ctx.render() } }),
+      h('span', { class: 'deep-cascader-log' }, log),
+    )
+}
+
+const DeepTreeSelect = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-treeselect-scene' },
+      h(CTreeSelect, { options: [{ key: '1', label: '节点1', children: [{ key: '1-1', label: '子节点1-1' }] }, { key: '2', label: '节点2' }], placeholder: '选树', onChange: (v: unknown) => { log += `v:${String(v)};`; ctx.render() } }),
+      h('span', { class: 'deep-treeselect-log' }, log),
+    )
+}
+
+const DeepTransfer = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-transfer-scene' },
+      h(CTransfer, { data: [{ key: '1', label: '项1' }, { key: '2', label: '项2' }, { key: '3', label: '项3' }], onChange: (k: string[]) => { log += `v:${k.join(',')};`; ctx.render() } }),
+      h('span', { class: 'deep-transfer-log' }, log),
+    )
+}
+
+const DeepColorPicker = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-colorpicker-scene' },
+      h(CColorPicker, { value: '#1677ff', onChange: (c: string) => { log += `v:${c};`; ctx.render() } }),
+      h('span', { class: 'deep-colorpicker-log' }, log),
+    )
+}
+
+const DeepDatePicker = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-datepicker-scene' },
+      h(CDatePicker, { value: '2026-01-15', onChange: (v: string) => { log += `v:${v};`; ctx.render() } }),
+      h('span', { class: 'deep-datepicker-log' }, log),
+    )
+}
+
+const DeepCalendar = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-calendar-scene' },
+      h(CCalendar, { selectedDate: '2026-01-15', onSelectDate: (v: string) => { log += `v:${v};`; ctx.render() } }),
+      h('span', { class: 'deep-calendar-log' }, log),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -785,6 +860,14 @@ export const scenarios: Scenario[] = [
   { id: 'deep-tags', title: 'TagsInput 参数（maxTags/onChange）', render: DeepTags },
   { id: 'deep-segmented', title: 'SegmentedControl 参数（options/onChange）', render: DeepSegmented },
   { id: 'deep-toggle', title: 'ToggleGroup 参数（type/onChange）', render: DeepToggle },
+  { id: 'deep-select', title: 'Select 参数（options/onChange）', render: DeepSelect },
+  { id: 'deep-autocomplete', title: 'AutoComplete 参数（options/onChange）', render: DeepAutoComplete },
+  { id: 'deep-cascader', title: 'Cascader 参数（级联选择）', render: DeepCascader },
+  { id: 'deep-treeselect', title: 'TreeSelect 参数（树选择）', render: DeepTreeSelect },
+  { id: 'deep-transfer', title: 'Transfer 参数（穿梭）', render: DeepTransfer },
+  { id: 'deep-colorpicker', title: 'ColorPicker 参数（选色）', render: DeepColorPicker },
+  { id: 'deep-datepicker', title: 'DatePicker 参数（选日期）', render: DeepDatePicker },
+  { id: 'deep-calendar', title: 'Calendar 参数（切换/选日）', render: DeepCalendar },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
