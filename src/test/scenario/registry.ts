@@ -17,6 +17,7 @@ import { Tabs as CTabs, Menu as CMenu, Pagination as CPagination, Table as CTabl
 import { Modal as CModal, Drawer as CDrawer, Popover as CPopover, Tooltip as CTooltip, Dropdown as CDropdown, Popconfirm as CPopconfirm, HoverCard as CHoverCard, ActionSheet as CActionSheet, Command as CCommand, Menubar as CMenubar } from '../../client/components/index.ts'
 import { Form as CForm, Field as CField, JsonSchemaForm as CJsonSchemaForm, SortableList as CSortableList, Resizable as CResizable } from '../../client/components/index.ts'
 import { Kanban as CKanban, InfiniteScroll as CInfiniteScroll, CodeEditor as CCodeEditor, MarkdownEditor as CMarkdownEditor, Editor as CEditor, Table as CTable2 } from '../../client/components/index.ts'
+import { AiChat as CAiChat, FileUpload as CFileUpload } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -1117,6 +1118,36 @@ const DeepTableSelect = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+// ── 深度场景组 7：AI 对话 + 文件上传 ──────────────────────────────────
+const DeepAiChat = (_i: Record<string, never>, ctx: any) => {
+  const chat = ctx.ui.useChat({ url: '/api/chat' })
+  ctx.ui.onUnmount(chat.subscribe(() => ctx.render()))
+  return () =>
+    h('div', { class: 'deep-aichat-scene' },
+      h(CAiChat, { chat, maxHeight: '300px' }),
+    )
+}
+
+const DeepFileUpload = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-fileupload-scene' },
+      h(CFileUpload, { onChange: (f: File[]) => { log += `v:${f.map((x) => x.name).join(',')};`; ctx.render() } }),
+      h('span', { class: 'deep-fileupload-log' }, log),
+    )
+}
+
+const DeepEditor = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  let val = ''
+  return () =>
+    h('div', { class: 'deep-editor-scene' },
+      h(CEditor, { value: val, onChange: (v: string) => { val = v; log += `v:${v.slice(-6)};`; ctx.render() } }),
+      h('span', { class: 'deep-editor-log' }, log),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -1208,6 +1239,9 @@ export const scenarios: Scenario[] = [
   { id: 'deep-codeeditor', title: 'CodeEditor（编辑 onChange）', render: DeepCodeEditor },
   { id: 'deep-mdeditor', title: 'MarkdownEditor（编辑 onChange）', render: DeepMdEditor },
   { id: 'deep-tableselect', title: 'Table 行选择（selectedKeys）', render: DeepTableSelect },
+  { id: 'deep-aichat', title: 'AiChat（流式对话）', render: DeepAiChat },
+  { id: 'deep-fileupload', title: 'FileUpload（文件选择）', render: DeepFileUpload },
+  { id: 'deep-editor', title: 'Editor（编辑 onChange）', render: DeepEditor },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

@@ -97,3 +97,49 @@ test('deep-tableselect：行选择 → onSelectChange', async () => {
     await page.close()
   }
 })
+
+// ── 场景 7：AiChat（流式对话——真实 NDJSON fixture） ───────────────────
+test('deep-aichat：输入发送 → 流式回复累积显示', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'deep-aichat')
+    // 输入 + 发送
+    const input = page.locator('.deep-aichat-scene textarea, .deep-aichat-scene input').first()
+    await input.click()
+    await page.keyboard.type('你好')
+    await page.keyboard.press('Enter')
+    // 流式回复（NDJSON 分块——你→你好→你好！）
+    await page.waitForFunction(() => (document.querySelector('.deep-aichat-scene')?.textContent ?? '').includes('你好！'), '流式回复累积（assistant 你好！）', { timeout: 6000 })
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 8：FileUpload（文件选择 → onChange） ──────────────────────────
+test('deep-fileupload：选择文件 → onChange（文件名列表）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'deep-fileupload')
+    // 上传文件（playwright setInputFiles）
+    await page.locator('.deep-fileupload-scene input[type="file"]').setInputFiles({
+      name: '测试.txt', mimeType: 'text/plain', buffer: Buffer.from('内容'),
+    })
+    await page.waitForFunction(() => (document.querySelector('.deep-fileupload-log')?.textContent ?? '').includes('v:测试.txt'), '选择文件 → onChange(测试.txt)', { timeout: 2500 })
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 9：Editor（编辑 → onChange） ──────────────────────────────────
+test('deep-editor：输入编辑 → onChange', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'deep-editor')
+    const area = page.locator('.deep-editor-scene [contenteditable], .deep-editor-scene textarea, .deep-editor-scene input').first()
+    await area.click()
+    await page.keyboard.type('编辑内容')
+    await page.waitForFunction(() => (document.querySelector('.deep-editor-log')?.textContent ?? '').length > 0, '编辑 → onChange', { timeout: 2500 })
+  } finally {
+    await page.close()
+  }
+})
