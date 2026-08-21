@@ -170,14 +170,16 @@ test('价格区间：lo/hi hover → 300/1500 + 独立拖拽（lo 600 / hi 1800�
   }
 })
 
-test('marks 对齐（5 dot 中心 = thumbOffset 公式 ±1px——轮询等布局稳定）', async () => {
+test('marks 对齐（5 dot 中心 = thumbOffset 公式 ±1px——deadline 轮询等布局稳定）', async () => {
   const page = await browser.newPage()
   try {
     await openShowcase(page, BASE, COMP_PATH)
-    // 全量并发下布局（字体/CSS）偶发未稳定——evaluate 轮询直到对齐（竞态根治）
+    // 全量并发下布局（字体/CSS）偶发未稳定——deadline 轮询（evaluate 快——
+    // 次数上限不够等字体加载——改时长上限 5s）
     let info: number[] = []
     let ok = false
-    for (let i = 0; i < 30; i++) {
+    const deadline = Date.now() + 5000
+    while (Date.now() < deadline) {
       info = await page.evaluate(() => {
         const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
         const price = inputs[2]
@@ -197,24 +199,31 @@ test('marks 对齐（5 dot 中心 = thumbOffset 公式 ±1px——轮询等布�
   }
 })
 
-test('垂直对齐：thumb/fill/mark dot 同一水平线（±1px）', async () => {
+test('垂直对齐：thumb/fill/mark dot 同一水平线（±1px——轮询等布局稳定）', async () => {
   const page = await browser.newPage()
   try {
     await openShowcase(page, BASE, COMP_PATH)
-    const info = await page.evaluate(() => {
-      const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
-      const mid = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2 }
-      const price = inputs[2]
-      const rangeLo = inputs[3]
-      const fill = rangeLo.parentElement?.querySelector('.wf-slider-range-fill')
-      const dot = price.parentElement?.querySelector('.wf-slider-mark-dot')
-      return {
-        priceInputMid: mid(price), priceDotMid: dot ? mid(dot) : null,
-        rangeInputMid: mid(rangeLo), rangeFillMid: fill ? mid(fill) : null,
-      }
-    })
-    assert.ok(info.priceDotMid !== null && Math.abs(info.priceInputMid - info.priceDotMid) <= 1, `价格 thumb/dot 同线（${Math.round(info.priceInputMid)} vs ${Math.round(info.priceDotMid)}）`)
-    assert.ok(info.rangeFillMid !== null && Math.abs(info.rangeInputMid - info.rangeFillMid) <= 1, `价格区间 thumb/fill 同线（${Math.round(info.rangeInputMid)} vs ${Math.round(info.rangeFillMid)}）`)
+    // 全量并发布局（字体/CSS）偶发未稳定——轮询（与 marks 对齐同款竞态根治）
+    let ok = false
+    let last: { priceDotMid: number | null; rangeFillMid: number | null; priceInputMid: number; rangeInputMid: number } | null = null
+    for (let i = 0; i < 30; i++) {
+      last = await page.evaluate(() => {
+        const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
+        const mid = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2 }
+        const price = inputs[2]
+        const rangeLo = inputs[3]
+        const fill = rangeLo.parentElement?.querySelector('.wf-slider-range-fill')
+        const dot = price.parentElement?.querySelector('.wf-slider-mark-dot')
+        return {
+          priceInputMid: mid(price), priceDotMid: dot ? mid(dot) : null,
+          rangeInputMid: mid(rangeLo), rangeFillMid: fill ? mid(fill) : null,
+        }
+      })
+      if (last.priceDotMid !== null && Math.abs(last.priceInputMid - last.priceDotMid) <= 1
+        && last.rangeFillMid !== null && Math.abs(last.rangeInputMid - last.rangeFillMid) <= 1) { ok = true; break }
+      await page.waitForTimeout(100)
+    }
+    assert.ok(ok, `thumb/dot/fill 同线（价格 ${last?.priceDotMid !== null ? Math.round(last.priceInputMid - last.priceDotMid) : '无 dot'}px / 区间 ${last?.rangeFillMid !== null ? Math.round(last.rangeInputMid - last.rangeFillMid) : '无 fill'}px）`)
   } finally {
     await page.close()
   }
