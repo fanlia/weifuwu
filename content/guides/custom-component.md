@@ -70,71 +70,78 @@ const Toggle: Component = async (_init, ctx) => {
 
 ## 2. 带弹层的组件（最高频的自定义场景）
 
-用 `ctx.ui.usePopup`——一个组合器收敛 open 状态 + 触发（hover→tap 降级/longpress）+ Escape + 外部点击 + 定位/视口 clamp + portal：
+用 `ctx.ui.openPopup`——命令式弹窗（toast 心智——调用点构建内容——内核
+  自管理挂载/更新/卸载——返回 handle `{ close, update, open }`——定位/外部点击
+  /Escape/视口夹紧/presence/mask 全内置）——组件输出纯业务（无槽）
 
 ```tsx
 const MyPopover: Component<{ content: string }> = async (_init, ctx) => {
   let open = false
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
+  let handle: PopupHandle | null = null
 
-  const popup = ctx.ui.usePopup({
-    trigger: 'hover',          // 触屏自动降级 tap（useHoverCapable 内部判定）
-    el: () => wrapEl,          // 锚点
-    isOpen: () => open,
-    setOpen: (v) => { open = v; ctx.ui.render() },   // 改状态 + render
-    width: 320,                // 自动 clamp 视口
-    closeOnOutside: true,      // 外部点击关闭（默认）
-    closeOnEscape: true,       // Escape 关闭（默认，document 级——portal 焦点也生效）
-  })
-
-  return async (props) =>
-    h('span', { class: 'anchor', ref: wrapRef, ...popup.wrapProps },
-      props.children,
-      popup.portal(h('div', { class: 'wf-panel' }, props.content)),
-    )
-}
-```
-
-> **受控弹层**：传 `open` getter + `onOpenChange` 即受控（父组件独占开关）；缺 onOpenChange 时 usePopup 内部 warn 提示。
-
-## 3. 对话框类组件（Modal 系）
-
-全屏对话框（焦点 trap + 滚动锁 + 退场动画）是 usePopup 的**会话级模态模式**（`presence/trapFocus/lockScroll/positioning: 'none'`——Modal/Drawer 同款）：
-
-```tsx
-const MyDialog: Component<{ open: boolean; onClose: () => void }> = async (_init, ctx) => {
-  let latestOpen = false
-  const popup = ctx.ui.usePopup({
-    presence: true,      // 退场状态机（open → exit → closed + animationend）
-    trapFocus: true,     // 焦点 trap（面板挂载锁定/卸载归还）
-    lockScroll: true,    // 滚动锁（打开锁 / 面板卸载释放）
-    positioning: 'none', // 组件自定义定位（.wf-modal inset:0 居中）
-    closeOnOutside: false, closeOnEscape: false, // 关闭语义组件自控
-    isOpen: () => latestOpen,
-    setOpen: () => {},
-  })                     // mount 创建
+  // 句柄同步样板（受控 + 内容更新 + 关闭清理——每次渲染恒调用）
+  const syncPopup = (content: string) => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        anchor: () => wrapEl,     // **anchor 必传**（触发区是锚点——否则被当外部点击关闭）
+        content: () => h('div', { class: 'wf-panel' }, content),
+        onClose: () => { handle = null; open = false; ctx.ui.render() },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(h('div', { class: 'wf-panel' }, content))
+  }
 
   return async (props) => {
-    latestOpen = !!props.open
-    const phase = popup.sync!(latestOpen)                // render 同步 open
-    if (phase === 'closed') return null
-
-    return popup.portal(h('div', {
-      class: 'wf-overlay',
-      onClick: (e: any) => { if (e.target === e.currentTarget) props.onClose() },
-    }, h('div', {
-      class: `wf-modal ${phase === 'exit' ? 'wf-modal--exit' : 'wf-modal--enter'}`,
-      onKeyDown: (e: any) => { if (e.key === 'Escape') props.onClose() },  // Escape 语义组件层
-    }, props.children)), 'modal')   // portalKey 语义化（#__wf_portal 容器标记）
+    syncPopup(props.content)
+    return h('span', {
+      class: 'anchor', ref: wrapRef,
+      onMouseEnter: () => { open = true; ctx.ui.render() },   // hover 触发（组件自管）
+      onMouseLeave: () => { open = false; ctx.ui.render() },
+    }, props.children)
   }
 }
 ```
 
-> **ref 接线**：`trapFocus`/`lockScroll`/presence 退场监听全部由 usePopup 内部接线到 portal 面板
-> （`portalPanelRef`——content 的 `ref` prop 会被转发调用）——组件层无需手挂 `rootRef`/`panelRef`。
-> 低层原语 `trapFocus`/`lockScroll` 已收编为 usePopup 内部实现（**不对外导出**——AGENTS.md §5.4）；
-> `animateOut` 仍从 `weifuwu/ui-dom` 导出（非弹窗动画场景用）。
+> **受控弹层**：open 状态由父组件独占（props.open + onOpenChange）——组件内部
+> 只做句柄同步；非受控（无 open prop）时组件自管状态（`let open` + 触发事件）。
+> **关闭路径**：内核 onClose 回调（外部点击/Escape 触发）同步句柄 + 状态——
+> 组件无需显式清空（内核 dispose 全权）。
+
+## 3. 对话框类组件（Modal 系）
+
+全屏对话框（焦点 trap + 滚动锁 + 退场动画）是 openPopup 的**会话级模态模式**
+（`presence/trapFocus/lockScroll/positioning: 'none'`——Modal/Drawer 同款）：
+
+```tsx
+const MyDialog: Component<{ open: boolean; onClose: () => void }> = async (_init, ctx) => {
+  let handle: PopupHandle | null = null
+  return async (props) => {
+    // 命令式同步（受控 + 退场：关闭前先渲染 exit class → close 播动画）
+    if (props.open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'dialog',
+        presence: true,      // 退场状态机（open → exit → closed + animationend）
+        trapFocus: true,     // 焦点 trap（面板挂载锁定/卸载归还）
+        lockScroll: true,    // 滚动锁（打开锁 / 卸载释放）
+        positioning: 'none', // 组件自定义定位（.wf-modal inset:0 居中）
+        closeOnOutside: false, closeOnEscape: false, // 关闭语义组件自控
+        content: () => h('div', { class: 'wf-overlay', onClick: (e: any) => { if (e.target === e.currentTarget) props.onClose() } },
+          h('div', { class: `wf-modal ${props.open ? 'wf-modal--enter' : 'wf-modal--exit'}`,
+            onKeyDown: (e: any) => { if (e.key === 'Escape') props.onClose() } }, props.children)),
+        onClose: () => { handle = null },
+      })
+    else if (!props.open && handle) { handle.update(rootVn); handle.close(); handle = null }
+    else if (handle) handle.update(rootVn)
+    return null   // 主树零输出
+  }
+}
+```
+
+> **ref 接线**：`trapFocus`/`lockScroll`/presence 退场监听全部由 openPopup 内核接线
+> （面板根元素自动挂 ref——组件层无需手挂）——低层原语已收编为内核实现（不对外导出）。
+> `animateOut` 仍可用（非弹窗动画场景）。
 
 ## 4. AI 组件
 
@@ -216,7 +223,7 @@ render() // 初始
 render() // 重渲染，状态保留
 ```
 
-- 弹层组件：`createPopupMock(isOpen)` 注入 `createTestCtx({ ui: { usePopup: () => popup } })`
+- 弹层组件：`createPopupMock(isOpen)` 注入 `createTestCtx({ ui: { openPopup: (opts) => popup } })`
 - 类型流测试：`@ts-expect-error` 负例（见 [type-flow.test.ts](../../src/components/type-flow.test.ts)）
 - 组件测试跑在 node --test；DOM 事件级测试需 `document.body.appendChild(container)`
 
@@ -307,7 +314,7 @@ const MyComp: Component = async (_init, ctx) => {
   - 断言/快照测试注意：`outerHTML` 包含这些属性与占位注释；按类选择器/子项数量断言不受影响
 - **列表 key 纪律**：渲染的列表是**有内部状态的组件实例 + 动态增删/重排**（如可输入的卡片）→ 必须显式 key（项 id），否则默认下标位置复用会让后续项继承被删项的内部状态；纯元素列表（格子/行/节点 div）默认下标即可——通用列表组件对外提供 `keyBy`（如 `List`）
 
-- `usePopup` 是**统一弹窗能力层**：锚定浮层（Tooltip/Popover/Dropdown/Select/AutoComplete/Mentions/Cascader/ContextMenu/NavMenu/Popconfirm/TreeSelect）+ 会话级模态（Modal/Drawer/Confirm——presence/trapFocus/lockScroll/positioning 'none'，Escape 语义留组件层）+ mask 模式（Command/Img preview/Tour——mask/maskCentered/自定义 mask VNode）+ focus 触发（DatePicker）+ positioning 'none' 常驻容器（Toast/Notification）——**全部弹窗单一入口**
+- `openPopup` 是**统一弹窗能力层**（命令式——toast 心智）：锚定浮层（Tooltip/Popover/Dropdown/Select/AutoComplete/Mentions/Cascader/ContextMenu/NavMenu/Popconfirm/TreeSelect）+ 会话级模态（Modal/Drawer/Confirm——presence/trapFocus/lockScroll/positioning 'none'，Escape 语义留组件层）+ mask 模式（Command/Img preview/Tour）+ positioning 'none' 常驻容器（Toast/Notification）——**全部弹窗单一入口**（组件内部句柄同步样板 ~10 行——anchor 必传）
 - **事件监听纪律**：组件库内部浏览器事件监听**统一走 `ctx.ui.useXXX`**——滚动/观察/弹层/对话框/快捷键/拖拽/DnD 全覆盖：
   `useInView`（InfiniteScroll）、`useScrollPosition`（AiChat/Affix/BackTop/VirtualList）、`usePopupPosition`（Affix 阈值重算）、`usePopup`（弹窗统一——ContextMenu 自由定位 + Modal/Drawer 模态模式 + mask 遮罩）、`useGlobalKey`（Command 快捷键/Img preview Escape）、`useDrag`（Resizable）、`useDragDrop`（FileUpload）、`useControlled`/`useStableRef`（状态/ref）
 - **唯一保留 usePopupPosition 独立使用**：Affix / Chart（坐标工具——非弹窗组合器，滚动跟随自动）

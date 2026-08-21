@@ -25,7 +25,7 @@
 | 标签页 | `<Tabs items active onChange>`（方向键 + 移动端横向滚动） | Tabs | Tabs | Tabs | 等价 |
 | 分页 | `<Pagination total page onChange>`（页码折叠 + 移动端 44px） | Pagination | Pagination | Pagination | 等价 |
 | 步骤条 | `<Steps items current>` | Steps | Steps | — | 等价 |
-| 下拉菜单 | `<Dropdown items>`（danger variant） | Dropdown | Dropdown | DropdownMenu | 等价（usePopup：外部点击/Escape 关闭） |
+| 下拉菜单 | `<Dropdown items>`（danger variant） | Dropdown | Dropdown | DropdownMenu | 等价（openPopup：外部点击/Escape 关闭） |
 | 水平菜单栏 | `<Menubar menus>`（←→↓ 键盘 + 触屏） | Menu 水平 | Menu | Menubar | 等价 |
 | 页面标题 | `<PageHeader title sub>` | PageHeader（v5 移除） | PageHeader | — | weifuwu 保留独立组件 |
 | 回到顶部 | `<BackTop threshold>` | FloatButton / BackTop | Backtop | — | 滚动超阈值显示 |
@@ -89,8 +89,8 @@
 | 模态框 | `<Modal open title onClose width>` | Modal | Dialog | Dialog | `open/onClose`（antd v5 同）；焦点 trap + 归还；移动端 bottom-sheet |
 | 确认框 | `<Confirm>` + `await confirm()` 命令式 | Popconfirm / Modal.confirm | Popconfirm / MessageBox | AlertDialog | 声明式 + 命令式双模式 |
 | 抽屉 | `<Drawer position="left\|right\|top\|bottom">` | Drawer | Drawer | Sheet / Drawer | **四方向覆盖 shadcn Sheet + Drawer**；移动端全宽 |
-| 气泡 | `<Popover position>`（视口夹紧） | Popover | Popover | Popover | 等价（usePopup：外部点击/Escape/tap 降级） |
-| 悬浮提示 | `<Tooltip content position>`（string） | Tooltip | Tooltip | Tooltip | usePopup：桌面 hover / 触屏 tap |
+| 气泡 | `<Popover position>`（视口夹紧） | Popover | Popover | Popover | 等价（openPopup：外部点击/Escape/tap 降级） |
+| 悬浮提示 | `<Tooltip content position>`（string） | Tooltip | Tooltip | Tooltip | openPopup：桌面 hover / 触屏 tap |
 | 悬停卡 | `<HoverCard content>`（富内容 + 延迟） | — | — | HoverCard | shadcn 对齐；触屏 tap |
 | 右键菜单 | `<ContextMenu items>` | Dropdown context | — | ContextMenu | 桌面右键 + **触屏长按**双通道 |
 | 消息 | `<Toast>` + `toast()` 命令式 | message | Message | Sonner | 命令式 `toast('已保存','success')` |
@@ -212,7 +212,7 @@
 | 组件 | 类型 | 三库等价 | 要点 |
 |------|------|---------|------|
 | **Layout**（+LayoutHeader/Sider/Content/Footer） | 新增 | antd Layout / EP Container / shadcn Sidebar | 复合子组件双模式；含 Sider → row 布局；Sider 折叠受控/非受控 + trigger |
-| **Popconfirm** | 新增 | antd / EP Popconfirm | 复用 usePopup 基座（弹层组合性）；danger 危险色；确认后自动关闭 |
+| **Popconfirm** | 新增 | antd / EP Popconfirm | openPopup 命令式弹窗；danger 危险色；确认后自动关闭 |
 | **AutoComplete** | 新增 | antd+EP Autocomplete / shadcn Combobox | 自由输入联想；包含过滤（纯函数）；键盘 ↓↑/Enter/Escape；选中回填；error 错误态 |
 | **Link** | 新增 | EP Link / antd Typography.Link | 语义色/下划线/disabled/new window/icon |
 | **FloatButton** | 新增 | antd FloatButton（特有） | fixed 定位 + badge + 组展开状态机 |

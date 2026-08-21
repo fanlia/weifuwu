@@ -53,7 +53,7 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | navigate | 链接拦截 pushState 导航整树替换 |
 | ssr-adopt | SSR 结构吸收（首帧复用 DOM——输入焦点/值保持——失败回退重建） |
 | use-external/media/popup/chat/scroll/in-view/drag-drop/controlled-input | hooks 全契约（快照 vs getter 用法、受控回调、IO/滚动事件驱动） |
-| popup-placement/close-switch/hover/controlled-none/presence/mask/trap | usePopup 参数矩阵（placement 四方向/center/gap/margin 夹紧/关闭开关/受控/none/presence 退场/mask 遮罩/trapFocus+lockScroll） |
+| popup-placement/close-switch/hover/controlled-none/presence/mask/trap | openPopup 参数矩阵（placement 四方向/center/gap/margin 夹紧/关闭开关/受控/none/presence 退场/mask 遮罩/trapFocus+lockScroll） |
 | toast-fire/confirm-command | 命令式中间件（toast 自动消失/confirm resolve/notification——BUG#3 回归） |
 | use-controlled/breakpoint/tween/drag/visual-viewport | 剩余 hooks（受控/断点/补间/指针拖拽/视口） |
 | component-smoke | 组件冒烟（127 项陈列——渲染全 + 点击扫描 console.error 零） |
@@ -71,7 +71,7 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 3. **SSR 吸收**：uiServe 首帧 root 有内容 → DFS 序游标结构对齐复用——mismatch → 原子回退清空重建（无 data-v3-id——纯结构匹配）
 4. **create attrs 不含事件**（函数过滤）——事件经事件表（diff setProp 路径注册——首帧函数也经事件通道）
 5. **style 整体替换**：style 对象 = 组件声明完整样式——applyStyle 先清空旧值（键消失不残留）
-6. **useMedia 返回快照**——必须在 renderFn 内调用（mount 闭包永不更新）——usePopup/useExternal 是 getter/handle 可 mount
+6. **useMedia 返回快照**——必须在 renderFn 内调用（mount 闭包永不更新）——useExternal 是 getter/handle 可 mount（弹窗经 openPopup 命令式——无 hook）
 7. **useChat.messages 是数组替换**——useExternal mount 闭包失效——AiChat 标准模式：subscribe(cb → ctx.render) + 渲染期读 getter
 8. **useControlledInput**：onInput 事件（逐键——onChange 映射 change 失焦才触发）——setKeyword 内部态 + setValue 回流
 9. **i18n/ws 无自动渲染**——setLocale 后手动 render——ws handler 是 { open, message } 对象
@@ -79,12 +79,13 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 11. **create attrs 的 value 必须走 property 通道**：`setAttribute('value')` 对 textarea 无效（IDL 不设——值来自 property/children）——applyAttribute 统一 property（与 innerHTML/textContent 同类）
 12. **useScrollPosition 目标容器必须传 null 而非 window fallback**：`getScroller: () => el ?? window` 首帧 el 未挂载 → 绑定 window——el 后挂载永不重绑（滚动监听失效）——`?? null` 触发重试重绑（VirtualTable 虚拟化不更新实证）
 13. **VirtualTable 排序是字典序**（字符串比较——用户10000 在 用户2 前）——虚拟化滚动容器是 `.wf-virtual-table-body`（外层不滚）；Slider marks 对齐断言必须轮询等布局稳定（全量并发字体/CSS 偶发未稳定）
-14. **portal 独立通道契约**（引擎独立化——阶段 1 落地）：portal vnode 是
-    usePopup 内部插槽（`[children, popup.portal()]`——框架切换槽非业务列表）
-    ——① 开关浮层**业务项零命令**（root.* 无 create/setProp/remove——位置复用
-    ——diff.test 契约）② A 级检测豁免（业务组件序列不变不报）③ 混合数组
-    （业务 keyed + portal）关闭 removePortal 对齐——阶段 2（组件输出纯业务
-    ——28 组件迁移）见 design/portal-channel-plan.md（里程碑评估后可回滚）
+14. **命令式弹窗唯一形态**（2027-03 定稿——design/imperative-popup-plan.md）：
+    `ctx.ui.openPopup(opts)` → PopupHandle（toast 心智——调用点构建内容——
+    内核自管理挂载/更新/卸载/销毁）——usePopup/portal()/Portal vnode/
+    removePortal 全部删除——组件输出纯业务（无槽无游离调用）——组件内部
+    句柄同步样板（受控 + 内容更新 + onClose + 卸载清理——~10 行）——
+    **anchor 必传**（无 anchor 时 closeOnOutside 把触发按钮当外部点击关闭
+    → click 又 toggle 重开死循环——portal-toggle 测试挂起实证）
 15. **Slider marks/垂直对齐断言必须 deadline 轮询**（evaluate 快——次数上限
     不够等字体加载——全量并发偶发——5s 时长上限根治）
 
@@ -123,9 +124,9 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 
 | 层 | 修复 | 受益面 |
 | --- | --- | --- |
-| **核心层** | diff 混合数组 unkeyed 旧项移除（含 portal——removePortal） | 所有浮层关闭残留（Menubar 面板/Dropdown/Select 等） |
-| | procUnmount 组件卸载清理输出 portal（dispose 协议补全） | 条件渲染移除组件（`{open && <X/>}`）的浮层残留 |
-| | usePopup positioning 'none' 也 refresh（panelRefImpl） | 自定位组件（Tour highlight/bubble）定位失效 |
+| **核心层** | openPopup 命令式内核（独立实例/版本守卫/定位/交互/presence/mask） | 全部浮层生命周期自管理（零遗漏零残留） |
+| | openPopup anchor 必传纪律 | 触发按钮被当外部点击关闭 → 关闭-重开循环（portal-toggle 实证） |
+| | openPopup position width 支持（面板宽度跟随 trigger） | DatePicker 面板宽度 |
 | | serve.ts 首帧吸收标记判定（hasSsrMark） | 静态预置 HTML 页面（showcase 首页）吸收错配崩溃 |
 | | create-client-browser copyText 降级链（clipboard→execCommand） | 全组件复制按钮（非 https 权限拒绝） |
 | | applyAttribute 的 value 走 property 通道（textarea 值创建统一） | 全部 textarea/input 值（CodeEditor 代码区空——实测 IDL） |

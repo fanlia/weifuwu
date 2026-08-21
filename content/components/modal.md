@@ -37,7 +37,7 @@
 ## 纪律/坑
 
 - 退场动画：exit 类必须挂载（animationend 驱动卸载）——reduced-motion 下动画降为 0.01ms 等效瞬时
-- 会话级模态四件套：presence/trapFocus/lockScroll 由 usePopup 统一提供
+- 会话级模态四件套：presence/trapFocus/lockScroll 由 openPopup 内核统一提供
 
 ## 关系
 

@@ -138,7 +138,7 @@ h('div', { class: 'x' }, child1, child2)
 |------|------|
 | `h(type, props, ...children)` | hyperscript |
 | `jsx` / `jsxs` / `jsxDEV` | JSX 编译目标 |
-| `ctx.ui.usePopup(...)` | 弹层唯一入口（内部经 Portal 渲染到 `#__wf_portal`——用户不直接调 `createPortal`） |
+| `ctx.ui.openPopup(opts)` | 命令式弹窗唯一入口（toast 心智——调用点构建内容——内核自管理挂载/更新/卸载/销毁——返回 `{ close, update, open }`） |
 
 > **Fragment 内化（2026-12）**：不需要 import Fragment——**数组 = 隐式 Fragment**
 > （任意嵌套递归展开——扁平化为同一 children 序列）；`<></>` 也可（JSX 编译器
@@ -190,26 +190,27 @@ x || <Fallback/>               // ❌ x 为 0/''/NaN 时返回 x 本身——渲
 空洞做占位（同构——兄弟不错位——提交按钮事故免疫）；对非法输入 warn（不静默）。
 开发者只需遵守三条：三元优先、`&&` 的左侧保证 boolean、不写 `||` 条件渲染。
 
-> **Portal 内化（2026-12）**：`createPortal` 是 `usePopup` 的内部实现机制——
-> 组件作者不直接调用。所有浮层（dropdown/select/datepicker/menubar/cascader/
-> tooltip/popover/modal/drawer/toast 等）一律 `ctx.ui.usePopup`——定位/外部点击
-> 关闭/Escape/视口夹紧/portal 渲染全包。
+> **命令式弹窗（2027-03 定稿）**：所有浮层一律 `ctx.ui.openPopup`（toast 心智——
+> 调用点构建内容——内核自管理生命周期）——定位/外部点击关闭/Escape/视口夹紧/
+> presence 退场/mask 全内置——组件输出纯业务（无槽无游离调用）。
 
 ```tsx
-// 浮层正确姿势：usePopup（唯一入口——锚点定位 + 外部点击关闭 + Escape + portal）
+// 浮层正确姿势：openPopup（唯一入口——锚点定位 + 外部点击关闭 + Escape + 视口夹紧）
 const Tooltip = (_init, ctx) => {
   let anchor: HTMLElement | null = null
-  const open = ctx.ui.useOpen({ name: 'Tooltip' })
-  const popup = ctx.ui.usePopup({
-    el: () => anchor,
-    isOpen: () => open.open,
-    setOpen: (v) => open.setOpen(v),
-  })
-  return (props) =>
-    h('div', {}, [
-      h('span', { ref: (el) => { anchor = el }, ...open.triggerProps }, props.children),
-      popup.portal(h('div', { class: 'tooltip' }, props.text), 'tooltip'),
-    ])
+  let handle: import('weifuwu/client').PopupHandle | null = null
+  return (props) => {
+    // 句柄同步样板（受控 + 内容更新 + 关闭清理——每次渲染恒调用）
+    if (props.open && !handle)
+      handle = ctx.ui.openPopup({
+        anchor: () => anchor,             // 锚点必传（触发按钮也是锚点的一部分）
+        content: () => h('div', { class: 'tooltip' }, props.text),
+        onClose: () => { handle = null; props.onOpenChange?.(false) },
+      })
+    else if (!props.open && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(h('div', { class: 'tooltip' }, props.text))
+    return h('span', { ref: (el) => { anchor = el } }, props.children)
+  }
 }
 ```
 
@@ -258,18 +259,18 @@ await browser.copyText(text)
 | `useAsync()` | `useAsync(fetcher)` | 异步取数：`data/loading/error` 响应式 + `reload()` |
 | `useControlled()` | `useControlled({ value, onChange, name })` | 受控/非受控统一：受控判定 + 缺回调 warn + 内部状态跨渲染保持 |
 | `useStableRef()` | `useStableRef(init, cleanup?)` | 稳定 ref 引用（根治内联 ref 陷阱） |
-| `usePopup()` 会话级模态 | `usePopup({ presence, trapFocus, lockScroll, positioning })` | **统一弹窗能力**：锚定浮层 + 会话级模态（Modal/Drawer 同款——退场状态机 + 滚动锁 + 焦点 trap + 居中定位）——一个入口按 options 组合 |
+| `openPopup(opts)` | `openPopup({ content, anchor?, placement?, mask?, presence?, trapFocus?, lockScroll?, closeOnOutside?, closeOnEscape?, position?, key? })` | **命令式弹窗唯一入口**（toast 心智）——返回 `{ close, update, open }`——锚定浮层 + 会话级模态（退场状态机 + 滚动锁 + 焦点 trap + 居中定位）——一个入口按 options 组合 |
 | `useGlobalKey()` | `useGlobalKey(handler)` | 全局键盘监听（window keydown：mount 注册 + 卸载清理） |
 | `useDrag()` | `useDrag({ onMove, onStart?, onEnd? })` | 指针拖拽（pointerdown 捕获 → window move delta / up 释放） |
 | `useDragDrop()` | `useDragDrop({ onDrop, onDragOver?, onDragLeave? })` | 原生 DnD（drop/dragover/dragleave + preventDefault，dropProps spread） |
 | `useReducedMotion()` | `useReducedMotion()` | 响应式系统偏好（JS 动画侧跳过；CSS 动画已有全局降级） |
 | `useAnimationEnd()` | `useAnimationEnd(cb, { once? })` | 元素动画完成回调（stableRef：挂载绑定/卸载清理/引用恒定） |
 | `useTween()` | `useTween(target, { duration?, ease? })` | 数值补间（rAF + easeOutCubic + reduced-motion 直落；幂等 reset） |
-| `usePresence()` | `usePresence({ name? })` | 通用显隐状态机（open→exit→closed，animationend 延迟卸载；usePopup presence 模式内部使用） |
+| `usePresence()` | `usePresence({ name? })` | 通用显隐状态机（open→exit→closed，animationend 延迟卸载；openPopup presence 模式内部使用） |
 | `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
 | `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
 | `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |
-| `usePopup()` | `usePopup(opts)` | **统一弹窗能力层**：触发（hover/tap 降级/longpress）+ Escape + 外部点击 + 定位/clamp + portal + 会话级模态（presence/trapFocus/lockScroll/positioning none——Modal/Drawer 同款） |
+| `openPopup()` | `openPopup(opts)` | **统一弹窗能力层**（命令式）：Escape + 外部点击 + 定位/clamp + mask + 会话级模态（presence/trapFocus/lockScroll/positioning none——Modal/Drawer 同款）——触发由组件自管（hover/click/longpress 事件绑定在调用侧） |
 | `useHoverCapable()` | `useHoverCapable()` | 设备是否支持 hover（`matchMedia '(hover: hover)'`），触屏降级判断 |
 | `useLongPress()` | `useLongPress({ onLongPress, duration })` | 长按手势（pointer 事件 + 位移取消 + 桌面右键兼容） |
 | `useVisualViewport()` | `useVisualViewport()` | 可视视口跟踪（键盘弹起/缩放），`{ height, offsetTop, keyboardOpen }` 响应式 |
@@ -288,7 +289,7 @@ await browser.copyText(text)
 | `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化时自动重渲染 |
 | `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动重渲染 |
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 时自动重算 fixed 坐标 |
-| `ctx.ui.usePopup()` | 注册监听 | 事件驱动 + document 监听 | 当前组件 | **弹层组合器** — 触发 + Escape + 外部点击 + 定位/clamp + portal（移动端友好由构造保证） |
+| `ctx.ui.openPopup(opts)` | 命令式（任意位置） | 内核自管理生命周期 | 调用点 | **命令式弹窗唯一入口**（toast 心智）— 定位/clamp + Escape + 外部点击 + mask + presence/trapFocus/lockScroll — 返回 `{ close, update, open }` |
 | `ctx.ui.useHoverCapable()` | mount 期判定 | 一次 matchMedia | 当前组件 | **hover 能力检测** — 触屏降级 tap 判断 |
 | `ctx.ui.useLongPress()` | 事件驱动 | pointer 事件 | 当前组件 | **长按手势** — ContextMenu 触屏触发、自定义长按操作 |
 | `ctx.ui.useVisualViewport()` | 注册监听 | visualViewport resize/scroll | 当前组件 | **键盘/缩放跟踪** — fixed 底部栏防键盘遮挡（AiChat `raiseOnKeyboard`） |
@@ -427,51 +428,55 @@ const CustomPopup = async (_init, ctx) => {
 
 已内置接入的组件：**Popover / Tooltip / Dropdown / DatePicker / Chart**（tooltip）——它们的弹出层在页面滚动、嵌套容器滚动、窗口缩放时都会自动跟随触发元素，无需额外配置。
 
-#### `ctx.ui.usePopup(options)` — 弹层组合器（推荐：移动端友好由构造保证）
+#### `ctx.ui.openPopup(options)` — 命令式弹窗（唯一入口——toast 心智）
 
-`usePopupPosition` 的**上层封装**：把弹层组件的完整生命周期（打开状态 + 触发 + Escape + 外部点击 + 定位/视口 clamp + portal）收敛成一个原语。弹层组件用它替代手写样板，**移动端行为自动正确**：
+**命令式内核**：调用点构建内容 → 内核自管理挂载/更新/卸载/销毁——**组件输出纯业务**
+（无槽无游离调用）。`usePopup`/`portal()`/`createPortal` 已删除（2027-03）。
 
-- **hover 触发在触屏自动降级为 tap**（内部 `matchMedia '(hover: hover)'` 判定）
-- **Escape 关闭是 document 级**——焦点在 portal 弹层内按 Escape 也能关
-- **外部点击关闭**（document mousedown，点弹层内部不关）
-- **宽度自动 clamp 视口**（≤ `100vw - 32px`，375px 屏不横向溢出）；`width` 支持 getter（DatePicker 跟随 trigger 宽）
-- **定位 + 视口夹紧**（复用 `usePopupPosition`，超高/超宽面板平移回视口）
-- **mask 遮罩**（`mask: true`——全屏遮罩 + 点击关闭；`maskCentered` 全屏居中——Modal 缩放预览/Command 面板；`mask: VNode` 自定义遮罩内容——Tour 挖洞高亮）
-- **trigger `'focus'`**（DatePicker）——focus 开 + blur 延迟关（`closeDelay` 窗口内面板交互生效）
-- 支持受控（`open`/`onOpenChange`）、动态 props（`placement`/`trigger`/`openDelay` 支持 getter）
+**能力**：
+- **定位 + 视口夹紧**（锚定浮层：anchor + placement/center/gap/margin——超高/超宽面板平移回视口；`position` 自定义坐标（光标处/跟随 trigger 宽））
+- **Escape 关闭是 document 级**（`closeOnEscape` 显式 false 禁用——危险操作组件自控）
+- **外部点击关闭**（document mousedown，点锚点/面板内不关——`closeOnOutside: false` 禁用）
+- **mask 遮罩**（`mask: true`——全屏遮罩 + 点击关闭（maskClosable）；`maskCentered` 全屏居中——Img 预览/Command 面板）
+- **会话级模态**：`presence`（退场状态机 open→exit→closed + animationend）+ `trapFocus`（焦点 trap）+ `lockScroll`（滚动锁 + 焦点归还）+ `positioning: 'none'`（自定义定位——.wf-modal inset:0 居中）
+- **handle**：`close()`（presence 播退场动画）/ `update(content)`（props 变化 diff 增量）/ `open`（getter）
 
 ```tsx
 const Tooltip = async (_init, ctx) => {
   let show = false
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el) => { wrapEl = el }
+  let handle: PopupHandle | null = null
 
-  const popup = ctx.ui.usePopup({
-    trigger: 'hover',            // 触屏自动降级 tap
-    placement: () => latestPos,  // getter：动态读最新 props
-    el: () => wrapEl,
-    isOpen: () => show,
-    setOpen: (v) => { show = v; ctx.ui.render() },
-    width: 320,                  // 自动 clamp 视口
-    disabled: () => disabled,
-    openDelay: () => delay,      // hover 延迟（HoverCard 用）
-  })
+  return async (props) => {
+    // 句柄同步样板（受控 + 内容更新 + 关闭清理——每次渲染恒调用）
+    if (show && !handle)
+      handle = ctx.ui.openPopup({
+        anchor: () => wrapEl,          // **anchor 必传**（触发区也是锚点——否则被当外部点击关闭）
+        placement: () => latestPos,    // getter：动态读最新 props
+        content: () => h('div', { class: 'wf-tooltip' }, props.content),
+        onClose: () => { handle = null; show = false; ctx.ui.render() },
+      })
+    else if (!show && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(h('div', { class: 'wf-tooltip' }, props.content))
 
-  return async (props) => h('div', { ref: wrapRef, ...popup.wrapProps }, [
-    props.children,
-    popup.portal(h('div', { class: 'wf-tooltip' }, props.content), 'tooltip'),
-  ].filter(Boolean))
+    return h('div', {
+      ref: wrapRef,
+      onMouseEnter: () => { show = true; ctx.ui.render() },
+      onMouseLeave: () => { show = false; ctx.ui.render() },
+    }, props.children)
+  }
 }
 ```
 
-- `popup.wrapProps` — 触发 + Escape + focus 处理，spread 到包装/触发元素
-- `popup.portal(content, portalKey)` — 定位 + clamp + portal（挂载 `#__wf_portal`），关闭时返回 null；自动附加 `wf-popup` 基类；`positioning: 'none'` 时不加坐标（只 `position: fixed`——组件自定义定位，Modal/Toast 用）
-- `popup.open` / `popup.setOpen()` — 状态读取与设置
-- `popup.sync(open)` / `popup.phase` — 会话级模态模式（`presence: true`）render 期同步打开状态 + 读退场 phase（`'closed' | 'open' | 'exit'`——exit 阶段保留退场动画）
+- **handle.close()** — 关闭（presence：先由组件 update exit class → 内核播退场动画 → animationend → dispose）
+- **handle.update(content)** — 内容更新（props 变化——diff 增量——不重建）
+- **handle.open** — 状态读取（渲染期最新）
+- **onClose 回调** — 外部点击/Escape/内核 dispose 后触发——组件同步句柄 + 状态（无需显式清空）
 
-**会话级模态模式**（Modal/Drawer/Confirm 同款）：`presence: true`（退场状态机）+ `trapFocus: true`（焦点 trap）+ `lockScroll: true`（滚动锁）+ `positioning: 'none'`（自定义定位）——全部能力 usePopup 内部实现（`trapFocus`/`lockScroll` 不对外导出）。
+**会话级模态模式**（Modal/Drawer/Confirm 同款）：`presence: true`（退场状态机）+ `trapFocus: true`（焦点 trap）+ `lockScroll: true`（滚动锁）+ `positioning: 'none'`（自定义定位）——全部能力 openPopup 内核实现（`trapFocus`/`lockScroll` 不对外导出）。
 
-**已迁移组件（全部弹窗统一 usePopup 单一入口）**：Tooltip / HoverCard / Popover / Dropdown / Menubar / Mentions / Cascader / ContextMenu / Select / AutoComplete / NavMenu / Popconfirm / DatePicker（focus 触发）/ Tour（mask 自定义遮罩）/ Toast / Notification（positioning 'none' 常驻容器）/ Modal / Drawer / Confirm / Command / Img（mask 全屏遮罩）/ TreeSelect。
+**已迁移组件（全部弹窗统一 openPopup 单一入口）**：Tooltip / HoverCard / Popover / Dropdown / Menubar / Mentions / Cascader / ContextMenu / Select / AutoComplete / NavMenu / Popconfirm / DatePicker（position 跟随 trigger 宽）/ Tour（mask + 自定位）/ Toast / Notification（positioning 'none' 常驻容器）/ Modal / Drawer / Confirm / Command / Img（mask 全屏遮罩）/ TreeSelect / Editor（link/image/ai/history）/ SheetGrid / SlideCanvas（AI 面板）/ Chart（tooltip）。
 
 **usePopupPosition 独立用户**：Affix / Chart（tooltip）——坐标工具（非弹窗组合器），滚动跟随自动。
 
@@ -578,7 +583,7 @@ return () => list.loading ? h(Loading) : list.data?.map(u => h('div', {}, u.name
 | 原语 | 层 | 说明 |
 |------|----|------|
 | `useAnimationEnd(cb, { once? })` | 生命周期 | 元素动画完成回调（stableRef：挂载绑定/卸载清理/引用恒定）——**组件内动画事件唯一入口** |
-| `usePresence({ name? })` | 生命周期 | 显隐状态机：open → exit → closed（animationend 延迟卸载）；`usePopup` presence 模式内部使用 |
+| `usePresence({ name? })` | 生命周期 | 显隐状态机：open → exit → closed（animationend 延迟卸载）；openPopup presence 模式内部使用 |
 | `useTween(target, { duration?, ease? })` | 数值驱动 | 数值补间（rAF + easeOutCubic + reduced-motion 直落；幂等 reset + 每帧自动渲染） |
 | `useReducedMotion()` | 偏好感知 | 响应式系统偏好——**JS 动画**（rAF/tween）侧跳过（CSS 动画已有全局降级） |
 | `useInView` / `useScrollPosition` | 数值驱动 | 进入视口播 / 滚动位置联动（已有） |
@@ -635,7 +640,7 @@ if (!ctx.ui.useReducedMotion()) { /* 启动 rAF/动画 */ }
 | `wf-safe-bottom` / `wf-safe-top` | iOS 安全区：`padding: env(safe-area-inset-bottom/top)`（刘海屏/Home 条） |
 | `@media (pointer: coarse)` 44px | 触屏命中区：button/input/select 全局覆盖；非 button 交互元素由 style-audit 规则强制登记 |
 
-> **移动端开发指南**：断点体系 / 44px 命中区纪律 / usePopup / 手势原语 / safe-area / 验收清单 → [`移动端指南`](mobile-guide.md)
+> **移动端开发指南**：断点体系 / 44px 命中区纪律 / openPopup / 手势原语 / safe-area / 验收清单 → [`移动端指南`](mobile-guide.md)
 
 ### `ctx.ui.render()` — 渲染唯一入口（render-only）
 

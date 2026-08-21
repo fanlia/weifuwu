@@ -41,7 +41,7 @@
 | 布局容器/间距/显隐 | ❌ | ✅ wf-stack/wf-grid/wf-gap-* |
 | 导航结构（侧栏/菜单项） | ❌ | ✅ wf-nav/wf-nav-item（或 Menu 组件） |
 | 可交互元素（按钮/输入/选择） | ✅ 组件 | ❌ |
-| 弹层（下拉/弹窗/tooltip） | ✅ 组件（usePopup 基座） | ❌ |
+| 弹层（下拉/弹窗/tooltip） | ✅ 组件（openPopup 命令式） | ❌ |
 | 纯视觉容器（卡片面/分隔） | 两者皆可 | ✅ wf-surface/wf-border |
 
 ## 近义组件选型（名字相近/功能重叠——一句话决策）
@@ -60,7 +60,7 @@ Office 文档：预览/编辑 → FilePreview；xlsx → FilePreview.Sheet；ppt
 
 ## 关键纪律（选型时就要知道）
 
-1. **浮层必须组件 + portal**：dropdown/select/datepicker/menubar/cascader/mentions/contextmenu/tooltip/popover/hovercard/modal/drawer/toast/notification/confirm/tour/command——这些已有组件，直接复用；新弹层组件必须 `ctx.ui.usePopup`
+1. **浮层必须组件 + openPopup**：dropdown/select/datepicker/menubar/cascader/mentions/contextmenu/tooltip/popover/hovercard/modal/drawer/toast/notification/confirm/tour/command——这些已有组件，直接复用；新弹层组件必须 `ctx.ui.openPopup`（anchor 必传）
 2. **受控组件配回调**：传 active/value/checkedKeys 等受控 props 必须同时传 onChange——缺回调 = 静默不可点
 3. **列表 key 纪律**：有内部状态的组件列表 + 动态增删重排 → 显式 key；纯元素列表 → 无 key（位置身份）
 4. **浏览器能力走 ctx.browser**：禁裸 window/document/localStorage/matchMedia

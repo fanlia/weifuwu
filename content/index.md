@@ -77,7 +77,7 @@
 - [LayoutHeader](components/layoutheader.md) — 布局顶栏——Layout 家族（Layout/LayoutHeader/LayoutSider/LayoutContent/LayoutFooter）
 - [LayoutSider](components/layoutsider.md) — 布局侧栏（可折叠 collapsed/collapsible）——Layout 家族
 - [LayoutContent](components/layoutcontent.md) — 布局内容区——Layout 家族
-- [Popconfirm](components/popconfirm.md) — 气泡确认：危险操作防误触 + 复用 usePopup 基座
+- [Popconfirm](components/popconfirm.md) — 气泡确认：危险操作防误触 + openPopup 命令式弹窗
 - [AutoComplete](components/autocomplete.md) — 输入联想：自由输入 + 过滤下拉 + 键盘流 + 选中回填
 - [AutoComplete 禁用态](components/autocomplete-v2.md) — disabled 时不可输入（状态矩阵覆盖）
 - [Link](components/link.md) — 文字链接：语义色/下划线/disabled/新窗口
@@ -174,5 +174,5 @@
 - [Text](components/text.md) — 正文排版（语义色 -text 变体 + mark/code/删除线）——Typography 家族
 - [Paragraph](components/paragraph.md) — 段落排版——Typography 家族
 - [TabBar](components/tabbar.md) — 底部标签栏——移动端 App 主导航（3-5 tab + icon/badge/受控激活 + safe-area 避让）
-- [ActionSheet](components/actionsheet.md) — 动作面板——移动端底部滑出（命令列表 + 取消按钮，usePopup 会话级模态）
+- [ActionSheet](components/actionsheet.md) — 动作面板——移动端底部滑出（命令列表 + 取消按钮，openPopup 会话级模态）
 - [PromptTemplate](components/prompttemplate.md) — 提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）

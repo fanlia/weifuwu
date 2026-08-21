@@ -31,7 +31,7 @@
 
 ## 纪律/坑
 
-- 弹窗纪律（§5.4）：曾遗漏 portal——absolute 在父容器 overflow/transform 下裁剪/错位——统一 usePopup
+- 弹窗纪律（§5.4）：曾遗漏 portal——absolute 在父容器 overflow/transform 下裁剪/错位——统一 openPopup 命令式
 - 选项量小场景搜索过滤已裁剪（components-cuts.md 永久裁剪）
 
 ## 关系

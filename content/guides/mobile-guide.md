@@ -6,7 +6,7 @@
 # 移动端开发指南（weifuwu）
 
 > 移动端友好由框架构造保证：**用对原语 + 守 audit 规则**，不靠每个组件"记得"。
-> 落地依据：移动端支持计划（P0-P3 全落地——usePopup 全系 + safe-area + 44px 命中区 + docs/mobile 指南）。
+> 落地依据：移动端支持计划（P0-P3 全落地——openPopup 全系 + safe-area + 44px 命中区 + docs/mobile 指南）。
 
 ## 一、断点体系（布局原语）
 
@@ -47,30 +47,21 @@
 
 - 小按钮（显式 `min-height` 覆盖了全局）需在组件 CSS 补 coarse 44px（参考 Pagination/Transfer/Calendar nav）
 
-## 三、弹层（usePopup 组合器）
+## 三、弹层（openPopup 命令式弹窗）
 
-**弹层组件必须用 `ctx.ui.usePopup`**——移动端友好由构造保证：
+**弹层组件必须用 `ctx.ui.openPopup`**——移动端友好由构造保证：
 
-```ts
-const popup = ctx.ui.usePopup({
-  trigger: 'hover',              // 触屏自动降级 tap（内部 matchMedia '(hover: hover)'）
-  placement: () => latestPos,    // 支持 getter 动态读 props
-  el: () => wrapEl,              // 锚定元素 ref
-  isOpen: () => $.open,
-  setOpen: (v) => { $.open = v; ctx.ui.render() },
-  open: controlled ? () => latestOpen : undefined,  // 受控桥（mount 期决定模式）
-  onOpenChange: (v) => latestOnOpenChange?.(v),
-  width: 320,                    // 自动 clamp 视口（≤100vw-32px）
-  disabled: () => disabled,
-  openDelay: () => delay,        // hover 延迟（HoverCard）
-})
-// popup.wrapProps — 触发 + Escape + focus，spread 到包装元素
-// popup.portal(content, portalKey) — 定位 + clamp + portal（挂载 #__wf_portal）
+```tsx
+let handle: PopupHandle | null = null
+if (open && !handle)
+  handle = ctx.ui.openPopup({
+    anchor: () => anchorEl,   // **anchor 必传**（触发区是锚点——否则被当外部点击关闭）
+    content: () => h('div', { class: 'wf-popover' }, props.content),
+    onClose: () => { handle = null; open = false; ctx.ui.render() },
+  })
+else if (!open && handle) { handle.close(); handle = null }
+else if (handle) handle.update(h('div', { class: 'wf-popover' }, props.content))
 ```
-
-**内置行为**：hover 桌面 / tap 触屏 / Escape（document 级，portal 内也可关）/ 外部点击 / 视口 clamp / 宽度 clamp / focus 触发（DatePicker） / mask 遮罩（Command/Img/Tour）/ 会话级模态（Modal/Drawer/Confirm——presence 退场 + trapFocus + lockScroll + positioning 'none'）。
-
-**全部弹窗统一 usePopup 单一入口**（锚定浮层 + 居中模态 + 通知 + 引导 + 日历）；`usePopupPosition` 仅 Affix/Chart 坐标工具独立使用。
 
 ## 四、手势原语
 
@@ -92,7 +83,7 @@ const popup = ctx.ui.usePopup({
 
 ## 六、防横向溢出（375px 验收基线）
 
-- 弹层宽度：usePopup 自动 `max-width: min(…, calc(100vw - 32px))`；手动浮层加 `.wf-popup` 基类
+- 弹层宽度：openPopup 自动视口夹紧（`calc(100vw - 32px)`）；手动浮层加 `.wf-popup` 基类
 - 宽内容（表格/双栏）：容器 `overflow-x: auto`（Table/Resizable 已内置）
 - 网格：`minmax(min(100%, 420px), 1fr)`（防 minmax 固定值撑破窄屏）
 - 验收：375×667 视口 `document.documentElement.scrollWidth <= innerWidth`

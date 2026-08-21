@@ -36,7 +36,7 @@
 ├─ 吸顶 → wf-sticky（页面级）或 Affix 组件（滚动跟随）
 ├─ 悬浮按钮 → FloatButton 组件
 ├─ 角标覆盖 → wf-layer + wf-pop（容器内定位）
-└─ 弹层 → 组件（usePopup 基座——禁手写定位）
+└─ 弹层 → 组件（openPopup 命令式——禁手写定位）
 
 响应式？
 ├─ 隐藏/显示 → wf-hidden / wf-hidden@lg / wf-flex@lg

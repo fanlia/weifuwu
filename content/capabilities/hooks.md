@@ -2,7 +2,7 @@
 
 ## 概述
 
-useMedia/useInView/useChat/usePopup…——事件驱动重渲染
+useMedia/useInView/useChat…——事件驱动重渲染（弹窗 = openPopup 命令式——非 hook）
 
 ## 框架源码
 
