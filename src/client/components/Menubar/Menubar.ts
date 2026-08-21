@@ -122,6 +122,9 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
 
     const openMenuData = menus.find(m => m.key === openMenu)
 
+    // **portal 独立通道（方案 1）**：关闭路径显式清空（不调 portal →
+    // 面板残留——改造后引擎不自动移除）
+    if (!openMenuData) popup.portal(null, 'menubar')
     const panel = openMenuData ? popup.portal(h('div', {
       class: 'wf-menubar-panel',
       role: 'menu',

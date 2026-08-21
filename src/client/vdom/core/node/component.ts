@@ -117,6 +117,7 @@ export async function renderComponent(
       getHookState: <T>(idx: number) => hookStates.get(idx) as T | undefined,
       setHookState: (idx, v) => { hookStates.set(idx, v) },
       scheduleAfterRender: (fn) => sharedCtx.afterRender?.(fn),
+      getSharedContext: () => sharedCtx ?? null,
     })
     // 工厂 = mount（一次——可 await ctx.data——管道保证 resolve）
     const maybeRenderFn = factory(vn.props, instCtx)

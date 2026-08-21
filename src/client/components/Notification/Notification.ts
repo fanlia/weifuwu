@@ -93,6 +93,7 @@ function ensureHost(): NotifHost {
     render: async () => {},
     onUnmount: () => {},
     data: { get: async () => undefined, set: () => {}, has: () => false },
+    browser,
   } as unknown as UIContext
   notifHost = { container, applier, registry, items: [], seq: 0, currentTree: null, ctx }
   return notifHost

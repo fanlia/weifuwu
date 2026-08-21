@@ -82,6 +82,7 @@ export function confirm(message: string, options?: ConfirmOptions): Promise<bool
       render: async () => {},
       onUnmount: () => {},
       data: { get: async () => undefined, set: () => {}, has: () => false },
+      browser: createClientBrowser(),
     } as unknown as UIContext
     const vnode = h(Confirm, {
       open: true,

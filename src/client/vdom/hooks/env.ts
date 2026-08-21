@@ -33,6 +33,8 @@ export interface HookEnv {
   setHookState<T>(idx: number, v: T): void
   /** 渲染完成后回调（挂载后动作——目标元素已就绪） */
   scheduleAfterRender(fn: () => void): void
+  /** 共享 ctx（portal 独立通道——浮层内容组件继承 sharedCtx 独立实例） */
+  getSharedContext(): import('../context/UIContext.ts').UIContext | null
 }
 
 /** hooks 注入面（ctx.ui） */

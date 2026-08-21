@@ -206,7 +206,8 @@ test('垂直对齐：thumb/fill/mark dot 同一水平线（±1px——轮询等�
     // 全量并发布局（字体/CSS）偶发未稳定——轮询（与 marks 对齐同款竞态根治）
     let ok = false
     let last: { priceDotMid: number | null; rangeFillMid: number | null; priceInputMid: number; rangeInputMid: number } | null = null
-    for (let i = 0; i < 30; i++) {
+    const vDeadline = Date.now() + 5000
+    while (Date.now() < vDeadline) {
       last = await page.evaluate(() => {
         const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
         const mid = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2 }

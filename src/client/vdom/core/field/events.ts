@@ -25,9 +25,14 @@ export class EventRegistry {
   private rootTypes = new Set<string>()
   private doc: Document
   private dispatchBound: (e: Event) => void
+  /** 容器过滤（portal 独立通道——事件仅分发容器内 target——
+   *  独立 applier 的节点 id 与主树同路径（root.0.x）——document 捕获时
+   *  主树按钮祖先链命中独立表（onRemove 误触发——toast 多条 bug 实证）） */
+  private container?: HTMLElement | null
 
-  constructor(doc: Document) {
+  constructor(doc: Document, container?: HTMLElement | null) {
     this.doc = doc
+    this.container = container
     this.dispatchBound = this.dispatch.bind(this)
   }
 
@@ -68,6 +73,12 @@ export class EventRegistry {
   /** 分发（模拟冒泡——target 向上祖先链查表——currentTarget 还原——
    *  handler 内 stopPropagation 停止向上） */
   private dispatch(e: Event): void {
+    // **容器过滤**（portal 独立通道）：target 不在容器内（主树元素）——跳过
+    // （避免独立注册表被主树事件误命中——id 同路径冲突）
+    if (this.container) {
+      const t = e.target as Element | null
+      if (t && !this.container.contains(t)) return
+    }
     if (e.type === 'contextmenu' && (window as any).__dbgEvt) {
       const el0 = e.target as Element | null
       const all = [...this.table.entries()].map(([k, v]) => k + ':' + [...v.keys()].join('+')).join(' | ')

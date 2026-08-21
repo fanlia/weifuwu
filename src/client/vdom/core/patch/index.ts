@@ -44,13 +44,27 @@ export class CommandApplier {
     this.container = container
     this.doc = doc
     this.registry = registry ?? null
-    this.eventRegistry = new EventRegistry(doc)
+    // **容器过滤**（portal 独立通道）：独立 applier 的事件仅分发容器内
+    // target（id 同路径冲突——主树事件误命中独立表——toast onRemove 实证）
+    this.eventRegistry = new EventRegistry(doc, container)
   }
 
   /** 卸载清理（根代理/ref 表——serve unmount） */
   dispose(): void {
     this.eventRegistry.dispose()
     this.refRegistry.dispose()
+    // **组件实例卸载**（命令式宿主——usePopup 的 env.onUnmount（disposePortal）
+    // 依赖组件卸载触发——否则 renderPortal 的 #__wf_portal 容器残留——
+    // 命令式 confirm 确定后 Modal 面板残留实证）
+    if (this.registry) {
+      for (const id of [...this.registry.keys()].reverse()) {
+        const rec = this.registry.get(id)
+        if (rec) {
+          for (const fn of [...rec.onUnmounts].reverse()) { try { fn() } catch { /* 清理容错 */ } }
+          this.registry.delete(id)
+        }
+      }
+    }
     // **portal 容器清理**（P3 dispose 协议——命令式宿主（confirm/toast）
     // dispose 后 #__wf_portal 下容器残留——真实 bug：命令式 Confirm 取消后
     // Modal 弹窗残留（host 容器移除不影响 body 下的 portal））

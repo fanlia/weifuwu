@@ -18,7 +18,11 @@
 
 import type { VNode, VNodeChild } from '../core/vnode.ts'
 import { h } from '../core/vnode.ts'
-import { createPortal } from '../core/node/portal.ts'
+import { renderToStream } from '../core/build.ts'
+import { diffStream } from '../core/diff/index.ts'
+import { CommandApplier } from '../core/patch/index.ts'
+import { createComponentRegistry } from '../core/node/component.ts'
+import { PORTAL_CONTAINER_ID, portalContainerId } from '../core/node/portal.ts'
 import { useOpen, useStableRef, useGlobalKey, type OpenState, type StableRef } from './basic.ts'
 import type { HookEnv } from './env.ts'
 
@@ -281,6 +285,7 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
         // animationend 即退场完成（enter 动画在 open 阶段——忽略）
         if (phaseState.phase === 'exit') {
           phaseState.phase = 'closed'
+          disposePortal()
           env.requestRender()
         }
       }
@@ -386,6 +391,67 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
   }
   env.setHookState(downIdx, downState)
 
+  // ── portal 独立通道（阶段 2——组件输出纯业务 children）──
+  // 状态用 **hook 状态**（renderFn 调用的 usePopup（Toast 常驻）——闭包
+  // let/useStableRef 每次渲染重建——applier 状态丢失——portal(null) 不
+  // dispose——残留实证——hook 状态跨渲染持久）
+  interface PortalState { tree: VNode | null; applier: CommandApplier | null; container: HTMLElement | null; chain: Promise<void> }
+  const portalIdx = env.nextHookIndex()
+  const portal: PortalState = env.getHookState<PortalState>(portalIdx) ?? { tree: null, applier: null, container: null, chain: Promise.resolve() }
+  env.setHookState(portalIdx, portal)
+  const disposePortal = (): void => {
+    if (portal.applier) { portal.applier.dispose(); portal.applier = null }
+    portal.tree = null
+    if (portal.container) { portal.container.remove(); portal.container = null }
+  }
+  env.onUnmount(() => disposePortal())
+
+  /** 独立渲染（首帧 build / 更新 diff——串行链防竞态） */
+  const renderPortal = (key: string, content: VNode): void => {
+    const isActive = open.open || phaseState.phase === 'exit'
+    if (!isActive) {
+      if (portal.applier) disposePortal()
+      return
+    }
+    const doc = env.getBrowser()?.document
+    if (!doc) return // SSR 裁剪（打开态浮层内容不渲染——design 计划 D3 记录）
+    if (!portal.container) {
+      let root = doc.getElementById(PORTAL_CONTAINER_ID)
+      if (!root) {
+        root = doc.createElement('div')
+        root.id = PORTAL_CONTAINER_ID
+        doc.body.appendChild(root)
+      }
+      const existing = doc.getElementById(portalContainerId(key))
+      if (existing) portal.container = existing as HTMLElement
+      else {
+        portal.container = doc.createElement('div')
+        portal.container.id = portalContainerId(key)
+        root.appendChild(portal.container)
+      }
+    }
+    const container = portal.container
+    const registry = createComponentRegistry()
+    if (!portal.applier) portal.applier = new CommandApplier(container, doc, registry)
+    const applier = portal.applier
+    const ctx = env.getSharedContext() ?? ({} as import('../context/UIContext.ts').UIContext)
+    const prev = portal.tree
+    portal.tree = content
+    portal.chain = portal.chain.then(async () => {
+      if (portal.applier !== applier) return
+      const stream = prev
+        ? diffStream(prev, content, ctx, registry)
+        : renderToStream(content, ctx, registry)
+      const reader = stream.getReader()
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        if (portal.applier !== applier) return
+        applier.apply(value)
+      }
+    })
+  }
+
   return {
     get open() {
       return open.open
@@ -394,6 +460,11 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
       open.setOpen(v)
     },
     portal(content: VNodeChild, key?: string): VNode | null {
+      if (content === null || content === undefined) {
+        if (portal.applier) disposePortal()
+        return null
+      }
+      const k = key ?? 'popup'
       // **渲染期 open 变化检测**（portal 每次渲染调用——phase 同步——
       // presence 状态机驱动）
       if (prev.open !== open.open) {
@@ -424,6 +495,8 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
       if (!show) {
         // 退场结束（closed）——恢复滚动锁 + 归还焦点
         if (opts.presence && phaseState.phase === 'closed') restoreModalLock()
+        // **portal 独立通道：关闭态清理**（renderPortal 不调——显式 dispose）
+        if (portal.applier) disposePortal()
         return null
       }
       // **mask 遮罩（真实缺口）**：mask/maskCentered/maskClosable——
@@ -471,7 +544,8 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
             left: `${pos.current.left}px`,
           }
       const panelFinal = { ...pv, props: { ...props, class: cls, style, ref: panelRefImpl } } as VNode
-      return createPortal(panelFinal, key ?? 'popup')
+      renderPortal(k, panelFinal)
+      return null
     },
     get pos() {
       return pos.current

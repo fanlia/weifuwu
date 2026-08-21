@@ -45,8 +45,8 @@ test('能力：hover 出现卡片（用户详情——富内容）', async () =>
   try {
     await open(page)
     await page.locator('main .wf-surface button', { hasText: '悬停查看用户' }).first().hover()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('用户详情')), '卡片出现')
-    assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('悬停卡片展示富内容')), '富内容')
+    // 富内容渲染异步（renderPortal）——waitFor 合并（避免出现后立即检查缺失）
+    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('用户详情') && (document.body.textContent ?? '').includes('悬停卡片展示富内容')), '卡片出现 + 富内容')
   } finally { await page.close() }
 })
 test('位置：portal 归属 + fixed + 视口内 + bottom 方向 + 水平居中', async () => {
