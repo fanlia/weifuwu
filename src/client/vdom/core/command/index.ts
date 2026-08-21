@@ -6,13 +6,13 @@
  */
 
 import type { CreateCommand, CreateTextCommand, CreateAnchorCommand } from './create.ts'
-import type { InsertCommand, MoveCommand, RemoveCommand, RemovePortalCommand } from './insert.ts'
+import type { InsertCommand, MoveCommand, RemoveCommand } from './insert.ts'
 import type { SetPropCommand, SetTextCommand } from './props.ts'
 import type { RefCommand, UnrefCommand, MountCommand, UnmountCommand, CloseCommand, DoneCommand } from './lifecycle.ts'
 
 export type {
   CreateCommand, CreateTextCommand, CreateAnchorCommand,
-  InsertCommand, MoveCommand, RemoveCommand, RemovePortalCommand,
+  InsertCommand, MoveCommand, RemoveCommand,
   SetPropCommand, SetTextCommand,
   RefCommand, UnrefCommand, MountCommand, UnmountCommand,
   CloseCommand, DoneCommand,
@@ -26,7 +26,6 @@ export type Command =
   | InsertCommand
   | MoveCommand
   | RemoveCommand
-  | RemovePortalCommand
   | SetPropCommand
   | SetTextCommand
   | RefCommand

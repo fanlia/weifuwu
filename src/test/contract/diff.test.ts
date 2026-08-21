@@ -10,7 +10,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, type VNode } from '../../client/vdom/core/vnode.ts'
-import { createPortal } from '../../client/vdom/core/node/portal.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
 import { diffStream } from '../../client/vdom/core/diff/index.ts'
 import { renderToStream } from '../../client/vdom/core/build.ts'
@@ -125,25 +124,6 @@ test('keyed 增删：移除消失项 + 新增项插入（身份映射）', async
   assert.ok(ops(cmds).includes('create'), 'd 新增')
 })
 
-test('keyed 数组移除 portal vnode → removePortal 命令（Menubar 面板残留回归）', async () => {
-  // build 树：keyed 项（trigger）+ portal（key=popover）→ diff 新树（仅 trigger）
-  const v0 = h('div', {}, [
-    h('button', { key: 'file' }, '文件'),
-    h('button', { key: 'edit' }, '编辑'),
-    createPortal(h('div', { class: 'panel' }, '面板'), 'popover'),
-  ])
-  const v1 = h('div', {}, [
-    h('button', { key: 'file' }, '文件'),
-    h('button', { key: 'edit' }, '编辑'),
-  ])
-  // diff 树（旧含 portal → 新无——keyed 移除路径）
-  const cmds1 = await diff(v0, v1)
-  console.log('[dbg-keyed-portal]', JSON.stringify(cmds1.map((c) => c.op + (c.key ? ':' + c.key : '') + (c.id ? ':' + c.id : ''))))
-  const hasRemovePortal = cmds1.some((c) => c.op === 'removePortal' && c.key === 'popover')
-  assert.equal(hasRemovePortal, true, 'keyed 移除 portal → removePortal 命令')
-  const hasRemove = cmds1.some((c) => c.op === 'remove')
-  assert.equal(hasRemove, true, 'remove 命令')
-})
 
 test('A 级检测：静态组件列表 + 条件元素尾部不误报（confirm 2→3 回归）', async () => {
   const warns: string[] = []
@@ -176,49 +156,5 @@ test('A 级检测：动态追加组件项仍报（真实动态增删引导）', 
   }
 })
 
-test('portal 开关：业务项零命令（按钮位置复用——仅 portal 锚/内容命令）', async () => {
-  // 打开：[按钮] → [按钮, portal]——业务按钮按位置复用（零命令）——
-  // portal 项独立（createAnchor 锚 + 内容到 portal 容器）
-  const makeOpen = (open: boolean) => h('div', {}, open
-    ? [h('button', { class: 'b' }, '删除'), createPortal(h('div', { class: 'panel' }, '面板'), 'popconfirm')]
-    : [h('button', { class: 'b' }, '删除')])
-  const openCmds = await diff(makeOpen(false), makeOpen(true))
-  // 业务按钮（root.0.0 前缀）零命令——portal 内容（portal: 前缀）独立渲染
-  const biz = openCmds.filter((c) => (c as { id?: string }).id?.startsWith('root.0.0'))
-  assert.ok(biz.length === 0, `打开业务按钮零命令（实际 ${ops(biz).join(',') || '无'}）`)
-  assert.ok(openCmds.some((c) => c.op === 'createAnchor'), '打开建 portal 槽锚')
-  // 关闭：[按钮, portal] → [按钮]——portal 锚移除——按钮零命令
-  const closeCmds = await diff(makeOpen(true), makeOpen(false))
-  const bizClose = closeCmds.filter((c) => (c as { id?: string }).id?.startsWith('root.0.0'))
-  assert.ok(bizClose.length === 0, `关闭业务按钮零命令（实际 ${ops(bizClose).join(',') || '无'}）`)
-  assert.ok(closeCmds.some((c) => c.op === 'remove'), '关闭清理 portal 锚')
-})
 
-test('portal 槽开合：A 级检测豁免（业务序列不变不报——Popconfirm 回归）', async () => {
-  const warns: string[] = []
-  const origWarn = console.warn
-  console.warn = (...a) => { warns.push(String(a[0])) }
-  try {
-    const Btn = () => () => h('button', {}, 'b')
-    const make = (open: boolean) => h('div', {}, open
-      ? [h(Btn, {}), createPortal(h('div', { class: 'panel' }, '面板'), 'popconfirm')]
-      : [h(Btn, {})])
-    await diff(make(false), make(true))
-    await diff(make(true), make(false))
-    assert.ok(!warns.some((w) => w.includes('[vdom] children')), `portal 槽开合不误报（实际: ${warns[0] ?? '无'}）`)
-  } finally {
-    console.warn = origWarn
-  }
-})
 
-test('混合数组（业务 keyed + portal）：开合 removePortal 对齐（不残留）', async () => {
-  // 业务 keyed 项 + portal（unkeyed——框架槽）——关闭 → removePortal
-  const make = (open: boolean) => h('div', {}, open
-    ? [h('button', { key: 'file' }, '文件'), createPortal(h('div', { class: 'panel' }, '面板'), 'popover')]
-    : [h('button', { key: 'file' }, '文件')])
-  const cmds = await diff(make(true), make(false))
-  assert.ok(cmds.some((c) => c.op === 'removePortal' && c.key === 'popover'), '关闭 → removePortal（容器清理）')
-  // 业务 keyed 项（root.0.0）零 remove——锚（root.0.1）remove 是正确清理
-  const bizRemove = cmds.filter((c) => c.op === 'remove' && (c as { id: string }).id.startsWith('root.0.0'))
-  assert.ok(bizRemove.length === 0, `业务 keyed 项零 remove（实际 ${bizRemove.length}）`)
-})

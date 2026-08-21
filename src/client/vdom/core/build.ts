@@ -15,7 +15,6 @@ import type { VNode, VNodeChild } from './vnode.ts'
 import { childrenOf } from './node/children.ts'
 import { kindOf, textOf } from './node/index.ts'
 import { emitHole, invalidDiagnostic } from './node/hole.ts'
-import { isPortal, PORTAL_ID_PREFIX } from './node/portal.ts'
 import { pathId, renderNative } from './node/native.ts'
 import { renderComponent, createComponentRegistry, type ComponentRegistry } from './node/component.ts'
 import type { UIContext } from '../context/UIContext.ts'
@@ -62,22 +61,6 @@ export function createRenderDispatcher(
         for (const [i, c] of cs.entries()) {
           await emit(c, parent, index + i, lastRef)
           lastRef = pathId(parent, index + i)
-        }
-        return
-      }
-      // Portal（浮层——usePopup 内部机制）：主树插槽占位锚 + 内容
-      // create/insert 到 portal 容器（parent = 'portal:<key>'——apply 侧
-      // 解析容器 id——命名空间隔离——与主树 id 永不冲突）
-      case 'portal': {
-        const key = (v as VNode).key ?? 'default'
-        const base = `${PORTAL_ID_PREFIX}${key}`
-        emitCommand({ op: 'createAnchor', id })
-        emitCommand({ op: 'insert', id, parent, ref })
-        const cs = childrenOf(v as VNode)
-        let lastRef: string | null = null
-        for (const [i, c] of cs.entries()) {
-          await emit(c, base, i, lastRef)
-          lastRef = pathId(base, i)
         }
         return
       }

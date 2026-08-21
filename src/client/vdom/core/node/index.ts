@@ -14,12 +14,11 @@
 
 import type { VNode, VNodeChild } from '../vnode.ts'
 import { isFragment } from './fragment.ts'
-import { isPortal } from './portal.ts'
 import { isHole, isInvalid } from './hole.ts'
 
 export type NodeKind =
   | 'text' | 'hole' | 'array' | 'element'
-  | 'fragment' | 'portal' | 'component' | 'invalid'
+  | 'fragment' | 'component' | 'invalid'
 
 /** 单节点分类（唯一判定点——各消费方共用） */
 export function kindOf(v: VNodeChild): NodeKind {
@@ -28,7 +27,6 @@ export function kindOf(v: VNodeChild): NodeKind {
   if (Array.isArray(v)) return 'array'
   if (typeof (v as VNode).type === 'string') return 'element'
   if (isFragment(v as VNode)) return 'fragment'
-  if (isPortal(v as VNode)) return 'portal'
   if (typeof (v as VNode).type === 'function') return 'component'
   if (isInvalid(v)) return 'invalid'
   return 'invalid'

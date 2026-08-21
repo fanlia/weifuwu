@@ -15,7 +15,6 @@ import { kindOf } from '../node/index.ts'
 import { stateOf } from '../transform/states.ts'
 import { transitionOf } from '../transform/table.ts'
 import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed } from '../node/keyed.ts'
-import { isPortal } from '../node/portal.ts'
 import { pathId } from '../node/native.ts'
 import { emitHole } from '../node/hole.ts'
 import { renderComponent, type ComponentRegistry } from '../node/component.ts'
@@ -54,12 +53,11 @@ export async function diffChildrenItems(
   // A 级检测（长度变化 + 无 key 组件项 → warn 引导声明 key——
   // 无 key = 位置身份——长度变化时有状态组件位置继承漂移——
   // **豁免**：① 数组 ↔ 单节点形态转换（shapeChanged——非列表增删）
-  // ② portal 槽（[children, popup.portal()]——浮层插槽是框架管理的切换
-  // 槽而非业务列表——排除 portal 项的业务子项长度比较——Popconfirm 等
-  // 打开 1→2 误报）
+  // ② 单子节点条件渲染（`cond ? <X/> : null`——null 是空洞占位——同构
+  // 不变量——非列表项——ColorPicker 选中态不误报）
   if (!shapeChanged) {
     const isBizNode = (i: VNodeChild): i is VNode =>
-      i !== null && i !== undefined && typeof i !== 'boolean' && typeof i !== 'string' && typeof i !== 'number' && !Array.isArray(i) && !isPortal(i)
+      i !== null && i !== undefined && typeof i !== 'boolean' && typeof i !== 'string' && typeof i !== 'number' && !Array.isArray(i)
     const bizOld = oldCs.filter(isBizNode)
     const bizNew = newCs.filter(isBizNode)
     // **检测条件细化（误报根治）**：长度变化（[按钮, 按钮] → [按钮, 按钮,
@@ -125,9 +123,6 @@ async function removeOldSlot(
   if (oldVn && typeof oldVn.type === 'function') {
     const compId = oldVn.key !== null ? `${parent}.k${oldVn.key}` : cid
     emitCommand({ op: 'unmount', compId })
-  }
-  if (oldVn && isPortal(oldVn)) {
-    emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
   }
   emitCommand({ op: 'remove', id: cid })
 }
@@ -206,9 +201,6 @@ export async function diffKeyedChildren(
     if (typeof oldC !== 'object') continue
     const oldVn = oldC as VNode
     if (keyOf(oldVn) !== null) continue // keyed 项——keyed 路径处理
-    if (isPortal(oldVn)) {
-      emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
-    }
     emitCommand({ op: 'remove', id: pathId(parent, i) })
   }
 
@@ -219,9 +211,6 @@ export async function diffKeyedChildren(
       const oldVn = oldCs[oldIdx] as VNode
       if (typeof oldVn.type === 'function') {
         emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
-      }
-      if (isPortal(oldVn)) {
-        emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
       }
       emitCommand({ op: 'remove', id: pathId(parent, oldIdx) })
     }
@@ -253,7 +242,6 @@ export async function diffKeyedChildren(
     }
     oldCs.forEach((c, i) => {
       const oldVn = c as VNode | null
-      if (oldVn && isPortal(oldVn)) emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
       emitCommand({ op: 'remove', id: pathId(parent, i) })
     })
     let r: string | null = null

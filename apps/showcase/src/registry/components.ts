@@ -995,7 +995,7 @@ export const components: ComponentEntry[] = [
     "name": "Dropdown",
     "category": "overlay",
     "desc": "下拉菜单，支持 danger variant",
-    "gotchas": ["受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点", "portal 槽豁免：浮层插槽 [children, popup.portal()] 打开/关闭不触发 A 级动态数组检测"],
+    "gotchas": ["受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点", "命令式弹窗：浮层经 ctx.ui.openPopup（唯一形态——toast 心智——内核自管理生命周期）"],
     "codeKey": "dropdown",
     "demo": "DemoDropdown",
     "sourceFile": "src/client/components/Dropdown/Dropdown.ts",

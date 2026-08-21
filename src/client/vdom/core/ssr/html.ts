@@ -89,7 +89,6 @@ export function commandToHtml(): TransformStream<Command, string> {
         case 'mount':
         case 'unmount':
         case 'move':
-        case 'removePortal':
         case 'done':
           break // HTML 无结构/运行时面——无输出
       }

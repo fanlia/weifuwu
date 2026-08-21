@@ -13,12 +13,12 @@
  * - 组件卸载 = unmountComp（onUnmounts 清理）+ 输出节点移除
  *
  * 转换表（table.ts）：oldKind × newKind → 策略函数（各状态文件实现）
- *   text.ts / hole.ts / element.ts / component.ts / fragment.ts / portal.ts
+ *   text.ts / hole.ts / element.ts / component.ts / fragment.ts
  */
 
 import type { VNodeChild } from '../vnode.ts'
 
-export type NodeState = 'text' | 'hole' | 'element' | 'component' | 'fragment' | 'portal' | 'array'
+export type NodeState = 'text' | 'hole' | 'element' | 'component' | 'fragment' | 'array'
 
 /** 转换上下文（diff 调用——命令发射 + 新侧渲染 + 位置信息） */
 export interface TransformContext {

@@ -13,7 +13,6 @@ import type { VNode, VNodeChild } from '../vnode.ts'
 import { stateOf } from '../transform/states.ts'
 import { transitionOf } from '../transform/table.ts'
 import { pathId } from '../node/native.ts'
-import { isPortal, PORTAL_ID_PREFIX } from '../node/portal.ts'
 import { childrenOf } from '../node/children.ts'
 import { disposeComponent, renderComponent, type ComponentRegistry } from '../node/component.ts'
 import type { Command } from '../command/index.ts'
@@ -73,26 +72,6 @@ export async function diffSame(
   if (typeof newV.type === 'string' && typeof oldV.type === 'string' && oldV.type === newV.type) {
     diffAttrs(oldV, newV, id, emitCommand)
     await diffChildren(oldV, newV, id, emit, emitCommand, ctx, registry)
-    return
-  }
-  // portal 同态（浮层内容更新——精准对照）：
-  //   同 key：内容 diff 到 portal 容器（不重建插槽锚——旧内容对照新内容）
-  //   异 key：removePortal（旧容器清理——无残留）+ 新侧渲染
-  if (isPortal(oldV) && isPortal(newV)) {
-    const oldKey = oldV.key ?? 'default'
-    const newKey = newV.key ?? 'default'
-    if (oldKey !== newKey) {
-      // 异 key：旧浮层容器清理（浮层内容 + 容器）+ 新侧渲染（插槽锚同 id 幂等）
-      emitCommand({ op: 'removePortal', key: oldKey })
-      await emit(newV, parent, index, ref)
-      return
-    }
-    // 同 key：内容对照到 portal 容器（parent = portal:<key>——id 路径与
-    // build 的 portal case 一致——插槽锚保持——不重建）
-    const base = `${PORTAL_ID_PREFIX}${newKey}`
-    const oldCs = childrenOf(oldV)
-    const newCs = childrenOf(newV)
-    await diffChildrenItems(oldCs, newCs, base, emit, emitCommand, ctx, registry)
     return
   }
   // 其余同态（text/fragment 等）——首版：新侧重建（位置对照）

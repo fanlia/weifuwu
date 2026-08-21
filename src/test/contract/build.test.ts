@@ -2,14 +2,13 @@
  * build 契约——renderToStream 命令流（首帧全量构建——create/insert 序列）
  *
  * 命令流是纯数据（Command[]——只有 apply 需要 DOM）——node 直跑断言：
- * id 分配 / 顺序 / 组件展开一次 / 空洞锚 / Fragment 展开 / portal。
+ * id 分配 / 顺序 / 组件展开一次 / 空洞锚 / Fragment 展开。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, type VNode } from '../../client/vdom/core/vnode.ts'
 import { renderToStream } from '../../client/vdom/core/build.ts'
 import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import { createPortal } from '../../client/vdom/core/node/portal.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
 import type { UIContext } from '../../client/vdom/context/UIContext.ts'
 
@@ -76,12 +75,3 @@ test('Fragment/数组：展开为父级子节点（无中间层——槽位连�
   assert.deepEqual(creates, ['div', 'span', 'i', 'i', 'span'], '数组项展开（隐式 Fragment）——槽位平铺')
 })
 
-test('portal：槽位建锚 + 内容渲染进 portal 容器（portal:key 命名空间）', async () => {
-  const cmds = await collect(h('div', {}, [createPortal(h('div', { class: 'p' }, '弹层'), 'my-portal')]))
-  const anchor = cmds.find((c) => c.op === 'createAnchor') as { id: string }
-  assert.equal(anchor?.id, 'root.0.0', 'portal 槽位 = 锚（位置持有）')
-  const portalCreate = cmds.find((c) => c.op === 'create' && (c as { id: string }).id === 'portal:my-portal.0') as { id: string; tag: string }
-  assert.equal(portalCreate?.tag, 'div', 'portal 内容渲染进 portal:my-portal 容器')
-  const portalInsert = cmds.find((c) => c.op === 'insert' && (c as { id: string }).id === 'portal:my-portal.0') as { parent: string }
-  assert.equal(portalInsert?.parent, 'portal:my-portal', 'parent = portal 容器（独立命名空间）')
-})

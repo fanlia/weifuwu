@@ -7,7 +7,7 @@
  *
  * 状态公开（同包约定——处理器访问）——资源生命周期：
  * - ref（挂载/卸载——RefRegistry）；事件（EventRegistry 代理）
- * - remove/done/removePortal（子树清理——ref(null) + 事件表）
+ * - remove/done（子树清理——ref(null) + 事件表）
  * - move（顺移 remap / 移动 + 重映射）
  */
 
@@ -15,7 +15,7 @@ import type { Command } from '../command/index.ts'
 import { EventRegistry } from '../field/events.ts'
 import { RefRegistry } from '../field/ref.ts'
 import { disposeComponent, type ComponentRegistry } from '../node/component.ts'
-import { PORTAL_CONTAINER_ID, PORTAL_ID_PREFIX, portalContainerId } from '../node/portal.ts'
+
 import { AbsorbState } from '../ssr/absorb.ts'
 import { dispatch } from './processors.ts'
 import type { WfNode } from './processors.ts'
@@ -32,8 +32,6 @@ export class CommandApplier {
   eventRegistry: EventRegistry
   /** ref 全局注册表（挂载/卸载查表触发） */
   refRegistry = new RefRegistry()
-  /** portal 容器（key → 容器元素） */
-  portalContainers = new Map<string, HTMLElement>()
   /** SSR 吸收状态（结构对齐——DFS 序游标——create 复用已有 DOM） */
   absorb = new AbsorbState()
   container: HTMLElement
@@ -65,11 +63,6 @@ export class CommandApplier {
         }
       }
     }
-    // **portal 容器清理**（P3 dispose 协议——命令式宿主（confirm/toast）
-    // dispose 后 #__wf_portal 下容器残留——真实 bug：命令式 Confirm 取消后
-    // Modal 弹窗残留（host 容器移除不影响 body 下的 portal））
-    for (const c of this.portalContainers.values()) c.remove()
-    this.portalContainers.clear()
   }
 
   /** 子树 ref 清理（卸载指令——ref(null) + 表删除——remove/done 共用） */
@@ -104,31 +97,9 @@ export class CommandApplier {
     }
   }
 
-  /** portal 容器（#__wf_portal 下按 key——惰性创建） */
-  portalContainer(key: string): HTMLElement {
-    let c = this.portalContainers.get(key)
-    if (c) return c
-    let host = this.doc.getElementById(PORTAL_CONTAINER_ID)
-    if (!host) {
-      host = this.doc.createElement('div')
-      host.id = PORTAL_CONTAINER_ID
-      this.doc.body.appendChild(host)
-    }
-    c = this.doc.createElement('div')
-    c.id = portalContainerId(key)
-    host.appendChild(c)
-    this.portalContainers.set(key, c)
-    return c
-  }
-
-  /** 父节点解析（root/portal 容器/节点表） */
+  /** 父节点解析（root/节点表） */
   parentOf(cmd: { parent: string }): HTMLElement | null {
     if (cmd.parent === 'root') return this.container
-    if (cmd.parent.startsWith(PORTAL_ID_PREFIX)) {
-      const node = this.nodes.get(cmd.parent)
-      if (node) return node as HTMLElement
-      return this.portalContainer(cmd.parent.slice(PORTAL_ID_PREFIX.length))
-    }
     const direct = this.nodes.get(cmd.parent)
     if (direct) return direct as HTMLElement
     // **组件逻辑父回退**（真实 bug：组件直接输出组件时子输出挂组件 compId

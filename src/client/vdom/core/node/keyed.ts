@@ -15,7 +15,6 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
-import { isPortal } from './portal.ts'
 
 /** 位置 key 前缀（混合数组——无 key 项位置接管——命名空间隔离） */
 export const POS_KEY_PREFIX = 'pos:'
@@ -29,7 +28,6 @@ export function keyOf(v: VNodeChild): string | null {
   if (typeof v === 'string' || typeof v === 'number') return null
   if (Array.isArray(v)) return null
   const vn = v as VNode
-  if (isPortal(vn)) return null
   return vn.key
 }
 

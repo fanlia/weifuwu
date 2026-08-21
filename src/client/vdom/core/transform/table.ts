@@ -26,17 +26,15 @@ import { transitionHole } from './hole.ts'
 import { transitionElement } from './element.ts'
 import { transitionComponent } from './component.ts'
 import { transitionFragment } from './fragment.ts'
-import { transitionPortal } from './portal.ts'
 
 /** 转换表（old × new → 策略）——同态 = 就地 patch（diff 层处理——表中为 null） */
 export const TRANSITIONS: Record<NodeState, Record<NodeState, TransitionFn | null>> = {
-  text:       { text: null, hole: transitionText, element: transitionText, component: transitionText, fragment: transitionText, portal: transitionText, array: transitionText },
-  hole:       { text: transitionHole, hole: null, element: transitionHole, component: transitionHole, fragment: transitionHole, portal: transitionHole, array: transitionHole },
-  element:    { text: transitionElement, hole: transitionElement, element: null, component: transitionElement, fragment: transitionElement, portal: transitionElement, array: transitionElement },
-  component:  { text: transitionComponent, hole: transitionComponent, element: transitionComponent, component: null, fragment: transitionComponent, portal: transitionComponent, array: transitionComponent },
-  fragment:   { text: transitionFragment, hole: transitionFragment, element: transitionFragment, component: transitionFragment, fragment: null, portal: transitionFragment, array: transitionFragment },
-  portal:     { text: transitionPortal, hole: transitionPortal, element: transitionPortal, component: transitionPortal, fragment: transitionPortal, portal: null, array: transitionPortal },
-  array:      { text: transitionFragment, hole: transitionFragment, element: transitionFragment, component: transitionFragment, fragment: transitionFragment, portal: transitionFragment, array: null },
+  text:       { text: null, hole: transitionText, element: transitionText, component: transitionText, fragment: transitionText, array: transitionText },
+  hole:       { text: transitionHole, hole: null, element: transitionHole, component: transitionHole, fragment: transitionHole, array: transitionHole },
+  element:    { text: transitionElement, hole: transitionElement, element: null, component: transitionElement, fragment: transitionElement, array: transitionElement },
+  component:  { text: transitionComponent, hole: transitionComponent, element: transitionComponent, component: null, fragment: transitionComponent, array: transitionComponent },
+  fragment:   { text: transitionFragment, hole: transitionFragment, element: transitionFragment, component: transitionFragment, fragment: null, array: transitionFragment },
+  array:      { text: transitionFragment, hole: transitionFragment, element: transitionFragment, component: transitionFragment, fragment: transitionFragment, array: null },
 }
 
 /** 转换调度（old × next → 策略）——同态返回 null（diff 就地 patch——不重建） */

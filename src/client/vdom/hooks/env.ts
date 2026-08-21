@@ -11,7 +11,7 @@
 
 import type { ExternalStore } from '../store.ts'
 import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
-import { usePopup, usePopupPosition } from './popup.ts'
+import { usePopupPosition } from './popup.ts'
 import { openPopup, type PopupHandle, type PopupOpenOptions } from './popup-manager.ts'
 import { useControlled } from './controlled.ts'
 import { useScrollPosition, useInView } from './observe.ts'
@@ -52,8 +52,6 @@ export interface Ui {
   /** 全局键盘监听（Escape 关闭等——unmount 自动清理——
    *  ui-dom 兼容单参：useGlobalKey((e) => ...) 无条件监听） */
   useGlobalKey(matchOrHandler: string | ((e: KeyboardEvent) => boolean) | ((e: KeyboardEvent) => void), handler?: (e: KeyboardEvent) => void): () => void
-  /** 浮层弹窗（portal/定位/外部点击/Escape——28 浮层组件核心依赖） */
-  usePopup(opts: import('./popup.ts').PopupOptions): import('./popup.ts').Popup
   /** 命令式弹窗（唯一形态——2027-03：ctx.popup.open——toast 心智——
    *  调用点构建内容——内核自管理挂载/更新/卸载——组件内部句柄同步样板） */
   openPopup(opts: PopupOpenOptions): PopupHandle
@@ -103,7 +101,6 @@ export function createUi(env: HookEnv): Ui {
     onUnmount: (fn: () => void) => env.onUnmount(fn),
     useGlobalKey: (matchOrHandler: string | ((e: KeyboardEvent) => boolean) | ((e: KeyboardEvent) => void), handler?: (e: KeyboardEvent) => void) =>
       useGlobalKey(env, matchOrHandler, handler),
-    usePopup: (opts) => usePopup(env, opts),
     openPopup: (opts) => openPopup(env, opts),
     usePopupPosition: (options) => usePopupPosition(env, options),
     useControlled: <T>(controlled: import('./controlled.ts').ControlledOptions<T>, defaultValue?: T) =>

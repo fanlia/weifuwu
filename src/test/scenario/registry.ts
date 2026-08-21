@@ -9,7 +9,6 @@
  * 场景是引擎真实 bug 的回归样本（§6.3 占位事故 / 组件复用 / keyed 身份 / portal）。
  */
 import { h, type Component, type VNode, createStore } from '../../client/vdom/index.ts'
-import { createPortal } from '../../client/vdom/core/node/portal.ts'
 import { SmokeScene } from './components/smoke-registry.ts'
 import { Input as CInput, InputNumber as CInputNumber, Textarea as CTextarea, SearchInput as CSearchInput, PasswordInput as CPasswordInput, PinInput as CPinInput, Switch as CSwitch, Checkbox as CCheckbox, RadioGroup as CRadioGroup, Slider as CSlider, Rate as CRate, TagsInput as CTagsInput, SegmentedControl as CSegmentedControl, ToggleGroup as CToggleGroup } from '../../client/components/index.ts'
 import { Select as CSelect, AutoComplete as CAutoComplete, Cascader as CCascader, TreeSelect as CTreeSelect, Transfer as CTransfer, ColorPicker as CColorPicker, DatePicker as CDatePicker, Calendar as CCalendar } from '../../client/components/index.ts'
@@ -118,18 +117,35 @@ const KeyedReorder = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
-// ── 场景 4：portal 往返（弹层增删——#__wf_portal） ─────────────────────
-// createPortal 打开 → 内容在 #__wf_portal；关闭 → 移除（不残留）。
+// ── 场景 4：弹层往返（openPopup 打开/关闭——#__wf_portal 不残留） ──────
 const PortalToggle = (_init: Record<string, never>, ctx: any) => {
   let open = false
-  return () =>
-    h('div', { class: 'portal-scene' },
+  let triggerEl: HTMLElement | null = null
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'scenario-portal',
+        // **anchor 必须传（真实 bug）**：无 anchor 时 onDown（closeOnOutside
+        // 默认 true）把触发按钮当外部点击 → 关闭；click 又 toggle 重开——
+        // 关闭-重开循环（第二次 click 后 .portal-content 永不消失——
+        // portal-toggle 测试挂起）——anchor 使按钮成为锚点（el.contains 命中）
+        anchor: () => triggerEl,
+        content: () => h('div', { class: 'portal-content' }, '弹层内容'),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'portal-scene' },
       h('button', {
         class: 'portal-btn',
+        ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
         onClick: () => { open = !open; ctx.render() },
       }, open ? '关闭' : '打开'),
-      open ? createPortal(h('div', { class: 'portal-content' }, '弹层内容'), 'scenario-portal') : null,
     )
+  }
 }
 
 // ── 场景 5：diff 就地更新（节点不重建——焦点保持前提） ────────────────
@@ -187,15 +203,26 @@ const NavigateScene = (_init: Record<string, never>, ctx: any) =>
       h('a', { href: '/scenario/component-reuse', class: 'nav-link' }, '去组件复用场景'),
     )
 
-// ── 场景 10：unmount/dispose（handle.unmount——DOM/portal 完整清理） ─────
+// ── 场景 10：unmount/dispose（handle.unmount——DOM/弹层完整清理） ─────
 const UnmountScene = (_init: Record<string, never>, ctx: any) => {
   let open = false
-  return () =>
-    h('div', { class: 'unmount-scene' },
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'unmount-portal',
+        content: () => h('div', { class: 'um-portal' }, '弹层'),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'unmount-scene' },
       h('button', { class: 'pop-btn', onClick: () => { open = !open; ctx.render() } }, '开弹层'),
       h('button', { class: 'unmount-btn', onClick: () => { (window as any).__scenarioHandle?.unmount() } }, '卸载'),
-      open ? createPortal(h('div', { class: 'um-portal' }, '弹层'), 'unmount-portal') : null,
     )
+  }
 }
 
 // ── 场景 12：useExternal（共享状态——跨组件自动重渲染） ────────────────
@@ -229,16 +256,29 @@ const MediaScene = (_init: Record<string, never>, ctx: any) =>
 const PopupScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
   const triggerRef = (el: unknown) => { if (el) triggerEl = el as HTMLElement }
-  const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: 'bottom' })
-  return () =>
-    h('div', { class: 'popup-scene' },
+  let open = false
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'scenario-popup',
+        anchor: () => triggerEl,
+        placement: 'bottom',
+        content: () => h('div', { class: 'pop-panel' }, '弹层面板'),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'popup-scene' },
       h('button', {
         class: 'pop-trigger',
         ref: triggerRef,
-        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+        onClick: () => { open = !open; ctx.render() },
       }, '弹层开关'),
-      popup.portal(h('div', { class: 'pop-panel' }, '弹层面板'), 'scenario-popup'),
     )
+  }
 }
 
 // ── 场景 15：style 只设不删（§6.4——display 残留事故回归） ─────────────
@@ -402,16 +442,31 @@ const WsScene = (_init: Record<string, never>, ctx: any) => {
 const mkPlace = (name: string, placement: string, center?: boolean): Component => {
   const P = (_init: Record<string, never>, ctx: any) => {
     let triggerEl: HTMLElement | null = null
-    const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: placement as never, center, gap: 12, margin: 20 })
-    return () =>
-      h('div', { class: `place-${name}`, style: { marginTop: '60px' } },
+    let open = false
+    let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+    const sync = () => {
+      if (open && !handle)
+        handle = ctx.ui.openPopup({
+          key: `place-${name}`,
+          anchor: () => triggerEl,
+          placement: placement as never,
+          center,
+          gap: 12, margin: 20,
+          content: () => h('div', { class: `place-panel-${name}` }, `面板-${name}`),
+          onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+        })
+      else if (!open && handle) { handle.close(); handle = null }
+    }
+    return () => {
+      sync()
+      return h('div', { class: `place-${name}`, style: { marginTop: '60px' } },
         h('button', {
           class: `place-btn-${name}`,
           ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
-          onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+          onClick: () => { open = !open; ctx.render() },
         }, name),
-        popup.portal(h('div', { class: `place-panel-${name}` }, `面板-${name}`), `place-${name}`),
       )
+    }
   }
   return P
 }
@@ -433,98 +488,175 @@ const PlacementScene = (_init: Record<string, never>, ctx: any) =>
 // ── 场景 27：closeOnOutside/closeOnEscape 开关（默认 true——显式 false 禁用） ─
 const CloseSwitchScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
-  const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: 'bottom', closeOnOutside: false, closeOnEscape: false })
-  return () =>
-    h('div', { class: 'close-switch-scene' },
+  let open = false
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'close-switch',
+        anchor: () => triggerEl,
+        placement: 'bottom',
+        closeOnOutside: false, closeOnEscape: false,
+        content: () => h('div', { class: 'cs-panel' }, '面板'),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'close-switch-scene' },
       h('button', {
         class: 'cs-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
-        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+        onClick: () => { open = !open; ctx.render() },
       }, '开关'),
-      popup.portal(h('div', { class: 'cs-panel' }, '面板'), 'close-switch'),
     )
+  }
 }
 
 // ── 场景 28：hover 触发（trigger hover + openDelay/closeDelay + disabled） ─
 const HoverTriggerScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
   let disabled = false
-  const popup = ctx.ui.usePopup({
-    el: () => triggerEl, trigger: 'hover', placement: 'bottom',
-    openDelay: 200, closeDelay: 300, disabled: () => disabled,
-  })
-  return () =>
-    h('div', { class: 'hover-trigger-scene' },
+  let open = false
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let hoverTimer: ReturnType<typeof setTimeout> | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'hover-trigger',
+        anchor: () => triggerEl,
+        placement: 'bottom',
+        content: () => h('div', { class: 'ht-panel' }, '悬停面板'),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'hover-trigger-scene' },
       h('button', {
         class: 'ht-trigger',
         ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
-        ...popup.wrapProps, // hover 自动触发（mouseenter/leave + 延迟 + disabled）
+        onMouseEnter: () => { if (!disabled) { open = true; ctx.render() } },
+        onMouseLeave: () => { if (open) { open = false; ctx.render() } },
       }, '悬停'),
       h('button', { class: 'ht-disable', onClick: () => { disabled = true; ctx.render() } }, '禁用'),
-      popup.portal(h('div', { class: 'ht-panel' }, '悬停面板'), 'hover-trigger'),
     )
+  }
 }
 
 // ── 场景 29：受控 getter + positioning none（自定义定位——无 top/left） ─
 const ControlledNoneScene = (_init: Record<string, never>, ctx: any) => {
   let open2 = false
   let triggerEl: HTMLElement | null = null
-  const popup = ctx.ui.usePopup({
-    el: () => triggerEl, isOpen: () => open2, setOpen: (v: boolean) => { open2 = v; ctx.render() },
-    positioning: 'none',
-  })
-  return () =>
-    h('div', { class: 'controlled-none-scene' },
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open2 && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'controlled-none',
+        anchor: () => triggerEl,
+        positioning: 'none',
+        content: () => h('div', { class: 'cn-panel', style: { inset: '0 auto auto 0' } }, '自定义面板'),
+        onClose: () => { handle = null; if (open2) { open2 = false; ctx.render() } },
+      })
+    else if (!open2 && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'controlled-none-scene' },
       h('button', {
         class: 'cn-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
-        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+        onClick: () => { open2 = !open2; ctx.render() },
       }, '开关'),
-      popup.portal(h('div', { class: 'cn-panel', style: { inset: '0 auto auto 0' } }, '自定义面板'), 'controlled-none'),
     )
+  }
 }
 
 // ── 场景 30：presence 退场状态机（exit 阶段仍渲染——无动画立即 closed） ─
 const PresenceScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
-  const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: 'bottom', presence: true })
-  return () =>
-    h('div', { class: 'presence-scene' },
+  let open = false
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'presence',
+        anchor: () => triggerEl,
+        placement: 'bottom',
+        presence: true,
+        content: () => h('div', { class: 'ps-panel' }, '退场面板'),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'presence-scene' },
       h('button', {
         class: 'ps-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
-        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+        onClick: () => { open = !open; ctx.render() },
       }, '开关'),
-      popup.portal(h('div', { class: 'ps-panel' }, '退场面板'), 'presence'),
     )
+  }
 }
 
 // ── 场景 31：mask/maskCentered/maskClosable（遮罩渲染 + 点击关闭） ──────
 const MaskScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
-  const popup = ctx.ui.usePopup({ el: () => triggerEl, mask: true, maskCentered: true, maskClosable: true, positioning: 'none' })
-  return () =>
-    h('div', { class: 'mask-scene' },
+  let open = false
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'mask',
+        anchor: () => triggerEl,
+        mask: true, maskCentered: true, maskClosable: true,
+        positioning: 'none',
+        content: () => h('div', { class: 'mk-content' }, '居中内容'),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'mask-scene' },
       h('button', {
         class: 'mk-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
-        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+        onClick: () => { open = !open; ctx.render() },
       }, '打开'),
-      popup.portal(h('div', { class: 'mk-content' }, '居中内容'), 'mask'),
     )
+  }
 }
 
 // ── 场景 32：trapFocus + lockScroll（焦点陷阱 + 滚动锁） ────────────────
 const TrapScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
-  const popup = ctx.ui.usePopup({ el: () => triggerEl, placement: 'bottom', trapFocus: true, lockScroll: true })
-  return () =>
-    h('div', { class: 'trap-scene' },
+  let open = false
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'trap',
+        anchor: () => triggerEl,
+        placement: 'bottom',
+        trapFocus: true, lockScroll: true,
+        content: () => h('div', { class: 'tr-panel' }, [
+          h('button', { class: 'tr-focus-1' }, '第一'),
+          h('button', { class: 'tr-focus-2' }, '第二'),
+        ]),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'trap-scene' },
       h('button', {
         class: 'tr-trigger', ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
-        onClick: () => { popup.setOpen(!popup.open); ctx.render() },
+        onClick: () => { open = !open; ctx.render() },
       }, '开关'),
-      popup.portal(h('div', { class: 'tr-panel' },
-        h('button', { class: 'tr-focus-1' }, '第一'),
-        h('button', { class: 'tr-focus-2' }, '第二'),
-      ), 'trap'),
     )
+  }
 }
 
 // ── 场景 33：toast（命令式轻提示——显示 + 自动消失） ───────────────────
@@ -1390,8 +1522,8 @@ export const scenarios: Scenario[] = [
   { id: 'popup-hover', title: 'usePopup hover 触发（延迟 + disabled）', render: HoverTriggerScene },
   { id: 'popup-controlled-none', title: 'usePopup 受控 getter + positioning none', render: ControlledNoneScene },
   { id: 'popup-presence', title: 'usePopup presence（退场状态机）', render: PresenceScene },
-  { id: 'popup-mask', title: 'usePopup mask（遮罩渲染 + 点击关闭）', render: MaskScene },
-  { id: 'popup-trap', title: 'usePopup trapFocus + lockScroll（焦点陷阱 + 滚动锁）', render: TrapScene },
+  { id: 'popup-mask', title: 'openPopup mask（遮罩渲染 + 点击关闭）', render: MaskScene },
+  { id: 'popup-trap', title: 'openPopup trapFocus + lockScroll（焦点陷阱 + 滚动锁）', render: TrapScene },
   { id: 'toast-fire', title: 'toast（命令式轻提示——显示 + 自动消失）', render: ToastScene },
   { id: 'use-controlled', title: 'useControlled（受控/非受控/warn）', render: ControlledScene },
   { id: 'use-breakpoint', title: 'useBreakpoint（命名断点切换）', render: BreakpointScene },
