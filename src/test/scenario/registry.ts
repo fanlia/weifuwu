@@ -21,6 +21,7 @@ import { AiChat as CAiChat, FileUpload as CFileUpload } from '../../client/compo
 import { SheetGrid as CSheetGrid, SlideCanvas as CSlideCanvas } from '../../client/components/index.ts'
 import { ImageCropper as CImageCropper, VideoPlayer as CVideoPlayer, AuthPage as CAuthPage } from '../../client/components/index.ts'
 import { Tour as CTour } from '../../client/components/index.ts'
+import { Math as CFormula, Wave as CWave, Title as CTitle, Text as CText, Paragraph as CParagraph } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -1289,6 +1290,49 @@ const DeepRenderLoop = (_i: Record<string, never>, ctx: any) =>
 
 
 
+
+// ── 引擎场景组：无 demo 组件能力（能力面——props 参数行为） ─────────────
+const CapVideoPlayer = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-videoplayer2-scene wf-stack wf-gap-sm' },
+      h(CVideoPlayer, {
+        src: '/media/flower.mp4',
+        aspect: 4 / 3, controls: true, muted: true, autoPlay: true,
+        onPlay: () => { log += 'play;'; ctx.render() }, onPause: () => { log += 'pause;' }, onEnded: () => { log += 'ended;'; ctx.render() },
+        onError: () => { log += 'err;'; ctx.render() },
+      }),
+      h('span', { class: 'deep-videoplayer2-log' }, log),
+    )
+}
+
+const CapFormula = (_i: Record<string, never>, ctx: any) =>
+  () => h('div', { class: 'deep-math-scene' },
+    h(CFormula, { tex: 'E=mc^2' }),
+    h('br'),
+    h(CFormula, { tex: '\\frac{1}{2}x^2 + \\sqrt{4}' }),
+  )
+
+const CapWave = (_i: Record<string, never>, ctx: any) =>
+  () => h('div', { class: 'deep-wave-scene' },
+    h(CWave, { color: '#ff0000' }, h('span', { class: 'wave-target' }, '点击产生波纹')),
+  )
+
+const CapTypo = (_i: Record<string, never>, ctx: any) =>
+  () => h('div', { class: 'deep-typo-scene' },
+    h(CTitle, { level: 2 }, '二级标题'),
+    h(CTitle, { level: 5 }, '五级标题'),
+    h(CText, { type: 'success', strong: true }, '成功加粗'),
+    h(CText, { mark: true }, '高亮'),
+    h(CText, { code: true }, 'code'),
+    h(CParagraph, { type: 'warning', ellipsis: true }, '一段很长的段落文本用于演示单行截断省略号效果超出宽度时显示省略号'),
+  )
+
+const DVPS = { id: 'cap-videoplayer', title: 'VideoPlayer 能力（属性面+回调）', render: CapVideoPlayer }
+const DMAS = { id: 'cap-math', title: 'Math 能力（LaTeX 渲染）', render: CapFormula }
+const DWAS = { id: 'cap-wave', title: 'Wave 能力（点击波纹）', render: CapWave }
+const DTYS = { id: 'cap-typography', title: 'Typography 能力（Title/Text/Paragraph 参数）', render: CapTypo }
+
 const TWS = { id: 'typewriter-loop', title: '打字机高频渲染（锚稳定）', render: DeepTypewriter }
 const RLS = { id: 'render-loop', title: '渲染循环（结构稳定计数）', render: DeepRenderLoop }
 
@@ -1394,6 +1438,10 @@ export const scenarios: Scenario[] = [
   { id: 'deep-tour', title: 'Tour（引导气泡——定位/步骤/关闭）', render: DeepTour },
   TWS,
   RLS,
+  DVPS,
+  DMAS,
+  DWAS,
+  DTYS,
 ]
 
 export function findScenario(id: string): Scenario | undefined {

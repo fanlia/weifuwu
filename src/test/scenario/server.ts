@@ -84,6 +84,12 @@ app.ws('/ws', {
   },
 })
 
+// 本地视频 fixture（真实播放测试——flower.mp4 CC0）
+app.get('/media/flower.mp4', async () => {
+  const buf = await readFile(resolve(process.cwd(), 'src', 'test', 'scenario', 'fixtures', 'flower.mp4'))
+  return new Response(buf, { headers: { 'content-type': 'video/mp4' } })
+})
+
 // AI 流式端点（NDJSON——分块吐 content——useChat 场景 fixture）
 app.post('/api/chat', () =>
   new Response(new ReadableStream({

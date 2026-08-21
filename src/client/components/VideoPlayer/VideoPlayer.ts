@@ -27,33 +27,46 @@ export interface VideoPlayerProps {
 
 export const VideoPlayer: Component<VideoPlayerProps> = async (_init, ctx) => {
   let el: HTMLVideoElement | null = null
-  const attachRef = (node: HTMLElement | null) => {
-    el = node as HTMLVideoElement | null
+  let latest: VideoPlayerProps = { src: '' }
+  // **video 元素自身 ref（mount 定义——稳定——§5.1 纪律）**：
+  // 真实 bug 1：ref 绑在 div——ref 在 appendChild 前触发（video 子元素
+  // 未渲染）→ querySelector('video') null → onplay/onerror 从未绑定
+  // （onPlay 回调永不触发）——ref 直接绑 video（触发时元素存在）
+  // 真实 bug 2：muted 属性经 setAttribute 渲染——Chrome 对 video.muted
+  // 的 setAttribute 不生效（IDL 恒 false——实测）→ muted autoplay 被阻止
+  // ——IDL 直接设置（v.muted = true）
+  const videoRef = (node: HTMLVideoElement | null) => {
+    el = node
+    if (node) {
+      node.onplay = () => latest.onPlay?.()
+      node.onpause = () => latest.onPause?.()
+      node.onended = () => latest.onEnded?.()
+      node.onerror = () => latest.onError?.(new Error('视频加载失败'))
+      // IDL 同步（Chrome setAttribute 对 muted/loop/autoplay 不生效）
+      if (latest.muted !== undefined) node.muted = latest.muted
+      if (latest.loop !== undefined) node.loop = latest.loop
+      if (latest.autoPlay !== undefined) node.autoplay = latest.autoPlay
+    }
   }
   return async (props) => {
-    const { src, poster, aspect = 16 / 9, controls = true, autoPlay, loop, muted, onPlay, onPause, onEnded, onError, className = '' } = props
-    const wrapRef = (node: HTMLElement | null) => {
-      attachRef(node)
-      if (node) {
-        const v = node.querySelector('video')
-        if (v) {
-          v.onplay = () => onPlay?.()
-          v.onpause = () => onPause?.()
-          v.onended = () => onEnded?.()
-          v.onerror = () => onError?.(new Error('视频加载失败'))
-        }
-      }
-    }
+    latest = props
+    const { src, poster, aspect = 16 / 9, controls = true, autoPlay, loop, muted, className = '' } = props
+    // 渲染后 IDL 同步（props 动态变化——ref 稳定不重触发——afterRender 幂等）
+    ctx.afterRender?.(() => {
+      if (el && latest.muted !== undefined) el.muted = latest.muted
+      if (el && latest.loop !== undefined) el.loop = latest.loop
+      if (el && latest.autoPlay !== undefined) el.autoplay = latest.autoPlay
+    })
     return h('div', {
       class: `wf-videoplayer wf-surface wf-border wf-rounded-md wf-clip${className ? ` ${className}` : ''}`,
       style: { aspectRatio: String(aspect), background: '#000' },
-      ref: wrapRef,
     },
       h('video', {
         src, poster,
         controls, autoPlay, loop, muted,
         playsinline: true,
         preload: 'metadata',
+        ref: videoRef,
         style: { width: '100%', height: '100%', display: 'block' },
       }))
   }
