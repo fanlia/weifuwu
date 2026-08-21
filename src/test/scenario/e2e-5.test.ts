@@ -89,3 +89,63 @@ test('use-tween：目标变化 → 数值补间到目标（rAF 驱动——终�
     await page.close()
   }
 })
+
+// ── 场景 37：confirm/notification 命令式（BUG#3 回归面） ───────────────
+test('confirm-command：确认弹窗确定/取消 + 通知自动消失（命令式中间件）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'confirm-command')
+
+    // confirm：弹出 → 确定 → resolve true
+    await page.click('.cf-confirm')
+    await page.waitForSelector('.wf-modal')
+    await page.waitForFunction(() => document.querySelector('.wf-modal')?.textContent?.includes('确定删除'), '确认弹窗出现（命令式——vdom 引擎渲染）')
+    // Button 不透传 class——footer 最后一个按钮（确定）
+    await page.locator('.wf-modal-footer button').last().click()
+    await page.waitForFunction(() => document.querySelector('.cf-result')?.textContent === 'true', 'confirm resolve(true)')
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.wf-modal').length), 0, '确认后弹窗移除（dispose 清理）')
+
+    // notification：弹出 → 自动消失
+    await page.click('.cf-notify')
+    await page.waitForSelector('.wf-notification')
+    assert.equal(await page.locator('.wf-notification').textContent(), '保存成功')
+    await page.waitForFunction(() => !document.querySelector('.wf-notification'), '通知自动消失', { timeout: 2500 })
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 38：useDrag（指针拖拽） ───────────────────────────────────────
+test('use-drag：pointerdown → move 累积 → up 结束（活动期监听）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'use-drag')
+
+    const box = await page.locator('.drag-hook-scene').boundingBox()
+    assert.ok(box, '拖拽目标存在')
+    await page.mouse.move(box.x + 10, box.y + 10)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 40, box.y + 30, { steps: 3 })
+    await page.mouse.move(box.x + 60, box.y + 50)
+    await page.mouse.up()
+    await page.waitForFunction(() => document.querySelector('.dh-ended')?.textContent === 'e:1', 'pointerup → onEnd')
+    const m = await page.locator('.dh-moved').textContent()
+    assert.ok((m ?? '').startsWith('m:'), `onMove 累积（实际 ${m}）`)
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 39：useVisualViewport（视口尺寸） ─────────────────────────────
+test('use-visual-viewport：width/height 与视口一致（vv 或 resize fallback）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'use-visual-viewport')
+
+    await page.setViewportSize({ width: 800, height: 600 })
+    await page.waitForFunction(() => document.querySelector('.vv-height')?.textContent === '600', 'height 跟随视口（vv 或 resize fallback）', { timeout: 2500 })
+    assert.equal(await page.locator('.vv-offset').textContent(), '0', 'offsetTop 0（无键盘弹起）')
+  } finally {
+    await page.close()
+  }
+})

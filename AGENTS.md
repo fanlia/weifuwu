@@ -14,8 +14,8 @@
 ## 2. 测试架构（内置框架——契约层 + 场景层）
 
 ```
-npm run test:client    → 契约层（91 测试——node 直跑命令流——零浏览器——~0.2s）
-npm run test:scenario  → 场景层（25 场景——SSR 服务化 + playwright——真实浏览器——~6s）
+npm run test:client    → 契约层（100 测试——node 直跑命令流——零浏览器——~0.2s）
+npm run test:scenario  → 场景层（39 场景——SSR 服务化 + playwright——真实浏览器——~7s）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 ```
 
@@ -32,6 +32,8 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | router/store/data/html | 路由参数/通配、createStore、ctx.data 缓存合并、commandToHtml 序列化 |
 | events | EVENT_RE on+大写判定（once/only 不误判）、eventName 映射 |
 | api | 真实 HTTP fixture（GET/POST/ApiError/onError——不 mock 网络层） |
+| auth | token 存储往返/空串归一 null/Bearer scheme/自定义 key+scheme/logout |
+| ai-stream | wf: SSE 流式解析（真实 HTTP——token 累积/done/events 记录/错误/abort） |
 
 ### 场景层（src/test/scenario/——playwright 真实 DOM）
 
@@ -50,6 +52,9 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | navigate | 链接拦截 pushState 导航整树替换 |
 | ssr-adopt | SSR 结构吸收（首帧复用 DOM——输入焦点/值保持——失败回退重建） |
 | use-external/media/popup/chat/scroll/in-view/drag-drop/controlled-input | hooks 全契约（快照 vs getter 用法、受控回调、IO/滚动事件驱动） |
+| popup-placement/close-switch/hover/controlled-none/presence/mask/trap | usePopup 参数矩阵（placement 四方向/center/gap/margin 夹紧/关闭开关/受控/none/presence 退场/mask 遮罩/trapFocus+lockScroll） |
+| toast-fire/confirm-command | 命令式中间件（toast 自动消失/confirm resolve/notification——BUG#3 回归） |
+| use-controlled/breakpoint/tween/drag/visual-viewport | 剩余 hooks（受控/断点/补间/指针拖拽/视口） |
 | style-update / event-guard / open-guard | style 整体替换清空 / 事件非函数 warn / 受控缺回调 warn |
 
 ### 已探明契约（测试反向校准——用法红线）

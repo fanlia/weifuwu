@@ -556,6 +556,42 @@ const TweenScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 37：confirm/notification 命令式（BUG#3 回归面——中间件注入） ─
+const ConfirmScene = (_init: Record<string, never>, ctx: any) => {
+  let result: string | null = null
+  return () =>
+    h('div', { class: 'confirm-scene' },
+      h('button', { class: 'cf-confirm', onClick: () => { void ctx.confirm('确定删除？').then((r: boolean) => { result = String(r); ctx.render() }) } }, '确认'),
+      h('button', { class: 'cf-notify', onClick: () => ctx.notification('保存成功', { type: 'success', duration: 500 }) }, '通知'),
+      h('span', { class: 'cf-result' }, result ?? '无'),
+    )
+}
+
+// ── 场景 38：useDrag（指针拖拽——move/up 回调） ────────────────────────
+const DragHookScene = (_init: Record<string, never>, ctx: any) => {
+  let moved = 0
+  let ended = 0
+  const drag = ctx.ui.useDrag({
+    onMove: () => { moved += 1 },
+    onEnd: () => { ended += 1; ctx.render() },
+  })
+  return () =>
+    h('div', { class: 'drag-hook-scene', ...drag, style: { width: '100px', height: '100px', background: '#eee' } },
+      h('span', { class: 'dh-moved' }, `m:${moved}`),
+      h('span', { class: 'dh-ended' }, `e:${ended}`),
+    )
+}
+
+// ── 场景 39：useVisualViewport（视口尺寸/偏移跟随） ────────────────────
+const ViewportScene = (_init: Record<string, never>, ctx: any) => {
+  const vv = ctx.ui.useVisualViewport()
+  return () =>
+    h('div', { class: 'viewport-scene' },
+      h('span', { class: 'vv-height' }, String(Math.round(vv.height))),
+      h('span', { class: 'vv-offset' }, String(Math.round(vv.offsetTop))),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -593,6 +629,9 @@ export const scenarios: Scenario[] = [
   { id: 'use-controlled', title: 'useControlled（受控/非受控/warn）', render: ControlledScene },
   { id: 'use-breakpoint', title: 'useBreakpoint（命名断点切换）', render: BreakpointScene },
   { id: 'use-tween', title: 'useTween（数值补间到目标）', render: TweenScene },
+  { id: 'confirm-command', title: 'confirm/notification 命令式（BUG#3 回归）', render: ConfirmScene },
+  { id: 'use-drag', title: 'useDrag（指针拖拽——move/up 回调）', render: DragHookScene },
+  { id: 'use-visual-viewport', title: 'useVisualViewport（视口尺寸跟随）', render: ViewportScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
