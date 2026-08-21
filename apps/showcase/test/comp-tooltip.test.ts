@@ -60,3 +60,42 @@ test('能力：4 方向 hover（上/下/左/右提示）', async () => {
     }
   } finally { await page.close() }
 })
+
+test('位置：portal 归属 + fixed + 4 方向几何语义（函数 placement 渲染期解析——修复回归）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    for (const [btn, tip] of [['上', '保存文件'], ['下', '底部提示'], ['左', '左侧提示'], ['右', '右侧提示']]) {
+      const b = page.locator('main .wf-surface button', { hasText: btn }).first()
+      await b.hover()
+      // 等面板出现 + 位置稳定（轮询——面板切换/布局竞态）
+      let info: { inPortal: boolean; fixed: boolean; sem: boolean } | null = null
+      for (let i = 0; i < 30; i++) {
+        info = await page.evaluate(({ dir, text }) => {
+          const tipEl = Array.from(document.querySelectorAll('.wf-tooltip-content')).find((e) => e.textContent?.includes(text))
+          const panel = tipEl?.parentElement
+          if (!panel) return null
+          const pr = panel.getBoundingClientRect()
+          if (pr.width === 0 || pr.height === 0) return null
+          const wrap = panel.parentElement
+          const inPortal = wrap?.id?.startsWith('__wf_portal') || !!wrap?.closest('#__wf_portal')
+          const fixed = getComputedStyle(panel).position === 'fixed'
+          // 锚点（main 内按钮——wrap 只含面板）
+          const anchor = Array.from(document.querySelectorAll('main .wf-surface button')).find((x) => x.textContent?.trim() === dir)
+          if (!anchor) return null
+          const ar = anchor.getBoundingClientRect()
+          const sem = dir === '上' ? pr.bottom < ar.top : dir === '下' ? pr.top > ar.bottom : dir === '左' ? pr.right < ar.left : pr.left > ar.right
+          return { inPortal, fixed, sem }
+        }, { dir: btn, text: tip })
+        if (info && info.sem) break
+        await page.waitForTimeout(100)
+      }
+      assert.ok(info, `${btn} 方向面板出现`)
+      assert.ok(info!.inPortal, `${btn} 方向 portal 归属`)
+      assert.ok(info!.fixed, `${btn} 方向 fixed 定位`)
+      assert.ok(info!.sem, `${btn} 方向位置语义（面板在锚点${btn === '上' ? '上方' : btn === '下' ? '下方' : btn === '左' ? '左侧' : '右侧'}）`)
+      await page.mouse.move(700, 600)
+      await page.waitForTimeout(250)
+    }
+  } finally { await page.close() }
+})

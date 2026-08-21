@@ -63,12 +63,38 @@ test('deep-popover：点击触发 → 气泡出现', async () => {
   }
 })
 
-test('deep-tooltip：悬停 → 提示出现', async () => {
+test('deep-tooltip：悬停 → 提示出现 + 4 方向位置语义（函数 placement 渲染期解析）', async () => {
   const page = await browser.newPage()
   try {
     await openScenario(page, BASE, 'deep-tooltip')
-    await page.locator('.deep-tooltip-scene').getByText('悬停我', { exact: true }).hover()
-    await page.waitForFunction(() => (document.querySelector('#__wf_portal')?.textContent ?? '').includes('提示内容'), '悬停提示出现', { timeout: 2500 })
+    const tips: [string, string][] = [['top', '上提示'], ['bottom', '下提示'], ['left', '左提示'], ['right', '右提示']]
+    for (const [dir, text] of tips) {
+      const btn = page.locator(`.deep-tip-btn[data-tip="${dir}"]`)
+      await btn.hover()
+      await page.waitForFunction((t) => (document.querySelector('#__wf_portal')?.textContent ?? '').includes(t), text, { timeout: 2500 })
+      // 几何语义：面板与锚点 rect 相对关系（top=面板在锚点上方 / bottom=下方 / left=左侧 / right=右侧）
+      // 面板切换竞态（上/下按钮相邻——旧面板关闭中）→ 轮询等位置稳定
+      let ok = false
+      for (let i = 0; i < 30; i++) {
+        ok = await page.evaluate(({ dir, text }) => {
+          const tipEl = Array.from(document.querySelectorAll('.wf-tooltip-content')).find((e) => e.textContent?.includes(text))
+          if (!tipEl) return false
+          const panel = tipEl.parentElement
+          if (!panel) return false
+          const pr = panel.getBoundingClientRect()
+          if (pr.width === 0 || pr.height === 0) return false
+          const btn = document.querySelector(`.deep-tip-btn[data-tip="${dir}"]`)
+          if (!btn) return false
+          const br = btn.getBoundingClientRect()
+          return dir === 'top' ? pr.bottom < br.top : dir === 'bottom' ? pr.top > br.bottom : dir === 'left' ? pr.right < br.left : pr.left > br.right
+        }, { dir, text })
+        if (ok) break
+        await page.waitForTimeout(100)
+      }
+      assert.ok(ok, `${dir} 方向位置语义`)
+      await page.mouse.move(700, 600)
+      await page.waitForTimeout(250)
+    }
   } finally {
     await page.close()
   }

@@ -937,8 +937,13 @@ const DeepPopover = (_i: Record<string, never>, ctx: any) => {
 const DeepTooltip = (_i: Record<string, never>, ctx: any) => {
   let log = ''
   return () =>
-    h('div', { class: 'deep-tooltip-scene' },
-      h(CTooltip, { content: '提示内容' }, '悬停我'),
+    h('div', { class: 'deep-tooltip-scene', style: 'padding: 120px 40px' },
+      h('div', { class: 'deep-tooltip-row' },
+        h(CTooltip, { content: '上提示' }, h('button', { class: 'deep-tip-btn', 'data-tip': 'top' }, '悬停我')),
+        h(CTooltip, { content: '下提示', position: 'bottom' }, h('button', { class: 'deep-tip-btn', 'data-tip': 'bottom' }, '悬停下')),
+        h(CTooltip, { content: '左提示', position: 'left' }, h('button', { class: 'deep-tip-btn', 'data-tip': 'left' }, '悬停左')),
+        h(CTooltip, { content: '右提示', position: 'right' }, h('button', { class: 'deep-tip-btn', 'data-tip': 'right' }, '悬停右')),
+      ),
       h('span', { class: 'deep-tooltip-log' }, log),
     )
 }

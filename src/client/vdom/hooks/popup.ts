@@ -177,8 +177,10 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
   const panel = useStableRef(env, null) as StableRef<HTMLElement | null>
   const win = env.getBrowser()?.window
 
-  // placement 函数解析（ui-dom 兼容——渲染期 getter）
-  const placement = typeof opts.placement === 'function' ? opts.placement() : (opts.placement ?? 'bottom')
+  // placement 函数解析（ui-dom 兼容——**refresh 期 getter**：mount 快照会让
+  // 函数 placement（Tooltip 4 方向）恒用初始值——computePos 每次读最新）
+  const resolvePlacement = (): PopupPlacement =>
+    typeof opts.placement === 'function' ? opts.placement() : (opts.placement ?? 'bottom')
   const gap = opts.gap ?? 8
   const margin = opts.margin ?? 8
   const center = opts.center ?? true
@@ -245,7 +247,7 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
       else queueMicrotask(refresh)
       return
     }
-    const p = computePos(el, win, pw, ph, placement, gap, margin, center)
+    const p = computePos(el, win, pw, ph, resolvePlacement(), gap, margin, center)
     if (!p) {
       // 0-rect（scroll/ref 间隙——限次重试）
       if (retries++ < 10) queueMicrotask(refresh)
