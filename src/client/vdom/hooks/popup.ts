@@ -123,11 +123,13 @@ export function computePos(
       left = center ? r.left + r.width / 2 - panelW / 2 : r.left
       break
     case 'left':
-      top = r.top
+      // center（默认 true）：垂直居中于锚点（Tooltip 左右方向用户实测——
+      // 顶部对齐 vs 按钮中心对不上——统一 center 语义：水平+垂直都居中）
+      top = center ? r.top + r.height / 2 - panelH / 2 : r.top
       left = r.left - panelW - gap
       break
     case 'right':
-      top = r.top
+      top = center ? r.top + r.height / 2 - panelH / 2 : r.top
       left = r.right + gap
       break
   }

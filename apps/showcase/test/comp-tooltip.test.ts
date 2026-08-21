@@ -94,6 +94,34 @@ test('位置：portal 归属 + fixed + 4 方向几何语义（函数 placement �
       assert.ok(info!.inPortal, `${btn} 方向 portal 归属`)
       assert.ok(info!.fixed, `${btn} 方向 fixed 定位`)
       assert.ok(info!.sem, `${btn} 方向位置语义（面板在锚点${btn === '上' ? '上方' : btn === '下' ? '下方' : btn === '左' ? '左侧' : '右侧'}）`)
+      // 精确对齐（CSS transform 残留双倍偏移 + 左右垂直居中回归——修复前必败）：
+      // 上/下水平居中 ±2px；左/右垂直居中 ±2px；4 方向 gap ≥ 4；transform none
+      let align: { cxDiff: number; cyDiff: number; gap: number; transform: string } | null = null
+      for (let i = 0; i < 30; i++) {
+        align = await page.evaluate(({ dir, text }) => {
+          const tipEl = Array.from(document.querySelectorAll('.wf-tooltip-content')).find((e) => e.textContent?.includes(text))
+          const panel = tipEl?.parentElement
+          if (!panel) return null
+          const pr = panel.getBoundingClientRect()
+          if (pr.width === 0 || pr.height === 0) return null
+          const b = Array.from(document.querySelectorAll('main .wf-surface button')).find((x) => x.textContent?.trim() === dir)
+          if (!b) return null
+          const br = b.getBoundingClientRect()
+          const pcx = (pr.left + pr.right) / 2
+          const bcx = (br.left + br.right) / 2
+          const pcy = (pr.top + pr.bottom) / 2
+          const bcy = (br.top + br.bottom) / 2
+          const gap = dir === '上' ? br.top - pr.bottom : dir === '下' ? pr.top - br.bottom : dir === '左' ? br.left - pr.right : pr.left - br.right
+          return { cxDiff: Math.abs(pcx - bcx), cyDiff: Math.abs(pcy - bcy), gap, transform: getComputedStyle(panel).transform }
+        }, { dir: btn, text: tip })
+        if (align && ((btn === '上' || btn === '下') ? align.cxDiff <= 2 : align.cyDiff <= 2) && align.gap >= 4 && align.transform === 'none') break
+        await page.waitForTimeout(100)
+      }
+      assert.ok(align, `${btn} 方向对齐数据`)
+      assert.ok(align!.transform === 'none', `${btn} 方向无 CSS transform 残留（${align!.transform}）`)
+      if (btn === '上' || btn === '下') assert.ok(align!.cxDiff <= 2, `${btn} 方向水平居中（偏差 ${Math.round(align!.cxDiff)}px）`)
+      else assert.ok(align!.cyDiff <= 2, `${btn} 方向垂直居中（偏差 ${Math.round(align!.cyDiff)}px）`)
+      assert.ok(align!.gap >= 4, `${btn} 方向间距（${Math.round(align!.gap)}px）`)
       await page.mouse.move(700, 600)
       await page.waitForTimeout(250)
     }

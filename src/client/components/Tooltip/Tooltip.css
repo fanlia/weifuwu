@@ -26,19 +26,20 @@
 }
 
 .wf-tooltip--bottom {
-  transform: translateX(-50%);
+  /* 定位全权归 JS（usePopup computePos——fixed left/top 已含中心对齐/偏移）——
+   * CSS transform 残留（旧 absolute 定位）与 JS 坐标叠加双倍偏移——已删 */
 }
 
 .wf-tooltip--top {
-  transform: translateX(-50%) translateY(-100%);
+  /* 同上（旧 translateX(-50%) translateY(-100%) 与 JS 定位叠加——偏左上） */
 }
 
 .wf-tooltip--left {
-  transform: translateY(-50%) translateX(-100%);
+  /* 同上 */
 }
 
 .wf-tooltip--right {
-  transform: translateY(-50%);
+  /* 同上 */
 }
 
 .wf-tooltip-arrow {
