@@ -82,3 +82,26 @@ test('demo 交互：hover 显示 tooltip 不卡死（回归——renderFn refres
     await page.close()
   }
 })
+
+test('demo 交互：价格区间（range）hover thumb 不卡死 + tooltip 值', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    // 价格区间（第 4 个 slider——range 双 thumb——300-1500）
+    const inputs = page.locator('main input[type="range"]')
+    const r = await inputs.nth(3).boundingBox()
+    const THUMB_R = 9
+    // lo thumb（300/2000 = 15%）
+    await page.mouse.move(r.x + THUMB_R + 0.15 * (r.width - THUMB_R * 2), r.y + r.height / 2)
+    await page.waitForTimeout(500)
+    assert.equal(await page.evaluate(() => 'alive', { timeout: 3000 }), 'alive', 'lo thumb hover 不卡死')
+    await page.waitForFunction(() => document.querySelector('#__wf_portal-slider-tooltip')?.textContent === '300', 'lo tooltip 300', { timeout: 3000 })
+    // hi thumb（1500/2000 = 75%）
+    await page.mouse.move(r.x + THUMB_R + 0.75 * (r.width - THUMB_R * 2), r.y + r.height / 2)
+    await page.waitForTimeout(500)
+    assert.equal(await page.evaluate(() => 'alive', { timeout: 3000 }), 'alive', 'hi thumb hover 不卡死')
+    await page.waitForFunction(() => document.querySelector('#__wf_portal-slider-tooltip')?.textContent === '1500', 'hi tooltip 1500', { timeout: 3000 })
+  } finally {
+    await page.close()
+  }
+})
