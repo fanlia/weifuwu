@@ -14,6 +14,7 @@ import { SmokeScene } from './components/smoke-registry.ts'
 import { Input as CInput, InputNumber as CInputNumber, Textarea as CTextarea, SearchInput as CSearchInput, PasswordInput as CPasswordInput, PinInput as CPinInput, Switch as CSwitch, Checkbox as CCheckbox, RadioGroup as CRadioGroup, Slider as CSlider, Rate as CRate, TagsInput as CTagsInput, SegmentedControl as CSegmentedControl, ToggleGroup as CToggleGroup } from '../../client/components/index.ts'
 import { Select as CSelect, AutoComplete as CAutoComplete, Cascader as CCascader, TreeSelect as CTreeSelect, Transfer as CTransfer, ColorPicker as CColorPicker, DatePicker as CDatePicker, Calendar as CCalendar } from '../../client/components/index.ts'
 import { Tabs as CTabs, Menu as CMenu, Pagination as CPagination, Table as CTable, Collapse as CCollapse, Accordion as CAccordion, Carousel as CCarousel, Steps as CSteps, List as CList } from '../../client/components/index.ts'
+import { Modal as CModal, Drawer as CDrawer, Popover as CPopover, Tooltip as CTooltip, Dropdown as CDropdown, Popconfirm as CPopconfirm, HoverCard as CHoverCard, ActionSheet as CActionSheet, Command as CCommand, Menubar as CMenubar } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -893,6 +894,106 @@ const DeepList = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+// ── 深度场景组 4：浮层组件（参数行为断言） ─────────────────────────────
+const DeepModal = (_i: Record<string, never>, ctx: any) => {
+  let open = false
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-modal-scene' },
+      h('button', { class: 'dm-open', onClick: () => { open = true; ctx.render() } }, '打开'),
+      h(CModal, { open, title: '弹窗标题', onClose: () => { open = false; log += 'close;'; ctx.render() } }, '弹窗内容'),
+      h('span', { class: 'deep-modal-log' }, log),
+    )
+}
+
+const DeepDrawer = (_i: Record<string, never>, ctx: any) => {
+  let open = false
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-drawer-scene' },
+      h('button', { class: 'dd-open', onClick: () => { open = true; ctx.render() } }, '打开'),
+      h(CDrawer, { open, title: '抽屉标题', onClose: () => { open = false; log += 'close;'; ctx.render() } }, '抽屉内容'),
+      h('span', { class: 'deep-drawer-log' }, log),
+    )
+}
+
+const DeepPopover = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-popover-scene' },
+      h(CPopover, { content: '气泡内容', trigger: 'click' }, '点我'),
+      h('span', { class: 'deep-popover-log' }, log),
+    )
+}
+
+const DeepTooltip = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-tooltip-scene' },
+      h(CTooltip, { content: '提示内容' }, '悬停我'),
+      h('span', { class: 'deep-tooltip-log' }, log),
+    )
+}
+
+const DeepDropdown = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-dropdown-scene' },
+      h(CDropdown, { trigger: '下拉菜单', items: [{ key: '1', label: '操作一', onClick: () => { log += 'v:1;'; ctx.render() } }, { key: '2', label: '操作二', onClick: () => { log += 'v:2;'; ctx.render() } }] }),
+      h('span', { class: 'deep-dropdown-log' }, log),
+    )
+}
+
+const DeepPopconfirm = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-popconfirm-scene' },
+      h(CPopconfirm, { title: '确定删除？', onConfirm: () => { log += 'ok;'; ctx.render() }, onCancel: () => { log += 'cancel;'; ctx.render() } }, '删除'),
+      h('span', { class: 'deep-popconfirm-log' }, log),
+    )
+}
+
+const DeepHoverCard = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-hovercard-scene' },
+      h(CHoverCard, { content: '悬停卡片内容', openDelay: 100 }, '悬停'),
+      h('span', { class: 'deep-hovercard-log' }, log),
+    )
+}
+
+const DeepActionSheet = (_i: Record<string, never>, ctx: any) => {
+  let open = false
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-actionsheet-scene' },
+      h('button', { class: 'as-open', onClick: () => { open = true; ctx.render() } }, '打开'),
+      h(CActionSheet, { open, items: [{ key: 'a', label: '选项A' }, { key: 'b', label: '选项B' }], onSelect: (k: string) => { open = false; log += `v:${k};`; ctx.render() }, onClose: () => { open = false; ctx.render() } }),
+      h('span', { class: 'deep-actionsheet-log' }, log),
+    )
+}
+
+const DeepCommand = (_i: Record<string, never>, ctx: any) => {
+  let open = false
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-command-scene' },
+      h('button', { class: 'cm-open', onClick: () => { open = true; ctx.render() } }, '打开'),
+      h(CCommand, { open, items: [{ key: '1', label: '新建文件', onSelect: () => { log += 'v:1;'; ctx.render() } }, { key: '2', label: '打开设置', onSelect: () => { log += 'v:2;'; ctx.render() } }], onOpenChange: (o: boolean) => { open = o; ctx.render() } }),
+      h('span', { class: 'deep-command-log' }, log),
+    )
+}
+
+const DeepMenubar = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-menubar-scene' },
+      h(CMenubar, { menus: [{ key: 'file', label: '文件', items: [{ key: 'new', label: '新建', onSelect: () => { log += 'v:new;'; ctx.render() } }, { key: 'save', label: '保存', onSelect: () => { log += 'v:save;'; ctx.render() } }] }, { key: 'edit', label: '编辑', items: [{ key: 'undo', label: '撤销', onSelect: () => { log += 'v:undo;'; ctx.render() } }] }] }),
+      h('span', { class: 'deep-menubar-log' }, log),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -965,6 +1066,16 @@ export const scenarios: Scenario[] = [
   { id: 'deep-carousel', title: 'Carousel 参数（切换）', render: DeepCarousel },
   { id: 'deep-steps', title: 'Steps 参数（渲染）', render: DeepSteps },
   { id: 'deep-list', title: 'List 参数（onItemClick）', render: DeepList },
+  { id: 'deep-modal', title: 'Modal 参数（open/onClose）', render: DeepModal },
+  { id: 'deep-drawer', title: 'Drawer 参数（open/onClose）', render: DeepDrawer },
+  { id: 'deep-popover', title: 'Popover 参数（trigger/content）', render: DeepPopover },
+  { id: 'deep-tooltip', title: 'Tooltip 参数（content 悬停）', render: DeepTooltip },
+  { id: 'deep-dropdown', title: 'Dropdown 参数（菜单选择）', render: DeepDropdown },
+  { id: 'deep-popconfirm', title: 'Popconfirm 参数（确认/取消）', render: DeepPopconfirm },
+  { id: 'deep-hovercard', title: 'HoverCard 参数（悬停出现）', render: DeepHoverCard },
+  { id: 'deep-actionsheet', title: 'ActionSheet 参数（选项选择）', render: DeepActionSheet },
+  { id: 'deep-command', title: 'Command 参数（搜索选择）', render: DeepCommand },
+  { id: 'deep-menubar', title: 'Menubar 参数（菜单展开选择）', render: DeepMenubar },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
