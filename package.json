@@ -47,7 +47,8 @@
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run",
     "test:client": "node --env-file=.env --test --test-concurrency=4 'src/test/contract/**/*.test.ts'",
-    "test:server": "node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts'"
+    "test:server": "node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts'",
+    "test:scenario": "node --env-file=.env --test --test-timeout=25000 'src/test/scenario/**/*.test.ts'"
   },
   "dependencies": {
     "esbuild": "^0.28.1",
