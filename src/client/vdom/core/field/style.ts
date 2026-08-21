@@ -35,13 +35,17 @@ export function applyStyleValue(el: HTMLElement, key: string, value: unknown): v
   ;(el.style as any)[key] = String(value)
 }
 
-/** style 应用（对象/字符串） */
+/** style 应用（对象/字符串——整体替换语义） */
 export function applyStyle(el: HTMLElement, style: unknown): void {
   if (typeof style === 'string') {
     el.setAttribute('style', style)
     return
   }
   if (style && typeof style === 'object') {
+    // **整体替换**（设计规则 §6.4 回归）：style 对象 = 组件声明的完整样式——
+    // 先清空旧值（键消失不残留——display 残留事故——`{ display: 'block' }`
+    // → `{}` 旧 display 不清理——条件显隐失效）——再逐键设置
+    el.style.cssText = ''
     for (const [k, v] of Object.entries(style)) {
       applyStyleValue(el, k, v)
     }

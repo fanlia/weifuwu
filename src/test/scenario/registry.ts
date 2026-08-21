@@ -229,6 +229,30 @@ const PopupScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 15：style 只设不删（§6.4——display 残留事故回归） ─────────────
+const StyleScene = (_init: Record<string, never>, ctx: any) => {
+  let show = false
+  return () =>
+    h('div', { class: 'style-scene' },
+      h('div', { class: 'style-box', style: show ? { display: 'block', color: 'red' } : {} }, '盒子'),
+      h('button', { class: 'style-toggle', onClick: () => { show = !show; ctx.render() } }, '切换'),
+    )
+}
+
+// ── 场景 16：事件非函数守卫（§6.4——diff 路径 warn + 跳过不中断） ──
+const GuardScene = (_init: Record<string, never>, ctx: any) => {
+  let bad = false
+  return () =>
+    h('div', { class: 'guard-scene' },
+      h('button', {
+        class: 'bad-event-btn',
+        onClick: bad ? (true as never) : () => { (window as any).__evt = ((window as any).__evt ?? 0) + 1 },
+      }, '坏事件'),
+      h('button', { class: 'guard-switch', onClick: () => { bad = true; ctx.render() } }, '变坏'),
+      h('span', { class: 'guard-ok' }, '渲染正常'),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -244,6 +268,8 @@ export const scenarios: Scenario[] = [
   { id: 'use-external', title: 'useExternal（共享状态——跨组件自动重渲染）', render: ExternalScene },
   { id: 'use-media', title: 'useMedia（媒体查询——视口变化自动重渲染）', render: MediaScene },
   { id: 'use-popup', title: 'usePopup（弹层——portal + 外部点击关闭）', render: PopupScene },
+  { id: 'style-update', title: 'style 只设不删（display 残留回归——§6.4）', render: StyleScene },
+  { id: 'event-guard', title: '事件非函数守卫（warn + 跳过——不中断渲染）', render: GuardScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

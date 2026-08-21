@@ -33,7 +33,11 @@ export class EventRegistry {
 
   /** 事件注册（代理写入——不直接绑定） */
   set(nodeId: string, event: string, handler: unknown): void {
-    if (typeof handler !== 'function') return
+    if (typeof handler !== 'function') {
+      // 非函数值守卫（设计规则 §6.4：warn + 跳过——不中断渲染管线）
+      console.warn(`[vdom] 事件 ${event} 非函数值被跳过（node ${nodeId}）——期望函数，实际 ${typeof handler}`)
+      return
+    }
     let m = this.table.get(nodeId)
     if (!m) {
       m = new Map()
