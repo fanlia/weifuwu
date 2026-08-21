@@ -62,16 +62,21 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
   let anchorEl: HTMLElement | null = null
   const aiAnchorRef = (el: unknown): void => { anchorEl = el as HTMLElement }
 
-  const aiPopup = ctx.ui.usePopup({
-    trigger: 'manual',
-    placement: 'bottom',
-    gap: 8,
-    el: () => anchorEl,
-    isOpen: () => !!aiPending,
-    setOpen: (v) => {
-      if (!v) { aiPending = null; ctx.render() }
-    },
-  })
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let aiHandle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncAiPanel = (panel: import('../../vdom/index.ts').VNode | null): void => {
+    if (aiPending && !aiHandle)
+      aiHandle = ctx.ui.openPopup({
+        key: 'sheet-ai',
+        anchor: () => anchorEl,
+        placement: 'bottom',
+        gap: 8,
+        content: () => panel,
+        onClose: () => { aiHandle = null; if (aiPending) { aiPending = null; ctx.render() } },
+      })
+    else if (!aiPending && aiHandle) { aiHandle.close(); aiHandle = null }
+    else if (aiHandle && panel) aiHandle.update(panel)
+  }
 
   // ── 事件流：commit（N op = 1 撤销步——同 Editor） ──
   const commit = (label: string, ops: OfficeOp[], before: WorkbookState): void => {
@@ -324,8 +329,9 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
           h('thead', {}, h('tr', {}, h('th', { class: 'wf-sheet-corner', key: 'corner' }), ...head)),
           h('tbody', {}, ...cells)),
       ]),
-      aiPopup.portal(aiPanel, 'sheet-ai') as VNode,
     ])
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncAiPanel(aiPanel)
   }
 }
 

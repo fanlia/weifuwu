@@ -302,16 +302,21 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
 
   // ── 操作历史（时光机）：commit 列表 → 回到任意版本（AI 多轮修改刚需） ──
   let historyOpen = false
-  const historyPopup = ctx.ui.usePopup({
-    trigger: 'manual',
-    placement: 'bottom',
-    gap: 8,
-    el: () => anchorEl,
-    isOpen: () => historyOpen,
-    setOpen: (v) => {
-      if (!v) { historyOpen = false; ctx.render() }
-    },
-  })
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let historyHandle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncHistoryPanel = (panel: import('../../vdom/index.ts').VNode): void => {
+    if (historyOpen && !historyHandle)
+      historyHandle = ctx.ui.openPopup({
+        key: 'editor-history',
+        anchor: () => anchorEl,
+        placement: 'bottom',
+        gap: 8,
+        content: () => panel,
+        onClose: () => { historyHandle = null; if (historyOpen) { historyOpen = false; ctx.render() } },
+      })
+    else if (!historyOpen && historyHandle) { historyHandle.close(); historyHandle = null }
+    else if (historyHandle) historyHandle.update(panel)
+  }
 
   /** 回到指定 commit（undo 栈下标——0 = 最早）：从目标 before 重放其 events——
    *  精确恢复该版本（重放到当前 doc 会触发事件一致性校验失败——prev 快照过期）；
@@ -338,38 +343,57 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
   let anchorEl: HTMLElement | null = null
   const setAnchor = (el: HTMLElement | null) => { anchorEl = el }
 
-  // ── Link/Image 输入浮层（§5.4：轻量锚定浮层——usePopup 统一；Modal 会话级过重） ──
-  const linkPopup = ctx.ui.usePopup({
-    trigger: 'manual',
-    placement: 'bottom',
-    gap: 8,
-    el: () => anchorEl,
-    isOpen: () => showLinkInput,
-    setOpen: (v) => { if (!v) { showLinkInput = false; ctx.render() } },
-  })
-  const imagePopup = ctx.ui.usePopup({
-    trigger: 'manual',
-    placement: 'bottom',
-    gap: 8,
-    el: () => anchorEl,
-    isOpen: () => showImageInput,
-    setOpen: (v) => { if (!v) { showImageInput = false; ctx.render() } },
-  })
-
-  const aiPopup = ctx.ui.usePopup({
-    trigger: 'manual',
-    placement: 'bottom',
-    gap: 8,
-    el: () => anchorEl,
-    isOpen: () => aiPanelOpen,
-    setOpen: (v) => {
-      if (!v) {
-        aiPanelOpen = false
-        aiPending?.handle?.abort()
-        ctx.render()
-      }
-    },
-  })
+  // ── Link/Image 输入浮层（§5.4：轻量锚定浮层——命令式弹窗；Modal 会话级过重） ──
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let linkHandle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncLinkModal = (panel: import('../../vdom/index.ts').VNode | null): void => {
+    if (showLinkInput && panel && !linkHandle)
+      linkHandle = ctx.ui.openPopup({
+        key: 'editor-link',
+        anchor: () => anchorEl,
+        placement: 'bottom',
+        gap: 8,
+        content: () => panel,
+        onClose: () => { linkHandle = null; if (showLinkInput) { showLinkInput = false; ctx.render() } },
+      })
+    else if (!showLinkInput && linkHandle) { linkHandle.close(); linkHandle = null }
+    else if (linkHandle && panel) linkHandle.update(panel)
+  }
+  let imageHandle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncImageModal = (panel: import('../../vdom/index.ts').VNode | null): void => {
+    if (showImageInput && panel && !imageHandle)
+      imageHandle = ctx.ui.openPopup({
+        key: 'editor-image',
+        anchor: () => anchorEl,
+        placement: 'bottom',
+        gap: 8,
+        content: () => panel,
+        onClose: () => { imageHandle = null; if (showImageInput) { showImageInput = false; ctx.render() } },
+      })
+    else if (!showImageInput && imageHandle) { imageHandle.close(); imageHandle = null }
+    else if (imageHandle && panel) imageHandle.update(panel)
+  }
+  let aiHandle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncAiPanel = (panel: import('../../vdom/index.ts').VNode | null): void => {
+    if (aiPanelOpen && panel && !aiHandle)
+      aiHandle = ctx.ui.openPopup({
+        key: 'editor-ai-panel',
+        anchor: () => anchorEl,
+        placement: 'bottom',
+        gap: 8,
+        content: () => panel,
+        onClose: () => {
+          aiHandle = null
+          if (aiPanelOpen) {
+            aiPanelOpen = false
+            aiPending?.handle?.abort()
+            ctx.render()
+          }
+        },
+      })
+    else if (!aiPanelOpen && aiHandle) { aiHandle.close(); aiHandle = null }
+    else if (aiHandle && panel) aiHandle.update(panel)
+  }
 
   /** 触发 AI 动作：选区（无选区 = 全文）→ 提示词 → wf: 流式 → 建议浮层 */
   const runAiAction = (action: EditorAiAction, aiOpts: EditorAiOptions) => {
@@ -742,8 +766,8 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       if (needsRender) ctx.render()
     }
 
-    // ── Link 输入浮层（usePopup 锚定浮层——非会话级模态） ──────
-    const linkModal = isRichMode && showLinkInput ? linkPopup.portal(h('div', {
+    // ── Link 输入浮层（命令式弹窗锚定浮层——非会话级模态） ──────
+    syncLinkModal(isRichMode && showLinkInput ? h('div', {
       class: 'wf-editor-link-panel',
     }, [
       h('div', { class: 'wf-editor-link-panel-title' }, editorText('linkTitle', '插入链接')),
@@ -763,7 +787,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
           onClick: () => confirmLink(linkUrl),
         }, '确定'),
       ]),
-    ]), 'editor-link') : null
+    ]) : null)
 
     // ── Image Modal ─────────────────────────────────────
     const imageBodyChildren: any[] = []
@@ -793,7 +817,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       },
     }))
 
-    const imageModal = isRichMode && showImageInput ? imagePopup.portal(h('div', {
+    syncImageModal(isRichMode && showImageInput ? h('div', {
       class: 'wf-editor-link-panel',
     }, [
       h('div', { class: 'wf-editor-link-panel-title' }, editorText('imageTitle', '插入图片')),
@@ -806,7 +830,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
           onClick: () => confirmImageUrl(imageUrl),
         }, onUpload ? '插入' : '确定'),
       ]),
-    ]), 'editor-image') : null
+    ]) : null)
 
     // ── 渲染 ──────────────────────────────────────────
     let editorBody: VNode | null = null
@@ -880,7 +904,6 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
     let aiButtons: VNode | null = null
     let aiPanel: VNode | null = null
     let historyBtn: VNode | null = null
-    let historyPanel: VNode | null = null
 
     /** AI diff 视图：原文删除线 + 建议高亮（model/diff.ts——零依赖） */
     const renderAiDiff = (original: string, revised: string): VNode => {
@@ -937,11 +960,10 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
             h('span', { class: 'wf-editor-hist-label' }, `↩ ${c.label}`),
           ]))
         }
-        historyPanel = historyPopup.portal(
+        syncHistoryPanel(
           rows.length
             ? h('div', { class: 'wf-editor-hist-panel' }, rows)
             : h('div', { class: 'wf-editor-hist-panel wf-editor-hist-empty' }, '暂无操作记录'),
-          'editor-hist',
         )
       }
     }
@@ -987,7 +1009,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
               }, editorText('accept', '接受')),
           ]),
         ])
-        aiPanel = aiPopup.portal(panelContent, 'editor-ai-panel')
+        syncAiPanel(panelContent)
       }
     }
 
@@ -999,10 +1021,6 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
             [...(aiButtons ? [aiButtons] : []), ...(historyBtn ? [historyBtn] : [])])
         : null,
       editorBody,
-      linkModal,
-      imageModal,
-      aiPanel,
-      historyPanel,
       h('input', { type: 'hidden', value, 'aria-hidden': 'true' }),
     ])
   }

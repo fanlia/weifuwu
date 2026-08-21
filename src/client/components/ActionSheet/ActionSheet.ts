@@ -45,29 +45,20 @@ export const ActionSheet: Component<ActionSheetProps> = async (_init, ctx: UICon
   let latestOpen = false
   /** 键盘焦点项（方向键移动——menu 语义） */
   let focusKey = ''
-  const popup = ctx.ui.usePopup({
-    presence: true,
-    trapFocus: true,
-    lockScroll: true,
-    positioning: 'none',
-    closeOnOutside: false,
-    closeOnEscape: false,
-    isOpen: () => latestOpen,
-    setOpen: () => {},
-  })
+  // 命令式弹窗（唯一形态 openPopup）：presence 退场 + 焦点 trap + 滚动锁
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
   // ESC 关闭（document 级——焦点在 trap 外也可关闭；phase=open 才触发避免 exit 期间重复）
   let latestOnClose: (() => void) | undefined
   ctx.ui.useGlobalKey((e: KeyboardEvent) => {
-    if (e.key === 'Escape' && popup.phase === 'open') latestOnClose?.()
+    if (e.key === 'Escape' && handle?.open && latestOpen) latestOnClose?.()
   })
 
   return async (props: ActionSheetProps) => {
     const { open, items, onSelect, onClose, cancelText, title } = props
     latestOpen = open
     latestOnClose = onClose
-    const phase = popup.sync!(latestOpen)
-
-    if (phase === 'closed') return null
 
     // 键盘：方向键上下 + Enter 选择（menu 语义——跳过 disabled）
     const onKeyDown = (e: KeyboardEvent) => {
@@ -145,13 +136,34 @@ export const ActionSheet: Component<ActionSheetProps> = async (_init, ctx: UICon
     ])
 
     const root = h('div', {
-      class: `wf-actionsheet ${phase === 'exit' ? 'wf-actionsheet--exit' : 'wf-actionsheet--enter'}`,
+      class: `wf-actionsheet ${open ? 'wf-actionsheet--enter' : 'wf-actionsheet--exit'}`,
       role: 'dialog',
       'aria-modal': 'true',
       'aria-label': title ?? '操作面板',
       tabIndex: -1,
     }, [overlay, panel])
 
-    return popup.portal(root, 'actionsheet')
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'actionsheet',
+        presence: true,
+        trapFocus: true,
+        lockScroll: true,
+        positioning: 'none',
+        closeOnOutside: false,
+        closeOnEscape: false,
+        content: () => root,
+        onClose: () => { handle = null },
+      })
+    else if (!open && handle) {
+      // 退场：先渲染 exit class（动画）→ close（presence——animationend → dispose）
+      handle.update(root)
+      handle.close()
+      handle = null
+    }
+    else if (handle) handle.update(root)
+
+    return null
   }
 }

@@ -23,30 +23,21 @@ export interface DrawerProps {
 export const Drawer: Component<DrawerProps> = async (_props, ctx) => {
   // usePopup 会话级模态（统一弹窗能力）：presence 退场状态机 + 焦点 trap + 滚动锁
   let latestOpen = false
-  const popup = ctx.ui.usePopup({
-    presence: true,
-    trapFocus: true,
-    lockScroll: true,
-    positioning: 'none',
-    closeOnOutside: false,
-    closeOnEscape: false,
-    isOpen: () => latestOpen,
-    setOpen: () => {},
-  })
-  // ESC 关闭（document 级——焦点在 trap 外也可关闭；phase=open 才触发避免 exit 期间重复）
+  // 命令式弹窗（唯一形态 openPopup）：presence 退场状态机 + 焦点 trap + 滚动锁
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  // ESC 关闭（document 级——焦点在 trap 外也可关闭；open 期间才触发避免退场重复）
   let latestOnClose: (() => void) | undefined
   ctx.ui.useGlobalKey((e: KeyboardEvent) => {
-    if (e.key === 'Escape' && popup.phase === 'open') latestOnClose?.()
+    if (e.key === 'Escape' && handle?.open && latestOpen) latestOnClose?.()
   })
+  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
   return async (props: DrawerProps) => {
     const { open, title, position = 'right', onClose, children, footer, width } = props
     latestOnClose = onClose
     const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}
     latestOpen = !!open
-    const phase = popup.sync!(latestOpen)
-
-    if (phase === 'closed') return null
 
     const overlay = h('div', {
       class: 'wf-drawer-overlay',
@@ -77,8 +68,7 @@ export const Drawer: Component<DrawerProps> = async (_props, ctx) => {
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
-      
-      class: `wf-drawer wf-drawer--${position} ${phase === 'exit' ? 'wf-drawer--exit' : 'wf-drawer--enter'}`,
+      class: `wf-drawer wf-drawer--${position} ${open ? 'wf-drawer--enter' : 'wf-drawer--exit'}`,
       role: 'dialog',
       'aria-modal': 'true',
       'aria-label': title ?? (DL.ariaLabel ?? '侧边面板'),
@@ -86,6 +76,27 @@ export const Drawer: Component<DrawerProps> = async (_props, ctx) => {
       onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') onClose?.() },
     }, [overlay, panel])
 
-    return popup.portal(root, 'drawer')
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'drawer',
+        presence: true,
+        trapFocus: true,
+        lockScroll: true,
+        positioning: 'none',
+        closeOnOutside: false,
+        closeOnEscape: false,
+        content: () => root,
+        onClose: () => { handle = null },
+      })
+    else if (!open && handle) {
+      // 退场：先渲染 exit class（动画）→ close（presence——animationend → dispose）
+      handle.update(root)
+      handle.close()
+      handle = null
+    }
+    else if (handle) handle.update(root)
+
+    return null
   }
 }

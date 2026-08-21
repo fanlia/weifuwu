@@ -3,9 +3,9 @@
  */
 
 import type { Component } from '../../vdom/index.ts'
-import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
+import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
 
 export interface ModalProps {
   open?: boolean
@@ -22,32 +22,24 @@ export interface ModalProps {
 }
 
 export const Modal: Component<ModalProps> = async (_props, ctx) => {
-  // usePopup 会话级模态（统一弹窗能力）：presence 退场状态机 + 焦点 trap + 滚动锁
-  // position 'none'：Modal 的 .wf-modal 自己 inset:0 居中（CSS flex——不依赖锚点坐标）
+  // 命令式弹窗（唯一形态 openPopup）：presence 退场状态机 + 焦点 trap + 滚动锁
+  // positioning 'none'：.wf-modal 自己 inset:0 居中（CSS flex——不依赖锚点坐标）
   let latestOpen = false
-  const popup = ctx.ui.usePopup({
-    presence: true,
-    trapFocus: true,
-    lockScroll: true,
-    positioning: 'none',
-    closeOnOutside: false, // 关闭语义组件自控（overlay 点击 maskClosable）
-    closeOnEscape: false,  // Escape 组件自控（useGlobalKey——危险操作差异留在组件层）
-    isOpen: () => latestOpen,
-    setOpen: () => {},
-  })
-  // ESC 关闭（document 级——焦点在 trap 外也可关闭；phase=open 才触发避免 exit 期间重复）
   let latestOnClose: (() => void) | undefined
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: PopupHandle | null = null
+
+  // ESC 关闭（document 级——焦点在 trap 外也可关闭；open 期间才触发避免退场重复）
   ctx.ui.useGlobalKey((e: KeyboardEvent) => {
-    if (e.key === 'Escape' && popup.phase === 'open') latestOnClose?.()
+    if (e.key === 'Escape' && handle?.open && latestOpen) latestOnClose?.()
   })
+  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
   return async (props: ModalProps) => {
     const { open, title, onClose, children, footer, width, closable = true, maskClosable = true } = props
     latestOnClose = onClose
     latestOpen = !!open
     const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
-    const phase = popup.sync!(latestOpen)
-    if (phase === 'closed') return null
 
     const overlay = h('div', {
       class: 'wf-modal-overlay',
@@ -78,14 +70,33 @@ export const Modal: Component<ModalProps> = async (_props, ctx) => {
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
-      class: `wf-modal ${phase === 'exit' ? 'wf-modal--exit' : 'wf-modal--enter'}`,
+      class: `wf-modal ${open ? 'wf-modal--enter' : 'wf-modal--exit'}`,
       role: 'dialog',
       'aria-modal': 'true',
       'aria-label': title ?? (ML.ariaLabel ?? '弹窗'),
-      // Escape 关闭：document 级（useGlobalKey——mount 层注册）——不再依赖焦点 trap 冒泡
     }, [overlay, content])
 
-    // 焦点 trap + 滚动锁 + 退场监听由 usePopup 内部 portalPanelRef 接线（无需手动 ref）
-    return popup.portal(root, 'modal')
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'modal',
+        presence: true,
+        trapFocus: true,
+        lockScroll: true,
+        positioning: 'none',
+        closeOnOutside: false, // 关闭语义组件自控（overlay 点击 maskClosable）
+        closeOnEscape: false,  // Escape 组件自控（useGlobalKey——危险操作差异留在组件层）
+        content: () => root,
+        onClose: () => { handle = null },
+      })
+    else if (!open && handle) {
+      // 退场：先渲染 exit class（动画）→ close（presence——animationend → dispose）
+      handle.update(root)
+      handle.close()
+      handle = null
+    }
+    else if (handle) handle.update(root)
+
+    return null
   }
 }

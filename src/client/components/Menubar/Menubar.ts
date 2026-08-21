@@ -48,20 +48,26 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
   // menus 由 render 阶段更新（闭包读最新）
   let menus: MenubarMenu[] = []
 
-  // usePopup：只借用 document 级外部点击/Escape + 面板定位/视口 clamp + portal。
-  // trigger 点击仍走自定义 toggle（多 trigger 共用一个面板，不 spread wrapProps）
-  const popup = ctx.ui.usePopup({
-    trigger: 'click',
-    placement: 'bottom',
-    center: false,
-    gap: 4,
-    el: () => {
-      const i = menus.findIndex(m => m.key === openMenu)
-      return i >= 0 ? triggerEls[i] : null
-    },
-    isOpen: () => openMenu !== null,
-    setOpen: (v) => { if (!v) close() },
-  })
+  // 命令式弹窗（唯一形态 openPopup）：document 级外部点击/Escape + 面板定位/
+  // 视口 clamp。trigger 点击仍走自定义 toggle（多 trigger 共用一个面板）
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncPanel = (panel: import('../../vdom/index.ts').VNode | null): void => {
+    if (openMenu && panel && !handle)
+      handle = ctx.ui.openPopup({
+        anchor: () => {
+          const i = menus.findIndex(m => m.key === openMenu)
+          return i >= 0 ? triggerEls[i] : null
+        },
+        placement: 'bottom',
+        center: false,
+        gap: 4,
+        content: () => panel,
+        onClose: () => { handle = null; if (openMenu) close() },
+      })
+    else if (!openMenu && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(panel)
+  }
 
   const close = () => {
     if (openMenu !== null) {
@@ -122,9 +128,8 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
 
     const openMenuData = menus.find(m => m.key === openMenu)
 
-    // **方案 B（保留 hole 槽）**：panel 恒 portal() 调用（槽恒在——引擎
-    // 自动开合——组件无特殊关闭路径）
-    const panel = popup.portal(openMenuData ? h('div', {
+    // 命令式弹窗（唯一形态 openPopup——openMenuData 驱动）
+    const panel = openMenuData ? h('div', {
       class: 'wf-menubar-panel',
       role: 'menu',
     }, (openMenuData.items ?? []).map((item, i) =>
@@ -143,14 +148,16 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
         h('span', { class: 'wf-menubar-item-label' }, item.label),
         item.shortcut ? h('kbd', { class: 'wf-menubar-shortcut' }, item.shortcut) : null,
       ].filter(Boolean))
-    )) : null, 'popover')
+    )) : null
+
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncPanel(panel)
 
     return h('div', {
       class: 'wf-menubar',
       role: 'menubar',
       'aria-label': ariaLabel,
       onKeyDown,
-      // **方案 B：保留 portal 槽（不 filter——数组长度恒定——同构）**
-    }, [...triggers, panel])
+    }, triggers)
   }
 }

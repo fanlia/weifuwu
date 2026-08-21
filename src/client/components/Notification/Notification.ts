@@ -162,19 +162,18 @@ export function notificationMiddleware<C extends Record<string, unknown>>(ctx: C
 }
 
 export const Notification: Component<NotificationProps> = async (_init, ctx) => {
-  // 统一 usePopup：常驻容器（positioning 'none'——CSS class 角落定位）
-  const popup = ctx.ui.usePopup?.({
-    positioning: 'none',
-    closeOnOutside: false, closeOnEscape: false,
-    isOpen: () => true,
-    setOpen: () => {},
-  })
+  // 命令式弹窗（唯一形态 openPopup）：常驻容器（positioning 'none'——CSS 角落定位）
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
   return async (props) => {
     const { items = [], onRemove, position = 'top-right', duration = 4500, max = 0 } = props
 
     const visible = max > 0 && items.length > max ? items.slice(-max) : items
-    if (visible.length === 0) return null
+    if (visible.length === 0) {
+      if (handle) { handle.close(); handle = null }
+      return null
+    }
 
     const cards = visible.map(t =>
       h('div', {
@@ -204,13 +203,22 @@ export const Notification: Component<NotificationProps> = async (_init, ctx) => 
       ].filter(Boolean))
     )
 
-    return popup.portal(
-      h('div', {
-        class: `wf-notification-container ${positionClass(position)}`,
-        'data-max': max || undefined,
-      }, cards),
-      'notification',
-    )
+    const container = h('div', {
+      class: `wf-notification-container ${positionClass(position)}`,
+      'data-max': max || undefined,
+    }, cards)
+
+    // 命令式同步（常驻容器——内容更新）
+    if (!handle)
+      handle = ctx.ui.openPopup({
+        key: 'notification',
+        positioning: 'none',
+        closeOnOutside: false, closeOnEscape: false,
+        content: () => container,
+        onClose: () => { handle = null },
+      })
+    else handle.update(container)
+    return null
   }
 }
 

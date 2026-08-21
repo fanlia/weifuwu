@@ -98,27 +98,44 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
   const onDomainEnter = () => cancelClose()
   ctx.ui.onUnmount?.(() => { clearTimeout(closeTimer) })
 
-  // 顶层子菜单：usePopup 组合器（portal + 定位 + Escape + 外部点击）
-  const popup = ctx.ui.usePopup({
-    trigger: () => 'hover',
-    placement: () => 'bottom',
-    center: false, // 子菜单左对齐触发项
-    gap: 4,
-    el: () => (openKey ? itemEls.get(openKey) ?? null : null),
-    isOpen: () => !!openKey,
-    setOpen: (v) => { if (!v) { openKey = null; nestedKey = null; ctx.render() } },
-  })
-
-  // 嵌套子菜单（第二级）：独立 usePopup（portal + right 弹出）
-  const nestedPopup = ctx.ui.usePopup({
-    trigger: () => 'hover',
-    placement: () => 'right',
-    center: false,
-    gap: 4,
-    el: () => (nestedKey ? nestedEls.get(nestedKey) ?? null : null),
-    isOpen: () => !!nestedKey,
-    setOpen: (v) => { if (!v) { nestedKey = null; ctx.render() } },
-  })
+  // 命令式弹窗（唯一形态 openPopup——多候选项共享 handle：匹配项调用 sync +
+  // 渲染末尾兜底关闭——NavMenu 特殊模式）
+  /** 顶层子菜单句柄 */
+  let subHandle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncSub = (content: import('../../vdom/index.ts').VNode): void => {
+    if (openKey && !subHandle)
+      subHandle = ctx.ui.openPopup({
+        key: 'wf-navmenu-sub',
+        anchor: () => (openKey ? itemEls.get(openKey) ?? null : null),
+        placement: 'bottom',
+        center: false, // 子菜单左对齐触发项
+        gap: 4,
+        content: () => content,
+        onClose: () => { subHandle = null; if (openKey) { openKey = null; nestedKey = null; ctx.render() } },
+      })
+    else if (subHandle) subHandle.update(content)
+  }
+  /** 嵌套子菜单句柄（第二级——right 弹出） */
+  let nestedHandle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncNested = (content: import('../../vdom/index.ts').VNode): void => {
+    if (nestedKey && !nestedHandle)
+      nestedHandle = ctx.ui.openPopup({
+        key: 'wf-navmenu-nested',
+        anchor: () => (nestedKey ? nestedEls.get(nestedKey) ?? null : null),
+        placement: 'right',
+        center: false,
+        gap: 4,
+        content: () => content,
+        onClose: () => { nestedHandle = null; if (nestedKey) { nestedKey = null; ctx.render() } },
+      })
+    else if (nestedHandle) nestedHandle.update(content)
+  }
+  const syncNestedFallback = (): void => {
+    if (!nestedKey && nestedHandle) { nestedHandle.close(); nestedHandle = null }
+  }
+  const syncSubFallback = (): void => {
+    if (!openKey && subHandle) { subHandle.close(); subHandle = null }
+  }
 
   const renderSub = (
     items: NavMenuItem[],
@@ -136,10 +153,28 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
           ctx.render()
         } else {
           onSelect?.(item.key)
-          popup.setOpen(false)
-          nestedPopup.setOpen(false)
+          openKey = null
+          nestedKey = null
+          ctx.render()
         }
       }
+      const subChildren: any[] = [
+        h('span', { class: 'wf-navmenu-sub-label' }, item.label),
+        hasNested
+          ? h('span', { class: 'wf-navmenu-sub-arrow' }, h(Icon, { name: 'chevron-right' }))
+          : null,
+      ]
+      // 命令式同步（匹配项调用——nestedHandle 共享——关闭由兜底处理）
+      if (nestedKey === item.key) {
+        syncNested(h('div', {
+          class: 'wf-navmenu-sub wf-navmenu-sub--nested wf-navmenu-sub--open',
+          role: 'menu',
+          ref: nestedPanelRef,
+          onMouseEnter: () => { cancelClose(); if (nestedKey !== item.key) { nestedKey = item.key; ctx.render() } },
+          onMouseLeave: onDomainLeave,
+        }, renderSub(item.children || [], activeKey, onSelect, depth + 1)))
+      }
+      syncNestedFallback()
       return h('div', {
         class: `wf-navmenu-sub-item${item.disabled ? ' wf-navmenu-sub-item--disabled' : ''}${hasNested && nestedKey === item.key ? ' wf-navmenu-sub-item--open' : ''}`,
         key: item.key,
@@ -163,22 +198,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
             ctx.render()
           }
         },
-      }, [
-        h('span', { class: 'wf-navmenu-sub-label' }, item.label),
-        hasNested
-          ? h('span', { class: 'wf-navmenu-sub-arrow' }, h(Icon, { name: 'chevron-right' }))
-          : null,
-        // **方案 B：槽恒在（portal 恒调用——引擎自动开合）**
-        nestedPopup.portal(hasNested && nestedKey === item.key ? h('div', {
-                class: 'wf-navmenu-sub wf-navmenu-sub--nested wf-navmenu-sub--open',
-                role: 'menu',
-                ref: nestedPanelRef,
-                onMouseEnter: () => { cancelClose(); if (nestedKey !== item.key) { nestedKey = item.key; ctx.render() } },
-                onMouseLeave: onDomainLeave,
-              }, renderSub(item.children || [], activeKey, onSelect, depth + 1)) : null,
-              'wf-navmenu-nested',
-            ),
-      ])
+      }, subChildren)
     })
 
   // ── render（每次 dirty/props 变化）──
@@ -194,6 +214,21 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
     }, items.map(item => {
       const hasChildren = !!item.children?.length
       const isOpen = openKey === item.key
+            const itemChildren: any[] = [
+        h('span', { class: 'wf-navmenu-label' }, item.label),
+        hasChildren && h('span', { class: 'wf-navmenu-arrow' }, h(Icon, { name: 'chevron-down' })),
+      ]
+      // 命令式同步（匹配项调用——subHandle 共享——关闭由兜底处理）
+      if (isOpen) {
+        syncSub(h('div', {
+          class: 'wf-navmenu-sub wf-navmenu-sub--open',
+          role: 'menu',
+          ref: subPanelRef,
+          onMouseEnter: onDomainEnter,
+          onMouseLeave: onDomainLeave,
+        }, renderSub(item.children || [], activeKey, onSelect, 1)))
+      }
+      syncSubFallback()
       return h('div', {
         class: `wf-navmenu-item${item.disabled ? ' wf-navmenu-item--disabled' : ''}${activeKey === item.key ? ' wf-navmenu-item--active' : ''}`,
         key: item.key,
@@ -211,8 +246,9 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
           } else {
             onSelect?.(item.key)
             // 点击叶子项：关闭已展开的子菜单（shadcn NavigationMenu 行为）
-            popup.setOpen(false)
-            nestedPopup.setOpen(false)
+            openKey = null
+            nestedKey = null
+            ctx.render()
           }
         },
         onMouseEnter: () => {
@@ -232,7 +268,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
             e.preventDefault?.()
             if (item.disabled) return
             if (hasChildren) { openKey = isOpen ? null : item.key; nestedKey = null; ctx.render() }
-            else { onSelect?.(item.key); popup.setOpen(false); nestedPopup.setOpen(false) }
+            else { onSelect?.(item.key); openKey = null; nestedKey = null; ctx.render() }
           } else if (e.key === 'ArrowRight' && hasChildren) {
             openKey = item.key
             ctx.render()
@@ -242,22 +278,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
             ctx.render()
           }
         },
-      }, [
-        h('span', { class: 'wf-navmenu-label' }, item.label),
-        hasChildren && h('span', { class: 'wf-navmenu-arrow' }, h(Icon, { name: 'chevron-down' })),
-        // **方案 B：槽恒在（portal 恒调用——引擎自动开合）**
-        popup.portal(hasChildren && isOpen
-          ? h('div', {
-              class: 'wf-navmenu-sub wf-navmenu-sub--open',
-              role: 'menu',
-              ref: subPanelRef,
-              onMouseEnter: onDomainEnter,
-              onMouseLeave: onDomainLeave,
-            }, renderSub(item.children || [], activeKey, onSelect, 1))
-          : null,
-          'wf-navmenu-sub',
-        ),
-      ])
+      }, itemChildren)
     }))
   }
 }

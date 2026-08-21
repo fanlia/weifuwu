@@ -49,28 +49,14 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
   let targetEl: HTMLElement | null = null
   let rect: Rect = { top: 0, left: 0, width: 0, height: 0 }
 
-  // 统一 usePopup：mask 遮罩 + portal 出口；position 回调更新目标 rect（scroll 跟随经
-  // usePopup 内部 popup-tracker——refresh → position → rect 更新 → render 重算坐标）
-  // **声明顺序（真实 bug）**：latestOpen/latestPlacement 必须在使用前声明——
-  // usePopup 工厂内 useOpen 读 isOpen getter（TDZ——冒烟测试抓出）
+  // 命令式弹窗（唯一形态 openPopup）：mask 遮罩 + position 回调更新目标 rect
+  // （scroll 跟随经 refresh——position → rect 更新 → 重算坐标）
+  // **声明顺序（真实 bug）**：latestOpen/latestPlacement 必须在使用前声明
   let latestPlacement: TourPlacement = 'bottom'
   let latestOpen = false
   let latestProps: TourProps = { steps: [] }
-  const popup = ctx.ui.usePopup({
-    mask: true,
-    maskClosable: false,       // 遮罩点击不关（步骤由按钮控制）
-    positioning: 'none',       // panel（highlight+bubble）自定位（fixed 视口坐标）
-    closeOnOutside: false, closeOnEscape: false,
-    el: () => targetEl,
-    isOpen: () => latestOpen,
-    setOpen: (v) => { if (!v) close() },
-    position: () => {
-      const r = targetEl?.getBoundingClientRect()
-      if (r) rect = { top: r.top, left: r.left, width: r.width, height: r.height }
-      const p = bubblePos(rect, latestPlacement)
-      return { x: p.left, y: p.top }
-    },
-  })
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
   const open = () => latestOpen
 
@@ -113,7 +99,7 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
     targetEl = latestProps.steps[step]?.target
       ? (ctx.browser?.query(latestProps.steps[step].target) as HTMLElement | null)
       : null
-    popup.refresh()
+    handle?.refresh()
     ctx.render()
   }
 
@@ -135,7 +121,7 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
           // 组件副作用事件：滚动到目标（effect:scroll——可观测）
           try { t.scrollIntoView({ block: 'center' }) } catch { /* 无 scrollIntoView 环境（SSR） */ }
         }
-        popup.refresh()
+        handle?.refresh()
       }
     }
 
@@ -148,6 +134,13 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
 
     const st = props.steps[current]
     if (!st) return null
+
+    // rect 渲染期计算（highlight/bubble 依赖最新目标位置——不依赖 position
+    // getter 副作用——打开/步骤切换后组件渲染即得正确坐标）
+    if (targetEl) {
+      const r = targetEl.getBoundingClientRect()
+      if (r.width || r.height) rect = { top: r.top, left: r.left, width: r.width, height: r.height }
+    }
 
     const isLast = current >= props.steps.length - 1
     // **视口翻转（真实 bug——agent-browser 抓出）**：placement 'top' 且目标
@@ -196,8 +189,29 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
       },
     })
 
-    // mask 由 usePopup 提供（mask: true）——panel 内容 = highlight + bubble（fixed 视口坐标）
-    return popup.portal(h('div', { class: 'wf-tour-layer' }, [highlight, bubble]), 'tour')
+    const layer = h('div', { class: 'wf-tour-layer' }, [highlight, bubble])
+
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    if (latestOpen && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'tour',
+        mask: true,
+        maskClosable: false,       // 遮罩点击不关（步骤由按钮控制）
+        positioning: 'none',       // panel（highlight+bubble）自定位（fixed 视口坐标）
+        closeOnOutside: false, closeOnEscape: false,
+        content: () => layer,
+        position: () => {
+          const r = targetEl?.getBoundingClientRect()
+          if (r) rect = { top: r.top, left: r.left, width: r.width, height: r.height }
+          const p = bubblePos(rect, latestPlacement)
+          return { x: p.left, y: p.top, width: p.width }
+        },
+        onClose: () => { handle = null; if (latestOpen) close() },
+      })
+    else if (!latestOpen && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(layer)
+
+    return null
   }
 }
 

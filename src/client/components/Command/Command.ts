@@ -50,22 +50,23 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
   })
 
   const stableRef = (el: HTMLElement | null) => { void el }
-  // 弹层组合器：mask 全屏遮罩（§5.4 统一——Command 全屏模态）——
-  // 受控 open/onOpenChange；Escape/遮罩点击关闭由 usePopup 内置
-  const popup = ctx.ui.usePopup?.({
-    trigger: 'click',
-    placement: 'bottom',
-    el: () => null,
-    isOpen: () => !!latest.open,
-    setOpen: (v) => { if (!v) latest.onOpenChange?.(false) },
-    open: () => !!latest.open,
-    onOpenChange: (v) => { latest.onOpenChange?.(v) },
-    mask: true,
-    maskCentered: true,
-  }) ?? {
-    open: false, setOpen: () => {}, wrapProps: {},
-    portal: () => null, refresh: () => {},
+  // 命令式弹窗（唯一形态 openPopup）：mask 全屏遮罩（§5.4 统一——全屏模态）——
+  // 受控 open/onOpenChange；Escape/遮罩点击关闭内核内置
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncCommand = (panel: import('../../vdom/index.ts').VNode | null): void => {
+    if (latest.open && panel && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'command',
+        mask: true,
+        maskCentered: true,
+        content: () => panel,
+        onClose: () => { handle = null; if (latest.open) latest.onOpenChange?.(false) },
+      })
+    else if (!latest.open && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(panel)
   }
+  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
   return async (props) => {
     const {
@@ -75,9 +76,9 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
     latest = { open, onOpenChange, shortcut: globalShortcut }
 
     if (!open) {
-      // 关闭：**方案 B（保留 hole 槽）**——数组恒含 portal() 调用（槽恒在——
-      // 引擎自动清空——组件无特殊关闭路径）
-      return [popup.portal(null, 'command')]
+      // 关闭：命令式同步（open false → 内核自动清空）
+      syncCommand(null)
+      return null
     }
 
     const filtered = query
@@ -146,7 +147,8 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
       h('div', { class: 'wf-command-list' }, list),
     ])
 
-    // usePopup mask 全屏遮罩 + 居中（统一管理——不再手写 overlay）
-    return popup.portal(panel, 'command')
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncCommand(panel)
+    return null
   }
 }

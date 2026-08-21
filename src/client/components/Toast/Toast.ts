@@ -52,23 +52,16 @@ function positionClass(pos: ToastPosition): string {
   return map[pos] ?? 'wf-toast--tr'
 }
 
-export const Toast: Component<ToastProps> = async (_init, ctx) =>
-  async (props) => {
-  const { toasts = [], onRemove, position = 'top-right', duration = 0, max = 0 } = props
+export const Toast: Component<ToastProps> = async (_init, ctx) => {
+  // 命令式弹窗（唯一形态 openPopup）：常驻容器（positioning 'none'——CSS 角落定位）
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
-  // 统一 usePopup：常驻容器（positioning 'none'——CSS class 角落定位）
-  const popup = ctx.ui.usePopup?.({
-    positioning: 'none',
-    closeOnOutside: false, closeOnEscape: false,
-    isOpen: () => true,   // 容器常驻（toast 内容动态增删）
-    setOpen: () => {},
-  })
+  return async (props) => {
+  const { toasts = [], onRemove, position = 'top-right', duration = 0, max = 0 } = props
 
   // 限制最大显示条数
   const visible = max > 0 && toasts.length > max ? toasts.slice(-max) : toasts
-
-  // **方案 B（保留 hole 槽）**：输出数组恒含 portal() 调用（槽恒在——
-  // 数组长度恒定——引擎自动开合：show 检查渲染/清空——组件无特殊关闭路径）
   const items = visible.map(t =>
     h('div', {
       class: `wf-toast wf-toast--${t.type}`,
@@ -91,18 +84,25 @@ export const Toast: Component<ToastProps> = async (_init, ctx) =>
     ].filter(Boolean))
   )
 
-  return [
-    popup.portal(
-      visible.length > 0
-        ? h('div', {
-            class: `wf-toast-container ${positionClass(position)}`,
-            'data-max': max || undefined,
-          }, items)
-        : null,
-      'toast',
-    ),
-  ]
+  const container = h('div', {
+    class: `wf-toast-container ${positionClass(position)}`,
+    'data-max': max || undefined,
+  }, items)
+
+  // 命令式同步（常驻容器——内容更新——空时关闭）
+  if (visible.length > 0 && !handle)
+    handle = ctx.ui.openPopup({
+      key: 'toast',
+      positioning: 'none',
+      closeOnOutside: false, closeOnEscape: false,
+      content: () => container,
+      onClose: () => { handle = null },
+    })
+  else if (visible.length === 0 && handle) { handle.close(); handle = null }
+  else if (handle) handle.update(container)
+  return null
   }
+}
 
 function iconFor(type?: ToastType): IconName {
   switch (type) {

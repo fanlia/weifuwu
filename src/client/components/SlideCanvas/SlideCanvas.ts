@@ -60,14 +60,21 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
   let aiAnchor: HTMLElement | null = null
   const aiAnchorRef = (el: unknown): void => { aiAnchor = el as HTMLElement }
 
-  const aiPopup = ctx.ui.usePopup({
-    trigger: 'manual',
-    placement: 'bottom',
-    gap: 8,
-    el: () => aiAnchor,
-    isOpen: () => !!aiPending,
-    setOpen: (v) => { if (!v) { aiPending = null; ctx.render() } },
-  })
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let aiHandle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const syncAiPanel = (panel: import('../../vdom/index.ts').VNode | null): void => {
+    if (aiPending && panel && !aiHandle)
+      aiHandle = ctx.ui.openPopup({
+        key: 'slide-ai',
+        anchor: () => aiAnchor,
+        placement: 'bottom',
+        gap: 8,
+        content: () => panel,
+        onClose: () => { aiHandle = null; if (aiPending) { aiPending = null; ctx.render() } },
+      })
+    else if (!aiPending && aiHandle) { aiHandle.close(); aiHandle = null }
+    else if (aiHandle && panel) aiHandle.update(panel)
+  }
 
   // ── 事件流：commit ──
   const commit = (label: string, ops: OfficeOp[], before: DeckState): void => {
@@ -387,7 +394,8 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
           class: 'wf-slide-shape-scaler',
         }, n))),
       ]),
-      aiPopup.portal(aiPanel, 'slide-ai'),
     ])
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    syncAiPanel(aiPanel)
   }
 }
