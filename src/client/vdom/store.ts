@@ -1,7 +1,7 @@
 /**
  * vdom store — createStore（共享状态原语——跨组件状态）
  *
- * 设计（AGENTS §4.5——render-only 无响应式引擎）：
+ * 设计（设计规则 §4.5——render-only 无响应式引擎）：
  * - state = 普通对象（**非 Proxy**——无 set trap 无隐式 dirty）
  * - set(partial) 合并写 + notify；update(fn) 可变写 + notify；notify() 手动
  * - subscribe(cb) → 退订函数（useExternal 订阅——unmount 自动退订）

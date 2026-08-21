@@ -1,7 +1,7 @@
 /**
  * vdom core/node — keyed 测试（keyed 列表语义——业务身份声明协议）
  *
- * 锁定规则（AGENTS §4.0/§5.7）：全 keyed 身份映射；全 unkeyed 位置身份；
+ * 锁定规则（设计规则 §4.0/§5.7）：全 keyed 身份映射；全 unkeyed 位置身份；
  * 混合数组 pos:{i} 位置 key（命名空间隔离）；A 级检测 warn 引导。
  */
 

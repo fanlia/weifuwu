@@ -1,7 +1,7 @@
 /**
  * vdom core — Portal（浮层渲染到远程容器——独立文件）
  *
- * 设计（AGENTS §5.4 弹窗纪律 + §4.0 结构符号内化）：
+ * 设计（设计规则 §5.4 弹窗纪律 + §4.0 结构符号内化）：
  * - Portal 为内部符号——公共面不导出——createPortal 是 usePopup 内部
  *   机制（组件库 28 浮层组件 0 直接使用——一律 usePopup）
  * - 渲染目标：#__wf_portal（body 下统一浮层容器）——portalKey 语义化

@@ -1,7 +1,7 @@
 /**
  * vdom context — DataPipe 测试（数据管道——工厂取数唯一异步边界）
  *
- * 契约（AGENTS §3.4）：缓存命中直接返回；未命中调 fetcher 缓存并发合并；
+ * 契约（设计规则 §3.4）：缓存命中直接返回；未命中调 fetcher 缓存并发合并；
  * 失败缓存（显式 invalidate 重试）；key 约定即 URL。
  */
 

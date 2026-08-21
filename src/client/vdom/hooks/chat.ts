@@ -1,7 +1,7 @@
 /**
  * vdom hooks — useChat（AI 对话会话——流式消息累积）
  *
- * 设计（AGENTS §4.2——useChat 会话：消息累积/工具调用/HITL 审批——
+ * 设计（设计规则 §4.2——useChat 会话：消息累积/工具调用/HITL 审批——
  * handle 带 subscribe(cb)——ctx.ui.useExternal(chat) 订阅会话变化——
  * 流式事件 → notify → 订阅组件自动重渲染——高频 notify 由写者控制频率）：
  * - send(text)：用户消息 + 助手流式累积（SSE/NDJSON 行解析——fetch POST）

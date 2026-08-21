@@ -1,7 +1,7 @@
 /**
  * diff 契约——diffStream 增量命令流（旧树 vs 新树 → 就地 patch 命令）
  *
- * 核心不变量（AGENTS §6.3 三层一致）：
+ * 核心不变量（设计规则 §6.3 三层一致）：
  * - 同类型元素 → setProp/setText 就地更新（不重建）
  * - 组件同类型复用（工厂不重跑——renderFn 重新调用）
  * - 异类型/空洞 ↔ 真实 → transform 让位（childNodes 同构——长度恒定）

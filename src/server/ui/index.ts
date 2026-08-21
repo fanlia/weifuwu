@@ -38,7 +38,7 @@ import { h } from '../../client/vdom/index.ts'
 import type { Component } from '../../client/vdom/index.ts'
 
 // 浏览器端编译 alias：weifuwu/* → 同构源码/产物（与 weifuwu/dev 的 BARE_ALIASES 一致——
-// 全单图防 dist/src 双实例（AGENTS.md §6.1）；显式 alias 绕开 esbuild self-reference
+// 全单图防 dist/src 双实例（）；显式 alias 绕开 esbuild self-reference
 // 解析断裂（dist/components 内部 import 'weifuwu/ui-dom' 曾解析到 src 而失败）
 // src 模式：指向 src 下的 .ts；dist 模式：指向 dist 下的 .js（同一目录结构）
 const HERE = dirname(fileURLToPath(import.meta.url))

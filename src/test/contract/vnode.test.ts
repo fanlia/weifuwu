@@ -1,7 +1,7 @@
 /**
  * vdom core — vnode 纯数据面测试
  *
- * 锁定 h/jsx 行为契约（vdom-x X-A 系 + AGENTS §4.0）：
+ * 锁定 h/jsx 行为契约（vdom-x X-A 系 + 设计规则 §4.0）：
  * - h() 除 key 剥离外零转换（children 原样——false/嵌套数组保留）
  * - key 业务身份声明（props 不泄漏 key）
  * - childrenOf 单一规则源（递归展开 + 空洞保留——长度恒定）

@@ -1,7 +1,7 @@
 /**
  * vdom context — DataPipe 实现（数据管道——组件工厂取数的唯一异步边界）
  *
- * 契约（AGENTS §3.4——ctx.data）：
+ * 契约（设计规则 §3.4——ctx.data）：
  * - **缓存 + 并发合并**：同 key 并发 get → 同一 promise（重复执行零成本——
  *   组件工厂 N 实例同 key 取数合并）
  * - **key 约定即 URL**（`/api/posts/1`）——天然唯一——key 必须含数据维度

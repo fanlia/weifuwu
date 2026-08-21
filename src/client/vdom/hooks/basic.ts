@@ -1,9 +1,9 @@
 /**
  * vdom hooks — 基础 hooks（useStableRef/useOpen/useGlobalKey）
  *
- * 设计（render-only 模型——AGENTS §4.2）：
+ * 设计（render-only 模型——设计规则 §4.2）：
  * - useStableRef：稳定引用容器（跨渲染保持——hooks 内部传递——引擎责任）
- * - useOpen：受控/非受控开关（**受控缺回调 warn**——AGENTS §5.2——
+ * - useOpen：受控/非受控开关（**受控缺回调 warn**——设计规则 §5.2——
  *   静默不可用防护）；非受控内部状态 + 显式渲染
  * - useGlobalKey：全局键盘监听（Escape 关闭等——unmount 自动清理——
  *   经 ctx.browser.window——零全局直接访问）
@@ -51,7 +51,7 @@ export interface UseOpenOptions {
 
 /** 受控/非受控开关（受控：open 由父独占——onOpenChange 唯一出口）
  *  **渲染期调用**（renderFn 内 ctx.ui.useOpen）——hook 状态缓存（per-instance
- *  index）——受控值读最新 props（AGENTS §3.1——renderFn 读最新 props）
+ *  index）——受控值读最新 props（设计规则 §3.1——renderFn 读最新 props）
  *  **双形状**：`useOpen(init, controlled?)`（vdom 既有）/
  *  `useOpen({ open, onOpenChange, name })`（ui-dom 兼容——组件消费） */
 export function useOpen(
@@ -72,7 +72,7 @@ export function useOpen(
     },
     setOpen(v: boolean): void {
       if (isControlled) {
-        // 受控：唯一出口是回调（缺回调 = 静默不可用——AGENTS §5.2 warn）
+        // 受控：唯一出口是回调（缺回调 = 静默不可用——设计规则 §5.2 warn）
         if (!ctrl?.onOpenChange) {
           console.warn(`[vdom] useOpen${opts?.name ? `(${opts.name})` : ''} 受控缺 onOpenChange 回调——交互静默失效`)
         }

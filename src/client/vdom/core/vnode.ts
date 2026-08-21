@@ -1,7 +1,7 @@
 /**
  * vdom core — vnode 纯数据面（独立实现——零引用 ui-dom）
  *
- * 设计（对齐 vdom-x 契约 + AGENTS §4.0/§6.3）：
+ * 设计（对齐 vdom-x 契约 + 设计规则 §4.0/§6.3）：
  * ① vnode 纯数据——零回填字段（el/_render/_id 等全部在影子层——可自由克隆/
  *    比较/序列化——用户写 JSX 就能推导 vnode 形状）
  * ② h() 除 key 剥离外零转换——children 原样（false/嵌套数组保留——不 filter）

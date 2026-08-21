@@ -1,7 +1,7 @@
 /**
  * vdom transform — 状态机测试（转换表选择 + **完整转换**策略命令）
  *
- * 锁定规则（AGENTS §4.0/§6.3——占位法）：
+ * 锁定规则（设计规则 §4.0/§6.3——占位法）：
  * - 同态（text→text/element→element/component→component/hole→hole/
  *   fragment→fragment/portal→portal）= null 策略（diff 就地 patch——不重建）
  * - **异态 = 完整转换**（状态机——各状态文件）：旧侧让位（remove/

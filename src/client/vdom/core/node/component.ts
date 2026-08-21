@@ -1,7 +1,7 @@
 /**
  * vdom core — component（组件渲染——两阶段工厂 + renderFn——独立文件）
  *
- * 模型（AGENTS §3——两阶段组件）：
+ * 模型（设计规则 §3——两阶段组件）：
  * ```ts
  * Component<P, C> = (initProps, ctx) => RenderFn<P> | Promise<RenderFn<P>>
  * RenderFn<P> = (props) => VNode | null | Promise<VNode | null>

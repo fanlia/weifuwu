@@ -1,7 +1,7 @@
 /**
  * vdom core — attribute 通道（可序列化面——create 携带的 attrs / setProp 兜底）
  *
- * 规则（AGENTS §4.0 属性三通道——attribute/property/event）：
+ * 规则（设计规则 §4.0 属性三通道——attribute/property/event）：
  * - class/className → setAttribute('class')
  * - style → style.ts（对象应用/数字单位/undefined 清空——独立复杂面）
  * - enumerated 白名单（draggable/contenteditable/spellcheck）——**空字符串解析

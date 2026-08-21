@@ -16,6 +16,23 @@ export interface Scenario {
   title: string
   /** 客户端场景入口（组件工厂——mount 后返回 renderFn） */
   render: Component<Record<string, never>, unknown>
+  /** SSR 模式：server 端 uiSsr 渲染 HTML（首帧吸收测试）——默认 false（空 root 客户端渲染） */
+  ssr?: boolean
+}
+
+// ── 场景 11：SSR 吸收（首帧结构对齐复用——焦点/状态保持） ─────────────
+// server 端 uiSsr 渲染（SSR HTML 首屏）→ 客户端 uiServe 接管——
+// 结构吸收：create 命令复用已有 DOM（同一节点引用——输入焦点保持）。
+const SsrAdopt = (_init: Record<string, never>, ctx: any) => {
+  let count = 0
+  return () =>
+    h('div', { class: 'ssr-scene' },
+      h('input', { class: 'ssr-input', placeholder: '输入' }),
+      h('button', { class: 'ssr-btn', onClick: () => { count += 1; ctx.render() } }, `点击 ${count}`),
+      h('span', { class: 'ssr-text' }, 'SSR 内容'),
+      false,
+      h('b', { class: 'ssr-bold' }, '粗体'),
+    )
 }
 
 // ── 场景 1：占位同构（§6.3 提交按钮消失事故回归） ──────────────────────
@@ -180,6 +197,7 @@ export const scenarios: Scenario[] = [
   { id: 'ref-lifecycle', title: 'ref 生命周期（挂载/卸载清理）', render: RefScene },
   { id: 'navigate', title: 'navigate（链接拦截 → pushState + 整树替换）', render: NavigateScene },
   { id: 'unmount-dispose', title: 'unmount（handle.unmount——DOM/portal 清理）', render: UnmountScene },
+  { id: 'ssr-adopt', title: 'SSR 吸收（首帧结构复用——输入焦点保持）', render: SsrAdopt, ssr: true },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

@@ -5,7 +5,7 @@
  *   null <-> component / null <-> fragment / component <-> fragment /
  *   element <-> component / hole <-> element / text <-> element ...
  *
- * 核心不变量（AGENTS §4.0/§6.3——占位法）：
+ * 核心不变量（设计规则 §4.0/§6.3——占位法）：
  * - **childNodes 长度恒等于 children 数组长度**——任何转换保持节点数 1:1
  *   （空洞占位锚是 DOM 里的真实节点——转换 = 锚 ↔ 真实节点 replaceChild 互换——
  *   禁止 removeChild 塌缩）

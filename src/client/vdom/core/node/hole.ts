@@ -1,7 +1,7 @@
 /**
  * vdom core — hole（特殊值渲染——空洞占位 + 非法输入诊断——独立文件）
  *
- * 规则（AGENTS §4.0/§6.3——占位法）：
+ * 规则（设计规则 §4.0/§6.3——占位法）：
  * - 空洞（null/undefined/boolean——无渲染值）→ 占位锚节点
  *   （<!--wf-hole: xxx-->）——**childNodes 长度恒等于 children 数组长度**
  *   （数组第 i 项 ⟷ childNodes 第 i 个节点——同构不变量——对齐从结构上

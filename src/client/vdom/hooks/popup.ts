@@ -1,7 +1,7 @@
 /**
  * vdom hooks — usePopup（浮层弹窗——28 个浮层组件的核心依赖）
  *
- * 能力（AGENTS §5.4——弹窗纪律）：
+ * 能力（设计规则 §5.4——弹窗纪律）：
  * - **portal**：popup.portal(content, key)——createPortal 到 #__wf_portal +
  *   fixed 定位 + 视口夹紧（禁止 absolute 相对父容器）
  * - **定位**：placement（top/bottom/left/right）+ center:false 左对齐 +

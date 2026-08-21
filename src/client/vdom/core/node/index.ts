@@ -1,7 +1,7 @@
 /**
  * vdom core — node（单节点处理——类型判定/分类——独立文件）
  *
- * 规则（AGENTS §4.0——children 值域协议 + 非法输入分类）：
+ * 规则（设计规则 §4.0——children 值域协议 + 非法输入分类）：
  * - text：string/number → 文本节点
  * - hole：null/undefined/boolean → 空洞占位锚（hole.ts——占位法——长度恒定）
  * - array：VNodeChild[] → 隐式 Fragment（children.ts 展开）

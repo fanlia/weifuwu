@@ -1,7 +1,7 @@
 /**
  * vdom hooks — useControlled（受控值——受控 props 语义）
  *
- * 规则（AGENTS §5.2/§5.3）：受控值由父独占——onChange 唯一出口；
+ * 规则（设计规则 §5.2/§5.3）：受控值由父独占——onChange 唯一出口；
  * 非受控内部状态（hook 状态缓存——渲染期调用——读最新 props）；
  * 受控缺回调 warn（静默不可用防护）。
  */
@@ -44,7 +44,7 @@ export function useControlled<T>(
     controlled,
     setValue(v: T): void {
       if (isControlled) {
-        // 受控：唯一出口是回调（缺回调 = 静默不可用——AGENTS §5.2 warn）
+        // 受控：唯一出口是回调（缺回调 = 静默不可用——设计规则 §5.2 warn）
         if (!controlled.onChange) {
           console.warn('[vdom] useControlled 受控缺 onChange 回调——交互静默失效')
         }

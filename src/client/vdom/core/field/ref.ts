@@ -1,7 +1,7 @@
 /**
  * vdom core/field — ref 通道（**全局注册表管理**——对齐事件代理模式）
  *
- * 纪律（AGENTS §5.1）：带清理逻辑的 ref 必须定义在 mount 作用域——
+ * 纪律（设计规则 §5.1）：带清理逻辑的 ref 必须定义在 mount 作用域——
  * ref 函数引用变化时旧 ref(null) 被调用（diff 重绑定）。
  *
  * **RefRegistry**（全局注册表——统一管理——与 EventRegistry 同构）：

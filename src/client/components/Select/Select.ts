@@ -99,7 +99,7 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
   let blurTimer: ReturnType<typeof setTimeout> | undefined
   ctx.ui.useStableRef?.(() => {}, () => { disposed = true; if (blurTimer) clearTimeout(blurTimer) })
 
-  // 弹层纪律（AGENTS.md）：menu 必须 portal——此前 absolute 会被父容器
+  // 弹层纪律（）：menu 必须 portal——此前 absolute 会被父容器
   // overflow/transform 裁剪（AutoComplete 同款教训）。usePopup 提供
   // portal + 定位 + 外部点击 + Escape + 锚点感知。
   let triggerEl: HTMLElement | null = null

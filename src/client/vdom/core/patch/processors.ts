@@ -4,7 +4,7 @@
  * 职责：各命令的消费逻辑（细节）——CommandApplier（index.ts）只做
  * 中转（apply switch → 本模块分发）。
  *
- * 生命周期语义（AGENTS）：
+ * 生命周期语义：
  * - ref（挂载完成——insert 后——el 已连接）；unref/remove/done（ref(null)）
  * - mount（组件初始化标记）；unmount（onUnmounts 逆序）
  * - removePortal（浮层容器清理）；move（顺移 remap / 移动 + 重映射）

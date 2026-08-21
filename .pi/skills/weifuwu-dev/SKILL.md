@@ -42,7 +42,7 @@ content/guides/*.md              ← 选型/质量标准/组件模型/生产级�
 生产参考 → apps/agent-platform/
 ```
 
-### ③ 写——关键纪律（完整版见 AGENTS.md）
+### ③ 写——关键纪律（完整版见仓库根 AGENTS.md——随开发完成后补充）
 
 - 组件签名：`async (initProps, ctx) => async (props) => Promise<VNode>`（两阶段，renderFn 强制异步）
 - 状态：普通对象 `let` + 改后 `ctx.ui.render()`（render-only——无隐式触发）

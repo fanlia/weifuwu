@@ -4,7 +4,7 @@
  * 消费方（ctx.email / 业务模块）只依赖 Mailer 接口，
  * 自研引擎（src/email/index.ts 中间件 + smtp.ts 自研 SMTP 客户端）实现它。
  *
- * 裁剪声明（诚实裁剪——AGENTS.md CS-05）：
+ * 裁剪声明（诚实裁剪——CS-05）：
  *   ✅ 统一 send 接口 / text + html / 多收件人 / 自定义适配器
  *   ❌ 附件（SMTP MIME multipart 未实现）、退信/送达率（服务商职责）、
  *      批量营销、隐式入队（文档给"发邮件 = ctx.queue.add"示例）

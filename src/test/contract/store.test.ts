@@ -1,7 +1,7 @@
 /**
  * vdom store — createStore 测试（共享状态原语）
  *
- * 契约（AGENTS §4.5）：state 普通对象（getter 最新——非 Proxy）；
+ * 契约（设计规则 §4.5）：state 普通对象（getter 最新——非 Proxy）；
  * set 合并写 + notify；update 可变写 + notify；notify 手动；subscribe 退订。
  */
 

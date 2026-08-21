@@ -269,3 +269,32 @@ test('unmount-dispose：卸载清空 DOM + portal 容器不残留', async () => 
     await page.close()
   }
 })
+
+// ── 场景 11：SSR 吸收（首帧结构对齐复用——焦点/状态保持） ──────────────
+// SSR 输出静态 HTML 首屏 → 客户端 uiServe 接管——结构吸收：create 命令复用
+// 已有 DOM（同一节点引用——输入焦点/输入值保持——无闪烁重建）。
+test('ssr-adopt：首帧复用 SSR DOM（同一节点引用——输入焦点保持）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'ssr-adopt')
+
+    // SSR 首屏内容存在（接管前静态 HTML）
+    assert.equal(await page.locator('.ssr-bold').textContent(), '粗体', 'SSR 输出内容存在')
+
+    // 输入框聚焦 + 输入值——接管后必须保持（同一节点引用——焦点/值不丢）
+    await page.click('.ssr-input')
+    await page.keyboard.type('你好')
+    const inputRef = await page.evaluate(() => document.querySelector('.ssr-input'))
+    const focused = await page.evaluate(() => document.activeElement === document.querySelector('.ssr-input'))
+    assert.equal(focused, true, '接管后焦点保持（同一 input 节点）')
+    assert.equal(await page.locator('.ssr-input').inputValue(), '你好', '输入值保持（未重建）')
+
+    // 交互可用（吸收后事件接线）
+    await page.click('.ssr-btn')
+    await page.waitForFunction(() => document.querySelector('.ssr-btn')?.textContent === '点击 1')
+    const inputRef2 = await page.evaluate(() => document.querySelector('.ssr-input'))
+    assert.equal(inputRef2, inputRef, '重渲染后 input 仍为同一节点（吸收节点进影子树）')
+  } finally {
+    await page.close()
+  }
+})

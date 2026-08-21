@@ -1,7 +1,7 @@
 /**
  * vdom browser — createClientBrowser（生产浏览器环境工厂）
  *
- * 设计：Browser 接口 = window/document 基座 + 组件消费面方法（AGENTS §5.5
+ * 设计：Browser 接口 = window/document 基座 + 组件消费面方法（设计规则 §5.5
  * 能力映射表——copyText/query/storage/scrollTop 等唯一入口——组件禁止
  * 直接访问 DOM 全局）。**惰性环境**（对齐 ui-dom——模块加载时可能无
  * window（SSR/测试 setup 前）——方法内 typeof 检查——setupJsdom/浏览器

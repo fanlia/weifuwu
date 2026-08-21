@@ -1,5 +1,5 @@
 /**
- * vdom hooks — useControlledInput（受控输入——AGENTS §5.3 纪律）
+ * vdom hooks — useControlledInput（受控输入——设计规则 §5.3 纪律）
  *
  * 核心（受控输入纪律）：**输入态不依赖受控 value 回流**——
  * - keyword：内部输入态（输入期间 value 走内部态——不触发 onChange 回流——

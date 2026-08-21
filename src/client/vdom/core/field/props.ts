@@ -1,7 +1,7 @@
 /**
  * vdom core — property 通道（DOM property——setAttribute 无法表达的面）
  *
- * 规则（AGENTS §4.0 属性三通道）：
+ * 规则（设计规则 §4.0 属性三通道）：
  * - value/checked/selected/disabled 等 → `el[key] = value`（property——
  *   setAttribute('value') 不更新输入值/勾选态）
  * - 白名单判断（PROPERTY_KEYS）——其余走 attribute 通道

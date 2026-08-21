@@ -1,7 +1,7 @@
 /**
  * vdom core — key 字段（业务身份声明协议——独立文件）
  *
- * 规则（AGENTS §4.0/§5.7——key 业务身份声明）：
+ * 规则（设计规则 §4.0/§5.7——key 业务身份声明）：
  * - 框架**不生成身份 key**——数组项 key 只由业务声明（数据 id → keyBy /
  *   组件内部生成 / 用户显式 key）；无 key = 位置身份（unkeyed 按位置 patch）
  * - h()/jsx 剥离 key 进 vnode.key（**props 不泄漏 key**——组件不见 key）

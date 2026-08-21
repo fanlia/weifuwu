@@ -1,7 +1,7 @@
 /**
  * vdom hooks — observe（事件驱动响应式 hooks：useScrollPosition/useInView）
  *
- * 设计（AGENTS §4.2——hooks 是事件驱动重渲染——浏览器事件 → render——
+ * 设计（设计规则 §4.2——hooks 是事件驱动重渲染——浏览器事件 → render——
  * 与 $ 的「赋值自动」本质不同）：
  * - useScrollPosition：全局 scroll + rAF 节流——y 响应式（视口/内部容器
  *   通用）——scroll 事件 → 重渲染——unmount 清理
@@ -9,7 +9,7 @@
  *   unmount disconnect；环境无 IO（jsdom）→ 恒 false（测试注入 mock）
  * - **目标元素未挂载**（首帧 ref 未就绪）→ 微任务重试注册（限次——防无限）
  *
- * 浏览器能力经 env.getBrowser()（零全局直接访问——AGENTS §5.5）。
+ * 浏览器能力经 env.getBrowser()（零全局直接访问——设计规则 §5.5）。
  */
 
 import type { HookEnv } from './env.ts'

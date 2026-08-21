@@ -64,7 +64,7 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: UIC
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
 
   // usePopup 组合器：portal + 定位 + 打开自动 refresh + 锚点感知 +
-  // Escape + 外部点击（AGENTS.md 弹窗纪律——此前普通 fixed div + 手动
+  // Escape + 外部点击（弹窗纪律——此前普通 fixed div + 手动
   // usePopupPosition：pos 初始 0 且打开不 refresh → 下拉 0,0 宽 0 不可见）
   const popup = ctx.ui.usePopup({
     trigger: () => 'click',

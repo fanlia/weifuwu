@@ -1,7 +1,7 @@
 /**
  * vdom core — Fragment（隐式——数组 = Fragment——独立文件）
  *
- * 设计（AGENTS §4.0——结构符号内化）：
+ * 设计（设计规则 §4.0——结构符号内化）：
  * - Fragment 为内部符号——公共面不导出（数组 = 隐式 Fragment；`<></>` 经
  *   jsx-runtime 子路径自动导入——编译目标即本符号）
  * - 数组节点处理 → children.ts（childrenOf 单一规则源——递归展开）

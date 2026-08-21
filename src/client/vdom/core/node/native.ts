@@ -1,7 +1,7 @@
 /**
  * vdom core — native（原生元素节点渲染——独立文件）
  *
- * 规则（AGENTS §4.0——原生元素 = string type）：
+ * 规则（设计规则 §4.0——原生元素 = string type）：
  * - 渲染序列：create（attrs 序列化面）→ insert → children 递归（sink——
  *   任意嵌套/空洞/组件统一出口——async）→ close（服务端闭合标签时机）
  * - attrs 序列化面：事件/ref/children/key 排除（函数值不可序列化——

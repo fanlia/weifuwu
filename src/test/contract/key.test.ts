@@ -1,7 +1,7 @@
 /**
  * vdom core — key 字段测试（业务身份声明协议）
  *
- * 锁定规则（AGENTS §4.0/§5.7）：h/jsx 剥离 key 进 vnode.key（props 不泄漏）；
+ * 锁定规则（设计规则 §4.0/§5.7）：h/jsx 剥离 key 进 vnode.key（props 不泄漏）；
  * key 必须 string|number（其余 warn + null——位置身份）；无 key = 位置身份。
  */
 

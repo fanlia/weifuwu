@@ -79,7 +79,7 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
     return findLabel(options, value) ?? ''
   }
 
-  // 稳定 ref（AGENTS.md 纪律）：内联 ref 每次渲染新引用 → 回调重复执行
+  // 稳定 ref（纪律）：内联 ref 每次渲染新引用 → 回调重复执行
   const triggerRef = (el: any) => {
     triggerEl = el as HTMLElement | null
     // 首次挂载后（含重渲染）若已打开 → 跟随定位

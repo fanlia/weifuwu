@@ -6,7 +6,7 @@
  *
  *   <NavMenu items={[{ key, label, children: [...] }]} activeKey onSelect />
  *
- * 弹层纪律（AGENTS.md）：子菜单/嵌套子菜单全部经 usePopup 组合器
+ * 弹层纪律（）：子菜单/嵌套子菜单全部经 usePopup 组合器
  * （createPortal + fixed + 视口夹紧 + Escape + 外部点击）——不 absolute 定位。
  *
  * 裁剪（CS-05，见 design/components-cuts.md）：不做 hover 延迟微调/子菜单动画曲线定制；
@@ -42,7 +42,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
   const itemEls = new Map<string, HTMLElement>()
   const nestedEls = new Map<string, HTMLElement>()
   // 稳定 ref 缓存：ref 函数必须持久（内联 ref 每次渲染新引用 → ref 回调重复执行，
-  // 违反 AGENTS.md ref 纪律）——按 key 缓存同一函数实例
+  // 违反 ref 纪律）——按 key 缓存同一函数实例
   const itemRefCache = new Map<string, (el: HTMLElement | null) => void>()
   const itemRef = (key: string) => {
     let fn = itemRefCache.get(key)

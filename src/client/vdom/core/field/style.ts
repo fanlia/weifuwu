@@ -1,7 +1,7 @@
 /**
  * vdom core — style 通道（复杂面独立处理）
  *
- * 规则（AGENTS §4.0/§6.4——style diff 只设不删已修）：
+ * 规则（设计规则 §4.0/§6.4——style diff 只设不删已修）：
  * - 对象应用：el.style[k] = v——**undefined/null/false → 清空**（防残留——
  *   条件显隐组件 display: undefined 残留旧 none）
  * - 字符串直通：setAttribute('style', str)

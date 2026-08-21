@@ -1,7 +1,7 @@
 /**
  * vdom transform — hole（空洞转换——null <-> X 主场景）
  *
- * 条件渲染核心（AGENTS §6.3——占位法）：`{cond && <X/>}` = false 占位锚——
+ * 条件渲染核心（设计规则 §6.3——占位法）：`{cond && <X/>}` = false 占位锚——
  * cond 翻转时 **占位锚 ↔ 真实节点互换**（禁止 removeChild 塌缩 childNodes——
  * 长度恒定则预捕获索引全有效——提交按钮消失事故的根治）。
  *

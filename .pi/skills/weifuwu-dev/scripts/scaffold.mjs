@@ -12,7 +12,7 @@
  *   2. registry 自动登记（apps/showcase/src/registry/components.ts 追加条目）
  *   3. 提示：补 demo → gen-content 重新生成 → 测试
  *
- * 纪律：生成的是骨架不是成品——类型/纪律/测试必须补齐（AGENTS.md）。
+ * 纪律：生成的是骨架不是成品——类型/纪律/测试必须补齐（随开发完成补充）。
  */
 import { mkdirSync, writeFileSync, readFileSync, existsSync, appendFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -59,7 +59,7 @@ export const ${name}: Component<${name}Props> = async (_init, ctx) =>
   }
 `)
   writeFileSync(join(dir, `${name}.css`), `.wf-${id} {
-  /* 样式纪律（AGENTS.md §5.6/§8）：
+  /* 样式纪律：
      - 颜色走 --wf-color-* token（禁裸色值；语义文字用 -text 变体）
      - 动效走 --wf-dur-* / --wf-ease-*
      - 小尺寸按钮固定 min/max-height
@@ -115,7 +115,7 @@ test('${name}：渲染与交互', () => {
   if (existsSync(file)) { console.error(`已存在: ${file}`); process.exit(1) }
   writeFileSync(file, `/**
  * ${name}——页面模式蓝本（复制即用）
- * 纪律（AGENTS.md §8）：只用 weifuwu/layout 原语 + weifuwu/components——零手写样式
+ * 纪律：只用 weifuwu/layout 原语 + weifuwu/components——零手写样式
  */
 import type { Component } from 'weifuwu/ui-dom'
 import { h } from 'weifuwu/ui-dom'

@@ -9,7 +9,7 @@
  *   baseUrl:     DEEPSEEK_BASE_URL      → 'https://api.deepseek.com/v1'
  *   defaultModel: DEEPSEEK_MODEL        → 'deepseek-v4-flash'
  *
- * 裁剪声明（诚实裁剪——AGENTS.md CS-05）：
+ * 裁剪声明（诚实裁剪——CS-05）：
  *   ✅ 对话/流式/SSE 协议（§1）/ agent 工具循环 + HITL 审批 / embedding（可选 provider）
  *   ❌ 附件、多模态、函数调用中间态缓存（agent 状态由调用方持有）
  */

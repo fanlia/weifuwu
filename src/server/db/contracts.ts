@@ -10,7 +10,7 @@
  *   Sql                 SQL 标签模板（ctx.sql）——makeSql(PgPool) 实现
  *   Redis               Redis 命令面（ctx.redis）——RedisPool 实现
  *
- * 变更纪律（AGENTS.md §11 协议层）：改契约须 TDD 先行 + 真库验证（CS-04/CS-05）。
+ * 变更纪律（ 协议层）：改契约须 TDD 先行 + 真库验证（CS-04/CS-05）。
  */
 import type { RespValue } from './redis/resp.ts'
 import type { RedisPipeline } from './redis/pipeline.ts'

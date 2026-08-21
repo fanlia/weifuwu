@@ -15,7 +15,7 @@ import type { HookEnv } from './env.ts'
 
 /** 响应式系统偏好（prefers-reduced-motion）。mount 期一次判定 */
 /** matchMedia 解析（browser 注入优先——全局兜底（jsdom/测试 mock 通道——
- *  AGENTS §5.5 生产走注入——兜底仅测试/无注入环境） */
+ *  设计规则 §5.5 生产走注入——兜底仅测试/无注入环境） */
 function resolveMatchMedia(env: HookEnv): ((q: string) => MediaQueryList) | null {
   const win = env.getBrowser()?.window
   if (win?.matchMedia) return win.matchMedia.bind(win)
