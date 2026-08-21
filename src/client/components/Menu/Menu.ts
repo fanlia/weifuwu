@@ -54,6 +54,7 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const syncCollapsedPopup = (item: any, popupOpen: boolean, content: () => import('../../vdom/index.ts').VNode): void => {
+    // 只对打开项生效（多折叠项共享 handle——非打开项调 else-if 会误关）
     if (popupOpen && !handle)
       handle = ctx.ui.openPopup({
         key: 'menu-popup',
@@ -63,8 +64,7 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
         content,
         onClose: () => { handle = null; if (collapsedPopupKey) { collapsedPopupKey = null; ctx.render() } },
       })
-    else if (!popupOpen && handle) { handle.close(); handle = null }
-    else if (handle) handle.update(content())
+    else if (handle && popupOpen) handle.update(content())
   }
   // 稳定 ref（mount 作用域）：仅保存容器，避免内联 ref 每渲染重建
   const navRef = (el: any) => { if (el) navEl = el }
@@ -143,8 +143,8 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
         }, [
           item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,
         ].filter(Boolean))
-        // 浮层：命令式弹窗（openPopup——定位/外部点击/Escape 内置）
-        syncCollapsedPopup(item, popupOpen, () => h('div', {
+        // 浮层：命令式弹窗（openPopup——定位/外部点击/Escape 内置——只打开项调）
+        if (popupOpen) syncCollapsedPopup(item, popupOpen, () => h('div', {
           class: 'wf-menu-popup',
         }, (item.children ?? []).map(child => renderItem(child, true, true))))
         return h('div', { key: item.key, 'data-key': item.key, class: 'wf-menu-submenu wf-menu-submenu--collapsed' }, [titleEl])
@@ -252,6 +252,9 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
         },
       }, isCollapsed ? h(Icon, { name: 'chevron-right', size: 14 }) : h(Icon, { name: 'chevron-left', size: 14 })) : null,
     ].filter(Boolean)
+
+    // 关闭兜底（条件 sync——内部关闭后 renderFn 不再调——handle 残留防漏）
+    if (!collapsedPopupKey && handle) { handle.close(); handle = null }
 
     return h('nav', { class: cls, role: 'menu', ref: navRef, onKeyDown }, children)
   }

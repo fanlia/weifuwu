@@ -286,7 +286,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
       ])
       : null
 
-    return h('div', {
+    const vn = h('div', {
       class: 'wf-sheet',
       onKeyDown: (e: KeyboardEvent) => {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLast() }
@@ -332,6 +332,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
     ])
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）
     syncAiPanel(aiPanel)
+    return vn
   }
 }
 

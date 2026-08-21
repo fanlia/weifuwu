@@ -1013,6 +1013,11 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
       }
     }
 
+    // 关闭兜底（条件 sync 在 if 块内——内部关闭（拒绝/回退）后 renderFn 不再
+    // 调用 sync——handle 残留——面板残留——恒检查）
+    if (!historyOpen && historyHandle) { historyHandle.close(); historyHandle = null }
+    if (!aiPanelOpen && aiHandle) { aiHandle.close(); aiHandle = null }
+
     return h('div', {
       class: `wf-editor${disabled ? ' wf-editor--disabled' : ''}`,
     }, [

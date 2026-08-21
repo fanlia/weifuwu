@@ -341,7 +341,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
       ])
       : null
 
-    return h('div', {
+    const vn = h('div', {
       class: 'wf-slide',
       onKeyDown: (e: KeyboardEvent) => {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLast() }
@@ -397,5 +397,6 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
     ])
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）
     syncAiPanel(aiPanel)
+    return vn
   }
 }
