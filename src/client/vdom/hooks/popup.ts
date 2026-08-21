@@ -260,8 +260,11 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
    *  接口 panelRef 方法转发） */
   const panelRefImpl = (el: HTMLElement | null): void => {
     panel.current = el
-    if (el && open.open && opts.positioning !== 'none') {
-      // 面板挂载 → 定位（rAF 优先——帧边界后布局就绪——top/left 尺寸正确）
+    if (el && open.open) {
+      // 定位（rAF 优先——帧边界后布局就绪——top/left 尺寸正确）——
+      // **positioning 'none' 也 refresh**（真实 bug：Tour 自定位
+      // （highlight/bubble fixed 视口坐标）依赖 position 回调更新目标
+      // rect——panel 挂载不 refresh → rect 恒 0 → 气泡定位视口左上角）
       if (win && typeof win.requestAnimationFrame === 'function') win.requestAnimationFrame(refresh)
       else queueMicrotask(refresh)
     }

@@ -20,6 +20,7 @@ import { Kanban as CKanban, InfiniteScroll as CInfiniteScroll, CodeEditor as CCo
 import { AiChat as CAiChat, FileUpload as CFileUpload } from '../../client/components/index.ts'
 import { SheetGrid as CSheetGrid, SlideCanvas as CSlideCanvas } from '../../client/components/index.ts'
 import { ImageCropper as CImageCropper, VideoPlayer as CVideoPlayer, AuthPage as CAuthPage } from '../../client/components/index.ts'
+import { Tour as CTour } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -1177,6 +1178,34 @@ const DeepSlideCanvas = (_i: Record<string, never>, ctx: any) => {
 }
 
 
+
+// ── 深度场景：Tour（新手引导——打开/定位/步骤/关闭） ───────────────────
+const DeepTour = (_i: Record<string, never>, ctx: any) => {
+  let open = false
+  let step = 0
+  const render = () => ctx.render()
+  return () =>
+    h('div', { class: 'deep-tour-scene wf-stack wf-gap-md' },
+      h('div', { class: 'wf-row wf-gap-md' },
+        h('button', { id: 'tour-a', class: 'wf-btn wf-btn--primary', onClick: () => { open = true; step = 0; render() } }, '开始引导'),
+        h('button', { id: 'tour-b', class: 'wf-btn', style: { pointerEvents: 'none' } }, '第二步目标'),
+        h('button', { id: 'tour-c', class: 'wf-btn', style: { pointerEvents: 'none' } }, '第三步目标'),
+      ),
+      open && h(CTour, {
+        steps: [
+          { target: '#tour-a', title: '开始引导', content: '点击任意目标查看引导气泡', placement: 'bottom' },
+          { target: '#tour-b', title: '第二步', content: '引导气泡跟随目标位置', placement: 'right' },
+          { target: '#tour-c', title: '最后一步', content: '完成或跳过关闭引导', placement: 'top' },
+        ],
+        open,
+        current: step,
+        onStepChange: (s: number) => { step = s; render() },
+        onFinish: () => { open = false; render() },
+        onChange: (v: boolean) => { open = v; render() },
+      }),
+    )
+}
+
 // ── 深度场景组 9：媒体 + 认证 ──────────────────────────────────────────
 const DEEP_IMG = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="#4f6ef7"/><circle cx="100" cy="100" r="60" fill="#fff"/></svg>')
 
@@ -1362,6 +1391,7 @@ export const scenarios: Scenario[] = [
   { id: 'deep-imagecropper', title: 'ImageCropper（图片裁剪）', render: DeepImageCropper },
   { id: 'deep-videoplayer', title: 'VideoPlayer（视频渲染）', render: DeepVideoPlayer },
   { id: 'deep-authpage', title: 'AuthPage（登录表单提交）', render: DeepAuthPage },
+  { id: 'deep-tour', title: 'Tour（引导气泡——定位/步骤/关闭）', render: DeepTour },
   TWS,
   RLS,
 ]

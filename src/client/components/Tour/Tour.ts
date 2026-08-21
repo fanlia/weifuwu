@@ -150,12 +150,19 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
     if (!st) return null
 
     const isLast = current >= props.steps.length - 1
-    const bp = bubblePos(rect, latestPlacement)
+    // **视口翻转（真实 bug——agent-browser 抓出）**：placement 'top' 且目标
+    // 在视口顶部（页面不可滚动/目标贴顶）→ 气泡向上展开越界（top < 0——
+    // 完全不可见不可点）——翻转 bottom（目标下方展开——视口内）——
+    // 引导气泡必须可见（核心可用性）
+    const win = ctx.browser?.window
+    const flipTop = latestPlacement === 'top' && !!win && rect.top < 120 // 120 ≈ 气泡高 + gap
+    const effectivePlacement: TourPlacement = flipTop ? 'bottom' : latestPlacement
+    const bp = bubblePos(rect, effectivePlacement)
     const bubbleX = bp.left
     const bubbleY = bp.top
 
     const bubble = h('div', {
-      class: `wf-tour-bubble wf-tour-bubble--${latestPlacement}`,
+      class: `wf-tour-bubble wf-tour-bubble--${effectivePlacement}`,
       style: { left: `${bubbleX}px`, top: `${bubbleY}px` },
     }, [
       h('div', { class: 'wf-tour-bubble-header' }, [

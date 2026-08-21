@@ -15,7 +15,7 @@ import type { Command } from '../command/index.ts'
 import { eventName, EVENT_RE } from '../field/events.ts'
 import { RefRegistry } from '../field/ref.ts'
 import { disposeComponent } from '../node/component.ts'
-import { PORTAL_ID_PREFIX } from '../node/portal.ts'
+import { PORTAL_ID_PREFIX, isPortal } from '../node/portal.ts'
 import type { CommandApplier } from './index.ts'
 import { applyAttrs, applySetProp } from './fields.ts'
 
@@ -188,7 +188,41 @@ export function procMount(applier: CommandApplier, cmd: Extract<Command, { op: '
 }
 
 /** unmount 指令（组件卸载——onUnmounts 逆序） */
+/** 递归收集组件输出树中的 portal key（组件卸载清理用——vnode 树遍历） */
+function collectPortalKeys(v: unknown, out: Set<string>): void {
+  if (v === null || v === undefined || typeof v !== 'object') return
+  if (isPortal(v as import('../vnode.ts').VNode)) {
+    out.add(((v as import('../vnode.ts').VNode).key as string) ?? 'default')
+    return
+  }
+  const ch = (v as { props?: { children?: unknown } }).props?.children
+  if (Array.isArray(ch)) {
+    for (const c of ch) collectPortalKeys(c, out)
+  } else if (ch !== null && ch !== undefined) {
+    collectPortalKeys(ch, out)
+  }
+}
+
 export function procUnmount(applier: CommandApplier, cmd: Extract<Command, { op: 'unmount' }>): void {
+  // **组件卸载清理输出 portal（真实 bug——Tour 完成关闭残留）**：diff 只对
+  // portal vnode 发 removePortal——组件 vnode（条件渲染移除 `{open && <X/>}`
+  // ——X 输出 popup.portal）不检查——unmount 后 portal 容器残留（气泡/
+  // mask 永远在 DOM）——dispose 协议（§4.0.x "portal 清空"）实现缺失——
+  // 补上：递归扫描组件输出树收集 portal key → 清理容器（clearNodeRefs +
+  // remove + 索引注销——同 removePortal 语义）
+  const rec = applier.registry?.get(cmd.compId)
+  if (rec && rec.lastOutput) {
+    const keys = new Set<string>()
+    collectPortalKeys(rec.lastOutput, keys)
+    for (const key of keys) {
+      const container = applier.portalContainers.get(key)
+      if (container) {
+        applier.clearNodeRefs(PORTAL_ID_PREFIX + key)
+        container.remove()
+      }
+      applier.portalContainers.delete(key)
+    }
+  }
   if (applier.registry) disposeComponent(cmd.compId, applier.registry)
 }
 
