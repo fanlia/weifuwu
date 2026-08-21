@@ -10,6 +10,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, type VNode } from '../../client/vdom/core/vnode.ts'
+import { createPortal } from '../../client/vdom/core/node/portal.ts'
+import type { Command } from '../../client/vdom/core/command/index.ts'
 import { diffStream } from '../../client/vdom/core/diff/index.ts'
 import { renderToStream } from '../../client/vdom/core/build.ts'
 import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
@@ -121,4 +123,24 @@ test('keyed 增删：移除消失项 + 新增项插入（身份映射）', async
   const cmds = await diff(make(['a', 'b', 'c']), make(['a', 'c', 'd']))
   assert.ok(cmds.some((c) => c.op === 'remove' && (c as { id: string }).id.endsWith('.1')), 'b 移除（keyed 映射）')
   assert.ok(ops(cmds).includes('create'), 'd 新增')
+})
+
+test('keyed 数组移除 portal vnode → removePortal 命令（Menubar 面板残留回归）', async () => {
+  // build 树：keyed 项（trigger）+ portal（key=popover）→ diff 新树（仅 trigger）
+  const v0 = h('div', {}, [
+    h('button', { key: 'file' }, '文件'),
+    h('button', { key: 'edit' }, '编辑'),
+    createPortal(h('div', { class: 'panel' }, '面板'), 'popover'),
+  ])
+  const v1 = h('div', {}, [
+    h('button', { key: 'file' }, '文件'),
+    h('button', { key: 'edit' }, '编辑'),
+  ])
+  // diff 树（旧含 portal → 新无——keyed 移除路径）
+  const cmds1 = await diff(v0, v1)
+  console.log('[dbg-keyed-portal]', JSON.stringify(cmds1.map((c) => c.op + (c.key ? ':' + c.key : '') + (c.id ? ':' + c.id : ''))))
+  const hasRemovePortal = cmds1.some((c) => c.op === 'removePortal' && c.key === 'popover')
+  assert.equal(hasRemovePortal, true, 'keyed 移除 portal → removePortal 命令')
+  const hasRemove = cmds1.some((c) => c.op === 'remove')
+  assert.equal(hasRemove, true, 'remove 命令')
 })

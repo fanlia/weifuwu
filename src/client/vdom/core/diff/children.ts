@@ -176,11 +176,36 @@ export async function diffKeyedChildren(
   oldCs.forEach((c, i) => { const k = keyOf(c); if (k !== null) oldIdxByKey.set(k, i) })
   const newKeys = new Set(newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null))
 
-  // 1. **真移除**（不在新列表——unmount（组件）+ remove）
+  // 0. **旧 unkeyed 项移除（真实 bug——Menubar 面板残留——引擎级修复，
+  //    所有组件受益）**：混合数组（hasKeyed——portal 插槽场景——浮层开关）
+  //    ——unkeyed 旧项（keyOf 返回 null——含 portal——portal 内部 key 不
+  //    算用户 keyed 是设计）——keyed 移除路径只查 oldIdxByKey（keyed）——
+  //    unkeyed 旧项从未移除 → portal 容器/DOM 节点残留（Escape/外部点击
+  //    关闭浮层后面板永远显示——aria-expanded false 但 DOM 还在）——
+  //    按旧索引移除（isPortal → removePortal——与 unkeyed removeOldSlot
+  //    对齐）——remove 按 id（顺序无关——keyed remap 同样按 id——安全）
+  for (let i = 0; i < oldCs.length; i++) {
+    const oldC = oldCs[i]
+    if (oldC === null || oldC === undefined || typeof oldC === 'boolean') continue
+    if (typeof oldC !== 'object') continue
+    const oldVn = oldC as VNode
+    if (keyOf(oldVn) !== null) continue // keyed 项——keyed 路径处理
+    if (isPortal(oldVn)) {
+      emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
+    }
+    emitCommand({ op: 'remove', id: pathId(parent, i) })
+  }
+
+  // 1. **真移除**（不在新列表——unmount（组件）+ removePortal（portal 容器）
+  //    + remove——keyed 项——与 unkeyed 对齐）
   for (const [k, oldIdx] of oldIdxByKey) {
     if (!newKeys.has(k)) {
-      if (typeof (oldCs[oldIdx] as VNode).type === 'function') {
+      const oldVn = oldCs[oldIdx] as VNode
+      if (typeof oldVn.type === 'function') {
         emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
+      }
+      if (isPortal(oldVn)) {
+        emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
       }
       emitCommand({ op: 'remove', id: pathId(parent, oldIdx) })
     }
@@ -210,7 +235,11 @@ export async function diffKeyedChildren(
     for (const [k, oldIdx] of oldIdxByKey) {
       if (!newKeys.has(k)) emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
     }
-    oldCs.forEach((_, i) => emitCommand({ op: 'remove', id: pathId(parent, i) }))
+    oldCs.forEach((c, i) => {
+      const oldVn = c as VNode | null
+      if (oldVn && isPortal(oldVn)) emitCommand({ op: 'removePortal', key: oldVn.key ?? 'default' })
+      emitCommand({ op: 'remove', id: pathId(parent, i) })
+    })
     let r: string | null = null
     for (let i = 0; i < newCs.length; i++) {
       const newC = newCs[i]
