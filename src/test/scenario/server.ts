@@ -21,7 +21,7 @@ app.use(ui())
 
 // 场景页面：SSR 场景 → uiSsr 渲染（首帧吸收测试）；其余 → 空 root 客户端渲染
 app.get('/scenario/:id', async (req, ctx: any) => {
-  const id = (req.params as Record<string, string>).id ?? ''
+  const id = (ctx.params as Record<string, string>).id ?? ''
   const s = findScenario(id)
   if (s?.ssr) {
     // SSR 场景：服务端 uiSsr 渲染（同一 UIRouter + 同一场景组件）→ 静态 HTML 首屏
