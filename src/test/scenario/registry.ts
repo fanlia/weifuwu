@@ -11,6 +11,7 @@
 import { h, type Component, type VNode, createStore } from '../../client/vdom/index.ts'
 import { createPortal } from '../../client/vdom/core/node/portal.ts'
 import { SmokeScene } from './components/smoke-registry.ts'
+import { Input as CInput, InputNumber as CInputNumber, Textarea as CTextarea, SearchInput as CSearchInput, PasswordInput as CPasswordInput, PinInput as CPinInput, Switch as CSwitch, Checkbox as CCheckbox, RadioGroup as CRadioGroup, Slider as CSlider, Rate as CRate, TagsInput as CTagsInput, SegmentedControl as CSegmentedControl, ToggleGroup as CToggleGroup } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -593,6 +594,142 @@ const ViewportScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+
+// ── 深度场景组 1：表单输入 + 开关切换（参数行为断言） ─────────────────
+const DeepInput = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-input-scene' },
+      h(CInput, { placeholder: '输入', onInput: (e: Event) => { log += `v:${(e.target as HTMLInputElement).value};`; ctx.render() } }),
+      h(CInput, { placeholder: '禁用', disabled: true }),
+      h('span', { class: 'deep-input-log' }, log),
+    )
+}
+
+const DeepInputNumber = (_i: Record<string, never>, ctx: any) => {
+  // 受控契约：value 必填 + onChange 回流（纯受控组件——无内部状态）
+  let val: number | null = 4
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-inputnumber-scene' },
+      h(CInputNumber, { value: val, min: 0, max: 10, step: 2, onChange: (v: number | null) => { val = v; log += `v:${v};`; ctx.render() } }),
+      h('span', { class: 'deep-inputnumber-log' }, log),
+    )
+}
+
+const DeepTextarea = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-textarea-scene' },
+      h(CTextarea, { placeholder: '多行', onInput: (e: Event) => { log += `v:${(e.target as HTMLTextAreaElement).value};`; ctx.render() } }),
+      h('span', { class: 'deep-textarea-log' }, log),
+    )
+}
+
+const DeepSearch = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-search-scene' },
+      h(CSearchInput, { placeholder: '搜索', onInput: (e: Event) => { log += `i:${(e.target as HTMLInputElement).value};`; ctx.render() } }),
+      h('span', { class: 'deep-search-log' }, log),
+    )
+}
+
+const DeepPassword = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-password-scene' },
+      h(CPasswordInput, { placeholder: '密码', onInput: (e: Event) => { log += `v:${(e.target as HTMLInputElement).value};`; ctx.render() } }),
+      h('span', { class: 'deep-password-log' }, log),
+    )
+}
+
+const DeepPin = (_i: Record<string, never>, ctx: any) => {
+  // 受控回流（纯受控显示——value 必须回流否则不累积）
+  let val = ''
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-pin-scene' },
+      h(CPinInput, { length: 4, type: 'number', value: val, onChange: (v: string) => { val = v; log += `v:${v};`; ctx.render() } }),
+      h('span', { class: 'deep-pin-log' }, log),
+    )
+}
+
+const DeepSwitch = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-switch-scene' },
+      h(CSwitch, { checked: false, onChange: (c: boolean) => { log += `c:${c};`; ctx.render() } }),
+      h(CSwitch, { checked: true, disabled: true }),
+      h('span', { class: 'deep-switch-log' }, log),
+    )
+}
+
+const DeepCheckbox = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-checkbox-scene' },
+      h(CCheckbox, { checked: false, onChange: (c: boolean) => { log += `c:${c};`; ctx.render() } }, '勾选'),
+      h('span', { class: 'deep-checkbox-log' }, log),
+    )
+}
+
+const DeepRadio = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-radio-scene' },
+      h(CRadioGroup, { options: [{ value: '甲', label: '甲' }, { value: '乙', label: '乙' }, { value: '丙', label: '丙' }], value: '甲', onChange: (v: string) => { log += `v:${v};`; ctx.render() } }),
+      h('span', { class: 'deep-radio-log' }, log),
+    )
+}
+
+const DeepSlider = (_i: Record<string, never>, ctx: any) => {
+  // 受控回流（value 默认 0——受控组件）
+  let val = 50
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-slider-scene' },
+      h(CSlider, { value: val, min: 0, max: 100, step: 5, onChange: (v: number) => { val = v; log += `v:${v};`; ctx.render() } }),
+      h('span', { class: 'deep-slider-log' }, log),
+    )
+}
+
+const DeepRate = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-rate-scene' },
+      h(CRate, { count: 5, defaultValue: 3, onChange: (v: number) => { log += `v:${v};`; ctx.render() } }),
+      h('span', { class: 'deep-rate-log' }, log),
+    )
+}
+
+const DeepTags = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-tags-scene' },
+      h(CTagsInput, { maxTags: 3, onChange: (t: string[]) => { log += `t:${t.join(',')};`; ctx.render() } }),
+      h('span', { class: 'deep-tags-log' }, log),
+    )
+}
+
+const DeepSegmented = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-segmented-scene' },
+      h(CSegmentedControl, { options: [{ value: '日', label: '日' }, { value: '周', label: '周' }, { value: '月', label: '月' }], onChange: (v: string) => { log += `v:${v};`; ctx.render() } }),
+      h('span', { class: 'deep-segmented-log' }, log),
+    )
+}
+
+const DeepToggle = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-toggle-scene' },
+      h(CToggleGroup, { type: 'multiple', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }], onChange: (v: string | string[]) => { log += `v:${String(v)};`; ctx.render() } }),
+      h('span', { class: 'deep-toggle-log' }, log),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -634,6 +771,20 @@ export const scenarios: Scenario[] = [
   { id: 'use-drag', title: 'useDrag（指针拖拽——move/up 回调）', render: DragHookScene },
   { id: 'use-visual-viewport', title: 'useVisualViewport（视口尺寸跟随）', render: ViewportScene },
   { id: 'component-smoke', title: '组件冒烟（40 核心组件陈列——渲染+点击扫描）', render: SmokeScene },
+  { id: 'deep-input', title: 'Input 参数（onChange/disabled）', render: DeepInput },
+  { id: 'deep-inputnumber', title: 'InputNumber 参数（min/max/step/onChange）', render: DeepInputNumber },
+  { id: 'deep-textarea', title: 'Textarea 参数（onChange）', render: DeepTextarea },
+  { id: 'deep-search', title: 'SearchInput 参数（onInput）', render: DeepSearch },
+  { id: 'deep-password', title: 'PasswordInput 参数（掩码输入）', render: DeepPassword },
+  { id: 'deep-pin', title: 'PinInput 参数（length/逐格→完整值）', render: DeepPin },
+  { id: 'deep-switch', title: 'Switch 参数（checked/onChange/disabled）', render: DeepSwitch },
+  { id: 'deep-checkbox', title: 'Checkbox 参数（checked/onChange）', render: DeepCheckbox },
+  { id: 'deep-radio', title: 'RadioGroup 参数（value/onChange）', render: DeepRadio },
+  { id: 'deep-slider', title: 'Slider 参数（min/max/step/onChange）', render: DeepSlider },
+  { id: 'deep-rate', title: 'Rate 参数（count/onChange）', render: DeepRate },
+  { id: 'deep-tags', title: 'TagsInput 参数（maxTags/onChange）', render: DeepTags },
+  { id: 'deep-segmented', title: 'SegmentedControl 参数（options/onChange）', render: DeepSegmented },
+  { id: 'deep-toggle', title: 'ToggleGroup 参数（type/onChange）', render: DeepToggle },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
