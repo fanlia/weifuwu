@@ -491,30 +491,36 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
       }
       return phaseState.phase
     },
-    // **wrapProps trigger 交互**：Popover/ContextMenu 等依赖
-    // wrapProps 的 trigger 行为（不自管触发）——onClick 切换（受控转发
-    // setOpen——onOpenChange）；**trigger:'hover' → mouseenter/mouseleave
-    // 延迟驱动**（HoverCard/Tooltip 悬停语义——vdom 补齐——openDelay/
-    // closeDelay 生效）；**trigger:'longpress' → contextmenu（右键）**
-    // （ContextMenu 右键菜单——onTrigger 记录光标坐标——setOpen 切换）——
-    // 组件自管触发的（TreeSelect 等不 spread）
-    wrapProps: {
-      onClick: (e: Event) => { e.stopPropagation?.(); open.setOpen(!open.open) },
-      ...(isHoverTrigger
-        ? {
-            onMouseEnter: () => { hoverOpen() },
-            onMouseLeave: () => { hoverClose() },
-          }
-        : {}),
-      ...(opts.trigger === 'longpress'
-        ? {
-            onContextMenu: (e: MouseEvent) => {
-              e.preventDefault()
-              opts.onTrigger?.(e)
-              open.setOpen(!open.open)
-            },
-          }
-        : {}),
+    // **wrapProps trigger 交互（真实 bug——Popover hover 失效）**：
+    // Popover/ContextMenu 等依赖 wrapProps 的 trigger 行为（不自管触发）——
+    // onClick 切换（受控转发 setOpen——onOpenChange）；**trigger:'hover' →
+    // mouseenter/mouseleave 延迟驱动**；**trigger:'longpress' → contextmenu
+    // （右键）**——组件自管触发的（TreeSelect 等不 spread）——**getter 渲染期
+    // 解析**（isHoverTrigger 曾 mount 一次计算——`opts.trigger === 'hover'`
+    // 只比较字符串——组件传函数（`trigger: () => latestTrigger`——Popover
+    // hover 变体）→ 恒 false → hover 事件不绑定——函数形式全失效——
+    // getter 每次渲染读最新 trigger——所有函数 trigger 组件受益
+    get wrapProps() {
+      const trig = typeof opts.trigger === 'function' ? opts.trigger() : opts.trigger
+      const isHover = trig === 'hover'
+      return {
+        onClick: (e: Event) => { e.stopPropagation?.(); open.setOpen(!open.open) },
+        ...(isHover
+          ? {
+              onMouseEnter: () => { hoverOpen() },
+              onMouseLeave: () => { hoverClose() },
+            }
+          : {}),
+        ...(trig === 'longpress'
+          ? {
+              onContextMenu: (e: MouseEvent) => {
+                e.preventDefault()
+                opts.onTrigger?.(e)
+                open.setOpen(!open.open)
+              },
+            }
+          : {}),
+      }
     },
     onTrigger: () => {},
   }

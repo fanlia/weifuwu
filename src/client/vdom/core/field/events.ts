@@ -68,6 +68,11 @@ export class EventRegistry {
   /** 分发（模拟冒泡——target 向上祖先链查表——currentTarget 还原——
    *  handler 内 stopPropagation 停止向上） */
   private dispatch(e: Event): void {
+    if (e.type === 'contextmenu' && (window as any).__dbgEvt) {
+      const el0 = e.target as Element | null
+      const all = [...this.table.entries()].map(([k, v]) => k + ':' + [...v.keys()].join('+')).join(' | ')
+      console.error('[dbg-evt-dispatch]', 'target:', el0?.getAttribute('data-wf-id'), 'ALL:', all.slice(0, 400))
+    }
     let el = e.target as Element | null
     if (el && el.nodeType === 3) el = el.parentElement
     while (el) {
