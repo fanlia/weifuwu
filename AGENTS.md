@@ -154,10 +154,8 @@ const UserProfile = async (initProps, ctx) => {
 
 ### 3.5 SSR（SPA/SSR 透明）
 
-- **SSR 与客户端共享同一 UIRouter**：`uiSsr`（RouteDef[] 声明式 SSR 中间件）已删除——路由定义只有 UIRouter（`get/use/notFound`）一份，`ssrPage(router, { url })` 服务端落地、`uiServe(router, { hydrate: true })` 客户端收养；匹配/参数注入两端同源
-- **vdom3 hydration 结构吸收（2026-12）**：SSR 输出 data-v3-id + wf-anchor 注释 → 客户端 mount
-  检测后结构队列吸收（复用现有 DOM——首帧零重建——焦点/状态保持）；SSR 事件流（renderToEvents/
-  eventsToHtml）与客户端锚语义同构（每槽位锚序列化/回放）
+- **SSR 与客户端共享同一 UIRouter**：`uiSsr`（RouteDef[] 声明式 SSR 中间件）已删除——路由定义只有 UIRouter（`get/use/notFound`）一份，`uiSsr(router, url)` 服务端落地（renderToStream → commandToHtml）、`uiServe(router)` 客户端接管；匹配/参数注入两端同源
+- **SSR 接管语义（2026-12 校准——实测确认）**：uiServe 首帧检测 root 有预置内容 → **清空重建**（`rootEl.innerHTML = ''`——新树原子替换——`uiSsr` 输出的静态 HTML 是首屏占位，接管时被新树替换）——**无 hydration 结构吸收**（ui-dom 时代的 hydrateValue 消费游标机制已随 vdom2 删除；vdom3 未实现 data-v3-id 输出/结构队列吸收——SSR 输出只含标签/文本/锚注释）——诚实状态：SSR 首屏 = 静态 HTML（SEO/首帧可见性），交互前接管重建（焦点/输入态在接管时重置——表单场景用 `loading: true` 骨架屏 + 首帧原子替换）；吸收（首帧零重建）列入路线图（需 commandToHtml 输出 id + apply 结构队列——环状/嵌套边界未定）
 - **`weifuwu/dev`**（`src/dev/index.ts`）：Node `registerHooks` + esbuild 同步编译 `.ts/.tsx`，服务端直接跑 `.tsx`——与 `ctx.ui.js` 前端动态编译对称，两端同一 JSX 运行时
 - **`ctx.ui.ssr(Comp, props, { data })`** → HtmlSafe HTML 片段；`ctx.ui.ssrData(data)` → `__DATA__` 脚本：
 
@@ -562,6 +560,11 @@ const MyComp: Component = (_init, ctx) => {
 
 - **新增列表类组件**：先判断列表类型——渲染有内部状态的组件 + 动态增删/重排 → 设计显式 key 来源（项 id / keyBy prop，组件内部已知身份则组件生成）；纯元素/无状态列表无 key（位置身份）即可
 - **验证标准**：动态场景实测（拖拽重排 / 展开折叠 / 增删项 / 滚动）后项身份不漂移——keyed diff 下 DOM 操作与变化量成正比（规则表 §5 实测表）
+
+> **keyed diff 两种模式（2026-12 契约测试校准——语义精确化）**：
+> - **顺移/增删（相对顺序一致）** → `move` 命令（remap-only——节点复用——零重建）
+> - **循环移位/交换（相对顺序变化）** → **冲突重建**（remove 全 + 按新序渲染——**组件实例 `.k{key}` 复用（工厂不重跑——状态保持）**，元素 DOM 节点重建）——原因：环状 id 依赖（任何流式 remap 顺序都会覆盖未移动节点映射——`['a','b','c']→['c','a','b']` 三顺序推演全错乱）——move 的真移动 + remap 需要临时 id 缓冲（两阶段命令）——当前命令模型不支持——重建是诚实取舍；代价：元素级 DOM 引用/焦点在循环移位时重置（组件状态不丢）——文档红线
+> - 契约测试：`src/test/contract/diff.test.ts`「keyed 顺移 remove+move」「keyed 循环移位冲突重建但实例复用（mounts 保持）」
 
 ## 6. 渲染器机制与已知坑（client 内部）
 
