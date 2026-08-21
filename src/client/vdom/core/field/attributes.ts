@@ -15,10 +15,12 @@ export const ENUMERATED_KEYS = new Set(['draggable', 'contenteditable', 'spellch
 
 /** attribute 通道——单键应用 */
 export function applyAttribute(el: HTMLElement, key: string, value: unknown): void {
-  // **innerHTML/textContent 走 property 通道**（setAttribute 不生效——
-  // Editor 等组件首帧 innerHTML 初始化——真实 bug——setProp 路径已
-  // property——create attrs 路径必须一致）
-  if (key === 'innerHTML' || key === 'textContent') {
+  // **innerHTML/textContent/value 走 property 通道**（setAttribute 不生效
+  // ——Editor 首帧 innerHTML / CodeEditor textarea 值——真实 bug——setProp
+  // 路径已 property（props.ts PROPERTY_KEYS）——create attrs 路径必须一致——
+  // **textarea 的 value 属性无效**（值来自 IDL/children——setAttribute('value')
+  // 不设 textarea.value——实测空——input 的 value 属性虽生效但 property 统一）
+  if (key === 'innerHTML' || key === 'textContent' || key === 'value') {
     ;(el as any)[key] = value
     return
   }
