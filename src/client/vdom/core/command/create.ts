@@ -20,7 +20,7 @@ export type CreateTextCommand = {
   value: string
 }
 
-/** 创建占位锚（空洞/portal 槽——childNodes 同构——detail 诊断信息） */
+/** 创建占位锚（空洞槽——childNodes 同构——detail 诊断信息） */
 export type CreateAnchorCommand = {
   op: 'createAnchor'
   id: string

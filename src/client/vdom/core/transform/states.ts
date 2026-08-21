@@ -7,7 +7,7 @@
  *   element   —— string type（原生元素）
  *   component —— 函数 type（两阶段组件——输出多根 = 隐式 Fragment）
  *   fragment  —— Fragment 符号/数组（隐式 Fragment——多节点展开）
- *   portal    —— Portal 符号（浮层——主树插槽锚 + 内容远程容器）
+
  *   array     —— VNodeChild[]（childrenOf 已展开的防御态）
  *
  * 判定复用 node.ts kindOf（唯一判定点）——状态是 kindOf 的转换语义面。

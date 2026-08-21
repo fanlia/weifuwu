@@ -19,10 +19,7 @@ import type { VNode, VNodeChild } from '../vnode.ts'
 /** 位置 key 前缀（混合数组——无 key 项位置接管——命名空间隔离） */
 export const POS_KEY_PREFIX = 'pos:'
 
-/** 数组项 key（vnode.key——纯数据面——非 vnode 项 = null）
- *  **portal 除外**：portal 的 key 是 portalKey（#__wf_portal 容器标识）——
- *  不是列表身份 key——按无 key 处理（位置身份——diffSlot 对照——
- *  关闭时 removePortal 清理） */
+/** 数组项 key（vnode.key——纯数据面——非 vnode 项 = null） */
 export function keyOf(v: VNodeChild): string | null {
   if (v === null || v === undefined || typeof v === 'boolean') return null
   if (typeof v === 'string' || typeof v === 'number') return null
@@ -105,7 +102,7 @@ export function planKeyedDiff(oldItems: VNodeChild[], newItems: VNodeChild[]): K
 }
 
 /** A 级检测（dev——数组长度变化 + 无 key 组件项 → warn 引导声明 key——
- *  用户层引导；豁免：portal 槽/单子节点条件渲染的 null 空洞） */
+ *  用户层引导；豁免：单子节点条件渲染的 null 空洞） */
 export function detectMissingKey(items: VNodeChild[], context: string): void {
   if (items.length < 2) return
   const hasComponent = items.some((i) => typeof (i as VNode | null)?.type === 'function')

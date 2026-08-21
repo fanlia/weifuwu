@@ -53,7 +53,7 @@ export async function diffComponentOutput(
       // 单节点输出对照（同实例——精准增量）
       await diffSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
     } else if (Array.isArray(oldOut) && Array.isArray(out)) {
-      // 数组输出对照（隐式 Fragment——逐项——portal 关闭 → removePortal）
+      // 数组输出对照（隐式 Fragment——逐项）
       await diffChildrenItems(oldOut, out, p, emit, emitCommand, ctx, registry)
     } else {
       // 数组 ↔ 单节点——transform（transitionFragment——旧展开区间递归清理）

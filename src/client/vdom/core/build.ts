@@ -7,7 +7,7 @@
  *
  * **共享渲染分发器**（createRenderDispatcher——build/diff 共用——单一
  * 规则源）：kindOf 分类 → 各 node/ 文件渲染（text/hole/array/fragment/
- * portal/element/component/invalid）——diff 的新侧渲染复用本分发器——
+ * element/component/invalid）——diff 的新侧渲染复用本分发器——
  * **消除重复**（diff 只做对照决策——新侧渲染走这里）。
  */
 

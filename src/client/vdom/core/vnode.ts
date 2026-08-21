@@ -11,8 +11,8 @@
  *    空洞保留——占位法保长度恒定）
  * ⑤ 组件两阶段：工厂 = mount（一次——初始化状态/订阅/数据预取）；
  *    renderFn = 每次渲染（同步或 async——异步边界 = ctx.data 管道——不挂起）
- * ⑥ Fragment/Portal 内部符号——公共面不导出（数组 = 隐式 Fragment；
- *    createPortal = usePopup 内部机制；`<></>` 经 jsx-runtime 子路径）
+ * ⑥ Fragment 内部符号——公共面不导出（数组 = 隐式 Fragment；
+ *    `<></>` 经 jsx-runtime 子路径）
  */
 
 import type { UIContext } from '../context/UIContext.ts'
@@ -20,7 +20,7 @@ import { extractKey, stripKey } from './field/key.ts'
 
 /** vnode——纯数据 */
 export interface VNode {
-  /** 标签名 / 组件 / 内部符号（Fragment/Portal） */
+  /** 标签名 / 组件 / 内部符号（Fragment） */
   type: string | symbol | Component
   props: Record<string, unknown>
   /** 业务身份声明（无自动生成——无 key = 位置身份） */

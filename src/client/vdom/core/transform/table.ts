@@ -9,14 +9,14 @@
  *
  * 转换策略（各文件实现）：
  *   text.ts      —— text ↔ element/component/fragment（文本节点 ↔ 结构）
- *   hole.ts      —— hole ↔ element/component/fragment/text/portal
+ *   hole.ts      —— hole ↔ element/component/fragment/text
  *                  （**null <-> component / null <-> fragment 主场景**——
  *                  条件渲染 cond ? <X/> : null 的类型切换）
  *   element.ts   —— element ↔ component/fragment/hole/text
  *   component.ts —— component ↔ element/fragment/hole（同类型复用——
  *                   异类型卸载 + 重建）
  *   fragment.ts  —— fragment ↔ element/component/hole（多节点展开 ↔ 单节点）
- *   portal.ts    —— portal ↔ 其余（浮层槽位切换）
+
  */
 
 import type { VNodeChild } from '../vnode.ts'

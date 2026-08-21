@@ -7,7 +7,6 @@
  * - array：VNodeChild[] → 隐式 Fragment（children.ts 展开）
  * - element：string type → 元素节点
  * - fragment：Fragment 符号（`<></>`——与数组同义）
- * - portal：Portal 符号（usePopup 内部机制）
  * - component：函数 type → 两阶段组件（工厂 + renderFn）
  * - invalid：对象/数字 type/未知 Symbol → 诊断占位 + warn（hole.ts——不崩溃不静默）
  */

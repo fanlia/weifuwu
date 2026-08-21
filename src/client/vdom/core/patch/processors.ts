@@ -7,7 +7,7 @@
  * 生命周期语义：
  * - ref（挂载完成——insert 后——el 已连接）；unref/remove/done（ref(null)）
  * - mount（组件初始化标记）；unmount（onUnmounts 逆序）
- * - removePortal（浮层容器清理）；move（顺移 remap / 移动 + 重映射）
+ * - move（顺移 remap / 移动 + 重映射）
  * - done.full（全量流清理旧树多余节点——资源释放完整）
  */
 
@@ -28,7 +28,7 @@ export function procCreate(applier: CommandApplier, cmd: Extract<Command, { op: 
     applyAttrs(existing as HTMLElement, cmd.attrs)
   } else if (applier.absorb.queue && !existing) {
     // SSR 吸收：匹配下一个 SSR 元素节点（同 tag）——复用（焦点/状态保持）
-    // portal 内容豁免（SSR 输出在 root 内——客户端归位 portal 容器——重建）
+
     const ssrEl = applier.absorb.next('element', cmd.tag)
     if (ssrEl) {
       applyAttrs(ssrEl as HTMLElement, cmd.attrs)

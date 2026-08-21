@@ -42,7 +42,7 @@ export async function diffChildren(
 }
 
 /** children 项对照（列表分类：全 unkeyed 位置身份 / 全 keyed 身份复用 / 混合——
- *  组件数组输出（隐式 Fragment）同用——portal 关闭 → removePortal 清理） */
+ *  组件数组输出（隐式 Fragment）同用——旧项移除清理） */
 export async function diffChildrenItems(
   oldCs: VNodeChild[], newCs: VNodeChild[],
   id: string,
@@ -91,7 +91,7 @@ export async function diffChildrenItems(
     const cid = pathId(id, i)
     if (newC === null || newC === undefined) {
       // **占位（空洞保持——同构不变量）**：数组长度不变但该项为 null
-      // （条件渲染元素/组件/浮层关闭）——旧项移除（unmount/removePortal/
+      // （条件渲染元素/组件）——旧项移除（unmount/
       // remove）+ **占位锚**——childNodes 长度恒定（不塌缩）
       // null ↔ null：no-op（锚已在 DOM——保持——不重建）
       if (oldC !== null && oldC !== undefined && typeof oldC !== 'boolean') {
@@ -114,7 +114,7 @@ export async function diffChildrenItems(
   }
 }
 
-/** 旧槽移除（unmount/removePortal/remove——占位/尾部缩短共用） */
+/** 旧槽移除（unmount/remove——占位/尾部缩短共用） */
 async function removeOldSlot(
   oldC: VNodeChild, parent: string, cid: string, emitCommand: (cmd: Command) => void,
 ): Promise<void> {
@@ -188,13 +188,12 @@ export async function diffKeyedChildren(
   const newKeys = new Set(newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null))
 
   // 0. **旧 unkeyed 项移除（真实 bug——Menubar 面板残留——引擎级修复，
-  //    所有组件受益）**：混合数组（hasKeyed——portal 插槽场景——浮层开关）
-  //    ——unkeyed 旧项（keyOf 返回 null——含 portal——portal 内部 key 不
-  //    算用户 keyed 是设计）——keyed 移除路径只查 oldIdxByKey（keyed）——
-  //    unkeyed 旧项从未移除 → portal 容器/DOM 节点残留（Escape/外部点击
-  //    关闭浮层后面板永远显示——aria-expanded false 但 DOM 还在）——
-  //    按旧索引移除（isPortal → removePortal——与 unkeyed removeOldSlot
-  //    对齐）——remove 按 id（顺序无关——keyed remap 同样按 id——安全）
+  //    所有组件受益）**：混合数组（hasKeyed）——unkeyed 旧项（keyOf 返回
+  //    null）——keyed 移除路径只查 oldIdxByKey（keyed）——unkeyed 旧项从未
+  //    移除 → DOM 节点残留（Escape/外部点击关闭后面板永远显示——
+  //    aria-expanded false 但 DOM 还在）——按旧索引移除（与 unkeyed
+  //    removeOldSlot 对齐）——remove 按 id（顺序无关——keyed remap 同样
+  //    按 id——安全）
   for (let i = 0; i < oldCs.length; i++) {
     const oldC = oldCs[i]
     if (oldC === null || oldC === undefined || typeof oldC === 'boolean') continue
@@ -204,8 +203,8 @@ export async function diffKeyedChildren(
     emitCommand({ op: 'remove', id: pathId(parent, i) })
   }
 
-  // 1. **真移除**（不在新列表——unmount（组件）+ removePortal（portal 容器）
-  //    + remove——keyed 项——与 unkeyed 对齐）
+  // 1. **真移除**（不在新列表——unmount（组件）+ remove——keyed 项——
+  //    与 unkeyed 对齐）
   for (const [k, oldIdx] of oldIdxByKey) {
     if (!newKeys.has(k)) {
       const oldVn = oldCs[oldIdx] as VNode

@@ -3,7 +3,7 @@
  *
  * 职责：**中转站——自身不处理细节逻辑**——apply 命令 → dispatch（处理器
  * 独立文件：processors.ts/fields.ts）——本文件只持有状态（nodes 表/
- * 事件代理/ref 注册表/portal 容器）+ 通用内部方法（父解析/清理/重映射）。
+ * 事件代理/ref 注册表）+ 通用内部方法（父解析/清理/重映射）。
  *
  * 状态公开（同包约定——处理器访问）——资源生命周期：
  * - ref（挂载/卸载——RefRegistry）；事件（EventRegistry 代理）
@@ -42,8 +42,8 @@ export class CommandApplier {
     this.container = container
     this.doc = doc
     this.registry = registry ?? null
-    // **容器过滤**（portal 独立通道）：独立 applier 的事件仅分发容器内
-    // target（id 同路径冲突——主树事件误命中独立表——toast onRemove 实证）
+    // **容器过滤**（命令式弹窗独立 applier）：事件仅分发容器内 target
+    // （id 同路径冲突——主树事件误命中独立表——toast onRemove 实证）
     this.eventRegistry = new EventRegistry(doc, container)
   }
 
@@ -51,7 +51,7 @@ export class CommandApplier {
   dispose(): void {
     this.eventRegistry.dispose()
     this.refRegistry.dispose()
-    // **组件实例卸载**（命令式宿主——usePopup 的 env.onUnmount（disposePortal）
+    // **组件实例卸载**（命令式宿主——openPopup 的 env.onUnmount（dispose）
     // 依赖组件卸载触发——否则 renderPortal 的 #__wf_portal 容器残留——
     // 命令式 confirm 确定后 Modal 面板残留实证）
     if (this.registry) {
