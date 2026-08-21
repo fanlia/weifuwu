@@ -27,19 +27,17 @@
   pointer-events: none;
 }
 
-/* placement 修正（与 Tooltip/Popover 一致）：top 整体上移 + 居中，bottom 居中，left/right 垂直居中 */
+/* placement 定位全权归 JS（usePopup computePos——fixed left/top 已含中心对齐/偏移）——
+ * 旧 transform 残留（top/bottom/left/right 修正）与 JS 坐标叠加双倍偏移——
+ * 同 Tooltip/Popover/Popconfirm 修复——已删 */
 .wf-hover-card--top {
-  transform: translateX(-50%) translateY(-100%);
 }
 
 .wf-hover-card--bottom {
-  transform: translateX(-50%);
 }
 
 .wf-hover-card--left {
-  transform: translateY(-50%) translateX(-100%);
 }
 
 .wf-hover-card--right {
-  transform: translateY(-50%);
 }

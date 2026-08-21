@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/overlay/hovercard'
 
@@ -47,5 +47,14 @@ test('能力：hover 出现卡片（用户详情——富内容）', async () =>
     await page.locator('main .wf-surface button', { hasText: '悬停查看用户' }).first().hover()
     await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('用户详情')), '卡片出现')
     assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('悬停卡片展示富内容')), '富内容')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + bottom 方向 + 水平居中', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main .wf-surface button', { hasText: '悬停查看用户' }).first().hover()
+    await assertPopupGeometry(page, { anchorText: '悬停查看用户', dir: 'top', centerAxis: 'x', transformNone: true })
   } finally { await page.close() }
 })

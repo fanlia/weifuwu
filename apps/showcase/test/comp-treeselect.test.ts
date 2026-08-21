@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/advanced/treeselect'
 
@@ -38,5 +38,14 @@ test('能力：下拉树（单选 + 展开节点）', async () => {
     await page.waitForTimeout(400)
     const text = await page.evaluate(() => document.body.textContent ?? '')
     assert.ok(text.includes('服务') && text.includes('数据库'), '树面板展开（第一层）')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 树面板 bottom', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main .wf-treeselect-trigger').first().click()
+    await assertPopupGeometry(page, { panelText: '服务', anchorSel: '.wf-treeselect-trigger', dir: 'bottom', transformNone: true })
   } finally { await page.close() }
 })

@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/feedback/toast'
 
@@ -64,4 +64,12 @@ test('demo 交互：错误 + 警告 → 多条 toast（上限 3）', async () =>
   } finally {
     await page.close()
   }
+})
+test('位置：toast（视口）——命令式面板 fixed + 视口内', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.locator('main .wf-surface button', { hasText: '成功' }).first().click()
+    await assertPopupGeometry(page, { panelSel: '[class*="toast-container"]' })
+  } finally { await page.close() }
 })

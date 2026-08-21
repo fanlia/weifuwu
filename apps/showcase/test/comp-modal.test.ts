@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/overlay/modal'
 
@@ -65,5 +65,14 @@ test('能力：关闭（确定按钮）→ 弹窗移除 + portal 无残留（核
       return p ? p.textContent?.includes('确认操作') ?? false : false
     })
     assert.ok(!residual, 'portal 无残留')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 居中弹窗', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main .wf-surface button', { hasText: '打开弹窗' }).first().click()
+    await assertPopupGeometry(page, { centered: true })
   } finally { await page.close() }
 })

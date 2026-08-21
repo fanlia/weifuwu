@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/overlay/contextmenu'
 
@@ -52,5 +52,15 @@ test('能力：右键出现菜单 + 项点击（编辑/复制/删除——danger
     // 点「复制」→ 菜单关闭（portal 无残留——文档区可能含'编辑'文字——portal 检查）
     await page.locator('#__wf_portal button, .wf-popup button', { hasText: '复制' }).first().click()
     await waitFor(page, () => Promise.resolve(!document.querySelector('#__wf_portal [class*="context-menu"]')), '选择后关闭（portal 菜单移除）')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 右键菜单 bottom', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    const box = await page.locator('main .wf-context-menu-trigger').first().boundingBox()
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' })
+    await assertPopupGeometry(page, { panelText: '复制', transformNone: true })
   } finally { await page.close() }
 })

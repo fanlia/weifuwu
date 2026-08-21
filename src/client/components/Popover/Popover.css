@@ -23,19 +23,19 @@
 }
 
 .wf-popover--bottom {
-  transform: translateX(-50%);
+  /* transform 残留已删（旧 absolute 定位——JS 坐标叠加双倍偏移——同 Tooltip 修复） */
 }
 
 .wf-popover--top {
-  transform: translateX(-50%) translateY(-100%);
+  /* 定位全权归 JS（同 Tooltip 修复——旧 transform 与 fixed 坐标叠加双倍偏移） */
 }
 
 .wf-popover--left {
-  transform: translateY(-50%) translateX(-100%);
+  /* 同上 */
 }
 
 .wf-popover--right {
-  transform: translateY(-50%);
+  /* 同上 */
 }
 
 .wf-popover-arrow {

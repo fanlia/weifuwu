@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/advanced/autocomplete'
 
@@ -40,5 +40,16 @@ test('能力：输入 → 下拉补全（支付平台管理）', async () => {
     await page.waitForTimeout(400)
     const text = await page.evaluate(() => document.body.textContent ?? '')
     assert.ok(text.includes('支付平台管理'), '下拉选项')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 补全面板 bottom', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    const input = page.locator('main input[placeholder*="输入"], main input[placeholder*="搜索"]').first()
+    await input.click()
+    await input.fill('支付')
+    await assertPopupGeometry(page, { panelText: '支付平台管理', anchorSel: 'main input', dir: 'bottom', transformNone: true })
   } finally { await page.close() }
 })

@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/overlay/dropdown'
 
@@ -54,5 +54,14 @@ test('渲染零错误 + 点击展开 + 项点击（上次: 编辑）', async () 
       return p ? p.textContent?.includes('复制') ?? false : false
     })
     assert.ok(!residual, 'portal 无残留（核心层修复受益）')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + bottom 方向 + 水平居中', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main .wf-surface button', { hasText: '操作' }).first().click()
+    await assertPopupGeometry(page, { panelText: '编辑', anchorText: '操作', dir: 'bottom', centerAxis: 'x', transformNone: true })
   } finally { await page.close() }
 })

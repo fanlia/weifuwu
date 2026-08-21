@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/overlay/popconfirm'
 
@@ -50,5 +50,14 @@ test('渲染零错误 + 点击弹出确认 + 确认回调（已删除——toast
     // 确认（portal 内确认按钮——onConfirm 回调）
     await page.locator('#__wf_portal [class*="popconfirm"] button').last().click()
     await waitFor(page, () => Promise.resolve(!document.querySelector('#__wf_portal [class*="popconfirm"]')), '确认关闭（onConfirm——portal 移除）')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 确认气泡 top', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main .wf-surface button', { hasText: '删除' }).first().click()
+    await assertPopupGeometry(page, { panelText: '确定', anchorText: '删除', dir: 'top', centerAxis: 'x', transformNone: true })
   } finally { await page.close() }
 })

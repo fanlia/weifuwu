@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/navigation/menubar'
 
@@ -63,5 +63,14 @@ test('能力：点击展开下拉 + 菜单项（新建/保存——快捷键）'
       await page.waitForTimeout(100)
     }
     assert.ok(closed, 'Escape 关闭')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 菜单 bottom', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main [class*="menubar"] button, main [class*="menubar"] [class*="trigger"]', { hasText: '文件' }).first().click()
+    await assertPopupGeometry(page, { anchorText: '文件', dir: 'bottom', transformNone: true })
   } finally { await page.close() }
 })

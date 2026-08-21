@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/overlay/command'
 
@@ -50,5 +50,14 @@ test('渲染零错误 + 打开命令面板 + 项 onSelect（新建聊天——sh
     // 选择「新建聊天」→ onSelect（关闭）
     await page.locator('#__wf_portal button, .wf-popup button', { hasText: '新建聊天' }).first().click()
     await waitFor(page, () => Promise.resolve(!(document.body.textContent ?? '').includes('新建聊天')), '选择关闭')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 居中面板', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main .wf-surface button', { hasText: '打开命令面板' }).first().click()
+    await assertPopupGeometry(page, { centered: true, transformNone: true })
   } finally { await page.close() }
 })

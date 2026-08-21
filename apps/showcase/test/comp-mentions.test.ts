@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/advanced/mentions'
 
@@ -36,5 +36,16 @@ test('能力：@ 提及（值 + 候选）', async () => {
     await open(page)
     const text = await page.evaluate(() => document.body.textContent ?? '')
     assert.ok(text.includes('文本：输入 @ 提及成员：@ali'), '受控值回显')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 提及面板 bottom', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    const input = page.locator('main [class*="mention"] input, main textarea').first()
+    await input.click()
+    await page.keyboard.type('@')
+    await assertPopupGeometry(page, { panelText: 'Alice', anchorSel: 'main [class*="mention"] input, main textarea', dir: 'bottom', transformNone: true })
   } finally { await page.close() }
 })

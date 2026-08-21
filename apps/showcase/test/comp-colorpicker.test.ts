@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/overlay/colorpicker'
 
@@ -52,5 +52,15 @@ test('渲染零错误 + 3 变体（默认/尺寸 sm·lg/disabled）+ 当前色�
     // 当前色文字（默认 #4f6ef7——demo 状态显示）
     assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('#4f6ef7')), '当前色')
     // 选色交互（场景层 deep-colorpicker 已覆盖——showcase 验证渲染面）
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 色板 bottom', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    // 第一个 trigger 是 disabled 变体（pe:none 不可点）——用非 disabled
+    await page.locator('main [class*="color-picker-trigger"]:not([class*="disabled"])').first().click()
+    await assertPopupGeometry(page, { anchorSel: 'main [class*="color-picker-trigger"]:not([class*="disabled"])', dir: 'bottom', transformNone: true })
   } finally { await page.close() }
 })

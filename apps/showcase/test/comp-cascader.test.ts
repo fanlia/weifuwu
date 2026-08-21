@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/advanced/cascader'
 
@@ -41,5 +41,14 @@ test('能力：级联面板（点开 → 省份/城市选项）', async () => {
     await page.waitForTimeout(400)
     const panel = await page.evaluate(() => document.body.textContent ?? '')
     assert.ok(panel.includes('广东'), '面板展开（广东）')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 级联面板 bottom', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main [class*="cascader"]').first().click()
+    await assertPopupGeometry(page, { panelText: '广东', anchorSel: 'main [class*="cascader"]', dir: 'bottom', transformNone: true })
   } finally { await page.close() }
 })

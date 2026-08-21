@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/overlay/drawer'
 
@@ -63,5 +63,14 @@ test('能力：关闭（取消）→ 移除；左侧抽屉打开', async () => {
     await page.locator('main .wf-surface button', { hasText: '左侧抽屉' }).first().click()
     await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('导航菜单')), '左侧抽屉')
     assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('左侧面板内容')), '左侧内容')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 右侧抽屉', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main .wf-surface button', { hasText: '右侧抽屉' }).first().click()
+    await assertPopupGeometry(page, { panelText: '编辑用户' })
   } finally { await page.close() }
 })

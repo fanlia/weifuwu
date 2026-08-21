@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/overlay/actionsheet'
 
@@ -50,5 +50,14 @@ test('渲染零错误 + 打开 + 选项选择（删除——danger——选择�
     // 选「删除」→ onSelect（选择结果: delete）
     await page.locator('#__wf_portal button, .wf-popup button', { hasText: '删除' }).first().click()
     await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('选择结果：delete')), '选择回调')
+  } finally { await page.close() }
+})
+test('位置：portal 归属 + fixed + 视口内 + 底部面板', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    
+    await page.locator('main .wf-surface button', { hasText: '选择操作' }).first().click()
+    await assertPopupGeometry(page, { panelText: '删除' })
   } finally { await page.close() }
 })

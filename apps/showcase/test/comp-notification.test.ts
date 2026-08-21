@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/feedback/notification'
 
@@ -59,4 +59,12 @@ test('demo 交互：警告通知 → 弹出', async () => {
   } finally {
     await page.close()
   }
+})
+test('位置：通知（视口）——命令式面板 fixed + 视口内', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.locator('main .wf-surface button', { hasText: '成功通知' }).first().click()
+    await assertPopupGeometry(page, { panelSel: '[class*="notification-container"], [class*="wf-notification"]' })
+  } finally { await page.close() }
 })

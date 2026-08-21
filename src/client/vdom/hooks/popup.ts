@@ -459,7 +459,7 @@ export function usePopup(env: HookEnv, opts: PopupOptions): Popup {
       // phase 卡 exit 永不 closed——弹层残留 DOM）
       const pv = panelVn as VNode
       const props = (pv.props ?? {}) as Record<string, any>
-      const cls = opts.positioning === 'none'
+      const cls = opts.positioning === 'none' || (props.class ?? '').includes('mask')
         ? (props.class ?? '')
         : ['wf-popup', props.class].filter(Boolean).join(' ')
       const style = opts.positioning === 'none'

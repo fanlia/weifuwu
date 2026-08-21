@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/feedback/confirm'
 
@@ -67,4 +67,12 @@ test('demo 交互：保存 → 取消 → 结果「已取消」', async () => {
   } finally {
     await page.close()
   }
+})
+test('位置：居中确认——命令式面板 fixed + 视口内', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.locator('main .wf-surface button', { hasText: '删除' }).first().click()
+    await assertPopupGeometry(page, { panelText: '确定' })
+  } finally { await page.close() }
 })
