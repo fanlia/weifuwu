@@ -5,6 +5,52 @@
 
 ---
 
+## 3. 修复归类纪律（应用层 / 组件层 / 核心层）
+
+> **核心理念：核心层修复有利于所有组件以及应用**——排查问题先归类，
+> 根因在核心层（vdom 引擎）→ 修核心层（而不是在单个组件/应用打补丁）——
+> 一处修复全库受益。组件层异常往往暴露核心层 bug（组件行为是引擎的试金石）。
+
+**排查流程**：
+
+```
+问题出现
+  → 归类：应用层（demo/示例代码/页面——示例错误）？
+         组件层（组件实现——回调/事件/状态/渲染逻辑）？
+         核心层（vdom 引擎——diff/渲染管线/hooks/浏览器环境/命令流）？
+  → 组件层异常 → 先查是否核心层根因（引擎 bug 透过组件暴露）——是 → 修核心
+  → 核心层修复 → 必写契约测试（命令流断言锁定）→ 全库回归
+```
+
+**归类原则**：
+- 应用层问题修应用（示例代码错误——如 useExternal 误用/受控不回流）——不碰框架
+- 组件层问题修组件（组件回调/状态/事件绑定逻辑）——若涉及引擎机制（diff/ref/
+  portal/渲染时机）→ 查核心层
+- **核心层问题必修核心**（即使组件层能绕开）——引擎修复自动惠及所有组件与应用；
+  组件层补丁只修单点（且掩盖根因）
+
+**历史修复归类（归档——三层）**：
+
+| 层 | 修复 | 受益面 |
+| --- | --- | --- |
+| **核心层** | diff 混合数组 unkeyed 旧项移除（含 portal——removePortal） | 所有浮层关闭残留（Menubar 面板/Dropdown/Select 等） |
+| | procUnmount 组件卸载清理输出 portal（dispose 协议补全） | 条件渲染移除组件（`{open && <X/>}`）的浮层残留 |
+| | usePopup positioning 'none' 也 refresh（panelRefImpl） | 自定位组件（Tour highlight/bubble）定位失效 |
+| | serve.ts 首帧吸收标记判定（hasSsrMark） | 静态预置 HTML 页面（showcase 首页）吸收错配崩溃 |
+| | create-client-browser copyText 降级链（clipboard→execCommand） | 全组件复制按钮（非 https 权限拒绝） |
+| **组件层** | Slider renderFn 删 popup.refresh（hover 卡死） | Slider 自身（根因是组件在 renderFn 调 refresh——引擎 refresh 语义正确） |
+| | VideoPlayer video ref 时机 + muted IDL（2 bug） | VideoPlayer 自身 |
+| | Tour 视口翻转（placement top 越界） | Tour 自身 |
+| | ImageCropper ctx.render（Ui 接口无 render） | ImageCropper 自身 |
+| **应用层** | showcase DemoSlider 受控回流（价格区间） | showcase demo 正确性 |
+| | showcase server html.ts 路径（ui-dom 遗留） | showcase 可运行 |
+| | todo 示例 useExternal 契约误用 | examples 模板正确性 |
+
+**契约测试纪律**（核心层修复的验收）：
+- 修复后立即写契约测试（命令流断言——如 keyed 移除 portal → removePortal）
+- 场景测试锁定 DOM 行为（如 Menubar Escape 后 panel 移除）
+- 两层都绿才提交
+
 ## 1. 测试命令纪律
 
 | ID | 规则 | 说明 |
