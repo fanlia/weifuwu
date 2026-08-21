@@ -5,28 +5,28 @@
   "description": "AI SaaS full-stack framework — backend HTTP + frontend VDOM + 129 components + CSS design system + SaaS foundation (auth/queue/AI). Zero-build, zero-dependency.",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
     },
-    "./layout": "./dist/layout/weifuwu-layout.css",
-    "./layout/style.css": "./dist/layout/weifuwu-layout.css",
+    "./layout": "./dist/client/layout/weifuwu-layout.css",
+    "./layout/style.css": "./dist/client/layout/weifuwu-layout.css",
     "./components": {
-      "types": "./dist/components/index.d.ts",
-      "default": "./dist/components/index.js"
+      "types": "./dist/client/components/index.d.ts",
+      "default": "./dist/client/components/index.js"
     },
-    "./components/style.css": "./dist/components/style.css",
+    "./components/style.css": "./dist/client/components/style.css",
     "./dev": "./dist/dev/index.js",
     "./vdom": {
-      "types": "./dist/vdom/index.d.ts",
-      "default": "./dist/vdom/index.js"
+      "types": "./dist/client/vdom/index.d.ts",
+      "default": "./dist/client/vdom/index.js"
     },
     "./vdom/jsx-runtime": {
-      "types": "./dist/vdom/index.d.ts",
-      "default": "./dist/vdom/jsx-runtime.js"
+      "types": "./dist/client/vdom/index.d.ts",
+      "default": "./dist/client/vdom/jsx-runtime.js"
     },
     "./vdom/testing": {
-      "types": "./dist/vdom/testing.d.ts",
-      "default": "./dist/vdom/testing.js"
+      "types": "./dist/client/vdom/testing.d.ts",
+      "default": "./dist/client/vdom/testing.js"
     }
   },
   "files": [

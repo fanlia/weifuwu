@@ -95,8 +95,8 @@ export const DashboardPage: Component = async (_init: any, ctx: any) => {
     location.hash = '#/login'
   }
   return async (_p: any) => {
-    if (!state.state.user) return h(LoginPage, {})
-    const u = state.state.user
+    if (!state.user) return h(LoginPage, {})
+    const u = state.user
     return (
       <div class="wf-stack wf-gap-md" style="max-width:560px">
         <PageHeader

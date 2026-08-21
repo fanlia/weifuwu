@@ -15,8 +15,10 @@ const distDir = join(root, 'dist')
 // Clean stale dist
 await rm(distDir, { recursive: true, force: true })
 await mkdir(distDir, { recursive: true })
-await mkdir(join(distDir, 'layout'), { recursive: true })
-await mkdir(join(distDir, 'components'), { recursive: true })
+await mkdir(join(distDir, 'server'), { recursive: true })
+await mkdir(join(distDir, 'client', 'vdom'), { recursive: true })
+await mkdir(join(distDir, 'client', 'components'), { recursive: true })
+await mkdir(join(distDir, 'client', 'layout'), { recursive: true })
 
 
 const external = [
@@ -34,7 +36,7 @@ const external = [
 // 后端 bundle
 await esbuild.build({
   entryPoints: [join(srcDir, 'server', 'index.ts')],
-  outfile: join(distDir, 'index.js'),
+  outfile: join(distDir, 'server', 'index.js'),
   format: 'esm',
   platform: 'node',
   bundle: true,
@@ -69,10 +71,10 @@ for (const d of ['content', 'examples']) {
 
 // ── vdom bundle（新一代前端运行时——h/jsx/uiServe/UIRouter 公共面——
 //   P3 包面切换——组件库已迁移到 src/client/vdom——构建为 weifuwu/vdom）──
-await mkdir(join(distDir, 'vdom'), { recursive: true })
+await mkdir(join(distDir, 'client', 'vdom'), { recursive: true })
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'vdom', 'index.ts')],
-  outfile: join(distDir, 'vdom', 'index.js'),
+  outfile: join(distDir, 'client', 'vdom', 'index.js'),
   format: 'esm',
   platform: 'browser',
   jsx: 'automatic',
@@ -84,7 +86,7 @@ await esbuild.build({
 // vdom/jsx-runtime
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'vdom', 'jsx-runtime.ts')],
-  outfile: join(distDir, 'vdom', 'jsx-runtime.js'),
+  outfile: join(distDir, 'client', 'vdom', 'jsx-runtime.js'),
   format: 'esm',
   platform: 'browser',
   bundle: true,
@@ -94,7 +96,7 @@ await esbuild.build({
 // vdom/testing（组件测试原语——同签名 ui-dom/testing 兼容）
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'vdom', 'testing.ts')],
-  outfile: join(distDir, 'vdom', 'testing.js'),
+  outfile: join(distDir, 'client', 'vdom', 'testing.js'),
   format: 'esm',
   platform: 'browser',
   bundle: true,
@@ -125,7 +127,7 @@ const externalizeUiDomPlugin = {
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'components', 'index.ts')],
   tsconfigRaw: { compilerOptions: { jsxImportSource: 'weifuwu/vdom' } },
-  outfile: join(distDir, 'components', 'index.js'),
+  outfile: join(distDir, 'client', 'components', 'index.js'),
   format: 'esm',
   platform: 'browser',
   jsx: 'automatic',
@@ -138,7 +140,7 @@ await esbuild.build({
 
 // 编译 layout CSS → 单文件（按文件映射 @layer，源文件零侵入）
 const layoutSrc = join(srcDir, 'client', 'layout')
-const layoutDist = join(distDir, 'layout')
+const layoutDist = join(distDir, 'client', 'layout')
 
 const LAYER_OF = {
   _tokens: 'tokens', _dark: 'tokens', _presets: 'tokens', _base: 'base',
@@ -198,7 +200,7 @@ for (const dir of componentDirs) {
   }
 }
 componentCss += '}\n'
-await writeFile(join(distDir, 'components', 'style.css'), componentCss)
+await writeFile(join(distDir, 'client', 'components', 'style.css'), componentCss)
 
 // 生成类型声明
 console.log('\nGenerating declarations...')

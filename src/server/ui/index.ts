@@ -28,7 +28,7 @@
 
 import { build } from 'esbuild'
 import { readFile } from 'node:fs/promises'
-import { resolve, dirname, sep } from 'node:path'
+import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
@@ -37,27 +37,12 @@ import { commandToHtml } from '../../client/vdom/core/ssr/html.ts'
 import { h } from '../../client/vdom/index.ts'
 import type { Component } from '../../client/vdom/index.ts'
 
-// 浏览器端编译 alias：weifuwu/* → 同构源码/产物（与 weifuwu/dev 的 BARE_ALIASES 一致——
-// 全单图防 dist/src 双实例（）；显式 alias 绕开 esbuild self-reference
-// 解析断裂（dist/components 内部 import 'weifuwu/ui-dom' 曾解析到 src 而失败）
-// src 模式：指向 src 下的 .ts；dist 模式：指向 dist 下的 .js（同一目录结构）
-const HERE = dirname(fileURLToPath(import.meta.url))
-const IS_SRC = fileURLToPath(import.meta.url).includes(`${sep}src${sep}`)
-const JS_ALIASES: Record<string, string> = IS_SRC
-  ? {
-      'weifuwu/vdom/jsx-runtime': HERE + '/../../client/vdom/jsx-runtime.ts',
-      'weifuwu/vdom/testing': HERE + '/../../client/vdom/testing.ts',
-      'weifuwu/vdom': HERE + '/../../client/vdom/index.ts',
-      'weifuwu/components': HERE + '/../../client/components/index.ts',
-      'weifuwu': HERE + '/../index.ts',
-    }
-  : {
-      'weifuwu/vdom/jsx-runtime': HERE + '/../../dist/vdom/jsx-runtime.js',
-      'weifuwu/vdom/testing': HERE + '/../../dist/vdom/testing.js',
-      'weifuwu/vdom': HERE + '/../../dist/vdom/index.js',
-      'weifuwu/components': HERE + '/../../dist/components/index.js',
-      'weifuwu': HERE + '/index.js',
-    }
+// 浏览器端编译：**零 alias（2027-03 定稿）**——import 'weifuwu/vdom' 走
+// package.json exports（self-reference——dist 镜像 src 结构：dist/server/ +
+// dist/client/vdom/ + dist/client/components/——exports 与 dist 一致）——
+// src 模式（dev）由 tsconfig paths 映射；dist 模式（发布）由 exports 解析——
+// 双面同一结构（src/server ↔ dist/server、src/client/vdom ↔ dist/client/vdom）——
+// 无手写 alias（历史层级错位类 bug 根治：JS_ALIASES 删除）
 
 declare module '../../server/types.ts' {
   interface Context {
@@ -181,7 +166,6 @@ export function ui(): Middleware {
           platform: 'browser',
           jsx: 'automatic',
           jsxImportSource: 'weifuwu/vdom',
-          alias: JS_ALIASES,
           write: false,
         })
 

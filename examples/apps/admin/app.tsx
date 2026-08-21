@@ -27,18 +27,18 @@ const statusTag = (s: Order['status']) =>
 export const DashboardPage: Component = async (_init: any, ctx: any) => {
   void loadOrders()
   const state = ctx.ui.useExternal(adminStore)
-  const paid = state.state.orders.filter((o: Order) => o.status === 'paid' || o.status === 'shipped')
-  const total = state.state.orders.reduce((a: number, o: Order) => a + o.amount, 0)
+  const paid = state.orders.filter((o: Order) => o.status === 'paid' || o.status === 'shipped')
+  const total = state.orders.reduce((a: number, o: Order) => a + o.amount, 0)
   return async (_p: any) => (
     <div class="wf-stack wf-gap-md">
       <PageHeader title="仪表盘" sub="KPI + 订单概览（数据来自 MemorySql）" />
       <div class="wf-grid" style="--wf-cols:repeat(auto-fit,minmax(180px,1fr));--wf-gap:12px">
-        <StatCard label="订单总数" value={state.state.orders.length} />
+        <StatCard label="订单总数" value={state.orders.length} />
         <StatCard label="已支付/发货" value={paid.length} />
         <StatCard label="销售总额" value={`¥${total.toLocaleString()}`} />
-        <StatCard label="待处理" value={state.state.orders.filter((o: Order) => o.status === 'pending').length} />
+        <StatCard label="待处理" value={state.orders.filter((o: Order) => o.status === 'pending').length} />
       </div>
-      {state.state.loading ? <div class="wf-text-secondary">加载中…</div> : (
+      {state.loading ? <div class="wf-text-secondary">加载中…</div> : (
         <Table
           columns={[
             { key: 'id', label: '订单号' },
@@ -47,7 +47,7 @@ export const DashboardPage: Component = async (_init: any, ctx: any) => {
             { key: 'date', label: '日期' },
             { key: 'status', label: '状态', render: (v: any) => statusTag(v) },
           ]}
-          data={state.state.orders}
+          data={state.orders}
          
         />
       )}
@@ -61,14 +61,14 @@ export const OrdersPage: Component = async (_init: any, ctx: any) => {
   const state = ctx.ui.useExternal(adminStore)
   let q = ''
   return async (_p: any) => {
-    const list = state.state.orders.filter((o: Order) => !q || o.customer.toLowerCase().includes(q.toLowerCase()) || o.id.includes(q))
+    const list = state.orders.filter((o: Order) => !q || o.customer.toLowerCase().includes(q.toLowerCase()) || o.id.includes(q))
     return (
       <div class="wf-stack wf-gap-md">
         <PageHeader title="订单管理" sub={`共 ${list.length} 条`}>
           <input class="wf-input" style="max-width:200px" placeholder="搜索客户/订单号…" value={q}
             onInput={(e: any) => { q = (e.target as HTMLInputElement).value; ctx.render() }} />
         </PageHeader>
-        {list.length === 0 && !state.state.loading ? <EmptyState text="无匹配订单" /> : (
+        {list.length === 0 && !state.loading ? <EmptyState text="无匹配订单" /> : (
           <Table
             columns={[
               { key: 'id', label: '订单号' },

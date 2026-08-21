@@ -58,6 +58,15 @@ export type { ApiClient } from './middlewares/api.ts'
 export type { AuthClient, I18nState } from './middlewares/auth-i18n.ts'
 export type { WsClient } from './middlewares/ws.ts'
 export { createStore } from './store.ts'
+
+// ── 命令式宿主/AI 能力（组件库 dist 消费形态需要——components 构建外部化
+//  '../../vdom/*' 为 weifuwu/vdom——非公共面导入也必须可解析）──
+export { renderToStream } from './core/build.ts'
+export { diffStream } from './core/diff/index.ts'
+export { CommandApplier } from './core/patch/index.ts'
+export { createComponentRegistry } from './core/node/component.ts'
+export { aiStream } from './hooks/ai-stream.ts'
+export type { AiStreamHandle } from './hooks/ai-stream.ts'
 export type { ExternalStore } from './store.ts'
 
 /** 中间件类型（ui-dom 兼容——组件命令式中间件签名：confirm()/toast() 等
