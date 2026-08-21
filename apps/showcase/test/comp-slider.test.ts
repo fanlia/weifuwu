@@ -131,3 +131,46 @@ test('demo 交互：价格区间拖拽 thumb → 显示值实时更新（受控�
     await page.close()
   }
 })
+
+test('marks 与 thumb 对齐（一条线——dot 中心 = thumbOffset 公式）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    // 价格 slider（第 3 个——marks 0/500/1000/1500/2000）——dot 中心与期望位置 ±1px
+    const info = await page.evaluate(() => {
+      const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
+      const price = inputs[2]
+      const pr = price.getBoundingClientRect()
+      const marks = price.parentElement?.querySelector('.wf-slider-marks')
+      const dots = Array.from(marks?.querySelectorAll('.wf-slider-mark') ?? [])
+      const THUMB_R = 9
+      const expect = (t) => pr.left + THUMB_R + (pr.width - THUMB_R * 2) * t
+      return dots.map((d, i) => {
+        const dr = d.getBoundingClientRect()
+        return Math.round(expect(i * 0.25) - (dr.left + dr.width / 2))
+      })
+    })
+    assert.equal(info.length, 5, '5 个 mark')
+    for (const d of info) {
+      assert.ok(Math.abs(d) <= 1, `mark 与 thumbOffset 对齐（偏差 ${d}px）`)
+    }
+    // 价格区间 thumb 与 fill 对齐（lo/hi）
+    const rg = await page.evaluate(() => {
+      const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
+      const lo = inputs[3]
+      const lr = lo.getBoundingClientRect()
+      const fill = lo.parentElement?.querySelector('.wf-slider-range-fill')
+      const fr = fill?.getBoundingClientRect()
+      const THUMB_R = 9
+      return {
+        loV: Number(lo.value), hiV: Number(inputs[4].value),
+        fillL: fr ? Math.round(fr.left) : null, fillR: fr ? Math.round(fr.right) : null,
+        expectL: Math.round(lr.left + THUMB_R + (lr.width - THUMB_R * 2) * (Number(lo.value) / 100)),
+        expectR: Math.round(lr.left + THUMB_R + (lr.width - THUMB_R * 2) * (Number(inputs[4].value) / 100)),
+      }
+    })
+    assert.ok(Math.abs(rg.fillL - rg.expectL) <= 1 && Math.abs(rg.fillR - rg.expectR) <= 1, `fill 与 thumb 中心对齐（${rg.fillL}/${rg.fillR} vs ${rg.expectL}/${rg.expectR}）`)
+  } finally {
+    await page.close()
+  }
+})
