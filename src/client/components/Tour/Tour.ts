@@ -51,6 +51,11 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
 
   // 统一 usePopup：mask 遮罩 + portal 出口；position 回调更新目标 rect（scroll 跟随经
   // usePopup 内部 popup-tracker——refresh → position → rect 更新 → render 重算坐标）
+  // **声明顺序（真实 bug）**：latestOpen/latestPlacement 必须在使用前声明——
+  // usePopup 工厂内 useOpen 读 isOpen getter（TDZ——冒烟测试抓出）
+  let latestPlacement: TourPlacement = 'bottom'
+  let latestOpen = false
+  let latestProps: TourProps = { steps: [] }
   const popup = ctx.ui.usePopup({
     mask: true,
     maskClosable: false,       // 遮罩点击不关（步骤由按钮控制）
@@ -67,9 +72,6 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
     },
   })
 
-  let latestPlacement: TourPlacement = 'bottom'
-  let latestOpen = false
-  let latestProps: TourProps = { steps: [] }
   const open = () => latestOpen
 
   // 全局 Escape（不依赖焦点在 overlay 内——真实用户可能焦点在其他处）
