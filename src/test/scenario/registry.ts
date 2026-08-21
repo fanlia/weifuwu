@@ -16,6 +16,7 @@ import { Select as CSelect, AutoComplete as CAutoComplete, Cascader as CCascader
 import { Tabs as CTabs, Menu as CMenu, Pagination as CPagination, Table as CTable, Collapse as CCollapse, Accordion as CAccordion, Carousel as CCarousel, Steps as CSteps, List as CList } from '../../client/components/index.ts'
 import { Modal as CModal, Drawer as CDrawer, Popover as CPopover, Tooltip as CTooltip, Dropdown as CDropdown, Popconfirm as CPopconfirm, HoverCard as CHoverCard, ActionSheet as CActionSheet, Command as CCommand, Menubar as CMenubar } from '../../client/components/index.ts'
 import { Form as CForm, Field as CField, JsonSchemaForm as CJsonSchemaForm, SortableList as CSortableList, Resizable as CResizable } from '../../client/components/index.ts'
+import { Kanban as CKanban, InfiniteScroll as CInfiniteScroll, CodeEditor as CCodeEditor, MarkdownEditor as CMarkdownEditor, Editor as CEditor, Table as CTable2 } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -1051,6 +1052,71 @@ const DeepResizable = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+// ── 深度场景组 6：重组件（拖拽/滚动/编辑/选择） ───────────────────────
+const DeepKanban = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-kanban-scene', style: { height: '300px' } },
+      h(CKanban, {
+        columns: [
+          { id: 'todo', title: '待办', items: [{ id: 'k1', title: '卡一' }] },
+          { id: 'done', title: '完成', items: [{ id: 'k2', title: '卡二' }] },
+        ],
+        onMove: (from: unknown, to: unknown) => { log += `v:${JSON.stringify(from)}->${JSON.stringify(to)};`; ctx.render() },
+      }),
+      h('span', { class: 'deep-kanban-log' }, log),
+    )
+}
+
+const DeepInfiniteScroll = (_i: Record<string, never>, ctx: any) => {
+  let count = 0
+  let loading = false
+  return () =>
+    h('div', { class: 'deep-infinite-scene', style: { height: '150px', overflow: 'auto' } },
+      h(CInfiniteScroll, {
+        hasMore: count < 3, loading,
+        onLoadMore: () => { loading = true; count += 1; ctx.render() },
+      },
+        h('div', { class: 'inf-content' }, Array.from({ length: 20 }, (_, i) => h('div', {}, `行 ${count}-${i}`))),
+      ),
+    )
+}
+
+const DeepCodeEditor = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  let val = 'const a = 1'
+  return () =>
+    h('div', { class: 'deep-codeeditor-scene' },
+      h(CCodeEditor, { value: val, lang: 'ts', onChange: (v: string) => { val = v; log += `v:${v.slice(-6)};`; ctx.render() } }),
+      h('span', { class: 'deep-codeeditor-log' }, log),
+    )
+}
+
+const DeepMdEditor = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  let val = '# 标题'
+  return () =>
+    h('div', { class: 'deep-mdeditor-scene' },
+      h(CMarkdownEditor, { value: val, mode: 'write', onChange: (v: string) => { val = v; log += `v:${v.slice(-6)};`; ctx.render() } }),
+      h('span', { class: 'deep-mdeditor-log' }, log),
+    )
+}
+
+const DeepTableSelect = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  let selected: string[] = []
+  return () =>
+    h('div', { class: 'deep-tableselect-scene' },
+      h(CTable2, {
+        columns: [{ key: 'name', title: '名称' }],
+        data: [{ name: '甲', id: 'a' }, { name: '乙', id: 'b' }],
+        rowSelection: { rowKey: 'id', selectedRowKeys: selected, onChange: (k: Array<string | number>) => { selected = k as string[]; log += `v:${k.join(',')};`; ctx.render() } },
+      }),
+      h('span', { class: 'deep-tableselect-log' }, log),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -1137,6 +1203,11 @@ export const scenarios: Scenario[] = [
   { id: 'deep-jsonform', title: 'JsonSchemaForm 参数（schema 编辑）', render: DeepJsonForm },
   { id: 'deep-sortable', title: 'SortableList 参数（拖拽重排）', render: DeepSortable },
   { id: 'deep-resizable', title: 'Resizable 参数（拖拽调整）', render: DeepResizable },
+  { id: 'deep-kanban', title: 'Kanban 拖拽（跨列移动）', render: DeepKanban },
+  { id: 'deep-infinite', title: 'InfiniteScroll（滚动加载）', render: DeepInfiniteScroll },
+  { id: 'deep-codeeditor', title: 'CodeEditor（编辑 onChange）', render: DeepCodeEditor },
+  { id: 'deep-mdeditor', title: 'MarkdownEditor（编辑 onChange）', render: DeepMdEditor },
+  { id: 'deep-tableselect', title: 'Table 行选择（selectedKeys）', render: DeepTableSelect },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
