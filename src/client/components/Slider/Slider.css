@@ -18,6 +18,11 @@
 .wf-slider-track {
   flex: 1;
   min-width: 0;
+  /* **absolute 定位基准（真实 bug——fill/marks 错位）**：fill/marks 都是
+     absolute——track 无 position → 基准落到外层容器（wf-slider/页面）——
+     fill 中心偏离轨道中线（价格区间 fill 在 thumb 下方 15px）——thumb/
+     fill/mark 三线不齐——加 relative 使 fill/marks 相对轨道定位 */
+  position: relative;
 }
 
 .wf-slider-input {
@@ -118,15 +123,16 @@
 
 /* ── 刻度标记（marks） ── */
 .wf-slider-marks {
-  position: relative;
-  height: 18px;
-  margin-top: 2px;
+  position: absolute;
+  inset: 0;
   pointer-events: none;
 }
 
 .wf-slider-mark {
   position: absolute;
-  top: 0;
+  /* dot 中心 = 轨道中线（dot 半高 4px——thumb/填充/刻度同一条直线——
+     用户要求；label 在 dot 下方（溢出可见——刻度标签） */
+  top: calc(50% - 4px);
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -169,6 +175,12 @@
   inset: 0;
   margin: 0;
   background: transparent;
+  /* **撑满轨道（真实 bug——thumb 与 fill 错位 15px）**：全局 .wf-slider-input
+     height: 6px 与 inset: 0 冲突（absolute 时 top+height 决定尺寸——bottom 被
+     忽略）→ input 6px 高在轨道顶部——thumb 中心 = 轨道顶 + 3——而 fill 中心 =
+     轨道中线——thumb/fill 不同线——height auto 使 inset 0 生效（撑满轨道——
+     thumb 中心 = 轨道中线 = fill 中心） */
+  height: auto;
   pointer-events: none; /* 轨道不响应——点击/拖拽只走 thumb（双 thumb 互不抢事件） */
   /* 层级 = DOM 顺序（hi 后渲染天然在上——重叠时点最上层 = 上限）——audit 禁 z-index 数字 */
 }

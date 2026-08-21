@@ -174,3 +174,30 @@ test('marks 与 thumb 对齐（一条线——dot 中心 = thumbOffset 公式）
     await page.close()
   }
 })
+
+test('垂直对齐：thumb/fill/mark dot 同一水平线（±1px）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    const info = await page.evaluate(() => {
+      const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
+      const mid = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2 }
+      const price = inputs[2]
+      const rangeLo = inputs[3]
+      const fill = rangeLo.parentElement?.querySelector('.wf-slider-range-fill')
+      const dot = price.parentElement?.querySelector('.wf-slider-mark-dot')
+      return {
+        priceInputMid: mid(price), priceDotMid: dot ? mid(dot) : null,
+        rangeInputMid: mid(rangeLo), rangeFillMid: fill ? mid(fill) : null,
+      }
+    })
+    // 单模式：thumb 与 mark dot 同线
+    assert.ok(info.priceDotMid !== null, 'dot 存在')
+    assert.ok(Math.abs(info.priceInputMid - info.priceDotMid) <= 1, `价格 thumb/dot 同线（${Math.round(info.priceInputMid)} vs ${Math.round(info.priceDotMid)}）`)
+    // range：thumb 与 fill 同线
+    assert.ok(info.rangeFillMid !== null, 'fill 存在')
+    assert.ok(Math.abs(info.rangeInputMid - info.rangeFillMid) <= 1, `价格区间 thumb/fill 同线（${Math.round(info.rangeInputMid)} vs ${Math.round(info.rangeFillMid)}）`)
+  } finally {
+    await page.close()
+  }
+})
