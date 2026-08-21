@@ -336,6 +336,39 @@ const InViewScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 23：useControlledInput（§5.3 受控输入——内部态 + IME 门控） ──
+const ControlledInputScene = (_init: Record<string, never>, ctx: any) => {
+  let parentValue = ''
+  let lastOnChange: string | null = null
+  const input = ctx.ui.useControlledInput({ value: parentValue, onChange: (v: string) => { lastOnChange = v; ctx.render() }, name: 'CtrlInput' })
+  return () =>
+    h('div', { class: 'ctrl-input-scene' },
+      h('input', {
+        class: 'ctrl-input',
+        value: input.keyword,
+        onInput: (e: Event) => {
+          const v = (e.target as HTMLInputElement).value
+          input.setKeyword(v)
+          input.setValue(v)
+          ctx.render()
+        },
+        onCompositionStart: () => input.onCompositionStart(),
+        onCompositionEnd: () => input.onCompositionEnd(),
+      }),
+      h('span', { class: 'ctrl-onchange' }, lastOnChange ?? '无'),
+    )
+}
+
+// ── 场景 24：useOpen 受控缺回调（§5.2——warn + 静默不可用防护） ────────
+const OpenGuardScene = (_init: Record<string, never>, ctx: any) => {
+  const open = ctx.ui.useOpen(false, { open: false, onOpenChange: undefined })
+  return () =>
+    h('div', { class: 'open-guard-scene' },
+      h('button', { class: 'open-toggle', onClick: () => open.setOpen(true) }, '尝试打开'),
+      h('span', { class: 'open-state' }, open.open ? '开' : '关'),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -359,6 +392,8 @@ export const scenarios: Scenario[] = [
   { id: 'use-chat', title: 'useChat（AI 流式——NDJSON 分块累积）', render: ChatScene },
   { id: 'i18n-switch', title: 'i18n（locale 切换 + t 插值——手动 render）', render: I18nScene },
   { id: 'in-view', title: 'useInView（IntersectionObserver——滚动进出视口）', render: InViewScene },
+  { id: 'controlled-input', title: 'useControlledInput（§5.3 受控输入——内部态+IME）', render: ControlledInputScene },
+  { id: 'open-guard', title: 'useOpen 受控缺回调（§5.2——warn 防护）', render: OpenGuardScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
