@@ -79,6 +79,14 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 11. **create attrs 的 value 必须走 property 通道**：`setAttribute('value')` 对 textarea 无效（IDL 不设——值来自 property/children）——applyAttribute 统一 property（与 innerHTML/textContent 同类）
 12. **useScrollPosition 目标容器必须传 null 而非 window fallback**：`getScroller: () => el ?? window` 首帧 el 未挂载 → 绑定 window——el 后挂载永不重绑（滚动监听失效）——`?? null` 触发重试重绑（VirtualTable 虚拟化不更新实证）
 13. **VirtualTable 排序是字典序**（字符串比较——用户10000 在 用户2 前）——虚拟化滚动容器是 `.wf-virtual-table-body`（外层不滚）；Slider marks 对齐断言必须轮询等布局稳定（全量并发字体/CSS 偶发未稳定）
+14. **portal 独立通道契约**（引擎独立化——阶段 1 落地）：portal vnode 是
+    usePopup 内部插槽（`[children, popup.portal()]`——框架切换槽非业务列表）
+    ——① 开关浮层**业务项零命令**（root.* 无 create/setProp/remove——位置复用
+    ——diff.test 契约）② A 级检测豁免（业务组件序列不变不报）③ 混合数组
+    （业务 keyed + portal）关闭 removePortal 对齐——阶段 2（组件输出纯业务
+    ——28 组件迁移）见 design/portal-channel-plan.md（里程碑评估后可回滚）
+15. **Slider marks/垂直对齐断言必须 deadline 轮询**（evaluate 快——次数上限
+    不够等字体加载——全量并发偶发——5s 时长上限根治）
 
 ### 已知边界（诚实裁剪）
 
