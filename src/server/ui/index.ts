@@ -27,7 +27,7 @@
  */
 
 import { build } from 'esbuild'
-import { readFile, stat } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { resolve, dirname, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
@@ -104,29 +104,8 @@ function unsafe(s: string): string {
 
 // ── JS 编译缓存 ───────────────────────────────────────────
 
-const jsCache = new Map<string, { code: string; inputs: Record<string, number> }>()
-
-/** 检查缓存的所有输入文件 mtime — 任一变化则失效（开发模式改 TSX 免重启） */
-async function jsCacheFresh(inputs: Record<string, number>): Promise<boolean> {
-  for (const [file, mtime] of Object.entries(inputs)) {
-    try {
-      const st = await stat(file)
-      if (st.mtimeMs !== mtime) {
-        console.log(`[ui:js-cache] 失效: ${file} (cached=${mtime} now=${st.mtimeMs})`)
-        return false
-      }
-    } catch {
-      console.log(`[ui:js-cache] 失效: stat 失败 ${file}`)
-      return false
-    }
-  }
-  console.log(`[ui:js-cache] 命中: ${Object.keys(inputs).length} inputs`)
-  return true
-}
 const cssCache = new Map<string, { code: string; mtime: number }>()
-
-/** 检测 postcss + tailwindcss 是否可用（只检测一次） */
-let postcssAvailable: boolean | undefined
+/** 检测 postcss + tailwindcss 是否可用（只检测一次） */let postcssAvailable: boolean | undefined
 async function checkPostcss(): Promise<boolean> {
   if (postcssAvailable !== undefined) return postcssAvailable
   try {
@@ -192,14 +171,9 @@ export function ui(): Middleware {
 
       async js(entryPath: string): Promise<Response> {
         const absPath = resolveEntry(entryPath)
-        const cached = jsCache.get(absPath)
-        console.log(`[ui:js-cache] 请求: ${absPath.split('/').pop()} (cached=${!!cached})`)
-        if (cached && (await jsCacheFresh(cached.inputs))) {
-          return new Response(cached.code, {
-            headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store' },
-          })
-        }
-
+        // 无缓存（2026-12 决策）：每次请求编译最新源码——永远新鲜——
+        // 无 mtime 失效边界（同 ms 写文件）/无并发双编译（无锁缓存竞态）——
+        // 正确性优先——编译代价可控（esbuild 单入口秒级）
         const result = await build({
           entryPoints: [absPath],
           bundle: true,
@@ -209,27 +183,9 @@ export function ui(): Middleware {
           jsxImportSource: 'weifuwu/vdom',
           alias: JS_ALIASES,
           write: false,
-          metafile: true,
         })
 
         const code = result.outputFiles[0].text
-
-        // 记录所有输入文件及其 mtime，用于缓存失效检测
-        const inputs: Record<string, number> = {}
-        for (const file of Object.keys(result.metafile?.inputs ?? {})) {
-          const abs = resolve(file)
-          try {
-            inputs[abs] = (await stat(abs)).mtimeMs
-          } catch { /* 文件可能已删除 */ }
-        }
-        // esbuild metafile.inputs 不含入口文件本身（只含 import 依赖）——
-        // 入口 mtime 变化不失效 → 服务器进程存活期间入口永不重编译
-        // （真实 bug：main.tsx 加数据后用户一直看旧版）。手动加入入口。
-        try {
-          inputs[absPath] = (await stat(absPath)).mtimeMs
-        } catch { /* 入口消失 */ }
-        console.log(`[ui:js-cache] 编译: ${absPath.split('/').pop()} (${Object.keys(inputs).length} inputs, ${(code.length / 1024).toFixed(0)}KB)`)
-        jsCache.set(absPath, { code, inputs })
 
         return new Response(code, {
           headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store' },
@@ -239,15 +195,7 @@ export function ui(): Middleware {
       async css(entryPath: string): Promise<Response> {
         const absPath = resolveEntry(entryPath)
 
-        // 带 mtime 的缓存失效（开发时编辑 CSS 自动更新）
-        const st = await import('node:fs').then(fs => fs.promises.stat(absPath))
-        const cached = cssCache.get(absPath)
-        if (cached && cached.mtime === st.mtimeMs) {
-          return new Response(cached.code, {
-            headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' },
-          })
-        }
-
+        // 无缓存（2026-12 决策——与 js 一致）：每次请求读取最新文件
         let code = await readFile(absPath, 'utf-8')
 
         // 如果安装了 postcss + @tailwindcss/postcss，自动编译 Tailwind CSS
@@ -263,8 +211,6 @@ export function ui(): Middleware {
             throw new Error(`PostCSS 编译失败 (${absPath}): ${e.message}`, { cause: e })
           }
         }
-
-        cssCache.set(absPath, { code, mtime: st.mtimeMs })
 
         return new Response(code, {
           headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' },
