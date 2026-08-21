@@ -27,6 +27,18 @@ export function procCreate(applier: CommandApplier, cmd: Extract<Command, { op: 
   const existing = applier.nodes.get(cmd.id)
   if (existing && existing.nodeType === 1 && (existing as HTMLElement).tagName.toLowerCase() === cmd.tag) {
     applyAttrs(existing as HTMLElement, cmd.attrs)
+  } else if (applier.absorb.queue && !existing && !cmd.id.startsWith('portal:')) {
+    // SSR 吸收：匹配下一个 SSR 元素节点（同 tag）——复用（焦点/状态保持）
+    // portal 内容豁免（SSR 输出在 root 内——客户端归位 portal 容器——重建）
+    const ssrEl = applier.absorb.next('element', cmd.tag)
+    if (ssrEl) {
+      applyAttrs(ssrEl as HTMLElement, cmd.attrs)
+      applier.nodes.set(cmd.id, ssrEl)
+    } else {
+      const el = applier.doc.createElement(cmd.tag)
+      applyAttrs(el, cmd.attrs)
+      applier.nodes.set(cmd.id, el)
+    }
   } else {
     const el = applier.doc.createElement(cmd.tag)
     applyAttrs(el, cmd.attrs)
@@ -48,6 +60,16 @@ export function procCreateText(applier: CommandApplier, cmd: Extract<Command, { 
   const existing = applier.nodes.get(cmd.id)
   if (existing && existing.nodeType === 3) {
     if (existing.textContent !== cmd.value) existing.textContent = cmd.value
+  } else if (applier.absorb.queue && !existing) {
+    // SSR 吸收：匹配下一个文本节点——复用
+    const ssrText = applier.absorb.next('text')
+    if (ssrText) {
+      if (ssrText.textContent !== cmd.value) ssrText.textContent = cmd.value
+      applier.nodes.set(cmd.id, ssrText)
+    } else {
+      const t = applier.doc.createTextNode(cmd.value)
+      applier.nodes.set(cmd.id, t)
+    }
   } else {
     const t = applier.doc.createTextNode(cmd.value)
     if (existing) existing.replaceWith(t)
@@ -62,6 +84,15 @@ export function procCreateAnchor(applier: CommandApplier, cmd: Extract<Command, 
   if (existing && existing.nodeType === 8) {
     const detail = cmd.detail ? `wf-hole: ${cmd.detail}` : 'wf-hole'
     if (existing.textContent !== detail) existing.textContent = detail
+  } else if (applier.absorb.queue && !existing) {
+    // SSR 吸收：匹配下一个注释节点（锚）——复用
+    const ssrAnchor = applier.absorb.next('comment')
+    if (ssrAnchor) {
+      applier.nodes.set(cmd.id, ssrAnchor)
+    } else {
+      const anchor = applier.doc.createComment(cmd.detail ? `wf-hole: ${cmd.detail}` : 'wf-hole')
+      applier.nodes.set(cmd.id, anchor)
+    }
   } else {
     const anchor = applier.doc.createComment(cmd.detail ? `wf-hole: ${cmd.detail}` : 'wf-hole')
     if (existing) existing.replaceWith(anchor)
@@ -174,6 +205,10 @@ export function procRemovePortal(applier: CommandApplier, cmd: Extract<Command, 
 
 /** done 处理器（full 清理——旧树多余节点——资源释放完整） */
 export function procDone(applier: CommandApplier, cmd: Extract<Command, { op: 'done' }>): void {
+  if (cmd.full) {
+    // SSR 吸收收尾（剩余节点 = SSR 输出多于命令——mismatch）
+    applier.absorb.end()
+  }
   if (cmd.full && applier.touched.size > 0) {
     for (const [id, el] of [...applier.nodes]) {
       if (!applier.touched.has(id)) {

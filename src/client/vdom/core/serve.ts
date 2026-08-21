@@ -17,7 +17,7 @@
  */
 
 import { UIRouter, frontRequest } from './router.ts'
-import { commandToHtml, htmlDocument } from './html.ts'
+import { commandToHtml, htmlDocument } from './ssr/html.ts'
 import { CommandApplier } from './patch/index.ts'
 import { renderToStream } from './build.ts'
 import { diffStream } from './diff/index.ts'
@@ -189,6 +189,14 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
           for await (const cmd of commandReader(res.body.getReader(), fnTable)) {
             applier.apply(cmd)
           }
+          // **SSR 吸收失败（mismatch）→ 原子回退**：清空 root + 影子树
+          // 重置 + 重新渲染（target 不变——重跑全量 build——等价重建）
+          if (applier.absorb.failed) {
+            rootEl.innerHTML = ''
+            currentTree = null
+            applier.absorb.reset()
+            continue
+          }
         }
         // 渲染完成 → 取队头继续（FIFO——先触发先执行）
         if (queue.length > 0) {
@@ -274,9 +282,10 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     // root 类型变化（导航/组件切换）→ **全量 build**（done.full 清理旧树）；
     // 同类型 → diff 精准
     if (!currentTree && rootEl.childNodes.length > 0) {
-      // **SSR 接管**（无 hydration——首帧清 root 预置内容——SSR 首屏被
-      // 新树原子替换——接管语义——home-flash 测试锁定）
-      rootEl.innerHTML = ''
+      // **SSR 接管（结构吸收）**：首帧复用已有 DOM（焦点/状态保持）——
+      // 结构对齐（DFS 序游标——create 匹配类型复用）——mismatch → 失败
+      // 回退清空重建（原子性——runRender 检测 absorbFailed 重跑）
+      applier.absorb.begin(rootEl)
     }
     const stream = currentTree
       ? (currentTree.type !== vnode.type
@@ -330,66 +339,4 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
       rootEl.innerHTML = ''
     },
   }
-}
-
-/** 服务端渲染（SSR——同一 router 同一 handler——命令流 → HTML 文档）
- *  **无 hydration**（客户端接管 build 重建）——SSR = 首屏/SEO；
- *  函数面（事件）经空函数表编码为 $fn 标记——解码 undefined——
- *  commandToHtml 的 setProp no-op——HTML 无运行时面 */
-export interface SsrOptions {
-  title?: string
-  /** __DATA__ 种子（ctx.data 预取结果——序列化进文档） */
-  data?: Record<string, unknown>
-}
-
-/** 字节流 → 命令流（NDJSON 解码 TransformStream——服务端/跨进程消费） */
-export function ndjsonDecode(fnTable: Map<number, unknown>): TransformStream<Uint8Array, Command> {
-  const decoder = new TextDecoder()
-  const revive = reviveFn(fnTable)
-  let buf = ''
-  return new TransformStream<Uint8Array, Command>({
-    transform(chunk, controller) {
-      buf += decoder.decode(chunk, { stream: true })
-      const lines = buf.split('\n')
-      buf = lines.pop() ?? ''
-      for (const line of lines) {
-        if (!line.trim()) continue
-        controller.enqueue(JSON.parse(line, revive) as Command)
-      }
-    },
-    flush(controller) {
-      if (buf.trim()) controller.enqueue(JSON.parse(buf.trim(), revive) as Command)
-    },
-  })
-}
-
-async function streamToString(stream: ReadableStream<string>): Promise<string> {
-  const reader = stream.getReader()
-  let out = ''
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    out += value
-  }
-  return out
-}
-
-export async function uiSsr(router: UIRouter, url: string, opts: SsrOptions = {}): Promise<string> {
-  const fnTable = createFnTable()
-  const req = frontRequest(url)
-  const ctx = {
-    /** 服务端渲染入口（vnode → Response 命令流——空函数表） */
-    stream: (vnode: VNode, init?: ResponseInit): Response => {
-      const stream = renderToStream(vnode, ctx as UIContext, createComponentRegistry())
-      return new Response(encodeCommands(stream, fnTable), { status: init?.status ?? 200 })
-    },
-    /** 数据管道（SSR 真 fetch——组件工厂取数） */
-    data: createDataPipe(),
-  } as RenderCtx
-  const res = await router.resolve(req, ctx as UIContext)
-  if (!res.body) return htmlDocument('', opts)
-  const html = await streamToString(
-    res.body.pipeThrough(ndjsonDecode(fnTable)).pipeThrough(commandToHtml()),
-  )
-  return htmlDocument(html, opts)
 }

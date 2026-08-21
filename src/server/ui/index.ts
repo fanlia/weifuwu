@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
 import { renderToStream } from '../../client/vdom/core/build.ts'
-import { commandToHtml } from '../../client/vdom/core/html.ts'
+import { commandToHtml } from '../../client/vdom/core/ssr/html.ts'
 import { h } from '../../client/vdom/index.ts'
 import type { Component } from '../../client/vdom/index.ts'
 

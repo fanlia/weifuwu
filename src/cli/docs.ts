@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { Router, serve } from '../server/index.ts'
 import { h } from '../client/vdom/index.ts'
 import { renderToStream } from '../client/vdom/core/build.ts'
-import { commandToHtml } from '../client/vdom/core/html.ts'
+import { commandToHtml } from '../client/vdom/core/ssr/html.ts'
 import { Markdown } from '../client/components/index.ts'
 
 // ── 定位 content/（向上逐级找含 index.md 的 content 目录） ──

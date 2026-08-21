@@ -14,7 +14,7 @@
  * 精准增量流 → 增量 HTML（服务端驱动更新后续）。
  */
 
-import type { Command } from './command/index.ts'
+import type { Command } from '../command/index.ts'
 
 /** HTML 转义（文本/属性值） */
 export function escapeHtml(s: string): string {

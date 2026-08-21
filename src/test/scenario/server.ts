@@ -11,7 +11,7 @@
 import { Router, serve } from '../../server/index.ts'
 import { ui } from '../../server/ui/index.ts'
 import { UIRouter, h } from '../../client/vdom/index.ts'
-import { uiSsr } from '../../client/vdom/core/serve.ts'
+import { uiSsr } from '../../client/vdom/core/ssr/index.ts'
 import { scenarios, findScenario } from './registry.ts'
 
 const PORT = Number(process.env.SCENARIO_PORT ?? 0) // 0 = 随机端口（测试自包含——避免端口残留）

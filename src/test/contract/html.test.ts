@@ -9,7 +9,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h } from '../../client/vdom/core/vnode.ts'
 import { renderToStream } from '../../client/vdom/core/build.ts'
-import { commandToHtml, escapeHtml, htmlDocument } from '../../client/vdom/core/html.ts'
+import { commandToHtml, escapeHtml, htmlDocument } from '../../client/vdom/core/ssr/html.ts'
 
 async function toHtml(tree: ReturnType<typeof h>): Promise<string> {
   const stream = renderToStream(tree)

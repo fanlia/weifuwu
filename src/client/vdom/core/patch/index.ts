@@ -16,6 +16,7 @@ import { EventRegistry } from '../field/events.ts'
 import { RefRegistry } from '../field/ref.ts'
 import { disposeComponent, type ComponentRegistry } from '../node/component.ts'
 import { PORTAL_CONTAINER_ID, PORTAL_ID_PREFIX, portalContainerId } from '../node/portal.ts'
+import { AbsorbState } from '../ssr/absorb.ts'
 import { dispatch } from './processors.ts'
 import type { WfNode } from './processors.ts'
 
@@ -33,6 +34,8 @@ export class CommandApplier {
   refRegistry = new RefRegistry()
   /** portal 容器（key → 容器元素） */
   portalContainers = new Map<string, HTMLElement>()
+  /** SSR 吸收状态（结构对齐——DFS 序游标——create 复用已有 DOM） */
+  absorb = new AbsorbState()
   container: HTMLElement
   doc: Document
   registry: ComponentRegistry | null
