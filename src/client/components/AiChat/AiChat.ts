@@ -106,7 +106,7 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
 
   // 滚动位置跟踪（useScrollPosition：全局 scroll 监听 + rAF 节流，替代自建 listEl scroll 监听）。
   // y 响应式变化自动 dirty → render 里重算 stickToBottom（贴底判定，距底 <48px 视为贴底）。
-  const scroll = ctx.ui.useScrollPosition({ getScroller: () => listEl ?? window })
+  const scroll = ctx.ui.useScrollPosition({ getScroller: () => listEl ?? null })
 
   // 稳定 ref 函数：跨渲染保持同一引用。
   // weifuwu 的 ref-diff 在 ref 函数引用变化时调用旧 ref(null)——若 ref 内联在 render 里，

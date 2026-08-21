@@ -67,7 +67,7 @@ export const LogViewer: Component<LogViewerProps> = async (_init, ctx) => {
   let bodyEl: HTMLElement | null = null
   let lastLineCount = 0
   let atBottom = true
-  const scroll = ctx.ui.useScrollPosition({ getScroller: () => bodyEl ?? window })
+  const scroll = ctx.ui.useScrollPosition({ getScroller: () => bodyEl ?? null })
 
   const stableRef = (node: HTMLElement | null) => {
     if (node) {
