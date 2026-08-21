@@ -194,3 +194,50 @@ test('event-guard：diff 更新为非函数 → warn + 跳过——渲染不中�
     await page.close()
   }
 })
+
+// ── 场景 17：组件 dispose（卸载触发 onUnmount 清理钩子） ───────────────
+test('dispose-hooks：每次卸载触发 onUnmount——重挂新实例再次注册', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'dispose-hooks')
+
+    assert.equal(await page.evaluate(() => (window as any).__cleaned ?? 0), 0, '初始未清理')
+    await page.click('.dispose-toggle')
+    await page.waitForFunction(() => (window as any).__cleaned === 1)
+    assert.equal(await page.locator('.dispose-child').count(), 0, '子组件移除')
+    // 重挂（新实例——再次注册 onUnmount）→ 再移除 → 再次清理
+    await page.click('.dispose-toggle')
+    await page.waitForFunction(() => document.querySelector('.dispose-child') !== null)
+    await page.click('.dispose-toggle')
+    await page.waitForFunction(() => (window as any).__cleaned === 2)
+    assert.equal(await page.locator('.dispose-child').count(), 0, '重挂后卸载——新实例清理钩子触发')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 18：useDragDrop（HTML5 拖拽——数据传递 + 放置回调） ───────────
+test('drag-drop：draggable enumerated + 数据传递 + drop 回调', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'drag-drop')
+
+    // draggable enumerated 显式 'true'（§6.2——空字符串解析 false 事故）
+    assert.equal(await page.evaluate(() => document.querySelector('.drag-source')?.getAttribute('draggable')), 'true', 'draggable 显式 true（enumerated——非空串）')
+    assert.equal(await page.evaluate(() => (document.querySelector('.drag-source') as HTMLElement).draggable), true, 'el.draggable 真值（§6.2 事故回归）')
+
+    // HTML5 拖拽序列（dragstart → dragover → drop——原生 DataTransfer 往返）
+    await page.evaluate(() => {
+      const dt = new DataTransfer()
+      const source = document.querySelector('.drag-source')!
+      source.dispatchEvent(new DragEvent('dragstart', { dataTransfer: dt, bubbles: true }))
+      const target = document.querySelector('.drag-target')!
+      target.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true }))
+      target.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true }))
+    })
+    await page.waitForFunction(() => document.querySelector('.drag-result')?.textContent === '{"id":"item-1"}')
+    assert.equal(await page.locator('.drag-result').textContent(), '{"id":"item-1"}', 'drop 收到 dataTransfer 数据（JSON 往返）')
+  } finally {
+    await page.close()
+  }
+})

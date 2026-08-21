@@ -253,6 +253,35 @@ const GuardScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 17：组件 dispose（卸载触发 onUnmount 清理钩子） ───────────────
+const DisposeChild = (_i: Record<string, never>, c: any) => {
+  c.onUnmount(() => { (window as any).__cleaned = ((window as any).__cleaned ?? 0) + 1 })
+  return () => h('span', { class: 'dispose-child' }, '子组件')
+}
+const DisposeScene = (_init: Record<string, never>, ctx: any) => {
+  let show = true
+  return () =>
+    h('div', { class: 'dispose-scene' },
+      show ? h(DisposeChild, {}) : null,
+      h('button', { class: 'dispose-toggle', onClick: () => { show = !show; ctx.render() } }, '移除/重挂'),
+    )
+}
+
+// ── 场景 18：useDragDrop（HTML5 拖拽——数据传递 + 放置回调） ───────────
+const DragScene = (_init: Record<string, never>, ctx: any) => {
+  let dropped: string | null = null
+  const drag = ctx.ui.useDragDrop({
+    data: { id: 'item-1' },
+    onDrop: (e: DragEvent, data: unknown) => { dropped = JSON.stringify(data); ctx.render() },
+  })
+  return () =>
+    h('div', { class: 'drag-scene' },
+      h('div', { class: 'drag-source', ...drag.draggableProps }, '拖我'),
+      h('div', { class: 'drag-target', ...drag.dropProps }, '放这里'),
+      h('span', { class: 'drag-result' }, dropped ?? '未放置'),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -270,6 +299,8 @@ export const scenarios: Scenario[] = [
   { id: 'use-popup', title: 'usePopup（弹层——portal + 外部点击关闭）', render: PopupScene },
   { id: 'style-update', title: 'style 只设不删（display 残留回归——§6.4）', render: StyleScene },
   { id: 'event-guard', title: '事件非函数守卫（warn + 跳过——不中断渲染）', render: GuardScene },
+  { id: 'dispose-hooks', title: '组件 dispose（卸载触发 onUnmount 清理钩子）', render: DisposeScene },
+  { id: 'drag-drop', title: 'useDragDrop（HTML5 拖拽——数据传递 + 放置）', render: DragScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
