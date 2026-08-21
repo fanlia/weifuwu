@@ -314,6 +314,28 @@ const ChatScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 21：i18n 中间件（locale 切换 + t 插值——手动 render 驱动） ────
+const I18nScene = (_init: Record<string, never>, ctx: any) => {
+  const i18nState = ctx.i18n
+  return () =>
+    h('div', { class: 'i18n-scene' },
+      h('span', { class: 'i18n-hello' }, i18nState.t('hello')),
+      h('span', { class: 'i18n-count' }, i18nState.t('count', { n: 42 })),
+      h('button', { class: 'i18n-switch', onClick: () => { i18nState.setLocale('en'); ctx.render() } }, 'EN'),
+    )
+}
+
+// ── 场景 22：useInView（IntersectionObserver——滚动进出视口） ──────────
+const InViewScene = (_init: Record<string, never>, ctx: any) => {
+  const inView = ctx.ui.useInView(() => (document as any).querySelector('.inview-target'))
+  return () =>
+    h('div', { class: 'inview-scene' },
+      h('div', { class: 'inview-spacer', style: { height: '1000px' } }, '上间隔'),
+      h('div', { class: 'inview-target' }, '目标'),
+      h('span', { class: 'inview-state' }, inView.isIn ? '可见' : '不可见'),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -335,6 +357,8 @@ export const scenarios: Scenario[] = [
   { id: 'drag-drop', title: 'useDragDrop（HTML5 拖拽——数据传递 + 放置）', render: DragScene },
   { id: 'scroll-position', title: 'useScrollPosition（容器滚动跟踪——事件驱动）', render: ScrollScene },
   { id: 'use-chat', title: 'useChat（AI 流式——NDJSON 分块累积）', render: ChatScene },
+  { id: 'i18n-switch', title: 'i18n（locale 切换 + t 插值——手动 render）', render: I18nScene },
+  { id: 'in-view', title: 'useInView（IntersectionObserver——滚动进出视口）', render: InViewScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

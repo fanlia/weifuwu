@@ -277,3 +277,35 @@ test('use-chat：send → 流式分块累积（订阅自动重渲染——真实
     await page.close()
   }
 })
+
+// ── 场景 21：i18n 中间件（locale 切换 + t 插值） ───────────────────────
+test('i18n-switch：setLocale + render → t() 读新 locale（插值正确）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'i18n-switch')
+
+    assert.equal(await page.locator('.i18n-hello').textContent(), '你好', '初始 zh')
+    assert.equal(await page.locator('.i18n-count').textContent(), '数量 42', '插值 {n} → 42')
+    await page.click('.i18n-switch')
+    await page.waitForFunction(() => document.querySelector('.i18n-hello')?.textContent === 'Hello')
+    assert.equal(await page.locator('.i18n-count').textContent(), 'Count 42', 'en 插值')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 22：useInView（IntersectionObserver——滚动进出视口） ───────────
+test('in-view：滚动进出视口 → isIn 变化（IO 事件驱动重渲染）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'in-view')
+
+    // 初始：目标在视口外（spacer 600px 撑开——首帧 IO 报告不可见）
+    await page.waitForFunction(() => document.querySelector('.inview-state')?.textContent === '不可见', '首帧 IO 报告不可见（spacer 撑出视口）', { timeout: 3000 })
+    // 滚动到目标 → 可见
+    await page.evaluate(() => document.querySelector('.inview-target')!.scrollIntoView())
+    await page.waitForFunction(() => document.querySelector('.inview-state')?.textContent === '可见', '滚动进入视口 → isIn true（IO 回调驱动渲染）', { timeout: 3000 })
+  } finally {
+    await page.close()
+  }
+})

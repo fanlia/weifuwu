@@ -6,6 +6,7 @@
  * 每次交互 ctx.render() → 路由重跑 handler → stream 增量 diff（影子树对照）。
  */
 import { uiServe, UIRouter, h } from '../../client/vdom/index.ts'
+import { i18n } from '../../client/vdom/middlewares/auth-i18n.ts'
 import { scenarios } from './registry.ts'
 
 const router = new UIRouter()
@@ -15,6 +16,14 @@ for (const s of scenarios) {
   )
 }
 
-const handle = uiServe(router, { root: '#root' })
+// 中间件注入面（i18n——场景组件经 ctx.i18n 消费）
+const i18nState = i18n({
+  locale: 'zh',
+  messages: {
+    zh: { hello: '你好', count: '数量 {n}' },
+    en: { hello: 'Hello', count: 'Count {n}' },
+  },
+})
+const handle = uiServe(router, { root: '#root', i18n: i18nState })
 // unmount-dispose 场景：暴露 handle（场景按钮触发卸载）
 ;(window as unknown as { __scenarioHandle?: unknown }).__scenarioHandle = handle
