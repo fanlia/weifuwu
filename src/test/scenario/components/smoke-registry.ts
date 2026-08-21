@@ -25,6 +25,7 @@ import {
   Highlight, LogViewer, PromptTemplate, ReasoningBlock, ToolCallCard,
   Watermark, Wave, ActionSheet, AuthPage, ChatInput, CitationCard, CodeEditor,
   Editor, MarkdownEditor, AiChat, ImageCropper, VideoPlayer,
+  Math as CFormula, Chart, Confirm, Toast,
 } from '../../../client/components/index.ts'
 
 /** 陈列项（组件名 → 简单实例化——渲染不崩为基线） */
@@ -151,6 +152,12 @@ export const smokeItems: SmokeItem[] = [
   { name: 'Editor', vnode: () => h('div', { class: 'smoke-Editor' }, h(Editor, { value: '文本' })) },
   { name: 'MarkdownEditor', vnode: () => h('div', { class: 'smoke-MarkdownEditor' }, h(MarkdownEditor, { value: '# 标题' })) },
   { name: 'AiChat', vnode: () => h('div', { class: 'smoke-AiChat' }, h(AiChat, { chat: {} as never })) },
+  { name: 'Breadcrumb', vnode: () => h('div', { class: 'smoke-Breadcrumb' }, h(Breadcrumb, { items: ['首页', '详情'] })) },
+  { name: 'Timeline', vnode: () => h('div', { class: 'smoke-Timeline' }, h(Timeline, { items: [{ title: '事件1' }, { title: '事件2' }] })) },
+  { name: 'Chart', vnode: () => h('div', { class: 'smoke-Chart' }, h(Chart, { type: 'line', data: [{ label: '一', value: 1 }, { label: '二', value: 3 }], title: '趋势' })) },
+  { name: 'Math', vnode: () => h('div', { class: 'smoke-Math' }, h(CFormula, { tex: 'E=mc^2' })) },
+  { name: 'Confirm', vnode: () => h('div', { class: 'smoke-Confirm' }, h(Confirm, { open: false, message: '确认内容' })) },
+  { name: 'Toast', vnode: () => h('div', { class: 'smoke-Toast' }, h(Toast, { open: false, message: '提示' })) },
   { name: 'ImageCropper', vnode: () => h('div', { class: 'smoke-ImageCropper' }, h(ImageCropper, { src: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' })) },
   { name: 'VideoPlayer', vnode: () => h('div', { class: 'smoke-VideoPlayer' }, h(VideoPlayer, { src: 'https://example.com/v.mp4' })) },
 ]
