@@ -170,22 +170,28 @@ test('价格区间：lo/hi hover → 300/1500 + 独立拖拽（lo 600 / hi 1800�
   }
 })
 
-test('marks 对齐（5 dot 中心 = thumbOffset 公式 ±1px）', async () => {
+test('marks 对齐（5 dot 中心 = thumbOffset 公式 ±1px——轮询等布局稳定）', async () => {
   const page = await browser.newPage()
   try {
     await openShowcase(page, BASE, COMP_PATH)
-    const info = await page.evaluate(() => {
-      const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
-      const price = inputs[2]
-      const pr = price.getBoundingClientRect()
-      const marks = price.parentElement?.querySelector('.wf-slider-marks')
-      const dots = Array.from(marks?.querySelectorAll('.wf-slider-mark') ?? [])
-      const THUMB_R = 9
-      const expect = (t) => pr.left + THUMB_R + (pr.width - THUMB_R * 2) * t
-      return dots.map((d, i) => Math.round(expect(i * 0.25) - (d.getBoundingClientRect().left + d.getBoundingClientRect().width / 2)))
-    })
-    assert.equal(info.length, 5, '5 个 mark')
-    for (const d of info) assert.ok(Math.abs(d) <= 1, `mark 对齐（偏差 ${d}px）`)
+    // 全量并发下布局（字体/CSS）偶发未稳定——evaluate 轮询直到对齐（竞态根治）
+    let info: number[] = []
+    let ok = false
+    for (let i = 0; i < 30; i++) {
+      info = await page.evaluate(() => {
+        const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
+        const price = inputs[2]
+        const pr = price.getBoundingClientRect()
+        const marks = price.parentElement?.querySelector('.wf-slider-marks')
+        const dots = Array.from(marks?.querySelectorAll('.wf-slider-mark') ?? [])
+        const THUMB_R = 9
+        const expect = (t) => pr.left + THUMB_R + (pr.width - THUMB_R * 2) * t
+        return dots.map((d, j) => Math.round(expect(j * 0.25) - (d.getBoundingClientRect().left + d.getBoundingClientRect().width / 2)))
+      })
+      if (info.length === 5 && info.every((d) => Math.abs(d) <= 1)) { ok = true; break }
+      await page.waitForTimeout(100)
+    }
+    assert.ok(ok, `5 个 mark 对齐（实际 ${JSON.stringify(info)}）`)
   } finally {
     await page.close()
   }
