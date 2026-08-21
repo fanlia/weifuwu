@@ -109,9 +109,28 @@ export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 
   if (el.isConnected) return
   const parent = applier.parentOf(cmd)
   if (!parent) return
+  // **Text 父防御（导航崩溃修复）**：insert 的 parent 解析到 Text 节点
+  // （导航流 id 与旧树残留冲突——SSR 吸收的 Text id 被新流引用）——
+  // insertBefore 到 Text 抛 DOMException——改插到父容器 Text 之后——
+  // 残留 Text 由 done.full 清理（未 touched）
+  if (parent.nodeType === 3) {
+    const container = parent.parentElement
+    if (!container) return
+    const after = parent.nextSibling && parent.nextSibling.parentNode === container ? parent.nextSibling : null
+    container.insertBefore(el, after)
+    if (el.nodeType === 1) applier.refRegistry.mount(cmd.id, el as HTMLElement)
+    return
+  }
   if (cmd.ref) {
     const prev = applier.nodes.get(cmd.ref) ?? null
-    parent.insertBefore(el, prev ? prev.nextSibling : parent.firstChild)
+    // ref 有效性（导航流引用旧树残留——已脱离——NotFoundError 防御）
+    if (prev && prev.parentNode === parent) {
+      parent.insertBefore(el, prev.nextSibling)
+    } else if (prev) {
+      parent.appendChild(el)
+    } else {
+      parent.insertBefore(el, parent.firstChild)
+    }
   } else {
     // 容器头部（空容器 = append——等价）
     parent.insertBefore(el, parent.firstChild)

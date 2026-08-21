@@ -121,6 +121,8 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | | serve.ts 首帧吸收标记判定（hasSsrMark） | 静态预置 HTML 页面（showcase 首页）吸收错配崩溃 |
 | | create-client-browser copyText 降级链（clipboard→execCommand） | 全组件复制按钮（非 https 权限拒绝） |
 | | applyAttribute 的 value 走 property 通道（textarea 值创建统一） | 全部 textarea/input 值（CodeEditor 代码区空——实测 IDL） |
+| | diffSame 其余同态走 transform（组件输出 Text↔元素——emit 无 remove 残留） | 导航崩溃（overlay→colorpicker DOMException——insert 到 Text） |
+| | procInsert Text 父防御 + ref 有效性（导航流引用旧树残留） | 导航多轮 NotFoundError/insert 到 Text（用户实测） |
 | | useScrollPosition getScroller `?? window` → `?? null`（容器后挂载重绑） | VirtualTable/LogViewer/AiChat 滚动容器（虚拟化不更新——实测） |
 | **组件层** | Slider renderFn 删 popup.refresh（hover 卡死） | Slider 自身（根因是组件在 renderFn 调 refresh——引擎 refresh 语义正确） |
 | | VideoPlayer video ref 时机 + muted IDL（2 bug） | VideoPlayer 自身 |

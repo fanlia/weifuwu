@@ -1224,6 +1224,24 @@ const DeepImageCropper = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+const OutSwitchInner = (_i: Record<string, never>, ctx: any) => {
+  return () => h('span', { class: 'deep-switch-inner' }, '初始')
+}
+
+/** 组件输出 Text ↔ 元素切换（diffSame 其余同态——组件输出对照——
+ *  修复前 emit 无 remove——insert 到旧 Text——DOMException——导航崩溃回归） */
+const DeepOutputSwitch = (_i: Record<string, never>, ctx: any) => {
+  let text = true
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-switch-scene' },
+      h('button', { class: 'deep-switch-btn', onClick: () => { text = !text; log += 'v;'; ctx.render() } }, '切换'),
+      h('div', { class: 'deep-switch-wrap' }, text ? '文本输出' : h(OutSwitchInner, {})),
+      h('span', { class: 'deep-switch-log' }, log),
+    )
+}
+
 const DeepVideoPlayer = (_i: Record<string, never>, ctx: any) => {
   let log = ''
   return () =>
@@ -1439,6 +1457,7 @@ export const scenarios: Scenario[] = [
   { id: 'deep-slidecanvas', title: 'SlideCanvas（幻灯片渲染）', render: DeepSlideCanvas },
   { id: 'deep-imagecropper', title: 'ImageCropper（图片裁剪）', render: DeepImageCropper },
   { id: 'deep-videoplayer', title: 'VideoPlayer（视频渲染）', render: DeepVideoPlayer },
+  { id: 'deep-output-switch', title: '组件输出 Text↔元素切换（diffSame 其余同态修复回归）', render: DeepOutputSwitch },
   { id: 'deep-authpage', title: 'AuthPage（登录表单提交）', render: DeepAuthPage },
   { id: 'deep-tour', title: 'Tour（引导气泡——定位/步骤/关闭）', render: DeepTour },
   TWS,
