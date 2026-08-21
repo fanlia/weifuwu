@@ -13,6 +13,7 @@ import { createPortal } from '../../client/vdom/core/node/portal.ts'
 import { SmokeScene } from './components/smoke-registry.ts'
 import { Input as CInput, InputNumber as CInputNumber, Textarea as CTextarea, SearchInput as CSearchInput, PasswordInput as CPasswordInput, PinInput as CPinInput, Switch as CSwitch, Checkbox as CCheckbox, RadioGroup as CRadioGroup, Slider as CSlider, Rate as CRate, TagsInput as CTagsInput, SegmentedControl as CSegmentedControl, ToggleGroup as CToggleGroup } from '../../client/components/index.ts'
 import { Select as CSelect, AutoComplete as CAutoComplete, Cascader as CCascader, TreeSelect as CTreeSelect, Transfer as CTransfer, ColorPicker as CColorPicker, DatePicker as CDatePicker, Calendar as CCalendar } from '../../client/components/index.ts'
+import { Tabs as CTabs, Menu as CMenu, Pagination as CPagination, Table as CTable, Collapse as CCollapse, Accordion as CAccordion, Carousel as CCarousel, Steps as CSteps, List as CList } from '../../client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -805,6 +806,93 @@ const DeepCalendar = (_i: Record<string, never>, ctx: any) => {
     )
 }
 
+
+// ── 深度场景组 3：导航 + 数据展示（参数行为断言） ─────────────────────
+const DeepTabs = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-tabs-scene' },
+      h(CTabs, { items: [{ key: 'a', label: '标签A' }, { key: 'b', label: '标签B' }], onChange: (k: string) => { log += `v:${k};`; ctx.render() } }),
+      h('span', { class: 'deep-tabs-log' }, log),
+    )
+}
+
+const DeepMenu = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-menu-scene' },
+      h(CMenu, { items: [{ key: '1', label: '菜单一' }, { key: '2', label: '菜单二' }], onSelect: (k: string) => { log += `v:${k};`; ctx.render() } }),
+      h('span', { class: 'deep-menu-log' }, log),
+    )
+}
+
+const DeepPagination = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-pagination-scene' },
+      h(CPagination, { total: 50, pageSize: 10, current: 1, onChange: (p: number) => { log += `v:${p};`; ctx.render() } }),
+      h('span', { class: 'deep-pagination-log' }, log),
+    )
+}
+
+const DeepTable = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-table-scene' },
+      h(CTable, { columns: [{ key: 'name', title: '名称', sortable: true }, { key: 'age', title: '年龄' }], data: [{ name: '甲', age: 20 }, { name: '乙', age: 30 }], onSort: (k: string, order: string) => { log += `v:${k}:${order};`; ctx.render() } }),
+      h('span', { class: 'deep-table-log' }, log),
+    )
+}
+
+const DeepCollapse = (_i: Record<string, never>, ctx: any) => {
+  // 受控（active + onChange 回流——非受控不调 onChange）
+  let active: string[] = []
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-collapse-scene' },
+      h(CCollapse, { items: [{ key: '1', title: '面板一', content: '内容一' }], active, onChange: (k: string[]) => { active = k; log += `v:${k.join(',')};`; ctx.render() } }),
+      h('span', { class: 'deep-collapse-log' }, log),
+    )
+}
+
+const DeepAccordion = (_i: Record<string, never>, ctx: any) => {
+  // 受控（同 Collapse——非受控不调 onChange）
+  let active: string[] = []
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-accordion-scene' },
+      h(CAccordion, { items: [{ key: '1', title: '折叠一', content: '内容一' }], active, onChange: (k: string[]) => { active = k; log += `v:${k.join(',')};`; ctx.render() } }),
+      h('span', { class: 'deep-accordion-log' }, log),
+    )
+}
+
+const DeepCarousel = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-carousel-scene' },
+      h(CCarousel, { showArrows: true }, h('div', { class: 'carousel-slide-0' }, '图一'), h('div', { class: 'carousel-slide-1' }, '图二')),
+      h('span', { class: 'deep-carousel-log' }, log),
+    )
+}
+
+const DeepSteps = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-steps-scene' },
+      h(CSteps, { items: [{ title: '一步' }, { title: '二步' }], current: 0 }),
+      h('span', { class: 'deep-steps-state' }, 'ok'),
+    )
+}
+
+const DeepList = (_i: Record<string, never>, ctx: any) => {
+  let log = ''
+  return () =>
+    h('div', { class: 'deep-list-scene' },
+      h(CList, { items: ['项A', '项B'], renderItem: (i: string) => h('div', {}, i) }),
+      h('span', { class: 'deep-list-log' }, log),
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -868,6 +956,15 @@ export const scenarios: Scenario[] = [
   { id: 'deep-colorpicker', title: 'ColorPicker 参数（选色）', render: DeepColorPicker },
   { id: 'deep-datepicker', title: 'DatePicker 参数（选日期）', render: DeepDatePicker },
   { id: 'deep-calendar', title: 'Calendar 参数（切换/选日）', render: DeepCalendar },
+  { id: 'deep-tabs', title: 'Tabs 参数（切换）', render: DeepTabs },
+  { id: 'deep-menu', title: 'Menu 参数（选择）', render: DeepMenu },
+  { id: 'deep-pagination', title: 'Pagination 参数（翻页）', render: DeepPagination },
+  { id: 'deep-table', title: 'Table 参数（排序）', render: DeepTable },
+  { id: 'deep-collapse', title: 'Collapse 参数（展开折叠）', render: DeepCollapse },
+  { id: 'deep-accordion', title: 'Accordion 参数（展开折叠）', render: DeepAccordion },
+  { id: 'deep-carousel', title: 'Carousel 参数（切换）', render: DeepCarousel },
+  { id: 'deep-steps', title: 'Steps 参数（渲染）', render: DeepSteps },
+  { id: 'deep-list', title: 'List 参数（onItemClick）', render: DeepList },
 ]
 
 export function findScenario(id: string): Scenario | undefined {
