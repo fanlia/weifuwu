@@ -257,6 +257,8 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
      *  新的 Response command 事件流 → 消费（patch 对照现有 DOM——就地更新）
      *  **并发守卫**：渲染中触发 → 单槽位补跑——await 精确等待最终渲染 */
     async render(): Promise<void> {
+      ;(window as any).__renderCount = ((window as any).__renderCount ?? 0) + 1
+      if (((window as any).__renderCount ?? 0) % 20 === 1) console.error('[loop-render]', (window as any).__renderCount)
       await render(req)
     },
     /** 数据管道（组件工厂取数——唯一异步边界——缓存/并发合并/失败缓存） */
