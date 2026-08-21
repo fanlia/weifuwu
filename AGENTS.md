@@ -14,8 +14,9 @@
 ## 2. 测试架构（内置框架——契约层 + 场景层）
 
 ```
-npm run test:client    → 契约层（100 测试——node 直跑命令流——零浏览器——~0.2s）
-npm run test:scenario  → 场景层（96 场景——SSR 服务化 + playwright——真实浏览器——14 文件并发——~15s）
+npm run test:client    → 契约层（101 测试——node 直跑命令流——零浏览器——~0.2s）
+npm run test:scenario  → 场景层（109 场景——SSR 服务化 + playwright——真实浏览器——15 文件并发——~15s）
+npm run test:showcase  → showcase 组件测试（166 测试——112 组件 157 全覆盖——每组件一个文件——~3min）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 ```
 
@@ -56,6 +57,10 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | toast-fire/confirm-command | 命令式中间件（toast 自动消失/confirm resolve/notification——BUG#3 回归） |
 | use-controlled/breakpoint/tween/drag/visual-viewport | 剩余 hooks（受控/断点/补间/指针拖拽/视口） |
 | component-smoke | 组件冒烟（127 项陈列——渲染全 + 点击扫描 console.error 零） |
+
+### showcase 组件层（apps/showcase/test/——每组件一个测试文件）
+
+**形态**（用户决策：一个地址 + 一个组件 + 独立运行——小步快跑不批量）：`comp-<id>.test.ts`（112 文件——157 组件全覆盖）——单独运行 `node --env-file=.env --test apps/showcase/test/comp-<id>.test.ts`；`showcase-shared.ts` 提供 startShowcaseServer（随机端口）/openShowcase（错误收集）——能力面出发（先读 props 接口清单→demo 覆盖 + 无 demo 走场景层 cap-）——**v2 别名路由**（tree-v2/cascader-v2/calendar-v2 = 主页面别名——主页面覆盖即可）
 | deep-*（54 组件） | 组件深度交互（表单输入/选择/导航展示/浮层/表单校验/重组件/AI 对话/文件上传——参数行为断言） |
 | style-update / event-guard / open-guard | style 整体替换清空 / 事件非函数 warn / 受控缺回调 warn |
 
@@ -71,6 +76,9 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 8. **useControlledInput**：onInput 事件（逐键——onChange 映射 change 失焦才触发）——setKeyword 内部态 + setValue 回流
 9. **i18n/ws 无自动渲染**——setLocale 后手动 render——ws handler 是 { open, message } 对象
 10. **事件名映射**：onClick → click、onDoubleClick → doubleclick（非 dblclick）
+11. **create attrs 的 value 必须走 property 通道**：`setAttribute('value')` 对 textarea 无效（IDL 不设——值来自 property/children）——applyAttribute 统一 property（与 innerHTML/textContent 同类）
+12. **useScrollPosition 目标容器必须传 null 而非 window fallback**：`getScroller: () => el ?? window` 首帧 el 未挂载 → 绑定 window——el 后挂载永不重绑（滚动监听失效）——`?? null` 触发重试重绑（VirtualTable 虚拟化不更新实证）
+13. **VirtualTable 排序是字典序**（字符串比较——用户10000 在 用户2 前）——虚拟化滚动容器是 `.wf-virtual-table-body`（外层不滚）；Slider marks 对齐断言必须轮询等布局稳定（全量并发字体/CSS 偶发未稳定）
 
 ### 已知边界（诚实裁剪）
 
@@ -112,6 +120,8 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | | usePopup positioning 'none' 也 refresh（panelRefImpl） | 自定位组件（Tour highlight/bubble）定位失效 |
 | | serve.ts 首帧吸收标记判定（hasSsrMark） | 静态预置 HTML 页面（showcase 首页）吸收错配崩溃 |
 | | create-client-browser copyText 降级链（clipboard→execCommand） | 全组件复制按钮（非 https 权限拒绝） |
+| | applyAttribute 的 value 走 property 通道（textarea 值创建统一） | 全部 textarea/input 值（CodeEditor 代码区空——实测 IDL） |
+| | useScrollPosition getScroller `?? window` → `?? null`（容器后挂载重绑） | VirtualTable/LogViewer/AiChat 滚动容器（虚拟化不更新——实测） |
 | **组件层** | Slider renderFn 删 popup.refresh（hover 卡死） | Slider 自身（根因是组件在 renderFn 调 refresh——引擎 refresh 语义正确） |
 | | VideoPlayer video ref 时机 + muted IDL（2 bug） | VideoPlayer 自身 |
 | | Tour 视口翻转（placement top 越界） | Tour 自身 |
