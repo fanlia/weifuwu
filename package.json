@@ -43,7 +43,7 @@
     "build": "node scripts/build.mjs",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:client && npm run test:server",
+    "test": "npm run test:client && npm run test:scenario && npm run test:server",
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run",
     "test:client": "node --env-file=.env --test --test-concurrency=4 'src/test/contract/**/*.test.ts'",

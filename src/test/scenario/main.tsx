@@ -15,4 +15,6 @@ for (const s of scenarios) {
   )
 }
 
-uiServe(router, { root: '#root' })
+const handle = uiServe(router, { root: '#root' })
+// unmount-dispose 场景：暴露 handle（场景按钮触发卸载）
+;(window as unknown as { __scenarioHandle?: unknown }).__scenarioHandle = handle

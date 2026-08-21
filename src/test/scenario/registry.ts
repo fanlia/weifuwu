@@ -103,11 +103,83 @@ const PortalToggle = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 5：diff 就地更新（节点不重建——焦点保持前提） ────────────────
+const DiffUpdate = (_init: Record<string, never>, ctx: any) => {
+  let label = 'v1'
+  return () =>
+    h('div', { class: 'diff-scene', 'data-label': label },
+      h('button', { class: 'update-btn', onClick: () => { label = 'v2'; ctx.render() } }, '更新'),
+      h('span', { class: 'label' }, label),
+    )
+}
+
+// ── 场景 6：事件重绑（props 变化 → 旧 handler 解绑——引用比较） ────────
+const EventsScene = (_init: Record<string, never>, ctx: any) => {
+  let version = 0
+  let last = ''
+  return () =>
+    h('div', { class: 'events-scene' },
+      h('button', {
+        class: 'ev-btn',
+        onClick: version === 0 ? () => { last = 'v0'; ctx.render() } : () => { last = 'v1'; ctx.render() },
+      }, '触发'),
+      h('button', { class: 'swap-btn', onClick: () => { version = 1; ctx.render() } }, '换 handler'),
+      h('span', { class: 'ev-last' }, last),
+    )
+}
+
+// ── 场景 7：Fragment/数组展开（无中间层——DOM 平铺） ───────────────────
+const FragmentScene = (_init: Record<string, never>, ctx: any) =>
+  () =>
+    h('div', { class: 'frag-scene' },
+      [h('i', { class: 'f1' }, 'i1'), h('i', { class: 'f2' }, 'i2')],
+      h('b', { class: 'f3' }, 'b1'),
+    )
+
+// ── 场景 8：ref 生命周期（挂载/卸载——切换触发 ref(null) 清理） ─────────
+const RefScene = (_init: Record<string, never>, ctx: any) => {
+  let mounted = 0
+  let cleaned = 0
+  let show = true
+  const boxRef = (el: unknown) => { if (el) mounted++; else cleaned++ }
+  return () =>
+    h('div', { class: 'ref-scene' },
+      show ? h('div', { class: 'ref-box', ref: boxRef }, '盒子') : null,
+      h('button', { class: 'toggle-btn', onClick: () => { show = !show; ctx.render() } }, '切换'),
+      h('span', { class: 'ref-stats' }, `m:${mounted} c:${cleaned}`),
+    )
+}
+
+// ── 场景 9：navigate（链接拦截 → pushState + 整树替换） ────────────────
+const NavigateScene = (_init: Record<string, never>, ctx: any) =>
+  () =>
+    h('div', { class: 'nav-scene' },
+      h('p', {}, '导航场景'),
+      h('a', { href: '/scenario/component-reuse', class: 'nav-link' }, '去组件复用场景'),
+    )
+
+// ── 场景 10：unmount/dispose（handle.unmount——DOM/portal 完整清理） ─────
+const UnmountScene = (_init: Record<string, never>, ctx: any) => {
+  let open = false
+  return () =>
+    h('div', { class: 'unmount-scene' },
+      h('button', { class: 'pop-btn', onClick: () => { open = !open; ctx.render() } }, '开弹层'),
+      h('button', { class: 'unmount-btn', onClick: () => { (window as any).__scenarioHandle?.unmount() } }, '卸载'),
+      open ? createPortal(h('div', { class: 'um-portal' }, '弹层'), 'unmount-portal') : null,
+    )
+}
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
   { id: 'keyed-reorder', title: 'keyed 身份跟随（重排状态不漂移）', render: KeyedReorder },
   { id: 'portal-toggle', title: 'portal 往返（弹层增删不残留）', render: PortalToggle },
+  { id: 'diff-update', title: 'diff 就地更新（节点不重建——焦点保持）', render: DiffUpdate },
+  { id: 'events-rebind', title: '事件重绑（handler 引用变化——旧解绑新绑）', render: EventsScene },
+  { id: 'fragment-expand', title: 'Fragment/数组展开（DOM 平铺无中间层）', render: FragmentScene },
+  { id: 'ref-lifecycle', title: 'ref 生命周期（挂载/卸载清理）', render: RefScene },
+  { id: 'navigate', title: 'navigate（链接拦截 → pushState + 整树替换）', render: NavigateScene },
+  { id: 'unmount-dispose', title: 'unmount（handle.unmount——DOM/portal 清理）', render: UnmountScene },
 ]
 
 export function findScenario(id: string): Scenario | undefined {

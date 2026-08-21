@@ -159,3 +159,113 @@ test('portal-toggle：打开进 #__wf_portal——关闭完整移除', async () 
     await page.close()
   }
 })
+
+// ── 场景 5：diff 就地更新（节点不重建——焦点保持前提） ──────────────────
+test('diff-update：属性/文本就地更新——同一节点引用（不重建）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'diff-update')
+
+    // 捕获节点引用——点击后必须仍为同一节点（不重建——焦点保持前提）
+    const before = await page.evaluate(() => document.querySelector('.diff-scene'))
+    await page.click('.update-btn')
+    await page.waitForFunction(() => document.querySelector('.label')?.textContent === 'v2')
+    const after = await page.evaluate(() => document.querySelector('.diff-scene'))
+    assert.equal(after, before, '同一 div 节点——就地 patch 不重建')
+    assert.equal(await page.locator('.diff-scene').getAttribute('data-label'), 'v2', '属性就地更新')
+    assert.equal(await page.locator('.label').textContent(), 'v2', '文本就地更新（setText）')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 6：事件重绑（handler 引用变化——旧解绑新绑） ───────────────────
+test('events-rebind：props 变化后新 handler 生效（引用比较重绑）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'events-rebind')
+
+    await page.click('.ev-btn')
+    await page.waitForFunction(() => document.querySelector('.ev-last')?.textContent === 'v0')
+    await page.click('.swap-btn')
+    await page.waitForFunction(() => document.querySelector('.swap-btn')?.textContent === '换 handler')
+    await page.click('.ev-btn')
+    await page.waitForFunction(() => document.querySelector('.ev-last')?.textContent === 'v1')
+    assert.equal(await page.locator('.ev-last').textContent(), 'v1', '新 handler 生效（引用变化重绑——旧解绑）')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 7：Fragment/数组展开（DOM 平铺无中间层） ───────────────────────
+test('fragment-expand：数组项 = 隐式 Fragment——直接子节点平铺', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'fragment-expand')
+
+    const kids = await page.evaluate(() =>
+      Array.from(document.querySelector('.frag-scene')!.childNodes).map((n) =>
+        (n as HTMLElement).tagName ?? n.nodeName))
+    assert.deepEqual(kids, ['I', 'I', 'B'], '三个直接子节点（i1/i2/b1）——无中间 Fragment 层')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 8：ref 生命周期（挂载/卸载清理） ───────────────────────────────
+test('ref-lifecycle：卸载触发 ref(null) 清理——重挂再次挂载', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'ref-lifecycle')
+
+    // render-only 快照语义：ref 在 apply 阶段调用——renderFn 读上一拍值
+    // 首帧显示 m:0（渲染时 ref 未跑——apply 后 mounted=1 闭包内）
+    assert.equal(await page.locator('.ref-stats').textContent(), 'm:0 c:0', '首帧快照（ref apply 后更新）')
+    await page.click('.toggle-btn')
+    await page.waitForFunction(() => document.querySelector('.ref-stats')?.textContent === 'm:1 c:0')
+    assert.equal(await page.locator('.ref-box').count(), 0, '卸载——盒子移除（ref(null) 清理已跑——cleaned=1）')
+    await page.click('.toggle-btn')
+    await page.waitForFunction(() => document.querySelector('.ref-stats')?.textContent === 'm:1 c:1')
+    assert.equal(await page.locator('.ref-box').count(), 1, '重挂——再次挂载（ref(el) 再次调用）')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 9：navigate（链接拦截 → pushState + 整树替换） ─────────────────
+test('navigate：同源链接点击 → pushState 导航 → 新场景整树替换', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'navigate')
+
+    assert.equal(await page.locator('.nav-link').count(), 1, '导航链接存在')
+    await page.click('.nav-link')
+    await page.waitForSelector('.reuse-scene')
+    assert.equal(new URL(page.url()).pathname, '/scenario/component-reuse', 'URL 更新（pushState——无整页刷新）')
+    assert.equal(await page.locator('.reuse-scene').count(), 1, '新场景渲染（root 整树替换）')
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 场景 10：unmount/dispose（handle.unmount——DOM/portal 完整清理） ────
+test('unmount-dispose：卸载清空 DOM + portal 容器不残留', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, 'unmount-dispose')
+
+    // 先开弹层（portal 有内容）
+    await page.click('.pop-btn')
+    await page.waitForSelector('.um-portal')
+    assert.equal(await page.evaluate(() => Boolean(document.querySelector('.um-portal')?.closest('#__wf_portal'))), true, '弹层在 portal')
+
+    // 卸载 → root 清空 + portal 内容移除
+    await page.click('.unmount-btn')
+    await page.waitForFunction(() => !document.querySelector('.unmount-scene'))
+    assert.equal(await page.evaluate(() => document.getElementById('root')?.childNodes.length ?? -1), 0, 'root 清空')
+    assert.equal(await page.evaluate(() =>
+      document.querySelector('#__wf_portal')?.querySelectorAll('*').length ?? 0), 0, 'portal 不残留（dispose 清理）')
+  } finally {
+    await page.close()
+  }
+})
