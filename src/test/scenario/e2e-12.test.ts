@@ -26,7 +26,8 @@ test('deep-hovercard：悬停 → 卡片出现（openDelay）', async () => {
   const page = await browser.newPage()
   try {
     await openScenario(page, BASE, 'deep-hovercard')
-    await page.locator('.deep-hovercard-scene').getByText('悬停', { exact: true }).hover()
+    // force：卡片打开后覆盖按钮上方（placement top 修复后紧贴）——拦截检查死锁
+    await page.locator('.deep-hovercard-scene').getByText('悬停', { exact: true }).hover({ force: true })
     await page.waitForFunction(() => (document.querySelector('#__wf_portal')?.textContent ?? '').includes('悬停卡片内容'), '悬停卡片出现', { timeout: 2500 })
   } finally {
     await page.close()
