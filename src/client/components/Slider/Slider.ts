@@ -118,10 +118,11 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
         const r = activeEl.getBoundingClientRect()
         if (r.width > 0) {
           tipPos = { left: Math.round(r.left + thumbX(r.width, activePct / 100)), top: Math.round(r.top - 36) }
-          // 拖拽中跟随 thumb：usePopup 只在 open/锚点变化/scroll 时重算坐标——
-          // 锚点（input）恒定 → 位置冻结在打开瞬间（真实事故：components-demo
-          // 2000 slider 拖拽中气泡文字实时、位置停在拖拽起点——marker 与数值错位）
-          popup.refresh()
+          // **禁止 renderFn 里 popup.refresh()（真实 bug——hover 卡死）**：
+          // refresh 的 position 分支末尾 env.requestRender() → 重渲染 →
+          // renderFn → refresh → **无限循环**（页面主线程忙死——hover slider
+          // 立即卡死——playwright 复现）——拖拽跟随改由值变化事件（onInput/
+          // onChange 回调——非渲染期——一次 refresh 后稳定）
         }
       }
     }
@@ -147,10 +148,12 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
         onInput: disabled ? undefined : (e: Event) => {
           const v = clamp(toActual(Number((e.target as HTMLInputElement).value)))
           onRangeChange?.([which === 'lo' ? v : rangeVal[0], which === 'hi' ? v : rangeVal[1]])
+          popup.refresh()
         },
         onChange: disabled ? undefined : (e: Event) => {
           const v = clamp(toActual(Number((e.target as HTMLInputElement).value)))
           onRangeChange?.([which === 'lo' ? v : rangeVal[0], which === 'hi' ? v : rangeVal[1]])
+          popup.refresh()
         },
         onPointerDown: disabled ? undefined : () => { dragging = true; activeThumb = which; setTip(true) },
         onPointerUp: disabled ? undefined : (e: Event) => {
@@ -218,8 +221,8 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
       // 只绑 onChange 时拖拽中气泡/数值显示陈旧（marker 与数值不一致——真实事故：
       // components-demo 2000 slider 拖到 1500 气泡仍显示 1000）。
       // onChange 绑 input（实时）+ onChangeEnd 收尾（pointerup——commit 语义）
-      onInput: disabled || !onChange ? undefined : (e: Event) => onChange(toActual(Number((e.target as HTMLInputElement).value))),
-      onChange: disabled || !onChange ? undefined : (e: Event) => onChange(toActual(Number((e.target as HTMLInputElement).value))),
+      onInput: disabled || !onChange ? undefined : (e: Event) => { onChange(toActual(Number((e.target as HTMLInputElement).value))); popup.refresh() },
+      onChange: disabled || !onChange ? undefined : (e: Event) => { onChange(toActual(Number((e.target as HTMLInputElement).value))); popup.refresh() },
       // 专业交互：hover/focus/拖拽显示当前值气泡；拖拽结束回调
       onPointerDown: disabled ? undefined : () => { dragging = true; setTip(true) },
       onPointerUp: disabled ? undefined : (e: Event) => {
