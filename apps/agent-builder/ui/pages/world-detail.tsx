@@ -49,6 +49,7 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
   let chatMsg = ''
   let chatMode: 'consult' | 'intervene' = 'consult'
   let chatBusy = false
+  let shareUrl = ''
 
   // 添加角色表单
   let newName = ''
@@ -106,6 +107,13 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
   const delRelation = async (id: string) => {
     await ctx.api.delete(`/api/relations/${id}`).catch(() => {})
     await load()
+  }
+  const makeShare = async () => {
+    try {
+      const d = await ctx.api.post<{ url: string }>(`/api/worlds/${worldId}/share`)
+      shareUrl = `${location.origin}${d.url}`
+    } catch (e) { error = errMsg(e, '生成分享失败') }
+    ctx.render()
   }
   const openChat = async (agentId: string) => {
     chatAgentId = agentId
@@ -185,8 +193,15 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
             world ? h(Tag, {}, TYPE_LABEL[world.type] ?? world.type) : null,
           ]),
         ]),
-        h(Button, { variant: 'ghost', size: 'sm', onClick: () => void load(true) }, [h(Icon, { name: 'refresh', size: 13 }), ' 刷新']),
+        h('div', { class: 'wf-row wf-gap-xs' }, [
+          h(Button, { variant: 'ghost', size: 'sm', onClick: () => void makeShare() }, [h(Icon, { name: 'external-link', size: 13 }), ' 分享']),
+          h(Button, { variant: 'ghost', size: 'sm', onClick: () => void load(true) }, [h(Icon, { name: 'refresh', size: 13 }), ' 刷新']),
+        ]),
       ]),
+      shareUrl ? h('div', { class: 'wf-surface wf-p-sm wf-row wf-gap-sm', style: 'border-radius:8px' }, [
+        h('span', { class: 'wf-text-sm wf-fill wf-truncate' }, `只读链接：${shareUrl}`),
+        h(Button, { size: 'sm', variant: 'ghost', onClick: () => { void navigator.clipboard?.writeText(shareUrl); ctx.render() } }, '复制'),
+      ]) : null,
       error ? h('div', { class: 'wf-text-sm wf-text-error' }, error) : null,
 
       // 图谱（关系可视化）

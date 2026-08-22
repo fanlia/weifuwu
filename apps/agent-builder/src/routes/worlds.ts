@@ -80,6 +80,12 @@ CREATE TABLE IF NOT EXISTS ab_chats (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ab_chats_agent ON ab_chats(agent_id);
+CREATE TABLE IF NOT EXISTS ab_shares (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  world_id uuid NOT NULL REFERENCES ab_worlds(id) ON DELETE CASCADE,
+  token text NOT NULL UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 `
 
 const row = (r: any) => r
@@ -258,6 +264,43 @@ export function registerWorldRoutes(app: Router<WorldCtx>): void {
     const id = String(ctx.params?.id ?? '')
     await ctx.sql.unsafe(`DELETE FROM ab_relations WHERE id = $1`, [id])
     return Response.json({ ok: true })
+  })
+
+  // ── 只读分享（旁观者视图——世界记录可分享——汇报场景） ──
+  app.post('/api/worlds/:id/share', async (req, ctx) => {
+    const worldId = String(ctx.params?.id ?? '')
+    const [w] = await ctx.sql.unsafe('SELECT id FROM ab_worlds WHERE id = $1', [worldId])
+    if (!w) return Response.json({ error: '世界不存在' }, { status: 404 })
+    // 已有 token 复用
+    const [oldShare] = await ctx.sql.unsafe('SELECT token FROM ab_shares WHERE world_id = $1', [worldId])
+    if (oldShare) return Response.json({ token: oldShare.token, url: `/shared/${oldShare.token}` })
+    const token = crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+    await ctx.sql.unsafe('INSERT INTO ab_shares (world_id, token) VALUES ($1, $2)', [worldId, token])
+    return Response.json({ token, url: `/shared/${token}` }, { status: 201 })
+  })
+
+  // 只读数据（world + agents + relations + events + turns + chats——全部记录）
+  app.get('/api/shared/:token', async (req, ctx) => {
+    const token = String(ctx.params?.token ?? '')
+    const [share] = await ctx.sql.unsafe('SELECT world_id FROM ab_shares WHERE token = $1', [token])
+    if (!share) return Response.json({ error: '分享不存在或已失效' }, { status: 404 })
+    const id = share.world_id
+    const [w] = await ctx.sql.unsafe('SELECT * FROM ab_worlds WHERE id = $1', [id])
+    const agents = await ctx.sql.unsafe('SELECT id, name, persona, capabilities, weight FROM ab_agents WHERE world_id = $1 ORDER BY created_at', [id])
+    const relations = await ctx.sql.unsafe(
+      `SELECT r.from_agent AS from, r.to_agent AS to, r.type, r.strength, r.directed,
+              fa.name AS from_name, ta.name AS to_name
+       FROM ab_relations r JOIN ab_agents fa ON fa.id = r.from_agent JOIN ab_agents ta ON ta.id = r.to_agent
+       WHERE r.world_id = $1 ORDER BY r.created_at`, [id])
+    const events = await ctx.sql.unsafe('SELECT * FROM ab_events WHERE world_id = $1 ORDER BY created_at DESC LIMIT 50', [id])
+    const turns = await ctx.sql.unsafe(
+      `SELECT t.*, a.name AS agent_name FROM ab_turns t JOIN ab_agents a ON a.id = t.agent_id
+       WHERE t.event_id IN (SELECT id FROM ab_events WHERE world_id = $1 ORDER BY created_at DESC LIMIT 50)
+       ORDER BY t.created_at`, [id])
+    const chats = await ctx.sql.unsafe(
+      `SELECT c.*, a.name AS agent_name FROM ab_chats c JOIN ab_agents a ON a.id = c.agent_id
+       WHERE c.agent_id IN (SELECT id FROM ab_agents WHERE world_id = $1) ORDER BY c.created_at DESC LIMIT 50`, [id])
+    return Response.json({ world: row(w), agents, relations, events, turns, chats })
   })
 
   // ── events（事件——Phase 2 触发回合） ──────────────────
