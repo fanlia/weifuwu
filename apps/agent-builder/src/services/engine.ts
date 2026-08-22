@@ -52,19 +52,22 @@ export async function runEventTurns(ctx: WorldCtx, eventId: string): Promise<voi
        WHERE r.world_id = $1`, [ev.world_id])
     const desc = String(ev.payload?.description ?? '')
     const isSurvey = ev.type === 'survey'
+    const isCycle = ev.type === 'cycle'
     const questions = Array.isArray(ev.payload?.questions) && ev.payload.questions.length > 0
       ? ev.payload.questions
       : DEFAULT_QUESTIONS
     await ctx.sql.unsafe("UPDATE ab_events SET status = 'running' WHERE id = $1", [eventId])
     for (const agent of agents) {
-      const kind = isSurvey ? 'survey' : 'dialogue'
+      const kind = isSurvey ? 'survey' : isCycle ? 'action' : 'dialogue'
       const [turn] = await ctx.sql.unsafe<{ id: string }>(
         "INSERT INTO ab_turns (event_id, agent_id, kind, input, status) VALUES ($1, $2, $3, $4, 'running') RETURNING id",
         [eventId, agent.id, kind, desc])
       try {
         const user = isSurvey
           ? `问卷《${ev.payload?.title ?? '调查'}》——题目：\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n请以 ${agent.name} 的身份逐题作答，输出 JSON：{"answers": {"题目": "你的答案"}}——不要输出 JSON 以外的内容。`
-          : `世界事件：${desc}\n\n请以你的身份回应。`
+          : isCycle
+            ? `经营周期事件：${desc}\n\n这是新一经营周期。请以 ${agent.name} 的岗位职责作出本周期行动与决策——含：1) 你关注什么 2) 你采取的行动/决策 3) 你对上级的汇报要点。用第一人称，2-4 句话。`
+            : `世界事件：${desc}\n\n请以你的身份回应。`
         const res = await ctx.ai.chat({
           model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
           messages: [
