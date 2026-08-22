@@ -6,6 +6,7 @@ import { serve, Router, ui, postgres, ai } from 'weifuwu'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerWorldRoutes, WORLD_SCHEMA } from './src/routes/worlds.ts'
+import { setWorldHub } from './src/services/engine.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -67,6 +68,25 @@ app.post('/demo-survey/submit', async (_req, ctx) => {
   <h1 style="font-size:24px">✅ 已提交</h1>
   <p style="color:#666">感谢参与！你的回答已记录。</p>
 </body></html>`
+})
+
+// ── 世界实时通道（WS——借鉴 agent-platform 实时统计——回合状态推送） ──
+/** 全局 hub（app.ws 注入——engine 推送回合状态——跨路由/后台可达） */
+export const worldHub: { current: any } = { current: null }
+
+app.ws('/worlds/:id/live', {
+  open: (ws: any, ctx: any) => {
+    // WS handler ctx 无中间件注入（真实事故——pg 只注 HTTP ctx——不查库——
+    // 快照由前端 HTTP load 拿——WS 仅推送）
+    const room = `world:${ctx.params?.id}`
+    ctx.hub.join(room, ws)
+    worldHub.current = ctx.hub
+    setWorldHub(ctx.hub)
+    ws.send(JSON.stringify({ type: 'world:live', worldId: ctx.params?.id }))
+  },
+  close: (ws: any, ctx: any) => {
+    ctx.hub.leave(`world:${ctx.params?.id}`, ws)
+  },
 })
 
 // ── UI（纯框架消费——UIRouter + components） ──

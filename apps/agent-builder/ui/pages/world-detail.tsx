@@ -39,8 +39,15 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
   let loading = true
   let error = ''
   let pollTimer: ReturnType<typeof setInterval> | null = null
-  // 页面卸载清理轮询（vdom 纪律——监听类资源 must 清理）
-  ctx.ui.onUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
+  let wsSub: (() => void) | null = null
+  // 页面卸载清理（vdom 纪律——监听类资源 must 清理）
+  ctx.ui.onUnmount(() => { if (pollTimer) clearInterval(pollTimer); wsSub?.() })
+  // WS 实时订阅（借鉴 agent-platform survey-live——回合状态推送即时刷新——
+  // 推送触发 load——轮询降级兜底）
+  try {
+    (ctx as any).ws?.connect(`/worlds/${worldId}/live`)
+    wsSub = (ctx as any).ws?.onMessage(() => { void load() })
+  } catch { /* WS 不可用——纯轮询 */ }
   let selectedAgent: string | null = null
 
   // 定向对话（Phase 3——与任一角色随时对话）
@@ -158,6 +165,22 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
     if (t.kind === 'survey') {
       try {
         const j = JSON.parse(t.output)
+        // 真实浏览器填写结果（browse——submitted/verified 徽标 + 操作序列）
+        if (typeof j.submitted === 'boolean') {
+          const ops = (() => { try { return JSON.parse(String(j.answers ?? '[]')) } catch { return [] } })()
+          return h('div', { class: 'wf-stack', style: '--wf-gap:3px' }, [
+            h('div', { class: 'wf-row wf-gap-xs' }, [
+              j.verified
+                ? h('Tag', { size: 'sm' }, '✅ 已提交验证')
+                : j.submitted
+                  ? h('Tag', { size: 'sm' }, '已提交（验证失败）')
+                  : h('Tag', { size: 'sm' }, '❌ 失败'),
+              j.error ? h('span', { class: 'wf-text-xs wf-text-error' }, String(j.error).slice(0, 60)) : null,
+            ]),
+            h('div', { class: 'wf-text-xs wf-text-tertiary' }, `操作：${Array.isArray(ops) ? ops.map((o: any) => `${o.action}:${o.ref ?? ''}`).join(' · ') : ''}`),
+          ])
+        }
+        // 模拟答案（answers 对象）
         const answers = j.answers ?? j
         if (typeof answers === 'object' && answers !== null) {
           return h('div', { class: 'wf-stack', style: '--wf-gap:2px' }, Object.entries(answers).map(([q, a]) =>

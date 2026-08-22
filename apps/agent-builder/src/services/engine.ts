@@ -8,6 +8,18 @@
 import type { WorldCtx } from '../routes/worlds.ts'
 import { fillSurvey } from './browser.ts'
 
+/** 实时推送（WS——世界详情页订阅——回合状态变化即时可见——借鉴
+ *  agent-platform survey-live：连接发快照 + 状态变化广播） */
+let hubRef: { send(room: string, data: string): void } | null = null
+export function setWorldHub(hub: { send(room: string, data: string): void } | null): void {
+  hubRef = hub
+}
+function pushWorld(worldId: string, payload: unknown): void {
+  try {
+    hubRef?.send(`world:${worldId}`, JSON.stringify({ type: 'world:update', ...(payload as object) }))
+  } catch { /* 推送失败不阻塞回合 */ }
+}
+
 interface AgentRow { id: string; name: string; persona: string; capabilities: string[]; weight: number }
 interface RelationRow { id: string; from_agent: string; to_agent: string; type: string; strength: number; directed: boolean; from_name?: string; to_name?: string }
 
@@ -105,6 +117,8 @@ export async function runEventTurns(ctx: WorldCtx, eventId: string): Promise<voi
           content = await chatOnce([{ role: 'user', content: user }])
         }
         await ctx.sql.unsafe("UPDATE ab_turns SET output = $2, status = 'done' WHERE id = $1", [turn.id, content])
+        // 实时推送（回合完成——WS 订阅页即时刷新）
+        pushWorld(ev.world_id, { eventId, agentId: agent.id, turnId: turn.id, status: 'done' })
       } catch (e) {
         await ctx.sql.unsafe("UPDATE ab_turns SET status = 'error', error = $2 WHERE id = $1",
           [turn.id, String((e as Error).message).slice(0, 500)])
@@ -140,6 +154,7 @@ export async function runEventTurns(ctx: WorldCtx, eventId: string): Promise<voi
       }
     }
     await ctx.sql.unsafe("UPDATE ab_events SET status = 'done' WHERE id = $1", [eventId])
+    pushWorld(ev.world_id, { eventId, status: 'event-done' })
   } catch (e) {
     console.error('[engine] 回合执行失败:', e)
   }
