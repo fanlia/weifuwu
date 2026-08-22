@@ -4,7 +4,7 @@
  */
 import type { Component } from 'weifuwu/vdom'
 import { h } from 'weifuwu/vdom'
-import { AppShell, Button, Card, EmptyState, Form, Field, Icon, Input, RelationGraph, Select, Tag } from 'weifuwu/components'
+import { AppShell, Button, Card, EmptyState, Form, Field, Icon, Input, RelationGraph, Select, Tag, Textarea } from 'weifuwu/components'
 import type { RelationGraphNode, RelationGraphEdge } from 'weifuwu/components'
 
 interface World { id: string; name: string; type: string; status: string; created_at: string }
@@ -12,6 +12,7 @@ interface Agent { id: string; name: string; persona: string; capabilities: strin
 interface Relation { id: string; from: string; to: string; type: string; strength: number; directed: boolean; from_name?: string; to_name?: string }
 interface WorldEvent { id: string; type: string; payload: Record<string, unknown>; status: string; created_at: string }
 interface Turn { id: string; event_id: string; agent_id: string; agent_name: string; kind: string; input: string; output: string; status: string; error: string | null }
+interface Chat { id: string; agent_id: string; agent_name?: string; mode: string; input: string; output: string; created_at: string }
 
 const TYPE_LABEL: Record<string, string> = { narrative: '推演', survey: '调研', company: '经营', city: '城市' }
 const CAP_OPTIONS = [
@@ -41,6 +42,13 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
   // 页面卸载清理轮询（vdom 纪律——监听类资源 must 清理）
   ctx.ui.onUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
   let selectedAgent: string | null = null
+
+  // 定向对话（Phase 3——与任一角色随时对话）
+  let chatAgentId: string | null = null
+  let chatHistory: Chat[] = []
+  let chatMsg = ''
+  let chatMode: 'consult' | 'intervene' = 'consult'
+  let chatBusy = false
 
   // 添加角色表单
   let newName = ''
@@ -98,6 +106,34 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
   const delRelation = async (id: string) => {
     await ctx.api.delete(`/api/relations/${id}`).catch(() => {})
     await load()
+  }
+  const openChat = async (agentId: string) => {
+    chatAgentId = agentId
+    chatHistory = []
+    chatMsg = ''
+    ctx.render()
+    try {
+      const d = await ctx.api.get<{ chats: Chat[] }>(`/api/agents/${agentId}/chats`)
+      chatHistory = d.chats ?? []
+    } catch { /* 历史加载失败不阻塞 */ }
+    ctx.render()
+  }
+  const sendChat = async () => {
+    if (!chatAgentId || !chatMsg.trim() || chatBusy) return
+    const msg = chatMsg
+    chatMsg = ''
+    chatBusy = true
+    ctx.render()
+    try {
+      const d = await ctx.api.post<{ chat: Chat; event: unknown }>(`/api/agents/${chatAgentId}/chat`, { message: msg, mode: chatMode })
+      chatHistory = [...chatHistory, d.chat]
+      if (d.event && chatMode === 'intervene') {
+        // 干预生成的事件——刷新叙事流（轮询回合）
+        if (!pollTimer) pollTimer = setInterval(() => void load(), 3000)
+      }
+    } catch (e) { error = errMsg(e, '对话失败') }
+    chatBusy = false
+    ctx.render()
   }
   const injectEvent = async () => {
     if (!evDesc.trim()) return
@@ -162,7 +198,10 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
                 h('div', { class: 'wf-text-xs wf-text-tertiary wf-truncate' }, a.persona || '（无人设）'),
                 h('div', { class: 'wf-row wf-gap-xs wf-mt-xs' }, (a.capabilities ?? []).map((c) => h(Tag, { key: c, size: 'sm' }, CAP_OPTIONS.find((o) => o.value === c)?.label ?? c))),
               ]),
-              h(Button, { size: 'sm', variant: 'ghost', title: '删除', onClick: () => void delAgent(a.id) }, [h(Icon, { name: 'trash', size: 13 })]),
+              h('div', { class: 'wf-row wf-gap-xs wf-shrink' }, [
+                h(Button, { size: 'sm', variant: 'ghost', title: '对话', onClick: () => void openChat(a.id) }, [h(Icon, { name: 'message', size: 13 })]),
+                h(Button, { size: 'sm', variant: 'ghost', title: '删除', onClick: () => void delAgent(a.id) }, [h(Icon, { name: 'trash', size: 13 })]),
+              ]),
             ]),
           )),
           h(Form, { class: 'wf-stack wf-gap-sm wf-mt-md', style: '--wf-gap:8px' }, [
@@ -199,6 +238,27 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
           ]),
         ]),
       ]),
+
+      // 定向对话面板（Phase 3——与任一角色随时对话——咨询/干预）
+      chatAgentId ? h(Card, { pad: 'md' }, [
+        h('div', { class: 'wf-row wf-between wf-mb-sm' }, [
+          h('div', { class: 'wf-text-sm wf-text-semibold' }, [h(Icon, { name: 'message', size: 14 }), ` 与 ${agents.find((a) => a.id === chatAgentId)?.name ?? '角色'} 对话`]),
+          h(Button, { size: 'sm', variant: 'ghost', onClick: () => { chatAgentId = null; ctx.render() } }, [h(Icon, { name: 'close', size: 13 })]),
+        ]),
+        h('div', { class: 'wf-stack wf-gap-xs wf-mb-sm', style: '--wf-gap:6px;max-height:200px;overflow:auto' }, [
+          chatHistory.length === 0
+            ? h('div', { class: 'wf-text-xs wf-text-tertiary' }, '还没有对话——你可以咨询（了解立场）或干预（你的话成为世界事件）')
+            : chatHistory.map((c) => h('div', { key: c.id, class: 'wf-stack wf-gap-none wf-px-sm wf-py-xs', style: 'border-left:2px solid var(--wf-border,#e5e7eb)' }, [
+              h('div', { class: 'wf-text-xs' }, [h('span', { class: 'wf-text-semibold' }, '你：'), c.input]),
+              h('div', { class: 'wf-text-sm wf-text-secondary' }, [h('span', { class: 'wf-text-semibold wf-text-primary' }, `${c.agent_name ?? 'ta'}：`), c.output]),
+            ])),
+        ]),
+        h('div', { class: 'wf-row wf-gap-sm' }, [
+          h(Select, { value: chatMode, options: [{ value: 'consult', label: '咨询（不改世界）' }, { value: 'intervene', label: '干预（成为世界事件）' }], onChange: (v: string) => { chatMode = v as 'consult' | 'intervene'; ctx.render() } }),
+          h(Textarea, { class: 'wf-fill', rows: 2, value: chatMsg, placeholder: chatMode === 'consult' ? '问 ta 任何问题…' : '你的意见将成为世界事件，全体角色回应…', onInput: (e: Event) => { chatMsg = (e.target as HTMLTextAreaElement).value; ctx.render() } }),
+          h(Button, { variant: 'primary', disabled: chatBusy || !chatMsg.trim(), onClick: sendChat }, chatBusy ? '回应中…' : '发送'),
+        ]),
+      ]) : null,
 
       // 事件区（Phase 2 触发回合——当前记录）
       h(Card, { pad: 'md' }, [

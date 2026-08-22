@@ -71,6 +71,15 @@ CREATE TABLE IF NOT EXISTS ab_turns (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ab_turns_event ON ab_turns(event_id);
+CREATE TABLE IF NOT EXISTS ab_chats (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id uuid NOT NULL REFERENCES ab_agents(id) ON DELETE CASCADE,
+  mode text NOT NULL DEFAULT 'consult',
+  input text NOT NULL DEFAULT '',
+  output text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ab_chats_agent ON ab_chats(agent_id);
 `
 
 const row = (r: any) => r
@@ -165,6 +174,71 @@ export function registerWorldRoutes(app: Router<WorldCtx>): void {
     const id = String(ctx.params?.id ?? '')
     await ctx.sql.unsafe(`DELETE FROM ab_agents WHERE id = $1`, [id])
     return Response.json({ ok: true })
+  })
+
+  // ── 定向对话（Phase 3——与任一角色随时对话——咨询/干预） ──
+  app.post('/api/agents/:id/chat', async (req, ctx) => {
+    const agentId = String(ctx.params?.id ?? '')
+    const body = await req.json().catch(() => ({}))
+    const message = String(body.message ?? '').trim()
+    if (!message) return Response.json({ error: '消息必填' }, { status: 400 })
+    const mode = body.mode === 'intervene' ? 'intervene' : 'consult'
+    const [agent] = await ctx.sql.unsafe<{ id: string; name: string; persona: string; world_id: string }>(
+      'SELECT * FROM ab_agents WHERE id = $1', [agentId])
+    if (!agent) return Response.json({ error: '角色不存在' }, { status: 404 })
+    const [world] = await ctx.sql.unsafe<{ name: string }>('SELECT name FROM ab_worlds WHERE id = $1', [agent.world_id])
+    const relations = await ctx.sql.unsafe(
+      `SELECT r.*, fa.name AS from_name, ta.name AS to_name
+       FROM ab_relations r JOIN ab_agents fa ON fa.id = r.from_agent JOIN ab_agents ta ON ta.id = r.to_agent
+       WHERE r.world_id = $1`, [agent.world_id])
+    const memory = await ctx.sql.unsafe<{ input: string; output: string }>(
+      'SELECT c.input, c.output FROM ab_chats c WHERE c.agent_id = $1 ORDER BY c.created_at DESC LIMIT 6', [agentId])
+    const sys = [
+      `你在世界「${world?.name ?? ''}」中扮演：${agent.name}。`,
+      `人设：${agent.persona || '（未设定——请保持中立自然）'}`,
+      relations.length ? `你与世界其他角色的关系：\n${relations
+        .filter((r: any) => r.from_agent === agentId || r.to_agent === agentId)
+        .map((r: any) => `- ${r.from_agent === agentId ? (r.to_name ?? r.to_agent) : (r.from_name ?? r.from_agent)}（${r.type}·强度 ${r.strength}）`).join('\n')}` : '',
+      memory.length ? `你最近的对话记忆：\n${memory.map((m: any) => `- 你曾说：「${m.output.slice(0, 100)}」`).join('\n')}` : '',
+      '用第一人称回答，符合你的性格与立场，2-4 句话。',
+    ].filter(Boolean).join('\n\n')
+    let output = ''
+    try {
+      const res = await ctx.ai.chat({
+        model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: `用户对你说：${message}` },
+        ],
+        temperature: 0.8,
+        max_tokens: 500,
+      })
+      output = res.choices?.[0]?.message?.content ?? ''
+    } catch (e) {
+      return Response.json({ error: `对话失败：${(e as Error).message}` }, { status: 500 })
+    }
+    const [chat] = await ctx.sql.unsafe(
+      'INSERT INTO ab_chats (agent_id, mode, input, output) VALUES ($1, $2, $3, $4) RETURNING *',
+      [agentId, mode, message, output])
+    // 干预模式：你的话成为世界事件（全员回合——世界响应你的意见）
+    let event: unknown = null
+    if (mode === 'intervene') {
+      const [ev] = await ctx.sql.unsafe(
+        `INSERT INTO ab_events (world_id, type, payload) VALUES ($1, 'directive', $2) RETURNING *`,
+        [agent.world_id, json({ description: `用户对 ${agent.name} 说：「${message}」——请全体回应你的立场。` })])
+      event = ev
+      void runEventTurns(ctx, String(ev.id))
+    }
+    return Response.json({ chat: { ...row(chat), agent_name: agent.name }, event })
+  })
+
+  // ── chats（角色对话历史——Phase 3 定向对话） ──────────────
+  app.get('/api/agents/:id/chats', async (req, ctx) => {
+    const agentId = String(ctx.params?.id ?? '')
+    const rows = await ctx.sql.unsafe(
+      `SELECT c.*, a.name AS agent_name FROM ab_chats c JOIN ab_agents a ON a.id = c.agent_id
+       WHERE c.agent_id = $1 ORDER BY c.created_at DESC LIMIT 20`, [agentId])
+    return Response.json({ chats: rows.reverse() })
   })
 
   // ── relations（关系） ─────────────────────────────────
