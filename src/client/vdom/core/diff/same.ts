@@ -15,7 +15,7 @@ import { stateOf } from '../transform/states.ts'
 import { transitionOf } from '../transform/table.ts'
 import { pathId } from '../node/native.ts'
 import { childrenOf } from '../node/children.ts'
-import { removeVNodeTree, outputBase } from './cleanup.ts'
+import { removeVNodeTree, outputBase, removalParent } from './cleanup.ts'
 import { outputToChild } from '../node/component.ts'
 import { disposeComponent, renderComponent, type ComponentRegistry } from '../node/component.ts'
 import type { Command } from '../command/index.ts'
@@ -23,7 +23,7 @@ import type { RenderSink } from '../build.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 import { diffAttrs } from './attrs.ts'
 import { diffComponentOutput } from './output.ts'
-import { diffChildren, diffChildrenItems } from './children.ts'
+import { diffChildren, diffChildrenItems, emitWithKey } from './children.ts'
 
 /**
  * 同态对照（同位置同类型——**精准命令生成**）：
@@ -55,9 +55,10 @@ export async function diffSame(
       // 区间完整（数组逐项展开槽位 + 组件项 unmount））
       if (rec.lastOutput !== undefined) {
         // **方案 3：lastOutput 是 CompOutput——转换后清理（hole/array/vnode
-        //  同等——空洞锚也清理）——基线 outputBase**
+        //  同等——空洞锚也清理）——基线 outputBase + parent 语义 removalParent
+        //  （证明审计——组件输出组件的 keyed 错位同源）**
         const child = outputToChild(rec.lastOutput)
-        removeVNodeTree(child, outputBase(child, id, pathId(parent, index)), parent, emitCommand, registry)
+        removeVNodeTree(child, outputBase(child, id, pathId(parent, index)), removalParent(child, id, parent), emitCommand, registry)
       }
       // 新实例（rec 已删——重新 mount——工厂执行）
       await renderComponent(newV, parent, index, ref, id, ctx, registry, emit, emitCommand)
@@ -68,8 +69,9 @@ export async function diffSame(
     const isNew = await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
       // **组件输出对照（中转——细节在 output.ts——单一实现源——
       //  禁止内联双实现漂移）**：null↔vnode 转换/单节点对照/数组对照/
-      //  数组↔单节点 transform
-      await diffComponentOutput(oldOut, out, p, i, r, emit, emitCommand, ctx, registry, diffSame)
+      //  数组↔单节点 transform——compId/slotId（输出形态 id 空间——证明
+      //  审计）——keyed 输出组件递归 emitWithKey（keyedId rec 对照）
+      await diffComponentOutput(oldOut, out, p, i, r, emit, emitCommand, ctx, registry, diffSame, id, pathId(parent, index), (out2, p2, i2, r2, key) => emitWithKey(out2, p2, i2, r2, key, emit, emitCommand, ctx, registry))
     })
     // **mount 指令（组件生命周期——初始化完成——仅新实例）**
     if (isNew) emitCommand({ op: 'mount', compId: id })

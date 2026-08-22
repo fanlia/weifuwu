@@ -17,6 +17,7 @@ import { childrenOf, slotCount } from '../node/children.ts'
 import { isFragment } from '../node/fragment.ts'
 import type { Command } from '../command/index.ts'
 import { pathId } from '../node/native.ts'
+import { keyedId } from '../node/keyed.ts'
 import { outputToChild, type ComponentRegistry } from '../node/component.ts'
 
 /** **组件输出清理基线（C2——outIsComponent 特判的 id 空间统一）**：
@@ -36,6 +37,22 @@ export function outputBase(out: VNodeChild, compId: string, slotId: string): str
   //  清理基线统一——否则 remove root.0 删不到 root.0.0 的锚）
   if (out === null || out === undefined || typeof out === 'boolean') return pathId(compId, 0)
   return slotId
+}
+
+/** 组件输出清理的 parent 语义（**证明审计——sink 特判对齐——单一实现源**）：
+ *  顶层/递归调用 removeVNodeTree 的 parent 参数 = 渲染时 sink 的 parent：
+ *  - 输出组件（keyed）→ compId（outIsCompNode 特判——sink(组件, compId, 0)——
+ *    内层 keyed 组件 compId = keyedId(compId, key)——传槽位父则错位
+ *    （root.0.0.kk1 渲染 vs root.0.kk1 清理——实证））
+ *  - 输出数组 → compId（数组展开容器——数组分支内部已用 base——顶层
+ *    parent 不参与——但保持 compId 语义一致）
+ *  - 输出 Fragment → 槽位父（sink parent 分支——展开挂槽位父——index
+ *    推导 + 内项 keyedId(槽位父) 依赖）
+ *  - 元素/文本/空洞 → 不依赖 parent（children 递归用 base）——槽位父安全 */
+export function removalParent(child: VNodeChild, compId: string, slotParent: string): string {
+  if (typeof (child as VNode)?.type === 'function') return compId
+  if (Array.isArray(child)) return compId
+  return slotParent
 }
 
 /** 旧输出递归清理（组件类型切换——remove 命令——同构保持）
@@ -62,10 +79,15 @@ export function removeVNodeTree(
     // 数组（组件输出多根——**compId 子空间**——C2：渲染 sink(out, compId,
     //  0) 数组特判——展开 pathId(compId, i)——base = compId（outputBase
     //  传入）——pathId(base, slot)——**槽位推进（FRAG 项占多槽）**
+    //  **parent 语义（证明审计——keyed 组件错位实证）**：数组内项渲染
+    //  的 sink parent = 数组容器（compId）——递归必须传 base（否则 keyed
+    //  组件 compId = keyedId(外层槽位父, key) 错位——unmount 卸错实例——
+    //  root.0.0.kk1 渲染 vs root.0.kk1 清理实证）——childrenOf 展开后
+    //  普通数组不可达（防御分支——base 语义同组件输出）
     if ((globalThis as any).__DBG4) console.log(`[dbg-arr] 数组 base=${base} parent=${parent} 项数=${v.length}`)
     let slot = 0
     for (const c of v) {
-      removeVNodeTree(c, pathId(base, slot), parent, emitCommand, registry)
+      removeVNodeTree(c, pathId(base, slot), base, emitCommand, registry)
       slot += slotCount(c)
     }
     return
@@ -86,9 +108,10 @@ export function removeVNodeTree(
     }
     return
   }
-  // 组件项：unmount（实例卸载——onUnmounts——与渲染 compId 规则一致）
+  // 组件项：unmount（实例卸载——onUnmounts——与渲染 compId 规则一致——
+  // **keyedId（key 转义——key 注入防御——与 build/diff 同规则源）**）
   if (typeof vn.type === 'function') {
-    const compId = vn.key !== null ? `${parent}.k${vn.key}` : base
+    const compId = vn.key !== null ? keyedId(parent, vn.key) : base
     if ((globalThis as any).__DBG5) console.log(`[dbg-comp] unmount ${compId} base=${base} parent=${parent}`)
     emitCommand({ op: 'unmount', compId })
     // **组件输出区间递归清理（C2——嵌套组件 A > B > C）**：组件项的
@@ -102,7 +125,18 @@ export function removeVNodeTree(
     if (out !== undefined) {
       const child = outputToChild(out)
       const innerBase = outputBase(child, compId, base)
-      removeVNodeTree(child, innerBase, compId, emitCommand, registry)
+      // **Fragment 输出特判（证明审计——槽位父推导）**：Fragment 渲染挂
+      //  槽位父（sink parent 分支——非 compId 子空间）——清理的 index 推导
+      //  （base.slice(parent+'.')）与内项 keyed 组件 compId（keyedId(parent,
+      //  key)）依赖**槽位父**——传 compId 则：组件在非 0 槽位时 index 错
+      //  位 + 内项 keyedId(compId) 错位（渲染 keyedId(槽位父)）——base（槽位
+      //  id）的父路径 = 槽位父（id 无 '.' 歧义——keyedId 转义保证）
+      //  ——removalParent 统一（组件/数组 → compId；Fragment → 槽位父）
+      const isFrag = child !== null && typeof child === 'object' && !Array.isArray(child) && isFragment(child)
+      const innerParent = isFrag
+        ? base.slice(0, base.lastIndexOf('.'))
+        : removalParent(child, compId, compId)
+      removeVNodeTree(child, innerBase, innerParent, emitCommand, registry)
     }
   }
   // children 递归（容器 = 当前项 id）——**槽位推进（FRAG 项占多槽）**

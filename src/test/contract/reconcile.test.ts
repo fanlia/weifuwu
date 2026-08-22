@@ -195,6 +195,15 @@ class Sim {
             if (ev) { this.events.delete(id); this.events.set(nid, ev) }
           }
         }
+        // **实例迁移（与真实 patch remapSubtree 的 registry 迁移对齐——
+        //  G9：move remap 后 diff 生成端按新 id 对照组件——rec 不迁移则
+        //  查询落空 → 工厂重跑 + 旧 rec 残留——S_INST 面不等价）**
+        for (const id of [...this.instances]) {
+          if (id === oldP || id.startsWith(oldP + '.')) {
+            this.instances.delete(id)
+            this.instances.add(newP + id.slice(oldP.length))
+          }
+        }
         break
       }
       case 'mount': this.instances.add(cmd.compId); break
@@ -372,6 +381,84 @@ test('G8：嵌套组件卸载——子实例必须递归清理（终态等价 S_
   assert.equal(diff, null, `嵌套子实例残留:\n${diff ?? ''}`)
 })
 
+test('G9：重复 key——首现优先 + move 正确发出 + 终态等价（1/300 回归——非法输入确定行为）', async () => {
+  // 复刻组件树 fuzz seed=99 i=67（旧列表两个 span{k1} 重复 key——裸
+  // Map.set 尾现覆盖 → moved 误判（oldIdx===newIdx）→ move 缺失 → 旧
+  // 节点残留 + 新项插进旧节点 + 实例残留——首现优先（与 keyIndex 对齐）
+  // 修复后：move root.0→root.1 正确发出——终态等价）
+  const Dup = () => () => h('div', { class: 'o' }, 'x')
+  const oldT = h(Fragment, {}, [
+    h('span', { key: 'k1' }, h(Dup, {})),   // root.0 span{k1} > 组件
+    h('span', { key: 'k1' }, h(Dup, {})),   // root.1 span{k1}（重复 key）
+  ])
+  const newT = h(Fragment, {}, [
+    h(Dup, {}),                              // root.0 组件（无 key 槽位）
+    h('span', { key: 'k1' }, h(Dup, {})),    // root.1 span{k1} > 组件
+  ])
+  // move 命令断言（首现优先：oldIdx=0 ≠ newIdx=1 → move 必须发出）
+  const reg = createComponentRegistry()
+  const d = await drainStream(diffStream(oldT, newT, {}, reg))
+  assert.ok(
+    d.some((c) => c.op === 'move' && c.id === 'root.0' && (c as { newId?: string }).newId === 'root.1'),
+    `重复 key 首现优先 → move root.0→root.1 必须发出（实际: ${d.map((c) => c.op + ':' + ((c as { id?: string }).id ?? (c as { compId?: string }).compId ?? '')).join(' ')}）`,
+  )
+  // 终态等价（三面对账）
+  const warns: string[] = []
+  const origWarn = console.warn
+  console.warn = (m: string) => { warns.push(String(m)) }
+  let diffMsg = ''
+  try {
+    const diff = await verifyEquivalence(oldT, newT, createComponentRegistry())
+    diffMsg = diff ?? ''
+  } finally { console.warn = origWarn }
+  assert.equal(diffMsg, '', `重复 key 终态不等价:\n${diffMsg}`)
+  // A 级检测：重复 key 必须 warn 引导（非法输入显式化——不静默）
+  assert.ok(warns.some((w) => w.includes('重复 key')), `A 级检测：重复 key 必须 warn 引导（实际: ${warns.join(' | ')}）`)
+  // **build 路径补全（同源——静默复用实证）**：build 同 key 组件 →
+  // compId 相同 → 后者静默复用前者实例（工厂不执行/不 mount——初始化
+  // 丢失）——build 路径也必须 warn（diff 路径已覆盖——build 缺失）
+  const bwarns: string[] = []
+  const origWarn2 = console.warn
+  console.warn = (m: string) => { bwarns.push(String(m)) }
+  try {
+    const reg2 = createComponentRegistry()
+    await drainStream(renderToStream(
+      h('div', {}, [h(Dup, { key: 'k1' }), h(Dup, { key: 'k1' })]), {}, reg2,
+    ))
+  } finally { console.warn = origWarn2 }
+  assert.ok(bwarns.some((w) => w.includes('重复 key')), `build 路径重复 key 必须 warn（实际: ${bwarns.join(' | ')}）`)
+})
+
+test('G11：可变组件输出（状态变化——形态切换）——终态等价（fuzz 盲区：输出固定纪律的反面）', async () => {
+  // 真实世界：组件状态变化 → 输出形态切换（div→数组→null→em→组件）——
+  // 旧输出移除必须按**旧输出形态**的 id 空间（单元素挂槽位/数组空洞挂
+  // compId.0）——统一 outId 曾导致：旧 div 保留 + 锚插入 + 实例残留
+  // （probe3 实证）——修复：diffComponentOutput 的 oldBase 按形态计算
+  // （slotId/compId.0）——以下每轮先 build old（phase 旧值）再 phase++
+  // 后 diff（renderFn 重调输出新形态）——参考 build new（新 phase）
+  let phase = 0
+  const Vary = () => () => {
+    switch (phase) {
+      case 0: return h('div', { class: 'v' }, 'a')
+      case 1: return [h('span', {}, 'b'), h('span', {}, 'c')]
+      case 2: return null
+      case 3: return h('em', {}, 'e')
+      case 4: return h('p', {}, 'p')
+      default: return h('div', { class: 'v' }, 'a')
+    }
+  }
+  const tree = (): VNode => h('div', {}, [h(Vary, {})])
+  // 每对：build old（phase=n）+ diff（phase=n+1）vs 参考 build new（phase=n+1）
+  for (let n = 0; n < 4; n++) {
+    phase = n
+    const oldT = tree()
+    phase = n + 1
+    const newT = tree()
+    const diff = await verifyEquivalence(oldT, newT, createComponentRegistry())
+    assert.equal(diff, null, `可变输出 ${n}→${n + 1} 终态不等价:\n${diff ?? ''}`)
+  }
+})
+
 // ── 模糊测试（固定种子——定理 1 的归纳验证） ──
 
 test('终态等价：随机树对 fuzz 零不等价（多种子 × 400 对——收敛验收）', async () => {
@@ -399,7 +486,7 @@ async function fuzzRound(seed: number, rounds: number): Promise<number> {
     const r = rnd()
     if (r < 0.3) return h('span', { class: 'c' + (seq % 3) }, randTree(depth + 1))
     if (r < 0.5) return h('div', { id: 'd' + (seq % 2) }, Array.from({ length: 1 + (seq % 3) }, () => randTree(depth + 1)))
-    if (r < 0.7) return h('span', { key: 'k' + (seq % 5) }, randTree(depth + 1))
+    if (r < 0.7) return h('span', { key: 'k' + (seq++ % 1000) }, randTree(depth + 1))
     if (r < 0.85) return h('ul', {}, Array.from({ length: 1 + (seq % 3) }, (_, i) => h('li', { key: 'L' + i }, randTree(depth + 1))))
     return h(Fragment, {}, Array.from({ length: 1 + (seq % 2) }, () => randTree(depth + 1)))
   }
@@ -431,9 +518,13 @@ function makeCompFactory(kind: 'array' | 'el' | 'hole' | 'comp', inner: () => VN
   const arrLabel = 'a' + (compSeq % 3)
   const innerVal = inner()
   const innerComp = kind === 'comp' ? h(makeCompFactory('el', () => 'x', rnd), {}) : null
+  // **生成器强化（G10 盲区——组件输出数组项从未带 key）**：输出数组
+  //  首项带唯一 key（创建时固定——工厂输出确定性纪律）——keyed 路径
+  //  （diffKeyedChildren 顺移/重建 + removalParent 清理）纳入 fuzz 覆盖
+  const outKey = 'outk' + (compSeq++)
   const f = () => () => {
     switch (kind) {
-      case 'array': return [h('span', { class: 'o0' }, arrLabel), innerVal]
+      case 'array': return [h('span', { class: 'o0', key: outKey }, arrLabel), innerVal]
       case 'el': return h('div', { class: 'oel' }, innerVal)
       case 'hole': return holeVal ? h('b', {}, 'h') : null
       case 'comp': return innerComp
@@ -460,7 +551,7 @@ async function compFuzzRound(seed: number, rounds: number): Promise<number> {
     if (depth > 2 || rnd() < 0.3) return randComp(depth)
     const r = rnd()
     if (r < 0.3) return h('div', { class: 'c' + (seq % 2) }, Array.from({ length: 1 + (seq % 2) }, () => randTree(depth + 1)))
-    if (r < 0.6) return h('span', { key: 'k' + (seq % 3) }, randTree(depth + 1))
+    if (r < 0.6) return h('span', { key: 'k' + (seq++ % 1000) }, randTree(depth + 1))
     return h(Fragment, {}, Array.from({ length: 1 + (seq % 2) }, () => randTree(depth + 1)))
   }
   let mismatches = 0

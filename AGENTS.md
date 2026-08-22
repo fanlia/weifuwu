@@ -10,6 +10,7 @@
 | ID | 规则 | 说明 |
 | --- | --- | --- |
 | R-01 | **运行测试相关命令的 timeout 最多 10 秒** | 卡住（挂起/竞态/等待）用更短 timeout 复跑缩小范围——超时即信号，不无限等待 |
+| R-02 | **core2 测试必须满足 round-trip 不变量（R1/R2）** | vdom/core2 的所有测试构造的 vnode/HTML 必须双向恒等：R1 `html2vnode(vnode2html(v)) ≡ normalizeForRoundTrip(v)`；R2 `vnode2html(html2vnode(w)) ≡ w`——执行机制：`assertRoundTrip` helper（src/test/contract/core2-roundtrip.test.ts 导出）——每个测试用例构造后追加该断言（保真范围边界用例用归一期望） |
 
 ## 2. 测试架构（内置框架——契约层 + 场景层）
 
@@ -153,9 +154,23 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     auditDom（场景层 e2e-reconcile）   —— id 唯一/格式/兄弟连续/投影完整
     fuzz（多种子 × 400 对）            —— 静态树 1200 对 + 组件树 300 对
     ```
-    - 组件树 fuzz 收敛实录：267/300（89%）→ 1/300（2026-XX）——修复全部
-      生产端（移除路径统一 removeVNodeTree + null 条件统一 + root 转换
-      oldCompId + Sim 消费端前缀递归对齐）
+    - 组件树 fuzz 收敛实录：267/300（89%）→ 1/300（2026-XX）→ **0/300**
+      （2026-12——重复 key 根因歼灭）——修复全部生产端（移除路径统一
+      removeVNodeTree + null 条件统一 + root 转换 oldCompId + Sim 消费端
+      前缀递归对齐）
+    - **重复 key 纪律（G9——fuzz 1/300 根因歼灭——2026-12）**：重复 key
+      是非法输入（身份映射无唯一语义）——三面修复：① diffKeyedChildren
+      的 oldIdxByKey 首现优先（与 keyIndex 单一规则源对齐——裸 Map.set
+      尾现覆盖 → moved 误判 → move 缺失 → 旧节点残留/新项插进旧节点——
+      seed=99 i=67 实证）② 重复 key 多余项按 unkeyed 区间移除（无主节点
+      残留）③ move remap 同步迁移组件注册表（Sim 的 instances 同步——
+      rec 不迁移则 diff 生成端按新 id 查询落空 → 工厂重跑 + 旧 rec 残留）
+      ——**A 级检测 detectDuplicateKey warn 全覆盖（非法输入显式化——
+      不静默）**：diff 侧 diffKeyedChildren（newCs/oldCs）+ build 侧三处
+      列表展开（dispatcher array/fragment case + renderNative children——
+      build 同 key 组件 compId 相同 → 后者静默复用前者实例（工厂不执行/
+      不 mount——初始化丢失）——**对账器结构性盲区实证**（两世界同错=
+      等价——不报）——必须 A 级检测兜底）
     - **生成端纪律**：移除路径（transitionElement/transitionComponent/
       diffSame tag 分支/keyed step 1/removeOldSlot）全部收敛 removeVNodeTree
       ——单锚 remove 是违例（子树实例残留）
@@ -196,8 +211,9 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     维度 7：双树对账（verifyEquivalence 的合法 id 投影推导——静态槽位
             ∪ 组件子空间——幽灵 id 精确报错——不等价定位维度）        ✅
     ```
-    **结论**：状态机维度已全覆盖——剩余 1/300（id 空间深层组合——parent
-    合法但归属错）由终态对账捕获（演绎保证——未漏网）——状态机维度
+    **结论**：状态机维度已全覆盖——剩余 1/300（重复 key 非法输入——
+    2026-12 根因歼灭为 0/300——G9 三面修复 + fuzz 生成器唯一 key）由
+    终态对账捕获（演绎保证——未漏网）——状态机维度
     的边际补全（生成端/双树）不构成新捕获能力（对账器更强）
 
     ### 状态机 vs 对账器（验收纪律——2026-XX 定稿）
@@ -265,6 +281,10 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | | diffSame 其余同态走 transform（组件输出 Text↔元素——emit 无 remove 残留） | 导航崩溃（overlay→colorpicker DOMException——insert 到 Text） |
 | | procInsert Text 父防御 + ref 有效性（导航流引用旧树残留） | 导航多轮 NotFoundError/insert 到 Text（用户实测） |
 | | useScrollPosition getScroller `?? window` → `?? null`（容器后挂载重绑） | VirtualTable/LogViewer/AiChat 滚动容器（虚拟化不更新——实测） |
+| | keyed 重复 key 三面修复（G9——首现优先/多余项区间移除/move remap 迁移组件注册表） | keyed 列表（非法输入确定行为——组件树 fuzz 1/300→0） |
+| | **keyedId key 转义（key 注入防御——证明审计发现）**：compId 直接拼接 key——key 含 '.'（数据 id 'a.b'）与 'ka' 产生前缀关系——disposeComponent/remapSubtree 的 startsWith 前缀匹配误删兄弟实例（unmount root.0.ka 误删 root.0.ka.b——状态丢失 + onUnmounts 错乱——实证）——统一转义（'%'→'%25' 先行、'.'→'%2E'——互不碰撞）——build/diff/cleanup 5 生成点单一实现源 | keyed 组件（任意字符 key——用户数据 id） |
+| | **removalParent 清理 parent 语义（G10——证明审计——sink 特判对齐）**：removeVNodeTree 的 parent 参数 = 渲染时 sink parent——五处错位实证（fuzz 生成器盲区——组件输出项从未带 key）：① 数组分支传槽位父（应传 base=compId）② 组件输出 keyed 组件——transitionComponent/diffSame 顶层传槽位父 ③ 组件输出 Fragment 含 keyed 组件——组件分支递归传 compId（应传槽位父——base 父路径推导）④ emitWithKey 输出收缩缺 oldCompId——unmount/区间清理跳过（实例残留 + 单锚 remove）⑤ emitWithKey 对照分支 keyed 输出组件——diffSame 按槽位 id 查 rec 落空（工厂重跑 + 旧 rec 残留 + id 空间错位）——统一 removalParent（组件/数组→compId；Fragment→槽位父）+ 收缩补 oldCompId + 对照分支 keyed 递归 emitWithKey——G10 五测试锁定 | 组件输出（keyed 子项/收缩/嵌套组件输出） |
+| | **可变输出 id 空间（G11——证明审计——输出形态基线）**：组件输出单元素挂槽位（slotId）；空洞/数组/组件输出挂 compId.0 起——diffComponentOutput 的转换 oldId 曾统一用 outId（新输出 sink 参数——数组/空洞输出时 p=compId、i=0——对旧输出错位）——可变输出（div→数组/收缩/展开）实证：旧 div 保留 + 锚插入 + 实例残留——修复：oldBase 按旧输出形态计算（slotId/compId.0）+ emitWithKey 内联 sink 替换为 diffComponentOutput（消双实现——输出对照单一实现源）+ oldOut 提前取（renderComponent 先更新 lastOutput 再调 sink——回调内求值拿到新输出——G10④ 回归教训）——G11 四形态切换锁定 | 组件状态变化（条件渲染/加载态切换） |
 | **组件层** | Slider renderFn 删 popup.refresh（hover 卡死） | Slider 自身（根因是组件在 renderFn 调 refresh——引擎 refresh 语义正确） |
 | | VideoPlayer video ref 时机 + muted IDL（2 bug） | VideoPlayer 自身 |
 | | Tour 视口翻转（placement top 越界） | Tour 自身 |

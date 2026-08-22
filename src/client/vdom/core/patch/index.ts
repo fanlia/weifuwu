@@ -97,6 +97,20 @@ export class CommandApplier {
         this.eventRegistry['table'].set(newPrefix + id.slice(oldPrefix.length), v)
       }
     }
+    // **组件实例迁移（G9——move remap 后 diff 生成端按新 id 对照——
+    //  registry 不迁移则 rec 查询落空 → 工厂重跑 + 旧 rec 残留（S_INST
+    //  面——重复 key fuzz 1/300 实证））**：rec 前缀迁移（hookStates/
+    //  onUnmounts 保持——实例状态跨 move 保持——与 keyed .k{key}
+    //  位置无关语义一致）
+    if (this.registry) {
+      for (const id of [...this.registry.keys()]) {
+        if (id === oldPrefix || id.startsWith(oldPrefix + '.')) {
+          const rec = this.registry.get(id)!
+          this.registry.delete(id)
+          this.registry.set(newPrefix + id.slice(oldPrefix.length), rec)
+        }
+      }
+    }
   }
 
   /** 父节点解析（root/节点表） */

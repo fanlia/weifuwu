@@ -17,6 +17,7 @@ import { kindOf, textOf } from './node/index.ts'
 import { emitHole, invalidDiagnostic } from './node/hole.ts'
 import { pathId, renderNative } from './node/native.ts'
 import { renderComponent, createComponentRegistry, type ComponentRegistry } from './node/component.ts'
+import { detectDuplicateKey, keyedId } from './node/keyed.ts'
 import type { UIContext } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 
@@ -97,9 +98,14 @@ export function createRenderDispatcher(
       //  按项数 +1 覆盖后续项（fuzz seed=42 实证）；ref 用展开首槽位会让
       //  后续项插入到已存在节点前（顺序错乱——参考树 0,2,3,1））**
       case 'array': {
+        const items = v as VNodeChild[]
+        // **A 级检测（重复 key——build 路径——G9 补全）**：同 key 组件
+        //  → compId 相同 → 后者静默复用前者实例（工厂不执行/不 mount——
+        //  初始化丢失）——非法输入显式化（不静默）
+        detectDuplicateKey(items, `数组展开（${parent}）`)
         let slot = index
         let lastRef2: string | null = ref
-        for (const c of (v as VNodeChild[])) {
+        for (const c of items) {
           await emit(c, parent, slot, lastRef2)
           const sc = slotCount(c)
           lastRef2 = pathId(parent, slot + sc - 1) // 展开最后槽位
@@ -110,6 +116,8 @@ export function createRenderDispatcher(
       // Fragment 符号 vnode（`<></>`——与数组同义——展开）——槽位推进
       case 'fragment': {
         const cs = childrenOf(v as VNode)
+        // **A 级检测（重复 key——build 路径——G9 补全）**：同源数组 case
+        detectDuplicateKey(cs, `Fragment 展开（${parent}）`)
         let slot = index
         let lastRef2: string | null = ref
         for (const c of cs) {
@@ -127,11 +135,11 @@ export function createRenderDispatcher(
         return
       }
       // 组件 → component.ts（两阶段工厂 + renderFn——可 await——
-      // compId = 锚点 id（组件 vnode 有 key → `{parent}.k{key}`——**位置无关**
-      // ——keyed 增删/重排状态跟随 key——build/diff 同格式）
+      // compId = 锚点 id（组件 vnode 有 key → keyedId（**key 转义**——
+      // **位置无关**——keyed 增删/重排状态跟随 key——build/diff 同格式）
       case 'component': {
         const vn = v as VNode
-        const compId = vn.key !== null ? `${parent}.k${vn.key}` : id
+        const compId = vn.key !== null ? keyedId(parent, vn.key) : id
         // **mount 指令（组件生命周期——初始化完成——返回值判定——
         //  类型切换重 mount 后正确标记）**
         const isNew = await renderComponent(vn, parent, index, ref, compId, ctx, registry, emit, emitCommand)

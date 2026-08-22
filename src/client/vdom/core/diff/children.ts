@@ -14,7 +14,7 @@ import { childrenOf, slotCount } from '../node/children.ts'
 import { kindOf } from '../node/index.ts'
 import { stateOf } from '../transform/states.ts'
 import { transitionOf } from '../transform/table.ts'
-import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed } from '../node/keyed.ts'
+import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed, detectDuplicateKey, keyedId } from '../node/keyed.ts'
 import { pathId } from '../node/native.ts'
 import { isFragment } from '../node/fragment.ts'
 import { emitHole } from '../node/hole.ts'
@@ -25,6 +25,7 @@ import type { UIContext } from '../../context/UIContext.ts'
 import { diffSame } from './same.ts'
 import { removeVNodeTree } from './cleanup.ts'
 import { outputToChild } from '../node/component.ts'
+import { diffComponentOutput } from './output.ts'
 
 
 
@@ -233,9 +234,16 @@ export async function diffKeyedChildren(
   emit: RenderSink, emitCommand: (cmd: Command) => void,
   ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
-  // 旧 key → 旧索引（身份映射）
+  // 旧 key → 旧索引（身份映射——**首现优先——与 keyIndex 语义对齐（单一
+  //  规则源）**：重复 key（非法输入）时裸 Map.set 尾现覆盖 → moved 计算
+  //  误判（oldIdx === newIdx → move 缺失）→ 旧节点不移不删 + 新项插进旧
+  //  节点 + diffSame 按新位置 id 操作旧节点（id 空间错位——组件树 fuzz
+  //  seed=99 i=67 实证——1/300）——首现优先 + 重复 key A 级检测 warn）
   const oldIdxByKey = new Map<string, number>()
-  oldCs.forEach((c, i) => { const k = keyOf(c); if (k !== null) oldIdxByKey.set(k, i) })
+  oldCs.forEach((c, i) => { const k = keyOf(c); if (k !== null && !oldIdxByKey.has(k)) oldIdxByKey.set(k, i) })
+  // **A 级检测（重复 key——非法输入——引导修正——首现优先保证行为确定）**
+  detectDuplicateKey(newCs, `keyed 列表（${parent}）`)
+  detectDuplicateKey(oldCs, `keyed 列表（${parent}）`)
   const newKeys = new Set(newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null))
 
   // 0. **旧 unkeyed 项移除（真实 bug——Menubar 面板残留——引擎级修复，
@@ -245,6 +253,11 @@ export async function diffKeyedChildren(
   //    FRAG vnode 展开占多槽位（单锚 remove 残留展开项）；文本/空洞项
   //    （keyed 路径无尾部缩短循环——旧多于新的 unkeyed 项永远漏）——
   //    统一 removeVNodeTree（FRAG 展开/组件 unmount）+ 单槽位项直 remove
+  //    **重复 key 多余项（G9——非法输入确定行为）**：重复 key 的第二个
+  //    及以后项 = 无主（身份映射只保留首现——keyIndex 语义）——按 unkeyed
+  //    区间移除——否则首现 move remap 后重复项残留（组件树 fuzz 1/300
+  //    同源——seed=99 i=67）——keyCount 统计
+  const keyCount = new Map<string, number>()
   for (let i = 0; i < oldCs.length; i++) {
     const oldC = oldCs[i]
     if (oldC === null || oldC === undefined || typeof oldC === 'boolean') {
@@ -255,7 +268,16 @@ export async function diffKeyedChildren(
       emitCommand({ op: 'remove', id: pathId(parent, i) })
       continue
     }
-    if (Array.isArray(oldC) || keyOf(oldC as VNode) !== null) continue // keyed/数组项——keyed 路径处理
+    if (Array.isArray(oldC)) continue // 数组项——keyed 路径处理
+    const k = keyOf(oldC as VNode)
+    if (k !== null) {
+      const n = (keyCount.get(k) ?? 0) + 1
+      keyCount.set(k, n)
+      if (n === 1) continue // 首现——keyed 路径处理
+      // 重复 key 多余项——无主——按 unkeyed 区间移除
+      removeVNodeTree(oldC as VNode, pathId(parent, i), parent, emitCommand, registry)
+      continue
+    }
     removeVNodeTree(oldC as VNode, pathId(parent, i), parent, emitCommand, registry)
   }
 
@@ -292,7 +314,7 @@ export async function diffKeyedChildren(
   if (!subseq) {
     // **冲突重建**：remove 全部 + 按新序渲染（组件实例 .k{key} 复用——状态保持）
     for (const [k, oldIdx] of oldIdxByKey) {
-      if (!newKeys.has(k)) emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
+      if (!newKeys.has(k)) emitCommand({ op: 'unmount', compId: keyedId(parent, k) })
     }
     oldCs.forEach((c, i) => {
       if (c === null || c === undefined || typeof c === 'boolean') return
@@ -307,9 +329,9 @@ export async function diffKeyedChildren(
       if (k !== null && typeof (newC as VNode).type === 'function') {
         // **全量渲染（节点已删——无对照——sink = emit）**——组件实例
         // .k{key} 复用（状态保持）
-        const keyedId = `${parent}.k${k}`
-        const isNew = await renderComponent(newC as VNode, parent, i, r, keyedId, ctx, registry, emit, emitCommand)
-        if (isNew) emitCommand({ op: 'mount', compId: keyedId })
+        const kid = keyedId(parent, k)
+        const isNew = await renderComponent(newC as VNode, parent, i, r, kid, ctx, registry, emit, emitCommand)
+        if (isNew) emitCommand({ op: 'mount', compId: kid })
       } else {
         await emit(newC, parent, i, r)
       }
@@ -371,41 +393,25 @@ export async function emitWithKey(
 ): Promise<void> {
   const vn = v as VNode
   if (typeof vn.type === 'function') {
-    // 组件：keyed compId（`{parent}.k{key}`——**位置无关**——增删/重排复用）
-    const keyedId = `${parent}.k${key}`
-    const rec = registry.get(keyedId)
-    // **方案 3：lastOutput 是 CompOutput——转回裸输出对照（undefined 保持）**
-    const oldOut = rec?.lastOutput === undefined ? undefined : outputToChild(rec.lastOutput)
-    const isNew = await renderComponent(vn, parent, index, ref, keyedId, ctx, registry, async (out, p, i, r) => {
-      const outId = pathId(p, i)
-      // 输出级空值转换（x => null——占位锚替换——同构保持）
-      if (out === null || out === undefined) {
-        if (oldOut !== undefined && oldOut !== null) {
-          const t = transitionOf(stateOf(oldOut), 'hole')
-          if (!t) throw new Error(`[vdom] 状态机违例：未定义转换 ${stateOf(oldOut)} → hole（keyed 组件输出收缩——P2）`)
-          await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r, registry })
-        } else if (oldOut === undefined) {
-          // **新实例首帧输出 null——占位锚**（同构保持——build 路径由
-          // emit 分发器 hole case 建锚——此处内联 sink 必须等价——真实 bug）
-          emitHole(emitCommand, outId, p, r)
-        }
-        return
-      }
-      if (oldOut === null) {
-        const t = transitionOf('hole', stateOf(out))
-        if (!t) throw new Error(`[vdom] 状态机违例：未定义转换 hole → ${stateOf(out)}（keyed 组件输出展开——P2）`)
-        await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r, registry })
-        return
-      }
-      if (oldOut !== undefined && !Array.isArray(oldOut) && !Array.isArray(out)) {
-        // 上次输出对照（同实例——精准增量）
-        await diffSame(oldOut as VNode, out as VNode, p, i, r, emit, emitCommand, ctx, registry)
-      } else {
-        await emit(out, p, i, r)
-      }
+    // 组件：keyed compId（keyedId——**key 转义**——位置无关——增删/重排复用）
+    const kid = keyedId(parent, key)
+    const rec = registry.get(kid)
+    // **旧输出必须提前取（renderComponent 内部先更新 lastOutput 再调
+    //  sink——回调内求值拿到新输出——对照 no-op——G10④ 回归实证）**
+    const oldOut = rec?.lastOutput
+    // **方案 3：lastOutput 是 CompOutput（原样传 diffComponentOutput——
+    //  消双实现——证明审计）**：收缩/展开/单节点对照（keyed 递归）/数组
+    //  对照统一 output.ts 单一实现源——compId=kid、slotId=pathId(parent,
+    //  index)（keyed 组件槽位 ≠ kid——输出形态 id 空间）
+    const isNew = await renderComponent(vn, parent, index, ref, kid, ctx, registry, async (out, p, i, r) => {
+      await diffComponentOutput(
+        oldOut, out, p, i, r, emit, emitCommand, ctx, registry, diffSame,
+        kid, pathId(parent, index),
+        (out2, p2, i2, r2, key2) => emitWithKey(out2, p2, i2, r2, key2, emit, emitCommand, ctx, registry),
+      )
     }, emitCommand)
     // **mount 指令（新实例——初始化完成）**
-    if (isNew) emitCommand({ op: 'mount', compId: keyedId })
+    if (isNew) emitCommand({ op: 'mount', compId: kid })
     return
   }
   await emit(v, parent, index, ref)

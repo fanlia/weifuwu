@@ -19,6 +19,18 @@ import type { VNode, VNodeChild } from '../vnode.ts'
 /** 位置 key 前缀（混合数组——无 key 项位置接管——命名空间隔离） */
 export const POS_KEY_PREFIX = 'pos:'
 
+/** keyed 组件实例 id（**key 转义——id 空间注入防御**）：compId =
+ *  `{parent}.k{key}`——'.' 是路径分隔符——用户 key 可含任意字符（数据
+ *  id——如 'a.b'）——直接拼接则 'root.0.ka' 与 'root.0.ka.b'（key='a.b'）
+ *  产生前缀关系——disposeComponent/remapSubtree/procRemove 的 startsWith
+ *  前缀匹配误删兄弟 keyed 实例（key 注入实证——unmount root.0.ka 误删
+ *  root.0.ka.b——实例状态丢失 + onUnmounts 错乱）——'%' 先行转义（防
+ *  '.' 转义后 '%' 二次歧义：'a.b'→'a%2Eb'，'a%2Eb'→'a%252Eb'——互不碰撞）
+ *  ——build/diff/cleanup 全部生成点统一走本函数（单一实现源） */
+export function keyedId(parent: string, key: string): string {
+  return `${parent}.k${key.replace(/%/g, '%25').replace(/\./g, '%2E')}`
+}
+
 /** 数组项 key（vnode.key——纯数据面——非 vnode 项 = null） */
 export function keyOf(v: VNodeChild): string | null {
   if (v === null || v === undefined || typeof v === 'boolean') return null
@@ -99,6 +111,28 @@ export function planKeyedDiff(oldItems: VNodeChild[], newItems: VNodeChild[]): K
     if (!oldIdx.has(k)) added.push(k)
   }
   return { reused, removed, added }
+}
+
+/** A 级检测（dev——重复 key → warn 引导修正——重复 key 是非法输入：
+ *  身份映射无唯一语义——diffKeyedChildren 按首现优先处理（与 keyIndex
+ *  对齐——确定性）——但列表本身应修正（fuzz 实证：重复 key 导致 move
+ *  映射错位——旧节点残留/新节点错位——终态不等价）） */
+export function detectDuplicateKey(items: VNodeChild[], context: string): void {
+  const seen = new Set<string>()
+  for (const item of items) {
+    const k = keyOf(item)
+    if (k !== null) {
+      if (seen.has(k)) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[vdom] ${context}：重复 key "${k}"（列表身份映射歧义——增删/重排行为不确定）——` +
+          '请为每项声明唯一 key（数据 id → keyBy）',
+        )
+        return
+      }
+      seen.add(k)
+    }
+  }
 }
 
 /** A 级检测（dev——数组长度变化 + 无 key 组件项 → warn 引导声明 key——

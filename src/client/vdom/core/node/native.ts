@@ -11,6 +11,7 @@
 
 import type { VNode } from '../vnode.ts'
 import { childrenOf, slotCount } from './children.ts'
+import { detectDuplicateKey } from './keyed.ts'
 import type { Command } from '../command/index.ts'
 import type { ComponentSink } from './component.ts'
 
@@ -53,6 +54,10 @@ export async function renderNative(
   const refFn = vn.props.ref
   if (typeof refFn === 'function') emitCommand({ op: 'ref', id, fn: refFn })
   const cs = childrenOf(vn)
+  // **A 级检测（重复 key——元素 children——G9 补全）**：与 dispatcher
+  //  array/fragment case 同源（同 key 组件 → compId 相同 → 后者静默复用
+  //  前者实例——初始化丢失）
+  detectDuplicateKey(cs, `元素 children（${id}）`)
   // **槽位推进 + 最后槽位 ref（投影维度——FRAG 项展开占多槽——按索引
   //  +1 会 id 冲突（span{c0} 与 k2 同 root.0.1——create 幂等涂改属性——
   //  fuzz seed=42 i=349 实证）——ref 用展开最后槽位（顺序正确））**

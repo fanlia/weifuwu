@@ -21,7 +21,7 @@
 
 import type { VNodeChild } from '../vnode.ts'
 import { pathId } from '../node/native.ts'
-import { removeVNodeTree, outputBase } from '../diff/cleanup.ts'
+import { removeVNodeTree, outputBase, removalParent } from '../diff/cleanup.ts'
 import { outputToChild } from '../node/component.ts'
 import type { TransformContext, TransitionFn } from './index.ts'
 
@@ -36,7 +36,18 @@ export const transitionComponent: TransitionFn = async (_old, next, ctx) => {
   //  也清理——an:root.0.0 幽灵实证）——转换后 outputBase 计算基线**
   if (out !== undefined) {
     const child = outputToChild(out)
-    removeVNodeTree(child, outputBase(child, ctx.oldCompId ?? '', pathId(ctx.parent, ctx.index)), ctx.parent, ctx.emit, ctx.registry)
+    // **parent 语义（证明审计——removalParent 统一）**：child 是组件
+    //  （keyed）→ 渲染 sink parent = 外层 compId（outIsCompNode 特判）——
+    //  传 ctx.parent（槽位父）则 keyedId 错位（root.0.0.kk1 渲染 vs
+    //  root.0.kk1 清理实证）——数组 → compId（数组分支内部处理）；
+    //  Fragment → 槽位父（index 推导）
+    removeVNodeTree(
+      child,
+      outputBase(child, ctx.oldCompId ?? '', pathId(ctx.parent, ctx.index)),
+      removalParent(child, ctx.oldCompId ?? '', ctx.parent),
+      ctx.emit,
+      ctx.registry,
+    )
   } else {
     // 无旧输出记录（防御）——首锚让位
     ctx.emit({ op: 'remove', id: ctx.oldId })
