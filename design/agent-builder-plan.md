@@ -247,11 +247,15 @@ coding agent：供给侧——代码怎么写（对象：代码库）
 
 ```
 Phase 0  ✅ 定稿（本文档）
-Phase 1  世界数据模型 + API：worlds/agents/relations/events CRUD
-Phase 2  回合引擎（叙事模式最小）：事件注入 → 激活 → 对话回合 → 记录
-Phase 3  UI：世界构建器（图谱+档案）→ 运行控制台 → 观察台
-Phase 4  场景验证：红楼梦小世界（5-8 人物推演 3-5 回合）——验证本质抽象
-Phase 5  横向铺：批处理（问卷）→ 经营（公司）→ 能力注入（browse→code）
+Phase 1  ✅ 世界数据模型 + API：worlds/agents/relations/events CRUD
+Phase 2  ✅ 回合引擎（叙事模式）：事件注入 → 激活 → 对话回合 → 记录
+Phase 3  ✅ UI：世界构建器（图谱+档案）→ 运行控制台 → 观察台
+Phase 4  ✅ 场景验证：红楼梦 8 人物推演（人物一致性产品级）
+Phase 5  ✅ 批处理（问卷答案视角差异化）· 经营（周期行动回合）
+         ✅ 城市（代表原型 + 宏观指标闭环 + 支持率）
+         ✅ 定向对话（咨询/干预+记忆）· 只读分享（旁观者）
+         ⏳ 真实浏览器（agent-browser 集成）· code 注入（沙盒）
+         ⏳ 宏观方程（L0 方程替换 LLM 评估）· 商业化（租户/订阅）
 ```
 
 ### 最小闭环验收标准
@@ -267,7 +271,8 @@ Phase 5  横向铺：批处理（问卷）→ 经营（公司）→ 能力注入
 ## 10. 现状与已完成
 
 ```
-✅ apps/agent-builder：hello world（纯框架最小形态——serve + UIRouter + components）
+✅ apps/agent-builder：完整可演示产品（四模式引擎 + 三用户角色 + 四场景 seed
+  ——node server.ts → http://localhost:3400——见 apps/agent-builder/README.md）
 ✅ 组件沉淀：FileTree（文件树）/ AppShell（应用壳）/ RelationGraph（关系图谱）
 ✅ 框架修复（agent-builder 前置）：Router trieFind 精确匹配 / procRemove 子树清理
   / 中间件完整契约（api token+onUnauthorized、auth 完整面）/ vdom SVG 命名空间
