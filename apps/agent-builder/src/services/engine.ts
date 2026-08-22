@@ -7,7 +7,7 @@
  */
 import type { WorldCtx } from '../routes/worlds.ts'
 
-interface AgentRow { id: string; name: string; persona: string; capabilities: string[] }
+interface AgentRow { id: string; name: string; persona: string; capabilities: string[]; weight: number }
 interface RelationRow { id: string; from_agent: string; to_agent: string; type: string; strength: number; directed: boolean; from_name?: string; to_name?: string }
 
 /** 人设 + 世界背景 + 关系上下文 → system prompt（世界模型的灵魂：身份 × 关系） */
@@ -21,9 +21,13 @@ function buildAgentPrompt(worldName: string, agent: AgentRow, relations: Relatio
       const dir = r.from_agent === agent.id ? (r.directed ? '→' : '⇄') : (r.directed ? '←' : '⇄')
       return `- ${other}（${r.type}·强度 ${r.strength}）`
     })
+  const weightLine = agent.weight && agent.weight > 1
+    ? `你代表 ${agent.weight} 人（代表性原型——你的立场影响 ${agent.weight} 人的权重）。`
+    : ''
   return [
     `你在世界「${worldName}」中扮演：${agent.name}。`,
     `人设：${agent.persona || '（未设定——请保持中立自然）'}`,
+    weightLine,
     relLines.length ? `你与世界其他角色的关系：\n${relLines.join('\n')}` : '',
     '以你的身份对事件作出回应——用第一人称，符合你的性格与立场，2-4 句话。',
   ].filter(Boolean).join('\n\n')
@@ -53,12 +57,13 @@ export async function runEventTurns(ctx: WorldCtx, eventId: string): Promise<voi
     const desc = String(ev.payload?.description ?? '')
     const isSurvey = ev.type === 'survey'
     const isCycle = ev.type === 'cycle'
+    const isPolicy = ev.type === 'policy'
     const questions = Array.isArray(ev.payload?.questions) && ev.payload.questions.length > 0
       ? ev.payload.questions
       : DEFAULT_QUESTIONS
     await ctx.sql.unsafe("UPDATE ab_events SET status = 'running' WHERE id = $1", [eventId])
     for (const agent of agents) {
-      const kind = isSurvey ? 'survey' : isCycle ? 'action' : 'dialogue'
+      const kind = isSurvey ? 'survey' : (isCycle || isPolicy) ? 'action' : 'dialogue'
       const [turn] = await ctx.sql.unsafe<{ id: string }>(
         "INSERT INTO ab_turns (event_id, agent_id, kind, input, status) VALUES ($1, $2, $3, $4, 'running') RETURNING id",
         [eventId, agent.id, kind, desc])
@@ -67,7 +72,9 @@ export async function runEventTurns(ctx: WorldCtx, eventId: string): Promise<voi
           ? `问卷《${ev.payload?.title ?? '调查'}》——题目：\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n请以 ${agent.name} 的身份逐题作答，输出 JSON：{"answers": {"题目": "你的答案"}}——不要输出 JSON 以外的内容。`
           : isCycle
             ? `经营周期事件：${desc}\n\n这是新一经营周期。请以 ${agent.name} 的岗位职责作出本周期行动与决策——含：1) 你关注什么 2) 你采取的行动/决策 3) 你对上级的汇报要点。用第一人称，2-4 句话。`
-            : `世界事件：${desc}\n\n请以你的身份回应。`
+            : isPolicy
+              ? `城市政策提案：${desc}\n\n请以 ${agent.name} 的群体身份评估这项政策——含：1) 对你代表的群体影响如何 2) 你支持还是反对（及理由）3) 你的诉求。用第一人称，2-4 句话。`
+              : `世界事件：${desc}\n\n请以你的身份回应。`
         const res = await ctx.ai.chat({
           model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
           messages: [
