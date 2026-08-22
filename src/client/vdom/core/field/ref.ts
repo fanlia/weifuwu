@@ -30,9 +30,18 @@ export function applyRef(el: HTMLElement | null, value: unknown, prev?: unknown)
 /** ref 全局注册表（per serve 实例——挂载/卸载查表触发） */
 export class RefRegistry {
   private refs = new Map<string, unknown>()
+  /** 生命周期状态机（**全部状态机化——2026-XX**）：active → disposed
+   *  （dispose 消费——之后 set/mount/unmount 违例报错——不再静默） */
+  private phase: 'active' | 'disposed' = 'active'
 
   /** 注册（prev 旧引用先退 null——diff 重绑；已注册同 id 覆盖——不重复触发） */
   set(id: string, fn: unknown, prev?: unknown): void {
+    // **状态机违例（审计）**：disposed 后注册——ref 表已清——静默写入
+    // 是隐藏错误
+    if (this.phase === 'disposed') {
+      console.error(`[vdom] ref 表状态机违例：disposed 后 set(${id}) 被忽略`)
+      return
+    }
     if (prev && prev !== fn && typeof prev === 'function') {
       try { (prev as (el: null) => void)(null) } catch (e) { console.error('[vdom] ref prev:', e) }
     }
@@ -69,8 +78,10 @@ export class RefRegistry {
     }
   }
 
-  /** 卸载清理（serve unmount） */
+  /** 卸载清理（serve unmount）——状态机迁移：active → disposed */
   dispose(): void {
+    if (this.phase === 'disposed') return // 幂等
+    this.phase = 'disposed'
     this.refs.clear()
   }
 }

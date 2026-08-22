@@ -18,6 +18,9 @@ import type { DataPipe } from './UIContext.ts'
 
 export function createDataPipe(): DataPipe {
   const cache = new Map<string, Promise<unknown>>()
+  // **生命周期状态机（全部状态机化——2026-XX）**：active → disposed
+  // （serve unmount 时清缓存——之后 get/set 违例报错——不再静默）
+  let phase: 'active' | 'disposed' = 'active'
   /** 种子数据（hydration 预热 / SSR 收集——key → 值） */
   let seedData: Record<string, unknown> = {}
 

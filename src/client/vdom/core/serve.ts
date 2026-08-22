@@ -131,6 +131,17 @@ export interface UiServeHandle {
   unmount(): void
 }
 
+/** serve 生命周期状态机（**全部状态机化——2026-XX**）：
+ *  active → unmounted（unmount 消费——迁移后 render/navigate 违例报错） */
+export type ServePhase = 'active' | 'unmounted'
+
+/** 渲染队列状态机（**替代裸 rendering boolean**）：
+ *  idle → rendering（render 启动）→ idle（runRender 完成/错误/队列空）
+ *  - rendering 中 render() → 入队（合法——FIFO 确定性——非违例）
+ *  - unmounted 中 render()/navigate() → 违例报错（DOM 已清——静默渲染
+ *    是隐藏错误——审计 2026-XX） */
+export type RenderPhase = 'idle' | 'rendering'
+
 /** 页面作者渲染入口（ctx 面——vnode → Response command 事件流——
  *  公共面仍只有 h/jsx/uiServe/UIRouter——本入口经 ctx 提供） */
 export interface RenderCtx extends UIContext {
@@ -163,7 +174,8 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   /** 渲染队列（用户决策 2026-12）：渲染期间发生的 render → push 入队——
    *  每次渲染完成 → shift 取队头继续——直到队列空——**确定性**：
    *  每个渲染请求最终执行（FIFO——先触发先执行——无丢失无合并歧义） */
-  let rendering = false
+  let servePhase: ServePhase = 'active'
+  let renderPhase: RenderPhase = 'idle'
   let queue: Request[] = []
   let drainPromise: Promise<void> | null = null
 
@@ -180,7 +192,7 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
 
   const runRender = async (initial: Request): Promise<void> => {
     let target = initial
-    rendering = true
+    renderPhase = 'rendering'
     try {
       while (true) {
         req = target
@@ -233,7 +245,7 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
       const fns = afterRenderFns
       afterRenderFns = []
       for (const fn of fns) { try { fn() } catch (e) { console.error('[vdom] afterRender:', e) } }
-      rendering = false
+      renderPhase = 'idle'
       drainPromise = null
       // **函数表清理**：$fn 仅传输层（历史函数已解码到事件表/ref 表——
       // 跨流不需要）——消费完即清——长会话零累积
@@ -242,7 +254,13 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   }
 
   const render = (target: Request): Promise<void> => {
-    if (rendering && drainPromise) {
+    // **生命周期状态机违例（审计）**：unmount 后 render——DOM 已清——
+    // 静默渲染是隐藏错误（异步回调在卸载后触发）
+    if (servePhase === 'unmounted') {
+      console.error('[vdom] serve 状态机违例：unmount 后 render 调用被忽略')
+      return Promise.resolve()
+    }
+    if (renderPhase === 'rendering' && drainPromise) {
       // 渲染中触发 → push 入队（确定性：每个请求最终执行）
       queue.push(target)
       return drainPromise // await 全部队列执行完（含后续入队）
@@ -254,6 +272,11 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
 
   /** 编程式导航（pushState + 渲染——popstate 语义） */
   const navigate = async (path: string): Promise<void> => {
+    // **生命周期状态机违例（审计）**：unmount 后 navigate——同 render
+    if (servePhase === 'unmounted') {
+      console.error('[vdom] serve 状态机违例：unmount 后 navigate 被忽略')
+      return
+    }
     win.history.pushState({}, '', path)
     await render(frontRequest(path))
   }
@@ -359,6 +382,9 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     ready,
     navigate,
     unmount() {
+      // **生命周期状态机迁移（审计）**：active → unmounted——后续
+      // render/navigate 违例报错（不再静默）
+      servePhase = 'unmounted'
       doc.removeEventListener('click', onDocClick)
       win.removeEventListener('popstate', onPopstate)
       applier.dispose() // 事件代理根监听移除（资源释放完整）

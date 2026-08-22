@@ -168,14 +168,18 @@ export async function renderComponent(
       getSharedContext: () => sharedCtx ?? null,
     })
     // 工厂 = mount（一次——可 await ctx.data——管道保证 resolve）
+    // **MOUNTING 占位注册（状态机——审计）**：工厂执行前先注册（异步工厂
+    // await 期间同组件重复引用 → 检测 mounting 显式报错——循环依赖防御）
+    const mountingRec = { type: factory, renderFn: (() => null) as RenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounting' as const }
+    registry.set(compId, mountingRec)
     const maybeRenderFn = factory(vn.props, instCtx)
-    rec = { type: factory, renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounting' }
+    rec = { type: factory, renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounted' }
     // **mount 阶段 hook 计数 → 渲染期基准**（渲染 hook idx = renderBase + seq）
     rec.renderBase = hookSeq.n
-    // **MOUNTING 态提前注册（状态机——审计）**：await 前注册（phase=mounting）
-    // ——异步工厂期间同组件重复引用 → renderComponent 检测 mounting 显式报错
-    // （循环依赖/重复执行工厂——状态丢失防御）——await 后 phase 保持
-    // mounting——mount 命令消费（procMount）→ mounted
+    // **MOUNTING 态提前注册（状态机——审计）**：工厂执行前先注册 mounting
+    // 占位（异步工厂 await 期间同组件重复引用 → 显式报错——循环依赖防御）
+    // ——await 完成后立即 mounted（工厂完成即可复用——mount 命令是消费端
+    // 确认——生成端视角 mounting 窗口 = 工厂 await 期间）
     registry.set(compId, rec)
   }
 

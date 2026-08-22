@@ -29,6 +29,9 @@ export class EventRegistry {
    *  独立 applier 的节点 id 与主树同路径（root.0.x）——document 捕获时
    *  主树按钮祖先链命中独立表（onRemove 误触发——toast 多条 bug 实证）） */
   private container?: HTMLElement | null
+  /** 生命周期状态机（**全部状态机化——2026-XX**）：active → disposed
+   *  （dispose 消费——之后 set/remove 违例报错——不再静默写死表） */
+  private phase: 'active' | 'disposed' = 'active'
 
   constructor(doc: Document, container?: HTMLElement | null) {
     this.doc = doc
@@ -38,6 +41,12 @@ export class EventRegistry {
 
   /** 事件注册（代理写入——不直接绑定） */
   set(nodeId: string, event: string, handler: unknown): void {
+    // **状态机违例（审计）**：disposed 后注册——事件表已清——静默写入
+    // 是隐藏错误（serve 卸载后组件仍绑事件）
+    if (this.phase === 'disposed') {
+      console.error(`[vdom] 事件表状态机违例：disposed 后 set(${nodeId}, ${event}) 被忽略`)
+      return
+    }
     if (typeof handler !== 'function') {
       // 非函数值守卫（设计规则 §6.4：warn + 跳过——不中断渲染管线）
       console.warn(`[vdom] 事件 ${event} 非函数值被跳过（node ${nodeId}）——期望函数，实际 ${typeof handler}`)
@@ -126,8 +135,10 @@ export class EventRegistry {
     }
   }
 
-  /** 卸载清理（移除全部根监听 + 清表） */
+  /** 卸载清理（移除全部根监听 + 清表）——状态机迁移：active → disposed */
   dispose(): void {
+    if (this.phase === 'disposed') return // 幂等
+    this.phase = 'disposed'
     for (const t of this.rootTypes) {
       this.doc.removeEventListener(t, this.dispatchBound, { capture: true } as never)
     }
