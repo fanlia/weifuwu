@@ -29,10 +29,15 @@ function buildAgentPrompt(worldName: string, agent: AgentRow, relations: Relatio
   ].filter(Boolean).join('\n\n')
 }
 
-/** 执行一个事件的全部回合（异步——POST 不阻塞） */
+/** 默认问卷题目（payload.questions 缺省——批处理 survey 模式） */
+const DEFAULT_QUESTIONS = ['总体满意度（1-5 分）', '价格与价值评价', '改进建议']
+
+/** 执行一个事件的全部回合（异步——POST 不阻塞）
+ *  模式分发：survey（批处理——行动回合：按人设生成问卷答案 JSON）
+ *           其他（叙事——对话回合：按人设回应事件） */
 export async function runEventTurns(ctx: WorldCtx, eventId: string): Promise<void> {
   try {
-    const [ev] = await ctx.sql.unsafe<{ id: string; world_id: string; payload: { description?: string; target?: string[] } }>(
+    const [ev] = await ctx.sql.unsafe<{ id: string; world_id: string; type: string; payload: { description?: string; target?: string[]; title?: string; questions?: string[] } }>(
       'SELECT * FROM ab_events WHERE id = $1', [eventId])
     if (!ev) return
     const [world] = await ctx.sql.unsafe<{ name: string }>('SELECT name FROM ab_worlds WHERE id = $1', [ev.world_id])
@@ -46,20 +51,28 @@ export async function runEventTurns(ctx: WorldCtx, eventId: string): Promise<voi
        FROM ab_relations r JOIN ab_agents fa ON fa.id = r.from_agent JOIN ab_agents ta ON ta.id = r.to_agent
        WHERE r.world_id = $1`, [ev.world_id])
     const desc = String(ev.payload?.description ?? '')
+    const isSurvey = ev.type === 'survey'
+    const questions = Array.isArray(ev.payload?.questions) && ev.payload.questions.length > 0
+      ? ev.payload.questions
+      : DEFAULT_QUESTIONS
     await ctx.sql.unsafe("UPDATE ab_events SET status = 'running' WHERE id = $1", [eventId])
     for (const agent of agents) {
+      const kind = isSurvey ? 'survey' : 'dialogue'
       const [turn] = await ctx.sql.unsafe<{ id: string }>(
-        "INSERT INTO ab_turns (event_id, agent_id, kind, input, status) VALUES ($1, $2, 'dialogue', $3, 'running') RETURNING id",
-        [eventId, agent.id, desc])
+        "INSERT INTO ab_turns (event_id, agent_id, kind, input, status) VALUES ($1, $2, $3, $4, 'running') RETURNING id",
+        [eventId, agent.id, kind, desc])
       try {
+        const user = isSurvey
+          ? `问卷《${ev.payload?.title ?? '调查'}》——题目：\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n请以 ${agent.name} 的身份逐题作答，输出 JSON：{"answers": {"题目": "你的答案"}}——不要输出 JSON 以外的内容。`
+          : `世界事件：${desc}\n\n请以你的身份回应。`
         const res = await ctx.ai.chat({
           model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
           messages: [
             { role: 'system', content: buildAgentPrompt(world?.name ?? '未命名世界', agent, relations) },
-            { role: 'user', content: `世界事件：${desc}\n\n请以你的身份回应。` },
+            { role: 'user', content: user },
           ],
-          temperature: 0.8,
-          max_tokens: 500,
+          temperature: isSurvey ? 0.7 : 0.8,
+          max_tokens: isSurvey ? 700 : 500,
         })
         const content = res.choices?.[0]?.message?.content ?? ''
         await ctx.sql.unsafe("UPDATE ab_turns SET output = $2, status = 'done' WHERE id = $1", [turn.id, content])

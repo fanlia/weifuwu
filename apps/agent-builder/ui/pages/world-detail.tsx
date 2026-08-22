@@ -146,6 +146,22 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
     } catch (e) { error = errMsg(e, '注入事件失败'); ctx.render() }
   }
 
+  const renderTurnOutput = (t: Turn) => {
+    if (t.kind === 'survey') {
+      try {
+        const j = JSON.parse(t.output)
+        const answers = j.answers ?? j
+        if (typeof answers === 'object' && answers !== null) {
+          return h('div', { class: 'wf-stack', style: '--wf-gap:2px' }, Object.entries(answers).map(([q, a]) =>
+            h('div', { key: q, class: 'wf-text-sm wf-text-secondary' }, [
+              h('span', { class: 'wf-text-medium' }, `${q}：`), String(a),
+            ])))
+        }
+      } catch { /* 非 JSON——按文本显示 */ }
+    }
+    return h('div', { class: 'wf-text-sm wf-text-secondary' }, t.output)
+  }
+
   return async () => {
     // 图谱数据（关系可视化）
     const gNodes: RelationGraphNode[] = agents.map((a) => ({
@@ -292,7 +308,7 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
                     h('span', { class: 'wf-text-primary' }, '回应中…'),
                   ]),
                   t.status === 'done' && t.output
-                    ? h('div', { class: 'wf-text-sm wf-text-secondary' }, t.output)
+                    ? renderTurnOutput(t)
                     : t.status === 'error'
                       ? h('div', { class: 'wf-text-xs wf-text-error' }, t.error ?? '')
                       : null,
