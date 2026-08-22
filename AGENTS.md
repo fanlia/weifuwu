@@ -88,6 +88,27 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     → click 又 toggle 重开死循环——portal-toggle 测试挂起实证）
 15. **Slider marks/垂直对齐断言必须 deadline 轮询**（evaluate 快——次数上限
     不够等字体加载——全量并发偶发——5s 时长上限根治）
+16. **投影维度纪律（FRAG 槽位推进——fuzz 多种子 1200 对实证）**：FRAG vnode
+    声明 1 项但投影占 N 连续槽位——**所有按数组索引 +1 推进的循环（build
+    fragment/array 展开、renderNative children、removeVNodeTree 递归、
+    transitionFragment items、尾部缩短）必须用 slotCount(c) 槽位推进 +
+    最后槽位 ref**——否则 id 覆盖（create 幂等涂改）/节点残留（div root.3
+    幽灵）/顺序错乱（[0,2,3,1]）——slotCount 单一实现源
+    （node/children.ts）
+17. **状态机化验证体系（P1-P5——验收纪律）**：
+    - reconcile.test.ts（契约层 14 测试）：Sim 命令流模拟器（终态等价
+      三面对账 S_DOM/S_EVT/S_INST）+ 共享状态机规格（patch/state-machine.ts
+      ——NodeState 迁移表：create/insert/close/remove/setText/setProp/move/
+      done——Post 违例 throw）+ 多种子 fuzz（42/7/2026 × 400 对零不等价）
+    - e2e-reconcile（场景层 5 测试）：auditDom 真实 DOM 对账（id 唯一/
+      格式/兄弟连续/投影完整）+ dev 模式（window.__WF_DEV__ 注入
+      devVerify——命令消费后 Post 断言 console.error）
+    - **隐式路径纪律**：diffSlot/transitionOf/diffSame 落空分支必须显式
+      Reject（throw）或显式迁移——静默 no-op 是违例（fuzz#79 教训——
+      number↔string 文本交叉落空）
+    - **区间语义纪律**：移除必须按区间（removeVNodeTree——FRAG/数组/组件
+      unmount 全形态）；卸载递归（disposeComponent 前缀）；函数面 diff
+      对称（旧有新无 → setProp undefined 解绑）
 
 ### 已知边界（诚实裁剪）
 
