@@ -10,12 +10,13 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
-import { childrenOf } from '../node/children.ts'
+import { childrenOf, slotCount } from '../node/children.ts'
 import { kindOf } from '../node/index.ts'
 import { stateOf } from '../transform/states.ts'
 import { transitionOf } from '../transform/table.ts'
 import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed } from '../node/keyed.ts'
 import { pathId } from '../node/native.ts'
+import { isFragment } from '../node/fragment.ts'
 import { emitHole } from '../node/hole.ts'
 import { renderComponent, type ComponentRegistry } from '../node/component.ts'
 import type { Command } from '../command/index.ts'
@@ -51,6 +52,10 @@ export async function diffChildrenItems(
   ctx: UIContext, registry: ComponentRegistry,
   shapeChanged = false,
 ): Promise<void> {
+  // **投影对齐（P5）**：FRAG vnode 展开为槽位序列——对照以槽位为单位
+  // （渲染 emit 同语义——fuzz seed=2026 实证）
+  oldCs = expandFrag(oldCs)
+  newCs = expandFrag(newCs)
   // A 级检测（长度变化 + 无 key 组件项 → warn 引导声明 key——
   // 无 key = 位置身份——长度变化时有状态组件位置继承漂移——
   // **豁免**：① 数组 ↔ 单节点形态转换（shapeChanged——非列表增删）
@@ -109,9 +114,22 @@ export async function diffChildrenItems(
     await emit(newCs[i], id, i, lastRef)
     lastRef = pathId(id, i)
   }
-  // 尾部缩短（数组变短——remove——**不发锚**——数组长度变化本身即同构）
-  for (let i = newCs.length; i < oldCs.length; i++) {
-    await removeOldSlot(oldCs[i]!, id, pathId(id, i), emitCommand)
+  // 尾部缩短（旧侧展开槽位多于新侧——**投影对齐——fuzz seed=2026 实证**：
+  // FRAG 项声明 1 项但投影占 N 连续槽位——按数组长度比较会误删新侧 FRAG
+  // 展开槽位（div > [FRAG > [42, span]]——oldCs.length=2 > newCs.length=1
+  // ——误 remove 新侧展开的 span）——按展开槽位数比较——FRAG 项整体区间
+  // 移除（removeVNodeTree）——**不发锚**——长度变化本身即同构）
+  const oldSlots = oldCs.reduce((acc: number, c) => acc + slotCount(c), 0)
+  const newSlots = newCs.reduce((acc: number, c) => acc + slotCount(c), 0)
+  if (oldSlots > newSlots) {
+    let remain = oldSlots - newSlots
+    for (let i = oldCs.length - 1; i >= 0 && remain > 0; i--) {
+      const slots = slotCount(oldCs[i]!)
+      if (slots <= remain) {
+        await removeOldSlot(oldCs[i]!, id, pathId(id, i), emitCommand)
+        remain -= slots
+      }
+    }
   }
 }
 
@@ -119,13 +137,43 @@ export async function diffChildrenItems(
 async function removeOldSlot(
   oldC: VNodeChild, parent: string, cid: string, emitCommand: (cmd: Command) => void,
 ): Promise<void> {
-  if (oldC === null || oldC === undefined || typeof oldC === 'boolean') return
+  // **空洞项——占位锚节点必须移除（fuzz seed=7 实证——尾部缩短的 null 项
+  //  return 导致锚残留——childNodes 长度不收敛——同构不变量破坏）**
+  if (oldC === null || oldC === undefined || typeof oldC === 'boolean') {
+    emitCommand({ op: 'remove', id: cid })
+    return
+  }
   const oldVn = oldC as VNode | null
+  // **FRAG 项——展开区间完整移除（投影维度 N 槽位——单锚 remove 残留
+  //  展开项——removeVNodeTree 父级槽位区间——与渲染展开语义一致）**
+  if (oldVn && isFragment(oldVn)) {
+    removeVNodeTree(oldVn, cid, parent, emitCommand)
+    return
+  }
   if (oldVn && typeof oldVn.type === 'function') {
     const compId = oldVn.key !== null ? `${parent}.k${oldVn.key}` : cid
     emitCommand({ op: 'unmount', compId })
   }
   emitCommand({ op: 'remove', id: cid })
+}
+
+// 槽位计数（投影维度——单一实现源——node/children.ts slotCount）
+
+/** FRAG vnode 展开为槽位序列（**投影对齐——fuzz seed=2026 实证**）：
+ *  声明维度（children 数组——FRAG 是 1 项）vs 投影维度（展开占 N 连续槽位）
+ *  ——children 对照必须以展开槽位为单位（渲染 emit 同语义——槽位连续）——
+ *  否则：主循环按数组项对照 FRAG（1 项）后——旧侧后续项与新侧 FRAG 展开
+ *  槽位重叠——尾部缩短按数组长度/槽位数都无法正确对齐（误删/残留） */
+function expandFrag(cs: VNodeChild[]): VNodeChild[] {
+  const out: VNodeChild[] = []
+  for (const c of cs) {
+    if (c !== null && typeof c === 'object' && !Array.isArray(c) && isFragment(c as VNode)) {
+      out.push(...expandFrag(childrenOf(c as VNode)))
+    } else {
+      out.push(c)
+    }
+  }
+  return out
 }
 
 /** 单槽对照（unkeyed 位置身份——文本/插入/移除/同态递归/异类型转换） */

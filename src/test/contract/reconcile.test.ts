@@ -299,8 +299,18 @@ test('G8：嵌套组件卸载——子实例必须递归清理（终态等价 S_
 
 // ── 模糊测试（固定种子——定理 1 的归纳验证） ──
 
-test('终态等价：随机树对 fuzz 零不等价（固定种子 42——300 对）', async () => {
-  const rnd = mulberry32(42)
+test('终态等价：随机树对 fuzz 零不等价（多种子 × 400 对——收敛验收）', async () => {
+  let total = 0
+  for (const seed of [42, 7, 2026]) {
+    const mismatches = await fuzzRound(seed, 400)
+    total += mismatches
+  }
+  assert.equal(total, 0, `终态不等价合计 ${total}/1200`)
+})
+
+/** 单种子 fuzz 轮（生成器 + 终态等价验证——返回不等价数） */
+async function fuzzRound(seed: number, rounds: number): Promise<number> {
+  const rnd = mulberry32(seed)
   let seq = 0
   const randLeaf = (): VNodeChild => {
     const r = rnd()
@@ -319,16 +329,17 @@ test('终态等价：随机树对 fuzz 零不等价（固定种子 42——300 �
     return h(Fragment, {}, Array.from({ length: 1 + (seq % 2) }, () => randTree(depth + 1)))
   }
   let mismatches = 0
-  const samples: string[] = []
-  for (let i = 0; i < 300; i++) {
+  let sample = ''
+  for (let i = 0; i < rounds; i++) {
     const oldT = randTree(0) as VNode
     const newT = randTree(0) as VNode
     if (typeof oldT === 'string' || oldT === null || typeof oldT === 'boolean' || typeof newT === 'string' || newT === null || typeof newT === 'boolean') continue
     const diff = await verifyEquivalence(oldT, newT, createComponentRegistry())
-    if (diff) { mismatches++; if (samples.length < 2) samples.push(`fuzz#${i}:\n${diff}`) }
+    if (diff) { mismatches++; if (!sample) sample = `seed=${seed} i=${i}\nold=${JSON.stringify(oldT)}\nnew=${JSON.stringify(newT)}\n${diff}` }
   }
-  assert.equal(mismatches, 0, `终态不等价 ${mismatches}/300:\n${samples.join('\n---\n')}`)
-})
+  if (mismatches > 0) console.error('[fuzz-fail]', sample)
+  return mismatches
+}
 
 // ── P1：状态机迁移覆盖用例（规格可执行——每个命令的迁移/Reject/幂等） ──
 

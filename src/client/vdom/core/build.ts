@@ -12,7 +12,7 @@
  */
 
 import type { VNode, VNodeChild } from './vnode.ts'
-import { childrenOf } from './node/children.ts'
+import { childrenOf, slotCount } from './node/children.ts'
 import { kindOf, textOf } from './node/index.ts'
 import { emitHole, invalidDiagnostic } from './node/hole.ts'
 import { pathId, renderNative } from './node/native.ts'
@@ -49,18 +49,31 @@ export function createRenderDispatcher(
         emitHole(emitCommand, id, parent, ref)
         return
       }
-      // 数组（防御——childrenOf 已展开——任意嵌套=隐式 Fragment）
+      // 数组（防御——childrenOf 已展开——任意嵌套=隐式 Fragment）——
+      // **槽位推进 + 最后槽位 ref（投影维度——嵌套 FRAG 展开占多槽——
+      //  按项数 +1 覆盖后续项（fuzz seed=42 实证）；ref 用展开首槽位会让
+      //  后续项插入到已存在节点前（顺序错乱——参考树 0,2,3,1））**
       case 'array': {
-        for (const [i, c] of (v as VNodeChild[]).entries()) await emit(c, parent, index + i, ref)
+        let slot = index
+        let lastRef2: string | null = ref
+        for (const c of (v as VNodeChild[])) {
+          await emit(c, parent, slot, lastRef2)
+          const sc = slotCount(c)
+          lastRef2 = pathId(parent, slot + sc - 1) // 展开最后槽位
+          slot += sc
+        }
         return
       }
-      // Fragment 符号 vnode（`<></>`——与数组同义——展开）
+      // Fragment 符号 vnode（`<></>`——与数组同义——展开）——槽位推进
       case 'fragment': {
         const cs = childrenOf(v as VNode)
-        let lastRef: string | null = ref
-        for (const [i, c] of cs.entries()) {
-          await emit(c, parent, index + i, lastRef)
-          lastRef = pathId(parent, index + i)
+        let slot = index
+        let lastRef2: string | null = ref
+        for (const c of cs) {
+          await emit(c, parent, slot, lastRef2)
+          const sc = slotCount(c)
+          lastRef2 = pathId(parent, slot + sc - 1) // 展开最后槽位
+          slot += sc
         }
         return
       }

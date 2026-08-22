@@ -10,7 +10,7 @@
  */
 
 import type { VNode } from '../vnode.ts'
-import { childrenOf } from './children.ts'
+import { childrenOf, slotCount } from './children.ts'
 import type { Command } from '../command/index.ts'
 import type { ComponentSink } from './component.ts'
 
@@ -53,10 +53,16 @@ export async function renderNative(
   const refFn = vn.props.ref
   if (typeof refFn === 'function') emitCommand({ op: 'ref', id, fn: refFn })
   const cs = childrenOf(vn)
+  // **槽位推进 + 最后槽位 ref（投影维度——FRAG 项展开占多槽——按索引
+  //  +1 会 id 冲突（span{c0} 与 k2 同 root.0.1——create 幂等涂改属性——
+  //  fuzz seed=42 i=349 实证）——ref 用展开最后槽位（顺序正确））**
   let lastRef: string | null = null
-  for (const [i, c] of cs.entries()) {
-    await sink(c, id, i, lastRef)
-    lastRef = pathId(id, i)
+  let slot = 0
+  for (const c of cs) {
+    await sink(c, id, slot, lastRef)
+    const sc = slotCount(c)
+    lastRef = pathId(id, slot + sc - 1)
+    slot += sc
   }
   emitCommand({ op: 'close', id })
 }

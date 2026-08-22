@@ -10,6 +10,7 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
+import { isFragment } from './fragment.ts'
 
 /** children 读取（单一规则源）：统一 children 序列——任意嵌套递归展开 */
 export function childrenOf(v: VNode): VNodeChild[] {
@@ -21,4 +22,15 @@ export function childrenOf(v: VNode): VNodeChild[] {
 /** 数组节点遍历（隐式 Fragment——按展开后位置 emit）——递归覆盖任意嵌套 */
 export function forEachChild<T>(cs: VNodeChild[], fn: (c: VNodeChild, i: number) => T): void {
   cs.forEach((c, i) => { fn(c, i) })
+}
+
+/** 槽位计数（**投影维度——单一实现源**）：FRAG vnode → 递归展开槽位数；
+ *  其他项 = 1——build 的 fragment/array 展开用槽位推进（嵌套 FRAG 展开
+ *  占 N 连续槽位——按数组项数 +1 推进会覆盖后续项——fuzz seed=42/7/2026
+ *  实证——build(new) 参考树 3 项 vs diff 4 项——build 覆盖 c2） */
+export function slotCount(c: VNodeChild): number {
+  if (c !== null && typeof c === 'object' && !Array.isArray(c) && isFragment(c as VNode)) {
+    return childrenOf(c as VNode).reduce((acc: number, x) => acc + slotCount(x), 0)
+  }
+  return 1
 }

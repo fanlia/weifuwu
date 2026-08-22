@@ -15,7 +15,7 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
-import { childrenOf } from '../node/children.ts'
+import { childrenOf, slotCount } from '../node/children.ts'
 import { pathId } from '../node/native.ts'
 import type { TransitionFn } from './index.ts'
 import { removeVNodeTree } from '../diff/cleanup.ts'
@@ -26,8 +26,12 @@ import { removeVNodeTree } from '../diff/cleanup.ts'
  *  到父级槽位/数组全形态/组件 unmount——与 diff 各路径共享——防双实现漂移） */
 export const transitionFragment: TransitionFn = async (oldNode, next, ctx) => {
   const items = Array.isArray(oldNode) ? oldNode : childrenOf(oldNode as VNode)
-  items.forEach((c, ci) => {
-    removeVNodeTree(c, pathId(ctx.parent, ctx.index + ci), ctx.parent, ctx.emit)
-  })
+  // **槽位推进（投影维度——FRAG 项展开占多槽——按索引 +1 错位——
+  //  fuzz seed=42 i=132 实证——ul 槽位 2 被按 1 移除——残留）**
+  let slot = ctx.index
+  for (const c of items) {
+    removeVNodeTree(c, pathId(ctx.parent, slot), ctx.parent, ctx.emit)
+    slot += slotCount(c)
+  }
   await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

@@ -13,7 +13,7 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
-import { childrenOf } from '../node/children.ts'
+import { childrenOf, slotCount } from '../node/children.ts'
 import { isFragment } from '../node/fragment.ts'
 import type { Command } from '../command/index.ts'
 import { pathId } from '../node/native.ts'
@@ -35,9 +35,13 @@ export function removeVNodeTree(
     return
   }
   if (Array.isArray(v)) {
-    // 数组（组件输出多根——展开槽位——项 id = pathId(base, i)——
-    // 容器不变（数组不占 id——渲染 sink 的 parent 语义一致））
-    v.forEach((c, i) => removeVNodeTree(c, pathId(base, i), parent, emitCommand))
+    // 数组（组件输出多根——展开槽位——**槽位推进（投影维度——FRAG 项
+    //  占多槽——按索引 +1 错位——fuzz seed=42 实证）**——容器不变
+    let slot = 0
+    for (const c of v) {
+      removeVNodeTree(c, pathId(base, slot), parent, emitCommand)
+      slot += slotCount(c)
+    }
     return
   }
   const vn = v as VNode
@@ -47,21 +51,30 @@ export function removeVNodeTree(
   if (isFragment(vn)) {
     const index = Number(base.slice(parent.length + 1))
     const cs = childrenOf(vn)
-    cs.forEach((c, i) => removeVNodeTree(c, pathId(parent, index + i), parent, emitCommand))
+    // **槽位推进（投影维度——children 里的 FRAG 项占多槽——按索引 +1
+    //  错位——fuzz seed=42 i=398 实证——div 残留）**
+    let slot = index
+    for (const c of cs) {
+      removeVNodeTree(c, pathId(parent, slot), parent, emitCommand)
+      slot += slotCount(c)
+    }
     return
   }
   // 组件项：unmount（实例卸载——onUnmounts——与渲染 compId 规则一致）
   if (typeof vn.type === 'function') {
     emitCommand({ op: 'unmount', compId: vn.key !== null ? `${parent}.k${vn.key}` : base })
   }
-  // children 递归（容器 = 当前项 id）
+  // children 递归（容器 = 当前项 id）——**槽位推进（FRAG 项占多槽）**
   const cs = childrenOf(vn)
-  cs.forEach((c, i) => {
+  let slot = 0
+  cs.forEach((c) => {
+    const cid = pathId(base, slot)
     if (c !== null && typeof c !== 'string' && typeof c !== 'number' && typeof c !== 'boolean' && !Array.isArray(c)) {
-      removeVNodeTree(c, pathId(base, i), base, emitCommand)
+      removeVNodeTree(c, cid, base, emitCommand)
     } else {
-      emitCommand({ op: 'remove', id: pathId(base, i) })
+      emitCommand({ op: 'remove', id: cid })
     }
+    slot += slotCount(c)
   })
   emitCommand({ op: 'remove', id: base })
 }
