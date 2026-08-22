@@ -70,6 +70,10 @@ export interface ComponentRecord {
   renderBase: number
   /** hook 状态缓存（per-instance——useOpen 等渲染期 hooks） */
   hookStates: Map<number, unknown>
+  /** 组件状态机阶段（**MOUNTING 补全——审计 2026-XX**）：工厂 await 期间
+   *  = 'mounting'（rec 已注册——防御异步工厂重复执行/循环引用——重复
+   *  引用显式报错）；mount 命令消费后 = 'mounted' */
+  phase: 'mounting' | 'mounted'
 }
 
 /** 组件实例注册表（uiServe 持有——renderToStream 写入——diff/unmount 消费） */
@@ -119,6 +123,11 @@ export async function renderComponent(
 
   // 实例记录（同位置同类型复用——工厂不重跑）
   let rec = registry.get(compId)
+  // **MOUNTING 态防御（状态机——审计）**：工厂 await 期间同组件被再次
+  // 引用（异步循环依赖）——显式报错（不再重复执行工厂——状态丢失）
+  if (rec && rec.phase === 'mounting') {
+    throw new Error(`[vdom] 组件状态机违例：${compId} 正在 mount（异步工厂期间重复引用——循环依赖？）`)
+  }
   // **类型检查**（统一——build/diff/emitWithKey 全部受益）：同位置不同
   // 类型（PageA2 → Panel 等）——旧实例卸载 + 重 mount（rec.type 错位事故）
   if (rec && rec.type !== factory) {
@@ -160,9 +169,13 @@ export async function renderComponent(
     })
     // 工厂 = mount（一次——可 await ctx.data——管道保证 resolve）
     const maybeRenderFn = factory(vn.props, instCtx)
-    rec = { type: factory, renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0 }
+    rec = { type: factory, renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounting' }
     // **mount 阶段 hook 计数 → 渲染期基准**（渲染 hook idx = renderBase + seq）
     rec.renderBase = hookSeq.n
+    // **MOUNTING 态提前注册（状态机——审计）**：await 前注册（phase=mounting）
+    // ——异步工厂期间同组件重复引用 → renderComponent 检测 mounting 显式报错
+    // （循环依赖/重复执行工厂——状态丢失防御）——await 后 phase 保持
+    // mounting——mount 命令消费（procMount）→ mounted
     registry.set(compId, rec)
   }
 

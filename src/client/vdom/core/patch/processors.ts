@@ -257,7 +257,8 @@ export function procUnref(applier: CommandApplier, cmd: Extract<Command, { op: '
 /** mount 指令（组件初始化完成——审计标记） */
 export function procMount(applier: CommandApplier, cmd: Extract<Command, { op: 'mount' }>): void {
   const rec = applier.registry?.get(cmd.compId)
-  if (rec) (rec as { mounted?: boolean }).mounted = true
+  // **状态机（审计）**：MOUNTING → MOUNTED（mount 命令消费）
+  if (rec) (rec as { phase?: 'mounting' | 'mounted' }).phase = 'mounted'
 }
 
 export function procUnmount(applier: CommandApplier, cmd: Extract<Command, { op: 'unmount' }>): void {

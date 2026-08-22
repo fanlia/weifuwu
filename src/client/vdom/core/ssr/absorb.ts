@@ -14,7 +14,19 @@
  * 确定性前提（诚实裁剪）：SSR 与客户端首帧必须同构（同路由同组件——
  * 渲染期非确定（Date/Math.random）→ mismatch → 回退重建——dev 检测）。
  */
+/** 吸收状态机（**状态机化——非法调用顺序显式 Reject**）：
+ *  inactive → begin → consuming →（end/next 耗尽）→ inactive/failed
+ *  - begin：inactive → consuming（DFS 序快照）
+ *  - next：consuming → consuming（消费）/ failed（队列耗尽）
+ *  - end：consuming → inactive（无剩余）/ failed（剩余 = mismatch）
+ *  - reset：任意 → inactive（回退重建）
+ *  违例（静默路径歼灭——审计 2026-XX）：next/end 在 inactive 调用 →
+ *  显式 console.error（不再静默返回 null——非法顺序是 bug）
+ */
 import type { WfNode } from '../patch/processors.ts'
+
+/** 吸收阶段（状态机枚举） */
+export type AbsorbPhase = 'inactive' | 'consuming' | 'failed'
 
 /** 吸收状态（CommandApplier 持有——apply 层消费） */
 export class AbsorbState {
@@ -22,6 +34,8 @@ export class AbsorbState {
   queue: Node[] | null = null
   /** 吸收失败（SSR 与命令流不匹配——serve 回退清空重建） */
   failed = false
+  /** 状态机阶段（迁移：begin→consuming；end/reset→inactive；耗尽→failed） */
+  phase: AbsorbPhase = 'inactive'
 
   /** 启动吸收（root 有 SSR 内容——DFS 序快照——不消费 root 自身） */
   begin(container: HTMLElement): void {
@@ -33,22 +47,33 @@ export class AbsorbState {
     for (const c of container.childNodes) walk(c)
     this.queue = q
     this.failed = false
+    this.phase = 'consuming'
   }
 
-  /** 吸收结束（done.full）——剩余节点 = SSR 输出多于命令——mismatch */
+  /** 吸收结束（done.full）——剩余节点 = SSR 输出多于命令——mismatch
+   *  **inactive 时 = 合法 no-op**（procDone 无条件调用——非 SSR 客户端
+   *  渲染未 begin——end 无意义——不报错）；consuming 时 = 正常收尾 */
   end(): void {
+    if (this.phase !== 'consuming') return // 未 begin——合法 no-op
     if (this.queue && this.queue.length > 0) this.failed = true
     this.queue = null
+    this.phase = this.failed ? 'failed' : 'inactive'
   }
 
   /** 重置（回退重建后——恢复非吸收态） */
   reset(): void {
     this.queue = null
     this.failed = false
+    this.phase = 'inactive'
   }
 
   /** 吸收消费（create 族——匹配下一个 SSR 节点——类型不符/耗尽 → 失败） */
   next(kind: 'element' | 'text' | 'comment', tag?: string): WfNode | null {
+    // **状态机违例（审计）**：未 begin 的 next ——显式报错（不再静默 null）
+    if (this.phase !== 'consuming') {
+      console.error(`[vdom] absorb 状态机违例：next 在 ${this.phase} 阶段调用（应 consuming）`)
+      return null
+    }
     const q = this.queue
     if (!q) return null
     while (q.length > 0) {
@@ -61,6 +86,7 @@ export class AbsorbState {
     }
     // 队列耗尽——SSR 内容不足——吸收失败（serve 回退清空重建）
     this.failed = true
+    this.phase = 'failed'
     return null
   }
 }

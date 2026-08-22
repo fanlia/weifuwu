@@ -162,6 +162,18 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     - **组件输出特判纪律**：sink 特判（null/数组/组件 → compId 子空间）
       与 outputBase（清理基线）必须同步修改——不同步即锚残留/基线错位
 
+    ### 内部状态审计（2026-XX——未状态机化的状态）
+    ```
+    AbsorbState（SSR 吸收）✅ 已状态机化：inactive/consuming/failed——
+      next 在 inactive = 显式报错（消费路径违例）；end 在 inactive =
+      合法 no-op（procDone 无条件调用——非 SSR 场景）
+    CompState ✅ 补 MOUNTING：工厂 await 前注册（phase=mounting）——
+      异步工厂期间重复引用 → 显式报错（循环依赖防御）——mount 命令
+      消费 → mounted
+    serve 渲染队列：IDLE/RENDERING（已正确——FIFO 确定性——无需状态）
+    IntervalState：推导式（slotCount/removeVNodeTree 计算——无需运行时）
+    hooks 状态：应用层语义（useOpen 等——场景层测试兜底）
+    ```
     ### 生产/消费完整性判断（实证）
     - **生产端是根因**：所有语义错误（漏 remove/unmount/错 parent）源于
       命令流生成——修复方向 = 生成端完整自足
