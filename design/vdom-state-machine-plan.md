@@ -229,9 +229,14 @@ P3  验证器可信度兜底 + dev 状态检查
            条件空洞/数组展开——复杂树 + 5 个交互路径）
          - auditDom 页面内对账（id 唯一/格式/兄弟连续/投影完整）
          - 5 测试全绿（初始/增项/空洞往返/冲突重建/组合交互）
-    P3b  CommandApplier dev 模式 Post 断言（可选——dev only）    ← 下一步
+    P3b  CommandApplier dev 模式 Post 断言                        ✅ 完成
+         - patch/verify.ts（createDevVerifier——insert/remove/setText/
+           setProp/move 的 Post 断言——console.error 报告不中断）
+         - CommandApplier.devVerify 字段 + apply 后调用（生产零开销）
+         - serve.ts 注入：window.__WF_DEV__ 开启（场景测试 addInitScript）
+         - e2e-reconcile 5 测试全部开启 dev 模式——违例零报告
     P3c  单一实现源（patch 核心纯函数化——Sim/CommandApplier 共用——
-         消灭双实现漂移——较大重构——独立排期）
+         消灭双实现漂移——较大重构——独立排期）                    ← 下一步
 P4  状态存储显式化 + dispatch 迁移表化（评估——switch 保留 + 规格注释）
 P5  收口（fuzz 万级 + 文档沉淀）
 ```

@@ -37,10 +37,19 @@ const auditDom = (): { errors: string[]; itemCount: number; condCount: number } 
   return { errors: [], itemCount: 0, condCount: 0 }
 }
 
+/** 打开 dev 模式场景（P3b）——注入 window.__WF_DEV__（serve 注入 devVerify——
+ *  命令消费后 Post 断言）——收集 [vdom-dev] 违例报告 */
+async function openDevScenario(page: import('playwright').Page, base: string, id: string, devErrors: string[]): Promise<void> {
+  page.on('console', (m) => { if (m.type() === 'error' && m.text().includes('[vdom-dev]')) devErrors.push(m.text()) })
+  await page.addInitScript(() => { (window as unknown as { __WF_DEV__?: boolean }).__WF_DEV__ = true })
+  await openScenario(page, base, id)
+}
+
 test('reconcile：初始渲染对账——id 唯一/格式/兄弟连续/投影完整', async () => {
   const page = await browser.newPage()
+  const devErrors: string[] = []
   try {
-    await openScenario(page, BASE, 'reconcile')
+    await openDevScenario(page, BASE, 'reconcile', devErrors)
 
     const audit = await page.evaluate(() => {
       const root = document.querySelector('#root') as HTMLElement
@@ -89,6 +98,7 @@ test('reconcile：初始渲染对账——id 唯一/格式/兄弟连续/投影�
     assert.equal(audit.condCount, 3, '条件渲染 3 个 on（show=true）')
     assert.equal(audit.tailCount, 1, '尾部兄弟保留')
     assert.equal(audit.f1 + audit.f2 + audit.f3, 3, '数组展开 3 项（隐式 Fragment）')
+    assert.deepEqual(devErrors, [], `dev 验证器违例: ${devErrors.join('; ')}`)
   } finally {
     await page.close()
   }
@@ -96,8 +106,9 @@ test('reconcile：初始渲染对账——id 唯一/格式/兄弟连续/投影�
 
 test('reconcile：keyed 增项 → diff 后对账零违例', async () => {
   const page = await browser.newPage()
+  const devErrors: string[] = []
   try {
-    await openScenario(page, BASE, 'reconcile')
+    await openDevScenario(page, BASE, 'reconcile', devErrors)
     await page.click('#btn-add')
     await page.waitForSelector('.item:nth-child(4)')
 
@@ -119,6 +130,7 @@ test('reconcile：keyed 增项 → diff 后对账零违例', async () => {
     assert.deepEqual(audit.errors, [], `增项后对账违例: ${JSON.stringify(audit.errors)}`)
     assert.equal(audit.items, 4, '增项后 4 项')
     assert.deepEqual(audit.names, ['a', 'b', 'c', 'x3'], 'keyed 身份跟随（新项尾部）')
+    assert.deepEqual(devErrors, [], `dev 验证器违例: ${devErrors.join('; ')}`)
   } finally {
     await page.close()
   }
@@ -126,8 +138,9 @@ test('reconcile：keyed 增项 → diff 后对账零违例', async () => {
 
 test('reconcile：条件切换（空洞↔元素往返）→ 对账零违例', async () => {
   const page = await browser.newPage()
+  const devErrors: string[] = []
   try {
-    await openScenario(page, BASE, 'reconcile')
+    await openDevScenario(page, BASE, 'reconcile', devErrors)
     // show=false：cond 全部消失（空洞占位——结构不塌缩）
     await page.click('#btn-toggle')
     await page.waitForFunction(() => document.querySelectorAll('.cond').length === 0)
@@ -171,6 +184,7 @@ test('reconcile：条件切换（空洞↔元素往返）→ 对账零违例', a
     })
     assert.deepEqual(on.errors, [], `空洞恢复对账违例: ${JSON.stringify(on.errors)}`)
     assert.equal(on.cond, 3, 'cond 恢复')
+    assert.deepEqual(devErrors, [], `dev 验证器违例: ${devErrors.join('; ')}`)
   } finally {
     await page.close()
   }
@@ -178,8 +192,9 @@ test('reconcile：条件切换（空洞↔元素往返）→ 对账零违例', a
 
 test('reconcile：keyed 循环移位（冲突重建）→ 对账零违例 + 身份跟随', async () => {
   const page = await browser.newPage()
+  const devErrors: string[] = []
   try {
-    await openScenario(page, BASE, 'reconcile')
+    await openDevScenario(page, BASE, 'reconcile', devErrors)
     await page.click('#btn-swap') // [a,b,c] → [c,a,b]——循环移位——冲突重建
     await page.waitForFunction(() => {
       const first = document.querySelector('.item')
@@ -203,6 +218,7 @@ test('reconcile：keyed 循环移位（冲突重建）→ 对账零违例 + 身�
     })
     assert.deepEqual(audit.errors, [], `冲突重建后对账违例: ${JSON.stringify(audit.errors)}`)
     assert.deepEqual(audit.names, ['c', 'a', 'b'], '循环移位——身份跟随内容')
+    assert.deepEqual(devErrors, [], `dev 验证器违例: ${devErrors.join('; ')}`)
   } finally {
     await page.close()
   }
@@ -210,8 +226,9 @@ test('reconcile：keyed 循环移位（冲突重建）→ 对账零违例 + 身�
 
 test('reconcile：组合交互（add+remove+toggle+swap 连续）→ 终态对账零违例', async () => {
   const page = await browser.newPage()
+  const devErrors: string[] = []
   try {
-    await openScenario(page, BASE, 'reconcile')
+    await openDevScenario(page, BASE, 'reconcile', devErrors)
     await page.click('#btn-add')     // 4 项
     await page.click('#btn-add')     // 5 项
     await page.click('#btn-remove')  // 4 项
@@ -250,6 +267,7 @@ test('reconcile：组合交互（add+remove+toggle+swap 连续）→ 终态对�
     assert.deepEqual(audit.errors, [], `组合交互终态对账违例: ${JSON.stringify(audit.errors)}`)
     assert.equal(audit.items, 4, '终态 4 项')
     assert.equal(audit.cond, 4, 'cond 恢复（4 项各一）')
+    assert.deepEqual(devErrors, [], `dev 验证器违例: ${devErrors.join('; ')}`)
   } finally {
     await page.close()
   }

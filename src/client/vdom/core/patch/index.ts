@@ -37,6 +37,8 @@ export class CommandApplier {
   container: HTMLElement
   doc: Document
   registry: ComponentRegistry | null
+  /** dev 验证器（P3b——可选注入——命令消费后 Post 断言——生产零开销） */
+  devVerify: ((cmd: Command, applier: CommandApplier) => void) | null = null
 
   constructor(container: HTMLElement, doc: Document, registry?: ComponentRegistry) {
     this.container = container
@@ -116,9 +118,10 @@ export class CommandApplier {
     return null
   }
 
-  /** 中转——命令 → 处理器（细节在 processors.ts） */
+  /** 中转——命令 → 处理器（细节在 processors.ts）——dev 模式 Post 断言 */
   apply(cmd: Command): void {
     dispatch(this, cmd)
+    if (this.devVerify) this.devVerify(cmd, this)
   }
 }
 

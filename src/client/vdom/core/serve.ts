@@ -19,6 +19,7 @@
 import { UIRouter, frontRequest } from './router.ts'
 import { commandToHtml, htmlDocument } from './ssr/html.ts'
 import { CommandApplier } from './patch/index.ts'
+import { createDevVerifier } from './patch/verify.ts'
 import { renderToStream } from './build.ts'
 import { diffStream } from './diff/index.ts'
 import type { VNode } from './vnode.ts'
@@ -150,6 +151,12 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   const fnTable = createFnTable()
   const registry = createComponentRegistry()
   const applier = new CommandApplier(rootEl, doc, registry)
+  // **dev 验证器注入（P3b）**：window.__WF_DEV__ 开启（页面注入——场景
+  // 测试 addInitScript）——每个命令消费后 Post 断言（console.error 报告
+  // ——不中断渲染）——生产零开销
+  if ((win as unknown as { __WF_DEV__?: boolean }).__WF_DEV__) {
+    applier.devVerify = createDevVerifier()
+  }
   let req = frontRequest(win.location.pathname)
   /** 影子树（当前渲染的 vnode——diff 对照——精准增量命令流） */
   let currentTree: VNode | null = null
