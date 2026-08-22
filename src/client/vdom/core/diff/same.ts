@@ -52,8 +52,9 @@ export async function diffSame(
       disposeComponent(id, registry)
       // 旧输出清理（递归 remove——lastOutput 结构——数组安全（G1）——
       // 区间完整（数组逐项展开槽位 + 组件项 unmount））
-      if (rec.lastOutput !== undefined && rec.lastOutput !== null) {
-        // **输出基线（C2——outIsComponent 特判 id 空间统一）**
+      if (rec.lastOutput !== undefined) {
+        // **输出基线（C2——outIsComponent 特判 id 空间统一）——
+        //  null 输出（空洞锚）同样清理（`!== undefined`——锚残留实证）**
         removeVNodeTree(rec.lastOutput, outputBase(rec.lastOutput, id, pathId(parent, index)), parent, emitCommand, registry)
       }
       // 新实例（rec 已删——重新 mount——工厂执行）

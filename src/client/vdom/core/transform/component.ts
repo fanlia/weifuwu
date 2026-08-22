@@ -30,7 +30,10 @@ export const transitionComponent: TransitionFn = async (_old, next, ctx) => {
   if (ctx.oldCompId) ctx.emit({ op: 'unmount', compId: ctx.oldCompId })
   // 2. 旧输出区间移除——registry 查 lastOutput——数组/多根完整清理
   const out = ctx.registry?.get(ctx.oldCompId ?? '')?.lastOutput
-  if (out !== undefined && out !== null) {
+  // **null 输出（空洞锚）也必须清理（C2——`!== undefined` 而非
+  //  `!== null`——lastOutput=null 走单锚 else——锚 compId.0 残留——
+  //  an:root.0.0 幽灵实证）——outputBase(null) = pathId(compId, 0)**
+  if (out !== undefined) {
     // **输出基线（C2——outIsComponent 特判 id 空间统一）**
     removeVNodeTree(out, outputBase(out, ctx.oldCompId ?? '', pathId(ctx.parent, ctx.index)), ctx.parent, ctx.emit, ctx.registry)
   } else {

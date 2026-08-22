@@ -99,7 +99,8 @@ export async function renderComponent(
     // **旧输出区间清理（G7——终态等价违例）**：lastOutput 数组/多根残留
     // （keyed 组件类型切换——dispose 后直接全量渲染——旧节点无 remove
     // ——fuzz 实证）——数组安全 + 组件项 unmount（与 diffSame 分支一致）
-    if (rec.lastOutput !== undefined && rec.lastOutput !== null && emitCommand) {
+    if (rec.lastOutput !== undefined && emitCommand) {
+      // **null 输出（空洞锚）同样清理（C2——`!== undefined`）**
       // **输出基线（C2——outIsComponent 特判 id 空间）**：输出组件的 DOM
       // 在 compId.0（sink 用 compId 作 parent）——清理基线必须一致
       removeVNodeTree(rec.lastOutput, outputBase(rec.lastOutput, compId, compId), compId, emitCommand, registry)
@@ -148,15 +149,17 @@ export async function renderComponent(
   // 记录输出（diff 对照——同实例更新就地对上次输出 patch）
   rec.lastOutput = out
   // **组件输出挂自身 compId 子空间（C2——投影维度隔离）**：
+  //  - **null/空洞输出 → compId.0（C2 修正——null 锚也挂子空间——否则
+  //    锚在组件槽位（root.0）而转换路径的 remove 用 compId.0——基线错位
+  //    ——旧锚残留 + insert 挂锚内（an:root.0(div) 实证——组件 fuzz
+  //    seed=11 i=140）——统一：空洞/数组/组件输出全挂 compId 子空间）**
+  //  - 数组输出（多根）→ compId.i（C2——与兄弟槽位隔离）
   //  - 单 vnode 组件输出 → compId.0（防 compId 冲突——HoverCard 事故）
-  //  - **数组输出（多根）→ compId.i（C2 修正——数组展开到父级槽位会与
-  //    兄弟冲突——[span, b] 的 b 与后续 button 同 id——create 幂等顶替/
-  //    removeVNodeTree 误删——组件树 fuzz 实证——数组全部特判挂 compId
-  //    子空间——与兄弟槽位隔离）**
-  //  - 单 vnode 元素输出 → 槽位 id（锚点法——compId = 锚点 id 语义）
+  //  - 单 vnode 元素/文本输出 → 槽位 id（锚点法——compId = 锚点 id 语义）
   const outIsArray = Array.isArray(out)
   const outIsCompNode = typeof (out as VNode)?.type === 'function'
-  await sink(out, outIsArray || outIsCompNode ? compId : parent, outIsArray || outIsCompNode ? 0 : index, ref)
+  const outIsHole = out === null || out === undefined || typeof out === 'boolean'
+  await sink(out, outIsArray || outIsCompNode || outIsHole ? compId : parent, outIsArray || outIsCompNode || outIsHole ? 0 : index, ref)
   return isNew
 }
 

@@ -32,6 +32,9 @@ export function outputBase(out: VNodeChild, compId: string, slotId: string): str
   if (typeof (out as VNode)?.type === 'function') return pathId(compId, 0)
   // **数组全部特判（C2）**——多根输出挂 compId 子空间（与兄弟隔离）
   if (Array.isArray(out)) return compId
+  // **null/空洞输出（C2 修正）**——与 sink 特判一致（锚挂 compId.0——
+  //  清理基线统一——否则 remove root.0 删不到 root.0.0 的锚）
+  if (out === null || out === undefined || typeof out === 'boolean') return pathId(compId, 0)
   return slotId
 }
 
@@ -92,7 +95,10 @@ export function removeVNodeTree(
     // ——只 remove 单锚会让 B 的展开区间残留——查 registry 递归——
     // 基线 = outputBase（B 输出的 id 空间——特判规则）
     const out = registry?.get(compId)?.lastOutput
-    if (out !== undefined && out !== null) {
+    // **null 输出也要清理（C2——空洞锚——`out !== undefined` 而非
+    //  `!== null`——lastOutput=null 时旧锚（compId.0）残留——组件 fuzz
+    //  seed=99 i=34 实证——an:root.1.0 幽灵）**
+    if (out !== undefined) {
       const innerBase = outputBase(out, compId, base)
       removeVNodeTree(out, innerBase, compId, emitCommand, registry)
     }

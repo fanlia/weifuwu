@@ -417,7 +417,7 @@ async function compFuzzRound(seed: number, rounds: number): Promise<number> {
           const reg2 = createComponentRegistry()
           const bo = await drainStream(renderToStream(oldT, {}, reg2))
           const d2 = await drainStream(diffStream(oldT, newT, {}, reg2))
-          const stream2 = [...bo, ...d2].filter((c: any) => c.op === 'mount' || c.op === 'unmount' || c.op === 'remove').map((c: any) => `${c.op}:${c.compId ?? c.id}`).join(' ')
+          const stream2 = [...bo, ...d2].map((c: any) => `${c.op}:${c.id ?? c.compId ?? ''}${c.parent ? '^' + c.parent : ''}${c.ref ? '<' + c.ref : ''}${c.tag ? ':' + c.tag : ''}`).join(' ')
           sample = `seed=${seed} i=${i}\nold=${JSON.stringify(oldT)}\nnew=${JSON.stringify(newT)}\n${diff}\n流: ${stream2}`
         }
       }
