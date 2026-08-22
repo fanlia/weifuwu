@@ -21,12 +21,13 @@ import { diffStream } from '../../client/vdom/core/diff/index.ts'
 import { renderToStream } from '../../client/vdom/core/build.ts'
 import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
+import { createStateTracker, transition, type StateTracker, type NodeState } from '../../client/vdom/core/patch/state-machine.ts'
 
 // ── Sim——命令流模拟器（proc* 语义的纯数据实现） ──
-// **状态机化（P1）**：NodeState = ABSENT(记录不存在) / CREATED / INSERTED /
-// ACTIVE——迁移表（apply 各分支更新状态）+ Post 验证（verifyPost——每个
-// 命令消费后断言状态合法——违反 = 显式 Reject（throw）——消灭隐式路径）
-type SimNodeState = 'created' | 'inserted' | 'active'
+// **状态机化（P1/P3c）**：NodeState 迁移 + Post 验证由共享规格
+// patch/state-machine.ts 承担（单一实现源——Sim 与 devVerify 共用——
+// 消灭规格漂移）——Sim 只持数据面（DOM 树/事件表/实例表）——
+// 每命令消费后 transition(tracker, cmd) 收集违例——throw（测试红）
 interface SimNode {
   id: string
   kind: 'el' | 'text' | 'anchor'
@@ -35,14 +36,15 @@ interface SimNode {
   attrs: Record<string, unknown>
   children: SimNode[]
   parent: SimNode | null
-  state: SimNodeState
 }
 class Sim {
   nodes = new Map<string, SimNode>()
-  root: SimNode = { id: 'ROOT', kind: 'el', tag: 'root', attrs: {}, children: [], parent: null, state: 'active' }
+  root: SimNode = { id: 'ROOT', kind: 'el', tag: 'root', attrs: {}, children: [], parent: null }
   touched = new Set<string>()
   events = new Map<string, Map<string, unknown>>()   // S_EVT：id → event → handler
   instances = new Set<string>()                       // S_INST：compId 集（mount/unmount）
+  /** 状态机规格跟踪器（共享——patch/state-machine.ts——单一实现源） */
+  tracker: StateTracker = createStateTracker()
 
   private detach(n: SimNode): void {
     if (n.parent) {
@@ -68,76 +70,19 @@ class Sim {
   }
   /** 子树挂载（对齐真实 DOM：insertBefore 挂载整棵子树——子树 parentNode
    *  自动更新——否则 detach 时父链判断错误——幽灵节点/误 splice）
-   *  状态迁移：子树全部 → INSERTED */
+   *  （状态迁移由共享规格 transition 管理——此处只管数据面 parent 链） */
   private mountTree(n: SimNode, p: SimNode): void {
     n.parent = p
-    n.state = 'inserted'
     for (const c of n.children) this.mountTree(c, n)
   }
 
-  /** Post 验证（状态机规格——每个命令消费后断言——违反 = 显式 Reject）
-   *  覆盖：insert（挂载/状态）/ close（ACTIVE）/ remove（记录清除）/
-   *  setText/setProp（节点存在性） */
-  private verifyPost(cmd: Command, before: Map<string, SimNode>): void {
-    switch (cmd.op) {
-      case 'insert': {
-        // Pre：id 必须存在（create 先行——生成层 bug 显式暴露）
-        const n = this.nodes.get(cmd.id)
-        if (!n) throw new Error(`[state-machine] insert Pre 违例：id ${cmd.id} 未 create`)
-        // Post：已挂载（父链到 root）
-        let p = n.parent
-        let reached = false
-        while (p) { if (p === this.root) { reached = true; break } p = p.parent }
-        if (!reached) throw new Error(`[state-machine] insert Post 违例：${cmd.id} 未挂载到 root 链`)
-        // 状态：CREATED → INSERTED（新挂载）；INSERTED/ACTIVE → 幂等 skip
-        // （重建/move 路径——节点已挂载——同 isConnected skip 语义）
-        if (n.state !== 'inserted' && n.state !== 'active') throw new Error(`[state-machine] insert Post 违例：${cmd.id} 状态应为 inserted/active（实际 ${n.state}）`)
-        break
-      }
-      case 'close': {
-        // Pre/Post：close 对 INSERTED → ACTIVE（子树完成）；对 ACTIVE →
-        // 不变（**幂等 skip**——重建路径 create 复用 active 节点后 close
-        // 重复——合法幂等——同 insert 的 isConnected skip 语义）
-        const n = this.nodes.get(cmd.id)
-        if (!n) throw new Error(`[state-machine] close Pre 违例：id ${cmd.id} 不存在`)
-        if (n.state !== 'inserted' && n.state !== 'active') throw new Error(`[state-machine] close Pre 违例：${cmd.id} 状态应为 inserted/active（实际 ${n.state}）`)
-        break
-      }
-      case 'remove': {
-        // Post：记录必须清除（REMOVED = nodes 无记录 + ref/事件无前缀）
-        if (this.nodes.has(cmd.id)) throw new Error(`[state-machine] remove Post 违例：${cmd.id} 记录未清除`)
-        for (const id of this.nodes.keys()) {
-          if (id.startsWith(cmd.id + '.')) throw new Error(`[state-machine] remove Post 违例：${cmd.id} 前缀记录残留 ${id}`)
-        }
-        for (const id of this.events.keys()) {
-          if (id === cmd.id || id.startsWith(cmd.id + '.')) throw new Error(`[state-machine] remove Post 违例：事件表残留 ${id}`)
-        }
-        break
-      }
-      case 'setText': {
-        // Pre：id 必须存在且为文本节点（procSetText 静默 skip 是隐式路径——
-        //  状态机规格要求显式）
-        const n = this.nodes.get(cmd.id)
-        if (!n) throw new Error(`[state-machine] setText Pre 违例：id ${cmd.id} 不存在`)
-        if (n.kind !== 'text') throw new Error(`[state-machine] setText Pre 违例：${cmd.id} 非文本节点（${n.kind}）`)
-        break
-      }
-      case 'setProp': {
-        const n = this.nodes.get(cmd.id)
-        if (!n) throw new Error(`[state-machine] setProp Pre 违例：id ${cmd.id} 不存在`)
-        if (n.kind !== 'el') throw new Error(`[state-machine] setProp Pre 违例：${cmd.id} 非元素节点（${n.kind}）`)
-        break
-      }
-      default: break
-    }
-  }
   apply(cmd: Command): void {
     switch (cmd.op) {
       case 'create': {
         this.touched.add(cmd.id)
         const ex = this.nodes.get(cmd.id)
         if (ex && ex.kind === 'el' && ex.tag === cmd.tag) { ex.attrs = { ...cmd.attrs }; break }
-        const n: SimNode = { id: cmd.id, kind: 'el', tag: cmd.tag, attrs: { ...cmd.attrs }, children: [], parent: null, state: 'created' }
+        const n: SimNode = { id: cmd.id, kind: 'el', tag: cmd.tag, attrs: { ...cmd.attrs }, children: [], parent: null }
         if (ex) this.detach(ex)
         this.nodes.set(cmd.id, n)
         break
@@ -146,7 +91,7 @@ class Sim {
         this.touched.add(cmd.id)
         const ex = this.nodes.get(cmd.id)
         if (ex && ex.kind === 'text') { ex.text = cmd.value; break }
-        const n: SimNode = { id: cmd.id, kind: 'text', text: cmd.value, attrs: {}, children: [], parent: null, state: 'created' }
+        const n: SimNode = { id: cmd.id, kind: 'text', text: cmd.value, attrs: {}, children: [], parent: null }
         if (ex) this.detach(ex)
         this.nodes.set(cmd.id, n)
         break
@@ -155,7 +100,7 @@ class Sim {
         this.touched.add(cmd.id)
         const ex = this.nodes.get(cmd.id)
         if (ex && ex.kind === 'anchor') break
-        const n: SimNode = { id: cmd.id, kind: 'anchor', attrs: {}, children: [], parent: null, state: 'created' }
+        const n: SimNode = { id: cmd.id, kind: 'anchor', attrs: {}, children: [], parent: null }
         if (ex) this.detach(ex)
         this.nodes.set(cmd.id, n)
         break
@@ -190,6 +135,8 @@ class Sim {
       case 'setText': {
         const t = this.nodes.get(cmd.id)
         if (t && t.kind === 'text') t.text = cmd.value
+        // 类型检查（数据面——SimNode.kind——规格的类型维度由各数据面承担）
+        else if (t) throw new Error(`[state-machine] setText Pre 违例：${cmd.id} 非文本节点（${t.kind}）`)
         break
       }
       case 'setProp': {
@@ -244,13 +191,7 @@ class Sim {
       case 'mount': this.instances.add(cmd.compId); break
       case 'unmount': this.instances.delete(cmd.compId); break
       case 'ref': case 'unref': break
-      case 'close': {
-        // 迁移：INSERTED → ACTIVE（子树完成）——其他状态不动
-        // （active = 幂等 skip——重建路径；created = 违例——verifyPost 捕获）
-        const n = this.nodes.get(cmd.id)
-        if (n && n.state === 'inserted') n.state = 'active'
-        break
-      }
+      case 'close': break
       case 'done': {
         if (cmd.full) {
           for (const [id, n] of [...this.nodes]) {
@@ -261,7 +202,12 @@ class Sim {
         break
       }
     }
-    if (cmd.op !== 'done') this.verifyPost(cmd, this.nodes)
+    // **共享规格验证（P3c——单一实现源）**：状态迁移 + Post 违例收集——
+    // 违例 throw（测试红——显式 Reject）
+    const violations = transition(this.tracker, cmd)
+    if (violations.length > 0) {
+      throw new Error(`[state-machine] ${violations.join('; ')}`)
+    }
   }
   /** 完整终态快照（S_DOM + S_EVT + S_INST 三面） */
   snapshot(): string {
@@ -399,8 +345,8 @@ test('状态机：create → insert → close 状态流（CREATED → INSERTED �
     { op: 'insert', id: 'root.0', parent: 'root', ref: null },
     { op: 'close', id: 'root.0' },
   ])
-  const n = sim['nodes'].get('root.0')
-  assert.equal(n?.state, 'active', 'close 后状态 = ACTIVE')
+  const t = sim['tracker'] as StateTracker
+  assert.equal(t.get('root.0'), 'active', 'close 后状态 = ACTIVE（共享规格 tracker）')
   assert.equal(sim['nodes'].get('root.0')?.parent, sim['root'], '已挂载到 root')
 })
 
@@ -461,7 +407,8 @@ test('状态机：move remap 后状态保持（INSERTED/ACTIVE 跟随 id）', ()
     { op: 'close', id: 'root.0' },
   ])
   sim.apply({ op: 'move', id: 'root.0', parent: 'root', ref: null, newId: 'root.1', noMove: true })
-  const n = sim['nodes'].get('root.1')
-  assert.equal(n?.state, 'active', 'remap 后状态保持 ACTIVE')
+  const t = sim['tracker'] as StateTracker
+  assert.equal(t.get('root.1'), 'active', 'remap 后状态保持 ACTIVE（共享规格 remapPrefix）')
+  assert.equal(t.get('root.0'), undefined, '旧 id 状态清除')
   assert.ok(!sim['nodes'].has('root.0'), '旧 id 记录清除')
 })

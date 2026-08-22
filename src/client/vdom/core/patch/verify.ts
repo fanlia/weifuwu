@@ -1,54 +1,43 @@
 /**
  * vdom core/patch — dev 验证器（状态机 Post 断言——dev only）
  *
- * 机制（P3b）：CommandApplier 可选注入 devVerify——每个命令消费后断言
- * Post（状态机规格——design/vdom-state-machine-plan.md §3）——console.error
- * 报告（不中断渲染管线——dev 可见性）。
+ * 机制（P3b/P3c）：CommandApplier 可选注入 devVerify——每个命令消费后
+ * 断言 Post——**状态机规格单一实现源**：patch/state-machine.ts（transition
+ * ——与 Sim（契约层对账器）共用——消灭双实现漂移）——数据面类型检查
+ * （nodeType）与挂载性（isConnected）在此补充（规格的类型维度由各数据面
+ * 承担——Sim 查 SimNode.kind / devVerify 查 nodeType）。
  *
- * 与验证体系的关系（双层）：
- * - Sim（契约层 reconcile.test.ts）——生成层语义验证（throw——测试红）
- * - devVerify（本文件——真实浏览器环境）——消费端 Post 断言（report——
- *   Sim 与浏览器语义差异的兜底——isConnected 类问题的真实 DOM 落验）
- * - auditDom（场景层 e2e-reconcile）——终态结构不变量
+ * 报告方式：console.error（不中断渲染管线——dev 可见性）——
+ * 违例 = 生成层 bug 或 Sim 与浏览器语义差异（isConnected 类问题落验）。
  *
- * 生产零开销：仅 window.__WF_DEV__ 开启时注入。
+ * 生产零开销：仅 window.__WF_DEV__ 开启时注入（serve.ts）。
  */
 import type { Command } from '../command/index.ts'
 import type { CommandApplier } from './index.ts'
+import { createStateTracker, transition } from './state-machine.ts'
 
-/** dev 验证器（命令消费后 Post 断言——违例 console.error 报告） */
+/** dev 验证器（共享规格——每命令消费后状态迁移 + Post 断言） */
 export function createDevVerifier(): (cmd: Command, applier: CommandApplier) => void {
+  const tracker = createStateTracker()
   return (cmd, applier) => {
+    // 共享规格（P3c——与 Sim 同一份 transition）
+    const violations = transition(tracker, cmd)
+    for (const v of violations) console.error(`[vdom-dev] ${v}`)
+    // 数据面补充检查（类型/挂载性）
     switch (cmd.op) {
       case 'insert': {
-        // Post：id 必须已 create（命令流生成 bug）且已挂载
         const n = applier.nodes.get(cmd.id)
-        if (!n) console.error(`[vdom-dev] insert Post 违例：id ${cmd.id} 未 create（生成层 bug）`)
-        else if (!n.isConnected) console.error(`[vdom-dev] insert Post 违例：${cmd.id} 未挂载（isConnected=false）`)
-        break
-      }
-      case 'remove': {
-        // Post：前缀记录必须清除（区间残留——removeVNodeTree 完整性）
-        for (const id of applier.nodes.keys()) {
-          if (id.startsWith(cmd.id + '.')) console.error(`[vdom-dev] remove Post 违例：前缀记录残留 ${id}`)
-        }
+        if (n && !n.isConnected) console.error(`[vdom-dev] insert Post 违例：${cmd.id} 未挂载（isConnected=false）`)
         break
       }
       case 'setText': {
-        // Pre：id 必须存在且为文本节点
         const n = applier.nodes.get(cmd.id)
-        if (!n || n.nodeType !== 3) console.error(`[vdom-dev] setText Pre 违例：${cmd.id} 非文本/不存在（${n?.nodeType ?? 'none'}）`)
+        if (n && n.nodeType !== 3) console.error(`[vdom-dev] setText Pre 违例：${cmd.id} 非文本节点（${n.nodeType}）`)
         break
       }
       case 'setProp': {
-        // Pre：id 必须存在且为元素
         const n = applier.nodes.get(cmd.id)
-        if (!n || n.nodeType !== 1) console.error(`[vdom-dev] setProp Pre 违例：${cmd.id} 非元素/不存在`)
-        break
-      }
-      case 'move': {
-        // Post：remap 后新 id 必须存在（子树重映射完整性）
-        if (!applier.nodes.has(cmd.newId)) console.error(`[vdom-dev] move Post 违例：remap 后新 id ${cmd.newId} 不存在`)
+        if (n && n.nodeType !== 1) console.error(`[vdom-dev] setProp Pre 违例：${cmd.id} 非元素节点（${n.nodeType}）`)
         break
       }
       default: break
