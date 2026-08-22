@@ -162,18 +162,26 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     - **组件输出特判纪律**：sink 特判（null/数组/组件 → compId 子空间）
       与 outputBase（清理基线）必须同步修改——不同步即锚残留/基线错位
 
-    ### 内部状态审计（2026-XX——未状态机化的状态）
+    ### 内部状态机总表（2026-XX——**全部状态机化完成**）
     ```
-    AbsorbState（SSR 吸收）✅ 已状态机化：inactive/consuming/failed——
-      next 在 inactive = 显式报错（消费路径违例）；end 在 inactive =
-      合法 no-op（procDone 无条件调用——非 SSR 场景）
-    CompState ✅ 补 MOUNTING：工厂 await 前注册（phase=mounting）——
-      异步工厂期间重复引用 → 显式报错（循环依赖防御）——mount 命令
-      消费 → mounted
-    serve 渲染队列：IDLE/RENDERING（已正确——FIFO 确定性——无需状态）
-    IntervalState：推导式（slotCount/removeVNodeTree 计算——无需运行时）
-    hooks 状态：应用层语义（useOpen 等——场景层测试兜底）
+    NodeState（节点）          ✅ active 迁移表 + Post 验证（Sim/devVerify 共用）
+    transform 6×6（转换）      ✅ TRANSITIONS 表（异态显式 Reject）
+    CompState（组件）          ✅ mounting/mounted（mounting 窗口 = 工厂
+                                 await 期间——异步循环依赖显式报错）
+    AbsorbState（SSR 吸收）    ✅ inactive/consuming/failed（next 违例报错；
+                                 end 在 inactive = 合法 no-op）
+    ServePhase（serve 生命周期）✅ active/unmounted（unmount 后 render/
+                                 navigate 违例报错——不再静默渲染）
+    RenderPhase（渲染队列）    ✅ idle/rendering（FIFO 确定性显式化——
+                                 rendering 中入队 = 合法）
+    EventRegistry/RefRegistry  ✅ active/disposed（dispose 后操作违例报错）
+    DataPipe（数据管道）       ✅ active/disposed（disposed 后 get 报错）
+    PopupPhase（弹窗）         ✅ closed/open/exit（presence 退场）
+    IntervalState（区间）      ✅ 推导式（slotCount 计算——无需运行时跟踪）
+    hooks 状态（useOpen 等）   ⚪ 应用层语义（引擎外——场景层测试兜底）
     ```
+    **统一模式**：显式枚举 + 迁移 + 违例检测（console.error——不中断生产
+    ——审计可见）——静默 no-op 是违例（fuzz#79 教训的全面推广）
     ### 生产/消费完整性判断（实证）
     - **生产端是根因**：所有语义错误（漏 remove/unmount/错 parent）源于
       命令流生成——修复方向 = 生成端完整自足
