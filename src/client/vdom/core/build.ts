@@ -29,24 +29,67 @@ export type RenderSink = (
  * 创建渲染分发器（**共享——build 首帧/diff 新侧渲染同一实现**）：
  * emit(v, parent, index, ref)——kindOf 分类 → 各 node/ 文件渲染
  */
+/** 生成端 emit 状态机（**维度 6——2026-XX**）：
+ *  本流内 id 类型表（id → 节点形态）——验证：
+ *  ① create 类型冲突：同 id 先 el 后 text（或反）→ 违例（投影错位）
+ *  ② insert parent 容器性：parent 是已生成的锚/文本 → 违例（id 空间
+ *     错位——组件 fuzz an:root.0(div) 类在生成时暴露——而非消费/终态）
+ *  宽容项：parent 不在类型表（组件 compId——sink 特判子空间）→ 合法
+ *    （段回退由消费端处理）；create 同 id 同类型重复（幂等复用）→ 合法
+ *  报告：console.error（不中断生成——生成端产物仍由对账器裁决） */
 export function createRenderDispatcher(
   emitCommand: (cmd: Command) => void,
   ctx: UIContext,
   registry: ComponentRegistry,
 ): RenderSink {
+  /** 本流 id 类型表（生成端状态机——维度 6） */
+  const idTypes = new Map<string, 'el' | 'text' | 'anchor'>()
+  const genEmit = (cmd: Command): void => {
+    switch (cmd.op) {
+      case 'create': {
+        const prev = idTypes.get(cmd.id)
+        if (prev && prev !== 'el') console.error(`[vdom] 生成端违例：create ${cmd.id} 类型冲突（${prev} → el）`)
+        idTypes.set(cmd.id, 'el')
+        break
+      }
+      case 'createText': {
+        const prev = idTypes.get(cmd.id)
+        if (prev && prev !== 'text') console.error(`[vdom] 生成端违例：createText ${cmd.id} 类型冲突（${prev} → text）`)
+        idTypes.set(cmd.id, 'text')
+        break
+      }
+      case 'createAnchor': {
+        const prev = idTypes.get(cmd.id)
+        if (prev && prev !== 'anchor') console.error(`[vdom] 生成端违例：createAnchor ${cmd.id} 类型冲突（${prev} → anchor）`)
+        idTypes.set(cmd.id, 'anchor')
+        break
+      }
+      case 'insert': {
+        // parent 容器性：类型表内的锚/文本 → 违例（id 空间错位——
+        // 真实 DOM insertBefore 到注释/文本抛 DOMException）
+        const pt = idTypes.get(cmd.parent)
+        if (pt && pt !== 'el') {
+          console.error(`[vdom] 生成端违例：insert ${cmd.id} 的 parent ${cmd.parent} 是${pt}（非容器——id 空间错位）`)
+        }
+        break
+      }
+      default: break
+    }
+    emitCommand(cmd)
+  }
   const emit = async (v: VNodeChild, parent: string, index: number, ref: string | null): Promise<void> => {
     const id = pathId(parent, index)
     switch (kindOf(v)) {
       // 文本 → createText + insert
       case 'text': {
         const text = textOf(v)!
-        emitCommand({ op: 'createText', id, value: text })
-        emitCommand({ op: 'insert', id, parent, ref })
+        genEmit({ op: 'createText', id, value: text })
+        genEmit({ op: 'insert', id, parent, ref })
         return
       }
       // 空洞 → 占位锚（hole.ts——同构——长度恒定）
       case 'hole': {
-        emitHole(emitCommand, id, parent, ref)
+        emitHole(genEmit, id, parent, ref)
         return
       }
       // 数组（防御——childrenOf 已展开——任意嵌套=隐式 Fragment）——
@@ -77,9 +120,10 @@ export function createRenderDispatcher(
         }
         return
       }
-      // 元素 → native.ts（create + children 递归 + close）
+      // 元素 → native.ts（create + children 递归 + close）——**emitCommand
+      //  换 genEmit（生成端状态机拦截 create/insert）**
       case 'element': {
-        await renderNative(v as VNode, id, parent, ref, emitCommand, emit)
+        await renderNative(v as VNode, id, parent, ref, genEmit, emit)
         return
       }
       // 组件 → component.ts（两阶段工厂 + renderFn——可 await——
@@ -97,7 +141,7 @@ export function createRenderDispatcher(
       // 非法输入——诊断占位 + warn（hole.ts——不崩溃不静默）
       case 'invalid': {
         console.warn(`[vdom] 非法子节点——${invalidDiagnostic(v)}`)
-        emitHole(emitCommand, id, parent, ref, invalidDiagnostic(v))
+        emitHole(genEmit, id, parent, ref, invalidDiagnostic(v))
         return
       }
     }

@@ -20,6 +20,8 @@ import { Fragment } from '../../client/vdom/core/node/fragment.ts'
 import { diffStream } from '../../client/vdom/core/diff/index.ts'
 import { renderToStream } from '../../client/vdom/core/build.ts'
 import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
+import { childrenOf, slotCount } from '../../client/vdom/core/node/children.ts'
+import { pathId } from '../../client/vdom/core/node/native.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
 import { createStateTracker, transition, type StateTracker, type NodeState } from '../../client/vdom/core/patch/state-machine.ts'
 
@@ -245,10 +247,57 @@ async function drainStream(s: ReadableStream<Command>): Promise<Command[]> {
   return out
 }
 
+/** 双树对账（维度 7——影子树投影 vs DOM 实际 id）：
+ *  从 vnode 树推导合法 id 投影：
+ *  - 静态槽位（元素/文本/空洞的槽位 id——childrenOf 展开 + slotCount 推进）
+ *  - 组件子空间（组件 compId 及其子路径——输出动态——子空间前缀合法）
+ *  幽灵 id（两者皆非）→ 精确报错（id 归属违例——比终态 snapshot 定位更细）
+ *  ——1/300 类"parent 合法但 id 归属错"的定位维度 */
+function projectLegalIds(root: VNode): { staticSlots: Set<string>; compIds: Set<string> } {
+  const staticSlots = new Set<string>()
+  const compIds = new Set<string>()
+  const walk = (v: VNodeChild, id: string): void => {
+    if (v === null || v === undefined || typeof v === 'boolean' || typeof v === 'string' || typeof v === 'number') {
+      staticSlots.add(id)
+      return
+    }
+    if (Array.isArray(v)) {
+      let s = 0
+      for (const c of v) { walk(c, pathId(id, s)); s += slotCount(c) }
+      return
+    }
+    const vn = v as VNode
+    if (typeof vn.type === 'function') {
+      // 组件：compId 子空间合法（输出动态——sink 特判 compId.i）
+      compIds.add(id)
+      if (vn.key !== null) compIds.add(`${id}.k${vn.key}`)
+      return
+    }
+    staticSlots.add(id)
+    const cs = childrenOf(vn)
+    let s = 0
+    for (const c of cs) { walk(c, pathId(id, s)); s += slotCount(c) }
+  }
+  let s = 0
+  for (const c of childrenOf(root)) { walk(c, pathId('root', s)); s += slotCount(c) }
+  return { staticSlots, compIds }
+}
+
+/** id 归属验证（双树对账）：静态槽位 OR 组件子空间前缀 */
+function isLegalId(id: string, proj: { staticSlots: Set<string>; compIds: Set<string> }): boolean {
+  if (proj.staticSlots.has(id)) return true
+  for (const cid of proj.compIds) {
+    if (id === cid || id.startsWith(cid + '.')) return true
+  }
+  return false
+}
+
 /** 终态等价验证——不等价返回差异描述，等价返回 null
  *  **参考世界隔离（C1 测试纪律）**：build(new)（参考终态）用**独立 registry**
  *  ——与 sim（build(old)+diff——模拟 serve 跨渲染复用同一 registry）隔离——
- *  否则 build(new) 的组件注册污染 diff 的 isNew 判定（mount 缺失——假反例） */
+ *  否则 build(new) 的组件注册污染 diff 的 isNew 判定（mount 缺失——假反例）
+ *  **双树对账（维度 7）**：消费后校验 DOM id 全部属于合法投影（幽灵 id
+ *  ——静态槽位/组件子空间皆非——精确报错） */
 async function verifyEquivalence(
   oldTree: VNode, newTree: VNode, registry: ComponentRegistry,
 ): Promise<string | null> {
@@ -259,7 +308,14 @@ async function verifyEquivalence(
   for (const c of await drainStream(diffStream(oldTree, newTree, {}, registry))) sim.apply(c)
   const s1 = ref.snapshot(), s2 = sim.snapshot()
   if (s1 !== s2) {
-    return `参考(build new): ${s1}\n实际(diff 后)  : ${s2}`
+    // **双树对账（维度 7）**：幽灵 id 精确报错（定位维度——不等价来源）
+    const proj = projectLegalIds(newTree)
+    const ghosts: string[] = []
+    for (const id of sim['nodes'].keys()) {
+      if (id.startsWith('root') && !isLegalId(id, proj)) ghosts.push(id)
+    }
+    const ghostMsg = ghosts.length > 0 ? `\n幽灵 id: ${ghosts.join(', ')}（不属于 ${newTree.type === undefined ? 'FRAG/组件' : String(newTree.type)} 投影）` : ''
+    return `参考(build new): ${s1}\n实际(diff 后)  : ${s2}${ghostMsg}`
   }
   return null
 }
@@ -424,7 +480,7 @@ async function compFuzzRound(seed: number, rounds: number): Promise<number> {
           const reg2 = createComponentRegistry()
           const bo = await drainStream(renderToStream(oldT, {}, reg2))
           const d2 = await drainStream(diffStream(oldT, newT, {}, reg2))
-          const stream2 = [...bo, ...d2].map((c: any) => `${c.op}:${c.id ?? c.compId ?? ''}${c.parent ? '^' + c.parent : ''}${c.ref ? '<' + c.ref : ''}${c.tag ? ':' + c.tag : ''}`).join(' ')
+          const stream2 = `[bo] ${bo.map((c: any) => `${c.op}:${c.id ?? c.compId ?? ''}${c.parent ? '^' + c.parent : ''}${c.tag ? ':' + c.tag : ''}`).join(' ')}\n[d2] ${d2.map((c: any) => `${c.op}:${c.id ?? c.compId ?? ''}${c.parent ? '^' + c.parent : ''}${c.tag ? ':' + c.tag : ''}`).join(' ')}`
           sample = `seed=${seed} i=${i}\nold=${JSON.stringify(oldT)}\nnew=${JSON.stringify(newT)}\n${diff}\n流: ${stream2}`
         }
       }
