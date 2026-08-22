@@ -30,7 +30,7 @@
 
 ## 纪律/坑
 
-> 图表自研 SVG：数据点 label 为轴名；交互 tooltip 经 openPopup（视口夹紧）
+> 图表自研 SVG：数据点 label 为轴名；交互 tooltip 经 usePopup（视口夹紧）
 
 ## 关系
 

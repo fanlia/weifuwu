@@ -116,6 +116,10 @@ export type { DividerProps } from './Divider/Divider.ts'
 
 export { FileUpload } from './FileUpload/FileUpload.ts'
 export type { FileUploadProps } from './FileUpload/FileUpload.ts'
+export { FileTree } from './FileTree/FileTree.ts'
+export type { FileTreeProps, FileTreeEntry, FileTreeOpenFile } from './FileTree/FileTree.ts'
+export { AppShell } from './AppShell/AppShell.ts'
+export type { AppShellProps, AppShellNavItem } from './AppShell/AppShell.ts'
 
 export { Tooltip } from './Tooltip/Tooltip.ts'
 export type { TooltipProps, TooltipPosition } from './Tooltip/Tooltip.ts'

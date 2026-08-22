@@ -1,0 +1,77 @@
+/* weifuwu/components — AppShell（应用壳——品牌区/用户区细节——栅格复用 layout app-shell） */
+.wf-app-shell-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-app-shell-brand-name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-app-shell-brand-sub {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wf-text-tertiary, #9ca3af);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-app-shell-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+}
+.wf-app-shell-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.wf-app-shell-user-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-app-shell-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-app-shell-user-mail {
+  font-size: 11px;
+  color: var(--wf-text-tertiary, #9ca3af);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-app-shell-user-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.wf-app-shell-skel {
+  height: 14px;
+  border-radius: 4px;
+  background: var(--wf-bg-hover, #ececec);
+  animation: wf-app-shell-pulse 1.2s ease-in-out infinite;
+}
+.wf-app-shell-skel--sm {
+  width: 60%;
+  height: 11px;
+  margin-top: 6px;
+}
+@keyframes wf-app-shell-pulse {
+  0%, 100% { opacity: 0.5 }
+  50% { opacity: 1 }
+}

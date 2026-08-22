@@ -12,7 +12,7 @@
 
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { h } from 'weifuwu/vdom'
-import { FilePreview } from 'weifuwu/components'
+import { FilePreview, AppShell, Avatar, Button, Icon, Card, StatCard } from 'weifuwu/components'
 
 import {
   Button, Input, Textarea, Select,
@@ -159,6 +159,40 @@ const DemoMenu: Component = async (_props, ctx) => {
 }
 
 
+/** AppShell（应用壳——品牌/导航/用户区——受控：父层驱动） */
+const DemoAppShell: Component = async (_props: any, ctx: any) => {
+  let path = '/'
+  const NAV = [
+    { key: '/', label: '工作台', icon: h(Icon, { name: 'grid' }), group: '工作台' },
+    { key: '/agents', label: 'Agent', icon: h(Icon, { name: 'cpu' }), group: '管理' },
+    { key: '/departments', label: '部门', icon: h(Icon, { name: 'users' }), group: '管理' },
+    { key: '/reports', label: '运营报表', icon: h(Icon, { name: 'bar-chart' }), group: '管理' },
+    { key: '/settings', label: '设置', icon: h(Icon, { name: 'settings' }), group: '系统' },
+  ]
+  let toastMsg = ''
+  const notify = (m: string) => { toastMsg = m; ctx.render(); setTimeout(() => { toastMsg = ''; ctx.render() }, 1200) }
+  return async () => {
+    const page = path === '/'
+      ? h('div', { class: 'wf-stack', style: '--wf-gap:12px' }, [
+          h(StatCard, { label: '消息', value: 42 }),
+          h(Card, {}, h('div', { class: 'wf-text-sm wf-text-secondary' }, '主内容区——当前路由 ' + path + '（点击左侧菜单切换）')),
+        ])
+      : h(Card, {}, h('div', { class: 'wf-text-sm wf-text-secondary' }, '当前页面：' + path))
+    return h('div', { class: 'wf-stack', style: '--wf-gap:12px;height:480px;border:1px dashed var(--wf-border,#e5e7eb);border-radius:8px;overflow:hidden' }, [
+      h(AppShell, {
+        nav: NAV,
+        path,
+        brand: { name: 'Demo Admin', subtitle: 'App Shell', logo: 'D' },
+        user: { name: '张明', email: 'admin@demo.com' },
+        onNavigate: (k) => { path = k; ctx.render() },
+        onSettings: () => notify('打开设置'),
+        onLogout: () => notify('退出登录'),
+      }, page),
+      toastMsg ? h('div', { class: 'wf-text-xs wf-text-primary' }, '动作：' + toastMsg) : null,
+    ])
+  }
+}
+
 export const DEMOS: Record<string, any> = {
   "Breadcrumb": DemoBreadcrumb,
   "Menu": DemoMenu,
@@ -167,4 +201,5 @@ export const DEMOS: Record<string, any> = {
   "Pagination": DemoPagination,
   "Steps": DemoSteps,
   "Accordion": DemoAccordion,
+  AppShell: DemoAppShell,
 }

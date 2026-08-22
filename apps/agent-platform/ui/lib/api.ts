@@ -24,23 +24,11 @@ export function setRefreshToken(token: string | null) {
 
 let refreshing: Promise<boolean> | null = null
 
-/**
- * 带自动刷新功能的 fetch 封装
- */
-export async function api(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<Response> {
-  const res = await fetch(input, init)
-
-  // 非 401 直接返回
-  if (res.status !== 401) return res
-
-  // 401：尝试刷新 token
+/** 刷新会话（/api/auth/refresh——更新 localStorage token——成功 true）——
+ *  并发合并（多个 401 同时触发只刷一次）——ctx.api 的 onRefresh 接线复用 */
+export async function refreshSession(): Promise<boolean> {
   const refreshToken = getRefreshToken()
-  if (!refreshToken) return res // 没有 refresh token，返回原始 401
-
-  // 防止并发刷新
+  if (!refreshToken) return false
   if (!refreshing) {
     refreshing = (async () => {
       try {
@@ -51,7 +39,6 @@ export async function api(
         })
         if (!refreshRes.ok) return false
         const data = await refreshRes.json()
-
         // 更新 localStorage 中的 token
         try {
           localStorage.setItem('agent_platform_token', data.token)
@@ -65,8 +52,23 @@ export async function api(
       }
     })()
   }
+  return refreshing
+}
 
-  const refreshed = await refreshing
+/**
+ * 带自动刷新功能的 fetch 封装
+ */
+export async function api(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const res = await fetch(input, init)
+
+  // 非 401 直接返回
+  if (res.status !== 401) return res
+
+  // 401：尝试刷新 token
+  const refreshed = await refreshSession()
   if (!refreshed) return res
 
   // 刷新成功，重试原始请求（带上新 token）

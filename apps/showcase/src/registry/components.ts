@@ -216,6 +216,28 @@ export const components: ComponentEntry[] = [
     "testFile": "src/client/components/Field/Field.test.ts"
   },
   {
+    "id": "appshell",
+    "name": "AppShell",
+    "category": "navigation",
+    "desc": "应用壳——品牌 + 分组导航 + 用户区 + 主内容（受控——父层驱动）",
+    "codeKey": "appShell",
+    "demo": "DemoAppShell",
+    "sourceFile": "src/client/components/AppShell/AppShell.ts",
+    "cssFile": "src/client/components/AppShell/AppShell.css",
+    "testFile": "src/client/components/AppShell/AppShell.test.ts"
+  },
+  {
+    "id": "filetree",
+    "name": "FileTree",
+    "category": "editor",
+    "desc": "文件树浏览器——面包屑 + 列表/编辑态 + 上传（受控——数据源无关）",
+    "codeKey": "fileTree",
+    "demo": "DemoFileTree",
+    "sourceFile": "src/client/components/FileTree/FileTree.ts",
+    "cssFile": "src/client/components/FileTree/FileTree.css",
+    "testFile": "src/client/components/FileTree/FileTree.test.ts"
+  },
+  {
     "id": "fileupload",
     "name": "FileUpload",
     "category": "editor",

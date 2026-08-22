@@ -28,7 +28,7 @@
 
 ## 纪律/坑
 
-> 弹窗纪律（§5.4）：浮层必须 openPopup 命令式（#__wf_portal 统一容器）——禁 absolute 相对父容器（overflow/transform 裁剪）
+> 弹窗纪律（§5.4）：浮层必须 createPortal 渲染（#__wf_portal）——禁 absolute 相对父容器（overflow/transform 裁剪）；统一走 ctx.ui.usePopup
 
 ## 关系
 

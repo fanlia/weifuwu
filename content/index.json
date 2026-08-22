@@ -1,6 +1,6 @@
 {
   "counts": {
-    "components": 157,
+    "components": 159,
     "primitives": 20,
     "patterns": 11,
     "apps": 5,
@@ -429,6 +429,38 @@
         "focus-task",
         "settings-page"
       ],
+      "usedInApps": [],
+      "relatedBackend": []
+    },
+    {
+      "id": "appshell",
+      "name": "AppShell",
+      "category": "navigation",
+      "desc": "应用壳——品牌 + 分组导航 + 用户区 + 主内容（受控——父层驱动）",
+      "family": null,
+      "variantOf": null,
+      "tags": [],
+      "sourceFile": "src/client/components/AppShell/AppShell.ts",
+      "cssFile": "src/client/components/AppShell/AppShell.css",
+      "testFile": "src/client/components/AppShell/AppShell.test.ts",
+      "gotchas": [],
+      "usedInPatterns": [],
+      "usedInApps": [],
+      "relatedBackend": []
+    },
+    {
+      "id": "filetree",
+      "name": "FileTree",
+      "category": "editor",
+      "desc": "文件树浏览器——面包屑 + 列表/编辑态 + 上传（受控——数据源无关）",
+      "family": null,
+      "variantOf": null,
+      "tags": [],
+      "sourceFile": "src/client/components/FileTree/FileTree.ts",
+      "cssFile": "src/client/components/FileTree/FileTree.css",
+      "testFile": "src/client/components/FileTree/FileTree.test.ts",
+      "gotchas": [],
+      "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
     },
@@ -1916,7 +1948,7 @@
       "testFile": "src/client/components/Dropdown/Dropdown.test.ts",
       "gotchas": [
         "受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点",
-        "portal 槽豁免：浮层插槽 [children, popup.portal()] 打开/关闭不触发 A 级动态数组检测"
+        "命令式弹窗：浮层经 ctx.ui.openPopup（唯一形态——toast 心智——内核自管理生命周期）"
       ],
       "usedInPatterns": [],
       "usedInApps": [],
@@ -3856,7 +3888,7 @@
     {
       "id": "render-only",
       "name": "render-only 状态",
-      "desc": "只有 ctx.ui.render() 一种触发——状态是普通对象（let/createStore），无 $ Proxy 无隐式触发",
+      "desc": "只有 ctx.render() 一种触发——状态是普通对象（let/createStore），无 $ Proxy 无隐式触发",
       "srcFile": "src/client/ui-dom/vdom3/router.ts",
       "selfUsedIn": [
         "搜索框",

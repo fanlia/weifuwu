@@ -6,6 +6,7 @@
  * uiServe options 注入 ctx——页面 ctx.api/ctx.auth/ctx.toast 等消费面不变。
  */
 import { UIRouter, uiServe, h, api, auth, i18n, ws, toast, injectCommands } from 'weifuwu/vdom'
+import { refreshSession } from './lib/api'
 import { confirm, notification } from 'weifuwu/components'
 
 import { AppLayout } from './components/AppLayout'
@@ -38,6 +39,7 @@ const apiClient = api({
   onUnauthorized: async () => {
     const ok = await authRef.current?.refresh?.()
     if (ok) return true
+    console.error('[auth] 401 刷新失败——踢回登录（路径:', location.pathname + ')')
     localStorage.removeItem('agent_platform_token')
     localStorage.removeItem('agent_platform_user')
     localStorage.removeItem('agent_platform_refresh')
@@ -47,6 +49,10 @@ const apiClient = api({
 })
 const authClient = auth({
   onAuth: (auth: any) => { authRef.current = { refresh: () => auth.refresh() } },
+  // refresh 链接线（真实事故——401 踢回登录循环）：onRefresh 复用
+  // lib/api.ts 的刷新逻辑（/api/auth/refresh + localStorage 更新）——
+  // 未接线时 auth.refresh() 永远 false——任何 401 直接清 token 跳登录
+  onRefresh: () => refreshSession(),
   // StorageAdapter 形状（get/set——localStorage 是 getItem/setItem——适配）
   storage: {
     get: (k: string) => localStorage.getItem(k),

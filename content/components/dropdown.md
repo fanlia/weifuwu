@@ -31,7 +31,7 @@
 ## 纪律/坑
 
 - 受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点
-- portal 槽豁免：浮层插槽 [children, popup.portal()] 打开/关闭不触发 A 级动态数组检测
+- 命令式弹窗：浮层经 ctx.ui.openPopup（唯一形态——toast 心智——内核自管理生命周期）
 
 ## 关系
 

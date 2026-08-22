@@ -2,7 +2,7 @@
 
 ## 概述
 
-只有 ctx.ui.render() 一种触发——状态是普通对象（let/createStore），无 $ Proxy 无隐式触发
+只有 ctx.render() 一种触发——状态是普通对象（let/createStore），无 $ Proxy 无隐式触发
 
 ## 框架源码
 

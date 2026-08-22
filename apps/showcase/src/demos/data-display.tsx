@@ -13,7 +13,7 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 
 import { h, createClientBrowser } from 'weifuwu/vdom'
-import { FilePreview } from 'weifuwu/components'
+import { FilePreview, FileTree } from 'weifuwu/components'
 
 import {
   SortableList, ExportCSV,
@@ -938,6 +938,61 @@ export const DemoExportCSV: Component = async (_props: any) => async (_p: any) =
   </div>
 )
 
+/** FileTree（文件树浏览器——工作空间场景——受控：父层管理数据源） */
+const DemoFileTree: Component = async (_props: any, ctx: any) => {
+  // 模拟数据源（内存目录树——组件零 fetch 的诚实裁剪演示）
+  const FS: Record<string, Array<{ name: string; type: 'dir' | 'file'; size?: number; mtime?: string }>> = {
+    '/': [
+      { name: 'docs', type: 'dir' },
+      { name: 'src', type: 'dir' },
+      { name: 'README.md', type: 'file', size: 2048, mtime: new Date(Date.now() - 3600e3).toISOString() },
+    ],
+    '/docs': [
+      { name: 'api.md', type: 'file', size: 15360, mtime: new Date(Date.now() - 7200e3).toISOString() },
+      { name: 'guide.md', type: 'file', size: 8192 },
+    ],
+    '/src': [
+      { name: 'index.ts', type: 'file', size: 4096 },
+      { name: 'components', type: 'dir' },
+    ],
+    '/src/components': [
+      { name: 'App.tsx', type: 'file', size: 5120 },
+      { name: 'ui.ts', type: 'file', size: 3072 },
+    ],
+  }
+  let path = '/'
+  let entries = FS['/']
+  let openFile: { path: string; content: string } | null = null
+  let editValue = ''
+  let saving = false
+  const contentOf = (p: string): string => `// ${p}
+const answer = 42
+export default answer
+`
+  const rerender = () => ctx.render()
+  return async () => {
+    return (
+      <div class="wf-w-full wf-stack" style="--wf-gap:12px">
+        <FileTree
+          path={path}
+          entries={entries}
+          openFile={openFile}
+          editValue={editValue}
+          saving={saving}
+          onOpenDir={(p) => { path = p; entries = FS[p.startsWith('/') ? p : '/' + p] ?? []; rerender() }}
+          onOpenFile={(p) => { openFile = { path: p, content: contentOf(p) }; editValue = contentOf(p); rerender() }}
+          onBack={() => { openFile = null; rerender() }}
+          onEditChange={(v) => { editValue = v; rerender() }}
+          onSave={(c) => { saving = true; rerender(); setTimeout(() => { saving = false; openFile = null; rerender() }, 400) }}
+          onUpload={() => { }}
+          onRefresh={() => rerender()}
+        />
+        <div class="wf-text-xs wf-text-secondary">受控组件：目录切换/文件编辑/保存由父层状态驱动——数据源可接任意 API（本地目录/沙盒卷/云端）。</div>
+      </div>
+    )
+  }
+}
+
 export const DEMOS: Record<string, any> = {
   SortableList: DemoSortableList,
   ExportCSV: DemoExportCSV,
@@ -990,4 +1045,5 @@ export const DEMOS: Record<string, any> = {
   "FilePreview": DemoFilePreview,
   "FilePreview Office": DemoFilePreviewOffice,
   "ThemeSwitch": DemoThemeSwitch,
+  "FileTree": DemoFileTree,
 }

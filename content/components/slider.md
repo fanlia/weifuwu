@@ -40,7 +40,7 @@
 ## 纪律/坑
 
 - 浏览器表单状态恢复（刷新/后退）覆盖受控 value——autocomplete=off + 内部 0-100 归一化刻度（2000 slider 刷新跳动事故）
-- 拖拽中气泡位置冻结——openPopup 锚点恒定需 handle.refresh() 跟随 thumb
+- 拖拽中气泡位置冻结——usePopup 锚点恒定需 popup.refresh() 跟随 thumb
 
 ## 关系
 

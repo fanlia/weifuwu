@@ -2,7 +2,7 @@
 
 ## 概述
 
-动作面板——移动端底部滑出（命令列表 + 取消按钮，openPopup 会话级模态）
+动作面板——移动端底部滑出（命令列表 + 取消按钮，usePopup 会话级模态）
 
 ## 典型场景
 
@@ -25,7 +25,7 @@
 
 ## 纪律/坑
 
-> 弹窗纪律（§5.4）：浮层必须 openPopup 命令式（#__wf_portal 统一容器）——禁 absolute 相对父容器（overflow/transform 裁剪）
+> 弹窗纪律（§5.4）：浮层必须 createPortal 渲染（#__wf_portal）——禁 absolute 相对父容器（overflow/transform 裁剪）；统一走 ctx.ui.usePopup
 
 ## 关系
 
