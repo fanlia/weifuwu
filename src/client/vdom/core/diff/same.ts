@@ -20,7 +20,7 @@ import type { Command } from '../command/index.ts'
 import type { RenderSink } from '../build.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 import { diffAttrs } from './attrs.ts'
-import { removeVNodeTree } from './cleanup.ts'
+import { removeVNodeTree, outputBase } from './cleanup.ts'
 import { diffComponentOutput } from './output.ts'
 import { diffChildren, diffChildrenItems } from './children.ts'
 
@@ -52,7 +52,8 @@ export async function diffSame(
       // 旧输出清理（递归 remove——lastOutput 结构——数组安全（G1）——
       // 区间完整（数组逐项展开槽位 + 组件项 unmount））
       if (rec.lastOutput !== undefined && rec.lastOutput !== null) {
-        removeVNodeTree(rec.lastOutput, pathId(parent, index), parent, emitCommand)
+        // **输出基线（C2——outIsComponent 特判 id 空间统一）**
+        removeVNodeTree(rec.lastOutput, outputBase(rec.lastOutput, id, pathId(parent, index)), parent, emitCommand, registry)
       }
       // 新实例（rec 已删——重新 mount——工厂执行）
       await renderComponent(newV, parent, index, ref, id, ctx, registry, emit, emitCommand)

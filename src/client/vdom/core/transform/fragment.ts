@@ -30,7 +30,7 @@ export const transitionFragment: TransitionFn = async (oldNode, next, ctx) => {
   //  fuzz seed=42 i=132 实证——ul 槽位 2 被按 1 移除——残留）**
   let slot = ctx.index
   for (const c of items) {
-    removeVNodeTree(c, pathId(ctx.parent, slot), ctx.parent, ctx.emit)
+    removeVNodeTree(c, pathId(ctx.parent, slot), ctx.parent, ctx.emit, ctx.registry)
     slot += slotCount(c)
   }
   await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)

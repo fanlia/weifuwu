@@ -154,7 +154,9 @@ test('全分支：element → fragment / component → fragment / text → fragm
   // element → fragment：旧元素移除 + 数组渲染
   const t1 = runT('element', 'fragment', h('div', {}, 'x'), arr)
   await t1.run()
-  assert.deepEqual(t1.cmds, [{ op: 'remove', id: 'root.1' }], '旧元素让位')
+  // **根本修复（C2——统一区间移除）**：removeVNodeTree——子槽位 + 元素
+  // （多余子槽位 remove 幂等无害——DOM 随父移除——子树实例清理必要）
+  assert.deepEqual(t1.cmds, [{ op: 'remove', id: 'root.1.0' }, { op: 'remove', id: 'root.1' }], '旧元素完整区间让位')
   assert.deepEqual(t1.emitted, [arr])
   // component → fragment：unmountComp + 移除 + 数组
   const t2 = runT('component', 'fragment', { type: () => () => null, props: {}, key: null }, arr, { oldCompId: 'root.1' })
@@ -194,7 +196,8 @@ test('全分支：text → X / hole → X / element → X / component → X（�
   for (const [next, node] of [['text', 'x'], ['hole', null], ['component', comp]] as const) {
     const t = runT('element', next, h('div', {}, 'x'), node)
     await t.run()
-  assert.deepEqual(t.cmds, [{ op: 'remove', id: 'root.1' }], `element → ${next} 元素让位`)
+  // 完整区间（子槽位 + 元素——C2 统一）
+  assert.deepEqual(t.cmds, [{ op: 'remove', id: 'root.1.0' }, { op: 'remove', id: 'root.1' }], `element → ${next} 元素完整区间让位`)
   assert.deepEqual(t.emitted, [node])
   }
   // component → text / component → element / component → hole

@@ -56,11 +56,14 @@ test('组件：工厂执行一次——输出挂组件 id（mount 命令）', as
   assert.equal(mount?.compId, 'root.0', 'mount 命令登记组件实例')
 })
 
-test('组件输出数组：多根平铺（root.0/root.1——组件 id 不占位）', async () => {
+test('组件输出数组：compId 子空间（C2——root.0.0/root.0.1——与兄弟槽位隔离）', async () => {
   const Multi = (_i: Record<string, never>) => () => [h('span', {}, 'a'), h('span', {}, 'b')]
   const cmds = await collect(h(Multi, {}))
   const creates = cmds.filter((c) => c.op === 'create').map((c) => (c as { id: string }).id)
-  assert.deepEqual(creates, ['root.0', 'root.1'], '多根平铺——组件输出数组 = 隐式 Fragment')
+  // **C2 修正**：数组输出挂组件 compId 子空间（root.0.0/root.0.1）——
+  // 与兄弟槽位隔离（[span, b] 的 b 与后续兄弟同 id——create 幂等顶替/
+  // removeVNodeTree 误删——组件树 fuzz 实证——父级平铺是投影冲突）
+  assert.deepEqual(creates, ['root.0.0', 'root.0.1'], '多根输出——compId 子空间（组件 id 占 root.0——输出在 .0/.1）')
 })
 
 test('空洞：false/null 建占位锚（CreateAnchor——DOM 同构前提）', async () => {

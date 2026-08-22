@@ -229,12 +229,15 @@ async function drainStream(s: ReadableStream<Command>): Promise<Command[]> {
   return out
 }
 
-/** 终态等价验证——不等价返回差异描述，等价返回 null */
+/** 终态等价验证——不等价返回差异描述，等价返回 null
+ *  **参考世界隔离（C1 测试纪律）**：build(new)（参考终态）用**独立 registry**
+ *  ——与 sim（build(old)+diff——模拟 serve 跨渲染复用同一 registry）隔离——
+ *  否则 build(new) 的组件注册污染 diff 的 isNew 判定（mount 缺失——假反例） */
 async function verifyEquivalence(
   oldTree: VNode, newTree: VNode, registry: ComponentRegistry,
 ): Promise<string | null> {
   const ref = new Sim()
-  for (const c of await drainStream(renderToStream(newTree, {}, registry))) ref.apply(c)
+  for (const c of await drainStream(renderToStream(newTree, {}, createComponentRegistry()))) ref.apply(c)
   const sim = new Sim()
   for (const c of await drainStream(renderToStream(oldTree, {}, registry))) sim.apply(c)
   for (const c of await drainStream(diffStream(oldTree, newTree, {}, registry))) sim.apply(c)
@@ -340,6 +343,81 @@ async function fuzzRound(seed: number, rounds: number): Promise<number> {
   if (mismatches > 0) console.error('[fuzz-fail]', sample)
   return mismatches
 }
+
+
+/** 组件工厂（输出形态由 kind 决定——C1 组件路径 fuzz）：
+ *  array  = 多根输出（高发区——组件输出数组）
+ *  el     = 单元素输出
+ *  hole   = 空洞/元素切换（条件渲染）
+ *  comp   = 输出组件（outIsComponent 特判路径——C2 靶点） */
+let compSeq = 0
+function makeCompFactory(kind: 'array' | 'el' | 'hole' | 'comp', inner: () => VNodeChild, rnd: () => number): () => any {
+  // **生成器纪律：输出形态与 inner 全部创建时固定**——工厂每次执行输出
+  // 完全相同的 vnode（确定性——build 与 diff 各执行一次——输出必须一致
+  // ——否则假反例）——hole 切换/arrLabel/inner 均创建时求值
+  const holeVal = rnd() < 0.5
+  const arrLabel = 'a' + (compSeq % 3)
+  const innerVal = inner()
+  const innerComp = kind === 'comp' ? h(makeCompFactory('el', () => 'x', rnd), {}) : null
+  const f = () => () => {
+    switch (kind) {
+      case 'array': return [h('span', { class: 'o0' }, arrLabel), innerVal]
+      case 'el': return h('div', { class: 'oel' }, innerVal)
+      case 'hole': return holeVal ? h('b', {}, 'h') : null
+      case 'comp': return innerComp
+    }
+  }
+  return f as any
+}
+
+/** 单种子组件 fuzz 轮（C1——组件路径随机对账——返回不等价数） */
+async function compFuzzRound(seed: number, rounds: number): Promise<number> {
+  const rnd = mulberry32(seed)
+  let seq = 0
+  compSeq = 0
+  const kinds = ['array', 'el', 'hole', 'comp'] as const
+  const randComp = (depth: number): VNodeChild => {
+    if (depth > 2 || rnd() < 0.5) {
+      const k = kinds[seq % kinds.length]
+      return h(makeCompFactory(k, () => 't' + (seq % 3), rnd), {})
+    }
+    const k = kinds[seq++ % kinds.length]
+    return h(makeCompFactory(k, () => randComp(depth + 1), rnd), {})
+  }
+  const randTree = (depth: number): VNodeChild => {
+    if (depth > 2 || rnd() < 0.3) return randComp(depth)
+    const r = rnd()
+    if (r < 0.3) return h('div', { class: 'c' + (seq % 2) }, Array.from({ length: 1 + (seq % 2) }, () => randTree(depth + 1)))
+    if (r < 0.6) return h('span', { key: 'k' + (seq % 3) }, randTree(depth + 1))
+    return h(Fragment, {}, Array.from({ length: 1 + (seq % 2) }, () => randTree(depth + 1)))
+  }
+  let mismatches = 0
+  let sample = ''
+  const origWarn = console.warn
+  console.warn = () => {} // A 级检测告警静音（组件项无 key——fuzz 噪音）
+  try {
+    for (let i = 0; i < rounds; i++) {
+      const oldT = randTree(0) as VNode
+      const newT = randTree(0) as VNode
+      if (typeof oldT === 'string' || oldT === null || typeof oldT === 'boolean' || typeof newT === 'string' || newT === null || typeof newT === 'boolean') continue
+      const diff = await verifyEquivalence(oldT, newT, createComponentRegistry())
+      if (diff) { mismatches++; if (!sample) sample = `seed=${seed} i=${i}\nold=${JSON.stringify(oldT)}\nnew=${JSON.stringify(newT)}\n${diff}` }
+    }
+  } finally {
+    console.warn = origWarn
+  }
+  if (mismatches > 0) console.error('[comp-fuzz-fail]', sample)
+  return mismatches
+}
+
+test('组件树 fuzz：组件输出多根/输出组件/嵌套——终态等价（C1——先红后绿）', async () => {
+  let total = 0
+  for (const seed of [11, 99]) {
+    const mismatches = await compFuzzRound(seed, 150)
+    total += mismatches
+  }
+  assert.equal(total, 0, `组件树终态不等价合计 ${total}/300\n（C2 outIsComponent 特判歼灭前——基线 89%——修复后归零）`)
+})
 
 // ── P1：状态机迁移覆盖用例（规格可执行——每个命令的迁移/Reject/幂等） ──
 

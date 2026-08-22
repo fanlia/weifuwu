@@ -23,7 +23,7 @@ import type { Component, RenderFn } from '../vnode.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 import { createUi } from '../../hooks/env.ts'
 import type { Browser } from '../../browser/Browser.ts'
-import { removeVNodeTree } from '../diff/cleanup.ts'
+import { removeVNodeTree, outputBase } from '../diff/cleanup.ts'
 import type { Command } from '../command/index.ts'
 
 /** 组件实例记录（跨渲染保持——diff 复用） */
@@ -100,7 +100,9 @@ export async function renderComponent(
     // （keyed 组件类型切换——dispose 后直接全量渲染——旧节点无 remove
     // ——fuzz 实证）——数组安全 + 组件项 unmount（与 diffSame 分支一致）
     if (rec.lastOutput !== undefined && rec.lastOutput !== null && emitCommand) {
-      removeVNodeTree(rec.lastOutput, compId, compId, emitCommand)
+      // **输出基线（C2——outIsComponent 特判 id 空间）**：输出组件的 DOM
+      // 在 compId.0（sink 用 compId 作 parent）——清理基线必须一致
+      removeVNodeTree(rec.lastOutput, outputBase(rec.lastOutput, compId, compId), compId, emitCommand, registry)
     }
     rec = undefined
   }
@@ -145,15 +147,16 @@ export async function renderComponent(
   const out = await rec.renderFn(vn.props)
   // 记录输出（diff 对照——同实例更新就地对上次输出 patch）
   rec.lastOutput = out
-  // **组件输出组件时挂自身 compId 下**（compId.0——真实 bug：组件直接输出
-  // 组件（单 vnode 或数组首项——无中间元素包裹）时子组件继承父组件 compId——
-  // 注册表同 key 覆盖——类型检查触发连环重挂——状态丢失（HoverCard 悬停
-  // 失效事故）——输出组件 id 唯一化修复；元素/数组首元素输出保持原样
-  // （输出 id = 组件 id——锚点法 compId = 锚点 id 语义））
-  const outIsComponent =
-    typeof (out as VNode)?.type === 'function'
-    || (Array.isArray(out) && typeof (out[0] as VNode)?.type === 'function')
-  await sink(out, outIsComponent ? compId : parent, outIsComponent ? 0 : index, ref)
+  // **组件输出挂自身 compId 子空间（C2——投影维度隔离）**：
+  //  - 单 vnode 组件输出 → compId.0（防 compId 冲突——HoverCard 事故）
+  //  - **数组输出（多根）→ compId.i（C2 修正——数组展开到父级槽位会与
+  //    兄弟冲突——[span, b] 的 b 与后续 button 同 id——create 幂等顶替/
+  //    removeVNodeTree 误删——组件树 fuzz 实证——数组全部特判挂 compId
+  //    子空间——与兄弟槽位隔离）**
+  //  - 单 vnode 元素输出 → 槽位 id（锚点法——compId = 锚点 id 语义）
+  const outIsArray = Array.isArray(out)
+  const outIsCompNode = typeof (out as VNode)?.type === 'function'
+  await sink(out, outIsArray || outIsCompNode ? compId : parent, outIsArray || outIsCompNode ? 0 : index, ref)
   return isNew
 }
 

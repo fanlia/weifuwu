@@ -101,7 +101,7 @@ export async function diffChildrenItems(
       // remove）+ **占位锚**——childNodes 长度恒定（不塌缩）
       // null ↔ null：no-op（锚已在 DOM——保持——不重建）
       if (oldC !== null && oldC !== undefined && typeof oldC !== 'boolean') {
-        await removeOldSlot(oldC, id, cid, emitCommand)
+        await removeOldSlot(oldC, id, cid, emitCommand, registry)
         emitHole(emitCommand, cid, id, lastRef)
       }
     } else {
@@ -126,7 +126,7 @@ export async function diffChildrenItems(
     for (let i = oldCs.length - 1; i >= 0 && remain > 0; i--) {
       const slots = slotCount(oldCs[i]!)
       if (slots <= remain) {
-        await removeOldSlot(oldCs[i]!, id, pathId(id, i), emitCommand)
+        await removeOldSlot(oldCs[i]!, id, pathId(id, i), emitCommand, registry)
         remain -= slots
       }
     }
@@ -136,6 +136,7 @@ export async function diffChildrenItems(
 /** 旧槽移除（unmount/remove——占位/尾部缩短共用） */
 async function removeOldSlot(
   oldC: VNodeChild, parent: string, cid: string, emitCommand: (cmd: Command) => void,
+  registry?: ComponentRegistry | null,
 ): Promise<void> {
   // **空洞项——占位锚节点必须移除（fuzz seed=7 实证——尾部缩短的 null 项
   //  return 导致锚残留——childNodes 长度不收敛——同构不变量破坏）**
@@ -147,7 +148,7 @@ async function removeOldSlot(
   // **FRAG 项——展开区间完整移除（投影维度 N 槽位——单锚 remove 残留
   //  展开项——removeVNodeTree 父级槽位区间——与渲染展开语义一致）**
   if (oldVn && isFragment(oldVn)) {
-    removeVNodeTree(oldVn, cid, parent, emitCommand)
+    removeVNodeTree(oldVn, cid, parent, emitCommand, registry)
     return
   }
   if (oldVn && typeof oldVn.type === 'function') {
@@ -259,7 +260,7 @@ export async function diffKeyedChildren(
       continue
     }
     if (Array.isArray(oldC) || keyOf(oldC as VNode) !== null) continue // keyed/数组项——keyed 路径处理
-    removeVNodeTree(oldC as VNode, pathId(parent, i), parent, emitCommand)
+    removeVNodeTree(oldC as VNode, pathId(parent, i), parent, emitCommand, registry)
   }
 
   // 1. **真移除**（不在新列表——unmount（组件）+ remove——keyed 项——
@@ -302,7 +303,7 @@ export async function diffKeyedChildren(
       if (c === null || c === undefined || typeof c === 'boolean') return
       if (typeof c === 'string' || typeof c === 'number') { emitCommand({ op: 'remove', id: pathId(parent, i) }); return }
       if (keyOf(c as VNode) !== null) { emitCommand({ op: 'remove', id: pathId(parent, i) }); return } // keyed 项——单槽位（保留实例——重建复用）
-      removeVNodeTree(c as VNode, pathId(parent, i), parent, emitCommand) // unkeyed 项——区间语义（FRAG/组件）
+      removeVNodeTree(c as VNode, pathId(parent, i), parent, emitCommand, registry) // unkeyed 项——区间语义（FRAG/组件）
     })
     let r: string | null = null
     for (let i = 0; i < newCs.length; i++) {
