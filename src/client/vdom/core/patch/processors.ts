@@ -142,6 +142,16 @@ export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 
     if (el.nodeType === 1) applier.refRegistry.mount(cmd.id, el as HTMLElement)
     return
   }
+  // **id 空间防御（2026-XX——锚父）**：insert 到注释（锚）——真实 DOM
+  // insertBefore 抛 DOMException——命令流 id 空间错位（组件输出子空间
+  // 挂到锚）——显式报告（不中断——回退 append 到父容器）
+  if (parent.nodeType === 8) {
+    console.error(`[vdom] id 空间违例：insert ${cmd.id} 的 parent 是注释锚（${cmd.parent}）——插到父容器`)
+    const container = parent.parentElement
+    if (container) container.appendChild(el)
+    if (el.nodeType === 1) applier.refRegistry.mount(cmd.id, el as HTMLElement)
+    return
+  }
   if (cmd.ref) {
     const prev = applier.nodes.get(cmd.ref) ?? null
     // ref 有效性（导航流引用旧树残留——已脱离——NotFoundError 防御）

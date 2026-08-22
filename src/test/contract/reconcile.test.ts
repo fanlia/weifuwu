@@ -110,6 +110,13 @@ class Sim {
         if (!n || n.parent) break // isConnected → skip
         const p = this.parentOf(cmd.parent)
         if (!p) break
+        // **id 空间状态机（2026-XX——维度补全）**：insert 的 parent 必须
+        // 是容器（元素/root）——锚/文本不是容器（真实 DOM insertBefore
+        // 到注释/文本抛 DOMException——组件 fuzz an:root.0(div) 案例——
+        // 影子树 id 空间错位在消费瞬间显式违例（而非终态不等价才暴露））
+        if (p !== this.root && p.kind !== 'el') {
+          throw new Error(`[state-machine] id 空间违例：insert ${cmd.id} 的 parent ${cmd.parent} 不是容器（${p.kind}）`)
+        }
         if (cmd.ref) {
           const ref = this.nodes.get(cmd.ref)
           const idx = ref ? p.children.indexOf(ref) : -1
