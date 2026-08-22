@@ -37,6 +37,38 @@ const auditDom = (): { errors: string[]; itemCount: number; condCount: number } 
   return { errors: [], itemCount: 0, condCount: 0 }
 }
 
+/** 完整投影对账（**消费端应用正确性——2026-XX 增强**）：
+ *  在 id 结构对账之上补：属性投影（key/children 不泄漏到 DOM）+ 注释锚
+ *  格式（空洞占位 wf-hole）——消费端 setProp/applyAttribute 的应用正确性 */
+async function auditFullProjection(page: import('playwright').Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const root = document.querySelector('#root') as HTMLElement
+    const errors: string[] = []
+    const ids = new Set<string>()
+    const walk = (el: Element): void => {
+      for (const child of Array.from(el.childNodes)) {
+        if (child.nodeType === 8) { // 注释锚（空洞占位）
+          if (!child.textContent?.includes('wf-hole')) errors.push(`锚格式非法: ${child.textContent}`)
+          continue
+        }
+        if (child.nodeType !== 1) continue
+        const el = child as HTMLElement
+        const id = el.getAttribute('data-wf-id')
+        if (!id) { errors.push(`缺 data-wf-id: ${el.tagName}`); continue }
+        if (ids.has(id)) errors.push(`id 重复: ${id}`)
+        ids.add(id)
+        if (!/^root(\.\d+)+$/.test(id)) errors.push(`id 格式非法: ${id}`)
+        // 属性投影：key/children 不应泄漏到 DOM 属性面
+        if (el.hasAttribute('key')) errors.push(`key 泄漏到 DOM: ${id}`)
+        if (el.hasAttribute('children')) errors.push(`children 泄漏到 DOM: ${id}`)
+        walk(el)
+      }
+    }
+    walk(root)
+    return errors
+  })
+}
+
 /** 打开 dev 模式场景（P3b）——注入 window.__WF_DEV__（serve 注入 devVerify——
  *  命令消费后 Post 断言）——收集 [vdom-dev] 违例报告 */
 async function openDevScenario(page: import('playwright').Page, base: string, id: string, devErrors: string[]): Promise<void> {
@@ -94,6 +126,8 @@ test('reconcile：初始渲染对账——id 唯一/格式/兄弟连续/投影�
     })
 
     assert.deepEqual(audit.errors, [], `初始渲染对账违例: ${JSON.stringify(audit.errors)}`)
+    const proj = await auditFullProjection(page)
+    assert.deepEqual(proj, [], `消费端属性/文本投影违例: ${JSON.stringify(proj)}`)
     assert.equal(audit.itemCount, 3, 'keyed 列表 3 项')
     assert.equal(audit.condCount, 3, '条件渲染 3 个 on（show=true）')
     assert.equal(audit.tailCount, 1, '尾部兄弟保留')
@@ -128,6 +162,8 @@ test('reconcile：keyed 增项 → diff 后对账零违例', async () => {
       return { errors, items: root.querySelectorAll('.item').length, names: [...root.querySelectorAll('.item')].map((i) => i.getAttribute('data-name')) }
     })
     assert.deepEqual(audit.errors, [], `增项后对账违例: ${JSON.stringify(audit.errors)}`)
+    const proj = await auditFullProjection(page)
+    assert.deepEqual(proj, [], `增项后属性投影违例: ${JSON.stringify(proj)}`)
     assert.equal(audit.items, 4, '增项后 4 项')
     assert.deepEqual(audit.names, ['a', 'b', 'c', 'x3'], 'keyed 身份跟随（新项尾部）')
     assert.deepEqual(devErrors, [], `dev 验证器违例: ${devErrors.join('; ')}`)
@@ -265,6 +301,8 @@ test('reconcile：组合交互（add+remove+toggle+swap 连续）→ 终态对�
       return { errors, items: root.querySelectorAll('.item').length, cond: root.querySelectorAll('.cond').length }
     })
     assert.deepEqual(audit.errors, [], `组合交互终态对账违例: ${JSON.stringify(audit.errors)}`)
+    const proj = await auditFullProjection(page)
+    assert.deepEqual(proj, [], `组合后属性投影违例: ${JSON.stringify(proj)}`)
     assert.equal(audit.items, 4, '终态 4 项')
     assert.equal(audit.cond, 4, 'cond 恢复（4 项各一）')
     assert.deepEqual(devErrors, [], `dev 验证器违例: ${devErrors.join('; ')}`)
