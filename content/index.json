@@ -1,6 +1,6 @@
 {
   "counts": {
-    "components": 159,
+    "components": 160,
     "primitives": 20,
     "patterns": 11,
     "apps": 5,
@@ -429,6 +429,22 @@
         "focus-task",
         "settings-page"
       ],
+      "usedInApps": [],
+      "relatedBackend": []
+    },
+    {
+      "id": "relationgraph",
+      "name": "RelationGraph",
+      "category": "display",
+      "desc": "关系图谱——环形/网格布局 + 类型着色 + 选中交互（人物/组织/网络）",
+      "family": null,
+      "variantOf": null,
+      "tags": [],
+      "sourceFile": "src/client/components/RelationGraph/RelationGraph.ts",
+      "cssFile": "src/client/components/RelationGraph/RelationGraph.css",
+      "testFile": "src/client/components/RelationGraph/RelationGraph.test.ts",
+      "gotchas": [],
+      "usedInPatterns": [],
       "usedInApps": [],
       "relatedBackend": []
     },

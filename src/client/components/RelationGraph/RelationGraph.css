@@ -1,0 +1,65 @@
+/* weifuwu/components — RelationGraph（关系图谱：SVG 画布 + 图例） */
+.wf-rg {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wf-rg-canvas {
+  display: block;
+  border: 1px solid var(--wf-border, #e5e7eb);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 1px 1px, var(--wf-border, #e5e7eb) 1px, transparent 0) 0 0 / 24px 24px;
+  overflow: hidden;
+}
+.wf-rg-edge {
+  transition: opacity 0.15s;
+}
+.wf-rg-node {
+  cursor: pointer;
+}
+.wf-rg-node circle {
+  transition: stroke-width 0.15s;
+}
+.wf-rg-node:hover circle {
+  stroke-width: 3;
+}
+.wf-rg-node--selected circle {
+  stroke-width: 3.5;
+  stroke-dasharray: 4 3;
+}
+.wf-rg-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--wf-text, #111827);
+  pointer-events: none;
+}
+.wf-rg-sublabel {
+  font-size: 10px;
+  fill: var(--wf-text-tertiary, #9ca3af);
+  pointer-events: none;
+}
+.wf-rg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--wf-text-secondary, #6b7280);
+}
+.wf-rg-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.wf-rg-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.wf-rg-line {
+  display: inline-block;
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}

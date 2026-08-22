@@ -13,7 +13,7 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 
 import { h, createClientBrowser } from 'weifuwu/vdom'
-import { FilePreview, FileTree } from 'weifuwu/components'
+import { FilePreview, FileTree, RelationGraph } from 'weifuwu/components'
 
 import {
   SortableList, ExportCSV,
@@ -993,6 +993,49 @@ export default answer
   }
 }
 
+/** RelationGraph（关系图谱——红楼人物关系/组织网络——确定性布局） */
+const DemoRelationGraph: Component = async (_props: any, ctx: any) => {
+  // 红楼前 80 回核心人物关系（示例数据）
+  const NODES = [
+    { id: '宝玉', label: '贾宝玉', kind: '主角', sublabel: '怡红公子' },
+    { id: '黛玉', label: '林黛玉', kind: '主角', sublabel: '潇湘妃子', weight: 2 },
+    { id: '宝钗', label: '薛宝钗', kind: '主角', sublabel: '蘅芜君' },
+    { id: '贾母', label: '贾母', kind: '长辈', sublabel: '荣府老太君', weight: 3 },
+    { id: '王熙凤', label: '王熙凤', kind: '管家', sublabel: '凤辣子' },
+    { id: '袭人', label: '袭人', kind: '丫鬟', sublabel: '首席大丫鬟' },
+    { id: '晴雯', label: '晴雯', kind: '丫鬟', sublabel: '芙蓉女儿' },
+    { id: '贾政', label: '贾政', kind: '长辈', sublabel: '荣国府老爷' },
+  ]
+  const EDGES = [
+    { from: '宝玉', to: '黛玉', type: '爱情', strength: 5 },
+    { from: '宝玉', to: '宝钗', type: '爱情', strength: 3 },
+    { from: '贾母', to: '宝玉', type: '亲情', strength: 4 },
+    { from: '贾母', to: '黛玉', type: '亲情', strength: 3 },
+    { from: '贾政', to: '宝玉', type: '亲情', strength: 2 },
+    { from: '王熙凤', to: '贾母', type: '汇报', strength: 2, directed: true },
+    { from: '袭人', to: '宝玉', type: '主仆', strength: 3 },
+    { from: '晴雯', to: '宝玉', type: '主仆', strength: 2 },
+    { from: '黛玉', to: '宝钗', type: '同盟', strength: 1 },
+  ]
+  let selected: string | null = null
+  return async () => (
+    <div class="wf-w-full wf-stack" style="--wf-gap:12px">
+      <RelationGraph
+        nodes={NODES}
+        edges={EDGES}
+        selectedId={selected}
+        onSelect={(id) => { selected = id; ctx.render() }}
+        height="420px"
+      />
+      <div class="wf-text-xs wf-text-secondary">
+        {selected
+          ? `已选中：${selected}（点击其他节点切换——节点大小 = 权重，线宽 = 关系强度）`
+          : '点击节点查看选中态（受控）——环形确定性布局——同数据每次渲染一致'}
+      </div>
+    </div>
+  )
+}
+
 export const DEMOS: Record<string, any> = {
   SortableList: DemoSortableList,
   ExportCSV: DemoExportCSV,
@@ -1046,4 +1089,5 @@ export const DEMOS: Record<string, any> = {
   "FilePreview Office": DemoFilePreviewOffice,
   "ThemeSwitch": DemoThemeSwitch,
   "FileTree": DemoFileTree,
+  "RelationGraph": DemoRelationGraph,
 }

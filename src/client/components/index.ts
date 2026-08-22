@@ -120,6 +120,8 @@ export { FileTree } from './FileTree/FileTree.ts'
 export type { FileTreeProps, FileTreeEntry, FileTreeOpenFile } from './FileTree/FileTree.ts'
 export { AppShell } from './AppShell/AppShell.ts'
 export type { AppShellProps, AppShellNavItem } from './AppShell/AppShell.ts'
+export { RelationGraph } from './RelationGraph/RelationGraph.ts'
+export type { RelationGraphProps, RelationGraphNode, RelationGraphEdge } from './RelationGraph/RelationGraph.ts'
 
 export { Tooltip } from './Tooltip/Tooltip.ts'
 export type { TooltipProps, TooltipPosition } from './Tooltip/Tooltip.ts'

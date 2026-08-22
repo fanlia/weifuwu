@@ -5,7 +5,7 @@
 
 ## 域索引
 
-- **组件**（159）：逐一组件文档（API 表/纪律/关系/验证）——[components/](components/)
+- **组件**（160）：逐一组件文档（API 表/纪律/关系/验证）——[components/](components/)
 - **布局原语**（20 族）：wf-* 原语与工具类——[layout/](layout/)
 - **页面模式**（11）：复制即用的完整页面——[patterns/](patterns/)
 - **应用模板**（5）：完整可运行应用（含 agent-platform 生产级案例）——[apps/](apps/)
@@ -40,6 +40,7 @@
 - [Form](components/form.md) — 内置验证规则：required/pattern/minLength/自定义
 - [Form 提交](components/form-v2.md) — loading 提交 + 校验错误（状态矩阵覆盖）
 - [Field](components/field.md) — label+error+hint 容器
+- [RelationGraph](components/relationgraph.md) — 关系图谱——环形/网格布局 + 类型着色 + 选中交互（人物/组织/网络）
 - [AppShell](components/appshell.md) — 应用壳——品牌 + 分组导航 + 用户区 + 主内容（受控——父层驱动）
 - [FileTree](components/filetree.md) — 文件树浏览器——面包屑 + 列表/编辑态 + 上传（受控——数据源无关）
 - [FileUpload](components/fileupload.md) — 文件上传，拖拽区 + 文件列表 + accept/maxSize

@@ -216,6 +216,17 @@ export const components: ComponentEntry[] = [
     "testFile": "src/client/components/Field/Field.test.ts"
   },
   {
+    "id": "relationgraph",
+    "name": "RelationGraph",
+    "category": "display",
+    "desc": "关系图谱——环形/网格布局 + 类型着色 + 选中交互（人物/组织/网络）",
+    "codeKey": "relationGraph",
+    "demo": "DemoRelationGraph",
+    "sourceFile": "src/client/components/RelationGraph/RelationGraph.ts",
+    "cssFile": "src/client/components/RelationGraph/RelationGraph.css",
+    "testFile": "src/client/components/RelationGraph/RelationGraph.test.ts"
+  },
+  {
     "id": "appshell",
     "name": "AppShell",
     "category": "navigation",
