@@ -38,14 +38,16 @@ export async function diffComponentOutput(
   if (out === null || out === undefined) {
     if (oldOut !== undefined && oldOut !== null) {
       const t = transitionOf(stateOf(oldOut), 'hole')
-      if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+      if (!t) throw new Error(`[vdom] 状态机违例：未定义转换 ${stateOf(oldOut)} → hole（组件输出收缩——P2 显式 Reject）`)
+      await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r, registry })
     }
     // 旧输出已为 null（锚保持——no-op）
     return
   }
   if (oldOut === null) {
     const t = transitionOf('hole', stateOf(out))
-    if (t) await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+    if (!t) throw new Error(`[vdom] 状态机违例：未定义转换 hole → ${stateOf(out)}（组件输出展开——P2 显式 Reject）`)
+    await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r, registry })
     return
   }
   if (oldOut !== undefined && oldOut !== null) {
@@ -58,7 +60,8 @@ export async function diffComponentOutput(
     } else {
       // 数组 ↔ 单节点——transform（transitionFragment——旧展开区间递归清理）
       const t = transitionOf(stateOf(oldOut), stateOf(out))
-      if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+      if (!t) throw new Error(`[vdom] 状态机违例：未定义转换 ${stateOf(oldOut)} → ${stateOf(out)}（数组↔单节点——P2 显式 Reject）`)
+      await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r, registry })
     }
   } else {
     // 首帧输出（无旧输出）——全量渲染

@@ -56,6 +56,15 @@ export class EventRegistry {
     return this.table.get(nodeId)?.get(event)
   }
 
+  /** 单事件删除（差集对称——setProp undefined 消费——G4）——
+   *  与 remove(nodeId)（全子树删除）区分——只删一个 (nodeId, event) 对 */
+  removeEvent(nodeId: string, event: string): void {
+    const m = this.table.get(nodeId)
+    if (!m) return
+    m.delete(event)
+    if (m.size === 0) this.table.delete(nodeId)
+  }
+
   /** 子树清理（id 前缀匹配——remove/done 卸载指令） */
   remove(nodeId: string): void {
     for (const id of [...this.table.keys()]) {

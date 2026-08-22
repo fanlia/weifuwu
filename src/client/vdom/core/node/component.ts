@@ -23,6 +23,8 @@ import type { Component, RenderFn } from '../vnode.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 import { createUi } from '../../hooks/env.ts'
 import type { Browser } from '../../browser/Browser.ts'
+import { removeVNodeTree } from '../diff/cleanup.ts'
+import type { Command } from '../command/index.ts'
 
 /** 组件实例记录（跨渲染保持——diff 复用） */
 export interface ComponentRecord {
@@ -84,6 +86,7 @@ export async function renderComponent(
   sharedCtx: UIContext,
   registry: ComponentRegistry,
   sink: ComponentSink,
+  emitCommand?: (cmd: Command) => void,
 ): Promise<boolean> {
   const factory = vn.type as Component
 
@@ -93,6 +96,12 @@ export async function renderComponent(
   // 类型（PageA2 → Panel 等）——旧实例卸载 + 重 mount（rec.type 错位事故）
   if (rec && rec.type !== factory) {
     disposeComponent(compId, registry)
+    // **旧输出区间清理（G7——终态等价违例）**：lastOutput 数组/多根残留
+    // （keyed 组件类型切换——dispose 后直接全量渲染——旧节点无 remove
+    // ——fuzz 实证）——数组安全 + 组件项 unmount（与 diffSame 分支一致）
+    if (rec.lastOutput !== undefined && rec.lastOutput !== null && emitCommand) {
+      removeVNodeTree(rec.lastOutput, compId, compId, emitCommand)
+    }
     rec = undefined
   }
   const isNew = !rec
@@ -148,12 +157,19 @@ export async function renderComponent(
   return isNew
 }
 
-/** 执行组件卸载（unmount 命令消费——onUnmounts 逆序执行） */
+/** 执行组件卸载（unmount 命令消费——onUnmounts 逆序执行）
+ *  **递归清理子实例（G8——终态等价违例）**：组件 vnode 的 compId（parent.i）
+ *  ≠ 其子树内子组件实例 id（parent.i.0 / parent.i.k{key} / compId.0 特判）——
+ *  单实例删除会残留子实例（onUnmounts 不执行——订阅/监听泄漏——fuzz 实证）
+ *  ——按 compId 前缀递归（LIFO——与 disposeAllComponents 同语义——先子后父） */
 export function disposeComponent(id: string, registry: ComponentRegistry): void {
-  const rec = registry.get(id)
-  if (!rec) return
-  for (const fn of rec.onUnmounts.reverse()) {
-    try { fn() } catch (e) { console.error('[vdom] onUnmount:', e) }
+  const ids = [...registry.keys()].filter((k) => k === id || k.startsWith(id + '.')).reverse()
+  for (const cid of ids) {
+    const rec = registry.get(cid)
+    if (!rec) continue
+    for (const fn of rec.onUnmounts.reverse()) {
+      try { fn() } catch (e) { console.error('[vdom] onUnmount:', e) }
+    }
+    registry.delete(cid)
   }
-  registry.delete(id)
 }

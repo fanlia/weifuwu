@@ -22,6 +22,7 @@ import type { Command } from '../command/index.ts'
 import type { RenderSink } from '../build.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 import { diffSame } from './same.ts'
+import { removeVNodeTree } from './cleanup.ts'
 
 
 
@@ -134,13 +135,12 @@ async function diffSlot(
   emit: RenderSink, emitCommand: (cmd: Command) => void,
   ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
-  // 文本 ↔ 文本：值变化才 setText（精准——无变化不发命令）
-  if (typeof oldC === 'string' && typeof newC === 'string') {
-    if (oldC !== newC) emitCommand({ op: 'setText', id: cid, value: newC })
-    return
-  }
-  if (typeof oldC === 'number' && typeof newC === 'number') {
-    if (oldC !== newC) emitCommand({ op: 'setText', id: cid, value: String(newC) })
+  // 文本 ↔ 文本（**统一 kindOf 语义——单一规则源**）：string/number 交叉
+  // （'x' ↔ 42——同 kind text——按精确类型分流导致四分支落空 +
+  // transitionOf 对角 null → 静默 no-op——fuzz#79 实证——文本不更新）
+  // ——textOf 统一字符串化——值变化才 setText（精准）
+  if ((typeof oldC === 'string' || typeof oldC === 'number') && (typeof newC === 'string' || typeof newC === 'number')) {
+    if (String(oldC) !== String(newC)) emitCommand({ op: 'setText', id: cid, value: String(newC) })
     return
   }
   // 旧位是空洞（锚）→ 锚移除 + 新侧渲染
@@ -156,12 +156,18 @@ async function diffSlot(
   }
   // 异类型转换（transform——**完整转换**：旧侧让位 + 新侧渲染——状态机统一）
   const t = transitionOf(stateOf(oldC), stateOf(newC))
-  if (t) {
+  // **显式 Reject（P2——消灭隐式路径）**：t 为 null 且非同态——理论不可达
+  // （同态已被前置拦截）——到达即状态机违例——显式报错（不再静默落空——
+  //  fuzz#79 教训：diffSlot 四分支落空 + 对角 null = 静默 no-op）
+  if (!t) throw new Error(`[vdom] 状态机违例：未定义转换 ${stateOf(oldC)} → ${stateOf(newC)}（diffSlot——必须显式迁移或显式 Reject）`)
+  {
     await t(oldC, newC, {
       emit: emitCommand, emitNode: emit,
       oldId: cid, newId: cid, parent, index, ref,
       // 旧组件卸载（unmount——onUnmounts 清理——位置身份 compId = cid）
       oldCompId: typeof (oldC as VNode)?.type === 'function' ? cid : undefined,
+      // 区间清理查 lastOutput（transitionComponent——G2）
+      registry,
     })
   }
 }
@@ -190,17 +196,22 @@ export async function diffKeyedChildren(
   // 0. **旧 unkeyed 项移除（真实 bug——Menubar 面板残留——引擎级修复，
   //    所有组件受益）**：混合数组（hasKeyed）——unkeyed 旧项（keyOf 返回
   //    null）——keyed 移除路径只查 oldIdxByKey（keyed）——unkeyed 旧项从未
-  //    移除 → DOM 节点残留（Escape/外部点击关闭后面板永远显示——
-  //    aria-expanded false 但 DOM 还在）——按旧索引移除（与 unkeyed
-  //    removeOldSlot 对齐）——remove 按 id（顺序无关——keyed remap 同样
-  //    按 id——安全）
+  //    移除 → DOM 节点残留——**区间语义（fuzz#117/fuzz#214 实证）**：
+  //    FRAG vnode 展开占多槽位（单锚 remove 残留展开项）；文本/空洞项
+  //    （keyed 路径无尾部缩短循环——旧多于新的 unkeyed 项永远漏）——
+  //    统一 removeVNodeTree（FRAG 展开/组件 unmount）+ 单槽位项直 remove
   for (let i = 0; i < oldCs.length; i++) {
     const oldC = oldCs[i]
-    if (oldC === null || oldC === undefined || typeof oldC === 'boolean') continue
-    if (typeof oldC !== 'object') continue
-    const oldVn = oldC as VNode
-    if (keyOf(oldVn) !== null) continue // keyed 项——keyed 路径处理
-    emitCommand({ op: 'remove', id: pathId(parent, i) })
+    if (oldC === null || oldC === undefined || typeof oldC === 'boolean') {
+      emitCommand({ op: 'remove', id: pathId(parent, i) }) // 空洞——占位锚节点——必须移除
+      continue
+    }
+    if (typeof oldC === 'string' || typeof oldC === 'number') {
+      emitCommand({ op: 'remove', id: pathId(parent, i) })
+      continue
+    }
+    if (Array.isArray(oldC) || keyOf(oldC as VNode) !== null) continue // keyed/数组项——keyed 路径处理
+    removeVNodeTree(oldC as VNode, pathId(parent, i), parent, emitCommand)
   }
 
   // 1. **真移除**（不在新列表——unmount（组件）+ remove——keyed 项——
@@ -240,8 +251,10 @@ export async function diffKeyedChildren(
       if (!newKeys.has(k)) emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
     }
     oldCs.forEach((c, i) => {
-      const oldVn = c as VNode | null
-      emitCommand({ op: 'remove', id: pathId(parent, i) })
+      if (c === null || c === undefined || typeof c === 'boolean') return
+      if (typeof c === 'string' || typeof c === 'number') { emitCommand({ op: 'remove', id: pathId(parent, i) }); return }
+      if (keyOf(c as VNode) !== null) { emitCommand({ op: 'remove', id: pathId(parent, i) }); return } // keyed 项——单槽位（保留实例——重建复用）
+      removeVNodeTree(c as VNode, pathId(parent, i), parent, emitCommand) // unkeyed 项——区间语义（FRAG/组件）
     })
     let r: string | null = null
     for (let i = 0; i < newCs.length; i++) {
@@ -251,7 +264,7 @@ export async function diffKeyedChildren(
         // **全量渲染（节点已删——无对照——sink = emit）**——组件实例
         // .k{key} 复用（状态保持）
         const keyedId = `${parent}.k${k}`
-        const isNew = await renderComponent(newC as VNode, parent, i, r, keyedId, ctx, registry, emit)
+        const isNew = await renderComponent(newC as VNode, parent, i, r, keyedId, ctx, registry, emit, emitCommand)
         if (isNew) emitCommand({ op: 'mount', compId: keyedId })
       } else {
         await emit(newC, parent, i, r)
@@ -323,7 +336,8 @@ export async function emitWithKey(
       if (out === null || out === undefined) {
         if (oldOut !== undefined && oldOut !== null) {
           const t = transitionOf(stateOf(oldOut), 'hole')
-          if (t) await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+          if (!t) throw new Error(`[vdom] 状态机违例：未定义转换 ${stateOf(oldOut)} → hole（keyed 组件输出收缩——P2）`)
+          await t(oldOut, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r, registry })
         } else if (oldOut === undefined) {
           // **新实例首帧输出 null——占位锚**（同构保持——build 路径由
           // emit 分发器 hole case 建锚——此处内联 sink 必须等价——真实 bug）
@@ -333,7 +347,8 @@ export async function emitWithKey(
       }
       if (oldOut === null) {
         const t = transitionOf('hole', stateOf(out))
-        if (t) await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r })
+        if (!t) throw new Error(`[vdom] 状态机违例：未定义转换 hole → ${stateOf(out)}（keyed 组件输出展开——P2）`)
+        await t(null, out, { emit: emitCommand, emitNode: emit, oldId: outId, newId: outId, parent: p, index: i, ref: r, registry })
         return
       }
       if (oldOut !== undefined && !Array.isArray(oldOut) && !Array.isArray(out)) {
@@ -342,7 +357,7 @@ export async function emitWithKey(
       } else {
         await emit(out, p, i, r)
       }
-    })
+    }, emitCommand)
     // **mount 指令（新实例——初始化完成）**
     if (isNew) emitCommand({ op: 'mount', compId: keyedId })
     return

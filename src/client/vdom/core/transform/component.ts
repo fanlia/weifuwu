@@ -12,18 +12,30 @@
  *
  * 转换职责（old=component → new=X）：
  * 1. unmountComp（onUnmounts 清理——ctx.onUnmount 注册的回调——逆序执行）
- * 2. 旧组件输出节点移除（多根 = 隐式 Fragment——锚点区间清理）
+ * 2. 旧组件输出节点移除——**区间完整移除（G2——终态等价违例）**：
+ *    组件输出多根 = 隐式 Fragment（展开槽位 parent.i+1...）——只移除首锚
+ *    会让第二节点起 DOM 残留（fuzz 实证）——经 registry 查 lastOutput
+ *    → removeVNodeTree 递归（数组全形态 + 组件项 unmount）
  * 3. 新节点由 diff 渲染到同一位置（首锚位置）
  */
 
+import type { VNodeChild } from '../vnode.ts'
+import { pathId } from '../node/native.ts'
+import { removeVNodeTree } from '../diff/cleanup.ts'
 import type { TransformContext, TransitionFn } from './index.ts'
 
-/** component → X：组件卸载（onUnmounts）+ 输出节点移除（让位） */
+/** component → X：组件卸载（onUnmounts）+ 输出区间移除（让位） */
 export const transitionComponent: TransitionFn = async (_old, next, ctx) => {
-  // 1. 组件卸载清理（onUnmounts——实例注册表消费）
+  // 1. 组件卸载清理（onUnmounts——实例注册表消费——递归子实例）
   if (ctx.oldCompId) ctx.emit({ op: 'unmount', compId: ctx.oldCompId })
-  // 2. 旧输出区间移除（首锚让位——区间由 diff 的锚点区间清理负责）
-  ctx.emit({ op: 'remove', id: ctx.oldId })
+  // 2. 旧输出区间移除——registry 查 lastOutput——数组/多根完整清理
+  const out = ctx.registry?.get(ctx.oldCompId ?? '')?.lastOutput
+  if (out !== undefined && out !== null) {
+    removeVNodeTree(out, pathId(ctx.parent, ctx.index), ctx.parent, ctx.emit)
+  } else {
+    // 无旧输出记录（防御）——首锚让位
+    ctx.emit({ op: 'remove', id: ctx.oldId })
+  }
   // 3. 新侧渲染（同一位置）
   await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

@@ -10,6 +10,7 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
+import { isFragment } from '../node/fragment.ts'
 import { stateOf } from '../transform/states.ts'
 import { transitionOf } from '../transform/table.ts'
 import { pathId } from '../node/native.ts'
@@ -48,12 +49,13 @@ export async function diffSame(
       // **同步卸载**（onUnmounts + 删 rec——不等 patch 消费 unmount 命令——
       // 否则 renderComponent 立即复用旧 rec——类型错位）
       disposeComponent(id, registry)
-      // 旧输出清理（递归 remove——lastOutput 结构）
+      // 旧输出清理（递归 remove——lastOutput 结构——数组安全（G1）——
+      // 区间完整（数组逐项展开槽位 + 组件项 unmount））
       if (rec.lastOutput !== undefined && rec.lastOutput !== null) {
-        removeVNodeTree(rec.lastOutput as VNode, pathId(parent, index), emitCommand)
+        removeVNodeTree(rec.lastOutput, pathId(parent, index), parent, emitCommand)
       }
       // 新实例（rec 已删——重新 mount——工厂执行）
-      await renderComponent(newV, parent, index, ref, id, ctx, registry, emit)
+      await renderComponent(newV, parent, index, ref, id, ctx, registry, emit, emitCommand)
       emitCommand({ op: 'mount', compId: id })
       return
     }
@@ -68,14 +70,33 @@ export async function diffSame(
     if (isNew) emitCommand({ op: 'mount', compId: id })
     return
   }
-  // 元素同标签：属性精准 diff + children 递归对照
-  if (typeof newV.type === 'string' && typeof oldV.type === 'string' && oldV.type === newV.type) {
-    diffAttrs(oldV, newV, id, emitCommand)
-    await diffChildren(oldV, newV, id, emit, emitCommand, ctx, registry)
+  // 元素（string type）：同标签 → 属性精准 diff + children 递归对照；
+  // **不同标签（div → span）→ 重建迁移（显式——P2 消灭隐式路径）**：
+  // 同态但非同标签——旧元素让位（remove——含子树记录/事件/ref 清理——
+  // 消除"兜底重建"的节点记录残留隐患）+ 新侧渲染（transitionElement 语义）
+  if (typeof newV.type === 'string' && typeof oldV.type === 'string') {
+    if (oldV.type === newV.type) {
+      diffAttrs(oldV, newV, id, emitCommand)
+      await diffChildren(oldV, newV, id, emit, emitCommand, ctx, registry)
+    } else {
+      emitCommand({ op: 'remove', id })
+      await emit(newV, parent, index, ref)
+    }
     return
   }
-  // 其余同态（text/fragment 等）——首版：新侧重建（位置对照）
-  await emit(newV, parent, index, ref)
+  // **Fragment 符号 vnode 同态（G3——终态等价违例）**：fragment → fragment
+  // 走 children 逐项对照（与数组同态 diffChildrenItems 一致——内容变化/缩短
+  // 旧项移除——精准增量）——不复建（旧 rebuild 路径：create 幂等复用旧节点
+  // 但缩短/变化的旧项无 remove——DOM 残留——fuzz 实证）
+  if (isFragment(oldV as VNode) && isFragment(newV as VNode)) {
+    await diffChildrenItems(childrenOf(oldV), childrenOf(newV), parent, emit, emitCommand, ctx, registry)
+    return
+  }
+  // **显式 Reject（P2——消灭隐式路径）**：其余同态理论不可达——
+  // text↔text/hole↔hole 由 diffSlot 前置拦截；array 由 childrenOf 展开；
+  // element/component/fragment 已在上分支——到达即状态机违例（新形态
+  // 加入时会立即暴露——不再静默重建）
+  throw new Error(`[vdom] 状态机违例：diffSame 未定义同态对照 ${String(oldV.type)} ↔ ${String(newV.type)}（P2 显式 Reject）`)
 }
 
 /** 属性精准 diff（值比较——只发变化的键；函数面引用比较——prev 传递） */

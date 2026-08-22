@@ -17,6 +17,7 @@
  */
 
 import type { VNodeChild } from '../vnode.ts'
+import type { ComponentRegistry } from '../node/component.ts'
 
 export type NodeState = 'text' | 'hole' | 'element' | 'component' | 'fragment' | 'array'
 
@@ -38,6 +39,8 @@ export interface TransformContext {
   ref: string | null
   /** 旧组件实例 id（component 转换时——卸载/复用） */
   oldCompId?: string
+  /** 组件实例注册表（区间清理查 lastOutput——组件多根完整移除——G2） */
+  registry?: ComponentRegistry | null
 }
 
 /** 新侧渲染 sink（与 build 的 RenderSink 同形——transform 不依赖 build） */

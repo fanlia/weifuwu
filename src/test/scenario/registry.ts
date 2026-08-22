@@ -1505,6 +1505,46 @@ const DMAS = { id: 'cap-math', title: 'Math 能力（LaTeX 渲染）', render: C
 const DWAS = { id: 'cap-wave', title: 'Wave 能力（点击波纹）', render: CapWave }
 const DTYS = { id: 'cap-typography', title: 'Typography 能力（Title/Text/Paragraph 参数）', render: CapTypo }
 
+
+// ── 场景：reconcile（状态机验证——真实 DOM 对账场景） ───────────────
+// 复杂树：keyed 列表（增/删/循环移位——冲突重建）+ 条件渲染（空洞切换）+
+// 数组展开（隐式 Fragment）+ 尾部兄弟 + 嵌套层级——每步交互后 e2e 对账
+// （auditDom：data-wf-id 唯一/格式/兄弟连续——真实 DOM 结构不变量）。
+const ReconcileScene = (_init: Record<string, never>, ctx: any) => {
+  let items = ['a', 'b', 'c']
+  let show = true
+  const add = () => { items = [...items, 'x' + items.length]; void ctx.render() }
+  const remove = () => { items = items.slice(0, -1); void ctx.render() }
+  const toggle = () => { show = !show; void ctx.render() }
+  const swap = () => { items = [items[items.length - 1], ...items.slice(0, -1)]; void ctx.render() }
+  return () =>
+    h('div', { class: 'reconcile-scene' },
+      h('div', { class: 'ctrl' },
+        h('button', { id: 'btn-add', onClick: add }, 'add'),
+        h('button', { id: 'btn-remove', onClick: remove }, 'remove'),
+        h('button', { id: 'btn-toggle', onClick: toggle }, 'toggle'),
+        h('button', { id: 'btn-swap', onClick: swap }, 'swap'),
+      ),
+      h('div', { class: 'list' },
+        items.map((it) =>
+          h('div', { key: it, class: 'item', 'data-name': it },
+            h('span', { class: 'name' }, it),
+            show ? h('i', { class: 'cond' }, 'on') : null,
+          ),
+        ),
+        h('div', { class: 'tail' }, 'tail'),
+      ),
+      // 数组 = 隐式 Fragment——平铺展开
+      h('div', { class: 'frag' }, [
+        h('span', { class: 'f1' }, 'f1'),
+        h('span', { class: 'f2' }, 'f2'),
+        show ? h('span', { class: 'f3' }, 'f3') : null,
+      ]),
+    )
+}
+
+const RCS = { id: 'reconcile', title: '状态机对账（真实 DOM 结构不变量）', render: ReconcileScene }
+
 const TWS = { id: 'typewriter-loop', title: '打字机高频渲染（锚稳定）', render: DeepTypewriter }
 const RLS = { id: 'render-loop', title: '渲染循环（结构稳定计数）', render: DeepRenderLoop }
 
@@ -1616,6 +1656,7 @@ export const scenarios: Scenario[] = [
   DMAS,
   DWAS,
   DTYS,
+  RCS,
 ]
 
 export function findScenario(id: string): Scenario | undefined {

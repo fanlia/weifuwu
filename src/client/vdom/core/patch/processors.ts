@@ -120,6 +120,11 @@ export function procCreateAnchor(applier: CommandApplier, cmd: Extract<Command, 
  *  **ref=null 语义 = 容器头部**（diff 逐槽对照首项/新增首项——位置 0
  *  ——append 会把位置 0 的新项追加到末尾——错位——真实 bug） */
 export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 'insert' }>): void {
+  // **防御性 return 审计（P2——状态机规格标注）**：
+  //  - !el / !parent：命令流合法时不可达（insert Pre：id ∈ nodes ∧ parent ∈ 树）
+  //    ——触发 = 上游生成 bug 或 SSR absorb 错配——Sim 状态机验证器在测试层
+  //    捕获（reconcile insert Pre 违例 throw）——生产保留防御（环境差异兜底）
+  //  - el.isConnected：合法幂等 skip（重复 insert——重建/move 路径）
   const el = applier.nodes.get(cmd.id)
   if (!el) return
   if (el.isConnected) return
@@ -156,6 +161,8 @@ export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 
 
 /** move 处理器（顺移 remap / 移动 + 重映射） */
 export function procMove(applier: CommandApplier, cmd: Extract<Command, { op: 'move' }>): void {
+  // 防御审计（P2）：!el / !parent = 生成层 bug（move Pre 违例——Sim 测试层
+  // 捕获）——生产保留防御；noMove = 纯 remap（无 DOM 移动）
   const el = applier.nodes.get(cmd.id)
   if (!el) return
   if (!cmd.noMove) {
@@ -191,7 +198,10 @@ export function procRemove(applier: CommandApplier, cmd: Extract<Command, { op: 
   applier.nodes.delete(cmd.id)
 }
 
-/** setText 处理器（就地更新） */
+/** setText 处理器（就地更新）
+ *  防御审计（P2）：!t / 非文本 = setText Pre 违例（生成层 bug——Sim 状态机
+ *  验证器在测试层显式 Reject（setText Pre 违例 throw）——生产保留静默防御
+ *  （真实浏览器环境差异兜底——不中断渲染管线） */
 export function procSetText(applier: CommandApplier, cmd: Extract<Command, { op: 'setText' }>): void {
   const t = applier.nodes.get(cmd.id)
   if (t && t.nodeType === 3) t.textContent = cmd.value
@@ -199,18 +209,32 @@ export function procSetText(applier: CommandApplier, cmd: Extract<Command, { op:
 
 /** setProp 处理器（ref 生命周期 / 事件代理 / 三通道） */
 export function procSetProp(applier: CommandApplier, cmd: Extract<Command, { op: 'setProp' }>): void {
+  // 防御审计（P2）：!el / 非元素 = setProp Pre 违例（生成层 bug——Sim 测试
+  // 层显式 Reject）——生产保留防御
   const el = applier.nodes.get(cmd.id)
   if (!el || el.nodeType !== 1) return
   const el2 = el as HTMLElement
   if (cmd.key === 'ref') {
     const prev = applier.refRegistry['refs'].get(cmd.id) as unknown
+    if (cmd.value === undefined) {
+      // **差集对称消费（G4）**：ref 移除——prev 退 null + 删表条目（
+      // 残留 undefined 条目会在 unmount 时无谓遍历——直接删）
+      applier.refRegistry.set(cmd.id, undefined, prev)
+      applier.refRegistry['refs'].delete(cmd.id)
+      return
+    }
     applier.refRegistry.set(cmd.id, cmd.value, prev)
     if (el2.isConnected) applier.refRegistry.mount(cmd.id, el2)
     return
   }
   if (EVENT_RE.test(cmd.key)) {
     const name = eventName(cmd.key)
-    if (name) applier.eventRegistry.set(cmd.id, name, cmd.value)
+    if (name) {
+      // **差集对称消费（G4）**：setProp undefined = 解绑（单事件删除——
+      // 旧 handler 残留继续触发是行为错误——fuzz 实证）
+      if (cmd.value === undefined) applier.eventRegistry.removeEvent(cmd.id, name)
+      else applier.eventRegistry.set(cmd.id, name, cmd.value)
+    }
     return
   }
   applySetProp(applier.eventRegistry, cmd.id, el2, cmd.key, cmd.value)

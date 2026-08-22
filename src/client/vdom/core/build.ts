@@ -77,7 +77,7 @@ export function createRenderDispatcher(
         const compId = vn.key !== null ? `${parent}.k${vn.key}` : id
         // **mount 指令（组件生命周期——初始化完成——返回值判定——
         //  类型切换重 mount 后正确标记）**
-        const isNew = await renderComponent(vn, parent, index, ref, compId, ctx, registry, emit)
+        const isNew = await renderComponent(vn, parent, index, ref, compId, ctx, registry, emit, emitCommand)
         if (isNew) emitCommand({ op: 'mount', compId })
         return
       }

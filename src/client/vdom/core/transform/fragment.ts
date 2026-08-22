@@ -17,39 +17,17 @@
 import type { VNode, VNodeChild } from '../vnode.ts'
 import { childrenOf } from '../node/children.ts'
 import { pathId } from '../node/native.ts'
-import type { TransformContext, TransitionFn } from './index.ts'
-
-/** 子树递归移除（旧展开区间完整清理——数组/嵌套/元素逐项） */
-export function removeChildTree(v: VNodeChild, id: string, ctx: TransformContext): void {
-  if (v === null || v === undefined || typeof v === 'boolean') {
-    ctx.emit({ op: 'remove', id })
-    return
-  }
-  if (typeof v === 'string' || typeof v === 'number') {
-    ctx.emit({ op: 'remove', id })
-    return
-  }
-  if (Array.isArray(v)) {
-    v.forEach((c, i) => removeChildTree(c, pathId(id, i), ctx))
-    return
-  }
-  const cs = childrenOf(v as VNode)
-  cs.forEach((c, i) => {
-    if (c !== null && typeof c !== 'string' && typeof c !== 'number' && typeof c !== 'boolean' && !Array.isArray(c)) {
-      removeChildTree(c, pathId(id, i), ctx)
-    } else {
-      ctx.emit({ op: 'remove', id: pathId(id, i) })
-    }
-  })
-  ctx.emit({ op: 'remove', id })
-}
+import type { TransitionFn } from './index.ts'
+import { removeVNodeTree } from '../diff/cleanup.ts'
 
 /** fragment → X：旧展开区间完整清理（数组逐项递归——非只清首锚）+
- *  新侧渲染到同一位置（展开位置连续——pathId(parent, index + ci)） */
+ *  新侧渲染到同一位置（展开位置连续——pathId(parent, index + ci)）
+ *  **单一实现源**：区间移除统一 removeVNodeTree（cleanup.ts——FRAG 展开
+ *  到父级槽位/数组全形态/组件 unmount——与 diff 各路径共享——防双实现漂移） */
 export const transitionFragment: TransitionFn = async (oldNode, next, ctx) => {
   const items = Array.isArray(oldNode) ? oldNode : childrenOf(oldNode as VNode)
   items.forEach((c, ci) => {
-    removeChildTree(c, pathId(ctx.parent, ctx.index + ci), ctx)
+    removeVNodeTree(c, pathId(ctx.parent, ctx.index + ci), ctx.parent, ctx.emit)
   })
   await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

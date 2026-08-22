@@ -50,6 +50,7 @@ export function diffStream(
           parent: 'root',
           index: 0,
           ref: null,
+          registry,
         })
       } else {
         // 同态：对照（组件/元素——细节在 same.ts）

@@ -29,5 +29,14 @@ export function diffAttrs(
       emitCommand({ op: 'setProp', id, key: k, value: v, prev: oldV.props[k] })
     }
   }
+  // **差集对称（定理 4——G4）**：旧有新无的函数键 → setProp undefined
+  // （解绑——事件表/ref 表残留是结构性违例——旧 handler 继续触发——
+  //  fuzz/探针实证）——静态面已有旧侧遍历——函数面必须对称
+  for (const k of Object.keys(oldV.props)) {
+    if (k === 'children' || k === 'key') continue
+    if (typeof oldV.props[k] === 'function' && newV.props[k] === undefined) {
+      emitCommand({ op: 'setProp', id, key: k, value: undefined, prev: oldV.props[k] })
+    }
+  }
 }
 
