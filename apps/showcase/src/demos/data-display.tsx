@@ -1025,7 +1025,6 @@ const DemoRelationGraph: Component = async (_props: any, ctx: any) => {
         edges={EDGES}
         selectedId={selected}
         onSelect={(id) => { selected = id; ctx.render() }}
-        height="420px"
       />
       <div class="wf-text-xs wf-text-secondary">
         {selected

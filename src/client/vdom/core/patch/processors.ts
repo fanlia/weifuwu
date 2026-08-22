@@ -21,6 +21,23 @@ import { applyAttrs, applySetProp } from './fields.ts'
 export type WfNode = HTMLElement | Text | Comment
 
 /** create 处理器（元素创建——幂等——data-wf-id 标记） */
+/** SVG 标签集（HTML 命名空间渲染异常——真实 bug——RelationGraph 事故：
+ *  createElement('svg') 是 XHTML 元素——viewBox/preserveAspectRatio 属性
+ *  小写化无效 + height 不映射 CSS（23px）——SVG 必须 createElementNS）
+ */
+const SVG_NS = 'http://www.w3.org/2000/svg'
+const SVG_TAGS = new Set([
+  'svg', 'path', 'circle', 'line', 'rect', 'text', 'g', 'defs', 'marker',
+  'polyline', 'polygon', 'ellipse', 'use', 'symbol', 'tspan', 'textPath',
+  'clipPath', 'mask', 'pattern', 'linearGradient', 'radialGradient', 'stop',
+])
+
+function createEl(doc: Document, tag: string): HTMLElement {
+  return (SVG_TAGS.has(tag)
+    ? doc.createElementNS(SVG_NS, tag)
+    : doc.createElement(tag)) as HTMLElement
+}
+
 export function procCreate(applier: CommandApplier, cmd: Extract<Command, { op: 'create' }>): void {
   applier.touched.add(cmd.id)
   const existing = applier.nodes.get(cmd.id)
@@ -34,12 +51,12 @@ export function procCreate(applier: CommandApplier, cmd: Extract<Command, { op: 
       applyAttrs(ssrEl as HTMLElement, cmd.attrs)
       applier.nodes.set(cmd.id, ssrEl)
     } else {
-      const el = applier.doc.createElement(cmd.tag)
+      const el = createEl(applier.doc, cmd.tag)
       applyAttrs(el, cmd.attrs)
       applier.nodes.set(cmd.id, el)
     }
   } else {
-    const el = applier.doc.createElement(cmd.tag)
+    const el = createEl(applier.doc, cmd.tag)
     applyAttrs(el, cmd.attrs)
     if (existing) {
       // 类型不符 → 替换（同构保持）——旧节点卸载资源释放

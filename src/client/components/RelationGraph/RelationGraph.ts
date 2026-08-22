@@ -84,6 +84,26 @@ function radiusOf(weight?: number): number {
   return 12 + Math.round(Math.log10(w) * 6)
 }
 
+/** 自动 viewBox（按节点边界紧凑裁剪——真实体验问题：固定 800×500 画布在
+ *  宽容器里被 meet 缩小（留白/节点变小——demo 高度 420 显示不完整）——
+ *  节点边界 + padding 计算——任何节点数/布局完整且最大化——确定性（同数据
+ *  同 viewBox——测试可截图对比） */
+function computeViewBox(nodes: RelationGraphNode[], pos: Array<{ x: number; y: number }>): string {
+  const PAD = 28
+  const SUB_LABEL = 34 // sublabel 在节点下方
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (let i = 0; i < nodes.length; i++) {
+    const r = radiusOf(nodes[i].weight)
+    const p = pos[i]
+    minX = Math.min(minX, p.x - r)
+    minY = Math.min(minY, p.y - r)
+    maxX = Math.max(maxX, p.x + r)
+    maxY = Math.max(maxY, p.y + r + (nodes[i].sublabel ? SUB_LABEL : 0))
+  }
+  if (nodes.length === 0) return `0 0 ${VB_W} ${VB_H}`
+  return `${Math.round(minX - PAD)} ${Math.round(minY - PAD)} ${Math.round(maxX - minX + PAD * 2)} ${Math.round(maxY - minY + PAD * 2)}`
+}
+
 /** 确定性布局——环形/网格（同输入同输出——可截图对比） */
 function layoutNodes(nodes: RelationGraphNode[], mode: 'ring' | 'grid'): Array<{ x: number; y: number }> {
   const n = nodes.length
@@ -114,11 +134,12 @@ export const RelationGraph: Component<RelationGraphProps> = async (_init, _ctx) 
     const {
       nodes = [], edges = [], selectedId = null,
       onSelect, onNodeClick, layout = 'ring',
-      width = '100%', height = '420px', showLegend = true,
+      width = '100%', height = '480px', showLegend = true,
       nodeColors, edgeColors,
     } = props
     const pos = layoutNodes(nodes, layout)
     const byId = new Map(nodes.map((n, i) => [n.id, { node: n, ...pos[i] }]))
+    const viewBox = computeViewBox(nodes, pos)
     const kinds = [...new Set(nodes.map((n) => n.kind ?? 'default'))]
     const types = [...new Set(edges.map((e) => e.type ?? 'default'))]
 
@@ -140,7 +161,7 @@ export const RelationGraph: Component<RelationGraphProps> = async (_init, _ctx) 
       h('svg', {
         class: 'wf-rg-canvas',
         width, height,
-        viewBox: `0 0 ${VB_W} ${VB_H}`,
+        viewBox,
         preserveAspectRatio: 'xMidYMid meet',
       }, [
         // 有向箭头 marker
@@ -154,6 +175,10 @@ export const RelationGraph: Component<RelationGraphProps> = async (_init, _ctx) 
           marker: p.marker,
           class: 'wf-rg-edge',
           opacity: 0.75,
+          // **边不拦截点击（真实 bug——节点中心被爱情线遮挡——elementFromPoint
+          //  返回 line——g 的 onClick 不触发）**——pointer-events none 让点击
+          //  穿透到节点命中圈/空白
+          'pointer-events': 'none',
         })),
         // 节点（上层）
         ...nodes.map((n) => {
@@ -171,6 +196,8 @@ export const RelationGraph: Component<RelationGraphProps> = async (_init, _ctx) 
             },
           }, [
             h('title', {}, `${n.label}${n.sublabel ? `（${n.sublabel}）` : ''}`),
+            // 透明命中圈（点击区域 = 节点 + 10px——标签/附近都可点——不随视觉缩放）
+            h('circle', { r: r + 10, fill: 'transparent', 'pointer-events': 'all' }),
             h('circle', { r, fill: color, opacity: 0.18, stroke: color, 'stroke-width': selected ? 3 : 1.5 }),
             h('text', { class: 'wf-rg-label', y: r + 16, 'text-anchor': 'middle' }, n.label),
             n.sublabel ? h('text', { class: 'wf-rg-sublabel', y: r + 30, 'text-anchor': 'middle' }, n.sublabel) : null,
