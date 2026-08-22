@@ -45,6 +45,7 @@ export async function diffSame(
   if (typeof newV.type === 'function') {
     const rec = registry.get(id)
     // **类型比较**：同位置不同类型（条件切换 A → B）——卸载旧实例 + 重建
+    if ((globalThis as any).__DBG6) console.log(`[dbg-same] 组件分支 id=${id} rec=${!!rec} typeSame=${rec?.type === newV.type}`)
     if (rec && rec.type !== newV.type) {
       // **同步卸载**（onUnmounts + 删 rec——不等 patch 消费 unmount 命令——
       // 否则 renderComponent 立即复用旧 rec——类型错位）
@@ -80,7 +81,11 @@ export async function diffSame(
       diffAttrs(oldV, newV, id, emitCommand)
       await diffChildren(oldV, newV, id, emit, emitCommand, ctx, registry)
     } else {
-      emitCommand({ op: 'remove', id })
+      // **根本修复（C2——统一区间移除——同 tag 分支的实例残留）**：
+      // 单锚 remove 只删元素——子树内组件实例残留（S_INST 面——组件树
+      // fuzz seed=99 i=4 实证——span{k1} 内 FRAG 组件项 unmount 缺失）——
+      // removeVNodeTree 完整区间（声明树递归 + 组件项 unmount + 输出区间）
+      removeVNodeTree(oldV, id, parent, emitCommand, registry)
       await emit(newV, parent, index, ref)
     }
     return

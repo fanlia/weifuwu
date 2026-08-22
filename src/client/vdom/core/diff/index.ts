@@ -51,6 +51,11 @@ export function diffStream(
           index: 0,
           ref: null,
           registry,
+          // **根组件卸载（C2——root.0 幽灵实例实证）**：root 级转换
+          // （组件→X）必须传 oldCompId——否则 transitionComponent 的
+          // unmount 不触发——旧根组件实例残留（onUnmounts 不执行——
+          // 组件树 fuzz 实证——diff mount 有但 unmount 无）
+          oldCompId: typeof (oldTree as { type?: unknown }).type === 'function' ? 'root.0' : undefined,
         })
       } else {
         // 同态：对照（组件/元素——细节在 same.ts）

@@ -189,7 +189,16 @@ class Sim {
         break
       }
       case 'mount': this.instances.add(cmd.compId); break
-      case 'unmount': this.instances.delete(cmd.compId); break
+      case 'unmount': {
+        // **前缀递归（与 disposeComponent 一致——Sim 消费端完整性）**：
+        // 真实消费端 unmount → disposeComponent(compId) 前缀递归卸载
+        // （compId + compId.*——输出子空间 root.0.0.1.0/keyed 子实例）——
+        // Sim 只删单个会残留（组件 fuzz seed=99 实证——root.0.0.1.0 幽灵）
+        for (const cid of [...this.instances]) {
+          if (cid === cmd.compId || cid.startsWith(cmd.compId + '.')) this.instances.delete(cid)
+        }
+        break
+      }
       case 'ref': case 'unref': break
       case 'close': break
       case 'done': {
@@ -401,7 +410,17 @@ async function compFuzzRound(seed: number, rounds: number): Promise<number> {
       const newT = randTree(0) as VNode
       if (typeof oldT === 'string' || oldT === null || typeof oldT === 'boolean' || typeof newT === 'string' || newT === null || typeof newT === 'boolean') continue
       const diff = await verifyEquivalence(oldT, newT, createComponentRegistry())
-      if (diff) { mismatches++; if (!sample) sample = `seed=${seed} i=${i}\nold=${JSON.stringify(oldT)}\nnew=${JSON.stringify(newT)}\n${diff}` }
+      if (diff) {
+        mismatches++
+        if (!sample) {
+          // 打印 diff 命令流（mount/unmount/remove）
+          const reg2 = createComponentRegistry()
+          const bo = await drainStream(renderToStream(oldT, {}, reg2))
+          const d2 = await drainStream(diffStream(oldT, newT, {}, reg2))
+          const stream2 = [...bo, ...d2].filter((c: any) => c.op === 'mount' || c.op === 'unmount' || c.op === 'remove').map((c: any) => `${c.op}:${c.compId ?? c.id}`).join(' ')
+          sample = `seed=${seed} i=${i}\nold=${JSON.stringify(oldT)}\nnew=${JSON.stringify(newT)}\n${diff}\n流: ${stream2}`
+        }
+      }
     }
   } finally {
     console.warn = origWarn

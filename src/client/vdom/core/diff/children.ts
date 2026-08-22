@@ -144,18 +144,11 @@ async function removeOldSlot(
     emitCommand({ op: 'remove', id: cid })
     return
   }
-  const oldVn = oldC as VNode | null
-  // **FRAG 项——展开区间完整移除（投影维度 N 槽位——单锚 remove 残留
-  //  展开项——removeVNodeTree 父级槽位区间——与渲染展开语义一致）**
-  if (oldVn && isFragment(oldVn)) {
-    removeVNodeTree(oldVn, cid, parent, emitCommand, registry)
-    return
-  }
-  if (oldVn && typeof oldVn.type === 'function') {
-    const compId = oldVn.key !== null ? `${parent}.k${oldVn.key}` : cid
-    emitCommand({ op: 'unmount', compId })
-  }
-  emitCommand({ op: 'remove', id: cid })
+  // **统一区间移除（C2——元素/组件/FRAG 全形态——尾部缩短/空洞切换的
+  //  子树组件实例残留实证——removeOldSlot 单锚只删元素——div 内组件实例
+  //  root.1.0/root.1.1.0 残留——removeVNodeTree 完整：声明树递归 + 组件项
+  //  unmount（keyed `${parent}.k{k}` 与渲染一致）+ 组件输出区间）**
+  removeVNodeTree(oldC, cid, parent, emitCommand, registry)
 }
 
 // 槽位计数（投影维度——单一实现源——node/children.ts slotCount）
@@ -263,15 +256,14 @@ export async function diffKeyedChildren(
     removeVNodeTree(oldC as VNode, pathId(parent, i), parent, emitCommand, registry)
   }
 
-  // 1. **真移除**（不在新列表——unmount（组件）+ remove——keyed 项——
-  //    与 unkeyed 对齐）
+  // 1. **真移除**（不在新列表——**统一区间移除（C2——元素子树实例残留
+  //    实证——span{k1} 内 FRAG 组件项 unmount 缺失——keyed 元素项移除只
+  //    单锚——S_INST 面）**：removeVNodeTree 完整区间（组件项 unmount
+  //    keyed compId `${parent}.k{k}`——与渲染规则一致）——keyed 组件项
+  //    的实例由 removeVNodeTree 组件分支卸载）
   for (const [k, oldIdx] of oldIdxByKey) {
     if (!newKeys.has(k)) {
-      const oldVn = oldCs[oldIdx] as VNode
-      if (typeof oldVn.type === 'function') {
-        emitCommand({ op: 'unmount', compId: `${parent}.k${k}` })
-      }
-      emitCommand({ op: 'remove', id: pathId(parent, oldIdx) })
+      removeVNodeTree(oldCs[oldIdx] as VNode, pathId(parent, oldIdx), parent, emitCommand, registry)
     }
   }
 

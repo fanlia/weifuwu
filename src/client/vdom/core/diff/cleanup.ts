@@ -58,6 +58,7 @@ export function removeVNodeTree(
     // 数组（组件输出多根——**compId 子空间**——C2：渲染 sink(out, compId,
     //  0) 数组特判——展开 pathId(compId, i)——base = compId（outputBase
     //  传入）——pathId(base, slot)——**槽位推进（FRAG 项占多槽）**
+    if ((globalThis as any).__DBG4) console.log(`[dbg-arr] 数组 base=${base} parent=${parent} 项数=${v.length}`)
     let slot = 0
     for (const c of v) {
       removeVNodeTree(c, pathId(base, slot), parent, emitCommand, registry)
@@ -84,6 +85,7 @@ export function removeVNodeTree(
   // 组件项：unmount（实例卸载——onUnmounts——与渲染 compId 规则一致）
   if (typeof vn.type === 'function') {
     const compId = vn.key !== null ? `${parent}.k${vn.key}` : base
+    if ((globalThis as any).__DBG5) console.log(`[dbg-comp] unmount ${compId} base=${base} parent=${parent}`)
     emitCommand({ op: 'unmount', compId })
     // **组件输出区间递归清理（C2——嵌套组件 A > B > C）**：组件项的
     // DOM 展开在 registry.lastOutput（非 vnode.children——renderFn 输出）
