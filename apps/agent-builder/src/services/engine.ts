@@ -6,6 +6,7 @@
  * Phase 3+：叙事者整合 / 行动回合（code/browse）/ 周期推进。
  */
 import type { WorldCtx } from '../routes/worlds.ts'
+import { fillSurvey } from './browser.ts'
 
 interface AgentRow { id: string; name: string; persona: string; capabilities: string[]; weight: number }
 interface RelationRow { id: string; from_agent: string; to_agent: string; type: string; strength: number; directed: boolean; from_name?: string; to_name?: string }
@@ -68,23 +69,41 @@ export async function runEventTurns(ctx: WorldCtx, eventId: string): Promise<voi
         "INSERT INTO ab_turns (event_id, agent_id, kind, input, status) VALUES ($1, $2, $3, $4, 'running') RETURNING id",
         [eventId, agent.id, kind, desc])
       try {
-        const user = isSurvey
+        const surveyUrl = isSurvey && ev.payload?.url ? String(ev.payload.url) : null
+        const user = surveyUrl
+          ? '' // 真实浏览器填写（browse 回合——不走普通 chat 生成）
+          : isSurvey
           ? `问卷《${ev.payload?.title ?? '调查'}》——题目：\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n请以 ${agent.name} 的身份逐题作答，输出 JSON：{"answers": {"题目": "你的答案"}}——不要输出 JSON 以外的内容。`
           : isCycle
             ? `经营周期事件：${desc}\n\n这是新一经营周期。请以 ${agent.name} 的岗位职责作出本周期行动与决策——含：1) 你关注什么 2) 你采取的行动/决策 3) 你对上级的汇报要点。用第一人称，2-4 句话。`
             : isPolicy
               ? `城市政策提案：${desc}\n\n请以 ${agent.name} 的群体身份评估这项政策——含：1) 对你代表的群体影响如何 2) 你支持还是反对（及理由）3) 你的诉求。用第一人称，2-4 句话。`
               : `世界事件：${desc}\n\n请以你的身份回应。`
-        const res = await ctx.ai.chat({
-          model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
-          messages: [
-            { role: 'system', content: buildAgentPrompt(world?.name ?? '未命名世界', agent, relations) },
-            { role: 'user', content: user },
-          ],
-          temperature: isSurvey ? 0.7 : 0.8,
-          max_tokens: isSurvey ? 700 : 500,
-        })
-        const content = res.choices?.[0]?.message?.content ?? ''
+        const chatOnce = async (messages: Array<{ role: string; content: string }>): Promise<string> => {
+          // 已有 system（browse 回合的填写助手）→ 不重复 prepend 人设
+          // （真实事故——双 system 消息 DeepSeek 返回空 content）
+          const hasSys = messages[0]?.role === 'system'
+          const res = await ctx.ai.chat({
+            model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
+            messages: hasSys
+              ? messages
+              : [
+                  { role: 'system', content: buildAgentPrompt(world?.name ?? '未命名世界', agent, relations) },
+                  ...messages,
+                ],
+            temperature: isSurvey ? 0.7 : 0.8,
+            max_tokens: isSurvey ? 700 : 500,
+          })
+          return res.choices?.[0]?.message?.content ?? ''
+        }
+        let content = ''
+        if (surveyUrl) {
+          // browse 回合：真实浏览器填写（agent-browser——串行隔离）
+          const r = await fillSurvey({ url: surveyUrl, personaName: agent.name, persona: agent.persona, chat: chatOnce })
+          content = JSON.stringify({ submitted: r.submitted, verified: r.verified, error: r.error, answers: r.answers })
+        } else {
+          content = await chatOnce([{ role: 'user', content: user }])
+        }
         await ctx.sql.unsafe("UPDATE ab_turns SET output = $2, status = 'done' WHERE id = $1", [turn.id, content])
       } catch (e) {
         await ctx.sql.unsafe("UPDATE ab_turns SET status = 'error', error = $2 WHERE id = $1",

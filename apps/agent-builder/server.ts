@@ -25,6 +25,50 @@ app.use(ui())
 // 世界 API（Phase 1：worlds/agents/relations/events CRUD）
 registerWorldRoutes(app)
 
+// ── 自闭环问卷页（browse 回合测试——真实浏览器填写——无需外部网站） ──
+app.get('/demo-survey', async (_req, ctx) => ctx.ui.html`
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>产品满意度问卷</title>
+<style>
+  body { font-family: system-ui; max-width: 560px; margin: 40px auto; padding: 0 16px; color: #1a1a1a }
+  h1 { font-size: 20px } .q { margin: 18px 0 } label { display: block; margin: 4px 0 }
+  input[type=text], select, textarea { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 4px }
+  button { margin-top: 16px; padding: 8px 24px; cursor: pointer }
+</style></head>
+<body>
+  <h1>产品满意度问卷</h1>
+  <form id="survey" action="/demo-survey/submit" method="POST">
+    <div class="q">1. 您的工作角色：
+      <select name="role" id="role">
+        <option value="">请选择</option>
+        <option value="finance">财务</option><option value="market">市场</option>
+        <option value="product">产品</option><option value="tech">技术</option>
+      </select></div>
+    <div class="q">2. 总体满意度：
+      <label><input type="radio" name="sat" value="1"> 1（非常不满意）</label>
+      <label><input type="radio" name="sat" value="2"> 2</label>
+      <label><input type="radio" name="sat" value="3"> 3</label>
+      <label><input type="radio" name="sat" value="4"> 4</label>
+      <label><input type="radio" name="sat" value="5"> 5（非常满意）</label></div>
+    <div class="q">3. 价格评价：
+      <input type="text" name="price" id="price" placeholder="对定价的看法"></div>
+    <div class="q">4. 改进建议：
+      <textarea name="advice" id="advice" rows="3" placeholder="你的建议"></textarea></div>
+    <div class="q"><label><input type="checkbox" name="rec" id="rec" value="yes"> 5. 愿意推荐给同事</label></div>
+    <button type="submit" id="submit">提交问卷</button>
+  </form>
+</body></html>
+`)
+app.post('/demo-survey/submit', async (_req, ctx) => {
+  // 提交成功 → 成功页（验证闭环）
+  return ctx.ui.html`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>已提交</title></head>
+<body style="font-family:system-ui;text-align:center;padding:80px 16px">
+  <h1 style="font-size:24px">✅ 已提交</h1>
+  <p style="color:#666">感谢参与！你的回答已记录。</p>
+</body></html>`
+})
+
 // ── UI（纯框架消费——UIRouter + components） ──
 app.get('/app.js', (req, ctx) => ctx.ui.js(resolve(__dirname, 'ui/main.tsx')))
 app.get('/components.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css'))
