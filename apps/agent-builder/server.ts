@@ -1,5 +1,5 @@
 /**
- * hello-world 后端——最小应用（纯框架消费：serve + Router + ui）
+ * agent-builder 后端——最小应用（纯框架消费：serve + Router + ui）
  * 独立运行：node server.ts → http://localhost:3400
  */
 import { serve, Router, ui } from 'weifuwu'
@@ -20,7 +20,7 @@ app.get('/*', async (req, ctx) => ctx.ui.html`
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/components.css">
-  <title>hello-world</title>
+  <title>agent-builder</title>
 </head>
 <body>
   <div id="root"></div>
@@ -30,4 +30,4 @@ app.get('/*', async (req, ctx) => ctx.ui.html`
 `)
 
 serve(app, { port: 3400 })
-console.log('hello-world → http://localhost:3400')
+console.log('agent-builder → http://localhost:3400')

@@ -1,5 +1,5 @@
 /**
- * hello-world 入口——纯框架消费（零自定义组件/中间件）
+ * agent-builder 入口——纯框架消费（零自定义组件/中间件）
  *
  * 形态：UIRouter（路径 → 页面 handler）+ uiServe（渲染落地）——
  * 页面组件全部用 weifuwu/components 组装 + wf-* 布局原语。
@@ -45,7 +45,7 @@ const About: Component = async (_props, _ctx) => {
         <div class="wf-stack wf-gap-sm" style="--wf-gap:8px">
           <h2 class="wf-text-xl wf-m-0">关于</h2>
           <p class="wf-text-sm wf-text-secondary wf-m-0">
-            这是 apps/hello-world——weifuwu 框架的最简消费形态：
+            这是 apps/agent-builder——weifuwu 框架的最简消费形态：
             后端 serve + Router + ui 中间件，前端 UIRouter + uiServe，
             组件全部来自 weifuwu/components，布局用 wf-* 原语。
           </p>

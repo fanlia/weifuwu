@@ -1,4 +1,4 @@
-# apps/hello-world — weifuwu 最简应用
+# apps/agent-builder — weifuwu 最简应用（Agent 构建器起点）
 
 纯框架消费形态（零自定义组件/中间件）：
 
@@ -10,7 +10,7 @@ main.tsx    前端：UIRouter + uiServe + weifuwu/components + wf-* 原语
 ## 运行
 
 ```bash
-cd apps/hello-world
+cd apps/agent-builder
 node server.ts        # → http://localhost:3400
 ```
 
