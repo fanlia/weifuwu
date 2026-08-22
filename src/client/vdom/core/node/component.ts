@@ -26,6 +26,32 @@ import type { Browser } from '../../browser/Browser.ts'
 import { removeVNodeTree, outputBase } from '../diff/cleanup.ts'
 import type { Command } from '../command/index.ts'
 
+/** 组件输出判别联合（**方案 3——null 结构性消除——编译器穷尽**）：
+ *  - vnode：单节点输出（元素/组件/文本——挂槽位 id——锚点法）
+ *  - hole：空洞输出（原 null——锚——挂 compId.0 子空间）
+ *  - array：多根输出（挂 compId 子空间——与兄弟槽位隔离）
+ *  消费点 switch(kind) 穷尽——遗漏分支 = 编译错误（而非运行时静默）——
+ *  lastOutput 条件判断只用 `!== undefined`（hole 与真实输出同等处理——
+ *  4 处 `!== null` 遗漏实证——an:root.0(div) 幽灵/锚残留） */
+export type CompOutput =
+  | { kind: 'vnode'; v: VNode }
+  | { kind: 'hole' }
+  | { kind: 'array'; items: VNodeChild[] }
+
+/** 组件输出归一化（VNodeChild → CompOutput——null/undefined/boolean → hole） */
+export function normalizeOutput(out: VNodeChild): CompOutput {
+  if (out === null || out === undefined || typeof out === 'boolean') return { kind: 'hole' }
+  if (Array.isArray(out)) return { kind: 'array', items: out }
+  return { kind: 'vnode', v: out as VNode }
+}
+
+/** CompOutput → VNodeChild（清理/转换路径消费——outputBase 兼容） */
+export function outputToChild(out: CompOutput): VNodeChild {
+  if (out.kind === 'hole') return null
+  if (out.kind === 'array') return out.items
+  return out.v
+}
+
 /** 组件实例记录（跨渲染保持——diff 复用） */
 export interface ComponentRecord {
   /** 组件函数引用（类型比较——同位置不同类型 → 卸载重建） */
@@ -34,8 +60,9 @@ export interface ComponentRecord {
   renderFn: RenderFn
   /** 卸载清理回调（ctx.onUnmount 收集——unmount 时执行） */
   onUnmounts: (() => void)[]
-  /** 上次渲染输出（diff 对照——同实例更新就地 patch——不重建） */
-  lastOutput?: VNodeChild | null
+  /** 上次渲染输出（**判别联合 CompOutput**——diff 对照——同实例更新就地
+   *  patch——不重建——undefined = 未渲染（首帧）；hole = 空洞锚——同等处理） */
+  lastOutput?: CompOutput
   /** hook 调用顺序（渲染期重置——状态按 index 缓存） */
   hookSeq: { n: number }
   /** 渲染期 hook 基准（mount 阶段 hook 计数——渲染 hook 用其后空间——
@@ -100,10 +127,10 @@ export async function renderComponent(
     // （keyed 组件类型切换——dispose 后直接全量渲染——旧节点无 remove
     // ——fuzz 实证）——数组安全 + 组件项 unmount（与 diffSame 分支一致）
     if (rec.lastOutput !== undefined && emitCommand) {
-      // **null 输出（空洞锚）同样清理（C2——`!== undefined`）**
-      // **输出基线（C2——outIsComponent 特判 id 空间）**：输出组件的 DOM
-      // 在 compId.0（sink 用 compId 作 parent）——清理基线必须一致
-      removeVNodeTree(rec.lastOutput, outputBase(rec.lastOutput, compId, compId), compId, emitCommand, registry)
+      // **判别联合（方案 3）**：hole/array/vnode 统一转换后清理——
+      // 基线 outputBase（hole → compId.0 / array → compId / vnode → 槽位）
+      const child = outputToChild(rec.lastOutput)
+      removeVNodeTree(child, outputBase(child, compId, compId), compId, emitCommand, registry)
     }
     rec = undefined
   }
@@ -146,8 +173,8 @@ export async function renderComponent(
   // usePopup 的 state（无 keyword 字段——undefined——输入框显示 'undefined'））
   rec.hookSeq.n = rec.renderBase
   const out = await rec.renderFn(vn.props)
-  // 记录输出（diff 对照——同实例更新就地对上次输出 patch）
-  rec.lastOutput = out
+  // 记录输出（**归一化为判别联合——null 结构性消除**）
+  rec.lastOutput = normalizeOutput(out)
   // **组件输出挂自身 compId 子空间（C2——投影维度隔离）**：
   //  - **null/空洞输出 → compId.0（C2 修正——null 锚也挂子空间——否则
   //    锚在组件槽位（root.0）而转换路径的 remove 用 compId.0——基线错位

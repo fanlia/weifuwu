@@ -15,12 +15,13 @@ import { stateOf } from '../transform/states.ts'
 import { transitionOf } from '../transform/table.ts'
 import { pathId } from '../node/native.ts'
 import { childrenOf } from '../node/children.ts'
+import { removeVNodeTree, outputBase } from './cleanup.ts'
+import { outputToChild } from '../node/component.ts'
 import { disposeComponent, renderComponent, type ComponentRegistry } from '../node/component.ts'
 import type { Command } from '../command/index.ts'
 import type { RenderSink } from '../build.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 import { diffAttrs } from './attrs.ts'
-import { removeVNodeTree, outputBase } from './cleanup.ts'
 import { diffComponentOutput } from './output.ts'
 import { diffChildren, diffChildrenItems } from './children.ts'
 
@@ -53,9 +54,10 @@ export async function diffSame(
       // 旧输出清理（递归 remove——lastOutput 结构——数组安全（G1）——
       // 区间完整（数组逐项展开槽位 + 组件项 unmount））
       if (rec.lastOutput !== undefined) {
-        // **输出基线（C2——outIsComponent 特判 id 空间统一）——
-        //  null 输出（空洞锚）同样清理（`!== undefined`——锚残留实证）**
-        removeVNodeTree(rec.lastOutput, outputBase(rec.lastOutput, id, pathId(parent, index)), parent, emitCommand, registry)
+        // **方案 3：lastOutput 是 CompOutput——转换后清理（hole/array/vnode
+        //  同等——空洞锚也清理）——基线 outputBase**
+        const child = outputToChild(rec.lastOutput)
+        removeVNodeTree(child, outputBase(child, id, pathId(parent, index)), parent, emitCommand, registry)
       }
       // 新实例（rec 已删——重新 mount——工厂执行）
       await renderComponent(newV, parent, index, ref, id, ctx, registry, emit, emitCommand)

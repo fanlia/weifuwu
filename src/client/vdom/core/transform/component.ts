@@ -22,6 +22,7 @@
 import type { VNodeChild } from '../vnode.ts'
 import { pathId } from '../node/native.ts'
 import { removeVNodeTree, outputBase } from '../diff/cleanup.ts'
+import { outputToChild } from '../node/component.ts'
 import type { TransformContext, TransitionFn } from './index.ts'
 
 /** component → X：组件卸载（onUnmounts）+ 输出区间移除（让位） */
@@ -30,12 +31,11 @@ export const transitionComponent: TransitionFn = async (_old, next, ctx) => {
   if (ctx.oldCompId) ctx.emit({ op: 'unmount', compId: ctx.oldCompId })
   // 2. 旧输出区间移除——registry 查 lastOutput——数组/多根完整清理
   const out = ctx.registry?.get(ctx.oldCompId ?? '')?.lastOutput
-  // **null 输出（空洞锚）也必须清理（C2——`!== undefined` 而非
-  //  `!== null`——lastOutput=null 走单锚 else——锚 compId.0 残留——
-  //  an:root.0.0 幽灵实证）——outputBase(null) = pathId(compId, 0)**
+  // **方案 3：lastOutput 是 CompOutput——`!== undefined` 统一（空洞锚
+  //  也清理——an:root.0.0 幽灵实证）——转换后 outputBase 计算基线**
   if (out !== undefined) {
-    // **输出基线（C2——outIsComponent 特判 id 空间统一）**
-    removeVNodeTree(out, outputBase(out, ctx.oldCompId ?? '', pathId(ctx.parent, ctx.index)), ctx.parent, ctx.emit, ctx.registry)
+    const child = outputToChild(out)
+    removeVNodeTree(child, outputBase(child, ctx.oldCompId ?? '', pathId(ctx.parent, ctx.index)), ctx.parent, ctx.emit, ctx.registry)
   } else {
     // 无旧输出记录（防御）——首锚让位
     ctx.emit({ op: 'remove', id: ctx.oldId })

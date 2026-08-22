@@ -17,7 +17,7 @@ import { childrenOf, slotCount } from '../node/children.ts'
 import { isFragment } from '../node/fragment.ts'
 import type { Command } from '../command/index.ts'
 import { pathId } from '../node/native.ts'
-import type { ComponentRegistry } from '../node/component.ts'
+import { outputToChild, type ComponentRegistry } from '../node/component.ts'
 
 /** **组件输出清理基线（C2——outIsComponent 特判的 id 空间统一）**：
  *  renderComponent 输出组件时 sink 用 compId 作 parent（特判——防 compId
@@ -95,12 +95,13 @@ export function removeVNodeTree(
     // ——只 remove 单锚会让 B 的展开区间残留——查 registry 递归——
     // 基线 = outputBase（B 输出的 id 空间——特判规则）
     const out = registry?.get(compId)?.lastOutput
-    // **null 输出也要清理（C2——空洞锚——`out !== undefined` 而非
-    //  `!== null`——lastOutput=null 时旧锚（compId.0）残留——组件 fuzz
-    //  seed=99 i=34 实证——an:root.1.0 幽灵）**
+    // **方案 3：lastOutput 是 CompOutput 判别联合——`!== undefined` 统一
+    //  （hole/array/vnode 同等处理——空洞锚 compId.0 也清理——组件 fuzz
+    //  an:root.1.0 幽灵实证）**
     if (out !== undefined) {
-      const innerBase = outputBase(out, compId, base)
-      removeVNodeTree(out, innerBase, compId, emitCommand, registry)
+      const child = outputToChild(out)
+      const innerBase = outputBase(child, compId, base)
+      removeVNodeTree(child, innerBase, compId, emitCommand, registry)
     }
   }
   // children 递归（容器 = 当前项 id）——**槽位推进（FRAG 项占多槽）**

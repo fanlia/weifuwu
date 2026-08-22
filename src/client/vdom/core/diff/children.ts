@@ -24,6 +24,7 @@ import type { RenderSink } from '../build.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 import { diffSame } from './same.ts'
 import { removeVNodeTree } from './cleanup.ts'
+import { outputToChild } from '../node/component.ts'
 
 
 
@@ -370,7 +371,8 @@ export async function emitWithKey(
     // 组件：keyed compId（`{parent}.k{key}`——**位置无关**——增删/重排复用）
     const keyedId = `${parent}.k${key}`
     const rec = registry.get(keyedId)
-    const oldOut = rec?.lastOutput
+    // **方案 3：lastOutput 是 CompOutput——转回裸输出对照（undefined 保持）**
+    const oldOut = rec?.lastOutput === undefined ? undefined : outputToChild(rec.lastOutput)
     const isNew = await renderComponent(vn, parent, index, ref, keyedId, ctx, registry, async (out, p, i, r) => {
       const outId = pathId(p, i)
       // 输出级空值转换（x => null——占位锚替换——同构保持）

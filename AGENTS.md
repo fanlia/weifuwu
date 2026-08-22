@@ -110,6 +110,66 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
       unmount 全形态）；卸载递归（disposeComponent 前缀）；函数面 diff
       对称（旧有新无 → setProp undefined 解绑）
 
+18. **vdom 内部架构：状态机 + 事件流（方案 3 定稿——2026-XX）**：
+
+    ### 事件流（13 种命令——NDJSON 可序列化——生成端唯一产物）
+    create/createText/createAnchor/insert/move/remove/setText/setProp/
+    ref/unref/mount/unmount/close/done——**命令流必须完整自足**：
+    每处移除 = 完整区间（removeVNodeTree）+ 组件 unmount——消费端零猜测
+    （procRemove 前缀实例卸载已回退——id 前缀与 DOM 槽位前缀重叠——
+    deep-tour 回归实证——卸载信息由生成端完整提供）
+
+    ### 三实体状态机
+    ```
+    NodeState:      ABSENT → CREATED → INSERTED → ACTIVE → REMOVED
+    CompState:      UNMOUNTED → MOUNTING → MOUNTED → UNMOUNTING
+    IntervalState:  COLLAPSED（0 宽锚）→ EXPANDED（N 连续槽位）
+    ```
+    - 规格单一实现源：patch/state-machine.ts（Sim 与 devVerify 共用——
+      消灭双实现漂移）
+    - 消费端（proc*）保持幂等防御（生产容错）——防御性 return 必须标注
+      Reject 语义（P2 审计）——不允许静默吞掉合法命令的副作用
+
+    ### 组件输出判别联合（方案 3——null 结构性消除——编译器穷尽）
+    ```ts
+    /** 组件输出归一化——null 从内部流通消失——消费点 switch(kind) 穷尽——
+     *  遗漏分支 = 编译错误（而非运行时静默） */
+    type CompOutput =
+      | { kind: 'vnode'; v: VNode }            // 单节点（元素/组件/文本）
+      | { kind: 'hole' }                        // 空洞锚（原 null——显式化）
+      | { kind: 'array'; items: VNodeChild[] }  // 多根（compId 子空间）
+    ```
+    - **组件输出 id 空间规则（C2）**：null/数组/组件输出统一挂 compId
+      子空间（compId.0 / compId.i——与兄弟槽位隔离）；元素/文本输出挂
+      槽位 id（锚点法）——outputBase 为清理基线单一入口
+    - **null 纪律**：lastOutput 条件只用 `!== undefined`（覆盖 null 空洞
+      输出——锚必须清理）——禁止 `!== null`（4 处遗漏实证——an:root.0(div)
+      幽灵/锚残留）
+
+    ### 验证体系（四层）
+    ```
+    Sim（契约层 reconcile.test.ts）    —— 终态等价三面对账 + 状态机 Post
+    devVerify（patch/verify.ts）       —— 真实浏览器命令消费后断言（dev only）
+    auditDom（场景层 e2e-reconcile）   —— id 唯一/格式/兄弟连续/投影完整
+    fuzz（多种子 × 400 对）            —— 静态树 1200 对 + 组件树 300 对
+    ```
+    - 组件树 fuzz 收敛实录：267/300（89%）→ 1/300（2026-XX）——修复全部
+      生产端（移除路径统一 removeVNodeTree + null 条件统一 + root 转换
+      oldCompId + Sim 消费端前缀递归对齐）
+    - **生成端纪律**：移除路径（transitionElement/transitionComponent/
+      diffSame tag 分支/keyed step 1/removeOldSlot）全部收敛 removeVNodeTree
+      ——单锚 remove 是违例（子树实例残留）
+    - **组件输出特判纪律**：sink 特判（null/数组/组件 → compId 子空间）
+      与 outputBase（清理基线）必须同步修改——不同步即锚残留/基线错位
+
+    ### 生产/消费完整性判断（实证）
+    - **生产端是根因**：所有语义错误（漏 remove/unmount/错 parent）源于
+      命令流生成——修复方向 = 生成端完整自足
+    - 消费端（真实）设计为幂等防御——防御性 return 掩盖生产错误——
+      对账器（终态等价）是暴露机制
+    - Sim 必须与真实消费端逐语义对齐（unmount 前缀递归——disposeComponent
+      契约）——对齐缺口 = 验证工具 bug
+
 ### 已知边界（诚实裁剪）
 
 - **渲染队列 FIFO/redirect**：serve 内部机制——间接覆盖（无专门测试）
