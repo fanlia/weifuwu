@@ -18,6 +18,13 @@
 .wf-slider-track {
   flex: 1;
   min-width: 0;
+  /* **垂直基准变量（真实 bug——thumb/fill/mark 三线不齐）**：thumb 基于
+     input 盒（margin 8 + 高 6）——fill/mark 曾基于 track 中线（inset:0/
+     margin:auto）——但 track 是 flex item 被 value 文本拉伸（align-items
+     stretch——行高 23px）→ 基准错位（常态 0.5px——字体加载后行高变
+     22/24 → 差 1.5px——全量并发偶发失败）——统一三者基准 = input 盒 */
+  --wf-slider-track-margin: 8px;
+  --wf-slider-track-h: 6px;
   /* **absolute 定位基准（真实 bug——fill/marks 错位）**：fill/marks 都是
      absolute——track 无 position → 基准落到外层容器（wf-slider/页面）——
      fill 中心偏离轨道中线（价格区间 fill 在 thumb 下方 15px）——thumb/
@@ -28,6 +35,12 @@
 .wf-slider-input {
   width: 100%;
   height: 6px;
+  /* **baseline 对齐消除（真实 bug——thumb/fill/mark 1px 偏差）**：input 是
+     inline-block（默认）——行框内 baseline 对齐使 input 视觉下移（字体
+     descent ~1px）——margin 8px 不是真实视觉顶——thumb 中心比 marks/fill
+     低 1px（全量并发偶发失败根因）——vertical-align: top 使 input 顶对齐
+     行框顶（margin 精确生效——三线同基准） */
+  vertical-align: top;
   appearance: none;
   /* 清零 UA 默认 padding/border（Chrome range 默认 padding 9px + border 1px）——
      否则 content 区被压缩，thumb 活动范围 ≠ 盒宽，marks/渐变偏移公式错位 */
@@ -37,7 +50,7 @@
   border-radius: var(--wf-radius-xs);
   outline: none;
   cursor: pointer;
-  margin: 8px 0; /* thumb 18px 超出轨道——留出 hover/拖拽空间 */
+  margin: var(--wf-slider-track-margin) 0; /* thumb 18px 超出轨道——留出 hover/拖拽空间 */
 }
 
 /* hover / 拖拽中（active）：thumb 放大 + 加深（跨浏览器一致） */
@@ -124,8 +137,21 @@
 /* ── 刻度标记（marks） ── */
 .wf-slider-marks {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  /* 基准 = input 盒（与 thumb 一致——不受 track 拉伸影响） */
+  top: var(--wf-slider-track-margin);
+  bottom: auto;
+  height: var(--wf-slider-track-h);
   pointer-events: none;
+}
+
+/* 区间模式：input absolute 撑满容器（36px）——marks 基准 = 容器中线
+   （与 thumb/fill 一致——普通模式的 input 盒基准不适用） */
+.wf-slider-range .wf-slider-marks {
+  top: 0;
+  bottom: 0;
+  height: auto;
 }
 
 .wf-slider-mark {
@@ -192,10 +218,12 @@
 /* range 模式轨道填充（双 thumb 之间） */
 .wf-slider-range-fill {
   position: absolute;
+  /* 基准 = 容器中线（区间模式 input 撑满容器——thumb 中心 = 容器中线——
+     与 marks 同基准——不受容器高度变化影响） */
   top: 0;
   bottom: 0;
   margin: auto;
-  height: 6px;
+  height: var(--wf-slider-track-h);
   background: var(--wf-color-primary);
   border-radius: var(--wf-radius-xs);
   pointer-events: none;

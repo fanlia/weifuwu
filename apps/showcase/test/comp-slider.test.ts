@@ -183,6 +183,10 @@ test('marks 对齐（5 dot 中心 = thumbOffset 公式 ±1px——deadline 轮�
       info = await page.evaluate(() => {
         const inputs = Array.from(document.querySelectorAll('main input[type="range"]'))
         const price = inputs[2]
+        // 页面未就绪防护（真实根因——全量并发首帧渲染慢——openShowcase 只等
+        // root 有内容——demo 未挂载时 evaluate 抛错 → 250ms 假失败——返回
+        // 空数组重试——组件本身零偏差（8 页并发 probe 实证））
+        if (!price) return []
         const pr = price.getBoundingClientRect()
         const marks = price.parentElement?.querySelector('.wf-slider-marks')
         const dots = Array.from(marks?.querySelectorAll('.wf-slider-mark') ?? [])
@@ -213,6 +217,8 @@ test('垂直对齐：thumb/fill/mark dot 同一水平线（±1px——轮询等�
         const mid = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2 }
         const price = inputs[2]
         const rangeLo = inputs[3]
+        // 页面未就绪防护（同 marks 对齐——并发首帧慢——返回 null 重试）
+        if (!price || !rangeLo) return null
         const fill = rangeLo.parentElement?.querySelector('.wf-slider-range-fill')
         const dot = price.parentElement?.querySelector('.wf-slider-mark-dot')
         return {
@@ -220,11 +226,11 @@ test('垂直对齐：thumb/fill/mark dot 同一水平线（±1px——轮询等�
           rangeInputMid: mid(rangeLo), rangeFillMid: fill ? mid(fill) : null,
         }
       })
-      if (last.priceDotMid !== null && Math.abs(last.priceInputMid - last.priceDotMid) <= 1
+      if (last && last.priceDotMid !== null && Math.abs(last.priceInputMid - last.priceDotMid) <= 1
         && last.rangeFillMid !== null && Math.abs(last.rangeInputMid - last.rangeFillMid) <= 1) { ok = true; break }
       await page.waitForTimeout(100)
     }
-    assert.ok(ok, `thumb/dot/fill 同线（价格 ${last?.priceDotMid !== null ? Math.round(last.priceInputMid - last.priceDotMid) : '无 dot'}px / 区间 ${last?.rangeFillMid !== null ? Math.round(last.rangeInputMid - last.rangeFillMid) : '无 fill'}px）`)
+    assert.ok(ok, `thumb/dot/fill 同线（价格 ${last && last.priceDotMid !== null ? Math.round(last.priceInputMid - last.priceDotMid) : '无 dot'}px / 区间 ${last && last.rangeFillMid !== null ? Math.round(last.rangeInputMid - last.rangeFillMid) : '无 fill'}px）`)
   } finally {
     await page.close()
   }
