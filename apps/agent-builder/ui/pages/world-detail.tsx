@@ -311,6 +311,20 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
                 ? h('Tag', { size: 'sm' }, `回合中 ${doneCount}/${evTurns.length}…`)
                 : h('span', { class: 'wf-text-xs wf-text-tertiary' }, new Date(ev.created_at).toLocaleTimeString()),
             ]),
+            // 宏观指标影响（policy 闭环——聚合民意评估）
+            ev.payload?.impact ? (() => {
+              try {
+                const j = JSON.parse(String(ev.payload.impact))
+                const inds = j.indicators ?? {}
+                return h('div', { class: 'wf-surface wf-p-sm wf-mt-xs', style: 'border-radius:6px;background:var(--wf-surface-2,#fafafa)' }, [
+                  h('div', { class: 'wf-text-xs wf-text-semibold wf-mb-xs' }, '📊 宏观指标影响'),
+                  h('div', { class: 'wf-stack', style: '--wf-gap:2px' }, Object.entries(inds).map(([k, v]) =>
+                    h('div', { key: k, class: 'wf-text-xs wf-text-secondary' }, [h('span', { class: 'wf-text-medium' }, `${k}：`), String(v)]))),
+                  j.consensus ? h('div', { class: 'wf-text-xs wf-text-secondary wf-mt-xs' }, [h('span', { class: 'wf-text-medium' }, '共识：'), String(j.consensus)]) : null,
+                  j.support ? h('div', { class: 'wf-text-xs wf-text-primary wf-mt-xs' }, `支持率：${j.support}`) : null,
+                ])
+              } catch { return null }
+            })() : null,
             // 叙事流：每个角色的回合回应
             evTurns.length === 0
               ? h('div', { class: 'wf-text-xs wf-text-tertiary' }, ev.status === 'pending' ? '等待回合引擎…' : '（无角色回应）')

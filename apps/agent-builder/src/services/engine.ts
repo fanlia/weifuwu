@@ -91,6 +91,35 @@ export async function runEventTurns(ctx: WorldCtx, eventId: string): Promise<voi
           [turn.id, String((e as Error).message).slice(0, 500)])
       }
     }
+    // 政策事件闭环：聚合各代表回应 → 指标影响评估（宏观层 L0 最小——
+    // LLM 综合评估——后续可替换为方程模型）
+    if (isPolicy) {
+      try {
+        const doneTurns = await ctx.sql.unsafe<{ agent_name: string; output: string }>(
+          `SELECT a.name AS agent_name, t.output FROM ab_turns t JOIN ab_agents a ON a.id = t.agent_id
+           WHERE t.event_id = $1 AND t.status = 'done'`, [eventId])
+        if (doneTurns.length > 0) {
+          const summary = doneTurns.map((t) => `${t.agent_name}：${t.output.slice(0, 200)}`).join('\n')
+          const res = await ctx.ai.chat({
+            model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
+            messages: [
+              { role: 'system', content: '你是城市政策评估分析师。综合各群体代表的回应，评估政策实施后的宏观指标影响。输出 JSON：{"indicators": {"指标名": "变化描述（含方向 ↑/↓/→ 与程度）"}, "consensus": "一句话共识", "support": "支持率估计（百分数）"}——不要输出 JSON 以外的内容。' },
+              { role: 'user', content: `政策与各群体回应：\n${summary}` },
+            ],
+            temperature: 0.4,
+            max_tokens: 500,
+          })
+          const impact = res.choices?.[0]?.message?.content ?? ''
+          const ev = await ctx.sql.unsafe<{ payload: Record<string, unknown> }>('SELECT payload FROM ab_events WHERE id = $1', [eventId])
+          if (ev[0]) {
+            await ctx.sql.unsafe('UPDATE ab_events SET payload = $2 WHERE id = $1',
+              [eventId, JSON.stringify({ ...(ev[0].payload ?? {}), impact })])
+          }
+        }
+      } catch (e) {
+        console.error('[engine] 指标评估失败:', e)
+      }
+    }
     await ctx.sql.unsafe("UPDATE ab_events SET status = 'done' WHERE id = $1", [eventId])
   } catch (e) {
     console.error('[engine] 回合执行失败:', e)
