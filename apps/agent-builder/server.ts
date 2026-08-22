@@ -2,7 +2,7 @@
  * agent-builder 后端——Agent 世界模拟平台（Phase 1：世界数据模型 + CRUD API）
  * 独立运行：node server.ts → http://localhost:3400
  */
-import { serve, Router, ui, postgres } from 'weifuwu'
+import { serve, Router, ui, postgres, ai } from 'weifuwu'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerWorldRoutes, WORLD_SCHEMA } from './src/routes/worlds.ts'
@@ -12,15 +12,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 // ── 数据库（DATABASE_URL——postgres 中间件注入 ctx.sql） ──
 const pg = postgres()
 
-// schema 迁移（CREATE IF NOT EXISTS——绝不 DROP——重启幂等）
+// schema（CREATE IF NOT EXISTS——幂等——每次启动执行保证演进表结构
+// 生效（isMigrated 一次性门会让后续新增表不建——真实事故——turns 表缺失））
 await pg.migrate()
-if (!(await pg.isMigrated('agent-builder'))) {
-  await pg.sql.unsafe(WORLD_SCHEMA)
-  await pg.markMigrated('agent-builder')
-}
+await pg.sql.unsafe(WORLD_SCHEMA)
 
 const app = new Router()
 app.use(pg)
+app.use(ai({ embedding: {} })) // ctx.ai（DEEPSEEK_API_KEY——回合引擎 LLM）
 app.use(ui())
 
 // 世界 API（Phase 1：worlds/agents/relations/events CRUD）

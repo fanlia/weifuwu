@@ -5,10 +5,16 @@
  * Phase 2 起：events POST 触发回合引擎（叙事/批处理调度）
  */
 import type { Router } from 'weifuwu'
+import { runEventTurns } from '../services/engine.ts'
 
 export interface WorldCtx {
   sql: {
     unsafe<T = Record<string, unknown>>(q: string, params?: unknown[]): Promise<T[]>
+  }
+  ai: {
+    chat(params: { model?: string; messages: Array<{ role: string; content: string }>; temperature?: number; max_tokens?: number }): Promise<{
+      choices: Array<{ message: { content?: string } }>
+    }>
   }
 }
 
@@ -53,6 +59,18 @@ CREATE TABLE IF NOT EXISTS ab_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ab_events_world ON ab_events(world_id);
+CREATE TABLE IF NOT EXISTS ab_turns (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL REFERENCES ab_events(id) ON DELETE CASCADE,
+  agent_id uuid NOT NULL REFERENCES ab_agents(id) ON DELETE CASCADE,
+  kind text NOT NULL DEFAULT 'dialogue',
+  input text NOT NULL DEFAULT '',
+  output text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'running',
+  error text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ab_turns_event ON ab_turns(event_id);
 `
 
 const row = (r: any) => r
@@ -90,7 +108,12 @@ export function registerWorldRoutes(app: Router<WorldCtx>): void {
        FROM ab_relations r JOIN ab_agents fa ON fa.id = r.from_agent JOIN ab_agents ta ON ta.id = r.to_agent
        WHERE r.world_id = $1 ORDER BY r.created_at`, [id])
     const events = await ctx.sql.unsafe(`SELECT * FROM ab_events WHERE world_id = $1 ORDER BY created_at DESC LIMIT 50`, [id])
-    return Response.json({ world: row(w), agents, relations, events })
+    // 最近 50 事件的回合（子查询——无数组参数——协议层数组编码问题绕开）
+    const turns = await ctx.sql.unsafe(
+      `SELECT t.*, a.name AS agent_name FROM ab_turns t JOIN ab_agents a ON a.id = t.agent_id
+       WHERE t.event_id IN (SELECT id FROM ab_events WHERE world_id = $1 ORDER BY created_at DESC LIMIT 50)
+       ORDER BY t.created_at`, [id])
+    return Response.json({ world: row(w), agents, relations, events, turns })
   })
 
   app.patch('/api/worlds/:id', async (req, ctx) => {
@@ -177,7 +200,8 @@ export function registerWorldRoutes(app: Router<WorldCtx>): void {
       `INSERT INTO ab_events (world_id, type, payload) VALUES ($1, $2, $3) RETURNING *`,
       [worldId, body.type ?? 'action', json(body.payload)],
     )
-    // Phase 2：这里触发回合引擎（事件 → 激活 agents → 回合）——当前仅入库
+    // 触发回合引擎（异步——POST 不阻塞——叙事流轮询可见）
+    void runEventTurns(ctx, String(e.id))
     return Response.json({ event: row(e) }, { status: 201 })
   })
 }

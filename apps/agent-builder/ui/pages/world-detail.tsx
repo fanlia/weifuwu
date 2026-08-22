@@ -11,6 +11,7 @@ interface World { id: string; name: string; type: string; status: string; create
 interface Agent { id: string; name: string; persona: string; capabilities: string[]; weight: number }
 interface Relation { id: string; from: string; to: string; type: string; strength: number; directed: boolean; from_name?: string; to_name?: string }
 interface WorldEvent { id: string; type: string; payload: Record<string, unknown>; status: string; created_at: string }
+interface Turn { id: string; event_id: string; agent_id: string; agent_name: string; kind: string; input: string; output: string; status: string; error: string | null }
 
 const TYPE_LABEL: Record<string, string> = { narrative: '推演', survey: '调研', company: '经营', city: '城市' }
 const CAP_OPTIONS = [
@@ -33,8 +34,12 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
   let agents: Agent[] = []
   let relations: Relation[] = []
   let events: WorldEvent[] = []
+  let turns: Turn[] = []
   let loading = true
   let error = ''
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+  // 页面卸载清理轮询（vdom 纪律——监听类资源 must 清理）
+  ctx.ui.onUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
   let selectedAgent: string | null = null
 
   // 添加角色表单
@@ -54,11 +59,16 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
     // mount 阶段禁止同步 ctx.render（真实事故——渲染中重跑工厂 → 栈溢出）
     if (showSpinner) { loading = true; error = ''; ctx.render() }
     try {
-      const d = await ctx.api.get<{ world: World; agents: Agent[]; relations: Relation[]; events: WorldEvent[] }>(`/api/worlds/${worldId}`)
+      const d = await ctx.api.get<{ world: World; agents: Agent[]; relations: Relation[]; events: WorldEvent[]; turns: Turn[] }>(`/api/worlds/${worldId}`)
       world = d.world
       agents = d.agents ?? []
       relations = d.relations ?? []
       events = d.events ?? []
+      turns = d.turns ?? []
+      // 全部回合完成 → 停轮询
+      if (pollTimer && events.every((ev) => ev.status !== 'running' && ev.status !== 'pending')) {
+        clearInterval(pollTimer); pollTimer = null
+      }
     } catch (e) { error = errMsg(e, '加载失败') }
     loading = false
     ctx.render()
@@ -95,6 +105,8 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
       await ctx.api.post(`/api/worlds/${worldId}/events`, { type: evType, payload: { description: evDesc } })
       evDesc = ''
       await load()
+      // 回合异步执行——轮询刷新叙事流（3s——全部 done 自动停）
+      if (!pollTimer) pollTimer = setInterval(() => void load(), 3000)
     } catch (e) { error = errMsg(e, '注入事件失败'); ctx.render() }
   }
 
@@ -196,14 +208,38 @@ export const WorldDetail: Component<{ id: string }> = async (initProps, ctx) => 
           h(Input, { value: evDesc, placeholder: '事件描述（如：元春省亲）', onInput: (e: Event) => { evDesc = (e.target as HTMLInputElement).value; ctx.render() } }),
           h(Button, { variant: 'primary', onClick: injectEvent, disabled: !evDesc.trim() }, '注入事件'),
         ]),
-        events.length === 0 ? h('div', { class: 'wf-text-xs wf-text-tertiary wf-mt-sm' }, '暂无事件——注入后 Phase 2 触发角色回合') :
-        h('div', { class: 'wf-stack wf-mt-sm', style: '--wf-gap:6px' }, events.map((ev) =>
-          h('div', { key: ev.id, class: 'wf-row wf-gap-sm wf-text-sm' }, [
-            h(Tag, { size: 'sm' }, ev.type),
-            h('span', { class: 'wf-fill' }, String(ev.payload?.description ?? JSON.stringify(ev.payload))),
-            h('span', { class: 'wf-text-xs wf-text-tertiary' }, new Date(ev.created_at).toLocaleTimeString()),
-          ]),
-        )),
+        events.length === 0 ? h('div', { class: 'wf-text-xs wf-text-tertiary wf-mt-sm' }, '暂无事件——注入事件后角色按人设回应（叙事流）') :
+        h('div', { class: 'wf-stack wf-mt-sm', style: '--wf-gap:8px' }, events.map((ev) => {
+          const evTurns = turns.filter((t) => t.event_id === ev.id)
+          const doneCount = evTurns.filter((t) => t.status === 'done').length
+          return h('div', { key: ev.id, class: 'wf-surface wf-p-sm', style: 'border-radius:8px' }, [
+            h('div', { class: 'wf-row wf-gap-sm wf-text-sm wf-mb-xs' }, [
+              h(Tag, { size: 'sm' }, ev.type),
+              h('span', { class: 'wf-fill wf-text-medium' }, String(ev.payload?.description ?? JSON.stringify(ev.payload))),
+              ev.status === 'running'
+                ? h('Tag', { size: 'sm' }, `回合中 ${doneCount}/${evTurns.length}…`)
+                : h('span', { class: 'wf-text-xs wf-text-tertiary' }, new Date(ev.created_at).toLocaleTimeString()),
+            ]),
+            // 叙事流：每个角色的回合回应
+            evTurns.length === 0
+              ? h('div', { class: 'wf-text-xs wf-text-tertiary' }, ev.status === 'pending' ? '等待回合引擎…' : '（无角色回应）')
+              : h('div', { class: 'wf-stack', style: '--wf-gap:6px' }, evTurns.map((t) =>
+                h('div', { key: t.id, class: 'wf-stack wf-gap-none wf-px-sm wf-py-xs', style: 'border-left:2px solid var(--wf-border,#e5e7eb)' }, [
+                  h('div', { class: 'wf-row wf-gap-sm wf-text-xs' }, [
+                    h('span', { class: 'wf-text-semibold' }, t.agent_name),
+                    t.status === 'done' ? h('span', { class: 'wf-text-tertiary' }, '已回应') :
+                    t.status === 'error' ? h('span', { class: 'wf-text-error' }, '失败') :
+                    h('span', { class: 'wf-text-primary' }, '回应中…'),
+                  ]),
+                  t.status === 'done' && t.output
+                    ? h('div', { class: 'wf-text-sm wf-text-secondary' }, t.output)
+                    : t.status === 'error'
+                      ? h('div', { class: 'wf-text-xs wf-text-error' }, t.error ?? '')
+                      : null,
+                ]),
+              )),
+          ])
+        })),
       ]),
     ])
     return h(AppShell, {
