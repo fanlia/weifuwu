@@ -1,10 +1,14 @@
-# apps/agent-builder — weifuwu 最简应用（Agent 构建器起点）
+# apps/agent-builder — Agent 世界模拟平台
 
-纯框架消费形态（零自定义组件/中间件）：
+> 蓝图：design/agent-builder-plan.md——本质模型/架构/商业模式/落地路线
+
+纯框架消费（零自定义组件/中间件——weifuwu 全能力验证）：
 
 ```
-server.ts   后端：serve + Router + ui（ctx.ui.js 编译 main.tsx / html / css）
-main.tsx    前端：UIRouter + uiServe + weifuwu/components + wf-* 原语
+server.ts          后端：serve + Router + postgres + ui
+src/routes/worlds.ts  世界 API（worlds/agents/relations/events CRUD——Phase 1）
+ui/main.tsx        前端：UIRouter + uiServe + api 中间件
+ui/pages/          世界列表/新建/详情（角色/关系/图谱/事件管理——Phase 1）
 ```
 
 ## 运行

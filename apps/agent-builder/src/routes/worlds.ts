@@ -1,0 +1,183 @@
+/**
+ * agent-builder 世界 API——worlds/agents/relations/events CRUD
+ *
+ * Phase 1（世界数据模型）：四个表 + CRUD——纯框架（serve/Router/postgres）
+ * Phase 2 起：events POST 触发回合引擎（叙事/批处理调度）
+ */
+import type { Router } from 'weifuwu'
+
+export interface WorldCtx {
+  sql: {
+    unsafe<T = Record<string, unknown>>(q: string, params?: unknown[]): Promise<T[]>
+  }
+}
+
+// ── schema（CREATE IF NOT EXISTS——绝不 DROP） ──
+export const WORLD_SCHEMA = `
+CREATE TABLE IF NOT EXISTS ab_worlds (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  type text NOT NULL DEFAULT 'narrative',
+  status text NOT NULL DEFAULT 'active',
+  config jsonb NOT NULL DEFAULT '{}',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS ab_agents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  world_id uuid NOT NULL REFERENCES ab_worlds(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  persona text NOT NULL DEFAULT '',
+  capabilities jsonb NOT NULL DEFAULT '["speak"]',
+  status text NOT NULL DEFAULT 'idle',
+  weight int NOT NULL DEFAULT 1,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ab_agents_world ON ab_agents(world_id);
+CREATE TABLE IF NOT EXISTS ab_relations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  world_id uuid NOT NULL REFERENCES ab_worlds(id) ON DELETE CASCADE,
+  from_agent uuid NOT NULL REFERENCES ab_agents(id) ON DELETE CASCADE,
+  to_agent uuid NOT NULL REFERENCES ab_agents(id) ON DELETE CASCADE,
+  type text NOT NULL DEFAULT '关联',
+  strength int NOT NULL DEFAULT 1,
+  directed boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ab_relations_world ON ab_relations(world_id);
+CREATE TABLE IF NOT EXISTS ab_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  world_id uuid NOT NULL REFERENCES ab_worlds(id) ON DELETE CASCADE,
+  type text NOT NULL DEFAULT 'action',
+  payload jsonb NOT NULL DEFAULT '{}',
+  status text NOT NULL DEFAULT 'pending',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ab_events_world ON ab_events(world_id);
+`
+
+const row = (r: any) => r
+const json = (v: unknown): string => JSON.stringify(v ?? {})
+
+export function registerWorldRoutes(app: Router<WorldCtx>): void {
+  // ── worlds ────────────────────────────────────────────
+  app.get('/api/worlds', async (_req, ctx) => {
+    const rows = await ctx.sql.unsafe(
+      `SELECT w.*, (SELECT COUNT(*)::int FROM ab_agents a WHERE a.world_id = w.id) AS agent_count,
+              (SELECT COUNT(*)::int FROM ab_events e WHERE e.world_id = w.id) AS event_count
+       FROM ab_worlds w ORDER BY w.created_at DESC`)
+    return Response.json({ worlds: rows })
+  })
+
+  app.post('/api/worlds', async (req, ctx) => {
+    const body = await req.json().catch(() => ({}))
+    if (!body.name?.trim()) return Response.json({ error: '世界名称必填' }, { status: 400 })
+    const [w] = await ctx.sql.unsafe(
+      `INSERT INTO ab_worlds (name, type, config) VALUES ($1, $2, $3) RETURNING *`,
+      [String(body.name).trim(), body.type ?? 'narrative', json(body.config)],
+    )
+    return Response.json({ world: row(w) }, { status: 201 })
+  })
+
+  app.get('/api/worlds/:id', async (req, ctx) => {
+    const id = String(ctx.params?.id ?? '')
+    const [w] = await ctx.sql.unsafe(`SELECT * FROM ab_worlds WHERE id = $1`, [id])
+    if (!w) return Response.json({ error: '世界不存在' }, { status: 404 })
+    const agents = await ctx.sql.unsafe(
+      `SELECT a.*, (SELECT COUNT(*)::int FROM ab_relations r WHERE r.from_agent = a.id) AS out_degree
+       FROM ab_agents a WHERE a.world_id = $1 ORDER BY a.created_at`, [id])
+    const relations = await ctx.sql.unsafe(
+      `SELECT r.*, r.from_agent AS from, r.to_agent AS to, fa.name AS from_name, ta.name AS to_name
+       FROM ab_relations r JOIN ab_agents fa ON fa.id = r.from_agent JOIN ab_agents ta ON ta.id = r.to_agent
+       WHERE r.world_id = $1 ORDER BY r.created_at`, [id])
+    const events = await ctx.sql.unsafe(`SELECT * FROM ab_events WHERE world_id = $1 ORDER BY created_at DESC LIMIT 50`, [id])
+    return Response.json({ world: row(w), agents, relations, events })
+  })
+
+  app.patch('/api/worlds/:id', async (req, ctx) => {
+    const id = String(ctx.params?.id ?? '')
+    const body = await req.json().catch(() => ({}))
+    const [w] = await ctx.sql.unsafe(
+      `UPDATE ab_worlds SET name = COALESCE($2, name), type = COALESCE($3, type), config = COALESCE($4, config)
+       WHERE id = $1 RETURNING *`,
+      [id, body.name ?? null, body.type ?? null, body.config !== undefined ? json(body.config) : null],
+    )
+    if (!w) return Response.json({ error: '世界不存在' }, { status: 404 })
+    return Response.json({ world: row(w) })
+  })
+
+  app.delete('/api/worlds/:id', async (req, ctx) => {
+    const id = String(ctx.params?.id ?? '')
+    await ctx.sql.unsafe(`DELETE FROM ab_worlds WHERE id = $1`, [id])
+    return Response.json({ ok: true })
+  })
+
+  // ── agents（世界角色） ─────────────────────────────────
+  app.post('/api/worlds/:id/agents', async (req, ctx) => {
+    const worldId = String(ctx.params?.id ?? '')
+    const body = await req.json().catch(() => ({}))
+    if (!body.name?.trim()) return Response.json({ error: '角色名称必填' }, { status: 400 })
+    const [a] = await ctx.sql.unsafe(
+      `INSERT INTO ab_agents (world_id, name, persona, capabilities, weight)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [worldId, String(body.name).trim(), body.persona ?? '', json(body.capabilities ?? ['speak']), body.weight ?? 1],
+    )
+    return Response.json({ agent: row(a) }, { status: 201 })
+  })
+
+  app.patch('/api/agents/:id', async (req, ctx) => {
+    const id = String(ctx.params?.id ?? '')
+    const body = await req.json().catch(() => ({}))
+    const [a] = await ctx.sql.unsafe(
+      `UPDATE ab_agents SET name = COALESCE($2, name), persona = COALESCE($3, persona),
+        capabilities = COALESCE($4, capabilities), weight = COALESCE($5, weight)
+       WHERE id = $1 RETURNING *`,
+      [id, body.name ?? null, body.persona ?? null,
+       body.capabilities !== undefined ? json(body.capabilities) : null, body.weight ?? null],
+    )
+    if (!a) return Response.json({ error: '角色不存在' }, { status: 404 })
+    return Response.json({ agent: row(a) })
+  })
+
+  app.delete('/api/agents/:id', async (req, ctx) => {
+    const id = String(ctx.params?.id ?? '')
+    await ctx.sql.unsafe(`DELETE FROM ab_agents WHERE id = $1`, [id])
+    return Response.json({ ok: true })
+  })
+
+  // ── relations（关系） ─────────────────────────────────
+  app.post('/api/worlds/:id/relations', async (req, ctx) => {
+    const worldId = String(ctx.params?.id ?? '')
+    const body = await req.json().catch(() => ({}))
+    if (!body.from || !body.to) return Response.json({ error: 'from/to 必填' }, { status: 400 })
+    const [r] = await ctx.sql.unsafe(
+      `INSERT INTO ab_relations (world_id, from_agent, to_agent, type, strength, directed)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [worldId, body.from, body.to, body.type ?? '关联', body.strength ?? 1, !!body.directed],
+    )
+    return Response.json({ relation: row(r) }, { status: 201 })
+  })
+
+  app.delete('/api/relations/:id', async (req, ctx) => {
+    const id = String(ctx.params?.id ?? '')
+    await ctx.sql.unsafe(`DELETE FROM ab_relations WHERE id = $1`, [id])
+    return Response.json({ ok: true })
+  })
+
+  // ── events（事件——Phase 2 触发回合） ──────────────────
+  app.get('/api/worlds/:id/events', async (req, ctx) => {
+    const id = String(ctx.params?.id ?? '')
+    const rows = await ctx.sql.unsafe(`SELECT * FROM ab_events WHERE world_id = $1 ORDER BY created_at DESC LIMIT 50`, [id])
+    return Response.json({ events: rows })
+  })
+
+  app.post('/api/worlds/:id/events', async (req, ctx) => {
+    const worldId = String(ctx.params?.id ?? '')
+    const body = await req.json().catch(() => ({}))
+    const [e] = await ctx.sql.unsafe(
+      `INSERT INTO ab_events (world_id, type, payload) VALUES ($1, $2, $3) RETURNING *`,
+      [worldId, body.type ?? 'action', json(body.payload)],
+    )
+    // Phase 2：这里触发回合引擎（事件 → 激活 agents → 回合）——当前仅入库
+    return Response.json({ event: row(e) }, { status: 201 })
+  })
+}
