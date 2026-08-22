@@ -48,6 +48,7 @@ export function removeVNodeTree(
   v: VNodeChild, base: string, parent: string, emitCommand: (cmd: Command) => void,
   registry?: ComponentRegistry | null,
 ): void {
+  if ((globalThis as any).__DBG8) console.log('[dbg-rmt]', base, 'parent=', parent, 'type=', typeof v === 'object' && v !== null && !Array.isArray(v) ? String((v as VNode).type) : Array.isArray(v) ? 'array' : String(v))
   // 空洞/文本：单节点移除（锚——同构保持）
   if (v === null || v === undefined || typeof v === 'boolean') {
     emitCommand({ op: 'remove', id: base })

@@ -179,6 +179,7 @@ async function diffSlot(
   emit: RenderSink, emitCommand: (cmd: Command) => void,
   ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
+  if ((globalThis as any).__DBG7) console.log('[dbg-slot]', cid, 'old=', oldC === null ? 'null' : typeof oldC === 'object' ? String((oldC as VNode).type) : String(oldC), 'new=', newC === null ? 'null' : typeof newC === 'object' ? String((newC as VNode).type) : String(newC))
   // 文本 ↔ 文本（**统一 kindOf 语义——单一规则源**）：string/number 交叉
   // （'x' ↔ 42——同 kind text——按精确类型分流导致四分支落空 +
   // transitionOf 对角 null → 静默 no-op——fuzz#79 实证——文本不更新）
