@@ -17,7 +17,7 @@
 
 import type { UIContext } from '../context/UIContext.ts'
 import { classify, childrenOf, invalidDiagnostic, h, textMarks, idOf, slotCount, type Component, type VNode, type VNodeChild } from './vnode.ts'
-import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, TEXT_NUMBER, FRAG_START, FRAG_END, WF_ID, WF_KEY, holeMark, parseHoleMark, serializeAttrs, decodePropTypes, decodeStyle, decodeObjectProps, decodeEvents, decodeKey, decodeId } from './dom.ts'
+import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, TEXT_NUMBER, FRAG_START, FRAG_END, WF_ID, WF_KEY, WF_COMP, holeMark, parseHoleMark, serializeAttrs, decodePropTypes, decodeStyle, decodeObjectProps, decodeEvents, decodeKey, decodeId, encodeComponent, decodeComponent } from './dom.ts'
 
 /** HTML void 元素（无闭标签——自闭合） */
 const VOID_TAGS = new Set(['br', 'img', 'input', 'hr', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'])
@@ -45,9 +45,22 @@ export async function vnode2html(v: VNodeChild, ctx?: UIContext, base = 'root'):
       return element2html(c.v, ctx, base)
     case 'component': {
       // 组件展开（两阶段——与 vnode2dom 同语义——展开区间——输出挂组件槽位）
+      // **符号面注册表化：单元素输出 → 首个开标签注入 data-wf-component**
       const renderFn = await (c.v.type as Component)(c.v.props, ctx ?? ({} as UIContext))
       const out = await renderFn(c.v.props)
-      return vnode2html(out, ctx, base)
+      let s = await vnode2html(out, ctx, base)
+      // 仅单元素输出标记（多根/文本 → 展开结构——边界）
+      const co = classify(out)
+      if (co.kind === 'element') {
+        const tag = co.v.type as string
+        const openEnd = s.indexOf('>')
+        const firstTag = s.slice(0, openEnd + 1)
+        if (firstTag.startsWith(`<${tag}`)) {
+          const inj = ` ${WF_COMP}="${escapeHtml(encodeComponent(c.v))}"`
+          s = s.slice(0, openEnd) + inj + s.slice(openEnd)
+        }
+      }
+      return s
     }
     case 'array': {
       // 数组边界标记（start/end——逆向恢复数组结构——嵌套递归）——
@@ -202,6 +215,18 @@ function parseNodes(p: P, stopTag?: string, inArray = false): VNodeChild[] {
     decodeEvents(props) // 函数引用还原（data-wf-events——注册表 lookup）
     decodeId(props) // data-wf-id 位置信息删除（渲染状态——不进 vnode 面）
     const key = decodeKey(props) // key 保真（data-wf-key——vnode 顶层字段）
+    const comp = props[WF_COMP]
+    if (typeof comp === 'string') {
+      // **组件标记存在 → 恢复组件 vnode（原 props 完整——渲染痕迹丢弃——
+      //  DOM children 跳过——组件 props.children 已编码在标记里）**
+      delete props[WF_COMP]
+      const cvn = decodeComponent(comp)
+      if (cvn) {
+        if (!(selfClose || VOID_TAGS.has(tag))) parseNodes(p, tag) // 跳过渲染痕迹
+        out.push(cvn)
+        continue
+      }
+    }
     const build = (vn: VNode): VNode => { if (key) vn.key = key; return vn }
     if (selfClose || VOID_TAGS.has(tag)) {
       out.push(build(h(tag, props)))

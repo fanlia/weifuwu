@@ -20,7 +20,7 @@
  */
 
 import type { UIContext } from '../context/UIContext.ts'
-import { classify, childrenOf, invalidDiagnostic, h, textMarks, idOf, slotCount, type Component, type VNode, type VNodeChild } from './vnode.ts'
+import { classify, childrenOf, invalidDiagnostic, h, textMarks, idOf, slotCount, Fragment, type Component, type VNode, type VNodeChild } from './vnode.ts'
 import { registerFn, lookupFn } from './registry.ts'
 
 /** DOM 工厂最小接口（创建面——正向编码只依赖这三个——测试可注入 fake） */
@@ -102,6 +102,7 @@ export const WF_PROPS = 'data-wf-props'
 export const WF_EVENTS = 'data-wf-events'
 export const WF_KEY = 'data-wf-key'
 export const WF_ID = 'data-wf-id'
+export const WF_COMP = 'data-wf-component'
 
 export type PropTypeName = 'number' | 'boolean' | 'bigint'
 
@@ -196,6 +197,102 @@ export function serializeAttrs(props: Record<string, unknown>, key?: string | nu
   return out
 }
 
+// ── 组件 vnode 编解码（符号面注册表化——用户原则：凡函数不可序列化
+//    的内容都走全局注册表——组件函数与事件函数同表——A2 对组件成立） ──
+//
+// data-wf-component = {"ref":"e1","props":{...$标记编码...},"key":null}
+// $ 标记（JSON 安全——无歧义——递归）：
+//   {"$f":"e1"}   函数引用（注册表 id）
+//   {"$v":{...}}  vnode（t = tag | {"$f":ref} 组件 | '#' Fragment——p =
+//                 props 递归——k = key）
+//   {"$o":{...}}  普通对象（递归）
+//   {"$a":[...]}  数组（递归）
+//   原值（string/number/boolean/null/undefined）直接
+
+function encodeVNodeValue(v: unknown): unknown {
+  if (v === null || v === undefined || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return v
+  if (typeof v === 'function') return { $f: registerFn(v) }
+  if (Array.isArray(v)) return { $a: v.map(encodeVNodeValue) }
+  if (typeof v === 'object') {
+    const vn = v as VNode
+    if (typeof vn.type === 'string') {
+      return { $v: { t: vn.type, p: encodeVNodeProps(vn.props), k: vn.key } }
+    }
+    if (typeof vn.type === 'function') {
+      return { $v: { t: { $f: registerFn(vn.type) }, p: encodeVNodeProps(vn.props), k: vn.key } }
+    }
+    if (vn.type === Fragment) {
+      return { $v: { t: '#', p: encodeVNodeProps(vn.props), k: vn.key } }
+    }
+    // 普通对象
+    const o: Record<string, unknown> = {}
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) o[k] = encodeVNodeValue(val)
+    return { $o: o }
+  }
+  return null
+}
+
+function encodeVNodeProps(props: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, val] of Object.entries(props)) out[k] = encodeVNodeValue(val)
+  return out
+}
+
+function decodeVNodeValue(v: unknown): unknown {
+  if (v === null || v === undefined || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return v
+  if (typeof v !== 'object') return v
+  const o = v as Record<string, unknown>
+  if (typeof o.$f === 'string') return lookupFn(o.$f)
+  if (Array.isArray(o.$a)) return o.$a.map(decodeVNodeValue)
+  if (Array.isArray(o.$v)) return o.$v.map(decodeVNodeValue) // vnode 数组（多子）
+  const vv = o.$v as Record<string, unknown> | undefined
+  if (vv !== undefined) {
+    const t = vv.t
+    const p = decodeVNodeProps((vv.p as Record<string, unknown>) ?? {})
+    const k = typeof vv.k === 'string' ? vv.k : null
+    const vn = typeof t === 'string'
+      ? (t === '#' ? h(Fragment, p) : h(t as string, p))
+      : h((t as Record<string, unknown>).$f as never, p)
+    if (k) vn.key = k
+    return vn
+  }
+  const oo = o.$o as Record<string, unknown> | undefined
+  if (oo !== undefined) {
+    const out: Record<string, unknown> = {}
+    for (const [k, val] of Object.entries(oo)) out[k] = decodeVNodeValue(val)
+    return out
+  }
+  return null
+}
+
+function decodeVNodeProps(encoded: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, val] of Object.entries(encoded)) out[k] = decodeVNodeValue(val)
+  return out
+}
+
+/** 组件 vnode 编码（ref + props + key——单元素输出标记用） */
+export function encodeComponent(v: VNode): string {
+  return JSON.stringify({ ref: registerFn(v.type as Function), props: encodeVNodeProps(v.props), key: v.key })
+}
+
+/** 组件 vnode 解码（ref lookup + props 递归恢复——查不到 = 跨会话降级） */
+export function decodeComponent(json: string): VNode | null {
+  try {
+    const o = JSON.parse(json) as { ref: string; props: Record<string, unknown>; key: string | null }
+    const comp = lookupFn(o.ref)
+    if (!comp) {
+      console.warn(`[core2] 组件引用 ${o.ref} 不在注册表（跨会话？）——降级为展开结构`)
+      return null
+    }
+    const vn = h(comp as never, decodeVNodeProps(o.props ?? {}))
+    if (typeof o.key === 'string' && o.key) vn.key = o.key
+    return vn
+  } catch {
+    return null // 非法 JSON——容错（展开结构）
+  }
+}
+
 /** 逆向解码（读 data-wf-key → 返回 key → **删除内部标记**——就地修改） */
 export function decodeKey(props: Record<string, unknown>): string | null {
   const t = props[WF_KEY]
@@ -267,10 +364,15 @@ export async function vnode2dom(v: VNodeChild, doc: DomFactory, ctx?: UIContext,
       // 组件展开（两阶段——工厂 = mount 一次 + renderFn = 每次渲染——
       // 输出递归——展开区间——A1 对组件的"唯一对应"——**输出挂组件槽位
       //  （base——组件无 DOM 实体——输出即组件的 DOM 表示——id 与事件流
-      //  一致——emitNew 同规则）**
+      //  一致——emitNew 同规则）——**符号面注册表化**：单元素输出 → 根
+      //  元素写 data-wf-component（ref + props 完整编码——逆向恢复组件
+      //  vnode——A2 对组件成立）；多根/文本输出 → 展开结构（边界）**
       const renderFn = await (c.v.type as Component)(c.v.props, ctx ?? ({} as UIContext))
       const out = await renderFn(c.v.props)
-      return vnode2dom(out, doc, ctx, base)
+      const nodes = await vnode2dom(out, doc, ctx, base)
+      const rootEl = nodes.find((n) => n.nodeType === 1) as Element | undefined
+      if (rootEl && nodes.length === 1) rootEl.setAttribute(WF_COMP, encodeComponent(c.v))
+      return nodes
     }
     case 'array': {
       // 数组边界锚（start/end 注释——逆向恢复数组结构——嵌套递归）——
@@ -354,6 +456,13 @@ export function dom2vnode(node: Node): VNodeChild {
   decodeEvents(props) // 函数引用还原（data-wf-events——注册表 lookup）
   decodeId(props) // data-wf-id 位置信息删除（渲染状态——不进 vnode 面）
   const key = decodeKey(props) // key 保真（data-wf-key——vnode 顶层字段）
+  const comp = props[WF_COMP]
+  if (typeof comp === 'string') {
+    // **组件标记存在 → 恢复组件 vnode（原 props 完整——渲染痕迹丢弃）**
+    delete props[WF_COMP]
+    const cvn = decodeComponent(comp)
+    if (cvn) return cvn
+  }
   // 元素 children 必须走 dom2vnodeAll（栈式）——数组边界锚在元素内部
   // 同样需要恢复（map(dom2vnode) 会把 fragStart/End 注释单节点化 → null——
   // 嵌套数组结构丢失——demo 实证）

@@ -25,7 +25,7 @@
 import type { UIContext } from '../context/UIContext.ts'
 import type { Event } from './command.ts'
 import { classify, childrenOf, invalidDiagnostic, slotCount, pathId, forEachArraySlot, textMarks, type VNode, type VNodeChild, type Component } from './vnode.ts'
-import { WF_ID } from './dom.ts'
+import { WF_ID, WF_COMP, encodeComponent } from './dom.ts'
 import { styleString } from './dom.ts'
 
 /** 转换上下文（位置 + 双事件流） */
@@ -107,9 +107,15 @@ export async function emitNew(v: VNodeChild, base: string, parent: string, ctx: 
     }
     case 'component': {
       // 组件展开（两阶段）——输出递归——组件无 DOM 实体（区间语义）
+      // **符号面注册表化：单元素输出 → apply 流首元素 create attrs 注入
+      //  data-wf-component（与 vnode2dom/vnode2html 一致——A1 三方同构）**
       const renderFn = await (c.v.type as Component)(c.v.props, ctx.ctx ?? ({} as UIContext))
       const out = await renderFn(c.v.props)
       await emitNew(out, base, parent, ctx, ref)
+      if (classify(out).kind === 'element') {
+        const first = ctx.apply.find((e) => e.op === 'create' && e.payload.kind === 'element') as { payload: { kind: 'element'; attrs: Record<string, unknown> } } | undefined
+        if (first) first.payload.attrs = { ...first.payload.attrs, [WF_COMP]: encodeComponent(c.v) }
+      }
       return
     }
     case 'array': {
@@ -149,12 +155,11 @@ export async function emitNew(v: VNodeChild, base: string, parent: string, ctx: 
  *  delete（slotCount 推进——与 emitNew 同规则）；单节点 delete base（子树
  *  由消费端前缀级联）；**逆序 push 重建**（reverse 整体逆序应用——重建
  *  顺序父先子后） */
-export async function removeOld(v: VNodeChild, base: string, parent: string, ctx: TransformCtx, ref: string | null): Promise<void> {
-  // 重建命令（reverse 方向——emitNew 的 apply 序列**逆序**入 reverse——
-  // 整体逆序应用时以原顺序执行：先删新节点再重建旧节点）
-  const rebuildCtx: TransformCtx = { ...ctx, apply: [], reverse: [] }
-  await emitNew(v, base, parent, rebuildCtx, ref)
-  // apply 区间删除（array → 逐槽位；单节点 → 单锚 + 消费端前缀级联）
+/** 区间删除（**单一实现源——removeOld/fromComponent 共用**）：按 vnode
+ *  形态删除其 DOM 区间——text number 双槽——array 逐槽（forEachArraySlot）——
+ *  **组件展开后递归**（组件无 DOM 实体——区间 = 输出区间）——单节点单锚
+ *  （子树由消费端前缀级联） */
+async function deleteInterval(v: VNodeChild, base: string, parent: string, ctx: TransformCtx): Promise<void> {
   const c = classify(v)
   if (c.kind === 'text' && typeof c.value === 'number') {
     // number 文本：tn + 文本双槽位删除
@@ -169,9 +174,25 @@ export async function removeOld(v: VNodeChild, base: string, parent: string, ctx
     forEachArraySlot(c.items, (slot) => {
       ctx.apply.push({ op: 'delete', id: pathId(parent, ctx.index + slot) })
     })
-  } else {
-    ctx.apply.push({ op: 'delete', id: base })
+    return
   }
+  if (c.kind === 'component') {
+    // 组件：展开后按输出区间删除（多根数组 → 多槽）
+    const renderFn = await (c.v.type as Component)(c.v.props, ctx.ctx ?? ({} as UIContext))
+    const out = await renderFn(c.v.props)
+    await deleteInterval(out, base, parent, ctx)
+    return
+  }
+  ctx.apply.push({ op: 'delete', id: base })
+}
+
+export async function removeOld(v: VNodeChild, base: string, parent: string, ctx: TransformCtx, ref: string | null): Promise<void> {
+  // 重建命令（reverse 方向——emitNew 的 apply 序列**逆序**入 reverse——
+  // 整体逆序应用时以原顺序执行：先删新节点再重建旧节点——**组件 vnode
+  //  重建带符号面标记（data-wf-component）——reverse 恢复组件 vnode）**
+  const rebuildCtx: TransformCtx = { ...ctx, apply: [], reverse: [] }
+  await emitNew(v, base, parent, rebuildCtx, ref)
+  await deleteInterval(v, base, parent, ctx)
   ctx.reverse.push(...[...rebuildCtx.apply].reverse())
 }
 
@@ -253,16 +274,15 @@ export const array2text: Transform = async (old, next, ctx) => {
 /** x → component（组件无 DOM——**旧侧让位** + 展开后转换到输出形态——递归） */
 export async function toComponent(old: VNodeChild, compV: VNode, ctx: TransformCtx): Promise<void> {
   await removeOld(old, ctx.id, ctx.parent, ctx, ctx.ref)
-  const renderFn = await (compV.type as Component)(compV.props, ctx.ctx ?? ({} as UIContext))
-  const out = await renderFn(compV.props)
-  await emitNew(out, ctx.id, ctx.parent, ctx, ctx.ref)
+  // **统一走 emitNew 的 component case（展开 + 符号面标记注入——单一实现源）**
+  await emitNew(compV, ctx.id, ctx.parent, ctx, ctx.ref)
 }
 
 /** component → x（展开读输出——移除输出区间 + 创建 x） */
 export async function fromComponent(compV: VNode, next: VNodeChild, ctx: TransformCtx): Promise<void> {
-  const renderFn = await (compV.type as Component)(compV.props, ctx.ctx ?? ({} as UIContext))
-  const out = await renderFn(compV.props)
-  await removeOld(out, ctx.id, ctx.parent, ctx, ctx.ref)
+  // **removeOld(compV) 而非 removeOld(out)**——删除区间由 deleteInterval
+  //  展开推导——重建带组件标记（reverse 恢复组件 vnode——符号面保真）
+  await removeOld(compV, ctx.id, ctx.parent, ctx, ctx.ref)
   await emitNew(next, ctx.id, ctx.parent, ctx, ctx.ref)
 }
 

@@ -140,7 +140,12 @@ test('序列化：array / Fragment（边界锚包裹——嵌套保留）', asyn
 
 test('序列化：组件展开（工厂 + renderFn——输出递归）', async () => {
   const Comp = () => () => h('div', { class: 'c' }, 'inner')
-  assert.equal(await vnode2html(h('section', {}, h(Comp, {}))), '<section data-wf-id="root"><div data-wf-id="root.0" class="c">inner</div></section>', '组件输出挂组件槽位（root.0——子元素槽位推进）')
+  const compHtml = await vnode2html(h('section', {}, h(Comp, {})))
+  assert.equal(compHtml, '<section data-wf-id="root"><div data-wf-id="root.0" class="c" data-wf-component="{&quot;ref&quot;:&quot;e1&quot;,&quot;props&quot;:{},&quot;key&quot;:null}">inner</div></section>', '组件输出挂组件槽位 + 符号面注册表化（data-wf-component）')
+  // 逆向：组件 vnode 恢复（ref lookup——展开结构 → 组件符号面）
+  const compBack = html2vnode(compHtml)
+  assert.deepEqual(compBack, h('section', {}, h(Comp, {})), '组件 vnode 精确恢复（A2 对组件成立）')
+  assert.equal((compBack as any).props.children.type, Comp, '组件函数同一引用（===）')
   const Multi = () => () => [h('span', {}, 'a'), h('span', {}, 'b')]
   assert.equal(await vnode2html(h(Multi, {})), `<!--${FRAG_START}--><span data-wf-id="root.1">a</span><span data-wf-id="root.2">b</span><!--${FRAG_END}-->`, '多根输出 → 数组区间锚（start 锚 root.0——项 root.1/root.2）')
 })

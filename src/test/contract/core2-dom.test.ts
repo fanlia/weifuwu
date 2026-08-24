@@ -98,12 +98,15 @@ test('A1：fragment 归一（Fragment vnode → 展开节点——无中间层�
   assert.deepEqual(back, [['a', h('span', {}, 'b')]], '逆向恢复数组结构')
 })
 
-test('A1/A2：组件展开区间 round-trip（组件 → 展开结构——函数面不可恢复）', async () => {
+test('A1/A2：组件展开区间 round-trip（符号面注册表化——组件 vnode 恢复）', async () => {
   const Comp = () => () => h('div', { class: 'c' }, 'inner')
+  resetRegistry()
   const v = h('div', {}, h(Comp, {}))
   const back = await roundTrip(v)
-  // 组件展开为 div(class=c)>inner——逆向恢复展开结构（组件引用不可序列化）
-  assert.deepEqual(back, h('div', {}, h('div', { class: 'c' }, 'inner')))
+  // 组件 vnode 恢复（data-wf-component 标记——ref lookup——原 props 完整）
+  assert.deepEqual(back, h('div', {}, h(Comp, {})))
+  const compV = (back as any).props.children
+  assert.equal(compV.type, Comp, '组件函数同一引用（===）')
 })
 
 test('A1：组件输出多根（array 输出）——展开区间多项', async () => {

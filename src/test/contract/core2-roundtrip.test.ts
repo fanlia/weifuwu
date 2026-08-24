@@ -11,6 +11,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { vnode2html, html2vnode } from '../../client/vdom/core2/html.ts'
+import { resetRegistry } from '../../client/vdom/core2/registry.ts'
 import { FRAG_START, FRAG_END } from '../../client/vdom/core2/dom.ts'
 import { normalizeForRoundTrip } from '../../client/vdom/core2/roundtrip.ts'
 import { h, Fragment, type VNodeChild } from '../../client/vdom/core2/vnode.ts'
@@ -171,4 +172,36 @@ test('id 层：data-wf-id 位置参数（确定性——槽位推进与事件流
   // 逆向：id 标记删除（vnode 面干净——位置是渲染状态）
   const back = html2vnode(html)
   assert.equal((back as any).props['data-wf-id'], undefined, 'id 标记不进 vnode 面')
+})
+
+test('R1/R2：组件符号面注册表化（A2 对组件成立——props/children/key 完整保真）', async () => {
+  const Inner = () => () => h('span', { class: 'i' }, 'inner')
+  const Card = () => (props: Record<string, unknown>) =>
+    h('div', { class: 'card' }, (props as any).title, h(Inner, {}))
+  const fn = () => {}
+  resetRegistry()
+  const v = h(Card, {
+    title: 'T',
+    count: 3,
+    flag: true,
+    style: { color: 'red' },
+    data: { nested: { x: 1 } },
+    onClick: fn,
+    key: 'card.1',
+  }, h('b', {}, 'child'))
+  // R1：逆向恢复组件 vnode（props 全类型 + children + key——=== 组件函数）
+  const html = await vnode2html(v)
+  const back = html2vnode(html)
+  assert.deepEqual(back, normalizeForRoundTrip(v), '组件 vnode 精确恢复（A2 对组件成立）')
+  assert.equal((back as any).type, Card, '组件函数同一引用（===）')
+  assert.equal((back as any).props.onClick, fn, '函数 props 引用恒等')
+  assert.equal((back as any).key, 'card.1', 'key 保真')
+  assert.deepEqual((back as any).props.children, h('b', {}, 'child'), 'children 原声明恢复（非展开痕迹）')
+  // R2：重序列化恒等
+  assert.equal(await vnode2html(back), html, 'R2 恒等（组件）')
+  // 多根输出组件——边界（展开结构——不标记）
+  const Multi = () => () => [h('span', {}, 'a'), h('span', {}, 'b')]
+  resetRegistry()
+  const m = await vnode2html(h(Multi, {}))
+  assert.ok(!m.includes('data-wf-component'), '多根输出不标记（边界——展开结构）')
 })
