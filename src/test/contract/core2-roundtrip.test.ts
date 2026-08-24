@@ -120,3 +120,28 @@ test('R1/R2：文本面值类型完备（number/undefined/元素 children split�
   assert.notEqual(await vnode2html(h('div', {}, undefined)), await vnode2html(h('div', {}, null)), 'undefined 与 null 可区分')
   assert.notEqual(await vnode2html(h('div', {}, 42)), await vnode2html(h('div', {}, '42')), 'number 与 string 可区分（tn）')
 })
+
+test('R1/R2：普通对象/数组属性值保真（data-wf-props——[object Object] 歧义歼灭）', async () => {
+  const cases: VNodeChild[] = [
+    h('div', { data: { a: 1, nested: { b: 'x', c: true } } }),
+    h('div', { items: [1, '2', { c: 3 }, null] }),
+    h('div', { meta: {}, count: 3, flag: true, title: 't' }), // 混合面（对象 + 类型表 + 字符串）
+    h('div', { deep: { arr: [[1, 2], ['a']], obj: { n: 42 } } }),
+  ]
+  for (const v of cases) {
+    const html = await vnode2html(v)
+    const back = html2vnode(html)
+    assert.deepEqual(back, normalizeForRoundTrip(v), `R1 恒等: ${html}`)
+    assert.equal(await vnode2html(back), html, `R2 恒等: ${html}`)
+  }
+  // 属性面显示（兼容）+ 标记 JSON
+  const html = await vnode2html(h('div', { data: { a: 1 } }))
+  assert.equal(html, '<div data="[object Object]" data-wf-props="{&quot;data&quot;:{&quot;a&quot;:1}}"></div>', '属性面 String + data-wf-props JSON')
+  // 逆向：对象还原 + 标记删除
+  const back = html2vnode(html)
+  assert.deepEqual(back, h('div', { data: { a: 1 } }), '对象精确还原（含 number 值）——标记删除')
+  // A3 单射：对象属性 vs 字符串属性可区分
+  assert.notEqual(html, await vnode2html(h('div', { data: '[object Object]' })), '对象与字符串可区分（data-wf-props）')
+  // 空对象属性（{} 保真——不再丢）
+  assert.deepEqual(html2vnode(await vnode2html(h('div', { meta: {} }))), h('div', { meta: {} }), '空对象保真')
+})

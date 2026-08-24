@@ -97,6 +97,7 @@ export function styleString(style: Record<string, unknown>): string {
 
 export const WF_TYPES = 'data-wf-types'
 export const WF_STYLE = 'data-wf-style'
+export const WF_PROPS = 'data-wf-props'
 
 export type PropTypeName = 'number' | 'boolean' | 'bigint'
 
@@ -165,9 +166,38 @@ export function serializeAttrs(props: Record<string, unknown>): Record<string, u
       if (js) out[WF_STYLE] = js
     } else if (v !== null && v !== undefined) out[k] = String(v)
   }
+  // **普通对象/数组属性值 → data-wf-props JSON（逆向全保真——[object
+  //  Object] 歧义歼灭）——仅 JSON 可序列化值（循环引用/Date 等跳过——
+  //  属性面保持字符串——文档化）**
+  const obj: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'children' || k === 'key' || k === 'ref' || k === 'style') continue
+    if (v !== null && typeof v === 'object') {
+      try {
+        obj[k] = JSON.parse(JSON.stringify(v)) // 深拷贝（防循环引用 throw）
+      } catch { /* 不可序列化——跳过（属性面保持字符串） */ }
+    }
+  }
+  if (Object.keys(obj).length > 0) out[WF_PROPS] = JSON.stringify(obj)
   const types = encodePropTypes(props)
   if (types) out[WF_TYPES] = JSON.stringify(types)
   return out
+}
+
+/** 逆向解码（读 data-wf-props → 还原对象/数组属性值 → **删除内部标记**——
+ *  就地修改——无标记时属性保持字符串面（手写 HTML 兼容）） */
+export function decodeObjectProps(props: Record<string, unknown>): void {
+  const t = props[WF_PROPS]
+  if (typeof t !== 'string') return
+  delete props[WF_PROPS]
+  try {
+    const objs = JSON.parse(t) as Record<string, unknown>
+    for (const [k, val] of Object.entries(objs)) {
+      if (val !== null && typeof val === 'object') props[k] = val
+    }
+  } catch {
+    // 非法 JSON——容错（属性保持字符串面）
+  }
 }
 
 /**
@@ -263,6 +293,7 @@ export function dom2vnode(node: Node): VNodeChild {
   }
   decodePropTypes(props) // 类型表还原（number/bool——内部标记删除）
   decodeStyle(props) // style 对象还原（JSON 全保真——内部标记删除）
+  decodeObjectProps(props) // 普通对象/数组属性还原（data-wf-props）
   // 元素 children 必须走 dom2vnodeAll（栈式）——数组边界锚在元素内部
   // 同样需要恢复（map(dom2vnode) 会把 fragStart/End 注释单节点化 → null——
   // 嵌套数组结构丢失——demo 实证）

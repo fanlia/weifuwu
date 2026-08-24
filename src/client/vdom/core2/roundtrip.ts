@@ -37,8 +37,8 @@ export function normalizeForRoundTrip(v: VNodeChild): VNodeChild {
   for (const [k, val] of Object.entries(vn.props)) {
     if (k === 'children' || k === 'key') continue
     if (typeof val === 'function') continue // 事件面剔除（函数表后续）
-    if (k === 'style' && val !== null && typeof val === 'object') {
-      props[k] = val // style 对象保真（data-wf-style JSON 还原——R1 期望侧同规则）
+    if (val !== null && typeof val === 'object') {
+      props[k] = val // 对象保真（style → data-wf-style；普通对象/数组 → data-wf-props——R1 期望侧同规则）
     } else if (typeof val === 'number' || typeof val === 'boolean' || typeof val === 'bigint') {
       props[k] = val // number/bool 保真（data-wf-types 类型表还原——R1 期望侧同规则）
     } else if (val !== null && val !== undefined) {
