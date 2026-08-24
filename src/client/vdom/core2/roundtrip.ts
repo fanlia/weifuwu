@@ -10,7 +10,7 @@
  *  - number 文本保真（text-number 标记）；null/undefined/boolean 值全保真
  *  - style 对象保真（data-wf-style JSON 编码——逆向还原对象——值类型保真）
  *  - 事件/函数值 → 剔除（函数表后续——不参与序列化面）
- *  - key → null（HTML 面不编码 key——id 层后续）
+ *  - key 保真（data-wf-key 标记——逆向回填 vnode.key）
  *  - 组件/Fragment → 展开结构（符号/函数面不可序列化——测试用展开后的树）
  *
  * 例外（显式标注）：测试目的本身就是保真范围边界（style 对象类型变化、
@@ -51,6 +51,6 @@ export function normalizeForRoundTrip(v: VNodeChild): VNodeChild {
   const kids = childrenOf(vn).map(normalizeForRoundTrip)
   if (kids.length === 1) props.children = kids[0]
   else if (kids.length > 1) props.children = kids
-  // key → null（HTML 面不编码 key——id 层后续——type/props 保留）
-  return { type: vn.type, props, key: null }
+  // **key 保真**（data-wf-key 标记——逆向回填 vnode.key——R1 期望侧同规则）
+  return { type: vn.type, props, key: vn.key }
 }

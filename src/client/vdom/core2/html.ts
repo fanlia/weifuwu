@@ -16,8 +16,8 @@
  */
 
 import type { UIContext } from '../context/UIContext.ts'
-import { classify, childrenOf, invalidDiagnostic, h, textMarks, type Component, type VNode, type VNodeChild } from './vnode.ts'
-import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, TEXT_NUMBER, FRAG_START, FRAG_END, holeMark, parseHoleMark, serializeAttrs, decodePropTypes, decodeStyle, decodeObjectProps, decodeEvents } from './dom.ts'
+import { classify, childrenOf, invalidDiagnostic, h, textMarks, idOf, slotCount, type Component, type VNode, type VNodeChild } from './vnode.ts'
+import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, TEXT_NUMBER, FRAG_START, FRAG_END, WF_ID, WF_KEY, holeMark, parseHoleMark, serializeAttrs, decodePropTypes, decodeStyle, decodeObjectProps, decodeEvents, decodeKey, decodeId } from './dom.ts'
 
 /** HTML void 元素（无闭标签——自闭合） */
 const VOID_TAGS = new Set(['br', 'img', 'input', 'hr', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'])
@@ -32,7 +32,7 @@ export function escapeHtml(s: string): string {
 /**
  * vnode → HTML 字符串（组件展开可 await——与 vnode2dom 对称签名）
  */
-export async function vnode2html(v: VNodeChild, ctx?: UIContext): Promise<string> {
+export async function vnode2html(v: VNodeChild, ctx?: UIContext, base = 'root'): Promise<string> {
   const c = classify(v)
   switch (c.kind) {
     case 'text':
@@ -42,26 +42,30 @@ export async function vnode2html(v: VNodeChild, ctx?: UIContext): Promise<string
     case 'hole':
       return `<!--${holeMark(c.value)}-->`
     case 'element':
-      return element2html(c.v, ctx)
+      return element2html(c.v, ctx, base)
     case 'component': {
-      // 组件展开（两阶段——与 vnode2dom 同语义——展开区间）
+      // 组件展开（两阶段——与 vnode2dom 同语义——展开区间——输出挂组件槽位）
       const renderFn = await (c.v.type as Component)(c.v.props, ctx ?? ({} as UIContext))
       const out = await renderFn(c.v.props)
-      return vnode2html(out, ctx)
+      return vnode2html(out, ctx, base)
     }
     case 'array': {
       // 数组边界标记（start/end——逆向恢复数组结构——嵌套递归）——
       // **连续 string 之间插 split 分隔锚（textMarks 统一规则——不 merge）
-      //  ——number 文本的 tn 标记在文本自身（text case 自插）**
+      //  ——number 文本的 tn 标记在文本自身（text case 自插）——槽位推进
+      //  与事件流一致（元素 id 注入的基准）**
       let s = `<!--${FRAG_START}-->`
       const marks = textMarks(c.items)
       let mi = 0
+      let slot = 1 // start 锚占 base.0
       for (let i = 0; i < c.items.length; i++) {
         while (mi < marks.length && marks[mi]!.index === i) {
           s += `<!--${HOLE_SPLIT}-->`
+          slot += 1
           mi += 1
         }
-        s += await vnode2html(c.items[i]!, ctx)
+        s += await vnode2html(c.items[i]!, ctx, idOf(base, slot))
+        slot += slotCount(c.items[i]!)
       }
       return s + `<!--${FRAG_END}-->`
     }
@@ -73,10 +77,10 @@ export async function vnode2html(v: VNodeChild, ctx?: UIContext): Promise<string
 }
 
 /** 元素序列化（开标签 + 属性 + children + 闭标签——void 自闭合） */
-async function element2html(v: VNode, ctx?: UIContext): Promise<string> {
+async function element2html(v: VNode, ctx?: UIContext, base = 'root'): Promise<string> {
   const tag = v.type as string
-  const attrs: string[] = []
-  for (const [k, val] of Object.entries(serializeAttrs(v.props))) {
+  const attrs: string[] = [`${WF_ID}="${base}"`]
+  for (const [k, val] of Object.entries(serializeAttrs(v.props, v.key))) {
     attrs.push(`${k}="${escapeHtml(String(val))}"`)
   }
   const attrStr = attrs.length > 0 ? ' ' + attrs.join(' ') : ''
@@ -87,13 +91,16 @@ async function element2html(v: VNode, ctx?: UIContext): Promise<string> {
   let inner = ''
   const marks = textMarks(children)
   let mi = 0
+  let slot = 0
   for (let i = 0; i < children.length; i++) {
     // **连续 string 文本 → split 分隔锚（元素 children 同样保真——不 merge）**
     while (mi < marks.length && marks[mi]!.index === i) {
       inner += `<!--${HOLE_SPLIT}-->`
+      slot += 1
       mi += 1
     }
-    inner += await vnode2html(children[i]!, ctx)
+    inner += await vnode2html(children[i]!, ctx, idOf(base, slot))
+    slot += slotCount(children[i]!)
   }
   return `<${tag}${attrStr}>${inner}</${tag}>`
 }
@@ -193,12 +200,15 @@ function parseNodes(p: P, stopTag?: string, inArray = false): VNodeChild[] {
     decodeStyle(props) // style 对象还原（JSON 全保真——内部标记删除）
     decodeObjectProps(props) // 普通对象/数组属性还原（data-wf-props）
     decodeEvents(props) // 函数引用还原（data-wf-events——注册表 lookup）
+    decodeId(props) // data-wf-id 位置信息删除（渲染状态——不进 vnode 面）
+    const key = decodeKey(props) // key 保真（data-wf-key——vnode 顶层字段）
+    const build = (vn: VNode): VNode => { if (key) vn.key = key; return vn }
     if (selfClose || VOID_TAGS.has(tag)) {
-      out.push(h(tag, props))
+      out.push(build(h(tag, props)))
       continue
     }
     const children = parseNodes(p, tag)
-    out.push(children.length === 0 ? h(tag, props) : h(tag, props, ...children))
+    out.push(build(children.length === 0 ? h(tag, props) : h(tag, props, ...children)))
   }
   return out
 }

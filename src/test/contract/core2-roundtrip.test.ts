@@ -51,12 +51,12 @@ test('R1/R2：规范 HTML 全形态 round-trip（string 侧基准）', async () 
     'a &lt; b &amp; c',
     `<!--wf-hole: null-->`,
     `<!--wf-hole: true-->`,
-    `<div class="a">x</div>`,
-    `<div title="a &quot;q&quot;">y</div>`,
-    `<ul><li>1</li><!--wf-hole: false--><li>2</li></ul>`,
-    `<div style="background-color:red"></div>`,
+    `<div data-wf-id="root" class="a">x</div>`,
+    `<div data-wf-id="root" title="a &quot;q&quot;">y</div>`,
+    `<ul data-wf-id="root"><li data-wf-id="root.0">1</li><!--wf-hole: false--><li data-wf-id="root.2">2</li></ul>`,
+    `<div data-wf-id="root" style="background-color:red"></div>`,
     `<!--${FRAG_START}-->a<!--${FRAG_END}-->`,
-    `<!--${FRAG_START}--><br/><img src="a.png"/><!--${FRAG_END}-->`, // 多节点序列 = 数组锚包裹（vnode2html 的输出形态）
+    `<!--${FRAG_START}--><br data-wf-id="root.1"/><img data-wf-id="root.2" src="a.png"/><!--${FRAG_END}-->`, // 多节点序列 = 数组锚包裹（start root.0——项 root.1/root.2）
   ]
   for (const w of strings) {
     const back = await vnode2html(html2vnode(w))
@@ -136,7 +136,7 @@ test('R1/R2：普通对象/数组属性值保真（data-wf-props——[object Ob
   }
   // 属性面显示（兼容）+ 标记 JSON
   const html = await vnode2html(h('div', { data: { a: 1 } }))
-  assert.equal(html, '<div data="[object Object]" data-wf-props="{&quot;data&quot;:{&quot;a&quot;:1}}"></div>', '属性面 String + data-wf-props JSON')
+  assert.equal(html, '<div data-wf-id="root" data="[object Object]" data-wf-props="{&quot;data&quot;:{&quot;a&quot;:1}}"></div>', '属性面 String + data-wf-props JSON')
   // 逆向：对象还原 + 标记删除
   const back = html2vnode(html)
   assert.deepEqual(back, h('div', { data: { a: 1 } }), '对象精确还原（含 number 值）——标记删除')
@@ -144,4 +144,31 @@ test('R1/R2：普通对象/数组属性值保真（data-wf-props——[object Ob
   assert.notEqual(html, await vnode2html(h('div', { data: '[object Object]' })), '对象与字符串可区分（data-wf-props）')
   // 空对象属性（{} 保真——不再丢）
   assert.deepEqual(html2vnode(await vnode2html(h('div', { meta: {} }))), h('div', { meta: {} }), '空对象保真')
+})
+
+test('R1/R2：key 保真（data-wf-key——vnode 顶层字段——含特殊字符）', async () => {
+  for (const key of ['a', 'a.b', 'ka', '100', 'x%y', 'a.b.c']) {
+    const v = h('li', { key }, 'item')
+    await assertRoundTrip(v) // R1：key 还原 + R2：data-wf-key 重序列化
+  }
+  // 无 key 零开销
+  assert.equal(await vnode2html(h('li', {}, 'x')), '<li data-wf-id="root">x</li>', '无 key 不加标记')
+  // A3：key 与无 key 可区分
+  assert.notEqual(await vnode2html(h('li', { key: 'a' }, 'x')), await vnode2html(h('li', {}, 'x')), 'key 保真可区分')
+})
+
+test('id 层：data-wf-id 位置参数（确定性——槽位推进与事件流一致）', async () => {
+  // 嵌套 + 空洞 + 数组——id 路径验证
+  const html = await vnode2html(
+    h('div', {}, h('section', {}, h('p', {}, 'x'), null), ['a', h('b', {}, 'y')]),
+  )
+  assert.equal(
+    html,
+    '<div data-wf-id="root"><section data-wf-id="root.0"><p data-wf-id="root.0.0">x</p><!--wf-hole: null--></section>' +
+    '<!--wf-hole: fragment-start-->a<b data-wf-id="root.1.2">y</b><!--wf-hole: fragment-end--></div>',
+    'id 路径：section root.0（内部 p root.0.0）——数组兄弟槽 root.1（start root.1.0——a root.1.1——b root.1.2）',
+  )
+  // 逆向：id 标记删除（vnode 面干净——位置是渲染状态）
+  const back = html2vnode(html)
+  assert.equal((back as any).props['data-wf-id'], undefined, 'id 标记不进 vnode 面')
 })

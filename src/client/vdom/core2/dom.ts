@@ -20,7 +20,7 @@
  */
 
 import type { UIContext } from '../context/UIContext.ts'
-import { classify, childrenOf, invalidDiagnostic, h, textMarks, type Component, type VNode, type VNodeChild } from './vnode.ts'
+import { classify, childrenOf, invalidDiagnostic, h, textMarks, idOf, slotCount, type Component, type VNode, type VNodeChild } from './vnode.ts'
 import { registerFn, lookupFn } from './registry.ts'
 
 /** DOM 工厂最小接口（创建面——正向编码只依赖这三个——测试可注入 fake） */
@@ -100,6 +100,8 @@ export const WF_TYPES = 'data-wf-types'
 export const WF_STYLE = 'data-wf-style'
 export const WF_PROPS = 'data-wf-props'
 export const WF_EVENTS = 'data-wf-events'
+export const WF_KEY = 'data-wf-key'
+export const WF_ID = 'data-wf-id'
 
 export type PropTypeName = 'number' | 'boolean' | 'bigint'
 
@@ -155,7 +157,7 @@ export function decodePropTypes(props: Record<string, unknown>): void {
 
 /** 属性序列化（**单一实现源——dom/html/transform 共用**）：字符串化 +
  *  style 对象 → cssText + 非字符串类型表（data-wf-types） */
-export function serializeAttrs(props: Record<string, unknown>): Record<string, unknown> {
+export function serializeAttrs(props: Record<string, unknown>, key?: string | null): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   const events: Record<string, string> = {}
   for (const [k, v] of Object.entries(props)) {
@@ -190,7 +192,22 @@ export function serializeAttrs(props: Record<string, unknown>): Record<string, u
   if (Object.keys(events).length > 0) out[WF_EVENTS] = JSON.stringify(events)
   const types = encodePropTypes(props)
   if (types) out[WF_TYPES] = JSON.stringify(types)
+  if (key) out[WF_KEY] = key // **key 保真（vnode.key 顶层字段——序列化面）**
   return out
+}
+
+/** 逆向解码（读 data-wf-key → 返回 key → **删除内部标记**——就地修改） */
+export function decodeKey(props: Record<string, unknown>): string | null {
+  const t = props[WF_KEY]
+  if (typeof t !== 'string') return null
+  delete props[WF_KEY]
+  return t
+}
+
+/** 逆向解码（读 data-wf-id → **删除内部标记**——位置信息不进入 vnode 面——
+ *  消费端（SSR 吸收/多实例）如需 id 在节点表层读取） */
+export function decodeId(props: Record<string, unknown>): void {
+  delete props[WF_ID]
 }
 
 /** 逆向解码（读 data-wf-events → lookup 引用 → 恢复函数属性 → **删除内部
@@ -233,7 +250,7 @@ export function decodeObjectProps(props: Record<string, unknown>): void {
  *  单节点类型 → [node]；组件/数组 → 展开多项——区间语义）
  * @param ctx 组件工厂上下文（组件展开需要——无组件可省略）
  */
-export async function vnode2dom(v: VNodeChild, doc: DomFactory, ctx?: UIContext): Promise<Node[]> {
+export async function vnode2dom(v: VNodeChild, doc: DomFactory, ctx?: UIContext, base = 'root'): Promise<Node[]> {
   const c = classify(v)
   switch (c.kind) {
     case 'text':
@@ -245,28 +262,34 @@ export async function vnode2dom(v: VNodeChild, doc: DomFactory, ctx?: UIContext)
     case 'hole':
       return [doc.createComment(holeMark(c.value))]
     case 'element':
-      return [await element2dom(c.v, doc, ctx)]
+      return [await element2dom(c.v, doc, ctx, base)]
     case 'component': {
       // 组件展开（两阶段——工厂 = mount 一次 + renderFn = 每次渲染——
-      // 输出递归——展开区间——A1 对组件的"唯一对应"）
+      // 输出递归——展开区间——A1 对组件的"唯一对应"——**输出挂组件槽位
+      //  （base——组件无 DOM 实体——输出即组件的 DOM 表示——id 与事件流
+      //  一致——emitNew 同规则）**
       const renderFn = await (c.v.type as Component)(c.v.props, ctx ?? ({} as UIContext))
       const out = await renderFn(c.v.props)
-      return vnode2dom(out, doc, ctx)
+      return vnode2dom(out, doc, ctx, base)
     }
     case 'array': {
       // 数组边界锚（start/end 注释——逆向恢复数组结构——嵌套递归）——
       // **连续 string 之间插 split 分隔锚（textMarks 统一规则——array 节点
       //  类型——文本边界保真——不 merge——逆向逐段恢复）——number 文本
-      //  的 tn 标记在文本自身（text case 自插）**
+      //  的 tn 标记在文本自身（text case 自插）——槽位推进与事件流一致
+      //  （forEachArraySlot——元素 id 注入的基准）**
       const out: Node[] = [doc.createComment(FRAG_START)]
       const marks = textMarks(c.items)
       let mi = 0
+      let slot = 1 // start 锚占 base.0
       for (let i = 0; i < c.items.length; i++) {
         while (mi < marks.length && marks[mi]!.index === i) {
           out.push(doc.createComment(HOLE_SPLIT))
+          slot += 1
           mi += 1
         }
-        out.push(...(await vnode2dom(c.items[i]!, doc, ctx)))
+        out.push(...(await vnode2dom(c.items[i]!, doc, ctx, idOf(base, slot))))
+        slot += slotCount(c.items[i]!)
       }
       out.push(doc.createComment(FRAG_END))
       return out
@@ -279,22 +302,28 @@ export async function vnode2dom(v: VNodeChild, doc: DomFactory, ctx?: UIContext)
   }
 }
 
-/** 元素编码（createElement + props 序列化面 + children 递归） */
-async function element2dom(v: VNode, doc: DomFactory, ctx?: UIContext): Promise<Element> {
+/** 元素编码（createElement + props 序列化面 + children 递归——**data-wf-id
+ *  位置参数注入**：根 'root'——子 idOf(base, 槽位)——与事件流槽位推进
+ *  一致——逆向删除（位置信息是渲染状态——不进 vnode 面）） */
+async function element2dom(v: VNode, doc: DomFactory, ctx?: UIContext, base = 'root'): Promise<Element> {
   const el = doc.createElement(v.type as string)
-  for (const [k, val] of Object.entries(serializeAttrs(v.props))) {
+  el.setAttribute(WF_ID, base)
+  for (const [k, val] of Object.entries(serializeAttrs(v.props, v.key))) {
     el.setAttribute(k, String(val))
   }
   const kids = childrenOf(v)
   const marks = textMarks(kids)
   let mi = 0
+  let slot = 0
   for (let i = 0; i < kids.length; i++) {
     // **连续 string 文本 → split 分隔锚（元素 children 同样保真——不 merge）**
     while (mi < marks.length && marks[mi]!.index === i) {
       el.appendChild(doc.createComment(HOLE_SPLIT))
+      slot += 1
       mi += 1
     }
-    for (const n of await vnode2dom(kids[i]!, doc, ctx)) el.appendChild(n)
+    for (const n of await vnode2dom(kids[i]!, doc, ctx, idOf(base, slot))) el.appendChild(n)
+    slot += slotCount(kids[i]!)
   }
   return el
 }
@@ -323,13 +352,17 @@ export function dom2vnode(node: Node): VNodeChild {
   decodeStyle(props) // style 对象还原（JSON 全保真——内部标记删除）
   decodeObjectProps(props) // 普通对象/数组属性还原（data-wf-props）
   decodeEvents(props) // 函数引用还原（data-wf-events——注册表 lookup）
+  decodeId(props) // data-wf-id 位置信息删除（渲染状态——不进 vnode 面）
+  const key = decodeKey(props) // key 保真（data-wf-key——vnode 顶层字段）
   // 元素 children 必须走 dom2vnodeAll（栈式）——数组边界锚在元素内部
   // 同样需要恢复（map(dom2vnode) 会把 fragStart/End 注释单节点化 → null——
   // 嵌套数组结构丢失——demo 实证）
   const children = dom2vnodeAll(el.childNodes as Iterable<Node>)
-  return children.length === 0
+  const vn = children.length === 0
     ? h(el.tagName.toLowerCase(), props)
     : h(el.tagName.toLowerCase(), props, ...children)
+  if (key) vn.key = key // key 恢复（h 从 props 剥离——显式回填）
+  return vn
 }
 
 /** DOM 序列 → vnode 序列（组件展开区间的逆向——逐节点恢复——数组边界

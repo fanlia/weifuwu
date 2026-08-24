@@ -25,6 +25,7 @@
 import type { UIContext } from '../context/UIContext.ts'
 import type { Event } from './command.ts'
 import { classify, childrenOf, invalidDiagnostic, slotCount, pathId, forEachArraySlot, textMarks, type VNode, type VNodeChild, type Component } from './vnode.ts'
+import { WF_ID } from './dom.ts'
 import { styleString } from './dom.ts'
 
 /** 转换上下文（位置 + 双事件流） */
@@ -77,7 +78,11 @@ export async function emitNew(v: VNodeChild, base: string, parent: string, ctx: 
       return
     }
     case 'element': {
-      ctx.apply.push({ op: 'create', id: base, payload: { kind: 'element', tag: c.v.type as string, attrs: serializableAttrs(c.v.props) }, parent, ref })
+      // **data-wf-id 注入（位置参数——attrs 携带——patch setAttribute——
+      //  与 vnode2dom/vnode2html 一致——A1 三方同构）**
+      const attrs = serializableAttrs(c.v.props, c.v.key)
+      attrs[WF_ID] = base
+      ctx.apply.push({ op: 'create', id: base, payload: { kind: 'element', tag: c.v.type as string, attrs }, parent, ref })
       ctx.reverse.push({ op: 'delete', id: base })
       let slot = 0
       let lastRef: string | null = null

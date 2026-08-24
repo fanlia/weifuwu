@@ -86,11 +86,11 @@ test('序列化：hole → 值标记注释（null/true/false 区分）', async (
 test('序列化：element（属性面——style 对象/布尔/属性转义）', async () => {
   assert.equal(
     await vnode2html(h('div', { class: 'a' }, 'x')),
-    '<div class="a">x</div>',
+    '<div data-wf-id="root" class="a">x</div>',
   )
   assert.equal(
     await vnode2html(h('div', { style: { backgroundColor: 'red' }, disabled: true }, 'x')),
-    '<div style="background-color:red" data-wf-style="{&quot;backgroundColor&quot;:&quot;red&quot;}" disabled="true" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">x</div>',
+    '<div data-wf-id="root" style="background-color:red" data-wf-style="{&quot;backgroundColor&quot;:&quot;red&quot;}" disabled="true" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">x</div>',
     'style 对象 → cssText + data-wf-style JSON；boolean → 类型表（逆向均还原）',
   )
   // 逆向：类型表还原——disabled 恢复 boolean（非字符串）——内部标记删除
@@ -102,10 +102,10 @@ test('序列化：element（属性面——style 对象/布尔/属性转义）',
   const num = html2vnode('<div n="42" data-wf-types="{&quot;n&quot;:&quot;number&quot;}">x</div>')
   assert.deepEqual(num, h('div', { n: 42 }, 'x'), 'data-wf-types 解码：number 还原')
   // 无标记的字符串属性不受影响
-  assert.equal(await vnode2html(h('div', { class: 'a' }, 'x')), '<div class="a">x</div>', '纯字符串属性——零开销（无类型表）')
+  assert.equal(await vnode2html(h('div', { class: 'a' }, 'x')), '<div data-wf-id="root" class="a">x</div>', '纯字符串属性——零开销（无类型表）')
   assert.equal(
     await vnode2html(h('div', { title: 'a "q" & <x>' }, 'y')),
-    '<div title="a &quot;q&quot; &amp; &lt;x&gt;">y</div>',
+    '<div data-wf-id="root" title="a &quot;q&quot; &amp; &lt;x&gt;">y</div>',
     '属性值转义（引号/&/尖括号）',
   )
 })
@@ -113,35 +113,36 @@ test('序列化：element（属性面——style 对象/布尔/属性转义）',
 test('序列化：嵌套 element + 空洞（childNodes 同构）', async () => {
   assert.equal(
     await vnode2html(h('ul', {}, h('li', {}, '1'), null, h('li', {}, '2'))),
-    `<ul><li>1</li><!--${HOLE_NULL}--><li>2</li></ul>`,
-    '空洞 → 值标记注释（不塌缩）',
+    `<ul data-wf-id="root"><li data-wf-id="root.0">1</li><!--${HOLE_NULL}--><li data-wf-id="root.2">2</li></ul>`,
+    '空洞 → 值标记注释（不塌缩——空洞占 root.1 槽）',
   )
 })
 
 test('序列化：void 元素自闭合', async () => {
-  assert.equal(await vnode2html(h('br', {})), '<br/>')
-  assert.equal(await vnode2html(h('img', { src: 'a.png' })), '<img src="a.png"/>')
-  assert.equal(await vnode2html(h('div', {})), '<div></div>', '非 void 空元素闭合')
+  assert.equal(await vnode2html(h('br', {})), '<br data-wf-id="root"/>')
+  assert.equal(await vnode2html(h('img', { src: 'a.png' })), '<img data-wf-id="root" src="a.png"/>')
+  assert.equal(await vnode2html(h('div', {})), '<div data-wf-id="root"></div>', '非 void 空元素闭合')
 })
 
 test('序列化：array / Fragment（边界锚包裹——嵌套保留）', async () => {
   assert.equal(
     await vnode2html(['a', null, h('b', {}, 'x')]),
-    `<!--${FRAG_START}-->a<!--wf-hole: null--><b>x</b><!--${FRAG_END}-->`,
+    `<!--${FRAG_START}-->a<!--wf-hole: null--><b data-wf-id="root.3">x</b><!--${FRAG_END}-->`,
+    'start 锚 root.0——a root.1——null root.2——b root.3（槽位推进）',
   )
   assert.equal(
     await vnode2html(h(Fragment, {}, 'a', h('span', {}, 'b'))),
-    `<!--${FRAG_START}-->a<span>b</span><!--${FRAG_END}-->`,
-    'Fragment 与数组同形态（归一）',
+    `<!--${FRAG_START}-->a<span data-wf-id="root.2">b</span><!--${FRAG_END}-->`,
+    'Fragment 与数组同形态（归一——a root.1——span root.2）',
   )
   assert.equal(await vnode2html(['a', ['b', 'c']]), `<!--${FRAG_START}-->a<!--${FRAG_START}-->b<!--wf-hole: split-->c<!--${FRAG_END}--><!--${FRAG_END}-->`, '嵌套数组 → 嵌套锚 + 连续文本 split（不 merge）')
 })
 
 test('序列化：组件展开（工厂 + renderFn——输出递归）', async () => {
   const Comp = () => () => h('div', { class: 'c' }, 'inner')
-  assert.equal(await vnode2html(h('section', {}, h(Comp, {}))), '<section><div class="c">inner</div></section>')
+  assert.equal(await vnode2html(h('section', {}, h(Comp, {}))), '<section data-wf-id="root"><div data-wf-id="root.0" class="c">inner</div></section>', '组件输出挂组件槽位（root.0——子元素槽位推进）')
   const Multi = () => () => [h('span', {}, 'a'), h('span', {}, 'b')]
-  assert.equal(await vnode2html(h(Multi, {})), `<!--${FRAG_START}--><span>a</span><span>b</span><!--${FRAG_END}-->`, '多根输出 → 数组区间锚')
+  assert.equal(await vnode2html(h(Multi, {})), `<!--${FRAG_START}--><span data-wf-id="root.1">a</span><span data-wf-id="root.2">b</span><!--${FRAG_END}-->`, '多根输出 → 数组区间锚（start 锚 root.0——项 root.1/root.2）')
 })
 
 test('序列化：事件跳过（函数面——与 vnode2dom 同规则）', async () => {
@@ -149,7 +150,7 @@ test('序列化：事件跳过（函数面——与 vnode2dom 同规则）', asy
   const fn = () => {}
   resetRegistry()
   const evHtml = await vnode2html(h('button', { onClick: fn, disabled: true }, 'b'))
-  assert.equal(evHtml, '<button disabled="true" data-wf-events="{&quot;onClick&quot;:&quot;e1&quot;}" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">b</button>', '函数 → 注册表 id（可序列化）')
+  assert.equal(evHtml, '<button data-wf-id="root" disabled="true" data-wf-events="{&quot;onClick&quot;:&quot;e1&quot;}" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">b</button>', '函数 → 注册表 id（可序列化）')
   const evBack = html2vnode(evHtml)
   assert.deepEqual(evBack, h('button', { onClick: fn, disabled: true }, 'b'), '逆向恢复函数引用（=== 恒等）——标记删除')
   assert.equal((evBack as any).props.onClick, fn, '引用恒等（同一函数对象）')

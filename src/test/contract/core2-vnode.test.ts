@@ -11,7 +11,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   classify, kindOf, h, jsx, Fragment, invalidDiagnostic,
-  childrenOf, slotCount, type VNode, type VNodeChild,
+  childrenOf, slotCount, keyedIdOf, idOf, type VNode, type VNodeChild,
 } from '../../client/vdom/core2/vnode.ts'
 
 test('classify：text（string/number 原值保留——渲染层 String 化 + tn 标记）', () => {
@@ -122,4 +122,19 @@ test('slotCount：投影维度（array 递归计数——Fragment 不展开但�
   assert.equal(slotCount([h('div', {}), ['a', ['b', 'c']]]), 11)
   // 嵌套 Fragment：2锚 + a1 + 内层(2+1+1+1split) + d1 = 9
   assert.equal(slotCount(h(Fragment, {}, 'a', h(Fragment, {}, 'b', 'c'), 'd')), 9)
+})
+
+test('keyedIdOf：key 注入防御（core1 G9 教训——转义单射）', () => {
+  // 前缀碰撞：'.' 注入——'a.b' 与 'ka' 的 id 不得有前缀关系
+  const a = keyedIdOf('root.0', 'a.b')
+  const b = keyedIdOf('root.0', 'ka')
+  assert.notEqual(a, `${b}.b`, 'key 含 "." 不与兄弟前缀碰撞（转义 %2E）')
+  assert.equal(a, 'root.0.ka%2Eb', '转义规则：. → %2E')
+  // '%' 转义先行——互不碰撞（%2E 字面不误转义）
+  const pct = keyedIdOf('root.0', 'a%2Eb')
+  assert.equal(pct, 'root.0.ka%252Eb', '% → %25（先行——%2E 字面安全）')
+  // 单射：不同 key → 不同 id
+  assert.notEqual(keyedIdOf('root.0', 'a.b'), keyedIdOf('root.0', 'a%2Eb'), '异 key 异 id')
+  // 空 key 直拼
+  assert.equal(keyedIdOf('root.0', ''), 'root.0.k')
 })

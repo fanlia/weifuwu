@@ -89,10 +89,25 @@ export function forEachArraySlot(
   fn(slot, 'end', -1)
 }
 
-/** 节点 id——确定性路径（'root.0.1'——锚点法——' . ' 分隔——key 注入
- *  防御见 keyedIdOf（id.ts 后续）——本步基础拼接） */
-export function pathId(parent: string, i: number): string {
+/** 节点 id（位置参数——确定性路径——'root.0.1'——锚点法——与渲染/事件流
+ *  槽位推进一致——**data-wf-id 注入的唯一来源**——idOf 与 pathId 同义
+ *  （pathId 为历史别名——新代码用 idOf）） */
+export function idOf(parent: string, i: number): string {
   return `${parent}.${i}`
+}
+
+/** pathId 别名（与 idOf 同实现——历史调用方） */
+export function pathId(parent: string, i: number): string {
+  return idOf(parent, i)
+}
+
+/** keyed 组件 id（**key 注入防御——core1 G9 教训**）：compId 直接拼接 key——
+ *  key 含 '.'（数据 id 'a.b'）与 'ka' 产生前缀关系——dispose/remap 的
+ *  startsWith 前缀匹配误删兄弟实例——统一转义（'%'→'%25' 先行、'.'→
+ *  '%2E'——互不碰撞——单射） */
+export function keyedIdOf(id: string, key: string): string {
+  const esc = key.replace(/%/g, '%25').replace(/\./g, '%2E')
+  return `${id}.k${esc}`
 }
 
 /** 节点类型（6 种——fragment 已归一为 array） */
