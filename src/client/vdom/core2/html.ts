@@ -17,7 +17,7 @@
 
 import type { UIContext } from '../context/UIContext.ts'
 import { classify, childrenOf, invalidDiagnostic, h, type Component, type VNode, type VNodeChild } from './vnode.ts'
-import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, FRAG_START, FRAG_END, holeMark, parseHoleMark, styleString, serializeAttrs, decodePropTypes } from './dom.ts'
+import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, FRAG_START, FRAG_END, holeMark, parseHoleMark, serializeAttrs, decodePropTypes, decodeStyle } from './dom.ts'
 
 /** HTML void 元素（无闭标签——自闭合） */
 const VOID_TAGS = new Set(['br', 'img', 'input', 'hr', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'])
@@ -170,6 +170,7 @@ function parseNodes(p: P, stopTag?: string, inArray = false): VNodeChild[] {
     p.i = lt
     const { tag, props, selfClose } = parseOpenTag(p)
     decodePropTypes(props) // 类型表还原（number/bool——内部标记删除）
+    decodeStyle(props) // style 对象还原（JSON 全保真——内部标记删除）
     if (selfClose || VOID_TAGS.has(tag)) {
       out.push(h(tag, props))
       continue

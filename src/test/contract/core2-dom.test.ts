@@ -116,13 +116,17 @@ test('A3：单射——同位置异 vnode → 结构可区分的 DOM', async () 
   assert.notEqual((n1[0] as Element).tagName, (n3[0] as Element).tagName)
 })
 
-test('保真范围：style 对象 → cssText 字符串（kebab-case——逆向为字符串）', async () => {
-  const v = h('div', { style: { backgroundColor: 'red', fontSize: '12px' } })
+test('保真范围：style 对象 → cssText + data-wf-style JSON（逆向还原对象——歧义歼灭）', async () => {
+  const v = h('div', { style: { backgroundColor: 'red', fontSize: 14 } })
   const nodes = await vnode2dom(v, fakeDoc)
-  const style = (nodes[0] as Element).getAttribute('style')
-  assert.equal(style, 'background-color:red;font-size:12px', 'camelCase → kebab-case')
+  const el = nodes[0] as Element
+  assert.equal(el.getAttribute('style'), 'background-color:red;font-size:14', 'camelCase → kebab-case（属性面）')
+  assert.equal(el.getAttribute('data-wf-style'), '{"backgroundColor":"red","fontSize":14}', 'style 对象 JSON（值类型保真）')
   const back = await roundTrip(v)
-  assert.deepEqual(back, h('div', { style: 'background-color:red;font-size:12px' }), 'style 保真到字符串面')
+  assert.deepEqual(back, h('div', { style: { backgroundColor: 'red', fontSize: 14 } }), 'style 对象 round-trip 精确还原（含 number 值）')
+  // 手写 HTML（无 data-wf-style）——style 保持字符串面（兼容）
+  const str = await roundTrip(h('div', { style: 'color:red' }))
+  assert.deepEqual(str, h('div', { style: 'color:red' }), '字符串 style 不受影响')
 })
 test('A1：hole 值编码（true/false/null 区分——注释内容）', async () => {
   const [n] = await vnode2dom(null, fakeDoc)

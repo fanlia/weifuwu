@@ -8,7 +8,7 @@
  * normalize（可序列化面归一——round-trip 比较基准——保真范围）：
  *  - 字符串属性完全保真
  *  - number/bool → 字符串（String()——HTML 面字符串化）
- *  - style 对象 → cssText 字符串（kebab-case——与 vnode2dom 同规则）
+ *  - style 对象保真（data-wf-style JSON 编码——逆向还原对象——值类型保真）
  *  - 事件/函数值 → 剔除（函数表后续——不参与序列化面）
  *  - key → null（HTML 面不编码 key——id 层后续）
  *  - 组件/Fragment → 展开结构（符号/函数面不可序列化——测试用展开后的树）
@@ -18,7 +18,7 @@
  */
 
 import { classify, childrenOf, Fragment, type VNode, type VNodeChild } from './vnode.ts'
-import { styleString } from './dom.ts'
+
 
 /** vnode → 可序列化面归一（round-trip 比较基准——R1 的期望侧——**hole
  *  值保真**（null/true/false 原样）——数组文本合并） */
@@ -38,7 +38,7 @@ export function normalizeForRoundTrip(v: VNodeChild): VNodeChild {
     if (k === 'children' || k === 'key') continue
     if (typeof val === 'function') continue // 事件面剔除（函数表后续）
     if (k === 'style' && val !== null && typeof val === 'object') {
-      props[k] = styleString(val as Record<string, unknown>)
+      props[k] = val // style 对象保真（data-wf-style JSON 还原——R1 期望侧同规则）
     } else if (typeof val === 'number' || typeof val === 'boolean' || typeof val === 'bigint') {
       props[k] = val // number/bool 保真（data-wf-types 类型表还原——R1 期望侧同规则）
     } else if (val !== null && val !== undefined) {

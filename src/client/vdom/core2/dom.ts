@@ -88,6 +88,7 @@ export function styleString(style: Record<string, unknown>): string {
 // 后续 data-wf-props 全保真步骤处理。
 
 export const WF_TYPES = 'data-wf-types'
+export const WF_STYLE = 'data-wf-style'
 
 export type PropTypeName = 'number' | 'boolean' | 'bigint'
 
@@ -101,6 +102,25 @@ export function encodePropTypes(props: Record<string, unknown>): Record<string, 
     else if (typeof v === 'bigint') types[k] = 'bigint'
   }
   return Object.keys(types).length > 0 ? types : null
+}
+
+/** style 对象 → JSON（**逆向全保真**——含 number 值——如 fontSize: 14——
+ *  比 cssText 字符串保真更强——null = 无对象） */
+export function encodeStyle(style: Record<string, unknown>): string | null {
+  return Object.keys(style).length > 0 ? JSON.stringify(style) : null
+}
+
+/** 逆向解码（读 data-wf-style → 还原 style 对象 → **删除内部标记**——
+ *  就地修改——无标记时 style 保持字符串面（cssText——手写 HTML 兼容）） */
+export function decodeStyle(props: Record<string, unknown>): void {
+  const t = props[WF_STYLE]
+  if (typeof t !== 'string') return
+  delete props[WF_STYLE]
+  try {
+    props.style = JSON.parse(t) as Record<string, unknown>
+  } catch {
+    // 非法 JSON——容错（style 保持字符串面）
+  }
 }
 
 /** 逆向解码（读 data-wf-types → 还原类型 → **删除内部标记**——就地修改） */
@@ -129,8 +149,13 @@ export function serializeAttrs(props: Record<string, unknown>): Record<string, u
   for (const [k, v] of Object.entries(props)) {
     if (k === 'children' || k === 'key' || k === 'ref') continue
     if (typeof v === 'function') continue // 事件/函数面——函数表后续
-    if (k === 'style' && v !== null && typeof v === 'object') out[k] = styleString(v as Record<string, unknown>)
-    else if (v !== null && v !== undefined) out[k] = String(v)
+    if (k === 'style' && v !== null && typeof v === 'object') {
+      // style 对象：属性面 cssText（可读/兼容）+ data-wf-style JSON
+      //（逆向全保真——含值类型）——内部标记由 decodeStyle 消费
+      out[k] = styleString(v as Record<string, unknown>)
+      const js = encodeStyle(v as Record<string, unknown>)
+      if (js) out[WF_STYLE] = js
+    } else if (v !== null && v !== undefined) out[k] = String(v)
   }
   const types = encodePropTypes(props)
   if (types) out[WF_TYPES] = JSON.stringify(types)
@@ -213,6 +238,7 @@ export function dom2vnode(node: Node): VNodeChild {
     props[attr.name] = attr.value
   }
   decodePropTypes(props) // 类型表还原（number/bool——内部标记删除）
+  decodeStyle(props) // style 对象还原（JSON 全保真——内部标记删除）
   // 元素 children 必须走 dom2vnodeAll（栈式）——数组边界锚在元素内部
   // 同样需要恢复（map(dom2vnode) 会把 fragStart/End 注释单节点化 → null——
   // 嵌套数组结构丢失——demo 实证）

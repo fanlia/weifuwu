@@ -86,12 +86,15 @@ test('序列化：element（属性面——style 对象/布尔/属性转义）',
   )
   assert.equal(
     await vnode2html(h('div', { style: { backgroundColor: 'red' }, disabled: true }, 'x')),
-    '<div style="background-color:red" disabled="true" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">x</div>',
-    'style 对象 → cssText；boolean → "true" + data-wf-types 类型表（逆向还原 boolean）',
+    '<div style="background-color:red" data-wf-style="{&quot;backgroundColor&quot;:&quot;red&quot;}" disabled="true" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">x</div>',
+    'style 对象 → cssText + data-wf-style JSON；boolean → 类型表（逆向均还原）',
   )
   // 逆向：类型表还原——disabled 恢复 boolean（非字符串）——内部标记删除
   const bt = html2vnode('<div disabled="true" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">x</div>')
   assert.deepEqual(bt, h('div', { disabled: true }, 'x'), 'data-wf-types 解码：boolean 还原 + 标记删除')
+  // 逆向：style 对象还原（data-wf-style——含 number 值类型）+ 标记删除
+  const st = html2vnode('<div style="font-size:14" data-wf-style="{&quot;fontSize&quot;:14}">x</div>')
+  assert.deepEqual(st, h('div', { style: { fontSize: 14 } }, 'x'), 'data-wf-style 解码：对象还原（值类型保真）')
   const num = html2vnode('<div n="42" data-wf-types="{&quot;n&quot;:&quot;number&quot;}">x</div>')
   assert.deepEqual(num, h('div', { n: 42 }, 'x'), 'data-wf-types 解码：number 还原')
   // 无标记的字符串属性不受影响
