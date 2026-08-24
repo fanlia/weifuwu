@@ -7,7 +7,7 @@
  *
  * normalize（可序列化面归一——round-trip 比较基准——保真范围）：
  *  - 字符串属性完全保真
- *  - number/bool → 字符串（String()——HTML 面字符串化）
+ *  - number 文本保真（text-number 标记）；null/undefined/boolean 值全保真
  *  - style 对象保真（data-wf-style JSON 编码——逆向还原对象——值类型保真）
  *  - 事件/函数值 → 剔除（函数表后续——不参与序列化面）
  *  - key → null（HTML 面不编码 key——id 层后续）
@@ -23,9 +23,9 @@ import { classify, childrenOf, Fragment, type VNode, type VNodeChild } from './v
 /** vnode → 可序列化面归一（round-trip 比较基准——R1 的期望侧——**hole
  *  值保真**（null/true/false 原样）——数组文本合并） */
 export function normalizeForRoundTrip(v: VNodeChild): VNodeChild {
-  if (v === null || v === undefined) return null // hole——null 值保真
-  if (typeof v === 'boolean') return v // hole——true/false 值保真
-  if (typeof v === 'number') return String(v)
+  // **null/undefined/boolean 值全保真**（wf-hole: null/undefined/true/false）
+  if (v === null || v === undefined || typeof v === 'boolean') return v
+  if (typeof v === 'number') return v // **number 保真**（text-number 标记）
   if (typeof v === 'string') return v
   if (Array.isArray(v)) return v.map(normalizeForRoundTrip) // 数组原样（无 merge——split 锚保真文本边界）
   const vn = v as VNode

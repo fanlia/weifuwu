@@ -15,7 +15,7 @@
  */
 
 import type { Event } from './command.ts'
-import { HOLE_NULL, HOLE_TRUE, HOLE_FALSE, HOLE_INVALID, HOLE_SPLIT, FRAG_START, FRAG_END } from './dom.ts'
+import { HOLE_NULL, HOLE_UNDEFINED, HOLE_TRUE, HOLE_FALSE, HOLE_INVALID, HOLE_SPLIT, TEXT_NUMBER, FRAG_START, FRAG_END } from './dom.ts'
 
 /** 最小节点面（fake/真实 DOM 的共同结构——消费端只依赖这些） */
 export interface DomNode {
@@ -109,8 +109,9 @@ export class EventApplier {
             if (ex && ex.nodeType === 8) break
             const v = ev.payload.value
             const mark = v === 'start' ? FRAG_START : v === 'end' ? FRAG_END
-              : v === 'split' ? HOLE_SPLIT : v === 'invalid' ? HOLE_INVALID
-              : v === true ? HOLE_TRUE : v === false ? HOLE_FALSE : HOLE_NULL
+              : v === 'split' ? HOLE_SPLIT : v === 'textNumber' ? TEXT_NUMBER
+              : v === 'invalid' ? HOLE_INVALID : v === true ? HOLE_TRUE
+              : v === false ? HOLE_FALSE : v === undefined ? HOLE_UNDEFINED : HOLE_NULL
             const c = this.createComment(mark)
             this.nodes.set(ev.id, c)
             this.attach(c, ev.parent, ev.ref)

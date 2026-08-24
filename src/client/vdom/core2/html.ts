@@ -16,8 +16,8 @@
  */
 
 import type { UIContext } from '../context/UIContext.ts'
-import { classify, childrenOf, invalidDiagnostic, h, type Component, type VNode, type VNodeChild } from './vnode.ts'
-import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, FRAG_START, FRAG_END, holeMark, parseHoleMark, serializeAttrs, decodePropTypes, decodeStyle } from './dom.ts'
+import { classify, childrenOf, invalidDiagnostic, h, textMarks, type Component, type VNode, type VNodeChild } from './vnode.ts'
+import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, TEXT_NUMBER, FRAG_START, FRAG_END, holeMark, parseHoleMark, serializeAttrs, decodePropTypes, decodeStyle } from './dom.ts'
 
 /** HTML void 元素（无闭标签——自闭合） */
 const VOID_TAGS = new Set(['br', 'img', 'input', 'hr', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'])
@@ -36,6 +36,8 @@ export async function vnode2html(v: VNodeChild, ctx?: UIContext): Promise<string
   const c = classify(v)
   switch (c.kind) {
     case 'text':
+      // **number 文本前置 text-number 标记（类型保真——A3）**
+      if (typeof c.value === 'number') return `<!--${TEXT_NUMBER}-->${escapeHtml(String(c.value))}`
       return escapeHtml(c.value)
     case 'hole':
       return `<!--${holeMark(c.value)}-->`
@@ -49,13 +51,17 @@ export async function vnode2html(v: VNodeChild, ctx?: UIContext): Promise<string
     }
     case 'array': {
       // 数组边界标记（start/end——逆向恢复数组结构——嵌套递归）——
-      // **连续文本项之间插 split 分隔锚（文本边界保真——不 merge）**
+      // **连续 string 之间插 split 分隔锚（textMarks 统一规则——不 merge）
+      //  ——number 文本的 tn 标记在文本自身（text case 自插）**
       let s = `<!--${FRAG_START}-->`
-      let prevText = false
-      for (const item of c.items) {
-        if (prevText && typeof item === 'string') s += `<!--${HOLE_SPLIT}-->`
-        s += await vnode2html(item, ctx)
-        prevText = typeof item === 'string' || typeof item === 'number'
+      const marks = textMarks(c.items)
+      let mi = 0
+      for (let i = 0; i < c.items.length; i++) {
+        while (mi < marks.length && marks[mi]!.index === i) {
+          s += `<!--${HOLE_SPLIT}-->`
+          mi += 1
+        }
+        s += await vnode2html(c.items[i]!, ctx)
       }
       return s + `<!--${FRAG_END}-->`
     }
@@ -79,7 +85,16 @@ async function element2html(v: VNode, ctx?: UIContext): Promise<string> {
     return VOID_TAGS.has(tag) ? `<${tag}${attrStr}/>` : `<${tag}${attrStr}></${tag}>`
   }
   let inner = ''
-  for (const child of children) inner += await vnode2html(child, ctx)
+  const marks = textMarks(children)
+  let mi = 0
+  for (let i = 0; i < children.length; i++) {
+    // **连续 string 文本 → split 分隔锚（元素 children 同样保真——不 merge）**
+    while (mi < marks.length && marks[mi]!.index === i) {
+      inner += `<!--${HOLE_SPLIT}-->`
+      mi += 1
+    }
+    inner += await vnode2html(children[i]!, ctx)
+  }
   return `<${tag}${attrStr}>${inner}</${tag}>`
 }
 
@@ -124,17 +139,19 @@ function parseOpenTag(p: P): { tag: string; props: Record<string, unknown>; self
  *  遇 fragEnd 返回（匹配的数组结束）） */
 function parseNodes(p: P, stopTag?: string, inArray = false): VNodeChild[] {
   const out: VNodeChild[] = []
+  let pendingNumber = false // text-number 标记 → 下一文本段 Number 化
   while (p.i < p.s.length) {
     const lt = p.s.indexOf('<', p.i)
     if (lt < 0) {
       const t = p.s.slice(p.i)
-      if (t) out.push(unescapeHtml(t))
+      if (t) out.push(pendingNumber ? Number(unescapeHtml(t)) : unescapeHtml(t))
       p.i = p.s.length
       break
     }
     if (lt > p.i) {
       const t = p.s.slice(p.i, lt)
-      if (t) out.push(unescapeHtml(t))
+      if (t) out.push(pendingNumber ? Number(unescapeHtml(t)) : unescapeHtml(t))
+      pendingNumber = false
     }
     // 注释（标记——hole 值/数组边界/诊断）
     if (p.s.startsWith('<!--', lt)) {
@@ -145,15 +162,18 @@ function parseNodes(p: P, stopTag?: string, inArray = false): VNodeChild[] {
         // 数组上下文（递归到匹配 fragEnd——嵌套数组逐层）
         p.i = end + 3
         out.push(parseNodes(p, undefined, true))
+        pendingNumber = false
         continue
       }
       if (m.kind === 'fragEnd') {
         p.i = end + 3
         if (inArray) return out // 数组结束——返回（调用方收集）
+        pendingNumber = false
         continue // 顶层多余 end——容错忽略
       }
-      if (m.kind === 'hole') out.push(m.value)
-      else if (m.kind === 'invalid') out.push(null) // 诊断锚——hole 占位
+      if (m.kind === 'hole') { out.push(m.value); pendingNumber = false }
+      else if (m.kind === 'textNumber') { pendingNumber = true }
+      else if (m.kind === 'invalid') { out.push(null); pendingNumber = false } // 诊断锚——hole 占位
       p.i = end + 3
       continue
     }

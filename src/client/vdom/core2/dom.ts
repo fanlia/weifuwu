@@ -20,7 +20,7 @@
  */
 
 import type { UIContext } from '../context/UIContext.ts'
-import { classify, childrenOf, invalidDiagnostic, h, type Component, type VNode, type VNodeChild } from './vnode.ts'
+import { classify, childrenOf, invalidDiagnostic, h, textMarks, type Component, type VNode, type VNodeChild } from './vnode.ts'
 
 /** DOM 工厂最小接口（创建面——正向编码只依赖这三个——测试可注入 fake） */
 export interface DomFactory {
@@ -31,8 +31,10 @@ export interface DomFactory {
 
 /** 空洞锚注释标记（值编码——逆向恢复原始 vnode 状态——同构不变量） */
 export const HOLE_NULL = 'wf-hole: null'
+export const HOLE_UNDEFINED = 'wf-hole: undefined'
 export const HOLE_TRUE = 'wf-hole: true'
 export const HOLE_FALSE = 'wf-hole: false'
+export const TEXT_NUMBER = 'wf-hole: text-number'
 export const HOLE_INVALID = 'wf-hole: invalid'
 export const FRAG_START = 'wf-hole: fragment-start'
 export const FRAG_END = 'wf-hole: fragment-end'
@@ -45,14 +47,18 @@ export function splitMark(): string {
   return HOLE_SPLIT
 }
 
-/** hole 值 → 注释标记（null/true/false——undefined 归一 null） */
-export function holeMark(value: null | boolean): string {
-  return value === null ? HOLE_NULL : value ? HOLE_TRUE : HOLE_FALSE
+/** hole 值 → 注释标记（null/undefined/true/false——**值全保真**——
+ *  undefined 独立标记（不再归一 null——A3）） */
+export function holeMark(value: null | boolean | undefined): string {
+  if (value === null) return HOLE_NULL
+  if (value === undefined) return HOLE_UNDEFINED
+  return value ? HOLE_TRUE : HOLE_FALSE
 }
 
 /** 注释内容 → 标记语义（hole 值 / invalid / fragment 边界 / 非标记） */
 export type HoleMark =
-  | { kind: 'hole'; value: null | boolean }
+  | { kind: 'hole'; value: null | boolean | undefined }
+  | { kind: 'textNumber' }
   | { kind: 'invalid' }
   | { kind: 'fragStart' }
   | { kind: 'fragEnd' }
@@ -61,8 +67,10 @@ export type HoleMark =
 export function parseHoleMark(comment: string): HoleMark {
   switch (comment) {
     case HOLE_NULL: return { kind: 'hole', value: null }
+    case HOLE_UNDEFINED: return { kind: 'hole', value: undefined }
     case HOLE_TRUE: return { kind: 'hole', value: true }
     case HOLE_FALSE: return { kind: 'hole', value: false }
+    case TEXT_NUMBER: return { kind: 'textNumber' }
     case HOLE_INVALID: return { kind: 'invalid' }
     case FRAG_START: return { kind: 'fragStart' }
     case FRAG_END: return { kind: 'fragEnd' }
@@ -171,6 +179,10 @@ export async function vnode2dom(v: VNodeChild, doc: DomFactory, ctx?: UIContext)
   const c = classify(v)
   switch (c.kind) {
     case 'text':
+      // **number 文本前置 text-number 标记（类型保真——A3）——双节点**
+      if (typeof c.value === 'number') {
+        return [doc.createComment(TEXT_NUMBER), doc.createTextNode(String(c.value))]
+      }
       return [doc.createTextNode(c.value)]
     case 'hole':
       return [doc.createComment(holeMark(c.value))]
@@ -185,14 +197,18 @@ export async function vnode2dom(v: VNodeChild, doc: DomFactory, ctx?: UIContext)
     }
     case 'array': {
       // 数组边界锚（start/end 注释——逆向恢复数组结构——嵌套递归）——
-      // **连续文本项之间插 split 分隔锚（array 节点类型——文本边界保真——
-      //  不 merge——逆向逐段恢复）**
+      // **连续 string 之间插 split 分隔锚（textMarks 统一规则——array 节点
+      //  类型——文本边界保真——不 merge——逆向逐段恢复）——number 文本
+      //  的 tn 标记在文本自身（text case 自插）**
       const out: Node[] = [doc.createComment(FRAG_START)]
-      let prevText = false
-      for (const item of c.items) {
-        if (prevText && typeof item === 'string') out.push(doc.createComment(HOLE_SPLIT))
-        out.push(...(await vnode2dom(item, doc, ctx)))
-        prevText = typeof item === 'string' || typeof item === 'number'
+      const marks = textMarks(c.items)
+      let mi = 0
+      for (let i = 0; i < c.items.length; i++) {
+        while (mi < marks.length && marks[mi]!.index === i) {
+          out.push(doc.createComment(HOLE_SPLIT))
+          mi += 1
+        }
+        out.push(...(await vnode2dom(c.items[i]!, doc, ctx)))
       }
       out.push(doc.createComment(FRAG_END))
       return out
@@ -211,8 +227,16 @@ async function element2dom(v: VNode, doc: DomFactory, ctx?: UIContext): Promise<
   for (const [k, val] of Object.entries(serializeAttrs(v.props))) {
     el.setAttribute(k, String(val))
   }
-  for (const child of childrenOf(v)) {
-    for (const n of await vnode2dom(child, doc, ctx)) el.appendChild(n)
+  const kids = childrenOf(v)
+  const marks = textMarks(kids)
+  let mi = 0
+  for (let i = 0; i < kids.length; i++) {
+    // **连续 string 文本 → split 分隔锚（元素 children 同样保真——不 merge）**
+    while (mi < marks.length && marks[mi]!.index === i) {
+      el.appendChild(doc.createComment(HOLE_SPLIT))
+      mi += 1
+    }
+    for (const n of await vnode2dom(kids[i]!, doc, ctx)) el.appendChild(n)
   }
   return el
 }
@@ -226,8 +250,8 @@ async function element2dom(v: VNode, doc: DomFactory, ctx?: UIContext): Promise<
 export function dom2vnode(node: Node): VNodeChild {
   if (node.nodeType === 3) return node.textContent ?? ''
   if (node.nodeType === 8) {
-    // 注释——标记解析：hole 值恢复（null/true/false——值保真）；数组
-    // 边界/其他注释由 dom2vnodeAll 处理——单节点版本归 hole
+    // 注释——标记解析：hole 值恢复（null/undefined/true/false——值保真）；
+    // 数组边界/其他注释由 dom2vnodeAll 处理——单节点版本归 hole
     const m = parseHoleMark((node as Comment).textContent ?? '')
     if (m.kind === 'hole') return m.value
     return null
@@ -254,20 +278,31 @@ export function dom2vnodeAll(nodes: Iterable<Node>): VNodeChild[] {
   const out: VNodeChild[] = []
   const stack: VNodeChild[][] = []
   const target = (): VNodeChild[] => (stack.length > 0 ? stack[stack.length - 1]! : out)
+  let pendingNumber = false // text-number 标记 → 下一文本段 Number 化
   for (const node of nodes) {
     if (node.nodeType === 8) {
       const m = parseHoleMark((node as Comment).textContent ?? '')
-      if (m.kind === 'fragStart') { stack.push([]); continue }
+      if (m.kind === 'fragStart') { stack.push([]); pendingNumber = false; continue }
       if (m.kind === 'fragEnd') {
         const items = stack.pop()!
         target().push(items)
+        pendingNumber = false
         continue
       }
-      if (m.kind === 'hole') { target().push(m.value); continue }
-      if (m.kind === 'invalid') { target().push(null); continue }
+      if (m.kind === 'hole') { target().push(m.value); pendingNumber = false; continue }
+      if (m.kind === 'invalid') { target().push(null); pendingNumber = false; continue }
+      if (m.kind === 'textNumber') { pendingNumber = true; continue }
       // split/其他注释——忽略（split 纯分隔——前后文本段独立 push）
+      pendingNumber = false
       continue
     }
+    if (node.nodeType === 3) {
+      const t = node.textContent ?? ''
+      target().push(pendingNumber ? Number(t) : t)
+      pendingNumber = false
+      continue
+    }
+    pendingNumber = false
     target().push(dom2vnode(node))
   }
   return out

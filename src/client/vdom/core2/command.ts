@@ -22,7 +22,7 @@
 /** 节点载荷（create 原语——DOM 实体三态——attrs 归一规则同 vnode2dom） */
 export type NodePayload =
   | { kind: 'text'; value: string }
-  | { kind: 'hole'; value: null | boolean | 'start' | 'split' | 'end' | 'invalid' }
+  | { kind: 'hole'; value: null | boolean | undefined | 'start' | 'split' | 'textNumber' | 'end' | 'invalid' }
   | { kind: 'element'; tag: string; attrs: Record<string, unknown> }
 
 /** 更新补丁（update 原语——文本/属性/位置——属性整体替换（style 纪律）） */

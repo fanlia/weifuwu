@@ -83,3 +83,40 @@ test('R1：组件展开结构与 Fragment 展开——round-trip 到展开数组
   assert.equal(fragHtml, `<!--${FRAG_START}-->a<!--wf-hole: split-->b<!--${FRAG_END}-->`, '连续文本 split 锚（不 merge——array 节点类型保真）')
   await assertRoundTrip(h(Fragment, {}, 'a', 'b'))
 })
+
+test('R1/R2：文本面值类型完备（number/undefined/元素 children split——A3 单射）', async () => {
+  const cases: VNodeChild[] = [
+    // 元素 children 连续 string——split 分隔（不 merge——与 'ab' 区分）
+    h('div', {}, 'a', 'b'),
+    h('div', {}, 'ab'),
+    // 元素 children number 文本——tn 标记
+    h('div', {}, 42),
+    h('div', {}, 'x', 42, 'y'),
+    // undefined 独立保真（与 null 区分）
+    h('div', {}, undefined),
+    h('div', {}, null),
+    h('div', {}, 'a', undefined, 'b'),
+    // 数组 number 混合（tn 与 split 协同）
+    [42, 'a'],
+    ['a', 42],
+    [42, 42],
+    ['a', 42, 'b'],
+  ]
+  for (const v of cases) {
+    const html = await vnode2html(v)
+    const back = html2vnode(html)
+    assert.deepEqual(back, normalizeForRoundTrip(v), `R1 恒等: ${html}`)
+    // R2（单值/数组两侧）
+    if (Array.isArray(v)) {
+      assert.equal(await vnode2html(back), html, `R2 恒等: ${html}`)
+    } else {
+      assert.equal(await vnode2html(back), html, `R2 恒等: ${html}`)
+    }
+  }
+  // A3 单射：不同 vnode → 可区分 DOM
+  const a = await vnode2html(h('div', {}, 'a', 'b'))
+  const b = await vnode2html(h('div', {}, 'ab'))
+  assert.notEqual(a, b, "'a','b' 与 'ab' 的 DOM 可区分（split）")
+  assert.notEqual(await vnode2html(h('div', {}, undefined)), await vnode2html(h('div', {}, null)), 'undefined 与 null 可区分')
+  assert.notEqual(await vnode2html(h('div', {}, 42)), await vnode2html(h('div', {}, '42')), 'number 与 string 可区分（tn）')
+})

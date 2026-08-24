@@ -73,7 +73,11 @@ test('A1/A2：element 树 round-trip（字符串属性完全保真）', async ()
 
 test('A1/A2：text/hole 单节点 round-trip', async () => {
   assert.equal(await roundTrip('hi'), 'hi')
-  assert.equal(await roundTrip(42), '42', 'number 字符串化（保真范围——已知语义）')
+  assert.equal(await roundTrip(42), 42, 'number 保真（text-number 标记）')
+  assert.equal(await roundTrip(undefined), undefined, 'undefined 保真（wf-hole: undefined——不再归一 null）')
+  assert.equal(await roundTrip(null), null, 'null 保真')
+  assert.equal(await roundTrip(true), true, 'true 保真')
+  assert.equal(await roundTrip(false), false, 'false 保真')
   assert.equal(await roundTrip(null), null, 'hole → wf-hole: null 注释 → null')
   assert.equal(await roundTrip(true), true, 'hole 值保真（true 逆向恢复 true）')
   assert.equal(await roundTrip(false), false)

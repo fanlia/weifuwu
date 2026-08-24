@@ -70,7 +70,10 @@ async function assertConsistent(v: VNodeChild): Promise<void> {
 test('序列化：text（HTML 转义）', async () => {
   assert.equal(await vnode2html('hello'), 'hello')
   assert.equal(await vnode2html('a < b & c > d'), 'a &lt; b &amp; c &gt; d', '文本转义')
-  assert.equal(await vnode2html(42), '42')
+  assert.equal(await vnode2html(42), `<!--wf-hole: text-number-->42`, 'number 文本 → tn 标记 + 字符串')
+  assert.equal(await vnode2html('42'), '42', 'string 文本零标记')
+  assert.equal(await vnode2html(undefined), '<!--wf-hole: undefined-->', 'undefined 独立标记')
+  assert.equal(await vnode2html(null), '<!--wf-hole: null-->', 'null 标记')
 })
 
 test('序列化：hole → 值标记注释（null/true/false 区分）', async () => {

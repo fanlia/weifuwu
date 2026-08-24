@@ -75,13 +75,16 @@ export function forEachArraySlot(
   let slot = 0
   fn(slot, 'start', -1)
   slot += 1
-  let prevText = false
+  const marks = textMarks(items)
+  let mi = 0
   for (let i = 0; i < items.length; i++) {
-    const isText = classify(items[i]!).kind === 'text'
-    if (prevText && isText) { fn(slot, 'split', i); slot += 1 }
+    while (mi < marks.length && marks[mi]!.index === i) {
+      fn(slot, 'split', i)
+      slot += 1
+      mi += 1
+    }
     fn(slot, 'item', i)
     slot += slotCount(items[i]!)
-    prevText = isText
   }
   fn(slot, 'end', -1)
 }
@@ -108,8 +111,8 @@ export type NodeKind =
  *  **展开后**的 items（嵌套摊平——Fragment vnode 的 children 同样展开——
  *  消费点不再处理嵌套）；invalid 携带原始输入（诊断） */
 export type Child =
-  | { kind: 'text'; value: string }
-  | { kind: 'hole'; value: null | boolean }
+  | { kind: 'text'; value: string | number } // 原值保留（number 由渲染层插 tn 标记）
+  | { kind: 'hole'; value: null | boolean | undefined } // 值全保真（undefined 独立）
   | { kind: 'element'; v: VNode }
   | { kind: 'component'; v: VNode }
   | { kind: 'array'; items: VNodeChild[] }
@@ -133,23 +136,36 @@ export function expandItems(xs: VNodeChild[]): VNodeChild[] {
 }
 
 /** 槽位计数（**投影维度——单一实现源**）：array（含 Fragment）占
- *  **项和 + 2（start/end 边界锚）+ 连续文本分隔锚数**——array 是节点
- *  类型——连续文本项边界必须保真（split 锚——不 merge）——其他形态 = 1
- *  ——所有槽位推进统一调用 */
+ *  **项和 + 2（start/end 边界锚）+ 序列文本标记数（textMarks）**——
+ *  **number 文本自含 tn 标记（slotCount = 2）**——其他形态 = 1——
+ *  所有槽位推进统一调用 */
 export function slotCount(c: VNodeChild): number {
   const ch = classify(c)
+  if (ch.kind === 'text') return typeof ch.value === 'number' ? 2 : 1 // text-number 标记 + 文本
   if (ch.kind === 'array') {
     let n = 2 // start/end 边界锚
-    let prevText = false
-    for (const x of ch.items) {
-      const isText = typeof x === 'string' || typeof x === 'number'
-      if (isText && prevText) n += 1 // 连续文本 → split 分隔锚
-      n += slotCount(x)
-      prevText = isText
-    }
-    return n
+    for (const x of ch.items) n += slotCount(x)
+    return n + textMarks(ch.items).length
   }
   return 1
+}
+
+/** 序列文本标记（**单一实现源——元素 children/数组项统一规则**）：
+ *  **number 文本的 tn 标记在文本自身**（slotCount 已含）——本函数只算
+ *  **string 的 split 标记**（当前项是 string 且前项是 text（string 或
+ *  number）——number 的前置 tn 已天然分隔——故只对 string 插 split）——
+ *  渲染层（dom/html/transform）按返回位置插 split 锚 */
+export function textMarks(items: VNodeChild[]): { index: number }[] {
+  const out: { index: number }[] = []
+  let prevText = false
+  for (let i = 0; i < items.length; i++) {
+    const c = classify(items[i]!)
+    if (c.kind === 'text') {
+      if (typeof c.value === 'string' && prevText) out.push({ index: i })
+      prevText = true
+    } else prevText = false
+  }
+  return out
 }
 
 /** 唯一判定点（core1 的 kindOf/stateOf/textOf 三函数收敛为单一实现源——
@@ -157,9 +173,14 @@ export function slotCount(c: VNodeChild): number {
  *  Fragment 符号 vnode → { kind: 'array', items: childrenOf(v) }——
  *  **hole 值保真**（null/undefined → null；boolean 原样） */
 export function classify(v: VNodeChild | null | undefined): Child {
-  if (v === null || v === undefined) return { kind: 'hole', value: null }
+  // **null/undefined 分列保真**（wf-hole: null / undefined——不再归一——
+  //  A3 单射：两个不同 vnode → 结构可区分 DOM）
+  if (v === null) return { kind: 'hole', value: null }
+  if (v === undefined) return { kind: 'hole', value: undefined }
   if (typeof v === 'boolean') return { kind: 'hole', value: v }
-  if (typeof v === 'string' || typeof v === 'number') return { kind: 'text', value: String(v) }
+  // **text 保留原始值（string | number）**——number 由渲染层前置
+  // text-number 标记（类型保真——A3）——String() 在渲染端
+  if (typeof v === 'string' || typeof v === 'number') return { kind: 'text', value: v }
   if (Array.isArray(v)) return { kind: 'array', items: expandItems(v) }
   const vn = v as VNode
   if (typeof vn.type === 'string') return { kind: 'element', v: vn }

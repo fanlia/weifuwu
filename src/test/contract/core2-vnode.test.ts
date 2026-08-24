@@ -14,15 +14,15 @@ import {
   childrenOf, slotCount, type VNode, type VNodeChild,
 } from '../../client/vdom/core2/vnode.ts'
 
-test('classify：text（string/number 统一字符串化）', () => {
+test('classify：text（string/number 原值保留——渲染层 String 化 + tn 标记）', () => {
   assert.deepEqual(classify('hi'), { kind: 'text', value: 'hi' })
-  assert.deepEqual(classify(42), { kind: 'text', value: '42' }, 'number → text 且字符串化（fuzz#79 教训）')
-  assert.deepEqual(classify(0), { kind: 'text', value: '0' })
+  assert.deepEqual(classify(42), { kind: 'text', value: 42 }, 'number 原值保留（类型保真——tn 标记由渲染层插）')
+  assert.deepEqual(classify(0), { kind: 'text', value: 0 })
 })
 
-test('classify：hole（值保真——null/undefined/boolean 原样）', () => {
+test('classify：hole（值全保真——null/undefined/boolean 原样——A3 单射）', () => {
   assert.deepEqual(classify(null), { kind: 'hole', value: null })
-  assert.deepEqual(classify(undefined), { kind: 'hole', value: null }, 'undefined 归一 null')
+  assert.deepEqual(classify(undefined), { kind: 'hole', value: undefined }, 'undefined 独立保真（不再归一 null——wf-hole: undefined）')
   assert.deepEqual(classify(false), { kind: 'hole', value: false })
   assert.deepEqual(classify(true), { kind: 'hole', value: true }, 'true/false 值保真（逆向恢复原始 vnode 状态）')
 })

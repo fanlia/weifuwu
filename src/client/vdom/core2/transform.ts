@@ -24,7 +24,7 @@
 
 import type { UIContext } from '../context/UIContext.ts'
 import type { Event } from './command.ts'
-import { classify, childrenOf, invalidDiagnostic, slotCount, pathId, forEachArraySlot, type VNode, type VNodeChild, type Component } from './vnode.ts'
+import { classify, childrenOf, invalidDiagnostic, slotCount, pathId, forEachArraySlot, textMarks, type VNode, type VNodeChild, type Component } from './vnode.ts'
 import { styleString } from './dom.ts'
 
 /** 转换上下文（位置 + 双事件流） */
@@ -58,8 +58,17 @@ export async function emitNew(v: VNodeChild, base: string, parent: string, ctx: 
   const c = classify(v)
   switch (c.kind) {
     case 'text': {
-      ctx.apply.push({ op: 'create', id: base, payload: { kind: 'text', value: c.value }, parent, ref })
-      ctx.reverse.push({ op: 'delete', id: base })
+      if (typeof c.value === 'number') {
+        // **number 文本：tn 标记 + 文本双事件（类型保真——A3——槽位 2）**
+        const baseIdx = Number(base.slice(parent.length + 1))
+        ctx.apply.push({ op: 'create', id: base, payload: { kind: 'hole', value: 'textNumber' }, parent, ref })
+        ctx.apply.push({ op: 'create', id: pathId(parent, baseIdx + 1), payload: { kind: 'text', value: String(c.value) }, parent, ref: base })
+        ctx.reverse.push({ op: 'delete', id: pathId(parent, baseIdx + 1) })
+        ctx.reverse.push({ op: 'delete', id: base })
+      } else {
+        ctx.apply.push({ op: 'create', id: base, payload: { kind: 'text', value: c.value }, parent, ref })
+        ctx.reverse.push({ op: 'delete', id: base })
+      }
       return
     }
     case 'hole': {
@@ -72,10 +81,22 @@ export async function emitNew(v: VNodeChild, base: string, parent: string, ctx: 
       ctx.reverse.push({ op: 'delete', id: base })
       let slot = 0
       let lastRef: string | null = null
-      for (const child of childrenOf(c.v)) {
-        await emitNew(child, pathId(base, slot), base, ctx, lastRef)
-        lastRef = pathId(base, slot + slotCount(child) - 1)
-        slot += slotCount(child)
+      const kids = childrenOf(c.v)
+      const marks = textMarks(kids)
+      let mi = 0
+      for (let i = 0; i < kids.length; i++) {
+        // **连续 string 文本 → split 锚事件（元素 children 同样保真）**
+        while (mi < marks.length && marks[mi]!.index === i) {
+          const sid = pathId(base, slot)
+          ctx.apply.push({ op: 'create', id: sid, payload: { kind: 'hole', value: 'split' }, parent: base, ref: lastRef })
+          ctx.reverse.push({ op: 'delete', id: sid })
+          lastRef = sid
+          slot += 1
+          mi += 1
+        }
+        await emitNew(kids[i]!, pathId(base, slot), base, ctx, lastRef)
+        lastRef = pathId(base, slot + slotCount(kids[i]!) - 1)
+        slot += slotCount(kids[i]!)
       }
       return
     }
@@ -130,6 +151,13 @@ export async function removeOld(v: VNodeChild, base: string, parent: string, ctx
   await emitNew(v, base, parent, rebuildCtx, ref)
   // apply 区间删除（array → 逐槽位；单节点 → 单锚 + 消费端前缀级联）
   const c = classify(v)
+  if (c.kind === 'text' && typeof c.value === 'number') {
+    // number 文本：tn + 文本双槽位删除
+    const baseIdx = Number(base.slice(parent.length + 1))
+    ctx.apply.push({ op: 'delete', id: base })
+    ctx.apply.push({ op: 'delete', id: pathId(parent, baseIdx + 1) })
+    return
+  }
   if (c.kind === 'array') {
     // 区间删除（start/split/end + 各项——forEachArraySlot 单一实现源——
     //  与 emitNew 推进一致——split 锚不漏删）
