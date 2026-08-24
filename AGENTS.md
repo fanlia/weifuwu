@@ -10,7 +10,7 @@
 | ID | 规则 | 说明 |
 | --- | --- | --- |
 | R-01 | **运行测试相关命令的 timeout 最多 10 秒** | 卡住（挂起/竞态/等待）用更短 timeout 复跑缩小范围——超时即信号，不无限等待 |
-| R-02 | **core2 测试必须满足 round-trip 不变量（R1/R2）** | vdom/core2 的所有测试构造的 vnode/HTML 必须双向恒等：R1 `html2vnode(vnode2html(v)) ≡ normalizeForRoundTrip(v)`；R2 `vnode2html(html2vnode(w)) ≡ w`——执行机制：`assertRoundTrip` helper（src/test/contract/core2-roundtrip.test.ts 导出）——每个测试用例构造后追加该断言（保真范围边界用例用归一期望） |
+| R-02 | **vdom 单一实现源纪律（core2 融合实录——2027-02）** | core2 探索（6 类型判别联合/标记体系/可逆转换/注册表——已删除——资产在 git 历史）——融合到 core1 的成果：① 函数面统一（非事件函数 props 不写 attribute——vnode 内存持有——diff 引用比较——events.test.ts 锁定）② data-wf-id 槽位路径（G9-G11 已落地）③ kindOf 6 态完备（text/hole/element/fragment/component/array/invalid——undefined 归一 hole 是渲染等价）——**移植纪律**：core2 探索出的"编码唯一性"原则（唯一编码 + 可逆）是 core1 补丁级修复的升级方向——新修复先问"是否有映射歧义"再打补丁 |
 
 ## 2. 测试架构（内置框架——契约层 + 场景层）
 
