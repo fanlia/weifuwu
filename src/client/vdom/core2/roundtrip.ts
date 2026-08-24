@@ -36,7 +36,10 @@ export function normalizeForRoundTrip(v: VNodeChild): VNodeChild {
   const props: Record<string, unknown> = {}
   for (const [k, val] of Object.entries(vn.props)) {
     if (k === 'children' || k === 'key') continue
-    if (typeof val === 'function') continue // 事件面剔除（函数表后续）
+    if (typeof val === 'function') {
+      props[k] = val // **函数引用保真**（data-wf-events 注册表还原——R1 期望侧同规则——=== 恒等）
+      continue
+    }
     if (val !== null && typeof val === 'object') {
       props[k] = val // 对象保真（style → data-wf-style；普通对象/数组 → data-wf-props——R1 期望侧同规则）
     } else if (typeof val === 'number' || typeof val === 'boolean' || typeof val === 'bigint') {

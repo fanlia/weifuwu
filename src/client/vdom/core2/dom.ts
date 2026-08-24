@@ -21,6 +21,7 @@
 
 import type { UIContext } from '../context/UIContext.ts'
 import { classify, childrenOf, invalidDiagnostic, h, textMarks, type Component, type VNode, type VNodeChild } from './vnode.ts'
+import { registerFn, lookupFn } from './registry.ts'
 
 /** DOM 工厂最小接口（创建面——正向编码只依赖这三个——测试可注入 fake） */
 export interface DomFactory {
@@ -98,6 +99,7 @@ export function styleString(style: Record<string, unknown>): string {
 export const WF_TYPES = 'data-wf-types'
 export const WF_STYLE = 'data-wf-style'
 export const WF_PROPS = 'data-wf-props'
+export const WF_EVENTS = 'data-wf-events'
 
 export type PropTypeName = 'number' | 'boolean' | 'bigint'
 
@@ -155,9 +157,15 @@ export function decodePropTypes(props: Record<string, unknown>): void {
  *  style 对象 → cssText + 非字符串类型表（data-wf-types） */
 export function serializeAttrs(props: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
+  const events: Record<string, string> = {}
   for (const [k, v] of Object.entries(props)) {
     if (k === 'children' || k === 'key' || k === 'ref') continue
-    if (typeof v === 'function') continue // 事件/函数面——函数表后续
+    if (typeof v === 'function') {
+      // **函数面：全局注册表引用 id（不剔除——序列化面可逆——逆向
+      //  lookup 恢复同一引用）**
+      events[k] = registerFn(v)
+      continue
+    }
     if (k === 'style' && v !== null && typeof v === 'object') {
       // style 对象：属性面 cssText（可读/兼容）+ data-wf-style JSON
       //（逆向全保真——含值类型）——内部标记由 decodeStyle 消费
@@ -179,9 +187,29 @@ export function serializeAttrs(props: Record<string, unknown>): Record<string, u
     }
   }
   if (Object.keys(obj).length > 0) out[WF_PROPS] = JSON.stringify(obj)
+  if (Object.keys(events).length > 0) out[WF_EVENTS] = JSON.stringify(events)
   const types = encodePropTypes(props)
   if (types) out[WF_TYPES] = JSON.stringify(types)
   return out
+}
+
+/** 逆向解码（读 data-wf-events → lookup 引用 → 恢复函数属性 → **删除内部
+ *  标记**——就地修改——查不到 = 跨会话——显式降级（warn + 跳过——不静默）） */
+export function decodeEvents(props: Record<string, unknown>): void {
+  const t = props[WF_EVENTS]
+  if (typeof t !== 'string') return
+  delete props[WF_EVENTS]
+  let events: Record<string, string>
+  try {
+    events = JSON.parse(t) as Record<string, string>
+  } catch {
+    return // 非法 JSON——容错（属性保持原样）
+  }
+  for (const [k, id] of Object.entries(events)) {
+    const fn = lookupFn(id)
+    if (fn) props[k] = fn
+    else console.warn(`[core2] 函数引用 e${id} 不在注册表（跨会话？）——属性 '${k}' 降级跳过`)
+  }
 }
 
 /** 逆向解码（读 data-wf-props → 还原对象/数组属性值 → **删除内部标记**——
@@ -294,6 +322,7 @@ export function dom2vnode(node: Node): VNodeChild {
   decodePropTypes(props) // 类型表还原（number/bool——内部标记删除）
   decodeStyle(props) // style 对象还原（JSON 全保真——内部标记删除）
   decodeObjectProps(props) // 普通对象/数组属性还原（data-wf-props）
+  decodeEvents(props) // 函数引用还原（data-wf-events——注册表 lookup）
   // 元素 children 必须走 dom2vnodeAll（栈式）——数组边界锚在元素内部
   // 同样需要恢复（map(dom2vnode) 会把 fragStart/End 注释单节点化 → null——
   // 嵌套数组结构丢失——demo 实证）

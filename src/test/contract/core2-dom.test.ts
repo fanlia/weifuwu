@@ -12,6 +12,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { vnode2dom, dom2vnode, dom2vnodeAll, HOLE_NULL, HOLE_TRUE, HOLE_FALSE, FRAG_START, FRAG_END, type DomFactory } from '../../client/vdom/core2/dom.ts'
+import { resetRegistry } from '../../client/vdom/core2/registry.ts'
 import { h, Fragment, type VNodeChild } from '../../client/vdom/core2/vnode.ts'
 
 // ── 最小 fake DOM（结构面：nodeType/childNodes/textContent/attributes） ──
@@ -151,19 +152,27 @@ test('A1/A2：数组边界锚（嵌套数组递归——逆向恢复层级）', 
   assert.deepEqual(back2, ['a', ['b', 'c']])
 })
 
-test('保真范围：事件/函数值跳过（函数表后续）', async () => {
+test('保真范围：函数面引用保真（全局注册表——data-wf-events）', async () => {
   const fn = () => {}
+  resetRegistry()
   const v = h('button', { onClick: fn, disabled: true }, 'b')
   const nodes = await vnode2dom(v, fakeDoc)
   const el = nodes[0] as Element
-  assert.equal(el.getAttribute('onClick'), null, '函数值不写 attribute')
+  assert.equal(el.getAttribute('onClick'), null, '函数不写 attribute（引用在注册表）')
   assert.equal(el.getAttribute('disabled'), 'true', 'boolean 字符串化（值面）')
+  assert.equal(el.getAttribute('data-wf-events'), '{"onClick":"e1"}', '函数 → 注册表引用 id')
   assert.equal(el.getAttribute('data-wf-types'), '{"disabled":"boolean"}', '类型表编码')
-  // 逆向：类型还原 + 标记删除
-  const back2 = await roundTrip(h('button', { disabled: true }, 'b'))
-  assert.deepEqual(back2, h('button', { disabled: true }, 'b'), 'boolean 属性 round-trip 保真')
-  // 函数面仍丢失（函数表后续）——但 boolean 类型已保真（data-wf-types）
-  assert.deepEqual(await roundTrip(v), h('button', { disabled: true }, 'b'), 'round-trip：函数面丢失（已知）——boolean 类型保真（歧义已歼灭）')
+  // 逆向：引用恢复（=== 恒等）+ 标记删除
+  const back = await roundTrip(v)
+  assert.deepEqual(back, h('button', { onClick: fn, disabled: true }, 'b'), 'round-trip：函数引用恢复 + boolean 保真')
+  assert.equal((back as any).props.onClick, fn, '引用恒等（同一函数对象）')
+  // 同函数幂等：二次渲染同 id（不重复分配）
+  const nodes2 = await vnode2dom(v, fakeDoc)
+  assert.equal((nodes2[0] as Element).getAttribute('data-wf-events'), '{"onClick":"e1"}', '同引用同 id（幂等）')
+  // 跨会话降级：reset 后 lookup 失败——显式（不静默）
+  resetRegistry()
+  const v2 = h('button', { disabled: true }, 'b')
+  assert.deepEqual(await roundTrip(v2), v2, '无函数属性不受影响')
 })
 
 test('A1：DOM 结构正确性（父子链/文本内容）', async () => {

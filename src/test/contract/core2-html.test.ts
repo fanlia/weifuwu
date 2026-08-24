@@ -11,6 +11,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { vnode2html, html2vnode, escapeHtml } from '../../client/vdom/core2/html.ts'
 import { vnode2dom, HOLE_NULL, FRAG_START, FRAG_END, type DomFactory } from '../../client/vdom/core2/dom.ts'
+import { resetRegistry } from '../../client/vdom/core2/registry.ts'
 import { h, Fragment, type VNodeChild } from '../../client/vdom/core2/vnode.ts'
 
 // ── fake DOM（含 serialize——innerHTML 模拟——与 vnode2html 同格式） ──
@@ -144,7 +145,14 @@ test('序列化：组件展开（工厂 + renderFn——输出递归）', async 
 })
 
 test('序列化：事件跳过（函数面——与 vnode2dom 同规则）', async () => {
-  assert.equal(await vnode2html(h('button', { onClick: () => {}, disabled: true }, 'b')), '<button disabled="true" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">b</button>')
+  // 函数面：全局注册表引用 id（不剔除）——逆向 lookup 恢复引用
+  const fn = () => {}
+  resetRegistry()
+  const evHtml = await vnode2html(h('button', { onClick: fn, disabled: true }, 'b'))
+  assert.equal(evHtml, '<button disabled="true" data-wf-events="{&quot;onClick&quot;:&quot;e1&quot;}" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">b</button>', '函数 → 注册表 id（可序列化）')
+  const evBack = html2vnode(evHtml)
+  assert.deepEqual(evBack, h('button', { onClick: fn, disabled: true }, 'b'), '逆向恢复函数引用（=== 恒等）——标记删除')
+  assert.equal((evBack as any).props.onClick, fn, '引用恒等（同一函数对象）')
 })
 
 test('双实现互证：多种形态 DOM 结构 ≡ HTML 字符串（A1 唯一性）', async () => {
@@ -154,4 +162,15 @@ test('双实现互证：多种形态 DOM 结构 ≡ HTML 字符串（A1 唯一�
   await assertConsistent(h('div', {}, h('br', {}), h('input', { type: 'text', value: 'v' })))
   await assertConsistent(h('p', { 'data-x': 'a"b' }, 'a < b'))
   await assertConsistent(h(Fragment, {}, 'x', h('i', {}, 'y'), null))
+})
+
+test('函数面：跨会话降级（注册表 reset 后 lookup 失败——显式不静默）', async () => {
+  const fn = () => {}
+  resetRegistry()
+  const html = await vnode2html(h('button', { onClick: fn }, 'b')) // e1
+  resetRegistry() // 模拟新会话——注册表清空
+  const back = html2vnode(html) // lookup e1 失败
+  assert.equal((back as any).props.onClick, undefined, '查不到 → 降级跳过（属性不设）')
+  // 降级不破坏其余保真
+  assert.deepEqual((back as any).props.children, 'b', '结构面不受影响')
 })
