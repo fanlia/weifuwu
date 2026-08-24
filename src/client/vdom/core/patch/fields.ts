@@ -23,12 +23,23 @@ export function applyAttrs(el: HTMLElement, attrs: Record<string, unknown>): voi
   }
 }
 
-/** setProp 三通道分发（事件 → **代理注册**（事件表——不直接绑定）） */
+/** setProp 三通道分发（事件 → **代理注册**（事件表——不直接绑定）——
+ *  **函数面统一（core2 探索移植——2027-02）**：非事件函数 props（customFn
+ *  等）不写 DOM attribute——vnode 内存持有（diff 引用比较）——原
+ *  setAttribute String 化（'function() {}'）污染 DOM 且有损——与事件
+ *  同通道（跳过 DOM）——解绑（prev 函数 + undefined）同样跳过） */
 export function applySetProp(
   registry: EventRegistry, nodeId: string, el: HTMLElement, key: string, value: unknown, prev?: unknown,
 ): void {
   if (key === 'ref') {
     // ref 由 RefRegistry 管理（patch 处理——此处不直接应用）
+    return
+  } else if (typeof value === 'function' || (value === undefined && typeof prev === 'function')) {
+    // 函数面统一：事件 → 事件表；非事件函数 → 无 DOM 写入（跳过）
+    if (EVENT_RE.test(key)) {
+      const name = eventName(key)
+      if (name) registry.set(nodeId, name, value)
+    }
     return
   } else if (EVENT_RE.test(key)) {
     const name = eventName(key)

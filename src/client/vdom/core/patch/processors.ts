@@ -247,7 +247,7 @@ export function procSetProp(applier: CommandApplier, cmd: Extract<Command, { op:
     }
     return
   }
-  applySetProp(applier.eventRegistry, cmd.id, el2, cmd.key, cmd.value)
+  applySetProp(applier.eventRegistry, cmd.id, el2, cmd.key, cmd.value, cmd.prev)
 }
 
 /** ref 指令（挂载完成——insert 后） */
