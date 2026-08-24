@@ -39,6 +39,8 @@ export function normalizeForRoundTrip(v: VNodeChild): VNodeChild {
     if (typeof val === 'function') continue // 事件面剔除（函数表后续）
     if (k === 'style' && val !== null && typeof val === 'object') {
       props[k] = styleString(val as Record<string, unknown>)
+    } else if (typeof val === 'number' || typeof val === 'boolean' || typeof val === 'bigint') {
+      props[k] = val // number/bool 保真（data-wf-types 类型表还原——R1 期望侧同规则）
     } else if (val !== null && val !== undefined) {
       props[k] = String(val)
     }

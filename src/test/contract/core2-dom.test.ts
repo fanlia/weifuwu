@@ -149,8 +149,13 @@ test('保真范围：事件/函数值跳过（函数表后续）', async () => {
   const nodes = await vnode2dom(v, fakeDoc)
   const el = nodes[0] as Element
   assert.equal(el.getAttribute('onClick'), null, '函数值不写 attribute')
-  assert.equal(el.getAttribute('disabled'), 'true', 'boolean 字符串化')
-  assert.deepEqual(await roundTrip(v), h('button', { disabled: 'true' }, 'b'), 'round-trip：函数面丢失（已知——函数表后续）')
+  assert.equal(el.getAttribute('disabled'), 'true', 'boolean 字符串化（值面）')
+  assert.equal(el.getAttribute('data-wf-types'), '{"disabled":"boolean"}', '类型表编码')
+  // 逆向：类型还原 + 标记删除
+  const back2 = await roundTrip(h('button', { disabled: true }, 'b'))
+  assert.deepEqual(back2, h('button', { disabled: true }, 'b'), 'boolean 属性 round-trip 保真')
+  // 函数面仍丢失（函数表后续）——但 boolean 类型已保真（data-wf-types）
+  assert.deepEqual(await roundTrip(v), h('button', { disabled: true }, 'b'), 'round-trip：函数面丢失（已知）——boolean 类型保真（歧义已歼灭）')
 })
 
 test('A1：DOM 结构正确性（父子链/文本内容）', async () => {

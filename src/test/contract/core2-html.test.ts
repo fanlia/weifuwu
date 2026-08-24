@@ -9,7 +9,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { vnode2html, escapeHtml } from '../../client/vdom/core2/html.ts'
+import { vnode2html, html2vnode, escapeHtml } from '../../client/vdom/core2/html.ts'
 import { vnode2dom, HOLE_NULL, FRAG_START, FRAG_END, type DomFactory } from '../../client/vdom/core2/dom.ts'
 import { h, Fragment, type VNodeChild } from '../../client/vdom/core2/vnode.ts'
 
@@ -86,9 +86,16 @@ test('序列化：element（属性面——style 对象/布尔/属性转义）',
   )
   assert.equal(
     await vnode2html(h('div', { style: { backgroundColor: 'red' }, disabled: true }, 'x')),
-    '<div style="background-color:red" disabled="true">x</div>',
-    'style 对象 → cssText；boolean → "true"',
+    '<div style="background-color:red" disabled="true" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">x</div>',
+    'style 对象 → cssText；boolean → "true" + data-wf-types 类型表（逆向还原 boolean）',
   )
+  // 逆向：类型表还原——disabled 恢复 boolean（非字符串）——内部标记删除
+  const bt = html2vnode('<div disabled="true" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">x</div>')
+  assert.deepEqual(bt, h('div', { disabled: true }, 'x'), 'data-wf-types 解码：boolean 还原 + 标记删除')
+  const num = html2vnode('<div n="42" data-wf-types="{&quot;n&quot;:&quot;number&quot;}">x</div>')
+  assert.deepEqual(num, h('div', { n: 42 }, 'x'), 'data-wf-types 解码：number 还原')
+  // 无标记的字符串属性不受影响
+  assert.equal(await vnode2html(h('div', { class: 'a' }, 'x')), '<div class="a">x</div>', '纯字符串属性——零开销（无类型表）')
   assert.equal(
     await vnode2html(h('div', { title: 'a "q" & <x>' }, 'y')),
     '<div title="a &quot;q&quot; &amp; &lt;x&gt;">y</div>',
@@ -131,7 +138,7 @@ test('序列化：组件展开（工厂 + renderFn——输出递归）', async 
 })
 
 test('序列化：事件跳过（函数面——与 vnode2dom 同规则）', async () => {
-  assert.equal(await vnode2html(h('button', { onClick: () => {}, disabled: true }, 'b')), '<button disabled="true">b</button>')
+  assert.equal(await vnode2html(h('button', { onClick: () => {}, disabled: true }, 'b')), '<button disabled="true" data-wf-types="{&quot;disabled&quot;:&quot;boolean&quot;}">b</button>')
 })
 
 test('双实现互证：多种形态 DOM 结构 ≡ HTML 字符串（A1 唯一性）', async () => {

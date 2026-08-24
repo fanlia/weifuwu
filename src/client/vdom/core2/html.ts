@@ -17,7 +17,7 @@
 
 import type { UIContext } from '../context/UIContext.ts'
 import { classify, childrenOf, invalidDiagnostic, h, type Component, type VNode, type VNodeChild } from './vnode.ts'
-import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, FRAG_START, FRAG_END, holeMark, parseHoleMark, styleString } from './dom.ts'
+import { HOLE_NULL, HOLE_INVALID, HOLE_SPLIT, FRAG_START, FRAG_END, holeMark, parseHoleMark, styleString, serializeAttrs, decodePropTypes } from './dom.ts'
 
 /** HTML void 元素（无闭标签——自闭合） */
 const VOID_TAGS = new Set(['br', 'img', 'input', 'hr', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'])
@@ -70,14 +70,8 @@ export async function vnode2html(v: VNodeChild, ctx?: UIContext): Promise<string
 async function element2html(v: VNode, ctx?: UIContext): Promise<string> {
   const tag = v.type as string
   const attrs: string[] = []
-  for (const [k, val] of Object.entries(v.props)) {
-    if (k === 'children' || k === 'key' || k === 'ref') continue
-    if (typeof val === 'function') continue // 事件/函数面——函数表后续
-    if (k === 'style' && val !== null && typeof val === 'object') {
-      attrs.push(`style="${escapeHtml(styleString(val as Record<string, unknown>))}"`)
-    } else if (val !== null && val !== undefined) {
-      attrs.push(`${k}="${escapeHtml(String(val))}"`)
-    }
+  for (const [k, val] of Object.entries(serializeAttrs(v.props))) {
+    attrs.push(`${k}="${escapeHtml(String(val))}"`)
   }
   const attrStr = attrs.length > 0 ? ' ' + attrs.join(' ') : ''
   const children = childrenOf(v)
@@ -175,6 +169,7 @@ function parseNodes(p: P, stopTag?: string, inArray = false): VNodeChild[] {
     // 开标签（先对齐游标到 '<'——parseOpenTag 内部推进）
     p.i = lt
     const { tag, props, selfClose } = parseOpenTag(p)
+    decodePropTypes(props) // 类型表还原（number/bool——内部标记删除）
     if (selfClose || VOID_TAGS.has(tag)) {
       out.push(h(tag, props))
       continue

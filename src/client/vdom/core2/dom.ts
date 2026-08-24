@@ -77,6 +77,66 @@ export function styleString(style: Record<string, unknown>): string {
     .join(';')
 }
 
+// ── 属性类型保真（number/bool 歧义歼灭——2027-02） ──
+//
+// 问题：属性值经 HTML 属性面全部字符串化——`{ count: 42 }` 逆向成
+// `{ count: '42' }`——number/bool 类型丢失（歧义）。
+// 方案：**data-wf-types 内部标记**——非字符串属性的类型表 JSON 编码——
+// 逆向读取后还原类型并删除标记（内部标记不进入 vnode 面）。
+// 范围（本次）：number/boolean/bigint 属性——字符串属性零开销（不在表）。
+// 文本面（children 里的 number）不在本次——文本节点无属性可挂——
+// 后续 data-wf-props 全保真步骤处理。
+
+export const WF_TYPES = 'data-wf-types'
+
+export type PropTypeName = 'number' | 'boolean' | 'bigint'
+
+/** 非字符串属性类型表（null = 全部字符串——零开销） */
+export function encodePropTypes(props: Record<string, unknown>): Record<string, PropTypeName> | null {
+  const types: Record<string, PropTypeName> = {}
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'children' || k === 'key' || k === 'ref' || k === WF_TYPES) continue
+    if (typeof v === 'number') types[k] = 'number'
+    else if (typeof v === 'boolean') types[k] = 'boolean'
+    else if (typeof v === 'bigint') types[k] = 'bigint'
+  }
+  return Object.keys(types).length > 0 ? types : null
+}
+
+/** 逆向解码（读 data-wf-types → 还原类型 → **删除内部标记**——就地修改） */
+export function decodePropTypes(props: Record<string, unknown>): void {
+  const t = props[WF_TYPES]
+  if (typeof t !== 'string') return
+  delete props[WF_TYPES]
+  let types: Record<string, PropTypeName>
+  try {
+    types = JSON.parse(t) as Record<string, PropTypeName>
+  } catch {
+    return // 非法类型表——容错忽略（属性保留原样）
+  }
+  for (const [k, ty] of Object.entries(types)) {
+    if (typeof props[k] !== 'string') continue
+    if (ty === 'number') props[k] = Number(props[k] as string)
+    else if (ty === 'boolean') props[k] = (props[k] as string) === 'true'
+    else if (ty === 'bigint') props[k] = BigInt(props[k] as string)
+  }
+}
+
+/** 属性序列化（**单一实现源——dom/html/transform 共用**）：字符串化 +
+ *  style 对象 → cssText + 非字符串类型表（data-wf-types） */
+export function serializeAttrs(props: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'children' || k === 'key' || k === 'ref') continue
+    if (typeof v === 'function') continue // 事件/函数面——函数表后续
+    if (k === 'style' && v !== null && typeof v === 'object') out[k] = styleString(v as Record<string, unknown>)
+    else if (v !== null && v !== undefined) out[k] = String(v)
+  }
+  const types = encodePropTypes(props)
+  if (types) out[WF_TYPES] = JSON.stringify(types)
+  return out
+}
+
 /**
  * vnode → DOM（A1 编码——结构转换——统一返回 Node[]：
  *  单节点类型 → [node]；组件/数组 → 展开多项——区间语义）
@@ -123,14 +183,8 @@ export async function vnode2dom(v: VNodeChild, doc: DomFactory, ctx?: UIContext)
 /** 元素编码（createElement + props 序列化面 + children 递归） */
 async function element2dom(v: VNode, doc: DomFactory, ctx?: UIContext): Promise<Element> {
   const el = doc.createElement(v.type as string)
-  for (const [k, val] of Object.entries(v.props)) {
-    if (k === 'children' || k === 'key' || k === 'ref') continue
-    if (typeof val === 'function') continue // 事件/函数面——函数表后续
-    if (k === 'style' && val !== null && typeof val === 'object') {
-      el.setAttribute('style', styleString(val as Record<string, unknown>))
-    } else if (val !== null && val !== undefined) {
-      el.setAttribute(k, String(val))
-    }
+  for (const [k, val] of Object.entries(serializeAttrs(v.props))) {
+    el.setAttribute(k, String(val))
   }
   for (const child of childrenOf(v)) {
     for (const n of await vnode2dom(child, doc, ctx)) el.appendChild(n)
@@ -158,7 +212,11 @@ export function dom2vnode(node: Node): VNodeChild {
   for (const attr of el.attributes) {
     props[attr.name] = attr.value
   }
-  const children = Array.from(el.childNodes).map(dom2vnode)
+  decodePropTypes(props) // 类型表还原（number/bool——内部标记删除）
+  // 元素 children 必须走 dom2vnodeAll（栈式）——数组边界锚在元素内部
+  // 同样需要恢复（map(dom2vnode) 会把 fragStart/End 注释单节点化 → null——
+  // 嵌套数组结构丢失——demo 实证）
+  const children = dom2vnodeAll(el.childNodes as Iterable<Node>)
   return children.length === 0
     ? h(el.tagName.toLowerCase(), props)
     : h(el.tagName.toLowerCase(), props, ...children)

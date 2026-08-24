@@ -39,7 +39,7 @@ test('R1/R2：全形态 vnode round-trip（准则基准用例）', async () => {
     h('ul', {}, h('li', {}, '1'), h('li', {}, '2')),
     h('div', {}, h('br', {}), h('input', { type: 'text', value: 'v' })),
     h('p', { 'data-x': 'a"b' }, 'a < b & c'),
-    h('button', { disabled: true }, 'b'),
+    h('button', { disabled: true, count: 3 }, 'b'), // 非字符串属性——data-wf-types 保真
     h('div', { style: { backgroundColor: 'red', fontSize: '12px' } }, 's'),
   ]
   for (const v of cases) await assertRoundTrip(v)

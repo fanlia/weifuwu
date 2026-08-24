@@ -48,17 +48,9 @@ export interface TransformCtx {
 /** 转换函数（x2y 命名——6×6 全矩阵——同态对角 = diff 层） */
 export type Transform = (old: VNodeChild, next: VNodeChild, ctx: TransformCtx) => void | Promise<void>
 
-/** 元素 attrs 归一（与 vnode2dom 同规则——可序列化面） */
-export function serializableAttrs(props: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(props)) {
-    if (k === 'children' || k === 'key' || k === 'ref') continue
-    if (typeof v === 'function') continue
-    if (k === 'style' && v !== null && typeof v === 'object') out[k] = styleString(v as Record<string, unknown>)
-    else if (v !== null && v !== undefined) out[k] = String(v)
-  }
-  return out
-}
+/** 元素 attrs 归一（**单一实现源——dom.ts serializeAttrs——含 data-wf-types
+ *  类型表**——与 vnode2dom/vnode2html 同规则——模块内用别名） */
+import { serializeAttrs as serializableAttrs } from './dom.ts'
 
 /** 新侧创建（apply: create 系列 + insert；reverse: remove——组件展开/数组
  *  递归——槽位推进——与 vnode2dom 结构一致） */
