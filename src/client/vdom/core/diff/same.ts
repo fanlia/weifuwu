@@ -14,6 +14,7 @@ import { isFragment } from '../node/fragment.ts'
 import { stateOf } from '../transform/states.ts'
 import { transitionOf } from '../transform/table.ts'
 import { pathId } from '../node/native.ts'
+import { keyedId } from '../node/keyed.ts'
 import { childrenOf } from '../node/children.ts'
 import { removeVNodeTree, outputBase, removalParent } from './cleanup.ts'
 import { outputToChild } from '../node/component.ts'
@@ -44,37 +45,55 @@ export async function diffSame(
   const id = pathId(parent, index)
   // 组件复用（工厂不重跑——renderFn 重新调用——输出对照上次——精准 patch）
   if (typeof newV.type === 'function') {
-    const rec = registry.get(id)
-    // **类型比较**：同位置不同类型（条件切换 A → B）——卸载旧实例 + 重建
-    if ((globalThis as any).__DBG6) console.log(`[dbg-same] 组件分支 id=${id} rec=${!!rec} typeSame=${rec?.type === newV.type}`)
-    if (rec && rec.type !== newV.type) {
-      // **同步卸载**（onUnmounts + 删 rec——不等 patch 消费 unmount 命令——
-      // 否则 renderComponent 立即复用旧 rec——类型错位）
-      disposeComponent(id, registry)
-      // 旧输出清理（递归 remove——lastOutput 结构——数组安全（G1）——
-      // 区间完整（数组逐项展开槽位 + 组件项 unmount））
-      if (rec.lastOutput !== undefined) {
-        // **方案 3：lastOutput 是 CompOutput——转换后清理（hole/array/vnode
-        //  同等——空洞锚也清理）——基线 outputBase + parent 语义 removalParent
-        //  （证明审计——组件输出组件的 keyed 错位同源）**
-        const child = outputToChild(rec.lastOutput)
-        removeVNodeTree(child, outputBase(child, id, pathId(parent, index)), removalParent(child, id, parent), emitCommand, registry)
+    // **keyed 感知（R4 fuzz D4 实证——id 空间双实现偏差）**：组件声明 key →
+    // 实例 id = keyedId(parent, key)（build 同源——.k{key} 空间）——槽位 id
+    // 只在 unkeyed 使用——否则 diff 查 rec 落空（build 注册在 keyedId）→
+    // 重 mount 到槽位——旧键实例残留 + 幽灵 id（fuzz seed=11 i=2 实证）
+    const keyed = newV.key !== null
+    const kid = keyed ? keyedId(parent, newV.key as string) : id
+    const oldRecKid = typeof oldV.type === 'function' && oldV.key !== null
+      ? keyedId(parent, oldV.key as string)
+      : id
+    // **身份比较（type + key）**：key 变化 = 业务身份变化（条件渲染
+    //  A key=x → B key=y）——旧实例（oldRecKid 空间）卸载——不是复用
+    let rec = registry.get(kid)
+    if (kid !== oldRecKid || (rec && rec.type !== newV.type)) {
+      // **统一旧实例清理**（key 空间变化含 unkeyed→keyed 反向——旧
+      // 空间 rec 必须卸载——否则旧实例残留 + onUnmounts 不执行）
+      const oldRec = registry.get(oldRecKid)
+      if (oldRec) {
+        // **容器级显式 unmount（R4 fuzz D4 实证——key 空间变化）**：旧
+        // 实例 id（keyedId）≠ 新 id——mount 命令不覆盖旧 id——S_INST 面
+        // 残留（root.kk17 幽灵——Sim 实例面只由 mount/unmount 驱动）。
+        // 同空间 type 变化不发（id 复用——mount 覆盖——等价）
+        if (oldRecKid !== kid) emitCommand({ op: 'unmount', compId: oldRecKid })
+        // **顺序纪律（R4 fuzz D4 实证）**：先清理输出区间（removeVNodeTree
+        //  递归查 registry 的嵌套 lastOutput——**实例必须先存在**）——
+        //  **后** disposeComponent（卸载 onUnmounts + 删实例）——顺序颠倒
+        //  → 嵌套输出查询落空 → DOM 残留（kk17.kmk16.* 幽灵实证）
+        const oldOut = oldRec.lastOutput
+        if (oldOut !== undefined) {
+          const child = outputToChild(oldOut)
+          removeVNodeTree(child, outputBase(child, oldRecKid, pathId(parent, index)), removalParent(child, oldRecKid, parent), emitCommand, registry)
+        }
+        disposeComponent(oldRecKid, registry)
       }
-      // 新实例（rec 已删——重新 mount——工厂执行）
-      await renderComponent(newV, parent, index, ref, id, ctx, registry, emit, emitCommand)
-      emitCommand({ op: 'mount', compId: id })
+      // 新实例（旧已卸载——重新 mount——工厂执行）
+      rec = undefined
+      await renderComponent(newV, parent, index, ref, kid, ctx, registry, emit, emitCommand)
+      emitCommand({ op: 'mount', compId: kid })
       return
     }
     const oldOut = rec?.lastOutput
-    const isNew = await renderComponent(newV, parent, index, ref, id, ctx, registry, async (out, p, i, r) => {
+    const isNew = await renderComponent(newV, parent, index, ref, kid, ctx, registry, async (out, p, i, r) => {
       // **组件输出对照（中转——细节在 output.ts——单一实现源——
       //  禁止内联双实现漂移）**：null↔vnode 转换/单节点对照/数组对照/
       //  数组↔单节点 transform——compId/slotId（输出形态 id 空间——证明
       //  审计）——keyed 输出组件递归 emitWithKey（keyedId rec 对照）
-      await diffComponentOutput(oldOut, out, p, i, r, emit, emitCommand, ctx, registry, diffSame, id, pathId(parent, index), (out2, p2, i2, r2, key) => emitWithKey(out2, p2, i2, r2, key, emit, emitCommand, ctx, registry))
+      await diffComponentOutput(oldOut, out, p, i, r, emit, emitCommand, ctx, registry, diffSame, kid, pathId(parent, index), (out2, p2, i2, r2, key) => emitWithKey(out2, p2, i2, r2, key, emit, emitCommand, ctx, registry))
     })
     // **mount 指令（组件生命周期——初始化完成——仅新实例）**
-    if (isNew) emitCommand({ op: 'mount', compId: id })
+    if (isNew) emitCommand({ op: 'mount', compId: kid })
     return
   }
   // 元素（string type）：同标签 → 属性精准 diff + children 递归对照；

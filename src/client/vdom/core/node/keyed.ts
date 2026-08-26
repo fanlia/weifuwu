@@ -148,7 +148,7 @@ export function detectMissingKey(items: VNodeChild[], context: string): void {
       if (typeof v === 'boolean') return 'bool'
       if (typeof v === 'string' || typeof v === 'number') return 'text'
       if (Array.isArray(v)) return 'arr'
-      return typeof v.type === 'function' ? 'comp:' + ((v.type as any).name ?? '?') : 'el:' + String(v.type)
+      return typeof v.type === 'function' ? 'comp:' + ((v.type as { name?: string }).name ?? '?') : 'el:' + String(v.type)
     })
     // eslint-disable-next-line no-console
     console.warn(

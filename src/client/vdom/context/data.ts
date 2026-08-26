@@ -15,8 +15,9 @@
  */
 
 import type { DataPipe } from './UIContext.ts'
+import { withTimeout, DEFAULT_ASYNC_TIMEOUT_MS } from '../core/async-guard.ts'
 
-export function createDataPipe(): DataPipe {
+export function createDataPipe(timeoutMs: number = DEFAULT_ASYNC_TIMEOUT_MS): DataPipe {
   const cache = new Map<string, Promise<unknown>>()
   // **生命周期状态机（全部状态机化——2026-XX）**：active → disposed
   // （serve unmount 时清缓存——之后 get/set 违例报错——不再静默）
@@ -28,8 +29,10 @@ export function createDataPipe(): DataPipe {
     get<T = unknown>(key: string, fetcher?: () => Promise<T>): Promise<T> {
       const existing = cache.get(key)
       if (existing) return existing as Promise<T>
-      // 未命中——并发合并（同 key 共享同一 promise）
-      const p = (async () => {
+      // 未命中——并发合并（同 key 共享同一 promise）——**超时防御（R2）**：
+      // 超时 reject（管道级放弃——底层 promise 继续跑——失败缓存
+      // invalidate 重试语义不变）
+      const p = withTimeout((async () => {
         // 种子优先（hydration 预热——同步命中——零二次 fetch）
         if (key in seedData) return seedData[key] as T
         if (fetcher) return fetcher()
@@ -37,7 +40,7 @@ export function createDataPipe(): DataPipe {
         const res = await fetch(key)
         if (!res.ok) throw new Error(`[vdom] ctx.data 请求失败 ${res.status}: ${key}`)
         return res.json() as T
-      })()
+      })(), timeoutMs, `ctx.data(${key})`)
       // 失败缓存（显式 invalidate 重试——默认失败缓存不重试）
       cache.set(key, p)
       return p

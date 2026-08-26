@@ -25,6 +25,7 @@ import { createUi } from '../../hooks/env.ts'
 import type { Browser } from '../../browser/Browser.ts'
 import { removeVNodeTree, outputBase } from '../diff/cleanup.ts'
 import type { Command } from '../command/index.ts'
+import { withTimeout, DEFAULT_ASYNC_TIMEOUT_MS } from '../async-guard.ts'
 
 /** 组件输出判别联合（**方案 3——null 结构性消除——编译器穷尽**）：
  *  - vnode：单节点输出（元素/组件/文本——挂槽位 id——锚点法）
@@ -83,9 +84,11 @@ export interface ComponentRegistry {
   delete(id: string): void
   /** 全部实例 id（整树替换遍历卸载） */
   keys(): string[]
+  /** 异步超时（R2——mount 工厂/renderFn await 上限——测试可注入短值） */
+  asyncTimeout: number
 }
 
-/** 创建注册表（per serve 实例） */
+/** 创建注册表（per serve 实例）——asyncTimeout 默认 15s（async-guard） */
 export function createComponentRegistry(): ComponentRegistry {
   const map = new Map<string, ComponentRecord>()
   return {
@@ -93,6 +96,7 @@ export function createComponentRegistry(): ComponentRegistry {
     set: (id, rec) => { map.set(id, rec) },
     delete: (id) => { map.delete(id) },
     keys: () => [...map.keys()],
+    asyncTimeout: DEFAULT_ASYNC_TIMEOUT_MS,
   }
 }
 
@@ -172,8 +176,25 @@ export async function renderComponent(
     // await 期间同组件重复引用 → 检测 mounting 显式报错——循环依赖防御）
     const mountingRec = { type: factory, renderFn: (() => null) as RenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounting' as const }
     registry.set(compId, mountingRec)
-    const maybeRenderFn = factory(vn.props, instCtx)
-    rec = { type: factory, renderFn: await maybeRenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounted' }
+    let renderFn: RenderFn
+    try {
+      // **mount 失败清理（R1 探索发现——mounting 占位残留**）：同步 throw
+      // 与 async reject（async 工厂 = Promise reject——不在同步 try 内）
+      // 统一清理——占位不删 → 下次渲染同位置 → rec.phase==='mounting' →
+      // "正在 mount" 违例 throw——错误不再是根因（用户代码错误被掩盖——
+      // 后续全是状态机违例——e2e 探针实证：mount boom → 2× 违例连锁）
+      const maybeRenderFn = factory(vn.props, instCtx)
+      renderFn = await withTimeout(
+        Promise.resolve(maybeRenderFn),
+        registry.asyncTimeout,
+        `mount(${compId})`,
+      )
+    } catch (e) {
+      registry.delete(compId)
+      for (const fn of onUnmounts.reverse()) { try { fn() } catch (e2) { console.error('[vdom] mount 清理:', e2) } }
+      throw e
+    }
+    rec = { type: factory, renderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounted' }
     // **mount 阶段 hook 计数 → 渲染期基准**（渲染 hook idx = renderBase + seq）
     rec.renderBase = hookSeq.n
     // **MOUNTING 态提前注册（状态机——审计）**：工厂执行前先注册 mounting
@@ -189,7 +210,16 @@ export async function renderComponent(
   // 真实 bug（AutoComplete 抓出）：idx 撞 mount 的 usePopup——读到
   // usePopup 的 state（无 keyword 字段——undefined——输入框显示 'undefined'））
   rec.hookSeq.n = rec.renderBase
-  const out = await rec.renderFn(vn.props)
+  // **renderFn 超时防御（R2）**：renderFn 挂起 → **组件级 hole 降级**（单组件
+  // 失败不炸整树——队列继续——下一拍重试自愈）。
+  // 注意：超时 reject 后 rec 保持 mounted（未销毁——重试路径复用工厂）
+  let out: VNode | null | (VNode | null)[]
+  try {
+    out = await withTimeout(Promise.resolve(rec.renderFn(vn.props)), registry.asyncTimeout, `renderFn(${compId})`)
+  } catch (e) {
+    console.error(`[vdom] renderFn 超时/错误（${compId}）——组件级 hole 降级（下一拍重试自愈）:`, e)
+    out = null
+  }
   // 记录输出（**归一化为判别联合——null 结构性消除**）
   rec.lastOutput = normalizeOutput(out)
   // **组件输出挂自身 compId 子空间（C2——投影维度隔离）**：

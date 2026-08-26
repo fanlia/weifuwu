@@ -23,6 +23,7 @@ import { createDevVerifier } from './patch/verify.ts'
 import { renderToStream } from './build.ts'
 import { diffStream } from './diff/index.ts'
 import type { VNode } from './vnode.ts'
+import { h } from './vnode.ts'
 import { createComponentRegistry, disposeAllComponents } from './node/component.ts'
 import { createDataPipe } from '../context/data.ts'
 import type { UIContext, DataPipe } from '../context/UIContext.ts'
@@ -34,14 +35,34 @@ import { createClientBrowser } from '../browser/create-client-browser.ts'
 export function reviveFn(fnTable: Map<number, unknown>) {
   return (k: string, v: unknown): unknown => {
     if (v && typeof v === 'object' && typeof (v as { $fn?: unknown }).$fn === 'number') {
-      return fnTable.get((v as { $fn: number }).$fn)
+      const fn = fnTable.get((v as { $fn: number }).$fn)
+      if (!fn) console.error(`[vdom] 传输违例：$fn:${(v as { $fn: number }).$fn} 无对应函数（函数表已清/跨流引用）`)
+      return fn
     }
     return v
   }
 }
 
-/** NDJSON 命令流解析（行缓冲——命令可能跨 chunk——函数表还原） */
-function commandReader(
+/** R1 熔断默认回退 UI（core 内建——inline style 零样式系统依赖——
+ *  errorFallback 未配置时使用——错误文案 + 重试按钮（恢复路径）） */
+function defaultErrorFallback(err: Error, ctx: UIContext): VNode {
+  return h('div', {
+    class: 'wf-error-fallback',
+    style: 'padding:40px 24px;text-align:center;font-family:var(--wf-font-sans,system-ui);',
+  }, [
+    h('div', { style: 'font-size:21px;font-weight:600;margin-bottom:8px;' }, '页面渲染失败'),
+    h('div', { style: 'font-size:13px;color:var(--wf-color-text-secondary,#64748b);margin-bottom:16px;max-width:520px;margin-inline:auto;word-break:break-all;' }, String(err?.message ?? err)),
+    h('button', {
+      class: 'wf-btn wf-btn--primary',
+      onClick: () => { void ctx.render?.() },
+      style: 'padding:8px 20px;border-radius:6px;border:none;cursor:pointer;',
+    }, '重试'),
+  ])
+}
+
+/** NDJSON 命令流解析（行缓冲——命令可能跨 chunk——函数表还原——
+ * 导出（测试——跨 chunk 边界/畸形行合规断言）） */
+export function commandReader(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   fnTable: Map<number, unknown>,
 ): AsyncGenerator<Command> {
@@ -119,6 +140,11 @@ export interface UiServeOptions {
   confirm?: (message: string, options?: Record<string, unknown>) => Promise<boolean>
   /** 命令式通知（ctx.notification——应用装配） */
   notification?: unknown
+  /**
+   * 渲染错误回退 UI（R1 熔断——连续渲染错误达阈值后显示——应用可配置——
+   * 缺省内置：错误文案 + 重试按钮（独立于应用路由——不依赖 router.resolve））
+   */
+  errorFallback?: (error: Error, ctx: UIContext) => VNode
 }
 
 export interface UiServeHandle {
@@ -178,6 +204,23 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   let renderPhase: RenderPhase = 'idle'
   let queue: Request[] = []
   let drainPromise: Promise<void> | null = null
+  /** 连续渲染错误计数（R1 熔断——防错误风暴：组件 throw → catch → 重置 →
+   *  下次交互再 throw——无限重试循环 + console.error 风暴） */
+  let errorCount = 0
+  const MAX_RENDER_ERRORS = 3
+  /** 熔断回退渲染（独立于 router.resolve——应用可配置——缺省内置） */
+  const renderErrorFallback = (err: Error): void => {
+    currentTree = null
+    const fb = opts.errorFallback?.(err, ctx) ?? defaultErrorFallback(err, ctx)
+    const res = renderCtx.stream(fb, { status: 500 })
+    const reader = res.body!.getReader()
+    void (async () => {
+      try {
+        for await (const cmd of commandReader(reader, fnTable)) applier.apply(cmd)
+      } catch (e2) { console.error('[vdom] error fallback 渲染失败:', e2) }
+    })()
+  }
+
 
   /** 渲染循环（ctx.render 同 URL 重渲染 / navigate 新 URL——同一机制）
    *  **队列确定性**：渲染中触发 → push 入队（FIFO）——当前渲染完成 →
@@ -195,51 +238,64 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     renderPhase = 'rendering'
     try {
       while (true) {
-        req = target
-        const res = await router.resolve(req, ctx)
-        // **redirect 消费（3xx + Location → replaceState + 渲染目标）**
-        const loc = res.headers.get('Location')
-        if (res.status >= 300 && res.status < 400 && loc) {
-          win.history.replaceState({}, '', loc)
-          target = frontRequest(loc)
-          continue // 不渲染空响应——直接渲染目标 URL
-        }
-        if (res.body) {
-          for await (const cmd of commandReader(res.body.getReader(), fnTable)) {
-            applier.apply(cmd)
+        try {
+          req = target
+          const res = await router.resolve(req, ctx)
+          // **redirect 消费（3xx + Location → replaceState + 渲染目标）**
+          const loc = res.headers.get('Location')
+          if (res.status >= 300 && res.status < 400 && loc) {
+            win.history.replaceState({}, '', loc)
+            target = frontRequest(loc)
+            continue // 不渲染空响应——直接渲染目标 URL
           }
-          // **SSR 吸收失败（mismatch）→ 原子回退**：清空 root + 影子树
-          // 重置 + 重新渲染（target 不变——重跑全量 build——等价重建）
-          if (applier.absorb.failed) {
+          if (res.body) {
+            for await (const cmd of commandReader(res.body.getReader(), fnTable)) {
+              applier.apply(cmd)
+            }
+            // **SSR 吸收失败（mismatch）→ 原子回退**：清空 root + 影子树
+            // 重置 + 重新渲染（target 不变——重跑全量 build——等价重建）
+            if (applier.absorb.failed) {
+              rootEl.innerHTML = ''
+              currentTree = null
+              applier.absorb.reset()
+              continue
+            }
+          }
+          // **首帧吸收失败（同导航流程——uiServe mount 时 root 预置静态
+          // HTML 无 v3 标记——类型错位匹配失败——无回退则错位 DOM 污染
+          // 影子树——后续 diff 锚失效（showcase 首页 procInsert 崩溃）**
+          if (!currentTree && applier.absorb.failed) {
             rootEl.innerHTML = ''
-            currentTree = null
             applier.absorb.reset()
             continue
           }
+          // 请求成功渲染 → 错误计数重置（连续错误语义——成功中断链）
+          errorCount = 0
+        } catch (e) {
+          // 渲染错误（组件工厂 reject / 流消费异常）——**请求级中断**——
+          // 队列延续（R3 实证：3 连击只有 1 次计数——click2/3 遗留在队列——
+          // 错误中断后无人消费——用户触发丢失）
+          // **影子树重置**：ReadableStream start reject 会丢弃已缓冲命令——
+          // DOM 与影子树不一致——后续 diff 全部 no-op（静默失效）——
+          // 重置后下次渲染走全量 build（create 幂等/insert 幂等/done.full
+          // 清理——自愈完整）
+          currentTree = null
+          errorCount++
+          console.error('[vdom] render:', e)
+          // **R1 错误熔断**：连续错误达阈值 → 回退 UI（不再风暴——成功
+          // 重置计数——错误修复自愈路径）
+          if (errorCount >= MAX_RENDER_ERRORS) {
+            errorCount = 0 // 熔断已触发——计数重置（回退 UI 常驻——交互重试）
+            renderErrorFallback(e instanceof Error ? e : new Error(String(e)))
+          }
         }
-        // **首帧吸收失败（同导航流程——uiServe mount 时 root 预置静态
-        // HTML 无 v3 标记——类型错位匹配失败——无回退则错位 DOM 污染
-        // 影子树——后续 diff 锚失效（showcase 首页 procInsert 崩溃）**
-        if (!currentTree && applier.absorb.failed) {
-          rootEl.innerHTML = ''
-          applier.absorb.reset()
-          continue
-        }
-        // 渲染完成 → 取队头继续（FIFO——先触发先执行）
+        // 下一请求（**成功或失败都继续队列——FIFO 不丢弃**）
         if (queue.length > 0) {
           target = queue.shift()!
         } else {
           break
         }
       }
-    } catch (e) {
-      // 渲染错误（组件工厂 reject / 流消费异常）——中断本轮——队列继续
-      // **影子树重置**：ReadableStream start reject 会丢弃已缓冲命令——
-      // DOM 与影子树不一致——后续 diff 全部 no-op（静默失效）——
-      // 重置后下次渲染走全量 build（create 幂等/insert 幂等/done.full
-      // 清理——自愈完整）
-      currentTree = null
-      console.error('[vdom] render:', e)
     } finally {
       // **渲染完成信号**：flush afterRender（hook 注册——元素已挂载）
       const fns = afterRenderFns

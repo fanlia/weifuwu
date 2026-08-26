@@ -39,6 +39,12 @@ export function useTween(env: HookEnv, target: number, opts?: TweenOptions) {
   const win = env.getBrowser()?.window
   const reduced = useReducedMotion(env)
   const duration = opts?.duration ?? 400
+  if (duration <= 0) {
+    // **duration ≤ 0 防护（R5 实证——除零 NaN）**：直落终值（补间语义
+    // 在无时长时不成立——跳过 rAF 循环）
+    const handle0 = { value: reduced ? target : target, reset: () => {} }
+    return handle0
+  }
   const easeFn = opts?.ease === 'linear'
     ? (p: number) => p
     : (p: number) => 1 - Math.pow(1 - p, 3) // easeOutCubic
@@ -91,22 +97,41 @@ export interface DragOptions {
   onEnd?: (e: PointerEvent) => void
 }
 
-/** 指针拖拽：pointerdown 捕获 → window move/up 活动期监听（卸载释放） */
+/** 指针拖拽：pointerdown 捕获 → window move/up/cancel 活动期监听（卸载释放） */
 export function useDrag(env: HookEnv, options: DragOptions) {
   const win = env.getBrowser()?.window
   let startX = 0
   let startY = 0
   let active = false
+  let activePointerId = 0
   const onPointerMove = (e: PointerEvent): void => {
     if (!active) return
     options.onMove(e, { x: e.clientX - startX, y: e.clientY - startY })
   }
   const onPointerUp = (e: PointerEvent): void => {
     if (!active) return
+    // **pointerId 匹配（R5——多指竞态）**：只响应起始指（第二个手指的
+    // move/up 不干扰——active 期间后续 pointerdown 已忽略——但 pointerup
+    // 需按起始指判定结束）
+    if (e.pointerId !== activePointerId) return
     active = false
     if (win) {
       win.removeEventListener('pointermove', onPointerMove as EventListener)
       win.removeEventListener('pointerup', onPointerUp as EventListener)
+      win.removeEventListener('pointercancel', onPointerCancel as EventListener)
+    }
+    options.onEnd?.(e)
+  }
+  const onPointerCancel = (e: PointerEvent): void => {
+    // **pointercancel（R5 实证——拖拽竞态缺口）**：触摸中断/系统手势
+    // 抢占 → 无 pointerup——旧实现监听残留（active 永真——window 监听
+    // 不释放——泄漏 + 后续 move 持续回调）——显式清理 + onEnd
+    if (!active || e.pointerId !== activePointerId) return
+    active = false
+    if (win) {
+      win.removeEventListener('pointermove', onPointerMove as EventListener)
+      win.removeEventListener('pointerup', onPointerUp as EventListener)
+      win.removeEventListener('pointercancel', onPointerCancel as EventListener)
     }
     options.onEnd?.(e)
   }
@@ -114,12 +139,14 @@ export function useDrag(env: HookEnv, options: DragOptions) {
     if (active) return
     e.preventDefault() // 防拖拽期间文本选中
     active = true
+    activePointerId = e.pointerId
     startX = e.clientX
     startY = e.clientY
     // 活动期注册 window 监听（捕获——拖出元素仍跟踪；onEnd 释放）
     if (win) {
       win.addEventListener('pointermove', onPointerMove as EventListener)
       win.addEventListener('pointerup', onPointerUp as EventListener)
+      win.addEventListener('pointercancel', onPointerCancel as EventListener)
     }
     options.onStart?.(e)
   }
@@ -129,6 +156,7 @@ export function useDrag(env: HookEnv, options: DragOptions) {
     if (active && win) {
       win.removeEventListener('pointermove', onPointerMove as EventListener)
       win.removeEventListener('pointerup', onPointerUp as EventListener)
+      win.removeEventListener('pointercancel', onPointerCancel as EventListener)
       active = false
     }
   })
