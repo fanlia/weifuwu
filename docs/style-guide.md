@@ -157,6 +157,18 @@ wf-rounded-md     圆角
 
 完整钩子清单：`--wf-btn-*` `--wf-card-*` `--wf-field-*` `--wf-modal-*` `--wf-drawer-width` `--wf-toast-*` `--wf-alert-radius` `--wf-badge-radius` `--wf-tag-radius` `--wf-switch-radius` `--wf-popover-*` `--wf-tooltip-radius` `--wf-dropdown-min-width` `--wf-datepicker-*`。
 
+### 表面语言（微流明·边界即结构）
+
+静态卡片 = **1px 细边框**（`--wf-color-border`）——阴影仅用于抬升语义（hover/浮层/拖拽中）；卡片 hover 抬升用 `wf-elevate`。旧阴影观感可覆盖 `--wf-card-shadow` 恢复。浮层按层级用圆角矩阵：
+
+| 表面 | 圆角 | 底 | 说明 |
+|---|---|---|---|
+| Card / StatCard 默认 | --wf-radius-md (8) | bg | 细边框；阴影仅 hover（wf-elevate） |
+| Modal | **--wf-radius-lg (12)** | bg-elevated | 抬升语义 |
+| 面板族（dropdown/select/datepicker/popover） | --wf-field-radius | bg-elevated | 弹出面板 |
+| Tooltip / 小浮层 | --wf-radius-sm (4) | bg-elevated | 摘要层 |
+| Drawer | 0（贴边） | bg-elevated | 全幅侧拉 |
+
 ### 动效定制 — 时长/缓动/位移
 
 ```html
@@ -177,7 +189,7 @@ wf-rounded-md     圆角
 用户 @layer utilities 可精准盖过 weifuwu 的 utilities
 ```
 
-## 主题 Token（177 个，双层）
+## 主题 Token（182 个，双层）
 
 - **原始层**（`--wf-brand-*` `--wf-slate-*` `--wf-dark-*`）：色值只定义一次，品牌/暗色调校改这里
 - **语义层**（`--wf-color-*` `--wf-space-*` `--wf-radius-*` …）：组件消费，主题切换覆盖这里

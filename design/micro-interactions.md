@@ -44,6 +44,29 @@ hover → focus-visible → active(pressed) → disabled
 □ 禁用态视觉明确（opacity + 禁 cursor）
 ```
 
+## 4.1 交互状态矩阵（合法差异登记——差异允许，但必须显式登记）
+
+> 原则：选中态按**元素语义**分族（solid=按钮态 / light-bg=列表态 / indicator=标签态），
+> 不追求全库单一选中色——"看起来不一致"的直觉噪声由本表消除。
+
+| 元素族 | 例 | hover | pressed | 选中态 | 已登记差异化 |
+|---|---|---|---|---|---|
+| 按钮族（solid） | wf-btn--primary、wf-page-btn--active | 背景深一档 | scale 0.98 / brightness 0.95 | — | 页码选中 = solid primary（按钮态——与列表族差异登记） |
+| 列表族（light-bg） | wf-menu-item、wf-nav-item、wf-select-search-opt、wf-tab | state-hover | state-pressed | primary-bg + primary-text | — |
+| 标签族（tab/segment） | wf-tab、wf-seg | 文字加深 | state-pressed | ink bar / 滑块 + primary-text | — |
+| 卡片族（clickable） | wf-card--clickable、wf-stat--clickable | wf-elevate 抬升（shadow+translateY） | 压回 | border primary + primary-bg | — |
+| 关闭钮族（close/clear） | wf-tag-close、wf-search-clear、wf-select-tag-close | 加强（opacity/颜色） | 减弱（opacity 0.5-0.6） | — | — |
+| 链接族 | wf-breadcrumb-link、wf-link | 下划线/颜色 | — | — | 无 pressed（链接语义——登记豁免） |
+
+## 4.2 动效单轨（2027-XX 收敛）
+
+```
+过渡（hover/focus/pressed）：--wf-dur-fast（120ms）+ --wf-ease-out——统一经 var(--wf-transition) 派生别名
+循环（旋转/呼吸/闪烁/进度）：--wf-dur-spin/pulse/blink/progress
+浮层进出：--wf-dur-base（200ms）enter ease-out / exit ease-in
+reduced-motion 全局降级（_base.css）
+```
+
 ## 5. 落地
 
 - audit 已强制：hover 完备 / focus-ring / 状态层 token / 动效 token

@@ -5,7 +5,7 @@
 
 # 布局系统（weifuwu/layout）
 
-纯 CSS 66 个布局原语 + 156 个工具类 + 177 个主题 Token。不绑定任何 JS 框架。
+纯 CSS 66 个布局原语 + 157 个工具类 + 182 个主题 Token。不绑定任何 JS 框架。
 
 > **学习路径与命名规范**：见 [`样式体系指南`](../../docs/style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
 
@@ -93,8 +93,8 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | **内容排版** | `wf-prose` | 富文本正文（文章/博客/文档，一个类包 h2/p/ul/blockquote/pre…） |
 | **外壳** | `wf-app-shell` | 应用外壳：侧边栏 + 主区 grid（`--wf-sidebar-width`） |
 | | `wf-sidebar` `wf-sidebar-header` `wf-sidebar-body` `wf-sidebar-footer` | 侧边栏：品牌区/导航区/底部用户区，sticky 全高 |
-| | `wf-nav` `wf-nav-group` `wf-nav-item` `wf-nav-icon` | 导航：分组标题 + 链接项（`--active` 激活态） |
-| | `wf-main` | 主内容区（padding + min-width: 0） |
+| | `wf-nav` `wf-nav-group` `wf-nav-item` `wf-nav-icon` | 导航：分组标题 + 链接项（`--active` 激活态）；折叠态 `wf-nav--collapsed`（图标-only——**导航项需加 `title` 属性**提供悬停提示，CSS 无法自动补） |
+| | `wf-main` | 主内容区（padding + min-width: 0；长文本设 `--wf-main-max: 900px` 限宽居中——文档站场景） |
 | | `wf-text-*` 排版工具 | 见下文「排版工具」 |
 
 ### 组合规则（冲突防线）
@@ -134,7 +134,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | `wf-truncate` | 单行省略（ellipsis） |
 | `wf-line-clamp-2/3` | 多行截断 |
 
-## 177 个主题 Token
+## 182 个主题 Token
 
 **双层结构**：原始层（Primitive，色值只定义一次，品牌/暗色调校改这里）+ 语义层（Semantic，组件消费）。
 
@@ -172,7 +172,8 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 /* 边框色 */
 --wf-color-border / --wf-color-border-light / --wf-color-border-dark
 
-/* 字体 */
+/* 字体（--wf-font-sans 已含 CJK 回退：PingFang SC / Hiragino / 雅黑 / Noto Sans SC——
+   中文原生：西文最优字形 + 中文三平台一致；--wf-font-mono 同） */
 --wf-font-sans / --wf-font-mono
 
 /* 字号: xs sm base lg xl 2xl 3xl 4xl 5xl display */

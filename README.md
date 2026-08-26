@@ -30,7 +30,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 | 后端 | `weifuwu` | Trie 路由 / 中间件链 / serve / 自研 PG+Redis / SSR / GraphQL / WebSocket |
 | 前端 | `weifuwu/ui-dom` | **vdom3 精准事件流引擎**——createRouter（路由）+ createRoot（挂载）+ 事件流（渲染本体：`entity:action` 统一命名、DOM = fold、可回放可断言）+ SSR（事件流序列化）；组件=两阶段异步组件 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom，见 `content/guides/ui-dom-guide.md`） |
 | 组件 | `weifuwu/components` | 129 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
-| 样式 | `weifuwu/layout` | 66 布局原语 + 156 工具类 + 177 主题 Token，零自定义 CSS 文件 |
+| 样式 | `weifuwu/layout` | 66 布局原语 + 157 工具类 + 182 主题 Token，零自定义 CSS 文件 |
 | SaaS 地基 | 随包内置 | rateLimit / email / userSystem / messager / queue / ai → `ctx.*` 一行接入 |
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
@@ -331,7 +331,7 @@ npx weifuwu docs    # → http://localhost:4000 本地文档站（组件 API 表
 |------|---------|------|
 | `weifuwu/ui-dom` | `https://unpkg.com/weifuwu@latest/dist/ui-dom/index.js` | 前端运行时（createRouter, createRoot, h, 事件流, 状态管理等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 129 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 177 个主题 Token + 66 个布局原语 + 156 个工具类 |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 182 个主题 Token + 66 个布局原语 + 157 个工具类 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
 
@@ -374,7 +374,7 @@ npx weifuwu docs    # → http://localhost:4000 本地文档站（组件 API 表
 | `weifuwu/ui-dom` | **useChat / AiChat 原语** | AI 会话（流式/工具调用/HITL） | — |
 | `weifuwu/ui-dom` | **事件原语** | `usePopup`（统一弹窗能力层）/ `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [content/guides/mobile-guide.md](content/guides/mobile-guide.md)） | — |
 | `weifuwu/components` | **129 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/ui-dom |
-| `weifuwu/layout` | **CSS 布局** | 66 个布局原语 + 156 个工具类 + 177 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+| `weifuwu/layout` | **CSS 布局** | 66 个布局原语 + 157 个工具类 + 182 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
 
@@ -397,7 +397,7 @@ npx weifuwu docs    # → http://localhost:4000 本地文档站（组件 API 表
 | AI 对话 / Agent / HITL 审批 | `ai()` → `ctx.ai` + `ctx.ui.useChat()` + `AiChat` | [content/guides/saas-guide.md](content/guides/saas-guide.md) |
 | GraphQL / WebSocket | `app.graphql(handler)` · `app.ws(path, handler)` | [content/guides/realtime-guide.md](content/guides/realtime-guide.md) |
 | 前端 UI 组件 | `weifuwu/components`（129 个：Button/Table/Modal/AiChat/...） | [content/guides/components-guide.md](content/guides/components-guide.md) |
-| 布局/主题/暗色 | `weifuwu/layout`（58 原语 + 156 工具类 + 177 Token） | [content/guides/layout-guide.md](content/guides/layout-guide.md) |
+| 布局/主题/暗色 | `weifuwu/layout`（58 原语 + 157 工具类 + 182 Token） | [content/guides/layout-guide.md](content/guides/layout-guide.md) |
 | 样式定制（零自定义 CSS） | `--wf-*` 变量覆盖 + 组件定制钩子 | [content/guides/styling.md](content/guides/styling.md) |
 | 移动端适配（tap/长按/键盘/弹层） | `usePopup` / `useHoverCapable` / `useLongPress` / `useVisualViewport` | [content/guides/mobile-guide.md](content/guides/mobile-guide.md) |
 | 前后端类型安全中间件 | `createMiddleware`（声明注入即类型化） | [content/guides/server-guide.md](content/guides/server-guide.md) |
@@ -528,7 +528,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [content/guides/ui-dom-guide.md](content/guides/ui-dom-guide.md) | **ui-dom**：vdom3 精准事件流引擎（createRouter/createRoot + 事件流）——components 复用 + SSR（事件流形态）（前端唯一运行时） |
 | [content/guides/middleware.md](content/guides/middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
 | [content/guides/components-guide.md](content/guides/components-guide.md) | 组件库（129 个组件 + 使用示例 + 组件列表） |
-| [content/guides/layout-guide.md](content/guides/layout-guide.md) | 布局系统：66 个布局原语 + 156 个工具类 + 177 个主题 Token |
+| [content/guides/layout-guide.md](content/guides/layout-guide.md) | 布局系统：66 个布局原语 + 157 个工具类 + 182 个主题 Token |
 | [docs/style-guide.md](docs/style-guide.md) | 样式学习路径与命名规范：三档学习（组件 → 原语 → 速查）|
 | [content/guides/styling.md](content/guides/styling.md) | 样式定制指南：零自定义 CSS 模式 / 暗色 / 组件级覆盖 / 作用域主题 |
 
