@@ -32,6 +32,15 @@
   color: var(--wf-color-primary-text);
 }
 
+.wf-page-btn:active:not(:disabled):not(.wf-page-btn--active) {
+  background: var(--wf-state-pressed);
+}
+
+.wf-page-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
 .wf-page-btn--active {
   background: var(--wf-color-primary);
   border-color: var(--wf-color-primary);

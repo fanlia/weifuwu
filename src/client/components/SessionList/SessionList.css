@@ -61,6 +61,7 @@
 }
 
 .wf-session-item:hover { background: var(--wf-color-bg-tertiary); }
+.wf-session-item:active { background: var(--wf-state-pressed); }
 
 .wf-session-item--focus { background: var(--wf-color-bg-tertiary); }
 

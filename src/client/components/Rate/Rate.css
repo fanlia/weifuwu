@@ -38,6 +38,9 @@
 .wf-rate-star:hover {
   transform: scale(1.15);
 }
+.wf-rate-star:active {
+  transform: scale(0.95);
+}
 
 .wf-rate-star:focus-visible {
   outline: none;

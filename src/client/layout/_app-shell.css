@@ -138,6 +138,14 @@
   /* 内容高于视口时在主区内滚动（壳固定视口高度后的唯一滚动出口） */
   overflow-y: auto;
   background: var(--wf-color-bg);
+  /* 行宽约束（P5）：默认 none 全宽（聊天/表格等全宽应用零影响）；
+     文档站/长文本场景设 --wf-main-max: 900px——直接子元素限宽居中 */
+  --wf-main-max: none;
+}
+
+.wf-main > * {
+  max-width: var(--wf-main-max);
+  margin-inline: auto;
 }
 
 /* ── 触屏：导航项 44px 命中区 ── */

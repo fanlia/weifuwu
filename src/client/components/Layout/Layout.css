@@ -54,7 +54,7 @@
   background: transparent;
   color: var(--wf-color-text-secondary);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   transition: background var(--wf-dur-fast) var(--wf-ease-standard);
 }
 

@@ -71,7 +71,7 @@
   align-items: center;
   gap: var(--wf-gap-xs);
   color: var(--wf-color-text-tertiary);
-  animation: wf-collapse-spin 1s linear infinite;
+  animation: wf-collapse-spin var(--wf-dur-spin) linear infinite;
 }
 
 @keyframes wf-collapse-spin {

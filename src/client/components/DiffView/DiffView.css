@@ -6,7 +6,7 @@
   overflow: hidden;
   background: var(--wf-color-bg);
   font-family: var(--wf-font-mono);
-  font-size: 13px;
+  font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
   line-height: 1.6;
   min-width: 0;
 }
@@ -19,7 +19,7 @@
   padding: 8px 12px;
   background: var(--wf-color-fill);
   border-bottom: 1px solid var(--wf-color-border);
-  font-size: 12px;
+  font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   flex-shrink: 0;
 }
 .wf-diffview-title--old {
@@ -79,7 +79,7 @@
   border: 1px dashed var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   color: var(--wf-color-text-secondary);
-  font-size: 12px;
+  font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   cursor: pointer;
   background: var(--wf-color-bg-subtle);
   user-select: none;
@@ -92,6 +92,6 @@
 .wf-diffview-overflow {
   padding: 8px 12px;
   color: var(--wf-color-text-tertiary);
-  font-size: 12px;
+  font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   text-align: center;
 }

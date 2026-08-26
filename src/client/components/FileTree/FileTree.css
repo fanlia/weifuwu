@@ -1,23 +1,27 @@
-/* weifuwu/components — FileTree（文件树浏览器：面包屑 + 列表/编辑态） */
+/* weifuwu/components — FileTree（文件树浏览器：面包屑 + 列表/编辑态）
+ * 语义 token 化（design/style-professional-plan.md M1——旧 token 体系迁移）：
+ * 全部颜色/间距/字号/圆角/动效引用 layout --wf-*，暗色自动适配。
+ */
 .wf-filetree {
-  border: 1px solid var(--wf-border, #e5e7eb);
-  border-radius: 8px;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--wf-font-size-base);
+  background: var(--wf-color-bg);
 }
 .wf-filetree-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--wf-border, #e5e7eb);
-  background: var(--wf-surface-2, #fafafa);
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm) var(--wf-space);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  background: var(--wf-color-bg-secondary);
 }
 .wf-filetree-path {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--wf-gap-xs);
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -25,58 +29,68 @@
 .wf-filetree-crumb-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--wf-gap-xs);
 }
 .wf-filetree-crumb {
   border: none;
   background: none;
-  padding: 2px 4px;
-  font-size: 12px;
-  color: var(--wf-text-secondary, #6b7280);
+  padding: var(--wf-space-xs) var(--wf-gap-xs);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--wf-radius-sm);
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out), color var(--wf-dur-fast) var(--wf-ease-out);
 }
 .wf-filetree-crumb:hover {
-  background: var(--wf-bg-hover, #f0f0f0);
-  color: var(--wf-text, #111827);
+  background: var(--wf-state-hover);
+  color: var(--wf-color-text);
+}
+.wf-filetree-crumb:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
 }
 .wf-filetree-sep {
-  color: var(--wf-text-tertiary, #9ca3af);
-  font-size: 12px;
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-sm);
 }
 .wf-filetree-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--wf-gap-xs);
   flex-shrink: 0;
 }
 .wf-filetree-list {
   max-height: 320px;
   overflow: auto;
-  padding: 4px;
+  padding: var(--wf-space-xs);
 }
 .wf-filetree-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--wf-gap-sm);
   width: 100%;
   border: none;
   background: none;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: var(--wf-space-sm);
+  border-radius: var(--wf-radius);
   cursor: pointer;
   text-align: left;
-  font-size: 13px;
-  color: var(--wf-text, #111827);
+  font-size: var(--wf-font-size-base);
+  color: var(--wf-color-text);
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out);
 }
 .wf-filetree-item:hover {
-  background: var(--wf-bg-hover, #f0f0f0);
+  background: var(--wf-state-hover);
+}
+.wf-filetree-item:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
 }
 .wf-filetree-dir {
-  color: var(--wf-primary, #4f6ef7);
+  color: var(--wf-color-primary-text);
 }
 .wf-filetree-file {
-  color: var(--wf-text-tertiary, #9ca3af);
+  color: var(--wf-color-text-tertiary);
 }
 .wf-filetree-name {
   flex: 1;
@@ -86,23 +100,23 @@
   white-space: nowrap;
 }
 .wf-filetree-meta {
-  font-size: 12px;
-  color: var(--wf-text-tertiary, #9ca3af);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-tertiary);
   flex-shrink: 0;
 }
 .wf-filetree-empty {
-  padding: 24px 12px;
+  padding: var(--wf-space-xl) var(--wf-space);
   text-align: center;
-  font-size: 13px;
+  font-size: var(--wf-font-size-base);
 }
 .wf-filetree-editor {
-  padding: 10px;
+  padding: var(--wf-space);
 }
 .wf-filetree-editor-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--wf-gap-sm);
+  margin-bottom: var(--wf-gap-sm);
 }
 .wf-filetree-filename {
   flex: 1;
@@ -110,32 +124,32 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--wf-font-size-base);
+  font-weight: var(--wf-font-weight-medium);
 }
 .wf-filetree-editor-area {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--wf-border, #e5e7eb);
-  border-radius: 6px;
-  padding: 8px;
-  font-family: var(--wf-font-mono, ui-monospace, monospace);
-  font-size: 12px;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  padding: var(--wf-space-sm);
+  font-family: var(--wf-font-mono);
+  font-size: var(--wf-font-size-sm);
   line-height: 1.6;
   resize: vertical;
-  background: var(--wf-bg, #fff);
-  color: var(--wf-text, #111827);
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
 }
 .wf-filetree-preview {
   margin: 0;
-  padding: 8px;
+  padding: var(--wf-space-sm);
   max-height: 280px;
   overflow: auto;
-  font-family: var(--wf-font-mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-family: var(--wf-font-mono);
+  font-size: var(--wf-font-size-sm);
   line-height: 1.6;
-  background: var(--wf-surface-2, #fafafa);
-  border-radius: 6px;
+  background: var(--wf-color-bg-secondary);
+  border-radius: var(--wf-radius);
   white-space: pre-wrap;
   word-break: break-all;
 }

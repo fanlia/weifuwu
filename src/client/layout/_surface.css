@@ -6,6 +6,11 @@
   background: var(--wf-surface-bg);
 }
 
+/* 平面表面（M4 表面语言——静态卡片/面板组合 wf-border 用：阴影仅抬升语义） */
+.wf-surface--flat {
+  box-shadow: none;
+}
+
 /* ── 背景色工具 — 引用语义 Token，免自定义 CSS ── */
 .wf-bg-secondary { background: var(--wf-color-bg-secondary); }
 .wf-bg-tertiary { background: var(--wf-color-bg-tertiary); }

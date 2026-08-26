@@ -23,10 +23,10 @@
   line-height: var(--wf-line-height-tight);
 }
 
-/* display 档：顶级页面标题，配窄字距 */
+/* display 档：顶级页面标题，配窄字距（token 可覆盖——CJK 长标题可归零） */
 .wf-page-title--display {
   font-size: var(--wf-font-size-display);
-  letter-spacing: -0.5px;
+  letter-spacing: var(--wf-heading-display-tracking);
 }
 
 .wf-page-sub {

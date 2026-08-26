@@ -31,7 +31,7 @@
   background: var(--wf-color-bg);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
-  font-size: 13px;
+  font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
   font-weight: 500;
   pointer-events: auto;
   white-space: nowrap;
@@ -65,6 +65,6 @@
   position: absolute;
   bottom: -24px;
   left: 0;
-  font-size: 12px;
+  font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   color: var(--wf-color-warning-text);
 }

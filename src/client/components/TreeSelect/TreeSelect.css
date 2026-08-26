@@ -28,10 +28,10 @@
 
 .wf-treeselect-placeholder {
   color: var(--wf-color-text-tertiary);
-  font-size: 13px;
+  font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
 }
 .wf-treeselect-label {
-  font-size: 13px;
+  font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -57,7 +57,7 @@
 
 .wf-modal-content {
   background: var(--wf-color-bg-elevated);
-  border-radius: var(--wf-modal-radius,  var(--wf-radius-md));
+  border-radius: var(--wf-modal-radius,  var(--wf-radius-lg)); /* 浮层圆角矩阵：Modal 12（抬升语义） */
   box-shadow: var(--wf-modal-shadow,  var(--wf-shadow-lg));
   min-width: var(--wf-modal-width,  400px);
   max-width: 90vw;

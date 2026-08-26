@@ -25,7 +25,7 @@
 }
 
 .wf-chat-input:hover:not(:disabled) {
-  border-color: var(--wf-color-primary-muted, var(--wf-color-primary));
+  border-color: var(--wf-color-primary);
 }
 
 /* 多行 textarea：自适应高度（行数由内容撑开） */

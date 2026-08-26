@@ -60,16 +60,16 @@
 }
 .wf-tour-title {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--wf-font-size-base); /* 14px 同值 token 化——compact 预设可缩放 */
 }
 .wf-tour-step {
-  font-size: 12px;
+  font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   color: var(--wf-color-text-tertiary);
   flex-shrink: 0;
 }
 
 .wf-tour-content {
-  font-size: 13px;
+  font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
   color: var(--wf-color-text-secondary);
   line-height: 1.6;
 }
@@ -88,7 +88,7 @@
   border: 1px solid var(--wf-color-border);
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
-  font-size: 13px;
+  font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
   cursor: pointer;
   display: inline-flex;
   align-items: center;

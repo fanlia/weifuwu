@@ -44,7 +44,14 @@
 .wf-tab:hover {
   color: var(--wf-color-text);
 }
-
+.wf-tab:active {
+  background: var(--wf-state-pressed);
+}
+.wf-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  border-radius: var(--wf-radius-xs);
+}
 .wf-tab--active {
   color: var(--wf-color-primary-text);
 }

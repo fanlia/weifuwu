@@ -47,7 +47,7 @@
 
 .wf-alertgroup-time {
   color: var(--wf-color-text-tertiary);
-  font-size: 12px;
+  font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
 }
 
 .wf-alertgroup-close {

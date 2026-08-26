@@ -7,7 +7,7 @@
   padding: var(--wf-space-md);
   border-radius: var(--wf-radius-md);
   background: var(--wf-surface-bg);
-  box-shadow: var(--wf-surface-shadow);
+  border: var(--wf-border-width) solid var(--wf-color-border-light); /* 边界即结构：细边框——阴影仅抬升（hover） */
   font-family: var(--wf-font-sans);
 }
 
@@ -53,4 +53,8 @@
 .wf-stat--clickable:hover {
   transform: translateY(-2px);
   box-shadow: var(--wf-shadow-md);
+}
+.wf-stat--clickable:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-shadow-md), var(--wf-focus-ring);
 }

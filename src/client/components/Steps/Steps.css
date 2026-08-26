@@ -32,7 +32,7 @@
 .wf-step--done .wf-step-num {
   background: var(--wf-color-primary);
   color: var(--wf-color-on-brand);
-  font-size: 14px;
+  font-size: var(--wf-font-size-base); /* 14px 同值 token 化——compact 预设可缩放 */
 }
 
 .wf-step--current .wf-step-num {

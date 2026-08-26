@@ -12,7 +12,7 @@
   font-size: var(--wf-font-size-xs);
   font-weight: var(--wf-font-weight-semibold);
   color: var(--wf-color-text-tertiary);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--wf-heading-tracking); /* CJK 默认 0，英文可覆盖 */
 }
 
 .wf-menu-item {
@@ -31,6 +31,10 @@
 .wf-menu-item:hover {
   background: var(--wf-color-bg-secondary);
   color: var(--wf-color-text);
+}
+
+.wf-menu-item:active {
+  background: var(--wf-state-pressed);
 }
 
 .wf-menu-item--active {

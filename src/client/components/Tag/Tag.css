@@ -38,3 +38,9 @@
   color: inherit;
 }
 .wf-tag-close:hover { opacity: 1; }
+.wf-tag-close:active { opacity: 0.5; }
+.wf-tag-close:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  border-radius: var(--wf-radius-sm);
+}

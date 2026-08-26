@@ -51,7 +51,7 @@
 /* indeterminate：不确定态（动画扫动） */
 .wf-progress--indeterminate .wf-progress-fill {
   width: 40%;
-  animation: wf-progress-indeterminate 1.4s var(--wf-ease-in-out) infinite;
+  animation: wf-progress-indeterminate var(--wf-dur-progress) var(--wf-ease-in-out) infinite;
 }
 @keyframes wf-progress-indeterminate {
   0% { transform: translateX(-100%); }

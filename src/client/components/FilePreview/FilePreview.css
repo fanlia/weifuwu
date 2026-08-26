@@ -71,16 +71,16 @@
 }
 
 .wf-filepreview-md pre {
-  background: var(--wf-color-bg-muted, var(--wf-color-border));
+  background: var(--wf-color-bg-secondary);
   padding: var(--wf-space-sm) var(--wf-space-md);
   border-radius: var(--wf-radius-sm);
   overflow-x: auto;
 }
 
 .wf-filepreview-md code {
-  background: var(--wf-color-bg-muted, var(--wf-color-border));
+  background: var(--wf-color-bg-secondary);
   padding: 1px 4px;
-  border-radius: 3px;
+  border-radius: var(--wf-radius-sm);
 }
 
 .wf-filepreview-md pre code {

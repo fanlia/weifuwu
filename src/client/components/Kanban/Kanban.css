@@ -28,10 +28,10 @@
   justify-content: space-between;
   padding: var(--wf-space-sm) 12px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
 }
 .wf-kanban-col-count {
-  font-size: 12px;
+  font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   color: var(--wf-color-text-tertiary);
   background: var(--wf-color-fill);
   border-radius: 50%;
@@ -71,13 +71,13 @@
 }
 
 .wf-kanban-card-title {
-  font-size: 13px;
+  font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
   line-height: 1.5;
   min-width: 0;
 }
 
 .wf-kanban-tag {
-  font-size: 11px;
+  font-size: var(--wf-font-size-xs); /* 与 Tag 组件基准一致（10px 白名单复核——11px 偏小） */
   color: var(--wf-color-primary-text);
   background: var(--wf-color-primary-bg);
   border-radius: var(--wf-radius-xs);

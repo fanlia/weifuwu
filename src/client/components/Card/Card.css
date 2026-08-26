@@ -6,8 +6,10 @@
   font-family: var(--wf-font-sans);
 }
 
+/* 默认卡片：1px 细边框是设计主角（微流明·边界即结构——阴影仅抬升语义，
+ * 提升由 .wf-elevate / hover 承担）。旧阴影观感可用 --wf-card-shadow 覆盖 / 自加 box-shadow */
 .wf-card--default {
-  box-shadow: var(--wf-card-shadow,  var(--wf-surface-shadow));
+  border: var(--wf-border-width) solid var(--wf-color-border);
 }
 
 .wf-card--outlined {
@@ -22,9 +24,12 @@
   cursor: pointer;
 }
 
-/* hover 抬升已提炼为 .wf-elevate（_surface.css），此处仅保留语义类 */
-.wf-card--hover {
+.wf-card--clickable:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
 }
+
+/* hover 抬升由 .wf-elevate（_surface.css）承担：wf-card--hover 仅语义标记类（配合 Card hover prop） */
 
 /* 选中态 — 选择卡片（类型选择/模板选择） */
 .wf-card--active {

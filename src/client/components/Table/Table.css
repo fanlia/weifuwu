@@ -21,8 +21,8 @@
   font-weight: var(--wf-font-weight-medium);
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: var(--wf-heading-case); /* CJK 默认 none，英文可覆盖 uppercase */
+  letter-spacing: var(--wf-heading-tracking);
   padding: var(--wf-space) var(--wf-space-sm);
   background: var(--wf-color-bg-secondary);
   white-space: nowrap;

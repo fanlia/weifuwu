@@ -30,6 +30,11 @@
   box-shadow: var(--wf-focus-ring);
 }
 
+/* hover 反馈（对齐 Input——可感知可交互；disabled 不反馈） */
+.wf-select:hover:not(:disabled) {
+  border-color: var(--wf-color-border-dark);
+}
+
 .wf-select:disabled {
   opacity: var(--wf-opacity-disabled);
   cursor: not-allowed;
@@ -52,6 +57,9 @@
   background: var(--wf-color-bg);
   cursor: pointer;
   transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
+}
+.wf-select-search-trigger:hover {
+  border-color: var(--wf-color-border-dark);
 }
 .wf-select-search-trigger:focus-within {
   border-color: var(--wf-color-primary);

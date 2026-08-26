@@ -18,6 +18,11 @@
 .wf-breadcrumb-link:hover {
   text-decoration: underline;
 }
+.wf-breadcrumb-link:focus-visible {
+  outline: none;
+  border-radius: var(--wf-radius-xs);
+  box-shadow: var(--wf-focus-ring);
+}
 
 .wf-breadcrumb-current {
   color: var(--wf-color-text);

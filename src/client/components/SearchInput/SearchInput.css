@@ -41,7 +41,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   color: var(--wf-color-text-tertiary);
   padding: 2px;
   line-height: 1;
@@ -50,6 +50,14 @@
 
 .wf-search-clear:hover {
   color: var(--wf-color-text);
+}
+.wf-search-clear:active {
+  opacity: 0.6;
+}
+.wf-search-clear:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  border-radius: var(--wf-radius-sm);
 }
 
 /* 受控 + 自定义清除按钮时隐藏原生 ×（type=search WebKit 双清除 UI——
