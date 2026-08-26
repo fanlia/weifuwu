@@ -249,7 +249,7 @@ class Sim {
   }
 }
 
-async function drainStream(s: ReadableStream<Command>): Promise<Command[]> {
+export async function drainStream(s: ReadableStream<Command>): Promise<Command[]> {
   const out: Command[] = []
   const r = s.getReader()
   while (true) { const { value, done } = await r.read(); if (done) break; out.push(value) }
@@ -262,7 +262,7 @@ async function drainStream(s: ReadableStream<Command>): Promise<Command[]> {
  *  - 组件子空间（组件 compId 及其子路径——输出动态——子空间前缀合法）
  *  幽灵 id（两者皆非）→ 精确报错（id 归属违例——比终态 snapshot 定位更细）
  *  ——1/300 类"parent 合法但 id 归属错"的定位维度 */
-function projectLegalIds(root: VNode): { staticSlots: Set<string>; compIds: Set<string> } {
+export function projectLegalIds(root: VNode): { staticSlots: Set<string>; compIds: Set<string> } {
   const staticSlots = new Set<string>()
   const compIds = new Set<string>()
   const walk = (v: VNodeChild, id: string): void => {
@@ -293,7 +293,7 @@ function projectLegalIds(root: VNode): { staticSlots: Set<string>; compIds: Set<
 }
 
 /** id 归属验证（双树对账）：静态槽位 OR 组件子空间前缀 */
-function isLegalId(id: string, proj: { staticSlots: Set<string>; compIds: Set<string> }): boolean {
+export function isLegalId(id: string, proj: { staticSlots: Set<string>; compIds: Set<string> }): boolean {
   if (proj.staticSlots.has(id)) return true
   for (const cid of proj.compIds) {
     if (id === cid || id.startsWith(cid + '.')) return true
@@ -307,7 +307,7 @@ function isLegalId(id: string, proj: { staticSlots: Set<string>; compIds: Set<st
  *  否则 build(new) 的组件注册污染 diff 的 isNew 判定（mount 缺失——假反例）
  *  **双树对账（维度 7）**：消费后校验 DOM id 全部属于合法投影（幽灵 id
  *  ——静态槽位/组件子空间皆非——精确报错） */
-async function verifyEquivalence(
+export async function verifyEquivalence(
   oldTree: VNode, newTree: VNode, registry: ComponentRegistry,
 ): Promise<string | null> {
   const ref = new Sim()
@@ -330,7 +330,7 @@ async function verifyEquivalence(
 }
 
 /** 固定种子随机（mulberry32——可复现） */
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed
   return () => {
     a |= 0; a = (a + 0x6D2B79F5) | 0

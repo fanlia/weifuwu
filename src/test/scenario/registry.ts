@@ -1548,6 +1548,69 @@ const RCS = { id: 'reconcile', title: '状态机对账（真实 DOM 结构不变
 const TWS = { id: 'typewriter-loop', title: '打字机高频渲染（锚稳定）', render: DeepTypewriter }
 const RLS = { id: 'render-loop', title: '渲染循环（结构稳定计数）', render: DeepRenderLoop }
 
+// ── R1 场景：错误熔断（工厂 throw → 3 次连续 → fallback → 重试恢复） ─────
+// 触发链：首帧正常（fault=false——FaultyA 显示）→「开熔断」→ 点击切换
+// （FaultyA ↔ FaultyB——同位置不同类型 → dispose + 全量 build → mount）→
+// 连续 3 次 mount throw → serve catch → errorCount=3 → 熔断 → 内置
+// fallback（错误文案 + 重试）→「修复」→ 点击重试 → 正常渲染
+// **mount 失败清理验证（R1 探索发现——mounting 占位残留**）：每次 mount 失败
+// 都干净重试（无「正在 mount」违例连锁）——console.error 计数 = 3（非更多）
+const FuseScene = (_init: Record<string, never>, ctx: any) => {
+  let n = 0
+  let fault = false // 闭包状态（模块级变量会跨测试泄漏——隔离纪律）
+  let alt = false
+  const mk = (cls: string) => {
+    const C: Component = async () => {
+      if (fault) throw new Error('mount boom（场景演示）')
+      return () => h('div', { class: cls }, '恢复成功')
+    }
+    return C
+  }
+  const FaultyA = mk('fuse-ok')
+  const FaultyB = mk('fuse-ok-2')
+  // 全局修复钩子（fallback 替换 root 后 DOM 内按钮不可达——测试/运维
+  // 接口：熔断后 __fuseFix() 关闭故障——再点 fallback 重试恢复）
+  if (typeof window !== 'undefined') (window as any).__fuseFix = () => { fault = false }
+  ctx.onUnmount(() => { delete (window as any).__fuseFix })
+  return () =>
+    h('div', { class: 'fuse-scene' }, [
+      h('div', { id: 'fuse-status' }, `attempt:${n}`),
+      h('button', { id: 'fuse-trigger', onClick: () => { alt = !alt; n += 1; ctx.render() } }, '触发切换'),
+      h('button', { id: 'fuse-arm', onClick: () => { fault = true } }, '开熔断'),
+      h('button', { id: 'fuse-fix', onClick: () => { fault = false } }, '修复'),
+      alt ? h(FaultyB, {}) : h(FaultyA, {}),
+    ])
+}
+const FUSE = { id: 'render-error-fuse', title: '错误熔断（R1——连续错误 fallback + 重试恢复）', render: FuseScene }
+
+// ── R3 场景：FIFO 渲染队列（渲染中多次 render 触发——串行全执行） ─────
+// 触发：点击「触发 5 次」→ 同步循环 5× render()（第 1 次进入 runRender
+//（rendering）——其余 4 次入队）——FIFO 串行——log 记录每次渲染调用序
+//（首帧 1 + 5 = [1..6]——顺序 + 全部执行 + 无合并歧义）
+// **队列延续（P1 修复）也在此验证**：错误后队列不丢弃（本场景无错误——
+// 由 e2e-20 熔断场景验证）
+const FifoScene = (_init: Record<string, never>, ctx: any) => {
+  const log: number[] = []
+  return () => {
+    log.push(log.length + 1)
+    return h('div', { class: 'fifo-scene' }, [
+      h('div', { id: 'fifo-log' }, log.join(',')),
+      h('button', {
+        id: 'fifo-fire',
+        onClick: () => { for (let i = 0; i < 5; i++) { void ctx.render() } },
+      }, '触发 5 次'),
+    ])
+  }
+}
+const FIFO = { id: 'fifo-render', title: '渲染队列 FIFO（渲染中多次触发——串行全执行）', render: FifoScene }
+
+// ── R3 场景：redirect 消费（302 + Location → replaceState + 渲染目标） ──
+// 路由级场景（main.tsx 注册 /scenario/redirect-origin → 302 到 target）——
+// serve 消费：不渲染空响应——replaceState + 渲染目标 URL——用户无感知
+const RedirectTarget = (_init: Record<string, never>, _ctx: any) => () =>
+  h('div', { id: 'redirect-ok', class: 'redirect-scene' }, '重定向目标页')
+const REDIRECT = { id: 'redirect-target', title: 'redirect 目标（302 消费——replaceState + 渲染）', render: RedirectTarget }
+
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
@@ -1657,6 +1720,9 @@ export const scenarios: Scenario[] = [
   DWAS,
   DTYS,
   RCS,
+  FUSE,
+  FIFO,
+  REDIRECT,
 ]
 
 export function findScenario(id: string): Scenario | undefined {

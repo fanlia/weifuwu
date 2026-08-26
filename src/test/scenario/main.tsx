@@ -19,6 +19,11 @@ for (const s of scenarios) {
     (ctx as { stream: (vnode: unknown) => Response }).stream(h(s.render, {})),
   )
 }
+// redirect 时序（R3——serve 消费 302 + Location → replaceState + 渲染目标——
+// 渲染重定向目标页（target=redirect-target 场景）
+router.get('/scenario/redirect-origin', () =>
+  new Response(null, { status: 302, headers: { Location: '/scenario/redirect-target' } }),
+)
 
 // 中间件注入面（i18n——场景组件经 ctx.i18n 消费）
 const i18nState = i18n({
