@@ -21,7 +21,7 @@ export const Community: Component = async (_init: any, _ctx: any) => {
       </div>
 
       {list.length === 0 ? (
-        <div class="wf-surface wf-border wf-rounded-md">
+        <div class="wf-surface wf-surface--flat wf-border wf-rounded-md">
           <EmptyState text="暂无收录" hint="期待你的第一个组件——提交 PR 后收录于此">
             <a class="wf-btn wf-btn--sm" href="https://github.com/weifuwu/weifuwu/issues/new?template=component-request.md" target="_blank">
               提交组件提案
@@ -31,7 +31,7 @@ export const Community: Component = async (_init: any, _ctx: any) => {
       ) : (
         <div class="wf-stack wf-gap-sm">
           {list.map((c) => (
-            <div key={c.id} class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs">
+            <div key={c.id} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs">
               <div class="wf-row wf-between">
                 <b class="wf-text-base">{c.name} <span class="wf-text-xs wf-text-tertiary">by {c.author}</span></b>
                 <a class="wf-text-xs wf-text-primary" href={c.url} target="_blank" style="text-decoration:none">源码 →</a>
@@ -44,7 +44,7 @@ export const Community: Component = async (_init: any, _ctx: any) => {
       )}
 
       {/* 提交指引（与内置组件同标——scaffold 起步） */}
-      <div class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
+      <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
         <b class="wf-text-base">📋 如何收录你的组件</b>
         <div class="wf-stack wf-gap-xs wf-text-sm">
           <div>1. <code class="wf-text-primary">node .pi/skills/weifuwu-dev/scripts/scaffold.mjs component &lt;Name&gt;</code> 起步（三件套自动生成）</div>

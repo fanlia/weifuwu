@@ -916,7 +916,7 @@ export const DemoSortableList: Component = async (_props, ctx) => {
         keyField="id"
         onReorder={(next: any) => { items = next; ctx.render() }}
         renderItem={(it: any) => (
-          <div class="wf-surface wf-border wf-rounded-sm wf-p-sm wf-row wf-between">
+          <div class="wf-surface wf-surface--flat wf-border wf-rounded-sm wf-p-sm wf-row wf-between">
             <span class="wf-text-sm">≡ {it.name}</span>
             <span class="wf-text-xs wf-text-tertiary">{it.id}</span>
           </div>

@@ -44,7 +44,7 @@ function makeDomainPages(cfg: DomainCfg) {
             {g && <b class="wf-text-base wf-border-b wf-pb-xs">{cfg.groupTitle ? cfg.groupTitle(g) : g}</b>}
             <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,300px),1fr));--wf-gap:12px">
               {items.map((it) => (
-                <a key={it.id} href={`/${cfg.domain}/${it.id}`} class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
+                <a key={it.id} href={`/${cfg.domain}/${it.id}`} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
                   <b class="wf-text-base">{cfg.itemTitle(idx, it.id)}</b>
                   <span class="wf-text-xs wf-text-secondary">{cfg.itemDesc(idx, it.id)}</span>
                   {cfg.itemTags && cfg.itemTags(idx, it.id).length > 0 && (
@@ -86,7 +86,7 @@ function makeDomainPages(cfg: DomainCfg) {
           </div>
         </div>
         {cfg.extraRender?.(initProps.id)}
-        <div class="wf-surface wf-border wf-rounded-md wf-p-md">
+        <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md">
           <Markdown content={md} />
         </div>
       </div>

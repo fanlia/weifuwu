@@ -25,7 +25,7 @@ export const AdminEmbed: Component = async (_init: any, _ctx: any) => {
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-text-xs wf-text-secondary">← 活体运行（AppShell 多页 + Table/StatCard——数据来自 MemorySql）</div>
-      <div class="wf-surface wf-border wf-rounded-md wf-p-md" style="min-height:380px" ref={embedRef} />
+      <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md" style="min-height:380px" ref={embedRef} />
       <div class="wf-text-xs wf-text-tertiary">
         源码：<a href="/src/examples/apps/admin/app.tsx" target="_blank">app.tsx</a> · <a href="/src/examples/apps/admin/api.ts" target="_blank">api.ts</a>
       </div>

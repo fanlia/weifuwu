@@ -101,7 +101,7 @@ function DemoCard(initProps: { title: string; desc: string; code: string; childr
   let copied = false
   // §3.1 纪律：renderFn 用渲染期 props（最新）——mount 捕获的 initProps 不得用于渲染
   return (props: { title: string; desc: string; code: string; children: any }) => (
-    <div class="wf-surface wf-border wf-rounded-md wf-clip" id={cardId(props.title)}>
+    <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-clip" id={cardId(props.title)}>
       <h3 class="wf-text-base wf-text-semibold wf-p-md wf-bg-secondary wf-border-b wf-m-0">{props.title}</h3>
       <div class="wf-p-md wf-row wf-gap-sm wf-cluster wf-border-b wf-scroll">{props.children}</div>
       <div class="wf-px-md wf-py-sm wf-text-xs wf-text-secondary">{props.desc}</div>
@@ -162,7 +162,7 @@ const DemoLabel: Component = async () => async () => (
 )
 
 const DemoAspectRatio: Component = async () => async () => (
-  <div class="wf-surface wf-border wf-rounded-md">
+  <div class="wf-surface wf-surface--flat wf-border wf-rounded-md">
     <AspectRatio ratio={16 / 9}>
       <div class="wf-center wf-text-secondary wf-bg-tertiary">16:9 容器</div>
     </AspectRatio>
@@ -263,7 +263,7 @@ const DemoAffix: Component = async () => async () => (
     {/* offsetTop=0：Affix 块滑出视窗顶部后才固定（scrollY >= 块文档位置）——
         offsetTop>0 则提前吸附（块距顶 offsetTop 时固定，antd 语义） */}
     <Affix offsetTop={0}>
-      <div class="wf-surface wf-border wf-rounded-md wf-px-md wf-py-sm wf-row wf-gap-md wf-text-sm">
+      <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-px-md wf-py-sm wf-row wf-gap-md wf-text-sm">
         <a href="#affix-demo" class="wf-text-primary">锚点一</a>
         <a href="#affix-demo" class="wf-text-secondary">锚点二</a>
         <a href="#affix-demo" class="wf-text-secondary">锚点三</a>
@@ -289,7 +289,7 @@ const DemoAnchor: Component = async (_props, ctx) => {
           </div>
         ))}
       </div>
-      <div class="wf-surface wf-border wf-rounded wf-p-md" style="width: 140px; position: sticky; top: 16px">
+      <div class="wf-surface wf-surface--flat wf-border wf-rounded wf-p-md" style="width: 140px; position: sticky; top: 16px">
         <Anchor items={sections.map(s => ({ href: `#${s.id}`, title: s.title }))}
           activeKey={active} onAnchorChange={h => { active = h; ctx.render() }} />
         <div class="wf-text-xs wf-text-secondary wf-mt-sm">滚动页面跟随高亮</div>
@@ -304,7 +304,7 @@ const DemoContextMenu: Component = async () => async () => (
     { key: 'copy', label: '复制' },
     { key: 'delete', label: '删除', variant: 'danger', onClick: () => alert('删除') },
   ]}>
-    <div class="wf-surface wf-border wf-rounded-md wf-p-lg wf-text-center wf-text-secondary">右键点击此区域</div>
+    <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-lg wf-text-center wf-text-secondary">右键点击此区域</div>
   </ContextMenu>
 )
 
@@ -444,7 +444,7 @@ const DemoInfiniteScrollRetry: Component = async (_props, ctx) => {
             loading = false; ctx.render()
           }, 800)
         }}>
-        {items.map(it => <div class="wf-surface wf-border wf-rounded-md wf-p-sm wf-mb-xs">{it}</div>)}
+        {items.map(it => <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-sm wf-mb-xs">{it}</div>)}
         {failed && <div class="wf-text-sm wf-text-error wf-mb-xs">加载失败——再次滚动重试</div>}
       </InfiniteScroll>
     </div>
@@ -512,7 +512,7 @@ const DemoCarousel: Component = async () => async () => (
 )
 
 const DemoResizable: Component = async () => async () => (
-  <div class="wf-surface wf-border wf-rounded-md" style="height: 160px">
+  <div class="wf-surface wf-surface--flat wf-border wf-rounded-md" style="height: 160px">
     <Resizable defaultSize={180}>
       {[<div class="wf-p-md wf-text-sm wf-text-secondary">左面板（拖拽分隔条）</div>, <div class="wf-p-md wf-text-sm wf-text-secondary">右面板</div>] as any}
     </Resizable>
@@ -533,7 +533,7 @@ const DemoCalendar: Component = async (_props, ctx) => {
 
 const DemoWatermark: Component = async () => async () => (
   <Watermark text="weifuwu 内部资料">
-    <div class="wf-surface wf-border wf-rounded-md wf-p-xl wf-text-center wf-text-secondary">水印覆盖内容区</div>
+    <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-xl wf-text-center wf-text-secondary">水印覆盖内容区</div>
   </Watermark>
 )
 

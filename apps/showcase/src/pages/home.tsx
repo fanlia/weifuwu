@@ -49,7 +49,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
           </div>
           {/* 流式代码行（可解释表面：命令即所得） */}
           <div>
-            <div class="wf-surface wf-border wf-rounded-md wf-text-xs" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin-inline:auto;padding:12px 16px;background:var(--wf-color-bg)">
+            <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-text-xs" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin-inline:auto;padding:12px 16px;background:var(--wf-color-bg)">
               <div><span class="wf-text-primary">$</span> npx weifuwu docs</div>
               <div class="wf-text-tertiary">→ http://localhost:4000 · 文档站已就绪（{idx.counts.components} 组件 · {idx.counts.guides} 指南）</div>
               <div><span class="wf-text-primary">$</span> node server.ts</div>
@@ -63,7 +63,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
               ['流 · 进行态语言', '加载是流动的进行态——流式渐显 / thinking 脉冲 / 进度透明'],
               ['明 · 可解释表面', '状态链完整可推导——数据身份可见（data-wf-key / data-wf-id 落 DOM）'],
             ].map(([t, d]) => (
-              <div key={t} class="wf-surface wf-border wf-rounded-md wf-p-sm">
+              <div key={t} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-sm">
                 <b class="wf-text-sm wf-text-primary">{t}</b>
                 <p class="wf-text-xs wf-text-secondary wf-m-0 wf-mt-xs">{d}</p>
               </div>
@@ -89,7 +89,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
           { path: '/capabilities', name: '框架能力', num: idx.counts.capabilities, desc: '框架怎么工作——平台自证', icon: 'code' },
           { path: '/guides', name: '指南', num: idx.counts.guides, desc: '选型 / 质量标准 / 学习路径', icon: 'book' },
         ].map((d) => (
-          <a key={d.path} href={d.path} class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
+          <a key={d.path} href={d.path} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
             <span class="wf-text-2xl wf-text-bold wf-text-primary" style="font-family:var(--wf-font-mono)">{d.num}</span>
             <b class="wf-text-base">{d.name}</b>
             <span class="wf-text-xs wf-text-secondary">{d.desc}</span>
@@ -105,7 +105,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
         <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,220px),1fr));--wf-gap:10px">
           {idx.needs.map((n) => (
             <a key={n.id} href={n.template ? `/apps/${n.template}` : n.patterns[0] ? `/patterns/${n.patterns[0]}` : `/components`}
-              class="wf-surface wf-border wf-rounded-md wf-p-sm wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
+              class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-sm wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
               <b class="wf-text-sm">{n.name}</b>
               <span class="wf-text-xs wf-text-secondary">{n.desc}</span>
               <span class="wf-text-xs wf-text-tertiary">{n.components.slice(0, 3).join(' · ')}…</span>
@@ -121,7 +121,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
         </div>
         <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,240px),1fr));--wf-gap:10px">
           {idx.cases.map((c) => (
-            <div key={c.id} class="wf-surface wf-border wf-rounded-md wf-p-sm wf-stack wf-gap-xs">
+            <div key={c.id} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-sm wf-stack wf-gap-xs">
               <div class="wf-row wf-between">
                 <b class="wf-text-sm">{c.name}</b>
                 <span class="wf-text-xs wf-text-tertiary">{c.type === 'production' ? '🏭 生产级' : c.type === 'showcase' ? '✨ 自举' : '📦 模板'}</span>
@@ -131,14 +131,14 @@ export const Home: Component = async (_init: any, ctx: any) => {
               {c.url && <a class="wf-text-xs wf-text-primary" href={c.url} target="_blank" style="text-decoration:none">查看 →</a>}
             </div>
           ))}
-          <a href="/community" class="wf-surface wf-border wf-rounded-md wf-p-sm wf-stack wf-gap-xs" style="text-decoration:none;color:inherit;border-style:dashed">
+          <a href="/community" class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-sm wf-stack wf-gap-xs" style="text-decoration:none;color:inherit;border-style:dashed">
             <b class="wf-text-sm wf-text-primary">+ 社区组件</b>
             <span class="wf-text-xs wf-text-secondary">外部贡献收录——你的第一个组件从这里开始</span>
           </a>
         </div>
       </div>
 
-      <div class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
+      <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
         <b>⚡ 快速开始（四步走）</b>
         <div class="wf-cluster wf-gap-sm">
           {[

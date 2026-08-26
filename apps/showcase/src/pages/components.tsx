@@ -58,7 +58,7 @@ export const ComponentsIndex: Component = async (_init: any, ctx: any) => {
             <div class="wf-text-xs wf-text-secondary">匹配 {all.length} 个组件</div>
             <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,300px),1fr));--wf-gap:12px">
               {all.map((c) => (
-                <a key={c.id} href={`/components/${c.category}/${c.id}`} class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
+                <a key={c.id} href={`/components/${c.category}/${c.id}`} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
                   <b class="wf-text-base">{c.name} <span class="wf-text-xs wf-text-tertiary">· {c.category}</span></b>
                   <span class="wf-text-xs wf-text-secondary">{c.desc}</span>
                   <span class="wf-cluster wf-gap-xs">{FamilyTag(c.family)}</span>
@@ -72,7 +72,7 @@ export const ComponentsIndex: Component = async (_init: any, ctx: any) => {
               const list = idx.components.filter((c) => c.category === id)
               if (!list.length) return null
               return (
-                <a key={id} href={`/components/${id}`} class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
+                <a key={id} href={`/components/${id}`} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
                   <span class="wf-text-2xl wf-text-bold wf-text-primary" style="font-family:var(--wf-font-mono)">{list.length}</span>
                   <b>{name}</b>
                   <span class="wf-text-xs wf-text-secondary">{list.slice(0, 4).map((c) => c.name).join(' · ')}…</span>
@@ -113,7 +113,7 @@ export const CategoryPage: Component = async (initProps: any, ctx: any) => {
         </div>
         <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,300px),1fr));--wf-gap:12px">
           {list.map((c) => (
-            <a key={c.id} href={`/components/${cat}/${c.id}`} class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
+            <a key={c.id} href={`/components/${cat}/${c.id}`} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
               <b class="wf-text-base">{c.name}</b>
               <span class="wf-text-xs wf-text-secondary">{c.desc}</span>
               <span class="wf-cluster wf-gap-xs">
@@ -137,6 +137,7 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
   let category = ''
   let hasDemo = false
   let compTags: string[] = []
+  let compDesc = ''
   let isVariant = false
   let compFamily: string | null = null
   let variantDemo: string | null = null
@@ -148,6 +149,7 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
     name = comp?.name ?? id
     category = comp?.category ?? 'others'
     compTags = comp?.tags ?? []
+    compDesc = comp?.desc ?? ''
     compFamily = comp?.family ?? null
     // 变体聚合：变体 id → 渲染主组件页 + 变体 demo 突出（一页一组件心智）
     if (comp?.variantOf) {
@@ -179,9 +181,10 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
           <a href="/components" style="color:inherit">组件</a> › <a href={`/components/${category}`} style="color:inherit">{category}</a> › {name}
         </div>
         <div class="wf-stack wf-gap-sm">
-          <div class="wf-row wf-between">
+          <div class="wf-row wf-between" style="--wf-align:flex-start">
             <div class="wf-stack wf-gap-xs">
-              <h1 class="wf-text-2xl wf-m-0">{name}</h1>
+              <h1 class="wf-text-3xl wf-m-0">{name}</h1>
+              {compDesc && <div class="wf-text-sm wf-text-secondary wf-m-0">{compDesc}</div>}
               {(compTags.length > 0 || compFamily) && (
                 <div class="wf-cluster wf-gap-xs">
                   {FamilyTag(compFamily)}
@@ -189,17 +192,27 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
                 </div>
               )}
             </div>
-            <a class="wf-btn wf-btn--sm" href={`/content/components/${initProps.id}.md`} target="_blank">原始 .md（LLM）</a>
+            <div class="wf-row wf-gap-xs">
+              <a class="wf-btn wf-btn--sm" href={`/content/components/${initProps.id}.md`} target="_blank">原始 .md（LLM）</a>
+            </div>
           </div>
           {hasDemo && Demo && (
-            <div class="wf-surface wf-border wf-rounded-md wf-p-md">
-              <div class="wf-text-xs wf-text-secondary wf-mb-sm">← 活体 demo（可交互）{isVariant ? ' · 当前为变体视图' : ''}</div>
-              <Demo />
+            <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-stack" style="--wf-gap:0;overflow:hidden">
+              {/* 舞台标题栏：品牌圆点 + 标签——分隔线（细边框美学） */}
+              <div class="wf-row wf-between wf-px-md wf-py-sm wf-border-b">
+                <span class="wf-cluster wf-gap-xs wf-text-xs wf-text-secondary">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--wf-color-primary);display:inline-block"></span>
+                  活体 demo（可交互）{isVariant ? ' · 当前为变体视图' : ''}
+                </span>
+              </div>
+              <div class="wf-p-md wf-stack wf-gap-md" style="min-height:220px;background:var(--wf-color-bg)">
+                <Demo />
+              </div>
             </div>
           )}
           {/* 变体聚合：主组件页列出全部使用方式（变体区块） */}
           {variantsOf.length > 0 && (
-            <div class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
+            <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
               <div class="wf-text-xs wf-text-secondary">本组件的不同使用方式（{variantsOf.length} 个变体）：</div>
               <div class="wf-cluster wf-gap-xs">
                 {variantsOf.map((v) => (
@@ -210,7 +223,7 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
           )}
         </div>
         {/* 文档正文 = content/.md 渲染（与 LLM 读的同一份） */}
-        <div class="wf-surface wf-border wf-rounded-md wf-p-md">
+        <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md">
           <Markdown content={md} />
         </div>
       </div>

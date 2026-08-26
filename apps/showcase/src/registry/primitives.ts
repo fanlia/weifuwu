@@ -1,5 +1,5 @@
 /**
- * 布局原语族表——按族分组（66 原语 + 156 工具类 → 20 族）。
+ * 布局原语族表——按族分组（66 原语 + 157 工具类 → 20 族）。
  * 计数与 scripts/layout-inventory.mjs 同源（style-audit 断言零漂移）。
  */
 import type { PrimitiveFamily } from './types.ts'
@@ -22,7 +22,7 @@ export const primitives: PrimitiveFamily[] = [
   { id: 'anchor', name: '锚点定位', cssFile: '_anchor.css', kind: 'primitive', desc: 'wf-anchor（锚定定位——fixed 相对容器）', classes: ['wf-anchor'] },
   { id: 'align', name: '对齐', cssFile: '_align-self.css', kind: 'primitive', desc: 'align-self 系列（stretch/start/end/center——单元格对齐）', classes: ['wf-stretch', 'wf-align-self-start'] },
   { id: 'spacing', name: '间距工具', cssFile: '_spacing.css', kind: 'utility', desc: '90 个 p/m/gap 类——刻度阶梯（--wf-space-*）', classes: ['wf-p-md', 'wf-m-0', 'wf-gap-sm', 'wf-gap-lg'] },
-  { id: 'surface', name: '表面工具', cssFile: '_surface.css', kind: 'utility', desc: '19 个背景/圆角/边框类（卡片/表单面）', classes: ['wf-surface', 'wf-bg-secondary', 'wf-rounded-md', 'wf-border-t'] },
+  { id: 'surface', name: '表面工具', cssFile: '_surface.css', kind: 'utility', desc: '20 个背景/圆角/边框类（卡片/表单面；flat 变体=平面表面）', classes: ['wf-surface', 'wf-surface--flat', 'wf-bg-secondary', 'wf-rounded-md', 'wf-border-t'] },
   { id: 'border', name: '边框工具', cssFile: '_border.css', kind: 'utility', desc: '边框/分隔线（wf-border/b/t/l/r）', classes: ['wf-border', 'wf-border-b'] },
   { id: 'text', name: '文本工具', cssFile: '_text.css', kind: 'utility', desc: '42 个字号/字重/颜色/对齐类（-text 语义色变体）', classes: ['wf-text-sm', 'wf-text-bold', 'wf-text-secondary', 'wf-text-primary'] },
 ]
