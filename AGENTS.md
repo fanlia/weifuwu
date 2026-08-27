@@ -65,59 +65,90 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | deep-*（54 组件） | 组件深度交互（表单输入/选择/导航展示/浮层/表单校验/重组件/AI 对话/文件上传——参数行为断言） |
 | style-update / event-guard / open-guard | style 整体替换清空 / 事件非函数 warn / 受控缺回调 warn |
 
-### 已探明契约（测试反向校准——用法红线）
+### 契约分类总表（2026-08 整理——作者纪律 / 机制化 / 架构知识）
 
-1. **keyed 循环移位** = 冲突重建（DOM 重建——组件 `.k{key}` 实例复用状态保持）——环状 id 依赖（流式 remap 必冲突）——顺移才 move
-2. **ref apply 时序**：ref 在 apply 阶段调用——renderFn 读上一拍快照（render-only 语义——显示滞后一拍）
-3. **SSR 吸收**：uiServe 首帧 root 有内容 → DFS 序游标结构对齐复用——mismatch → 原子回退清空重建（无 data-v3-id——纯结构匹配）
-4. **create attrs 不含事件**（函数过滤）——事件经事件表（diff setProp 路径注册——首帧函数也经事件通道）
-5. **style 整体替换**：style 对象 = 组件声明完整样式——applyStyle 先清空旧值（键消失不残留）
-6. **getter/handle 形态纪律（2026-08——hooks getter 化组织）**：会随时间变化的 hook 一律返回 getter（`() => T`——useExternal/useMedia/useBreakpoint）或对象 getter（useTween.value）——**任何位置调用返回最新值——mount 闭包持有永远最新——「必须在 renderFn 内调用」的位置规则在 API 形状不存在**（旧快照形态：契约 6 的 mount 闭包静默失效类整体消灭）——**登记幂等**：按业务 key（query/store 引用）实例级登记——任意位置任意次数调用不重复订阅/监听——createSignal 原语（getter 读 + set/update 写——ExternalStore 兼容——useExternal 同源消费）
-7. **useChat.messages 是数组替换**——ChatHandle 订阅模式（subscribe(cb → ctx.render) + 渲染期读 getter）——handle 形态（一次性资源——mount 期获取长期持有）
-8. **useControlledInput**：onInput 事件（逐键——onChange 映射 change 失焦才触发）——setKeyword 内部态 + setValue 回流
-9. **i18n/ws 无自动渲染**——setLocale 后手动 render——ws handler 是 { open, message } 对象
-10. **事件名映射**：onClick → click、onDoubleClick → doubleclick（非 dblclick）
-11. **create attrs 的 value 必须走 property 通道**：`setAttribute('value')` 对 textarea 无效（IDL 不设——值来自 property/children）——applyAttribute 统一 property（与 innerHTML/textContent 同类）
-12. **useScrollPosition 目标容器必须传 null 而非 window fallback**：`getScroller: () => el ?? window` 首帧 el 未挂载 → 绑定 window——el 后挂载永不重绑（滚动监听失效）——`?? null` 触发重试重绑（VirtualTable 虚拟化不更新实证）
-13. **VirtualTable 排序是字典序**（字符串比较——用户10000 在 用户2 前）——虚拟化滚动容器是 `.wf-virtual-table-body`（外层不滚）；Slider marks 对齐断言必须轮询等布局稳定（全量并发字体/CSS 偶发未稳定）
-14. **命令式弹窗唯一形态**（2027-03 定稿——design/imperative-popup-plan.md）：
-    `ctx.ui.openPopup(opts)` → PopupHandle（toast 心智——调用点构建内容——
-    内核自管理挂载/更新/卸载/销毁）——usePopup/portal()/Portal vnode/
-    removePortal 全部删除——组件输出纯业务（无槽无游离调用）——组件内部
-    句柄同步样板（受控 + 内容更新 + onClose + 卸载清理——~10 行）——
-    **anchor 必传**（无 anchor 时 closeOnOutside 把触发按钮当外部点击关闭
-    → click 又 toggle 重开死循环——portal-toggle 测试挂起实证）
-15. **Slider marks/垂直对齐断言必须 deadline 轮询**（evaluate 快——次数上限
-    不够等字体加载——全量并发偶发——5s 时长上限根治）
-16. **投影维度纪律（FRAG 槽位推进——fuzz 多种子 1200 对实证）**：FRAG vnode
-    声明 1 项但投影占 N 连续槽位——**所有按数组索引 +1 推进的循环（build
-    fragment/array 展开、renderNative children、removeVNodeTree 递归、
-    transitionFragment items、尾部缩短）必须用 slotCount(c) 槽位推进 +
-    最后槽位 ref**——否则 id 覆盖（create 幂等涂改）/节点残留（div root.3
-    幽灵）/顺序错乱（[0,2,3,1]）——slotCount 单一实现源
-    （node/children.ts）
-17. **状态机化验证体系（P1-P5——验收纪律）**：
-    - reconcile.test.ts（契约层 14 测试）：Sim 命令流模拟器（终态等价
-      三面对账 S_DOM/S_EVT/S_INST）+ 共享状态机规格（patch/state-machine.ts
-      ——NodeState 迁移表：create/insert/close/remove/setText/setProp/move/
-      done——Post 违例 throw）+ 多种子 fuzz（42/7/2026 × 400 对零不等价）
-    - e2e-reconcile（场景层 5 测试）：auditDom 真实 DOM 对账（id 唯一/
-      格式/兄弟连续/投影完整）+ dev 模式（window.__WF_DEV__ 注入
-      devVerify——命令消费后 Post 断言 console.error）
-    - **隐式路径纪律**：diffSlot/transitionOf/diffSame 落空分支必须显式
-      Reject（throw）或显式迁移——静默 no-op 是违例（fuzz#79 教训——
-      number↔string 文本交叉落空）
-    - **区间语义纪律**：移除必须按区间（removeVNodeTree——FRAG/数组/组件
-      unmount 全形态）；卸载递归（disposeComponent 前缀）；函数面 diff
-      对称（旧有新无 → setProp undefined 解绑）
+> **整理原则**：契约按「作者是否需要记忆」分类——机制化（红线/守卫/API
+> 形状/契约测试锁定）的条目作者**无需记住**（写错即响）；作者纪律是
+> 机制无法表达的行为约定（测试锁定——踩坑反向校准）；架构知识是机制
+> 原理（排查时参考——非红线）。
 
-18. **空字符串 = 空洞（编码唯一性——2026-08——生成/消费全判定点统一）**：`{cond ? 'x' : ''}` 的 `''` 槽位——客户端 createText('') 生成空文本节点 vs HTML 序列化零输出（同一 children 值两套物理表示）——SSR 吸收文本流错位（把 demo 面 div 当多余节点跳过→ 耗尽 failed → DOM 双份污染——inputnumber 实证）——kindOf 单一实现源统一归空洞（锚注释双端同构）——**判定点统一纪律（events-rebind 实证）**：kindOf 归空洞后 diffSlot 的文本快路径仍用 `typeof === 'string'`（'' 是 string）→ 对锚发 setText（注释节点——无效——span 空文本永驻锚 30s 超时）——**所有「是否文本」判定必须走 kindOf**（build/diff/transform/SSR 四端同构——映射歧义杜绝）——diffSlot 顺序：kindOf text/text → setText；kindOf old=hole → remove+emit（''↔'' 亦走此——锚保持）；异态 → transition（text↔hole 双向已覆盖）
-19. **SSR 吸收文本分裂（2026-08——相邻文本 HTML 合流）**：HTML 序列化把相邻 createText 合并为一个 DOM 文本节点（`' › '` + `'InputNumber'` → `" › InputNumber"`）——命令流两条 createText——absorb.next 前缀匹配 + splitText 分裂（剩余 unshift 回队列）——procCreateText 传目标 value
-20. **SSR ≡ SPA 首帧纪律（showcase——2026-08）**：服务端渲染必须与客户端接管渲染同一棵组件树——uiSsr + 同一 router（app-router.ts 单一实现源）——差异 = 刷新整页跳变（实证：SSR 只有 Markdown、SPA 有面包屑/标题/活体 demo/页脚）——**同实例纪律**：h()/uiSsr 必须同一 bundle 实例（跨实例 Fragment 符号全等断裂 → 文本变空洞锚——非法子节点 type: symbol）——esbuild node bundle（src/ssr.ts 入口）+ data URL 动态 import——失败回退 Markdown-only（SEO 保底）
-21. **demo 渲染路径副作用 SSR 纪律**：渲染函数里 setTimeout/定时器循环类 demo 必须 `typeof window !== 'undefined'` 守卫（SSR ctx 无 render——定时器 = 服务器 unhandled rejection 污染）
-22. **无 key 组件项检测 = 实槽翻转语义（2026-08——条件渲染误报根治）**：条件渲染不产生长度变化（§6.3 占位法——`{cond && <X/>}` 的槽位恒为 false/null 空洞——raw children 同长——同槽位 hole↔comp toggle）——旧实现 `isBizNode` 把 holes 剔除后比较组件序列——空洞 toggle 被伪装成「序列变化」→ 误报（Tour/AuthPage 实证）。精准判定：仅当无 key 组件**占据/让出「非空洞非组件」实槽**（后续项按位置移位 → 重挂 → 状态丢失）才 warn；空洞槽过渡（false/null/undefined ↔ comp——同构不变量——零漂移）与纯尾部追加/删除（越界 = 空洞槽——数据 map 追加——旧组件索引全保持）→ 不报（全库 160 页扫描归零）——**诚实边界**：同类型列表收缩（[doe,jane]→[jane]）与安全删尾部结构同构——无法区分——位置身份语义由作者纪律承担（数据列表必须 key）——警告消息禁止 String(type)（匿名组件源码整段输出——消息不可读）
-23. **Grid Col 重包装 key 保持（2026-08）**：h() 把 key 从 props 剥离进 vnode.key——`{ ...c.props }` 拿不到 key——children.map 重包装（注入 gutter）必须显式 `key: keyOf(c)` 回填——否则用户声明的 Col 身份丢失（A 级检测实证）
-24. **vdom 内部架构：状态机 + 事件流（方案 3 定稿——2026-XX）**：
+#### A 类：作者纪律（必须记忆——机制无法表达——测试锁定）
+
+1. **useControlledInput**：onInput 事件（逐键——onChange 映射 change
+   失焦才触发）——setKeyword 内部态 + setValue 回流（受控输入契约）
+2. **i18n/ws 无自动渲染**——setLocale 后手动 render——ws handler 是
+   { open, message } 对象（非自动驱动）
+3. **useScrollPosition 目标容器必须传 null 而非 window fallback**：
+   `getScroller: () => el ?? window` 首帧 el 未挂载 → 绑定 window——el
+   后挂载永不重绑（滚动监听失效）——`?? null` 触发重试重绑（VirtualTable
+   虚拟化不更新实证——已修组件——仍属陷阱）
+4. **命令式弹窗唯一形态**（2027-03 定稿——design/imperative-popup-plan.md）：
+   `ctx.ui.openPopup(opts)` → PopupHandle（toast 心智——调用点构建内容——
+   内核自管理挂载/更新/卸载/销毁）——usePopup/portal()/Portal vnode/
+   removePortal 全部删除——组件输出纯业务——**anchor 必传**（无 anchor 时
+   closeOnOutside 把触发按钮当外部点击关闭 → click 又 toggle 重开死循环——
+   portal-toggle 测试挂起实证）
+5. **style 整体替换**：style 对象 = 组件声明完整样式——applyStyle 先清空
+   旧值（键消失不残留）——组件写 style 对象即完整声明（非增量）
+
+#### B 类：机制化（红线/守卫/API 形状/契约测试——作者无需记忆）
+
+6. **hook getter 形态**（2026-08——getter 化组织收官）：会随时间变化
+   的 hook 一律 getter（`() => T` 或对象 getter）——任何位置调用返回最新
+   值——「必须在 renderFn 内调用」的位置规则在 API 形状不存在——
+   **登记幂等**（按业务 key 实例级 keyed——任意位置任意次数不重复订阅）
+   ——`createSignal` 原语（getter 读 + set/update 写——ExternalStore 兼容）
+   ——useExternal/useMedia/useBreakpoint/useTween/useScrollPosition/useInView/
+   usePopupPosition/useVisualViewport 全部 getter——useChat/useControlledInput
+   等 handle 形态
+7. **create attrs 不含事件**（函数过滤——事件经事件表）——**harness 契约
+   测试锁定**（InputNumber/Input/Switch 测试断言 attrs.onXxx === undefined）
+8. **value 走 property 通道**（setAttribute 对 textarea 无效——applyAttribute
+   统一 property）——harness 契约锁定（Input value='' 属性面）
+9. **空字符串 = 空洞**（编码唯一性——生成/消费全判定点统一）——**红线
+   机制化**：isHoleKind/isTextKind 单一实现源 + `scripts/audit-core-semantics.mjs`
+   （grep 守卫——违反退出码 1——CI 可挂）——判定点收敛（children/component/
+   output/cleanup 11 处全量迁移——diffSlot typeof 分裂双 bug 机制防线）
+10. **SSR 吸收文本分裂**（相邻文本 HTML 合流——absorb.next 前缀匹配 +
+    splitText 分裂）——核心已修——作者无感知
+11. **SSR ≡ SPA 首帧纪律**（showcase——同树同实例）——app-router.ts
+    buildRouter 单一实现源 + src/ssr.ts（esbuild node bundle——h()/uiSsr
+    同实例——Fragment 符号全等）——失败回退 Markdown-only（SEO 保底）
+12. **渲染路径副作用守卫**（effect guard——DemoProgress 实证机制化）：
+    renderFn 窗口内创建 setTimeout/setInterval → dev warn（含调用链）——
+    浏览器 dev + SSR 恒装（node 服务器保护）——async-guard 栈豁免——
+    工厂期/事件回调期合法——**组件定时器应在工厂期创建 + ctx.ui.hold
+    注册清理**
+13. **无 key 组件项检测 = 实槽翻转语义**（条件渲染误报根治——空洞槽过渡/
+    纯尾部追加零漂移不报——实槽占据/让出才 warn）——检测器逻辑——作者
+    无感知（仅 dev warn 引导——数据列表必须 key 仍是作者纪律）
+14. **Grid Col 重包装 key 保持**——组件已修（key: keyOf(c) 回填）——
+    harness 可锁定（重包装 key 不丢——写同类包装组件时参照）
+
+#### C 类：架构知识 / 测试知识（机制原理——排查参考——非红线）
+
+15. **keyed 循环移位** = 冲突重建（DOM 重建——组件 .k{key} 实例复用
+    状态保持）——环状 id 依赖（流式 remap 必冲突）——顺移才 move
+16. **ref apply 时序**：ref 在 apply 阶段调用——renderFn 读上一拍快照
+    （render-only 语义——显示滞后一拍）
+17. **SSR 吸收机制**：uiServe 首帧 root 有内容 → DFS 序游标结构对齐
+    复用——mismatch → 原子回退清空重建（无 data-v3-id——纯结构匹配）
+18. **事件名映射**：onClick → click、onDoubleClick → doubleclick（非 dblclick）
+19. **keyed 元素 id 空间**：元素 keyed = 位置 id + diff remap（.k{key}
+    仅组件实例空间）——keyed 价值在 diff 移动正确性（Tabs 契约测试锁定）
+20. **投影维度纪律（FRAG 槽位推进）**：FRAG vnode 声明 1 项但投影占 N
+    连续槽位——数组索引 +1 推进的循环必须用 slotCount(c) 槽位推进 +
+    最后槽位 ref——slotCount 单一实现源（node/children.ts）
+21. **状态机化验证体系（P1-P5）**：Sim 命令流模拟器（终态等价三面对账）
+    + devVerify（Post 断言）+ auditDom（真实 DOM 对账）+ fuzz（多种子）——
+    **隐式路径纪律**：diffSlot/transitionOf/diffSame 落空分支必须显式
+    Reject 或显式迁移——静默 no-op 是违例；**区间语义纪律**：移除必须
+    按区间（removeVNodeTree）——命令流完整自足
+22. **VirtualTable 排序是字典序**（字符串比较——用户10000 在 用户2 前）
+    ——虚拟化滚动容器 .wf-virtual-table-body；Slider marks/垂直对齐断言
+    必须 deadline 轮询（字体加载——5s 上限）
+
+23. **vdom 内部架构：状态机 + 事件流（方案 3 定稿——2026-XX）**：
 
     ### 事件流（13 种命令——NDJSON 可序列化——生成端唯一产物）
     create/createText/createAnchor/insert/move/remove/setText/setProp/
