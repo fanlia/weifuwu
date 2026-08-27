@@ -43,9 +43,10 @@ test('deep-inputnumber：受控回流按 step 变化 + min/max 边界', async ()
   const page = await browser.newPage()
   try {
     await openScenario(page, BASE, 'deep-inputnumber')
-    // 初始 4——点击增加 → 值递增（受控回流——每次点击 mousedown+click 双触发——至少 6）
+    // 点击增加一次 → 恰好一步（4→6——pointerdown 长按预判与 click 双步进回归：#点击两次）
     await page.locator('[aria-label="增加"]').click()
     await page.waitForFunction(() => (document.querySelector('.deep-inputnumber-log')?.textContent ?? '').includes('v:6'), 'step=2 递增（4→6）')
+    assert.equal(await page.locator('.deep-inputnumber-log').textContent(), 'v:6;', '单击=单步（无重复步进）')
     // 连续增加 → max 10 边界（不越过）
     for (let i = 0; i < 4; i++) {
       await page.locator('[aria-label="增加"]').click()

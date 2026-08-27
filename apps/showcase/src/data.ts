@@ -20,11 +20,17 @@ export interface IndexJson {
 const mdCache = new Map<string, string>()
 let indexCache: IndexJson | null = null
 
+/** SSR fetch 基址（服务端 uiSsr 渲染——浏览器端为 '' → 相对 URL）
+ *  server.ts 渲染前注入 http://host——自举：自 fetch 自己的 /content/* 端点 */
+export function ssrFetchBase(): string {
+  return ((globalThis as any).__SHOWCASE_SSR_BASE__ as string | undefined) ?? ''
+}
+
 export async function fetchMd(domain: string, id: string): Promise<string> {
   const key = `/content/${domain}/${id}.md`
   const hit = mdCache.get(key)
   if (hit !== undefined) return hit
-  const res = await fetch(key)
+  const res = await fetch(ssrFetchBase() + key)
   if (!res.ok) throw new Error(`文档不存在: ${key}`)
   const text = await res.text()
   mdCache.set(key, text)
@@ -33,7 +39,7 @@ export async function fetchMd(domain: string, id: string): Promise<string> {
 
 export async function fetchIndex(): Promise<IndexJson> {
   if (indexCache) return indexCache
-  const res = await fetch('/content/index.json')
+  const res = await fetch(ssrFetchBase() + '/content/index.json')
   if (!res.ok) throw new Error('index.json 不可用')
   indexCache = (await res.json()) as IndexJson
   return indexCache

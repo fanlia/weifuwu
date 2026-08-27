@@ -32,11 +32,13 @@ export const InputNumber: Component<InputNumberProps> = async (_init, _ctx) => {
   // mount scope：长按连增定时器 + latestStepTo ref（防 render 闭包陈旧）
   let holdTimer: ReturnType<typeof setTimeout> | undefined
   let holdInterval: ReturnType<typeof setInterval> | undefined
+  let holdFired = false // 长按触发过连增——抬起时的 click 不再重复步进
   let latestStepTo: (dir: 1 | -1) => void = () => {}
   const startHold = (dir: 1 | -1) => {
     clearTimeout(holdTimer); clearInterval(holdInterval)
-    latestStepTo(dir) // 首次立即走一步
+    holdFired = false
     holdTimer = setTimeout(() => {
+      holdFired = true
       holdInterval = setInterval(() => latestStepTo(dir), 60)
     }, 500)
   }
@@ -95,7 +97,10 @@ export const InputNumber: Component<InputNumberProps> = async (_init, _ctx) => {
       type: 'button',
       'aria-label': '增加',
       disabled,
-      onClick: () => stepTo(1),
+      onClick: () => {
+        if (holdFired) { holdFired = false; return } // 长按抬起后的 click 不重复步进
+        stepTo(1)
+      },
       onPointerDown: () => startHold(1),
       onPointerUp: stopHold,
       onPointerLeave: stopHold,
@@ -106,7 +111,10 @@ export const InputNumber: Component<InputNumberProps> = async (_init, _ctx) => {
       type: 'button',
       'aria-label': '减少',
       disabled,
-      onClick: () => stepTo(-1),
+      onClick: () => {
+        if (holdFired) { holdFired = false; return } // 长按抬起后的 click 不重复步进
+        stepTo(-1)
+      },
       onPointerDown: () => startHold(-1),
       onPointerUp: stopHold,
       onPointerLeave: stopHold,

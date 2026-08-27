@@ -13,6 +13,7 @@ import assert from 'node:assert/strict'
 import { h, jsx, type VNode, type Component } from '../../client/vdom/core/vnode.ts'
 import { Fragment } from '../../client/vdom/core/node/fragment.ts'
 import { childrenOf } from '../../client/vdom/core/node/children.ts'
+import { kindOf } from '../../client/vdom/core/node/index.ts'
 
 test('h：纯数据 vnode——type/props/key/children 形状', () => {
   const v = h('div', { id: 'x', key: 'k1' }, 'text')
@@ -61,6 +62,17 @@ test('jsx 运行时：React 兼容签名——props.key 与第三参 key 双源'
   assert.equal(b.props.key, undefined, 'props 内 key 同样剥离')
   const c = jsx(Fragment as unknown as string, { children: [h('span', {})] })
   assert.equal(c.props.children.length, 1)
+})
+
+test("kindOf：空字符串 = 空洞（编码唯一性——空文本不可序列化——SSR 吸收错位根因）", () => {
+  // **空字符串归一空洞（2026-08——inputnumber SSR 吸收实证）**：
+  // `{cond ? 'x' : ''}` 的 '' 槽位——客户端 createText('') 空文本节点 vs
+  // HTML 序列化零输出——同一 children 值两套物理表示——吸收文本流错位
+  // （把 demo 面 div 当多余节点跳过 → 耗尽 failed → DOM 双份污染）——
+  // 归空洞（锚注释——双端同构）
+  assert.equal(kindOf(''), 'hole', "'' → hole（不再 text）")
+  assert.equal(kindOf('x'), 'text')
+  assert.equal(kindOf(0), 'text', '数字 0 仍是文本（与 null 区分）')
 })
 
 test('组件两阶段类型：工厂 mount 一次 + renderFn 每次渲染', () => {

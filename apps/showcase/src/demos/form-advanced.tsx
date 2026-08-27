@@ -110,7 +110,10 @@ const DemoProgress: Component = async (_props, ctx) => {
   let pct = 45
   let started = false
   return async (_p: any) => {
-    if (!started) {
+    // **SSR 安全纪律（2026-08）**：渲染路径副作用（tick 定时器）仅在浏览器
+    // 启动——服务端 uiSsr 渲染本 demo——ctx 无 render——定时器会 unhandled
+    // rejection 污染服务器进程
+    if (typeof window !== 'undefined' && !started) {
       started = true
       const tick = () => {
         if (pct >= 100) return

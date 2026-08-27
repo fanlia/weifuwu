@@ -29,6 +29,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readdir, readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { build as esbuild } from 'esbuild'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..', '..') // 仓库根（= 发布根）
@@ -199,11 +200,64 @@ const DOMAIN_TITLES: Record<string, string> = {
   components: '组件', layout: '布局原语', patterns: '页面模式',
   apps: '应用模板', backend: '后端能力', capabilities: '框架能力', guides: '指南',
 }
-async function renderDocPage(domain: string, id: string): Promise<Response> {
+
+/** **SSR/SPA 同一棵树（2026-08——刷新闪烁/滚动跳变根治——inputnumber 实证：
+ *  SSR 只有 Markdown、SPA 有面包屑/标题/活体 demo/页脚——刷新先见文档页、
+ *  加载后整页跳变——用户误判素材丢失）**：esbuild 编译 main.tsx（platform:
+ *  node——与 /app.js 同入口同源码——零手写镜像）→ 动态 import data URL →
+ *  uiSsr 渲器同一 router 同一 handler → 首帧 = SPA 首帧（面包屑/标题/
+ *  demo/页脚同 html——接管零差异）——**原子回退**：整树 SSR 失败（demo 的
+ *  浏览器态缺失等）→ 回退 Markdown-only SSR（SEO 不丢——仅无 demo 首帧） */
+async function loadSsrApp(): Promise<any> {
+  const entry = resolve(__dirname, 'src', 'ssr.ts')
+  // **无缓存（正确性优先——与 /app.js 同策略 2026-12 决策）**：每次请求编译
+  // 最新源码（框架 src + showcase 全部依赖——mtime 只锁入口会漏依赖变更）
+  const result = await esbuild({
+    entryPoints: [entry],
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    write: false,
+    jsx: 'automatic',
+    jsxImportSource: 'weifuwu/vdom',
+  })
+  return await import('data:text/javascript;base64,' + Buffer.from(result.outputFiles[0].text).toString('base64'))
+}
+
+/** SSR fetch 基址（data.ts 自 fetch 本机 /content/* 端点——首次请求缓存） */
+let ssrBase = ''
+function ssrDataBase(req: Request): string {
+  if (!ssrBase) ssrBase = `http://${req.headers.get('host') ?? '127.0.0.1'}`
+  return ssrBase
+}
+
+/** 整树 SSR（同一棵组件树——SSR ≡ SPA 首帧） */
+async function renderFullPage(domain: string, id: string, req: Request): Promise<Response> {
+  ;(globalThis as any).__SHOWCASE_SSR_BASE__ = ssrDataBase(req)
+  const mod = await loadSsrApp()
+  // **同实例纪律**：uiSsr 必须与 h() 同一 bundle 实例（src/ssr.ts——
+  // Fragment 符号全等——跨实例 = 文本变空洞锚）
+  // 渲染实际请求路径（/components/input/inputnumber——category 段由路由承载）
+  const url = new URL(req.url ?? '/', 'http://localhost').pathname
+  const html = await mod.uiSsr(mod.buildRouter(), url, { title: `${id} · ${DOMAIN_TITLES[domain]} — weifuwu showcase` })
+  const head = `<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="weifuwu ${DOMAIN_TITLES[domain]}文档：${id}">
+  ${themeNoFouc}
+  <link rel="stylesheet" href="/components.css">
+  <title>${id} · ${DOMAIN_TITLES[domain]} — weifuwu showcase</title>
+</head>`
+  const doc = html
+    .replace(/<head>[\s\S]*?<\/head>/, head)
+    .replace('</body>', '<script src="/app.js"></script></body>')
+  return new Response(doc, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+}
+
+/** 回退：Markdown-only SSR（整树 SSR 失败时——SEO 保底） */
+async function renderDocOnlyPage(domain: string, id: string): Promise<Response> {
   const file = resolve(contentRoot, domain, `${id}.md`)
-  if (!file.startsWith(contentRoot) || !existsSync(file)) return Response.json({ error: 'not found' }, { status: 404 })
   const md = await readFile(file, 'utf-8')
-  // vdom SSR 管线（renderToStream → commandToHtml 流式）
   const reader = renderToStream(h(Markdown, { content: md })).pipeThrough(commandToHtml()).getReader()
   let body = ''
   while (true) {
@@ -229,16 +283,27 @@ async function renderDocPage(domain: string, id: string): Promise<Response> {
 </html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
 }
 
+async function renderDocPage(domain: string, id: string, req: Request): Promise<Response> {
+  const file = resolve(contentRoot, domain, `${id}.md`)
+  if (!file.startsWith(contentRoot) || !existsSync(file)) return Response.json({ error: 'not found' }, { status: 404 })
+  try {
+    return await renderFullPage(domain, id, req)
+  } catch (e) {
+    console.error(`[showcase] SSR 整树失败（回退 Markdown-only）: ${(e as Error).message ?? String(e)}`)
+    return renderDocOnlyPage(domain, id)
+  }
+}
+
 // ── 文档页 SSR 路由（与 SPA 同 URL——SEO 索引；SPA 接管交互） ──
 for (const domain of DOC_DOMAINS) {
   if (domain === 'components') {
     app.get('/components/:category/:id', async (req: Request, ctx: any): Promise<Response> =>
-      renderDocPage('components', (ctx as any).params.id.replace(/\.md$/, '')))
+      renderDocPage('components', (ctx as any).params.id.replace(/\.md$/, ''), req))
     app.get('/components/:category', async (req: Request, ctx: any): Promise<Response> => {
       // 分类页（如 /components/core）无独立文档——回退 SPA 壳（客户端渲染分类网格）
       const cat = (ctx as any).params.category
       if (existsSync(resolve(contentRoot, 'components', `${cat}.md`))) {
-        return renderDocPage('components', cat)
+        return renderDocPage('components', cat, req)
       }
       return ctx.ui.html`
 <!DOCTYPE html>
@@ -258,7 +323,7 @@ for (const domain of DOC_DOMAINS) {
     })
   } else {
     app.get(`/${domain}/:id`, async (req: Request, ctx: any): Promise<Response> =>
-      renderDocPage(domain, (ctx as any).params.id.replace(/\.md$/, '')))
+      renderDocPage(domain, (ctx as any).params.id.replace(/\.md$/, ''), req))
   }
 }
 

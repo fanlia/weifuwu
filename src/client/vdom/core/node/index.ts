@@ -19,8 +19,16 @@ export type NodeKind =
   | 'text' | 'hole' | 'array' | 'element'
   | 'fragment' | 'component' | 'invalid'
 
-/** 单节点分类（唯一判定点——各消费方共用） */
+/** 单节点分类（唯一判定点——各消费方共用）
+ *  **空字符串 = 空洞（2026-08——编码唯一性——映射歧义歼灭）**：'' 文本
+ *  节点在 DOM 可见性上 = 无——但客户端 createText('') 生成空文本节点、
+ *  HTML 序列化（commandToHtml escapeHtml('') → 空串）不产任何节点——
+ *  同一 children 值两套物理表示——SSR 吸收文本流错位（实证：
+ *  `{cond ? 'x' : ''}` 的 '' 槽位——吸收把整个 demo 面 div 当多余节点
+ *  跳过——inputnumber 页吸收耗尽 failed）——统一归空洞（锚注释——
+ *  双端同构——与 false/null/undefined 同类） */
 export function kindOf(v: VNodeChild): NodeKind {
+  if (v === '') return 'hole'
   if (typeof v === 'string' || typeof v === 'number') return 'text'
   if (isHole(v)) return 'hole'
   if (Array.isArray(v)) return 'array'

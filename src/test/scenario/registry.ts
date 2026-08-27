@@ -41,6 +41,10 @@ const SsrAdopt = (_init: Record<string, never>, ctx: any) => {
       h('input', { class: 'ssr-input', placeholder: '输入' }),
       h('button', { class: 'ssr-btn', onClick: () => { count += 1; ctx.render() } }, `点击 ${count}`),
       h('span', { class: 'ssr-text' }, 'SSR 内容'),
+      // **相邻文本运行（2026-08——HTML 文本合流 vs 命令流分裂回归）**：
+      // 5 条相邻 createText → SSR HTML 合并为 1 个 DOM 文本节点——吸收必须
+      // 前缀分裂（此前整节点消费吞掉后缀 → 耗尽 failed → DOM 污染双份）
+      h('span', { class: 'ssr-textrun' }, ['a', ' › ', 'b', ' / ', 'c']),
       false,
       h('b', { class: 'ssr-bold' }, '粗体'),
     )

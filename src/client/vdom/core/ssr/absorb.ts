@@ -67,8 +67,14 @@ export class AbsorbState {
     this.phase = 'inactive'
   }
 
-  /** 吸收消费（create 族——匹配下一个 SSR 节点——类型不符/耗尽 → 失败） */
-  next(kind: 'element' | 'text' | 'comment', tag?: string): WfNode | null {
+  /** 吸收消费（create 族——匹配下一个 SSR 节点——类型不符/耗尽 → 失败）
+   *  **文本分裂（2026-08——SSR 相邻文本合流实战）**：HTML 序列化会把
+   *  相邻 createText 合并成一个 DOM 文本节点（如 ` › ` + `InputNumber`
+   *  → `" › InputNumber"`）——但客户端命令流是两条 createText——按整节点
+   *  消费会吞掉后缀（后续 next 找不到文本 → 耗尽 failed）→ 前缀匹配 +
+   *  splitText 分裂：剩余部分 unshift 回队列头部——命令流 1:1 对齐
+   *  （procCreateText 传目标 value——prefix 判定） */
+  next(kind: 'element' | 'text' | 'comment', tag?: string, value?: string): WfNode | null {
     // **状态机违例（审计）**：未 begin 的 next ——显式报错（不再静默 null）
     if (this.phase !== 'consuming') {
       console.error(`[vdom] absorb 状态机违例：next 在 ${this.phase} 阶段调用（应 consuming）`)
@@ -81,7 +87,19 @@ export class AbsorbState {
       const ok = kind === 'element'
         ? n.nodeType === 1 && (n as Element).tagName.toLowerCase() === tag
         : kind === 'text' ? n.nodeType === 3 : n.nodeType === 8
-      if (ok) return n as WfNode
+      if (ok) {
+        if (kind === 'text' && value !== undefined) {
+          const t = n as Text
+          const cur = t.textContent ?? ''
+          if (cur !== value && cur.startsWith(value)) {
+            // 前缀命中——分裂：剩余部分成为独立文本节点（紧跟原节点）——
+            // unshift 回队列头部——下一条 createText 继续消费
+            const rem = t.splitText(value.length)
+            q.unshift(rem)
+          }
+        }
+        return n as WfNode
+      }
       // 不匹配节点（SSR 额外内容——如注释/空白文本）——跳过继续
     }
     // 队列耗尽——SSR 内容不足——吸收失败（serve 回退清空重建）

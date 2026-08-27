@@ -77,8 +77,8 @@ export function procCreateText(applier: CommandApplier, cmd: Extract<Command, { 
   if (existing && existing.nodeType === 3) {
     if (existing.textContent !== cmd.value) existing.textContent = cmd.value
   } else if (applier.absorb.queue && !existing) {
-    // SSR 吸收：匹配下一个文本节点——复用
-    const ssrText = applier.absorb.next('text')
+    // SSR 吸收：匹配下一个文本节点（前缀分裂——相邻文本 HTML 合流）——复用
+    const ssrText = applier.absorb.next('text', undefined, cmd.value)
     if (ssrText) {
       if (ssrText.textContent !== cmd.value) ssrText.textContent = cmd.value
       applier.nodes.set(cmd.id, ssrText)

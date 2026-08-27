@@ -111,7 +111,11 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
       unmount 全形态）；卸载递归（disposeComponent 前缀）；函数面 diff
       对称（旧有新无 → setProp undefined 解绑）
 
-18. **vdom 内部架构：状态机 + 事件流（方案 3 定稿——2026-XX）**：
+18. **空字符串 = 空洞（编码唯一性——2026-08）**：`{cond ? 'x' : ''}` 的 `''` 槽位——客户端 createText('') 生成空文本节点 vs HTML 序列化零输出（同一 children 值两套物理表示）——SSR 吸收文本流错位（把 demo 面 div 当多余节点跳过→ 耗尽 failed → DOM 双份污染——inputnumber 实证）——kindOf 单一实现源统一归空洞（锚注释双端同构）——`''` 不再走 text 分支（diff/transform 矩阵自动落 hole 列）
+19. **SSR 吸收文本分裂（2026-08——相邻文本 HTML 合流）**：HTML 序列化把相邻 createText 合并为一个 DOM 文本节点（`' › '` + `'InputNumber'` → `" › InputNumber"`）——命令流两条 createText——absorb.next 前缀匹配 + splitText 分裂（剩余 unshift 回队列）——procCreateText 传目标 value
+20. **SSR ≡ SPA 首帧纪律（showcase——2026-08）**：服务端渲染必须与客户端接管渲染同一棵组件树——uiSsr + 同一 router（app-router.ts 单一实现源）——差异 = 刷新整页跳变（实证：SSR 只有 Markdown、SPA 有面包屑/标题/活体 demo/页脚）——**同实例纪律**：h()/uiSsr 必须同一 bundle 实例（跨实例 Fragment 符号全等断裂 → 文本变空洞锚——非法子节点 type: symbol）——esbuild node bundle（src/ssr.ts 入口）+ data URL 动态 import——失败回退 Markdown-only（SEO 保底）
+21. **demo 渲染路径副作用 SSR 纪律**：渲染函数里 setTimeout/定时器循环类 demo 必须 `typeof window !== 'undefined'` 守卫（SSR ctx 无 render——定时器 = 服务器 unhandled rejection 污染）
+22. **vdom 内部架构：状态机 + 事件流（方案 3 定稿——2026-XX）**：
 
     ### 事件流（13 种命令——NDJSON 可序列化——生成端唯一产物）
     create/createText/createAnchor/insert/move/remove/setText/setProp/
@@ -285,6 +289,9 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | | **keyedId key 转义（key 注入防御——证明审计发现）**：compId 直接拼接 key——key 含 '.'（数据 id 'a.b'）与 'ka' 产生前缀关系——disposeComponent/remapSubtree 的 startsWith 前缀匹配误删兄弟实例（unmount root.0.ka 误删 root.0.ka.b——状态丢失 + onUnmounts 错乱——实证）——统一转义（'%'→'%25' 先行、'.'→'%2E'——互不碰撞）——build/diff/cleanup 5 生成点单一实现源 | keyed 组件（任意字符 key——用户数据 id） |
 | | **removalParent 清理 parent 语义（G10——证明审计——sink 特判对齐）**：removeVNodeTree 的 parent 参数 = 渲染时 sink parent——五处错位实证（fuzz 生成器盲区——组件输出项从未带 key）：① 数组分支传槽位父（应传 base=compId）② 组件输出 keyed 组件——transitionComponent/diffSame 顶层传槽位父 ③ 组件输出 Fragment 含 keyed 组件——组件分支递归传 compId（应传槽位父——base 父路径推导）④ emitWithKey 输出收缩缺 oldCompId——unmount/区间清理跳过（实例残留 + 单锚 remove）⑤ emitWithKey 对照分支 keyed 输出组件——diffSame 按槽位 id 查 rec 落空（工厂重跑 + 旧 rec 残留 + id 空间错位）——统一 removalParent（组件/数组→compId；Fragment→槽位父）+ 收缩补 oldCompId + 对照分支 keyed 递归 emitWithKey——G10 五测试锁定 | 组件输出（keyed 子项/收缩/嵌套组件输出） |
 | | **可变输出 id 空间（G11——证明审计——输出形态基线）**：组件输出单元素挂槽位（slotId）；空洞/数组/组件输出挂 compId.0 起——diffComponentOutput 的转换 oldId 曾统一用 outId（新输出 sink 参数——数组/空洞输出时 p=compId、i=0——对旧输出错位）——可变输出（div→数组/收缩/展开）实证：旧 div 保留 + 锚插入 + 实例残留——修复：oldBase 按旧输出形态计算（slotId/compId.0）+ emitWithKey 内联 sink 替换为 diffComponentOutput（消双实现——输出对照单一实现源）+ oldOut 提前取（renderComponent 先更新 lastOutput 再调 sink——回调内求值拿到新输出——G10④ 回归教训）——G11 四形态切换锁定 | 组件状态变化（条件渲染/加载态切换） |
+| | **空字符串 = 空洞（编码唯一性——2026-08）**：`''` 文本节点与无物两套物理表示（客户端 createText('') 空文本 vs HTML 序列化零输出）——SSR 吸收错位根因（inputnumber 实证：`{cond?'x':''}` 槽位 → 吸收把 demo 面 div 跳过 → 耗尽 failed → DOM 双份污染）——kindOf 单一实现源归空洞（锚双端同构——diff/transform 自动落 hole 列） | 全部组件/页面（条件渲染空字符串槽位——SSR 页） |
+| | **SSR 吸收文本分裂（2026-08）**：HTML 相邻文本合流（`' › '`+`'InputNumber'` → 单 DOM 文本节点）vs 命令流两条 createText——整节点消费吞后缀 → queue 耗尽 failed——absorb.next 前缀匹配 + splitText 分裂 + 剩余 unshift 回队列（procCreateText 传目标 value） | 全部 SSR 页（相邻文本槽位——面包屑等） |
+| | **SSR ≡ SPA 首帧纪律（showcase——2026-08）**：ssr-header/纯 Markdown SSR 与 SPA Shell+ComponentPage 是两棵不同树——刷新先见文档页/加载后整页跳变（用户实证）——uiSsr + 同一 router（app-router.ts 单一实现源）——**同实例纪律**：h()/uiSsr 同一 esbuild bundle 实例（跨实例 Fragment 符号断裂 → 非法子节点 type: symbol → 文本变空洞锚）——data.ts SSR fetch 基址（自 fetch 本机 /content/*）+ Shell active prop（无 location 全局）+ demo 渲染路径副作用 window 守卫——失败回退 Markdown-only（SEO 保底） | showcase 全部文档页（SSR 首帧 = SPA 首帧——零闪烁） |
 | **组件层** | Slider renderFn 删 popup.refresh（hover 卡死） | Slider 自身（根因是组件在 renderFn 调 refresh——引擎 refresh 语义正确） |
 | | VideoPlayer video ref 时机 + muted IDL（2 bug） | VideoPlayer 自身 |
 | | Tour 视口翻转（placement top 越界） | Tour 自身 |

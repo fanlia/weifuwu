@@ -71,6 +71,12 @@ test('ssr-adopt：首帧复用 SSR DOM（同一节点引用——输入焦点保
     // SSR 首屏内容存在（接管前静态 HTML）
     assert.equal(await page.locator('.ssr-bold').textContent(), '粗体', 'SSR 输出内容存在')
 
+    // **相邻文本运行吸收（前缀分裂——2026-08）**：文本合流后吸收不吞后缀——
+    // 内容完整 + 无重复节点（旧 bug：整节点消费 → 耗尽 failed → 双份 DOM）
+    const runRef = await page.evaluate(() => document.querySelectorAll('.ssr-textrun').length)
+    assert.equal(runRef, 1, '吸收后 .ssr-textrun 唯一（无重复）')
+    assert.equal(await page.locator('.ssr-textrun').textContent(), 'a › b / c', '相邻文本运行完整（前缀分裂对齐）')
+
     // 输入框聚焦 + 输入值——接管后必须保持（同一节点引用——焦点/值不丢）
     await page.click('.ssr-input')
     await page.keyboard.type('你好')
