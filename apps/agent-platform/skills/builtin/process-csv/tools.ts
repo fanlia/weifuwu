@@ -70,8 +70,19 @@ export function createHandlers(ctxProvider: () => Context) {
       const path = String(args.path ?? '')
       if (!path || path.includes('..')) return { ok: false, error: '路径非法（禁止 ..）' }
       const ctx = ctxProvider() as AppCtx
-      const wsRoot = process.env.AGENT_WORKSPACE_ROOT ?? resolve(process.cwd(), 'data/workspaces')
-      const file = join(wsRoot, String((ctx as any).appId ?? 'unknown'), path)
+      // **工作目录解析修复（2026-08——read_csv 失败根因）**：三层模型
+      // 部门 = 工作目录——旧实现 join(wsRoot, appId, path)（**appId 错**）
+      // ——文件实际在 {wsRoot}/{department_id}/——「文件不存在: 订单.csv」
+      // 完全吻合（AI 被迫走 bash ls+cat+python 兜底——4 步流程）——
+      // 用 _toolDepartmentId（agent-runner 工具上下文注入）+ 复用
+      // resolveDepartmentWorkspace（单一实现源——支持自定义路径/默认）
+      const deptId = String((ctx as any)._toolDepartmentId ?? '')
+      if (!deptId) return { ok: false, error: '无部门上下文' }
+      const { resolveDepartmentWorkspace } = await import('../../../src/middleware/workspace.ts')
+      const [dept] = await ctx.sql`SELECT workspace_path FROM departments WHERE id = ${deptId}`
+      const ws = await resolveDepartmentWorkspace(deptId, dept?.workspace_path ?? null, true)
+      if (!ws) return { ok: false, error: '工作目录不可用' }
+      const file = join(ws, path)
       if (!existsSync(file)) return { ok: false, error: `文件不存在: ${path}` }
       const text = readFileSync(file, 'utf-8').slice(0, 200_000)
       const rows = parseCsv(text)
