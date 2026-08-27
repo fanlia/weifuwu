@@ -123,7 +123,6 @@ export function transition(tracker: StateTracker, cmd: Command): string[] {
       // 记录清理由 remove 命令（removePrefix）与 done.full（nodes 层）负责
       break
     }
-    case 'close': break
   }
   return violations
 }
