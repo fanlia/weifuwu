@@ -4,6 +4,19 @@
 > 171 测试 **4 红**；tsc **75 错误**；build script **断链**（ui/main.tsx 已改名
 > v3-main.tsx——esbuild 入口解析失败）；根目录 20+ 计划文档碎片。
 
+> ## ✅ 全部完成（2026-08——实测结果）
+> P0 正确性：F1 token 降频（生产截断 bug）/F2 豁免登记/F3 陈旧 import/
+> F4 测试假设漂移——**180/180 全绿**
+> P1 构建：build script 断链修复——dist 可加载
+> P2 类型：tsc 75→**0**（核心层 4 修复：ctx.route 注入 + Browser.reload +
+> AppShell 显式类型 + key 归一化 jsx 路径——P3 冒烟捕获）
+> P3 运行时：9 页冒烟零 console 错误（keyedId 数字 key 崩修复——级联
+> absorb 违例消失）
+> P4 文档：22 计划归档 docs/archive
+> 
+> **意外收获**：冒烟发现 jsx 显式 key 参数漏归一化（数字 key 渲染中断）——
+> 核心层 bug——上报修复（vdom 单点）
+
 ## 诊断结论（先修根因——非表面）
 
 | # | 失败/缺口 | 根因（已定位） | 等级 |
