@@ -28,12 +28,16 @@ export interface InputNumberProps {
   className?: string
 }
 
-export const InputNumber: Component<InputNumberProps> = async (_init, _ctx) => {
+export const InputNumber: Component<InputNumberProps> = async (_init, ctx) => {
   // mount scope：长按连增定时器 + latestStepTo ref（防 render 闭包陈旧）
   let holdTimer: ReturnType<typeof setTimeout> | undefined
   let holdInterval: ReturnType<typeof setInterval> | undefined
   let holdFired = false // 长按触发过连增——抬起时的 click 不再重复步进
   let latestStepTo: (dir: 1 | -1) => void = () => {}
+  // **hold 资源通道（2026-08）**：unmount 清理挂起定时器（旧无清理——
+  // 组件卸载后 timer 仍 fire → latestStepTo → onChange（卸载后回调——
+  // 静默））——hold 语义：声明的资源在卸载时自动释放
+  ctx.ui.hold(() => { clearTimeout(holdTimer); clearInterval(holdInterval) })
   const startHold = (dir: 1 | -1) => {
     clearTimeout(holdTimer); clearInterval(holdInterval)
     holdFired = false

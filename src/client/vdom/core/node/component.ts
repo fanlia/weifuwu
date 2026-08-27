@@ -158,6 +158,7 @@ export async function renderComponent(
     // ——输入框显示 'undefined'）
     const hookStates = new Map<number, unknown>()
     const hookSeq = { n: 0 }
+    const instData = new Map<unknown, unknown>()
     const instCtx = Object.create(sharedCtx) as UIContext
     instCtx.onUnmount = (fn) => { onUnmounts.push(fn) }
     // hooks 注入面（ctx.ui——env 绑定当前组件实例）
@@ -168,6 +169,7 @@ export async function renderComponent(
       nextHookIndex: () => hookSeq.n++,
       getHookState: <T>(idx: number) => hookStates.get(idx) as T | undefined,
       setHookState: (idx, v) => { hookStates.set(idx, v) },
+      getInstanceData: () => instData,
       scheduleAfterRender: (fn) => sharedCtx.afterRender?.(fn),
       getSharedContext: () => sharedCtx ?? null,
     })

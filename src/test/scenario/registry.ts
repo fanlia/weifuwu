@@ -273,12 +273,13 @@ const UnmountScene = (_init: Record<string, never>, ctx: any) => {
 // ── 场景 12：useExternal（共享状态——跨组件自动重渲染） ────────────────
 const extStore = createStore({ count: 0 })
 const ExtA = (_i: Record<string, never>, ctx: any) => {
-  const s = ctx.ui.useExternal(extStore)
-  return () => h('span', { class: 'ext-a' }, `A:${s.count}`)
+  // **getter 形态**：get() 永远最新——mount 闭包持有安全
+  const readExt = ctx.ui.useExternal(extStore)
+  return () => h('span', { class: 'ext-a' }, `A:${readExt().count}`)
 }
 const ExtB = (_i: Record<string, never>, ctx: any) => {
-  const s = ctx.ui.useExternal(extStore)
-  return () => h('span', { class: 'ext-b' }, `B:${s.count}`)
+  const readExt = ctx.ui.useExternal(extStore)
+  return () => h('span', { class: 'ext-b' }, `B:${readExt().count}`)
 }
 const ExternalScene = (_i: Record<string, never>, ctx: any) =>
   () =>
@@ -288,14 +289,14 @@ const ExternalScene = (_i: Record<string, never>, ctx: any) =>
       h('button', { class: 'ext-inc', onClick: () => extStore.update((s) => { s.count += 1 }) }, '+1'),
     )
 
-// ── 场景 13：useMedia（媒体查询——视口变化自动重渲染） ──────────────────
-// hooks 契约：useMedia 返回快照（非 getter）——必须在 renderFn 内调用
-// （每次渲染重新读——change → requestRender → renderFn 重跑 → 新快照）
-const MediaScene = (_init: Record<string, never>, ctx: any) =>
-  () => {
-    const isNarrow = ctx.ui.useMedia('(max-width: 700px)')
-    return h('div', { class: 'media-scene' }, h('span', { class: 'media-state' }, isNarrow ? '窄' : '宽'))
-  }
+// ── 场景 13：useMedia（媒体查询——getter 形态——任何位置读取最新） ────
+// **getter 契约（2026-08）**：`ctx.ui.useMedia(q)` 返回 `() => boolean`——
+// mount 闭包持有 getter 永远最新（旧快照：必须在 renderFn 内调用——
+// mount 闭包读一次永不更新——契约 6 的静默失效类在 API 形状消灭）
+const MediaScene = (_init: Record<string, never>, ctx: any) => {
+  const isNarrow = ctx.ui.useMedia('(max-width: 700px)') // mount 闭包持有
+  return () => h('div', { class: 'media-scene' }, h('span', { class: 'media-state' }, isNarrow() ? '窄' : '宽'))
+}
 
 // ── 场景 14：usePopup（弹层——portal + 外部点击/Escape 关闭） ──────────
 const PopupScene = (_init: Record<string, never>, ctx: any) => {
@@ -744,12 +745,11 @@ const ControlledScene = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
-// ── 场景 35：useBreakpoint（命名断点——min-width 语义） ────────────────
-const BreakpointScene = (_init: Record<string, never>, ctx: any) =>
-  () => {
-    const bp = ctx.ui.useBreakpoint({ mobile: 0, tablet: 768, desktop: 1024 })
-    return h('div', { class: 'bp-scene' }, h('span', { class: 'bp-name' }, bp))
-  }
+// ── 场景 35：useBreakpoint（命名断点——getter 形态） ──────────────────
+const BreakpointScene = (_init: Record<string, never>, ctx: any) => {
+  const bp = ctx.ui.useBreakpoint({ mobile: 0, tablet: 768, desktop: 1024 }) // mount 闭包持有
+  return () => h('div', { class: 'bp-scene' }, h('span', { class: 'bp-name' }, bp()))
+}
 
 // ── 场景 36：useTween（数值补间——rAF 驱动到目标） ─────────────────────
 const TweenScene = (_init: Record<string, never>, ctx: any) => {

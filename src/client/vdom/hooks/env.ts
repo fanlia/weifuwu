@@ -10,6 +10,7 @@
  */
 
 import type { ExternalStore } from '../store.ts'
+import { createSignal } from '../store.ts'
 import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
 import { usePopupPosition } from './popup.ts'
 import { openPopup, type PopupHandle, type PopupOpenOptions } from './popup-manager.ts'
@@ -32,16 +33,36 @@ export interface HookEnv {
   nextHookIndex(): number
   getHookState<T>(idx: number): T | undefined
   setHookState<T>(idx: number, v: T): void
+  /** **实例级 keyed 登记（2026-08——getter 化 hooks）**：按业务 key 幂等——
+   *  不依赖调用顺序（useMedia/useExternal 可在任意位置任意次数调用——
+   *  订阅注册幂等按 key——「调用位置规则」在 API 形状上不存在） */
+  getInstanceData(): Map<unknown, unknown>
   /** 渲染完成后回调（挂载后动作——目标元素已就绪） */
   scheduleAfterRender(fn: () => void): void
   /** 共享 ctx（portal 独立通道——浮层内容组件继承 sharedCtx 独立实例） */
   getSharedContext(): import('../context/UIContext.ts').UIContext | null
 }
 
-/** hooks 注入面（ctx.ui） */
+/** hooks 注入面（ctx.ui）
+ *
+ * **getter 化纪律（2026-08——返回值形态 = 语义的载体）**：
+ * - `() => T`（getter）：会随时间变化——**任何位置调用返回最新值**——
+ *   mount 闭包持有永远最新——不存在「调用位置规则」（useExternal/
+ *   useMedia/useBreakpoint——旧快照形态的静默失效类）
+ * - `{...}`（handle）：一次性创建的资源/服务——mount 期获取长期持有
+ * - 直接值：纯计算/常量
+ * - **登记幂等**：getter 类 hook 按业务 key 登记（不依赖调用顺序）——
+ *   任意位置任意次数调用不重复订阅/监听 */
 export interface Ui {
-  /** 共享状态订阅（store 变化 → 组件重渲染——unmount 自动退订） */
-  useExternal<T>(store: ExternalStore<T>): T
+  /** 共享状态订阅（**getter 形态**——`get()` 永远最新——store 变化 →
+   *  组件重渲染——unmount 自动退订——订阅幂等（重复调用不重复订阅）） */
+  useExternal<T>(store: ExternalStore<T>): () => T
+  /** 响应式信号（顶层 createSignal——getter 读 + set/update 写 + 订阅——
+   *  useExternal 同源消费（Signal 兼容 ExternalStore）） */
+  signal<T>(initial: T): import('../store.ts').Signal<T>
+  /** 资源注册（**hold 语义**：声明的资源在组件卸载时自动释放——等价
+   *  onUnmount——推荐名——「我持有的东西，卸载时释放」） */
+  hold(fn: () => void): void
   /** 稳定引用（双形状：容器 { current } / ref 回调 (el) => void——ui-dom 兼容） */
   useStableRef<T>(initial: T | ((el: T | null) => void), cleanup?: () => void): import('./basic.ts').StableRef<T> | ((el: T | null) => void)
   /** 受控/非受控开关（受控缺回调 warn——静默不可用防护——
@@ -70,14 +91,16 @@ export interface Ui {
   useControlledInput(controlled: { value?: string; onChange?: (v: string) => void; name?: string }, opts?: { name?: string }): import('./input.ts').ControlledInput
   /** 拖拽（draggable enumerated + drag 事件——dataTransfer 数据） */
   useDragDrop(opts: import('./drag-media.ts').DragDropOptions): import('./drag-media.ts').DragDrop
-  /** 媒体查询匹配（change 监听 → 重渲染——环境无 matchMedia → 恒 false） */
-  useMedia(query: string): boolean
-  /** 命名断点（min-width 语义——当前匹配的最大宽度断点） */
-  useBreakpoint(breakpoints: Record<string, number>): string
+  /** 媒体查询匹配（**getter 形态**——`match()` 任何时刻最新——变更→
+   *  自动重渲染——注册幂等按 query——任意位置调用） */
+  useMedia(query: string): () => boolean
+  /** 命名断点（min-width 语义——**getter 形态**——`bp()` 当前最大断点） */
+  useBreakpoint(breakpoints: Record<string, number>): () => string
   /** AI 对话会话（流式消息累积——handle 兼容 useExternal 订阅） */
   useChat(opts: import('./chat.ts').ChatOptions): import('./chat.ts').ChatHandle
-  /** 数值补间（rAF + ease + reduced-motion 直落——目标变化自动补间） */
-  useTween(target: number, opts?: TweenOptions): { value: number; reset: (to: number) => void }
+  /** 数值补间（rAF + ease + reduced-motion 直落——目标变化自动补间——
+   *  **对象 getter**：`tween.value` 永远最新——mount 闭包持有安全） */
+  useTween(target: number, opts?: TweenOptions): { readonly value: number; reset: (to: number) => void }
   /** 指针拖拽（pointerdown 捕获 → window move/up 活动期监听——卸载释放） */
   useDrag(options: import('./stable.ts').DragOptions): { onPointerDown: (e: PointerEvent) => void }
   /** 可视视口跟踪（键盘弹起/缩放——vv 不可用 → window resize fallback） */
@@ -89,11 +112,22 @@ export interface Ui {
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
 export function createUi(env: HookEnv): Ui {
   return {
-    useExternal<T>(store: ExternalStore<T>): T {
-      // 订阅——store 变化 → 组件重渲染——unmount 自动退订
-      env.onUnmount(store.subscribe(() => env.requestRender()))
-      return store.state
+    useExternal<T>(store: ExternalStore<T>): () => T {
+      // **getter 形态（2026-08）**：订阅登记幂等（按 store 引用——实例级
+      // keyed——任意位置任意次数调用不重复订阅——mount 闭包持有 getter
+      // 永远最新——旧快照返回的 mount 闭包失效类从 API 形状消灭）
+      const data = env.getInstanceData()
+      let entry = data.get(store) as { unsub?: () => void } | undefined
+      if (!entry) {
+        const unsub = store.subscribe(() => env.requestRender())
+        env.onUnmount(unsub)
+        entry = { unsub }
+        data.set(store, entry)
+      }
+      return () => store.state
     },
+    signal: <T>(initial: T) => createSignal(initial),
+    hold: (fn: () => void) => env.onUnmount(fn),
     useStableRef: <T>(initial: T | ((el: T | null) => void), cleanup?: () => void) =>
       useStableRef(env, initial, cleanup),
     useOpen: (init: boolean, controlled?: { open?: boolean; onOpenChange?: (v: boolean) => void }) =>

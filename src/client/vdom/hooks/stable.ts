@@ -42,16 +42,20 @@ export function useTween(env: HookEnv, target: number, opts?: TweenOptions) {
   if (duration <= 0) {
     // **duration ≤ 0 防护（R5 实证——除零 NaN）**：直落终值（补间语义
     // 在无时长时不成立——跳过 rAF 循环）
-    const handle0 = { value: reduced ? target : target, reset: () => {} }
-    return handle0
+    return { value: target, reset: () => {} }
   }
   const easeFn = opts?.ease === 'linear'
     ? (p: number) => p
     : (p: number) => 1 - Math.pow(1 - p, 3) // easeOutCubic
   let rafId: number | undefined
   let currentTarget = target
+  // **对象 getter（2026-08）**：`handle.value` 读时求值——mount 闭包持有
+  // handle 永远最新（旧快照属性：mount 闭包读一次冻结——StatCard 类
+  // 组件曾依赖 renderFn 重读——getter 化后无位置概念）
+  let value = reduced ? target : 0
   const handle: { value: number; reset: (to: number) => void } = {
-    value: reduced ? target : 0,
+    get value(): number { return value },
+    set value(v: number) { value = v },
     reset: () => {},
   }
   const rerender = (): void => { env.requestRender() }

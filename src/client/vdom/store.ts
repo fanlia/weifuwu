@@ -49,3 +49,40 @@ export function createStore<T>(init: T): ExternalStore<T> {
     notify,
   }
 }
+
+/** 响应式信号（signal 原语——store 的获取器形态归一）
+ *
+ * **设计（2026-08——hooks getter 化组织的底层原语）**：
+ * - 读 = `sig()`（getter 函数——**任何时刻调用都返回最新值**——无快照
+ *   失效概念——mount 闭包持有 signal 永远最新——「调用位置规则」在
+ *   API 形状上不存在）
+ * - 写 = `sig.set(v)` / `sig.update(fn)`（写入 → notify 订阅者）
+ * - 订阅 = `sig.subscribe(cb)`（返回退订——useExternal 自动清理）
+ * - **存储本来就是 ExternalStore**（readonly state + subscribe/set/update/
+ *   notify）——signal 是它的 getter 面向——二者互换（useExternal 同源
+ *   消费——createSignal 结果可直接订阅） */
+export interface Signal<T> {
+  /** 读（getter——永远最新） */
+  (): T
+  /** 合并写（partial → {...state, ...partial}）+ notify */
+  set(partial: Partial<T>): void
+  /** 可变写（fn 原地改 state）+ notify */
+  update(fn: (state: T) => void): void
+  /** 订阅（变化通知——返回退订函数） */
+  subscribe(cb: () => void): () => void
+  /** 手动通知（高频场景由写者控制频率） */
+  notify(): void
+  /** 底层存储（ExternalStore 面——useExternal 等消费） */
+  store: ExternalStore<T>
+}
+
+export function createSignal<T>(init: T): Signal<T> {
+  const store = createStore(init)
+  const sig = ((): T => store.state) as Signal<T>
+  sig.set = (partial) => store.set(partial)
+  sig.update = (fn) => store.update(fn)
+  sig.subscribe = (cb) => store.subscribe(cb)
+  sig.notify = () => store.notify()
+  sig.store = store
+  return sig
+}

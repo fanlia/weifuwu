@@ -72,8 +72,8 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 3. **SSR 吸收**：uiServe 首帧 root 有内容 → DFS 序游标结构对齐复用——mismatch → 原子回退清空重建（无 data-v3-id——纯结构匹配）
 4. **create attrs 不含事件**（函数过滤）——事件经事件表（diff setProp 路径注册——首帧函数也经事件通道）
 5. **style 整体替换**：style 对象 = 组件声明完整样式——applyStyle 先清空旧值（键消失不残留）
-6. **useMedia 返回快照**——必须在 renderFn 内调用（mount 闭包永不更新）——useExternal 是 getter/handle 可 mount（弹窗经 openPopup 命令式——无 hook）
-7. **useChat.messages 是数组替换**——useExternal mount 闭包失效——AiChat 标准模式：subscribe(cb → ctx.render) + 渲染期读 getter
+6. **getter/handle 形态纪律（2026-08——hooks getter 化组织）**：会随时间变化的 hook 一律返回 getter（`() => T`——useExternal/useMedia/useBreakpoint）或对象 getter（useTween.value）——**任何位置调用返回最新值——mount 闭包持有永远最新——「必须在 renderFn 内调用」的位置规则在 API 形状不存在**（旧快照形态：契约 6 的 mount 闭包静默失效类整体消灭）——**登记幂等**：按业务 key（query/store 引用）实例级登记——任意位置任意次数调用不重复订阅/监听——createSignal 原语（getter 读 + set/update 写——ExternalStore 兼容——useExternal 同源消费）
+7. **useChat.messages 是数组替换**——ChatHandle 订阅模式（subscribe(cb → ctx.render) + 渲染期读 getter）——handle 形态（一次性资源——mount 期获取长期持有）
 8. **useControlledInput**：onInput 事件（逐键——onChange 映射 change 失焦才触发）——setKeyword 内部态 + setValue 回流
 9. **i18n/ws 无自动渲染**——setLocale 后手动 render——ws handler 是 { open, message } 对象
 10. **事件名映射**：onClick → click、onDoubleClick → doubleclick（非 dblclick）

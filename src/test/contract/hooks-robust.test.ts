@@ -16,6 +16,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type Server } from 'node:http'
 import type { HookEnv } from '../../client/vdom/hooks/env.ts'
+import { createUi } from '../../client/vdom/hooks/env.ts'
 import { useTween, useDrag, useVisualViewport, useReducedMotion } from '../../client/vdom/hooks/stable.ts'
 import { aiStream } from '../../client/vdom/hooks/ai-stream.ts'
 
@@ -40,7 +41,28 @@ class FakeWindow {
   requestAnimationFrame(cb: () => void): number { this.rafs.push(cb); return this.rafs.length }
   cancelAnimationFrame(_id: number): void { this.rafs = [] }
   performance = { now: () => this.now }
-  matchMedia(q: string) { return { matches: this.matchMediaImpl?.(q)?.matches ?? false } as any }
+  matchMedia(q: string) {
+    // **Mql 形状契约（2026-08——useMedia 消费面）**：matches +
+    // addEventListener/removeEventListener('change')——change 监听同步进
+    // window.listeners['change']（测试 dispatch 通道——浏览器语义近似）
+    const self = this
+    const ls: Array<() => void> = []
+    return {
+      // **getter 语义（浏览器 Mql.matches 是活的）**：动态读——change 后
+      // matches 立即反映
+      get matches(): boolean { return self.matchMediaImpl?.(q)?.matches ?? false },
+      addEventListener: (t: string, cb: () => void) => {
+        ls.push(cb)
+        // 同步进 window 监听表（dispatch 通道——浏览器语义近似）
+        if (!self.listeners.has(t)) self.listeners.set(t, [])
+        self.listeners.get(t)!.push(cb)
+      },
+      removeEventListener: (t: string, cb: () => void) => {
+        const i = ls.indexOf(cb); if (i >= 0) ls.splice(i, 1)
+        const arr = self.listeners.get(t); const j = arr?.indexOf(cb) ?? -1; if (arr && j >= 0) arr.splice(j, 1)
+      },
+    } as any
+  }
   dispatch(type: string, ev: any = {}): void {
     for (const fn of [...(this.listeners.get(type) ?? [])]) fn(ev as EventListener)
   }
@@ -50,11 +72,13 @@ class FakeWindow {
 function makeEnv(win?: FakeWindow): HookEnv & { onUnmounts: Array<() => void> } {
   const onUnmounts: Array<() => void> = []
   let renders = 0
+  const instData = new Map<unknown, unknown>()
   return {
     onUnmounts,
     requestRender: () => { renders++ },
     onUnmount: (fn) => { onUnmounts.push(fn) },
     getBrowser: () => (win ? { window: win as any } as any : null),
+    getInstanceData: () => instData,
   } as any
 }
 
@@ -106,6 +130,72 @@ test('useTween：reduced-motion 直落终值（跳过补间）', () => {
   const h = useTween(env, 42, { duration: 400 })
   assert.equal(h.value, 42, 'reduced 直落 target')
   assert.equal(win.rafs.length, 0, 'reduced 无 rAF')
+})
+
+// ── getter 化契约（2026-08——useMedia/useExternal/useBreakpoint） ────
+// **返回值形态 = 语义的载体**：`() => T`（getter）——任何位置调用返回最新
+// 值——mount 闭包持有永远最新——「调用位置规则」在 API 形状不存在——
+// **登记幂等**：按业务 key（query/store 引用）——任意位置任意次数调用
+// 不重复订阅/监听（旧快照返回 + idx 顺序注册：mount 闭包失效 + 重复
+// 调用重复订阅双缺陷）
+import { useMedia, useBreakpoint } from '../../client/vdom/hooks/drag-media.ts'
+import { createStore, createSignal } from '../../client/vdom/store.ts'
+
+test('useMedia：getter 形态——mount 闭包持有永远最新 + 登记幂等（按 query）', () => {
+  const win = new FakeWindow()
+  let narrow = false
+  win.matchMediaImpl = () => ({ matches: narrow })
+  const env = makeEnv(win)
+  // mount 闭包调用（getter 化后合法——旧快照形态此处即静默失效）
+  const readNarrow = useMedia(env, '(max-width: 700px)')
+  assert.equal(readNarrow(), false, '初始 宽')
+  // 重复调用（任意位置任意次数）——不重复监听（登记幂等）
+  const readAgain = useMedia(env, '(max-width: 700px)')
+  assert.equal(readAgain(), false)
+  const subCount = win.listenerCount('change')
+  // 事件驱动 → getter 最新
+  narrow = true
+  ;(win as any).dispatch('change', {} as Event)
+  assert.equal(readNarrow(), true, 'change 后 getter 立即最新')
+  // 卸载清理监听（不泄漏）
+  for (const fn of env.onUnmounts) fn()
+  assert.equal(win.listenerCount('change'), 0, 'unmount 清理')
+  assert.ok(subCount >= 1, 'change 监听已注册')
+})
+
+test('useExternal：getter 形态——store 变化 → getter 最新 + 订阅幂等（按引用）', () => {
+  const store = createStore({ count: 0 })
+  const env = makeEnv()
+  const ui = createUi(env as any)
+  const getCount = ui.useExternal(store)
+  assert.equal(getCount().count, 0)
+  // 重复调用不重复订阅（实例级 keyed）
+  ui.useExternal(store)
+  store.update((s) => { s.count += 1 })
+  assert.equal(getCount().count, 1, 'update 后 getter 立即最新')
+})
+
+test('createSignal：getter 读 + set/update 写 + ExternalStore 兼容', () => {
+  const sig = createSignal({ n: 1 })
+  assert.equal(sig().n, 1)
+  sig.set({ n: 2 })
+  assert.equal(sig().n, 2)
+  sig.update((s) => { s.n += 1 })
+  assert.equal(sig().n, 3)
+  // ExternalStore 兼容（useExternal 同源消费）
+  let pushed = 0
+  sig.subscribe(() => { pushed++ })
+  sig.set({ n: 4 })
+  assert.equal(pushed, 1, '订阅通知')
+  assert.equal(sig.store.state.n, 4, 'store 面同步')
+})
+
+test('useBreakpoint：getter 形态——断点遍历最新（min-width 最大匹配）', () => {
+  const win = new FakeWindow()
+  win.matchMediaImpl = () => ({ matches: true })
+  const env = makeEnv(win)
+  const bp = useBreakpoint(env, { mobile: 0, tablet: 768, desktop: 1024 })
+  assert.equal(bp(), 'desktop', '全部匹配 → 最大断点')
 })
 
 // ── useDrag ──────────────────────────────────────────────────────────
