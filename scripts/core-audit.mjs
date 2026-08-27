@@ -25,7 +25,7 @@ const ANNOTATION_RE = /防御|审计|幂等|合法|违例|静默|兜底|Reject|�
 
 /** C2 as any 豁免登记（模式 → 理由——新增必须登记） */
 const AS_ANY_EXEMPTIONS = [
-  { pattern: 'globalThis as any).__DBG', reason: 'debug 门控读全局（globalThis 无类型面——标准做法）' },
+  { pattern: 'globalThis as any).__', reason: 'debug 门控读全局（globalThis 无类型面——标准做法——__DBG/__WF_DEBUG 等）' },
   { pattern: 'window as any).__dbgEvt', reason: 'debug 门控读全局 window（同上）' },
   { pattern: 'el.style as any', reason: 'CSSStyleDeclaration 动态键写（-- 自定义属性/camelCase——TS 索引面不足）' },
   { pattern: 'el as any)[key]', reason: 'DOM property 通道动态属性名（value/checked 等——属性名运行时已知白名单）' },

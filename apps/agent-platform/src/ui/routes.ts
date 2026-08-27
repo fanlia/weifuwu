@@ -4,6 +4,7 @@
 
 import { resolve, join } from 'node:path'
 import { readFileSync, existsSync } from 'node:fs'
+import { renderSsrPage, ssrToDocument } from '../../ui/ssr.ts'
 import type { Router, Context } from 'weifuwu'
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production'
@@ -125,7 +126,17 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
     ]
 
     for (const path of spaPaths) {
-      app.get(path, async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html`
+      app.get(path, async (req: Request, ctx: Context): Promise<Response> => {
+        // A1 首屏 SSR（2026-08）：登录/注册服务端渲染——首屏即表单（零 JS 可见）
+        // ——客户端 uiServe 吸收接管（SSR 失败回退空壳——SPA 兜底不阻断）
+        if (path === '/login' || path === '/register') {
+          const ssrBody = await renderSsrPage(path)
+          if (ssrBody !== null) return new Response(
+            ssrToDocument(ssrBody, path === '/login' ? '登录 — Agent Platform' : '注册 — Agent Platform'),
+            { headers: { 'Content-Type': 'text/html; charset=utf-8' }, status: 200 },
+          )
+        }
+        return ctx.ui.html`
         <!DOCTYPE html>
         <html lang="zh-CN">
         <head>
@@ -139,7 +150,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
           <script type="module" src="/static/app.js"></script>
         </body>
         </html>
-      `)
+      `})
     }
   }
 }

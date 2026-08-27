@@ -9,24 +9,7 @@ import { UIRouter, uiServe, h, api, auth, i18n, ws, toast, injectCommands } from
 import { refreshSession } from './lib/api'
 import { confirm, notification } from 'weifuwu/components'
 
-import { AppLayout } from './components/AppLayout'
-import { Login } from './pages/Login'
-import { Register } from './pages/Register'
-import { Workspace } from './pages/Workspace'
-import { Reports } from './pages/Reports'
-import { Agents } from './pages/Agents'
-import { Templates } from './pages/Templates'
-import { Departments } from './pages/Departments'
-import { Chat } from './pages/Chat'
-import { Settings } from './pages/Settings'
-import { NewAgent } from './pages/NewAgent'
-import { AgentDetail } from './pages/AgentDetail'
-import { Sandboxes } from './pages/Sandboxes'
-import { NewDepartment } from './pages/NewDepartment'
-import { DepartmentDetail } from './pages/DepartmentDetail'
-import { NewChat } from './pages/NewChat'
-import { Approvals } from './pages/Approvals'
-import { Admin } from './pages/Admin'
+import { router } from './router'
 
 // ── 中间件装配（当前 API——工厂返回 client——uiServe options 注入 ctx） ──
 const authRef: { current: null | { refresh: () => Promise<boolean> } } = { current: null }
@@ -69,29 +52,6 @@ const wsClient = ws({ url: '/ws', autoReconnect: { baseMs: 1000, maxMs: 30000 } 
 
 // ── 路由（AppLayout 布局包裹——vnode 形态——跨路由同位置同类型复用——
 //   AppLayout 的 let 状态跨导航保持；handler 返回 stream Response） ──
-import type { RenderCtx } from 'weifuwu/vdom'
-const page = (Comp: any, props: Record<string, unknown> = {}) =>
-  (req: Request, ctx: any) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(Comp, props)))
-const router = new UIRouter()
-router.get('/login', (req, ctx) => (ctx as RenderCtx).stream(h(Login, {})))
-router.get('/register', (req, ctx) => (ctx as RenderCtx).stream(h(Register, {})))
-router.get('/', page(Workspace))
-router.get('/dashboard', page(Workspace))
-router.get('/reports', page(Reports))
-router.get('/agents', page(Agents))
-router.get('/templates', page(Templates))
-router.get('/departments', page(Departments))
-router.get('/chat/new', page(NewChat))
-router.get('/chat/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(Chat, { ...(ctx.params ?? {}) }))))
-router.get('/settings', page(Settings))
-router.get('/agents/new', page(NewAgent))
-router.get('/agents/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(AgentDetail, { ...(ctx.params ?? {}) }))))
-router.get('/sandboxes', page(Sandboxes))
-router.get('/departments/new', page(NewDepartment))
-router.get('/departments/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(DepartmentDetail, { ...(ctx.params ?? {}) }))))
-router.get('/approvals', page(Approvals))
-router.get('/admin', page(Admin))
-
 // ── 渲染落地（uiServe——UIRouter 唯一应用入口——中间件注入 ctx） ──
 uiServe(router, {
   root: '#root',

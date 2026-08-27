@@ -17,7 +17,9 @@ export const Login: Component = async (_props, ctx) => {
   // 稳定回调（mount 层——render 期传同一引用：Field/Input 不重建——受控输入焦点保持）
   const onEmailInput = (e: Event) => { $.email = inputValue(e); rerender() }
   const onPasswordInput = (e: Event) => { $.password = inputValue(e); rerender() }
-  const logoVNode = <Avatar name={(window as any).__whiteLabel?.logo || 'A'} size="lg" />
+  // SSR 安全（2026-08——A1 首屏 SSR）：window 惰性防（服务端渲染期无 window）
+  const whiteLabel = (typeof window !== 'undefined' ? (window as any).__whiteLabel : null) ?? {}
+  const logoVNode = <Avatar name={whiteLabel.logo || 'A'} size="lg" />
 
   async function handleLogin() {
     if (!$.email || !$.password) { $.error = '请输入邮箱和密码'; rerender(); return }
@@ -66,7 +68,7 @@ export const Login: Component = async (_props, ctx) => {
   return async (props) => (
     <AuthPage
       title="登录"
-      subtitle={`${(window as any).__whiteLabel?.name || 'Agent Platform'} — 多租户 AI 平台`}
+      subtitle={`${whiteLabel.name || 'Agent Platform'} — 多租户 AI 平台`}
       logo={logoVNode}
       submitLabel="登 录"
       loading={$.loading}
