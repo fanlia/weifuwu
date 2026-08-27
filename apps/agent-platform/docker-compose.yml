@@ -75,6 +75,10 @@ services:
       - '${PORT:-3000}:3000'
     volumes:
       - workspace-data:/data/workspaces
+      # 沙盒 Docker socket（2026-08 补——AI 文件操作需要 docker 引擎：
+      # app 容器内经 docker.sock 创建 ap-sandbox-* 沙盒容器——宿主 docker
+      # 权限授予 app（安全取舍——生产建议独立沙盒节点 + SANDBOX_HOST_ID）
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s

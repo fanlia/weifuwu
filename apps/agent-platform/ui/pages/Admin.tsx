@@ -26,6 +26,7 @@ export const Admin: Component = async (_props, ctx) => {
   let opsInfo: any = null
   // 沙盒监控：容器列表 / 进程 / 操作
   let sbContainers: any[] | null = null
+  let capacity: { host: { id: string; memoryMb: number; cpus: number }; occupied: { mb: number; running: number; terminated: number }; weeklyEvictions: number; recentEvictions: Array<{ sandboxId: string; type: string; detail: string; at: string; name: string }> } | null = null
   let sbProcs: { name: string; list: any[] } | null = null
   let sbBusy = ''
   const loadContainers = () => {
@@ -62,6 +63,8 @@ export const Admin: Component = async (_props, ctx) => {
   void ctx.api!.get<any>('/api/admin/overview').then((d) => { overview = d; ctx.render() }).catch(() => {})
   void ctx.api!.get<any>('/api/ops').then((d) => { opsInfo = d; ctx.render() }).catch(() => {})
   void ctx.api!.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.render() }).catch(() => {})
+  // C1 容量视图（2026-08）：宿主容量 + 占用 + 驱逐审计
+  void ctx.api!.get<any>('/api/admin/sandbox-capacity').then((d) => { capacity = d; ctx.render() }).catch(() => {})
 
   async function createEnterprise() {
     if (!entName.trim()) { entErr = '企业名必填'; ctx.render(); return }
@@ -122,6 +125,31 @@ export const Admin: Component = async (_props, ctx) => {
           <StatCard label="沙盒模式" value={opsInfo.sandbox?.mode ?? '-'} icon={<Icon name="cpu" />} />
           <StatCard label="容器镜像" value={opsInfo.sandbox?.imageReady ? '就绪' : '缺失'} icon={<Icon name="hard-drive" />} />
         </div>
+      )}
+
+      {capacity && (
+        <Card>
+          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📊 沙盒容量（宿主 {capacity.host.id}）</div>
+          <div class="wf-grid wf-mt-sm" style="--wf-cols: repeat(auto-fill, minmax(150px, 1fr))">
+            <StatCard label="内存预算" value={`${capacity.host.memoryMb}MB`} icon={<Icon name="database" />} />
+            <StatCard label="当前占用" value={`${capacity.occupied.mb}MB / ${capacity.occupied.running} 运行`} icon={<Icon name="server" />} />
+            <StatCard label="CPU" value={capacity.host.cpus} icon={<Icon name="cpu" />} />
+            <StatCard label="7 天驱逐" value={capacity.weeklyEvictions} icon={<Icon name="warning" />} />
+          </div>
+          {capacity.recentEvictions.length > 0 && (
+            <div class="wf-stack wf-gap-xs wf-mt-sm">
+              {capacity.recentEvictions.map((e, i) => (
+                <div key={i} class="wf-text-xs wf-text-tertiary wf-row wf-gap-sm">
+                  <span class="wf-text-warning">⏏</span>
+                  <span>{e.name || e.sandboxId.slice(0, 8)}</span>
+                  <span>{e.detail}</span>
+                  <span class="wf-fill" />
+                  <span>{new Date(e.at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       )}
 
       <Card>

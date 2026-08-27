@@ -196,4 +196,39 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
     } catch { /* 尽力 */ }
     return Response.json({ ok: true, status })
   })
+  // C1 沙盒容量视图（2026-08——平台管理员治理面：宿主容量 + 占用 + 驱逐审计）
+  app.get('/api/admin/sandbox-capacity', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    await requireAdmin(ctx)
+    const { sql } = ctx
+    const { hostCapacity, HOST_ID } = await import('../sandbox/host.ts')
+    const [occupied] = await sql`
+      SELECT COALESCE(SUM(memory_mb), 0)::int as mb,
+        COUNT(*) FILTER (WHERE status != 'terminated')::int as running,
+        COUNT(*) FILTER (WHERE status = 'terminated')::int as terminated
+      FROM sandboxes
+    `
+    const [weekly] = await sql`
+      SELECT COUNT(*)::int as evicted
+      FROM sandbox_events
+      WHERE type LIKE 'evict%' AND created_at >= NOW() - interval '7 days'
+    `
+    const recentEvictions = await sql`
+      SELECT e.sandbox_id, e.type, e.detail, e.created_at,
+        s.name, s.app_id
+      FROM sandbox_events e LEFT JOIN sandboxes s ON s.id = e.sandbox_id
+      WHERE e.type LIKE 'evict%'
+      ORDER BY e.created_at DESC
+      LIMIT 20
+    `
+    return Response.json({
+      host: { ...hostCapacity(), id: HOST_ID },
+      occupied: { mb: Number(occupied?.mb ?? 0), running: Number(occupied?.running ?? 0), terminated: Number(occupied?.terminated ?? 0) },
+      weeklyEvictions: Number(weekly?.evicted ?? 0),
+      recentEvictions: recentEvictions.map((e: any) => ({
+        sandboxId: String(e.sandbox_id), type: String(e.type), detail: String(e.detail ?? ''),
+        at: e.created_at, name: e.name ?? '', appId: e.app_id ?? null,
+      })),
+    })
+  })
+
 }

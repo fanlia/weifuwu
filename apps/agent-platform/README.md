@@ -27,6 +27,35 @@
 
 **私有化部署**：`LICENSE_KEY` + `WHITE_LABEL_*` + `OIDC_*` + Dockerfile——一套配置交付品牌化企业实例。
 
+## 私有化部署（docker compose——一键交付）
+
+```bash
+# 1. 环境变量（生产必配：JWT_SECRET/DEEPSEEK_API_KEY/ADMIN_EMAILS）
+cp .env.example .env && vim .env
+
+# 2. 一键启动（postgres/redis/app 三服务——全 healthcheck 接线）
+docker compose up -d --build
+
+# 3. 验证
+curl http://localhost:3000/healthz   # { pg: true, redis: ..., sandbox: ... }
+docker compose logs -f app
+
+# 4. 升级
+git pull && docker compose up -d --build
+
+# 5. 备份/恢复（pg_dump + workspaces 卷）
+docker compose exec postgres pg_dump -U agent agent_platform > backup.sql
+scripts/restore.sh backup.sql   # 恢复
+```
+
+**沙盒节点**：AI 文件操作需要 Docker 沙盒——compose 的 app 容器通过
+`/var/run/docker.sock`（默认映射）或独立沙盒节点（SANDBOX_HOST_ID）
+——生产建议：沙盒独立主机 + 宿主 Docker socket 仅沙盒节点暴露
+（AI 代码执行边界——护城河①）。
+
+**升级注意**：schema 迁移 `CREATE IF NOT EXISTS`（绝不 DROP——数据
+安全）——升级只增不改。
+
 ## 启动
 
 ```bash

@@ -32,4 +32,6 @@ COPY --from=builder /build/apps/agent-platform/ui ./apps/agent-platform/ui
 COPY --from=builder /build/apps/agent-platform/tsconfig.json ./apps/agent-platform/
 
 EXPOSE 3000
-CMD ["node", "--env-file=.env", "apps/agent-platform/server.ts"]
+# 环境注入经 compose environment 块（2026-08——--env-file=.env 容器内无文件
+# → node 启动即崩（实测 /nonexistent: not found）——容器环境变量优先）
+CMD ["node", "apps/agent-platform/server.ts"]
