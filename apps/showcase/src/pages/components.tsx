@@ -197,7 +197,7 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
             </div>
           </div>
           {hasDemo && Demo && (
-            <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-stack" style="--wf-gap:0;overflow:hidden">
+            <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-stack wf-gap-none" style="overflow:hidden">
               {/* 舞台标题栏：品牌圆点 + 标签——分隔线（细边框美学） */}
               <div class="wf-row wf-between wf-px-md wf-py-sm wf-border-b">
                 <span class="wf-cluster wf-gap-xs wf-text-xs wf-text-secondary">
