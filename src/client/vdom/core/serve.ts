@@ -301,12 +301,15 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
         }
       }
     } finally {
-      // **渲染完成信号**：flush afterRender（hook 注册——元素已挂载）
+      // **渲染完成信号**：先置 idle（afterRender 回调里 navigate/render
+      // 应启动新渲染——若在 flush 后才置位，回调内 render 被当「渲染中」
+      // 入队——runRender 已退出——队列悬挂（agent-platform 未登录白屏
+      // 实证：afterRender navigate('/login') → 入队无人消费 → 壳残留）
+      renderPhase = 'idle'
+      drainPromise = null
       const fns = afterRenderFns
       afterRenderFns = []
       for (const fn of fns) { try { fn() } catch (e) { console.error('[vdom] afterRender:', e) } }
-      renderPhase = 'idle'
-      drainPromise = null
       // **函数表清理**：$fn 仅传输层（历史函数已解码到事件表/ref 表——
       // 跨流不需要）——消费完即清——长会话零累积
       fnTable.clear()

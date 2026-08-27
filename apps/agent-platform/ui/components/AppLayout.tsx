@@ -31,8 +31,15 @@ const ADMIN_NAV: NavDef[] = [
 
 export async function AppLayout(_props: {}, ctx: UIContext) {
   // ── 认证守卫 ──
+  // **认证守卫（2026-08——未登录白屏的修复定稿）**：SPA 渲染 Login 的链
+  // （queueMicrotask/afterRender navigate）在跨渲染组件换型（AppLayout→
+  // Login）时命令流清理不完整（root 空——框架已知问题——专项复现中——
+  // 见提交信息——每次 root 换型都可触达）——**登录页已 SSR（A1）——
+  // 完整导航 = 已证正常路径**（SSR 表单秒开 + 客户端吸收零错误）
   if (!ctx.auth?.isLoggedIn) {
-    queueMicrotask(() => ctx.app?.navigate('/login'))
+    if (!window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login'
+    }
     return async (__props: {}) => <div class="wf-center wf-h-full"><Loading /></div>
   }
 
