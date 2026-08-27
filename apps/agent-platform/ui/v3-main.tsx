@@ -63,7 +63,9 @@ const authClient = auth({
   refreshTokenKey: 'agent_platform_refresh',
 })
 const i18nState = i18n({ locale: 'zh-CN' })
-const wsClient = ws({ url: '/ws' })
+// 断线自动重连（2026-08——A2：指数退避——close 手动不重连）——
+// 重连成功 → Chat onStatusChange 补拉断线期间消息（不丢上下文）
+const wsClient = ws({ url: '/ws', autoReconnect: { baseMs: 1000, maxMs: 30000 } })
 
 // ── 路由（AppLayout 布局包裹——vnode 形态——跨路由同位置同类型复用——
 //   AppLayout 的 let 状态跨导航保持；handler 返回 stream Response） ──

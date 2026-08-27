@@ -177,11 +177,19 @@ export const Chat: Component = async (_props, ctx) => {
     rerender()
   }
 
-  async function loadMessages() {
+  async function loadMessages(merge = false) {
     const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50`).catch(() => ({ messages: [] }))
-    const list = msgRes.messages ?? []
+    const list = (msgRes.messages ?? []).reverse().map((m: Message) => ({ ...m } as ChatMessage))
+    if (!merge) {
+      $.msgs = list
+    } else {
+      // 重连补拉（A2——2026-08）：断线期间消息合并（id 去重——时间排序收敛）
+      const byId = new Map<string, ChatMessage>()
+      for (const m of $.msgs) byId.set(m.id, m)
+      for (const m of list) byId.set(m.id, m)
+      $.msgs = [...byId.values()].sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
+    }
     $.hasMore = list.length >= 50
-    $.msgs = [...list].reverse().map((m: Message) => ({ ...m } as ChatMessage))
   }
 
   Promise.all([
@@ -232,6 +240,13 @@ export const Chat: Component = async (_props, ctx) => {
     $.searching = false
     rerender()
   }
+
+  // A2 断线补拉（2026-08）：ws 状态翻转 false→true（重连成功）→ 补拉最近消息
+  // （断线期间 new_message 未达——onMessage 不补历史）——id 去重合并不重复
+  const unsubStatus = ctx.ws?.onStatusChange((up) => {
+    if (up) void loadMessages(true)
+  })
+  ctx.ui.onUnmount?.(() => unsubStatus?.())
 
   const unsub: (() => void) | undefined = ctx.ws?.onMessage((event: any) => {
     switch (event.type) {
