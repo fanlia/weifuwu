@@ -33,6 +33,7 @@ import { registerBuiltinTools, BUILTIN_TOOL_DEFS } from './src/tools/builtin.ts'
 import { registerSkillRoutes } from './src/routes/skills.ts'
 import { registerRoleTemplateRoutes } from './src/routes/role-templates.ts'
 import { registerAdminRoutes } from './src/routes/admin.ts'
+import { registerDeliverableRoutes } from './src/routes/deliverables.ts'
 
 // ── UI ────────────────────────────────────────────────────
 import { registerUiRoutes } from './src/ui/routes.ts'
@@ -764,6 +765,7 @@ async function main() {
   registerRoleTemplateRoutes(protectedRoutes)
   // 商业化 G2：租户管理后台（平台管理员 ADMIN_EMAILS）
   registerAdminRoutes(protectedRoutes)
+  registerDeliverableRoutes(app)
 
   // ── 审计日志（Wave 9——安全/合规：登录/Agent 变更记录） ──
   // ── 运营详情：沙盒状态 + 今日审计（受保护） ─────────────

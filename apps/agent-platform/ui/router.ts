@@ -24,6 +24,7 @@ import { DepartmentDetail } from './pages/DepartmentDetail'
 import { NewChat } from './pages/NewChat'
 import { Approvals } from './pages/Approvals'
 import { Admin } from './pages/Admin'
+import { Deliverables } from './pages/Deliverables'
 
 const page = (Comp: any, props: Record<string, unknown> = {}) =>
   (req: Request, ctx: any) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(Comp, props)))
@@ -33,6 +34,7 @@ router.get('/register', (req, ctx) => (ctx as RenderCtx).stream(h(Register, {}))
 router.get('/', page(Workspace))
 router.get('/dashboard', page(Workspace))
 router.get('/reports', page(Reports))
+router.get('/deliverables', page(Deliverables))
 router.get('/agents', page(Agents))
 router.get('/templates', page(Templates))
 router.get('/departments', page(Departments))

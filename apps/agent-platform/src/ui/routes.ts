@@ -84,6 +84,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/approvals',
       '/sandboxes',
       '/reports',
+      '/deliverables',
       '/settings',
       '/admin',
     ]
@@ -121,6 +122,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/approvals',
       '/sandboxes',
       '/reports',
+      '/deliverables',
       '/settings',
       '/admin',
     ]

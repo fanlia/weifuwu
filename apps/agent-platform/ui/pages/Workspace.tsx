@@ -29,6 +29,7 @@ interface WorkspaceState {
   pendingCount: number
   aiCount: number
   hasAgents: boolean
+  deliverables: Array<{ deptId: string; deptName: string; path: string; name: string; size: number; mtime: string }>
 }
 
 const ENV_LABEL: Record<string, string> = {
@@ -62,14 +63,15 @@ function timeAgo(iso: string | null): string {
 export const Workspace: Component = async (_props, ctx) => {
   const $ = {} as WorkspaceState
   const rerender = () => ctx.render()
-  $.loading = true; $.projects = []; $.pendingCount = 0; $.aiCount = 0; $.hasAgents = false
+  $.loading = true; $.projects = []; $.pendingCount = 0; $.aiCount = 0; $.hasAgents = false; $.deliverables = []
 
   Promise.all([
     ctx.api!.get<DepartmentListResponse>('/api/departments').catch(() => ({ departments: [] })),
     ctx.api!.get<{ sandboxes: Array<{ department_id: string | null; status: string }> }>('/api/sandboxes').catch(() => ({ sandboxes: [] })),
     ctx.api!.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
     ctx.api!.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
-  ]).then(([depts, sb, pend, agents]) => {
+    ctx.api!.get<{ files: Array<{ deptId: string; deptName: string; path: string; name: string; size: number; mtime: string }> }>('/api/deliverables?limit=3').catch(() => ({ files: [] })),
+  ]).then(([depts, sb, pend, agents, dels]) => {
     const sbMap = new Map<string, string>()
     for (const s of sb.sandboxes ?? []) {
       if (s.department_id) sbMap.set(s.department_id, s.status)
@@ -86,6 +88,7 @@ export const Workspace: Component = async (_props, ctx) => {
     $.pendingCount = pend.pending?.length ?? 0
     $.aiCount = (agents.agents ?? []).filter((a) => a.type === 'ai').length
     $.hasAgents = (agents.agents ?? []).length > 0
+    $.deliverables = dels.files ?? []
     $.loading = false
     rerender()
   })
@@ -135,6 +138,28 @@ export const Workspace: Component = async (_props, ctx) => {
             <span class="wf-text-sm wf-text-medium">有 {$.pendingCount} 条 AI 草稿待你批准发布</span>
             <span class="wf-fill" />
             <Icon name="arrow-right" size={14} className="wf-text-tertiary" />
+          </div>
+        </Card>
+      )}
+
+      {/* 最近交付物（B2——2026-08：老板/员工视角产出即视——点击进中心页） */}
+      {$.deliverables.length > 0 && (
+        <Card key="deliv-card" clickable hover onClick={() => ctx.app?.navigate('/deliverables')}>
+          <div class="wf-row wf-gap-sm wf-items-center">
+            <Icon name="inbox" size={16} />
+            <span class="wf-text-sm wf-text-medium">最近交付物（{$.deliverables.length}）</span>
+            <span class="wf-fill" />
+            <Icon name="arrow-right" size={14} className="wf-text-tertiary" />
+          </div>
+          <div class="wf-stack wf-gap-xs wf-mt-sm">
+            {$.deliverables.map((f) => (
+              <div key={`${f.deptId}:${f.path}`} class="wf-row wf-gap-sm wf-text-sm">
+                <span class="wf-text-primary wf-truncate">{f.path}</span>
+                <span class="wf-text-tertiary wf-text-xs wf-shrink">({f.deptName})</span>
+                <span class="wf-fill" />
+                <span class="wf-text-tertiary wf-text-xs wf-shrink">{timeAgo(f.mtime)}</span>
+              </div>
+            ))}
           </div>
         </Card>
       )}

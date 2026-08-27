@@ -16,6 +16,7 @@ const NAV: NavDef[] = [
   { path: '/', icon: h(Icon, { name: 'grid' }), label: '工作台', group: '工作台', match: p => p === '/' || p === '/dashboard' },
   { path: '/chat/new', icon: h(Icon, { name: 'message' }), label: '聊天', group: '工作台', match: p => p.startsWith('/chat') },
   { path: '/approvals', icon: h(Icon, { name: 'check-circle' }), label: '审批待办', group: '工作台', match: p => p.startsWith('/approvals') },
+  { path: '/deliverables', icon: h(Icon, { name: 'inbox' }), label: '交付物', group: '工作台', match: p => p.startsWith('/deliverables') },
   { path: '/agents', icon: h(Icon, { name: 'cpu' }), label: 'Agent', group: '管理', match: p => p.startsWith('/agents') },
   { path: '/sandboxes', icon: h(Icon, { name: 'box' }), label: '沙盒', group: '管理', match: p => p.startsWith('/sandboxes') },
   { path: '/templates', icon: h(Icon, { name: 'layers' }), label: '模板市场', group: '管理', match: p => p.startsWith('/templates') },
