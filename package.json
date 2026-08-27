@@ -1,7 +1,7 @@
 {
   "name": "weifuwu",
   "type": "module",
-  "version": "0.87.0",
+  "version": "0.87.1",
   "description": "AI SaaS full-stack framework — backend HTTP + frontend VDOM + 129 components + CSS design system + SaaS foundation (auth/queue/AI). Zero-build, zero-dependency.",
   "exports": {
     ".": {
@@ -50,7 +50,11 @@
     "test:server": "node --env-file=.env --test --test-concurrency=8 'src/server/**/*.test.ts'",
     "test:showcase": "node --env-file=.env --test --test-timeout=8000 apps/showcase/test/comp-*.test.ts",
     "test:scenario": "node --env-file=.env --test --test-timeout=8000 --test-concurrency=14 'src/test/scenario/e2e*.test.ts'",
-    "test:components": "node --env-file=.env --test --test-timeout=8000 --test-concurrency=2 src/test/scenario/e2e-6.test.ts"
+    "test:components": "node --env-file=.env --test --test-timeout=8000 --test-concurrency=2 src/test/scenario/e2e-6.test.ts",
+    "audit:semantics": "node scripts/audit-core-semantics.mjs",
+    "audit:showcase": "node scripts/audit-showcase-dev.mjs",
+    "audit:all": "npm run audit:semantics && npm run audit:showcase",
+    "test:contract-components": "node --env-file=.env --test 'src/client/components/**/*.test.ts'"
   },
   "dependencies": {
     "esbuild": "^0.28.1",

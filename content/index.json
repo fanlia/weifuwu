@@ -3368,9 +3368,10 @@
       "name": "表面工具",
       "cssFile": "_surface.css",
       "kind": "utility",
-      "desc": "19 个背景/圆角/边框类（卡片/表单面）",
+      "desc": "20 个背景/圆角/边框类（卡片/表单面；flat 变体=平面表面）",
       "classes": [
         "wf-surface",
+        "wf-surface--flat",
         "wf-bg-secondary",
         "wf-rounded-md",
         "wf-border-t"

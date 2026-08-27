@@ -2,12 +2,13 @@
 
 ## 概述
 
-19 个背景/圆角/边框类（卡片/表单面）
+20 个背景/圆角/边框类（卡片/表单面；flat 变体=平面表面）
 
 ## 代表类
 
 ```css
 .wf-surface
+.wf-surface--flat
 .wf-bg-secondary
 .wf-rounded-md
 .wf-border-t

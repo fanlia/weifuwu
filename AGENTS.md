@@ -28,6 +28,9 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | 文件 | 覆盖 |
 | --- | --- |
 | vnode/transform | h/jsx 数据面、key 剥离、stateOf/transitionOf 7×7 全分支 |
+| **component-harness** | **组件契约测试脚手架（命令流级断言——零浏览器）**：mount(Comp)/render(next)/mounts()/unmount + createTable/assertCreate/ops——组件目录内 `<Comp>.test.ts`（`npm run test:contract-components`）——InputNumber 7/Input 4/Switch 4/Tabs 4/Slider 4/Checkbox 4——**非浮层类组件均可契约化**（openPopup 类需 DOM——场景层兜底） |
+| effect-guard | 渲染路径副作用守卫（renderFn 同步段 timer → dev warn；SSR 端 warn+noop——服务器崩溃链阻断）——契约 6 测试 |
+| audit 管线 | `npm run audit:semantics`（isHoleKind/isTextKind 红线 grep）+ `npm run audit:showcase`（全量 160 页 dev 扫描——进度/过滤参数——零豁免） |
 | build | 首帧命令序列（create/insert/close/done.full）、组件展开挂组件 id、空洞锚、Fragment 平铺、portal 命名空间 |
 | diff | setProp 只发变化键、setText 就地、组件复用（mounts 计数）、transform 让位、空洞互换不误删兄弟（§6.3）、keyed 顺移 remove+move / 循环移位冲突重建（.k{key} 实例复用） |
 | key/keyed/attrs | keyOf/listKind/identityKey、attrs 只发变化键、事件函数面引用比较（prev 传递） |

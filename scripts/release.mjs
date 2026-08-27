@@ -48,11 +48,15 @@ async function main() {
   run('npm run build', { env: { ...process.env, NODE_ENV: 'production' } })
 
   // Step 3: Validate
-  if (!existsSync(join(root, 'dist', 'index.js'))) {
-    console.error('  ✗ dist/index.js missing!')
+  // **产物结构（2026-08 修正）**：build.mjs 后端入口 → dist/server/index.js
+  // （package.json exports "." 指向）——非历史假设的 dist/index.js——
+  // release:dry 曾恒失败（陈旧校验）——按 exports 实际指向校验
+  const serverEntry = join(root, 'dist', 'server', 'index.js')
+  if (!existsSync(serverEntry)) {
+    console.error('  ✗ dist/server/index.js missing!')
     process.exit(1)
   }
-  console.log('  ✓ weifuwu ready')
+  console.log('  ✓ weifuwu ready (dist/server/index.js)')
 
   // Step 3.5: content/examples 完整性（随包文档——showcase 计划 §7）
   for (const dir of ['content', 'examples']) {
