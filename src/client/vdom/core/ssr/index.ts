@@ -65,7 +65,10 @@ export async function uiSsr(router: UIRouter, url: string, opts: SsrOptions = {}
   // **SSR 副作用守卫（恒装——node 服务器进程保护）**：SSR 渲染期间
   // renderFn 创建定时器 → warn（DemoProgress 实证——服务器 unhandled
   // rejection 污染）——幂等
-  installEffectGuard(globalThis)
+  // **SSR 端 noop 守卫**：renderFn 窗口内创建 timer → warn + 不执行（ctx
+  // 无 render——fire 即 unhandledRejection → node 默认 throw → 服务器进程
+  // 退出——confirm 实证）——timer 语义在 SSR 不成立——阻断崩溃链
+  installEffectGuard(globalThis, true)
   const fnTable = createFnTable()
   const req = frontRequest(url)
   const ctx = {
@@ -76,7 +79,14 @@ export async function uiSsr(router: UIRouter, url: string, opts: SsrOptions = {}
     },
     /** 数据管道（SSR 真 fetch——组件工厂取数） */
     data: createDataPipe(),
-  } as RenderCtx
+    // **SSR ctx 完整面（2026-08——组件无差别调用契约）**：组件 mount 期
+    // 回调（fetch 完成/定时器）可能调用 ctx.render——SSR 无重渲染概念——
+    // noop（不炸——unhandledRejection → node 崩溃——FilePreview 实证）——
+    // onUnmount 收集 + afterRender noop（组件持有即可用）
+    render: async () => {},
+    onUnmount: () => {},
+    afterRender: () => {},
+  } as unknown as RenderCtx
   const res = await router.resolve(req, ctx as UIContext)
   if (!res.body) return htmlDocument('', opts)
   const html = await streamToString(

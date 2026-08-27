@@ -77,6 +77,11 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
   let remote = { status: 'idle' as 'idle' | 'loading' | 'error', content: null as string | null, error: null as string | null }
   let loadedUrl: string | null = null
   const loadUrl = async (u: string) => {
+    // **SSR 跳过远程加载（2026-08——服务器崩溃实证）**：node 端 fetch
+    // 相对 URL（/api/...）→ TypeError → catch → ctx.render()（SSR 无渲染
+    // 概念——noop 已兜底）——但 SSR 本不该发请求（静态结构渲染——加载态）
+    // ——typeof window 守卫：浏览器才远程加载（SSR 输出初始静态结构）
+    if (typeof window === 'undefined') return
     // 已加载过该 url（含失败——避免 render 循环重触发；消费方改 url 重试）
     if (loadedUrl === u) return
     loadedUrl = u
@@ -131,7 +136,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         const chars = doc.text.replace(/\uFFFC/g, '').length
         emitLoaded(chars, doc.blockProps.length + doc.embeds.length + 1)
         previewBody = h(Editor, {
-          value: markdownToHtml(effectiveContent),
+          key: 'editor', // 稳定业务 key（同一编辑器身份——模式切换重建意图显式化）
           minHeight: height,
           ai,
           onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.render() },
@@ -153,7 +158,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         }
         emitLoaded(effectiveContent.length, 1)
         previewBody = h(Editor, {
-          value: `<p>${escapeHtml(effectiveContent)}</p>`,
+          key: 'editor',
           minHeight: height,
           ai,
           onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.render() },
@@ -186,7 +191,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         }
         emitLoaded(doc.text.replace(/\uFFFC/g, '').length, doc.blockProps.length + doc.embeds.length + 1)
         previewBody = h(Editor, {
-          value: serializeHtml(doc),
+          key: 'editor',
           minHeight: height,
           ai,
           onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.render() },
@@ -195,7 +200,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         emitLoaded(0, 0)
         // xlsx 网格编辑（SheetGrid——ODES 事件流：cell-set/行列/AI 公式/撤销）
         previewBody = h(SheetGrid, {
-          workbook: officeWorkbook,
+          key: 'sheet-grid',
           ai: ai ? { url: ai.url, headers: (ai as { headers?: Record<string, string> }).headers } : undefined,
           height,
           onChange: (wb: import('../OfficeEditor/model/types.ts').WorkbookState) => { officeWorkbook = wb },
@@ -204,7 +209,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
         emitLoaded(0, 0)
         // pptx 画布编辑（SlideCanvas——ODES 事件流：shape 增删/拖动/缩放/AI 润色）
         previewBody = h(SlideCanvas, {
-          deck: officeDeck,
+          key: 'slide-canvas',
           ai: ai ? { url: ai.url, headers: (ai as { headers?: Record<string, string> }).headers } : undefined,
           height,
           onChange: (d: import('../OfficeEditor/model/types.ts').DeckState) => { officeDeck = d },

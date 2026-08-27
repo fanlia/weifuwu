@@ -329,13 +329,18 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
     }
     if (opts.trapFocus && win) {
       trapPrevFocus.value = win.document.activeElement as HTMLElement | null
-      win.setTimeout(() => {
+      // **聚焦时序（2026-08——renderFn 窗口副作用归零）**：原 setTimeout(0)
+      // 赌「下一 tick 面板已挂载」——每次 openNow 创建 timer（渲染窗口内
+      // ——effect guard 报「渲染路径副作用」）+ 时序不确定——改为
+      // scheduleAfterRender（渲染完成后确定性聚焦——无 timer 零误报——
+      // 语义更正确：面板挂载后聚焦而非下一 tick 碰运气）
+      env.scheduleAfterRender(() => {
         const el = state.panel
         if (el) {
           const f = el.querySelector?.('input, button, [tabindex], select, textarea') as HTMLElement | null
           ;(f ?? el).focus?.()
         }
-      }, 0)
+      })
     }
   }
 

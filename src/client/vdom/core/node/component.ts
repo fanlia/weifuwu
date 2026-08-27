@@ -222,15 +222,18 @@ export async function renderComponent(
   // 注意：超时 reject 后 rec 保持 mounted（未销毁——重试路径复用工厂）
   let out: VNode | null | (VNode | null)[]
   try {
-    // **渲染路径副作用守卫（2026-08）**：renderFn 窗口标记——窗口内创建
-    // 定时器 → warn（DemoProgress 实证——SSR 污染/重渲染风暴）——
-    // withTimeout 的超时 timer 在窗口内创建——async-guard 栈豁免
+    // **渲染路径副作用守卫（2026-08——窗口 = renderFn 同步执行段）**：
+    // begin → 调用（async 函数同步执行到首个 await）→ end——**await 挂起期
+    // 的事件回调（点击复制等）不属于渲染路径——窗口已闭——零误报零豁免**
+    // ——withTimeout 的超时 timer 也在窗口外创建（await 包装在 end 之后）
     beginRender()
+    let renderP: ReturnType<RenderFn>
     try {
-      out = await withTimeout(Promise.resolve(rec.renderFn(vn.props)), registry.asyncTimeout, `renderFn(${compId})`)
+      renderP = rec.renderFn(vn.props)
     } finally {
       endRender()
     }
+    out = await withTimeout(Promise.resolve(renderP), registry.asyncTimeout, `renderFn(${compId})`)
   } catch (e) {
     console.error(`[vdom] renderFn 超时/错误（${compId}）——组件级 hole 降级（下一拍重试自愈）:`, e)
     out = null

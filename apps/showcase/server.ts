@@ -36,6 +36,17 @@ const root = resolve(__dirname, '..', '..') // 仓库根（= 发布根）
 const contentRoot = resolve(root, 'content')
 const examplesRoot = resolve(root, 'examples')
 
+// ── 进程级防御（2026-08——SSR 组件副作用崩溃实证）──
+// unhandledRejection 默认 throw → 服务器进程退出（FilePreview fetch
+// 崩溃链实证）——**记录不崩**（问题可见——页面级渲染失败由 renderFullPage
+// 回退兜底——进程存活是可用性底线）
+process.on('unhandledRejection', (reason) => {
+  console.error('[showcase] unhandledRejection（进程保护——不退出）:', reason instanceof Error ? (reason.message + '\n' + (reason.stack ?? '').split('\n').slice(0, 4).join('\n')) : String(reason))
+})
+process.on('uncaughtException', (err) => {
+  console.error('[showcase] uncaughtException（进程保护——不退出）:', err.message)
+})
+
 const app = new Router()
 app.use(ui())
 
@@ -212,16 +223,30 @@ async function loadSsrApp(): Promise<any> {
   const entry = resolve(__dirname, 'src', 'ssr.ts')
   // **无缓存（正确性优先——与 /app.js 同策略 2026-12 决策）**：每次请求编译
   // 最新源码（框架 src + showcase 全部依赖——mtime 只锁入口会漏依赖变更）
-  const result = await esbuild({
-    entryPoints: [entry],
-    bundle: true,
-    platform: 'node',
-    format: 'esm',
-    write: false,
-    jsx: 'automatic',
-    jsxImportSource: 'weifuwu/vdom',
-  })
-  return await import('data:text/javascript;base64,' + Buffer.from(result.outputFiles[0].text).toString('base64'))
+  // **编辑竞态防御（2026-08——data url import SyntaxError 实证——:3201:21）**：
+  // 开发中修改文件与请求并发——esbuild 读到半写文件 → bundle 语法错误 →
+  // import 失败（偶发崩溃）——重试一次（50ms 间隔——文件写入完成即自愈）
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await esbuild({
+        entryPoints: [entry],
+        bundle: true,
+        platform: 'node',
+        format: 'esm',
+        write: false,
+        jsx: 'automatic',
+        jsxImportSource: 'weifuwu/vdom',
+      })
+      return await import('data:text/javascript;base64,' + Buffer.from(result.outputFiles[0].text).toString('base64'))
+    } catch (e) {
+      if (attempt === 0) {
+        console.error('[showcase] SSR bundle 编译/import 失败——重试一次（编辑竞态）:', (e as Error).message.slice(0, 120))
+        await new Promise((r) => setTimeout(r, 50))
+        continue
+      }
+      throw e
+    }
+  }
 }
 
 /** SSR fetch 基址（data.ts 自 fetch 本机 /content/* 端点——首次请求缓存） */

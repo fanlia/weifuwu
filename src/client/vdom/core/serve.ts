@@ -194,9 +194,9 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   // ——不中断渲染）——生产零开销
   if ((win as unknown as { __WF_DEV__?: boolean }).__WF_DEV__) {
     applier.devVerify = createDevVerifier()
-    // **渲染路径副作用守卫（dev only——生产零成本）**：renderFn 窗口内
+    // **渲染路径副作用守卫（dev only——生产零成本）**：renderFn 同步段
     // 创建定时器 → warn（DemoProgress 实证——重渲染风暴/SSR 污染）
-    installEffectGuard(win, true)
+    installEffectGuard(win)
   }
   let req = frontRequest(win.location.pathname)
   /** 影子树（当前渲染的 vnode——diff 对照——精准增量命令流） */
