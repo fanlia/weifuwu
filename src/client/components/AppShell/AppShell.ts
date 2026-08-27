@@ -87,7 +87,7 @@ export const AppShell: Component<AppShellProps> = async (_init, _ctx) => {
           h(Menu, {
             items,
             activeKey: activeOf(nav, path),
-            onSelect: (k) => onNavigate?.(k),
+            onSelect: (k: string) => onNavigate?.(k),
           }),
         ]),
         // 用户区（loading = 骨架占位）

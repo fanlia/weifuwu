@@ -93,7 +93,7 @@ export async function diffChildrenItems(
       detectMissingKey(bizNew, `children（无 key 组件实槽翻转 ${bizOld.length}→${bizNew.length}）`)
     }
   }
-  if (globalThis.__WF_DEBUG_MOVED__) console.log('[debug-dci] id=', id, 'oldKeys=', JSON.stringify(oldCs.map(keyOf)), 'newKeys=', JSON.stringify(newCs.map(keyOf)), 'lk=', listKind(oldCs), listKind(newCs))
+  if ((globalThis as any).__WF_DEBUG_MOVED__) console.log('[debug-dci] id=', id, 'oldKeys=', JSON.stringify(oldCs.map(keyOf)), 'newKeys=', JSON.stringify(newCs.map(keyOf)), 'lk=', listKind(oldCs), listKind(newCs))
   // 全 keyed：身份映射复用（增删/重排——状态跟随 key）
   if (listKind(newCs) === 'all-keyed' && listKind(oldCs) === 'all-keyed') {
     await diffKeyedChildren(oldCs, newCs, id, emit, emitCommand, ctx, registry)
@@ -373,7 +373,7 @@ export async function diffKeyedChildren(
   // 重建拦截——混向不可达——两分支足够）
   const allLeft = moved.every((m) => m.newIdx < m.oldIdx)
   moved.sort((a, b) => (allLeft ? a.newIdx - b.newIdx : b.newIdx - a.newIdx))
-  if (globalThis.__WF_DEBUG_MOVED__) console.log('[debug-moved] subseq=1 moved=', JSON.stringify(moved), 'oldIdxByKey=', JSON.stringify([...oldIdxByKey.entries()]), 'newKeys=', JSON.stringify([...newKeys]), 'parent=', parent)
+  if ((globalThis as any).__WF_DEBUG_MOVED__) console.log('[debug-moved] subseq=1 moved=', JSON.stringify(moved), 'oldIdxByKey=', JSON.stringify([...oldIdxByKey.entries()]), 'newKeys=', JSON.stringify([...newKeys]), 'parent=', parent)
   for (const m of moved) {
     emitCommand({ op: 'move', id: pathId(parent, m.oldIdx), parent, ref: null, newId: pathId(parent, m.newIdx), noMove: true })
   }

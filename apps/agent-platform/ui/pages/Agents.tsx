@@ -20,7 +20,7 @@ export const Agents: Component = async (_props, ctx) => {
     e.stopPropagation()
     const ok = await ctx.confirm!('确定删除这个 Agent 吗？')
     if (!ok) return
-    const res = await ctx.api!.delete(`/api/agents/${id}`)
+    const res = await ctx.api!.delete<{ ok?: boolean; status?: number }>(`/api/agents/${id}`)
     if (res.ok || res.status === 204) {
       $.agents = $.agents.filter((a: Agent) => a.id !== id)
       rerender()
@@ -33,7 +33,7 @@ export const Agents: Component = async (_props, ctx) => {
   async function startDm(e: Event, id: string) {
     e.stopPropagation()
     try {
-      const res = await ctx.api!.post('/api/departments/dm', { agent_id: id })
+      const res = await ctx.api!.post<{ department: { id: string } }>('/api/departments/dm', { agent_id: id })
       const d = res.department
       if (d?.id) { ctx.app?.navigate(`/chat/${d.id}`) }
       else { ctx.toast!('发起单聊失败', 'error') }

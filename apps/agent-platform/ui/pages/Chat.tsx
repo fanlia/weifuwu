@@ -2,6 +2,14 @@ import type { UIContext, Component } from 'weifuwu/vdom'
 import { Ava } from '../components/ui'
 import { Badge, Button, ChatInput, EmptyState, Icon, Input } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
+
+/** 部门工作区聚合响应（/api/departments/:id/workspace——一次拿部门+成员+环境） */
+interface WsWorkspaceResponse {
+  department?: { id: string; name: string } | null
+  env?: { status: string; label: string } | null
+  members?: Member[]
+  subDepartments?: Array<{ id: string; name: string; managerId: string; managerName: string; memberCount: number; files: Array<{ name: string; type: string; size: number; mtime: string }> }>
+}
 import type { Agent, ChatMessage, Member, Message, MessageListResponse, MessageTool } from '../lib/types'
 import { track } from '../lib/track'
 import { MessageItem } from '../components/project/MessageItem.tsx'
@@ -61,7 +69,7 @@ export const Chat: Component = async (_props, ctx) => {
   const deptId = ctx.route?.params?.id ?? ''
   // P2-1：AI 干活状态（aiStatus store 订阅——左栏呼吸灯；useExternal 返回 store 活引用）
   const aiStatusStore = ctx.ui.useExternal(aiStatus)
-  const aiStatusOf = (id: string) => (aiStatusStore.state as Record<string, string>)[id] ?? 'idle'
+  const aiStatusOf = (id: string) => (aiStatusStore() as Record<string, string>)[id] ?? 'idle'
 
   // 产物审批（2026-12）：聊天流内批准/拒绝（调 API + 通知 + 标记已处理）
   $.reviewBusy = ''
@@ -69,7 +77,7 @@ export const Chat: Component = async (_props, ctx) => {
     if ($.reviewBusy) return
     $.reviewBusy = 'chat'; rerender()
     try {
-      const r = await ctx.api!.post(`/api/departments/${deptId}/artifacts/${action}`, { path })
+      const r = await ctx.api!.post<{ success: boolean; error?: string }>(`/api/departments/${deptId}/artifacts/${action}`, { path })
       if (r.success) {
         ctx.toast!(action === 'approve' ? `已发布 ${path}` : `已拒绝 ${path}`, 'success')
         // props 不可变契约：新建对象（原地改 msg → vdom3 audit + MessageItem 剪枝不更新审批态）
@@ -79,7 +87,7 @@ export const Chat: Component = async (_props, ctx) => {
         bumpFilesVersion()
         notifyFilesReload()
       } else {
-        ctx.toast!((r as any).error ?? '操作失败', 'error')
+        ctx.toast!(r.error ?? '操作失败', 'error')
       }
     } catch { ctx.toast!('操作失败', 'error') }
     $.reviewBusy = ''; rerender()
@@ -91,7 +99,7 @@ export const Chat: Component = async (_props, ctx) => {
     if (reloadingWs) return
     reloadingWs = true
     try {
-      const wsRes = await ctx.api!.get(`/api/departments/${deptId}/workspace`).catch(() => null)
+      const wsRes = await ctx.api!.get<WsWorkspaceResponse>(`/api/departments/${deptId}/workspace`).catch(() => null)
       if (wsRes) {
         $.subDepts = wsRes.subDepartments ?? []
         if (wsRes.env) $.env = wsRes.env
@@ -179,14 +187,14 @@ export const Chat: Component = async (_props, ctx) => {
   Promise.all([
     loadMessages(),
     // P1：聚合 API（部门+成员+环境状态一次拿）
-    ctx.api!.get(`/api/departments/${deptId}/workspace`).catch(() => ({})),
-    ctx.api!.get('/api/agents?type=user').catch(() => ({ agents: [] })),
+    ctx.api!.get<WsWorkspaceResponse>(`/api/departments/${deptId}/workspace`).catch(() => ({}) as WsWorkspaceResponse),
+    ctx.api!.get<{ agents: Agent[] }>('/api/agents?type=user').catch(() => ({ agents: [] })),
   ]).then(([, wsRes, agentRes]) => {
     const agents = agentRes.agents ?? []
-    const user = ctx.auth?.user
+    const user = (ctx.auth?.user ?? null) as { id?: string; role?: string } | null
     const mine = agents.find((a: Agent) => a.user_id === user?.id)
     if (mine) $.userAgentId = mine.id
-    $.isAdmin = (ctx.auth as any)?.role === 'owner' || (ctx.auth as any)?.role === 'admin'
+    $.isAdmin = user?.role === 'owner' || user?.role === 'admin'
     $.deptName = wsRes?.department?.name ?? '聊天'
     $.memberCount = (wsRes?.members ?? []).length
     $.membersList = (wsRes?.members ?? []).filter((m: Member) => m.type === 'ai' || m.type === 'knowledge_base' || m.type === 'department')
@@ -392,7 +400,7 @@ export const Chat: Component = async (_props, ctx) => {
       // 三端事件流（阶段 2）：requestId 跨端贯通——一次用户操作精确因果——
       // 前端生成 → POST → AI 事件 → （沙盒 exec）——全链路同一 requestId
       const requestId = crypto.randomUUID?.() ?? `r${Date.now().toString(36)}`
-      const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, {
+      const data = await ctx.api!.post<{ message: Message }>(`/api/departments/${deptId}/messages`, {
         content: trimmed,
         reply_to: replyId,
         request_id: requestId,
@@ -411,7 +419,7 @@ export const Chat: Component = async (_props, ctx) => {
             created_at: data.message.created_at ?? new Date().toISOString(),
             status: 'idle',
             tools: [] as MessageTool[],
-            attachments: data.message.attachments ?? null,
+            attachments: (data.message.attachments as ChatMessage['attachments']) ?? null,
           })
         }
       } else {
@@ -425,7 +433,7 @@ export const Chat: Component = async (_props, ctx) => {
     // C1 断点续跑：从中断处继续（后端注入已执行步骤，不重做）
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     try {
-      const d = await ctx.api!.post(`/api/messages/${fromMsgId}/continue`).catch(() => null)
+      const d = await ctx.api!.post<{ resumed: boolean; doneSteps: number; totalSteps: number }>(`/api/messages/${fromMsgId}/continue`).catch(() => null)
       if (d?.resumed) ctx.toast!(`继续执行（已 ${d.doneSteps}/${d.totalSteps} 步）`, 'info')
       else ctx.toast!('无断点——从头执行', 'info')
     } catch { ctx.toast!('续跑失败', 'error') }

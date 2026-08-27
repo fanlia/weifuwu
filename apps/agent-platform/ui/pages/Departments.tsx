@@ -19,7 +19,7 @@ export const Departments: Component = async (_props, ctx) => {
     e.stopPropagation()
     const ok = await ctx.confirm!('确定删除这个部门吗？')
     if (!ok) return
-    const res = await ctx.api!.delete(`/api/departments/${id}`)
+    const res = await ctx.api!.delete<{ ok?: boolean; status?: number }>(`/api/departments/${id}`)
     if (res.ok || res.status === 204) {
       $.depts = $.depts.filter((d: Department) => d.id !== id)
       rerender()

@@ -84,7 +84,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
     if (!ok) return
     $.sbBusy = action; rerender()
     try {
-      const r = await ctx.api!.post(`/api/sandboxes/${$.sandbox.id}/${action}`)
+      const r = await ctx.api!.post<{ ok?: boolean; success?: boolean }>(`/api/sandboxes/${$.sandbox.id}/${action}`)
       if (r.ok || r.success) ctx.toast!('操作成功', 'success')
       else ctx.toast!((r as any).error ?? '操作失败', 'error')
     } catch (e: any) { ctx.toast!(e?.message ?? '操作失败', 'error') }

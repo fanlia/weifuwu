@@ -64,6 +64,10 @@ export class UIRouter {
     ctx.params = params
     // query 注入 ctx（对齐后端 Object.fromEntries(searchParams)）
     ctx.query = Object.fromEntries(url.searchParams)
+    // route 注入（2026-08——应用消费面单点：ctx.route = { path, params, query }——
+    // v3 迁移遗留：页面从 ctx.route 读路由（AppLayout 活性/AgentDetail params/
+    // navigate）——老实现未注入 → path 恒 '/'、params 空、navigate undefined 点击崩）
+    ctx.route = { path: url.pathname, params, query: ctx.query }
     return handler(req, ctx)
   }
 }

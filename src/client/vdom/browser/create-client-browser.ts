@@ -79,6 +79,7 @@ export function createClientBrowser(): Browser {
     addEventListener: (type, fn, options) => { if (typeof window !== 'undefined') window.addEventListener(type, fn, options) },
     removeEventListener: (type, fn, options) => { if (typeof window !== 'undefined') window.removeEventListener(type, fn, options) },
     scrollTo: (y) => { if (typeof window !== 'undefined') window.scrollTo(0, y) },
+    reload: () => { if (typeof window !== 'undefined') window.location.reload() },
     scrollTop: () => scroller()?.scrollTop ?? 0,
     matchMedia: (q) => (typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia(q) : null),
     visualViewport: () => (typeof window !== 'undefined' ? (window as unknown as { visualViewport?: VisualViewport }).visualViewport ?? null : null),

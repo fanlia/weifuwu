@@ -74,7 +74,7 @@ export const Sandboxes: Component = async (_props, ctx) => {
     }
     busyId = id + action; rerender()
     try {
-      const r = await ctx.api!.post(`/api/sandboxes/${id}/${action}`)
+      const r = await ctx.api!.post<{ ok?: boolean; success?: boolean }>(`/api/sandboxes/${id}/${action}`)
       if (r.ok || r.success) {
         ctx.toast!(`操作成功：${action}`, 'success')
       } else {

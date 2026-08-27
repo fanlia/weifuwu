@@ -35,7 +35,7 @@ export async function AppLayout(_props: {}, ctx: UIContext) {
     return async (__props: {}) => <div class="wf-center wf-h-full"><Loading /></div>
   }
 
-  const user = ctx.auth?.user
+  const user = (ctx.auth?.user ?? null) as { name?: string; email?: string } | null
   const userName = user?.name ?? '用户'
   const userMail = user?.email ?? ''
   // 管理员导航（G2）：/api/admin/me 判定，仅管理员可见「租户管理」入口

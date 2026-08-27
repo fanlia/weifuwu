@@ -7,6 +7,19 @@ import { errMsg } from '../../components/ui'
 import { inputValue } from '../../lib/types'
 import type { Agent, KbChunk, KbDocument } from '../../lib/types'
 
+/** 知识库文档详情响应（?chunks=true） */
+interface KbChunkDetailResponse {
+  chunks: Array<{ id: string; content: string; chunk_index: number }>
+}
+/** 知识库检索响应（/api/agents/:id/knowledge/search——对齐服务器 SELECT） */
+interface KbSearchResponse {
+  results: Array<{ id: string; content: string; chunk_index: number; document_id: string; filename: string; similarity: number }>
+}
+/** 知识库文档列表响应 */
+interface KbDocsResponse {
+  documents: Array<{ id: string; name: string; filename: string; chunks?: number }>
+}
+
 export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = async (_init, ctx) => {
   let docs: KbDocument[] = []
   let docsLoading = true
@@ -17,7 +30,7 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
   let docChunks: KbChunk[] = []
   let loadingChunks = false
   let kbQuery = ''
-  let kbResults: Array<{ filename: string; content: string; similarity: number }> = []
+  let kbResults: KbSearchResponse['results'] = []
   let kbSearching = false
   let reindexing = false
   let kbChunkSize = String(_init.agent?.chunk_size ?? 500)
@@ -37,7 +50,7 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
     if (!kbQuery.trim()) return
     kbSearching = true; rerender()
     try {
-      const d = await ctx.api!.post(`/api/agents/${agentId}/knowledge/search`, { query: kbQuery, top_k: 3 })
+      const d = await ctx.api!.post<KbSearchResponse>(`/api/agents/${agentId}/knowledge/search`, { query: kbQuery, top_k: 3 })
       kbResults = d.results ?? []
     } catch (e) { kbResults = []; ctx.toast!('检索失败：' + errMsg(e, ''), 'error') }
     kbSearching = false; rerender()
@@ -68,7 +81,7 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
     expandedDoc = docId; loadingChunks = true
     rerender()
     try {
-      const d = await ctx.api!.get(`/api/knowledge/${docId}?chunks=true`).catch(() => null)
+      const d = await ctx.api!.get<KbChunkDetailResponse>(`/api/knowledge/${docId}?chunks=true`).catch(() => null)
       if (d) docChunks = d.chunks ?? []
     } catch {}
     loadingChunks = false

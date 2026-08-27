@@ -8,6 +8,21 @@ import { Button, Card, EmptyState, Icon, Loading } from 'weifuwu/components'
 import { errMsg } from '../../components/ui'
 import { onFilesReload, offFilesReload } from '../../lib/project-store.ts'
 
+/** 工作区列表响应（/api/departments/:id/workspace/list） */
+interface WsListResponse {
+  path: string
+  entries: Array<{ name: string; type: 'dir' | 'file'; size: number; mtime: string }>
+}
+/** 工作区文件读取响应 */
+interface WsFileResponse {
+  binary: boolean
+  content?: string
+  truncated?: boolean
+  size: number
+}
+interface WsSaveResponse { success: boolean }
+interface WsUploadResponse { success: boolean; name: string; size: number; error?: string }
+
 export const FilesSection: Component<{ departmentId: string }> = async (_init, ctx) => {
   let wsEntries: Array<{ name: string; type: 'dir' | 'file'; size: number; mtime: string }> = []
   let wsPath = ''
@@ -29,7 +44,7 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
     wsLoading = true; rerender()
     try {
       const q = path ? `?path=${encodeURIComponent(path)}` : ''
-      const d = await ctx.api!.get(`/api/departments/${departmentId}/workspace/list${q}`)
+      const d = await ctx.api!.get<WsListResponse>(`/api/departments/${departmentId}/workspace/list${q}`)
       wsEntries = d.entries ?? []; wsPath = d.path ?? '/'
     } catch (e) { ctx.toast!('加载失败：' + errMsg(e, ''), 'error') }
     wsLoading = false; rerender()
@@ -42,9 +57,9 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
     }
     try {
       const rel = wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`
-      const d = await ctx.api!.get(`/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(rel)}`)
+      const d = await ctx.api!.get<WsFileResponse>(`/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(rel)}`)
       if (d.binary) { ctx.toast!('二进制文件不可预览', 'error'); return }
-      wsOpenFile = { path: rel, content: d.content ?? '', binary: d.binary, truncated: d.truncated, size: d.size }
+      wsOpenFile = { path: rel, content: d.content ?? '', binary: !!d.binary, truncated: !!d.truncated, size: d.size }
       wsEditContent = d.content ?? ''
       rerender()
     } catch (e) { ctx.toast!('读取失败：' + errMsg(e, ''), 'error') }
@@ -54,7 +69,7 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
     if (!wsOpenFile) return
     wsSaving = true; rerender()
     try {
-      const d = await ctx.api!.put(`/api/departments/${departmentId}/workspace/file`, { path: wsOpenFile.path, content: wsEditContent })
+      const d = await ctx.api!.put<WsSaveResponse>(`/api/departments/${departmentId}/workspace/file`, { path: wsOpenFile.path, content: wsEditContent })
       if (d.success) { ctx.toast!('已保存', 'success'); wsOpenFile = null; await loadWsList() }
     } catch (e) { ctx.toast!('保存失败：' + errMsg(e, ''), 'error') }
     wsSaving = false; rerender()
@@ -80,7 +95,7 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
       ctx.toast!('上传中...', 'info')
       try {
         const rel = wsPath === '/' ? '' : wsPath
-        const d = await ctx.api!.post(`/api/departments/${departmentId}/workspace/upload`, { path: rel, name: f.name, data, size: f.size })
+        const d = await ctx.api!.post<WsUploadResponse>(`/api/departments/${departmentId}/workspace/upload`, { path: rel, name: f.name, data, size: f.size })
         if (d.success) { ctx.toast!(`已上传 ${d.name}（${d.size} 字节）`, 'success'); await loadWsList() }
         else ctx.toast!('上传失败：' + (d.error ?? ''), 'error')
       } catch (err) { ctx.toast!('上传失败：' + errMsg(err, ''), 'error') }

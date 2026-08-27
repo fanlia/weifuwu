@@ -7,7 +7,7 @@ import { PreviewSection } from '../components/agent/PreviewSection'
 import { LogsSection } from '../components/agent/LogsSection'
 import { VersionsSection } from '../components/agent/VersionsSection'
 import { KnowledgeSection } from '../components/agent/KnowledgeSection'
-import type { Agent, AgentLog, AvailableSkill, BoundSkill, KbChunk, KbDocument, WebhookLog } from '../lib/types'
+import type { Agent, AgentLog, Department, AvailableSkill, BoundSkill, KbChunk, KbDocument, WebhookLog } from '../lib/types'
 
 const MODELS = [
   { value: '', label: '默认 (环境变量 DEEPSEEK_MODEL)' },
@@ -66,14 +66,14 @@ export const AgentDetail: Component = async (_props, ctx) => {
     $.boundSkills = []; $.availableSkills = []; $.showSkillPicker = false
 
     Promise.all([
-      ctx.api!.get(`/api/agents/${agentId}`),
-      ctx.api!.get(`/api/agents/${agentId}/skills`).catch(() => ({ skills: [] })),
-      ctx.api!.get('/api/skills/available').catch(() => ({ skills: [] })),
-      ctx.api!.get('/api/agents?type=knowledge_base').catch(() => ({ agents: [] })),
-      ctx.api!.get('/api/departments').catch(() => ({ departments: [] })),
+      ctx.api!.get<{ agent: Agent }>(`/api/agents/${agentId}`),
+      ctx.api!.get<{ skills: BoundSkill[] }>(`/api/agents/${agentId}/skills`).catch(() => ({ skills: [] })),
+      ctx.api!.get<{ skills: AvailableSkill[] }>('/api/skills/available').catch(() => ({ skills: [] })),
+      ctx.api!.get<{ agents: Agent[] }>('/api/agents?type=knowledge_base').catch(() => ({ agents: [] })),
+      ctx.api!.get<{ departments: Department[] }>('/api/departments').catch(() => ({ departments: [] })),
     ]).then(([agentRes, skillRes, availRes, kbRes, deptRes]) => {
       $.deptOptions = (deptRes.departments ?? []).filter((d: any) => !d.is_dm).map((d: any) => ({ id: d.id, name: d.name }))
-      const a = agentRes.agent ?? agentRes
+      const a = (agentRes.agent ?? agentRes) as Agent
       if (!a?.id) { $.notFound = true; $.loading = false; rerender(); return }
       $.agent = a; $.name = a.name ?? ''; $.description = a.description ?? ''
       $.roleLabel = a.role_label ?? ''; $.expertise = a.expertise ?? ''
@@ -121,7 +121,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
   async function startDm(id: string) {
     try {
-      const res = await ctx.api!.post('/api/departments/dm', { agent_id: id })
+      const res = await ctx.api!.post<{ department: Department }>('/api/departments/dm', { agent_id: id })
       const d = res.department
       if (d?.id) { ctx.app?.navigate(`/chat/${d.id}`) }
       else { ctx.toast!('发起单聊失败', 'error') }
@@ -164,7 +164,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
   async function loadWebhookLogs() {
     $.whLogsLoading = true
     try {
-      const d = await ctx.api!.get(`/api/stats/agents/${agentId}/webhook-logs`)
+      const d = await ctx.api!.get<{ logs: WebhookLog[] }>(`/api/stats/agents/${agentId}/webhook-logs`)
       $.whLogs = d.logs ?? []; $.whLogsLoading = false
       rerender()
     } catch { $.whLogsLoading = false; rerender() }
@@ -241,7 +241,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
   return async (props) => {
     if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
-    if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在或无权访问" hint="可能是链接过期，或该 Agent 属于其他应用。"><Button variant="primary" onClick={() => ctx.route!.navigate('/agents')}>返回 Agent 列表</Button></EmptyState></div>
+    if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在或无权访问" hint="可能是链接过期，或该 Agent 属于其他应用。"><Button variant="primary" onClick={() => ctx.app?.navigate?.('/agents')}>返回 Agent 列表</Button></EmptyState></div>
     if ($.error && !$.agent) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="⚠️" text="加载 Agent 失败" hint={$.error}><Button variant="primary" onClick={() => { ctx.browser?.reload?.() }}>重试</Button></EmptyState></div>
 
     const a = $.agent ?? ({} as Partial<Agent>)

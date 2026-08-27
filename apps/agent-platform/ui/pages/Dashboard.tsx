@@ -84,7 +84,7 @@ export const Dashboard: Component = async (_props, ctx) => {
       <div class="wf-stack wf-gap-xs">
         <div class="wf-row wf-between wf-gap-md wf-items-center">
           <div class="wf-stack wf-gap-xs">
-            <h1 class="wf-text-2xl wf-m-0">{greeting()}，{ctx.auth?.user?.name ?? '用户'}</h1>
+            <h1 class="wf-text-2xl wf-m-0">{greeting()}，{((ctx.auth?.user ?? null) as { name?: string } | null)?.name ?? '用户'}</h1>
             <p class="wf-text-base wf-text-secondary wf-m-0">这是你的 AI 团队工作台，从这里管理 Agent、部门和对话。</p>
           </div>
           <a class="wf-btn wf-btn--primary wf-btn--sm" href="/api/stats/report" target="_blank" title="ROI/使用量/质量 → HTML 报告（可打印为 PDF）">

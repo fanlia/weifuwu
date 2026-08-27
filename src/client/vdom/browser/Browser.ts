@@ -39,6 +39,8 @@ export interface Browser {
   /** 事件监听（全局——组件层统一入口） */
   addEventListener(type: string, fn: (e: any) => void, options?: any): void
   removeEventListener(type: string, fn: (e: any) => void, options?: any): void
+/** 页面刷新（location.reload——应用层重试/回滚后刷新） */
+  reload(): void
   /** 滚动 */
   scrollTo(y: number): void
   /** 当前滚动量（scrollingElement 优先——headless 漂移防护） */

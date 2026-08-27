@@ -16,7 +16,7 @@ declare module 'weifuwu/vdom' {
     /** WebSocket 客户端 */
     ws: WsClient
     /** 国际化 */
-    i18n: I18nState
+    i18n?: I18nState
     /** 命令式轻提示 */
     toast: (message: string, type?: 'success' | 'error' | 'info' | 'warning', duration?: number) => void
     /** 命令式确认 */

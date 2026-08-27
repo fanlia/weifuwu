@@ -40,11 +40,11 @@ export const Settings: Component = async (_props, ctx) => {
   const $ = {} as SettingsState
   const rerender = () => ctx.render()
 
-  $.name = ctx.auth?.user?.name ?? ''
+  $.name = ((ctx.auth?.user ?? null) as { name?: string } | null)?.name ?? ''
   $.auditFilter = ''
   $.sysHealth = null
   // 系统状态（运营视角：健康 + 沙盒 + 今日审计）
-  void ctx.api!.get('/api/ops').then((d) => { $.sysHealth = d; ctx.render() }).catch(() => {})
+  void ctx.api!.get<OpsInfo>('/api/ops').then((d) => { $.sysHealth = d; ctx.render() }).catch(() => {})
   $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
@@ -98,7 +98,7 @@ export const Settings: Component = async (_props, ctx) => {
     rerender()
     try {
       await ctx.api!.put('/api/auth/profile', { name: $.name.trim() })
-      ctx.auth?.setUser({ ...ctx.auth?.user, name: $.name.trim() }); $.nameOk = '姓名已更新'
+      ctx.auth?.setUser({ ...((ctx.auth?.user ?? null) as object), name: $.name.trim() }); $.nameOk = '姓名已更新'
     } catch (e) { $.nameErr = errMsg(e, '保存失败') }
     finally { $.nameSubmitting = false; rerender() }
   }

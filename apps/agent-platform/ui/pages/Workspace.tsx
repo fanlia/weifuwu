@@ -109,7 +109,7 @@ export const Workspace: Component = async (_props, ctx) => {
     <div class="wf-stack wf-gap-lg">
       <div class="wf-row wf-between wf-gap-md wf-items-center">
         <div class="wf-stack wf-gap-xs">
-          <h1 class="wf-text-2xl wf-m-0">{greeting()}，{ctx.auth?.user?.name ?? '用户'}</h1>
+          <h1 class="wf-text-2xl wf-m-0">{greeting()}，{((ctx.auth?.user ?? null) as { name?: string } | null)?.name ?? '用户'}</h1>
           <p class="wf-text-base wf-text-secondary wf-m-0">一个项目空间 = 一个共享工作目录 + 一个 AI 工作环境——放文件、@AI 干活、拿交付物。</p>
         </div>
         <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}><Icon name="plus" size={14} /> 新建项目空间</Button>

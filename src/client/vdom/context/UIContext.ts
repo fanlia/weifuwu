@@ -57,6 +57,10 @@ export interface UIContext {
   ui: Ui
   /** 路由参数（页面组件——UIRouter 注入） */
   params?: Record<string, string>
+  /** 查询参数（UIRouter 注入——Object.fromEntries(searchParams)——随渲染替换） */
+  query?: Record<string, string>
+  /** 路由上下文（UIRouter resolve 注入——path/params/query 三面——应用消费单点） */
+  route?: { path: string; params: Record<string, string>; query: Record<string, string> }
   /** 国际化（middlewares i18n 注入——可选——组件读组件文案面） */
   i18n?: import('../middlewares/auth-i18n.ts').I18nState
   /** 中间件注入面（api/auth/ws/i18n...——可选链消费） */

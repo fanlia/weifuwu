@@ -44,6 +44,22 @@ export interface Agent {
   /** GET /api/agents/:id 附加（user 类型绑定账号） */
   bound_email?: string | null
   bound_user_name?: string | null
+  /** GET /api/agents/:id 详情附加（角色/专家/配额——AgentDetail 使用） */
+  role_label?: string | null
+  expertise?: string | null
+  monthly_token_quota?: number | null
+  quota_used?: number | null
+  memory?: string | null
+  light_model?: string | null
+  risk_policy?: string | null
+  whisper_enabled?: boolean | null
+  whisper_agent_id?: string | null
+  memory_loaded?: boolean | null
+  webhook_platform?: string | null
+  im_bind_dept?: string | null
+  kb_id?: string | null
+  allow_network?: boolean
+  department_id?: string | null
 }
 
 /** 部门成员（department_members join agents——后端 SELECT a.id 别名 id） */
@@ -95,6 +111,7 @@ export interface Message {
   content: string
   msg_type?: 'text' | 'system'
   created_at: string
+  attachments?: Array<{ name: string; path?: string; size: number }> | null
   status?: MessageStatus
   tools?: MessageTool[]
   usage?: { total_tokens: number }

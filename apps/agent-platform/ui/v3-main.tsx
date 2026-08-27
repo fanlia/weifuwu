@@ -32,7 +32,7 @@ import { Admin } from './pages/Admin'
 const authRef: { current: null | { refresh: () => Promise<boolean> } } = { current: null }
 
 const apiClient = api({
-  baseURL: '',
+  baseUrl: '',
   // 自动鉴权：请求自动带 Bearer token
   token: () => localStorage.getItem('agent_platform_token'),
   // 401：先 refresh（成功重试）——失败清理 + 跳登录
