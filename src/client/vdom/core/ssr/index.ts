@@ -17,6 +17,7 @@ import { renderToStream } from '../build.ts'
 import { UIRouter, frontRequest } from '../router.ts'
 import { createComponentRegistry } from '../node/component.ts'
 import { createDataPipe } from '../../context/data.ts'
+import { installEffectGuard } from '../../dev/effect-guard.ts'
 import { encodeCommands, createFnTable, type RenderCtx } from '../serve.ts'
 import type { Command } from '../command/index.ts'
 import type { VNode } from '../vnode.ts'
@@ -61,6 +62,10 @@ function ndjsonDecode(fnTable: Map<number, unknown>): TransformStream<Uint8Array
  *  函数面（事件）经空函数表编码为 $fn 标记——解码 undefined——
  *  commandToHtml 的 setProp no-op——HTML 无运行时面 */
 export async function uiSsr(router: UIRouter, url: string, opts: SsrOptions = {}): Promise<string> {
+  // **SSR 副作用守卫（恒装——node 服务器进程保护）**：SSR 渲染期间
+  // renderFn 创建定时器 → warn（DemoProgress 实证——服务器 unhandled
+  // rejection 污染）——幂等
+  installEffectGuard(globalThis)
   const fnTable = createFnTable()
   const req = frontRequest(url)
   const ctx = {

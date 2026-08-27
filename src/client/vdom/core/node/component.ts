@@ -27,6 +27,7 @@ import { removeVNodeTree, outputBase } from '../diff/cleanup.ts'
 import type { Command } from '../command/index.ts'
 import { withTimeout, DEFAULT_ASYNC_TIMEOUT_MS } from '../async-guard.ts'
 import { isHoleKind } from './index.ts'
+import { beginRender, endRender } from '../../dev/effect-guard.ts'
 
 /** 组件输出判别联合（**方案 3——null 结构性消除——编译器穷尽**）：
  *  - vnode：单节点输出（元素/组件/文本——挂槽位 id——锚点法）
@@ -221,7 +222,15 @@ export async function renderComponent(
   // 注意：超时 reject 后 rec 保持 mounted（未销毁——重试路径复用工厂）
   let out: VNode | null | (VNode | null)[]
   try {
-    out = await withTimeout(Promise.resolve(rec.renderFn(vn.props)), registry.asyncTimeout, `renderFn(${compId})`)
+    // **渲染路径副作用守卫（2026-08）**：renderFn 窗口标记——窗口内创建
+    // 定时器 → warn（DemoProgress 实证——SSR 污染/重渲染风暴）——
+    // withTimeout 的超时 timer 在窗口内创建——async-guard 栈豁免
+    beginRender()
+    try {
+      out = await withTimeout(Promise.resolve(rec.renderFn(vn.props)), registry.asyncTimeout, `renderFn(${compId})`)
+    } finally {
+      endRender()
+    }
   } catch (e) {
     console.error(`[vdom] renderFn 超时/错误（${compId}）——组件级 hole 降级（下一拍重试自愈）:`, e)
     out = null

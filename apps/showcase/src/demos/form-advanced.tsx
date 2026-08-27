@@ -108,21 +108,21 @@ const DemoSearchInput: Component = async (_props, ctx) => {
 
 const DemoProgress: Component = async (_props, ctx) => {
   let pct = 45
-  let started = false
-  return async (_p: any) => {
-    // **SSR 安全纪律（2026-08）**：渲染路径副作用（tick 定时器）仅在浏览器
-    // 启动——服务端 uiSsr 渲染本 demo——ctx 无 render——定时器会 unhandled
-    // rejection 污染服务器进程
-    if (typeof window !== 'undefined' && !started) {
-      started = true
-      const tick = () => {
-        if (pct >= 100) return
-        pct = Math.min(100, pct + 5)
-        ctx.render()
-        if (pct < 100) setTimeout(tick, 800)
-      }
-      setTimeout(tick, 800)
+  // **tick 启动在工厂（mount）期（2026-08——effect guard 实证——渲染
+  // 路径副作用纪律）**：renderFn 只输出 vnode——定时器在 mount 期启动 +
+  // hold 注册清理——SSR 端不启动（typeof window 守卫——服务器零污染）
+  if (typeof window !== 'undefined') {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    ctx.ui.hold(() => { if (timer !== undefined) clearTimeout(timer) })
+    const tick = () => {
+      if (pct >= 100) return
+      pct = Math.min(100, pct + 5)
+      ctx.render()
+      if (pct < 100) timer = setTimeout(tick, 800)
     }
+    timer = setTimeout(tick, 800)
+  }
+  return async (_p: any) => {
     return (
     <div class="wf-stack wf-gap-md wf-w-full">
       <ProgressBar value={pct} label="模拟进度" showValue />

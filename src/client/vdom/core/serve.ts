@@ -20,6 +20,7 @@ import { UIRouter, frontRequest } from './router.ts'
 import { commandToHtml, htmlDocument } from './ssr/html.ts'
 import { CommandApplier } from './patch/index.ts'
 import { createDevVerifier } from './patch/verify.ts'
+import { installEffectGuard } from '../dev/effect-guard.ts'
 import { renderToStream } from './build.ts'
 import { diffStream } from './diff/index.ts'
 import type { VNode } from './vnode.ts'
@@ -193,6 +194,9 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
   // ——不中断渲染）——生产零开销
   if ((win as unknown as { __WF_DEV__?: boolean }).__WF_DEV__) {
     applier.devVerify = createDevVerifier()
+    // **渲染路径副作用守卫（dev only——生产零成本）**：renderFn 窗口内
+    // 创建定时器 → warn（DemoProgress 实证——重渲染风暴/SSR 污染）
+    installEffectGuard(win, true)
   }
   let req = frontRequest(win.location.pathname)
   /** 影子树（当前渲染的 vnode——diff 对照——精准增量命令流） */
