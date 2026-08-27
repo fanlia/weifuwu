@@ -39,6 +39,8 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'server.ts', match: 'SELECT template_slug', reason: '平台级模板使用统计（role_templates usage_count）' },
   { file: 'src/routes/admin.ts', match: 'FROM messages m JOIN agents', reason: '平台管理员聚合（requireAdmin 保护，管理员有权看全平台）' },
   { file: 'src/routes/admin.ts', match: 'FROM agent_logs WHERE created_at', reason: '平台管理员聚合（requireAdmin 保护）' },
+  { file: 'src/routes/admin.ts', match: 'SUM(memory_mb)', reason: 'C1 沙盒容量聚合（requireAdmin 保护——平台级——不返回租户数据）' },
+  { file: 'src/routes/admin.ts', match: "evict%", reason: 'C1 驱逐计数（requireAdmin 保护——平台级运维统计——不返回租户数据）' },
   { file: 'src/routes/agents.ts', match: 'FROM agent_logs WHERE agent_id = ${params.id}', reason: '间接隔离——上游 GET /api/agents/:id 已校验 a.app_id（171 行）' },
   { file: 'src/routes/agents.ts', match: 'WHERE department_id = ${body.department_id}', reason: '组织层级唯一性检查——department_id 来自同 app 部门校验（上一步 SELECT id FROM departments）' },
   { file: 'src/routes/agents.ts', match: 'FROM department_members dm JOIN agents a ON a.id = dm.agent_id WHERE dm.department_id = ${body.department_id}', reason: '经理提示词成员名单——department_id 来自同 app 部门校验（间接隔离）' },
