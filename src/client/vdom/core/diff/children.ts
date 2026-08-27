@@ -365,7 +365,14 @@ export async function diffKeyedChildren(
     const oldIdx = oldIdxByKey.get(k)
     if (oldIdx !== undefined && oldIdx !== i) moved.push({ oldIdx, newIdx: i })
   })
-  moved.sort((a, b) => b.newIdx - a.newIdx)
+  // **顺移 remap 排序方向（2026-08——sessionlist 删除行违例实证）**：
+  // 左移（newIdx < oldIdx——删前置项）按 newIdx **升序**（先释放最小目标
+  // ——链无覆盖）；右移按降序——**固定降序在左移时链式覆盖**（5→4 先——
+  // 覆盖旧 4 的 tracker 记录 → move 后 id「不存在」——setProp Pre 违例
+  // 8 连发——devVerify 实证）。顺移场景方向一致（交换 = subseq=false 已
+  // 重建拦截——混向不可达——两分支足够）
+  const allLeft = moved.every((m) => m.newIdx < m.oldIdx)
+  moved.sort((a, b) => (allLeft ? a.newIdx - b.newIdx : b.newIdx - a.newIdx))
   if (globalThis.__WF_DEBUG_MOVED__) console.log('[debug-moved] subseq=1 moved=', JSON.stringify(moved), 'oldIdxByKey=', JSON.stringify([...oldIdxByKey.entries()]), 'newKeys=', JSON.stringify([...newKeys]), 'parent=', parent)
   for (const m of moved) {
     emitCommand({ op: 'move', id: pathId(parent, m.oldIdx), parent, ref: null, newId: pathId(parent, m.newIdx), noMove: true })

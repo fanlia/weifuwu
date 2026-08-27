@@ -126,6 +126,21 @@ test('keyed 顺移：remove + move 命令（节点复用——remap-only）', as
   assert.ok(!cmds.some((c) => c.op === 'create'), '无重建——节点复用')
 })
 
+test('keyed 左移顺移：move 链排序方向（sessionlist 违例回归——remap 无覆盖）', async () => {
+  // **2026-08——sessionlist 删除行违例实证**：左移（删前置项）时 move 链
+  // 必须按 newIdx **升序**（先释放最小目标——链无覆盖）；固定降序导致
+  // remap 链式覆盖（5→4 先——覆盖旧 4 的 tracker 记录 → setProp Pre 违例
+  // 8 连发——devVerify 抓出）
+  const make = (keys: string[]) => h('div', {}, keys.map((k) => h('span', { key: k, class: k }, k)))
+  const cmds = await diff(make(['a', 'b', 'c', 'd', 'e']), make(['b', 'c', 'd', 'e']))
+  const moves = cmds.filter((c) => c.op === 'move') as Array<{ id: string; newId: string }>
+  assert.equal(moves.length, 4, '4 项左移')
+  // 升序链：旧 1→新 0、旧 2→新 1、旧 3→新 2、旧 4→新 3——newId 严格递增
+  const newIds = moves.map((m) => Number(m.newId.split('.').pop()))
+  assert.deepEqual(newIds, [0, 1, 2, 3], `左移链 newId 升序（实际: ${newIds}）——remap 无覆盖`)
+  assert.ok(!cmds.some((c) => c.op === 'create'), '无重建——节点复用')
+})
+
 test('keyed 循环移位：冲突重建（DOM 重建）但组件实例复用（工厂不重跑——状态保持）', async () => {
   let mounts = 0
   const Item = (_i: Record<string, never>, props: { name: string }) => { mounts++; return () => h('span', { class: 'item' }, props.name) }

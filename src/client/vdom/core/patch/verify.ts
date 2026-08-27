@@ -17,6 +17,7 @@ import type { CommandApplier } from './index.ts'
 import { createStateTracker, transition } from './state-machine.ts'
 
 /** dev 验证器（共享规格——每命令消费后状态迁移 + Post 断言） */
+function trackerIds(): string[] { return [] }
 export function createDevVerifier(): (cmd: Command, applier: CommandApplier) => void {
   const tracker = createStateTracker()
   return (cmd, applier) => {

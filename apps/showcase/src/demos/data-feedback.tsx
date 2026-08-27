@@ -114,12 +114,14 @@ const DemoAlert: Component = async (_props, ctx) => {
 
 const DemoLoading: Component = async (_props, ctx) => {
   let loading = true
-  let started = false
+  // **定时器在工厂（mount）期启动（2026-08——effect guard 实证——渲染
+  // 路径副作用纪律）**：renderFn 只输出 vnode——timer 在 mount 期 + hold 清理
+  // ——SSR 端不启动（typeof window 守卫——服务器零污染）
+  if (typeof window !== 'undefined') {
+    const timer = setTimeout(() => { loading = false; ctx.render() }, 3000)
+    ctx.ui.hold(() => clearTimeout(timer))
+  }
   return async (_p: any) => {
-    if (!started) {
-      started = true
-      setTimeout(() => { loading = false; ctx.render() }, 3000)
-    }
     return (
     <div class="wf-row wf-gap-lg">
       {loading ? <Loading text="加载中（3秒后消失）..." /> : <Alert variant="success">加载完成</Alert>}
