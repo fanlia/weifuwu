@@ -24,6 +24,7 @@ import { notification } from '../../../src/client/components/Notification/Notifi
 import { Home } from './pages/home.tsx'
 import { ComponentsIndex, CategoryPage, ComponentPage } from './pages/components.tsx'
 import { LayoutIndex, LayoutPage } from './pages/domains.tsx'
+import { NotFound } from './pages/not-found.tsx'
 import { Shell } from './shell.tsx'
 
 // ── 页面 handler（Shell 布局包裹——root 稳定——布局共享精准路由） ──
@@ -48,7 +49,10 @@ export function buildRouter(): UIRouter {
   router.get('/components/:category/:id', pageWithParams(ComponentPage))
   router.get('/layout', page(LayoutIndex))
   router.get('/layout/:id', pageWithParams(LayoutPage))
-                        router.notFound(() => new Response(null, { status: 404 }))
+                        // **404 友好化（2026-08）**：shell 包裹渲染（与页面同构——导航可用）——
+  // 未知路径不再空白
+  router.notFound((req: Request, ctx: UIContext) =>
+    (ctx as RenderCtx).stream(h(Shell, { page: h(NotFound), active: pathOf(req) })))
   return router
 }
 
