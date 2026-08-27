@@ -16,10 +16,12 @@ class MockWs implements WsLike {
   onerror: ((e: unknown) => void) | null = null
   closed = false
   url: string
+  readyState = 0 // CONNECTING（serverOpen 后 1）
+  sent: string[] = []
   constructor(url: string) { this.url = url; MockWs.instances.push(this) }
-  send(_data: string): void { /* noop */ }
+  send(data: string): void { this.sent.push(data) }
   close(): void { this.closed = true; this.onclose?.() }
-  serverOpen(): void { this.onopen?.() }
+  serverOpen(): void { this.readyState = 1; this.onopen?.() }
   serverMsg(data: unknown): void { this.onmessage?.({ data }) }
 }
 
@@ -79,6 +81,17 @@ describe('ws 中间件', () => {
     await tick(40)
     assert.equal(MockWs.instances.length, 1, '手动关闭后不自动重连')
     assert.equal(c.isConnected, false)
+  })
+
+  it('CONNECTING 期间 send 排队——onopen flush（保序）', async () => {
+    const c = freshClient()
+    c.connect('ws://t')
+    // CONNECTING（readyState 0）——send 排队不抛错
+    c.send({ type: 'subscribe', room: 'r1' })
+    c.send('bye')
+    assert.equal(MockWs.instances[0].sent.length, 0, 'CONNECTING 期不直接发送')
+    MockWs.instances[0].serverOpen()
+    assert.deepEqual(MockWs.instances[0].sent, [JSON.stringify({ type: 'subscribe', room: 'r1' }), 'bye'], 'onopen flush 保序')
   })
 
   it('onStatusChange 订阅回放当前态', async () => {

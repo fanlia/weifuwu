@@ -244,7 +244,12 @@ export const Chat: Component = async (_props, ctx) => {
   // A2 断线补拉（2026-08）：ws 状态翻转 false→true（重连成功）→ 补拉最近消息
   // （断线期间 new_message 未达——onMessage 不补历史）——id 去重合并不重复
   const unsubStatus = ctx.ws?.onStatusChange((up) => {
-    if (up) void loadMessages(true)
+    if (up) {
+      // 重连成功：重发订阅（mount 时 subscribe 在 WS 未连时被静默丢弃——
+      // 不重发则广播永远到不了）+ 补拉断线期间消息
+      ctx.ws?.send({ type: 'subscribe', room: deptId })
+      void loadMessages(true)
+    }
   })
   ctx.ui.onUnmount?.(() => unsubStatus?.())
 

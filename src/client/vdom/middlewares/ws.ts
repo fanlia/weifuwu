@@ -31,6 +31,8 @@ export interface WsOptions {
 export interface WsLike {
   send(data: string): void
   close(): void
+  /** 连接状态（浏览器 WebSocket 标准——CONNECTING=0 OPEN=1——Mock 需实现） */
+  readyState: number
   onmessage: ((e: { data: unknown }) => void) | null
   onopen: (() => void) | null
   onclose: (() => void) | null
@@ -95,6 +97,10 @@ export function ws(opts: WsOptions = {}): WsClient {
   }
 
   let lastUrl = opts.url ?? ''
+  /** CONNECTING 期间 send 队列（2026-08——连接建立前 send 抛
+   *  InvalidStateError——订阅/指令在 connect 后立即发送的时序）——
+   *  onopen flush（保序） */
+  const pendingSend: string[] = []
   const open = (url: string): void => {
     if (!WsCtor) return // 环境无 WS——静默（测试不连）
     lastUrl = url
@@ -103,6 +109,8 @@ export function ws(opts: WsOptions = {}): WsClient {
     sock.onopen = () => {
       retry = 0
       setConnected(true)
+      // CONNECTING 期间的 send 排队（保序推送——订阅在连接前发不丢）
+      while (pendingSend.length > 0) sock?.send(pendingSend.shift()!)
     }
     sock.onclose = () => {
       sock = null
@@ -125,7 +133,9 @@ export function ws(opts: WsOptions = {}): WsClient {
       return connected.current
     },
     send(data: unknown): void {
-      sock?.send(typeof data === 'string' ? data : JSON.stringify(data))
+      const payload = typeof data === 'string' ? data : JSON.stringify(data)
+      if (sock?.readyState === 1) sock.send(payload) // OPEN
+      else pendingSend.push(payload) // CONNECTING/CLOSED——排队或挂起（onopen flush）
     },
     onMessage(cb: (data: unknown) => void): () => void {
       subs.add(cb)

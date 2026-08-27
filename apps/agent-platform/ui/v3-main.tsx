@@ -48,7 +48,11 @@ const authClient = auth({
 const i18nState = i18n({ locale: 'zh-CN' })
 // 断线自动重连（2026-08——A2：指数退避——close 手动不重连）——
 // 重连成功 → Chat onStatusChange 补拉断线期间消息（不丢上下文）
+// **connect 调用（2026-08——流式缺失根因）**：uiServe 只注入 WsClient
+// 面不自动连接——此前从未 connect——WS 零连接——AI 回复 token/done
+// 事件永远收不到（消息上屏靠 HTTP 响应；回复只刷新后从 DB 可见）
 const wsClient = ws({ url: '/ws', autoReconnect: { baseMs: 1000, maxMs: 30000 } })
+wsClient.connect('/ws')
 
 // ── 路由（AppLayout 布局包裹——vnode 形态——跨路由同位置同类型复用——
 //   AppLayout 的 let 状态跨导航保持；handler 返回 stream Response） ──
