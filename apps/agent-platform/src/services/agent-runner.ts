@@ -544,14 +544,21 @@ export async function streamAgent(
       if (config.departmentId) aiPayload.departmentId = config.departmentId
       // 三端事件流（阶段 2）：requestId 跨端贯通（精确因果——替代时间窗关联）
       if (config.requestId) aiPayload.requestId = config.requestId
-      // 降频：token 逐字太频——只发首个（流式进度可见）——完整内容由 done 的 content 覆盖
+      // **降频修复（2026-08——P0-F1）**：token 逐字太频——AI 事件流只发首个
+      // （流式进度可见——完整内容由 done 的 content 覆盖）——**但不得影响
+      // 业务回调**（fullContent/onChunk/DB 串行链）——旧实现提前 return 跳出
+      // emit → onChunk 被跳过 → DB 只存首个 token（刷新后 AI 回复截断——生产 bug）
       if (name === 'wf:token') {
-        if (lastTokenText !== '') return
         const text = String((data as WfToken).text ?? '')
+        const isFirst = lastTokenText === ''
         lastTokenText = text
-        aiPayload.text = text
+        if (isFirst) {
+          aiPayload.text = text
+          aiEmit(aiAction, config.agentId, aiPayload)
+        }
+      } else {
+        aiEmit(aiAction, config.agentId, aiPayload)
       }
-      aiEmit(aiAction, config.agentId, aiPayload)
     } catch { /* ai 事件发射失败不阻断 */ }
     if (name === 'wf:done' && !_finished) {
       _finished = true
