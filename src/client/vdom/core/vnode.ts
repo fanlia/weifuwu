@@ -16,7 +16,7 @@
  */
 
 import type { UIContext } from '../context/UIContext.ts'
-import { extractKey, stripKey } from './field/key.ts'
+import { extractKey, normalizeKey, stripKey } from './field/key.ts'
 
 /** vnode——纯数据 */
 export interface VNode {
@@ -59,7 +59,9 @@ export function h(type: HType, props?: Record<string, unknown> | null, ...childr
 /** jsx 运行时（自动导入——`<div/>` 编译目标——React 兼容签名 jsx(type, props, key)——
  *  props 内 key 同样剥离；jsxs/jsxDEV 同形状（children 已在 props.children） */
 export function jsx(type: HType, props: Record<string, unknown> | null, key?: string | null): VNode {
-  return { type, props: stripKey(props), key: (key ?? extractKey(props)) ?? null }
+  // key 归一（2026-08——jsx 显式 key 参数路径漏归一化——esbuild automatic
+  // 编译 key={n.id} 传数字——keyedId 的 key.replace 崩——数字 key 列表渲染中断）
+  return { type, props: stripKey(props), key: normalizeKey(key) ?? extractKey(props) }
 }
 export const jsxs = jsx
 export const jsxDEV = jsx

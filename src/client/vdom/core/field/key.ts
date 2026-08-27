@@ -12,14 +12,19 @@
 
 export const KEY = 'key'
 
-/** key 提取（props → vnode.key——string|number 有效——其余 warn + null） */
-export function extractKey(props: Record<string, unknown> | null | undefined): string | null {
-  const k = props?.key
+/** key 归一化（单一实现源——jsx 显式 key 参数与 props 路径同入口——
+ *  数字 key 不归一 → keyedId 的 key.replace 崩（key 必须字符串）） */
+export function normalizeKey(k: unknown): string | null {
   if (k === null || k === undefined) return null
   if (typeof k === 'string') return k
   if (typeof k === 'number') return String(k)
   console.warn(`[vdom] key 必须是 string|number——当前 ${typeof k}（忽略——位置身份）`)
   return null
+}
+
+/** key 提取（props → vnode.key——string|number 有效——其余 warn + null） */
+export function extractKey(props: Record<string, unknown> | null | undefined): string | null {
+  return normalizeKey(props?.key)
 }
 
 /** 从 props 拷贝中剥离 key（h/jsx 用——props 不泄漏 key） */
