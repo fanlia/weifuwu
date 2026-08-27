@@ -141,7 +141,31 @@ test('A 级检测：静态组件列表 + 条件元素尾部不误报（confirm 2
   }
 })
 
-test('A 级检测：动态追加组件项不误报（尾部新增 = 空洞槽——位置稳定——Tour 回归）', async () => {
+test('A 级检测：空洞槽条件渲染不报（{cond && <X/>}——§6.3 占位法——同长度 toggle——Tour 回归）', async () => {
+  const warns: string[] = []
+  const origWarn = console.warn
+  console.warn = (...a) => { warns.push(String(a[0])) }
+  try {
+    const Btn = () => () => h('button', {}, 'b')
+    const Tour = () => () => h('div', { class: 'tour' })
+    // closed: [div, false] → open: [div, Tour]——**raw children 长度不变**
+    // （空洞槽 false/null = 占位锚——同构不变量）——旧实现 isBizNode 把
+    // false 剔除 → biz 长度 1→2 → 伪造组件序列变化 → 误报；修复后按 raw
+    // 槽位索引判定：旧槽 1 = 空洞 → 安全（Tour 实证）
+    const make = (open: boolean) =>
+      h('div', {}, [h('div', {}, 'a'), open ? h(Tour, {}) : false])
+    await diff(make(false), make(true))
+    assert.ok(!warns.some((w) => w.includes('[vdom] children')), `空洞槽条件渲染不报（实际: ${warns[0] ?? '无'}）`)
+    // 关闭方向同（comp → 空洞槽）
+    warns.length = 0
+    await diff(make(true), make(false))
+    assert.ok(!warns.some((w) => w.includes('[vdom] children')), '关闭方向同样不报')
+  } finally {
+    console.warn = origWarn
+  }
+})
+
+test('A 级检测：动态追加组件项不误报（尾部新增 = 越界空洞槽——位置稳定）', async () => {
   const warns: string[] = []
   const origWarn = console.warn
   console.warn = (...a) => { warns.push(String(a[0])) }
@@ -149,8 +173,8 @@ test('A 级检测：动态追加组件项不误报（尾部新增 = 空洞槽—
     const Btn = () => () => h('button', {}, 'b')
     const make = (n: number) => h('div', {}, Array.from({ length: n }, (_, i) => h(Btn, { key: i === 0 ? undefined : 'k' + i })))
     // [Btn(无key), Btn(k2)] → [Btn(无key), Btn(k2), Btn(k3)]——纯尾部追加：
-    // 旧组件索引全部保持（越界 = 空洞槽）——位置身份零漂移——不报（旧：compSeq
-    // 变化即报——`{cond && <X/>}` idiomatic 条件渲染误报——Tail 实证）
+    // 旧组件索引全部保持（越界 = 空洞槽——数据 map 追加）——位置身份零漂移
+    // ——不报（旧：compSeq 变化即报——误报）
     await diff(make(2), make(3))
     assert.ok(!warns.some((w) => w.includes('[vdom] children')), `纯尾部追加不报（实际: ${warns[0] ?? '无'}）`)
   } finally {

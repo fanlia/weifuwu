@@ -69,13 +69,15 @@ export async function diffChildrenItems(
     const bizOld = oldCs.filter(isBizNode)
     const bizNew = newCs.filter(isBizNode)
     // **精准判定（2026-08——条件渲染误报根治——Tour/AuthPage 实证）**：
-    // 无 key 组件项的真实风险 = **实槽占用翻转**（组件占据/让出「非空洞
-    // 非组件」的实槽——后续项按位置移位 → 重挂 → 状态丢失）；
-    // 纯尾部新增/删除（越界 = 空洞）与空洞槽条件渲染
-    // （`{cond && <X/>}` / `cond ? h(X) : null`——null 占位法——同构
-    // 不变量——位置稳定——**零漂移**）→ 安全——不再 warn。
-    // （诚实边界：同类型列表收缩（[doe,jane]→[jane]）与安全删除尾部结构
-    // 同构——无法区分——位置身份语义由作者纪律承担（数据列表必须 key））
+    // 旧实现把 holes 从 bizOld/bizNew filter 掉后比较组件序列——空洞槽
+    // toggle（`{cond && <X/>}`——§6.3 占位法：槽位恒为 false/null 空洞——
+    // raw children 长度不变——同槽位 hole→comp）被伪装成「组件序列变化」
+    // ——误报。真实风险 = **实槽占用翻转**（组件占据/让出「非空洞非组件」
+    // 的实槽——后续项按位置移位 → 重挂 → 状态丢失）；空洞槽过渡
+    // （false/null/undefined ↔ comp——同构不变量——位置稳定——零漂移）与
+    // 纯尾部追加/删除（越界 = 空洞槽——数据 map 追加——旧组件索引全保持）
+    // → 安全——不报。（诚实边界：同类型列表收缩（[doe,jane]→[jane]）与
+    // 安全删除尾部结构同构——无法区分——位置身份语义由作者纪律承担）
     const isHoleSlot = (cs: VNodeChild[], i: number): boolean =>
       i >= cs.length || cs[i] === null || cs[i] === undefined || typeof cs[i] === 'boolean'
     const isUnkeyedComp = (c: VNodeChild): boolean =>
