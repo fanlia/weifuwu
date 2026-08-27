@@ -356,27 +356,27 @@ test('T-M5-2: 池内存预算——超预算驱逐非 busy 最旧 → 仍超抛�
     ON CONFLICT (id) DO UPDATE SET sandbox_quota = 5`)
   await sql`DELETE FROM sandboxes WHERE app_id = ${budgetApp}`
   const exe = makeSandbox()
-  // 预算 = 1024MB（2×512）——第 3 个需驱逐最旧
+  // 预算 = 1024MB（2×512——显式 memoryMb 与 DEFAULT_MEMORY_MB 解耦——默认曾 512→1024 测试漂移）——第 3 个需驱逐最旧
   const m = makeManager(exe, { poolBudgetMb: 1024 })
-  const r1 = await m.create({ appId: budgetApp, name: '沙盒A', workspace: wsDir })
+  const r1 = await m.create({ appId: budgetApp, name: '沙盒A', workspace: wsDir, memoryMb: 512 })
   await m.start(r1.id, budgetApp)
   await new Promise(r => setTimeout(r, 50))
-  const r2 = await m.create({ appId: budgetApp, name: '沙盒B', workspace: wsDir })
+  const r2 = await m.create({ appId: budgetApp, name: '沙盒B', workspace: wsDir, memoryMb: 512 })
   await m.start(r2.id, budgetApp)
   // 第 3 个 → 预算超 → 驱逐非 busy 最旧（A——last_used_at 最早）
-  const r3 = await m.create({ appId: budgetApp, name: '沙盒C', workspace: wsDir })
+  const r3 = await m.create({ appId: budgetApp, name: '沙盒C', workspace: wsDir, memoryMb: 512 })
   assert.ok(r3.id, '预算内应创建成功')
   const [a1] = await sql`SELECT status FROM sandboxes WHERE id = ${r1.id}`
   assert.equal(String(a1.status), 'terminated', '最旧的 A 应被驱逐')
   const [a2] = await sql`SELECT status FROM sandboxes WHERE id = ${r2.id}`
   assert.equal(String(a2.status), 'running', '较新的 B 保留')
   // 第 4 个 → 驱逐最旧非 busy（B——A 已 terminated）→ 创建成功
-  const r4 = await m.create({ appId: budgetApp, name: '沙盒D', workspace: wsDir })
+  const r4 = await m.create({ appId: budgetApp, name: '沙盒D', workspace: wsDir, memoryMb: 512 })
   assert.ok(r4.id, '驱逐后应创建成功')
   // 预算 1MB → 无记录可驱逐 → 明确错误
   const m2 = makeManager(exe, { poolBudgetMb: 1 })
   await assert.rejects(
-    () => m2.create({ appId: budgetApp, name: '超预算', workspace: wsDir }),
+    () => m2.create({ appId: budgetApp, name: '超预算', workspace: wsDir, memoryMb: 512 }),
     /内存不足/,
   )
   await sql`DELETE FROM sandboxes WHERE app_id = ${budgetApp}`

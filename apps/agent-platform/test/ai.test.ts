@@ -9,7 +9,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { ai } from 'weifuwu'
-import { sseResponse } from '../../../src/ai/sse.ts'
+import { sseResponse } from '../../../src/server/ai/sse.ts'
 
 describe('AI Core Module', () => {
 
