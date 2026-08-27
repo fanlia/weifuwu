@@ -209,10 +209,10 @@ const themeNoFouc = `<script>
 </script>`
 
 // ── 文档页 SSR（SEO——/components/:id 等被搜索引擎索引；SPA 客户端接管交互） ──
-const DOC_DOMAINS = ['components', 'layout', 'patterns', 'apps', 'backend', 'capabilities', 'guides']
+// **范围简化（2026-08——仅保留 / /layout /components 三域）**
+const DOC_DOMAINS = ['components', 'layout']
 const DOMAIN_TITLES: Record<string, string> = {
-  components: '组件', layout: '布局原语', patterns: '页面模式',
-  apps: '应用模板', backend: '后端能力', capabilities: '框架能力', guides: '指南',
+  components: '组件', layout: '布局原语',
 }
 
 /** **SSR/SPA 同一棵树（2026-08——刷新闪烁/滚动跳变根治——inputnumber 实证：
@@ -359,6 +359,7 @@ for (const domain of DOC_DOMAINS) {
       renderDocPage(domain, (ctx as any).params.id.replace(/\.md$/, ''), req))
   }
 }
+// --- 简化说明 ---
 
 // ── 首页 SSR（SEO + 与 SPA 内容一致——hero 结构同文案，避免 SSR/SPA 切换闪烁） ──
 app.get('/', async (req: Request): Promise<Response> => {

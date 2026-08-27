@@ -7,8 +7,7 @@
  * SPA 接管后变暗色——刷新闪白事故（agent-browser 实测确认）。
  */
 export const NAV_ITEMS = [
-  ['components', '组件'], ['layout', '布局原语'], ['patterns', '页面模式'],
-  ['apps', '应用模板'], ['backend', '后端能力'], ['capabilities', '框架能力'], ['guides', '指南'],
+  ['components', '组件'], ['layout', '布局原语'],
 ] as const
 
 /** SSR header HTML（inline style——与 SPA Shell 的 wf-* 类等效；active 为当前域高亮）

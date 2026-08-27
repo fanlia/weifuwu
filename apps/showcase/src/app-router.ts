@@ -23,9 +23,7 @@ import { confirm } from '../../../src/client/components/Confirm/Confirm.ts'
 import { notification } from '../../../src/client/components/Notification/Notification.ts'
 import { Home } from './pages/home.tsx'
 import { ComponentsIndex, CategoryPage, ComponentPage } from './pages/components.tsx'
-import { LayoutIndex, LayoutPage, PatternsIndex, PatternPage, AppsIndex, AppPage, BackendIndex, BackendPage, CapabilitiesIndex, CapabilityPage, GuidesIndex, GuidePage } from './pages/domains.tsx'
-import { NotFound } from './pages/not-found.tsx'
-import { Community } from './pages/community.tsx'
+import { LayoutIndex, LayoutPage } from './pages/domains.tsx'
 import { Shell } from './shell.tsx'
 
 // ── 页面 handler（Shell 布局包裹——root 稳定——布局共享精准路由） ──
@@ -50,18 +48,7 @@ export function buildRouter(): UIRouter {
   router.get('/components/:category/:id', pageWithParams(ComponentPage))
   router.get('/layout', page(LayoutIndex))
   router.get('/layout/:id', pageWithParams(LayoutPage))
-  router.get('/patterns', page(PatternsIndex))
-  router.get('/patterns/:id', pageWithParams(PatternPage))
-  router.get('/apps', page(AppsIndex))
-  router.get('/apps/:id', pageWithParams(AppPage))
-  router.get('/backend', page(BackendIndex))
-  router.get('/backend/:id', pageWithParams(BackendPage))
-  router.get('/capabilities', page(CapabilitiesIndex))
-  router.get('/capabilities/:id', pageWithParams(CapabilityPage))
-  router.get('/guides', page(GuidesIndex))
-  router.get('/guides/:id', pageWithParams(GuidePage))
-  router.get('/community', page(Community))
-  router.notFound(() => new Response(null, { status: 404 }))
+                        router.notFound(() => new Response(null, { status: 404 }))
   return router
 }
 

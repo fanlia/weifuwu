@@ -8,8 +8,6 @@ import { Markdown, Tag } from 'weifuwu/components'
 import { fetchIndex, fetchMd, type IndexJson } from '../data.ts'
 import { TodoEmbed } from './todo-embed.tsx'
 import { PatternLive } from './patterns-live.tsx'
-import { AuthEmbed } from './auth-embed.tsx'
-import { AdminEmbed } from './admin-embed.tsx'
 import { MultiEmbed } from './multi-embed.tsx'
 
 interface DomainCfg {
@@ -101,57 +99,4 @@ export const { IndexPage: LayoutIndex, DetailPage: LayoutPage } = makeDomainPage
   itemTitle: (_idx, id) => { const m = { grid: '网格', stack: '纵向堆叠', row: '横向行', center: '居中', fill: '填满', container: '页面容器', cluster: '自动换行簇', split: '分栏', layer: '层叠', 'app-shell': '应用外壳', hidden: '显隐与显示类型', position: '定位', scroll: '滚动与裁剪', 'safe-area': '安全区', anchor: '锚点定位', align: '对齐', spacing: '间距工具', surface: '表面工具', border: '边框工具', text: '文本工具' } as Record<string, string>; return m[id] ?? id },
   itemDesc: (idx, id) => { const p = (idx.primitives as any[]).find((x) => x.id === id); return p?.desc ?? '' },
   itemTags: (idx, id) => { const p = (idx.primitives as any[]).find((x) => x.id === id); return p ? [p.kind === 'utility' ? '工具类' : '原语'] : [] },
-})
-
-// ── patterns ──
-export const { IndexPage: PatternsIndex, DetailPage: PatternPage } = makeDomainPages({
-  domain: 'patterns', title: '页面模式',
-  groupTitle: (g) => g,
-  itemTitle: (idx, id) => (idx.patterns.find((p) => p.id === id)?.name ?? id),
-  itemDesc: (idx, id) => idx.patterns.find((p) => p.id === id)?.desc ?? '',
-  itemTags: (idx, id) => {
-    const p = idx.patterns.find((x) => x.id === id)
-    return p ? [...(p.usedInApps.length ? [`用于 ${p.usedInApps.length} 应用`] : []), `${p.uses.length} 组件`] : []
-  },
-  sourceLink: (idx, id) => {
-    const p = idx.patterns.find((x) => x.id === id)
-    return p ? `/src/examples/${p.file}` : null
-  },
-  extraRender: (id) => h(PatternLive, { id }),
-})
-
-// ── apps ──
-export const { IndexPage: AppsIndex, DetailPage: AppPage } = makeDomainPages({
-  domain: 'apps', title: '应用模板',
-  itemTitle: (idx, id) => idx.apps.find((a) => a.id === id)?.name ?? id,
-  itemDesc: (idx, id) => idx.apps.find((a) => a.id === id)?.desc ?? '',
-  itemTags: (idx, id) => {
-    const a = idx.apps.find((x) => x.id === id)
-    return a ? [...(a.production ? ['生产级'] : ['复制即用']), ...(a.uses.length ? [`${a.uses.length} 组件`] : [])] : []
-  },
-  extraRender: (id) => (id === 'todo' ? h(TodoEmbed, {}) : id === 'auth' ? h(AuthEmbed, {}) : id === 'admin' ? h(AdminEmbed, {}) : id === 'multi' ? h(MultiEmbed, {}) : null),
-})
-
-// ── backend ──
-export const { IndexPage: BackendIndex, DetailPage: BackendPage } = makeDomainPages({
-  domain: 'backend', title: '后端能力',
-  groupTitle: (g) => ({ core: '核心', data: '数据', realtime: '实时', ai: 'AI', saas: 'SaaS' })[g] ?? g,
-  itemTitle: (idx, id) => idx.backend.find((b) => b.id === id)?.name ?? id,
-  itemDesc: (idx, id) => idx.backend.find((b) => b.id === id)?.desc ?? '',
-  itemTags: (idx, id) => { const b = idx.backend.find((x) => x.id === id); return b ? [b.middleware] : [] },
-})
-
-// ── capabilities ──
-export const { IndexPage: CapabilitiesIndex, DetailPage: CapabilityPage } = makeDomainPages({
-  domain: 'capabilities', title: '框架能力',
-  itemTitle: (idx, id) => idx.capabilities.find((c) => c.id === id)?.name ?? id,
-  itemDesc: (idx, id) => idx.capabilities.find((c) => c.id === id)?.desc ?? '',
-  itemTags: (_idx, _id) => ['平台自证'],
-})
-
-// ── guides ──
-export const { IndexPage: GuidesIndex, DetailPage: GuidePage } = makeDomainPages({
-  domain: 'guides', title: '指南',
-  itemTitle: (idx, id) => idx.guides.find((g) => g.id === id)?.name ?? id,
-  itemDesc: (idx, id) => idx.guides.find((g) => g.id === id)?.desc ?? '',
 })

@@ -12,11 +12,6 @@ import { ThemeSwitch, Icon } from 'weifuwu/components'
 export const DOMAINS = [
   { id: 'components', name: '组件', path: '/components' },
   { id: 'layout', name: '布局原语', path: '/layout' },
-  { id: 'patterns', name: '页面模式', path: '/patterns' },
-  { id: 'apps', name: '应用模板', path: '/apps' },
-  { id: 'backend', name: '后端能力', path: '/backend' },
-  { id: 'capabilities', name: '框架能力', path: '/capabilities' },
-  { id: 'guides', name: '指南', path: '/guides' },
 ] as const
 
 /** 壳（layout 包裹——跨路由复用：工厂不重跑，状态保持） */
