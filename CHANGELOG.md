@@ -8,6 +8,157 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.87.0] - 2026-08-27
+
+### Added
+
+- 范围简化——仅保留 /、/layout、/components 三域
+- 舞台编排——组件详情页升级 + 全站双重阴影清理
+- usePopup 会话级模态四件套实现——presence 已测 + trapFocus/lockScroll/mask/position 补齐（32 场景全绿）
+- SSR 结构吸收实现 + core/ssr/ 目录重构——首帧复用 DOM 焦点保持
+- P5 全部完成——替换计划收官（1656 全绿 + tsc 0）
+- P5 退役主体——ui-dom 删除 + 构建清理 + 全量迁移收尾
+- P4 apps 迁移——showcase + agent-platform + examples 模板全切 vdom
+- P3 包面切换——weifuwu/vdom 成为组件契约面
+- P2 收尾——office 迁移（pptx/docx/xlsx/xml-serialize——vdom3 → vdom）
+- P2 组件库迁移完成——132 组件 + 1327 测试全绿（ui-dom → vdom）
+- P1 契约补齐完成——5 hooks 移植（useTween/useDrag/useVisualViewport/useReducedMotion/usePopupPosition）
+- 四层集成测试 + keyed 重排语义修正（相对顺序检测——move id 覆盖根治）
+- RefRegistry——ref 全局注册表管理（对齐事件代理模式）
+- 事件代理——EventRegistry（事件表 + document 捕获根监听）
+- UIContext——前端 ctx 类型增强方案（对齐后端 Context 模式）
+- 契约验收——公共面契约测试 + 组件库迁移试点
+- uiSsr——服务端渲染闭环（同一 handler → 完整 HTML 文档）
+- core/html——commandToHtml（命令流 → HTML——流式 SSR 核心）
+- createClientBrowser + usePopup presence（会话级模态退场状态机）
+- middlewares——api/auth/i18n/ws（ctx 注入面）
+- useChat——AI 对话会话（流式消息累积 + HITL 审批）
+- useControlledInput + useDragDrop + useMedia/useBreakpoint
+- useControlled + useScrollPosition + useInView（事件驱动响应式 hooks）
+- usePopup 闭环 + 渲染队列调度（确定性）+ portal 关闭清理
+- hooks 渲染期调用模型——hook 状态缓存 + useOpen/useGlobalKey/useStableRef
+- hooks 基础闭环——createStore + useExternal（跨组件共享状态）
+- ctx 完整面——DataPipe 实现 + serve 接入（data/browser/onUnmount）
+- patch move——keyed 重排节点移动（阶段 3 完成——diff 闭环）
+- keyed 真移除卸载 + 混合数组身份复用（阶段 3 补全）
+- 并发 render 守卫——单槽位补跑（阶段 3 补全）
+- 生命周期指令显式化——ref/unref（DOM）+ mount/unmount（组件）
+- patch 生命周期处理——ref/mount/unmount 指令（阶段 3 补全）
+- 节点转换收敛 transform 状态机——完整转换（旧侧让位 + 新侧渲染）
+- A 级检测接入 diff——长度变化 + 无 key 组件项 warn 引导
+- 阶段2 build 闭环——jsx-runtime 子路径 + 组件输出 null 测试
+- 阶段1 route 闭环——导航（navigate/链接拦截/popstate——同一命令流机制）
+- keyed 列表 diff + build/diff 去重（共享渲染分发器）
+- diff 接入主线——首次全量消费 + 后续精准消费
+- node/keyed——keyed 列表语义（业务身份声明协议落地）
+- ctx.render() = 重新渲染唯一入口——新 Response command 事件流
+- 四阶段管线（route/build/diff/patch）+ shared router Trie + 无 hydration
+- transform 状态机目录 + command 命令目录——结构细分
+- children/node/hole/native/component 独立文件——渲染职责收敛
+- ref/key/style 独立文件——通道职责再细分
+- 属性三通道拆分——attributes/props/events 独立文件
+- 环境即依赖注入——uiServe(router, { root, browser })——测试零全局污染
+- UIRouter + uiServe 最小闭环——命令流渲染 hello world
+- core/vnode + context/Ctx——vnode 纯数据面类型与 h/jsx 工厂
+- 结构符号完全内化——Fragment/createPortal 移出公共面（X-S1 禁导出断言）
+- 公共面稳定契约——index.ts 对外接口（内部引擎切换不影响功能）+ X-S 系列
+- UIRouter/uiServe 纳入契约标准（每个 vdom 必选——公共面导出）+ vdom3 退役规划
+- UIRouter + uiServe——路由/SSR 补齐（类比后端 Router/serve——Trie 匹配）
+- render() 返回 Promise——await ctx.ui.render() 精确等待（契约 §4.2 落地）
+- 组件编写标准（强制）——三层强制执行 + 审计测试防护网
+- filter(Boolean) 红线——占位法替代（A 级检测移植 vdom4）+ X-B8 契约
+- 条件渲染统一标准——children 值域协议（空洞/文本/数组/非法输入矩阵）
+- Fragment 内化——数组 = 隐式 Fragment（递归展开契约）+ 统一写法
+- Portal 内化——usePopup 成为弹层唯一入口（createPortal 转内部机制）
+- 引擎契约测试——组件库能力沉淀为 vdom5 验收标准（37 测试全绿）
+- 组件库试金石第 5 批——真实 Collapse/VirtualList 零改动跑通 + keyed 锚 id 唯一化
+- 组件库试金石第 4 批——真实 Tabs/Popover 零改动跑通 + portal 清理/browser 注入修复
+- 组件库试金石第 3 批——真实 Carousel/Toast 零改动跑通 + keyed 判定修复
+- 组件库迁移试点扩展——真实 Modal/Tree 零改动跑通 + 引擎兼容修复
+- 组件库迁移试点——真实 Button/Select 零改动在 vdom4 引擎跑通
+- ctx.data 三场景——SSR 种子收集 → hydration preload 同步命中 / SPA fetch
+- keyed 列表（业务身份路径 .k{key}——重排复用 moveSlot）+ 串行调度根治
+- SSR 管线（命令 → HTML → 路径 id 精确吸收）+ Fragment 输出修复
+- Portal 支持 + usePopup 迁移试点（组件库浮层模式在 vdom4 跑通）
+- hooks 面（ctx.ui——复用引擎无关 services/hook-env）+ 串行调度修复
+- 独立引擎最小闭环——同步 renderFn + 统一渲染原语 + 锚点法 + 确定性路径
+- vdom4 UI-5——import 边界审计固化 + 双实例探针（v5 隔离性可测试保证）
+- P5 hydration 结构吸收——SSR 首帧零重建（DOM 复用——焦点/状态保持）
+- P3 dispose 协议——unmount/close 完整清理（泄漏消除）
+- vdom4 UI-3——HookEnv 引擎无关化 + render(['id']) 跨组件渲染补全
+- P2a——props 不可变契约机制化（dev 深度冻结——原地改立即 TypeError）
+- P1 锚点法 + 影子状态——每槽恒一锚，domIdx/widthOf 宽度推导消灭
+- vdom4 UI-2——RendererService 抽象 + vdom3 adapter（引擎接触面收口）
+- P0 命令化 diff——决策（gen）与执行（apply）分离
+- vdom4 UI-1——契约层抽取（contracts/vnode + contracts/ctx——引擎无关）
+- 首页 hero 改版——微流明三面孔落地（04 设计质量收口）
+- /community 社区组件收录域 + 01/05 计划 P0 核对收口
+- 02 学习体验计划收尾——典型场景节全覆盖 + 25 组件纪律/坑补写 + 防漂移防线
+- 组件搜索 family 维度 + 家族徽标反链 + 07 计划验收完结
+- 07 计划收尾——Mobile 模式 TabBar 化 + keyed diff 同引用 prev 推进修复 + demo 新能力活体
+- 命名治理——FilePreview 家族命名空间 + family 字段 + 易混组件对照 + 分类审计
+- P1 深度补全——Tabs editable / Table 固定列 / Tree 虚拟化 / PromptTemplate + 渲染器 textarea value 修复
+- P0 移动端品类——TabBar / ActionSheet / Slider range + Icon 扩充
+
+### Fixed
+
+- VirtualList 滚动失效——getScroller fallback window 吞掉容器监听
+- usePopup wrapProps 支持 longpress（contextmenu 右键）触发——ContextMenu 打不开
+- 组件输出组件 compId 冲突——连环重挂状态丢失（HoverCard 悬停失效）
+- showcase agent-browser 实测——14 个真实 bug（编译面 + 引擎浮层 + AI 流式）
+- P5 遗留推进——2 个真实 bug（moved 降序 + remap DOM 属性）
+- P5 遗留推进——FilePreview 14 全绿（mount 竞态 + 并发干扰）
+- P5 遗留推进——2 个真实 bug + SheetGrid/Editor AI 全绿
+- 环节缺口补全——query 注入/redirect 消费/fnTable 清理/错误自愈
+- transform 状态机——transitionFragment 递归完整清理 + 全分支测试
+- 组件输出数组 ↔ 单节点转换——旧输出完整清理（残留 bug）
+- 组件类型切换修复——复用检查（rec.type 比较 + 同步卸载）
+- patch 资源释放完整——remove/done 清理 propPrev（表泄漏修复）
+- 潜在 bug 源审查——修复 R1 输出 null 失配 + R2 O(n²) + R3 data 失败缓存
+- P2a 冻结豁免能力对象——含函数属性的共享可变状态（useChat handle/state）不冻结
+- unkeyed 列表重建 anchor 先捕获 + ChatInput props 不可变契约改造
+- SSR header 暗色模式刷新闪白——未定义 token 恒回落 #fff
+- childrenOf 保留显式 null 子节点为空洞——单子节点条件渲染误报
+- A 级动态数组检测 portal 槽豁免——[children, popup.portal()] 打开误报
+- 恢复命令式中间件 v3Notification——ctx.notification 静默 no-op
+- hover 离开菜单域自动关闭子菜单 + 嵌套 portal 幽灵面板清理
+
+### Docs
+
+- 清理过时引用——ui-dom 路径/已删测试/旧数据
+- vdom 替换 ui-dom 计划——五阶段（P1 契约补齐 → P5 退役）
+- §7.1.3 测试覆盖度量——v26.7 include-all 工具落地记录
+- diff 契约明确——产出 command 事件流（非就地 patch）
+- vdom-plan——渲染 = 命令流 + 原生 Request/Response（前后端同构）
+- 公共面形状定案——只有 h/jsx、uiServe、UIRouter
+- 新版本实现区决策——vdom/ 完全实现后一次性替换 ui-dom
+- schedule/build 机制解析 + 剪枝错误根因分析（P1 豁免对象原地改实测）
+- 方向调整——独立引擎（不兼容 vdom2/vdom3）+ 消灭挂起超时 hack
+- vdom3 生产引擎机制同步（命令化/锚点法/冻结/dispose/hydration/语义 id）
+- 标记全部计划完成——01-07 代码部分落地（INDEX 状态同步）
+- 07 组件全覆盖与命名治理计划——品类补全 + 家族归并/近义区分/分类审计 + 用户入口
+- 06 组件缺口计划——三库对照结论 + 与裁剪登记冲突裁决
+
+### Tests
+
+- 测试环境统一——testBrowser 唯一入口 + jsdom Proxy 全调用追踪
+- 覆盖度量续补——popup/observe/input/chat 行为缺口 + root 转换
+- 覆盖度量工具落地（--test-coverage-include-all）+ gap 补测
+- 覆盖度标准建立——design/vdom-test-standard.md + 不变量 helper
+- 映射与转化教学测试——真实例子抓出 3 个引擎 bug + 修复
+- transform 全 cell 执行级覆盖——42/42（缺失 12 cell 补全）
+- 剩余缺口补测——portal 更新/patch 处理器级/done.full 边界
+- 渲染队列 FIFO 语义测试同步——每个请求执行断言
+- 细节模块独立测试补全——store/router/attrs（212 全绿）
+- 路由切换精准化验证——布局共享场景（Header 复用不重建）
+- 综合生命周期测试——浮层 + keyed 列表 + 条件渲染 + Fragment + ref
+
+### Chore
+
+- 清理 src 下误提交的编译产物 .js（65 个——gitignore 防护）
+- 模块目录划分——browser/hooks/middlewares/context/core
+- 新建 src/client/vdom/ 目录（新版本 vdom 实现区——替换 ui-dom）
+
 ## [0.86.0] (129 组件 + 文档库 + 计划体系收口)
 
 - feat: 组件缺口 P0/P1 全量（TabBar/ActionSheet/Slider range/Tabs editable/Table 固定列/Tree 虚拟化/PromptTemplate）
