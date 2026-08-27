@@ -51,9 +51,10 @@ export const VirtualList: Component<VirtualListProps> = async (_init, ctx) => {
     } = props
 
     // 浏览器刷新/前进后退恢复滚动位置（直接设 scrollTop，无 scroll 事件）→ 主动同步
-    // （scrollTop 是合成器属性，读取不强制 reflow；y 同步后本 render 即用新值）
+    // （**getter 形态（2026-08）**：y 只读——hook 提供标准同步入口 refresh()
+    // ——手动重算读当前滚动位置——组件不写 hook 状态）
     if (el && el.scrollTop !== scroll.y) {
-      scroll.y = el.scrollTop
+      scroll.refresh()
     }
 
     const total = items.length

@@ -22,10 +22,11 @@ export interface UseScrollPositionOptions {
   root?: string | HTMLElement
 }
 
-/** useScrollPosition 结果（y 响应式——滚动位置 + refresh 手动重算） */
+/** useScrollPosition 结果（**对象 getter 形态**——y/x 读时求值——mount
+ *  闭包持有永远最新——位置规则不存在；refresh 手动重算驱动） */
 export interface ScrollPosition {
-  y: number
-  x: number
+  readonly y: number
+  readonly x: number
   /** 手动重算（组件调用方驱动——读当前滚动位置——不触发渲染） */
   refresh(): void
 }
@@ -153,9 +154,10 @@ export interface UseInViewOptions {
   target?: HTMLElement | (() => HTMLElement | null)
 }
 
-/** useInView 结果（isIn 响应式——可见性 + observe/disconnect/ready——组件自管模式） */
+/** useInView 结果（**对象 getter 形态**——isIn/ready 读时求值——mount
+ *  闭包持有永远最新） */
 export interface InView {
-  isIn: boolean
+  readonly isIn: boolean
   /** 绑定 ref（el 挂载 → 观察；null → 断开） */
   ref(el: HTMLElement | null): void
   /** 手动开始观察（组件自管 el 场景——BackTop/InView） */
@@ -163,7 +165,7 @@ export interface InView {
   /** 停止观察 */
   disconnect(): void
   /** 是否已注册（BackTop 用：ready && !isIn → 显示） */
-  ready: boolean
+  readonly ready: boolean
 }
 
 interface InViewState {

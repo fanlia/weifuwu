@@ -169,27 +169,34 @@ export function useDrag(env: HookEnv, options: DragOptions) {
 }
 
 /** 可视视口（visualViewport）状态 */
+/** 可视视口 handle（**对象 getter 形态**——读时求值——mount 闭包持有
+ *  永远最新——位置规则在 API 形状不存在） */
 export interface VisualViewportHandle {
-  height: number
-  offsetTop: number
-  keyboardOpen: boolean
+  readonly height: number
+  readonly offsetTop: number
+  readonly keyboardOpen: boolean
 }
 
 /** 可视视口跟踪：键盘弹起/缩放时自动更新 + 重渲染（vv 不可用 → window resize fallback） */
 export function useVisualViewport(env: HookEnv): VisualViewportHandle {
   const win = env.getBrowser()?.window
   const vv0 = win?.visualViewport
+  // **对象 getter（2026-08）**：height/offsetTop/keyboardOpen 读时求值——
+  // mount 闭包持有 handle 永远最新（旧快照属性：mount 闭包读一次冻结——
+  // 位置规则在 API 形状不存在）
+  let height = vv0?.height ?? win?.innerHeight ?? 0
+  let offsetTop = vv0?.offsetTop ?? 0
+  let keyboardOpen = false
   const handle: VisualViewportHandle = {
-    // 初始即 vv 值（对齐 ui-dom——首次渲染读 vv 而非 innerHeight）
-    height: vv0?.height ?? win?.innerHeight ?? 0,
-    offsetTop: vv0?.offsetTop ?? 0,
-    keyboardOpen: false,
+    get height() { return height },
+    get offsetTop() { return offsetTop },
+    get keyboardOpen() { return keyboardOpen },
   }
   const update = (): void => {
     const vv = win?.visualViewport
-    handle.height = vv?.height ?? win?.innerHeight ?? 0
-    handle.offsetTop = vv?.offsetTop ?? 0
-    handle.keyboardOpen = handle.height < (win?.innerHeight ?? 0) * 0.9
+    height = vv?.height ?? win?.innerHeight ?? 0
+    offsetTop = vv?.offsetTop ?? 0
+    keyboardOpen = height < (win?.innerHeight ?? 0) * 0.9
     env.requestRender()
   }
   if (win) {

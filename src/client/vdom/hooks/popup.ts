@@ -93,7 +93,16 @@ export interface PopupPositionOptions {
 /** 弹层位置跟踪：scroll/resize 时自动重算 fixed 坐标（0 rect 防护） */
 export function usePopupPosition(env: HookEnv, options: PopupPositionOptions) {
   const win = env.getBrowser()?.window
-  const pos = { top: 0, left: 0, refresh: () => {} }
+  // **对象 getter（2026-08）**：top/left 读时求值——mount 闭包持有 pos
+  // 永远最新（旧快照属性：mount 闭包读一次冻结——Affix 类组件依赖
+  // renderFn 重读——getter 化后无位置概念）
+  let top = 0
+  let left = 0
+  const pos = {
+    get top() { return top },
+    get left() { return left },
+    refresh: () => {},
+  }
 
   const refresh = (): void => {
     const el = options.el()
@@ -102,8 +111,8 @@ export function usePopupPosition(env: HookEnv, options: PopupPositionOptions) {
     // 0 rect 防护：元素替换中/未布局/隐藏时 rect 全 0——跳过刷新（保留上一坐标）
     if (r.width === 0 && r.height === 0) return
     const p = options.compute(r)
-    pos.top = p.top
-    pos.left = p.left
+    top = p.top
+    left = p.left
   }
 
   // scroll（捕获——容器滚动也收到）/resize 全局监听 + rAF 节流

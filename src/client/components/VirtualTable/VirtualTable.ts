@@ -77,7 +77,7 @@ export const VirtualTable: Component<VirtualTableProps> = async (_init, ctx) => 
     } = props
 
     if (bodyEl && bodyEl.scrollTop !== scroll.y) {
-      scroll.y = bodyEl.scrollTop
+      scroll.refresh()
     }
 
     const sortedData = sortData(data, columns, sortKey, sortOrder)
