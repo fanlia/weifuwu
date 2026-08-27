@@ -67,6 +67,47 @@ const HolePlaceholder = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 1b：空洞完整矩阵（§6.3 占位法全形态验证——2026-08） ─────────
+// 所有空洞值形态（false/null/undefined/''/boolean）× 元素/组件 ×
+// 嵌套数组 × keyed 混合——往返 toggle——childNodes 长度恒定 + 锚不残留
+// + 兄弟不误删 + 工厂只挂载一次（复用）——每块三槽位 [label, slot, tail]
+const HoleMatrix = (_init: Record<string, never>, ctx: any) => {
+  let s: Record<string, any> = {}
+  let mounts = 0
+  let unmounts = 0
+  const Gadget = (_i: Record<string, never>, c: any) => {
+    mounts++
+    c.onUnmount(() => { unmounts++ })
+    return () => h('span', { class: 'hm-gadget-slot' }, 'GADGET')
+  }
+  const flip = (k: string) => { s = { ...s, [k]: !s[k] }; ctx.render() }
+  // 每块：label + 槽位（空洞 ↔ 真实）+ tail——**键名一致纪律**：flip(k)/s[k]
+  // 同一标识符（首轮验证踩坑：flip('false-v') 写 s['false-v'] 但渲染读
+  // s.falseV——键不匹配——条件恒 false——锚永不替换）
+  const block = (id: string, slot: any) =>
+    h('div', { class: `hm-block hm-${id}`, 'data-slot': '0' },
+      h('span', { class: 'hm-label' }, id),
+      slot,
+      h('button', { class: 'hm-tail', onClick: () => flip(id) }, 'tail'),
+    )
+  return () =>
+    h('div', { class: 'hm-scene' },
+      block('falseV', s.falseV ? h('span', { class: 'hm-slot' }, 'F') : false),
+      block('nullV', s.nullV ? h('span', { class: 'hm-slot' }, 'N') : null),
+      block('undefV', s.undefV ? h('span', { class: 'hm-slot' }, 'U') : undefined),
+      block('emptyV', s.emptyV ? h('span', { class: 'hm-slot' }, 'E') : ''),
+      block('boolT', s.boolT ? h('span', { class: 'hm-slot' }, 'B') : true),
+      block('comp', s.comp ? h(Gadget, {}) : false),
+      block('keyed', s.keyed
+        ? [h('span', { key: 'hm-ka', class: 'hm-slot' }, 'K'), h(Gadget, { key: 'hm-g' }), h('span', { key: 'hm-kb', class: 'hm-slot' }, 'K2')]
+        : [h('span', { key: 'hm-ka', class: 'hm-slot' }, 'K'), false, h('span', { key: 'hm-kb', class: 'hm-slot' }, 'K2')]),
+      block('nested', s.nested
+        ? [h('span', { class: 'hm-slot' }, 'A'), [h('span', { class: 'hm-inner' }, 'I')]]
+        : [h('span', { class: 'hm-slot' }, 'A'), [false]]),
+      h('div', { class: 'hm-stats' }, `mounts:${mounts}·unmounts:${unmounts}`),
+    )
+}
+
 // ── 场景 2：组件复用（工厂不重跑——内部 let 状态保持） ──────────────────
 // 同位置同类型组件复用 _render——父重渲染不重挂——内部状态（count）保持。
 const Counter = (_init: Record<string, never>, ctx: any) => {
@@ -1617,6 +1658,7 @@ const REDIRECT = { id: 'redirect-target', title: 'redirect 目标（302 消费�
 
 export const scenarios: Scenario[] = [
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
+  { id: 'hole-matrix', title: '空洞完整矩阵（全形态 × 组件/嵌套/keyed——childNodes 恒定）', render: HoleMatrix },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },
   { id: 'keyed-reorder', title: 'keyed 身份跟随（重排状态不漂移）', render: KeyedReorder },
   { id: 'portal-toggle', title: 'portal 往返（弹层增删不残留）', render: PortalToggle },

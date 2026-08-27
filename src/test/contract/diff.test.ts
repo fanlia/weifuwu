@@ -53,6 +53,29 @@ test('文本变化 → setText 就地更新（不重建节点——焦点保持�
     '文本节点 setText——create/insert 零命令')
 })
 
+test('空字符串 ↔ 文本：锚转换（events-rebind 回归——setText 到锚无效）', async () => {
+  // **diffSlot 判定统一（2026-08——kindOf('')→hole 的生成/消费对齐）**：
+  // build 把 '' 渲染为锚（kindOf 归 hole）——diff 若用 typeof 快路径
+  // （'' 是 string）→ setText 到注释节点——无效——span 空文本永驻锚
+  // （events-rebind 实证：.ev-last '' → 'v0' 不显示——测试 30s 超时）——
+  // 快路径改用 kindOf（text/text 才 setText——'' 是 hole 不命中）——
+  // hole 分支 remove 锚 + emit 新侧（createText）
+  const cmds = await diff(
+    h('span', { class: 'ev-last' }, ''),
+    h('span', { class: 'ev-last' }, 'v0'),
+  )
+  assert.deepEqual(cmds.map((c) => c.op), ['remove', 'createText', 'insert', 'done'],
+    `''→text 转换命令（锚移除 + 文本创建——非 setText——实际: ${cmds.map((c) => c.op).join(',')}`)
+  assert.equal((cmds[1] as { value?: string }).value, 'v0')
+  // 反向：text → ''——transitionText——文本移除 + 锚
+  const cmds2 = await diff(
+    h('span', { class: 'ev-last' }, 'v0'),
+    h('span', { class: 'ev-last' }, ''),
+  )
+  assert.deepEqual(cmds2.map((c) => c.op), ['remove', 'createAnchor', 'insert', 'done'],
+    `text→'' 转换命令（文本移除 + 锚——实际: ${cmds2.map((c) => c.op).join(',')}`)
+})
+
 test('组件同类型复用：工厂不重跑（renderFn 重新调用——命令流生成时消费）', async () => {
   let mounts = 0
   const Counter = (_i: Record<string, never>) => { mounts++; return () => h('span', { class: 'c' }, 'x') }

@@ -111,7 +111,7 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
       unmount 全形态）；卸载递归（disposeComponent 前缀）；函数面 diff
       对称（旧有新无 → setProp undefined 解绑）
 
-18. **空字符串 = 空洞（编码唯一性——2026-08）**：`{cond ? 'x' : ''}` 的 `''` 槽位——客户端 createText('') 生成空文本节点 vs HTML 序列化零输出（同一 children 值两套物理表示）——SSR 吸收文本流错位（把 demo 面 div 当多余节点跳过→ 耗尽 failed → DOM 双份污染——inputnumber 实证）——kindOf 单一实现源统一归空洞（锚注释双端同构）——`''` 不再走 text 分支（diff/transform 矩阵自动落 hole 列）
+18. **空字符串 = 空洞（编码唯一性——2026-08——生成/消费全判定点统一）**：`{cond ? 'x' : ''}` 的 `''` 槽位——客户端 createText('') 生成空文本节点 vs HTML 序列化零输出（同一 children 值两套物理表示）——SSR 吸收文本流错位（把 demo 面 div 当多余节点跳过→ 耗尽 failed → DOM 双份污染——inputnumber 实证）——kindOf 单一实现源统一归空洞（锚注释双端同构）——**判定点统一纪律（events-rebind 实证）**：kindOf 归空洞后 diffSlot 的文本快路径仍用 `typeof === 'string'`（'' 是 string）→ 对锚发 setText（注释节点——无效——span 空文本永驻锚 30s 超时）——**所有「是否文本」判定必须走 kindOf**（build/diff/transform/SSR 四端同构——映射歧义杜绝）——diffSlot 顺序：kindOf text/text → setText；kindOf old=hole → remove+emit（''↔'' 亦走此——锚保持）；异态 → transition（text↔hole 双向已覆盖）
 19. **SSR 吸收文本分裂（2026-08——相邻文本 HTML 合流）**：HTML 序列化把相邻 createText 合并为一个 DOM 文本节点（`' › '` + `'InputNumber'` → `" › InputNumber"`）——命令流两条 createText——absorb.next 前缀匹配 + splitText 分裂（剩余 unshift 回队列）——procCreateText 传目标 value
 20. **SSR ≡ SPA 首帧纪律（showcase——2026-08）**：服务端渲染必须与客户端接管渲染同一棵组件树——uiSsr + 同一 router（app-router.ts 单一实现源）——差异 = 刷新整页跳变（实证：SSR 只有 Markdown、SPA 有面包屑/标题/活体 demo/页脚）——**同实例纪律**：h()/uiSsr 必须同一 bundle 实例（跨实例 Fragment 符号全等断裂 → 文本变空洞锚——非法子节点 type: symbol）——esbuild node bundle（src/ssr.ts 入口）+ data URL 动态 import——失败回退 Markdown-only（SEO 保底）
 21. **demo 渲染路径副作用 SSR 纪律**：渲染函数里 setTimeout/定时器循环类 demo 必须 `typeof window !== 'undefined'` 守卫（SSR ctx 无 render——定时器 = 服务器 unhandled rejection 污染）

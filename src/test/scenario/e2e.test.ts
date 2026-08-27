@@ -49,7 +49,66 @@ test('hole-placeholder：false 占位不误删兄弟——空洞切换位置正�
   }
 })
 
-// ── 场景 2：组件复用（工厂不重跑——内部 let 状态保持） ──────────────────
+// ── 场景 1b：空洞完整矩阵（§6.3 占位法全形态——2026-08 验证） ────────
+// 全空洞值形态（false/null/undefined/''/boolean）× 元素/组件 × keyed/
+// 嵌套数组——toggle 往返——childNodes 长度恒定 + 锚↔真实互换 + 兄弟保留
+// + 组件挂载/卸载交替——每块布局 [label, 槽位, tail]
+test('hole-matrix：空洞全形态 childNodes 恒定——锚↔真实互换零塌缩', async () => {
+  const page = await browser.newPage()
+  const errs: string[] = []
+  page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 120)) })
+  try {
+    await openScenario(page, BASE, 'hole-matrix')
+    // 首帧：全形态锚占位——槽位数 = 单槽 3 / keyed 5（数组 3 槽展开）/
+    // nested 4（数组 2 槽展开）
+    const first: Record<string, number> = {}
+    for (const [id, slots] of [['falseV', 3], ['nullV', 3], ['undefV', 3], ['emptyV', 3], ['boolT', 3], ['comp', 3], ['keyed', 5], ['nested', 4]]) {
+      first[id] = await page.evaluate((id) => {
+        const b = document.querySelector(`.hm-${id}`)!
+        return { len: b.childNodes.length, hole: b.innerHTML.includes('wf-hole'), label: b.querySelectorAll('.hm-label').length, tail: b.querySelectorAll('.hm-tail').length }
+      }, id).then((r) => { assert.equal(r.len, slots, `${id} 首帧槽位数（childNodes 恒定）`); assert.ok(r.hole, `${id} 首帧锚占位`); assert.equal(r.label, 1); assert.equal(r.tail, 1); return r.len })
+    }
+    // 单调切：空洞 → 真实——长度恒等 + 锚被替换 + 兄弟保留
+    const toggle = async (id: string) => { await page.click(`.hm-${id} .hm-tail`); await page.waitForTimeout(200) }
+    for (const id of ['falseV', 'nullV', 'undefV', 'emptyV', 'boolT', 'comp', 'keyed', 'nested']) {
+      await toggle(id)
+      const r = await page.evaluate((id) => {
+        const b = document.querySelector(`.hm-${id}`)!
+        return { len: b.childNodes.length, hole: b.innerHTML.includes('wf-hole'), gadget: !!b.querySelector('.hm-gadget-slot'), label: b.querySelectorAll('.hm-label').length, tail: b.querySelectorAll('.hm-tail').length }
+      }, id)
+      assert.equal(r.len, first[id], `${id} toggle 后槽位数不变（零塌缩）`)
+      assert.equal(r.hole, false, `${id} toggle 后锚被替换`)
+      assert.equal(r.label, 1, `${id} label 保留（不误删兄弟）`)
+      assert.equal(r.tail, 1, `${id} tail 保留`)
+      if (id === 'comp' || id === 'keyed') assert.ok(r.gadget, `${id} 组件挂载`)
+    }
+    // 反向：真实 → 空洞——锚回归 + 长度恒定
+    for (const id of ['falseV', 'comp']) {
+      await toggle(id)
+      const r = await page.evaluate((id) => {
+        const b = document.querySelector(`.hm-${id}`)!
+        return { len: b.childNodes.length, hole: b.innerHTML.includes('wf-hole'), gadget: !!b.querySelector('.hm-gadget-slot') }
+      }, id)
+      assert.equal(r.len, first[id], `${id} 反向槽位数不变`)
+      assert.ok(r.hole, `${id} 锚回归`)
+      if (id === 'comp') assert.equal(r.gadget, false, '组件卸载（DOM 级）')
+    }
+    // 组件 3 轮往返：挂载/卸载交替（DOM 存在性——render fn 快照语义：
+    // 工厂计数滞后一拍是正确行为——不能用 stats 文本断言）
+    for (let round = 0; round < 3; round++) {
+      await toggle('comp')
+      const g1 = await page.evaluate(() => !!document.querySelector('.hm-comp .hm-gadget-slot'))
+      await toggle('comp')
+      const g2 = await page.evaluate(() => !!document.querySelector('.hm-comp .hm-gadget-slot'))
+      assert.equal(g1 && !g2, true, `第 ${round + 1} 轮组件往返交替`)
+    }
+    // 零错误（吸收/命令流无违例）
+    assert.deepEqual(errs, [], `全程零 vdom 错误（实际: ${errs[0] ?? '无'}）`)
+  } finally {
+    await page.close()
+  }
+})
+
 test('component-reuse：父重渲染不重挂子组件——内部状态保持', async () => {
   const page = await browser.newPage()
   try {

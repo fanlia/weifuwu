@@ -193,16 +193,18 @@ async function diffSlot(
   ctx: UIContext, registry: ComponentRegistry,
 ): Promise<void> {
   if ((globalThis as any).__DBG7) console.log('[dbg-slot]', cid, 'old=', oldC === null ? 'null' : typeof oldC === 'object' ? String((oldC as VNode).type) : String(oldC), 'new=', newC === null ? 'null' : typeof newC === 'object' ? String((newC as VNode).type) : String(newC))
-  // 文本 ↔ 文本（**统一 kindOf 语义——单一规则源**）：string/number 交叉
-  // （'x' ↔ 42——同 kind text——按精确类型分流导致四分支落空 +
-  // transitionOf 对角 null → 静默 no-op——fuzz#79 实证——文本不更新）
-  // ——textOf 统一字符串化——值变化才 setText（精准）
-  if ((typeof oldC === 'string' || typeof oldC === 'number') && (typeof newC === 'string' || typeof newC === 'number')) {
+  // 文本 ↔ 文本（**kindOf 语义——单一规则源**：'' 已归 hole（锚）——
+  // typeof 快路径会把 '' 当 string 发 setText 到锚（注释节点——无效——
+  // events-rebind 实证：span 空文本 → v0 不显示）——kindOf 判定与 build
+  // 严格同构；string/number 交叉（'x' ↔ 42——同 kind text——textOf
+  // 统一字符串化——值变化才 setText——精准——fuzz#79 语义保持）
+  if (kindOf(oldC) === 'text' && kindOf(newC) === 'text') {
     if (String(oldC) !== String(newC)) emitCommand({ op: 'setText', id: cid, value: String(newC) })
     return
   }
-  // 旧位是空洞（锚）→ 锚移除 + 新侧渲染
-  if (oldC === null || oldC === undefined || typeof oldC === 'boolean') {
+  // 旧位是空洞（锚——null/undefined/boolean/''——kindOf 统一）→
+  // 锚移除 + 新侧渲染（emit 侧同构：'' = hole → emitHole——锚保持）
+  if (kindOf(oldC) === 'hole') {
     emitCommand({ op: 'remove', id: cid })
     await emit(newC, parent, index, ref)
     return
