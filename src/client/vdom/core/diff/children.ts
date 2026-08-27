@@ -11,7 +11,7 @@
 
 import type { VNode, VNodeChild } from '../vnode.ts'
 import { childrenOf, slotCount } from '../node/children.ts'
-import { kindOf } from '../node/index.ts'
+import { kindOf, isHoleKind, isTextKind } from '../node/index.ts'
 import { stateOf } from '../transform/states.ts'
 import { transitionOf } from '../transform/table.ts'
 import { listKind, planKeyedDiff, keyOf, detectMissingKey, isKeyed, detectDuplicateKey, keyedId } from '../node/keyed.ts'
@@ -64,8 +64,10 @@ export async function diffChildrenItems(
   // ② 单子节点条件渲染（`cond ? <X/> : null`——null 是空洞占位——同构
   // 不变量——非列表项——ColorPicker 选中态不误报）
   if (!shapeChanged) {
+    // **判定点收敛（2026-08——kindOf 单一实现源）**：业务节点 =
+    // kindOf element/component/fragment（非空洞非文本非数组——'' 已是 hole）
     const isBizNode = (i: VNodeChild): i is VNode =>
-      i !== null && i !== undefined && typeof i !== 'boolean' && typeof i !== 'string' && typeof i !== 'number' && !Array.isArray(i)
+      !isHoleKind(i) && !isTextKind(i) && !Array.isArray(i)
     const bizOld = oldCs.filter(isBizNode)
     const bizNew = newCs.filter(isBizNode)
     // **精准判定（2026-08——条件渲染误报根治——Tour/AuthPage 实证）**：
@@ -79,7 +81,7 @@ export async function diffChildrenItems(
     // → 安全——不报。（诚实边界：同类型列表收缩（[doe,jane]→[jane]）与
     // 安全删除尾部结构同构——无法区分——位置身份语义由作者纪律承担）
     const isHoleSlot = (cs: VNodeChild[], i: number): boolean =>
-      i >= cs.length || cs[i] === null || cs[i] === undefined || typeof cs[i] === 'boolean'
+      i >= cs.length || isHoleKind(cs[i])
     const isUnkeyedComp = (c: VNodeChild): boolean =>
       typeof (c as VNode | null)?.type === 'function' && !isKeyed(c)
     const oldFree = (i: number): boolean => isHoleSlot(oldCs, i) || isUnkeyedComp(oldCs[i])
@@ -110,12 +112,12 @@ export async function diffChildrenItems(
     const oldC = oldCs[i] ?? null
     const newC = newCs[i] ?? null
     const cid = pathId(id, i)
-    if (newC === null || newC === undefined) {
-      // **占位（空洞保持——同构不变量）**：数组长度不变但该项为 null
-      // （条件渲染元素/组件）——旧项移除（unmount/
-      // remove）+ **占位锚**——childNodes 长度恒定（不塌缩）
-      // null ↔ null：no-op（锚已在 DOM——保持——不重建）
-      if (oldC !== null && oldC !== undefined && typeof oldC !== 'boolean') {
+    if (isHoleKind(newC)) {
+      // **占位（空洞保持——同构不变量**：数组长度不变但该项为空洞
+      // （null/undefined/boolean/''——条件渲染元素/组件，§6.3 占位法）——
+      // 旧项移除（unmount/remove）+ **占位锚**——childNodes 长度恒定
+      // 空洞 ↔ 空洞：no-op（锚已在 DOM——保持——不重建）
+      if (!isHoleKind(oldC)) {
         await removeOldSlot(oldC, id, cid, emitCommand, registry)
         emitHole(emitCommand, cid, id, lastRef)
       }
@@ -155,7 +157,7 @@ async function removeOldSlot(
 ): Promise<void> {
   // **空洞项——占位锚节点必须移除（fuzz seed=7 实证——尾部缩短的 null 项
   //  return 导致锚残留——childNodes 长度不收敛——同构不变量破坏）**
-  if (oldC === null || oldC === undefined || typeof oldC === 'boolean') {
+  if (isHoleKind(oldC)) {
     emitCommand({ op: 'remove', id: cid })
     return
   }
@@ -274,11 +276,11 @@ export async function diffKeyedChildren(
   const keyCount = new Map<string, number>()
   for (let i = 0; i < oldCs.length; i++) {
     const oldC = oldCs[i]
-    if (oldC === null || oldC === undefined || typeof oldC === 'boolean') {
+    if (isHoleKind(oldC)) {
       emitCommand({ op: 'remove', id: pathId(parent, i) }) // 空洞——占位锚节点——必须移除
       continue
     }
-    if (typeof oldC === 'string' || typeof oldC === 'number') {
+    if (isTextKind(oldC)) {
       emitCommand({ op: 'remove', id: pathId(parent, i) })
       continue
     }
@@ -331,8 +333,8 @@ export async function diffKeyedChildren(
       if (!newKeys.has(k)) emitCommand({ op: 'unmount', compId: keyedId(parent, k) })
     }
     oldCs.forEach((c, i) => {
-      if (c === null || c === undefined || typeof c === 'boolean') return
-      if (typeof c === 'string' || typeof c === 'number') { emitCommand({ op: 'remove', id: pathId(parent, i) }); return }
+      if (isHoleKind(c)) return
+      if (isTextKind(c)) { emitCommand({ op: 'remove', id: pathId(parent, i) }); return }
       if (keyOf(c as VNode) !== null) { emitCommand({ op: 'remove', id: pathId(parent, i) }); return } // keyed 项——单槽位（保留实例——重建复用）
       removeVNodeTree(c as VNode, pathId(parent, i), parent, emitCommand, registry) // unkeyed 项——区间语义（FRAG/组件）
     })

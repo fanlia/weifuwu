@@ -59,7 +59,7 @@ export async function diffComponentOutput(
     return pathId(compId, 0)
   }
   const outId = pathId(p, i)
-  const isHole = out === null || out === undefined || typeof out === 'boolean'
+  const isHole = isHoleKind(out)
   if (oldOut === undefined) {
     // 首帧输出（无旧记录）——全量渲染
     await emit(out, p, i, r)
@@ -130,3 +130,5 @@ export async function diffComponentOutput(
     }
   }
 }
+
+import { isHoleKind } from '../node/index.ts'

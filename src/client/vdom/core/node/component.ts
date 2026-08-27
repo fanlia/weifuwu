@@ -26,6 +26,7 @@ import type { Browser } from '../../browser/Browser.ts'
 import { removeVNodeTree, outputBase } from '../diff/cleanup.ts'
 import type { Command } from '../command/index.ts'
 import { withTimeout, DEFAULT_ASYNC_TIMEOUT_MS } from '../async-guard.ts'
+import { isHoleKind } from './index.ts'
 
 /** 组件输出判别联合（**方案 3——null 结构性消除——编译器穷尽**）：
  *  - vnode：单节点输出（元素/组件/文本——挂槽位 id——锚点法）
@@ -41,7 +42,10 @@ export type CompOutput =
 
 /** 组件输出归一化（VNodeChild → CompOutput——null/undefined/boolean → hole） */
 export function normalizeOutput(out: VNodeChild): CompOutput {
-  if (out === null || out === undefined || typeof out === 'boolean') return { kind: 'hole' }
+  // **判定点收敛（2026-08——kindOf 单一实现源）**：'' 组件输出 = hole
+  // （kindOf 归空洞——旧判定不含 ''——输出形状分裂——emit 走 hole、
+  // 输出形状走 text——id 空间错位风险）
+  if (isHoleKind(out)) return { kind: 'hole' }
   if (Array.isArray(out)) return { kind: 'array', items: out }
   return { kind: 'vnode', v: out as VNode }
 }
@@ -234,7 +238,7 @@ export async function renderComponent(
   //  - 单 vnode 元素/文本输出 → 槽位 id（锚点法——compId = 锚点 id 语义）
   const outIsArray = Array.isArray(out)
   const outIsCompNode = typeof (out as VNode)?.type === 'function'
-  const outIsHole = out === null || out === undefined || typeof out === 'boolean'
+  const outIsHole = isHoleKind(out)
   await sink(out, outIsArray || outIsCompNode || outIsHole ? compId : parent, outIsArray || outIsCompNode || outIsHole ? 0 : index, ref)
   return isNew
 }

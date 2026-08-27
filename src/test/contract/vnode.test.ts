@@ -13,7 +13,8 @@ import assert from 'node:assert/strict'
 import { h, jsx, type VNode, type Component } from '../../client/vdom/core/vnode.ts'
 import { Fragment } from '../../client/vdom/core/node/fragment.ts'
 import { childrenOf } from '../../client/vdom/core/node/children.ts'
-import { kindOf } from '../../client/vdom/core/node/index.ts'
+import { kindOf, isHoleKind, isTextKind } from '../../client/vdom/core/node/index.ts'
+import { normalizeOutput } from '../../client/vdom/core/node/component.ts'
 
 test('h：纯数据 vnode——type/props/key/children 形状', () => {
   const v = h('div', { id: 'x', key: 'k1' }, 'text')
@@ -73,6 +74,28 @@ test("kindOf：空字符串 = 空洞（编码唯一性——空文本不可序�
   assert.equal(kindOf(''), 'hole', "'' → hole（不再 text）")
   assert.equal(kindOf('x'), 'text')
   assert.equal(kindOf(0), 'text', '数字 0 仍是文本（与 null 区分）')
+})
+
+test("判定点收敛（2026-08）：isHoleKind/isTextKind 全判定点一致性——禁止分裂", () => {
+  // **判定点收敛红线（hole/text 语义唯一实现源——''→hole 双 bug 的机制防线）**：
+  // 渲染级“是否空洞/文本”一律经 isHoleKind/isTextKind（kindOf 派生）——
+  // 任何模块手写 `=== null || typeof === 'boolean'`（不含 ''）或
+  // `typeof === 'string'`（含 ''）都是分裂点（diffSlot setText 到锚 / 组件
+  // 输出''形状错位——实证）
+  assert.equal(isHoleKind(''), true, "'' 渲染级空洞")
+  assert.equal(isHoleKind(null), true)
+  assert.equal(isHoleKind(false), true)
+  assert.equal(isHoleKind('x'), false)
+  assert.equal(isTextKind(''), false, "'' 不是文本（快路径排除——setText 到锚防线）")
+  assert.equal(isTextKind('x'), true)
+  assert.equal(isTextKind(42), true)
+  // 组件输出形状统一（'' 输出 = hole——emit/输出形状同构）
+  const out0 = normalizeOutput('')
+  assert.equal(out0.kind, 'hole', "组件输出空串 → hole（旧判定不含——输出形状分裂——id 空间错位风险）")
+  const out1 = normalizeOutput(null)
+  assert.equal(out1.kind, 'hole')
+  const out2 = normalizeOutput('v')
+  assert.equal(out2.kind, 'vnode')
 })
 
 test('组件两阶段类型：工厂 mount 一次 + renderFn 每次渲染', () => {

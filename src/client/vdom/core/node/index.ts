@@ -44,3 +44,19 @@ export function textOf(v: VNodeChild): string | null {
   if (typeof v === 'string' || typeof v === 'number') return String(v)
   return null
 }
+
+/** **渲染级空洞判定（2026-08——判定点收敛——单一实现源）**：
+ *  null/undefined/boolean/''（'' 归 kindOf hole——编码唯一性）——
+ *  build/diff/transform/SSR 四端渲染分类唯一判定点——禁止模块内手写
+ *  `=== null || === undefined || typeof === 'boolean'`（''→hole 曾只改
+ *  kindOf——diffSlot typeof 快路径分裂——双 bug 实证）——渲染空洞语义
+ *  一律经本函数 */
+export function isHoleKind(v: VNodeChild): boolean {
+  return kindOf(v) === 'hole'
+}
+
+/** **渲染级文本判定**（kindOf 语义——'' 是 hole 不是文本——文本快路径
+ *  与 setText 目标判定统一——diffSlot ''↔text 转换回归的机制防线） */
+export function isTextKind(v: VNodeChild): boolean {
+  return kindOf(v) === 'text'
+}

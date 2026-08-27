@@ -35,7 +35,7 @@ export function outputBase(out: VNodeChild, compId: string, slotId: string): str
   if (Array.isArray(out)) return compId
   // **null/空洞输出（C2 修正）**——与 sink 特判一致（锚挂 compId.0——
   //  清理基线统一——否则 remove root.0 删不到 root.0.0 的锚）
-  if (out === null || out === undefined || typeof out === 'boolean') return pathId(compId, 0)
+  if (isHoleKind(out)) return pathId(compId, 0)
   return slotId
 }
 
@@ -67,11 +67,11 @@ export function removeVNodeTree(
 ): void {
   if ((globalThis as any).__DBG8) console.log('[dbg-rmt]', base, 'parent=', parent, 'type=', typeof v === 'object' && v !== null && !Array.isArray(v) ? String((v as VNode).type) : Array.isArray(v) ? 'array' : String(v))
   // 空洞/文本：单节点移除（锚——同构保持）
-  if (v === null || v === undefined || typeof v === 'boolean') {
+  if (isHoleKind(v)) {
     emitCommand({ op: 'remove', id: base })
     return
   }
-  if (typeof v === 'string' || typeof v === 'number') {
+  if (isTextKind(v)) {
     emitCommand({ op: 'remove', id: base })
     return
   }
@@ -153,3 +153,5 @@ export function removeVNodeTree(
   })
   emitCommand({ op: 'remove', id: base })
 }
+
+import { isHoleKind, isTextKind } from '../node/index.ts'
