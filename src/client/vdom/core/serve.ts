@@ -407,6 +407,23 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
           // 整树替换（导航/root 组件切换）——**旧组件实例全部卸载**
           //（onUnmounts 清理——否则 renderComponent 复用旧 rec——类型错位）
           disposeAllComponents(registry)
+          // **先清后建（2026-08——跨渲染组件换型 root 清空根因修复）**：
+          // 旧树根是「元素槽」（root.0 = wf-app-shell DOM）而新树根可能是
+          // 「组件槽」（Login→AuthPage——root.0 无 create）——新节点 insert
+          // 的 parent 解析到旧 root——done.full 按「未 touched」删除旧 root
+          // → 新树插在旧 root 内陪葬（rootLen 0——白屏——取证：124 命令
+          // 无 remove 无 root.0 重建——最小复现生成端却有——dispose 后
+          // 依赖 done.full 而 old/new 槽位语义变化）——全量 = 整树替换：
+          // 先清 DOM/节点表/事件/refs——新树干净建立（节点表空——
+          // procCreate 不复用脱离节点——无状态残留）
+          for (const id of [...applier.nodes.keys()]) {
+            applier.clearNodeRefs(id)
+            applier.eventRegistry.remove(id)
+          }
+          applier.nodes.clear()
+          applier.touched.clear()
+          rootEl.innerHTML = ''
+          currentTree = null
           return renderToStream(vnode, ctx, registry)
         })()
         : diffStream(currentTree, vnode, ctx, registry))
