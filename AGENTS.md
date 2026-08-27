@@ -115,7 +115,9 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 19. **SSR 吸收文本分裂（2026-08——相邻文本 HTML 合流）**：HTML 序列化把相邻 createText 合并为一个 DOM 文本节点（`' › '` + `'InputNumber'` → `" › InputNumber"`）——命令流两条 createText——absorb.next 前缀匹配 + splitText 分裂（剩余 unshift 回队列）——procCreateText 传目标 value
 20. **SSR ≡ SPA 首帧纪律（showcase——2026-08）**：服务端渲染必须与客户端接管渲染同一棵组件树——uiSsr + 同一 router（app-router.ts 单一实现源）——差异 = 刷新整页跳变（实证：SSR 只有 Markdown、SPA 有面包屑/标题/活体 demo/页脚）——**同实例纪律**：h()/uiSsr 必须同一 bundle 实例（跨实例 Fragment 符号全等断裂 → 文本变空洞锚——非法子节点 type: symbol）——esbuild node bundle（src/ssr.ts 入口）+ data URL 动态 import——失败回退 Markdown-only（SEO 保底）
 21. **demo 渲染路径副作用 SSR 纪律**：渲染函数里 setTimeout/定时器循环类 demo 必须 `typeof window !== 'undefined'` 守卫（SSR ctx 无 render——定时器 = 服务器 unhandled rejection 污染）
-22. **vdom 内部架构：状态机 + 事件流（方案 3 定稿——2026-XX）**：
+22. **无 key 组件项检测 = 实槽翻转语义（2026-08——条件渲染误报根治）**：`detectMissingKey` 仅当无 key 组件**占据/让出「非空洞非组件」实槽**（位置被占用 → 后续项按位置移位 → 重挂 → 状态丢失）才 warn——纯尾部新增/删除（越界 = 空洞槽）与空洞槽条件渲染（`{cond && <X/>}` / `cond ? h(X) : null`——null 占位法——同构不变量——**位置稳定零漂移**）→ 不报（Tour `{open && <Tour/>}` / AuthPage `error ? h(Alert) : null` 实证——全库 160 页扫描归零）——**诚实边界**：同类型列表收缩（[doe,jane]→[jane]）与安全删尾部结构同构——无法区分——位置身份语义由作者纪律承担（数据列表必须 key）——警告消息禁止 String(type)（匿名组件源码整段输出——消息不可读）
+23. **Grid Col 重包装 key 保持（2026-08）**：h() 把 key 从 props 剥离进 vnode.key——`{ ...c.props }` 拿不到 key——children.map 重包装（注入 gutter）必须显式 `key: keyOf(c)` 回填——否则用户声明的 Col 身份丢失（A 级检测实证）
+24. **vdom 内部架构：状态机 + 事件流（方案 3 定稿——2026-XX）**：
 
     ### 事件流（13 种命令——NDJSON 可序列化——生成端唯一产物）
     create/createText/createAnchor/insert/move/remove/setText/setProp/

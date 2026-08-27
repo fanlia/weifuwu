@@ -31,12 +31,17 @@ test.after(async () => {
   server?.stop()
 })
 
-/** 打开组件页 + 点「开始引导」→ 等气泡出现 */
-async function openTour(page: Page): Promise<void> {
+/** 打开组件页 + 点「开始引导」→ 等气泡出现——**零 [vdom] 警告锁定**
+ *  （2026-08——`{open && <Tour/>}` 尾部条件渲染曾触发「列表含无 key 的
+ *  组件项」误报——空洞槽条件渲染位置稳定——检测器实槽翻转精准化后归零） */
+async function openTour(page: Page): Promise<{ warns: string[] }> {
   const errors = await openShowcase(page, BASE, COMP_PATH)
   assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], '组件页渲染零错误')
+  const warns: string[] = []
+  page.on('console', (m) => { if (m.type() === 'warning') warns.push(m.text()) })
   await page.click('#tour-a')
   await page.waitForSelector('.wf-tour-bubble', { timeout: 3000 })
+  return { warns }
 }
 
 test('渲染零错误（组件页 + 文档）', async () => {
@@ -54,7 +59,8 @@ test('渲染零错误（组件页 + 文档）', async () => {
 test('demo 交互：开始引导 → 气泡定位到目标（rect 非 0）', async () => {
   const page = await browser.newPage()
   try {
-    await openTour(page)
+    const { warns } = await openTour(page)
+    assert.ok(!warns.some((w) => w.includes('无 key')), `零「无 key 组件项」误报（实际: ${warns[0] ?? '无'}）`)
     const pos = await page.evaluate(() => {
       const h = document.querySelector('.wf-tour-highlight') as HTMLElement
       const b = document.querySelector('.wf-tour-bubble') as HTMLElement

@@ -17,6 +17,7 @@
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
+import { keyOf } from '../../vdom/core/node/keyed.ts'
 
 export interface GridProps {
   gutter?: number
@@ -45,10 +46,13 @@ export const Grid: Component<GridProps> = async (_init, _ctx: UIContext) =>
     const { gutter, flex, gap, direction = 'row', align, children } = props
     const half = gutter ? gutter / 2 : 0
     // gutter 通过 style 传递——子 Col 从 Grid 拿（简化：注入 gutter 到 children props）
+    // **key 保持纪律（2026-08——A 级检测实证）**：h() 把 key 从 props 剥离进
+    // vnode.key——`{ ...c.props, gutter }` 拿不到 key——用户声明的 Col 身份
+    // 丢失（动态 Col 列表按位置继承——Grid 状态错位）——显式回填 keyOf(c)
     const kids = Array.isArray(children)
       ? children.map((c: any) =>
           c && typeof c === 'object' && c.type === Col
-            ? h(Col, { ...c.props, gutter }, c.props?.children)
+            ? h(Col, { ...c.props, key: keyOf(c), gutter }, c.props?.children)
             : c)
       : children
 

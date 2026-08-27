@@ -136,7 +136,9 @@ export function detectDuplicateKey(items: VNodeChild[], context: string): void {
 }
 
 /** A 级检测（dev——数组长度变化 + 无 key 组件项 → warn 引导声明 key——
- *  用户层引导；豁免：单子节点条件渲染的 null 空洞） */
+ *  用户层引导；豁免：单子节点条件渲染的 null 空洞）——**实槽翻转语义**：
+ *  仅当组件占据/让出「非空洞非组件」的实槽（位置被占用——后续组件按位置
+ *  移位 → 重挂 → 状态丢失）才 warn——尾部/空洞槽条件渲染零漂移不报 */
 export function detectMissingKey(items: VNodeChild[], context: string): void {
   if (items.length < 2) return
   const hasComponent = items.some((i) => typeof (i as VNode | null)?.type === 'function')
@@ -148,7 +150,12 @@ export function detectMissingKey(items: VNodeChild[], context: string): void {
       if (typeof v === 'boolean') return 'bool'
       if (typeof v === 'string' || typeof v === 'number') return 'text'
       if (Array.isArray(v)) return 'arr'
-      return typeof v.type === 'function' ? 'comp:' + ((v.type as { name?: string }).name ?? '?') : 'el:' + String(v.type)
+      if (typeof v.type === 'function') {
+        // **匿名组件不打印源码（String(type) 会输出整段函数——消息不可读）**
+        const nm = (v.type as { name?: string }).name
+        return 'comp' + (nm ? ':' + nm : '')
+      }
+      return 'el' + (v.key ? `.k{${String(v.key).slice(0, 16)}}` : '')
     })
     // eslint-disable-next-line no-console
     console.warn(

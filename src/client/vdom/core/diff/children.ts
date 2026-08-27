@@ -68,15 +68,25 @@ export async function diffChildrenItems(
       i !== null && i !== undefined && typeof i !== 'boolean' && typeof i !== 'string' && typeof i !== 'number' && !Array.isArray(i)
     const bizOld = oldCs.filter(isBizNode)
     const bizNew = newCs.filter(isBizNode)
-    // **检测条件细化（误报根治）**：长度变化（[按钮, 按钮] → [按钮, 按钮,
-    // 条件span]——静态组件列表 + 条件元素尾部——位置身份正确）→ **组件项
-    // 序列变化**（新增/移除/替换组件项才是真实动态增删——序列含 key+类型）
-    const compSeq = (cs: VNodeChild[]): string =>
-      cs.filter((i) => typeof (i as VNode | null)?.type === 'function')
-        .map((i) => String((i as VNode).key ?? '') + ':' + String((i as VNode).type))
-        .join('|')
-    if (compSeq(bizOld) !== compSeq(bizNew)) {
-      detectMissingKey(bizNew, `children（组件序列 ${compSeq(bizOld)} → ${compSeq(bizNew)}）`)
+    // **精准判定（2026-08——条件渲染误报根治——Tour/AuthPage 实证）**：
+    // 无 key 组件项的真实风险 = **实槽占用翻转**（组件占据/让出「非空洞
+    // 非组件」的实槽——后续项按位置移位 → 重挂 → 状态丢失）；
+    // 纯尾部新增/删除（越界 = 空洞）与空洞槽条件渲染
+    // （`{cond && <X/>}` / `cond ? h(X) : null`——null 占位法——同构
+    // 不变量——位置稳定——**零漂移**）→ 安全——不再 warn。
+    // （诚实边界：同类型列表收缩（[doe,jane]→[jane]）与安全删除尾部结构
+    // 同构——无法区分——位置身份语义由作者纪律承担（数据列表必须 key））
+    const isHoleSlot = (cs: VNodeChild[], i: number): boolean =>
+      i >= cs.length || cs[i] === null || cs[i] === undefined || typeof cs[i] === 'boolean'
+    const isUnkeyedComp = (c: VNodeChild): boolean =>
+      typeof (c as VNode | null)?.type === 'function' && !isKeyed(c)
+    const oldFree = (i: number): boolean => isHoleSlot(oldCs, i) || isUnkeyedComp(oldCs[i])
+    const newFree = (i: number): boolean => isHoleSlot(newCs, i) || isUnkeyedComp(newCs[i])
+    const risky =
+      newCs.some((c, i) => isUnkeyedComp(c) && !oldFree(i)) ||
+      oldCs.some((c, i) => isUnkeyedComp(c) && !newFree(i))
+    if (risky) {
+      detectMissingKey(bizNew, `children（无 key 组件实槽翻转 ${bizOld.length}→${bizNew.length}）`)
     }
   }
   if (globalThis.__WF_DEBUG_MOVED__) console.log('[debug-dci] id=', id, 'oldKeys=', JSON.stringify(oldCs.map(keyOf)), 'newKeys=', JSON.stringify(newCs.map(keyOf)), 'lk=', listKind(oldCs), listKind(newCs))

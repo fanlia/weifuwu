@@ -141,16 +141,35 @@ test('A 级检测：静态组件列表 + 条件元素尾部不误报（confirm 2
   }
 })
 
-test('A 级检测：动态追加组件项仍报（真实动态增删引导）', async () => {
+test('A 级检测：动态追加组件项不误报（尾部新增 = 空洞槽——位置稳定——Tour 回归）', async () => {
   const warns: string[] = []
   const origWarn = console.warn
   console.warn = (...a) => { warns.push(String(a[0])) }
   try {
     const Btn = () => () => h('button', {}, 'b')
     const make = (n: number) => h('div', {}, Array.from({ length: n }, (_, i) => h(Btn, { key: i === 0 ? undefined : 'k' + i })))
-    // [Btn(无key), Btn(k2)] → [Btn(无key), Btn(k2), Btn(k3)]——动态追加组件项
+    // [Btn(无key), Btn(k2)] → [Btn(无key), Btn(k2), Btn(k3)]——纯尾部追加：
+    // 旧组件索引全部保持（越界 = 空洞槽）——位置身份零漂移——不报（旧：compSeq
+    // 变化即报——`{cond && <X/>}` idiomatic 条件渲染误报——Tail 实证）
     await diff(make(2), make(3))
-    assert.ok(warns.some((w) => w.includes('[vdom] children')), '动态追加组件项应提示声明 key')
+    assert.ok(!warns.some((w) => w.includes('[vdom] children')), `纯尾部追加不报（实际: ${warns[0] ?? '无'}）`)
+  } finally {
+    console.warn = origWarn
+  }
+})
+
+test('A 级检测：实槽翻转仍报（组件占据非空洞实槽——位置移位风险）', async () => {
+  const warns: string[] = []
+  const origWarn = console.warn
+  console.warn = (...a) => { warns.push(String(a[0])) }
+  try {
+    const Btn = () => () => h('button', {}, 'b')
+    const make = (t: 'el' | 'comp') => h('div', {}, [
+      t === 'el' ? h('span', {}, 's') : h(Btn, {}), // 实槽翻转：el → 无 key 组件
+      h(Btn, { key: 'k2' }),
+    ])
+    await diff(make('el'), make('comp'))
+    assert.ok(warns.some((w) => w.includes('[vdom] children')), '组件占据实槽（位置被占用）应提示声明 key')
   } finally {
     console.warn = origWarn
   }
