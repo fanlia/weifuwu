@@ -105,7 +105,7 @@ export const DashboardPage: Component = async (_init: any, ctx: any) => {
         >
           <Button variant="ghost" onClick={logout}>登出</Button>
         </PageHeader>
-        <div class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
+        <div class="wf-surface wf-border wf-radius-md wf-padding-md wf-stack wf-gap-sm">
           <Space align="center" size="md"><Avatar name={u.name ?? u.email} size="lg" /><b>{u.email}</b></Space>
           <Alert variant="success">✓ 已登录——受保护内容可见。刷新页面会话自动恢复（ctx.browser.storage）</Alert>
         </div>

@@ -58,7 +58,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = async (_init, ctx) => {
       if (el && latest.autoPlay !== undefined) el.autoplay = latest.autoPlay
     })
     return h('div', {
-      class: `wf-videoplayer wf-surface wf-border wf-rounded-md wf-clip${className ? ` ${className}` : ''}`,
+      class: `wf-videoplayer wf-surface wf-border wf-radius-md wf-overflow-hidden${className ? ` ${className}` : ''}`,
       style: { aspectRatio: String(aspect), background: '#000' },
     },
       h('video', {

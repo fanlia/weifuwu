@@ -84,10 +84,10 @@ export const Templates: Component = async (_props, ctx) => {
     const visible = category ? templates.filter((t) => t.category === category) : templates
     return (
     <div class="wf-stack wf-gap-lg">
-      <div class="wf-row wf-between wf-gap-sm wf-items-center">
+      <div class="wf-row wf-justify-between wf-gap-sm wf-items-center">
         <div>
-          <h1 class="wf-text-2xl wf-m-0">模板市场</h1>
-          <p class="wf-text-sm wf-text-secondary wf-mt-xs">选择一个角色模板，一键创建你的 AI Agent</p>
+          <h1 class="wf-font-2xl wf-margin-none">模板市场</h1>
+          <p class="wf-font-sm wf-text-secondary wf-margin-top-xs">选择一个角色模板，一键创建你的 AI Agent</p>
         </div>
         <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}><Icon name="plus" size={14} /> 自定义创建</Button>
       </div>
@@ -104,8 +104,8 @@ export const Templates: Component = async (_props, ctx) => {
         </div>
       </div>
 
-      {error && <div class="wf-text-error wf-text-sm">{error}</div>}
-      {createError && <div class="wf-text-error wf-text-sm">{createError}</div>}
+      {error && <div class="wf-text-error wf-font-sm">{error}</div>}
+      {createError && <div class="wf-text-error wf-font-sm">{createError}</div>}
 
       {visible.length === 0 ? (
         <EmptyState icon={<Icon name="search" />} text={error ? error : '该分类暂无模板'} hint="试试其他分类" />
@@ -114,19 +114,19 @@ export const Templates: Component = async (_props, ctx) => {
           {visible.map((t) => (
             <Card key={t.slug} className="wf-stack wf-gap-sm">
               <div class="wf-row wf-gap-sm wf-items-center">
-                <span class="wf-text-2xl">{t.icon}</span>
+                <span class="wf-font-2xl">{t.icon}</span>
                 <div class="wf-fill">
-                  <div class="wf-text-base wf-text-semibold">{t.name}</div>
-                  <div class="wf-row wf-gap-xs wf-mt-xs">
+                  <div class="wf-font-base wf-semibold">{t.name}</div>
+                  <div class="wf-row wf-gap-xs wf-margin-top-xs">
                     <Tag variant="default">{CATEGORY_LABELS[t.category] ?? t.category}</Tag>
                     {t.usage_count ? <Tag variant="success">热门 {t.usage_count}</Tag> : null}
                     {t.default_allow_file_tools && <Tag variant="default">文件工具</Tag>}
                   </div>
                 </div>
               </div>
-              <p class="wf-text-sm wf-text-secondary wf-m-0">{t.description}</p>
+              <p class="wf-font-sm wf-text-secondary wf-margin-none">{t.description}</p>
               {t.default_workspace_hint && (
-                <div class="wf-text-xs wf-text-tertiary">工作区：{t.default_workspace_hint}</div>
+                <div class="wf-font-xs wf-text-tertiary">工作区：{t.default_workspace_hint}</div>
               )}
               <Button size="sm" variant={creating === t.slug ? 'secondary' : 'primary'}
                 disabled={creating !== null}

@@ -23,12 +23,12 @@ export const LogsSection: Component<{ agentId: string }> = async (_init, ctx) =>
 
   return async () => (
     <Card id="sec-logs">
-      <div class="wf-split wf-mb-sm">
-        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="list" size={14} /> 执行日志</div>
+      <div class="wf-split wf-margin-bottom-sm">
+        <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="list" size={14} /> 执行日志</div>
         <Button size="sm" variant="ghost" onClick={loadLogs}>刷新</Button>
       </div>
       {logsLoading && <Loading />}
-      {!logsLoading && logs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无执行日志</div>}
+      {!logsLoading && logs.length === 0 && <div class="wf-font-sm wf-text-tertiary wf-padding-y-md">暂无执行日志</div>}
       {!logsLoading && logs.length > 0 && (
         <Timeline items={logs.map((log: AgentLog) => ({
           key: log.id,

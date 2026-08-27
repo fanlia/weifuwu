@@ -49,7 +49,7 @@ export async function Ava(_init: { name?: string; type?: string; small?: boolean
 export async function StatusDot(_init: { on?: boolean; label?: string }, _ctx: UIContext) {
   return (props: { on?: boolean; label?: string }) =>
     (
-    <span class="wf-row wf-gap-xs wf-text-sm">
+    <span class="wf-row wf-gap-xs wf-font-sm">
       <Badge dot variant={props.on ? 'success' : 'default'} />
       <span class={props.on ? 'wf-text-success' : 'wf-text-tertiary'}>{props.label ?? (props.on ? '运行中' : '已暂停')}</span>
     </span>

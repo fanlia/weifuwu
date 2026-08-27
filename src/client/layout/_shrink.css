@@ -1,5 +1,11 @@
-/* min — flex 子项可收缩约束 */
+/* min — flex 子项可收缩约束（flex 收缩坑标配：默认 min-width/height: auto
+   会阻止子项收缩——内容溢出/撑破布局时加这类） */
 .wf-shrink {
   min-width: 0;
   min-height: 0;
+}
+
+/* 单边版本（只需横向收缩的场景——属性名即类名） */
+.wf-min-width-0 {
+  min-width: 0;
 }

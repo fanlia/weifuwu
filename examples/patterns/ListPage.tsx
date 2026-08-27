@@ -66,8 +66,8 @@ export const ListPage: Component = async (_init: any, ctx: any) => {
           />
         )}
 
-        <div class="wf-row wf-between">
-          <span class="wf-text-xs wf-text-tertiary">第 {cur}/{pages} 页 · 每页 {PAGE_SIZE} 条</span>
+        <div class="wf-row wf-justify-between">
+          <span class="wf-font-xs wf-text-tertiary">第 {cur}/{pages} 页 · 每页 {PAGE_SIZE} 条</span>
           <Pagination total={total} page={cur} pageSize={PAGE_SIZE}
             onChange={(p: number) => { page = p; ctx.render() }} />
         </div>

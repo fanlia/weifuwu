@@ -2,7 +2,7 @@
 
 ## 概述
 
-wf-fill 全屏 + wf-layer/wf-pop 容器内角标 + Sparkline
+wf-fill 全屏 + wf-layer/wf-absolute 容器内角标 + Sparkline
 
 ## 构成组件
 - [Text](../components/text.md)

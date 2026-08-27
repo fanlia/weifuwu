@@ -1,0 +1,4 @@
+/* overflow — 溢出控制（属性根 + CSS 值词；全局滚动条样式见 _base.css） */
+.wf-overflow-auto { overflow: auto; }
+.wf-overflow-hidden { overflow: hidden; }
+.wf-overflow-x { overflow-x: auto; }

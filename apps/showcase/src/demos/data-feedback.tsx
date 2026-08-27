@@ -46,11 +46,11 @@ const DemoModal: Component = async (_props, ctx) => {
     <div class="wf-stack wf-gap-sm">
       <div class="wf-row wf-gap-sm">
         <Button variant="primary" onClick={() => { open = true; rerender() }}>打开弹窗</Button>
-        <label class="wf-row wf-gap-xs wf-text-xs">
+        <label class="wf-row wf-gap-xs wf-font-xs">
           <input type="checkbox" checked={closable} onChange={(e: any) => { closable = e.target.checked; rerender() }} />
           显示关闭按钮
         </label>
-        <select value={width} onChange={(e: any) => { width = e.target.value; rerender() }} class="wf-text-xs" style="padding:2px 4px">
+        <select value={width} onChange={(e: any) => { width = e.target.value; rerender() }} class="wf-font-xs" style="padding:2px 4px">
           <option value="360px">窄 (360px)</option>
           <option value="420px">中 (420px)</option>
           <option value="600px">宽 (600px)</option>
@@ -83,7 +83,7 @@ const DemoToast: Component = async (_props, ctx) => {
         <Button variant="secondary" onClick={() => add('warning')}>警告</Button>
         <Button variant="ghost" onClick={() => add('info')}>信息</Button>
       </div>
-      <div class="wf-row wf-gap-xs wf-text-xs wf-text-secondary">
+      <div class="wf-row wf-gap-xs wf-font-xs wf-text-secondary">
         <span>位置:</span>
         <select value={position} onChange={(e: any) => { position = e.target.value; rerender() }}>
           <option value="top-right">右上</option>
@@ -103,7 +103,7 @@ const DemoAlert: Component = async (_props, ctx) => {
   let showErr = true
   let showInfo = true
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       {showInfo && <Alert variant="info" closable onClose={() => { showInfo = false; ctx.render() }}>这是一条提示信息（可关闭）</Alert>}
       <Alert variant="success">操作成功完成</Alert>
       <Alert variant="warning">请注意：此操作不可撤销</Alert>
@@ -150,9 +150,9 @@ const DemoSkeleton: Component = async () => async () => (
 const DemoEmptyState: Component = async (_props, ctx) => {
   let hasData = false
   return async (_p: any) => (
-    <div class="wf-w-full">
+    <div class="wf-width-full">
       {hasData
-        ? <div class="wf-stack wf-gap-sm wf-text-center wf-p-lg">
+        ? <div class="wf-stack wf-gap-sm wf-text-center wf-padding-lg">
             <p>数据已添加</p>
             <Button variant="ghost" onClick={() => { hasData = false; ctx.render() }}>清空</Button>
           </div>
@@ -164,7 +164,7 @@ const DemoEmptyState: Component = async (_props, ctx) => {
 }
 
 const DemoTooltip: Component = async () => async () => (
-  <div class="wf-row wf-gap-xl wf-py-lg">
+  <div class="wf-row wf-gap-xl wf-padding-y-lg">
     <Tooltip content="保存文件" position="top"><Button>上</Button></Tooltip>
     <Tooltip content="底部提示" position="bottom"><Button>下</Button></Tooltip>
     <Tooltip content="左侧提示" position="left"><Button>左</Button></Tooltip>
@@ -199,14 +199,14 @@ const DemoPopover: Component = async (_props, ctx) => {
   let showTop = false
   return async (_p: any) => (
     <div class="wf-row wf-gap-sm">
-      <Popover content={<div class="wf-py-xs"><p class="wf-m-0 wf-mb-sm">自定义面板内容</p><Button size="sm">操作</Button></div>}>
+      <Popover content={<div class="wf-padding-y-xs"><p class="wf-margin-none wf-margin-bottom-sm">自定义面板内容</p><Button size="sm">操作</Button></div>}>
         <Button variant="secondary">点击弹出</Button>
       </Popover>
       <Popover content={<span>顶部提示</span>} position="top">
         <Button variant="ghost">顶部</Button>
       </Popover>
       <Popover trigger="hover" content={<span>悬停出现的面板</span>}>
-        <span class="wf-text-brand" style="cursor:pointer">悬停查看</span>
+        <span class="wf-text-primary" style="cursor:pointer">悬停查看</span>
       </Popover>
     </div>
   )
@@ -215,28 +215,28 @@ const DemoPopover: Component = async (_props, ctx) => {
 const DemoDatePicker: Component = async (_props, ctx) => {
   let result = ''
   return async (_p: any) => (
-    <div class="wf-row wf-gap-md wf-cluster wf-w-full">
-      <div class="wf-w-full" style="max-width:220px">
+    <div class="wf-row wf-gap-md wf-cluster wf-width-full">
+      <div class="wf-width-full" style="max-width:220px">
         <DatePicker mode="date" onChange={v => { result = v; ctx.render() }} placeholder="选择日期" />
       </div>
-      <div class="wf-w-full" style="max-width:220px">
+      <div class="wf-width-full" style="max-width:220px">
         <DatePicker mode="datetime" onChange={v => { result = v; ctx.render() }} placeholder="日期+时间" />
       </div>
-      <div class="wf-w-full" style="max-width:180px">
+      <div class="wf-width-full" style="max-width:180px">
         <DatePicker mode="time" onChange={v => { result = v; ctx.render() }} placeholder="选择时间" />
       </div>
-      <div class="wf-w-full" style="max-width:220px">
+      <div class="wf-width-full" style="max-width:220px">
         <DatePicker mode="range" onChange={v => { result = v; ctx.render() }} placeholder="日期范围" />
       </div>
-      {result && <div class="wf-text-xs wf-text-secondary wf-w-full">已选: {result}</div>}
+      {result && <div class="wf-font-xs wf-text-secondary wf-width-full">已选: {result}</div>}
     </div>
   )
 }
 
 
 export const DemoWave: Component = async (_props: any) => async (_p: any) => (
-  <div class="wf-w-full wf-stack wf-gap-xs">
-    <div class="wf-text-xs wf-text-secondary">点击水波纹——包装任意可点击元素（纯 CSS，reduced-motion 自动降级）</div>
+  <div class="wf-width-full wf-stack wf-gap-xs">
+    <div class="wf-font-xs wf-text-secondary">点击水波纹——包装任意可点击元素（纯 CSS，reduced-motion 自动降级）</div>
     <div class="wf-row wf-gap-sm">
       <Wave><Button variant="primary">点我有波纹</Button></Wave>
       <Wave><Button variant="secondary">按钮也有</Button></Wave>

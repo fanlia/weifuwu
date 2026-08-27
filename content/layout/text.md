@@ -2,13 +2,13 @@
 
 ## 概述
 
-42 个字号/字重/颜色/对齐类（-text 语义色变体）
+字号 wf-font-* / 颜色对齐 wf-text-* / 字重裸词（-text 语义色变体）
 
 ## 代表类
 
 ```css
-.wf-text-sm
-.wf-text-bold
+.wf-font-sm
+.wf-bold
 .wf-text-secondary
 .wf-text-primary
 ```
@@ -19,4 +19,4 @@
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/text` ——（P1 填充）
+> showcase 活体演示页：`/layout/text`（族示例 + 代表类）

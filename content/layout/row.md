@@ -2,16 +2,15 @@
 
 ## 概述
 
-flex row 容器——/between/around/evenly/right 分布变体
+flex row 容器（自动换行）+ items-* 交叉轴对齐
 
 ## 代表类
 
 ```css
 .wf-row
-.wf-between
-.wf-around
-.wf-evenly
-.wf-right
+.wf-row-reverse
+.wf-items-center
+.wf-items-end
 ```
 
 ## 源码
@@ -20,4 +19,4 @@ flex row 容器——/between/around/evenly/right 分布变体
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/row` ——（P1 填充）
+> showcase 活体演示页：`/layout/row`（族示例 + 代表类）

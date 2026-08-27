@@ -11,13 +11,14 @@
 | --- | --- | --- |
 | R-01 | **运行测试相关命令的 timeout 最多 10 秒** | 卡住（挂起/竞态/等待）用更短 timeout 复跑缩小范围——超时即信号，不无限等待 |
 | R-02 | **vdom 单一实现源纪律（core2 融合实录——2027-02）** | core2 探索（6 类型判别联合/标记体系/可逆转换/注册表——已删除——资产在 git 历史）——融合到 core1 的成果：① 函数面统一（非事件函数 props 不写 attribute——vnode 内存持有——diff 引用比较——events.test.ts 锁定）② data-wf-id 槽位路径（G9-G11 已落地）③ kindOf 6 态完备（text/hole/element/fragment/component/array/invalid——undefined 归一 hole 是渲染等价）——**移植纪律**：core2 探索出的"编码唯一性"原则（唯一编码 + 可逆）是 core1 补丁级修复的升级方向——新修复先问"是否有映射歧义"再打补丁 |
+| R-03 | **批量重命名/迁移纪律（2026-12 layout 清理实证）** | 词边界替换必须负向断言 `(?![a-z0-9-])`（保护组件类前缀——wf-anchor-nav 不被 wf-anchor 误伤）；类名变更必须反查测试 `[class*="子串"]` 选择器（wf-padding-* 含 "add" → comp-tabs 定位器误点页头实证——定位器应精确类名）；迁移后 stash 前后类型错误对比证明零引入 |
 
 ## 2. 测试架构（内置框架——契约层 + 场景层）
 
 ```
-npm run test:client    → 契约层（101 测试——node 直跑命令流——零浏览器——~0.2s）
-npm run test:scenario  → 场景层（109 场景——SSR 服务化 + playwright——真实浏览器——15 文件并发——~15s）
-npm run test:showcase  → showcase 组件测试（166 测试——112 组件 157 全覆盖——每组件一个文件——~3min）
+npm run test:client    → 契约层（207 测试——node 直跑命令流——零浏览器——~4s）
+npm run test:scenario  → 场景层（116 场景——SSR 服务化 + playwright——真实浏览器——15 文件并发——~17s）
+npm run test:showcase  → showcase 组件测试（200 测试——112 组件 157 全覆盖——每组件一个文件——~2.5min）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 ```
 
@@ -39,6 +40,7 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 | api | 真实 HTTP fixture（GET/POST/ApiError/onError——不 mock 网络层） |
 | auth | token 存储往返/空串归一 null/Bearer scheme/自定义 key+scheme/logout |
 | ai-stream | wf: SSE 流式解析（真实 HTTP——token 累积/done/events 记录/错误/abort） |
+| **layout-inventory** | **布局层清单契约（8 断言——计数基线登记制/死类=0/缺口=0/无非法选择器/零值形态唯一/对齐域方向词隔离/双名歼灭/文档计数同步）——类面随消费证据生长锁定（design/layout-cleanup.md 成果防线）** |
 
 ### 场景层（src/test/scenario/——playwright 真实 DOM）
 
@@ -127,6 +129,7 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     无感知（仅 dev warn 引导——数据列表必须 key 仍是作者纪律）
 14. **Grid Col 重包装 key 保持**——组件已修（key: keyOf(c) 回填）——
     harness 可锁定（重包装 key 不丢——写同类包装组件时参照）
+15. **weifuwu/layout 治理机制（2026-12 清理+命名合批实施）**：50 原语 + 92 工具 + 2 内部（144 类/33 文件）——契约测试 `layout-inventory.test.ts` 8 断言锁定——**类面只随消费证据生长**（缺口审计机制化——零消费类不供养）——命名规则 `design/layout-naming.md`（三类词根：概念原语/属性根全名/裸值词 + 三后缀——属性根直接用 CSS 属性名零猜词）——内部类（_popup）不入公共清单——新增类必须在词根登记制内（自造词即测试失败）
 
 #### C 类：架构知识 / 测试知识（机制原理——排查参考——非红线）
 

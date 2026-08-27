@@ -48,7 +48,7 @@ export const PreviewSection: Component<{ agentId: string }> = async (_init, ctx)
 
   return async () => (
     <Card id="sec-preview">
-      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="message" size={14} /> 测试对话</div>
+      <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm"><Icon name="message" size={14} /> 测试对话</div>
       <div class="wf-row wf-gap-xs">
         <div class="wf-fill">
           <Input placeholder="输入消息测试提示词（如：介绍一下你自己）" value={previewQuery}
@@ -58,7 +58,7 @@ export const PreviewSection: Component<{ agentId: string }> = async (_init, ctx)
           {previewing ? '回复中...' : '发送'}
         </Button>
       </div>
-      {previewText && <pre class="wf-bg-secondary wf-rounded wf-p-sm wf-mt-sm wf-text-sm" style="white-space: pre-wrap; line-height: 1.6">{previewText}</pre>}
+      {previewText && <pre class="wf-bg-secondary wf-radius wf-padding-sm wf-margin-top-sm wf-font-sm" style="white-space: pre-wrap; line-height: 1.6">{previewText}</pre>}
     </Card>
   )
 }

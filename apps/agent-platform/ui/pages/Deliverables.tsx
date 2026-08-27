@@ -54,11 +54,11 @@ export const Deliverables: Component = async (_init, ctx) => {
     : files
 
   return async () => {
-    if (loading) return <div class="wf-p-xl"><Loading /></div>
+    if (loading) return <div class="wf-padding-xl"><Loading /></div>
     return (
-      <div class="wf-container wf-stack wf-gap-lg wf-p-lg" style="--wf-max: 980px">
+      <div class="wf-container wf-stack wf-gap-lg wf-padding-lg" style="--wf-max: 980px">
         <PageHeader title="交付物中心" sub="AI 在各部门干的活——最近产物聚合（每部门工作区实时扫描）" />
-        <div class="wf-row wf-between wf-gap-sm">
+        <div class="wf-row wf-justify-between wf-gap-sm">
           <Input placeholder="搜索文件名..." value={query} onInput={(e: Event) => { query = inputValue(e); rerender() }} style="max-width: 280px" />
           <Button size="sm" variant="ghost" onClick={() => void load()}><Icon name="refresh" size={14} /> 刷新</Button>
         </div>
@@ -73,13 +73,13 @@ export const Deliverables: Component = async (_init, ctx) => {
           <Card>
             <div class="wf-stack wf-gap-none">
               {shown.map((f, i) => (
-                <div key={`${f.deptId}:${f.path}`} class="wf-row wf-between wf-gap-sm" style={{ padding: '10px 12px', borderBottom: i < shown.length - 1 ? 'var(--wf-border-width) solid var(--wf-color-border)' : 'none' }}>
+                <div key={`${f.deptId}:${f.path}`} class="wf-row wf-justify-between wf-gap-sm" style={{ padding: '10px 12px', borderBottom: i < shown.length - 1 ? 'var(--wf-border-width) solid var(--wf-color-border)' : 'none' }}>
                   <div class="wf-stack wf-gap-xs wf-fill">
-                    <a class="wf-text-sm wf-text-primary" style="text-decoration:none;cursor:pointer"
+                    <a class="wf-font-sm wf-text-primary" style="text-decoration:none;cursor:pointer"
                       onClick={() => { ctx.app?.navigate(`/chat/${f.deptId}`) }}>
-                      {f.path} <span class="wf-text-tertiary wf-text-xs">({f.deptName})</span>
+                      {f.path} <span class="wf-text-tertiary wf-font-xs">({f.deptName})</span>
                     </a>
-                    <span class="wf-text-xs wf-text-tertiary">{fmtSize(f.size)} · {fmtTime(f.mtime)}</span>
+                    <span class="wf-font-xs wf-text-tertiary">{fmtSize(f.size)} · {fmtTime(f.mtime)}</span>
                   </div>
                   <a href={`/api/departments/${f.deptId}/workspace/file?path=${encodeURIComponent(f.path)}`}
                     class="wf-btn wf-btn--sm wf-btn--secondary" target="_blank" style="text-decoration:none">

@@ -16,14 +16,14 @@ export const FocusTask: Component = async (_init, ctx) => {
   const rerender = () => ctx.render()
 
   return async () => (
-    <div class="wf-fill wf-center wf-p-md wf-bg-secondary" style={{ minHeight: 'calc(100vh - 48px)' }}>
+    <div class="wf-fill wf-center wf-padding-md wf-bg-secondary" style={{ minHeight: 'calc(100vh - 48px)' }}>
       <Card padding="lg" style={{ width: '400px', maxWidth: '100%' }}>
         <div class="wf-stack wf-gap-md wf-center">
           {/* 品牌区 */}
           <Space direction="vertical" size="sm" align="center">
             <Icon name="lock" size={32} className="wf-text-primary" />
-            <b class="wf-text-bold wf-text-lg">登录 weifuwu</b>
-            <Text type="secondary" className="wf-text-sm">进入你的工作台</Text>
+            <b class="wf-bold wf-font-lg">登录 weifuwu</b>
+            <Text type="secondary" className="wf-font-sm">进入你的工作台</Text>
           </Space>
 
           <Form
@@ -45,9 +45,9 @@ export const FocusTask: Component = async (_init, ctx) => {
               <Field label="密码" required error={errors.password}>
                 <Input name="password" type="password" placeholder="请输入密码" />
               </Field>
-              <div class="wf-row wf-between">
+              <div class="wf-row wf-justify-between">
                 <Checkbox label="记住我" />
-                <Text className="wf-text-primary wf-text-sm wf-pointer">忘记密码？</Text>
+                <Text className="wf-text-primary wf-font-sm wf-pointer">忘记密码？</Text>
               </div>
               <Button type="submit" variant="primary" block size="lg">登 录</Button>
             </div>
@@ -56,7 +56,7 @@ export const FocusTask: Component = async (_init, ctx) => {
           {ok && <Alert variant="success">登录成功（demo：admin / admin）</Alert>}
           {!ok && (
             <Divider>
-              <Text type="secondary" className="wf-text-sm">没有账号？<Text className="wf-text-primary wf-pointer">立即注册</Text></Text>
+              <Text type="secondary" className="wf-font-sm">没有账号？<Text className="wf-text-primary wf-pointer">立即注册</Text></Text>
             </Divider>
           )}
         </div>

@@ -49,18 +49,18 @@ export const Mobile: Component = async (_init, ctx) => {
   return async () => {
     const filtered = CHATS.filter((c) => c.name.includes(query) || c.msg.includes(query))
     return (
-    <div class="wf-center wf-p-lg wf-bg-tertiary" style={{ minHeight: 'calc(100vh - 48px)' }}>
+    <div class="wf-center wf-padding-lg wf-bg-tertiary" style={{ minHeight: 'calc(100vh - 48px)' }}>
       {/* 手机视口（390×640 模拟屏——唯一允许的视口容器内联） */}
-      <div class="wf-stack wf-gap-none wf-border wf-rounded-lg wf-elevate wf-bg-primary" style={{ width: 390, maxWidth: '100%', height: 640, overflow: 'hidden' }}>
+      <div class="wf-stack wf-gap-none wf-border wf-radius-lg wf-elevate wf-bg-primary" style={{ width: 390, maxWidth: '100%', height: 640, overflow: 'hidden' }}>
         {/* 顶部导航（安全区避让） */}
-        <div class="wf-safe-top wf-row wf-p-md wf-gap-sm wf-border-b wf-between">
+        <div class="wf-safe-top wf-row wf-padding-md wf-gap-sm wf-border-bottom wf-justify-between">
           <Icon name="chevron-left" size={18} />
-          <b class="wf-text-bold">消息</b>
+          <b class="wf-bold">消息</b>
           <Icon name="plus" size={18} />
         </div>
 
         {/* 搜索（输入过滤列表） */}
-        <div class="wf-p-md wf-border-b">
+        <div class="wf-padding-md wf-border-bottom">
           <SearchInput
             placeholder="搜索会话"
             onInput={(e) => { query = (e.target as HTMLInputElement).value; rerender() }}
@@ -69,20 +69,20 @@ export const Mobile: Component = async (_init, ctx) => {
         </div>
 
         {/* 内容区（按底部 Tab 切换） */}
-        <div class="wf-fill wf-scroll">
+        <div class="wf-fill wf-overflow-auto">
           {tab === '消息' && (
           <List
             divided
             items={filtered}
             renderItem={(c) => (
-              <div class="wf-row wf-p-md wf-gap-md">
+              <div class="wf-row wf-padding-md wf-gap-md">
                 <Avatar name={c.name[0]} size="md" />
                 <div class="wf-fill wf-stack wf-gap-none" style={{ minWidth: 0 }}>
-                  <div class="wf-row wf-gap-none wf-between">
-                    <Text className="wf-text-sm" strong>{c.name}</Text>
-                    <Text type="secondary" className="wf-text-xs">{c.time}</Text>
+                  <div class="wf-row wf-gap-none wf-justify-between">
+                    <Text className="wf-font-sm" strong>{c.name}</Text>
+                    <Text type="secondary" className="wf-font-xs">{c.time}</Text>
                   </div>
-                  <Text type="secondary" className="wf-text-sm wf-truncate">{c.msg}</Text>
+                  <Text type="secondary" className="wf-font-sm wf-truncate">{c.msg}</Text>
                 </div>
                 {c.unread > 0 && <Badge variant="danger" dot={false}>{c.unread}</Badge>}
               </div>
@@ -94,11 +94,11 @@ export const Mobile: Component = async (_init, ctx) => {
               divided
               items={CONTACTS}
               renderItem={(c) => (
-                <div class="wf-row wf-p-md wf-gap-md">
+                <div class="wf-row wf-padding-md wf-gap-md">
                   <Avatar name={c.name[0]} size="md" />
                   <div class="wf-fill">
-                    <Text className="wf-text-sm" strong>{c.name}</Text>
-                    <Text type="secondary" className="wf-text-xs wf-block">{c.role}</Text>
+                    <Text className="wf-font-sm" strong>{c.name}</Text>
+                    <Text type="secondary" className="wf-font-xs wf-block">{c.role}</Text>
                   </div>
                   {c.online && <span class="wf-badge-dot wf-badge-dot--success" />}
                 </div>
@@ -110,11 +110,11 @@ export const Mobile: Component = async (_init, ctx) => {
               divided
               items={DISCOVER}
               renderItem={(d) => (
-                <div class="wf-row wf-p-md wf-gap-md">
+                <div class="wf-row wf-padding-md wf-gap-md">
                   <Icon name={d.icon as any} size={20} className="wf-text-primary" />
                   <div class="wf-fill">
-                    <Text className="wf-text-sm" strong>{d.title}</Text>
-                    <Text type="secondary" className="wf-text-xs wf-block">{d.meta}</Text>
+                    <Text className="wf-font-sm" strong>{d.title}</Text>
+                    <Text type="secondary" className="wf-font-xs wf-block">{d.meta}</Text>
                   </div>
                   <Icon name="chevron-right" size={16} className="wf-text-tertiary" />
                 </div>
@@ -122,17 +122,17 @@ export const Mobile: Component = async (_init, ctx) => {
             />
           )}
           {tab === '我' && (
-            <div class="wf-stack wf-gap-md wf-p-md">
+            <div class="wf-stack wf-gap-md wf-padding-md">
               <div class="wf-row wf-gap-md">
                 <Avatar name="我" size="lg" />
                 <div class="wf-stack wf-gap-none">
                   <Text strong>管理员</Text>
-                  <Text type="secondary" className="wf-text-xs">ID: 10086</Text>
+                  <Text type="secondary" className="wf-font-xs">ID: 10086</Text>
                 </div>
               </div>
               {['账号与安全', '通知设置', '隐私', '关于'].map((item) => (
-                <div key={item} class="wf-between wf-p-sm wf-border-b">
-                  <Text className="wf-text-sm">{item}</Text>
+                <div key={item} class="wf-justify-between wf-padding-sm wf-border-bottom">
+                  <Text className="wf-font-sm">{item}</Text>
                   <Icon name="chevron-right" size={14} className="wf-text-tertiary" />
                 </div>
               ))}

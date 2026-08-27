@@ -1,4 +1,4 @@
-/* row — 横向排列（L3：gap/align 默认值 :where() 零优先级——wf-gap-*、wf-top 等
+/* row — 横向排列（L3：gap/align 默认值 :where() 零优先级——wf-gap-* 等
    覆盖工具靠优先级获胜，不再依赖 import 顺序） */
 .wf-row {
   display: flex;
@@ -8,9 +8,6 @@
   gap: var(--wf-gap, var(--wf-gap-md));
   align-items: var(--wf-align, center);
 }
-@media (min-width: 640px) { .wf-row\@sm { flex-direction: row; flex-wrap: wrap; } }
-@media (min-width: 768px) { .wf-row\@md { flex-direction: row; flex-wrap: wrap; } }
-@media (min-width: 1024px) { .wf-row\@lg { flex-direction: row; flex-wrap: wrap; } }
 
 /* row-reverse — 横向反向排列 */
 .wf-row-reverse {
@@ -22,12 +19,9 @@
   gap: var(--wf-gap, var(--wf-gap-md));
   align-items: var(--wf-align, center);
 }
-@media (min-width: 640px) { .wf-row-reverse\@sm { flex-direction: row-reverse; flex-wrap: wrap; } }
-@media (min-width: 768px) { .wf-row-reverse\@md { flex-direction: row-reverse; flex-wrap: wrap; } }
-@media (min-width: 1024px) { .wf-row-reverse\@lg { flex-direction: row-reverse; flex-wrap: wrap; } }
 
-/* items — 交叉轴对齐工具（设 --wf-align 变量，wf-row/wf-row-reverse 消费；
-   语义与 wf-top/bottom/stretch 等价——items 命名对齐消费侧习惯） */
+/* items — 交叉轴对齐（单机制——设 --wf-align 变量，wf-row/wf-stack 等消费；
+   值为 CSS align-items 值词。物理方向词（top/bottom）禁入对齐域） */
 .wf-items-start { --wf-align: flex-start; }
 .wf-items-center { --wf-align: center; }
 .wf-items-end { --wf-align: flex-end; }

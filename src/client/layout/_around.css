@@ -1,9 +1,0 @@
-/* around — 均匀环绕分布（L3：align/gap 默认值 :where() 零优先级） */
-.wf-around {
-  display: flex;
-  justify-content: space-around;
-}
-:where(.wf-around) {
-  align-items: var(--wf-align, center);
-  gap: var(--wf-gap, var(--wf-gap-md));
-}

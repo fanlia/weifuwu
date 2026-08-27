@@ -575,56 +575,56 @@ export const Chat: Component = async (_props, ctx) => {
     const inputDisabled = $.editingId !== ''
 
     return (
-    <div class="wf-row wf-h-full wf-gap-none">
+    <div class="wf-row wf-height-full wf-gap-none">
       {/* 左栏：成员与 AI 状态（P1 项目空间——窄屏隐藏） */}
-      <aside class="wf-col wf-hidden wf-flex@lg wf-w-56 wf-bg-secondary wf-border-r wf-p-sm wf-stack wf-gap-sm" style="width: 220px; min-width: 220px">
-        <div class="wf-text-xs wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">成员（{$.memberCount}）</div>
-        {$.membersList.length === 0 && <div class="wf-text-xs wf-text-tertiary">暂无 AI 成员——聊天中 @ 不到人时去「管理 → Agent」添加</div>}
+      <aside class="wf-col wf-hidden wf-flex@lg wf-bg-secondary wf-border-right wf-padding-sm wf-stack wf-gap-sm" style="width: 220px; min-width: 220px">
+        <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">成员（{$.memberCount}）</div>
+        {$.membersList.length === 0 && <div class="wf-font-xs wf-text-tertiary">暂无 AI 成员——聊天中 @ 不到人时去「管理 → Agent」添加</div>}
         {$.membersList.map((m: Member) => (
-          <div key={m.id} class="wf-row wf-gap-sm wf-items-center wf-py-xs">
+          <div key={m.id} class="wf-row wf-gap-sm wf-items-center wf-padding-y-xs">
             {/* P2-1：AI 干活中呼吸灯（wf:step/wf:done 驱动 aiStatus store） */}
             <div class="wf-relative">
               <Ava name={m.name} type={m.type ?? 'ai'} small />
               {m.type !== 'knowledge_base' && (
-                <span class="wf-dot" style={`position:absolute;right:-2px;bottom:-2px;width:8px;height:8px;border-radius:50%;background:${aiStatusOf(m.id) === 'working' ? 'var(--wf-color-brand)' : 'var(--wf-color-success)'};border:1px solid var(--wf-color-surface);${aiStatusOf(m.id) === 'working' ? 'animation:wf-breathe 1.2s ease-in-out infinite' : ''}`} />
+                <span style={`position:absolute;right:-2px;bottom:-2px;width:8px;height:8px;border-radius:50%;background:${aiStatusOf(m.id) === 'working' ? 'var(--wf-color-primary)' : 'var(--wf-color-success)'};border:1px solid var(--wf-color-bg);${aiStatusOf(m.id) === 'working' ? 'animation:wf-breathe 1.2s ease-in-out infinite' : ''}`} />
               )}
             </div>
-            <div class="wf-fill wf-stack wf-gap-none wf-min-w-0">
-              <span class="wf-text-sm wf-text-medium wf-truncate">{m.name}</span>
-              <span class="wf-text-xs wf-text-tertiary wf-truncate">
+            <div class="wf-fill wf-stack wf-gap-none wf-min-width-0">
+              <span class="wf-font-sm wf-medium wf-truncate">{m.name}</span>
+              <span class="wf-font-xs wf-text-tertiary wf-truncate">
                 {m.type === 'department'
                   ? `代表 ${$.subDepts.find(sd => sd.managerId === m.id)?.name ?? '本部门'}`
                   : aiStatusOf(m.id) === 'working' ? '干活中…' : (m.role_label || '空闲')}
               </span>
             </div>
-            {m.type === 'knowledge_base' && <span class="wf-text-xs wf-text-tertiary">KB</span>}
+            {m.type === 'knowledge_base' && <span class="wf-font-xs wf-text-tertiary">KB</span>}
           </div>
         ))}
         {$.membersList.length > 0 && (
-          <a class="wf-text-xs wf-text-brand wf-mt-xs" style="cursor:pointer"
+          <a class="wf-font-xs wf-text-primary wf-margin-top-xs" style="cursor:pointer"
             onClick={() => ctx.app?.navigate('/departments/' + deptId)}>＋ 添加 AI 能力</a>
         )}
-        <div class="wf-border-t wf-pt-sm wf-mt-sm">
-          <div class="wf-text-xs wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">工作环境</div>
+        <div class="wf-border-top wf-padding-top-sm wf-margin-top-sm">
+          <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">工作环境</div>
           {$.env.label ? (
-            <div class="wf-text-xs wf-text-tertiary wf-mt-xs">{$.env.label}</div>
+            <div class="wf-font-xs wf-text-tertiary wf-margin-top-xs">{$.env.label}</div>
           ) : (
-            <div class="wf-text-xs wf-text-tertiary wf-mt-xs">首次干活时自动创建</div>
+            <div class="wf-font-xs wf-text-tertiary wf-margin-top-xs">首次干活时自动创建</div>
           )}
         </div>
       </aside>
 
       {/* 中栏：聊天流 */}
-      <main class="wf-col wf-fill wf-stack wf-h-full wf-min-w-0">
-      <div class="wf-stack wf-h-full">
-      <div class="wf-row wf-gap-sm wf-p-sm wf-bg-secondary wf-border-b">
-        <a href="/chat/new" class="wf-text-brand"
+      <main class="wf-col wf-fill wf-stack wf-height-full wf-min-width-0">
+      <div class="wf-stack wf-height-full">
+      <div class="wf-row wf-gap-sm wf-padding-sm wf-bg-secondary wf-border-bottom">
+        <a href="/chat/new" class="wf-text-primary"
           onClick={(e: Event) => { e.preventDefault(); ctx.app?.navigate('/chat/new') }}>
           <Icon name="arrow-left" size={16} />
         </a>
         <div class="wf-fill wf-stack wf-gap-none">
-          <div class="wf-text-base wf-text-semibold">{$.deptName}</div>
-          <div class="wf-text-xs wf-text-tertiary">{$.memberCount} 位成员</div>
+          <div class="wf-font-base wf-semibold">{$.deptName}</div>
+          <div class="wf-font-xs wf-text-tertiary">{$.memberCount} 位成员</div>
         </div>
         {!ctx.ws?.isConnected && <Badge variant="error"><Icon name="warning" size={12} /> 连接断开</Badge>}
         {/* P1：环境状态用户语言（头部可见——颜色语义：ready 绿/error 红/其他灰） */}
@@ -635,7 +635,7 @@ export const Chat: Component = async (_props, ctx) => {
         <Button size="sm" variant="ghost" class="wf-hidden wf-flex@sm" onClick={() => ctx.app?.navigate(`/departments/${deptId}`)}>部门详情</Button>
       </div>
 
-      <div class="wf-fill wf-scroll wf-stack wf-gap-md wf-p-md"
+      <div class="wf-fill wf-overflow-auto wf-stack wf-gap-md wf-padding-md"
         ref={chatBodyRef}
         onScroll={() => {
           if (!$.bodyEl) return
@@ -650,7 +650,7 @@ export const Chat: Component = async (_props, ctx) => {
               {$.loadingMore ? '加载中...' : '↑ 加载更早消息'}
             </Button>
           )}
-          {$.searchQ && <Badge variant="primary">搜索："{$.searchQ}" <a class="wf-text-brand wf-ml-xs" style="cursor:pointer" onClick={() => { setSearchQ(''); runSearch() }}><Icon name="close" size={12} /> 清除</a></Badge>}
+          {$.searchQ && <Badge variant="primary">搜索："{$.searchQ}" <a class="wf-text-primary wf-margin-left-xs" style="cursor:pointer" onClick={() => { setSearchQ(''); runSearch() }}><Icon name="close" size={12} /> 清除</a></Badge>}
         </div>
 
         {$.msgs.length === 0 && (
@@ -687,39 +687,39 @@ export const Chat: Component = async (_props, ctx) => {
         ))}
       </div>
 
-      <div class="wf-border-t wf-p-sm">
+      <div class="wf-border-top wf-padding-sm">
         {$.atMenuOpen && (
-          <div class="wf-stack wf-gap-none wf-p-sm wf-rounded wf-surface wf-mb-sm wf-shadow" style="position: relative; z-index: 10">
-            <div class="wf-text-xs wf-text-tertiary wf-px-sm wf-pb-xs">@ 选择成员（可多选——@all 全员）</div>
-            <button type="button" class="wf-row wf-gap-sm wf-px-sm wf-py-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px; color: var(--wf-color-brand)"
+          <div class="wf-stack wf-gap-none wf-padding-sm wf-radius wf-surface wf-margin-bottom-sm wf-shadow" style="position: relative; z-index: 10">
+            <div class="wf-font-xs wf-text-tertiary wf-padding-x-sm wf-padding-bottom-xs">@ 选择成员（可多选——@all 全员）</div>
+            <button type="button" class="wf-row wf-gap-sm wf-padding-x-sm wf-padding-y-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px; color: var(--wf-color-primary)"
               onClick={() => { $.input = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, '@all '); $.atMenuOpen = false; rerender() }}>
-              <span class="wf-text-base">@所有人（全部 AI）</span>
+              <span class="wf-font-base">@所有人（全部 AI）</span>
             </button>
             {$.atMenu.length === 0 && (
-              <div class="wf-text-xs wf-text-tertiary wf-px-sm wf-py-xs">暂无其他成员可选——可 @所有人 或去「管理 → Agent」添加</div>
+              <div class="wf-font-xs wf-text-tertiary wf-padding-x-sm wf-padding-y-xs">暂无其他成员可选——可 @所有人 或去「管理 → Agent」添加</div>
             )}
             {$.atMenu.map((m: Member) => (
-              <button type="button" key={m.id} class="wf-row wf-gap-sm wf-px-sm wf-py-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px"
+              <button type="button" key={m.id} class="wf-row wf-gap-sm wf-padding-x-sm wf-padding-y-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px"
                 onClick={() => pickAtMember(m)}>
                 <Ava name={m.name} type={m.type ?? 'ai'} small />
-                <span class="wf-text-base">{m.name}</span>
+                <span class="wf-font-base">{m.name}</span>
               </button>
             ))}
           </div>
         )}
         {$.replyTo && (
-          <div class="wf-row wf-gap-sm wf-bg-tertiary wf-px-sm wf-py-xs wf-rounded wf-mb-sm">
+          <div class="wf-row wf-gap-sm wf-bg-tertiary wf-padding-x-sm wf-padding-y-xs wf-radius wf-margin-bottom-sm">
             <Icon name="message" size={14} />
-            <span class="wf-text-sm wf-text-secondary wf-truncate wf-fill">回复 {$.replyTo.sender}：{String($.replyTo.content).slice(0, 40)}</span>
+            <span class="wf-font-sm wf-text-secondary wf-truncate wf-fill">回复 {$.replyTo.sender}：{String($.replyTo.content).slice(0, 40)}</span>
             <Button size="sm" variant="ghost" onClick={() => { $.replyTo = null; rerender() }}><Icon name="close" size={12} /></Button>
           </div>
         )}
         {$.files.length > 0 && (
-          <div class="wf-row wf-gap-sm wf-mb-sm">
+          <div class="wf-row wf-gap-sm wf-margin-bottom-sm">
             {$.files.map((f, i) => (
-              <span key={i} class="wf-bg-tertiary wf-rounded wf-px-sm wf-py-xs wf-text-xs wf-row wf-gap-xs">
+              <span key={i} class="wf-bg-tertiary wf-radius wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-row wf-gap-xs">
                 📎 {f.name}（{f.size >= 1024 ? Math.round(f.size / 1024) + 'KB' : f.size + 'B'}）
-                <button class="wf-no-bg wf-no-border wf-cursor wf-text-tertiary" onClick={() => { $.files = $.files.filter((_, j) => j !== i); rerender() }}>✕</button>
+                <button class="wf-bg-none wf-border-none wf-pointer wf-text-tertiary" onClick={() => { $.files = $.files.filter((_, j) => j !== i); rerender() }}>✕</button>
               </span>
             ))}
           </div>
@@ -738,7 +738,7 @@ export const Chat: Component = async (_props, ctx) => {
           <Button variant="ghost" onClick={pickFile} title="上传附件（csv/xlsx/pdf/docx/pptx/txt/md/json/log/png/jpg，≤20MB）"><Icon name="paperclip" size={15} /></Button>
           <input ref={fileInputRef} type="file" hidden onChange={(e: Event) => { onFilePick(e as Event) }} />
         </div>
-        <div class="wf-row wf-gap-sm wf-mt-sm">
+        <div class="wf-row wf-gap-sm wf-margin-top-sm">
           <div class="wf-fill">
             <Input placeholder="搜索消息..." value={$.searchQ} onInput={onSearchInput} />
           </div>
@@ -749,33 +749,33 @@ export const Chat: Component = async (_props, ctx) => {
       </main>
 
       {/* 右栏：交付物（P1 项目空间——共享工作目录；窄屏隐藏） */}
-      <aside class="wf-col wf-hidden wf-flex@lg wf-p-sm wf-border-l wf-scroll" style="width: 300px; min-width: 300px">
-        <div class="wf-text-xs wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm">交付物（共享目录）</div>
+      <aside class="wf-col wf-hidden wf-flex@lg wf-padding-sm wf-border-left wf-overflow-auto" style="width: 300px; min-width: 300px">
+        <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm">交付物（共享目录）</div>
         <FilesSection departmentId={deptId} />
 
         {/* 组织层级：下级部门交付物（只读可见——上级看下属成果） */}
         {$.subDepts.length > 0 && (
-          <div class="wf-mt-md">
-            <div class="wf-text-xs wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-xs">下级部门（{$.subDepts.length}）</div>
+          <div class="wf-margin-top-md">
+            <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-xs">下级部门（{$.subDepts.length}）</div>
             {$.subDepts.map((sd) => (
-              <div key={sd.id} class="wf-bg-tertiary wf-rounded wf-p-sm wf-mb-sm">
-                <div class="wf-row wf-gap-xs wf-items-center wf-mb-xs">
+              <div key={sd.id} class="wf-bg-tertiary wf-radius wf-padding-sm wf-margin-bottom-sm">
+                <div class="wf-row wf-gap-xs wf-items-center wf-margin-bottom-xs">
                   <Icon name="users" size={12} />
-                  <span class="wf-text-sm wf-text-medium wf-truncate">{sd.name}</span>
-                  <span class="wf-text-xs wf-text-tertiary">{sd.memberCount} 人</span>
+                  <span class="wf-font-sm wf-medium wf-truncate">{sd.name}</span>
+                  <span class="wf-font-xs wf-text-tertiary">{sd.memberCount} 人</span>
                 </div>
-                <div class="wf-text-xs wf-text-tertiary wf-mb-xs">经理：{sd.managerName}</div>
+                <div class="wf-font-xs wf-text-tertiary wf-margin-bottom-xs">经理：{sd.managerName}</div>
                 {sd.files.length === 0 ? (
-                  <div class="wf-text-xs wf-text-tertiary">暂无交付物</div>
+                  <div class="wf-font-xs wf-text-tertiary">暂无交付物</div>
                 ) : (
                   <div class="wf-stack wf-gap-none">
                     {sd.files.map((f) => (
-                      <div key={f.name} class="wf-row wf-gap-xs wf-py-xs wf-items-center">
+                      <div key={f.name} class="wf-row wf-gap-xs wf-padding-y-xs wf-items-center">
                         <Icon name={f.type === 'dir' ? 'folder' : 'file-text'} size={12} />
-                        <span class="wf-text-xs wf-text-medium wf-truncate wf-fill">{f.name}{f.type === 'dir' ? '/' : ''}</span>
-                        <span class="wf-text-xs wf-text-tertiary wf-nums">{f.type === 'file' && f.size > 1024 ? (f.size / 1024).toFixed(1) + 'KB' : f.size + 'B'}</span>
+                        <span class="wf-font-xs wf-medium wf-truncate wf-fill">{f.name}{f.type === 'dir' ? '/' : ''}</span>
+                        <span class="wf-font-xs wf-text-tertiary wf-nums">{f.type === 'file' && f.size > 1024 ? (f.size / 1024).toFixed(1) + 'KB' : f.size + 'B'}</span>
                         {f.type === 'file' && (
-                          <a class="wf-text-brand" title="下载（子部门交付物）"
+                          <a class="wf-text-primary" title="下载（子部门交付物）"
                             href={`/api/departments/${sd.id}/workspace/file?path=${encodeURIComponent(f.name)}&download=1`}>
                             <Icon name="arrow-down" size={12} />
                           </a>

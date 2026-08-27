@@ -16,4 +16,4 @@ flex column 容器——--wf-gap 控制间距（页面/卡片骨架首选）
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/stack` ——（P1 填充）
+> showcase 活体演示页：`/layout/stack`（族示例 + 代表类）

@@ -6,7 +6,7 @@ import {Title,Paragraph, Anchor, BackTop, Breadcrumb, Button, CodeBlock, Divider
 // 模式 2：文档站（Docs Site）
 //
 // 顶部导航 + 左侧章节目录（Anchor 滚动跟随）+ 右侧正文（prose 排版）。
-// 100% 原语 + 组件：wf-row / wf-gap-* / wf-prose / wf-container / wf-border-t
+// 100% 原语 + 组件：wf-row / wf-gap-* / wf-prose / wf-container / wf-border-top
 //   Anchor（目录）、Breadcrumb（面包屑）、CodeBlock（代码）、Tag（版本）
 // ─────────────────────────────────────────────────────────────
 
@@ -25,11 +25,11 @@ export const Docs: Component = async (_init, ctx) => {
   return async () => (
     <div class="wf-stack wf-gap-none" style={{ minHeight: 'calc(100vh - 48px)' }}>
       {/* 顶部导航 */}
-      <header class="wf-row wf-p-md wf-gap-lg wf-border-b wf-between">
+      <header class="wf-row wf-padding-md wf-gap-lg wf-border-bottom wf-justify-between">
         <Space align="center">
           <Icon name="book-open" size={18} />
-          <b class="wf-text-bold">weifuwu 文档</b>
-          <span class="wf-text-tertiary wf-text-sm">布局原语指南</span>
+          <b class="wf-bold">weifuwu 文档</b>
+          <span class="wf-text-tertiary wf-font-sm">布局原语指南</span>
         </Space>
         <Space>
           <Button size="sm" variant="ghost"><Icon name="github" size={14} /> GitHub</Button>
@@ -38,9 +38,9 @@ export const Docs: Component = async (_init, ctx) => {
       </header>
 
       {/* 主体：左目录 + 右正文 */}
-      <div class="wf-row wf-gap-none wf-fill wf-stretch wf-nowrap">
-        <aside class="wf-p-lg wf-border-r wf-sticky" style={{ width: 220, flexShrink: 0 }}>
-          <span class="wf-text-tertiary wf-text-sm wf-block wf-mb-sm">目录</span>
+      <div class="wf-row wf-gap-none wf-fill wf-items-stretch wf-nowrap">
+        <aside class="wf-padding-lg wf-border-right wf-sticky" style={{ width: 220, flexShrink: 0 }}>
+          <span class="wf-text-tertiary wf-font-sm wf-block wf-margin-bottom-sm">目录</span>
           <Anchor
             container={() => mainEl ?? window}
             items={SECTIONS.map((s) => ({ href: `#${s.id}`, title: s.title }))}
@@ -49,10 +49,10 @@ export const Docs: Component = async (_init, ctx) => {
 
         <main
           ref={(el: any) => { if (el) mainEl = el }}
-          class="wf-fill wf-p-lg wf-scroll"
+          class="wf-fill wf-padding-lg wf-overflow-auto"
         >
           <Breadcrumb items={[{ label: '首页' }, { label: '文档' }, { label: '布局指南' }]} />
-          <div class="wf-container wf-prose wf-mt-md" style={{ maxWidth: 720 }}>
+          <div class="wf-container wf-prose wf-margin-top-md" style={{ maxWidth: 720 }}>
             <Title level={1}>快速开始</Title>
             <Paragraph>
               在 weifuwu 中，布局由原子原语（wf-stack / wf-row / wf-grid / wf-split…）与组件族组合而成。
@@ -93,12 +93,12 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))`} />
       </div>
 
       {/* footer */}
-      <footer class="wf-cluster wf-p-md wf-border-t">
-        <span class="wf-text-tertiary wf-text-sm">weifuwu/layout · 58 布局原语 · 136 工具类 · 开源 MIT</span>
+      <footer class="wf-cluster wf-padding-md wf-border-top">
+        <span class="wf-text-tertiary wf-font-sm">weifuwu/layout · 58 布局原语 · 136 工具类 · 开源 MIT</span>
       </footer>
 
       {/* 返回顶部（BackTop——组件能力展示：target 指向壳内部滚动容器） */}
-      <BackTop target={() => ctx.browser?.query('.wf-fill.wf-scroll') as HTMLElement} />
+      <BackTop target={() => ctx.browser?.query('.wf-fill.wf-overflow-auto') as HTMLElement} />
     </div>
   )
 }

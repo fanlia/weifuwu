@@ -43,7 +43,7 @@ import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } f
 const DemoPageHeader: Component = async (_props, ctx) => {
   let display = false
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-md wf-w-full">
+    <div class="wf-stack wf-gap-md wf-width-full">
       <PageHeader title="用户管理" sub="管理平台所有用户的账号、角色与权限">
         <Button size="sm" variant="primary">新建用户</Button>
         <Button size="sm">导出</Button>
@@ -58,18 +58,18 @@ const DemoPageHeader: Component = async (_props, ctx) => {
 const DemoIcon: Component = async () => async () => {
   const names = ['chevron-down','chevron-up','chevron-left','chevron-right','arrow-left','arrow-up','arrow-down','sort','sort-asc','sort-desc','check','close','alert','info','warning','pause','settings','search','send','stop','retry','upload','trash','edit','plus'] as const
   return (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <div class="wf-row wf-gap-md wf-cluster">
         {names.map(n => (
-          <span class="wf-row wf-gap-xs wf-text-xs wf-text-secondary" style="align-items:center">
+          <span class="wf-row wf-gap-xs wf-font-xs wf-text-secondary" style="align-items:center">
             <Icon name={n} size={16} />
             <span>{n}</span>
           </span>
         ))}
       </div>
-      <div class="wf-row wf-gap-md wf-cluster wf-text-sm">
+      <div class="wf-row wf-gap-md wf-cluster wf-font-sm">
         <span class="wf-row wf-gap-xs" style="align-items:center"><Icon name="search" /> 随字号</span>
-        <span class="wf-row wf-gap-xs wf-text-brand" style="align-items:center"><Icon name="check" size={20} /> currentColor</span>
+        <span class="wf-row wf-gap-xs wf-text-primary" style="align-items:center"><Icon name="check" size={20} /> currentColor</span>
         <span class="wf-row wf-gap-xs wf-text-error" style="align-items:center"><Icon name="trash" /> 红色</span>
       </div>
     </div>
@@ -77,7 +77,7 @@ const DemoIcon: Component = async () => async () => {
 }
 
 const DemoDivider: Component = async () => async () => (
-  <div class="wf-stack wf-gap-sm wf-w-full">
+  <div class="wf-stack wf-gap-sm wf-width-full">
     <p>上方分割线</p>
     <Divider />
     <p>下方分割线</p>
@@ -96,8 +96,8 @@ const DemoDivider: Component = async () => async () => (
 export const DemoMarkdownEditor: Component = async (_props, ctx) => {
   let md = '# 标题\n\n支持 **加粗** 与 \\`code\\`——右侧实时预览'
   return async (_p: any) => (
-    <div class="wf-w-full wf-stack wf-gap-xs">
-      <div class="wf-text-xs wf-text-secondary">分屏编辑 + 实时预览（复用 Markdown parser——零漂移）</div>
+    <div class="wf-width-full wf-stack wf-gap-xs">
+      <div class="wf-font-xs wf-text-secondary">分屏编辑 + 实时预览（复用 Markdown parser——零漂移）</div>
       <MarkdownEditor value={md} onChange={(v: string) => { md = v; ctx.render() }} rows={6} />
     </div>
   )
@@ -106,31 +106,31 @@ export const DemoMarkdownEditor: Component = async (_props, ctx) => {
 export const DemoCodeEditor: Component = async (_props, ctx) => {
   let code = 'const greet = (name: string) => `你好, ${name}`\n\nconsole.log(greet(\'weifuwu\'))'
   return async (_p: any) => (
-    <div class="wf-w-full wf-stack wf-gap-xs">
-      <div class="wf-text-xs wf-text-secondary">轻量代码编辑——行号 + Tab 缩进（零依赖，不引 Monaco）</div>
+    <div class="wf-width-full wf-stack wf-gap-xs">
+      <div class="wf-font-xs wf-text-secondary">轻量代码编辑——行号 + Tab 缩进（零依赖，不引 Monaco）</div>
       <CodeEditor value={code} lang="ts" onChange={(v: string) => { code = v; ctx.render() }} rows={6} />
     </div>
   )
 }
 
 export const DemoImageCropper: Component = async (_props: any) => async (_p: any) => (
-  <div class="wf-w-full wf-stack wf-gap-xs">
-    <div class="wf-text-xs wf-text-secondary">图片裁剪——canvas 原生 + 裁剪框（示例图用占位数据）</div>
+  <div class="wf-width-full wf-stack wf-gap-xs">
+    <div class="wf-font-xs wf-text-secondary">图片裁剪——canvas 原生 + 裁剪框（示例图用占位数据）</div>
     <ImageCropper src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMzYwIj48cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgZmlsbD0iI2UyZThmMCIvPjxjaXJjbGUgY3g9IjI0MCIgY3k9IjE4MCIgcj0iMTIwIiBmaWxsPSIjMjU2M2ViIi8+PC9zdmc+" aspect={4/3} onCrop={(dataUrl: string) => console.log('[crop]', dataUrl.slice(0, 30))} />
   </div>
 )
 
 export const DemoVideoPlayer: Component = async (_props: any) => async (_p: any) => (
-  <div class="wf-w-full wf-stack wf-gap-xs">
-    <div class="wf-text-xs wf-text-secondary">视频播放器——原生 video 封装（示例源为公共测试视频）</div>
+  <div class="wf-width-full wf-stack wf-gap-xs">
+    <div class="wf-font-xs wf-text-secondary">视频播放器——原生 video 封装（示例源为公共测试视频）</div>
     <VideoPlayer src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" poster="" aspect={16 / 9} />
   </div>
 )
 
 export const DemoMath: Component = async (_props: any) => async (_p: any) => (
-  <div class="wf-w-full wf-stack wf-gap-xs">
-    <div class="wf-text-xs wf-text-secondary">轻量公式渲染（零依赖 LaTeX 子集——教学/文档场景）</div>
-    <div class="wf-stack wf-gap-sm wf-text-base">
+  <div class="wf-width-full wf-stack wf-gap-xs">
+    <div class="wf-font-xs wf-text-secondary">轻量公式渲染（零依赖 LaTeX 子集——教学/文档场景）</div>
+    <div class="wf-stack wf-gap-sm wf-font-base">
       <div>勾股定理：<Math tex="a^2 + b^2 = c^2" /></div>
       <div>分数：<Math tex="x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}" /></div>
       <div>求和：<Math tex="\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}" /></div>
@@ -143,8 +143,8 @@ export const DemoMath: Component = async (_props: any) => async (_p: any) => (
 export const DemoTabBar: Component = async (_props: any, ctx: any) => {
   let tab = 'home'
   return async () => (
-    <div class="wf-stack wf-gap-sm wf-border wf-rounded-md" style="position:relative;min-height:320px;overflow:hidden">
-      <div class="wf-p-lg wf-fill wf-text-sm wf-text-secondary">
+    <div class="wf-stack wf-gap-sm wf-border wf-radius-md" style="position:relative;min-height:320px;overflow:hidden">
+      <div class="wf-padding-lg wf-fill wf-font-sm wf-text-secondary">
         {tab === 'home' && '🏠 首页——组件/页面/应用/后端/能力/指南 一站式'}
         {tab === 'message' && '💬 消息——会话列表 + 审批通知'}
         {tab === 'search' && '🔍 发现——文档与模板搜索'}
@@ -169,9 +169,9 @@ export const DemoActionSheet: Component = async (_props: any, ctx: any) => {
   let open = false
   let last = '未选择'
   return async () => (
-    <div class="wf-stack wf-gap-sm wf-border wf-rounded-md" style="min-height:120px">
-      <div class="wf-p-md wf-text-sm wf-text-secondary">选择结果：{last}</div>
-      <div class="wf-p-md">
+    <div class="wf-stack wf-gap-sm wf-border wf-radius-md" style="min-height:120px">
+      <div class="wf-padding-md wf-font-sm wf-text-secondary">选择结果：{last}</div>
+      <div class="wf-padding-md">
         <button class="wf-btn" type="button" onClick={() => { open = true; ctx.render() }}>选择操作</button>
       </div>
       <ActionSheet

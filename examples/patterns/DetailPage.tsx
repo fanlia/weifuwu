@@ -60,15 +60,15 @@ export const DetailPage: Component = async (_init: any, ctx: any) => {
 
       <div class="wf-grid" style="--wf-cols:2fr 1fr;--wf-gap:16px">
         <Card>
-          <div class="wf-text-bold wf-mb-sm">补充信息</div>
-          <div class="wf-text-secondary wf-text-sm wf-stack wf-gap-xs">
+          <div class="wf-bold wf-margin-bottom-sm">补充信息</div>
+          <div class="wf-text-secondary wf-font-sm wf-stack wf-gap-xs">
             <span>支付方式：对公转账</span>
             <span>发票：已开具（¥3,200.00）</span>
             <span>业务员：陈晨</span>
           </div>
         </Card>
         <Card>
-          <div class="wf-text-bold wf-mb-sm">执行历史</div>
+          <div class="wf-bold wf-margin-bottom-sm">执行历史</div>
           <Timeline items={HISTORY.map((h, i) => ({ ...h, key: String(i) }))} />
         </Card>
       </div>

@@ -51,18 +51,18 @@ export const AppShell: Component = async (_init, ctx) => {
   }))
   return async () => (
     <div
-      class="wf-app-shell wf-rounded-lg"
+      class="wf-app-shell wf-radius-lg"
       style={{ height: 'calc(100vh - 48px)', overflow: 'hidden', '--wf-sidebar-width': collapsed ? '64px' : '240px' }}
     >
       {/* ── 左侧导航栏 ── */}
       <aside class="wf-sidebar">
-        <div class="wf-sidebar-header wf-between">
+        <div class="wf-sidebar-header wf-justify-between">
           {collapsed ? (
             <Icon name="zap" size={18} className="wf-text-primary" />
           ) : (
             <Space>
               <Icon name="zap" size={18} className="wf-text-primary" />
-              <b class="wf-text-bold">Acme 管理台</b>
+              <b class="wf-bold">Acme 管理台</b>
             </Space>
           )}
           <Button
@@ -93,26 +93,26 @@ export const AppShell: Component = async (_init, ctx) => {
         <div class="wf-sidebar-footer">
           {collapsed
             ? <Icon name="shield" size={14} className="wf-text-tertiary" />
-            : <span class="wf-text-tertiary wf-text-xs">v2.4.0 · 内部系统</span>}
+            : <span class="wf-text-tertiary wf-font-xs">v2.4.0 · 内部系统</span>}
         </div>
       </aside>
 
       {/* ── 右侧主区 ── */}
       <main class="wf-main">
         {/* 顶栏 */}
-        <div class="wf-between wf-p-md wf-border-b">
+        <div class="wf-justify-between wf-padding-md wf-border-bottom">
           <Space>
             <Button size="sm" variant="ghost"><Icon name="star" size={14} /> 收藏</Button>
             <Button size="sm" variant="ghost"><Icon name="bell" size={14} /> 通知</Button>
           </Space>
           <Space>
-            <span class="wf-text-secondary wf-text-sm">管理员</span>
+            <span class="wf-text-secondary wf-font-sm">管理员</span>
             <Badge variant="primary">角色</Badge>
           </Space>
         </div>
 
         {/* 内容区（按导航切换） */}
-        <div class="wf-main wf-p-lg wf-scroll">
+        <div class="wf-main wf-padding-lg wf-overflow-auto">
           {nav === 'dashboard' && (
             <>
               <PageHeader title="仪表盘" sub="经营概览" display>
@@ -132,7 +132,7 @@ export const AppShell: Component = async (_init, ctx) => {
                 <Button variant="primary"><Icon name="plus" size={14} /> 新建订单</Button>
               </PageHeader>
 
-          <div class="wf-grid wf-mt-md" style={{ '--wf-cols': 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+          <div class="wf-grid wf-margin-top-md" style={{ '--wf-cols': 'repeat(auto-fill, minmax(220px, 1fr))' }}>
             <StatCard label="今日订单" value="128" trend="up" trendLabel="+12% 昨日" icon={<Icon name="box" size={24} className="wf-text-primary" />} />
             <StatCard label="待发货" value="23" trend="down" trendLabel="-5% 昨日" icon={<Icon name="inbox" size={24} className="wf-text-primary" />} />
             <StatCard label="销售额" value="¥42,860" trend="up" trendLabel="+8.6% 昨日" icon={<Icon name="bar-chart" size={24} className="wf-text-primary" />} />
@@ -150,8 +150,8 @@ export const AppShell: Component = async (_init, ctx) => {
                     { key: 'status', label: '状态', render: (v, row) => <Badge variant={row.v}>{v}</Badge> },
                   ]}
                 />
-                <div class="wf-p-md wf-between">
-                  <Text className="wf-text-sm">共 {ORDERS_ALL.length} 条</Text>
+                <div class="wf-padding-md wf-justify-between">
+                  <Text className="wf-font-sm">共 {ORDERS_ALL.length} 条</Text>
                   <Pagination total={ORDERS_ALL.length} page={page} pageSize={5} onChange={(p) => { page = p; rerender() }} />
                 </div>
               </Card>
@@ -207,7 +207,7 @@ export const AppShell: Component = async (_init, ctx) => {
                     ['数据保留', '90 天'],
                     ['时区', 'Asia/Shanghai'],
                   ].map(([k, v]) => (
-                    <div key={k} class="wf-between wf-p-md wf-border-b">
+                    <div key={k} class="wf-justify-between wf-padding-md wf-border-bottom">
                       <span class="wf-text-secondary">{k}</span>
                       <b>{v}</b>
                     </div>

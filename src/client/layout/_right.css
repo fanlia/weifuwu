@@ -1,9 +1,0 @@
-/* right — 靠右对齐（L3：align/gap 默认值 :where() 零优先级） */
-.wf-right {
-  display: flex;
-  justify-content: flex-end;
-}
-:where(.wf-right) {
-  align-items: var(--wf-align, center);
-  gap: var(--wf-gap, var(--wf-gap-md));
-}

@@ -1,5 +1,0 @@
-/* pop — 浮动层 */
-.wf-pop {
-  position: absolute;
-  z-index: var(--wf-z, var(--wf-pop-z));
-}

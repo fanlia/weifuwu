@@ -248,6 +248,7 @@
 
   /* ── 色彩 — 实心填充上的文字/图标（primary/success 等实心底色） ── */
   --wf-color-on-brand: #fff;
+  --wf-color-on-warning: #451a03;  /* 警告实心底上的深色文字（暗色经 _dark.css 映射） */
 
   /* ── 浮层遮罩（Modal/Drawer overlay，暗色经 --wf-dark-overlay 映射） ── */
   --wf-overlay: rgba(0, 0, 0, 0.4);

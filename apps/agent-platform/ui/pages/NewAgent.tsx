@@ -149,25 +149,25 @@ export const NewAgent: Component = async (_props, ctx) => {
   return async (props: {}) => {
     // ── 步骤 1: 选择模板 ──
     if ($.step === 'template') {
-      if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
+      if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px"><Loading /></div>
       return (
-      <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
-        <a key="back-link" class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
+      <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px">
+        <a key="back-link" class="wf-font-sm wf-text-primary" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
         <PageHeader key="tmpl-header" title="创建 Agent" sub="选择一个角色模板快速开始，或跳过自行配置" />
 
         {buildCategories().map(([key, cat]) => (
-          <div key={key} class="wf-stack wf-gap-sm wf-mb-lg">
-            <div class="wf-text-sm wf-text-semibold wf-text-secondary wf-px-sm">{cat.label}</div>
+          <div key={key} class="wf-stack wf-gap-sm wf-margin-bottom-lg">
+            <div class="wf-font-sm wf-semibold wf-text-secondary wf-padding-x-sm">{cat.label}</div>
             <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(240px, 1fr))">
               {cat.templates.map((t: RoleTemplate) => (
                 <Card key={t.slug} outlined hover clickable onClick={() => selectTemplate(t)}>
                   <div class="wf-row wf-gap-sm">
-                    <span class="wf-text-3xl">{t.icon}</span>
+                    <span class="wf-font-3xl">{t.icon}</span>
                     {(t.usage_count ?? 0) > 0 && <Badge variant="warning">🔥 热门 · {t.usage_count ?? 0}</Badge>}
                   </div>
-                  <div class="wf-text-base wf-text-semibold">{t.name}</div>
-                  <div class="wf-text-xs wf-text-secondary wf-mt-xs">{t.description}</div>
-                  <div class="wf-row wf-gap-xs wf-mt-sm">
+                  <div class="wf-font-base wf-semibold">{t.name}</div>
+                  <div class="wf-font-xs wf-text-secondary wf-margin-top-xs">{t.description}</div>
+                  <div class="wf-row wf-gap-xs wf-margin-top-sm">
                     {t.default_allow_file_tools && <Badge variant="primary">📁 文件工具</Badge>}
                     {t.default_allow_command_exec && <Badge variant="warning">⚡ 命令执行</Badge>}
                     {t.default_skills?.map((s: string) => (
@@ -180,7 +180,7 @@ export const NewAgent: Component = async (_props, ctx) => {
           </div>
         ))}
 
-        <div class="wf-text-center wf-p-md wf-border-t">
+        <div class="wf-text-center wf-padding-md wf-border-top">
           <Button variant="ghost" onClick={startDirect}>跳过模板，直接创建 →</Button>
         </div>
       </div>
@@ -194,16 +194,16 @@ export const NewAgent: Component = async (_props, ctx) => {
     const hasAIConfig = isAI || $.selectedTemplate !== null || $.type === 'department'
 
     return (
-    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
-      <a key="back-link2" class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
+    <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px">
+      <a key="back-link2" class="wf-font-sm wf-text-primary" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
 
       {$.selectedTemplate && (
         <Card key="selected-tmpl">
           <div class="wf-row wf-gap-sm">
-            <span class="wf-text-2xl">{$.selectedTemplate.icon}</span>
+            <span class="wf-font-2xl">{$.selectedTemplate.icon}</span>
             <div class="wf-fill">
-              <div class="wf-text-base wf-text-semibold">{$.selectedTemplate.name}</div>
-              <div class="wf-text-xs wf-text-tertiary">{$.selectedTemplate.description}</div>
+              <div class="wf-font-base wf-semibold">{$.selectedTemplate.name}</div>
+              <div class="wf-font-xs wf-text-tertiary">{$.selectedTemplate.description}</div>
             </div>
             <Button size="sm" variant="ghost" onClick={() => { $.step = 'template'; rerender() }}>切换模板</Button>
           </div>
@@ -213,7 +213,7 @@ export const NewAgent: Component = async (_props, ctx) => {
       <PageHeader key="form-header" title={$.selectedTemplate ? `创建 ${$.selectedTemplate.name}` : '创建 Agent'}
         sub="模板已预填默认值，可根据需要修改" />
 
-      <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
+      <div class="wf-margin-bottom-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
 
       <Card key="form-card">
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
@@ -223,8 +223,8 @@ export const NewAgent: Component = async (_props, ctx) => {
                 {AGENT_TYPES.map(t => (
                   <Card key={t.value} outlined hover active={$.type === t.value}
                     onClick={() => { $.type = t.value; $.error = ''; rerender() }}>
-                    <div class="wf-text-base wf-text-semibold">{t.label}</div>
-                    <div class="wf-text-xs wf-text-secondary">{t.desc}</div>
+                    <div class="wf-font-base wf-semibold">{t.label}</div>
+                    <div class="wf-font-xs wf-text-secondary">{t.desc}</div>
                   </Card>
                 ))}
               </div>
@@ -313,8 +313,8 @@ export const NewAgent: Component = async (_props, ctx) => {
 
           {hasAIConfig && (
             <>
-              <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📁 工作空间</div>
-              <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-text-secondary">
+              <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📁 工作空间</div>
+              <div class="wf-bg-tertiary wf-padding-md wf-radius wf-font-sm wf-text-secondary">
                 Agent 将在 <code>data/workspaces/{'{agent_id}'}/</code> 下工作
               </div>
               <div class="wf-row wf-gap-lg">
@@ -323,17 +323,17 @@ export const NewAgent: Component = async (_props, ctx) => {
                 <Checkbox label="⚡ 启用命令执行 (bash)" checked={$.allowCommandExec}
                   onChange={(v: boolean) => { $.allowCommandExec = v; rerender() }} />
               </div>
-              <div class="wf-row wf-gap-lg wf-mt-xs">
+              <div class="wf-row wf-gap-lg wf-margin-top-xs">
                 <Checkbox label="🌐 允许网络访问" checked={$.allowNetwork}
                   onChange={(v: boolean) => { $.allowNetwork = v; rerender() }} />
-                <span class="wf-text-xs wf-text-tertiary wf-self-center">默认关闭（沙盒 --network none）；开启后容器接入 bridge 网络</span>
+                <span class="wf-font-xs wf-text-tertiary wf-self-center">默认关闭（沙盒 --network none）；开启后容器接入 bridge 网络</span>
               </div>
-              <div class="wf-text-xs wf-text-tertiary wf-mt-xs">🧪 工具在 ap-sandbox 沙盒容器内执行（node:24 + python + agent-browser · 网络隔离 · 内存 512MB · 1 CPU · 非 root）</div>
+              <div class="wf-font-xs wf-text-tertiary wf-margin-top-xs">🧪 工具在 ap-sandbox 沙盒容器内执行（node:24 + python + agent-browser · 网络隔离 · 内存 512MB · 1 CPU · 非 root）</div>
             </>
           )}
 
           {!$.selectedTemplate && isWebhook && (
-            <div class="wf-text-sm wf-text-secondary wf-bg-secondary wf-rounded wf-p-sm">
+            <div class="wf-font-sm wf-text-secondary wf-bg-secondary wf-radius wf-padding-sm">
               📡 出站回调规划中——Webhook Agent 当前为<b>入站 API 机器人</b>（外部系统 POST 到 /api/webhook/&#123;id&#125; 触发 AI 应答），创建后可在详情页查看对接示例。
             </div>
           )}
@@ -343,7 +343,7 @@ export const NewAgent: Component = async (_props, ctx) => {
             </Field>
           )}
 
-          <div class="wf-right wf-gap-sm">
+          <div class="wf-justify-end wf-gap-sm">
             <Button type="button" variant="ghost" onClick={() => ctx.app?.navigate('/agents')}>取消</Button>
             <Button type="submit" variant="primary" disabled={$.submitting}>
               {$.submitting ? '创建中...' : `创建 ${$.selectedTemplate?.name ?? 'Agent'}`}

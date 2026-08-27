@@ -99,7 +99,7 @@ const AppShell: Component = async (_init: any, ctx: any) => {
     <Layout style="min-height:420px;border:1px solid var(--wf-color-border);border-radius:8px;overflow:hidden">
       <LayoutSider collapsed={collapsed} collapsible onCollapse={(c) => { collapsed = c; ctx.render() }} width={200}>
         <div style={{ background: "var(--wf-color-bg-secondary)", height: "100%" }}>
-        <div class="wf-p-sm wf-text-bold" style="color:var(--wf-color-text)">⚙️ 管理后台</div>
+        <div class="wf-padding-sm wf-bold" style="color:var(--wf-color-text)">⚙️ 管理后台</div>
         <Menu
           items={[
             { key: '/', label: '仪表盘' },

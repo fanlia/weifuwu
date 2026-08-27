@@ -54,7 +54,7 @@ test('能力：可关闭（onClose——关闭激活 tab 自动激活邻居）+ 
   try {
     await open(page)
     // 新增（+ 按钮）→ 新标签出现且激活
-    await page.locator('main .wf-surface [role="tab"] button, main .wf-surface button[aria-label*="新增"], main .wf-surface [class*="add"]').first().click()
+    await page.locator('main .wf-surface [role="tab"] button, main .wf-surface button[aria-label*="新增"], main .wf-surface [class*="tab-add"]').first().click()
     await page.waitForFunction(() => (document.body.textContent ?? '').includes('新标签 1'), '新增标签', { timeout: 3000 })
     // 关闭激活的「日志」→ 自动激活邻居（关闭按钮）
     const logTab = page.locator('main .wf-surface [role="tab"]', { hasText: '日志' }).first()

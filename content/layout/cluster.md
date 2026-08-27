@@ -16,4 +16,4 @@ flex-wrap 簇布局（标签/按钮组）
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/cluster` ——（P1 填充）
+> showcase 活体演示页：`/layout/cluster`（族示例 + 代表类）

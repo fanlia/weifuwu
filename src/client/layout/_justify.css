@@ -1,0 +1,19 @@
+/* justify — 主轴分布（对齐域统一 CSS 词根——值为 justify-content 值词；
+   L3：align/gap 默认值 :where() 零优先级） */
+.wf-justify-between {
+  display: flex;
+  justify-content: space-between;
+}
+:where(.wf-justify-between) {
+  align-items: var(--wf-align, center);
+  gap: var(--wf-gap, var(--wf-gap-md));
+}
+
+.wf-justify-end {
+  display: flex;
+  justify-content: flex-end;
+}
+:where(.wf-justify-end) {
+  align-items: var(--wf-align, center);
+  gap: var(--wf-gap, var(--wf-gap-md));
+}

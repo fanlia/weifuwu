@@ -40,12 +40,12 @@ export interface AuthPageProps {
 
 export const AuthPage: Component<AuthPageProps, { ui: HookEnv }> = async (_init) =>
   async (props) => {
-    return h('div', { class: 'wf-center wf-p-xl wf-bg-secondary', style: { minHeight: '100vh' } }, [
+    return h('div', { class: 'wf-center wf-padding-xl wf-bg-secondary', style: { minHeight: '100vh' } }, [
       h(Card, {}, [
-        h('div', { class: 'wf-stack wf-gap-sm wf-text-center wf-mb-lg' }, [
+        h('div', { class: 'wf-stack wf-gap-sm wf-text-center wf-margin-bottom-lg' }, [
           props.logo ? h('div', { class: 'wf-center' }, props.logo) : null,
-          h('div', { class: 'wf-text-2xl wf-text-semibold' }, props.title),
-          props.subtitle ? h('div', { class: 'wf-text-sm wf-text-secondary' }, props.subtitle) : null,
+          h('div', { class: 'wf-font-2xl wf-semibold' }, props.title),
+          props.subtitle ? h('div', { class: 'wf-font-sm wf-text-secondary' }, props.subtitle) : null,
         ]),
         props.error ? h(Alert, { variant: 'error' }, props.error) : null,
         h('form', { class: 'wf-auth-form', onSubmit: (e: any) => { e.preventDefault(); props.onSubmit?.() } }, [
@@ -54,7 +54,7 @@ export const AuthPage: Component<AuthPageProps, { ui: HookEnv }> = async (_init)
             h(Button, { type: 'submit', variant: 'primary', loading: props.loading, disabled: props.loading, block: true }, props.submitLabel),
           ]),
         ]),
-        props.footer ? h('div', { class: 'wf-text-center wf-mt-md wf-text-sm' }, props.footer) : null,
+        props.footer ? h('div', { class: 'wf-text-center wf-margin-top-md wf-font-sm' }, props.footer) : null,
       ]),
     ])
   }

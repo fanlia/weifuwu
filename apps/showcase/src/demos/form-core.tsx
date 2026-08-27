@@ -35,7 +35,7 @@ export const DemoInput: Component = async (_props, ctx) => {
   let email = ''
   let pwd = ''
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <Input label="文本" value={text} onInput={e => { text = (e.target as HTMLInputElement).value; ctx.render() }} />
       <Input label="邮箱" type="email" placeholder="name@example.com" required value={email} onInput={e => { email = (e.target as HTMLInputElement).value; ctx.render() }} />
       <Input label="密码" type="password" placeholder="••••••••" value={pwd} onInput={e => { pwd = (e.target as HTMLInputElement).value; ctx.render() }} />
@@ -48,7 +48,7 @@ export const DemoInput: Component = async (_props, ctx) => {
 export const DemoTextarea: Component = async (_props, ctx) => {
   let bio = '可编辑文本'
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <Textarea label="简介" value={bio} onInput={e => { bio = (e.target as HTMLTextAreaElement).value; ctx.render() }} rows={3} />
       <Textarea label="错误状态" error="内容不能为空" rows={2} />
       <Textarea label="带提示" hint="最多 500 字" rows={2} />
@@ -59,7 +59,7 @@ export const DemoTextarea: Component = async (_props, ctx) => {
 export const DemoSelect: Component = async (_props, ctx) => {
   let role = ''
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <Select label="原生 select" placeholder="请选择"
         value={role}
         onChange={v => { role = v as string; ctx.render() }}
@@ -68,7 +68,7 @@ export const DemoSelect: Component = async (_props, ctx) => {
           { value: 'user', label: '普通用户' },
           { value: 'guest', label: '访客' },
         ]} />
-      <div class="wf-text-xs wf-text-secondary">当前值: {role || '(未选择)'}</div>
+      <div class="wf-font-xs wf-text-secondary">当前值: {role || '(未选择)'}</div>
       <Select label="带错误" error="请选择角色" options={[{ value: 'a', label: '选项 A' }]} />
       <Select label="分组选项（optgroup）" placeholder="选择城市"
         options={[
@@ -83,9 +83,9 @@ export const DemoSelect: Component = async (_props, ctx) => {
 export const DemoSearchInput: Component = async (_props, ctx) => {
   let query = ''
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <SearchInput placeholder="搜索用户..." value={query} onInput={e => { query = (e.target as HTMLInputElement).value; ctx.render() }} onClear={() => { query = ''; ctx.render() }} />
-      <div class="wf-text-xs wf-text-secondary">搜索词: {query || '(空)'}</div>
+      <div class="wf-font-xs wf-text-secondary">搜索词: {query || '(空)'}</div>
     </div>
   )
 }

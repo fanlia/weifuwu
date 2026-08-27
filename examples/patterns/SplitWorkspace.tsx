@@ -46,10 +46,10 @@ export const SplitWorkspace: Component = async (_init, ctx) => {
   return async () => {
     const code = (FILES2.find((f) => f.name === file) ?? FILES2[0]).code
     return (
-    <div class="wf-grid wf-border wf-rounded-lg" style={{ height: 'calc(100vh - 48px)', '--wf-cols': '20% 1fr 260px', overflow: 'hidden' }}>
+    <div class="wf-grid wf-border wf-radius-lg" style={{ height: 'calc(100vh - 48px)', '--wf-cols': '20% 1fr 260px', overflow: 'hidden' }}>
       {/* 左栏：文件树 */}
-      <aside class="wf-stack wf-gap-none wf-p-md wf-bg-secondary wf-scroll">
-        <Text className="wf-text-sm" strong>资源管理器</Text>
+      <aside class="wf-stack wf-gap-none wf-padding-md wf-bg-secondary wf-overflow-auto">
+        <Text className="wf-font-sm" strong>资源管理器</Text>
         <Divider />
         <div class="wf-stack wf-gap-sm">
           {FILES2.map((f) => (
@@ -67,29 +67,29 @@ export const SplitWorkspace: Component = async (_init, ctx) => {
 
       {/* 中栏：编辑器 */}
       <main class="wf-stack wf-gap-none wf-fill">
-        <div class="wf-p-sm wf-border-b">
+        <div class="wf-padding-sm wf-border-bottom">
           <Tabs
             active={tab}
             onChange={(k) => { tab = k; file = k; rerender() }}
             items={FILES2.map((f) => ({ key: f.name, label: f.name }))}
           />
         </div>
-        <div class="wf-fill wf-p-md wf-scroll">
+        <div class="wf-fill wf-padding-md wf-overflow-auto">
           <CodeBlock lang="ts" title={file} code={code} />
         </div>
         {/* 底部状态栏 */}
-        <div class="wf-row wf-p-sm wf-gap-md wf-border-t">
+        <div class="wf-row wf-padding-sm wf-gap-md wf-border-top">
           <Space size="lg">
-            <Text type="secondary" className="wf-text-xs">✓ 已保存</Text>
-            <Text type="secondary" className="wf-text-xs">UTF-8</Text>
-            <Text type="secondary" className="wf-text-xs">TypeScript</Text>
+            <Text type="secondary" className="wf-font-xs">✓ 已保存</Text>
+            <Text type="secondary" className="wf-font-xs">UTF-8</Text>
+            <Text type="secondary" className="wf-font-xs">TypeScript</Text>
           </Space>
         </div>
       </main>
 
       {/* 右栏：属性面板 */}
-      <aside class="wf-stack wf-gap-md wf-p-md wf-border-l wf-scroll">
-        <Text className="wf-text-sm" strong>属性</Text>
+      <aside class="wf-stack wf-gap-md wf-padding-md wf-border-left wf-overflow-auto">
+        <Text className="wf-font-sm" strong>属性</Text>
         <Descriptions
           size="sm"
           items={[

@@ -41,8 +41,8 @@ export const PatternLive: Component = async (initProps: any, _ctx: any) => {
     if (!Comp) return null
     return (
       <div class="wf-stack wf-gap-sm">
-        <div class="wf-text-xs wf-text-secondary">← 活体预览（此页面的完整源码 = 复制即用的蓝本）</div>
-        <div class="wf-surface wf-surface--flat wf-border wf-rounded-md" style="padding:2px">
+        <div class="wf-font-xs wf-text-secondary">← 活体预览（此页面的完整源码 = 复制即用的蓝本）</div>
+        <div class="wf-surface wf-surface--flat wf-border wf-radius-md" style="padding:2px">
           <Comp />
         </div>
       </div>

@@ -56,7 +56,7 @@ export const Approvals: Component = async (_props, ctx) => {
   }
 
   return async (props) => (
-    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 760px">
+    <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 760px">
       <PageHeader title="审批待办" sub="AI 草稿需人工批准后才发布" />
 
       {$.loading && <Loading />}
@@ -73,22 +73,22 @@ export const Approvals: Component = async (_props, ctx) => {
                 <Ava name={m.agent_name ?? 'AI'} type={m.agent_type ?? 'ai'} small />
                 <div class="wf-fill wf-stack wf-gap-none wf-shrink">
                   <div class="wf-row wf-gap-sm">
-                    <span class="wf-text-base wf-text-semibold">{m.agent_name ?? 'AI'}</span>
+                    <span class="wf-font-base wf-semibold">{m.agent_name ?? 'AI'}</span>
                     <Badge variant="warning"><Icon name="clock" size={12} /> 待审批</Badge>
                   </div>
-                  <span class="wf-text-xs wf-text-tertiary">
+                  <span class="wf-font-xs wf-text-tertiary">
                     部门：{m.department_name ?? '未知'} · {fmtTime(m.created_at ?? '')}
                   </span>
                   {$.editingId === m.id ? (
-                    <textarea class="wf-input wf-mt-sm" rows={4} value={$.editDraft}
+                    <textarea class="wf-input wf-margin-top-sm" rows={4} value={$.editDraft}
                       onInput={(e: any) => { $.editDraft = e.target.value; rerender() }} />
                   ) : (
-                    <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-mt-sm wf-pre-wrap">{m.ai_draft}</div>
+                    <div class="wf-bg-tertiary wf-padding-md wf-radius wf-font-sm wf-margin-top-sm wf-pre-wrap">{m.ai_draft}</div>
                   )}
                 </div>
               </div>
-              <div class="wf-row wf-right wf-gap-sm wf-mt-sm">
-                  <span class="wf-text-xs wf-text-tertiary wf-self-center">
+              <div class="wf-row wf-justify-end wf-gap-sm wf-margin-top-sm">
+                  <span class="wf-font-xs wf-text-tertiary wf-self-center">
                     {/删除|清空|drop|移除/.test(String(m.ai_draft ?? '')) ? '⚠️ 高风险操作' : 'AI 草稿'}
                   </span>
                 <Button size="sm" variant="ghost" onClick={() => ctx.app?.navigate(`/chat/${m.department_id}`)}>

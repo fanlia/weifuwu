@@ -43,7 +43,7 @@ export const NewChat: Component = async (_props, ctx) => {
   }
 
   return async (props) => (
-    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
+    <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px">
       <PageHeader title="会话" sub="最近对话，点击进入" />
 
       {$.loading && <Loading />}
@@ -63,21 +63,21 @@ export const NewChat: Component = async (_props, ctx) => {
                 <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} />
                 <div class="wf-fill wf-stack wf-gap-none wf-shrink">
                   <div class="wf-row wf-gap-sm">
-                    <span class="wf-text-base wf-text-semibold wf-truncate">{d.name}</span>
-                    {(d.member_count ?? 0) > 0 && <span class="wf-text-xs wf-text-tertiary">{d.member_count} 人</span>}
+                    <span class="wf-font-base wf-semibold wf-truncate">{d.name}</span>
+                    {(d.member_count ?? 0) > 0 && <span class="wf-font-xs wf-text-tertiary">{d.member_count} 人</span>}
                   </div>
-                  <div class="wf-text-sm wf-text-secondary wf-truncate">
+                  <div class="wf-font-sm wf-text-secondary wf-truncate">
                     {d.last_message ? plainPreview(d.last_message) : ((d.member_count ?? 0) > 0 ? '暂无消息，发一条试试' : '还没有成员')}
                   </div>
                 </div>
                 <div class="wf-stack wf-gap-none wf-items-end wf-shrink">
-                  <span class="wf-text-xs wf-text-tertiary">{fmtTime(d.last_message_at)}</span>
+                  <span class="wf-font-xs wf-text-tertiary">{fmtTime(d.last_message_at)}</span>
                   <span class="wf-text-tertiary">→</span>
                 </div>
               </div>
             </Card>
           ))}
-          <div class="wf-right">
+          <div class="wf-justify-end">
             <Button variant="ghost" onClick={() => ctx.app?.navigate('/departments')}>查看全部部门 →</Button>
           </div>
         </div>

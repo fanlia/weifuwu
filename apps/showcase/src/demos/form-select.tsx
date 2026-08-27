@@ -45,7 +45,7 @@ const DemoCheckbox: Component = async (_props, ctx) => {
       <Checkbox label="已阅读并同意协议" checked={agree} onChange={v => { agree = v; ctx.render() }} />
       <Checkbox label="记住登录状态" checked={remember} onChange={v => { remember = v; ctx.render() }} />
       <Checkbox label="不可选 (disabled)" disabled />
-      <div class="wf-text-xs wf-text-secondary">同意: {String(agree)}, 记住: {String(remember)}</div>
+      <div class="wf-font-xs wf-text-secondary">同意: {String(agree)}, 记住: {String(remember)}</div>
     </div>
   )
 }
@@ -58,7 +58,7 @@ const DemoSwitch: Component = async (_props, ctx) => {
       <Switch label="启用通知" checked={notify} onChange={v => { notify = v; ctx.render() }} />
       <Switch label="自动更新" checked={auto} onChange={v => { auto = v; ctx.render() }} />
       <Switch label="已禁用 (disabled)" disabled checked />
-      <div class="wf-text-xs wf-text-secondary">通知: {notify ? '开' : '关'}, 自动更新: {auto ? '开' : '关'}</div>
+      <div class="wf-font-xs wf-text-secondary">通知: {notify ? '开' : '关'}, 自动更新: {auto ? '开' : '关'}</div>
     </div>
   )
 }
@@ -67,7 +67,7 @@ const DemoRadio: Component = async (_props, ctx) => {
   let gender = 'male'
   let inline = 'a'
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <RadioGroup name="gender" value={gender} onChange={v => { gender = v; ctx.render() }}
         options={[
           { value: 'male', label: '男' },
@@ -79,7 +79,7 @@ const DemoRadio: Component = async (_props, ctx) => {
           { value: 'a', label: '选项 A' },
           { value: 'b', label: '选项 B' },
         ]} />
-      <div class="wf-text-xs wf-text-secondary">选择: {gender}</div>
+      <div class="wf-font-xs wf-text-secondary">选择: {gender}</div>
     </div>
   )
 }
@@ -88,7 +88,7 @@ const DemoSegmented: Component = async (_props, ctx) => {
   let mode = 'ai'
   let size: 'sm' | 'md' = 'md'
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <SegmentedControl ariaLabel="生成方式"
         value={mode}
         onChange={v => { mode = v; ctx.render() }}
@@ -101,7 +101,7 @@ const DemoSegmented: Component = async (_props, ctx) => {
         value={size}
         onChange={v => { size = v as any; ctx.render() }}
         options={[{ value: 'sm', label: '小' }, { value: 'md', label: '中' }]} />
-      <div class="wf-text-xs wf-text-secondary">当前模式: {mode}</div>
+      <div class="wf-font-xs wf-text-secondary">当前模式: {mode}</div>
     </div>
   )
 }
@@ -112,7 +112,7 @@ const DemoSlider: Component = async (_props, ctx) => {
   let price = 800
   let rangeV: [number, number] = [300, 1500]
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <Slider label="音量" value={volume} onChange={v => { volume = v; ctx.render() }} />
       <Slider label="亮度" value={brightness} min={0} max={100} onChange={v => { brightness = v; ctx.render() }} />
       <Slider label="价格" value={price} min={0} max={2000} step={50}
@@ -120,8 +120,7 @@ const DemoSlider: Component = async (_props, ctx) => {
         onChange={v => { price = v; ctx.render() }}
         onChangeEnd={v => console.log('价格调整完成:', v)} />
       <Slider label="价格区间" range value={rangeV} min={0} max={2000} step={50}
-        onChange={v => { rangeV = v as [number, number]; ctx.render() }}
-        onRangeChange={v => { rangeV = v as [number, number]; ctx.render() }} />
+        onRangeChange={v => { rangeV = v; ctx.render() }} />
     </div>
   )
 }

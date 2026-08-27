@@ -6,7 +6,7 @@
  *   - 后端：MemorySql 持久化（契约层——生产换 postgres() 一行）
  *   - 嵌入方式：createRouter(routes, root, { history: false })——showcase 页面内嵌
  */
-import { UIRouter, uiServe, h, createStore, createClientBrowser } from 'weifuwu/vdom'
+import { UIRouter, uiServe, h, createStore } from 'weifuwu/vdom'
 import type { Component } from 'weifuwu/vdom'
 import { Button, Input, Checkbox, Tag, EmptyState, PageHeader, Form, Field, Alert } from 'weifuwu/components'
 
@@ -55,7 +55,7 @@ export const TodoList: Component = async (_init: any, ctx: any) => {
       {!state.loading && state.todos.length === 0 && <EmptyState text="暂无任务——点击「新建任务」开始" />}
       <div class="wf-stack wf-gap-xs">
         {state.todos.map((t: Todo) => (
-          <div key={t.id} class="wf-surface wf-border wf-rounded-sm wf-p-sm wf-row wf-between">
+          <div key={t.id} class="wf-surface wf-border wf-radius-sm wf-padding-sm wf-row wf-justify-between">
             <div class="wf-row wf-gap-sm">
               <Checkbox checked={t.done} onChange={() => void toggle(t)} />
               <span class={t.done ? 'wf-text-tertiary' : ''} style={t.done ? 'text-decoration:line-through' : ''}>{t.name}</span>
@@ -124,5 +124,5 @@ export function createTodoApp(root: HTMLElement, _options?: { history?: boolean 
     router.get(r.path, (req: Request, ctx: any) =>
       (ctx as { stream: (v: unknown) => Response }).stream(r.render()))
   }
-  return uiServe(router, { root, browser: createClientBrowser()! })
+  return uiServe(router, { root })
 }

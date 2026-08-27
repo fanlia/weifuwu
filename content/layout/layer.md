@@ -2,7 +2,7 @@
 
 ## 概述
 
-absolute 层叠容器（角标/覆盖层）
+relative + z-index 层叠容器（角标/覆盖层父级）
 
 ## 代表类
 
@@ -16,4 +16,4 @@ absolute 层叠容器（角标/覆盖层）
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/layer` ——（P1 填充）
+> showcase 活体演示页：`/layout/layer`（族示例 + 代表类）

@@ -12,10 +12,7 @@
 
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { h } from 'weifuwu/vdom'
-import { FilePreview, AppShell, Avatar, Button, Icon, Card, StatCard } from 'weifuwu/components'
-
-import {
-  Button, Input, Textarea, Select,
+import { FilePreview, AppShell, Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
   Form, Field, SearchInput, SegmentedControl, ProgressBar,
   Table, Modal, Toast, Alert, Loading, EmptyState,
@@ -40,7 +37,7 @@ import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } f
 const DemoSteps: Component = async (_props, ctx) => {
   let step = 'info'
   return async (_p: any) => (
-    <div class="wf-w-full wf-stack wf-gap-sm">
+    <div class="wf-width-full wf-stack wf-gap-sm">
       <Steps items={[
         { key: 'info', label: '填写信息', description: '表单信息' },
         { key: 'pay', label: '支付', description: '在线付款' },
@@ -51,7 +48,7 @@ const DemoSteps: Component = async (_props, ctx) => {
         <Button size="sm" variant="secondary" onClick={() => { step = 'pay'; ctx.render() }}>第二步</Button>
         <Button size="sm" variant="secondary" onClick={() => { step = 'done'; ctx.render() }}>第三步</Button>
       </div>
-      <div class="wf-text-xs wf-text-secondary">三步流程 + 描述；aria-current="step" 标识当前步</div>
+      <div class="wf-font-xs wf-text-secondary">三步流程 + 描述；aria-current="step" 标识当前步</div>
     </div>
   )
 }
@@ -59,20 +56,20 @@ const DemoSteps: Component = async (_props, ctx) => {
 const DemoTabs: Component = async (_props, ctx) => {
   let tab = 'a'
   let items = [
-    { key: 'a', label: '详情', content: <p class="wf-m-0">这是详情内容。点击其他标签切换。</p> },
-    { key: 'b', label: '设置', content: <p class="wf-m-0">这是设置内容。可以在这里修改配置。</p> },
-    { key: 'c', label: '日志', content: <p class="wf-m-0">这是日志内容。显示操作记录。</p> },
+    { key: 'a', label: '详情', content: <p class="wf-margin-none">这是详情内容。点击其他标签切换。</p> },
+    { key: 'b', label: '设置', content: <p class="wf-margin-none">这是设置内容。可以在这里修改配置。</p> },
+    { key: 'c', label: '日志', content: <p class="wf-margin-none">这是日志内容。显示操作记录。</p> },
   ]
   let n = 0
   const rerender = () => ctx.render()
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <Tabs items={items} active={tab} onChange={v => { tab = v; rerender() }}
         closable
         onClose={(k) => { items = items.filter(i => i.key !== k); rerender() }}
         addable
-        onAdd={() => { n++; const key = `tab-${n}`; items = [...items, { key, label: `新标签 ${n}`, content: <p class="wf-m-0">标签 {n} 的内容——可关闭。</p> }]; tab = key; rerender() }} />
-      <div class="wf-text-xs wf-text-secondary">可关闭（关闭激活 tab 自动激活邻居）+ 可新增——浏览器标签类应用</div>
+        onAdd={() => { n++; const key = `tab-${n}`; items = [...items, { key, label: `新标签 ${n}`, content: <p class="wf-margin-none">标签 {n} 的内容——可关闭。</p> }]; tab = key; rerender() }} />
+      <div class="wf-font-xs wf-text-secondary">可关闭（关闭激活 tab 自动激活邻居）+ 可新增——浏览器标签类应用</div>
     </div>
   )
 }
@@ -95,7 +92,7 @@ const DemoDropdown: Component = async (_props, ctx) => {
           { label: '复制', onClick: () => { lastAction = '复制'; open = false; ctx.render() } },
           { label: '删除', variant: 'danger', onClick: () => { lastAction = '删除'; open = false; ctx.render() } },
         ]} />
-      {lastAction && <span class="wf-text-xs wf-text-secondary">上次: {lastAction}</span>}
+      {lastAction && <span class="wf-font-xs wf-text-secondary">上次: {lastAction}</span>}
     </div>
   )
 }
@@ -105,23 +102,23 @@ const DemoPagination: Component = async (_props, ctx) => {
   return async (_p: any) => (
     <div class="wf-center wf-gap-sm">
       <Pagination total={200} page={page} onChange={p => { page = p; ctx.render() }} />
-      <div class="wf-text-xs wf-text-secondary">当前页: {page}</div>
+      <div class="wf-font-xs wf-text-secondary">当前页: {page}</div>
     </div>
   )
 }
 
 const DemoAccordion: Component = async () => async () => (
-  <div class="wf-w-full">
+  <div class="wf-width-full">
     <Accordion items={[
-      { key: 'a', title: '什么是 weifuwu？', content: <p class="wf-m-0">weifuwu 是一个全栈框架，一个包包含后端、前端和布局系统。</p> },
-      { key: 'b', title: '如何安装？', content: <p class="wf-m-0">运行 <code>npm install weifuwu</code> 即可。</p> },
-      { key: 'c', title: '组件库包含什么？', content: <p class="wf-m-0">28 个 HTML 原语，覆盖 90% 的 SaaS 页面需求。</p> },
+      { key: 'a', title: '什么是 weifuwu？', content: <p class="wf-margin-none">weifuwu 是一个全栈框架，一个包包含后端、前端和布局系统。</p> },
+      { key: 'b', title: '如何安装？', content: <p class="wf-margin-none">运行 <code>npm install weifuwu</code> 即可。</p> },
+      { key: 'c', title: '组件库包含什么？', content: <p class="wf-margin-none">28 个 HTML 原语，覆盖 90% 的 SaaS 页面需求。</p> },
     ]} />
   </div>
 )
 
 const DemoBreadcrumb: Component = async () => async () => (
-  <div class="wf-w-full">
+  <div class="wf-width-full">
     <Breadcrumb items={[
       { label: '首页', href: '/' },
       { label: '用户管理', href: '/users' },
@@ -148,12 +145,12 @@ const DemoMenu: Component = async (_props, ctx) => {
     { key: 'logout', label: '退出登录', icon: <Icon name="log-out" size={16} />, group: '系统', danger: true },
   ]
   return async (_p: any) => (
-    <div class="wf-w-full">
-      <div style={{ width: collapsed ? '56px' : '220px', transition: 'width 0.2s' }} class="wf-p-sm wf-border wf-rounded wf-bg-secondary">
+    <div class="wf-width-full">
+      <div style={{ width: collapsed ? '56px' : '220px', transition: 'width 0.2s' }} class="wf-padding-sm wf-border wf-radius wf-bg-secondary">
         <Menu items={items} activeKey={active} onSelect={k => { active = k; ctx.render() }}
           collapsible collapsed={collapsed} onCollapseChange={c => { collapsed = c; ctx.render() }} />
       </div>
-      <div class="wf-text-xs wf-text-secondary wf-mt-sm">当前: {active}（方向键导航；子菜单 Enter 展开 / Esc 收起；折叠态点图标弹出子菜单浮层；底部按钮折叠）</div>
+      <div class="wf-font-xs wf-text-secondary wf-margin-top-sm">当前: {active}（方向键导航；子菜单 Enter 展开 / Esc 收起；折叠态点图标弹出子菜单浮层；底部按钮折叠）</div>
     </div>
   )
 }
@@ -175,20 +172,20 @@ const DemoAppShell: Component = async (_props: any, ctx: any) => {
     const page = path === '/'
       ? h('div', { class: 'wf-stack', style: '--wf-gap:12px' }, [
           h(StatCard, { label: '消息', value: 42 }),
-          h(Card, {}, h('div', { class: 'wf-text-sm wf-text-secondary' }, '主内容区——当前路由 ' + path + '（点击左侧菜单切换）')),
+          h(Card, {}, h('div', { class: 'wf-font-sm wf-text-secondary' }, '主内容区——当前路由 ' + path + '（点击左侧菜单切换）')),
         ])
-      : h(Card, {}, h('div', { class: 'wf-text-sm wf-text-secondary' }, '当前页面：' + path))
+      : h(Card, {}, h('div', { class: 'wf-font-sm wf-text-secondary' }, '当前页面：' + path))
     return h('div', { class: 'wf-stack', style: '--wf-gap:12px;height:480px;border:1px dashed var(--wf-border,#e5e7eb);border-radius:8px;overflow:hidden' }, [
       h(AppShell, {
         nav: NAV,
         path,
         brand: { name: 'Demo Admin', subtitle: 'App Shell', logo: 'D' },
         user: { name: '张明', email: 'admin@demo.com' },
-        onNavigate: (k) => { path = k; ctx.render() },
+        onNavigate: (k: string) => { path = k; ctx.render() },
         onSettings: () => notify('打开设置'),
         onLogout: () => notify('退出登录'),
       }, page),
-      toastMsg ? h('div', { class: 'wf-text-xs wf-text-primary' }, '动作：' + toastMsg) : null,
+      toastMsg ? h('div', { class: 'wf-font-xs wf-text-primary' }, '动作：' + toastMsg) : null,
     ])
   }
 }

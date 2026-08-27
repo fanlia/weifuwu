@@ -78,7 +78,7 @@ export const Login: Component = async (_props, ctx) => {
         <div class="wf-stack wf-gap-sm wf-center">
           <span>还没有账号？<a onClick={() => ctx.app?.navigate('/register')}>立即注册</a></span>
           {ssoEnabled && (
-            <a href="/api/auth/sso/login" class="wf-btn wf-btn--secondary wf-btn--sm wf-w-full wf-center">
+            <a href="/api/auth/sso/login" class="wf-btn wf-btn--secondary wf-btn--sm wf-width-full wf-center">
               <Icon name="shield" size={14} /> 企业 SSO 登录
             </a>
           )}

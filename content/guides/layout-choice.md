@@ -29,13 +29,13 @@
 
 间距？
 ├─ 区域间 → wf-gap-lg / wf-gap-md（stack/row 的 --wf-gap）
-├─ 元素内 → wf-p-*（卡片内边距）
-└─ 标题留白 → wf-mb-*（仅 margin-bottom 用 m-，其余用 gap）
+├─ 元素内 → wf-padding-*（卡片内边距）
+└─ 标题留白 → wf-margin-bottom-*（元素间留白优先用 gap）
 
 定位/层级？
 ├─ 吸顶 → wf-sticky（页面级）或 Affix 组件（滚动跟随）
 ├─ 悬浮按钮 → FloatButton 组件
-├─ 角标覆盖 → wf-layer + wf-pop（容器内定位）
+├─ 角标覆盖 → wf-layer + wf-absolute（容器内定位）
 └─ 弹层 → 组件（openPopup 命令式——禁手写定位）
 
 响应式？
@@ -50,9 +50,9 @@
 |------|--------|--------|
 | 简单响应式网格 | wf-grid | Grid（24 栅格/列偏移——antd 迁移心智） |
 | 简单间距 | wf-gap-* | Space（split 分隔符/方向控制） |
-| 纯分隔线 | wf-border-t | Divider（带文字/vertical） |
+| 纯分隔线 | wf-border-top | Divider（带文字/vertical） |
 | 简单字号 | wf-text-* | Typography（语义标签/mark/code） |
-| 普通滚动容器 | wf-scroll | Scrollbar（自定义滚动条外观） |
+| 普通滚动容器 | wf-overflow-auto | Scrollbar（自定义滚动条外观） |
 
 ## 4. 布局纪律（红线）
 

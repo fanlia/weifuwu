@@ -1,4 +1,0 @@
-/* scroll — 可滚动容器（全局滚动条样式见 _base.css；此类仅标记语义 + overflow） */
-.wf-scroll {
-  overflow: auto;
-}

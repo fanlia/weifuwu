@@ -1,6 +1,0 @@
-/* auto — 按内容撑满 */
-.wf-auto {
-  flex: auto;
-  min-width: 0;
-  min-height: 0;
-}

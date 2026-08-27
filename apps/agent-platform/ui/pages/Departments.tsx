@@ -43,12 +43,12 @@ export const Departments: Component = async (_props, ctx) => {
             <Card key={d.id} clickable hover onClick={() => ctx.app?.navigate(`/departments/${d.id}`)}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} />
-                <div class="wf-fill wf-text-base wf-text-semibold wf-truncate">{d.name ?? '未命名'}</div>
+                <div class="wf-fill wf-font-base wf-semibold wf-truncate">{d.name ?? '未命名'}</div>
                 <Badge variant={d.is_dm ? 'primary' : 'default'}>{d.is_dm ? '单聊' : '群聊'}</Badge>
               </div>
-              <div class="wf-text-sm wf-text-secondary wf-mt-sm">当前应用群组</div>
-              <div class="wf-split wf-mt-md">
-                <span class="wf-text-xs wf-text-tertiary">{d.member_count ?? 0} 位成员</span>
+              <div class="wf-font-sm wf-text-secondary wf-margin-top-sm">当前应用群组</div>
+              <div class="wf-split wf-margin-top-md">
+                <span class="wf-font-xs wf-text-tertiary">{d.member_count ?? 0} 位成员</span>
                 <div class="wf-row wf-gap-sm">
                   <Button size="sm" variant="ghost"
                     onClick={(e: Event) => { e.stopPropagation(); ctx.app?.navigate(`/chat/${d.id}`) }}>聊天</Button>

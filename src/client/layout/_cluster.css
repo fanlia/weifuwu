@@ -1,5 +1,5 @@
 /* cluster — 换行簇（L3：justify/align/gap 默认值 :where() 零优先级——
-   wf-right 等分布工具叠加时靠优先级获胜） */
+   wf-justify-end 等分布工具叠加时靠优先级获胜） */
 .wf-cluster {
   display: flex;
   flex-wrap: wrap;

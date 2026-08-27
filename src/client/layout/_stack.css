@@ -1,24 +1,10 @@
-/* stack — 纵向堆叠（L3：gap 默认值 :where() 零优先级——wf-gap-* 等覆盖工具
-   靠优先级获胜，不再依赖 import 顺序） */
+/* stack — 纵向堆叠（L3：gap/align 默认值 :where() 零优先级——wf-gap-*、
+   wf-items-* 覆盖工具靠优先级获胜，不再依赖 import 顺序） */
 .wf-stack {
   display: flex;
   flex-direction: column;
 }
 :where(.wf-stack) {
   gap: var(--wf-gap, var(--wf-gap-md));
+  align-items: var(--wf-align, stretch);
 }
-@media (min-width: 640px) { .wf-stack\@sm { flex-direction: row; align-items: var(--wf-align, center); } }
-@media (min-width: 768px) { .wf-stack\@md { flex-direction: row; align-items: var(--wf-align, center); } }
-@media (min-width: 1024px) { .wf-stack\@lg { flex-direction: row; align-items: var(--wf-align, center); } }
-
-/* stack-reverse — 纵向反向堆叠 */
-.wf-stack-reverse {
-  display: flex;
-  flex-direction: column-reverse;
-}
-:where(.wf-stack-reverse) {
-  gap: var(--wf-gap, var(--wf-gap-md));
-}
-@media (min-width: 640px) { .wf-stack-reverse\@sm { flex-direction: row-reverse; align-items: var(--wf-align, center); } }
-@media (min-width: 768px) { .wf-stack-reverse\@md { flex-direction: row-reverse; align-items: var(--wf-align, center); } }
-@media (min-width: 1024px) { .wf-stack-reverse\@lg { flex-direction: row-reverse; align-items: var(--wf-align, center); } }

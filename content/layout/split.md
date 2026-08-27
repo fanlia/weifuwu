@@ -2,7 +2,7 @@
 
 ## 概述
 
-两栏拆分——--wf-split-ratio 控制比例
+两端展开——左弹性右固定
 
 ## 代表类
 
@@ -16,4 +16,4 @@
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/split` ——（P1 填充）
+> showcase 活体演示页：`/layout/split`（族示例 + 代表类）

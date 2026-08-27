@@ -15,7 +15,8 @@ import { execFileSync } from 'node:child_process'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+// src/cli/ → 仓库根两级（目录重组后层级变化——曾多一级致 TS5058 实证）
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 test('apps 类型检查（showcase / agent-platform 零错误）', { timeout: 90_000 }, () => {
   const tsc = 'tsc' // 全局 devDependency（package.json 无本地 tsc——与 pre-commit typecheck 一致）

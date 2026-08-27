@@ -1,0 +1,5 @@
+/* position — 定位工具（属性名即类名——wf-relative + wf-absolute 是 CSS
+   用户的零学习配对：容器 wf-relative，角标/覆盖层子项 wf-absolute。
+   fixed 视口覆盖用组合原语 wf-cover；sticky 用 wf-sticky） */
+.wf-relative { position: relative; }
+.wf-absolute { position: absolute; }

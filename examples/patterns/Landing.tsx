@@ -21,10 +21,10 @@ export const Landing: Component = async (_init, ctx) => (
   async () => (
     <div class="wf-stack wf-gap-none">
       {/* 顶部导航 */}
-      <header class="wf-row wf-p-md wf-gap-lg wf-container wf-between wf-sticky wf-bg-secondary" style={{ maxWidth: 1100, top: 0 }}>
+      <header class="wf-row wf-padding-md wf-gap-lg wf-container wf-justify-between wf-sticky wf-bg-secondary" style={{ maxWidth: 1100, top: 0 }}>
         <Space align="center">
           <Icon name="zap" size={20} className="wf-text-primary" />
-          <b class="wf-text-bold wf-text-lg">weifuwu</b>
+          <b class="wf-bold wf-font-lg">weifuwu</b>
         </Space>
         <Space size="lg" align="center">
           <Link href="#features" underline={false} variant="muted">特性</Link>
@@ -35,10 +35,10 @@ export const Landing: Component = async (_init, ctx) => (
       </header>
 
       {/* Hero：全宽 + 居中 */}
-      <section class="wf-center wf-p-xl wf-bg-primary">
+      <section class="wf-center wf-padding-xl wf-bg-primary">
         <div class="wf-stack wf-gap-md wf-text-center" style={{ maxWidth: 640 }}>
           <Badge variant="primary">v0.69.0 已发布</Badge>
-          <Title level={1} className="wf-text-display">
+          <Title level={1} className="wf-font-display">
             一个框架，<br />构建完整应用
           </Title>
           <Paragraph className="wf-text-secondary" style={{ maxWidth: 480 }}>
@@ -52,14 +52,14 @@ export const Landing: Component = async (_init, ctx) => (
       </section>
 
       {/* 特性区 */}
-      <section class="wf-container wf-p-xl" style={{ maxWidth: 1100 }}>
+      <section class="wf-container wf-padding-xl" style={{ maxWidth: 1100 }}>
         <div class="wf-grid" style={{ '--wf-cols': 'repeat(auto-fill, minmax(240px, 1fr))' }}>
           {FEATURES.map((f) => (
             <Card outlined key={f.title} padding="lg">
               <Space direction="vertical" size="md">
                 <Icon name={f.icon} size={28} className="wf-text-primary" />
                 <b>{f.title}</b>
-                <Text type="secondary" className="wf-text-sm">{f.desc}</Text>
+                <Text type="secondary" className="wf-font-sm">{f.desc}</Text>
               </Space>
             </Card>
           ))}
@@ -67,7 +67,7 @@ export const Landing: Component = async (_init, ctx) => (
       </section>
 
       {/* CTA */}
-      <section class="wf-center wf-p-xl wf-bg-secondary">
+      <section class="wf-center wf-padding-xl wf-bg-secondary">
         <div class="wf-stack wf-gap-md wf-center wf-text-center">
           <Title level={2}>准备构建你的下一个应用？</Title>
           <Paragraph className="wf-text-secondary">npm i weifuwu — 5 分钟跑通全栈</Paragraph>
@@ -76,12 +76,12 @@ export const Landing: Component = async (_init, ctx) => (
       </section>
 
       {/* Footer */}
-      <BackTop target={() => ctx.browser?.query('.wf-fill.wf-scroll') as HTMLElement} />
-      <footer class="wf-row wf-p-md wf-gap-lg wf-border-t wf-container wf-between" style={{ maxWidth: 1100 }}>
-        <Text type="secondary" className="wf-text-sm">© 2026 weifuwu</Text>
+      <BackTop target={() => ctx.browser?.query('.wf-fill.wf-overflow-auto') as HTMLElement} />
+      <footer class="wf-row wf-padding-md wf-gap-lg wf-border-top wf-container wf-justify-between" style={{ maxWidth: 1100 }}>
+        <Text type="secondary" className="wf-font-sm">© 2026 weifuwu</Text>
         <Space align="center" size="sm">
           <Avatar size="sm" name="W" />
-          <Text type="secondary" className="wf-text-sm">Made with weifuwu</Text>
+          <Text type="secondary" className="wf-font-sm">Made with weifuwu</Text>
         </Space>
       </footer>
     </div>

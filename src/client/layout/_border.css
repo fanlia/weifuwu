@@ -1,6 +1,7 @@
-/* 边框工具类 — 全部引用 --wf-border-width / --wf-color-border */
+/* 边框工具类 — 全部引用 --wf-border-width / --wf-color-border（方向全词） */
 .wf-border { border: var(--wf-border-width) solid var(--wf-color-border); }
-.wf-border-t { border-top: var(--wf-border-width) solid var(--wf-color-border); }
-.wf-border-b { border-bottom: var(--wf-border-width) solid var(--wf-color-border); }
-.wf-border-l { border-left: var(--wf-border-width) solid var(--wf-color-border); }
-.wf-border-r { border-right: var(--wf-border-width) solid var(--wf-color-border); }
+.wf-border-top { border-top: var(--wf-border-width) solid var(--wf-color-border); }
+.wf-border-bottom { border-bottom: var(--wf-border-width) solid var(--wf-color-border); }
+.wf-border-left { border-left: var(--wf-border-width) solid var(--wf-color-border); }
+.wf-border-right { border-right: var(--wf-border-width) solid var(--wf-color-border); }
+.wf-border-none { border: none; }

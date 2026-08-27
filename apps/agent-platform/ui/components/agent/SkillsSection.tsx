@@ -55,13 +55,13 @@ export const SkillsSection: Component<SectionProps> = async (_init, ctx) => {
 
   return async () => (
     <Card id="sec-skills">
-      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="settings" size={14} /> 技能管理</div>
-      {boundSkills.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无绑定技能</div>}
+      <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm"><Icon name="settings" size={14} /> 技能管理</div>
+      {boundSkills.length === 0 && <div class="wf-font-sm wf-text-tertiary wf-padding-y-md">暂无绑定技能</div>}
       {boundSkills.map((s: BoundSkill) => (
-        <div key={s.slug} class="wf-split wf-py-sm wf-border-b">
+        <div key={s.slug} class="wf-split wf-padding-y-sm wf-border-bottom">
           <div class="wf-stack wf-gap-none">
-            <span class="wf-text-sm wf-text-medium">{s.name ?? s.skill_name}</span>
-            <span class="wf-text-xs wf-text-tertiary">{s.description ?? ''}</span>
+            <span class="wf-font-sm wf-medium">{s.name ?? s.skill_name}</span>
+            <span class="wf-font-xs wf-text-tertiary">{s.description ?? ''}</span>
           </div>
           <Button size="sm" variant="danger" onClick={() => unbindSkill(s.id)}>解绑</Button>
         </div>
@@ -72,13 +72,13 @@ export const SkillsSection: Component<SectionProps> = async (_init, ctx) => {
         </Button>
       )}
       {showSkillPicker && (
-        <div class="wf-stack wf-gap-xs wf-mt-sm">
+        <div class="wf-stack wf-gap-xs wf-margin-top-sm">
           <div class="wf-row wf-gap-xs">
             <div class="wf-fill">
               <Input type="text" placeholder="搜索技能（名称/描述）..." value={skillSearch}
                 onInput={(e: Event) => { skillSearch = (e.target as HTMLInputElement).value; rerender() }} />
             </div>
-            <span class="wf-text-xs wf-text-tertiary wf-self-center wf-nums">{availableSkills.filter((as: AvailableSkill) => {
+            <span class="wf-font-xs wf-text-tertiary wf-self-center wf-nums">{availableSkills.filter((as: AvailableSkill) => {
               const name = as.meta?.name ?? as.name ?? as.slug
               const desc = as.meta?.description ?? as.description ?? ''
               const q = skillSearch.trim().toLowerCase()
@@ -97,11 +97,11 @@ export const SkillsSection: Component<SectionProps> = async (_init, ctx) => {
             const rated = (rating.likes ?? 0) + (rating.dislikes ?? 0)
             const goodRate = rated > 0 ? Math.round((rating.likes ?? 0) / rated * 100) : null
             return (
-              <div key={s.dir ?? s.slug ?? s.id} class="wf-row wf-gap-xs wf-py-xs">
+              <div key={s.dir ?? s.slug ?? s.id} class="wf-row wf-gap-xs wf-padding-y-xs">
                 <div class="wf-fill wf-stack wf-gap-none">
-                  <span class="wf-text-sm">{s.meta?.name ?? s.name}</span>
-                  <span class="wf-text-xs wf-text-tertiary">{s.meta?.description ?? s.description ?? ''}</span>
-                  <span class="wf-text-xs wf-text-secondary wf-nums">
+                  <span class="wf-font-sm">{s.meta?.name ?? s.name}</span>
+                  <span class="wf-font-xs wf-text-tertiary">{s.meta?.description ?? s.description ?? ''}</span>
+                  <span class="wf-font-xs wf-text-secondary wf-nums">
                     {goodRate === null ? '暂无评分' : `⭐ 好评率 ${goodRate}%（👍${rating.likes ?? 0} · 👎${rating.dislikes ?? 0}）`}
                   </span>
                 </div>

@@ -240,16 +240,16 @@ export const AgentDetail: Component = async (_props, ctx) => {
   }
 
   return async (props) => {
-    if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
-    if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在或无权访问" hint="可能是链接过期，或该 Agent 属于其他应用。"><Button variant="primary" onClick={() => ctx.app?.navigate?.('/agents')}>返回 Agent 列表</Button></EmptyState></div>
-    if ($.error && !$.agent) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="⚠️" text="加载 Agent 失败" hint={$.error}><Button variant="primary" onClick={() => { ctx.browser?.reload?.() }}>重试</Button></EmptyState></div>
+    if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px"><Loading /></div>
+    if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在或无权访问" hint="可能是链接过期，或该 Agent 属于其他应用。"><Button variant="primary" onClick={() => ctx.app?.navigate?.('/agents')}>返回 Agent 列表</Button></EmptyState></div>
+    if ($.error && !$.agent) return <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px"><EmptyState icon="⚠️" text="加载 Agent 失败" hint={$.error}><Button variant="primary" onClick={() => { ctx.browser?.reload?.() }}>重试</Button></EmptyState></div>
 
     const a = $.agent ?? ({} as Partial<Agent>)
     const typeColor: Record<string, string> = { ai: '#8b5cf6', webhook: '#f59e0b', knowledge_base: '#22c55e', user: '#4f6ef7' }
 
     return (
-    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
-      <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
+    <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px">
+      <a class="wf-font-sm wf-text-primary" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
 
       <div class="wf-row wf-gap-xs" style="flex-wrap: wrap">
         {(a.type === 'ai'
@@ -269,8 +269,8 @@ export const AgentDetail: Component = async (_props, ctx) => {
         <div class="wf-row wf-gap-md">
           <Avatar name={a.name} color={typeColor[a.type ?? 'ai'] ?? '#64748b'} />
           <div class="wf-fill wf-stack wf-gap-xs">
-            <div class="wf-text-lg wf-text-semibold">{a.name ?? '未命名'} <TypeBadge type={a.type ?? 'ai'} /></div>
-            <div class="wf-text-sm wf-text-secondary">{a.description ?? ''} · 模型: {a.model ?? '-'}</div>
+            <div class="wf-font-lg wf-semibold">{a.name ?? '未命名'} <TypeBadge type={a.type ?? 'ai'} /></div>
+            <div class="wf-font-sm wf-text-secondary">{a.description ?? ''} · 模型: {a.model ?? '-'}</div>
           </div>
           {(a.type === 'ai' || a.type === 'webhook') && a.id && (
             <Button variant="primary" onClick={() => startDm(String(a.id))}><Icon name="message" size={14} /> 单聊</Button>
@@ -278,11 +278,11 @@ export const AgentDetail: Component = async (_props, ctx) => {
         </div>
       </Card>
 
-      <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
-      <div class="wf-mb-md">{$.ok && <Alert variant="success">{$.ok}</Alert>}</div>
+      <div class="wf-margin-bottom-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
+      <div class="wf-margin-bottom-md">{$.ok && <Alert variant="success">{$.ok}</Alert>}</div>
 
       <Card key="sec-config" id="sec-config">
-        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md">基本设置</div>
+        <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-md">基本设置</div>
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
           <Field label="名称">
             <Input value={$.name} onInput={onNameInput} />
@@ -359,11 +359,11 @@ export const AgentDetail: Component = async (_props, ctx) => {
               </div>
 
               {$.quality && (
-                <div key="quality-title" class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="activity" size={14} /> 质量</div>
+                <div key="quality-title" class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="activity" size={14} /> 质量</div>
               )}
               {$.quality && (
-                <div key="quality-stats" class="wf-row wf-gap-md wf-text-sm wf-mt-xs wf-cluster">
-                  <span>工具成功率：<b class="wf-nums">{$.quality.toolSuccessRate ?? '—'}%</b> <span class="wf-text-xs wf-text-tertiary">({$.quality.runs} 次)</span></span>
+                <div key="quality-stats" class="wf-row wf-gap-md wf-font-sm wf-margin-top-xs wf-cluster">
+                  <span>工具成功率：<b class="wf-nums">{$.quality.toolSuccessRate ?? '—'}%</b> <span class="wf-font-xs wf-text-tertiary">({$.quality.runs} 次)</span></span>
                   <span>👍 <b class="wf-nums">{$.quality.likes}</b></span>
                   <span>👎 <b class="wf-nums">{$.quality.dislikes}</b></span>
                   {$.quality.toolSuccessRate !== null && $.quality.toolSuccessRate < 60 && (
@@ -372,13 +372,13 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 </div>
               )}
 
-              <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="book-open" size={14} /> 记忆（跨会话）</div>
-              <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-mt-xs">
+              <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="book-open" size={14} /> 记忆（跨会话）</div>
+              <div class="wf-bg-tertiary wf-padding-md wf-radius wf-font-sm wf-margin-top-xs">
                 {$.memoryLoaded ? (
                   $.memory ? (
                     <div class="wf-stack wf-gap-sm">
                       <div class="wf-pre-wrap wf-text-secondary">{$.memory}</div>
-                      <div class="wf-right">
+                      <div class="wf-justify-end">
                         <Button type="button" size="sm" variant="ghost" onClick={async () => {
                           if (!window.confirm('清除该 Agent 的记忆？')) return
                           try {
@@ -394,7 +394,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 ) : '加载中...'}
               </div>
 
-              <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间</div>
+              <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间</div>
 
               <Field label="轻量模型（可选）" hint="内部调用（记忆提取/自校验）用小模型省钱——如 deepseek-chat；留空用主模型">
                 <Input placeholder="轻量模型名" value={$.lightModel}
@@ -405,9 +405,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   onChange={(v) => { $.kbId = v as string; rerender() }}
                   options={[{ value: '', label: '不绑定（检索全部）' }, ...$.kbOptions.map(k => ({ value: k.id, label: k.name }))]} />
               </Field>
-              <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-text-secondary">
+              <div class="wf-bg-tertiary wf-padding-md wf-radius wf-font-sm wf-text-secondary">
                 文件工具在<strong>部门工作空间</strong>中执行（三层模型：部门 = 工作目录，sandbox = 计算资源，agent = 能力）——
-                <span class="wf-block wf-text-xs wf-text-tertiary wf-mt-xs">将本 Agent 加入部门（含单聊）后，自动获得该部门共享工作目录（部门详情页可浏览/编辑文件）——单聊也是部门的特例</span>
+                <span class="wf-block wf-font-xs wf-text-tertiary wf-margin-top-xs">将本 Agent 加入部门（含单聊）后，自动获得该部门共享工作目录（部门详情页可浏览/编辑文件）——单聊也是部门的特例</span>
               </div>
               <div class="wf-row wf-gap-lg">
                 <Checkbox label="📄 启用文件工具 (read/write/edit/grep)" checked={$.allowFileTools}
@@ -415,12 +415,12 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 <Checkbox label="⚡ 启用命令执行 (bash)" checked={$.allowCommandExec}
                   onChange={(v: boolean) => { $.allowCommandExec = v; rerender() }} />
               </div>
-              <div class="wf-row wf-gap-lg wf-mt-xs">
+              <div class="wf-row wf-gap-lg wf-margin-top-xs">
                 <Checkbox label="🌐 允许网络访问" checked={$.allowNetwork}
                   onChange={(v: boolean) => { $.allowNetwork = v; rerender() }} />
-                <span class="wf-text-xs wf-text-tertiary wf-self-center">默认关闭（沙盒 --network none——npm/curl 会失败）；开启后容器接入 bridge 网络</span>
+                <span class="wf-font-xs wf-text-tertiary wf-self-center">默认关闭（沙盒 --network none——npm/curl 会失败）；开启后容器接入 bridge 网络</span>
               </div>
-              {$.allowFileTools && <div class="wf-text-xs wf-text-tertiary wf-mt-xs">🧪 沙盒：ap-sandbox（node:24 + python + agent-browser）· 网络隔离 · 内存 512MB · 1 CPU（命令执行在容器内，路径穿越/资源/网络均受容器边界保护；保存后在部门内生效）</div>}
+              {$.allowFileTools && <div class="wf-font-xs wf-text-tertiary wf-margin-top-xs">🧪 沙盒：ap-sandbox（node:24 + python + agent-browser）· 网络隔离 · 内存 512MB · 1 CPU（命令执行在容器内，路径穿越/资源/网络均受容器边界保护；保存后在部门内生效）</div>}
             </>
           )}
 
@@ -454,8 +454,8 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   </Button>
                 </div>
                 {$.showGuide && (
-                  <div class="wf-bg-secondary wf-rounded wf-p-sm wf-mt-xs">
-                    <div class="wf-row wf-gap-xs wf-mb-xs">
+                  <div class="wf-bg-secondary wf-radius wf-padding-sm wf-margin-top-xs">
+                    <div class="wf-row wf-gap-xs wf-margin-bottom-xs">
                       <Button type="button" size="sm" variant={$.guideTab === 'curl' ? 'primary' : 'ghost'} onClick={() => { $.guideTab = 'curl'; rerender() }}>curl</Button>
                       <Button type="button" size="sm" variant={$.guideTab === 'node' ? 'primary' : 'ghost'} onClick={() => { $.guideTab = 'node'; rerender() }}>Node.js fetch</Button>
                       <div class="wf-fill" />
@@ -463,12 +463,12 @@ export const AgentDetail: Component = async (_props, ctx) => {
                         <Icon name="copy" size={14} /> 复制
                       </Button>
                     </div>
-                    <pre class="wf-text-xs wf-overflow-auto" style="white-space: pre-wrap; line-height: 1.5">{(function () {
+                    <pre class="wf-font-xs wf-overflow-auto" style="white-space: pre-wrap; line-height: 1.5">{(function () {
                       if ($.guideTab === 'node') return guideNode($.webhookSecret)
                       // curl 标签：无 secret 时展示简单版，有 secret 时展示签名版
                       return $.webhookSecret ? guideCurl($.webhookSecret, true) : guideCurl('', false)
                     })()}</pre>
-                    <div class="wf-text-xs wf-text-tertiary wf-mt-xs">请求格式：<code>content</code>（必填·消息内容）· <code>conversation_id</code>（可选·会话 ID——同一会话多轮记忆）· 响应 <code>{'{"reply": "..."}'}</code></div>
+                    <div class="wf-font-xs wf-text-tertiary wf-margin-top-xs">请求格式：<code>content</code>（必填·消息内容）· <code>conversation_id</code>（可选·会话 ID——同一会话多轮记忆）· 响应 <code>{'{"reply": "..."}'}</code></div>
                   </div>
                 )}
               </Field>
@@ -499,7 +499,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
             </>
           )}
 
-          <div class="wf-right wf-gap-sm">
+          <div class="wf-justify-end wf-gap-sm">
             <Button type="button" variant="ghost" onClick={() => ctx.app?.navigate('/agents')}>取消</Button>
             <Button type="submit" variant="primary" disabled={$.saving}>
               {$.saving ? '保存中...' : '保存修改'}
@@ -510,17 +510,17 @@ export const AgentDetail: Component = async (_props, ctx) => {
 
       {a.type === 'user' && (
         <Card key="sec-account" id="sec-account">
-          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="user" size={14} /> 绑定账号</div>
-          <div class="wf-split wf-py-sm wf-border-b">
-            <span class="wf-text-sm wf-text-secondary">平台用户</span>
-            <span class="wf-text-sm wf-text-medium wf-nums">{a.bound_user_name ?? '—'}</span>
+          <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm"><Icon name="user" size={14} /> 绑定账号</div>
+          <div class="wf-split wf-padding-y-sm wf-border-bottom">
+            <span class="wf-font-sm wf-text-secondary">平台用户</span>
+            <span class="wf-font-sm wf-medium wf-nums">{a.bound_user_name ?? '—'}</span>
           </div>
-          <div class="wf-split wf-py-sm wf-border-b">
-            <span class="wf-text-sm wf-text-secondary">登录邮箱</span>
-            <span class="wf-text-sm wf-text-medium wf-nums">{a.bound_email ?? '—'}</span>
+          <div class="wf-split wf-padding-y-sm wf-border-bottom">
+            <span class="wf-font-sm wf-text-secondary">登录邮箱</span>
+            <span class="wf-font-sm wf-medium wf-nums">{a.bound_email ?? '—'}</span>
           </div>
-          <div class="wf-py-sm">
-            <div class="wf-text-sm wf-text-tertiary">该 Agent 对应平台注册用户，由注册流程自动创建；其发言以该用户身份发送。</div>
+          <div class="wf-padding-y-sm">
+            <div class="wf-font-sm wf-text-tertiary">该 Agent 对应平台注册用户，由注册流程自动创建；其发言以该用户身份发送。</div>
           </div>
         </Card>
       )}
@@ -535,11 +535,11 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 
 
 <Card key="sec-webhook" id="sec-webhook">
-          <div class="wf-split wf-mb-sm">
-            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="external-link" size={14} /> Webhook 收发测试</div>
+          <div class="wf-split wf-margin-bottom-sm">
+            <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="external-link" size={14} /> Webhook 收发测试</div>
             <Button size="sm" variant="ghost" onClick={loadWebhookLogs}>刷新日志</Button>
           </div>
-          <div class="wf-row wf-gap-xs wf-mb-sm">
+          <div class="wf-row wf-gap-xs wf-margin-bottom-sm">
             <div class="wf-fill">
               <Input placeholder="测试消息内容（默认：验证 Webhook 机器人可用）" value={$.whTestContent}
                 onInput={onWhTestContentInput} />
@@ -549,16 +549,16 @@ export const AgentDetail: Component = async (_props, ctx) => {
             </Button>
           </div>
           {$.whTestResult && (
-            <div class="wf-text-sm wf-bg-secondary wf-rounded wf-p-sm wf-mb-sm">
-              <div class="wf-row wf-gap-md wf-mb-xs">
-                <span class="wf-text-semibold">{$.whTestStatus === 200 ? '✅ 成功' : '❌ 失败'}</span>
+            <div class="wf-font-sm wf-bg-secondary wf-radius wf-padding-sm wf-margin-bottom-sm">
+              <div class="wf-row wf-gap-md wf-margin-bottom-xs">
+                <span class="wf-semibold">{$.whTestStatus === 200 ? '✅ 成功' : '❌ 失败'}</span>
                 <span class="wf-text-tertiary wf-nums">HTTP {$.whTestStatus ?? '?'} · {$.whTestElapsed ?? 0}ms</span>
               </div>
               <div style="white-space: pre-wrap">{$.whTestResult}</div>
             </div>
           )}
 
-          <div class="wf-row wf-gap-xs wf-mb-sm">
+          <div class="wf-row wf-gap-xs wf-margin-bottom-sm">
             {(['all', 'success', 'fail'] as const).map(f => (
               <Button key={f} size="sm" variant={$.whLogFilter === f ? 'primary' : 'ghost'}
                 onClick={() => { $.whLogFilter = f; rerender() }}>
@@ -567,7 +567,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
             ))}
           </div>
           {$.whLogsLoading && <Loading />}
-          {!$.whLogsLoading && $.whLogs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-text-center wf-p-lg">暂无请求记录</div>}
+          {!$.whLogsLoading && $.whLogs.length === 0 && <div class="wf-font-sm wf-text-tertiary wf-text-center wf-padding-lg">暂无请求记录</div>}
           {$.whLogs
             .filter(l => $.whLogFilter === 'all' || ($.whLogFilter === 'success' ? l.success !== false : l.success === false))
             .map((log: WebhookLog, idx: number) => {
@@ -576,25 +576,25 @@ export const AgentDetail: Component = async (_props, ctx) => {
               const reqBody = typeof log.request_body === 'string' ? log.request_body : JSON.stringify(log.request_body ?? '{}')
               const resBody = typeof log.response_body === 'string' ? log.response_body : JSON.stringify(log.response_body ?? '')
               return (
-                <div key={log.id} class="wf-py-sm wf-border-b">
+                <div key={log.id} class="wf-padding-y-sm wf-border-bottom">
                   <button type="button" class="wf-row wf-gap-xs wf-fill wf-text-left" onClick={() => { $.expandedWhLog = expanded ? null : log.id; rerender() }}>
                     <Icon name={log.success === false ? 'close' : 'check'} size={14} />
-                    <span class={`wf-text-sm wf-text-medium ${log.success === false ? 'wf-text-danger' : ''}`}>HTTP {log.response_status ?? '?'}</span>
+                    <span class={`wf-font-sm wf-medium ${log.success === false ? 'wf-text-error' : ''}`}>HTTP {log.response_status ?? '?'}</span>
                     {isNewest && <Badge variant="primary">最新</Badge>}
                     <span class="wf-fill" />
-                    <span class="wf-text-xs wf-text-tertiary wf-nums">{log.elapsed_ms}ms</span>
-                    <span class="wf-text-xs wf-text-tertiary">{log.created_at ? new Date(log.created_at).toLocaleTimeString() : ''}</span>
+                    <span class="wf-font-xs wf-text-tertiary wf-nums">{log.elapsed_ms}ms</span>
+                    <span class="wf-font-xs wf-text-tertiary">{log.created_at ? new Date(log.created_at).toLocaleTimeString() : ''}</span>
                     <Icon name="chevron-down" size={14} />
                   </button>
                   {expanded && (
-                    <div class="wf-mt-xs wf-grid wf-gap-xs" style="grid-template-columns: 1fr 1fr">
+                    <div class="wf-margin-top-xs wf-grid wf-gap-xs" style="grid-template-columns: 1fr 1fr">
                       <div>
-                        <div class="wf-text-xs wf-text-secondary wf-mb-xs">请求体</div>
-                        <pre class="wf-text-xs wf-bg-secondary wf-rounded wf-p-xs wf-overflow-auto" style="white-space: pre-wrap; line-height: 1.5; max-height: 160px">{reqBody}</pre>
+                        <div class="wf-font-xs wf-text-secondary wf-margin-bottom-xs">请求体</div>
+                        <pre class="wf-font-xs wf-bg-secondary wf-radius wf-padding-xs wf-overflow-auto" style="white-space: pre-wrap; line-height: 1.5; max-height: 160px">{reqBody}</pre>
                       </div>
                       <div>
-                        <div class="wf-text-xs wf-text-secondary wf-mb-xs">响应体</div>
-                        <pre class="wf-text-xs wf-bg-secondary wf-rounded wf-p-xs wf-overflow-auto" style="white-space: pre-wrap; line-height: 1.5; max-height: 160px">{resBody}</pre>
+                        <div class="wf-font-xs wf-text-secondary wf-margin-bottom-xs">响应体</div>
+                        <pre class="wf-font-xs wf-bg-secondary wf-radius wf-padding-xs wf-overflow-auto" style="white-space: pre-wrap; line-height: 1.5; max-height: 160px">{resBody}</pre>
                       </div>
                     </div>
                   )}

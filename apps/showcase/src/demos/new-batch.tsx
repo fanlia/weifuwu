@@ -51,7 +51,7 @@ const MiniTodo = async (_init: any, ctx: any) => {
           <Button size="sm" onClick={() => { if (input.trim()) { items.push(input.trim()); input = ''; rerender() } }}>添加</Button>
         </div>
         <ul style="margin:0;padding-left:16px">
-          {items.map((it, i) => <li key={it + i} class="wf-text-sm">{it}</li>)}
+          {items.map((it, i) => <li key={it + i} class="wf-font-sm">{it}</li>)}
         </ul>
       </div>
     )
@@ -90,7 +90,7 @@ function Section(_initProps: { title: string; children: any }, _ctx: any) {
     if (searching && visible.length === 0) return null // 搜索时隐藏空分组
     return (
       <section class="wf-stack wf-gap-lg" id={secId(props.title)}>
-        <h2 class="wf-text-2xl wf-m-0 wf-border-b wf-pb-sm">{props.title}</h2>
+        <h2 class="wf-font-2xl wf-margin-none wf-border-bottom wf-padding-bottom-sm">{props.title}</h2>
         <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 420px), 1fr))">{visible}</div>
       </section>
     )
@@ -101,13 +101,13 @@ function DemoCard(initProps: { title: string; desc: string; code: string; childr
   let copied = false
   // §3.1 纪律：renderFn 用渲染期 props（最新）——mount 捕获的 initProps 不得用于渲染
   return (props: { title: string; desc: string; code: string; children: any }) => (
-    <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-clip" id={cardId(props.title)}>
-      <h3 class="wf-text-base wf-text-semibold wf-p-md wf-bg-secondary wf-border-b wf-m-0">{props.title}</h3>
-      <div class="wf-p-md wf-row wf-gap-sm wf-cluster wf-border-b wf-scroll">{props.children}</div>
-      <div class="wf-px-md wf-py-sm wf-text-xs wf-text-secondary">{props.desc}</div>
+    <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-overflow-hidden" id={cardId(props.title)}>
+      <h3 class="wf-font-base wf-semibold wf-padding-md wf-bg-secondary wf-border-bottom wf-margin-none">{props.title}</h3>
+      <div class="wf-padding-md wf-row wf-gap-sm wf-cluster wf-border-bottom wf-overflow-auto">{props.children}</div>
+      <div class="wf-padding-x-md wf-padding-y-sm wf-font-xs wf-text-secondary">{props.desc}</div>
       {/* S0：代码块默认收起（<details> 原生折叠——36% 页面高度退出渲染树）+ 复制按钮 */}
       <details>
-        <summary class="wf-row wf-between wf-gap-sm wf-px-md wf-py-sm wf-text-xs wf-text-secondary" style="cursor:pointer">
+        <summary class="wf-row wf-justify-between wf-gap-sm wf-padding-x-md wf-padding-y-sm wf-font-xs wf-text-secondary" style="cursor:pointer">
           <span>{copied ? '✓ 已复制' : '查看代码'}</span>
           <button
             type="button"
@@ -115,7 +115,7 @@ function DemoCard(initProps: { title: string; desc: string; code: string; childr
             onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); void (ctx as any)?.browser?.copyText?.(props.code); copied = true; ctx.render() }}
           >复制</button>
         </summary>
-        <pre class="wf-bg-tertiary wf-p-md wf-text-xs wf-m-0 wf-scroll">{props.code}</pre>
+        <pre class="wf-bg-tertiary wf-padding-md wf-font-xs wf-margin-none wf-overflow-auto">{props.code}</pre>
       </details>
     </div>
   )
@@ -130,9 +130,9 @@ const DemoRate: Component = async (_props, ctx) => {
       <Rate value={v} onChange={(n: number) => { v = n; ctx.render() }} />
       <Rate value={4} readOnly />
       <Rate value={v} allowHalf onChange={(n: number) => { v = n; ctx.render() }} />
-      <div class="wf-text-xs wf-text-secondary">半星（与第一行同步）</div>
+      <div class="wf-font-xs wf-text-secondary">半星（与第一行同步）</div>
       <Rate size="lg" allowClear onChange={(n: number) => { v = n; ctx.render() }} />
-      <div class="wf-text-sm wf-text-secondary">当前：{v} 星</div>
+      <div class="wf-font-sm wf-text-secondary">当前：{v} 星</div>
     </div>
   )
 }
@@ -162,7 +162,7 @@ const DemoLabel: Component = async () => async () => (
 )
 
 const DemoAspectRatio: Component = async () => async () => (
-  <div class="wf-surface wf-surface--flat wf-border wf-rounded-md">
+  <div class="wf-surface wf-surface--flat wf-border wf-radius-md">
     <AspectRatio ratio={16 / 9}>
       <div class="wf-center wf-text-secondary wf-bg-tertiary">16:9 容器</div>
     </AspectRatio>
@@ -179,7 +179,7 @@ const DemoToggleGroup: Component = async (_props, ctx) => {
       <ToggleGroup type="multiple" options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }]} value={multi} onChange={(v: any) => { multi = v; ctx.render() }} />
       <div class="wf-row wf-gap-sm">
         <Toggle pressed={pressed} onPressedChange={(p: boolean) => { pressed = p; ctx.render() }}>单个切换</Toggle>
-        <span class="wf-text-sm wf-text-secondary">状态：{pressed ? '已按下' : '未按下'}</span>
+        <span class="wf-font-sm wf-text-secondary">状态：{pressed ? '已按下' : '未按下'}</span>
       </div>
     </div>
   )
@@ -190,7 +190,7 @@ const DemoCheckboxGroup: Component = async (_props, ctx) => {
   return async () => (
     <div class="wf-stack wf-gap-sm">
       <CheckboxGroup label="选择成员" options={[{ value: 'a', label: '张三' }, { value: 'b', label: '李四' }, { value: 'c', label: '王五' }]} value={v} onChange={(k: string[]) => { v = k; ctx.render() }} />
-      <div class="wf-text-sm wf-text-secondary">已选：{v.join(', ') || '无'}</div>
+      <div class="wf-font-sm wf-text-secondary">已选：{v.join(', ') || '无'}</div>
     </div>
   )
 }
@@ -200,7 +200,7 @@ const DemoPinInput: Component = async (_props, ctx) => {
   return async () => (
     <div class="wf-stack wf-gap-sm">
       <PinInput length={6} value={v} onChange={(s: string) => { v = s; ctx.render() }} />
-      <div class="wf-text-sm wf-text-secondary">验证码：{v || '等待输入'}</div>
+      <div class="wf-font-sm wf-text-secondary">验证码：{v || '等待输入'}</div>
     </div>
   )
 }
@@ -222,7 +222,7 @@ const DemoColorPicker: Component = async (_props, ctx) => {
         <ColorPicker value={c} size="lg" onChange={(v: string) => { c = v; ctx.render() }} />
         <ColorPicker value={c} disabled onChange={() => {}} />
       </div>
-      <div class="wf-text-sm wf-text-secondary">当前：{c}</div>
+      <div class="wf-font-sm wf-text-secondary">当前：{c}</div>
     </div>
   )
 }
@@ -230,8 +230,8 @@ const DemoColorPicker: Component = async (_props, ctx) => {
 const DemoHoverCard: Component = async () => async () => (
   <HoverCard openDelay={0} content={
     <div class="wf-stack wf-gap-xs">
-      <div class="wf-text-sm wf-text-semibold">用户详情</div>
-      <div class="wf-text-xs wf-text-secondary">悬停卡片展示富内容，支持任意 VNode</div>
+      <div class="wf-font-sm wf-semibold">用户详情</div>
+      <div class="wf-font-xs wf-text-secondary">悬停卡片展示富内容，支持任意 VNode</div>
     </div>
   }>
     <Button variant="secondary">悬停查看用户</Button>
@@ -252,18 +252,18 @@ const DemoNotification: Component = async (_props, ctx) => {
 
 const DemoBackTop: Component = async () => async () => (
   <div class="wf-stack wf-gap-sm">
-    <div class="wf-text-sm wf-text-secondary">向下滚动页面超过 400px 后，右下角出现回到顶部按钮</div>
+    <div class="wf-font-sm wf-text-secondary">向下滚动页面超过 400px 后，右下角出现回到顶部按钮</div>
     <BackTop aria-label="回到顶部" />
   </div>
 )
 
 const DemoAffix: Component = async () => async () => (
   <div class="wf-stack wf-gap-sm">
-    <div class="wf-text-sm wf-text-secondary">滚动页面：导航条滑出视窗顶部后固定（Affix，offsetTop=0）</div>
+    <div class="wf-font-sm wf-text-secondary">滚动页面：导航条滑出视窗顶部后固定（Affix，offsetTop=0）</div>
     {/* offsetTop=0：Affix 块滑出视窗顶部后才固定（scrollY >= 块文档位置）——
         offsetTop>0 则提前吸附（块距顶 offsetTop 时固定，antd 语义） */}
     <Affix offsetTop={0}>
-      <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-px-md wf-py-sm wf-row wf-gap-md wf-text-sm">
+      <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-x-md wf-padding-y-sm wf-row wf-gap-md wf-font-sm">
         <a href="#affix-demo" class="wf-text-primary">锚点一</a>
         <a href="#affix-demo" class="wf-text-secondary">锚点二</a>
         <a href="#affix-demo" class="wf-text-secondary">锚点三</a>
@@ -280,19 +280,19 @@ const DemoAnchor: Component = async (_props, ctx) => {
     { id: 'anchor-c', title: '第三节', body: Array.from({ length: 8 }, (_, i) => `这是第三节的第 ${i + 1} 段内容。点击锚点平滑滚动到对应位置。`).join('') },
   ]
   return async () => (
-    <div class="wf-w-full wf-row wf-gap-lg" style="align-items: flex-start">
+    <div class="wf-width-full wf-row wf-gap-lg" style="align-items: flex-start">
       <div class="wf-fill">
         {sections.map(s => (
-          <div id={s.id} class="wf-border-b wf-pb-md wf-mb-md">
-            <div class="wf-text-base wf-text-semibold wf-mb-sm">{s.title}</div>
-            <div class="wf-text-sm wf-text-secondary">{s.body}</div>
+          <div id={s.id} class="wf-border-bottom wf-padding-bottom-md wf-margin-bottom-md">
+            <div class="wf-font-base wf-semibold wf-margin-bottom-sm">{s.title}</div>
+            <div class="wf-font-sm wf-text-secondary">{s.body}</div>
           </div>
         ))}
       </div>
-      <div class="wf-surface wf-surface--flat wf-border wf-rounded wf-p-md" style="width: 140px; position: sticky; top: 16px">
+      <div class="wf-surface wf-surface--flat wf-border wf-radius wf-padding-md" style="width: 140px; position: sticky; top: 16px">
         <Anchor items={sections.map(s => ({ href: `#${s.id}`, title: s.title }))}
           activeKey={active} onAnchorChange={h => { active = h; ctx.render() }} />
-        <div class="wf-text-xs wf-text-secondary wf-mt-sm">滚动页面跟随高亮</div>
+        <div class="wf-font-xs wf-text-secondary wf-margin-top-sm">滚动页面跟随高亮</div>
       </div>
     </div>
   )
@@ -304,7 +304,7 @@ const DemoContextMenu: Component = async () => async () => (
     { key: 'copy', label: '复制' },
     { key: 'delete', label: '删除', variant: 'danger', onClick: () => alert('删除') },
   ]}>
-    <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-lg wf-text-center wf-text-secondary">右键点击此区域</div>
+    <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-lg wf-text-center wf-text-secondary">右键点击此区域</div>
   </ContextMenu>
 )
 
@@ -313,7 +313,7 @@ const DemoMentions: Component = async (_props, ctx) => {
   return async () => (
     <div class="wf-stack wf-gap-sm">
       <Mentions options={[{ value: 'alice', label: 'Alice' }, { value: 'bob', label: 'Bob' }, { value: 'carol', label: 'Carol' }]} value={v} onChange={(s: string) => { v = s; ctx.render() }} />
-      <div class="wf-text-sm wf-text-secondary">文本：{v}</div>
+      <div class="wf-font-sm wf-text-secondary">文本：{v}</div>
     </div>
   )
 }
@@ -363,7 +363,7 @@ const DemoCascaderDis: Component = async (_p, ctx) => {
   let disabled = false
   let err = ''
   return async () => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <Cascader options={[
         { value: 'zj', label: '浙江', children: [{ value: 'hz', label: '杭州' }] },
         { value: 'gd', label: '广东', children: [{ value: 'sz', label: '深圳' }] },
@@ -379,7 +379,7 @@ const DemoCascaderDis: Component = async (_p, ctx) => {
 const DemoMentionsDis: Component = async (_p, ctx) => {
   let disabled = false
   return async () => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <Mentions options={[{ value: 'alice', label: 'Alice' }, { value: 'bob', label: 'Bob' }]} disabled={disabled} rows={2} placeholder={disabled ? '禁用中' : '输入 @ 提及成员…'} />
       <div><Button onClick={() => { disabled = !disabled; ctx.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
     </div>
@@ -389,7 +389,7 @@ const DemoMentionsDis: Component = async (_p, ctx) => {
 const DemoPinInputDis: Component = async (_p, ctx) => {
   let disabled = false
   return async () => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <PinInput length={6} disabled={disabled} />
       <div><Button onClick={() => { disabled = !disabled; ctx.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
     </div>
@@ -412,10 +412,10 @@ const DemoToggleTreeCheck: Component = async (_props, ctx) => {
     { key: 'b', label: '后端组', children: [{ key: 'b1', label: 'Node' }, { key: 'b2', label: 'Go' }] },
   ]
   return async () => (
-    <div class="wf-w-full wf-stack wf-gap-sm">
+    <div class="wf-width-full wf-stack wf-gap-sm">
       <Tree data={treeData} checkable checkedKeys={checked}
         onCheck={(k: string[]) => { checked = k; ctx.render() }} />
-      <div class="wf-text-xs wf-text-secondary">勾选：{checked.join(' / ') || '（无）'}——父子联动</div>
+      <div class="wf-font-xs wf-text-secondary">勾选：{checked.join(' / ') || '（无）'}——父子联动</div>
     </div>
   )
 }
@@ -426,7 +426,7 @@ const DemoInfiniteScrollRetry: Component = async (_props, ctx) => {
   let failed = false
   let page = 1
   return async () => (
-    <div class="wf-w-full wf-stack wf-gap-sm">
+    <div class="wf-width-full wf-stack wf-gap-sm">
       <InfiniteScroll
         hasMore={items.length < 32}
         loading={loading}
@@ -444,8 +444,8 @@ const DemoInfiniteScrollRetry: Component = async (_props, ctx) => {
             loading = false; ctx.render()
           }, 800)
         }}>
-        {items.map(it => <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-sm wf-mb-xs">{it}</div>)}
-        {failed && <div class="wf-text-sm wf-text-error wf-mb-xs">加载失败——再次滚动重试</div>}
+        {items.map(it => <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-sm wf-margin-bottom-xs">{it}</div>)}
+        {failed && <div class="wf-font-sm wf-text-error wf-margin-bottom-xs">加载失败——再次滚动重试</div>}
       </InfiniteScroll>
     </div>
   )
@@ -463,7 +463,7 @@ const DemoCalendarEvents: Component = async (_props, ctx) => {
   let view = { month: 5, year: 2025 }
   let selected = '2025-06-10'
   return async () => (
-    <div class="wf-w-full wf-flex wf-center">
+    <div class="wf-width-full wf-flex wf-center">
       <Calendar
         month={view.month} year={view.year}
         selectedDate={selected}
@@ -501,20 +501,20 @@ const DemoMenubar: Component = async () => async () => (
 )
 
 const DemoCarousel: Component = async () => async () => (
-  <div class="wf-w-sm">
+  <div class="wf-width-sm">
     <Carousel autoplay interval={2500}>
       {['🟥 第一张', '🟦 第二张', '🟩 第三张'].map((t, i) => (
-        <div key={i} class="wf-bg-tertiary wf-p-xl wf-text-center wf-rounded-md">{t}</div>
+        <div key={i} class="wf-bg-tertiary wf-padding-xl wf-text-center wf-radius-md">{t}</div>
       ))}
     </Carousel>
-    <div class="wf-text-xs wf-text-secondary wf-mt-xs">autoplay：每 2.5s 自动切换</div>
+    <div class="wf-font-xs wf-text-secondary wf-margin-top-xs">autoplay：每 2.5s 自动切换</div>
   </div>
 )
 
 const DemoResizable: Component = async () => async () => (
-  <div class="wf-surface wf-surface--flat wf-border wf-rounded-md" style="height: 160px">
+  <div class="wf-surface wf-surface--flat wf-border wf-radius-md" style="height: 160px">
     <Resizable defaultSize={180}>
-      {[<div class="wf-p-md wf-text-sm wf-text-secondary">左面板（拖拽分隔条）</div>, <div class="wf-p-md wf-text-sm wf-text-secondary">右面板</div>] as any}
+      {[<div class="wf-padding-md wf-font-sm wf-text-secondary">左面板（拖拽分隔条）</div>, <div class="wf-padding-md wf-font-sm wf-text-secondary">右面板</div>] as any}
     </Resizable>
   </div>
 )
@@ -533,13 +533,13 @@ const DemoCalendar: Component = async (_props, ctx) => {
 
 const DemoWatermark: Component = async () => async () => (
   <Watermark text="weifuwu 内部资料">
-    <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-xl wf-text-center wf-text-secondary">水印覆盖内容区</div>
+    <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-xl wf-text-center wf-text-secondary">水印覆盖内容区</div>
   </Watermark>
 )
 
 const DemoVirtualList: Component = async () => async () => (
   <VirtualList height={240} itemHeight={36} items={Array.from({ length: 200 }, (_, i) => ({ id: i, label: `第 ${i} 行` }))}
-    renderItem={(item: any) => <div class="wf-text-sm wf-border-b wf-py-xs wf-px-sm">{item.label}</div>} />
+    renderItem={(item: any) => <div class="wf-font-sm wf-border-bottom wf-padding-y-xs wf-padding-x-sm">{item.label}</div>} />
 )
 
 const DemoApp: Component = async (_init, ctx) => {
@@ -547,10 +547,10 @@ const DemoApp: Component = async (_init, ctx) => {
   const render = () => ctx.render()
   return async () => (
     <div class="wf-stack wf-gap-sm">
-      <div class="wf-text-sm wf-text-secondary">父应用嵌入子应用（app 节点——独立状态/事件可区分——同流全链路）</div>
+      <div class="wf-font-sm wf-text-secondary">父应用嵌入子应用（app 节点——独立状态/事件可区分——同流全链路）</div>
       <Button size="sm" onClick={() => { appProps = { title: '更新: ' + Date.now() % 1000 }; render() }}>更新子应用 props</Button>
-      <div class="wf-p-sm wf-border wf-rounded-md" style="--wf-border: var(--wf-color-border)">
-        <h4 class="wf-text-sm" style="margin:0 0 8px">{appProps.title}</h4>
+      <div class="wf-padding-sm wf-border wf-radius-md" style="--wf-border: var(--wf-color-border)">
+        <h4 class="wf-font-sm" style="margin:0 0 8px">{appProps.title}</h4>
         {h(MiniTodo, { title: appProps.title })}
       </div>
     </div>
@@ -574,12 +574,12 @@ const DemoVirtualTable: Component = async (_props, ctx) => {
     status: i % 3 === 0 ? 'active' : 'inactive',
   }))
   return async () => (
-    <div class="wf-w-full">
+    <div class="wf-width-full">
       <VirtualTable columns={cols} data={data} height={320} rowHeight={40}
         sortKey={sortKey} sortOrder={sortOrder}
         onSort={(k: string, o: 'asc' | 'desc') => { sortKey = k; sortOrder = o; ctx.render() }}
         rowSelection={{ selectedRowKeys: selectedKeys, onChange: (k: (string|number)[]) => { selectedKeys = k; ctx.render() } }} />
-      <div class="wf-text-xs wf-text-secondary wf-mt-sm">10,000 行仅渲染可见窗口（滚动流畅）；表头可排序 + 行选择（已选 {selectedKeys.length}）</div>
+      <div class="wf-font-xs wf-text-secondary wf-margin-top-sm">10,000 行仅渲染可见窗口（滚动流畅）；表头可排序 + 行选择（已选 {selectedKeys.length}）</div>
     </div>
   )
 }
@@ -610,7 +610,7 @@ const DemoInfiniteScroll: Component = async (_props, ctx) => {
         }, 600)
       }}>
       <div class="wf-stack wf-gap-xs">
-        {items.map(t => <div key={t} class="wf-text-sm wf-border-b wf-py-xs">{t}</div>)}
+        {items.map(t => <div key={t} class="wf-font-sm wf-border-bottom wf-padding-y-xs">{t}</div>)}
       </div>
     </InfiniteScroll>
   )

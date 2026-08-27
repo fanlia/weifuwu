@@ -17,26 +17,29 @@ weifuwu 的设计语言与框架哲学同源（确定性、诚实裁剪、render
 
 主题配置三档（详见 [content/guides/styling.md](styling.md)）：**① 改 `--wf-brand-seed` 一个值换肤**（色阶 color-mix 自动派生，暗色自动跟随）→ **② `<html data-preset="minimal|compact|rounded">` 预设**（与 data-theme 正交）→ **③ 深度定制**（组件钩子 + @layer 覆盖）。
 
-## 统一语法：`wf-<域>-<名字>`
+## 统一命名规则：三类词根 + 三后缀（design/layout-naming.md）
 
-所有类遵循一个规则：`wf-` + **域** + 名字。
+类名零猜词——单属性工具直接用 **CSS 属性名**（会 CSS 即会写），
+组合原语用**意图词汇**（表达要什么）。命名只有一种推导路径：
 
-| 域 | 例子 | 说明 |
+| 词根类 | 判定 | 例 |
 |---|---|---|
-| `layout`（布局原语） | `wf-layout-stack` `wf-layout-split` `wf-layout-grid` | 元素之间的空间关系 |
-| `p/m/gap/w/h`（间距尺寸） | `wf-p-md` `wf-mt-lg` `wf-gap-sm` `wf-w-full` | padding/margin/gap/width/height |
-| `border/rounded`（边框圆角） | `wf-border-b` `wf-rounded-md` `wf-pill` | |
-| `bg/text/weight/leading/align/tracking`（视觉） | `wf-bg-primary` `wf-text-secondary` `wf-weight-semibold` `wf-leading-base` | |
-| `btn/card/modal/…`（组件域） | `wf-btn--primary` `wf-card--hover` | 组件由 props 渲染，一般不需手写 |
+| 概念原语 | 复合语义（≠单属性） | `wf-stack` `wf-row` `wf-grid` `wf-split` `wf-center` `wf-surface` |
+| 属性根 | 单一 CSS 属性 → 属性全名 | `wf-padding-md` `wf-margin-top-sm` `wf-radius-md` `wf-justify-between` `wf-overflow-auto` |
+| 裸值词 | 单值状态/行为 | `wf-bold` `wf-uppercase` `wf-truncate` `wf-dim` `wf-pill` `wf-hidden` |
 
-**修饰符号**：
+**后缀语法（三种，各管一事）**：
 ```
-wf-card--active    -- = 变体/状态（选中/激活/hover）
-wf-modal-header    -  = 子元素（组件内部结构，不手写）
-wf-layout-stack@md @  = 断点变体（≥768px 时横向）
+wf-padding-md      -   值/子名（刻度：none|xs|sm|md|lg|xl；方向：全词 top/bottom/left/right/x/y）
+wf-bubble--own     --  变体/状态（选中/激活）
+wf-flex@lg         @   断点变体（≥1024px）
 ```
 
-**值类（裸词）**：单值工具没有属性域——`wf-uppercase` `wf-truncate` `wf-pre-wrap` `wf-dim` `wf-pill`。
+**值词汇封闭表**：标尺 `none~xl`（none = 零/取消唯一形态）·对齐用 CSS 值词
+`start/center/end/stretch/between`（物理方向词禁入对齐域）·颜色语义随 token。
+
+域前缀分域（无过载）：`wf-font-*` 字号 · `wf-text-*` 文字颜色/对齐 ·
+`wf-bg-*` 背景 · `wf-medium/semibold/bold` 字重裸词 · `btn/card/modal/…` 组件域（由 props 渲染，一般不需手写）。
 
 ## 三档学习路径
 
@@ -50,24 +53,24 @@ wf-layout-stack@md @  = 断点变体（≥768px 时横向）
 <Card hover><StatCard value="1,234" label="总用户" /></Card>
 ```
 
-### 第二档：10 个核心原语（半小时，覆盖 90% 页面）
+### 第二档：10 个核心原语（半小时，覆盖 90% 页面——消费审计实证热集）
 
 ```
-wf-layout-stack   垂直堆叠 + gap
-wf-layout-row     水平排列 + wrap
-wf-layout-split   两端分布
-wf-layout-fill    flex: 1 撑满
-wf-gap-md         设置间距（配合上面）
-wf-p-md           内边距
-wf-text-secondary 次级文字
-wf-bg-primary     品牌浅底
-wf-border-b       下边框
-wf-rounded-md     圆角
+wf-stack           垂直堆叠 + gap（第一原语）
+wf-row             水平排列 + wrap + gap
+wf-gap-sm          设置间距（配合上面）
+wf-fill            flex:1 撑满（配 wf-min-width-0 防溢出）
+wf-padding-md      内边距
+wf-font-sm         字号（小字）
+wf-text-secondary  次级文字色（第二档唯一需要记的颜色词）
+wf-justify-between 两端分布
+wf-border-bottom   下边框
+wf-radius-md       圆角
 ```
 
 ```tsx
-<div class="wf-layout-split">
-  <div class="wf-layout-row wf-gap-md">
+<div class="wf-justify-between">
+  <div class="wf-row wf-gap-md">
     <Card>…</Card>
   </div>
   <Button variant="primary">提交</Button>
@@ -76,24 +79,26 @@ wf-rounded-md     圆角
 
 ### 第三档：完整速查（按需查 IDE 补全）
 
-输入 `wf-layout-` / `wf-text-` / `wf-bg-` 弹出全部候选。完整清单见 README「布局系统」。
+输入 `wf-` 后按词根补全（`wf-padding-` / `wf-text-` / `wf-bg-`）。完整清单见 README「布局系统」。
 
 ## 场景速查（"我要做什么"）
 
 | 需求 | 写法 |
 |---|---|
-| 两个元素两端分布 | `wf-layout-split` |
-| 一列堆叠带间距 | `wf-layout-stack wf-gap-md` |
-| 一行换行居中对齐 | `wf-layout-row wf-gap-md wf-layout-cluster` |
-| 卡片网格 | `<div class="wf-layout-grid">` |
+| 两个元素两端分布 | `wf-justify-between` |
+| 一列堆叠带间距 | `wf-stack wf-gap-md` |
+| 一行换行居中对齐 | `wf-cluster wf-gap-md` |
+| 卡片网格 | `<div class="wf-grid">` |
 | 状态色文字/背景 | `wf-text-success` / `wf-bg-error` |
 | 卡片 hover 抬升 | `<Card hover>` 或 `wf-elevate` |
 | 聊天气泡 | `wf-bubble` / `wf-bubble--own` |
 | 文章正文排版 | `<article class="wf-prose">` |
-| 隐藏元素（桌面显示/移动隐藏） | `wf-layout-hidden@sm` |
+| 隐藏元素（窄隐宽显） | `wf-hidden wf-flex@lg`（响应式显隐唯一模式） |
+| 角标/覆盖层 | 父 `wf-relative` + 子 `wf-absolute`（CSS 零学习配对） |
+| 可滚动区 | `wf-overflow-auto`（横滚 `wf-overflow-x`） |
 | 按钮变胶囊 | `:root { --wf-btn-radius: 999px }` |
 | 数字防抖（统计/表格数值） | `wf-nums`（StatCard 已默认套用） |
-| 顶级页面大标题 | `<PageHeader display>` 或 `wf-text-display` |
+| 顶级页面大标题 | `<PageHeader display>` 或 `wf-font-display` |
 | 状态/计数徽章 | `<Badge variant>`（不可交互，含 dot） |
 | 可关闭标签 | `<Tag closable>`（可交互，有关闭钮） |
 | 图标 | `<Icon name="close" />`（禁止裸 emoji/字形） |
@@ -103,10 +108,10 @@ wf-rounded-md     圆角
 | 用途 | 写法 | Token |
 |------|------|-------|
 | 顶级页面标题 | `<PageHeader display>` | `--wf-font-size-display` (30px, 负字距) |
-| 页面标题 | `wf-text-3xl/4xl` | 24/30px |
-| 卡片标题 | `wf-text-xl/2xl` | 16/21px |
-| 正文 | `wf-text-base`（默认） | 14px · 行高 1.5（CJK 实测可读，与主流框架同档） |
-| 次级/辅助 | `wf-text-sm` / `wf-text-xs` | 13/12px · 配 `wf-text-secondary` |
+| 页面标题 | `wf-font-3xl/4xl` | 24/30px |
+| 卡片标题 | `wf-font-xl/2xl` | 16/21px |
+| 正文 | `wf-font-base`（默认） | 14px · 行高 1.5（CJK 实测可读，与主流框架同档） |
+| 次级/辅助 | `wf-font-sm` / `wf-font-xs` | 13/12px · 配 `wf-text-secondary` |
 | 长文正文（文章） | `wf-prose` | 行高 1.75（relaxed）——长文更宽松 |
 | 数字/统计 | `wf-nums`（StatCard/Table 数值） | tabular-nums 防宽度抖动 |
 | 标题字距/变换 | 全局 | `--wf-heading-case`（CJK 默认 none，英文可 uppercase） |
@@ -189,7 +194,7 @@ wf-rounded-md     圆角
 用户 @layer utilities 可精准盖过 weifuwu 的 utilities
 ```
 
-## 主题 Token（182 个，双层）
+## 主题 Token（183 个，双层）
 
 - **原始层**（`--wf-brand-*` `--wf-slate-*` `--wf-dark-*`）：色值只定义一次，品牌/暗色调校改这里
 - **语义层**（`--wf-color-*` `--wf-space-*` `--wf-radius-*` …）：组件消费，主题切换覆盖这里

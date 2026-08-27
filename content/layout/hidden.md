@@ -2,7 +2,7 @@
 
 ## 概述
 
-wf-hidden/wf-block/wf-flex…（含 @lg 断点变体——响应式切换）
+display 族——响应式显隐唯一模式 `wf-hidden wf-flex@lg`
 
 ## 代表类
 
@@ -11,6 +11,8 @@ wf-hidden/wf-block/wf-flex…（含 @lg 断点变体——响应式切换）
 .wf-hidden@lg
 .wf-flex@lg
 .wf-block
+.wf-dim
+.wf-pointer
 ```
 
 ## 源码
@@ -19,4 +21,4 @@ wf-hidden/wf-block/wf-flex…（含 @lg 断点变体——响应式切换）
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/hidden` ——（P1 填充）
+> showcase 活体演示页：`/layout/hidden`（族示例 + 代表类）

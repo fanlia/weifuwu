@@ -31,6 +31,9 @@ const NON_CLASS_FILES = new Set(['_tokens.css', '_dark.css', '_base.css'])
 /** 工具类集合文件（属性级工具，多类一文件）；其余 _*.css 均为原语文件 */
 const UTILITY_FILES = new Set(['_spacing.css', '_surface.css', '_border.css', '_text.css'])
 
+/** 内部实现文件（框架自身消费——非用户词汇：不计入原语/工具计数） */
+const INTERNAL_FILES = new Set(['_popup.css'])
+
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
 
 /** 冲突关注属性（布局身份属性——同元素两类设置不同值 = 顺序敏感/互斥） */
@@ -71,7 +74,7 @@ export function inventory() {
   const files = readdirSync(LAYOUT_DIR).filter((f) => /^_.*\.css$/.test(f) && !NON_CLASS_FILES.has(f))
   const classes = []
   for (const file of files.sort()) {
-    const category = UTILITY_FILES.has(file) ? 'utility' : 'primitive'
+    const category = INTERNAL_FILES.has(file) ? 'internal' : UTILITY_FILES.has(file) ? 'utility' : 'primitive'
     const parsed = parseFile(stripComments(readFileSync(join(LAYOUT_DIR, file), 'utf-8')))
     for (const [name, info] of parsed) {
       classes.push({
@@ -98,6 +101,7 @@ export function inventory() {
     tokens,
     primitives: primitives.length,
     utilities: utilities.length,
+    internals: classes.filter((c) => c.category === 'internal').length,
     total: classes.length,
     withBreakpoints: classes.filter((c) => c.breakpoints.length).map((c) => c.name),
     classes,
@@ -178,7 +182,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   } else if (process.argv.includes('--dead')) {
     console.log(JSON.stringify(deadClasses(inv), null, 2))
   } else {
-    console.log(`布局原语: ${inv.primitives} · 工具类: ${inv.utilities} · 合计: ${inv.total} 个 wf-* 类`)
+    console.log(`布局原语: ${inv.primitives} · 工具类: ${inv.utilities} · 内部类: ${inv.internals} · 合计: ${inv.total} 个 wf-* 类`)
     console.log(`主题 Token: ${inv.tokens}`)
     console.log(`断点变体类: ${inv.withBreakpoints.join(' ')}`)
     console.log(`冲突对（同属性基类）: ${conflictMatrix(inv).length} 对（--json 查看明细）`)

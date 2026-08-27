@@ -14,7 +14,7 @@ const Home = async (_init: any, ctx: any) => {
   let count = 0 // 组件状态（render-only）
   return async (_props: any) =>
     h('div', { class: 'wf-container wf-stack', style: '--wf-max:640px;--wf-gap:16px;padding:40px 16px;text-align:center' },
-      h('h1', { class: 'wf-text-3xl wf-m-0' }, 'weifuwu hello-world'),
+      h('h1', { class: 'wf-font-3xl wf-margin-none' }, 'weifuwu hello-world'),
       h('p', { class: 'wf-text-secondary' }, `数据管道：${(data as any).msg}`),
       h('button', {
         class: 'wf-btn wf-btn--primary',

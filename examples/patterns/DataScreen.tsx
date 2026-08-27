@@ -6,8 +6,8 @@ import {Text, Badge, Card, Icon, Sparkline, StatCard, Space } from 'weifuwu/comp
 // 模式 7：数据大屏（Data Screen）
 //
 // 全屏网格 + 固定角标（标题/时间/状态灯）。
-// 100% 原语 + 组件：wf-fill（撑满）、wf-layer + wf-pop（容器内角标——
-// 嵌进任意父容器不错位；全屏使用等价 wf-pin）、wf-grid（大屏格）
+// 100% 原语 + 组件：wf-fill（撑满）、wf-layer + wf-absolute（容器内角标——
+// 嵌进任意父容器不错位；全屏使用等价 wf-cover）、wf-grid（大屏格）
 //   Sparkline（曲线）、StatCard、Badge dot（状态灯）
 // ─────────────────────────────────────────────────────────────
 
@@ -53,34 +53,34 @@ export const DataScreen: Component = async (_init, ctx) => {
   const rootRef = (el: any) => { if (!el) clearInterval(timer) }
 
   return async () => (
-    <div ref={rootRef} class="wf-fill wf-layer wf-stack wf-gap-md wf-p-md wf-bg-tertiary" style={{ height: 'calc(100vh - 48px)' }}>
-      {/* 顶部标题（容器内角标——wf-layer + wf-pop） */}
-      <div class="wf-pop wf-center" style={{ top: 16, left: 0, right: 0 }}>
+    <div ref={rootRef} class="wf-fill wf-layer wf-stack wf-gap-md wf-padding-md wf-bg-tertiary" style={{ height: 'calc(100vh - 48px)' }}>
+      {/* 顶部标题（容器内角标——wf-layer + wf-absolute） */}
+      <div class="wf-absolute wf-center" style={{ top: 16, left: 0, right: 0 }}>
         <Space size="sm" align="center">
           <Icon name="zap" size={18} className="wf-text-primary" />
-          <b class="wf-text-lg wf-text-bold wf-tracking-wider">实时运维监控中心</b>
+          <b class="wf-font-lg wf-bold wf-tracking-wider">实时运维监控中心</b>
         </Space>
       </div>
       {/* 右上时间（实时） */}
-      <div class="wf-pop" style={{ top: 16, right: 24 }}>
-        <Text type="secondary" className="wf-text-sm wf-nums">{today} {time}</Text>
+      <div class="wf-absolute" style={{ top: 16, right: 24 }}>
+        <Text type="secondary" className="wf-font-sm wf-nums">{today} {time}</Text>
       </div>
       {/* 左上状态灯 */}
-      <div class="wf-pop wf-row wf-gap-sm" style={{ top: 16, left: 24, alignItems: 'center' }}>
+      <div class="wf-absolute wf-row wf-gap-sm" style={{ top: 16, left: 24, alignItems: 'center' }}>
         <Badge variant="success" dot />
-        <Text type="secondary" className="wf-text-sm">运行正常</Text>
+        <Text type="secondary" className="wf-font-sm">运行正常</Text>
       </div>
 
       {/* 主体：指标网格 */}
-      <div class="wf-grid wf-fill wf-p-lg" style={{ '--wf-cols': 'repeat(auto-fill, minmax(280px, 1fr))', alignContent: 'center', paddingTop: 60 }}>
+      <div class="wf-grid wf-fill wf-padding-lg" style={{ '--wf-cols': 'repeat(auto-fill, minmax(280px, 1fr))', alignContent: 'center', paddingTop: 60 }}>
         {CARDS.map((m) => (
           <Card outlined key={m.title} padding="lg">
             <Space direction="vertical" size="md">
-              <div class="wf-row wf-between">
+              <div class="wf-row wf-justify-between">
                 <Text strong>{m.title}</Text>
                 <Space size="sm" align="center">
                   <Badge variant="success" dot />
-                  <Text type="success" className="wf-text-sm">实时</Text>
+                  <Text type="success" className="wf-font-sm">实时</Text>
                 </Space>
               </div>
               <Sparkline data={series[m.key]} width={280} height={64} />
@@ -91,11 +91,11 @@ export const DataScreen: Component = async (_init, ctx) => {
       </div>
 
       {/* 底部滚动信息 */}
-      <div class="wf-pop wf-p-sm wf-border-t" style={{ bottom: 12, left: 24, right: 24 }}>
+      <div class="wf-absolute wf-padding-sm wf-border-top" style={{ bottom: 12, left: 24, right: 24 }}>
         <Space size="lg">
-          <Text type="secondary" className="wf-text-xs">[INFO] 集群 12 节点健康 · 2s 实时刷新</Text>
-          <Text type="secondary" className="wf-text-xs">[INFO] 自动扩容已触发（us-east-1）</Text>
-          <Text type="warning" className="wf-text-xs">[WARN] 磁盘余量 18%</Text>
+          <Text type="secondary" className="wf-font-xs">[INFO] 集群 12 节点健康 · 2s 实时刷新</Text>
+          <Text type="secondary" className="wf-font-xs">[INFO] 自动扩容已触发（us-east-1）</Text>
+          <Text type="warning" className="wf-font-xs">[WARN] 磁盘余量 18%</Text>
         </Space>
       </div>
     </div>

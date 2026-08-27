@@ -1,8 +1,0 @@
-/* top — 顶部对齐（L3：gap 默认值 :where() 零优先级；align-items 是身份属性） */
-.wf-top {
-  display: flex;
-  align-items: flex-start;
-}
-:where(.wf-top) {
-  gap: var(--wf-gap, var(--wf-gap-md));
-}

@@ -62,17 +62,17 @@ export const SettingsPage: Component = async (_init: any, ctx: any) => {
 
       {tab === 'notify' && (
         <div class="wf-stack wf-gap-sm" style="max-width:480px">
-          <div class="wf-surface wf-border wf-rounded-sm wf-p-sm wf-row wf-between">
+          <div class="wf-surface wf-border wf-radius-sm wf-padding-sm wf-row wf-justify-between">
             <div class="wf-stack wf-gap-xs">
-              <b class="wf-text-sm">订单通知</b>
-              <span class="wf-text-xs wf-text-secondary">新订单到达时推送</span>
+              <b class="wf-font-sm">订单通知</b>
+              <span class="wf-font-xs wf-text-secondary">新订单到达时推送</span>
             </div>
             <Switch checked={notifyOrder} onChange={(v: boolean) => { notifyOrder = v; ctx.render() }} />
           </div>
-          <div class="wf-surface wf-border wf-rounded-sm wf-p-sm wf-row wf-between">
+          <div class="wf-surface wf-border wf-radius-sm wf-padding-sm wf-row wf-justify-between">
             <div class="wf-stack wf-gap-xs">
-              <b class="wf-text-sm">每日摘要</b>
-              <span class="wf-text-xs wf-text-secondary">每天早上 9 点发送昨日汇总</span>
+              <b class="wf-font-sm">每日摘要</b>
+              <span class="wf-font-xs wf-text-secondary">每天早上 9 点发送昨日汇总</span>
             </div>
             <Switch checked={notifyDigest} onChange={(v: boolean) => { notifyDigest = v; ctx.render() }} />
           </div>
@@ -81,10 +81,10 @@ export const SettingsPage: Component = async (_init: any, ctx: any) => {
 
       {tab === 'security' && (
         <div class="wf-stack wf-gap-sm" style="max-width:480px">
-          <div class="wf-surface wf-border wf-rounded-sm wf-p-sm wf-row wf-between">
+          <div class="wf-surface wf-border wf-radius-sm wf-padding-sm wf-row wf-justify-between">
             <div class="wf-stack wf-gap-xs">
-              <b class="wf-text-sm">两步验证</b>
-              <span class="wf-text-xs wf-text-secondary">登录时要求验证码</span>
+              <b class="wf-font-sm">两步验证</b>
+              <span class="wf-font-xs wf-text-secondary">登录时要求验证码</span>
             </div>
             <Switch checked={twoFactor} onChange={(v: boolean) => { twoFactor = v; ctx.render() }} />
           </div>

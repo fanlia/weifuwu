@@ -70,9 +70,9 @@ export const Dashboard: Component = async (_init, ctx) => {
   return async () => {
     const data = DATA[period] ?? DATA['30d']
     return (
-      <div class="wf-stack wf-gap-lg wf-p-lg wf-scroll" style={{ minHeight: 'calc(100vh - 48px)' }}>
+      <div class="wf-stack wf-gap-lg wf-padding-lg wf-overflow-auto" style={{ minHeight: 'calc(100vh - 48px)' }}>
         {/* 页头 + 时间范围切换（wf-row 提供 wrap——窄屏切换器折行，不挤压标题） */}
-        <div class="wf-row wf-between">
+        <div class="wf-row wf-justify-between">
           <PageHeader title="经营仪表盘" sub="实时经营数据 · 自动刷新" />
           <SegmentedControl
             value={period}
@@ -113,15 +113,15 @@ export const Dashboard: Component = async (_init, ctx) => {
           <div class="wf-stack wf-gap-md">
             <Card outlined>
               <Space direction="vertical" size="sm">
-                <Text type="secondary" className="wf-text-sm">本期总额</Text>
-                <Text strong className="wf-text-lg">{data.total}</Text>
-                <Text type="success" className="wf-text-sm">↑ 18.6% vs 上一期</Text>
+                <Text type="secondary" className="wf-font-sm">本期总额</Text>
+                <Text strong className="wf-font-lg">{data.total}</Text>
+                <Text type="success" className="wf-font-sm">↑ 18.6% vs 上一期</Text>
               </Space>
             </Card>
             <Card outlined>
               <Space direction="vertical" size="sm">
-                <div class="wf-between">
-                  <Text type="secondary" className="wf-text-sm">季度目标</Text>
+                <div class="wf-justify-between">
+                  <Text type="secondary" className="wf-font-sm">季度目标</Text>
                   <Switch
                     label="展示"
                     checked={showGoal}
@@ -131,19 +131,19 @@ export const Dashboard: Component = async (_init, ctx) => {
                 {showGoal && (
                   <Space direction="vertical" size="sm">
                     <ProgressBar value={78} max={100} label="达成率" showValue />
-                    <Text type="secondary" className="wf-text-xs">距离 ¥150 万目标还差 ¥21.4 万</Text>
+                    <Text type="secondary" className="wf-font-xs">距离 ¥150 万目标还差 ¥21.4 万</Text>
                   </Space>
                 )}
               </Space>
             </Card>
             <Card outlined>
               <Space direction="vertical" size="sm">
-                <Text type="secondary" className="wf-text-sm">数据刷新</Text>
-                <Text className="wf-text-sm">切换时间范围观察数据联动（let + render() 状态）</Text>
+                <Text type="secondary" className="wf-font-sm">数据刷新</Text>
+                <Text className="wf-font-sm">切换时间范围观察数据联动（let + render() 状态）</Text>
               </Space>
             </Card>
             <Divider />
-            <Text type="secondary" className="wf-text-sm">本页展示了 wf-grid + StatCard + $ 状态组合——无需任何媒体查询即可响应式。</Text>
+            <Text type="secondary" className="wf-font-sm">本页展示了 wf-grid + StatCard + $ 状态组合——无需任何媒体查询即可响应式。</Text>
           </div>
         </div>
       </div>

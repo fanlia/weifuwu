@@ -21,30 +21,30 @@ export const Shell: Component<any, any> = async (_init: any, ctx: any) => {
     return (
       <div class="wf-stack wf-gap-none" style="min-height:100vh">
         {/* 吸顶导航 */}
-        <div class="wf-sticky wf-row wf-gap-sm wf-p-sm wf-bg-primary wf-border-b" style="--wf-offset:0;z-index:var(--wf-pop-z)">
+        <div class="wf-sticky wf-row wf-gap-sm wf-padding-sm wf-bg-primary wf-border-bottom" style="--wf-offset:0;z-index:var(--wf-pop-z)">
           <a href="/" class="wf-row wf-gap-xs wf-text-nowrap" style="text-decoration:none;color:inherit">
             <Icon name="layout" size={16} className="wf-text-primary" />
-            <b class="wf-text-bold">wf/showcase</b>
+            <b class="wf-bold">wf/showcase</b>
           </a>
-          <nav class="wf-row wf-nowrap wf-scroll wf-gap-xs wf-fill" aria-label="平台域导航">
+          <nav class="wf-row wf-nowrap wf-overflow-auto wf-gap-xs wf-fill" aria-label="平台域导航">
             {DOMAINS.map((d) => (
               <a
                 key={d.id}
                 href={d.path}
-                class={`wf-nav-item wf-text-nowrap wf-text-sm${current().startsWith(d.path) ? ' wf-nav-item--active' : ''}`}
+                class={`wf-nav-item wf-text-nowrap wf-font-sm${current().startsWith(d.path) ? ' wf-nav-item--active' : ''}`}
               >
                 {d.name}
               </a>
             ))}
           </nav>
           <div class="wf-row wf-gap-sm">
-            <span class="wf-text-xs wf-text-tertiary wf-hidden wf-flex@lg" style="font-family:var(--wf-font-mono)">LLM: /llms.txt · /content/:id.md</span>
+            <span class="wf-font-xs wf-text-tertiary wf-hidden wf-flex@lg" style="font-family:var(--wf-font-mono)">LLM: /llms.txt · /content/:id.md</span>
             <ThemeSwitch />
           </div>
         </div>
         {/* 页面主体 */}
         <main class="wf-fill">{props.page}</main>
-        <footer class="wf-text-center wf-py-lg wf-text-tertiary wf-text-sm wf-border-t">
+        <footer class="wf-text-center wf-padding-y-lg wf-text-tertiary wf-font-sm wf-border-top">
           weifuwu showcase · 发展引擎——组件/页面/应用/后端/能力/指南 一站式（content/ 随 npm 包发布）
         </footer>
       </div>

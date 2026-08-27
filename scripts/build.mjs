@@ -144,18 +144,15 @@ const layoutDist = join(distDir, 'client', 'layout')
 
 const LAYER_OF = {
   _tokens: 'tokens', _dark: 'tokens', _presets: 'tokens', _base: 'base',
-  _stack: 'layout', _row: 'layout', _split: 'layout', _center: 'layout', _between: 'layout',
-  _right: 'layout', _top: 'layout', _bottom: 'layout', _stretch: 'layout',
-  _around: 'layout', _evenly: 'layout', _fill: 'layout', _fixed: 'layout',
-  _auto: 'layout', _cover: 'layout', _pop: 'layout', _anchor: 'layout',
-  _sticky: 'layout', _grid: 'layout', _cluster: 'layout', _scroll: 'layout',
-  _clip: 'layout', '_inline': 'layout', '_inline-block': 'layout',
-  _container: 'layout', _contents: 'layout', _layer: 'layout', _nowrap: 'layout',
-  _popup: 'layout', '_safe-area': 'layout',
-  _shrink: 'layout', '_app-shell': 'layout',
+  _stack: 'layout', _row: 'layout', _split: 'layout', _center: 'layout', _justify: 'layout',
+  _fill: 'layout', _grid: 'layout', _cluster: 'layout', _cover: 'layout',
+  _position: 'layout', _sticky: 'layout', _overflow: 'layout', '_safe-area': 'layout',
+  _layer: 'layout', '_align-self': 'layout', _nowrap: 'layout', _shrink: 'layout',
+  _container: 'layout', '_app-shell': 'layout',
   _surface: 'utilities', _spacing: 'utilities', _border: 'utilities',
-  _text: 'utilities', _hidden: 'utilities', _block: 'utilities', _prose: 'utilities',
+  _text: 'utilities', _prose: 'utilities', _hidden: 'utilities', _block: 'utilities',
   _flex: 'utilities', // display 工具族（wf-hidden wf-flex@lg 显隐恢复——必须同层后序获胜）
+  _popup: 'layout', // 框架内部浮层基类（popup-manager 消费——非用户词汇）
 }
 
 function mergeLayoutCss() {

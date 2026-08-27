@@ -109,7 +109,7 @@ export const patterns: PatternEntry[] = [
     "id": "data-screen",
     "name": "数据大屏",
     "group": "内容展示",
-    "desc": "wf-fill 全屏 + wf-layer/wf-pop 容器内角标 + Sparkline",
+    "desc": "wf-fill 全屏 + wf-layer/wf-absolute 容器内角标 + Sparkline",
     "file": "patterns/DataScreen.tsx",
     "uses": [
       "Text",

@@ -1,0 +1,159 @@
+/**
+ * weifuwu/layout 清单契约(设计依据:design/layout-cleanup.md §6 + layout-naming.md §7)
+ *
+ * 布局层单一事实源防线——锁定清理/命名成果,防回潮:
+ *   L1 计数基线(登记制):原语/工具/内部/变体——变更必须有意
+ *   L2 死类 = 0:每个非内部类在消费侧有证据(四件套豁免登记)
+ *   L3 缺口 = 0:消费侧"使用未定义类"归零(@变体归一基类)
+ *   L4 非法选择器 = 0:未转义 @ 的类选择器(_flex.css 死规则根因防线)
+ *   L5 命名规则:零值形态唯一(none)/对齐域禁物理方向词/双名歼灭(声明指纹)
+ *   L6 文档计数同步:layout-guide/README 数字 == inventory
+ *
+ * node:test 直跑——零浏览器(契约层纪律)。
+ */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { inventory } from '../../../scripts/layout-inventory.mjs'
+
+const root = join(import.meta.dirname, '..', '..', '..')
+const LAYOUT = join(root, 'src/client/layout')
+
+const inv = inventory()
+const bases = inv.classes.filter((c) => !c.modifierOf)
+
+/** 收集语料(.ts/.tsx——真实代码消费,不含文档提及/静态 HTML) */
+function collectCode(dirs) {
+  const out = []
+  const walk = (p) => {
+    let entries
+    try { entries = readdirSync(p, { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue
+      const fp = join(p, e.name)
+      if (e.isDirectory()) walk(fp)
+      else if (/\.tsx?$/.test(e.name)) out.push(readFileSync(fp, 'utf-8'))
+    }
+  }
+  for (const d of dirs) walk(join(root, d))
+  return out.join('\n')
+}
+
+/** layout 定义集:全部 _*.css 中出现的 .wf-* 选择器(含子孙/:where 位置) */
+function layoutDefined() {
+  const set = new Set()
+  for (const f of readdirSync(LAYOUT).filter((f) => f.endsWith('.css'))) {
+    for (const m of readFileSync(join(LAYOUT, f), 'utf-8').matchAll(/\.wf-[a-z0-9]+(?:-[a-z0-9]+)*/g)) {
+      set.add(m[0].slice(1))
+    }
+  }
+  return set
+}
+
+/** 组件类定义集:组件 .css/.ts 中出现的类名(组件自持类——非消费) */
+function componentDefined() {
+  const set = new Set()
+  const walk = (p) => {
+    for (const e of readdirSync(p, { withFileTypes: true })) {
+      const fp = join(p, e.name)
+      if (e.isDirectory()) walk(fp)
+      else if (/\.(css|ts)$/.test(e.name)) {
+        for (const m of readFileSync(fp, 'utf-8').matchAll(/(?<=["'`.\s])wf-[a-z0-9]+(?:-[a-z0-9]+)*/g)) {
+          set.add(m[0])
+        }
+      }
+    }
+  }
+  walk(join(root, 'src/client/components'))
+  return set
+}
+
+test('L1 计数基线(登记制——变更必须有意)', () => {
+  assert.equal(inv.primitives, 50, '布局原语数(清理后基线)')
+  assert.equal(inv.utilities, 92, '工具类数(清理后基线)')
+  assert.equal(inv.internals, 2, '内部类数(_popup 框架内部)')
+  assert.equal(inv.tokens, 183, '主题 Token 数')
+  // 断点变体 ⊆ 登记清单(响应式唯一模式:窄隐宽显)
+  const allowed = new Set(['wf-flex', 'wf-hidden'])
+  const bps = inv.withBreakpoints
+  assert.deepEqual([...bps].sort(), [...allowed].sort(), `断点变体类必须有意登记: ${bps}`)
+})
+
+test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
+  // 四件套语义完备豁免(设计:layout-naming.md §4):self-* 对齐四态 3/4 消费——整体保留
+  const QUARTET_KEEP = new Set(['wf-self-stretch'])
+  const corpus = collectCode(['apps', 'examples', 'src/client/components'])
+  const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
+  const dead = bases.filter(
+    (c) => c.category !== 'internal' && !QUARTET_KEEP.has(c.name) && ![...used].some((u) => u.replace(/\\?@[a-z]{2}$/, '') === c.name || u === c.name),
+  )
+  assert.equal(dead.length, 0, `零消费类(删除或登记豁免):\n${dead.map((c) => `  ${c.name} (${c.file})`).join('\n')}`)
+})
+
+test('L3 缺口 = 0(使用未定义类归零)', () => {
+  const defined = new Set([...layoutDefined(), ...componentDefined()])
+  const corpus = collectCode(['apps', 'examples'])
+  const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
+  const missing = [...used].filter((n) => {
+    const base = n.replace(/\\?@[a-z]{2}$/, '')
+    return !defined.has(base) && !defined.has(n)
+  })
+  assert.equal(missing.length, 0, `消费侧使用但未定义的类(补类或修消费侧):\n  ${missing.join(' ')}`)
+})
+
+test('L4 无非法选择器(未转义 @ 即整条规则被浏览器丢弃)', () => {
+  const bad = []
+  for (const f of readdirSync(LAYOUT).filter((f) => f.endsWith('.css'))) {
+    const css = readFileSync(join(LAYOUT, f), 'utf-8')
+    for (const m of css.matchAll(/\.wf-[a-z0-9-]+@[a-z]/g)) bad.push(`${f}: ${m[0]}`)
+  }
+  assert.equal(bad.length, 0, `未转义 @ 的类选择器(应为 \\\\@):\n${bad.join('\n')}`)
+})
+
+test('L5a 零值形态唯一(重置类统一 none——数值属性值类登记豁免)', () => {
+  // wf-min-width-0:数值是属性语义值(非重置约定)——登记豁免(命名规则唯一例外)
+  const NUMERIC_VALUE_KEEP = new Set(['wf-min-width-0'])
+  const zeros = bases.filter((c) => /-0$/.test(c.name) && !NUMERIC_VALUE_KEEP.has(c.name))
+  assert.equal(zeros.length, 0, `零值必须用 none 形态: ${zeros.map((c) => c.name)}`)
+})
+
+test('L5b 对齐域禁物理方向词(CSS 值词表)', () => {
+  const bad = bases.filter((c) => /^wf-(items|self|justify)-(top|bottom|left|right)$/.test(c.name))
+  assert.equal(bad.length, 0, `对齐域类名必须用 start/center/end/stretch/between: ${bad.map((c) => c.name)}`)
+})
+
+test('L5c 双名歼灭(声明指纹全等 = 别名对)', () => {
+  // 归一化:每条规则 (完整选择器, 排序声明集) 归属其类——指纹全等的两个类 = 别名
+  const fp = new Map()
+  for (const f of readdirSync(LAYOUT).filter((f) => f.endsWith('.css'))) {
+    const css = readFileSync(join(LAYOUT, f), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const m of css.matchAll(/([^{}@]+)\{([^{}]*)\}/g)) {
+      const [, selText, body] = m
+      const decls = body.split(';').map((s) => s.trim()).filter(Boolean).sort().join(';')
+      for (const sel of selText.split(',').map((s) => s.trim()).filter(Boolean)) {
+        const cm = sel.match(/\.wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z-]+)?/)
+        if (!cm) continue
+        const owner = cm[0].slice(1)
+        if (!fp.has(owner)) fp.set(owner, [])
+        fp.get(owner).push(`${sel.replace(/\s+/g, ' ')}{${decls}}`)
+      }
+    }
+  }
+  const byFp = new Map()
+  for (const [name, entries] of fp) {
+    const key = entries.sort().join('\n')
+    if (!byFp.has(key)) byFp.set(key, [])
+    byFp.get(key).push(name)
+  }
+  const aliases = [...byFp.values()].filter((ns) => ns.length > 1)
+  assert.equal(aliases.length, 0, `同一声明多类名(保留一个,其余迁移消费侧):\n${aliases.map((ns) => '  ' + ns.join(' ≡ ')).join('\n')}`)
+})
+
+test('L6 文档计数同步(layout-guide/README == inventory)', () => {
+  const guide = readFileSync(join(root, 'content/guides/layout-guide.md'), 'utf-8')
+  const readme = readFileSync(join(root, 'README.md'), 'utf-8')
+  const line = `${inv.primitives} 个布局原语 + ${inv.utilities} 个工具类 + ${inv.tokens} 个主题 Token`
+  assert.ok(guide.includes(line), `layout-guide.md 缺计数行: ${line}`)
+  assert.ok(readme.includes(line), `README.md 缺计数行: ${line}`)
+})

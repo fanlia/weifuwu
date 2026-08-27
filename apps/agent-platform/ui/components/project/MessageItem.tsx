@@ -62,7 +62,7 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
     const showTools = msg.sender_type === 'ai' && (msg.tools ?? []).length > 0
 
     if (msg.msg_type === 'system') {
-      return <div class="wf-center"><span class="wf-pill wf-bg-tertiary wf-text-secondary wf-px-sm wf-py-xs wf-text-xs">{msg.content}</span></div>
+      return <div class="wf-center"><span class="wf-pill wf-bg-tertiary wf-text-secondary wf-padding-x-sm wf-padding-y-xs wf-font-xs">{msg.content}</span></div>
     }
 
     // P2-4：交付物文件卡片（AI 刚生成的文件——可点击下载；进场动效 wf-panel-in）
@@ -71,16 +71,16 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
       const rel = props.msg.content
       const already = rel.includes('（已发布）') || rel.includes('（已拒绝）')
       return (
-        <div class="wf-row wf-gap-sm wf-items-center wf-panel-in wf-wrap">
+        <div class="wf-row wf-gap-sm wf-items-center wf-panel-in">
           <Ava name={msg.sender_name ?? 'AI'} type="ai" small />
-          <a class="wf-pill wf-bg-tertiary wf-px-sm wf-py-xs wf-text-xs wf-row wf-gap-xs wf-items-center"
+          <a class="wf-pill wf-bg-tertiary wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-row wf-gap-xs wf-items-center"
             href={`/api/departments/${props.departmentId}/workspace/file?path=${encodeURIComponent(rel.replace(/（已发布|已拒绝）$/, ''))}&download=1`}
             style="text-decoration: none">
-            <Icon name="file-text" size={12} /> {msg.sender_name ?? 'AI'} 刚生成了 <b class="wf-text-brand">{rel}</b> 下载 ↓
+            <Icon name="file-text" size={12} /> {msg.sender_name ?? 'AI'} 刚生成了 <b class="wf-text-primary">{rel}</b> 下载 ↓
           </a>
           {msg.pending && !already && (
             <>
-              <span class="wf-pill wf-bg-warning wf-text-on-warning wf-px-sm wf-py-xs wf-text-xs">⏳ 待审批</span>
+              <span class="wf-pill wf-bg-warning wf-text-on-warning wf-padding-x-sm wf-padding-y-xs wf-font-xs">⏳ 待审批</span>
               <Button size="sm" variant="primary" disabled={props.reviewBusy} onClick={() => props.onReview('approve', rel)}>批准发布</Button>
               <Button size="sm" variant="danger-ghost" disabled={props.reviewBusy} onClick={() => props.onReview('reject', rel)}>拒绝</Button>
             </>
@@ -90,14 +90,14 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
     }
 
     return (
-      <div data-msgid={String(msg.id).slice(0, 8)} data-msgtype={msg.msg_type} class={`wf-row wf-top wf-gap-sm${props.own ? ' wf-row-reverse' : ''}`}>
+      <div data-msgid={String(msg.id).slice(0, 8)} data-msgtype={msg.msg_type} class={`wf-row wf-items-start wf-gap-sm${props.own ? ' wf-row-reverse' : ''}`}>
         <Ava name={msg.sender_name ?? '未知'} type={msg.sender_type ?? 'user'} small />
-        <div class={`wf-stack wf-gap-xs wf-shrink${props.own ? ' wf-bottom' : ''}`}>
-          <div class={`wf-row wf-gap-xs wf-text-xs wf-text-tertiary${props.own ? ' wf-row-reverse' : ''}`}>
+        <div class={`wf-stack wf-gap-xs wf-shrink${props.own ? ' wf-items-end' : ''}`}>
+          <div class={`wf-row wf-gap-xs wf-font-xs wf-text-tertiary${props.own ? ' wf-row-reverse' : ''}`}>
             <span>{msg.sender_name ?? '未知'}</span>
-            {msg.sender_type === 'ai' && st === 'complete' && (() => { const mk = detectTaskMarker(msg.content); return mk.marker ? <span class="wf-pill wf-px-sm wf-py-xs wf-text-xs wf-text-secondary">{mk.label}</span> : null })()}
+            {msg.sender_type === 'ai' && st === 'complete' && (() => { const mk = detectTaskMarker(msg.content); return mk.marker ? <span class="wf-pill wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-text-secondary">{mk.label}</span> : null })()}
             <span>{fmtTime(msg.created_at)}</span>
-            {isActive && <span class="wf-text-brand">{st === 'thinking' ? '思考中...' : '生成中...'}</span>}
+            {isActive && <span class="wf-text-primary">{st === 'thinking' ? '思考中...' : '生成中...'}</span>}
             {isError && <span class="wf-text-error">出错了</span>}
             {!props.editing && !isActive && (
               <span class="wf-row wf-gap-xs">
@@ -129,15 +129,15 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
           </div>
 
           {msg.reply_content && !props.editing && (
-            <div class="wf-border-l wf-pl-sm wf-text-xs wf-text-tertiary">
+            <div class="wf-border-left wf-padding-left-sm wf-font-xs wf-text-tertiary">
               <span class="wf-text-secondary">↩ {msg.reply_sender ?? '消息'}</span> {String(msg.reply_content ?? '').slice(0, 40)}
             </div>
           )}
 
           {msg.attachments && msg.attachments.length > 0 && (
-            <div class="wf-row wf-gap-xs wf-wrap">
+            <div class="wf-row wf-gap-xs">
               {msg.attachments.map((att: { name: string; size: number }, i: number) => (
-                <span key={i} class="wf-pill wf-bg-tertiary wf-px-sm wf-py-xs wf-text-xs">
+                <span key={i} class="wf-pill wf-bg-tertiary wf-padding-x-sm wf-padding-y-xs wf-font-xs">
                   📎 {att.name}{att.size >= 1024 ? `（${Math.round(att.size / 1024)}KB）` : `（${att.size}B）`}
                 </span>
               ))}
@@ -151,27 +151,27 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
                 const expanded = props.expandedToolKey === tk
                 return (
                   <div key={i} class="wf-stack wf-gap-none">
-                    <button type="button" class="wf-pill wf-bg-brand wf-px-sm wf-py-xs wf-text-xs wf-text-brand wf-text-left"
+                    <button type="button" class="wf-pill wf-bg-primary wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-text-primary wf-text-left"
                       style="background: none; border: none; cursor: pointer"
                       onClick={() => props.onToggleTool(tk)}>
                       <Icon name={t.status === 'running' ? 'clock' : t.status === 'error' ? 'warning' : 'check'} size={12} /> {toolLabel(t.name)}
                       {expanded ? ' ▾' : ' ▸'}
                     </button>
                     {expanded && (
-                      <div class="wf-stack wf-gap-xs wf-ml-xs wf-mt-xs wf-px-sm wf-py-sm wf-rounded wf-bg-tertiary">
+                      <div class="wf-stack wf-gap-xs wf-margin-left-xs wf-margin-top-xs wf-padding-x-sm wf-padding-y-sm wf-radius wf-bg-tertiary">
                         {t.args !== undefined && t.args !== null && (
-                          <div class="wf-text-xs">
+                          <div class="wf-font-xs">
                             <span class="wf-text-tertiary">参数 </span>
-                            <pre class="wf-mt-none wf-text-xs" style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-all">{typeof t.args === 'string' ? t.args : JSON.stringify(t.args)}</pre>
+                            <pre class="wf-margin-top-none wf-font-xs" style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-all">{typeof t.args === 'string' ? t.args : JSON.stringify(t.args)}</pre>
                           </div>
                         )}
                         {t.result !== undefined && t.result !== null && (
-                          <div class="wf-text-xs">
+                          <div class="wf-font-xs">
                             <span class="wf-text-tertiary">结果 </span>
-                            <pre class="wf-mt-none wf-text-xs" style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-all">{String(t.result).slice(0, 500)}</pre>
+                            <pre class="wf-margin-top-none wf-font-xs" style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-all">{String(t.result).slice(0, 500)}</pre>
                           </div>
                         )}
-                        {t.status === 'error' && <span class="wf-text-error wf-text-xs">执行失败</span>}
+                        {t.status === 'error' && <span class="wf-text-error wf-font-xs">执行失败</span>}
                       </div>
                     )}
                   </div>
@@ -191,24 +191,24 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
                   : (msg.content || '')}
               />
               {st === 'complete' && msg.usage && (
-                <div class="wf-text-right wf-mt-xs">
+                <div class="wf-text-right wf-margin-top-xs">
                   <Badge variant="default"><Icon name="zap" size={12} /> {msg.usage.total_tokens} tokens</Badge>
                 </div>
               )}
               {isError && (
-                <div class="wf-row wf-gap-xs wf-mt-xs">
+                <div class="wf-row wf-gap-xs wf-margin-top-xs">
                   <Button size="sm" variant="ghost" onClick={() => props.onRetry(msg.id)}><Icon name="refresh" size={12} /> 重新生成</Button>
                   <Button size="sm" variant="primary" onClick={() => props.onContinue(msg.id)}><Icon name="arrow-right" size={12} /> 断点续跑</Button>
                 </div>
               )}
 
               {msg.ai_draft && msg.ai_approved === null && (
-                <div class="wf-mt-sm">
+                <div class="wf-margin-top-sm">
                   <Alert variant="warning">
-                    <div class="wf-text-xs wf-text-semibold wf-mb-xs"><Icon name="clock" size={12} /> AI 草稿待审批</div>
+                    <div class="wf-font-xs wf-semibold wf-margin-bottom-xs"><Icon name="clock" size={12} /> AI 草稿待审批</div>
                     {msg.ai_draft}
                   </Alert>
-                  <div class="wf-row wf-gap-xs wf-mt-xs">
+                  <div class="wf-row wf-gap-xs wf-margin-top-xs">
                     <Button size="sm" disabled={props.approving}
                       onClick={() => props.onApprove(msg.id)}>{props.approving ? '处理中...' : (<><Icon name="check" size={12} /> 批准</>)}
                     </Button>
@@ -221,7 +221,7 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
           )}
 
           {props.editing && (
-            <form onSubmit={(e: Event) => { e.preventDefault(); props.onEditSave() }} class="wf-row wf-gap-xs wf-top">
+            <form onSubmit={(e: Event) => { e.preventDefault(); props.onEditSave() }} class="wf-row wf-gap-xs wf-items-start">
               <div class="wf-fill">
                 <Input value={props.editValue} onInput={(e: Event) => { props.onEditChange(inputValue(e)) }}
                   onKeyDown={(e: KeyboardEvent) => { if (e.key === 'Escape') props.onEditCancel() }} />

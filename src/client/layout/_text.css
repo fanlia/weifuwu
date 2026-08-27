@@ -1,76 +1,56 @@
-/* 排版工具类 — 字号 / 色阶 / 字重 / 截断（零 CSS 用户自排版） */
+/* 排版工具类（design/layout-naming.md 词根分域——过载歼灭）：
+ *   wf-font-<刻度>    字号（font-size ← --wf-font-size-*）
+ *   wf-medium/semibold/bold  字重（裸值词）
+ *   wf-text-<色>      文字颜色（语义 Token——含 on-brand 填充上文字）
+ *   wf-text-<方向>    文本对齐（text-align）
+ *   wf-tracking-*     字距（排版术语 = letter-spacing）
+ */
 
-/* ── text-align ── */
+/* ── 文本对齐（text-align——自然读法保留） ── */
+.wf-text-left { text-align: left; }
+.wf-text-center { text-align: center; }
+.wf-text-right { text-align: right; }
 
-.wf-text-left {
-  text-align: left;
-}
-
-.wf-text-center {
-  text-align: center;
-}
-
-.wf-text-right {
-  text-align: right;
-}
-
-/* ── 字号 ── */
-
-.wf-text-xs { font-size: var(--wf-font-size-xs); }
-.wf-text-sm { font-size: var(--wf-font-size-sm); }
-.wf-text-base { font-size: var(--wf-font-size-base); }
-.wf-text-lg { font-size: var(--wf-font-size-lg); }
-.wf-text-xl { font-size: var(--wf-font-size-xl); }
-.wf-text-2xl { font-size: var(--wf-font-size-2xl); }
-.wf-text-3xl { font-size: var(--wf-font-size-3xl); }
-.wf-text-4xl { font-size: var(--wf-font-size-4xl); }
-.wf-text-5xl { font-size: var(--wf-font-size-5xl); }
-.wf-text-display { font-size: var(--wf-font-size-display); }
+/* ── 字号（font 属性族） ── */
+.wf-font-xs { font-size: var(--wf-font-size-xs); }
+.wf-font-sm { font-size: var(--wf-font-size-sm); }
+.wf-font-base { font-size: var(--wf-font-size-base); }
+.wf-font-lg { font-size: var(--wf-font-size-lg); }
+.wf-font-2xl { font-size: var(--wf-font-size-2xl); }
+.wf-font-3xl { font-size: var(--wf-font-size-3xl); }
+.wf-font-4xl { font-size: var(--wf-font-size-4xl); }
+.wf-font-display { font-size: var(--wf-font-size-display); }
 
 /* ── 数字等宽（统计/表格数值防宽度抖动） ── */
-
 .wf-nums {
   font-variant-numeric: var(--wf-nums);
 }
 
-/* ── 色阶 ── */
-
+/* ── 文字色（语义唯一名——随 token 用 error；浅底可读 700 级） ── */
 .wf-text-secondary { color: var(--wf-color-text-secondary); }
 .wf-text-tertiary { color: var(--wf-color-text-tertiary); }
-.wf-text-disabled { color: var(--wf-color-text-disabled); }
-.wf-text-brand { color: var(--wf-color-primary-text); } /* 兼容别名 → wf-text-primary */
 .wf-text-primary { color: var(--wf-color-primary-text); }
 .wf-text-success { color: var(--wf-color-success-text); }
 .wf-text-warning { color: var(--wf-color-warning-text); }
 .wf-text-error { color: var(--wf-color-error-text); }
-.wf-text-info { color: var(--wf-color-info-text); }
 
-/* ── 字重 ── */
+/* ── 填充上的文字色（实心品牌/警告底——对比度保障） ── */
+.wf-text-on-brand { color: var(--wf-color-on-brand); }
+.wf-text-on-warning { color: var(--wf-color-on-warning); }
 
-.wf-text-medium { font-weight: var(--wf-font-weight-medium); }
-.wf-text-semibold { font-weight: var(--wf-font-weight-semibold); }
-.wf-text-bold { font-weight: var(--wf-font-weight-bold); }
+/* ── 字重（裸值词） ── */
+.wf-medium { font-weight: var(--wf-font-weight-medium); }
+.wf-semibold { font-weight: var(--wf-font-weight-semibold); }
+.wf-bold { font-weight: var(--wf-font-weight-bold); }
 
-/* ── 行高 ── */
-
-.wf-leading-tight { line-height: var(--wf-line-height-tight); }
-.wf-leading-base { line-height: var(--wf-line-height); }
-.wf-leading-relaxed { line-height: var(--wf-line-height-relaxed); }
-
-/* ── 字距 ── */
-
-.wf-tracking-normal { letter-spacing: var(--wf-letter-spacing); }
+/* ── 字距（排版术语 tracking = letter-spacing） ── */
 .wf-tracking-wide { letter-spacing: var(--wf-letter-spacing-wide); }
 .wf-tracking-wider { letter-spacing: var(--wf-letter-spacing-wider); }
 
-/* ── 文本变换 ── */
-
+/* ── 文本变换（裸值词） ── */
 .wf-uppercase { text-transform: uppercase; }
-.wf-lowercase { text-transform: lowercase; }
-.wf-capitalize { text-transform: capitalize; }
 
 /* ── 换行/折行 ── */
-
 .wf-pre-wrap {
   white-space: pre-wrap;
   word-break: break-word;
@@ -86,26 +66,8 @@
 }
 
 /* ── 截断 ── */
-
 .wf-truncate {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.wf-line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.wf-line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* 语义文字色（消费侧 wf-text-danger 缺口——错误/危险操作文字） */
-.wf-text-danger { color: var(--wf-color-error-text); }

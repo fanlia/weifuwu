@@ -7,7 +7,7 @@ import { DOMAINS } from '../shell.tsx'
 
 export const NotFound: Component = async (_init: any, _ctx: any) => async (_p: any) => (
   <div class="wf-container wf-center wf-stack wf-gap-sm" style="--wf-max:600px;padding:80px 16px;text-align:center">
-    <h1 class="wf-text-4xl wf-m-0">404</h1>
+    <h1 class="wf-font-4xl wf-margin-none">404</h1>
     <p class="wf-text-secondary">页面不存在——试试入口：</p>
     <div class="wf-cluster wf-gap-sm" style="justify-content:center">
       {DOMAINS.map((d) => (

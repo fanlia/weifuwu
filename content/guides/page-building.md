@@ -11,7 +11,7 @@
 骨架层     页面的大形状：wf-app-shell（壳）/ wf-container（定宽）/ wf-stack（纵列）
 分区层     区域划分：header / content / footer / sider（用 row/stack 组合）
 内容层     组件就位：Table/Form/Card…（组件文档查 API）
-间距层     呼吸感：wf-gap-* / wf-p-*（间距工具）
+间距层     呼吸感：wf-gap-* / wf-padding-*（间距工具）
 响应式层   多设备：wf-hidden@lg / 断点变体（布局降级）
 ```
 
@@ -22,7 +22,7 @@
    "独立页面"（→ wf-container + wf-stack）？
 ② 划分区：从上到下/从左到右画出区域（header 标题区 / 主体区 / 底部操作区）
 ③ 填内容：每个区域放什么组件（标题 → PageHeader；列表 → Table；表单 → Form）
-④ 调间距：区域间 wf-gap-lg、卡片内 wf-gap-sm、标题下 wf-mb-*
+④ 调间距：区域间 wf-gap-lg、卡片内 wf-gap-sm、标题下 wf-margin-bottom-*
 ⑤ 响应式：窄屏时哪些隐藏（wf-hidden@lg）、哪些堆叠（grid 列数自适应）
 ```
 
@@ -57,9 +57,9 @@ return (
 
 ```tsx
 // 区域间 gap-lg（16px）已有（骨架 --wf-gap:16px）
-// 卡片内紧凑 gap-sm、标题下留白 wf-mb-sm
+// 卡片内紧凑 gap-sm、标题下留白 wf-margin-bottom-sm
 <Card>
-  <div class="wf-text-bold wf-mb-sm">补充信息</div>
+  <div class="wf-bold wf-margin-bottom-sm">补充信息</div>
   <div class="wf-stack wf-gap-xs">…</div>
 </Card>
 ```
@@ -92,7 +92,7 @@ return (
 ```
 □ 布局结构只用 wf-* 原语（不手写 CSS/内联 style 自定义）
 □ 内容元素用组件（不裸 div/span 手搓结构）
-□ 间距走 wf-gap-*/wf-p-*（不用魔数 px）
+□ 间距走 wf-gap-*/wf-padding-*（不用魔数 px）
 □ 图标用 Icon 组件（禁 emoji 装饰）
 □ 先查 patterns——重复造轮子是最常见的浪费
 ```

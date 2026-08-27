@@ -29,9 +29,9 @@ export const TodoEmbed: Component = async (_init: any, _ctx: any) => {
 
   return async (_p: any) => (
     <div class="wf-stack wf-gap-sm">
-      <div class="wf-text-xs wf-text-secondary">← 活体运行（页面内嵌独立 router——history:false 隔离模式）</div>
-      <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md" style="min-height:280px" ref={embedRef} />
-      <div class="wf-text-xs wf-text-tertiary">
+      <div class="wf-font-xs wf-text-secondary">← 活体运行（页面内嵌独立 router——history:false 隔离模式）</div>
+      <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md" style="min-height:280px" ref={embedRef} />
+      <div class="wf-font-xs wf-text-tertiary">
         路由表：<code style="font-family:var(--wf-font-mono)">/</code> 列表 · <code style="font-family:var(--wf-font-mono)">/new</code> 新建
         —— hash 桥接（location.hash）· 源码：<a href="/src/examples/apps/todo/app.tsx" target="_blank">app.tsx</a> · <a href="/src/examples/apps/todo/server.ts" target="_blank">server.ts</a>
       </div>

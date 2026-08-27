@@ -1,5 +1,5 @@
 /* nowrap — 不换行（只管 flex-wrap——不定义 align-items，避免与
-   wf-stretch 等对齐工具叠加冲突：双份 CSS 下 nowrap 后置曾覆盖 stretch；
+   wf-items-* 对齐工具叠加冲突：双份 CSS 下 nowrap 后置曾覆盖 stretch；
    L3：gap 默认值 :where() 零优先级） */
 .wf-nowrap {
   display: flex;

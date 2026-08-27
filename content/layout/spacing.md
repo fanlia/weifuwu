@@ -2,15 +2,16 @@
 
 ## 概述
 
-90 个 p/m/gap 类——刻度阶梯（--wf-space-*）
+padding/margin/gap/尺寸——属性根全名 + 刻度阶梯（--wf-space-*）
 
 ## 代表类
 
 ```css
-.wf-p-md
-.wf-m-0
+.wf-padding-md
+.wf-margin-none
 .wf-gap-sm
 .wf-gap-lg
+.wf-width-full
 ```
 
 ## 源码
@@ -19,4 +20,4 @@
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/spacing` ——（P1 填充）
+> showcase 活体演示页：`/layout/spacing`（族示例 + 代表类）

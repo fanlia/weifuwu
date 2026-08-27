@@ -7,7 +7,7 @@
  *   - 子应用独立状态：各自 let + render()，互不干扰
  * 纯前端编排——无后端（模板结构最简形态：app.tsx + server.ts + main.tsx）
  */
-import { UIRouter, uiServe, h, createClientBrowser } from 'weifuwu/vdom'
+import { UIRouter, uiServe, h } from 'weifuwu/vdom'
 import type { Component } from 'weifuwu/vdom'
 import { Button, Input, Tag, PageHeader, Space } from 'weifuwu/components'
 
@@ -41,7 +41,7 @@ const MiniTodo = async (_init: any, ctx: any) => {
           <Button size="sm" onClick={() => { if (input.trim()) { items.push(input.trim()); input = ''; ctx.render() } }}>添加</Button>
         </div>
         <ul style="margin:0;padding-left:16px">
-          {items.map((it, i) => <li key={it + i} class="wf-text-sm">{it}</li>)}
+          {items.map((it, i) => <li key={it + i} class="wf-font-sm">{it}</li>)}
         </ul>
       </div>
     )
@@ -53,12 +53,12 @@ export const WorkbenchPage: Component = async (_init: any, ctx: any) => {
     <div class="wf-stack wf-gap-md">
       <PageHeader title="应用编排工作台" sub="父应用嵌入子应用——registerApp 注册 · <App appId /> 渲染 · 独立状态" />
       <div class="wf-grid" style="--wf-cols:repeat(auto-fit,minmax(240px,1fr));--wf-gap:12px">
-        <div class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
-          <b class="wf-text-sm">计数器（子应用 1）</b>
+        <div class="wf-surface wf-border wf-radius-md wf-padding-md wf-stack wf-gap-sm">
+          <b class="wf-font-sm">计数器（子应用 1）</b>
           {h(Counter, {})}
         </div>
-        <div class="wf-surface wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
-          <b class="wf-text-sm">迷你任务（子应用 2）</b>
+        <div class="wf-surface wf-border wf-radius-md wf-padding-md wf-stack wf-gap-sm">
+          <b class="wf-font-sm">迷你任务（子应用 2）</b>
           {h(MiniTodo, {})}
         </div>
       </div>
@@ -79,5 +79,5 @@ export function createMultiApp(root: HTMLElement, _options?: { history?: boolean
     router.get(r.path, (req: Request, ctx: any) =>
       (ctx as { stream: (v: unknown) => Response }).stream(r.render()))
   }
-  return uiServe(router, { root, browser: createClientBrowser()! })
+  return uiServe(router, { root })
 }

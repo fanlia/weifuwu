@@ -42,7 +42,7 @@ export const Reports: Component = async (_props, ctx) => {
         <div class="wf-stack wf-gap-lg">
           <PageHeader key="loading-header" title="运营报表" sub="AI 团队使用量 / 成本 / 活跃度" />
           <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
-            {[1, 2, 3, 4, 5, 6].map(i => <Card key={i}><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="40%" height="24px" className="wf-mt-sm" /></Card>)}
+            {[1, 2, 3, 4, 5, 6].map(i => <Card key={i}><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="40%" height="24px" className="wf-margin-top-sm" /></Card>)}
           </div>
           <Skeleton variant="table" lines={4} cols={3} />
         </div>
@@ -74,25 +74,25 @@ export const Reports: Component = async (_props, ctx) => {
 
       {/* P3-1：部门维度看板（三层模型计量单元）+ 配额告警黄条 */}
       {$.quotaPressure && (
-        <div class="wf-bg-warning wf-p-sm wf-rounded wf-text-sm wf-text-on-warning">⚠️ 沙盒配额接近上限（≥80%）——终止不用的环境释放配额</div>
+        <div class="wf-bg-warning wf-padding-sm wf-radius wf-font-sm wf-text-on-warning">⚠️ 沙盒配额接近上限（≥80%）——终止不用的环境释放配额</div>
       )}
       <Card key="usage-card">
-        <div class="wf-row wf-gap-sm wf-mb-sm">
-          <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="users" size={14} /> 项目空间用量（按部门）</div>
-          <span class="wf-text-xs wf-text-tertiary">消息 · AI 运行 · Token · 环境状态</span>
+        <div class="wf-row wf-gap-sm wf-margin-bottom-sm">
+          <div class="wf-fill wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="users" size={14} /> 项目空间用量（按部门）</div>
+          <span class="wf-font-xs wf-text-tertiary">消息 · AI 运行 · Token · 环境状态</span>
         </div>
         {$.deptStats.length === 0 ? (
-          <div class="wf-text-sm wf-text-tertiary">暂无项目空间使用数据</div>
+          <div class="wf-font-sm wf-text-tertiary">暂无项目空间使用数据</div>
         ) : (
           <div class="wf-stack wf-gap-none">
             {$.deptStats.map((d) => (
-              <div key={d.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b wf-items-center">
+              <div key={d.id} class="wf-row wf-gap-sm wf-padding-y-sm wf-border-bottom wf-items-center">
                 <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} small />
-                <span class="wf-text-sm wf-text-medium wf-fill wf-truncate">{d.name}</span>
-                {d.envLabel && <span class={`wf-text-xs wf-px-sm wf-py-xs wf-rounded ${d.envStatus === 'error' ? 'wf-bg-error wf-text-on-brand' : 'wf-bg-tertiary'}`}>{d.envLabel}</span>}
-                <span class="wf-text-xs wf-text-tertiary wf-nums">{d.messages} 消息</span>
-                <span class="wf-text-xs wf-text-tertiary wf-nums">{d.runs} 次运行</span>
-                <span class="wf-text-sm wf-text-semibold wf-nums">{((d.tokens ?? 0) / 1000).toFixed(1)}k</span>
+                <span class="wf-font-sm wf-medium wf-fill wf-truncate">{d.name}</span>
+                {d.envLabel && <span class={`wf-font-xs wf-padding-x-sm wf-padding-y-xs wf-radius ${d.envStatus === 'error' ? 'wf-bg-error wf-text-on-brand' : 'wf-bg-tertiary'}`}>{d.envLabel}</span>}
+                <span class="wf-font-xs wf-text-tertiary wf-nums">{d.messages} 消息</span>
+                <span class="wf-font-xs wf-text-tertiary wf-nums">{d.runs} 次运行</span>
+                <span class="wf-font-sm wf-semibold wf-nums">{((d.tokens ?? 0) / 1000).toFixed(1)}k</span>
               </div>
             ))}
           </div>
@@ -107,11 +107,11 @@ export const Reports: Component = async (_props, ctx) => {
         <StatCard key="cost" label="预估 AI 成本" value={`¥${estCostYuan.toFixed(2)}`} icon={<Icon name="database" />} animate onClick={() => ctx.app?.navigate('/settings')} />
         {roi && (
           <Card style={{ gridColumn: 'span 2' }}>
-            <div class="wf-row wf-between wf-gap-md">
+            <div class="wf-row wf-justify-between wf-gap-md">
               <div class="wf-stack wf-gap-none">
-                <span class="wf-text-xs wf-text-tertiary">本月 AI 节省估算（ROI）</span>
-                <span class="wf-text-2xl wf-text-semibold" style="color: var(--wf-color-success)">¥{roi.savedYuan}</span>
-                <span class="wf-text-xs wf-text-secondary">{roi.aiRepliesMonth} 条 AI 回复 × ¥{roi.costPerReply}/条（人工处理成本）− AI 成本 ¥{roi.estCostYuan}</span>
+                <span class="wf-font-xs wf-text-tertiary">本月 AI 节省估算（ROI）</span>
+                <span class="wf-font-2xl wf-semibold" style="color: var(--wf-color-success)">¥{roi.savedYuan}</span>
+                <span class="wf-font-xs wf-text-secondary">{roi.aiRepliesMonth} 条 AI 回复 × ¥{roi.costPerReply}/条（人工处理成本）− AI 成本 ¥{roi.estCostYuan}</span>
               </div>
               <Icon name="trending-up" size={28} className="wf-text-success" />
             </div>
@@ -119,58 +119,58 @@ export const Reports: Component = async (_props, ctx) => {
         )}
       </div>
 
-      <div class="wf-stretch wf-gap-md" style="flex-wrap: wrap">
+      <div class="wf-row wf-items-stretch wf-gap-md" style="flex-wrap: wrap">
         <Card style={{ flex: '3', minWidth: '320px' }}>
-          <div class="wf-row wf-gap-sm wf-text-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 14 天消息</div>
-          <div class="wf-row wf-bottom wf-gap-md">
-            <div class="wf-text-2xl wf-text-semibold wf-nums">{trendTotal}</div>
-            <div class="wf-text-xs wf-text-tertiary">峰值 {peak?.count ?? 0} · {activeAgentCount} 活跃 · 14 天成本 ¥{costTotalYuan.toFixed(2)}</div>
+          <div class="wf-row wf-gap-sm wf-font-sm wf-text-tertiary"><Icon name="bar-chart" size={14} /> 近 14 天消息</div>
+          <div class="wf-row wf-items-end wf-gap-md">
+            <div class="wf-font-2xl wf-semibold wf-nums">{trendTotal}</div>
+            <div class="wf-font-xs wf-text-tertiary">峰值 {peak?.count ?? 0} · {activeAgentCount} 活跃 · 14 天成本 ¥{costTotalYuan.toFixed(2)}</div>
           </div>
           <div style="margin-top: 6px">{trend.length > 0 && <Chart type="line" area data={trend.map((t) => ({ label: t.day, value: t.count }))} options={{ height: 130 }} title="近 14 天消息" />}</div>
         </Card>
       </div>
 
-      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">活跃 Agent（近 14 天消息 · {activeAgentCount} 个活跃）</div>
+      <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">活跃 Agent（近 14 天消息 · {activeAgentCount} 个活跃）</div>
       {(s.active_agents ?? []).length > 0 ? (
         <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(200px, 1fr))">
           {(s.active_agents ?? []).slice(0, 4).map((a: { id: string; name: string; type: string; message_count: number }) => (
             <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)}>
               <div class="wf-row wf-gap-sm wf-items-center">
                 <Ava name={a.name} type={a.type} small />
-                <div class="wf-fill wf-truncate wf-text-base wf-text-semibold">{a.name}</div>
+                <div class="wf-fill wf-truncate wf-font-base wf-semibold">{a.name}</div>
               </div>
-              <div class="wf-text-2xl wf-text-semibold wf-mt-xs wf-nums">{a.message_count}</div>
-              <div class="wf-text-xs wf-text-tertiary">条消息 · 本周</div>
+              <div class="wf-font-2xl wf-semibold wf-margin-top-xs wf-nums">{a.message_count}</div>
+              <div class="wf-font-xs wf-text-tertiary">条消息 · 本周</div>
             </Card>
           ))}
         </div>
       ) : (
-        <div class="wf-text-sm wf-text-tertiary">近 7 天暂无活跃——聊天中 @ AI 成员后这里会显示排行</div>
+        <div class="wf-font-sm wf-text-tertiary">近 7 天暂无活跃——聊天中 @ AI 成员后这里会显示排行</div>
       )}
 
-      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">Token 成本排行（按 Agent）</div>
+      <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">Token 成本排行（按 Agent）</div>
       {$.costAgents.length > 0 ? (
         <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(200px, 1fr))">
           {$.costAgents.slice(0, 4).map((a: CostAgentRow) => (
             <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)}>
               <div class="wf-row wf-gap-sm wf-items-center">
                 <Ava name={a.name} type={a.type} small />
-                <div class="wf-fill wf-truncate wf-text-base wf-text-semibold">{a.name}</div>
+                <div class="wf-fill wf-truncate wf-font-base wf-semibold">{a.name}</div>
               </div>
-              <div class="wf-text-2xl wf-text-semibold wf-mt-xs wf-nums">{((a.tokens_total ?? 0) / 1000).toFixed(1)}k</div>
-              <div class="wf-text-xs wf-text-tertiary">tokens · {a.run_count} 次运行</div>
+              <div class="wf-font-2xl wf-semibold wf-margin-top-xs wf-nums">{((a.tokens_total ?? 0) / 1000).toFixed(1)}k</div>
+              <div class="wf-font-xs wf-text-tertiary">tokens · {a.run_count} 次运行</div>
             </Card>
           ))}
         </div>
       ) : (
-        <div class="wf-text-sm wf-text-tertiary">暂无 token 消耗——AI 对话后这里会显示成本排行</div>
+        <div class="wf-font-sm wf-text-tertiary">暂无 token 消耗——AI 对话后这里会显示成本排行</div>
       )}
 
       {$.funnel && (
-        <div class="wf-surface wf-p-md wf-rounded wf-border">
-          <div class="wf-row wf-gap-sm wf-mb-sm">
-            <div class="wf-fill wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">激活漏斗</div>
-            <span class="wf-text-xs wf-text-tertiary">注册 → 建 Agent → 首次对话</span>
+        <div class="wf-surface wf-padding-md wf-radius wf-border">
+          <div class="wf-row wf-gap-sm wf-margin-bottom-sm">
+            <div class="wf-fill wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">激活漏斗</div>
+            <span class="wf-font-xs wf-text-tertiary">注册 → 建 Agent → 首次对话</span>
           </div>
           <div class="wf-row wf-gap-md">
             {(['register_complete', 'agent_created', 'first_message'] as const).map((ev) => {
@@ -183,9 +183,9 @@ export const Reports: Component = async (_props, ctx) => {
                 <div key={ev} class="wf-fill wf-stack wf-gap-xs">
                   <div class="wf-row wf-gap-xs wf-items-center">
                     <Icon name={done ? 'check-circle' : 'target'} size={14} />
-                    <span class={`wf-text-sm${done ? ' wf-text-brand wf-text-semibold' : ' wf-text-secondary'}`}>{labels[ev]}</span>
+                    <span class={`wf-font-sm${done ? ' wf-text-primary wf-semibold' : ' wf-text-secondary'}`}>{labels[ev]}</span>
                   </div>
-                  <div class="wf-text-xs wf-text-tertiary">{done ? '已完成' : '未完成'} · 全平台 {rate}%</div>
+                  <div class="wf-font-xs wf-text-tertiary">{done ? '已完成' : '未完成'} · 全平台 {rate}%</div>
                 </div>
               )
             })}

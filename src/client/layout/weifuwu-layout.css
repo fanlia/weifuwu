@@ -1,4 +1,6 @@
-/* weifuwu/layout — 基于 CSS 标准的布局原语 */
+/* weifuwu/layout — 基于 CSS 标准的布局原语
+ * 命名规则：design/layout-naming.md（概念原语 / 属性根全名 / 裸值词——三后缀语法）
+ * 类面随消费证据生长（契约测试锁定——layout-inventory.test.ts） */
 @import './_tokens.css';
 @import './_dark.css';
 @import './_presets.css';
@@ -7,39 +9,27 @@
 @import './_row.css';
 @import './_split.css';
 @import './_center.css';
-@import './_between.css';
-@import './_right.css';
-@import './_top.css';
-@import './_bottom.css';
-@import './_stretch.css';
-@import './_around.css';
-@import './_evenly.css';
+@import './_justify.css';
 @import './_fill.css';
-@import './_fixed.css';
-@import './_auto.css';
-@import './_cover.css';
-@import './_pop.css';
-@import './_popup.css';
-@import './_safe-area.css';
-@import './_anchor.css';
-@import './_sticky.css';
-@import './_surface.css';
 @import './_grid.css';
 @import './_cluster.css';
-@import './_scroll.css';
-@import './_clip.css';
-@import './_hidden.css';
-@import './_block.css';
-@import './_inline.css';
-@import './_inline-block.css';
-@import './_flex.css';
-@import './_container.css';
-@import './_contents.css';
+@import './_cover.css';
+@import './_position.css';
+@import './_sticky.css';
+@import './_overflow.css';
+@import './_safe-area.css';
 @import './_layer.css';
+@import './_align-self.css';
 @import './_nowrap.css';
 @import './_shrink.css';
-@import './_spacing.css';
+@import './_container.css';
 @import './_app-shell.css';
+@import './_surface.css';
 @import './_border.css';
 @import './_text.css';
 @import './_prose.css';
+@import './_spacing.css';
+@import './_hidden.css';
+@import './_block.css';
+@import './_flex.css';
+@import './_popup.css';

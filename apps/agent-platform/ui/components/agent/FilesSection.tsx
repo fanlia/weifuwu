@@ -110,37 +110,37 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
   return async () => {
     return (
     <Card id="sec-files">
-      <div class="wf-split wf-mb-sm">
-        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间文件{wsEntries.length > 0 && <span class="wf-pill wf-bg-tertiary wf-px-sm wf-py-xs wf-text-xs wf-ml-sm">{wsEntries.length} 项</span>}</div>
+      <div class="wf-split wf-margin-bottom-sm">
+        <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="folder" size={14} /> 工作空间文件{wsEntries.length > 0 && <span class="wf-pill wf-bg-tertiary wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-margin-left-sm">{wsEntries.length} 项</span>}</div>
         <div class="wf-row wf-gap-xs">
           <Button size="sm" variant="ghost" onClick={pickWsFile}><Icon name="upload" size={13} /> 上传文件</Button>
           <input ref={wsFileInputRef} type="file" hidden onChange={(e: Event) => { onWsFilePick(e) }} />
           <Button size="sm" variant="ghost" onClick={() => loadWsList()}>刷新</Button>
         </div>
       </div>
-      <div class="wf-text-xs wf-text-tertiary wf-mb-sm">沙盒内 AI 写入的文件与此处一致（卷挂载共享）——AI 干活时刷新即可看到进度</div>
+      <div class="wf-font-xs wf-text-tertiary wf-margin-bottom-sm">沙盒内 AI 写入的文件与此处一致（卷挂载共享）——AI 干活时刷新即可看到进度</div>
 
       {wsOpenFile ? (
         <div class="wf-stack wf-gap-sm">
           <div class="wf-row wf-gap-xs">
             <Button size="sm" variant="ghost" onClick={() => { wsOpenFile = null; rerender() }}>返回列表</Button>
-            <span class="wf-text-sm wf-text-medium wf-fill wf-truncate">{wsOpenFile.path}</span>
+            <span class="wf-font-sm wf-medium wf-fill wf-truncate">{wsOpenFile.path}</span>
           </div>
           <textarea rows={12} value={wsEditContent} onInput={(e: Event) => { wsEditContent = (e.target as HTMLTextAreaElement).value; rerender() }} />
-          <div class="wf-right">
+          <div class="wf-justify-end">
             <Button size="sm" variant="primary" disabled={wsSaving} onClick={saveWsFile}>{wsSaving ? '保存中...' : '保存'}</Button>
           </div>
         </div>
       ) : (
         <>
-          <div class="wf-row wf-gap-xs wf-mb-xs wf-text-xs wf-text-secondary">
+          <div class="wf-row wf-gap-xs wf-margin-bottom-xs wf-font-xs wf-text-secondary">
             <Button size="sm" variant="ghost" disabled={wsPath === '/'} onClick={() => loadWsList('')}>/</Button>
             {wsBreadcrumbParts().map((p, i) => {
               const target = wsBreadcrumbParts().slice(0, i + 1).join('/')
               return (
                 <span key={i} class="wf-row wf-gap-xs">
                   <span>/</span>
-                  <button type="button" class="wf-text-secondary wf-text-xs" onClick={() => loadWsList(target)}>{p}</button>
+                  <button type="button" class="wf-text-secondary wf-font-xs" onClick={() => loadWsList(target)}>{p}</button>
                 </span>
               )
             })}
@@ -148,14 +148,14 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
           {wsLoading && <Loading />}
           {!wsLoading && wsEntries.length === 0 && <EmptyState icon="📂" text="空目录" hint="沙盒内 AI 写文件后此处可见" />}
           {wsEntries.map((entry) => (
-            <div key={entry.name} class="wf-row wf-gap-xs wf-py-xs wf-items-center">
+            <div key={entry.name} class="wf-row wf-gap-xs wf-padding-y-xs wf-items-center">
               <button type="button" class="wf-row wf-gap-xs wf-fill wf-text-left"
                 onClick={() => openWsFile(entry)}>
                 <Icon name={entry.type === 'dir' ? 'folder' : 'file-text'} size={14} />
-                <span class="wf-text-sm wf-text-medium wf-truncate">{entry.name}{entry.type === 'dir' ? '/' : ''}</span>
+                <span class="wf-font-sm wf-medium wf-truncate">{entry.name}{entry.type === 'dir' ? '/' : ''}</span>
               </button>
-              <span class="wf-text-xs wf-text-tertiary wf-nums">{entry.type === 'file' && entry.size > 1024 ? (entry.size / 1024).toFixed(1) + 'KB' : entry.size + 'B'}</span>
-              <span class="wf-text-xs wf-text-tertiary wf-nums">{new Date(entry.mtime).toLocaleTimeString()}</span>
+              <span class="wf-font-xs wf-text-tertiary wf-nums">{entry.type === 'file' && entry.size > 1024 ? (entry.size / 1024).toFixed(1) + 'KB' : entry.size + 'B'}</span>
+              <span class="wf-font-xs wf-text-tertiary wf-nums">{new Date(entry.mtime).toLocaleTimeString()}</span>
               {entry.type === 'file' && (
                 <a class="wf-btn wf-btn--ghost wf-btn--sm" title="下载（AI 产物交付）"
                   href={`/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`)}&download=1`}>

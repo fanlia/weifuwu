@@ -1,13 +1,10 @@
-/* flex — 弹性盒 display 工具（补全 display 族：block/inline/inline-block/contents/hidden/flex）
+/* flex — 弹性盒 display 工具（补全 display 族：block/hidden/flex）
  * 核心场景：响应式显隐的 flex 容器——`wf-hidden wf-flex@lg`（窄隐宽显且保持 flex 布局）。
  * 不可用 wf-block@lg 替代：block 会覆盖 wf-stack 的 display:flex，
- * 致 flex-direction/gap/mt-auto 全部静默失效（layouts-demo 侧栏 mt-auto 实测踩坑）。 */
+ * 致 flex-direction/gap 全部静默失效（layouts-demo 侧栏 mt-auto 实测踩坑）。
+ * 注意：@ 选择器必须转义（\.wf-flex\@lg——未转义 @ 是非法选择器，整条规则被丢弃） */
 .wf-flex {
   display: flex;
 }
 @media (min-width: 640px) { .wf-flex\@sm { display: flex; } }
-@media (min-width: 768px) { .wf-flex\@md { display: flex; } }
 @media (min-width: 1024px) { .wf-flex\@lg { display: flex; } }
-
-@media (min-width: 640px) { .wf-flex@sm { display: flex; } }
-@media (min-width: 768px) { .wf-flex@md { display: flex; } }

@@ -1,9 +1,7 @@
-/* hidden — 隐藏元素 */
+/* hidden — 隐藏元素（响应式显隐唯一模式：`wf-hidden wf-flex@lg` 窄隐宽显） */
 .wf-hidden {
   display: none;
 }
-@media (min-width: 640px) { .wf-hidden\@sm { display: none; } }
-@media (min-width: 768px) { .wf-hidden\@md { display: none; } }
 @media (min-width: 1024px) { .wf-hidden\@lg { display: none; } }
 
 /* dim — 视觉淡化（运行中/历史态/次要操作） */
@@ -11,12 +9,5 @@
   opacity: 0.7;
 }
 
-/* cursor — 交互指针 */
+/* cursor — 交互指针（裸值词） */
 .wf-pointer { cursor: pointer; }
-.wf-not-allowed { cursor: not-allowed; }
-
-/* 打印工具 — 导出 PDF 时隐藏工具区 / 恢复块级 */
-@media print {
-  .wf-print-hidden { display: none !important; }
-  .wf-print-block { display: block !important; }
-}

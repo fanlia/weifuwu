@@ -34,7 +34,7 @@ export async function AppLayout(_props: {}, ctx: UIContext) {
   // 认证守卫（2026-08——框架先清后建修复后的 SPA 方案验证）
   if (!ctx.auth?.isLoggedIn) {
     ctx.afterRender?.(() => { void ctx.app?.navigate('/login') })
-    return async (__props: {}) => <div class="wf-center wf-h-full"><Loading /></div>
+    return async (__props: {}) => <div class="wf-center wf-height-full"><Loading /></div>
   }
 
   const user = (ctx.auth?.user ?? null) as { name?: string; email?: string } | null
@@ -61,7 +61,7 @@ export async function AppLayout(_props: {}, ctx: UIContext) {
         <div class="wf-sidebar-header">
           <Avatar name={(window as any).__whiteLabel?.logo || 'A'} />
           <div class="wf-stack wf-gap-none">
-            <span class="wf-text-base wf-text-semibold">{(window as any).__whiteLabel?.name || 'Agent Platform'}</span>
+            <span class="wf-font-base wf-semibold">{(window as any).__whiteLabel?.name || 'Agent Platform'}</span>
             <small class="wf-uppercase wf-tracking-wide">Multi-Tenant AI</small>
           </div>
         </div>
@@ -73,11 +73,11 @@ export async function AppLayout(_props: {}, ctx: UIContext) {
         </div>
 
         <div class="wf-sidebar-footer">
-          <div class="wf-surface wf-row wf-gap-sm wf-p-sm">
+          <div class="wf-surface wf-row wf-gap-sm wf-padding-sm">
             <Avatar name={userName} size="sm" />
             <div class="wf-fill wf-stack wf-gap-none wf-shrink">
-              <div class="wf-text-sm wf-text-semibold wf-truncate">{userName}</div>
-              <div class="wf-text-xs wf-text-tertiary wf-truncate">{userMail}</div>
+              <div class="wf-font-sm wf-semibold wf-truncate">{userName}</div>
+              <div class="wf-font-xs wf-text-tertiary wf-truncate">{userMail}</div>
             </div>
             <Button size="sm" variant="ghost" title="设置" onClick={() => ctx.app?.navigate('/settings')}><Icon name="settings" size={16} /></Button>
             <Button size="sm" variant="ghost" title="退出登录" onClick={logout}><Icon name="log-out" size={16} /></Button>

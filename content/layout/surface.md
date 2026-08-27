@@ -2,7 +2,7 @@
 
 ## 概述
 
-20 个背景/圆角/边框类（卡片/表单面；flat 变体=平面表面）
+背景/圆角/阴影/气泡（卡片/表单面；flat 变体=平面表面）
 
 ## 代表类
 
@@ -10,8 +10,8 @@
 .wf-surface
 .wf-surface--flat
 .wf-bg-secondary
-.wf-rounded-md
-.wf-border-t
+.wf-radius-md
+.wf-shadow
 ```
 
 ## 源码
@@ -20,4 +20,4 @@
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/surface` ——（P1 填充）
+> showcase 活体演示页：`/layout/surface`（族示例 + 代表类）

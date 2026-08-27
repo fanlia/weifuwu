@@ -50,7 +50,7 @@ const DemoTable: Component = async (_props, ctx) => {
     { id: 3, name: '王五', role: '访客', status: '活跃', email: 'wang@wf.dev', phone: '138-0000-0003', dept: '设计组' },
   ]
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <div class="wf-row wf-gap-xs">
         <button class={`wf-btn wf-btn--sm ${view === 'data' ? 'wf-btn--primary' : 'wf-btn--secondary'}`} onClick={() => { view = 'data'; rerender() }}>有数据</button>
         <button class={`wf-btn wf-btn--sm ${view === 'empty' ? 'wf-btn--primary' : 'wf-btn--secondary'}`} onClick={() => { view = 'empty'; rerender() }}>空态</button>
@@ -66,7 +66,7 @@ const DemoTable: Component = async (_props, ctx) => {
       ]}
         sortKey={sortKey} sortOrder={sortOrder}
         onSort={(key, order) => { sortKey = key; sortOrder = order; rerender() }} emptyText="暂无数据" minWidth="640px" />
-      <div class="wf-text-xs wf-text-secondary">点击列头排序；姓名列固定（横向滚动时保持可见——sticky 首列）；切换查看空态</div>
+      <div class="wf-font-xs wf-text-secondary">点击列头排序；姓名列固定（横向滚动时保持可见——sticky 首列）；切换查看空态</div>
     </div>
   )
 }
@@ -78,7 +78,7 @@ const DemoCardShowcase: Component = async (_props, ctx) => {
       <Card>默认卡片</Card>
       <Card variant="outlined">线框卡片</Card>
       <Card clickable onClick={() => { clicked = true; ctx.render() }}>可点击卡片</Card>
-      {clicked && <div class="wf-text-xs wf-w-full wf-text-secondary">卡片被点击了</div>}
+      {clicked && <div class="wf-font-xs wf-width-full wf-text-secondary">卡片被点击了</div>}
     </div>
   )
 }
@@ -115,7 +115,7 @@ const DemoTag: Component = async (_props, ctx) => {
 }
 
 const DemoAvatar: Component = async () => async () => (
-  <div class="wf-row wf-gap-md wf-bottom">
+  <div class="wf-row wf-gap-md wf-items-end">
     <Avatar name="张三" />
     <Avatar name="李四" size="sm" />
     <Avatar name="王五" size="lg" />
@@ -160,7 +160,7 @@ const greet = (name: string) => \`你好，\${name}\`
 )
 
 const DemoCodeBlock: Component = async () => async () => (
-  <div class="wf-stack wf-gap-sm wf-w-full">
+  <div class="wf-stack wf-gap-sm wf-width-full">
     <CodeBlock lang="ts" title="示例.ts" code={`import { Markdown } from 'weifuwu/components'
 
 // 复制按钮 + 语言标签 + 横向滚动
@@ -170,7 +170,7 @@ const view = <Markdown content="# 标题" />`} />
 )
 
 const DemoDescriptionsSize: Component = async () => async () => (
-  <div class="wf-w-full">
+  <div class="wf-width-full">
     <Descriptions
       size="sm"
       items={[
@@ -181,14 +181,14 @@ const DemoDescriptionsSize: Component = async () => async () => (
       ]}
       column={2}
     />
-    <div class="wf-text-xs wf-text-secondary">size=small 紧凑布局（详情页密度）</div>
+    <div class="wf-font-xs wf-text-secondary">size=small 紧凑布局（详情页密度）</div>
   </div>
 )
 
 const DemoHighlightMulti: Component = async () => async () => (
-  <div class="wf-w-full">
+  <div class="wf-width-full">
     <Highlight text="React 与 Vue 都是现代前端框架，React 生态更丰富，Vue 上手更快" query={['react', 'vue']} />
-    <div class="wf-text-xs wf-text-secondary">多词高亮（query 数组）——大小写不敏感 mark</div>
+    <div class="wf-font-xs wf-text-secondary">多词高亮（query 数组）——大小写不敏感 mark</div>
   </div>
 )
 
@@ -204,18 +204,18 @@ const DemoTimeline: Component = async (_props, ctx) => {
     { key: 'h3', title: '完成', time: '12:00', status: 'success' as const },
   ]
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-md wf-w-full">
+    <div class="wf-stack wf-gap-md wf-width-full">
       <Timeline items={logs} />
-      <div class="wf-text-xs wf-text-secondary">竖向（默认）</div>
+      <div class="wf-font-xs wf-text-secondary">竖向（默认）</div>
       <Timeline items={hItems} mode="horizontal" />
-      <div class="wf-text-xs wf-text-secondary">横向模式（步骤进度）</div>
+      <div class="wf-font-xs wf-text-secondary">横向模式（步骤进度）</div>
       <Button size="sm" variant="ghost" onClick={() => { logs = [...logs.slice(1), { key: String(Date.now()), title: '新事件', time: '现在', status: 'warning' as const, content: '点击追加' }]; ctx.render() }}>追加事件</Button>
     </div>
   )
 }
 
 const DemoDescriptions: Component = async () => async () => (
-  <div class="wf-w-full">
+  <div class="wf-width-full">
     <Descriptions column={2} items={[
       { label: '名称', value: '小码（开发助手）' },
       { label: '类型', value: 'AI Agent' },
@@ -237,7 +237,7 @@ const DemoAvatarGroup: Component = async () => async () => (
 const DemoMessageBubble: Component = async (_props, ctx) => {
   let st: 'complete' | 'streaming' | 'error' = 'complete'
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <MessageBubble role="user" content="北京天气如何？" />
       <MessageBubble role="assistant" status={st} content={st === 'error' ? '请求失败，请重试' : '北京 25°C，晴。'} actions={st === 'error' ? <Button size="sm" variant="ghost" onClick={() => { st = 'complete'; ctx.render() }}>🔄 重试</Button> : undefined} />
       <div class="wf-row wf-gap-xs">
@@ -250,27 +250,27 @@ const DemoMessageBubble: Component = async (_props, ctx) => {
 }
 
 const DemoHighlight: Component = async () => async () => (
-  <div class="wf-stack wf-gap-sm wf-w-full">
-    <div class="wf-text-sm"><Highlight text="搜索 张三 的订单记录，张三 是管理员" query={['张三']} /></div>
-    <div class="wf-text-sm wf-text-secondary"><Highlight text="支持多词：weifuwu 与 components" query={['weifuwu', 'components']} /></div>
+  <div class="wf-stack wf-gap-sm wf-width-full">
+    <div class="wf-font-sm"><Highlight text="搜索 张三 的订单记录，张三 是管理员" query={['张三']} /></div>
+    <div class="wf-font-sm wf-text-secondary"><Highlight text="支持多词：weifuwu 与 components" query={['weifuwu', 'components']} /></div>
   </div>
 )
 
 const DemoList: Component = async () => async () => (
-  <div class="wf-w-full" style="max-width:400px">
+  <div class="wf-width-full" style="max-width:400px">
     <List divided header="最近文件"
       items={[{ n: '需求文档.md', s: '2 分钟前' }, { n: '架构设计.pdf', s: '昨天' }, { n: '接口说明.docx', s: '3 天前' }]}
       renderItem={(f: any) => (
         <div class="wf-split">
-          <span class="wf-row wf-gap-xs"><Icon name="file" size={14} /><span class="wf-text-sm">{f.n}</span></span>
-          <span class="wf-text-xs wf-text-tertiary">{f.s}</span>
+          <span class="wf-row wf-gap-xs"><Icon name="file" size={14} /><span class="wf-font-sm">{f.n}</span></span>
+          <span class="wf-font-xs wf-text-tertiary">{f.s}</span>
         </div>
       )} />
   </div>
 )
 
 const DemoResult: Component = async () => async () => (
-  <div class="wf-w-full wf-stack wf-gap-md">
+  <div class="wf-width-full wf-stack wf-gap-md">
     <Result status="success" title="注册成功" desc="欢迎加入 weifuwu，验证邮件已发送至你的邮箱"
       extra={<><Button variant="primary">进入工作台</Button><Button variant="ghost">返回首页</Button></>} />
     <Result status="error" title="提交失败" desc="网络异常，请稍后重试或联系客服"
@@ -280,7 +280,7 @@ const DemoResult: Component = async () => async () => (
 )
 
 const DemoImage: Component = async () => async () => (
-  <div class="wf-row wf-gap-lg wf-top">
+  <div class="wf-row wf-gap-lg wf-items-start">
     <Img src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
     <Img src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
     <Img src="/broken.jpg" fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='14'%3E加载失败%3C/text%3E%3C/svg%3E" alt="fallback" width={120} height={120} style={{ objectFit: 'cover', borderRadius: '8px' }} />
@@ -292,18 +292,18 @@ const DemoImage: Component = async () => async () => (
 const DemoInView: Component = async (_props, ctx) => {
   let log: string[] = []
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
-      <p class="wf-text-sm wf-text-secondary">向下滚动，下方的懒加载区域将在进入视窗后渲染👇</p>
-      <div class="wf-center wf-bg-secondary wf-rounded wf-text-sm wf-text-tertiary" style="height:120px">上方留白区域，需要滚动</div>
+    <div class="wf-stack wf-gap-sm wf-width-full">
+      <p class="wf-font-sm wf-text-secondary">向下滚动，下方的懒加载区域将在进入视窗后渲染👇</p>
+      <div class="wf-center wf-bg-secondary wf-radius wf-font-sm wf-text-tertiary" style="height:120px">上方留白区域，需要滚动</div>
       <InView onEnter={() => { log = [...log, '已加载']; ctx.render() }}>
-        <div class="wf-p-lg wf-text-center wf-bg-brand wf-rounded">
-          <div class="wf-text-3xl wf-mb-sm wf-m-0">🎉</div>
-          <p class="wf-m-0 wf-text-semibold">懒加载内容已加载！</p>
-          <p class="wf-text-xs wf-text-secondary wf-mt-xs wf-m-0">用户滚动到此区域后才渲染</p>
+        <div class="wf-padding-lg wf-text-center wf-bg-primary wf-radius">
+          <div class="wf-font-3xl wf-margin-bottom-sm wf-margin-none">🎉</div>
+          <p class="wf-margin-none wf-semibold">懒加载内容已加载！</p>
+          <p class="wf-font-xs wf-text-secondary wf-margin-top-xs wf-margin-none">用户滚动到此区域后才渲染</p>
         </div>
       </InView>
-      <div class="wf-center wf-bg-secondary wf-rounded wf-text-sm wf-text-tertiary" style="height:160px">底部留白区域</div>
-      {log.length > 0 && <div class="wf-text-xs wf-text-secondary">事件: {log.join(', ')}</div>}
+      <div class="wf-center wf-bg-secondary wf-radius wf-font-sm wf-text-tertiary" style="height:160px">底部留白区域</div>
+      {log.length > 0 && <div class="wf-font-xs wf-text-secondary">事件: {log.join(', ')}</div>}
     </div>
   )
 }
@@ -311,10 +311,10 @@ const DemoInView: Component = async (_props, ctx) => {
 const DemoEditor: Component = async (_props, ctx) => {
   let html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p class="wf-text-center">居中文字</p>'
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <Editor value={html} onChange={v => { html = v; ctx.render() }} placeholder="输入内容..."
         ai={{ url: '/api/chat' }} draftKey="demo-editor-1" />
-      <div class="wf-text-xs wf-text-secondary wf-py-xs wf-truncate wf-w-full">
+      <div class="wf-font-xs wf-text-secondary wf-padding-y-xs wf-truncate wf-width-full">
         HTML 输出: {html?.substring(0, 150) || '(空)'}
       </div>
     </div>
@@ -325,13 +325,13 @@ const DemoFilePreview: Component = async (_props, ctx) => {
   let md = '# 项目说明\n\n这是 **文件预览** 组件演示——Markdown 文档。\n\n代码示例：\n\n```js\nconst x = 1\n```\n\n表格：\n\n| 功能 | 状态 |\n|---|---|\n| 预览 | ✅ |\n| 编辑 | ✅ |\n\n\n> 支持预览与编辑（基于事件流）\n\n- 预览：复用 Markdown 安全渲染\n- 编辑：Editor 事件流事务层（撤销/时光机/AI）\n- 保存：序列化回 Markdown\n\n图片示例：![weifuwu](https://picsum.photos/200/100)\n\n---\n\n尾部段落。'
   let saved = ''
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <FilePreview type="md" url="/api/files/README.md" editable ai={{ url: '/api/chat' }} fileName="README.md"
         onSave={async (v: string) => {
           await fetch('/api/files/README.md', { method: 'PUT', body: v })
           saved = v; ctx.render()
         }} />
-      {saved ? <div class="wf-text-xs wf-text-secondary wf-py-xs wf-truncate wf-w-full">已保存: {saved.substring(0, 80)}…</div> : null}
+      {saved ? <div class="wf-font-xs wf-text-secondary wf-padding-y-xs wf-truncate wf-width-full">已保存: {saved.substring(0, 80)}…</div> : null}
     </div>
   )
 }
@@ -340,9 +340,9 @@ const DemoFilePreview: Component = async (_props, ctx) => {
 
 const DemoFilePreviewOffice: Component = async (_props, ctx) => {
   return async () => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <FilePreview type="office" editable ai={{ url: '/api/chat' }} fileName="document.docx" />
-      <div class="wf-text-xs wf-text-secondary wf-py-xs">
+      <div class="wf-font-xs wf-text-secondary wf-padding-y-xs">
         点击「打开 docx/xlsx/pptx」选择本地文件 → 对应编辑器（Editor/SheetGrid/SlideCanvas）→ 下载导出——全程浏览器内转换（无后端）
       </div>
     </div>
@@ -362,7 +362,7 @@ const DemoThemeSwitch: Component = async (_props, ctx) => {
     rootEl().style.setProperty('--wf-dark-brand-seed', dark)
   }
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <div class="wf-row wf-gap-sm">
         <ThemeSwitch onChange={(m) => { mode = m; rerender() }} />
       </div>
@@ -371,11 +371,11 @@ const DemoThemeSwitch: Component = async (_props, ctx) => {
         <ThemeSwitch preset={preset} onPresetChange={(p) => { preset = p; rerender() }} />
       </div>
       <div class="wf-row wf-gap-sm wf-items-center">
-        <label class="wf-text-xs wf-text-secondary">亮色品牌</label>
+        <label class="wf-font-xs wf-text-secondary">亮色品牌</label>
         <input type="color" value={brandSeed} aria-label="亮色品牌色"
           style={{ width: '28px', height: '28px', padding: 0, border: 'var(--wf-border-width) solid var(--wf-color-border)', borderRadius: 'var(--wf-radius-sm)', background: 'none' }}
           onChange={(e: any) => { brandSeed = e.target.value; applySeeds(brandSeed, darkBrandSeed); rerender() }} />
-        <label class="wf-text-xs wf-text-secondary">暗色品牌</label>
+        <label class="wf-font-xs wf-text-secondary">暗色品牌</label>
         <input type="color" value={darkBrandSeed} aria-label="暗色品牌色"
           style={{ width: '28px', height: '28px', padding: 0, border: 'var(--wf-border-width) solid var(--wf-color-border)', borderRadius: 'var(--wf-radius-sm)', background: 'none' }}
           onChange={(e: any) => { darkBrandSeed = e.target.value; applySeeds(brandSeed, darkBrandSeed); rerender() }} />
@@ -386,7 +386,7 @@ const DemoThemeSwitch: Component = async (_props, ctx) => {
           rerender()
         }}>重置</button>
       </div>
-      <div class="wf-text-xs wf-text-secondary">
+      <div class="wf-font-xs wf-text-secondary">
         模式: <code>{mode}</code> · 预设: <code>{preset ?? 'default'}</code> · 品牌: <code>{brandSeed}</code> / <code>{darkBrandSeed}</code> ·
         已持久化 localStorage · 右上角也有一个可直接用
       </div>
@@ -438,7 +438,7 @@ const DemoConfirm: Component = async (_props, ctx) => {
     <div class="wf-row wf-gap-sm">
       <Button variant="danger" onClick={handleDelete}>删除</Button>
       <Button onClick={handleSave}>保存</Button>
-      {result && <span class="wf-text-xs wf-text-secondary">{result}</span>}
+      {result && <span class="wf-font-xs wf-text-secondary">{result}</span>}
     </div>
   )
 }
@@ -450,7 +450,7 @@ const DemoConfirm: Component = async (_props, ctx) => {
 const DemoAutoCompleteDis: Component = async (_p, ctx) => {
   let disabled = false
   return async () => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <AutoComplete options={[
         { value: 'pay-admin', label: '支付平台管理' },
         { value: 'order-center', label: '订单中心' },
@@ -463,7 +463,7 @@ const DemoAutoCompleteDis: Component = async (_p, ctx) => {
 const DemoTableRowSelect: Component = async (_props, ctx) => {
   let keys: (string | number)[] = [1]
   return async () => (
-    <div class="wf-w-full wf-stack wf-gap-sm">
+    <div class="wf-width-full wf-stack wf-gap-sm">
       <Table
         rowSelection={{ selectedRowKeys: keys, onChange: (k: (string | number)[]) => { keys = k; ctx.render() } }}
         data={[
@@ -472,18 +472,18 @@ const DemoTableRowSelect: Component = async (_props, ctx) => {
           { id: 3, name: '王五', role: '访客' },
         ]}
         columns={[{ key: 'id', label: 'ID', width: 60 }, { key: 'name', label: '姓名' }, { key: 'role', label: '角色' }]} />
-      <div class="wf-text-xs wf-text-secondary">已选 {keys.length} 行——勾选列 + 受控 selectedRowKeys</div>
+      <div class="wf-font-xs wf-text-secondary">已选 {keys.length} 行——勾选列 + 受控 selectedRowKeys</div>
     </div>
   )
 }
 
 const DemoJSONViewerDeep: Component = async () => async () => (
-  <div class="wf-w-full">
+  <div class="wf-width-full">
     <JSONViewer defaultExpandDepth={3} data={{
       user: { name: '张三', roles: ['admin', 'editor'], profile: { age: 30, tags: ['前端', '全栈'], address: { city: '杭州', street: '文一西路' } } },
       meta: { createdAt: '2025-06-10', version: 'v0.78.0' },
     }} />
-    <div class="wf-text-xs wf-text-secondary">defaultExpandDepth=3 深展开——懒展开覆盖大对象</div>
+    <div class="wf-font-xs wf-text-secondary">defaultExpandDepth=3 深展开——懒展开覆盖大对象</div>
   </div>
 )
 
@@ -495,15 +495,15 @@ const DemoLogViewerCustom: Component = async () => async () => {
     '\x1b[32m[INFO]\x1b[0m 2025-06-10T10:00:04 重试成功',
   ]
   return (
-    <div class="wf-w-full">
+    <div class="wf-width-full">
       <LogViewer height={140} lines={logs} showLineNumbers showCopy follow={false} />
-      <div class="wf-text-xs wf-text-secondary">ANSI 着色 + 行号 + 复制——自定义日志源</div>
+      <div class="wf-font-xs wf-text-secondary">ANSI 着色 + 行号 + 复制——自定义日志源</div>
     </div>
   )
 }
 
 const DemoDiffViewBig: Component = async () => async () => (
-  <div class="wf-w-full">
+  <div class="wf-width-full">
     <DiffView oldTitle="旧实现" newTitle="新实现"
       oldCode={`function add(a, b) {
   const sum = a + b
@@ -529,7 +529,7 @@ function newHelper(x) {
 function untouched(a) {
   return a
 }`} />
-    <div class="wf-text-xs wf-text-secondary">LCS 行级对比——未变块折叠</div>
+    <div class="wf-font-xs wf-text-secondary">LCS 行级对比——未变块折叠</div>
   </div>
 )
 
@@ -545,7 +545,7 @@ const DemoLogViewer: Component = async (_props, ctx) => {
   ]
   let idx = 8
   return async () => (
-    <div class="wf-w-full wf-stack wf-gap-sm">
+    <div class="wf-width-full wf-stack wf-gap-sm">
       <LogViewer lines={lines} height={260} lineHeight={22} follow />
       <div class="wf-row wf-gap-sm">
         <Button variant="primary" size="sm" onClick={() => {
@@ -569,15 +569,15 @@ const DemoSparkline: Component = async () => async () => (
   <div class="wf-stack wf-gap-md">
     <div class="wf-row wf-gap-lg wf-cluster">
       <div class="wf-stack wf-gap-xs">
-        <span class="wf-text-xs wf-text-secondary">本周流量</span>
+        <span class="wf-font-xs wf-text-secondary">本周流量</span>
         <Sparkline data={[12, 18, 15, 22, 30, 28, 35]} width={140} height={36} stroke="#4f6ef7" fill label="本周流量趋势" />
       </div>
       <div class="wf-stack wf-gap-xs">
-        <span class="wf-text-xs wf-text-secondary">平滑曲线</span>
+        <span class="wf-font-xs wf-text-secondary">平滑曲线</span>
         <Sparkline data={[5, 9, 7, 12, 10, 15, 14]} width={140} height={36} smooth stroke="#16a34a" />
       </div>
       <div class="wf-stack wf-gap-xs">
-        <span class="wf-text-xs wf-text-secondary">等值数据（防抖）</span>
+        <span class="wf-font-xs wf-text-secondary">等值数据（防抖）</span>
         <Sparkline data={[7, 7, 7, 7, 7]} width={140} height={36} stroke="#f59e0b" />
       </div>
     </div>
@@ -669,7 +669,7 @@ const DemoTreeSelect: Component = async (_props, ctx) => {
     <div class="wf-stack wf-gap-md">
       <div class="wf-row wf-gap-lg wf-cluster">
         <div class="wf-stack wf-gap-xs">
-          <span class="wf-text-xs wf-text-secondary">单选</span>
+          <span class="wf-font-xs wf-text-secondary">单选</span>
           <TreeSelect
             options={[
               { key: 'svc', label: '服务', children: [
@@ -687,7 +687,7 @@ const DemoTreeSelect: Component = async (_props, ctx) => {
           />
         </div>
         <div class="wf-stack wf-gap-xs">
-          <span class="wf-text-xs wf-text-secondary">多选（父子联动）</span>
+          <span class="wf-font-xs wf-text-secondary">多选（父子联动）</span>
           <TreeSelect
             multiple
             options={[
@@ -734,7 +734,7 @@ const DemoLayout: Component = async (_props, ctx) => {
   return async () => (
     <Layout style={{ height: 360, borderRadius: 12, overflow: 'hidden' }}>
       <LayoutSider collapsible collapsed={collapsed} onCollapse={(v) => { collapsed = v; ctx.render() }}>
-        <div class="wf-p-md wf-text-secondary wf-stack wf-gap-sm">
+        <div class="wf-padding-md wf-text-secondary wf-stack wf-gap-sm">
           <b>导航</b>
           <span>仪表盘</span>
           <span>订单</span>
@@ -832,17 +832,17 @@ const DemoSpace: Component = async () => async () => (
 )
 
 const DemoGrid: Component = async () => async () => (
-  <div class="wf-stack wf-gap-md wf-w-full">
+  <div class="wf-stack wf-gap-md wf-width-full">
     <Grid gutter={16}>
-      <Col span={8}><div class="wf-surface wf-p-md wf-text-center">1/3</div></Col>
-      <Col span={8}><div class="wf-surface wf-p-md wf-text-center">1/3</div></Col>
-      <Col span={8}><div class="wf-surface wf-p-md wf-text-center">1/3</div></Col>
-      <Col span={12}><div class="wf-surface wf-p-md wf-text-center">1/2</div></Col>
-      <Col span={12}><div class="wf-surface wf-p-md wf-text-center">1/2</div></Col>
+      <Col span={8}><div class="wf-surface wf-padding-md wf-text-center">1/3</div></Col>
+      <Col span={8}><div class="wf-surface wf-padding-md wf-text-center">1/3</div></Col>
+      <Col span={8}><div class="wf-surface wf-padding-md wf-text-center">1/3</div></Col>
+      <Col span={12}><div class="wf-surface wf-padding-md wf-text-center">1/2</div></Col>
+      <Col span={12}><div class="wf-surface wf-padding-md wf-text-center">1/2</div></Col>
     </Grid>
     <Grid flex gap={8}>
-      <div class="wf-surface wf-p-sm">弹性 A</div>
-      <div class="wf-surface wf-p-sm">弹性 B</div>
+      <div class="wf-surface wf-padding-sm">弹性 A</div>
+      <div class="wf-surface wf-padding-sm">弹性 B</div>
     </Grid>
   </div>
 )
@@ -893,11 +893,11 @@ const DemoJSONViewer: Component = async () => async () => {
     stats: { runs: 1284, successRate: 0.96, avgLatencyMs: 342 },
   }
   return (
-    <div class="wf-w-full wf-stack wf-gap-sm">
+    <div class="wf-width-full wf-stack wf-gap-sm">
       <div style="max-height: 260px; overflow-y: auto">
         <JSONViewer data={sample} />
       </div>
-      <span class="wf-text-xs wf-text-secondary">递归折叠 + 类型色 + hover 复制路径（JSONViewer，ToolCallCard 已接入）</span>
+      <span class="wf-font-xs wf-text-secondary">递归折叠 + 类型色 + hover 复制路径（JSONViewer，ToolCallCard 已接入）</span>
     </div>
   )
 }
@@ -909,27 +909,27 @@ export const DemoSortableList: Component = async (_props, ctx) => {
     { id: 'c', name: '测试任务' }, { id: 'd', name: '发布任务' },
   ]
   return async (_p: any) => (
-    <div class="wf-w-full wf-stack wf-gap-xs">
-      <div class="wf-text-xs wf-text-secondary">拖拽排序（keyed 身份——数据 id 驱动）</div>
+    <div class="wf-width-full wf-stack wf-gap-xs">
+      <div class="wf-font-xs wf-text-secondary">拖拽排序（keyed 身份——数据 id 驱动）</div>
       <SortableList
         items={items}
         keyField="id"
         onReorder={(next: any) => { items = next; ctx.render() }}
         renderItem={(it: any) => (
-          <div class="wf-surface wf-surface--flat wf-border wf-rounded-sm wf-p-sm wf-row wf-between">
-            <span class="wf-text-sm">≡ {it.name}</span>
-            <span class="wf-text-xs wf-text-tertiary">{it.id}</span>
+          <div class="wf-surface wf-surface--flat wf-border wf-radius-sm wf-padding-sm wf-row wf-justify-between">
+            <span class="wf-font-sm">≡ {it.name}</span>
+            <span class="wf-font-xs wf-text-tertiary">{it.id}</span>
           </div>
         )}
       />
-      <div class="wf-text-xs wf-text-tertiary">顺序：{items.map(i => i.name).join(' → ')}</div>
+      <div class="wf-font-xs wf-text-tertiary">顺序：{items.map(i => i.name).join(' → ')}</div>
     </div>
   )
 }
 
 export const DemoExportCSV: Component = async (_props: any) => async (_p: any) => (
-  <div class="wf-w-full wf-stack wf-gap-xs">
-    <div class="wf-text-xs wf-text-secondary">表格数据一键导出 CSV（BOM + 引号转义——Excel 兼容）</div>
+  <div class="wf-width-full wf-stack wf-gap-xs">
+    <div class="wf-font-xs wf-text-secondary">表格数据一键导出 CSV（BOM + 引号转义——Excel 兼容）</div>
     <ExportCSV
       data={[{ id: 1, name: '张伟', amount: 1280 }, { id: 2, name: '李娜', amount: 560 }]}
       columns={[{ key: 'id', label: 'ID' }, { key: 'name', label: '客户' }, { key: 'amount', label: '金额' }]}
@@ -972,7 +972,7 @@ export default answer
   const rerender = () => ctx.render()
   return async () => {
     return (
-      <div class="wf-w-full wf-stack" style="--wf-gap:12px">
+      <div class="wf-width-full wf-stack" style="--wf-gap:12px">
         <FileTree
           path={path}
           entries={entries}
@@ -987,7 +987,7 @@ export default answer
           onUpload={() => { }}
           onRefresh={() => rerender()}
         />
-        <div class="wf-text-xs wf-text-secondary">受控组件：目录切换/文件编辑/保存由父层状态驱动——数据源可接任意 API（本地目录/沙盒卷/云端）。</div>
+        <div class="wf-font-xs wf-text-secondary">受控组件：目录切换/文件编辑/保存由父层状态驱动——数据源可接任意 API（本地目录/沙盒卷/云端）。</div>
       </div>
     )
   }
@@ -1019,14 +1019,14 @@ const DemoRelationGraph: Component = async (_props: any, ctx: any) => {
   ]
   let selected: string | null = null
   return async () => (
-    <div class="wf-w-full wf-stack" style="--wf-gap:12px">
+    <div class="wf-width-full wf-stack" style="--wf-gap:12px">
       <RelationGraph
         nodes={NODES}
         edges={EDGES}
         selectedId={selected}
         onSelect={(id) => { selected = id; ctx.render() }}
       />
-      <div class="wf-text-xs wf-text-secondary">
+      <div class="wf-font-xs wf-text-secondary">
         {selected
           ? `已选中：${selected}（点击其他节点切换——节点大小 = 权重，线宽 = 关系强度）`
           : '点击节点查看选中态（受控）——环形确定性布局——同数据每次渲染一致'}

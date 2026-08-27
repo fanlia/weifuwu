@@ -103,7 +103,7 @@ export const Admin: Component = async (_props, ctx) => {
   const fmtTokens = (n: number) => n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n)
 
   return async () => (
-    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 960px">
+    <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 960px">
       <PageHeader title="租户管理" sub="平台管理员：查看所有团队用量，停用/启用租户（ADMIN_EMAILS 白名单）" />
 
       {error && <Alert variant="error">{error}</Alert>}
@@ -129,17 +129,17 @@ export const Admin: Component = async (_props, ctx) => {
 
       {capacity && (
         <Card>
-          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📊 沙盒容量（宿主 {capacity.host.id}）</div>
-          <div class="wf-grid wf-mt-sm" style="--wf-cols: repeat(auto-fill, minmax(150px, 1fr))">
+          <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📊 沙盒容量（宿主 {capacity.host.id}）</div>
+          <div class="wf-grid wf-margin-top-sm" style="--wf-cols: repeat(auto-fill, minmax(150px, 1fr))">
             <StatCard label="内存预算" value={`${capacity.host.memoryMb}MB`} icon={<Icon name="database" />} />
             <StatCard label="当前占用" value={`${capacity.occupied.mb}MB / ${capacity.occupied.running} 运行`} icon={<Icon name="server" />} />
             <StatCard label="CPU" value={capacity.host.cpus} icon={<Icon name="cpu" />} />
             <StatCard label="7 天驱逐" value={capacity.weeklyEvictions} icon={<Icon name="warning" />} />
           </div>
           {capacity.recentEvictions.length > 0 && (
-            <div class="wf-stack wf-gap-xs wf-mt-sm">
+            <div class="wf-stack wf-gap-xs wf-margin-top-sm">
               {capacity.recentEvictions.map((e, i) => (
-                <div key={i} class="wf-text-xs wf-text-tertiary wf-row wf-gap-sm">
+                <div key={i} class="wf-font-xs wf-text-tertiary wf-row wf-gap-sm">
                   <span class="wf-text-warning">⏏</span>
                   <span>{e.name || e.sandboxId.slice(0, 8)}</span>
                   <span>{e.detail}</span>
@@ -153,32 +153,32 @@ export const Admin: Component = async (_props, ctx) => {
       )}
 
       <Card>
-        <div class="wf-row wf-between wf-mb-sm">
-          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="box" size={14} /> 沙盒监控（容器/资源/进程）</div>
+        <div class="wf-row wf-justify-between wf-margin-bottom-sm">
+          <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="box" size={14} /> 沙盒监控（容器/资源/进程）</div>
           <Button size="sm" variant="ghost" onClick={loadContainers}>刷新</Button>
         </div>
         {sbContainers === null ? (
-          <div class="wf-text-sm wf-text-tertiary">加载容器列表（docker ps）——<Button size="sm" variant="ghost" onClick={loadContainers}>加载</Button></div>
+          <div class="wf-font-sm wf-text-tertiary">加载容器列表（docker ps）——<Button size="sm" variant="ghost" onClick={loadContainers}>加载</Button></div>
         ) : sbContainers.length === 0 ? (
-          <div class="wf-text-sm wf-text-tertiary">暂无容器（沙盒空闲）</div>
+          <div class="wf-font-sm wf-text-tertiary">暂无容器（沙盒空闲）</div>
         ) : (
           <div class="wf-stack wf-gap-xs">
             {sbContainers.map((c: any) => (
-              <div key={c.name} class="wf-border wf-rounded wf-p-sm">
+              <div key={c.name} class="wf-border wf-radius wf-padding-sm">
                 <div class="wf-row wf-gap-sm wf-items-center">
-                  <span class="wf-text-sm wf-text-semibold">{c.agentName}</span>
-                  <span class="wf-text-xs wf-text-tertiary wf-truncate">{c.name}</span>
+                  <span class="wf-font-sm wf-semibold">{c.agentName}</span>
+                  <span class="wf-font-xs wf-text-tertiary wf-truncate">{c.name}</span>
                   {String(c.status ?? '').includes('Up') ? <Badge variant="success">运行中</Badge> : <Badge variant="danger">已停止</Badge>}
                   <span class="wf-fill" />
-                  <span class="wf-text-xs wf-text-tertiary wf-nums">CPU {c.cpu ?? '-'} · 内存 {c.mem ?? '-'} · 进程 {c.pids ?? '-'}</span>
+                  <span class="wf-font-xs wf-text-tertiary wf-nums">CPU {c.cpu ?? '-'} · 内存 {c.mem ?? '-'} · 进程 {c.pids ?? '-'}</span>
                   <Button size="sm" variant="ghost" disabled={!!sbBusy} onClick={() => showProcesses(c.name)}>进程</Button>
                   <Button size="sm" variant="ghost" disabled={!!sbBusy} onClick={() => containerAction(c.name, 'restart')}>重启</Button>
                   <Button size="sm" variant="danger" disabled={!!sbBusy} onClick={() => containerAction(c.name, 'stop')}>停止</Button>
                 </div>
                 {sbProcs && sbProcs.name === c.name && (
-                  <div class="wf-mt-xs wf-bg-tertiary wf-rounded wf-p-sm wf-text-xs wf-overflow-x" style="max-height: 160px; overflow-y: auto">
+                  <div class="wf-margin-top-xs wf-bg-tertiary wf-radius wf-padding-sm wf-font-xs wf-overflow-x" style="max-height: 160px; overflow-y: auto">
                     <div class="wf-row wf-gap-xs wf-text-tertiary">
-                      <span class="wf-text-xs">PID</span><span class="wf-text-xs">USER</span><span class="wf-text-xs">CPU%</span><span class="wf-text-xs">MEM%</span><span class="wf-text-xs wf-fill">COMMAND</span>
+                      <span class="wf-font-xs">PID</span><span class="wf-font-xs">USER</span><span class="wf-font-xs">CPU%</span><span class="wf-font-xs">MEM%</span><span class="wf-font-xs wf-fill">COMMAND</span>
                     </div>
                     {(sbProcs.list ?? []).map((p: any, i: number) => (
                       <div key={i} class="wf-row wf-gap-xs">
@@ -195,24 +195,24 @@ export const Admin: Component = async (_props, ctx) => {
       </Card>
 
       <Card>
-        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md"><Icon name="briefcase" size={14} /> 企业账户（子租户）</div>
-        <div class="wf-row wf-gap-sm wf-mb-sm wf-cluster">
+        <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-md"><Icon name="briefcase" size={14} /> 企业账户（子租户）</div>
+        <div class="wf-row wf-gap-sm wf-margin-bottom-sm wf-cluster">
           <Input placeholder="企业名" value={entName} style={{ width: 180 }}
             onInput={(e: any) => { entName = e.target.value; ctx.render() }} />
           <Input placeholder="管理员邮箱（可选）" value={entEmail} style={{ width: 220 }}
             onInput={(e: any) => { entEmail = e.target.value; ctx.render() }} />
           <Button size="sm" variant="primary" onClick={createEnterprise}>建企业</Button>
-          {entErr && <span class="wf-text-xs wf-text-error">{entErr}</span>}
+          {entErr && <span class="wf-font-xs wf-text-error">{entErr}</span>}
         </div>
         {enterprises.length === 0 ? (
-          <div class="wf-text-sm wf-text-tertiary">暂无企业——大客户场景：建企业后把租户挂入（统一结算视图）</div>
+          <div class="wf-font-sm wf-text-tertiary">暂无企业——大客户场景：建企业后把租户挂入（统一结算视图）</div>
         ) : (
           <div class="wf-stack wf-gap-sm">
             {enterprises.map((e: any) => (
-              <div key={e.id} class="wf-split wf-py-xs wf-border-b">
+              <div key={e.id} class="wf-split wf-padding-y-xs wf-border-bottom">
                 <div class="wf-stack wf-gap-none">
-                  <span class="wf-text-sm wf-text-semibold">{e.name}</span>
-                  <span class="wf-text-xs wf-text-tertiary">{e.app_count} 个子租户 · 本月 {Number(e.tokens_month ?? 0).toLocaleString()} token</span>
+                  <span class="wf-font-sm wf-semibold">{e.name}</span>
+                  <span class="wf-font-xs wf-text-tertiary">{e.app_count} 个子租户 · 本月 {Number(e.tokens_month ?? 0).toLocaleString()} token</span>
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => {
                   const appId = window.prompt('挂入租户的 appId（管理后台列表可见）')
@@ -227,13 +227,13 @@ export const Admin: Component = async (_props, ctx) => {
       </Card>
 
       {loading ? (
-        <div class="wf-text-sm wf-text-tertiary wf-py-lg wf-center">加载中...</div>
+        <div class="wf-font-sm wf-text-tertiary wf-padding-y-lg wf-center">加载中...</div>
       ) : (
         <Card>
           <Table
             data={apps}
             columns={[
-              { key: 'name', label: '团队', render: (v: any) => <span class="wf-text-sm wf-text-semibold">{v}</span> },
+              { key: 'name', label: '团队', render: (v: any) => <span class="wf-font-sm wf-semibold">{v}</span> },
               { key: 'slug', label: 'Slug' },
               { key: 'member_count', label: '成员', render: (v: any) => <span class="wf-nums">{v}</span> },
               { key: 'agent_count', label: 'Agent', render: (v: any) => <span class="wf-nums">{v}</span> },

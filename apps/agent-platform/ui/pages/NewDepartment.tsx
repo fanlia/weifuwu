@@ -37,11 +37,11 @@ export const NewDepartment: Component = async (_props, ctx) => {
     } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }
   return async (props) => (
-    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
-      <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
+    <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px">
+      <a class="wf-font-sm wf-text-primary" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
       <PageHeader title="创建部门" sub="在当前应用中创建群组并添加成员" />
 
-      <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
+      <div class="wf-margin-bottom-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
 
       {$.loading && <Loading />}
 
@@ -56,16 +56,16 @@ export const NewDepartment: Component = async (_props, ctx) => {
             <Field label={`添加成员（已选 ${$.selected.length} 个，可稍后添加）`}>
               <div class="wf-stack wf-gap-none">
                 {$.agents.map((a: Agent) => (
-                  <label key={a.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b" style="cursor: pointer">
+                  <label key={a.id} class="wf-row wf-gap-sm wf-padding-y-sm wf-border-bottom" style="cursor: pointer">
                     <Checkbox checked={$.selected.includes(a.id)} onChange={() => toggle(a.id)} />
-                    <span class="wf-text-base">{a.name}</span>
+                    <span class="wf-font-base">{a.name}</span>
                     <TypeBadge type={a.type} />
                   </label>
                 ))}
               </div>
             </Field>
 
-            <div class="wf-right wf-gap-sm">
+            <div class="wf-justify-end wf-gap-sm">
               <Button type="button" variant="ghost" onClick={() => ctx.app?.navigate('/departments')}>取消</Button>
               <Button type="submit" variant="primary" disabled={$.submitting}>
                 {$.submitting ? '创建中...' : '创建部门'}

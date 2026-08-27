@@ -72,7 +72,7 @@ const toolSchema: JsonSchema = {
 const DemoJsonSchemaForm: Component = async () => async () => (
   <div class="wf-stack wf-gap-sm">
     <JsonSchemaForm schema={toolSchema} value={{ city: '北京', days: 3, with_weather: true }} submitLabel="执行工具" />
-    <span class="wf-text-xs wf-text-secondary">↑ schema 驱动表单：必填校验（城市）拦截提交；单位/天数/开关即改即生效（onChange）</span>
+    <span class="wf-font-xs wf-text-secondary">↑ schema 驱动表单：必填校验（城市）拦截提交；单位/天数/开关即改即生效（onChange）</span>
   </div>
 )
 
@@ -98,7 +98,7 @@ const DemoReasoningBlock: Component = async (_p, ctx) => {
 
 const DemoCitationCard: Component = async () => async () => (
   <div class="wf-stack wf-gap-sm">
-    <div class="wf-text-sm">根据以下资料回答：
+    <div class="wf-font-sm">根据以下资料回答：
       <span class="wf-text-secondary">引用来源折叠展示（最多 3 条，溢出 +N）</span>
     </div>
     <CitationCard
@@ -140,7 +140,7 @@ const DemoSessionList: Component = async (_p, ctx) => {
           />
         </div>
       </div>
-      <span class="wf-text-xs wf-text-secondary">分组（今天/昨天/更早）+ 搜索 + 选中；悬停行内重命名/删除；+ 新建会话</span>
+      <span class="wf-font-xs wf-text-secondary">分组（今天/昨天/更早）+ 搜索 + 选中；悬停行内重命名/删除；+ 新建会话</span>
     </div>
   )
 }
@@ -158,14 +158,14 @@ const DemoApprovalCard: Component = async (_p, ctx) => {
         onApprove={() => { loading = true; ctx.render(); setTimeout(() => { loading = false; ctx.render() }, 1500) }}
         onReject={() => {}}
       />
-      <div class="wf-text-xs wf-text-secondary">↑ 点「允许」看提交中状态（loading 防连点）</div>
+      <div class="wf-font-xs wf-text-secondary">↑ 点「允许」看提交中状态（loading 防连点）</div>
       <ApprovalCard
         request={{ id: 'ap4', toolCallId: 't4', name: 'place_order', args: { qty: 2, note: '' }, reason: '单笔超限——可修改参数后批准（modified 决策）' }}
         argsSchema={{ type: 'object', properties: { qty: { type: 'integer', title: '数量', minimum: 1, maximum: 10 }, note: { type: 'string', title: '备注' } }, required: ['qty'] }}
         onApprove={(m) => { modified = m ? `qty=${m.qty}` : '原参数批准'; ctx.render() }}
         onReject={() => {}}
       />
-      <div class="wf-text-xs wf-text-secondary">↑ 点「修改参数」改数量后批准：{modified ?? '（尚未操作）'}</div>
+      <div class="wf-font-xs wf-text-secondary">↑ 点「修改参数」改数量后批准：{modified ?? '（尚未操作）'}</div>
       <ApprovalCard
         request={{ id: 'ap2', toolCallId: 't2', name: 'delete_user', args: { userId: 'u_42' } }}
         status="approved"
@@ -284,7 +284,7 @@ const DemoAuthPage: Component = async (_props, ctx) => {
 export const DemoPromptTemplate: Component = async (_props: any, ctx: any) => {
   let value = '你是一位{{role}}，请用{{tone}}的语气介绍{{topic}}。'
   return async () => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <PromptTemplate
         label="系统提示词模板"
         value={value}

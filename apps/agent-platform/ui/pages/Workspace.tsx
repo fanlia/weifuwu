@@ -102,7 +102,7 @@ export const Workspace: Component = async (_props, ctx) => {
             <Skeleton variant="text" width="340px" />
           </div>
           <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 300px), 1fr))">
-            {[1, 2, 3].map(i => <Card key={i}><Skeleton variant="text" width="60%" /><Skeleton variant="text" width="90%" className="wf-mt-sm" /><Skeleton variant="text" width="45%" className="wf-mt-sm" /></Card>)}
+            {[1, 2, 3].map(i => <Card key={i}><Skeleton variant="text" width="60%" /><Skeleton variant="text" width="90%" className="wf-margin-top-sm" /><Skeleton variant="text" width="45%" className="wf-margin-top-sm" /></Card>)}
           </div>
         </div>
       )
@@ -110,10 +110,10 @@ export const Workspace: Component = async (_props, ctx) => {
 
     return (
     <div class="wf-stack wf-gap-lg">
-      <div class="wf-row wf-between wf-gap-md wf-items-center">
+      <div class="wf-row wf-justify-between wf-gap-md wf-items-center">
         <div class="wf-stack wf-gap-xs">
-          <h1 class="wf-text-2xl wf-m-0">{greeting()}，{((ctx.auth?.user ?? null) as { name?: string } | null)?.name ?? '用户'}</h1>
-          <p class="wf-text-base wf-text-secondary wf-m-0">一个项目空间 = 一个共享工作目录 + 一个 AI 工作环境——放文件、@AI 干活、拿交付物。</p>
+          <h1 class="wf-font-2xl wf-margin-none">{greeting()}，{((ctx.auth?.user ?? null) as { name?: string } | null)?.name ?? '用户'}</h1>
+          <p class="wf-font-base wf-text-secondary wf-margin-none">一个项目空间 = 一个共享工作目录 + 一个 AI 工作环境——放文件、@AI 干活、拿交付物。</p>
         </div>
         <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}><Icon name="plus" size={14} /> 新建项目空间</Button>
       </div>
@@ -135,7 +135,7 @@ export const Workspace: Component = async (_props, ctx) => {
         <Card key="pending-card" clickable hover onClick={() => ctx.app?.navigate('/approvals')} style={{ borderColor: 'var(--wf-color-warning)' }}>
           <div class="wf-row wf-gap-sm wf-items-center">
             <Icon name="check-circle" size={16} className="wf-text-warning" />
-            <span class="wf-text-sm wf-text-medium">有 {$.pendingCount} 条 AI 草稿待你批准发布</span>
+            <span class="wf-font-sm wf-medium">有 {$.pendingCount} 条 AI 草稿待你批准发布</span>
             <span class="wf-fill" />
             <Icon name="arrow-right" size={14} className="wf-text-tertiary" />
           </div>
@@ -147,17 +147,17 @@ export const Workspace: Component = async (_props, ctx) => {
         <Card key="deliv-card" clickable hover onClick={() => ctx.app?.navigate('/deliverables')}>
           <div class="wf-row wf-gap-sm wf-items-center">
             <Icon name="inbox" size={16} />
-            <span class="wf-text-sm wf-text-medium">最近交付物（{$.deliverables.length}）</span>
+            <span class="wf-font-sm wf-medium">最近交付物（{$.deliverables.length}）</span>
             <span class="wf-fill" />
             <Icon name="arrow-right" size={14} className="wf-text-tertiary" />
           </div>
-          <div class="wf-stack wf-gap-xs wf-mt-sm">
+          <div class="wf-stack wf-gap-xs wf-margin-top-sm">
             {$.deliverables.map((f) => (
-              <div key={`${f.deptId}:${f.path}`} class="wf-row wf-gap-sm wf-text-sm">
+              <div key={`${f.deptId}:${f.path}`} class="wf-row wf-gap-sm wf-font-sm">
                 <span class="wf-text-primary wf-truncate">{f.path}</span>
-                <span class="wf-text-tertiary wf-text-xs wf-shrink">({f.deptName})</span>
+                <span class="wf-text-tertiary wf-font-xs wf-shrink">({f.deptName})</span>
                 <span class="wf-fill" />
-                <span class="wf-text-tertiary wf-text-xs wf-shrink">{timeAgo(f.mtime)}</span>
+                <span class="wf-text-tertiary wf-font-xs wf-shrink">{timeAgo(f.mtime)}</span>
               </div>
             ))}
           </div>
@@ -167,23 +167,23 @@ export const Workspace: Component = async (_props, ctx) => {
       {/* 项目空间卡片 */}
       {$.projects.length > 0 && (
         <>
-          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">我的项目空间（{$.projects.length}）</div>
+          <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">我的项目空间（{$.projects.length}）</div>
           <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 300px), 1fr))">
             {$.projects.map((p) => (
               <Card key={p.id} clickable hover onClick={() => ctx.app?.navigate(`/chat/${p.id}`)}>
                 <div class="wf-row wf-gap-sm wf-items-center">
                   <Ava name={p.is_dm ? '💬' : '👥'} type={p.is_dm ? 'user' : 'knowledge_base'} />
-                  <div class="wf-fill wf-truncate wf-text-base wf-text-semibold">{p.name}</div>
-                  {p.is_dm && <span class="wf-text-xs wf-text-tertiary">单聊</span>}
+                  <div class="wf-fill wf-truncate wf-font-base wf-semibold">{p.name}</div>
+                  {p.is_dm && <span class="wf-font-xs wf-text-tertiary">单聊</span>}
                 </div>
-                <div class="wf-text-sm wf-text-secondary wf-truncate wf-mt-sm">{p.last_message || '暂无消息——@AI 成员开始干活'}</div>
-                <div class="wf-row wf-gap-md wf-text-xs wf-text-tertiary wf-mt-sm">
+                <div class="wf-font-sm wf-text-secondary wf-truncate wf-margin-top-sm">{p.last_message || '暂无消息——@AI 成员开始干活'}</div>
+                <div class="wf-row wf-gap-md wf-font-xs wf-text-tertiary wf-margin-top-sm">
                   <span>{p.member_count} 位成员</span>
                   {p.last_message_at && <span>{timeAgo(p.last_message_at)}活跃</span>}
                   <span class="wf-fill" />
                   {p.env.label && (
                     <span class="wf-row wf-gap-xs wf-items-center">
-                      <span class={`wf-dot ${p.env.status === 'running' ? 'wf-dot--ok' : p.env.status === 'error' ? 'wf-dot--err' : 'wf-dot--idle'}`} style="display:inline-block;width:8px;height:8px;border-radius:50%" />
+                      <span style="display:inline-block;width:8px;height:8px;border-radius:50%" />
                       {p.env.label}
                     </span>
                   )}
@@ -195,22 +195,22 @@ export const Workspace: Component = async (_props, ctx) => {
       )}
 
       {/* 快捷操作 */}
-      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">快捷操作</div>
+      <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">快捷操作</div>
       <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(220px, 1fr))">
         <Card clickable hover onClick={() => ctx.app?.navigate('/agents/new')}>
-          <div class="wf-text-2xl wf-mb-xs"><Icon name="cpu" size={28} /></div>
-          <div class="wf-text-base wf-text-semibold">添加 AI 能力</div>
-          <div class="wf-text-sm wf-text-secondary">创建 AI 机器人，加入项目空间</div>
+          <div class="wf-font-2xl wf-margin-bottom-xs"><Icon name="cpu" size={28} /></div>
+          <div class="wf-font-base wf-semibold">添加 AI 能力</div>
+          <div class="wf-font-sm wf-text-secondary">创建 AI 机器人，加入项目空间</div>
         </Card>
         <Card clickable hover onClick={() => ctx.app?.navigate('/departments/new')}>
-          <div class="wf-text-2xl wf-mb-xs"><Icon name="users" size={28} /></div>
-          <div class="wf-text-base wf-text-semibold">创建项目空间</div>
-          <div class="wf-text-sm wf-text-secondary">共享工作目录 + AI 工作环境</div>
+          <div class="wf-font-2xl wf-margin-bottom-xs"><Icon name="users" size={28} /></div>
+          <div class="wf-font-base wf-semibold">创建项目空间</div>
+          <div class="wf-font-sm wf-text-secondary">共享工作目录 + AI 工作环境</div>
         </Card>
         <Card clickable hover onClick={() => ctx.app?.navigate('/reports')}>
-          <div class="wf-text-2xl wf-mb-xs"><Icon name="bar-chart" size={28} /></div>
-          <div class="wf-text-base wf-text-semibold">运营报表</div>
-          <div class="wf-text-sm wf-text-secondary">使用量 · 成本 · 活跃度</div>
+          <div class="wf-font-2xl wf-margin-bottom-xs"><Icon name="bar-chart" size={28} /></div>
+          <div class="wf-font-base wf-semibold">运营报表</div>
+          <div class="wf-font-sm wf-text-secondary">使用量 · 成本 · 活跃度</div>
         </Card>
       </div>
     </div>

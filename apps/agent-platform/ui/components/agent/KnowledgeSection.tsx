@@ -130,15 +130,15 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
 
   return async () => (
     <Card id="sec-knowledge">
-      <div class="wf-split wf-mb-md">
-        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📚 知识库文档</div>
-        <span class="wf-text-xs wf-text-tertiary">{docs.length} 个文档</span>
+      <div class="wf-split wf-margin-bottom-md">
+        <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📚 知识库文档</div>
+        <span class="wf-font-xs wf-text-tertiary">{docs.length} 个文档</span>
         <Button size="sm" variant="ghost" disabled={reindexing} onClick={reindexDocs}>
           {reindexing ? '向量化中...' : '重新向量化'}
         </Button>
       </div>
 
-      <div class="wf-row wf-gap-lg wf-mb-md">
+      <div class="wf-row wf-gap-lg wf-margin-bottom-md">
         <div class="wf-fill">
           <Field label="分块大小">
             <Input type="number" min="100" max="2000" step="50" value={kbChunkSize}
@@ -157,7 +157,7 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
       </div>
 
       <Card outlined>
-        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm">🔍 检索测试</div>
+        <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm">🔍 检索测试</div>
         <div class="wf-row wf-gap-xs">
           <div class="wf-fill">
             <Input placeholder="输入问题测试检索（如：退款政策是什么？）" value={kbQuery}
@@ -168,10 +168,10 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
           </Button>
         </div>
         {kbResults.length > 0 && (
-          <div class="wf-stack wf-gap-sm wf-mt-sm">
+          <div class="wf-stack wf-gap-sm wf-margin-top-sm">
             {kbResults.map((r: { filename: string; content: string; similarity: number }, i: number) => (
-              <div key={i} class="wf-bg-secondary wf-p-sm wf-rounded-sm wf-text-xs" style="line-height: 1.6">
-                <span class="wf-text-xs wf-text-medium">{r.filename} · 相似度 {(r.similarity ?? 0).toFixed(3)}</span><br />
+              <div key={i} class="wf-bg-secondary wf-padding-sm wf-radius-sm wf-font-xs" style="line-height: 1.6">
+                <span class="wf-font-xs wf-medium">{r.filename} · 相似度 {(r.similarity ?? 0).toFixed(3)}</span><br />
                 {(r.content ?? '').slice(0, 200)}
               </div>
             ))}
@@ -180,22 +180,22 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
       </Card>
 
       {docs.length > 0 && (
-        <div class="wf-stack wf-gap-none wf-mb-md">
+        <div class="wf-stack wf-gap-none wf-margin-bottom-md">
           {docs.map((d: KbDocument) => (
             <div key={d.id}>
-              <div class="wf-row wf-gap-sm wf-py-sm wf-border-b" style="cursor: pointer" onClick={() => toggleExpandDoc(d.id)}>
+              <div class="wf-row wf-gap-sm wf-padding-y-sm wf-border-bottom" style="cursor: pointer" onClick={() => toggleExpandDoc(d.id)}>
                 <span>{expandedDoc === d.id ? <Icon name="folder" size={14} /> : <Icon name="file" size={14} />}</span>
-                <span class="wf-fill wf-text-sm wf-truncate">{d.filename}</span>
-                <span class="wf-text-xs wf-text-tertiary">{d.chunk_count ?? 0} 块</span>
+                <span class="wf-fill wf-font-sm wf-truncate">{d.filename}</span>
+                <span class="wf-font-xs wf-text-tertiary">{d.chunk_count ?? 0} 块</span>
                 <Button size="sm" variant="danger" onClick={(e: Event) => { e.stopPropagation(); deleteDoc(d.id) }}>删除</Button>
               </div>
               {expandedDoc === d.id && (
-                <div class="wf-bg-secondary wf-p-md wf-text-sm wf-stack wf-gap-sm">
-                  {loadingChunks && <div class="wf-text-xs wf-text-tertiary">加载中...</div>}
-                  {!loadingChunks && docChunks.length === 0 && <div class="wf-text-xs wf-text-tertiary">无分块数据</div>}
+                <div class="wf-bg-secondary wf-padding-md wf-font-sm wf-stack wf-gap-sm">
+                  {loadingChunks && <div class="wf-font-xs wf-text-tertiary">加载中...</div>}
+                  {!loadingChunks && docChunks.length === 0 && <div class="wf-font-xs wf-text-tertiary">无分块数据</div>}
                   {docChunks.map((ch: KbChunk, i: number) => (
-                    <div key={i} class="wf-surface wf-p-sm wf-rounded-sm wf-text-xs" style="line-height: 1.6">
-                      <span class="wf-text-xs wf-text-tertiary">块 #{(ch.chunk_index ?? 0) + 1}</span><br />
+                    <div key={i} class="wf-surface wf-padding-sm wf-radius-sm wf-font-xs" style="line-height: 1.6">
+                      <span class="wf-font-xs wf-text-tertiary">块 #{(ch.chunk_index ?? 0) + 1}</span><br />
                       {(ch.content ?? '').slice(0, 300)}
                     </div>
                   ))}
@@ -211,7 +211,7 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
           <input type="file" multiple accept=".txt,.md,.csv,.json,.jsonl,.log"
             onChange={uploadFiles} disabled={uploading} class="wf-input" />
         </Field>
-        <div class="wf-text-xs wf-text-tertiary wf-border-t wf-pt-sm">或手动粘贴：</div>
+        <div class="wf-font-xs wf-text-tertiary wf-border-top wf-padding-top-sm">或手动粘贴：</div>
         <Field label="文件名">
           <Input type="text" placeholder="如：产品手册.txt" value={newDocFilename}
             onInput={(e: Event) => { newDocFilename = inputValue(e); rerender() }} />
@@ -220,7 +220,7 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
           <Textarea rows={5} placeholder="粘贴文档内容..." value={newDocContent}
             onInput={(e: Event) => { newDocContent = inputValue(e); rerender() }} />
         </Field>
-        <div class="wf-right">
+        <div class="wf-justify-end">
           <Button type="submit" variant="primary" disabled={uploading}>
             {uploading ? '上传中...' : '上传文档'}
           </Button>

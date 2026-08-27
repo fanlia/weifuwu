@@ -1,4 +1,4 @@
-/* surface — 基础面 + 面工具类（背景色/气泡/胶囊） */
+/* surface — 基础面 + 面工具类（背景色/圆角/阴影——全部引用语义 Token） */
 
 .wf-surface {
   border-radius: var(--wf-surface-radius);
@@ -14,21 +14,22 @@
 /* ── 背景色工具 — 引用语义 Token，免自定义 CSS ── */
 .wf-bg-secondary { background: var(--wf-color-bg-secondary); }
 .wf-bg-tertiary { background: var(--wf-color-bg-tertiary); }
-.wf-bg-brand { background: var(--wf-color-primary-bg); } /* 兼容别名 → wf-bg-primary */
 .wf-bg-primary { background: var(--wf-color-primary-bg); }
-.wf-bg-success { background: var(--wf-color-success-bg); }
 .wf-bg-warning { background: var(--wf-color-warning-bg); }
 .wf-bg-error { background: var(--wf-color-error-bg); }
-.wf-bg-info { background: var(--wf-color-info-bg); }
+.wf-bg-none { background: transparent; }
 
 /* ── 胶囊圆角（状态徽章/标签/色块） ── */
 .wf-pill { border-radius: 999px; }
 
-/* ── 圆角工具 — 引用圆角 Token ── */
-.wf-rounded-sm { border-radius: var(--wf-radius-sm); }
-.wf-rounded { border-radius: var(--wf-radius); }
-.wf-rounded-md { border-radius: var(--wf-radius-md); }
-.wf-rounded-lg { border-radius: var(--wf-radius-lg); }
+/* ── 圆角工具 — 随 token --wf-radius-*（同名推导） ── */
+.wf-radius-sm { border-radius: var(--wf-radius-sm); }
+.wf-radius { border-radius: var(--wf-radius); }
+.wf-radius-md { border-radius: var(--wf-radius-md); }
+.wf-radius-lg { border-radius: var(--wf-radius-lg); }
+
+/* ── 阴影工具 — 随 token --wf-shadow-*（同名推导；抬升语义见表面语言） ── */
+.wf-shadow { box-shadow: var(--wf-shadow); }
 
 /* ── hover 抬升（Card/StatCard 可点击/悬停共用，阴影 + 上移 + 焦点环） ── */
 .wf-elevate {
@@ -56,7 +57,7 @@
 
 /* ── 聊天气泡 ──
  * 用法：wf-bubble（对方/AI）+ wf-bubble--own（自己）
- * 行布局用 wf-row + wf-gap/wf-mb 覆盖；文字用 wf-pre-wrap 已内建
+ * 行布局用 wf-row + wf-gap 覆盖；文字用 wf-pre-wrap 已内建
  */
 .wf-bubble {
   display: inline-block;

@@ -2,7 +2,7 @@
 
 ## 概述
 
-wf-app-shell 可折叠侧栏 + wf-nav 导航（菜单/分组/激活态）
+wf-app-shell 静态壳 + wf-sidebar/wf-main + wf-nav 导航（菜单/分组/激活态）
 
 ## 代表类
 
@@ -12,6 +12,7 @@ wf-app-shell 可折叠侧栏 + wf-nav 导航（菜单/分组/激活态）
 .wf-nav-item
 .wf-nav-group
 .wf-sidebar
+.wf-main
 ```
 
 ## 源码
@@ -20,4 +21,4 @@ wf-app-shell 可折叠侧栏 + wf-nav 导航（菜单/分组/激活态）
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/app-shell` ——（P1 填充）
+> showcase 活体演示页：`/layout/app-shell`（族示例 + 代表类）

@@ -250,7 +250,7 @@ function primDoc(f) {
     `## 概述`, '', f.desc, '',
     `## 代表类`, '', '```css', ...f.classes.map((c) => `.${c}`), '```', '',
     `## 源码`, '', `\`src/client/layout/${f.cssFile}\``, '',
-    `## 验证`, '', `> agent-browser 走查：打开 \`/layout/${f.id}\` ——（P1 填充）`, '',
+    `## 验证`, '', `> showcase 活体演示页：\`/layout/${f.id}\`（族示例 + 代表类）`, '',
   ].join('\n')
 }
 

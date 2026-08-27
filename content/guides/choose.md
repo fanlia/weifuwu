@@ -12,7 +12,7 @@
 ├─ 是布局结构（容器/间距/对齐/导航壳/响应式显隐）
 │   └─ → content/layout/*.md 用 wf-* 原语（零手写 CSS）
 │       ├─ 页面骨架 → wf-app-shell / wf-stack / wf-container
-│       ├─ 间距/排版 → wf-gap-* / wf-text-* / wf-p-* 工具
+│       ├─ 间距/排版 → wf-gap-* / wf-text-* / wf-padding-* 工具
 │       └─ 响应式 → wf-hidden@lg / wf-flex@lg 断点变体
 └─ 是完整页面/应用
     ├─ 单页结构（后台壳/仪表盘/落地页/移动端）→ content/patterns/*.md 复制

@@ -88,7 +88,7 @@ const DemoField: Component = async (_props, ctx) => {
   let name = ''
   let mail = 'bad-input'
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <Field label="姓名" required><Input placeholder="输入姓名" value={name} onInput={e => { name = (e.target as HTMLInputElement).value; ctx.render() }} /></Field>
       <Field label="邮箱" error="邮箱格式不正确"><Input type="email" value={mail} /></Field>
       <Field label="密码" hint="至少 6 位"><Input type="password" /></Field>
@@ -99,9 +99,9 @@ const DemoField: Component = async (_props, ctx) => {
 const DemoSearchInput: Component = async (_props, ctx) => {
   let query = ''
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <SearchInput placeholder="搜索用户..." value={query} onInput={e => { query = (e.target as HTMLInputElement).value; ctx.render() }} onClear={() => { query = ''; ctx.render() }} />
-      <div class="wf-text-xs wf-text-secondary">搜索词: {query || '(空)'}</div>
+      <div class="wf-font-xs wf-text-secondary">搜索词: {query || '(空)'}</div>
     </div>
   )
 }
@@ -124,7 +124,7 @@ const DemoProgress: Component = async (_props, ctx) => {
   }
   return async (_p: any) => {
     return (
-    <div class="wf-stack wf-gap-md wf-w-full">
+    <div class="wf-stack wf-gap-md wf-width-full">
       <ProgressBar value={pct} label="模拟进度" showValue />
       <ProgressBar value={100} label="已完成" showValue status="success" />
       <ProgressBar label="不确定态" /> {/* indeterminate */}
@@ -139,7 +139,7 @@ const DemoInputNumber: Component = async (_props, ctx) => {
   let temp = 0.7
   let tokens: number | null = 2048
   return async (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <div class="wf-row wf-gap-md">
         <div style="max-width:160px">
           <InputNumber label="temperature" value={temp} min={0} max={1} step={0.1} precision={1} onChange={v => { temp = v ?? 0; ctx.render() }} />
@@ -148,7 +148,7 @@ const DemoInputNumber: Component = async (_props, ctx) => {
           <InputNumber label="max_tokens" value={tokens} min={1} max={8192} step={256} onChange={v => { tokens = v; ctx.render() }} />
         </div>
       </div>
-      <div class="wf-text-xs wf-text-secondary">temperature: {temp} · max_tokens: {tokens}</div>
+      <div class="wf-font-xs wf-text-secondary">temperature: {temp} · max_tokens: {tokens}</div>
     </div>
   )
 }
@@ -156,7 +156,7 @@ const DemoInputNumber: Component = async (_props, ctx) => {
 const DemoPasswordInput: Component = async (_props, ctx) => {
   let pwd = 'secret123'
   return async (_p: any) => (
-    <div class="wf-w-full wf-stack wf-gap-sm" style="max-width:320px">
+    <div class="wf-width-full wf-stack wf-gap-sm" style="max-width:320px">
       <PasswordInput label="登录密码" value={pwd} placeholder="••••••••" onInput={(e: any) => { pwd = e.target.value; ctx.render() }} hint="点击右侧眼睛切换可见性" />
     </div>
   )
@@ -165,7 +165,7 @@ const DemoPasswordInput: Component = async (_props, ctx) => {
 const DemoTagsInput: Component = async (_props, ctx) => {
   let tags = ['typescript', 'weifuwu']
   return async (_p: any) => (
-    <div class="wf-w-full wf-stack wf-gap-sm" style="max-width:360px">
+    <div class="wf-width-full wf-stack wf-gap-sm" style="max-width:360px">
       <TagsInput label="技能标签" value={tags} placeholder="输入后回车添加，支持中文输入法" onChange={v => { tags = v; ctx.render() }} hint={`当前 ${tags.length} 个标签`} />
     </div>
   )
@@ -186,7 +186,7 @@ const DemoFileUpload: Component = async (_props, ctx) => {
     }, 300)
   }
   return async (_p: any) => (
-    <div class="wf-w-full wf-stack wf-gap-sm">
+    <div class="wf-width-full wf-stack wf-gap-sm">
       <FileUpload
         accept="image/*,.pdf"
         multiple
@@ -197,7 +197,7 @@ const DemoFileUpload: Component = async (_props, ctx) => {
         onChange={f => { files = f; ctx.render() }} />
       <div class="wf-row wf-gap-sm">
         <Button variant="primary" size="sm" onClick={simulateUpload} disabled={!files.length}>模拟上传（进度）</Button>
-        <span class="wf-text-xs wf-text-secondary">选择图片文件可预览缩略图</span>
+        <span class="wf-font-xs wf-text-secondary">选择图片文件可预览缩略图</span>
       </div>
     </div>
   )
@@ -207,9 +207,9 @@ const DemoTagsInputErr: Component = async (_p, ctx) => {
   let tags = ['前端']
   let err = ''
   return async () => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-sm wf-width-full">
       <TagsInput value={tags} onChange={(t) => { tags = t; if (t.length >= 3) err = ''; ctx.render() }} maxTags={3} error={err} placeholder="最多 3 个标签（回车添加）" />
-      {err && <div class="wf-text-sm wf-text-error">{err}</div>}
+      {err && <div class="wf-font-sm wf-text-error">{err}</div>}
       <div class="wf-row wf-gap-sm">
         <Button variant="danger" onClick={() => { err = '标签数量超限（示例）'; ctx.render() }}>触发错误</Button>
       </div>
@@ -221,7 +221,7 @@ const DemoFileUploadDis: Component = async (_p, ctx) => {
   let files: File[] = []
   let disabled = false
   return async () => (
-    <div class="wf-w-full wf-stack wf-gap-sm">
+    <div class="wf-width-full wf-stack wf-gap-sm">
       <FileUpload accept="image/*" multiple value={files} disabled={disabled} error={disabled ? '' : undefined}
         onChange={f => { files = f; ctx.render() }} />
       <div><Button onClick={() => { disabled = !disabled; ctx.render() }}>{disabled ? '启用' : '禁用'}</Button></div>

@@ -39,7 +39,7 @@ export const MarkdownEditor: Component<MarkdownEditorProps> = async (_init, ctx)
       onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Tab') { e.preventDefault(); onChange?.(value + '  ') } },
       style: { fontFamily: 'var(--wf-font-mono)', fontSize: 13, lineHeight: 1.7, resize: 'vertical', minHeight: 80 },
     })
-    const preview = h('div', { class: 'wf-md-editor-preview wf-surface wf-border wf-rounded-sm', style: { padding: '10px 14px', minHeight: 80, overflow: 'auto' } },
+    const preview = h('div', { class: 'wf-md-editor-preview wf-surface wf-border wf-radius-sm', style: { padding: '10px 14px', minHeight: 80, overflow: 'auto' } },
       value ? h(Markdown, { content: value }) : h('span', { class: 'wf-text-tertiary' }, '预览区（输入后实时渲染）'))
     return h('div', { class: `wf-md-editor wf-stack wf-gap-xs${className ? ` ${className}` : ''}` }, [
       h('div', { class: 'wf-row wf-gap-xs' }, [

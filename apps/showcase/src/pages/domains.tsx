@@ -36,15 +36,15 @@ function makeDomainPages(cfg: DomainCfg) {
     }
     return async (_p: any) => (
       <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:16px;padding:24px 16px">
-        <h1 class="wf-text-2xl wf-m-0">{cfg.title} · {list.length}</h1>
+        <h1 class="wf-font-2xl wf-margin-none">{cfg.title} · {list.length}</h1>
         {[...groups.entries()].map(([g, items]) => (
           <div class="wf-stack wf-gap-sm" key={g}>
-            {g && <b class="wf-text-base wf-border-b wf-pb-xs">{cfg.groupTitle ? cfg.groupTitle(g) : g}</b>}
+            {g && <b class="wf-font-base wf-border-bottom wf-padding-bottom-xs">{cfg.groupTitle ? cfg.groupTitle(g) : g}</b>}
             <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,300px),1fr));--wf-gap:12px">
               {items.map((it) => (
-                <a key={it.id} href={`/${cfg.domain}/${it.id}`} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
-                  <b class="wf-text-base">{cfg.itemTitle(idx, it.id)}</b>
-                  <span class="wf-text-xs wf-text-secondary">{cfg.itemDesc(idx, it.id)}</span>
+                <a key={it.id} href={`/${cfg.domain}/${it.id}`} class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
+                  <b class="wf-font-base">{cfg.itemTitle(idx, it.id)}</b>
+                  <span class="wf-font-xs wf-text-secondary">{cfg.itemDesc(idx, it.id)}</span>
                   {cfg.itemTags && cfg.itemTags(idx, it.id).length > 0 && (
                     <span class="wf-cluster wf-gap-xs">{cfg.itemTags(idx, it.id).map((t) => <Tag key={t}>{t}</Tag>)}</span>
                   )}
@@ -71,11 +71,11 @@ function makeDomainPages(cfg: DomainCfg) {
     const sourceHref = idx && cfg.sourceLink ? cfg.sourceLink(idx, initProps.id) : null
     return async (_p: any) => (
       <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:16px;padding:24px 16px">
-        <div class="wf-text-xs wf-text-secondary">
+        <div class="wf-font-xs wf-text-secondary">
           <a href={`/${cfg.domain}`} style="color:inherit">{cfg.title}</a> › {title}
         </div>
-        <div class="wf-row wf-between">
-          <h1 class="wf-text-2xl wf-m-0">{title}</h1>
+        <div class="wf-row wf-justify-between">
+          <h1 class="wf-font-2xl wf-margin-none">{title}</h1>
           <div class="wf-row wf-gap-xs">
             {sourceHref && (
               <a class="wf-btn wf-btn--sm" href={sourceHref} target="_blank">查看源码</a>
@@ -84,7 +84,7 @@ function makeDomainPages(cfg: DomainCfg) {
           </div>
         </div>
         {cfg.extraRender?.(initProps.id)}
-        <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md">
+        <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md">
           <Markdown content={md} />
         </div>
       </div>

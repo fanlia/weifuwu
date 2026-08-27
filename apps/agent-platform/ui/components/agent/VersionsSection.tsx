@@ -39,9 +39,9 @@ export const VersionsSection: Component<{ agentId: string }> = async (_init, ctx
 
   return async () => (
     <Card id="sec-versions">
-      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm"><Icon name="refresh" size={14} /> 版本管理</div>
-      <div class="wf-text-xs wf-text-tertiary wf-mb-sm">保存当前配置快照，可随时回滚（系统提示/模型/工具/配额等）</div>
-      <div class="wf-row wf-gap-xs wf-mb-sm">
+      <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm"><Icon name="refresh" size={14} /> 版本管理</div>
+      <div class="wf-font-xs wf-text-tertiary wf-margin-bottom-sm">保存当前配置快照，可随时回滚（系统提示/模型/工具/配额等）</div>
+      <div class="wf-row wf-gap-xs wf-margin-bottom-sm">
         <div class="wf-fill"><Input placeholder="版本备注（可选）" value={versionNote}
           onInput={(e: Event) => { versionNote = inputValue(e); rerender() }} /></div>
         <Button size="sm" disabled={savingVersion} onClick={saveVersionFn}>
@@ -50,12 +50,12 @@ export const VersionsSection: Component<{ agentId: string }> = async (_init, ctx
       </div>
       <div class="wf-stack wf-gap-xs">
         {versions.length === 0 ? (
-          <div class="wf-text-sm wf-text-tertiary wf-py-sm">暂无版本——保存第一个版本开始管理</div>
+          <div class="wf-font-sm wf-text-tertiary wf-padding-y-sm">暂无版本——保存第一个版本开始管理</div>
         ) : versions.map((v: AgentVersion) => (
-          <div key={v.id} class="wf-split wf-py-sm wf-border-b">
+          <div key={v.id} class="wf-split wf-padding-y-sm wf-border-bottom">
             <div class="wf-stack wf-gap-none">
-              <span class="wf-text-sm">v{v.version} · {v.note ?? '版本'}</span>
-              <span class="wf-text-xs wf-text-tertiary">{fmtVersionTime(v.created_at)}</span>
+              <span class="wf-font-sm">v{v.version} · {v.note ?? '版本'}</span>
+              <span class="wf-font-xs wf-text-tertiary">{fmtVersionTime(v.created_at)}</span>
             </div>
             <Button size="sm" variant="ghost" disabled={rollingBack === v.id}
               onClick={() => rollbackVersionFn(v.id)}>{rollingBack === v.id ? '回滚中...' : '回滚'}</Button>

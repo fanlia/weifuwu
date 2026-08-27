@@ -48,7 +48,7 @@ export const Agents: Component = async (_props, ctx) => {
       {$.loading && (
         <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 280px), 1fr))">
           {[1, 2, 3, 4].map(i => (
-            <Card key={i}><Skeleton variant="text" width="60%" /><Skeleton variant="text" width="90%" className="wf-mt-sm" /><Skeleton variant="text" width="45%" className="wf-mt-sm" /></Card>
+            <Card key={i}><Skeleton variant="text" width="60%" /><Skeleton variant="text" width="90%" className="wf-margin-top-sm" /><Skeleton variant="text" width="45%" className="wf-margin-top-sm" /></Card>
           ))}
         </div>
       )}
@@ -68,11 +68,11 @@ export const Agents: Component = async (_props, ctx) => {
             <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)} style={{ display: 'flex', flexDirection: 'column' }}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={a.name} type={a.type} />
-                <div class="wf-fill wf-text-base wf-text-semibold wf-truncate">{a.name}</div>
+                <div class="wf-fill wf-font-base wf-semibold wf-truncate">{a.name}</div>
                 <TypeBadge type={a.type} />
               </div>
-              <div class="wf-text-sm wf-text-secondary wf-mt-sm">{a.description || a.system_prompt || '暂无描述'}</div>
-              <div class="wf-row wf-gap-md wf-text-xs wf-text-tertiary wf-mt-sm">
+              <div class="wf-font-sm wf-text-secondary wf-margin-top-sm">{a.description || a.system_prompt || '暂无描述'}</div>
+              <div class="wf-row wf-gap-md wf-font-xs wf-text-tertiary wf-margin-top-sm">
                 {a.type === 'ai' && a.model && (
                   <span>🧠 {a.model === 'deepseek-reasoner' ? 'Reasoner' : a.model === 'deepseek-v4-flash' ? 'V4 Flash' : a.model || '默认模型'}</span>
                 )}

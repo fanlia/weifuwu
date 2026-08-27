@@ -1,14 +1,15 @@
-# 对齐 · layout（原语）
+# 子项对齐 · layout（原语）
 
 ## 概述
 
-align-self 系列（stretch/start/end/center——单元格对齐）
+align-self 系列（start/center/end/stretch——弹性/网格子项单独对齐）
 
 ## 代表类
 
 ```css
-.wf-stretch
-.wf-align-self-start
+.wf-self-start
+.wf-self-center
+.wf-self-end
 ```
 
 ## 源码
@@ -17,4 +18,4 @@ align-self 系列（stretch/start/end/center——单元格对齐）
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/align` ——（P1 填充）
+> showcase 活体演示页：`/layout/align`（族示例 + 代表类）

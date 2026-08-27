@@ -29,13 +29,13 @@ export const Home: Component = async (_init: any, ctx: any) => {
 
   return async (_p: any) => (
     <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:24px;padding:32px 16px">
-      <div class="wf-border wf-rounded-lg wf-clip" style="background:linear-gradient(180deg,var(--wf-color-bg) 0%,var(--wf-color-bg-secondary) 100%)">
+      <div class="wf-border wf-radius-lg wf-overflow-hidden" style="background:linear-gradient(180deg,var(--wf-color-bg) 0%,var(--wf-color-bg-secondary) 100%)">
         <div class="wf-stack wf-gap-lg" style="padding:48px 32px;text-align:center">
           <div class="wf-stack wf-gap-sm">
-            <h1 class="wf-text-4xl wf-m-0" style="letter-spacing:-0.02em">
+            <h1 class="wf-font-4xl wf-margin-none" style="letter-spacing:-0.02em">
               weifuwu <span class="wf-text-primary">发展引擎</span>
             </h1>
-            <p class="wf-text-secondary wf-text-base wf-m-0" style="max-width:560px;margin-inline:auto">
+            <p class="wf-text-secondary wf-font-base wf-margin-none" style="max-width:560px;margin-inline:auto">
               一个 npm 包 = 后端 HTTP + 前端 VDOM + <b class="wf-text-primary">{idx.counts.components}</b> 组件
               + CSS 设计系统 + SaaS 地基——全自研、零构建
             </p>
@@ -49,7 +49,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
           </div>
           {/* 流式代码行（可解释表面：命令即所得） */}
           <div>
-            <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-text-xs" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin-inline:auto;padding:12px 16px;background:var(--wf-color-bg)">
+            <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-font-xs" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin-inline:auto;padding:12px 16px;background:var(--wf-color-bg)">
               <div><span class="wf-text-primary">$</span> npx weifuwu docs</div>
               <div class="wf-text-tertiary">→ http://localhost:4000 · 文档站已就绪（{idx.counts.components} 组件 · {idx.counts.guides} 指南）</div>
               <div><span class="wf-text-primary">$</span> node server.ts</div>
@@ -63,9 +63,9 @@ export const Home: Component = async (_init: any, ctx: any) => {
               ['流 · 进行态语言', '加载是流动的进行态——流式渐显 / thinking 脉冲 / 进度透明'],
               ['明 · 可解释表面', '状态链完整可推导——数据身份可见（data-wf-key / data-wf-id 落 DOM）'],
             ].map(([t, d]) => (
-              <div key={t} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-sm">
-                <b class="wf-text-sm wf-text-primary">{t}</b>
-                <p class="wf-text-xs wf-text-secondary wf-m-0 wf-mt-xs">{d}</p>
+              <div key={t} class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-sm">
+                <b class="wf-font-sm wf-text-primary">{t}</b>
+                <p class="wf-font-xs wf-text-secondary wf-margin-none wf-margin-top-xs">{d}</p>
               </div>
             ))}
           </div>
@@ -83,10 +83,10 @@ export const Home: Component = async (_init: any, ctx: any) => {
           { path: '/components', name: '组件', num: idx.counts.components, desc: '逐组件文档：API 表 + 纪律 + 关系 + 验证', icon: 'grid' },
           { path: '/layout', name: '布局原语', num: idx.counts.primitives, desc: 'wf-* 原语与工具类，按族分组', icon: 'layout' },
         ].map((d) => (
-          <a key={d.path} href={d.path} class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
-            <span class="wf-text-2xl wf-text-bold wf-text-primary" style="font-family:var(--wf-font-mono)">{d.num}</span>
-            <b class="wf-text-base">{d.name}</b>
-            <span class="wf-text-xs wf-text-secondary">{d.desc}</span>
+          <a key={d.path} href={d.path} class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
+            <span class="wf-font-2xl wf-bold wf-text-primary" style="font-family:var(--wf-font-mono)">{d.num}</span>
+            <b class="wf-font-base">{d.name}</b>
+            <span class="wf-font-xs wf-text-secondary">{d.desc}</span>
           </a>
         ))}
       </div>

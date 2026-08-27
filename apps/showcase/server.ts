@@ -365,11 +365,11 @@ for (const domain of DOC_DOMAINS) {
 app.get('/', async (req: Request): Promise<Response> => {
   // hero 静态结构（与前端 home.tsx 同文案——SPA 接管时内容一致，无"文字闪过"）
   const hero = `<div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:24px;padding:32px 16px">
-  <div class="wf-border wf-rounded-lg wf-clip" style="background:linear-gradient(180deg,var(--wf-color-bg) 0%,var(--wf-color-bg-secondary) 100%)">
+  <div class="wf-border wf-radius-lg wf-overflow-hidden" style="background:linear-gradient(180deg,var(--wf-color-bg) 0%,var(--wf-color-bg-secondary) 100%)">
     <div class="wf-stack wf-gap-md" style="padding:48px 32px;text-align:center">
       <h1 style="font-size:2.25rem;margin:0;letter-spacing:-0.02em">weifuwu <span style="color:var(--wf-color-primary)">发展引擎</span></h1>
       <p style="color:var(--wf-color-text-secondary);max-width:560px;margin:8px auto 0">组件 / 布局原语 / 页面模式 / 应用模板 / 后端能力 / 框架能力 / 指南——全部可复制、可验证、可深链</p>
-      <div class="wf-surface wf-border wf-rounded-md" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin:12px auto 0;padding:12px 16px;font-size:12px">
+      <div class="wf-surface wf-border wf-radius-md" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin:12px auto 0;padding:12px 16px;font-size:12px">
         <div><span style="color:var(--wf-color-primary)">$</span> npx weifuwu docs</div>
         <div style="color:var(--wf-color-text-tertiary)">→ 文档站已就绪（129 组件 · 20 指南）</div>
         <div><span style="color:var(--wf-color-primary)">$</span> node server.ts</div>

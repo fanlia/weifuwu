@@ -16,4 +16,4 @@
 
 ## 验证
 
-> agent-browser 走查：打开 `/layout/center` ——（P1 填充）
+> showcase 活体演示页：`/layout/center`（族示例 + 代表类）
