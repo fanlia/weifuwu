@@ -37,12 +37,18 @@ async function main() {
   const tag = version.includes('-') ? 'next' : 'latest'
   console.log(`\n  weifuwu v${version} ${dryRun ? '(DRY RUN)' : ''}\n`)
 
-  // Step 1: Bump version
+  // Step 1: Bump version（**dry-run 不落盘 2026-08——版本漂移实证**：
+  // dry-run 曾把 package.json version 写入并误提交——dry 语义 = 只验证
+  // 流程不产生变更）
   const pkgPath = join(root, 'package.json')
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
-  pkg.version = version
-  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
-  console.log(`  ✓ version → ${version}`)
+  if (dryRun) {
+    console.log(`  ✓ version → ${version} (dry-run——不落盘)`)
+  } else {
+    pkg.version = version
+    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+    console.log(`  ✓ version → ${version}`)
+  }
 
   // Step 2: Build
   run('npm run build', { env: { ...process.env, NODE_ENV: 'production' } })
