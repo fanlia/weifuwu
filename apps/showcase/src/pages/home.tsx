@@ -91,37 +91,6 @@ export const Home: Component = async (_init: any, ctx: any) => {
         ))}
       </div>
 
-      <div class="wf-stack wf-gap-sm">
-        <div class="wf-row wf-between">
-          <b class="wf-text-lg">🎯 我要做什么</b>
-          <span class="wf-text-xs wf-text-tertiary">需求 → 模板/模式/组件全链路——场景先于组件</span>
-        </div>
-        <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,220px),1fr));--wf-gap:10px">
-          {idx.needs.map((n) => (
-            <a key={n.id} href={'/components'}
-              class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-sm wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
-              <b class="wf-text-sm">{n.name}</b>
-              <span class="wf-text-xs wf-text-secondary">{n.desc}</span>
-              <span class="wf-text-xs wf-text-tertiary">{n.components.slice(0, 3).join(' · ')}…</span>
-            </a>
-          ))}
-        </div>
-      </div>
-
-
-
-      <div class="wf-surface wf-surface--flat wf-border wf-rounded-md wf-p-md wf-stack wf-gap-sm">
-        <b>⚡ 快速开始（四步走）</b>
-        <div class="wf-cluster wf-gap-sm">
-          {[
-            ['1. 选组件', '/components'],
-            ['2. 布局原语', '/layout'],
-          ].map(([t, p]) => (
-            <a key={p} href={p} class="wf-tag wf-tag--primary" style="text-decoration:none">{t}</a>
-          ))}
-        </div>
-        <p class="wf-text-xs wf-text-tertiary wf-m-0">LLM 路径：read content/index.md → 目标 .md → 复制 examples/ 源码——与本平台同源</p>
-      </div>
     </div>
   )
 }

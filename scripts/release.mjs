@@ -93,7 +93,7 @@ async function main() {
   const changelogPath = join(root, 'CHANGELOG.md')
   try {
     const prevTag = execSync('git describe --tags --abbrev=0 HEAD~1', { cwd: root }).toString().trim()
-    const log = execSync(`git log --oneline ${prevTag}..HEAD --invert-grep "release:"`, { cwd: root }).toString().trim()
+    const log = execSync(`git log --oneline ${prevTag}..HEAD --grep="release:" --invert-grep`, { cwd: root }).toString().trim()
     const groups = { feat: [], fix: [], docs: [], test: [], chore: [], other: [] }
     for (const line of log.split('\n')) {
       const m = line.match(/^\w+ (feat|fix|docs|test|chore)\([^)]*\): (.+)$/)
