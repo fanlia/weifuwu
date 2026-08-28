@@ -4,6 +4,18 @@
 > 的**用户可见症状**出发，沿工具调用链路逐层定位，给出**从根因层面**的修复方案。
 > 全部问题均有**实证**（真实聊天记录 / 代码证据 / 直接调用复现）——非臆测。
 
+> ## ✅ 全部完成（2026-08——3 波 Wave 1-3 已提交落盘）
+> - **Wave 1（P0）**：工具失败前端可见（5 处修复——SkillRegistry 透传/tool-runner 抛错/
+>   workspace throw/前端消费 ok/ai_step 持久化）· 失败答案不入缓存（isFailureAnswer + @ 排除）·
+>   缓存陈旧（文件/数据类不缓存）——**239/239**
+> - **Wave 2（P1）**：KB 单实现源（kb-search.ts——builtin+skill 共用）· 向量质量防线（随机向量
+>   检测）· embed 降级重试 · **随机向量污染根修**（norm 18.5→1.00——检索相似度 4.7%→75.7%）
+>   ——**242/242**
+> - **Wave 3（P2）**：AI 回复前缀规范（persona）· 缓存标注用户友好（去「零 token 消耗」）——**242/242**
+> - **终态**：应用 242/242 · 框架 212 契约 + 116 场景 + showcase · 双侧 tsc 0 —— 用户可见：
+>   ① 知识库检索恢复正常（69.4% 真实内容）② 工具失败前端红标「执行失败」+ 刷新持久化
+>   ③ 缓存不再毒化 ④ AI 回复干净无冗余前缀
+
 ---
 
 ## 一、诊断结论（用户可见症状 → 根因 → 等级）
@@ -102,11 +114,11 @@
 
 | 任务 | 问题 | 文件 | 状态 |
 | --- | --- | --- | --- |
-| B1 工具失败前端 | A2 | ui/pages/Chat.tsx | ⬜ |
-| B2 失败答案不入缓存 | A3 | src/services/chat.ts + answer-cache.ts | ⬜ |
-| B3 缓存时效 | A4 | src/services/answer-cache.ts | ⬜ |
-| B4 KB 相似度下限 | A7 | src/services/kb-search.ts（新建）+ builtin/skill | ⬜ |
-| B5 embed 降级重试 | A8 | src/services/kb-search.ts | ⬜ |
-| B6 handler 单实现源 | A9 | skills + builtin + registry | ⬜ |
-| B7 前缀规范 | A5 | src/services/persona.ts | ⬜ |
-| B8 缓存标注 | A6 | src/services/answer-cache.ts | ⬜ |
+| B1 工具失败前端 | A2 | ui/pages/Chat.tsx + agent-runner + skills + tool-runner + workspace | ✅ Wave 1 |
+| B2 失败答案不入缓存 | A3 | src/services/chat.ts + answer-cache.ts | ✅ Wave 1 |
+| B3 缓存时效 | A4 | src/services/answer-cache.ts | ✅ Wave 1 |
+| B4 KB 相似度下限+随机防线 | A7 | src/services/kb-search.ts（新建）+ knowledge.ts | ✅ Wave 2 |
+| B5 embed 降级重试 | A8 | src/services/kb-search.ts + knowledge.ts | ✅ Wave 2 |
+| B6 handler 单实现源 | A9 | src/services/kb-search.ts + builtin + skill | ✅ Wave 2 |
+| B7 前缀规范 | A5 | src/services/persona.ts | ✅ Wave 3 |
+| B8 缓存标注 | A6 | src/services/answer-cache.ts + chat.ts | ✅ Wave 3 |
