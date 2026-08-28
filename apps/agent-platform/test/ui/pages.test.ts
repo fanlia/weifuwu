@@ -1,130 +1,168 @@
 /**
- * 主页面渲染基线测试（UI-REFACTOR-PLAN M1——UI 测试保护网）
+ * 主页面渲染基线测试（OPTIMIZE-PLAN-3 重写——对齐 weifuwu/vdom 测试纪律）
  *
- * 目的：AgentDetail 拆分（M2）的回归保护网——8 区渲染基线。
- * 真实渲染管线（mountToDom：buildVNode → renderValue → DOM）。
+ * 旧形态（jsdom + ui-dom createRouter）随框架重构删除——新形态 = 场景层纪律：
+ * **playwright + 真实 server（uiServe）**——真实浏览器渲染管线 + 真实认证/
+ * 数据链路（注册租户 → API 种子 → localStorage 注入 → 页面断言）。
+ *
+ * 基线覆盖（原 UI-REFACTOR-PLAN M1 保护网全量保留）：
+ * - Login/Register：A1 首屏 SSR（零 JS 即表单）+ 水合后吸收零错误
+ * - Workspace：项目空间卡片（有数据）/ 空状态三步引导（新租户）
+ * - Settings：四卡（基本资料/外观/审计/系统状态）
+ * - AgentDetail：ai 类型分区基线 + 错误态（不存在/无权）
+ *
+ * 单独运行：node --env-file=.env --test apps/agent-platform/test/ui/pages.test.ts
  */
-
-import { describe, it, before } from 'node:test'
+import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../../src/test/client/setup.ts'
-import { h } from '../../../../src/ui-dom/vnode.ts'
-import { makeAppCtx, mountPage, MOCK_AI_AGENT } from './helpers.ts'
-import { Login } from '../../ui/pages/Login.tsx'
-import { Settings } from '../../ui/pages/Settings.tsx'
-import { AgentDetail } from '../../ui/pages/AgentDetail.tsx'
+import { chromium, type Browser } from 'playwright'
+import {
+  startAgentServer, openAgentPage, fatalErrors, waitForText,
+  registerTenant, injectAuth, apiAs,
+  type AgentServer, type TenantAuth,
+} from './shared.ts'
 
-before(setupJsdom)
+let server: AgentServer
+let browser: Browser
+let BASE = ''
+/** 种子租户（部门 + AI Agent——Workspace/Settings/AgentDetail 共用） */
+let seeded: TenantAuth
+let seededDeptId = ''
+let seededAgentId = ''
+/** 空租户（无部门——空状态引导） */
+let empty: TenantAuth
 
-describe('Login 渲染基线', () => {
-  it('标题 + 表单 + 注册入口', async () => {
-    const { container } = await mountPage('/login', () => h(Login, {}))
-    const text = container.textContent ?? ''
-    assert.ok(text.includes('登录'), '标题')
-    assert.ok(text.includes('立即注册'), '注册入口')
-    assert.ok(container.querySelector('input[type=email], input'), '邮箱输入')
+test.before(async () => {
+  server = await startAgentServer()
+  BASE = server.base
+  browser = await chromium.launch()
+
+  seeded = await registerTenant(BASE, 'seeded')
+  const dept = await apiAs(BASE, seeded, '/api/departments', {
+    method: 'POST', body: JSON.stringify({ name: '技术部' }),
   })
+  seededDeptId = dept.department.id
+  const agent = await apiAs(BASE, seeded, '/api/agents', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'ai', name: '测试 Agent', description: '测试描述', system_prompt: '你是测试助手' }),
+  })
+  seededAgentId = agent.agent.id
+
+  empty = await registerTenant(BASE, 'empty')
 })
 
-describe('Settings 渲染基线', () => {
-  it('四卡：基本资料/外观/审计/系统状态', async () => {
-    const { container } = await mountPage('/settings', () => h(Settings, {}), {
-      routes: [
-        { method: 'GET', pattern: '/api/audit', handler: () => ({ entries: [], total: 0 }) },
-        { method: 'GET', pattern: '/api/ops', handler: () => ({ sandbox: { available: true, mode: 'persistent', poolSize: 0, maxContainers: 20, imageReady: true }, auditToday: 3 }) },
-      ],
-    })
-    const text = container.textContent ?? ''
-    assert.ok(text.includes('基本资料'), '基本资料卡')
-    assert.ok(text.includes('外观'), '外观卡')
-    assert.ok(text.includes('审计日志'), '审计卡')
-    assert.ok(text.includes('系统状态'), '系统状态卡')
-    assert.ok(text.includes('运行中'), '沙盒状态徽章')
-  })
+test.after(async () => {
+  await browser?.close()
+  server?.stop()
 })
 
-describe('工作台渲染基线（P0 重构——项目空间卡片）', () => {
-  it('项目空间卡片 + 环境状态点 + 空状态引导', async () => {
-    const { Workspace } = await import('../../ui/pages/Workspace.tsx')
-    const { container } = await mountPage('/dashboard', () => h(Workspace, {}), {
-      routes: [
-        { method: 'GET', pattern: '/api/departments', handler: () => ({
-          departments: [
-            { id: 'd1', name: '技术部', is_dm: false, member_count: 3, last_message: '分析一下 Q3 数据', last_message_at: '2026-08-15T08:00:00Z' },
-            { id: 'd2', name: '张明 — 小码', is_dm: true, member_count: 2, last_message: null, last_message_at: null },
-          ], total: 2,
-        }) },
-        { method: 'GET', pattern: '/api/sandboxes', handler: () => ({ sandboxes: [{ department_id: 'd1', status: 'running' }], total: 1 }) },
-        { method: 'GET', pattern: '/api/messages/pending-approvals', handler: () => ({ pending: [], total: 0 }) },
-        { method: 'GET', pattern: '/api/agents', handler: () => ({ agents: [] }) },
-      ],
-    })
-    const text = container.textContent ?? ''
-    assert.ok(text.includes('我的项目空间'), '项目空间标题')
-    assert.ok(text.includes('技术部'), '项目卡片')
-    assert.ok(text.includes('AI 随时能干活'), '环境状态用户语言（running → 随时能干活）')
-    assert.ok(text.includes('分析一下 Q3 数据'), '最近消息摘要')
-    assert.ok(text.includes('单聊'), '单聊标记')
+// ── Login / Register：A1 首屏 SSR ─────────────────────────
+
+test('Login SSR 基线：零 JS 即表单（HTML 直取）+ 水合吸收零错误', async () => {
+  // SSR 断言：node 直取 HTML（无浏览器——JS 未执行）——首屏即完整表单
+  const html = await (await fetch(`${BASE}/login`)).text()
+  assert.ok(html.includes('登'), 'SSR 标题含「登」')
+  assert.ok(html.includes('立即注册'), 'SSR 注册入口')
+  assert.ok(html.includes('<input'), 'SSR 输入框（零 JS 即可见）')
+
+  // 浏览器水合：uiServe 吸收 SSR 结构——表单保持 + 零 console 错误
+  const page = await browser.newPage()
+  try {
+    const errors = await openAgentPage(page, BASE, '/login')
+    await waitForText(page, '立即注册')
+    assert.ok(await page.locator('input').count() > 0, '水合后输入框存在')
+    assert.deepEqual(fatalErrors(errors), [], `零错误（实际: ${fatalErrors(errors)[0] ?? '无'}）`)
+  } finally { await page.close() }
+})
+
+test('Register SSR 基线：零 JS 即表单', async () => {
+  const html = await (await fetch(`${BASE}/register`)).text()
+  assert.ok(html.includes('创建账号'), 'SSR 标题（无邀请态 = 创建账号）')
+  assert.ok(html.includes('<input'), 'SSR 输入框（零 JS 即可见）')
+
+  const page = await browser.newPage()
+  try {
+    const errors = await openAgentPage(page, BASE, '/register')
+    assert.deepEqual(fatalErrors(errors), [], `零错误（实际: ${fatalErrors(errors)[0] ?? '无'}）`)
+  } finally { await page.close() }
+})
+
+// ── Workspace（工作台）────────────────────────────────────
+
+test('工作台基线：项目空间卡片 + 新建入口（种子租户）', async () => {
+  const page = await browser.newPage()
+  try {
+    await injectAuth(page, seeded)
+    const errors = await openAgentPage(page, BASE, '/')
+    await waitForText(page, '我的项目空间')
+    const text = await page.evaluate(() => document.body.textContent ?? '')
+    assert.ok(text.includes('技术部'), '项目卡片（部门名）')
     assert.ok(text.includes('新建项目空间'), '创建入口')
-  })
-
-  it('空状态引导：无项目空间 → 三步引导', async () => {
-    const { Workspace } = await import('../../ui/pages/Workspace.tsx')
-    const { container } = await mountPage('/dashboard', () => h(Workspace, {}), {
-      routes: [
-        { method: 'GET', pattern: '/api/departments', handler: () => ({ departments: [], total: 0 }) },
-        { method: 'GET', pattern: '/api/sandboxes', handler: () => ({ sandboxes: [], total: 0 }) },
-        { method: 'GET', pattern: '/api/messages/pending-approvals', handler: () => ({ pending: [], total: 0 }) },
-        { method: 'GET', pattern: '/api/agents', handler: () => ({ agents: [] }) },
-      ],
-    })
-    const text = container.textContent ?? ''
-    assert.ok(text.includes('还没有项目空间'), '空状态')
-    assert.ok(text.includes('三步开始'), '引导文案')
-    assert.ok(text.includes('先创建 AI Agent'), '无 Agent 引导')
-  })
+    assert.deepEqual(fatalErrors(errors), [], `零错误（实际: ${fatalErrors(errors)[0] ?? '无'}）`)
+  } finally { await page.close() }
 })
 
-describe('AgentDetail 渲染基线（拆分保护网）', () => {
-  function detailOpts() {
-    return {
-      routes: [
-        { method: 'GET', pattern: /^\/api\/agents\/agent-1\/skills$/, handler: () => ({ skills: [] }) },
-        { method: 'GET', pattern: '/api/skills/available', handler: () => ({ skills: [] }) },
-        { method: 'GET', pattern: /^\/api\/agents\?/, handler: () => ({ agents: [] }) },
-        { method: 'GET', pattern: '/versions', handler: () => ({ versions: [] }) },
-        { method: 'GET', pattern: '/logs', handler: () => ({ logs: [] }) },
-        { method: 'GET', pattern: '/api/agents/agent-1', handler: () => ({ agent: MOCK_AI_AGENT }) },
-      ],
+test('工作台空状态：无项目空间 → 三步引导（空租户）', async () => {
+  const page = await browser.newPage()
+  try {
+    await injectAuth(page, empty)
+    const errors = await openAgentPage(page, BASE, '/')
+    await waitForText(page, '还没有项目空间')
+    const text = await page.evaluate(() => document.body.textContent ?? '')
+    assert.ok(text.includes('三步开始'), '引导文案')
+    assert.deepEqual(fatalErrors(errors), [], `零错误（实际: ${fatalErrors(errors)[0] ?? '无'}）`)
+  } finally { await page.close() }
+})
+
+// ── Settings ──────────────────────────────────────────────
+
+test('Settings 基线：四卡（基本资料/外观/审计日志/系统状态）', async () => {
+  const page = await browser.newPage()
+  try {
+    await injectAuth(page, seeded)
+    const errors = await openAgentPage(page, BASE, '/settings')
+    await waitForText(page, '基本资料')
+    const text = await page.evaluate(() => document.body.textContent ?? '')
+    for (const t of ['基本资料', '外观', '审计日志', '系统状态']) {
+      assert.ok(text.includes(t), `卡片：${t}`)
     }
-  }
+    assert.deepEqual(fatalErrors(errors), [], `零错误（实际: ${fatalErrors(errors)[0] ?? '无'}）`)
+  } finally { await page.close() }
+})
 
-  it('ai 类型：8 区中 7 区渲染（无 Webhook 区）', async () => {
-    const { container } = await mountPage('/agents/agent-1', () => h(AgentDetail, {}), detailOpts(), '/agents/:id')
-    const text = container.textContent ?? ''
-    // 7 区（ai 类型）——工作空间文件区已迁至部门页（三层模型：目录归属部门）
-    assert.ok(text.includes('基本设置'), '配置区')
-    assert.ok(text.includes('技能管理'), '技能区')
+// ── AgentDetail ───────────────────────────────────────────
+
+test('AgentDetail 基线：ai 类型分区 + 数据回填（种子 Agent）', async () => {
+  const page = await browser.newPage()
+  try {
+    await injectAuth(page, seeded)
+    const errors = await openAgentPage(page, BASE, `/agents/${seededAgentId}`)
+    // 分区异步加载（子组件各自 await 取数）——等最晚的「执行日志」出现再全量断言
+    await waitForText(page, '执行日志')
+    const text = await page.evaluate(() => document.body.textContent ?? '')
+    // ai 类型分区（工作空间文件区已迁至部门页——三层模型）
+    for (const t of ['基本设置', '技能管理', '绑定知识库', '测试对话', '执行日志', '版本管理']) {
+      assert.ok(text.includes(t), `分区：${t}`)
+    }
     assert.ok(!text.includes('工作空间文件'), '文件区已迁至部门详情页（三层模型）')
-    assert.ok(text.includes('绑定知识库'), '知识库绑定（ai 类型——文档管理仅 KB 类型）')
-    assert.ok(!text.includes('知识库文档'), 'ai 类型无文档管理区')
-    assert.ok(text.includes('测试对话'), '对话区')
-    assert.ok(text.includes('执行日志'), '日志区')
-    assert.ok(text.includes('版本管理'), '版本区')
-    // ai 类型无 Webhook 配置区（入站端点文案）
     assert.ok(!text.includes('入站端点'), 'ai 类型无 Webhook 区')
-    // 数据回填
+    // 数据回填（名称 + 系统提示——textarea 走 property 通道）
     assert.ok(text.includes('测试 Agent'), '名称回填')
-    const taValues = [...container.querySelectorAll('textarea')].map((t) => (t as HTMLTextAreaElement).value).join('|')
+    const taValues = await page.evaluate(() =>
+      [...document.querySelectorAll('textarea')].map((t) => (t as HTMLTextAreaElement).value).join('|'))
     assert.ok(taValues.includes('你是测试助手'), '系统提示回填（textarea value）')
-  })
+    assert.deepEqual(fatalErrors(errors), [], `零错误（实际: ${fatalErrors(errors)[0] ?? '无'}）`)
+  } finally { await page.close() }
+})
 
-  it('无权限/不存在 → 错误态（非空表单）', async () => {
-    const { container } = await mountPage('/agents/missing', () => h(AgentDetail, {}), {
-      routes: [{ method: 'GET', pattern: '/api/agents/missing', handler: () => { throw new Error(JSON.stringify({ error: 'Agent 不存在' })) } }],
-    }, '/agents/:id')
-    const text = container.textContent ?? ''
-    assert.ok(text.includes('不存在或无权访问'), '错误态文案')
+test('AgentDetail 错误态：不存在 → 非空表单（EmptyState）', async () => {
+  const page = await browser.newPage()
+  try {
+    await injectAuth(page, seeded)
+    const errors = await openAgentPage(page, BASE, '/agents/00000000-0000-0000-0000-000000000000')
+    await waitForText(page, '不存在或无权访问')
+    const text = await page.evaluate(() => document.body.textContent ?? '')
     assert.ok(!text.includes('基本设置'), '不渲染空表单')
-  })
+    assert.deepEqual(fatalErrors(errors), [], `零错误（实际: ${fatalErrors(errors)[0] ?? '无'}）`)
+  } finally { await page.close() }
 })

@@ -344,11 +344,16 @@ async function main() {
   // Webhook 入站端点豁免全局限流（外部系统高频调用易撞 100/60s 429）——
   // 防滥用由签名验证 + 请求体大小限制（B3）承担；后续如需独立阈值再加实例
   if (hasRedis) {
-    const globalRateLimit = rateLimit({ windowMs: 60_000, max: 100, redis: redisClient.redis })
+    // RATE_LIMIT_MAX：全局阈值可调（企业内网多用户同 NAT 出口 IP——默认 100/60s 偏紧）
+    const globalMax = Number(process.env.RATE_LIMIT_MAX ?? 100)
+    const globalRateLimit = rateLimit({ windowMs: 60_000, max: globalMax, redis: redisClient.redis })
     app.use((req: Request, ctx: Context, next: any) => {
       // req.url 是完整 URL（含 host）——取 path 判断
       const path = (req.url ?? '').replace(/^https?:\/\/[^/]+/, '')
       if (path.startsWith('/api/webhook/')) return next(req, ctx)
+      // 限流面收敛到 API：静态资源/页面 HTML 非滥用面（每次页面访问 3+ 请求——
+      // 耗配额无意义——页面白屏变 429 JSON 实证；测试/内网高频访问亦误伤）
+      if (!path.startsWith('/api/')) return next(req, ctx)
       return globalRateLimit(req, ctx, next)
     })
   }
@@ -1678,8 +1683,10 @@ async function main() {
 
   // ── 启动 ────────────────────────────────────────────────
 
-  const server = serve(app, { port: 3000 })
-  console.log('[agent-platform] http://localhost:3000')
+  // PORT 环境变量（测试 spawn 用 PORT=0 随机端口——框架 serve 打印实际端口）
+  const port = Number(process.env.PORT ?? 3000)
+  const server = serve(app, { port })
+  if (port !== 0) console.log(`[agent-platform] http://localhost:${port}`)
 
   // ── 优雅关闭 ────────────────────────────────────────────
   const shutdown = async (signal: string) => {
