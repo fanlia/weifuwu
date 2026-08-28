@@ -4,9 +4,12 @@
 
 import { describe, it, before, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync, readdirSync, existsSync } from 'node:fs'
+import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 import {
   parseSkillFrontmatter,
@@ -322,6 +325,24 @@ invalid line without colon
         /缺少 name 或 description/,
       )
       rmSync(dir, { recursive: true })
+    })
+  })
+
+  describe('内置技能旧模型残留哨兵（2016 tenant_id 红线——2026-08 知识库检索报错根因）', () => {
+    it('内置 skill tools.ts 不得引用 tenant_id/tenantId（2016 旧模型列——schema 实态 app_id）', () => {
+      // 真实 bug：search-knowledge-base skill 用 tenant_id（旧列）——工具调用
+      // 「column tenant_id does not exist」——AI 知识库检索全失败——用户实证
+      const root = join(__dirname, '..', '..', 'skills', 'builtin')
+      const dirs = existsSync(root) ? readdirSync(root) : []
+      const offenders: string[] = []
+      for (const d of dirs) {
+        const t = join(root, d, 'tools.ts')
+        if (existsSync(t)) {
+          const src = readFileSync(t, 'utf-8')
+          if (/tenant_id|tenantId/.test(src)) offenders.push(d + ': tenant_id/tenantId')
+        }
+      }
+      assert.deepEqual(offenders, [], `内置 skill 旧列残留（迁移红线——tenant_id→app_id）:\n${offenders.join('\n')}`)
     })
   })
 })

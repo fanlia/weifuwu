@@ -1,5 +1,11 @@
 /**
  * search-knowledge-base skill — tool definitions and handlers
+ *
+ * 2026-08 修复（skill 未随模型迁移——工具调用报错实证）：
+ *  - `tenant_id`（2016 旧模型列）→ `app_id`（2026 多租户模型——schema 实态）
+ *  - `ctx.tenantId` → `ctx.appId`（AppCtx 形态——agent-platform 隔离面）
+ *  - 对齐内置版语义：绑定 KB 优先（agent.kb_id → 只检索绑定 KB；未绑定 →
+ *    检索租户全部）——skill 不再偏离内置行为（此前直接全查——旧列报错）
  */
 
 import type { ToolDefinition } from '../../../src/ai/types.ts'
@@ -32,18 +38,38 @@ export const tools: ToolDefinition[] = [
 export function createHandlers(ctxProvider: () => Context): Record<string, (args: Record<string, unknown>) => unknown | Promise<unknown>> {
   return {
     search_knowledge_base: async (args: Record<string, unknown>) => {
-      const ctx = ctxProvider()
+      const ctx = ctxProvider() as any
       const query = String(args.query ?? '')
       const topK = Math.min(20, Math.max(1, Number(args.top_k ?? 5)))
       if (!query) return '请提供搜索关键词'
 
       const { sql } = ctx
 
-      const kbs = await sql`
-        SELECT id, name FROM agents
-        WHERE tenant_id = ${ctx.tenantId} AND type = 'knowledge_base' AND is_active = TRUE
-        LIMIT 5
-      `
+      // 绑定知识库优先（与内置版对齐）：agent.kb_id → 只检索绑定 KB
+      const agentId = (ctx as any)._toolAgentId ?? null
+      let kbs: Array<Record<string, any>>
+      if (agentId) {
+        const [agent] = await sql`
+          SELECT a.kb_id, kb.name as kb_name
+          FROM agents a
+          LEFT JOIN agents kb ON kb.id = a.kb_id AND kb.type = 'knowledge_base' AND kb.is_active = TRUE
+          WHERE a.id = ${agentId} AND a.app_id = ${ctx.appId}
+        `
+        if (agent?.kb_id && agent.kb_name) {
+          kbs = [{ id: agent.kb_id as string, name: agent.kb_name as string }]
+        } else {
+          kbs = []
+        }
+      } else {
+        kbs = []
+      }
+      if (kbs.length === 0) {
+        kbs = await sql`
+          SELECT id, name FROM agents
+          WHERE app_id = ${ctx.appId} AND type = 'knowledge_base' AND is_active = TRUE
+          LIMIT 5
+        `
+      }
 
       if (kbs.length === 0) {
         return '没有找到已激活的知识库。请先创建 knowledge_base 类型的 Agent 并上传文档。'
