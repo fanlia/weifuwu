@@ -53,22 +53,6 @@ await esbuild.build({
   external,
 })
 
-// weifuwu CLI（bin: weifuwu → weifuwu docs）——文档服务器
-await esbuild.build({
-  entryPoints: [join(srcDir, 'cli', 'docs.ts')],
-  outfile: join(distDir, 'cli', 'docs.mjs'),
-  format: 'esm',
-  platform: 'node',
-  bundle: true,
-  external,
-})
-
-// 构建后同步：content/ 随包（files 字段）——无复制（根级同源）；仅校验
-for (const d of ['content', 'examples']) {
-  const p = join(root, d)
-  await mkdir(p, { recursive: true })
-}
-
 // ── vdom bundle（新一代前端运行时——h/jsx/uiServe/UIRouter 公共面——
 //   P3 包面切换——组件库已迁移到 src/client/vdom——构建为 weifuwu/vdom）──
 await mkdir(join(distDir, 'client', 'vdom'), { recursive: true })
@@ -150,7 +134,7 @@ const LAYER_OF = {
   _layer: 'layout', '_align-self': 'layout', _nowrap: 'layout', _shrink: 'layout',
   _container: 'layout', '_app-shell': 'layout',
   _surface: 'utilities', _spacing: 'utilities', _border: 'utilities',
-  _text: 'utilities', _prose: 'utilities', _hidden: 'utilities', _block: 'utilities',
+  _text: 'utilities', _hidden: 'utilities', _block: 'utilities',
   _flex: 'utilities', // display 工具族（wf-hidden wf-flex@lg 显隐恢复——必须同层后序获胜）
   _popup: 'layout', // 框架内部浮层基类（popup-manager 消费——非用户词汇）
 }

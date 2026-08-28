@@ -19,7 +19,6 @@
 .wf-font-2xl { font-size: var(--wf-font-size-2xl); }
 .wf-font-3xl { font-size: var(--wf-font-size-3xl); }
 .wf-font-4xl { font-size: var(--wf-font-size-4xl); }
-.wf-font-display { font-size: var(--wf-font-size-display); }
 
 /* ── 数字等宽（统计/表格数值防宽度抖动） ── */
 .wf-nums {
@@ -45,7 +44,6 @@
 
 /* ── 字距（排版术语 tracking = letter-spacing） ── */
 .wf-tracking-wide { letter-spacing: var(--wf-letter-spacing-wide); }
-.wf-tracking-wider { letter-spacing: var(--wf-letter-spacing-wider); }
 
 /* ── 文本变换（裸值词） ── */
 .wf-uppercase { text-transform: uppercase; }

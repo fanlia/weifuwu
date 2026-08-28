@@ -1,38 +1,25 @@
 /**
- * apps/showcase — weifuwu 发展引擎（综合展示平台）
- *
- * 自举纪律（design/showcase-plan.md §2）：平台自身全部由 weifuwu 能力构成——
- * createRouter 六域路由 + components/layout 原语 + Markdown 组件渲染 content/。
+ * apps/showcase — weifuwu 组件演示平台（自举）
  *
  * 能力：
  *   /app.js               平台前端（ctx.ui.js 动态编译）
  *   /components.css       CSS 运行时聚合（layout @import + 组件 CSS——与 build.mjs 同逻辑）
- *   /content/:domain/:id.md  文档文本端点（LLM curl + 平台渲染共用——content/ 根级同源）
- *   /src/examples/*       示例源码端点（text/plain——patterns/apps 复制即用）
+ *   /index.json           结构化索引（registry 运行时构建——单一事实源）
  *   /api/chat /api/approve /api/files/:name   wire-fake（AiChat/FilePreview 演示）
- *   /llms.txt             全站 LLM 索引（= content/index.md）
+ *   页面路由（/ /components* /layout） SSR 整树首帧，其余走 SPA 壳（客户端渲染）
  */
 import { serve, Router, ui } from '../../src/server/index.ts'
 import { HtmlSafe } from '../../src/server/ui/html-safe.ts'
-import { shellHeader } from './src/ssr-header.ts'
 // ctx.ui.html 标签模板会转义插值——HTML 插值（header/防闪脚本）需 unsafe 包裹
 const unsafe = (s: string): string => new HtmlSafe(s) as unknown as string
-import { h } from '../../src/client/vdom/index.ts'
-import { renderToStream } from '../../src/client/vdom/core/build.ts'
-import { commandToHtml } from '../../src/client/vdom/core/ssr/html.ts'
-import { Markdown } from '../../src/client/components/index.ts'
 import { installDemoBackend } from './src/demo-backend.ts'
-import { registerTodoApi } from '../../examples/apps/todo/api.ts'
-import { registerAuthApi, ensureAuthTables } from '../../examples/apps/auth/api.ts'
-import { registerAdminApi, ensureAdminTables } from '../../examples/apps/admin/api.ts'
+import { buildIndexJson } from './src/registry/index-json.ts'
 import { resolve, dirname } from 'node:path'
 import { writeFile, rm } from 'node:fs/promises'
 import { tmpdir as osTmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { fileURLToPath } from 'node:url'
 import { readdir, readFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
-
 // ── 进程级防御（2026-08——SSR 组件副作用/编辑竞态崩溃实证）──
 // unhandledRejection 默认 throw → 服务器进程退出（FilePreview fetch /
 // data url import 崩溃链实证）——**记录不崩**（问题可见——进程存活是
@@ -47,8 +34,6 @@ import { build as esbuild } from 'esbuild'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..', '..') // 仓库根（= 发布根）
-const contentRoot = resolve(root, 'content')
-const examplesRoot = resolve(root, 'examples')
 
 const app = new Router()
 app.use(ui())
@@ -57,49 +42,9 @@ app.use(ui())
 const demoCtx = {} as any
 installDemoBackend(app, demoCtx)
 
-// ── todo 应用模板后端（共享注册函数——嵌入活体数据通路） ──
-await demoCtx.sql.unsafe('CREATE TABLE IF NOT EXISTS todos (id serial PRIMARY KEY, name text, done boolean DEFAULT false)')
-registerTodoApi(app, demoCtx.sql)
-
-// ── auth 应用模板后端（内存用户 + 会话） ──
-await ensureAuthTables(demoCtx.sql)
-registerAuthApi(app, demoCtx.sql)
-
-// ── admin 应用模板后端（订单表 + 种子数据） ──
-await ensureAdminTables(demoCtx.sql)
-registerAdminApi(app, demoCtx.sql)
-
-// ── 文档文本端点（LLM 主路径——curl 即所得） ──
-const DOMAINS = ['components', 'layout', 'patterns', 'apps', 'backend', 'capabilities', 'guides']
-for (const domain of DOMAINS) {
-  app.get(`/content/${domain}/:id`, async (req: Request, ctx: any): Promise<Response> => {
-    const id = (ctx as any).params.id.replace(/\.md$/, '')
-    const file = resolve(contentRoot, domain, `${id}.md`)
-    if (!file.startsWith(contentRoot) || !existsSync(file)) return Response.json({ error: 'not found' }, { status: 404 })
-    return new Response(await readFile(file, 'utf-8'), { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
-  })
-}
-
-// 结构化索引（平台前端 + LLM 共用）
-app.get('/content/index.json', async (req: Request): Promise<Response> => {
-  const file = resolve(contentRoot, 'index.json')
-  if (!existsSync(file)) return Response.json({ error: 'not found' }, { status: 404 })
-  return new Response(await readFile(file, 'utf-8'), { headers: { 'Content-Type': 'application/json' } })
-})
-
-// ── 示例源码端点（复制即用） ──
-app.get('/src/examples/*', async (req: Request, ctx: any): Promise<Response> => {
-  const rel = (ctx as any).params['*'] ?? ''
-  const file = resolve(examplesRoot, rel)
-  if (!file.startsWith(examplesRoot) || !existsSync(file)) return Response.json({ error: 'not found' }, { status: 404 })
-  return new Response(await readFile(file, 'utf-8'), { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
-})
-
-// ── llms.txt（= content/index.md 同源） ──
-app.get('/llms.txt', async (req: Request): Promise<Response> => {
-  const md = await readFile(resolve(contentRoot, 'index.md'), 'utf-8')
-  return new Response(md, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
-})
+// ── 结构化索引（运行时构建——registry 单一事实源；平台前端 + 审计共用） ──
+app.get('/index.json', (req: Request): Response =>
+  Response.json(buildIndexJson()))
 
 // ── wire-fake：确定性流式（无 API key 全链路演示 AiChat） ──
 app.post('/api/chat', async (req: Request): Promise<Response> => {
@@ -208,20 +153,54 @@ const themeNoFouc = `<script>
   } catch (e) {}
 </script>`
 
-// ── 文档页 SSR（SEO——/components/:id 等被搜索引擎索引；SPA 客户端接管交互） ──
-// **范围简化（2026-08——仅保留 / /layout /components 三域）**
-const DOC_DOMAINS = ['components', 'layout']
-const DOMAIN_TITLES: Record<string, string> = {
-  components: '组件', layout: '布局原语',
+// ── 页面 SSR（整树——SSR ≡ SPA 首帧——原子回退 SPA 空壳） ──
+// content/ 文档库移除后：页面首帧 = SPA 同一棵组件树（无 md 回退链）
+const SPA_SHELL = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/components.css">
+  ${themeNoFouc}
+  <title>weifuwu showcase</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="/app.js"></script>
+</body>
+</html>`
+
+async function renderSsrPage(req: Request): Promise<Response> {
+  try {
+    ;(globalThis as any).__SHOWCASE_SSR_BASE__ = ssrDataBase(req)
+    const mod = await loadSsrApp()
+    const url = new URL(req.url ?? '/', 'http://localhost').pathname
+    const html = await mod.uiSsr(mod.buildRouter(), url, { title: 'weifuwu showcase' })
+    const doc = html
+      .replace(/<head>[\s\S]*?<\/head>/, `<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${themeNoFouc}
+  <link rel="stylesheet" href="/components.css">
+  <title>weifuwu showcase</title>
+</head>`)
+      .replace('</body>', '<script src="/app.js"></script></body>')
+    return new Response(doc, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  } catch (e) {
+    console.error(`[showcase] SSR 整树失败（回退 SPA 空壳）: ${(e as Error).message ?? String(e)}`)
+    return new Response(SPA_SHELL, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  }
 }
 
-/** **SSR/SPA 同一棵树（2026-08——刷新闪烁/滚动跳变根治——inputnumber 实证：
- *  SSR 只有 Markdown、SPA 有面包屑/标题/活体 demo/页脚——刷新先见文档页、
- *  加载后整页跳变——用户误判素材丢失）**：esbuild 编译 main.tsx（platform:
- *  node——与 /app.js 同入口同源码——零手写镜像）→ 动态 import data URL →
- *  uiSsr 渲器同一 router 同一 handler → 首帧 = SPA 首帧（面包屑/标题/
- *  demo/页脚同 html——接管零差异）——**原子回退**：整树 SSR 失败（demo 的
- *  浏览器态缺失等）→ 回退 Markdown-only SSR（SEO 不丢——仅无 demo 首帧） */
+// ── 页面路由（SSR 首帧——客户端接管交互；其余路径走底部 SPA 壳） ──
+for (const r of ['/', '/components', '/components/:category', '/components/:category/:id', '/layout']) {
+  app.get(r, (req: Request) => renderSsrPage(req))
+}
+
+/** **SSR/SPA 同一棵树（2026-08——刷新闪烁/滚动跳变根治）**：esbuild 编译
+ *  ssr.ts（platform: node——与 /app.js 同入口同源码）→ 临时文件 import →
+ *  uiSsr 渲染同一 router 同一 handler → 首帧 = SPA 首帧——接管零差异；
+ *  整树 SSR 失败 → 原子回退 SPA 空壳（客户端渲染） */
 async function loadSsrApp(): Promise<any> {
   const entry = resolve(__dirname, 'src', 'ssr.ts')
   // **无缓存（正确性优先——与 /app.js 同策略 2026-12 决策）**：每次请求编译
@@ -257,152 +236,12 @@ async function loadSsrApp(): Promise<any> {
   }
 }
 
-/** SSR fetch 基址（data.ts 自 fetch 本机 /content/* 端点——首次请求缓存） */
+/** SSR fetch 基址（data.ts 自 fetch 本机 /index.json 端点——首次请求缓存） */
 let ssrBase = ''
 function ssrDataBase(req: Request): string {
   if (!ssrBase) ssrBase = `http://${req.headers.get('host') ?? '127.0.0.1'}`
   return ssrBase
 }
-
-/** 整树 SSR（同一棵组件树——SSR ≡ SPA 首帧） */
-async function renderFullPage(domain: string, id: string, req: Request): Promise<Response> {
-  ;(globalThis as any).__SHOWCASE_SSR_BASE__ = ssrDataBase(req)
-  const mod = await loadSsrApp()
-  // **同实例纪律**：uiSsr 必须与 h() 同一 bundle 实例（src/ssr.ts——
-  // Fragment 符号全等——跨实例 = 文本变空洞锚）
-  // 渲染实际请求路径（/components/input/inputnumber——category 段由路由承载）
-  const url = new URL(req.url ?? '/', 'http://localhost').pathname
-  const html = await mod.uiSsr(mod.buildRouter(), url, { title: `${id} · ${DOMAIN_TITLES[domain]} — weifuwu showcase` })
-  const head = `<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="weifuwu ${DOMAIN_TITLES[domain]}文档：${id}">
-  ${themeNoFouc}
-  <link rel="stylesheet" href="/components.css">
-  <title>${id} · ${DOMAIN_TITLES[domain]} — weifuwu showcase</title>
-</head>`
-  const doc = html
-    .replace(/<head>[\s\S]*?<\/head>/, head)
-    .replace('</body>', '<script src="/app.js"></script></body>')
-  return new Response(doc, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
-}
-
-/** 回退：Markdown-only SSR（整树 SSR 失败时——SEO 保底） */
-async function renderDocOnlyPage(domain: string, id: string): Promise<Response> {
-  const file = resolve(contentRoot, domain, `${id}.md`)
-  const md = await readFile(file, 'utf-8')
-  const reader = renderToStream(h(Markdown, { content: md })).pipeThrough(commandToHtml()).getReader()
-  let body = ''
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    body += value
-  }
-  const nav = shellHeader(domain)
-  return new Response(`<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="weifuwu ${DOMAIN_TITLES[domain]}文档：${id}">
-  ${themeNoFouc}
-  <link rel="stylesheet" href="/components.css">
-  <title>${id} · ${DOMAIN_TITLES[domain]} — weifuwu showcase</title>
-</head>
-<body>
-  <div id="root">${nav}<main style="max-width:860px;margin:0 auto;padding:24px 20px 80px">${body}</main></div>
-  <script src="/app.js"></script>
-</body>
-</html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
-}
-
-async function renderDocPage(domain: string, id: string, req: Request): Promise<Response> {
-  const file = resolve(contentRoot, domain, `${id}.md`)
-  if (!file.startsWith(contentRoot) || !existsSync(file)) return Response.json({ error: 'not found' }, { status: 404 })
-  try {
-    return await renderFullPage(domain, id, req)
-  } catch (e) {
-    console.error(`[showcase] SSR 整树失败（回退 Markdown-only）: ${(e as Error).message ?? String(e)}`)
-    return renderDocOnlyPage(domain, id)
-  }
-}
-
-// ── 文档页 SSR 路由（与 SPA 同 URL——SEO 索引；SPA 接管交互） ──
-for (const domain of DOC_DOMAINS) {
-  if (domain === 'components') {
-    app.get('/components/:category/:id', async (req: Request, ctx: any): Promise<Response> =>
-      renderDocPage('components', (ctx as any).params.id.replace(/\.md$/, ''), req))
-    app.get('/components/:category', async (req: Request, ctx: any): Promise<Response> => {
-      // 分类页（如 /components/core）无独立文档——回退 SPA 壳（客户端渲染分类网格）
-      const cat = (ctx as any).params.category
-      if (existsSync(resolve(contentRoot, 'components', `${cat}.md`))) {
-        return renderDocPage('components', cat, req)
-      }
-      return ctx.ui.html`
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/components.css">
-  ${unsafe(themeNoFouc)}
-  <title>weifuwu showcase</title>
-</head>
-<body>
-  <div id="root"></div>
-  <script src="/app.js"></script>
-</body>
-</html>`
-    })
-  } else {
-    app.get(`/${domain}/:id`, async (req: Request, ctx: any): Promise<Response> =>
-      renderDocPage(domain, (ctx as any).params.id.replace(/\.md$/, ''), req))
-  }
-}
-// --- 简化说明 ---
-
-// ── 首页 SSR（SEO + 与 SPA 内容一致——hero 结构同文案，避免 SSR/SPA 切换闪烁） ──
-app.get('/', async (req: Request): Promise<Response> => {
-  // hero 静态结构（与前端 home.tsx 同文案——SPA 接管时内容一致，无"文字闪过"）
-  const hero = `<div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:24px;padding:32px 16px">
-  <div class="wf-border wf-radius-lg wf-overflow-hidden" style="background:linear-gradient(180deg,var(--wf-color-bg) 0%,var(--wf-color-bg-secondary) 100%)">
-    <div class="wf-stack wf-gap-md" style="padding:48px 32px;text-align:center">
-      <h1 style="font-size:2.25rem;margin:0;letter-spacing:-0.02em">weifuwu <span style="color:var(--wf-color-primary)">发展引擎</span></h1>
-      <p style="color:var(--wf-color-text-secondary);max-width:560px;margin:8px auto 0">组件 / 布局原语 / 页面模式 / 应用模板 / 后端能力 / 框架能力 / 指南——全部可复制、可验证、可深链</p>
-      <div class="wf-surface wf-border wf-radius-md" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin:12px auto 0;padding:12px 16px;font-size:12px">
-        <div><span style="color:var(--wf-color-primary)">$</span> npx weifuwu docs</div>
-        <div style="color:var(--wf-color-text-tertiary)">→ 文档站已就绪（129 组件 · 20 指南）</div>
-        <div><span style="color:var(--wf-color-primary)">$</span> node server.ts</div>
-        <div style="color:var(--wf-color-text-tertiary)">→ 你的第一个页面，跑起来了</div>
-      </div>
-    </div>
-  </div>
-  <nav style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-    <a href="/components" style="padding:4px 12px;border:1px solid var(--wf-color-border);border-radius:6px;text-decoration:none;color:inherit;font-size:13px">组件</a>
-    <a href="/layout" style="padding:4px 12px;border:1px solid var(--wf-color-border);border-radius:6px;text-decoration:none;color:inherit;font-size:13px">布局原语</a>
-    <a href="/patterns" style="padding:4px 12px;border:1px solid var(--wf-color-border);border-radius:6px;text-decoration:none;color:inherit;font-size:13px">页面模式</a>
-    <a href="/apps" style="padding:4px 12px;border:1px solid var(--wf-color-border);border-radius:6px;text-decoration:none;color:inherit;font-size:13px">应用模板</a>
-    <a href="/backend" style="padding:4px 12px;border:1px solid var(--wf-color-border);border-radius:6px;text-decoration:none;color:inherit;font-size:13px">后端能力</a>
-    <a href="/capabilities" style="padding:4px 12px;border:1px solid var(--wf-color-border);border-radius:6px;text-decoration:none;color:inherit;font-size:13px">框架能力</a>
-    <a href="/guides" style="padding:4px 12px;border:1px solid var(--wf-color-border);border-radius:6px;text-decoration:none;color:inherit;font-size:13px">指南</a>
-  </nav>
-</div>`
-  return new Response(`<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="weifuwu — AI SaaS 全栈框架：129 组件 + 布局原语 + 应用模板 + 文档随包。用 weifuwu 构建的网站（自举）。">
-  ${themeNoFouc}
-  <link rel="stylesheet" href="/components.css">
-  <title>weifuwu showcase — 发展引擎</title>
-</head>
-<body>
-  <div id="root">${shellHeader('')}${hero}</div>
-  <script src="/app.js"></script>
-</body>
-</html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
-})
 
 app.get('/*', async (req, ctx) => ctx.ui.html`
 <!DOCTYPE html>
@@ -425,4 +264,4 @@ script>
 `)
 
 serve(app, { port: Number(process.env.PORT ?? 3200) })
-console.log(`showcase → http://localhost:${process.env.PORT ?? 3200}（LLM: /llms.txt · /content/:domain/:id.md）`)
+console.log(`showcase → http://localhost:${process.env.PORT ?? 3200}`)

@@ -34,6 +34,8 @@ test('渲染零错误 + 滚动 >400px 出现 → 点击回顶', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
+    // 滚动上下文（content/ 移除后文档页变短——滚动断言扩高页面）
+    await page.evaluate(() => { document.body.style.minHeight = '2500px' })
     // 初始 hidden 类（无滚动）
     const hidden0 = await page.evaluate(() => document.querySelector('main .wf-backtop')?.className.includes('--hidden') ?? false)
     assert.ok(hidden0, '初始 hidden 类')

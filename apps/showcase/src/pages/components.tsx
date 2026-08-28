@@ -3,8 +3,8 @@
  */
 import { h } from 'weifuwu/vdom'
 import type { Component } from 'weifuwu/vdom'
-import { Markdown, Tag } from 'weifuwu/components'
-import { fetchIndex, fetchMd, type IndexJson } from '../data.ts'
+import { Tag } from 'weifuwu/components'
+import { fetchIndex, type IndexJson } from '../data.ts'
 
 
 const FAMILIES: Record<string, { name: string; path: string; desc: string }> = {
@@ -129,15 +129,18 @@ export const CategoryPage: Component = async (initProps: any, ctx: any) => {
   }
 }
 
-/** 组件详情页——活体 demo（已迁移分类）+ 文档（.md 渲染，与 LLM 同源） */
+/** 组件详情页——活体 demo（demos 注册表驱动） */
 export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
   // 数据声明（工厂层 await——两阶段组件：导航/重渲染缓存命中零成本）
-  let md = ''
   let name = ''
   let category = ''
   let hasDemo = false
   let compTags: string[] = []
   let compDesc = ''
+  let compSource = ''
+  let compCss = ''
+  let compTest = ''
+  let compGotchas: string[] = []
   let isVariant = false
   let compFamily: string | null = null
   let variantDemo: string | null = null
@@ -152,11 +155,13 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
     compDesc = comp?.desc ?? ''
     compFamily = comp?.family ?? null
     // 变体聚合：变体 id → 渲染主组件页 + 变体 demo 突出（一页一组件心智）
+    let resolved = comp
     if (comp?.variantOf) {
       const parent = idx.components.find((c) => c.id === comp.variantOf)
       isVariant = true
       variantDemo = name
       if (parent) {
+        resolved = parent
         name = parent.name
         category = parent.category
         compTags = parent.tags ?? []
@@ -168,10 +173,11 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
     // demo 活体：demos 注册表（已迁移分类）
     const demos = await import('../demos/index.ts')
     hasDemo = !!demos.DEMOS[name]
-    md = await fetchMd('components', id)
-  } catch (e) {
-    md = `# ${initProps.id}\n\n> 文档加载失败：${(e as Error).message}`
-  }
+    compSource = resolved?.sourceFile ?? ''
+    compCss = resolved?.cssFile ?? ''
+    compTest = resolved?.testFile ?? ''
+    compGotchas = resolved?.gotchas ?? []
+  } catch { /* 索引不可用——页头兼容降级（名字 = id） */ }
   return async (_p: any) => {
     const demos = await import('../demos/index.ts')
     const Demo = (demos as any).DEMOS[name]
@@ -192,9 +198,6 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
                 </div>
               )}
             </div>
-            <div class="wf-row wf-gap-xs">
-              <a class="wf-btn wf-btn--sm" href={`/content/components/${initProps.id}.md`} target="_blank">原始 .md（LLM）</a>
-            </div>
           </div>
           {hasDemo && Demo && (
             <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-stack wf-gap-none" style="overflow:hidden">
@@ -210,6 +213,25 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
               </div>
             </div>
           )}
+          {!hasDemo && (
+            <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-font-sm wf-text-secondary">
+              本组件无独立活体 demo——能力见下方组件文件/纪律，或在组合页面中体验。
+            </div>
+          )}
+          {/* 组件文件 + 纪律（registry 元数据——源码导航） */}
+          {(compSource || compCss || compTest || compGotchas.length > 0) && (
+            <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-sm">
+              <div class="wf-font-xs wf-text-secondary">组件文件</div>
+              <div class="wf-stack wf-gap-xs wf-font-xs" style="font-family:var(--wf-font-mono)">
+                {compSource && <span>{compSource}</span>}
+                {compCss && <span>{compCss}</span>}
+                {compTest && <span>{compTest}</span>}
+              </div>
+              {compGotchas.map((g, i) => (
+                <div key={i} class="wf-font-xs wf-text-warning">⚠ {g}</div>
+              ))}
+            </div>
+          )}
           {/* 变体聚合：主组件页列出全部使用方式（变体区块） */}
           {variantsOf.length > 0 && (
             <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-sm">
@@ -221,10 +243,6 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
               </div>
             </div>
           )}
-        </div>
-        {/* 文档正文 = content/.md 渲染（与 LLM 读的同一份） */}
-        <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md">
-          <Markdown content={md} />
         </div>
       </div>
     )

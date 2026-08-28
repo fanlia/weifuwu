@@ -15,7 +15,7 @@ weifuwu 的设计语言与框架哲学同源（确定性、诚实裁剪、render
 | 4 | **专业** Instrumental | 面向 AI 应用/管理后台/数据工具：键盘可达、数据密度、三态完整 | 键盘焦点全局；compact 预设；加载/空/错误三态规范 |
 | 5 | **中文原生** CJK-Native | 字阶/行高/断行针对中文；表头不做 uppercase；数字防抖 | `--wf-heading-case: none`；`wf-nums`（tabular-nums） |
 
-主题配置三档（详见 [content/guides/styling.md](styling.md)）：**① 改 `--wf-brand-seed` 一个值换肤**（色阶 color-mix 自动派生，暗色自动跟随）→ **② `<html data-preset="minimal|compact|rounded">` 预设**（与 data-theme 正交）→ **③ 深度定制**（组件钩子 + @layer 覆盖）。
+主题配置三档：**① 改 `--wf-brand-seed` 一个值换肤**（色阶 color-mix 自动派生，暗色自动跟随）→ **② `<html data-preset="minimal|compact|rounded">` 预设**（与 data-theme 正交）→ **③ 深度定制**（组件钩子 + @layer 覆盖）。
 
 ## 统一命名规则：三类词根 + 三后缀（design/layout-naming.md）
 
@@ -92,13 +92,12 @@ wf-radius-md       圆角
 | 状态色文字/背景 | `wf-text-success` / `wf-bg-error` |
 | 卡片 hover 抬升 | `<Card hover>` 或 `wf-elevate` |
 | 聊天气泡 | `wf-bubble` / `wf-bubble--own` |
-| 文章正文排版 | `<article class="wf-prose">` |
 | 隐藏元素（窄隐宽显） | `wf-hidden wf-flex@lg`（响应式显隐唯一模式） |
 | 角标/覆盖层 | 父 `wf-relative` + 子 `wf-absolute`（CSS 零学习配对） |
 | 可滚动区 | `wf-overflow-auto`（横滚 `wf-overflow-x`） |
 | 按钮变胶囊 | `:root { --wf-btn-radius: 999px }` |
 | 数字防抖（统计/表格数值） | `wf-nums`（StatCard 已默认套用） |
-| 顶级页面大标题 | `<PageHeader display>` 或 `wf-font-display` |
+| 顶级页面大标题 | `<PageHeader display>` |
 | 状态/计数徽章 | `<Badge variant>`（不可交互，含 dot） |
 | 可关闭标签 | `<Tag closable>`（可交互，有关闭钮） |
 | 图标 | `<Icon name="close" />`（禁止裸 emoji/字形） |
@@ -112,7 +111,6 @@ wf-radius-md       圆角
 | 卡片标题 | `wf-font-xl/2xl` | 16/21px |
 | 正文 | `wf-font-base`（默认） | 14px · 行高 1.5（CJK 实测可读，与主流框架同档） |
 | 次级/辅助 | `wf-font-sm` / `wf-font-xs` | 13/12px · 配 `wf-text-secondary` |
-| 长文正文（文章） | `wf-prose` | 行高 1.75（relaxed）——长文更宽松 |
 | 数字/统计 | `wf-nums`（StatCard/Table 数值） | tabular-nums 防宽度抖动 |
 | 标题字距/变换 | 全局 | `--wf-heading-case`（CJK 默认 none，英文可 uppercase） |
 

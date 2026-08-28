@@ -34,6 +34,8 @@ test('渲染零错误 + 滚动后固定（Affix offsetTop=0）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
+    // 滚动上下文（content/ 移除后文档页变短——滚动断言扩高页面）
+    await page.evaluate(() => { document.body.style.minHeight = '2500px' })
     // 滚动 300px（块滑出视口）→ content 固定（position fixed/sticky）
     await page.evaluate(() => window.scrollTo(0, 400))
     await page.waitForTimeout(400)

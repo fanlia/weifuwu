@@ -32,7 +32,7 @@ const targetIds = new Set([...argvIds, ...flagIds.split(','), ...envIds.split(',
 const catFlag = (process.argv.find((a) => a.startsWith('--cat=')) ?? '').slice(6)
 const targetCats = new Set(catFlag.split(',').filter(Boolean))
 
-const idx = await fetch(`${BASE}/content/index.json`).then((r) => r.json()).catch(() => {
+const idx = await fetch(`${BASE}/index.json`).then((r) => r.json()).catch(() => {
   console.error(`✖ index.json 不可达——请先启动 showcase server（${BASE}）`)
   process.exit(2)
 })

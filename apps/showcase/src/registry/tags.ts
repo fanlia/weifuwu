@@ -1,7 +1,7 @@
 /**
  * 组件功能标签映射（功能动词 → 组件——'我要选日期' → DatePicker）
  * 标签体系 12 域：输入/选择/表单/展示/可视化/反馈/弹层/导航/虚拟化/AI/编辑文件/通用布局
- * 手工维护（语义知识）——gen-content 合并进 index.json
+ * 手工维护（语义知识）——经 index-json.ts 合并进 /index.json
  */
 
 export const componentTags: Record<string, string[]> = {

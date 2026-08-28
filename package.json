@@ -32,13 +32,8 @@
   "files": [
     "dist/",
     "README.md",
-    "docs/",
-    "content/",
-    "examples/"
+    "docs/"
   ],
-  "bin": {
-    "weifuwu": "./dist/cli/docs.mjs"
-  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",

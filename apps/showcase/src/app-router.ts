@@ -23,7 +23,7 @@ import { confirm } from '../../../src/client/components/Confirm/Confirm.ts'
 import { notification } from '../../../src/client/components/Notification/Notification.ts'
 import { Home } from './pages/home.tsx'
 import { ComponentsIndex, CategoryPage, ComponentPage } from './pages/components.tsx'
-import { LayoutIndex, LayoutPage } from './pages/domains.tsx'
+import { LayoutIndex } from './pages/domains.tsx'
 import { NotFound } from './pages/not-found.tsx'
 import { Shell } from './shell.tsx'
 
@@ -48,7 +48,6 @@ export function buildRouter(): UIRouter {
   router.get('/components/:category', pageWithParams(CategoryPage))
   router.get('/components/:category/:id', pageWithParams(ComponentPage))
   router.get('/layout', page(LayoutIndex))
-  router.get('/layout/:id', pageWithParams(LayoutPage))
                         // **404 友好化（2026-08）**：shell 包裹渲染（与页面同构——导航可用）——
   // 未知路径不再空白
   router.notFound((req: Request, ctx: UIContext) =>

@@ -50,8 +50,8 @@ export const Home: Component = async (_init: any, ctx: any) => {
           {/* 流式代码行（可解释表面：命令即所得） */}
           <div>
             <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-font-xs" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin-inline:auto;padding:12px 16px;background:var(--wf-color-bg)">
-              <div><span class="wf-text-primary">$</span> npx weifuwu docs</div>
-              <div class="wf-text-tertiary">→ http://localhost:4000 · 文档站已就绪（{idx.counts.components} 组件 · {idx.counts.guides} 指南）</div>
+              <div><span class="wf-text-primary">$</span> npm install weifuwu</div>
+              <div class="wf-text-tertiary">→ 一个包 = 后端 + vdom + {idx.counts.components} 组件 + 布局系统</div>
               <div><span class="wf-text-primary">$</span> node server.ts</div>
               <div class="wf-text-tertiary">→ 你的第一个页面，跑起来了</div>
             </div>
@@ -72,8 +72,6 @@ export const Home: Component = async (_init: any, ctx: any) => {
           <div class="wf-cluster wf-gap-sm" style="justify-content:center">
             <Badge variant="primary">{idx.counts.components} 组件</Badge>
             <Badge variant="info">{idx.counts.primitives} 布局原语</Badge>
-            <Tag>LLM: curl /llms.txt 即所得</Tag>
-            <Tag>随 npm 包发布: node_modules/weifuwu/content/</Tag>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 /**
  * CODE 代码示例字符串（从 components-demo 迁移——括号配对提取，勿手改）
- * 组件文档「用法示例」节数据源（gen-content.mjs 消费）
+ * 组件「用法示例」代码数据源
  */
 export const CODE = {
   button: `<Button variant="primary" onClick={...}>Primary</Button>

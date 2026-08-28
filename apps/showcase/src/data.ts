@@ -1,7 +1,8 @@
 /**
- * 平台数据层——content/ 文本端点加载（工厂层 await——两阶段组件数据声明）
+ * 平台数据层——/index.json 结构化索引加载（工厂层 await——两阶段组件数据声明）
  *
  * 缓存：模块级 Map（路由导航/重渲染零成本——与 ctx.data 精神一致）
+ * 数据源：server.ts `/index.json`（registry 运行时构建——单一事实源）
  */
 export interface IndexJson {
   counts: Record<string, number>
@@ -17,29 +18,17 @@ export interface IndexJson {
   community: { id: string; name: string; desc: string; author: string; url: string; quality: string[] }[]
 }
 
-const mdCache = new Map<string, string>()
 let indexCache: IndexJson | null = null
 
 /** SSR fetch 基址（服务端 uiSsr 渲染——浏览器端为 '' → 相对 URL）
- *  server.ts 渲染前注入 http://host——自举：自 fetch 自己的 /content/* 端点 */
+ *  server.ts 渲染前注入 http://host——自举：自 fetch 自己的 /index.json 端点 */
 export function ssrFetchBase(): string {
   return ((globalThis as any).__SHOWCASE_SSR_BASE__ as string | undefined) ?? ''
 }
 
-export async function fetchMd(domain: string, id: string): Promise<string> {
-  const key = `/content/${domain}/${id}.md`
-  const hit = mdCache.get(key)
-  if (hit !== undefined) return hit
-  const res = await fetch(ssrFetchBase() + key)
-  if (!res.ok) throw new Error(`文档不存在: ${key}`)
-  const text = await res.text()
-  mdCache.set(key, text)
-  return text
-}
-
 export async function fetchIndex(): Promise<IndexJson> {
   if (indexCache) return indexCache
-  const res = await fetch(ssrFetchBase() + '/content/index.json')
+  const res = await fetch(ssrFetchBase() + '/index.json')
   if (!res.ok) throw new Error('index.json 不可用')
   indexCache = (await res.json()) as IndexJson
   return indexCache

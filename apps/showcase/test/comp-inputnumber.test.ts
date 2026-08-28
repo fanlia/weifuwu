@@ -61,7 +61,7 @@ test('SSR/水合一致性：禁 JS 首帧 = 完整页面（面包屑/标题/活�
     const body = await page.textContent('body')
     assert.ok(body?.includes('活体 demo'), 'SSR 首帧含活体 demo 区块')
     assert.ok(body?.includes('temperature: 0.7'), 'SSR 首帧含 demo 初始值')
-    assert.ok(body?.includes('原始 .md (LLM)') || body?.includes('原始 .md（LLM）'), 'SSR 首帧含标题行操作')
+    assert.ok(body?.includes('InputNumber'), 'SSR 首帧含组件标题')
     assert.ok(body?.includes('weifuwu showcase'), 'SSR 首帧含页脚')
     const demoCount = await page.locator('.wf-inputnumber-wrap').count()
     assert.equal(demoCount, 2, 'SSR 首帧双控件（temperature/max_tokens）')

@@ -83,13 +83,10 @@ test('音量：hover tooltip 60 → 拖拽到 80（值变+显示更新+tooltip �
   const page = await browser.newPage()
   try {
     await openShowcase(page, BASE, COMP_PATH)
-    // **页面就绪等待（真实根因）**：openShowcase 的 waitRoot 只等 root 有
-    // shell 内容——demo 区（异步工厂）与文档 md（ctx.data 拉取）仍在渲染
-    // ——此时 hover/拖拽与渲染竞争触发文档表格 TD 样式循环（主线程忙——
-    // rAF/定时器饿死——waitForFunction 超时）——等 demo 值（60）+ 文档
-    // 表格（.wf-md-th）都就绪再交互
+    // **页面就绪等待**：openShowcase 的 waitRoot 只等 root 有 shell 内容——
+    // demo 区（异步工厂）可能仍在渲染——等 demo 值（60）就绪再交互，
+    // 避免 hover/拖拽与渲染竞争（主线程忙——rAF/定时器饿死）
     await page.waitForFunction(() => (document.querySelector('main input[type="range"]') as HTMLInputElement | null)?.value === '60', 'demo 就绪', { polling: 100, timeout: 5000 })
-    await page.waitForFunction(() => !!document.querySelector('.wf-md-th'), '文档就绪', { polling: 100, timeout: 5000 })
     const inputs = page.locator('main input[type="range"]')
     const box = await inputs.nth(0).boundingBox()
     const THUMB_R = 9

@@ -64,30 +64,6 @@ async function main() {
   }
   console.log('  ✓ weifuwu ready (dist/server/index.js)')
 
-  // Step 3.5: content/examples 完整性（随包文档——showcase 计划 §7）
-  for (const dir of ['content', 'examples']) {
-    if (!existsSync(join(root, dir))) {
-      console.error(`  ✗ ${dir}/ missing!`)
-      process.exit(1)
-    }
-  }
-  // 文档与 registry 同步（防漂移硬门）
-  try {
-    execSync('node scripts/gen-content.mjs --check', { cwd: root, stdio: 'pipe' })
-    console.log('  ✓ content/ 与 registry 同步')
-  } catch (e) {
-    console.error('  ✗ content/ 漂移（运行 node scripts/gen-content.mjs 后重新发布）：\n' + (e.stdout?.toString() ?? ''))
-    process.exit(1)
-  }
-  // 组件文档覆盖（每组件一篇——139+ 全量）
-  const compDocs = readdirSync(join(root, 'content/components')).filter((f) => f.endsWith('.md')).length
-  const compDirs = readdirSync(join(root, 'src/client/components')).filter((d) => existsSync(join(root, 'src/components', d, `${d}.ts`))).length
-  if (compDocs < compDirs) {
-    console.error(`  ✗ 组件文档覆盖不足（${compDocs}/${compDirs}）`)
-    process.exit(1)
-  }
-  console.log(`  ✓ content/ 完整（${compDocs} 篇组件文档 · ${readdirSync(join(root, 'examples')).filter((d) => d !== 'patterns' || existsSync(join(root, 'examples/patterns'))).length + 1} 个示例域）`)
-
   // Step 3.75: CHANGELOG 自动生成（版本节奏纪律——01 生态计划 P2：每版强制）
   // 从上一 tag 到 HEAD 的 conventional commits 分组提取——禁止手工维护
   const changelogPath = join(root, 'CHANGELOG.md')

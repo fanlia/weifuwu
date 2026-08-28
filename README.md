@@ -28,9 +28,9 @@ npm install weifuwu      # 一个依赖，完整应用栈
 | 层 | 入口 | 能力 |
 |----|------|------|
 | 后端 | `weifuwu` | Trie 路由 / 中间件链 / serve / 自研 PG+Redis / SSR / GraphQL / WebSocket |
-| 前端 | `weifuwu/ui-dom` | **vdom3 精准事件流引擎**——createRouter（路由）+ createRoot（挂载）+ 事件流（渲染本体：`entity:action` 统一命名、DOM = fold、可回放可断言）+ SSR（事件流序列化）；组件=两阶段异步组件 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom，见 `content/guides/ui-dom-guide.md`） |
+| 前端 | `weifuwu/ui-dom` | **vdom3 精准事件流引擎**——createRouter（路由）+ createRoot（挂载）+ 事件流（渲染本体：`entity:action` 统一命名、DOM = fold、可回放可断言）+ SSR（事件流序列化）；组件=两阶段异步组件 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom，见 `—`） |
 | 组件 | `weifuwu/components` | 129 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
-| 样式 | `weifuwu/layout` | 50 布局原语 + 92 工具类 + 183 主题 Token，零自定义 CSS 文件 |
+| 样式 | `weifuwu/layout` | 48 布局原语 + 90 工具类 + 183 主题 Token，零自定义 CSS 文件 |
 | SaaS 地基 | 随包内置 | rateLimit / email / userSystem / messager / queue / ai → `ctx.*` 一行接入 |
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
@@ -96,7 +96,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **两阶段组件模型** — 组件 = `async (initProps, ctx) => (props) => Promise<VNode>`。外层工厂只执行一次（mount，可 await 数据），内层 renderFn 每次状态/props 变化时执行（强制异步）。无 class、无 `this`、无 Hook——**位置即语义**：外层天生只跑一次，没有 hooks 规则、没有依赖数组、没有闭包陷阱（详解见[核心概念](#核心概念)）。
 
-**render-only 确定性渲染** — 渲染唯一触发 `ctx.ui.render()`（闭包绑定组件），状态是普通对象（`let` + `render()`）；跨组件共享用 `createStore` + `ctx.ui.useExternal()`。行为可静态推导，无隐式触发（详见[组件库](content/guides/components-guide.md)）。
+**render-only 确定性渲染** — 渲染唯一触发 `ctx.ui.render()`（闭包绑定组件），状态是普通对象（`let` + `render()`）；跨组件共享用 `createStore` + `ctx.ui.useExternal()`。行为可静态推导，无隐式触发（详见组件库）。
 
 **VDOM 输出透明（写 JSX，看 DOM 即真相）** — VDOM 对用户输入零 magic：条件渲染的 false 在 DOM 里是诊断占位注释（`<!--wf-hole: false-->`），数组项 key 与组件实例 id 直接落 DOM（`data-wf-key` / `data-wf-id`）——devtools 看到的 DOM 就是引擎决策的可读输出；非法输入占位 + warn，不崩溃不静默。转化契约唯一清晰：用户写什么，vnode 就是什么，DOM 就长什么样（规则表为内部开发契约）。
 
@@ -108,11 +108,11 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **AI 是一等公民** — 自研 OpenAI 兼容协议（`docs/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批 + embedding 向量化。后端 `ctx.ai` 一个入口：`chat()` / `stream()` / `agent()`（`stream(messages, { emit })` emitter 抽象——事件可接任意通道，`runToResult()` 结构化结果）/ `approve()` / `embed()` / `embedMany()`；前端 `ctx.ui.useChat()`（会话语义）+ `AiChat` 组件（标准对话界面）——流式 token / 工具调用卡 / 审批卡开箱即用，协议对页面完全透明，不用 ai-sdk。
 
-**SaaS 地基随包内置** — rateLimit（限流）/ email（邮件）/ userSystem（用户认证）/ messager（消息系统）/ queue（可靠队列）以中间件形态随包提供，`app.use(...)` 一行接入（详见[SaaS 地基模块](content/guides/saas-guide.md)）。互相咬合成协作基础：身份（userSystem）+ 消息（messager）的组合让「谁能跟谁说话、消息如何送达」天然对齐，不再需要第三套权限系统。
+**SaaS 地基随包内置** — rateLimit（限流）/ email（邮件）/ userSystem（用户认证）/ messager（消息系统）/ queue（可靠队列）以中间件形态随包提供，`app.use(...)` 一行接入（详见SaaS 地基模块）。互相咬合成协作基础：身份（userSystem）+ 消息（messager）的组合让「谁能跟谁说话、消息如何送达」天然对齐，不再需要第三套权限系统。
 
 **机制与策略分离** — 框架管**机制**（token 怎么签、消息怎么送达、agent 循环怎么跑），开发者管**策略**（谁能建群、租户隔离 SQL、技能注册表）。这是「诚实裁剪」的积极面：**框架不越界，应用层不被绑架**——agent-platform 迁移验证了边界：多租户隔离（`WHERE tenant_id`）、技能编排、聊天产品模型留在应用层，框架守住通用能力（auth / ai / messager / UI / 数据管道）。
 
-**零自定义 CSS 设计系统** — 一个 CSS 文件 = 双层 Token + 布局原语 + 工具类 + 组件样式。业务页面不写 style.css：组件 + `wf-*` 原语写业务，主题改一个值（`--wf-brand-seed` 换肤 / `data-preset` 预设 / `--wf-btn-radius` 钩子），暗色自动（详见[布局系统](content/guides/layout-guide.md)与[主题配置](content/guides/styling.md)）。
+**零自定义 CSS 设计系统** — 一个 CSS 文件 = 双层 Token + 布局原语 + 工具类 + 组件样式。业务页面不写 style.css：组件 + `wf-*` 原语写业务，主题改一个值（`--wf-brand-seed` 换肤 / `data-preset` 预设 / `--wf-btn-radius` 钩子），暗色自动（详见布局系统与主题配置）。
 
 **自研数据层** — `ctx.sql`（PG v3 协议）与 `ctx.redis`（RESP2 协议）为**自研客户端**：确定性输出、行为可预测、统一错误模型。jsonb 自动解码、TTL 安全 API、schema 写前校验——高频痛点（双重编码/parseRow 样板/`'EX'` 参数顺序）从根上消除。
 
@@ -244,15 +244,6 @@ cd apps/agent-platform && npm run seed && npm run dev
 
 > 想**零后端、零构建**最快跑起来？直接跳到下面的「CDN 快速原型」——一个 `.html` 文件即可。
 
-### 📦 安装后离线文档（content/ 随包发布）
-
-```bash
-npm i weifuwu
-npx weifuwu docs    # → http://localhost:4000 本地文档站（组件 API 表/纪律/示例/验证）
-```
-
-`node_modules/weifuwu/content/` 是完整文档库（逐组件文档 + 页面/应用模板 + 后端能力 + 指南 + 选型决策树 + 人类质量标准）——版本永远匹配安装的代码；`examples/` 是可复制源码（页面模式 + 应用模板 todo/auth/admin/multi）。LLM 开发路径：`read node_modules/weifuwu/content/index.md` → 目标 .md → 复制 examples/ 源码。
-
 ---
 
 ## CDN 快速原型（零构建、纯 HTML）
@@ -331,7 +322,7 @@ npx weifuwu docs    # → http://localhost:4000 本地文档站（组件 API 表
 |------|---------|------|
 | `weifuwu/ui-dom` | `https://unpkg.com/weifuwu@latest/dist/ui-dom/index.js` | 前端运行时（createRouter, createRoot, h, 事件流, 状态管理等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 129 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 183 个主题 Token + 50 个布局原语 + 92 个工具类 |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 183 个主题 Token + 48 个布局原语 + 90 个工具类 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
 
@@ -372,9 +363,9 @@ npx weifuwu docs    # → http://localhost:4000 本地文档站（组件 API 表
 | `weifuwu/ui-dom` | **i18n** | 国际化中间件（运行时切换语言） | — |
 | `weifuwu/ui-dom` | **renderToEvents / eventsToHtml / serializeEvents** | 服务端渲染：vnode → 事件流 → HTML + `__DATA__` 序列化（客户端 `replay` 收养） | — |
 | `weifuwu/ui-dom` | **useChat / AiChat 原语** | AI 会话（流式/工具调用/HITL） | — |
-| `weifuwu/ui-dom` | **事件原语** | `usePopup`（统一弹窗能力层）/ `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [content/guides/mobile-guide.md](content/guides/mobile-guide.md)） | — |
+| `weifuwu/ui-dom` | **事件原语** | `usePopup`（统一弹窗能力层）/ `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 —） | — |
 | `weifuwu/components` | **129 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/ui-dom |
-| `weifuwu/layout` | **CSS 布局** | 50 个布局原语 + 92 个工具类 + 183 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+| `weifuwu/layout` | **CSS 布局** | 48 个布局原语 + 90 个工具类 + 183 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
 
@@ -384,23 +375,23 @@ npx weifuwu docs    # → http://localhost:4000 本地文档站（组件 API 表
 
 | 任务 | 用 | 位置 |
 |------|-----|------|
-| 起 HTTP 服务 + 路由 | `serve(app)` + `new Router()` + `app.get/post/...` | [content/guides/server-guide.md](content/guides/server-guide.md) |
-| 渲染页面（SPA / SSR） | `createRouter(routes, root, { ctx })`；SSR = `renderToEvents` → `eventsToHtml` + `replay`（事件流形态） | [content/guides/ui-dom-guide.md](content/guides/ui-dom-guide.md) · [content/guides/frontend.md](content/guides/frontend.md) |
-| 数据持久化 | `postgres()` → `` ctx.sql`SELECT *` `` · `redis()` → `ctx.redis` · **`sql.query`**（Query Language AST 双后端） | [content/guides/data-guide.md](content/guides/data-guide.md) |
-| 零数据库开发/测试 | `createMemorySql()` / `MemoryRedis`——契约同真库、替换成本为零 | [content/guides/data-guide.md](content/guides/data-guide.md) |
-| 数据管道（SSR 预取/hydration/SPA） | `ctx.data.get(key)` + async 组件 | [content/guides/frontend.md](content/guides/frontend.md) |
-| 用户注册/登录/会话/多租户 | `userSystem()` → `ctx.auth` + `/api/auth/*` | [content/guides/saas-guide.md](content/guides/saas-guide.md) |
-| 限流防爆破 | `rateLimit()` + `ctx.limit()` | [content/guides/saas-guide.md](content/guides/saas-guide.md) |
-| 发邮件 | `email()` → `ctx.email`（Resend/SMTP） | [content/guides/saas-guide.md](content/guides/saas-guide.md) |
-| 实时消息/聊天/通知 | `messager()` → `ctx.msg` + `app.ws` | [content/guides/saas-guide.md](content/guides/saas-guide.md) |
-| 后台任务/定时 | `queue()` → `ctx.queue` · `scheduler()` → `ctx.schedule/cron` | [content/guides/saas-guide.md](content/guides/saas-guide.md) |
-| AI 对话 / Agent / HITL 审批 | `ai()` → `ctx.ai` + `ctx.ui.useChat()` + `AiChat` | [content/guides/saas-guide.md](content/guides/saas-guide.md) |
-| GraphQL / WebSocket | `app.graphql(handler)` · `app.ws(path, handler)` | [content/guides/realtime-guide.md](content/guides/realtime-guide.md) |
-| 前端 UI 组件 | `weifuwu/components`（129 个：Button/Table/Modal/AiChat/...） | [content/guides/components-guide.md](content/guides/components-guide.md) |
-| 布局/主题/暗色 | `weifuwu/layout`（50 原语 + 92 工具类 + 183 Token） | [content/guides/layout-guide.md](content/guides/layout-guide.md) |
-| 样式定制（零自定义 CSS） | `--wf-*` 变量覆盖 + 组件定制钩子 | [content/guides/styling.md](content/guides/styling.md) |
-| 移动端适配（tap/长按/键盘/弹层） | `usePopup` / `useHoverCapable` / `useLongPress` / `useVisualViewport` | [content/guides/mobile-guide.md](content/guides/mobile-guide.md) |
-| 前后端类型安全中间件 | `createMiddleware`（声明注入即类型化） | [content/guides/server-guide.md](content/guides/server-guide.md) |
+| 起 HTTP 服务 + 路由 | `serve(app)` + `new Router()` + `app.get/post/...` | — |
+| 渲染页面（SPA / SSR） | `createRouter(routes, root, { ctx })`；SSR = `renderToEvents` → `eventsToHtml` + `replay`（事件流形态） | — · — |
+| 数据持久化 | `postgres()` → `` ctx.sql`SELECT *` `` · `redis()` → `ctx.redis` · **`sql.query`**（Query Language AST 双后端） | — |
+| 零数据库开发/测试 | `createMemorySql()` / `MemoryRedis`——契约同真库、替换成本为零 | — |
+| 数据管道（SSR 预取/hydration/SPA） | `ctx.data.get(key)` + async 组件 | — |
+| 用户注册/登录/会话/多租户 | `userSystem()` → `ctx.auth` + `/api/auth/*` | — |
+| 限流防爆破 | `rateLimit()` + `ctx.limit()` | — |
+| 发邮件 | `email()` → `ctx.email`（Resend/SMTP） | — |
+| 实时消息/聊天/通知 | `messager()` → `ctx.msg` + `app.ws` | — |
+| 后台任务/定时 | `queue()` → `ctx.queue` · `scheduler()` → `ctx.schedule/cron` | — |
+| AI 对话 / Agent / HITL 审批 | `ai()` → `ctx.ai` + `ctx.ui.useChat()` + `AiChat` | — |
+| GraphQL / WebSocket | `app.graphql(handler)` · `app.ws(path, handler)` | — |
+| 前端 UI 组件 | `weifuwu/components`（129 个：Button/Table/Modal/AiChat/...） | — |
+| 布局/主题/暗色 | `weifuwu/layout`（49 原语 + 90 工具类 + 183 Token） | — |
+| 样式定制（零自定义 CSS） | `--wf-*` 变量覆盖 + 组件定制钩子 | — |
+| 移动端适配（tap/长按/键盘/弹层） | `usePopup` / `useHoverCapable` / `useLongPress` / `useVisualViewport` | — |
+| 前后端类型安全中间件 | `createMiddleware`（声明注入即类型化） | — |
 
 ---
 
@@ -514,23 +505,23 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 
 | 文档 | 内容 |
 |------|------|
-| [content/guides/server-guide.md](content/guides/server-guide.md) | HTTP 服务层：Router / serve / cors / serveStatic / HttpError / 响应辅助 / parseBody |
-| [content/guides/data-guide.md](content/guides/data-guide.md) | 数据层：postgres（PG v3 自研协议）/ redis（RESP2 自研协议）/ Query Language（AST 双后端）/ Memory 实现（零数据库）/ 测试零外部依赖 |
-| [content/guides/realtime-guide.md](content/guides/realtime-guide.md) | 实时与渲染：scheduler / ui（SSR + JS/CSS 编译）/ graphql / WebSocket |
-| [content/guides/saas-guide.md](content/guides/saas-guide.md) | SaaS 地基：rateLimit / email / userSystem / messager / queue / ai |
+| — | HTTP 服务层：Router / serve / cors / serveStatic / HttpError / 响应辅助 / parseBody |
+| — | 数据层：postgres（PG v3 自研协议）/ redis（RESP2 自研协议）/ Query Language（AST 双后端）/ Memory 实现（零数据库）/ 测试零外部依赖 |
+| — | 实时与渲染：scheduler / ui（SSR + JS/CSS 编译）/ graphql / WebSocket |
+| — | SaaS 地基：rateLimit / email / userSystem / messager / queue / ai |
 | [docs/ai-contract.md](docs/ai-contract.md) | AI Stream Protocol：wf: 事件（SSE 下行 + POST 上行）——流式/工具/审批 |
 
 ### 前端开发者
 
 | 文档 | 内容 |
 |------|------|
-| [content/guides/frontend.md](content/guides/frontend.md) | 前端核心：应用引导（createRouter/createRoot——vdom3 事件流）/ 组件模型 / 异步组件 / 状态管理 / 条件与列表 / ref / 类型（weifuwu/client 已并入 ui-dom） |
-| [content/guides/ui-dom-guide.md](content/guides/ui-dom-guide.md) | **ui-dom**：vdom3 精准事件流引擎（createRouter/createRoot + 事件流）——components 复用 + SSR（事件流形态）（前端唯一运行时） |
-| [content/guides/middleware.md](content/guides/middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
-| [content/guides/components-guide.md](content/guides/components-guide.md) | 组件库（129 个组件 + 使用示例 + 组件列表） |
-| [content/guides/layout-guide.md](content/guides/layout-guide.md) | 布局系统：50 个布局原语 + 92 个工具类 + 183 个主题 Token |
+| — | 前端核心：应用引导（createRouter/createRoot——vdom3 事件流）/ 组件模型 / 异步组件 / 状态管理 / 条件与列表 / ref / 类型（weifuwu/client 已并入 ui-dom） |
+| — | **ui-dom**：vdom3 精准事件流引擎（createRouter/createRoot + 事件流）——components 复用 + SSR（事件流形态）（前端唯一运行时） |
+| — | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
+| — | 组件库（129 个组件 + 使用示例 + 组件列表） |
+| — | 布局系统：48 个布局原语 + 90 个工具类 + 183 个主题 Token |
 | [docs/style-guide.md](docs/style-guide.md) | 样式学习路径与命名规范：三档学习（组件 → 原语 → 速查）|
-| [content/guides/styling.md](content/guides/styling.md) | 样式定制指南：零自定义 CSS 模式 / 暗色 / 组件级覆盖 / 作用域主题 |
+| — | 样式定制指南：零自定义 CSS 模式 / 暗色 / 组件级覆盖 / 作用域主题 |
 
 ### 通用
 
@@ -538,9 +529,9 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 |------|------|
 | [docs/examples.md](docs/examples.md) | 组合场景示例：登录表单 / 数据列表 + 搜索 / 消息提示 |
 | [docs/environment.md](docs/environment.md) | 环境变量与开发命令 |
-| [content/guides/mobile-guide.md](content/guides/mobile-guide.md) | 移动端开发指南：断点 / 44px 命中区 / usePopup / 手势 / safe-area |
+| — | 移动端开发指南：断点 / 44px 命中区 / usePopup / 手势 / safe-area |
 | [docs/components-map.md](docs/components-map.md) | 组件速查：weifuwu ↔ antd / Element Plus / shadcn 对应 + 迁移路径 |
-| [content/guides/custom-component.md](content/guides/custom-component.md) | 自定义组件开发指南：usePopup / useControlled / 动画 / AI 组件 / 类型纪律 |
+| — | 自定义组件开发指南：usePopup / useControlled / 动画 / AI 组件 / 类型纪律 |
 
 > **贡献**：见 [CONTRIBUTING.md](CONTRIBUTING.md)——四条路径（文档/测试/demo/组件）+ 质量防线。
 >

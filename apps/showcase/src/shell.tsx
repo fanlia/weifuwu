@@ -38,7 +38,6 @@ export const Shell: Component<any, any> = async (_init: any, ctx: any) => {
             ))}
           </nav>
           <div class="wf-row wf-gap-sm">
-            <span class="wf-font-xs wf-text-tertiary wf-hidden wf-flex@lg" style="font-family:var(--wf-font-mono)">LLM: /llms.txt · /content/:id.md</span>
             <ThemeSwitch />
           </div>
         </div>

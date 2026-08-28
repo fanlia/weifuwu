@@ -70,8 +70,8 @@ function componentDefined() {
 }
 
 test('L1 计数基线(登记制——变更必须有意)', () => {
-  assert.equal(inv.primitives, 50, '布局原语数(清理后基线)')
-  assert.equal(inv.utilities, 92, '工具类数(清理后基线)')
+  assert.equal(inv.primitives, 48, '布局原语数(清理后基线)')
+  assert.equal(inv.utilities, 90, '工具类数(清理后基线)')
   assert.equal(inv.internals, 2, '内部类数(_popup 框架内部)')
   assert.equal(inv.tokens, 183, '主题 Token 数')
   // 断点变体 ⊆ 登记清单(响应式唯一模式:窄隐宽显)
@@ -83,7 +83,7 @@ test('L1 计数基线(登记制——变更必须有意)', () => {
 test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
   // 四件套语义完备豁免(设计:layout-naming.md §4):self-* 对齐四态 3/4 消费——整体保留
   const QUARTET_KEEP = new Set(['wf-self-stretch'])
-  const corpus = collectCode(['apps', 'examples', 'src/client/components'])
+  const corpus = collectCode(['apps', 'src/client/components'])
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
   const dead = bases.filter(
     (c) => c.category !== 'internal' && !QUARTET_KEEP.has(c.name) && ![...used].some((u) => u.replace(/\\?@[a-z]{2}$/, '') === c.name || u === c.name),
@@ -93,7 +93,7 @@ test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
 
 test('L3 缺口 = 0(使用未定义类归零)', () => {
   const defined = new Set([...layoutDefined(), ...componentDefined()])
-  const corpus = collectCode(['apps', 'examples'])
+  const corpus = collectCode(['apps'])
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
   const missing = [...used].filter((n) => {
     const base = n.replace(/\\?@[a-z]{2}$/, '')
@@ -150,10 +150,8 @@ test('L5c 双名歼灭(声明指纹全等 = 别名对)', () => {
   assert.equal(aliases.length, 0, `同一声明多类名(保留一个,其余迁移消费侧):\n${aliases.map((ns) => '  ' + ns.join(' ≡ ')).join('\n')}`)
 })
 
-test('L6 文档计数同步(layout-guide/README == inventory)', () => {
-  const guide = readFileSync(join(root, 'content/guides/layout-guide.md'), 'utf-8')
+test('L6 文档计数同步(README == inventory)', () => {
   const readme = readFileSync(join(root, 'README.md'), 'utf-8')
   const line = `${inv.primitives} 个布局原语 + ${inv.utilities} 个工具类 + ${inv.tokens} 个主题 Token`
-  assert.ok(guide.includes(line), `layout-guide.md 缺计数行: ${line}`)
   assert.ok(readme.includes(line), `README.md 缺计数行: ${line}`)
 })

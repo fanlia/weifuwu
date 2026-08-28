@@ -3,7 +3,7 @@
  *
  * 纪律（design/showcase-plan.md §6）：
  * - 单向声明、反向推导：pattern 声明 uses[]；app 声明 usesPatterns[]；
- *   组件页"↑用于"反链由 gen-content.mjs 自动推导——禁止手维护反向关系
+ *   组件页"↑用于"反链由 registry/index-json.ts 运行时推导——禁止手维护反向关系
  * - 组件表由 scripts/migrate-demo-registry.mjs 从 components-demo 迁移生成，
  *   新增组件走 scaffold（registry 自动登记）——禁止手写 components 条目
  * - 计数防线：style-audit 断言 registry 条目与 src/client/components 目录同步
@@ -116,7 +116,7 @@ export interface GuideEntry {
   id: string
   name: string
   desc: string
-  /** 指南正文（Markdown——content/guides/:id.md） */
+  /** 指南摘要（展示用） */
   body: string
 }
 

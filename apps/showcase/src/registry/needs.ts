@@ -14,7 +14,7 @@ export const needs: NeedEntry[] = [
     patterns: ['app-shell', 'dashboard'],
     components: ['Layout', 'Menu', 'Table', 'Form', 'StatCard', 'ThemeSwitch', 'Pagination'],
     backend: ['sql', 'limit'],
-    guide: '复制 examples/apps/admin/ → 按改造指南换业务数据 → 加页面',
+    guide: '参考 agent-platform（apps/ 生产级案例）改造业务数据 + 加页面',
   },
   {
     id: 'ai-chat',
@@ -34,7 +34,7 @@ export const needs: NeedEntry[] = [
     patterns: [],
     components: ['AuthPage', 'Form', 'Input', 'PasswordInput', 'Alert'],
     backend: ['auth'],
-    guide: '复制 examples/apps/auth/ → 换用户存储（userSystem 中间件）',
+    guide: 'userSystem 中间件 + AuthPage 组件——换用户存储即接入',
   },
   {
     id: 'todo-tool',
@@ -44,7 +44,7 @@ export const needs: NeedEntry[] = [
     patterns: [],
     components: ['Form', 'Input', 'Checkbox', 'Tag', 'EmptyState', 'PageHeader'],
     backend: ['sql'],
-    guide: '复制 examples/apps/todo/ → 改数据模型（api.ts 表结构）',
+    guide: 'ctx.sql + 表结构定义——改数据模型即接入',
   },
   {
     id: 'dashboard',
