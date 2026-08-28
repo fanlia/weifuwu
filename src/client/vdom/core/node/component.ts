@@ -78,8 +78,11 @@ export interface ComponentRecord {
   hookStates: Map<number, unknown>
   /** 组件状态机阶段（**MOUNTING 补全——审计 2026-XX**）：工厂 await 期间
    *  = 'mounting'（rec 已注册——防御异步工厂重复执行/循环引用——重复
-   *  引用显式报错）；mount 命令消费后 = 'mounted' */
+   *  引用等待挂载完成（B-2026-08——非违例）；mount 命令消费后 = 'mounted'） */
   phase: 'mounting' | 'mounted'
+  /** 挂载完成信号（B-2026-08——mounting 期间重复引用等待——挂载完成
+   *  或失败后 resolve——等待者重试渲染） */
+  ready?: Promise<void>
 }
 
 /** 组件实例注册表（uiServe 持有——renderToStream 写入——diff/unmount 消费） */
@@ -133,9 +136,16 @@ export async function renderComponent(
   // 实例记录（同位置同类型复用——工厂不重跑）
   let rec = registry.get(compId)
   // **MOUNTING 态防御（状态机——审计）**：工厂 await 期间同组件被再次
-  // 引用（异步循环依赖）——显式报错（不再重复执行工厂——状态丢失）
+  // 引用（异步循环依赖）——**修复（B-2026-08）**：不再 throw——**等待
+  // mount 完成**（mountingRec 带 ready promise——工厂完成后 resolve）——
+  // 工厂执行期间 ctx.render()（Deliverables 的 load() 首行 rerender 实证）
+  // 二次渲染到同组件——进程违例中断渲染（DOM 空态）——等待后递归重试
+  // 本渲染（mount 完成后 renderFn 可用）——真实挂起（非错误）
   if (rec && rec.phase === 'mounting') {
-    throw new Error(`[vdom] 组件状态机违例：${compId} 正在 mount（异步工厂期间重复引用——循环依赖？）`)
+    // 循环依赖真违例（工厂引用自己）在外层 build await 挂起重试——
+    // 用 ready 信号周期；若同渲染周期内自引用（无外部驱动）→ 超时兜底
+    await rec.ready
+    return renderComponent(vn, parent, index, ref, compId, sharedCtx, registry, sink, emitCommand)
   }
   // **类型检查**（统一——build/diff/emitWithKey 全部受益）：同位置不同
   // 类型（PageA2 → Panel 等）——旧实例卸载 + 重 mount（rec.type 错位事故）
@@ -181,7 +191,11 @@ export async function renderComponent(
     // 工厂 = mount（一次——可 await ctx.data——管道保证 resolve）
     // **MOUNTING 占位注册（状态机——审计）**：工厂执行前先注册（异步工厂
     // await 期间同组件重复引用 → 检测 mounting 显式报错——循环依赖防御）
-    const mountingRec = { type: factory, renderFn: (() => null) as RenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounting' as const }
+    // **B-修复（2026-08）**：占位带 ready promise——mounting 期间的重复
+    // 引用等待而非报错（Deliverables 空态根因——工厂内 ctx.render()）
+    let resolveReady!: () => void
+    const ready = new Promise<void>((r) => { resolveReady = r })
+    const mountingRec = { type: factory, renderFn: (() => null) as RenderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounting' as const, ready }
     registry.set(compId, mountingRec)
     let renderFn: RenderFn
     try {
@@ -198,10 +212,14 @@ export async function renderComponent(
       )
     } catch (e) {
       registry.delete(compId)
+      resolveReady() // B-修复（2026-08）：mount 失败也 release 等待者（否则悬挂）
       for (const fn of onUnmounts.reverse()) { try { fn() } catch (e2) { console.error('[vdom] mount 清理:', e2) } }
       throw e
     }
     rec = { type: factory, renderFn, onUnmounts, hookSeq, hookStates, renderBase: 0, phase: 'mounted' }
+    // **B-修复（2026-08）**：mount 完成——release mounting 等待者（重复引用
+    // 的渲染重试）
+    resolveReady()
     // **mount 阶段 hook 计数 → 渲染期基准**（渲染 hook idx = renderBase + seq）
     rec.renderBase = hookSeq.n
     // **MOUNTING 态提前注册（状态机——审计）**：工厂执行前先注册 mounting

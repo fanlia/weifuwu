@@ -8,6 +8,16 @@ import { Button, Card, EmptyState, Icon, Loading } from 'weifuwu/components'
 import { errMsg } from '../../components/ui'
 import { onFilesReload, offFilesReload } from '../../lib/project-store.ts'
 
+/** B-下载（2026-08）：带鉴权下载——`<a href>` 导航无 Bearer → 401（用户实证）——
+ * fetch + token → Blob → 编程式 <a download>（支持二进制）——返回是否成功 */
+async function downloadWsFile(departmentId: string, rel: string, name: string): Promise<boolean> {
+  const { downloadFileAuthorized } = await import('../../lib/download.ts')
+  return downloadFileAuthorized(
+    `/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`,
+    name,
+  )
+}
+
 /** 工作区列表响应（/api/departments/:id/workspace/list） */
 interface WsListResponse {
   path: string
@@ -157,10 +167,10 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
               <span class="wf-font-xs wf-text-tertiary wf-nums">{entry.type === 'file' && entry.size > 1024 ? (entry.size / 1024).toFixed(1) + 'KB' : entry.size + 'B'}</span>
               <span class="wf-font-xs wf-text-tertiary wf-nums">{new Date(entry.mtime).toLocaleTimeString()}</span>
               {entry.type === 'file' && (
-                <a class="wf-btn wf-btn--ghost wf-btn--sm" title="下载（AI 产物交付）"
-                  href={`/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`)}&download=1`}>
+                <button type="button" class="wf-btn wf-btn--ghost wf-btn--sm" title="下载（AI 产物交付）"
+                  onClick={() => { void downloadWsFile(departmentId, wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`, entry.name).then((ok) => { if (!ok) ctx.toast?.('下载失败：文件取不到（请检查登录态/文件状态）', 'error') }) }}>
                   <Icon name="arrow-down" size={13} />
-                </a>
+                </button>
               )}
             </div>
           ))}

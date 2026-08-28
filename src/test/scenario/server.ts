@@ -74,6 +74,9 @@ app.get('/components.css', async (req, ctx: any) => {
 // 场景索引（dev 便利）
 app.get('/', () => new Response('scenario server: /scenario/:id', { headers: { 'content-type': 'text/plain' } }))
 
+// B-复现（2026-08）：异步加载场景 fixture（真实 ctx.api.get 路径）
+app.get('/api/async-load', () => new Response(JSON.stringify({ ok: true }), { headers: { 'content-type': 'application/json' } }))
+
 // WebSocket 端点（ws 中间件场景 fixture——欢迎消息 + echo）
 app.ws('/ws', {
   open: (ws: import('../../server/types.ts').WebSocket) => {

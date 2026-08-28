@@ -11,6 +11,20 @@ import { EmptyState, Loading, PageHeader, errMsg } from '../components/ui'
 import { Badge, Button, Card, Icon, Input } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 
+/** B-打开（2026-08）：交付物预览带鉴权（<a target=_blank> 无 Bearer → 401 实证）——
+ * fetch + token → blob URL → 新窗口打开 */
+async function openDeliverable(deptId: string, path: string): Promise<void> {
+  const { authorizedGet } = await import('../lib/download.ts')
+  try {
+    const res = await authorizedGet(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(path)}`)
+    if (!res.ok) return
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch { /* 打开失败忽略 */ }
+}
+
 interface DeliverableFile {
   deptId: string
   deptName: string
@@ -21,20 +35,41 @@ interface DeliverableFile {
 }
 
 export const Deliverables: Component = async (_init, ctx) => {
-  let files: DeliverableFile[] = []
-  let loading = true
-  let error = ''
-  let query = ''
+  // B-修复（2026-08）：裸 `let` 改为 `$` 状态对象（与 Reports/Workspace 一致——
+  // 这两个正常）——裸 let 在 async 组件双端模块（SSR/server + client）可能存在
+  // 闭包逃逸——日志证实 renderFn 读到 files=9 但 DOM 空态（diff 未触及）
+  const $ = {
+    files: [] as DeliverableFile[],
+    loading: true,
+    error: '',
+    query: '',
+  }
   const rerender = () => ctx.render()
 
   async function load() {
-    loading = true; rerender()
-    try {
-      const d = await ctx.api!.get<{ files: DeliverableFile[] }>('/api/deliverables')
-      files = d.files ?? []
-      error = ''
-    } catch (e) { error = errMsg(e, '加载失败') }
-    loading = false; rerender()
+    // B-根因修复（2026-08）：**工厂执行期间禁止 ctx.render()**——
+    // 首帧 loading=true 已是初始态——无需先 rerender（工厂期间 rerender →
+    // 组件状态机违例「root.0 正在 mount」→ 渲染中断 → DOM 空态——
+    // 用户实证 /deliverables 空态的根因）——首次只取数；手动刷新才 rerender
+    if (!$.loading) {
+      $.loading = true
+      rerender()
+    }
+    // B-修复（2026-08）：改 Promise.then 模式（与 Reports 一致性——Reports 是
+    // 唯一正常的同类页面——其 rerender 在 .then 回调（异步外部）——await 续段
+    // 可能被框架当工厂 await 处理——DOM 不更新实证）
+    return ctx.api!.get<{ files: DeliverableFile[] }>('/api/deliverables')
+      .then((d) => {
+        $.files = d.files ?? []
+        $.error = ''
+        $.loading = false
+        rerender()
+      })
+      .catch((e) => {
+        $.error = errMsg(e, '加载失败')
+        $.loading = false
+        rerender()
+      })
   }
   void load()
 
@@ -49,46 +84,47 @@ export const Deliverables: Component = async (_init, ctx) => {
     return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
   }
 
-  const shown = query
-    ? files.filter((f) => f.name.toLowerCase().includes(query.toLowerCase()) || f.path.toLowerCase().includes(query.toLowerCase()))
-    : files
+  // 根因（2026-08）：`const shown = ...` 在工厂捕获 `$.files` **引用**——
+  // `$.files = d.files` 替换引用后 shown 仍指旧空数组（renderFn 读不到
+  // 新数据——DOM 空态）——改为函数——每次渲染按最新 state 计算
+  const shownOf = () => $.query
+    ? $.files.filter((f) => f.name.toLowerCase().includes($.query.toLowerCase()) || f.path.toLowerCase().includes($.query.toLowerCase()))
+    : $.files
 
   return async () => {
-    if (loading) return <div class="wf-padding-xl"><Loading /></div>
+    const shown = shownOf()
     return (
       <div class="wf-container wf-stack wf-gap-lg wf-padding-lg" style="--wf-max: 980px">
         <PageHeader title="交付物中心" sub="AI 在各部门干的活——最近产物聚合（每部门工作区实时扫描）" />
         <div class="wf-row wf-justify-between wf-gap-sm">
-          <Input placeholder="搜索文件名..." value={query} onInput={(e: Event) => { query = inputValue(e); rerender() }} style="max-width: 280px" />
+          <Input placeholder="搜索文件名..." value={$.query} onInput={(e: Event) => { $.query = inputValue(e); rerender() }} style="max-width: 280px" />
           <Button size="sm" variant="ghost" onClick={() => void load()}><Icon name="refresh" size={14} /> 刷新</Button>
         </div>
-        {error && <Badge variant="error">{error}</Badge>}
+        {$.error && <Badge variant="error">{$.error}</Badge>}
         {shown.length === 0 ? (
-          <EmptyState
-            icon="📦"
-            text={query ? '没有匹配的交付物' : '还没有交付物'}
-            hint="让 AI 在部门群里写文件（如：帮我写一份周报）——产物会出现在这里"
-          />
+          <div class="wf-stack wf-gap-sm wf-padding-xl">
+            <div class="wf-font-lg">📦 {$.query ? '没有匹配的交付物' : '还没有交付物'}</div>
+            <div class="wf-font-sm wf-text-tertiary">让 AI 在部门群里写文件（如：帮我写一份周报）——产物会出现在这里</div>
+          </div>
         ) : (
-          <Card>
-            <div class="wf-stack wf-gap-none">
-              {shown.map((f, i) => (
-                <div key={`${f.deptId}:${f.path}`} class="wf-row wf-justify-between wf-gap-sm" style={{ padding: '10px 12px', borderBottom: i < shown.length - 1 ? 'var(--wf-border-width) solid var(--wf-color-border)' : 'none' }}>
-                  <div class="wf-stack wf-gap-xs wf-fill">
-                    <a class="wf-font-sm wf-text-primary" style="text-decoration:none;cursor:pointer"
-                      onClick={() => { ctx.app?.navigate(`/chat/${f.deptId}`) }}>
-                      {f.path} <span class="wf-text-tertiary wf-font-xs">({f.deptName})</span>
-                    </a>
-                    <span class="wf-font-xs wf-text-tertiary">{fmtSize(f.size)} · {fmtTime(f.mtime)}</span>
-                  </div>
-                  <a href={`/api/departments/${f.deptId}/workspace/file?path=${encodeURIComponent(f.path)}`}
-                    class="wf-btn wf-btn--sm wf-btn--secondary" target="_blank" style="text-decoration:none">
-                    <Icon name="external-link" size={14} /> 打开
+          <div class="wf-stack wf-gap-none wf-padding-sm">
+            {shown.map((f, i) => (
+              <div key={`${f.deptId}:${f.path}`} class="wf-row wf-justify-between wf-gap-sm" style={{ padding: '10px 12px', borderBottom: i < shown.length - 1 ? '1px solid var(--wf-color-border, #eee)' : 'none' }}>
+                <div class="wf-stack wf-gap-xs wf-fill">
+                  <a class="wf-font-sm wf-text-primary" style="text-decoration:none;cursor:pointer"
+                    onClick={() => { ctx.app?.navigate(`/chat/${f.deptId}`) }}>
+                    {f.path} <span class="wf-text-tertiary wf-font-xs">({f.deptName})</span>
                   </a>
+                  <span class="wf-font-xs wf-text-tertiary">{fmtSize(f.size)} · {fmtTime(f.mtime)}</span>
                 </div>
-              ))}
-            </div>
-          </Card>
+                <button type="button"
+                  class="wf-btn wf-btn--sm wf-btn--secondary" style="text-decoration:none"
+                  onClick={() => { void openDeliverable(f.deptId, f.path) }}>
+                  <Icon name="external-link" size={14} /> 打开
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     )

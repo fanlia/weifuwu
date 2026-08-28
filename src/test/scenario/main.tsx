@@ -33,6 +33,10 @@ const i18nState = i18n({
     en: { hello: 'Hello', count: 'Count {n}' },
   },
 })
-const handle = uiServe(router, { root: '#root', i18n: i18nState, ws: ws(), toast, confirm, notification: notificationMiddleware({}).notification })
+// B-复现（2026-08）：注入 api（真实 ctx.api.get——异步加载场景用——
+// 锁定 Deliverables 空态是否与 api client 路径相关）
+import { api } from '../../client/vdom/index.ts'
+const apiClient = api({ baseUrl: '' })
+const handle = uiServe(router, { root: '#root', i18n: i18nState, ws: ws(), toast, confirm, notification: notificationMiddleware({}).notification, api: apiClient })
 // unmount-dispose 场景：暴露 handle（场景按钮触发卸载）
 ;(window as unknown as { __scenarioHandle?: unknown }).__scenarioHandle = handle

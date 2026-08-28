@@ -1628,6 +1628,33 @@ const FuseScene = (_init: Record<string, never>, ctx: any) => {
 }
 const FUSE = { id: 'render-error-fuse', title: '错误熔断（R1——连续错误 fallback + 重试恢复）', render: FuseScene }
 
+// ── B-异步加载复现场景：async 工厂 + async renderFn + 工厂外异步 → rerender ──
+// 用户实证：Deliverables 页（**async 工厂 + async renderFn** + 工厂外异步
+// load() 成功 + renderFn 重跑读到新状态）——但 DOM 永远空态——
+// **async renderFn 的二次渲染断链假设**——最小复现：async 工厂 + 异步回调
+// → ctx.render() → async renderFn 重跑读新值——DOM 不变 = 复现
+const AsyncLoadScene = async (_init: Record<string, never>, ctx: any) => {
+  let loaded = false
+  let items: string[] = []
+  // 工厂执行期间 ctx.render()（Deliverables 的 load() 首行 rerender 实证）——
+  // mounting 期间二次渲染（B-2026-08——框架已改等待而非违例）
+  void ctx.render()
+  ctx.api?.get<{ ok: boolean }>('/api/async-load').then((d: any) => {
+    loaded = true
+    items = ['a.md', 'b.csv', 'c.py']
+    void ctx.render()
+  }).catch(() => { loaded = true; items = ['a.md']; void ctx.render() })
+  return async () => {
+    return h('div', { class: 'async-load-scene' }, [
+      h('div', { id: 'async-status' }, loaded ? '已加载' : '加载中'),
+      loaded && items.length === 0
+        ? h('div', { id: 'async-empty' }, '空态')
+        : h('ul', { id: 'async-list' }, items.map((it) => h('li', {}, it))),
+    ])
+  }
+}
+const ASYNC_LOAD = { id: 'async-load-rerender', title: '异步加载后 rerender（DOM 更新实证——工厂外回调渲染断链——SSR 水合变体）', render: AsyncLoadScene, ssr: true }
+
 // ── R3 场景：FIFO 渲染队列（渲染中多次 render 触发——串行全执行） ─────
 // 触发：点击「触发 5 次」→ 同步循环 5× render()（第 1 次进入 runRender
 //（rendering）——其余 4 次入队）——FIFO 串行——log 记录每次渲染调用序
@@ -1767,6 +1794,7 @@ export const scenarios: Scenario[] = [
   DTYS,
   RCS,
   FUSE,
+  ASYNC_LOAD,
   FIFO,
   REDIRECT,
 ]

@@ -11,6 +11,15 @@ import { inputValue } from '../../lib/types'
 import type { ChatMessage, MessageTool } from '../../lib/types'
 import { detectTaskMarker } from '../../../src/services/task-markers.ts'
 
+/** B-下载（2026-08）：聊天流文件卡片带鉴权下载（<a href> 无 Bearer → 401 实证） */
+async function downloadFileCard(deptId: string, rel: string): Promise<void> {
+  const { downloadFileAuthorized } = await import('../../lib/download.ts')
+  await downloadFileAuthorized(
+    `/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`,
+    rel.split('/').pop() ?? rel,
+  )
+}
+
 export interface MessageItemProps {
   msg: ChatMessage
   departmentId: string
@@ -73,11 +82,11 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
       return (
         <div class="wf-row wf-gap-sm wf-items-center wf-panel-in">
           <Ava name={msg.sender_name ?? 'AI'} type="ai" small />
-          <a class="wf-pill wf-bg-tertiary wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-row wf-gap-xs wf-items-center"
-            href={`/api/departments/${props.departmentId}/workspace/file?path=${encodeURIComponent(rel.replace(/（已发布|已拒绝）$/, ''))}&download=1`}
-            style="text-decoration: none">
+          <button type="button" class="wf-pill wf-bg-tertiary wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-row wf-gap-xs wf-items-center"
+            style="text-decoration: none"
+            onClick={() => { void downloadFileCard(props.departmentId, rel.replace(/（已发布|已拒绝）$/, '')) }}>
             <Icon name="file-text" size={12} /> {msg.sender_name ?? 'AI'} 刚生成了 <b class="wf-text-primary">{rel}</b> 下载 ↓
-          </a>
+          </button>
           {msg.pending && !already && (
             <>
               <span class="wf-pill wf-bg-warning wf-text-on-warning wf-padding-x-sm wf-padding-y-xs wf-font-xs">⏳ 待审批</span>

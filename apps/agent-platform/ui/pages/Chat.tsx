@@ -56,6 +56,15 @@ interface ChatInputControl {
   setValue: (v: string) => void
 }
 
+/** B-下载（2026-08）：子部门交付物带鉴权下载（<a href> 无 Bearer → 401 实证） */
+async function downloadSubFile(deptId: string, name: string): Promise<void> {
+  const { downloadFileAuthorized } = await import('../lib/download.ts')
+  await downloadFileAuthorized(
+    `/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(name)}&download=1`,
+    name,
+  )
+}
+
 interface ChatState {
   msgs: ChatMessage[]
   deptName: string; memberCount: number; input: string; isAdmin: boolean
@@ -836,10 +845,10 @@ export const Chat: Component = async (_props, ctx) => {
                         <span class="wf-font-xs wf-medium wf-truncate wf-fill">{f.name}{f.type === 'dir' ? '/' : ''}</span>
                         <span class="wf-font-xs wf-text-tertiary wf-nums">{f.type === 'file' && f.size > 1024 ? (f.size / 1024).toFixed(1) + 'KB' : f.size + 'B'}</span>
                         {f.type === 'file' && (
-                          <a class="wf-text-primary" title="下载（子部门交付物）"
-                            href={`/api/departments/${sd.id}/workspace/file?path=${encodeURIComponent(f.name)}&download=1`}>
+                          <button type="button" class="wf-text-primary" title="下载（子部门交付物）"
+                            onClick={() => { void downloadSubFile(sd.id, f.name) }}>
                             <Icon name="arrow-down" size={12} />
-                          </a>
+                          </button>
                         )}
                       </div>
                     ))}
