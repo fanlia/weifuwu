@@ -85,12 +85,23 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 创建部门 ─────────────────────────────────────────────
 
   app.post('/api/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    // R4 权限：viewer 只读——不能建部门
+    // R4 权限：viewer 只读——不能建部门；**member 也不能**（能力矩阵：
+    // 建部门 = owner/admin——2026-08 UI 角色测试抓到：member 能建——
+    // 实现与矩阵漂移——过宽）
     try {
       const { requireWriter } = await import('../services/permissions.ts')
       await requireWriter(ctx)
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    }
+    try {
+      const { appRoleOf } = await import('../services/permissions.ts')
+      const role = await appRoleOf(ctx)
+      if (role !== 'owner' && role !== 'admin') {
+        return Response.json({ error: '只有租户所有者或部门管理员可以创建部门' }, { status: 403 })
+      }
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
     }
     const { sql, appId } = ctx
     const body = await req.json() as {

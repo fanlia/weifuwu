@@ -56,6 +56,8 @@ export const Login: Component = async (_props, ctx) => {
       if (!appRes.ok) { $.error = appData.error || '应用登录失败'; $.loading = false; rerender(); return }
 
       ctx.auth?.login(appData.token, appData.user, appData.refreshToken)
+      // 角色存储（2026-08——前端写操作防线——viewer 禁用写按钮）
+      if (appData.role) localStorage.setItem('agent_platform_role', appData.role)
       if (appData.refreshToken) setRefreshToken(appData.refreshToken)
       ctx.app?.navigate('/')
     } catch (e) {

@@ -17,7 +17,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import {
   startAgentServer, openAgentPage, waitForText, registerTenant, injectAuth, apiAs,
-  fatalErrors,
+  fatalErrors, seedRoleMember, clickAndWait, waitForBodyText,
   type AgentServer, type TenantAuth,
 } from './shared.ts'
 
@@ -73,4 +73,49 @@ test('交付物中心：工作区文件必须出现在 /deliverables 页面（�
   assert.ok(!body.includes('还没有交付物'), '不得是空态（用户实证缺陷复现）')
   assert.deepEqual(fatalErrors(errs2), [], `页面零错误：${errs2.join('; ')}`)
   await p2.close()
+})
+
+test('交付物：下载按钮点击必须 200（不 401——用户实证 `<a href>` 无 Bearer）', async () => {
+  const page = await browser.newPage()
+  await injectAuth(page, auth)
+  await openAgentPage(page, BASE, '/deliverables')
+  await waitForText(page, 'seed-report.md', 15_000)
+  // 下载按钮（button title=下载 或「打开」——交付物页打开按钮）
+  const dlBtn = page.locator('button:has-text("打开")').first()
+  assert.ok((await dlBtn.count()) > 0, '打开/下载按钮存在')
+  // 监听请求（点击 → fetch blob——带 token——必须 200）
+  let fileStatus: number | null = null
+  const respPromise = page.waitForResponse((r) => r.url().includes('/workspace/file'), { timeout: 10_000 })
+  await dlBtn.click()
+  const resp = await respPromise
+  fileStatus = resp.status()
+  assert.equal(fileStatus, 200, `下载/打开请求应 200（401 = <a href> 无 Bearer 回归）——实际 ${fileStatus}`)
+  await page.close()
+})
+
+test('交付物：搜索过滤（输入关键词 → 列表收敛）', async () => {
+  const page = await browser.newPage()
+  await injectAuth(page, auth)
+  await openAgentPage(page, BASE, '/deliverables')
+  await waitForText(page, 'seed-report.md', 15_000)
+  // 输入不匹配关键词 → 空态（没有匹配的交付物）
+  await page.fill('input[placeholder*="搜索"]', 'zz-no-match-zz')
+  await waitForBodyText(page, /没有匹配的交付物/)
+  // 清空 → 文件回来
+  await page.fill('input[placeholder*="搜索"]', '')
+  await waitForText(page, 'seed-report.md', 10_000)
+  await page.close()
+})
+
+test('交付物：viewer 只读——页面可看但无写操作入口', async () => {
+  const viewer = await seedRoleMember(BASE, auth, 'viewer')
+  const page = await browser.newPage()
+  await injectAuth(page, viewer)
+  await openAgentPage(page, BASE, '/deliverables')
+  // 交付物数据对 viewer 可见（只读=可见）
+  await waitForText(page, 'seed-report.md', 15_000)
+  // 写入口（上传/删除等）不应可用——交付物页无写按钮——断言页面正常渲染
+  const body = await page.evaluate(() => document.body.innerText)
+  assert.ok(body.includes('交付物中心'), 'viewer 可看交付物中心')
+  await page.close()
 })

@@ -20,12 +20,15 @@ export const Agents: Component = async (_props, ctx) => {
     e.stopPropagation()
     const ok = await ctx.confirm!('确定删除这个 Agent 吗？')
     if (!ok) return
-    const res = await ctx.api!.delete<{ ok?: boolean; status?: number }>(`/api/agents/${id}`)
-    if (res.ok || res.status === 204) {
+    try {
+      // API 封装返回 JSON body（非 Response）——res.ok 不存在——
+      // 只要不 throw 即成功（ApiError——2026-08 UI 测试抓出：删除成功
+      // 却报「删除失败」——响应判断错——数据删了 UI 不刷新）
+      await ctx.api!.delete<{ ok?: boolean }>(`/api/agents/${id}`)
       $.agents = $.agents.filter((a: Agent) => a.id !== id)
       rerender()
       ;ctx.toast!('Agent 已删除', 'success')
-    } else {
+    } catch {
       ;ctx.toast!('删除失败', 'error')
     }
   }

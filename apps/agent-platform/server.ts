@@ -79,6 +79,9 @@ async function main() {
   // 主池：10 并发 AI 执行（每任务 2+ SQL 连接）+ 常规请求——acquireTimeoutMs 防池满无限排队（卡住）
   const pg = postgres({ max: 50, acquireTimeoutMs: 10_000 })
   app.use(pg)
+  // 事件日志独立池（2026-08——沙盒事件——shutdown 需关闭——否则每测试
+  // spawn 泄漏 3 连接——多测试文件串行 → 池累积 → PG too many clients）
+  let eventsPg: ReturnType<typeof postgres> | null = null
 
   // ── 请求日志（结构化 JSON 行 + 请求 id——可观测性基础；pg 之后——ctx.sql 已注入） ──
   app.use(async (req: Request, ctx: Context, next: any) => {
@@ -404,7 +407,7 @@ async function main() {
     // 启动立即 reconcile 一轮（恢复状态/孤儿清理），然后周期收敛
     const { manager } = await import('./src/sandbox/manager.ts')
     // 事件日志独立连接池（不抢主池——并发 AI 执行风暴时诊断写入不阻塞业务查询）
-    const eventsPg = postgres({ max: 3, acquireTimeoutMs: 5_000 })
+    eventsPg = postgres({ max: 3, acquireTimeoutMs: 5_000 })
     manager.init(pg.sql, eventsPg.sql)
     manager.startReaper()
     void manager.reconcile().then((s) => {
@@ -1400,6 +1403,8 @@ async function main() {
     await new Promise<void>((resolve) => server.close().then(resolve))
     // 关闭数据库连接
     await pg.close()
+    // 事件池（2026-08——独立池泄漏：每测试 spawn 3 连接不关——池累积耗尽）
+    try { await eventsPg?.close() } catch { /* 尽力 */ }
     console.log('[agent-platform] 已关闭')
     process.exit(0)
   }

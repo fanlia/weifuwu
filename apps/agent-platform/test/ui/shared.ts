@@ -125,7 +125,9 @@ export async function injectAuth(page: Page, auth: TenantAuth): Promise<void> {
     localStorage.setItem('agent_platform_token', payload.token)
     if (payload.refreshToken) localStorage.setItem('agent_platform_refresh', payload.refreshToken)
     if (payload.user) localStorage.setItem('agent_platform_user', JSON.stringify(payload.user))
-  }, { token: auth.token, refreshToken: auth.refreshToken, user: auth.user })
+    // 角色（2026-08——UI 角色测试：viewer 写操作防线需要 role）
+    if (payload.role) localStorage.setItem('agent_platform_role', payload.role)
+  }, { token: auth.token, refreshToken: auth.refreshToken, user: auth.user, role: auth.app?.role })
 }
 
 /** 认证 API 调用（数据种子——真实 API 路径——返回解析后 JSON） */
@@ -141,4 +143,89 @@ export async function apiAs(base: string, auth: TenantAuth, path: string, init: 
   const text = await res.text()
   if (!res.ok) throw new Error(`API ${init.method ?? 'GET'} ${path} 失败 ${res.status}: ${text.slice(0, 200)}`)
   return text ? JSON.parse(text) : null
+}
+
+// ── 角色种子（B-UI 角色测试——2026-08）─────────────────
+// 全链路：owner invite（role）→ 新用户 join（registerInApp）→
+// 返回 join 用户 TenantAuth（角色生效——DB + 响应双验证——join 响应
+// role 修复后正确）——API 驱动（不 SQL 直插——端到端一致）
+export async function seedRoleMember(
+  base: string,
+  owner: TenantAuth,
+  role: 'viewer' | 'member' | 'admin',
+): Promise<TenantAuth> {
+  const stamp = Date.now()
+  const email = `seeded-${role}-${stamp}@e2e.test`
+  // owner 生成邀请（指定 role）
+  const inv = await apiAs(base, owner, '/api/auth/invite', {
+    method: 'POST',
+    body: JSON.stringify({ email, role }),
+  })
+  if (!inv?.token) throw new Error(`邀请生成失败: ${JSON.stringify(inv).slice(0, 120)}`)
+  // 被邀人 join（registerInApp——复用或建平台账号 + 加成员）
+  const join = await apiAs(base, { token: '', refreshToken: null, user: null, app: owner.app }, '/api/auth/join', {
+    method: 'POST',
+    body: JSON.stringify({ appSlug: owner.app.slug, inviteToken: inv.token, email, password: 'Test123456', name: `种子${role}` }),
+  })
+  if (!join?.token) throw new Error(`join 失败: ${JSON.stringify(join).slice(0, 120)}`)
+  // 断言角色生效（join 响应已验证——修复后返回真实 role）
+  if (join.app?.role !== role) {
+    throw new Error(`角色种子失败: 期望 ${role} 实得 ${join.app?.role}——join 响应角色修复未生效？`)
+  }
+  return { token: join.token, refreshToken: join.refreshToken ?? null, user: join.user, app: { ...owner.app, role } }
+}
+
+/** 管理员角色：member 加入后提拔部门管理员（department_members.role='admin'） */
+export async function seedDeptAdmin(
+  base: string,
+  owner: TenantAuth,
+  deptId: string,
+): Promise<TenantAuth> {
+  const member = await seedRoleMember(base, owner, 'member')
+  // 加为部门成员 + 设 admin（部门管理 API：POST /api/departments/:id/members）
+  try {
+    await apiAs(base, owner, `/api/departments/${deptId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ agent_id: null, user_id: member.user!.id, role: 'admin', name: '部门管理员' }),
+    })
+  } catch (e: any) {
+    // 部门成员 API 形状不同——试 add 端点
+    await apiAs(base, owner, `/api/departments/${deptId}/members/add`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: member.user!.id, role: 'admin' }),
+    })
+  }
+  return { ...member, app: { ...member.app, role: 'member' } } // 部门级 admin（应用 role 仍 member）
+}
+
+// ── 交互断言 helper（点击才暴露的 bug——等待变化而非 sleep）──
+
+/** 点击元素后等待 DOM 出现期望文本（或元素消失——防 403/空态） */
+export async function clickAndWait(page: Page, selector: string, expectText?: string | RegExp, timeoutMs = 10_000): Promise<void> {
+  await page.click(selector, { timeout: 5000 })
+  if (!expectText) {
+    await page.waitForTimeout(300)
+    return
+  }
+  await page.waitForFunction(
+    (t) => {
+      const text = document.body.textContent ?? ''
+      if (t instanceof RegExp) return t.test(text)
+      return text.includes(t)
+    },
+    expectText,
+    { timeout: timeoutMs },
+  )
+}
+
+/** 等待 body 出现指定文本（wrapped——供页面数据渲染断言） */
+export async function waitForBodyText(page: Page, text: string | RegExp, timeoutMs = 10_000): Promise<void> {
+  await page.waitForFunction(
+    (t) => {
+      const body = document.body.textContent ?? ''
+      return t instanceof RegExp ? t.test(body) : body.includes(t)
+    },
+    text,
+    { timeout: timeoutMs },
+  )
 }

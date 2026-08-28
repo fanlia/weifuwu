@@ -19,12 +19,14 @@ export const Departments: Component = async (_props, ctx) => {
     e.stopPropagation()
     const ok = await ctx.confirm!('确定删除这个部门吗？')
     if (!ok) return
-    const res = await ctx.api!.delete<{ ok?: boolean; status?: number }>(`/api/departments/${id}`)
-    if (res.ok || res.status === 204) {
+    try {
+      // API 封装返回 JSON body——res.ok 不存在——不 throw 即成功
+      // （2026-08 UI 测试抓出：删除成功却报「删除失败」——响应判断错）
+      await ctx.api!.delete(`/api/departments/${id}`)
       $.depts = $.depts.filter((d: Department) => d.id !== id)
       rerender()
       ;ctx.toast!('部门已删除', 'success')
-    } else {
+    } catch {
       ;ctx.toast!('删除失败', 'error')
     }
   }

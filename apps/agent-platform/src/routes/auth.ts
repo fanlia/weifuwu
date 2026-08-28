@@ -145,11 +145,19 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
         const { writeAudit } = await import('../services/audit.ts')
         await writeAudit(ctx as any, { action: 'invite_join', target_type: 'app', target_id: appId, detail: { email: body.email } })
       } catch { /* 尽力 */ }
+      // 响应 role 用真实成员角色（曾被硬编码 'member'——invite role=viewer
+      // 时响应误导——DB 存 viewer 但响应报 member——前端/测试按响应造数据
+      // 会错——2026-08 角色种子链路挖出）
+      let joinRole = 'member'
+      try {
+        const [m] = await ctx.sql`SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${appLogin.user.id}`
+        if (m?.role) joinRole = String(m.role)
+      } catch { /* 查询失败——用默认 */ }
       return Response.json({
         token: appLogin.token,
         refreshToken: appLogin.refreshToken,
         user: appLogin.user,
-        app: { id: appId, slug: body.appSlug, role: 'member' },
+        app: { id: appId, slug: body.appSlug, role: joinRole },
       })
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '邀请无效或已过期' }, { status: e?.status ?? 403 })
