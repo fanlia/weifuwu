@@ -127,6 +127,7 @@ test('Settings 基线：四卡（基本资料/外观/审计日志/系统状态�
       assert.ok(text.includes(t), `卡片：${t}`)
     }
     assert.ok(text.includes('全部时间'), 'C3 时间范围筛选（全部时间选项）')
+    assert.ok(text.includes('服务健康'), 'E2 5xx 可见性（服务健康行——请求/错误/5xx 细分）')
     assert.deepEqual(fatalErrors(errors), [], `零错误（实际: ${fatalErrors(errors)[0] ?? '无'}）`)
   } finally { await page.close() }
 })

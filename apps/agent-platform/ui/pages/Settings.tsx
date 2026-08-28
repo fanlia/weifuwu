@@ -11,6 +11,8 @@ interface SettingsState {
   auditFilter: string
   auditRange: string // C3 时间范围（'7d'/'30d'/'90d'/''=全部）
   sysHealth: OpsInfo | null
+  /** E2 服务健康（/api/metrics——请求/错误/5xx 细分——运营可见性） */
+  metrics: { uptimeSec: number; requests: number; errors: number; errors5xx: number; errorsCaught: number; errorRate: number } | null
   inviteLink: string; inviteCopied: boolean; inviteErr: string
   inviteRole: string
   plan: { plan: string; label: string; trialEndsAt: string | null; trialExpired: boolean; monthlyTokenLimit: number; usedThisMonth?: number } | null
@@ -51,8 +53,12 @@ export const Settings: Component = async (_props, ctx) => {
   $.auditFilter = ''
   $.auditRange = ''
   $.sysHealth = null
+  $.metrics = null
   // 系统状态（运营视角：健康 + 沙盒 + 今日审计）
   void ctx.api!.get<OpsInfo>('/api/ops').then((d) => { $.sysHealth = d; ctx.render() }).catch(() => {})
+  // E2：服务健康（/api/metrics——公开端点）——5xx/异常细分计数可见
+  void ctx.api!.get<SettingsState['metrics']>('/api/metrics')
+    .then((d) => { $.metrics = d ?? null; ctx.render() }).catch(() => {})
   $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
@@ -294,6 +300,12 @@ export const Settings: Component = async (_props, ctx) => {
               <span class="wf-font-sm wf-text-secondary">今日审计操作</span>
               <span class="wf-font-sm wf-semibold wf-nums">{$.sysHealth.auditToday ?? 0} 条</span>
             </div>
+            {$.metrics && (
+              <div class="wf-split wf-padding-y-xs wf-border-bottom">
+                <span class="wf-font-sm wf-text-secondary">服务健康</span>
+                <span class="wf-font-sm wf-nums">{$.metrics.requests} 请求 · 错误 {$.metrics.errors}（5xx {$.metrics.errors5xx} / 异常 {$.metrics.errorsCaught}）· {$.metrics.errorRate}%</span>
+              </div>
+            )}
             <div class="wf-split wf-padding-y-xs wf-border-bottom">
               <span class="wf-font-sm wf-text-secondary">授权</span>
               <span class="wf-font-sm">{$.sysHealth?.license?.edition === 'licensed'

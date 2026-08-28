@@ -63,6 +63,8 @@ async function main() {
   // ── 指标收集（内存计数器——/api/metrics 暴露） ─────────────────
   const metrics = {
     requests: 0, errors: 0,
+    // E2（2026-08）：错误细分——5xx 响应 / 未捕获异常（errors = 之和——兼容旧消费）
+    errors5xx: 0, errorsCaught: 0,
     aiCalls: 0, aiTokens: 0, aiLatencyMs: 0,
     webhooks: 0, sandboxCalls: 0,
     startTime: Date.now(),
@@ -86,14 +88,16 @@ async function main() {
     metrics.requests++
     try {
       const res = await next(req, ctx)  // 必须显式传 req/ctx（dispatch 不传参数会变 undefined——框架约定）
-      metrics.errors += (res as Response)?.status >= 500 ? 1 : 0
+      const status = (res as Response)?.status ?? 200
+      if (status >= 500) { metrics.errors++; metrics.errors5xx++ }
       console.log(JSON.stringify({
         ts: new Date().toISOString(), id, method: req.method, path: url.pathname,
-        status: (res as Response)?.status ?? 200, ms: Date.now() - start,
+        status, ms: Date.now() - start,
       }))
       return res
     } catch (e) {
       metrics.errors++
+      metrics.errorsCaught++
       console.error(JSON.stringify({
         ts: new Date().toISOString(), id, method: req.method, path: url.pathname,
         level: 'error', ms: Date.now() - start, error: (e as Error)?.message,
@@ -625,6 +629,9 @@ async function main() {
       uptimeSec: uptime,
       requests: m.requests ?? 0,
       errors: m.errors ?? 0,
+      // E2 细分（5xx 响应 vs 未捕获异常——诊断粒度）
+      errors5xx: m.errors5xx ?? 0,
+      errorsCaught: m.errorsCaught ?? 0,
       errorRate: m.requests ? Number(((m.errors / m.requests) * 100).toFixed(2)) : 0,
       aiCalls: m.aiCalls ?? 0,
       aiTokens: m.aiTokens ?? 0,
