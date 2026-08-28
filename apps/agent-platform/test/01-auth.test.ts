@@ -17,11 +17,11 @@ let pg: ReturnType<typeof postgres>
 let rds: ReturnType<typeof redis>
 let handle: (req: Request, ctx: any) => Promise<Response>
 
-function req(method: string, path: string, body?: unknown): Promise<Response> {
+function req(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Response> {
   return handle(
     new Request(`http://localhost${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json', 'x-forwarded-for': 'auth-test' },
+      headers: { 'Content-Type': 'application/json', 'x-forwarded-for': 'auth-test', ...headers },
       body: body ? JSON.stringify(body) : undefined,
     }),
     { params: {}, query: {} },
@@ -53,10 +53,11 @@ before(async () => {
   const { registerAuthRoutes } = await import('../src/routes/auth.ts')
   registerAuthRoutes(app)
 
-  // 限流 key 清理（跨运行残留 + 跨测试累计）：本文件统一 IP 'auth-test'
+  // 限流 key 清理（跨运行残留 + 跨测试累计）：本文件统一 IP 'auth-test'（/me 同键）
   const rdsPool = (rds as any).redis
-  // 实际键名带 rl: 前缀（rateLimit 中间件内部前缀）——两种都清，防跨运行残留
-  for (const k of ['rl:rl:global:auth-test', 'rl:rl:register:auth-test', 'rl:global:auth-test', 'rl:register:auth-test']) {
+  // 实际键名带 rl: 前缀（rateLimit 中间件内部前缀）——两种都清，防跨运行残留；
+  // 'unknown' 键 = 无 x-forwarded-for 的裸 Request（历史 /me 写法——其他测试文件可能残留）
+  for (const k of ['rl:rl:global:auth-test', 'rl:rl:register:auth-test', 'rl:global:auth-test', 'rl:register:auth-test', 'rl:rl:global:unknown']) {
     await rdsPool.del(k)
   }
 
@@ -117,25 +118,19 @@ describe('Auth', () => {
   })
 
   it('GET /api/auth/me — 获取当前用户', async () => {
-    const res = await handle(
-      new Request('http://localhost/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }),
-      { params: {}, query: {} },
-    )
+    const res = await req('GET', '/api/auth/me', undefined, { Authorization: `Bearer ${token}` })
     assert.equal(res.status, 200)
     const data = await res.json()
     assert.equal(data.email, 'a@b.com', '框架 /api/auth/me 直接返回 ctx.user（无 {user} 包裹）')
   })
 
   it('GET /api/auth/me — 无 token 返回 401', async () => {
-    const res = await handle(new Request('http://localhost/api/auth/me'), { params: {}, query: {} })
+    const res = await req('GET', '/api/auth/me')
     assert.equal(res.status, 401)
   })
 
   it('GET /api/auth/me — 无效 token 返回 401', async () => {
-    const res = await handle(
-      new Request('http://localhost/api/auth/me', { headers: { Authorization: 'Bearer bad.token.here' } }),
-      { params: {}, query: {} },
-    )
+    const res = await req('GET', '/api/auth/me', undefined, { Authorization: 'Bearer bad.token.here' })
     assert.equal(res.status, 401)
   })
 

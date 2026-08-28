@@ -79,8 +79,9 @@ export function fatalErrors(errors: string[]): string[] {
   return errors.filter((e) => !e.includes('Failed to load resource'))
 }
 
-/** 等待正文出现指定文本（页面异步取数 + rerender——轮询直至出现） */
-export async function waitForText(page: Page, text: string, timeoutMs = 8_000): Promise<void> {
+/** 等待正文出现指定文本（页面异步取数 + rerender——轮询直至出现）
+ *  15s（负载下渲染/取数可能偏慢——套件串行跑时 DB 忙——仍能捕获真挂起） */
+export async function waitForText(page: Page, text: string, timeoutMs = 15_000): Promise<void> {
   await page.waitForFunction(
     (t) => (document.body.textContent ?? '').includes(t),
     text,
