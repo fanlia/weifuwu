@@ -9,6 +9,10 @@
     "start": "node --env-file=.env server.ts",
     "seed": "node --env-file=.env scripts/seed.mjs",
     "build": "esbuild ui/v3-main.tsx --bundle --format=esm --outfile=dist/app.js --jsx=automatic --jsx-import-source=weifuwu/vdom",
-    "test": "node --env-file=.env --test --test-concurrency=1 'test/**/*.test.ts'"
+    "test": "node --env-file=.env --test --test-concurrency=1 'test/**/*.test.ts'",
+    "posttest": "node -e \"const fs=require('fs');const p=fs.readFileSync('/tmp/ap-shared-server.pid','utf8').trim();try{process.kill(Number(p))}catch{}fs.rmSync('/tmp/ap-shared-server.pid',{force:true})\"",
+    "pretest": "node -e \"try{const fs=require('fs');const p=fs.readFileSync('/tmp/ap-shared-server.pid','utf8').trim();process.kill(Number(p))}catch{}\"",
+    "test:docker": "RUN_DOCKER_TESTS=1 node --env-file=.env --test --test-concurrency=1 test/sandbox.test.ts",
+    "test:ui": "node --env-file=.env --test --test-concurrency=1 'test/ui/**/*.test.ts'"
   }
 }

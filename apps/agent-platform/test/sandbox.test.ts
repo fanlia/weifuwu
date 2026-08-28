@@ -37,7 +37,7 @@ function dockerAvailable(): boolean {
   }
 }
 
-const HAS_DOCKER = dockerAvailable()
+const HAS_DOCKER = process.env.RUN_DOCKER_TESTS === '1' && dockerAvailable()
 const TEST_APP = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 const TEST_DEPT = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
 const CONTAINER_NAME = (id: string) => `ap-sandbox-${id}`

@@ -27,40 +27,67 @@ export interface AgentServer {
   stop(): void
 }
 
-/** spawn agent-platform server（PORT=0 随机端口——stdout 解析实际端口） */
-export function startAgentServer(): Promise<AgentServer> {
-  return new Promise((resolveP, reject) => {
+// 兼容别名：startAgentServer = getSharedServer（旧测试文件 before 调用不变——
+// 自动共享——after 的 stop() no-op（共享进程不随文件停——posttest 清理））
+export const startAgentServer = getSharedServer
+// node --test 文件级串行（--test-concurrency=1）下——每文件 spawn **无隔离价值**
+// （DB/Redis/沙盒本来共享——隔离靠唯一租户 appSlug——非 server）——只有代价：
+// 17 文件 × 2-4s 启动 + 连接池开闭波动 + 冷启动抖动（报表 11s 失败实证）。
+// 方案：**固定端口 + 探测复用 + detached 持久**——第一个测试文件 spawn
+// （detached——不随测试进程死）——后续文件探测到即复用——posttest 清理。
+const SHARED_PORT = 39217
+let sharePromise: Promise<AgentServer> | null = null
+
+/** 探测共享 server 是否存活（任何 HTTP 响应 = alive——401/404 都是活的） */
+async function probeShared(): Promise<boolean> {
+  try {
+    const res = await fetch(`http://localhost:${SHARED_PORT}/api/ops`, { signal: AbortSignal.timeout(1000) })
+    return res.status < 500 // 401/404/403 = 服务在跑（ops 无 auth——401 是 auth 中间件——alive）
+  } catch {
+    return false
+  }
+}
+
+/** 共享 server 单例（懒 spawn——第一个调用者启动——后续复用） */
+export function getSharedServer(): Promise<AgentServer> {
+  if (sharePromise) return sharePromise
+  sharePromise = (async () => {
+    if (await probeShared()) {
+      return { base: `http://localhost:${SHARED_PORT}`, stop: () => {} }
+    }
+    // spawn detached（独立进程——跨测试文件存活——posttest 清理）
+    // stdio ignore（**关键**：pipe 保持测试进程事件循环活跃 → node --test
+    // 永不退出——detached 进程无需日志收集——启动确认靠探活轮询）
     const server: ChildProcess = spawn('node', ['--env-file=.env', 'server.ts'], {
       cwd: APP_ROOT,
+      detached: true,
+      stdio: 'ignore',
       env: {
         ...process.env,
-        PORT: '0',
-        // 测试隔离：全局限流拉高（多测试文件同窗口串行跑——避免撞 429 误伤页面断言）
+        PORT: String(SHARED_PORT),
+        DATABASE_POOL_MAX: '8',
         RATE_LIMIT_MAX: '100000',
-        // register/join 端点限流拉高（UI 测试文件各注册多租户——共享 Redis 同 IP 计数）
         REGISTER_LIMIT_MAX: '100000',
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
     })
-    let logs = ''
-    server.stdout?.on('data', (d) => { logs += String(d) })
-    server.stderr?.on('data', (d) => { logs += String(d) })
-    const timer = setTimeout(() => {
-      server.kill()
-      reject(new Error(`agent-platform server 启动超时:\n${logs.slice(-2000)}`))
-    }, 30_000) // 启动含 schema 迁移 + 沙盒探测——比场景层 6s 宽（实测 <1s——余量给慢机/冷 docker）
-    server.stdout?.on('data', (d) => {
-      // 框架 serve 的 ready 打印（与场景层/showcase 同——端口 0 时为实际端口）
-      const m = String(d).match(/weifuwu listening on http:\/\/localhost:(\d+)/)
-      if (m) {
-        clearTimeout(timer)
-        resolveP({
-          base: `http://localhost:${m[1]}`,
-          stop: () => { try { server.kill() } catch { /* 已退出 */ } },
-        })
-      }
-    })
-  })
+    server.unref() // 不阻止测试进程退出
+    // 启动确认：轮询探活（stdio ignore 无日志可用——最多 30s）
+    const deadline = Date.now() + 30_000
+    while (Date.now() < deadline) {
+      if (await probeShared()) break
+      await new Promise((r) => setTimeout(r, 300))
+    }
+    if (!(await probeShared())) {
+      throw new Error(`共享 server 启动超时（30s）——端口 ${SHARED_PORT}`)
+    }
+    // PID 文件（posttest 清理用——pkill 匹配不到 env PORT——PID 最可靠）
+    try {
+      const { writeFileSync } = await import('node:fs')
+      if (server.pid) writeFileSync('/tmp/ap-shared-server.pid', String(server.pid))
+    } catch { /* 尽力 */ }
+    return { base: `http://localhost:${SHARED_PORT}`, stop: () => {} }
+  })().catch((e) => { sharePromise = null; throw e }) // 失败重置——下个文件重试
+  return sharePromise
 }
 
 /** 打开页面（goto + 等 #root 渲染）——返回 console/page 错误列表（页面零错误红线） */

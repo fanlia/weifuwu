@@ -62,8 +62,8 @@ test('聊天页：@ 消息输入（@ 弹层出现——交互面）', async () =
   await openAgentPage(page, BASE, `/chat/${deptId}`)
   await waitForBodyText(page, /发送/)
   await page.fill('textarea, input[type="text"]', '@')
-  // @ 弹层（成员列表）——至少不崩
-  await page.waitForTimeout(500)
+  // @ 弹层（成员列表）——至少不崩（短等 100ms 帧）
+  await page.waitForTimeout(100)
   const body = await page.evaluate(() => document.body.innerText)
   assert.ok(body.length > 0, '页面存活（@ 输入不崩）')
   await page.close()
@@ -81,11 +81,15 @@ test('聊天页：viewer 发消息 → 403（requireWriter 红线）', async () 
   const disabled = await send.isDisabled().catch(() => false)
   if (!disabled) {
     await send.click()
-    // 403 提示（toast/错误——「只读成员」）或消息未发出（无新气泡）
-    await page.waitForTimeout(1500)
+    // 403 提示（toast——「只读成员」）——waitForFunction 替代硬等 1500ms
+    const rejected = await page.waitForFunction(
+      () => (document.body.textContent ?? '').includes('只读'),
+      null,
+      { timeout: 3000 },
+    ).catch(() => null)
     const body = await page.evaluate(() => document.body.innerText)
     assert.ok(
-      !body.includes('viewer 尝试发消息') || body.includes('只读'),
+      rejected !== null || !body.includes('viewer 尝试发消息'),
       `viewer 发消息应被拒（403/只读提示）——当前：${body.slice(-100)}`,
     )
   }

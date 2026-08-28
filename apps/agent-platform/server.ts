@@ -77,7 +77,10 @@ async function main() {
 
   // ── 数据库 ──────────────────────────────────────────────
   // 主池：10 并发 AI 执行（每任务 2+ SQL 连接）+ 常规请求——acquireTimeoutMs 防池满无限排队（卡住）
-  const pg = postgres({ max: 50, acquireTimeoutMs: 10_000 })
+  // DATABASE_POOL_MAX 覆盖（2026-08——测试峰值连接（15+ spawn server × 50）
+  // 击穿 PG max=100——测试环境用小池（UI 测试低并发——8 足够））
+  const poolMax = parseInt(process.env.DATABASE_POOL_MAX ?? '50', 10)
+  const pg = postgres({ max: poolMax, acquireTimeoutMs: 10_000 })
   app.use(pg)
   // 事件日志独立池（2026-08——沙盒事件——shutdown 需关闭——否则每测试
   // spawn 泄漏 3 连接——多测试文件串行 → 池累积 → PG too many clients）

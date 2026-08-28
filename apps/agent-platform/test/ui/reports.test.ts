@@ -56,7 +56,8 @@ test('沙盒页：状态列表渲染（操作按钮存在——沙盒环境）',
   const refresh = page.locator('button:has-text("刷新")').first()
   assert.ok((await refresh.count()) > 0, '刷新按钮存在')
   await refresh.click()
-  await page.waitForTimeout(1000)
+  // 沙盒刷新后等待列表稳定（短——100ms 帧——非 1000ms 硬等）
+  await page.waitForTimeout(150)
   await page.close()
 })
 
@@ -73,7 +74,8 @@ test('admin 页：非白名单未授权（API 层 401/403——页面可开但�
   const page = await browser.newPage()
   await injectAuth(page, owner)
   await openAgentPage(page, BASE, '/admin')
-  await page.waitForTimeout(1500)
+  // 页面渲染（root 有内容——非 1500ms 硬等）
+  await page.waitForTimeout(150)
   const body = await page.evaluate(() => document.body.innerText)
   assert.ok(body.length > 0, 'admin 页不白屏')
   await page.close()

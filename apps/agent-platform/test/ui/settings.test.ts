@@ -43,9 +43,14 @@ test('设置页：邀请链接生成（member 角色）→ 链接含 invite toke
   const genBtn = page.locator('button:has-text("生成邀请")').first()
   if ((await genBtn.count()) > 0) {
     await genBtn.click()
-    await page.waitForTimeout(1200)
+    // 邀请生成异步——waitForFunction 等待链接文本（替代 1200ms 硬等）
+    const shown = await page.waitForFunction(
+      () => /register\?app=|邀请/.test(document.body.textContent ?? ''),
+      null,
+      { timeout: 3000 },
+    ).catch(() => null)
     const body = await page.evaluate(() => document.body.innerText)
-    assert.ok(body.includes('/register?app=') || body.includes('邀请'), `邀请链接生成：${body.slice(-80)}`)
+    assert.ok(shown !== null || body.includes('邀请'), `邀请链接生成：${body.slice(-80)}`)
   } else {
     // 无生成按钮（页面结构不同）——至少邀请区渲染
     assert.ok(true, '邀请区可见（按钮形态不同——导航兜底）')
