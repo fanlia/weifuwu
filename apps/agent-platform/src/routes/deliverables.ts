@@ -30,6 +30,8 @@ export function registerDeliverableRoutes(app: any): void {
     const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
     const { readdir, stat } = await import('node:fs/promises')
     const { join } = await import('node:path')
+    // 大文件占位拒绝阈值（根层与子目录同判——此前仅子目录分支有——根层大文件漏网实证）
+    const MAX_FILE_SIZE = 50 * 1024 * 1024
 
     const scanned = await Promise.all(depts.map(async (d: any): Promise<Array<Record<string, unknown>>> => {
       try {
@@ -50,7 +52,7 @@ export function registerDeliverableRoutes(app: any): void {
                 const full = join(subFull, sub.name)
                 try {
                   const s = await stat(full)
-                  if (s.size > 50 * 1024 * 1024) continue // 大文件占位拒绝（统计面）
+                  if (s.size > MAX_FILE_SIZE) continue // 大文件占位拒绝（统计面）
                   items.push({
                     deptId: String(d.id), deptName: String(d.name),
                     path: `${entry.name}/${sub.name}`, name: sub.name,
@@ -63,6 +65,7 @@ export function registerDeliverableRoutes(app: any): void {
           }
           try {
             const s = await stat(join(ws, entry.name))
+            if (s.size > MAX_FILE_SIZE) continue // 大文件占位拒绝（统计面——与子目录同判）
             items.push({
               deptId: String(d.id), deptName: String(d.name),
               path: entry.name, name: entry.name,
