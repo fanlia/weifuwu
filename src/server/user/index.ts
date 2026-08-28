@@ -290,6 +290,13 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
 
   // ── 中间件 ──
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
+    // **请求局部鉴权快照（B-401 竞态根治——2026-08）**：module 级 currentUser
+    // 被所有请求共享——并发窗口（await findUserById 挂起）被其他请求的
+    // currentUser=null 覆盖 → requireAuth 读到 null → 401（reports 6 API
+    // 并发实证——100 并发 1×401——token 明明有效）。修复：请求解析的 user
+    // 存**请求局部**——requireAuth 闭包捕获局部——不再实时读模块变量。
+    // （模块 currentUser 保留——register/login 方法内使用——互不干扰。）
+    let reqUser: User | null = null
     // 解析 Authorization: Bearer <token>
     currentUser = null
     // payload 合并：token 携带的会话字段（appId/tenantId/email/name/role 等）透传到 ctx.auth，
@@ -301,7 +308,8 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     if (authHeader?.startsWith('Bearer ')) {
       const payload = verifyToken(authHeader.slice(7), secret)
       if (payload?.sub) {
-        currentUser = await findUserById(String(payload.sub))
+        reqUser = await findUserById(String(payload.sub))
+        currentUser = reqUser
         for (const [k, v] of Object.entries(payload)) {
           if (k === 'sub' || k === 'iat' || k === 'exp' || k === 'type') continue
           sessionPayload[k] = v
@@ -313,7 +321,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       }
     }
 
-    ctx.user = currentUser
+    ctx.user = reqUser
     // 应用/租户注入：token payload 携带 appId（新）/tenantId（旧兼容）时直接可用
     if (payloadAppId != null) (ctx as any).appId = String(payloadAppId)
     if (payloadTenantId != null) (ctx as any).tenantId = String(payloadTenantId)
@@ -369,8 +377,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       },
 
       requireAuth() {
-        if (!currentUser) throw new HttpError('Unauthorized', 401)
-        return currentUser
+        // B-401 竞态修复（2026-08）：用**请求局部** reqUser（mw 闭包快照）——
+        // 不再实时读模块级 currentUser（并发窗口被覆盖 → 有效 token 也 401）
+        if (!reqUser) throw new HttpError('Unauthorized', 401)
+        return reqUser
       },
 
       async setPassword(userId: string, newPassword: string) {
@@ -491,7 +501,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         }
         const session = await issueSession(user, { appId, role })
         currentUser = user
-        return { ...session, user }
+        // app 附带角色（2026-08——前端写操作防线需要 role——loginApp 此前
+        // 无 app/role 字段——viewer 前端不禁用写按钮——「点击才 403」体验缺口）
+        const appLoginRole = role
+        return { ...session, user, role: appLoginRole }
       },
 
       async ssoLogin(email: string, opts?: { appId?: string; name?: string }) {
