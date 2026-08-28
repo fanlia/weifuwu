@@ -94,12 +94,33 @@
 | O11 | 任务树落库：`agent_runs` 表（orchestration/worker kind + parent_run_id + plan_json + worker_results + status 状态机 planned→running→partial→done→failed）+ request_id 贯穿（三端事件流关联键） | 契约 4 项（done/partial 部分失败/failed 全败/request_id） |
 | O12 | 编排审计视图：`GET /api/stats/runs`（租户隔离——仅本 app——limit 夹紧）+ Reports「编排任务链」卡（状态徽章/编排者/子任务数/失败数/时间） | 端点契约（隔离返回）+ UI 冒烟（Reports 零错误） |
 
-### Wave 4 — 框架层并行 step（最大收益——验证后动）
+### Wave 4 — 框架层并行 step（完成——2026-08）
 
 | # | 项 | 测试形态 |
 | --- | --- | --- |
-| O13 | `ai.agent()` 单 step 多 tool_call 并发执行（框架层 agent.ts——emit 增补） | 契约（框架侧——并发 step 断言） |
-| O14 | agent-platform 接入框架并行（`buildToolContext` 复用——收益放大） | 场景（真实浏览器——并发工具调用断言） |
+| O13 | `ai.agent()` 单 step 多 tool_call **并发执行**（框架层 agent.ts——`parallelTools` 配置——默认关不突改）——约束：任一工具需审批（humanInTheLoop）→ 整批回退串行（审批例外路径不并发）；结果按 tool_call 声明顺序写上下文（provider 要求 role:tool 跟随顺序——并发完成顺序无关） | 契约（wire-fake 双 tool_call——**并发证据 maxInFlight=2**——确定性不依赖计时——串行为 1）+ 既有 10 项零回归 |
+| O14 | agent-platform 接入（runAgent/streamAgent `parallelTools: true`）——沙盒 per-sandbox 串行队列保证并行安全（资源面不撞）；HITL 审批工具自动回退串行（框架约束） | 234/234 全绿（接入零回归——mock AI 单 tool_call 不受影响） |
+
+### 已交付总结（Wave 1-4 全部完成）
+
+```
+Wave 1  Planner-Worker 核心：plan_tasks 拆解 + 并行派发（Promise.allSettled）+
+        共享委托（delegateToAgent——单一实现源）+ 汇总带来源标注 + 提示词纪律
+Wave 2  意图路由：embedding 语义匹配 top1（阈值 0.55）——@ 定向优先——
+        回退广播不退化——路由指示持久化（messages.routed_to）
+Wave 3  可靠性：失败重试（非确定性重 1 次/确定性不重试）+ 任务树
+        （agent_runs——status 状态机 partial/failed 不静默）+ 审计视图
+        （GET /api/stats/runs + Reports 编排任务链卡）——O10 诚实裁剪登记
+Wave 4  框架层并行 step：parallelTools（默认关）——多 tool_call 并发——
+        HITL 回退串行——契约锁定并发证据
+```
+
+## ✅ 验收（全部达成——2026-08）
+- Wave 1：O1-O6 契约 9 项 + 真实链路验证（编排 → 并行子任务 → 汇总）
+- Wave 2：O7-O8 契约 6 + 集成 4（收敛/回退/@ 优先/开关）
+- Wave 3：O9-O12 契约 7（三态/重试判定/端点隔离）
+- Wave 4：O13-O14 契约（并发证据）+ 全套回归
+- **234/234 应用全绿 · 框架 210 契约 + 116 场景 · 双侧 tsc 0**
 
 ## 4. 验收标准
 

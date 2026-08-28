@@ -53,6 +53,15 @@ export interface AgentConfig {
   humanInTheLoop?: boolean | ((call: { name: string; args: unknown }) => boolean)
   /** 审批超时（默认 5 分钟），到期按拒绝处理 */
   approvalTimeoutMs?: number
+  /**
+   * O13 并行工具（2026-08——ORCHESTRATION-PLAN Wave 4）：单 step 多 tool_call
+   * 并发执行（默认关——不突改既有行为）。
+   * 约束：任一工具调用需审批（humanInTheLoop）→ 整批回退串行（审批是
+   * 例外路径——不并发等待多个审批——黑盒风险）；工具独立性由调用方
+   * 保证（沙盒/文件工具共享资源面——per-sandbox 串行队列层兜底）。
+   * 结果按 tool_call 顺序写入上下文（provider 要求 role:tool 跟随顺序）。
+   */
+  parallelTools?: boolean
 }
 
 export interface AgentRunOptions {
@@ -207,8 +216,10 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
         tool_calls: finish.toolCalls,
       })
 
-      // 执行每个工具调用（并行调用逐个执行）
-      for (const tc of finish.toolCalls) {
+      // 执行每个工具调用（O13：parallelTools 且无审批 → 并发；否则串行——现状）
+      // 结果按 tool_call 顺序写入上下文（provider 要求 role:tool 跟随 tool_calls 顺序）
+      const toolResults: Array<{ role: 'tool'; content: string; tool_call_id: string; name: string }> = []
+      const runOneToolCall = async (tc: NonNullable<typeof finish.toolCalls>[number]): Promise<void> => {
         if (signal?.aborted) return
         const name = tc.function?.name ?? ''
         const args = safeParseArgs(tc.function?.arguments ?? '')
@@ -227,8 +238,8 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
           )
           if (decision.decision === 'rejected') {
             emit('wf:tool_result', { id: tc.id, ok: false, error: { code: 'rejected', message: decision.note ?? '用户拒绝' } })
-            all.push({ role: 'tool', content: `Human rejected: ${decision.note ?? ''}`, tool_call_id: tc.id, name })
-            continue // 拒绝 ≠ 终止：agent 换方案
+            toolResults.push({ role: 'tool', content: `Human rejected: ${decision.note ?? ''}`, tool_call_id: tc.id, name })
+            return // 拒绝 ≠ 终止：agent 换方案
           }
           if (decision.decision === 'modified' && decision.modifiedArgs) execArgs = decision.modifiedArgs
         }
@@ -236,19 +247,42 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
         const tool = config.tools.find((t) => t.name === name)
         if (!tool) {
           emit('wf:tool_result', { id: tc.id, ok: false, error: { code: 'tool_error', message: `工具不存在: ${name}` } })
-          all.push({ role: 'tool', content: `Error: tool not found: ${name}`, tool_call_id: tc.id, name })
-          continue
+          toolResults.push({ role: 'tool', content: `Error: tool not found: ${name}`, tool_call_id: tc.id, name })
+          return
         }
 
         try {
           const output = await tool.run(execArgs, { emit, signal })
           emit('wf:tool_result', { id: tc.id, ok: true, output })
-          all.push({ role: 'tool', content: JSON.stringify(output ?? ''), tool_call_id: tc.id, name })
+          toolResults.push({ role: 'tool', content: JSON.stringify(output ?? ''), tool_call_id: tc.id, name })
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
           emit('wf:tool_result', { id: tc.id, ok: false, error: { code: 'tool_error', message: msg } })
-          all.push({ role: 'tool', content: `Error: ${msg}`, tool_call_id: tc.id, name })
+          toolResults.push({ role: 'tool', content: `Error: ${msg}`, tool_call_id: tc.id, name })
         }
+      }
+
+      if (config.parallelTools && finish.toolCalls.length > 1) {
+        // 并行前置检查：任一工具需审批 → 回退串行（审批例外路径不并发）
+        const anyNeedsApproval = finish.toolCalls.some((tc) => {
+          const name = tc.function?.name ?? ''
+          const args = safeParseArgs(tc.function?.arguments ?? '')
+          return typeof config.humanInTheLoop === 'function'
+            ? config.humanInTheLoop({ name, args })
+            : !!config.humanInTheLoop
+        })
+        if (anyNeedsApproval) {
+          for (const tc of finish.toolCalls) await runOneToolCall(tc)
+        } else {
+          await Promise.all(finish.toolCalls.map((tc) => runOneToolCall(tc)))
+        }
+      } else {
+        for (const tc of finish.toolCalls) await runOneToolCall(tc)
+      }
+      // 结果按 tool_call 声明顺序写入（并发完成顺序无关——provider 上下文要求）
+      for (const tc of finish.toolCalls) {
+        const r = toolResults.find((x) => x.tool_call_id === tc.id)
+        if (r) all.push(r)
       }
       // 下一轮循环：LLM 看到 tool results 继续推理
     }

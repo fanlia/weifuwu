@@ -142,6 +142,47 @@ test('agent：工具循环 → tool_call → 工具执行 emit progress → tool
   }
 })
 
+test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（并发证据）', async () => {
+  // 双 tool_call 一轮（两个独立工具）+ 第二轮文本
+  const fake = await startScriptedProvider([
+    [
+      chunk({ role: 'assistant', tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: 'slow_tool', arguments: '' } }, { index: 1, id: 'call_2', type: 'function', function: { name: 'fast_tool', arguments: '' } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: '{}' } }, { index: 1, function: { arguments: '{}' } }] }),
+      chunk({}, 'tool_calls', { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }),
+      'data: [DONE]\n\n',
+    ],
+    textRound('两工具结果已合并'),
+  ])
+  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  // 并发证据（确定性——不依赖计时）：两工具 run 重叠（同时 in-flight）
+  let inFlight = 0
+  let maxInFlight = 0
+  const agent = a.agent({
+    systemPrompt: '助手',
+    parallelTools: true, // O13：显式开启并行
+    tools: [
+      {
+        name: 'slow_tool',
+        description: '慢工具',
+        run: async () => { inFlight++; maxInFlight = Math.max(maxInFlight, inFlight); await new Promise((r) => setTimeout(r, 120)); inFlight--; return 'slow-ok' },
+      },
+      {
+        name: 'fast_tool',
+        description: '快工具',
+        run: async () => { inFlight++; maxInFlight = Math.max(maxInFlight, inFlight); await new Promise((r) => setTimeout(r, 30)); inFlight--; return 'fast-ok' },
+      },
+    ],
+  })
+  try {
+    const result = await agent.runToResult([{ role: 'user', content: '并行测试' }])
+    assert.equal(maxInFlight, 2, '双工具并发执行（同时 in-flight = 2——串行为 1）')
+    assert.equal(fake.requestCount(), 2, '两轮 LLM 调用')
+    assert.equal(result.content, '两工具结果已合并', '第二轮文本为最终内容')
+  } finally {
+    await fake.close()
+  }
+})
+
 test('agent：工具不存在 → tool_result ok:false，循环继续', async () => {
   const fake = await startScriptedProvider([
     toolRound('missing_tool', '{}'),

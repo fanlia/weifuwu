@@ -322,6 +322,10 @@ export async function runAgent(
     tools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: humanGate,
+    // O14 并行工具（Wave 4）：单 step 多 tool_call 并发——沙盒 per-sandbox
+    // 串行队列已保证资源面不撞（并行安全）；HITL 审批工具整批回退串行
+    // （框架层约束——审批例外路径不并发）
+    parallelTools: true,
   })
 
   const result = await agentRunner.runToResult(contextMessages.slice(1)) // 去掉 system，agent 内部会重新加
@@ -496,6 +500,8 @@ export async function streamAgent(
     tools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: humanGate,
+    // O14 并行工具（Wave 4）——见 runAgent 同名注释
+    parallelTools: true,
   })
 
   let fullContent = ''
