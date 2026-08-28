@@ -796,7 +796,15 @@ async function main() {
     const url = new URL(req.url ?? '', 'http://localhost')
     const limit = Number(url.searchParams.get('limit') ?? 50)
     const action = url.searchParams.get('action') ?? undefined
-    const result = await listAudit(ctx, { limit, action })
+    // C3 时间范围筛选（from/to——ISO 格式——非法值 400 不透穿到 SQL）
+    const from = url.searchParams.get('from') ?? undefined
+    const to = url.searchParams.get('to') ?? undefined
+    for (const [k, v] of [['from', from], ['to', to]] as const) {
+      if (v !== undefined && Number.isNaN(Date.parse(v))) {
+        return Response.json({ error: `${k} 非法（需 ISO 时间格式）` }, { status: 400 })
+      }
+    }
+    const result = await listAudit(ctx, { limit, action, from, to })
     return Response.json(result)
   })
 

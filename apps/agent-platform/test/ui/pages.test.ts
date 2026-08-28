@@ -126,6 +126,7 @@ test('Settings 基线：四卡（基本资料/外观/审计日志/系统状态�
     for (const t of ['基本资料', '外观', '审计日志', '系统状态']) {
       assert.ok(text.includes(t), `卡片：${t}`)
     }
+    assert.ok(text.includes('全部时间'), 'C3 时间范围筛选（全部时间选项）')
     assert.deepEqual(fatalErrors(errors), [], `零错误（实际: ${fatalErrors(errors)[0] ?? '无'}）`)
   } finally { await page.close() }
 })

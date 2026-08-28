@@ -29,20 +29,22 @@ export async function writeAudit(ctx: AppCtx, entry: AuditEntry): Promise<void> 
   }
 }
 
-/** 查询审计日志（本租户，分页） */
-export async function listAudit(ctx: AppCtx, opts: { limit?: number; offset?: number; action?: string }): Promise<{ entries: any[]; total: number }> {
+/** 查询审计日志（本租户，分页——action/时间范围筛选（C3）） */
+export async function listAudit(ctx: AppCtx, opts: { limit?: number; offset?: number; action?: string; from?: string; to?: string }): Promise<{ entries: any[]; total: number }> {
   const { sql } = ctx
   const limit = Math.min(opts.limit ?? 50, 100)
   const offset = opts.offset ?? 0
-  const where = opts.action ? sql`AND action = ${opts.action}` : sql``
+  const whereAction = opts.action ? sql`AND action = ${opts.action}` : sql``
+  const whereFrom = opts.from ? sql`AND created_at >= ${opts.from}::timestamptz` : sql``
+  const whereTo = opts.to ? sql`AND created_at <= ${opts.to}::timestamptz` : sql``
   const rows = await sql`
     SELECT action, target_type, target_id, detail, created_at,
       COALESCE((SELECT name FROM _weifuwu_users u WHERE u.id = a.user_id), 'system') AS user_name
     FROM audit_logs a
-    WHERE app_id = ${ctx.appId} ${where}
+    WHERE app_id = ${ctx.appId} ${whereAction} ${whereFrom} ${whereTo}
     ORDER BY created_at DESC
     LIMIT ${limit} OFFSET ${offset}
   `
-  const [countRow] = await sql`SELECT COUNT(*)::int AS total FROM audit_logs WHERE app_id = ${ctx.appId} ${where}`
+  const [countRow] = await sql`SELECT COUNT(*)::int AS total FROM audit_logs WHERE app_id = ${ctx.appId} ${whereAction} ${whereFrom} ${whereTo}`
   return { entries: rows ?? [], total: Number((countRow as any)?.total ?? 0) }
 }

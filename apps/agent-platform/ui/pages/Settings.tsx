@@ -9,6 +9,7 @@ interface SettingsState {
   currentPassword: string; newPassword: string; confirmPassword: string
   pwdSubmitting: boolean; pwdOk: string; pwdErr: string
   auditFilter: string
+  auditRange: string // C3 时间范围（'7d'/'30d'/'90d'/''=全部）
   sysHealth: OpsInfo | null
   inviteLink: string; inviteCopied: boolean; inviteErr: string
   inviteRole: string
@@ -26,12 +27,18 @@ function fmtAuditTime(t: string): string {
 }
 
 export const Settings: Component = async (_props, ctx) => {
-  // 审计日志（Wave 9）——加载最近 20 条（支持 action 过滤）
+  // 审计日志（Wave 9 + C3）——加载最近 20 条（支持 action + 时间范围过滤）
   const auditEntries: AuditEntry[] = []
-  const loadAudit = (action?: string) => {
+  const loadAudit = (action?: string, range?: string) => {
     auditEntries.length = 0
     const q = action ? `&action=${encodeURIComponent(action)}` : ''
-    return ctx.api!.get<{ entries: AuditEntry[] }>(`/api/audit?limit=20${q}`).then((d) => {
+    let fromQ = ''
+    if (range === '7d' || range === '30d' || range === '90d') {
+      const days = range === '7d' ? 7 : range === '30d' ? 30 : 90
+      const from = new Date(Date.now() - days * 86400 * 1000).toISOString()
+      fromQ = `&from=${encodeURIComponent(from)}`
+    }
+    return ctx.api!.get<{ entries: AuditEntry[] }>(`/api/audit?limit=20${q}${fromQ}`).then((d) => {
       auditEntries.push(...(d.entries ?? []))
       ctx.render()
     }).catch(() => {})
@@ -42,6 +49,7 @@ export const Settings: Component = async (_props, ctx) => {
 
   $.name = ((ctx.auth?.user ?? null) as { name?: string } | null)?.name ?? ''
   $.auditFilter = ''
+  $.auditRange = ''
   $.sysHealth = null
   // 系统状态（运营视角：健康 + 沙盒 + 今日审计）
   void ctx.api!.get<OpsInfo>('/api/ops').then((d) => { $.sysHealth = d; ctx.render() }).catch(() => {})
@@ -322,8 +330,12 @@ export const Settings: Component = async (_props, ctx) => {
         <div class="wf-row wf-gap-xs wf-items-center wf-margin-bottom-sm">
           <span class="wf-font-xs wf-text-tertiary">登录、Agent 变更与审批操作记录（最近 20 条）</span>
           <Button size="sm" variant="ghost" onClick={() => { window.open('/api/audit/export', '_blank') }}><Icon name="file-text" size={14} /> 导出 CSV</Button>
-          <div style="width: 140px; margin-left: auto">
-            <Select value={$.auditFilter} onChange={(v: string | string[]) => { const val = Array.isArray(v) ? '' : v; $.auditFilter = val; void loadAudit(val || undefined) }}
+          <div style="width: 120px; margin-left: auto">
+            <Select value={$.auditRange} onChange={(v: string | string[]) => { const val = Array.isArray(v) ? '' : v; $.auditRange = val; void loadAudit($.auditFilter || undefined, val || undefined) }}
+              options={[{ value: '', label: '全部时间' }, { value: '7d', label: '近 7 天' }, { value: '30d', label: '近 30 天' }, { value: '90d', label: '近 90 天' }]} />
+          </div>
+          <div style="width: 140px">
+            <Select value={$.auditFilter} onChange={(v: string | string[]) => { const val = Array.isArray(v) ? '' : v; $.auditFilter = val; void loadAudit(val || undefined, $.auditRange || undefined) }}
               options={[{ value: '', label: '全部操作' }, { value: 'login_success', label: '登录' }, { value: 'agent_create', label: '创建 Agent' }, { value: 'agent_update', label: '更新 Agent' }, { value: 'agent_delete', label: '删除 Agent' }, { value: 'approval', label: '审批' }]} />
           </div>
         </div>
