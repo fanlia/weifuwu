@@ -14,6 +14,7 @@ import type { WfToken, WfStep, WfToolResult, WfUsage, WfDone } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import type { ToolDefinition } from '../ai/types.ts'
 import { SkillRegistry } from './skills.ts'
+import { TASK_DISCIPLINE } from './task-decisions.ts'
 import type { SkillContext } from './skills.ts'
 import { resolveDepartmentWorkspace } from '../middleware/workspace.ts'
 import { getWorkspaceToolDefs, createWorkspaceHandlers } from '../tools/workspace.ts'
@@ -234,31 +235,6 @@ async function buildToolContext(
 }
 
 /** C1/C3 共享：任务纪律提示 + 会话记忆加载（runAgent/streamAgent 共用） */
-const TASK_DISCIPLINE = `
-【沙盒环境】
-- python3 可用，预装库：openpyxl(Excel xlsx)/pandas(数据分析)/pypdf(PDF)/
-  python-docx(Word)/python-pptx(PPT)
-- 需要其他 Python 库时：pip install --break-system-packages <包>（需网络权限）
-- 处理文件（表格/文档/PDF）优先写 python 脚本经 bash 执行——不要只描述步骤
-【浏览器环境】
-- agent-browser CLI 可用（已内置 chromium）——需要真实浏览网页/读取页面内容/
-  截图时，用 agent-browser 命令操作（open/read/snapshot/screenshot）
-- 表单填写（模拟数据收集/问卷）：open 打开页面 → snapshot 读题目与控件 ref →
-  用 fill <ref> <值>（文本）/ select <ref> <值>（下拉）/ check <ref>（勾选）/
-  click <ref>（单选与提交）→ 提交后 read/snapshot 验证成功页——全部真实浏览器操作
-- 浏览器任务完成后必须执行 agent-browser close 关闭浏览器会话（页面不关 =
-  连接保持 = 统计页误判在线）
-- 本地页面用 http://host.docker.internal:3000/... 访问（宿主服务）
-- 浏览器操作需网络权限；无网络时只可操作本地内容
-【任务纪律】
-1. 工具失败时不要直接放弃：先尝试换一个工具/方案重试；确实无法完成时，在回复中明确说明"未能完成的原因"。
-2. 任务完成后按以下结构汇报：
-   - ✅ 已完成：列出完成的事项
-   - ⚠️ 未完成：列出未完成的事项及原因（没有则省略）
-   - 📦 产物：生成的文件/结果位置（没有则省略）
-3. 如果用户目标不明确，先说明你的理解再执行。
-4. 工具已返回结果时，直接基于结果回答用户——不要重复调用同一工具，也不要再次请求工具（除确需补充信息外）。`
-
 async function loadMemory(ctx: AppCtx, agentId: string): Promise<string> {
   try {
     const [mem] = await ctx.sql`SELECT content FROM agent_memories WHERE agent_id = ${agentId}`

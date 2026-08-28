@@ -60,6 +60,31 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'plan_tasks',
+      description: '将复杂任务拆解为最多 3 个子任务并并行分派给专业 Agent 执行——每个子任务指定目标 Agent（名称或 ID）+ 可执行任务描述。适合多目标/多文件产出/多步调研类任务（如「分析数据并写报告」）；简单任务不要用（直接回答——拆解浪费 token 与延迟）。返回各子任务的回复（带来源标注）。',
+      parameters: {
+        type: 'object',
+        properties: {
+          tasks: {
+            type: 'array',
+            description: '子任务清单（最多 3 个——超出截断）',
+            items: {
+              type: 'object',
+              properties: {
+                agent: { type: 'string', description: '目标 Agent 名称或 ID（同租户 ai 类型——专业分工：数据分析/客服/文档等）' },
+                message: { type: 'string', description: '子任务描述（具体到可执行——含必要上下文——拆解质量决定结果质量）' },
+              },
+              required: ['agent', 'message'],
+            },
+          },
+        },
+        required: ['tasks'],
+      },
+    },
+  },
 ]
 
 /**
@@ -161,63 +186,103 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       const target = String(args.agent ?? '')
       const message = String(args.message ?? '')
       if (!target || !message) return 'Error: call_agent 需要 agent 和 message 参数'
-      // P1-4 委托背景：被委托方知道"谁在委托、为什么"（AI/人可替换——同事间移交要有来龙去脉）
-      const callerId = String((ctx as any)._toolAgentId ?? '')
-      let callerName = '未知同事'
-      if (callerId) {
-        const rows = await ctx.sql`SELECT name FROM agents WHERE id = ${callerId}`
-        if (rows[0]) callerName = String(rows[0].name)
-      }
-      const delegatedMessage = `[来自 ${callerName} 的委托] ${message}`
-      // 深度限制（防环：A→B→A 或过深链）
-      const depth = Number((ctx as any)._agentDepth ?? 0)
-      const MAX_DEPTH = 2
-      if (depth >= MAX_DEPTH) return `Error: Agent 协作深度超限（最多 ${MAX_DEPTH} 层）——请直接回答而非继续委托`
-      // 找目标 Agent（同租户 + ai/department 类型 + 激活；名称或 ID）——
-      // department = 部门经理（组织层级：可把任务委托给部门代表）
-      const [targetAgent] = await ctx.sql`
-        SELECT * FROM agents
-        WHERE (name = ${target} OR id::text = ${target}) AND app_id = ${ctx.appId}
-          AND type IN ('ai', 'department') AND is_active = TRUE
-      `
-      if (!targetAgent) return `Error: 找不到可调用的 AI Agent「${target}」（需同租户且已激活）`
-      const ta = targetAgent as any
-      if (String(ta.id) === String((ctx as any)._toolAgentId ?? '')) return 'Error: 不能调用自己（循环）'
-      // 组织层级：被委托 agent 在其**自己所在部门**执行（工作目录/沙盒归属自己的部门——
-      // 如：技术部经理在管理委员会被 @ → 委托小码 → 小码在技术部目录干活）
-      let targetDept = String((ctx as any)._toolDepartmentId ?? '')
-      try {
-        const [memberDept] = await ctx.sql`
-          SELECT dm.department_id FROM department_members dm
-          JOIN departments d ON d.id = dm.department_id
-          WHERE dm.agent_id = ${ta.id} AND d.is_dm = FALSE LIMIT 1
-        `
-        if (memberDept?.department_id) targetDept = String(memberDept.department_id)
-      } catch { /* 部门查询失败用当前部门 */ }
-      // 委托给子 Agent：复用 runAgent（其自身工具/知识库/协作全可用——递归）
-      const { runAgent } = await import('../services/agent-runner.ts')
-      ;(ctx as any)._agentDepth = depth + 1
-      try {
-        const result = await runAgent(ctx, {
-          agentId: String(ta.id),
-          appId: ctx.appId,
-          departmentId: targetDept,
-          systemPrompt: String(ta.system_prompt ?? '你是一个 AI 助手'),
-          model: ta.model ? String(ta.model) : undefined,
-          tools: (ta.tools ?? []) as unknown[],
-          maxSteps: 3,
-          humanInTheLoop: !!ta.human_in_the_loop,
-          workspacePath: ta.workspace_path ? String(ta.workspace_path) : undefined,
-          allowFileTools: !!ta.allow_file_tools,
-          allowCommandExec: !!ta.allow_command_exec,
-          allowNetwork: !!ta.allow_network,
-        }, [{ role: 'user', content: delegatedMessage }])
-        return `[${String(ta.name)} 的回复]\n${result.content}`
-      } catch (e) {
-        return `Error: 调用 Agent「${String(ta.name)}」失败: ${(e as Error)?.message ?? '未知错误'}`
-      } finally {
-        ;(ctx as any)._agentDepth = depth // 恢复（同 Agent 多次调用互不影响）
-      }
+      return delegateToAgent(ctx, target, message)
+    },
+
+    // O1-O4（ORCHESTRATION-PLAN Wave 1）：复杂任务拆解 + 并行派发（plan_tasks）
+    plan_tasks: async (args: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const tasks = Array.isArray(args.tasks) ? args.tasks : []
+      if (tasks.length === 0) return 'Error: plan_tasks 需要 tasks 数组（至少 1 个子任务）'
+      // 上限截断（LLM 乱给不信任——成本纪律：多任务 ≠ 高质量，3 个封顶）
+      const MAX_TASKS = 3
+      const filtered = tasks
+        .slice(0, MAX_TASKS)
+        .filter((t) => {
+          const tt = t as Record<string, unknown>
+          return String(tt.agent ?? '') && String(tt.message ?? '')
+        })
+      if (filtered.length === 0) return 'Error: 子任务必须包含 agent 和 message 字段'
+      // O2 并行调度：Promise.allSettled 并发执行（上限 3——worker 各自独立
+      // run_state——沙盒 per-sandbox 串行队列已保证资源面不撞）——失败隔离
+      // （single worker 失败不炸整体——其余结果保留）
+      const results = await Promise.allSettled(
+        filtered.map((t) => {
+          const tt = t as Record<string, unknown>
+          return delegateToAgent(ctx, String(tt.agent), String(tt.message))
+        }),
+      )
+      // O4 汇总：按任务数组顺序拼接（带来源标注——delegateToAgent 已含）
+      return results.map((r, i) => {
+        const tt = filtered[i] as Record<string, unknown>
+        const label = String(tt.agent ?? '子任务')
+        if (r.status === 'fulfilled') return r.value
+        return `Error: 子任务「${label}」执行异常: ${String((r.reason as Error)?.message ?? '未知错误')}`
+      }).join('\n\n')
     },
   })
+}
+
+/**
+ * 共享委托函数（O1/O3——call_agent 与 plan_tasks worker 同一实现源——
+ * 防双处漂移）：目标查找/深度防环/部门归属/runAgent 调用/结果包装。
+ */
+async function delegateToAgent(ctx: AppCtx, target: string, message: string): Promise<string> {
+  if (!target || !message) return 'Error: 委托需要 agent 和 message 参数'
+  // P1-4 委托背景：被委托方知道"谁在委托、为什么"（AI/人可替换——同事间移交要有来龙去脉）
+  const callerId = String((ctx as any)._toolAgentId ?? '')
+  let callerName = '未知同事'
+  if (callerId) {
+    const rows = await ctx.sql`SELECT name FROM agents WHERE id = ${callerId}`
+    if (rows[0]) callerName = String(rows[0].name)
+  }
+  const delegatedMessage = `[来自 ${callerName} 的委托] ${message}`
+  // 深度限制（防环：A→B→A 或过深链）
+  const depth = Number((ctx as any)._agentDepth ?? 0)
+  const MAX_DEPTH = 2
+  if (depth >= MAX_DEPTH) return `Error: Agent 协作深度超限（最多 ${MAX_DEPTH} 层）——请直接回答而非继续委托`
+  // 找目标 Agent（同租户 + ai/department 类型 + 激活；名称或 ID）——
+  // department = 部门经理（组织层级：可把任务委托给部门代表）
+  const [targetAgent] = await ctx.sql`
+    SELECT * FROM agents
+    WHERE (name = ${target} OR id::text = ${target}) AND app_id = ${ctx.appId}
+      AND type IN ('ai', 'department') AND is_active = TRUE
+  `
+  if (!targetAgent) return `Error: 找不到可调用的 AI Agent「${target}」（需同租户且已激活）`
+  const ta = targetAgent as any
+  if (String(ta.id) === String((ctx as any)._toolAgentId ?? '')) return 'Error: 不能调用自己（循环）'
+  // 组织层级：被委托 agent 在其**自己所在部门**执行（工作目录/沙盒归属自己的部门）
+  let targetDept = String((ctx as any)._toolDepartmentId ?? '')
+  try {
+    const [memberDept] = await ctx.sql`
+      SELECT dm.department_id FROM department_members dm
+      JOIN departments d ON d.id = dm.department_id
+      WHERE dm.agent_id = ${ta.id} AND d.is_dm = FALSE LIMIT 1
+    `
+    if (memberDept?.department_id) targetDept = String(memberDept.department_id)
+  } catch { /* 部门查询失败用当前部门 */ }
+  // 委托给子 Agent：复用 runAgent（其自身工具/知识库/协作全可用——递归）
+  const { runAgent } = await import('../services/agent-runner.ts')
+  ;(ctx as any)._agentDepth = depth + 1
+  try {
+    const result = await runAgent(ctx, {
+      agentId: String(ta.id),
+      appId: ctx.appId,
+      departmentId: targetDept,
+      systemPrompt: String(ta.system_prompt ?? '你是一个 AI 助手'),
+      model: ta.model ? String(ta.model) : undefined,
+      tools: (ta.tools ?? []) as unknown[],
+      maxSteps: 3,
+      humanInTheLoop: !!ta.human_in_the_loop,
+      workspacePath: ta.workspace_path ? String(ta.workspace_path) : undefined,
+      allowFileTools: !!ta.allow_file_tools,
+      allowCommandExec: !!ta.allow_command_exec,
+      allowNetwork: !!ta.allow_network,
+    }, [{ role: 'user', content: delegatedMessage }])
+    return `[${String(ta.name)} 的回复]\n${result.content}`
+  } catch (e) {
+    return `Error: 调用 Agent「${String(ta.name)}」失败: ${(e as Error)?.message ?? '未知错误'}`
+  } finally {
+    ;(ctx as any)._agentDepth = depth // 恢复（同 Agent 多次调用互不影响）
+  }
 }
