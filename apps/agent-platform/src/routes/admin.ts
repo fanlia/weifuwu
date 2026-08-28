@@ -6,6 +6,7 @@
  */
 
 import type { Router } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
 /** 管理员白名单（env ADMIN_EMAILS）——空 = 无管理员 */
@@ -38,7 +39,11 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
   }
   const requireAdmin = async (ctx: AppCtx): Promise<void> => {
     const email = await adminEmailOf(ctx)
-    if (!isAdminEmail(email)) throw new Error('需要管理员权限') as any
+    if (!isAdminEmail(email)) {
+      // 2026-08（UI 角色测试）：throw 到 handler 层 = 500——权限错误应 403
+      // 显式响应（permissions 模式——路由内 catch 转 Response）
+      throw new HttpError('需要管理员权限', 403)
+    }
   }
 
   // 当前用户是否管理员（前端导航显示用）

@@ -363,6 +363,17 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
 
   app.delete('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params } = ctx
+    // R-权限（2026-08——UI 角色测试抓出：删除无任何鉴权——viewer/member
+    // 都能删任何部门——矩阵红线：删除 = owner/admin）
+    try {
+      const { appRoleOf } = await import('../services/permissions.ts')
+      const role = await appRoleOf(ctx)
+      if (role !== 'owner' && role !== 'admin') {
+        return Response.json({ error: '只有租户所有者或部门管理员可以删除部门' }, { status: 403 })
+      }
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
+    }
     // 三层模型：部门 = 工作目录 + 计算资源归属——删除前先终止关联 sandbox（rm 容器）
     try {
       const { manager } = await import('../sandbox/manager.ts')
