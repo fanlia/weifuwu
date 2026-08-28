@@ -9,6 +9,13 @@
  *   onopen 重置计数）——**close() 手动关闭不重连**（主动语义）
  * - onStatusChange：状态翻转通知（onopen/onclose 触发——订阅即回放当前
  *   态——应用层感知「重连成功 → 补拉数据」）
+ * - **心跳看门狗（2026-08——网络硬断静默挂起根因歼灭）**：浏览器对
+ *   网络断（WiFi 闪断/离线仿真）**不触发 close/error**——socket 静默
+ *   挂起——onclose 永不执行 → 重连调度永不启动——断线期间消息永远丢失
+ *   （chat 断线补拉失效实证——CDP setOffline 场景）。修复：onopen 后
+ *   周期发 ping，任何入站（pong/消息）刷新活性；超时未活性 → 强制
+ *   close → onclose → setConnected(false) + 重连调度（应用层感知断线
+ *   → 补拉）。此外 onerror 也走 close 路径（error→onclose 链）。
  */
 
 export interface WsReconnectOptions {
@@ -18,6 +25,15 @@ export interface WsReconnectOptions {
   maxMs?: number
 }
 
+export interface WsPingOptions {
+  /** 心跳间隔（ms——默认 15000） */
+  intervalMs?: number
+  /** 活性超时（ms——超过无入站即判死——默认 35000） */
+  timeoutMs?: number
+  /** 心跳载荷（默认 { type: 'ping' }——标准 WS 协议） */
+  payload?: () => unknown
+}
+
 export interface WsOptions {
   /** WebSocket 构造器（注入——测试 mock——默认全局 WebSocket） */
   WebSocketCtor?: new (url: string) => WsLike
@@ -25,6 +41,8 @@ export interface WsOptions {
   url?: string
   /** 断线自动重连（指数退避——默认关——显式开启不突改既有行为） */
   autoReconnect?: boolean | WsReconnectOptions
+  /** 心跳看门狗（网络硬断静默挂起检测——默认关） */
+  ping?: WsPingOptions
 }
 
 /** 最小 WS 形状（兼容浏览器 WebSocket 与测试 mock） */
@@ -69,6 +87,7 @@ export function ws(opts: WsOptions = {}): WsClient {
     : null
 
   const handleMessage = (e: { data: unknown }): void => {
+    lastActivity = Date.now() // 心跳活性（任何入站——pong/消息——刷新）
     let data: unknown = e.data
     if (typeof e.data === 'string') {
       try { data = JSON.parse(e.data) } catch { /* 原样 */ }
@@ -83,6 +102,32 @@ export function ws(opts: WsOptions = {}): WsClient {
   }
 
   const connected = { current: false }
+
+  // ── 心跳看门狗（网络硬断静默挂起检测——浏览器不触发 close/error） ──
+  const pingCfg = opts.ping
+  let pingTimer: ReturnType<typeof setInterval> | null = null
+  let lastActivity = 0
+  const stopPing = (): void => {
+    if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
+  }
+  const startPing = (): void => {
+    if (!pingCfg || !sock) return
+    stopPing()
+    const interval = pingCfg.intervalMs ?? 15_000
+    const timeout = pingCfg.timeoutMs ?? 35_000
+    lastActivity = Date.now()
+    pingTimer = setInterval(() => {
+      if (!sock) { stopPing(); return }
+      if (Date.now() - lastActivity > timeout) {
+        // 静默挂起（无 close/error 事件——网络硬断）——强制 close 走 onclose
+        // → setConnected(false)（应用层断线感知）+ scheduleReconnect（补拉链）
+        try { sock.close() } catch { /* 已死 */ }
+        return
+      }
+      if (sock.readyState !== 1) { try { sock.close() } catch { /* */ } return }
+      try { sock.send(JSON.stringify(pingCfg.payload?.() ?? { type: 'ping' })) } catch { /* 半死 */ }
+    }, interval)
+  }
 
   const scheduleReconnect = (): void => {
     if (!reconnectCfg || manual || retryTimer) return
@@ -109,10 +154,16 @@ export function ws(opts: WsOptions = {}): WsClient {
     sock.onopen = () => {
       retry = 0
       setConnected(true)
+      startPing()
       // CONNECTING 期间的 send 排队（保序推送——订阅在连接前发不丢）
       while (pendingSend.length > 0) sock?.send(pendingSend.shift()!)
     }
+    sock.onerror = () => {
+      // error → close 链（onclose 触发重连调度）——onerror 不处理后 socket 残留
+      try { sock?.close() } catch { /* */ }
+    }
     sock.onclose = () => {
+      stopPing()
       sock = null
       setConnected(false)
       scheduleReconnect()
@@ -124,6 +175,7 @@ export function ws(opts: WsOptions = {}): WsClient {
       manual = false
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
       retry = 0
+      stopPing()
       sock?.close()
       sock = null
       setConnected(false)
@@ -149,6 +201,7 @@ export function ws(opts: WsOptions = {}): WsClient {
     close(): void {
       manual = true
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+      stopPing()
       sock?.close()
       sock = null
       setConnected(false)

@@ -107,4 +107,32 @@ describe('ws 中间件', () => {
     c.connect('ws://t2')
     assert.deepEqual(seen, [true, false], '退订后不再通知')
   })
+
+  it('心跳看门狗：无入站超时 → 强制 close → 断线感知 + 自动重连（网络硬断静默挂起——A2 根因）', async () => {
+    const c = freshClient({ autoReconnect: { baseMs: 10, maxMs: 40 }, ping: { intervalMs: 15, timeoutMs: 50 } })
+    c.connect('ws://t')
+    MockWs.instances[0].serverOpen()
+    assert.equal(c.isConnected, true)
+    // 活性期：pong 入站刷新——不算死
+    await tick(25)
+    MockWs.instances[0].serverMsg('{"type":"pong"}')
+    await tick(35) // 距 pong 35ms < timeout——存活
+    assert.equal(c.isConnected, true, '有 pong 活性——连接保持')
+    // 静默期：无入站（模拟网络硬断——close/error 都不触发——socket 挂起）
+    await tick(70) // 距最后入站 > 50ms——看门狗强制 close
+    assert.equal(c.isConnected, false, '静默超时 → 断线感知（onclose 等价翻转——应用层补拉链触发）')
+    await tick(50) // 重连调度（10ms 退避）
+    assert.ok(MockWs.instances.length >= 2, '应自动重连')
+  })
+
+  it('onerror → close 链（error 不处理后 socket 残留——onclose 才调度重连）', async () => {
+    const c = freshClient({ autoReconnect: { baseMs: 10 } })
+    c.connect('ws://t')
+    MockWs.instances[0].serverOpen()
+    // error 触发（模拟网络异常——浏览器只发 error 不发 close）
+    MockWs.instances[0].onerror?.(new Error('net'))
+    assert.equal(c.isConnected, false, 'error → close 链 → 断线感知')
+    await tick(30)
+    assert.equal(MockWs.instances.length, 2, '重连已调度')
+  })
 })
