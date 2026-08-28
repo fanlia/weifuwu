@@ -368,8 +368,9 @@ async function main() {
   // Webhook 入站端点豁免全局限流（外部系统高频调用易撞 100/60s 429）——
   // 防滥用由签名验证 + 请求体大小限制（B3）承担；后续如需独立阈值再加实例
   if (hasRedis) {
-    // RATE_LIMIT_MAX：全局阈值可调（企业内网多用户同 NAT 出口 IP——默认 100/60s 偏紧）
-    const globalMax = Number(process.env.RATE_LIMIT_MAX ?? 100)
+    // RATE_LIMIT_MAX：全局阈值可调（企业内网多用户同 NAT 出口 IP——默认 2000/60s
+    // 宽松——开发/内网高频页面访问不误伤；防滥用语义仍在（2000 仍远高于正常使用））
+    const globalMax = Number(process.env.RATE_LIMIT_MAX ?? 2000)
     const globalRateLimit = rateLimit({ windowMs: 60_000, max: globalMax, redis: redisClient.redis })
     app.use((req: Request, ctx: Context, next: any) => {
       // req.url 是完整 URL（含 host）——取 path 判断

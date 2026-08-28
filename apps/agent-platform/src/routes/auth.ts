@@ -17,11 +17,11 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
 
   // ── 注册 ─────────────────────────────────────────────────
 
-  // 注册/加入限流阈值（可调——生产默认 5/分钟/IP；测试套件多租户注册
-  // 共享 Redis 同 IP 窗口计数——串行测试文件累计超 5 即 429 误伤——
-  // REGISTER_LIMIT_MAX 拉高隔离）
-  const registerMax = Number(process.env.REGISTER_LIMIT_MAX ?? 5)
-  const joinMax = Number(process.env.REGISTER_LIMIT_MAX ?? 5)
+  // 注册/加入限流阈值（可调——生产默认 20/分钟/IP；测试套件注册多租户
+  // 共享 Redis 同 IP 窗口计数——REGISTER_LIMIT_MAX 拉高隔离；01-auth
+  // 429 测试显式设小值锁定语义——默认调整不影响）
+  const registerMax = Number(process.env.REGISTER_LIMIT_MAX ?? 20)
+  const joinMax = Number(process.env.REGISTER_LIMIT_MAX ?? 20)
 
   app.post('/api/auth/register', async (req: Request, ctx: AppCtx): Promise<Response> => {
     // 限流：框架 ctx.limit（默认按 IP 维度）——每 IP 每分钟注册超限拦截

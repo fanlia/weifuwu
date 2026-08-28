@@ -50,6 +50,8 @@ before(async () => {
   users.routes(app, { prefix: '/api/auth', exclude: ['register'] })
 
   // 自定义注册路由（租户 + 框架注册 + 默认 Agent）
+  // 锁定小值（默认已调大 20——本测试验证 429 语义——env 显式小值自包含）
+  process.env.REGISTER_LIMIT_MAX = '5'
   const { registerAuthRoutes } = await import('../src/routes/auth.ts')
   registerAuthRoutes(app)
 
