@@ -343,4 +343,22 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     `
     return Response.json({ logs })
   })
+
+  // ── O12 编排任务链（Wave 3）：租户内 agent_runs 列表——审计/ROI 面 ──
+  app.get('/api/stats/runs', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId } = ctx
+    const url = new URL(req.url ?? '', 'http://localhost')
+    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') ?? 20)))
+    const rows = await sql`
+      SELECT r.id, r.kind, r.status, r.plan_json, r.worker_results, r.request_id,
+        r.created_at, r.updated_at,
+        a.name AS orchestrator_name
+      FROM agent_runs r
+      LEFT JOIN agents a ON a.id = r.orchestrator_id
+      WHERE r.app_id = ${appId}
+      ORDER BY r.created_at DESC
+      LIMIT ${limit}
+    `
+    return Response.json({ runs: rows ?? [] })
+  })
 }

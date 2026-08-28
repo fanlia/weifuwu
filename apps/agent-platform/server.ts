@@ -138,6 +138,23 @@ async function main() {
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_skill_ratings_dir ON skill_ratings(skill_dir)`)
     await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS answer_cache (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, hits INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_answer_cache_app ON answer_cache(app_id)`)
+  // O11 编排任务树（Wave 3）：runs 表（父→子任务链——审计面）
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS agent_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    app_id UUID NOT NULL,
+    department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
+    orchestrator_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+    parent_run_id UUID REFERENCES agent_runs(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT 'orchestration',
+    plan_json JSONB,
+    worker_results JSONB,
+    status TEXT NOT NULL DEFAULT 'planned',
+    request_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`)
+  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_agent_runs_app ON agent_runs(app_id, created_at DESC)`)
+  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_agent_runs_parent ON agent_runs(parent_run_id)`)
     await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS group_memories (department_id UUID PRIMARY KEY, summary TEXT, msg_count INT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS expertise TEXT`)
   // 三层模型（2026-12）：部门 = 工作目录——workspace_path 自定义工作目录（默认 {root}/{id}）

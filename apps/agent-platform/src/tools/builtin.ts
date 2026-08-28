@@ -203,15 +203,58 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
           return String(tt.agent ?? '') && String(tt.message ?? '')
         })
       if (filtered.length === 0) return 'Error: 子任务必须包含 agent 和 message 字段'
-      // O2 并行调度：Promise.allSettled 并发执行（上限 3——worker 各自独立
-      // run_state——沙盒 per-sandbox 串行队列已保证资源面不撞）——失败隔离
-      // （single worker 失败不炸整体——其余结果保留）
+      // O11 任务树（Wave 3）：编排 run 落库（planned→running——收尾时 done/partial）
+      let runId = ''
+      try {
+        const { createOrchestrationRun } = await import('../services/orchestration.ts')
+        runId = await createOrchestrationRun(ctx, {
+          appId: ctx.appId,
+          departmentId: String((ctx as any)._toolDepartmentId ?? ''),
+          orchestratorId: String((ctx as any)._toolAgentId ?? ''),
+          plan: filtered.map((t) => {
+            const tt = t as Record<string, unknown>
+            return { agent: String(tt.agent), message: String(tt.message).slice(0, 500) }
+          }),
+          requestId: (ctx as any).requestId,
+        })
+      } catch { /* 树记录失败不阻断执行 */ }
+      // O9 失败重试（Wave 3）：worker 执行失败（非确定性——「调用失败/执行异常」）→
+      // 重试 1 次；确定性错误（找不到/循环/深度超限）不重试（重试无意义——浪费）
+      const isRetryable = (r: string) => r.startsWith('Error:') && (r.includes('调用 Agent') || r.includes('执行异常'))
+      const runWorker = async (t: { agent: string; message: string }): Promise<string> => {
+        let r = await delegateToAgent(ctx, t.agent, t.message)
+        if (isRetryable(r)) r = await delegateToAgent(ctx, t.agent, t.message)
+        return r
+      }
+      // O2 并行调度：Promise.allSettled 并发执行（上限 3）——失败隔离
       const results = await Promise.allSettled(
         filtered.map((t) => {
           const tt = t as Record<string, unknown>
-          return delegateToAgent(ctx, String(tt.agent), String(tt.message))
+          return runWorker({ agent: String(tt.agent), message: String(tt.message) })
         }),
       )
+      // O11 收尾 + O9 部分完成标注（worker_results 全量——审计可见）
+      const workers = results.map((r, i) => {
+        const tt = filtered[i] as Record<string, unknown>
+        const label = String(tt.agent ?? '子任务')
+        if (r.status === 'fulfilled') {
+          const v = String(r.value ?? '')
+          if (v.startsWith('Error:')) return { agent: label, status: 'error' as const, error: v.slice(0, 300) }
+          return { agent: label, status: 'ok' as const, result: v.slice(0, 500) }
+        }
+        return { agent: label, status: 'error' as const, error: String((r.reason as Error)?.message ?? '未知').slice(0, 300) }
+      })
+      if (runId) {
+        try {
+          const { finishOrchestrationRun } = await import('../services/orchestration.ts')
+          const failedCount = workers.filter((w) => w.status === 'error').length
+          await finishOrchestrationRun(ctx, {
+            runId,
+            status: failedCount === 0 ? 'done' : failedCount === workers.length ? 'failed' : 'partial',
+            workers,
+          })
+        } catch { /* 记录失败不阻断 */ }
+      }
       // O4 汇总：按任务数组顺序拼接（带来源标注——delegateToAgent 已含）
       return results.map((r, i) => {
         const tt = filtered[i] as Record<string, unknown>

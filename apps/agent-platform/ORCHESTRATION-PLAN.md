@@ -89,10 +89,10 @@
 
 | # | 项 | 测试形态 |
 | --- | --- | --- |
-| O9 | 失败重试/降级（轻量模型重试 1 次——部分完成标注） | 契约（mock 失败——重试/降级断言） |
-| O10 | 聚合审批闸门（任一 high → 整批挂起——拒绝降级人工接管） | 集成（真库——审批流断言） |
-| O11 | 任务树落库（parent_run_id + agent_runs 表——迁移只增） | 契约（schema——父子链断言） |
-| O12 | Admin 编排审计视图 + Report 任务链 | 场景（playwright——树渲染断言） |
+| O9 | 失败重试/降级：worker 执行异常（调用失败/执行异常——非确定性）→ 重试 1 次——确定性错误（找不到/循环/深度）不重试（重试无意义）；仍失败 → worker_results 记 error——「部分完成」标注不静默 | 契约 2 项（重试型 2 次调用恢复 / 确定性 1 次直返） |
+| O10 | 聚合审批闸门——**诚实裁剪登记（不实现）**：框架 humanInTheLoop 是 per-tool 挂起等待（每个工具执行前 waitApproval——无绕过）；并行 worker 各自审批是合理语义（不同子任务不同风险）——聚合 UI 收益低——以「worker 状态可观测（worker_results）+ 失败不静默（O9）+ 任务树（O11）」覆盖可靠性面 | —（裁剪理由见 §6） |
+| O11 | 任务树落库：`agent_runs` 表（orchestration/worker kind + parent_run_id + plan_json + worker_results + status 状态机 planned→running→partial→done→failed）+ request_id 贯穿（三端事件流关联键） | 契约 4 项（done/partial 部分失败/failed 全败/request_id） |
+| O12 | 编排审计视图：`GET /api/stats/runs`（租户隔离——仅本 app——limit 夹紧）+ Reports「编排任务链」卡（状态徽章/编排者/子任务数/失败数/时间） | 端点契约（隔离返回）+ UI 冒烟（Reports 零错误） |
 
 ### Wave 4 — 框架层并行 step（最大收益——验证后动）
 
@@ -126,6 +126,17 @@
 | --- | --- |
 | 并行 worker 撞沙盒配额 | 并发闸门（≤3）+ sandbox_quota 复用（每个 worker per-sandbox 串行队列已有） |
 | 编排 Agent 拆解质量差（拆错任务） | done_criteria 进子任务 JSON——汇总时自检（C1 自校验复用）+ 人工接管兜底 |
-| token 成本上升（拆解 + 并行 = 多 Agent 调用） | 简单任务不拆（成本纪律）+ 轻量模型跑拆解（C5 复用） |
+| token 成本上升（拆解 + 并行 = 多 Agent 调用） | 简单任务不拆（成本纪律）+ 轻量模型跑拆解（C5 复用——未来） |
 | 意图路由误路由（相似度误判） | 阈值 0.55 保守 + 回退广播 + 路由显示（用户可见——透明） |
 | 任务树 schema 演进破坏既有查询 | `CREATE IF NOT EXISTS` + 默认 NULL（旧行兼容）+ 索引只增 |
+
+### O10 裁剪理由（2026-08 实施时确认）
+
+调查结论——**聚合审批闸门不做（诚实裁剪）**：
+- 框架 `ai.agent()` 的 HITL 是 **per-tool 挂起等待**（`waitApproval`——每个
+  工具执行前阻塞——**无绕过**：任何 high 风险工具调用必然经审批门）
+- 并行 worker 各自审批是合理语义（不同子任务不同风险——聚合合并决策反而
+  丢失粒度）——「任一 high 整批挂起」的聚合面收益低
+- 替代覆盖（已交付）：O9 失败不静默（worker_results 记 error）+ O11 任务树
+  （审计面）+ worker 状态可观测（Reports 编排任务链卡）
+- 未来若出现「多 worker 同时请求审批」的真实用户反馈——再按需实现

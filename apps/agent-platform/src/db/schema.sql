@@ -145,6 +145,23 @@ CREATE TABLE IF NOT EXISTS agent_logs (
 
 CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_logs(agent_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_agent_logs_app ON agent_logs(app_id, created_at DESC);
+-- O11 编排任务树（Wave 3）：runs 表（父→子任务链）+ agent_logs 父链列
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_id          UUID NOT NULL,
+  department_id   UUID REFERENCES departments(id) ON DELETE SET NULL,
+  orchestrator_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+  parent_run_id   UUID REFERENCES agent_runs(id) ON DELETE CASCADE,
+  kind            TEXT NOT NULL DEFAULT 'orchestration',  -- orchestration | worker
+  plan_json       JSONB,                                  -- 编排计划（子任务清单存根）
+  worker_results  JSONB,                                  -- worker 结果/错误（部分完成标注）
+  status          TEXT NOT NULL DEFAULT 'planned',        -- planned→running→partial→done→failed
+  request_id      TEXT,                                   -- 三端事件流关联键
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_app ON agent_runs(app_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_parent ON agent_runs(parent_run_id);
 
 -- ── Webhook 调用日志 ─────────────────────────────────────
 

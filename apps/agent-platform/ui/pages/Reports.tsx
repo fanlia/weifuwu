@@ -16,6 +16,8 @@ interface ReportsState {
   // P3-1 部门维度（三层模型计量单元）
   deptStats: Array<{ id: string; name: string; is_dm: boolean; messages: number; runs: number; runs_ok: number; tokens: number; envStatus: string | null; envLabel: string | null }>
   quotaPressure: boolean
+  /** O12 编排任务链（Wave 3——审计/ROI 面） */
+  runs: Array<{ id: string; kind: string; status: string; plan_json: unknown; worker_results: unknown; orchestrator_name?: string | null; created_at: string }>
 }
 
 export const Reports: Component = async (_props, ctx) => {
@@ -23,13 +25,17 @@ export const Reports: Component = async (_props, ctx) => {
   const rerender = () => ctx.render()
   $.loading = true; $.stats = {}; $.agents = []; $.costAgents = []; $.funnel = null
   $.deptStats = []; $.quotaPressure = false
+  $.runs = []
   Promise.all([
     ctx.api!.get<StatsData>('/api/stats').catch(() => ({})),
     ctx.api!.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
     ctx.api!.get<{ agents: CostAgentRow[] }>('/api/stats/tokens-by-agent').catch(() => ({ agents: [] })),
     ctx.api!.get<FunnelData>('/api/stats/funnel').catch(() => ({ mine: { register_complete: false, agent_created: false, first_message: false }, platform: {} })),
     ctx.api!.get<{ departments: ReportsState['deptStats']; quotaPressure: boolean }>('/api/stats/departments').catch(() => ({ departments: [], quotaPressure: false })),
-  ]).then(([stats, agents, cost, funnel, depts]) => {
+    // O12 编排任务链（Wave 3）
+    ctx.api!.get<{ runs: ReportsState['runs'] }>('/api/stats/runs').catch(() => ({ runs: [] })),
+  ]).then(([stats, agents, cost, funnel, depts, runsRes]) => {
+    $.runs = runsRes.runs ?? []
     $.stats = stats; $.agents = agents.agents ?? []; $.costAgents = cost.agents ?? []
     $.funnel = funnel; $.deptStats = depts.departments ?? []; $.quotaPressure = depts.quotaPressure ?? false
     $.loading = false
