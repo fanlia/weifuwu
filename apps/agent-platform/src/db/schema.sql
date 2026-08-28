@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS messages (
   -- 元数据
   reply_to      UUID REFERENCES messages(id) ON DELETE SET NULL,
   attachments   JSONB,                        -- [{name, path, size, ext}]（P1-3 聊天附件）
+  routed_to     TEXT,                         -- O8 意图路由：本消息由语义路由派给的目标 Agent 名（null=未路由/直发）
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

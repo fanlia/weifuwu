@@ -186,6 +186,8 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS webhook_platform TEXT NOT NULL DEFAULT 'generic'`)
   // R6 质量反馈：AI 消息点赞/点踩（'like'/'dislike'/NULL）
   await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS feedback TEXT`)
+  // O8 意图路由（Wave 2）：消息由语义路由派给的目标 Agent 名（null=未路由/直发）
+  await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS routed_to TEXT`)
   // C2 风险策略：agents 审批模式（auto 智能分级 / strict 严格 / off 关闭）
   await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS risk_policy TEXT NOT NULL DEFAULT 'auto'`)
   // C5 成本工程：Agent 轻量模型（内部调用路由——记忆提取/自校验用小模型省成本）

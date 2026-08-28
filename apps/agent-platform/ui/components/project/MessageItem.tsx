@@ -96,6 +96,7 @@ export const MessageItem: Component<MessageItemProps> = async (_init) => {
           <div class={`wf-row wf-gap-xs wf-font-xs wf-text-tertiary${props.own ? ' wf-row-reverse' : ''}`}>
             <span>{msg.sender_name ?? '未知'}</span>
             {msg.sender_type === 'ai' && st === 'complete' && (() => { const mk = detectTaskMarker(msg.content); return mk.marker ? <span class="wf-pill wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-text-secondary">{mk.label}</span> : null })()}
+            {msg.sender_type === 'ai' && msg.routed_to && st === 'complete' && <span class="wf-pill wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-text-tertiary">任务派给 {msg.routed_to}</span>}
             <span>{fmtTime(msg.created_at)}</span>
             {isActive && <span class="wf-text-primary">{st === 'thinking' ? '思考中...' : '生成中...'}</span>}
             {isError && <span class="wf-text-error">出错了</span>}

@@ -167,6 +167,24 @@ export async function handleNewMessage(
     mentioned[m[1]] = m[1]
   }
   let targets = aiAgents
+  // O7 意图路由（Wave 2）：无 @ 且多 AI 成员时——语义匹配 top1（阈值 0.55）——
+  // 只触发最合适的 Agent（省 token——不全员广播）；低相似度/无 AI/embed 失败
+  // → 回退全部（现有行为不退化）。INTENT_ROUTE=off 关闭（回退广播）。
+  let routedTo: string | null = null
+  if (Object.keys(mentioned).length === 0 && aiAgents.length > 1 && process.env.INTENT_ROUTE !== 'off') {
+    try {
+      const { routeIntent } = await import('./intent-route.ts')
+      // 形状适配：aiAgents（Record）→ RouteTarget（id/name/role_label/expertise）
+      const r = await routeIntent(ctx, departmentId, messageContent, aiAgents.map((a) => ({
+        id: String(a.id), name: String(a.name ?? ''),
+        role_label: a.role_label ?? null, expertise: a.expertise ?? null,
+      })))
+      if (r.kind === 'routed' && r.agent) {
+        targets = aiAgents.filter((a) => String(a.id) === String((r.agent as any).id))
+        routedTo = String(r.agent.name)
+      }
+    } catch { /* 路由失败不阻断——回退全部 */ }
+  }
   if (Object.keys(mentioned).length > 0) {
     const hit = aiAgents.filter((a) => mentioned[String(a.name).trim()])
     if (hit.length > 0) targets = hit
@@ -351,10 +369,10 @@ export async function handleNewMessage(
           }
         } catch { /* 邮件失败不阻断审批流程 */ }
       } else {
-        // 自动回复
+        // 自动回复（O8：routed_to 落库——路由指示随消息持久化——前端显示）
         const [replyMsg] = await sql`
-          INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
-          VALUES (${departmentId}, ${agent.id}, ${content}, 'text', TRUE)
+          INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved, routed_to)
+          VALUES (${departmentId}, ${agent.id}, ${content}, 'text', TRUE, ${routedTo})
           RETURNING id, content, created_at
         `
 
@@ -364,10 +382,11 @@ export async function handleNewMessage(
           void maybeAlertQuota(ctx, ctx.appId)
         } catch { /* 告警失败不阻断 */ }
 
-        // WS 推送
+        // WS 推送（O8 路由指示：意图路由命中时带 routedTo——前端显示「任务派给 X」）
         ctx.msg.broadcast(String(departmentId), {
           type: 'ai_reply',
           message: { id: replyMsg.id, agentId: agent.id, agentName: agent.name, content, departmentId, createdAt: replyMsg.created_at },
+          routedTo: routedTo ?? undefined,
         })
       }
     } catch (err) {

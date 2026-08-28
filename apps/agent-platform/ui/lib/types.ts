@@ -119,6 +119,8 @@ export interface Message {
   reply_to?: string | null
   /** R6 质量反馈：AI 回复点赞/点踩 */
   feedback?: 'like' | 'dislike' | null
+  /** O8 意图路由：本 AI 回复由语义路由派给的目标 Agent 名（显示「任务派给 X」） */
+  routed_to?: string | null
   reply_content?: string | null
   reply_sender?: string | null
   /** HITL 草稿 */
@@ -372,6 +374,8 @@ export interface ChatMessage {
   reply_sender?: string | null
   /** R6 质量反馈 */
   feedback?: 'like' | 'dislike' | null
+  /** O8 意图路由：AI 回复由语义路由派给的目标 Agent 名 */
+  routed_to?: string | null
   attachments?: Array<{ name: string; path: string; size: number }> | null
   /** 产物审批（2026-12）：AI 写入在待审区——待审批产物 */
   pending?: boolean
