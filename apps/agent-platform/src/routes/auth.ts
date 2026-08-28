@@ -17,10 +17,16 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
 
   // ── 注册 ─────────────────────────────────────────────────
 
+  // 注册/加入限流阈值（可调——生产默认 5/分钟/IP；测试套件多租户注册
+  // 共享 Redis 同 IP 窗口计数——串行测试文件累计超 5 即 429 误伤——
+  // REGISTER_LIMIT_MAX 拉高隔离）
+  const registerMax = Number(process.env.REGISTER_LIMIT_MAX ?? 5)
+  const joinMax = Number(process.env.REGISTER_LIMIT_MAX ?? 5)
+
   app.post('/api/auth/register', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    // 限流：框架 ctx.limit（默认按 IP 维度）——每 IP 每分钟 5 次注册
+    // 限流：框架 ctx.limit（默认按 IP 维度）——每 IP 每分钟注册超限拦截
     try {
-      await ctx.limit?.('register', { max: 5, windowMs: 60_000 })
+      await ctx.limit?.('register', { max: registerMax, windowMs: 60_000 })
     } catch {
       return Response.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 })
     }
@@ -110,7 +116,7 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
 
   app.post('/api/auth/join', async (req: Request, ctx: AppCtx): Promise<Response> => {
     try {
-      await ctx.limit?.('join', { max: 5, windowMs: 60_000 })
+      await ctx.limit?.('join', { max: joinMax, windowMs: 60_000 })
     } catch {
       return Response.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 })
     }

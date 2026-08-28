@@ -51,7 +51,16 @@ const i18nState = i18n({ locale: 'zh-CN' })
 // **connect 调用（2026-08——流式缺失根因）**：uiServe 只注入 WsClient
 // 面不自动连接——此前从未 connect——WS 零连接——AI 回复 token/done
 // 事件永远收不到（消息上屏靠 HTTP 响应；回复只刷新后从 DB 可见）
-const wsClient = ws({ url: '/ws', autoReconnect: { baseMs: 1000, maxMs: 30000 } })
+const wsClient = ws({
+  url: '/ws',
+  autoReconnect: { baseMs: 1000, maxMs: 30000 },
+  // 心跳看门狗（2026-08——网络硬断静默挂起根因歼灭——A2 补拉前提）：
+  // 浏览器对网络断不触发 close/error——socket 挂起——重连永不启动——
+  // 断线期间消息永远丢失。ping 周期活性检测——超时强制 close → 重连链
+  // → onStatusChange(true) → Chat 补拉（消息不丢）——测试可经
+  // window.__WF_WS_PING 覆写（快看门狗——生产默认保守）
+  ping: ((globalThis as any).__WF_WS_PING as any) ?? { intervalMs: 15000, timeoutMs: 35000, payload: () => ({ type: 'ping' }) },
+})
 wsClient.connect('/ws')
 
 // ── 路由（AppLayout 布局包裹——vnode 形态——跨路由同位置同类型复用——

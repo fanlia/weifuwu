@@ -37,6 +37,8 @@ export function startAgentServer(): Promise<AgentServer> {
         PORT: '0',
         // 测试隔离：全局限流拉高（多测试文件同窗口串行跑——避免撞 429 误伤页面断言）
         RATE_LIMIT_MAX: '100000',
+        // register/join 端点限流拉高（UI 测试文件各注册多租户——共享 Redis 同 IP 计数）
+        REGISTER_LIMIT_MAX: '100000',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
