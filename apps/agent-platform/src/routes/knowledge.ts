@@ -265,10 +265,19 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       let embeddings: number[][]
       try {
         embeddings = await ctx.ai.embedMany(chunks)
-      } catch {
-        // 与 processDocument 一致：失败回退随机向量（离线模式）——日志提示管理员检查 embedding 配置
-        console.warn('[knowledge] reindex embedding 失败，回退随机向量（请检查 DASHSCOPE_API_KEY）')
-        embeddings = chunks.map(() => Array.from({ length: 1024 }, () => Math.random() * 2 - 1))
+        // B4（2026-08）：embed 质量验证——归一化向量 norm≈1——若异常（随机回退/
+        // 维度不符）→ 报错（绝不悄悄写入垃圾向量——污染实证：库中 norm≈18.5）
+        if (embeddings.length !== chunks.length || !Array.isArray(embeddings[0])) {
+          throw new Error('embedMany 返回形态异常')
+        }
+        for (const e of embeddings) {
+          const norm = Math.sqrt(e.reduce((s: number, x: number) => s + x * x, 0))
+          if (norm > 5) throw new Error('embedding 向量未归一化（疑似随机回退）——拒绝写入')
+        }
+      } catch (err: any) {
+        // B5（2026-08）：embed 失败不再回退随机向量（此前：失败→随机向量→
+        // 检索全部失真——norm≈18.5 实证）——明确报错——管理员可见/可重试
+        throw new Error(`知识库重新索引失败（Embedding 服务异常）——未写入任何数据: ${err?.message ?? 'unknown'}`)
       }
       // 删旧 chunk → 存新
       await sql`DELETE FROM kb_chunks WHERE document_id = ${doc.id}`
@@ -340,15 +349,21 @@ async function processDocument(
   const chunkOverlap = agent.chunk_overlap ?? 50
 
   const chunks = chunkText(content, chunkSize, chunkOverlap)
-  // 尝试使用 AI embedding，失败时快速回退到随机向量
+  // B4/B5（2026-08）：Embedding 失败→**报错**（此前回退随机向量——库中
+  // norm≈18.5 随机向量实证——检索全部失真——相似度 4.7% 也让 AI 当“相关”
+  // ——上传失败必须显式——宁可不存不可错存）
   let embeddings: number[][]
   try {
     embeddings = await ai.embedMany(chunks)
-  } catch {
-    // 回退：生成随机 1024 维向量（测试/离线模式）
-    embeddings = chunks.map(() =>
-      Array.from({ length: 1024 }, () => Math.random() * 2 - 1)
-    )
+    if (embeddings.length !== chunks.length || !Array.isArray(embeddings[0])) {
+      throw new Error('embedMany 返回形态异常')
+    }
+    for (const e of embeddings) {
+      const norm = Math.sqrt(e.reduce((s: number, x: number) => s + x * x, 0))
+      if (norm > 5) throw new Error('embedding 向量未归一化（疑似随机回退）——拒绝写入')
+    }
+  } catch (err: any) {
+    throw new Error(`文档向量化失败（Embedding 服务异常）——未上传: ${err?.message ?? 'unknown'}`)
   }
 
   const [doc] = await sql`

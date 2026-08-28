@@ -55,6 +55,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/routes/departments.ts', match: 'DELETE FROM department_members WHERE department_id', reason: '间接隔离——上游部门归属校验（G7 权限闸门）' },
   { file: 'src/routes/knowledge.ts', match: 'kb_documents WHERE agent_id = ${params.id}', reason: '间接隔离——上游已校验 agent 归属（a.app_id）' },
   { file: 'src/routes/knowledge.ts', match: 'kb_chunks WHERE document_id', reason: '间接隔离——doc 查询带 a.app_id（54 行），document_id 来自已校验 doc' },
+  { file: 'src/services/kb-search.ts', match: 'FROM kb_chunks kc', reason: 'KB 检索单实现源（B6）——间接隔离：kb.id 来自 app_id 隔离查询（agents WHERE app_id = ${ctx.appId}），agent_id = kb.id 过滤——不跨租户' },
   { file: 'src/routes/knowledge.ts', match: 'DELETE FROM kb_chunks', reason: '间接隔离——doc.id 来自已校验查询（agent_id 归属）' },
   { file: 'src/routes/knowledge.ts', match: 'UPDATE kb_documents SET chunk_count', reason: '间接隔离——doc.id 来自已校验查询' },
   { file: 'src/routes/knowledge.ts', match: 'INSERT INTO kb_chunks', reason: '间接隔离——document_id 来自已校验 doc（含 agent_id 写入）' },
@@ -126,7 +127,6 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/services/embedding.ts', match: 'FROM kb_chunks kc JOIN kb_documents', reason: '间接隔离——agent_id 调用方传入（检索上下文已校验）' },
   { file: 'src/services/versions.ts', match: 'FROM agent_versions WHERE agent_id', reason: '间接隔离——agentId 来自已校验 agent（版本管理路由）' },
   { file: 'src/services/webhook.ts', match: 'webhook_logs WHERE agent_id = ${agentId}', reason: '间接隔离——agentId 来自 webhook 请求（签名 + agent 归属校验）' },
-  { file: 'src/tools/builtin.ts', match: 'FROM kb_chunks kc JOIN kb_documents', reason: '间接隔离——kb agent_id 工具上下文（沙盒内工具，归属受限）' },
   { file: 'src/tools/builtin.ts', match: 'SELECT name FROM agents WHERE id = ${callerId}', reason: '委托背景（P1-4）——按主键 UUID 查名，callerId 来自当前执行的 agent（归属已由调用链保证）' },
 ]
 
