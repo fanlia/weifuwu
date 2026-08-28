@@ -153,7 +153,19 @@ export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 
     return
   }
   if (cmd.ref) {
-    const prev = applier.nodes.get(cmd.ref) ?? null
+    let prev = applier.nodes.get(cmd.ref) ?? null
+    // **ref 组件 id 回退（2026-08——avatar 错位根因——确定性对称补丁）**：
+    // ref 指向组件 id（compId——非 DOM 节点——nodes 表无）——语义 = 「组件
+    // 槽位之后」——槽位物理代表 = 其子空间最新插入的节点（id 前缀检索——
+    // nodes 是插入序 Map——最后前缀命中者 = 最新=槽位代表）——与 parentOf
+    // 的「组件逻辑父回退」对称（此前仅 parent 有回退——ref 无——插入点
+    // 丢失——回退插头部——顺序颠倒——chat avatar 用户实证）
+    if (!prev) {
+      const prefix = cmd.ref + '.'
+      for (const [id, node] of applier.nodes) {
+        if (id.startsWith(prefix)) prev = node
+      }
+    }
     // ref 有效性（导航流引用旧树残留——已脱离——NotFoundError 防御）
     if (prev && prev.parentNode === parent) {
       parent.insertBefore(el, prev.nextSibling)

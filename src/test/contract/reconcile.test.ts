@@ -120,10 +120,19 @@ class Sim {
           throw new Error(`[state-machine] id 空间违例：insert ${cmd.id} 的 parent ${cmd.parent} 不是容器（${p.kind}）`)
         }
         if (cmd.ref) {
-          const ref = this.nodes.get(cmd.ref)
+          let ref = this.nodes.get(cmd.ref) ?? null
+          // **ref 组件 id 回退（2026-08——与消费端 procInsert 对称）**：
+          // ref=组件 id——槽位代表 = 子空间最新节点（插入序前缀检索）
+          if (!ref) {
+            let best: SimNode | null = null
+            for (const [id, node] of this.nodes) {
+              if (id.startsWith(cmd.ref + '.')) best = node
+            }
+            ref = best
+          }
           const idx = ref ? p.children.indexOf(ref) : -1
           if (idx >= 0) p.children.splice(idx + 1, 0, n)
-          else p.children.push(n)
+          else p.children.unshift(n) // ref 无效——统一容器头部（与消费端一致）
         } else {
           p.children.unshift(n) // 容器头部
         }

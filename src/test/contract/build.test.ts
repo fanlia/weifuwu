@@ -66,16 +66,15 @@ test('组件输出数组：compId 子空间（C2——root.0.0/root.0.1——与
   assert.deepEqual(creates, ['root.0.0', 'root.0.1'], '多根输出——compId 子空间（组件 id 占 root.0——输出在 .0/.1）')
 })
 
-test('组件输出组件（嵌套 async——Ava→Avatar）：子空间路径父缺失=现状警示（已知边界登记）', async () => {
-  // 已知边界（2026-08——用户实证 chat avatar 错位——生成端缺陷登记）：
-  // 组件输出「组件」（Ava→Avatar 两层 async）走 compId 子空间——嵌套组件
-  // compId = root.0.0.0（子空间）——但其父（外层组件槽位 root.0.0）从未
-  // create/insert——消费端 parentOf(root.0.0) 落空——avatar 挂不上/兜底
-  // 乱序。修复 sink（unkeyed→槽位父）可修 avatar 但破坏 ColorPicker→
-  // Popover（同一 compId 冲突——Popover 复用 ColorPicker rec——工厂不跑
-  // ——openPopup 锚 null——浮层失效）——收益/成本不对称——回退。
-  // 本测试锁定「缺陷确定性存在」（警示——非绿改红——防无意识修复半途）：
-  // 嵌套组件 insert 的 parent root.0.0 必须**缺失**（现状——登记）。
+test('组件输出组件（嵌套 async——Ava→Avatar）：命令流 ref=组件 id 语义（消费端契约）', async () => {
+  // chat avatar 错位根因（2026-08——用户实证）+ 确定性修复记录：
+  // 命令流（生成端——正确）：嵌套组件元素 insert parent=compId（子空间）
+  // + 兄弟内容 ref=compId（组件 id）——**组件 id 非 DOM 节点**——消费端
+  // ref 解析 null → 插头部（顺序颠倒——avatar 跑到内容后）。
+  // **确定性修复（对称补丁——消费端 + Sim）**：ref=组件 id → 物理代表
+  // = 其子空间最新插入节点（插入序前缀检索——纯查询零映射）——与
+  // parentOf 的「组件逻辑父回退」对称（此前仅 parent 有回退——ref 无）。
+  // 生成端零改动（command 流本就正确——本测试锁定其正确形态）。
   const Avatar2 = async () => async () => h('div', { class: 'avatar' }, 'A')
   const Ava2 = async () => async () => h(Avatar2, {})
   const Row2 = async () => async () => h('div', { class: 'row' }, [
@@ -85,9 +84,13 @@ test('组件输出组件（嵌套 async——Ava→Avatar）：子空间路径�
   const cmds = await collect(h(Row2, {}))
   const nestedInsert = cmds.find((c) => c.op === 'insert' && c.id === 'root.0.0.0') as any
   assert.ok(nestedInsert, '嵌套组件元素 insert 存在（root.0.0.0）')
-  assert.equal(nestedInsert?.parent, 'root.0.0', 'parent = 外层组件 compId（子空间路径）')
-  const parentCreated = cmds.some((c) => (c.op === 'create' || c.op === 'createAnchor') && c.id === 'root.0.0')
-  assert.ok(!parentCreated, '⚠️ 已知边界：外层组件槽位 root.0.0 未落地（生成端缺陷——见注释）')
+  assert.equal(nestedInsert?.parent, 'root.0.0', 'parent = 组件 compId（子空间——parentOf 回退）')
+  const contentInsert = cmds.find((c) => c.op === 'insert' && c.id === 'root.0.1') as any
+  assert.equal(contentInsert?.ref, 'root.0.0', '内容 ref=组件 id——消费端前缀回退解析（槽位代表）')
+  // 插入顺序（命令流序列）——嵌套组件元素先、内容后（ref 语义保证 DOM 顺序）
+  const nestedIdx = cmds.findIndex((c) => c.op === 'insert' && c.id === 'root.0.0.0')
+  const contentIdx = cmds.findIndex((c) => c.op === 'insert' && c.id === 'root.0.1')
+  assert.ok(nestedIdx >= 0 && contentIdx > nestedIdx, '嵌套组件先插、内容后插（ref=组件 id 的顺序语义）')
 })
 
 test('空洞：false/null 建占位锚（CreateAnchor——DOM 同构前提）', async () => {
