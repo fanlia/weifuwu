@@ -10,6 +10,8 @@ interface RegisterState {
 
 /** 邀请模式：URL query ?app=slug&invite=token（Settings 生成的邀请链接） */
 function inviteParams(): { app: string; invite: string } | null {
+  // SSR 安全（A1 纪律——服务端无 location——非邀请态首帧；客户端水合后重渲染取真值）
+  if (typeof location === 'undefined') return null
   const q = new URLSearchParams(location.search)
   const app = q.get('app') ?? ''
   const invite = q.get('invite') ?? ''

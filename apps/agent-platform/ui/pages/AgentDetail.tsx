@@ -108,8 +108,10 @@ export const AgentDetail: Component = async (_props, ctx) => {
       rerender()
     }).catch((e) => {
       // 404/无权限 → notFound；其他（网络/500）→ 显示错误信息（不误报“不存在”）
+      // 404 状态判定优先（服务端错误体经 ApiError 透传——「Agent 不存在」文案兜底）
+      const status = (e as { status?: number } | null)?.status
       const msg = errMsg(e, '').toLowerCase()
-      if (msg.includes('不存在') || msg.includes('unauthorized') || msg.includes('未授权')) {
+      if (status === 404 || msg.includes('不存在') || msg.includes('unauthorized') || msg.includes('未授权')) {
         $.notFound = true
       } else {
         $.error = errMsg(e, '加载 Agent 失败')
