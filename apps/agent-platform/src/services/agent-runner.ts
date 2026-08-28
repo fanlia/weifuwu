@@ -465,7 +465,7 @@ export async function streamAgent(
   callbacks: {
     onChunk: (chunk: string) => void
     onToolCall?: (toolCall: { name: string; args: string }) => void
-    onToolResult?: (result: { name: string; result: string }) => void
+    onToolResult?: (result: { name: string; result: string; ok: boolean; error?: string }) => void
     onFinish?: (result: { content: string }) => void
   },
 ): Promise<WfUsage | undefined> {
@@ -572,8 +572,10 @@ export async function streamAgent(
       }
     } else if (name === 'wf:tool_result') {
       const r = data as WfToolResult
-      const result = r.ok ? (typeof r.output === 'string' ? r.output : JSON.stringify(r.output ?? '')) : `Error: ${r.error?.message ?? 'unknown'}`
-      callbacks.onToolResult?.({ name: lastToolName, result })
+      const ok = r.ok
+      const error = ok ? undefined : (r.error?.message ?? 'unknown')
+      const result = ok ? (typeof r.output === 'string' ? r.output : JSON.stringify(r.output ?? '')) : `Error: ${error}`
+      callbacks.onToolResult?.({ name: lastToolName, result, ok, error })
       // C1：工具结果摘要落库
       if (config.runMessageId) {
         runStateChain = runStateChain

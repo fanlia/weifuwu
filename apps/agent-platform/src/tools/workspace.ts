@@ -134,8 +134,10 @@ export function createWorkspaceHandlers(
     const isBrowserTask = tool.includes('agent-browser') || tool.includes('browser') || tool.includes('ab_')
     const r = await manager.runTool(departmentId, ws, tool, args, { network: allowNetwork, execTimeoutMs: isBrowserTask ? 120_000 : undefined })
     if (r.ok) return r.output ?? ''
-    // 诚实裁剪：沙盒不可用 → 明确错误（绝不静默回退宿主）
-    return `沙盒错误: ${r.error ?? 'unknown'}`
+    // B1-b（2026-08）：r.ok=false → **抛错**（此前返回字符串“沙盒错误: …”——
+    // 框架层工具 run 只见字符串=成功——ok:false 协议断裂——前端永远显示完成——
+    // 工具失败不可观测——抛错让框架层 wf:tool_result 标 ok:false + error 透传）
+    throw new Error(r.error ?? `工具执行失败: ${tool}`)
   }
 
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<string>> = {

@@ -218,10 +218,20 @@ invalid line without colon
       assert.equal(result, 'Hello, Alice!')
     })
 
-    it('executeTool 不存在的 tool 返回错误', async () => {
+    it('executeTool 不存在的 tool 抛错（B1-b——错误透传框架层 → wf:tool_result ok:false）', async () => {
       const reg = new SkillRegistry('agent-3')
-      const result = await reg.executeTool('nonexistent', {})
-      assert.ok(result.includes('not registered'))
+      await assert.rejects(() => reg.executeTool('nonexistent', {}), /not registered/)
+    })
+
+    it('executeTool handler 抛错透传（不吞成字符串——工具失败协议完整闭环）', async () => {
+      const reg = new SkillRegistry('agent-5')
+      reg.registerSkill({
+        dir: '/tmp/test',
+        meta: { name: 'explode', description: 'Test' },
+        tools: [],
+        handlers: { boom: async () => { throw new Error('配置错误') } },
+      })
+      await assert.rejects(() => reg.executeTool('boom', {}), /配置错误/, '异常透传——框架层得以标 ok:false')
     })
 
     it('unloadSkill 移除技能', () => {

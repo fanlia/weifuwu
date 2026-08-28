@@ -184,7 +184,12 @@ async function dispatch(tool, args) {
           if (out) result += truncate(out, MAX_BASH_OUTPUT)
           if (errOut) result += result ? `\n\n--- stderr ---\n${errOut}` : errOut
           if (code !== 0) {
-            result = (result ? result + '\n\n' : '') + `命令执行失败: ${errOut || `exit ${code}`}`
+            // B1-b（2026-08）：exitCode != 0 = 工具失败——必须抛错（{ok:false}协议——
+            // 此前只在 result 文本追加“命令执行失败”字符串——但工具 ok=true——
+            // AI 拿到 stderr 能感知失败，但工具协议/前端视觉都当成功——
+            // 工具失败可观测性缺口（bash not found 实证——实时工具条完成态）
+            resolve({ __toolError: `命令执行失败: ${errOut || `exit ${code}`}${out ? `\nstdout: ${truncate(out, 4000)}` : ''}` })
+            return
           }
           // 网络隔离提示（诚实裁剪前置——防 AI 反复重试 npm/curl）
           if (!result) result = '命令执行成功（无输出）'
@@ -194,8 +199,8 @@ async function dispatch(tool, args) {
           resolve(result)
         })
       })
-      if (result && typeof result === 'object' && result.__timeout) {
-        throw new Error(result.__timeout)
+      if (result && typeof result === 'object' && (result.__timeout || result.__toolError)) {
+        throw new Error(result.__toolError ?? result.__timeout)
       }
       return result
     }

@@ -11,6 +11,40 @@ interface WsWorkspaceResponse {
   subDepartments?: Array<{ id: string; name: string; managerId: string; managerName: string; memberCount: number; files: Array<{ name: string; type: string; size: number; mtime: string }> }>
 }
 import type { Agent, ChatMessage, Member, Message, MessageListResponse, MessageTool } from '../lib/types'
+
+/** B1（2026-08）：ai_step → MessageTool[]（刷新后工具条恢复）——
+ * 步骤存 msg_type 工具步骤——转换 { tool, ok, result } → { name, status, result } */
+function parseStoredTools(aiStep: unknown): MessageTool[] {
+  try {
+    const parsed = typeof aiStep === 'string' ? JSON.parse(aiStep) : aiStep
+    const steps = parsed?.steps
+    if (!Array.isArray(steps)) return []
+    const out: MessageTool[] = []
+    for (const s of steps) {
+      // 框架步骤：{ type: 'tool_call', toolCall } / { type: 'tool_result', toolCall, toolResult }
+      // 应用层步骤：{ tool, args, ok, result, at }
+      if (s?.type === 'tool_call') {
+        out.push({ name: s.toolCall?.name ?? 'tool', args: s.toolCall?.arguments, status: 'running' })
+      } else if (s?.type === 'tool_result') {
+        const prev = out[out.length - 1]
+        const isErr = String(s.toolResult ?? '').startsWith('Error:')
+        if (prev) prev.status = isErr ? 'error' : 'done'
+        prev.result = isErr ? s.toolResult : s.toolResult
+      } else if (s?.tool && typeof s.tool === 'string') {
+        out.push({
+          name: s.tool,
+          args: s.args,
+          status: s.ok === false ? 'error' : 'done',
+          result: s.result,
+        })
+      }
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
 import { track } from '../lib/track'
 import { MessageItem } from '../components/project/MessageItem.tsx'
 import { FilesSection } from '../components/agent/FilesSection.tsx'
@@ -179,7 +213,11 @@ export const Chat: Component = async (_props, ctx) => {
 
   async function loadMessages(merge = false) {
     const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50`).catch(() => ({ messages: [] }))
-    const list = (msgRes.messages ?? []).reverse().map((m: Message) => ({ ...m } as ChatMessage))
+    const list = (msgRes.messages ?? []).reverse().map((m: Message) => {
+      // B1（2026-08）：ai_step 持久化工具步骤——刷新后恢复工具条（error/done 状态可视）
+      const tools = parseStoredTools((m as any).ai_step)
+      return { ...m, tools } as ChatMessage
+    })
     if (!merge) {
       $.msgs = list
     } else {
@@ -322,7 +360,13 @@ export const Chat: Component = async (_props, ctx) => {
         const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
         if (idx !== -1) {
           const m = $.msgs[idx]
-          const tools = (m.tools ?? []).map((t: MessageTool) => t.name === event.name && t.status === 'running' ? { ...t, status: 'done' as const, result: event.result } : t)
+          const isErr = event.ok === false
+          // B1（2026-08）：消费框架 ok 字段——工具失败标 error（此前永远 done——
+          // 失败视觉不可见——用户实证：知识库检索报错但 UI 显示“完成”
+          const newStatus: 'done' | 'error' = isErr ? 'error' : 'done'
+          const tools = (m.tools ?? []).map((t: MessageTool) => t.name === event.name && t.status === 'running'
+            ? { ...t, status: newStatus, result: isErr ? `执行失败：${event.error ?? event.result ?? '未知错误'}` : event.result }
+            : t)
           $.msgs[idx] = { ...m, tools, status: m.status !== 'complete' ? 'thinking' : m.status }
         }
         ; break

@@ -15,7 +15,7 @@ import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
 import { buildRosterText, buildHistoryContent, buildPersonaLayer, buildWorkspaceLayer, type RosterMember } from './persona.ts'
 import { updateGroupMemory, buildGroupMemoryLayer } from './group-memory.ts'
-import { findCachedAnswer, shouldCacheQuestion, buildCachedReply } from './answer-cache.ts'
+import { findCachedAnswer, shouldCacheQuestion, buildCachedReply, isFailureAnswer } from './answer-cache.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
 
 // ── 流式事件类型 ───────────────────────────────────────
@@ -370,9 +370,11 @@ export async function handleNewMessage(
         } catch { /* 邮件失败不阻断审批流程 */ }
       } else {
         // 自动回复（O8：routed_to 落库——路由指示随消息持久化——前端显示）
+        // B1（2026-08）：ai_step 持久化工具步骤——刷新后工具条恢复（此前仅 WS 内存态——
+        // 刷新丢失——工具失败视觉只实时可见——闭环缺口）
         const [replyMsg] = await sql`
-          INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved, routed_to)
-          VALUES (${departmentId}, ${agent.id}, ${content}, 'text', TRUE, ${routedTo})
+          INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved, routed_to, ai_step)
+          VALUES (${departmentId}, ${agent.id}, ${content}, 'text', TRUE, ${routedTo}, ${JSON.stringify({ steps: result.steps })}) 
           RETURNING id, content, created_at
         `
 
@@ -484,6 +486,9 @@ async function runAgentStreamForAgent(
   let streamFailed = false
   let hasEmittedGenerating = false
   let finalUsage: import('weifuwu').WfUsage | undefined
+  // B1（2026-08）：流式路径工具步骤收集——ai_step 持久化（刷新后工具条恢复——
+  // 含 error/done 状态——此前仅 WS 内存态——刷新丢失）
+  const streamTools: Array<{ tool: string; args: string; result?: string; ok?: boolean; at: string }> = []
   // DB 写入串行链：onChunk 是 async 且未被 streamAgent await（agent-runner 裸调用
   // callbacks.onChunk），多个 chunk 的 UPDATE 并发执行 → SQL 乱序完成 → content 被
   // 中间值覆盖（真实 bug：DB 存"今天是 **2026"而前端已完成——刷新后仍截断）。
@@ -521,11 +526,20 @@ async function runAgentStreamForAgent(
       onToolCall: (toolCall: { name: string; args: string }) => {
         emit.emit({ type: 'wf:step', messageId: msgId, stepType: 'tool', name: toolCall.name, args: toolCall.args })
         toolCallCount++
+        streamTools.push({ tool: toolCall.name, args: toolCall.args, at: new Date().toISOString() })
         // P1-3：记录工具参数（write/edit 成功时广播 file_updated）
         try { lastToolArgs.set(String(toolCall.name), JSON.parse(String(toolCall.args ?? '{}'))) } catch { /* 解析失败跳过 */ }
       },
-      onToolResult: (result: { name: string; result: string }) => {
-        emit.emit({ type: 'wf:tool_result', messageId: msgId, name: result.name, result: result.result })
+      onToolResult: (result: { name: string; result: string; ok: boolean; error?: string }) => {
+        emit.emit({ type: 'wf:tool_result', messageId: msgId, name: result.name, result: result.result, ok: result.ok, error: result.error })
+        // B1：结果合并进步骤（ok 标记——error 状态可持久化）
+        for (let i = streamTools.length - 1; i >= 0; i--) {
+          if (streamTools[i].tool === result.name && streamTools[i].result === undefined) {
+            streamTools[i].result = result.result
+            streamTools[i].ok = result.ok
+            break
+          }
+        }
         // P1-3 文件变动事件：AI 写入/编辑文件 → 广播 file_updated（工作区交付物自动刷新）
         // 工具名 + args 来自 onToolCall（宿主侧已知——容器内 tool-runner 无需回传）
         try {
@@ -615,6 +629,13 @@ async function runAgentStreamForAgent(
         }
       }
     } catch { /* 验证失败不阻断 */ }
+
+    // B1（2026-08）：流式路径工具步骤持久化（ai_step——刷新后工具条恢复）
+    if (streamTools.length > 0) {
+      try {
+        await sql`UPDATE messages SET ai_step = ${JSON.stringify({ steps: streamTools })} WHERE id = ${msgId}`
+      } catch { /* 失败不阻断流 */ }
+    }
 /** 任务消息检测（惰性回复重试的前置条件）：含任务指令词才重试——
  *  普通对话（你好/谢谢等）0 工具调用是正常回复——误判重试会让 AI 跑去
  *  执行浏览器任务（问卷填写群真实事故：用户说'你好'——5 个 AI 全被重试
@@ -880,7 +901,9 @@ async function runAllAgents(
         ORDER BY m.created_at DESC LIMIT 1
       `
       const answer = String(aiReply?.content ?? '').trim()
-      if (answer.length < 10) return
+      // B2（2026-08）：失败/太短答案不入缓存（实证：AI 失败中间态被缓存——
+      // 后续同类问题命中失败记录——毒化）——isFailureAnswer 锁定
+      if (answer.length < 10 || isFailureAnswer(answer)) return
       await ctx.sql`
         INSERT INTO answer_cache (app_id, question, answer)
         VALUES (${ctx.appId}, ${messageContent.slice(0, 200)}, ${answer.slice(0, 2000)})
@@ -916,7 +939,9 @@ export async function handleNewMessageStream(
   try {
     // 带附件/@定向消息不走缓存（任务语义唯一——@消息命中缓存会返回旧答案，
     // 真实 bug：小应冒充实习生的旧回复被缓存复用）
-    if (!attachments.length && !messageContent.includes('@')) {
+    // B2/B3（2026-08）：统一判定源——shouldCacheQuestion（含 @/文件/数据类排除）——
+    // 写侧与读侧同规则（此前读侧只查 @——文件类旧缓存记录持续命中——订单.csv 3 次实证）
+    if (!attachments.length && shouldCacheQuestion(messageContent)) {
       const cacheRows = (await ctx.sql`
         SELECT question, answer, hits FROM answer_cache WHERE app_id = ${ctx.appId}
         ORDER BY updated_at DESC LIMIT 200

@@ -31,15 +31,35 @@ export function similarity(a: string, b: string): number {
 }
 
 /** 个性化/时效性问题不缓存 */
-// 个人数据模式："我的+具体名词"（订单/余额/账户…）——"给我写个代码"（祈使）仍可缓存
+// 个人数据模式：“我的+具体名词”（订单/余额/账户…）——“给我写个代码”（祈使）仍可缓存
 const PERSONAL_DATA_RE = /我的[^，。！？\s]{0,8}(订单|余额|账户|信息|数据|文件|密码|记录|资料|位置|状态|名字|号码|聊天|对话)/
 const TIME_SENSITIVE_RE = /(今天|明天|昨天|现在|几号|几点|天气|新闻|最新|当前|最新消息)/
+// B3（2026-08）：文件/数据类问题——答案随文件内容变化——缓存旧答案误导（订单.csv 命中 3 次实证）
+const FILE_QUERY_RE = /[\w\u4e00-\u9fa5-]+\.(csv|xlsx?|json|txt|md|pptx?|docx?|pdf|png|jpg)\b|(多少条|几行|几列|多少行|数量是多少|有几天)/
+// B2（2026-08）：@ 定向消息不缓存（读侧已有排除——写侧漏了——不对称实证：@ 消息入缓存）
+// 统一判定源：write 侧与 read 侧都调用 shouldCacheQuestion（不再各自判断——防漂移）
+
+/** 答案含失败信号——不入缓存（B2：AI 失败回复也是“答案”——缓存毒化实证：
+ * 问卷任务失败中间态被缓存——后续同类问题命中返回失败记录） */
+const FAILURE_RE = /(抱歉|未能|无法|失败|报错|Error|错误|不可用|不能|超时|拒绝|被拒)/i
+
+export function isFailureAnswer(answer: string): boolean {
+  const a = String(answer ?? '')
+  // 内容太短（< 10 字）——无缓存价值
+  if (a.trim().length < 10) return true
+  if (FAILURE_RE.test(a)) return true
+  return false
+}
 
 export function shouldCacheQuestion(question: string): boolean {
   const q = String(question ?? '')
   if (PERSONAL_DATA_RE.test(q)) return false
   if (TIME_SENSITIVE_RE.test(q)) return false
-  return q.length >= 4 // 太短的问题（"你好"）无缓存价值
+  // B2：@ 定向消息不缓存（与读侧排除对称——此前读侧排除、写侧漏——污染实证）
+  if (q.includes('@')) return false
+  // B3：文件/数据查询不缓存（答案随文件状态变化）
+  if (FILE_QUERY_RE.test(q)) return false
+  return q.length >= 4 // 太短的问题（“你好”）无缓存价值
 }
 
 export interface CachedAnswer {

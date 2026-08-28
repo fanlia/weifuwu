@@ -14,6 +14,7 @@ import {
   shouldCacheQuestion,
   findCachedAnswer,
   buildCachedReply,
+  isFailureAnswer,
 } from '../src/services/answer-cache.ts'
 
 describe('C5 答案缓存', () => {
@@ -50,5 +51,25 @@ describe('C5 答案缓存', () => {
     assert.ok(reply.includes('REST API 是一种接口设计风格。'), '答案透传')
     assert.ok(reply.includes('来自缓存'), '标注来源')
     assert.ok(reply.includes('5'), '命中次数')
+  })
+
+  it('B2：@ 定向消息不进缓存（写侧——读侧排除不对称实证）', () => {
+    assert.strictEqual(shouldCacheQuestion('@小码 帮我写代码'), false, '@定向不缓存')
+    assert.strictEqual(shouldCacheQuestion('什么是 REST API？'), true, '无@可缓存')
+  })
+
+  it('B3：文件/数据类问题不缓存（答案随文件状态变化——订单.csv 命中 3 次实证）', () => {
+    assert.strictEqual(shouldCacheQuestion('看一下 订单.csv 有多少条数据'), false, 'csv 文件查询不缓存')
+    assert.strictEqual(shouldCacheQuestion('报告.pptx 在哪里'), false, 'pptx 路径查询不缓存')
+    assert.strictEqual(shouldCacheQuestion('2025年大学生就业形势分析报告.pptx 在哪里'), false, '报告文件路径不缓存')
+    assert.strictEqual(shouldCacheQuestion('把 Q3 报告发我'), true, '无文件后缀的泛问题可缓存')
+  })
+
+  it('B2：失败答案识别（isFailureAnswer——AI 失败回复不入缓存毒化）', () => {
+    assert.strictEqual(isFailureAnswer('访问 host.docker.internal 失败（网络断连报错）'), true, '含“失败/报错”识别')
+    assert.strictEqual(isFailureAnswer('抱歉，这个任务未能完成，请人工处理'), true, '含“未能”识别')
+    assert.strictEqual(isFailureAnswer('✅ 已完成：订单.csv 共 2 条数据'), false, '成功答案不误判')
+    assert.strictEqual(isFailureAnswer('REST API 是一种接口设计风格。'), false, '正常答案不误判')
+    assert.strictEqual(isFailureAnswer('太短'), true, '短答案无缓存价值')
   })
 })

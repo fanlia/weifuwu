@@ -239,15 +239,15 @@ export class SkillRegistry {
     for (const skill of this.skills.values()) {
       const handler = skill.handlers[name]
       if (handler) {
-        try {
-          const result = await handler(args)
-          return typeof result === 'string' ? result : JSON.stringify(result)
-        } catch (err) {
-          return `Error executing tool "${name}": ${err instanceof Error ? err.message : String(err)}`
-        }
+        // B1-b（2026-08）：异常不再吞成字符串——**抛给框架层**（框架 AgentTool.run
+        // catch → wf:tool_result ok:false——此前吞错成“Error executing tool: ...
+        // ”字符串 → 框架当成功 → ok:true → 工具失败前端不可见（bash not found 实证）
+        // ——工具失败协议完整闭环的关键——错误必须透传（异常 → ok:false）
+        const result = await handler(args)
+        return typeof result === 'string' ? result : JSON.stringify(result)
       }
     }
-    return `Error: tool "${name}" not registered in any loaded skill`
+    throw new Error(`tool "${name}" not registered in any loaded skill`)
   }
 
   /**
