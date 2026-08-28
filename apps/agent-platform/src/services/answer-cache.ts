@@ -79,7 +79,9 @@ export function findCachedAnswer(question: string, cache: CachedAnswer[]): Cache
   return best && bestSim >= CACHE_THRESHOLD ? best : null
 }
 
-/** 缓存命中回复（标注来源 + 命中次数——价值可见） */
+/** 缓存命中回复（标注来源 + 命中次数——价值可见）——B8（2026-08）：
+ * 去「零 token 消耗」内部信息（成本/原理——终端用户不关心——
+ * 用户友好标注——命中次数保留（价值报告用）） */
 export function buildCachedReply(answer: string, hits: number): string {
-  return `${answer}\n\n（来自缓存答案——同类问题已回复 ${hits} 次，零 token 消耗）`
+  return `${answer}\n\n（来自相似问题的快速回复——此前已回复 ${hits} 次；如需最新信息请重新提问）`
 }

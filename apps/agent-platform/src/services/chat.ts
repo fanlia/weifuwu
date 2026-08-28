@@ -897,7 +897,7 @@ async function runAllAgents(
         SELECT m.content FROM messages m
         JOIN agents a ON a.id = m.sender_id
         WHERE m.department_id = ${departmentId} AND a.type IN ('ai', 'department')
-          AND m.content != '' AND m.content NOT LIKE '%来自缓存%'
+          AND m.content != '' AND m.content NOT LIKE '%来自相似问题的快速回复%'
         ORDER BY m.created_at DESC LIMIT 1
       `
       const answer = String(aiReply?.content ?? '').trim()

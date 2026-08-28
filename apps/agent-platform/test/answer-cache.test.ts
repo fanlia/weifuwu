@@ -49,8 +49,9 @@ describe('C5 答案缓存', () => {
   it('缓存回复带标注与命中次数', () => {
     const reply = buildCachedReply('REST API 是一种接口设计风格。', 5)
     assert.ok(reply.includes('REST API 是一种接口设计风格。'), '答案透传')
-    assert.ok(reply.includes('来自缓存'), '标注来源')
+    assert.ok(reply.includes('来自相似问题的快速回复'), '标注来源（B8——用户友好文案）')
     assert.ok(reply.includes('5'), '命中次数')
+    assert.ok(!reply.includes('零 token'), '不暴露内部成本信息（B8）')
   })
 
   it('B2：@ 定向消息不进缓存（写侧——读侧排除不对称实证）', () => {

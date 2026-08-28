@@ -53,5 +53,7 @@ describe('persona 成员协议（P0/P1）', () => {
     assert.ok(layer.includes('call_agent'), '协作纪律含委托指引')
     assert.ok(layer.includes('称呼'), '协作纪律含称呼规则')
     assert.ok(layer.includes('@'), '协作纪律含被@响应规则')
+    // B7（2026-08）：前缀规范——AI 不给自己加 [自己名] 前缀（双前缀实证）
+    assert.ok(layer.includes('不要加 [自己名字] 前缀'), '协作纪律含前缀禁令（B7）')
   })
 })
