@@ -18,6 +18,8 @@
 | G3 | **server.ts 单体瘦身**——8 条 stats 路由 → `src/routes/stats.ts`（registerStatsRoutes）——纯迁移零行为变化 | server.ts 1702→1387 行（-315）；隔离审计通过（SQL 已 app_id 隔离——无需豁免登记） |
 | G2 | **A2 断线补拉场景测试**——真实浏览器 CDP 网络仿真（setOffline 静默挂起）→ 断线期间 API 发消息（广播丢失）→ 恢复 → 重连补拉（id 去重恰好一次） | **框架层根因修复：ws 心跳看门狗**（浏览器对网络断不触发 close/error——socket 静默挂起——重连永不启动——断线消息永远丢失）——契约测试 2 项锁定 |
 | G7 | **register/join 限流硬编码 5/分钟 → REGISTER_LIMIT_MAX 可调**（全量套件工作台测试抖动根因——UI 测试多文件串行注册租户共享 Redis 同 IP 计数破 5） | 生产默认 5 不变（01-auth 限流测试锁定）；UI 测试 server spawn 拉高 |
+| E1 | **轮询补偿（ROADMAP E）**——Chat 断线 30s 轮询兜底（WS/HTTP 双通道冗余——断线期间消息不丢；重连自动停） | **真 bug 歼灭：loadMessages(merge) 改了 $.msgs 但不 ctx.render()——纯 HTTP 补拉路径消息不上屏**（A2 重连无 ws 事件时同样受影响——reconnect 测试通过是侥幸）——场景测试 polling.test.ts（WebSocket stub 永久断线 → 轮询拉取恰好一次） |
+| E2 | **5xx 计数可见性（ROADMAP E）**——metrics 错误细分（errors5xx/errorsCaught——非所有错误都是 5xx）+ Settings 系统状态卡「服务健康」行 | Settings 基线加断言锁定 |
 
 ### 上一批（测试纪律对齐波次——OPTIMIZE-PLAN-3 初版交付）
 
@@ -41,10 +43,9 @@
 
 ## 剩余缺口（下一波候选——按价值排序）
 
-| # | 项 | 来源 | 估 |
-| --- | --- | --- | --- |
-| G5 | E1 轮询补偿（WS 长断线 30s 轮询）/ E2 5xx 计数可见性 | ROADMAP E 余项 | 中 |
-| G6 | AgentDetail 子分区加载竞态可观测（执行日志等子组件各自 await——慢端点时分区晚到——本次测试靠等待兜住——可加骨架一致性） | 本波观察 | 低 |
+| # | 项 | 状态 |
+| --- | --- | --- |
+| G5 | E1 轮询补偿（WS 长断线 30s 轮询兜底）/ E2 5xx 计数可见性 | ✅ 已交付（见上表 E1/E2 行） |
+| G6 | AgentDetail 子分区加载竞态 | ⚠️ **核查后降级——无需修复**：子组件工厂是 async 且被引擎 await——首帧渲染即全量（慢端点拖慢首帧而非分区晚到）——无「晚到跳动」——旧测试「等执行日志」实际是等首帧链——观测确认非缺陷 |
 
-> G1（deliverables 契约）/ G2（断线补拉场景 + 框架看门狗）/ G3（stats 迁移）/ G4（审计筛选）已交付；
-> G7（REGISTER_LIMIT_MAX）为测试隔离附加项——见上表。
+> G1–G5 全交付；G6 经核查关闭（引擎 await async 工厂架构——非缺陷）。
