@@ -6,7 +6,7 @@
 
 ## 商业化能力（2026-12 · v0.82.2）
 
-完整商业化闭环（详见 [COMMERCIAL-PLAN.md](COMMERCIAL-PLAN.md)——G1-G15 全部实施）：
+完整商业化闭环（详见 [COMMERCIAL-PLAN.md](docs/archive/COMMERCIAL-PLAN.md)——G1-G15 全部实施）：
 
 | 能力 | 说明 | 配置 |
 |------|------|------|
