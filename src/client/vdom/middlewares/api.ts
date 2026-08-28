@@ -72,7 +72,23 @@ export function api(opts: ApiOptions = {}): ApiClient {
         const ok = await opts.onUnauthorized()
         if (ok) return request<T>(method, url, body, reqOpts)
       }
-      if (!res.ok) throw new ApiError(`[api] 请求失败 ${res.status}: ${method} ${url}`, res.status)
+      if (!res.ok) {
+        // 服务端错误体保留（{error} 约定——业务错误信息不丢失）：
+        // 旧行为只报「请求失败 404: GET ...」——服务端语义（如「Agent 不存在」）
+        // 在客户端不可见——错误面文案/判定全部瞎（AgentDetail notFound 误报实证）
+        let serverMsg = ''
+        try {
+          const text = await res.text()
+          if (text) {
+            const body = JSON.parse(text)
+            if (body && typeof body === 'object' && typeof body.error === 'string') serverMsg = body.error
+          }
+        } catch { /* 非 JSON 体忽略 */ }
+        throw new ApiError(
+          serverMsg || `[api] 请求失败 ${res.status}: ${method} ${url}`,
+          res.status,
+        )
+      }
       const text = await res.text()
       return (text ? JSON.parse(text) : undefined) as T
     } catch (e) {

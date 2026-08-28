@@ -28,6 +28,10 @@ before(async () => {
     } else if (url.pathname === '/api/error') {
       res.statusCode = 500
       res.end('boom')
+    } else if (url.pathname === '/api/error-json') {
+      // 服务端 {error} 约定体——非 2xx 时 ApiError 必须携带业务错误信息
+      res.statusCode = 404
+      res.end(JSON.stringify({ error: 'Agent 不存在' }))
     } else {
       res.statusCode = 404
       res.end('not found')
@@ -68,6 +72,18 @@ test('非 2xx → ApiError（状态码透传）', async () => {
 test('404 → ApiError（路由缺失——非静默）', async () => {
   const client = api({ baseUrl: base })
   await assert.rejects(client.get('/api/missing'), (e: unknown) => e instanceof ApiError)
+})
+
+test('非 2xx + JSON {error} 体 → ApiError.message 携带服务端错误信息（状态码透传）', async () => {
+  const client = api({ baseUrl: base })
+  await assert.rejects(
+    client.get('/api/error-json'),
+    (e: unknown) =>
+      e instanceof ApiError &&
+      (e as ApiError).status === 404 &&
+      (e as ApiError).message === 'Agent 不存在',
+    '404 + {error} 体 → message = 服务端错误信息（客户端错误面不瞎——AgentDetail notFound 误报根因）',
+  )
 })
 
 test('onError 回调（错误上报钩子——不吞错误）', async () => {
