@@ -13,38 +13,38 @@
 
 | # | 项 | 详情 |
 | --- | --- | --- |
-| T1 | **UI 测试重写（红 → 绿）** | `test/ui/pages.test.ts` 7 基线（Login/Register SSR 零 JS 首屏 + 水合吸收、工作台有数据/空状态、Settings 四卡、AgentDetail 分区/错误态）+ `test/ui/smoke.test.ts` 2（15 静态路由冒烟零错误 + 未登录守卫跳登录）——**形态 = 场景层纪律**：`shared.ts` spawn 真实 server（PORT=0 随机端口——解析框架 `weifuwu listening` 行）+ playwright 真实浏览器 + 错误收集（与 `src/test/scenario/e2e-shared.ts`、`apps/showcase/test/showcase-shared.ts` 同构） |
-| T2 | 数据种子纪律 | 注册租户（`/api/auth/register` 一步签发）+ 部门/Agent 走真实 API（不直插 SQL——API 形状漂移即测试失败）+ localStorage 注入认证（`agent_platform_token/user/refresh`——v3-main 启动读取键） |
-| B1 | **Register SSR 崩溃**（`location is not defined` → 静默回退 SPA 壳——注册页丢失零 JS 首屏） | `inviteParams()` 工厂期读 `location.search`——node SSR 无 location——惰性守卫（typeof 判定——A1 SSR 纪律与 Login 对齐）——playwright SSR 直取 HTML 断言锁定 |
-| B2 | **框架层 api client 错误体丢失**（根因级） | 非 2xx 时 `ApiError` 只报「请求失败 404: GET ...」——服务端 `{error}` 语义（如「Agent 不存在」）客户端不可见——错误面文案/判定全瞎——修复：JSON `{error}` 体解析进 message（无体回落原格式——状态码照透传）——契约测试锁定（`api.test.ts`——框架 208 契约全绿）——**核心层修复惠及所有消费方**（修复归类纪律实证：组件层异常 → 根因在框架 → 修框架） |
-| B3 | AgentDetail notFound 误报 | 旧判定纯文本匹配「不存在」——B2 修复前真实 404 永远走「加载失败」分支（错误态不可达——旧 jsdom mock 恰好把 body 塞进 message 掩盖了它）——修复：`status === 404` 优先 + 文本兜底 |
-| B4 | **全局限流误伤页面/静态**（429 白屏实证） | 页面 GET + 静态资源计入 100/60s/IP 配额——每次页面访问 3+ 请求耗配额——整页渲染变裸 429 JSON；企业内网多用户同 NAT 出口更甚——修复：限流面收敛 `/api/*`（webhook 豁免不变）+ `RATE_LIMIT_MAX` 可调（默认 100） |
-| B5 | server.ts PORT 环境变量 | `serve(app, { port: 3000 })` 硬编码 → `PORT` 可配（`=0` 随机端口 + 框架打印实际端口——测试/多实例部署前提） |
+| G1 | **`/api/deliverables` 契约测试 9 项**——路由捕获 + 真实文件系统 + 假 sql 值捕获：聚合排序/隐藏过滤/深度 1/50MB 拒绝/limit 夹紧/失败部门跳过/自定义路径/空态 401/app_id 隔离意图 | **抓虫：50MB 占位拒绝仅子目录分支有——根层大文件漏网**（注释语义与实现不一致）——统一阈值双分支同判 |
+| G4 | **审计时间范围筛选**（ROADMAP C3）——`listAudit` 增 from/to（sql 片段组合）+ 路由 400 校验 + Settings 审计卡时间 Select（全部/近 7/30/90 天——与 action 正交）| 真库测试 8 项（回溯 created_at 时间分布——from/to/窗口/组合/隔离） |
+| G3 | **server.ts 单体瘦身**——8 条 stats 路由 → `src/routes/stats.ts`（registerStatsRoutes）——纯迁移零行为变化 | server.ts 1702→1387 行（-315）；隔离审计通过（SQL 已 app_id 隔离——无需豁免登记） |
+| G2 | **A2 断线补拉场景测试**——真实浏览器 CDP 网络仿真（setOffline 静默挂起）→ 断线期间 API 发消息（广播丢失）→ 恢复 → 重连补拉（id 去重恰好一次） | **框架层根因修复：ws 心跳看门狗**（浏览器对网络断不触发 close/error——socket 静默挂起——重连永不启动——断线消息永远丢失）——契约测试 2 项锁定 |
+| G7 | **register/join 限流硬编码 5/分钟 → REGISTER_LIMIT_MAX 可调**（全量套件工作台测试抖动根因——UI 测试多文件串行注册租户共享 Redis 同 IP 计数破 5） | 生产默认 5 不变（01-auth 限流测试锁定）；UI 测试 server spawn 拉高 |
 
-**达成状态**：
-- agent-platform tests 181（1 红）→ **189/189 全绿**（+7 页面基线 +2 冒烟——旧失效 1 项歼灭）
-- 框架契约层 **208/208**（+1 api 错误体用例）；场景层 **116/116**；双侧 tsc 0；build 731KB 可加载
-- 冒烟新能力：19 页路由单会话 2.1s 扫完——后续页面改动零回归防线（ROADMAP 验收「冒烟零回归」正式落地）
+### 上一批（测试纪律对齐波次——OPTIMIZE-PLAN-3 初版交付）
 
-**方法论沉淀（旧基建为何死 / 新基建为何对）**：
-- 旧形态（jsdom + `createRouter` 直挂）= 框架内部实现细节的私有消费——框架重构
-  （ui-dom → client/vdom 统一）即断链——且 jsdom 永远追不上真实浏览器行为
-  （吸收/水合/守卫/限流全部测不到——B1/B4 两个 bug 它结构性不可见）
-- 新形态（playwright + uiServe 真实 server）= 场景层纪律下沉应用——真实渲染管线 +
-  真实认证/数据链路——**测试消费公共契约（HTTP + DOM）不消费内部实现**——
-  框架重构不再击穿应用测试
+| # | 项 | 详情 |
+| --- | --- | --- |
+| T1 | **UI 测试重写（红 → 绿）** | `test/ui/pages.test.ts` 7 基线 + `test/ui/smoke.test.ts` 2（15 静态路由冒烟零错误 + 未登录守卫）——形态 = 场景层纪律（playwright + 真实 server——`shared.ts` spawn PORT=0 + 真实 API 种子 + localStorage 认证注入） |
+| B1 | Register SSR 崩溃（`location is not defined` → SPA 壳回退） | 惰性守卫（A1 纪律） |
+| B2 | **框架层 api client 错误体丢失** | 非 2xx `ApiError` 携带服务端 `{error}`（契约测试锁定）——核心层修复惠及全库 |
+| B3 | AgentDetail notFound 误报 | `status === 404` 优先 + 文本兜底 |
+| B4 | 全局限流误伤页面/静态（429 白屏） | 限流面收敛 `/api/*` + `RATE_LIMIT_MAX` 可调 |
+| B5 | server.ts PORT 环境变量 | `=0` 随机端口（测试/多实例前提） |
+
+### 框架层本波核心修复（G2 过程发现）
+
+**ws 心跳看门狗**（`src/client/vdom/middlewares/ws.ts`——核心修复惠及全库）：
+- 网络硬断时浏览器**不触发 close/error**——socket 静默挂起——onclose 永不执行
+  → 重连调度永不启动 → 应用层断线感知/补拉永不触发（A2 失效唯一种子）
+- 修复：ping 周期活性检测（任何入站刷新活性——超时强制 close → onclose → 重连链）
+  + onerror → close 链（error 不处理后 socket 残留）
+- 契约测试 2 项（静默挂起超时断线感知 + onerror close 链）——核心层纪律：修复即契约锁定
 
 ## 剩余缺口（下一波候选——按价值排序）
 
 | # | 项 | 来源 | 估 |
 | --- | --- | --- | --- |
-| G1 | `/api/deliverables` 契约测试（B1 端点零测试——聚合/排序/深度 1/隐藏文件过滤） | ROADMAP 验收债 | 小 |
-| G2 | A2 断线补拉场景测试（ws 断开 → 重连 → loadMessages 合并去重） | ROADMAP 验收债 | 中（需 ws fixture——可参照场景层 `/ws` fixture 形态） |
-| G3 | server.ts 单体瘦身：17 条 stats 内联路由 → `src/routes/stats.ts`（1702 行 → 迁移零行为变化——测试全绿即验收） | 工程债 | 中 |
-| G4 | C3 审计时间范围筛选（`listAudit` 仅 action 过滤——补 from/to 参数 + Settings 审计卡消费） | ROADMAP C3 | 小 |
 | G5 | E1 轮询补偿（WS 长断线 30s 轮询）/ E2 5xx 计数可见性 | ROADMAP E 余项 | 中 |
 | G6 | AgentDetail 子分区加载竞态可观测（执行日志等子组件各自 await——慢端点时分区晚到——本次测试靠等待兜住——可加骨架一致性） | 本波观察 | 低 |
 
-## 验收（下一波）
-- G1/G2 有测试锁定；G3 纯迁移（测试总数不变全绿——diff 只动 import/位置）
-- 每波次收尾：`npm test`（agent-platform）+ 框架 `test:client`/`test:scenario` + 双侧 tsc 0
+> G1（deliverables 契约）/ G2（断线补拉场景 + 框架看门狗）/ G3（stats 迁移）/ G4（审计筛选）已交付；
+> G7（REGISTER_LIMIT_MAX）为测试隔离附加项——见上表。
