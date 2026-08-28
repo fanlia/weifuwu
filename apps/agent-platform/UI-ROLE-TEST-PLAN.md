@@ -7,6 +7,23 @@
 > （`<a href>` 在页面无错误——**点击才触发**）。
 > **计划核心：每个页面 = 真实交互点击 × 角色视角断言——不是打开检查**。
 
+> ## ✅ 全部完成（2026-08——4 波全部落地）
+> - **Wave 1**：shared.ts 角色种子（seedRoleMember——invite→join 全链路）+
+>   deliverables/chat/workspace 交互固化——11 测试——**抓出 3 bug**（join 角色硬编码 /
+>   viewer 前端按钮未禁/eventsPg 泄漏）
+> - **Wave 2**：agents/departments/templates/settings/approvals 管理页交互——14 测试
+>   ——**抓出 3 bug**（member 建部门越权/删除成功报失败/join 角色）
+> - **Wave 3**：roles/reports 角色矩阵跨页——9 测试——**抓出 3 安全修复**（viewer 能
+>   删部门无鉴权/admin 概览 500、权限错误 HttpError 标准化）
+> - **Wave 4**：click-smoke 全页点击扫描 + regression 历史 bug 回潮防线（R1-R8 固化）
+>   ——9 测试
+> - **基建**：共享 server（每文件 spawn→单实例——17×2-4s 启动消除）+ 硬等待全删
+>   + sandbox docker 移出默认套件（test:docker）——全量 286 测试 51s
+> - **附加深度修复**：框架 auth 竞态（currentUser 模块级——有效 token 偶发 401
+>   ——reports 页实证——100 并发 1×401→0）+ vdom mounting 等待（/deliverables 空态
+>   框架层根因）
+> - **终态**：应用 286/286 · UI 55 测试（16 文件）· 框架 212 契约 + 116 场景 · 双侧 tsc 0
+
 ---
 
 ## 一、范围盘点（19 页面 × 4 角色）
