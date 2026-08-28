@@ -15,6 +15,12 @@ function distDir(baseDir: string): string {
 }
 
 export function registerUiRoutes(app: Router<any>, baseDir: string): void {
+  // ── favicon（内联 SVG——浏览器自动请求 404 噪音消除——零文件依赖） ──
+  app.get('/favicon.ico', async (): Promise<Response> => new Response(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#4f6ef7"/><path d="M9 21c3-8 11-14 14-11 2 2-1 5-5 8-4 3-7 3-9 3z" fill="#fff"/></svg>`,
+    { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'max-age=86400' } },
+  ))
+
   // ── 唯一样式来源：weifuwu/components（Token + 布局原语 + 组件样式） ──
   app.get('/static/style.css', async (_req: Request, ctx: Context): Promise<Response> =>
     ctx.ui.css('weifuwu/components/style.css')

@@ -155,7 +155,11 @@ function mergeLayoutCss() {
         const layer = LAYER_OF[name]
         // 未登记文件默认 layout 会静默降级层叠优先级（_flex 掉层致 wf-flex@lg 失效的教训）——报错防呆
         if (!layer) throw new Error(`layout 文件未登记 @layer 映射: ${f}（在 scripts/build.mjs LAYER_OF 中登记）`)
-        return `@layer ${layer} {\n${content}\n}`
+        // tokens 层不包 @layer（:root/@supports 顶层块——包裹后 @supports 的 } 与 @layer 闭
+    // 产生冗余（PostCSS Unexpected }——dist style.css 500 根因实证）——tokens 变量在隐式
+    // 层仍生效（@layer tokens 声明保留——无同名覆盖冲突——token 优先级不变）
+    if (layer === 'tokens') return content
+    return `@layer ${layer} {\n${content}\n}`
       })
     )).then(chunks =>
       `${head}\n\n@layer tokens, base, layout, utilities, components;\n\n${chunks.join('\n\n')}`

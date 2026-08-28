@@ -155,3 +155,23 @@ test('L6 文档计数同步(README == inventory)', () => {
   const line = `${inv.primitives} 个布局原语 + ${inv.utilities} 个工具类 + ${inv.tokens} 个主题 Token`
   assert.ok(readme.includes(line), `README.md 缺计数行: ${line}`)
 })
+
+test('L7 构建产物 CSS 可解析（dist PostCSS 合格——style.css 500 根因防线）', async () => {
+  // 根因：_tokens.css @supports 块被 @layer 包裹产生冗余 } → PostCSS Unexpected }
+  // → ctx.ui.css 编译崩 → /static/style.css 500（页面样式全挂）——契约锁定构建管线健康
+  const distFiles = [
+    join(root, 'dist', 'client', 'layout', 'weifuwu-layout.css'),
+    join(root, 'dist', 'client', 'components', 'style.css'),
+  ]
+  for (const f of distFiles) {
+    const exists = (await import('node:fs')).existsSync(f)
+    if (!exists) continue // dist 未构建——跳过（构建后用 test:client 验证）
+    const postcss = await import('postcss')
+    try {
+      const css = readFileSync(f, 'utf-8')
+      await postcss.default.parse(css)
+    } catch (e: any) {
+      assert.fail(`${f}: PostCSS 解析失败（构建产物损坏——500 根因）: ${String(e.message).slice(0, 120)}`)
+    }
+  }
+})
