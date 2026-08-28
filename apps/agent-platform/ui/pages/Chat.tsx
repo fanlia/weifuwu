@@ -190,6 +190,9 @@ export const Chat: Component = async (_props, ctx) => {
       $.msgs = [...byId.values()].sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
     }
     $.hasMore = list.length >= 50
+    // 补拉/轮询路径重渲染（merge 改了 $.msgs 但不 rerender——UI 停留在旧帧——
+    // A2 纯 HTTP 补拉无 ws 事件兜底——E1 轮询实测消息不上屏根因）
+    ctx.render()
   }
 
   Promise.all([
@@ -243,15 +246,29 @@ export const Chat: Component = async (_props, ctx) => {
 
   // A2 断线补拉（2026-08）：ws 状态翻转 false→true（重连成功）→ 补拉最近消息
   // （断线期间 new_message 未达——onMessage 不补历史）——id 去重合并不重复
+  // E1 轮询补偿（2026-08——ROADMAP E——WS 长断线兜底）：断线期间 30s 轮询
+  // 补拉（HTTP 通道可达时消息不丢——WS/HTTP 双通道冗余）；重连成功自动停。
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+  const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
+  const startPoll = () => {
+    if (pollTimer) return
+    // 测试覆写钩子（生产默认 30s——场景测试快轮询）
+    const ms = Number((globalThis as any).__WF_CHAT_POLL_MS ?? 30_000)
+    pollTimer = setInterval(() => { void loadMessages(true) }, ms)
+  }
   const unsubStatus = ctx.ws?.onStatusChange((up) => {
     if (up) {
-      // 重连成功：重发订阅（mount 时 subscribe 在 WS 未连时被静默丢弃——
-      // 不重发则广播永远到不了）+ 补拉断线期间消息
+      // 重连成功：停止轮询（WS 主通道恢复）+ 重发订阅（mount 时 subscribe
+      // 在 WS 未连时被静默丢弃——不重发则广播永远到不了）+ 补拉断线期间消息
+      stopPoll()
       ctx.ws?.send({ type: 'subscribe', room: deptId })
       void loadMessages(true)
+    } else {
+      // 断线：启动轮询补偿（HTTP 兜底——WS 长断线期间消息不丢）
+      startPoll()
     }
   })
-  ctx.ui.onUnmount?.(() => unsubStatus?.())
+  ctx.ui.onUnmount?.(() => { unsubStatus?.(); stopPoll() })
 
   const unsub: (() => void) | undefined = ctx.ws?.onMessage((event: any) => {
     switch (event.type) {
