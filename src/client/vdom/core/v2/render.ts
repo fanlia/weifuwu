@@ -17,6 +17,7 @@ import { renderComponent } from '../node/component.ts'
 import { renderNative } from '../node/native.ts'
 import { childrenOf, slotCount } from '../node/children.ts'
 import { keyedId, detectDuplicateKey } from '../node/keyed.ts'
+import { spyEvent } from './spy.ts'
 import { pathId } from '../node/native.ts'
 import { kindOf, textOf } from '../node/index.ts'
 import { emitHole, invalidDiagnostic } from '../node/hole.ts'
@@ -131,6 +132,9 @@ export function renderV2Node(
       if (!seg) {
         seg = createSegment(vn.type as never, vn.props, ctx, compId, requestRender)
         segs.set(compId, seg)
+        spyEvent('seg:create', compId) // 工厂执行（新增段）——诊断器复用轴
+      } else {
+        spyEvent('seg:reuse', compId) // 段复用（工厂不重跑）
       }
       // **renderFn 错误降级（2027-08——v1 R2 契约移植——D3 实证）**：
       // 组件 renderFn 抛错 → 组件级 hole 降级（锚 + 段保留——下一拍重试

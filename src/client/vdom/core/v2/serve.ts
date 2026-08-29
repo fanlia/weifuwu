@@ -28,6 +28,7 @@ import { diffV2, disposeSegment } from './diff.ts'
 import type { SegmentMap } from './diff.ts'
 import { createRenderScheduler } from './schedule.ts'
 import { createRenderCycle } from './cycle.ts'
+import { enableRenderHealth } from '../../dev/render-health.ts'
 import { asyncDataPreload } from '../../hooks/env.ts'
 
 
@@ -143,6 +144,11 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
       scheduler.request() // 下一拍全量 build（首帧语义——currentTree null）
     }
   } })
+  // **渲染健康诊断器（RENDER-HEALTH-PLAN 波次 1——dev only 门控——生产零成本）**
+  let renderHealth: import('../../dev/render-health.ts').RenderHealth | null = null
+  if ((win as unknown as { __WF_DEV__?: boolean }).__WF_DEV__) {
+    renderHealth = enableRenderHealth({ applied$: cycle.applied$, complete$: cycle.complete$, segments })
+  }
 
 
   /** v2 渲染（首帧 build / 后续 diff——命令直接 apply）
@@ -288,6 +294,7 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
       active = false
       doc.removeEventListener('click', onDocClick)
       win.removeEventListener('popstate', onPopstate)
+      renderHealth?.dispose() // 诊断器窗口停止（dev）
       for (const [sid] of [...segments]) disposeSegment(sid, segments) // 段销毁（hooks 清理）
       applier.dispose() // 事件代理根监听移除（资源释放完整——v1 对齐）
       for (const fn of serveUnmounts.reverse()) { try { fn() } catch (e) { console.error('[vdom] v2 unmount:', e) } }
