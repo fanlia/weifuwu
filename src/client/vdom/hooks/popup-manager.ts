@@ -24,6 +24,9 @@
 import type { VNode, VNodeChild } from '../core/vnode.ts'
 import { h } from '../core/vnode.ts'
 import { renderToStream } from '../core/build.ts'
+import type { Command } from '../core/command/index.ts'
+import { renderV2 } from '../core/v2/render.ts'
+import { diffV2, type SegmentMap } from '../core/v2/diff.ts'
 import { diffStream } from '../core/diff/index.ts'
 import { CommandApplier } from '../core/patch/index.ts'
 import { createComponentRegistry } from '../core/node/component.ts'
@@ -93,6 +96,8 @@ interface PopupState {
   disposed: boolean
   panel: HTMLElement | null
   pos: { top: number; left: number; width?: number }
+  /** v2 段表（弹窗级独立实例——v2 引擎渲染） */
+  segments: SegmentMap
 }
 
 /** 内容解析（工厂延迟构建） */
@@ -124,7 +129,7 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
   const state: PopupState = {
     tree: null, applier: null, container: null, chain: Promise.resolve(),
     version: 0, open: false, phase: 'closed', disposed: false, panel: null,
-    pos: { top: 0, left: 0 },
+    pos: { top: 0, left: 0 }, segments: new Map() as SegmentMap,
   }
   const win = env.getBrowser()?.window
   const doc = env.getBrowser()?.document
@@ -259,13 +264,15 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       const registry = applier.registry
       if (!registry) return
       const ctx = env.getSharedContext() ?? ({} as import('../context/UIContext.ts').UIContext)
-      const stream = prev
-        ? diffStream(prev, content, ctx, registry)
-        : renderToStream(content, ctx, registry)
-      const reader = stream.getReader()
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
+      // **v2 引擎渲染（2027-08——完整重构——弹窗独立实例 v2 化）**
+      const cmds = await new Promise<Command[]>((resolve, reject) => {
+        const out: Command[] = []
+        const obs = prev
+          ? diffV2(prev, content as never, ctx, state.segments, registry)
+          : renderV2(content as never, ctx, registry)
+        obs.subscribe({ next: (c) => out.push(c), error: reject, complete: () => resolve(out) })
+      })
+      for (const value of cmds) {
         if (state.disposed || v !== state.version) return
         applier.apply(value)
       }
@@ -403,6 +410,7 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
     if (opts.trapFocus || opts.lockScroll) engageModalLock()
     const registry = createComponentRegistry()
     state.applier = new CommandApplier(container, doc as Document, registry)
+    state.segments = new Map() as SegmentMap
     const content = resolveContent(opts.content)
     if (content !== null && content !== undefined) render(buildPanelVn(content as VNode) as VNode)
     else finalizeClose()
