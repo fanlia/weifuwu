@@ -144,11 +144,13 @@ export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 
   }
   // **id 空间防御（2026-XX——锚父）**：insert 到注释（锚）——真实 DOM
   // insertBefore 抛 DOMException——命令流 id 空间错位（组件输出子空间
-  // 挂到锚）——显式报告（不中断——回退 append 到父容器）
+  // 挂到锚）——显式报告（不中断——**锚后插入**——结构顺序保持——旧锚
+  // 残留由 done.full 未 touched 清理——终态收敛；原 appendChild 尾部
+  // 插入位置错（按钮行后——布局错位——2027-09 tour 实证修正）
   if (parent.nodeType === 8) {
-    console.error(`[vdom] id 空间违例：insert ${cmd.id} 的 parent 是注释锚（${cmd.parent}）——插到父容器`)
+    console.error(`[vdom] id 空间违例：insert ${cmd.id} 的 parent 是注释锚（${cmd.parent}）——插到锚后`)
     const container = parent.parentElement
-    if (container) container.appendChild(el)
+    if (container) container.insertBefore(el, parent.nextSibling)
     if (el.nodeType === 1) applier.refRegistry.mount(cmd.id, el as HTMLElement)
     return
   }

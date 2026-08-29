@@ -19,7 +19,7 @@ import { childrenOf, slotCount } from '../node/children.ts'
 import { keyedId, detectDuplicateKey } from '../node/keyed.ts'
 import { spyEvent } from './spy.ts'
 import { pathId } from '../node/native.ts'
-import { kindOf, textOf } from '../node/index.ts'
+import { kindOf, textOf, isHoleKind } from '../node/index.ts'
 import { emitHole, invalidDiagnostic } from '../node/hole.ts'
 import { serializableAttrs } from '../node/native.ts'
 import { Observable, create } from '../../observable/index.ts'
@@ -149,6 +149,25 @@ export function renderV2Node(
       seg.lastOutput = normalizeOutput(out)
       // **输出位置（单一实现源——v2OutputPos）**——渲染与 diff 共用同规则
       const pos = v2OutputPos(out, compId, parent, index)
+      // **Hole 输出的挂载分离（2027-09——tour 违例实证——G11 可变输出的
+      //  挂载面修正）**：组件输出 null 时——子空间锚（compId.0——id 命名
+      //  保持 C2）但 DOM 挂载必须用**槽位父**（真实容器）——v2OutputPos
+      //  的 {parent: compId} 是命名空间——DOM insert 到 compId（组件槽——
+      //  洞→组件转换后 compId 可能是旧空洞锚——插到锚——id 空间违例——
+      //  且旧锚未移除时锚后插入倒序残留）——与 diff 的「洞→组件 remove
+      //  旧锚 + 渲染」（语义缺口：渲染路径无 remove——done.full 清理在
+      //  insert 之后——中途态 parentOf 命中残留锚）——**分离命名与挂载**：
+      //  锚挂槽位父（isConnected 容器——parentOf 直中）——命名仍 compId.0
+      if (isHoleKind(out)) {
+        const anchorId = pathId(compId, 0)
+        return concatObs([
+          fromArray([
+            { op: 'createAnchor', id: anchorId } as Command,
+            { op: 'insert', id: anchorId, parent, ref } as Command,
+          ]),
+          fromArray([{ op: 'mount', compId } as Command]),
+        ])
+      }
       return concatObs([
         renderV2Node(out, pos.parent, pos.index, ref, ctx, registry, segs, requestRender),
         fromArray([{ op: 'mount', compId } as Command]),

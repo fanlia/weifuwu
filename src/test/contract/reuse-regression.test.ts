@@ -136,3 +136,35 @@ test('RH-7 条件槽位无 key 组件：兄弟有 keyed 列表——切换后 ke
   const kr = runs.filter((r) => r.startsWith("keyed:"))
   assert.equal(kr.length, 1, `条件槽位切换——keyed 兄弟工厂 1 次（实跑 ${kr.length} = 复现）`)
 })
+
+// ── 2027-09 tour 违例回归：洞→组件转换 + 组件输出 null 的挂载分离 ────────
+
+test('RH-8 洞→组件（输出 null）：锚挂槽位父——命名保持 compId.0（id 空间合法）', async () => {
+  const runs: string[] = []
+  const Tour = () => { runs.push('tour'); return () => null } // 弹窗内容走命令式——输出 null
+  let open = false
+  const Demo = () => () => h('div', { class: 'wf-stack' }, [
+    h('div', { class: 'wf-row' }, [h('button', { class: 'go' }, '开始')]),
+    open ? h(Tour, { steps: [] }) : null,
+  ])
+  const oldT = h('main', {}, [h(Demo)])
+  const segs = new Map<string, Segment>()
+  const reg = createComponentRegistry()
+  const sim = new Sim()
+  for (const c of await drainStream(renderToStreamV2(oldT, {}, reg, segs))) sim.apply(c)
+  open = true
+  const newT = h('main', {}, [h(Demo)])
+  const cmds = await drainStream(diffToStreamV2(oldT, newT, {}, reg, segs))
+  for (const c of cmds) sim.apply(c) // Sim 状态机验证（insert 容器性）
+  // 断言：洞→组件转换的锚挂在槽位父（非 compId 槽）
+  const inserts = cmds.filter((c) => c.op === 'insert')
+  const holeIns = inserts.find((c) => (c as { id: string }).id.endsWith('.0') && (cmds as never[]).some((x) => (x as { op: string; id: string }).op === 'createAnchor' && (x as { id: string }).id === (c as { id: string }).id))
+  assert.ok(!holeIns || (holeIns as { parent: string }).parent === 'root.0.0', `洞锚插槽位父（${(holeIns as { parent: string }).parent}）——不插组件槽`)
+  // 终态等价（参考世界）
+  const ref = new Sim()
+  const refSegs = new Map<string, Segment>()
+  for (const c of await drainStream(renderToStreamV2(newT, {}, createComponentRegistry(), refSegs))) ref.apply(c)
+  const s1 = ref.snapshot()
+  const s2 = sim.snapshot()
+  assert.equal(s1, s2, '终态等价（洞→组件转换无残留——锚位正确）')
+})

@@ -28,6 +28,15 @@ export class CommandApplier {
   nodes = new Map<string, WfNode>()
   /** 本流已创建 id（done.full 清理） */
   touched = new Set<string>()
+  /** **整树替换式重置（2027-09——tour 违例实证）**：resetRoot（innerHTML
+   *  清空）后记录表同步清——后续 build 的 parentOf 不再命中残留锚
+   *  （DOM 已脱离——记录越权应用→id 空间违例）——事件/ref 清表不清监听 */
+  reset(): void {
+    this.nodes.clear()
+    this.touched.clear()
+    this.eventRegistry.clear()
+    this.refRegistry.clear()
+  }
   /** 事件代理注册表（document 捕获监听——分发） */
   eventRegistry: EventRegistry
   /** ref 全局注册表（挂载/卸载查表触发） */
@@ -113,11 +122,13 @@ export class CommandApplier {
     }
   }
 
-  /** 父节点解析（root/节点表） */
+  /** 父节点解析（root/节点表）——**脱离记录回退（2027-09——tour 实证**：
+   *  整树替换后残留记录（DOM 已脱离——isConnected=false）——直中返回
+   *  残留锚/旧节点 → insertBefore/锚判定错误——跳过脱离记录继续回退） */
   parentOf(cmd: { parent: string }): HTMLElement | null {
     if (cmd.parent === 'root') return this.container
     const direct = this.nodes.get(cmd.parent)
-    if (direct) return direct as HTMLElement
+    if (direct && direct.isConnected) return direct as HTMLElement
     // **组件逻辑父回退**（真实 bug：组件直接输出组件时子输出挂组件 compId
     // 下（compId.0——注册表隔离）——组件 id 不是 DOM 节点（nodes 表无）——
     // 逐段截断回退到最近 DOM 祖先——插入位置由 ref（组件槽锚）定位——
@@ -127,7 +138,7 @@ export class CommandApplier {
       const p = segs.slice(0, i).join('.')
       if (p === 'root') return this.container
       const node = this.nodes.get(p)
-      if (node) return node as HTMLElement
+      if (node && node.isConnected) return node as HTMLElement
     }
     return null
   }

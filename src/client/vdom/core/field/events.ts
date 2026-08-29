@@ -135,6 +135,11 @@ export class EventRegistry {
     }
   }
 
+  /** **清表（监听保留——resetRoot 整树替换式重置用）** */
+  clear(): void {
+    this.table.clear()
+  }
+
   /** 卸载清理（移除全部根监听 + 清表）——状态机迁移：active → disposed */
   dispose(): void {
     if (this.phase === 'disposed') return // 幂等

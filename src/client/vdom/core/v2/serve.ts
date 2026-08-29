@@ -109,6 +109,8 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
       // 渲染——root 异型走转换表会违例（component→component 同态））
       rootEl.innerHTML = ''
       for (const [sid] of [...segments]) disposeSegment(sid, segments)
+      applier.reset() // **记录表同步清（2027-09——tour 违例实证——残留锚
+      // 记录越权命中（DOM 已脱离——parentOf 直中记录而非真实容器）**
     },
     build: (vnode) => renderV2(vnode, ctx as unknown as UIContext, registry, segments, () => scheduler.request()),
     diff: (oldTree, vnode) => diffV2(oldTree, vnode, ctx as unknown as UIContext, segments, registry, () => scheduler.request()),

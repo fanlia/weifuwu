@@ -78,6 +78,11 @@ export class RefRegistry {
     }
   }
 
+  /** **清表（serve 整树替换式重置用）** */
+  clear(): void {
+    this.refs.clear()
+  }
+
   /** 卸载清理（serve unmount）——状态机迁移：active → disposed */
   dispose(): void {
     if (this.phase === 'disposed') return // 幂等
