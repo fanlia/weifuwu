@@ -1,5 +1,13 @@
 # VDOM-OBSERVABLE-COMPLETE — vdom 全链路 Observable 化计划
 
+> **✅ 已完成归档（2027-09）**：9/9 波次交付——提交
+> `660b44e1`（波次 3）`3812de5a`（波次 4）`d4dfdeeb`（波次 1）\
+> `c06e1c22`（波次 2）`942b4e1c`（波次 5）`c5f854af`（波次 6）\
+> `72f9b97f`（波次 7）`54d341ab`（波次 8/9）——验收：319 契约 ·
+> 27 harness · 117 场景全绿 · tsc 0 · audit:semantics 0 ·
+> audit-observable-complete 三检查 0——实施实录见 AGENTS.md
+> §23「流化维度总表」。
+>
 > 发起动因：v2 已把**生成端**（render/diff/调度/值源 hooks/段信号）流化；
 > 但**消费端/状态机/外围**仍为命令式 + 状态机——「全 Observable」的承诺
 > 只兑现了一半。本计划 = 把剩余部分全部接入流世界——**源/管线/终态/快照**
