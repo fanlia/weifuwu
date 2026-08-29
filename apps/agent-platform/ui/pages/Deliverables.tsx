@@ -11,13 +11,13 @@ import { EmptyState, Loading, PageHeader, errMsg } from '../components/ui'
 import { Badge, Button, Card, Icon, Input } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 
-/** B-打开（2026-08）：交付物预览带鉴权（<a target=_blank> 无 Bearer → 401 实证）——
- * fetch + token → blob URL → 新窗口打开 */
+/** B-打开（2026-08）= **下载**——v2 曾「打开」＝ window.open(不带 download=1
+ * 的 URL)——服务端返回 JSON（{content,binary}）——用户看到的是一坨 JSON
+ * 而非文件（交付物无 Web 预览面——pptx/docx 无前端渲染）——统一语义：
+ * 点击「打开/下载」= 拿到文件（download=1 + ticket 直链——原生下载） */
 async function openDeliverable(deptId: string, path: string): Promise<void> {
-  // v2（2026-08）：直链打开（?token=——框架 mw 支持 query token——浏览器
-  // 原生导航——零 blob（blob 在真实浏览器/Playwright 均不可靠——实证））
-  const { openFileUrl } = await import('../lib/download.ts')
-  await openFileUrl(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(path)}`)
+  const { downloadFileAuthorized } = await import('../lib/download.ts')
+  await downloadFileAuthorized(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(path)}&download=1`)
 }
 
 interface DeliverableFile {
@@ -115,7 +115,7 @@ export const Deliverables: Component = async (_init, ctx) => {
                 <button type="button"
                   class="wf-btn wf-btn--sm wf-btn--secondary" style="text-decoration:none"
                   onClick={() => { void openDeliverable(f.deptId, f.path) }}>
-                  <Icon name="external-link" size={14} /> 打开
+                  <Icon name="arrow-down" size={14} /> 下载
                 </button>
               </div>
             ))}

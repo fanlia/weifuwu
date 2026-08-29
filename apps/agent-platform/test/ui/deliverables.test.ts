@@ -81,7 +81,7 @@ test('交付物：下载按钮点击必须 200（不 401——用户实证 `<a h
   await openAgentPage(page, BASE, '/deliverables')
   await waitForText(page, 'seed-report.md', 15_000)
   // 下载按钮（button title=下载 或「打开」——交付物页打开按钮）
-  const dlBtn = page.locator('button:has-text("打开")').first()
+  const dlBtn = page.locator('button:has-text("下载")').first()
   assert.ok((await dlBtn.count()) > 0, '打开/下载按钮存在')
   // 直链方案回归（2026-08——v2）：入口按钮存在 + 服务端直链 200 + attachment
   // （token query 鉴权——框架 mw；下载响应二进制——用原生 fetch 断言——apiAs
