@@ -8,6 +8,9 @@ interface WsWorkspaceResponse {
   department?: { id: string; name: string } | null
   env?: { status: string; label: string } | null
   members?: Member[]
+  // 主部门工作区文件（2026-08——首帧无延迟显示：聚合 API 已含——FilesSection
+  // 用 initialFiles 直接首帧渲染——消除二次请求延迟）
+  files?: Array<{ name: string; type: string; size: number; mtime: string }>
   subDepartments?: Array<{ id: string; name: string; managerId: string; managerName: string; memberCount: number; files: Array<{ name: string; type: string; size: number; mtime: string }> }>
 }
 import type { Agent, ChatMessage, Member, Message, MessageListResponse, MessageTool } from '../lib/types'
@@ -84,6 +87,8 @@ interface ChatState {
   env: { status: string; label: string }
   /** 组织层级：下级部门（经理代表的部门——上级可见子部门交付物） */
   subDepts: Array<{ id: string; name: string; managerId: string; managerName: string; memberCount: number; files: Array<{ name: string; type: string; size: number; mtime: string }> }>
+  /** 工作区文件（2026-08——聚合 API 首帧带——FilesSection initial 零延迟） */
+  wsFiles: Array<{ name: string; type: string; size: number; mtime: string }>
   /** 产物审批：聊天流内操作中标记 */
   reviewBusy: string
   /** ChatInput labels（placeholder 随搜索态切换——切换时新建对象：props 不可变契约） */
@@ -162,6 +167,7 @@ export const Chat: Component = async (_props, ctx) => {
   $.replyTo = null
   $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
   $.atMenuIndex = -1
+  $.wsFiles = []
   $.expandedTool = null
   $.env = { status: 'none', label: '' }
   $.subDepts = []
@@ -308,6 +314,7 @@ export const Chat: Component = async (_props, ctx) => {
     $.membersList = (wsRes?.members ?? []).filter((m: Member) => m.type === 'ai' || m.type === 'knowledge_base' || m.type === 'department')
     $.env = wsRes?.env ?? { status: 'none', label: '' }
     $.subDepts = wsRes?.subDepartments ?? []
+    $.wsFiles = wsRes?.files ?? []
     rerender()
   }).catch(() => {})
 
@@ -743,7 +750,7 @@ export const Chat: Component = async (_props, ctx) => {
            消息区更宽——右栏删除） */}
         <div class="wf-border-top wf-padding-top-sm wf-margin-top-sm">
           <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm">交付物（共享目录）</div>
-          <FilesSection departmentId={deptId} />
+          <FilesSection key="ws-files" departmentId={deptId} initialFiles={$.wsFiles} />
 
           {/* 组织层级：下级部门交付物（只读可见——上级看下属成果） */}
           {$.subDepts.length > 0 && (

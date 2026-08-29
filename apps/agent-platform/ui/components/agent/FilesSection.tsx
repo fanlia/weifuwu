@@ -33,10 +33,20 @@ interface WsFileResponse {
 interface WsSaveResponse { success: boolean }
 interface WsUploadResponse { success: boolean; name: string; size: number; error?: string }
 
-export const FilesSection: Component<{ departmentId: string }> = async (_init, ctx) => {
+export const FilesSection: Component<{ departmentId: string; initialFiles?: Array<{ name: string; type: string; size: number; mtime: string }> }> = async (_init, ctx) => {
   let wsEntries: Array<{ name: string; type: 'dir' | 'file'; size: number; mtime: string }> = []
   let wsPath = ''
   let wsLoading = true
+  // **initialFiles（2026-08）：聚合 API 首帧数据——直接显示——零延迟**——
+  // 成员与文件同时出（此前文件等二次 /workspace/list 请求——过一下才出现）
+  const hasInitial = !!(_init.initialFiles && _init.initialFiles.length > 0)
+  if (hasInitial) {
+    wsEntries = _init.initialFiles as typeof wsEntries
+    wsLoading = false
+  }
+  // **mounting 期信号（2026-08）**：工厂 await loadWsList 期间——零 rerender
+  // （mounting 违例——此前竞态根因）——工厂返回后 renderFn 读最新 state
+  let mounting = true
   let wsOpenFile: { path: string; content: string; binary: boolean; truncated: boolean; size: number } | null = null
   let wsEditContent = ''
   let wsSaving = false
@@ -51,11 +61,8 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
   ctx.ui.onUnmount?.(() => { offFilesReload(reloadCb) })
 
   async function loadWsList(path = '') {
-    // 2026-08（入驻左栏后不渲染根因）：工厂 await loadWsList（mounting 期）——
-    // 内部 rerender → mounting 违例 → mount 失败循环（8次请求实证）——
-    // **mounting 期（initial）零 rerender**（loadWsList 末尾的 rerender 只在
-    // 工厂外（用户刷新/回调）执行——mount 完成后 renderFn 读最新 state）
-    const mounting = wsLoading
+    // 2026-08：mounting 期（工厂 await）零 rerender——违例根治——
+    // 工厂外（用户刷新/回调）照常 rerender
     if (!mounting) { wsLoading = true; rerender() }
     try {
       const q = path ? `?path=${encodeURIComponent(path)}` : ''
@@ -63,7 +70,6 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
       wsEntries = d.entries ?? []; wsPath = d.path ?? '/'
     } catch (e) { ctx.toast!('加载失败：' + errMsg(e, ''), 'error') }
     wsLoading = false
-    // mounting 期不 rerender（工厂 return 后 renderFn 读最新——无需额外渲染）
     if (!mounting) rerender()
   }
 
