@@ -1,9 +1,18 @@
 # sandbox 测试优化计划（SANDBOX-TEST-PLAN——2026-08）
 
 > 现状：test/sandbox.test.ts——11 个 docker 集成测试（T-M1/M2/M5/M6 系列）
-> **~59s**（T-M1b 14s / T-M1d 10.6s / T-M2a 11.4s / T-M2c 5.6s 为主）——
+> **59s**（T-M1b 14s / T-M1d 10.6s / T-M2a 11.4s / T-M2c 5.6s 为主）——
 > 已移出默认套件（test:docker 专项——RUN_DOCKER_TESTS=1 守卫）。
 > 目标：**在保留测试语义（真实容器行为验证）的前提下提速 + 增强健壮性**。
+
+> ## ✅ 全部完成（2026-08——实测 47.6s → 23.7s——-50%）
+> - **根因深挖**：docker stop 慢（10s 默认宽限——Entrypoint sh 不转发 SIGTERM）——
+>   containerAction stop -t 2（生产回收快 5 倍 + T-M1b/T-M1d/T-M2a 提速）
+> - S1 镜像预检查（幂等——缺失才拉——防测试内重复 probe/pull）
+> - S6 慢测试显式 timeout（20s——挂起即失败——不无限等）
+> - S7 skip 可观测（warn 原因——不静默）
+> - **提速明细**：T-M1b 14.2→6.2s · T-M1d 10.8→2.8s · T-M2a 11.7→3.7s
+> - **终态**：test:docker 11/11（23.7s）· 默认套件 286/286 无回归 · tsc 0
 
 ---
 
