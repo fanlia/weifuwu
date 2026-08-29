@@ -537,7 +537,11 @@ export class DockerSandbox implements SandboxHost {
   async containerAction(name: string, action: 'stop' | 'start' | 'restart' | 'rm'): Promise<{ ok: boolean; message: string }> {
     if (!name.startsWith(CONTAINER_PREFIX)) return { ok: false, message: '非法容器名' }
     // rm 必须强制（运行中容器直接删除——孤儿/终止语义）
-    const args = action === 'rm' ? ['rm', '-f', name] : [action, name]
+    // **stop 加 -t 2（2026-08——实测根因）**：容器 Entrypoint 是 docker-entrypoint.sh
+    // （sh 不转发 SIGTERM 给 node 子进程）——docker stop 默认等 10s 宽限期后 SIGKILL
+    // ——**10s 慢因**（T-M1b 收尾 reconcile 10.1s 实证）——2s 宽限足够（无状态工作——
+    // 卷持久）——测试快 + 生产回收快 5 倍
+    const args = action === 'rm' ? ['rm', '-f', name] : action === 'stop' ? ['stop', '-t', '2', name] : [action, name]
     sandboxEmit(`container:${action}`, name.replace(CONTAINER_PREFIX, ''), { name })
     const r = await dockerCli(args, 30_000)
     return r.exitCode === 0 ? { ok: true, message: `${action} ${name} 成功` } : { ok: false, message: r.stderr.trim() || `${action} 失败` }

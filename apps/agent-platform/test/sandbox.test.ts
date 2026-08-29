@@ -38,6 +38,12 @@ function dockerAvailable(): boolean {
 }
 
 const HAS_DOCKER = process.env.RUN_DOCKER_TESTS === '1' && dockerAvailable()
+// S7（2026-08）：skip 可观测——docker 不可用/未启用时 warn 原因（不静默）
+if (process.env.RUN_DOCKER_TESTS !== '1') {
+  console.log('[sandbox-test] 跳过（RUN_DOCKER_TESTS 未设——docker 集成专项——npm run test:docker）')
+} else if (!dockerAvailable()) {
+  console.warn('[sandbox-test] docker 不可用——11 测试 skip（环境缺 docker）')
+}
 const TEST_APP = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 const TEST_DEPT = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
 const CONTAINER_NAME = (id: string) => `ap-sandbox-${id}`
@@ -149,6 +155,21 @@ before(async () => {
   await sql.unsafe(`INSERT INTO departments (id, app_id, name, is_dm) VALUES ('${TEST_DEPT}', '${TEST_APP}', '沙盒测试部门', FALSE) ON CONFLICT (id) DO NOTHING`)
   wsDir = await mkdtemp(join(tmpdir(), 'sandbox-it-'))
   await cleanTestData()
+  // S1（2026-08）：镜像预检查（幂等——缺失才拉——测试内 ensure 不再重复
+  // probe/pull——冷环境首次拉镜像不阻塞单测试——fail fast 明确）
+  // **注意**：execFileSync 失败=抛错（非返回空）——用超时包一层判断存在性
+  const imgOk = (() => {
+    try {
+      execFileSync('docker', ['image', 'inspect', 'ap-sandbox:latest', '--format', '{{.Id}}'], { timeout: 10_000, stdio: 'ignore' })
+      return true
+    } catch {
+      return false
+    }
+  })()
+  if (!imgOk) {
+    execFileSync('docker', ['pull', 'ap-sandbox:latest'], { timeout: 180_000, stdio: 'ignore' })
+    console.log('[sandbox-test] 已拉取 ap-sandbox:latest（首次——后续测试复用）')
+  }
 })
 
 after(async () => {
@@ -158,7 +179,7 @@ after(async () => {
   await sql?.close?.()
 })
 
-test('T-M1a: 并发 ensure 去重——10 并发同部门 → 1 容器全成功（P0-2）', { skip: !HAS_DOCKER }, async () => {
+test('T-M1a: 并发 ensure 去重——10 并发同部门 → 1 容器全成功（P0-2）', { skip: !HAS_DOCKER, timeout: 20_000 }, async () => {
   await cleanTestData()
   const exe = makeSandbox()
   const m = makeManager(exe)
@@ -175,7 +196,7 @@ test('T-M1a: 并发 ensure 去重——10 并发同部门 → 1 容器全成功�
   await m.terminate(id, TEST_APP)
 })
 
-test('T-M1b: busy 豁免——exec 期间 reconcile 不回收（P0-1）', { skip: !HAS_DOCKER }, async () => {
+test('T-M1b: busy 豁免——exec 期间 reconcile 不回收（P0-1）', { skip: !HAS_DOCKER, timeout: 20_000 }, async () => {
   await cleanTestData()
   const exe = makeSandbox()
   const m = makeManager(exe, { idleTimeoutMs: 800 })
@@ -218,7 +239,7 @@ test('T-M1c: 容器内超时杀进程树——无孤儿进程（P0-3）', { skip
   await m.terminate(id, TEST_APP)
 })
 
-test('T-M1d: stopped 自愈——docker stop 后 runTool 自动 start（P1-5）', { skip: !HAS_DOCKER }, async () => {
+test('T-M1d: stopped 自愈——docker stop 后 runTool 自动 start（P1-5）', { skip: !HAS_DOCKER, timeout: 20_000 }, async () => {
   await cleanTestData()
   const exe = makeSandbox()
   const m = makeManager(exe)
@@ -226,8 +247,9 @@ test('T-M1d: stopped 自愈——docker stop 后 runTool 自动 start（P1-5）'
   assert.equal(r1.ok, true)
   const [row] = await sql`SELECT * FROM sandboxes WHERE department_id = ${TEST_DEPT} AND status != 'terminated'`
   const id = String(row.id)
-  // 外部 stop（模拟管理员/故障）
-  execFileSync('docker', ['stop', CONTAINER_NAME(id)], { timeout: 15000 })
+  // 外部 stop（模拟管理员/故障）——**带 -t 2**（对齐生产 containerAction——
+  // entrypoint 不转发 SIGTERM——10s 默认宽限会超——2s 实测 2.1s）
+  execFileSync('docker', ['stop', '-t', '2', CONTAINER_NAME(id)], { timeout: 8000 })
   assert.ok(!containerRunning(CONTAINER_NAME(id)))
   // 再次工具调用 → 自动 start 自愈 + 卷文件保留
   const r2 = await m.runTool(TEST_DEPT, wsDir, 'read', { path: 'b.txt' })
@@ -259,7 +281,7 @@ test('T-M1e: 漂移重建——network 变更 → 容器重建（P1-6）', { ski
   await m.terminate(id, TEST_APP)
 })
 
-test('T-M2a: 状态机全路径——requested→running→stopped→running→terminated', { skip: !HAS_DOCKER }, async () => {
+test('T-M2a: 状态机全路径——requested→running→stopped→running→terminated', { skip: !HAS_DOCKER, timeout: 20_000 }, async () => {
   await cleanTestData()
   const exe = makeSandbox()
   const m = makeManager(exe, { idleTimeoutMs: 600, stopTimeoutMs: 2000 })
@@ -307,7 +329,7 @@ test('T-M2b: 孤儿清理——docker 有容器 DB 无记录 → rm', { skip: !H
   assert.ok(!containerExists(orphanName), '孤儿容器应被删除')
 })
 
-test('T-M2c: per-sandbox 串行队列——并发 exec 排队执行', { skip: !HAS_DOCKER }, async () => {
+test('T-M2c: per-sandbox 串行队列——并发 exec 排队执行', { skip: !HAS_DOCKER, timeout: 20_000 }, async () => {
   await cleanTestData()
   const exe = makeSandbox()
   const m = makeManager(exe)
