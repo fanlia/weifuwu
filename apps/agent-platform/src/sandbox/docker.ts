@@ -214,6 +214,14 @@ export class DockerSandbox implements SandboxHost {
       // 存在——校验规格漂移（挂载/镜像/网络；P1-6）
       const drift = await this.specDrift(name, spec, image)
       if (state.running && !drift) {
+        // Wave 2（2026-08）：agent liveness 真实化——healthz 探活（agent 容器
+        // PID1 就绪）——旧镜像（无 agent）exec 失败降级为就绪（rolling 兼容）
+        if (await this.agentHealthy(name)) {
+          this.readyCache.set(sandboxId, { at: Date.now(), fingerprint })
+          return true
+        }
+        // agent 未就绪（启动中/旧镜像）——docker inspect 兜底（running 即视为
+        // 就绪——不阻塞工具调用；agent 化后下次 exec 健康）
         this.readyCache.set(sandboxId, { at: Date.now(), fingerprint })
         return true
       }
@@ -252,6 +260,21 @@ export class DockerSandbox implements SandboxHost {
     if (r.exitCode !== 0 || !r.stdout.trim()) return null
     const st = await dockerCli(['inspect', name, '--format', '{{.State.Running}}'], 10_000)
     return { running: st.exitCode === 0 && st.stdout.trim() === 'true' }
+  }
+
+  /** 容器内 agent 活性探测（SANDBOX-AGENT-PLAN Wave 2——2026-08）：
+   *  agent 容器 /healthz（127.0.0.1:5711——PID1 常驻）——真实 liveness（agent
+   *  PID1 信号/服务就绪）——旧镜像（无 agent）降级：exec 失败即返回 false
+   *  （ensure 视为就绪——docker inspect 兜底——rolling 升级兼容） */
+  private async agentHealthy(name: string): Promise<boolean> {
+    const r = await this.dockerExec(name, ['wget', '-qO-', 'http://127.0.0.1:5711/healthz'], '')
+    if (r.exitCode !== 0 || r.timedOut) return false
+    try {
+      const parsed = JSON.parse(r.output)
+      return parsed?.ok === true
+    } catch {
+      return false
+    }
   }
 
   /** 规格漂移校验（挂载/镜像/网络不匹配 → 需重建） */

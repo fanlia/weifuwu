@@ -849,6 +849,21 @@ async function runAllAgents(
           await scanDir(ws, '', 0)
           files.sort((a, b) => a.path.localeCompare(b.path))
           workspaceLayer = buildWorkspaceLayer(files)
+          // Wave 2（2026-08）：镜像能力声明注入（SANDBOX-AGENT-PLAN——
+          // AI 知道沙盒环境有什么（runtime/office/browser——无需试错）——
+          // 从 capabilities.json（镜像层自描述）——注入 workspaceLayer 尾
+          try {
+            const { readFileSync: readCaps } = await import('node:fs')
+            const { resolve: resolveCaps } = await import('node:path')
+            const caps = JSON.parse(readCaps(resolveCaps(process.cwd(), 'src', 'sandbox', 'capabilities.json'), 'utf-8'))
+            if (Array.isArray(caps?.tools) || Array.isArray(caps?.runtime)) {
+              workspaceLayer += `\n\n【沙盒环境能力】镜像 ${String(caps.label ?? caps.image ?? '?')}：运行时 ${(caps.runtime ?? []).join(' / ')}；`
+              if (Array.isArray(caps.office) && caps.office.length > 0) {
+                workspaceLayer += `Office 库已装（${caps.office.join('、')}）——生成文档/表格/PPT 直接用 python 脚本，无需安装；`
+              }
+              workspaceLayer += '先查已装能力再开工（勿重复安装/试错）。'
+            }
+          } catch { /* capabilities 缺失——跳过（不阻断） */ }
         } catch { /* 扫描失败——无文件地图 */ }
       }
     }
