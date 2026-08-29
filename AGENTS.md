@@ -317,6 +317,28 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     规格/单值 Promise）——每机制单轨（流=时序表达——状态机=状态表达——
     两者共存互补）——audit-observable-complete.mjs 三检查是完成判据。
 
+    ### 优势兑现总表（2027-09——VDOM-OBSERVABLE-OPTIMIZE 实录）
+    **完成状态**：Observable 优势面（组合/时间管理/取消/声明式/回放）充分
+    发挥——audit-observable-optimize.mjs 三检查零违规。
+
+    | 优势 | 落地 | 关键机制 |
+    |---|---|---|
+    | **组合** | 8 算子纯新增：combineLatest（全源首发后发射——快照）/merge/debounceTime/throttleTime (trailing 可选)/distinctUntilChanged（自定义比较器）/finalize（三路径一次）/take（限量自动退订）/startWith | 搜索场景声明式链（combine+distinct+debounce——无手写 timer）；useObservable 限帧 = Subject→throttleTime（**算子消费——非手写 timer**） |
+    | **声明式派生** | derived（读时计算+惰性缓存——读时比较零订阅——任何 getter 可派生——嵌套天然） | 无泄漏面（源 getter 只管读）；getter 纪律保持 |
+    | **时序显式** | 调度器风暴检测：setTimeout(0) 清零 hack → **事件间隔判定**（<16ms 计数/≥16ms 重置） | 回放测试（request 拍序列重喂→同 flush 序列——调度确定性）——观测点 sched:request |
+    | **失败可观测** | asyncErrors$（useAsyncData 失败→key+error 事件——非仅 console.error；get null 降级兼容） | 错误不再只进控制台——诊断器/作者订阅 |
+    | **取消/泄漏** | useObservable 变化通道 Subject+throttle（unmount 双向退订）；disposeSegment instData 清空（登记 entry 引用链释放） | 泄漏防线契约（timer 零后遗症/instData 空）；性能基线（10k build<2s/diff<500ms——成本防线） |
+
+    **收益判负记录（本计划）**：DOM 事件桥（fromEventPattern 已有）；中间件
+    请求链（Promise 单值）；调度优先级（场景证据不足）；cycle 回放（toArray
+    原子——记录即重放——无状态机面）；scheduler latest 模式（现 queue 不丢
+    ——真丢中间非 vdom 场景）——**原则**：优势发挥 = 场景证据驱动的增量——
+    不造抽象（无场景证据的算子/模式 = 仪式）。
+
+    **存量缺陷修复（试金石——derived 测试现形）**：原语信号写面（set=spread
+    {…1}={}——文档 signal(0) 示例坏）→ store.set/update 类型感知（对象合并/
+    原语数组替换——向后兼容）+ changes$ 原语直发。
+
 ## 2c. 渲染健康（三轴诊断器——RENDER-HEALTH-PLAN 波次 1）
 
 > **问题出现即读数**——渲染的「健康」三轴：**频率**（渲染次数/秒）·

@@ -144,10 +144,10 @@
 | 波次 | 状态 | 提交 |
 | --- | --- | --- |
 | 1 组合算子面 | ✅ 8 算子纯新增（combineLatest/merge/debounce/throttle/distinct/finalize/take/startWith——334 契约） | `9abc86d6` |
-| 2 信号派生+错误流+校准 | ⬜ | |
-| 3 调度器流化 | ⬜ | |
-| 4 高频源节流 | ⬜ | |
-| 5 观测面（泄漏/回放/基线） | ⬜ | |
+| 2 信号派生+错误流+校准 | ✅ derived（读时缓存零订阅）+ asyncErrors$ + **原语信号修复** + useSource 校准——345 契约 | `3b94c474` |
+| 3 调度器流化 | ✅ 风暴间隔判定（setTimeout hack 歼灭）+ sched:request 观测点 + 回放测试——338 契约 | `9fd6a975` |
+| 4 高频源节流 | ✅ useObservable throttleMs（Subject→throttleTime——算子消费）——347 契约 + 场景 8/8 | `a828ec41` |
+| 5 观测面（泄漏/回放/基线） | ✅ instData 清空 + 泄漏防线契约 + 10k 性能基线——350 契约 | `0a9d531f` |
 | 6 收尾红线 | ⬜ | |
 
 **总验收**：组合面/时序显式/失败可观测三检查 0 违规 · 319+ 契约绿 ·
