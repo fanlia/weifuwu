@@ -28,8 +28,9 @@ import { createComponentRegistry, type ComponentRegistry } from '../../client/vd
 import type { Segment } from '../../client/vdom/core/v2/diff.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
 import {
-  drainStream, mulberry32, verifyEquivalence,
+  mulberry32, verifyEquivalence,
 } from './reconcile.test.ts'
+import { drainStream } from './sim.ts'
 
 // ── D1/D2：工厂 + renderFn（2027-08 断代——工厂/renderFn 全同步） ────
 let asyncSeq = 0

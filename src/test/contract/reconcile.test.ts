@@ -30,13 +30,7 @@ import { createStateTracker, transition, type StateTracker, type NodeState } fro
 // patch/state-machine.ts 承担（单一实现源——Sim 与 devVerify 共用——
 // 消灭规格漂移）——Sim 只持数据面（DOM 树/事件表/实例表）——
 // 每命令消费后 transition(tracker, cmd) 收集违例——throw（测试红）
-import { Sim, type SimNode } from './sim.ts'
-export async function drainStream(s: ReadableStream<Command>): Promise<Command[]> {
-  const out: Command[] = []
-  const r = s.getReader()
-  while (true) { const { value, done } = await r.read(); if (done) break; out.push(value) }
-  return out
-}
+import { Sim, type SimNode, drainStream } from './sim.ts'
 
 /** 双树对账（维度 7——影子树投影 vs DOM 实际 id）：
  *  从 vnode 树推导合法 id 投影：

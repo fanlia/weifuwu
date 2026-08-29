@@ -5,6 +5,14 @@
 import type { Command } from '../../client/vdom/core/command/index.ts'
 import { createStateTracker, transition, type StateTracker } from '../../client/vdom/core/patch/state-machine.ts'
 
+/** 流 → 命令数组（契约层共享——避免从测试文件 import 引发的连带执行） */
+export async function drainStream(s: ReadableStream<Command>): Promise<Command[]> {
+  const out: Command[] = []
+  const r = s.getReader()
+  while (true) { const { value, done } = await r.read(); if (done) break; out.push(value) }
+  return out
+}
+
 export interface SimNode {
   id: string
   kind: 'el' | 'text' | 'anchor'
