@@ -297,7 +297,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     // 存**请求局部**——requireAuth 闭包捕获局部——不再实时读模块变量。
     // （模块 currentUser 保留——register/login 方法内使用——互不干扰。）
     let reqUser: User | null = null
-    // 解析 Authorization: Bearer <token>
+    // 解析 Authorization: Bearer <token>（或 ?token= 直链——下载/打开——2026-08）
     currentUser = null
     // payload 合并：token 携带的会话字段（appId/tenantId/email/name/role 等）透传到 ctx.auth，
     // 让 `ctx.auth.userId` / `ctx.auth.appId` 这类"当前会话数据"直接可用，不必另写解码。
@@ -305,8 +305,17 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     let payloadTenantId: unknown
     let payloadAppId: unknown
     const authHeader = req.headers.get('authorization')
+    // 直链 token（?token=——window.open 下载导航——前端无法带 Authorization header——
+    // query token 与 Bearer 同等鉴权——仅限 GET 读端点（下载/打开）
+    let rawToken: string | null = null
     if (authHeader?.startsWith('Bearer ')) {
-      const payload = verifyToken(authHeader.slice(7), secret)
+      rawToken = authHeader.slice(7)
+    } else if (req.method === 'GET') {
+      const qt = new URL(req.url ?? '', 'http://localhost').searchParams.get('token')
+      if (qt) rawToken = qt
+    }
+    if (rawToken) {
+      const payload = verifyToken(rawToken, secret)
       if (payload?.sub) {
         reqUser = await findUserById(String(payload.sub))
         currentUser = reqUser

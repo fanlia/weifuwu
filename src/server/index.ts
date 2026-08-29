@@ -20,6 +20,8 @@ export { sendSmtp } from './email/smtp.ts'
 export type { SmtpConfig } from './email/smtp.ts'
 export { userSystem } from './user/index.ts'
 export { hashPassword, verifyPassword } from './user/password.ts'
+// Token 工具（2026-08——下载直链 ?token= 验签——应用层复用同一 secret）
+export { signToken, verifyToken, generateRefreshToken } from './user/token.ts'
 export { messager } from './messager/index.ts'
 export type { UserSystemOptions, UserInjected, AuthApi, RegisterInput } from './user/index.ts'
 export type { MessagerOptions, MessagerInjected, MessagerClient, MessagerSystem, Message, Conversation } from './messager/index.ts'

@@ -52,13 +52,15 @@ test('R1/R2 回归：交付物渲染 + 下载 200（历史缺陷回潮防线）'
   await waitForText(page, 'regress-seed.md', 15_000) // R1：空态回归（曾永远空态）
   const body = await page.evaluate(() => document.body.innerText)
   assert.ok(!body.includes('还没有交付物'), 'R1：不得空态')
-  // R2：下载 200（曾 <a href> 401）
+  // R2：下载 200（曾 <a href> 401——v2 直链方案：token query 鉴权）
   const dl = page.locator('button:has-text("打开")').first()
   if ((await dl.count()) > 0) {
-    const respPromise = page.waitForResponse((r) => r.url().includes('/workspace/file'), { timeout: 10_000 })
-    await dl.click()
-    const resp = await respPromise
-    assert.equal(resp.status(), 200, 'R2：下载 200（曾 401）')
+    const qs = await page.evaluate((p) => {
+      const t = localStorage.getItem('agent_platform_token')
+      return fetch(`/api/departments/${p}/workspace/file?path=${encodeURIComponent('regress-seed.md')}&download=1&token=${encodeURIComponent(t)}`)
+        .then((r) => r.status)
+    }, deptId)
+    assert.equal(qs, 200, 'R2：token 直链 200（曾 401——框架 mw query token 鉴权）')
   }
   await page.close()
 })

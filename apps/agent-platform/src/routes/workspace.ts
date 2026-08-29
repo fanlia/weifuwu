@@ -81,9 +81,11 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
   // ── F2: 读文件（?download=1 → 二进制下载流——AI 产物交付） ──
   app.get('/api/departments/:id/workspace/file', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
+    // **token query 直链鉴权（框架 mw——2026-08）**：?token= 与 Bearer 同等
+    // （框架 user mw 解析 query token——window.open 下载导航无 header 也能鉴权）
+    const url = new URL(req.url)
     const ws = await getWorkspace(ctx, params.id)
     if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
-    const url = new URL(req.url)
     const rel = url.searchParams.get('path') ?? ''
     if (!rel) return Response.json({ error: 'path 为必填' }, { status: 400 })
     let abs: string

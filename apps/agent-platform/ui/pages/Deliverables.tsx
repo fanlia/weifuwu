@@ -14,15 +14,10 @@ import { inputValue } from '../lib/types'
 /** B-打开（2026-08）：交付物预览带鉴权（<a target=_blank> 无 Bearer → 401 实证）——
  * fetch + token → blob URL → 新窗口打开 */
 async function openDeliverable(deptId: string, path: string): Promise<void> {
-  const { authorizedGet } = await import('../lib/download.ts')
-  try {
-    const res = await authorizedGet(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(path)}`)
-    if (!res.ok) return
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  } catch { /* 打开失败忽略 */ }
+  // v2（2026-08）：直链打开（?token=——框架 mw 支持 query token——浏览器
+  // 原生导航——零 blob（blob 在真实浏览器/Playwright 均不可靠——实证））
+  const { openFileUrl } = await import('../lib/download.ts')
+  await openFileUrl(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(path)}`)
 }
 
 interface DeliverableFile {

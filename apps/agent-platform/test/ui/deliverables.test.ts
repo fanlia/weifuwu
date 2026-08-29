@@ -83,13 +83,21 @@ test('交付物：下载按钮点击必须 200（不 401——用户实证 `<a h
   // 下载按钮（button title=下载 或「打开」——交付物页打开按钮）
   const dlBtn = page.locator('button:has-text("打开")').first()
   assert.ok((await dlBtn.count()) > 0, '打开/下载按钮存在')
-  // 监听请求（点击 → fetch blob——带 token——必须 200）
-  let fileStatus: number | null = null
-  const respPromise = page.waitForResponse((r) => r.url().includes('/workspace/file'), { timeout: 10_000 })
-  await dlBtn.click()
-  const resp = await respPromise
-  fileStatus = resp.status()
-  assert.equal(fileStatus, 200, `下载/打开请求应 200（401 = <a href> 无 Bearer 回归）——实际 ${fileStatus}`)
+  // 直链方案回归（2026-08——v2）：入口按钮存在 + 服务端直链 200 + attachment
+  // （token query 鉴权——框架 mw；下载响应二进制——用原生 fetch 断言——apiAs
+  // 期望 JSON 会解析二进制失败）
+  const apiRes = await fetch(`${BASE}/api/departments/${deptId}/workspace/file?path=seed-report.md&download=1`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  })
+  assert.equal(apiRes.status, 200, '下载 API 应 200')
+  assert.ok((apiRes.headers.get('content-disposition') ?? '').includes('attachment'), 'Content-Disposition 应为 attachment')
+  // 直链 token query（与 Bearer 同等鉴权——框架 mw）
+  const qs = await page.evaluate((p) => {
+    const t = localStorage.getItem('agent_platform_token')
+    return fetch(`/api/departments/${p}/workspace/file?path=${encodeURIComponent('seed-report.md')}&download=1&token=${encodeURIComponent(t)}`)
+      .then((r) => r.status)
+  }, deptId)
+  assert.equal(qs, 200, 'token 直链应 200（query token 鉴权）')
   await page.close()
 })
 
