@@ -20,7 +20,7 @@ interface ReportsState {
   runs: Array<{ id: string; kind: string; status: string; plan_json: unknown; worker_results: unknown; orchestrator_name?: string | null; created_at: string }>
 }
 
-export const Reports: Component = async (_props, ctx) => {
+export const Reports: Component = (_props, ctx) => {
   const $ = {} as ReportsState
   const rerender = () => ctx.render()
   $.loading = true; $.stats = {}; $.agents = []; $.costAgents = []; $.funnel = null
@@ -42,7 +42,7 @@ export const Reports: Component = async (_props, ctx) => {
     rerender()
   })
 
-  return async () => {
+  return () => {
     if ($.loading) {
       return (
         <div class="wf-stack wf-gap-lg">

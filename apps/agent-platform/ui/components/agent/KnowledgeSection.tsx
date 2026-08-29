@@ -20,9 +20,11 @@ interface KbDocsResponse {
   documents: Array<{ id: string; name: string; filename: string; chunks?: number }>
 }
 
-export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = async (_init, ctx) => {
+export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = (_init, ctx) => {
   let docs: KbDocument[] = []
   let docsLoading = true
+  // 异步启动（2027-08 同步化：工厂无 await——首次加载异步启动——闭包语义保留）
+  let started = false
   let newDocFilename = ''
   let newDocContent = ''
   let uploading = false
@@ -44,7 +46,7 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
     docsLoading = false
     rerender()
   }
-  await reloadDocs()
+  if (!started) { started = true; void reloadDocs() }
 
   async function kbSearch() {
     if (!kbQuery.trim()) return
@@ -128,7 +130,7 @@ export const KnowledgeSection: Component<{ agentId: string; agent: Agent }> = as
     await reloadDocs()
   }
 
-  return async () => (
+  return () => (
     <Card id="sec-knowledge">
       <div class="wf-split wf-margin-bottom-md">
         <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📚 知识库文档</div>

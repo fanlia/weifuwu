@@ -21,7 +21,7 @@ function plainPreview(src: string): string {
     .trim()
 }
 
-export const NewChat: Component = async (_props, ctx) => {
+export const NewChat: Component = (_props, ctx) => {
   const $ = {} as NewChatState
   const rerender = () => ctx.render()
 
@@ -42,7 +42,7 @@ export const NewChat: Component = async (_props, ctx) => {
     } catch { return '' }
   }
 
-  return async (props) => (
+  return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px">
       <PageHeader title="会话" sub="最近对话，点击进入" />
 

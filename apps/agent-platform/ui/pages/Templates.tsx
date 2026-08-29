@@ -32,16 +32,19 @@ const CATEGORY_LABELS: Record<string, string> = {
   general: '通用',
 }
 
-export const Templates: Component = async (_props, ctx) => {
-  // ── 工厂层 await 数据（首次渲染即带——避免路由页 rerender 不落地的框架坑）──
+export const Templates: Component = (_props, ctx) => {
+  const rerender = () => ctx.render()
+  // 异步启动（2027-08 同步化：工厂无 await——首次加载异步启动——闭包语义保留）
   let templates: RoleTemplate[] = []
   let error = ''
-  try {
-    const res = await ctx.api!.get<{ templates: RoleTemplate[] }>('/api/role-templates')
-    templates = res.templates ?? []
-  } catch {
-    error = '加载模板失败'
+  let started = false
+  const loadTemplates = () => {
+    ctx.api!.get<{ templates: RoleTemplate[] }>('/api/role-templates')
+      .then((res) => { templates = res.templates ?? [] })
+      .catch(() => { error = '加载模板失败' })
+      .finally(() => rerender())
   }
+  if (!started) { started = true; loadTemplates() }
   // 分类由 location.hash 驱动（#cat-engineering）——hash 导航触发路由重渲染，
   // 工厂重跑读新 hash 初始化（绕开路由页 ctx.render 不落地的框架坑——真实调试发现）
   // 分类筛选：框架路由页 rerender bug（renderOne patch 不落地——登记专项任务）
@@ -72,7 +75,7 @@ export const Templates: Component = async (_props, ctx) => {
     creating = null
   }
 
-  return async (props: {}) => {
+  return (props: {}) => {
     // 分类由路由 query 驱动（/templates?cat=x）——renderFn 每次渲染读最新
     // （框架 query 变化 bump ctx 版本 → renderFn 重跑——真实调试验证）
     let category = ''

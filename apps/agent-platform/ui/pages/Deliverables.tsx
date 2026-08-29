@@ -29,7 +29,7 @@ interface DeliverableFile {
   mtime: string
 }
 
-export const Deliverables: Component = async (_init, ctx) => {
+export const Deliverables: Component = (_init, ctx) => {
   // B-修复（2026-08）：裸 `let` 改为 `$` 状态对象（与 Reports/Workspace 一致——
   // 这两个正常）——裸 let 在 async 组件双端模块（SSR/server + client）可能存在
   // 闭包逃逸——日志证实 renderFn 读到 files=9 但 DOM 空态（diff 未触及）
@@ -86,7 +86,7 @@ export const Deliverables: Component = async (_init, ctx) => {
     ? $.files.filter((f) => f.name.toLowerCase().includes($.query.toLowerCase()) || f.path.toLowerCase().includes($.query.toLowerCase()))
     : $.files
 
-  return async () => {
+  return () => {
     const shown = shownOf()
     return (
       <div class="wf-container wf-stack wf-gap-lg wf-padding-lg" style="--wf-max: 980px">

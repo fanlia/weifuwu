@@ -5,7 +5,7 @@ import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Input } from 'weifuwu/components'
 import { inputValue, type AgentVersion } from '../../lib/types'
 
-export const VersionsSection: Component<{ agentId: string }> = async (_init, ctx) => {
+export const VersionsSection: Component<{ agentId: string }> = (_init, ctx) => {
   let versions: AgentVersion[] = []
   let versionNote = ''
   let savingVersion = false
@@ -37,7 +37,7 @@ export const VersionsSection: Component<{ agentId: string }> = async (_init, ctx
   }
   loadVersions()
 
-  return async () => (
+  return () => (
     <Card id="sec-versions">
       <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm"><Icon name="refresh" size={14} /> 版本管理</div>
       <div class="wf-font-xs wf-text-tertiary wf-margin-bottom-sm">保存当前配置快照，可随时回滚（系统提示/模型/工具/配额等）</div>

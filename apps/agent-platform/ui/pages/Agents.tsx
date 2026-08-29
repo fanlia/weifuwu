@@ -7,7 +7,7 @@ interface AgentsState {
   agents: Agent[]; loading: boolean
 }
 
-export const Agents: Component = async (_props, ctx) => {
+export const Agents: Component = (_props, ctx) => {
   const $ = {} as AgentsState
   const rerender = () => ctx.render()
 
@@ -42,7 +42,7 @@ export const Agents: Component = async (_props, ctx) => {
       else { ctx.toast!('发起单聊失败', 'error') }
     } catch { ctx.toast!('发起单聊失败', 'error') }
   }
-  return async (props) => (
+  return (props) => (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库">
         <Button variant="primary" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</Button>

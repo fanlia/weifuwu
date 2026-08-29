@@ -8,7 +8,7 @@ interface LoginState {
   email: string; password: string; error: string; loading: boolean
 }
 
-export const Login: Component = async (_props, ctx) => {
+export const Login: Component = (_props, ctx) => {
   let ssoEnabled = false
   void fetch('/api/auth/sso/enabled').then(r => r.json()).then((d: any) => { ssoEnabled = !!d.enabled; ctx.render() }).catch(() => {})
   const $ = {} as LoginState
@@ -67,7 +67,7 @@ export const Login: Component = async (_props, ctx) => {
       rerender()
     }
   }
-  return async (props) => (
+  return (props) => (
     <AuthPage
       title="登录"
       subtitle={`${whiteLabel.name || 'Agent Platform'} — 多租户 AI 平台`}

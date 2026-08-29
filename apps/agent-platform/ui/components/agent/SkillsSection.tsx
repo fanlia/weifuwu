@@ -7,7 +7,7 @@ import type { AvailableSkill, BoundSkill } from '../../lib/types'
 
 export interface SectionProps { agentId: string }
 
-export const SkillsSection: Component<SectionProps> = async (_init, ctx) => {
+export const SkillsSection: Component<SectionProps> = (_init, ctx) => {
   let boundSkills: BoundSkill[] = []
   let availableSkills: AvailableSkill[] = []
   let showSkillPicker = false
@@ -26,13 +26,19 @@ export const SkillsSection: Component<SectionProps> = async (_init, ctx) => {
     } catch (e) { ctx.toast!('评分失败', 'error') }
   }
 
-  // 工厂 await 取数（两阶段契约 §3.3——首帧带数据）
-  const [skillRes, availRes] = await Promise.all([
-    ctx.api!.get<{ skills: BoundSkill[] }>(`/api/agents/${_init.agentId}/skills`).catch(() => ({ skills: [] })),
-    ctx.api!.get<{ skills: AvailableSkill[] }>('/api/skills/available').catch(() => ({ skills: [] })),
-  ])
-  boundSkills = skillRes.skills ?? []
-  availableSkills = availRes.skills ?? []
+  // 异步启动（2027-08 同步化：工厂无 await——首次加载异步启动——闭包语义保留）
+  let started = false
+  const loadSkills = () => {
+    Promise.all([
+      ctx.api!.get<{ skills: BoundSkill[] }>(`/api/agents/${_init.agentId}/skills`).catch(() => ({ skills: [] })),
+      ctx.api!.get<{ skills: AvailableSkill[] }>('/api/skills/available').catch(() => ({ skills: [] })),
+    ]).then(([skillRes, availRes]) => {
+      boundSkills = skillRes.skills ?? []
+      availableSkills = availRes.skills ?? []
+      rerender()
+    })
+  }
+  if (!started) { started = true; loadSkills() }
 
   async function bindSkill(skill: AvailableSkill) {
     // 后端契约：POST /api/agents/:id/skills 需要 { skill_name, skill_dir }
@@ -53,7 +59,7 @@ export const SkillsSection: Component<SectionProps> = async (_init, ctx) => {
     rerender()
   }
 
-  return async () => (
+  return () => (
     <Card id="sec-skills">
       <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm"><Icon name="settings" size={14} /> 技能管理</div>
       {boundSkills.length === 0 && <div class="wf-font-sm wf-text-tertiary wf-padding-y-md">暂无绑定技能</div>}

@@ -7,7 +7,7 @@ interface DepartmentsState {
   depts: Department[]; loading: boolean
 }
 
-export const Departments: Component = async (_props, ctx) => {
+export const Departments: Component = (_props, ctx) => {
   const $ = {} as DepartmentsState
   const rerender = () => ctx.render()
   $.depts = []; $.loading = true
@@ -30,7 +30,7 @@ export const Departments: Component = async (_props, ctx) => {
       ;ctx.toast!('删除失败', 'error')
     }
   }
-  return async (props) => (
+  return (props) => (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="部门" sub="组织 Agent 与成员进行协作对话">
         <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>

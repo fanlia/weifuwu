@@ -62,8 +62,8 @@ function toolLabel(name: string): string {
   return labels[name] ?? name.replace(/_/g, ' ')
 }
 
-export const MessageItem: Component<MessageItemProps> = async (_init) => {
-  return async (props: MessageItemProps) => {
+export const MessageItem: Component<MessageItemProps> = (_init) => {
+  return (props: MessageItemProps) => {
     const { msg } = props
     const st = msg.status
     const isActive = st === 'thinking' || st === 'generating'

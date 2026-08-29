@@ -23,7 +23,7 @@ function greeting(): string {
   return '晚上好'
 }
 
-export const Dashboard: Component = async (_props, ctx) => {
+export const Dashboard: Component = (_props, ctx) => {
   const $ = {} as DashboardState
   const rerender = () => ctx.render()
   $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0; $.pendingCount = 0; $.costAgents = []; $.funnel = null
@@ -43,7 +43,7 @@ export const Dashboard: Component = async (_props, ctx) => {
     rerender()
   })
 
-  return async (props) => {
+  return (props) => {
     // 骨架屏（加载中——Wave 8 视觉优化）：统计卡片网格 + 列表骨架
     if ($.loading) {
       return (

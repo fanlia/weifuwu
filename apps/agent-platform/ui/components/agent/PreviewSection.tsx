@@ -6,7 +6,7 @@ import { Button, Card, Icon, Input } from 'weifuwu/components'
 import { errMsg } from '../../components/ui'
 import { inputValue } from '../../lib/types'
 
-export const PreviewSection: Component<{ agentId: string }> = async (_init, ctx) => {
+export const PreviewSection: Component<{ agentId: string }> = (_init, ctx) => {
   let previewQuery = ''
   let previewText = ''
   let previewing = false
@@ -46,7 +46,7 @@ export const PreviewSection: Component<{ agentId: string }> = async (_init, ctx)
     previewing = false; rerender()
   }
 
-  return async () => (
+  return () => (
     <Card id="sec-preview">
       <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm"><Icon name="message" size={14} /> 测试对话</div>
       <div class="wf-row wf-gap-xs">

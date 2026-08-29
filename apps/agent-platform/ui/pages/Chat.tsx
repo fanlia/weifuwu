@@ -95,7 +95,7 @@ interface ChatState {
   chatLabels: { placeholder: string }
 }
 
-export const Chat: Component = async (_props, ctx) => {
+export const Chat: Component = (_props, ctx) => {
   const $ = {} as ChatState
   const rerender = () => ctx.render()
   // P1-3 附件：隐藏 file input + FileReader（无 npm 依赖）
@@ -691,7 +691,7 @@ export const Chat: Component = async (_props, ctx) => {
     ctx.toast?.(`已复制并下载对话（${$.msgs.length} 条消息）`, 'success')
   }
 
-  return async (props: {}) => {
+  return (props: {}) => {
     const msgsLen = $.msgs.length
     if (msgsLen > prevLen) { scrollToBottom(); prevLen = msgsLen }
     // 2026-08（打字卡顿·渲染开销）：reduce 遍历全部消息改为增量——

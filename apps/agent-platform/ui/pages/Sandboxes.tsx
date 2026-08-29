@@ -38,7 +38,7 @@ function statusTone(s: string): boolean {
   return s === 'running' || s === 'requested'
 }
 
-export const Sandboxes: Component = async (_props, ctx) => {
+export const Sandboxes: Component = (_props, ctx) => {
   let sandboxes: SandboxItem[] = []
   let quota: { used: number; limit: number; pressure: boolean } | null = null
   let loading = true
@@ -87,7 +87,7 @@ export const Sandboxes: Component = async (_props, ctx) => {
     await load()
   }
 
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="沙盒" sub="计算资源（Docker 容器）——部门 = 工作目录，沙盒 = 计算环境，Agent = 能力">
         <Button variant="ghost" onClick={() => void load()}><Icon name="refresh" size={14} /> 刷新</Button>

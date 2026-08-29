@@ -34,7 +34,7 @@ interface AgentDetailState {
   showGuide: boolean; guideTab: 'curl' | 'node'
 }
 
-export const AgentDetail: Component = async (_props, ctx) => {
+export const AgentDetail: Component = (_props, ctx) => {
   const $ = {} as AgentDetailState
 
   const rerender = () => ctx.render()
@@ -241,7 +241,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     void ctx.browser?.copyText(text); ctx.toast!('示例已复制', 'success')
   }
 
-  return async (props) => {
+  return (props) => {
     if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px"><Loading /></div>
     if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在或无权访问" hint="可能是链接过期，或该 Agent 属于其他应用。"><Button variant="primary" onClick={() => ctx.app?.navigate?.('/agents')}>返回 Agent 列表</Button></EmptyState></div>
     if ($.error && !$.agent) return <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px"><EmptyState icon="⚠️" text="加载 Agent 失败" hint={$.error}><Button variant="primary" onClick={() => { ctx.browser?.reload?.() }}>重试</Button></EmptyState></div>

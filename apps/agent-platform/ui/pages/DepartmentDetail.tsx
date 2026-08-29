@@ -25,7 +25,7 @@ interface DepartmentDetailState {
   execProgress: { done: number; total: number } | null
 }
 
-export const DepartmentDetail: Component = async (_props, ctx) => {
+export const DepartmentDetail: Component = (_props, ctx) => {
   const $ = {} as DepartmentDetailState
   const rerender = () => ctx.render()
   const deptId = ctx.route?.params?.id ?? ''
@@ -139,7 +139,7 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
       } catch { ctx.toast!('移除失败', 'error') }
     }
 
-  return async (props) => {
+  return (props) => {
     if ($.loading) return <div class="wf-stack wf-gap-lg"><Loading /></div>
     if ($.notFound) return <div class="wf-stack wf-gap-lg"><EmptyState icon="🔍" text="部门不存在" /></div>
     return (

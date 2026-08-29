@@ -33,7 +33,7 @@ interface WsFileResponse {
 interface WsSaveResponse { success: boolean }
 interface WsUploadResponse { success: boolean; name: string; size: number; error?: string }
 
-export const FilesSection: Component<{ departmentId: string; initialFiles?: Array<{ name: string; type: string; size: number; mtime: string }> }> = async (_init, ctx) => {
+export const FilesSection: Component<{ departmentId: string; initialFiles?: Array<{ name: string; type: string; size: number; mtime: string }> }> = (_init, ctx) => {
   let wsEntries: Array<{ name: string; type: 'dir' | 'file'; size: number; mtime: string }> = []
   let wsPath = ''
   let wsLoading = true
@@ -47,6 +47,7 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
   // **mounting 期信号（2026-08）**：工厂 await loadWsList 期间——零 rerender
   // （mounting 违例——此前竞态根因）——工厂返回后 renderFn 读最新 state
   let mounting = true
+  let mountingStarted = false
   let wsOpenFile: { path: string; content: string; binary: boolean; truncated: boolean; size: number } | null = null
   let wsEditContent = ''
   let wsSaving = false
@@ -128,9 +129,12 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
     input.value = ''
   }
 
-  await loadWsList()
+  // 异步启动（2027-08 同步化：工厂无 await——首次加载异步启动——
+  // mounting 信号在工厂尾部释放（return 前——此后 rerender 合法））
+  if (!mountingStarted) { mountingStarted = true; void loadWsList() }
+  mounting = false // 工厂完成信号：此后 loadWsList 的 rerender 合法（异步启动完成）
 
-  return async () => {
+  return () => {
     return (
     <Card id="sec-files">
       <div class="wf-split wf-margin-bottom-sm">

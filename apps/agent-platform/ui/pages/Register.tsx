@@ -18,7 +18,7 @@ function inviteParams(): { app: string; invite: string } | null {
   return app && invite ? { app, invite } : null
 }
 
-export const Register: Component = async (_props, ctx) => {
+export const Register: Component = (_props, ctx) => {
   const $ = {} as RegisterState
   const rerender = () => ctx.render()
   $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
@@ -51,7 +51,7 @@ export const Register: Component = async (_props, ctx) => {
       rerender()
     } catch { $.error = '网络错误'; $.loading = false; rerender() }
   }
-  return async (props) => (
+  return (props) => (
     <AuthPage
       title={invite ? '加入团队' : '创建账号'}
       subtitle={invite ? '你已被邀请加入团队——注册后即可与 AI 同事协作' : '注册 Agent Platform，开始构建 AI 团队'}

@@ -5,9 +5,10 @@ import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Loading, Timeline } from 'weifuwu/components'
 import type { AgentLog } from '../../lib/types'
 
-export const LogsSection: Component<{ agentId: string }> = async (_init, ctx) => {
+export const LogsSection: Component<{ agentId: string }> = (_init, ctx) => {
   let logs: AgentLog[] = []
   let logsLoading = true
+  let started = false
   const rerender = () => ctx.render()
   const agentId = _init.agentId
 
@@ -19,9 +20,9 @@ export const LogsSection: Component<{ agentId: string }> = async (_init, ctx) =>
       rerender()
     } catch { logsLoading = false; rerender() }
   }
-  await loadLogs()
+  if (!started) { started = true; void loadLogs() }
 
-  return async () => (
+  return () => (
     <Card id="sec-logs">
       <div class="wf-split wf-margin-bottom-sm">
         <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="list" size={14} /> 执行日志</div>

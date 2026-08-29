@@ -28,7 +28,7 @@ function fmtAuditTime(t: string): string {
   try { return new Date(t).toLocaleString().slice(0, 16) } catch { return String(t ?? '').slice(0, 16) }
 }
 
-export const Settings: Component = async (_props, ctx) => {
+export const Settings: Component = (_props, ctx) => {
   // 审计日志（Wave 9 + C3）——加载最近 20 条（支持 action + 时间范围过滤）
   const auditEntries: AuditEntry[] = []
   const loadAudit = (action?: string, range?: string) => {
@@ -131,7 +131,7 @@ export const Settings: Component = async (_props, ctx) => {
     } catch (e) { $.pwdErr = errMsg(e, '修改失败') }
     finally { $.pwdSubmitting = false; rerender() }
   }
-  return async (props) => (
+  return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px">
       <PageHeader title="个人设置" sub="管理你的账号信息" />
 

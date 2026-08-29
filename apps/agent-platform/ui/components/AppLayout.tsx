@@ -29,12 +29,12 @@ const ADMIN_NAV: NavDef[] = [
   { path: '/admin', icon: h(Icon, { name: 'shield' }), label: '租户管理', group: '管理', match: p => p.startsWith('/admin') },
 ]
 
-export async function AppLayout(_props: {}, ctx: UIContext) {
+export function AppLayout(_props: {}, ctx: UIContext) {
   // ── 认证守卫 ──
   // 认证守卫（2026-08——框架先清后建修复后的 SPA 方案验证）
   if (!ctx.auth?.isLoggedIn) {
     ctx.afterRender?.(() => { void ctx.app?.navigate('/login') })
-    return async (__props: {}) => <div class="wf-center wf-height-full"><Loading /></div>
+    return (__props: {}) => <div class="wf-center wf-height-full"><Loading /></div>
   }
 
   const user = (ctx.auth?.user ?? null) as { name?: string; email?: string } | null
@@ -51,7 +51,7 @@ export async function AppLayout(_props: {}, ctx: UIContext) {
     ctx.app?.navigate('/login')
   }
 
-  return async (__props: { children?: any }) => {
+  return (__props: { children?: any }) => {
     // 渲染期读取路由（layout 跨子路由复用，mount 捕获的 route 不随导航更新）
     // v3 ctx.route.path = 完整路径（有前导 '/agents'）——去开头斜杠再拼（'/' 保持）
     const route = '/' + (ctx.route?.path ?? '').replace(/^\/+/, '')

@@ -10,7 +10,7 @@ interface NewDepartmentState {
   agents: Agent[]; loading: boolean
 }
 
-export const NewDepartment: Component = async (_props, ctx) => {
+export const NewDepartment: Component = (_props, ctx) => {
   const $ = {} as NewDepartmentState
   const rerender = () => ctx.render()
 
@@ -36,7 +36,7 @@ export const NewDepartment: Component = async (_props, ctx) => {
       ctx.app?.navigate('/departments')
     } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }
-  return async (props) => (
+  return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 720px">
       <a class="wf-font-sm wf-text-primary" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
       <PageHeader title="创建部门" sub="在当前应用中创建群组并添加成员" />

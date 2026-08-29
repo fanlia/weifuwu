@@ -9,7 +9,7 @@ interface ApprovalsState {
 }
 
 /** 审批待办 — 管理员集中处理所有 AI 草稿（HITL 核心入口） */
-export const Approvals: Component = async (_props, ctx) => {
+export const Approvals: Component = (_props, ctx) => {
   const $ = {} as ApprovalsState
   const rerender = () => ctx.render()
   $.items = []; $.loading = true; $.handling = ''
@@ -55,7 +55,7 @@ export const Approvals: Component = async (_props, ctx) => {
     } catch { return '' }
   }
 
-  return async (props) => (
+  return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 760px">
       <PageHeader title="审批待办" sub="AI 草稿需人工批准后才发布" />
 

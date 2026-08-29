@@ -60,7 +60,7 @@ function timeAgo(iso: string | null): string {
   return new Date(iso).toLocaleDateString()
 }
 
-export const Workspace: Component = async (_props, ctx) => {
+export const Workspace: Component = (_props, ctx) => {
   const $ = {} as WorkspaceState
   const rerender = () => ctx.render()
   $.loading = true; $.projects = []; $.pendingCount = 0; $.aiCount = 0; $.hasAgents = false; $.deliverables = []
@@ -93,7 +93,7 @@ export const Workspace: Component = async (_props, ctx) => {
     rerender()
   })
 
-  return async () => {
+  return () => {
     // 角色防线（2026-08——UI-ROLE-TEST view 抓出：viewer 新建按钮未禁用——
     // 前端写操作防线缺失——login 已存 agent_platform_role）
     const isViewer = (typeof localStorage !== 'undefined' ? localStorage.getItem('agent_platform_role') : null) === 'viewer'

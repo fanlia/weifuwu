@@ -17,7 +17,7 @@ interface AdminApp {
   token_usage_month: number
 }
 
-export const Admin: Component = async (_props, ctx) => {
+export const Admin: Component = (_props, ctx) => {
   let apps: AdminApp[] = []
   let loading = true
   let error = ''
@@ -102,7 +102,7 @@ export const Admin: Component = async (_props, ctx) => {
 
   const fmtTokens = (n: number) => n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n)
 
-  return async () => (
+  return () => (
     <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 960px">
       <PageHeader title="租户管理" sub="平台管理员：查看所有团队用量，停用/启用租户（ADMIN_EMAILS 白名单）" />
 
