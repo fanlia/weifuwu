@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sandbox-agent——沙盒容器 PID 1 常驻入口（SANDBOX-AGENT-PLAN Wave 1——2026-08）
+ * sandbox-agent——沙盒容器 PID 1 常驻入口（SANDBOX-AGENT-PLAN——2026-08）
  *
  * 根因（实测定案）：容器 PID 1 = 裸 sleep/工具进程——**无显式信号 handler——
  * 内核忽略 PID 1 的默认信号动作（SIGTERM 被丢弃）**——docker stop 等 10s 宽限
@@ -10,6 +10,9 @@
  * - **PID 1 = agent**（镜像 CMD 改为 node sandbox-agent.js——不是裸 sleep）
  * - **显式信号处理**：SIGTERM/SIGINT → 杀活跃子进程树 → 优雅退出（秒级——
  *   node 显式 handler 实验：SIGTERM 秒退 ✅）
+ * - **argv 转发**（统一镜像 CLI 语义——2026-08）：`docker run 镜像 sh -c '...'`
+ *   ——agent 收到 argv → exec 为子进程（保持容器任意命令可用——非仅 stdin
+ *   协议——**统一镜像=全部能力**——调试/运维直接 exec 命令）
  * - **能力声明**：/capabilities 从 /opt/sandbox/capabilities.json 读（镜像层
  *   声明——AI/框架可见）
  * - **健康检查**：/healthz（200 = 就绪——框架 probe 可升级）
@@ -51,6 +54,27 @@ function runToolRunner(args, stdinData) {
   })
 }
 
+/** 统一镜像 CLI 语义：`docker run 镜像 <命令>` —— agent 转发 argv 为子进程
+ * （无 argv = 纯常驻 agent——stdin/HTTP 协议面） */
+function runArgvCommand(argv) {
+  const cmd = argv[0]
+  const args = argv.slice(1)
+  const child = spawn(cmd, args, {
+    cwd: '/ws',
+    env: process.env,
+    stdio: 'inherit',
+  })
+  activeChildren.add(child)
+  child.on('close', (code) => {
+    activeChildren.delete(child)
+    process.exit(code ?? 0)
+  })
+  child.on('error', (e) => {
+    console.error(`[sandbox-agent] 命令启动失败: ${e.message}`)
+    process.exit(127)
+  })
+}
+
 function shutdown(signal) {
   if (shuttingDown) return
   shuttingDown = true
@@ -66,66 +90,76 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 process.on('SIGINT', () => shutdown('SIGINT'))
 
-// ── 能力声明（镜像层——AI/框架可见）──────
-function capabilities() {
-  try {
-    return JSON.parse(readFileSync(CAPS_PATH, 'utf-8'))
-  } catch {
-    return { image: 'generic', tools: ['bash', 'read', 'write', 'edit', 'grep', 'list_files'] }
-  }
+// ── argv 命令（优先——`docker run 镜像 sh -c ...` 直接转发）──────
+if (process.argv.length > 2) {
+  runArgvCommand(process.argv.slice(2))
+} else {
+  // 常驻 agent：启动 HTTP 面 + stdin 协议
+  startAgent()
 }
 
-// ── HTTP 增强面（健康/能力/状态——只读）──────
-const server = http.createServer((req, res) => {
-  const url = req.url || ''
-  if (url === '/healthz') {
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ ok: true, pid: process.pid }))
-    return
-  }
-  if (url === '/capabilities') {
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify(capabilities()))
-    return
-  }
-  if (url === '/stats') {
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({
-      pid: process.pid,
-      activeChildren: activeChildren.size,
-      rssMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      uptimeSec: Math.round(process.uptime()),
-    }))
-    return
-  }
-  res.writeHead(404)
-  res.end()
-})
-
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[sandbox-agent] listening on 127.0.0.1:${PORT}（健康/能力/状态面——工具经 stdin 协议）`)
-})
-
-// ── stdin 工具协议（主力——docker exec 路径——与 tool-runner 语义一致）──────
-function stdinHandler() {
-  let input = ''
-  process.stdin.setEncoding('utf-8')
-  process.stdin.on('data', (chunk) => { input += chunk })
-  process.stdin.on('end', async () => {
-    let req
+function startAgent() {
+  // ── 能力声明（镜像层——AI/框架可见）──────
+  function capabilities() {
     try {
-      req = JSON.parse(input)
+      return JSON.parse(readFileSync(CAPS_PATH, 'utf-8'))
     } catch {
-      req = { tool: 'bash', args: { command: input } } // 非 JSON（bash 管道）
+      return { image: 'generic', tools: ['bash', 'read', 'write', 'edit', 'grep', 'list_files'] }
     }
-    try {
-      const output = await runToolRunner([], JSON.stringify(req))
-      process.stdout.write(output.stdout || JSON.stringify({ ok: true, output: '' }))
-    } catch (e) {
-      process.stdout.write(JSON.stringify({ ok: false, error: String(e) }))
+  }
+
+  // ── HTTP 增强面（健康/能力/状态——只读）──────
+  const server = http.createServer((req, res) => {
+    const url = req.url || ''
+    if (url === '/healthz') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, pid: process.pid }))
+      return
     }
+    if (url === '/capabilities') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(capabilities()))
+      return
+    }
+    if (url === '/stats') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({
+        pid: process.pid,
+        activeChildren: activeChildren.size,
+        rssMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        uptimeSec: Math.round(process.uptime()),
+      }))
+      return
+    }
+    res.writeHead(404)
+    res.end()
   })
+
+  server.listen(PORT, '127.0.0.1', () => {
+    console.log(`[sandbox-agent] listening on 127.0.0.1:${PORT}（健康/能力/状态面——工具经 stdin 协议）`)
+  })
+
+  // ── stdin 工具协议（主力——docker exec 路径——与 tool-runner 语义一致）──────
+  function stdinHandler() {
+    let input = ''
+    process.stdin.setEncoding('utf-8')
+    process.stdin.on('data', (chunk) => { input += chunk })
+    process.stdin.on('end', async () => {
+      let req
+      try {
+        req = JSON.parse(input)
+      } catch {
+        req = { tool: 'bash', args: { command: input } } // 非 JSON（bash 管道）
+      }
+      try {
+        const output = await runToolRunner([], JSON.stringify(req))
+        process.stdout.write(output.stdout || JSON.stringify({ ok: true, output: '' }))
+      } catch (e) {
+        process.stdout.write(JSON.stringify({ ok: false, error: String(e) }))
+      }
+    })
+  }
+  stdinHandler()
 }
-stdinHandler()
 
 // 保持事件循环（HTTP 服务 + stdin 监听——PID1 常驻）

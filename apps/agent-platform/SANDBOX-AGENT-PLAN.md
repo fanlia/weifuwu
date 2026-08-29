@@ -51,13 +51,15 @@
 | 能力 | 无 | **GET /capabilities**（镜像声明——AI/tool-calling 可见） |
 | 内省 | 无 | **GET /stats**（CPU/内存/进程——诊断） |
 
-### 镜像变体（每个镜像一个 agent——能力声明驱动）
+### 镜像变体（**用户决策 2026-08：统一镜像——所有镜像具备全部能力——方便管理**）
 ```
-ap-sandbox:latest        → agent + 通用工具（bash/file/python）
-ap-sandbox:office        → agent + office 库（docx/xlsx/pptx——能力声明）
-ap-sandbox:browser       → agent + chromium/agent-browser（能力声明）
-（镜像构建时 agent 复制/符号——同一 agent 二进制——能力由镜像层声明文件描述）
+ap-sandbox:latest（唯一镜像——全能力）：
+  通用工具（bash/file/python）+ office 库 + chromium/agent-browser
+  能力声明：capabilities.json（单一实现源——镜像构建 + AI 注入 + 测试一致性同源）
+  ——不建 office/browser 分体（管理成本 > 镜像体积收益——一个镜像一张 Dockerfile
+  一个构建——统一升级统一保障）
 ```
+（Wave 3 多镜像变体——**已取消**——用户决策：统一镜像全能力更易管理）
 
 ---
 
@@ -75,10 +77,13 @@ ap-sandbox:browser       → agent + chromium/agent-browser（能力声明）
 7. agent 加 **GET /stats**（诊断——sandbox debug 面增强）
 8. **验收**：框架 liveness 真实化 + 能力面可见（新 AI 体验）
 
-### Wave 3 · 多镜像 agent 变体
-9. Dockerfile.sandbox 参数化（ARG AGENT_CAPS——能力声明文件）
-10. 构建 `ap-sandbox:office` / `ap-sandbox:browser`（实验——不默认切换）
-11. **验收**：镜像构建 + 能力声明生效（capabilities 差异化）
+### Wave 3 · 统一镜像全能力（**用户决策——取代多变体**）
+9. **任意命令 CLI 语义**：`docker run 镜像 <命令>` → agent argv 转发（统一镜像
+   调试/运维直接 exec——非仅 stdin 协议）——sandbox-agent argv 分支
+10. **能力一致性契约**：T-M1h（声明 vs 实际环境——防漂移——全能力声明必须
+    真实存在：runtime/office/chromium/agent-browser）
+11. **验收**：统一镜像全能力实测（argv 命令 + office 6 库 + 浏览器全在）·
+    T-M1h 绿（能力声明零漂移）
 
 ### Wave 4 · 测试扩展（T-M 系列加固）
 12. T-M1f：**信号处理**（SIGTERM → 优雅退出——stop 秒级断言）

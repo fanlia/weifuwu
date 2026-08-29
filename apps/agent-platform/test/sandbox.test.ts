@@ -465,3 +465,29 @@ test('T-M1g: sandbox-agent 健康/能力面——/healthz 200 + /capabilities �
   assert.ok(Array.isArray(c.tools) && c.tools.includes('bash'), 'capabilities 含工具声明')
   await m.terminate(id, TEST_APP)
 })
+
+test('T-M1h: 统一镜像能力一致性——声明 vs 实际环境（防漂移——全部能力镜像）', { skip: !HAS_DOCKER, timeout: 20_000 }, async () => {
+  await cleanTestData()
+  const exe = makeSandbox()
+  const m = makeManager(exe)
+  const r1 = await m.runTool(TEST_DEPT, wsDir, 'write', { path: 'caps.txt', content: 'caps-ok' })
+  assert.equal(r1.ok, true)
+  const [row] = await sql`SELECT * FROM sandboxes WHERE department_id = ${TEST_DEPT} AND status != 'terminated'`
+  const id = String(row.id)
+  // 声明（capabilities.json——镜像自描述）
+  const caps = JSON.parse(execFileSync('docker', ['exec', CONTAINER_NAME(id), 'wget', '-qO-', 'http://127.0.0.1:5711/capabilities'], { timeout: 5000 }).toString())
+  // 实际环境（容器内验证声明真实存在——一致性契约）
+  const actual = execFileSync('docker', ['exec', CONTAINER_NAME(id), 'sh', '-c',
+    'node -v >/dev/null 2>&1 && echo node; python3 -c "import docx,pptx,openpyxl,pandas,numpy,pypdf" 2>/dev/null && echo office; which chromium >/dev/null 2>&1 && echo chromium; which agent-browser >/dev/null 2>&1 && echo browser'], { timeout: 8000 }).toString()
+  // 声明 runtime 应在实际中找到（防声明漂移——声明的能力必须真实存在）
+  const actualSet = new Set(actual.trim().split('\n').filter(Boolean))
+  for (const rt of caps.runtime ?? []) {
+    if (rt === 'node' || rt === 'python3') assert.ok(actualSet.has('node') || actualSet.has('office'), `runtime ${rt} 应实际存在（统一镜像全能力）`)
+    if (rt === 'chromium') assert.ok(actualSet.has('chromium'), 'chromium 应实际存在')
+    if (rt === 'agent-browser') assert.ok(actualSet.has('browser'), 'agent-browser 应实际存在')
+  }
+  if (Array.isArray(caps.office) && caps.office.length > 0) {
+    assert.ok(actualSet.has('office'), 'office 库应实际存在（声明 6 库——统一镜像全能力）')
+  }
+  await m.terminate(id, TEST_APP)
+})
