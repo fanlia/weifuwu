@@ -6,3 +6,4 @@ dist/
 apps/agent-platform/data/
 src/**/*.js
 coverage/
+apps/agent-platform/test-results/
