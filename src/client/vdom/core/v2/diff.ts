@@ -23,6 +23,7 @@ import { stateOf } from '../transform/states.ts'
 import { diffAttrs } from '../diff/attrs.ts'
 import { transitionOf } from '../transform/table.ts'
 import { Observable, create, Subject } from '../../observable/index.ts'
+import { createUi } from '../../hooks/env.ts'
 import type { OperatorFn } from '../../observable/index.ts'
 import { renderV2Node, fromArray, concatObs } from './render.ts'
 
@@ -48,14 +49,27 @@ export function createSegment(
   props: Record<string, unknown>,
   ctx: UIContext,
   compId: string,
+  requestSegmentRender?: () => void,
 ): Segment {
   const onUnmounts: (() => void)[] = []
   const instData = new Map<unknown, unknown>()
   const hookSeq = { n: 0 }
+  const hookStates = new Map<number, unknown>()
   const instCtx = Object.create(ctx) as UIContext
   instCtx.onUnmount = (fn: () => void) => { onUnmounts.push(fn) }
-  // hooks 注入面（env 绑定段——requestRender 经 ctx.render）
-  instCtx.ui = ctx.ui // v2 段级 hooks 环境复用（阶段 1——精细化后续）
+  // **段级 hooks 面（2027-08——v2 完整性）**：createUi（真实的 hooks env——
+  // 订阅/退订/重渲染 per 段——v1 实例级 hooks 的 v2 段等价）
+  instCtx.ui = createUi({
+    requestRender: () => { requestSegmentRender?.() },
+    onUnmount: (fn: () => void) => { onUnmounts.push(fn) },
+    getBrowser: () => (ctx as { browser?: import("../../browser/Browser.ts").Browser }).browser ?? null,
+    nextHookIndex: () => hookSeq.n++,
+    getHookState: <T>(idx: number) => hookStates.get(idx) as T | undefined,
+    setHookState: (idx: number, v: unknown) => { hookStates.set(idx, v) },
+    getInstanceData: () => instData,
+    scheduleAfterRender: (fn: () => void) => { (ctx as { afterRender?: (f: () => void) => void }).afterRender?.(fn) },
+    getSharedContext: () => ctx ?? null,
+  })
   const renderFn = factory(props, instCtx) as RenderFn
   return { factory, renderFn, onUnmounts, lastOutput: undefined, hookSeq, instData, destroy$: new Subject<void>(), disposed: false }
 }
