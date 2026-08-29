@@ -10,3 +10,4 @@
  */
 export { uiSsr } from '../../../src/client/vdom/core/ssr/index.ts'
 export { buildRouter } from './app-router.ts'
+export { fetchIndex, getIndexCache } from './data.ts'

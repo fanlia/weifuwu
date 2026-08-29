@@ -4,12 +4,14 @@
 import { h } from 'weifuwu/vdom'
 import type { Component } from 'weifuwu/vdom'
 import { Badge, Tag } from 'weifuwu/components'
-import { fetchIndex } from '../data.ts'
+import { fetchIndex, fetchIndexCached } from '../data.ts'
 import { createClientBrowser } from 'weifuwu/vdom'
 import { DOMAINS } from '../shell.tsx'
 
-export const Home: Component = async (_init: any, ctx: any) => {
-  const idx = await fetchIndex()
+export const Home: Component = (_init: any, ctx: any) => {
+  // 2027-08 同步化：工厂无 await——数据经 fetchIndexCached（缓存命中同步/
+  // 未命中 EMPTY + notify——数据到 → ctx.render → 渲染读缓存命中）
+  const idx = () => fetchIndexCached(() => ctx.render())
   // ── 进行态语言活体（微流明·流）：打字机循环——"进行中"是可见的流 ──
   const WORDS = ['AI 对话', '数据看板', '管理后台', 'SaaS 地基']
   const browser = ctx.browser ?? createClientBrowser()
@@ -27,7 +29,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
   ctx.ui.onUnmount?.(() => { if (timerId) clearTimeout(timerId) })
   const typed = () => WORDS[word].slice(0, chars)
 
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:24px;padding:32px 16px">
       <div class="wf-border wf-radius-lg wf-overflow-hidden" style="background:linear-gradient(180deg,var(--wf-color-bg) 0%,var(--wf-color-bg-secondary) 100%)">
         <div class="wf-stack wf-gap-lg" style="padding:48px 32px;text-align:center">
@@ -36,7 +38,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
               weifuwu <span class="wf-text-primary">发展引擎</span>
             </h1>
             <p class="wf-text-secondary wf-font-base wf-margin-none" style="max-width:560px;margin-inline:auto">
-              一个 npm 包 = 后端 HTTP + 前端 VDOM + <b class="wf-text-primary">{idx.counts.components}</b> 组件
+              一个 npm 包 = 后端 HTTP + 前端 VDOM + <b class="wf-text-primary">{idx().counts.components}</b> 组件
               + CSS 设计系统 + SaaS 地基——全自研、零构建
             </p>
           </div>
@@ -51,7 +53,7 @@ export const Home: Component = async (_init: any, ctx: any) => {
           <div>
             <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-font-xs" style="font-family:var(--wf-font-mono);text-align:left;max-width:520px;margin-inline:auto;padding:12px 16px;background:var(--wf-color-bg)">
               <div><span class="wf-text-primary">$</span> npm install weifuwu</div>
-              <div class="wf-text-tertiary">→ 一个包 = 后端 + vdom + {idx.counts.components} 组件 + 布局系统</div>
+              <div class="wf-text-tertiary">→ 一个包 = 后端 + vdom + {idx().counts.components} 组件 + 布局系统</div>
               <div><span class="wf-text-primary">$</span> node server.ts</div>
               <div class="wf-text-tertiary">→ 你的第一个页面，跑起来了</div>
             </div>
@@ -70,16 +72,16 @@ export const Home: Component = async (_init: any, ctx: any) => {
             ))}
           </div>
           <div class="wf-cluster wf-gap-sm" style="justify-content:center">
-            <Badge variant="primary">{idx.counts.components} 组件</Badge>
-            <Badge variant="info">{idx.counts.primitives} 布局原语</Badge>
+            <Badge variant="primary">{idx().counts.components} 组件</Badge>
+            <Badge variant="info">{idx().counts.primitives} 布局原语</Badge>
           </div>
         </div>
       </div>
 
       <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,240px),1fr));--wf-gap:12px">
         {[
-          { path: '/components', name: '组件', num: idx.counts.components, desc: '逐组件文档：API 表 + 纪律 + 关系 + 验证', icon: 'grid' },
-          { path: '/layout', name: '布局原语', num: idx.counts.primitives, desc: 'wf-* 原语与工具类，按族分组', icon: 'layout' },
+          { path: '/components', name: '组件', num: idx().counts.components, desc: '逐组件文档：API 表 + 纪律 + 关系 + 验证', icon: 'grid' },
+          { path: '/layout', name: '布局原语', num: idx().counts.primitives, desc: 'wf-* 原语与工具类，按族分组', icon: 'layout' },
         ].map((d) => (
           <a key={d.path} href={d.path} class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
             <span class="wf-font-2xl wf-bold wf-text-primary" style="font-family:var(--wf-font-mono)">{d.num}</span>

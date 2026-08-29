@@ -170,9 +170,9 @@ node server.ts   # 或 node --env-file=.env server.ts（需要环境变量时）
     body: `# 两阶段组件模型
 
 \`\`\`tsx
-const MyComp: Component = async (initProps, ctx) => {   // ── mount（只一次）
+const MyComp: Component = (initProps, ctx) => {   // ── mount（只一次）
   let count = initProps.initial ?? 0                    // 状态初始化/订阅/定时器
-  return async (props) => {                             // ── render（每次渲染）
+  return (props) => {                             // ── render（每次渲染）
     return h('button', { onClick: () => { count++; ctx.render() } }, count)
   }
 }

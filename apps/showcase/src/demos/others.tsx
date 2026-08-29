@@ -40,9 +40,9 @@ import {
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
-const DemoPageHeader: Component = async (_props, ctx) => {
+const DemoPageHeader: Component = (_props, ctx) => {
   let display = false
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-md wf-width-full">
       <PageHeader title="用户管理" sub="管理平台所有用户的账号、角色与权限">
         <Button size="sm" variant="primary">新建用户</Button>
@@ -55,7 +55,7 @@ const DemoPageHeader: Component = async (_props, ctx) => {
   )
 }
 
-const DemoIcon: Component = async () => async () => {
+const DemoIcon: Component = () => () => {
   const names = ['chevron-down','chevron-up','chevron-left','chevron-right','arrow-left','arrow-up','arrow-down','sort','sort-asc','sort-desc','check','close','alert','info','warning','pause','settings','search','send','stop','retry','upload','trash','edit','plus'] as const
   return (
     <div class="wf-stack wf-gap-sm wf-width-full">
@@ -76,7 +76,7 @@ const DemoIcon: Component = async () => async () => {
   )
 }
 
-const DemoDivider: Component = async () => async () => (
+const DemoDivider: Component = () => () => (
   <div class="wf-stack wf-gap-sm wf-width-full">
     <p>上方分割线</p>
     <Divider />
@@ -93,9 +93,9 @@ const DemoDivider: Component = async () => async () => (
 )
 
 
-export const DemoMarkdownEditor: Component = async (_props, ctx) => {
+export const DemoMarkdownEditor: Component = (_props, ctx) => {
   let md = '# 标题\n\n支持 **加粗** 与 \\`code\\`——右侧实时预览'
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-width-full wf-stack wf-gap-xs">
       <div class="wf-font-xs wf-text-secondary">分屏编辑 + 实时预览（复用 Markdown parser——零漂移）</div>
       <MarkdownEditor value={md} onChange={(v: string) => { md = v; ctx.render() }} rows={6} />
@@ -103,9 +103,9 @@ export const DemoMarkdownEditor: Component = async (_props, ctx) => {
   )
 }
 
-export const DemoCodeEditor: Component = async (_props, ctx) => {
+export const DemoCodeEditor: Component = (_props, ctx) => {
   let code = 'const greet = (name: string) => `你好, ${name}`\n\nconsole.log(greet(\'weifuwu\'))'
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-width-full wf-stack wf-gap-xs">
       <div class="wf-font-xs wf-text-secondary">轻量代码编辑——行号 + Tab 缩进（零依赖，不引 Monaco）</div>
       <CodeEditor value={code} lang="ts" onChange={(v: string) => { code = v; ctx.render() }} rows={6} />
@@ -113,21 +113,21 @@ export const DemoCodeEditor: Component = async (_props, ctx) => {
   )
 }
 
-export const DemoImageCropper: Component = async (_props: any) => async (_p: any) => (
+export const DemoImageCropper: Component = (_props: any) => (_p: any) => (
   <div class="wf-width-full wf-stack wf-gap-xs">
     <div class="wf-font-xs wf-text-secondary">图片裁剪——canvas 原生 + 裁剪框（示例图用占位数据）</div>
     <ImageCropper src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMzYwIj48cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgZmlsbD0iI2UyZThmMCIvPjxjaXJjbGUgY3g9IjI0MCIgY3k9IjE4MCIgcj0iMTIwIiBmaWxsPSIjMjU2M2ViIi8+PC9zdmc+" aspect={4/3} onCrop={(dataUrl: string) => console.log('[crop]', dataUrl.slice(0, 30))} />
   </div>
 )
 
-export const DemoVideoPlayer: Component = async (_props: any) => async (_p: any) => (
+export const DemoVideoPlayer: Component = (_props: any) => (_p: any) => (
   <div class="wf-width-full wf-stack wf-gap-xs">
     <div class="wf-font-xs wf-text-secondary">视频播放器——原生 video 封装（示例源为公共测试视频）</div>
     <VideoPlayer src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" poster="" aspect={16 / 9} />
   </div>
 )
 
-export const DemoMath: Component = async (_props: any) => async (_p: any) => (
+export const DemoMath: Component = (_props: any) => (_p: any) => (
   <div class="wf-width-full wf-stack wf-gap-xs">
     <div class="wf-font-xs wf-text-secondary">轻量公式渲染（零依赖 LaTeX 子集——教学/文档场景）</div>
     <div class="wf-stack wf-gap-sm wf-font-base">
@@ -140,9 +140,9 @@ export const DemoMath: Component = async (_props: any) => async (_p: any) => (
 )
 
 /** TabBar：底部标签栏（移动端导航——MUI BottomNavigation 对位） */
-export const DemoTabBar: Component = async (_props: any, ctx: any) => {
+export const DemoTabBar: Component = (_props: any, ctx: any) => {
   let tab = 'home'
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm wf-border wf-radius-md" style="position:relative;min-height:320px;overflow:hidden">
       <div class="wf-padding-lg wf-fill wf-font-sm wf-text-secondary">
         {tab === 'home' && '🏠 首页——组件/页面/应用/后端/能力/指南 一站式'}
@@ -165,10 +165,10 @@ export const DemoTabBar: Component = async (_props: any, ctx: any) => {
 }
 
 /** ActionSheet：动作面板（移动端底部滑出——照片选择/更多操作） */
-export const DemoActionSheet: Component = async (_props: any, ctx: any) => {
+export const DemoActionSheet: Component = (_props: any, ctx: any) => {
   let open = false
   let last = '未选择'
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm wf-border wf-radius-md" style="min-height:120px">
       <div class="wf-padding-md wf-font-sm wf-text-secondary">选择结果：{last}</div>
       <div class="wf-padding-md">

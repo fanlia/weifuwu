@@ -5,12 +5,15 @@
 import { h } from 'weifuwu/vdom'
 import type { Component } from 'weifuwu/vdom'
 import { Tag } from 'weifuwu/components'
-import { fetchIndex, type IndexJson } from '../data.ts'
+import { fetchIndexCached, type IndexJson } from '../data.ts'
 
-export const LayoutIndex: Component = async (_init: any) => {
-  const idx: IndexJson = await fetchIndex()
-  const list = idx.primitives
-  return async (_p: any) => (
+export const LayoutIndex: Component = (_init: any, ctx: any) => {
+  // 2027-08 同步化：工厂无 await——数据经 fetchIndexCached（缓存命中同步/
+  // 未命中 EMPTY + notify——数据到 → ctx.render → 渲染读缓存命中）
+  const idx = () => fetchIndexCached(() => ctx.render())
+  return (_p: any) => {
+    const list = idx().primitives
+    return (
     <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:16px;padding:24px 16px">
       <h1 class="wf-font-2xl wf-margin-none">布局原语 · {list.length} 族</h1>
       <div class="wf-font-xs wf-text-secondary">
@@ -33,4 +36,5 @@ export const LayoutIndex: Component = async (_init: any) => {
       </div>
     </div>
   )
+  }
 }

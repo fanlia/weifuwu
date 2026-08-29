@@ -100,7 +100,9 @@ export function commandToHtml(): TransformStream<Command, string> {
 export function htmlDocument(html: string, opts: { title?: string; rootId?: string; data?: Record<string, unknown> } = {}): string {
   const rootId = opts.rootId ?? 'root'
   const dataScript = opts.data
-    ? `<script>window.__DATA__=${escapeHtml(JSON.stringify(opts.data))}</script>`
+    // **script 内 JSON 不 HTML 转义（引号会被 &quot; 破坏——window.__DATA__
+    // SyntaxError 实证）**：只转义 `<`（防 </script> 注入——JSON 安全转义）
+    ? `<script>window.__DATA__=${JSON.stringify(opts.data).replace(/</g, '\\u003c')}</script>`
     : ''
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(opts.title ?? '')}</title></head><body><div id="${rootId}">${html}</div>${dataScript}</body></html>`
 }

@@ -37,7 +37,7 @@ import {
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
-const DemoToolCallCard: Component = async () => async () => (
+const DemoToolCallCard: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
     <ToolCallCard call={{ id: 't1', name: 'query_weather', args: { city: '北京' } }} />
     <ToolCallCard
@@ -69,7 +69,7 @@ const toolSchema: JsonSchema = {
   required: ['city'],
 }
 
-const DemoJsonSchemaForm: Component = async () => async () => (
+const DemoJsonSchemaForm: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
     <JsonSchemaForm schema={toolSchema} value={{ city: '北京', days: 3, with_weather: true }} submitLabel="执行工具" />
     <span class="wf-font-xs wf-text-secondary">↑ schema 驱动表单：必填校验（城市）拦截提交；单位/天数/开关即改即生效（onChange）</span>
@@ -78,9 +78,9 @@ const DemoJsonSchemaForm: Component = async () => async () => (
 
 /** ReasoningBlock：CoT 推理过程折叠展示 */
 
-const DemoReasoningBlock: Component = async (_p, ctx) => {
+const DemoReasoningBlock: Component = (_p, ctx) => {
   let streaming = false
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <ReasoningBlock
         content={'先分析用户意图：用户询问北京天气，需要调用 query_weather 工具。\n参数推导：city=北京，days=3（默认），单位取摄氏度。\n工具已就绪，开始执行。'}
@@ -96,7 +96,7 @@ const DemoReasoningBlock: Component = async (_p, ctx) => {
 
 /** CitationCard：RAG 引用来源展示 */
 
-const DemoCitationCard: Component = async () => async () => (
+const DemoCitationCard: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
     <div class="wf-font-sm">根据以下资料回答：
       <span class="wf-text-secondary">引用来源折叠展示（最多 3 条，溢出 +N）</span>
@@ -114,7 +114,7 @@ const DemoCitationCard: Component = async () => async () => (
 
 /** SessionList：会话管理列表（分组 + 搜索 + 重命名/删除/新建） */
 
-const DemoSessionList: Component = async (_p, ctx) => {
+const DemoSessionList: Component = (_p, ctx) => {
   const day = 24 * 3600 * 1000
   const now = Date.now()
   let sessions = [
@@ -125,7 +125,7 @@ const DemoSessionList: Component = async (_p, ctx) => {
   ]
   let active = 's2'
   let idc = 10
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-row">
         <div class="wf-col" style={{ width: '260px' }}>
@@ -147,10 +147,10 @@ const DemoSessionList: Component = async (_p, ctx) => {
 
 /** ApprovalCard：pending / approved / rejected 终态 */
 
-const DemoApprovalCard: Component = async (_p, ctx) => {
+const DemoApprovalCard: Component = (_p, ctx) => {
   let loading = false
   let modified: string | undefined
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <ApprovalCard
         request={{ id: 'ap1', toolCallId: 't1', name: 'place_order', args: { qty: 2 }, reason: '单笔超限，需人工确认' }}
@@ -180,13 +180,13 @@ const DemoApprovalCard: Component = async (_p, ctx) => {
 
 /** AiChat：useChat + 标准对话界面（流式 / 工具 / 审批 / 自动滚动） */
 
-const DemoAiChat: Component = async (_props, ctx) => {
+const DemoAiChat: Component = (_props, ctx) => {
   // vdom useChat：body 按协议固定（messages 数组）——工具调用/审批随事件处理
   const chat = ctx.ui.useChat({
     url: '/api/chat',
   })
 
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <AiChat chat={chat} maxHeight="300px" />
     </div>
@@ -195,12 +195,12 @@ const DemoAiChat: Component = async (_props, ctx) => {
 
 /** ChatInput：独立复用聊天输入条（单行/多行/流式——AiChat 抽取） */
 
-const DemoChatInput: Component = async (_props, ctx) => {
+const DemoChatInput: Component = (_props, ctx) => {
   let value = ''
   let streaming = false
   const sent: string[] = []
   const rerender = () => ctx.render()
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-md">
       <div class="wf-stack wf-gap-xs">
         <Text variant="secondary">单行 + 发送（Enter）</Text>
@@ -237,12 +237,12 @@ const DemoChatInput: Component = async (_props, ctx) => {
 
 /** AuthPage：认证页骨架（登录/注册/错误+loading 三态） */
 
-const DemoAuthPage: Component = async (_props, ctx) => {
+const DemoAuthPage: Component = (_props, ctx) => {
   let mode: 'login' | 'register' = 'login'
   let loading = false
   let error = ''
   const rerender = () => ctx.render()
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-md">
       <div class="wf-row wf-gap-sm">
         <button class={`wf-btn wf-btn--sm ${mode === 'login' ? 'wf-btn--primary' : ''}`} type="button" onClick={() => { mode = 'login'; error = ''; rerender() }}>登录</button>
@@ -281,9 +281,9 @@ const DemoAuthPage: Component = async (_props, ctx) => {
 
 
 /** PromptTemplate：提示词模板编辑器（变量插入 + 预览填充） */
-export const DemoPromptTemplate: Component = async (_props: any, ctx: any) => {
+export const DemoPromptTemplate: Component = (_props: any, ctx: any) => {
   let value = '你是一位{{role}}，请用{{tone}}的语气介绍{{topic}}。'
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <PromptTemplate
         label="系统提示词模板"

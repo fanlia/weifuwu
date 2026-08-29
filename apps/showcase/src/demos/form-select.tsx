@@ -37,10 +37,10 @@ import {
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
-const DemoCheckbox: Component = async (_props, ctx) => {
+const DemoCheckbox: Component = (_props, ctx) => {
   let agree = false
   let remember = true
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm">
       <Checkbox label="已阅读并同意协议" checked={agree} onChange={v => { agree = v; ctx.render() }} />
       <Checkbox label="记住登录状态" checked={remember} onChange={v => { remember = v; ctx.render() }} />
@@ -50,10 +50,10 @@ const DemoCheckbox: Component = async (_props, ctx) => {
   )
 }
 
-const DemoSwitch: Component = async (_props, ctx) => {
+const DemoSwitch: Component = (_props, ctx) => {
   let notify = true
   let auto = false
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm">
       <Switch label="启用通知" checked={notify} onChange={v => { notify = v; ctx.render() }} />
       <Switch label="自动更新" checked={auto} onChange={v => { auto = v; ctx.render() }} />
@@ -63,10 +63,10 @@ const DemoSwitch: Component = async (_props, ctx) => {
   )
 }
 
-const DemoRadio: Component = async (_props, ctx) => {
+const DemoRadio: Component = (_props, ctx) => {
   let gender = 'male'
   let inline = 'a'
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <RadioGroup name="gender" value={gender} onChange={v => { gender = v; ctx.render() }}
         options={[
@@ -84,10 +84,10 @@ const DemoRadio: Component = async (_props, ctx) => {
   )
 }
 
-const DemoSegmented: Component = async (_props, ctx) => {
+const DemoSegmented: Component = (_props, ctx) => {
   let mode = 'ai'
   let size: 'sm' | 'md' = 'md'
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <SegmentedControl ariaLabel="生成方式"
         value={mode}
@@ -106,12 +106,12 @@ const DemoSegmented: Component = async (_props, ctx) => {
   )
 }
 
-const DemoSlider: Component = async (_props, ctx) => {
+const DemoSlider: Component = (_props, ctx) => {
   let volume = 60
   let brightness = 30
   let price = 800
   let rangeV: [number, number] = [300, 1500]
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <Slider label="音量" value={volume} onChange={v => { volume = v; ctx.render() }} />
       <Slider label="亮度" value={brightness} min={0} max={100} onChange={v => { brightness = v; ctx.render() }} />

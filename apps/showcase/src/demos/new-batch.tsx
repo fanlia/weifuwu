@@ -38,11 +38,11 @@ import {
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
 // 子应用组件（vdom——普通组件嵌入——应用实例状态闭包持有）
-const MiniTodo = async (_init: any, ctx: any) => {
+const MiniTodo = (_init: any, ctx: any) => {
     let items: string[] = ['子应用任务']
     let input = ''
     const rerender = () => ctx.render()
-    return async () => (
+    return () => (
       <div class="wf-stack wf-gap-sm">
         <div class="wf-row wf-gap-sm">
           <input class="wf-input" style="flex:1" value={input}
@@ -123,9 +123,9 @@ function DemoCard(initProps: { title: string; desc: string; code: string; childr
 
 // ── 交互型 Demo 组件 ──────────────────────────────────
 
-const DemoRate: Component = async (_props, ctx) => {
+const DemoRate: Component = (_props, ctx) => {
   let v = 3
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <Rate value={v} onChange={(n: number) => { v = n; ctx.render() }} />
       <Rate value={4} readOnly />
@@ -137,7 +137,7 @@ const DemoRate: Component = async (_props, ctx) => {
   )
 }
 
-const DemoTypography: Component = async () => async () => (
+const DemoTypography: Component = () => () => (
   <div class="wf-stack wf-gap-sm" style="max-width:100%">
     <Title level={1}>一级标题</Title>
     <Title level={3}>三级标题</Title>
@@ -154,14 +154,14 @@ const DemoTypography: Component = async () => async () => (
   </div>
 )
 
-const DemoLabel: Component = async () => async () => (
+const DemoLabel: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
     <Label htmlFor="demo-name">用户名</Label>
     <Label required>必填项</Label>
   </div>
 )
 
-const DemoAspectRatio: Component = async () => async () => (
+const DemoAspectRatio: Component = () => () => (
   <div class="wf-surface wf-surface--flat wf-border wf-radius-md">
     <AspectRatio ratio={16 / 9}>
       <div class="wf-center wf-text-secondary wf-bg-tertiary">16:9 容器</div>
@@ -169,11 +169,11 @@ const DemoAspectRatio: Component = async () => async () => (
   </div>
 )
 
-const DemoToggleGroup: Component = async (_props, ctx) => {
+const DemoToggleGroup: Component = (_props, ctx) => {
   let single = 'bold'
   let multi: string[] = ['bold']
   let pressed = false
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <ToggleGroup type="single" options={[{ value: 'bold', label: 'B' }, { value: 'italic', label: 'I' }, { value: 'underline', label: 'U' }]} value={single} onChange={(v: any) => { single = v; ctx.render() }} />
       <ToggleGroup type="multiple" options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }]} value={multi} onChange={(v: any) => { multi = v; ctx.render() }} />
@@ -185,9 +185,9 @@ const DemoToggleGroup: Component = async (_props, ctx) => {
   )
 }
 
-const DemoCheckboxGroup: Component = async (_props, ctx) => {
+const DemoCheckboxGroup: Component = (_props, ctx) => {
   let v: string[] = ['a']
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <CheckboxGroup label="选择成员" options={[{ value: 'a', label: '张三' }, { value: 'b', label: '李四' }, { value: 'c', label: '王五' }]} value={v} onChange={(k: string[]) => { v = k; ctx.render() }} />
       <div class="wf-font-sm wf-text-secondary">已选：{v.join(', ') || '无'}</div>
@@ -195,9 +195,9 @@ const DemoCheckboxGroup: Component = async (_props, ctx) => {
   )
 }
 
-const DemoPinInput: Component = async (_props, ctx) => {
+const DemoPinInput: Component = (_props, ctx) => {
   let v = ''
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <PinInput length={6} value={v} onChange={(s: string) => { v = s; ctx.render() }} />
       <div class="wf-font-sm wf-text-secondary">验证码：{v || '等待输入'}</div>
@@ -205,16 +205,16 @@ const DemoPinInput: Component = async (_props, ctx) => {
   )
 }
 
-const DemoCopyButton: Component = async () => async () => (
+const DemoCopyButton: Component = () => () => (
   <div class="wf-row wf-gap-sm">
     <CopyButton value="https://weifuwu.dev/docs" label="复制链接" />
     <CopyButton value="仅图标" iconOnly />
   </div>
 )
 
-const DemoColorPicker: Component = async (_props, ctx) => {
+const DemoColorPicker: Component = (_props, ctx) => {
   let c = '#4f6ef7'
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <ColorPicker value={c} showInput onChange={(v: string) => { c = v; ctx.render() }} />
       <div class="wf-row wf-gap-sm">
@@ -227,7 +227,7 @@ const DemoColorPicker: Component = async (_props, ctx) => {
   )
 }
 
-const DemoHoverCard: Component = async () => async () => (
+const DemoHoverCard: Component = () => () => (
   <HoverCard openDelay={0} content={
     <div class="wf-stack wf-gap-xs">
       <div class="wf-font-sm wf-semibold">用户详情</div>
@@ -238,11 +238,11 @@ const DemoHoverCard: Component = async () => async () => (
   </HoverCard>
 )
 
-const DemoNotification: Component = async (_props, ctx) => {
+const DemoNotification: Component = (_props, ctx) => {
   const show = () => {
     ;(ctx as any).notification?.success?.({ title: '部署成功', description: 'v0.63.0 已上线' })
   }
-  return async () => (
+  return () => (
     <div class="wf-row wf-gap-sm">
       <Button variant="primary" onClick={show}>成功通知</Button>
       <Button variant="secondary" onClick={() => (ctx as any).notification?.warning?.({ title: '磁盘空间不足', description: '已使用 92%' })}>警告通知</Button>
@@ -250,14 +250,14 @@ const DemoNotification: Component = async (_props, ctx) => {
   )
 }
 
-const DemoBackTop: Component = async () => async () => (
+const DemoBackTop: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
     <div class="wf-font-sm wf-text-secondary">向下滚动页面超过 400px 后，右下角出现回到顶部按钮</div>
     <BackTop aria-label="回到顶部" />
   </div>
 )
 
-const DemoAffix: Component = async () => async () => (
+const DemoAffix: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
     <div class="wf-font-sm wf-text-secondary">滚动页面：导航条滑出视窗顶部后固定（Affix，offsetTop=0）</div>
     {/* offsetTop=0：Affix 块滑出视窗顶部后才固定（scrollY >= 块文档位置）——
@@ -272,14 +272,14 @@ const DemoAffix: Component = async () => async () => (
   </div>
 )
 
-const DemoAnchor: Component = async (_props, ctx) => {
+const DemoAnchor: Component = (_props, ctx) => {
   let active = '#anchor-a'
   const sections = [
     { id: 'anchor-a', title: '第一节', body: Array.from({ length: 8 }, (_, i) => `这是第一节的第 ${i + 1} 段内容。用于演示锚点滚动高亮跟随。`).join('') },
     { id: 'anchor-b', title: '第二节', body: Array.from({ length: 8 }, (_, i) => `这是第二节的第 ${i + 1} 段内容。滚动时右侧锚点自动高亮当前节。`).join('') },
     { id: 'anchor-c', title: '第三节', body: Array.from({ length: 8 }, (_, i) => `这是第三节的第 ${i + 1} 段内容。点击锚点平滑滚动到对应位置。`).join('') },
   ]
-  return async () => (
+  return () => (
     <div class="wf-width-full wf-row wf-gap-lg" style="align-items: flex-start">
       <div class="wf-fill">
         {sections.map(s => (
@@ -298,7 +298,7 @@ const DemoAnchor: Component = async (_props, ctx) => {
   )
 }
 
-const DemoContextMenu: Component = async () => async () => (
+const DemoContextMenu: Component = () => () => (
   <ContextMenu items={[
     { key: 'edit', label: '编辑', onClick: () => alert('编辑') },
     { key: 'copy', label: '复制' },
@@ -308,9 +308,9 @@ const DemoContextMenu: Component = async () => async () => (
   </ContextMenu>
 )
 
-const DemoMentions: Component = async (_props, ctx) => {
+const DemoMentions: Component = (_props, ctx) => {
   let v = '输入 @ 提及成员：@ali'
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <Mentions options={[{ value: 'alice', label: 'Alice' }, { value: 'bob', label: 'Bob' }, { value: 'carol', label: 'Carol' }]} value={v} onChange={(s: string) => { v = s; ctx.render() }} />
       <div class="wf-font-sm wf-text-secondary">文本：{v}</div>
@@ -318,9 +318,9 @@ const DemoMentions: Component = async (_props, ctx) => {
   )
 }
 
-const DemoCollapse: Component = async (_props, ctx) => {
+const DemoCollapse: Component = (_props, ctx) => {
   let active = ['1']
-  return async () => (
+  return () => (
     <Collapse items={[
       { key: '1', title: '知识库文档', content: '文档分块内容展示（行内展开，区别于 Accordion 卡片面板）' },
       { key: '2', title: '异步加载示例', loading: true },
@@ -329,7 +329,7 @@ const DemoCollapse: Component = async (_props, ctx) => {
   )
 }
 
-const DemoToggleTree: Component = async (_props, ctx) => {
+const DemoToggleTree: Component = (_props, ctx) => {
   let checked = ['fe']
   let expanded = ['root', 'tech']
   let search = ''
@@ -339,7 +339,7 @@ const DemoToggleTree: Component = async (_props, ctx) => {
       { key: 'mkt', label: '市场部' },
     ] },
   ]
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <input class="wf-input" placeholder="搜索节点…" value={search} onInput={(e: any) => { search = e.target.value; ctx.render() }} />
       <Tree data={treeData} expandedKeys={expanded} onExpand={(keys: string[]) => { expanded = keys; ctx.render() }}
@@ -349,9 +349,9 @@ const DemoToggleTree: Component = async (_props, ctx) => {
   )
 }
 
-const DemoCascader: Component = async (_props, ctx) => {
+const DemoCascader: Component = (_props, ctx) => {
   let value: string[] = ['zj', 'hz']
-  return async () => (
+  return () => (
     <Cascader options={[
       { value: 'zj', label: '浙江', children: [{ value: 'hz', label: '杭州' }, { value: 'nb', label: '宁波' }] },
       { value: 'gd', label: '广东', children: [{ value: 'sz', label: '深圳' }] },
@@ -359,10 +359,10 @@ const DemoCascader: Component = async (_props, ctx) => {
   )
 }
 
-const DemoCascaderDis: Component = async (_p, ctx) => {
+const DemoCascaderDis: Component = (_p, ctx) => {
   let disabled = false
   let err = ''
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <Cascader options={[
         { value: 'zj', label: '浙江', children: [{ value: 'hz', label: '杭州' }] },
@@ -376,9 +376,9 @@ const DemoCascaderDis: Component = async (_p, ctx) => {
   )
 }
 
-const DemoMentionsDis: Component = async (_p, ctx) => {
+const DemoMentionsDis: Component = (_p, ctx) => {
   let disabled = false
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <Mentions options={[{ value: 'alice', label: 'Alice' }, { value: 'bob', label: 'Bob' }]} disabled={disabled} rows={2} placeholder={disabled ? '禁用中' : '输入 @ 提及成员…'} />
       <div><Button onClick={() => { disabled = !disabled; ctx.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
@@ -386,9 +386,9 @@ const DemoMentionsDis: Component = async (_p, ctx) => {
   )
 }
 
-const DemoPinInputDis: Component = async (_p, ctx) => {
+const DemoPinInputDis: Component = (_p, ctx) => {
   let disabled = false
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <PinInput length={6} disabled={disabled} />
       <div><Button onClick={() => { disabled = !disabled; ctx.render() }}>{disabled ? '启用' : '禁用'}</Button></div>
@@ -396,22 +396,22 @@ const DemoPinInputDis: Component = async (_p, ctx) => {
   )
 }
 
-const DemoVirtualTableBig: Component = async (_props, ctx) => {
+const DemoVirtualTableBig: Component = (_props, ctx) => {
   // 10 万行大数据（虚拟滚动只渲染可见窗口）
   const big = Array.from({ length: 100000 }, (_, i) => ({ id: i, name: `条目-${i}`, value: i * 7 }))
-  return async () => (
+  return () => (
     <VirtualTable height={280} data={big}
       columns={[{ key: 'id', label: 'ID', width: 80 }, { key: 'name', label: '名称' }, { key: 'value', label: '值', sortable: true }]} />
   )
 }
 
-const DemoToggleTreeCheck: Component = async (_props, ctx) => {
+const DemoToggleTreeCheck: Component = (_props, ctx) => {
   let checked: string[] = ['a1']
   const treeData = [
     { key: 'a', label: '前端组', children: [{ key: 'a1', label: 'React' }, { key: 'a2', label: 'Vue' }] },
     { key: 'b', label: '后端组', children: [{ key: 'b1', label: 'Node' }, { key: 'b2', label: 'Go' }] },
   ]
-  return async () => (
+  return () => (
     <div class="wf-width-full wf-stack wf-gap-sm">
       <Tree data={treeData} checkable checkedKeys={checked}
         onCheck={(k: string[]) => { checked = k; ctx.render() }} />
@@ -420,12 +420,12 @@ const DemoToggleTreeCheck: Component = async (_props, ctx) => {
   )
 }
 
-const DemoInfiniteScrollRetry: Component = async (_props, ctx) => {
+const DemoInfiniteScrollRetry: Component = (_props, ctx) => {
   let items = Array.from({ length: 8 }, (_, i) => `条目 ${i + 1}`)
   let loading = false
   let failed = false
   let page = 1
-  return async () => (
+  return () => (
     <div class="wf-width-full wf-stack wf-gap-sm">
       <InfiniteScroll
         hasMore={items.length < 32}
@@ -451,18 +451,18 @@ const DemoInfiniteScrollRetry: Component = async (_props, ctx) => {
   )
 }
 
-const DemoTransfer: Component = async (_props, ctx) => {
+const DemoTransfer: Component = (_props, ctx) => {
   let target = ['a']
-  return async () => (
+  return () => (
     <Transfer data={[{ key: 'a', label: '成员A' }, { key: 'b', label: '成员B' }, { key: 'c', label: '成员C' }, { key: 'd', label: '成员D' }]}
       targetKeys={target} onChange={(k: string[]) => { target = k; ctx.render() }} titles={['可选成员', '已选成员']} showSearch />
   )
 }
 
-const DemoCalendarEvents: Component = async (_props, ctx) => {
+const DemoCalendarEvents: Component = (_props, ctx) => {
   let view = { month: 5, year: 2025 }
   let selected = '2025-06-10'
-  return async () => (
+  return () => (
     <div class="wf-width-full wf-flex wf-center">
       <Calendar
         month={view.month} year={view.year}
@@ -478,14 +478,14 @@ const DemoCalendarEvents: Component = async (_props, ctx) => {
   )
 }
 
-const DemoCommand: Component = async (_props, ctx) => {
+const DemoCommand: Component = (_props, ctx) => {
   let open = false
   const items = [
     { key: 'new', label: '新建聊天', shortcut: 'N', onSelect: () => { open = false; ctx.render() } },
     { key: 'search', label: '搜索', shortcut: 'S' },
     { key: 'settings', label: '设置', shortcut: 'G S' },
   ]
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <Button variant="secondary" onClick={() => { open = true; ctx.render() }}>打开命令面板（⌘K）</Button>
       <Command items={items} open={open} onOpenChange={(o: boolean) => { open = o; ctx.render() }} />
@@ -493,14 +493,14 @@ const DemoCommand: Component = async (_props, ctx) => {
   )
 }
 
-const DemoMenubar: Component = async () => async () => (
+const DemoMenubar: Component = () => () => (
   <Menubar menus={[
     { key: 'file', label: '文件', items: [{ key: 'new', label: '新建', shortcut: 'Ctrl+N' }, { key: 'save', label: '保存', shortcut: 'Ctrl+S' }] },
     { key: 'edit', label: '编辑', items: [{ key: 'undo', label: '撤销', shortcut: 'Ctrl+Z' }] },
   ]} />
 )
 
-const DemoCarousel: Component = async () => async () => (
+const DemoCarousel: Component = () => () => (
   <div class="wf-width-sm">
     <Carousel autoplay interval={2500}>
       {['🟥 第一张', '🟦 第二张', '🟩 第三张'].map((t, i) => (
@@ -511,7 +511,7 @@ const DemoCarousel: Component = async () => async () => (
   </div>
 )
 
-const DemoResizable: Component = async () => async () => (
+const DemoResizable: Component = () => () => (
   <div class="wf-surface wf-surface--flat wf-border wf-radius-md" style="height: 160px">
     <Resizable defaultSize={180}>
       {[<div class="wf-padding-md wf-font-sm wf-text-secondary">左面板（拖拽分隔条）</div>, <div class="wf-padding-md wf-font-sm wf-text-secondary">右面板</div>] as any}
@@ -519,9 +519,9 @@ const DemoResizable: Component = async () => async () => (
   </div>
 )
 
-const DemoCalendar: Component = async (_props, ctx) => {
+const DemoCalendar: Component = (_props, ctx) => {
   let view = { month: 5, year: 2025 }
-  return async () => (
+  return () => (
     <Calendar month={view.month} year={view.year} selectedDate="2025-06-10"
       onMonthChange={(m: number, y: number) => { view = { month: m, year: y }; ctx.render() }}
       events={[
@@ -531,21 +531,21 @@ const DemoCalendar: Component = async (_props, ctx) => {
   )
 }
 
-const DemoWatermark: Component = async () => async () => (
+const DemoWatermark: Component = () => () => (
   <Watermark text="weifuwu 内部资料">
     <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-xl wf-text-center wf-text-secondary">水印覆盖内容区</div>
   </Watermark>
 )
 
-const DemoVirtualList: Component = async () => async () => (
+const DemoVirtualList: Component = () => () => (
   <VirtualList height={240} itemHeight={36} items={Array.from({ length: 200 }, (_, i) => ({ id: i, label: `第 ${i} 行` }))}
     renderItem={(item: any) => <div class="wf-font-sm wf-border-bottom wf-padding-y-xs wf-padding-x-sm">{item.label}</div>} />
 )
 
-const DemoApp: Component = async (_init, ctx) => {
+const DemoApp: Component = (_init, ctx) => {
   let appProps = { title: '独立子应用' }
   const render = () => ctx.render()
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-font-sm wf-text-secondary">父应用嵌入子应用（app 节点——独立状态/事件可区分——同流全链路）</div>
       <Button size="sm" onClick={() => { appProps = { title: '更新: ' + Date.now() % 1000 }; render() }}>更新子应用 props</Button>
@@ -557,7 +557,7 @@ const DemoApp: Component = async (_init, ctx) => {
   )
 }
 
-const DemoVirtualTable: Component = async (_props, ctx) => {
+const DemoVirtualTable: Component = (_props, ctx) => {
   let sortKey: string | undefined
   let sortOrder: 'asc' | 'desc' | undefined
   let selectedKeys: (string | number)[] = []
@@ -573,7 +573,7 @@ const DemoVirtualTable: Component = async (_props, ctx) => {
     email: `user${i + 1}@weifuwu.dev`,
     status: i % 3 === 0 ? 'active' : 'inactive',
   }))
-  return async () => (
+  return () => (
     <div class="wf-width-full">
       <VirtualTable columns={cols} data={data} height={320} rowHeight={40}
         sortKey={sortKey} sortOrder={sortOrder}
@@ -584,18 +584,18 @@ const DemoVirtualTable: Component = async (_props, ctx) => {
   )
 }
 
-const DemoQRCode: Component = async () => async () => (
+const DemoQRCode: Component = () => () => (
   <div class="wf-row wf-gap-md">
     <QRCode value="https://weifuwu.dev" size={96} />
     <QRCode value="https://weifuwu.dev/docs" size={96} color="#4f6ef7" />
   </div>
 )
 
-const DemoInfiniteScroll: Component = async (_props, ctx) => {
+const DemoInfiniteScroll: Component = (_props, ctx) => {
   let items: string[] = Array.from({ length: 10 }, (_, i) => `条目 ${i + 1}`)
   let loading = false
   let hasMore = true
-  return async () => (
+  return () => (
     <InfiniteScroll
       loading={loading}
       hasMore={hasMore}

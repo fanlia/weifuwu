@@ -87,7 +87,7 @@ test('htmlDocument：完整文档包装（__DATA__ 种子脚本）', () => {
   assert.ok(doc.includes('<title>页 &amp; 标题</title>'))
   assert.ok(doc.includes('<div id="root"><div>x</div></div>'))
   assert.ok(doc.includes('__DATA__'))
-  assert.ok(doc.includes('v&lt;1'), '种子数据转义')
+  assert.ok(doc.includes('v\\u003c1'), '种子数据转义（script 内 JSON——只转义 <——引号不破坏）')
 })
 
 // 浏览器测试 runner 入口标记（sideEffects 摇除防护——scripts/test-browser.ts 引用）

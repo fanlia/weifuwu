@@ -175,7 +175,7 @@ async function renderSsrPage(req: Request): Promise<Response> {
     ;(globalThis as any).__SHOWCASE_SSR_BASE__ = ssrDataBase(req)
     const mod = await loadSsrApp()
     const url = new URL(req.url ?? '/', 'http://localhost').pathname
-    const html = await mod.uiSsr(mod.buildRouter(), url, { title: 'weifuwu showcase' })
+    const html = await mod.uiSsr(mod.buildRouter(), url, { title: 'weifuwu showcase', prefetch: async () => { await mod.fetchIndex(); return { showcaseIndex: mod.getIndexCache() } } })
     const doc = html
       .replace(/<head>[\s\S]*?<\/head>/, `<head>
   <meta charset="UTF-8">

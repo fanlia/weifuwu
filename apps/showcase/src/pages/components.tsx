@@ -4,7 +4,8 @@
 import { h } from 'weifuwu/vdom'
 import type { Component } from 'weifuwu/vdom'
 import { Tag } from 'weifuwu/components'
-import { fetchIndex, type IndexJson } from '../data.ts'
+import { fetchIndex, fetchIndexCached, type IndexJson } from '../data.ts'
+import * as demosAny from '../demos/index.ts'
 
 
 const FAMILIES: Record<string, { name: string; path: string; desc: string }> = {
@@ -32,10 +33,10 @@ export const CATEGORIES = [
 ] as const
 
 /** 组件总览——全局搜索 + 分类网格（搜索时跨分类即时过滤） */
-export const ComponentsIndex: Component = async (_init: any, ctx: any) => {
-  const idx = await fetchIndex()
+export const ComponentsIndex: Component = (_init: any, ctx: any) => {
+  const idx = fetchIndexCached(() => ctx.render())
   let q = ''
-  return async (_p: any) => {
+  return (_p: any) => {
     const kw = q.trim().toLowerCase()
     // family 维度搜索（07：输入家族名/office/ai-chat 也能找到家族成员）
     const all = idx.components.filter((c) => !kw
@@ -87,10 +88,10 @@ export const ComponentsIndex: Component = async (_init: any, ctx: any) => {
 }
 
 /** 分类页——组件卡片网格（搜索过滤） */
-export const CategoryPage: Component = async (initProps: any, ctx: any) => {
+export const CategoryPage: Component = (initProps: any, ctx: any) => {
   let q = ''
-  return async (props: any) => {
-    const idx = await fetchIndex()
+  return (props: any) => {
+    const idx = fetchIndexCached(() => ctx.render())
     const cat = props.category ?? initProps.category ?? ''
     const meta = CATEGORIES.find(([id]) => id === cat)
     const list = idx.components
@@ -130,32 +131,24 @@ export const CategoryPage: Component = async (initProps: any, ctx: any) => {
 }
 
 /** 组件详情页——活体 demo（demos 注册表驱动） */
-export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
-  // 数据声明（工厂层 await——两阶段组件：导航/重渲染缓存命中零成本）
-  let name = ''
-  let category = ''
-  let hasDemo = false
-  let compTags: string[] = []
-  let compDesc = ''
-  let compSource = ''
-  let compCss = ''
-  let compTest = ''
-  let compGotchas: string[] = []
-  let isVariant = false
-  let compFamily: string | null = null
-  let variantDemo: string | null = null
-  let variantsOf: { id: string; name: string; desc: string }[] = []
-  try {
-    const idx = await fetchIndex()
+export const ComponentPage: Component = (initProps: any, ctx: any) => {
+  // **2027-08 同步化——数据在 renderFn 内同步读**（fetchIndexCached——
+  // SSR prefetch / 客户端种子预热 → 首帧同步命中——SSR≡SPA 一致）——
+  // 未命中 EMPTY + notify（数据到 → 重渲染）——无异步启动时序差异
+  return (_p: any) => {
+    const idx = fetchIndexCached(() => ctx.render())
     const id = initProps.id
     const comp = idx.components.find((c) => c.id === id)
-    name = comp?.name ?? id
-    category = comp?.category ?? 'others'
-    compTags = comp?.tags ?? []
-    compDesc = comp?.desc ?? ''
-    compFamily = comp?.family ?? null
+    let name = comp?.name ?? id
+    const category = comp?.category ?? 'others'
+    const compTags = comp?.tags ?? []
+    const compDesc = comp?.desc ?? ''
+    const compFamily = comp?.family ?? null
     // 变体聚合：变体 id → 渲染主组件页 + 变体 demo 突出（一页一组件心智）
     let resolved = comp
+    let isVariant = false
+    let variantDemo: string | null = null
+    let variantsOf: { id: string; name: string; desc: string }[] = []
     if (comp?.variantOf) {
       const parent = idx.components.find((c) => c.id === comp.variantOf)
       isVariant = true
@@ -163,24 +156,18 @@ export const ComponentPage: Component = async (initProps: any, _ctx: any) => {
       if (parent) {
         resolved = parent
         name = parent.name
-        category = parent.category
-        compTags = parent.tags ?? []
         variantsOf = idx.components.filter((c) => c.variantOf === parent.id)
       }
     } else {
       variantsOf = idx.components.filter((c) => c.variantOf === comp?.id)
     }
-    // demo 活体：demos 注册表（已迁移分类）
-    const demos = await import('../demos/index.ts')
-    hasDemo = !!demos.DEMOS[name]
-    compSource = resolved?.sourceFile ?? ''
-    compCss = resolved?.cssFile ?? ''
-    compTest = resolved?.testFile ?? ''
-    compGotchas = resolved?.gotchas ?? []
-  } catch { /* 索引不可用——页头兼容降级（名字 = id） */ }
-  return async (_p: any) => {
-    const demos = await import('../demos/index.ts')
-    const Demo = (demos as any).DEMOS[name]
+    // demo 活体：demos 注册表（已迁移分类）——同步引用
+    const hasDemo = !!(demosAny as any).DEMOS[name]
+    const compSource = resolved?.sourceFile ?? ''
+    const compCss = resolved?.cssFile ?? ''
+    const compTest = resolved?.testFile ?? ''
+    const compGotchas = resolved?.gotchas ?? []
+    const Demo = (demosAny as any).DEMOS[name]
     return (
       <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:16px;padding:24px 16px">
         <div class="wf-font-xs wf-text-secondary">

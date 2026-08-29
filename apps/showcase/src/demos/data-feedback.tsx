@@ -37,12 +37,12 @@ import {
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
-const DemoModal: Component = async (_props, ctx) => {
+const DemoModal: Component = (_props, ctx) => {
   let open = false
   let width = '420px'
   let closable = true
   const rerender = () => ctx.render()
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-row wf-gap-sm">
         <Button variant="primary" onClick={() => { open = true; rerender() }}>打开弹窗</Button>
@@ -65,7 +65,7 @@ const DemoModal: Component = async (_props, ctx) => {
   )
 }
 
-const DemoToast: Component = async (_props, ctx) => {
+const DemoToast: Component = (_props, ctx) => {
   let toasts = [] as ToastItem[]
   let position: ToastPosition = 'top-right'
   const rerender = () => ctx.render()
@@ -75,7 +75,7 @@ const DemoToast: Component = async (_props, ctx) => {
     toasts = [...toasts, { id, type, message: msgs[type] }]; rerender()
     setTimeout(() => { toasts = toasts.filter((t: any) => t.id !== id); rerender() }, 3000)
   }
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-row">
         <Button variant="primary" onClick={() => add('success')}>成功</Button>
@@ -99,10 +99,10 @@ const DemoToast: Component = async (_props, ctx) => {
   )
 }
 
-const DemoAlert: Component = async (_props, ctx) => {
+const DemoAlert: Component = (_props, ctx) => {
   let showErr = true
   let showInfo = true
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       {showInfo && <Alert variant="info" closable onClose={() => { showInfo = false; ctx.render() }}>这是一条提示信息（可关闭）</Alert>}
       <Alert variant="success">操作成功完成</Alert>
@@ -112,7 +112,7 @@ const DemoAlert: Component = async (_props, ctx) => {
   )
 }
 
-const DemoLoading: Component = async (_props, ctx) => {
+const DemoLoading: Component = (_props, ctx) => {
   let loading = true
   // **定时器在工厂（mount）期启动（2026-08——effect guard 实证——渲染
   // 路径副作用纪律）**：renderFn 只输出 vnode——timer 在 mount 期 + hold 清理
@@ -121,7 +121,7 @@ const DemoLoading: Component = async (_props, ctx) => {
     const timer = setTimeout(() => { loading = false; ctx.render() }, 3000)
     ctx.ui.hold(() => clearTimeout(timer))
   }
-  return async (_p: any) => {
+  return (_p: any) => {
     return (
     <div class="wf-row wf-gap-lg">
       {loading ? <Loading text="加载中（3秒后消失）..." /> : <Alert variant="success">加载完成</Alert>}
@@ -130,7 +130,7 @@ const DemoLoading: Component = async (_props, ctx) => {
   }
 }
 
-const DemoSkeleton: Component = async () => async () => (
+const DemoSkeleton: Component = () => () => (
   <div class="wf-stack wf-gap-md">
     <div class="wf-row wf-gap-md">
       <Skeleton variant="avatar" />
@@ -147,9 +147,9 @@ const DemoSkeleton: Component = async () => async () => (
   </div>
 )
 
-const DemoEmptyState: Component = async (_props, ctx) => {
+const DemoEmptyState: Component = (_props, ctx) => {
   let hasData = false
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-width-full">
       {hasData
         ? <div class="wf-stack wf-gap-sm wf-text-center wf-padding-lg">
@@ -163,7 +163,7 @@ const DemoEmptyState: Component = async (_props, ctx) => {
   )
 }
 
-const DemoTooltip: Component = async () => async () => (
+const DemoTooltip: Component = () => () => (
   <div class="wf-row wf-gap-xl wf-padding-y-lg">
     <Tooltip content="保存文件" position="top"><Button>上</Button></Tooltip>
     <Tooltip content="底部提示" position="bottom"><Button>下</Button></Tooltip>
@@ -172,10 +172,10 @@ const DemoTooltip: Component = async () => async () => (
   </div>
 )
 
-const DemoDrawer: Component = async (_props, ctx) => {
+const DemoDrawer: Component = (_props, ctx) => {
   let rightOpen = false
   let leftOpen = false
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-row wf-gap-sm">
       <Button variant="primary" onClick={() => { rightOpen = true; ctx.render() }}>右侧抽屉</Button>
       <Button onClick={() => { leftOpen = true; ctx.render() }}>左侧抽屉</Button>
@@ -194,10 +194,10 @@ const DemoDrawer: Component = async (_props, ctx) => {
   )
 }
 
-const DemoPopover: Component = async (_props, ctx) => {
+const DemoPopover: Component = (_props, ctx) => {
   let showBottom = false
   let showTop = false
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-row wf-gap-sm">
       <Popover content={<div class="wf-padding-y-xs"><p class="wf-margin-none wf-margin-bottom-sm">自定义面板内容</p><Button size="sm">操作</Button></div>}>
         <Button variant="secondary">点击弹出</Button>
@@ -212,9 +212,9 @@ const DemoPopover: Component = async (_props, ctx) => {
   )
 }
 
-const DemoDatePicker: Component = async (_props, ctx) => {
+const DemoDatePicker: Component = (_props, ctx) => {
   let result = ''
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-row wf-gap-md wf-cluster wf-width-full">
       <div class="wf-width-full" style="max-width:220px">
         <DatePicker mode="date" onChange={v => { result = v; ctx.render() }} placeholder="选择日期" />
@@ -234,7 +234,7 @@ const DemoDatePicker: Component = async (_props, ctx) => {
 }
 
 
-export const DemoWave: Component = async (_props: any) => async (_p: any) => (
+export const DemoWave: Component = (_props: any) => (_p: any) => (
   <div class="wf-width-full wf-stack wf-gap-xs">
     <div class="wf-font-xs wf-text-secondary">点击水波纹——包装任意可点击元素（纯 CSS，reduced-motion 自动降级）</div>
     <div class="wf-row wf-gap-sm">

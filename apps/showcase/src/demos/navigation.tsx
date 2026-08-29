@@ -34,9 +34,9 @@ import { FilePreview, AppShell, Button, Input, Textarea, Select,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
-const DemoSteps: Component = async (_props, ctx) => {
+const DemoSteps: Component = (_props, ctx) => {
   let step = 'info'
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-width-full wf-stack wf-gap-sm">
       <Steps items={[
         { key: 'info', label: '填写信息', description: '表单信息' },
@@ -53,7 +53,7 @@ const DemoSteps: Component = async (_props, ctx) => {
   )
 }
 
-const DemoTabs: Component = async (_props, ctx) => {
+const DemoTabs: Component = (_props, ctx) => {
   let tab = 'a'
   let items = [
     { key: 'a', label: '详情', content: <p class="wf-margin-none">这是详情内容。点击其他标签切换。</p> },
@@ -62,7 +62,7 @@ const DemoTabs: Component = async (_props, ctx) => {
   ]
   let n = 0
   const rerender = () => ctx.render()
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <Tabs items={items} active={tab} onChange={v => { tab = v; rerender() }}
         closable
@@ -74,10 +74,10 @@ const DemoTabs: Component = async (_props, ctx) => {
   )
 }
 
-const DemoDropdown: Component = async (_props, ctx) => {
+const DemoDropdown: Component = (_props, ctx) => {
   let open = false
   let lastAction = ''
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-row wf-gap-md" style="min-height:120px">
       <Dropdown
         trigger={
@@ -97,9 +97,9 @@ const DemoDropdown: Component = async (_props, ctx) => {
   )
 }
 
-const DemoPagination: Component = async (_props, ctx) => {
+const DemoPagination: Component = (_props, ctx) => {
   let page = 3
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-center wf-gap-sm">
       <Pagination total={200} page={page} onChange={p => { page = p; ctx.render() }} />
       <div class="wf-font-xs wf-text-secondary">当前页: {page}</div>
@@ -107,7 +107,7 @@ const DemoPagination: Component = async (_props, ctx) => {
   )
 }
 
-const DemoAccordion: Component = async () => async () => (
+const DemoAccordion: Component = () => () => (
   <div class="wf-width-full">
     <Accordion items={[
       { key: 'a', title: '什么是 weifuwu？', content: <p class="wf-margin-none">weifuwu 是一个全栈框架，一个包包含后端、前端和布局系统。</p> },
@@ -117,7 +117,7 @@ const DemoAccordion: Component = async () => async () => (
   </div>
 )
 
-const DemoBreadcrumb: Component = async () => async () => (
+const DemoBreadcrumb: Component = () => () => (
   <div class="wf-width-full">
     <Breadcrumb items={[
       { label: '首页', href: '/' },
@@ -127,7 +127,7 @@ const DemoBreadcrumb: Component = async () => async () => (
   </div>
 )
 
-const DemoMenu: Component = async (_props, ctx) => {
+const DemoMenu: Component = (_props, ctx) => {
   let active = 'agents'
   let collapsed = false
   const items = [
@@ -144,7 +144,7 @@ const DemoMenu: Component = async (_props, ctx) => {
     },
     { key: 'logout', label: '退出登录', icon: <Icon name="log-out" size={16} />, group: '系统', danger: true },
   ]
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-width-full">
       <div style={{ width: collapsed ? '56px' : '220px', transition: 'width 0.2s' }} class="wf-padding-sm wf-border wf-radius wf-bg-secondary">
         <Menu items={items} activeKey={active} onSelect={k => { active = k; ctx.render() }}
@@ -157,7 +157,7 @@ const DemoMenu: Component = async (_props, ctx) => {
 
 
 /** AppShell（应用壳——品牌/导航/用户区——受控：父层驱动） */
-const DemoAppShell: Component = async (_props: any, ctx: any) => {
+const DemoAppShell: Component = (_props: any, ctx: any) => {
   let path = '/'
   const NAV = [
     { key: '/', label: '工作台', icon: h(Icon, { name: 'grid' }), group: '工作台' },
@@ -168,7 +168,7 @@ const DemoAppShell: Component = async (_props: any, ctx: any) => {
   ]
   let toastMsg = ''
   const notify = (m: string) => { toastMsg = m; ctx.render(); setTimeout(() => { toastMsg = ''; ctx.render() }, 1200) }
-  return async () => {
+  return () => {
     const page = path === '/'
       ? h('div', { class: 'wf-stack', style: '--wf-gap:12px' }, [
           h(StatCard, { label: '消息', value: 42 }),

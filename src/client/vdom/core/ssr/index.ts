@@ -29,6 +29,10 @@ export interface SsrOptions {
   title?: string
   /** __DATA__ 种子（ctx.data 预取结果——序列化进文档） */
   data?: Record<string, unknown>
+  /** **SSR 预取钩子（2027-08——预取遍前执行）**：bundle 内数据预热——
+   *  与 useAsyncData 管道互补（同步缓存类数据——如 showcase index.json）——
+   *  预取完成后组件异步启动立即命中——SSR 首帧带数据 */
+  prefetch?: () => Promise<void>
 }
 
 /** 字节流 → 命令流（NDJSON 解码——服务端消费 uiSsr 的编码流） */
@@ -70,6 +74,9 @@ export async function uiSsr(router: UIRouter, url: string, opts: SsrOptions = {}
   // 无 render——fire 即 unhandledRejection → node 默认 throw → 服务器进程
   // 退出——confirm 实证）——timer 语义在 SSR 不成立——阻断崩溃链
   installEffectGuard(globalThis, true)
+  // **预取钩子（2027-08）**：预取遍前执行——bundle 内数据预热（同步缓存类）——
+  // 返回值并入 __DATA__ 种子（prefetchSeed——客户端预热通道）
+  const prefetchSeed = opts.prefetch ? await opts.prefetch() : undefined
   const fnTable = createFnTable()
   const req = frontRequest(url)
   const ctx = {
@@ -104,7 +111,7 @@ export async function uiSsr(router: UIRouter, url: string, opts: SsrOptions = {}
   const html = await streamToString(
     res.body.pipeThrough(ndjsonDecode(fnTable)).pipeThrough(commandToHtml()),
   )
-  const seed = asyncSeed()
+  const seed = { ...(opts.data ?? {}), ...(prefetchSeed ?? {}), ...asyncSeed() }
   return htmlDocument(html, Object.keys(seed).length > 0 ? { ...opts, data: seed } : opts)
 }
 

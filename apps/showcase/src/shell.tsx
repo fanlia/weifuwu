@@ -15,8 +15,8 @@ export const DOMAINS = [
 ] as const
 
 /** 壳（layout 包裹——跨路由复用：工厂不重跑，状态保持） */
-export const Shell: Component<any, any> = async (_init: any, ctx: any) => {
-  return async (props: { page: any; active?: string }) => {
+export const Shell: Component<any, any> = (_init: any, ctx: any) => {
+  return (props: { page: any; active?: string }) => {
     const current = () => (typeof location !== 'undefined' ? location.pathname : (props.active ?? ''))
     return (
       <div class="wf-stack wf-gap-none" style="min-height:100vh">

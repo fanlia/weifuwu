@@ -33,3 +33,26 @@ export async function fetchIndex(): Promise<IndexJson> {
   indexCache = (await res.json()) as IndexJson
   return indexCache
 }
+
+/** **SSR 种子读取/客户端预填（2027-08——SSR≡SPA 首帧一致）**：
+ *  - getIndexCache：SSR prefetch 后序列化（__DATA__.showcaseIndex）
+ *  - preloadIndex：客户端 hydrate 前预热（首帧同步命中——吸收一致） */
+export function getIndexCache(): IndexJson | null {
+  return indexCache
+}
+export function preloadIndex(seed: IndexJson | undefined): void {
+  if (seed) indexCache = seed
+}
+
+/** 同步缓存读取（2027-08 同步化——工厂无 await：缓存命中同步 / 未命中
+ *  异步启动 fetch（首帧 loading——数据到后由调用方 rerender）——
+ *  返回 EMPTY_INDEX（空态渲染——非 null——调用方零 null 检查） */
+export const EMPTY_INDEX: IndexJson = {
+  counts: {}, components: [], primitives: [], patterns: [], apps: [],
+  backend: [], capabilities: [], guides: [], needs: [], cases: [], community: [],
+}
+export function fetchIndexCached(notify?: () => void): IndexJson {
+  if (indexCache) return indexCache
+  void fetchIndex().then(() => notify?.()) // 数据到 → 通知调用方（组件重渲染）
+  return EMPTY_INDEX
+}

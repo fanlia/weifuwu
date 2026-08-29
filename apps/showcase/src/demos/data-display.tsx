@@ -39,7 +39,7 @@ import {
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
-const DemoTable: Component = async (_props, ctx) => {
+const DemoTable: Component = (_props, ctx) => {
   let sortKey = 'name'
   let sortOrder: 'asc' | 'desc' = 'asc'
   let view = 'data' // 'data' | 'empty'
@@ -49,7 +49,7 @@ const DemoTable: Component = async (_props, ctx) => {
     { id: 2, name: '李四', role: '编辑', status: '离线', email: 'li@wf.dev', phone: '138-0000-0002', dept: '内容组' },
     { id: 3, name: '王五', role: '访客', status: '活跃', email: 'wang@wf.dev', phone: '138-0000-0003', dept: '设计组' },
   ]
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <div class="wf-row wf-gap-xs">
         <button class={`wf-btn wf-btn--sm ${view === 'data' ? 'wf-btn--primary' : 'wf-btn--secondary'}`} onClick={() => { view = 'data'; rerender() }}>有数据</button>
@@ -71,9 +71,9 @@ const DemoTable: Component = async (_props, ctx) => {
   )
 }
 
-const DemoCardShowcase: Component = async (_props, ctx) => {
+const DemoCardShowcase: Component = (_props, ctx) => {
   let clicked = false
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-row wf-gap-md wf-cluster">
       <Card>默认卡片</Card>
       <Card variant="outlined">线框卡片</Card>
@@ -83,7 +83,7 @@ const DemoCardShowcase: Component = async (_props, ctx) => {
   )
 }
 
-const DemoBadge: Component = async () => async () => (
+const DemoBadge: Component = () => () => (
   <div class="wf-row wf-gap-sm wf-cluster">
     <Badge>默认</Badge>
     <Badge variant="primary">主要</Badge>
@@ -99,9 +99,9 @@ const DemoBadge: Component = async () => async () => (
   </div>
 )
 
-const DemoTag: Component = async (_props, ctx) => {
+const DemoTag: Component = (_props, ctx) => {
   let tags = ['可关闭标签', '删除我']
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-row wf-gap-sm wf-cluster">
       <Tag>默认标签</Tag>
       <Tag variant="primary">主要标签</Tag>
@@ -114,7 +114,7 @@ const DemoTag: Component = async (_props, ctx) => {
   )
 }
 
-const DemoAvatar: Component = async () => async () => (
+const DemoAvatar: Component = () => () => (
   <div class="wf-row wf-gap-md wf-items-end">
     <Avatar name="张三" />
     <Avatar name="李四" size="sm" />
@@ -123,7 +123,7 @@ const DemoAvatar: Component = async () => async () => (
   </div>
 )
 
-const DemoStatCard: Component = async () => async () => (
+const DemoStatCard: Component = () => () => (
   <div class="wf-row wf-gap-md wf-cluster">
     <StatCard label="总用户" value="1,234" icon={<Icon name="users" size={24} className="wf-text-primary" />} trend="up" trendLabel="12%" />
     <StatCard label="收入" value="¥89,000" icon={<Icon name="bar-chart" size={24} className="wf-text-primary" />} trend="up" trendLabel="8%" />
@@ -132,7 +132,7 @@ const DemoStatCard: Component = async () => async () => (
   </div>
 )
 
-const DemoMarkdown: Component = async () => async () => (
+const DemoMarkdown: Component = () => () => (
   <Markdown content={`# 项目进展
 
 本周完成了 **核心模块** 与 ~~旧实现~~ 、
@@ -159,7 +159,7 @@ const greet = (name: string) => \`你好，\${name}\`
 [weifuwu 官网](https://weifuwu.dev) 与行内 \`code\` 混排。`} />
 )
 
-const DemoCodeBlock: Component = async () => async () => (
+const DemoCodeBlock: Component = () => () => (
   <div class="wf-stack wf-gap-sm wf-width-full">
     <CodeBlock lang="ts" title="示例.ts" code={`import { Markdown } from 'weifuwu/components'
 
@@ -169,7 +169,7 @@ const view = <Markdown content="# 标题" />`} />
   </div>
 )
 
-const DemoDescriptionsSize: Component = async () => async () => (
+const DemoDescriptionsSize: Component = () => () => (
   <div class="wf-width-full">
     <Descriptions
       size="sm"
@@ -185,14 +185,14 @@ const DemoDescriptionsSize: Component = async () => async () => (
   </div>
 )
 
-const DemoHighlightMulti: Component = async () => async () => (
+const DemoHighlightMulti: Component = () => () => (
   <div class="wf-width-full">
     <Highlight text="React 与 Vue 都是现代前端框架，React 生态更丰富，Vue 上手更快" query={['react', 'vue']} />
     <div class="wf-font-xs wf-text-secondary">多词高亮（query 数组）——大小写不敏感 mark</div>
   </div>
 )
 
-const DemoTimeline: Component = async (_props, ctx) => {
+const DemoTimeline: Component = (_props, ctx) => {
   let logs: Array<{ key: string; title: string; time: string; status: 'default' | 'info' | 'success' | 'warning' | 'error'; content?: string }> = [
     { key: '1', title: 'AI 回复', time: '10:00:12', status: 'success' as const, content: '生成了 256 tokens' },
     { key: '2', title: '工具调用 query_weather', time: '10:00:09', status: 'info' as const, content: '查询 北京…' },
@@ -203,7 +203,7 @@ const DemoTimeline: Component = async (_props, ctx) => {
     { key: 'h2', title: '审核中', time: '11:00', status: 'info' as const },
     { key: 'h3', title: '完成', time: '12:00', status: 'success' as const },
   ]
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-md wf-width-full">
       <Timeline items={logs} />
       <div class="wf-font-xs wf-text-secondary">竖向（默认）</div>
@@ -214,7 +214,7 @@ const DemoTimeline: Component = async (_props, ctx) => {
   )
 }
 
-const DemoDescriptions: Component = async () => async () => (
+const DemoDescriptions: Component = () => () => (
   <div class="wf-width-full">
     <Descriptions column={2} items={[
       { label: '名称', value: '小码（开发助手）' },
@@ -227,16 +227,16 @@ const DemoDescriptions: Component = async () => async () => (
   </div>
 )
 
-const DemoAvatarGroup: Component = async () => async () => (
+const DemoAvatarGroup: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
     <AvatarGroup items={[{ name: '张三' }, { name: '李四' }, { name: '王五' }, { name: '赵六' }]} max={3} />
     <AvatarGroup items={[{ name: 'A' }, { name: 'B' }]} size="sm" />
   </div>
 )
 
-const DemoMessageBubble: Component = async (_props, ctx) => {
+const DemoMessageBubble: Component = (_props, ctx) => {
   let st: 'complete' | 'streaming' | 'error' = 'complete'
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <MessageBubble role="user" content="北京天气如何？" />
       <MessageBubble role="assistant" status={st} content={st === 'error' ? '请求失败，请重试' : '北京 25°C，晴。'} actions={st === 'error' ? <Button size="sm" variant="ghost" onClick={() => { st = 'complete'; ctx.render() }}>🔄 重试</Button> : undefined} />
@@ -249,14 +249,14 @@ const DemoMessageBubble: Component = async (_props, ctx) => {
   )
 }
 
-const DemoHighlight: Component = async () => async () => (
+const DemoHighlight: Component = () => () => (
   <div class="wf-stack wf-gap-sm wf-width-full">
     <div class="wf-font-sm"><Highlight text="搜索 张三 的订单记录，张三 是管理员" query={['张三']} /></div>
     <div class="wf-font-sm wf-text-secondary"><Highlight text="支持多词：weifuwu 与 components" query={['weifuwu', 'components']} /></div>
   </div>
 )
 
-const DemoList: Component = async () => async () => (
+const DemoList: Component = () => () => (
   <div class="wf-width-full" style="max-width:400px">
     <List divided header="最近文件"
       items={[{ n: '需求文档.md', s: '2 分钟前' }, { n: '架构设计.pdf', s: '昨天' }, { n: '接口说明.docx', s: '3 天前' }]}
@@ -269,7 +269,7 @@ const DemoList: Component = async () => async () => (
   </div>
 )
 
-const DemoResult: Component = async () => async () => (
+const DemoResult: Component = () => () => (
   <div class="wf-width-full wf-stack wf-gap-md">
     <Result status="success" title="注册成功" desc="欢迎加入 weifuwu，验证邮件已发送至你的邮箱"
       extra={<><Button variant="primary">进入工作台</Button><Button variant="ghost">返回首页</Button></>} />
@@ -279,7 +279,7 @@ const DemoResult: Component = async () => async () => (
   </div>
 )
 
-const DemoImage: Component = async () => async () => (
+const DemoImage: Component = () => () => (
   <div class="wf-row wf-gap-lg wf-items-start">
     <Img src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
     <Img src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
@@ -289,9 +289,9 @@ const DemoImage: Component = async () => async () => (
   </div>
 )
 
-const DemoInView: Component = async (_props, ctx) => {
+const DemoInView: Component = (_props, ctx) => {
   let log: string[] = []
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <p class="wf-font-sm wf-text-secondary">向下滚动，下方的懒加载区域将在进入视窗后渲染👇</p>
       <div class="wf-center wf-bg-secondary wf-radius wf-font-sm wf-text-tertiary" style="height:120px">上方留白区域，需要滚动</div>
@@ -308,9 +308,9 @@ const DemoInView: Component = async (_props, ctx) => {
   )
 }
 
-const DemoEditor: Component = async (_props, ctx) => {
+const DemoEditor: Component = (_props, ctx) => {
   let html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p class="wf-text-center">居中文字</p>'
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <Editor value={html} onChange={v => { html = v; ctx.render() }} placeholder="输入内容..."
         ai={{ url: '/api/chat' }} draftKey="demo-editor-1" />
@@ -321,10 +321,10 @@ const DemoEditor: Component = async (_props, ctx) => {
   )
 }
 
-const DemoFilePreview: Component = async (_props, ctx) => {
+const DemoFilePreview: Component = (_props, ctx) => {
   let md = '# 项目说明\n\n这是 **文件预览** 组件演示——Markdown 文档。\n\n代码示例：\n\n```js\nconst x = 1\n```\n\n表格：\n\n| 功能 | 状态 |\n|---|---|\n| 预览 | ✅ |\n| 编辑 | ✅ |\n\n\n> 支持预览与编辑（基于事件流）\n\n- 预览：复用 Markdown 安全渲染\n- 编辑：Editor 事件流事务层（撤销/时光机/AI）\n- 保存：序列化回 Markdown\n\n图片示例：![weifuwu](https://picsum.photos/200/100)\n\n---\n\n尾部段落。'
   let saved = ''
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <FilePreview type="md" url="/api/files/README.md" editable ai={{ url: '/api/chat' }} fileName="README.md"
         onSave={async (v: string) => {
@@ -338,8 +338,8 @@ const DemoFilePreview: Component = async (_props, ctx) => {
 
 // office 前端导入/导出（零依赖转换——无需后端：自研 ZIP/XML + DecompressionStream）
 
-const DemoFilePreviewOffice: Component = async (_props, ctx) => {
-  return async () => (
+const DemoFilePreviewOffice: Component = (_props, ctx) => {
+  return () => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <FilePreview type="office" editable ai={{ url: '/api/chat' }} fileName="document.docx" />
       <div class="wf-font-xs wf-text-secondary wf-padding-y-xs">
@@ -349,7 +349,7 @@ const DemoFilePreviewOffice: Component = async (_props, ctx) => {
   )
 }
 
-const DemoThemeSwitch: Component = async (_props, ctx) => {
+const DemoThemeSwitch: Component = (_props, ctx) => {
   let mode = 'auto'
   let preset: any = undefined
   // 品牌 seed 实时换肤（演示 WUI 设计语言第一档：改一个值全站跟随）
@@ -361,7 +361,7 @@ const DemoThemeSwitch: Component = async (_props, ctx) => {
     rootEl().style.setProperty('--wf-brand-seed', light)
     rootEl().style.setProperty('--wf-dark-brand-seed', dark)
   }
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <div class="wf-row wf-gap-sm">
         <ThemeSwitch onChange={(m) => { mode = m; rerender() }} />
@@ -394,7 +394,7 @@ const DemoThemeSwitch: Component = async (_props, ctx) => {
   )
 }
 
-const DemoChart: Component = async () => async () => {
+const DemoChart: Component = () => () => {
   const sales = [
     { label: '1月', value: 120 },
     { label: '2月', value: 200 },
@@ -418,7 +418,7 @@ const DemoChart: Component = async () => async () => {
   )
 }
 
-const DemoConfirm: Component = async (_props, ctx) => {
+const DemoConfirm: Component = (_props, ctx) => {
   let result = ''
   const handleDelete = async () => {
     const ok = await (ctx as any).confirm?.('确定要删除这条记录吗？', {
@@ -434,7 +434,7 @@ const DemoConfirm: Component = async (_props, ctx) => {
     result = ok ? '已保存' : '已取消'
     ctx.render()
   }
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-row wf-gap-sm">
       <Button variant="danger" onClick={handleDelete}>删除</Button>
       <Button onClick={handleSave}>保存</Button>
@@ -447,9 +447,9 @@ const DemoConfirm: Component = async (_props, ctx) => {
 
 /** ToolCallCard：running / ok / error 状态机（纯展示） */
 
-const DemoAutoCompleteDis: Component = async (_p, ctx) => {
+const DemoAutoCompleteDis: Component = (_p, ctx) => {
   let disabled = false
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <AutoComplete options={[
         { value: 'pay-admin', label: '支付平台管理' },
@@ -460,9 +460,9 @@ const DemoAutoCompleteDis: Component = async (_p, ctx) => {
   )
 }
 
-const DemoTableRowSelect: Component = async (_props, ctx) => {
+const DemoTableRowSelect: Component = (_props, ctx) => {
   let keys: (string | number)[] = [1]
-  return async () => (
+  return () => (
     <div class="wf-width-full wf-stack wf-gap-sm">
       <Table
         rowSelection={{ selectedRowKeys: keys, onChange: (k: (string | number)[]) => { keys = k; ctx.render() } }}
@@ -477,7 +477,7 @@ const DemoTableRowSelect: Component = async (_props, ctx) => {
   )
 }
 
-const DemoJSONViewerDeep: Component = async () => async () => (
+const DemoJSONViewerDeep: Component = () => () => (
   <div class="wf-width-full">
     <JSONViewer defaultExpandDepth={3} data={{
       user: { name: '张三', roles: ['admin', 'editor'], profile: { age: 30, tags: ['前端', '全栈'], address: { city: '杭州', street: '文一西路' } } },
@@ -487,7 +487,7 @@ const DemoJSONViewerDeep: Component = async () => async () => (
   </div>
 )
 
-const DemoLogViewerCustom: Component = async () => async () => {
+const DemoLogViewerCustom: Component = () => () => {
   const logs = [
     '\x1b[32m[INFO]\x1b[0m 2025-06-10T10:00:01 服务启动',
     '\x1b[33m[WARN]\x1b[0m 2025-06-10T10:00:02 缓存命中率下降',
@@ -502,7 +502,7 @@ const DemoLogViewerCustom: Component = async () => async () => {
   )
 }
 
-const DemoDiffViewBig: Component = async () => async () => (
+const DemoDiffViewBig: Component = () => () => (
   <div class="wf-width-full">
     <DiffView oldTitle="旧实现" newTitle="新实现"
       oldCode={`function add(a, b) {
@@ -533,7 +533,7 @@ function untouched(a) {
   </div>
 )
 
-const DemoLogViewer: Component = async (_props, ctx) => {
+const DemoLogViewer: Component = (_props, ctx) => {
   let lines: string[] = [
     '\x1b[32m[12:00:01] ✓ 服务启动，端口 3000\x1b[0m',
     '\x1b[32m[12:00:02] ✓ 连接数据库 demo@localhost:5432\x1b[0m',
@@ -544,7 +544,7 @@ const DemoLogViewer: Component = async (_props, ctx) => {
     '\x1b[32m[12:00:07] ✓ 重试成功，返回 200\x1b[0m',
   ]
   let idx = 8
-  return async () => (
+  return () => (
     <div class="wf-width-full wf-stack wf-gap-sm">
       <LogViewer lines={lines} height={260} lineHeight={22} follow />
       <div class="wf-row wf-gap-sm">
@@ -565,7 +565,7 @@ const DemoLogViewer: Component = async (_props, ctx) => {
   )
 }
 
-const DemoSparkline: Component = async () => async () => (
+const DemoSparkline: Component = () => () => (
   <div class="wf-stack wf-gap-md">
     <div class="wf-row wf-gap-lg wf-cluster">
       <div class="wf-stack wf-gap-xs">
@@ -584,11 +584,11 @@ const DemoSparkline: Component = async () => async () => (
   </div>
 )
 
-const DemoTour: Component = async (_props, ctx) => {
+const DemoTour: Component = (_props, ctx) => {
   let open = false
   let step = 0
   const render = () => ctx.render()
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-md">
       <div class="wf-row wf-gap-md wf-cluster">
         <button id="tour-a" class="wf-btn wf-btn--primary" onClick={() => { open = true; step = 0; render() }}>开始引导</button>
@@ -613,14 +613,14 @@ const DemoTour: Component = async (_props, ctx) => {
   )
 }
 
-const DemoKanban: Component = async (_props, ctx) => {
+const DemoKanban: Component = (_props, ctx) => {
   let cols = [
     { key: 'todo', title: '待办', items: [{ id: 'k1', title: '设计 API 契约', tag: '设计' }, { id: 'k2', title: '实现 LCS diff', tag: '开发' }] },
     { key: 'doing', title: '进行中', items: [{ id: 'k3', title: 'Tour 定位修复', tag: '开发' }] },
     { key: 'done', title: '已完成', items: [{ id: 'k4', title: 'ctx.browser 迁移', tag: '架构' }, { id: 'k5', title: 'v0.66.0 发布', tag: '发布' }] },
   ]
   const render = () => ctx.render()
-  return async () => (
+  return () => (
     <Kanban
       columns={cols}
       onMove={(from, to) => {
@@ -638,7 +638,7 @@ const DemoKanban: Component = async (_props, ctx) => {
   )
 }
 
-const DemoPipeline: Component = async () => async () => (
+const DemoPipeline: Component = () => () => (
   <div class="wf-stack wf-gap-md">
     <Pipeline
       orientation="horizontal"
@@ -662,10 +662,10 @@ const DemoPipeline: Component = async () => async () => (
 // TREESELECT_CACHE_TEST_20260817
 // CACHE_V2_20260817
 
-const DemoTreeSelect: Component = async (_props, ctx) => {
+const DemoTreeSelect: Component = (_props, ctx) => {
   let value: string | string[] | undefined = undefined
   const render = () => ctx.render()
-  return async () => (
+  return () => (
     <div class="wf-stack wf-gap-md">
       <div class="wf-row wf-gap-lg wf-cluster">
         <div class="wf-stack wf-gap-xs">
@@ -729,9 +729,9 @@ const NEW_CODE = `function handleUser(input) {
   return \`未成年 \${name}\`
 }`
 
-const DemoLayout: Component = async (_props, ctx) => {
+const DemoLayout: Component = (_props, ctx) => {
   let collapsed = false
-  return async () => (
+  return () => (
     <Layout style={{ height: 360, borderRadius: 12, overflow: 'hidden' }}>
       <LayoutSider collapsible collapsed={collapsed} onCollapse={(v) => { collapsed = v; ctx.render() }}>
         <div class="wf-padding-md wf-text-secondary wf-stack wf-gap-sm">
@@ -750,7 +750,7 @@ const DemoLayout: Component = async (_props, ctx) => {
   )
 }
 
-const DemoPopconfirm: Component<any, UIContext & ToastInjected> = async (_p, ctx) => async () => (
+const DemoPopconfirm: Component<any, UIContext & ToastInjected> = (_p, ctx) => () => (
   <div class="wf-row wf-gap-lg wf-cluster">
     <Popconfirm title="确定删除这条数据？" danger onConfirm={() => ctx.toast('已删除', 'success')}>
       <Button variant="danger">删除</Button>
@@ -761,12 +761,12 @@ const DemoPopconfirm: Component<any, UIContext & ToastInjected> = async (_p, ctx
   </div>
 )
 
-const DemoAutoComplete: Component = async (_p, ctx) => {
+const DemoAutoComplete: Component = (_p, ctx) => {
   let query = ''
   let selected: string | undefined
   // 输入态由 AutoComplete 内部 $ 管理——onChange 只记录闭包值，不强制父 render
   // （父 render 会重挂 input → 焦点丢失——Select searchable 同款纪律）
-  return async () => {
+  return () => {
     const options = [
       { value: 'pay-admin', label: '支付平台管理' },
       { value: 'pay-account', label: '支付平账系统' },
@@ -786,7 +786,7 @@ const DemoAutoComplete: Component = async (_p, ctx) => {
   }
 }
 
-const DemoLink: Component = async () => async () => (
+const DemoLink: Component = () => () => (
   <div class="wf-row wf-gap-lg wf-cluster">
     <Link href="/docs">默认链接</Link>
     <Link href="/docs" variant="primary">主色链接</Link>
@@ -796,7 +796,7 @@ const DemoLink: Component = async () => async () => (
   </div>
 )
 
-const DemoFloatButton: Component<any, UIContext & ToastInjected> = async (_p, ctx) => async () => (
+const DemoFloatButton: Component<any, UIContext & ToastInjected> = (_p, ctx) => () => (
   <FloatButtonGroup>
     <FloatButton icon={<Icon name="edit" size={18} />} onClick={() => ctx.toast('编辑', 'info')} />
     <FloatButton icon={<Icon name="bar-chart" size={18} />} onClick={() => ctx.toast('报表', 'info')} />
@@ -804,10 +804,10 @@ const DemoFloatButton: Component<any, UIContext & ToastInjected> = async (_p, ct
   </FloatButtonGroup>
 )
 
-const DemoNavMenu: Component<any, UIContext & ToastInjected> = async (_p, ctx) => {
+const DemoNavMenu: Component<any, UIContext & ToastInjected> = (_p, ctx) => {
   // 受控纪律（§5.2）：activeKey 必须配 onSelect 更新——否则点击静默失效
   let active = 'home'
-  return async () => (
+  return () => (
     <NavMenu
       items={[
         { key: 'home', label: '首页' },
@@ -823,7 +823,7 @@ const DemoNavMenu: Component<any, UIContext & ToastInjected> = async (_p, ctx) =
   )
 }
 
-const DemoSpace: Component = async () => async () => (
+const DemoSpace: Component = () => () => (
   <Space split={<Divider vertical />}>
     <span>操作一</span>
     <span>操作二</span>
@@ -831,7 +831,7 @@ const DemoSpace: Component = async () => async () => (
   </Space>
 )
 
-const DemoGrid: Component = async () => async () => (
+const DemoGrid: Component = () => () => (
   <div class="wf-stack wf-gap-md wf-width-full">
     <Grid gutter={16}>
       <Col span={8}><div class="wf-surface wf-padding-md wf-text-center">1/3</div></Col>
@@ -847,7 +847,7 @@ const DemoGrid: Component = async () => async () => (
   </div>
 )
 
-const DemoScrollbar: Component = async () => async () => (
+const DemoScrollbar: Component = () => () => (
   <Scrollbar maxHeight={120}>
     <div class="wf-stack wf-gap-xs">
       {Array.from({ length: 20 }, (_, i) => <div key={i}>滚动行 {i + 1}</div>)}
@@ -855,7 +855,7 @@ const DemoScrollbar: Component = async () => async () => (
   </Scrollbar>
 )
 
-const DemoAlertGroup: Component = async () => async () => (
+const DemoAlertGroup: Component = () => () => (
   <AlertGroup
     items={[
       { id: '1', message: '服务 A 重启完成', time: '10:01', variant: 'success' },
@@ -866,11 +866,11 @@ const DemoAlertGroup: Component = async () => async () => (
   />
 )
 
-const DemoStatCountdown: Component = async () => async () => (
+const DemoStatCountdown: Component = () => () => (
   <StatCard label="活动倒计时" countdown={Date.now() + 3600 * 1000 + 95 * 1000} trend="up" trendLabel="进行中" />
 )
 
-const DemoDiffView: Component = async () => async () => (
+const DemoDiffView: Component = () => () => (
   <DiffView
     oldCode={OLD_CODE}
     newCode={NEW_CODE}
@@ -880,7 +880,7 @@ const DemoDiffView: Component = async () => async () => (
   />
 )
 
-const DemoJSONViewer: Component = async () => async () => {
+const DemoJSONViewer: Component = () => () => {
   const sample = {
     id: 'agent_42',
     name: '订单处理 Agent',
@@ -903,12 +903,12 @@ const DemoJSONViewer: Component = async () => async () => {
 }
 
 
-export const DemoSortableList: Component = async (_props, ctx) => {
+export const DemoSortableList: Component = (_props, ctx) => {
   let items = [
     { id: 'a', name: '设计任务' }, { id: 'b', name: '开发任务' },
     { id: 'c', name: '测试任务' }, { id: 'd', name: '发布任务' },
   ]
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-width-full wf-stack wf-gap-xs">
       <div class="wf-font-xs wf-text-secondary">拖拽排序（keyed 身份——数据 id 驱动）</div>
       <SortableList
@@ -927,7 +927,7 @@ export const DemoSortableList: Component = async (_props, ctx) => {
   )
 }
 
-export const DemoExportCSV: Component = async (_props: any) => async (_p: any) => (
+export const DemoExportCSV: Component = (_props: any) => (_p: any) => (
   <div class="wf-width-full wf-stack wf-gap-xs">
     <div class="wf-font-xs wf-text-secondary">表格数据一键导出 CSV（BOM + 引号转义——Excel 兼容）</div>
     <ExportCSV
@@ -939,7 +939,7 @@ export const DemoExportCSV: Component = async (_props: any) => async (_p: any) =
 )
 
 /** FileTree（文件树浏览器——工作空间场景——受控：父层管理数据源） */
-const DemoFileTree: Component = async (_props: any, ctx: any) => {
+const DemoFileTree: Component = (_props: any, ctx: any) => {
   // 模拟数据源（内存目录树——组件零 fetch 的诚实裁剪演示）
   const FS: Record<string, Array<{ name: string; type: 'dir' | 'file'; size?: number; mtime?: string }>> = {
     '/': [
@@ -970,7 +970,7 @@ const answer = 42
 export default answer
 `
   const rerender = () => ctx.render()
-  return async () => {
+  return () => {
     return (
       <div class="wf-width-full wf-stack" style="--wf-gap:12px">
         <FileTree
@@ -994,7 +994,7 @@ export default answer
 }
 
 /** RelationGraph（关系图谱——红楼人物关系/组织网络——确定性布局） */
-const DemoRelationGraph: Component = async (_props: any, ctx: any) => {
+const DemoRelationGraph: Component = (_props: any, ctx: any) => {
   // 红楼前 80 回核心人物关系（示例数据）
   const NODES = [
     { id: '宝玉', label: '贾宝玉', kind: '主角', sublabel: '怡红公子' },
@@ -1018,7 +1018,7 @@ const DemoRelationGraph: Component = async (_props: any, ctx: any) => {
     { from: '黛玉', to: '宝钗', type: '同盟', strength: 1 },
   ]
   let selected: string | null = null
-  return async () => (
+  return () => (
     <div class="wf-width-full wf-stack" style="--wf-gap:12px">
       <RelationGraph
         nodes={NODES}

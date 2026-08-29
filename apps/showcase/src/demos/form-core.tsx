@@ -5,10 +5,10 @@
 import type { Component } from 'weifuwu/vdom'
 import { Button, Input, Textarea, Select, SearchInput } from 'weifuwu/components'
 
-export const DemoButton: Component = async (_props, ctx) => {
+export const DemoButton: Component = (_props, ctx) => {
   let loading = false
   let count = 0
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-row">
         <Button variant="primary" onClick={() => { count++; ctx.render() }}>点击 {count} 次</Button>
@@ -30,11 +30,11 @@ export const DemoButton: Component = async (_props, ctx) => {
   )
 }
 
-export const DemoInput: Component = async (_props, ctx) => {
+export const DemoInput: Component = (_props, ctx) => {
   let text = '可编辑'
   let email = ''
   let pwd = ''
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <Input label="文本" value={text} onInput={e => { text = (e.target as HTMLInputElement).value; ctx.render() }} />
       <Input label="邮箱" type="email" placeholder="name@example.com" required value={email} onInput={e => { email = (e.target as HTMLInputElement).value; ctx.render() }} />
@@ -45,9 +45,9 @@ export const DemoInput: Component = async (_props, ctx) => {
   )
 }
 
-export const DemoTextarea: Component = async (_props, ctx) => {
+export const DemoTextarea: Component = (_props, ctx) => {
   let bio = '可编辑文本'
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <Textarea label="简介" value={bio} onInput={e => { bio = (e.target as HTMLTextAreaElement).value; ctx.render() }} rows={3} />
       <Textarea label="错误状态" error="内容不能为空" rows={2} />
@@ -56,9 +56,9 @@ export const DemoTextarea: Component = async (_props, ctx) => {
   )
 }
 
-export const DemoSelect: Component = async (_props, ctx) => {
+export const DemoSelect: Component = (_props, ctx) => {
   let role = ''
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <Select label="原生 select" placeholder="请选择"
         value={role}
@@ -80,9 +80,9 @@ export const DemoSelect: Component = async (_props, ctx) => {
   )
 }
 
-export const DemoSearchInput: Component = async (_props, ctx) => {
+export const DemoSearchInput: Component = (_props, ctx) => {
   let query = ''
-  return async (_p: any) => (
+  return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-width-full">
       <SearchInput placeholder="搜索用户..." value={query} onInput={e => { query = (e.target as HTMLInputElement).value; ctx.render() }} onClear={() => { query = ''; ctx.render() }} />
       <div class="wf-font-xs wf-text-secondary">搜索词: {query || '(空)'}</div>
