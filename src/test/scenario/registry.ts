@@ -1605,7 +1605,7 @@ const FuseScene = (_init: Record<string, never>, ctx: any) => {
   let fault = false // 闭包状态（模块级变量会跨测试泄漏——隔离纪律）
   let alt = false
   const mk = (cls: string) => {
-    const C: Component = async () => {
+    const C: Component = () => {
       if (fault) throw new Error('mount boom（场景演示）')
       return () => h('div', { class: cls }, '恢复成功')
     }
@@ -1633,18 +1633,18 @@ const FUSE = { id: 'render-error-fuse', title: '错误熔断（R1——连续错
 // load() 成功 + renderFn 重跑读到新状态）——但 DOM 永远空态——
 // **async renderFn 的二次渲染断链假设**——最小复现：async 工厂 + 异步回调
 // → ctx.render() → async renderFn 重跑读新值——DOM 不变 = 复现
-const AsyncLoadScene = async (_init: Record<string, never>, ctx: any) => {
+const AsyncLoadScene = (_init: Record<string, never>, ctx: any) => {
   let loaded = false
   let items: string[] = []
-  // 工厂执行期间 ctx.render()（Deliverables 的 load() 首行 rerender 实证）——
-  // mounting 期间二次渲染（B-2026-08——框架已改等待而非违例）
-  void ctx.render()
+  // **2027-08 同步化**：工厂同步——工厂内 render 已无意义（mounting 窗口
+  // 不存在——同步执行无「半挂载」）——删旧复现——保留等值语义：
+  // **工厂外异步回调 → ctx.render() → DOM 更新**（原测试断链场景核心）
   ctx.api?.get<{ ok: boolean }>('/api/async-load').then((d: any) => {
     loaded = true
     items = ['a.md', 'b.csv', 'c.py']
     void ctx.render()
   }).catch(() => { loaded = true; items = ['a.md']; void ctx.render() })
-  return async () => {
+  return () => {
     return h('div', { class: 'async-load-scene' }, [
       h('div', { id: 'async-status' }, loaded ? '已加载' : '加载中'),
       loaded && items.length === 0

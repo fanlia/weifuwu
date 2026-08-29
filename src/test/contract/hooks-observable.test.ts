@@ -135,15 +135,22 @@ test('useAsyncData：reload 作废旧请求（switchMap——旧结果不入 get
   assert.equal(getRef!()?.name, 'NEW') // 旧结果未入 getter——竞态消灭
 })
 
-test('useAsyncData：重挂载重新取（refCount 新鲜语义）', async () => {
+test('useAsyncData：重挂载缓存保留（导航返回零请求——v2 语义）', async () => {
   const d = deferred<{ name: string }>()
   let calls = 0
+  let getRef: (() => { name: string } | null) | null = null
   const Comp: Component = (_p, ctx) => {
     const [get] = ctx.ui!.useAsyncData(() => { calls++; return d.p }, 'as-fresh')
+    getRef = get
     return () => h('div', {}, get()?.name ?? 'loading')
   }
   const h1 = await mount(Comp)
-  h1.unmount() // refCount 归零——清缓存重置
-  await mount(Comp)
-  assert.equal(calls, 2) // 重挂载重新取——新鲜
+  d.resolve({ name: 'cached' })
+  await flush()
+  const v1 = getRef!()?.name
+  assert.equal(v1, 'cached')
+  h1.unmount() // 组件卸载（模块级 entry 保留——缓存语义）
+  await mount(Comp) // 重挂载——**缓存命中——零再次 fetch**
+  assert.equal(calls, 1) // 保留缓存（导航返回零请求）
+  assert.equal(getRef!()?.name, 'cached')
 })

@@ -75,9 +75,9 @@ test('组件输出组件（嵌套 async——Ava→Avatar）：命令流 ref=组
   // = 其子空间最新插入节点（插入序前缀检索——纯查询零映射）——与
   // parentOf 的「组件逻辑父回退」对称（此前仅 parent 有回退——ref 无）。
   // 生成端零改动（command 流本就正确——本测试锁定其正确形态）。
-  const Avatar2 = async () => async () => h('div', { class: 'avatar' }, 'A')
-  const Ava2 = async () => async () => h(Avatar2, {})
-  const Row2 = async () => async () => h('div', { class: 'row' }, [
+  const Avatar2 = () => () => h('div', { class: 'avatar' }, 'A')
+  const Ava2 = () => () => h(Avatar2, {})
+  const Row2 = () => () => h('div', { class: 'row' }, [
     h(Ava2, {}),
     h('div', { class: 'content' }, '内容'),
   ])

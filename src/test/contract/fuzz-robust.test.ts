@@ -132,29 +132,26 @@ test('D1：async 工厂（乱序 resolve）——终态等价（多种子 × 200
   assert.equal(mismatches, 0, `async 工厂乱序 resolve 不等价 ${mismatches}/200\n${sample}`)
 })
 
-test('D2：async renderFn（Promise 输出）——终态等价（多种子 × 200 对）', async () => {
+test('D2：renderFn 同步输出——终态等价（多种子 × 200 对）——2027-08 同步化', async () => {
   const rnd = mulberry32(31)
   let mismatches = 0
   let sample = ''
-  const mkAsyncRender = () => {
-    const delay = [0, 1][asyncSeq++ % 2]
+  const mkRender = () => {
     const label = 'r' + (asyncSeq % 3)
-    // 工厂 → renderFn（async：Promise 输出——resolve VNode）
-    return () => () => new Promise<VNode>((resolve) => {
-      setTimeout(() => resolve(h('b', { class: 'async-r' }, label)), delay)
-    }) as any
+    // 工厂 → renderFn（同步——Promise 输出语义已退役）
+    return () => () => h('b', { class: 'sync-r' }, label)
   }
   for (let i = 0; i < 200; i++) {
     const mk = () => h('div', {}, [
-      h(mkAsyncRender(), {}),
-      h(mkAsyncRender(), {}),
+      h(mkRender(), {}),
+      h(mkRender(), {}),
     ]) as VNode
     const oldT = mk()
     const newT = mk()
     const diff = await verifyEquivalence(oldT, newT, createComponentRegistry())
     if (diff) { mismatches++; if (!sample) sample = `i=${i}\n${diff}` }
   }
-  assert.equal(mismatches, 0, `async renderFn 不等价 ${mismatches}/200\n${sample}`)
+  assert.equal(mismatches, 0, `renderFn 不等价 ${mismatches}/200\n${sample}`)
 })
 
 test('D3：throw 组件——错误传播 + mount 清理 + 修复自愈（2 相位 × 多种子）', async () => {

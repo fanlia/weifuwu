@@ -61,35 +61,32 @@ test('R2a：正常 resolve 不受超时影响（含种子/已缓存）', async (
 
 // ── R2b：async renderFn 挂起 → 组件级 hole 降级 ──
 
-test('R2b：async renderFn 挂起 → 超时 → 组件级 hole 降级（渲染流完整——队列不饿死）', async () => {
+test('R2b：renderFn 同步抛错 → 组件级 hole 降级（渲染流完整——单组件不炸整树）', async () => {
   const reg = createComponentRegistry()
-  reg.asyncTimeout = 20
-  const Hung: any = () => async () => new Promise(() => { /* 永不 resolve */ })
-  const { ops, ids } = await drain(renderToStream(h('div', {}, h(Hung, {})), emptyCtx, reg))
+  const Boom: any = () => () => { throw new Error('renderFn boom') }
+  const { ops, ids } = await drain(renderToStream(h('div', {}, h(Boom, {})), emptyCtx, reg))
   assert.ok(ops.includes('done'), '渲染流必须完整结束（done.full——队列不饿死）')
   // 组件输出 hole 挂 compId.0 子空间（C2）——降级锚 id = root.0.0.0
   const anchorIdx = ops.findIndex((op, i) => op === 'createAnchor' && ids[i] === 'root.0.0.0')
   assert.ok(anchorIdx >= 0, `组件槽位降级为 hole 锚（ops: ${ops.join(',')} / ids: ${ids.join(',')}）`)
 })
 
-test('R2b：mount 工厂挂起 → 超时显式 reject（mount 失败 = 整页失败——serve 熔断链）', async () => {
+test('R2b：mount 工厂同步抛错 → 显式传播（2027-08 同步化——挂起语义已退役）', async () => {
   const reg = createComponentRegistry()
-  reg.asyncTimeout = 20
-  const HungMount: any = async () => new Promise(() => { /* 永不 resolve */ })
+  const BoomMount: any = () => { throw new Error('factory boom') }
   await assert.rejects(
     (async () => {
       const cmds: Command[] = []
-      for await (const c of renderToStream(h('div', {}, h(HungMount, {})), emptyCtx, reg)) cmds.push(c)
+      for await (const c of renderToStream(h('div', {}, h(BoomMount, {})), emptyCtx, reg)) cmds.push(c)
     })(),
-    /超时/,
-    '工厂挂起必须显式 reject（让 serve 熔断链自愈——不静默）',
+    /factory boom/,
+    '工厂同步抛错必须显式传播（mount 失败 = 整页失败——serve 熔断链自愈）',
   )
 })
 
-test('R2b：renderFn reject（显式抛错）→ 同样 hole 降级（错误不中断整树）', async () => {
+test('R2b：renderFn 同步抛错 → 同样 hole 降级（错误不中断整树）——2027-08 同步化', async () => {
   const reg = createComponentRegistry()
-  reg.asyncTimeout = 100
-  const Boom: any = () => async () => { throw new Error('renderFn boom') }
+  const Boom: any = () => () => { throw new Error('renderFn boom') }
   const { ops } = await drain(renderToStream(h('div', {}, [h('span', {}, 'a'), h(Boom, {}), h('span', {}, 'b')]), emptyCtx, reg))
   assert.ok(ops.includes('done'), '渲染流完整结束')
   assert.ok(ops.includes('createAnchor'), '错误组件降级为 hole 锚')
