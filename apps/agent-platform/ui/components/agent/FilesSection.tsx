@@ -33,6 +33,16 @@ interface WsFileResponse {
 interface WsSaveResponse { success: boolean }
 interface WsUploadResponse { success: boolean; name: string; size: number; error?: string }
 
+// **列表快照/防重入（模块级——跨组件重跑保持——same 判定有效）**：
+// 工厂每拍重跑会重置闭包变量——快照必须模块级（否则 same 恒 false——
+// 数据未变静默失效——自喂循环实证）——**per-dept 隔离**（多部门页面）
+const listSnapshots = new Map<string, string>()
+const listInflights = new Set<string>()
+
+/** 工作区文件区（交付物列表 + 上传/刷新/下载/打开）
+ *  2027-08 渲染循环根治：数据未变静默（同路径同快照零 rerender）——
+ *  否则 loadWsList 完成 → rerender → diff → 组件重建 → 工厂 → loadWsList
+ *  自喂循环（workspace/list 18/s + 55ms 渲染 × 15/s——流式慢/闪烁总根源） */
 export const FilesSection: Component<{ departmentId: string; initialFiles?: Array<{ name: string; type: string; size: number; mtime: string }> }> = (_init, ctx) => {
   let wsEntries: Array<{ name: string; type: 'dir' | 'file'; size: number; mtime: string }> = []
   let wsPath = ''
@@ -51,6 +61,7 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
   let wsOpenFile: { path: string; content: string; binary: boolean; truncated: boolean; size: number } | null = null
   let wsEditContent = ''
   let wsSaving = false
+
   const rerender = () => ctx.render()
   const departmentId = _init.departmentId
   // P1-3：AI 写文件 → Chat 的 file_updated 事件 → notifyFilesReload → 自动刷新
@@ -62,16 +73,32 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
   ctx.ui.onUnmount?.(() => { offFilesReload(reloadCb) })
 
   async function loadWsList(path = '') {
-    // 2026-08：mounting 期（工厂 await）零 rerender——违例根治——
-    // 工厂外（用户刷新/回调）照常 rerender
-    if (!mounting) { wsLoading = true; rerender() }
+    // **防重入 + 数据未变静默（2027-08——自喂循环根治）**：
+    // 同路径同快照（name/size/mtime 签名）→ 零 rerender（否则：完成 →
+    // rerender → diff → 组件重建 → 工厂 → loadWsList——自喂循环——
+    // workspace/list 18/s + 55ms 渲染 × 15/s 实证——流式慢/闪烁总根源）
+    if (listInflights.has(departmentId)) return
+    listInflights.add(departmentId)
     try {
       const q = path ? `?path=${encodeURIComponent(path)}` : ''
       const d = await ctx.api!.get<WsListResponse>(`/api/departments/${departmentId}/workspace/list${q}`)
-      wsEntries = d.entries ?? []; wsPath = d.path ?? '/'
-    } catch (e) { ctx.toast!('加载失败：' + errMsg(e, ''), 'error') }
-    wsLoading = false
-    if (!mounting) rerender()
+      const newEntries = d.entries ?? []
+      const sig = `${path}|${newEntries.map((e) => e.name + ':' + e.size + ':' + e.mtime).join(',')}`
+      const same = listSnapshots.get(departmentId) === sig
+      if (!same) {
+        listSnapshots.set(departmentId, sig)
+        wsEntries = newEntries
+        wsPath = d.path ?? '/'
+        wsLoading = false
+        if (!mounting) rerender() // 数据变化才渲染
+      }
+    } catch (e) {
+      ctx.toast!('加载失败：' + errMsg(e, ''), 'error')
+      wsLoading = false
+      if (!mounting) rerender()
+    } finally {
+      listInflights.delete(departmentId)
+    }
   }
 
   async function openWsFile(entry: { name: string; type: string }) {
