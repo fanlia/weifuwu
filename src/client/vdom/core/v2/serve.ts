@@ -13,7 +13,7 @@ import type { Command } from '../command/index.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 
 
-import { spyEvent } from './spy.ts'
+import { Subject, scan } from '../../observable/index.ts'
 import { createFnTable, defaultErrorFallback, type RenderCtx, type UiServeOptions, type UiServeHandle } from '../protocol.ts'
 import { UIRouter, frontRequest } from '../router.ts'
 import { createDevVerifier } from '../patch/verify.ts'
@@ -25,7 +25,7 @@ import { renderV2 } from './render.ts'
 import { diffV2, disposeSegment } from './diff.ts'
 import type { SegmentMap } from './diff.ts'
 import { createRenderScheduler } from './schedule.ts'
-import { collectCommands } from './integrate.ts'
+import { createRenderCycle } from './cycle.ts'
 import { asyncDataPreload } from '../../hooks/env.ts'
 
 
@@ -56,7 +56,8 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   // **浏览器面（v2 完整性——hooks 需要）**：真实 createClientBrowser
   const afterRenderFns: Array<() => void> = []
   const serveUnmounts: Array<() => void> = []
-  // **渲染完成冲刷（applyV2 尾部调用——清空并执行）**
+  // **渲染完成冲刷（applyV2 尾部调用——清空并执行）——波次 1：由周期
+  //  complete$ 驱动（applyV2Inner 手写调用已删除）**
   const flushAfterRender = (): void => {
     const fns = afterRenderFns.splice(0)
     for (const fn of fns) { try { fn() } catch (e) { console.error('[vdom] v2 afterRender:', e) } }
@@ -81,53 +82,14 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   } as Record<string, unknown>
 
 
-  let currentTree: VNode | null = null
   let active = true
-  // **首帧判定一次性（2027-08——错误后重建误清 DOM 实证）**：渲染错误 →
-  // currentTree=null（影子树重置——自愈语义）——若重建仍依「!currentTree」
-  // 判首帧 → rootEl.innerHTML=''（无 SSR 标记分支）清空 root——触发按钮
-  // 丢失（R1 熔断场景 T2 实证——错误链断）——v1 语义：首帧吸收判定仅在
-  // mount 时一次——错误后重建走 build 自愈（done.full 清理旧树——DOM 保留）
-  let booted = false
 
 
-  /** v2 渲染（首帧 build / 后续 diff——命令直接 apply）
-   *  **R1 错误熔断（2027-08——v1 机制对齐）**：渲染错误（工厂 throw——
-   *  collectCommands reject）→ 影子树重置（下次全量自愈）→ 连续 3 次 →
-   *  fallback（errorFallback 可配 / 默认内置）——成功渲染重置计数 */
-  let errorCount = 0
-  const MAX_RENDER_ERRORS = 3
-  const renderErrorFallback = (err: Error): void => {
-    currentTree = null
-    const fb = opts.errorFallback?.(err, ctx as unknown as UIContext) ?? defaultErrorFallback(err, ctx as unknown as UIContext)
-    void (async () => {
-      try {
-        const cmds = await collectCommands(renderV2(fb, ctx as unknown as UIContext, registry, segments, () => scheduler.request()))
-        if (!active) return
-        for (const c of cmds) applier.apply(c)
-        currentTree = fb
-      } catch (e2) { console.error('[vdom] v2 error fallback 渲染失败:', e2) }
-    })()
-  }
-  const applyV2 = async (vnode: VNode): Promise<void> => {
-    if (!active) return
-    try {
-      await applyV2Inner(vnode)
-      errorCount = 0 // 成功渲染 → 计数重置（连续错误语义）
-    } catch (e) {
-      console.error('[vdom] v2 render:', e)
-      currentTree = null // 影子树重置（下次全量——自愈）
-      errorCount++
-      if (errorCount >= MAX_RENDER_ERRORS) {
-        errorCount = 0 // 熔断已触发——计数重置（回退 UI 常驻——交互重试）
-        renderErrorFallback(e instanceof Error ? e : new Error(String(e)))
-      }
-    }
-  }
-  const applyV2Inner = async (vnode: VNode): Promise<void> => {
-    if (!active) return
-    if (!booted) {
-      booted = true
+  /** **渲染周期（波次 1——applyV2Inner 管线化）**：build/diff → cmds$ →
+   *  toArray（原子性）→ apply → cleanup → applied$/complete$——周期拥有
+   *  影子树（currentTree）+ 三者度量——serve 注入 DOM/引擎依赖 */
+  const cycle = createRenderCycle({
+    boot: () => {
       // **首帧 SSR 接管（v2 适配——蓝图缺口 1「吸收是消费端——v2 同构命令
       //  已兼容」落地）**：root 含 SSR 吸收标记（<!--wf--> 锚注释）→
       //  absorb.begin（procCreate/procCreateText 逐节点结构吸收——无标记
@@ -138,41 +100,59 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
         [...el.childNodes].some((n) => n.nodeType === 8 && (n as Comment).textContent?.includes('wf')))
       if (hasSsrMark) applier.absorb.begin(rootEl)
       else rootEl.innerHTML = ''
-    }
-    const stream = currentTree
-      ? (currentTree.type !== vnode.type
-        ? (() => {
-          // **root 整树替换**（组件/元素切换——v1 serve 语义——旧段清空 +
-          // 全量渲染——root 异型走转换表会违例（component→component 同态））
-          vt.builds++
-          rootEl.innerHTML = ''
-          currentTree = null
-          for (const [sid] of [...segments]) disposeSegment(sid, segments)
-          return renderV2(vnode, ctx as unknown as UIContext, registry, segments, () => scheduler.request())
-        })()
-        : (vt.diffs++, diffV2(currentTree, vnode, ctx as unknown as UIContext, segments, registry, () => scheduler.request())))
-      : (vt.builds++, renderV2(vnode, ctx as unknown as UIContext, registry, segments, () => scheduler.request()))
-    const cmds = await collectCommands(stream)
-    spyEvent('cmd:render', cmds.length + '条')
+    },
+    resetRoot: () => {
+      // **root 整树替换**（组件/元素切换——v1 serve 语义——旧段清空 + 全量
+      // 渲染——root 异型走转换表会违例（component→component 同态））
+      rootEl.innerHTML = ''
+      for (const [sid] of [...segments]) disposeSegment(sid, segments)
+    },
+    build: (vnode) => renderV2(vnode, ctx as unknown as UIContext, registry, segments, () => scheduler.request()),
+    diff: (oldTree, vnode) => diffV2(oldTree, vnode, ctx as unknown as UIContext, segments, registry, () => scheduler.request()),
+    apply: (cmd) => { applier.apply(cmd) },
+    dispose: (compId) => {
+      if (segments.has(compId)) { disposeSegment(compId, segments); return true }
+      return false
+    },
+    active: () => active,
+  })
+  // **度量同步（__wfV2 兼容——周期计数为源——删除手写 vt.builds/diffs）**
+  const syncVt = (): void => {
+    const m = cycle.metrics()
+    vt.builds = m.builds
+    vt.diffs = m.diffs
+  }
+  // **afterRender 冲刷（周期完成信号——v1 对齐——渲染完成回调）**
+  cycle.complete$.subscribe({ next: () => flushAfterRender() })
+
+
+  /** v2 渲染（首帧 build / 后续 diff——命令直接 apply）
+   *  **R1 错误熔断（2027-08——v1 机制对齐）**：渲染错误（工厂 throw——
+   *  renderV2/diffV2 reject）→ 影子树重置（下次全量自愈——cycle 内部）→
+   *  连续 3 次 → fallback（errorFallback 可配 / 默认内置）——成功渲染重置计数 */
+  let errorCount = 0
+  const MAX_RENDER_ERRORS = 3
+  const renderErrorFallback = (err: Error): void => {
+    cycle.reset() // 影子树重置（下次全量——自愈语义）
+    const fb = opts.errorFallback?.(err, ctx as unknown as UIContext) ?? defaultErrorFallback(err, ctx as unknown as UIContext)
+    void cycle.apply(fb)
+      .then(syncVt)
+      .catch((e2) => console.error('[vdom] v2 error fallback 渲染失败:', e2))
+  }
+  const applyV2 = async (vnode: VNode): Promise<void> => {
     if (!active) return
-    for (const cmd of cmds) {
-      try {
-        applier.apply(cmd)
-      } catch (e) {
-        console.error('[vdom] v2 apply:', e)
-        currentTree = null // 影子树重置（下次全量——自愈）
-        break
+    try {
+      await cycle.apply(vnode)
+      errorCount = 0 // 成功渲染 → 计数重置（连续错误语义）
+      syncVt()
+    } catch (e) {
+      console.error('[vdom] v2 render:', e)
+      errorCount++
+      if (errorCount >= MAX_RENDER_ERRORS) {
+        errorCount = 0 // 熔断已触发——计数重置（回退 UI 常驻——交互重试）
+        renderErrorFallback(e instanceof Error ? e : new Error(String(e)))
       }
     }
-    // **段清理（2027-08——unmount 命令统一信号）**：transform（v1 表）/removeTreeV2
-    // 发出的 unmount → 段 dispose（onUnmounts/destroy$——popup 关闭等资源清理——
-    // 不依赖 v1 registry 的消费端行为——段是 v2 权威生命周期）
-    for (const cmd of cmds) {
-      if (cmd.op === 'unmount' && segments.has(cmd.compId)) disposeSegment(cmd.compId, segments)
-    }
-    currentTree = vnode
-    // **渲染完成信号（v1 对齐）**：afterRender 回调（hook 挂载后动作）
-    flushAfterRender()
   }
 
 
@@ -188,10 +168,18 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
 
   // 渲染（resolve router → handler 调 ctx.stream → applyV2——**redirect 语义**）
   let req = frontRequest(win.location.pathname)
+  // **RenderPhase（波次 1——scan 折叠——手写 renderPhase 变量删除）**：
+  // idle/rendering 迁移——begin 于 rendering = 合并（现有语义——调度
+  // batching 防线——静默返回）；end 于 idle = 幂等（防御——状态机显式化）
+  const phaseSource = new Subject<{ kind: 'begin' } | { kind: 'end' }>()
   let renderPhase: 'idle' | 'rendering' = 'idle'
+  phaseSource.asObservable().pipe(scan((s: 'idle' | 'rendering', e: { kind: 'begin' } | { kind: 'end' }): 'idle' | 'rendering' => {
+    if (e.kind === 'begin') return 'rendering'
+    return 'idle'
+  }, 'idle')).subscribe({ next: (p) => { renderPhase = p } })
   const render = async (): Promise<void> => {
     if (renderPhase === 'rendering') return // 渲染中——合并（调度流已 batching）
-    renderPhase = 'rendering'
+    phaseSource.next({ kind: 'begin' })
     try {
       let res = await router.resolve(req, ctx as unknown as UIContext)
       // **redirect（3xx + Location——replaceState——不 push 历史）**
@@ -203,7 +191,7 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
         res = await router.resolve(req, ctx as unknown as UIContext)
       }
     } finally {
-      renderPhase = 'idle'
+      phaseSource.next({ kind: 'end' })
     }
   }
 

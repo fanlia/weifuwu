@@ -67,6 +67,8 @@ export class Observable<T> {
   pipe<A>(op1: OperatorFn<T, A>): Observable<A>
   pipe<A, B>(op1: OperatorFn<T, A>, op2: OperatorFn<A, B>): Observable<B>
   pipe<A, B, C>(op1: OperatorFn<T, A>, op2: OperatorFn<A, B>, op3: OperatorFn<B, C>): Observable<C>
+  pipe<A, B, C, D>(op1: OperatorFn<T, A>, op2: OperatorFn<A, B>, op3: OperatorFn<B, C>, op4: OperatorFn<C, D>): Observable<D>
+  pipe<A, B, C, D, E>(op1: OperatorFn<T, A>, op2: OperatorFn<A, B>, op3: OperatorFn<B, C>, op4: OperatorFn<C, D>, op5: OperatorFn<D, E>): Observable<E>
   pipe(...ops: OperatorFn<unknown, unknown>[]): Observable<unknown> {
     return ops.reduce((source, op) => op(source), this as Observable<unknown>) as Observable<unknown>
   }

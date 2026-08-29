@@ -12,7 +12,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Observable, create, Subject, BehaviorSubject, fromPromise, fromEventPattern } from '../../client/vdom/observable/index.ts'
-import { map, filter, scan, switchMap, mergeMap, takeUntil, shareReplay } from '../../client/vdom/observable/index.ts'
+import { map, filter, tap, toArray, scan, switchMap, mergeMap, takeUntil, shareReplay } from '../../client/vdom/observable/index.ts'
 
 // ── 基础语义 ──────────────────────────────────────────────
 
@@ -155,6 +155,42 @@ test('scan：累积——每值产出累加器（状态 = 流的折叠）', () =
     .pipe(scan((acc, v) => acc + v, 0))
     .subscribe({ next: (v) => got.push(v) })
   assert.deepEqual(got, [1, 3, 6])
+})
+
+test('tap：旁路副作用（值原样转发——observability 基建）', () => {
+  const got: number[] = []
+  let side = 0
+  create<number>((obs) => { obs.next(1); obs.next(2); obs.complete() })
+    .pipe(tap((v) => { side += v }))
+    .subscribe({ next: (v) => got.push(v) })
+  assert.deepEqual(got, [1, 2], '值原样转发')
+  assert.equal(side, 3, '副作用已执行')
+})
+
+test('tap：内部抛错 → 源 error（传播终结）', () => {
+  let errs: unknown[] = []
+  create<number>((obs) => { obs.next(1) })
+    .pipe(tap((v) => { if (v === 1) throw new Error('tap 抛错') }))
+    .subscribe({ next: () => {}, error: (e) => errs.push(e) })
+  assert.equal(errs.length, 1)
+})
+
+test('toArray：同步流收束——完整收集后单值产出（原子性）', () => {
+  const got: number[][] = []
+  create<number>((obs) => { obs.next(1); obs.next(2); obs.next(3); obs.complete() })
+    .pipe(toArray())
+    .subscribe({ next: (v) => got.push(v) })
+  assert.deepEqual(got, [[1, 2, 3]], '单值（数组）——完整后产出')
+})
+
+test('toArray：源错误 → 零产出（错误传播——原子性）', () => {
+  let vals: number[][] = []
+  let errs: unknown[] = []
+  create<number>((obs) => { obs.next(1); obs.error('boom') })
+    .pipe(toArray())
+    .subscribe({ next: (v) => vals.push(v), error: (e) => errs.push(e) })
+  assert.deepEqual(vals, [], '零产出')
+  assert.deepEqual(errs, ['boom'], '错误传播')
 })
 
 test('switchMap：新值到来取消旧内层——旧结果作废（竞态语义）', async () => {

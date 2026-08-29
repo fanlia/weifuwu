@@ -20,6 +20,22 @@ export function filter<T>(pred: (v: T) => boolean): OperatorFn<T, T> {
     source.subscribe({ next: (v) => { if (pred(v)) obs.next(v) }, error: (e) => obs.error(e), complete: () => obs.complete() }))
 }
 
+/** 旁路副作用（值原样转发——**observability 基建**：sink/度量订阅点——
+ *  tap 内抛错 = 源 error（传播终结）） */
+export function tap<T>(fn: (v: T) => void): OperatorFn<T, T> {
+  return (source) => new Observable<T>((obs) =>
+    source.subscribe({ next: (v) => { try { fn(v) } catch (e) { obs.error(e); return } obs.next(v) }, error: (e) => obs.error(e), complete: () => obs.complete() }))
+}
+
+/** 收束：同步流 → 数组单值（**完整收集后**才产出——原子性语义——
+ *  流生成完成前消费者零应用——错误 → 零产出） */
+export function toArray<T>(): OperatorFn<T, T[]> {
+  return (source) => new Observable<T[]>((obs) => {
+    const acc: T[] = []
+    source.subscribe({ next: (v) => acc.push(v), error: (e) => obs.error(e), complete: () => { obs.next(acc); obs.complete() } })
+  })
+}
+
 /** 累积（状态 = 流的折叠——每值产出累加器） */
 export function scan<T, R>(fn: (acc: R, v: T) => R, init: R): OperatorFn<T, R> {
   let acc = init
