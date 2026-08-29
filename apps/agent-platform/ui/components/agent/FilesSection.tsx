@@ -51,13 +51,20 @@ export const FilesSection: Component<{ departmentId: string }> = async (_init, c
   ctx.ui.onUnmount?.(() => { offFilesReload(reloadCb) })
 
   async function loadWsList(path = '') {
-    wsLoading = true; rerender()
+    // 2026-08（入驻左栏后不渲染根因）：工厂 await loadWsList（mounting 期）——
+    // 内部 rerender → mounting 违例 → mount 失败循环（8次请求实证）——
+    // **mounting 期（initial）零 rerender**（loadWsList 末尾的 rerender 只在
+    // 工厂外（用户刷新/回调）执行——mount 完成后 renderFn 读最新 state）
+    const mounting = wsLoading
+    if (!mounting) { wsLoading = true; rerender() }
     try {
       const q = path ? `?path=${encodeURIComponent(path)}` : ''
       const d = await ctx.api!.get<WsListResponse>(`/api/departments/${departmentId}/workspace/list${q}`)
       wsEntries = d.entries ?? []; wsPath = d.path ?? '/'
     } catch (e) { ctx.toast!('加载失败：' + errMsg(e, ''), 'error') }
-    wsLoading = false; rerender()
+    wsLoading = false
+    // mounting 期不 rerender（工厂 return 后 renderFn 读最新——无需额外渲染）
+    if (!mounting) rerender()
   }
 
   async function openWsFile(entry: { name: string; type: string }) {
