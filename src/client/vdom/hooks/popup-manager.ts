@@ -26,7 +26,7 @@ import { h } from '../core/vnode.ts'
 import { renderToStream } from '../core/build.ts'
 import type { Command } from '../core/command/index.ts'
 import { renderV2 } from '../core/v2/render.ts'
-import { diffV2, type SegmentMap } from '../core/v2/diff.ts'
+import { diffV2, disposeSegment, type SegmentMap } from '../core/v2/diff.ts'
 import { diffStream } from '../core/diff/index.ts'
 import { CommandApplier } from '../core/patch/index.ts'
 import { createComponentRegistry } from '../core/node/component.ts'
@@ -265,16 +265,24 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       if (!registry) return
       const ctx = env.getSharedContext() ?? ({} as import('../context/UIContext.ts').UIContext)
       // **v2 引擎渲染（2027-08——完整重构——弹窗独立实例 v2 化）**
+      // 段表回传（首帧与 diff 共用 state.segments——段跨渲染复用——工厂不重跑）
+      // + requestRender 接父 env（弹窗内容组件 hooks 变化 → 父段请求渲染 →
+      // 同步模式父 renderFn 重新构建内容 → handle.update → 弹窗 diff——v1 链等价）
       const cmds = await new Promise<Command[]>((resolve, reject) => {
         const out: Command[] = []
+        const req = () => env.requestRender?.()
         const obs = prev
-          ? diffV2(prev, content as never, ctx, state.segments, registry)
-          : renderV2(content as never, ctx, registry)
+          ? diffV2(prev, content as never, ctx, state.segments, registry, req)
+          : renderV2(content as never, ctx, registry, state.segments, req)
         obs.subscribe({ next: (c) => out.push(c), error: reject, complete: () => resolve(out) })
       })
       for (const value of cmds) {
         if (state.disposed || v !== state.version) return
         applier.apply(value)
+      }
+      // **段清理（unmount 命令统一信号——弹窗级段表）**
+      for (const value of cmds) {
+        if (value.op === 'unmount') disposeSegment(value.compId, state.segments)
       }
     }).catch((e) => {
       // eslint-disable-next-line no-console

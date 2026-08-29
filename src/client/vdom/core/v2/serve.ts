@@ -13,11 +13,14 @@ import type { Command } from '../command/index.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 
 
+import { spyEvent } from './spy.ts'
 import { createFnTable, type RenderCtx, type UiServeOptions, type UiServeHandle } from '../serve.ts'
 import { UIRouter, frontRequest } from '../router.ts'
 import { createDevVerifier } from '../patch/verify.ts'
+import { createClientBrowser } from '../../browser/create-client-browser.ts'
 import { CommandApplier } from '../patch/index.ts'
 import { createComponentRegistry } from '../node/component.ts'
+import { createDataPipe } from '../../context/data.ts'
 import { renderV2 } from './render.ts'
 import { diffV2, disposeSegment } from './diff.ts'
 import type { SegmentMap } from './diff.ts'
@@ -50,11 +53,32 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   }
   const scheduler = createRenderScheduler()
   const vt = (win as unknown as { __wfV2?: Record<string, number> }).__wfV2 ??= { builds: 0, diffs: 0 }
+  // **浏览器面（v2 完整性——hooks 需要）**：真实 createClientBrowser
+  const afterRenderFns: Array<() => void> = []
+  const serveUnmounts: Array<() => void> = []
+  // **渲染完成冲刷（applyV2 尾部调用——清空并执行）**
+  const flushAfterRender = (): void => {
+    const fns = afterRenderFns.splice(0)
+    for (const fn of fns) { try { fn() } catch (e) { console.error('[vdom] v2 afterRender:', e) } }
+  }
   const ctx = {
-    browser: (win as unknown as { __wfBrowser?: unknown }).__wfBrowser ?? null,
+    browser: createClientBrowser(),
+    /** 数据管道（组件工厂取数——唯一异步边界——缓存/并发合并/失败缓存） */
+    data: createDataPipe(),
+    /** serve 级卸载注册（unmount 时执行——组件外清理） */
+    onUnmount(fn: () => void): void { serveUnmounts.push(fn) },
+    /** 渲染完成回调注册（hook 挂载后动作——元素已挂载） */
+    afterRender(fn: () => void): void { afterRenderFns.push(fn) },
+    // 中间件注入面（可选——ctx.api/auth/ws/i18n/toast/confirm/notification——
+    // **v1 对齐（2027-08——opts 未注入实证——notification demo 静默失效）**）
+    ...(opts.api ? { api: opts.api } : {}),
+    ...(opts.auth ? { auth: opts.auth } : {}),
+    ...(opts.ws ? { ws: opts.ws } : {}),
+    ...(opts.i18n ? { i18n: opts.i18n } : {}),
+    ...(opts.toast ? { toast: opts.toast } : {}),
+    ...(opts.confirm ? { confirm: opts.confirm } : {}),
+    ...(opts.notification ? { notification: opts.notification } : {}),
   } as Record<string, unknown>
-  ctx.render = async () => {} // 占位（下方覆盖）
-  ctx.ui = { onUnmount: () => {} } // 占位（v2 段 hooks 面——阶段 2 精细化）
 
 
   let currentTree: VNode | null = null
@@ -64,6 +88,18 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   /** v2 渲染（首帧 build / 后续 diff——命令直接 apply） */
   const applyV2 = async (vnode: VNode): Promise<void> => {
     if (!active) return
+    if (!currentTree) {
+      // **首帧 SSR 接管（v2 适配——蓝图缺口 1「吸收是消费端——v2 同构命令
+      //  已兼容」落地）**：root 含 SSR 吸收标记（<!--wf--> 锚注释）→
+      //  absorb.begin（procCreate/procCreateText 逐节点结构吸收——无标记
+      //  （静态预置 HTML/骨架屏）→ 清空重建——跨结构错配防护（v1 同判定）
+      //  ——否则 SSR 内容与客户端渲染共存（双份 DOM——tag 页面按钮无
+      //  data-wf-id 点击失效实证）
+      const hasSsrMark = Array.from(rootEl.querySelectorAll('*')).some((el) =>
+        [...el.childNodes].some((n) => n.nodeType === 8 && (n as Comment).textContent?.includes('wf')))
+      if (hasSsrMark) applier.absorb.begin(rootEl)
+      else rootEl.innerHTML = ''
+    }
     const stream = currentTree
       ? (currentTree.type !== vnode.type
         ? (() => {
@@ -73,20 +109,31 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
           rootEl.innerHTML = ''
           currentTree = null
           for (const [sid] of [...segments]) disposeSegment(sid, segments)
-          return renderV2(vnode, ctx as unknown as UIContext, registry)
+          return renderV2(vnode, ctx as unknown as UIContext, registry, segments, () => scheduler.request())
         })()
-        : (vt.diffs++, diffV2(currentTree, vnode, ctx as unknown as UIContext, segments, registry)))
-      : (vt.builds++, renderV2(vnode, ctx as unknown as UIContext, registry))
+        : (vt.diffs++, diffV2(currentTree, vnode, ctx as unknown as UIContext, segments, registry, () => scheduler.request())))
+      : (vt.builds++, renderV2(vnode, ctx as unknown as UIContext, registry, segments, () => scheduler.request()))
     const cmds = await collectCommands(stream)
+    spyEvent('cmd:render', cmds.length + '条')
     if (!active) return
     for (const cmd of cmds) {
-      try { applier.apply(cmd) } catch (e) {
+      try {
+        applier.apply(cmd)
+      } catch (e) {
         console.error('[vdom] v2 apply:', e)
         currentTree = null // 影子树重置（下次全量——自愈）
         break
       }
     }
+    // **段清理（2027-08——unmount 命令统一信号）**：transform（v1 表）/removeTreeV2
+    // 发出的 unmount → 段 dispose（onUnmounts/destroy$——popup 关闭等资源清理——
+    // 不依赖 v1 registry 的消费端行为——段是 v2 权威生命周期）
+    for (const cmd of cmds) {
+      if (cmd.op === 'unmount' && segments.has(cmd.compId)) disposeSegment(cmd.compId, segments)
+    }
     currentTree = vnode
+    // **渲染完成信号（v1 对齐）**：afterRender 回调（hook 挂载后动作）
+    flushAfterRender()
   }
 
 
@@ -174,6 +221,7 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
       active = false
       doc.removeEventListener('click', onDocClick)
       win.removeEventListener('popstate', onPopstate)
+      for (const fn of serveUnmounts.reverse()) { try { fn() } catch (e) { console.error('[vdom] v2 unmount:', e) } }
     },
   } as UiServeHandle & { render: () => Promise<void>; __apply: (vnode: VNode) => Promise<void> }
   void disposed

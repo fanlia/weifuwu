@@ -9,6 +9,7 @@
  */
 import type { Observable } from '../../observable/index.ts'
 import { Subject } from '../../observable/index.ts'
+import { spyEvent } from './spy.ts'
 
 export interface RenderScheduler {
   /** 请求渲染（同拍合并——batching） */
@@ -37,6 +38,7 @@ export function createRenderScheduler(): RenderScheduler {
     running = true
     try {
       consecutive++
+      spyEvent('sched:flush')
       renders.next()
       // 正常完成（非风暴）——计数重置（下拍更新是合法流）
       setTimeout(() => { if (consecutive <= MAX_CONSECUTIVE) consecutive = 0 }, 0)

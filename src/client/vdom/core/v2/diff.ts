@@ -23,9 +23,10 @@ import { stateOf } from '../transform/states.ts'
 import { diffAttrs } from '../diff/attrs.ts'
 import { transitionOf } from '../transform/table.ts'
 import { Observable, create, Subject } from '../../observable/index.ts'
+import { spyEvent } from './spy.ts'
 import { createUi } from '../../hooks/env.ts'
 import type { OperatorFn } from '../../observable/index.ts'
-import { renderV2Node, fromArray, concatObs } from './render.ts'
+import { renderV2Node, fromArray, concatObs, v2OutputPos } from './render.ts'
 
 /** v2 组件流段（实例复用载体——**工厂执行一次——后续复用**） */
 export interface Segment {
@@ -34,6 +35,10 @@ export interface Segment {
   onUnmounts: (() => void)[]
   lastOutput: VNodeChild | undefined
   hookSeq: { n: number }
+  /** 渲染 hook 基准（mount 后计数——v1 renderBase 等价——**每次 renderFn 前
+   *  重置——渲染期 hook 索引跨渲染稳定——useOpen 状态保留（2027-08
+   *  漂移实证——Popover 点后 open 复位）**） */
+  renderBase: number
   instData: Map<unknown, unknown>
   /** **destroy$（2027-08——段级卸载信号——单信号全停）**：卸载时 next——
    *  订阅者（hooks 清理）自动停止——v1 onUnmounts 数组的流化 */
@@ -60,18 +65,35 @@ export function createSegment(
   // **段级 hooks 面（2027-08——v2 完整性）**：createUi（真实的 hooks env——
   // 订阅/退订/重渲染 per 段——v1 实例级 hooks 的 v2 段等价）
   instCtx.ui = createUi({
-    requestRender: () => { requestSegmentRender?.() },
+    requestRender: () => {
+      spyEvent('req:render', compId.slice(-18))
+      requestSegmentRender?.()
+    },
     onUnmount: (fn: () => void) => { onUnmounts.push(fn) },
     getBrowser: () => (ctx as { browser?: import("../../browser/Browser.ts").Browser }).browser ?? null,
     nextHookIndex: () => hookSeq.n++,
     getHookState: <T>(idx: number) => hookStates.get(idx) as T | undefined,
     setHookState: (idx: number, v: unknown) => { hookStates.set(idx, v) },
     getInstanceData: () => instData,
-    scheduleAfterRender: (fn: () => void) => { (ctx as { afterRender?: (f: () => void) => void }).afterRender?.(fn) },
+    // **兜底重试（v2 段——ctx.afterRender 可能缺失（serve 未设）——用
+    //   microtask/setTimeout 兜底——首帧未挂载的重试必须执行（Affix scroll
+    //   绑定实证——断链即静默失效）**
+    scheduleAfterRender: (fn: () => void) => {
+      const ar = (ctx as { afterRender?: (f: () => void) => void }).afterRender
+      if (ar) ar(fn); else setTimeout(fn, 0)
+    },
     getSharedContext: () => ctx ?? null,
   })
   const renderFn = factory(props, instCtx) as RenderFn
-  return { factory, renderFn, onUnmounts, lastOutput: undefined, hookSeq, instData, destroy$: new Subject<void>(), disposed: false }
+  const renderBase = hookSeq.n // 渲染 hook 基准（mount 后计数）
+  return { factory, renderFn, onUnmounts, lastOutput: undefined, hookSeq, renderBase, instData, destroy$: new Subject<void>(), disposed: false }
+}
+
+/** **段重渲染（单一实现源）**：hookSeq 重置（v1 renderBase 语义——渲染期
+ *  hook 索引跨渲染稳定）→ renderFn 重调（props 最新）——工厂不重跑 */
+export function rerenderSegment(seg: Segment, props: Record<string, unknown>): VNodeChild {
+  seg.hookSeq.n = seg.renderBase
+  return seg.renderFn(props) as VNodeChild
 }
 
 /** 段销毁（unmount——destroy$ 信号 + onUnmounts 逆序）——**单信号全停** */
@@ -95,6 +117,7 @@ export function diffV2Node(
   ctx: UIContext,
   segments: SegmentMap,
   registry: import('../node/component.ts').ComponentRegistry,
+  requestRender?: () => void,
 ): Observable<Command> {
   const id = pathId(parent, index)
   const ok = kindOf(oldC)
@@ -107,7 +130,7 @@ export function diffV2Node(
   if (ok === 'hole' && nk === 'hole') return fromArray([])
   // 旧空洞 → 新节点（渲染——**先 remove 旧锚**——v1 对齐）
   if (ok === 'hole') {
-    return concatObs([fromArray([{ op: 'remove', id } as Command]), renderV2Node(newC, parent, index, ref, ctx, registry)])
+    return concatObs([fromArray([{ op: 'remove', id } as Command]), renderV2Node(newC, parent, index, ref, ctx, registry, segments, requestRender)])
   }
   // 新空洞 → 旧侧让位（**复合旧侧（组件/Fragment/元素）→ 转换——完整
   // 卸载（unmount + 输出区间清理 + 锚替）——非简单移除**——v1 语义对齐）
@@ -125,7 +148,7 @@ export function diffV2Node(
     const parts: Array<Observable<Command>> = []
     for (let i = 0; i < cs.length; i++) {
       const sc = slotCount(cs[i])
-      parts.push(diffV2Node(oldCs[i], cs[i], parent, slot, lastRef, ctx, segments, registry))
+      parts.push(diffV2Node(oldCs[i], cs[i], parent, slot, lastRef, ctx, segments, registry, requestRender))
       lastRef = pathId(parent, slot + sc - 1)
       slot += sc
     }
@@ -133,7 +156,7 @@ export function diffV2Node(
       // 旧侧多余项区间移除
     }
     for (let i = oldCs.length - 1; i >= cs.length; i--) {
-      parts.unshift(fromArray(removeTreeV2(oldCs[i], parent, slotOfV2(oldCs, i))))
+      parts.unshift(fromArray(removeTreeV2(oldCs[i], parent, slotOfV2(oldCs, i), segments)))
     }
     return concatObs(parts)
   }
@@ -144,12 +167,12 @@ export function diffV2Node(
     // 组件 → 组件（同 type：流段复用——核心；不同 type：替换）
     if (typeof o.type === 'function' && typeof n.type === 'function') {
       if (o.type === n.type) {
-        return diffComponentV2(o, n, parent, index, ref, ctx, segments, registry)
+        return diffComponentV2(o, n, parent, index, ref, ctx, segments, registry, requestRender)
       }
       // **异 type 组件 → 旧段卸载 + 新段挂载**（v1 diffSame 语义——非转换表
       // ——component→component 同态转换表无定义——违例）
       disposeSegment(v2CompId(o, parent, index), segments)
-      return renderV2Node(n, parent, index, ref, ctx, registry)
+      return renderV2Node(n, parent, index, ref, ctx, registry, segments, requestRender)
     }
     // 元素 → 元素（同 tag：attrs + children 递归；异 tag：替换）
     if (typeof o.type === 'string' && typeof n.type === 'string') {
@@ -160,20 +183,20 @@ export function diffV2Node(
         const cs = childrenOf(n)
         // **keyed 检测**：任一侧含 keyed 项 → keyed 列表对照（merge 语义）
         if (hasKeyedId(cs) || hasKeyedId(oldCs)) {
-          return concatObs([fromArray(attrCmds), diffKeyedV2(oldCs, cs, id, ctx, segments, registry)])
+          return concatObs([fromArray(attrCmds), diffKeyedV2(oldCs, cs, id, ctx, segments, registry, requestRender)])
         }
         let slot = 0
         let lastRef: string | null = null
         const parts: Array<Observable<Command>> = []
         for (let i = 0; i < cs.length; i++) {
           const sc = slotCount(cs[i])
-          parts.push(diffV2Node(oldCs[i], cs[i], id, slot, lastRef, ctx, segments, registry))
+          parts.push(diffV2Node(oldCs[i], cs[i], id, slot, lastRef, ctx, segments, registry, requestRender))
           lastRef = pathId(id, slot + sc - 1)
           slot += sc
         }
         // 旧侧多余项移除（**完整区间**——v1 removeVNodeTree 等价——子树全移除）
         for (let i = cs.length; i < oldCs.length; i++) {
-          parts.push(fromArray(removeTreeV2(oldCs[i], id, slotOf(oldCs, i))))
+          parts.push(fromArray(removeTreeV2(oldCs[i], id, slotOf(oldCs, i), segments)))
         }
         return concatObs([fromArray(attrCmds), ...parts])
       }
@@ -181,8 +204,8 @@ export function diffV2Node(
       // 等价——子树全部 remove）+ 新侧渲染——**非转换表**（element→element
       // 同态——转换表无定义））
       return concatObs([
-        fromArray(removeTreeV2(o, parent, index)),
-        renderV2Node(n, parent, index, ref, ctx, registry),
+        fromArray(removeTreeV2(o, parent, index, segments)),
+        renderV2Node(n, parent, index, ref, ctx, registry, segments, requestRender),
       ])
     }
   }
@@ -218,29 +241,31 @@ function diffComponentV2(
   ctx: UIContext,
   segments: SegmentMap,
   registry: import('../node/component.ts').ComponentRegistry,
+  requestRender?: () => void,
 ): Observable<Command> {
   const compId = v2CompId(newV, parent, index)
   const seg = segments.get(compId)
   if (!seg) {
     // 首见（同位置 type 相同但无段——上一轮挂载失败/泄漏 → 重挂载）
-    return renderV2Node(newV, parent, index, ref, ctx, registry)
+    return renderV2Node(newV, parent, index, ref, ctx, registry, segments, requestRender)
   }
   // **复用：renderFn 重调（props 最新）——工厂不重跑**——输出对照（同一
   // 算子——旧输出 vs 新输出——组件输出特判收敛）
   let newOut: VNodeChild
   try {
-    newOut = seg.renderFn(newV.props)
+    newOut = rerenderSegment(seg, newV.props)
   } catch (e) {
     console.error('[vdom] v2 renderFn 错误:', e)
     return fromArray([])
   }
   const oldOut = seg.lastOutput
   seg.lastOutput = newOut
+  const pos = v2OutputPos(newOut, compId, parent, index)
   if (oldOut === undefined) {
-    // 首次输出（段建后第一次渲染输出）——渲染
-    return renderV2Node(newOut, compId, 0, ref, ctx, registry)
+    // 首次输出（段建后第一次渲染输出）——渲染（同输出位置规则）
+    return renderV2Node(newOut, pos.parent, pos.index, ref, ctx, registry, segments, requestRender)
   }
-  return diffV2NodeAt(oldOut, newOut, compId, ref, ctx, segments, registry)
+  return diffV2NodeAt(oldOut, newOut, pos.parent, pos.index, ref, ctx, segments, registry, requestRender)
 }
 
 /** 组件输出的槽位对照（输出在 compId 子空间——index 0 起） */
@@ -248,10 +273,12 @@ function diffV2NodeAt(
   oldOut: VNodeChild,
   newOut: VNodeChild,
   base: string,
+  index: number,
   ref: string | null,
   ctx: UIContext,
   segments: SegmentMap,
   registry: import('../node/component.ts').ComponentRegistry,
+  requestRender?: () => void,
 ): Observable<Command> {
   // 输出形态（vnode/hole/array——判别联合）
   const oa = Array.isArray(oldOut)
@@ -264,16 +291,16 @@ function diffV2NodeAt(
     const parts: Array<Observable<Command>> = []
     for (let i = 0; i < newArr.length; i++) {
       const sc = slotCount(newArr[i])
-      parts.push(diffV2Node(oldArr[i], newArr[i], base, slot, lastRef, ctx, segments, registry))
+      parts.push(diffV2Node(oldArr[i], newArr[i], base, slot, lastRef, ctx, segments, registry, requestRender))
       lastRef = pathId(base, slot + sc - 1)
       slot += sc
     }
     for (let i = newArr.length; i < oldArr.length; i++) {
-      parts.push(fromArray(removeTreeV2(oldArr[i], base, slotOf(oldArr, i))))
+      parts.push(fromArray(removeTreeV2(oldArr[i], base, slotOf(oldArr, i), segments)))
     }
     return concatObs(parts)
   }
-  return diffV2Node(oldOut, newOut, base, 0, ref, ctx, segments, registry)
+  return diffV2Node(oldOut, newOut, base, index, ref, ctx, segments, registry, requestRender)
 }
 
 /** 组件 id（keyedId/pathId——单一点——v1 双实现收敛） */
@@ -288,6 +315,7 @@ export function diffV2(
   ctx: UIContext,
   segments: SegmentMap,
   registry: import('../node/component.ts').ComponentRegistry,
+  requestRender?: () => void,
 ): Observable<Command> {
   const oState = stateOf(oldTree)
   const nState = stateOf(newTree)
@@ -296,7 +324,7 @@ export function diffV2(
     // 异态根（组件↔元素等）——借用 v1 转换的语义（emit 命令收集）
     return fromArray([]) // 阶段 1b：根异态简化（登记——root 转换场景）
   }
-  return diffV2Node(oldTree, newTree, 'root', 0, null, ctx, segments, registry)
+  return diffV2Node(oldTree, newTree, 'root', 0, null, ctx, segments, registry, requestRender)
     .pipe(appendDone) as Observable<Command>
 }
 
@@ -315,9 +343,10 @@ function diffListItemV2(
   ctx: UIContext,
   segments: SegmentMap,
   registry: import('../node/component.ts').ComponentRegistry,
+  requestRender?: () => void,
 ): Observable<Command> {
-  if (oldC === undefined) return renderV2Node(newC, parent, index, ref, ctx, registry)
-  return diffV2Node(oldC, newC, parent, index, ref, ctx, segments, registry)
+  if (oldC === undefined) return renderV2Node(newC, parent, index, ref, ctx, registry, segments, requestRender)
+  return diffV2Node(oldC, newC, parent, index, ref, ctx, segments, registry, requestRender)
 }
 
 /** keyed 列表对照（流式——顺移 move / 冲突重建 / key 映射对照——v1 语义等价） */
@@ -328,6 +357,7 @@ export function diffKeyedV2(
   ctx: UIContext,
   segments: SegmentMap,
   registry: import('../node/component.ts').ComponentRegistry,
+  requestRender?: () => void,
 ): Observable<Command> {
   const cmds: Command[] = []
   // 旧 key → 旧索引（首现优先——与 v1 单一规则源）
@@ -347,16 +377,16 @@ export function diffKeyedV2(
       const n = (keyCount.get(k) ?? 0) + 1
       keyCount.set(k, n)
       if (n === 1) continue
-      cmds.push(...removeTreeV2(oldC as VNode, parent, i))
+      cmds.push(...removeTreeV2(oldC as VNode, parent, i, segments))
       continue
     }
-    cmds.push(...removeTreeV2(oldC as VNode, parent, i))
+    cmds.push(...removeTreeV2(oldC as VNode, parent, i, segments))
   }
 
   // 1. 真移除（key 不在新——**完整区间** + **段销毁（destroy$）**）
   for (const [k, oldIdx] of oldIdxByKey) {
     if (!newKeys.has(k)) {
-      cmds.push(...removeTreeV2(oldCs[oldIdx] as VNode, parent, oldIdx))
+      cmds.push(...removeTreeV2(oldCs[oldIdx] as VNode, parent, oldIdx, segments))
       const kid = keyedId(parent, k)
       if (segments.has(kid)) disposeSegment(kid, segments) // 卸载信号——资源清理
     }
@@ -383,7 +413,7 @@ export function diffKeyedV2(
       // **keyed 项单 remove（v1 对齐——重建路径节点随后 create——非区间**——
       // 子树由 create 重建；非 keyed 项完整区间）
       if (keyOf(c as VNode) !== null) { cmds.push({ op: 'remove', id: pathId(parent, i) } as Command); return }
-      cmds.push(...removeTreeV2(c as VNode, parent, i))
+      cmds.push(...removeTreeV2(c as VNode, parent, i, segments))
     })
     const rebuildParts: Array<Observable<Command>> = []
     let r: string | null = null
@@ -393,9 +423,9 @@ export function diffKeyedV2(
       const kid = k !== null ? keyedId(parent, k) : pathId(parent, i)
       if (k !== null && typeof (newC as VNode).type === 'function') {
         // keyed 组件项——段复用（kid）
-        rebuildParts.push(diffComponentAtV2(newC as VNode, kid, parent, i, r, ctx, segments, registry))
+        rebuildParts.push(diffComponentAtV2(newC as VNode, kid, parent, i, r, ctx, segments, registry, requestRender))
       } else {
-        rebuildParts.push(renderV2Node(newC, parent, i, r, ctx, registry))
+        rebuildParts.push(renderV2Node(newC, parent, i, r, ctx, registry, segments, requestRender))
       }
       r = pathId(parent, i)
     }
@@ -424,14 +454,14 @@ export function diffKeyedV2(
     if (k !== null) {
       const oldIdx = oldIdxByKey.get(k)
       if (oldIdx === undefined) {
-        parts.push(renderV2Node(newC, parent, i, lastRef, ctx, registry))
+        parts.push(renderV2Node(newC, parent, i, lastRef, ctx, registry, segments, requestRender))
       } else if (typeof (newC as VNode).type === 'function') {
-        parts.push(diffListItemV2(oldCs[oldIdx], newC, parent, i, lastRef, ctx, segments, registry))
+        parts.push(diffListItemV2(oldCs[oldIdx], newC, parent, i, lastRef, ctx, segments, registry, requestRender))
       } else {
-        parts.push(diffV2Node(oldCs[oldIdx], newC, parent, i, lastRef, ctx, segments, registry))
+        parts.push(diffV2Node(oldCs[oldIdx], newC, parent, i, lastRef, ctx, segments, registry, requestRender))
       }
     } else {
-      parts.push(renderV2Node(newC, parent, i, lastRef, ctx, registry))
+      parts.push(renderV2Node(newC, parent, i, lastRef, ctx, registry, segments, requestRender))
     }
     lastRef = cid
   }
@@ -448,37 +478,55 @@ function diffComponentAtV2(
   ctx: UIContext,
   segments: SegmentMap,
   registry: import('../node/component.ts').ComponentRegistry,
+  requestRender?: () => void,
 ): Observable<Command> {
   const seg = segments.get(kid)
-  if (!seg) return renderV2Node(vn, parent, index, ref, ctx, registry)
+  if (!seg) return renderV2Node(vn, parent, index, ref, ctx, registry, segments, requestRender)
   let newOut: VNodeChild
   try {
-    newOut = seg.renderFn(vn.props)
+    newOut = rerenderSegment(seg, vn.props)
   } catch (e) {
     console.error('[vdom] v2 renderFn 错误:', e)
     return fromArray([])
   }
   const oldOut = seg.lastOutput
   seg.lastOutput = newOut
-  if (oldOut === undefined) return renderV2Node(newOut, kid, 0, ref, ctx, registry)
-  return diffV2NodeAt(oldOut, newOut, kid, ref, ctx, segments, registry)
+  const pos = v2OutputPos(newOut, kid, parent, index)
+  if (oldOut === undefined) return renderV2Node(newOut, pos.parent, pos.index, ref, ctx, registry, segments, requestRender)
+  return diffV2NodeAt(oldOut, newOut, pos.parent, pos.index, ref, ctx, segments, registry, requestRender)
 }
 
-/** 完整区间移除（v1 removeVNodeTree 等价——子树全部节点 remove——先子后父） */
-export function removeTreeV2(v: VNodeChild, parent: string, index: number): Command[] {
+/** 完整区间移除（v1 removeVNodeTree 等价——子树全部节点 remove——先子后父）
+ *  **组件项 unmount 信号**：v1 removeVNodeTree 同语义（compId——消费端
+ *  applier 的 registry 清理）
+ *  **段 dispose 生成期（2027-08——段表是 v2 权威——同 compId 重渲染碰撞
+ *  实证：列表→编辑器切换——旧按钮内 Icon 段残留 root.0.1.0.0——新 Button
+ *  落同槽——段错配崩溃）**：段清理必须在 diff 生成期完成（命令流生产端
+ *  完整自足——不依赖消费端时序——消费端 apply 循环的 dispose 是幂等兜底 */
+export function removeTreeV2(
+  v: VNodeChild, parent: string, index: number, segments?: SegmentMap,
+): Command[] {
   const cmds: Command[] = []
   const id = pathId(parent, index)
   if (v === null || v === undefined || typeof v === 'boolean' || v === '') { cmds.push({ op: 'remove', id } as Command); return cmds }
   if (typeof v === 'string' || typeof v === 'number') { cmds.push({ op: 'remove', id } as Command); return cmds }
   if (Array.isArray(v)) {
     let slot = 0
-    for (const c of v) { cmds.push(...removeTreeV2(c, parent, slot)); slot += slotCount(c) }
+    for (const c of v) { cmds.push(...removeTreeV2(c, parent, slot, segments)); slot += slotCount(c) }
     return cmds
   }
   const vn = v as VNode
+  // **组件项：unmount（消费端 registry 清理）+ 段 dispose（生成期）**
+  if (typeof vn.type === 'function') {
+    const compId = vn.key !== null ? keyedId(parent, vn.key) : id
+    if (segments?.has(compId)) disposeSegment(compId, segments)
+    cmds.push({ op: 'unmount', compId } as Command)
+    cmds.push({ op: 'remove', id } as Command)
+    return cmds
+  }
   const cs = childrenOf(vn)
   let slot = 0
-  for (const c of cs) { cmds.push(...removeTreeV2(c, id, slot)); slot += slotCount(c) }
+  for (const c of cs) { cmds.push(...removeTreeV2(c, id, slot, segments)); slot += slotCount(c) }
   cmds.push({ op: 'remove', id } as Command)
   return cmds
 }
@@ -505,6 +553,8 @@ export function transformV2(
   ctx: UIContext,
   registry: import('../node/component.ts').ComponentRegistry,
   oldCompId?: string,
+  segments?: SegmentMap,
+  requestRender?: () => void,
 ): Observable<Command> {
   const t = transitionOf(stateOf(oldC), stateOf(newC))
   if (!t) {
@@ -517,7 +567,7 @@ export function transformV2(
   const syncCtx = {
     emit: (cmd: unknown) => { outCmds.push(cmd as Command) },
     emitNode: (v: VNodeChild, p: string, i: number, r: string | null) => {
-      sinkStream = renderV2Node(v, p, i, r, ctx, registry)
+      sinkStream = renderV2Node(v, p, i, r, ctx, registry, segments, requestRender)
       return Promise.resolve()
     },
     oldId: pathId(parent, index),

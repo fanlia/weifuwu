@@ -23,9 +23,28 @@ import { emitHole, invalidDiagnostic } from '../node/hole.ts'
 import { serializableAttrs } from '../node/native.ts'
 import { Observable, create } from '../../observable/index.ts'
 import type { OperatorFn } from '../../observable/index.ts'
+import { createSegment, rerenderSegment, type Segment as V2Seg } from './diff.ts'
+
+/** **输出位置单一实现源**（v1 outputBase 语义——组件输出挂哪）：
+ *  - 组件输出组件/数组/空洞 → compId 子空间（compId.0 起——与兄弟隔离）
+ *  - 单元素/文本 → 槽位（parent/index——v1 C2 规则）
+ *  v2 的渲染（段化）与 diff（输出对照）共用——**单一实现——防漂移** */
+export function v2OutputPos(
+  out: VNodeChild, compId: string, parent: string, index: number,
+): { parent: string; index: number } {
+  if (typeof (out as VNode)?.type === 'function' || Array.isArray(out) || kindOf(out) === 'hole') {
+    return { parent: compId, index: 0 }
+  }
+  return { parent, index }
+}
 
 /** 节点展开（vnode → 命令流——惰性——订阅驱动） */
-export function renderV2Node(v: VNodeChild, parent: string, index: number, ref: string | null, ctx: UIContext, registry: ComponentRegistry): Observable<Command> {
+export function renderV2Node(
+  v: VNodeChild, parent: string, index: number, ref: string | null,
+  ctx: UIContext, registry: ComponentRegistry,
+  segments?: Map<string, import('./diff.ts').Segment>,
+  requestRender?: () => void,
+): Observable<Command> {
   const id = pathId(parent, index)
   switch (kindOf(v)) {
     case 'text': {
@@ -47,7 +66,7 @@ export function renderV2Node(v: VNodeChild, parent: string, index: number, ref: 
       let lastRef2: string | null = ref
       const parts: Array<Observable<Command>> = []
       for (const c of items) {
-        parts.push(renderV2Node(c, parent, slot, lastRef2, ctx, registry))
+        parts.push(renderV2Node(c, parent, slot, lastRef2, ctx, registry, segments, requestRender))
         const sc = slotCount(c)
         lastRef2 = pathId(parent, slot + sc - 1)
         slot += sc
@@ -61,7 +80,7 @@ export function renderV2Node(v: VNodeChild, parent: string, index: number, ref: 
       let lastRef2: string | null = ref
       const parts: Array<Observable<Command>> = []
       for (const c of cs) {
-        parts.push(renderV2Node(c, parent, slot, lastRef2, ctx, registry))
+        parts.push(renderV2Node(c, parent, slot, lastRef2, ctx, registry, segments, requestRender))
         const sc = slotCount(c)
         lastRef2 = pathId(parent, slot + sc - 1)
         slot += sc
@@ -85,7 +104,7 @@ export function renderV2Node(v: VNodeChild, parent: string, index: number, ref: 
       let slot = 0
       const parts: Array<Observable<Command>> = []
       for (const c of cs) {
-        parts.push(renderV2Node(c, id, slot, lastRef, ctx, registry))
+        parts.push(renderV2Node(c, id, slot, lastRef, ctx, registry, segments, requestRender))
         const sc = slotCount(c)
         lastRef = pathId(id, slot + sc - 1)
         slot += sc
@@ -96,28 +115,23 @@ export function renderV2Node(v: VNodeChild, parent: string, index: number, ref: 
     case 'component': {
       const vn = v as VNode
       const compId = vn.key !== null ? keyedId(parent, vn.key) : id
-      // **组件挂载（复用 v1 renderComponent——阶段 1 表达层——内部检查
-      //   语义零改——streaming 化的 sink（命令进流））**
-      return create<Command>((obs) => {
-        let done = false
-        // **订阅到 complete（不主动退订）**：内嵌组件的 mount（then
-        // 微任务）在 complete 前发出——「订阅-立即退订」会丢失异步
-        // mount（v1/v2 差异实证）——完整消费
-        const useEmit = async (child: VNodeChild, p: string, i: number, r: string | null): Promise<void> => {
-          await new Promise<void>((resolve, reject) => {
-            if (done) { resolve(); return }
-            renderV2Node(child, p, i, r, ctx, registry).subscribe({
-              next: (c) => { if (!done) obs.next(c) },
-              error: (e) => { if (!done) { done = true; reject(e) } },
-              complete: () => resolve(),
-            })
-          })
-        }
-        void renderComponent(vn, parent, index, ref, compId, ctx, registry, useEmit, (cmd) => { if (!done) obs.next(cmd) })
-          .then((isNew) => { if (!done && isNew) obs.next({ op: 'mount', compId } as Command); if (!done) { obs.complete(); done = true } })
-          .catch((e) => { if (!done) { done = true; obs.error(e) } })
-        return () => { done = true }
-      })
+      // **v2 段化挂载（2027-08——完整重构）**——段创建（工厂+hooks 面）+
+      // 输出渲染 + mount 命令（v1 命令形态等价——消费端不变）——diff 的
+      // 复用通路依赖段（本渲染建段——diff 查段——闭环）
+      const segs = segments ?? new Map<string, V2Seg>()
+      let seg = segs.get(compId)
+      if (!seg) {
+        seg = createSegment(vn.type as never, vn.props, ctx, compId, requestRender)
+        segs.set(compId, seg)
+      }
+      const out = rerenderSegment(seg, vn.props)
+      seg.lastOutput = out
+      // **输出位置（单一实现源——v2OutputPos）**——渲染与 diff 共用同规则
+      const pos = v2OutputPos(out, compId, parent, index)
+      return concatObs([
+        renderV2Node(out, pos.parent, pos.index, ref, ctx, registry, segs, requestRender),
+        fromArray([{ op: 'mount', compId } as Command]),
+      ])
     }
     case 'invalid': {
       console.warn(`[vdom] 非法子节点——${invalidDiagnostic(v)}`)
@@ -129,10 +143,14 @@ export function renderV2Node(v: VNodeChild, parent: string, index: number, ref: 
 }
 
 /** 根渲染（v2）——renderToStream 的 Observable 等价 */
-export function renderV2(root: VNode, ctx?: UIContext, registry?: ComponentRegistry): Observable<Command> {
+export function renderV2(
+  root: VNode, ctx?: UIContext, registry?: ComponentRegistry,
+  segments?: Map<string, import('./diff.ts').Segment>,
+  requestRender?: () => void,
+): Observable<Command> {
   const sharedCtx = (ctx ?? {}) as UIContext
   const reg = registry ?? createComponentRegistry()
-  return renderV2Node(root, 'root', 0, null, sharedCtx, reg).pipe(
+  return renderV2Node(root, 'root', 0, null, sharedCtx, reg, segments, requestRender).pipe(
     concatWith(fromArray([{ op: 'done', full: true } as Command])),
   ) as Observable<Command>
 }
@@ -148,23 +166,41 @@ export function fromArray<T>(items: T[]): Observable<T> {
   })
 }
 
-/** 顺序拼接（流串联——命令序号保持） */
+/** 顺序拼接（流串联——命令序号保持）
+ *  **同步完成迭代化（2027-08——大 flat 列表栈溢出实证——QRCode 页）**：
+ *  旧实现 complete → nextStream() 递归——N 个同步完成流 = N 层调用栈——
+ *  数百 rect/svg 链即溢出。新实现：同步完成由 while 循环推进（迭代——
+ *  零深栈）；异步完成仍由回调驱动（新调用栈——深度 1）。 */
 export function concatObs<T>(streams: Array<Observable<T>>): Observable<T> {
   return create<T>((obs) => {
     let idx = 0
     let current: { unsubscribe(): void } | null = null
     let cancelled = false
-    const nextStream = (): void => {
-      if (cancelled) return
-      if (idx >= streams.length) { obs.complete(); return }
-      const s = streams[idx++]
-      current = s.subscribe({
-        next: (v) => obs.next(v),
-        error: (e) => { if (!cancelled) { cancelled = true; obs.error(e) } },
-        complete: () => nextStream(),
-      })
+    let driving = false
+    const drive = (): void => {
+      if (cancelled || driving) return
+      driving = true
+      while (!cancelled) {
+        if (idx >= streams.length) { obs.complete(); break }
+        const s = streams[idx++]
+        let done = false
+        let sync = true
+        current = s.subscribe({
+          next: (v) => obs.next(v),
+          error: (e) => { if (!cancelled) { cancelled = true; obs.error(e) } },
+          complete: () => {
+            if (done || cancelled) return
+            done = true
+            if (sync) return // 同步完成——外层 while 已接管推进
+            drive() // 异步完成——驱动下一流（深度 1——无深递归）
+          },
+        })
+        sync = false
+        if (!done) break // 流存活——等待其 complete
+      }
+      driving = false
     }
-    nextStream()
+    drive()
     return () => { cancelled = true; current?.unsubscribe() }
   })
 }

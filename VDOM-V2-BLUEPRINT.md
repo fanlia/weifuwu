@@ -80,3 +80,49 @@
 4. **性能基准**（v2 diff ≤ v1——超即回退）
 5. **透明验收**（五层可 tap/回放/快照）
 6. **不留后置/豁免**（OBSERVABLE-ARCH core 流化后置的教训——本次一次性完整）
+
+---
+
+## 5. 完整性缺口清单（2027-08——撤销裁剪——完整重构纪律）
+
+> **用户重申**：核心功能重构不能裁剪——必须完整。上一轮「保留 v1 吸收/
+> 先 CSR 切换」**撤销**——以下缺口**全部补齐后才算完成**（切换前）。
+
+| # | 缺口 | 现状 | 补齐（v2 化） |
+|---|---|---|---|
+| 1 | **SSR 吸收（AbsorbState）** | v1 模块——v2 未接 | v2 命令流与吸收对齐（吸收是消费端——v2 同构命令已兼容——**补验证 + 吸收流式化**（消费端 view——命令流直接喂张）） |
+| 2 | **transform 6×6** | v2 diff 用「单 remove+render」替代 | **v2 transform 化**（异态转换走 transform 表——非重建——同 v1 语义：元素↔文本/组件↔数组等转换的状态机） |
+| 3 | **uiSsr v2 完整** | 只有 v2ToHtml（单树） | **uiSsrV2**（router.resolve + 预取 + __DATA__ + 吸收首帧——完整 SSR 入口） |
+| 4 | **ref 生命周期** | v2 命令流含 ref（等价验证） | 补 ref 卸载路径（ref 指令的 unref——清理对称） |
+| 5 | **fuzz 全量** | v2 只 50 对 | **1200 静态 + 300 组件树**（v1 fuzz 全量跑 v2 引擎） |
+| 6 | **portal/弹窗** | 应用面（openPopup hooks） | 段 hooks 已接——补 portal 场景验证 |
+| 7 | **事件/ref 字段**（EventRegistry/RefRegistry） | 共享消费端（协议层） | **v2 视角验证**（字段面与 v2 命令流协同——不是「共享即豁免」——补测试） |
+| 8 | **router 导航完整**（链接拦截/popstate/redirect） | v2 serve 骨架 | 完整实现 + 场景验证 |
+
+**完成定义（更新）**：能力矩阵全绿 + **缺口 1-8 全补** + fuzz 全量 + 全量回归
+（246+116+200+289 + tsc 双侧 0）——**任一缺口未补 = 未完成**（不切换）。
+
+---
+
+## 6. 执行状态（2027-08——showcase 切换 v2：200/200 绿）
+
+> **切换门户 = showcase 模块化验证**（`apps/showcase/src/main.tsx` 已切
+> `uiServeV2`——真实浏览器全量 200 测试绿——v1 平台仍默认——符合「成熟后
+> 切换」顺序）。本轮（switch 适配周）修复清单：
+
+| # | 缺陷（showcase 切换暴露） | 根因 | 修复 | 锁定测试 |
+|---|---|---|---|---|
+| 1 | Affix scroll 后不固定 | **requestRender 不透传**——renderV2Node 元素/碎片/数组递归调用丢回调——嵌套组件段回调 undefined（hooks 断链） | 全递归透传 + serve diff 路径也传 | v2-hooks-chain（嵌套回归）+ v2-affix-repro |
+| 2 | notification/confirm/toast 静默失效 | **v2 serve 未装配 opts**（toast/confirm/notification 中间件注入面缺失） | ctx 注入对齐 v1（opts 展开 + data pipe + afterRender/onUnmount） | showcase 弹窗测试 |
+| 3 | QRCode 页栈溢出 | **concatObs 同步递归**——flat 列表 N 同步完成流 = N 层调用栈（数百 rect 即爆） | 同步完成迭代化（while 循环——异步完成仍回调驱动） | v2 大列表契约测试（filetree-repro 附） |
+| 4 | Tour/popup 关闭后不卸载 | **组件→空洞转置换段泄漏**——v1 转换表发 unmount 但 v2 段表不跟进——onUnmounts（popup 关闭）永不触发 | 消费端按 unmount 命令统一 disposeSegment（serve/popup apply 循环）| v2 契约 + tour/popover 场景 |
+| 5 | tag 关闭/点击失效 | **SSR 内容与客户端渲染双份**——v2 serve 首帧无吸收判定（v1 hasSsrMark→absorb.begin / 无标记清空） | 首帧吸收适配（蓝图缺口 1「吸收是消费端」落地） | tag/全量 showcase |
+| 6 | Popover 点后不弹 | **hookSeq 无 renderBase 基准**——渲染期 hook 索引逐帧漂移——useOpen 状态每拍复位 | 段渲染 hookSeq 重置（v1 renderBase 语义——rerenderSegment 单源） | popover 场景 |
+| 7 | FileTree 列表→编辑崩溃 | **段 id 碰撞**——旧按钮内 Icon 段残留段表——新结构落同槽——Button 段复用 Icon 段（renderFn 错配）| removeTreeV2 生成期 dispose 子树段（段表 = v2 权威——同 v1「生成端完整自足」） | v2-filetree-repro |
+| 8 | 弹窗内容组件 hooks 断链 | popup render 未传 state.segments（首帧与 diff 段表分裂） | renderV2 传 state.segments + requestRender 接父 env | popup 场景 |
+
+**观测体系（本轮定型）**：`spy.ts`——`__wfSpy` 事件环（obs:next → req:render →
+sched:flush → cmd:render）——全链可断言（v2-spy 测试）——调试不再盲改。
+
+**下一步（切换路径）**：场景层 server 切 uiServeV2（保留 v1 对照）→ 场景 116
+在 v2 下全绿 → v1 退役决策。
