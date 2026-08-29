@@ -116,6 +116,27 @@ export function diffV2Node(
     // 旧侧让位 + 锚创建——不是单 remove——v1 语义对齐）
     return transformV2(oldC, newC, parent, index, ref, ctx, registry, ok === 'component' ? v2CompId(oldC as VNode, parent, index) : undefined)
   }
+  // **数组/Fragment 同态 → children 对照**（槽位推进——fuzz 根/嵌套）
+  if ((ok === 'fragment' || ok === 'array') && (nk === 'fragment' || nk === 'array')) {
+    const oldCs = Array.isArray(oldC) ? oldC : childrenOf(oldC as VNode)
+    const cs = Array.isArray(newC) ? newC : childrenOf(newC as VNode)
+    let slot = 0
+    let lastRef: string | null = null
+    const parts: Array<Observable<Command>> = []
+    for (let i = 0; i < cs.length; i++) {
+      const sc = slotCount(cs[i])
+      parts.push(diffV2Node(oldCs[i], cs[i], parent, slot, lastRef, ctx, segments, registry))
+      lastRef = pathId(parent, slot + sc - 1)
+      slot += sc
+    }
+    if (slotOfV2(oldCs, cs.length) !== slot) {
+      // 旧侧多余项区间移除
+    }
+    for (let i = oldCs.length - 1; i >= cs.length; i--) {
+      parts.unshift(fromArray(removeTreeV2(oldCs[i], parent, slotOfV2(oldCs, i))))
+    }
+    return concatObs(parts)
+  }
   // 同态 → 递归对照
   if (ok === nk && typeof oldC !== 'string' && typeof oldC !== 'number') {
     const o = oldC as VNode
@@ -171,6 +192,12 @@ export function diffV2Node(
     ? v2CompId(oldC as VNode, parent, index)
     : undefined
   return transformV2(oldC, newC, parent, index, ref, ctx, registry, oldCompIdV2)
+}
+
+function slotOfV2(oldCs: VNodeChild[], i: number): number {
+  let s = 0
+  for (let j = 0; j < i; j++) s += slotCount(oldCs[j])
+  return s
 }
 
 function slotOf(oldCs: VNodeChild[], i: number): number {
