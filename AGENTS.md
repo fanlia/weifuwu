@@ -289,6 +289,34 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     - Sim 必须与真实消费端逐语义对齐（unmount 前缀递归——disposeComponent
       契约）——对齐缺口 = 验证工具 bug
 
+    ### 流化维度总表（2027-09——VDOM-OBSERVABLE-COMPLETE 实录）
+    **完成状态**：vdom 全链路 Observable 化——源/管线/终态/快照四点完整——
+    audit-observable-complete.mjs 三检查（渲染周期管线化/单轨清理/无隐式
+    时序）零豁免违规。
+
+    | 面 | 落地 | 关键机制 |
+    |---|---|---|
+    | **管线** | 渲染周期（v2/cycle.ts）——build/diff → **toArray 原子性**（生成错误零 DOM 变更）→ tap(apply) → tap(cleanup) → applied\$（sink 可观测）/complete\$——applyV2Inner 删除（波次 1） | 影子树归周期（currentTree）；R1 熔断 = cycle.reset + apply；三轴度量（builds/diffs/applies/unmounts）流上取数 |
+    | **快照** | 状态机 shell 化——**内核迁移表不动（编译期穷尽）+ 外壳 scan 折叠**（machine\$ 模式：events\$ → scan(reduce) → 状态写回 + 违例流事件）——AbsorbState（absorbReducer+failed\$——波次 4）/PopupPhase（popupPhaseReducer+events\$——波次 6）/RenderPhase（serve 折叠） | 回放 = 同函数重喂记录流；流化不增加正确性（迁移表+对账器保证）——流只让错误更早现形 |
+    | **时序** | transform 三段 concatObs（disposeOp → removeCmds → 新侧订阅时构造）——pendingSink 时序 hack 删除（波次 3）；导航 redirect while → 递归流（波次 5）；toast setTimeout → delay（波次 6） | C1 fuzz seed=11 顺序纪律结构性保证；取消语义（switchMap/退订清 timer） |
+    | **值源** | store/chat changes\$（浅拷贝快照）、ws messages\$/status\$、auth token\$、i18n locale\$（视图——API 形状不变纯扩展——波次 7） | 与 subscribe 同源（同一变化事件）——BehaviorSubject 语义（订阅即回放） |
+    | **终态** | DOM apply 命令式（applier——副作用本性）+ 周期级 applied\$/complete\$ | sink 不是黑洞（应用后重发射）——dev/度量订阅点 |
+
+    **收益判负记录（不流化——记录在案——非豁免是收益判负）**：
+    - EventRegistry/RefRegistry/DataPipe（active/disposed 布尔态）——流化 = 过度设计
+    - NodeState 状态机——**规格已单源**（patch/state-machine.ts——Sim/devVerify 共用
+      tracker）——逐命令 transition 时机正确（单步定位）——周期级流化无增量
+    - api 中间件（Promise 已是单值源——fromPromise 桥无增益）
+    - 守卫（R1/R2/effect-guard 已机制化——catch/熔断/窗口检测在管线内）
+    - Notification 组件层 setTimeout（组件实现——归类纪律：非内核红线）
+    - 独立 mini-root 一次性渲染链（popup/toast/notification——renderToStreamV2
+      流消费——非渲染周期——免于 cycle 收编）
+
+    **纪律（定稿）**：流化优先「结构化替代 hack」（pendingSink→订阅时构造；
+    setTimeout→delay；标志轮询→事件驱动）——**不加仪式流**（布尔态/已单源
+    规格/单值 Promise）——每机制单轨（流=时序表达——状态机=状态表达——
+    两者共存互补）——audit-observable-complete.mjs 三检查是完成判据。
+
 ### 已知边界（诚实裁剪）
 
 - **渲染队列 FIFO/redirect**：serve 内部机制——间接覆盖（无专门测试）
