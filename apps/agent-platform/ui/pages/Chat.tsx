@@ -701,8 +701,9 @@ export const Chat: Component = async (_props, ctx) => {
 
     return (
     <div class="wf-row wf-height-full wf-gap-none">
-      {/* 左栏：成员与 AI 状态（P1 项目空间——窄屏隐藏） */}
-      <aside class="wf-col wf-hidden wf-flex@lg wf-bg-secondary wf-border-right wf-padding-sm wf-stack wf-gap-sm" style="width: 220px; min-width: 220px">
+      {/* 左栏：成员 + 工作环境 + 交付物（2026-08 合并——用户建议：成员与交付物
+          放同一侧——右栏删除——消息区更宽——窄屏隐藏） */}
+      <aside class="wf-col wf-hidden wf-flex@lg wf-bg-secondary wf-border-right wf-padding-sm wf-stack wf-gap-sm" style="width: 300px; min-width: 300px">
         <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">成员（{$.memberCount}）</div>
         {$.membersList.length === 0 && <div class="wf-font-xs wf-text-tertiary">暂无 AI 成员——聊天中 @ 不到人时去「管理 → Agent」添加</div>}
         {$.membersList.map((m: Member) => (
@@ -735,6 +736,49 @@ export const Chat: Component = async (_props, ctx) => {
             <div class="wf-font-xs wf-text-tertiary wf-margin-top-xs">{$.env.label}</div>
           ) : (
             <div class="wf-font-xs wf-text-tertiary wf-margin-top-xs">首次干活时自动创建</div>
+          )}
+        </div>
+
+        {/* 交付物（共享目录）——2026-08 并入左栏（用户建议：成员与交付物一侧——
+           消息区更宽——右栏删除） */}
+        <div class="wf-border-top wf-padding-top-sm wf-margin-top-sm">
+          <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm">交付物（共享目录）</div>
+          <FilesSection departmentId={deptId} />
+
+          {/* 组织层级：下级部门交付物（只读可见——上级看下属成果） */}
+          {$.subDepts.length > 0 && (
+            <div class="wf-margin-top-md">
+              <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-xs">下级部门（{$.subDepts.length}）</div>
+              {$.subDepts.map((sd) => (
+                <div key={sd.id} class="wf-bg-tertiary wf-radius wf-padding-sm wf-margin-bottom-sm">
+                  <div class="wf-row wf-gap-xs wf-items-center wf-margin-bottom-xs">
+                    <Icon name="users" size={12} />
+                    <span class="wf-font-sm wf-medium wf-truncate">{sd.name}</span>
+                    <span class="wf-font-xs wf-text-tertiary">{sd.memberCount} 人</span>
+                  </div>
+                  <div class="wf-font-xs wf-text-tertiary wf-margin-bottom-xs">经理：{sd.managerName}</div>
+                  {sd.files.length === 0 ? (
+                    <div class="wf-font-xs wf-text-tertiary">暂无交付物</div>
+                  ) : (
+                    <div class="wf-stack wf-gap-none">
+                      {sd.files.map((f) => (
+                        <div key={f.name} class="wf-row wf-gap-xs wf-padding-y-xs wf-items-center">
+                          <Icon name={f.type === 'dir' ? 'folder' : 'file-text'} size={12} />
+                          <span class="wf-font-xs wf-medium wf-truncate wf-fill">{f.name}{f.type === 'dir' ? '/' : ''}</span>
+                          <span class="wf-font-xs wf-text-tertiary wf-nums">{f.type === 'file' && f.size > 1024 ? (f.size / 1024).toFixed(1) + 'KB' : f.size + 'B'}</span>
+                          {f.type === 'file' && (
+                            <button type="button" class="wf-text-primary" title="下载（子部门交付物）"
+                              onClick={() => { void downloadSubFile(sd.id, f.name) }}>
+                              <Icon name="arrow-down" size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </aside>
@@ -874,47 +918,7 @@ export const Chat: Component = async (_props, ctx) => {
       </div>
       </main>
 
-      {/* 右栏：交付物（P1 项目空间——共享工作目录；窄屏隐藏） */}
-      <aside class="wf-col wf-hidden wf-flex@lg wf-padding-sm wf-border-left wf-overflow-auto" style="width: 300px; min-width: 300px">
-        <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-sm">交付物（共享目录）</div>
-        <FilesSection departmentId={deptId} />
 
-        {/* 组织层级：下级部门交付物（只读可见——上级看下属成果） */}
-        {$.subDepts.length > 0 && (
-          <div class="wf-margin-top-md">
-            <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-xs">下级部门（{$.subDepts.length}）</div>
-            {$.subDepts.map((sd) => (
-              <div key={sd.id} class="wf-bg-tertiary wf-radius wf-padding-sm wf-margin-bottom-sm">
-                <div class="wf-row wf-gap-xs wf-items-center wf-margin-bottom-xs">
-                  <Icon name="users" size={12} />
-                  <span class="wf-font-sm wf-medium wf-truncate">{sd.name}</span>
-                  <span class="wf-font-xs wf-text-tertiary">{sd.memberCount} 人</span>
-                </div>
-                <div class="wf-font-xs wf-text-tertiary wf-margin-bottom-xs">经理：{sd.managerName}</div>
-                {sd.files.length === 0 ? (
-                  <div class="wf-font-xs wf-text-tertiary">暂无交付物</div>
-                ) : (
-                  <div class="wf-stack wf-gap-none">
-                    {sd.files.map((f) => (
-                      <div key={f.name} class="wf-row wf-gap-xs wf-padding-y-xs wf-items-center">
-                        <Icon name={f.type === 'dir' ? 'folder' : 'file-text'} size={12} />
-                        <span class="wf-font-xs wf-medium wf-truncate wf-fill">{f.name}{f.type === 'dir' ? '/' : ''}</span>
-                        <span class="wf-font-xs wf-text-tertiary wf-nums">{f.type === 'file' && f.size > 1024 ? (f.size / 1024).toFixed(1) + 'KB' : f.size + 'B'}</span>
-                        {f.type === 'file' && (
-                          <button type="button" class="wf-text-primary" title="下载（子部门交付物）"
-                            onClick={() => { void downloadSubFile(sd.id, f.name) }}>
-                            <Icon name="arrow-down" size={12} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </aside>
     </div>
     )
   }
