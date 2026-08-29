@@ -7,7 +7,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createStore } from '../../client/vdom/store.ts'
+import { createStore, createSignal } from '../../client/vdom/store.ts'
 
 test('state：getter 读最新（set 替换后引用更新）', () => {
   const store = createStore({ count: 0 })
@@ -69,6 +69,35 @@ test('多订阅者：全部通知（useExternal 多组件场景）', () => {
   store.set({ v: 'y' })
   assert.equal(a, 1)
   assert.equal(b, 1)
+})
+
+test('changes$：值源流视图（set/update/notify → 当前 state）', () => {
+  const store = createStore({ n: 0 })
+  const got: Array<{ n: number }> = []
+  store.changes$.subscribe({ next: (v) => got.push(v) })
+  store.set({ n: 1 })
+  store.update((s) => { s.n = 2 })
+  store.notify()
+  assert.deepEqual(got.map((v) => v.n), [1, 2, 2], '每次变化发当前值（与 subscribe 同源）')
+})
+
+test('changes$：退订后不再收（takeUntil 语义就位）', () => {
+  const store = createStore({ n: 0 })
+  const got: number[] = []
+  const sub = store.changes$.subscribe({ next: (v) => got.push(v.n) })
+  store.set({ n: 1 })
+  sub.unsubscribe()
+  store.set({ n: 2 })
+  assert.deepEqual(got, [1], '退订后零事件')
+})
+
+test('signal：store 同源（changes$ 共享——Signal 可 pipe）', () => {
+  const sig = createSignal({ n: 0 })
+  const got: Array<{ n: number }> = []
+  sig.store.changes$.subscribe({ next: (v) => got.push(v) })
+  sig.set({ n: 5 })
+  sig.set({ n: 6 })
+  assert.deepEqual(got.map((v) => v.n), [5, 6])
 })
 
 // 浏览器测试 runner 入口标记（sideEffects 摇除防护——scripts/test-browser.ts 引用）

@@ -1,3 +1,4 @@
+import { Subject, BehaviorSubject, type Observable } from '../observable/index.ts'
 /**
  * vdom middlewares — auth/i18n（ctx.auth 令牌管理 + ctx.i18n 国际化）
  *
@@ -22,6 +23,9 @@ export interface AuthClient {
   user: unknown
   /** 是否已登录（token 存在） */
   isLoggedIn: boolean
+  /** **token 值流（波次 7——login/setToken/logout 触发——BehaviorSubject
+   *  语义——订阅即收当前 token——应用层监听登录态变化）** */
+  token$: Observable<string | null>
   /** 登录（token/user/refreshToken 持久化——onAuth 钩子接线） */
   login(token: string, user: unknown, refreshToken?: string | null): void
   /** 更新用户信息（原地写——userKey 持久化） */
@@ -60,6 +64,9 @@ export function auth(opts: AuthOptions = {}): AuthClient {
     const u = storage.get(userKey)
     if (u) userCache = JSON.parse(u)
   } catch { /* 损坏数据——按未登录 */ }
+  // **token 值流（波次 7——登录态事件源——BehaviorSubject 语义）**
+  const tokenChanges = new BehaviorSubject<string | null>(storage.get(tokenKey) || null)
+  const emitToken = (): void => { tokenChanges.next(client.getToken()) }
   const client: AuthClient = {
     getToken(): string | null {
       const v = storage.get(tokenKey)
@@ -68,6 +75,7 @@ export function auth(opts: AuthOptions = {}): AuthClient {
     setToken(token: string | null): void {
       if (token === null) storage.set(tokenKey, '')
       else storage.set(tokenKey, token)
+      emitToken()
     },
     headers(): Record<string, string> {
       const token = storage.get(tokenKey)
@@ -78,6 +86,7 @@ export function auth(opts: AuthOptions = {}): AuthClient {
       storage.set(userKey, '')
       storage.set(refreshKey, '')
       userCache = null
+      emitToken()
     },
     get user() {
       return userCache
@@ -92,12 +101,14 @@ export function auth(opts: AuthOptions = {}): AuthClient {
         userCache = user
       }
       if (refreshToken !== undefined && refreshToken !== null) storage.set(refreshKey, refreshToken)
+      emitToken()
       opts.onAuth?.(client)
     },
     setUser(user: unknown): void {
       storage.set(userKey, JSON.stringify(user))
       userCache = user
     },
+    token$: tokenChanges.asObservable(),
     async refresh(): Promise<boolean> {
       if (!opts.onRefresh) return false
       const ok = await opts.onRefresh()
@@ -120,6 +131,9 @@ export interface I18nOptions {
 export interface I18nState {
   locale: string
   setLocale(locale: string): void
+  /** **locale 值流（波次 7——setLocale 事件源——Subject 语义——无自动
+   *  渲染纪律保持：订阅方自行决定渲染时机）** */
+  locale$: Observable<string>
   /** 取文本（{name} 插值——缺失 key 返回 key 本身——不静默） */
   t(key: string, params?: Record<string, unknown>): string
   /** 组件文案面（ui-dom 兼容——SheetGrid/SlideCanvas 读组件级文案——
@@ -131,13 +145,16 @@ export interface I18nState {
 export function i18n(opts: I18nOptions = {}): I18nState {
   const messages = opts.messages ?? {}
   let locale = opts.locale ?? Object.keys(messages)[0] ?? 'default'
+  const localeChanges = new Subject<string>()
   return {
     get locale() {
       return locale
     },
     setLocale(l: string): void {
       locale = l
+      localeChanges.next(l)
     },
+    locale$: localeChanges.asObservable(),
     t(key: string, params?: Record<string, unknown>): string {
       const dict = messages[locale]
       let text = dict?.[key] ?? key

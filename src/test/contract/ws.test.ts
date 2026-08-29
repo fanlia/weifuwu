@@ -135,4 +135,31 @@ describe('ws 中间件', () => {
     await tick(30)
     assert.equal(MockWs.instances.length, 2, '重连已调度')
   })
+
+  it('messages$/status$：值源流视图（onMessage/onStatusChange 同源）', async () => {
+    const c = freshClient()
+    const msgs: unknown[] = []
+    const stats: boolean[] = []
+    const unsubMsgs = c.messages$.subscribe({ next: (d) => msgs.push(d) })
+    const unsubStats = c.status$.subscribe({ next: (s) => stats.push(s) })
+    c.connect('ws://t')
+    const s = MockWs.instances[0]
+    // 状态流视图：订阅即回放当前态（initial false）
+    assert.deepEqual(stats, [false], '初始态回放')
+    s.serverOpen()
+    s.serverMsg('{"a":1}')
+    s.serverMsg('raw')
+    assert.deepEqual(msgs, [{ a: 1 }, 'raw'], '消息流视图（解析后数据）')
+    assert.deepEqual(stats, [false, true], '连接状态事件')
+    // 退订后零事件（close→重新 open 的翻转不再收）
+    unsubStats.unsubscribe()
+    unsubMsgs.unsubscribe()
+    c.close()
+    c.connect('ws://t')
+    const s2 = MockWs.instances[1]
+    s2.serverOpen()
+    s2.serverMsg('{"x":1}')
+    assert.deepEqual(stats, [false, true], '退订后状态零额外事件')
+    assert.deepEqual(msgs, [{ a: 1 }, 'raw'], '退订后消息零额外事件')
+  })
 })

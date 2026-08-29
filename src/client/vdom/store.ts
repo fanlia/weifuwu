@@ -8,6 +8,7 @@
  * - **触发渲染**：订阅方（useExternal——store 变化 → 组件重渲染）——
  *   写者不直接渲染（高频 notify 由写者控制频率）
  */
+import { Subject, type Observable } from './observable/index.ts'
 
 export interface ExternalStore<T> {
   /** 当前状态（普通对象——getter 读最新——非快照） */
@@ -20,14 +21,20 @@ export interface ExternalStore<T> {
   update(fn: (state: T) => void): void
   /** 手动通知（高频场景由写者控制频率） */
   notify(): void
+  /** **变化值流（波次 7——值源 Observable 视图）**：set/update/notify →
+   *  发射当前 state——订阅即收当前值（BehaviorSubject 语义）——可
+   *  pipe/takeUntil——与 subscribe 同源（同一变化事件） */
+  readonly changes$: Observable<T>
 }
 
 export function createStore<T>(init: T): ExternalStore<T> {
   const subs = new Set<() => void>()
+  const changes = new Subject<T>()
   let state = init
 
   const notify = (): void => {
     for (const cb of [...subs]) cb()
+    changes.next({ ...state }) // 值源流视图（**浅拷贝快照**——原地 update 不污染历史值）
   }
 
   return {
@@ -47,12 +54,11 @@ export function createStore<T>(init: T): ExternalStore<T> {
       notify()
     },
     notify,
+    changes$: changes.asObservable(),
   }
 }
 
 /** 响应式信号（signal 原语——store 的获取器形态归一）
- *
- * **设计（2026-08——hooks getter 化组织的底层原语）**：
  * - 读 = `sig()`（getter 函数——**任何时刻调用都返回最新值**——无快照
  *   失效概念——mount 闭包持有 signal 永远最新——「调用位置规则」在
  *   API 形状上不存在）

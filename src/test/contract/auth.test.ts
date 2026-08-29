@@ -3,7 +3,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { auth } from '../../client/vdom/middlewares/auth-i18n.ts'
+import { auth, i18n } from '../../client/vdom/middlewares/auth-i18n.ts'
 
 test('setToken/getToken：存储往返（默认 key）', () => {
   const store = new Map<string, string>()
@@ -45,4 +45,43 @@ test('logout：清空 token（空字符串）', () => {
   client.logout()
   assert.equal(client.getToken(), null)
   assert.equal(store.get('wf-auth-token'), '', 'logout 写空串')
+})
+
+test('token$：登录态值流（login/setToken/logout 事件源——订阅即收当前值）', () => {
+  const store = new Map<string, string>()
+  const client = auth({ storage: { get: (k) => store.get(k) ?? null, set: (k, v) => { store.set(k, v) } } })
+  const got: Array<string | null> = []
+  client.token$.subscribe({ next: (t) => got.push(t) })
+  client.login('tok1', { name: 'u' })
+  client.setToken('tok2')
+  client.logout()
+  assert.deepEqual(got, [null, 'tok1', 'tok2', null], '初始态回放 + login/setToken/logout 全程事件（BehaviorSubject 语义）')
+})
+
+test('token$：订阅即回放当前态（BehaviorSubject 语义）', () => {
+  const store = new Map<string, string>([['wf-auth-token', 'abc']])
+  const client = auth({ storage: { get: (k) => store.get(k) ?? null, set: (k, v) => { store.set(k, v) } } })
+  const got: Array<string | null> = []
+  client.token$.subscribe({ next: (t) => got.push(t) })
+  assert.deepEqual(got, ['abc'], '订阅即收当前 token')
+})
+
+test('i18n：locale$ 值流（setLocale 事件源——无自动渲染——订阅方决定时机）', () => {
+  const i18nState = i18n({ locale: 'en', messages: { en: { hi: 'Hi' }, zh: { hi: '你好' } } })
+  const got: string[] = []
+  i18nState.locale$.subscribe({ next: (l) => got.push(l) })
+  i18nState.setLocale('zh')
+  i18nState.setLocale('en')
+  assert.deepEqual(got, ['zh', 'en'], 'setLocale 事件序列')
+  assert.equal(i18nState.t('hi'), 'Hi', 'locale 切换后 t 读最新')
+})
+
+test('i18n：locale$ 退订后零事件', () => {
+  const i18nState = i18n({ locale: 'en' })
+  const got: string[] = []
+  const sub = i18nState.locale$.subscribe({ next: (l) => got.push(l) })
+  i18nState.setLocale('zh')
+  sub.unsubscribe()
+  i18nState.setLocale('en')
+  assert.deepEqual(got, ['zh'])
 })

@@ -1,3 +1,5 @@
+import { Subject, BehaviorSubject, type Observable } from '../observable/index.ts'
+
 /**
  * vdom middlewares — ws（WebSocket 客户端——ctx.ws 注入面）
  *
@@ -68,6 +70,10 @@ export interface WsClient {
   onMessage(cb: (data: unknown) => void): () => void
   /** 状态翻转订阅（订阅时回放当前态——onopen/onclose 触发——返回退订） */
   onStatusChange(cb: (connected: boolean) => void): () => void
+  /** **消息流视图（波次 7——onMessage 同源——可 pipe/takeUntil）** */
+  messages$: Observable<unknown>
+  /** **状态流视图（波次 7——BehaviorSubject 语义——订阅即回放当前态）** */
+  status$: Observable<boolean>
   /** 关闭（主动——不触发自动重连） */
   close(): void
 }
@@ -81,6 +87,9 @@ export function ws(opts: WsOptions = {}): WsClient {
   let retryTimer: ReturnType<typeof setTimeout> | null = null
   const subs = new Set<(data: unknown) => void>()
   const statusSubs = new Set<(connected: boolean) => void>()
+  // **值源流视图（波次 7——onMessage/onStatusChange 同源——Subject 桥）**
+  const messages = new Subject<unknown>()
+  const statuses = new BehaviorSubject(false)
 
   const reconnectCfg = opts.autoReconnect
     ? (typeof opts.autoReconnect === 'object' ? opts.autoReconnect : {})
@@ -93,12 +102,14 @@ export function ws(opts: WsOptions = {}): WsClient {
       try { data = JSON.parse(e.data) } catch { /* 原样 */ }
     }
     for (const cb of [...subs]) cb(data)
+    messages.next(data) // 同源流视图
   }
 
   const setConnected = (v: boolean): void => {
     if (connected.current === v) return
     connected.current = v
     for (const cb of [...statusSubs]) cb(v)
+    statuses.next(v) // 同源流视图
   }
 
   const connected = { current: false }
@@ -198,6 +209,8 @@ export function ws(opts: WsOptions = {}): WsClient {
       cb(connected.current)
       return () => { statusSubs.delete(cb) }
     },
+    messages$: messages.asObservable(),
+    status$: statuses.asObservable(),
     close(): void {
       manual = true
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }

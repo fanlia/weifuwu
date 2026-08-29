@@ -12,6 +12,7 @@
 
 import type { HookEnv } from './env.ts'
 import type { ExternalStore } from '../store.ts'
+import { Subject } from '../observable/index.ts'
 
 /** 聊天消息（AI 会话——工具调用/HITL 审批位） */
 /** 工具调用（assistant 发起——HITL 审批——ui-dom 兼容 call/progress/result 状态面） */
@@ -95,6 +96,7 @@ interface ChatState {
   messages: ChatMessage[]
   status: ChatStatus
   subs: Set<() => void>
+  changes: Subject<ChatMessage[]>
   controller: AbortController | null
   seq: number
   input: string
@@ -113,6 +115,7 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
     messages: [],
     status: 'idle',
     subs: new Set(),
+    changes: new Subject<ChatMessage[]>(),
     controller: null,
     seq: 0,
     input: '',
@@ -132,6 +135,7 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
 
   const notify = (): void => {
     for (const cb of [...state.subs]) cb()
+    state.changes.next([...state.messages]) // 值源流视图（浅拷贝快照——原地改不污染历史）
   }
 
   /** 流式行解析（默认：{ content } 累积） */
@@ -159,6 +163,7 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
   const handle: ChatHandle = {
     get state() { return state.messages },
     get messages() { return state.messages },
+    changes$: state.changes.asObservable(),
     // **getter（读最新）**：普通属性快照会在 mount 时固化 status——
     // send/stop/reset/error 后 handle.status 永不更新——覆盖率抓出
     // （messages 已是 getter——status 必须一致）
