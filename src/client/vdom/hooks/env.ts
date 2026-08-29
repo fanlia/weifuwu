@@ -60,8 +60,11 @@ export interface Ui {
   /** **Observable 订阅（2027-08——值源 hooks 的统一内层）**：
    *  getter 形态——`get()` 永远最新——订阅变化 → 自动重渲染——
    *  卸载自动退订——**幂等（同 source 引用不重复订阅）**——
-   *  任何 Observable 都可消费（自研内核——波次 1） */
-  useObservable<T>(source: import('../observable/index.ts').Observable<T>, init: T): () => T
+   *  任何 Observable 都可消费（自研内核——波次 1）——
+   *  **高激源限帧（2027-09）**：opts.throttleMs > 0 → 渲染通知限频
+   *  （leading 立即 + trailing 补尾——洪泛场景最新值必渲染——getter
+   *  无损） */
+  useObservable<T>(source: import('../observable/index.ts').Observable<T>, init: T, opts?: { throttleMs?: number }): () => T
   /** **异步取数（2027-08——Promise 心智——内部流管道）**：
    *  同 key 并发合并（fetch 1 次——8 次请求根治）· reload 作废旧请求
    *  （switchMap——竞态消灭）· 卸载自动退订 · 重挂载重新取（新鲜）——
@@ -177,8 +180,8 @@ const pendingSeeds = new Map<string, unknown>()
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
 export function createUi(env: HookEnv): Ui {
   return {
-    useObservable<T>(source: Observable<T>, init: T): () => T {
-      return useObservableEnv(env, source, init)
+    useObservable<T>(source: Observable<T>, init: T, opts?: { throttleMs?: number }): () => T {
+      return useObservableEnv(env, source, init, opts)
     },
     useAsyncData<T>(fetcher: () => Promise<T>, key: string): [() => T | null, () => void] {
       // **模块级注册表（跨组件共享——同 key 并发合并——8 次请求根治）**：

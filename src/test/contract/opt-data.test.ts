@@ -20,6 +20,8 @@ import { h } from '../../client/vdom/core/vnode.ts'
 import { createSegment, type SegmentMap } from '../../client/vdom/core/v2/diff.ts'
 import { createStore, createSignal, derived } from '../../client/vdom/store.ts'
 import { asyncErrors$ } from '../../client/vdom/hooks/env.ts'
+import { BehaviorSubject } from '../../client/vdom/observable/index.ts'
+import { useObservable as useObservableImpl } from '../../client/vdom/hooks/use-observable.ts'
 
 const emptyCtx = { render: async () => {}, browser: null } as never
 
@@ -129,3 +131,37 @@ test('asyncErrors$：useAsyncData 失败 → 事件（get 仍 null 降级）', a
     unsub.unsubscribe()
   }
 })
+
+// ── OBSERVABLE-OPTIMIZE 波次 4：高激源限帧（useObservable throttleMs） ──
+
+test('useObservable 限帧：ws 洪泛 100 值 → 渲染通知节流（leading+trailing）', async () => {
+  const bs = new BehaviorSubject<number>(0)
+  let renders = 0
+  const env = makeThrottleEnv(() => renders++)
+  env.ui.useObservable(bs.asObservable(), 0, { throttleMs: 30 })
+  // 洪泛：30 值快速到达（同毫秒段——间隔 < 节流窗口）
+  for (let i = 1; i <= 30; i++) bs.next(i)
+  await new Promise((r) => setTimeout(r, 80))
+  assert.ok(renders >= 2, `洪泛 30 值 → 渲染通知节流（renders=${renders}——leading 1 + trailing 1 + 后续）`)
+  assert.ok(renders <= 4, `渲染次数有界（renders=${renders}——30 值不 30 渲染）`)
+})
+
+test('useObservable 无 throttleMs：洪泛逐值渲染（默认语义保持）', async () => {
+  const bs = new BehaviorSubject<number>(0)
+  let renders = 0
+  const env = makeThrottleEnv(() => renders++)
+  env.ui.useObservable(bs.asObservable(), 10)
+  for (let i = 11; i <= 20; i++) bs.next(i)
+  assert.equal(renders, 10, '默认逐值渲染（行为不变）')
+})
+
+function makeThrottleEnv(onRender: () => void) {
+  return {
+    ui: {
+      useObservable(source: any, init: any, opts?: { throttleMs?: number }) {
+        // 复用 hooks 实现（真实路径）——env stub
+        return useObservableImpl({ getInstanceData: () => new Map(), onUnmount: () => {}, requestRender: onRender } as never, source, init, opts)
+      },
+    },
+  }
+}
