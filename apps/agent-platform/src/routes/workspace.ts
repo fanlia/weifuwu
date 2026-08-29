@@ -79,11 +79,54 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
   })
 
   // ── F2: 读文件（?download=1 → 二进制下载流——AI 产物交付） ──
+  // **下载 ticket（短时绑定票——2026-08 安全升级）**：此前 ?token= 直接复用
+  // access token（3600s JWT——URL 进浏览器历史/日志/Referer——泄漏窗口大）——
+  // 升级：点击下载先 POST 换 30s ticket（type=download + appId + path 绑定——
+  // 换 URL 下载其他文件无效）——window.open(ticket 直链)——原生导航下载
+  app.post('/api/departments/:id/workspace/download-ticket', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    try {
+      const { requireWriter } = await import('../services/permissions.ts')
+      await requireWriter(ctx)
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    }
+    const body = await req.json().catch(() => ({}))
+    const rel = String(body.path ?? '')
+    if (!rel) return Response.json({ error: 'path 为必填' }, { status: 400 })
+    try {
+      const { signToken } = await import('weifuwu')
+      const secret = process.env.JWT_SECRET ?? 'default-secret'
+      const ticket = signToken({ type: 'download', appId: ctx.appId, deptId: String(ctx.params?.id ?? ''), path: rel, sub: ctx.auth?.userId }, secret, 30)
+      return Response.json({ ticket, expiresIn: 30 })
+    } catch (e: any) {
+      return Response.json({ error: 'ticket 签发失败' }, { status: 500 })
+    }
+  })
+
   app.get('/api/departments/:id/workspace/file', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
-    // **token query 直链鉴权（框架 mw——2026-08）**：?token= 与 Bearer 同等
-    // （框架 user mw 解析 query token——window.open 下载导航无 header 也能鉴权）
     const url = new URL(req.url)
+    // **ticket 直链鉴权（v3——2026-08）**：?ticket=（30s + type=download +
+    // appId + path 绑定）——验证通过才放行（下载导航无 header 面）
+    const ticket = url.searchParams.get('ticket')
+    const rel0 = url.searchParams.get('path') ?? ''
+    if (ticket && !req.headers.get('authorization')) {
+      try {
+        const { verifyToken } = await import('weifuwu')
+        const secret = process.env.JWT_SECRET ?? 'default-secret'
+        const payload = verifyToken(ticket, secret)
+        if (payload?.type !== 'download') throw new Error('ticket 类型不符')
+        // **appId 从 payload 注入**（ticket 请求无 authorization——框架 mw
+        // 不解析 query——ctx.appId 空——不能比较——payload 自含 appId——
+        // 验证后信任（ticket 签名+30s+绑定=最小暴露面）
+        ;(ctx as any).appId = payload.appId
+        if (payload.path !== decodeURIComponent(rel0)) throw new Error('ticket path 不匹配')
+        ;(ctx as any).auth = { userId: String(payload.sub ?? ''), ...(ctx as any).auth }
+        ;(ctx as any).ticketUser = payload.sub
+      } catch {
+        return Response.json({ error: '下载 ticket 无效或已过期（30s——请重新点击）' }, { status: 401 })
+      }
+    }
     const ws = await getWorkspace(ctx, params.id)
     if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
     const rel = url.searchParams.get('path') ?? ''

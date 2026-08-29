@@ -305,16 +305,33 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     let payloadTenantId: unknown
     let payloadAppId: unknown
     const authHeader = req.headers.get('authorization')
-    // 直链 token（?token=——window.open 下载导航——前端无法带 Authorization header——
-    // query token 与 Bearer 同等鉴权——仅限 GET 读端点（下载/打开）
+    // 直链鉴权（2026-08——下载/打开导航面——前端无法带 Authorization header）：
+    // - ?token=（access token 直链——旧兼容）
+    // - ?ticket=（下载短时绑定票——type=download——30s + path 绑定——安全升级）
+    // 两者仅限 GET 读端点——验证通过即注入 reqUser（path 绑定留端点）
     let rawToken: string | null = null
     if (authHeader?.startsWith('Bearer ')) {
       rawToken = authHeader.slice(7)
     } else if (req.method === 'GET') {
-      const qt = new URL(req.url ?? '', 'http://localhost').searchParams.get('token')
-      if (qt) rawToken = qt
+      const u = new URL(req.url ?? '', 'http://localhost')
+      const ticket = u.searchParams.get('ticket')
+      if (ticket) {
+        // ticket 特判：type=download——身份解析（path 绑定端点点内验证）
+        const ticketPayload = verifyToken(ticket, secret)
+        if (ticketPayload?.type === 'download' && ticketPayload?.sub) {
+          reqUser = await findUserById(String(ticketPayload.sub))
+          currentUser = reqUser
+          sessionPayload.userId = String(ticketPayload.sub)
+          if (ticketPayload.appId != null) {
+            payloadAppId = ticketPayload.appId
+            sessionPayload.appId = String(ticketPayload.appId)
+          }
+        }
+      } else {
+        rawToken = u.searchParams.get('token')
+      }
     }
-    if (rawToken) {
+    if (rawToken && !reqUser) {
       const payload = verifyToken(rawToken, secret)
       if (payload?.sub) {
         reqUser = await findUserById(String(payload.sub))

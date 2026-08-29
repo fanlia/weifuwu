@@ -1,41 +1,57 @@
 /**
- * 带鉴权的文件下载/打开（2026-08——v2：直链方案——替换 blob a.click）
+ * 带鉴权的文件下载/打开（2026-08——v3：下载 ticket——短时绑定票）
  *
- * 背景（用户实证 + 实验证据）：
- * - <a href> 直接导航无 Bearer → 401（初版教训）
- * - blob URL + a[download] 编程式点击——**真实浏览器/Playwright 均不触发
- *   下载**（headed/headless 全 ❌——Chromium 对 blob URL 下载的限制）——
- *   fetch blob 成功（200 + 46 字节）但 download 事件永不触发
- * - 可靠方案：**服务端直链 ?token=**（框架 user mw 支持 query token——与
- *   Bearer 同等鉴权）——window.open(下载URL&token) / a[href=直链]——
- *   **浏览器原生导航**——Content-Disposition attachment → 原生下载——
- *   零 blob 零编程点击——100% 可靠
+ * 安全演进（用户安全意识驱动）：
+ * - v1 blob a.click——Chromium 不可靠（fetch 200 但 download 事件不触发）
+ * - v2 ?token= 直链——**access token（3600s）拼 URL——泄漏窗口大**（URL 进
+ *   浏览器历史/服务器日志/Referer）
+ * - v3（当前）：**下载 ticket**——点击先 POST 换 30s 票（type=download +
+ *   appId + path 绑定——换 URL 下载其他文件无效）——window.open(ticket 直链)
+ *   ——泄漏窗口 30s + 文件绑定（最小暴露面）
  */
 
 const TOKEN_KEY = 'agent_platform_token'
-const REFRESH_KEY = 'agent_platform_refresh'
 
-/** 拼接下载直链（URL path + query 已含、token 追加）——返回完整 URL */
-export function downloadUrl(input: string): string {
-  const token = localStorage.getItem(TOKEN_KEY) ?? ''
-  const sep = input.includes('?') ? '&' : '?'
-  return `${input}${sep}token=${encodeURIComponent(token)}`
+/** 换取下载 ticket（30s 绑定票——Bearer 鉴权）——返回 ticket 或 null */
+export async function fetchDownloadTicket(input: string): Promise<string | null> {
+  try {
+    // 从 path 提取 departmentId（/api/departments/:id/workspace/file?path=...）
+    const m = /\/api\/departments\/([^/]+)\/workspace\/file/.exec(input)
+    if (!m) return null
+    const deptId = m[1]
+    const path = new URL(input, 'http://localhost').searchParams.get('path') ?? ''
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (!token) return null
+    const res = await fetch(`/api/departments/${deptId}/workspace/download-ticket`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ path }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data?.ticket ?? null
+  } catch {
+    return null
+  }
 }
 
-/** 下载（window.open 直链——浏览器原生导航下载）——返回是否已发起 */
+/** 拼接下载直链（download URL + ticket） */
+export function downloadUrl(input: string, ticket: string): string {
+  const sep = input.includes('?') ? '&' : '?'
+  return `${input}${sep}ticket=${encodeURIComponent(ticket)}`
+}
+
+/** 下载（换 ticket → window.open 直链——原生导航下载）——返回是否已发起 */
 export async function downloadFileAuthorized(input: RequestInfo | URL, _fallbackName?: string): Promise<boolean> {
   try {
-    // 先验 token 有效性（避免空 token 直链 401 白导航）——带 token 预检
-    const token = localStorage.getItem(TOKEN_KEY)
-    if (!token) {
-      console.warn('[download] 无 token——下载被拒')
+    const ticket = await fetchDownloadTicket(String(input))
+    if (!ticket) {
+      console.warn('[download] ticket 换取失败（登录态/权限）')
       return false
     }
-    const url = downloadUrl(String(input))
-    // window.open（用户手势上下文内调用——Chrome 允许弹出）——原生下载
+    const url = downloadUrl(String(input), ticket)
     const win = window.open(url, '_blank')
     if (!win) {
-      // 弹窗被拦（popup blocker）——fallback：临时 a[href=直链]（同 `target=_blank`）
       const a = document.createElement('a')
       a.href = url
       a.target = '_blank'
@@ -51,11 +67,11 @@ export async function downloadFileAuthorized(input: RequestInfo | URL, _fallback
   }
 }
 
-/** 打开（预览——直链新 tab）——返回是否已发起 */
+/** 打开（预览——ticket 直链新 tab） */
 export async function openFileUrl(input: string): Promise<boolean> {
-  const token = localStorage.getItem(TOKEN_KEY)
-  if (!token) return false
-  const win = window.open(downloadUrl(input), '_blank')
+  const ticket = await fetchDownloadTicket(input)
+  if (!ticket) return false
+  const win = window.open(downloadUrl(input, ticket), '_blank')
   return !!win
 }
 
