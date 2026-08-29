@@ -1,11 +1,12 @@
 /**
- * 场景客户端入口——uiServe 收养场景页面（空 root → 客户端渲染）
+ * 场景客户端入口——uiServeV2 收养场景页面（空 root → 客户端渲染）
  *
  * pathname /scenario/:id → 场景注册表 vnode → ctx.stream(vnode) 渲染。
  * 场景组件工厂在客户端执行——交互状态真实流转（DOM 行为测试面）。
  * 每次交互 ctx.render() → 路由重跑 handler → stream 增量 diff（影子树对照）。
+ * （2027-08——场景层切换 v2 引擎——v1 对照在 git 历史）
  */
-import { uiServe, UIRouter, h } from '../../client/vdom/index.ts'
+import { uiServeV2, UIRouter, h } from '../../client/vdom/index.ts'
 import { i18n } from '../../client/vdom/middlewares/auth-i18n.ts'
 import { ws } from '../../client/vdom/middlewares/ws.ts'
 import { toast } from '../../client/vdom/commands.ts'
@@ -37,6 +38,6 @@ const i18nState = i18n({
 // 锁定 Deliverables 空态是否与 api client 路径相关）
 import { api } from '../../client/vdom/index.ts'
 const apiClient = api({ baseUrl: '' })
-const handle = uiServe(router, { root: '#root', i18n: i18nState, ws: ws(), toast, confirm, notification: notificationMiddleware({}).notification, api: apiClient })
+const handle = uiServeV2(router, { root: '#root', i18n: i18nState, ws: ws(), toast, confirm, notification: notificationMiddleware({}).notification, api: apiClient })
 // unmount-dispose 场景：暴露 handle（场景按钮触发卸载）
 ;(window as unknown as { __scenarioHandle?: unknown }).__scenarioHandle = handle

@@ -13,7 +13,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { ui } from '../../server/ui/index.ts'
 import { UIRouter, h } from '../../client/vdom/index.ts'
-import { uiSsr } from '../../client/vdom/core/ssr/index.ts'
+import { uiSsrV2 } from '../../client/vdom/core/v2/ssr.ts' // 场景层 SSR 也走 v2 引擎（v1 对照在 git）
 import { scenarios, findScenario } from './registry.ts'
 
 const PORT = Number(process.env.SCENARIO_PORT ?? 0) // 0 = 随机端口（测试自包含——避免端口残留）
@@ -29,7 +29,7 @@ app.get('/scenario/:id', async (req, ctx: any) => {
     // SSR 场景：服务端 uiSsr 渲染（同一 UIRouter + 同一场景组件）→ 静态 HTML 首屏
     const router = new UIRouter()
     router.get(`/scenario/${id}`, (_req, rctx: any) => rctx.stream(h(s.render, {})))
-    const html = await uiSsr(router, `/scenario/${id}`, { title: 'scenario-ssr' })
+    const html = await uiSsrV2(router, `/scenario/${id}`, { title: 'scenario-ssr' })
     return new Response(html.replace('</body>', '<link rel="stylesheet" href="/components.css"><script src="/app.js"></script></body>'), {
       headers: { 'content-type': 'text/html; charset=utf-8' },
     })

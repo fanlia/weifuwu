@@ -14,7 +14,7 @@ import type { UIContext } from '../../context/UIContext.ts'
 
 
 import { spyEvent } from './spy.ts'
-import { createFnTable, type RenderCtx, type UiServeOptions, type UiServeHandle } from '../serve.ts'
+import { createFnTable, defaultErrorFallback, type RenderCtx, type UiServeOptions, type UiServeHandle } from '../serve.ts'
 import { UIRouter, frontRequest } from '../router.ts'
 import { createDevVerifier } from '../patch/verify.ts'
 import { createClientBrowser } from '../../browser/create-client-browser.ts'
@@ -83,12 +83,51 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
 
   let currentTree: VNode | null = null
   let active = true
+  // **首帧判定一次性（2027-08——错误后重建误清 DOM 实证）**：渲染错误 →
+  // currentTree=null（影子树重置——自愈语义）——若重建仍依「!currentTree」
+  // 判首帧 → rootEl.innerHTML=''（无 SSR 标记分支）清空 root——触发按钮
+  // 丢失（R1 熔断场景 T2 实证——错误链断）——v1 语义：首帧吸收判定仅在
+  // mount 时一次——错误后重建走 build 自愈（done.full 清理旧树——DOM 保留）
+  let booted = false
 
 
-  /** v2 渲染（首帧 build / 后续 diff——命令直接 apply） */
+  /** v2 渲染（首帧 build / 后续 diff——命令直接 apply）
+   *  **R1 错误熔断（2027-08——v1 机制对齐）**：渲染错误（工厂 throw——
+   *  collectCommands reject）→ 影子树重置（下次全量自愈）→ 连续 3 次 →
+   *  fallback（errorFallback 可配 / 默认内置）——成功渲染重置计数 */
+  let errorCount = 0
+  const MAX_RENDER_ERRORS = 3
+  const renderErrorFallback = (err: Error): void => {
+    currentTree = null
+    const fb = opts.errorFallback?.(err, ctx as unknown as UIContext) ?? defaultErrorFallback(err, ctx as unknown as UIContext)
+    void (async () => {
+      try {
+        const cmds = await collectCommands(renderV2(fb, ctx as unknown as UIContext, registry, segments, () => scheduler.request()))
+        if (!active) return
+        for (const c of cmds) applier.apply(c)
+        currentTree = fb
+      } catch (e2) { console.error('[vdom] v2 error fallback 渲染失败:', e2) }
+    })()
+  }
   const applyV2 = async (vnode: VNode): Promise<void> => {
     if (!active) return
-    if (!currentTree) {
+    try {
+      await applyV2Inner(vnode)
+      errorCount = 0 // 成功渲染 → 计数重置（连续错误语义）
+    } catch (e) {
+      console.error('[vdom] v2 render:', e)
+      currentTree = null // 影子树重置（下次全量——自愈）
+      errorCount++
+      if (errorCount >= MAX_RENDER_ERRORS) {
+        errorCount = 0 // 熔断已触发——计数重置（回退 UI 常驻——交互重试）
+        renderErrorFallback(e instanceof Error ? e : new Error(String(e)))
+      }
+    }
+  }
+  const applyV2Inner = async (vnode: VNode): Promise<void> => {
+    if (!active) return
+    if (!booted) {
+      booted = true
       // **首帧 SSR 接管（v2 适配——蓝图缺口 1「吸收是消费端——v2 同构命令
       //  已兼容」落地）**：root 含 SSR 吸收标记（<!--wf--> 锚注释）→
       //  absorb.begin（procCreate/procCreateText 逐节点结构吸收——无标记
@@ -221,7 +260,11 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
       active = false
       doc.removeEventListener('click', onDocClick)
       win.removeEventListener('popstate', onPopstate)
+      for (const [sid] of [...segments]) disposeSegment(sid, segments) // 段销毁（hooks 清理）
+      applier.dispose() // 事件代理根监听移除（资源释放完整——v1 对齐）
       for (const fn of serveUnmounts.reverse()) { try { fn() } catch (e) { console.error('[vdom] v2 unmount:', e) } }
+      serveUnmounts.length = 0
+      rootEl.innerHTML = '' // root 清空（v1 对齐——unmount-dispose 场景断言）
     },
   } as UiServeHandle & { render: () => Promise<void>; __apply: (vnode: VNode) => Promise<void> }
   void disposed

@@ -124,5 +124,18 @@
 **观测体系（本轮定型）**：`spy.ts`——`__wfSpy` 事件环（obs:next → req:render →
 sched:flush → cmd:render）——全链可断言（v2-spy 测试）——调试不再盲改。
 
-**下一步（切换路径）**：场景层 server 切 uiServeV2（保留 v1 对照）→ 场景 116
-在 v2 下全绿 → v1 退役决策。
+### 场景层切换 v2（2027-08——116/116 绿）
+
+> `src/test/scenario/main.tsx` → `uiServeV2` + `server.ts` SSR 场景 → `uiSsrV2`
+> ——v2 引擎全量场景验证（v1 对照在 git）——本轮修复：
+
+| 缺陷 | 根因 | 修复 |
+|---|---|---|
+| deep-search/password 输入污染 | **undefined 属性直通**——v1 经 JSON 编解码丢 undefined 键（隐式过滤）；v2 命令直连——`value: undefined` → `el.value = "undefined"` | serializableAttrs 过滤 undefined + applyProperty 分区语义（value 类不写——§5.3 非受控；bool 类 disabled/checked → false 解绑——Transfer 右移按钮残留实证） |
+| keyed-reorder 列表清空 | **冲突重建误用 diff 对照**——旧 DOM 已 remove——diff 只发 setProp 无 create（diffComponentAtV2）；重建应全量渲染（renderV2Node——段复用 + create/insert——v1 emitWithKey 语义） | 重建分支 keyed 组件项改 renderV2Node |
+| render-error-fuse 无 fallback | **v2 缺 R1 熔断** + **错误后重建误清 DOM**（currentTree=null → 误判首帧 → root 清空——触发按钮丢失——错误链断） | applyV2 外层 try/catch + errorCount 熔断（errorFallback 可配/默认内置）+ booted 一次性首帧判定 |
+| popup-trap 不聚焦 | content 渲染链（state.chain 微任务）异步——afterRender 时 panel 未挂载——ref 未跑 | scheduleAfterRender 聚焦微任务重试（≤10） |
+| unmount-dispose root 残留 | v2 unmount 未对齐 v1（applier.dispose + 段销毁 + root 清空） | 对齐 |
+
+**下一步**：契约/场景/showcase 三层全绿（311+116+200）——
+v1 退役决策点（v1 引擎保留对账——v2 默认切换评估）。

@@ -46,8 +46,9 @@ export function reviveFn(fnTable: Map<number, unknown>) {
 }
 
 /** R1 熔断默认回退 UI（core 内建——inline style 零样式系统依赖——
- *  errorFallback 未配置时使用——错误文案 + 重试按钮（恢复路径）） */
-function defaultErrorFallback(err: Error, ctx: UIContext): VNode {
+ *  errorFallback 未配置时使用——错误文案 + 重试按钮（恢复路径））
+ *  （2027-08 导出——v2 serve 复用——熔断机制 v1/v2 对齐） */
+export function defaultErrorFallback(err: Error, ctx: UIContext): VNode {
   return h('div', {
     class: 'wf-error-fallback',
     style: 'padding:40px 24px;text-align:center;font-family:var(--wf-font-sans,system-ui);',

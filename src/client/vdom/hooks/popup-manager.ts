@@ -350,11 +350,19 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       // scheduleAfterRender（渲染完成后确定性聚焦——无 timer 零误报——
       // 语义更正确：面板挂载后聚焦而非下一 tick 碰运气）
       env.scheduleAfterRender(() => {
-        const el = state.panel
-        if (el) {
-          const f = el.querySelector?.('input, button, [tabindex], select, textarea') as HTMLElement | null
-          ;(f ?? el).focus?.()
+        // **挂载重试（2027-08——v2 内容渲染链异步实证）**：afterRender 触发
+        // 时内容渲染链（state.chain 微任务）可能未执行——panel 未挂载——
+        // ref 回调未跑——微任务重试直至挂载（≤10——不无限）
+        const tryFocus = (n: number): void => {
+          const el = state.panel
+          if (el) {
+            const f = el.querySelector?.('input, button, [tabindex], select, textarea') as HTMLElement | null
+            ;(f ?? el).focus?.()
+          } else if (n < 10 && state.open) {
+            queueMicrotask(() => tryFocus(n + 1))
+          }
         }
+        tryFocus(0)
       })
     }
   }

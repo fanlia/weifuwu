@@ -20,12 +20,18 @@ export function pathId(parent: string, i: number): string {
   return `${parent}.${i}`
 }
 
-/** 可序列化属性面（服务端吐 HTML 用）——事件/ref/函数值排除 */
+/** 可序列化属性面（服务端吐 HTML 用）——事件/ref/函数值排除
+ *  **undefined 过滤（2027-08——v2 直连污染实证）**：v1 浏览器链路经
+ *  JSON 编解码（undefined 键被丢弃——误过滤）；v2 命令直连 applier——
+ *  attrs.value=undefined → applyAttribute property 赋值 → DOM value
+ *  = "undefined"（SearchInput 非受控 value: undefined——deep-search
+ *  场景实证）——序列化面向统一过滤（SSR 侧同受益） */
 export function serializableAttrs(props: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(props)) {
     if (k === 'children' || k === 'key' || k === 'ref') continue
     if (typeof v === 'function') continue
+    if (v === undefined) continue
     out[k] = v
   }
   return out

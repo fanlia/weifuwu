@@ -422,8 +422,12 @@ export function diffKeyedV2(
       const k = keyOf(newC)
       const kid = k !== null ? keyedId(parent, k) : pathId(parent, i)
       if (k !== null && typeof (newC as VNode).type === 'function') {
-        // keyed 组件项——段复用（kid）
-        rebuildParts.push(diffComponentAtV2(newC as VNode, kid, parent, i, r, ctx, segments, registry, requestRender))
+        // keyed 组件项——**全量渲染（非 diff 对照）**：冲突重建已把旧 DOM
+        // 全部 remove——diff 对照无旧 DOM 可依（输出只 setProp 无 create——
+        // 列表清空实证——keyed-reorder 场景）——renderV2Node 段复用 +
+        // create/insert 重建（工厂不重跑——段保持状态——v1 emitWithKey
+        // 重建语义）
+        rebuildParts.push(renderV2Node(newC, parent, i, r, ctx, registry, segments, requestRender))
       } else {
         rebuildParts.push(renderV2Node(newC, parent, i, r, ctx, registry, segments, requestRender))
       }
