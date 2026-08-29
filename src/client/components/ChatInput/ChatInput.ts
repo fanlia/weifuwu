@@ -53,6 +53,11 @@ export interface ChatInputProps {
    *  回调必须 mount 层定义（稳定引用——vdom3 props 剪枝）；禁止 out-param 对象（props 不可变契约——
    *  原地写 control.current 触发 vdom3 audit） */
   onControl?: (handle: ChatInputControl) => void
+  /** 按键拦截（@ 菜单键盘导航——2026-08）：**onKeyIntercept**（非 onKeyDown——
+   *  组件 props 的 on+大写被 vdom 当 DOM 事件拦截（EVENT_RE——不传组件）——
+   *  实测 onKeyDown 静默失效——改名避开）——返回 true = 已处理（菜单开时
+   *  ↑↓/Enter/Esc 消费方接管）——falsy = ChatInput 默认行为 */
+  onKeyInterceptFn?: (e: KeyboardEvent) => boolean | void
 }
 
 export interface ChatInputControl {
@@ -116,6 +121,9 @@ export const ChatInput: Component<ChatInputProps, { ui: Ui }> = async (_init, ct
         props.onChange?.(v)
       },
       onKeyDown: (e: any) => {
+        // 消费方拦截（@ 菜单观航——2026-08）：返回 true = 已处理（菜单开时
+        // ↑↓/Enter/Esc 消费方接管——Enter 选中而非发送）
+        if (props.onKeyInterceptFn?.(e as KeyboardEvent)) return
         if (e.key !== 'Enter') return
         if (composing || e.isComposing) return
         // Ctrl/Cmd+Enter 强制发送（多行/单行通用快捷键——Gmail/微信习惯双保险）

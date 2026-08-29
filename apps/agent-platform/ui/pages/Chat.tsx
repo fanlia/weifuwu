@@ -76,6 +76,8 @@ interface ChatState {
   files: Array<{ name: string; data: string; size: number }>
   replyTo: { id: string; sender: string; content: string } | null
   membersList: Member[]; atMenu: Member[]; atMenuOpen: boolean; atQuery: string
+  /** @ 菜单键盘导航高亮（2026-08——↑↓ 选择：0=@all，1..=成员；-1=无） */
+  atMenuIndex: number
   streamTimer: ReturnType<typeof setInterval> | null
   expandedTool: string | null
   /** P1 项目空间：环境状态（用户语言——聚合 API） */
@@ -159,6 +161,7 @@ export const Chat: Component = async (_props, ctx) => {
   $.hasMore = false; $.loadingMore = false; $.searchQ = ''; $.searching = false
   $.replyTo = null
   $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
+  $.atMenuIndex = -1
   $.expandedTool = null
   $.env = { status: 'none', label: '' }
   $.subDepts = []
@@ -209,7 +212,51 @@ export const Chat: Component = async (_props, ctx) => {
     // **打字零 rerender（2026-08——卡顿根治）**：$.input 不在 JSX 消费——
     // 普通打字（无 @）零渲染；@ 菜单只在**显隐切换或菜单内容变化**时渲染
     // （同态继续打（已开继续打）菜单内容若变——需要刷新；否则零渲染）
+    // 菜单内容变化时重置高亮（键盘导航从 @all 开始——2026-08）
+    if ($.atMenuOpen && menuBefore !== $.atMenu) $.atMenuIndex = -1
     if (hadAt !== $.atMenuOpen || ($.atMenuOpen && menuBefore !== $.atMenu)) rerender()
+  }
+
+  // @ 菜单键盘导航（2026-08——↑↓ 选择 / Enter 确认 / Esc 关闭）：
+  // 菜单开时拦截 ChatInput 的按键（返回 true = 已处理——Enter 选中而非发送）
+  function onChatKeyDown(e: KeyboardEvent): boolean {
+    console.log("[debug-onChatKeyDown] key=", e.key, "| menuOpen=", $.atMenuOpen, "| index=", $.atMenuIndex)
+    if (!$.atMenuOpen) return false
+    const total = 1 + $.atMenu.length // 1 = @all 项
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      $.atMenuIndex = ($.atMenuIndex + 1) % total
+      rerender()
+      return true
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      $.atMenuIndex = ($.atMenuIndex - 1 + total) % total
+      rerender()
+      return true
+    }
+    if (e.key === 'Enter' && $.atMenuIndex >= 0) {
+      e.preventDefault()
+      if ($.atMenuIndex === 0) {
+        // @all（2026-08——同步 ChatInput 内部 keyword：此前只改 $.input——
+        // 内部 keyword 未同步——输入框显示旧值——与 pickAtMember 一致用 setKeyword）
+        const v = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, '@all ')
+        $.input = v
+        chatControl.current?.setKeyword(v)
+        $.atMenuOpen = false; $.atMenuIndex = -1
+        rerender()
+      } else {
+        pickAtMember($.atMenu[$.atMenuIndex - 1])
+      }
+      return true
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      $.atMenuOpen = false; $.atMenuIndex = -1
+      rerender()
+      return true
+    }
+    return false
   }
   // 稳定引用（render 期传同一引用——ChatInput/Input props 不变 → 剪枝命中不重建）
   const handleSend = (text: string) => sendText(text)
@@ -769,15 +816,15 @@ export const Chat: Component = async (_props, ctx) => {
         {$.atMenuOpen && (
           <div class="wf-stack wf-gap-none wf-padding-sm wf-radius wf-surface wf-margin-bottom-sm wf-shadow" style="position: relative; z-index: 10">
             <div class="wf-font-xs wf-text-tertiary wf-padding-x-sm wf-padding-bottom-xs">@ 选择成员（可多选——@all 全员）</div>
-            <button type="button" class="wf-row wf-gap-sm wf-padding-x-sm wf-padding-y-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px; color: var(--wf-color-primary)"
-              onClick={() => { $.input = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, '@all '); $.atMenuOpen = false; rerender() }}>
+            <button type="button" class="wf-row wf-gap-sm wf-padding-x-sm wf-padding-y-xs wf-text-left" style={{ border: 'none', cursor: 'pointer', borderRadius: '6px', color: 'var(--wf-color-primary)', background: $.atMenuIndex === 0 ? 'var(--wf-color-bg-primary, #eef1ff)' : 'none' }}
+              onClick={() => { const v = $.input.replace(/@([\u4e00-\u9fa5\w]*)$/, '@all '); $.input = v; chatControl.current?.setKeyword(v); $.atMenuOpen = false; rerender() }}>
               <span class="wf-font-base">@所有人（全部 AI）</span>
             </button>
             {$.atMenu.length === 0 && (
               <div class="wf-font-xs wf-text-tertiary wf-padding-x-sm wf-padding-y-xs">暂无其他成员可选——可 @所有人 或去「管理 → Agent」添加</div>
             )}
-            {$.atMenu.map((m: Member) => (
-              <button type="button" key={m.id} class="wf-row wf-gap-sm wf-padding-x-sm wf-padding-y-xs wf-text-left" style="background: none; border: none; cursor: pointer; border-radius: 6px"
+            {$.atMenu.map((m: Member, i: number) => (
+              <button type="button" key={m.id} class="wf-row wf-gap-sm wf-padding-x-sm wf-padding-y-xs wf-text-left" style={{ border: 'none', cursor: 'pointer', borderRadius: '6px', background: $.atMenuIndex === i + 1 ? 'var(--wf-color-bg-primary, #eef1ff)' : 'none' }}
                 onClick={() => pickAtMember(m)}>
                 <Ava name={m.name} type={m.type ?? 'ai'} small />
                 <span class="wf-font-base">{m.name}</span>
@@ -809,6 +856,7 @@ export const Chat: Component = async (_props, ctx) => {
               onControl={onControl}
               onChange={onInputChange}
               onSend={handleSend}
+              onKeyInterceptFn={onChatKeyDown}
               disabled={inputDisabled}
               labels={$.chatLabels}
             />
