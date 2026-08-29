@@ -230,8 +230,13 @@ export const Admin: Component = (_props, ctx) => {
         <div class="wf-font-sm wf-text-tertiary wf-padding-y-lg wf-center">加载中...</div>
       ) : (
         <Card>
+          {/* **列表截断（2027-08——1292 租户全量渲染 2.4s 卡死实证）**：
+              仅渲染前 200——真实场景分页/搜索为后续规划（登记） */}
+          {apps.length > 200 && (
+            <div class="wf-font-xs wf-text-tertiary wf-margin-bottom-sm">共 {apps.length} 个团队——当前显示前 200（分页/搜索规划中）</div>
+          )}
           <Table
-            data={apps}
+            data={apps.slice(0, 200)}
             columns={[
               { key: 'name', label: '团队', render: (v: any) => <span class="wf-font-sm wf-semibold">{v}</span> },
               { key: 'slug', label: 'Slug' },
