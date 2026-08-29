@@ -109,8 +109,13 @@ export function diffV2Node(
   if (ok === 'hole') {
     return concatObs([fromArray([{ op: 'remove', id } as Command]), renderV2Node(newC, parent, index, ref, ctx, registry)])
   }
-  // 新空洞 → 旧锚移除
-  if (nk === 'hole') return fromArray([{ op: 'remove', id } as Command])
+  // 新空洞 → 旧侧让位（**复合旧侧（组件/Fragment/元素）→ 转换——完整
+  // 卸载（unmount + 输出区间清理 + 锚替）——非简单移除**——v1 语义对齐）
+  if (nk === 'hole') {
+    // **所有非空洞旧侧 → 转换**（text/元素/组件/Fragment——完整转换：
+    // 旧侧让位 + 锚创建——不是单 remove——v1 语义对齐）
+    return transformV2(oldC, newC, parent, index, ref, ctx, registry, ok === 'component' ? v2CompId(oldC as VNode, parent, index) : undefined)
+  }
   // 同态 → 递归对照
   if (ok === nk && typeof oldC !== 'string' && typeof oldC !== 'number') {
     const o = oldC as VNode
@@ -120,11 +125,8 @@ export function diffV2Node(
       if (o.type === n.type) {
         return diffComponentV2(o, n, parent, index, ref, ctx, segments, registry)
       }
-      // 异 type 组件 → 旧段卸载 + 新段挂载
-      return concatObs([
-        fromArray([{ op: 'unmount', compId: v2CompId(o, parent, index) } as Command]),
-        renderV2Node(n, parent, index, ref, ctx, registry),
-      ])
+      // 异 type 组件 → 转换表（component → 新形态——完整转换）
+      return transformV2(o, n, parent, index, ref, ctx, registry, v2CompId(o, parent, index))
     }
     // 元素 → 元素（同 tag：attrs + children 递归；异 tag：替换）
     if (typeof o.type === 'string' && typeof n.type === 'string') {
@@ -152,18 +154,23 @@ export function diffV2Node(
         }
         return concatObs([fromArray(attrCmds), ...parts])
       }
-      // 异 tag：替换（v2 迭代——先简化：remount（remove 区间 + 渲染）
+      // 异 tag：重建（v1 diffSame 语义——**完整区间移除**（removeVNodeTree
+      // 等价——子树全部 remove）+ 新侧渲染——**非转换表**（element→element
+      // 同态——转换表无定义））
       return concatObs([
-        fromArray([{ op: 'remove', id } as Command]),
+        fromArray(removeTreeV2(o, parent, index)),
         renderV2Node(n, parent, index, ref, ctx, registry),
       ])
     }
   }
-  // 异态（element↔text 等）——借用 v1 转换等价：旧让位 + 新渲染
-  return concatObs([
-    fromArray([{ op: 'remove', id } as Command]),
-    renderV2Node(newC, parent, index, ref, ctx, registry),
-  ])
+  // **异态（6×6 转换表——v1 状态机语义单源）**：完整转换（旧侧让位 +
+  // 新侧渲染——组件转换含 unmount + 输出区间清理——不是单 remove+render）
+  const oState = stateOf(oldC)
+  const nState = stateOf(newC)
+  const oldCompIdV2 = kindOf(oldC) === 'component'
+    ? v2CompId(oldC as VNode, parent, index)
+    : undefined
+  return transformV2(oldC, newC, parent, index, ref, ctx, registry, oldCompIdV2)
 }
 
 function slotOf(oldCs: VNodeChild[], i: number): number {
@@ -450,4 +457,60 @@ export function removeTreeV2(v: VNodeChild, parent: string, index: number): Comm
 /** 列表含 keyed 项检测（v2——keyOf 桥） */
 export function hasKeyedId(items: VNodeChild[]): boolean {
   return items.some((c) => keyOf(c) !== null)
+}
+
+// ── transform 6×6（v1 状态机语义——转换表共享——流式适配）──────────
+
+/**
+ * v2 转换（异态——v1 transitionOf 表语义单源——流式适配）
+ * - 同步收集 v1 transition 的命令（emit）+ emitNode = renderV2Node 流
+ * - **完整转换**（旧侧让位 + 新侧渲染——不是单 remove+render——v1 语义对齐：
+ *   组件转换含 unmount + 输出区间清理；空洞→组件 replaceChild 语义）
+ */
+export function transformV2(
+  oldC: VNodeChild,
+  newC: VNodeChild,
+  parent: string,
+  index: number,
+  ref: string | null,
+  ctx: UIContext,
+  registry: import('../node/component.ts').ComponentRegistry,
+  oldCompId?: string,
+): Observable<Command> {
+  const t = transitionOf(stateOf(oldC), stateOf(newC))
+  if (!t) {
+    // **显式 Reject（P2——消灭隐式路径）**：同态已被 diffV2Node 拦截——
+    // 到达即状态机违例（fuzz#79 教训：静默落空）
+    throw new Error(`[vdom] v2 状态机违例：未定义转换 ${stateOf(oldC)} → ${stateOf(newC)}`)
+  }
+  let outCmds: Command[] = []
+  let sinkStream: Observable<Command> | null = null
+  const syncCtx = {
+    emit: (cmd: unknown) => { outCmds.push(cmd as Command) },
+    emitNode: (v: VNodeChild, p: string, i: number, r: string | null) => {
+      sinkStream = renderV2Node(v, p, i, r, ctx, registry)
+      return Promise.resolve()
+    },
+    oldId: pathId(parent, index),
+    newId: pathId(parent, index),
+    parent, index, ref,
+    oldCompId,
+    registry,
+  } as never
+  return create<Command>((obs) => {
+    let cancelled = false
+    let sub: { unsubscribe(): void } | null = null
+    void Promise.resolve(t(oldC as never, newC, syncCtx)).then(() => {
+      if (cancelled) return
+      for (const c of outCmds) obs.next(c)
+      if (sinkStream) {
+        sub = sinkStream.subscribe({
+          next: (c) => { if (!cancelled) obs.next(c) },
+          error: (e) => { if (!cancelled) obs.error(e) },
+          complete: () => { if (!cancelled) obs.complete() },
+        })
+      } else { obs.complete() }
+    }).catch((e) => { if (!cancelled) obs.error(e) })
+    return () => { cancelled = true; sub?.unsubscribe() }
+  })
 }
