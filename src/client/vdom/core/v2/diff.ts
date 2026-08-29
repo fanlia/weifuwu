@@ -17,6 +17,7 @@ import type { UIContext } from '../../context/UIContext.ts'
 import { pathId } from '../node/native.ts'
 import { keyedId } from '../node/keyed.ts'
 import { childrenOf, slotCount } from '../node/children.ts'
+import { keyOf } from '../node/keyed.ts'
 import { kindOf, textOf } from '../node/index.ts'
 import { stateOf } from '../transform/states.ts'
 import { diffAttrs } from '../diff/attrs.ts'
@@ -109,11 +110,15 @@ export function diffV2Node(
       if (o.type === n.type) {
         const attrCmds: Command[] = []
         diffAttrs(o, n, id, (cmd) => attrCmds.push(cmd as Command))
+        const oldCs = childrenOf(o)
         const cs = childrenOf(n)
+        // **keyed 检测**：任一侧含 keyed 项 → keyed 列表对照（merge 语义）
+        if (hasKeyedId(cs) || hasKeyedId(oldCs)) {
+          return concatObs([fromArray(attrCmds), diffKeyedV2(oldCs, cs, id, ctx, segments, registry)])
+        }
         let slot = 0
         let lastRef: string | null = null
         const parts: Array<Observable<Command>> = []
-        const oldCs = childrenOf(o)
         for (let i = 0; i < cs.length; i++) {
           const sc = slotCount(cs[i])
           parts.push(diffV2Node(oldCs[i], cs[i], id, slot, lastRef, ctx, segments, registry))
@@ -240,3 +245,184 @@ export function diffV2(
 
 const appendDone: OperatorFn<Command, Command> = (source) =>
   concatObs([source as Observable<Command>, fromArray([{ op: 'done' } as Command])])
+
+// ── keyed 列表 merge（v1 diffKeyedChildren 的流式等价）─────────────
+
+/** 列表项对照（keyed 感知：key 映射取旧——非位置） */
+function diffListItemV2(
+  oldC: VNodeChild,
+  newC: VNodeChild,
+  parent: string,
+  index: number,
+  ref: string | null,
+  ctx: UIContext,
+  segments: SegmentMap,
+  registry: import('../node/component.ts').ComponentRegistry,
+): Observable<Command> {
+  if (oldC === undefined) return renderV2Node(newC, parent, index, ref, ctx, registry)
+  return diffV2Node(oldC, newC, parent, index, ref, ctx, segments, registry)
+}
+
+/** keyed 列表对照（流式——顺移 move / 冲突重建 / key 映射对照——v1 语义等价） */
+export function diffKeyedV2(
+  oldCs: VNodeChild[],
+  newCs: VNodeChild[],
+  parent: string,
+  ctx: UIContext,
+  segments: SegmentMap,
+  registry: import('../node/component.ts').ComponentRegistry,
+): Observable<Command> {
+  const cmds: Command[] = []
+  // 旧 key → 旧索引（首现优先——与 v1 单一规则源）
+  const oldIdxByKey = new Map<string, number>()
+  oldCs.forEach((c, i) => { const k = keyOf(c); if (k !== null && !oldIdxByKey.has(k)) oldIdxByKey.set(k, i) })
+  const newKeys = new Set(newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null))
+
+  // 0. 旧侧清理（空洞/文本/unkeyed 项/重复 key 多余项——区间 remove）
+  const keyCount = new Map<string, number>()
+  for (let i = 0; i < oldCs.length; i++) {
+    const oldC = oldCs[i]
+    if (oldC === null || oldC === undefined || typeof oldC === 'boolean' || oldC === '') { cmds.push({ op: 'remove', id: pathId(parent, i) } as Command); continue }
+    if (typeof oldC === 'string' || typeof oldC === 'number') { cmds.push({ op: 'remove', id: pathId(parent, i) } as Command); continue }
+    if (Array.isArray(oldC)) continue
+    const k = keyOf(oldC as VNode)
+    if (k !== null) {
+      const n = (keyCount.get(k) ?? 0) + 1
+      keyCount.set(k, n)
+      if (n === 1) continue
+      cmds.push(...removeTreeV2(oldC as VNode, parent, i))
+      continue
+    }
+    cmds.push(...removeTreeV2(oldC as VNode, parent, i))
+  }
+
+  // 1. 真移除（key 不在新——**完整区间**——v1 removeVNodeTree 等价）
+  for (const [k, oldIdx] of oldIdxByKey) {
+    if (!newKeys.has(k)) cmds.push(...removeTreeV2(oldCs[oldIdx] as VNode, parent, oldIdx))
+  }
+
+  // 2. 相对顺序检测（共有 key 的子序列）
+  const keptOld = oldCs.map((c) => keyOf(c)).filter((k): k is string => k !== null && newKeys.has(k))
+  const keptNew = newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null && oldIdxByKey.has(k))
+  let subseq = true
+  {
+    let p = 0
+    for (const k of keptNew) {
+      const idx = keptOld.indexOf(k, p)
+      if (idx === -1) { subseq = false; break }
+      p = idx + 1
+    }
+  }
+
+  if (!subseq) {
+    // 冲突重建：remove 全部 + 按新序渲染（组件段复用——状态保持）
+    oldCs.forEach((c, i) => {
+      if (typeof c === 'string' || typeof c === 'number' || c === null || c === undefined || typeof c === 'boolean') return
+      if (Array.isArray(c)) return
+      // **keyed 项单 remove（v1 对齐——重建路径节点随后 create——非区间**——
+      // 子树由 create 重建；非 keyed 项完整区间）
+      if (keyOf(c as VNode) !== null) { cmds.push({ op: 'remove', id: pathId(parent, i) } as Command); return }
+      cmds.push(...removeTreeV2(c as VNode, parent, i))
+    })
+    const rebuildParts: Array<Observable<Command>> = []
+    let r: string | null = null
+    for (let i = 0; i < newCs.length; i++) {
+      const newC = newCs[i]
+      const k = keyOf(newC)
+      const kid = k !== null ? keyedId(parent, k) : pathId(parent, i)
+      if (k !== null && typeof (newC as VNode).type === 'function') {
+        // keyed 组件项——段复用（kid）
+        rebuildParts.push(diffComponentAtV2(newC as VNode, kid, parent, i, r, ctx, segments, registry))
+      } else {
+        rebuildParts.push(renderV2Node(newC, parent, i, r, ctx, registry))
+      }
+      r = pathId(parent, i)
+    }
+    return concatObs([fromArray(cmds), ...rebuildParts])
+  }
+
+  // 3. 顺移：move 命令（remap——方向排序 v1 同） + 逐项对照（key 映射取旧）
+  const moved: Array<{ oldIdx: number; newIdx: number }> = []
+  newCs.forEach((newC, i) => {
+    const k = keyOf(newC)
+    if (k === null) return
+    const oldIdx = oldIdxByKey.get(k)
+    if (oldIdx !== undefined && oldIdx !== i) moved.push({ oldIdx, newIdx: i })
+  })
+  const allLeft = moved.every((m) => m.newIdx < m.oldIdx)
+  moved.sort((a, b) => (allLeft ? a.newIdx - b.newIdx : b.newIdx - a.newIdx))
+  for (const m of moved) {
+    cmds.push({ op: 'move', id: pathId(parent, m.oldIdx), parent, ref: null, newId: pathId(parent, m.newIdx), noMove: true } as Command)
+  }
+  const parts: Array<Observable<Command>> = []
+  let lastRef: string | null = null
+  for (let i = 0; i < newCs.length; i++) {
+    const newC = newCs[i]
+    const k = keyOf(newC)
+    const cid = pathId(parent, i)
+    if (k !== null) {
+      const oldIdx = oldIdxByKey.get(k)
+      if (oldIdx === undefined) {
+        parts.push(renderV2Node(newC, parent, i, lastRef, ctx, registry))
+      } else if (typeof (newC as VNode).type === 'function') {
+        parts.push(diffListItemV2(oldCs[oldIdx], newC, parent, i, lastRef, ctx, segments, registry))
+      } else {
+        parts.push(diffV2Node(oldCs[oldIdx], newC, parent, i, lastRef, ctx, segments, registry))
+      }
+    } else {
+      parts.push(renderV2Node(newC, parent, i, lastRef, ctx, registry))
+    }
+    lastRef = cid
+  }
+  return concatObs([fromArray(cmds), ...parts])
+}
+
+/** keyed 组件项对照（kid 段复用——kid≠槽位 id） */
+function diffComponentAtV2(
+  vn: VNode,
+  kid: string,
+  parent: string,
+  index: number,
+  ref: string | null,
+  ctx: UIContext,
+  segments: SegmentMap,
+  registry: import('../node/component.ts').ComponentRegistry,
+): Observable<Command> {
+  const seg = segments.get(kid)
+  if (!seg) return renderV2Node(vn, parent, index, ref, ctx, registry)
+  let newOut: VNodeChild
+  try {
+    newOut = seg.renderFn(vn.props)
+  } catch (e) {
+    console.error('[vdom] v2 renderFn 错误:', e)
+    return fromArray([])
+  }
+  const oldOut = seg.lastOutput
+  seg.lastOutput = newOut
+  if (oldOut === undefined) return renderV2Node(newOut, kid, 0, ref, ctx, registry)
+  return diffV2NodeAt(oldOut, newOut, kid, ref, ctx, segments, registry)
+}
+
+/** 完整区间移除（v1 removeVNodeTree 等价——子树全部节点 remove——先子后父） */
+export function removeTreeV2(v: VNodeChild, parent: string, index: number): Command[] {
+  const cmds: Command[] = []
+  const id = pathId(parent, index)
+  if (v === null || v === undefined || typeof v === 'boolean' || v === '') { cmds.push({ op: 'remove', id } as Command); return cmds }
+  if (typeof v === 'string' || typeof v === 'number') { cmds.push({ op: 'remove', id } as Command); return cmds }
+  if (Array.isArray(v)) {
+    let slot = 0
+    for (const c of v) { cmds.push(...removeTreeV2(c, parent, slot)); slot += slotCount(c) }
+    return cmds
+  }
+  const vn = v as VNode
+  const cs = childrenOf(vn)
+  let slot = 0
+  for (const c of cs) { cmds.push(...removeTreeV2(c, id, slot)); slot += slotCount(c) }
+  cmds.push({ op: 'remove', id } as Command)
+  return cmds
+}
+
+/** 列表含 keyed 项检测（v2——keyOf 桥） */
+export function hasKeyedId(items: VNodeChild[]): boolean {
+  return items.some((c) => keyOf(c) !== null)
+}
