@@ -19,6 +19,7 @@ import { createComponentRegistry } from '../node/component.ts'
 import { createDataPipe } from '../../context/data.ts'
 import { installEffectGuard } from '../../dev/effect-guard.ts'
 import { encodeCommands, createFnTable, type RenderCtx } from '../serve.ts'
+import { asyncDataSeed, asyncInflight } from '../../hooks/env.ts'
 import type { Command } from '../command/index.ts'
 import type { VNode } from '../vnode.ts'
 import type { UIContext } from '../../context/UIContext.ts'
@@ -87,12 +88,34 @@ export async function uiSsr(router: UIRouter, url: string, opts: SsrOptions = {}
     onUnmount: () => {},
     afterRender: () => {},
   } as unknown as RenderCtx
-  const res = await router.resolve(req, ctx as UIContext)
+  // **两遍渲染（2027-08——波次 4——SSR 预取器）**：
+  // 预取遍：渲染树（useAsyncData 触发 fetch——树串行启动、网络并行飞行）——
+  //         产物为 null 态（丢弃）——等待全部 in-flight 会合（并行完成）——
+  //         失败：state$ 保持 null（区块降级——页面其余照常——非整页挂）
+  // 正式遍：state$ 已填充——getter 同步命中——HTML 带数据
+  // 种子：asyncSeed() → opts.data（__DATA__——客户端首帧零二次请求）
+  const res1 = await router.resolve(req, ctx as UIContext)
+  if (res1.body) {
+    await streamToString(res1.body.pipeThrough(ndjsonDecode(fnTable)).pipeThrough(commandToHtml())) // 预取遍产物（丢弃）
+  }
+  await waitAsyncInflight() // 全部 useAsyncData fetch 会合（并行完成）
+  const res = await router.resolve(frontRequest(url), ctx as UIContext)
   if (!res.body) return htmlDocument('', opts)
   const html = await streamToString(
     res.body.pipeThrough(ndjsonDecode(fnTable)).pipeThrough(commandToHtml()),
   )
-  return htmlDocument(html, opts)
+  const seed = asyncSeed()
+  return htmlDocument(html, Object.keys(seed).length > 0 ? { ...opts, data: seed } : opts)
+}
+
+/** 等待全部 useAsyncData in-flight 会合（SSR 预取——并行完成的会合点） */
+export async function waitAsyncInflight(): Promise<void> {
+  await Promise.allSettled([...asyncInflight])
+}
+
+/** asyncRegistry 种子收集（SSR 渲染后——__DATA__ 序列化） */
+export function asyncSeed(): Record<string, unknown> {
+  return asyncDataSeed()
 }
 
 async function streamToString(stream: ReadableStream<string>): Promise<string> {

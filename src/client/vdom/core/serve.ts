@@ -31,6 +31,7 @@ import type { UIContext, DataPipe } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 import type { Browser } from '../browser/Browser.ts'
 import { createClientBrowser } from '../browser/create-client-browser.ts'
+import { asyncDataPreload } from '../hooks/env.ts'
 
 /** 函数表还原（$fn 标记 → 函数——编码/解码同进程共享） */
 export function reviveFn(fnTable: Map<number, unknown>) {
@@ -184,6 +185,11 @@ export function uiServe(router: UIRouter, opts: UiServeOptions): UiServeHandle {
     ? (doc.querySelector(opts.root) as HTMLElement | null)
     : opts.root
   if (!rootEl) throw new Error(`uiServe: root 未找到 — ${String(opts.root)}`)
+
+  // **SSR 种子预填（2027-08——波次 4）**：window.__DATA__（ssr 端序列化）→
+  // asyncRegistry 预热——客户端首帧同步命中——零二次请求
+  const dataSeed = (win as unknown as { __DATA__?: Record<string, unknown> }).__DATA__
+  if (dataSeed) asyncDataPreload(dataSeed)
 
   // ── serve 级单例（跨渲染保持——patch 幂等对照现有 DOM + 组件注册表复用） ──
   const fnTable = createFnTable()

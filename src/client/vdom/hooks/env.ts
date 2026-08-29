@@ -122,13 +122,52 @@ export interface Ui {
   useReducedMotion(): boolean
 }
 
-/** useAsyncData 模块级注册表（2027-08——跨组件共享同 key——并发合并） */
+/** useAsyncData 模块级注册表（2027-08——跨组件共享同 key——并发合并）
+ *
+ * **v2 设计（波次 4——SSR 预取支持）**：
+ * - state$（BehaviorSubject——**唯一真相源**——组件订阅它——getter 同步读）
+ * - data$（trigger → switchMap(fetch) → state$.next——fetch 流——竞态取消）
+ * - started：data$ 已接（首个组件订阅时）——**种子命中 = started 完成**（零 fetch）
+ * - inflight：SSR 预取等待集合（并行预取完结）
+ * - seed()/preload()：SSR→客户端种子通道（__DATA__——首帧零二次请求）
+ * - **缓存保留语义**（重挂载零请求——导航返回瞬时）——reload 显式刷新 */
 interface AsyncEntry {
   trigger: BehaviorSubject<void>
-  data$: Observable<unknown>
+  state$: BehaviorSubject<unknown>
   fetcher: (() => Promise<unknown>) | null
+  started: boolean
+  seedHit: boolean
+  sub: { unsubscribe(): void } | null
 }
 const asyncRegistry = new Map<string, AsyncEntry>()
+/** SSR 预取等待集合（并行 fetch 的 in-flight promise——uiSsr 等待会合） */
+export const asyncInflight = new Set<Promise<unknown>>()
+
+/** **SSR 种子收集**（服务端——渲染后取出——序列化进 __DATA__） */
+export function asyncDataSeed(): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, e] of asyncRegistry) {
+    if (e.started && e.state$.get() !== null) out[key] = e.state$.get()
+  }
+  return out
+}
+
+/** **客户端种子预填**（hydrate——window.__DATA__ → 状态预热——零二次请求）：
+ *  未创建的 entry 记 pendingSeeds（useAsyncData 创建时命中——状态初值 + skip fetch）；
+ *  已创建的 entry 直接 next（状态更新） */
+export function asyncDataPreload(seed: Record<string, unknown> | undefined): void {
+  if (!seed) return
+  for (const [key, value] of Object.entries(seed)) {
+    const e = asyncRegistry.get(key)
+    if (e) {
+      e.state$.next(value)
+      e.seedHit = true
+    } else {
+      pendingSeeds.set(key, value)
+    }
+  }
+}
+const pendingSeeds = new Map<string, unknown>()
 
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
 export function createUi(env: HookEnv): Ui {
@@ -138,26 +177,60 @@ export function createUi(env: HookEnv): Ui {
     },
     useAsyncData<T>(fetcher: () => Promise<T>, key: string): [() => T | null, () => void] {
       // **模块级注册表（跨组件共享——同 key 并发合并——8 次请求根治）**：
-      // - trigger（BehaviorSubject——首订阅同步触发 + reload 触发）
-      // - data$ = trigger → switchMap(fetch)（reload 作废旧请求——竞态消灭）
-      //   → shareReplay(1)（缓存 + 多组件共享 + refCount 归零清缓存——重新
-      //   订阅重新取——新鲜语义）
+      // - state$（唯一真相源——组件订阅——Behavior 同步初值 + 更新重渲染）
+      // - data$ = trigger → switchMap(fetch) → state$.next（reload 竞态取消）
       let entry = asyncRegistry.get(key)
       if (!entry) {
-        const trigger = new BehaviorSubject<void>(undefined)
-        const data$ = trigger.asObservable().pipe(
-          switchMap(() => {
-            const f = entry!.fetcher as (() => Promise<unknown>) | null
-            return f ? fromPromise(f()) : fromPromise(Promise.resolve(null))
-          }),
-          shareReplay(1),
-        )
-        entry = { trigger, data$, fetcher: null }
+        entry = {
+          trigger: new BehaviorSubject<void>(undefined),
+          state$: new BehaviorSubject<unknown>(pendingSeeds.get(key) ?? null),
+          fetcher: null,
+          started: pendingSeeds.has(key), // 种子命中 = 已就绪（零 fetch）
+          seedHit: pendingSeeds.has(key),
+          sub: null,
+        }
+        pendingSeeds.delete(key)
         asyncRegistry.set(key, entry)
       }
       entry.fetcher = fetcher as () => Promise<unknown>
-      const get = useObservableEnv<T | null>(env, entry.data$, null)
-      const reload = (): void => { entry!.trigger.next() }
+      // **data$ 首接（模块级一次——并发合并）/种子命中跳过**（零重复 fetch）
+      const ensureStarted = (): void => {
+        if (entry!.sub) return // data$ 已接
+        if (entry!.seedHit) return // **种子命中——零 fetch**（reload 时先置
+        // seedHit=false 再调——之后正常接）
+        entry!.started = true
+        const data$ = entry!.trigger.asObservable().pipe(
+          switchMap(() => {
+            const f = entry!.fetcher as (() => Promise<unknown>) | null
+            if (!f) return fromPromise(Promise.resolve(null))
+            const p = f()
+            // **in-flight 登记**（SSR 预取等待会合：预取遍结束后并行 fetch 完成）
+            asyncInflight.add(p as Promise<unknown>)
+            void (p as Promise<unknown>).finally(() => asyncInflight.delete(p as Promise<unknown>)).catch(() => {}) // 拒绝已由 fromPromise error 通道处理——finally 链不饿死
+            return fromPromise(p)
+          }),
+        )
+        entry!.sub = data$.subscribe({
+          next: (v) => { entry!.state$.next(v) },
+          error: (e) => {
+            console.error('[vdom] useAsyncData:', e)
+            entry!.state$.next(null) // 失败 → 区块降级（get null——页面其余照常）
+          },
+        })
+        // **初始加载 = BehaviorSubject 订阅即发**（唯一触发——无显式 next）
+        // ——显式 next() 会双重触发（订阅即发 + next = 2× fetch 实证）
+      }
+      ensureStarted()
+      const get = useObservableEnv<T | null>(env, entry.state$.asObservable(), null)
+      const reload = (): void => {
+        if (entry!.seedHit) { entry!.seedHit = false } // 种子失效——重新 fetch 路径
+        entry!.state$.next(null)
+        if (!entry!.sub) {
+          ensureStarted() // 种子命中后首 reload——订阅即发（唯一触发——1 次 fetch）
+        } else {
+          entry!.trigger.next() // 已接——reload 触发（switchMap 竞态取消）
+        }
+      }
       return [get, reload]
     },
     useExternal<T>(store: ExternalStore<T>): () => T {
