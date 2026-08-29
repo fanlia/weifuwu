@@ -65,3 +65,78 @@ test('连续请求风暴：每拍合并——总渲染数 << 请求数', async (
   }
   assert.ok(renders <= 3 * 2, `风暴合并：${renders} 次渲染（请求 30——合并后应 ≤6）`)
 })
+
+// ── VDOM-OBSERVABLE-OPTIMIZE 波次 3：时序显式化 + 回放 ───────────────
+
+test('request 观测点：sched:request 事件（时间线回放原料）', async () => {
+  const spy: import('../../client/vdom/core/v2/spy.ts').SpyEvent[] = []
+  ;(globalThis as { __wfSpy?: unknown[] }).__wfSpy = spy
+  try {
+    const s = createRenderScheduler()
+    s.request()
+    s.request()
+    await flush()
+    const kinds = spy.map((e) => (e as { kind: string }).kind)
+    assert.ok(kinds.includes('sched:request'), 'request 观测点存在')
+    assert.ok(kinds.includes('sched:flush'), 'flush 观测点存在')
+    assert.equal(kinds.filter((k) => k === 'sched:request').length, 2, '每次 request 一事件')
+  } finally {
+    delete (globalThis as { __wfSpy?: unknown[] }).__wfSpy
+  }
+})
+
+test('回放：request 拍序列重喂 → 同 flush 序列（时间线回放——调度确定性）', async () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  // 运行 1（源）——记录拍分组
+  const batches: number[] = []
+  const s1 = createRenderScheduler()
+  let f1 = 0
+  s1.renders$.subscribe({ next: () => f1++ })
+  const run1 = async (n: number) => { for (let i = 0; i < n; i++) s1.request(); await flush() }
+  await run1(3); batches.push(3)      // 拍 1：3 请求 → 1 flush
+  await sleep(20)                      // >16ms——合法下拍流（风暴重置）
+  await run1(1); batches.push(1)      // 拍 2：1 请求 → 1 flush
+  await sleep(20)
+  await run1(2); batches.push(2)      // 拍 3：2 请求 → 1 flush
+  assert.equal(f1, 3, '源：每拍 1 flush（batching 保持）')
+  // 重放（记录序列——新调度器——同 flush 序列）
+  const s2 = createRenderScheduler()
+  let f2 = 0
+  s2.renders$.subscribe({ next: () => f2++ })
+  for (const n of batches) {
+    for (let i = 0; i < n; i++) s2.request()
+    await flush()
+    await sleep(20)
+  }
+  assert.equal(f2, 3, '重放：同 flush 序列（同拍分布同结果——确定性）')
+  assert.deepEqual({ r: s1.stats().requested, f: s1.stats().flushed }, { r: s2.stats().requested, f: s2.stats().flushed }, '统计一致')
+})
+
+test('风暴间隔判定：≥16ms 下拍流重置（合法——风暴计数不误报）', async () => {
+  // 20 次 request 分散在 20 拍（每拍间隔 20ms）——全部合法——零丢弃（renders = 20）
+  const s = createRenderScheduler()
+  let renders = 0
+  s.renders$.subscribe({ next: () => renders++ })
+  for (let i = 0; i < 20; i++) {
+    s.request()
+    await new Promise((r) => setTimeout(r, 20))
+  }
+  assert.equal(renders, 20, '合法下拍流 20 次全部渲染（零丢弃——间隔判定不误报）')
+})
+
+test('风暴防护：渲染回调内循环 request → 超限丢弃 + warn（不无限循环）', async () => {
+  const s = createRenderScheduler()
+  let renders = 0
+  let warned = false
+  const origWarn = console.warn
+  console.warn = () => { warned = true }
+  try {
+    s.renders$.subscribe({ next: () => { renders++; s.request() } }) // 渲染中循环请求
+    s.request()
+    await new Promise((r) => setTimeout(r, 10))
+  } finally {
+    console.warn = origWarn
+  }
+  assert.ok(warned, '风暴 warn 触发')
+  assert.ok(renders <= 25, `超限丢弃（renders=${renders}——不无限循环）`)
+})
