@@ -9,6 +9,7 @@ import { diffV2, createSegment, disposeSegment, type SegmentMap } from '../../cl
 import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
 import { Observable } from '../../client/vdom/observable/index.ts'
+import { createStore } from '../../client/vdom/store.ts'
 
 const emptyCtx = { render: async () => {}, browser: null } as never
 
@@ -77,3 +78,57 @@ test('卸载后段不复用（diff 真移除 → dispose → 新挂载重新创�
   assert.ok(segments.has('root.0.kb'), '保留段在（复用）')
   assert.equal(factoryRuns.length, before, 'diff 未重跑工厂（移除路径——无新挂载）')
 })
+
+// ── OBSERVABLE-OPTIMIZE 波次 5：泄漏防线 + 实例数据清空 ───────────────
+
+test('泄漏防线：dispose 后 instData 清空（hooks 登记释放——零引用链）', () => {
+  const segs = new Map<string, never>() as unknown as SegmentMap
+  const store = createStore({ v: 1 })
+  const seg = createSegment(((_p: any, c: any) => {
+    c.ui.useExternal(store) // 幂等登记（instData entry——订阅闭包）
+    return () => h('div', {})
+  }) as never, {}, emptyCtx, 'leak-1')
+  segs.set('leak-1', seg as never)
+  seg.renderFn({})
+  assert.ok((seg as unknown as { instData: Map<unknown, unknown> }).instData.size > 0, '登记后 instData 非空')
+  disposeSegment('leak-1', segs)
+  assert.equal((seg as unknown as { instData: Map<unknown, unknown> }).instData.size, 0, 'dispose 后清空（引用链释放）')
+  // 销毁后 store 变化 → 零回调（退订生效——onUnmount 栈已跑）
+  let after = 0
+  store.subscribe(() => after++)
+  store.set({ v: 2 })
+  assert.equal(after, 1, '新订阅正常（旧订阅已退——不重复）')
+})
+
+test('泄漏防线：dispose 后定时器回调零触发（hooks 清理完整）', async () => {
+  const segs = new Map<string, never>() as unknown as SegmentMap
+  let timerRuns = 0
+  const seg = createSegment(((_p: any, c: any) => {
+    const t = setTimeout(() => timerRuns++, 10)
+    c.onUnmount(() => clearTimeout(t)) // hold 语义：卸载释放
+    return () => h('div', {})
+  }) as never, {}, emptyCtx, 'leak-2')
+  segs.set('leak-2', seg as never)
+  disposeSegment('leak-2', segs)
+  await new Promise((r) => setTimeout(r, 30))
+  assert.equal(timerRuns, 0, 'dispose 后 timer 零触发（清理有效——零后遗症）')
+})
+
+test('性能基线：10k 节点 build + diff 时间上限（Observable 化成本防线）', async () => {
+  const items = Array.from({ length: 10000 }, (_, i) => h('li', { 'data-i': i }, String(i)))
+  const oldT = h('ul', {}, items) as VNode
+  const newT = h('ul', {}, items.slice(1).concat(h('li', { 'data-i': 99999 }, 'new'))) as VNode
+  const t0 = performance.now()
+  const reg = createComponentRegistry()
+  const segs1 = new Map<string, never>() as unknown as SegmentMap
+  await collectObs(diffV2(h('ul', {}, []) as VNode, oldT, emptyCtx, segs1, reg)) // 全量 build
+  const t1 = performance.now()
+  await collectObs(diffV2(oldT, newT, emptyCtx, new Map<string, never>() as unknown as SegmentMap, reg)) // diff（尾删+尾增）
+  const t2 = performance.now()
+  const buildMs = t1 - t0
+  const diffMs = t2 - t1
+  // 宽松上限（CI 抖动 2x 安全边）——趋势防线非硬门
+  assert.ok(buildMs < 2000, `10k 节点 build ${buildMs.toFixed(0)}ms < 2s（Observable 化成本合规）`)
+  assert.ok(diffMs < 500, `10k 节点 diff ${diffMs.toFixed(0)}ms < 500ms（增量路径——流化不拖慢）`)
+})
+

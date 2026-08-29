@@ -119,6 +119,10 @@ export function disposeSegment(id: string, segments: SegmentMap): void {
   seg.disposed = true
   // destroy$ 信号（onUnmount 闭包栈 + 外部订阅者——takeUntil 语义）
   try { seg.destroy$.next() } catch (e) { console.error('[vdom] v2 destroy$:', e) }
+  // **实例数据清空（OBSERVABLE-OPTIMIZE 波次 5——泄漏防线）**：hooks 的
+  // 幂等登记（useObservable/useExternal entry）持有订阅闭包——显式清空
+  // 释放引用链（GC 加速 + 泄漏检测面：dispose 后 instData 空）
+  seg.instData.clear()
   segments.delete(id)
 }
 
