@@ -357,3 +357,185 @@ test('shareReplay：源 complete 后新订阅——收缓存值 + complete', () 
   assert.deepEqual(got, [9]) // 完成后仍重放缓存
   assert.equal(done, true)
 })
+
+// ── VDOM-OBSERVABLE-OPTIMIZE 波次 1：组合算子面 ───────────────────────
+import { startWith, take, finalize, distinctUntilChanged, debounceTime, throttleTime, combineLatest, merge } from '../../client/vdom/observable/index.ts'
+
+function collect<T>(src: Observable<T>) {
+  const vals: T[] = []
+  let err: unknown = null
+  let done = false
+  src.subscribe({ next: (v) => vals.push(v), error: (e) => { err = e }, complete: () => { done = true } })
+  return { vals, err, done: () => done, getErr: () => err }
+}
+
+function wait(ms: number) { return new Promise((r) => setTimeout(r, ms)) }
+
+test('startWith：订阅即同步发初值——随后转发源值', () => {
+  const sub = new Subject<number>()
+  const s = collect(sub.asObservable().pipe(startWith(0)))
+  assert.deepEqual(s.vals, [0], '订阅即收初值')
+  sub.next(1)
+  assert.deepEqual(s.vals, [0, 1], '初值后转发')
+})
+
+test('take：限量 n 值后 complete + 上游自动退订（零泄漏）', () => {
+  const sub = new Subject<number>()
+  let upstreamUnsubbed = false
+  const src = create<number>((obs) => {
+    const inner = sub.asObservable().subscribe(obs)
+    return () => { upstreamUnsubbed = true; inner.unsubscribe() }
+  })
+  const s = collect(src.pipe(take(2)))
+  sub.next(1)
+  sub.next(2)
+  assert.deepEqual(s.vals, [1, 2])
+  assert.equal(s.done(), true, '第 2 值后 complete')
+  assert.equal(upstreamUnsubbed, true, '完成即退订上游')
+  sub.next(3) // 此后发射忽略
+  assert.deepEqual(s.vals, [1, 2])
+})
+
+test('take(0)：立即 complete——不订阅上游', () => {
+  let subscribed = false
+  const src = create<number>(() => { subscribed = true; return () => {} })
+  const s = collect(src.pipe(take(0)))
+  assert.equal(s.done(), true)
+  assert.equal(subscribed, false, 'take(0) 不订阅上游（零泄漏）')
+})
+
+test('finalize：complete/error/退订三路径恰好调用一次', () => {
+  let calls = 0
+  const fin = () => { calls++ }
+  // complete 路径
+  const sub = new Subject<number>()
+  collect(sub.asObservable().pipe(finalize(fin)))
+  sub.complete()
+  assert.equal(calls, 1, 'complete 路径一次')
+  // error 路径
+  const sub2 = new Subject<number>()
+  collect(sub2.asObservable().pipe(finalize(fin)))
+  sub2.error('x')
+  assert.equal(calls, 2, 'error 路径一次')
+  // 退订路径
+  const sub3 = new Subject<number>()
+  const inner = sub3.asObservable().pipe(finalize(fin)).subscribe()
+  inner.unsubscribe()
+  assert.equal(calls, 3, '退订路径一次')
+})
+
+test('distinctUntilChanged：相邻去重（默认 ===）', () => {
+  const sub = new Subject<number>()
+  const s = collect(sub.asObservable().pipe(distinctUntilChanged()))
+  sub.next(1); sub.next(1); sub.next(2); sub.next(2); sub.next(1); sub.next(1)
+  assert.deepEqual(s.vals, [1, 2, 1], '相邻去重——非相邻相同保留')
+})
+
+test('distinctUntilChanged：自定义比较器（字段/深比较）', () => {
+  const sub = new Subject<{ id: number; v: number }>()
+  const s = collect(sub.asObservable().pipe(distinctUntilChanged((a, b) => a.id === b.id)))
+  sub.next({ id: 1, v: 1 }); sub.next({ id: 1, v: 2 }); sub.next({ id: 2, v: 1 })
+  assert.equal(s.vals.length, 2, '同 id 去重（v 变化不算）')
+  assert.equal(s.vals[1].id, 2)
+})
+
+test('debounceTime：静默期后发尾值（连续快速→末值）', async () => {
+  const sub = new Subject<number>()
+  const s = collect(sub.asObservable().pipe(debounceTime(20)))
+  sub.next(1); await wait(5); sub.next(2); await wait(5); sub.next(3)
+  await wait(40)
+  assert.deepEqual(s.vals, [3], '静默期尾值（中间丢弃）')
+})
+
+test('debounceTime：complete 立即完成（pending 丢弃——RxJS 对齐）', async () => {
+  const sub = new Subject<number>()
+  const s = collect(sub.asObservable().pipe(debounceTime(20)))
+  sub.next(1)
+  sub.complete() // 静默期内完成——丢弃 pending
+  assert.equal(s.done(), true, '立即 complete（不等静默期）')
+  await wait(30)
+  assert.deepEqual(s.vals, [], 'pending 值不发射')
+})
+
+test('debounceTime：unsubscribe 清 timer（零泄漏）', async () => {
+  const sub = new Subject<number>()
+  const s = collect(sub.asObservable().pipe(debounceTime(20)))
+  sub.next(1)
+  const inner = sub.asObservable().pipe(debounceTime(20)).subscribe({ next: () => {} })
+  inner.unsubscribe()
+  await wait(30)
+  assert.deepEqual(s.vals, [1], '另一订阅的 timer 已清（不误发）')
+})
+
+test('throttleTime：leading 首值（窗口期内后续丢弃）', async () => {
+  const sub = new Subject<number>()
+  const s = collect(sub.asObservable().pipe(throttleTime(20)))
+  sub.next(1); await wait(2); sub.next(2); await wait(2); sub.next(3)
+  await wait(30)
+  assert.deepEqual(s.vals, [1], '窗口期首值——后续丢弃')
+  sub.next(4) // 窗口已开——新首值
+  await wait(30)
+  assert.deepEqual(s.vals, [1, 4], '窗口开后新首值')
+})
+
+test('throttleTime(trailing)：窗口关闭补尾值 + 立即开新窗口', async () => {
+  const sub = new Subject<number>()
+  const s = collect(sub.asObservable().pipe(throttleTime(20, { trailing: true })))
+  sub.next(1); await wait(5); sub.next(2)
+  await wait(30)
+  assert.deepEqual(s.vals, [1, 2], 'leading + trailing 尾值')
+  sub.next(3) // 新窗口（trailing 后立开）
+  await wait(30)
+  assert.deepEqual(s.vals, [1, 2, 3])
+})
+
+test('combineLatest：全源首发后才发射（快照数组）', () => {
+  const a = new Subject<number>()
+  const b = new BehaviorSubject<number>(10)
+  const s = collect(combineLatest(a.asObservable(), b.asObservable()))
+  // b 同步首值——a 未发——无发射
+  assert.deepEqual(s.vals, [], '未全源首发不发射')
+  a.next(1)
+  assert.deepEqual(s.vals, [[1, 10]], '全源首发后发射快照')
+  b.next(20)
+  assert.deepEqual(s.vals, [[1, 10], [1, 20]], '单源更新发射新快照')
+})
+
+test('combineLatest：全源完成 → complete；空源 → 立即 complete', () => {
+  const a = new Subject<number>()
+  const b = new Subject<number>()
+  const s = collect(combineLatest(a.asObservable(), b.asObservable()))
+  a.complete()
+  assert.equal(s.done(), false, '单源完成不 complete')
+  b.complete()
+  assert.equal(s.done(), true, '全源完成 → complete')
+  const empty = collect(combineLatest())
+  assert.equal(empty.done(), true, '空源立即 complete')
+})
+
+test('merge：多源交错——全完成才 complete', () => {
+  const a = new Subject<number>()
+  const b = new Subject<number>()
+  const s = collect(merge(a.asObservable(), b.asObservable()))
+  a.next(1); b.next(2); a.next(3)
+  assert.deepEqual(s.vals, [1, 2, 3], '交错与发射顺序一致')
+  a.complete()
+  assert.equal(s.done(), false)
+  b.complete()
+  assert.equal(s.done(), true)
+})
+
+test('优化波次 1 组合链：combineLatest+distinct+debounce 端到端（搜索场景声明式）', async () => {
+  const kw = new Subject<string>()
+  const page = new BehaviorSubject<number>(1)
+  const s = collect(
+    combineLatest(kw.asObservable(), page.asObservable())
+      .pipe(
+        distinctUntilChanged((p, n) => p[0] === n[0] && p[1] === n[1]),
+        debounceTime(20),
+      ),
+  )
+  kw.next('a'); kw.next('ab'); await wait(5); kw.next('abc'); kw.next('abcd')
+  await wait(40)
+  assert.deepEqual(s.vals, [['abcd', 1]], '防抖尾值 + 全源快照（无重复）')
+})

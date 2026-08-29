@@ -185,3 +185,187 @@ export function shareReplay<T>(bufferSize = 1): OperatorFn<T, T> {
     }
   })
 }
+
+// ── VDOM-OBSERVABLE-OPTIMIZE 波次 1：组合算子面 ──────────────────────
+// 场景证据：operators.ts 原裁剪注释「可后补——场景证据」——触发兑现：
+// - combineLatest：多源汇流（页面级数据流——token$ + locale$ + 数据源）
+// - merge：同类型多源合并（ws 多频道）
+// - debounceTime/throttleTime：高频源时间管理（搜索输入/滚动/ws 洪泛）
+// - distinctUntilChanged：相邻去重（显式算子——useObservable 内建浅比较
+//   的对面——比较器可自定义：深度/字段面）
+// - finalize/take/startWith：取消验证/有限流/初值前置
+
+/** 初值前置：订阅即同步发射初值——随后转发源（冷源惰性保持——
+ *  startWith 后源才被订阅——自订阅时刻起算） */
+export function startWith<T>(v: T): OperatorFn<T, T> {
+  return (source) => new Observable<T>((obs) => {
+    obs.next(v)
+    return source.subscribe(obs)
+  })
+}
+
+/** 限量：第 n 值后 complete + 自动退订上游（n 值即止——有限流语义） */
+export function take<T>(n: number): OperatorFn<T, T> {
+  return (source) => new Observable<T>((obs) => {
+    if (n <= 0) { obs.complete(); return () => {} }
+    let count = 0
+    let inner: { unsubscribe(): void } | null = null
+    inner = source.subscribe({
+      next: (v) => {
+        count++
+        obs.next(v)
+        if (count >= n) {
+          obs.complete()
+          inner?.unsubscribe() // 完成即退订上游（防继续收——泄漏防线）
+        }
+      },
+      error: (e) => obs.error(e),
+      complete: () => obs.complete(),
+    })
+    return () => inner?.unsubscribe()
+  })
+}
+
+/** 终结清理：complete/error/主动退订——**恰好调用一次**（三路径统一——
+ *  取消验证的钩子——泄漏检测基建） */
+export function finalize<T>(fn: () => void): OperatorFn<T, T> {
+  return (source) => new Observable<T>((obs) => {
+    let called = false
+    const call = (): void => { if (!called) { called = true; fn() } }
+    const inner = source.subscribe({
+      next: (v) => obs.next(v),
+      error: (e) => { call(); obs.error(e) },
+      complete: () => { call(); obs.complete() },
+    })
+    return () => { call(); inner.unsubscribe() }
+  })
+}
+
+/** 相邻去重：默认 ===（显式算子——比较器可自定义：深度/字段比较） */
+export function distinctUntilChanged<T>(compare: (a: T, b: T) => boolean = (a, b) => a === b): OperatorFn<T, T> {
+  return (source) => new Observable<T>((obs) => {
+    let hasPrev = false
+    let prev: T | undefined
+    return source.subscribe({
+      next: (v) => {
+        if (!hasPrev || !compare(prev as T, v)) {
+          hasPrev = true
+          prev = v
+          obs.next(v)
+        }
+      },
+      error: (e) => obs.error(e),
+      complete: () => obs.complete(),
+    })
+  })
+}
+
+/** 防抖：静默期后发射最后值——**取消语义**（新值到 → 旧 timer 清）——
+ *  完成语义（RxJS 对齐）：complete 立即完成（pending 丢弃——搜索框
+ *  unmount 不需尾值——数据完整向丢弃妥协——正确面）——零泄漏（退订清） */
+export function debounceTime<T>(ms: number): OperatorFn<T, T> {
+  return (source) => new Observable<T>((obs) => {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let done = false
+    const inner = source.subscribe({
+      next: (v) => {
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(() => {
+          timer = null
+          if (done) return
+          obs.next(v)
+        }, ms)
+      },
+      error: (e) => { done = true; if (timer) { clearTimeout(timer); timer = null } obs.error(e) },
+      complete: () => { done = true; if (timer) { clearTimeout(timer); timer = null } obs.complete() },
+    })
+    return () => {
+      done = true
+      if (timer) { clearTimeout(timer); timer = null }
+      inner.unsubscribe()
+    }
+  })
+}
+
+/** 节流：窗口期首值（leading——默认）——trailing 可选（窗口关闭时
+ *  补最后值——并立即开新窗口——RxJS 对齐）——complete 丢弃 pending */
+export function throttleTime<T>(ms: number, opts?: { trailing?: boolean }): OperatorFn<T, T> {
+  const trailing = opts?.trailing ?? false
+  return (source) => new Observable<T>((obs) => {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let waiting = false
+    let last: T | undefined
+    let hasLast = false
+    let done = false
+    const emit = (v: T): void => { if (!done) obs.next(v) }
+    const openWindow = (): void => {
+      timer = null
+      if (trailing && hasLast) {
+        hasLast = false
+        emit(last as T)
+      }
+      waiting = false // 窗口开（新值立发——trailing 发射后同拍可进新窗口）
+    }
+    const inner = source.subscribe({
+      next: (v) => {
+        if (!waiting) {
+          waiting = true
+          emit(v)
+          timer = setTimeout(openWindow, ms)
+        } else if (trailing) {
+          last = v
+          hasLast = true
+        }
+      },
+      error: (e) => { done = true; if (timer) clearTimeout(timer); obs.error(e) },
+      complete: () => { done = true; if (timer) clearTimeout(timer); obs.complete() },
+    })
+    return () => { done = true; if (timer) clearTimeout(timer); inner.unsubscribe() }
+  })
+}
+
+/** 多源汇流：**全源首发后**才发射——快照数组——全源完成 → 外部完成
+ *  （任一源未发值即完成——其他源可等待——RxJS 对齐；任源 error →
+ *  外部 error 终结）——空源 = 立即 complete */
+export function combineLatest<T>(...sources: Observable<T>[]): Observable<T[]> {
+  return new Observable<T[]>((obs) => {
+    if (sources.length === 0) { obs.complete(); return () => {} }
+    const values: T[] = new Array(sources.length)
+    const has = new Array<boolean>(sources.length).fill(false)
+    let completed = 0
+    const subs: { unsubscribe(): void }[] = []
+    for (let i = 0; i < sources.length; i++) {
+      subs[i] = sources[i].subscribe({
+        next: (v) => {
+          values[i] = v
+          has[i] = true
+          if (has.every((h) => h)) obs.next([...values])
+        },
+        error: (e) => obs.error(e),
+        complete: () => {
+          completed++
+          if (completed === sources.length) obs.complete()
+        },
+      })
+    }
+    return () => { for (const s of subs) s.unsubscribe() }
+  })
+}
+
+/** 多源合并：同类型流交错——**全源完成** → 外部完成（任源 error 终结） */
+export function merge<T>(...sources: Observable<T>[]): Observable<T> {
+  return new Observable<T>((obs) => {
+    if (sources.length === 0) { obs.complete(); return () => {} }
+    let active = sources.length
+    const subs: { unsubscribe(): void }[] = []
+    const check = (): void => { if (active === 0) obs.complete() }
+    for (let i = 0; i < sources.length; i++) {
+      subs[i] = sources[i].subscribe({
+        next: (v) => obs.next(v),
+        error: (e) => obs.error(e),
+        complete: () => { active--; check() },
+      })
+    }
+    return () => { for (const s of subs) s.unsubscribe() }
+  })
+}
