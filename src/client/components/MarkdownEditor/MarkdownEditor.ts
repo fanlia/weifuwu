@@ -19,9 +19,9 @@ export interface MarkdownEditorProps {
   className?: string
 }
 
-export const MarkdownEditor: Component<MarkdownEditorProps> = async (_init, ctx) => {
+export const MarkdownEditor: Component<MarkdownEditorProps> = (_init, ctx) => {
   let mode: 'write' | 'preview' | 'split' = 'split'
-  return async (props) => {
+  return (props) => {
     const { value, onChange, placeholder = '输入 Markdown…', rows = 12, disabled, className = '' } = props
     mode = props.mode ?? mode
     if (onChange === undefined && !disabled) {

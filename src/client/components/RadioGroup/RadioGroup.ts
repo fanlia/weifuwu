@@ -16,8 +16,8 @@ export interface RadioGroupProps {
   onChange?: (value: string) => void
 }
 
-export const RadioGroup: Component<RadioGroupProps> = async (_init, ctx) =>
-  async (props) => {
+export const RadioGroup: Component<RadioGroupProps> = (_init, ctx) =>
+  (props) => {
   const { name, options = [], inline } = props
 
   // useControlled：受控/非受控统一（原实现非受控静默不可选——受控纪律违规）

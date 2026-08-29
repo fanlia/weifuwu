@@ -82,7 +82,7 @@ export function getTheme(): ThemeMode {
   return 'auto'
 }
 
-export const ThemeSwitch: Component<ThemeSwitchProps> = async (initProps, ctx) => {
+export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx) => {
   const storageKey = initProps.storageKey ?? DEFAULT_KEY
   const presetKey = initProps.storageKey ? `${initProps.storageKey}_preset` : DEFAULT_PRESET_KEY
   // ── mount（只一次）：读取持久化设置并立即应用 ──
@@ -92,7 +92,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = async (initProps, ctx) =
   applyPreset(preset)
 
   // ── render ──
-  return async (props) => {
+  return (props) => {
     const SL = (ctx as any)?.i18n?.components?.ThemeSwitch ?? {}
     const modes: Array<{ value: ThemeMode; label: string }> = [
       { value: 'auto', label: SL.auto ?? '自动' },

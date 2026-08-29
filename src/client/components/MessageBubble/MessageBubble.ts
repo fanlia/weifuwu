@@ -23,8 +23,8 @@ export interface MessageBubbleProps {
   className?: string
 }
 
-export const MessageBubble: Component<MessageBubbleProps> = async (_init, _ctx) =>
-  async (props) => {
+export const MessageBubble: Component<MessageBubbleProps> = (_init, _ctx) =>
+  (props) => {
     const { content, role, status = 'complete', actions, className } = props
 
     const roleClass = role === 'user' ? 'wf-bubble--own' : 'wf-bubble--ai'

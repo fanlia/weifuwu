@@ -23,7 +23,7 @@ export interface SortableListProps<T extends Record<string, any>> {
   className?: string
 }
 
-export const SortableList: Component<SortableListProps<any>> = async (_init, ctx) => {
+export const SortableList: Component<SortableListProps<any>> = (_init, ctx) => {
   let dragIndex: number | null = null
   let overIndex: number | null = null
 
@@ -45,7 +45,7 @@ export const SortableList: Component<SortableListProps<any>> = async (_init, ctx
   // 渲染期 props 引用（事件回调读最新——render-only 纪律）
   const propsRef: { items: any[]; onReorder?: (i: any[]) => void } = { items: [], onReorder: undefined }
 
-  return async (props) => {
+  return (props) => {
     propsRef.items = props.items
     propsRef.onReorder = props.onReorder
     const { items, keyField, renderItem, draggingClass = 'wf-sortable-dragging', className = '' } = props

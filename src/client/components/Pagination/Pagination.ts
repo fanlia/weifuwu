@@ -10,8 +10,8 @@ export interface PaginationProps {
   onChange?: (page: number) => void
 }
 
-export const Pagination: Component<PaginationProps> = async (_init, ctx) =>
-  async (props) => {
+export const Pagination: Component<PaginationProps> = (_init, ctx) =>
+  (props) => {
   const { total, pageSize = 20 } = props
 
   // useControlled：受控/非受控统一（原非受控不可翻页——受控纪律违规）

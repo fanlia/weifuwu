@@ -18,7 +18,7 @@ export interface InViewProps {
   children?: any
 }
 
-export const InView: Component<InViewProps> = async (_props, ctx) => {
+export const InView: Component<InViewProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let entered = false
 
@@ -35,7 +35,7 @@ export const InView: Component<InViewProps> = async (_props, ctx) => {
     else inViewHandle.disconnect()
   }
 
-  return async (props: InViewProps) => {
+  return (props: InViewProps) => {
     Object.assign(propsRef, props)
 
     if (inViewHandle.isIn) {

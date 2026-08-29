@@ -30,7 +30,7 @@ export interface SliderProps {
   onRangeChangeEnd?: (value: [number, number]) => void
 }
 
-export const Slider: Component<SliderProps> = async (_init, ctx) => {
+export const Slider: Component<SliderProps> = (_init, ctx) => {
   // ── mount（只一次）：DOM 引用 + 显示状态（§5.1 ref 纪律：稳定引用定义在此）──
   let inputEl: HTMLInputElement | null = null
   let loInputEl: HTMLInputElement | null = null
@@ -79,7 +79,7 @@ export const Slider: Component<SliderProps> = async (_init, ctx) => {
   }
   const browser = ctx.browser ?? createClientBrowser()
 
-  return async (props: SliderProps) => {
+  return (props: SliderProps) => {
     const { label, value = 0, min = 0, max = 100, step = 1, onChange, onChangeEnd, disabled, marks, range, onRangeChange, onRangeChangeEnd } = props
 
     const numVal = Number(Array.isArray(value) ? value[0] : value)

@@ -21,7 +21,7 @@ export interface ImgProps {
   previewScale?: number
 }
 
-export const Img: Component<ImgProps> = async (_init, ctx) => {
+export const Img: Component<ImgProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let previewOpen = false
   let scale = 1
@@ -46,7 +46,7 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
 
   const triggerRef = (el: any) => { triggerEl = el as HTMLElement | null }
 
-  return async (props) => {
+  return (props) => {
     const {
       src, alt = '', fallback, loading, width, height, className, style,
       preview, previewScale = 1,

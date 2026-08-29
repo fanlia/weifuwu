@@ -40,10 +40,10 @@ export interface CitationCardProps {
   onOpen?: (citation: Citation) => void
 }
 
-export const CitationCard: Component<CitationCardProps, UIContext> = async (initProps, ctx) => {
+export const CitationCard: Component<CitationCardProps, UIContext> = (initProps, ctx) => {
   let expanded = !!initProps.defaultExpanded
 
-  return async (props) => {
+  return (props) => {
     const { items, label = '引用来源', maxVisible = 3, onOpen } = props
     if (!items?.length) return null
 

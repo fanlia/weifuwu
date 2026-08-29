@@ -29,11 +29,11 @@ export interface AlertGroupProps {
 
 const THRESHOLD = 3
 
-export const AlertGroup: Component<AlertGroupProps> = async (_init, ctx: UIContext) => {
+export const AlertGroup: Component<AlertGroupProps> = (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let expanded = false
 
-  return async (props) => {
+  return (props) => {
     const { items, onClose } = props
     const collapsible = items.length >= THRESHOLD
 

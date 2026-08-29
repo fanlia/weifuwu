@@ -67,7 +67,7 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
   return sorted
 }
 
-export const Table: Component<TableProps> = async (_init, ctx) => {
+export const Table: Component<TableProps> = (_init, ctx) => {
   // ── 行内编辑态（render-only：editing 位置 + 输入值——工厂闭包跨渲染保持） ──
   let editing: { row: number; col: string; value: string } | null = null
   const propsRef: { onCellEdit?: TableProps['onCellEdit']; data?: any[] } = {}
@@ -83,7 +83,7 @@ export const Table: Component<TableProps> = async (_init, ctx) => {
       propsRef.onCellEdit?.(col, row, value, propsRef.data?.[row])
     }
   }
-  return async (props) => {
+  return (props) => {
   const { data = [], columns, onRowClick, sortKey, sortOrder, onSort, emptyText, rowSelection } = props
   propsRef.data = data
   propsRef.onCellEdit = props.onCellEdit

@@ -20,10 +20,10 @@ export interface SearchInputProps {
  *   避免受控 value 重置打断输入法（AutoComplete/Mentions/TagsInput 同款纪律）；
  *   组合结束 onCompositionEnd 处理最终中文值
  */
-export const SearchInput: Component<SearchInputProps> = async (_init, _ctx) => {
+export const SearchInput: Component<SearchInputProps> = (_init, _ctx) => {
   // IME 组合门控（mount 作用域 let——跨渲染保持）
   let composing = false
-  return async (props) => {
+  return (props) => {
     const { value, placeholder = '搜索...', onInput, onClear, disabled } = props
     // 受控判定：value !== undefined → 受控（回写 input.value + 清除按钮随 value）
     const controlled = value !== undefined

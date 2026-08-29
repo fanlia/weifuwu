@@ -31,7 +31,7 @@ import { editEmit } from './edit-events.ts'
 
 export type { EditorProps, ToolbarItem, EditorAiAction, EditorAiOptions } from './tools/types.ts'
 
-export const Editor: Component<EditorProps> = async (_props, ctx) => {
+export const Editor: Component<EditorProps> = (_props, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let activeFormats: FormatState | null = null
@@ -476,7 +476,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
   const editorText = (key: string, fallback: string): string =>
     (ctx as any).i18n?.components?.Editor?.[key] ?? fallback
 
-  return async (props: EditorProps) => {
+  return (props: EditorProps) => {
     const { value = '', onChange, onUpload, placeholder = '', disabled = false, minHeight = '200px', draftKey } = props
     const toolbarItems = props.toolbar ?? DEFAULT_TOOLBAR
     const isRichMode = mode === 'rich'

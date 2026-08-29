@@ -38,7 +38,7 @@ function formatValue(v: unknown): string {
   return String(v)
 }
 
-export const JSONViewer: Component<JSONViewerProps> = async (_init, ctx) => {
+export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
   // render-only：内部状态 let + 显式 render（闭包绑定——§4.5 selfId 错位陷阱
   // 根治：事件回调里的 ctx.render() 永远渲染本组件，无 this/重挂载错位）
   let expanded = {} as Record<string, boolean>
@@ -59,7 +59,7 @@ export const JSONViewer: Component<JSONViewerProps> = async (_init, ctx) => {
     void ctx.browser?.copyText(`${path} = ${JSON.stringify(value)}`)
   }
 
-  return async (props: JSONViewerProps) => {
+  return (props: JSONViewerProps) => {
     const { data, defaultExpandDepth = 2, maxKeys = 100, rootName = 'root', onCopy, className } = props
 
     // 复制 + 反馈：DOM 级图标切换（check 1s）——不依赖渲染管线

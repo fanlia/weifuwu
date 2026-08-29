@@ -25,8 +25,8 @@ export interface CheckboxGroupProps {
 }
 
 /** 复选框组/多选列表（对应 antd Checkbox.Group）：成员选择、多值字段 */
-export const CheckboxGroup: Component<CheckboxGroupProps> = async (_init, ctx) =>
-  async (props) => {
+export const CheckboxGroup: Component<CheckboxGroupProps> = (_init, ctx) =>
+  (props) => {
     const {
       options = [], columns,
       size = 'md', disabled, label, 'aria-label': ariaLabel, className,

@@ -161,12 +161,12 @@ export function notificationMiddleware<C extends Record<string, unknown>>(ctx: C
   return Object.assign(ctx, { notification })
 }
 
-export const Notification: Component<NotificationProps> = async (_init, ctx) => {
+export const Notification: Component<NotificationProps> = (_init, ctx) => {
   // 命令式弹窗（唯一形态 openPopup）：常驻容器（positioning 'none'——CSS 角落定位）
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
-  return async (props) => {
+  return (props) => {
     const { items = [], onRemove, position = 'top-right', duration = 4500, max = 0 } = props
 
     const visible = max > 0 && items.length > max ? items.slice(-max) : items

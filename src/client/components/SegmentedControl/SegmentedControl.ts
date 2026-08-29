@@ -24,8 +24,8 @@ export interface SegmentedControlProps {
  * 分段控件 — 单选切换（模式切换 / 状态筛选 / 模板选择）
  * 语义：toggle group（aria-pressed），键盘 focus-visible 可见
  */
-export const SegmentedControl: Component<SegmentedControlProps> = async (_init, ctx) =>
-  async (props) => {
+export const SegmentedControl: Component<SegmentedControlProps> = (_init, ctx) =>
+  (props) => {
   const { options, size = 'md', block, ariaLabel } = props
 
   // useControlled：受控/非受控统一（原非受控静默不可点——受控纪律违规）

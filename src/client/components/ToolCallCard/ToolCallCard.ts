@@ -30,8 +30,8 @@ type ToolState = 'running' | 'ok' | 'error'
 
 const stateIcon: Record<ToolState, IconName> = { running: 'settings', ok: 'check', error: 'close' }
 
-export const ToolCallCard: Component<ToolCallCardProps> = async (_init, _ctx) =>
-  async (props) => {
+export const ToolCallCard: Component<ToolCallCardProps> = (_init, _ctx) =>
+  (props) => {
     const { call, progress, result, renderArgs } = props
 
     const state: ToolState = result ? (result.ok ? 'ok' : 'error') : 'running'

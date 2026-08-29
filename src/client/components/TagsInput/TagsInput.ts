@@ -24,11 +24,11 @@ export interface TagsInputProps {
   className?: string
 }
 
-export const TagsInput: Component<TagsInputProps> = async (_init, ctx) => {
+export const TagsInput: Component<TagsInputProps> = (_init, ctx) => {
   // 输入法 composition 状态（中文候选词确认 Enter 不应提交标签）
   let composing = false
 
-  return async (props: TagsInputProps) => {
+  return (props: TagsInputProps) => {
     const {
       placeholder, maxTags, allowDuplicates,
       disabled, label, error, hint, className,

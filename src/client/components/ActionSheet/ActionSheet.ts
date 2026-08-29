@@ -40,7 +40,7 @@ export interface ActionSheetProps {
   title?: string
 }
 
-export const ActionSheet: Component<ActionSheetProps> = async (_init, ctx: UIContext) => {
+export const ActionSheet: Component<ActionSheetProps> = (_init, ctx: UIContext) => {
   // ── mount（只一次）：会话级模态（Modal/Drawer 同款四件套——presence/trap/lock/定位） ──
   let latestOpen = false
   /** 键盘焦点项（方向键移动——menu 语义） */
@@ -55,7 +55,7 @@ export const ActionSheet: Component<ActionSheetProps> = async (_init, ctx: UICon
     if (e.key === 'Escape' && handle?.open && latestOpen) latestOnClose?.()
   })
 
-  return async (props: ActionSheetProps) => {
+  return (props: ActionSheetProps) => {
     const { open, items, onSelect, onClose, cancelText, title } = props
     latestOpen = open
     latestOnClose = onClose

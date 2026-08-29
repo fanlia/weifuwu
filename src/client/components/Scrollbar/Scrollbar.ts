@@ -23,8 +23,8 @@ export interface ScrollbarProps {
   style?: any
 }
 
-export const Scrollbar: Component<ScrollbarProps> = async (_init, _ctx: UIContext) =>
-  async (props) => {
+export const Scrollbar: Component<ScrollbarProps> = (_init, _ctx: UIContext) =>
+  (props) => {
     const { maxHeight, height, orientation = 'vertical', always, children, style } = props
     const hAxis = orientation === 'horizontal'
     return h('div', {

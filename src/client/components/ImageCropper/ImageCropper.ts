@@ -18,7 +18,7 @@ export interface ImageCropperProps {
   className?: string
 }
 
-export const ImageCropper: Component<ImageCropperProps> = async (_init, ctx) => {
+export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
   let canvasEl: HTMLCanvasElement | null = null
   let img: HTMLImageElement | null = null
   let box = { x: 0, y: 0, w: 100, h: 100 } // 裁剪框（相对显示区）
@@ -77,7 +77,7 @@ export const ImageCropper: Component<ImageCropperProps> = async (_init, ctx) => 
     ctx2.onCrop?.(out.toDataURL('image/png'))
   }
 
-  return async (props) => {
+  return (props) => {
     ctx2.aspect = props.aspect ?? 1
     ctx2.src = props.src
     ctx2.onError = props.onError

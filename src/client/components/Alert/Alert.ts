@@ -13,8 +13,8 @@ export interface AlertProps {
   children?: any
 }
 
-export const Alert: Component<AlertProps> = async (_init, _ctx) =>
-  async (props) => {
+export const Alert: Component<AlertProps> = (_init, _ctx) =>
+  (props) => {
   const { variant = 'info', closable, onClose, children } = props
 
   if (!children) return null

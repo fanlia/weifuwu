@@ -21,7 +21,7 @@ export interface WatermarkProps {
 
 /** 水印（对应 antd Watermark）：canvas 绘制平铺文字 + overlay 覆盖内容（pointer-events none）。
  * 裁剪（CS-05，见 design/components-cuts.md）：图片水印、多行文字、动态旋转。 */
-export const Watermark: Component<WatermarkProps> = async (_init, _ctx) => {
+export const Watermark: Component<WatermarkProps> = (_init, _ctx) => {
   const _browser = _ctx?.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let bgImage = ''
@@ -56,7 +56,7 @@ export const Watermark: Component<WatermarkProps> = async (_init, _ctx) => {
     bgImage = canvas.toDataURL()
   }
 
-  return async (props) => {
+  return (props) => {
     const {
       text = 'weifuwu', fontSize = 14, color = 'currentColor', opacity = 0.15,
       rotate = -25, gap = 100, children, className,

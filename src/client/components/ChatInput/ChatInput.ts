@@ -67,9 +67,9 @@ export interface ChatInputControl {
   setValue: (v: string) => void
 }
 
-export const ChatInput: Component<ChatInputProps, { ui: Ui }> = async (_init, ctx) => {
+export const ChatInput: Component<ChatInputProps, { ui: Ui }> = (_init, ctx) => {
   // ── mount（只一次）：无状态初始化（keyword 在 useControlledInput 的 Map 缓存）
-  return async (props) => {
+  return (props) => {
     const labels: ChatInputLabels = {
       send: '发送',
       stop: '停止',

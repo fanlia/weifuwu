@@ -26,7 +26,7 @@ export interface DropdownProps {
   onOpenChange?: (open: boolean) => void
 }
 
-export const Dropdown: Component<DropdownProps> = async (_init, ctx) => {
+export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
@@ -43,7 +43,7 @@ export const Dropdown: Component<DropdownProps> = async (_init, ctx) => {
   ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
   // ── render（每次 dirty/props 变化）──
-  return async (props: DropdownProps) => {
+  return (props: DropdownProps) => {
     const { trigger, items = [] } = props
     openCtrl = ctx.ui.useOpen({ open: props.open, onOpenChange: props.onOpenChange, name: 'Dropdown' })
 

@@ -43,8 +43,8 @@ export interface ExportCSVProps extends ExportCsvOptions {
 }
 
 /** 导出按钮组件（点击 → 下载 CSV——browser.downloadFile 安全适配） */
-export const ExportCSV: Component<ExportCSVProps> = async (_init, ctx) =>
-  async (props) => {
+export const ExportCSV: Component<ExportCSVProps> = (_init, ctx) =>
+  (props) => {
     const { data, filename = 'export.csv', columns, format, children, variant, size, disabled, className = '' } = props
     const doExport = () => {
       const csv = toCsv({ data, columns, format })

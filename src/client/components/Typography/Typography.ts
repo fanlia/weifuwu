@@ -38,8 +38,8 @@ export interface ParagraphProps {
 }
 
 /** 标题（对应 antd/EP Typography.Title） */
-export const Title: Component<TitleProps> = async (_init) =>
-  async (props) => {
+export const Title: Component<TitleProps> = (_init) =>
+  (props) => {
     const { level = 1, children, className, style, ...rest } = props
     return h(`h${level}`, {
       class: [`wf-title`, `wf-title--${level}`, className].filter(Boolean).join(' '),
@@ -49,8 +49,8 @@ export const Title: Component<TitleProps> = async (_init) =>
   }
 
 /** 行内文本（对应 antd/EP Typography.Text） */
-export const Text: Component<TextProps> = async (_init) =>
-  async (props) => {
+export const Text: Component<TextProps> = (_init) =>
+  (props) => {
     const {
       type, strong, underline, strikethrough, mark, code, size,
       children, className, ...rest
@@ -68,8 +68,8 @@ export const Text: Component<TextProps> = async (_init) =>
   }
 
 /** 段落（对应 antd/EP Typography.Paragraph） */
-export const Paragraph: Component<ParagraphProps> = async (_init) =>
-  async (props) => {
+export const Paragraph: Component<ParagraphProps> = (_init) =>
+  (props) => {
     const { type, ellipsis, children, className, ...rest } = props
     const classes = ['wf-paragraph']
     if (type) classes.push(`wf-text--${type}`)

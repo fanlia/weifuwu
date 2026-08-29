@@ -46,8 +46,8 @@ export interface SelectProps {
   onSearch?: (keyword: string) => SelectOption[] | Promise<SelectOption[]>
 }
 
-const SelectNative: Component<SelectProps> = async (_init, _ctx) =>
-  async (props) => {
+const SelectNative: Component<SelectProps> = (_init, _ctx) =>
+  (props) => {
   const { label, value, options, placeholder, required, disabled, error, onChange, children } = props
 
   const optionEls: any[] = []
@@ -88,7 +88,7 @@ const SelectNative: Component<SelectProps> = async (_init, _ctx) =>
   return h('div', { class: `wf-select-wrap${error ? ' wf-select--err' : ''}` }, wrapChildren)
 }
 
-const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
+const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
   // render-only：内部 UI 状态 let + 显式 render（design 归档）
   let open = false
   let keyword = ''
@@ -124,7 +124,7 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
     else if (handle) handle.update(menu)
   }
 
-  return async (props) => {
+  return (props) => {
     const { label, value, options = [], placeholder, required, disabled, error, onChange, onSearch, multiple } = props
 
     // 多选：value 为数组
@@ -309,8 +309,9 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
   }
 }
 
-export const Select: Component<SelectProps> = async (_init, ctx) => {
-  const nativeRender = (await SelectNative(_init, ctx)) as (props: SelectProps) => any
-  const searchableRender = (await SelectSearchable(_init, ctx)) as (props: SelectProps) => any
+export const Select: Component<SelectProps> = (_init, ctx) => {
+  // 子组件工厂同步调用（2027-08 断代——无 await——工厂已是同步）
+  const nativeRender = SelectNative(_init, ctx) as (props: SelectProps) => any
+  const searchableRender = SelectSearchable(_init, ctx) as (props: SelectProps) => any
   return (props) => props.searchable ? searchableRender(props) : nativeRender(props)
 }

@@ -19,7 +19,7 @@ export interface RateProps {
   'aria-label'?: string
 }
 
-export const Rate: Component<RateProps> = async (_init, ctx) => {
+export const Rate: Component<RateProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let hover = -1 // -1 = 未悬停；键盘悬停态复用（聚焦跟随）
   // 手动状态纪律（§4.1）：hover 是手动 UI 状态——变更必须显式 render，
@@ -30,7 +30,7 @@ export const Rate: Component<RateProps> = async (_init, ctx) => {
     ctx.render()
   }
 
-  return async (props) => {
+  return (props) => {
     const {
       count = 5, size = 'md',
       readOnly, disabled, allowClear, allowHalf, 'aria-label': ariaLabel,

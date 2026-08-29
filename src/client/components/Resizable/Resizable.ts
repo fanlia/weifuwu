@@ -21,7 +21,7 @@ export interface ResizableProps {
 /** 可拖拽分割面板（对应 shadcn Resizable）：两面板 + 拖拽手柄（pointer + 键盘方向键）。
  * 拖拽经 ctx.ui.useDrag（pointerdown 捕获 → window move delta / up 释放），不再自建 window 监听。
  * 最新 props 经 propsRef 供 mount 期 useDrag 回调读取。 */
-export const Resizable: Component<ResizableProps> = async (_init, ctx) => {
+export const Resizable: Component<ResizableProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let size = 0
   const propsRef: any = { ..._init }
@@ -46,7 +46,7 @@ export const Resizable: Component<ResizableProps> = async (_init, ctx) => {
     },
   })
 
-  return async (props) => {
+  return (props) => {
     const {
       direction = 'horizontal', defaultSize = 300, min = 80, max = 600,
       step = 20, children, onResize, className,

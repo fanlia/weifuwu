@@ -49,8 +49,8 @@ export interface LayoutFooterProps { children?: any; style?: any }
 const SIDER = Symbol('LayoutSider')
 
 /** 布局容器：含 Sider → row（横向），否则 column（纵向） */
-export const Layout: Component<LayoutProps> = async (_init) =>
-  async (props) => {
+export const Layout: Component<LayoutProps> = (_init) =>
+  (props) => {
     const kids = Array.isArray(props.children) ? props.children : [props.children]
     const hasSider = kids.some((c: any) => c?.type === LayoutSider)
     return h('div', {
@@ -61,7 +61,7 @@ export const Layout: Component<LayoutProps> = async (_init) =>
   }
 
 /** 侧边栏（唯一可折叠部件） */
-export const LayoutSider: Component<LayoutSiderProps> = async (_init, ctx: UIContext) => {
+export const LayoutSider: Component<LayoutSiderProps> = (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let collapsed = _init?.collapsed ?? false
   let latestCollapsed: boolean | undefined = _init?.collapsed
@@ -79,7 +79,7 @@ export const LayoutSider: Component<LayoutSiderProps> = async (_init, ctx: UICon
   }
 
   // ── render（每次 dirty/props 变化）──
-  return async (props) => {
+  return (props) => {
     latestCollapsed = props.collapsed
     latestOnCollapse = props.onCollapse
     latestCollapsible = !!props.collapsible
@@ -109,13 +109,13 @@ export const LayoutSider: Component<LayoutSiderProps> = async (_init, ctx: UICon
 (LayoutSider as any)[SIDER] = true
 
 /** 顶部栏 */
-export const LayoutHeader: Component<LayoutHeaderProps> = async (_init) =>
-  async (props) => h('header', { class: 'wf-layout-header', style: props.style }, props.children)
+export const LayoutHeader: Component<LayoutHeaderProps> = (_init) =>
+  (props) => h('header', { class: 'wf-layout-header', style: props.style }, props.children)
 
 /** 主内容区（撑满剩余空间 + 可滚动） */
-export const LayoutContent: Component<LayoutContentProps> = async (_init) =>
-  async (props) => h('main', { class: 'wf-layout-content', style: props.style }, props.children)
+export const LayoutContent: Component<LayoutContentProps> = (_init) =>
+  (props) => h('main', { class: 'wf-layout-content', style: props.style }, props.children)
 
 /** 底部栏 */
-export const LayoutFooter: Component<LayoutFooterProps> = async (_init) =>
-  async (props) => h('footer', { class: 'wf-layout-footer', style: props.style }, props.children)
+export const LayoutFooter: Component<LayoutFooterProps> = (_init) =>
+  (props) => h('footer', { class: 'wf-layout-footer', style: props.style }, props.children)

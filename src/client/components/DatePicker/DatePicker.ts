@@ -31,7 +31,7 @@ export interface DatePickerProps {
   error?: string
 }
 
-export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
+export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let show = false
@@ -80,7 +80,7 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
     else if (handle) handle.update(panel)
   }
 
-  return async (props: DatePickerProps) => {
+  return (props: DatePickerProps) => {
     const L = (ctx as any)?.i18n?.components?.DatePicker ?? {}
     const { mode = 'date', value, onChange, placeholder = L.placeholder ?? '选择日期', disabled, error } = props
     latestMode = mode

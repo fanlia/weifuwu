@@ -59,7 +59,7 @@ export interface FilePreviewProps {
   height?: string
 }
 
-export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
+export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let doc: DocState = EMPTY_DOC
@@ -103,7 +103,7 @@ export const FilePreview: Component<FilePreviewProps> = async (_init, ctx) => {
     }
   }
 
-  return async (props: FilePreviewProps) => {
+  return (props: FilePreviewProps) => {
     const { type: typeProp, content = '', url, fileName, editable, ai, onSave, onLoad, height = '400px' } = props
     // 自动探测（type 未传——fileName/url 扩展名推断）
     const type = typeProp ?? detectType(fileName, url)

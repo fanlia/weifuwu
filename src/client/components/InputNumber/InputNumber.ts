@@ -28,7 +28,7 @@ export interface InputNumberProps {
   className?: string
 }
 
-export const InputNumber: Component<InputNumberProps> = async (_init, ctx) => {
+export const InputNumber: Component<InputNumberProps> = (_init, ctx) => {
   // mount scope：长按连增定时器 + latestStepTo ref（防 render 闭包陈旧）
   let holdTimer: ReturnType<typeof setTimeout> | undefined
   let holdInterval: ReturnType<typeof setInterval> | undefined
@@ -47,7 +47,7 @@ export const InputNumber: Component<InputNumberProps> = async (_init, ctx) => {
     }, 500)
   }
   const stopHold = () => { clearTimeout(holdTimer); clearInterval(holdInterval) }
-  return async (props) => {
+  return (props) => {
     const {
       value = null, onChange, min, max, step = 1, precision,
       label, name, placeholder, disabled, error, hint, required, className,

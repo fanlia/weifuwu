@@ -10,8 +10,8 @@ export interface PageHeaderProps {
   children?: any
 }
 
-export const PageHeader: Component<PageHeaderProps> = async (_init, _ctx) =>
-  async (props) => {
+export const PageHeader: Component<PageHeaderProps> = (_init, _ctx) =>
+  (props) => {
   const { title, sub, display, children } = props
 
   return h('div', { class: 'wf-page-head' }, [

@@ -20,7 +20,7 @@ export interface DrawerProps {
   width?: string
 }
 
-export const Drawer: Component<DrawerProps> = async (_props, ctx) => {
+export const Drawer: Component<DrawerProps> = (_props, ctx) => {
   // usePopup 会话级模态（统一弹窗能力）：presence 退场状态机 + 焦点 trap + 滚动锁
   let latestOpen = false
   // 命令式弹窗（唯一形态 openPopup）：presence 退场状态机 + 焦点 trap + 滚动锁
@@ -33,7 +33,7 @@ export const Drawer: Component<DrawerProps> = async (_props, ctx) => {
   })
   ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
-  return async (props: DrawerProps) => {
+  return (props: DrawerProps) => {
     const { open, title, position = 'right', onClose, children, footer, width } = props
     latestOnClose = onClose
     const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}

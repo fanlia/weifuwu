@@ -14,8 +14,8 @@ export interface ProgressBarProps {
   size?: 'sm' | 'md' | 'lg'
 }
 
-export const ProgressBar: Component<ProgressBarProps> = async (_init, ctx) =>
-  async (props) => {
+export const ProgressBar: Component<ProgressBarProps> = (_init, ctx) =>
+  (props) => {
   const { value, max = 100, label, showValue, status = 'default', size = 'md' } = props
 
   const indeterminate = value == null

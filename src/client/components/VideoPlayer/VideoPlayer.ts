@@ -25,7 +25,7 @@ export interface VideoPlayerProps {
   className?: string
 }
 
-export const VideoPlayer: Component<VideoPlayerProps> = async (_init, ctx) => {
+export const VideoPlayer: Component<VideoPlayerProps> = (_init, ctx) => {
   let el: HTMLVideoElement | null = null
   let latest: VideoPlayerProps = { src: '' }
   // **video 元素自身 ref（mount 定义——稳定——§5.1 纪律）**：
@@ -48,7 +48,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = async (_init, ctx) => {
       if (latest.autoPlay !== undefined) node.autoplay = latest.autoPlay
     }
   }
-  return async (props) => {
+  return (props) => {
     latest = props
     const { src, poster, aspect = 16 / 9, controls = true, autoPlay, loop, muted, className = '' } = props
     // 渲染后 IDL 同步（props 动态变化——ref 稳定不重触发——afterRender 幂等）

@@ -18,7 +18,7 @@ export interface CodeBlockProps {
   title?: string
 }
 
-export const CodeBlock: Component<CodeBlockProps> = async (_init, ctx) => {
+export const CodeBlock: Component<CodeBlockProps> = (_init, ctx) => {
   let copied = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let latestCode = ''
@@ -31,7 +31,7 @@ export const CodeBlock: Component<CodeBlockProps> = async (_init, ctx) => {
     timer = setTimeout(() => { copied = false; ctx.render() }, 1600)
   }
 
-  return async (props: CodeBlockProps) => {
+  return (props: CodeBlockProps) => {
     const { code, lang, title } = props
     latestCode = code
 

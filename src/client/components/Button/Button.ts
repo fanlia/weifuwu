@@ -18,8 +18,8 @@ export interface ButtonProps {
   children?: any
 }
 
-export const Button: Component<ButtonProps> = async (_init, ctx) =>
-  async (props) => {
+export const Button: Component<ButtonProps> = (_init, ctx) =>
+  (props) => {
   const { variant = 'primary', size = 'md', block, loading, disabled, type, onClick, children } = props
   const cls = [
     'wf-btn',

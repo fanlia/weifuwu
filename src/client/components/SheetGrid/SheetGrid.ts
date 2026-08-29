@@ -46,7 +46,7 @@ const colName = (col: number): string => {
   return c
 }
 
-export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
+export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
   const i18n = ctx.i18n?.components?.SheetGrid ?? {}
   // ── mount（只一次） ──
   let wb: WorkbookState = _init.workbook
@@ -187,7 +187,7 @@ export const SheetGrid: Component<SheetGridProps> = async (_init, ctx) => {
   }
 
   // ── 渲染 ──
-  return async (props: SheetGridProps) => {
+  return (props: SheetGridProps) => {
     if (props.workbook !== lastPropsWb) {
       // 外部受控同步（内部 commit 后 props 未变——不覆盖）
       lastPropsWb = props.workbook

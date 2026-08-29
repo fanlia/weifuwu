@@ -20,8 +20,8 @@ export interface CardProps {
   children?: any
 }
 
-export const Card: Component<CardProps> = async (_init, _ctx) =>
-  async (props) => {
+export const Card: Component<CardProps> = (_init, _ctx) =>
+  (props) => {
   const { variant = 'default', padding = 'md', clickable, hover, active, onClick, className, id, style, children } = props
 
   const cls = [

@@ -31,16 +31,19 @@ export interface VNode {
 /** children 值域：vnode/string/number/boolean/空洞/嵌套数组（数组 = 隐式 Fragment） */
 export type VNodeChild = VNode | string | number | boolean | null | undefined | VNodeChild[]
 
-/** renderFn——每次渲染（读最新 props——同步或 async——异步边界 = ctx.data） */
-export type RenderFn<P = Record<string, unknown>> = (props: P) => VNode | null | (VNode | null)[] | Promise<VNode | null | (VNode | null)[]>
+/** renderFn——每次渲染（读最新 props——**纯同步**——2027-08 断代：
+ *  异步边界 = useAsyncData/订阅 hooks——renderFn 无 async） */
+export type RenderFn<P = Record<string, unknown>> = (props: P) => VNode | null | (VNode | null)[]
 
-/** 组件（两阶段）：
- *  工厂 = mount（一次——初始化状态/订阅/数据预取（await ctx.data——管道保证））
- *  renderFn = 每次渲染（ctx.render()/props 变化触发） */
+/** 组件（两阶段——**同步**）——2027-08 断代（OBSERVABLE-ARCH 波次 5）：
+ *  - 工厂 = **同步** mount（一次——初始化状态/订阅——**无 mounting 窗口**——
+ *    同步执行不存在「半挂载」可观察状态——mouting 竞态类 bug 结构性消灭）
+ *  - renderFn = 每次渲染（ctx.render()/props 变化触发——**纯同步**）
+ *  - 异步边界 = useAsyncData/useObservable/useExternal（hooks——流语义） */
 export type Component<P = Record<string, unknown>, C = UIContext> = (
   initProps: P,
   ctx: C,
-) => RenderFn<P> | Promise<RenderFn<P>>
+) => RenderFn<P>
 
 // type 参数放宽为 Component<any, any>（ui-dom 同款——TS 逆变：具体 props
 // 的组件可赋给宽松签名——JSX 生态惯例；严格默认参数会拒绝 Component<IconProps>）

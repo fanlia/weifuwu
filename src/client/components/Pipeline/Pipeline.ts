@@ -31,8 +31,8 @@ export interface PipelineProps {
  * 分层布局（Kahn 拓扑最长路径）+ SVG 贝塞尔连线 + 状态语义色。
  * 纯函数布局（dag-utils）可 SSR/单测；环检测 → 渲染警告不崩溃。
  */
-export const Pipeline: Component<PipelineProps> = async (_init, ctx) =>
-  async (props) => {
+export const Pipeline: Component<PipelineProps> = (_init, ctx) =>
+  (props) => {
     const {
       nodes,
       edges,

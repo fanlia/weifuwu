@@ -16,8 +16,8 @@ export interface BadgeProps {
   showZero?: boolean
 }
 
-export const Badge: Component<BadgeProps> = async (_init, _ctx) =>
-  async (props) => {
+export const Badge: Component<BadgeProps> = (_init, _ctx) =>
+  (props) => {
   const { variant = 'default', dot, children, count, overflowCount = 99, showZero = false } = props
 
   if (dot) {

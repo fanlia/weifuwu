@@ -27,7 +27,7 @@ export interface HoverCardProps {
 }
 
 /** 悬停富内容卡：hover 延迟显隐，支持任意 VNode 内容（移动端 tap 降级） */
-export const HoverCard: Component<HoverCardProps> = async (_props, ctx) => {
+export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let latestPosition: HoverCardPosition = 'top'
   let disabled = false
@@ -63,7 +63,7 @@ export const HoverCard: Component<HoverCardProps> = async (_props, ctx) => {
   ctx.ui.onUnmount?.(clearHover)
   ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
-  return async (props: HoverCardProps) => {
+  return (props: HoverCardProps) => {
     const { content, position = 'top', children } = props
     // HoverCard 非受控（hover 显隐由 hover 触发驱动——无 open prop）
     openCtrl = ctx.ui.useOpen({ name: 'HoverCard' })

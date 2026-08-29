@@ -18,8 +18,8 @@ export interface WaveProps {
 
 let waveSeq = 0
 
-export const Wave: Component<WaveProps> = async (_init, ctx) =>
-  async (props) => {
+export const Wave: Component<WaveProps> = (_init, ctx) =>
+  (props) => {
     const { children, className = '', color } = props
 
     const spawnRipple = (e: MouseEvent) => {

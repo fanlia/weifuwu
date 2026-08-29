@@ -129,8 +129,8 @@ function layoutNodes(nodes: RelationGraphNode[], mode: 'ring' | 'grid'): Array<{
   }))
 }
 
-export const RelationGraph: Component<RelationGraphProps> = async (_init, _ctx) => {
-  return async (props) => {
+export const RelationGraph: Component<RelationGraphProps> = (_init, _ctx) => {
+  return (props) => {
     const {
       nodes = [], edges = [], selectedId = null,
       onSelect, onNodeClick, layout = 'ring',

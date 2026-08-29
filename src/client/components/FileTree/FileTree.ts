@@ -81,12 +81,12 @@ function fmtTime(iso?: string): string {
   } catch { return '' }
 }
 
-export const FileTree: Component<FileTreeProps> = async (_init, _ctx) => {
+export const FileTree: Component<FileTreeProps> = (_init, _ctx) => {
   let fileInput: HTMLInputElement | null = null
   const fileInputRef = (el: HTMLInputElement | null) => { if (el) fileInput = el }
   const pickFile = () => fileInput?.click()
 
-  return async (props) => {
+  return (props) => {
     const {
       entries = [], path = '/', loading = false, openFile = null,
       editValue = '', saving = false, emptyText = '空目录',

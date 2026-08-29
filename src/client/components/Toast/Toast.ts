@@ -52,12 +52,12 @@ function positionClass(pos: ToastPosition): string {
   return map[pos] ?? 'wf-toast--tr'
 }
 
-export const Toast: Component<ToastProps> = async (_init, ctx) => {
+export const Toast: Component<ToastProps> = (_init, ctx) => {
   // 命令式弹窗（唯一形态 openPopup）：常驻容器（positioning 'none'——CSS 角落定位）
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
-  return async (props) => {
+  return (props) => {
   const { toasts = [], onRemove, position = 'top-right', duration = 0, max = 0 } = props
 
   // 限制最大显示条数

@@ -27,10 +27,10 @@ export interface DiffViewProps {
  * 展开状态用闭包 let + render()（手动模式）：`$` 深度 Proxy 包装的
  * Set 会破坏 Set.prototype.has 的 this 绑定（内置类型不可 Proxy 方法调用）。
  */
-export const DiffView: Component<DiffViewProps> = async (_init, ctx) => {
+export const DiffView: Component<DiffViewProps> = (_init, ctx) => {
   let expanded = new Set<number>() // 已展开的折叠块索引（手动：不触发 $ Proxy）
 
-  return async (props) => {
+  return (props) => {
     const {
       oldCode = '',
       newCode = '',

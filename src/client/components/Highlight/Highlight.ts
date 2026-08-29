@@ -15,8 +15,8 @@ export interface HighlightProps {
   className?: string
 }
 
-export const Highlight: Component<HighlightProps> = async (_init, _ctx) =>
-  async (props) => {
+export const Highlight: Component<HighlightProps> = (_init, _ctx) =>
+  (props) => {
     const { text, query, className } = props
     const queries = (Array.isArray(query) ? query : query ? [query] : [])
       .filter(Boolean)

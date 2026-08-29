@@ -39,12 +39,12 @@ export interface PromptTemplateProps {
   className?: string
 }
 
-export const PromptTemplate: Component<PromptTemplateProps> = async (_init, ctx: UIContext) => {
+export const PromptTemplate: Component<PromptTemplateProps> = (_init, ctx: UIContext) => {
   // ── mount（只一次）：textarea DOM 引用（光标插入需要） ──
   let taEl: HTMLTextAreaElement | null = null
   const taRef = (el: HTMLTextAreaElement | null) => { taEl = el }
 
-  return async (props: PromptTemplateProps) => {
+  return (props: PromptTemplateProps) => {
     const {
       value = '', onChange, variables = [], values = {}, readOnly,
       label, showPreview = true, className,

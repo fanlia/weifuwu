@@ -29,7 +29,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
 
-export const FileUpload: Component<FileUploadProps> = async (_init, ctx) => {
+export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
   const FL = (ctx as any)?.i18n?.components?.FileUpload ?? {}
   let fileInput: HTMLInputElement | null = null
   const fileInputRef = (el: HTMLInputElement | null) => { if (el) fileInput = el }
@@ -81,7 +81,7 @@ export const FileUpload: Component<FileUploadProps> = async (_init, ctx) => {
     },
   })
 
-  return async (props: FileUploadProps) => {
+  return (props: FileUploadProps) => {
     Object.assign(propsRef, props)
     const { accept, multiple, maxSize, disabled, error, hint, value, onChange, children, uploading, progress } = props
     const files = value ?? []

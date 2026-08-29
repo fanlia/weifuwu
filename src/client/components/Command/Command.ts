@@ -25,7 +25,7 @@ export interface CommandProps {
 }
 
 /** 命令面板（对应 shadcn Command）：usePopup mask 全屏遮罩 + 搜索 + 键盘流（↑↓ Enter Escape）+ Cmd+K 全局快捷键 */
-export const Command: Component<CommandProps> = async (_init, ctx) => {
+export const Command: Component<CommandProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let query = ''
   let highlight = 0
@@ -68,7 +68,7 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
   }
   ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
-  return async (props) => {
+  return (props) => {
     const {
       open, onOpenChange, items = [], placeholder = '输入命令或搜索...',
       emptyText = '无匹配结果', globalShortcut = 'mod+k',

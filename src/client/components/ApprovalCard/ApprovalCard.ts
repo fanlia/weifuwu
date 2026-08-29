@@ -44,13 +44,13 @@ const statusText: Record<ApprovalStatus, string> = {
   timeout: '审批超时',
 }
 
-export const ApprovalCard: Component<ApprovalCardProps> = async (_init, ctx) => {
+export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
   // ── 手动状态（组件库约定：mount 作用域 let + render，不依赖 $）──
   let note = ''
   let showNote = false
   let showModify = false
 
-  return async (props) => {
+  return (props) => {
     const { request, status = 'pending', onApprove, onReject, renderDetail, loading, argsSchema } = props
 
     const detail = renderDetail

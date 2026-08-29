@@ -25,7 +25,7 @@ export interface TabsProps {
   onAdd?: () => void
 }
 
-export const Tabs: Component<TabsProps> = async (_init, ctx) => {
+export const Tabs: Component<TabsProps> = (_init, ctx) => {
   const _browser = ctx?.browser ?? createClientBrowser()
   // render-only：内部状态 let + 显式 render（ink bar 位置更新）
   let inkLeft = 0
@@ -43,7 +43,7 @@ export const Tabs: Component<TabsProps> = async (_init, ctx) => {
   }
   // 稳定 ref（§5.1：内联 ref 每次渲染新引用 → 重复触发清理逻辑）
   const listRef = (el: any) => { if (el) { listEl = el; queueMicrotask(measureActive) } }
-  return async (props) => {
+  return (props) => {
   const { items = [], closable, onClose, addable, onAdd } = props
 
   if (items.length === 0) return null

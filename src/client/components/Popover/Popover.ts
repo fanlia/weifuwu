@@ -24,7 +24,7 @@ export interface PopoverProps {
   children?: any
 }
 
-export const Popover: Component<PopoverProps> = async (_init, ctx) => {
+export const Popover: Component<PopoverProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let latestPosition: PopoverPosition = 'bottom'
   let latestTrigger: 'click' | 'hover' = 'click'
@@ -61,7 +61,7 @@ export const Popover: Component<PopoverProps> = async (_init, ctx) => {
   ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
   // ── render（每次 dirty/props 变化）──
-  return async (props: PopoverProps) => {
+  return (props: PopoverProps) => {
     const { content, position = 'bottom', trigger = 'click', children } = props
     latestPosition = position
     latestTrigger = trigger

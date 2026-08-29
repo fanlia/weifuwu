@@ -38,8 +38,8 @@ export interface AuthPageProps {
   onSubmit?: () => void
 }
 
-export const AuthPage: Component<AuthPageProps, { ui: HookEnv }> = async (_init) =>
-  async (props) => {
+export const AuthPage: Component<AuthPageProps, { ui: HookEnv }> = (_init) =>
+  (props) => {
     return h('div', { class: 'wf-center wf-padding-xl wf-bg-secondary', style: { minHeight: '100vh' } }, [
       h(Card, {}, [
         h('div', { class: 'wf-stack wf-gap-sm wf-text-center wf-margin-bottom-lg' }, [

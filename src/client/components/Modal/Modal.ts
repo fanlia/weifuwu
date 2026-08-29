@@ -21,7 +21,7 @@ export interface ModalProps {
   maskClosable?: boolean
 }
 
-export const Modal: Component<ModalProps> = async (_props, ctx) => {
+export const Modal: Component<ModalProps> = (_props, ctx) => {
   // 命令式弹窗（唯一形态 openPopup）：presence 退场状态机 + 焦点 trap + 滚动锁
   // positioning 'none'：.wf-modal 自己 inset:0 居中（CSS flex——不依赖锚点坐标）
   let latestOpen = false
@@ -35,7 +35,7 @@ export const Modal: Component<ModalProps> = async (_props, ctx) => {
   })
   ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
-  return async (props: ModalProps) => {
+  return (props: ModalProps) => {
     const { open, title, onClose, children, footer, width, closable = true, maskClosable = true } = props
     latestOnClose = onClose
     latestOpen = !!open

@@ -11,8 +11,8 @@ export interface BreadcrumbProps {
   items: BreadcrumbItem[]
 }
 
-export const Breadcrumb: Component<BreadcrumbProps> = async (_init, _ctx) =>
-  async (props) => {
+export const Breadcrumb: Component<BreadcrumbProps> = (_init, _ctx) =>
+  (props) => {
     const { items } = props
 
     const children = items.flatMap((item, i) => {

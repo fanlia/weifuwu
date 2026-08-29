@@ -18,8 +18,8 @@ export interface CodeEditorProps {
   className?: string
 }
 
-export const CodeEditor: Component<CodeEditorProps> = async (_init, ctx) => {
-  return async (props) => {
+export const CodeEditor: Component<CodeEditorProps> = (_init, ctx) => {
+  return (props) => {
     const { value, onChange, lang = 'text', rows = 10, readOnly, placeholder, className = '' } = props
     if (onChange === undefined && !readOnly) {
       console.warn('[weifuwu] CodeEditor: 传入了受控 value 但缺少 onChange 回调——编辑将静默失效')

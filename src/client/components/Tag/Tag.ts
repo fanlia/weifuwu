@@ -10,8 +10,8 @@ export interface TagProps {
   children?: any
 }
 
-export const Tag: Component<TagProps> = async (_init, _ctx) =>
-  async (props) => {
+export const Tag: Component<TagProps> = (_init, _ctx) =>
+  (props) => {
   const { closable, onClose, variant = 'default', children } = props
 
   const closeBtn = closable

@@ -38,7 +38,7 @@ export interface PopconfirmProps {
   children?: any
 }
 
-export const Popconfirm: Component<PopconfirmProps> = async (_init, ctx: UIContext) => {
+export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let latestPosition: Placement = 'top'
   let latestOnConfirm: (() => void) | undefined
@@ -54,7 +54,7 @@ export const Popconfirm: Component<PopconfirmProps> = async (_init, ctx: UIConte
   const close = () => { openCtrl?.setOpen(false) }
 
   // ── render（每次 dirty/props 变化）──
-  return async (props: PopconfirmProps) => {
+  return (props: PopconfirmProps) => {
     const {
       title, okText = '确定', cancelText = '取消', danger,
       onConfirm, onCancel, position = 'top', icon,

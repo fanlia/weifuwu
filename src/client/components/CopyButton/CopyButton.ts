@@ -21,12 +21,12 @@ export interface CopyButtonProps {
 
 
 /** 复制按钮（weifuwu 独有，Chat 消息复制/CodeBlock 抽取统一） */
-export const CopyButton: Component<CopyButtonProps> = async (_init, ctx) => {
+export const CopyButton: Component<CopyButtonProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let copied = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
-  return async (props) => {
+  return (props) => {
     const {
       value, label, size = 'md', variant = 'secondary',
       iconOnly, successText = '已复制', onCopied, className, ...rest

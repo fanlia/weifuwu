@@ -40,7 +40,7 @@ interface UndoEntry {
 const CANVAS_W = 960
 const CANVAS_H = 540
 
-export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
+export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx) => {
   const i18n = ctx.i18n?.components?.SlideCanvas ?? {}
   // ── mount ──
   let deck: DeckState = _init.deck
@@ -243,7 +243,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = async (_init, ctx) => {
   }
 
   // ── 渲染 ──
-  return async (props: SlideCanvasProps) => {
+  return (props: SlideCanvasProps) => {
     if (props.deck !== lastPropsDeck) {
       lastPropsDeck = props.deck
       deck = props.deck

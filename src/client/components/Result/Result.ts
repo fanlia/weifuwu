@@ -29,8 +29,8 @@ const ICON: Record<ResultStatus, IconName> = {
   info: 'info',
 }
 
-export const Result: Component<ResultProps> = async (_init, _ctx) =>
-  async (props) => {
+export const Result: Component<ResultProps> = (_init, _ctx) =>
+  (props) => {
     const { status = 'info', title, desc, extra, className } = props
 
     return h('div', { class: `wf-result wf-result--${status}${className ? ` ${className}` : ''}` }, [

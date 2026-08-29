@@ -18,7 +18,7 @@ export interface InfiniteScrollProps {
 /** 无限滚动（对应 EP InfiniteScroll）：底部哨兵进入视口 → 加载更多。
  * 实现：ctx.ui.useInView（IO 封装——合成器线程评估，替代组件自建 IntersectionObserver）。
  * onChange 在交叉状态变化时回调（IO 语义），与自建 IO 等价且不重复触发。 */
-export const InfiniteScroll: Component<InfiniteScrollProps> = async (_init, ctx) => {
+export const InfiniteScroll: Component<InfiniteScrollProps> = (_init, ctx) => {
   // ── mount（只一次）──
   const propsRef: any = {}
   const inView = ctx.ui.useInView({
@@ -30,7 +30,7 @@ export const InfiniteScroll: Component<InfiniteScrollProps> = async (_init, ctx)
     },
   })
 
-  return async (props) => {
+  return (props) => {
     Object.assign(propsRef, props)
     const {
       hasMore = true, loading, threshold = 100,

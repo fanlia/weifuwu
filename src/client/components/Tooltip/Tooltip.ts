@@ -20,7 +20,7 @@ export interface TooltipProps {
   disabled?: boolean
 }
 
-export const Tooltip: Component<TooltipProps> = async (_props, ctx) => {
+export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let show = false
   let latestPosition: TooltipPosition = 'top'
@@ -48,7 +48,7 @@ export const Tooltip: Component<TooltipProps> = async (_props, ctx) => {
   ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
 
   // ── render（每次 dirty/props 变化）──
-  return async (props: TooltipProps) => {
+  return (props: TooltipProps) => {
     const { content, position = 'top', children } = props
     latestPosition = position
     disabled = !!props.disabled

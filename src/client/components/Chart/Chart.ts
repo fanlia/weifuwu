@@ -23,7 +23,7 @@ export interface ChartProps {
   className?: string
 }
 
-export const Chart: Component<ChartProps> = async (_props, ctx) => {
+export const Chart: Component<ChartProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let tooltip: { label: string; value: number; color?: string } | null = null
   let tooltipEl: Element | null = null
@@ -34,7 +34,7 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
   // ── render（每次 dirty/props 变化）──
-  return async (props: ChartProps) => {
+  return (props: ChartProps) => {
     const { type = 'line', data, options = {}, title, area, className } = props
 
     const W = options.width ?? 320

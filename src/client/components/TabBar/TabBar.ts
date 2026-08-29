@@ -38,11 +38,11 @@ export interface TabBarProps {
   className?: string
 }
 
-export const TabBar: Component<TabBarProps> = async (_init, ctx: UIContext) => {
+export const TabBar: Component<TabBarProps> = (_init, ctx: UIContext) => {
   // ── mount（只一次）：非受控自管理激活态 ──
   let internalActive: string | null = null
 
-  return async (props: TabBarProps) => {
+  return (props: TabBarProps) => {
     const { items, activeKey, onChange, fixed, className } = props
     const controlled = activeKey !== undefined
     if (controlled && !onChange) {

@@ -57,7 +57,7 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
   return sorted
 }
 
-export const VirtualTable: Component<VirtualTableProps> = async (_init, ctx) => {
+export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let bodyEl: HTMLElement | null = null
   const scroll = ctx.ui.useScrollPosition({ getScroller: () => bodyEl ?? null })
@@ -70,7 +70,7 @@ export const VirtualTable: Component<VirtualTableProps> = async (_init, ctx) => 
     }
   }
 
-  return async (props: VirtualTableProps) => {
+  return (props: VirtualTableProps) => {
     const {
       columns, data = [], height = 400, rowHeight = 40, overscan = 5,
       sortKey, sortOrder, onSort, emptyText = '暂无数据', onRowClick, rowSelection, className,

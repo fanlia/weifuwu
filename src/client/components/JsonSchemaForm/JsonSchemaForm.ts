@@ -112,7 +112,7 @@ function validateField(s: JsonSchema, val: any, required = false): string | unde
   return undefined
 }
 
-export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = async (initProps, ctx) => {
+export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initProps, ctx) => {
   // ── 手动状态（组件库纪律：let + render()；value 仅初始值）──
   let values: Record<string, any> = cloneValues(initProps.value)
 
@@ -244,7 +244,7 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = async (
   }
 
   // ── render（每次 render()/props 变化）──
-  return async (props) => {
+  return (props) => {
     // 初始值只取一次（mount 时 value 是 initProps）；render 期 props.value 变化不回流
     // （非受控语义，文档注明）
     const schema = props.schema

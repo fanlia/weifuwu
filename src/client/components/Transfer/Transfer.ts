@@ -25,14 +25,14 @@ export interface TransferProps {
 
 /** 穿梭框（对应 antd/EP Transfer）：双列表 + 中间穿梭按钮 + 可选搜索。
  * 裁剪（CS-05，见 design/components-cuts.md）：拖拽排序、自定义渲染。 */
-export const Transfer: Component<TransferProps> = async (_init, ctx) => {
+export const Transfer: Component<TransferProps> = (_init, ctx) => {
   // render-only：内部状态 let + 显式 render（选中/搜索词）
   let selLeft: string[] = []
   let selRight: string[] = []
   let kwLeft = ''
   let kwRight = ''
 
-  return async (props) => {
+  return (props) => {
     const {
       data = [], targetKeys = [], onChange, titles = ['源列表', '目标列表'],
       size = 'md', disabled, showSearch, searchPlaceholder = '搜索…',

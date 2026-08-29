@@ -31,8 +31,8 @@ export interface FloatButtonProps {
 }
 
 /** 单个悬浮按钮 */
-export const FloatButton: Component<FloatButtonProps> = async (_init, _ctx: UIContext) =>
-  async (props) => {
+export const FloatButton: Component<FloatButtonProps> = (_init, _ctx: UIContext) =>
+  (props) => {
     const { icon, badge, position = 'bottom-right', static: isStatic, disabled, onClick, children } = props
     return h('button', {
       class: `wf-float-btn wf-float-btn--${position}${isStatic ? ' wf-float-btn--static' : ''}${disabled ? ' wf-float-btn--disabled' : ''}`,
@@ -53,11 +53,11 @@ export interface FloatButtonGroupProps {
 }
 
 /** 悬浮按钮组：主按钮展开/收起子按钮 */
-export const FloatButtonGroup: Component<FloatButtonGroupProps> = async (_init, ctx: UIContext) => {
+export const FloatButtonGroup: Component<FloatButtonGroupProps> = (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let open = false
 
-  return async (props) => {
+  return (props) => {
     const { position = 'bottom-right', children } = props
     const kids = Array.isArray(children) ? children : [children]
     return h('div', {

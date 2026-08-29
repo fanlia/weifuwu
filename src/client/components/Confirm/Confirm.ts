@@ -97,9 +97,9 @@ export function confirm(message: string, options?: ConfirmOptions): Promise<bool
   })
 }
 
-export const Confirm: Component<ConfirmProps> = async (_init, _ctx) => {
+export const Confirm: Component<ConfirmProps> = (_init, _ctx) => {
   // ── render（每次 dirty/props 变化）──
-  return async (props: ConfirmProps) => {
+  return (props: ConfirmProps) => {
     const { open = false, title, message, confirmText, cancelText, variant = 'primary', width, maskClosable = false, onConfirm, onCancel } = props
     const CL = (_ctx as any)?.i18n?.components?.Confirm ?? {}
 

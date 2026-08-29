@@ -39,7 +39,7 @@ export interface MenuProps {
   onCollapseChange?: (collapsed: boolean) => void
 }
 
-export const Menu: Component<MenuProps> = async (_init, ctx) => {
+export const Menu: Component<MenuProps> = (_init, ctx) => {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
@@ -85,7 +85,7 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
     items[next].focus()
   }
 
-  return async (props: MenuProps) => {
+  return (props: MenuProps) => {
     const {
       items, onSelect, activeKey, className,
       openKeys, onOpenChange, collapsible, collapsed, onCollapseChange,

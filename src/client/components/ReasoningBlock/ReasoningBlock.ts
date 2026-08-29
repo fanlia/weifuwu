@@ -26,10 +26,10 @@ export interface ReasoningBlockProps {
   streaming?: boolean
 }
 
-export const ReasoningBlock: Component<ReasoningBlockProps, UIContext> = async (initProps, ctx) => {
+export const ReasoningBlock: Component<ReasoningBlockProps, UIContext> = (initProps, ctx) => {
   let expanded = !!initProps.defaultExpanded
 
-  return async (props) => {
+  return (props) => {
     const { content, streaming, label = '已思考' } = props
     const toggle = () => { expanded = !expanded; ctx.render() }
 

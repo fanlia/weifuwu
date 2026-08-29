@@ -24,8 +24,8 @@ export interface LinkProps {
   children?: any
 }
 
-export const Link: Component<LinkProps> = async (_init, _ctx: UIContext) =>
-  async (props) => {
+export const Link: Component<LinkProps> = (_init, _ctx: UIContext) =>
+  (props) => {
     const {
       href, variant = 'default', underline = true, disabled, target, icon, onClick, children,
     } = props

@@ -24,8 +24,8 @@ export interface DescriptionsProps {
   className?: string
 }
 
-export const Descriptions: Component<DescriptionsProps> = async (_init, _ctx) =>
-  async (props) => {
+export const Descriptions: Component<DescriptionsProps> = (_init, _ctx) =>
+  (props) => {
     const { items, column = 1, bordered, size = 'md', className } = props
 
     const rows = items.map((it, i) =>

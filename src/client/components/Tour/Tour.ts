@@ -44,7 +44,7 @@ interface Rect {
  * - 步骤索引闭包 let + render()（手动模式——避免 $ 内置类型问题）
  * - open 受控（props.open + onChange）
  */
-export const Tour: Component<TourProps> = async (_init, ctx) => {
+export const Tour: Component<TourProps> = (_init, ctx) => {
   let step = 0 // 非受控内部步骤（受控 current 时忽略）
   let targetEl: HTMLElement | null = null
   let rect: Rect = { top: 0, left: 0, width: 0, height: 0 }
@@ -103,7 +103,7 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
     ctx.render()
   }
 
-  return async (props) => {
+  return (props) => {
     latestProps = props
     latestOpen = !!props.open
     const isControlledOpen = props.open !== undefined

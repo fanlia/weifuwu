@@ -62,7 +62,7 @@ export function parseAnsi(text: string): any[] {
   return nodes
 }
 
-export const LogViewer: Component<LogViewerProps> = async (_init, ctx) => {
+export const LogViewer: Component<LogViewerProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let bodyEl: HTMLElement | null = null
   let lastLineCount = 0
@@ -83,7 +83,7 @@ export const LogViewer: Component<LogViewerProps> = async (_init, ctx) => {
     await ctx.browser?.copyText(lines.join('\n'))
   }
 
-  return async (props: LogViewerProps) => {
+  return (props: LogViewerProps) => {
     const {
       lines, height = 400, lineHeight = 24, overscan = 5,
       follow = true, maxLines, showCopy = true, showLineNumbers = true, className,

@@ -35,7 +35,7 @@ export interface NavMenuProps {
  * 区域不属于面板——mouseout relatedTarget 是页面元素——进入面板前不误关） */
 const HOVER_CLOSE_DELAY = 120
 
-export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) => {
+export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
   // ── mount（只一次）──
   let openKey: string | null = null
   let nestedKey: string | null = null
@@ -202,7 +202,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: UIContext) =>
     })
 
   // ── render（每次 dirty/props 变化）──
-  return async (props: NavMenuProps) => {
+  return (props: NavMenuProps) => {
     const { items, activeKey, onSelect } = props
 
     const navVn = h('nav', {

@@ -43,7 +43,7 @@ export function findLabel(nodes: TreeNode[], key: string): string | undefined {
  * 单选 selectedKeys / 多选 checkable checkedKeys（父子联动）。
  * 受控纪律：value 受控无 onChange → warn。
  */
-export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
+export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
   let open = false
   let expanded: string[] = []
   let triggerEl: HTMLElement | null = null
@@ -92,7 +92,7 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
     if (el && handle?.open) handle.refresh()
   }
 
-  return async (props) => {
+  return (props) => {
     const {
       options,
       value,

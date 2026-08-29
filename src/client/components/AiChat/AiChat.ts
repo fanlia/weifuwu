@@ -76,7 +76,7 @@ const defaultLabels: AiChatLabels = {
 
 // ── 组件 ─────────────────────────────────────────────────
 
-export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
+export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── 手动状态（组件库约定：let + 事件，不依赖 $）──
   let listEl: HTMLElement | undefined
@@ -122,7 +122,7 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
   }
 
   // ── render（每次 dirty/props 变化）──
-  return async (props) => {
+  return (props) => {
     const { chat, raiseOnKeyboard = false } = props
     const labels: AiChatLabels = { ...defaultLabels, ...props.labels }
 

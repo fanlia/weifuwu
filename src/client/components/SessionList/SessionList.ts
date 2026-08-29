@@ -55,7 +55,7 @@ export function groupKey(t: number, now = Date.now()): 'today' | 'yesterday' | '
 
 const GROUP_LABEL: Record<string, string> = { today: '今天', yesterday: '昨天', earlier: '更早' }
 
-export const SessionList: Component<SessionListProps, UIContext> = async (_init, ctx) => {
+export const SessionList: Component<SessionListProps, UIContext> = (_init, ctx) => {
   // ── 手动状态（组件库纪律：let + render()）──
   let keyword = ''
   let renamingId: string | undefined
@@ -63,7 +63,7 @@ export const SessionList: Component<SessionListProps, UIContext> = async (_init,
   /** 键盘导航焦点 id（与 activeId 独立：方向键移动高亮） */
   let focusId: string | undefined
 
-  return async (props) => {
+  return (props) => {
     const { sessions, activeId, onSelect, onNew, onRename, onDelete, searchable, newLabel = '新建会话' } = props
 
     // 搜索过滤 + 分组

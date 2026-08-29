@@ -41,8 +41,8 @@ export function gridColumns(span: number): string {
   return `${(span / 24) * 100}%`
 }
 
-export const Grid: Component<GridProps> = async (_init, _ctx: UIContext) =>
-  async (props) => {
+export const Grid: Component<GridProps> = (_init, _ctx: UIContext) =>
+  (props) => {
     const { gutter, flex, gap, direction = 'row', align, children } = props
     const half = gutter ? gutter / 2 : 0
     // gutter 通过 style 传递——子 Col 从 Grid 拿（简化：注入 gutter 到 children props）
@@ -66,8 +66,8 @@ export const Grid: Component<GridProps> = async (_init, _ctx: UIContext) =>
     }, kids)
   }
 
-export const Col: Component<ColProps> = async (_init, _ctx: UIContext) =>
-  async (props) => {
+export const Col: Component<ColProps> = (_init, _ctx: UIContext) =>
+  (props) => {
     const { span = 24, gutter, children } = props
     const half = gutter ? gutter / 2 : 0
     return h('div', {

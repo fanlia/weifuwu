@@ -11,8 +11,8 @@ export interface LabelProps {
 }
 
 /** 独立标签（对应 shadcn Label；weifuwu Input/Field 已内嵌 label，独立组件用于自定义布局） */
-export const Label: Component<LabelProps> = async (_init) =>
-  async (props) => {
+export const Label: Component<LabelProps> = (_init) =>
+  (props) => {
     const { htmlFor, required, children, className, ...rest } = props
     const content = required
       ? [children, h('span', { class: 'wf-label-req' }, '*')]

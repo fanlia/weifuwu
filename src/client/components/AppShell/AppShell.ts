@@ -60,8 +60,8 @@ const activeOf = (nav: AppShellNavItem[], path: string): string => {
   return hit?.key ?? ''
 }
 
-export const AppShell: Component<AppShellProps> = async (_init, _ctx) => {
-  return async (props) => {
+export const AppShell: Component<AppShellProps> = (_init, _ctx) => {
+  return (props) => {
     const {
       nav = [], path = '', user = null, brand = {},
       onNavigate, onLogout, onSettings, loading = false,
