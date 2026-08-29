@@ -13,7 +13,9 @@ import type { Command } from '../command/index.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 
 
-import { Subject, scan } from '../../observable/index.ts'
+import { Subject, scan, fromPromise, create, switchMap, type Observable } from '../../observable/index.ts'
+import { fromArray } from './render.ts'
+import { spyEvent } from './spy.ts'
 import { createFnTable, defaultErrorFallback, type RenderCtx, type UiServeOptions, type UiServeHandle } from '../protocol.ts'
 import { UIRouter, frontRequest } from '../router.ts'
 import { createDevVerifier } from '../patch/verify.ts'
@@ -183,37 +185,60 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   }
 
 
-  // 渲染（resolve router → handler 调 ctx.stream → applyV2——**redirect 语义**）
-  let req = frontRequest(win.location.pathname)
-  // **RenderPhase（波次 1——scan 折叠——手写 renderPhase 变量删除）**：
-  // idle/rendering 迁移——begin 于 rendering = 合并（现有语义——调度
-  // batching 防线——静默返回）；end 于 idle = 幂等（防御——状态机显式化）
+  // ── 导航流（波次 5——统一解析入口 + redirect 链流化）──
+  // **RenderPhase（scan 折叠——诊断面——begin/end 由导航流包裹）**：
+  // idle/rendering 迁移（状态机维度总表语义）——取消（新导航 switchMap
+  // 旧作废）→ teardown 补 end（相位配对不悬空）
   const phaseSource = new Subject<{ kind: 'begin' } | { kind: 'end' }>()
   let renderPhase: 'idle' | 'rendering' = 'idle'
   phaseSource.asObservable().pipe(scan((s: 'idle' | 'rendering', e: { kind: 'begin' } | { kind: 'end' }): 'idle' | 'rendering' => {
     if (e.kind === 'begin') return 'rendering'
     return 'idle'
   }, 'idle')).subscribe({ next: (p) => { renderPhase = p } })
+  /** 导航观测面（每次解析入口 next——时间线可观测——未来中间件监听点） */
+  const navigations$ = new Subject<string>()
+  navigations$.subscribe({ next: (p) => spyEvent('nav:resolve', p) })
+  /** redirect 链（递归流——switchMap 取消语义——旧 redirect 作废——
+   *  3xx + Location → replaceState + 递归——上限 5（循环 redirect 防护） */
+  const resolveFlow = (path: string, depth: number): Observable<void> =>
+    fromPromise(router.resolve(frontRequest(path), ctx as unknown as UIContext)).pipe(
+      switchMap((res) => {
+        const loc = res.status >= 300 && res.status < 400 && res.headers?.get('Location')
+          ? res.headers.get('Location')!
+          : null
+        if (loc) {
+          if (depth >= 5) throw new Error(`[vdom] redirect 链超限（${depth + 1}）——${path} → ${loc}`)
+          win.history.replaceState({}, '', loc)
+          return resolveFlow(loc, depth + 1)
+        }
+        return fromArray([void 0]) // 终态（handler 已调 ctx.stream——渲染路径）
+      }),
+    )
+  /** 相位包裹（begin/end 配对——取消补 end——诊断不悬空） */
+  const guardedResolve = (path: string): Observable<void> =>
+    create<void>((obs) => {
+      phaseSource.next({ kind: 'begin' })
+      let done = false
+      const sub = resolveFlow(path, 0).subscribe({
+        next: () => obs.next(),
+        error: (e) => { done = true; phaseSource.next({ kind: 'end' }); obs.error(e) },
+        complete: () => { done = true; phaseSource.next({ kind: 'end' }); obs.complete() },
+      })
+      return () => { sub.unsubscribe(); if (!done) phaseSource.next({ kind: 'end' }) }
+    })
+  /** 解析入口（统一：导航/重渲染/首帧——导航观测事件 + 完成 promise） */
+  const resolvePath = (path: string): Promise<void> => {
+    navigations$.next(path)
+    return new Promise<void>((resolve, reject) => {
+      guardedResolve(path).subscribe({ next: () => resolve(), error: (e) => reject(e), complete: () => resolve() })
+    })
+  }
   const render = async (): Promise<void> => {
-    if (renderPhase === 'rendering') return // 渲染中——合并（调度流已 batching）
-    phaseSource.next({ kind: 'begin' })
-    try {
-      let res = await router.resolve(req, ctx as unknown as UIContext)
-      // **redirect（3xx + Location——replaceState——不 push 历史）**
-      let guard = 0
-      while (res.status >= 300 && res.status < 400 && res.headers?.get('Location') && guard++ < 5) {
-        const loc = res.headers.get('Location')!
-        win.history.replaceState({}, '', loc)
-        req = frontRequest(loc)
-        res = await router.resolve(req, ctx as unknown as UIContext)
-      }
-    } finally {
-      phaseSource.next({ kind: 'end' })
-    }
+    await resolvePath(win.location.pathname)
   }
 
 
-  // 调度流接入（batching：同拍 N 次 render → 1 次）
+  // 调度流接入（batching：同拍 N 次 render → 1 次——重渲染当前路径）
   scheduler.renders$.subscribe({
     next: () => {
       void render().catch((e) => console.error('[vdom] v2 render:', e))
@@ -224,11 +249,10 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   // 页面作者 render（ctx.render——经调度流合并）
   ctx.render = () => { scheduler.request() }
 
-  // **导航（v1 对齐——pushState + req 更新 + 渲染）**
+  // **导航（pushState + 统一解析——await 完成）**
   const navigate = async (path: string): Promise<void> => {
     win.history.pushState({}, '', path)
-    req = frontRequest(path)
-    await render()
+    await resolvePath(path)
   }
   ;(ctx as Record<string, unknown>).app = { navigate }
 
@@ -244,15 +268,14 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   }
   doc.addEventListener('click', onDocClick)
 
-  // **popstate（前进/后退 → 渲染当前 URL）**
+  // **popstate（前进/后退 → 解析当前 URL）**
   const onPopstate = (): void => {
-    req = frontRequest(win.location.pathname)
-    void render()
+    void resolvePath(win.location.pathname).catch((e) => console.error('[vdom] v2 popstate:', e))
   }
   win.addEventListener('popstate', onPopstate)
 
   // **首帧 boot**（v1 ready 等价）
-  void render().catch((e) => console.error('[vdom] v2 首帧:', e))
+  void resolvePath(win.location.pathname).catch((e) => console.error('[vdom] v2 首帧:', e))
 
   let disposed = false
   const handle = {
@@ -273,5 +296,7 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
     },
   } as UiServeHandle & { render: () => Promise<void>; __apply: (vnode: VNode) => Promise<void> }
   void disposed
+  void renderPhase
+  void navigations$
   return handle
 }
