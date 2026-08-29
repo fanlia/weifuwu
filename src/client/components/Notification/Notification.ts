@@ -64,8 +64,9 @@ function iconFor(type: NotificationType): IconName {
  * ——showcase Notification demo 静默失效（ctx.notification undefined）——
  * 补全：模块级队列 + 常驻容器 + diff 重渲染（Notification 组件真实实例）。
  */
-import { renderToStream } from '../../vdom/core/build.ts'
-import { diffStream } from '../../vdom/core/diff/index.ts'
+import { renderV2 } from '../../vdom/core/v2/render.ts' // v1 退役——v2 引擎
+import { diffV2, disposeSegment as disposeSegmentV2, type SegmentMap } from '../../vdom/core/v2/diff.ts'
+import { collectCommands } from '../../vdom/core/v2/integrate.ts'
 import { CommandApplier } from '../../vdom/core/patch/index.ts'
 import { createComponentRegistry } from '../../vdom/core/node/component.ts'
 import type { ComponentRegistry } from '../../vdom/core/node/component.ts'
@@ -78,6 +79,8 @@ type NotifHost = {
   seq: number
   currentTree: VNode | null
   ctx: UIContext
+  /** v2 段表（弹窗级独立实例——组件工厂不重跑） */
+  segments: SegmentMap
 }
 
 let notifHost: NotifHost | null = null
@@ -95,31 +98,41 @@ function ensureHost(): NotifHost {
     data: { get: async () => undefined, set: () => {}, has: () => false },
     browser,
   } as unknown as UIContext
-  notifHost = { container, applier, registry, items: [], seq: 0, currentTree: null, ctx }
+  notifHost = { container, applier, registry, items: [], seq: 0, currentTree: null, ctx, segments: new Map() }
   return notifHost
 }
 
-function renderNotifs(host: NotifHost): void {
+async function renderNotifs(host: NotifHost): Promise<void> {
   const vnode = h(Notification, {
     items: host.items,
     onRemove: (id: string) => { removeNotif(id) },
   }) as VNode
-  const stream = host.currentTree
-    ? diffStream(host.currentTree, vnode, host.ctx, host.registry)
-    : renderToStream(vnode, host.ctx, host.registry)
+  const obs = host.currentTree
+    ? diffV2(host.currentTree as never, vnode as never, host.ctx, host.segments, host.registry, () => {})
+    : renderV2(vnode as never, host.ctx, host.registry, host.segments, () => {})
+  const cmds = await collectCommands(obs)
+  for (const cmd of cmds) host.applier.apply(cmd)
   host.currentTree = vnode
-  stream.pipeTo(new WritableStream({ write(cmd) { host.applier.apply(cmd) } })).catch(() => {})
+  for (const cmd of cmds) {
+    if (cmd.op === 'unmount') disposeSegmentV2(cmd.compId, host.segments)
+  }
 }
 
-function removeNotif(id: string): void {
+async function removeNotif(id: string): Promise<void> {
   if (!notifHost) return
   notifHost.items = notifHost.items.filter((t) => t.id !== id)
   if (notifHost.items.length === 0) {
+    // **先渲染空列表（2027-08——v1 退役——portal 清理）**：Notification 内容
+    // 挂全局 portal（openPopup）——handle.close 发生在 renderFn（空列表
+    // 分支）——v1 的 applier.dispose 经 registry onUnmounts 触发；v2 段表
+    // 需显式渲染空态触发段卸载 → handle.close → portal 内容移除——
+    // 再 dispose host（等待渲染完成——序列确定）
+    try { await renderNotifs(notifHost) } catch { /* 空态渲染失败——继续清理 */ }
     notifHost.applier.dispose()
     notifHost.container.remove()
     notifHost = null
   } else {
-    renderNotifs(notifHost)
+    void renderNotifs(notifHost)
   }
 }
 

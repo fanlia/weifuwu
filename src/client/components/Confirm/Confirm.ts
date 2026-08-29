@@ -58,7 +58,8 @@ export interface ConfirmInjected {
  * showcase Confirm demo 点击按钮静默失效（ctx.confirm undefined——`?.()`
  * 跳过——无弹窗无报错）——补全实现。
  */
-import { renderToStream } from '../../vdom/core/build.ts'
+import { renderToStreamV2 } from '../../vdom/core/v2/integrate.ts' // v1 退役——v2 引擎
+import { disposeSegment, type Segment } from '../../vdom/core/v2/diff.ts'
 import { CommandApplier } from '../../vdom/core/patch/index.ts'
 import { createComponentRegistry } from '../../vdom/core/node/component.ts'
 
@@ -68,10 +69,15 @@ export function confirm(message: string, options?: ConfirmOptions): Promise<bool
     document.body.appendChild(container)
     const registry = createComponentRegistry()
     const applier = new CommandApplier(container, document, registry)
+    // **v2 段表（2027-08——v1 退役——命令式组件 v2 化）**：Modal 内部
+    // openPopup 的 env.onUnmount 挂在段上——applier.dispose 不认 v2 段——
+    // 不 dispose 则 portal 内容残留（确认后 .wf-modal 残留实证）
+    const segments = new Map<string, Segment>()
     let done = false
     const close = (result: boolean): void => {
       if (done) return
       done = true
+      for (const [sid] of [...segments]) disposeSegment(sid, segments)
       applier.dispose()
       container.remove()
       resolve(result)
@@ -91,7 +97,7 @@ export function confirm(message: string, options?: ConfirmOptions): Promise<bool
       onConfirm: () => close(true),
       onCancel: () => close(false),
     }) as VNode
-    renderToStream(vnode, ctx, registry).pipeTo(new WritableStream({
+    renderToStreamV2(vnode as never, ctx, registry, segments).pipeTo(new WritableStream({
       write(cmd) { applier.apply(cmd) },
     })).catch(() => close(false))
   })

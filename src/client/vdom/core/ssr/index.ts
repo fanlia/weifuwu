@@ -2,6 +2,10 @@
  * vdom core/ssr — index（SSR 中转站——自身不处理细节逻辑）
  *
  * 职责：服务端渲染入口（uiSsr——同一 UIRouter 同一 handler）——
+ * **v1 退役（2027-08——VDOM-V2-BLUEPRINT）**：运行路径默认 v2（uiServe/uiSsr/
+ * 命令式组件——core/v2/）——本文件保留为**对账基线**（契约测试 v1/v2 命令流
+ * 等价断言 + fuzz 对账器——v1 引擎不退役则无法对照）——新代码禁止引用。
+
  * 具体功能交由独立文件：
  * - html.ts（commandToHtml 流式序列化 + htmlDocument 文档包装）
  * - absorb.ts（客户端结构吸收状态机——首帧复用 SSR DOM）

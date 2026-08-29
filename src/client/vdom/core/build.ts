@@ -1,5 +1,9 @@
 /**
  * vdom core — build 阶段（vnode → 全量命令事件流）
+ * **v1 退役（2027-08——VDOM-V2-BLUEPRINT）**：运行路径默认 v2（uiServe/uiSsr/
+ * 命令式组件——core/v2/）——本文件保留为**对账基线**（契约测试 v1/v2 命令流
+ * 等价断言 + fuzz 对账器——v1 引擎不退役则无法对照）——新代码禁止引用。
+
  *
  * 四阶段管线（route → build → diff → patch）：build 是「新树渲染」——
  * vnode → 命令事件流（create/insert/close...——done.full 全量标记——

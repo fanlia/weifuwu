@@ -15,6 +15,12 @@
 
 ## 2. 测试架构（内置框架——契约层 + 场景层）
 
+> **v1 已退役（2027-08——VDOM-V2-BLUEPRINT）**：运行路径默认 v2（uiServe/
+> uiSsr/命令式组件 toast/confirm/notification/服务端 ui.ssr——core/v2/）——
+> v1 引擎（core/build.ts/diff/serve.ts/ssr）保留为**对账基线**（契约 v1/v2
+> 命令流等价 + fuzz 对账器——删除即失对照）——**新代码禁止引用 v1 引擎**
+> （audit:semantics 红线扩展面：v2 代码同样必须 isHoleKind/isTextKind 单源）
+
 ```
 npm run test:client    → 契约层（207 测试——node 直跑命令流——零浏览器——~4s）
 npm run test:scenario  → 场景层（116 场景——SSR 服务化 + playwright——真实浏览器——15 文件并发——~17s）

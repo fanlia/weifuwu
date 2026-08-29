@@ -1,5 +1,9 @@
 /**
  * vdom core — uiServe（渲染落地——公共面——双端一体）
+ * **v1 退役（2027-08——VDOM-V2-BLUEPRINT）**：运行路径默认 v2（uiServe/uiSsr/
+ * 命令式组件——core/v2/）——本文件保留为**对账基线**（契约测试 v1/v2 命令流
+ * 等价断言 + fuzz 对账器——v1 引擎不退役则无法对照）——新代码禁止引用。
+
  *
  * 设计（design/vdom-plan.md §3/§4）：
  * - UIRouter 唯一应用入口——uiServe(router, { root }) 收养渲染（真实浏览器全局

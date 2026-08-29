@@ -32,7 +32,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
-import { renderToStream } from '../../client/vdom/core/build.ts'
+import { v2ToHtml } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——运行路径 v2 化（v1 renderToStream 仅对账基线）
 import { commandToHtml } from '../../client/vdom/core/ssr/html.ts'
 import { h } from '../../client/vdom/index.ts'
 import type { Component } from '../../client/vdom/index.ts'
@@ -136,16 +136,10 @@ export function ui(): Middleware {
     ctx.ui = {
       html: Object.assign(htmlTag, { unsafe }) as any,
 
-      /** SSR 渲染组件 → HTML 片段（vdom 管线：renderToStream → commandToHtml 流式） */
+      /** SSR 渲染组件 → HTML 片段（vdom 管线：v2 引擎 → commandToHtml 流式）
+       *  （2027-08——v1 退役——运行路径 v2 化——renderV2 命令同构——消费端不变） */
       async ssr(Comp: Component, props?: Record<string, any>): Promise<string> {
-        const reader = renderToStream(h(Comp as never, props ?? {})).pipeThrough(commandToHtml()).getReader()
-        let html = ''
-        while (true) {
-          const { value, done } = await reader.read()
-          if (done) break
-          html += value
-        }
-        return new HtmlSafe(html) as unknown as string
+        return v2ToHtml(h(Comp as never, props ?? {}))
       },
 
       /** 序列化 SSR 数据存储 → window.__DATA__ 脚本（HtmlSafe——< 转义防注入） */

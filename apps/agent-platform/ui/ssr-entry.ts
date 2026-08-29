@@ -10,5 +10,5 @@
  * 本 bundle 被 server.ts 的 loadSsrApp() 编译加载（esbuild → 临时 mjs →
  * file:// import——showcase 根治模式：无 data url 竞态/长度面）。
  */
-export { uiSsr } from '../../../src/client/vdom/core/ssr/index.ts'
+export { uiSsrV2 as uiSsr } from '../../../src/client/vdom/core/v2/ssr.ts' // v1 退役——SSR 运行路径 v2
 export { router } from './router.ts'

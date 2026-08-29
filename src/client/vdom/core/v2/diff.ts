@@ -18,7 +18,7 @@ import { pathId } from '../node/native.ts'
 import { keyedId } from '../node/keyed.ts'
 import { childrenOf, slotCount } from '../node/children.ts'
 import { keyOf } from '../node/keyed.ts'
-import { kindOf, textOf } from '../node/index.ts'
+import { kindOf, textOf, isHoleKind, isTextKind } from '../node/index.ts' // B9 单一实现源——hole/text 判定
 import { stateOf } from '../transform/states.ts'
 import { diffAttrs } from '../diff/attrs.ts'
 import { transitionOf } from '../transform/table.ts'
@@ -369,8 +369,8 @@ export function diffKeyedV2(
   const keyCount = new Map<string, number>()
   for (let i = 0; i < oldCs.length; i++) {
     const oldC = oldCs[i]
-    if (oldC === null || oldC === undefined || typeof oldC === 'boolean' || oldC === '') { cmds.push({ op: 'remove', id: pathId(parent, i) } as Command); continue }
-    if (typeof oldC === 'string' || typeof oldC === 'number') { cmds.push({ op: 'remove', id: pathId(parent, i) } as Command); continue }
+    if (isHoleKind(oldC)) { cmds.push({ op: 'remove', id: pathId(parent, i) } as Command); continue }
+    if (isTextKind(oldC)) { cmds.push({ op: 'remove', id: pathId(parent, i) } as Command); continue }
     if (Array.isArray(oldC)) continue
     const k = keyOf(oldC as VNode)
     if (k !== null) {
@@ -408,7 +408,7 @@ export function diffKeyedV2(
   if (!subseq) {
     // 冲突重建：remove 全部 + 按新序渲染（组件段复用——状态保持）
     oldCs.forEach((c, i) => {
-      if (typeof c === 'string' || typeof c === 'number' || c === null || c === undefined || typeof c === 'boolean') return
+      if (isHoleKind(c) || isTextKind(c)) return
       if (Array.isArray(c)) return
       // **keyed 项单 remove（v1 对齐——重建路径节点随后 create——非区间**——
       // 子树由 create 重建；非 keyed 项完整区间）
@@ -512,8 +512,8 @@ export function removeTreeV2(
 ): Command[] {
   const cmds: Command[] = []
   const id = pathId(parent, index)
-  if (v === null || v === undefined || typeof v === 'boolean' || v === '') { cmds.push({ op: 'remove', id } as Command); return cmds }
-  if (typeof v === 'string' || typeof v === 'number') { cmds.push({ op: 'remove', id } as Command); return cmds }
+  if (isHoleKind(v)) { cmds.push({ op: 'remove', id } as Command); return cmds }
+  if (isTextKind(v)) { cmds.push({ op: 'remove', id } as Command); return cmds }
   if (Array.isArray(v)) {
     let slot = 0
     for (const c of v) { cmds.push(...removeTreeV2(c, parent, slot, segments)); slot += slotCount(c) }

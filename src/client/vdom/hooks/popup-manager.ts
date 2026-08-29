@@ -23,11 +23,9 @@
 
 import type { VNode, VNodeChild } from '../core/vnode.ts'
 import { h } from '../core/vnode.ts'
-import { renderToStream } from '../core/build.ts'
 import type { Command } from '../core/command/index.ts'
 import { renderV2 } from '../core/v2/render.ts'
 import { diffV2, disposeSegment, type SegmentMap } from '../core/v2/diff.ts'
-import { diffStream } from '../core/diff/index.ts'
 import { CommandApplier } from '../core/patch/index.ts'
 import { createComponentRegistry } from '../core/node/component.ts'
 import { PORTAL_CONTAINER_ID, portalContainerId } from '../core/node/portal.ts'

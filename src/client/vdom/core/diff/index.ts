@@ -1,5 +1,8 @@
 /**
  * vdom core/diff — index（diff 阶段中转站）
+ * **v1 退役（2027-08）**：diffStream 主入口保留为**对账基线**（契约 v1/v2 命令流
+ * 等价断言 + fuzz）——运行路径默认 v2（core/v2/diff.ts）——共享子模块
+ * （attrs/cleanup——v2 引用）不受影响。
  *
  * 职责：**中转站——自身不处理细节逻辑**——root 级对照决策
  * （transitionOf 查表——异态交 transform / 同态交 diffSame）——细节

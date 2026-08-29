@@ -40,7 +40,10 @@ export { h, jsx, jsxs, jsxDEV } from './core/vnode.ts'
 export { Fragment } from './core/node/fragment.ts'
 export { UIRouter } from './core/router.ts'
 export { createClientBrowser } from './browser/create-client-browser.ts'
-export { uiServe } from './core/serve.ts'
+// **v1 退役（2027-08）**：运行入口默认 v2（uiServe → uiServeV2 实现）——
+// v1 引擎（core/serve.ts/build.ts/diff）保留为对账基线（契约测试/对账器）
+export { uiServeV2 as uiServe } from './core/v2/serve.ts'
+export { uiServeV2 } from './core/v2/serve.ts'
 
 // ── 类型面（值面仍只有 h/jsx/uiServe/UIRouter——类型不占公共面）──
 // UIContext = 前端 ctx 类型（对齐后端 Context 模式——接口 + 索引签名 +
@@ -86,4 +89,3 @@ export { renderV2 } from './core/v2/render.ts'
 export { diffV2, createSegment, type SegmentMap } from './core/v2/diff.ts'
 export { createRenderScheduler } from './core/v2/schedule.ts'
 export { collectCommands, v2ToHtml } from './core/v2/integrate.ts'
-export { uiServeV2 } from './core/v2/serve.ts'

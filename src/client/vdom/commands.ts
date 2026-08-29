@@ -12,7 +12,7 @@
  */
 
 import type { VNode, Component } from './core/vnode.ts'
-import { renderToStream } from './core/build.ts'
+import { renderToStreamV2 } from './core/v2/integrate.ts' // v1 退役——v2 引擎（兼容桥形态）
 import { CommandApplier } from './core/patch/index.ts'
 import { createComponentRegistry } from './core/node/component.ts'
 import type { UIContext } from './context/UIContext.ts'
@@ -32,7 +32,7 @@ export function toast(message: string, type: ToastType = 'info', duration = 3000
   // 轻量 Host（不依赖 Toast 组件——其命令式面独立——样式类复用 wf-toast）
   const Host: Component = () => () =>
     h('div', { class: `wf-toast wf-toast--${type}` }, h('span', { class: 'wf-toast-msg' }, message))
-  void renderToStream(h(Host, {}) as VNode, ctx, registry).pipeTo(new WritableStream({
+  void renderToStreamV2(h(Host, {}) as VNode, ctx, registry).pipeTo(new WritableStream({
     write(cmd) { applier.apply(cmd) },
   })).then(() => {
     setTimeout(() => {

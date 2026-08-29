@@ -8,6 +8,6 @@
  * ——object（type: symbol）"→ 文本全部变空洞锚。本入口把 uiSsr 一起
  * 打进 bundle——VNode 生产/消费同实例——零漂移。
  */
-export { uiSsr } from '../../../src/client/vdom/core/ssr/index.ts'
+export { uiSsrV2 as uiSsr } from '../../../src/client/vdom/core/v2/ssr.ts' // v1 退役——SSR 运行路径 v2（v1 uiSsr 仅对账基线——v2-ssr 契约引用）
 export { buildRouter } from './app-router.ts'
 export { fetchIndex, getIndexCache } from './data.ts'

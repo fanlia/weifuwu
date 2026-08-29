@@ -4,7 +4,7 @@
  * **双端一体**：路由树在 app-router.ts（buildRouter 单一实现源）——
  * 本文件只做浏览器端落地（服务端 SSR 走同一棵树——server.ts uiSsr）。
  */
-import { uiServeV2 as uiServe } from 'weifuwu/vdom'
+import { uiServe } from 'weifuwu/vdom'
 import { buildRouter, toast, confirm, notification } from './app-router.ts'
 import { preloadIndex } from './data.ts'
 

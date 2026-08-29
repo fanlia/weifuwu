@@ -22,6 +22,25 @@ export function collectCommands(obs: Observable<Command>): Promise<Command[]> {
   })
 }
 
+/** **v2 渲染 → ReadableStream<Command>（v1 renderToStream 兼容桥——v1 退役迁移）**
+ *  命令式组件（toast/Confirm/Notification——独立 applier 消费——pipeTo/
+ *  读取流形态不变）——v2 引擎 + 段表（跨渲染复用） */
+export function renderToStreamV2(
+  vnode: VNode,
+  ctx?: UIContext,
+  registry?: ComponentRegistry,
+  segments?: Map<string, import('./diff.ts').Segment>,
+  requestRender?: () => void,
+): ReadableStream<Command> {
+  const segs = segments ?? new Map<string, import('./diff.ts').Segment>()
+  const obs = renderV2(vnode, ctx, registry, segs, requestRender)
+  return new ReadableStream<Command>({
+    start(c) {
+      obs.subscribe({ next: (x) => c.enqueue(x), error: (e) => c.error(e), complete: () => c.close() })
+    },
+  })
+}
+
 /** v2 渲染 → HTML（SSR 路径——commandToHtml 复用——命令流同构） */
 export async function v2ToHtml(
   root: VNode,

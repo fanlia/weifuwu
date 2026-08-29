@@ -13,7 +13,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { ui } from '../../server/ui/index.ts'
 import { UIRouter, h } from '../../client/vdom/index.ts'
-import { uiSsrV2 } from '../../client/vdom/core/v2/ssr.ts' // 场景层 SSR 也走 v2 引擎（v1 对照在 git）
+import { uiSsrV2 } from '../../client/vdom/core/v2/ssr.ts' // 场景层 SSR = v2（默认入口已切——显式引 v2 与 uiServe 同源）
 import { scenarios, findScenario } from './registry.ts'
 
 const PORT = Number(process.env.SCENARIO_PORT ?? 0) // 0 = 随机端口（测试自包含——避免端口残留）
