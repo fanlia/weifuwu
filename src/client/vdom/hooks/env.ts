@@ -11,6 +11,8 @@
 
 import type { ExternalStore } from '../store.ts'
 import { createSignal } from '../store.ts'
+import { BehaviorSubject, fromPromise, shareReplay, switchMap } from '../observable/index.ts'
+import type { Observable } from '../observable/index.ts'
 import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
 import { usePopupPosition } from './popup.ts'
 import { openPopup, type PopupHandle, type PopupOpenOptions } from './popup-manager.ts'
@@ -54,6 +56,16 @@ export interface HookEnv {
  * - **登记幂等**：getter 类 hook 按业务 key 登记（不依赖调用顺序）——
  *   任意位置任意次数调用不重复订阅/监听 */
 export interface Ui {
+  /** **Observable 订阅（2027-08——值源 hooks 的统一内层）**：
+   *  getter 形态——`get()` 永远最新——订阅变化 → 自动重渲染——
+   *  卸载自动退订——**幂等（同 source 引用不重复订阅）**——
+   *  任何 Observable 都可消费（自研内核——波次 1） */
+  useObservable<T>(source: import('../observable/index.ts').Observable<T>, init: T): () => T
+  /** **异步取数（2027-08——Promise 心智——内部流管道）**：
+   *  同 key 并发合并（fetch 1 次——8 次请求根治）· reload 作废旧请求
+   *  （switchMap——竞态消灭）· 卸载自动退订 · 重挂载重新取（新鲜）——
+   *  get() 返回 null = loading/error 无值 */
+  useAsyncData<T>(fetcher: () => Promise<T>, key: string): [() => T | null, () => void]
   /** 共享状态订阅（**getter 形态**——`get()` 永远最新——store 变化 →
    *  组件重渲染——unmount 自动退订——订阅幂等（重复调用不重复订阅）） */
   useExternal<T>(store: ExternalStore<T>): () => T
@@ -109,9 +121,62 @@ export interface Ui {
   useReducedMotion(): boolean
 }
 
+/** useAsyncData 模块级注册表（2027-08——跨组件共享同 key——并发合并） */
+interface AsyncEntry {
+  trigger: BehaviorSubject<void>
+  data$: Observable<unknown>
+  fetcher: (() => Promise<unknown>) | null
+}
+const asyncRegistry = new Map<string, AsyncEntry>()
+
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
 export function createUi(env: HookEnv): Ui {
+  /** useObservable 实现（独立引用——useAsyncData 复用——无 this 问题） */
+  const useObservableImpl = <T>(source: Observable<T>, init: T): (() => T) => {
+    // **幂等（同 source 引用——实例级 keyed）**：不重复订阅——
+    // getter 永远最新（订阅更新 last）——卸载自动退订（onUnmount）
+    const data = env.getInstanceData()
+    let entry = data.get(source) as { get(): T } | undefined
+    if (!entry) {
+      let last = init
+      const sub = source.subscribe({
+        next: (v) => { last = v; env.requestRender() },
+        error: (e) => { console.error('[vdom] useObservable:', e) },
+      })
+      env.onUnmount(() => sub.unsubscribe())
+      entry = { get: () => last }
+      data.set(source, entry)
+    }
+    return () => entry!.get()
+  }
   return {
+    useObservable<T>(source: Observable<T>, init: T): () => T {
+      return useObservableImpl(source, init)
+    },
+    useAsyncData<T>(fetcher: () => Promise<T>, key: string): [() => T | null, () => void] {
+      // **模块级注册表（跨组件共享——同 key 并发合并——8 次请求根治）**：
+      // - trigger（BehaviorSubject——首订阅同步触发 + reload 触发）
+      // - data$ = trigger → switchMap(fetch)（reload 作废旧请求——竞态消灭）
+      //   → shareReplay(1)（缓存 + 多组件共享 + refCount 归零清缓存——重新
+      //   订阅重新取——新鲜语义）
+      let entry = asyncRegistry.get(key)
+      if (!entry) {
+        const trigger = new BehaviorSubject<void>(undefined)
+        const data$ = trigger.asObservable().pipe(
+          switchMap(() => {
+            const f = entry!.fetcher as (() => Promise<unknown>) | null
+            return f ? fromPromise(f()) : fromPromise(Promise.resolve(null))
+          }),
+          shareReplay(1),
+        )
+        entry = { trigger, data$, fetcher: null }
+        asyncRegistry.set(key, entry)
+      }
+      entry.fetcher = fetcher as () => Promise<unknown>
+      const get = useObservableImpl<T | null>(entry.data$, null)
+      const reload = (): void => { entry!.trigger.next() }
+      return [get, reload]
+    },
     useExternal<T>(store: ExternalStore<T>): () => T {
       // **getter 形态（2026-08）**：订阅登记幂等（按 store 引用——实例级
       // keyed——任意位置任意次数调用不重复订阅——mount 闭包持有 getter
