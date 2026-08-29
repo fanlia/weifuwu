@@ -195,18 +195,21 @@ export const Chat: Component = async (_props, ctx) => {
 
   // @ 补全（mount 层——只依赖 mount 闭包 $/rerender/chatControl/membersList）
   function onInputChange(v: string) {
-    $.input = v; rerender()
+    $.input = v
     const atMatch = v.match(/@([\u4e00-\u9fa5\w]*)$/)
+    const hadAt = $.atMenuOpen
+    const menuBefore = $.atMenu
     if (atMatch) {
       $.atQuery = atMatch[1]
       $.atMenu = $.membersList.filter((m) => (m.type === 'ai' || m.type === 'knowledge_base' || m.type === 'department') && (String(m.name).includes($.atQuery) || !$.atQuery))
-      // 始终显示 @ 菜单（@所有人 始终可选——无成员也出现——否则 @ 输入无反馈：
-      // 真实 bug——成员 0 的部门 @ 输入无任何反应（atMenuOpen = atMenu.length > 0）
       $.atMenuOpen = true
     } else {
       $.atMenuOpen = false; $.atQuery = ''
     }
-    rerender()
+    // **打字零 rerender（2026-08——卡顿根治）**：$.input 不在 JSX 消费——
+    // 普通打字（无 @）零渲染；@ 菜单只在**显隐切换或菜单内容变化**时渲染
+    // （同态继续打（已开继续打）菜单内容若变——需要刷新；否则零渲染）
+    if (hadAt !== $.atMenuOpen || ($.atMenuOpen && menuBefore !== $.atMenu)) rerender()
   }
   // 稳定引用（render 期传同一引用——ChatInput/Input props 不变 → 剪枝命中不重建）
   const handleSend = (text: string) => sendText(text)
@@ -465,6 +468,7 @@ export const Chat: Component = async (_props, ctx) => {
 
   let prevLen = 0
   let prevContentLen = 0
+  let prevMsgsRef: ChatMessage[] | null = null
 
   function scrollToBottom(force = false) {
     const body = $.bodyEl
@@ -636,10 +640,14 @@ export const Chat: Component = async (_props, ctx) => {
   return async (props: {}) => {
     const msgsLen = $.msgs.length
     if (msgsLen > prevLen) { scrollToBottom(); prevLen = msgsLen }
-    if (msgsLen > 0) {
-      const totalLen = $.msgs.reduce((s: number, m: ChatMessage) => s + m.content.length, 0)
+    // 2026-08（打字卡顿·渲染开销）：reduce 遍历全部消息改为增量——
+    // 消息数组引用变化时才重算总长（每次按键 rerender——消息未变——
+    // 跳过重算 + 跳过 reduce 循环——O(n) → O(1)
+    if (msgsLen > 0 && $.msgs !== prevMsgsRef) {
+      const totalLen = $.msgs.reduce((s: number, m: ChatMessage) => s + (m.content?.length ?? 0), 0)
       if (totalLen > prevContentLen && prevContentLen > 0) { scrollToBottom() }
       prevContentLen = totalLen
+      prevMsgsRef = $.msgs
     }
 
     const inputDisabled = $.editingId !== ''
