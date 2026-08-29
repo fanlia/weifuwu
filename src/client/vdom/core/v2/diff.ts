@@ -22,7 +22,7 @@ import { kindOf, textOf } from '../node/index.ts'
 import { stateOf } from '../transform/states.ts'
 import { diffAttrs } from '../diff/attrs.ts'
 import { transitionOf } from '../transform/table.ts'
-import { Observable, create } from '../../observable/index.ts'
+import { Observable, create, Subject } from '../../observable/index.ts'
 import type { OperatorFn } from '../../observable/index.ts'
 import { renderV2Node, fromArray, concatObs } from './render.ts'
 
@@ -34,6 +34,10 @@ export interface Segment {
   lastOutput: VNodeChild | undefined
   hookSeq: { n: number }
   instData: Map<unknown, unknown>
+  /** **destroy$（2027-08——段级卸载信号——单信号全停）**：卸载时 next——
+   *  订阅者（hooks 清理）自动停止——v1 onUnmounts 数组的流化 */
+  destroy$: import('../../observable/index.ts').Subject<void>
+  disposed: boolean
 }
 
 export type SegmentMap = Map<string, Segment>
@@ -53,13 +57,16 @@ export function createSegment(
   // hooks 注入面（env 绑定段——requestRender 经 ctx.render）
   instCtx.ui = ctx.ui // v2 段级 hooks 环境复用（阶段 1——精细化后续）
   const renderFn = factory(props, instCtx) as RenderFn
-  return { factory, renderFn, onUnmounts, lastOutput: undefined, hookSeq, instData }
+  return { factory, renderFn, onUnmounts, lastOutput: undefined, hookSeq, instData, destroy$: new Subject<void>(), disposed: false }
 }
 
-/** 段销毁（unmount——onUnmounts 逆序） */
+/** 段销毁（unmount——destroy$ 信号 + onUnmounts 逆序）——**单信号全停** */
 export function disposeSegment(id: string, segments: SegmentMap): void {
   const seg = segments.get(id)
-  if (!seg) return
+  if (!seg || seg.disposed) return
+  seg.disposed = true
+  // destroy$ 信号（订阅者清理——takeUntil 语义）
+  try { seg.destroy$.next() } catch (e) { console.error('[vdom] v2 destroy$:', e) }
   for (const fn of [...seg.onUnmounts].reverse()) { try { fn() } catch (e) { console.error('[vdom] v2 onUnmount:', e) } }
   segments.delete(id)
 }
@@ -296,9 +303,13 @@ export function diffKeyedV2(
     cmds.push(...removeTreeV2(oldC as VNode, parent, i))
   }
 
-  // 1. 真移除（key 不在新——**完整区间**——v1 removeVNodeTree 等价）
+  // 1. 真移除（key 不在新——**完整区间** + **段销毁（destroy$）**）
   for (const [k, oldIdx] of oldIdxByKey) {
-    if (!newKeys.has(k)) cmds.push(...removeTreeV2(oldCs[oldIdx] as VNode, parent, oldIdx))
+    if (!newKeys.has(k)) {
+      cmds.push(...removeTreeV2(oldCs[oldIdx] as VNode, parent, oldIdx))
+      const kid = keyedId(parent, k)
+      if (segments.has(kid)) disposeSegment(kid, segments) // 卸载信号——资源清理
+    }
   }
 
   // 2. 相对顺序检测（共有 key 的子序列）
