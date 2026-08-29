@@ -54,13 +54,19 @@ test('能力：右键出现菜单 + 项点击（编辑/复制/删除——danger
     await waitFor(page, () => Promise.resolve(!document.querySelector('#__wf_portal [class*="context-menu"]')), '选择后关闭（portal 菜单移除）')
   } finally { await page.close() }
 })
-test('位置：portal 归属 + fixed + 视口内 + 右键菜单 bottom', async () => {
+test('位置：portal 归属 + fixed + 视口内 + 跟随光标（右键坐标——无 anchor 的 position 定位）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
     
     const box = await page.locator('main .wf-context-menu-trigger').first().boundingBox()
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' })
+    const cx = box.x + box.width / 2
+    const cy = box.y + box.height / 2
+    await page.mouse.click(cx, cy, { button: 'right' })
+    // **位置必须跟随光标（2027-09 回归——旧序 position 被无 anchor 卡死→左上角 0,0）**
+    const mb = await page.locator('#__wf_portal .wf-context-menu').boundingBox()
+    assert.ok(Math.abs(mb.x - cx) <= 4, `菜单 x 跟随光标（期望≈${cx}，实际 ${mb.x}）`)
+    assert.ok(Math.abs(mb.y - cy) <= 4, `菜单 y 跟随光标（期望≈${cy}，实际 ${mb.y}）`)
     await assertPopupGeometry(page, { panelText: '复制', transformNone: true })
   } finally { await page.close() }
 })

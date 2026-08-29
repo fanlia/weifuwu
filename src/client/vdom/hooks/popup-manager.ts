@@ -181,8 +181,25 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
 
   /** 定位（锚点 rect + 面板尺寸——0-rect 防护——面板未布局 rAF 重试） */
   let retries = 0
+  let positioned = false // 首定位完成（panelRefImpl 不再自动触发——
+  // 定位 render → 面板重建 → panelRef 循环——2027-09 DatePicker 无限循环实证）
   const refresh = (): void => {
     if (state.disposed || !state.open) return
+    // **position 优先（2027-09——ContextMenu 左上角实证）**：光标弹窗
+    // （ContextMenu/长按类）无 anchor——旧序先 resolveAnchor(el null)
+    // → 永不进 position 分支 → 重试耗尽 → state.pos 恒 {0,0}——左上角——
+    // 自定义坐标定位不需要 anchor——置于最前（panel 未就绪仍重试）
+    if (opts.position && state.panel) {
+      const pv = opts.position()
+      if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') {
+        state.pos = { top: pv.y, left: pv.x, width: pv.width }
+        positioned = true
+        // **坐标落地（直接 DOM——零渲染零嵌套——**state.tree 二次包装
+        // 嵌套 mask 层——DatePicker 实证**）
+        applyPosToPanel()
+        return
+      }
+    }
     const el = resolveAnchor(opts.anchor)
     if (!el || !state.panel) {
       if (retries++ < 10) queueMicrotask(refresh)
@@ -198,19 +215,6 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       return
     }
     const placement = typeof opts.placement === 'function' ? opts.placement() : (opts.placement ?? 'bottom')
-    // 自定义坐标（position getter——光标处——覆盖 computePos）
-    if (opts.position) {
-      const pv = opts.position()
-      if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') {
-        state.pos = { top: pv.y, left: pv.x, width: pv.width }
-        // 坐标落地（面板 style 更新）
-        if (state.applier) {
-          const panelVn = buildPanelVn(state.tree)
-          if (panelVn) render(panelVn)
-        }
-        return
-      }
-    }
     const p = computePos(el, win, pw, ph, placement, opts.gap ?? 8, opts.margin ?? 8, opts.center ?? true)
     if (!p) {
       if (retries++ < 10) queueMicrotask(refresh)
@@ -228,7 +232,11 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
   /** 面板根元素 ref（定位/退场动画监听） */
   const panelRefImpl = (el: HTMLElement | null): void => {
     state.panel = el
-    if (el && state.open && opts.positioning !== 'none') {
+    // **首定位守卫（2027-09——position 定位 render 循环实证）**：定位
+    // render → 面板重建 → panelRef 重触发 → 再定位……无限循环——
+    // positioned（定位成功）后不再自动触发（scroll/resize 动态跟踪由
+    // 组件主动 handle.refresh 负责——定位后坐标静态即可）
+    if (el && state.open && !positioned && opts.positioning !== 'none') {
       if (win && typeof win.requestAnimationFrame === 'function') win.requestAnimationFrame(refresh)
       else queueMicrotask(refresh)
     }
@@ -242,10 +250,30 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
     }
   }
 
+  // **position 定位层 ref（2027-09——mask+position 职责分离实证）**：
+  // state.panel = mask（全屏遮罩）——定位坐标落在 mask-inner（日历层）——
+  // 坐标落地直接改 posEl 的 style（零渲染——refresh 若 render 会二次包装
+  // 嵌套层——DatePicker 双层 mask 实证）
+  let posEl: HTMLElement | null = null
+  const posRefImpl = (el: HTMLElement | null): void => { posEl = el }
+  /** 坐标落地（posEl/面板 DOM 直接更新——零渲染零嵌套） */
+  const applyPosToPanel = (): void => {
+    const t = opts.mask ? posEl : state.panel
+    if (!t) return
+    t.style.top = `${state.pos.top}px`
+    t.style.left = `${state.pos.left}px`
+    if (state.pos.width !== undefined) t.style.width = `${state.pos.width}px`
+  }
+
   /** 内容包装（mask/class/style/ref 注入——同 popup.portal 语义） */
   const buildPanelVn = (content: VNode | null): VNode | null => {
     if (!content) return null
     let panelVn = content
+    // **mask + 自定义坐标分离（2027-09——DatePicker 视口中心实证）**：
+    // mask（遮罩）必须全屏（inset:0）——position 注入到 mask 会把遮罩
+    // 压缩成非全屏（inset 序列化被 top/left 覆盖）——且日历仍 flex
+    // center in mask——看似视口中心——定位失效——**position 弹窗的定位
+    //  注入 mask-inner（日历层）——遮罩保持全屏——两层的职责分离**
     if (opts.mask) {
       const maskEl = h('div', {
         class: 'wf-popup-mask',
@@ -259,19 +287,35 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
         },
       }, opts.maskCentered
         ? { ...panelVn, props: { ...(panelVn.props ?? {}) } }
-        : h('div', { class: 'wf-popup-mask-inner' }, panelVn))
+        : h('div', {
+          class: 'wf-popup-mask-inner',
+          ref: posRefImpl,
+          style: opts.position
+            ? {
+              position: 'fixed', top: `${state.pos.top}px`, left: `${state.pos.left}px`,
+              ...(state.pos.width !== undefined ? { width: `${state.pos.width}px` } : {}),
+            }
+            : undefined,
+        }, panelVn))
       panelVn = maskEl
     }
     const props = (panelVn.props ?? {}) as Record<string, any>
     const cls = opts.positioning === 'none' || String(props.class ?? '').includes('mask')
       ? (props.class ?? '')
       : ['wf-popup', props.class].filter(Boolean).join(' ')
+    // **注入面切换（position 已有 mask-inner 承载——面板层零注入**：
+    // mask+position 组合不重复注入（top/left 双写——mask 被压缩——
+    // DatePicker 实证）；其余（anchor 定位/无 mask）维持注入——
+    // **injectPos 判定：仅 mask+position 组合由 mask-inner 承载**（
+    // 2027-09 回归——anchor 弹窗 top/left 断言）
+    const injectPos = !(opts.mask && opts.position)
     const style = opts.positioning === 'none'
       ? { ...(props.style ?? {}), position: 'fixed' }
       : {
           ...(props.style ?? {}),
-          position: 'fixed', top: `${state.pos.top}px`, left: `${state.pos.left}px`,
-          ...(state.pos.width !== undefined ? { width: `${state.pos.width}px` } : {}),
+          position: 'fixed',
+          ...(injectPos ? { top: `${state.pos.top}px`, left: `${state.pos.left}px` } : {}),
+          ...(injectPos && state.pos.width !== undefined ? { width: `${state.pos.width}px` } : {}),
         }
     return { ...panelVn, props: { ...props, class: cls, style, ref: panelRefImpl } } as VNode
   }
@@ -463,20 +507,24 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       if (state.disposed || !state.open) return
       if (content === null || content === undefined) { close(); return }
       // 自定义坐标同步（position getter——update 前读最新——Slider/ContextMenu）
+      let posChanged = false
       if (opts.position) {
         const pv = opts.position()
-        if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') state.pos = { top: pv.y, left: pv.x, width: pv.width }
+        if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') { state.pos = { top: pv.y, left: pv.x, width: pv.width }; posChanged = true }
       }
       render(buildPanelVn(content as VNode) as VNode)
+      if (posChanged) applyPosToPanel() // 坐标落地（render 用旧 pos 的 style——DOM 同步）
     },
     refresh(): void {
       if (state.disposed || !state.open || !state.tree) return
       if (opts.position) {
         const pv = opts.position()
-        if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') state.pos = { top: pv.y, left: pv.x, width: pv.width }
+        if (pv && typeof pv.x === 'number' && typeof pv.y === 'number') {
+          state.pos = { top: pv.y, left: pv.x, width: pv.width }
+          applyPosToPanel() // **坐标落地（直接 DOM——零渲染——避免
+          // buildPanelVn(state.tree) 二次包装嵌套——2027-09 实证**）
+        }
       }
-      const panelVn = buildPanelVn(state.tree)
-      if (panelVn) render(panelVn)
     },
     get open() {
       return state.open
