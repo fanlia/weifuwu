@@ -365,7 +365,9 @@ type RenderFn<P> = (props: P) => VNode | null | (VNode | null)[]  // 渲染纯�
 
 **async 标签已移除**（类型层强制——新代码写 async 即编译错）——原子：
 - 数据加载 → `ctx.ui.useAsyncData(fetcher, key)`（fetcher 返回 Promise——hook 内部流管道）
-- 多源汇流 → `ctx.ui.useObservable(obs$)` / `useSource`（声明所有数据源——读代码即知数据真相）
+- 多源汇流 → `ctx.ui.useObservable(obs$)`（任意 Observable）· `combineLatest`
+  （多源快照）· `derived`（信号/读面声明式派生——无订阅零泄漏——
+  OBSERVABLE-OPTIMIZE 波次 1/2 组合面）
 - 异步回调后更新 → 事件回调内 set/rerender（非工厂期——**工厂期零 render**）
 
 ### 数据（useAsyncData——模块级注册表）

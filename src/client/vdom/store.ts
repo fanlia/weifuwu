@@ -34,7 +34,7 @@ export function createStore<T>(init: T): ExternalStore<T> {
 
   const notify = (): void => {
     for (const cb of [...subs]) cb()
-    changes.next({ ...state }) // 值源流视图（**浅拷贝快照**——原地 update 不污染历史值）
+    changes.next(typeof state === 'object' && state !== null ? { ...state } : state) // 值源流视图（对象浅拷贝快照 / 原语直发——波次 2 修正：原语 spread {} 缺陷）
   }
 
   return {
@@ -46,11 +46,23 @@ export function createStore<T>(init: T): ExternalStore<T> {
       return () => { subs.delete(cb) }
     },
     set(partial: Partial<T>): void {
-      state = { ...state, ...partial }
+      // **类型感知合并（OBSERVABLE-OPTIMIZE 波次 2——原语信号修复）**：
+      // 对象 → spread 合并（现状语义）；原语/数组 → 直接替换（文档示例
+      // signal(0) 的写面——原 set 对原语 spread {}——写无效）
+      if (typeof state === 'object' && state !== null && !Array.isArray(state) && typeof partial === 'object' && partial !== null) {
+        state = { ...state, ...partial }
+      } else {
+        state = partial as T
+      }
       notify()
     },
     update(fn: (state: T) => void): void {
-      fn(state)
+      // **类型感知更新**：对象 → 原地改（现状）+ 返回值替换（fn 返回新对象）；
+      // 原语 → 返回值替换（fn(state) 返回值——无返回则无变化）
+      const r = fn(state) as unknown
+      if (r !== undefined && (typeof state !== 'object' || state === null || r !== (state as unknown))) {
+        state = r as T
+      }
       notify()
     },
     notify,
@@ -91,4 +103,34 @@ export function createSignal<T>(init: T): Signal<T> {
   sig.notify = () => store.notify()
   sig.store = store
   return sig
+}
+
+/** 派生信号（2027-09——OBSERVABLE-OPTIMIZE 波次 2——声明式组合）
+ *
+ * 语义（**读时计算 + 惰性缓存——零订阅零泄漏**）：
+ * - getter 形态——`d()` 永远最新（getter 纪律：任意位置读）
+ * - **读时比较**：get 时重读全部源 getter——与上次缓存引用比较（默认
+ *   ===——可自定比较器）——源值变化才重算 compute（否则缓存直回）
+ * - **无内部订阅**（源 getter 只管读——变化检测在 get 路径——不依赖
+ *   源的变化通知——任何 getter 都可派生（signal/store/useObservable））
+ * - 嵌套派生天然支持（派生 getter 也是 getter——组合即函数引用）
+ * - **惰性**：不读不计算（无主动重算——与「每拍全算」的反面——
+ *   派生在消费点求值——消费点只付实际加载的代价） */
+export function derived<T, R>(
+  sources: readonly (() => T)[],
+  compute: (vals: T[]) => R,
+  equal: (a: T, b: T) => boolean = (a, b) => a === b,
+): () => R {
+  let cached: R | undefined
+  let cachedVals: T[] | undefined
+  let hasCache = false
+  return () => {
+    const vals = sources.map((s) => s())
+    if (!hasCache || vals.some((v, i) => !equal((cachedVals as T[])[i], v))) {
+      cachedVals = vals
+      cached = compute(vals)
+      hasCache = true
+    }
+    return cached as R
+  }
 }

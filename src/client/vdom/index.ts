@@ -61,7 +61,7 @@ export type { Browser } from './browser/Browser.ts'
 export type { ApiClient } from './middlewares/api.ts'
 export type { AuthClient, I18nState } from './middlewares/auth-i18n.ts'
 export type { WsClient } from './middlewares/ws.ts'
-export { createStore, createSignal } from './store.ts'
+export { createStore, createSignal, derived } from './store.ts'
 // 中间件值导出（应用装配——api/auth/i18n/ws 工厂——agent-platform 等完整消费方）
 export { api } from './middlewares/api.ts'
 export { auth, i18n } from './middlewares/auth-i18n.ts'

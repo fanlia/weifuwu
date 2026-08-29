@@ -11,7 +11,7 @@
 
 import type { ExternalStore } from '../store.ts'
 import { createSignal } from '../store.ts'
-import { BehaviorSubject, fromPromise, shareReplay, switchMap } from '../observable/index.ts'
+import { BehaviorSubject, Subject, fromPromise, shareReplay, switchMap } from '../observable/index.ts'
 import type { Observable } from '../observable/index.ts'
 import { useObservable as useObservableEnv } from './use-observable.ts'
 import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
@@ -142,6 +142,11 @@ interface AsyncEntry {
 const asyncRegistry = new Map<string, AsyncEntry>()
 /** SSR 预取等待集合（并行 fetch 的 in-flight promise——uiSsr 等待会合） */
 export const asyncInflight = new Set<Promise<unknown>>()
+/** **useAsyncData 错误事件流（OBSERVABLE-OPTIMIZE 波次 2——失败可观测）**
+ *  ——模块级观测面——订阅者收 { key, error }——console.error 保持（dev
+ *  日志）+ 流可观测（诊断器/作者订阅——错误不再只进控制台）——
+ *  get() 仍 null（区块降级兼容——语义不变） */
+export const asyncErrors$ = new Subject<{ key: string; error: unknown }>()
 
 /** **SSR 种子收集**（服务端——渲染后取出——序列化进 __DATA__） */
 export function asyncDataSeed(): Record<string, unknown> {
@@ -214,6 +219,7 @@ export function createUi(env: HookEnv): Ui {
           next: (v) => { entry!.state$.next(v) },
           error: (e) => {
             console.error('[vdom] useAsyncData:', e)
+            asyncErrors$.next({ key, error: e }) // 失败可观测（诊断器/作者订阅）
             entry!.state$.next(null) // 失败 → 区块降级（get null——页面其余照常）
           },
         })
