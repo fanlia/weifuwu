@@ -426,3 +426,42 @@ test('T-M6-3: ephemeral——每次调用一次性容器（调用即焚 + 卷持
   assert.equal(String(row2.status), 'running', 'ephemeral 调用成功后标记运行')
   await m.terminate(row.id, TEST_APP)
 })
+
+// ── SANDBOX-AGENT-PLAN Wave 4 契约（2026-08——entrypoint  agent 化）──────
+
+test('T-M1f: sandbox-agent 信号处理——docker stop 秒级（PID1 显式 handler——曾 10s 宽限后 SIGKILL）', { skip: !HAS_DOCKER, timeout: 20_000 }, async () => {
+  await cleanTestData()
+  const exe = makeSandbox()
+  const m = makeManager(exe)
+  const r1 = await m.runTool(TEST_DEPT, wsDir, 'write', { path: 'agent.txt', content: 'agent-ok' })
+  assert.equal(r1.ok, true)
+  const [row] = await sql`SELECT * FROM sandboxes WHERE department_id = ${TEST_DEPT} AND status != 'terminated'`
+  const id = String(row.id)
+  // docker stop 计时——agent 化后应 <2s（曾 10.1s）
+  const t0 = Date.now()
+  execFileSync('docker', ['stop', '-t', '10', CONTAINER_NAME(id)], { timeout: 12_000 })
+  const stopMs = Date.now() - t0
+  assert.ok(stopMs < 2000, `stop 应秒级（agent PID1 信号处理）——实测 ${stopMs}ms`)
+  assert.ok(!containerRunning(CONTAINER_NAME(id)), '容器已停')
+  await m.terminate(id, TEST_APP)
+})
+
+test('T-M1g: sandbox-agent 健康/能力面——/healthz 200 + /capabilities 声明（镜像自描述）', { skip: !HAS_DOCKER, timeout: 20_000 }, async () => {
+  await cleanTestData()
+  const exe = makeSandbox()
+  const m = makeManager(exe)
+  const r1 = await m.runTool(TEST_DEPT, wsDir, 'write', { path: 'agent.txt', content: 'agent-ok' })
+  assert.equal(r1.ok, true)
+  const [row] = await sql`SELECT * FROM sandboxes WHERE department_id = ${TEST_DEPT} AND status != 'terminated'`
+  const id = String(row.id)
+  // 容器内 healthz（agent 监听 127.0.0.1:5711）
+  const hz = execFileSync('docker', ['exec', CONTAINER_NAME(id), 'wget', '-qO-', 'http://127.0.0.1:5711/healthz'], { timeout: 5000 }).toString()
+  const parsed = JSON.parse(hz)
+  assert.equal(parsed.ok, true, 'healthz 应 200 ok')
+  assert.equal(parsed.pid, 1, 'PID1 = agent（信号处理面）')
+  // capabilities（镜像能力声明）
+  const caps = execFileSync('docker', ['exec', CONTAINER_NAME(id), 'wget', '-qO-', 'http://127.0.0.1:5711/capabilities'], { timeout: 5000 }).toString()
+  const c = JSON.parse(caps)
+  assert.ok(Array.isArray(c.tools) && c.tools.includes('bash'), 'capabilities 含工具声明')
+  await m.terminate(id, TEST_APP)
+})

@@ -1,0 +1,9 @@
+{
+  "image": "ap-sandbox",
+  "label": "通用沙盒（文件工具 + bash + python + 浏览器技能）",
+  "tools": ["read", "write", "edit", "grep", "list_files", "bash", "get_current_time"],
+  "runtime": ["node", "python3", "chromium", "agent-browser"],
+  "office": ["python-docx", "python-pptx", "openpyxl", "pandas", "numpy", "pypdf"],
+  "network_none": true,
+  "notes": "沙盒默认无网络（--network none）——网络类命令失败；浏览器技能需 allow_network(AGENT_CONFIG) 开启"
+}

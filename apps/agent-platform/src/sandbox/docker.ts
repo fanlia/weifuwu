@@ -289,7 +289,8 @@ export class DockerSandbox implements SandboxHost {
       '--ulimit', 'nofile=1024:1024',
       '--user', 'node',
       image,
-      'sleep', 'infinity',
+      // 容器入口 = sandbox-agent（PID 1 常驻——信号/健康/能力——镜像 ENTRYPOINT
+      // 生效——不再覆盖 CMD sleep infinity（SANDBOX-AGENT-PLAN——stop 秒级）
     ]
   }
 
@@ -334,7 +335,7 @@ export class DockerSandbox implements SandboxHost {
       '--ulimit', 'nofile=1024:1024',
       '--user', 'node',
       image,
-      'sleep', 'infinity',
+      // runOnce：ephemeral 容器——入口 agent（镜像 ENTRYPOINT——不再 sleep infinity）
     ]
     const r = await dockerCli(args2, 30_000)
     if (r.exitCode !== 0) return { ok: false, error: `一次性容器创建失败: ${r.stderr.trim() || 'unknown'}` }
