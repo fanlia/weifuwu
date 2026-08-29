@@ -123,7 +123,24 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
     vt.diffs = m.diffs
   }
   // **afterRender 冲刷（周期完成信号——v1 对齐——渲染完成回调）**
-  cycle.complete$.subscribe({ next: () => flushAfterRender() })
+  // **SSR 吸收失败回退闭环（波次 4——failed$ 事件驱动——现状缺口补全）**：
+  //  吸收失败（SSR 与命令不匹配——next 耗尽 / end 剩余）→ 标记——周期
+  //  完成（命令全量应用后）→ 原子回退：清空 root + 吸收复位 + 影子树重置
+  //  + 调度重渲染（全量 build——残留 SSR 节点歼灭——事件驱动无轮询）
+  let absorbFailedPending = false
+  applier.absorb.failed$.subscribe({
+    next: () => { absorbFailedPending = true; console.warn('[vdom] SSR 吸收失败——回退清空重建（事件驱动）') },
+  })
+  cycle.complete$.subscribe({ next: () => {
+    flushAfterRender()
+    if (absorbFailedPending) {
+      absorbFailedPending = false
+      applier.absorb.reset() // 恢复非吸收态（队列弃用——后续 create 走新建）
+      rootEl.innerHTML = ''
+      cycle.reset()
+      scheduler.request() // 下一拍全量 build（首帧语义——currentTree null）
+    }
+  } })
 
 
   /** v2 渲染（首帧 build / 后续 diff——命令直接 apply）

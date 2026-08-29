@@ -50,6 +50,22 @@ const SsrAdopt = (_init: Record<string, never>, ctx: any) => {
     )
 }
 
+// ── 场景 11b：SSR 吸收失败（mismatch——回退清空重建闭环） ────────────
+// SSR 与客户端不同构（tag 不同——SSR 多出节点）——吸收 next 耗尽 failed →
+// serve 订阅 failed$ → 周期完成 → 清空重建（残留 SSR 节点歼灭——事件驱动）。
+// **SSR 判据（文档面差异）**：工厂期 `typeof document === 'undefined'`（SSR
+// node 端）——客户端 document 存在——输出结构不同——确定性 mismatch。
+const SsrMismatch = (_init: Record<string, never>, ctx: any) => {
+  const isSsr = typeof document === 'undefined'
+  return () =>
+    h('div', { class: 'mismatch-scene' },
+      isSsr
+        ? h('b', { class: 'ssr-only-b' }, 'SSR-ONLY-STRUCTURE')   // SSR：b（客户端无）
+        : h('span', { class: 'client-only-span' }, 'CLIENT-ONLY'), // 客户端：span（tag 不同）
+      h('button', { class: 'mismatch-btn', onClick: () => { ctx.render() } }, '点击'),
+    )
+}
+
 // ── 场景 1：占位同构（§6.3 提交按钮消失事故回归） ──────────────────────
 // children 数组含 false 占位（{cond && <X/>}）——render 阶段建占位节点——
 // childNodes 长度恒等于 children 长度——diff 不误删兄弟（按钮保留）；
@@ -1696,6 +1712,7 @@ export const scenarios: Scenario[] = [
   { id: 'navigate', title: 'navigate（链接拦截 → pushState + 整树替换）', render: NavigateScene },
   { id: 'unmount-dispose', title: 'unmount（handle.unmount——DOM/portal 清理）', render: UnmountScene },
   { id: 'ssr-adopt', title: 'SSR 吸收（首帧结构复用——输入焦点保持）', render: SsrAdopt, ssr: true },
+  { id: 'ssr-mismatch', title: 'SSR 吸收失败（mismatch——回退清空重建）', render: SsrMismatch, ssr: true },
   { id: 'use-external', title: 'useExternal（共享状态——跨组件自动重渲染）', render: ExternalScene },
   { id: 'use-media', title: 'useMedia（媒体查询——视口变化自动重渲染）', render: MediaScene },
   { id: 'pattern-reuse', title: '组件切换残留（A→列表→B——旧 DOM 复活回归）', render: PatternReuseScene },

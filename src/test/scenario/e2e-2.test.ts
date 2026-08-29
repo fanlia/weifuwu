@@ -95,6 +95,32 @@ test('ssr-adopt：首帧复用 SSR DOM（同一节点引用——输入焦点保
   }
 })
 
+// ── 场景 11b：SSR 吸收失败（mismatch——回退清空重建闭环） ────────────
+// SSR 与客户端不同构（输出 tag 不同——SSR 结构多于客户端）→ 吸收 next 耗尽
+// → failed$ 事件 → serve 周期完成 → 原子回退（清空 + 重建——残留歼灭）。
+test('ssr-mismatch：吸收失败 → 回退清空重建（无残留——事件驱动）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'ssr-mismatch')
+
+    // 回退后：客户端结构唯一（span——SSR 的 b 歼灭——无残留双份）
+    await page.waitForFunction(() => {
+      const span = document.querySelector('.client-only-span')
+      const ssrB = document.querySelector('.ssr-only-b')
+      return !!span && !ssrB && document.querySelectorAll('[data-wf-id]').length > 0
+    })
+    assert.equal(await page.locator('.client-only-span').textContent(), 'CLIENT-ONLY', '客户端结构（回退重建）')
+    assert.equal(await page.locator('.ssr-only-b').count(), 0, 'SSR 残留节点歼灭（回退清空）')
+
+    // 回退后页面可交互（事件接线——重建完整）
+    await page.click('.mismatch-btn')
+    const clicks = await page.evaluate(() => document.querySelectorAll('.client-only-span').length)
+    assert.equal(clicks, 1, '重建后交互无崩溃（span 唯一）')
+  } finally {
+    await page.close()
+  }
+})
+
 // ── 场景 12：useExternal（共享状态——跨组件自动重渲染） ─────────────────
 test('use-external：store 变化 → 订阅组件自动重渲染（无需手动 render）', async () => {
   const page = await browser.newPage()
