@@ -287,6 +287,65 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 - **hooks/ai-stream.ts、auth 中间件**：未测（长尾）
 - **测试竞态**：场景层 3 文件并发（每文件独立 server/browser）——文件内串行——node:test --test-concurrency 是文件级（单文件内串行——对单文件无效）
 
+---
+
+## 2b. 组件作者契约（2027-08 OBSERVABLE-ARCH——易学易写易用的机制根）
+
+> **一条规则**：工厂**同步**；异步边界**全在 hooks**；渲染**纯同步**。
+
+### 签名（Component 断代——无 mounting 窗口）
+
+```ts
+type Component<P, C> = (initProps: P, ctx: C) => RenderFn<P>  // 工厂同步（无 async——
+                                                // 无 mounting 窗口——毫秒即挂载完）
+type RenderFn<P> = (props: P) => VNode | null | (VNode | null)[]  // 渲染纯同步
+```
+
+**async 标签已移除**（类型层强制——新代码写 async 即编译错）——原子：
+- 数据加载 → `ctx.ui.useAsyncData(fetcher, key)`（fetcher 返回 Promise——hook 内部流管道）
+- 多源汇流 → `ctx.ui.useObservable(obs$)` / `useSource`（声明所有数据源——读代码即知数据真相）
+- 异步回调后更新 → 事件回调内 set/rerender（非工厂期——**工厂期零 render**）
+
+### 数据（useAsyncData——模块级注册表）
+
+```ts
+const [getFiles, reload] = ctx.ui.useAsyncData(fetchFn, 'ws-files')
+// getFiles()  → 最新值（null = loading/error——区块降级）
+// reload()    → 重新 fetch（旧请求作废——switchMap 语义）
+```
+
+内建语义（作者零代码）：**同 key 并发合并**（N 组件 fetch 1 次）· **竞态取消**（旧请求作废）
+· **缓存保留**（重挂载零请求——reload 显式刷新）· **卸载自动退订**（零泄漏）·
+**种子命中**（SSR __DATA__ 预热——首帧零请求）——契约测试锁定。
+
+### 状态（signal / useObservable——getter 纪律）
+
+```ts
+const count = ctx.ui.signal(0)   // getter 读 + set/update 写——变化自动重渲染
+const files = ctx.ui.useObservable(files$, [])  // 任何 Observable → getter
+```
+
+**getter 纪律（定律）**：一切会变化的值 = `() => T`——任何位置调读最新——无调用位置规则。
+
+### 生命周期（自动——作者零退订代码）
+
+- 订阅/退订/重渲染：useObservable/useAsyncData 内建（卸载自动停止——takeUntil 语义）
+- 资源清理：`ctx.ui.hold(fn)`（卸载时释放——等价 onUnmount——推荐名）
+- **无 onFilesReload 注册表类手写退订**（曾经 Set 累积泄漏——现在用流）
+
+### SSR 首帧
+
+- `useAsyncData` 组件：SSR 预取器（两遍渲染——并行预取——__DATA__ 种子——首帧带数据）
+- 服务端 `uiSsr(router, url, { prefetch })`：bundle 内数据预热钩子（同步缓存类数据）
+- **SSR ≡ SPA 首帧**：种子预热 → 客户端同步命中——吸收零差异
+
+### 事件回调内异步（合法——非渲染路径）
+
+```ts
+onClick={async () => { const r = await ctx.api!.post(...); ...; ctx.render() }}
+```
+——事件回调的 await 合法（渲染无关——async-guard 窗口外）——**唯独工厂期禁**（同步——无 await）。
+
 ## 3. 修复归类纪律（应用层 / 组件层 / 核心层）
 
 > **核心理念：核心层修复有利于所有组件以及应用**——排查问题先归类，
