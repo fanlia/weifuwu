@@ -9,6 +9,8 @@
  */
 
 import type { HookEnv } from './env.ts'
+import { fromEventPattern } from '../observable/index.ts'
+import { useObservable } from './use-observable.ts'
 
 /** useDragDrop 结果（拖拽属性——应用于拖拽源/放置目标） */
 export interface DragDrop {
@@ -65,38 +67,51 @@ type Mql = {
   removeEventListener: (t: 'change', cb: () => void) => void
 }
 
+/** matchMedia 解析（浏览器 window 注入优先——globalThis 兜底——SSR 无环境 → undefined） */
+/** **媒体查询源缓存（per window——同窗口共享（多组件合并单监听）——
+ *  跨窗口隔离（测试 FakeWindow 隔离——防污染））**：
+ *  源 = fromEventPattern（change → next(最新匹配) + initial 同步首值）——
+ *  幂等按引用（useObservable 层）——缓存保证多组件同 query 单源单监听 */
+const mediaWindowCache = new WeakMap<object, Map<string, import('../observable/index.ts').Observable<boolean>>>()
+const mediaGlobalCache = new Map<string, import('../observable/index.ts').Observable<boolean>>() // 无 window（SSR）fallback
+function getMediaSource(env: HookEnv, query: string): import('../observable/index.ts').Observable<boolean> {
+  const win = env.getBrowser()?.window as object | undefined
+  const cache = win ? (mediaWindowCache.get(win) ?? mediaWindowCache.set(win, new Map()).get(win)!) : mediaGlobalCache
+  let src = cache.get(query)
+  if (!src) {
+    src = fromEventPattern<boolean>(
+      (next) => {
+        const w = env.getBrowser()?.window as (Window & { matchMedia?: (q: string) => Mql }) | null
+        const mm = w?.matchMedia?.bind(w)
+          ?? ((typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia.bind(globalThis) : undefined) as ((q: string) => Mql) | undefined)
+        const mql = mm?.(query)
+        if (!mql) return
+        const onChange = (): void => next(mql.matches)
+        mql.addEventListener('change', onChange)
+        return () => mql.removeEventListener('change', onChange)
+      },
+      () => {
+        const w = env.getBrowser()?.window as (Window & { matchMedia?: (q: string) => Mql }) | null
+        const mm = w?.matchMedia?.bind(w)
+          ?? ((typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia.bind(globalThis) : undefined) as ((q: string) => Mql) | undefined)
+        return mm ? mm(query).matches : false
+      },
+    )
+    cache.set(query, src)
+  }
+  return src
+}
+
 /** 媒体查询匹配（**getter 形态——2026-08**）——返回 `() => boolean`：
  *  任何时刻调用都返回最新匹配值——mount 闭包持有 getter 永远最新——
  *  「必须在 renderFn 内调用」的调用位置规则**在 API 形状上不存在**
  *  （旧快照返回：mount 闭包读一次永不更新——契约 6 静默失效类）
  *  **登记幂等（按 query 的实例级 keyed——不依赖调用顺序）**：任意位置
- *  任意次数调用不重复监听——change → 更新 + requestRender → 重渲染 */
+ *  任意次数调用不重复监听——change → 更新 + requestRender → 重渲染
+ *  **2027-08 迁移**：实现 = useObservable(媒体源缓存)——订阅/退订/重渲染
+ *  统一（波次 3）——行为不变（getter 形态/幂等/SSR 恒 false） */
 export function useMedia(env: HookEnv, query: string): () => boolean {
-  const key = `media:${query}`
-  let state = env.getInstanceData().get(key) as { matches: boolean; mql: Mql | null } | undefined
-  if (!state) {
-    state = { matches: false, mql: null }
-    env.getInstanceData().set(key, state)
-  }
-  const win = env.getBrowser()?.window as (Window & { matchMedia?: (q: string) => Mql }) | null
-  // 全局 matchMedia 兜底（jsdom 测试 mock 通道——生产走注入）
-  // **bind 纪律**：win.matchMedia 取出调用——this 丢失（matchMediaImpl mock 实证）——
-  // 必须 bind(win)
-  const mm = win?.matchMedia?.bind(win) ?? ((typeof matchMedia === 'function' ? matchMedia.bind(undefined) : undefined) as ((q: string) => Mql) | undefined)
-  const mql = mm?.(query)
-  if (mql) {
-    state.matches = mql.matches
-    if (!state.mql) {
-      const onChange = (): void => {
-        state.matches = mql.matches
-        env.requestRender()
-      }
-      mql.addEventListener('change', onChange)
-      state.mql = mql
-      env.onUnmount(() => mql.removeEventListener('change', onChange))
-    }
-  }
-  return () => state.matches
+  return useObservable(env, getMediaSource(env, query), false)
 }
 
 /** 命名断点（min-width 语义——**getter 形态**——`bp()` 任何时刻最新——

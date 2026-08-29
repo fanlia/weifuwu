@@ -12,21 +12,15 @@
  */
 
 import type { HookEnv } from './env.ts'
+import { useMedia } from './drag-media.ts'
+import { create } from '../observable/index.ts'
+import { useObservable } from './use-observable.ts'
 
 /** 响应式系统偏好（prefers-reduced-motion）。mount 期一次判定 */
-/** matchMedia 解析（browser 注入优先——全局兜底（jsdom/测试 mock 通道——
- *  设计规则 §5.5 生产走注入——兜底仅测试/无注入环境） */
-function resolveMatchMedia(env: HookEnv): ((q: string) => MediaQueryList) | null {
-  const win = env.getBrowser()?.window
-  if (win?.matchMedia) return win.matchMedia.bind(win)
-  // 全局兜底（jsdom 测试 mock——组件测试广泛用 globalThis.matchMedia）
-  if (typeof matchMedia === 'function') return matchMedia.bind(undefined)
-  return null
-}
 
 export function useReducedMotion(env: HookEnv): boolean {
-  const mm = resolveMatchMedia(env)
-  return !!(mm && mm('(prefers-reduced-motion: reduce)').matches)
+  // 2027-08：组合 useMedia（媒体源缓存——统一订阅/退订/重渲染）
+  return useMedia(env, '(prefers-reduced-motion: reduce)')()
 }
 
 export interface TweenOptions {
@@ -178,40 +172,42 @@ export interface VisualViewportHandle {
 }
 
 /** 可视视口跟踪：键盘弹起/缩放时自动更新 + 重渲染（vv 不可用 → window resize fallback） */
+/** 可视视口跟踪（键盘弹起/缩放——vv 不可用 → window resize fallback）
+ *  2027-08 迁移（波次 3）：实现 = useObservable(vv 源)——订阅/退订/重渲染
+ *  统一——形状保留（对象 getter——调用方零改动） */
 export function useVisualViewport(env: HookEnv): VisualViewportHandle {
+  const state = useObservable(env, visualViewport$(env), { height: 0, offsetTop: 0, keyboardOpen: false })
+  return {
+    get height() { return state().height },
+    get offsetTop() { return state().offsetTop },
+    get keyboardOpen() { return state().keyboardOpen },
+  } as VisualViewportHandle
+}
+
+/** vv 源（vv resize/scroll → 状态——vv 不可用 → window resize fallback——
+ *  防御保留：height < innerHeight*0.9 → keyboardOpen） */
+function visualViewport$(env: HookEnv): import('../observable/index.ts').Observable<{ height: number; offsetTop: number; keyboardOpen: boolean }> {
   const win = env.getBrowser()?.window
-  const vv0 = win?.visualViewport
-  // **对象 getter（2026-08）**：height/offsetTop/keyboardOpen 读时求值——
-  // mount 闭包持有 handle 永远最新（旧快照属性：mount 闭包读一次冻结——
-  // 位置规则在 API 形状不存在）
-  let height = vv0?.height ?? win?.innerHeight ?? 0
-  let offsetTop = vv0?.offsetTop ?? 0
-  let keyboardOpen = false
-  const handle: VisualViewportHandle = {
-    get height() { return height },
-    get offsetTop() { return offsetTop },
-    get keyboardOpen() { return keyboardOpen },
-  }
-  const update = (): void => {
-    const vv = win?.visualViewport
-    height = vv?.height ?? win?.innerHeight ?? 0
-    offsetTop = vv?.offsetTop ?? 0
-    keyboardOpen = height < (win?.innerHeight ?? 0) * 0.9
-    env.requestRender()
-  }
-  if (win) {
+  return create<{ height: number; offsetTop: number; keyboardOpen: boolean }>((obs) => {
+    const read = (): { height: number; offsetTop: number; keyboardOpen: boolean } => {
+      const vv = win?.visualViewport
+      const height = vv?.height ?? win?.innerHeight ?? 0
+      return { height, offsetTop: vv?.offsetTop ?? 0, keyboardOpen: height < (win?.innerHeight ?? 0) * 0.9 }
+    }
+    if (!win) { obs.next({ height: 0, offsetTop: 0, keyboardOpen: false }); obs.complete(); return () => {} }
+    const emit = (): void => obs.next(read())
     const vv = win.visualViewport
     if (vv?.addEventListener) {
-      vv.addEventListener('resize', update)
-      vv.addEventListener('scroll', update)
-      env.onUnmount(() => {
-        vv.removeEventListener('resize', update)
-        vv.removeEventListener('scroll', update)
-      })
-    } else {
-      win.addEventListener('resize', update)
-      env.onUnmount(() => win.removeEventListener('resize', update))
+      vv.addEventListener('resize', emit)
+      vv.addEventListener('scroll', emit)
+      emit()
+      return () => {
+        vv.removeEventListener('resize', emit)
+        vv.removeEventListener('scroll', emit)
+      }
     }
-  }
-  return handle
+    win.addEventListener('resize', emit)
+    emit()
+    return () => win.removeEventListener('resize', emit)
+  })
 }

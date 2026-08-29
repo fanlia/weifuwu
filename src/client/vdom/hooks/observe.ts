@@ -13,6 +13,8 @@
  */
 
 import type { HookEnv } from './env.ts'
+import { fromEventPattern, Subject, create } from '../observable/index.ts'
+import { useObservable } from './use-observable.ts'
 
 /** useScrollPosition 选项（ui-dom 兼容对象形状——组件消费：{ getScroller }） */
 export interface UseScrollPositionOptions {
@@ -72,73 +74,88 @@ export function useScrollPosition(
   env: HookEnv,
   target?: ScrollTarget,
 ): ScrollPosition {
-  const idx = env.nextHookIndex()
-  const state = env.getHookState<ScrollState>(idx) ?? { y: 0, x: 0, raf: null, handler: null, retries: 0 }
-  env.setHookState(idx, state)
+  // **2027-08 迁移（波次 3）**：实现 = useObservable(滚动源)——订阅/退订/
+  // 重渲染/重试绑定全部统一——形状保留（对象 getter——调用方零改动）——
+  // refresh 语义升级：手动重算 → 流 next → **自动重渲染**（此前调用方驱动）
+  const refresh$ = new Subject<void>()
+  const state = useObservable(env, scrollSource$(env, target, refresh$), { y: 0, x: 0 })
+  return {
+    get y() { return state().y },
+    get x() { return state().x },
+    refresh: () => { refresh$.next() }, // 手动重算——流 next——自动重渲染
+  } as ScrollPosition
+}
+
+/** 滚动源（env 闭包 + 目标解析——**重试绑定防御保留**（`?? null` 语义））：
+ *  scroll(容器/window——capture 捕获) + rAF 节流 → next(readPos)——
+ *  目标未挂载（getScroller 返回 null）→ afterRender 重试（限 10 次）——
+ *  refresh$ 信号合流（手动重算入口） */
+function scrollSource$(
+  env: HookEnv,
+  target?: ScrollTarget,
+  refresh$?: Subject<void>,
+): import('../observable/index.ts').Observable<{ y: number; x: number }> {
   const win = env.getBrowser()?.window
   const doc = env.getBrowser()?.document ?? null
-  if (!win) return { y: 0, x: 0, refresh: () => {} }
+  return create<{ y: number; x: number }>((obs) => {
+    if (!win) { obs.next({ y: 0, x: 0 }); obs.complete(); return () => {} }
+    let raf: number | undefined
+    let handler: ((e?: Event) => void) | null = null
+    let scroller: HTMLElement | Window | null = null
+    let retries = 0
 
-  const getScroller = (): HTMLElement | Window | null => {
-    // 函数目标（组件 ref 容器——未挂载返回 null——注册前重试）
-    if (typeof target === 'function') return target()
-    if (target && typeof target === 'object' && !('nodeType' in target)) {
-      const opts = target as UseScrollPositionOptions
-      if (typeof opts.getScroller === 'function') return opts.getScroller() ?? null
-      if (opts.root) {
-        if (typeof opts.root === 'string') {
-          if (doc) return (doc.querySelector(opts.root) as HTMLElement | null) ?? win
-          return win
+    const getScroller = (): HTMLElement | Window | null => {
+      if (typeof target === 'function') return target()
+      if (target && typeof target === 'object' && !('nodeType' in target)) {
+        const opts = target as UseScrollPositionOptions
+        if (typeof opts.getScroller === 'function') return opts.getScroller() ?? null
+        if (opts.root) {
+          if (typeof opts.root === 'string') {
+            if (doc) return (doc.querySelector(opts.root) as HTMLElement | null) ?? win
+            return win
+          }
+          return opts.root
         }
-        return opts.root
+        return win
       }
       return win
     }
-    return resolveScroller(target, win, doc)
-  }
+    const readPos = (s: HTMLElement | Window | null): { y: number; x: number } => {
+      if (!s) return { y: 0, x: 0 }
+      if (s === win) return { y: win.scrollY || 0, x: win.scrollX || 0 }
+      return { y: (s as HTMLElement).scrollTop, x: (s as HTMLElement).scrollLeft }
+    }
+    const emit = (): void => { obs.next(readPos(scroller)) }
 
-  const readPos = (scroller: HTMLElement | Window): void => {
-    if (scroller === win) {
-      // 窗口滚动（引用比较——node 环境无全局 Window 构造器）
-      state.y = win.scrollY || 0
-      state.x = win.scrollX || 0
-    } else {
-      state.y = (scroller as HTMLElement).scrollTop
-      state.x = (scroller as HTMLElement).scrollLeft
+    const ensure = (): void => {
+      if (handler) return
+      scroller = getScroller()
+      if (!scroller) {
+        // **重试绑定防御（`?? null` 语义——已修 bug 逻辑保留）**：
+        // 首帧 el 未挂载 target()=null——afterRender 重试（限次——防无限）
+        if (retries++ < 10) env.scheduleAfterRender(ensure)
+        return
+      }
+      const onScroll = (): void => {
+        if (raf !== undefined) return
+        raf = win.requestAnimationFrame(() => {
+          raf = undefined
+          emit()
+        })
+      }
+      scroller.addEventListener('scroll', onScroll, { passive: true } as never)
+      handler = onScroll
+      emit() // 注册即读初值
     }
-  }
-
-  /** 注册（目标未挂载（函数/对象 getScroller 返回 null）→ 微任务重试——
-   *  限次——防无限微任务循环；窗口场景直接注册） */
-  const ensureRegistered = (): void => {
-    if (state.handler) return
-    const scroller = getScroller()
-    if (!scroller) {
-      if (state.retries++ < 10) env.scheduleAfterRender(ensureRegistered)
-      return
+    ensure()
+    const refreshSub = refresh$?.subscribe({ next: () => emit() })
+    return () => {
+      refreshSub?.unsubscribe()
+      if (raf !== undefined) win.cancelAnimationFrame(raf)
+      if (handler && scroller) scroller.removeEventListener('scroll', handler)
+      handler = null
     }
-    const onScroll = (): void => {
-      if (state.raf) return
-      state.raf = win.requestAnimationFrame(() => {
-        state.raf = null
-        readPos(scroller)
-        env.requestRender()
-      })
-    }
-    scroller.addEventListener('scroll', onScroll, { passive: true } as never)
-    state.handler = onScroll
-    env.onUnmount(() => {
-      if (state.raf) win.cancelAnimationFrame(state.raf)
-      scroller.removeEventListener('scroll', onScroll)
-      state.handler = null
-    })
-  }
-  ensureRegistered()
-  return {
-    get y() { return state.y },
-    get x() { return state.x },
-    refresh: () => { const s = getScroller(); if (s) readPos(s) }, // 手动重算——调用方驱动（不触发渲染）
-  }
+  })
 }
 
 /** useInView 选项（ui-dom 兼容对象形状——组件消费：{ root, threshold, target }） */

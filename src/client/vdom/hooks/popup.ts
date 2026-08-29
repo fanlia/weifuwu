@@ -17,6 +17,8 @@
  */
 
 import type { HookEnv } from './env.ts'
+import { Subject, create } from '../observable/index.ts'
+import { useObservable } from './use-observable.ts'
 
 export type PopupPlacement = 'top' | 'bottom' | 'left' | 'right'
 
@@ -90,52 +92,56 @@ export interface PopupPositionOptions {
   margin?: number
 }
 
-/** 弹层位置跟踪：scroll/resize 时自动重算 fixed 坐标（0 rect 防护） */
+/** 弹层位置跟踪：scroll/resize 时自动重算 fixed 坐标（0 rect 防护）
+ *  2027-08 迁移（波次 3）：实现 = useObservable(弹层位置源)——订阅/退订/
+ *  重渲染统一——形状保留（对象 getter——调用方零改动）——refresh 语义
+ *  升级：手动重算 → 流 next → **自动重渲染**（此前调用方驱动） */
 export function usePopupPosition(env: HookEnv, options: PopupPositionOptions) {
+  const refresh$ = new Subject<void>()
+  const state = useObservable(env, popupPosition$(env, options, refresh$), { top: 0, left: 0 })
+  return {
+    get top() { return state().top },
+    get left() { return state().left },
+    refresh: () => { refresh$.next() }, // 手动重算——流 next——自动重渲染
+  }
+}
+
+/** 弹层位置源（防御保留：0-rect 跳过 / isOpen 门控 / rAF 节流）：
+ *  scroll(捕获——容器滚动也收到)/resize → rAF 节流 → compute → next——
+ *  refresh$ 信号合流（手动重算入口） */
+function popupPosition$(
+  env: HookEnv,
+  options: PopupPositionOptions,
+  refresh$?: Subject<void>,
+): import('../observable/index.ts').Observable<{ top: number; left: number }> {
   const win = env.getBrowser()?.window
-  // **对象 getter（2026-08）**：top/left 读时求值——mount 闭包持有 pos
-  // 永远最新（旧快照属性：mount 闭包读一次冻结——Affix 类组件依赖
-  // renderFn 重读——getter 化后无位置概念）
-  let top = 0
-  let left = 0
-  const pos = {
-    get top() { return top },
-    get left() { return left },
-    refresh: () => {},
-  }
-
-  const refresh = (): void => {
-    const el = options.el()
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    // 0 rect 防护：元素替换中/未布局/隐藏时 rect 全 0——跳过刷新（保留上一坐标）
-    if (r.width === 0 && r.height === 0) return
-    const p = options.compute(r)
-    top = p.top
-    left = p.left
-  }
-
-  // scroll（捕获——容器滚动也收到）/resize 全局监听 + rAF 节流
-  let raf: number | undefined
-  const schedule = (): void => {
-    if (raf) return
-    if (!win) return
-    raf = win.requestAnimationFrame(() => {
-      raf = undefined
-      if (options.isOpen?.() ?? true) refresh()
-    })
-  }
-  if (win) {
+  return create<{ top: number; left: number }>((obs) => {
+    if (!win) { obs.next({ top: 0, left: 0 }); obs.complete(); return () => {} }
+    let raf: number | undefined
+    // **0 rect 防护（保留）**：元素替换中/未布局/隐藏时 rect 全 0——跳过刷新
+    const computeNow = (): void => {
+      const el = options.el()
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 && r.height === 0) return
+      if (options.isOpen?.() ?? true) obs.next(options.compute(r))
+    }
+    const schedule = (): void => {
+      if (raf !== undefined) return
+      raf = win.requestAnimationFrame(() => {
+        raf = undefined
+        computeNow()
+      })
+    }
     win.addEventListener('scroll', schedule, true)
     win.addEventListener('resize', schedule)
-    env.onUnmount(() => {
+    computeNow() // 注册即算初值
+    const refreshSub = refresh$?.subscribe({ next: () => computeNow() })
+    return () => {
+      refreshSub?.unsubscribe()
       if (raf !== undefined) win.cancelAnimationFrame(raf)
       win.removeEventListener('scroll', schedule, true)
       win.removeEventListener('resize', schedule)
-    })
-  }
-
-  // 手动重算：只更新坐标，不触发渲染（调用方负责 render）
-  pos.refresh = refresh
-  return pos
+    }
+  })
 }

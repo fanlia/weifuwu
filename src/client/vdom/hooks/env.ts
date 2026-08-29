@@ -13,6 +13,7 @@ import type { ExternalStore } from '../store.ts'
 import { createSignal } from '../store.ts'
 import { BehaviorSubject, fromPromise, shareReplay, switchMap } from '../observable/index.ts'
 import type { Observable } from '../observable/index.ts'
+import { useObservable as useObservableEnv } from './use-observable.ts'
 import { useStableRef, useOpen, useGlobalKey } from './basic.ts'
 import { usePopupPosition } from './popup.ts'
 import { openPopup, type PopupHandle, type PopupOpenOptions } from './popup-manager.ts'
@@ -131,27 +132,9 @@ const asyncRegistry = new Map<string, AsyncEntry>()
 
 /** 创建 ctx.ui 面（env 绑定当前组件实例） */
 export function createUi(env: HookEnv): Ui {
-  /** useObservable 实现（独立引用——useAsyncData 复用——无 this 问题） */
-  const useObservableImpl = <T>(source: Observable<T>, init: T): (() => T) => {
-    // **幂等（同 source 引用——实例级 keyed）**：不重复订阅——
-    // getter 永远最新（订阅更新 last）——卸载自动退订（onUnmount）
-    const data = env.getInstanceData()
-    let entry = data.get(source) as { get(): T } | undefined
-    if (!entry) {
-      let last = init
-      const sub = source.subscribe({
-        next: (v) => { last = v; env.requestRender() },
-        error: (e) => { console.error('[vdom] useObservable:', e) },
-      })
-      env.onUnmount(() => sub.unsubscribe())
-      entry = { get: () => last }
-      data.set(source, entry)
-    }
-    return () => entry!.get()
-  }
   return {
     useObservable<T>(source: Observable<T>, init: T): () => T {
-      return useObservableImpl(source, init)
+      return useObservableEnv(env, source, init)
     },
     useAsyncData<T>(fetcher: () => Promise<T>, key: string): [() => T | null, () => void] {
       // **模块级注册表（跨组件共享——同 key 并发合并——8 次请求根治）**：
@@ -173,7 +156,7 @@ export function createUi(env: HookEnv): Ui {
         asyncRegistry.set(key, entry)
       }
       entry.fetcher = fetcher as () => Promise<unknown>
-      const get = useObservableImpl<T | null>(entry.data$, null)
+      const get = useObservableEnv<T | null>(env, entry.data$, null)
       const reload = (): void => { entry!.trigger.next() }
       return [get, reload]
     },
