@@ -35,7 +35,6 @@ import { renderV2Node, fromArray, concatObs, v2OutputPos } from './render.ts'
 export interface Segment {
   factory: Component
   renderFn: RenderFn
-  onUnmounts: (() => void)[]
   // **CompOutput 判别联合（v1 同——清理/转换路径直接兼容——outputToChild）**
   lastOutput: CompOutput | undefined
   hookSeq: { n: number }
@@ -45,7 +44,9 @@ export interface Segment {
   renderBase: number
   instData: Map<unknown, unknown>
   /** **destroy$（2027-08——段级卸载信号——单信号全停）**：卸载时 next——
-   *  订阅者（hooks 清理）自动停止——v1 onUnmounts 数组的流化 */
+   *  **单轨清理（2027-09——onUnmounts 字段删除）**：订阅者（onUnmount
+   *  闭包栈 LIFO + 外部 takeUntil 流清理）统一由本信号驱动——不再有
+   *  平行数组 */
   destroy$: import('../../observable/index.ts').Subject<void>
   disposed: boolean
 }
@@ -60,10 +61,20 @@ export function createSegment(
   compId: string,
   requestSegmentRender?: () => void,
 ): Segment {
+  // **单轨清理（2027-09——onUnmounts 字段删除）**：onUnmount 注册进私有闭包
+  // 栈——destroy$ 唯一内部订阅者按 LIFO（后注册先执行——v1 语义——资源
+  // 展开逆序）执行——外部订阅者（takeUntil 流清理）随后——段接口不再暴露
+  // onUnmounts（单机制自 destroy$——无平行数组）
   const onUnmounts: (() => void)[] = []
   const instData = new Map<unknown, unknown>()
   const hookSeq = { n: 0 }
   const hookStates = new Map<number, unknown>()
+  const destroy$ = new Subject<void>()
+  destroy$.subscribe({ next: () => {
+    for (const fn of [...onUnmounts].reverse()) {
+      try { fn() } catch (e) { console.error('[vdom] v2 onUnmount:', e) }
+    }
+  } })
   const instCtx = Object.create(ctx) as UIContext
   instCtx.onUnmount = (fn: () => void) => { onUnmounts.push(fn) }
   // **段级 hooks 面（2027-08——v2 完整性）**：createUi（真实的 hooks env——
@@ -90,7 +101,7 @@ export function createSegment(
   })
   const renderFn = factory(props, instCtx) as RenderFn
   const renderBase = hookSeq.n // 渲染 hook 基准（mount 后计数）
-  return { factory, renderFn, onUnmounts, lastOutput: undefined, hookSeq, renderBase, instData, destroy$: new Subject<void>(), disposed: false }
+  return { factory, renderFn, lastOutput: undefined, hookSeq, renderBase, instData, destroy$, disposed: false }
 }
 
 /** **段重渲染（单一实现源）**：hookSeq 重置（v1 renderBase 语义——渲染期
@@ -100,14 +111,14 @@ export function rerenderSegment(seg: Segment, props: Record<string, unknown>): V
   return seg.renderFn(props) as VNodeChild
 }
 
-/** 段销毁（unmount——destroy$ 信号 + onUnmounts 逆序）——**单信号全停** */
+/** 段销毁（unmount——destroy$ 单信号全停——onUnmount 闭包栈 LIFO + 订阅
+ *  者清理统一由信号驱动）——段接口无平行数组（单轨清理） */
 export function disposeSegment(id: string, segments: SegmentMap): void {
   const seg = segments.get(id)
   if (!seg || seg.disposed) return
   seg.disposed = true
-  // destroy$ 信号（订阅者清理——takeUntil 语义）
+  // destroy$ 信号（onUnmount 闭包栈 + 外部订阅者——takeUntil 语义）
   try { seg.destroy$.next() } catch (e) { console.error('[vdom] v2 destroy$:', e) }
-  for (const fn of [...seg.onUnmounts].reverse()) { try { fn() } catch (e) { console.error('[vdom] v2 onUnmount:', e) } }
   segments.delete(id)
 }
 

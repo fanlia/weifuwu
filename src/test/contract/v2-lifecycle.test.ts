@@ -1,5 +1,5 @@
 /**
- * vdom v2 — destroy$ 生命周期契约（段级卸载信号——单信号全停）
+ * vdom v2 — destroy$ 生命周期契约（段级卸载信号——单信号全停——单轨清理）
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -19,30 +19,39 @@ function collectObs(o: Observable<Command>): Promise<Command[]> {
   })
 }
 
-test('disposeSegment：destroy$ 信号 + onUnmounts 逆序执行', () => {
+test('disposeSegment：destroy$ 单信号——onUnmount 栈逆序执行（LIFO）', () => {
   const segs = new Map<string, never>() as unknown as SegmentMap
-  const seg = createSegment(((_p: any, _c: any) => () => h('div', {})) as never, {}, emptyCtx, 'root.0.0')
+  const unmounted: string[] = []
+  // 注册走真实 API（工厂内 ctx.onUnmount——hooks 时序）——段接口已无
+  // onUnmounts 字段（单轨清理——2027-09）
+  const seg = createSegment(((_p: any, c: any) => {
+    c.onUnmount(() => unmounted.push('a'))
+    c.onUnmount(() => unmounted.push('b'))
+    return () => h('div', {})
+  }) as never, {}, emptyCtx, 'root.0.0')
   segs.set('root.0.0', seg as never)
   let destroyed = 0
-  let unmounted: string[] = []
   seg.destroy$.subscribe({ next: () => destroyed++ })
-  seg.onUnmounts.push(() => unmounted.push('a'))
-  seg.onUnmounts.push(() => unmounted.push('b'))
   disposeSegment('root.0.0', segs)
   assert.equal(destroyed, 1, 'destroy$ 单信号')
-  assert.deepEqual(unmounted, ['b', 'a'], 'onUnmounts 逆序（后注册先执行）')
+  assert.deepEqual(unmounted, ['b', 'a'], 'onUnmount 逆序（后注册先执行——LIFO）')
   assert.ok(!segs.has('root.0.0'), '段已删除')
 })
 
-test('disposeSegment：幂等（重复销毁零副作用）', () => {
+test('disposeSegment：幂等（重复销毁零副作用——信号单发）', () => {
   const segs = new Map<string, never>() as unknown as SegmentMap
-  const seg = createSegment(((_p: any, _c: any) => () => h('div', {})) as never, {}, emptyCtx, 'k1')
+  let runs = 0
+  const seg = createSegment(((_p: any, c: any) => {
+    c.onUnmount(() => runs++)
+    return () => h('div', {})
+  }) as never, {}, emptyCtx, 'k1')
   segs.set('k1', seg as never)
   let destroyed = 0
   seg.destroy$.subscribe({ next: () => destroyed++ })
   disposeSegment('k1', segs)
   disposeSegment('k1', segs) // 二次（幂等）
   assert.equal(destroyed, 1)
+  assert.equal(runs, 1, 'onUnmount 栈单次执行')
 })
 
 test('卸载后段不复用（diff 真移除 → dispose → 新挂载重新创建）', async () => {

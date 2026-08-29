@@ -65,7 +65,6 @@ export function removeVNodeTree(
   v: VNodeChild, base: string, parent: string, emitCommand: (cmd: Command) => void,
   registry?: ComponentRegistry | null,
 ): void {
-  if ((globalThis as any).__DBG8) console.log('[dbg-rmt]', base, 'parent=', parent, 'type=', typeof v === 'object' && v !== null && !Array.isArray(v) ? String((v as VNode).type) : Array.isArray(v) ? 'array' : String(v))
   // 空洞/文本：单节点移除（锚——同构保持）
   if (isHoleKind(v)) {
     emitCommand({ op: 'remove', id: base })
@@ -84,7 +83,6 @@ export function removeVNodeTree(
     //  组件 compId = keyedId(外层槽位父, key) 错位——unmount 卸错实例——
     //  root.0.0.kk1 渲染 vs root.0.kk1 清理实证）——childrenOf 展开后
     //  普通数组不可达（防御分支——base 语义同组件输出）
-    if ((globalThis as any).__DBG4) console.log(`[dbg-arr] 数组 base=${base} parent=${parent} 项数=${v.length}`)
     let slot = 0
     for (const c of v) {
       removeVNodeTree(c, pathId(base, slot), base, emitCommand, registry)
@@ -112,7 +110,6 @@ export function removeVNodeTree(
   // **keyedId（key 转义——key 注入防御——与 build/diff 同规则源）**）
   if (typeof vn.type === 'function') {
     const compId = vn.key !== null ? keyedId(parent, vn.key) : base
-    if ((globalThis as any).__DBG5) console.log(`[dbg-comp] unmount ${compId} base=${base} parent=${parent}`)
     emitCommand({ op: 'unmount', compId })
     // **组件输出区间递归清理（C2——嵌套组件 A > B > C）**：组件项的
     // DOM 展开在 registry.lastOutput（非 vnode.children——renderFn 输出）

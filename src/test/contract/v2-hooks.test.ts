@@ -4,7 +4,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h } from '../../client/vdom/core/vnode.ts'
-import { createSegment, type SegmentMap } from '../../client/vdom/core/v2/diff.ts'
+import { createSegment, disposeSegment, type SegmentMap } from '../../client/vdom/core/v2/diff.ts'
 import { BehaviorSubject } from '../../client/vdom/observable/index.ts'
 import { createStore } from '../../client/vdom/store.ts'
 
@@ -41,21 +41,24 @@ test('段级 hooks：useObservable 订阅——值变化 → rerender', async ()
   assert.equal(renders, 1, 'Observable 值变化 → rerender（回调触发）')
 })
 
-test('段级 hooks：卸载清理（destroy$ → hooks 退订）', () => {
-  let unsubscribed = false
-  const store = { state: 0, subscribe: () => { unsubscribed = true; return () => { unsubscribed = false } }, set: (_v: number) => {}, update: () => {}, notify: () => {} } as never
+test('段级 hooks：卸载清理（destroy$ → hooks 退订——零通知）', () => {
+  let renders = 0
+  const store = createStore({ n: 0 })
   const Comp: any = (_p: any, _c: any) => {
     _c.ui.useExternal(store)
     return (props: any) => h('div', {})
   }
-  const seg = createSegment(Comp as never, {}, emptyCtx, 'k2')
+  const segs = new Map<string, never>() as unknown as SegmentMap
+  const seg = createSegment(Comp as never, {}, emptyCtx, 'k2', () => renders++)
+  segs.set('k2', seg as never)
   seg.renderFn({})
-  // 卸载 → destroy$ → hooks 清理（onUnmounts 执行）
-  void unsubscribed
-  const before = seg.onUnmounts.length
-  const destroySub = seg.destroy$.subscribe({ next: () => {} })
-  void destroySub
-  assert.ok(before >= 0, '段存在 onUnmounts（hooks 注册）')
+  store.set({ n: 1 })
+  assert.equal(renders, 1, '订阅期 store 变化 → 段 rerender')
+  // 卸载 → destroy$ → hooks 退订（onUnmount 栈执行——store 不再通知）
+  disposeSegment('k2', segs)
+  store.set({ n: 2 })
+  assert.equal(renders, 1, '卸载后零通知（退订生效——单轨清理）')
+  assert.ok(!segs.has('k2'), '段已删除')
 })
 
 test('段级 hooks：useAsyncData（模块级注册表——段可用）', async () => {

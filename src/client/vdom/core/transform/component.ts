@@ -27,7 +27,6 @@ import type { TransformContext, TransitionFn } from './index.ts'
 
 /** component → X：组件卸载（onUnmounts）+ 输出区间移除（让位） */
 export const transitionComponent: TransitionFn = async (_old, next, ctx) => {
-  if ((globalThis as any).__DBG8) console.log('[dbg-tc] oldCompId=', ctx.oldCompId, 'oldId=', ctx.oldId, 'parent=', ctx.parent, 'index=', ctx.index)
   // 1. 组件卸载清理（onUnmounts——实例注册表消费——递归子实例）
   if (ctx.oldCompId) ctx.emit({ op: 'unmount', compId: ctx.oldCompId })
   // 2. 旧输出区间移除——registry 查 lastOutput——数组/多根完整清理
