@@ -20,8 +20,11 @@
 import { h } from '../../client/vdom/core/vnode.ts'
 import type { VNode } from '../../client/vdom/core/vnode.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
-import { renderToStream } from '../../client/vdom/core/build.ts'
-import { diffStream } from '../../client/vdom/core/diff/index.ts'
+// **v1 退役（2027-08）**：harness 迁移 v2 引擎（renderV2/diffV2 + 段表——
+// 命令流同构（v2 等价已验证）——断言面零改动）
+import { renderV2 } from '../../client/vdom/core/v2/render.ts'
+import { diffV2, disposeSegment } from '../../client/vdom/core/v2/diff.ts'
+import { collectCommands } from '../../client/vdom/core/v2/integrate.ts'
 import { createComponentRegistry, disposeComponent, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
 import type { Component, RenderFn } from '../../client/vdom/core/vnode.ts'
 import type { UIContext } from '../../client/vdom/context/UIContext.ts'
@@ -41,17 +44,6 @@ export function createMockCtx(registry: ComponentRegistry): {
     afterRender: (fn: () => void) => { afterRenders.push(fn) },
   } as unknown as UIContext
   return { ctx, afterRenders, renders }
-}
-
-async function drain(stream: ReadableStream<Command>): Promise<Command[]> {
-  const reader = stream.getReader()
-  const out: Command[] = []
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    out.push(value)
-  }
-  return out
 }
 
 /** 命令流操作序列（op 列表——形状匹配） */
@@ -86,27 +78,29 @@ export interface ComponentHarness {
   unmount(): void
 }
 
-/** 挂载组件（零浏览器——命令流收集） */
+/** 挂载组件（零浏览器——命令流收集——v2 引擎 + 段表） */
 export async function mount(Comp: Component, props: Record<string, unknown> = {}): Promise<ComponentHarness> {
   const registry = createComponentRegistry()
   const mock = createMockCtx(registry)
+  const segments = new Map<string, import('../../client/vdom/core/v2/diff.ts').Segment>()
   let vnode = h(Comp as never, props as never)
-  const cmds = await drain(renderToStream(vnode, mock.ctx, registry))
+  const cmds = await collectCommands(renderV2(vnode, mock.ctx, registry, segments, () => {}))
   return {
     cmds,
     mock,
     registry,
-    // 工厂执行次数 = 实例记录数（同位置同类型复用不重跑）
-    mounts: () => registry.keys().length,
+    // 工厂执行次数 = 段表大小（同位置同类型复用不重跑）
+    mounts: () => segments.size,
     render: async (nextProps: Record<string, unknown>) => {
       const next = h(Comp as never, nextProps as never)
-      const d = await drain(diffStream(vnode, next, mock.ctx, registry))
+      const d = await collectCommands(diffV2(vnode as never, next as never, mock.ctx, segments, registry, () => {}))
       vnode = next
       return d
     },
     remount: async (p: Record<string, unknown>) => mount(Comp, p),
     unmount: () => {
       for (const id of registry.keys().reverse()) disposeComponent(id, registry)
+      for (const [sid] of [...segments]) disposeSegment(sid, segments) // v2 段表（实例权威）
     },
   }
 }

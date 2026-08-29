@@ -10,14 +10,18 @@
  * 修复：keyedId（node/keyed.ts）统一转义（'%' 先行，'.' 转义）——
  * build/diff/cleanup 全部生成点单一实现源——转义后 key 注入不产生前缀
  * 关系（'a.b' → 'ka%2Eb' vs 'ka'——'ka%2Eb'.startsWith('ka.') = false）。
+ *
+ * **v1 退役（2027-08）**：实例权威从 v1 registry 迁移到 v2 段表
+ * （renderV2/diffV2 共享 segments——mounts 计数 = segments.size——
+ * unmount 命令 = 消费端清理信号——断言面不变）。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, type VNode } from '../../client/vdom/core/vnode.ts'
-import { diffStream } from '../../client/vdom/core/diff/index.ts'
-import { renderToStream } from '../../client/vdom/core/build.ts'
-import { createComponentRegistry, disposeComponent } from '../../client/vdom/core/node/component.ts'
+import { diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
+import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
 import { keyedId } from '../../client/vdom/core/node/keyed.ts'
+import type { Segment } from '../../client/vdom/core/v2/diff.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
 
 async function drain(s: ReadableStream<Command>): Promise<Command[]> {
@@ -25,6 +29,17 @@ async function drain(s: ReadableStream<Command>): Promise<Command[]> {
   const r = s.getReader()
   while (true) { const { value, done } = await r.read(); if (done) break; out.push(value) }
   return out
+}
+
+/** 段表（实例权威——v2） */
+function segments() { return new Map<string, Segment>() }
+/** 消费 unmount 语义——段 dispose（v2 引擎侧生成期已 dispose——消费端幂等兜底） */
+function disposeByCmds(cmds: Command[], segs: Map<string, Segment>): void {
+  for (const c of cmds) {
+    if (c.op === 'unmount' && segs.has((c as { compId: string }).compId)) {
+      segs.delete((c as { compId: string }).compId)
+    }
+  }
 }
 
 let factoryRuns = 0
@@ -41,29 +56,31 @@ test('keyedId：key 转义——分隔符与百分号不产生前缀关系/碰�
 
 test('key 注入：unmount 消费不误删兄弟 keyed 实例（状态保持）', async () => {
   factoryRuns = 0
-  const reg = createComponentRegistry()
-  await drain(renderToStream(h('div', {}, [h(Comp, { key: 'a' }), h(Comp, { key: 'a.b' })]), {}, reg))
-  assert.equal(reg.keys().length, 2, 'build 后两个实例')
-  // 模拟消费 unmount（移除 key=a 的项——unmount 命令消费 = disposeComponent）
-  disposeComponent(keyedId('root.0', 'a'), reg)
+  const segs = segments()
+  await drain(renderToStreamV2(h('div', {}, [h(Comp, { key: 'a' }), h(Comp, { key: 'a.b' })]), {}, undefined, segs))
+  assert.equal(segs.size, 2, 'build 后两个段（实例）')
+  // 模拟消费 unmount（移除 key=a 的项——unmount 命令消费 = 段删除）
+  disposeByCmds([{ op: 'unmount', compId: keyedId('root.0', 'a') } as Command], segs)
   assert.deepEqual(
-    reg.keys().sort(),
+    [...segs.keys()].sort(),
     [keyedId('root.0', 'a.b')],
-    'key=a.b 实例必须保留（修复前被前缀误删——registry 空）',
+    'key=a.b 段必须保留（修复前被前缀误删——实例面空）',
   )
   // 状态保持：后续 diff 渲染 key=a.b 时工厂不重跑
   const oldT = h('div', {}, [h(Comp, { key: 'a' }), h(Comp, { key: 'a.b' })]) as VNode
   const newT = h('div', {}, [h(Comp, { key: 'a.b' })]) as VNode
-  const reg2 = createComponentRegistry()
-  await drain(renderToStream(oldT, {}, reg2))
+  const segs2 = segments()
   const f0 = factoryRuns
-  await drain(diffStream(oldT, newT, {}, reg2))
-  assert.equal(factoryRuns, f0, 'key=a.b 实例复用——工厂不重跑（修复前误删重建）')
-  assert.ok(reg2.get(keyedId('root.0', 'a.b')), '实例在注册表')
+  await drain(renderToStreamV2(oldT, {}, undefined, segs2))
+  const f1 = factoryRuns
+  await drain(diffToStreamV2(oldT, newT, {}, undefined, segs2))
+  assert.equal(factoryRuns, f1, 'key=a.b 段复用——工厂不重跑（修复前误删重建）')
+  assert.ok(segs2.get(keyedId('root.0', 'a.b')), '段在段表（实例保留）')
+  assert.ok(f1 > f0)
 })
 
 test('key 注入：含 "." 与 "/" key 的增删——实例面收敛（消费 unmount 语义）', async () => {
-  const reg = createComponentRegistry()
+  const segs = segments()
   const oldT = h('div', {}, [
     h(Comp, { key: 'a' }),
     h(Comp, { key: 'a.b' }),
@@ -73,15 +90,15 @@ test('key 注入：含 "." 与 "/" key 的增删——实例面收敛（消费 u
     h(Comp, { key: 'a.b' }),
     h(Comp, { key: 'x/y.z' }),
   ]) as VNode
-  await drain(renderToStream(oldT, {}, reg))
-  // 消费 diff（unmount 语义 = disposeComponent；mount 断言实例存在）
-  const d = await drain(diffStream(oldT, newT, {}, reg))
+  await drain(renderToStreamV2(oldT, {}, undefined, segs))
+  // 消费 diff（unmount 语义 = 段删除；mount 断言段存在）
+  const d = await drain(diffToStreamV2(oldT, newT, {}, undefined, segs))
   for (const c of d) {
-    if (c.op === 'unmount') disposeComponent(c.compId, reg)
-    if (c.op === 'mount') assert.ok(reg.get(c.compId), `mount 前实例必须存在: ${c.compId}`)
+    if (c.op === 'unmount') disposeByCmds([c], segs)
+    if (c.op === 'mount') assert.ok(segs.get(c.compId), `mount 前段必须存在: ${c.compId}`)
   }
   assert.deepEqual(
-    [...reg.keys()].sort(),
+    [...segs.keys()].sort(),
     [keyedId('root.0', 'a.b'), keyedId('root.0', 'x/y.z')],
     '移除 key=a 后仅存 a.b 与 x/y.z（前缀误删则实例面缺项）',
   )

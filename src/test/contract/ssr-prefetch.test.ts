@@ -12,7 +12,7 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { UIRouter, frontRequest } from '../../client/vdom/core/router.ts'
-import { uiSsr } from '../../client/vdom/core/ssr/index.ts'
+import { uiSsrV2 } from '../../client/vdom/core/v2/ssr.ts' // v1 退役——v2
 import { h } from '../../client/vdom/core/vnode.ts'
 import type { Component } from '../../client/vdom/core/vnode.ts'
 import { asyncDataPreload, asyncDataSeed, createUi } from '../../client/vdom/hooks/env.ts'
@@ -43,7 +43,7 @@ test('uiSsr 两遍渲染：预取遍启动 fetch → 会合 → 正式遍 HTML �
   const router = new UIRouter()
   router.get('/', (_req, ctx) => ctx.stream(h(Comp as never))) // 直接返回 stream Response（不嵌套）
   // 预取遍在 uiSsr 内——挂起时（fetch 未完成）先解析
-  const ssrP = uiSsr(router, '/', { title: 't' })
+  const ssrP = uiSsrV2(router, '/', { title: 't' })
   await flush() // 预取遍渲染完成 + fetch 在飞行
   assert.equal(calls, 1) // 预取遍启动 fetch
   d.resolve({ name: '订单.csv' }) // 数据到达

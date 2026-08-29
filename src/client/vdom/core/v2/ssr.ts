@@ -11,7 +11,7 @@ import type { VNode } from '../vnode.ts'
 import type { Command } from '../command/index.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 import { UIRouter, frontRequest } from '../router.ts'
-import { encodeCommands, createFnTable, type RenderCtx } from '../serve.ts'
+import { encodeCommands, createFnTable, type RenderCtx } from '../protocol.ts' // v1 退役——协议层独立
 import { renderV2 } from './render.ts'
 import { createComponentRegistry } from '../node/component.ts'
 import { Observable } from '../../observable/index.ts'

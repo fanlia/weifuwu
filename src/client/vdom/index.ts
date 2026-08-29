@@ -41,7 +41,8 @@ export { Fragment } from './core/node/fragment.ts'
 export { UIRouter } from './core/router.ts'
 export { createClientBrowser } from './browser/create-client-browser.ts'
 // **v1 退役（2027-08）**：运行入口默认 v2（uiServe → uiServeV2 实现）——
-// v1 引擎（core/serve.ts/build.ts/diff）保留为对账基线（契约测试/对账器）
+// v1 引擎（core/serve.ts/build.ts/diff）已删除——v2 兼容桥保持外部形态
+// （命令流同构——消费端零改动）
 export { uiServeV2 as uiServe } from './core/v2/serve.ts'
 export { uiServeV2 } from './core/v2/serve.ts'
 
@@ -55,7 +56,7 @@ export type { UIContext, DataPipe } from './context/UIContext.ts'
 export type { Component, RenderFn, VNode, VNodeChild } from './core/vnode.ts'
 export type { Ui } from './hooks/env.ts'
 /** 页面作者渲染入口（ctx.stream——vnode → Response 命令流） */
-export type { RenderCtx } from './core/serve.ts'
+export type { RenderCtx } from './core/protocol.ts'
 export type { Browser } from './browser/Browser.ts'
 export type { ApiClient } from './middlewares/api.ts'
 export type { AuthClient, I18nState } from './middlewares/auth-i18n.ts'
@@ -70,8 +71,8 @@ export { toast, injectCommands, type ToastType } from './commands.ts'
 
 // ── 命令式宿主/AI 能力（组件库 dist 消费形态需要——components 构建外部化
 //  '../../vdom/*' 为 weifuwu/vdom——非公共面导入也必须可解析）──
-export { renderToStream } from './core/build.ts'
-export { diffStream } from './core/diff/index.ts'
+export { renderToStreamV2 as renderToStream } from './core/v2/integrate.ts' // v1 退役——v2 兼容桥
+export { diffToStreamV2 as diffStream } from './core/v2/integrate.ts' // v1 退役——v2 兼容桥
 export { CommandApplier } from './core/patch/index.ts'
 export { createComponentRegistry } from './core/node/component.ts'
 export { aiStream } from './hooks/ai-stream.ts'

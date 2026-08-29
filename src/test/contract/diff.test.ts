@@ -11,8 +11,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, type VNode } from '../../client/vdom/core/vnode.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
-import { diffStream } from '../../client/vdom/core/diff/index.ts'
-import { renderToStream } from '../../client/vdom/core/build.ts'
+import { diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
+import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
 import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
 import type { UIContext } from '../../client/vdom/context/UIContext.ts'
@@ -22,9 +22,10 @@ async function diff(
   oldTree: VNode,
   newTree: VNode,
   registry: ComponentRegistry = createComponentRegistry(),
+  segments: Map<string, import('../../client/vdom/core/v2/diff.ts').Segment> = new Map(),
 ): Promise<Command[]> {
   const cmds: Command[] = []
-  const reader = diffStream(oldTree, newTree, {} as UIContext, registry).getReader()
+  const reader = diffToStreamV2(oldTree, newTree, {} as UIContext, registry, segments).getReader()
   while (true) {
     const { value, done } = await reader.read()
     if (done) break
@@ -80,11 +81,12 @@ test('组件同类型复用：工厂不重跑（renderFn 重新调用——命�
   let mounts = 0
   const Counter = (_i: Record<string, never>) => { mounts++; return () => h('span', { class: 'c' }, 'x') }
   const reg = createComponentRegistry()
-  // 先渲染旧树（工厂执行）→ diff 新树（复用 rec——工厂不重跑）
+  const segs: Map<string, import('../../client/vdom/core/v2/diff.ts').Segment> = new Map()
+  // 先渲染旧树（工厂执行）→ diff 新树（段复用——工厂不重跑）
   const drain = async (s: ReadableStream) => { const r = s.getReader(); while (true) { const { done } = await r.read(); if (done) break } }
-  await drain(renderToStream(h(Counter, { value: 1 }), {} as UIContext, reg))
+  await drain(renderToStreamV2(h(Counter, { value: 1 }), {} as UIContext, reg, segs))
   assert.equal(mounts, 1, '首帧工厂执行一次')
-  const cmds = await diff(h(Counter, { value: 1 }), h(Counter, { value: 2 }), reg)
+  const cmds = await diff(h(Counter, { value: 1 }), h(Counter, { value: 2 }), reg, segs)
   assert.equal(mounts, 1, 'diff 后工厂不重跑——实例复用')
   assert.equal(ops(cmds).includes('create'), false, '无 create——组件复用不重建')
 })
@@ -146,10 +148,11 @@ test('keyed 循环移位：冲突重建（DOM 重建）但组件实例复用（�
   const Item = (_i: Record<string, never>, props: { name: string }) => { mounts++; return () => h('span', { class: 'item' }, props.name) }
   const mkC = (keys: string[]) => h('div', {}, keys.map((k) => h(Item, { key: k, name: k })))
   const reg = createComponentRegistry()
+  const segs: Map<string, import('../../client/vdom/core/v2/diff.ts').Segment> = new Map()
   const drain = async (s: ReadableStream) => { const r = s.getReader(); while (true) { const { done } = await r.read(); if (done) break } }
-  await drain(renderToStream(mkC(['a', 'b', 'c']), {} as UIContext, reg))
+  await drain(renderToStreamV2(mkC(['a', 'b', 'c']), {} as UIContext, reg, segs))
   assert.equal(mounts, 3, '首帧 3 个组件实例')
-  const cmds = await diff(mkC(['a', 'b', 'c']), mkC(['c', 'a', 'b']), reg)
+  const cmds = await diff(mkC(['a', 'b', 'c']), mkC(['c', 'a', 'b']), reg, segs)
   assert.equal(mounts, 3, '循环移位——.k{key} 实例复用（工厂不重跑——状态保持）')
   assert.ok(cmds.every((c) => c.op === 'remove' || c.op === 'create' || c.op === 'insert' || c.op === 'close' || c.op === 'done' || c.op === 'mount' || c.op === 'unmount'),
     'move id 空间重叠根治——整块重建（设计决策）')

@@ -8,11 +8,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h } from '../../client/vdom/core/vnode.ts'
-import { renderToStream } from '../../client/vdom/core/build.ts'
+import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
 import { commandToHtml, escapeHtml, htmlDocument } from '../../client/vdom/core/ssr/html.ts'
 
 async function toHtml(tree: ReturnType<typeof h>): Promise<string> {
-  const stream = renderToStream(tree)
+  const stream = renderToStreamV2(tree)
   const out = stream.pipeThrough(commandToHtml())
   const reader = out.getReader()
   let html = ''
@@ -64,7 +64,7 @@ test('commandToHtml：空洞占位注释 + 文本转义', async () => {
 })
 
 test('commandToHtml：流式分块（TransformStream——多 chunk 拼接）', async () => {
-  const stream = renderToStream(h('div', {}, [h('span', {}, '1'), h('span', {}, '2')]))
+  const stream = renderToStreamV2(h('div', {}, [h('span', {}, '1'), h('span', {}, '2')]))
   const out = stream.pipeThrough(commandToHtml())
   const reader = out.getReader()
   const chunks: string[] = []

@@ -97,8 +97,8 @@ export async function assertRoundTrip(
 
 import type { VNode } from './core/vnode.ts'
 import type { UIContext, Ui } from './context/UIContext.ts'
-import { renderToStream } from './core/build.ts'
-import { diffStream } from './core/diff/index.ts'
+// v1 退役（2027-08）——v2 兼容桥（命令流同构——消费端零改动）
+import { renderToStreamV2, diffToStreamV2 } from './core/v2/integrate.ts'
 import { CommandApplier } from './core/patch/index.ts'
 import { createComponentRegistry, type ComponentRegistry } from './core/node/component.ts'
 import { createUi } from './hooks/env.ts'
@@ -143,7 +143,7 @@ export function findByClass(vnode: unknown, cls: string): any[] {
 
 // ── DOM 级测试辅助（vdom 引擎：renderToStream/diffStream + CommandApplier）──
 
-const domCache = new WeakMap<Element, { registry: ComponentRegistry; applier: CommandApplier }>()
+const domCache = new WeakMap<Element, { registry: ComponentRegistry; applier: CommandApplier; segments: Map<string, import('./core/v2/diff.ts').Segment> }>()
 
 /** mount：vnode → 全量命令流 → apply（容器内渲染——等挂载完成） */
 export async function mountToDom(container: Element, vnode: any, _ctx: any): Promise<void> {
@@ -151,8 +151,9 @@ export async function mountToDom(container: Element, vnode: any, _ctx: any): Pro
   container.innerHTML = ''
   const registry = createComponentRegistry()
   const applier = new CommandApplier(container as HTMLElement, doc, registry)
-  domCache.set(container, { registry, applier })
-  const stream = renderToStream(vnode, _ctx ?? ({} as UIContext), registry)
+  const segments = new Map<string, import('./core/v2/diff.ts').Segment>()
+  domCache.set(container, { registry, applier, segments })
+  const stream = renderToStreamV2(vnode, _ctx ?? ({} as UIContext), registry, segments)
   for await (const cmd of stream) applier.apply(cmd)
 }
 
@@ -164,7 +165,7 @@ export async function patchToDom(container: Element, _node: Node | null, prev: a
     return null
   }
   if (cached) {
-    const stream = diffStream(prev, next, _ctx ?? ({} as UIContext), cached.registry)
+    const stream = diffToStreamV2(prev, next, _ctx ?? ({} as UIContext), cached.registry, cached.segments)
     for await (const cmd of stream) cached.applier.apply(cmd)
   } else {
     await mountToDom(container, next, _ctx)

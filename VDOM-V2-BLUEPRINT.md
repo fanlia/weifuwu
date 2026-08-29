@@ -139,3 +139,34 @@ sched:flush → cmd:render）——全链可断言（v2-spy 测试）——调�
 
 **下一步**：契约/场景/showcase 三层全绿（311+116+200）——
 v1 退役决策点（v1 引擎保留对账——v2 默认切换评估）。
+
+---
+
+## 7. v1 删除完成（2027-08——退役执行实录）
+
+> 决策：对账框架从「v1/v2 双引擎」降为「v2 单引擎双路径」（fresh render vs
+> old render + diff——终态等价——reconcile.test.ts）——v2 引擎独立承担对账
+> 责任（如把 v1 留在库里，双引擎各自修 bug——对账器裁决的是双错的交集——
+> 边际价值递减；v2 单引擎对账更直接（修的是本引擎的增量语义）。
+
+| # | 动作 | 落地 |
+|---|---|---|
+| 1 | 双引擎测试删除 | v2-*.test.ts × 10（render/diff/fuzz/reconcile/keyed/fields/transform/ref-lifecycle/portal/integrate/ssr）——目的即 v1/v2 对照——对照物已删 |
+| 2 | v1 引擎删除 | core/build.ts、core/serve.ts、core/diff/{index,children,output,same}.ts、core/ssr/index.ts——共享件保留（diff/attrs.ts 与 diff/cleanup.ts（v2 引用）、ssr/html.ts（commandToHtml——server/ui 消费）、ssr/absorb.ts（patch 消费）、protocol.ts（协议层——v1 退役前拆分）） |
+| 3 | 对外兼容桥 | index.ts renderToStream/diffStream → v2 桥（命令流同构）——组件 dist 消费零改动 |
+| 4 | 实例权威迁移 | 契约测试 registry → 段表（key-inject × 2、removal-parent × 5、fuzz-robust、pattern-reuse、component-harness——mounts() = segments.size） |
+
+### v2 引擎修复（单引擎对账暴露——删除后的真实差距）
+
+| 缺陷 | 根因 | 修复 |
+|---|---|---|
+| C1 fuzz 91/300 | **transform 新侧提前构造**——emitNode 在旧段 dispose 前 renderV2Node（同 compId 命中旧段——工厂错配） | transformV2 延迟新侧（pendingSink——dispose 后再构造） |
+| 组件输出内层段泄漏 | **removeTreeV2 手写递归缺输出子空间清理**（数组/组件输出的嵌套段不 dispose——新组件同 id 复用旧段） | 委托 removeVNodeTree（v1 G10 证明路径）+ 段 dispose 汇集 |
+| fragment 级 keyed 不移动 | **fragment/数组同态分支无 keyed 检测**——位置对照（setText 就位——状态跟随丢失） | keyed 检测路由 diffKeyedV2（element children 同规则源——首现优先/move/重建） |
+| 段工厂错配静默复用 | **render 路径按 compId 盲复用**（不校验工厂）——陈旧段/泄漏段被新组件错配复用 | 工厂身份校验（renderV2Node/diffComponentV2/diffComponentAtV2——不一致 dispose+重建） |
+| 异类型替换顶层无 unmount 命令 | 命令流缺顶层 unmount（消费端实例面残留——S_INST 不等价） | 替换路径 unshift {op:'unmount', compId: oldCompId} |
+| renderFn 抛错炸整树 | v2 渲染路径无 R2 catch（v1 有——组件级 hole 降级） | renderV2Node catch → out=null（锚 + 段保留——下一拍重试自愈） |
+| D1 async 工厂测试 | 断代（2027-08 同步化）前的旧契约 | 测试删除（D2 同步 renderFn 等价覆盖存活契约） |
+
+**验收**：契约 264/264 绿 · 组件 harness 27/27 绿 · tsc 0 · audit:semantics 0 ·
+场景层抽样（e2e-10/e2e-2——SSR 吸收/导航/keyed-reorder/unmount）绿。

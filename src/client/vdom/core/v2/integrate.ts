@@ -12,6 +12,7 @@ import type { Command } from '../command/index.ts'
 import type { UIContext } from '../../context/UIContext.ts'
 import { renderV2 } from './render.ts'
 import { createComponentRegistry, type ComponentRegistry } from '../node/component.ts'
+import { diffV2 } from './diff.ts'
 import { Observable } from '../../observable/index.ts'
 
 /** Observable<Command> → 命令数组（同步流收集——订阅到 complete） */
@@ -19,6 +20,25 @@ export function collectCommands(obs: Observable<Command>): Promise<Command[]> {
   return new Promise((resolve, reject) => {
     const out: Command[] = []
     obs.subscribe({ next: (c) => out.push(c), error: reject, complete: () => resolve(out) })
+  })
+}
+
+/** **v2 diff → ReadableStream<Command>（v1 diffStream 兼容桥——测试迁移）** */
+export function diffToStreamV2(
+  oldT: VNode,
+  newT: VNode,
+  ctx?: UIContext,
+  registry?: ComponentRegistry,
+  segments?: Map<string, import('./diff.ts').Segment>,
+  requestRender?: () => void,
+): ReadableStream<Command> {
+  const segs = segments ?? new Map<string, import('./diff.ts').Segment>()
+  const reg = registry ?? createComponentRegistry()
+  const obs = diffV2(oldT as never, newT as never, ctx ?? ({} as UIContext), segs, reg, requestRender)
+  return new ReadableStream<Command>({
+    start(c) {
+      obs.subscribe({ next: (x) => c.enqueue(x), error: (e) => c.error(e), complete: () => c.close() })
+    },
   })
 }
 

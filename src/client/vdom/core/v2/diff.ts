@@ -17,14 +17,17 @@ import type { UIContext } from '../../context/UIContext.ts'
 import { pathId } from '../node/native.ts'
 import { keyedId } from '../node/keyed.ts'
 import { childrenOf, slotCount } from '../node/children.ts'
-import { keyOf } from '../node/keyed.ts'
+import { isFragment } from '../node/fragment.ts'
+import { keyOf, detectMissingKey } from '../node/keyed.ts'
 import { kindOf, textOf, isHoleKind, isTextKind } from '../node/index.ts' // B9 单一实现源——hole/text 判定
 import { stateOf } from '../transform/states.ts'
 import { diffAttrs } from '../diff/attrs.ts'
+import { removeVNodeTree, outputBase, removalParent } from '../diff/cleanup.ts'
 import { transitionOf } from '../transform/table.ts'
 import { Observable, create, Subject } from '../../observable/index.ts'
 import { spyEvent } from './spy.ts'
 import { createUi } from '../../hooks/env.ts'
+import { normalizeOutput, outputToChild, type CompOutput } from '../node/component.ts'
 import type { OperatorFn } from '../../observable/index.ts'
 import { renderV2Node, fromArray, concatObs, v2OutputPos } from './render.ts'
 
@@ -33,7 +36,8 @@ export interface Segment {
   factory: Component
   renderFn: RenderFn
   onUnmounts: (() => void)[]
-  lastOutput: VNodeChild | undefined
+  // **CompOutput 判别联合（v1 同——清理/转换路径直接兼容——outputToChild）**
+  lastOutput: CompOutput | undefined
   hookSeq: { n: number }
   /** 渲染 hook 基准（mount 后计数——v1 renderBase 等价——**每次 renderFn 前
    *  重置——渲染期 hook 索引跨渲染稳定——useOpen 状态保留（2027-08
@@ -137,23 +141,33 @@ export function diffV2Node(
   if (nk === 'hole') {
     // **所有非空洞旧侧 → 转换**（text/元素/组件/Fragment——完整转换：
     // 旧侧让位 + 锚创建——不是单 remove——v1 语义对齐）
-    return transformV2(oldC, newC, parent, index, ref, ctx, registry, ok === 'component' ? v2CompId(oldC as VNode, parent, index) : undefined)
+    return transformV2(oldC, newC, parent, index, ref, ctx, registry, ok === 'component' ? v2CompId(oldC as VNode, parent, index) : undefined, segments, requestRender)
   }
   // **数组/Fragment 同态 → children 对照**（槽位推进——fuzz 根/嵌套）
   if ((ok === 'fragment' || ok === 'array') && (nk === 'fragment' || nk === 'array')) {
-    const oldCs = Array.isArray(oldC) ? oldC : childrenOf(oldC as VNode)
-    const cs = Array.isArray(newC) ? newC : childrenOf(newC as VNode)
+    const oldCs = expandFrag(Array.isArray(oldC) ? oldC : childrenOf(oldC as VNode))
+    const cs = expandFrag(Array.isArray(newC) ? newC : childrenOf(newC as VNode))
+    // **keyed 检测（2027-08——fragment 级 keyed 缺口实证）**：任一侧含
+    // keyed 项 → keyed 列表对照（diffKeyedV2——首现优先/move/重建——element
+    // children 同一规则源）——位置对照会让 keyed 项 DOM 不移动（内容就地
+    // diff——最终位置错——repro-frag7 实证）——fragment keyed（items.map
+    // 直接放射——无 wrapper div）必须身份跟随
+    if (hasKeyedId(cs) || hasKeyedId(oldCs)) {
+      return diffKeyedV2(oldCs, cs, parent, ctx, segments, registry, requestRender)
+    }
     let slot = 0
     let lastRef: string | null = null
     const parts: Array<Observable<Command>> = []
     for (let i = 0; i < cs.length; i++) {
       const sc = slotCount(cs[i])
-      parts.push(diffV2Node(oldCs[i], cs[i], parent, slot, lastRef, ctx, segments, registry, requestRender))
+      // **越界新项 = 渲染（v1 尾部 emit——hole→锚补全——空洞槽位首次出现
+      //  需建锚——diffV2Node(undefined, hole) 是 no-op——锚缺失——fuzz
+      //  seed=42 i=359 实证 root.2 锚缺失）**
+      parts.push(oldCs[i] === undefined
+        ? renderV2Node(cs[i], parent, slot, lastRef, ctx, registry, segments, requestRender)
+        : diffV2Node(oldCs[i], cs[i], parent, slot, lastRef, ctx, segments, registry, requestRender))
       lastRef = pathId(parent, slot + sc - 1)
       slot += sc
-    }
-    if (slotOfV2(oldCs, cs.length) !== slot) {
-      // 旧侧多余项区间移除
     }
     for (let i = oldCs.length - 1; i >= cs.length; i--) {
       parts.unshift(fromArray(removeTreeV2(oldCs[i], parent, slotOfV2(oldCs, i), segments)))
@@ -169,18 +183,62 @@ export function diffV2Node(
       if (o.type === n.type) {
         return diffComponentV2(o, n, parent, index, ref, ctx, segments, registry, requestRender)
       }
-      // **异 type 组件 → 旧段卸载 + 新段挂载**（v1 diffSame 语义——非转换表
-      // ——component→component 同态转换表无定义——违例）
-      disposeSegment(v2CompId(o, parent, index), segments)
-      return renderV2Node(n, parent, index, ref, ctx, registry, segments, requestRender)
+      // **异 type 组件 → 旧实例卸载 + 输出区间递归清理 + 新段挂载**（v1
+      // diffSame 异 type 分支对齐——非转换表——component→component 同态
+      // 转换表无定义——违例）
+      // **输出区间递归（2027-08——C1 fuzz A 段残留实证）**：只 disposeSegment
+      // 不清理旧组件【输出区间】——旧输出内组件段残留——新组件同 id 复用
+      // 旧段（输出错位——span.o0 幽灵）——v1 顺序纪律：先清输出（查段
+      // lastOutput——嵌套组件 unmount 命令）→ 后 dispose
+      const oldCompId = v2CompId(o, parent, index)
+      const oldSeg = segments.get(oldCompId)
+      const clearCmds: Command[] = []
+      if (oldSeg) {
+        const child = oldSeg.lastOutput !== undefined ? outputToChild(oldSeg.lastOutput) : undefined
+        if (child !== undefined) {
+          const regP = {
+            get: (cid: string): unknown => {
+              const sg = segments.get(cid)
+              return sg ? { lastOutput: sg.lastOutput } : undefined
+            },
+          } as never
+          removeVNodeTree(
+            child,
+            outputBase(child, oldCompId, pathId(parent, index)),
+            removalParent(child, oldCompId, parent),
+            (cmd) => { clearCmds.push(cmd as Command) },
+            regP,
+          )
+        }
+      }
+      // **段 dispose 顺序（清理查询已结束——段表权威更新）**
+      const disposes: string[] = []
+      for (const c of clearCmds) {
+        if (c.op === 'unmount' && segments.has(c.compId)) disposes.push(c.compId)
+      }
+      disposeSegment(oldCompId, segments)
+      for (const cid of disposes) { if (segments.has(cid)) disposeSegment(cid, segments) }
+      // **顶层组件的 unmount 命令（2027-08——D4 fuzz 实例面残留实证）**：
+      // 本分支只 dispose 段 + 清输出区间——消费端（Sim/applier）的实例面
+      // 靠 unmount 命令——嵌套项已清——顶层 oldCompId 必须显式（否则
+      // INST 残留 root.kk17——对账器 S_INST 面不等价）
+      clearCmds.unshift({ op: 'unmount', compId: oldCompId } as Command)
+      return concatObs([
+        fromArray(clearCmds),
+        renderV2Node(n, parent, index, ref, ctx, registry, segments, requestRender),
+      ])
     }
     // 元素 → 元素（同 tag：attrs + children 递归；异 tag：替换）
     if (typeof o.type === 'string' && typeof n.type === 'string') {
       if (o.type === n.type) {
         const attrCmds: Command[] = []
         diffAttrs(o, n, id, (cmd) => attrCmds.push(cmd as Command))
-        const oldCs = childrenOf(o)
-        const cs = childrenOf(n)
+        const oldCs = expandFrag(childrenOf(o))
+        const cs = expandFrag(childrenOf(n))
+        // **A 级检测（2027-08——v1 契约面移植——v2 默认后开发者引导保留）**：
+        // 实槽翻转（组件占据/让出非空洞非组件实槽——位置移位风险）→ warn 引导
+        // 声明 key——空洞槽条件渲染/尾部增删零漂移不报（v1 children.ts 同判定）
+        aLevelCheck(oldCs, cs, id)
         // **keyed 检测**：任一侧含 keyed 项 → keyed 列表对照（merge 语义）
         if (hasKeyedId(cs) || hasKeyedId(oldCs)) {
           return concatObs([fromArray(attrCmds), diffKeyedV2(oldCs, cs, id, ctx, segments, registry, requestRender)])
@@ -190,7 +248,9 @@ export function diffV2Node(
         const parts: Array<Observable<Command>> = []
         for (let i = 0; i < cs.length; i++) {
           const sc = slotCount(cs[i])
-          parts.push(diffV2Node(oldCs[i], cs[i], id, slot, lastRef, ctx, segments, registry, requestRender))
+          parts.push(oldCs[i] === undefined
+            ? renderV2Node(cs[i], id, slot, lastRef, ctx, registry, segments, requestRender)
+            : diffV2Node(oldCs[i], cs[i], id, slot, lastRef, ctx, segments, registry, requestRender))
           lastRef = pathId(id, slot + sc - 1)
           slot += sc
         }
@@ -216,7 +276,7 @@ export function diffV2Node(
   const oldCompIdV2 = kindOf(oldC) === 'component'
     ? v2CompId(oldC as VNode, parent, index)
     : undefined
-  return transformV2(oldC, newC, parent, index, ref, ctx, registry, oldCompIdV2)
+  return transformV2(oldC, newC, parent, index, ref, ctx, registry, oldCompIdV2, segments, requestRender)
 }
 
 function slotOfV2(oldCs: VNodeChild[], i: number): number {
@@ -245,8 +305,10 @@ function diffComponentV2(
 ): Observable<Command> {
   const compId = v2CompId(newV, parent, index)
   const seg = segments.get(compId)
-  if (!seg) {
-    // 首见（同位置 type 相同但无段——上一轮挂载失败/泄漏 → 重挂载）
+  if (!seg || seg.factory !== (newV.type as never)) {
+    // 首见/段错配（同位置 type 相同但段缺失或工厂不一致——上一轮挂载失败
+    // /泄漏/重建重挂 → 销毁重建）
+    if (seg) disposeSegment(compId, segments)
     return renderV2Node(newV, parent, index, ref, ctx, registry, segments, requestRender)
   }
   // **复用：renderFn 重调（props 最新）——工厂不重跑**——输出对照（同一
@@ -258,8 +320,8 @@ function diffComponentV2(
     console.error('[vdom] v2 renderFn 错误:', e)
     return fromArray([])
   }
-  const oldOut = seg.lastOutput
-  seg.lastOutput = newOut
+  const oldOut = seg.lastOutput !== undefined ? outputToChild(seg.lastOutput) : undefined
+  seg.lastOutput = normalizeOutput(newOut)
   const pos = v2OutputPos(newOut, compId, parent, index)
   if (oldOut === undefined) {
     // 首次输出（段建后第一次渲染输出）——渲染（同输出位置规则）
@@ -291,7 +353,9 @@ function diffV2NodeAt(
     const parts: Array<Observable<Command>> = []
     for (let i = 0; i < newArr.length; i++) {
       const sc = slotCount(newArr[i])
-      parts.push(diffV2Node(oldArr[i], newArr[i], base, slot, lastRef, ctx, segments, registry, requestRender))
+      parts.push(oldArr[i] === undefined
+        ? renderV2Node(newArr[i], base, slot, lastRef, ctx, registry, segments, requestRender)
+        : diffV2Node(oldArr[i], newArr[i], base, slot, lastRef, ctx, segments, registry, requestRender))
       lastRef = pathId(base, slot + sc - 1)
       slot += sc
     }
@@ -301,6 +365,44 @@ function diffV2NodeAt(
     return concatObs(parts)
   }
   return diffV2Node(oldOut, newOut, base, index, ref, ctx, segments, registry, requestRender)
+}
+
+/** **投影对齐（P5——v1 children.ts expandFrag 移植）**：FRAG vnode 展开为
+ *  槽位序列（渲染 emit 同语义——槽位连续）——children 对照必须以展开槽位
+ *  为单位——否则 FRAG 作 1 项对照——后续项槽位错位（fuzz 不等价实证——
+ *  seed=42 的 root.0.2 错放 ul / span.c1 缺失） */
+function expandFrag(cs: VNodeChild[]): VNodeChild[] {
+  const out: VNodeChild[] = []
+  for (const c of cs) {
+    if (c !== null && typeof c === 'object' && !Array.isArray(c) && isFragment(c as VNode)) {
+      out.push(...expandFrag(childrenOf(c as VNode)))
+    } else {
+      out.push(c)
+    }
+  }
+  return out
+}
+
+/** **A 级检测（实槽翻转——v1 children.ts 判定移植——单一实现）**：
+ *  组件占据/让出「非空洞非组件」实槽（位置被占用——后续项按位置移位 →
+ *  重挂 → 状态丢失）→ warn 引导声明 key；空洞槽条件渲染（§6.3 占位法——
+ *  长度恒定 toggle）与纯尾部增删（越界 = 空洞槽）零漂移不报 */
+function aLevelCheck(oldCs: VNodeChild[], newCs: VNodeChild[], id: string): void {
+  if ((globalThis as { __WF_NO_A_CHECK__?: boolean }).__WF_NO_A_CHECK__) return
+  const isBizNode = (c: VNodeChild): boolean => !isHoleKind(c) && !isTextKind(c) && !Array.isArray(c)
+  const bizOld = oldCs.filter(isBizNode)
+  const bizNew = newCs.filter(isBizNode)
+  const isUnkeyedComp = (c: VNodeChild): boolean =>
+    typeof (c as VNode | null)?.type === 'function' && keyOf(c) === null
+  const isHoleSlot = (cs: VNodeChild[], i: number): boolean => i >= cs.length || isHoleKind(cs[i])
+  const oldFree = (i: number): boolean => isHoleSlot(oldCs, i) || isUnkeyedComp(oldCs[i])
+  const newFree = (i: number): boolean => isHoleSlot(newCs, i) || isUnkeyedComp(newCs[i])
+  const risky =
+    newCs.some((c, i) => isUnkeyedComp(c) && !oldFree(i)) ||
+    oldCs.some((c, i) => isUnkeyedComp(c) && !newFree(i))
+  if (risky) {
+    detectMissingKey(bizNew, `children（${id}——无 key 组件实槽翻转 ${bizOld.length}→${bizNew.length}）`)
+  }
 }
 
 /** 组件 id（keyedId/pathId——单一点——v1 双实现收敛） */
@@ -321,8 +423,15 @@ export function diffV2(
   const nState = stateOf(newTree)
   const t = transitionOf(oState, nState)
   if (t) {
-    // 异态根（组件↔元素等）——借用 v1 转换的语义（emit 命令收集）
-    return fromArray([]) // 阶段 1b：根异态简化（登记——root 转换场景）
+    // **异态根转换（2027-08——契约层实现——阶段 1b 登记补齐）**：diffStream
+    // 契约（v1 删除前等价面）——element↔component/text 根转换走 v1 转换表
+    // （transformV2——旧侧让位 + 新侧渲染——同 v1 语义——契约测试锁定）——
+    // serve 层的「整树替换」是运行路径兜底（导航场景）——契约面必须等价
+    return transformV2(
+      oldTree as never, newTree as never, 'root', 0, null, ctx, registry,
+      oState === 'component' ? v2CompId(oldTree, 'root', 0) : undefined,
+      segments, requestRender,
+    ).pipe(appendDone) as Observable<Command>
   }
   return diffV2Node(oldTree, newTree, 'root', 0, null, ctx, segments, registry, requestRender)
     .pipe(appendDone) as Observable<Command>
@@ -485,7 +594,10 @@ function diffComponentAtV2(
   requestRender?: () => void,
 ): Observable<Command> {
   const seg = segments.get(kid)
-  if (!seg) return renderV2Node(vn, parent, index, ref, ctx, registry, segments, requestRender)
+  if (!seg || seg.factory !== (vn.type as never)) {
+    if (seg) disposeSegment(kid, segments)
+    return renderV2Node(vn, parent, index, ref, ctx, registry, segments, requestRender)
+  }
   let newOut: VNodeChild
   try {
     newOut = rerenderSegment(seg, vn.props)
@@ -493,8 +605,8 @@ function diffComponentAtV2(
     console.error('[vdom] v2 renderFn 错误:', e)
     return fromArray([])
   }
-  const oldOut = seg.lastOutput
-  seg.lastOutput = newOut
+  const oldOut = seg.lastOutput !== undefined ? outputToChild(seg.lastOutput) : undefined
+  seg.lastOutput = normalizeOutput(newOut)
   const pos = v2OutputPos(newOut, kid, parent, index)
   if (oldOut === undefined) return renderV2Node(newOut, pos.parent, pos.index, ref, ctx, registry, segments, requestRender)
   return diffV2NodeAt(oldOut, newOut, pos.parent, pos.index, ref, ctx, segments, registry, requestRender)
@@ -512,26 +624,28 @@ export function removeTreeV2(
 ): Command[] {
   const cmds: Command[] = []
   const id = pathId(parent, index)
-  if (isHoleKind(v)) { cmds.push({ op: 'remove', id } as Command); return cmds }
-  if (isTextKind(v)) { cmds.push({ op: 'remove', id } as Command); return cmds }
-  if (Array.isArray(v)) {
-    let slot = 0
-    for (const c of v) { cmds.push(...removeTreeV2(c, parent, slot, segments)); slot += slotCount(c) }
-    return cmds
+  // **v1 removeVNodeTree 委托（2027-08——C1 fuzz seed=99 i=8 实证）**：
+  // 组件项【输出子空间】递归（lastOutput 内嵌套组件的 unmount + DOM 区间
+  // 移除——el 输出挂槽位/数组挂 compId.0——基线差异）——手写递归漏内层
+  // 段（root.0.1.0 残留实证——新组件同 id 复用旧段——输出错位）——v1 清理
+  // 路径（cleanup.ts）已覆盖全形态（G10 对账基线）——委托 + 段 dispose 汇集
+  const regP = segments && segments.size > 0
+    ? {
+        get: (cid: string): unknown => {
+          const sg = segments.get(cid)
+          return sg ? { lastOutput: sg.lastOutput } : undefined
+        },
+      } as never
+    : undefined
+  removeVNodeTree(v, id, parent, (cmd) => cmds.push(cmd as Command), regP)
+  // **段 dispose 生成期（unmount 全量收集后——lastOutput 查询完）**
+  if (segments) {
+    for (const c of cmds) {
+      if (c.op === 'unmount' && segments.has((c as { compId: string }).compId)) {
+        disposeSegment((c as { compId: string }).compId, segments)
+      }
+    }
   }
-  const vn = v as VNode
-  // **组件项：unmount（消费端 registry 清理）+ 段 dispose（生成期）**
-  if (typeof vn.type === 'function') {
-    const compId = vn.key !== null ? keyedId(parent, vn.key) : id
-    if (segments?.has(compId)) disposeSegment(compId, segments)
-    cmds.push({ op: 'unmount', compId } as Command)
-    cmds.push({ op: 'remove', id } as Command)
-    return cmds
-  }
-  const cs = childrenOf(vn)
-  let slot = 0
-  for (const c of cs) { cmds.push(...removeTreeV2(c, id, slot, segments)); slot += slotCount(c) }
-  cmds.push({ op: 'remove', id } as Command)
   return cmds
 }
 
@@ -568,25 +682,61 @@ export function transformV2(
   }
   let outCmds: Command[] = []
   let sinkStream: Observable<Command> | null = null
+  // **新侧渲染延迟（2027-08——C1 fuzz seed=11 实证）**：emitNode 若在转换
+  // 展开期【立即构造】renderV2Node——组件段创建/复用发生在旧段 dispose
+  // 之前——新组件同 compId 命中旧段（工厂错配——旧输出形态残留）——
+  // 必须先 dispose 旧段再构造新侧（转换表 await emitNode 的时序不保）
+  let pendingSink: { v: VNodeChild; p: string; i: number; r: string | null } | null = null
+  // **unmount 汇集（2027-08）**：转换表先 emit unmount 再经 regProxy 递归
+  // 清理输出区间（查询段 lastOutput）——立即 dispose 会清数据导致清理不
+  // 完整（G2 复绿/变红教训）——**转换完成后统一 dispose**（生成端纪律：
+  // 段表权威更新在转换命令全量产出后）
+  const unmountIds: string[] = []
+  // **registry 代理（2027-08——v2 段表权威——transform 清理对齐）**：v1 转换表
+  // （transitionComponent 等）经 ctx.registry.get(compId).lastOutput 递归
+  // 清理组件输出区间——v2 段化挂载不写 v1 registry——清理查空 → 多根残留
+  // （G2 实证：span/b 幽灵）——代理从段表查 lastOutput（转换表共享代码不改——
+  // v2 下注入 v2 数据源）
+  const regProxy = segments && segments.size > 0
+    ? {
+        get: (compId: string) => {
+          const seg = segments.get(compId)
+          return seg ? { lastOutput: seg.lastOutput } : undefined
+        },
+      } as never
+    : registry
   const syncCtx = {
-    emit: (cmd: unknown) => { outCmds.push(cmd as Command) },
+    emit: (cmd: unknown) => {
+      // **unmount 命令 → 段生成端 dispose（2027-08——C1 fuzz 同 id 段复用
+      //  实证）**：转换表（v1）发 unmount（消费端 registry 清理）——v2 段表
+      //  权威在生成端——不 dispose → 后续同 id 新组件命中旧段（输出错位——
+      //  old A 段 root.0.0 被新 inner 复用）——同 removeTreeV2 纪律
+      const c = cmd as Command
+      if (c.op === 'unmount' && segments?.has(c.compId)) unmountIds.push(c.compId)
+      outCmds.push(c)
+    },
     emitNode: (v: VNodeChild, p: string, i: number, r: string | null) => {
-      sinkStream = renderV2Node(v, p, i, r, ctx, registry, segments, requestRender)
+      pendingSink = { v, p, i, r }
       return Promise.resolve()
     },
     oldId: pathId(parent, index),
     newId: pathId(parent, index),
     parent, index, ref,
     oldCompId,
-    registry,
+    registry: regProxy,
   } as never
   return create<Command>((obs) => {
     let cancelled = false
     let sub: { unsubscribe(): void } | null = null
     void Promise.resolve(t(oldC as never, newC, syncCtx)).then(() => {
       if (cancelled) return
+      // **转换完成——unmount 汇集统一 dispose（段表权威更新）**——顺序：
+      // 先 dispose 旧段 → 再 emit 移除命令 → 再构造并订阅新侧渲染（段
+      // 查询时机——延迟构造的前提）
+      for (const cid of unmountIds) { if (segments?.has(cid)) disposeSegment(cid, segments) }
       for (const c of outCmds) obs.next(c)
-      if (sinkStream) {
+      if (pendingSink) {
+        sinkStream = renderV2Node(pendingSink.v, pendingSink.p, pendingSink.i, pendingSink.r, ctx, registry, segments, requestRender)
         sub = sinkStream.subscribe({
           next: (c) => { if (!cancelled) obs.next(c) },
           error: (e) => { if (!cancelled) obs.error(e) },

@@ -7,7 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, type VNode } from '../../client/vdom/core/vnode.ts'
-import { renderToStream } from '../../client/vdom/core/build.ts'
+import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
 import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
 import type { UIContext } from '../../client/vdom/context/UIContext.ts'
@@ -15,7 +15,7 @@ import type { UIContext } from '../../client/vdom/context/UIContext.ts'
 /** 收集命令流 → Command[]（纯数据——零 DOM） */
 async function collect(vnode: VNode, registry: ComponentRegistry = createComponentRegistry()): Promise<Command[]> {
   const cmds: Command[] = []
-  const reader = renderToStream(vnode, {} as UIContext, registry).getReader()
+  const reader = renderToStreamV2(vnode, {} as UIContext, registry).getReader()
   while (true) {
     const { value, done } = await reader.read()
     if (done) break

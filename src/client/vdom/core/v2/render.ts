@@ -23,7 +23,8 @@ import { emitHole, invalidDiagnostic } from '../node/hole.ts'
 import { serializableAttrs } from '../node/native.ts'
 import { Observable, create } from '../../observable/index.ts'
 import type { OperatorFn } from '../../observable/index.ts'
-import { createSegment, rerenderSegment, type Segment as V2Seg } from './diff.ts'
+import { createSegment, rerenderSegment, disposeSegment, type Segment as V2Seg } from './diff.ts'
+import { normalizeOutput } from '../node/component.ts'
 
 /** **输出位置单一实现源**（v1 outputBase 语义——组件输出挂哪）：
  *  - 组件输出组件/数组/空洞 → compId 子空间（compId.0 起——与兄弟隔离）
@@ -120,12 +121,28 @@ export function renderV2Node(
       // 复用通路依赖段（本渲染建段——diff 查段——闭环）
       const segs = segments ?? new Map<string, V2Seg>()
       let seg = segs.get(compId)
+      // **工厂身份校验（2027-08——C1 fuzz 段错配实证）**：同 compId 段工厂
+      // 不一致 = 陈旧段（移动/重建路径泄漏——位置同而复用错配——输出错位）
+      // ——销毁重建（泄漏不隐身——错误工厂永不复用）
+      if (seg && seg.factory !== (vn.type as never)) {
+        disposeSegment(compId, segs)
+        seg = undefined
+      }
       if (!seg) {
         seg = createSegment(vn.type as never, vn.props, ctx, compId, requestRender)
         segs.set(compId, seg)
       }
-      const out = rerenderSegment(seg, vn.props)
-      seg.lastOutput = out
+      // **renderFn 错误降级（2027-08——v1 R2 契约移植——D3 实证）**：
+      // 组件 renderFn 抛错 → 组件级 hole 降级（锚 + 段保留——下一拍重试
+      // 自愈）——单组件失败不炸整树（v1 catch 语义——console.error + out=null）
+      let out: VNodeChild
+      try {
+        out = rerenderSegment(seg, vn.props)
+      } catch (e) {
+        console.error(`[vdom] renderFn 错误（${compId}）——组件级 hole 降级（下一拍重试自愈）:`, e)
+        out = null
+      }
+      seg.lastOutput = normalizeOutput(out)
       // **输出位置（单一实现源——v2OutputPos）**——渲染与 diff 共用同规则
       const pos = v2OutputPos(out, compId, parent, index)
       return concatObs([

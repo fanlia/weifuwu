@@ -14,7 +14,7 @@ import type { UIContext } from '../../context/UIContext.ts'
 
 
 import { spyEvent } from './spy.ts'
-import { createFnTable, defaultErrorFallback, type RenderCtx, type UiServeOptions, type UiServeHandle } from '../serve.ts'
+import { createFnTable, defaultErrorFallback, type RenderCtx, type UiServeOptions, type UiServeHandle } from '../protocol.ts'
 import { UIRouter, frontRequest } from '../router.ts'
 import { createDevVerifier } from '../patch/verify.ts'
 import { createClientBrowser } from '../../browser/create-client-browser.ts'

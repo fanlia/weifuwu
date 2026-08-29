@@ -15,14 +15,17 @@
 
 ## 2. 测试架构（内置框架——契约层 + 场景层）
 
-> **v1 已退役（2027-08——VDOM-V2-BLUEPRINT）**：运行路径默认 v2（uiServe/
+> **v1 已删除（2027-08——VDOM-V2-BLUEPRINT 完成）**：运行路径默认 v2（uiServe/
 > uiSsr/命令式组件 toast/confirm/notification/服务端 ui.ssr——core/v2/）——
-> v1 引擎（core/build.ts/diff/serve.ts/ssr）保留为**对账基线**（契约 v1/v2
-> 命令流等价 + fuzz 对账器——删除即失对照）——**新代码禁止引用 v1 引擎**
-> （audit:semantics 红线扩展面：v2 代码同样必须 isHoleKind/isTextKind 单源）
+> v1 引擎（core/build/diff/serve/ssr）**已删除**（git 历史可查）——对外形态
+> 由 v2 兼容桥保持（index.ts renderToStream/diffStream → renderToStreamV2/
+> diffToStreamV2——命令流同构——消费端零改动）——**对账器 = v2 单引擎**
+> （fresh render vs old render + diff——reconcile.test.ts 终态等价 + fuzz
+> 1200 静态 + 300 组件树——两种）——audit:semantics 红线：isHoleKind/
+> isTextKind 单源（违规退出码 1）
 
 ```
-npm run test:client    → 契约层（207 测试——node 直跑命令流——零浏览器——~4s）
+npm run test:client    → 契约层（264 测试——node 直跑命令流——零浏览器——~4s）
 npm run test:scenario  → 场景层（116 场景——SSR 服务化 + playwright——真实浏览器——15 文件并发——~17s）
 npm run test:showcase  → showcase 组件测试（200 测试——112 组件 157 全覆盖——每组件一个文件——~2.5min）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）

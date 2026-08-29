@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { createDataPipe } from '../../client/vdom/context/data.ts'
 import { withTimeout, DEFAULT_ASYNC_TIMEOUT_MS } from '../../client/vdom/core/async-guard.ts'
 import { createComponentRegistry, renderComponent } from '../../client/vdom/core/node/component.ts'
-import { renderToStream } from '../../client/vdom/core/build.ts'
+import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
 import { h } from '../../client/vdom/core/vnode.ts'
 import type { UIContext } from '../../client/vdom/context/UIContext.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
@@ -64,7 +64,7 @@ test('R2a：正常 resolve 不受超时影响（含种子/已缓存）', async (
 test('R2b：renderFn 同步抛错 → 组件级 hole 降级（渲染流完整——单组件不炸整树）', async () => {
   const reg = createComponentRegistry()
   const Boom: any = () => () => { throw new Error('renderFn boom') }
-  const { ops, ids } = await drain(renderToStream(h('div', {}, h(Boom, {})), emptyCtx, reg))
+  const { ops, ids } = await drain(renderToStreamV2(h('div', {}, h(Boom, {})), emptyCtx, reg))
   assert.ok(ops.includes('done'), '渲染流必须完整结束（done.full——队列不饿死）')
   // 组件输出 hole 挂 compId.0 子空间（C2）——降级锚 id = root.0.0.0
   const anchorIdx = ops.findIndex((op, i) => op === 'createAnchor' && ids[i] === 'root.0.0.0')
@@ -77,7 +77,7 @@ test('R2b：mount 工厂同步抛错 → 显式传播（2027-08 同步化——�
   await assert.rejects(
     (async () => {
       const cmds: Command[] = []
-      for await (const c of renderToStream(h('div', {}, h(BoomMount, {})), emptyCtx, reg)) cmds.push(c)
+      for await (const c of renderToStreamV2(h('div', {}, h(BoomMount, {})), emptyCtx, reg)) cmds.push(c)
     })(),
     /factory boom/,
     '工厂同步抛错必须显式传播（mount 失败 = 整页失败——serve 熔断链自愈）',
@@ -87,7 +87,7 @@ test('R2b：mount 工厂同步抛错 → 显式传播（2027-08 同步化——�
 test('R2b：renderFn 同步抛错 → 同样 hole 降级（错误不中断整树）——2027-08 同步化', async () => {
   const reg = createComponentRegistry()
   const Boom: any = () => () => { throw new Error('renderFn boom') }
-  const { ops } = await drain(renderToStream(h('div', {}, [h('span', {}, 'a'), h(Boom, {}), h('span', {}, 'b')]), emptyCtx, reg))
+  const { ops } = await drain(renderToStreamV2(h('div', {}, [h('span', {}, 'a'), h(Boom, {}), h('span', {}, 'b')]), emptyCtx, reg))
   assert.ok(ops.includes('done'), '渲染流完整结束')
   assert.ok(ops.includes('createAnchor'), '错误组件降级为 hole 锚')
 })

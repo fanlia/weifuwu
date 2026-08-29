@@ -17,8 +17,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, type VNode, type VNodeChild } from '../../client/vdom/core/vnode.ts'
 import { Fragment } from '../../client/vdom/core/node/fragment.ts'
-import { diffStream } from '../../client/vdom/core/diff/index.ts'
-import { renderToStream } from '../../client/vdom/core/build.ts'
+import { diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
+import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
 import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
 import { childrenOf, slotCount } from '../../client/vdom/core/node/children.ts'
 import { pathId } from '../../client/vdom/core/node/native.ts'
@@ -93,10 +93,14 @@ export async function verifyEquivalence(
   oldTree: VNode, newTree: VNode, registry: ComponentRegistry,
 ): Promise<string | null> {
   const ref = new Sim()
-  for (const c of await drainStream(renderToStream(newTree, {}, createComponentRegistry()))) ref.apply(c)
+  const refSegs = new Map<string, import('../../client/vdom/core/v2/diff.ts').Segment>()
+  for (const c of await drainStream(renderToStreamV2(newTree, {}, createComponentRegistry(), refSegs))) ref.apply(c)
+  // **段表共享（2027-08——v2 桥迁移关键）**：build/diff 同一段表——组件
+  // 段跨渲染复用（工厂不重跑）——各建新表 = 段断裂 = 全量重挂载 = 不等价
+  const segs: Map<string, import('../../client/vdom/core/v2/diff.ts').Segment> = new Map()
   const sim = new Sim()
-  for (const c of await drainStream(renderToStream(oldTree, {}, registry))) sim.apply(c)
-  for (const c of await drainStream(diffStream(oldTree, newTree, {}, registry))) sim.apply(c)
+  for (const c of await drainStream(renderToStreamV2(oldTree, {}, registry, segs))) sim.apply(c)
+  for (const c of await drainStream(diffToStreamV2(oldTree, newTree, {}, registry, segs))) sim.apply(c)
   const s1 = ref.snapshot(), s2 = sim.snapshot()
   if (s1 !== s2) {
     // **双树对账（维度 7）**：幽灵 id 精确报错（定位维度——不等价来源）
@@ -179,7 +183,7 @@ test('G9：重复 key——首现优先 + move 正确发出 + 终态等价（1/3
   ])
   // move 命令断言（首现优先：oldIdx=0 ≠ newIdx=1 → move 必须发出）
   const reg = createComponentRegistry()
-  const d = await drainStream(diffStream(oldT, newT, {}, reg))
+  const d = await drainStream(diffToStreamV2(oldT, newT, {}, reg))
   assert.ok(
     d.some((c) => c.op === 'move' && c.id === 'root.0' && (c as { newId?: string }).newId === 'root.1'),
     `重复 key 首现优先 → move root.0→root.1 必须发出（实际: ${d.map((c) => c.op + ':' + ((c as { id?: string }).id ?? (c as { compId?: string }).compId ?? '')).join(' ')}）`,
@@ -204,7 +208,7 @@ test('G9：重复 key——首现优先 + move 正确发出 + 终态等价（1/3
   console.warn = (m: string) => { bwarns.push(String(m)) }
   try {
     const reg2 = createComponentRegistry()
-    await drainStream(renderToStream(
+    await drainStream(renderToStreamV2(
       h('div', {}, [h(Dup, { key: 'k1' }), h(Dup, { key: 'k1' })]), {}, reg2,
     ))
   } finally { console.warn = origWarn2 }
@@ -351,8 +355,9 @@ async function compFuzzRound(seed: number, rounds: number): Promise<number> {
         if (!sample) {
           // 打印 diff 命令流（mount/unmount/remove）
           const reg2 = createComponentRegistry()
-          const bo = await drainStream(renderToStream(oldT, {}, reg2))
-          const d2 = await drainStream(diffStream(oldT, newT, {}, reg2))
+          const segs2: Map<string, import('../../client/vdom/core/v2/diff.ts').Segment> = new Map()
+          const bo = await drainStream(renderToStreamV2(oldT, {}, reg2, segs2))
+          const d2 = await drainStream(diffToStreamV2(oldT, newT, {}, reg2, segs2))
           const stream2 = `[bo] ${bo.map((c: any) => `${c.op}:${c.id ?? c.compId ?? ''}${c.parent ? '^' + c.parent : ''}${c.tag ? ':' + c.tag : ''}`).join(' ')}\n[d2] ${d2.map((c: any) => `${c.op}:${c.id ?? c.compId ?? ''}${c.parent ? '^' + c.parent : ''}${c.tag ? ':' + c.tag : ''}`).join(' ')}`
           sample = `seed=${seed} i=${i}\nold=${JSON.stringify(oldT)}\nnew=${JSON.stringify(newT)}\n${diff}\n流: ${stream2}`
         }
