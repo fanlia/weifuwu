@@ -245,5 +245,46 @@ test('全分支补全：fragment → array（Fragment 符号 → 数组——同
   assert.deepEqual(t.emitted, [[h('span', {})]])
 })
 
+// ── transformV2 流形态（波次 3——顺序纪律——C1 fuzz seed=11 回归锁定） ──
+
+import { transformV2, type SegmentMap, createSegment } from '../../client/vdom/core/v2/diff.ts'
+import { keyedId } from '../../client/vdom/core/node/keyed.ts'
+import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
+import { collectCommands } from '../../client/vdom/core/v2/integrate.ts'
+import type { Segment } from '../../client/vdom/core/v2/diff.ts'
+
+test('transformV2：三段顺序——旧段 dispose 先于新侧段创建（C1 结构保证）', async () => {
+  // **C1 场景（seed=11 i=3——转换新侧与旧组件同 compId）**：
+  // old = 组件 A（段 root.0.kk 已挂载——工厂 A）→ new = 数组 [组件 B（同
+  // key 'k'——同 compId）]——component→array 走 transitionComponent（unmount
+  // oldCompId + 区间清理）——新侧数组渲染 → B 段 keyedId 同 id——顺序纪律
+  // 下旧段已 dispose → B 段新建（工厂正确）——不复用 A 段（工厂错配 bug）
+  let crafted = 0
+  const CompA: any = (_p: any, _c: any) => { crafted++; return () => h('span', { class: 'a' }) }
+  const CompB: any = (_p: any, _c: any) => { crafted++; return () => h('span', { class: 'b' }) }
+  const segs = new Map<string, Segment>()
+  const oldC = h(CompA, { key: 'k' }) as never
+  const newC = [h(CompB, { key: 'k' })] as never
+  const sid = keyedId('root.0', 'k')
+  // 预置旧段（A 工厂——模拟已挂载）
+  let factoryCalls = 0
+  const CompOld: any = () => { factoryCalls++; return () => null }
+  const seg = createSegment(CompOld as never, {}, {} as never, sid)
+  segs.set(sid, seg)
+  // 转换流（element 父 root.0 index 0）——与 C1 同构：旧侧 A 段 → 新侧 B
+  const reg = createComponentRegistry()
+  const cmds = await collectCommands(transformV2(oldC, newC, 'root.0', 0, null, {} as never, reg, sid, segs))
+  // 断言：新侧段为 B（工厂正确——未被 A 段复用/错配）
+  const newSeg = segs.get(sid)
+  assert.ok(newSeg, '新侧段存在')
+  assert.notEqual(newSeg as never, seg as never, '旧段已 dispose——新建（非复用）')
+  assert.equal((newSeg as { factory: unknown }).factory, CompB, '工厂 = B（A 段未错配复用）')
+  // 命令序列：unmount → 区间移除 → 新侧 create/insert（完整转换）
+  const ops = cmds.map((c) => c.op)
+  assert.ok(ops.includes('unmount'), 'unmount 命令（旧组件卸载）')
+  assert.ok(ops.includes('create') && ops.includes('insert'), '新侧渲染命令')
+  void crafted; void factoryCalls
+})
+
 // 浏览器测试 runner 入口标记（sideEffects 摇除防护——scripts/test-browser.ts 引用）
 export const __wf_tests = (): void => {}

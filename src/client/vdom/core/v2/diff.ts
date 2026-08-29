@@ -669,9 +669,12 @@ export function hasKeyedId(items: VNodeChild[]): boolean {
 
 /**
  * v2 转换（异态——v1 transitionOf 表语义单源——流式适配）
- * - 同步收集 v1 transition 的命令（emit）+ emitNode = renderV2Node 流
- * - **完整转换**（旧侧让位 + 新侧渲染——不是单 remove+render——v1 语义对齐：
- *   组件转换含 unmount + 输出区间清理；空洞→组件 replaceChild 语义）
+ * - 转换表同步执行（emit 收集让位命令 + emitNode 记录新侧）——**不 await**
+ * - **顺序纪律三段流（2027-09——C1 fuzz seed=11 结构化修复）**：
+ *   concatObs([disposeOp → removeCmds → 新侧渲染])——按序订阅：① 旧段
+ *   dispose（段表权威更新）② 旧侧让位命令发射 ③ 新侧渲染构造（**订阅时**
+ *   ——createSegment 在 dispose 后——同 id 命中旧段/工厂错配结构性不可能）
+ *   ——pendingSink 时序 hack 删除（旧实现 Promise.resolve().then 时序不保）
  */
 export function transformV2(
   oldC: VNodeChild,
@@ -692,21 +695,16 @@ export function transformV2(
     throw new Error(`[vdom] v2 状态机违例：未定义转换 ${stateOf(oldC)} → ${stateOf(newC)}`)
   }
   let outCmds: Command[] = []
-  let sinkStream: Observable<Command> | null = null
-  // **新侧渲染延迟（2027-08——C1 fuzz seed=11 实证）**：emitNode 若在转换
-  // 展开期【立即构造】renderV2Node——组件段创建/复用发生在旧段 dispose
-  // 之前——新组件同 compId 命中旧段（工厂错配——旧输出形态残留）——
-  // 必须先 dispose 旧段再构造新侧（转换表 await emitNode 的时序不保）
+  // **新侧记录（emitNode 不构造——订阅时构造——顺序纪律的前提）**
   let pendingSink: { v: VNodeChild; p: string; i: number; r: string | null } | null = null
-  // **unmount 汇集（2027-08）**：转换表先 emit unmount 再经 regProxy 递归
-  // 清理输出区间（查询段 lastOutput）——立即 dispose 会清数据导致清理不
-  // 完整（G2 复绿/变红教训）——**转换完成后统一 dispose**（生成端纪律：
-  // 段表权威更新在转换命令全量产出后）
+  // **unmount 汇集**：转换表先 emit unmount 再经 regProxy 递归清理输出
+  // 区间（查询段 lastOutput）——立即 dispose 会清数据导致清理不完整（G2
+  // 教训）——**转换完成后统一 dispose**（生成端纪律：段表权威更新在转换
+  // 命令全量产出后）
   const unmountIds: string[] = []
-  // **registry 代理（2027-08——v2 段表权威——transform 清理对齐）**：v1 转换表
-  // （transitionComponent 等）经 ctx.registry.get(compId).lastOutput 递归
-  // 清理组件输出区间——v2 段化挂载不写 v1 registry——清理查空 → 多根残留
-  // （G2 实证：span/b 幽灵）——代理从段表查 lastOutput（转换表共享代码不改——
+  // **registry 代理（v2 段表权威——transform 清理对齐）**：v1 转换表经
+  // ctx.registry.get(compId).lastOutput 递归清理组件输出区间——v2 段化
+  // 挂载不写 v1 registry——代理从段表查 lastOutput（转换表共享代码不改——
   // v2 下注入 v2 数据源）
   const regProxy = segments && segments.size > 0
     ? {
@@ -718,17 +716,16 @@ export function transformV2(
     : registry
   const syncCtx = {
     emit: (cmd: unknown) => {
-      // **unmount 命令 → 段生成端 dispose（2027-08——C1 fuzz 同 id 段复用
-      //  实证）**：转换表（v1）发 unmount（消费端 registry 清理）——v2 段表
-      //  权威在生成端——不 dispose → 后续同 id 新组件命中旧段（输出错位——
-      //  old A 段 root.0.0 被新 inner 复用）——同 removeTreeV2 纪律
+      // **unmount 命令 → 段生成端 dispose（C1 fuzz 同 id 段复用实证）**：
+      // 转换表发 unmount（消费端 registry 清理）——v2 段表权威在生成端——
+      // 不 dispose → 后续同 id 新组件命中旧段（输出错位——old A 段
+      // root.0.0 被新 inner 复用）——同 removeTreeV2 纪律
       const c = cmd as Command
       if (c.op === 'unmount' && segments?.has(c.compId)) unmountIds.push(c.compId)
       outCmds.push(c)
     },
     emitNode: (v: VNodeChild, p: string, i: number, r: string | null) => {
-      pendingSink = { v, p, i, r }
-      return Promise.resolve()
+      pendingSink = { v, p, i, r } // **记录——不构造（订阅时构造）**
     },
     oldId: pathId(parent, index),
     newId: pathId(parent, index),
@@ -736,25 +733,28 @@ export function transformV2(
     oldCompId,
     registry: regProxy,
   } as never
-  return create<Command>((obs) => {
-    let cancelled = false
-    let sub: { unsubscribe(): void } | null = null
-    void Promise.resolve(t(oldC as never, newC, syncCtx)).then(() => {
-      if (cancelled) return
-      // **转换完成——unmount 汇集统一 dispose（段表权威更新）**——顺序：
-      // 先 dispose 旧段 → 再 emit 移除命令 → 再构造并订阅新侧渲染（段
-      // 查询时机——延迟构造的前提）
+  t(oldC as never, newC, syncCtx) // **同步执行**（转换表——emit/emitNode 记录）
+  // **三段流（顺序纪律——concatObs 按序订阅）**：① dispose 旧段（段表
+  //  权威——C1 前提）② 旧侧让位命令 ③ 新侧渲染（**订阅时才构造**——
+  //  createSegment 在 dispose 后——结构性保证）
+  const newSide = pendingSink
+    ? create<Command>((obs) => {
+      const sink = pendingSink as { v: VNodeChild; p: string; i: number; r: string | null } // 捕获（订阅时非空——构造时已记录）
+      const s = renderV2Node(sink.v, sink.p, sink.i, sink.r, ctx, registry, segments, requestRender)
+      return s.subscribe({
+        next: (c) => obs.next(c),
+        error: (e) => obs.error(e),
+        complete: () => obs.complete(),
+      })
+    })
+    : fromArray([] as Command[])
+  return concatObs([
+    create<never>((obs) => {
       for (const cid of unmountIds) { if (segments?.has(cid)) disposeSegment(cid, segments) }
-      for (const c of outCmds) obs.next(c)
-      if (pendingSink) {
-        sinkStream = renderV2Node(pendingSink.v, pendingSink.p, pendingSink.i, pendingSink.r, ctx, registry, segments, requestRender)
-        sub = sinkStream.subscribe({
-          next: (c) => { if (!cancelled) obs.next(c) },
-          error: (e) => { if (!cancelled) obs.error(e) },
-          complete: () => { if (!cancelled) obs.complete() },
-        })
-      } else { obs.complete() }
-    }).catch((e) => { if (!cancelled) obs.error(e) })
-    return () => { cancelled = true; sub?.unsubscribe() }
-  })
+      obs.complete()
+      return () => {}
+    }),
+    fromArray(outCmds),
+    newSide,
+  ])
 }

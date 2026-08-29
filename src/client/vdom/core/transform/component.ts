@@ -26,7 +26,7 @@ import { outputToChild } from '../node/component.ts'
 import type { TransformContext, TransitionFn } from './index.ts'
 
 /** component → X：组件卸载（onUnmounts）+ 输出区间移除（让位） */
-export const transitionComponent: TransitionFn = async (_old, next, ctx) => {
+export const transitionComponent: TransitionFn = (_old, next, ctx) => {
   // 1. 组件卸载清理（onUnmounts——实例注册表消费——递归子实例）
   if (ctx.oldCompId) ctx.emit({ op: 'unmount', compId: ctx.oldCompId })
   // 2. 旧输出区间移除——registry 查 lastOutput——数组/多根完整清理
@@ -51,6 +51,6 @@ export const transitionComponent: TransitionFn = async (_old, next, ctx) => {
     // 无旧输出记录（防御）——首锚让位
     ctx.emit({ op: 'remove', id: ctx.oldId })
   }
-  // 3. 新侧渲染（同一位置）
-  await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
+  // 3. 新侧记录（延迟构造——transformV2 订阅时渲染）
+  ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

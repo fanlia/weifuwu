@@ -12,7 +12,7 @@
 import type { TransformContext, TransitionFn } from './index.ts'
 
 /** hole → X：旧占位锚移除（让位——新节点 diff 渲染到同一位置） */
-export const transitionHole: TransitionFn = async (_old, next, ctx) => {
+export const transitionHole: TransitionFn = (_old, next, ctx) => {
   ctx.emit({ op: 'remove', id: ctx.oldId })
-  await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
+  ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

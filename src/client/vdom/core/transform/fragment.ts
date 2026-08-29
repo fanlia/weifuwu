@@ -24,7 +24,7 @@ import { removeVNodeTree } from '../diff/cleanup.ts'
  *  新侧渲染到同一位置（展开位置连续——pathId(parent, index + ci)）
  *  **单一实现源**：区间移除统一 removeVNodeTree（cleanup.ts——FRAG 展开
  *  到父级槽位/数组全形态/组件 unmount——与 diff 各路径共享——防双实现漂移） */
-export const transitionFragment: TransitionFn = async (oldNode, next, ctx) => {
+export const transitionFragment: TransitionFn = (oldNode, next, ctx) => {
   const items = Array.isArray(oldNode) ? oldNode : childrenOf(oldNode as VNode)
   // **槽位推进（投影维度——FRAG 项展开占多槽——按索引 +1 错位——
   //  fuzz seed=42 i=132 实证——ul 槽位 2 被按 1 移除——残留）**
@@ -33,5 +33,5 @@ export const transitionFragment: TransitionFn = async (oldNode, next, ctx) => {
     removeVNodeTree(c, pathId(ctx.parent, slot), ctx.parent, ctx.emit, ctx.registry)
     slot += slotCount(c)
   }
-  await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
+  ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }

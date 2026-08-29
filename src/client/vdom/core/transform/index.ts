@@ -25,8 +25,10 @@ export type NodeState = 'text' | 'hole' | 'element' | 'component' | 'fragment' |
 export interface TransformContext {
   /** 命令发射（旧侧让位：remove/unmountComp——diff 生成的命令序列） */
   emit(cmd: unknown): void
-  /** 新侧渲染（sink——共享分发器——转换函数内部完成完整转换） */
-  emitNode(v: VNodeChild, parent: string, index: number, ref: string | null): Promise<void>
+  /** **新侧渲染（记录——不构造）**（2027-09 流化：延迟构造归 transformV2
+   *  ——订阅时构造——C1 fuzz seed=11 的顺序语义结构性保证——旧段 dispose
+   *  在前——不再有 await 时序不保的 pendingSink hack） */
+  emitNode(v: VNodeChild, parent: string, index: number, ref: string | null): void
   /** 旧节点锚/元素 id（旧树 id——diff 的 oldId 空间） */
   oldId: string
   /** 新节点 id（新树 id——diff 的 newId 空间） */
@@ -43,15 +45,10 @@ export interface TransformContext {
   registry?: ComponentRegistry | null
 }
 
-/** 新侧渲染 sink（与 build 的 RenderSink 同形——transform 不依赖 build） */
-export type TransformSink = (
-  v: VNodeChild, parent: string, index: number, ref: string | null,
-) => Promise<void>
-
 /** 转换策略函数（各状态文件实现——**完整转换**：旧侧让位命令 + ctx.emitNode
- *  新侧渲染——返回 Promise 支持异步组件） */
+ *  新侧记录——同步执行——新侧构造由 transformV2 延迟（订阅时）） */
 export type TransitionFn = (
   oldNode: unknown,
   nextNode: VNodeChild,
   ctx: TransformContext,
-) => Promise<void> | void
+) => void | Promise<void>

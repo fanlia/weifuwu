@@ -21,7 +21,7 @@ import { removeVNodeTree } from '../diff/cleanup.ts'
  *  transitionComponent/transitionFragment 统一——消费端零猜测
  *  （procRemove 前缀卸载因 id 空间重叠误删——deep-tour 回归——回退——
  *  卸载信息由 diff 层完整生成） */
-export const transitionElement: TransitionFn = async (oldNode, next, ctx) => {
+export const transitionElement: TransitionFn = (oldNode, next, ctx) => {
   removeVNodeTree(oldNode as Parameters<typeof removeVNodeTree>[0], ctx.oldId, ctx.parent, ctx.emit, ctx.registry)
-  await ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
+  ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
 }
