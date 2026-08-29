@@ -17,10 +17,14 @@ import { CommandApplier } from './core/patch/index.ts'
 import { createComponentRegistry } from './core/node/component.ts'
 import type { UIContext } from './context/UIContext.ts'
 import { h } from './core/vnode.ts'
+import { create, delay, tap } from './observable/index.ts'
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning'
 
-/** 命令式轻提示（vdom 引擎渲染——自动消失——独立容器） */
+/** 命令式轻提示（vdom 引擎渲染——自动消失——独立容器）
+ *  **自动消失定时器上流（波次 6——隐式时序歼灭）**：setTimeout 裸调用 →
+ *  create<number>((obs) => { obs.next(1); obs.complete(); return () => {} }).pipe(delay(duration))——生命周期在流上——不可达的裸
+ *  timer 消除（未来 close 面可直接 takeUntil——取消语义就位） */
 export function toast(message: string, type: ToastType = 'info', duration = 3000): void {
   const container = document.createElement('div')
   container.className = 'wf-toast-host'
@@ -35,10 +39,13 @@ export function toast(message: string, type: ToastType = 'info', duration = 3000
   void renderToStreamV2(h(Host, {}) as VNode, ctx, registry).pipeTo(new WritableStream({
     write(cmd) { applier.apply(cmd) },
   })).then(() => {
-    setTimeout(() => {
-      applier.dispose()
-      container.remove()
-    }, duration)
+    // **自动消失（流上——delay 算子——订阅取消 = timer 取消——零泄漏）**
+    create<number>((obs) => { obs.next(1); obs.complete(); return () => {} }).pipe(delay(duration),
+      tap(() => {
+        applier.dispose()
+        container.remove()
+      }),
+    ).subscribe({ next: () => {} })
   })
 }
 

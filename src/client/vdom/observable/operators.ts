@@ -36,6 +36,42 @@ export function toArray<T>(): OperatorFn<T, T[]> {
   })
 }
 
+/** 延迟（每值延时发射——**取消语义**：unsubscribe 清未发 timer——
+ *  complete 等 pending 值发完（RxJS 对齐——时序完整不丢值）；隐式时序
+ *  （toast 自动消失）流化基建——场景证据：命令式 API 自动销毁链） */
+export function delay<T>(ms: number): OperatorFn<T, T> {
+  return (source) => new Observable<T>((obs) => {
+    const timers = new Set<ReturnType<typeof setTimeout>>()
+    let done = false // 源终结（error/complete/pending 标记）
+    let pendingComplete = false
+    const flushComplete = (): void => {
+      if (pendingComplete && timers.size === 0) { done = true; obs.complete() }
+    }
+    const sub = source.subscribe({
+      next: (v) => {
+        const t = setTimeout(() => {
+          timers.delete(t)
+          if (done) return
+          obs.next(v)
+          flushComplete()
+        }, ms)
+        timers.add(t)
+      },
+      error: (e) => { done = true; obs.error(e) },
+      complete: () => {
+        pendingComplete = true
+        flushComplete() // 无 pending 则立即 complete
+      },
+    })
+    return () => {
+      done = true
+      for (const t of timers) clearTimeout(t)
+      timers.clear()
+      sub.unsubscribe()
+    }
+  })
+}
+
 /** 累积（状态 = 流的折叠——每值产出累加器） */
 export function scan<T, R>(fn: (acc: R, v: T) => R, init: R): OperatorFn<T, R> {
   let acc = init

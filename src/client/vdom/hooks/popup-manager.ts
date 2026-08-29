@@ -31,8 +31,27 @@ import { createComponentRegistry } from '../core/node/component.ts'
 import { PORTAL_CONTAINER_ID, portalContainerId } from '../core/node/portal.ts'
 import type { HookEnv } from './env.ts'
 import { computePos, hasAnim, type PopupPlacement } from './popup.ts'
+import { Subject, scan, type Observable } from '../observable/index.ts'
 
 export type PopupPhase = 'closed' | 'open' | 'exit'
+
+/** 弹窗迁移事件（**流化（2027-09）——时间线可回放**） */
+export type PopupEvent =
+  | { kind: 'open' }
+  | { kind: 'exit' }    // presence 退场（close 于 open 态）
+  | { kind: 'closed' }  // finalizeClose（dispose 前）
+  | { kind: 'disposed' }
+
+/** 弹窗相位迁移表（**纯 reducer——波次 6**）：open →（close）→ exit/closed；
+ *  disposed = 幂等 closed（unmount 终态——重复 finalize 零迁移） */
+export function popupPhaseReducer(s: PopupPhase, e: PopupEvent): PopupPhase {
+  switch (e.kind) {
+    case 'open': return 'open'
+    case 'exit': return s === 'open' ? 'exit' : s
+    case 'closed': return 'closed'
+    case 'disposed': return 'closed'
+  }
+}
 
 export interface PopupOpenOptions {
   /** 内容（VNode 或工厂——打开/更新时构建——关闭态不构建） */
@@ -81,6 +100,8 @@ export interface PopupHandle {
   refresh(): void
   /** open getter */
   get open(): boolean
+  /** **迁移事件流（波次 6——open/exit/closed/disposed——时间线可回放）** */
+  events$: Observable<PopupEvent>
 }
 
 interface PopupState {
@@ -129,6 +150,11 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
     version: 0, open: false, phase: 'closed', disposed: false, panel: null,
     pos: { top: 0, left: 0 }, segments: new Map() as SegmentMap,
   }
+  // **相位单源（波次 6——events$ = scan 折叠——手写 phase 迁移删除）**
+  const events = new Subject<PopupEvent>()
+  const events$ = events.asObservable()
+  events.asObservable().pipe(scan(popupPhaseReducer, 'closed')).subscribe({ next: (p) => { state.phase = p } })
+  const emitEvent = (e: PopupEvent): void => { events.next(e) }
   const win = env.getBrowser()?.window
   const doc = env.getBrowser()?.document
 
@@ -301,15 +327,16 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
   const finalizeClose = (): void => {
     if (state.disposed) return
     state.open = false
-    state.phase = 'closed'
+    emitEvent({ kind: 'closed' })
     restoreModalLock()
     disposeInstance()
+    emitEvent({ kind: 'disposed' })
     opts.onClose?.()
   }
   const close = (): void => {
     if (!state.open || state.disposed) return
     if (opts.presence) {
-      state.phase = 'exit' // 退场——动画后 finalize（panelRef 监听 animationend）
+      emitEvent({ kind: 'exit' }) // 退场——动画后 finalize（panelRef 监听 animationend）
       // 无动画环境立即 closed（jsdom/无 CSS 动画——animationend 不触发——不挂死）
       if (state.panel && win && !hasAnim(state.panel, win)) finalizeClose()
       // 无面板（未挂载）也立即 closed
@@ -418,7 +445,7 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
   const openNow = (): void => {
     if (state.open || state.disposed) return
     state.open = true
-    state.phase = 'open'
+    emitEvent({ kind: 'open' })
     const container = ensureContainer()
     if (!container) return
     if (opts.trapFocus || opts.lockScroll) engageModalLock()
@@ -454,6 +481,7 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
     get open() {
       return state.open
     },
+    events$,
   }
 
   openNow()

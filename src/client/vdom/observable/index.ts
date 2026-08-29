@@ -10,4 +10,4 @@
 export { Observable, create } from './observable.ts'
 export type { Observer, PartialObserver, Subscription, SubscribeFn, OperatorFn, UnsubscribeFn } from './observable.ts'
 export { Subject, BehaviorSubject, fromPromise, fromEventPattern } from './sources.ts'
-export { map, filter, tap, toArray, scan, switchMap, mergeMap, takeUntil, shareReplay } from './operators.ts'
+export { map, filter, tap, toArray, delay, scan, switchMap, mergeMap, takeUntil, shareReplay } from './operators.ts'

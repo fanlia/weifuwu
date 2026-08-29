@@ -12,7 +12,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Observable, create, Subject, BehaviorSubject, fromPromise, fromEventPattern } from '../../client/vdom/observable/index.ts'
-import { map, filter, tap, toArray, scan, switchMap, mergeMap, takeUntil, shareReplay } from '../../client/vdom/observable/index.ts'
+import { map, filter, tap, toArray, delay, scan, switchMap, mergeMap, takeUntil, shareReplay } from '../../client/vdom/observable/index.ts'
 
 // ── 基础语义 ──────────────────────────────────────────────
 
@@ -191,6 +191,49 @@ test('toArray：源错误 → 零产出（错误传播——原子性）', () =>
     .subscribe({ next: (v) => vals.push(v), error: (e) => errs.push(e) })
   assert.deepEqual(vals, [], '零产出')
   assert.deepEqual(errs, ['boom'], '错误传播')
+})
+
+test('delay：每值延时发射（时序——自动消失流化基建）', async () => {
+  const got: number[] = []
+  const t0 = Date.now()
+  create<number>((obs) => { obs.next(1); obs.next(2); obs.complete() })
+    .pipe(delay(20))
+    .subscribe({ next: (v) => got.push(v) })
+  await new Promise((r) => setTimeout(r, 30))
+  const dt = Date.now() - t0
+  assert.deepEqual(got, [1, 2], '值保序发完')
+  assert.ok(dt >= 18, `发射已延迟（${dt}ms）`)
+})
+
+test('delay：complete 等 pending 值发完（RxJS 对齐——时序完整）', async () => {
+  const got: number[] = []
+  let done = false
+  create<number>((obs) => { obs.next(1); obs.complete() })
+    .pipe(delay(15))
+    .subscribe({ next: (v) => got.push(v), complete: () => { done = true } })
+  // complete 不应早于值到达（pending 值先发——再 complete）
+  assert.equal(done, false, 'complete 挂起（pending 值未发）')
+  await new Promise((r) => setTimeout(r, 25))
+  assert.deepEqual(got, [1], '值到达')
+  assert.equal(done, true, 'pending 发完后 complete')
+})
+
+test('delay：unsubscribe 取消未发 timer（零泄漏——可取消语义）', async () => {
+  const got: number[] = []
+  create<number>((obs) => { obs.next(1) })
+    .pipe(delay(30))
+    .subscribe({ next: (v) => got.push(v) })
+    .unsubscribe()
+  await new Promise((r) => setTimeout(r, 40))
+  assert.deepEqual(got, [], '未发值被取消（timer 清除）')
+})
+
+test('delay：错误立即传播（不等 pending）', () => {
+  let errs: unknown[] = []
+  create<number>((obs) => { obs.next(1); obs.error('boom') })
+    .pipe(delay(10))
+    .subscribe({ next: () => {}, error: (e) => errs.push(e) })
+  assert.deepEqual(errs, ['boom'])
 })
 
 test('switchMap：新值到来取消旧内层——旧结果作废（竞态语义）', async () => {
