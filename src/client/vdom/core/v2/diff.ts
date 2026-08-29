@@ -148,9 +148,9 @@ export function diffV2Node(
           lastRef = pathId(id, slot + sc - 1)
           slot += sc
         }
-        // 旧侧多余项移除
+        // 旧侧多余项移除（**完整区间**——v1 removeVNodeTree 等价——子树全移除）
         for (let i = cs.length; i < oldCs.length; i++) {
-          parts.push(fromArray([{ op: 'remove', id: pathId(id, slotOf(oldCs, i)) } as Command]))
+          parts.push(fromArray(removeTreeV2(oldCs[i], id, slotOf(oldCs, i))))
         }
         return concatObs([fromArray(attrCmds), ...parts])
       }
@@ -240,7 +240,7 @@ function diffV2NodeAt(
       slot += sc
     }
     for (let i = newArr.length; i < oldArr.length; i++) {
-      parts.push(fromArray([{ op: 'remove', id: pathId(base, slotOf(oldArr, i)) } as Command]))
+      parts.push(fromArray(removeTreeV2(oldArr[i], base, slotOf(oldArr, i))))
     }
     return concatObs(parts)
   }
