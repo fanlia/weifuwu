@@ -146,8 +146,10 @@ export function diffV2Node(
       if (o.type === n.type) {
         return diffComponentV2(o, n, parent, index, ref, ctx, segments, registry)
       }
-      // 异 type 组件 → 转换表（component → 新形态——完整转换）
-      return transformV2(o, n, parent, index, ref, ctx, registry, v2CompId(o, parent, index))
+      // **异 type 组件 → 旧段卸载 + 新段挂载**（v1 diffSame 语义——非转换表
+      // ——component→component 同态转换表无定义——违例）
+      disposeSegment(v2CompId(o, parent, index), segments)
+      return renderV2Node(n, parent, index, ref, ctx, registry)
     }
     // 元素 → 元素（同 tag：attrs + children 递归；异 tag：替换）
     if (typeof o.type === 'string' && typeof n.type === 'string') {

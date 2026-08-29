@@ -19,7 +19,7 @@ import { createDevVerifier } from '../patch/verify.ts'
 import { CommandApplier } from '../patch/index.ts'
 import { createComponentRegistry } from '../node/component.ts'
 import { renderV2 } from './render.ts'
-import { diffV2 } from './diff.ts'
+import { diffV2, disposeSegment } from './diff.ts'
 import type { SegmentMap } from './diff.ts'
 import { createRenderScheduler } from './schedule.ts'
 import { collectCommands } from './integrate.ts'
@@ -65,7 +65,17 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   const applyV2 = async (vnode: VNode): Promise<void> => {
     if (!active) return
     const stream = currentTree
-      ? (vt.diffs++, diffV2(currentTree, vnode, ctx as unknown as UIContext, segments, registry))
+      ? (currentTree.type !== vnode.type
+        ? (() => {
+          // **root 整树替换**（组件/元素切换——v1 serve 语义——旧段清空 +
+          // 全量渲染——root 异型走转换表会违例（component→component 同态））
+          vt.builds++
+          rootEl.innerHTML = ''
+          currentTree = null
+          for (const [sid] of [...segments]) disposeSegment(sid, segments)
+          return renderV2(vnode, ctx as unknown as UIContext, registry)
+        })()
+        : (vt.diffs++, diffV2(currentTree, vnode, ctx as unknown as UIContext, segments, registry)))
       : (vt.builds++, renderV2(vnode, ctx as unknown as UIContext, registry))
     const cmds = await collectCommands(stream)
     if (!active) return
@@ -90,35 +100,25 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   }
 
 
-  // 渲染队列（v1 骨架——调度流接入）
+  // 渲染（resolve router → handler 调 ctx.stream → applyV2——**redirect 语义**）
   let req = frontRequest(win.location.pathname)
-  let queue: Array<() => Promise<void>> = []
-  let drainPromise: Promise<void> | null = null
   let renderPhase: 'idle' | 'rendering' = 'idle'
-
-
-  const runRender = async (target: () => Promise<void>): Promise<void> => {
+  const render = async (): Promise<void> => {
+    if (renderPhase === 'rendering') return // 渲染中——合并（调度流已 batching）
     renderPhase = 'rendering'
     try {
-      await target()
+      let res = await router.resolve(req, ctx as unknown as UIContext)
+      // **redirect（3xx + Location——replaceState——不 push 历史）**
+      let guard = 0
+      while (res.status >= 300 && res.status < 400 && res.headers?.get('Location') && guard++ < 5) {
+        const loc = res.headers.get('Location')!
+        win.history.replaceState({}, '', loc)
+        req = frontRequest(loc)
+        res = await router.resolve(req, ctx as unknown as UIContext)
+      }
     } finally {
       renderPhase = 'idle'
     }
-  }
-
-
-  const render = async (): Promise<void> => {
-    if (renderPhase === 'rendering' && drainPromise) { queue.push(async () => { await render() }); return drainPromise }
-    const p = runRender(async () => {
-      while (true) {
-        const r = queue.shift()
-        if (!r) break
-        await r()
-      }
-    })
-    drainPromise = p
-    await p
-    drainPromise = null
   }
 
 
@@ -133,22 +133,48 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   // 页面作者 render（ctx.render——经调度流合并）
   ctx.render = () => { scheduler.request() }
 
-
-  // 导航（同 URL 重渲染——route resolve 后 v2 refresh tree）
+  // **导航（v1 对齐——pushState + req 更新 + 渲染）**
   const navigate = async (path: string): Promise<void> => {
-    if (!active) return
+    win.history.pushState({}, '', path)
+    req = frontRequest(path)
     await render()
   }
   ;(ctx as Record<string, unknown>).app = { navigate }
 
+  // **链接拦截（同源 a[href]——外链/锚点不拦截）**
+  const onDocClick = (e: Event): void => {
+    const target = e.target as HTMLElement | null
+    const a = target?.closest?.('a[href]')
+    if (!a) return
+    const href = a.getAttribute('href')
+    if (!href || href.startsWith('http') || href.startsWith('#')) return
+    e.preventDefault()
+    void navigate(href)
+  }
+  doc.addEventListener('click', onDocClick)
+
+  // **popstate（前进/后退 → 渲染当前 URL）**
+  const onPopstate = (): void => {
+    req = frontRequest(win.location.pathname)
+    void render()
+  }
+  win.addEventListener('popstate', onPopstate)
+
+  // **首帧 boot**（v1 ready 等价）
+  void render().catch((e) => console.error('[vdom] v2 首帧:', e))
 
   let disposed = false
   const handle = {
     ready: Promise.resolve(),
     render: () => render(),
     __apply: (vnode: VNode) => applyV2(vnode) as never,
-    navigate: (path: string) => { win.history.pushState({}, '', path); return render() },
-    unmount: () => { disposed = true; active = false },
+    navigate,
+    unmount: () => {
+      disposed = true
+      active = false
+      doc.removeEventListener('click', onDocClick)
+      win.removeEventListener('popstate', onPopstate)
+    },
   } as UiServeHandle & { render: () => Promise<void>; __apply: (vnode: VNode) => Promise<void> }
   void disposed
   return handle
