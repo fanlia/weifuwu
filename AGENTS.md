@@ -317,8 +317,33 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     规格/单值 Promise）——每机制单轨（流=时序表达——状态机=状态表达——
     两者共存互补）——audit-observable-complete.mjs 三检查是完成判据。
 
-### 已知边界（诚实裁剪）
+## 2c. 渲染健康（三轴诊断器——RENDER-HEALTH-PLAN 波次 1）
 
+> **问题出现即读数**——渲染的「健康」三轴：**频率**（渲染次数/秒）·
+> **规模**（单次命令数）· **复用**（组件工厂重跑率）——dev 模式仪表
+> `window.__wfRenderHealth`（每 2s 滚动——`snapshot()` 有全量字段）——
+> serve `__WF_DEV__` 门控（生产零成本）。
+
+| 轴 | 阈值（超限 = console.warn） | 症状 |
+|---|---|---|
+| 频率 | > 10 渲染/s | 卡顿/闪烁/流式慢 |
+| 规模 | 单渲染 > 5000 命令 或 > 300ms | 首屏慢/冻结 |
+| 复用 | 重跑率 > 5% | 状态丢失/重建风暴 |
+
+**排查用法**（页面出现「每拍 remount / 渲染循环」类问题）：
+1. 浏览器 dev 模式开页面——`window.__wfRenderHealth` 读数（三轴哪根破）
+2. 复用轴破 → 查组件是否 keyed 缺失/列表 key 不稳定/条件槽位切换——
+   引擎复用正确由契约锁定（src/test/contract/reuse-regression.test.ts——
+   七形态零复现）——**破的是应用层**（无 key/不稳定 key/每拍新数组）
+3. 频率轴破 → 查调度风暴（同拍 N 次 render——batching 已内置——仍破 =
+   源激增：timer/ws/observer 连发）
+4. 规模轴破 → 查长列表（VirtualTable 已虚拟化——未接入的 list 用 keyed
+   列表 + 虚拟窗口）
+
+**防线基准**：契约 render-health.test（6）锁定三轴计数/阈值/零误报——
+reuse-regression.test（7）锁定复用语义（复现即红）。
+
+### 已知边界（诚实裁剪）
 - **渲染队列 FIFO/redirect**：serve 内部机制——间接覆盖（无专门测试）
 - **useTween/useReducedMotion/useVisualViewport/useDrag（stable.ts）**：未测（headless 无 reduced-motion 偏好——直落分支）
 - **hooks/ai-stream.ts、auth 中间件**：未测（长尾）
