@@ -54,7 +54,8 @@
   border-radius: var(--wf-radius-sm);
   font-size: var(--wf-font-size-xs);
   pointer-events: none;
-  transform: translate(-50%, -100%);
+  /* 定位由 openPopup 内核 computePos 完成（placement top + 水平居中 + gap 8）——
+   * 不再 transform 双重偏移（旧 usePopup 自定位残留——tooltip 漂移一面板高/半宽） */
   white-space: nowrap;
 }
 
