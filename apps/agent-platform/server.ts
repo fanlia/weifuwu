@@ -1194,7 +1194,7 @@ async function main() {
           void pg.sql`INSERT INTO survey_submissions (id, source, age, industry, rating, focus, feedback, submitted_at)
             VALUES (${String(record.id)}, ${String(record.source)}, ${String(record.age)}, ${String(record.industry)},
               ${Number(record.rating)}, ${JSON.stringify(record.focus)}, ${String(record.feedback)}, ${String(record.submitted_at)})`.catch(() => {})
-          surveyBroadcast({ type: 'survey:submitted', count: surveyTotal, latest: record })
+          surveyBroadcast({ type: 'survey:submitted', count: surveyTotal, latest: record, aggregate: surveyAggregate() })
           // 提交后保持在线（浏览器未关——ws 连接保持——统计页在线显示已提交状态——
           // 下线只发生在 close/bye：用户要求"只要填写者还没关闭浏览器就应该显示在线"）
           const cur = surveyOnline.get(ws)
@@ -1342,35 +1342,36 @@ async function main() {
   const surveyBroadcast = (event: Record<string, unknown>) => {
     surveyHub?.send('survey-live', JSON.stringify(event))
   }
+  // S5 聚合分布（2027-09）：每次广播重算（1000 份 O(n) 微秒级）——提交广播
+  // 也携带（实证：submitted 事件不带 aggregate → 页面分布统计停滞在连接快照）
+  const surveyAggregate = () => {
+    const byIndustry: Record<string, number> = {}
+    const byAge: Record<string, number> = {}
+    const byRating: Record<string, number> = {}
+    const focus: Record<string, number> = {}
+    let ratingSum = 0
+    for (const s of surveySubmissions) {
+      // record 顶层字段（实证：曾读 s.data → 恒空对象 → 分布统计全零）
+      if (s.industry) byIndustry[String(s.industry)] = (byIndustry[String(s.industry)] ?? 0) + 1
+      if (s.age) byAge[String(s.age)] = (byAge[String(s.age)] ?? 0) + 1
+      const r = Number(s.rating ?? 0)
+      if (r > 0) { byRating[String(r)] = (byRating[String(r)] ?? 0) + 1; ratingSum += r }
+      for (const f of ((s.focus as string[]) ?? [])) focus[String(f)] = (focus[String(f)] ?? 0) + 1
+    }
+    return {
+      total: surveySubmissions.length,
+      byIndustry, byAge, byRating, focus,
+      avgRating: surveySubmissions.length > 0 ? Math.round((ratingSum / surveySubmissions.length) * 10) / 10 : 0,
+      completionRate: surveySubmissions.length > 0 ? 100 : 0,
+    }
+  }
   const surveyState = () => ({
     type: 'survey:state',
     count: surveyTotal,
     answers: surveyAnswers.slice(-surveyLimit),
     submissions: surveySubmissions.slice(-surveyLimit),
     online: surveyOnlineState(),
-    // S5（2027-09）：聚合分布（1000 份的统计意义——服务端算——页面直方图渲染——
-    // O(n) 1000 微秒级——每次广播重算可接受）
-    aggregate: (() => {
-      const byIndustry: Record<string, number> = {}
-      const byAge: Record<string, number> = {}
-      const byRating: Record<string, number> = {}
-      const focus: Record<string, number> = {}
-      let ratingSum = 0
-      for (const s of surveySubmissions) {
-        const d = (s as any).data ?? {}
-        if (d.industry) byIndustry[String(d.industry)] = (byIndustry[String(d.industry)] ?? 0) + 1
-        if (d.age) byAge[String(d.age)] = (byAge[String(d.age)] ?? 0) + 1
-        const r = Number(d.rating ?? 0)
-        if (r > 0) { byRating[String(r)] = (byRating[String(r)] ?? 0) + 1; ratingSum += r }
-        for (const f of (d.focus ?? [])) focus[String(f)] = (focus[String(f)] ?? 0) + 1
-      }
-      return {
-        total: surveySubmissions.length,
-        byIndustry, byAge, byRating, focus,
-        avgRating: surveySubmissions.length > 0 ? Math.round((ratingSum / surveySubmissions.length) * 10) / 10 : 0,
-        completionRate: surveySubmissions.length > 0 ? 100 : 0,
-      }
-    })(),
+    aggregate: surveyAggregate(),
   })
   // 在线连接清理（每 30 秒）：①readyState 非 OPEN（僵尸连接——close 丢失）
   // ②超过 10 分钟无活动（AI 填完不关页面/卡住——提交后应已下线，超时兜底）

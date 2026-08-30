@@ -277,7 +277,7 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
 
   // ── ④ 终止判定 + 批收尾（S4——2027-09——campaign 完成 → 角色容器批量 stop——
   //   1000 角色不空转 10min——资源立即释放——回收可观测） ──
-  await sql`UPDATE survey_campaigns SET completed = ${completed}, failed = ${failedCount}, updated_at = NOW() WHERE id = ${campaignId}`
+  await sql`UPDATE survey_campaigns SET completed = ${Math.min(completed, Number(campaign.total))}, failed = ${Math.min(failedCount, Number(campaign.total))}, updated_at = NOW() WHERE id = ${campaignId}`
   if (isFinished({ total: Number(campaign.total), completed, failed: failedCount })) {
     await sql`UPDATE survey_campaigns SET status = 'done', updated_at = NOW() WHERE id = ${campaignId}`
     console.log(`[campaign ${campaignId}] 完成：${completed} 成功 / ${failedCount} 失败（共 ${campaign.total}）`)

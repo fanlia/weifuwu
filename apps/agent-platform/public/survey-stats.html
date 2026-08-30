@@ -66,6 +66,7 @@ const StatsPage = (_init, ctx) => {
     if (msg?.type === "survey:submitted") {
       count = msg.count ?? count;
       if (msg.latest) submissions = [...submissions, msg.latest];
+      if (msg.aggregate) aggregate = msg.aggregate;
       rerender();
     }
     if (msg?.type === "survey:online") {
