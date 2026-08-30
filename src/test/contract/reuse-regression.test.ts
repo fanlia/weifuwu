@@ -168,3 +168,46 @@ test('RH-8 洞→组件（输出 null）：锚挂槽位父——命名保持 com
   const s2 = sim.snapshot()
   assert.equal(s1, s2, '终态等价（洞→组件转换无残留——锚位正确）')
 })
+
+test('RH-9 混合列表：unkeyed 项位置稳定——不重建（组件状态/事件闭包保持）', async () => {
+  // 病灶（reports 图表 tooltip 自持循环实证）：keyed+unkeyed 混排列表中
+  // unkeyed 项旧侧无条件 removeTreeV2 + 新侧无条件 renderV2Node——每轮
+  // 渲染销毁重建（组件工厂重跑 + DOM 节点替换——mouseenter 新节点重复
+  // 触发 → 渲染→替换→再触发自持循环——tooltip 永不出现）——修复：unkeyed
+  // 项位置身份接管（pos:{i}——keyed.ts 设计契约落定——位置稳定 = diff 复用）
+  const runs: string[] = []
+  const K = makeKeyed('K', runs)
+  const U = () => { runs.push('unkeyed'); return () => h('span', { class: 'u' }) }
+  const oldT = h('div', {}, [
+    h(U),            // unkeyed 组件项（位置 0）
+    h(K, { key: 'k1', n: 1 }),
+    h('div', { class: 'plain' }), // unkeyed 元素项（位置 2）
+  ])
+  const newT = h('div', {}, [
+    h(U),
+    h(K, { key: 'k1', n: 2 }), // K 更新（同 key）
+    h('div', { class: 'plain' }),
+  ])
+  await twoPhase(oldT, newT)
+  assert.equal(runs.filter((r) => r === 'unkeyed').length, 1, `unkeyed 组件工厂应只跑 1 次（实跑 ${runs.filter((r) => r === 'unkeyed').length} = 重建复现）`)
+  assert.equal(runs.filter((r) => r.startsWith('keyed:')).length, 1, `keyed 工厂不重跑（实跑 ${runs.filter((r) => r.startsWith('keyed:')).length}）`)
+})
+
+test('RH-10 混合列表：unkeyed 项位置变化——位置身份移除/新建（语义不串位）', async () => {
+  const runs: string[] = []
+  const K = makeKeyed('K', runs)
+  const U = (label: string) => { runs.push(`u:${label}`); return () => h('span', { class: `u-${label}` }) }
+  const oldT = h('div', {}, [
+    h(U('a')), // 位置 0
+    h(K, { key: 'k1', n: 1 }),
+  ])
+  // keyed 前移到位置 0——旧 unkeyed 位置被接管（位置身份——移除）→ 新
+  // 位置 1 的 unkeyed 项新建
+  const newT = h('div', {}, [
+    h(K, { key: 'k1', n: 2 }),
+    h(U('a')),
+  ])
+  await twoPhase(oldT, newT)
+  assert.equal(runs.filter((r) => r === 'u:a').length, 2, `旧 unkeyed 项随位置身份移除、新位置新建（实跑 ${runs.filter((r) => r === 'u:a').length}——两段生命周期）`)
+  assert.equal(runs.filter((r) => r.startsWith('keyed:')).length, 1, `keyed 工厂不重跑（实跑 ${runs.filter((r) => r.startsWith('keyed:')).length}）`)
+})

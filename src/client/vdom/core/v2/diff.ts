@@ -18,7 +18,7 @@ import { pathId } from '../node/native.ts'
 import { keyedId } from '../node/keyed.ts'
 import { childrenOf, slotCount } from '../node/children.ts'
 import { isFragment } from '../node/fragment.ts'
-import { keyOf, detectMissingKey } from '../node/keyed.ts'
+import { keyOf, detectMissingKey, positionKey, isPositionKey } from '../node/keyed.ts'
 import { kindOf, textOf, isHoleKind, isTextKind } from '../node/index.ts' // B9 单一实现源——hole/text 判定
 import { stateOf } from '../transform/states.ts'
 import { diffAttrs } from '../diff/attrs.ts'
@@ -484,10 +484,16 @@ export function diffKeyedV2(
   requestRender?: () => void,
 ): Observable<Command> {
   const cmds: Command[] = []
-  // 旧 key → 旧索引（首现优先——与 v1 单一规则源）
+  // **混合数组身份映射（设计契约——node/keyed.ts 落定）：无 key 项由位置
+  //  接管——pos:{i} 身份——位置稳定 = 身份稳定（diff 复用——不再每轮
+  //   remove+create 重建——unkeyed 子树状态/事件闭包保持——reports 图表
+  //   tooltip 自持循环实证）；位置变化 = 身份变化（移除/新建——位置身份
+  //   语义）——与 identityKey 单一规则源
+  const identOf = (c: VNodeChild, i: number): string => keyOf(c) ?? positionKey(i)
+  // 旧 key（真实 key + pos key）→ 旧索引（首现优先——与 v1 单一规则源）
   const oldIdxByKey = new Map<string, number>()
-  oldCs.forEach((c, i) => { const k = keyOf(c); if (k !== null && !oldIdxByKey.has(k)) oldIdxByKey.set(k, i) })
-  const newKeys = new Set(newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null))
+  oldCs.forEach((c, i) => { const k = identOf(c, i); if (!oldIdxByKey.has(k)) oldIdxByKey.set(k, i) })
+  const newKeys = new Set(newCs.map((c, i) => identOf(c, i)))
 
   // 0. 旧侧清理（空洞/文本/unkeyed 项/重复 key 多余项——区间 remove）
   const keyCount = new Map<string, number>()
@@ -504,15 +510,22 @@ export function diffKeyedV2(
       cmds.push(...removeTreeV2(oldC as VNode, parent, i, segments))
       continue
     }
-    cmds.push(...removeTreeV2(oldC as VNode, parent, i, segments))
+    // unkeyed 项**不立即移除**——位置身份接管（pos:{i}）——步骤 3 按
+    // 位置对照（位置稳定 → diff 复用；位置消失 → 步骤 1 区间移除）——
+    // 修复前：无条件 remove+create（每轮重建——组件状态丢失——reports
+    // 图表 tooltip 闭包换代 → mouseenter 自持循环实证）
   }
 
   // 1. 真移除（key 不在新——**完整区间** + **段销毁（destroy$）**）
   for (const [k, oldIdx] of oldIdxByKey) {
     if (!newKeys.has(k)) {
       cmds.push(...removeTreeV2(oldCs[oldIdx] as VNode, parent, oldIdx, segments))
-      const kid = keyedId(parent, k)
-      if (segments.has(kid)) disposeSegment(kid, segments) // 卸载信号——资源清理
+      // pos key = 位置身份（段挂位置 id 下——removeTreeV2 的 unmount 命令
+      // 已覆盖清理——keyed dispose 仅真实业务 key）
+      if (!isPositionKey(k)) {
+        const kid = keyedId(parent, k)
+        if (segments.has(kid)) disposeSegment(kid, segments) // 卸载信号——资源清理
+      }
     }
   }
 
@@ -589,7 +602,16 @@ export function diffKeyedV2(
         parts.push(diffV2Node(oldCs[oldIdx], newC, parent, i, lastRef, ctx, segments, registry, requestRender))
       }
     } else {
-      parts.push(renderV2Node(newC, parent, i, lastRef, ctx, registry, segments, requestRender))
+      // **unkeyed 项——位置身份对照（pos:{i} 匹配旧位置）**：位置稳定 →
+      // diff 复用（不再每轮 remove+create）；旧位为空洞/文本/数组/缺失 →
+      // 新建（旧侧空洞/文本在步骤 0 已移除——位置身份不适用）
+      const oldIdx = oldIdxByKey.get(positionKey(i))
+      const oldC = oldIdx === undefined ? undefined : oldCs[oldIdx]
+      if (oldC !== undefined && !isHoleKind(oldC) && !isTextKind(oldC) && !Array.isArray(oldC)) {
+        parts.push(diffV2Node(oldC, newC, parent, i, lastRef, ctx, segments, registry, requestRender))
+      } else {
+        parts.push(renderV2Node(newC, parent, i, lastRef, ctx, registry, segments, requestRender))
+      }
     }
     lastRef = cid
   }
