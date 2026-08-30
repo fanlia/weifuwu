@@ -247,7 +247,7 @@ export function diffV2Node(
     if (typeof o.type === 'string' && typeof n.type === 'string') {
       if (o.type === n.type) {
         const attrCmds: Command[] = []
-        diffAttrs(o, n, id, (cmd) => attrCmds.push(cmd as Command))
+        diffAttrs(o, n, id, (cmd) => attrCmds.push(cmd as Command), { formControl: o.type === 'input' || o.type === 'textarea' })
         const oldCs = expandFrag(childrenOf(o))
         const cs = expandFrag(childrenOf(n))
         // **A 级检测（2027-08——v1 契约面移植——v2 默认后开发者引导保留）**：

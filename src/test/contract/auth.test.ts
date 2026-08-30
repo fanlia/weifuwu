@@ -5,6 +5,35 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { auth, i18n } from '../../client/vdom/middlewares/auth-i18n.ts'
 
+test('refresh：未配置 onRefresh → false + dev warn（机制化——静默失效消除）', () => {
+  const warns: string[] = []
+  const orig = console.warn
+  console.warn = (m: string) => { warns.push(String(m)) }
+  try {
+    const c = auth({ storage: { get: () => null, set: () => {} } })
+    // refresh 异步——await
+    const ok = (c as any).refresh()
+    assert.ok(typeof ok.then === 'function')
+    return ok.then((v: boolean) => {
+      assert.equal(v, false, '未接线 → false（不静默成功）')
+      assert.ok(warns.some((w) => w.includes('onRefresh')), '应有引导 warn')
+    })
+  } finally {
+    console.warn = orig
+  }
+})
+
+test('refresh：onRefresh 已接线 → 成功 true + onAuth 回执', async () => {
+  let onAuthCalls = 0
+  const c = auth({
+    storage: { get: () => 'tok', set: () => {} },
+    onRefresh: async () => true,
+    onAuth: () => { onAuthCalls++ },
+  })
+  assert.equal(await (c as any).refresh(), true)
+  assert.equal(onAuthCalls, 1, 'refresh 成功 → onAuth 通知')
+})
+
 test('setToken/getToken：存储往返（默认 key）', () => {
   const store = new Map<string, string>()
   const client = auth({ storage: { get: (k) => store.get(k) ?? null, set: (k, v) => { store.set(k, v) } } })

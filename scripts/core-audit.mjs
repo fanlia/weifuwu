@@ -29,6 +29,8 @@ const AS_ANY_EXEMPTIONS = [
   { pattern: 'window as any).__dbgEvt', reason: 'debug 门控读全局 window（同上）' },
   { pattern: 'el.style as any', reason: 'CSSStyleDeclaration 动态键写（-- 自定义属性/camelCase——TS 索引面不足）' },
   { pattern: 'el as any)[key]', reason: 'DOM property 通道动态属性名（value/checked 等——属性名运行时已知白名单）' },
+  { pattern: 'el as any).ownerDocument', reason: 'DOM 现值比较载体（ownerDocument 类型面不足——input-sync 组合态查询——2027-09 value 脱节修复）' },
+  { pattern: 'el2 as any).value', reason: 'DOM value 现值读（HTMLInputElement 泛型面——property 通道运行时属性——2027-09 value 现值比较）' },
 ]
 
 /** 提取 proc* 函数体（行区间——配对花括号） */

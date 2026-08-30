@@ -24,7 +24,8 @@ export const Textarea: Component<TextareaProps> = (_init, _ctx) =>
 
   const textareaEl = h('textarea', {
     class: 'wf-textarea',
-    value: value ?? '',
+    // 非受控保持 undefined（2027-09——同 Input——diff 过滤避免清写）
+    value: value,
     placeholder,
     required: required || undefined,
     disabled: disabled || undefined,

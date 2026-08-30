@@ -110,7 +110,14 @@ export function auth(opts: AuthOptions = {}): AuthClient {
     },
     token$: tokenChanges.asObservable(),
     async refresh(): Promise<boolean> {
-      if (!opts.onRefresh) return false
+      if (!opts.onRefresh) {
+        // **refresh 链缺失引导（2027-09——401 踢登录根因的机制化防线）**：
+        // 未配置 onRefresh 时 refresh() 恒 false——任何 401 清 token 跳登录
+        // （此前静默——应用层感知不到「refresh 从未接线」——agent-platform
+        // authRef 间接层实证）——与 useControlledInput 缺 onChange warn 同款
+        console.warn('[vdom] auth.refresh() 未配置 onRefresh 钩子——401 时将无法续期（直接登出语义）')
+        return false
+      }
       const ok = await opts.onRefresh()
       if (ok) opts.onAuth?.(client)
       return ok

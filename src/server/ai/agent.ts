@@ -26,6 +26,11 @@ export interface ToolContext {
   emit: WfEmitter
   /** 用户取消 → abort（长任务应响应此 signal） */
   signal?: AbortSignal
+  /** **会话上下文（2027-09——AgentConfig.toolContext 透传）**：业务上下文
+   *  （departmentId/appId/requestId 等——调用方自定义）——工具 run 直接读
+   *  ——消除「闭包注入」（应用层 getCtx + _toolXXX 属性——注入顺序 bug
+   *  结构性来源：agent-platform 技能工具「无部门上下文」实证） */
+  context?: Record<string, unknown>
 }
 
 export interface AgentTool {
@@ -53,6 +58,10 @@ export interface AgentConfig {
   humanInTheLoop?: boolean | ((call: { name: string; args: unknown }) => boolean)
   /** 审批超时（默认 5 分钟），到期按拒绝处理 */
   approvalTimeoutMs?: number
+  /** **工具会话上下文（2027-09）**：透传到每次工具调用的 ToolContext.context——
+   *  业务上下文单一注入面（调用方闭包零侵入——工具不再需要拿应用的
+   *  ctx 闭包/读注入属性）——框架工具（HITL 审批等）未来同面 */
+  toolContext?: Record<string, unknown>
   /**
    * O13 并行工具（2026-08——ORCHESTRATION-PLAN Wave 4）：单 step 多 tool_call
    * 并发执行（默认关——不突改既有行为）。
@@ -252,7 +261,7 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
         }
 
         try {
-          const output = await tool.run(execArgs, { emit, signal })
+          const output = await tool.run(execArgs, { emit, signal, ...(config.toolContext ? { context: config.toolContext } : {}) })
           emit('wf:tool_result', { id: tc.id, ok: true, output })
           toolResults.push({ role: 'tool', content: JSON.stringify(output ?? ''), tool_call_id: tc.id, name })
         } catch (err) {

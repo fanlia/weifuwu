@@ -32,7 +32,12 @@ export const Input: Component<InputProps> = (_init) =>
     class: `wf-input${variant === 'borderless' ? ' wf-input--borderless' : ''}`,
     name: name || undefined,
     type,
-    value: value ?? '',
+    // **非受控 value 保持 undefined（2027-09——value 键脱节修复配套）**：
+    // diff 对表单控件 value 总是发——非受控（undefined）若规范成 ''——
+    // 每次渲染都发 '' → patch 现值比较（DOM=用户输入）→ 写 '' → 输入被清
+    // （deep-input 场景 8s 超时实证）——undefined 由 serializableAttrs
+    // 过滤（不进总是发判定）——受控场景正常发
+    value: value,
     placeholder,
     required: required || undefined,
     disabled: disabled || undefined,

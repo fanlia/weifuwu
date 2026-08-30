@@ -183,6 +183,36 @@ test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（
   }
 })
 
+test('toolContext 透传：AgentConfig.toolContext → ToolContext.context（会话上下文单一注入面）', async () => {
+  const fake = await startScriptedProvider([
+    toolRound('ctx_probe', '{}'),
+    textRound('ok'),
+  ])
+  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  let seen: Record<string, unknown> | undefined
+  const agent = a.agent({
+    systemPrompt: '助手',
+    // 业务上下文（应用层：departmentId/appId/requestId——此前闭包注入+
+    // ctx 属性（_toolDepartmentId）导致注入顺序 bug——框架面透传）
+    toolContext: { departmentId: 'dept-7', appId: 'app-3', requestId: 'rq-1' },
+    tools: [{
+      name: 'ctx_probe',
+      description: '上下文探针',
+      parameters: { type: 'object', properties: {} },
+      run: async (_args, tool) => {
+        seen = tool.context
+        return 'probed'
+      },
+    }],
+  })
+  try {
+    await collectEvents(agent.run([{ role: 'user', content: 'probe?' }]))
+  } finally {
+    await fake.close()
+  }
+  assert.deepEqual(seen, { departmentId: 'dept-7', appId: 'app-3', requestId: 'rq-1' }, 'ToolContext.context 应含 toolContext 全量透传')
+})
+
 test('agent：工具不存在 → tool_result ok:false，循环继续', async () => {
   const fake = await startScriptedProvider([
     toolRound('missing_tool', '{}'),

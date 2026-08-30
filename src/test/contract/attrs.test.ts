@@ -49,5 +49,25 @@ test('children/key 不参与（剥离面）', () => {
   assert.deepEqual(cmds, [], 'children 不进 diffAttrs（childrenOf 处理）')
 })
 
+test('表单控件 value 特判：formControl=true 时总是发（渲染树同值也发——DOM 脱节修复）', () => {
+  // DOM 值可能被用户打字直改（渲染树从未同步）——diff 旧渲染树值与新值
+  // 同为 '' 时不发 → 清空场景 DOM 残留（2027-09 输入残留实证）——总是发
+  // + patch 现值比较（同值零写）修复
+  const cmds: unknown[] = []
+  diffAttrs(
+    h('input', { value: '' }), h('input', { value: '' }), 'n',
+    (c) => cmds.push(c), { formControl: true },
+  )
+  assert.deepEqual(cmds, [{ op: 'setProp', id: 'n', key: 'value', value: '' }], 'value 键总是发（同值也发）')
+  // 非表单控件（div）行为不变——无变化零命令
+  const cmds2: unknown[] = []
+  diffAttrs(h('div', { value: '' }), h('div', { value: '' }), 'n', (c) => cmds2.push(c))
+  assert.deepEqual(cmds2, [], '非表单控件不发')
+  // formControl 时其他键仍只发变化
+  const cmds3: unknown[] = []
+  diffAttrs(h('input', { value: 'a', class: 'x' }), h('input', { value: 'a', class: 'x' }), 'n', (c) => cmds3.push(c), { formControl: true })
+  assert.deepEqual(cmds3, [{ op: 'setProp', id: 'n', key: 'value', value: 'a' }], '仅 value 总是发——class 同值不发')
+})
+
 // 浏览器测试 runner 入口标记（sideEffects 摇除防护——scripts/test-browser.ts 引用）
 export const __wf_tests = (): void => {}
