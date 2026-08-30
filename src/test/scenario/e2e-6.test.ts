@@ -24,7 +24,7 @@ test.after(async () => {
   server?.stop()
 })
 
-test('component-smoke：40 核心组件全部渲染（data-smoke 标记）', async () => {
+test('component-smoke：122 项全量渲染（data-smoke 标记——对照 __smokeCount）', async () => {
   const page = await browser.newPage()
   const errors: string[] = []
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 150)) })

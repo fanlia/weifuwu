@@ -1802,7 +1802,7 @@ export const scenarios: Scenario[] = [
   { id: 'confirm-command', title: 'confirm/notification 命令式（BUG#3 回归）', render: ConfirmScene },
   { id: 'use-drag', title: 'useDrag（指针拖拽——move/up 回调）', render: DragHookScene },
   { id: 'use-visual-viewport', title: 'useVisualViewport（视口尺寸跟随）', render: ViewportScene },
-  { id: 'component-smoke', title: '组件冒烟（40 核心组件陈列——渲染+点击扫描）', render: SmokeScene },
+  { id: 'component-smoke', title: '组件冒烟（122 项全量陈列——渲染+点击扫描）', render: SmokeScene },
   { id: 'deep-input', title: 'Input 参数（onChange/disabled）', render: DeepInput },
   { id: 'deep-inputnumber', title: 'InputNumber 参数（min/max/step/onChange）', render: DeepInputNumber },
   { id: 'deep-textarea', title: 'Textarea 参数（onChange）', render: DeepTextarea },
