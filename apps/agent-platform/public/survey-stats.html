@@ -34,7 +34,18 @@
 import { Card, Badge, Alert, StatCard, Table, EmptyState, ProgressBar, Space } from "weifuwu/components";
 const QUESTIONS = ["1.\u5E74\u9F84", "2.\u884C\u4E1A", "3.\u5173\u6CE8\u80FD\u529B", "4.\u6EE1\u610F\u5EA6", "5.\u5EFA\u8BAE\u53CD\u9988"];
 const StatsPage = (_init, ctx) => {
-  const viewCampaign = new URLSearchParams(location.search).get("c") || "";
+  let viewCampaign = new URLSearchParams(location.search).get("c") || "";
+  // pathname 不变 query 变（back/forward ?c=A→B）——重读视角（渲染用最新——
+  // 实证：popstate 后视图残留旧任务视角）
+  window.addEventListener("popstate", () => {
+    viewCampaign = new URLSearchParams(location.search).get("c") || "";
+    viewCampaignId = viewCampaign;
+    // query 变化（pathname 不变）——旧视角数据残留（实证：?c=99855af0→e40add27
+    // H1 仍 1 份）——清视角态 + 重发 hello 拉该任务 state
+    count = 0; globalCount = 0; submissions = []; answers = [];
+    aggregate = null;
+    if (ctx?.ws) ctx.ws.send({ type: "survey:hello", source: "stats-view", campaign: viewCampaign });
+  });
   let count = 0;
   let globalCount = 0;
   let viewCampaignId = viewCampaign;
