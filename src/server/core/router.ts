@@ -351,7 +351,9 @@ export class Router<T extends object = Context> {
     if (match) {
       Object.assign(ctx.params, match.params)
       if (match.kind === 'route') {
-        try { return await this.runChain([...this.globalMws, ...match.mws], match.handler, req, ctx) }
+        // S6：match.mws 为空（常态）时复用 globalMws 引用——免每请求数组分配
+        const mws = match.mws.length === 0 ? this.globalMws : [...this.globalMws, ...match.mws]
+        try { return await this.runChain(mws, match.handler, req, ctx) }
         catch (e) { return this.handleError(e, req, ctx) }
       }
       // 405
@@ -388,7 +390,8 @@ export class Router<T extends object = Context> {
     }
     // Log unexpected errors so developers can debug
     console.error(`[router] ${req.method} ${new URL(req.url).pathname}:`, err.stack || err.message || err)
-    return new Response('Internal Server Error', { status: 500 })
+    // 错误形态统一（S9）：500 = JSON { error }——与 response.ts serverError() 助手一致
+    return Response.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 
   // ── Private: Middleware chain ───────────────────────────────
@@ -426,8 +429,25 @@ export class Router<T extends object = Context> {
   /**
    * Gracefully shut down all registered Closeable resources.
    * Called by serve() during shutdown.
+   *
+   * S2（SERVER-PERF-PLAN）：WS 客户端 1001 握手先行——
+   * `server.closeAllConnections()` 对已升级的 WS 连接无效（实证：socket 残留、
+   * 客户端 close 事件永不触发）——必须经 `wss.clients` 优雅关闭。
    */
   async close(): Promise<void> {
+    if (this._wss && this._wss.clients.size > 0) {
+      const clients = [...this._wss.clients]
+      for (const client of clients) {
+        try { client.close(1001, 'server shutting down') } catch { /* already closed */ }
+      }
+      // 等待握手完成（上限 500ms——强杀由 stop() 的 closeAllConnections 兑底）
+      await new Promise<void>((resolve) => {
+        let remaining = clients.length
+        const done = () => { if (--remaining === 0) { clearTimeout(timer); resolve() } }
+        const timer = setTimeout(resolve, 500)
+        for (const c of clients) c.once('close', done)
+      })
+    }
     for (const c of this._closeables) {
       try { await c.close() } catch { /* ignore close errors */ }
     }

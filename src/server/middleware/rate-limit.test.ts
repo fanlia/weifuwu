@@ -174,5 +174,54 @@ describe('rateLimit', () => {
     })
   })
 
+  describe('S5 pipeline RTT 压缩（SERVER-PERF-PLAN 波次 2）', () => {
+    /** 命令计数包装（真库/MemoryRedis 均可包） */
+    function countingWrap(target: any) {
+      const counts = { command: 0, pipeline: 0 }
+      return {
+        counts,
+        client: {
+          command: (...a: unknown[]) => { counts.command++; return target.command(...a) },
+          pipeline: async () => { counts.pipeline++; return target.pipeline() },
+          createConnection: () => target.createConnection(),
+          publish: target.publish.bind(target),
+          createSubscriber: target.createSubscriber.bind(target),
+          close: target.close.bind(target),
+        },
+      }
+    }
+
+    it('fixed：常态请求 = 1 次 pipeline + 0 次串行 command（原 INCR+TTL 串行 2-3 RTT）', async () => {
+      const { counts, client } = countingWrap(pool)
+      const mw = rateLimit({ windowMs: 60_000, max: 100, redis: client, headers: false })
+      const req = makeReq()
+
+      await callMw(mw, req, client) // 首请求：pipeline[INCR,TTL] + TTL<0 → 补 PEXPIRE
+      assert.equal(counts.pipeline, 1)
+      assert.equal(counts.command, 1, '仅首个请求补 PEXPIRE（1 次串行）')
+
+      await callMw(mw, req, client) // 常态：纯 pipeline 1 RTT
+      assert.equal(counts.pipeline, 2)
+      assert.equal(counts.command, 1, '常态零串行 command——语义不变（TTL≥0 时不再 PEXPIRE）')
+    })
+
+    it('sliding：允许路径 2 RTT（原 3-4），拒绝路径不再写入 ZSET（语义保持）', async () => {
+      const { counts, client } = countingWrap(pool)
+      const mw = rateLimit({ windowMs: 60_000, max: 1, redis: client, algorithm: 'sliding', headers: false })
+      const req = makeReq()
+
+      await callMw(mw, req, client) // 允许：pipeline[ZRANGEBYSCORE,ZCARD] + ZADD(+EXPIRE)
+      const afterAllow = counts.command
+      assert.ok(counts.pipeline === 1, '清理+计数同一往返')
+
+      await callMw(mw, req, client) // 拒绝：pipeline + TTL（不 ZADD——拒绝不计入窗口）
+      assert.ok(counts.command >= afterAllow, '拒绝路径读 TTL')
+
+      // 窗口内仍拒绝（拒绝请求未被计入）——语义与串行版一致
+      const third = await callMw(mw, req, client)
+      assert.equal(third.res!.status, 429)
+    })
+  })
+
 
 })

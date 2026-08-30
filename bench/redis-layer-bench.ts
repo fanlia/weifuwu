@@ -1,8 +1,8 @@
 // Redis 差距分层分析：编码 / 解析 / 框架层
 import { performance } from 'node:perf_hooks'
-import { encodeCommand, RespParser } from '../src/db/redis/resp.ts'
-import { RedisConnection } from '../src/db/redis/connection.ts'
-import { RedisPool } from '../src/db/redis/pool.ts'
+import { encodeCommand, RespParser } from '../src/server/db/redis/resp.ts'
+import { RedisConnection } from '../src/server/db/redis/connection.ts'
+import { RedisPool } from '../src/server/db/redis/pool.ts'
 import { Redis as IORedis, Command } from 'ioredis'
 import RedisParser from 'redis-parser'
 

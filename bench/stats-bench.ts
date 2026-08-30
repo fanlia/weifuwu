@@ -6,7 +6,7 @@
 
 import { performance } from 'node:perf_hooks'
 import postgresFactory from 'postgres'
-import { PgPool } from '../src/db/postgres/pool.ts'
+import { PgPool } from '../src/server/db/postgres/pool.ts'
 
 const DB_URL = process.env.DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo'
 const ITERS = 100

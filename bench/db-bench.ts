@@ -8,8 +8,8 @@
 import { performance } from 'node:perf_hooks'
 import postgresFactory from 'postgres'
 import { Redis as IORedis } from 'ioredis'
-import { PgPool } from '../src/db/postgres/pool.ts'
-import { RedisPool } from '../src/db/redis/pool.ts'
+import { PgPool } from '../src/server/db/postgres/pool.ts'
+import { RedisPool } from '../src/server/db/redis/pool.ts'
 
 const DB_URL = process.env.DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo'
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379'

@@ -30,6 +30,9 @@ export interface Server {
 /** Default max body size: 10MB. Set maxBodySize: 0 for unlimited. */
 export const DEFAULT_MAX_BODY = 10 * 1024 * 1024
 
+/** S6：无 body 请求共用零长 Buffer（避免每请求分配） */
+const EMPTY_BODY = Buffer.alloc(0)
+
 export async function readBody(req: IncomingMessage, maxSize?: number): Promise<Buffer> {
   const limit = maxSize ?? DEFAULT_MAX_BODY
 
@@ -99,16 +102,44 @@ export async function sendResponse(
   res.writeHead(response.status, response.statusText, headers)
 
   if (response.body) {
+    // 流式泵（S1——SERVER-PERF-PLAN 波次 1）：
+    //   a) 背压：write() 返回 false → 等 drain（快流 + 慢客户端不再无界缓冲）
+    //   b) 断开传播：socket close → reader.cancel() → ReadableStream.cancel()
+    //      → SSE/AI 上游 onAbort 生效（源停止生产——token 不再写入死连接）
+    //   c) res 'error' 兑底：destroy 后 write 触发的 ERR_STREAM_DESTROYED
+    //      无监听会崩进程——吞掉（泵经 close 事件退出）
     const reader = response.body.getReader()
+    const closed = new Promise<'closed'>((resolve) => {
+      res.once('close', () => resolve('closed'))
+    })
+    res.on('error', () => {})
+    const cancelStream = () =>
+      reader.cancel(new Error('client disconnected')).catch(() => {})
     try {
       while (true) {
-        const { done, value } = await reader.read()
+        const winner = await Promise.race([
+          reader.read().then((r) => ({ kind: 'chunk' as const, r })),
+          closed,
+        ])
+        if (winner === 'closed' || res.destroyed) {
+          await cancelStream()
+          return
+        }
+        const { done, value } = winner.r
         if (done) break
-        res.write(value)
+        if (!res.write(value)) {
+          const drained = new Promise<'drain'>((resolve) =>
+            res.once('drain', () => resolve('drain')),
+          )
+          if ((await Promise.race([drained, closed])) === 'closed') {
+            await cancelStream()
+            return
+          }
+        }
       }
       res.end()
     } catch (err) {
-      // Client disconnected or write failed — destroy socket cleanly
+      // 源错误 → 干净地销毁 socket（客户端看到连接截断——服务器不崩）
       if (!res.destroyed) {
         res.destroy(err instanceof Error ? err : undefined)
       }
@@ -126,14 +157,23 @@ export function serve<T extends object>(router: Router<T>, options?: ServeOption
   const port = options?.port ?? 0
   const hostname = options?.hostname ?? '0.0.0.0'
 
-  const server = http.createServer(async (req, res) => {
+  // 在途请求追踪（S2 优雅停机）：从请求进入到响应完成——
+  // stop() 排空目标（server.close() 后无新增，快照即全量）
+  const inFlight = new Set<Promise<void>>()
+
+  async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const traceId =
       (req.headers['x-trace-id'] as string) ||
       (req.headers['traceparent'] as string)?.split('-')[1] ||
       crypto.randomUUID()
 
     try {
-      const body = await readBody(req, options?.maxBodySize)
+      // S6：无 body 请求（无 Content-Length 且无 Transfer-Encoding）跳过读取管线——
+      // GET/HEAD 零 body 场景省一次异步迭代器创建 + for-await 开销
+      const hasBody =
+        Number(req.headers['content-length'] ?? '0') > 0 ||
+        req.headers['transfer-encoding'] !== undefined
+      const body = hasBody ? await readBody(req, options?.maxBodySize) : EMPTY_BODY
       const [request, query] = createRequest(req, body)
       const response = await handler(request, { params: {}, query } as T)
       await sendResponse(res, response, { traceId })
@@ -149,9 +189,20 @@ export function serve<T extends object>(router: Router<T>, options?: ServeOption
       const url = req.url ?? '/'
       const method = req.method ?? 'GET'
       console.error(`[serve] ${method} ${url}:`, e.stack || e.message)
-      res.writeHead(500, { 'Content-Type': 'text/plain' })
-      res.end('Internal Server Error')
+      // 错误形态统一（S9）：500 = JSON { error }——与 router 层/ serverError() 一致
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Internal Server Error' }))
     }
+  }
+
+  const server = http.createServer((req, res) => {
+    const p = handleRequest(req, res)
+    const settled = p.then(
+      () => {},
+      () => {}, // handleRequest 内部已兜底——此处防御未处理拒绝
+    )
+    inFlight.add(settled)
+    void settled.then(() => { inFlight.delete(settled) })
   })
 
   // Connection timeouts — prevent slowloris and idle connection leaks
@@ -174,12 +225,8 @@ export function serve<T extends object>(router: Router<T>, options?: ServeOption
       if (shuttingDown) return
       shuttingDown = true
       console.log('weifuwu shutting down...')
-      // 1. Stop accepting new connections
-      // 2. Close stateful modules (postgres, redis, etc.) via router.close()
-      // 3. Exit
-      server.closeAllConnections()
-      server.close()
-      await router.close().catch(() => {})
+      // 与 stop() 同一实现（排空在途 → 优雅关闭）——收敛双路径漂移
+      await stop().catch(() => {})
       process.exit(0)
     }
     shutdownHandler = shutdown
@@ -246,11 +293,21 @@ export function serve<T extends object>(router: Router<T>, options?: ServeOption
       process.off('SIGINT', shutdownHandler)
       shutdownHandler = null
     }
-    if (!server.listening) return
-
-    // Force-close WebSocket/keep-alive connections so server.close() fires immediately
-    server.closeAllConnections()
+    // 1. 停止接收新连接 + 释放空闲 keep-alive（排空只针对在途请求）
     server.close()
+    server.closeIdleConnections()
+    // 2. 排空在途（timeoutMs 到点强杀兑底——timeoutMs=0 跳过等待）
+    if (inFlight.size > 0 && timeoutMs > 0) {
+      await Promise.race([
+        Promise.allSettled([...inFlight]).then(() => {}),
+        new Promise<void>((r) => setTimeout(r, timeoutMs)),
+      ])
+    }
+    // 3. 优雅关闭：WS 客户端 1001 握手 + 有状态模块（postgres/redis 池等）
+    //    （必须在 closeAllConnections 之前——先给握手时间，再强杀）
+    await router.close().catch(() => {})
+    // 4. 强杀残余（未完成握手/卡死的流——最终兑底）
+    server.closeAllConnections()
   }
 
   return {

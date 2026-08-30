@@ -11,9 +11,8 @@
  * 未实现命令抛 ProtocolError('unsupported')——绝不静默降级。
  * ⚠️ 仅供开发/测试/单实例——多实例一致性与持久化由真实 Redis 承担（文档红线）。
  */
-import type { Redis, RedisPoolConnection } from './contracts.ts'
+import type { Redis, RedisPoolConnection, RedisPipelineFace } from './contracts.ts'
 import type { RespValue } from './redis/resp.ts'
-import type { RedisPipeline } from './redis/pipeline.ts'
 import type { RedisSubscriber } from './redis/subscriber.ts'
 import { ProtocolError } from './errors.ts'
 import { resolveCommand } from './redis/commands.ts'
@@ -31,8 +30,8 @@ interface MemoryStream {
   lastDelivered: Map<string, number>
 }
 
-/** 内存管道：收集命令 → exec 顺序执行（RedisPipeline 形状兼容） */
-class MemoryPipeline {
+/** 内存管道：收集命令 → exec 顺序执行（RedisPipelineFace 契约面——S5） */
+class MemoryPipeline implements RedisPipelineFace {
   private cmds: { name: string; args: (string | number)[] }[] = []
   private redis: MemoryRedis
   constructor(redis: MemoryRedis) { this.redis = redis }
@@ -153,7 +152,12 @@ export class MemoryRedis implements Redis {
 
   async incr(key: string): Promise<number> {
     this.assertOpen()
-    const cur = Number((await this.get(key)) ?? '0')
+    // 同步读-写（消除 await 间隙——INCR 原子性契约：并发 INCR 各自原子——真库语义）
+    const entry = this.strings.get(key)
+    if (entry && entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      this.strings.delete(key) // 惰性过期（与 get 语义一致）
+    }
+    const cur = Number(this.strings.get(key)?.value ?? '0')
     const next = Number.isNaN(cur) ? 1 : cur + 1
     // 保留现有 TTL（rateLimit INCR + PEXPIRE 模式——INCR 不得清过期时间）
     this.strings.set(key, { value: String(next), expiresAt: this.strings.get(key)?.expiresAt ?? null })
@@ -162,7 +166,12 @@ export class MemoryRedis implements Redis {
 
   async incrby(key: string, delta: number): Promise<number> {
     this.assertOpen()
-    const cur = Number((await this.get(key)) ?? '0')
+    // 同步读-写（同 incr——原子性）
+    const entry = this.strings.get(key)
+    if (entry && entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      this.strings.delete(key)
+    }
+    const cur = Number(this.strings.get(key)?.value ?? '0')
     const next = cur + delta
     this.strings.set(key, { value: String(next), expiresAt: this.strings.get(key)?.expiresAt ?? null })
     return next
@@ -365,8 +374,8 @@ export class MemoryRedis implements Redis {
     return n
   }
 
-  async pipeline(): Promise<RedisPipeline> {
-    return new MemoryPipeline(this) as unknown as RedisPipeline
+  async pipeline(): Promise<RedisPipelineFace> {
+    return new MemoryPipeline(this)
   }
 
   createSubscriber(): RedisSubscriber {

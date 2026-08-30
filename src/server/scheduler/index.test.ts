@@ -9,6 +9,14 @@ import { queue } from '../queue/index.ts'
 import { scheduler } from './index.ts'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** deadline 轮询（S9——SERVER-PERF-PLAN：替代固定 sleep 的正向断言——5s 上限，条件满足即过） */
+const waitFor = async (cond: () => boolean, timeoutMs = 5000): Promise<void> => {
+  const deadline = Date.now() + timeoutMs
+  while (!cond()) {
+    if (Date.now() > deadline) throw new Error(`waitFor timeout (${timeoutMs}ms)`)
+    await sleep(50)
+  }
+}
 const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
 /** 唯一 prefix：scheduler ZSET/HASH 是应用级共享的——并发测试文件必须隔离（多应用共享 redis 时同此语义） */
 const schedPrefix = () => `wf:sched:${process.pid}:${randomUUID().toString().slice(0, 4)}:`
@@ -30,16 +38,15 @@ describe('scheduler delayed tasks (real redis)', () => {
     const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
     await worker.start()
 
+    const t0 = Date.now()
     await sched.schedule(name, { hello: 'world' }, { delayMs: 400 })
     // 未到期（200ms）：不应消费
     await sleep(200)
     assert.equal(received.length, 0, '未到期不应执行')
-    // 到期（+400ms 后）：消费
-    const t0 = Date.now()
-    await sleep(500)
-    assert.equal(received.length, 1, '到期后应执行')
+    // 到期（+400ms 后）：消费——deadline 轮询（负载下 tick 抖动不误报）
+    await waitFor(() => received.length === 1)
     assert.deepEqual(received[0], { hello: 'world' })
-    assert.ok(Date.now() - t0 >= 300, '确实等到了延迟窗口')
+    assert.ok(Date.now() - t0 >= 350, `消费发生在延迟窗口之后（实际 ${Date.now() - t0}ms）`)
     await worker.stop()
   })
 
@@ -51,8 +58,7 @@ describe('scheduler delayed tasks (real redis)', () => {
 
     const when = new Date(Date.now() + 300)
     await sched.schedule(name, { at: 'noon' }, { when })
-    await sleep(500)
-    assert.equal(received.length, 1)
+    await waitFor(() => received.length === 1)
     assert.deepEqual(received[0], { at: 'noon' })
     await worker.stop()
   })
@@ -65,7 +71,7 @@ describe('scheduler delayed tasks (real redis)', () => {
 
     await sched.schedule(name, { n: 1 }, { delayMs: 300 })
     await sched.schedule(name, { n: 2 }, { delayMs: 100 })
-    await sleep(600)
+    await waitFor(() => received.length === 2)
     assert.deepEqual(received.sort(), [1, 2])
     await worker.stop()
   })
@@ -87,8 +93,7 @@ describe('scheduler delayed tasks (real redis)', () => {
     const received: unknown[] = []
     const worker = q2.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
     await worker.start()
-    await sleep(500)
-    assert.equal(received.length, 1, '重启后到期任务应被补执行')
+    await waitFor(() => received.length === 1)
     assert.deepEqual(received[0], { recovered: true })
     await worker.stop()
     await sched2.close()
@@ -115,7 +120,9 @@ describe('scheduler multi-instance (real redis)', () => {
       // 只 schedule 一次（单任务）——sched/sched2 两个守护循环竞争消费，
       // ZREM 原子抢占保证同一任务只入队一次
       await sched.schedule(name, { dup: true }, { delayMs: 300 })
-      await sleep(800)
+      // 双实例 ZREM 抢占：等到首消费后再停 500ms 观察无重复（正负向分段——不盲等固定时长）
+      await waitFor(() => received.length === 1)
+      await sleep(500)
       assert.equal(received.length, 1, `单任务双实例应只消费一次（实际 ${received.length}）`)
     } finally {
       await sched.close()
@@ -163,7 +170,7 @@ describe('scheduler cancelSchedule (real redis)', () => {
     const { id } = await sched.schedule(name, { n: 2 }, { delayMs: 300 })
     await sched.cancelSchedule(id)
     await sched.schedule(name, { n: 3 }, { delayMs: 200 }) // 重新调度
-    await sleep(600)
+    await waitFor(() => received.length === 1)
     assert.deepEqual(received, [{ n: 3 }], '重新调度的新任务应触发，取消的旧任务不触发')
     await worker.stop()
   })

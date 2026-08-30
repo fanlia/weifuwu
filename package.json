@@ -49,6 +49,8 @@
     "audit:semantics": "node scripts/audit-core-semantics.mjs",
     "audit:showcase": "node scripts/audit-showcase-dev.mjs",
     "audit:all": "npm run audit:semantics && npm run audit:showcase",
+    "bench:server": "node bench/server-bench.ts",
+    "bench:db": "node bench/db-bench.ts",
     "test:contract-components": "node --env-file=.env --test 'src/client/components/**/*.test.ts'"
   },
   "dependencies": {

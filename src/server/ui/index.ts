@@ -27,7 +27,8 @@
  */
 
 import { build } from 'esbuild'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
@@ -87,10 +88,41 @@ function unsafe(s: string): string {
   return new HtmlSafe(s) as unknown as string
 }
 
-// ── JS 编译缓存 ───────────────────────────────────────────
+// ── JS/CSS 编译缓存（S4——SERVER-PERF-PLAN 波次 2） ────────────────────
+//
+// 修订 a29efec3（2026-12「无缓存」决策）——两条否决理由逐条消除：
+//   ① mtime 同 ms 写文件不失效 → 新鲜度键含 size（mtimeMs+size 双维度）；
+//      且 js 校验 esbuild metafile 依赖闭包全量（入口未变但依赖变也重建）
+//   ② 无锁并发双编译竞态 → in-flight promise map（dedup 而非锁）
+// 浏览器面：ETag + Cache-Control: no-cache（可存但每次复验——304 省 900KB 级重传，
+// 区别于旧 no-store 零缓存）。
 
-const cssCache = new Map<string, { code: string; mtime: number }>()
-/** 检测 postcss + tailwindcss 是否可用（只检测一次） */let postcssAvailable: boolean | undefined
+export interface UiOptions {
+  /**
+   * 编译产物缓存。默认 true。
+   * false = 每请求重新编译（旧行为等价——永远新鲜，a29efec3 语义保留逃生舱）。
+   */
+  cache?: boolean
+}
+
+/** 新鲜度校验的输入文件快照（mtimeMs+size 双维度——同 ms 写文件也会因 size 变化失效） */
+interface InputStat {
+  mtimeMs: number
+  size: number
+}
+
+interface CompileResult {
+  code: string
+  etag: string
+  /** 依赖闭包快照（新鲜度校验用——js=metafile 全量，css=文件自身） */
+  inputs: Record<string, InputStat>
+}
+
+/** 缓存容量上限（FIFO 驱逐——防多入口应用膨胀；单应用实际入口数远小于此） */
+const MAX_CACHE_ENTRIES = 32
+
+/** 检测 postcss + tailwindcss 是否可用（只检测一次） */
+let postcssAvailable: boolean | undefined
 async function checkPostcss(): Promise<boolean> {
   if (postcssAvailable !== undefined) return postcssAvailable
   try {
@@ -120,8 +152,83 @@ function resolveEntry(entryPath: string): string {
 
 // ── 中间件 ────────────────────────────────────────────────
 
-export function ui(): Middleware {
-  return async (_req, ctx, next) => {
+export function ui(options: UiOptions = {}): Middleware {
+  const cacheEnabled = options.cache !== false
+
+  // 每 ui() 实例独立（应用 = 单实例——行为等同模块级缓存；测试实例隔离）
+  const compileCache = new Map<string, CompileResult>()
+  const inFlight = new Map<string, Promise<CompileResult>>()
+  const stats = { builds: 0, hits: 0, dedups: 0 }
+
+  /** 输入闭包新鲜度：任一文件 mtime/size 变化（或消失）→ 不新鲜（方向安全——宁可重编） */
+  async function inputsFresh(inputs: Record<string, InputStat>): Promise<boolean> {
+    for (const [file, s] of Object.entries(inputs)) {
+      try {
+        const st = await stat(file)
+        if (st.mtimeMs !== s.mtimeMs || st.size !== s.size) return false
+      } catch {
+        return false
+      }
+    }
+    return true
+  }
+
+  /**
+   * 编译（带缓存 + in-flight dedup）。build() 返回产物 + 依赖闭包快照
+   * （js = esbuild metafile 全量；css = 文件自身）。
+   */
+  async function compile(
+    kind: 'js' | 'css',
+    absPath: string,
+    buildFn: () => Promise<{ code: string; inputs: Record<string, InputStat> }>,
+  ): Promise<CompileResult> {
+    const key = `${kind}:${absPath}`
+    if (cacheEnabled) {
+      const hit = compileCache.get(key)
+      if (hit && (await inputsFresh(hit.inputs))) {
+        stats.hits++
+        return hit
+      }
+      const pending = inFlight.get(key)
+      if (pending) {
+        stats.dedups++
+        return pending
+      }
+    }
+    stats.builds++
+    const p = (async (): Promise<CompileResult> => {
+      const { code, inputs } = await buildFn()
+      const etag = `"${createHash('sha1').update(code).digest('hex').slice(0, 20)}"`
+      const entry: CompileResult = { code, etag, inputs }
+      if (cacheEnabled) {
+        if (compileCache.size >= MAX_CACHE_ENTRIES) {
+          const oldest = compileCache.keys().next().value
+          if (oldest !== undefined) compileCache.delete(oldest)
+        }
+        compileCache.set(key, entry)
+      }
+      return entry
+    })()
+    if (cacheEnabled) {
+      inFlight.set(key, p)
+      p.catch(() => {}).finally(() => inFlight.delete(key))
+    }
+    return p
+  }
+
+  function respond(req: Request, code: string, etag: string, contentType: string): Response {
+    const headers: Record<string, string> = {
+      'Content-Type': contentType,
+      ETag: etag,
+      'Cache-Control': 'no-cache', // 可存但每次复验——内容变则变（新鲜度键保证）
+    }
+    if (req.headers.get('if-none-match') === etag) {
+      return new Response(null, { status: 304, headers })
+    }
+    return new Response(code, { headers })
+  }
+
+  const mw = (async (_req, ctx, next) => {
     function htmlTag(strings: TemplateStringsArray, ...values: unknown[]): Response {
       let body = ''
       for (let i = 0; i < strings.length; i++) {
@@ -150,52 +257,69 @@ export function ui(): Middleware {
 
       async js(entryPath: string): Promise<Response> {
         const absPath = resolveEntry(entryPath)
-        // 无缓存（2026-12 决策）：每次请求编译最新源码——永远新鲜——
-        // 无 mtime 失效边界（同 ms 写文件）/无并发双编译（无锁缓存竞态）——
-        // 正确性优先——编译代价可控（esbuild 单入口秒级）
-        const result = await build({
-          entryPoints: [absPath],
-          bundle: true,
-          format: 'esm',
-          platform: 'browser',
-          jsx: 'automatic',
-          jsxImportSource: 'weifuwu/vdom',
-          write: false,
+        const { code, etag } = await compile('js', absPath, async () => {
+          const result = await build({
+            entryPoints: [absPath],
+            bundle: true,
+            format: 'esm',
+            platform: 'browser',
+            jsx: 'automatic',
+            jsxImportSource: 'weifuwu/vdom',
+            write: false,
+            metafile: true, // 依赖闭包快照（新鲜度校验——依赖变更也重建）
+            logLevel: 'silent',
+          })
+          const inputs: Record<string, InputStat> = {}
+          for (const key of Object.keys(result.metafile?.inputs ?? {})) {
+            const abs = resolve(key)
+            try {
+              const st = await stat(abs)
+              inputs[abs] = { mtimeMs: st.mtimeMs, size: st.size }
+            } catch {
+              // 记录失败的输入标记哨兵值——后续校验必然不新鲜（方向安全：重编）
+              inputs[abs] = { mtimeMs: -1, size: -1 }
+            }
+          }
+          return { code: result.outputFiles[0].text, inputs }
         })
-
-        const code = result.outputFiles[0].text
-
-        return new Response(code, {
-          headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store' },
-        })
+        return respond(_req, code, etag, 'application/javascript')
       },
 
       async css(entryPath: string): Promise<Response> {
         const absPath = resolveEntry(entryPath)
-
-        // 无缓存（2026-12 决策——与 js 一致）：每次请求读取最新文件
-        let code = await readFile(absPath, 'utf-8')
-
-        // 如果安装了 postcss + @tailwindcss/postcss，自动编译 Tailwind CSS
-        if (await checkPostcss()) {
+        const { code, etag } = await compile('css', absPath, async () => {
+          let code = await readFile(absPath, 'utf-8')
+          const inputs: Record<string, InputStat> = {}
           try {
-            const postcss: any = await import('postcss')
-            const tw: any = await import('@tailwindcss/postcss')
-            const plugin = tw.default || tw
-            const instance = typeof plugin === 'function' ? plugin() : plugin
-            const result = await postcss.default([instance]).process(code, { from: absPath })
-            code = result.css
-          } catch (e: any) {
-            throw new Error(`PostCSS 编译失败 (${absPath}): ${e.message}`, { cause: e })
+            const st = await stat(absPath)
+            inputs[absPath] = { mtimeMs: st.mtimeMs, size: st.size }
+          } catch {
+            inputs[absPath] = { mtimeMs: -1, size: -1 }
           }
-        }
-
-        return new Response(code, {
-          headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' },
+          // 如果安装了 postcss + @tailwindcss/postcss，自动编译 Tailwind CSS
+          if (await checkPostcss()) {
+            try {
+              const postcss: any = await import('postcss')
+              const tw: any = await import('@tailwindcss/postcss')
+              const plugin = tw.default || tw
+              const instance = typeof plugin === 'function' ? plugin() : plugin
+              const result = await postcss.default([instance]).process(code, { from: absPath })
+              code = result.css
+            } catch (e: any) {
+              throw new Error(`PostCSS 编译失败 (${absPath}): ${e.message}`, { cause: e })
+            }
+          }
+          return { code, inputs }
         })
+        return respond(_req, code, etag, 'text/css; charset=utf-8')
       },
     }
 
     return next(_req, ctx)
-  }
+  }) as Middleware
+
+  // dev/test 观测钩子（编译缓存命中画像——契约测试断言面）
+  ;(mw as unknown as { __stats: typeof stats }).__stats = stats
+
+  return mw
 }

@@ -109,19 +109,38 @@ export function rateLimit(options: RateLimitOptions): RateLimitClient {
 
   const redisPool: Redis = opts.redis
 
-  /** 核心：检查并计数。返回 { allowed, remaining, resetSeconds } */
+  /** 核心：检查并计数。返回 { allowed, remaining, resetSeconds }
+   *
+   * S5（SERVER-PERF-PLAN 波次 2）：pipeline 同批多命令——RTT 压缩，语义逐位保持：
+   *   fixed：常态 1 RTT（INCR+TTL 同批）；仅 TTL<0（新 key）补 PEXPIRE——
+   *          与「仅首个请求设过期」严格一致（无窗口续期漂移）。
+   *   sliding：允许路径 2-3 RTT（清理+计数同批）；拒绝路径不写 ZSET（拒绝不计入窗口——
+   *          与原「count>=max 先返回」语义一致）。
+   */
   async function check(key: string, max: number, windowMs: number): Promise<LimitResult> {
+    const errOf = (r: unknown, i: number): never => {
+      throw r instanceof Error ? r : new Error(`rateLimit: pipeline[${i}] failed`)
+    }
+
     if (opts.algorithm === 'fixed') {
-      // INCR 原子；首个请求（返回 1）时设 TTL——并发重复 EXPIRE 幂等无害，无需 Lua
+      // INCR 原子；TTL<0（新 key）补 PEXPIRE——并发重复 EXPIRE 幂等无害，无需 Lua
       // PEXPIRE（ms 精度）：windowMs < 1s 时 EXPIRE 秒粒度会虚增 TTL（ceil(500ms)=1s）
-      const count = Number(await redisPool.command('INCR', PREFIX + key))
-      if (count === 1) {
+      const p = await redisPool.pipeline()
+      p.raw('INCR', PREFIX + key).raw('TTL', PREFIX + key)
+      const results = await p.exec()
+      if (results[0] instanceof Error) return errOf(results[0], 0)
+      if (results[1] instanceof Error) return errOf(results[1], 1)
+      const count = Number(results[0])
+      const ttl = Number(results[1])
+      if (ttl < 0) {
+        // 新 key（INCR 前不存在）——补设过期（语义等同原「count===1 时 PEXPIRE」）
         await redisPool.command('PEXPIRE', PREFIX + key, windowMs)
       }
+      const resetSeconds = ttl > 0 ? ttl : Math.ceil(windowMs / 1000)
       return {
         allowed: count <= max,
         remaining: Math.max(0, max - count),
-        resetSeconds: Math.max(1, Math.ceil(Number(await redisPool.command('TTL', PREFIX + key)))),
+        resetSeconds: Math.max(1, resetSeconds),
       }
     }
 
@@ -129,9 +148,14 @@ export function rateLimit(options: RateLimitOptions): RateLimitClient {
     const fullKey = PREFIX + key
     const now = Date.now()
     const min = now - windowMs
-    await redisPool.command('ZREMRANGEBYSCORE', fullKey, 0, min)
-    const count = Number(await redisPool.command('ZCARD', fullKey))
+    const p = await redisPool.pipeline()
+    p.raw('ZREMRANGEBYSCORE', fullKey, 0, min).raw('ZCARD', fullKey)
+    const results = await p.exec()
+    if (results[0] instanceof Error) return errOf(results[0], 0)
+    if (results[1] instanceof Error) return errOf(results[1], 1)
+    const count = Number(results[1])
     if (count >= max) {
+      // 拒绝路径：不写入 ZSET（拒绝不计入窗口——语义保持）
       const ttl = Number(await redisPool.command('TTL', fullKey))
       return { allowed: false, remaining: 0, resetSeconds: Math.max(1, ttl) }
     }

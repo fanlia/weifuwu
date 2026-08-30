@@ -319,7 +319,7 @@ export class RedisPool implements Redis {
     return c.zrange(this.k(key), start, stop)
   }
 
-  // ── pipeline（池级：选一健康连接；key 自动加前缀） ──
+  // ── pipeline（池级：选一健康连接；命令透传不加 keyPrefix——对齐 command 语义） ──
 
   async pipeline(): Promise<RedisPipeline> {
     await this.ensure()

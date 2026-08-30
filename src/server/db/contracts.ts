@@ -16,6 +16,26 @@ import type { RespValue } from './redis/resp.ts'
 import type { RedisPipeline } from './redis/pipeline.ts'
 import type { RedisSubscriber } from './redis/subscriber.ts'
 
+/**
+ * Pipeline 面（S5——SERVER-PERF-PLAN 波次 2）：批量命令单次网络往返发送。
+ * 结果按命令顺序；错误命令对应位置为 Error 实例，其余命令不受影响。
+ *
+ * 结构化接口：RedisPipeline（真库）与 MemoryPipeline（内存）均满足。
+ * 与并发 command() 同连接交错安全（连接层 FIFO pending——按序匹配）。
+ */
+export interface RedisPipelineFace {
+  set(key: string, value: string | number, ttl?: number): RedisPipelineFace
+  get(key: string): RedisPipelineFace
+  del(...keys: string[]): RedisPipelineFace
+  incr(key: string): RedisPipelineFace
+  expire(key: string, seconds: number): RedisPipelineFace
+  ttl(key: string): RedisPipelineFace
+  /** 任意命令透传（不加 keyPrefix——对齐 pool.command 语义） */
+  raw(name: string, ...args: (string | number)[]): RedisPipelineFace
+  /** 一次往返执行所有命令；exec 后可复用（cmds 清空） */
+  exec(): Promise<RespValue[]>
+}
+
 // ── 通用连接契约（pg/redis 共用） ─────────────────────────
 
 /**
@@ -84,6 +104,11 @@ export interface Redis {
   createConnection(): Promise<RedisPoolConnection>
   /** 原始命令（RespValue 返回值——RESP 协议层；阻塞命令超时 resolve(null)） */
   command(name: string, ...args: (string | number)[]): Promise<RespValue>
+  /**
+   * 创建 pipeline（S5）：批量命令单次往返。池实现取轮询连接——
+   * 与并发命令交错安全（FIFO pending）。
+   */
+  pipeline(): Promise<RedisPipelineFace>
   /** 创建订阅者（Pub/Sub，独立连接——messager 跨进程广播用） */
   createSubscriber(): RedisSubscriber
   /** 发布消息到频道（订阅者回调触发） */

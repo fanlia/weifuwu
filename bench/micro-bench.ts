@@ -1,6 +1,6 @@
 // 微基准：定位自研 vs 原客户端的差距来源
 import { performance } from 'node:perf_hooks'
-import { encodeCommand, RespParser } from '../src/db/redis/resp.ts'
+import { encodeCommand, RespParser } from '../src/server/db/redis/resp.ts'
 import RedisParser from 'redis-parser'
 
 function median(xs: number[]): number {
