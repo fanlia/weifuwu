@@ -71,7 +71,7 @@ const toolSchema: JsonSchema = {
 
 const DemoJsonSchemaForm: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
-    <JsonSchemaForm schema={toolSchema} value={{ city: '北京', days: 3, with_weather: true }} submitLabel="执行工具" />
+    <JsonSchemaForm schema={toolSchema} value={{ city: '北京', days: 3, with_weather: true }} submitLabel="执行工具" onSubmit={() => {}} />
     <span class="wf-font-xs wf-text-secondary">↑ schema 驱动表单：必填校验（城市）拦截提交；单位/天数/开关即改即生效（onChange）</span>
   </div>
 )

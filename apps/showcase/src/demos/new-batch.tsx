@@ -171,7 +171,7 @@ const DemoAspectRatio: Component = () => () => (
 
 const DemoToggleGroup: Component = (_props, ctx) => {
   let single = 'bold'
-  let multi: string[] = ['bold']
+  let multi: string[] = ['a']
   let pressed = false
   return () => (
     <div class="wf-stack wf-gap-sm">
@@ -1193,6 +1193,7 @@ export const DEMOS: Record<string, any> = {
   "Label": DemoLabel,
   "AspectRatio": DemoAspectRatio,
   "Toggle / ToggleGroup": DemoToggleGroup,
+  "ToggleGroup": DemoToggleGroup,
   "CheckboxGroup": DemoCheckboxGroup,
   "PinInput": DemoPinInput,
   "PinInput 禁用态": DemoPinInputDis,
