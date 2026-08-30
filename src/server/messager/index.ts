@@ -16,6 +16,7 @@ import { HttpError, type Context, type Handler, type Middleware } from '../types
 import type { Router } from '../core/router.ts'
 import type { SqlClient } from '../postgres/types.ts'
 import type { Redis } from '../db/contracts.ts'
+import type { Row } from '../db/postgres/connection.ts'
 import type { WebSocketHandler } from '../core/ws.ts'
 import { ok, created, badRequest, noContent } from '../response.ts'
 
@@ -60,13 +61,22 @@ export type CreateConversationInput =
 /** 实时事件（业务事件对象，如 { type: 'new_message', ... }） */
 export type MsgEvent = Record<string, unknown>
 
+/** handler 可选鉴权注入（M15——2027-XX） */
+export interface MessagerHandlerOptions {
+  /** WS 握手 token 验证（query ?token=）——返回 { sub } 或 null（null = 拒绝） */
+  verifyToken?: (token: string) => Promise<{ sub: string } | null>
+  /** 订阅授权（已验证 userId + room）——false 拒绝订阅（发 error 事件）；不传 = 全允许 */
+  authorizeRoom?: (userId: string, room: string) => boolean | Promise<boolean>
+}
+
 /** messager 实例序号（SELF_PID 唯一性：同进程多实例也能区分） */
 let messagerSeq = 0
 
 export interface MessagerClient {
   // ── 实时（P2） ──
-  /** 标准 WS 协议 handler（connected/subscribe/unsubscribe/ping/pong），供 app.ws(path, ...) */
-  handler: () => WebSocketHandler
+  /** 标准 WS 协议 handler（connected/subscribe/unsubscribe/ping/pong），供 app.ws(path, ...)
+   *  opts.verifyToken/authorizeRoom 注入鉴权（M15——原升级不跑中间件——任意客户端可订阅任意房间） */
+  handler: (opts?: MessagerHandlerOptions) => WebSocketHandler
   /** 房间广播（本地 + Redis 跨进程；room 约定 `conv:{id}` / `user:{id}`） */
   broadcast: (room: string, event: MsgEvent) => void
   /** 用户维度点对点（内部 room `user:{id}`） */
@@ -107,6 +117,15 @@ export interface MessagerSystem extends Middleware<Context, Context & MessagerIn
 
 export interface MessagerOptions {
   sql: SqlClient
+  /**
+   * 连接级事务（传 `pg.transaction` / `pool.begin`）——提供时会话创建原子。
+   * 不传 → 裸执行（回退面：成员 insert 失败时孤儿会话——低影响；并发唯一性由
+   * M9 direct_key 唯一约束兜底）。
+   * M10（2027-XX）：原实现 sql.unsafe('BEGIN'/'COMMIT') 在连接池下断裂——
+   * pool.query 每条 acquire/release 任意连接（BEGIN 在 A、INSERT 在 B、COMMIT 在 C）
+   * ——`pool.begin` 才是连接亲和的正途。
+   */
+  transaction?: <T>(fn: (sql: SqlClient) => Promise<T>) => Promise<T>
   /** Redis（可选：多进程广播/实时推送需要；不传则仅本进程内广播）——
    * 传 `redis().redis`（中间件）或 `new RedisPool()`/`RedisPool.create()` */
   redis?: Redis
@@ -132,21 +151,59 @@ export function messager(options: MessagerOptions): MessagerSystem {
   const prefix = options.prefix ?? '/api/messages'
 
   // ── 会话 ──
+  async function findDirectConversation(userId: string, otherUserId: string): Promise<Conversation | null> {
+    // 同对用户唯一（顺序无关，恰好两名成员）——Query Language（真库编译/内存直执行）
+    const existing = await sql.query.from(`${CONVERSATIONS} c`)
+      .where({ 'c.type': 'direct' })
+      .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': userId } })
+      .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': otherUserId } })
+      .in('c.id', { kind: 'select', table: MEMBERS, alias: 'm', cols: ['conversation_id'], groupBy: ['conversation_id'], having: { 'count(*)': 2 } })
+      .select('c.id', 'c.type', 'c.created_by', 'c.created_at')
+      .limit(1)
+      .run()
+    return existing.length ? (existing[0] as unknown as Conversation) : null
+  }
+
+  /** 成员写入（幂等——PK 冲突 DO NOTHING；tx = 事务 sql 或裸 sql） */
+  async function insertMembers(exec: SqlClient, conversationId: string, memberIds: string[]): Promise<void> {
+    for (const memberId of memberIds) {
+      await exec.query.insert(MEMBERS)
+        .values({ conversation_id: conversationId, user_id: memberId })
+        .onConflict(undefined, false) // 无目标列：任意唯一冲突跳过（联合约束 (conversation_id, user_id)）
+        .run()
+    }
+  }
+
   async function createConversation(userId: string, input: CreateConversationInput): Promise<Conversation> {
     if (input.type === 'direct') {
-      // 同对用户唯一（顺序无关，恰好两名成员）——Query Language（真库编译/内存直执行）
-      const existing = await sql.query.from(`${CONVERSATIONS} c`)
-        .where({ 'c.type': 'direct' })
-        .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': userId } })
-        .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': input.otherUserId } })
-        .in('c.id', { kind: 'select', table: MEMBERS, alias: 'm', cols: ['conversation_id'], groupBy: ['conversation_id'], having: { 'count(*)': 2 } })
-        .select('c.id', 'c.type', 'c.created_by', 'c.created_at')
-        .limit(1)
+      const directKey = [userId, input.otherUserId].sort().join(':')
+      const existing = await findDirectConversation(userId, input.otherUserId)
+      if (existing) return existing
+      // M9（2027-XX）：并发查-插窗口根治——unique(direct_key) + onConflict DO NOTHING
+      // → 输家重查赢家（零窗口；原实现并发同对用户双会话——实证）
+      const run = async (tx: SqlClient): Promise<Conversation | null> => {
+        const rows = await tx.query.insert(CONVERSATIONS)
+          .values({ type: 'direct', created_by: userId, direct_key: directKey })
+          .onConflict('direct_key')
+          .returning('id', 'type', 'created_by', 'created_at')
+          .run()
+        if (!rows.length) return null // 并发输家
+        const conv = rows[0]
+        await insertMembers(tx, String(conv.id), [userId, input.otherUserId])
+        return conv as unknown as Conversation
+      }
+      const created = options.transaction ? await options.transaction(run) : await run(sql)
+      if (created) return created
+      // 并发输家：重查赢家（按 direct_key——赢家事务提交后可见（PG 唯一索引
+      // 阻塞等待保证顺序；EXISTS 查重需要成员完整——赢家事务未提交时必漏→按行查）
+      const winner = await sql.query.from(CONVERSATIONS)
+        .select('id', 'type', 'created_by', 'created_at')
+        .where({ type: 'direct', direct_key: directKey })
         .run()
-      if (existing.length) return existing[0] as unknown as Conversation
-      return createConversationRow(userId, 'direct', [userId, input.otherUserId])
+      if (winner.length) return winner[0] as unknown as Conversation
+      throw new HttpError('Conversation creation failed', 500) // 理论不可达（赢家必须存在）
     }
-    const memberIds = [userId, ...input.memberIds.filter(m => m !== userId)]
+    const memberIds = [userId, ...input.memberIds.filter((m) => m !== userId)]
     return createConversationRow(userId, 'group', memberIds)
   }
 
@@ -155,56 +212,61 @@ export function messager(options: MessagerOptions): MessagerSystem {
     type: 'direct' | 'group',
     memberIds: string[],
   ): Promise<Conversation> {
-    // 事务：会话 + 成员（INSERT 走 Query Language；BEGIN/COMMIT 由引擎处理——内存自动提交）
-    await sql.unsafe(`BEGIN`)
-    try {
-      const rows = await sql.query.insert(CONVERSATIONS)
+    // M10 修复（2027-XX）：事务注入（连接级——pool.begin 亲和）；原 BEGIN/COMMIT
+    // unsafe 在连接池下断裂（每条语句任意连接的 acquire/release——实证）
+    const run = async (tx: SqlClient): Promise<Conversation> => {
+      const rows = await tx.query.insert(CONVERSATIONS)
         .values({ type, created_by: createdBy })
         .returning('id', 'type', 'created_by', 'created_at')
         .run()
       const conv = rows[0]
-      for (const memberId of memberIds) {
-        await sql.query.insert(MEMBERS)
-          .values({ conversation_id: conv.id, user_id: memberId })
-          .onConflict(undefined, false) // 无目标列：任意唯一冲突跳过（联合约束 (conversation_id, user_id)）
-          .run()
-      }
-      await sql.unsafe(`COMMIT`)
+      await insertMembers(tx, String(conv.id), memberIds)
       return conv as unknown as Conversation
-    } catch (err) {
-      await sql.unsafe(`ROLLBACK`)
-      throw err
     }
+    return options.transaction ? await options.transaction(run) : run(sql)
   }
 
   async function listConversations(userId: string): Promise<Conversation[]> {
-    const rows = await sql.unsafe(
-      `SELECT c.id, c.type, c.created_by, c.created_at,
-         (SELECT to_jsonb(m) FROM ${MESSAGES} m
-          WHERE m.conversation_id = c.id AND m.deleted_at IS NULL
-          ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_message,
-         (SELECT count(*) FROM ${MESSAGES} m
-          WHERE m.conversation_id = c.id AND m.deleted_at IS NULL
-            AND m.sender_id IS DISTINCT FROM $1
-            AND m.created_at > COALESCE(mem.last_read_at, 'epoch'::timestamptz)) AS unread_count
-       FROM ${CONVERSATIONS} c
-       JOIN ${MEMBERS} mem ON mem.conversation_id = c.id
-       WHERE mem.user_id = $1
-       ORDER BY c.created_at DESC`,
-      [userId],
-    )
-    return rows.map(r => {
-      const conv = r as any
-      const last = conv.last_message as unknown
-      return {
-        id: conv.id,
-        type: conv.type,
-        created_by: conv.created_by,
-        created_at: new Date(conv.created_at as Date).toISOString(),
-        last_message: last && typeof last === 'object' ? normalizeMessage(last) : null,
-        unread_count: Number(conv.unread_count),
-      }
+    // M3（2027-XX）：重构为 Query Language 三步——① 成员 JOIN 会话 ② 每会话
+    // last_message（索引命中 limit 1）+ unread（count）③ 最近活动倒序 JS 排序。
+    // 原实现：真库专用 raw SQL（to_jsonb 标量子查询——memory 不可测——零测试盲区）
+    // + ORDER BY created_at（与签名「按最近活动倒序」不符——旧会话收新消息不置顶）。
+    const convs = await sql.query.from(`${MEMBERS} m`)
+      .join(`${CONVERSATIONS} c`, { 'c.id': { col: 'm.conversation_id' } })
+      .where({ 'm.user_id': userId })
+      .select('c.id', 'c.type', 'c.created_by', 'c.created_at', 'm.last_read_at')
+      .run()
+    const out: Conversation[] = []
+    for (const r of convs) {
+      const convId = String(r.id)
+      const last = await sql.query.from(MESSAGES)
+        .where({ conversation_id: convId, deleted_at: { isNull: true } })
+        .orderBy('created_at', 'desc').orderBy('id', 'desc')
+        .limit(1)
+        .run()
+      // unread = 未删 + 非本人（sender_id IS DISTINCT FROM u——null 等价 or 表达）+ last_read_at 后
+      const unread = await sql.query.from(MESSAGES).where({
+        conversation_id: convId,
+        deleted_at: { isNull: true },
+        ...(r.last_read_at ? { created_at: { gt: String(r.last_read_at) } } : {}),
+        or: [{ sender_id: { isNull: true } }, { sender_id: { ne: userId } }],
+      }).count().run()
+      out.push({
+        id: convId,
+        type: r.type as Conversation['type'],
+        created_by: r.created_by as string | null,
+        created_at: new Date(r.created_at as Date).toISOString(),
+        last_message: last.length ? normalizeMessage(last[0]) : null,
+        unread_count: Number(unread[0].count),
+      } as Conversation)
+    }
+    // 最近活动倒序（last message 时间；无消息 → 会话创建时间兜底）
+    out.sort((x, y) => {
+      const tx = x.last_message ? Date.parse(x.last_message.created_at) : Date.parse(x.created_at)
+      const ty = y.last_message ? Date.parse(y.last_message.created_at) : Date.parse(y.created_at)
+      return ty - tx
     })
+    return out
   }
 
   async function getConversationForUser(conversationId: string, userId: string): Promise<Conversation | null> {
@@ -308,14 +370,18 @@ export function messager(options: MessagerOptions): MessagerSystem {
     const pool = options.redis
     if (!pool || redisSub) return
     redisSub = pool.createSubscriber()
-    redisSub.connect().then(() => {
+    redisSub?.connect()?.then(() => {
       redisSub.psubscribe(`${REDIS_PREFIX}*`, (channel: string, message: string) => {
-        // 跨进程消息 → 本地广播（不重发 Redis，避免环）
-        const room = channel.slice(REDIS_PREFIX.length)
-        const event = JSON.parse(message) as MsgEvent & { _pid?: string }
-        // 本进程 publish 的环回消息跳过（已本地直发过）——否则每个事件发两次，客户端乱序/重复
-        if (event._pid === SELF_PID) return
-        broadcastLocal(room, event)
+        try {
+          // 跨进程消息 → 本地广播（不重发 Redis，避免环）
+          const room = channel.slice(REDIS_PREFIX.length)
+          const event = JSON.parse(message) as MsgEvent & { _pid?: string }
+          // 本进程 publish 的环回消息跳过（已本地直发过）——否则每个事件发两次，客户端乱序/重复
+          if (event._pid === SELF_PID) return
+          broadcastLocal(room, event)
+        } catch {
+          // M6（2027-XX）：畸形/外来消息忽略——原无 try/catch——JSON.parse 抛崩订阅回调
+        }
       })
     }).catch((err: unknown) => {
       console.error('[messager] redis subscriber init error:', err)
@@ -376,18 +442,46 @@ export function messager(options: MessagerOptions): MessagerSystem {
     wsRooms.delete(ws)
   }
 
-  /** 标准协议：connected / subscribe→subscribed / unsubscribe / ping→pong */
-  function handler(): WebSocketHandler {
+  /** 标准协议：connected / subscribe→subscribed / unsubscribe / ping→pong
+   *  M15（2027-XX）：opts.verifyToken/authorizeRoom 注入——订阅前身份 + 房间授权校验
+   *  （原实现升级不跑中间件 ctx.user 不可用——任意客户端可订阅任意 room 窃听——设计缺口） */
+  function handler(opts?: MessagerHandlerOptions): WebSocketHandler {
+    // 连接 → userId 绑定（close/error 清理）
+    const wsUsers = new Map<import('ws').WebSocket, string>()
     return {
-      open(ws) {
+      async open(ws, ctx) {
+        if (opts?.verifyToken) {
+          const token = (ctx.query as Record<string, string>).token
+          if (token) {
+            const payload = await opts.verifyToken(token)
+            if (payload?.sub) wsUsers.set(ws, payload.sub)
+          }
+          // 未验证：发 unauthorized（不 connected——不可订阅）
+          if (!wsUsers.has(ws)) {
+            ws.send(JSON.stringify({ type: 'unauthorized' }))
+            return
+          }
+        }
         ws.send(JSON.stringify({ type: 'connected' }))
       },
-      message(ws, _ctx, data) {
+      async message(ws, _ctx, data) {
         try {
           const msg = JSON.parse(data.toString()) as { type?: string; room?: string }
           if (msg.type === 'ping') {
             ws.send(JSON.stringify({ type: 'pong' }))
           } else if (msg.type === 'subscribe' && msg.room) {
+            // M15：鉴权注入下——未验证身份 / 未授权房间 → 拒绝订阅（error 事件）
+            if (opts?.verifyToken) {
+              const userId = wsUsers.get(ws)
+              if (!userId) {
+                ws.send(JSON.stringify({ type: 'error', code: 'unauthorized', room: msg.room }))
+                return
+              }
+              if (opts.authorizeRoom && !(await opts.authorizeRoom(userId, msg.room))) {
+                ws.send(JSON.stringify({ type: 'error', code: 'forbidden', room: msg.room }))
+                return
+              }
+            }
             join(msg.room, ws)
             ws.send(JSON.stringify({ type: 'subscribed', room: msg.room }))
           } else if (msg.type === 'unsubscribe' && msg.room) {
@@ -397,9 +491,11 @@ export function messager(options: MessagerOptions): MessagerSystem {
       },
       close(ws) {
         leaveAll(ws)
+        wsUsers.delete(ws)
       },
       error(ws) {
         leaveAll(ws)
+        wsUsers.delete(ws)
       },
     }
   }
@@ -450,9 +546,13 @@ export function messager(options: MessagerOptions): MessagerSystem {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         type TEXT NOT NULL DEFAULT 'direct',
         created_by UUID,
+        direct_key TEXT UNIQUE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `)
+    // 旧库补列（幂等；PG：ADD COLUMN ... UNIQUE = 列 + 唯一约束——M9 并发窗口根治；
+    // NULL 多行不参与唯一（group 会话 direct_key 恒 NULL——PG 语义））
+    await sql.unsafe(`ALTER TABLE ${CONVERSATIONS} ADD COLUMN IF NOT EXISTS direct_key TEXT UNIQUE`)
     await sql.unsafe(`
       CREATE TABLE IF NOT EXISTS ${MEMBERS} (
         conversation_id UUID NOT NULL REFERENCES ${CONVERSATIONS}(id) ON DELETE CASCADE,
@@ -520,7 +620,8 @@ export function messager(options: MessagerOptions): MessagerSystem {
       await requireMember(convId, ctx)
       const url = new URL(req.url)
       const before = url.searchParams.get('before') ?? undefined
-      const limit = Number(url.searchParams.get('limit') ?? 50)
+      // M12（2027-XX）：limit clamp 1..100——原实现 Number() 无上限（全量拉取 DoS）
+      const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 50) || 50))
       return ok(await listMessages(convId, { before, limit }))
     })
 
@@ -550,36 +651,44 @@ export function messager(options: MessagerOptions): MessagerSystem {
       return noContent()
     })
 
-    // 编辑消息（广播 message_edited）
+    // 编辑消息（先鉴权后写——M2：原实现 editMessage 先执行、归属校验后置——
+    // 403 应答时内容已被篡改——实证；非成员/不存在统一 400——M2b 不泄露存在性）
     app.patch(`${p}/messages/:id`, async (req, ctx) => {
       if (!ctx.user) throw new HttpError('Unauthorized', 401)
       const messageId = ctx.params.id as string
       const body = (await req.json().catch(() => ({}))) as { content?: string }
       if (!body.content?.trim()) return badRequest('content is required')
-      const edited = await editMessage(messageId, body.content)
-      if (!edited) return badRequest('message not found')
-      // 只能编辑自己的消息
-      if (edited.sender_type === 'user' && edited.sender_id !== ctx.user.id) {
+      // 成员门控查询（JOIN members——仅成员可触达消息行）
+      const rows = await sql.query.from(`${MESSAGES} m`)
+        .join(`${MEMBERS} mem`, { 'mem.conversation_id': { col: 'm.conversation_id' } })
+        .where({ 'm.id': messageId, 'mem.user_id': ctx.user.id })
+        .select('m.conversation_id', 'm.sender_type', 'm.sender_id')
+        .run()
+      if (!rows.length) return badRequest('message not found')
+      const row = rows[0] as Row
+      if (row.sender_type === 'user' && row.sender_id !== ctx.user.id) {
         throw new HttpError('Forbidden: not your message', 403)
       }
+      const edited = await editMessage(messageId, body.content) // 鉴权通过后才写（M2）
+      if (!edited) return badRequest('message not found') // 竞态：写前被并发删除
       broadcast(`conv:${edited.conversation_id}`, { type: 'message_edited', message: edited })
       return ok(edited)
     })
 
-    // 删除消息（软删 + 广播 message_deleted）
+    // 删除消息（软删 + 广播 message_deleted——成员门控 + 先鉴权后删——M2b 对齐）
     app.delete(`${p}/messages/:id`, async (req, ctx) => {
       if (!ctx.user) throw new HttpError('Unauthorized', 401)
       const messageId = ctx.params.id as string
-      const list = await sql.unsafe(
-        `SELECT conversation_id, sender_type, sender_id FROM ${MESSAGES} WHERE id = $1`,
-        [messageId],
-      )
-      if (!list.length) return badRequest('message not found')
-      const row = list[0] as any
+      const rows = await sql.query.from(`${MESSAGES} m`)
+        .join(`${MEMBERS} mem`, { 'mem.conversation_id': { col: 'm.conversation_id' } })
+        .where({ 'm.id': messageId, 'mem.user_id': ctx.user.id })
+        .select('m.conversation_id', 'm.sender_type', 'm.sender_id')
+        .run()
+      if (!rows.length) return badRequest('message not found')
+      const row = rows[0] as Row
       if (row.sender_type === 'user' && row.sender_id !== ctx.user.id) {
         throw new HttpError('Forbidden: not your message', 403)
       }
-      await requireMember(row.conversation_id, ctx)
       await deleteMessage(messageId)
       broadcast(`conv:${row.conversation_id}`, { type: 'message_deleted', messageId })
       return noContent()

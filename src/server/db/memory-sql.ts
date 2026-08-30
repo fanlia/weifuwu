@@ -182,6 +182,9 @@ export class MemorySql {
         if (!groups.has(key)) groups.set(key, [])
         groups.get(key)!.push(r)
       }
+      // 空集聚合（2027-XX——对齐真库 SQL）：count → [{count: 0}]（原返回 []——
+      // messager unread count 空会话必崩——实证）；sum/avg/min/max → null
+      if (!groups.size) groups.set('', [])
       out = [...groups.values()].map((g) => {
         const row: Row = {}
         for (const gb of q.groupBy ?? []) row[gb] = resolveCol(g[0], gb, tableAlias)
@@ -189,6 +192,7 @@ export class MemorySql {
           const col = a.col === '*' ? undefined : resolveCol(g[0], a.col, tableAlias)
           const values = a.col === '*' ? g : g.map((r) => resolveCol(r, a.col, tableAlias))
           if (a.fn === 'count') row[a.as] = values.length
+          else if (!values.length) row[a.as] = null // 空集：sum/avg/min/max = NULL（SQL 语义）
           else if (a.fn === 'sum') row[a.as] = (values as unknown[]).reduce((x: number, y) => x + Number(y ?? 0), 0)
           else if (a.fn === 'avg') row[a.as] = (values as unknown[]).length ? (values as unknown[]).reduce((x: number, y) => x + Number(y ?? 0), 0) / (values as unknown[]).length : 0
           else if (a.fn === 'min') row[a.as] = (values as unknown[]).reduce((x: unknown, y: unknown) => (y !== null && (x === null || (y as never) < (x as never)) ? y : x), null)
@@ -280,9 +284,10 @@ export class MemorySql {
         if (!(c in row)) row[c] = new Date().toISOString()
       }
       // 唯一冲突：onConflict DO NOTHING → 跳过该行；否则 409（同字符串路径）
+      // NULL 不参与唯一性（2027-XX——对齐真库 PG 多 NULL 允许——M9 direct_key 语义）
       let conflicted = false
       for (const u of t.uniques) {
-        if (u in row && t.rows.some((r) => deepEq(r[u], row[u]))) {
+        if (u in row && row[u] != null && t.rows.some((r) => deepEq(r[u], row[u]))) {
           if (q.onConflict) { conflicted = true; break }
           throw new HttpError(`数据库错误: duplicate key value violates unique constraint "${u}"`, 409)
         }
@@ -321,7 +326,7 @@ export class MemorySql {
     const plannedMap = new Map(planned.map((p) => [p.row, p.next]))
     for (const { row, next } of planned) {
       for (const u of t.uniques) {
-        if (!(u in next)) continue
+        if (!(u in next) || next[u] == null) continue // NULL 不参与唯一性（对齐真库）
         const clash = t.rows.some((r) => r !== row && deepEq((plannedMap.get(r) ?? r)[u], next[u]))
         if (clash) throw new HttpError(`数据库错误: duplicate key value violates unique constraint "${u}"`, 409)
       }

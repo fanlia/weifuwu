@@ -1071,7 +1071,9 @@ async function main() {
   app.mount('/', protectedRoutes)
 
   // ── WebSocket（框架 messager：房间广播 + Redis 跨进程） ──
-  const messagerSystem = messager({ sql: pg.sql, redis: redisClient?.redis })
+  // M10：transaction 注入（pg.transaction——连接级——会话+成员建库原子——
+  // 原框架内 BEGIN/COMMIT unsafe 在池化下断裂——2027-XX 修复）
+  const messagerSystem = messager({ sql: pg.sql, transaction: pg.transaction, redis: redisClient?.redis })
   app.use(messagerSystem)
 
   // ── 邮件通知（商业化 G5：审批请求通知）——无 SMTP/RESEND 配置时降级 no-op ──

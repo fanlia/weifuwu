@@ -10,6 +10,8 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { createMemorySql } from '../db/memory-sql.ts'
+import { MemorySql } from '../db/memory-sql.ts'
+import { createQueryBuilder } from '../db/query-builder.ts'
 import { messager } from '../messager/index.ts'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -116,6 +118,78 @@ describe('messager core (memory sql)', () => {
     const list = await msg.listMessages(conv.id, {})
     assert.equal(list.length, 1) // 仍在（软删）
     assert.ok(list[0].deleted_at)
+  })
+
+  it('M9 并发 direct 创建（同对用户）→ 恰一会话（unique(direct_key) 零窗口）', async () => {
+    const a = uid(), b = uid()
+    const [r1, r2] = await Promise.all([
+      msg.createConversation(a, { type: 'direct', otherUserId: b }),
+      msg.createConversation(b, { type: 'direct', otherUserId: a }), // 顺序无关
+    ])
+    assert.equal(r1.id, r2.id, '并发查-插窗口：同一会话（原实现双会话——实证）')
+    // 成员恰两名
+    assert.equal(await msg.isMember(r1.id, a), true)
+    assert.equal(await msg.isMember(r1.id, b), true)
+  })
+
+  it('M10 transaction 注入：conv+members 全部经事务 sql（连接级——原 BEGIN/COMMIT 池化断裂）', async () => {
+    // 同 mem 引擎双包装：base（pool sql——计数不记）+ tx（事务 sql——计数）
+    const mem = new MemorySql()
+    let txExecs = 0
+    const makeSql = (count: boolean) => {
+      const s = (async (tag: TemplateStringsArray, ...v: unknown[]) => mem.tag(tag, v)) as any
+      s.query = createQueryBuilder(s, async (q: any) => {
+        if (count) txExecs++
+        return mem.executeQuery(q)
+      })
+      s.unsafe = (t: string, p?: unknown[]) => (mem as any).unsafe(t, p)
+      s.close = () => (mem as any).close()
+      return s
+    }
+    const baseSql = makeSql(false)
+    const txSql = makeSql(true)
+    const txSystem = messager({
+      sql: baseSql,
+      transaction: async (fn) => fn(txSql), // shape：pool.begin 语义（连接级）
+    })
+    await txSystem.migrate() // 建表在 mem 引擎（base/tx 共享）
+    // direct 路径：pre-check（base sql）+ 事务内 conv+2 members
+    const conv = await txSystem.client.createConversation('m10-a', { type: 'direct', otherUserId: 'm10-b' })
+    assert.ok(conv.id)
+    assert.equal(txExecs, 3, 'M10：conv insert + 2× members insert 全经事务 sql（3 次）')
+    const members = await txSql.query.from('_weifuwu_conversation_members').select('user_id').run()
+    assert.equal(members.length, 2, '事务内成员写入生效')
+    // group 路径：事务内 conv + N members（创建者 + 2 = 3 成员）
+    txExecs = 0
+    await txSystem.client.createConversation('m10-g', { type: 'group', memberIds: ['m10-x', 'm10-y'] })
+    assert.equal(txExecs, 4, 'group：conv + 3 members（含创建者）全经事务 sql')
+    const gmembers = await txSql.query.from('_weifuwu_conversation_members').where({ conversation_id: (await txSql.query.from('_weifuwu_conversations').where({ type: 'group' }).select('id').one())?.id as string }).select('user_id').run()
+    assert.equal(gmembers.length, 3)
+    await (txSql as any).close()
+    await (baseSql as any).close()
+  })
+
+  it('M3 会话列表：按最近活动倒序 + last_message + unread_count', async () => {
+    const a = uid(), b = uid(), c = uid()
+    const conv1 = await mkConv(a, b) // 先建（老会话）
+    const conv2 = await mkConv(a, c) // 后建（新会话——原实现排最前）
+    await msg.sendMessage(conv2.id, { senderType: 'user', senderId: a, content: '新会话先发' })
+    await sleep(5)
+    await msg.sendMessage(conv1.id, { senderType: 'user', senderId: b, content: '老会话来新消息' })
+    const list = await msg.listConversations(a)
+    assert.equal(list.length, 2)
+    assert.equal(list[0].id, conv1.id, 'M3：最近活动倒序——conv1 最新活动置顶（原实现按创建时间）')
+    assert.equal(list[0].last_message?.content, '老会话来新消息')
+    assert.equal(list[0].unread_count, 1, 'unread：b 的消息（a 视角）')
+    const conv2Entry = list.find((t) => t.id === conv2.id)!
+    assert.equal(conv2Entry.last_message?.content, '新会话先发')
+    assert.equal(conv2Entry.unread_count, 0, 'a 自己的消息不计未读')
+    // 软删消息不进 last_message / 但 unread 也不计（未删限定）
+    const m = await msg.sendMessage(conv2.id, { senderType: 'user', senderId: c, content: '将被软删' })
+    await msg.deleteMessage(m.id)
+    const list2 = await msg.listConversations(a)
+    const conv2Entry2 = list2.find((t) => t.id === conv2.id)!
+    assert.equal(conv2Entry2.last_message?.content, '新会话先发', '软删不进 last_message')
   })
 
   it('非成员查询会话返回 null；成员可查', async () => {

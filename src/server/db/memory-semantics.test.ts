@@ -155,6 +155,26 @@ describe('MemorySql — 快照/约束/投影（真库对齐）', () => {
     })
     assert.equal(r.affectedRows, 1)
   })
+
+  it('nullable UNIQUE 列：多 NULL 行允许（对齐真库 PG——M9 direct_key 语义）；非 NULL 重复仍 409', () => {
+    const mem = new MemorySql()
+    mem.executeQuery({ kind: 'ddl', op: 'createTable', table: 'c', columns: [{ name: 'id', type: 'text', pk: true, unique: false, defaultNow: false, defaultUuid: false }, { name: 'type', type: 'text', pk: false, unique: false, defaultNow: false, defaultUuid: false }, { name: 'direct_key', type: 'text', pk: false, unique: true, defaultNow: false, defaultUuid: false }] })
+    // group 行 direct_key = NULL——多行不冲突
+    mem.executeQuery({ kind: 'insert', table: 'c', rows: [{ id: 'g1', type: 'group', direct_key: null }] })
+    mem.executeQuery({ kind: 'insert', table: 'c', rows: [{ id: 'g2', type: 'group', direct_key: null }] })
+    // direct 行非 NULL——重复 409
+    mem.executeQuery({ kind: 'insert', table: 'c', rows: [{ id: 'd1', type: 'direct', direct_key: 'a:b' }] })
+    assert.throws(
+      () => mem.executeQuery({ kind: 'insert', table: 'c', rows: [{ id: 'd2', type: 'direct', direct_key: 'a:b' }] }),
+      (e: any) => e.status === 409,
+      '非 NULL 重复必须 409（唯一约束生效）',
+    )
+    // onConflict DO NOTHING：非 NULL 冲突跳过
+    const r = mem.executeQuery({ kind: 'insert', table: 'c', rows: [{ id: 'd3', type: 'direct', direct_key: 'a:b' }], onConflict: {} })
+    assert.equal(r.affectedRows, 0)
+    // UPDATE 置 NULL：可更新到 NULL（不与既有 NULL 冲突）
+    mem.executeQuery({ kind: 'update', table: 'c', sets: { direct_key: null }, where: { id: 'd1' } })
+  })
 })
 
 describe('MemoryRedis — stream 消费组（真库对齐）', () => {
