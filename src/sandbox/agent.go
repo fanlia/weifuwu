@@ -33,13 +33,13 @@ func startAgent() {
 		})
 	})
 	server := &http.Server{Addr: fmt.Sprintf("%s:%d", host, Port), ReadHeaderTimeout: 5 * time.Second}
-	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			fmt.Printf("[sandbox-agent] HTTP 面退出: %v\n", err)
-		}
-	}()
 	fmt.Fprintf(os.Stderr, "[sandbox-agent] listening on 127.0.0.1:%d（健康/能力/状态面——工具经 stdin 协议）\n", Port)
-	stdinLoop()
+	// stdin 协议 goroutine（docker exec 直连时一次性入参——EOF 即读完）
+	go stdinLoop()
+	// HTTP 主阻塞（保持进程——信号退出）——与 JS 版 server.listen 同构
+	if err := server.ListenAndServe(); err != nil {
+		fmt.Fprintf(os.Stderr, "[sandbox-agent] HTTP 面退出: %v\n", err)
+	}
 }
 
 var startTime = time.Now()

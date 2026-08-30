@@ -9,6 +9,7 @@
     "start": "node --env-file=.env server.ts",
     "seed": "node --env-file=.env scripts/seed.mjs",
     "build": "esbuild ui/v3-main.tsx --bundle --format=esm --outfile=dist/app.js --jsx=automatic --jsx-import-source=weifuwu/vdom",
+    "build:sandbox-agent": "mkdir -p dist/sandbox && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C ../../src/sandbox -o ../../apps/agent-platform/dist/sandbox/sandbox-agent .",
     "test": "node --env-file=.env --test --test-concurrency=1 'test/**/*.test.ts'",
     "posttest": "node -e \"const fs=require('fs');const p=fs.readFileSync('/tmp/ap-shared-server.pid','utf8').trim();try{process.kill(Number(p))}catch{}fs.rmSync('/tmp/ap-shared-server.pid',{force:true})\"",
     "pretest": "node -e \"try{const fs=require('fs');const p=fs.readFileSync('/tmp/ap-shared-server.pid','utf8').trim();process.kill(Number(p))}catch{}\"",

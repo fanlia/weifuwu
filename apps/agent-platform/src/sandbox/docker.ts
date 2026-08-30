@@ -461,6 +461,19 @@ export class DockerSandbox implements SandboxHost {
           this.onExecEvent?.(sandboxId, 'exec_timeout', `${tool} ${secs}s`)
           return { ok: false, error: `命令执行超时（${secs}s）——沙盒已终止该命令`, timedOut: true }
         }
+        // 过渡兼容：旧容器（无挂载 agent 文件）exec 127 → 回退 node tool-runner
+        //（specDrift 会触发 ensure 重建——窗口内不中断任务）
+        if (r.exitCode === 127 && !r.timedOut) {
+          const legacy = await this.dockerExec(containerName(sandboxId),
+            ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), 'node', '/opt/sandbox/tool-runner.js'],
+            payload)
+          if (!legacy.timedOut && legacy.exitCode === 0) {
+            try {
+              const parsed = JSON.parse(legacy.output)
+              if (parsed.ok) return { ok: true, output: String(parsed.output ?? '') }
+            } catch { /* fallthrough */ }
+          }
+        }
         // exec 失败（容器可能被外部 stop）→ 清 readiness 缓存（下次 ensure 重新校验）
         this.readyCache.delete(sandboxId)
         this.execStats.execErrors++
