@@ -237,6 +237,13 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
     const senderId = sender ? String(sender.id) : 'system'
     for (const r of toDispatch) {
       const url = campaign.url || (typeof process.env.PUBLIC_BASE_URL === 'string' ? process.env.PUBLIC_BASE_URL : 'http://localhost:3000') + '/demo-survey'
+      // 清场纪律（2027-09——旧 survey-result.json 残留 → 新 campaign 启动即完成
+      // ——增量重跑同角色必踩——派单前删旧产物——完成信号干净）
+      try {
+        const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
+        const ws = await resolveDepartmentWorkspace(r.dept_id, null, true).catch(() => null)
+        if (ws) { const { rm } = await import('node:fs/promises'); await rm(`${ws}/survey-result.json`, { force: true }).catch(() => {}) }
+      } catch { /* 清场失败不阻断派单 */ }
       const content = `@${r.agent_name} 【问卷任务】请打开问卷 ${url}?s=${encodeURIComponent(r.agent_name)} 按你的人设完整填写并提交。完成后把作答结果写入工作目录 survey-result.json（覆盖旧文件），并执行 agent-browser close 关闭浏览器。`
       // fire-and-forget（LLM 流分钟级——tick 不阻塞——完成由文件扫描判定；
       // 标 running 立即——在途即占槽——超时判定基于 started_at）
@@ -253,11 +260,27 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
     }
   }
 
-  // ── ④ 终止判定 ──
+  // ── ④ 终止判定 + 批收尾（S4——2027-09——campaign 完成 → 角色容器批量 stop——
+  //   1000 角色不空转 10min——资源立即释放——回收可观测） ──
   await sql`UPDATE survey_campaigns SET completed = ${completed}, failed = ${failedCount}, updated_at = NOW() WHERE id = ${campaignId}`
   if (isFinished({ total: Number(campaign.total), completed, failed: failedCount })) {
     await sql`UPDATE survey_campaigns SET status = 'done', updated_at = NOW() WHERE id = ${campaignId}`
     console.log(`[campaign ${campaignId}] 完成：${completed} 成功 / ${failedCount} 失败（共 ${campaign.total}）`)
+    // 批收尾：全部角色部门沙盒 stop（busy 豁免——不打断任何执行）
+    void (async () => {
+      try {
+        const { manager } = await import('../sandbox/manager.ts')
+        let stopped = 0
+        for (const r of freshRuns) {
+          const [sb] = await sql`SELECT id, app_id FROM sandboxes WHERE department_id = ${r.dept_id} AND status = 'running'`
+          if (sb) {
+            const res = await manager.stop(String(sb.id), String(sb.app_id)).catch(() => ({ ok: false } as const))
+            if (res?.ok) stopped++
+          }
+        }
+        console.log(`[campaign ${campaignId}] 批收尾：${stopped} 个角色沙盒已停止（资源释放）`)
+      } catch { /* 收尾失败不影响完成状态 */ }
+    })()
     return true
   }
   return false
