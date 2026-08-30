@@ -71,6 +71,10 @@ export interface RegisterInput {
   email: string
   password: string
   name?: string
+  /**
+   * @deprecated B5.2（2027-XX）：自助注册忽略自赋 role（入库恒 null）——
+   * 授权一律走应用成员表 role（防假 admin）；平台 profile role 由应用层管理。
+   */
   role?: string
   /** 兼容旧单层模型：注册即绑定应用（新三层模型请用 createApp/registerInApp） */
   tenant?: string
@@ -179,8 +183,32 @@ const SESSIONS_TABLE = '_weifuwu_sessions'
 const APP_TABLE = '_weifuwu_apps'
 const MEMBER_TABLE = '_weifuwu_app_members'
 
+// B5（2027-XX）：密码长度上下限——下限防弱口令（既有），上限防 MB 级 password
+// scrypt DoS（JSON body 可带任意大字符串）
+const MIN_PASSWORD_LEN = 8
+const MAX_PASSWORD_LEN = 1024
+
+function validatePassword(password: string): void {
+  if (password.length < MIN_PASSWORD_LEN) {
+    throw new HttpError(`password must be at least ${MIN_PASSWORD_LEN} characters`, 400)
+  }
+  if (password.length > MAX_PASSWORD_LEN) {
+    throw new HttpError('password is too long', 400)
+  }
+}
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
+}
+
+// B3 延迟拉平（时序防枚举——2027-XX）：不存在邮箱/SSO 无密码账号也执行一次
+// 同参数 scrypt verify（dummy 哈希——模块级惰性生成一次）。原缺陷：消息统一
+// 但耗时未统一——不存在邮箱 ~1ms vs 错误密码 ~45ms（scrypt）——时序攻击可按
+// 响应时间枚举邮箱（响应时间即签名）。dummy 拉平后两条路径同耗时。
+let dummyPasswordHash: string | null = null
+async function timingEqualize(password: string): Promise<void> {
+  dummyPasswordHash ??= await hashPassword('dummy-timing-equalize-password')
+  await verifyPassword(password, dummyPasswordHash)
 }
 
 export function userSystem(options: UserSystemOptions): UserSystemClient {
@@ -222,24 +250,29 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     return rows.length ? String(rows[0].id) : null
   }
 
-  /** 我的应用列表（members join apps——两步查，memory/真库通用） */
-  async function listAppsFor(userId: string): Promise<AppSummary[]> {
-    const rows = await sql.query.from(MEMBER_TABLE)
-      .select('app_id', 'role')
-      .where({ user_id: userId })
+  async function findUserByEmail(email: string): Promise<User | null> {
+    const rows = await sql.query.from(USERS_TABLE)
+      .select('id', 'email', 'name', 'role', 'tenant')
+      .where({ email })
       .run()
-    if (!rows.length) return []
-    const out: AppSummary[] = []
-    for (const r of rows) {
-      const apps = await sql.query.from(APP_TABLE)
-        .select('id', 'slug', 'name')
-        .where({ id: String(r.app_id) })
-        .run()
-      if (apps.length) {
-        out.push({ id: String(apps[0].id), slug: String(apps[0].slug), name: String(apps[0].name), role: String(r.role) })
-      }
-    }
-    return out
+    return rows.length ? (rows[0] as unknown as User) : null
+  }
+
+  /** 我的应用列表（members JOIN apps——单查询——B4 消除 N+1） */
+  async function listAppsFor(userId: string): Promise<AppSummary[]> {
+    // B4（2027-XX）：原 members 循环内每 app 一次查询（N 应用 = N+1 往返）——
+    // JOIN 单查询（memory/真库双后端已验证：对象式 on 列-列比较 + 输出键无前缀）
+    const rows = await sql.query.from(`${MEMBER_TABLE} m`)
+      .select('m.app_id', 'm.role', 'a.id', 'a.slug', 'a.name')
+      .join(`${APP_TABLE} a`, { 'a.id': { col: 'm.app_id' } })
+      .where({ 'm.user_id': userId })
+      .run()
+    return rows.map((r) => ({
+      id: String(r.id),
+      slug: String(r.slug),
+      name: String(r.name),
+      role: String(r.role),
+    }))
   }
 
   async function issueSession(
@@ -272,13 +305,19 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   async function consumeRefreshToken(
     refreshToken: string,
   ): Promise<{ user: User; appId?: string }> {
-    const rows = await sql.query.from(`${SESSIONS_TABLE} s`)
-      .select('s.user_id', 's.expires_at', 's.app_id')
-      .where({ 's.token_hash': hashRefreshToken(refreshToken), 's.revoked_at': { isNull: true } })
+    // B2 原子消费（重放竞态根治）：单条 UPDATE ... RETURNING——
+    //  预检（revoked_at IS NULL）与 revoke 写入合并为一个原子语句（行锁互斥）——
+    //  并发同 token 恰好一个成功、后到者 0 行 → 401（原 SELECT→revoke 两语句
+    //  窗口双放行——实证 200+200）
+    const rows = await sql.query.update(SESSIONS_TABLE)
+      .set({ revoked_at: sql.raw`now()` })
+      .where({ token_hash: hashRefreshToken(refreshToken), revoked_at: { isNull: true } })
+      .returning('user_id', 'expires_at', 'app_id')
       .run()
     if (!rows.length) throw new HttpError('Invalid refresh token', 401)
     const row = rows[0]
     if (new Date(row.expires_at as Date) < new Date()) {
+      // 过期：消费时已原子吊销——不可重放延长
       throw new HttpError('Refresh token expired', 401)
     }
     const user = await findUserById(row.user_id as string)
@@ -358,13 +397,15 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       ...sessionPayload,
       async register(input: RegisterInput) {
         if (!input.email || !input.password) throw new HttpError('email and password are required', 400)
-        if (input.password.length < 8) throw new HttpError('password must be at least 8 characters', 400)
+        validatePassword(input.password)
         const email = normalizeEmail(input.email)
         const passwordHash = await hashPassword(input.password)
         const rows = await sql.query.insert(USERS_TABLE)
           .values({
             email, password_hash: passwordHash,
-            name: input.name ?? null, role: input.role ?? null, tenant: input.tenant ?? null,
+            // B5.2（2027-XX）：自助注册忽略自赋 role（防假 admin——授权一律
+            // 走应用成员表 role；平台 profile role 由应用层管理）
+            name: input.name ?? null, role: null, tenant: input.tenant ?? null,
           })
           .returning('id', 'email', 'name', 'role', 'tenant')
           .run()
@@ -381,7 +422,11 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           .run()
         const row = rows[0]
         // 统一 401（不泄露邮箱是否存在——防枚举）
-        if (!row) throw new HttpError('Invalid email or password', 401)
+        // B3：不存在/无密码（SSO）账号也 dummy verify 拉平耗时（时序侧信道）
+        if (!row || row.password_hash == null) {
+          await timingEqualize(password)
+          throw new HttpError('Invalid email or password', 401)
+        }
         const valid = await verifyPassword(password, String(row.password_hash))
         if (!valid) throw new HttpError('Invalid email or password', 401)
         const user = {
@@ -412,7 +457,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       },
 
       async setPassword(userId: string, newPassword: string) {
-        if (newPassword.length < 8) throw new HttpError('password must be at least 8 characters', 400)
+        validatePassword(newPassword)
         const passwordHash = await hashPassword(newPassword)
         await sql.query.update(USERS_TABLE)
           .set({ password_hash: passwordHash })
@@ -447,7 +492,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
 
       async registerInApp(input: RegisterInAppInput) {
         if (!input.email || !input.password) throw new HttpError('email and password are required', 400)
-        if (input.password.length < 8) throw new HttpError('password must be at least 8 characters', 400)
+        validatePassword(input.password)
         const appRows = await sql.query.from(APP_TABLE)
           .select('id', 'open_registration')
           .where({ slug: input.appSlug })
@@ -470,30 +515,29 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         }
 
         // 平台账号：按 email 查找或创建（跨应用复用同一身份）
-        let user: User
-        const existing = await sql.query.from(USERS_TABLE)
-          .select('id', 'email', 'name', 'role', 'tenant')
-          .where({ email })
-          .run()
-        if (existing.length) {
-          user = existing[0] as unknown as User
-        } else {
+        let user = await findUserByEmail(email)
+        if (!user) {
           const passwordHash = await hashPassword(input.password)
           const rows = await sql.query.insert(USERS_TABLE)
             .values({
               email, password_hash: passwordHash,
               name: input.name ?? null, role: null, tenant: null,
             })
+            // B6（2027-XX）：并发同 email 建号竞态——唯一冲突 DO NOTHING + 再查
+            // （幂等——非 409；先到者数据为准）
+            .onConflict('email')
             .returning('id', 'email', 'name', 'role', 'tenant')
             .run()
-          user = rows[0] as unknown as User
+          user = rows.length ? (rows[0] as unknown as User) : await findUserByEmail(email)
+          if (!user) throw new HttpError('User creation failed', 500)
         }
 
-        // 加成员（已存在则跳过——幂等）
+        // 加成员（已存在则跳过——幂等）+ 并发 PK 冲突 DO NOTHING（B6）
         const member = await findMemberRole(appId, user.id)
         if (!member) {
           await sql.query.insert(MEMBER_TABLE)
             .values({ app_id: appId, user_id: user.id, role, invited_by: currentUser?.id ?? null })
+            .onConflict()
             .run()
         }
 
@@ -512,7 +556,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           .where({ email: normalizeEmail(email) })
           .run()
         const row = rows[0]
-        if (!row) throw new HttpError('Invalid email or password', 401)
+        if (!row || row.password_hash == null) {
+          await timingEqualize(password)
+          throw new HttpError('Invalid email or password', 401)
+        }
         const valid = await verifyPassword(password, String(row.password_hash))
         if (!valid) throw new HttpError('Invalid email or password', 401)
 
@@ -538,19 +585,16 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       async ssoLogin(email: string, opts?: { appId?: string; name?: string }) {
         const normalized = normalizeEmail(email)
         // 找或建平台账号（无密码——SSO 身份提供方已认证）
-        let user: User
-        const existing = await sql.query.from(USERS_TABLE)
-          .select('id', 'email', 'name', 'role', 'tenant')
-          .where({ email: normalized })
-          .run()
-        if (existing.length) {
-          user = existing[0] as unknown as User
-        } else {
+        let user = await findUserByEmail(normalized)
+        if (!user) {
           const rows = await sql.query.insert(USERS_TABLE)
             .values({ email: normalized, password_hash: null, name: opts?.name ?? null, role: null, tenant: null })
+            // B6（2027-XX）：并发同 email 建号竞态——唯一冲突 DO NOTHING + 再查
+            .onConflict('email')
             .returning('id', 'email', 'name', 'role', 'tenant')
             .run()
-          user = rows[0] as unknown as User
+          user = rows.length ? (rows[0] as unknown as User) : await findUserByEmail(normalized)
+          if (!user) throw new HttpError('User creation failed', 500)
         }
         // 带 appId：自动加成员（member）+ 应用会话
         let appId: string | undefined
@@ -559,6 +603,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           if (!member) {
             await sql.query.insert(MEMBER_TABLE)
               .values({ app_id: opts.appId, user_id: user.id, role: 'member', invited_by: null })
+              .onConflict()
               .run()
           }
           appId = opts.appId
@@ -696,9 +741,16 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       const body = (await req.json().catch(() => ({}))) as { refreshToken?: string }
       if (!body.refreshToken) throw new HttpError('refreshToken is required', 400)
       const { user, appId } = await consumeRefreshToken(body.refreshToken)
-      // 轮换：撤销旧 refresh，签发新对（恢复应用态 appId——session 绑定应用）
-      await ctx.auth!.logout(body.refreshToken)
-      const session = await issueSession(user, appId ? { appId } : undefined)
+      // 轮换：consume 已原子撤销旧 refresh（无独立 logout 双写）——签发新对
+      // B1（role 恢复——2027-XX）：app 会话据成员表恢复 role（权威源——角色
+      // 变更即时生效；原缺陷 refresh 丢 role 字段——前端角色 UI 失效）；
+      // 成员被移除 → 降级平台会话（无 appId——零残留应用访问）
+      let appSession: { appId: string; role: string } | undefined
+      if (appId) {
+        const role = await findMemberRole(appId, user.id)
+        if (role) appSession = { appId, role }
+      }
+      const session = await issueSession(user, appSession)
       return ok({ ...session, user })
     })
 

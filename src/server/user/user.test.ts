@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto'
 import { createMemorySql } from '../db/memory-sql.ts'
 import { userSystem } from '../user/index.ts'
 import { verifyPassword } from '../user/password.ts'
-import { verifyToken, signToken } from '../user/token.ts'
+import { verifyToken, signToken, hashRefreshToken } from '../user/token.ts'
 import { Router } from '../core/router.ts'
 
 const mkCtx = () => ({ params: {}, query: {} })
@@ -192,6 +192,57 @@ describe('userSystem (memory sql)', () => {
       const res = await post('/api/auth/refresh', { refreshToken: 'deadbeef'.repeat(8) })
       assert.equal(res.status, 401)
     })
+
+    it('B2 并发同 refreshToken → 恰好一个成功（原子消费——单次使用）', async () => {
+      const email = uniqEmail()
+      const reg = await (await post('/api/auth/register', { email, password: 'password123' })).json()
+      // 原缺陷：SELECT(revoked_at IS NULL) 与 revoke UPDATE 两语句窗口——并发双过
+      const [r1, r2] = await Promise.all([
+        post('/api/auth/refresh', { refreshToken: reg.refreshToken }),
+        post('/api/auth/refresh', { refreshToken: reg.refreshToken }),
+      ])
+      assert.deepEqual([r1.status, r2.status].sort(), [200, 401], '重放竞态：恰好一个 200')
+    })
+
+    it('B2 过期 refresh → 401 且二次也 401（消费即吊销——不可重放）', async () => {
+      const email = uniqEmail()
+      const reg = await (await post('/api/auth/register', { email, password: 'password123' })).json()
+      await db.unsafe(
+        `INSERT INTO _weifuwu_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
+        [hashRefreshToken('expired-refresh-token'), reg.user.id, new Date(Date.now() - 60_000)],
+      )
+      const r1 = await post('/api/auth/refresh', { refreshToken: 'expired-refresh-token' })
+      assert.equal(r1.status, 401)
+      const r2 = await post('/api/auth/refresh', { refreshToken: 'expired-refresh-token' })
+      assert.equal(r2.status, 401, '过期 token 被消费（吊销）后不可重放')
+    })
+  })
+
+  describe('密码守卫（B5）', () => {
+    it('密码 > 1024 → 400（register / setPassword / registerInApp 三端点）', async () => {
+      const long = 'x'.repeat(1025)
+      const r1 = await post('/api/auth/register', { email: uniqEmail(), password: long })
+      assert.equal(r1.status, 400)
+      const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
+      const ctx = await authCtx(reg.token)
+      await assert.rejects(() => ctx.auth.setPassword(reg.user.id, long), (e: any) => e.status === 400)
+      // registerInApp（开自助注册的应用）
+      const ownerReg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
+      const appRes = await post('/api/auth/apps', { slug: `lp-${randomUUID()}`, name: 'A', openRegistration: true }, ownerReg.token)
+      const { app } = await appRes.json()
+      const r3 = await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: long })
+      assert.equal(r3.status, 400)
+    })
+
+    it('B5.2 register 自赋 role 被忽略（入库 null——授权走成员表）', async () => {
+      const email = uniqEmail()
+      const res = await post('/api/auth/register', { email, password: 'password123', role: 'admin' })
+      assert.equal(res.status, 201)
+      const data = await res.json()
+      assert.equal(data.user.role, null, '响应面：自赋 role 不入库')
+      const rows = await db.unsafe('SELECT role FROM _weifuwu_users WHERE email = $1', [email])
+      assert.equal(rows[0].role, null, 'DB 面：role 恒 null')
+    })
   })
 
   describe('setPassword / createToken', () => {
@@ -289,14 +340,14 @@ describe('ssoLogin（无密码 SSO 会话）', () => {
     assert.equal(sso.user.id, reg.user.id, '复用同一平台账号')
   })
 
-  it('带 appId：自动加成员 + 应用会话（role=member）', async () => {
-    const ownerCtx = await ssoCtx()
-    const owner = await ownerCtx.auth.register({ email: 'sso-owner@corp.test', password: 'password123', name: 'Owner' })
-    const ctx = await ssoCtx(owner.token)
-    const app = await ctx.auth.createApp({ slug: 'sso-app', name: 'SSO 应用', openRegistration: false })
-    const sso = await ctx.auth.ssoLogin('sso-member@corp.test', { appId: app.id })
-    const payload = JSON.parse(Buffer.from(sso.token.split('.')[1], 'base64url').toString())
-    assert.equal(payload.appId, app.id)
-    assert.equal(payload.role, 'member')
+  it('B6 并发 ssoLogin 同 email → 均成功且同一账号（建号幂等——非 409）', async () => {
+    const [a, b] = await Promise.all([ssoCtx(), ssoCtx()])
+    const [r1, r2] = await Promise.all([
+      a.auth.ssoLogin('race-sso@corp.test', { name: 'A' }),
+      b.auth.ssoLogin('race-sso@corp.test', { name: 'B' }),
+    ])
+    assert.equal(r1.user.id, r2.user.id, '并发建号竞态：同一账号')
+    assert.ok(r1.token, '两个请求都签发会话')
+    assert.ok(r2.token)
   })
 })

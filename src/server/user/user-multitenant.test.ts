@@ -327,7 +327,102 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     })
   })
 
-  // ── 6. 迁移兼容 ─────────────────────────────────────────
+  // ── 6. 应用会话 refresh（B1：role 恢复——成员表权威） ────
+  describe('应用会话 refresh（role 恢复——B1）', () => {
+    it('loginApp 会话 refresh → 新 token 保留 role（原缺陷丢 role）', async () => {
+      const owner = await registerPlatform()
+      const { app } = await (await post('/api/auth/apps', { slug: `rf-${uniq()}`, name: 'A' }, owner.token)).json()
+      const login = await (await post(`/api/auth/apps/${app.slug}/login`, { email: owner.user.email, password: 'password123' })).json()
+      assert.equal(verifyToken(login.token, secret)!.role, 'owner')
+      const rf = await (await post('/api/auth/refresh', { refreshToken: login.refreshToken })).json()
+      const payload = verifyToken(rf.token, secret)!
+      assert.equal(payload.appId, app.id, 'appId 保留')
+      assert.equal(payload.role, 'owner', 'refresh 后 role 必须在（B1 修复前丢字段）')
+    })
+
+    it('成员角色变更后 refresh → 新 role 生效（成员表权威——角色变更即时传播）', async () => {
+      const owner = await registerPlatform()
+      const { app } = await (await post('/api/auth/apps', { slug: `rf2-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
+      const member = await (await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123' })).json()
+      await db.unsafe(
+        `UPDATE _weifuwu_app_members SET role = 'admin' WHERE app_id = $1 AND user_id = $2`,
+        [app.id, member.user.id],
+      )
+      const rf = await (await post('/api/auth/refresh', { refreshToken: member.refreshToken })).json()
+      assert.equal(verifyToken(rf.token, secret)!.role, 'admin')
+    })
+
+    it('成员被移除后 refresh → 降级平台会话（token 无 appId——零残留应用访问）', async () => {
+      const owner = await registerPlatform()
+      const { app } = await (await post('/api/auth/apps', { slug: `rf3-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
+      const member = await (await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123' })).json()
+      await db.unsafe(
+        `DELETE FROM _weifuwu_app_members WHERE app_id = $1 AND user_id = $2`,
+        [app.id, member.user.id],
+      )
+      const rfRes = await post('/api/auth/refresh', { refreshToken: member.refreshToken })
+      assert.equal(rfRes.status, 200)
+      const rf = await rfRes.json()
+      const payload = verifyToken(rf.token, secret)!
+      assert.equal(payload.appId, undefined, '被移除 → 平台态 token')
+      assert.equal(payload.role, undefined)
+    })
+
+    it('registerInApp 会话 refresh → role 保留（双路径）', async () => {
+      const owner = await registerPlatform()
+      const { app } = await (await post('/api/auth/apps', { slug: `rf4-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
+      const member = await (await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123' })).json()
+      const rf = await (await post('/api/auth/refresh', { refreshToken: member.refreshToken })).json()
+      assert.equal(verifyToken(rf.token, secret)!.role, 'member')
+    })
+  })
+
+  // ── 7. B4 查询次数 / B6 幂等 ──────────────────────────────
+  describe('B4 JOIN / B6 幂等', () => {
+    it('B4 listMyApps 单 JOIN 查询（消除 N+1——3 应用 = 1 次 exec）', async () => {
+      const mem = new MemorySql()
+      let execs = 0
+      const counting = (async (s: TemplateStringsArray, ...v: unknown[]) => mem.tag(s, v)) as any
+      const countingExec = async (q: any) => {
+        execs++
+        return mem.executeQuery(q)
+      }
+      counting.query = createQueryBuilder(counting, countingExec as any)
+      counting.unsafe = (s: string, p?: unknown[]) => (mem as any).unsafe(s, p)
+      counting.close = () => (mem as any).close()
+      const countingUsers = userSystem({ sql: counting, secret })
+      await countingUsers.migrate()
+      const ctx: any = {}
+      await countingUsers(new Request('http://localhost/'), ctx, async () => new Response('ok'))
+      await ctx.auth.register({ email: uniqEmail(), password: 'password123' })
+      for (let i = 0; i < 3; i++) {
+        await ctx.auth.createApp({ slug: `cnt-${uniq()}-${i}`, name: `A${i}` })
+      }
+      execs = 0
+      const apps = await ctx.auth.listMyApps()
+      assert.equal(apps.length, 3)
+      assert.equal(execs, 1, 'B4：3 应用 = 1 次查询（原 N+1 = 4 次）')
+      assert.equal(apps.every((t) => t.id && t.slug && t.name && t.role), true)
+      await (counting as any).close()
+    })
+
+    it('B6 并发 registerInApp 同 email（open 应用）→ 均 201 且同一账号', async () => {
+      const owner = await registerPlatform()
+      const { app } = await (await post('/api/auth/apps', { slug: `race-${uniq()}`, name: 'R', openRegistration: true }, owner.token)).json()
+      const email = uniqEmail()
+      const [r1, r2] = await Promise.all([
+        post(`/api/auth/apps/${app.slug}/register`, { email, password: 'password123' }),
+        post(`/api/auth/apps/${app.slug}/register`, { email, password: 'password123' }),
+      ])
+      assert.equal(r1.status, 201)
+      assert.equal(r2.status, 201, '并发同 email 建号幂等（非 409）')
+      const a = await r1.json()
+      const b = await r2.json()
+      assert.equal(a.user.id, b.user.id, '同一平台账号')
+    })
+  })
+
+  // ── 8. 迁移兼容 ─────────────────────────────────────────
   describe('迁移', () => {
     it('migrate 幂等 + 新表存在（apps / app_members）', async () => {
       await users.migrate()
