@@ -1,5 +1,13 @@
 # COMPONENT-ROBUSTNESS-PLAN — 内置组件测试补全与健壮性增强
 
+> **✅ 已完成归档（2027-09）**：7/7 波次交付——波次 1（覆盖审计哨兵）
+> `57fe3a5a` · 波次 2（8 缺口清零）`fc11d4cb` · 波次 3（弹窗组合矩阵 +
+> mask+position 坐标不落地修复）`c2a2c3f2` · 波次 4（portal 零残留抽样
+> ——审计定论）`c6dd6cee` · 波次 5（键盘 a11y + 必填校验拦截）
+> `179638be` · 波次 6（冒烟全量描述对齐——定论不造代码）`295f432d`——
+> audit-component-coverage 0 缺口 · 351 契约 + 120 场景 + 27 harness +
+> tsc 0 + audit:semantics 0
+
 > **发起动因（2027-09——三轮用户上报 bug 复盘）**：tour id 空间违例 /
 > ContextMenu 左上角 / DatePicker 定位连锁——三个 bug 的共性不是"引擎
 > 缺陷"而是 **验证面窄于行为面**：① 位置断言"在视口内"——(0,0) 也通过
@@ -47,9 +55,9 @@
 
 ### 波次 2：13 个零测试组件补齐
 
-现状缺口（波次 1 审计确认）：AvatarGroup / CheckboxGroup / Descriptions /
-Field / Form / JsonSchemaForm / Layout / Math / OfficeEditor / SearchInput /
-ToggleGroup / VideoPlayer / Wave——分两路：
+现状缺口（波次 1 审计确认——2027-09 交付版）：avatargroup / checkboxgroup /
+descriptions / field / jsonschemaform / layout / searchinput / togglegroup
+（math/wave/videoplayer/officeeditor 被场景 cap- 覆盖——非缺口）——分两路：
 
 - **有 registry 页面**（descriptions/field/form/jsonschemaform/layout/
   math/searchinput/videoplayer）：直写 `comp-<id>.test.ts`（能力面——

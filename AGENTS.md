@@ -75,7 +75,7 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 
 ### showcase 组件层（apps/showcase/test/——每组件一个测试文件）
 
-**形态**（用户决策：一个地址 + 一个组件 + 独立运行——小步快跑不批量）：`comp-<id>.test.ts`（112 文件——157 组件全覆盖）——单独运行 `node --env-file=.env --test apps/showcase/test/comp-<id>.test.ts`；`showcase-shared.ts` 提供 startShowcaseServer（随机端口）/openShowcase（错误收集）——能力面出发（先读 props 接口清单→demo 覆盖 + 无 demo 走场景层 cap-）——**v2 别名路由**（tree-v2/cascader-v2/calendar-v2 = 主页面别名——主页面覆盖即可）
+**形态**（用户决策：一个地址 + 一个组件 + 独立运行——小步快跑不批量）：`comp-<id>.test.ts`（129 文件——组件全覆盖——2027-09 波次 2 补齐 8 缺口）——单独运行 `node --env-file=.env --test apps/showcase/test/comp-<id>.test.ts`；`showcase-shared.ts` 提供 startShowcaseServer（随机端口）/openShowcase（错误收集）——能力面出发（先读 props 接口清单→demo 覆盖 + 无 demo 走场景层 cap-）——**v2 别名路由**（tree-v2/cascader-v2/calendar-v2 = 主页面别名——主页面覆盖即可）——**覆盖哨兵**：`scripts/audit-component-coverage.mjs`（组件×三层矩阵——零覆盖 = 缺口 exit 1——CI 可挂——2027-09 波次 1）——**断言纪律（2027-09 波次 3/4 教训机制化）**：弹窗类断言"在哪"（坐标关系 sem/centered——assertPopupGeometry——非"在视口内"弱断言）；表单类断言值回流（onChange→props→显示同步）
 | deep-*（54 组件） | 组件深度交互（表单输入/选择/导航展示/浮层/表单校验/重组件/AI 对话/文件上传——参数行为断言） |
 | style-update / event-guard / open-guard | style 整体替换清空 / 事件非函数 warn / 受控缺回调 warn |
 
