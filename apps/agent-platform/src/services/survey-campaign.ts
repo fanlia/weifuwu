@@ -150,7 +150,11 @@ export async function retryCampaign(ctx: AppCtx, id: string): Promise<void> {
       started_at = NULL, finished_at = NULL
     WHERE campaign_id = ${id} AND status = 'failed'
   `
-  await ctx.sql`UPDATE survey_campaigns SET status = 'running', completed = 0, failed = 0, updated_at = NOW() WHERE id = ${id}`
+  // completed 重统计（2027-09 实证——S7b 恢复时 done 计数丢失：retry 零置后
+  // 30 个 done run 不计入 → isFinished 永不触发 → campaign 永不完成）
+  await ctx.sql`UPDATE survey_campaigns SET status = 'running',
+    completed = (SELECT COUNT(*)::int FROM survey_campaign_runs WHERE campaign_id = ${id} AND status = 'done'),
+    failed = 0, updated_at = NOW() WHERE id = ${id}`
   startCampaignLoop(ctx, id)
 }
 
@@ -177,6 +181,7 @@ export function startCampaignLoop(ctx: AppCtx, campaignId: string): void {
         if (done) { clearInterval(timer); runningLoops.delete(campaignId) }
       } catch (e: any) {
         console.error(`[campaign ${campaignId}] tick 失败:`, e?.message ?? e)
+        console.error(`[campaign ${campaignId}] tick stack:`, String(e?.stack ?? '').slice(0, 600))
       }
     }, TICK_MS)
     timer.unref?.()
@@ -228,6 +233,16 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
     await sql`UPDATE survey_campaign_runs SET status = 'failed', finished_at = NOW(), error = '超时（${Math.round(timeoutMs / 1000)}s 未完成）' WHERE id = ${r.id}`
     failedCount++
   }
+
+  // ── ②.5 任务级生命周期豁免（P1-1——2027-09 实证：LLM 思考间隙
+  //    （分钟级——无工具调用）→ last_used_at 不更新 → reconcile idle 10min
+  //    → 容器 stop → 角色工具调用失败级联（在线 7 容器全 Exited 铁证）——
+  //    tick 每轮刷新 running 角色沙盒 last_used_at（一条 SELECT 子查询——
+  //    campaign 期间角色容器恒活跃——治愈 idle 回收）──
+  await sql`UPDATE sandboxes SET last_used_at = NOW()
+    WHERE status = 'running' AND department_id IN (
+      SELECT department_id FROM survey_campaign_runs WHERE campaign_id = ${campaignId} AND status = 'running'
+    )`.catch(() => {})
 
   // ── ③ 水位补派 ──
   const freshRuns = ((await sql`SELECT * FROM survey_campaign_runs WHERE campaign_id = ${campaignId}`) ?? []) as unknown as RunRow[]

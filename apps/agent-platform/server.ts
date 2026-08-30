@@ -156,6 +156,14 @@ async function main() {
     agent_id UUID NOT NULL, agent_name TEXT NOT NULL, dept_id UUID NOT NULL,
     status TEXT NOT NULL DEFAULT 'queued', attempts INT NOT NULL DEFAULT 0,
     started_at TIMESTAMPTZ, finished_at TIMESTAMPTZ, error TEXT)`)
+  // 问卷提交/逐题持久化（2027-09 实证——S7b：提交只在内存——重启 80 份丢失 +
+  // surveyLimit=20 截断——stats 页永远 20——落库后重启恢复 + 全量统计）
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS survey_submissions (
+    id TEXT PRIMARY KEY, source TEXT NOT NULL, age TEXT, industry TEXT,
+    rating INT, focus JSONB, feedback TEXT, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS survey_answers (
+    id BIGSERIAL PRIMARY KEY, source TEXT NOT NULL, question TEXT,
+    answer TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_survey_campaigns_app ON survey_campaigns(app_id, created_at DESC)`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_survey_runs_campaign ON survey_campaign_runs(campaign_id, status)`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_skill_ratings_dir ON skill_ratings(skill_dir)`)
@@ -1167,6 +1175,7 @@ async function main() {
           }
           surveyAnswers.push(record)
           if (surveyAnswers.length > surveyLimit) surveyAnswers.splice(0, surveyAnswers.length - surveyLimit)
+          void pg.sql`INSERT INTO survey_answers (source, question, answer) VALUES (${String(record.source)}, ${String(record.question)}, ${String(record.answer)})`.catch(() => {})
           surveyBroadcast({ type: 'survey:answer', ...record })
         } else if (msg.type === 'survey:submit' && msg.data) {
           // 提交：入内存 + 广播（统计页计数 +1、来源锁定）
@@ -1181,7 +1190,11 @@ async function main() {
           }
           surveySubmissions.push(record)
           if (surveySubmissions.length > surveyLimit) surveySubmissions.splice(0, surveySubmissions.length - surveyLimit)
-          surveyBroadcast({ type: 'survey:submitted', count: surveySubmissions.length, latest: record })
+          surveyTotal++
+          void pg.sql`INSERT INTO survey_submissions (id, source, age, industry, rating, focus, feedback, submitted_at)
+            VALUES (${String(record.id)}, ${String(record.source)}, ${String(record.age)}, ${String(record.industry)},
+              ${Number(record.rating)}, ${JSON.stringify(record.focus)}, ${String(record.feedback)}, ${String(record.submitted_at)})`.catch(() => {})
+          surveyBroadcast({ type: 'survey:submitted', count: surveyTotal, latest: record })
           // 提交后保持在线（浏览器未关——ws 连接保持——统计页在线显示已提交状态——
           // 下线只发生在 close/bye：用户要求"只要填写者还没关闭浏览器就应该显示在线"）
           const cur = surveyOnline.get(ws)
@@ -1301,9 +1314,29 @@ async function main() {
   })
 
   // ── 问卷实时联动（框架 WS——2 页联动，不落库） ──
-  const surveyAnswers: Array<Record<string, unknown>> = []        // 逐题回答（内存）
-  const surveySubmissions: Array<Record<string, unknown>> = []    // 已提交（内存）
-  const surveyLimit = 20
+  const surveyAnswers: Array<Record<string, unknown>> = []        // 逐题回答（内存——最新窗口）
+  const surveySubmissions: Array<Record<string, unknown>> = []    // 已提交（内存——最新窗口）
+  let surveyTotal = 0                                            // 提交总数（DB 持久计数）
+  const surveyLimit = 1000
+  // 启动恢复：DB 全量 → 内存（重启不再丢）——srvD8 实证：重启后 stats 只剩重启后 20
+  void (async () => {
+    try {
+      const rows = (await pg.sql`SELECT id, source, age, industry, rating, focus, feedback, submitted_at FROM survey_submissions ORDER BY submitted_at DESC LIMIT 1000`) ?? []
+      surveyTotal = Number((await pg.sql`SELECT COUNT(*)::int as n FROM survey_submissions`)[0]?.n ?? 0)
+      for (const r of [...rows].reverse()) {
+        surveySubmissions.push({
+          id: String(r.id), source: String(r.source), submitted_at: String(r.submitted_at),
+          age: String(r.age ?? ''), industry: String(r.industry ?? ''), rating: Number(r.rating ?? 0),
+          focus: r.focus, feedback: String(r.feedback ?? ''),
+        })
+      }
+      const arows = (await pg.sql`SELECT source, question, answer, created_at FROM survey_answers ORDER BY created_at DESC LIMIT 1000`) ?? []
+      for (const r of [...arows].reverse()) {
+        surveyAnswers.push({ source: String(r.source), question: String(r.question), answer: String(r.answer), at: String(r.created_at) })
+      }
+      console.log(`[survey] 已恢复提交 ${surveyTotal} / 答案 ${arows.length}`)
+    } catch (e: any) { console.warn('[survey] 恢复失败:', e?.message) }
+  })()
   let surveyHub: import('weifuwu').Hub | null = null              // WS 房间（app.ws open 时捕获）
   const surveyOnline = new Map<any, { source: string; at: string; submitted?: boolean }>()  // 在线填写者（ws → source + 提交状态——浏览器未关保持在线）
   const surveyBroadcast = (event: Record<string, unknown>) => {
@@ -1311,7 +1344,7 @@ async function main() {
   }
   const surveyState = () => ({
     type: 'survey:state',
-    count: surveySubmissions.length,
+    count: surveyTotal,
     answers: surveyAnswers.slice(-surveyLimit),
     submissions: surveySubmissions.slice(-surveyLimit),
     online: surveyOnlineState(),

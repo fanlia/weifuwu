@@ -63,8 +63,11 @@ const DEFAULT_OPTIONS: ManagerOptions = {
   historyRetentionDays: 30,
 }
 
-/** 单容器资源默认（env 化——M5-3；创建时快照进记录，配置即声明） */
-const DEFAULT_MEMORY_MB = Number(process.env.SANDBOX_MEMORY_LIMIT ?? 1024) // 默认 1GB
+/** 单容器资源默认（env 化——M5-3；创建时快照进记录，配置即声明）
+ *  512MB（2027-09——问卷实测容器 306MB（chromium 满载）——原 1024 高估
+ *  60%——降配 512 + 30% 余量 → 池预算 10240MB ÷ 512 = 20 并发（原 10）
+ *  ——1000 生产挂钟减半（SURVEY-BOTS-PLAN v2——S7b）） */
+const DEFAULT_MEMORY_MB = Number(process.env.SANDBOX_MEMORY_LIMIT ?? 512) // 默认 512MB
 const DEFAULT_CPUS = Number(process.env.SANDBOX_CPU_LIMIT ?? 1)
 /** 池内存预算（M5-2）——默认 10240MB = 20×512MB；0 = 禁用 */
 const DEFAULT_POOL_BUDGET_MB = Number(process.env.SANDBOX_POOL_BUDGET_MB ?? 10240)
@@ -283,7 +286,8 @@ export class SandboxManager {
     const [q] = await this.sql`SELECT sandbox_quota FROM _weifuwu_apps WHERE id = ${input.appId}`
     const quota = Number(q?.sandbox_quota ?? 5)
     const [c] = await this.sql`
-      SELECT COUNT(*)::int as n FROM sandboxes WHERE app_id = ${input.appId} AND status != 'terminated'
+      SELECT COUNT(*)::int as n FROM sandboxes
+      WHERE app_id = ${input.appId} AND status IN ('requested', 'running')
     `
     if (Number(c?.n ?? 0) >= quota) {
       this.logEvent('quota', String(input.appId), 'quota_rejected', `quota=${quota} name=${input.name}`)

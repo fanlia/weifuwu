@@ -757,7 +757,12 @@ async function runAllAgents(
     } // @all 之外的定向分支闭合
   }
 
-  const recentMessages = (await sql`
+  // 历史隔离（2027-09 实证——S7b）：campaign 派单消息（attachmentMsgId 带
+  // 'campaign-' 前缀）不带历史——真实事故：campaign 多次派单后历史堆积
+  // 「收到」文本（assistant 只回文字不调工具）→ 模型模仿历史惯例（自强化
+  // 循环）→ 角色永不执行工具（单角色 45s 全链 → 卡死 10+ 分钟「收到」）——
+  // campaign 每次运行独立上下文（零历史污染）
+  const recentMessages = attachmentMsgId.startsWith('campaign-') ? [] : (await sql`
     SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type,
       m.reply_to, r.content as reply_content, ra.name as reply_sender_name
     FROM messages m
