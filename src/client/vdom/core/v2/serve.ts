@@ -219,6 +219,10 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
           win.history.replaceState({}, '', loc)
           return resolveFlow(loc, depth + 1)
         }
+        // 无路由 404（未注册 notFound 且无匹配）——显式抛错（实证：视为终态
+        // 成功 → 旧视图残留——stats 页点「← 填写页」URL 变但内容不变）——
+        // navigate catch 兜底完整导航（填写页/列表页等服务器独立 html）
+        if (res.status === 404) throw new Error(`[vdom] 无路由：${path}——回退页面级导航`)
         return fromArray([void 0]) // 终态（handler 已调 ctx.stream——渲染路径）
       }),
     )
@@ -241,8 +245,11 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
       guardedResolve(path).subscribe({ next: () => resolve(), error: (e) => reject(e), complete: () => resolve() })
     })
   }
+  /** 完整 URL（pathname + search——popstate/boot/render 统一——
+   *  实证：?c=A→B 只变 query——pathname 相同——路由不重解析——页面残留旧视角） */
+  const currentUrl = (): string => win.location.pathname + win.location.search
   const render = async (): Promise<void> => {
-    await resolvePath(win.location.pathname)
+    await resolvePath(currentUrl())
   }
 
 
@@ -260,7 +267,13 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   // **导航（pushState + 统一解析——await 完成）**
   const navigate = async (path: string): Promise<void> => {
     win.history.pushState({}, '', path)
-    await resolvePath(path)
+    try {
+      await resolvePath(path)
+    } catch {
+      // 无路由（404）→ 完整导航（SPA router 未注册路径——服务器可能有页面——
+      // 实证：stats 页「← 填写页」/「任务列表」链接——半跳转根治）
+      win.location.href = path
+    }
   }
   ;(ctx as Record<string, unknown>).app = { navigate }
 
@@ -271,6 +284,9 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
     if (!a) return
     const href = a.getAttribute('href')
     if (!href || href.startsWith('http') || href.startsWith('#')) return
+    // 无匹配路由 → 不拦截——浏览器默认完整导航（服务器页面：填写页/
+    // 列表页——实证：拦截+navigate 落空 = URL 变内容不变的半跳转）
+    if (!router.has(href)) return
     e.preventDefault()
     void navigate(href)
   }
@@ -278,12 +294,15 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
 
   // **popstate（前进/后退 → 解析当前 URL）**
   const onPopstate = (): void => {
-    void resolvePath(win.location.pathname).catch((e) => console.error('[vdom] v2 popstate:', e))
+    void resolvePath(currentUrl()).catch(() => {
+      // 无路由（back/forward 到 SPA 外服务器页面——填写页/列表页）→ reload 完整加载
+      win.location.reload()
+    })
   }
   win.addEventListener('popstate', onPopstate)
 
   // **首帧 boot**（v1 ready 等价）
-  void resolvePath(win.location.pathname).catch((e) => console.error('[vdom] v2 首帧:', e))
+  void resolvePath(currentUrl()).catch((e) => console.error('[vdom] v2 首帧:', e))
 
   let disposed = false
   const handle = {

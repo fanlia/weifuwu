@@ -43,6 +43,12 @@ export class UIRouter {
     return this
   }
 
+  /** 路由存在性（onDocClick 决策：无匹配 → 不拦截——默认完整导航——
+   *  实证：stats 页「← 填写页」链接被拦截但 navigate 落空——半跳转） */
+  has(path: string): boolean {
+    return trieMatch(this.root, splitPath(new URL(path, 'http://x').pathname)) !== null
+  }
+
   /** 404 兜底 */
   notFound(handler: PageHandler): this {
     this.notFoundHandler = handler
