@@ -102,18 +102,25 @@ export const Chat: Component = (_props, ctx) => {
   let fileInputEl: HTMLInputElement | null = null
   const fileInputRef = (el: any) => { fileInputEl = el }
   const pickFile = () => { fileInputEl?.click() }
+  /** **文件入列（2027-09——拖拽上传与按钮共享链）**：大小校验 → FileReader
+   *  → $.files 累积 → 渲染（发送时随消息上传）——拖拽与 input 选择同一
+   *  消费面（无第二套逻辑——拖拽坏如按钮坏） */
+  const addFiles = (files: File[]) => {
+    for (const f of files) {
+      if (f.size > 20 * 1024 * 1024) { ctx.toast!(`「${f.name}」过大（上限 20MB）`, 'warning'); continue }
+      const reader = new FileReader()
+      reader.onload = () => {
+        const data = String(reader.result ?? '').split(',')[1] ?? ''
+        $.files = [...$.files, { name: f.name, data, size: f.size }]
+        rerender()
+      }
+      reader.readAsDataURL(f)
+    }
+  }
   const onFilePick = (e: Event) => {
     const input = e.target as HTMLInputElement
-    const f = input.files?.[0]
-    if (!f) return
-    if (f.size > 20 * 1024 * 1024) { ctx.toast!('文件过大（上限 20MB）', 'warning'); input.value = ''; return }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const data = String(reader.result ?? '').split(',')[1] ?? ''
-      $.files = [...$.files, { name: f.name, data, size: f.size }]
-      rerender()
-    }
-    reader.readAsDataURL(f)
+    const files = [...(input.files ?? [])]
+    addFiles(files)
     input.value = ''
   }
   const deptId = ctx.route?.params?.id ?? ''
@@ -668,7 +675,41 @@ export const Chat: Component = (_props, ctx) => {
     rerender()
   }
 
+  /** 拖拽上传（2027-09——拖文件入消息区即入列——现代 IM 标配）：
+   *  - dragenter/dragover 高亮（直接 DOM outline——零渲染——不扰渲染管线）
+   *  - drop → addFiles（与按钮共享链）——非文件拖入忽略（dataTransfer.files 空）
+   *  - 监听挂载时一次（el 引用防重——卸载时机清理） */
+  let dropBoundEl: HTMLElement | null = null
+  const dragDepth = { n: 0 }
+  const onDragEnter = (e: DragEvent) => { e.preventDefault(); dragDepth.n++; if (dragDepth.n === 1) { (e.currentTarget as HTMLElement).style.outline = '2px dashed var(--wf-color-primary)' } }
+  const onDragOver = (e: DragEvent) => { e.preventDefault() }
+  const onDragLeave = () => { dragDepth.n = Math.max(0, dragDepth.n - 1); if (dragDepth.n === 0 && $.bodyEl) $.bodyEl.style.outline = '' }
+  const onDrop = (e: DragEvent) => {
+    e.preventDefault()
+    dragDepth.n = 0
+    if ($.bodyEl) $.bodyEl.style.outline = ''
+    const files = [...(e.dataTransfer?.files ?? [])]
+    if (files.length > 0) addFiles(files)
+  }
+  const bindDrop = (el: HTMLElement | null) => {
+    if (el === dropBoundEl) return
+    if (dropBoundEl) {
+      dropBoundEl.removeEventListener('dragenter', onDragEnter as any)
+      dropBoundEl.removeEventListener('dragover', onDragOver as any)
+      dropBoundEl.removeEventListener('dragleave', onDragLeave as any)
+      dropBoundEl.removeEventListener('drop', onDrop as any)
+      dropBoundEl = null
+    }
+    if (el) {
+      el.addEventListener('dragenter', onDragEnter as any)
+      el.addEventListener('dragover', onDragOver as any)
+      el.addEventListener('dragleave', onDragLeave as any)
+      el.addEventListener('drop', onDrop as any)
+      dropBoundEl = el
+    }
+  }
   const chatBodyRef = (el: HTMLElement | null) => {
+    bindDrop(el)
     if (el) { $.bodyEl = el; scrollToBottom(true) }
     if (!el && $.bodyEl) {
       $.bodyEl = null

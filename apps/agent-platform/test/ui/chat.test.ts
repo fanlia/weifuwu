@@ -80,6 +80,45 @@ async function injectWf(room: string, events: any[]): Promise<void> {
   if (!r.ok) throw new Error(`wf 注入失败: ${await r.text()}`)
 }
 
+test('拖拽上传：文件拖入消息区 → 入列预览（2027-09——拖拽与按钮共享链）', async () => {
+  const page = await browser.newPage()
+  await injectAuth(page, owner)
+  await openAgentPage(page, BASE, `/chat/${deptId}`)
+  await waitForBodyText(page, /发送/)
+  // DataTransfer 构造——真实 DragEvent（drop 面——同一 addFiles 链）
+  await page.evaluate(() => {
+    const dt = new DataTransfer()
+    dt.items.add(new File(['商品,数量\n苹果,3\n'], '拖拽文件.csv', { type: 'text/csv' }))
+    const el = document.querySelector('.wf-overflow-auto')
+    if (!(el instanceof HTMLElement)) throw new Error('消息容器未找到——拖拽目标缺失')
+    el.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt }))
+    el.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }))
+  })
+  // 入列断言：文件 chip 出现（📎 拖拽文件.csv——addFiles 链渲染面）
+  await waitForBodyText(page, /拖拽文件\.csv/, 5_000)
+  // 高亮清理断言：drop 后 outline 清除
+  const outline = await page.evaluate(() => (document.querySelector('.wf-overflow-auto') as HTMLElement)?.style.outline ?? '')
+  assert.equal(outline, '', 'drop 后拖拽高亮应清除')
+  await page.close()
+})
+
+test('拖拽上传：非文件拖入（无 files）→ 零副作用（不崩不弹）', async () => {
+  const page = await browser.newPage()
+  await injectAuth(page, owner)
+  await openAgentPage(page, BASE, `/chat/${deptId}`)
+  await waitForBodyText(page, /发送/)
+  const before = await page.evaluate(() => document.body.innerText.length)
+  await page.evaluate(() => {
+    const dt = new DataTransfer()
+    const el = document.querySelector('.wf-overflow-auto')
+    if (el instanceof HTMLElement) el.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }))
+  })
+  await page.waitForTimeout(200)
+  const after = await page.evaluate(() => document.body.innerText.length)
+  assert.equal(after, before, '空 DataTransfer drop —— 页面无变化')
+  await page.close()
+})
+
 test('发送后输入框清空（2027-09——输入残留回归）', async () => {
   const page = await browser.newPage()
   await injectAuth(page, owner)
