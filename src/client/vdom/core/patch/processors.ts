@@ -59,9 +59,9 @@ export function procCreate(applier: CommandApplier, cmd: Extract<Command, { op: 
     const el = createEl(applier.doc, cmd.tag)
     applyAttrs(el, cmd.attrs)
     if (existing) {
-      // 类型不符 → 替换（同构保持）——旧节点卸载资源释放
-      applier.clearNodeRefs(cmd.id)
-      applier.eventRegistry.remove(cmd.id)
+      // 类型不符 → 替换（同构保持）——旧节点卸载资源释放（O(1) 单删——P1）
+      applier.refRegistry.unmountOne(cmd.id)
+      applier.eventRegistry.removeOne(cmd.id)
       existing.replaceWith(el)
     }
     applier.nodes.set(cmd.id, el)
@@ -140,6 +140,7 @@ export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 
     const after = parent.nextSibling && parent.nextSibling.parentNode === container ? parent.nextSibling : null
     container.insertBefore(el, after)
     if (el.nodeType === 1) applier.refRegistry.mount(cmd.id, el as HTMLElement)
+    applier.registerChild(cmd.parent, cmd.id)
     return
   }
   // **id 空间防御（2026-XX——锚父）**：insert 到注释（锚）——真实 DOM
@@ -152,6 +153,7 @@ export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 
     const container = parent.parentElement
     if (container) container.insertBefore(el, parent.nextSibling)
     if (el.nodeType === 1) applier.refRegistry.mount(cmd.id, el as HTMLElement)
+    applier.registerChild(cmd.parent, cmd.id)
     return
   }
   if (cmd.ref) {
@@ -181,6 +183,7 @@ export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 
     parent.insertBefore(el, parent.firstChild)
   }
   if (el.nodeType === 1) applier.refRegistry.mount(cmd.id, el as HTMLElement)
+  applier.registerChild(cmd.parent, cmd.id)
 }
 
 /** move 处理器（顺移 remap / 移动 + 重映射） */
@@ -200,26 +203,36 @@ export function procMove(applier: CommandApplier, cmd: Extract<Command, { op: 'm
   applier.remapSubtree(cmd.id, cmd.newId)
 }
 
-/** remove 处理器（卸载——ref(null) + 事件表 + 节点移除） */
+/** remove 处理器（卸载——ref(null) + 事件表 + 节点移除）
+ *  P1 性能升级（2027-09——admin 全量 59s 实证）：原实现每次 remove 全量
+ *  扫描 nodes（前缀 startsWith）——16k 条 remove × 160k 节点 = 2.6B 次
+ *  匹配——O(N²)——改为 childIds 索引 DFS 收集（O(k)）。
+ *  防御语义保持：子树记录清理（transform 组件→X 只发首 remove——无旧
+ *  vnode 引用无法递归发命令——子节点记录残留——按 id 前缀清全部后代
+ *  （keyed 子树 root.0.1.k3.0 同样路径前缀——事件/ref 表同步清）——
+ *  **索引主路径 + 前缀兜底**（索引未覆盖路径——防御降级——不静默） */
 export function procRemove(applier: CommandApplier, cmd: Extract<Command, { op: 'remove' }>): void {
-  applier.clearNodeRefs(cmd.id)
-  applier.eventRegistry.remove(cmd.id)
+  applier.refRegistry.unmountOne(cmd.id)
+  applier.eventRegistry.removeOne(cmd.id)
   applier.nodes.get(cmd.id)?.remove()
-  // **子树 nodes 记录清理（真实 bug——PatternLive 场景——SPA 导航 demo 混合）**：
-  // transform 组件→X 只发首节点 remove（无旧 vnode 引用无法递归发命令）——
-  // 子节点记录残留——procCreate 同 tag 复用残留记录（旧 DOM 对象——含旧
-  // 子树 children）→ 插入 DOM 时旧子树复活（workspace 页残留 AppShell 导航
-  // ——data-wf-id 相同实证）——按 id 路径前缀清全部后代记录（keyed 子树
-  // root.0.1.k3.0 同样路径前缀——事件/ref 表同步清）
-  const prefix = cmd.id + '.'
-  for (const id of [...applier.nodes.keys()]) {
-    if (id.startsWith(prefix)) {
-      applier.clearNodeRefs(id)
-      applier.eventRegistry.remove(id)
-      applier.nodes.delete(id)
+  // 子树收集：索引 DFS（主路径）——索引未命中（漏登记旧树）→ 前缀兜底
+  const sub = applier.childIds.size > 0 ? applier.collectDesc(cmd.id) : null
+  const ids: string[] = sub ?? []
+  if (!sub) {
+    // 兜底（索引空时——历史行为）：全量前缀扫描
+    const prefix = cmd.id + '.'
+    for (const id of [...applier.nodes.keys()]) {
+      if (id.startsWith(prefix)) ids.push(id)
     }
   }
+  for (const id of ids) {
+    applier.refRegistry.unmountOne(id)
+    applier.eventRegistry.removeOne(id)
+    applier.nodes.delete(id)
+    applier.unregisterChild(id)
+  }
   applier.nodes.delete(cmd.id)
+  applier.unregisterChild(cmd.id)
 }
 
 /** setText 处理器（就地更新）
@@ -298,10 +311,11 @@ export function procDone(applier: CommandApplier, cmd: Extract<Command, { op: 'd
   if (cmd.full && applier.touched.size > 0) {
     for (const [id, el] of [...applier.nodes]) {
       if (!applier.touched.has(id)) {
-        applier.clearNodeRefs(id)
-        applier.eventRegistry.remove(id)
+        applier.refRegistry.unmountOne(id)
+        applier.eventRegistry.removeOne(id)
         el.remove()
         applier.nodes.delete(id)
+        applier.unregisterChild(id)
       }
     }
   }

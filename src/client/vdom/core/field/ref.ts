@@ -67,6 +67,16 @@ export class RefRegistry {
       }
     }
   }
+  /** O(1) 单个 ref 卸载（**P1 性能升级（2027-09——admin 全量 59s 实证）**：
+   *  procRemove 子树循环逐条调用——替代 unmount（全量前缀扫描 × 16k 条
+   *  = O(N²)）——procDone 同步改造） */
+  unmountOne(id: string): void {
+    const fn = this.refs.get(id)
+    if (typeof fn === 'function') {
+      try { (fn as (el: null) => void)(null) } catch (e) { console.error('[vdom] ref unmount:', e) }
+    }
+    this.refs.delete(id)
+  }
 
   /** move 前缀重映射（节点移动——id 路径变化——表跟随） */
   remap(oldPrefix: string, newPrefix: string): void {

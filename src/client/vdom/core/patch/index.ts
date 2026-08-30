@@ -28,12 +28,51 @@ export class CommandApplier {
   nodes = new Map<string, WfNode>()
   /** 本流已创建 id（done.full 清理） */
   touched = new Set<string>()
+  /** P1 性能索引：父子（parent id → 子 id 集合）——procRemove 子树收集
+   *  O(N²)（前缀全量扫描——admin 全量 59s 实证）→ O(k) DFS。
+   *  语义：id 空间逻辑树（cmd.parent 字符串键——组件逻辑父/锚父同构——
+   *  与 DOM 树不必一致——collectDesc 从自身出发不受影响）。 */
+  childIds = new Map<string, Set<string>>()
+  /** P1 反向索引（child id → parent id）——O(1) 摘除——防泄漏 */
+  byChild = new Map<string, string>()
+  /** 登记父子（procInsert 成功后——幂等） */
+  registerChild(parent: string, id: string): void {
+    this.byChild.set(id, parent)
+    let s = this.childIds.get(parent)
+    if (!s) { s = new Set(); this.childIds.set(parent, s) }
+    s.add(id)
+  }
+  /** 摘除子登记（O(1)——byChild 反查父集合——空集合清键） */
+  unregisterChild(id: string): void {
+    const parent = this.byChild.get(id)
+    if (parent === undefined) return
+    this.byChild.delete(id)
+    const s = this.childIds.get(parent)
+    if (s) {
+      s.delete(id)
+      if (s.size === 0) this.childIds.delete(parent)
+    }
+  }
+  /** 子树收集（DFS——含自身——O(k)——procRemove 主路径） */
+  collectDesc(id: string): string[] {
+    const out: string[] = []
+    const stack = [id]
+    while (stack.length > 0) {
+      const cur = stack.pop()!
+      out.push(cur)
+      const kids = this.childIds.get(cur)
+      if (kids) for (const k of kids) stack.push(k)
+    }
+    return out
+  }
   /** **整树替换式重置（2027-09——tour 违例实证）**：resetRoot（innerHTML
    *  清空）后记录表同步清——后续 build 的 parentOf 不再命中残留锚
    *  （DOM 已脱离——记录越权应用→id 空间违例）——事件/ref 清表不清监听 */
   reset(): void {
     this.nodes.clear()
     this.touched.clear()
+    this.childIds.clear()
+    this.byChild.clear()
     this.eventRegistry.clear()
     this.refRegistry.clear()
   }
@@ -97,6 +136,31 @@ export class CommandApplier {
         const el = this.nodes.get(newPrefix + id.slice(oldPrefix.length))
         if (el && el.nodeType === 1) (el as HTMLElement).setAttribute('data-wf-id', newPrefix + id.slice(oldPrefix.length))
       }
+    }
+    // **P1 索引迁移（childIds/byChild——与 nodes 同前缀规则——保持两表
+    //  强一致——否则后续 remove 的 collectDesc 走旧键落空（防御残留））**
+    for (const [childId, parentId] of [...this.byChild]) {
+      const inTree = childId === oldPrefix || childId.startsWith(oldPrefix + '.')
+      const parentInTree = parentId === oldPrefix || parentId.startsWith(oldPrefix + '.')
+      if (!inTree && !parentInTree) continue
+      const newChild = inTree ? newPrefix + childId.slice(oldPrefix.length) : childId
+      const newParent = parentInTree ? newPrefix + parentId.slice(oldPrefix.length) : parentId
+      this.byChild.delete(childId)
+      this.byChild.set(newChild, newParent)
+      const s = this.childIds.get(parentId)
+      if (s) {
+        s.delete(childId)
+        if (s.size === 0) this.childIds.delete(parentId)
+      }
+      let ns = this.childIds.get(newParent)
+      if (!ns) { ns = new Set(); this.childIds.set(newParent, ns) }
+      ns.add(newChild)
+    }
+    // 子树根自身作为子的登记迁移（当子树本身是另一节点的子）
+    const oldParent = this.byChild.get(oldPrefix)
+    if (oldParent !== undefined && !this.byChild.has(newPrefix)) {
+      this.unregisterChild(oldPrefix)
+      this.registerChild(oldParent, newPrefix)
     }
     this.refRegistry.remap(oldPrefix, newPrefix)
     for (const id of [...this.eventRegistry['table'].keys()]) {

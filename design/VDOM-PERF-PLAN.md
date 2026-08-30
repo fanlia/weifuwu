@@ -1,0 +1,81 @@
+# VDOM 性能升级计划（2027-09——admin 全量渲染 59s 实证驱动）
+
+> **触发**：用户决策「/admin 租户表全量渲染（不截断/不分页）」——以 vdom 核心层
+> 性能升级根治（而非应用层规避）。仓库纪律：核心层修复惠及全部组件。
+> **诚实基线**：全量 1604 行 = 1622 tr / 12976 td / 3248 button / ~160k 节点——
+> 从 /admin 切走（卸载）实测 **59s**（Long Task）——超线性（200 行时 1.15s——
+> ×8 数据 → ×50 时间——O(N²) 特征）。
+
+---
+
+## 1. 实证画像（浏览器内——真实消费端）
+
+| 场景 | 规模 | 耗时 | 结论 |
+|---|---|---|---|
+| 引擎命令流（contract v2-lifecycle） | 10k 节点 build+diff | **113ms** | 生成端（build/diff）**快**——非瓶颈 |
+| admin 页渲染（全量） | 160k 节点 | 页面可出（数秒） | mount 线性——可接受 |
+| admin → agents 切换（200 行时代） | 20k 节点 | 1.15s（Long Task 1153ms） | 卸载超线性 |
+| admin → agents 切换（全量 1604 行） | 160k 节点 | **59s**（Long Task 59172ms） | **O(N²) 实锤** |
+
+**归因**：×8 数据 → ×50 时间（线性应为 ×8）——符合 O(N²)。候选点全部在
+**消费端**（proc*）：
+
+```
+procRemove（processors.ts:215）：
+  const prefix = cmd.id + '.'
+  for (const id of [...applier.nodes.keys()])      ← 每次 remove 全量扫 nodes（160k）
+    if (id.startsWith(prefix)) ...
+  16k 条 remove × 160k 节点 = 2.6B 次 startsWith    ← 主元凶
+```
+
+次要（记入波次 2——同族）：
+```
+procInsert ref 组件 id 回退（processors.ts:155）：ref 指向 compId 时全量扫
+  nodes 找前缀最后命中（每插入 O(N)——仅 ref=组件 id 路径——常规列表不触发）
+remapSubtree（patch/index.ts:76）：nodes/事件/registry 三表前缀全量扫描
+  （仅 keyed move 触发——每次 O(N)——keyed 大列表移动场景）
+```
+
+---
+
+## 2. 优化矩阵（按 ROI 排序——实证驱动——无场景证据不造抽象）
+
+| # | 面 | 机制 | 复杂度 | 收益 | 波次 |
+|---|---|---|---|---|---|
+| P1 | **procRemove 子树索引** | nodes 表之外维护 `childIds: Map<父id, Set<子id>>`——remove 时 DFS 收集子树 O(k)——替换前缀全量扫描 | O(N²)→O(N) | **59s → 目标 <2s** | 1 |
+| P2 | procInsert ref 组件 id 回退索引化 | 同一 childIds——ref=compId 时取子空间「最后前缀命中」= 索引末项 | O(N)→O(k) | 流式列表 ref 路径 | 2 |
+| P3 | remapSubtree 三表索引联动 | 迁移时同搬 childIds（顺带）；三表全量扫描本身保留（move 低频） | 不变 | 消除与新索引的漂移 | 2 |
+| P4 | done.full touched 清理 | 复用索引只扫未 touched 子树（当前全量一次——线性——低优先） | 不变 | 边缘 | 3 |
+| P5 | 事件代理（16k 事件单监听） | 已有 document 捕获代理 → 无需优化（实证过） | — | 判负 | — |
+| P6 | Table/Button 组件层 | 组件实例数 = 渲染数——全量场景本质成本——组件级优化面（keyed columns 等） | — | 场景证据不足——**判负**（不造抽象） | — |
+
+**P1 细节**（单一实现源——index.ts 持有索引——processors 消费）：
+- `registerChild(parent, id)`：procInsert 成功后登记（幂等 Set）
+- `collectDesc(id)`：DFS 收集子树（含自身）——O(k)
+- 维护点：insert（登记）/ remove（收集+删除）/ remapSubtree（前缀迁移）/
+  reset（清空）——**id 前缀依赖是防御兜底——索引是主路径——两表强一致**
+- **父键语义**：按 cmd.parent 字符串（组件逻辑父也可能是键——与 DOM 树
+  不同构——但 id 空间逻辑树一致——collectDesc 从自身出发——不受影响）
+- 防御保留：`nodes.get(id)` 不符时仍走旧兜底（注释历史 bug 场景——索引
+  未覆盖的路径显式降级——不允许静默）
+
+## 3. 验收（each 波次）
+
+| 项 | 判据 |
+|---|---|
+| 契约层 | 全量 `npm run test`（contract）绿——diff/keyed/reconcile/fuzz 1200+300 |
+| 场景层 | e2e-reconcile 真实 DOM 对账绿（id 唯一/兄弟连续/投影完整） |
+| 浏览器实测 | admin 全量 1604 行 → 切走 ≥ **10x**（59s → <6s）；同 200 行时代 1.15s → <300ms |
+| 回归 | test:ui 61/61；tsc 0 |
+| 防线 | 性能契约 v2-lifecycle 10k <2s/<500ms 保持 |
+
+## 4. 演进记录
+
+- **2027-09 波次 1（已完成——commit 见 git log）**：
+  - P1 procRemove 子树索引（childIds/byChild——O(N²)→O(k) DFS）
+  - P1b **事件表/ref 表单删 O(1)**（removeOne/unmountOne——原 remove/unmount
+    也是全量前缀扫描 × 16k 条 = 双倍 O(N²)——实测节点索引后仍 15.3s——
+    三表索引化后 **310ms**）
+  - 实测：admin 全量 1604 行切走 **59172ms → 310ms（190 倍）**——唯一长
+    任务 310ms；页面 3s 内就绪；契约 88/88 + 场景 12/12 + ui 61/61 绿；tsc 0
+- （历史）2027-08：全量 1292 行 2.4s 卡死 → 应用层截断 200（本计划撤销——用户决策全量）

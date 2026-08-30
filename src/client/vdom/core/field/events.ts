@@ -75,10 +75,18 @@ export class EventRegistry {
   }
 
   /** 子树清理（id 前缀匹配——remove/done 卸载指令） */
+  /** 子树删除（全量前缀扫描——**P1 性能升级前**的 O(N²) 路径——保留供
+   *  非 procRemove 调用方（dispose 等）——proc 消费端改用 removeOne 循环） */
   remove(nodeId: string): void {
     for (const id of [...this.table.keys()]) {
       if (id === nodeId || id.startsWith(nodeId + '.')) this.table.delete(id)
     }
+  }
+  /** O(1) 单个节点删除（**P1 性能升级（2027-09——admin 全量 59s 实证）**：
+   *  procRemove 子树循环逐条调用——替代 remove（全量前缀扫描 × 16k 条
+   *  = O(N²)）——procDone 同步改造） */
+  removeOne(nodeId: string): void {
+    this.table.delete(nodeId)
   }
 
   /** 根监听动态注册（document 捕获——首次绑定某事件类型——容器过滤可达） */
