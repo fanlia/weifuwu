@@ -23,6 +23,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sandboxEmit } from './events.ts'
 import { type SandboxHost, HOST_ID } from './host.ts'
+import { randomUUID } from 'node:crypto'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -114,6 +115,10 @@ export class DockerSandbox implements SandboxHost {
   readonly runningExecs = new Map<string, { tool: string; startedAt: number; timeoutMs: number }>()
   /** 事件回调（manager 注入——exec 生命周期写 sandbox_events） */
   onExecEvent: ((sandboxId: string, type: string, detail?: string) => void) | null = null
+  /** 容器核心（HTTP /exec）：agent token（容器启动时生成——Map<id, token>） */
+  private agentToken = new Map<string, string>()
+  /** 容器核心：宿主映射端口（docker inspect 缓存——Map<id, hostPort>） */
+  private agentPort = new Map<string, string>()
 
   constructor(options?: Partial<SandboxOptions>) {
     this.opts = { ...DEFAULT_OPTIONS, ...options }
@@ -307,6 +312,9 @@ export class DockerSandbox implements SandboxHost {
       '-v', `${spec.ws}:/ws`,
       '-v', `${this.opts.agentPath}:/opt/sandbox/sandbox-agent:ro`,
       '--entrypoint', '/opt/sandbox/sandbox-agent',
+      // 容器核心：token 注入 + 宿主 loopback 端口映射（仅本机可达——/exec 鉴权）
+      '-e', `SANDBOX_AGENT_TOKEN=${this.agentToken.get(sandboxId) ?? (this.agentToken.set(sandboxId, randomUUID()), this.agentToken.get(sandboxId))}`,
+      '-p', '127.0.0.1::5711',
       '-w', '/ws',
       '--network', spec.network ? 'bridge' : 'none',
       ...(spec.network ? ['--add-host', 'host.docker.internal:host-gateway'] : []),
@@ -325,6 +333,8 @@ export class DockerSandbox implements SandboxHost {
 
   /** 销毁容器（终止/驱逐/清理） */
   async dispose(sandboxId: string): Promise<void> {
+    this.agentToken.delete(sandboxId)
+    this.agentPort.delete(sandboxId)
     await dockerCli(['rm', '-f', containerName(sandboxId)])
   }
 
@@ -354,6 +364,9 @@ export class DockerSandbox implements SandboxHost {
       '-v', `${spec.ws}:/ws`,
       '-v', `${this.opts.agentPath}:/opt/sandbox/sandbox-agent:ro`,
       '--entrypoint', '/opt/sandbox/sandbox-agent',
+      // 容器核心：token 注入 + 宿主 loopback 端口映射（仅本机可达——/exec 鉴权）
+      '-e', `SANDBOX_AGENT_TOKEN=${this.agentToken.get(sandboxId) ?? (this.agentToken.set(sandboxId, randomUUID()), this.agentToken.get(sandboxId))}`,
+      '-p', '127.0.0.1::5711',
       '-w', '/ws',
       '--network', spec.network ? 'bridge' : 'none',
       ...(spec.network ? ['--add-host', 'host.docker.internal:host-gateway'] : []),
@@ -450,12 +463,24 @@ export class DockerSandbox implements SandboxHost {
     this.onExecEvent?.(sandboxId, 'exec_start', tool)
     try {
       const payload = JSON.stringify({ tool, args })
-      const secs = Math.max(3, Math.floor(this.opts.execTimeoutMs / 1000))
+      // 超时分级（execTimeoutMs 参数——HTTP 头/容器 env 传外层——内部 = 外层 − 2s）
+      const secs = Math.max(3, Math.floor(timeoutMs / 1000))
       // 容器内 timeout 兜底（P0-3）；bash 进程树由 Go agent 内部（Setpgid）
       // spawn detached + kill(-pid) 先杀（-e 传外层超时——内部 = 外层 − 2s）
-      const r = await this.dockerExec(containerName(sandboxId),
-        ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), '/opt/sandbox/sandbox-agent', 'exec'],
-        payload)
+      // 容器核心：HTTP /exec 优先（常驻 agent——无 docker exec 进程开销）——
+      // 失败（无 token/端口/网络）回退 docker exec（过渡/agent 挂——双路径）
+      let r: { output: string; exitCode: number; timedOut: boolean } | null = null
+      const token = this.agentToken.get(sandboxId)
+      const port = token ? await this.agentHostPort(sandboxId) : null
+      if (token && port) {
+        const hr = await this.httpExec(port, token, payload, timeoutMs)
+        if (!hr.failed) r = { output: hr.output, exitCode: hr.exitCode, timedOut: hr.timedOut }
+      }
+      if (r === null) {
+        r = await this.dockerExec(containerName(sandboxId),
+          ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), '/opt/sandbox/sandbox-agent', 'exec'],
+          payload)
+      }
       if (r.timedOut) {
         this.execStats.execTimeouts++
         this.onExecEvent?.(sandboxId, 'exec_timeout', `${tool} ${secs}s`)
@@ -492,6 +517,46 @@ export class DockerSandbox implements SandboxHost {
    * docker exec（容器内命令）。超时：杀 exec 客户端 + 状态上报
    * （容器内 timeout 已保证进程树终止——此定时器是兜底）
    */
+  /** 容器核心：宿主映射端口（inspect 查询——缓存——容器重建后 dispose 清） */
+  private async agentHostPort(sandboxId: string): Promise<string | null> {
+    const cached = this.agentPort.get(sandboxId)
+    if (cached) return cached
+    const name = containerName(sandboxId)
+    const r = await dockerCli(['inspect', name, '--format', '{{(index (index .NetworkSettings.Ports "5711/tcp") 0).HostPort}}'], 10_000)
+    if (r.exitCode !== 0 || !r.stdout.trim()) return null
+    this.agentPort.set(sandboxId, r.stdout.trim())
+    return r.stdout.trim()
+  }
+
+  /** 容器核心：HTTP /exec（token 鉴权——fetch 超时=timedOut——失败回退 docker） */
+  private async httpExec(
+    port: string, token: string, payload: string, timeoutMs: number,
+  ): Promise<{ output: string; exitCode: number; timedOut: boolean; failed: boolean }> {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs + 5000)
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/exec`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-sandbox-token': token,
+          'x-sandbox-timeout': String(Math.max(3, Math.floor(timeoutMs / 1000))),
+        },
+        body: payload,
+        signal: ctrl.signal,
+      })
+      const text = await res.text()
+      // 403/500（token 不匹配/agent 内部异常）→ 回退 docker exec 路径
+      const failed = !res.ok
+      return { output: text, exitCode: failed ? 1 : 0, timedOut: false, failed }
+    } catch (e) {
+      const aborted = (e as Error)?.name === 'AbortError'
+      return { output: '', exitCode: aborted ? -1 : 1, timedOut: aborted, failed: true }
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   private async dockerExec(
     container: string,
     cmdArgs: string[],
