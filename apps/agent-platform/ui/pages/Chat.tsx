@@ -14,6 +14,7 @@ interface WsWorkspaceResponse {
   subDepartments?: Array<{ id: string; name: string; managerId: string; managerName: string; memberCount: number; files: Array<{ name: string; type: string; size: number; mtime: string }> }>
 }
 import type { Agent, ChatMessage, Member, Message, MessageListResponse, MessageTool } from '../lib/types'
+import { applyWfEvent } from '../lib/wf-events.ts'
 
 /** B1（2026-08）：ai_step → MessageTool[]（刷新后工具条恢复）——
  * 步骤存 msg_type 工具步骤——转换 { tool, ok, result } → { name, status, result } */
@@ -392,17 +393,12 @@ export const Chat: Component = (_props, ctx) => {
   /** **AI 消息占位自愈（2027-09）**：wf:* 事件消息未在 $.msgs（首事件
    * 可能是 wf:step tool——无 llm 前置 push）——创建占位（内容空——
    * 后续 token 累积）——否则 wf:token/done idx=-1 全 skip——前端零消息 */
-  const ensureAiMsg = (event: any): number => {
-    const mid = String(event.messageId ?? '')
-    const idx = $.msgs.findIndex((m: ChatMessage) => m.id === mid)
-    if (idx !== -1) return idx
-    if (!mid) return -1
-    $.msgs.push({
-      id: mid, sender_id: event.agentId ?? 'ai', sender_name: event.agentName ?? 'AI',
-      sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(),
-      status: 'generating', tools: [] as MessageTool[],
-    })
-    return $.msgs.length - 1
+  /** wf 协议应用（2027-09——纯函数状态机 ui/lib/wf-events.ts——
+   *  占位自愈/工具累积/状态推进——应用层只做 setAiWorking 与引用替换） */
+  const applyWf = (event: any) => {
+    const r = applyWfEvent($.msgs, event)
+    $.msgs = r.msgs
+    for (const w of r.working) setAiWorking(w.agentId, w.on)
   }
 
   const unsub: (() => void) | undefined = ctx.ws?.onMessage((event: any) => {
@@ -418,75 +414,25 @@ export const Chat: Component = (_props, ctx) => {
         }
         ; break
       case 'wf:step': {
-        // 框架协议：stepType 'llm'（开始思考）/ 'tool'（工具调用）
-        // **占位自愈（2027-09——第二次发送看不到 AI 输出实证）**：工具型
-        // 回复首事件可能是 wf:step tool（无 llm 前置）——消息未 push 时
-        // idx=-1——旧逻辑 tool 分支跳过 → 后续 wf:token/done 全 skip——
-        // 前端零消息（刷新后 loadMessages 可见）——统一占位创建
-        const idx = ensureAiMsg(event)
-        // P2-1：AI 干活中状态（左栏呼吸灯）
-        setAiWorking(event.agentId, true)
-        if (event.stepType === 'llm') {
-          if (idx === -1) {
-            $.msgs.push({ id: event.messageId, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'thinking', tools: [] as MessageTool[] })
-          } else if ($.msgs[idx].status !== 'complete' && $.msgs[idx].status !== 'error') {
-            // 新建对象（引用变——vdom3 props 剪枝浅比较不命中——重渲染——
-            // 否则原地改引用同 → 剪枝 → 状态/内容不更新（流式空 bubble 真实 bug））
-            $.msgs[idx] = { ...$.msgs[idx], status: 'thinking' }
-          }
-        } else if (event.stepType === 'tool') {
-          if (idx !== -1) {
-            const m = $.msgs[idx]
-            const tools = m.tools ?? []
-            if (!tools.some((t: MessageTool) => t.name === event.name && t.status === 'running')) {
-              // 新建对象（tools 数组 + msg——原地 push → vdom3 audit + 剪枝工具条不出现）
-              $.msgs[idx] = { ...m, tools: [...tools, { name: event.name, args: event.args, status: 'running' }] }
-            }
-          }
-        }
+        // 框架协议：stepType 'llm'（开始思考）/ 'tool'（工具调用）——占位自愈/
+        // 状态推进/tools 累积在纯函数 applyWfEvent（ui/lib/wf-events.ts——单测锁定）
+        applyWf(event)
         ; break
       }
       case 'wf:token': {
-        const idx = ensureAiMsg(event)
-        if (idx !== -1) {
-          const m = $.msgs[idx]
-          // 新建对象（引用变——vdom3 剪枝不命中——流式 token 逐字渲染）
-          $.msgs[idx] = { ...m, content: m.content + event.text, status: m.status !== 'complete' ? 'generating' : m.status }
-        }
+        applyWf(event)
         ; break
       }
       case 'wf:tool_result': {
-        const idx = ensureAiMsg(event)
-        if (idx !== -1) {
-          const m = $.msgs[idx]
-          const isErr = event.ok === false
-          // B1（2026-08）：消费框架 ok 字段——工具失败标 error（此前永远 done——
-          // 失败视觉不可见——用户实证：知识库检索报错但 UI 显示“完成”
-          const newStatus: 'done' | 'error' = isErr ? 'error' : 'done'
-          const tools = (m.tools ?? []).map((t: MessageTool) => t.name === event.name && t.status === 'running'
-            ? { ...t, status: newStatus, result: isErr ? `执行失败：${event.error ?? event.result ?? '未知错误'}` : event.result }
-            : t)
-          $.msgs[idx] = { ...m, tools, status: m.status !== 'complete' ? 'thinking' : m.status }
-        }
+        applyWf(event)
         ; break
       }
       case 'wf:done': {
-        const idx = ensureAiMsg(event)
-        if (idx !== -1) {
-          const m = $.msgs[idx]
-          $.msgs[idx] = { ...m, content: event.content ?? m.content, status: 'complete', usage: event.usage ?? m.usage }
-        }
-        // P2-1：AI 干活结束（呼吸灯复位）
-        setAiWorking(event.agentId, false)
+        applyWf(event)
         ; break
       }
       case 'wf:error': {
-        const idx = ensureAiMsg(event)
-        if (idx !== -1) {
-          const m = $.msgs[idx]
-          $.msgs[idx] = { ...m, content: m.content || '⚠️ AI 回复失败', status: 'error' }
-        }
-        setAiWorking(event.agentId, false)
+        applyWf(event)
         ; break
       }
       case 'file_updated': {
