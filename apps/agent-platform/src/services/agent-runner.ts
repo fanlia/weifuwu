@@ -214,19 +214,24 @@ async function buildToolContext(
     description: td.function.description,
     parameters: td.function.parameters,
     run: async (args) => {
-      if (skillRegistry?.hasTool(td.function.name)) {
-        return skillRegistry.executeTool(td.function.name, args)
-      }
-      const handler = getToolHandler(td.function.name)
-      if (!handler) return `Error: tool handler for "${td.function.name}" not registered`
-      // 工具上下文：暴露当前 AI agent id + 执行部门（call_agent 委托链传播）
+      // 工具上下文注入（**必须在 skillRegistry 分支前——2027-09 实证**）：
+      // read_csv（process-csv 技能）此前走 skill 分支「先返回」——
+      // _toolDepartmentId 未注入 → handler 读空 → 「无部门上下文」——
+      // 技能 handler 的 ctxProvider（chat.ts ctx）与 buildToolContext
+      // 同对象——提前注入即技能工具可见（call_agent 委托链传播同理）
       ;(ctx as any)._toolAgentId = config.agentId
       ;(ctx as any)._toolDepartmentId = config.departmentId
       try {
+        if (skillRegistry?.hasTool(td.function.name)) {
+          return skillRegistry.executeTool(td.function.name, args)
+        }
+        const handler = getToolHandler(td.function.name)
+        if (!handler) return `Error: tool handler for "${td.function.name}" not registered`
         const r = await handler(args)
         return typeof r === 'string' ? r : JSON.stringify(r)
       } finally {
         ;(ctx as any)._toolAgentId = undefined
+        ;(ctx as any)._toolDepartmentId = undefined
       }
     },
   }))
