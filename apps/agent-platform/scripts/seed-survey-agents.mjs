@@ -7,7 +7,12 @@
  * 角色流程（提示词内建）：agent-browser 打开问卷 → snapshot 读题 → fill/select/check 作答
  * → submit 提交 → 验证成功 → 结果写入部门工作目录 survey-result.json（交付物+执行验证可见）
  *
- * 用法：node --env-file=.env scripts/seed-survey-agents.mjs
+ * 用法：
+ *   node --env-file=.env scripts/seed-survey-agents.mjs                    # 10 人设（内置——默认）
+ *   node --env-file=.env scripts/seed-survey-agents.mjs --count=100       # 10 人设取前 N（≤10）
+ *   node --env-file=.env scripts/seed-survey-agents.mjs --matrix=10x10x10 --count=1000
+ *       # 矩阵人设（行业×职级×性格——1000 唯一组合）——命名规约 问卷-{行业}-{职级}-{性格}
+ *   （matrix 不带 count = 全量矩阵人设；batch=50 批建——进度日志——幂等可续跑）
  * 前置：服务启动（admin@demo.com 可登录）；问卷页 {PUBLIC_BASE_URL}/demo-survey
  */
 
@@ -28,6 +33,67 @@ const PERSONAS = [
   { name: '行政陈姐', roleLabel: '行政视角', expertise: '后勤/合规/流程', prompt: '你是行政主管陈姐，45 岁，关注合规与流程。填问卷时：评分中性偏稳，反馈聚焦流程规范与后勤支持。' },
   { name: '实习生阿泽', roleLabel: '新人视角', expertise: '上手/引导/文档', prompt: '你是实习生阿泽，22 岁，刚入职。填问卷时：评分看上手体验，反馈聚焦新人引导与文档质量。语气青涩真诚。' },
 ]
+
+/* ── 人设参数（S0——2027-09——10 测试 → 1000 生产） ── */
+const argv = process.argv.slice(2)
+const argOf = (k, d) => { const i = argv.indexOf(k); return i === -1 ? d : argv[i + 1] }
+const COUNT = parseInt(argOf('--count', '10'), 10) || 10
+const MATRIX = argOf('--matrix', '')          // '10x10x10'——行业×职级×性格
+const BATCH = parseInt(argOf('--batch', '50'), 10) || 50
+
+/** 行业轴（关注面/反馈面——prompt 模板化） */
+const INDUSTRIES = [
+  { name: '互联网', focus: '产品体验与创新速度' }, { name: '金融', focus: '安全合规与收益' },
+  { name: '制造', focus: '生产效率与质量' }, { name: '教育', focus: '教学效果与师资' },
+  { name: '医疗', focus: '专业安全与服务' }, { name: '零售', focus: '商品丰富与价格' },
+  { name: '物流', focus: '时效与配送体验' }, { name: '能源', focus: '成本与可持续' },
+  { name: '建筑', focus: '质量与工期' }, { name: '农业', focus: '收成与价格' },
+]
+/** 职级轴（年龄映射） */
+const LEVELS = [
+  { name: '实习生', age: 22 }, { name: '专员', age: 26 }, { name: '主管', age: 32 },
+  { name: '经理', age: 38 }, { name: '总监', age: 45 }, { name: 'VP', age: 50 },
+  { name: '创始人', age: 44 }, { name: '顾问', age: 40 }, { name: '自由职业', age: 35 }, { name: '退休', age: 60 },
+]
+/** 性格轴（评分倾向/语气——人设差异的确定性来源） */
+const TRAITS = [
+  { name: '谨慎', score: '倾向低分（2-3），重视风险与稳健', tone: '话不多，慎重保守' },
+  { name: '乐观', score: '给高分（4-5），看到积极面', tone: '语气积极热情' },
+  { name: '保守', score: '倾向低分（2-3），不轻易满意', tone: '语气平稳，不出彩' },
+  { name: '热情', score: '给高分（4-5），乐于肯定', tone: '语气热情洋溢' },
+  { name: '中立', score: '中等评分（3），客观理性', tone: '语气平稳客观' },
+  { name: '挑剔', score: '倾向低分（2-3），高标准严要求', tone: '语气严格，爱挑细节' },
+  { name: '随和', score: '给高分（4-5），容易满意', tone: '语气随和友善' },
+  { name: '理性', score: '中等评分（3-4），看数据说话', tone: '语气条理清晰' },
+  { name: '感性', score: '中等偏上（3-4），看感受与细节', tone: '语气真诚走心' },
+  { name: '务实', score: '中等评分（3-4），看实际效果', tone: '语气直接高效' },
+]
+
+/** 矩阵人设生成（唯一组合——网格遍历——count 截断） */
+function matrixPersonas(count) {
+  const [ni, nl, nt] = MATRIX.split('x').map((x) => parseInt(x, 10) || 10)
+  const out = []
+  for (let i = 0; i < ni && out.length < count; i++) {
+    for (let l = 0; l < nl && out.length < count; l++) {
+      for (let t = 0; t < nt && out.length < count; t++) {
+        const ind = INDUSTRIES[i % INDUSTRIES.length]
+        const lv = LEVELS[l % LEVELS.length]
+        const tr = TRAITS[t % TRAITS.length]
+        const name = `问卷-${ind.name}-${lv.name}-${tr.name}`
+        out.push({
+          name,
+          roleLabel: `${lv.name}视角`,
+          expertise: `${ind.focus}/${tr.name}`,
+          prompt: `你是${ind.name}行业的${lv.name}（${lv.age} 岁），性格${tr.name}。关注${ind.focus}。填问卷时：${tr.score}，反馈聚焦${ind.focus}。${tr.tone}。`,
+        })
+      }
+    }
+  }
+  return out
+}
+
+/** 人设池（matrix 显式 → 矩阵生成；否则内置 10 人设） */
+const PERSONA_POOL = MATRIX ? matrixPersonas(COUNT) : PERSONAS.slice(0, Math.min(COUNT, PERSONAS.length))
 
 /** 问卷填写群——5 个机器人的群组（seed 自动建好：用户进群发消息 @全员/@all，
  *  5 个机器人同时响应填写问卷——自然使用路径，无需跑 launch 派单） */
@@ -98,7 +164,13 @@ async function main() {
   }
 
   let created = 0
-  for (const p of PERSONAS) {
+  const total = PERSONA_POOL.length
+  for (let pi = 0; pi < total; pi++) {
+    const p = PERSONA_POOL[pi]
+    if (pi > 0 && pi % BATCH === 0) {
+      console.log(`  … 批进度 ${pi}/${total}（已建 ${created}）——批间小歇（不轰击 API）`)
+      await new Promise((r) => setTimeout(r, 300))
+    }
     // 1) 角色部门（每角色独立部门 = 独立沙盒——并发填写）
     let deptId = existingDepts.get(p.name)
     if (!deptId) {
@@ -141,8 +213,9 @@ async function main() {
     console.log(`✅ ${p.name}（${p.roleLabel}）——角色部门=${deptId.slice(0, 8)} agent=${String(agent.id).slice(0, 8)} 已入「问卷调研」`)
   }
 
-  console.log(`\n完成：${created} 个角色部门 + agent（每角色独立沙盒——并发填写）`)
+  console.log(`\n完成：${created}/${total} 个角色部门 + agent（每角色独立沙盒——并发填写）`)
   console.log(`问卷页：${SURVEY_URL}`)
+  if (MATRIX) console.log(`矩阵人设：${MATRIX.split('x').slice(0, 3).map((x) => parseInt(x, 10) || 10).join('×')}（${total} 个——命名 问卷-{行业}-{职级}-{性格}——列表页可按前缀过滤）`)
   console.log(`\n【问卷填写群（seed 自动建好——5 个机器人）】`)
   console.log(`进入「${GROUP_NAME}」→ 发消息 @全员 请填写问卷——${GROUP_ROLES.length} 个机器人同时响应（各自独立沙盒并发）——无需跑 launch 派单`)
   console.log(`\n【10 角色批量派单（可选）】`)
