@@ -47,13 +47,18 @@
       document.getElementById('empty').style.display = list.length ? 'none' : 'block';
       rows.innerHTML = list.map(c => {
         const badge = { done: 'badge-done', failed: 'badge-failed', cancelled: 'badge-cancelled' }[c.status] || 'badge-running';
-        const label = { done: '已完成', failed: '失败', cancelled: '已取消' }[c.status] || '运行中';
-        const shown = (c.completed || 0) + (c.failed || 0);
+        // 诚实标注：status=done 但提交 0 = 旧任务「假完成」（完成判定改提交为准前——
+        // LLM 口头说填好但页面零交互）——stats 页 0 份与列表页观感对齐
+        const submitted = c.submitted ?? 0;
+        const label = { done: submitted > 0 ? '已完成' : '已完成（无提交记录）',
+                        failed: '失败', cancelled: '已取消' }[c.status] || '运行中';
+        // 进度 clamp 到 total（25934b6d 33/30 溢出实证——retry 重统计超过 total）
+        const shown = Math.min((c.completed || 0) + (c.failed || 0), c.total ?? 0);
         const time = (() => { const d = new Date(String(c.created_at || '')); return isNaN(d.getTime()) ? String(c.created_at || '') : d.toLocaleString("zh-CN", { hour12: false }); })();
         return '<tr><td class="mono">' + String(c.id).slice(0, 8) + '…</td>' +
           '<td><span class="badge ' + badge + '">' + label + '</span></td>' +
           '<td class="progress">' + shown + ' / ' + c.total + '</td>' +
-          '<td>' + (c.submitted ?? 0) + '</td>' +
+          '<td>' + submitted + '</td>' +
           '<td class="mono">' + time + '</td>' +
           '<td><a class="view" href="/demo-survey/stats?c=' + c.id + '">查看</a></td></tr>';
       }).join('');
