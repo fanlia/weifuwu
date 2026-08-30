@@ -70,6 +70,10 @@ export function tickTimeouts(runs: RunRow[], retry: number, timeoutMs: number, n
 const TICK_MS = 5_000
 const DEFAULT_TIMEOUT_MS = 180_000
 const DEFAULT_RETRY = 2
+/** 并发硬上限（2027-09 定参——S7b 判负：20 判负不做——LLM 上游 20 未实测——
+ *  试点 100 @10 已实测 100/100 · 0 失败 · 5.3 分钟——10 是实证窗口；
+ *  池容量视角：10 × 512MB = 5120MB ≤ 10240MB 预算（50% 余量——可双 campaign 并行）） */
+export const MAX_CAMPAIGN_CONCURRENCY = 10
 
 /** 查询未完成角色数（completed+failed < total 的终止判定）
  *  严格语义（2027-09 实证 f90a55f9：campaign done 时仍剩 10 个 running run——
@@ -77,6 +81,18 @@ const DEFAULT_RETRY = 2
  *  完成 = 记账达标 且 无在途 run（在途 run 由后续 tick 的完成扫描/超时判定收敛） */
 export function isCampaignFinished(c: Pick<CampaignRow, 'completed' | 'failed' | 'total'>, runningCount = 0): boolean {
   return runningCount === 0 && c.completed + c.failed >= c.total
+}
+
+/** 并发护栏（2027-09 定参——S7b 判负：20 判负不做——LLM 上游 20 未实测——
+ *  试点 100 @10 已实测 100/100 · 0 失败 · 5.3 分钟——10 是实证窗口）
+ *  单一实现源：API/工具/内部任何入口超限一律夹紧——防误配 */
+export function clampConcurrency(value: number, fallback = 5): number {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) {
+    // 无效输入（0/负/NaN/未传）归位默认——默认本身也夹紧（fallback 只允许在窗口内）
+    return Math.min(MAX_CAMPAIGN_CONCURRENCY, Math.max(1, Math.floor(fallback)))
+  }
+  return Math.min(MAX_CAMPAIGN_CONCURRENCY, n)
 }
 
 export interface CreateCampaignBody {
@@ -96,7 +112,7 @@ export async function createCampaign(ctx: AppCtx, body: CreateCampaignBody): Pro
   const sql = ctx.sql
   const appId = ctx.appId
   const total = Math.max(1, Number(body.total ?? 0) || 10)
-  const concurrency = Math.max(1, Number(body.concurrency ?? 0) || 5)
+  const concurrency = clampConcurrency(Number(body.concurrency ?? 0))
   const retry = Math.max(0, Number(body.retry ?? DEFAULT_RETRY) || 0)
   const prefix = body.rolePrefix ?? '问卷-'
 

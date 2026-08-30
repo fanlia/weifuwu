@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { pickToDispatch, tickTimeouts, isCampaignFinished } from '../src/services/survey-campaign.ts'
+import { pickToDispatch, tickTimeouts, isCampaignFinished, clampConcurrency, MAX_CAMPAIGN_CONCURRENCY } from '../src/services/survey-campaign.ts'
 import type { RunRow } from '../src/services/survey-campaign.ts'
 
 /** Campaign 调度判据契约测试（S1——纯函数——node 直跑） */
@@ -96,4 +96,19 @@ test('isCampaignFinished：记账未达标 + 无在途 run → 未完成', () =>
 
 test('isCampaignFinished：failed 计入达标（重试耗尽诚实收敛——不无限等）', () => {
   assert.equal(isCampaignFinished({ completed: 8, failed: 2, total: 10 }, 0), true)
+})
+
+/* ── 并发护栏（2027-09 定参——S7b 判负：20 不做——上限 10 硬夹──
+ *  防误配（API/工具/内部任何入口超限一律夹紧——LLM 上游 20 未实测） */
+
+test('clampConcurrency：上限 10——传 20 夹紧为 10（S7b 判负定参）', () => {
+  assert.equal(clampConcurrency(20), MAX_CAMPAIGN_CONCURRENCY, '20 必须夹紧到上限')
+  assert.equal(clampConcurrency(999), 10)
+})
+
+test('clampConcurrency：默认/下限——未传 5 · 传 0/负 夹到 1', () => {
+  assert.equal(clampConcurrency(0), 5, '0/缺省 → fallback 5')
+  assert.equal(clampConcurrency(-3), 5)
+  assert.equal(clampConcurrency(3), 3, '窗口内原样')
+  assert.equal(clampConcurrency(10), 10, '恰好上限不夹')
 })

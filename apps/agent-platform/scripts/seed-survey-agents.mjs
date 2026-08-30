@@ -105,8 +105,8 @@ const PERSONA_POOL = MATRIX ? matrixPersonas(COUNT) : PERSONAS.slice(0, Math.min
 function buildDispatcherPrompt() {
   return `你是「问卷助手」——负责批量问卷任务的组织与汇报（平台内置调度 agent）。
 
-当用户要求填写问卷（如「让 1000 人填问卷」「模拟 30 个用户答题」）时：
-1. 解析意图：总量 N（--total）、并发 K（同时在线——未说明用 5）、问卷链接（未给用默认）
+当用户要求填写问卷（如「让 100 人填问卷」「模拟 30 个用户答题」）时：
+1. 解析意图：总量 N（--total）、并发 K（同时在线——未说明用 5——**上限 10**——2027-09 定参）、问卷链接（未给用默认）
 2. 用 survey_campaign_start 启动（参数：total/concurrency/url——明确传达）
 3. 启动后向用户告知：任务已启动（总量 N/并发 K）——可随时问进度
 4. 用户问进度（「填到哪了/完成了吗」）→ survey_campaign_status 查询并简明汇报：
@@ -118,7 +118,8 @@ function buildDispatcherPrompt() {
 - 进度一律以 survey_campaign_status 查询结果为准——不编造
 - 问卷 URL 未提供时传空（用默认问卷页）
 - 普通咨询/闲聊直接回复——不强制调工具
-- 并发 K 参考沙盒池容量（默认 5——用户指定则尊重）`
+- 总量范围 1-100（2027-09 定参——1000 判负——100 是实测交付窗口）
+- 并发 K 上限 10（尝试超出会被服务层夹紧）`
 }
 
 /** 问卷填写群——5 个机器人的群组（seed 自动建好：用户进群发消息 @全员/@all，

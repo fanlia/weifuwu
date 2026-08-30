@@ -94,7 +94,7 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
         type: 'object',
         properties: {
           total: { type: 'number', description: '填写总量（角色数——如 1000）' },
-          concurrency: { type: 'number', description: '同时在线填写数（并发上限——默认 5——参考沙盒池容量）' },
+          concurrency: { type: 'number', description: '同时在线填写数（并发上限——默认 5——服务层硬上限 10（2027-09 定参：试点 100 @10 已实测 0 失败——20 判负不做））' },
           url: { type: 'string', description: '问卷 URL（缺省用平台默认问卷页）' },
           retry: { type: 'number', description: '失败重试次数（默认 2）' },
         },
