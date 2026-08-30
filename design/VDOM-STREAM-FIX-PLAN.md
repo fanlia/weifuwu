@@ -64,20 +64,30 @@ distinctUntilChanged/finalize/take/startWith）+ derived + useAsyncData/useObser
 
 **W1 新发现（登记——供 W3 参考）**：Templates 手写 `loadTemplates().finally(rerender)` 模式 = 工厂期异步启动——段复用后工厂不重跑 → 数据永不刷新（除非导航）——**应用层迁移 useAsyncData 是正解**（模块级注册表 + reload 显式刷新语义）
 
-### W2 api 中间件流化（P1——Observable 优势：单飞/取消/回放）
+### W2 api 中间件流化（P1——Observable 优势：单飞/取消/回放）✅ 完成（e42ca6b2）
 
 **场景证据**：G13 竞态是 Promise 链表达不了重试时序的真 bug——VDOM-OBSERVABLE-OPTIMIZE
 判负记录「api 中间件 Promise 无增益」被实证推翻——**修订判负**。
 
-- **W2.1** `refresh$`：401 事件 → `exhaustMap(doRefresh)`——**exhaustMap 内建 single-flight**
-  （刷新中后续 401 等待同一流——替代 G13 快照 hack）；refreshToken 旋转失败 → error 显式化
-- **W2.2** 请求管线：`fromPromise(fetch) → 401 → waitFor(refresh$ 一次) → retry take(1)`
-  ——重试上限语义流化表达（不再手写 `_retried` 标志）
-- **W2.3** `token$`（BehaviorSubject）接线 auth 中间件已有 `token$`（登录/刷新/登出单源）——
-  请求头从 token$ 派生（`distinctUntilChanged` 避免重复设头）
-- **W2.4** 回放测试：401→refresh 成功→重试 200 / 401→refresh 失败→ApiError /
-  并发 401×N→刷新恰 1 次 三序列**记录重喂同决策**
-- **约束**：ApiClient 公开形状不变（get/post/token/onUnauthorized 兼容）——消费端零改动
+- **W2.1** `refresh$`：✅ `refreshTrigger$`（Subject）→ `exhaustMap(doRefresh)`——**exhaustMap
+  内建 single-flight**（新增算子——observable/operators.ts——2 契约测试锁定：in-flight 丢弃/
+  完成后启动新内层）——刷新中后续 401 丢弃触发但**等待同一结果**（refreshDone$ 广播
+  take(1)）——旋转 token 双刷竞态歼灭（**并发 401×5 → 刷新恰 1 次**——契约测试实证：
+  G13 快照比对堵不住的「同拍双 401 刷新未发生时各自走 onUnauthorized」窗口）
+- **W2.2** 请求管线：✅ 401 → token 快照已变 → 直接重试（G13 保留）；未变 → 触发单飞 →
+  等 refreshDone$.take(1) → true 重试 / false|throw → 401 ApiError（错误显式化——不静默）✓
+- **W2.3** `token$` 接线：⏳**判负留档**——auth 已有 token$（BehaviorSubject）但 api 的
+  token 是 getter 快照（每次请求时读）——「token 已变检测」由快照比对覆盖（G13）——
+  token$ 订阅渲染链无增量场景（api 不渲染——请求头每次现读）——判负：不加仪式流
+- **W2.4** 回放测试：✅ 401→refresh 成功→重试 200 / 401→refresh 失败→ApiError(401) /
+  401→refresh throw→ApiError(401) / 并发 401×5→刷新恰 1 次——4 新测试（真实 HTTP fixture）
+- **约束遵守**：ApiClient 公开形状不变（get/post/token/onUnauthorized 兼容）——消费端零改动——
+  api.test.ts 原有 G13×2 + 基础 6 全绿（11/11）
+
+**架构决策记录**：exhaustMap 的「in-flight 丢弃」与「等待者仍能拿到结果」是两件事——
+丢弃的是触发事件（防双刷），结果经独立 broadcast（refreshDone$）送达所有等待者——
+不能把「丢弃」误解为「等待者饿死」——订阅 take(1) 在 next() 之后同步注册（微任务
+先行安全）+ 刷新完成必然发射（error 也 next(false)——杜绝挂死）
 - **验收**：G13 既有契约保持绿 + 新增并发矩阵全绿
 
 ### W3 hooks 时序源统一（P2——健壮性——环境降级单轨）
