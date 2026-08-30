@@ -5,6 +5,7 @@ import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { RedisPool } from '../db/redis/pool.ts'
+import { MemoryRedis } from '../db/memory-redis.ts'
 import { queue } from '../queue/index.ts'
 import { scheduler } from './index.ts'
 
@@ -177,5 +178,52 @@ describe('scheduler cancelSchedule (real redis)', () => {
 
   it('cancelSchedule 不存在的 id 返回 false', async () => {
     assert.equal(await sched.cancelSchedule('nope-nope'), false)
+  })
+})
+
+describe('scheduler 韧性（S9/S13——stub 故障注入）', () => {
+  it('S9 Redis 启动时不可用：connPromise 失败复位——恢复后 schedule 正常（原永久缓存拒绝）', async () => {
+    let createAttempts = 0
+    let conn: any = null
+    const flakyRedis = {
+      createConnection: async () => {
+        createAttempts++
+        if (createAttempts === 1) throw new Error('redis down at boot')
+        conn = {
+          command: async (cmd: string) => (cmd === 'ZADD' ? 1 : []),
+          close: async () => {},
+        }
+        return conn
+      },
+      command: async () => 1,
+      close: async () => {},
+    }
+    const q = queue({ redis: flakyRedis as any })
+    const s = scheduler({ redis: flakyRedis as any, queue: q, tickMs: 60_000 })
+    await sleep(30) // 等 init start() 失败 + 复位（微任务链）
+    // 修复前：第一次 createConnection 拒绝被永久缓存 → schedule 永远抛（红）
+    const r = await s.schedule('s9-test', { ok: true }, { delayMs: 0 })
+    assert.ok(r.id, 'S9：启动失败后 connPromise 复位——恢复即正常')
+    await s.close()
+    await q.close()
+  })
+
+  it('S13 enqueue 失败恢复：queue.add 失败 → member 回写 ZSET（下 tick 重试成功——不丢失）', async () => {
+    const mem = new MemoryRedis()
+    let addCalls = 0
+    const stubQueue = {
+      queue: {
+        add: async () => {
+          addCalls++
+          if (addCalls === 1) throw new Error('redis add boom')
+          return { id: 'x' }
+        },
+      },
+    }
+    const s = scheduler({ redis: mem as any, queue: stubQueue as any, tickMs: 50 })
+    await s.schedule('s13', { v: 1 }, { delayMs: 0 })
+    // 修复前：第一次 add 失败即丢（ZREM 已移除）→ addCalls 永远 1（超时红）
+    await waitFor(() => addCalls >= 2, 5000, 'S13：回写后第二次 add 成功')
+    await s.close()
   })
 })

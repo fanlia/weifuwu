@@ -149,8 +149,36 @@ export function queue(options: QueueOptions): QueueClientModule {
       let epoch = 0 // 世代标记：stop 时 ++，旧 loop 检查失效退出（防 stop/start 交替时旧 loop 复活）
       let conn: RedisPoolConnection | null = null
       let connEpoch = -1 // 连接所属世代（stop 在途的旧连接与 start 的新连接区分）
+      let reconnectBackoff = 500 // Q8：瞬态断重连指数退避（500ms→5s 封顶——连接建立成功归零）
       const loops = new Map<number, Promise<void>>() // epoch → loop（stop 只等自己的旧 loop）
       const inflight = new Set<Promise<void>>()
+
+      /** 丢弃（可能已死）的连接——getConn 下次调用重建 */
+      function dropConn(): void {
+        const c = conn
+        conn = null
+        connEpoch = -1
+        c?.close().catch(() => {})
+      }
+
+      /**
+       * Q8 修复（2027-XX）：瞬态连接断（Redis 重启/网络抖动）→ 丢死连接 + 指数退避
+       * → 循环重建继续（原实现 running=false 永久死亡——worker 无重连路径）；
+       * 池关闭（redis.close()——调用方所有权）→ 返回 false（永久退出——stop 语义）
+       */
+      async function handleConnLoss(e: unknown): Promise<boolean> {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (/pool is closed/.test(msg)) return false
+        dropConn()
+        await new Promise((r) => setTimeout(r, reconnectBackoff))
+        reconnectBackoff = Math.min(reconnectBackoff * 2, 5000)
+        return true
+      }
+
+      /** 重连成功（XREADGROUP 正常返回）→ 退避归零 */
+      function resetBackoff(): void {
+        reconnectBackoff = 500
+      }
 
       /** 独立连接：BLOCK 命令不占池连接（池只服务 add/length 等短命令）。
        *  连接绑定 epoch——stop 在途的旧连接（connEpoch !== myEpoch）关闭重建，
@@ -192,11 +220,12 @@ export function queue(options: QueueOptions): QueueClientModule {
         try {
           payload = JSON.parse(fields.payload ?? '{}')
         } catch {
-          // 无法解析的 entry：XACK 丢弃 + 记 DLQ（避免无限重试坏消息）
-          await conn!.command('XACK', s, GROUP, entryId)
+          // 无法解析的 entry：先入死信再清（Q21 载体先行——原 XACK 先清 + XADD 失败即丢），
+          // 避免无限重试坏消息
           await conn!.command('XADD', dead, '*', 'payload', JSON.stringify({
             originalId: entryId, name, error: 'unparseable payload', attempts: -1,
           }))
+          await conn!.command('XACK', s, GROUP, entryId)
           return
         }
         const attempts = Number(payload.attempts ?? 0)
@@ -212,10 +241,13 @@ export function queue(options: QueueOptions): QueueClientModule {
         } catch (err) {
           const nextAttempt = attempts + 1
           // 无论重试还是 DLQ 都先 XACK（清 pending）——entry 字段不可变，
-          // attempts 计数必须持久化到新载体，否则重新 claim 读到旧值无限重试
-          await conn!.command('XACK', s, GROUP, entryId)
+          // attempts 计数必须持久化到新载体——**载体先行**（Q21 修复 2027-XX）：
+          // XACK 先行使 pending 保护消失——载体写入瞬时失败 = 任务静默丢失
+          // （at-least-once 违例）；先写载体再 XACK——崩溃窗口 = 旧 pending 被
+          // stale-claim 重处理（重复执行——at-least-once 允许；重试 ZADD 同
+          // member 幂等）
           if (nextAttempt >= maxAttempts) {
-            // 用尽 → DLQ
+            // 用尽 → DLQ（载体先行）
             await conn!.command('XADD', dead, '*', 'payload', JSON.stringify({
               originalId: entryId,
               name,
@@ -223,6 +255,7 @@ export function queue(options: QueueOptions): QueueClientModule {
               error: err instanceof Error ? err.message : String(err),
               attempts: nextAttempt,
             }))
+            await conn!.command('XACK', s, GROUP, entryId)
             console.error(`[queue] ${name} job failed permanently (attempt ${nextAttempt}/${maxAttempts}):`, err)
           } else {
             // 延迟重试：ZSET（score = now + visibilityTimeout），到期后重新入队
@@ -230,6 +263,7 @@ export function queue(options: QueueOptions): QueueClientModule {
               ...payload,
               attempts: nextAttempt,
             }))
+            await conn!.command('XACK', s, GROUP, entryId)
             console.error(
               `[queue] ${name} job failed (attempt ${nextAttempt}/${maxAttempts}), retry in ${visibilityTimeout}ms:`,
               err,
@@ -246,6 +280,7 @@ export function queue(options: QueueOptions): QueueClientModule {
           due = await conn!.command('ZRANGEBYSCORE', delayed, 0, now)
         } catch (e) {
           if (isConnClosed(e)) {
+            if (await handleConnLoss(e)) return // 瞬态：退避后回 while 重建
             running = false
             return
           }
@@ -274,8 +309,9 @@ export function queue(options: QueueOptions): QueueClientModule {
             await processEntry(entryId, flatFieldsToRecord(fields))
           }
         } catch (e) {
-          // 连接关闭 → 退出循环（否则无限刷屏）；NOGROUP → 重建 group 自愈；其他错误下一轮重试
+          // 连接关闭 → 瞬态重连/池关闭退出；NOGROUP → 重建 group 自愈；其他错误下一轮重试
           if (isConnClosed(e)) {
+            if (await handleConnLoss(e)) return
             running = false
             return
           }
@@ -310,17 +346,41 @@ export function queue(options: QueueOptions): QueueClientModule {
 
       async function loop(myEpoch: number): Promise<void> {
         while (running && myEpoch === epoch) {
+          // Q8：连接可能被瞬态断丢弃（dropConn）——确保重建（getConn 幂等；
+          // createConnection 失败 → 退避重试——不退出循环）
+          if (!conn || connEpoch !== myEpoch) {
+            try {
+              await getConn(myEpoch)
+            } catch (e) {
+              if (running && shouldLogError()) {
+                console.error('[queue] reconnect:', e instanceof Error ? e.message : e)
+              }
+              await new Promise((r) => setTimeout(r, reconnectBackoff))
+              reconnectBackoff = Math.min(reconnectBackoff * 2, 5000)
+              continue
+            }
+            resetBackoff()
+          }
           await claimStale()
           await requeueDelayed()
+          // Q25 背压（2027-XX——实测 5→60 无界膨胀）：在途达 concurrency → 退让等待
+          // 任一完成再 claim（race 吞 reject——processEntry 命令错误不熔断循环）
+          if (inflight.size >= concurrency) {
+            await Promise.race([...inflight].map((p) => p.catch(() => undefined)))
+            continue
+          }
           let result: unknown
           try {
             result = await conn!.command(
               'XREADGROUP', 'GROUP', GROUP, consumer,
-              'COUNT', String(concurrency), 'BLOCK', String(blockMs),
+              'COUNT', String(concurrency - inflight.size), 'BLOCK', String(blockMs),
               'STREAMS', s, '>',
             )
+            resetBackoff()
           } catch (e) {
+            // 池关闭 → 退出；瞬态连接断 → 重连退避后继续（原实现 running=false 永久死亡——Q8）
             if (isConnClosed(e)) {
+              if (await handleConnLoss(e)) continue
               running = false
               return
             }

@@ -188,4 +188,40 @@ describe('scheduler cron UX fixes (real redis)', () => {
   it('cancelCron：不存在的 name 返回 false', async () => {
     assert.equal(await sched.cancelCron(`nope-${qname()}`), false)
   })
+
+  it('S2 cancelCron 前缀隔离：foo 与 foo:sub（前缀关系）不互相误删', async () => {
+    const a = `pre-${randomUUID().toString().slice(0, 6)}`
+    const b = `${a}:sub`
+    await sched.cron('0 9 * * *', a, { tag: 'A' })
+    await sched.cron('0 9 * * *', b, { tag: 'B' })
+    const conn = new RedisConnection({ host: 'localhost', port: 6379 })
+    await conn.connect()
+    // 手工放置两个 pending 触发点（模拟到期生成）——member id = cron:{name}:{ts}
+    await conn.command('ZADD', `${prefix}delayed`, 1, JSON.stringify({ id: `cron:${a}:1`, name: a, data: { tag: 'A' } }))
+    await conn.command('ZADD', `${prefix}delayed`, 1, JSON.stringify({ id: `cron:${b}:2`, name: b, data: { tag: 'B' } }))
+    const removed = await sched.cancelCron(a)
+    assert.equal(removed, true)
+    const pending = (await conn.command('ZRANGE', `${prefix}delayed`, 0, -1)) as string[]
+    const kept = pending.map((m) => JSON.parse(m) as { name: string })
+    assert.ok(kept.some((m) => m.name === b), 'S2：取消 a 不得误删 a:sub（原实现前缀匹配删除——实证）')
+    assert.ok(!kept.some((m) => m.name === a), 'a 的触发点已清理')
+    await conn.close()
+  })
+
+  it('S15 cancelSchedule 子串不误删：data 含目标 id 子串的成员不受影响', async () => {
+    const victimId = `m-${randomUUID().toString().slice(0, 8)}`
+    const decoyId = `m-${randomUUID().toString().slice(0, 8)}`
+    const conn = new RedisConnection({ host: 'localhost', port: 6379 })
+    await conn.connect()
+    // decoy：data 里嵌 victim 的 id 子串（原是 member.includes 子串匹配——误删面）
+    await conn.command('ZADD', `${prefix}delayed`, 1, JSON.stringify({ id: decoyId, name: 'x', data: { ref: `\"id\":\"${victimId}\"` } }))
+    await conn.command('ZADD', `${prefix}delayed`, 999999, JSON.stringify({ id: victimId, name: 'y', data: {} }))
+    const ok = await sched.cancelSchedule(victimId)
+    assert.equal(ok, true)
+    const pending = (await conn.command('ZRANGE', `${prefix}delayed`, 0, -1)) as string[]
+    const ids = pending.map((m) => (JSON.parse(m) as { id: string }).id)
+    assert.ok(ids.includes(decoyId), 'S15：data 含 id 子串的成员不被误删（parse 精确匹配）')
+    assert.ok(!ids.includes(victimId), '目标已删除')
+    await conn.close()
+  })
 })

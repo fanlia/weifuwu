@@ -90,7 +90,14 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
   // 惰性创建：schedule/cron/tick 首次调用才建连接（scheduler() 同步返回，start 异步）
   let connPromise: Promise<RedisPoolConnection> | null = null
   function getConn(): Promise<RedisPoolConnection> {
-    if (!connPromise) connPromise = options.redis.createConnection()
+    if (!connPromise) {
+      connPromise = options.redis.createConnection()
+      // S9 修复（2027-XX——原拒绝被永久缓存——启动时 Redis 不可用 = schedule/cron/tick
+      // 永久坏）：失败复位——下轮调用重试
+      connPromise.catch(() => {
+        connPromise = null
+      })
+    }
     return connPromise
   }
   let running = false
@@ -120,6 +127,9 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
         await queueModule.queue.add(task.name, task.data)
       } catch (e) {
         console.error('[scheduler] enqueue:', e instanceof Error ? e.message : e)
+        // S13 修复（2027-XX——原 ZREM 后入队失败 = 任务丢失）：member 回写 ZSET
+        // （score=now——下 tick 立即重试）——崩溃窗口（ZREM→回写）仍存在——裁剪记录
+        await (await getConn()).command('ZADD', delayedKey, Date.now(), member).catch(() => {})
       }
     }
   }
@@ -177,12 +187,19 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
   const cancelCron: SchedulerClient['cancelCron'] = async (name) => {
     // 1. 删 HASH 定义
     const removed = await (await getConn()).command('HDEL', cronsKey, name)
-    // 2. 清理 ZSET 中该 cron 的 pending 触发点（member = {"id":"cron:{name}:{ts}"...}）
+    // 2. 清理 ZSET 中该 cron 的 pending 触发点（parse 后精确比较 name——
+    //    S2 修复（2027-XX）：原 includes 前缀匹配——cron 名 foo 误删 foo:sub（实证）；
+    //    S15：data 含 id 子串不误删——同 parse 精确匹配）
     try {
       const pending = (await (await getConn()).command('ZRANGE', delayedKey, 0, -1)) as string[]
       for (const member of pending) {
-        if (member.includes(`"id":"cron:${name}:`)) {
-          await (await getConn()).command('ZREM', delayedKey, member)
+        try {
+          const m = JSON.parse(member) as { name?: string }
+          if (m.name === name) {
+            await (await getConn()).command('ZREM', delayedKey, member)
+          }
+        } catch {
+          // 畸形 member（外部写入）跳过
         }
       }
     } catch {
@@ -214,13 +231,19 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
   }
 
   const cancelSchedule: SchedulerClient['cancelSchedule'] = async (id) => {
-    // 扫描 ZSET pending 触发点，按 member JSON 的 id 精确匹配删除
+    // 扫描 ZSET pending 触发点，parse 后精确匹配 id（S15——原 includes 子串
+    // 匹配——data 字段含 "id":"X" 子串时误删——parse 比较消除）
     try {
       const pending = (await (await getConn()).command('ZRANGE', delayedKey, 0, -1)) as string[]
       for (const member of pending) {
-        if (member.includes(`"id":"${id}"`)) {
-          const removed = await (await getConn()).command('ZREM', delayedKey, member)
-          if (removed === 1) return true
+        try {
+          const m = JSON.parse(member) as { id?: string }
+          if (m.id === id) {
+            const removed = await (await getConn()).command('ZREM', delayedKey, member)
+            if (removed === 1) return true
+          }
+        } catch {
+          // 畸形 member 跳过
         }
       }
     } catch {

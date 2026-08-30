@@ -96,6 +96,70 @@ describe('queue (memory redis)', () => {
     await worker.stop()
   })
 
+  it('Q21 重试载体先行：ZADD 瞬时失败 → entry 保持 pending（不丢失——可 stale 接管重试）', async () => {
+    const name = qname()
+    // 包装 redis：首次 ZADD（重试载体）注入失败——修复前 XACK 先清 → 任务静默丢失
+    const inner = new MemoryRedis()
+    let zaddFailures = 1
+    const flaky = {
+      command: (cmd: string, ...args: any[]) => {
+        if (cmd === 'ZADD' && zaddFailures > 0) {
+          zaddFailures--
+          return Promise.reject(new Error('boom: transient zadd failure'))
+        }
+        return (inner as any).command(cmd, ...args)
+      },
+      createConnection: async () => ({
+        command: (cmd: string, ...args: any[]) => flaky.command(cmd, ...args),
+        close: async () => {},
+      }),
+      close: async () => {},
+    }
+    const fq = queue({ redis: flaky as any })
+    let done = 0
+    const worker = fq.queue.worker<any>(name, async (job) => {
+      if (job.attempts === 0) throw new Error('first attempt fails')
+      done++
+    }, { blockMs: 50, visibilityTimeout: 1000 })
+    await worker.start()
+    await fq.queue.add(name, { x: 1 })
+    // 修复前：ZADD 失败时 entry 已 XACK（pending 0）→ 永不重试 → 超时红
+    await waitFor(() => done === 1, 20_000, 'Q21：首次失败后重试成功（任务未丢失）')
+    await worker.stop()
+    await fq.close()
+    await (inner as any).close()
+  })
+
+  it('Q8 瞬态连接断恢复：connection closed 一次 → worker 重连继续消费（原 running=false 永久死亡）', async () => {
+    const name = qname()
+    const inner = new MemoryRedis()
+    let failOnce = true
+    const flaky = {
+      command: (cmd: string, ...args: any[]) => {
+        if (failOnce && cmd === 'XREADGROUP' && args.includes('BLOCK')) {
+          failOnce = false
+          return Promise.reject(new Error('connection closed'))
+        }
+        return (inner as any).command(cmd, ...args)
+      },
+      createConnection: async () => ({
+        command: (cmd: string, ...args: any[]) => flaky.command(cmd, ...args),
+        close: async () => {},
+      }),
+      close: async () => {},
+    }
+    const fq = queue({ redis: flaky as any })
+    const seen: unknown[] = []
+    const worker = fq.queue.worker<any>(name, async (job) => { seen.push(job.data) }, { blockMs: 50 })
+    await worker.start()
+    await fq.queue.add(name, { survive: true })
+    // 修复前：瞬态断 → running=false 永久死亡 → job 永不被消费（超时红）
+    await waitFor(() => seen.length >= 1, 20_000, 'Q8：断连后重连继续消费')
+    await worker.stop()
+    await fq.close()
+    await (inner as any).close()
+  })
+
   it('崩溃 worker 接管：读了一半崩溃（pending 遗留）→ 新 worker XAUTOCLAIM 接管', async () => {
     const name = qname()
     // 模拟 worker A 崩溃：手动 XREADGROUP 消费 entry 但故意不 XACK（进程死在处理中）
@@ -142,6 +206,26 @@ describe('queue (memory redis)', () => {
     for (let i = 0; i < 10; i++) await q.queue.add(name, { i })
     await waitFor(() => done === 10, 10_000, '10 个 job 完成')
     assert.ok(maxConcurrent >= 3, `实际并发 ${maxConcurrent} 应 ≥3`)
+    await worker.stop()
+  })
+
+  it('Q25 concurrency 是上限非批量：满队列在途不超 concurrency（实测无界 5→60）', async () => {
+    const name = qname()
+    let maxConcurrent = 0
+    let active = 0
+    let done = 0
+    const worker = q.queue.worker<any>(name, async () => {
+      active++
+      maxConcurrent = Math.max(maxConcurrent, active)
+      await sleep(300)
+      active--
+      done++
+    }, { concurrency: 5, blockMs: 50, visibilityTimeout: 5000 })
+    await worker.start()
+
+    for (let i = 0; i < 60; i++) await q.queue.add(name, { i })
+    await waitFor(() => done === 60, 30_000, '60 个 job 完成')
+    assert.ok(maxConcurrent <= 5, `Q25：并发上限 5——实测 ${maxConcurrent}（原实现 60——无界膨胀）`)
     await worker.stop()
   })
 
