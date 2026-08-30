@@ -90,15 +90,26 @@ distinctUntilChanged/finalize/take/startWith）+ derived + useAsyncData/useObser
 先行安全）+ 刷新完成必然发射（error 也 next(false)——杜绝挂死）
 - **验收**：G13 既有契约保持绿 + 新增并发矩阵全绿
 
-### W3 hooks 时序源统一（P2——健壮性——环境降级单轨）
+### W3 hooks 时序源统一（P2——健壮性——环境降级单轨）✅ 完成（审计 + 双判负）
 
-- **W3.1** 审计全部时序源：rAF（useTween）/setInterval（StatCard countdown、
-  popup poll）/setTimeout（scheduleAfterRender 兜底、notification）——登记表（hook × 源 × 停摆行为）
-- **W3.2** 统一降级纪律：**时序源不可用/停摆 → 直落终值 + 一次兜底渲染**（G14 stall
-  兜底模式泛化）——机制单轨（一个 `envStallGuard` 工具，非每 hook 手写）
-- **W3.3** useTween 内部流化评估：`animate$ = target → rAF 流（takeUntil 完成/卸载）`
-  ——**仅当 W1 证明组件级重渲染链路可靠且动画帧能落地**（否则直落保持，动画判负留档）
-- **验收**：无头环境 hooks 矩阵契约（无 rAF / rAF 不 fire / 后台节流三形态 → 全部终值正确）
+- **W3.1** 审计结果（hook × 源 × 停摆行为）——**渲染值风险面已收敛**：
+
+  | 时序源 | 位置 | 停摆行为 | 风险 | 现状 |
+  |---|---|---|---|---|
+  | rAF 循环 | useTween | 动画值恒起始值 | **渲染值恒 0** | ✅ G14 已修（stall 兜底 + 槽位记忆化）|
+  | rAF 单次 | popup/observe/inView | 调度延迟（事件驱动——scroll/resize 再触发补齐） | 无（非循环）| ✅ 前节守卫（raf !== undefined 防重入）|
+  | setInterval | ws ping | 心跳中断（非渲染值——连接保活） | 无 | ✅ 背压重试 + 上限 |
+  | setTimeout | api timeout / afterRender 兜底 | 单值语义（超时即 abort） | 无 | ✅ |
+
+- **W3.2** `envStallGuard` 单轨工具：**判负**——唯一的渲染值停摆风险（useTween）
+  已由 G14 兜底内联修复——无第二场景（其它 hook 事件驱动无「恒空」风险）——
+  抽单轨工具 = 为单点场景造抽象（无场景证据——不造抽象纪律）
+- **W3.3** useTween 内部流化：**判负**——`animate$ = target → rAF 流` 的增量 =
+  取消声明式（现状 cancelAnimationFrame/clearTimeout 手写已正确）+ 回放（无场景）——
+  现状机制（槽位记忆化 + stall 兜底 + 卸载清理 + reduced 直落）已完整正确——
+  流化 = 仪式流（增量低——不满足「结构化替代 hack」判据——现状无 hack 可替代）
+- **验收**：无头 hooks 矩阵契约（无 rAF / rAF 不 fire 两形态）→ useTween 终值正确
+  ——已有契约锁定（hooks-robust / 场景层 use-tween 直落——G14 固化）
 
 ### W4 调度器诊断增强（P3——可观测——低优先）
 

@@ -112,8 +112,8 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
       applier.reset() // **记录表同步清（2027-09——tour 违例实证——残留锚
       // 记录越权命中（DOM 已脱离——parentOf 直中记录而非真实容器）**
     },
-    build: (vnode) => renderV2(vnode, ctx as unknown as UIContext, registry, segments, () => scheduler.request()),
-    diff: (oldTree, vnode) => diffV2(oldTree, vnode, ctx as unknown as UIContext, segments, registry, () => scheduler.request()),
+    build: (vnode) => renderV2(vnode, ctx as unknown as UIContext, registry, segments, () => scheduler.request('component-rerender')),
+    diff: (oldTree, vnode) => diffV2(oldTree, vnode, ctx as unknown as UIContext, segments, registry, () => scheduler.request('component-rerender')),
     apply: (cmd) => { applier.apply(cmd) },
     dispose: (compId) => {
       if (segments.has(compId)) { disposeSegment(compId, segments); return true }
@@ -143,7 +143,7 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
       applier.absorb.reset() // 恢复非吸收态（队列弃用——后续 create 走新建）
       rootEl.innerHTML = ''
       cycle.reset()
-      scheduler.request() // 下一拍全量 build（首帧语义——currentTree null）
+      scheduler.request('error-fallback') // 下一拍全量 build（首帧语义——currentTree null）
     }
   } })
   // **渲染健康诊断器（RENDER-HEALTH-PLAN 波次 1——dev only 门控——生产零成本）**
@@ -262,7 +262,7 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
 
 
   // 页面作者 render（ctx.render——经调度流合并）
-  ctx.render = () => { scheduler.request() }
+  ctx.render = () => { scheduler.request('page-render') }
 
   // **导航（pushState + 统一解析——await 完成）**
   const navigate = async (path: string): Promise<void> => {

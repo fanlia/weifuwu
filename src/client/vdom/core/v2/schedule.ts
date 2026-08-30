@@ -21,8 +21,9 @@ import { Subject } from '../../observable/index.ts'
 import { spyEvent } from './spy.ts'
 
 export interface RenderScheduler {
-  /** 请求渲染（同拍合并——batching） */
-  request(): void
+  /** 请求渲染（**来源 tag——W4 诊断归因**：navigate/component-rerender/timer——
+   *  渲染健康频率轴可归因——默认 'unknown'）——同拍合并（batching） */
+  request(source?: string): void
   /** 渲染执行点（订阅——每次 flush 触发一次） */
   renders$: Observable<void>
   /** 统计（透明——合并率诊断） */
@@ -75,9 +76,9 @@ export function createRenderScheduler(): RenderScheduler {
   }
 
   return {
-    request(): void {
+    request(source?: string): void {
       requested++
-      spyEvent('sched:request')
+      spyEvent('sched:request', source ?? 'unknown')
       // **渲染中请求：标记 pending（flush finally 会再排一次——不丢）**
       if (running) { pending = true; return }
       if (pending) return // 已排——合并（1 拍 1 次）
