@@ -201,3 +201,68 @@ test('popup-trap：焦点陷阱（打开聚焦 + Tab 循环）+ 滚动锁（body
     await page.close()
   }
 })
+
+// ── 波次 3：position 无 anchor（光标定位——ContextMenu 类——2027-09 矩阵） ──
+test('popup-position-cursor：position 无 anchor——面板坐标 = 触发点（±5px——语义断言）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'popup-position-cursor')
+    const trigger = page.locator('.pop-pos-trigger')
+    const box = await trigger.boundingBox()
+    const cx = box.x + box.width / 2
+    const cy = box.y + box.height / 2
+    await trigger.click()
+    await page.waitForSelector('.pop-pos-panel')
+    await page.waitForFunction(() => {
+      const p = document.querySelector('.pop-pos-panel') as HTMLElement | null
+      if (!p) return false
+      const st = getComputedStyle(p)
+      return st.top !== '' && st.top !== '0px'
+    }, '定位完成')
+    const r = await page.locator('.pop-pos-panel').boundingBox()
+    // 期望 = click 坐标 + 10（场景 onClick 记录 e.clientX/clientY + 10——非 0,0 左上角）
+    assert.ok(Math.abs(r.x - (cx + 10)) <= 5, `面板 x 跟随光标（期望 ${Math.round(cx + 10)}，实际 ${r.x}）`)
+    assert.ok(Math.abs(r.y - (cy + 10)) <= 5, `面板 y 跟随光标（期望 ${Math.round(cy + 10)}，实际 ${r.y}）`)
+  } finally {
+    await page.close()
+  }
+})
+
+// ── 波次 3：mask + position（DatePicker 类——mask 全屏 + 内容定位跟随） ──
+test('popup-mask-position：mask+position——内容在坐标处 + mask 全屏（inset:0）+ width 跟随', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'popup-mask-position')
+    const input = page.locator('.pop-maskpos-trigger')
+    const iw = await input.evaluate((el) => el.getBoundingClientRect().width)
+    await input.click()
+    await page.waitForSelector('.pop-maskpos-panel')
+    await page.waitForFunction(() => {
+      const p = document.querySelector('.pop-maskpos-panel') as HTMLElement | null
+      if (!p) return false
+      const inner = p.closest('.wf-popup-mask-inner') as HTMLElement | null
+      return inner ? inner.style.top !== '' && inner.style.top !== '0px' : false
+    }, '定位完成')
+    const ir = await input.evaluate((el) => el.getBoundingClientRect().toJSON())
+    const panel = await page.locator('.pop-maskpos-panel').boundingBox()
+    // 内容定位跟随（input 下方 + 4）
+    assert.ok(Math.abs(panel.x - ir.left) <= 5, `面板 x 跟随 input（期望 ${Math.round(ir.left)}，实际 ${panel.x}）`)
+    assert.ok(Math.abs(panel.y - (ir.bottom + 4)) <= 5, `面板 y = bottom+4（期望 ${Math.round(ir.bottom + 4)}，实际 ${panel.y}）`)
+    // width 跟随 trigger
+    const pw = await page.locator('.pop-maskpos-panel').evaluate((el) => el.getBoundingClientRect().width)
+    assert.ok(Math.abs(pw - iw) <= 5, `面板宽跟随 input（${iw} → ${Math.round(pw)}）`)
+    // mask 全屏（inset:0——遮罩覆盖视口）
+    const mask = await page.evaluate(() => {
+      const m = document.querySelector('.wf-popup-mask')
+      if (!m) return null
+      const r = m.getBoundingClientRect()
+      return { x: r.x, y: r.y, w: r.width, h: r.height, vw: window.innerWidth, vh: window.innerHeight }
+    })
+    assert.ok(mask && mask.x <= 1 && mask.y <= 1 && mask.w >= mask.vw - 2 && mask.h >= mask.vh - 2, `mask 全屏遮罩（${JSON.stringify(mask)}）`)
+    // 点外部关闭（maskClosable）
+    await page.mouse.click(20, 400)
+    await page.waitForFunction(() => !document.querySelector('.pop-maskpos-panel'), '外部点击关闭')
+  } finally {
+    await page.close()
+  }
+})

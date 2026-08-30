@@ -255,7 +255,13 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
   // 坐标落地直接改 posEl 的 style（零渲染——refresh 若 render 会二次包装
   // 嵌套层——DatePicker 双层 mask 实证）
   let posEl: HTMLElement | null = null
-  const posRefImpl = (el: HTMLElement | null): void => { posEl = el }
+  const posRefImpl = (el: HTMLElement | null): void => {
+    posEl = el
+    // **挂载后补落地（2027-09——mask+position 无 update 场景实证）**：
+    // refresh 首定位时 inner 可能未挂载（创建顺序 mask→inner→content——
+    // applyPosToPanel 时 posEl null——style 永不落地——posEl 就绪后补一次）
+    if (el && positioned) applyPosToPanel()
+  }
   /** 坐标落地（posEl/面板 DOM 直接更新——零渲染零嵌套） */
   const applyPosToPanel = (): void => {
     const t = opts.mask ? posEl : state.panel

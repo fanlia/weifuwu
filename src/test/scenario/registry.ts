@@ -690,6 +690,63 @@ const MaskScene = (_init: Record<string, never>, ctx: any) => {
   }
 }
 
+// ── 场景 X：position 无 anchor（光标定位——ContextMenu 类——2027-09 矩阵） ─
+const PopupPositionScene = (_init: Record<string, never>, ctx: any) => {
+  let open = false
+  let pos = { x: 0, y: 0 }
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'sc-pos',
+        position: () => pos,
+        content: () => h('div', { class: 'pop-pos-panel' }, '光标面板'),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'pop-pos-scene', style: { height: '400px', paddingTop: '100px' } },
+      h('button', {
+        class: 'pop-pos-trigger',
+        onClick: (e: MouseEvent) => { pos = { x: e.clientX + 10, y: e.clientY + 10 }; open = !open; ctx.render() },
+      }, '点我定位'),
+    )
+  }
+}
+
+// ── 场景 Y：mask + position（DatePicker 类——mask 全屏 + 内容定位跟随） ─
+const PopupMaskPosScene = (_init: Record<string, never>, ctx: any) => {
+  let triggerEl: HTMLElement | null = null
+  let open = false
+  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  const sync = () => {
+    if (open && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'sc-maskpos',
+        mask: true, maskClosable: true, closeOnEscape: false,
+        position: () => {
+          const r = triggerEl?.getBoundingClientRect()
+          return { x: r?.left ?? 0, y: (r?.bottom ?? 0) + 4, width: r?.width }
+        },
+        content: () => h('div', { class: 'pop-maskpos-panel' }, '定位面板'),
+        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+      })
+    else if (!open && handle) { handle.close(); handle = null }
+  }
+  return () => {
+    sync()
+    return h('div', { class: 'pop-maskpos-scene', style: { marginTop: '120px', marginLeft: '240px' } },
+      h('input', {
+        class: 'pop-maskpos-trigger',
+        ref: (el: unknown) => { if (el) triggerEl = el as HTMLElement },
+        onClick: () => { open = !open; ctx.render() },
+      }),
+    )
+  }
+}
+
 // ── 场景 32：trapFocus + lockScroll（焦点陷阱 + 滚动锁） ────────────────
 const TrapScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
@@ -1734,6 +1791,8 @@ export const scenarios: Scenario[] = [
   { id: 'popup-controlled-none', title: 'usePopup 受控 getter + positioning none', render: ControlledNoneScene },
   { id: 'popup-presence', title: 'usePopup presence（退场状态机）', render: PresenceScene },
   { id: 'popup-mask', title: 'openPopup mask（遮罩渲染 + 点击关闭）', render: MaskScene },
+  { id: 'popup-position-cursor', title: 'position 无 anchor（光标定位——ContextMenu 类）', render: PopupPositionScene },
+  { id: 'popup-mask-position', title: 'mask + position（遮罩全屏 + 内容定位跟随）', render: PopupMaskPosScene },
   { id: 'popup-trap', title: 'openPopup trapFocus + lockScroll（焦点陷阱 + 滚动锁）', render: TrapScene },
   { id: 'toast-fire', title: 'toast（命令式轻提示——显示 + 自动消失）', render: ToastScene },
   { id: 'use-controlled', title: 'useControlled（受控/非受控/warn）', render: ControlledScene },
