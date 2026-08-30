@@ -177,8 +177,12 @@ export function startCampaignLoop(ctx: AppCtx, campaignId: string): void {
   void (async () => {
     const timer = setInterval(async () => {
       try {
+        console.log(`[campaign ${campaignId}] tick @${new Date().toISOString().slice(11, 19)}`)
         const done = await tickOnce(ctx, campaignId)
-        if (done) { clearInterval(timer); runningLoops.delete(campaignId) }
+        if (done) {
+          console.log(`[campaign ${campaignId}] tick 循环停止（return true）`)  // 诊断：谁停的循环
+          clearInterval(timer); runningLoops.delete(campaignId)
+        }
       } catch (e: any) {
         console.error(`[campaign ${campaignId}] tick 失败:`, e?.message ?? e)
         console.error(`[campaign ${campaignId}] tick stack:`, String(e?.stack ?? '').slice(0, 600))
@@ -191,7 +195,10 @@ export function startCampaignLoop(ctx: AppCtx, campaignId: string): void {
 /** 单次 tick：完成扫描 → 超时重试 → 水位补派 → 终止判定 */
 const ticking = new Set<string>()
 export async function tickOnce(ctx: AppCtx, campaignId: string): Promise<boolean> {
-  if (ticking.has(campaignId)) return false // tick 叠加防护（上一 tick 未完成——跳过）
+  if (ticking.has(campaignId)) {
+    console.log(`[campaign ${campaignId}] tick 被叠加门跳过（上一 tick 未完成——ticking 挂）`)  // B 诊断
+    return false // tick 叠加防护（上一 tick 未完成——跳过）
+  }
   ticking.add(campaignId)
   try {
     return await tickOnceInner(ctx, campaignId)
@@ -202,7 +209,10 @@ export async function tickOnce(ctx: AppCtx, campaignId: string): Promise<boolean
 async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> {
   const sql = ctx.sql
   const [campaign] = await sql`SELECT * FROM survey_campaigns WHERE id = ${campaignId}`
-  if (!campaign || campaign.status !== 'running') return true // 已取消/完成——停循环
+  if (!campaign || campaign.status !== 'running') {
+    console.log(`[campaign ${campaignId}] tick 停止判定：campaign=${campaign ? campaign.status : '查询空!'}`)  // A 诊断：查询空=ctx.sql 失效
+    return true // 已取消/完成——停循环
+  }
 
   const runs = ((await sql`SELECT * FROM survey_campaign_runs WHERE campaign_id = ${campaignId}`) ?? []) as unknown as RunRow[]
   const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
@@ -215,8 +225,11 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
     if (r.status !== 'running') continue
     const ws = await resolveDepartmentWorkspace(r.dept_id, null, true).catch(() => null)
     if (!ws) continue
-    const ok = await access(`${ws}/survey-result.json`).then(() => true).catch(() => false)
-    if (ok) {
+    // 完成信号以真实提交为准（2027-09 实证：LLM 口头「已提交」+ 写 survey-result.json
+    // 假完成——agent-browser 容器内全链实测：页面零交互——统计页永远没数——
+    // 完成 = survey_submissions 有该角色提交（campaign_id + source 反查已生效）
+    const [sub] = await sql`SELECT 1 FROM survey_submissions WHERE campaign_id = ${campaignId} AND source = ${r.agent_name} LIMIT 1`
+    if (sub) {
       await sql`UPDATE survey_campaign_runs SET status = 'done', finished_at = NOW(), error = NULL WHERE id = ${r.id}`
       completed++
     }
@@ -259,7 +272,14 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
         const ws = await resolveDepartmentWorkspace(r.dept_id, null, true).catch(() => null)
         if (ws) { const { rm } = await import('node:fs/promises'); await rm(`${ws}/survey-result.json`, { force: true }).catch(() => {}) }
       } catch { /* 清场失败不阻断派单 */ }
-      const content = `@${r.agent_name} 【问卷任务】请打开问卷 ${url}?s=${encodeURIComponent(r.agent_name)} 按你的人设完整填写并提交。完成后把作答结果写入工作目录 survey-result.json（覆盖旧文件），并执行 agent-browser close 关闭浏览器。`
+      const content = `@${r.agent_name} 【问卷任务】请用 agent-browser CLI 打开问卷并真实填写提交（每一步必须实际执行——禁止仅描述）：
+1. agent-browser open "${url}?s=${encodeURIComponent(r.agent_name)}&c=${campaignId}"（页面与 WS 正常时显示「已连接」）
+2. agent-browser snapshot（读取题目与控件 ref——5 题：年龄/行业/关注能力/评分/反馈）
+3. 逐项真实点击/输入：agent-browser click "@eXX"（年龄/关注/评分）+ type（反馈文本框）
+4. agent-browser click 提交按钮——页面显示「已提交——不可修改」锁定态
+5. agent-browser read/snapshot 验证锁定态与提交编号
+6. 把作答结果写入工作目录 survey-result.json（覆盖旧文件），执行 agent-browser close
+注意：只有页面出现「已提交」锁定态才算完成——提交成功前不得报告完成。`
       // fire-and-forget（LLM 流分钟级——tick 不阻塞——完成由文件扫描判定；
       // 标 running 立即——在途即占槽——超时判定基于 started_at）
       void (async () => {

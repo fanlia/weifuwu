@@ -34,6 +34,7 @@ import {
   Rate
 } from "weifuwu/components";
 const source = new URLSearchParams(location.search).get("s") || "\u8BBF\u5BA2-" + Math.random().toString(36).slice(2, 5);
+  const campaignId = new URLSearchParams(location.search).get("c") || "";
 const SurveyForm = (_init, ctx) => {
   let submitted = null;
   let error = "";
@@ -47,7 +48,7 @@ const SurveyForm = (_init, ctx) => {
   // 服务端 surveyOnline 无记录——浏览器未关仍应在线）
   ctx.ws?.onStatusChange((connected) => {
     wsStatus = connected ? "connected" : "disconnected";
-    if (connected) ctx.ws?.send({ type: "survey:hello", source });
+    if (connected) ctx.ws?.send({ type: "survey:hello", source, campaign: campaignId });
     rerender();
   });
   // 逐题同步：合并 pending（快速连续操作不互相取消——真实用户快填丢题的体验缺口）
@@ -60,7 +61,7 @@ const SurveyForm = (_init, ctx) => {
     const failed = {};
     for (const q of Object.keys(pendingSync)) {
       try {
-        ctx.ws?.send({ type: "survey:answer", source, question: q, answer: pendingSync[q] });
+        ctx.ws?.send({ type: "survey:answer", source, question: q, answer: pendingSync[q], campaign: campaignId });
       } catch (e) {
         failed[q] = pendingSync[q];
       }
@@ -98,7 +99,7 @@ const SurveyForm = (_init, ctx) => {
     // 默认值补同步：行业默认选中（用户未改）——提交即确认——答题流/进度完整
     if (industry && !pendingSync["2.\u884C\u4E1A"]) pendingSync["2.\u884C\u4E1A"] = industry;
     flushSync();
-    ctx.ws?.send({ type: "survey:submit", source, data: { age, industry, rating, focus, feedback } });
+    ctx.ws?.send({ type: "survey:submit", source, data: { age, industry, rating, focus, feedback, campaign: campaignId } });
     setTimeout(() => {
       if (submitting && !submitted) {
         submitting = false;

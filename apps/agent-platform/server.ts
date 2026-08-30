@@ -164,6 +164,8 @@ async function main() {
   await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS survey_answers (
     id BIGSERIAL PRIMARY KEY, source TEXT NOT NULL, question TEXT,
     answer TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+  await pg.sql.unsafe(`ALTER TABLE survey_submissions ADD COLUMN IF NOT EXISTS campaign_id TEXT`)
+  await pg.sql.unsafe(`ALTER TABLE survey_answers ADD COLUMN IF NOT EXISTS campaign_id TEXT`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_survey_campaigns_app ON survey_campaigns(app_id, created_at DESC)`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_survey_runs_campaign ON survey_campaign_runs(campaign_id, status)`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_skill_ratings_dir ON skill_ratings(skill_dir)`)
@@ -1139,7 +1141,7 @@ async function main() {
       // 连接即发当前状态（统计页/填写页初始渲染）
       ws.send(JSON.stringify(surveyState()))
     },
-    message: (ws: any, ctx: any, data: string | Buffer) => {
+    message: async (ws: any, ctx: any, data: string | Buffer) => {
       try {
         const msg = JSON.parse(String(data))
         // 心跳：ping → pong（前端 ws 中间件 30s ping + 10s 无响应主动断线——
@@ -1151,6 +1153,8 @@ async function main() {
         // 在线报到：填写页连接后发 hello（统计页只订阅不发——不计入在线）
         if (msg.type === 'survey:hello' && msg.source) {
           const source = String(msg.source).slice(0, 40)
+          // 统计页看客（source='stats-view'）不入在线列表——只回视角状态
+          // （实证：统计页 hello 被当填写者——在线列表出现 'stats-view'——污染）
           // 同来源重连去重（WS 重连时旧连接 close 可能延迟——先移除同 source 旧连接，
           // 否则在线人数虚高/列表重复——真实 bug：AI 浏览器重连后同角色出现两次）
           for (const [w, v] of surveyOnline) {
@@ -1159,8 +1163,19 @@ async function main() {
               try { w.close() } catch { /* 已断 */ }
             }
           }
+          if (source === 'stats-view') {
+            ws.send(JSON.stringify(surveyState(String(msg.campaign ?? ''))))
+            return
+          }
           surveyOnline.set(ws, { source, at: new Date().toISOString() })
           surveyBroadcastOnline()
+          // 统计页/填写页在 hello 带 campaign 视角（?c=）——服务端回该 campaign 过滤的
+          // 全量状态（2027-09：campaign 粒度统计——不叠加——每次任务独立计数）
+          if (msg.campaign !== undefined) {
+            ws.send(JSON.stringify(surveyState(String(msg.campaign ?? ''))))
+          } else {
+            ws.send(JSON.stringify(surveyState()))
+          }
           return
         }
         if (msg.type === 'survey:answer' && msg.question) {
@@ -1172,14 +1187,25 @@ async function main() {
             question: String(msg.question).slice(0, 100),
             answer: String(msg.answer ?? '').slice(0, 300),
             at: new Date().toISOString(),
+            campaign: String(msg.campaign ?? ''),
           }
           surveyAnswers.push(record)
           if (surveyAnswers.length > surveyLimit) surveyAnswers.splice(0, surveyAnswers.length - surveyLimit)
-          void pg.sql`INSERT INTO survey_answers (source, question, answer) VALUES (${String(record.source)}, ${String(record.question)}, ${String(record.answer)})`.catch(() => {})
+          void pg.sql`INSERT INTO survey_answers (source, question, answer, campaign_id) VALUES (${String(record.source)}, ${String(record.question)}, ${String(record.answer)}, ${String(record.campaign) || null})`.catch(() => {})
           surveyBroadcast({ type: 'survey:answer', ...record })
         } else if (msg.type === 'survey:submit' && msg.data) {
           // 提交：入内存 + 广播（统计页计数 +1、来源锁定）
           const d = msg.data
+          // campaign 归属双保险：URL 带 c（页面传递）失败时——按 source（角色名）
+          // 反查最近 run 的 campaign_id（实证：角色不完全用消息 URL——c 参数丢失——
+          // 50 条提交 campaign_id 全空——反查兜底后归属可靠）
+          let campId = String(d.campaign ?? '')
+          if (!campId) {
+            try {
+              const [rr] = await pg.sql`SELECT campaign_id FROM survey_campaign_runs WHERE agent_name = ${String(msg.source ?? '')} ORDER BY created_at DESC LIMIT 1`
+              campId = rr ? String(rr.campaign_id) : ''
+            } catch { /* 反查失败走空 */ }
+          }
           const record = {
             id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             source: String(msg.source ?? '访客'),
@@ -1187,13 +1213,14 @@ async function main() {
             age: String(d.age ?? ''), industry: String(d.industry ?? ''), rating: Number(d.rating ?? 0),
             focus: Array.isArray(d.focus) ? d.focus : (d.focus ? [d.focus] : []),
             feedback: String(d.feedback ?? '').slice(0, 500),
+            campaign: campId,
           }
           surveySubmissions.push(record)
           if (surveySubmissions.length > surveyLimit) surveySubmissions.splice(0, surveySubmissions.length - surveyLimit)
           surveyTotal++
-          void pg.sql`INSERT INTO survey_submissions (id, source, age, industry, rating, focus, feedback, submitted_at)
+          void pg.sql`INSERT INTO survey_submissions (id, source, age, industry, rating, focus, feedback, submitted_at, campaign_id)
             VALUES (${String(record.id)}, ${String(record.source)}, ${String(record.age)}, ${String(record.industry)},
-              ${Number(record.rating)}, ${JSON.stringify(record.focus)}, ${String(record.feedback)}, ${String(record.submitted_at)})`.catch(() => {})
+              ${Number(record.rating)}, ${JSON.stringify(record.focus)}, ${String(record.feedback)}, ${String(record.submitted_at)}, ${String(record.campaign) || null})`.catch(() => {})
           surveyBroadcast({ type: 'survey:submitted', count: surveyTotal, latest: record, aggregate: surveyAggregate() })
           // 提交后保持在线（浏览器未关——ws 连接保持——统计页在线显示已提交状态——
           // 下线只发生在 close/bye：用户要求"只要填写者还没关闭浏览器就应该显示在线"）
@@ -1321,18 +1348,19 @@ async function main() {
   // 启动恢复：DB 全量 → 内存（重启不再丢）——srvD8 实证：重启后 stats 只剩重启后 20
   void (async () => {
     try {
-      const rows = (await pg.sql`SELECT id, source, age, industry, rating, focus, feedback, submitted_at FROM survey_submissions ORDER BY submitted_at DESC LIMIT 1000`) ?? []
+      const rows = (await pg.sql`SELECT id, source, age, industry, rating, focus, feedback, submitted_at, campaign_id FROM survey_submissions ORDER BY submitted_at DESC LIMIT 1000`) ?? []
       surveyTotal = Number((await pg.sql`SELECT COUNT(*)::int as n FROM survey_submissions`)[0]?.n ?? 0)
       for (const r of [...rows].reverse()) {
         surveySubmissions.push({
           id: String(r.id), source: String(r.source), submitted_at: String(r.submitted_at),
           age: String(r.age ?? ''), industry: String(r.industry ?? ''), rating: Number(r.rating ?? 0),
           focus: r.focus, feedback: String(r.feedback ?? ''),
+          campaign: String(r.campaign_id ?? ''),
         })
       }
-      const arows = (await pg.sql`SELECT source, question, answer, created_at FROM survey_answers ORDER BY created_at DESC LIMIT 1000`) ?? []
+      const arows = (await pg.sql`SELECT source, question, answer, created_at, campaign_id FROM survey_answers ORDER BY created_at DESC LIMIT 1000`) ?? []
       for (const r of [...arows].reverse()) {
-        surveyAnswers.push({ source: String(r.source), question: String(r.question), answer: String(r.answer), at: String(r.created_at) })
+        surveyAnswers.push({ source: String(r.source), question: String(r.question), answer: String(r.answer), at: String(r.created_at), campaign: String(r.campaign_id ?? '') })
       }
       console.log(`[survey] 已恢复提交 ${surveyTotal} / 答案 ${arows.length}`)
     } catch (e: any) { console.warn('[survey] 恢复失败:', e?.message) }
@@ -1365,14 +1393,39 @@ async function main() {
       completionRate: surveySubmissions.length > 0 ? 100 : 0,
     }
   }
-  const surveyState = () => ({
+  const surveyState = (campaignId = '') => {
+    const filtered = campaignId ? surveySubmissions.filter((s) => String((s as any).campaign ?? '') === campaignId) : surveySubmissions
+    const filteredAnswers = campaignId ? surveyAnswers.filter((a) => String((a as any).campaign ?? '') === campaignId) : surveyAnswers
+    return {
     type: 'survey:state',
-    count: surveyTotal,
-    answers: surveyAnswers.slice(-surveyLimit),
-    submissions: surveySubmissions.slice(-surveyLimit),
+    count: campaignId ? filtered.length : surveyTotal,
+    globalCount: surveyTotal,
+    campaign: campaignId,
+    answers: filteredAnswers.slice(-surveyLimit),
+    submissions: filtered.slice(-surveyLimit),
     online: surveyOnlineState(),
-    aggregate: surveyAggregate(),
-  })
+    aggregate: (() => {
+      const byIndustry: Record<string, number> = {}
+      const byAge: Record<string, number> = {}
+      const byRating: Record<string, number> = {}
+      const focus: Record<string, number> = {}
+      let ratingSum = 0
+      for (const s of filtered) {
+        if (s.industry) byIndustry[String(s.industry)] = (byIndustry[String(s.industry)] ?? 0) + 1
+        if (s.age) byAge[String(s.age)] = (byAge[String(s.age)] ?? 0) + 1
+        const r = Number(s.rating ?? 0)
+        if (r > 0) { byRating[String(r)] = (byRating[String(r)] ?? 0) + 1; ratingSum += r }
+        for (const f of ((s.focus as string[]) ?? [])) focus[String(f)] = (focus[String(f)] ?? 0) + 1
+      }
+      return {
+        total: filtered.length,
+        byIndustry, byAge, byRating, focus,
+        avgRating: filtered.length > 0 ? Math.round((ratingSum / filtered.length) * 10) / 10 : 0,
+        completionRate: filtered.length > 0 ? 100 : 0,
+      }
+    })(),
+    }
+  }
   // 在线连接清理（每 30 秒）：①readyState 非 OPEN（僵尸连接——close 丢失）
   // ②超过 10 分钟无活动（AI 填完不关页面/卡住——提交后应已下线，超时兜底）
   const ONLINE_IDLE_MS = 10 * 60 * 1000
@@ -1476,6 +1529,28 @@ async function main() {
       return Response.json({ success: true, sent: ROLES.length, scheduling: true, roles: ROLES })
     } catch (e: any) {
       return Response.json({ error: e?.message ?? 'launch 失败' }, { status: 500 })
+    }
+  })
+
+  app.get('/demo-survey/campaigns', async (): Promise<Response> => {
+    const { readFileSync } = await import('node:fs')
+    const { join, dirname } = await import('node:path')
+    const { fileURLToPath } = await import('node:url')
+    const __dirname = dirname(fileURLToPath(import.meta.url))
+    const html = readFileSync(join(__dirname, 'public', 'survey-campaigns.html'), 'utf-8')
+    return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  })
+
+  // 任务列表数据（campaign 粒度——每次任务独立提交计数——2027-09）
+  app.get('/api/survey/campaigns-list', async (): Promise<Response> => {
+    try {
+      const rows = (await pg.sql`
+        SELECT c.id::text AS id, c.status, c.total, c.completed, c.failed, c.created_at,
+          (SELECT COUNT(*)::int FROM survey_submissions s WHERE s.campaign_id = c.id::text) AS submitted
+        FROM survey_campaigns c ORDER BY c.created_at DESC LIMIT 50`) ?? []
+      return Response.json({ list: rows })
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '查询失败' }, { status: 500 })
     }
   })
 

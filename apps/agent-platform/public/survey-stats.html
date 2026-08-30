@@ -34,7 +34,10 @@
 import { Card, Badge, Alert, StatCard, Table, EmptyState, ProgressBar, Space } from "weifuwu/components";
 const QUESTIONS = ["1.\u5E74\u9F84", "2.\u884C\u4E1A", "3.\u5173\u6CE8\u80FD\u529B", "4.\u6EE1\u610F\u5EA6", "5.\u5EFA\u8BAE\u53CD\u9988"];
 const StatsPage = (_init, ctx) => {
+  const viewCampaign = new URLSearchParams(location.search).get("c") || "";
   let count = 0;
+  let globalCount = 0;
+  let viewCampaignId = viewCampaign;
   let answers = [];
   let submissions = [];
   let connected = false;
@@ -45,7 +48,9 @@ const StatsPage = (_init, ctx) => {
   const rerender = () => ctx.render();
   // v2 ws 中间件签名 (connected: boolean)（迁移适配——wsDetail 为旧面残留——
   // v2 不暴露重连明细——保留默认值只影响徽章 attempt 文案）
+  // 连接即声明视角（?c= 指定 campaign——服务端回该任务的独立统计；无 c=全部）
   ctx.ws?.onStatusChange((connected2) => {
+    if (connected2) ctx.ws?.send({ type: "survey:hello", source: "stats-view", campaign: viewCampaign });
     wsStatus = connected2 ? "connected" : "disconnected";
     connected = connected2;
     rerender();
@@ -53,6 +58,8 @@ const StatsPage = (_init, ctx) => {
   ctx.ws?.onMessage((msg) => {
     if (msg?.type === "survey:state") {
       count = msg.count ?? count;
+      globalCount = msg.globalCount ?? globalCount;
+      if (msg.campaign !== undefined) viewCampaignId = msg.campaign;
       answers = msg.answers ?? answers;
       submissions = msg.submissions ?? submissions;
       online = msg.online ?? online;
@@ -65,7 +72,11 @@ const StatsPage = (_init, ctx) => {
     }
     if (msg?.type === "survey:submitted") {
       count = msg.count ?? count;
-      if (msg.latest) submissions = [...submissions, msg.latest];
+      // 视角过滤：?c= 视角只追加所属任务的提交（实证：全量 latest 被追加进
+      // 视角列表——「已提交 1 份」但列表 4 条——污染）
+      if (msg.latest && (!viewCampaign || String(msg.latest.campaign ?? "") === viewCampaign)) {
+        submissions = [...submissions, msg.latest];
+      }
       if (msg.aggregate) aggregate = msg.aggregate;
       rerender();
     }
@@ -104,12 +115,12 @@ const StatsPage = (_init, ctx) => {
         h(
           "div",
           {},
-          h("h1", { style: { margin: "0 0 4px", fontSize: "22px" } }, "\u6A21\u62DF\u6570\u636E\u6536\u96C6\u7EDF\u8BA1\uFF08\u5B9E\u65F6\uFF09"),
+          h("h1", { style: { margin: "0 0 4px", fontSize: "22px" } }, "\u6A21\u62DF\u6570\u636E\u6536\u96C6\u7EDF\u8BA1\uFF08\u5B9E\u65F6\uFF09" + (viewCampaign ? ` \u00B7 \u5F53\u524D\u4EFB\u52A1\uFF1A${count} \u4EFD / \u5168\u90E8\uFF1A${globalCount} \u4EFD` : ` \u00B7 \u5168\u90E8${globalCount || count} \u4EFD`)),
           h(
             "div",
             { style: { color: "var(--wf-color-text-tertiary)", fontSize: "13px" } },
             "WS \u5B9E\u65F6\u8054\u52A8 \xB7 \u586B\u5B8C\u4E00\u9898\u5373\u540C\u6B65 \xB7 \u63D0\u4EA4\u5373\u9501\u5B9A \xB7 ",
-            h("a", { href: "/demo-survey", style: { color: "var(--wf-color-primary)" } }, "\u2190 \u586B\u5199\u9875")
+            h("a", { href: "/demo-survey", style: { color: "var(--wf-color-primary)" } }, "\u2190 \u586B\u5199\u9875"), h("a", { href: "/demo-survey/campaigns", style: { color: "var(--wf-color-primary)", marginLeft: "10px" } }, "\u4EFB\u52A1\u5217\u8868")
           )
         ),
         h(
@@ -215,9 +226,10 @@ h(ProgressBar, { value: p.done / 5 * 100, width: 120, showLabel: false }),
             { key: "focus", title: "\u5173\u6CE8" },
             { key: "feedback", title: "\u53CD\u9988" }
           ],
+          key: "subs-" + submissions.length + "-" + (submissions[0]?.id ?? "0"),
           data: [...submissions].reverse().map((r) => ({
             source: r.source,
-            at: String(r.submitted_at ?? "").slice(5, 16).replace("T", " "),
+            at: (() => { const d = new Date(String(r.submitted_at ?? "")); return isNaN(d.getTime()) ? String(r.submitted_at ?? "") : d.toLocaleString("zh-CN", { hour12: false }) })(),
             industry: r.industry ?? "\u2014",
             age: r.age ?? "\u2014",
             rating: String(r.rating ?? "\u2014"),

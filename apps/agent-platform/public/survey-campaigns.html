@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>问卷任务列表</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f7f8fa; color: #1f2329; }
+  .wrap { max-width: 980px; margin: 32px auto; padding: 0 20px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #8a919f; font-size: 13px; margin-bottom: 16px; }
+  .sub a { color: var(--wf-color-primary, #3370ff); }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  th, td { padding: 10px 14px; text-align: left; font-size: 13px; border-bottom: 1px solid #f0f1f3; }
+  th { background: #fafbfc; color: #61666d; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+  .badge-done { background: #e8f7ee; color: #1a7f4b; }
+  .badge-running { background: #e8f1ff; color: #3370ff; }
+  .badge-failed { background: #fdeeee; color: #c0392b; }
+  .badge-cancelled { background: #f2f3f5; color: #8a919f; }
+  .mono { font-family: ui-monospace, monospace; font-size: 12px; color: #61666d; }
+  .progress { font-size: 13px; }
+  .empty { padding: 40px; text-align: center; color: #8a919f; }
+  a.view { color: #3370ff; text-decoration: none; }
+  a.view:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>问卷任务列表</h1>
+  <div class="sub">每个任务（campaign）独立计数——点击「查看」进入该任务的统计页 ·
+    <a href="/demo-survey">填写页</a> · <a href="/demo-survey/stats">统计页（全部）</a>
+  </div>
+  <table id="tbl"><thead>
+    <tr><th>任务</th><th>状态</th><th>进度</th><th>提交数</th><th>创建时间</th><th></th></tr>
+  </thead><tbody id="rows"></tbody></table>
+  <div id="empty" class="empty" style="display:none">暂无任务——到 <a href="/demo-survey">填写页</a> 或管理面启动。</div>
+</div>
+<script>
+  async function load() {
+    const rows = document.getElementById('rows');
+    try {
+      const r = await fetch('/api/survey/campaigns-list');
+      const d = await r.json();
+      const list = d.list || [];
+      document.getElementById('empty').style.display = list.length ? 'none' : 'block';
+      rows.innerHTML = list.map(c => {
+        const badge = { done: 'badge-done', failed: 'badge-failed', cancelled: 'badge-cancelled' }[c.status] || 'badge-running';
+        const label = { done: '已完成', failed: '失败', cancelled: '已取消' }[c.status] || '运行中';
+        const shown = (c.completed || 0) + (c.failed || 0);
+        const time = (() => { const d = new Date(String(c.created_at || '')); return isNaN(d.getTime()) ? String(c.created_at || '') : d.toLocaleString("zh-CN", { hour12: false }); })();
+        return '<tr><td class="mono">' + String(c.id).slice(0, 8) + '…</td>' +
+          '<td><span class="badge ' + badge + '">' + label + '</span></td>' +
+          '<td class="progress">' + shown + ' / ' + c.total + '</td>' +
+          '<td>' + (c.submitted ?? 0) + '</td>' +
+          '<td class="mono">' + time + '</td>' +
+          '<td><a class="view" href="/demo-survey/stats?c=' + c.id + '">查看</a></td></tr>';
+      }).join('');
+    } catch (e) {
+      rows.innerHTML = '<tr><td colspan="6" class="empty">加载失败：' + String(e) + '</td></tr>';
+    }
+  }
+  load();
+  setInterval(load, 15000);
+</script>
+</body>
+</html>
