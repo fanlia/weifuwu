@@ -5,7 +5,7 @@
 import type { ToolDefinition } from '../../../src/ai/types.ts'
 import type { Context } from 'weifuwu'
 
-function isPrivate(addr: string): boolean {
+export function isPrivate(addr: string): boolean {
   const m = addr.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
   if (!m) return false
   const [a, b] = [Number(m[1]), Number(m[2])]
