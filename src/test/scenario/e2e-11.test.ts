@@ -99,3 +99,26 @@ test('deep-resizable：拖拽分隔条 → onResize（尺寸变化）', async ()
     await page.close()
   }
 })
+
+// ── 波次 5：必填校验拦截（边界契约——空必填 → submit 拦截 + 错误显示） ──
+test('deep-jsonform：必填校验拦截（空 title → onSubmit 不触发 + 错误显示）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'deep-jsonform')
+    // 空 title（默认空）→ 点击提交按钮 → onSubmit 不触发
+    await page.locator('.deep-jsonform-scene button', { hasText: '提交' }).first().click()
+    await page.waitForTimeout(300)
+    const log1 = await page.evaluate(() => document.querySelector('.deep-jsonform-log')?.textContent ?? '')
+    assert.ok(!log1.includes('s:'), `必填未填——onSubmit 拦截（log: ${log1 || '(空)'}）`)
+    // 错误显示（wf-field-err——必填提示）
+    const errCount = await page.evaluate(() => document.querySelectorAll('.deep-jsonform-scene .wf-field-err').length)
+    assert.ok(errCount >= 1, `必填错误显示（${errCount} 个）`)
+    // 填 title → 提交 → onSubmit 触发
+    await page.locator('.deep-jsonform-scene input').first().click()
+    await page.keyboard.type('必填通过')
+    await page.locator('.deep-jsonform-scene button', { hasText: '提交' }).first().click()
+    await page.waitForFunction(() => (document.querySelector('.deep-jsonform-log')?.textContent ?? '').includes('s:必填通过'), '填后 onSubmit', { timeout: 2500 })
+  } finally {
+    await page.close()
+  }
+})

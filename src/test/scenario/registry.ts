@@ -1299,8 +1299,9 @@ const DeepJsonForm = (_i: Record<string, never>, ctx: any) => {
   return () =>
     h('div', { class: 'deep-jsonform-scene' },
       h(CJsonSchemaForm, {
-        schema: { type: 'object', properties: { title: { type: 'string', title: '标题' }, count: { type: 'number', title: '数量' } } },
+        schema: { type: 'object', required: ['title'], properties: { title: { type: 'string', title: '标题' }, count: { type: 'number', title: '数量' } } },
         onChange: (v: Record<string, unknown>) => { log += `v:${String(v.title)};`; ctx.render() },
+        onSubmit: (v: Record<string, unknown>) => { log += `s:${String(v.title)};`; ctx.render() },
       }),
       h('span', { class: 'deep-jsonform-log' }, log),
     )

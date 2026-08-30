@@ -70,3 +70,33 @@ test('位置：portal 归属 + fixed + 视口内 + 跟随光标（右键坐标�
     await assertPopupGeometry(page, { panelText: '复制', transformNone: true })
   } finally { await page.close() }
 })
+
+// ── 波次 5：键盘导航（ArrowDown/Enter/Escape——ARIA 语义断言） ─────────
+test('键盘：ArrowDown 移动高亮 + Enter 触发 + Escape 关闭（role/aria 语义）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    const box = await page.locator('main .wf-context-menu-trigger').first().boundingBox()
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' })
+    await waitFor(page, () => Promise.resolve(!!document.querySelector('#__wf_portal [role="menu"]')), '菜单 role=menu')
+    const menu = page.locator('#__wf_portal [role="menu"]').first()
+    // role/aria 语义（menuitem ×3）
+    assert.equal(await menu.locator('[role="menuitem"]').count(), 3, 'menuitem ×3')
+    // 初始高亮 = 第一个非 disabled（index 0——焦点放 menuitem——keydown 冒泡到 menu）
+    await menu.locator('[role="menuitem"]').first().focus()
+    await page.keyboard.press('ArrowDown')
+    const hl = await menu.locator('[class*="--hl"]').count()
+    assert.equal(hl, 1, '唯一高亮')
+    const hlText = await menu.locator('[class*="--hl"]').textContent()
+    assert.ok(hlText?.includes('复制'), `ArrowDown → 高亮第 2 项（复制）——实际 ${hlText}`)
+    // Enter → 触发 onClick + 菜单关闭（复制无 onClick——菜单仍关闭？——复制项无 onClick——关闭语义：按钮 onClick 空闭包——菜单关闭）
+    await page.keyboard.press('Enter')
+    await waitFor(page, () => Promise.resolve(!document.querySelector('#__wf_portal [role="menu"]')), 'Enter 后关闭')
+    // Escape 关闭（重开 → Escape）
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' })
+    await waitFor(page, () => Promise.resolve(!!document.querySelector('#__wf_portal [role="menu"]')), '重开')
+    await menu.locator('[role="menuitem"]').first().focus()
+    await page.keyboard.press('Escape')
+    await waitFor(page, () => Promise.resolve(!document.querySelector('#__wf_portal [role="menu"]')), 'Escape 关闭')
+  } finally { await page.close() }
+})
