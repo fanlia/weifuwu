@@ -131,6 +131,34 @@ export function mergeMap<T, R>(fn: (v: T) => Observable<R>): OperatorFn<T, R> {
 }
 
 /**
+ * 单飞合并（single-flight）：内层 in-flight 期间上游发射被**丢弃**（不缓存
+ * 不排队）——内层完成后**下一个**上游发射才启动新内层。
+ * - W2（api refresh$）：并发 401 → 只执行一次刷新——exhaustMap 内建
+ *   single-flight（旋转 token 双刷新竞态歼灭——G13 快照比对的窗口堵死）
+ * - 上游 complete：内层空闲时瞬时完成（RxJS 对齐——内层 in-flight 不等待）
+ */
+export function exhaustMap<T, R>(fn: (v: T) => Observable<R>): OperatorFn<T, R> {
+  return (source) => new Observable<R>((obs) => {
+    let inner: { unsubscribe(): void } | null = null
+    const outer = source.subscribe({
+      next: (v) => {
+        if (inner) return // in-flight 期间丢弃（single-flight）
+        let syncedDone = false
+        const sub = fn(v).subscribe({
+          next: (r) => obs.next(r),
+          error: (e) => obs.error(e),
+          complete: () => { syncedDone = true; inner = null },
+        })
+        inner = syncedDone ? null : sub
+      },
+      error: (e) => obs.error(e),
+      complete: () => { if (!inner) obs.complete() },
+    })
+    return () => { outer.unsubscribe(); inner?.unsubscribe() }
+  })
+}
+
+/**
  * 停止信号：notifier **发射**（next）→ 外部 complete——notifier 的
  * complete/error **不触发**（RxJS 对齐）——卸载停止的语义根基
  */

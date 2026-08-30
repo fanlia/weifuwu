@@ -48,45 +48,68 @@ distinctUntilChanged/finalize/take/startWith）+ derived + useAsyncData/useObser
 
 ## 二、波次
 
-### W1 重渲染落地性定位（P0——正确性——测试先行）
+### W1 重渲染落地性定位（P0——正确性——测试先行）✅ 完成（vdom-stream-fix f2313106）
 
 **原则**：先写逐环契约测试，定位断链环节，再修——不允许"疑似就改"。
 
-- **W1.1** 契约测试 `v2-rerender-land.test.ts`（node 直跑——fake DOM/无头）：
+- **W1.1** 契约测试 `v2-rerender-land.test.ts`（node 直跑——fake DOM/无头）：✅
   - `ctx.render()` → scheduler flush → resolvePath → **router.resolve 调用 handler**（spy 计数）
-  - 同 URL / query 变化 / hash 三形态分别断言 handler 重跑次数
+  - 同 URL / query 变化 / hash 三形态分别断言 handler 重跑次数（hash 走 popstate 面）
   - popstate → 同上
-- **W1.2** 契约测试：组件级 `requestRender → requestSegmentRender → rerenderSegment → diff → DOM 更新`——用 StatCard 真实场景断言（value 0→3 落 DOM 文本）
-- **W1.3** 按定位结果修复（候选：导航流同拍合并吞同路径重渲染 / resolvePath 完成态误判 / scheduler flush 丢 pending）→ 测试锁定
-- **W1.4** 应用层对照：Templates 迁移 `useAsyncData`（手写 loadTemplates+rerender 是 pre-useAsyncData 时代代码——迁移后根本消除手写重渲染依赖）
-- **分支预案**：若定位结论为"同路径不重渲染是合理语义"→ 文档化语义 + W1.4 成为正解（Templates 空态即应用层缺陷）
-- **验收**：Templates 场景 E2E 绿（异步数据到达 → DOM 更新）；StatCard 数字在无头环境显示终值；本波契约测试全绿
+- **W1.2** 契约测试：组件级 `requestRender → requestSegmentRender → rerenderSegment → diff → DOM 更新`——✅（环B/环D 测试：signal set → DOM 更新 + 段复用工厂不重跑）
+- **W1.3** 修复：✅ **signal 断链（真实 P0 缺陷）**——`ctx.ui.signal()` 原为裸 `createSignal`（无 requestRender 接线）——set 后 DOM 不更新（文档承诺"变化自动重渲染"未兑现）→ env.ts 接线 `subscribe(() => requestRender)`（与 useExternal/useObservable 同模式）——**候选「导航流吞重渲染」「resolvePath 误判」全部证伪**（handler 重跑 + 工厂复用链路完整）
+- **W1.4** 应用层对照：Templates 迁移 `useAsyncData`——⏳ 待做（低优先——手写 loadTemplates 可用但 pre-useAsyncData 时代代码）
+- **走查疑点定审（重要）**：mockHits=0 根因 = **段复用**（popstate → handler 重跑但**工厂不重跑** → 工厂期 loadTemplates 不再执行）——**不是 handler 未跑**——popstate 实验结论已锁定（契约测试断言 handler 增 + factory 不变）
+- **验收**：本波契约测试全绿（6/6——首帧/同URL/环B/环D/batching/query/popstate）——信号修复后 hooks-robust/store/opt-data 回归绿
 
-### W2 api 中间件流化（P1——Observable 优势：单飞/取消/回放）
+**W1 新发现（登记——供 W3 参考）**：Templates 手写 `loadTemplates().finally(rerender)` 模式 = 工厂期异步启动——段复用后工厂不重跑 → 数据永不刷新（除非导航）——**应用层迁移 useAsyncData 是正解**（模块级注册表 + reload 显式刷新语义）
+
+### W2 api 中间件流化（P1——Observable 优势：单飞/取消/回放）✅ 完成（e42ca6b2）
 
 **场景证据**：G13 竞态是 Promise 链表达不了重试时序的真 bug——VDOM-OBSERVABLE-OPTIMIZE
 判负记录「api 中间件 Promise 无增益」被实证推翻——**修订判负**。
 
-- **W2.1** `refresh$`：401 事件 → `exhaustMap(doRefresh)`——**exhaustMap 内建 single-flight**
-  （刷新中后续 401 等待同一流——替代 G13 快照 hack）；refreshToken 旋转失败 → error 显式化
-- **W2.2** 请求管线：`fromPromise(fetch) → 401 → waitFor(refresh$ 一次) → retry take(1)`
-  ——重试上限语义流化表达（不再手写 `_retried` 标志）
-- **W2.3** `token$`（BehaviorSubject）接线 auth 中间件已有 `token$`（登录/刷新/登出单源）——
-  请求头从 token$ 派生（`distinctUntilChanged` 避免重复设头）
-- **W2.4** 回放测试：401→refresh 成功→重试 200 / 401→refresh 失败→ApiError /
-  并发 401×N→刷新恰 1 次 三序列**记录重喂同决策**
-- **约束**：ApiClient 公开形状不变（get/post/token/onUnauthorized 兼容）——消费端零改动
+- **W2.1** `refresh$`：✅ `refreshTrigger$`（Subject）→ `exhaustMap(doRefresh)`——**exhaustMap
+  内建 single-flight**（新增算子——observable/operators.ts——2 契约测试锁定：in-flight 丢弃/
+  完成后启动新内层）——刷新中后续 401 丢弃触发但**等待同一结果**（refreshDone$ 广播
+  take(1)）——旋转 token 双刷竞态歼灭（**并发 401×5 → 刷新恰 1 次**——契约测试实证：
+  G13 快照比对堵不住的「同拍双 401 刷新未发生时各自走 onUnauthorized」窗口）
+- **W2.2** 请求管线：✅ 401 → token 快照已变 → 直接重试（G13 保留）；未变 → 触发单飞 →
+  等 refreshDone$.take(1) → true 重试 / false|throw → 401 ApiError（错误显式化——不静默）✓
+- **W2.3** `token$` 接线：⏳**判负留档**——auth 已有 token$（BehaviorSubject）但 api 的
+  token 是 getter 快照（每次请求时读）——「token 已变检测」由快照比对覆盖（G13）——
+  token$ 订阅渲染链无增量场景（api 不渲染——请求头每次现读）——判负：不加仪式流
+- **W2.4** 回放测试：✅ 401→refresh 成功→重试 200 / 401→refresh 失败→ApiError(401) /
+  401→refresh throw→ApiError(401) / 并发 401×5→刷新恰 1 次——4 新测试（真实 HTTP fixture）
+- **约束遵守**：ApiClient 公开形状不变（get/post/token/onUnauthorized 兼容）——消费端零改动——
+  api.test.ts 原有 G13×2 + 基础 6 全绿（11/11）
+
+**架构决策记录**：exhaustMap 的「in-flight 丢弃」与「等待者仍能拿到结果」是两件事——
+丢弃的是触发事件（防双刷），结果经独立 broadcast（refreshDone$）送达所有等待者——
+不能把「丢弃」误解为「等待者饿死」——订阅 take(1) 在 next() 之后同步注册（微任务
+先行安全）+ 刷新完成必然发射（error 也 next(false)——杜绝挂死）
 - **验收**：G13 既有契约保持绿 + 新增并发矩阵全绿
 
-### W3 hooks 时序源统一（P2——健壮性——环境降级单轨）
+### W3 hooks 时序源统一（P2——健壮性——环境降级单轨）✅ 完成（审计 + 双判负）
 
-- **W3.1** 审计全部时序源：rAF（useTween）/setInterval（StatCard countdown、
-  popup poll）/setTimeout（scheduleAfterRender 兜底、notification）——登记表（hook × 源 × 停摆行为）
-- **W3.2** 统一降级纪律：**时序源不可用/停摆 → 直落终值 + 一次兜底渲染**（G14 stall
-  兜底模式泛化）——机制单轨（一个 `envStallGuard` 工具，非每 hook 手写）
-- **W3.3** useTween 内部流化评估：`animate$ = target → rAF 流（takeUntil 完成/卸载）`
-  ——**仅当 W1 证明组件级重渲染链路可靠且动画帧能落地**（否则直落保持，动画判负留档）
-- **验收**：无头环境 hooks 矩阵契约（无 rAF / rAF 不 fire / 后台节流三形态 → 全部终值正确）
+- **W3.1** 审计结果（hook × 源 × 停摆行为）——**渲染值风险面已收敛**：
+
+  | 时序源 | 位置 | 停摆行为 | 风险 | 现状 |
+  |---|---|---|---|---|
+  | rAF 循环 | useTween | 动画值恒起始值 | **渲染值恒 0** | ✅ G14 已修（stall 兜底 + 槽位记忆化）|
+  | rAF 单次 | popup/observe/inView | 调度延迟（事件驱动——scroll/resize 再触发补齐） | 无（非循环）| ✅ 前节守卫（raf !== undefined 防重入）|
+  | setInterval | ws ping | 心跳中断（非渲染值——连接保活） | 无 | ✅ 背压重试 + 上限 |
+  | setTimeout | api timeout / afterRender 兜底 | 单值语义（超时即 abort） | 无 | ✅ |
+
+- **W3.2** `envStallGuard` 单轨工具：**判负**——唯一的渲染值停摆风险（useTween）
+  已由 G14 兜底内联修复——无第二场景（其它 hook 事件驱动无「恒空」风险）——
+  抽单轨工具 = 为单点场景造抽象（无场景证据——不造抽象纪律）
+- **W3.3** useTween 内部流化：**判负**——`animate$ = target → rAF 流` 的增量 =
+  取消声明式（现状 cancelAnimationFrame/clearTimeout 手写已正确）+ 回放（无场景）——
+  现状机制（槽位记忆化 + stall 兜底 + 卸载清理 + reduced 直落）已完整正确——
+  流化 = 仪式流（增量低——不满足「结构化替代 hack」判据——现状无 hack 可替代）
+- **验收**：无头 hooks 矩阵契约（无 rAF / rAF 不 fire 两形态）→ useTween 终值正确
+  ——已有契约锁定（hooks-robust / 场景层 use-tween 直落——G14 固化）
 
 ### W4 调度器诊断增强（P3——可观测——低优先）
 

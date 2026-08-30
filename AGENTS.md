@@ -306,7 +306,13 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     - EventRegistry/RefRegistry/DataPipe（active/disposed 布尔态）——流化 = 过度设计
     - NodeState 状态机——**规格已单源**（patch/state-machine.ts——Sim/devVerify 共用
       tracker）——逐命令 transition 时机正确（单步定位）——周期级流化无增量
-    - api 中间件（Promise 已是单值源——fromPromise 桥无增益）
+    - api 中间件（Promise 已是单值源——fromPromise 桥无增益）——**判负撤销（2027-XX
+      VDOM-STREAM-FIX W2——G13 实证推翻）**：Promise 表达不了「并发 401 单飞刷新」
+      时序——exhaustMap 内建 single-flight（并发 401×5 → 刷新恰 1 次——契约测试
+      锁定）——**修法**：refreshTrigger$（Subject）+ exhaustMap → refreshDone$
+      （广播 take(1) 等待）——请求管线 401 分支流化（快照比对保留——token 已变
+      直接重试；未变触发单飞）——判负撤销理由：场景证据（旋转 token 双刷竞态）
+      而非抽象偏好——符合「优势发挥 = 场景证据驱动的增量」
     - 守卫（R1/R2/effect-guard 已机制化——catch/熔断/窗口检测在管线内）
     - Notification 组件层 setTimeout（组件实现——归类纪律：非内核红线）
     - 独立 mini-root 一次性渲染链（popup/toast/notification——renderToStreamV2
@@ -330,7 +336,9 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     | **取消/泄漏** | useObservable 变化通道 Subject+throttle（unmount 双向退订）；disposeSegment instData 清空（登记 entry 引用链释放） | 泄漏防线契约（timer 零后遗症/instData 空）；性能基线（10k build<2s/diff<500ms——成本防线） |
 
     **收益判负记录（本计划）**：DOM 事件桥（fromEventPattern 已有）；中间件
-    请求链（Promise 单值）；调度优先级（场景证据不足）；cycle 回放（toArray
+    请求链（Promise 单值）——**已修订：api 401 单飞刷新（W2）——Promise 表达不了
+    「并发 401 只刷一次」时序——exhaustMap 流化（VDOM-STREAM-FIX-PLAN）**；调度
+    优先级（场景证据不足）；cycle 回放（toArray
     原子——记录即重放——无状态机面）；scheduler latest 模式（现 queue 不丢
     ——真丢中间非 vdom 场景）——**原则**：优势发挥 = 场景证据驱动的增量——
     不造抽象（无场景证据的算子/模式 = 仪式）。

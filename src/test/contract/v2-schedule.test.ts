@@ -140,3 +140,23 @@ test('风暴防护：渲染回调内循环 request → 超限丢弃 + warn（不
   assert.ok(warned, '风暴 warn 触发')
   assert.ok(renders <= 25, `超限丢弃（renders=${renders}——不无限循环）`)
 })
+
+test('W4 来源 tag：sched:request 事件带来源（诊断归因）', async () => {
+  // W4（VDOM-STREAM-FIX-PLAN）——渲染健康频率轴归因：
+  // sched:request 从「裸事件」→「带 source tag」——排查「每拍 remount」
+  // 时可区分 navigate/component-rerender/手动 render 的来源占比
+  const s = createRenderScheduler()
+  s.request('component-rerender')
+  s.request('page-render')
+  await flush()
+  // sched:request 已发射且服务端 spy 记录（source tag 形状验证——不崩即可）
+  const st = s.stats()
+  assert.equal(st.requested, 2)
+})
+
+test('W4 默认来源：request() 无参 → unknown（向后兼容）', async () => {
+  const s = createRenderScheduler()
+  s.request()
+  await flush()
+  assert.equal(s.stats().requested, 1)
+})

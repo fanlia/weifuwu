@@ -256,7 +256,16 @@ export function createUi(env: HookEnv): Ui {
       }
       return () => store.state
     },
-    signal: <T>(initial: T) => createSignal(initial),
+    signal: <T>(initial: T) => {
+      // **W1-P0 断链修复（signal 自动重渲染接线——与 useExternal/useObservable
+      // 同模式）**：signal set → notify → requestRender（组件级/段级）——
+      // 文档承诺「变化自动重渲染」——原裸 createSignal 无订阅者 →
+      // set 后 DOM 不更新（环 D 契约测试实证）。unmount 自动清理。
+      const sig = createSignal(initial)
+      const unsub = sig.subscribe(() => env.requestRender())
+      env.onUnmount(unsub)
+      return sig
+    },
     hold: (fn: () => void) => env.onUnmount(fn),
     useStableRef: <T>(initial: T | ((el: T | null) => void), cleanup?: () => void) =>
       useStableRef(env, initial, cleanup),
