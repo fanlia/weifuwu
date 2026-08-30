@@ -47,72 +47,88 @@ export function renderV2Node(
   segments?: Map<string, import('./diff.ts').Segment>,
   requestRender?: () => void,
 ): Observable<Command> {
+  // **同步收集（2027-09——React 基准对比实证）**：v2 全部命令流同步完成
+  // （工厂/渲染同步）——原实现每节点 fromArray + concatObs（24000 节点 =
+  //  48000 流对象——Node 实测生成+流化 69ms + toArray 38ms——React 对照
+  //  mount 慢 3.3x 主因之一）——改为单数组收集 + 外层单 fromArray（对外
+  //  Observable 形态/管线纪律（原子性在 toArray/周期层）不变——内部零流对象）
+  const out: Command[] = []
+  renderV2Collect(v, parent, index, ref, ctx, registry, segments, requestRender, out)
+  return fromArray(out)
+}
+
+/** 渲染核心（同步收集——与 renderV2Node 命令序列完全同构——流形态
+ *  分离：collect 产出数组——外层包装 Observable——序列等价） */
+function renderV2Collect(
+  v: VNodeChild, parent: string, index: number, ref: string | null,
+  ctx: UIContext, registry: ComponentRegistry,
+  segments: Map<string, import('./diff.ts').Segment> | undefined,
+  requestRender: (() => void) | undefined,
+  out: Command[],
+): void {
   const id = pathId(parent, index)
   switch (kindOf(v)) {
     case 'text': {
       const text = textOf(v)!
-      return fromArray([
+      out.push(
         { op: 'createText', id, value: text } as Command,
         { op: 'insert', id, parent, ref } as Command,
-      ])
+      )
+      break
     }
     case 'hole': {
-      const out: Command[] = []
       emitHole((cmd) => out.push(cmd as Command), id, parent, ref)
-      return fromArray(out)
+      break
     }
     case 'array': {
       const items = v as VNodeChild[]
       detectDuplicateKey(items, `数组展开（${parent}）`)
       let slot = index
       let lastRef2: string | null = ref
-      const parts: Array<Observable<Command>> = []
       for (const c of items) {
-        parts.push(renderV2Node(c, parent, slot, lastRef2, ctx, registry, segments, requestRender))
+        renderV2Collect(c, parent, slot, lastRef2, ctx, registry, segments, requestRender, out)
         const sc = slotCount(c)
         lastRef2 = pathId(parent, slot + sc - 1)
         slot += sc
       }
-      return concatObs(parts)
+      break
     }
     case 'fragment': {
       const cs = childrenOf(v as VNode)
       detectDuplicateKey(cs, `Fragment 展开（${parent}）`)
       let slot = index
       let lastRef2: string | null = ref
-      const parts: Array<Observable<Command>> = []
       for (const c of cs) {
-        parts.push(renderV2Node(c, parent, slot, lastRef2, ctx, registry, segments, requestRender))
+        renderV2Collect(c, parent, slot, lastRef2, ctx, registry, segments, requestRender, out)
         const sc = slotCount(c)
         lastRef2 = pathId(parent, slot + sc - 1)
         slot += sc
       }
-      return concatObs(parts)
+      break
     }
     case 'element': {
       const vn = v as VNode
       // 元素：create → setProp（函数值）→ insert → ref → children 递归 → close
-      const cmds: Command[] = [{ op: 'create', id, tag: vn.type as string, attrs: serializableAttrs(vn.props) } as Command]
+      out.push({ op: 'create', id, tag: vn.type as string, attrs: serializableAttrs(vn.props) } as Command)
       for (const [k, val] of Object.entries(vn.props)) {
         if (k === 'children' || k === 'key' || k === 'ref') continue
-        if (typeof val === 'function') cmds.push({ op: 'setProp', id, key: k, value: val } as Command)
+        if (typeof val === 'function') out.push({ op: 'setProp', id, key: k, value: val } as Command)
       }
-      cmds.push({ op: 'insert', id, parent, ref } as Command)
+      out.push({ op: 'insert', id, parent, ref } as Command)
       const refFn = vn.props.ref
-      if (typeof refFn === 'function') cmds.push({ op: 'ref', id, fn: refFn } as Command)
+      if (typeof refFn === 'function') out.push({ op: 'ref', id, fn: refFn } as Command)
       const cs = childrenOf(vn)
       detectDuplicateKey(cs, `元素 children（${id}）`)
       let lastRef: string | null = null
       let slot = 0
-      const parts: Array<Observable<Command>> = []
       for (const c of cs) {
-        parts.push(renderV2Node(c, id, slot, lastRef, ctx, registry, segments, requestRender))
+        renderV2Collect(c, id, slot, lastRef, ctx, registry, segments, requestRender, out)
         const sc = slotCount(c)
         lastRef = pathId(id, slot + sc - 1)
         slot += sc
       }
-      // 头命令 + 子流 + close
-      return concatObs([fromArray(cmds), ...parts, fromArray([{ op: 'close', id } as Command])])
+      out.push({ op: 'close', id } as Command)
+      break
     }
     case 'component': {
       const vn = v as VNode
@@ -139,16 +155,16 @@ export function renderV2Node(
       // **renderFn 错误降级（2027-08——v1 R2 契约移植——D3 实证）**：
       // 组件 renderFn 抛错 → 组件级 hole 降级（锚 + 段保留——下一拍重试
       // 自愈）——单组件失败不炸整树（v1 catch 语义——console.error + out=null）
-      let out: VNodeChild
+      let compOut: VNodeChild
       try {
-        out = rerenderSegment(seg, vn.props)
+        compOut = rerenderSegment(seg, vn.props)
       } catch (e) {
         console.error(`[vdom] renderFn 错误（${compId}）——组件级 hole 降级（下一拍重试自愈）:`, e)
-        out = null
+        compOut = null
       }
-      seg.lastOutput = normalizeOutput(out)
+      seg.lastOutput = normalizeOutput(compOut)
       // **输出位置（单一实现源——v2OutputPos）**——渲染与 diff 共用同规则
-      const pos = v2OutputPos(out, compId, parent, index)
+      const pos = v2OutputPos(compOut, compId, parent, index)
       // **Hole 输出的挂载分离（2027-09——tour 违例实证——G11 可变输出的
       //  挂载面修正）**：组件输出 null 时——子空间锚（compId.0——id 命名
       //  保持 C2）但 DOM 挂载必须用**槽位父**（真实容器）——v2OutputPos
@@ -158,26 +174,23 @@ export function renderV2Node(
       //  旧锚 + 渲染」（语义缺口：渲染路径无 remove——done.full 清理在
       //  insert 之后——中途态 parentOf 命中残留锚）——**分离命名与挂载**：
       //  锚挂槽位父（isConnected 容器——parentOf 直中）——命名仍 compId.0
-      if (isHoleKind(out)) {
+      if (isHoleKind(compOut)) {
         const anchorId = pathId(compId, 0)
-        return concatObs([
-          fromArray([
-            { op: 'createAnchor', id: anchorId } as Command,
-            { op: 'insert', id: anchorId, parent, ref } as Command,
-          ]),
-          fromArray([{ op: 'mount', compId } as Command]),
-        ])
+        out.push(
+          { op: 'createAnchor', id: anchorId } as Command,
+          { op: 'insert', id: anchorId, parent, ref } as Command,
+          { op: 'mount', compId } as Command,
+        )
+        break
       }
-      return concatObs([
-        renderV2Node(out, pos.parent, pos.index, ref, ctx, registry, segs, requestRender),
-        fromArray([{ op: 'mount', compId } as Command]),
-      ])
+      renderV2Collect(compOut, pos.parent, pos.index, ref, ctx, registry, segs, requestRender, out)
+      out.push({ op: 'mount', compId } as Command)
+      break
     }
     case 'invalid': {
       console.warn(`[vdom] 非法子节点——${invalidDiagnostic(v)}`)
-      const out: Command[] = []
       emitHole((cmd) => out.push(cmd as Command), id, parent, ref, invalidDiagnostic(v))
-      return fromArray(out)
+      break
     }
   }
 }

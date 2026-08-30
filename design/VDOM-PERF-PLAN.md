@@ -104,3 +104,39 @@ remapSubtree（patch/index.ts:76）：nodes/事件/registry 三表前缀全量�
   ——旧 O(N²) 代码数学预期 14s+（2.9 亿次 startsWith）——必挂——
   实测（新代码）：卸载 135ms / 更新 199ms
 - 契约层 v2-lifecycle 性能基线（10k 节点 build<2s/diff<500ms）保留
+
+## 6. React 19 对照基准（2027-09——真实生产框架对比）
+
+**方法与公平性**（bench/react-compare/——React 19.2.8 vs weifuwu——同构
+6000 行 × 4 节点 + **同一份 components.css 280KB**）：
+
+| 指标 | React 19 | weifuwu | React/wf | 结论 |
+|---|---|---|---|---|
+| mount | 776ms | 933ms | 0.83x | 接近（差距 20%） |
+| unmount | 48ms | 160ms | **0.30x** | 真实差距 |
+| update | 200ms | 208ms | 0.96x | **持平** |
+| remount | 738ms | 904ms | 0.82x | 接近 |
+
+**关键教训（教训机制化——避免误判）**：① 首次对比无 CSS 对齐——React
+「快 3.3x」假象——**CDP (program) 64.7% 是 CSS 布局**（双端同等承担——
+对齐后差距 3.3x → 1.2x）——**性能对比必须同负载**；② CDP Profiler 采样
+必须按 profile.samples（nodes 是函数定义数——非样本）——脚本 bug 教训。
+
+**差距归因（CDP）**：mount/unmount 无单点热靴（最高 0.5%）——分布式
+线性成本——unmount 剩余差距 = 命令粒度（React fiber 递归一次提交 vs
+逐元素 remove 命令 + 每节点簿记）——**批命令（removeTree）收益评估
+~70ms/场景且用户感知面无触发（admin 310ms 已无感）——判负延后**。
+
+**已完成优化（本轮）**：
+- renderV2Node 同步收集重构——v2 流全部同步完成（工厂/渲染同步）——
+  每节点 fromArray+concatObs（48000 流对象/6000 行）→ 单数组收集 + 外层
+  单 fromArray——外部 Observable 形态/管线纪律（原子性在 toArray/周期层）
+  不变——10k 基线 113ms → **81ms**（-28%）
+
+| 优化波次 | 内容 | 实测 |
+|---|---|---|
+| 波次 1/1b | 消费端三表索引化（procRemove O(N²)→O(k)） | admin 59s→310ms |
+| 波次 2 | procInsert ref 回退索引化 | chat 流 ref 路径 O(N)→O(k) |
+| 波次 3 | renderV2Node 同步收集（流对象 48000→1/树） | 10k 基线 113→81ms |
+| **判负** | removeTree 批命令（13→14 命令协议——Sim/verify/断言迁移） | 收益 ~70ms 无用户感知场景 |
+| **判负** | data-wf-id 按需写入（事件节点才写——双语义风险） | 收益 ~20ms 风险大 |
