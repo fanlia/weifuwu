@@ -23,6 +23,7 @@ import { registerSandboxRoutes } from './src/routes/sandboxes.ts'
 import { registerAiEventRoutes } from './src/routes/ai-events.ts'
 import { registerMessageRoutes } from './src/routes/messages.ts'
 import { registerKnowledgeRoutes } from './src/routes/knowledge.ts'
+import { registerSurveyRoutes } from './src/routes/survey.ts'
 
 // ── 服务 ──────────────────────────────────────────────────
 import { handleNewMessage } from './src/services/chat.ts'
@@ -141,6 +142,22 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB`)
   await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS agent_run_states (message_id UUID PRIMARY KEY, agent_id UUID NOT NULL, department_id UUID NOT NULL, app_id UUID NOT NULL, steps JSONB NOT NULL DEFAULT '[]'::JSONB, status TEXT NOT NULL DEFAULT 'running', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
     await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS skill_ratings (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), skill_dir TEXT NOT NULL, app_id UUID NOT NULL, liked BOOLEAN NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE (skill_dir, app_id))`)
+  // S1 问卷批量任务（Campaign——总量/并发可配置——调度器水位派单）
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS survey_campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    app_id UUID NOT NULL REFERENCES _weifuwu_apps(id) ON DELETE CASCADE,
+    total INT NOT NULL, concurrency INT NOT NULL, url TEXT NOT NULL DEFAULT '',
+    retry INT NOT NULL DEFAULT 2, status TEXT NOT NULL DEFAULT 'running',
+    completed INT NOT NULL DEFAULT 0, failed INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS survey_campaign_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id UUID NOT NULL REFERENCES survey_campaigns(id) ON DELETE CASCADE,
+    agent_id UUID NOT NULL, agent_name TEXT NOT NULL, dept_id UUID NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued', attempts INT NOT NULL DEFAULT 0,
+    started_at TIMESTAMPTZ, finished_at TIMESTAMPTZ, error TEXT)`)
+  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_survey_campaigns_app ON survey_campaigns(app_id, created_at DESC)`)
+  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_survey_runs_campaign ON survey_campaign_runs(campaign_id, status)`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_skill_ratings_dir ON skill_ratings(skill_dir)`)
     await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS answer_cache (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, hits INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
   await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_answer_cache_app ON answer_cache(app_id)`)
@@ -798,6 +815,15 @@ async function main() {
   registerMessageRoutes(protectedRoutes)
   // 知识库
   registerKnowledgeRoutes(protectedRoutes)
+  registerSurveyRoutes(protectedRoutes)
+  // S1：server 启动恢复——running campaign 标记 interrupted（不留孤儿循环——retry API 恢复）
+  setImmediate(async () => {
+    try {
+      const { markInterrupted } = await import('./src/services/survey-campaign.ts')
+      const n = await markInterrupted({ sql: pg, appId: '' } as any)
+      if (n > 0) console.log(`[campaign] 启动恢复：${n} 个运行中 campaign 标记 interrupted（可 retry 恢复）`)
+    } catch { /* 恢复失败不阻断 */ }
+  })
   // Skills
   registerSkillRoutes(protectedRoutes)
   // 角色模板

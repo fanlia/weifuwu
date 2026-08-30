@@ -376,3 +376,32 @@ CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status, last_used_a
 -- 1 部门 = 1 环境（部分唯一索引——terminated 后允许重建；NULL=独立沙盒不冲突）
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sandboxes_dept_active ON sandboxes(department_id)
   WHERE department_id IS NOT NULL AND status != 'terminated';
+
+-- 问卷批量任务（S1——2027-09——Campaign：总量/并发可配置——调度器水位派单）
+CREATE TABLE IF NOT EXISTS survey_campaigns (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_id      UUID NOT NULL REFERENCES _weifuwu_apps(id) ON DELETE CASCADE,
+  total       INT NOT NULL,
+  concurrency INT NOT NULL,
+  url         TEXT NOT NULL DEFAULT '',
+  retry       INT NOT NULL DEFAULT 2,
+  status      TEXT NOT NULL DEFAULT 'running',  -- running/done/cancelled/interrupted
+  completed   INT NOT NULL DEFAULT 0,
+  failed      INT NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_survey_campaigns_app ON survey_campaigns(app_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS survey_campaign_runs (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id UUID NOT NULL REFERENCES survey_campaigns(id) ON DELETE CASCADE,
+  agent_id    UUID NOT NULL,
+  agent_name  TEXT NOT NULL,
+  dept_id     UUID NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'queued',  -- queued/running/done/failed/cancelled
+  attempts    INT NOT NULL DEFAULT 0,
+  started_at  TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
+  error       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_survey_runs_campaign ON survey_campaign_runs(campaign_id, status);
