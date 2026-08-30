@@ -49,8 +49,11 @@ func startAgent() {
 		}
 		// 超时传递（x-sandbox-timeout 头——bash 内部超时 = 外层 − 2s——
 		// 与 docker exec 路径的 SANDBOX_EXEC_TIMEOUT_SECS 语义对齐）
+		// 每次请求重置（无头 = unset——bash 回落默认 30s——防跨请求 env 残留）
 		if h := r.Header.Get("X-Sandbox-Timeout"); h != "" {
 			os.Setenv("SANDBOX_EXEC_TIMEOUT_SECS", h)
+		} else {
+			os.Unsetenv("SANDBOX_EXEC_TIMEOUT_SECS")
 		}
 		execMu.Lock()
 		output, ok := dispatch(req.Tool, req.Args)
