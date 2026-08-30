@@ -50,6 +50,19 @@ test('demo 交互：成功通知 → 弹出（标题+描述）', async () => {
   }
 })
 
+test('清理：通知自动消失 → portal 零残留（卸载语义）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.locator('main .wf-surface button', { hasText: '成功通知' }).first().click()
+    await page.waitForFunction(() => (document.body.textContent ?? '').includes('部署成功'), '通知弹出', { timeout: 3000 })
+    await page.waitForFunction(() => !(document.body.textContent ?? '').includes('部署成功'), '自动消失', { timeout: 8000 })
+    assert.equal(await page.locator('#__wf_portal [class*="notification"]').count(), 0, 'portal 无通知残留')
+  } finally {
+    await page.close()
+  }
+})
+
 test('demo 交互：警告通知 → 弹出', async () => {
   const page = await browser.newPage()
   try {

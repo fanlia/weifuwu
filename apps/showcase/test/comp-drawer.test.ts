@@ -59,6 +59,8 @@ test('能力：关闭（取消）→ 移除；左侧抽屉打开', async () => {
     await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('编辑用户')), '抽屉出现')
     await page.locator('#__wf_portal button', { hasText: '取消' }).first().click()
     await waitFor(page, () => Promise.resolve(!(document.body.textContent ?? '').includes('编辑用户')), '关闭')
+    // **portal 零残留（卸载清理语义——关闭后 #__wf_portal 无 Drawer 内容）**
+    assert.equal(await page.locator('#__wf_portal [class*="drawer"]').count(), 0, '关闭后 portal 无抽屉内容')
     // 左侧抽屉
     await page.locator('main .wf-surface button', { hasText: '左侧抽屉' }).first().click()
     await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('导航菜单')), '左侧抽屉')

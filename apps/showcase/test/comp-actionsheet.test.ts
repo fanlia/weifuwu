@@ -52,6 +52,18 @@ test('渲染零错误 + 打开 + 选项选择（删除——danger——选择�
     await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('选择结果：delete')), '选择回调')
   } finally { await page.close() }
 })
+test('清理：选择后关闭 → portal 零残留（卸载语义）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.locator('main .wf-surface button').first().click()
+    await waitFor(page, () => Promise.resolve(!!document.querySelector('#__wf_portal [class*="actionsheet"], #__wf_portal [class*="sheet"]')), '面板出现')
+    await page.locator('#__wf_portal button', { hasText: '删除' }).first().click()
+    await waitFor(page, () => Promise.resolve(!document.querySelector('#__wf_portal [class*="actionsheet"], #__wf_portal [class*="sheet"]')), '选择后关闭')
+    assert.equal(await page.locator('#__wf_portal [class*="actionsheet"], #__wf_portal [class*="sheet"]').count(), 0, 'portal 零残留')
+  } finally { await page.close() }
+})
+
 test('位置：portal 归属 + fixed + 视口内 + 底部面板', async () => {
   const page = await browser.newPage()
   try {
