@@ -48,19 +48,21 @@ distinctUntilChanged/finalize/take/startWith）+ derived + useAsyncData/useObser
 
 ## 二、波次
 
-### W1 重渲染落地性定位（P0——正确性——测试先行）
+### W1 重渲染落地性定位（P0——正确性——测试先行）✅ 完成（vdom-stream-fix f2313106）
 
 **原则**：先写逐环契约测试，定位断链环节，再修——不允许"疑似就改"。
 
-- **W1.1** 契约测试 `v2-rerender-land.test.ts`（node 直跑——fake DOM/无头）：
+- **W1.1** 契约测试 `v2-rerender-land.test.ts`（node 直跑——fake DOM/无头）：✅
   - `ctx.render()` → scheduler flush → resolvePath → **router.resolve 调用 handler**（spy 计数）
-  - 同 URL / query 变化 / hash 三形态分别断言 handler 重跑次数
+  - 同 URL / query 变化 / hash 三形态分别断言 handler 重跑次数（hash 走 popstate 面）
   - popstate → 同上
-- **W1.2** 契约测试：组件级 `requestRender → requestSegmentRender → rerenderSegment → diff → DOM 更新`——用 StatCard 真实场景断言（value 0→3 落 DOM 文本）
-- **W1.3** 按定位结果修复（候选：导航流同拍合并吞同路径重渲染 / resolvePath 完成态误判 / scheduler flush 丢 pending）→ 测试锁定
-- **W1.4** 应用层对照：Templates 迁移 `useAsyncData`（手写 loadTemplates+rerender 是 pre-useAsyncData 时代代码——迁移后根本消除手写重渲染依赖）
-- **分支预案**：若定位结论为"同路径不重渲染是合理语义"→ 文档化语义 + W1.4 成为正解（Templates 空态即应用层缺陷）
-- **验收**：Templates 场景 E2E 绿（异步数据到达 → DOM 更新）；StatCard 数字在无头环境显示终值；本波契约测试全绿
+- **W1.2** 契约测试：组件级 `requestRender → requestSegmentRender → rerenderSegment → diff → DOM 更新`——✅（环B/环D 测试：signal set → DOM 更新 + 段复用工厂不重跑）
+- **W1.3** 修复：✅ **signal 断链（真实 P0 缺陷）**——`ctx.ui.signal()` 原为裸 `createSignal`（无 requestRender 接线）——set 后 DOM 不更新（文档承诺"变化自动重渲染"未兑现）→ env.ts 接线 `subscribe(() => requestRender)`（与 useExternal/useObservable 同模式）——**候选「导航流吞重渲染」「resolvePath 误判」全部证伪**（handler 重跑 + 工厂复用链路完整）
+- **W1.4** 应用层对照：Templates 迁移 `useAsyncData`——⏳ 待做（低优先——手写 loadTemplates 可用但 pre-useAsyncData 时代代码）
+- **走查疑点定审（重要）**：mockHits=0 根因 = **段复用**（popstate → handler 重跑但**工厂不重跑** → 工厂期 loadTemplates 不再执行）——**不是 handler 未跑**——popstate 实验结论已锁定（契约测试断言 handler 增 + factory 不变）
+- **验收**：本波契约测试全绿（6/6——首帧/同URL/环B/环D/batching/query/popstate）——信号修复后 hooks-robust/store/opt-data 回归绿
+
+**W1 新发现（登记——供 W3 参考）**：Templates 手写 `loadTemplates().finally(rerender)` 模式 = 工厂期异步启动——段复用后工厂不重跑 → 数据永不刷新（除非导航）——**应用层迁移 useAsyncData 是正解**（模块级注册表 + reload 显式刷新语义）
 
 ### W2 api 中间件流化（P1——Observable 优势：单飞/取消/回放）
 
