@@ -33,28 +33,27 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 export const Templates: Component = (_props, ctx) => {
-  const rerender = () => ctx.render()
-  // 异步启动（2027-08 同步化：工厂无 await——首次加载异步启动——闭包语义保留）
-  let templates: RoleTemplate[] = []
-  let error = ''
-  let started = false
-  const loadTemplates = () => {
-    ctx.api!.get<{ templates: RoleTemplate[] }>('/api/role-templates')
-      .then((res) => { templates = res.templates ?? [] })
-      .catch(() => { error = '加载模板失败' })
-      .finally(() => rerender())
-  }
-  if (!started) { started = true; loadTemplates() }
-  // 分类由 location.hash 驱动（#cat-engineering）——hash 导航触发路由重渲染，
-  // 工厂重跑读新 hash 初始化（绕开路由页 ctx.render 不落地的框架坑——真实调试发现）
-  // 分类筛选：框架路由页 rerender bug（renderOne patch 不落地——登记专项任务）
-  // 暂以 query 驱动（navigate 触发 renderPath 重渲染），路由 query 解析待框架修复后启用
-  let category = ''
-  try {
-    const q = (ctx.route?.query as Record<string, string>)?.cat
-    if (q) category = q
-  } catch { /* 忽略 */ }
-  void category // 分类筛选受框架 bug 影响——当前展示全部，修复后启用
+  // **useAsyncData 迁移（W1.4——VDOM-STREAM-FIX-PLAN）**：原手写
+  // `loadTemplates + ctx.render()` 是 pre-useAsyncData 时代代码——工厂期异步
+  // 启动 + finally(rerender)——在 v2 段复用语义下工厂不重跑 → 数据永不刷新
+  // （导航返回/同一会话都停旧）。useAsyncData 语义：同 key 并发合并、竞态
+  // 取消、缓存保留（重挂载零请求——导航返回瞬时）、reload 显式刷新——
+  // get() 返回 null = loading/error（区块降级）——错误文案进本地 error 态。
+  let loadError = ''
+  const [getTemplates, reloadTemplates] = ctx.ui.useAsyncData(
+    async () => {
+      loadError = ''
+      try {
+        const res = await ctx.api!.get<{ templates: RoleTemplate[] }>('/api/role-templates')
+        return res.templates ?? []
+      } catch {
+        loadError = '加载模板失败'
+        return null
+      }
+    },
+    'templates-list',
+  )
+  // 分类由路由 query 驱动（/templates?cat=x）——renderFn 每次渲染读最新
   let creating: string | null = null
   let createError = ''
 
@@ -83,6 +82,8 @@ export const Templates: Component = (_props, ctx) => {
       const q = (ctx.route?.query as Record<string, string>)?.cat
       if (q) category = q
     } catch { /* 忽略 */ }
+    const templates = getTemplates() ?? []
+    const error = loadError
     const cats = ['', ...new Set(templates.map((t) => t.category))]
     const visible = category ? templates.filter((t) => t.category === category) : templates
     return (
@@ -92,7 +93,10 @@ export const Templates: Component = (_props, ctx) => {
           <h1 class="wf-font-2xl wf-margin-none">模板市场</h1>
           <p class="wf-font-sm wf-text-secondary wf-margin-top-xs">选择一个角色模板，一键创建你的 AI Agent</p>
         </div>
-        <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}><Icon name="plus" size={14} /> 自定义创建</Button>
+        <div class="wf-row wf-gap-xs">
+          <Button variant="ghost" onClick={() => reloadTemplates()}><Icon name="refresh" size={14} /> 刷新</Button>
+          <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}><Icon name="plus" size={14} /> 自定义创建</Button>
+        </div>
       </div>
 
       <div class="wf-row wf-gap-sm wf-items-center">
