@@ -2,7 +2,7 @@
  * 工作空间工具集 — read/write/edit/grep/list_files/bash
  *
  * 三层模型（2026-12）：部门 = 工作目录，sandbox = 计算资源，agent = 能力。
- * 安全边界 = Docker 沙盒容器：所有工具操作经容器内 tool-runner.js 执行
+ * 安全边界 = Docker 沙盒容器：所有工具操作经容器内 Go sandbox-agent（exec 子命令）执行
  * （agent 看到统一的容器内 /ws 视图；路径穿越即使有 bug 也逃不出卷挂载——纵深防御）
  * 宿主侧只做参数透传 + 容器调用（经 SandboxManager——DB 驱动生命周期），不再直接 fs/bash
  */

@@ -33,8 +33,8 @@ export interface SandboxOptions {
   execTimeoutMs: number
   /** 是否启用（SANDBOX_DISABLE=1 禁用） */
   enabled: boolean
-  /** 工具执行器脚本路径（挂载进容器 /opt/sandbox/tool-runner.js） */
-  runnerPath: string
+  /** Go agent 二进制（构建产物——bind-mount 挂载——镜像不变——热替换即升级） */
+  agentPath: string
 }
 
 /** ensure 时的容器规格（来自 sandboxes 记录快照——配置即声明） */
@@ -73,7 +73,9 @@ const DEFAULT_OPTIONS: SandboxOptions = {
   image: process.env.SANDBOX_IMAGE ?? 'ap-sandbox:latest',
   execTimeoutMs: 35_000,
   enabled: process.env.SANDBOX_DISABLE !== '1',
-  runnerPath: resolve(__dirname, 'tool-runner.js'),
+  // Go agent（2027-09——挂载面而非烧入——镜像 ap-sandbox 保持不变——
+  // agent 升级 = 替换宿主二进制——回滚 = 换回旧文件）
+  agentPath: resolve(__dirname, '../../dist/sandbox/sandbox-agent'),
 }
 
 const CONTAINER_PREFIX = 'ap-sandbox-'
@@ -284,6 +286,9 @@ export class DockerSandbox implements SandboxHost {
     if (m.exitCode !== 0) return true
     const [mounts, cfgImage, netMode] = m.stdout.split('|')
     if (!mounts || !mounts.includes(`${spec.ws}=/ws`)) return true
+    // Go agent 挂载检查（2027-09——旧容器（无 agent 挂载）→ 漂移 → 重建——
+    // entrypoint 指向挂载文件——缺挂载则容器无法启动——ensure 时重建）
+    if (!mounts.includes('/opt/sandbox/sandbox-agent')) return true
     if (cfgImage !== image) return true
     const wantNet = spec.network ? 'bridge' : 'none'
     if (netMode !== wantNet) return true
@@ -300,7 +305,8 @@ export class DockerSandbox implements SandboxHost {
       'run', '-d',
       '--name', containerName(sandboxId),
       '-v', `${spec.ws}:/ws`,
-      '-v', `${this.opts.runnerPath}:/opt/sandbox/tool-runner.js:ro`,
+      '-v', `${this.opts.agentPath}:/opt/sandbox/sandbox-agent:ro`,
+      '--entrypoint', '/opt/sandbox/sandbox-agent',
       '-w', '/ws',
       '--network', spec.network ? 'bridge' : 'none',
       ...(spec.network ? ['--add-host', 'host.docker.internal:host-gateway'] : []),
@@ -346,7 +352,8 @@ export class DockerSandbox implements SandboxHost {
       'run', '-d',
       '--name', tmpName,
       '-v', `${spec.ws}:/ws`,
-      '-v', `${this.opts.runnerPath}:/opt/sandbox/tool-runner.js:ro`,
+      '-v', `${this.opts.agentPath}:/opt/sandbox/sandbox-agent:ro`,
+      '--entrypoint', '/opt/sandbox/sandbox-agent',
       '-w', '/ws',
       '--network', spec.network ? 'bridge' : 'none',
       ...(spec.network ? ['--add-host', 'host.docker.internal:host-gateway'] : []),
@@ -366,7 +373,7 @@ export class DockerSandbox implements SandboxHost {
       const payload = JSON.stringify({ tool, args })
       const secs = Math.max(3, Math.floor(timeoutMs / 1000))
       const er = await this.dockerExec(tmpName,
-        ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), 'node', '/opt/sandbox/tool-runner.js'],
+        ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), '/opt/sandbox/sandbox-agent', 'exec'],
         payload)
       if (er.timedOut) return { ok: false, error: `命令执行超时（${secs}s）——沙盒已终止该命令`, timedOut: true }
       if (er.exitCode !== 0) {
@@ -391,7 +398,7 @@ export class DockerSandbox implements SandboxHost {
   // ── 执行 ──────────────────────────────────────────
 
   /**
-   * 统一工具执行：stdin {tool,args} → 容器内 tool-runner.js → {ok,output}
+   * 统一工具执行：stdin {tool,args} → 容器内 Go agent（sandbox-agent exec）→ {ok,output}
    * - busy 标记（回收/驱逐豁免）+ finally 清除（P0-1）
    * - per-sandbox 串行队列（部门共享环境的并发纪律）
    */
@@ -444,10 +451,10 @@ export class DockerSandbox implements SandboxHost {
     try {
       const payload = JSON.stringify({ tool, args })
       const secs = Math.max(3, Math.floor(this.opts.execTimeoutMs / 1000))
-      // 容器内 timeout 杀 node 兜底（P0-3）；bash 进程树由 tool-runner 内部
+      // 容器内 timeout 兜底（P0-3）；bash 进程树由 Go agent 内部（Setpgid）
       // spawn detached + kill(-pid) 先杀（-e 传外层超时——内部 = 外层 − 2s）
       const r = await this.dockerExec(containerName(sandboxId),
-        ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), 'node', '/opt/sandbox/tool-runner.js'],
+        ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), '/opt/sandbox/sandbox-agent', 'exec'],
         payload)
       if (r.timedOut) {
         this.execStats.execTimeouts++
@@ -460,19 +467,6 @@ export class DockerSandbox implements SandboxHost {
           this.execStats.execTimeouts++
           this.onExecEvent?.(sandboxId, 'exec_timeout', `${tool} ${secs}s`)
           return { ok: false, error: `命令执行超时（${secs}s）——沙盒已终止该命令`, timedOut: true }
-        }
-        // 过渡兼容：旧容器（无挂载 agent 文件）exec 127 → 回退 node tool-runner
-        //（specDrift 会触发 ensure 重建——窗口内不中断任务）
-        if (r.exitCode === 127 && !r.timedOut) {
-          const legacy = await this.dockerExec(containerName(sandboxId),
-            ['-e', `SANDBOX_EXEC_TIMEOUT_SECS=${secs}`, 'timeout', '-s', 'KILL', String(secs), 'node', '/opt/sandbox/tool-runner.js'],
-            payload)
-          if (!legacy.timedOut && legacy.exitCode === 0) {
-            try {
-              const parsed = JSON.parse(legacy.output)
-              if (parsed.ok) return { ok: true, output: String(parsed.output ?? '') }
-            } catch { /* fallthrough */ }
-          }
         }
         // exec 失败（容器可能被外部 stop）→ 清 readiness 缓存（下次 ensure 重新校验）
         this.readyCache.delete(sandboxId)

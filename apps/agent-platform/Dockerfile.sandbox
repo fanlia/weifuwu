@@ -14,7 +14,8 @@
 #
 # 构建：docker build -f Dockerfile.sandbox -t ap-sandbox:latest .
 # 启用：.env 设 SANDBOX_IMAGE=ap-sandbox:latest
-# 注：tool-runner.js 由平台运行时挂载；python 经 bash 工具调用
+# 注：Go sandbox-agent 由平台运行时 bind-mount 挂载（镜像不变——热替换即升级）；
+# python 经 bash 工具调用
 
 FROM node:24-alpine
 
@@ -38,10 +39,9 @@ WORKDIR /ws
 # 根治：容器 PID 1 = 裸 sleep/工具进程——无信号 handler——内核忽略 PID 1
 # 默认信号动作（SIGTERM 被丢——docker stop 10s 宽限后 SIGKILL——实测 10.1s）。
 # agent = PID 1 显式信号处理（秒级优雅关闭）+ 健康/能力/状态面。
-# 注：tool-runner.js 由平台运行时 bind-mount 挂载（/opt/sandbox/tool-runner.js）——
-# agent 经子进程调用它（stdin 协议保留——执行链零修改）。
-# 构建时烧入 agent（镜像自包含）；tool-runner 保持挂载（热更新不重建镜像）。
-COPY --chown=node:node src/sandbox/sandbox-agent.js /opt/sandbox/sandbox-agent.js
+# 注：Go sandbox-agent 由平台运行时 bind-mount 挂载（/opt/sandbox/sandbox-agent）——
+# 2027-09：tool-runner.js 与 sandbox-agent.js 退役（Go agent 全量接管——
+# exec 子命令同协议单次执行 + 常驻信号/健康面）——镜像不变（--entrypoint 覆盖）
 COPY --chown=node:node src/sandbox/capabilities.json /opt/sandbox/capabilities.json
 # 能力声明（镜像自描述——AI/框架可见）
-ENTRYPOINT ["node", "/opt/sandbox/sandbox-agent.js"]
+ENTRYPOINT ["/opt/sandbox/sandbox-agent"]

@@ -541,7 +541,7 @@ async function runAgentStreamForAgent(
           }
         }
         // P1-3 文件变动事件：AI 写入/编辑文件 → 广播 file_updated（工作区交付物自动刷新）
-        // 工具名 + args 来自 onToolCall（宿主侧已知——容器内 tool-runner 无需回传）
+        // 工具名 + args 来自 onToolCall（宿主侧已知——容器内 Go agent 无需回传）
         try {
           if ((result.name === 'write' || result.name === 'edit') && !String(result.result ?? '').startsWith('写入失败') && !String(result.result ?? '').startsWith('编辑失败') && !String(result.result ?? '').includes('未找到匹配')) {
             const argsJson = lastToolArgsOf(String(result.name))
