@@ -339,6 +339,15 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
     {…1}={}——文档 signal(0) 示例坏）→ store.set/update 类型感知（对象合并/
     原语数组替换——向后兼容）+ changes$ 原语直发。
 
+## 2d. 性能防线（消费端——VDOM-PERF-PLAN 完成归档 2027-09）
+
+> **三波次全交付已归档**（design/VDOM-PERF-PLAN.md §4/§6——React 19 对照在
+> bench/react-compare/）——防线：
+> - **契约层**：v2-lifecycle 10k 节点 build<2s/diff<500ms（生成端）
+> - **场景层**：e2e-perf（6000 行卸载 <2s + 更新 <1s——旧 O(N²) 必挂）
+> - **React 对照**：同 CSS 负担 mount 0.83x/update 0.96x——判负记录
+>   （removeTree 批命令——无用户感知场景不预造）
+
 ## 2c. 渲染健康（三轴诊断器——RENDER-HEALTH-PLAN 波次 1）
 
 > **问题出现即读数**——渲染的「健康」三轴：**频率**（渲染次数/秒）·
@@ -472,6 +481,9 @@ onClick={async () => { const r = await ctx.api!.post(...); ...; ctx.render() }}
 | | keyed 重复 key 三面修复（G9——首现优先/多余项区间移除/move remap 迁移组件注册表） | keyed 列表（非法输入确定行为——组件树 fuzz 1/300→0） |
 | | **keyedId key 转义（key 注入防御——证明审计发现）**：compId 直接拼接 key——key 含 '.'（数据 id 'a.b'）与 'ka' 产生前缀关系——disposeComponent/remapSubtree 的 startsWith 前缀匹配误删兄弟实例（unmount root.0.ka 误删 root.0.ka.b——状态丢失 + onUnmounts 错乱——实证）——统一转义（'%'→'%25' 先行、'.'→'%2E'——互不碰撞）——build/diff/cleanup 5 生成点单一实现源 | keyed 组件（任意字符 key——用户数据 id） |
 | | **removalParent 清理 parent 语义（G10——证明审计——sink 特判对齐）**：removeVNodeTree 的 parent 参数 = 渲染时 sink parent——五处错位实证（fuzz 生成器盲区——组件输出项从未带 key）：① 数组分支传槽位父（应传 base=compId）② 组件输出 keyed 组件——transitionComponent/diffSame 顶层传槽位父 ③ 组件输出 Fragment 含 keyed 组件——组件分支递归传 compId（应传槽位父——base 父路径推导）④ emitWithKey 输出收缩缺 oldCompId——unmount/区间清理跳过（实例残留 + 单锚 remove）⑤ emitWithKey 对照分支 keyed 输出组件——diffSame 按槽位 id 查 rec 落空（工厂重跑 + 旧 rec 残留 + id 空间错位）——统一 removalParent（组件/数组→compId；Fragment→槽位父）+ 收缩补 oldCompId + 对照分支 keyed 递归 emitWithKey——G10 五测试锁定 | 组件输出（keyed 子项/收缩/嵌套组件输出） |
+| | **消费端三表索引化（P1——admin 全量 59s 实证——2027-09）**：procRemove 每次全量扫 nodes/events/refs 三表（O(N²)——2.6B startsWith）——childIds/byChild 索引（insert 登记/remove DFS O(k)/remap 迁移）+ removeOne/unmountOne O(1) 单删——admin 全量卸载 59172ms→310ms（190x）——防线 e2e-perf（6000 行卸载 <2s 必挂旧代码） | 全量列表/切换（设计文档 design/VDOM-PERF-PLAN.md） |
+| | **procInsert ref 组件 id 回退索引化（P2）**：ref 指向 compId 时原 nodes 插入序全量扫描（chat avatar 每插 O(N)）→ childIds DFS + 插入序 seq（O(k)——seq 单调=Map 插入序等价） | 组件槽位后插入（chat 流式） |
+| | **renderV2Node 同步收集（P3——React 19 对照）**：v2 全命令流同步完成——每节点 fromArray+concatObs（6000 行=48000 流对象）→ 单数组收集 + 外层单 fromArray（外部 Observable/管线纪律不变）——10k 基线 113→81ms——React 19 同 CSS 对照 mount 0.83x/update 0.96x（基准资产 bench/react-compare/） | 全部渲染路径（流对象分配面） |
 | | **可变输出 id 空间（G11——证明审计——输出形态基线）**：组件输出单元素挂槽位（slotId）；空洞/数组/组件输出挂 compId.0 起——diffComponentOutput 的转换 oldId 曾统一用 outId（新输出 sink 参数——数组/空洞输出时 p=compId、i=0——对旧输出错位）——可变输出（div→数组/收缩/展开）实证：旧 div 保留 + 锚插入 + 实例残留——修复：oldBase 按旧输出形态计算（slotId/compId.0）+ emitWithKey 内联 sink 替换为 diffComponentOutput（消双实现——输出对照单一实现源）+ oldOut 提前取（renderComponent 先更新 lastOutput 再调 sink——回调内求值拿到新输出——G10④ 回归教训）——G11 四形态切换锁定 | 组件状态变化（条件渲染/加载态切换） |
 | | **空字符串 = 空洞（编码唯一性——2026-08）**：`''` 文本节点与无物两套物理表示（客户端 createText('') 空文本 vs HTML 序列化零输出）——SSR 吸收错位根因（inputnumber 实证：`{cond?'x':''}` 槽位 → 吸收把 demo 面 div 跳过 → 耗尽 failed → DOM 双份污染）——kindOf 单一实现源归空洞（锚双端同构——diff/transform 自动落 hole 列） | 全部组件/页面（条件渲染空字符串槽位——SSR 页） |
 | | **SSR 吸收文本分裂（2026-08）**：HTML 相邻文本合流（`' › '`+`'InputNumber'` → 单 DOM 文本节点）vs 命令流两条 createText——整节点消费吞后缀 → queue 耗尽 failed——absorb.next 前缀匹配 + splitText 分裂 + 剩余 unshift 回队列（procCreateText 传目标 value） | 全部 SSR 页（相邻文本槽位——面包屑等） |
