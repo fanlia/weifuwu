@@ -14,7 +14,8 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { createMemorySql } from '../db/memory-sql.ts'
+import { createMemorySql, MemorySql } from '../db/memory-sql.ts'
+import { createQueryBuilder } from '../db/query-builder.ts'
 import { userSystem } from '../user/index.ts'
 import { verifyToken } from '../user/token.ts'
 import { Router } from '../core/router.ts'
@@ -117,6 +118,64 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('未登录建应用 → 401', async () => {
       const res = await post('/api/auth/apps', { slug: `app-${uniq()}`, name: 'X' })
       assert.equal(res.status, 401)
+    })
+
+    it('G12 并发注册竞态：register→createApp 链不受并发 register 覆盖（请求局部 currentUser）', async () => {
+      // 原缺陷：currentUser 模块级——请求 A register 写入后挂起，请求 B register
+      // 覆盖 → createApp 内部窗口（真库网络 IO）内读 cur → owner 成员记到别人
+      // 头上 → 应用内 loginApp 401 "Not a member of this application"
+      // （agent-platform roles.test 偶发实证——register 一步端点 =
+      // register+createApp+loginApp 同请求链；内存库 IO 零窗口测不出——
+      // 本测试用延迟执行器拉长 members insert 窗口——真库 IO 的确定性替身）
+      const mem = new MemorySql()
+      // apps insert 延迟 20ms = createApp 内部真库网络 IO 窗口的确定性替身：
+      // members 的 values 对象（含 user_id: currentUser.id）在链式调用时**同步求值**
+      // ——落在 apps-insert await 恢复后的同步段——窗口就是这段 await
+      const delayTables = new Set(['_weifuwu_apps', '_weifuwu_app_members'])
+      const slowExec = (q: any) =>
+        new Promise((res) =>
+          setTimeout(() => res((mem as any).executeQuery(q)), delayTables.has((q as any).table) ? 120 : 0),
+        )
+      const slow = (async (s: TemplateStringsArray, ...v: unknown[]) => mem.tag(s, v)) as any
+      slow.query = createQueryBuilder(slow, slowExec as any)
+      slow.unsafe = (s: string, p?: unknown[]) => (mem as any).unsafe(s, p)
+      slow.close = () => (mem as any).close()
+      const slowUsers = userSystem({ sql: slow, secret })
+      await slowUsers.migrate()
+      const slowHandler = (() => { const r = new Router(); r.use(slowUsers); slowUsers.routes(r); return r.handler() })()
+      void slowHandler
+      async function slowAuthCtx() {
+        const ctx: any = {}
+        await slowUsers(new Request('http://localhost/'), ctx, async () => new Response('ok'))
+        return ctx
+      }
+      const ctxA = await slowAuthCtx()
+      const ctxB = await slowAuthCtx()
+      const slugB = `race-b-${uniq()}`
+
+      // 确定性交错（非 Promise.all 碰运气）：
+      //   1. await ctxB.register(emailB) ——B 完成（旧代码模块 cur=userB）
+      //   2. pB = ctxB.createApp(slugB)  ——启动：insert apps **挂起 20ms**
+      //      （延迟执行器 120ms——真库网络 IO 的替身；需 > hashPassword scrypt 耗时）
+      //   3. await ctxA.register(emailA) ——窗口内完成：旧代码模块 cur 被覆盖
+      //      为 userA；修复后写的是 ctxA 请求局部——互不可见
+      //   4. await pB                    ——apps insert 恢复：members 的 values
+      //      （user_id: currentUser.id）**此刻同步求值**——旧代码读 userA（错）
+      //      → B loginApp 401；修复后：请求局部 cur=userB → loginApp 200 owner
+      const emailA = uniqEmail()
+      const emailB = uniqEmail()
+
+      await ctxB.auth.register({ email: emailB, password: 'password123', name: 'B' })
+      const pB = ctxB.auth.createApp({ slug: slugB, name: 'B的应用' })
+      await ctxA.auth.register({ email: emailA, password: 'password123', name: 'A' })
+      const appB = await pB
+      assert.ok(appB.id, 'createApp 成功')
+
+      // owner 成员必须记在 B 头上（旧代码记到 A —— B 无法登录自己的应用）
+      const login = await ctxB.auth.loginApp(slugB, emailB, 'password123')
+      assert.equal(login.user.email, emailB, 'B 能应用内登录（owner 成员归属正确）')
+      assert.equal(login.role, 'owner', 'B 是 owner（非被覆盖成无角色）')
+      await (slow as any).close()
     })
   })
 

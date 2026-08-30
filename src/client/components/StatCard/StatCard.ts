@@ -42,7 +42,12 @@ export const StatCard: Component<StatCardProps> = (_init, ctx) => {
     const target = typeof value === 'number' ? value : 0
 
     if (animate && typeof value === 'number') {
-      tween.reset(target) // 幂等：同目标运行中不重启
+      // **直落终值（G14 定稿——报表页实证）**：数字动画依赖 rAF 持续驱动——
+      // headless / 后台 tab 中 rAF 停摆 → tween.value 恒为起始值 → 用户看到
+      // 「Agent 总数 0」而数据实际正确（同页字符串卡直落正确的混合实证）。
+      // 装饰动画的正确性代价不可接受——数值显示直接落终值。
+      tween.reset(target)
+      ;(tween as any).value = target
     } else {
       ;(tween as any).value = target // 非动画/非数值：直落
     }

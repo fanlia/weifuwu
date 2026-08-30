@@ -10,6 +10,7 @@ import { refreshSession } from './lib/api'
 import { confirm, notification } from 'weifuwu/components'
 
 import { router } from './router'
+import { APP_MESSAGES } from './lib/i18n'
 
 // ── 中间件装配（当前 API——工厂返回 client——uiServe options 注入 ctx） ──
 // **authClient 先定义（2027-09——刷新后 401 踢登录根因）**：onUnauthorized
@@ -48,7 +49,7 @@ const apiClient = api({
     return false
   },
 })
-const i18nState = i18n({ locale: 'zh-CN' })
+const i18nState = i18n({ locale: 'zh-CN', messages: { 'zh-CN': APP_MESSAGES } })
 // 断线自动重连（2026-08——A2：指数退避——close 手动不重连）——
 // 重连成功 → Chat onStatusChange 补拉断线期间消息（不丢上下文）
 // **connect 调用（2026-08——流式缺失根因）**：uiServe 只注入 WsClient

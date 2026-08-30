@@ -73,12 +73,18 @@ function makeEnv(win?: FakeWindow): HookEnv & { onUnmounts: Array<() => void> } 
   const onUnmounts: Array<() => void> = []
   let renders = 0
   const instData = new Map<unknown, unknown>()
+  const hookSlots = new Map<number, unknown>()
+  let hookIdx = 0
   return {
     onUnmounts,
     requestRender: () => { renders++ },
     onUnmount: (fn) => { onUnmounts.push(fn) },
     getBrowser: () => (win ? { window: win as any } as any : null),
     getInstanceData: () => instData,
+    // hook 槽位（G14 useTween 槽位记忆化——mock 同实现：每渲染 pass 从 0 递增）
+    nextHookIndex: () => hookIdx++,
+    getHookState: <T>(idx: number) => hookSlots.get(idx) as T | undefined,
+    setHookState: <T>(idx: number, v: T) => { hookSlots.set(idx, v) },
   } as any
 }
 

@@ -50,11 +50,13 @@ export function api(opts: ApiOptions = {}): ApiClient {
 
   async function request<T>(
     method: string, url: string, body?: unknown, reqOpts: ApiRequestOptions = {},
+    _retried = false,
   ): Promise<T> {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const tokenAtSend = typeof opts.token === 'function' ? opts.token() : opts.token
     try {
-      const token = typeof opts.token === 'function' ? opts.token() : opts.token
+      const token = tokenAtSend
       const headers: Record<string, string> = {
         'content-type': 'application/json',
         ...(typeof opts.headers === 'function' ? opts.headers() : opts.headers),
@@ -68,9 +70,18 @@ export function api(opts: ApiOptions = {}): ApiClient {
         signal: controller.signal,
       })
       // 401：onUnauthorized 钩子（刷新重试一次——失败/无钩子走错误路径）
-      if (res.status === 401 && opts.onUnauthorized) {
-        const ok = await opts.onUnauthorized()
-        if (ok) return request<T>(method, url, body, reqOpts)
+      // **旋转安全（G13——2026-XX 走查实证）**：旋转型 refresh token（一次一换）下，
+      // 并发 401 中第一个触发 refresh 旋转成功，其余请求若紧接着调 onUnauthorized
+      // 会用已作废的旧 refreshToken 再刷 → 失败 → 轻则静默空数据、重则误踢登录。
+      // 修复：401 时先比对此刻 token 与发出时的快照——已变化 = 其它请求已完成
+      // refresh → **直接重试**（不碰 onUnauthorized）；未变才走刷新钩子。
+      if (res.status === 401 && !_retried) {
+        const tokenNow = typeof opts.token === 'function' ? opts.token() : opts.token
+        if (tokenNow && tokenNow !== tokenAtSend) {
+          return request<T>(method, url, body, reqOpts, true)
+        }
+        const ok = opts.onUnauthorized ? await opts.onUnauthorized() : false
+        if (ok) return request<T>(method, url, body, reqOpts, true)
       }
       if (!res.ok) {
         // 服务端错误体保留（{error} 约定——业务错误信息不丢失）：

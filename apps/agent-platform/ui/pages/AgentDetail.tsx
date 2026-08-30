@@ -255,7 +255,12 @@ export const AgentDetail: Component = (_props, ctx) => {
 
       <div class="wf-row wf-gap-xs" style="flex-wrap: wrap">
         {(a.type === 'ai'
-          ? [['sec-config', '配置'], ['sec-skills', '技能'], ['sec-files', '文件'], ['sec-knowledge', '知识库'], ['sec-preview', '对话'], ['sec-logs', '日志'], ['sec-versions', '版本']]
+          // BUG-3 修复（2026-XX 走查实证）：tab 锚点必须指向真实渲染的 section——
+          // 原列表声明「文件」「知识库」但 DOM 无 sec-files/sec-knowledge（FilesSection
+          // 从未在 ai 类型渲染；KnowledgeSection 仅 knowledge_base 类型）→ 点击无反应。
+          // 现状对齐：「知识库」→ 配置表单内的绑定知识库区（sec-knowledge 容器）；
+          // 「文件」移除（文件在部门工作区——部门详情页管理）。
+          ? [['sec-config', '配置'], ['sec-skills', '技能'], ['sec-knowledge', '知识库'], ['sec-preview', '对话'], ['sec-logs', '日志'], ['sec-versions', '版本']]
           : a.type === 'webhook'
             ? [['sec-config', '配置'], ['sec-webhook', 'Webhook'], ['sec-versions', '版本']]
             : [['sec-config', '配置'], ['sec-account', '账号'], ['sec-versions', '版本']]
@@ -402,11 +407,13 @@ export const AgentDetail: Component = (_props, ctx) => {
                 <Input placeholder="轻量模型名" value={$.lightModel}
                   onInput={onLightModelInput} />
               </Field>
-              <Field label="绑定知识库" hint="search_knowledge_base 工具优先检索绑定知识库（未绑定 → 检索全部）">
-                <Select value={$.kbId}
-                  onChange={(v) => { $.kbId = v as string; rerender() }}
-                  options={[{ value: '', label: '不绑定（检索全部）' }, ...$.kbOptions.map(k => ({ value: k.id, label: k.name }))]} />
-              </Field>
+              <div id="sec-knowledge">
+                <Field label="绑定知识库" hint="search_knowledge_base 工具优先检索绑定知识库（未绑定 → 检索全部）">
+                  <Select value={$.kbId}
+                    onChange={(v) => { $.kbId = v as string; rerender() }}
+                    options={[{ value: '', label: '不绑定（检索全部）' }, ...$.kbOptions.map(k => ({ value: k.id, label: k.name }))]} />
+                </Field>
+              </div>
               <div class="wf-bg-tertiary wf-padding-md wf-radius wf-font-sm wf-text-secondary">
                 文件工具在<strong>部门工作空间</strong>中执行（三层模型：部门 = 工作目录，sandbox = 计算资源，agent = 能力）——
                 <span class="wf-block wf-font-xs wf-text-tertiary wf-margin-top-xs">将本 Agent 加入部门（含单聊）后，自动获得该部门共享工作目录（部门详情页可浏览/编辑文件）——单聊也是部门的特例</span>

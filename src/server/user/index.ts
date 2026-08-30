@@ -200,8 +200,6 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   const prefix = options.prefix ?? '/api/auth'
   const INVITE_TTL_SECONDS = 7 * 24 * 3600
 
-  // ── 内部状态（每次请求刷新） ──
-  let currentUser: User | null = null
 
   async function findUserById(id: string): Promise<User | null> {
     const rows = await sql.query.from(USERS_TABLE)
@@ -290,15 +288,19 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
 
   // ── 中间件 ──
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
-    // **请求局部鉴权快照（B-401 竞态根治——2026-08）**：module 级 currentUser
-    // 被所有请求共享——并发窗口（await findUserById 挂起）被其他请求的
-    // currentUser=null 覆盖 → requireAuth 读到 null → 401（reports 6 API
-    // 并发实证——100 并发 1×401——token 明明有效）。修复：请求解析的 user
-    // 存**请求局部**——requireAuth 闭包捕获局部——不再实时读模块变量。
-    // （模块 currentUser 保留——register/login 方法内使用——互不干扰。）
+    // **请求局部鉴权快照（B-401 竞态根治——2026-08）**：并发窗口（await
+    // findUserById 挂起）被其他请求覆盖 → 有效 token 也 401（reports 6 API
+    // 并发实证——100 并发 1×401）。修复：请求解析的 user 存**请求局部**。
+    // **G12（2026-XX 注册竞态根治）**：currentUser 同步请求局部化——原先
+    // 模块级可变变量被所有请求共享：并发注册时请求 A 的 register 写入
+    // currentUser 后挂起，请求 B 的 register 覆盖 → A 随后的 createApp
+    // 把 owner 记到 B 头上 → loginApp 查 A 的 membership 落空 → 401
+    // "Not a member of this application"（roles.test 偶发实证）。
+    // createInvite/addMember/requireApp/listMyApps 同读该变量——同风险。
+    // 修复：声明移入请求闭包——ctx.auth 方法体全在闭包内——读写自动隔离。
+    let currentUser: User | null = null
     let reqUser: User | null = null
     // 解析 Authorization: Bearer <token>（或 ?token= 直链——下载/打开——2026-08）
-    currentUser = null
     // payload 合并：token 携带的会话字段（appId/tenantId/email/name/role 等）透传到 ctx.auth，
     // 让 `ctx.auth.userId` / `ctx.auth.appId` 这类"当前会话数据"直接可用，不必另写解码。
     const sessionPayload: Record<string, unknown> = {}

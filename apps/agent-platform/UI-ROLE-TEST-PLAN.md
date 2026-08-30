@@ -8,6 +8,27 @@
 > **计划核心：每个页面 = 真实交互点击 × 角色视角断言——不是打开检查**。
 
 > ## ✅ 全部完成（2026-08——4 波全部落地）
+> ## 🔍 用户视角走查波次（2026-XX——真实浏览器 owner 主线全页走查 + 修复固化）
+>
+> **触发**：用户要求「每个页面从用户角度测试」——真实服务器 + 浏览器自动化逐页操作
+> （注册→登录→建部门→建 Agent→聊天→报表→设置→退出全链路）——修复清单：
+>
+> | # | 层 | 缺陷 | 修复 | 回归 |
+> |---|---|---|---|---|
+> | G12 | 框架 | userSystem currentUser 模块级——并发注册竞态：createApp 把 owner 记到别人头上 → loginApp 401 "Not a member"（roles.test 偶发实证） | currentUser 移入请求闭包（ctx.auth 方法体全在闭包内——读写自动隔离） | user-multitenant.test G12（延迟执行器确定性交错——旧代码必炸新代码绿） |
+> | G13 | 框架 | api 中间件 401 处理无旋转安全：并发 401 后到者用已作废 refreshToken 再刷 → 失败/误踢登录（报表页混合数据实证）+ 无限重试循环 | 401 时快照比对 token——已变化直接重试；单次重试上限 | api.test.ts G13 ×2 |
+> | G14 | 框架 | useTween handle 每次渲染重建（槽位记忆化缺失）+ rAF 停摆（headless/后台）→ StatCard 数字恒 0（报表页「Agent 0/Token 3.2k」混合实证） | 槽位记忆化（nextHookIndex/getHookState）+ StatCard 数字直落终值 + stall 兜底 | hooks-robust.test 18/18 |
+> | BUG-1 | 应用 | 登录失败提示显示原始 i18n key `err.invalid_credentials`（APP_MESSAGES 从未注册） | i18n({ messages: { 'zh-CN': APP_MESSAGES } }) + slug 冲突精确映射 err.app_slug_taken | regression-walk BUG-1 |
+> | BUG-2 | 应用 | slug=邮箱域名——同域名第二人注册必 409 且误报「邮箱已注册」（生产：bob@acme.com 在 alice 后注册必败） | 服务端 slug 冲突自动后缀化（acme.test → acme.test-1） | regression-walk BUG-2 ×2 |
+> | BUG-3 | 应用 | AgentDetail tab「文件」「知识库」指向不存在的 sec-files/sec-knowledge 锚点（点击无反应） | tab 列表与实际 section 对齐（「知识库」→配置表单绑定区；「文件」移除） | regression-walk BUG-3 |
+> | FK | 应用 | schema.sql survey_campaigns FK 引用框架表 _weifuwu_apps——schema 先于 users.migrate 建——全新库首次部署启动崩（老库不炸所以未暴露——01-auth 实证） | 去除跨边界 FK（对齐 agents.user_id 先例：应用层保证引用） | 01-auth.test 10/10 |
+> | 静默 | 应用 | stats API 在 appId 缺失时 200 全 0（平台 token 静默空数据——违反无静默原则） | 显式 401 → 前端走续期/重登录链 | regression-walk stats-401 |
+>
+> 固化：`test/ui/regression-walk.test.ts`（5 测试）+ 框架侧 api.test G13 ×2 / user-multitenant G12。
+> 教训：①「冒烟 + 基线渲染」抓不到「点击才暴露」（BUG-3 tab 锚点）与「数据更新才暴露」（G14 恒 0）的缺陷——
+> ②偶发失败必须反推根因（G12 竞态藏于真库 IO 窗口——内存库零窗口测不出——需延迟执行器替身）；
+> ③调试时手动 refresh 会消耗旋转 token 污染现场——先冻结再实验。
+
 > - **Wave 1**：shared.ts 角色种子（seedRoleMember——invite→join 全链路）+
 >   deliverables/chat/workspace 交互固化——11 测试——**抓出 3 bug**（join 角色硬编码 /
 >   viewer 前端按钮未禁/eventsPg 泄漏）

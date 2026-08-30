@@ -7,6 +7,7 @@
 export const APP_MESSAGES: Record<string, string> = {
   'err.invalid_credentials': '邮箱或密码不正确',
   'err.email_exists': '该邮箱已注册',
+  'err.app_slug_taken': '该团队标识已被占用，请稍后重试或使用邀请链接加入',
   'err.not_found': '资源不存在',
   'err.unauthorized': '未登录或登录已过期',
   'err.forbidden': '无权限执行此操作',
@@ -16,6 +17,9 @@ export const APP_MESSAGES: Record<string, string> = {
 /** 服务端英文错误 → i18n key（无匹配返回 ''——回退原文） */
 export function authErrorKey(msg: string): string {
   const m = String(msg ?? '')
+  // slug 冲突精确匹配（BUG-2 配套——register 端点 slug 已去重，此为并发窗口兜底）：
+  // 不能落进 /duplicate/ 泛匹配误报「邮箱已注册」
+  if (/_weifuwu_apps_slug_key/.test(m)) return 'err.app_slug_taken'
   if (/invalid email or password/i.test(m)) return 'err.invalid_credentials'
   if (/already|exists|duplicate/i.test(m)) return 'err.email_exists'
   if (/not found/i.test(m)) return 'err.not_found'

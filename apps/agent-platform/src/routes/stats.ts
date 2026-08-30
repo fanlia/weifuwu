@@ -10,8 +10,17 @@ import type { Router } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
 export function registerStatsRoutes(app: Router<AppCtx>): void {
+  // app 维度统计守卫（G13 配套——2026-XX 走查实证）：appId 缺失（平台登录 token
+  // 无 appId payload / 未认证）时旧行为 200 + 全 0——用户看到「Agent 总数 0」
+  // 静默空数据（违反无静默原则）。显式 401 → 前端走续期/重登录链。
+  const requireAppId = (ctx: AppCtx): string | null => {
+    const appId = (ctx as unknown as { appId?: string }).appId
+    return appId ? String(appId) : null
+  }
+
   // ── 完整统计数据 ───────────────────────────────────────
   app.get('/api/stats', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
     return Response.json(await buildStats(ctx))
   })
 
@@ -142,6 +151,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── 试用期价值报告（销售转化物料：ROI/使用量/质量 → HTML 可打印 PDF） ──
   app.get('/api/stats/report', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
     const s = await buildStats(ctx) as any
     const [app] = await ctx.sql`SELECT name, plan, trial_ends_at FROM _weifuwu_apps WHERE id = ${ctx.appId}`
     const [used] = await ctx.sql`
@@ -212,6 +222,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── Token 成本排行（按 Agent，老板视角成本视图） ─────────────
   app.get('/api/stats/tokens-by-agent', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
     const { sql, appId } = ctx
     const rows = await sql`
       SELECT a.id, a.name, a.type,
@@ -232,6 +243,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── P3-1 运营看板：部门维度活跃/成本/配额（三层模型计量单元 = 部门） ──
   app.get('/api/stats/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
     const { sql, appId } = ctx
     const rows = await sql`
       SELECT d.id, d.name, d.is_dm,
@@ -294,6 +306,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // 漏斗：本租户进度 + 全平台转化（去重租户）
   app.get('/api/stats/funnel', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
     const { sql, appId } = ctx
     const rows = await sql`
       SELECT
@@ -346,6 +359,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── O12 编排任务链（Wave 3）：租户内 agent_runs 列表——审计/ROI 面 ──
   app.get('/api/stats/runs', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
     const { sql, appId } = ctx
     const url = new URL(req.url ?? '', 'http://localhost')
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') ?? 20)))

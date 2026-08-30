@@ -41,14 +41,38 @@ export function useTween(env: HookEnv, target: number, opts?: TweenOptions) {
   const easeFn = opts?.ease === 'linear'
     ? (p: number) => p
     : (p: number) => 1 - Math.pow(1 - p, 3) // easeOutCubic
+
+  // **槽位记忆化（G14——2026-XX 报表页实证）**：handle 是带动画状态
+  // （value/rafId/currentTarget）的**可变状态机**——必须跨渲染持久。
+  // 旧实现每次 renderFn 重跑都新建 handle（value=0）→ StatCard 的动画
+  // 帧回调 rerender → 又新建 handle → 渲染读到的永远是新 handle 的
+  // value=0 → 数字动画恒显示 0（同页 tokens 卡字符串直落路径正确——
+  // 「Token 3.2k 正确 + Agent 总数恒 0」混合实证的实源）。
+  // 修复：按调用顺序槽位（nextHookIndex/getHookState——与 useOpen/
+  // useChat 同机制）——handle 只创建一次——动画状态跨渲染持久。
+  const idx = env.nextHookIndex()
+  let handle = env.getHookState<{ value: number; reset: (to: number) => void }>(idx)
+  if (handle) {
+    handle.reset(target)
+    return handle
+  }
+  let value = reduced ? target : 0
   let rafId: number | undefined
   let currentTarget = target
-  // **对象 getter（2026-08）**：`handle.value` 读时求值——mount 闭包持有
-  // handle 永远最新（旧快照属性：mount 闭包读一次冻结——StatCard 类
-  // 组件曾依赖 renderFn 重读——getter 化后无位置概念）
-  let value = reduced ? target : 0
-  const handle: { value: number; reset: (to: number) => void } = {
-    get value(): number { return value },
+  let animStartAt = 0
+  // **rAF 停摆兜底（G14——报表页实证）**：headless / 后台 tab 中 rAF 不触发——
+  // 动画 value 永远停在 from——渲染读 getter 时若「动画已启动但超过
+  // duration + 200ms 未完成」直接返回终值（正确性优先于装饰动画）。
+  const STALL_MS = duration + 200
+  let stallTimer: ReturnType<typeof setTimeout> | undefined
+  const h: { value: number; reset: (to: number) => void } = {
+    get value(): number {
+      // 读时兜底（渲染发生但动画帧未推进——后台 tab 节流场景）
+      if (rafId !== undefined && win && win.performance.now() - animStartAt > STALL_MS) {
+        return currentTarget
+      }
+      return value
+    },
     set value(v: number) { value = v },
     reset: () => {},
   }
@@ -56,15 +80,17 @@ export function useTween(env: HookEnv, target: number, opts?: TweenOptions) {
 
   const tweenTo = (to: number): void => {
     currentTarget = to
-    if (reduced) { handle.value = to; rerender(); return }
-    if (to === handle.value) return // 同值不启动
-    if (!win) { handle.value = to; return } // 无浏览器环境（SSR/测试）——直落
-    if (rafId) win.cancelAnimationFrame(rafId)
-    const from = handle.value
+    if (reduced) { h.value = to; rerender(); return }
+    if (to === h.value) return // 同值不启动
+    if (!win) { h.value = to; return } // 无浏览器环境（SSR/测试）——直落
+    if (rafId !== undefined) win.cancelAnimationFrame(rafId)
+    const from = h.value
     const t0 = win.performance.now()
+    animStartAt = t0
+    armStallFallback()
     const step = (t: number): void => {
       const p = Math.min(1, (t - t0) / duration)
-      handle.value = Math.round(from + (to - from) * easeFn(p))
+      h.value = Math.round(from + (to - from) * easeFn(p))
       if (p < 1) {
         rafId = win.requestAnimationFrame(step)
       } else {
@@ -75,16 +101,36 @@ export function useTween(env: HookEnv, target: number, opts?: TweenOptions) {
     rafId = win.requestAnimationFrame(step)
   }
 
-  handle.reset = (to: number): void => {
-    if (to === currentTarget && rafId) return
+  // **主动兜底渲染（G14 定稿）**：headless / 后台 tab 中 rAF 完全停摆——
+  // 动画帧回调（含 rerender）永不执行——DOM 永远停在起始值（报表页
+  // 「Agent 总数恒 0」实证）。setTimeout 不受合成器可见性门控——超时后
+  // 强制落终值 + 触发一次渲染（正确性优先于装饰动画——渲染健康纪律）。
+  const armStallFallback = (): void => {
+    if (!win) return
+    if (stallTimer !== undefined) clearTimeout(stallTimer)
+    stallTimer = setTimeout(() => {
+      stallTimer = undefined
+      if (rafId !== undefined) {
+        if (win) win.cancelAnimationFrame(rafId)
+        rafId = undefined
+        h.value = currentTarget
+        rerender()
+      }
+    }, STALL_MS)
+  }
+
+  h.reset = (to: number): void => {
+    if (to === currentTarget && rafId !== undefined) return
     tweenTo(to)
   }
 
   // 组件卸载时取消 rAF（否则动画持续回调 rerender → 渲染已卸载组件——泄漏）
   env.onUnmount(() => {
-    if (rafId && win) { win.cancelAnimationFrame(rafId); rafId = undefined }
+    if (rafId !== undefined && win) { win.cancelAnimationFrame(rafId); rafId = undefined }
   })
 
+  env.setHookState(idx, h)
+  handle = h
   handle.reset(target)
   return handle
 }

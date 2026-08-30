@@ -380,7 +380,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_sandboxes_dept_active ON sandboxes(departm
 -- 问卷批量任务（S1——2027-09——Campaign：总量/并发可配置——调度器水位派单）
 CREATE TABLE IF NOT EXISTS survey_campaigns (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  app_id      UUID NOT NULL REFERENCES _weifuwu_apps(id) ON DELETE CASCADE,
+  -- app_id（框架 _weifuwu_apps.id，应用层保证引用——schema 先于 users.migrate() 建——
+  -- FK 引用框架表会让全新库首次部署崩（relation does not exist——01-auth 实证）；
+  -- 对齐 agents.user_id 先例：跨边界引用不加 FK）
+  app_id      UUID NOT NULL,
   total       INT NOT NULL,
   concurrency INT NOT NULL,
   url         TEXT NOT NULL DEFAULT '',

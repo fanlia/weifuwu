@@ -43,6 +43,20 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
 
     const { sql } = ctx
 
+    // slug 生成（应用层 slug 去重——BUG-2 修复 2026-XX）：
+    // 默认 slug = 邮箱域名——同域名第二个注册用户（bob@acme.com 在
+    // alice@acme.com 之后）必撞 slug 唯一键 → 409 → 前端误报「邮箱已注册」
+    // （walkerdemo 走查实证）。修复：冲突自动后缀化（acme.com → acme.com-2）
+    // ——注册模型不变（每注册 = 新独立租户；加入公司租户走邀请链接）。
+    // 保留显式 appSlug 优先（邀请链接场景）。
+    const baseSlug = (body.appSlug ?? body.email.split('@')[1] ?? 'default').trim().toLowerCase()
+    let appSlug = baseSlug
+    for (let n = 1; n <= 20; n++) {
+      const rows = await sql`SELECT 1 FROM _weifuwu_apps WHERE slug = ${appSlug}`
+      if (!rows.length) break
+      appSlug = `${baseSlug}-${n}`
+    }
+
     // 1. 平台注册（框架 _weifuwu_users：email 全局唯一）——重复邮箱 409
     const registered = await ctx.auth.register({
       email: body.email,
@@ -50,8 +64,7 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
       name: body.name,
     })
 
-    // 2. 建默认应用（框架 _weifuwu_apps：调用者成为 owner）——slug = 邮箱域名或自定义
-    const appSlug = (body.appSlug ?? body.email.split('@')[1] ?? 'default').trim().toLowerCase()
+    // 2. 建默认应用（框架 _weifuwu_apps：调用者成为 owner）——slug 去重后唯一
     const appInfo = await ctx.auth.createApp({
       slug: appSlug,
       name: `${body.name} 的应用`,
