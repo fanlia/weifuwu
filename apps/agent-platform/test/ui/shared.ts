@@ -68,6 +68,7 @@ export function getSharedServer(): Promise<AgentServer> {
         DATABASE_POOL_MAX: '8',
         RATE_LIMIT_MAX: '100000',
         REGISTER_LIMIT_MAX: '100000',
+        WF_TEST_HOOKS: '1',
       },
     })
     server.unref() // 不阻止测试进程退出

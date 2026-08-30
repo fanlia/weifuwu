@@ -1057,6 +1057,21 @@ async function main() {
   }))
   app.ws('/ws', messagerSystem.client.handler())
 
+  // ── 测试钩子（仅 WF_TEST_HOOKS=1——确定性 wf:* 事件注入——UI 回归用——
+  //   不依赖真实 LLM——共享 server spawn 时开启） ──
+  if (process.env.WF_TEST_HOOKS === '1') {
+    app.post('/api/test/wf', async (req: Request) => {
+      try {
+        const body = await req.json() as { room?: string; events?: any[] }
+        if (!body.room || !Array.isArray(body.events)) return Response.json({ error: 'room/events 必填' }, { status: 400 })
+        for (const evt of body.events) messagerSystem.client.broadcast(body.room, evt)
+        return Response.json({ ok: true, pushed: body.events.length })
+      } catch (e: any) {
+        return Response.json({ error: String(e?.message ?? e) }, { status: 500 })
+      }
+    })
+  }
+
   // ── sandbox 集群（阶段 2）：宿主上报端点（sandbox-host 进程连接——
   //  接收事件 → 中心聚合缓冲——跨宿主统一查询） ──
   app.ws('/sandbox-host', {

@@ -80,6 +80,11 @@ export const ChatInput: Component<ChatInputProps, { ui: Ui }> = (_init, ctx) => 
 
     // §5.3 受控输入纪律：输入态走内部 keyword（IME 组合期间不回流传受控 value——
     // 否则组合被打断，中文输入法无法输入 → 消息发不出）
+    // **DOM 同步句柄（2027-09）**：打字零渲染（消费方优化——onChange 无
+    // 渲染）下渲染树 value 与 DOM 脱节——发送清空内部态后 diff 的旧渲染树
+    // 值可能同为 ''（无 setProp）——input DOM 残留用户文本（agent-platform
+    // 实测）——ref 直接写保持 DOM/内部态一致（后续渲染 diff 无分歧）
+    let inputEl: HTMLInputElement | HTMLTextAreaElement | null = null
     const input = ctx.ui.useControlledInput({
       value: props.value ?? '',
       onChange: props.onChange,
@@ -99,12 +104,14 @@ export const ChatInput: Component<ChatInputProps, { ui: Ui }> = (_init, ctx) => 
       const text = input.keyword.trim()
       if (!text) return
       input.setKeyword('') // 清内部输入态（防残留重复发送）
+      if (inputEl) inputEl.value = '' // DOM 同步（渲染树脱节时 diff 不发 setProp——ref 兜底）
       props.onSend(text)
     }
 
     const shared: Record<string, any> = {
       class: 'wf-chat-input',
       value: input.keyword,
+      ref: (el: HTMLElement | null) => { inputEl = el as HTMLInputElement | HTMLTextAreaElement | null },
       placeholder: labels.placeholder,
       disabled: props.disabled,
       // 输入期：内部 keyword + onChange 每键同步（消费方按需写共享态；组合期间跳过——IME 安全）

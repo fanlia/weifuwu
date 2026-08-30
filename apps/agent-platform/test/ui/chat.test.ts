@@ -69,6 +69,85 @@ test('聊天页：@ 消息输入（@ 弹层出现——交互面）', async () =
   await page.close()
 })
 
+/** 测试钩子：确定性 wf:* 事件注入（WF_TEST_HOOKS=1——不依赖真实 LLM——
+ *  工具型回复形态（首事件 wf:step tool——无 llm 前置）可确定性构造） */
+async function injectWf(room: string, events: any[]): Promise<void> {
+  const r = await fetch(`${BASE}/api/test/wf`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ room, events }),
+  })
+  if (!r.ok) throw new Error(`wf 注入失败: ${await r.text()}`)
+}
+
+test('发送后输入框清空（2027-09——输入残留回归）', async () => {
+  const page = await browser.newPage()
+  await injectAuth(page, owner)
+  await openAgentPage(page, BASE, `/chat/${deptId}`)
+  await waitForBodyText(page, /发送/)
+  const input = page.locator('textarea, input[type="text"]').first()
+  await input.fill('清空验证消息')
+  await page.click('button:has-text("发送")')
+  await waitForBodyText(page, /清空验证消息/, 10_000)
+  // **关键断言**：发送后（用户气泡出现）输入框 value 已空——修复前
+  // 「打字零渲染」下 onChange('') 无渲染——input DOM 停留旧文本
+  const v = await input.inputValue().catch(() => '(unreadable)')
+  assert.equal(v, '', `发送后输入框应清空——实际: ${v}`)
+  await page.close()
+})
+
+test('工具型回复首事件占位自愈（2027-09——wf:* 无 llm 前置——第二次发送看不到输出回归）', async () => {
+  const page = await browser.newPage()
+  await injectAuth(page, owner)
+  await openAgentPage(page, BASE, `/chat/${deptId}`)
+  await waitForBodyText(page, /发送/)
+  // 列文件形态：首事件 = wf:step tool（无 wf:step llm——旧逻辑 idx=-1
+  // tool 分支跳过——后续 token/done 全 skip——前端零消息——刷新才可见
+  const aiMsgId = `reg-tool-${Date.now()}`
+  await injectWf(deptId, [
+    { type: 'wf:step', messageId: aiMsgId, agentId: 'ai-reg', agentName: '回归AI', stepType: 'tool', name: 'list_files', args: '{}' },
+    { type: 'wf:token', messageId: aiMsgId, text: '文件列表：' },
+    { type: 'wf:token', messageId: aiMsgId, text: 'a.txt, b.txt' },
+    { type: 'wf:done', messageId: aiMsgId, content: '文件列表：a.txt, b.txt\n目录：docs/', agentId: 'ai-reg', agentName: '回归AI' },
+  ])
+  // done 内容可见（占位自愈全链）
+  await waitForBodyText(page, /目录：docs\//, 10_000)
+  await page.close()
+})
+
+test('流式滚动跟随（2027-09——token 累积滚动条落底回归）', async () => {
+  const page = await browser.newPage()
+  await injectAuth(page, owner)
+  await openAgentPage(page, BASE, `/chat/${deptId}`)
+  await waitForBodyText(page, /发送/)
+  // 长 token 流（同消息内容累积——msgsLen 不变——旧逻辑不滚动）
+  // **分段注入（2027-09）**：批间 wait 让每批独立渲染——真实流式逐段
+  // 到达形态——同批一次性到达时单次渲染掩盖 bug（渲染时内容已全长）
+  const aiMsgId = `reg-scroll-${Date.now()}`
+  await injectWf(deptId, [{ type: 'wf:step', messageId: aiMsgId, agentId: 'ai-reg', agentName: '回归AI', stepType: 'llm' }])
+  await page.waitForTimeout(120)
+  for (let b = 0; b < 4; b++) {
+    const batch = []
+    for (let i = 0; i < 8; i++) {
+      batch.push({ type: 'wf:token', messageId: aiMsgId, text: `第${b}-${i}段内容用于撑高列表高度防止滚动条不出现……` })
+    }
+    await injectWf(deptId, batch)
+    await page.waitForTimeout(120)
+  }
+  await injectWf(deptId, [{ type: 'wf:done', messageId: aiMsgId, content: '滚动跟随完成', agentId: 'ai-reg', agentName: '回归AI' }])
+  // 等 token 渲染（done 后内容出现）
+  await waitForBodyText(page, /滚动跟随完成/, 10_000)
+  // **滚动跟随断言**：距底 ≤ 80px（isUserScrolledUp 阈值）——修复前
+  // token 累积不滚动——距底 = 内容高度（>80）——失败
+  const atBottom = await page.waitForFunction(() => {
+    const el = document.querySelector('.wf-chat-body, .wf-overflow-auto')
+    if (!(el instanceof HTMLElement)) return false
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= 80
+  }, null, { timeout: 5_000 }).catch(() => null)
+  assert.ok(atBottom !== null, '流式 token 后滚动条应跟随落底（≤80px）')
+  await page.close()
+})
+
 test('聊天页：viewer 发消息 → 403（requireWriter 红线）', async () => {
   const viewer = await seedRoleMember(BASE, owner, 'viewer')
   const page = await browser.newPage()

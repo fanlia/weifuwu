@@ -265,7 +265,15 @@ export const Chat: Component = (_props, ctx) => {
     return false
   }
   // 稳定引用（render 期传同一引用——ChatInput/Input props 不变 → 剪枝命中不重建）
-  const handleSend = (text: string) => sendText(text)
+  const handleSend = (text: string) => {
+    // **发送即清空渲染（2027-09——输入框残留实证）**：sendText 首行
+    // $.input='' ——但父级「打字零渲染」优化下 onChange('') 无渲染——
+    // ChatInput 渲染读内部 keyword（send 已清——先于 onSend）——父级
+    // 重渲染驱动 input DOM 更新——否则输入框停留旧文本（用户实测）
+    $.input = ''
+    rerender()
+    void sendText(text)
+  }
   const onSearchInput = (e: Event) => { $.searchQ = inputValue(e); rerender() }
   function pickAtMember(m: Member) {
     // 替换末尾 @前缀 为完整 @名 + 空格（ChatInput 内部 keyword 程序化改写——不触发 onChange 避免 IME 打断）
@@ -374,6 +382,22 @@ export const Chat: Component = (_props, ctx) => {
   })
   ctx.ui.onUnmount?.(() => { unsubStatus?.(); stopPoll() })
 
+  /** **AI 消息占位自愈（2027-09）**：wf:* 事件消息未在 $.msgs（首事件
+   * 可能是 wf:step tool——无 llm 前置 push）——创建占位（内容空——
+   * 后续 token 累积）——否则 wf:token/done idx=-1 全 skip——前端零消息 */
+  const ensureAiMsg = (event: any): number => {
+    const mid = String(event.messageId ?? '')
+    const idx = $.msgs.findIndex((m: ChatMessage) => m.id === mid)
+    if (idx !== -1) return idx
+    if (!mid) return -1
+    $.msgs.push({
+      id: mid, sender_id: event.agentId ?? 'ai', sender_name: event.agentName ?? 'AI',
+      sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(),
+      status: 'generating', tools: [] as MessageTool[],
+    })
+    return $.msgs.length - 1
+  }
+
   const unsub: (() => void) | undefined = ctx.ws?.onMessage((event: any) => {
     switch (event.type) {
       case 'new_message':
@@ -388,7 +412,11 @@ export const Chat: Component = (_props, ctx) => {
         ; break
       case 'wf:step': {
         // 框架协议：stepType 'llm'（开始思考）/ 'tool'（工具调用）
-        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
+        // **占位自愈（2027-09——第二次发送看不到 AI 输出实证）**：工具型
+        // 回复首事件可能是 wf:step tool（无 llm 前置）——消息未 push 时
+        // idx=-1——旧逻辑 tool 分支跳过 → 后续 wf:token/done 全 skip——
+        // 前端零消息（刷新后 loadMessages 可见）——统一占位创建
+        const idx = ensureAiMsg(event)
         // P2-1：AI 干活中状态（左栏呼吸灯）
         setAiWorking(event.agentId, true)
         if (event.stepType === 'llm') {
@@ -412,9 +440,7 @@ export const Chat: Component = (_props, ctx) => {
         ; break
       }
       case 'wf:token': {
-        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
-        ;(window as any).__chatDbg = (window as any).__chatDbg ?? []
-        ;(window as any).__chatDbg.push(`token msgId=${event.messageId} idx=${idx}`)
+        const idx = ensureAiMsg(event)
         if (idx !== -1) {
           const m = $.msgs[idx]
           // 新建对象（引用变——vdom3 剪枝不命中——流式 token 逐字渲染）
@@ -423,7 +449,7 @@ export const Chat: Component = (_props, ctx) => {
         ; break
       }
       case 'wf:tool_result': {
-        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
+        const idx = ensureAiMsg(event)
         if (idx !== -1) {
           const m = $.msgs[idx]
           const isErr = event.ok === false
@@ -438,9 +464,7 @@ export const Chat: Component = (_props, ctx) => {
         ; break
       }
       case 'wf:done': {
-        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
-        ;(window as any).__chatDbg = (window as any).__chatDbg ?? []
-        ;(window as any).__chatDbg.push(`done msgId=${event.messageId} idx=${idx} msgs=${$.msgs.length}`)
+        const idx = ensureAiMsg(event)
         if (idx !== -1) {
           const m = $.msgs[idx]
           $.msgs[idx] = { ...m, content: event.content ?? m.content, status: 'complete', usage: event.usage ?? m.usage }
@@ -450,7 +474,7 @@ export const Chat: Component = (_props, ctx) => {
         ; break
       }
       case 'wf:error': {
-        const idx = $.msgs.findIndex((m: ChatMessage) => m.id === event.messageId)
+        const idx = ensureAiMsg(event)
         if (idx !== -1) {
           const m = $.msgs[idx]
           $.msgs[idx] = { ...m, content: m.content || '⚠️ AI 回复失败', status: 'error' }
@@ -489,6 +513,11 @@ export const Chat: Component = (_props, ctx) => {
       }
     }
     rerender()
+    // **流式滚动跟随（2027-09——滑动条不滑底实证）**：wf:token 期间
+    // msgsLen 不变（同消息累积）——render 阶段仅 msgsLen 变化才滚——
+    // 内容增长无滚动——事件处理后统一请求渲染后落底（rAF——scrollHeight
+    // 已更新；isUserScrolledUp 守卫在 scrollToBottom 内）
+    if ($.bodyEl && !$.isUserScrolledUp) requestAnimationFrame(() => scrollToBottom(true))
   })
   $.unsubWs = unsub ?? null
 
