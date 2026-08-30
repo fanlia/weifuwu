@@ -92,15 +92,16 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
  */
 export function registerBuiltinTools(getCtx: () => AppCtx): void {
   registerTools({
-    search_knowledge_base: async (args: Record<string, unknown>) => {
+    search_knowledge_base: async (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
       const ctx = getCtx()
       const query = String(args.query ?? '')
       const topK = Math.min(20, Math.max(1, Number(args.top_k ?? 5)))
       if (!query) return '请提供搜索关键词'
       // B6（2026-08）：单实现源——builtin 与 skill 共用 kb-search（此前双份实现——
-      // skill 版用旧列 tenant_id 漂移实证——工具报错）
+      // skill 版用旧列 tenant_id 漂移实证——工具报错）；agentId 经 toolCtx
+      // （2027-09——闭包注入退役——kb 绑定知识库过滤）
       const { searchKnowledgeBase } = await import('../services/kb-search.ts')
-      return searchKnowledgeBase(ctx as any, query, topK)
+      return searchKnowledgeBase(ctx as any, query, topK, toolCtx?.agentId != null ? String(toolCtx.agentId) : null)
     },
 
 
@@ -118,16 +119,16 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       })
     },
 
-    call_agent: async (args: Record<string, unknown>) => {
+    call_agent: async (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
       const ctx = getCtx()
       const target = String(args.agent ?? '')
       const message = String(args.message ?? '')
       if (!target || !message) return 'Error: call_agent 需要 agent 和 message 参数'
-      return delegateToAgent(ctx, target, message)
+      return delegateToAgent(ctx, target, message, toolCtx)
     },
 
     // O1-O4（ORCHESTRATION-PLAN Wave 1）：复杂任务拆解 + 并行派发（plan_tasks）
-    plan_tasks: async (args: Record<string, unknown>) => {
+    plan_tasks: async (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
       const ctx = getCtx()
       const tasks = Array.isArray(args.tasks) ? args.tasks : []
       if (tasks.length === 0) return 'Error: plan_tasks 需要 tasks 数组（至少 1 个子任务）'
@@ -146,8 +147,8 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
         const { createOrchestrationRun } = await import('../services/orchestration.ts')
         runId = await createOrchestrationRun(ctx, {
           appId: ctx.appId,
-          departmentId: String((ctx as any)._toolDepartmentId ?? ''),
-          orchestratorId: String((ctx as any)._toolAgentId ?? ''),
+          departmentId: String(toolCtx?.departmentId ?? ''),
+          orchestratorId: String(toolCtx?.agentId ?? ''),
           plan: filtered.map((t) => {
             const tt = t as Record<string, unknown>
             return { agent: String(tt.agent), message: String(tt.message).slice(0, 500) }
@@ -159,8 +160,8 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       // 重试 1 次；确定性错误（找不到/循环/深度超限）不重试（重试无意义——浪费）
       const isRetryable = (r: string) => r.startsWith('Error:') && (r.includes('调用 Agent') || r.includes('执行异常'))
       const runWorker = async (t: { agent: string; message: string }): Promise<string> => {
-        let r = await delegateToAgent(ctx, t.agent, t.message)
-        if (isRetryable(r)) r = await delegateToAgent(ctx, t.agent, t.message)
+        let r = await delegateToAgent(ctx, t.agent, t.message, toolCtx)
+        if (isRetryable(r)) r = await delegateToAgent(ctx, t.agent, t.message, toolCtx)
         return r
       }
       // O2 并行调度：Promise.allSettled 并发执行（上限 3）——失败隔离
@@ -207,10 +208,10 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
  * 共享委托函数（O1/O3——call_agent 与 plan_tasks worker 同一实现源——
  * 防双处漂移）：目标查找/深度防环/部门归属/runAgent 调用/结果包装。
  */
-async function delegateToAgent(ctx: AppCtx, target: string, message: string): Promise<string> {
+async function delegateToAgent(ctx: AppCtx, target: string, message: string, toolCtx?: Record<string, unknown>): Promise<string> {
   if (!target || !message) return 'Error: 委托需要 agent 和 message 参数'
   // P1-4 委托背景：被委托方知道"谁在委托、为什么"（AI/人可替换——同事间移交要有来龙去脉）
-  const callerId = String((ctx as any)._toolAgentId ?? '')
+  const callerId = String(toolCtx?.agentId ?? '')
   let callerName = '未知同事'
   if (callerId) {
     const rows = await ctx.sql`SELECT name FROM agents WHERE id = ${callerId}`
@@ -230,9 +231,9 @@ async function delegateToAgent(ctx: AppCtx, target: string, message: string): Pr
   `
   if (!targetAgent) return `Error: 找不到可调用的 AI Agent「${target}」（需同租户且已激活）`
   const ta = targetAgent as any
-  if (String(ta.id) === String((ctx as any)._toolAgentId ?? '')) return 'Error: 不能调用自己（循环）'
+  if (String(ta.id) === String(toolCtx?.agentId ?? '')) return 'Error: 不能调用自己（循环）'
   // 组织层级：被委托 agent 在其**自己所在部门**执行（工作目录/沙盒归属自己的部门）
-  let targetDept = String((ctx as any)._toolDepartmentId ?? '')
+  let targetDept = String(toolCtx?.departmentId ?? '')
   try {
     const [memberDept] = await ctx.sql`
       SELECT dm.department_id FROM department_members dm

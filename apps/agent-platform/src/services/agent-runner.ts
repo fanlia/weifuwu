@@ -27,6 +27,9 @@ export interface AgentRunnerConfig {
   agentId: string
   appId: string
   departmentId: string
+  /** **工具会话上下文（2027-09——AgentConfig.toolContext 同形）**：
+   *  业务上下文透传 ToolContext.context——单一注入面（闭包注入退役） */
+  toolContext?: Record<string, unknown>
   /** C1 断点续跑：执行归属消息 id（步骤落库锚点） */
   runMessageId?: string
   /** 三端事件流（阶段 2）：requestId 跨端贯通（ai 事件 payload 带——精确因果） */
@@ -214,25 +217,25 @@ async function buildToolContext(
     description: td.function.description,
     parameters: td.function.parameters,
     run: async (args) => {
-      // 工具上下文注入（**必须在 skillRegistry 分支前——2027-09 实证**）：
-      // read_csv（process-csv 技能）此前走 skill 分支「先返回」——
-      // _toolDepartmentId 未注入 → handler 读空 → 「无部门上下文」——
-      // 技能 handler 的 ctxProvider（chat.ts ctx）与 buildToolContext
-      // 同对象——提前注入即技能工具可见（call_agent 委托链传播同理）
-      ;(ctx as any)._toolAgentId = config.agentId
-      ;(ctx as any)._toolDepartmentId = config.departmentId
-      try {
-        if (skillRegistry?.hasTool(td.function.name)) {
-          return skillRegistry.executeTool(td.function.name, args)
-        }
-        const handler = getToolHandler(td.function.name)
-        if (!handler) return `Error: tool handler for "${td.function.name}" not registered`
-        const r = await handler(args)
-        return typeof r === 'string' ? r : JSON.stringify(r)
-      } finally {
-        ;(ctx as any)._toolAgentId = undefined
-        ;(ctx as any)._toolDepartmentId = undefined
+      // **会话上下文通道（2027-09——闭包注入退役）**：业务上下文经
+      // AgentConfig.toolContext → ToolContext.context（框架透传——
+      // agent.ts 契约锁定）——handler 读 toolCtx 参数——不再
+      // (ctx)._toolDepartmentId 注入属性（注入顺序 bug 结构性消除
+      // ——「无部门上下文」实证——注入在 skill 分支后 = 失序）——
+      // skill/全局工具两分支统一传 toolCtx；ctxProvider 保留给需要
+      // AppCtx 完整面的工具（kb 搜索/sql）
+      const toolCtx = {
+        ...(config.toolContext ?? {}),
+        agentId: config.agentId,
+        departmentId: config.departmentId,
       }
+      if (skillRegistry?.hasTool(td.function.name)) {
+        return await skillRegistry.executeTool(td.function.name, args, toolCtx)
+      }
+      const handler = getToolHandler(td.function.name)
+      if (!handler) return `Error: tool handler for "${td.function.name}" not registered`
+      const r = await handler(args, toolCtx)
+      return typeof r === 'string' ? r : JSON.stringify(r)
     },
   }))
 
@@ -331,6 +334,9 @@ export async function runAgent(
     // 串行队列已保证资源面不撞（并行安全）；HITL 审批工具整批回退串行
     // （框架层约束——审批例外路径不并发）
     parallelTools: true,
+    // **工具会话上下文（2027-09）**：框架 ToolContext.context 透传——
+    // handler 读 toolCtx 参数（业务上下文单通道——闭包注入退役）
+    toolContext: config.toolContext,
   })
 
   const result = await agentRunner.runToResult(contextMessages.slice(1)) // 去掉 system，agent 内部会重新加
@@ -432,6 +438,7 @@ export async function streamAgentPreview(
     tools: builtTools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: false,
+    toolContext: config.toolContext,
   })
   await agentRunner.stream([{ role: 'user', content }], {
     emit: (name, data) => {
@@ -507,6 +514,7 @@ export async function streamAgent(
     humanInTheLoop: humanGate,
     // O14 并行工具（Wave 4）——见 runAgent 同名注释
     parallelTools: true,
+    toolContext: config.toolContext,
   })
 
   let fullContent = ''

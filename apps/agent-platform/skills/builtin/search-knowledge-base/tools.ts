@@ -37,7 +37,7 @@ export const tools: ToolDefinition[] = [
 
 export function createHandlers(ctxProvider: () => Context): Record<string, (args: Record<string, unknown>) => unknown | Promise<unknown>> {
   return {
-    search_knowledge_base: async (args: Record<string, unknown>) => {
+    search_knowledge_base: async (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
       // B6（2026-08）：单实现源——skill 版 handler 委托 kb-search（与内置版共用——
       // 此前双份实现漂移实证：skill 版用 tenant_id 旧列——工具报错——AI 检索全失败）
       const ctx = ctxProvider() as any
@@ -45,7 +45,7 @@ export function createHandlers(ctxProvider: () => Context): Record<string, (args
       const topK = Math.min(20, Math.max(1, Number(args.top_k ?? 5)))
       if (!query) return '请提供搜索关键词'
       const { searchKnowledgeBase } = await import('../../../src/services/kb-search.ts')
-      return searchKnowledgeBase(ctx, query, topK)
+      return searchKnowledgeBase(ctx, query, topK, toolCtx?.agentId)
     },
   }
 }

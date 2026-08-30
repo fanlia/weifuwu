@@ -34,7 +34,9 @@ export interface SkillContext {
   /** 工具定义列表 */
   tools: ToolDefinition[]
   /** 工具 handler 映射 */
-  handlers: Record<string, (args: Record<string, unknown>) => unknown | Promise<unknown>>
+  /** handler 签名（args + 会话上下文——2027-09 toolContext 通道：
+   *  业务上下文（departmentId/agentId 等）不再经闭包注入属性） */
+  handlers: Record<string, (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => unknown | Promise<unknown>>
 }
 
 export interface SkillDescriptor {
@@ -157,7 +159,7 @@ export async function loadSkill(
   const toolsModule = await import(toolsUrl)
 
   const tools: ToolDefinition[] = toolsModule.tools ?? []
-  const handlers: Record<string, (args: Record<string, unknown>) => unknown | Promise<unknown>> =
+  const handlers: Record<string, (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => unknown | Promise<unknown>> =
     toolsModule.createHandlers?.(ctxProvider) ?? {}
 
   if (tools.length === 0) {
@@ -235,7 +237,7 @@ export class SkillRegistry {
    * 执行一个 tool call
    * 在所有已加载技能中查找 handler
    */
-  async executeTool(name: string, args: Record<string, unknown>): Promise<string> {
+  async executeTool(name: string, args: Record<string, unknown>, toolCtx?: Record<string, unknown>): Promise<string> {
     for (const skill of this.skills.values()) {
       const handler = skill.handlers[name]
       if (handler) {
@@ -243,7 +245,7 @@ export class SkillRegistry {
         // catch → wf:tool_result ok:false——此前吞错成“Error executing tool: ...
         // ”字符串 → 框架当成功 → ok:true → 工具失败前端不可见（bash not found 实证）
         // ——工具失败协议完整闭环的关键——错误必须透传（异常 → ok:false）
-        const result = await handler(args)
+        const result = await handler(args, toolCtx)
         return typeof result === 'string' ? result : JSON.stringify(result)
       }
     }

@@ -155,8 +155,8 @@ describe('O2/O3/O4: plan_tasks 执行器', () => {
 
   it('场景5：循环防护——调用自己拒绝', async () => {
     const handler = getToolHandler('plan_tasks')!
-    // mock 编排 Agent 名 = 编排Agent（_toolAgentId = ORCH）
-    const result = await handler({ tasks: [{ agent: '编排Agent', message: '自调用' }] }) as string
+    // mock 编排 Agent 名 = 编排Agent（toolCtx.agentId = ORCH——2027-09 通道）
+    const result = await handler({ tasks: [{ agent: '编排Agent', message: '自调用' }] }, { agentId: ORCH, departmentId: 'dept-x' }) as string
     assert.ok(result.includes('不能调用自己'), '循环拒绝')
   })
 

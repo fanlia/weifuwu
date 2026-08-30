@@ -18,6 +18,6 @@ export function registerTools(
   }
 }
 
-export function getToolHandler(name: string): ((args: Record<string, unknown>) => unknown | Promise<unknown>) | undefined {
+export function getToolHandler(name: string): ((args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => unknown | Promise<unknown>) | undefined {
   return toolHandlers.get(name)
 }

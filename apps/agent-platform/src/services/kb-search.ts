@@ -54,15 +54,16 @@ export interface KbSearchResult {
  * @returns 状态 + 结果/提示——调用方直接返回字符串给 AI
  */
 export async function searchKnowledgeBase(
-  ctx: Context & { appId: string; _toolAgentId?: string | null },
+  ctx: Context & { appId: string },
   query: string,
   topK = 5,
+  agentId?: string | null,
 ): Promise<string> {
   const sql = ctx.sql
   if (!query) return '请提供搜索关键词'
 
   // 绑定知识库优先（agent.kb_id → 只检索绑定 KB；未绑定 → 检索租户全部）
-  const agentId = ctx._toolAgentId ?? null
+  agentId = agentId ?? null
   let kbs: Array<{ id: string; name: string }> = []
   if (agentId) {
     try {

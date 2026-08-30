@@ -80,7 +80,8 @@ after(async () => {
 describe('O11: 任务树落库', () => {
   it('plan_tasks 执行 → agent_runs 落库（done——plan_json/worker_results）', async () => {
     const handler = getToolHandler('plan_tasks')!
-    await handler({ tasks: [{ agent: '数据分析师', message: '分析数据' }, { agent: '客服', message: '整理话术' }] })
+    // toolCtx 通道（2027-09）：departmentId/agentId 经参数——agent_runs 落库字段
+    await handler({ tasks: [{ agent: '数据分析师', message: '分析数据' }, { agent: '客服', message: '整理话术' }] }, { agentId: ORCH, departmentId: '' })
     const [run] = await pg.sql`SELECT * FROM agent_runs WHERE app_id = ${APP_ID} ORDER BY created_at DESC LIMIT 1`
     assert.ok(run, 'run 落库')
     assert.equal(String((run as any).kind), 'orchestration')
@@ -100,7 +101,7 @@ describe('O11: 任务树落库', () => {
         { agent: '数据分析师', message: '分析数据' },  // 失败→重试→成功（ok）
         { agent: '不存在的Agent', message: 'x' },       // 确定性失败（error）
       ],
-    })
+    }, { agentId: ORCH, departmentId: '' })
     const [run] = await pg.sql`SELECT * FROM agent_runs WHERE app_id = ${APP_ID} ORDER BY created_at DESC LIMIT 1`
     assert.equal(String((run as any).status), 'partial', '部分失败 = partial')
     const workers = typeof (run as any).worker_results === 'string' ? JSON.parse(String((run as any).worker_results)) : (run as any).worker_results
@@ -111,7 +112,7 @@ describe('O11: 任务树落库', () => {
 
   it('全失败 → failed（不静默）', async () => {
     const handler = getToolHandler('plan_tasks')!
-    await handler({ tasks: [{ agent: '不存在的Agent1', message: 'x' }, { agent: '不存在的Agent2', message: 'y' }] })
+    await handler({ tasks: [{ agent: '不存在的Agent1', message: 'x' }, { agent: '不存在的Agent2', message: 'y' }] }, { agentId: ORCH, departmentId: '' })
     const [run] = await pg.sql`SELECT * FROM agent_runs WHERE app_id = ${APP_ID} ORDER BY created_at DESC LIMIT 1`
     assert.equal(String((run as any).status), 'failed')
   })

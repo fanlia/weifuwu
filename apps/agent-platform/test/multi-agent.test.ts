@@ -127,7 +127,9 @@ describe('call_agent 执行器', () => {
 
   it('场景5：调用自己（循环）被拒绝', async () => {
     const handler = getToolHandler('call_agent')!
-    const result = await handler({ agent: '编排Agent', message: 'hi' }) as string
+    // **toolCtx 通道（2027-09——闭包注入退役）**：业务上下文经
+    // AgentConfig.toolContext → 参数透传——循环检测读 toolCtx.agentId
+    const result = await handler({ agent: '编排Agent', message: 'hi' }, { agentId: AGENT_A, departmentId: 'dept-x' }) as string
     assert.ok(result.includes('不能调用自己'), result)
   })
 
