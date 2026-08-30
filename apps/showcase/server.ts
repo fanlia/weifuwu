@@ -6,7 +6,7 @@
  *   /components.css       CSS 运行时聚合（layout @import + 组件 CSS——与 build.mjs 同逻辑）
  *   /index.json           结构化索引（registry 运行时构建——单一事实源）
  *   /api/chat /api/approve /api/files/:name   wire-fake（AiChat/FilePreview 演示）
- *   页面路由（/ /components* /layout） SSR 整树首帧，其余走 SPA 壳（客户端渲染）
+ *   页面路由（/ /components*） SSR 整树首帧，其余走 SPA 壳（客户端渲染）
  */
 import { serve, Router, ui } from '../../src/server/index.ts'
 import { HtmlSafe } from '../../src/server/ui/html-safe.ts'
@@ -193,7 +193,9 @@ async function renderSsrPage(req: Request): Promise<Response> {
 }
 
 // ── 页面路由（SSR 首帧——客户端接管交互；其余路径走底部 SPA 壳） ──
-for (const r of ['/', '/components', '/components/:category', '/components/:category/:id', '/layout']) {
+// components-only 定稿：/ 即组件目录；:id/:legacy = 旧三段式兜底（Trie 同槽位
+// 同名 :id 纪律——app-router.ts 头注释）
+for (const r of ['/', '/components', '/components/:id', '/components/:id/:legacy']) {
   app.get(r, (req: Request) => renderSsrPage(req))
 }
 

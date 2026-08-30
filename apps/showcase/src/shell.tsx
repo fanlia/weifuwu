@@ -1,5 +1,7 @@
 /**
- * showcase 全站壳——六域导航 + 主题 + 搜索（layout 包裹复用，跨路由状态保持）
+ * showcase 全站壳——组件目录导航 + 主题（layout 包裹复用，跨路由状态保持）
+ *
+ * components-only 定稿（SHOWCASE-COMPONENTS-ONLY-PLAN）：单域导航——/ 即组件目录。
  *
  * 自举：ThemeSwitch（主题能力）、wf-* 原语（布局）、Icon 组件（图标纪律）。
  * **SSR 同源纪律（2026-08）**：服务端 uiSsr 渲染本组件（无 location 全局）——
@@ -11,7 +13,6 @@ import { ThemeSwitch, Icon } from 'weifuwu/components'
 
 export const DOMAINS = [
   { id: 'components', name: '组件', path: '/components' },
-  { id: 'layout', name: '布局原语', path: '/layout' },
 ] as const
 
 /** 壳（layout 包裹——跨路由复用：工厂不重跑，状态保持） */
@@ -31,7 +32,7 @@ export const Shell: Component<any, any> = (_init: any, ctx: any) => {
               <a
                 key={d.id}
                 href={d.path}
-                class={`wf-nav-item wf-text-nowrap wf-font-sm${current().startsWith(d.path) ? ' wf-nav-item--active' : ''}`}
+                class={`wf-nav-item wf-text-nowrap wf-font-sm${(current() === '/' || current().startsWith(d.path)) ? ' wf-nav-item--active' : ''}`}
               >
                 {d.name}
               </a>
@@ -44,7 +45,7 @@ export const Shell: Component<any, any> = (_init: any, ctx: any) => {
         {/* 页面主体 */}
         <main class="wf-fill">{props.page}</main>
         <footer class="wf-text-center wf-padding-y-lg wf-text-tertiary wf-font-sm wf-border-top">
-          weifuwu showcase · 发展引擎——组件/页面/应用/后端/能力/指南 一站式（content/ 随 npm 包发布）
+          weifuwu showcase · 组件目录——快速找到、快速使用
         </footer>
       </div>
     )

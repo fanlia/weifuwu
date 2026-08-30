@@ -1,127 +1,63 @@
 /**
- * 组件域页面——总览（分类网格）/ 分类页（卡片）/ 详情页（活体 demo + 文档）
+ * 组件域页面——目录（全量平铺 A→Z + 即时搜索）/ 详情页（活体 demo + 文档）
+ *
+ * **components-only 定稿（SHOWCASE-COMPONENTS-ONLY-PLAN——2027-XX）**：
+ * 分类层取消、字母序、组件即首页（/）——用户路径：落地即目录 → 搜索/扫读
+ * → 详情 → 用起来。CategoryPage 已删（git 历史可查）。
  */
 import { h } from 'weifuwu/vdom'
 import type { Component } from 'weifuwu/vdom'
 import { Tag } from 'weifuwu/components'
-import { fetchIndex, fetchIndexCached, type IndexJson } from '../data.ts'
+import { fetchIndexCached } from '../data.ts'
 import * as demosAny from '../demos/index.ts'
+import { NotFound } from './not-found.tsx'
 
-
-const FAMILIES: Record<string, { name: string; path: string; desc: string }> = {
-  'file-preview': { name: 'FilePreview 家族', path: '/guides/file-preview-family', desc: 'office 文档域（预览/xlsx/pptx）' },
-  'ai-chat': { name: 'AI 会话家族', path: '/guides/ai-chat-family', desc: 'AI 会话场景（对话/工具/审批/模板）' },
+/** 家族元数据（家族徽标——目录搜索 family 维度 + 详情页徽标） */
+const FAMILIES: Record<string, { name: string; desc: string }> = {
+  'file-preview': { name: 'FilePreview 家族', desc: 'office 文档域（预览/xlsx/pptx）' },
+  'ai-chat': { name: 'AI 会话家族', desc: 'AI 会话场景（对话/工具/审批/模板）' },
 }
 
-/** 家族徽标（链接家族页——组件卡片/详情页复用） */
+/** 家族徽标（非链接 span——guides 域已移除，家族页不存在——title 提示即可） */
 const FamilyTag = (f: string | null | undefined) => {
   const meta = f ? FAMILIES[f] : null
   if (!meta) return null
-  return h('a', {
-    href: meta.path,
+  return h('span', {
     class: 'wf-tag wf-tag--primary',
-    style: 'text-decoration:none',
     title: meta.desc,
   }, meta.name)
 }
 
-export const CATEGORIES = [
-  ['core', '基础通用'], ['input', '输入选择'], ['form', '表单'],
-  ['display', '数据展示'], ['viz', '可视化'], ['feedback', '反馈'],
-  ['navigation', '导航'], ['overlay', '弹层'], ['advanced', '数据进阶'],
-  ['virtual', '虚拟化'], ['editor', '文件编辑'], ['ai', 'AI 对话'],
-] as const
-
-/** 组件总览——全局搜索 + 分类网格（搜索时跨分类即时过滤） */
+/** 组件目录（兼站首页）——全量平铺（A→Z 字母序）+ 即时搜索（名称/描述/家族） */
 export const ComponentsIndex: Component = (_init: any, ctx: any) => {
   const idx = fetchIndexCached(() => ctx.render())
   let q = ''
   return (_p: any) => {
     const kw = q.trim().toLowerCase()
-    // family 维度搜索（07：输入家族名/office/ai-chat 也能找到家族成员）
-    const all = idx.components.filter((c) => !kw
-      || c.name.toLowerCase().includes(kw)
-      || c.desc.toLowerCase().includes(kw)
-      || (c.family ?? '').toLowerCase().includes(kw)
-      || (c.family ? (FAMILIES[c.family]?.name ?? '').toLowerCase().includes(kw) : false))
+    const all = idx.components
+      .filter((c) => !kw
+        || c.name.toLowerCase().includes(kw)
+        || c.desc.toLowerCase().includes(kw)
+        || (c.family ?? '').toLowerCase().includes(kw)
+        || (c.family ? (FAMILIES[c.family]?.name ?? '').toLowerCase().includes(kw) : false))
+      .sort((a, b) => a.name.localeCompare(b.name))
     return (
       <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:20px;padding:24px 16px">
         <div class="wf-row wf-justify-between">
           <div class="wf-stack wf-gap-xs">
-            <h1 class="wf-font-2xl wf-margin-none">组件 · {idx.counts.components}</h1>
-            <p class="wf-text-secondary wf-font-sm wf-margin-none">逐组件文档（API 表 / 纪律 / 关系 / 验证）——每组件一个稳定 URL</p>
+            <h1 class="wf-font-2xl wf-margin-none">组件 · {idx.components.length || '…'}</h1>
+            <p class="wf-text-secondary wf-font-sm wf-margin-none">每组件一个活体 demo——按字母排序，搜索名称/功能直达</p>
           </div>
           <input class="wf-input" style="max-width:260px" placeholder="🔍 搜索组件（名称/功能）…" value={q}
             onInput={(e: any) => { q = (e.target as HTMLInputElement).value; ctx.render() }} />
         </div>
-        {kw ? (
-          <div class="wf-stack wf-gap-sm">
-            <div class="wf-font-xs wf-text-secondary">匹配 {all.length} 个组件</div>
-            <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,300px),1fr));--wf-gap:12px">
-              {all.map((c) => (
-                <a key={c.id} href={`/components/${c.category}/${c.id}`} class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
-                  <b class="wf-font-base">{c.name} <span class="wf-font-xs wf-text-tertiary">· {c.category}</span></b>
-                  <span class="wf-font-xs wf-text-secondary">{c.desc}</span>
-                  <span class="wf-cluster wf-gap-xs">{FamilyTag(c.family)}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,240px),1fr));--wf-gap:12px">
-            {CATEGORIES.map(([id, name]) => {
-              const list = idx.components.filter((c) => c.category === id)
-              if (!list.length) return null
-              return (
-                <a key={id} href={`/components/${id}`} class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
-                  <span class="wf-font-2xl wf-bold wf-text-primary" style="font-family:var(--wf-font-mono)">{list.length}</span>
-                  <b>{name}</b>
-                  <span class="wf-font-xs wf-text-secondary">{list.slice(0, 4).map((c) => c.name).join(' · ')}…</span>
-                </a>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    )
-  }
-}
-
-/** 分类页——组件卡片网格（搜索过滤） */
-export const CategoryPage: Component = (initProps: any, ctx: any) => {
-  let q = ''
-  return (props: any) => {
-    const idx = fetchIndexCached(() => ctx.render())
-    const cat = props.category ?? initProps.category ?? ''
-    const meta = CATEGORIES.find(([id]) => id === cat)
-    const list = idx.components
-      .filter((c) => c.category === cat)
-      .filter((c) => !q || c.name.toLowerCase().includes(q.toLowerCase()) || c.desc.toLowerCase().includes(q.toLowerCase()))
-    return (
-      <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:16px;padding:24px 16px">
-        <div class="wf-row wf-justify-between">
-          <div class="wf-stack wf-gap-xs">
-            <span class="wf-font-xs wf-text-secondary"><a href="/components" style="color:inherit">组件</a> ›</span>
-            <h1 class="wf-font-2xl wf-margin-none">{meta?.[1] ?? cat} · {list.length}</h1>
-          </div>
-          <input
-            class="wf-input"
-            style="max-width:240px"
-            placeholder="过滤组件…"
-            value={q}
-            onInput={(e: any) => { q = (e.target as HTMLInputElement).value; ctx.render() }}
-          />
-        </div>
+        {kw && <div class="wf-font-xs wf-text-secondary">匹配 {all.length} 个组件</div>}
         <div class="wf-grid" style="--wf-cols:repeat(auto-fill,minmax(min(100%,300px),1fr));--wf-gap:12px">
-          {list.map((c) => (
-            <a key={c.id} href={`/components/${cat}/${c.id}`} class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
+          {all.map((c) => (
+            <a key={c.id} href={`/components/${c.id}`} class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-xs" style="text-decoration:none;color:inherit">
               <b class="wf-font-base">{c.name}</b>
               <span class="wf-font-xs wf-text-secondary">{c.desc}</span>
-              <span class="wf-cluster wf-gap-xs">
-                {FamilyTag(c.family)}
-                {c.usedInPatterns.length > 0 && <Tag>用于 {c.usedInPatterns.length} 模式</Tag>}
-                {c.usedInApps.length > 0 && <Tag>用于 {c.usedInApps.length} 应用</Tag>}
-              </span>
+              <span class="wf-cluster wf-gap-xs">{FamilyTag(c.family)}</span>
             </a>
           ))}
         </div>
@@ -137,41 +73,41 @@ export const ComponentPage: Component = (initProps: any, ctx: any) => {
   // 未命中 EMPTY + notify（数据到 → 重渲染）——无异步启动时序差异
   return (_p: any) => {
     const idx = fetchIndexCached(() => ctx.render())
+    // 数据未到（冷启动无种子——SSR 回退 SPA 壳）：loading 占位（数据到 → 重渲染）
+    if (!idx.components.length) {
+      return <div class="wf-container wf-padding-md wf-font-sm wf-text-secondary">加载中…</div>
+    }
     const id = initProps.id
     const comp = idx.components.find((c) => c.id === id)
-    let name = comp?.name ?? id
-    const category = comp?.category ?? 'others'
-    const compTags = comp?.tags ?? []
-    const compDesc = comp?.desc ?? ''
-    const compFamily = comp?.family ?? null
+    // 未知组件 id（含旧分类链接 /components/<category>）→ 404 壳（导航可用）
+    if (!comp) return h(NotFound)
+    let name = comp.name
+    const compTags = comp.tags ?? []
+    const compDesc = comp.desc ?? ''
+    const compFamily = comp.family ?? null
     // 变体聚合：变体 id → 渲染主组件页 + 变体 demo 突出（一页一组件心智）
     let resolved = comp
     let isVariant = false
-    let variantDemo: string | null = null
     let variantsOf: { id: string; name: string; desc: string }[] = []
-    if (comp?.variantOf) {
+    if (comp.variantOf) {
       const parent = idx.components.find((c) => c.id === comp.variantOf)
       isVariant = true
-      variantDemo = name
       if (parent) {
         resolved = parent
         name = parent.name
-        variantsOf = idx.components.filter((c) => c.variantOf === parent.id)
       }
-    } else {
-      variantsOf = idx.components.filter((c) => c.variantOf === comp?.id)
     }
+    variantsOf = idx.components.filter((c) => c.variantOf === resolved.id)
     // demo 活体：demos 注册表（已迁移分类）——同步引用
-    const hasDemo = !!(demosAny as any).DEMOS[name]
+    const Demo = (demosAny as any).DEMOS[name]
     const compSource = resolved?.sourceFile ?? ''
     const compCss = resolved?.cssFile ?? ''
     const compTest = resolved?.testFile ?? ''
     const compGotchas = resolved?.gotchas ?? []
-    const Demo = (demosAny as any).DEMOS[name]
     return (
       <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:16px;padding:24px 16px">
         <div class="wf-font-xs wf-text-secondary">
-          <a href="/components" style="color:inherit">组件</a> › <a href={`/components/${category}`} style="color:inherit">{category}</a> › {name}
+          <a href="/components" style="color:inherit">组件</a> › {name}
         </div>
         <div class="wf-stack wf-gap-sm">
           <div class="wf-row wf-justify-between" style="--wf-align:flex-start">
@@ -186,7 +122,7 @@ export const ComponentPage: Component = (initProps: any, ctx: any) => {
               )}
             </div>
           </div>
-          {hasDemo && Demo && (
+          {Demo ? (
             <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-stack wf-gap-none" style="overflow:hidden">
               {/* 舞台标题栏：品牌圆点 + 标签——分隔线（细边框美学） */}
               <div class="wf-row wf-justify-between wf-padding-x-md wf-padding-y-sm wf-border-bottom">
@@ -199,8 +135,7 @@ export const ComponentPage: Component = (initProps: any, ctx: any) => {
                 <Demo />
               </div>
             </div>
-          )}
-          {!hasDemo && (
+          ) : (
             <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-font-sm wf-text-secondary">
               本组件无独立活体 demo——能力见下方组件文件/纪律，或在组合页面中体验。
             </div>
@@ -225,7 +160,7 @@ export const ComponentPage: Component = (initProps: any, ctx: any) => {
               <div class="wf-font-xs wf-text-secondary">本组件的不同使用方式（{variantsOf.length} 个变体）：</div>
               <div class="wf-cluster wf-gap-xs">
                 {variantsOf.map((v) => (
-                  <a key={v.id} href={`/components/${category}/${v.id}`} class="wf-tag wf-tag--primary" style="text-decoration:none">{v.name}</a>
+                  <a key={v.id} href={`/components/${v.id}`} class="wf-tag wf-tag--primary" style="text-decoration:none">{v.name}</a>
                 ))}
               </div>
             </div>
