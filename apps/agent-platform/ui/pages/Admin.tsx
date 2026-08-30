@@ -104,31 +104,31 @@ export const Admin: Component = (_props, ctx) => {
 
   return () => (
     <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 960px">
-      <PageHeader title="租户管理" sub="平台管理员：查看所有团队用量，停用/启用租户（ADMIN_EMAILS 白名单）" />
+      <PageHeader key="page-header" title="租户管理" sub="平台管理员：查看所有团队用量，停用/启用租户（ADMIN_EMAILS 白名单）" />
 
-      {error && <Alert variant="error">{error}</Alert>}
+      {error && <Alert key="error" variant="error">{error}</Alert>}
 
       {overview && (
-        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(160px, 1fr))">
-          <StatCard label="租户总数" value={overview.totalApps} icon={<Icon name="grid" />} />
-          <StatCard label="7 天活跃租户" value={overview.activeApps7d} icon={<Icon name="activity" />} />
-          <StatCard label="Pro 租户" value={overview.proApps} icon={<Icon name="zap" />} />
-          <StatCard label="本月消息" value={overview.msgsMonth} icon={<Icon name="message" />} />
-          <StatCard label="AI 回复" value={overview.aiRepliesMonth} icon={<Icon name="cpu" />} />
-          <StatCard label="平台成本（月）" value={`¥${overview.costYuanMonth}`} icon={<Icon name="database" />} />
+        <div key="overview" class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(160px, 1fr))">
+          <StatCard key="st-total" label="租户总数" value={overview.totalApps} icon={<Icon name="grid" />} />
+          <StatCard key="st-active" label="7 天活跃租户" value={overview.activeApps7d} icon={<Icon name="activity" />} />
+          <StatCard key="st-pro" label="Pro 租户" value={overview.proApps} icon={<Icon name="zap" />} />
+          <StatCard key="st-msgs" label="本月消息" value={overview.msgsMonth} icon={<Icon name="message" />} />
+          <StatCard key="st-ai" label="AI 回复" value={overview.aiRepliesMonth} icon={<Icon name="cpu" />} />
+          <StatCard key="st-cost" label="平台成本（月）" value={`¥${overview.costYuanMonth}`} icon={<Icon name="database" />} />
         </div>
       )}
 
       {opsInfo && (
-        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(160px, 1fr))">
-          <StatCard label="沙盒池" value={`${opsInfo.sandbox?.poolSize ?? 0}/${opsInfo.sandbox?.maxContainers ?? 0}`} icon={<Icon name="box" />} />
-          <StatCard label="沙盒模式" value={opsInfo.sandbox?.mode ?? '-'} icon={<Icon name="cpu" />} />
-          <StatCard label="容器镜像" value={opsInfo.sandbox?.imageReady ? '就绪' : '缺失'} icon={<Icon name="hard-drive" />} />
+        <div key="ops" class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(160px, 1fr))">
+          <StatCard key="st-pool" label="沙盒池" value={`${opsInfo.sandbox?.poolSize ?? 0}/${opsInfo.sandbox?.maxContainers ?? 0}`} icon={<Icon name="box" />} />
+          <StatCard key="st-mode" label="沙盒模式" value={opsInfo.sandbox?.mode ?? '-'} icon={<Icon name="cpu" />} />
+          <StatCard key="st-image" label="容器镜像" value={opsInfo.sandbox?.imageReady ? '就绪' : '缺失'} icon={<Icon name="hard-drive" />} />
         </div>
       )}
 
       {capacity && (
-        <Card>
+        <Card key="capacity">
           <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📊 沙盒容量（宿主 {capacity.host.id}）</div>
           <div class="wf-grid wf-margin-top-sm" style="--wf-cols: repeat(auto-fill, minmax(150px, 1fr))">
             <StatCard label="内存预算" value={`${capacity.host.memoryMb}MB`} icon={<Icon name="database" />} />
@@ -152,7 +152,7 @@ export const Admin: Component = (_props, ctx) => {
         </Card>
       )}
 
-      <Card>
+      <Card key="sandbox">
         <div class="wf-row wf-justify-between wf-margin-bottom-sm">
           <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary"><Icon name="box" size={14} /> 沙盒监控（容器/资源/进程）</div>
           <Button size="sm" variant="ghost" onClick={loadContainers}>刷新</Button>
@@ -194,7 +194,7 @@ export const Admin: Component = (_props, ctx) => {
         )}
       </Card>
 
-      <Card>
+      <Card key="enterprises">
         <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-md"><Icon name="briefcase" size={14} /> 企业账户（子租户）</div>
         <div class="wf-row wf-gap-sm wf-margin-bottom-sm wf-cluster">
           <Input placeholder="企业名" value={entName} style={{ width: 180 }}
@@ -227,9 +227,9 @@ export const Admin: Component = (_props, ctx) => {
       </Card>
 
       {loading ? (
-        <div class="wf-font-sm wf-text-tertiary wf-padding-y-lg wf-center">加载中...</div>
+        <div key="loading" class="wf-font-sm wf-text-tertiary wf-padding-y-lg wf-center">加载中...</div>
       ) : (
-        <Card>
+        <Card key="apps-table">
           {/* **列表截断（2027-08——1292 租户全量渲染 2.4s 卡死实证）**：
               仅渲染前 200——真实场景分页/搜索为后续规划（登记） */}
           {apps.length > 200 && (
