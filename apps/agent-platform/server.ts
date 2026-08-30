@@ -1138,8 +1138,13 @@ async function main() {
     open: (ws: any, ctx: any) => {
       ctx.hub.join('survey-live', ws)
       surveyHub = ctx.hub
-      // 连接即发当前状态（统计页/填写页初始渲染）
-      ws.send(JSON.stringify(surveyState()))
+      // 2027-09 实证（历史提交污染——新 campaign 角色被旧提交锁死）：
+      // open 时预发的是**无 campaign 过滤**的全局 state——其中含历史 campaign
+      // 的同源提交 → 页面 onMessage 的 lock 判定（submissions.find(source)）
+      // 命中旧提交 → 页面显示「已提交（#旧id）」→ 角色停止提交 → 新 campaign
+      // 任务超时失败（c1b2fadf 实测：同一角色 4 次尝试全部假完成）。
+      // 修复：open 不再预发 state——页面一律在 hello 中带 campaign 视角请求
+      // （form/stats 页面连接后均发 hello）——全局视角仅在没有 ?c= 时返回。
     },
     message: async (ws: any, ctx: any, data: string | Buffer) => {
       try {
@@ -1191,7 +1196,9 @@ async function main() {
           }
           surveyAnswers.push(record)
           if (surveyAnswers.length > surveyLimit) surveyAnswers.splice(0, surveyAnswers.length - surveyLimit)
-          void pg.sql`INSERT INTO survey_answers (source, question, answer, campaign_id) VALUES (${String(record.source)}, ${String(record.question)}, ${String(record.answer)}, ${String(record.campaign) || null})`.catch(() => {})
+          void pg.sql`INSERT INTO survey_answers (source, question, answer, campaign_id) VALUES (${String(record.source)}, ${String(record.question)}, ${String(record.answer)}, ${String(record.campaign) || null})`.catch((e: any) => {
+            console.error('[survey] 逐题落库失败:', e?.message ?? e)
+          })
           surveyBroadcast({ type: 'survey:answer', ...record })
         } else if (msg.type === 'survey:submit' && msg.data) {
           // 提交：入内存 + 广播（统计页计数 +1、来源锁定）
@@ -1218,9 +1225,15 @@ async function main() {
           surveySubmissions.push(record)
           if (surveySubmissions.length > surveyLimit) surveySubmissions.splice(0, surveySubmissions.length - surveyLimit)
           surveyTotal++
-          void pg.sql`INSERT INTO survey_submissions (id, source, age, industry, rating, focus, feedback, submitted_at, campaign_id)
-            VALUES (${String(record.id)}, ${String(record.source)}, ${String(record.age)}, ${String(record.industry)},
-              ${Number(record.rating)}, ${JSON.stringify(record.focus)}, ${String(record.feedback)}, ${String(record.submitted_at)}, ${String(record.campaign) || null})`.catch(() => {})
+          // await 落库（2027-09 实证：fire-and-forget + 静默 catch 曾吞掉落库失败——
+          // 完成信号依赖该行（campaign 扫描 survey_submissions）——失败必须可见）
+          try {
+            await pg.sql`INSERT INTO survey_submissions (id, source, age, industry, rating, focus, feedback, submitted_at, campaign_id)
+              VALUES (${String(record.id)}, ${String(record.source)}, ${String(record.age)}, ${String(record.industry)},
+                ${Number(record.rating)}, ${JSON.stringify(record.focus)}, ${String(record.feedback)}, ${String(record.submitted_at)}, ${String(record.campaign) || null})`
+          } catch (e: any) {
+            console.error('[survey] 提交落库失败（完成信号丢失风险——source=%s id=%s）:', String(record.source), String(record.id), e?.message ?? e)
+          }
           surveyBroadcast({ type: 'survey:submitted', count: surveyTotal, latest: record, aggregate: surveyAggregate() })
           // 提交后保持在线（浏览器未关——ws 连接保持——统计页在线显示已提交状态——
           // 下线只发生在 close/bye：用户要求"只要填写者还没关闭浏览器就应该显示在线"）

@@ -71,9 +71,12 @@ const TICK_MS = 5_000
 const DEFAULT_TIMEOUT_MS = 180_000
 const DEFAULT_RETRY = 2
 
-/** 查询未完成角色数（completed+failed < total 的终止判定） */
-function isFinished(c: Pick<CampaignRow, 'completed' | 'failed' | 'total'>): boolean {
-  return c.completed + c.failed >= c.total
+/** 查询未完成角色数（completed+failed < total 的终止判定）
+ *  严格语义（2027-09 实证 f90a55f9：campaign done 时仍剩 10 个 running run——
+ *  提交晚于末次扫描——循环即停——run 永远卡 running——sandbox 永不批收尾）：
+ *  完成 = 记账达标 且 无在途 run（在途 run 由后续 tick 的完成扫描/超时判定收敛） */
+export function isCampaignFinished(c: Pick<CampaignRow, 'completed' | 'failed' | 'total'>, runningCount = 0): boolean {
+  return runningCount === 0 && c.completed + c.failed >= c.total
 }
 
 export interface CreateCampaignBody {
@@ -168,6 +171,24 @@ export async function cancelCampaign(ctx: AppCtx, id: string): Promise<void> {
   await ctx.sql`UPDATE survey_campaigns SET status = 'cancelled', updated_at = NOW() WHERE id = ${id}`
 }
 
+/** 完成/失败/重派即回收角色沙盒（延迟——LLM 尾部 write/回复仍在流）
+ *  2027-09 实证——配额口径：sandbox_quota 计 requested+running——已完成角色
+ *  的容器等 idle 回收要 10min——期间占满 quota=20 → 新角色创建被拒「配额已满」
+ *  → run 工具失败级联（问卷场景并发闸=配额闸——slot 释放不足 = 调度死锁）
+ *  延迟语义：done 60s（LLM 还差 write+收尾回复）；failed/requeue 30s（已超时——业务面已终结） */
+function releaseDeptSandbox(sql: any, deptId: string, delayMs: number): void {
+  const timer = setTimeout(() => {
+    void (async () => {
+      try {
+        const { manager } = await import('../sandbox/manager.ts')
+        const [sb] = await sql`SELECT id, app_id FROM sandboxes WHERE department_id = ${deptId} AND status = 'running'`
+        if (sb) await manager.stop(String(sb.id), String(sb.app_id)).catch(() => {})
+      } catch { /* 回收失败不阻断——idle 回收兜底 */ }
+    })()
+  }, delayMs)
+  timer.unref?.()
+}
+
 /** 启动调度循环（幂等防重——campaign 完成/取消即 clearInterval） */
 const runningLoops = new Set<string>()
 export function startCampaignLoop(ctx: AppCtx, campaignId: string): void {
@@ -208,13 +229,26 @@ export async function tickOnce(ctx: AppCtx, campaignId: string): Promise<boolean
 }
 async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> {
   const sql = ctx.sql
-  const [campaign] = await sql`SELECT * FROM survey_campaigns WHERE id = ${campaignId}`
+  let campaign: any = null
+  try {
+    ;[campaign] = await sql`SELECT * FROM survey_campaigns WHERE id = ${campaignId}`
+  } catch (e: any) {
+    console.error(`[campaign ${campaignId}] phase① campaign 查询失败（campaignId=${JSON.stringify(campaignId)} type=${typeof campaignId}）:`, e?.message ?? e)
+    throw e
+  }
   if (!campaign || campaign.status !== 'running') {
     console.log(`[campaign ${campaignId}] tick 停止判定：campaign=${campaign ? campaign.status : '查询空!'}`)  // A 诊断：查询空=ctx.sql 失效
     return true // 已取消/完成——停循环
   }
 
-  const runs = ((await sql`SELECT * FROM survey_campaign_runs WHERE campaign_id = ${campaignId}`) ?? []) as unknown as RunRow[]
+  let runsRaw: any[] = []
+  try {
+    runsRaw = (await sql`SELECT * FROM survey_campaign_runs WHERE campaign_id = ${campaignId}`) ?? []
+  } catch (e: any) {
+    console.error(`[campaign ${campaignId}] phase① runs 查询失败:`, e?.message ?? e)
+    throw e
+  }
+  const runs = runsRaw as unknown as RunRow[]
   const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
   const { access } = await import('node:fs/promises')
 
@@ -228,10 +262,17 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
     // 完成信号以真实提交为准（2027-09 实证：LLM 口头「已提交」+ 写 survey-result.json
     // 假完成——agent-browser 容器内全链实测：页面零交互——统计页永远没数——
     // 完成 = survey_submissions 有该角色提交（campaign_id + source 反查已生效）
-    const [sub] = await sql`SELECT 1 FROM survey_submissions WHERE campaign_id = ${campaignId} AND source = ${r.agent_name} LIMIT 1`
+    let sub: any = null
+    try {
+      sub = (await sql`SELECT 1 FROM survey_submissions WHERE campaign_id = ${campaignId} AND source = ${r.agent_name} LIMIT 1`)[0]
+    } catch (e: any) {
+      console.error(`[campaign ${campaignId}] 完成扫描 SQL 失败（agent=${r.agent_name}）:`, e?.message ?? e)
+      throw e
+    }
     if (sub) {
       await sql`UPDATE survey_campaign_runs SET status = 'done', finished_at = NOW(), error = NULL WHERE id = ${r.id}`
       completed++
+      releaseDeptSandbox(sql, r.dept_id, 60_000) // 完成即回收（延迟 60s——LLM 尾部 write/回复仍在流）
     }
   }
 
@@ -240,11 +281,21 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
   const retryMax = Number(campaign.retry ?? DEFAULT_RETRY)
   const { requeue, failed } = tickTimeouts(runs, retryMax, timeoutMs)
   for (const r of requeue) {
-    await sql`UPDATE survey_campaign_runs SET status = 'queued', attempts = attempts + 1, started_at = NULL WHERE id = ${r.id}`
+    try { await sql`UPDATE survey_campaign_runs SET status = 'queued', attempts = attempts + 1, started_at = NULL WHERE id = ${r.id}` }
+    catch (e: any) { console.error(`[campaign ${campaignId}] phase② requeue 失败（run=${r.id}）:`, e?.message ?? e); throw e }
+    releaseDeptSandbox(sql, r.dept_id, 30_000)
   }
   for (const r of failed) {
-    await sql`UPDATE survey_campaign_runs SET status = 'failed', finished_at = NOW(), error = '超时（${Math.round(timeoutMs / 1000)}s 未完成）' WHERE id = ${r.id}`
+    try {
+      // 参数外置（2027-09 实证：'超时（${n}s 未完成）' 字符串内嵌 ${} 被
+      // postgres.js 当作绑定参数——位于单引号内 → 服务器无法推断 $1 类型 →
+      // could not determine data type of parameter $1——tick 每轮失败）
+      const errMsg = `超时（${Math.round(timeoutMs / 1000)}s 未完成）`
+      await sql`UPDATE survey_campaign_runs SET status = 'failed', finished_at = NOW(), error = ${errMsg} WHERE id = ${r.id}`
+    }
+    catch (e: any) { console.error(`[campaign ${campaignId}] phase② failed 标记失败（run=${r.id}）:`, e?.message ?? e); throw e }
     failedCount++
+    releaseDeptSandbox(sql, r.dept_id, 30_000)
   }
 
   // ── ②.5 任务级生命周期豁免（P1-1——2027-09 实证：LLM 思考间隙
@@ -261,10 +312,21 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
   const freshRuns = ((await sql`SELECT * FROM survey_campaign_runs WHERE campaign_id = ${campaignId}`) ?? []) as unknown as RunRow[]
   const toDispatch = pickToDispatch(freshRuns, Number(campaign.concurrency))
   if (toDispatch.length > 0) {
-    const [sender] = await sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'user' ORDER BY created_at LIMIT 1`
+    let sender: any = null
+    try {
+      ;[sender] = await sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'user' ORDER BY created_at LIMIT 1`
+    } catch (e: any) {
+      console.error(`[campaign ${campaignId}] 派单 sender 查询失败:`, e?.message ?? e)
+      throw e
+    }
     const senderId = sender ? String(sender.id) : 'system'
     for (const r of toDispatch) {
-      const url = campaign.url || (typeof process.env.PUBLIC_BASE_URL === 'string' ? process.env.PUBLIC_BASE_URL : 'http://localhost:3000') + '/demo-survey'
+      // 容器可达 URL（2027-09：agent-browser 在沙盒容器内运行——localhost=容器自身
+      // ——默认用 host.docker.internal（docker.ts --add-host 已配）——PUBLIC_BASE_URL
+      // 是宿主 IP 也可能可达（桥接网络）但 host.docker.internal 更稳（IP 漂移无感）
+      const base = typeof process.env.SURVEY_CONTAINER_URL === 'string' && process.env.SURVEY_CONTAINER_URL
+        || `http://host.docker.internal:${process.env.PORT ?? 3000}`
+      const url = campaign.url || base + '/demo-survey'
       // 清场纪律（2027-09——旧 survey-result.json 残留 → 新 campaign 启动即完成
       // ——增量重跑同角色必踩——派单前删旧产物——完成信号干净）
       try {
@@ -291,15 +353,18 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
           await sql`UPDATE survey_campaign_runs SET status = 'failed', finished_at = NOW(), error = ${String(e?.message ?? '派单失败').slice(0, 300)} WHERE id = ${r.id}`.catch(() => {})
         }
       })()
-      await sql`UPDATE survey_campaign_runs SET status = 'running', started_at = NOW() WHERE id = ${r.id}`
+      try { await sql`UPDATE survey_campaign_runs SET status = 'running', started_at = NOW() WHERE id = ${r.id}` }
+      catch (e: any) { console.error(`[campaign ${campaignId}] phase③ 标 running 失败（run=${r.id}）:`, e?.message ?? e); throw e }
     }
   }
 
   // ── ④ 终止判定 + 批收尾（S4——2027-09——campaign 完成 → 角色容器批量 stop——
   //   1000 角色不空转 10min——资源立即释放——回收可观测） ──
-  await sql`UPDATE survey_campaigns SET completed = ${Math.min(completed, Number(campaign.total))}, failed = ${Math.min(failedCount, Number(campaign.total))}, updated_at = NOW() WHERE id = ${campaignId}`
-  if (isFinished({ total: Number(campaign.total), completed, failed: failedCount })) {
-    await sql`UPDATE survey_campaigns SET status = 'done', updated_at = NOW() WHERE id = ${campaignId}`
+  try { await sql`UPDATE survey_campaigns SET completed = ${Math.min(completed, Number(campaign.total))}, failed = ${Math.min(failedCount, Number(campaign.total))}, updated_at = NOW() WHERE id = ${campaignId}` }
+  catch (e: any) { console.error(`[campaign ${campaignId}] phase④ 记账失败（completed=${completed} failed=${failedCount}）:`, e?.message ?? e); throw e }
+  if (isCampaignFinished({ total: Number(campaign.total), completed, failed: failedCount }, freshRuns.filter((r) => r.status === 'running').length)) {
+    try { await sql`UPDATE survey_campaigns SET status = 'done', updated_at = NOW() WHERE id = ${campaignId}` }
+    catch (e: any) { console.error(`[campaign ${campaignId}] phase④ done 标记失败:`, e?.message ?? e); throw e }
     console.log(`[campaign ${campaignId}] 完成：${completed} 成功 / ${failedCount} 失败（共 ${campaign.total}）`)
     // 批收尾：全部角色部门沙盒 stop（busy 豁免——不打断任何执行）
     void (async () => {

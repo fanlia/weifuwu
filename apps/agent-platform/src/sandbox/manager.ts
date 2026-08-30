@@ -337,8 +337,12 @@ export class SandboxManager {
   private async ensurePoolBudget(needMb: number): Promise<void> {
     const budgetMb = this.opts.poolBudgetMb ?? DEFAULT_POOL_BUDGET_MB
     if (!this.sql || budgetMb <= 0) return
+    // 口径 = 活跃记录（requested/running/error——容器会占内存）；stopped 容器
+    // 已 docker stop（内存已释放）不计（2027-09 与配额口径对齐——实证：S4 批收尾
+    // 停 1000 角色容器——stopped 记录若计数——下一 campaign 无可用预算——新角色
+    // 创建强制驱逐陈旧记录——不健康 churn）
     const [used] = await this.sql`
-      SELECT COALESCE(SUM(memory_mb), 0)::int as used FROM sandboxes WHERE status != 'terminated'
+      SELECT COALESCE(SUM(memory_mb), 0)::int as used FROM sandboxes WHERE status IN ('requested', 'running', 'error')
     `
     let usedMb = Number(used?.used ?? 0)
     if (usedMb + needMb <= budgetMb) return

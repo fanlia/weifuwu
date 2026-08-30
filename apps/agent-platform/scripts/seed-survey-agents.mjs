@@ -127,26 +127,33 @@ const GROUP_NAME = '问卷填写群'
 const GROUP_ROLES = PERSONAS.slice(0, 5) // 财务小王/市场小李/产品老张/客服小陈/研发大刘
 
 /** 角色执行提示词：人设 + agent-browser 填写纪律 + 结果落盘（交付物） */
+// 容器内可达宿主地址（2027-09：沙盒容器 --add-host host.docker.internal:host-gateway
+// 已配——localhost=容器自身；宿主 IP 会漂移——不硬编码——env 可覆盖）
+const SURVEY_HOST_URL = process.env.SURVEY_CONTAINER_URL ?? 'http://host.docker.internal:3000'
 function buildSurveyPrompt(p) {
   return `${p.prompt}
 
-【问卷填写任务（模拟数据收集）】
-当用户要求填写问卷时（可选工具——不强制）：
-1. 用 agent-browser 打开问卷：agent-browser open "${SURVEY_URL}?s=${encodeURIComponent(p.name)}"
-   ⚠️ 容器内访问：你在沙盒容器里——localhost 是容器自身（问卷连不上）——若 open localhost 失败，
-   改用宿主地址 agent-browser open "http://host.docker.internal:3000/demo-survey?s=${encodeURIComponent(p.name)}"
-2. agent-browser snapshot 读取题目与控件 ref——逐题作答（fill 文本 / select 下拉 / check 勾选 / click 单选与提交）
-3. 按你的${p.roleLabel}作答：评分与反馈符合你的身份
-4. 提交后 read/snapshot 验证成功页（「✅ 已提交」锁定态）
-5. 完成后把你的作答结果写入工作目录：用 write 工具创建 survey-result.json，内容：
+【问卷填写任务（模拟数据收集）——硬性契约】
+当收到问卷任务时——必须真实执行以下操作链——禁止仅描述/脑补输出（实证：
+只描述不执行 = 任务超时失败——历史教训）：
+1. 用 bash 工具执行：agent-browser open "${SURVEY_HOST_URL}/demo-survey?s=${encodeURIComponent(p.name)}"
+   ⚠️ 容器内访问：localhost 是容器自身（问卷连不上）——用宿主地址：
+   agent-browser open "${SURVEY_HOST_URL}/demo-survey?s=${encodeURIComponent(p.name)}"
+   （你的沙盒 allow_network 已开启——网络可用——工具描述里的「默认无网络」不适用于你）
+2. bash 工具执行：agent-browser snapshot ——真实读取题目与控件 ref
+   （每步的输出必须是 bash 工具的真实返回——没有工具返回 = 没有执行 = 继续失败）
+3. 逐题作答（bash 工具执行）：click "@eXX"（年龄/关注/评分单选）+ 下拉选行业 +
+   文本框 type 反馈——每题执行后 snapshot 确认控件已选中
+4. bash 工具执行：点击提交按钮（click 提交）
+5. bash 工具执行：agent-browser read/snapshot 验证 ——页面必须显示「✅ 已提交——不可修改」
+   锁定态——看到锁定态才算完成（完成判定以服务端收到提交为准——锁定态是唯一真实信号）
+6. 确认锁定态后：write 工具写 survey-result.json（覆盖）：
    {"name":"${p.name}","role":"${p.roleLabel}","submitted":true,"answers":{...逐题答案...},"verified":true}
-6. 完成后执行 agent-browser close 关闭浏览器会话
+   然后 agent-browser close
+7. 最后回复消息：报告真实的提交编号与锁定态——未看到锁定态前不得报告完成
 
-【工具说明】agent-browser 是浏览器操作工具（真实网页导航/快照/填写/点击）——
-仅在需要真实浏览器操作时使用（如填写问卷）；普通对话/咨询直接回复即可——
-不强制调用任何工具。
-
-【产物纪律】survey-result.json 是本次任务的交付物——写入后工作目录可见。`
+【纪律】每一步工具调用必须真实发生；工具失败（连接失败/控件缺失）要如实报告
+并重试——禁止编造「页面已打开/已读取/已提交」——编造 = 任务失败。`
 }
 
 async function api(path, opts = {}) {

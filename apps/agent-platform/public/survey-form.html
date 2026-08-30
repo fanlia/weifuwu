@@ -109,16 +109,24 @@ const SurveyForm = (_init, ctx) => {
     }, 25e3);
   };
   // hello 统一走 onStatusChange（connected 时发——首连/重连都覆盖——mount 不单独发）
+  // 锁定判定纪律（2027-09——历史提交污染实证）：state/submitted 的 lock 必须
+  // 同时满足 campaign 视角一致——同 source 的历史 campaign 提交不得锁本页
+  // （否则新 campaign 一开页就显示旧提交号——角色不再提交——任务超时失败）；
+  // 无 campaign 上下文（手动填写）时保持全局锁定语义（沿用旧行为）。
   ctx.ws?.onMessage((msg) => {
     if (msg?.type === "survey:state") {
       const mine = (msg.submissions ?? []).find((x) => x.source === source);
       if (mine) {
-        submitted = mine;
-        submitting = false;
+        const mineCamp = String(mine.campaign ?? "");
+        if (!campaignId || mineCamp === campaignId) {
+          submitted = mine;
+          submitting = false;
+          rerender(); // 2027-09：state 命中后必须重渲染——否则锁延迟到下一次交互才可见（LLM 中途页面突变跳锁——假完成链）
+        }
       }
     }
     if (msg?.type === "survey:submitted") {
-      if (msg.latest?.source === source) {
+      if (msg.latest?.source === source && (!campaignId || String(msg.latest.campaign ?? "") === campaignId)) {
         submitted = { id: msg.latest.id ?? "", count: msg.count ?? 0 };
         submitting = false;
       }

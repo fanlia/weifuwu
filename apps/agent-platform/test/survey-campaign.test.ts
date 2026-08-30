@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { pickToDispatch, tickTimeouts } from '../src/services/survey-campaign.ts'
+import { pickToDispatch, tickTimeouts, isCampaignFinished } from '../src/services/survey-campaign.ts'
 import type { RunRow } from '../src/services/survey-campaign.ts'
 
 /** Campaign 调度判据契约测试（S1——纯函数——node 直跑） */
@@ -76,4 +76,24 @@ test('tickTimeouts：retry=0 → 首次超时即失败', () => {
   const { requeue, failed } = tickTimeouts(runs, 0, 180_000, now)
   assert.equal(requeue.length, 0)
   assert.equal(failed.length, 1)
+})
+
+/* ── 严格完成判定（2027-09——f90a55f9 实证：campaign done 时仍剩 running run ──
+ *  回归红线：完成 = 记账达标 且 无在途 run——在途 run 未收敛不算完成
+ *  （否则提交晚于末次扫描 → run 永远卡 running → 循环即停 → 沙盒永不批收尾） */
+
+test('isCampaignFinished：记账达标 + 无在途 run → 完成', () => {
+  assert.equal(isCampaignFinished({ completed: 10, failed: 0, total: 10 }, 0), true)
+})
+
+test('isCampaignFinished：记账达标但仍有 running run → 未完成（严格红线）', () => {
+  assert.equal(isCampaignFinished({ completed: 10, failed: 0, total: 10 }, 2), false, '在途 run 未收敛不得判完成——提交晚于末次扫描的窗口由下一 tick 收敛')
+})
+
+test('isCampaignFinished：记账未达标 + 无在途 run → 未完成', () => {
+  assert.equal(isCampaignFinished({ completed: 9, failed: 0, total: 10 }, 0), false)
+})
+
+test('isCampaignFinished：failed 计入达标（重试耗尽诚实收敛——不无限等）', () => {
+  assert.equal(isCampaignFinished({ completed: 8, failed: 2, total: 10 }, 0), true)
 })

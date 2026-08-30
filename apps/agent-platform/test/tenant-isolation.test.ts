@@ -128,6 +128,8 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/services/versions.ts', match: 'FROM agent_versions WHERE agent_id', reason: '间接隔离——agentId 来自已校验 agent（版本管理路由）' },
   { file: 'src/services/webhook.ts', match: 'webhook_logs WHERE agent_id = ${agentId}', reason: '间接隔离——agentId 来自 webhook 请求（签名 + agent 归属校验）' },
   { file: 'src/tools/builtin.ts', match: 'SELECT name FROM agents WHERE id = ${callerId}', reason: '委托背景（P1-4）——按主键 UUID 查名，callerId 来自当前执行的 agent（归属已由调用链保证）' },
+  { file: 'src/routes/departments.ts', match: 'ORDER BY COALESCE((SELECT m.created_at FROM messages m WHERE m.department_id = d.id', reason: '部门列表查询 ORDER BY 相关子查询——同一模板外层 WHERE d.app_id = ${appId} 已隔离（分析器嵌套模板误分割的残留片段——登记消除误报——不返回租户数据）' },
+  { file: 'src/services/survey-campaign.ts', match: 'UPDATE sandboxes SET last_used_at = NOW()', reason: 'campaign 调度 P1-1 存活豁免（2027-09）——department_id ⊆ 该 campaign 的 runs（tick 循环 id 来自本 app 的 createCampaign/retryCampaign——campaign 行即 app 边界——间接隔离；只刷新运行中沙盒活性——不返回租户数据）' },
 ]
 
 /** 扫描目标文件 */
