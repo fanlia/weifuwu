@@ -4,16 +4,26 @@ import { Badge, Button, Card, Icon } from 'weifuwu/components'
 import type { Department, DepartmentListResponse } from '../lib/types'
 
 interface DepartmentsState {
-  depts: Department[]; loading: boolean
+  depts: Department[]; loading: boolean; q: string
 }
 
 export const Departments: Component = (_props, ctx) => {
   const $ = {} as DepartmentsState
   const rerender = () => ctx.render()
-  $.depts = []; $.loading = true
-  ctx.api!.get<DepartmentListResponse>('/api/departments')
-    .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
-    .catch(() => { $.loading = false; rerender() })
+  $.depts = []; $.loading = true; $.q = ''
+  let qTimer: ReturnType<typeof setTimeout> | null = null
+  const load = (q: string) => {
+    ctx.api!.get<DepartmentListResponse>(`/api/departments${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+      .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
+      .catch(() => { $.loading = false; rerender() })
+  }
+  load('')
+  const onQInput = (e: Event) => {
+    const v = ((e as unknown as { target: { value: string } }).target?.value ?? '')
+    $.q = v; rerender()
+    if (qTimer) clearTimeout(qTimer)
+    qTimer = setTimeout(() => load(v), 300)
+  }
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
@@ -35,6 +45,12 @@ export const Departments: Component = (_props, ctx) => {
       <PageHeader title="部门" sub="组织 Agent 与成员进行协作对话">
         <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
       </PageHeader>
+      <div class="wf-row wf-gap-sm wf-items-center">
+        <div class="wf-fill" style="max-width: 320px">
+          <input class="wf-input wf-padding-x-sm wf-padding-y-xs" placeholder="搜索部门（名称——1000 实体可管）" value={$.q} onInput={onQInput} />
+        </div>
+        <span class="wf-font-xs wf-text-tertiary">{$.loading ? '加载中…' : `${$.depts.length} 个`}</span>
+      </div>
 
       {$.loading && <Loading />}
       {!$.loading && $.depts.length === 0 && <EmptyState icon={<Icon name="users" />} text="暂无部门" hint="点击上方按钮创建第一个部门" />}

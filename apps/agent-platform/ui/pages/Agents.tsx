@@ -4,17 +4,27 @@ import { Button, Card, Icon, Skeleton } from 'weifuwu/components'
 import type { Agent, AgentListResponse } from '../lib/types'
 
 interface AgentsState {
-  agents: Agent[]; loading: boolean
+  agents: Agent[]; loading: boolean; q: string
 }
 
 export const Agents: Component = (_props, ctx) => {
   const $ = {} as AgentsState
   const rerender = () => ctx.render()
 
-  $.agents = []; $.loading = true
-  ctx.api!.get<AgentListResponse>('/api/agents')
-    .then(d => { $.agents = d.agents ?? []; $.loading = false; rerender() })
-    .catch(() => { $.loading = false; rerender() })
+  $.agents = []; $.loading = true; $.q = ''
+  let qTimer: ReturnType<typeof setTimeout> | null = null
+  const load = (q: string) => {
+    ctx.api!.get<AgentListResponse>(`/api/agents${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+      .then(d => { $.agents = d.agents ?? []; $.loading = false; rerender() })
+      .catch(() => { $.loading = false; rerender() })
+  }
+  load('')
+  const onQInput = (e: Event) => {
+    const v = ((e as unknown as { target: { value: string } }).target?.value ?? '')
+    $.q = v; rerender()
+    if (qTimer) clearTimeout(qTimer)
+    qTimer = setTimeout(() => load(v), 300)
+  }
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
@@ -47,6 +57,12 @@ export const Agents: Component = (_props, ctx) => {
       <PageHeader title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库">
         <Button variant="primary" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</Button>
       </PageHeader>
+      <div class="wf-row wf-gap-sm wf-items-center">
+        <div class="wf-fill" style="max-width: 320px">
+          <input class="wf-input wf-padding-x-sm wf-padding-y-xs" placeholder="搜索 Agent（名称——1000 实体可管）" value={$.q} onInput={onQInput} />
+        </div>
+        <span class="wf-font-xs wf-text-tertiary">{$.loading ? '加载中…' : `${$.agents.length} 个`}</span>
+      </div>
 
       {$.loading && (
         <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 280px), 1fr))">

@@ -13,6 +13,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     const url = new URL(req.url)
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))
+    const q = String(url.searchParams.get('q') ?? '').trim()
 
     const departments = await sql`
       SELECT d.id, d.app_id, d.name, d.is_dm, d.created_at,
@@ -21,6 +22,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
         (SELECT m.created_at FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1) as last_message_at
       FROM departments d
       WHERE d.app_id = ${appId}
+      ${q ? sql`AND d.name ILIKE ${'%' + q + '%'}` : sql``}
       ORDER BY COALESCE((SELECT m.created_at FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1), d.created_at) DESC
       LIMIT ${limit} OFFSET ${offset}
     `

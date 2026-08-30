@@ -41,6 +41,7 @@ const StatsPage = async (_init, ctx) => {
   let submissions = [];
   let connected = false;
   let online = { count: 0, sources: [], submitted: [] };
+  let aggregate = null;
   let wsStatus = "connecting";
   let wsDetail = { attempt: 0, max: 10 };
   const rerender = () => ctx.ui.render();
@@ -56,6 +57,7 @@ const StatsPage = async (_init, ctx) => {
       answers = msg.answers ?? answers;
       submissions = msg.submissions ?? submissions;
       online = msg.online ?? online;
+      aggregate = msg.aggregate ?? aggregate;
       rerender();
     }
     if (msg?.type === "survey:answer") {
@@ -173,6 +175,29 @@ h(ProgressBar, { value: p.done / 5 * 100, width: 120, showLabel: false }),
               h("span", { style: { color: "var(--wf-color-text-secondary)" } }, String(a.answer ?? "").slice(0, 80))
             )
           )
+        )
+      ),
+      // 聚合分布（S5——2027-09——1000 份的统计意义：行业/年龄/评分直方图）
+      aggregate && aggregate.total > 0 && h(
+        Card,
+        { variant: "default", padding: "md" },
+        h("h2", { style: { fontSize: "14px", margin: "0 0 12px", color: "var(--wf-color-text-secondary)" } }, `\u5206\u5E03\u7EDF\u8BA1\uFF08${aggregate.total} \u4EFD\uFF09\u00B7 \u5E73\u5747\u8BC4\u5206 ${String(aggregate.avgRating ?? 0)}/5`),
+        [["\u884C\u4E1A", aggregate.byIndustry], ["\u5E74\u9F84", aggregate.byAge], ["\u8BC4\u5206", aggregate.byRating]].map(([label, dist]) => h(
+          "div", { style: { marginBottom: "10px" } },
+          h("div", { style: { fontWeight: 600, fontSize: "13px", marginBottom: "4px" } }, label),
+          Object.entries(dist ?? {}).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0)).map(([k, v]) => {
+            const max = Math.max(1, ...Object.values(dist ?? {}));
+            const pct = Math.round(((v ?? 0) / aggregate.total) * 100);
+            return h("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" } },
+              h("span", { style: { width: "72px", fontSize: "12px", color: "var(--wf-color-text-secondary)", textAlign: "right" } }, k),
+              h("div", { style: { flex: 1, height: "10px", background: "var(--wf-color-bg-tertiary)", borderRadius: "5px", overflow: "hidden" } },
+                h("div", { style: { width: `${(v ?? 0) / max * 100}%`, height: "100%", background: "var(--wf-color-primary)", borderRadius: "5px" } })),
+              h("span", { style: { fontSize: "12px", color: "var(--wf-color-text-tertiary)", width: "42px" } }, `${v ?? 0} (${pct}%)`)
+            );
+          })
+        )),
+        h("div", { style: { display: "flex", gap: "16px", marginTop: "8px", fontSize: "12px", color: "var(--wf-color-text-tertiary)", flexWrap: "wrap" } },
+          Object.entries(aggregate.focus ?? {}).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0)).slice(0, 8).map(([k, v]) => h("span", { key: k }, `${k} ${v}\u4EBA`))
         )
       ),
       // 已提交明细（Table——内置组件）

@@ -1315,6 +1315,29 @@ async function main() {
     answers: surveyAnswers.slice(-surveyLimit),
     submissions: surveySubmissions.slice(-surveyLimit),
     online: surveyOnlineState(),
+    // S5（2027-09）：聚合分布（1000 份的统计意义——服务端算——页面直方图渲染——
+    // O(n) 1000 微秒级——每次广播重算可接受）
+    aggregate: (() => {
+      const byIndustry: Record<string, number> = {}
+      const byAge: Record<string, number> = {}
+      const byRating: Record<string, number> = {}
+      const focus: Record<string, number> = {}
+      let ratingSum = 0
+      for (const s of surveySubmissions) {
+        const d = (s as any).data ?? {}
+        if (d.industry) byIndustry[String(d.industry)] = (byIndustry[String(d.industry)] ?? 0) + 1
+        if (d.age) byAge[String(d.age)] = (byAge[String(d.age)] ?? 0) + 1
+        const r = Number(d.rating ?? 0)
+        if (r > 0) { byRating[String(r)] = (byRating[String(r)] ?? 0) + 1; ratingSum += r }
+        for (const f of (d.focus ?? [])) focus[String(f)] = (focus[String(f)] ?? 0) + 1
+      }
+      return {
+        total: surveySubmissions.length,
+        byIndustry, byAge, byRating, focus,
+        avgRating: surveySubmissions.length > 0 ? Math.round((ratingSum / surveySubmissions.length) * 10) / 10 : 0,
+        completionRate: surveySubmissions.length > 0 ? 100 : 0,
+      }
+    })(),
   })
   // 在线连接清理（每 30 秒）：①readyState 非 OPEN（僵尸连接——close 丢失）
   // ②超过 10 分钟无活动（AI 填完不关页面/卡住——提交后应已下线，超时兜底）
