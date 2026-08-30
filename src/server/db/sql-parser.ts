@@ -17,7 +17,8 @@
  * 诚实裁剪：JOIN/GROUP BY/HAVING/子查询（EXISTS/IN 子查询）/窗口函数——
  *   抛 ProtocolError（真库/Query Language 结构化路径使用）。
  */
-import type { Query, SelectQuery, InsertQuery, UpdateQuery, DeleteQuery, WhereExpr, RawSql, DdlQuery } from './query.ts'
+import type { Query, SelectQuery, InsertQuery, UpdateQuery, DeleteQuery, WhereExpr, WhereField, RawSql, DdlQuery } from './query.ts'
+import { addWhereCond } from './query.ts'
 import { ProtocolError } from './errors.ts'
 
 // ── Tokenizer ─────────────────────────────────────────────
@@ -462,7 +463,8 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
   }
 }
 
-/** WHERE 子句 → Query Language WhereExpr（OR 拆分 → AND 组合 → 条件） */
+/** WHERE 子句 → Query Language WhereExpr（OR 拆分 → AND 组合 → 条件）
+ *  同列多条件走 addWhereCond（对象级合并 / and 包装——不覆盖不静默丢弃） */
 export function parseWhereToExpr(clause: string, params: unknown[], alias?: string): WhereExpr {
   // 顶层 OR 拆分（忽略括号）
   const orParts = splitTop(clause, /\bOR\b/i)
@@ -477,14 +479,22 @@ export function parseWhereToExpr(clause: string, params: unknown[], alias?: stri
     // IS [NOT] NULL
     const isNull = /^([\w.]+)\s+IS\s+(NOT\s+)?NULL$/i.exec(p)
     if (isNull) {
-      expr[stripAlias(isNull[1], alias)] = { isNull: !isNull[2] }
+      addWhereCond(expr, stripAlias(isNull[1], alias), { isNull: !isNull[2] })
       continue
     }
     // IN (v1, v2)
     const inMatch = /^([\w.]+)\s+IN\s*\(([^)]*)\)$/i.exec(p)
     if (inMatch) {
       const list = inMatch[2].split(',').map((v) => evalValue(v.trim(), params))
-      expr[stripAlias(inMatch[1], alias)] = list as never
+      addWhereCond(expr, stripAlias(inMatch[1], alias), list as never)
+      continue
+    }
+    // [I]LIKE（%/_ 模式——matchWhereExpr 全锚定翻译；与 builder 路径对齐）
+    const likeMatch = /^([\w.]+)\s+(ILIKE|LIKE)\s+(.+)$/i.exec(p)
+    if (likeMatch) {
+      const pattern = evalValue(likeMatch[3].trim(), params)
+      addWhereCond(expr, stripAlias(likeMatch[1], alias),
+        likeMatch[2].toUpperCase() === 'ILIKE' ? { ilike: pattern as string } : { like: pattern as string })
       continue
     }
     // col op value（右侧可能是表达式）
@@ -496,32 +506,21 @@ export function parseWhereToExpr(clause: string, params: unknown[], alias?: stri
       // 右侧：$n / 字面量 / 列引用 / 表达式
       const v = evalValue(raw, params, true)
       if (op === '=') {
-        // 合并到现有（age > 18 AND age < 65 → { gt, lt }）
         if (v !== null && typeof v === 'object' && 'col' in (v as object) && (v as RawSql).__raw === undefined) {
-          expr[col] = { col: (v as { col: string }).col }
+          addWhereCond(expr, col, { col: (v as { col: string }).col })
         } else {
-          const existing = expr[col]
-          if (existing && typeof existing === 'object' && !Array.isArray(existing) && !('__raw' in existing)) {
-            ;(expr[col] as Record<string, unknown>).eq = v
-          } else {
-            expr[col] = v as never
-          }
+          addWhereCond(expr, col, v as WhereField)
         }
       } else {
         const opKey: Record<string, string> = { '>': 'gt', '>=': 'gte', '<': 'lt', '<=': 'lte', '<>': 'ne', '!=': 'ne' }
-        const existing = expr[col]
-        if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
-          ;(existing as Record<string, unknown>)[opKey[op]] = v
-        } else {
-          expr[col] = { [opKey[op]]: v } as never
-        }
+        addWhereCond(expr, col, { [opKey[op]]: v } as WhereField)
       }
       continue
     }
-    // 括号组（(a = 1)）
+    // 括号组（(a = 1)）——逐列路由（同列冲突走合并/and 包装——不覆盖）
     if (p.startsWith('(') && p.endsWith(')')) {
       const inner = parseWhereToExpr(p.slice(1, -1), params, alias)
-      Object.assign(expr, inner)
+      for (const [c, f] of Object.entries(inner)) addWhereCond(expr, c, f as WhereField)
       continue
     }
     throw new ProtocolError(`memory-sql: WHERE 无法解析 '${p}'`)

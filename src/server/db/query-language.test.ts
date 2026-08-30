@@ -11,7 +11,9 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createMemorySql } from '../db/memory-sql.ts'
+import { createQueryBuilder } from '../db/query-builder.ts'
 import { compileQuery, compileSelect } from '../db/query.ts'
+import { parseSqlToAst } from '../db/sql-parser.ts'
 import { ProtocolError } from '../db/errors.ts'
 import type { SelectQuery } from '../db/query.ts'
 
@@ -232,3 +234,85 @@ describe('query language — memory 执行面', () => {
 })
 
 import { before } from 'node:test'
+
+describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () => {
+  let sql: ReturnType<typeof createMemorySql>
+
+  before(async () => {
+    sql = createMemorySql()
+    await sql.unsafe('CREATE TABLE ages (age int)')
+    for (const a of [10, 20, 25, 30, 40]) await sql.unsafe('INSERT INTO ages (age) VALUES ($1)', [a])
+  })
+
+  it('builder 链式 where 同列对象级合并——AND 语义不覆盖（修复前 [10,20,30]）', async () => {
+    const rows = await sql.query.from('ages').where({ age: { gt: 15 } }).where({ age: { lt: 35 } }).run()
+    assert.deepEqual(rows.map((r) => r.age), [20, 25, 30])
+  })
+
+  it('builder scalar × ops 合并 → eq（内存执行双端认识 eq）', async () => {
+    const rows = await sql.query.from('ages').where({ age: 25 }).where({ age: { lt: 30 } }).run()
+    assert.deepEqual(rows.map((r) => r.age), [25])
+  })
+
+  it('SQL 字符串路径：同列 > 与 = 共存（修复前 eq 静默丢弃返回 25/30）', async () => {
+    const rows = await sql.unsafe('SELECT age FROM ages WHERE age > 15 AND age = 25')
+    assert.deepEqual(rows, [{ age: 25 }])
+  })
+
+  it('SQL 字符串路径：同列 = 在前 > 在后（修复前 eq 被覆盖丢失）', async () => {
+    const rows = await sql.unsafe('SELECT age FROM ages WHERE age = 25 AND age > 15')
+    assert.deepEqual(rows, [{ age: 25 }])
+  })
+
+  it('同列双 scalar → and 包装（恒假语义显式——不静默丢条件）', async () => {
+    const rows = await sql.unsafe('SELECT age FROM ages WHERE age = 25 AND age = 30')
+    assert.deepEqual(rows, [], '25 AND 30 恒假——应空集')
+  })
+
+  it('parser 产出 AST → compileSelect：eq 编译进 SQL（真库路径不丢条件）', () => {
+    const ast = parseSqlToAst('SELECT age FROM ages WHERE age > 15 AND age = 25') as SelectQuery
+    const { sql: sqlText, params } = compileSelect(ast)
+    assert.match(sqlText, /age = \$1/)
+    assert.match(sqlText, /age > \$2/)
+    assert.deepEqual(params, [25, 15])
+  })
+
+  it('compileSelect：and 组编译（or 组冲突包装）', () => {
+    const q: SelectQuery = {
+      kind: 'select', table: 't',
+      where: { or: [{ a: 1 }, { b: 2 }], and: [{ or: [{ c: 3 }, { d: 4 }] }] },
+    }
+    const { sql: sqlText } = compileSelect(q)
+    assert.match(sqlText, /\(a = \$1 OR b = \$2\)/)
+    assert.match(sqlText, /\(c = \$3 OR d = \$4\)/)
+  })
+
+  it('builder or 组冲突 → and 包装（(A OR B) AND (C OR D) 不平铺——内存执行）', async () => {
+    await sql.unsafe('CREATE TABLE flags (a int, b int, c int, d int)')
+    await sql.unsafe('INSERT INTO flags (a, b, c, d) VALUES (1, 0, 1, 0)') // A 命中 C 不中——AND 后应空
+    await sql.unsafe('INSERT INTO flags (a, b, c, d) VALUES (1, 0, 0, 0)') // A 命中 C/D 均不中——空
+    await sql.unsafe('INSERT INTO flags (a, b, c, d) VALUES (0, 0, 1, 0)') // A/B 不中——空
+    const rows = await sql.query.from('flags')
+      .where({ or: [{ a: 1 }, { b: 1 }] })
+      .where({ or: [{ c: 1 }, { d: 1 }] })
+      .run()
+    assert.equal(rows.length, 1, '(a=1 OR b=1) AND (c=1 OR d=1)——仅第一行')
+    assert.equal(rows[0].a, 1)
+  })
+
+  it('whereRaw 冲突不再覆盖（双 raw 条件并存——AND）', async () => {
+    // 内存端 raw WHERE 诚实裁剪——用 spy executor 捕获 AST 后断言编译产物
+    let captured: SelectQuery | null = null
+    const qb = createQueryBuilder({} as never, (q) => {
+      captured = q as SelectQuery
+      return Promise.resolve([])
+    })
+    await qb.from('evts')
+      .whereRaw("created_at > '2025-01-01'")
+      .whereRaw('deleted_at IS NULL')
+      .run()
+    const compiled = compileSelect(captured!)
+    assert.match(compiled.sql, /created_at > /)
+    assert.match(compiled.sql, /deleted_at IS NULL/)
+  })
+})

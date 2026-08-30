@@ -37,8 +37,23 @@ interface MemoryTable {
   columnTypes: Record<string, string>
 }
 
+/** 事务快照表条目（rows + 元数据副本——restore 需复活事务内 DROP 掉的表） */
+export interface MemorySnapshotEntry {
+  rows: Row[]
+  nextId: number
+  columns: string[]
+  columnTypes: Record<string, string>
+  pk?: { col: string; defaultUuid: boolean }
+  uniques: string[]
+  defaultNow: string[]
+}
+
+export type MemorySnapshot = Map<string, MemorySnapshotEntry>
+
 export class MemorySql {
   private tables = new Map<string, MemoryTable>()
+  /** 派生表 AST 缓存（同 innerSql 不重复 parse——执行路径热缓存） */
+  private derivedAstCache = new Map<string, import('./query.ts').Query>()
 
   /** 标签模板 → 参数化 SQL（values 顺序即 $1..$n） */
   async tag(strings: TemplateStringsArray, values: unknown[]): Promise<Row[]> {
@@ -50,9 +65,7 @@ export class MemorySql {
     // 事务原语：内存自动提交（无真实事务边界）——BEGIN/COMMIT/ROLLBACK no-op
     const head = sql.trim().toUpperCase()
     if (head === 'BEGIN' || head === 'COMMIT' || head === 'ROLLBACK' || head === 'END') {
-      const res: QueryResult<Row> = []
-      res.affectedRows = 0
-      return res
+      return makeResult([], 0)
     }
     try {
       // SQL 字符串 → Parser → Query Language AST → 内存直执行（单条执行路径）
@@ -89,19 +102,20 @@ export class MemorySql {
       const t = this.table(q.table)
       const n = q.where ? t.rows.filter((r) => matchWhereExpr(r, q.where!, q.alias)).length : t.rows.length
       const colName = (q.cols?.[0] as string | undefined) ?? 'count'
-      const res: QueryResult<Row> = [{ [colName]: n }]
-      res.affectedRows = 1
-      return res
+      return makeResult([{ [colName]: n }], 1)
     }
     // 常量投影/UNION（无 FROM——SQL parser 产出）
     if (q.unionRows && q.table === '') {
-      const res = q.unionRows.map((r) => ({ ...r })) as QueryResult<Row>
-      res.affectedRows = res.length
-      return res
+      return makeResult(q.unionRows.map((r) => ({ ...r })), q.unionRows.length)
     }
-    // 派生表（FROM (SELECT ...) t——parser 递归解析内层）
+    // 派生表（FROM (SELECT ...) t——parser 递归解析内层；AST 缓存）
     if (q.derived && q.table === '') {
-      const inner = this.executeQuery(parseSqlToAst(q.derived.innerSql))
+      let innerAst = this.derivedAstCache.get(q.derived.innerSql)
+      if (!innerAst) {
+        innerAst = parseSqlToAst(q.derived.innerSql)
+        this.derivedAstCache.set(q.derived.innerSql, innerAst)
+      }
+      const inner = this.executeQuery(innerAst)
       const alias = q.derived.alias
       let rows: Row[] = inner.map((r) => {
         if (!alias) return { ...r }
@@ -116,9 +130,7 @@ export class MemorySql {
           try { rows = rows.filter((r) => matchWhereExpr(r, parseWhereToExpr(w, []))) } catch { /* 裁剪 */ }
         }
       }
-      const res = rows.map((r) => ({ ...r })) as QueryResult<Row>
-      res.affectedRows = res.length
-      return res
+      return makeResult(rows.map((r) => ({ ...r })), rows.length)
     }
     // JOIN 笛卡尔积 + on 过滤（内存 INNER/LEFT）
     let rows: Row[] = this.table(q.table).rows
@@ -243,14 +255,13 @@ export class MemorySql {
     }
     if (q.offset !== undefined) out = out.slice(q.offset)
     if (q.limit !== undefined) out = out.slice(0, q.limit)
-    const res = out as QueryResult<Row>
-    res.affectedRows = out.length
-    return res
+    return makeResult(out, out.length)
   }
 
   private execInsert(q: import('./query.ts').InsertQuery): QueryResult<Row> {
     const t = this.table(q.table)
     const results: Row[] = []
+    let inserted = 0
     // 无列名 INSERT（parser 占位 f1..fn）→ 按表列序映射
     const fPlaceholder = q.rows.some((r) => Object.keys(r).every((k) => /^f\d+$/.test(k)))
     const mapped = q.rows.map((r) => {
@@ -279,36 +290,48 @@ export class MemorySql {
       if (!conflicted) {
         t.rows.push(row)
         t.nextId++
+        inserted++ // affectedRows = 实际插入数（onConflict 跳过行不计——对齐真库 CommandComplete）
         if (q.returning) results.push(q.returning === '*' ? { ...row } : pick(row, q.returning))
       }
     }
-    const res = results as QueryResult<Row>
-    res.affectedRows = q.rows.length
-    return res
+    return makeResult(results, inserted)
   }
 
   private execUpdate(q: import('./query.ts').UpdateQuery): QueryResult<Row> {
     const t = this.table(q.table)
-    let n = 0
     const results: Row[] = []
+    // 先计算全部更新（投影视图——唯一约束按更新后状态校验，对齐真库 23505）
+    const planned: { row: Row; next: Row }[] = []
     for (const r of t.rows) {
       if (!q.where || matchWhereExpr(r, q.where, undefined)) {
+        const next: Row = { ...r }
         for (const [k, v] of Object.entries(q.sets)) {
           if (isRaw(v)) {
             // raw SET 值：now() 特判（编辑/软删时间戳）；其余裁剪
-            if (/^now\(\)$/i.test((v as RawSql).__raw.trim())) r[k] = new Date().toISOString()
+            if (/^now\(\)$/i.test((v as RawSql).__raw.trim())) next[k] = new Date().toISOString()
             else throw new ProtocolError('memory-sql: raw SET 值不支持（诚实裁剪——用真库）')
           } else {
-            r[k] = v
+            next[k] = v
           }
         }
-        n++
-        if (q.returning) results.push(q.returning === '*' ? { ...r } : pick(r, q.returning))
+        planned.push({ row: r, next })
       }
     }
-    const res = results as QueryResult<Row>
-    res.affectedRows = n
-    return res
+    // UNIQUE 检查（更新后状态视图——排除自身行；冲突 409 同 INSERT 路径）
+    const plannedMap = new Map(planned.map((p) => [p.row, p.next]))
+    for (const { row, next } of planned) {
+      for (const u of t.uniques) {
+        if (!(u in next)) continue
+        const clash = t.rows.some((r) => r !== row && deepEq((plannedMap.get(r) ?? r)[u], next[u]))
+        if (clash) throw new HttpError(`数据库错误: duplicate key value violates unique constraint "${u}"`, 409)
+      }
+    }
+    // 应用更新
+    for (const { row, next } of planned) {
+      for (const [k, v] of Object.entries(next)) row[k] = v
+      if (q.returning) results.push(q.returning === '*' ? { ...row } : pick(row, q.returning))
+    }
+    return makeResult(results, planned.length)
   }
 
   private execDelete(q: import('./query.ts').DeleteQuery): QueryResult<Row> {
@@ -324,9 +347,7 @@ export class MemorySql {
       }
     }
     t.rows = kept
-    const res = results as QueryResult<Row>
-    res.affectedRows = before - kept.length
-    return res
+    return makeResult(results, before - kept.length)
   }
 
   // ── 执行 ──────────────────────────────────────────────
@@ -352,22 +373,40 @@ export class MemorySql {
     return this.tables.get(table)?.columns.map((c) => this.tables.get(table)!.columnTypes[c] ?? 'text') ?? []
   }
 
-  /** 事务快照（服务器 ROLLBACK 撤销事务内写入——内存自动提交的对偶） */
-  snapshot(): Map<string, Row[]> {
-    const snap = new Map<string, Row[]>()
-    for (const [name, t] of this.tables) snap.set(name, t.rows.map((r) => ({ ...r })))
+  /** 事务快照（服务器 ROLLBACK 撤销事务内写入——内存自动提交的对偶；含元数据） */
+  snapshot(): MemorySnapshot {
+    const snap: MemorySnapshot = new Map()
+    for (const [name, t] of this.tables) {
+      snap.set(name, {
+        rows: t.rows.map((r) => ({ ...r })),
+        nextId: t.nextId,
+        columns: [...t.columns],
+        columnTypes: { ...t.columnTypes },
+        pk: t.pk ? { ...t.pk } : undefined,
+        uniques: [...t.uniques],
+        defaultNow: [...t.defaultNow],
+      })
+    }
     return snap
   }
 
-  /** 恢复快照（ROLLBACK）——rows 替换为快照副本（保留元数据/约束） */
-  restore(snap: Map<string, Row[]>): void {
-    for (const [name, rows] of snap) {
-      const t = this.tables.get(name)
-      if (t) t.rows = rows.map((r) => ({ ...r }))
+  /** 恢复快照（ROLLBACK）——全量还原（含复活事务内 DROP 掉的表）；快照后新建的表清空 */
+  restore(snap: MemorySnapshot): void {
+    const restored = new Set<string>()
+    for (const [name, e] of snap) {
+      this.tables.set(name, {
+        rows: e.rows.map((r) => ({ ...r })),
+        nextId: e.nextId,
+        columns: [...e.columns],
+        columnTypes: { ...e.columnTypes },
+        pk: e.pk ? { ...e.pk } : undefined,
+        uniques: new Set(e.uniques),
+        defaultNow: new Set(e.defaultNow),
+      })
+      restored.add(name)
     }
-    // 快照后新建的表：清空
     for (const name of this.tables.keys()) {
-      if (!snap.has(name)) this.tables.delete(name)
+      if (!restored.has(name)) this.tables.delete(name)
     }
   }
 
@@ -386,9 +425,7 @@ export class MemorySql {
     } else if (stmt.op === 'dropTable' && stmt.table) {
       this.tables.delete(stmt.table)
     }
-    const res: QueryResult<Row> = []
-    res.affectedRows = 0
-    return res
+    return makeResult([], 0)
   }
 }
 
@@ -396,6 +433,18 @@ export class MemorySql {
 function rawSqlImpl(strings: TemplateStringsArray, values: unknown[]): RawSql {
   const text = strings.reduce((acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''), '')
   return { __raw: text, params: values }
+}
+
+/** QueryResult 构造（affectedRows 非枚举——deepEqual/JSON.stringify 只见行数据，对齐 PgConnection 契约） */
+function makeResult(rows: Row[], affected: number): QueryResult<Row> {
+  const res = rows as QueryResult<Row>
+  Object.defineProperty(res, 'affectedRows', {
+    value: affected,
+    enumerable: false,
+    writable: true,
+    configurable: true,
+  })
+  return res
 }
 
 function pick(row: Row, cols: string[]): Row {
@@ -446,6 +495,11 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
       if (!ors.some((o) => matchWhereExpr(row, o, alias))) return false
       continue
     }
+    if (col === 'and') {
+      const ands = field as WhereExpr[]
+      if (!ands.every((o) => matchWhereExpr(row, o, alias))) return false
+      continue
+    }
     if (Array.isArray(field)) {
       // IN 列表
       const actual = resolveCol(row, col, alias)
@@ -459,12 +513,13 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
       const ops = field as ColOps
       const actual = resolveCol(row, col, alias)
       // 纯对象值（jsonb）——无任何操作符键 → 按值 deepEq 比较
-      const hasOp = (['col', 'gt', 'gte', 'lt', 'lte', 'ne', 'in', 'notIn', 'like', 'ilike', 'isNull', 'between'] as const).some((k) => ops[k] !== undefined)
+      const hasOp = (['col', 'eq', 'gt', 'gte', 'lt', 'lte', 'ne', 'in', 'notIn', 'like', 'ilike', 'isNull', 'between'] as const).some((k) => ops[k] !== undefined)
       if (!hasOp) {
         if (!deepEq(actual, field)) return false
         continue
       }
       if (ops.col !== undefined && !deepEq(actual, resolveCol(row, ops.col, alias))) return false
+      if (ops.eq !== undefined && !deepEq(actual, ops.eq)) return false
       if (ops.gt !== undefined && cmpValue(actual, ops.gt) <= 0) return false
       if (ops.gte !== undefined && cmpValue(actual, ops.gte) < 0) return false
       if (ops.lt !== undefined && cmpValue(actual, ops.lt) >= 0) return false
@@ -472,8 +527,8 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
       if (ops.ne !== undefined && deepEq(actual, ops.ne)) return false
       if (ops.in && !ops.in.some((v) => deepEq(actual, v))) return false
       if (ops.notIn && ops.notIn.some((v) => deepEq(actual, v))) return false
-      if (ops.like !== undefined && !String(actual).includes(ops.like.replace(/%/g, ''))) return false
-      if (ops.ilike !== undefined && !String(actual).toLowerCase().includes(ops.ilike.replace(/%/g, '').toLowerCase())) return false
+      if (ops.like !== undefined && (actual === null || actual === undefined || !likeToRegExp(ops.like).test(String(actual)))) return false
+      if (ops.ilike !== undefined && (actual === null || actual === undefined || !likeToRegExp(ops.ilike, true).test(String(actual)))) return false
       if (ops.between) {
         const [lo, hi] = ops.between
         if (!(Number(actual) >= Number(lo) && Number(actual) <= Number(hi))) return false
@@ -490,6 +545,12 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
     }
   }
   return true
+}
+
+/** SQL LIKE 模式 → 全锚定 RegExp（% → .*、_ → .、其余转义——前缀/后缀/包含语义区分） */
+function likeToRegExp(pattern: string, caseInsensitive = false): RegExp {
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^${escaped.replace(/%/g, '.*').replace(/_/g, '.')}$`, caseInsensitive ? 'i' : '')
 }
 
 function cmpValue(a: unknown, b: unknown): number {

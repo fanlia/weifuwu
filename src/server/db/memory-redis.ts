@@ -77,17 +77,19 @@ class MemorySubscriber {
     this.subs.set(`p:${pattern}`, fn)
   }
   async close(): Promise<void> { this.redis._unregisterSubscriber(this); this.subs.clear() }
-  _dispatch(channel: string, message: string): void {
-    if (!this.connected) return
+  _dispatch(channel: string, message: string): boolean {
+    if (!this.connected) return false
+    let hit = false
     for (const [key, fn] of this.subs) {
       if (key.startsWith('s:')) {
-        if (key.slice(2) === channel) fn(channel, message)
+        if (key.slice(2) === channel) { fn(channel, message); hit = true }
       } else {
         const pattern = key.slice(2)
         const re = new RegExp('^' + pattern.split('*').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$')
-        if (re.test(channel)) fn(channel, message)
+        if (re.test(channel)) { fn(channel, message); hit = true }
       }
     }
+    return hit
   }
 }
 
@@ -158,7 +160,9 @@ export class MemoryRedis implements Redis {
       this.strings.delete(key) // 惰性过期（与 get 语义一致）
     }
     const cur = Number(this.strings.get(key)?.value ?? '0')
-    const next = Number.isNaN(cur) ? 1 : cur + 1
+    // 非整数（真库 INCRBY 系列）→ 显式报错，不静默置 1（对齐真库 -ERR）
+    if (!Number.isInteger(cur)) throw new ProtocolError('ERR value is not an integer or out of range')
+    const next = cur + 1
     // 保留现有 TTL（rateLimit INCR + PEXPIRE 模式——INCR 不得清过期时间）
     this.strings.set(key, { value: String(next), expiresAt: this.strings.get(key)?.expiresAt ?? null })
     return next
@@ -172,6 +176,9 @@ export class MemoryRedis implements Redis {
       this.strings.delete(key)
     }
     const cur = Number(this.strings.get(key)?.value ?? '0')
+    if (!Number.isInteger(cur) || !Number.isInteger(delta)) {
+      throw new ProtocolError('ERR value is not an integer or out of range')
+    }
     const next = cur + delta
     this.strings.set(key, { value: String(next), expiresAt: this.strings.get(key)?.expiresAt ?? null })
     return next
@@ -199,6 +206,7 @@ export class MemoryRedis implements Redis {
   }
 
   async mset(...kv: (string | number)[]): Promise<'OK'> {
+    this.assertOpen()
     for (let i = 0; i < kv.length; i += 2) {
       this.strings.set(String(kv[i]), { value: String(kv[i + 1]), expiresAt: null })
     }
@@ -206,6 +214,7 @@ export class MemoryRedis implements Redis {
   }
 
   async exists(...keys: string[]): Promise<number> {
+    this.assertOpen()
     let n = 0
     for (const k of keys) if ((await this.get(k)) !== null) n++
     return n
@@ -213,7 +222,12 @@ export class MemoryRedis implements Redis {
 
   async setnx(key: string, value: string | number): Promise<number> {
     this.assertOpen()
-    if (await this.get(key) !== null) return 0
+    // 同步读-写（无 await 间隙——SETNX 原子性契约：并发恰一个成功——分布式锁语义）
+    const entry = this.strings.get(key)
+    if (entry && entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      this.strings.delete(key) // 惰性过期（与 get 语义一致）
+    }
+    if (this.strings.has(key)) return 0
     this.strings.set(key, { value: String(value), expiresAt: null })
     return 1
   }
@@ -252,16 +266,19 @@ export class MemoryRedis implements Redis {
   }
 
   async hget(key: string, field: string): Promise<string | null> {
+    this.assertOpen()
     return this.hashes.get(key)?.get(field) ?? null
   }
 
   async hgetall(key: string): Promise<Record<string, string>> {
+    this.assertOpen()
     const h = this.hashes.get(key)
     if (!h) return {}
     return Object.fromEntries(h)
   }
 
   async hdel(key: string, ...fields: string[]): Promise<number> {
+    this.assertOpen()
     const h = this.hashes.get(key)
     if (!h) return 0
     let n = 0
@@ -293,6 +310,7 @@ export class MemoryRedis implements Redis {
   }
 
   async lpop(key: string): Promise<string | null> {
+    this.assertOpen()
     const l = this.lists.get(key)
     if (!l || l.length === 0) return null
     const v = l.shift()!
@@ -301,6 +319,7 @@ export class MemoryRedis implements Redis {
   }
 
   async rpop(key: string): Promise<string | null> {
+    this.assertOpen()
     const l = this.lists.get(key)
     if (!l || l.length === 0) return null
     const v = l.pop()!
@@ -309,6 +328,7 @@ export class MemoryRedis implements Redis {
   }
 
   async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    this.assertOpen()
     const l = this.lists.get(key) ?? []
     const s = start < 0 ? Math.max(0, l.length + start) : start
     const e = stop < 0 ? l.length + stop : Math.min(l.length - 1, stop)
@@ -323,11 +343,16 @@ export class MemoryRedis implements Redis {
     let st = this.sets.get(key)
     if (!st) { st = new Set(); this.sets.set(key, st) }
     let n = 0
-    for (const m of members) { st.add(String(m)); n++ }
+    // 返回新增数（已存在成员不计——真库 SADD 语义）
+    for (const m of members) {
+      const s = String(m)
+      if (!st.has(s)) { st.add(s); n++ }
+    }
     return n
   }
 
   async srem(key: string, ...members: (string | number)[]): Promise<number> {
+    this.assertOpen()
     const st = this.sets.get(key)
     if (!st) return 0
     let n = 0
@@ -337,6 +362,7 @@ export class MemoryRedis implements Redis {
   }
 
   async smembers(key: string): Promise<string[]> {
+    this.assertOpen()
     return [...(this.sets.get(key) ?? [])]
   }
 
@@ -353,6 +379,7 @@ export class MemoryRedis implements Redis {
   }
 
   async zrange(key: string, start: number, stop: number): Promise<string[]> {
+    this.assertOpen()
     const z = this.zsets.get(key)
     if (!z) return []
     const sorted = [...z.entries()].sort((a, b) => a[1] - b[1]).map(([m]) => m)
@@ -368,8 +395,7 @@ export class MemoryRedis implements Redis {
     const msg = String(message)
     let n = 0
     for (const sub of this.subscribers) {
-      sub._dispatch(channel, msg)
-      n++
+      if (sub._dispatch(channel, msg)) n++ // 返回匹配接收数（真库 PUBLISH 语义——非订阅者总数）
     }
     return n
   }
@@ -397,6 +423,7 @@ export class MemoryRedis implements Redis {
   }
 
   async flushdb(): Promise<'OK'> {
+    this.assertOpen()
     this.strings.clear(); this.hashes.clear(); this.lists.clear()
     this.sets.clear(); this.zsets.clear(); this.streams.clear()
     return 'OK'
@@ -513,7 +540,7 @@ export class MemoryRedis implements Redis {
   }
 
   /** XGROUP CREATE key group '0' [MKSTREAM] → 'OK'；已存在抛 BUSYGROUP；key 非 stream 抛 WRONGTYPE */
-  private async xgroup(key: string, group: string, _startId: string): Promise<'OK'> {
+  private async xgroup(key: string, group: string, startId: string): Promise<'OK'> {
     if (this.strings.has(key) && !this.streams.has(key)) {
       throw new Error(`WRONGTYPE Operation against a key holding the wrong kind of value`)
     }
@@ -521,7 +548,8 @@ export class MemoryRedis implements Redis {
     if (st.lastDelivered.has(group)) {
       throw new Error(`BUSYGROUP Consumer Group name already exists: ${group}`)
     }
-    st.lastDelivered.set(group, 0) // 游标 = entries 序号（0 = 从第一条投递）
+    // '$' = 只投新（游标 = 现有末尾）；'0' = 从首条投递（真库起始语义）
+    st.lastDelivered.set(group, startId === '$' ? st.entries.length : 0)
     return 'OK'
   }
 

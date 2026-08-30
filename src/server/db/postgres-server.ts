@@ -19,6 +19,7 @@ import { MemorySql } from './memory-sql.ts'
 import type { Row } from './contracts.ts'
 import { MessageStream, encodeMessage, type Message } from './postgres/protocol.ts'
 import { ProtocolError } from './errors.ts'
+import type { MemorySnapshot } from './memory-sql.ts'
 import type { DBServer } from './server.ts'
 
 export interface PostgresServerOptions {
@@ -82,6 +83,14 @@ function inferOid(v: unknown): number {
   return OID.TEXT
 }
 
+/** per-connection 协议状态（handleMessage ctx 对象——消灭 getter/setter 参数表） */
+interface PgConnState {
+  authed: boolean
+  inTransaction: boolean
+  pendingParse: { name: string; sql: string; paramTypes: number[]; bindParams: unknown[] | null } | null
+  pendingExecute: Promise<void> | null
+}
+
 export class MemoryPostgresServer implements DBServer {
   port = 0
   url = ''
@@ -90,7 +99,9 @@ export class MemoryPostgresServer implements DBServer {
   private opts: Required<Pick<PostgresServerOptions, 'port' | 'password'>>
   private closed = false
   private queryLog: string[] = []
-  private txSnap: Map<string, Row[]> | null = null
+  private txSnap: MemorySnapshot | null = null
+  /** 存活连接（close 时全量销毁——server.close 只停 accept，不等存量连接） */
+  private sockets = new Set<Socket>()
   /** 命名 prepared statement 缓存（客户端复用——同 sql 不发 Parse） */
   private statements = new Map<string, { sql: string; paramTypes: number[]; bindParams: unknown[] | null }>()
   /** portal → statement 绑定（Bind 创建、Execute 按 portal 执行——客户端 portal 通常空名） */
@@ -116,6 +127,8 @@ export class MemoryPostgresServer implements DBServer {
   async close(): Promise<void> {
     if (this.closed) return
     this.closed = true
+    for (const sock of this.sockets) sock.destroy() // 存量连接全量销毁（否则 close 永久挂起）
+    this.sockets.clear()
     await new Promise<void>((resolve) => {
       if (!this.server) return resolve()
       this.server.close(() => resolve())
@@ -130,12 +143,17 @@ export class MemoryPostgresServer implements DBServer {
 
   private handleSocket(sock: Socket): void {
     const stream = new MessageStream() // 有状态增量解析（每连接实例）
-    let authed = this.opts.password === ''
-    let inTransaction = false
-    let pendingParse: { name: string; sql: string; paramTypes: number[]; bindParams: unknown[] | null } | null = null
-    let pendingExecute: Promise<void> | null = null
+    const state: PgConnState = {
+      authed: this.opts.password === '',
+      inTransaction: false,
+      pendingParse: null,
+      pendingExecute: null,
+    }
     let startupBuf = Buffer.alloc(0)
     let startupDone = false
+    this.sockets.add(sock)
+    sock.on('close', () => this.sockets.delete(sock))
+    sock.on('error', () => this.sockets.delete(sock))
 
     sock.on('data', (chunk) => {
       if (!startupDone) {
@@ -150,10 +168,9 @@ export class MemoryPostgresServer implements DBServer {
       }
       const messages = stream.push(chunk as Uint8Array)
       for (const msg of messages) {
-        this.handleMessage(sock, msg, () => authed, (a) => (authed = a), () => inTransaction, (t) => (inTransaction = t), () => pendingParse, (p) => (pendingParse = p), () => pendingExecute, (p) => (pendingExecute = p))
+        this.handleMessage(sock, msg, state)
       }
     })
-    sock.on('error', () => {})
   }
 
   /** startup：196608（协议 3.0）+ 参数 k\0v\0... */
@@ -176,16 +193,15 @@ export class MemoryPostgresServer implements DBServer {
   private handleMessage(
     sock: Socket,
     msg: Message,
-    getAuthed: () => boolean,
-    setAuthed: (a: boolean) => void,
-    getTx: () => boolean,
-    setTx: (t: boolean) => void,
-    getParse: () => { name: string; sql: string; paramTypes: number[]; bindParams: unknown[] | null } | null,
-    setParse: (p: { name: string; sql: string; paramTypes: number[]; bindParams: unknown[] | null } | null) => void,
-    getExec: () => Promise<void> | null,
-    setExec: (p: Promise<void> | null) => void,
+    state: PgConnState,
   ): void {
-    if (!getAuthed()) {
+    const getParse = () => state.pendingParse
+    const setParse = (p: PgConnState['pendingParse']) => { state.pendingParse = p }
+    const getTx = () => state.inTransaction
+    const setTx = (t: boolean) => { state.inTransaction = t }
+    const getExec = () => state.pendingExecute
+    const setExec = (p: Promise<void> | null) => { state.pendingExecute = p }
+    if (!state.authed) {
       if (msg.type === 'p') {
         // password message（cleartext 认证）
         const pw = Buffer.from((msg.payload as Uint8Array).subarray(0, (msg.payload as Uint8Array).indexOf(0))).toString('utf8')
@@ -193,7 +209,7 @@ export class MemoryPostgresServer implements DBServer {
           sock.write(encodeMessage('R', u32(0)))
           sock.write(encodeMessage('S', concat(cstr('server_version'), cstr('16.0-memory'))))
           sock.write(encodeMessage('Z', _encoder.encode('I')))
-          setAuthed(true)
+          state.authed = true
         } else {
           sock.write(errorResponse('28P01', 'password authentication failed for user "postgres"'))
         }
@@ -574,26 +590,6 @@ function inferOidFromSql(sql: string, col: string): number {
     }
   }
   return OID.TEXT
-}
-
-/** RowDescription：列名 + 类型 OID（表 OID 0、列号递增、typlen/typmod/format 按类型） */
-function rowDescription(cols: string[], sample: Record<string, unknown>): Uint8Array {
-  const payload: Uint8Array[] = [u16(cols.length)]
-  for (let i = 0; i < cols.length; i++) {
-    const oid = inferOid(sample[cols[i]])
-    payload.push(cstr(cols[i]))
-    payload.push(u32(0)) // table oid
-    payload.push(new Uint8Array([0, i + 1])) // column attr number (int16)
-    payload.push(u32(oid))
-    payload.push(u16(typeLen(oid)))
-    payload.push(u32(0xffffffff)) // typmod -1
-    payload.push(new Uint8Array([0, 0])) // format text
-  }
-  const total = payload.reduce((n, p) => n + p.length, 0)
-  const out = new Uint8Array(total)
-  let off = 0
-  for (const p of payload) { out.set(p, off); off += p.length }
-  return encodeMessage('T', out)
 }
 
 /** DataRow：每列长度 + 字节（NULL = -1） */

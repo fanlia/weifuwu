@@ -39,6 +39,8 @@ export type WhereScalar = string | number | boolean | null
 export interface ColOps {
   /** 列引用（非字面量）：`{ 'u.email': { col: 'o.user_id' } }` → u.email = o.user_id */
   col?: string
+  /** 等值（同列合并形态：scalar 进 ColOps——parser 同列 = 合并 / builder scalar×ops 合并产出） */
+  eq?: WhereScalar
   gt?: WhereScalar
   gte?: WhereScalar
   lt?: WhereScalar
@@ -55,6 +57,11 @@ export interface ColOps {
 
 export type WhereField = WhereScalar | WhereScalar[] | RawSql | ColOps
 
+/**
+ * WHERE 表达式：列条件 AND 连接。
+ * 结构键：`or: WhereExpr[]`（OR 组——组间 AND）、`and: WhereExpr[]`（AND 组——
+ * where 合并不可对象级合并时包装——AND 语义不丢）。
+ */
 export interface WhereExpr {
   [col: string]: WhereField | WhereExpr[]
 }
@@ -205,13 +212,18 @@ function param(params: unknown[], v: unknown): string {
   return `$${params.length}`
 }
 
-/** WhereExpr → SQL 条件片段（AND 连接；or 组 → 括号 OR） */
+/** WhereExpr → SQL 条件片段（AND 连接；or/and 组 → 括号） */
 function compileWhere(expr: WhereExpr, params: unknown[]): string {
   const parts: string[] = []
   for (const [col, field] of Object.entries(expr)) {
     if (col === 'or') {
       const ors = field as WhereExpr[]
       parts.push(`(${ors.map((o) => compileWhere(o, params)).join(' OR ')})`)
+      continue
+    }
+    if (col === 'and') {
+      const ands = field as WhereExpr[]
+      parts.push(`(${ands.map((o) => compileWhere(o, params)).join(' AND ')})`)
       continue
     }
     if (Array.isArray(field) && !isColOps(field)) {
@@ -226,10 +238,8 @@ function compileWhere(expr: WhereExpr, params: unknown[]): string {
     }
     if (isColOps(field)) {
       const ops: [string, string][] = []
-      if (field.col !== undefined) {
-        parts.push(`${col} = ${field.col}`)
-        continue
-      }
+      if (field.col !== undefined) parts.push(`${col} = ${field.col}`) // 列引用与其余操作符可并存（AND 语义——不短路）
+      if (field.eq !== undefined) ops.push(['=', param(params, field.eq)])
       if (field.gt !== undefined) ops.push(['>', param(params, field.gt)])
       if (field.gte !== undefined) ops.push(['>=', param(params, field.gte)])
       if (field.lt !== undefined) ops.push(['<', param(params, field.lt)])
@@ -364,6 +374,70 @@ export function compileQuery(q: Query): Compiled {
     case 'delete': return compileDelete(q)
     case 'ddl': throw new ProtocolError('memory-sql: DDL 不走 Query Language（用 sql.unsafe 字符串——真库直接执行）')
   }
+}
+
+// ── WHERE 合并（单一实现源——builder 链式 / parser 同列共用） ──
+
+/**
+ * 同列条件对象级合并（AND 语义）。不可合并返回 null（调用方 and 包装）：
+ *   ColOps × ColOps → 不相交操作符键 spread（{gt:15}+{lt:35} 并存）
+ *   scalar × ColOps → { eq: scalar, ...ops }（eq 登记——编译/执行双端认识）
+ *   数组（IN）/ raw / scalar × scalar / 同键冲突 / null 标量 → null
+ */
+export function mergeWhereField(prev: WhereField, next: WhereField): WhereField | null {
+  if (isRaw(prev) || isRaw(next)) return null
+  if (Array.isArray(prev) || Array.isArray(next)) return null
+  const prevObj = typeof prev === 'object' && prev !== null
+  const nextObj = typeof next === 'object' && next !== null
+  if (prevObj && nextObj) {
+    const a = prev as ColOps
+    const b = next as ColOps
+    for (const k of Object.keys(b)) if (Object.hasOwn(a, k)) return null
+    return { ...a, ...b } as ColOps
+  }
+  if (prevObj !== nextObj) {
+    // 恰一方是 ColOps——scalar 入 eq（null 标量除外——IS NULL 语义不合入）
+    const scalar = (prevObj ? next : prev) as WhereScalar
+    const ops = (prevObj ? prev : next) as ColOps
+    if (Object.hasOwn(ops, 'eq') || scalar === null) return null
+    return { ...ops, eq: scalar } as ColOps
+  }
+  return null // scalar × scalar——恒假，调用方 and 包装（双条件共存）
+}
+
+/**
+ * 向 WhereExpr 追加同列条件（AND 语义）。不可对象级合并 → and 包装
+ * （既有条件保留 + 新条件入 and 组——不覆盖不静默丢弃）。
+ */
+export function addWhereCond(expr: WhereExpr, col: string, field: WhereField): void {
+  if (col === 'and' && Array.isArray(field)) {
+    expr.and = [...((expr.and as WhereExpr[] | undefined) ?? []), ...(field as unknown as WhereExpr[])]
+    return
+  }
+  if (!(col in expr)) {
+    expr[col] = field
+    return
+  }
+  const merged = mergeWhereField(expr[col] as WhereField, field)
+  if (merged !== null) {
+    expr[col] = merged
+    return
+  }
+  expr.and = [...((expr.and as WhereExpr[] | undefined) ?? []), { [col]: field } as WhereExpr]
+}
+
+/** where 表达式合并（builder 链式追加——AND 语义，不覆盖） */
+export function mergeWhere(prev: WhereExpr, next: WhereExpr): WhereExpr {
+  const out: WhereExpr = { ...prev }
+  for (const [col, field] of Object.entries(next)) {
+    if (col === 'or' && out.or !== undefined && Array.isArray(field)) {
+      // or 组不可平铺合并（(A OR B) AND (C OR D) ≠ A OR B OR C OR D）——and 包装保语义
+      out.and = [...((out.and as WhereExpr[] | undefined) ?? []), { or: field as unknown as WhereExpr[] } as WhereExpr]
+      continue
+    }
+    addWhereCond(out, col, field as WhereField)
+  }
+  return out
 }
 
 // ── 内部工具 ──────────────────────────────────────────────

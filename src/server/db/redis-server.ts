@@ -8,6 +8,11 @@
  *       PING/CLIENT ID/CLIENT KILL（断开目标连接）/UNSUBSCRIBE
  * 故障注入钩子：connection 选项（mock 服务器测试用）
  *
+ * 连接状态（DB-FIX-PLAN W1）：per-connection 上下文对象（authed/subscribed/
+ * blpopWaiters 单一状态源）——dispatch 传引用（写回生效——AUTH 状态不再丢失）。
+ * BLPOP：timeout 参数生效（0 = 无限 / >0 = 超时回 $-1）；waiter 全局队列
+ * （同连接多 BLPOP 不互覆；LPUSH 唤醒 FIFO；连接关闭释放）。
+ *
  * 诚实裁剪：未实现命令返回错误（与 MemoryRedis 一致——ProtocolError 编码为 -ERR）。
  */
 import net from 'node:net'
@@ -28,6 +33,22 @@ export interface RedisServerOptions {
 }
 
 const _encoder = new TextEncoder()
+
+/** BLPOP 等待者（timeout 定时回 $-1；owner 用于连接清理） */
+interface BlpopWaiter {
+  keys: string[]
+  resolve: (reply: Uint8Array | null) => void
+  timer: NodeJS.Timeout | null
+  owner: number
+}
+
+/** per-connection 上下文——authed/subscribed/waiter 单一状态源（dispatch 传引用写回） */
+interface RedisConnCtx {
+  id: number
+  sock: Socket
+  authed: boolean
+  subscribed: Set<string>
+}
 
 /** RESP 应答编码（+OK / -ERR / :int / $str / *array） */
 function encodeReply(v: RespValue): Uint8Array {
@@ -79,9 +100,9 @@ export class MemoryRedisServer implements DBServer {
   url = ''
   private server: net.Server | null = null
   private engine = new MemoryRedis()
-  private sockets = new Map<number, Socket>()
-  private subChannels = new Map<number, Set<string>>()
-  private blpopWaiters = new Map<number, { key: string; resolve: (reply: Uint8Array) => void }>()
+  private conns = new Map<number, RedisConnCtx>()
+  /** BLPOP 等待者（全局队列——LPUSH 跨连接唤醒；owner 回溯连接清理） */
+  private blpopWaiters: BlpopWaiter[] = []
   private nextId = 1
   private opts: Required<Pick<RedisServerOptions, 'port' | 'password'>>
   private closed = false
@@ -106,8 +127,11 @@ export class MemoryRedisServer implements DBServer {
   async close(): Promise<void> {
     if (this.closed) return
     this.closed = true
-    for (const sock of this.sockets.values()) sock.destroy()
-    this.sockets.clear()
+    for (const ctx of this.conns.values()) {
+      this.releaseWaiters(ctx.id)
+      ctx.sock.destroy()
+    }
+    this.conns.clear()
     await new Promise<void>((resolve) => {
       if (!this.server) return resolve()
       this.server.close(() => resolve())
@@ -115,24 +139,43 @@ export class MemoryRedisServer implements DBServer {
     })
   }
 
+  /** 释放某连接全部 BLPOP waiter（resolve null → dispatch 返回 null → 跳过写） */
+  private releaseWaiters(id: number): void {
+    this.blpopWaiters = this.blpopWaiters.filter((w) => {
+      if (w.owner !== id) return true
+      if (w.timer) clearTimeout(w.timer)
+      w.resolve(null)
+      return false
+    })
+  }
+
   /** 测试辅助：断开发送端 socket（模拟 CLIENT KILL / 网络中断） */
   killSocket(socketId: number): void {
-    this.blpopWaiters.delete(socketId)
-    this.sockets.get(socketId)?.destroy()
+    this.conns.get(socketId)?.sock.destroy()
   }
 
   /** 测试辅助：当前连接数 */
   get connectionCount(): number {
-    return this.sockets.size
+    return this.conns.size
   }
 
   private handleSocket(sock: Socket): void {
     const id = this.nextId++
-    this.sockets.set(id, sock)
-    this.subChannels.set(id, new Set())
+    const ctx: RedisConnCtx = {
+      id,
+      sock,
+      authed: this.opts.password === '',
+      subscribed: new Set(),
+    }
+    this.conns.set(id, ctx)
     const parser = new RespParser()
-    const subscribed = this.subChannels.get(id)!
-    let authed = this.opts.password === ''
+
+    const cleanup = () => {
+      this.conns.delete(id)
+      this.releaseWaiters(id)
+    }
+    sock.on('close', cleanup)
+    sock.on('error', cleanup)
 
     sock.on('data', (chunk) => {
       try {
@@ -142,7 +185,7 @@ export class MemoryRedisServer implements DBServer {
           const decoded = decodeCommandArray(value)
           if (decoded === null) continue
           const [name, ...args] = decoded
-          void this.dispatch(id, sock, name, args, authed)
+          void this.dispatch(ctx, name, args)
             .then((reply) => {
               if (reply) sock.write(reply)
             })
@@ -155,68 +198,76 @@ export class MemoryRedisServer implements DBServer {
         sock.write(encodeError(`ERR ${e instanceof Error ? e.message : String(e)}`))
       }
     })
-    sock.on('close', () => { this.sockets.delete(id); this.subChannels.delete(id) })
-    sock.on('error', () => { this.sockets.delete(id); this.subChannels.delete(id) })
   }
 
   private async dispatch(
-    socketId: number,
-    sock: Socket,
+    ctx: RedisConnCtx,
     name: string,
     args: string[],
-    authed: boolean,
   ): Promise<Uint8Array | null> {
-    const subscribed = this.subChannels.get(socketId) ?? new Set<string>()
     const upper = name.toUpperCase()
 
-    // 认证
+    // 认证（写回 ctx.authed——同 chunk 后续命令立即可见）
     if (upper === 'AUTH') {
       if (this.opts.password === '') return encodeError('ERR Client sent AUTH, but no password is set')
       if (args[0] !== this.opts.password) return encodeError('WRONGPASS invalid username-password pair')
-      authed = true
+      ctx.authed = true
       return _encoder.encode('+OK\r\n')
     }
-    if (!authed) return encodeError('NOAUTH Authentication required.')
+    if (!ctx.authed) return encodeError('NOAUTH Authentication required.')
 
     // 订阅模式：SUBSCRIBE/PSUBSCRIBE/UNSUBSCRIBE/PING/QUIT
     if (upper === 'SUBSCRIBE' || upper === 'PSUBSCRIBE') {
-      for (const ch of args) subscribed.add(ch)
-      const replies = args.map((ch) => ['subscribe', ch, subscribed.size])
+      for (const ch of args) ctx.subscribed.add(ch)
+      const replies = args.map((ch) => ['subscribe', ch, ctx.subscribed.size])
       return encodeReply(replies as unknown as RespValue)
     }
     if (upper === 'UNSUBSCRIBE') {
-      const targets = args.length ? args : [...subscribed]
-      for (const ch of targets) subscribed.delete(ch)
-      const replies = targets.map((ch) => ['unsubscribe', ch, subscribed.size])
+      const targets = args.length ? args : [...ctx.subscribed]
+      for (const ch of targets) ctx.subscribed.delete(ch)
+      const replies = targets.map((ch) => ['unsubscribe', ch, ctx.subscribed.size])
       return encodeReply(replies as unknown as RespValue)
     }
 
-    // BLPOP：有值立即回；无值挂起（LPUSH 唤醒——阻塞语义）
+    // BLPOP：有值立即回；无值挂起（LPUSH 唤醒——阻塞语义）。
+    // timeout 末参：0 = 无限；>0 = 超时回 $-1（真库语义）。多 key 按序取第一个非空。
     if (upper === 'BLPOP') {
-      const key = args[0]
-      try {
-        const v = await this.engine.command('LPOP', key)
-        if (v !== null && v !== undefined) return encodeReply([key, v])
-      } catch {
-        // 空 list 或错误——挂起等待
+      const timeout = Number(args[args.length - 1])
+      const keys = args.slice(0, -1).map(String)
+      if (keys.length === 0 || !Number.isFinite(timeout) || timeout < 0) {
+        return encodeError('ERR wrong number of arguments for ' + "'blpop' command or timeout is negative")
       }
-      return new Promise<Uint8Array>((resolve) => {
-        this.blpopWaiters.set(socketId, { key, resolve })
-        // 连接断开时清理
-        sock.once('close', () => this.blpopWaiters.delete(socketId))
+      for (const k of keys) {
+        const v = await this.engine.command('LPOP', k)
+        if (v !== null && v !== undefined) return encodeReply([k, v])
+      }
+      return await new Promise<Uint8Array | null>((resolve) => {
+        const waiter: BlpopWaiter = { keys, resolve, timer: null, owner: ctx.id }
+        this.blpopWaiters.push(waiter)
+        if (timeout > 0) {
+          waiter.timer = setTimeout(() => {
+            const i = this.blpopWaiters.indexOf(waiter)
+            if (i >= 0) this.blpopWaiters.splice(i, 1)
+            resolve(encodeReply(null)) // $-1（超时语义）
+          }, timeout * 1000)
+        }
       })
     }
 
-    // LPUSH/RPUSH：推值后唤醒挂起的 BLPOP
+    // LPUSH/RPUSH：推值后唤醒挂起的 BLPOP（跨连接 FIFO——先等先得；
+    // 值耗尽即停——唤醒竞态不回 [key, null] 畸形帧）
     if (upper === 'LPUSH' || upper === 'RPUSH') {
-      const key = args[0]
+      const key = String(args[0])
       const result = await this.engine.command(upper, ...args)
-      for (const [sid, w] of this.blpopWaiters) {
-        if (w.key === key) {
-          this.blpopWaiters.delete(sid)
-          const v = await this.engine.command('LPOP', key)
-          w.resolve(encodeReply([key, v]))
-        }
+      for (;;) {
+        const w = this.blpopWaiters.find((x) => x.keys.includes(key))
+        if (!w) break
+        const v = await this.engine.command('LPOP', key)
+        if (v === null || v === undefined) break
+        const i = this.blpopWaiters.indexOf(w)
+        this.blpopWaiters.splice(i, 1)
+        if (w.timer) clearTimeout(w.timer)
+        w.resolve(encodeReply([key, v]))
       }
       return _encoder.encode(`:${result}\r\n`)
     }
@@ -238,22 +289,22 @@ export class MemoryRedisServer implements DBServer {
     // CLIENT：ID 返回连接 id；KILL 断开目标
     if (upper === 'CLIENT') {
       if (args[0]?.toUpperCase() === 'ID') {
-        return _encoder.encode(`:${socketId}\r\n`)
+        return _encoder.encode(`:${ctx.id}\r\n`)
       }
       if (args[0]?.toUpperCase() === 'KILL') {
         // CLIENT KILL ID <id> | ADDR <addr>
         const idx = args.indexOf('ID')
         const idArg = idx >= 0 ? Number(args[idx + 1]) : NaN
-        if (!Number.isNaN(idArg) && this.sockets.has(idArg)) {
-          this.sockets.get(idArg)?.destroy()
+        if (!Number.isNaN(idArg) && this.conns.has(idArg)) {
+          this.conns.get(idArg)?.sock.destroy()
           return _encoder.encode('+OK\r\n')
         }
         const addrIdx = args.indexOf('ADDR')
         if (addrIdx >= 0) {
           const [host, portStr] = String(args[addrIdx + 1]).split(':')
-          for (const [sid, s] of this.sockets) {
-            if (s.remoteAddress === host && s.remotePort === Number(portStr)) {
-              s.destroy()
+          for (const ctx2 of this.conns.values()) {
+            if (ctx2.sock.remoteAddress === host && ctx2.sock.remotePort === Number(portStr)) {
+              ctx2.sock.destroy()
               return _encoder.encode('+OK\r\n')
             }
           }
@@ -277,9 +328,9 @@ export class MemoryRedisServer implements DBServer {
   /** PUBLISH 后推送给精确订阅者（服务器主动消息：*3 message channel payload） */
   private pushToSubscribers(channel: string, message: string): void {
     const payload = `*3\r\n$7\r\nmessage\r\n$${Buffer.byteLength(channel)}\r\n${channel}\r\n$${Buffer.byteLength(message)}\r\n${message}\r\n`
-    for (const [sid, channels] of this.subChannels) {
-      if (channels.has(channel)) {
-        this.sockets.get(sid)?.write(payload)
+    for (const ctx of this.conns.values()) {
+      if (ctx.subscribed.has(channel)) {
+        ctx.sock.write(payload)
       }
     }
   }
