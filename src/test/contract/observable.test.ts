@@ -12,7 +12,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Observable, create, Subject, BehaviorSubject, fromPromise, fromEventPattern } from '../../client/vdom/observable/index.ts'
-import { map, filter, tap, toArray, delay, scan, switchMap, mergeMap, takeUntil, shareReplay } from '../../client/vdom/observable/index.ts'
+import { map, filter, tap, toArray, delay, scan, switchMap, mergeMap, exhaustMap, takeUntil, shareReplay } from '../../client/vdom/observable/index.ts'
 
 // ── 基础语义 ──────────────────────────────────────────────
 
@@ -538,4 +538,42 @@ test('优化波次 1 组合链：combineLatest+distinct+debounce 端到端（搜
   kw.next('a'); kw.next('ab'); await wait(5); kw.next('abc'); kw.next('abcd')
   await wait(40)
   assert.deepEqual(s.vals, [['abcd', 1]], '防抖尾值 + 全源快照（无重复）')
+})
+
+test('exhaustMap：single-flight——in-flight 期间上游发射丢弃（只启动一次内层）', async () => {
+  const src = new Subject<number>()
+  let started = 0
+  const done = new Subject<void>()
+  const s = collect(
+    src.asObservable().pipe(
+      exhaustMap((v) => {
+        started++
+        return create<number>((obs) => {
+          const un = done.asObservable().subscribe({ next: () => { obs.next(v * 10); obs.complete() } })
+          return () => un.unsubscribe()
+        })
+      }),
+    ),
+  )
+  src.next(1) // 启动内层 1
+  assert.equal(started, 1)
+  src.next(2) // in-flight —— 丢弃
+  src.next(3) // in-flight —— 丢弃
+  done.next() // 完成内层 1
+  assert.deepEqual(s.vals, [10], '内层 1 结果')
+  src.next(4) // 完成后启动新内层
+  assert.equal(started, 2, '完成后下一个发射启动新内层')
+  done.next()
+  assert.deepEqual(s.vals, [10, 40], '内层 4 结果（in-flight 发射被丢弃）')
+})
+
+test('exhaustMap：上游 complete——内层空闲时瞬时完成（RxJS 对齐）', () => {
+  const src = new Subject<number>()
+  let completed = false
+  src.asObservable().pipe(exhaustMap((v) => fromPromise(Promise.resolve(v)))).subscribe({
+    complete: () => { completed = true },
+  })
+  src.next(1)
+  src.complete()
+  assert.equal(completed, false, '内层 in-flight——上游 complete 不瞬时完成')
 })

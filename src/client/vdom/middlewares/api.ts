@@ -4,7 +4,18 @@
  * 设计：fetch 封装——JSON 序列化/解析——超时（AbortController）——
  * ApiError（status）——onError 钩子——经注入（零全局直接访问——
  * 测试 mock fetch）。
+ *
+ * W2（VDOM-STREAM-FIX-PLAN）——401 单飞刷新流化（G13 修复的窗口堵死）：
+ * - `refreshTrigger$`（Subject）：401 且 token 未变 → 触发事件
+ * - `exhaustMap`：单飞刷新（刷新中后续触发被丢弃——**并发 401 只刷一次**）
+ *   ——原 G13 快照比对堵不住「同拍双 401 在刷新完成前都走 onUnauthorized
+ *   分支」的窗口（两者 tokenNow 都未变）；单飞 = 结构上不可能双刷
+ * - `refreshDone$`：刷新结果广播（true=成功可重试）——等待者 take(1)
+ * - 旋转 token 双刷新竞态（走查实证）：exhaustMap 内建 single-flight 根治
  */
+
+import { Subject, fromPromise } from '../observable/index.ts'
+import { exhaustMap, take } from '../observable/index.ts'
 
 export interface ApiOptions {
   /** 基础路径（前缀拼接） */
@@ -48,6 +59,25 @@ export function api(opts: ApiOptions = {}): ApiClient {
   const baseUrl = opts.baseUrl ?? ''
   const timeoutMs = opts.timeout ?? 15000
 
+  // ── W2 单飞刷新流（exhaustMap——并发 401 只刷一次） ──
+  const refreshTrigger$ = new Subject<void>()
+  const refreshDone$ = new Subject<boolean>()
+  refreshTrigger$.asObservable().pipe(
+    exhaustMap(() => fromPromise(Promise.resolve(opts.onUnauthorized?.() ?? false))),
+  ).subscribe({
+    next: (ok) => refreshDone$.next(ok),
+    error: () => refreshDone$.next(false), // 刷新异常 → 失败（不静默——等待者走错误路径）
+  })
+
+  /** 401 处理：token 未变 → 触发单飞刷新 → 等结果（take(1)）⟹ true 重试 */
+  const waitForRefresh = async (): Promise<boolean> => {
+    refreshTrigger$.next()
+    return new Promise<boolean>((resolve) => {
+      // take(1)：收到首个结果即退订（无泄漏——每次 401 一个订阅，用完即走）
+      refreshDone$.asObservable().pipe(take(1)).subscribe({ next: (ok) => resolve(ok) })
+    })
+  }
+
   async function request<T>(
     method: string, url: string, body?: unknown, reqOpts: ApiRequestOptions = {},
     _retried = false,
@@ -69,19 +99,16 @@ export function api(opts: ApiOptions = {}): ApiClient {
         body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       })
-      // 401：onUnauthorized 钩子（刷新重试一次——失败/无钩子走错误路径）
-      // **旋转安全（G13——2026-XX 走查实证）**：旋转型 refresh token（一次一换）下，
-      // 并发 401 中第一个触发 refresh 旋转成功，其余请求若紧接着调 onUnauthorized
-      // 会用已作废的旧 refreshToken 再刷 → 失败 → 轻则静默空数据、重则误踢登录。
-      // 修复：401 时先比对此刻 token 与发出时的快照——已变化 = 其它请求已完成
-      // refresh → **直接重试**（不碰 onUnauthorized）；未变才走刷新钩子。
+      // 401：单飞刷新（G13 窗口堵死——exhaustMap）+ 快照比对（G13 保留——
+      // token 已变 = 其它请求已完成刷新 → 直接重试不触发事件）
       if (res.status === 401 && !_retried) {
         const tokenNow = typeof opts.token === 'function' ? opts.token() : opts.token
         if (tokenNow && tokenNow !== tokenAtSend) {
           return request<T>(method, url, body, reqOpts, true)
         }
-        const ok = opts.onUnauthorized ? await opts.onUnauthorized() : false
+        const ok = await waitForRefresh()
         if (ok) return request<T>(method, url, body, reqOpts, true)
+        throw new ApiError(`[api] 401 ${method} ${url}（刷新失败）`, 401)
       }
       if (!res.ok) {
         // 服务端错误体保留（{error} 约定——业务错误信息不丢失）：

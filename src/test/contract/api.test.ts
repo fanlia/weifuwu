@@ -154,3 +154,59 @@ test('G13 兼容：401 时 token 未变 → 走 onUnauthorized 刷新重试（�
   await assert.rejects(solo.get('/api/rotating'), (e: unknown) => e instanceof ApiError)
   assert.ok(refreshCalls >= 1, 'token 未变 → 走刷新钩子')
 })
+
+test('W2 并发 401 ×N：refresh 恰执行 1 次（exhaustMap 单飞——旋转 token 双刷竞态歼灭）', async () => {
+  // 真实竞态（G13 快照比对堵不住的窗口）：N 个请求同拍收到 401——
+  // 快照比对时各自 tokenNow 都未变（刷新尚未发生）→ 旧代码 N 个全部调
+  // onUnauthorized → 旋转 token 被 N-1 个已作废 refreshToken 再刷 → 失败
+  // → 轻则静默空数据、重则误踢登录。流化修复：exhaustMap 单飞——
+  // 无论多少并发 401，刷新钩子只执行 1 次——其余等待同一结果。
+  let token = 'expired-a'
+  let refreshCalls = 0
+  const client = api({
+    baseUrl: base,
+    token: () => token,
+    onUnauthorized: async () => {
+      refreshCalls++
+      // 模拟刷新耗时窗口（同拍 N 个 401 都在此窗口内等待）
+      await new Promise((r) => setTimeout(r, 30))
+      token = 'valid-after-rotate' // 刷新成功——旋转
+      return true
+    },
+  })
+  // 并发 5 请求（同拍发出——都带过期 token）
+  const results = await Promise.all([
+    client.get<{ data: number }>('/api/rotating'),
+    client.get<{ data: number }>('/api/rotating'),
+    client.get<{ data: number }>('/api/rotating'),
+    client.get<{ data: number }>('/api/rotating'),
+    client.get<{ data: number }>('/api/rotating'),
+  ])
+  assert.ok(results.every((r) => r.data === 42), '全部请求拿到数据（无静默失败）')
+  assert.equal(refreshCalls, 1, `并发 401 ×5 → 刷新恰 1 次（exhaustMap 单飞）——实际 ${refreshCalls} 次`)
+})
+
+test('W2 刷新失败：onUnauthorized false → 401 ApiError（不静默——等待者全部收到失败）', async () => {
+  let refreshCalls = 0
+  const client = api({
+    baseUrl: base,
+    token: () => 'expired-b',
+    onUnauthorized: async () => {
+      refreshCalls++
+      return false // 刷新失败（refreshToken 作废/网络错误）
+    },
+  })
+  await assert.rejects(client.get('/api/rotating'), (e: unknown) => e instanceof ApiError && (e as ApiError).status === 401)
+  assert.equal(refreshCalls, 1, '失败也单飞（后续请求不再触发刷新——避免连刷风暴）')
+})
+
+test('W2 刷新异常：onUnauthorized throw → 401 ApiError（error 显式化——不静默吞）', async () => {
+  const client = api({
+    baseUrl: base,
+    token: () => 'expired-c',
+    onUnauthorized: async () => {
+      throw new Error('refresh network down')
+    },
+  })
+  await assert.rejects(client.get('/api/rotating'), (e: unknown) => e instanceof ApiError && (e as ApiError).status === 401)
+})
