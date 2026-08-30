@@ -58,6 +58,8 @@ const Page = (_init: unknown, pageCtx: { ui: { signal: <T>(v: T) => { (): T; set
   // 工厂只跑一次（段复用——signal 初值从此保持——状态容器）
   const title = pageCtx.ui.signal('v1')
   const count = pageCtx.ui.signal(1)
+  // 工厂 spy（模块级计数通路——段复用验证）
+  factoryProbe.calls++
   // 外部数据钩子（signal.set —— 组件级/请求渲染）
   extHandle.externalSet = (t: string, c: number) => {
     title.set(t)
@@ -72,10 +74,14 @@ const App = () => () => h('div', { class: 'app' }, h(Page, {}))
 
 /** 测试句柄（Page 工厂经它注册外部 set——无闭包泄漏的模块级通路） */
 const extHandle: { externalSet?: (t: string, c: number) => void } = { externalSet: undefined }
+/** 工厂计数探针（模块级通路——setupPage 读计数） */
+const factoryProbe: { calls: number } = { calls: 0 }
 
 /** 搭页面：handler spy + 工厂 spy + 外部数据钩子（signal set 模拟异步到达） */
 function setupPage() {
   let handlerCalls = 0
+  const factoryCalls = (): number => factoryProbe.calls
+  factoryProbe.calls = 0
   extHandle.externalSet = undefined
   const handler = (req: Request, ctx: unknown) => {
     handlerCalls++
@@ -99,7 +105,10 @@ function setupPage() {
     updateData: (t: string, c: number) => extHandle.externalSet?.(t, c),
     counts: {
       get handler() { return handlerCalls },
+      get factory() { return factoryCalls() },
     },
+    /** 工厂 spy（工厂内注册——模块级计数通路） */
+    watchFactory: () => { factoryCalls++ },
   }
 }
 
@@ -170,10 +179,15 @@ test('W1 popstate：同 URL 派发 → handler 重跑（走查 popstate 实验 m
   const page = setupPage()
   await settle()
   const before = page.counts.handler
+  const beforeFactory = page.counts.factory
   win.setLocation('/page')
   win.dispatch('popstate')
   await settle()
   assert.ok(page.counts.handler > before, `popstate 重跑 handler——${before} → ${page.counts.handler}`)
+  // **mockHits=0 最终解释**：popstate → handler 重跑 → 段复用（工厂不重跑）→
+  // Templates 工厂期 loadTemplates 不重跑 —— 走查实验 mockHits=0 是「段复用
+  // 状态保持」而非「handler 未跑」——组件级数据（signal/工厂闭包）跨 popstate 保持
+  assert.equal(page.counts.factory, beforeFactory, `段复用：popstate 后工厂不重跑——${beforeFactory} → ${page.counts.factory}`)
   page.serve.unmount()
   extHandle.externalSet = undefined
 })
