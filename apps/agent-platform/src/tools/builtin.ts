@@ -85,6 +85,51 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'survey_campaign_start',
+      description: '启动批量问卷填写任务（Campaign）——按人设角色池批量派单 AI 填写问卷（水位并发——每个角色独立沙盒）。当用户要求「让 N 个/一批 AI 机器人填写问卷」「模拟 N 人填问卷」时使用。总量与并发可配置。',
+      parameters: {
+        type: 'object',
+        properties: {
+          total: { type: 'number', description: '填写总量（角色数——如 1000）' },
+          concurrency: { type: 'number', description: '同时在线填写数（并发上限——默认 5——参考沙盒池容量）' },
+          url: { type: 'string', description: '问卷 URL（缺省用平台默认问卷页）' },
+          retry: { type: 'number', description: '失败重试次数（默认 2）' },
+        },
+        required: ['total', 'concurrency'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'survey_campaign_status',
+      description: '查看批量问卷任务进度（完成数/失败数/在线/失败清单）。用户在询问「填到哪了/进度如何/完成了吗」时使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          campaign_id: { type: 'string', description: '任务 ID（启动时返回）' },
+        },
+        required: ['campaign_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'survey_campaign_retry',
+      description: '重跑批量问卷任务的失败角色（重新派单——attempts 清零）。用户说「重跑失败的/失败的再填一次」时使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          campaign_id: { type: 'string', description: '任务 ID' },
+        },
+        required: ['campaign_id'],
+      },
+    },
+  },
 ]
 
 /**
@@ -200,6 +245,42 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
         if (r.status === 'fulfilled') return r.value
         return `Error: 子任务「${label}」执行异常: ${String((r.reason as Error)?.message ?? '未知错误')}`
       }).join('\n\n')
+    },
+
+    // S2（2027-09）：问卷批量任务（Campaign 工具面——调度助手 agent 调用——
+    // 用户聊天「让 N 人填问卷」→ 助手解析 → 本工具启动——产品正确触发面）
+    survey_campaign_start: async (args: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const total = Math.max(1, Number(args.total ?? 0) || 10)
+      const concurrency = Math.max(1, Number(args.concurrency ?? 0) || 5)
+      const url = args.url ? String(args.url) : ''
+      const retry = Number(args.retry ?? 0)
+      const { createCampaign } = await import('../services/survey-campaign.ts')
+      const out = await createCampaign(ctx, { total, concurrency, url, retry: retry || undefined })
+      return `问卷任务已启动（id=${out.campaign.id}）——总量 ${out.campaign.total} · 并发 ${out.campaign.concurrency}。用 survey_campaign_status 查询进度；完成后可用 survey_campaign_retry 重跑失败角色。`
+    },
+    survey_campaign_status: async (args: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const id = String(args.campaign_id ?? '')
+      if (!id) return 'Error: campaign_id 必填'
+      const { getCampaign } = await import('../services/survey-campaign.ts')
+      const out = await getCampaign(ctx, id)
+      if (!out) return `Error: campaign ${id} 不存在`
+      const { campaign, runs } = out
+      const failures = runs.filter((r) => r.status === 'failed')
+      return `问卷任务 ${id.slice(0, 8)}：状态 ${campaign.status} · 完成 ${campaign.completed}/${campaign.total} · 失败 ${campaign.failed} · 在线 ${runs.filter((r) => r.status === 'running').length} · 排队 ${runs.filter((r) => r.status === 'queued').length}` +
+        (failures.length > 0 ? `
+失败清单：${failures.map((f) => `${f.agent_name}（${f.error ?? '超时'}）`).join('；')}——可 survey_campaign_retry 重跑` : '')
+    },
+    survey_campaign_retry: async (args: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const id = String(args.campaign_id ?? '')
+      if (!id) return 'Error: campaign_id 必填'
+      const { retryCampaign, getCampaign } = await import('../services/survey-campaign.ts')
+      const out = await getCampaign(ctx, id)
+      if (!out) return `Error: campaign ${id} 不存在`
+      await retryCampaign(ctx, id)
+      return `已重跑失败角色（campaign ${id.slice(0, 8)}——失败 ${out.campaign.failed} 个已重新排队）——用 survey_campaign_status 跟踪`
     },
   })
 }

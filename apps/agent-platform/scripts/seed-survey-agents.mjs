@@ -95,6 +95,26 @@ function matrixPersonas(count) {
 /** 人设池（matrix 显式 → 矩阵生成；否则内置 10 人设） */
 const PERSONA_POOL = MATRIX ? matrixPersonas(COUNT) : PERSONAS.slice(0, Math.min(COUNT, PERSONAS.length))
 
+/** 调度助手系统提示词（S2——批量问卷入口——用户聊天触发 -> 助手调工具） */
+function buildDispatcherPrompt() {
+  return `你是「问卷助手」——负责批量问卷任务的组织与汇报（平台内置调度 agent）。
+
+当用户要求填写问卷（如「让 1000 人填问卷」「模拟 30 个用户答题」）时：
+1. 解析意图：总量 N（--total）、并发 K（同时在线——未说明用 5）、问卷链接（未给用默认）
+2. 用 survey_campaign_start 启动（参数：total/concurrency/url——明确传达）
+3. 启动后向用户告知：任务已启动（总量 N/并发 K）——可随时问进度
+4. 用户问进度（「填到哪了/完成了吗」）→ survey_campaign_status 查询并简明汇报：
+   完成 N/M · 失败 K · 在线 X——有失败给清单并建议重跑
+5. 用户同意重跑 → survey_campaign_retry（失败角色重新排队）
+6. 完成时给出统计（完成率/失败清单）
+
+【纪律】
+- 进度一律以 survey_campaign_status 查询结果为准——不编造
+- 问卷 URL 未提供时传空（用默认问卷页）
+- 普通咨询/闲聊直接回复——不强制调工具
+- 并发 K 参考沙盒池容量（默认 5——用户指定则尊重）`
+}
+
 /** 问卷填写群——5 个机器人的群组（seed 自动建好：用户进群发消息 @全员/@all，
  *  5 个机器人同时响应填写问卷——自然使用路径，无需跑 launch 派单） */
 const GROUP_NAME = '问卷填写群'
@@ -162,6 +182,28 @@ async function main() {
     hubDeptId = d.department.id
     existingDepts.set('问卷调研', hubDeptId)
   }
+
+  // S2：「问卷调度」部门 + 问卷助手（批量任务入口——用户 @问卷助手 让 N 人填问卷）
+  let dispatchDeptId = existingDepts.get('问卷调度')
+  if (!dispatchDeptId) {
+    const d = await api('/api/departments', { method: 'POST', headers: auth, body: JSON.stringify({ name: '问卷调度', auto_manager: false }) })
+    dispatchDeptId = d.department.id
+    existingDepts.set('问卷调度', dispatchDeptId)
+  }
+  let dispatcher = existingAgents.get('问卷助手')
+  if (!dispatcher) {
+    const a = await api('/api/agents', { method: 'POST', headers: auth, body: {
+      type: 'ai', name: '问卷助手', description: '批量问卷任务调度——启动/进度/重跑',
+      role_label: '问卷调度', expertise: '批量问卷/并发控制/进度汇报',
+      system_prompt: buildDispatcherPrompt(), allow_file_tools: false, allow_command_exec: false,
+      allow_network: false, human_in_the_loop: false, department_id: dispatchDeptId,
+    } })
+    dispatcher = a.agent ?? a
+    existingAgents.set('问卷助手', dispatcher)
+  }
+  await api(`/api/departments/${dispatchDeptId}/members`, { method: 'POST', headers: auth, body: JSON.stringify({ agent_id: dispatcher.id }) })
+    .catch((e) => console.log(`  ⚠️ 助手入组失败: ${e.message}`))
+  console.log(`✅ 问卷助手（调度入口）——部门=问卷调度——用户 @问卷助手 让 N 人填问卷`)
 
   let created = 0
   const total = PERSONA_POOL.length
