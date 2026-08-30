@@ -165,9 +165,26 @@ export function procInsert(applier: CommandApplier, cmd: Extract<Command, { op: 
     // 的「组件逻辑父回退」对称（此前仅 parent 有回退——ref 无——插入点
     // 丢失——回退插头部——顺序颠倒——chat avatar 用户实证）
     if (!prev) {
-      const prefix = cmd.ref + '.'
-      for (const [id, node] of applier.nodes) {
-        if (id.startsWith(prefix)) prev = node
+      // **P2 索引化（2027-09——同族 O(N) 收敛）**：原前缀全量扫描
+      // （O(N)——nodes 插入序最后命中）→ childIds DFS + 插入序 seq
+      // （O(k)——k = ref 子空间大小）——语义等价（seq 单调 = 插入序）
+      const sub = applier.childIds.size > 0 && applier.childIds.has(cmd.ref)
+        ? applier.collectDesc(cmd.ref)
+        : null
+      if (sub) {
+        let best = ''
+        let bestSeq = -1
+        for (const id of sub) {
+          const s = applier.seq.get(id) ?? 0
+          if (s > bestSeq) { bestSeq = s; best = id }
+        }
+        if (best) prev = applier.nodes.get(best) ?? null
+      } else {
+        // 兜底（索引未覆盖旧树——防御降级）
+        const prefix = cmd.ref + '.'
+        for (const [id, node] of applier.nodes) {
+          if (id.startsWith(prefix)) prev = node
+        }
       }
     }
     // ref 有效性（导航流引用旧树残留——已脱离——NotFoundError 防御）

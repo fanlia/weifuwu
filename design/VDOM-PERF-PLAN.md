@@ -71,7 +71,17 @@ remapSubtree（patch/index.ts:76）：nodes/事件/registry 三表前缀全量�
 
 ## 4. 演进记录
 
-- **2027-09 波次 1（已完成——commit 见 git log）**：
+- **2027-09 波次 2（P2——已完成）**：procInsert ref 组件 id 回退索引化——
+  原实现 nodes 插入序全量前缀扫描（O(N)——chat avatar 每插 O(N)）→ childIds
+  DFS + 插入序 seq（O(k)）——兜底保留（索引未覆盖旧树——防御降级）——
+  等价性证明：seq 单调递增 = 原「nodes Map 最后前缀命中 = 最新插入」语义；
+  remap 不迁移 seq（插入序语义与 id 路径无关）。验证：admin 切换保持 312ms
+  （无回归）；chat.test 9/9（流式滚动/工具占位——ref 路径）；契约 100/100；
+  场景 12/12；tsc 0
+- **2027-09 波次 2（P3——顺带完成）**：remapSubtree 的 childIds/byChild
+  前缀迁移（P1 实施时已联动——keyed move 后续 remove 索引一致）——三表
+  全量扫描本身保留（move 低频——场景证据不足不预优化）
+- **2027-09 波次 1（已完成——commit f7efb140）**：
   - P1 procRemove 子树索引（childIds/byChild——O(N²)→O(k) DFS）
   - P1b **事件表/ref 表单删 O(1)**（removeOne/unmountOne——原 remove/unmount
     也是全量前缀扫描 × 16k 条 = 双倍 O(N²)——实测节点索引后仍 15.3s——
@@ -79,3 +89,10 @@ remapSubtree（patch/index.ts:76）：nodes/事件/registry 三表前缀全量�
   - 实测：admin 全量 1604 行切走 **59172ms → 310ms（190 倍）**——唯一长
     任务 310ms；页面 3s 内就绪；契约 88/88 + 场景 12/12 + ui 61/61 绿；tsc 0
 - （历史）2027-08：全量 1292 行 2.4s 卡死 → 应用层截断 200（本计划撤销——用户决策全量）
+
+### 波次 3（待场景证据——不预造）
+- P4 done.full touched 清理复用索引（当前全量一次——线性——仅重复 done
+  场景受益——无实证触发）——**判负门槛**：若出现 done 多次调用场景（导航
+  快切）再索引化
+- P6 Table/Button 组件层（组件实例数 = 渲染数——全量场景本质成本——无
+  场景证据——继续判负）

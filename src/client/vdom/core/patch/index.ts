@@ -35,9 +35,14 @@ export class CommandApplier {
   childIds = new Map<string, Set<string>>()
   /** P1 反向索引（child id → parent id）——O(1) 摘除——防泄漏 */
   byChild = new Map<string, string>()
+  /** P2：插入序号（ref 组件 id 回退——「最后前缀命中 = 最新插入」的
+   *  O(1) 判定——原实现靠 nodes Map 插入序全量扫描——O(N)） */
+  seq = new Map<string, number>()
+  private seqCounter = 0
   /** 登记父子（procInsert 成功后——幂等） */
   registerChild(parent: string, id: string): void {
     this.byChild.set(id, parent)
+    this.seq.set(id, ++this.seqCounter)
     let s = this.childIds.get(parent)
     if (!s) { s = new Set(); this.childIds.set(parent, s) }
     s.add(id)
@@ -47,6 +52,7 @@ export class CommandApplier {
     const parent = this.byChild.get(id)
     if (parent === undefined) return
     this.byChild.delete(id)
+    this.seq.delete(id)
     const s = this.childIds.get(parent)
     if (s) {
       s.delete(id)
@@ -73,6 +79,8 @@ export class CommandApplier {
     this.touched.clear()
     this.childIds.clear()
     this.byChild.clear()
+    this.seq.clear()
+    this.seqCounter = 0
     this.eventRegistry.clear()
     this.refRegistry.clear()
   }
