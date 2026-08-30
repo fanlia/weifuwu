@@ -88,6 +88,6 @@ export type AppMiddleware<I extends object = {}, O extends object = I> = (
 
 // ── v2（VDOM-V2-BLUEPRINT——全 Observable 核心——并行演进） ──
 export { renderV2 } from './core/v2/render.ts'
-export { diffV2, createSegment, type SegmentMap } from './core/v2/diff.ts'
+export { diffV2, createSegment, disposeSegment, type SegmentMap } from './core/v2/diff.ts'
 export { createRenderScheduler } from './core/v2/schedule.ts'
-export { collectCommands, v2ToHtml } from './core/v2/integrate.ts'
+export { collectCommands, v2ToHtml, renderToStreamV2 } from './core/v2/integrate.ts'

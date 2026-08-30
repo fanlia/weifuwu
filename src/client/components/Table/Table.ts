@@ -254,6 +254,9 @@ export const Table: Component<TableProps> = (_init, ctx) => {
       })
       const rowSelCell = selCell(row, i)
       return h('tr', {
+        // 行 key（2027-09 修复：无 key → 行数组收缩时 diff 不删行——
+        // 统计页 ?c= 视角 52 行残留实证——tr key 缺失根因）
+        key: String(rowKeyOf(row, i)),
         class: 'wf-table-tr',
         onClick: onRowClick ? () => onRowClick(row, i) : undefined,
         style: onRowClick ? { cursor: 'pointer' } : undefined,
