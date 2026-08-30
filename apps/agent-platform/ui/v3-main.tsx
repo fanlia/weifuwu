@@ -12,26 +12,13 @@ import { confirm, notification } from 'weifuwu/components'
 import { router } from './router'
 
 // ── 中间件装配（当前 API——工厂返回 client——uiServe options 注入 ctx） ──
-const authRef: { current: null | { refresh: () => Promise<boolean> } } = { current: null }
-
-const apiClient = api({
-  baseUrl: '',
-  // 自动鉴权：请求自动带 Bearer token
-  token: () => localStorage.getItem('agent_platform_token'),
-  // 401：先 refresh（成功重试）——失败清理 + 跳登录
-  onUnauthorized: async () => {
-    const ok = await authRef.current?.refresh?.()
-    if (ok) return true
-    console.error('[auth] 401 刷新失败——踢回登录（路径:', location.pathname + ')')
-    localStorage.removeItem('agent_platform_token')
-    localStorage.removeItem('agent_platform_user')
-    localStorage.removeItem('agent_platform_refresh')
-    if (!window.location.pathname.startsWith('/login')) window.location.href = '/login'
-    return false
-  },
-})
+// **authClient 先定义（2027-09——刷新后 401 踢登录根因）**：onUnauthorized
+// 直接调 authClient.refresh()——原实现经 onAuth 接线 authRef（仅 login/
+// refresh 成功时赋值）——**页面刷新后模块变量重置——authRef=null——401 时
+// refresh 未调用——直接清 token 跳登录**（access 过期（15min）后任何刷新
+// 必踢——复现：过期 token+有效 refresh → /login）——闭包直接引用——消除
+// 接线时机依赖
 const authClient = auth({
-  onAuth: (auth: any) => { authRef.current = { refresh: () => auth.refresh() } },
   // refresh 链接线（真实事故——401 踢回登录循环）：onRefresh 复用
   // lib/api.ts 的刷新逻辑（/api/auth/refresh + localStorage 更新）——
   // 未接线时 auth.refresh() 永远 false——任何 401 直接清 token 跳登录
@@ -44,6 +31,22 @@ const authClient = auth({
   tokenKey: 'agent_platform_token',
   userKey: 'agent_platform_user',
   refreshTokenKey: 'agent_platform_refresh',
+})
+const apiClient = api({
+  baseUrl: '',
+  // 自动鉴权：请求自动带 Bearer token
+  token: () => localStorage.getItem('agent_platform_token'),
+  // 401：先 refresh（成功重试）——失败清理 + 跳登录
+  onUnauthorized: async () => {
+    const ok = await authClient.refresh()
+    if (ok) return true
+    console.error('[auth] 401 刷新失败——踢回登录（路径:', location.pathname + ')')
+    localStorage.removeItem('agent_platform_token')
+    localStorage.removeItem('agent_platform_user')
+    localStorage.removeItem('agent_platform_refresh')
+    if (!window.location.pathname.startsWith('/login')) window.location.href = '/login'
+    return false
+  },
 })
 const i18nState = i18n({ locale: 'zh-CN' })
 // 断线自动重连（2026-08——A2：指数退避——close 手动不重连）——
