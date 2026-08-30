@@ -90,7 +90,7 @@ export const CitationCard: Component<CitationCardProps, UIContext> = (initProps,
       h('button', {
         type: 'button',
         class: 'wf-citation-toggle',
-        'aria-expanded': expanded,
+        'aria-expanded': expanded ? 'true' : 'false', // 显式字符串（枚举语义——布尔直传依赖引擎归一）
         onClick: toggle,
         onKeyDown: (e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } },
       }, [

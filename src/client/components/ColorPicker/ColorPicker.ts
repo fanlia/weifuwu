@@ -48,6 +48,7 @@ export const ColorPicker: Component<ColorPickerProps> = (_init, ctx) => {
       const sel = c.toLowerCase() === current.toLowerCase()
       return h('button', {
         type: 'button',
+        key: c, // 色板身份（colors 增删——keyed diff 身份跟随）
         class: `wf-color-picker-swatch${sel ? ' wf-color-picker-swatch--sel' : ''}`,
         style: { background: c },
         'aria-label': c,

@@ -15,6 +15,7 @@
  */
 
 import type { Command } from '../command/index.ts'
+import { ariaBoolValue } from '../field/attributes.ts'
 
 /** HTML 转义（文本/属性值） */
 export function escapeHtml(s: string): string {
@@ -41,6 +42,13 @@ export function kebab(s: string): string {
 export function attrsToHtml(attrs: Record<string, unknown>): string {
   const parts: string[] = []
   for (const [k, v] of Object.entries(attrs)) {
+    // aria-* 枚举语义属性（布尔归一——客户端 applyAttribute 同规则单源）——
+    // 必须在 false skip 之前——aria-expanded=false 是有效状态不可省略
+    const ariaBool = ariaBoolValue(k, v)
+    if (ariaBool !== null) {
+      parts.push(`${k}="${ariaBool}"`)
+      continue
+    }
     if (v === null || v === undefined || v === false) continue
     if (k === 'style' && v && typeof v === 'object') {
       const css = Object.entries(v)

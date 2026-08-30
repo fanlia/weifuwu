@@ -71,6 +71,7 @@ export const Kanban: Component<KanbanProps> = (_init, ctx) => {
     const cols = columns.map(col => {
       const colEl = h('div', {
         class: 'wf-kanban-col',
+        key: col.key, // 列身份（列重排/增删——keyed diff move 不重建）
         'data-col': col.key,
         ...dropProps,
         onDrop: (e: DragEvent) => {
@@ -85,6 +86,7 @@ export const Kanban: Component<KanbanProps> = (_init, ctx) => {
         h('div', { class: 'wf-kanban-col-body' }, col.items.map((item, idx) =>
           h('div', {
             class: 'wf-kanban-card',
+            key: item.id, // 卡片身份（拖拽重排核心——keyed diff move 保持 DOM/拖拽态）
             'data-item': item.id,
             // 内置 drag 侧基础（draggable + onDragEnd 清理）
             draggable: dragProps.draggable,

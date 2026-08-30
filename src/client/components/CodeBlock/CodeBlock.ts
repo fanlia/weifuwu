@@ -22,6 +22,9 @@ export const CodeBlock: Component<CodeBlockProps> = (_init, ctx) => {
   let copied = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let latestCode = ''
+  // 定时器纪律（AGENTS.md #12）：创建在事件回调内（合法窗口）——卸载时
+  // 未触发的复位定时器必清（否则卸载后 ctx.render 违例报错）
+  ctx.ui.hold(() => { if (timer) clearTimeout(timer) })
 
   const copy = async () => {
     await ctx.browser?.copyText(latestCode)

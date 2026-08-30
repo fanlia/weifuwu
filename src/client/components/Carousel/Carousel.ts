@@ -25,21 +25,26 @@ export const Carousel: Component<CarouselProps> = (_init, ctx) => {
   let timer: ReturnType<typeof setInterval> | undefined
   let startX = 0
 
-  // 稳定 ref（mount 作用域，ref 纪律）：render 阶段值经 latest* 引用读取
+  // 定时器纪律（AGENTS.md #12）：autoplay interval 工厂期声明 + hold 注册清理——
+  // render 只声明意图（latest* 引用同步），创建/重启经 queueMicrotask 出渲染
+  // 窗口（effect-guard 合法——Affix/LogViewer 同款延迟模式）；SSR 端零定时器。
+  // （旧实现经 ref 回调管理——挂载后 autoplay prop 变化不重启——已根治）
   let goToRef: (i: number) => void = () => {}
   let latestAutoplay = false
   let latestInterval = 3000
-  const stableRef = (el: HTMLElement | null) => {
-    if (el) {
-      if (latestAutoplay) {
-        clearInterval(timer)
-        timer = setInterval(() => goToRef(index + 1), latestInterval)
-      }
-    } else {
-      clearInterval(timer)
-      timer = undefined
-    }
+  let runningInterval = 0
+  const stopAuto = () => {
+    if (timer) { clearInterval(timer); timer = undefined }
   }
+  const syncAuto = () => {
+    if (typeof window === 'undefined') return // SSR 一次性渲染——零定时器驻留
+    if (!latestAutoplay) { stopAuto(); return }
+    if (timer && runningInterval === latestInterval) return // 幂等——同间隔不重启
+    stopAuto()
+    runningInterval = latestInterval
+    timer = setInterval(() => goToRef(index + 1), latestInterval)
+  }
+  ctx.ui.hold(stopAuto)
 
   return (props) => {
     const {
@@ -49,7 +54,7 @@ export const Carousel: Component<CarouselProps> = (_init, ctx) => {
     } = props
 
     const count = children.length
-    if (count === 0) return null
+    if (count === 0) { stopAuto(); return null }
 
     const goTo = (i: number) => {
       const clamped = loop
@@ -63,6 +68,7 @@ export const Carousel: Component<CarouselProps> = (_init, ctx) => {
     goToRef = goTo
     latestAutoplay = !!autoplay
     latestInterval = interval
+    queueMicrotask(syncAuto) // 意图声明——创建/重启出渲染窗口（幂等）
 
     const next = () => goTo(index + 1)
     const prev = () => goTo(index - 1)
@@ -113,7 +119,6 @@ export const Carousel: Component<CarouselProps> = (_init, ctx) => {
     return h('div', {
       class: ['wf-carousel', className].filter(Boolean).join(' '),
       'aria-label': ariaLabel,
-      ref: stableRef,
       ...touchProps,
     }, [
       h('div', { class: 'wf-carousel-viewport' }, track),

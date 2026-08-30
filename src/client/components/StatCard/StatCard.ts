@@ -21,20 +21,41 @@ export interface StatCardProps {
   onFinish?: () => void
 }
 
-export const StatCard: Component<StatCardProps> = (_init, ctx) => {
+export const StatCard: Component<StatCardProps> = (init, ctx) => {
   // ── mount：数值动画经 ctx.ui.useTween（rAF + ease-out + reduced-motion 直落终值；
   // 幂等 reset——render 每帧调用安全，动画运行中同目标不重启）。
   // 偏好感知经 ctx.ui.useReducedMotion（JS 动画侧跳过，收敛手工 matchMedia）。
   let tween = ctx.ui.useTween(0, { duration: 400, ease: 'easeOutCubic' })
 
-  // 倒计时：1s tick → render；卸载清理（setInterval 纪律）
+  // 倒计时：1s tick → render。
+  // 定时器纪律（AGENTS.md #12）：定时器变量在工厂期声明 + ctx.ui.hold 注册清理——
+  // render 只声明意图（wantTick 标志），真正 setInterval 经 queueMicrotask 出渲染
+  // 窗口（effect-guard 合法——Affix/LogViewer 同款延迟模式）；SSR 端不启动
+  // （node 进程零定时器驻留——服务端一次性渲染，首帧值已同步算出）。
   let countdownRemain = 0
   let timer: ReturnType<typeof setInterval> | null = null
+  let latestCountdown: number | undefined
   let latestOnFinish: (() => void) | undefined
 
   const stopTimer = () => {
     if (timer) { clearInterval(timer); timer = null }
   }
+  const tick = () => {
+    if (latestCountdown === undefined) return
+    countdownRemain = Math.max(0, Math.ceil((latestCountdown - Date.now()) / 1000))
+    if (countdownRemain <= 0) {
+      stopTimer()
+      latestOnFinish?.()
+    }
+    ctx.render()
+  }
+  const startTimer = () => {
+    if (timer || typeof window === 'undefined') return
+    timer = setInterval(tick, 1000)
+  }
+  ctx.ui.hold(stopTimer)
+  // 首帧即倒计时（initProps）——工厂期直接创建（窗口外——合法）
+  if ((init as StatCardProps).countdown !== undefined) queueMicrotask(startTimer)
 
   return (props: StatCardProps) => {
     const { label, value, trend, trendLabel, icon, onClick, animate, countdown, onFinish } = props
@@ -52,19 +73,11 @@ export const StatCard: Component<StatCardProps> = (_init, ctx) => {
       ;(tween as any).value = target // 非动画/非数值：直落
     }
 
-    // ── countdown 模式：目标时间戳 → 剩余秒数；启动/续 1s tick ──
+    // ── countdown 模式：目标时间戳 → 剩余秒数；tick 意图声明（创建出窗口）──
+    latestCountdown = countdown
     if (countdown !== undefined) {
       countdownRemain = Math.max(0, Math.ceil((countdown - Date.now()) / 1000))
-      if (!timer) {
-        timer = setInterval(() => {
-          countdownRemain = Math.max(0, Math.ceil((countdown - Date.now()) / 1000))
-          if (countdownRemain <= 0) {
-            stopTimer()
-            latestOnFinish?.()
-          }
-          ctx.render()
-        }, 1000)
-      }
+      if (!timer) queueMicrotask(startTimer)
     } else if (timer) {
       stopTimer()
     }

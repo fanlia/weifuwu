@@ -25,6 +25,10 @@ export const CopyButton: Component<CopyButtonProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let copied = false
   let timer: ReturnType<typeof setTimeout> | undefined
+  // 定时器纪律（AGENTS.md #12）：定时器变量工厂期声明 + hold 注册清理——
+  // 创建在事件回调内（合法窗口）——卸载时未触发的复位定时器必清
+  //（否则卸载后 ctx.render 违例报错）
+  ctx.ui.hold(() => { if (timer) clearTimeout(timer) })
 
   return (props) => {
     const {

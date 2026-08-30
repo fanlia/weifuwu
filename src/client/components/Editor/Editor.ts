@@ -265,6 +265,13 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   // ── 草稿持久化（draftKey：防抖自动保存——刷新/崩溃恢复） ────────
   let draftTimer: ReturnType<typeof setTimeout> | null = null
   let draftKeyRef: string | null = null
+  // 定时器纪律（AGENTS.md #12）：输入提交/草稿防抖定时器创建于事件回调内
+  //（合法窗口）——卸载时未触发定时器必清（否则卸载后 flush/storageSet +
+  // 上层 onChange 违例触发）
+  ctx.ui.hold(() => {
+    if (inputTimer) { clearTimeout(inputTimer); inputTimer = null }
+    if (draftTimer) { clearTimeout(draftTimer); draftTimer = null }
+  })
   const saveDraft = (html: string) => {
     if (!draftKeyRef) return
     if (draftTimer) clearTimeout(draftTimer)

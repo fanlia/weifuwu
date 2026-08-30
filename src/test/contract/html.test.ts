@@ -54,6 +54,17 @@ test('commandToHtml：void 元素不闭合 + boolean 属性', async () => {
   assert.equal(html, '<div><br><input type="text" disabled=""></div>')
 })
 
+test('commandToHtml：aria 布尔归一（客户端 applyAttribute 同规则单源——v2 迁移回归修复）', async () => {
+  const html = await toHtml(h('div', {}, [
+    h('button', { 'aria-expanded': true }, 'open'),
+    h('button', { 'aria-expanded': false }, 'closed'),
+    h('button', { 'aria-expanded': 'true' }, 'string-passthrough'),
+  ]))
+  assert.ok(html.includes('aria-expanded="true"'), 'aria true 显式字符串（不落空串——读屏失效）')
+  assert.ok(html.includes('aria-expanded="false"'), 'aria false 显式字符串（不可省略——状态语义保留）')
+  assert.ok(!html.includes('aria-expanded=""'), '零空字符串形态（ReasoningBlock 实证回归）')
+})
+
 test('commandToHtml：空洞占位注释 + 文本转义', async () => {
   const html = await toHtml(h('div', {}, [
     'a<b',

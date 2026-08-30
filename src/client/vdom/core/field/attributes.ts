@@ -13,6 +13,22 @@
 /** enumerated 属性白名单（HTML 规范——空字符串语义非 true） */
 export const ENUMERATED_KEYS = new Set(['draggable', 'contenteditable', 'spellcheck'])
 
+/**
+ * aria-* 枚举语义属性布尔归一（ReasoningBlock CDD 实证——v1 修复 v2 迁移丢失——回归补）
+ *
+ * aria-* 是枚举语义属性（同 draggable）——boolean 必须显式 'true'/'false'：
+ * boolean attribute 空字符串分支会把 aria-expanded: true 落成 aria-expanded=""
+ * （读屏语义 = false——可访问性失效）；v === false 被移除同属错误
+ * （aria-expanded=false 与无属性语义不同面——状态不可丢失）。
+ * **单一实现源**：客户端 applyAttribute 与 SSR attrsToHtml 共用本判定。
+ *
+ * @returns 'true' / 'false'（命中 aria 布尔）或 null（非 aria 布尔——走原分支）
+ */
+export function ariaBoolValue(key: string, value: unknown): string | null {
+  if (!key.startsWith('aria-') || typeof value !== 'boolean') return null
+  return value ? 'true' : 'false'
+}
+
 /** attribute 通道——单键应用 */
 export function applyAttribute(el: HTMLElement, key: string, value: unknown): void {
   // **innerHTML/textContent/value 走 property 通道**（setAttribute 不生效
@@ -26,6 +42,13 @@ export function applyAttribute(el: HTMLElement, key: string, value: unknown): vo
   }
   if (value === null || value === undefined) {
     el.removeAttribute(key)
+    return
+  }
+  // aria-* 枚举语义属性（布尔归一——必须在 false removeAttribute 分支之前——
+  // aria-expanded=false 是有效状态不可移除）
+  const ariaBool = ariaBoolValue(key, value)
+  if (ariaBool !== null) {
+    el.setAttribute(key, ariaBool)
     return
   }
   // enumerated 白名单必须先于 boolean 分支——false 也要显式 'false'（

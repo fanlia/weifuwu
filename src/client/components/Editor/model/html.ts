@@ -26,6 +26,52 @@ const MARK_TAGS: Record<string, { type: MarkSpan['type']; href?: boolean }> = {
   A: { type: 'link', href: true },
 }
 const EMBED_TAGS: Record<string, EmbedSpan['type']> = { IMG: 'img', TABLE: 'table', HR: 'hr', PRE: 'pre' }
+
+// ── 净化（XSS 面封闭——paste/工具栏输入/AI 值不可信）─────────────────
+
+/** 危险元素（embed 快照子树内整棵移除——脚本执行/外链资源注入面） */
+const DANGEROUS_TAGS = new Set(['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'STYLE', 'META'])
+
+/**
+ * URL 协议白名单（纯函数——node 直测）。
+ *
+ * http(s)/mailto/相对/锚/query 放行；javascript:/vbscript:/data: 阻断
+ * （data:image/* 仅 src 场景放行——粘贴截图）。
+ * scheme 判定前剥空白/控制字符（`java\tscript:` 类绕过阻断）。
+ *
+ * @returns 安全 URL（原样或剥控制字符）/ null（不安全——调用方删属性或降级空 href）
+ */
+export function safeUrl(url: unknown, allowDataImage = false): string | null {
+  const raw = typeof url === 'string' ? url : ''
+  const u = raw.replace(/[\s\x00-\x1f\x7f]/g, '')
+  if (u === '') return ''
+  const m = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(u)
+  if (!m) return raw // 无 scheme——相对/锚/query——原样
+  const scheme = m[1].toLowerCase()
+  if (scheme === 'http' || scheme === 'https' || scheme === 'mailto') return u
+  // data:image 仅位图子类放行（svg+xml 可携带脚本——<svg onload> 实证面——不放宽）
+  if (allowDataImage && /^data:image\/(png|jpeg|jpg|gif|webp|bmp)[;,]/.test(u)) return u
+  return null
+}
+
+/** 元素子树净化（原位变更——embed 快照前置防线）：
+ *  on* 属性全删（内联执行面）· href/src 协议白名单（不安全删属性）·
+ *  危险元素（script/iframe/...）整棵移除 */
+function sanitizeElement(el: Element): void {
+  for (const attr of Array.from(el.attributes)) {
+    const name = attr.name.toLowerCase()
+    if (name.startsWith('on')) { el.removeAttribute(attr.name); continue }
+    if (name === 'href' || name === 'src') {
+      const safe = safeUrl(attr.value, name === 'src')
+      if (safe === null) el.removeAttribute(attr.name)
+      else if (safe !== attr.value) el.setAttribute(attr.name, safe)
+    }
+  }
+  for (const child of Array.from(el.children)) {
+    if (DANGEROUS_TAGS.has(child.tagName)) { child.remove(); continue }
+    sanitizeElement(child)
+  }
+}
 const ALIGN_CLASSES: Record<string, Align> = {
   'wf-text-center': 'center',
   'wf-text-right': 'right',
@@ -69,8 +115,11 @@ function walk(node: Node, st: ParseState, listKind: 'ul' | 'ol' | null): void {
   const el = node as Element
   const tag = el.tagName
 
-  // 嵌入（img/table/hr）——占位符 + 快照（id 唯一——parse 计数器）
+  // 嵌入（img/table/hr）——占位符 + 快照（id 唯一——parse 计数器）。
+  // **快照前净化**（XSS——paste 的 <img onerror>/<a javascript:> 不可信——
+  // 原始 outerHTML 直存会经 serializeHtml → innerHTML 回注执行）
   if (EMBED_TAGS[tag]) {
+    sanitizeElement(el)
     const at = st.text.length
     st.append(EMBED_CHAR)
     st.embeds.push({ id: `p${st.embedSeq++}`, at, type: EMBED_TAGS[tag], html: el.outerHTML })
@@ -110,7 +159,8 @@ function walk(node: Node, st: ParseState, listKind: 'ul' | 'ol' | null): void {
     if (end > start) {
       st.marks.push({
         start, end, type,
-        ...(href ? { href: (el as HTMLAnchorElement).getAttribute('href') ?? '' } : {}),
+        // href 协议白名单（不安全 → 空串——链接保留目标丢失——不执行）
+        ...(href ? { href: safeUrl(el.getAttribute('href') ?? '') ?? '' } : {}),
       })
     }
     return
@@ -180,7 +230,11 @@ function renderSegment(doc: DocState, start: number, end: number): string {
     }
     for (const m of ordered.slice().reverse()) {
       const tag = MARK_TAG[m.type]
-      body = m.type === 'link' ? `<${tag} href="${escapeAttr(m.href ?? '')}">${body}</${tag}>` : `<${tag}>${body}</${tag}>`
+      // href 序列化面设防（纵深——mark 来源三处：paste 解析/工具栏输入/apply 事件——
+      // 单一出口白名单兜底任意来源的不安全协议）
+      body = m.type === 'link'
+        ? `<${tag} href="${escapeAttr(safeUrl(m.href ?? '') ?? '')}">${body}</${tag}>`
+        : `<${tag}>${body}</${tag}>`
     }
     out += body
   }

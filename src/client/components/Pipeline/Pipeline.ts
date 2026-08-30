@@ -54,6 +54,7 @@ export const Pipeline: Component<PipelineProps> = (_init, ctx) =>
       const status = node?.status ?? 'default'
       return h('div', {
         class: `wf-pipeline-node wf-pipeline-node--${status}`,
+        key: n.id, // 节点身份（节点增删/拓扑变化——keyed diff move 不重建）
         style: { left: `${Math.round(n.x)}px`, top: `${Math.round(n.y)}px` },
         'data-id': n.id,
       }, node?.label ?? n.id)
