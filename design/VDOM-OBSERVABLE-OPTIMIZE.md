@@ -1,5 +1,11 @@
 # VDOM-OBSERVABLE-OPTIMIZE — 让 Observable 优势充分发挥
 
+> **✅ 已完成归档（2027-09）**：6/6 波次交付——波次 1（算子面）
+> `9abc86d6` · 波次 2（derived+错误流）`3b94c474` · 波次 3（调度流化）
+> `9fd6a975` · 波次 4（高频节流）`a828ec41` · 波次 5（观测面）
+> `0a9d531f` · 波次 6（收尾红线）`c7e92a2c`——审计三检查 0 违规 ·
+> 351 契约 + 117 场景 + 27 harness + tsc 0 + audit:semantics 0
+
 > 发起动因：VDOM-OBSERVABLE-COMPLETE（9 波次）完成了「接入流世界」——
 > 但 Observable 的**优势面**（组合/时间管理/取消/声明式/回放）只兑现了
 > 一部分：算子面缺组合与时间算子（operators.ts 注释自认「可后补——场景
@@ -148,7 +154,7 @@
 | 3 调度器流化 | ✅ 风暴间隔判定（setTimeout hack 歼灭）+ sched:request 观测点 + 回放测试——338 契约 | `9fd6a975` |
 | 4 高频源节流 | ✅ useObservable throttleMs（Subject→throttleTime——算子消费）——347 契约 + 场景 8/8 | `a828ec41` |
 | 5 观测面（泄漏/回放/基线） | ✅ instData 清空 + 泄漏防线契约 + 10k 性能基线——350 契约 | `0a9d531f` |
-| 6 收尾红线 | ⬜ | |
+| 6 收尾红线 | ✅ audit 三检查（调度时序/算子面/失败可观测——0 违规）+ AGENTS §23 总表 + 归档——351 契约 + 117 场景 | `c7e92a2c` |
 
 **总验收**：组合面/时序显式/失败可观测三检查 0 违规 · 319+ 契约绿 ·
 117+ 场景绿 · tsc 0 · audit:semantics 0 · Observable 化成本合规（性能
