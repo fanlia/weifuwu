@@ -24,18 +24,16 @@
   <script type="importmap">
     {
       "imports": {
-        "weifuwu/ui-dom": "/static/ui-dom/index.js",
+        "weifuwu/vdom": "/static/ui-dom/index.js",
         "weifuwu/components": "/static/components/index.js"
       }
     }
   </script>
 
-  <script type="module">import { createRoot, h, ws, stream } from "weifuwu/ui-dom";
+  <script type="module">import { h, ws, UIRouter, uiServe } from "weifuwu/vdom";
 import { Card, Badge, Alert, StatCard, Table, EmptyState, ProgressBar, Space } from "weifuwu/components";
 const QUESTIONS = ["1.\u5E74\u9F84", "2.\u884C\u4E1A", "3.\u5173\u6CE8\u80FD\u529B", "4.\u6EE1\u610F\u5EA6", "5.\u5EFA\u8BAE\u53CD\u9988"];
-let ctx0 = {};
-ctx0 = ws({ url: "/survey-live" })(ctx0);
-const StatsPage = async (_init, ctx) => {
+const StatsPage = (_init, ctx) => {
   let count = 0;
   let answers = [];
   let submissions = [];
@@ -44,11 +42,12 @@ const StatsPage = async (_init, ctx) => {
   let aggregate = null;
   let wsStatus = "connecting";
   let wsDetail = { attempt: 0, max: 10 };
-  const rerender = () => ctx.ui.render();
-  ctx.ws?.onStatusChange((st, detail) => {
-    wsStatus = st;
-    connected = st === "connected";
-    if (detail) wsDetail = detail;
+  const rerender = () => ctx.render();
+  // v2 ws 中间件签名 (connected: boolean)（迁移适配——wsDetail 为旧面残留——
+  // v2 不暴露重连明细——保留默认值只影响徽章 attempt 文案）
+  ctx.ws?.onStatusChange((connected2) => {
+    wsStatus = connected2 ? "connected" : "disconnected";
+    connected = connected2;
     rerender();
   });
   ctx.ws?.onMessage((msg) => {
@@ -230,14 +229,12 @@ h(ProgressBar, { value: p.done / 5 * 100, width: 120, showLabel: false }),
     );
   };
 };
-    // 事件流暴露（debug：rerender 的 patch 序列——audit 顺序错位定位）
-    window.__wf_tail = [];
-    stream.subscribe((e) => {
-      const arr = window.__wf_tail;
-      arr.push({ k: e.entity + ":" + e.action, t: e.target, p: e.payload });
-      if (arr.length > 1000) arr.splice(0, arr.length - 1000);
-    });
-    createRoot(h(StatsPage, {}), document.getElementById("root"), { ctx: ctx0 });
+    // v2 挂载（S7a——统计页迁移 vdom 面——stream debug 依赖移除）
+    const router = new UIRouter();
+    router.get("/demo-survey/stats", (_req, ctx) => { ctx.stream(h(StatsPage, {})); return new Response(null, { status: 200 }); });
+    const surveyWs = ws({ url: "/survey-live", autoReconnect: { baseMs: 1000, maxMs: 10000 } });
+    surveyWs.connect("/survey-live");
+    uiServe(router, { root: "#root", ws: surveyWs });
 </script>
 </body>
 </html>

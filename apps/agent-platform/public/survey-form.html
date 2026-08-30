@@ -15,13 +15,13 @@
   <script type="importmap">
     {
       "imports": {
-        "weifuwu/ui-dom": "/static/ui-dom/index.js",
+        "weifuwu/vdom": "/static/ui-dom/index.js",
         "weifuwu/components": "/static/components/index.js"
       }
     }
   </script>
 
-  <script type="module">import { createRoot, h, ws } from "weifuwu/ui-dom";
+  <script type="module">import { h, ws, UIRouter, uiServe } from "weifuwu/vdom";
 import {
   Card,
   Button,
@@ -34,22 +34,20 @@ import {
   Rate
 } from "weifuwu/components";
 const source = new URLSearchParams(location.search).get("s") || "\u8BBF\u5BA2-" + Math.random().toString(36).slice(2, 5);
-let ctx0 = {};
-ctx0 = ws({ url: "/survey-live" })(ctx0);
-const SurveyForm = async (_init, ctx) => {
+const SurveyForm = (_init, ctx) => {
   let submitted = null;
   let error = "";
   let submitting = false;
   let wsStatus = "connecting";
   let wsDetail = { attempt: 0, max: 10 };
-  const rerender = () => ctx.ui.render();
-  ctx.ws?.onStatusChange((st, detail) => {
-    wsStatus = st;
-    if (detail) wsDetail = detail;
-    // 重连后重发 hello（ws 重连 = 新 socket——服务端 surveyOnline 无记录——
-    // 浏览器未关（ws 连接保持）仍应在线——真实 bug：服务器重启后页面重连——
-    // 在线丢失——统计页在线 0——用户规则"只要没关浏览器 ws 还在连接就算在线"）
-    if (st === "connected") ctx.ws?.send({ type: "survey:hello", source });
+  const rerender = () => ctx.render();
+  // v2 ws 中间件签名 (connected: boolean)（2027-09 v1→v2 迁移：旧面是
+  // 'connecting'/'connected'/'disconnected' 字符串 + detail——v2 只有 boolean——
+  // 适配：boolean → 页面状态词；重连后重发 hello（ws 重连 = 新 socket——
+  // 服务端 surveyOnline 无记录——浏览器未关仍应在线）
+  ctx.ws?.onStatusChange((connected) => {
+    wsStatus = connected ? "connected" : "disconnected";
+    if (connected) ctx.ws?.send({ type: "survey:hello", source });
     rerender();
   });
   // 逐题同步：合并 pending（快速连续操作不互相取消——真实用户快填丢题的体验缺口）
@@ -254,7 +252,13 @@ const SurveyForm = async (_init, ctx) => {
     );
   };
 };
-createRoot(h(SurveyForm, {}), document.getElementById("root"), { ctx: ctx0 });
+// v2 挂载（S7a——2027-09：v1 退役后 ui-dom 产物消失——迁移 vdom 面——
+// UIRouter 单路由 + ws 中间件显式连接——页面组件树不动）
+const router = new UIRouter();
+router.get("/demo-survey", (_req, ctx) => { ctx.stream(h(SurveyForm, {})); return new Response(null, { status: 200 }); });
+const surveyWs = ws({ url: "/survey-live", autoReconnect: { baseMs: 1000, maxMs: 10000 } });
+surveyWs.connect("/survey-live");
+uiServe(router, { root: "#root", ws: surveyWs });
 </script>
 </body>
 </html>

@@ -36,7 +36,13 @@ const PERSONAS = [
 
 /* ── 人设参数（S0——2027-09——10 测试 → 1000 生产） ── */
 const argv = process.argv.slice(2)
-const argOf = (k, d) => { const i = argv.indexOf(k); return i === -1 ? d : argv[i + 1] }
+const argOf = (k, d) => {
+  // 支持 --key=value 与 --key value 两种形式
+  const eq = argv.find((a) => a.startsWith(`${k}=`))
+  if (eq !== undefined) return eq.slice(k.length + 1)
+  const i = argv.indexOf(k)
+  return i === -1 ? d : (argv[i + 1] ?? d)
+}
 const COUNT = parseInt(argOf('--count', '10'), 10) || 10
 const MATRIX = argOf('--matrix', '')          // '10x10x10'——行业×职级×性格
 const BATCH = parseInt(argOf('--batch', '50'), 10) || 50

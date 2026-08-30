@@ -37,6 +37,7 @@
  *   6. hooks/browser/middlewares 独立实现——待
  */
 export { h, jsx, jsxs, jsxDEV } from './core/vnode.ts'
+export { keyOf, keyedId } from './core/node/keyed.ts'
 export { Fragment } from './core/node/fragment.ts'
 export { UIRouter } from './core/router.ts'
 export { createClientBrowser } from './browser/create-client-browser.ts'
