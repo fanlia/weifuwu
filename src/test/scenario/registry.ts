@@ -1664,6 +1664,42 @@ const ReconcileScene = (_init: Record<string, never>, ctx: any) => {
 
 const RCS = { id: 'reconcile', title: '状态机对账（真实 DOM 结构不变量）', render: ReconcileScene }
 
+// ── 场景：perf-applier（性能防线——消费端三表索引化回归样本） ──────
+// 2027-09（admin 全量 59172ms→310ms 实证）：procRemove 曾 O(N²)（每 remove
+// 全量扫 nodes/events/refs 三表）——本场景 6000 行 × 4 节点 = 24000 节点 +
+// 6000 事件——**卸载计时阈值 2s**（旧代码 10s+ 必挂——新代码 <500ms）。
+// 规模：CLI headless 安全（渲染 ~1.5s + 卸载 <0.5s + diff <1s——测试总长 ~5s）。
+const PERF_N = 6000
+const PerfApplierScene = (_init: Record<string, never>, ctx: any) => {
+  let mode: 'list' | 'gone' = 'list'
+  let seq = 0
+  const navAway = () => { mode = 'gone'; void ctx.render() }
+  const navBack = () => { mode = 'list'; void ctx.render() }
+  const update = () => { seq++; void ctx.render() }
+  const rows = (_: number, i: number) =>
+    h('div', { class: 'perf-row', 'data-i': i },
+      h('span', { class: 'perf-name' }, '团队' + i + (seq ? '-' + seq : '')),
+      h('span', { class: 'perf-slug' }, 'slug-' + i),
+      h('button', { id: 'row-btn-' + i, class: 'perf-btn', onClick: () => { /* 事件绑定面 */ } }, 'x'),
+    )
+  return () => mode === 'list'
+    ? h('div', { class: 'perf-applier-scene' },
+        h('div', { class: 'ctrl' },
+          h('button', { id: 'perf-nav-away', onClick: navAway }, 'nav-away'),
+          h('button', { id: 'perf-update', onClick: update }, 'update'),
+        ),
+        h('div', { class: 'perf-list' }, Array.from({ length: PERF_N }, (_, i) => rows(_, i))),
+      )
+    : h('div', { class: 'perf-gone' },
+        h('div', { class: 'ctrl' },
+          h('button', { id: 'perf-nav-back', onClick: navBack }, 'nav-back'),
+        ),
+        '已卸载',
+      )
+}
+
+const PAS = { id: 'perf-applier', title: '消费端性能防线（大列表卸载 O(N²)→O(k) 时序契约）', render: PerfApplierScene }
+
 const TWS = { id: 'typewriter-loop', title: '打字机高频渲染（锚稳定）', render: DeepTypewriter }
 const RLS = { id: 'render-loop', title: '渲染循环（结构稳定计数）', render: DeepRenderLoop }
 
@@ -1870,6 +1906,7 @@ export const scenarios: Scenario[] = [
   DWAS,
   DTYS,
   RCS,
+  PAS,
   FUSE,
   ASYNC_LOAD,
   FIFO,

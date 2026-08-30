@@ -96,3 +96,11 @@ remapSubtree（patch/index.ts:76）：nodes/事件/registry 三表前缀全量�
   快切）再索引化
 - P6 Table/Button 组件层（组件实例数 = 渲染数——全量场景本质成本——无
   场景证据——继续判负）
+
+## 5. 防线契约（防回归）
+
+- **场景层 e2e-perf.test.ts**（2027-09——波次 1/2 后补）：6000 行 × 4 节点
+  （24000 节点 + 6000 事件绑定）——卸载 <2s + 更新 diff <1s + id 对账零违例
+  ——旧 O(N²) 代码数学预期 14s+（2.9 亿次 startsWith）——必挂——
+  实测（新代码）：卸载 135ms / 更新 199ms
+- 契约层 v2-lifecycle 性能基线（10k 节点 build<2s/diff<500ms）保留
