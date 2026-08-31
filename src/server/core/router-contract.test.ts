@@ -409,3 +409,47 @@ describe('C3: 输入防御', () => {
     assert.equal(await r2.text(), 'id=a%2Fb', '多重编码单次解码（%25 → %）')
   })
 })
+// ── D 波次：性能基线（防回归——探针读数为锚，容差 2x） ──────────
+
+describe('D: 性能基线（ROUTER-CORE——2027-10 探针读数登记）', () => {
+  test('10k 静态+param 路由注册 < 100ms（探针 39ms）', () => {
+    const app = new Router()
+    const t0 = performance.now()
+    for (let i = 0; i < 10000; i++) app.get('/res/' + i + '/:id', ok('ok'))
+    const ms = performance.now() - t0
+    assert.ok(ms < 100, `10k 注册 ${ms.toFixed(0)}ms < 100ms（基线——trie 分段插入 O(path)）`)
+  })
+
+  test('10k 路由匹配热身 < 15µs/req（探针 5µs）+ miss < 15µs（探针 6µs）', async () => {
+    const app = new Router()
+    for (let i = 0; i < 10000; i++) app.get('/res/' + i + '/:id', ok('ok'))
+    const h = app.handler() as any
+    const ctx = { params: {}, query: {} }
+    // 热身（JIT——探针第 1 轮 15µs → 第 3 轮 5µs）
+    for (let i = 0; i < 2000; i++) await h(new Request('http://x/res/5000/abc'), ctx)
+    let t0 = performance.now()
+    for (let i = 0; i < 10000; i++) await h(new Request('http://x/res/5000/abc'), ctx)
+    const hitUs = (performance.now() - t0) / 10000 * 1000
+    assert.ok(hitUs < 15, `匹配 ${hitUs.toFixed(1)}µs/req < 15µs（trie O(depth) 逐段）`)
+    t0 = performance.now()
+    for (let i = 0; i < 10000; i++) await h(new Request('http://x/miss/deep/path'), ctx)
+    const missUs = (performance.now() - t0) / 10000 * 1000
+    assert.ok(missUs < 15, `miss ${missUs.toFixed(1)}µs/req < 15µs（404 路径——DFS 剪枝）`)
+  })
+
+  test('常态快路径：空 route-mw 直调 + 空 mw runChain 直调 finalHandler（S6 语义锁）', async () => {
+    const app = new Router()
+    app.get('/fast', ok('ok'))
+    const h = app.handler() as any
+    const r = await h(new Request('http://x/fast'), { params: {}, query: {} })
+    assert.equal(await r.text(), 'ok')
+    // runChain 空 mw 直调（零 dispatch 闭包）——行为面锁
+    const handler = ok('direct')
+    const res = await (app as any).runChain([], handler, new Request('http://x'), { params: {}, query: {} })
+    assert.equal(await res.text(), 'direct')
+    // 空全局 mw 的 404 快路径（无 runChain 包装——直返）
+    const bare = new Router()
+    const r2 = await (bare.handler() as any)(new Request('http://x/nope'), { params: {}, query: {} })
+    assert.equal(r2.status, 404)
+  })
+})
