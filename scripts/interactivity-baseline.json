@@ -1,58 +1,42 @@
 [
   {
     "slug": "anchor",
-    "tag": "键盘"
+    "tag": "键盘",
+    "reason": "键盘 hash 导航 headless 断言受限——待精化"
   },
   {
     "slug": "citationcard",
-    "tag": "键盘"
+    "tag": "键盘",
+    "reason": "Enter 打开链接（window.open）headless 无法断言"
   },
   {
     "slug": "chart",
-    "tag": "浮层"
-  },
-  {
-    "slug": "contextmenu",
-    "tag": "拖拽"
+    "tag": "浮层",
+    "reason": "tooltip 浮层 hover 点位数据相关——待定位数据点后固化"
   },
   {
     "slug": "diffview",
-    "tag": "键盘"
-  },
-  {
-    "slug": "jsonviewer",
-    "tag": "键盘"
-  },
-  {
-    "slug": "jsonschemaform",
-    "tag": "键盘"
+    "tag": "键盘",
+    "reason": "demo 折叠按钮定位待精化"
   },
   {
     "slug": "navmenu",
-    "tag": "键盘"
-  },
-  {
-    "slug": "reasoningblock",
-    "tag": "键盘"
-  },
-  {
-    "slug": "sessionlist",
-    "tag": "键盘"
-  },
-  {
-    "slug": "statcard",
-    "tag": "键盘"
+    "tag": "键盘",
+    "reason": "键盘导航为辅助路径（hover 弹出为主）——待定夺是否收窄分类"
   },
   {
     "slug": "timeline",
-    "tag": "键盘"
+    "tag": "键盘",
+    "reason": "Enter A11y 无可见状态反馈（demo 条目无动作）"
   },
   {
-    "slug": "virtualtable",
-    "tag": "键盘"
+    "slug": "statcard",
+    "tag": "键盘",
+    "reason": "demo 未传 onClick——扩 demo 实例后固化"
   },
   {
     "slug": "slidecanvas",
-    "tag": "拖拽"
+    "tag": "拖拽",
+    "reason": "无活体 demo——能力走场景层（同批次 11 结论）"
   }
 ]

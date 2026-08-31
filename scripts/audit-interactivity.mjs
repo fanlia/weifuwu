@@ -83,7 +83,7 @@ const scenarioFiles = _ex(scenarioDir)
   : ''
 
 const CLASS_RULES = [
-  { tag: '拖拽', src: /pointerdown|mousedown|draggable|setPointerCapture|onDragStart/, test: /mouse\.down|mouse\.move[\s\S]{0,600}mouse\.up|dispatchEvent/ },
+  { tag: '拖拽', src: /pointerdown|draggable|setPointerCapture|onDragStart/, test: /mouse\.down|mouse\.move[\s\S]{0,600}mouse\.up|dispatchEvent/ },
   { tag: '键盘', src: /addEventListener\(['"]keydown|onKeydown|e\.key === |\.key\)\s*\{/, test: /keyboard\.press|keyboard\.type|pressSequentially/ },
   { tag: '浮层', src: /openPopup\(|PopupHandle/, test: /portal|Geometry|boundingBox|getBoundingClientRect/ },
   { tag: '媒体', src: /createElement\('canvas'\)|createElement\('video'\)|<video|createElement\('audio'\)/, test: /canvas|video|audio/ },

@@ -94,7 +94,17 @@ L3 声明对账面   注释/文档/demo 文案/props vs 实际接线   ← 零�
 - 测试命名约定配合：L2 断言的 test 名含 `FP-交互` / `交互：` 前缀——
   哨兵按前缀 + 组件类对账
 
-### 波次 3：B 类缺口修复（从甄别结论长出——逐个带测试）
+### 波次 3：B 类缺口修复（从甄别结论长出——逐个带测试）——✅ 全落地
+
+**追加修复（基线消化轮——2027-09）**：ContextMenu 键盘导航死路（审计 L2
+缺口实证——右键打开后 ArrowDown 无效）——**内核层修复**：openPopup 新增
+`autoFocus` 选项（确定性 scheduleAfterRender + 挂载重试聚焦——非模态不锁
+滚动/不陷阱；trapFocus 模态分支共用 focusPanelWhenMounted）。**关键实证**：
+vnode ref 回调在 openPopup mini-root 渲染链不触发——组件层 ref 聚焦方案
+结构性不可行——聚焦只能由内核承担（AGENTS §3：组件层异常暴露内核缺口）。
+基线 14→8；L2 固化 +7（contextmenu autoFocus 回归/reasoningblock chevron
+翻转闭环/sessionlist 箭头焦点/virtualtable 列头 Enter 排序/jsonviewer
+折叠/jsonschemaform Enter 提交/拖拽分类特征收窄 mousedown 误报剔除）
 
 1. **ImageCropper 拖拽接线**（首例——用户主路径）——✅ 已落地（2027-09：pointer 三事件 + setPointerCapture + L2 测试 4/4 绿——拖框移动像素变化/角柄等比 828x621 保持 4:3/重置回位）：
    - canvas pointer 事件绑定（pointerdown 判定命中区：框内 = move /

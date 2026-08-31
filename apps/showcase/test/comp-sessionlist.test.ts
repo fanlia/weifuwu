@@ -63,3 +63,17 @@ test('FP-追加 searchable 过滤（4→0→清空恢复 4）', async () => {
     await page.waitForFunction((n) => document.querySelectorAll('main [class*="session-item"], main [class*="session"] li, main li[class]').length === n, before, { timeout: 3000 })
   } finally { await page.close() }
 })
+
+test('交互：ArrowDown/Up 焦点在会话项间移动（focused 类）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main [class*="session-item"]')
+    await page.locator('main [class*="session-item"]').first().click()
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('ArrowDown')
+    await page.waitForFunction(() => { const its = [...document.querySelectorAll('main [class*="session-item"]')]; const i = its.findIndex((x) => /focus/.test(String(x.className))); return i === 2 }, null, { timeout: 3000 })
+    await page.keyboard.press('ArrowUp')
+    await page.waitForFunction(() => { const its = [...document.querySelectorAll('main [class*="session-item"]')]; const i = its.findIndex((x) => /focus/.test(String(x.className))); return i === 1 }, null, { timeout: 3000 })
+  } finally { await page.close() }
+})

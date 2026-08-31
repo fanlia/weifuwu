@@ -18,6 +18,7 @@
  *   监听——close 时移除——无常驻）
  * - **会话级模态**：presence（退场动画 open→exit→closed→dispose）+
  *   trapFocus（Tab 焦点陷阱）+ lockScroll（滚动锁 + 焦点归还）
+ *   autoFocus（非模态自动聚焦——2027-09 ContextMenu 键盘导航实证新增）
  * - **mask**：遮罩 + 居中（maskClosable——危险操作防误触）
  */
 
@@ -79,6 +80,10 @@ export interface PopupOpenOptions {
   presence?: boolean
   /** 焦点陷阱（Tab 面板内循环） */
   trapFocus?: boolean
+  /** 非模态自动聚焦（2027-09——ContextMenu 键盘导航实证）：onKeyDown 容器绑定型
+   *  组件需要面板聚焦才能收键盘；非模态不 engageModalLock（不锁滚/不陷阱），
+   *  聚焦能力按需开启——确定性 scheduleAfterRender + 挂载重试。 */
+  autoFocus?: boolean
   /** 滚动锁（body overflow hidden + 关闭归还焦点） */
   lockScroll?: boolean
   /** 外部点击关闭（默认 true——Confirm 等危险操作显式 false） */
@@ -411,6 +416,30 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       lockEngaged.value = false
     }
   }
+  /**
+   * 确定性面板聚焦（2027-09——ContextMenu 键盘导航实证抽出的公共能力）：
+   * scheduleAfterRender + 挂载重试（v2 内容渲染链异步——ref 回调在 mini-root
+   * 链不触发——聚焦只能由内核承担）。trapFocus 模态分支与非模态 autoFocus
+   * 选项共用。
+   */
+  const focusPanelWhenMounted = (): void => {
+    env.scheduleAfterRender(() => {
+      // **挂载重试（2027-08——v2 内容渲染链异步实证）**：afterRender 触发
+      // 时内容渲染链（state.chain 微任务）可能未执行——panel 未挂载——
+      // ref 回调未跑——微任务重试直至挂载（≤10——不无限）
+      const tryFocus = (n: number): void => {
+        const el = state.panel
+        if (el) {
+          const f = el.querySelector?.('input, button, [tabindex], select, textarea') as HTMLElement | null
+          ;(f ?? el).focus?.()
+        } else if (n < 10 && state.open) {
+          queueMicrotask(() => tryFocus(n + 1))
+        }
+      }
+      tryFocus(0)
+    })
+  }
+
   const engageModalLock = (): void => {
     lockEngaged.value = true
     if (opts.lockScroll && doc?.body) {
@@ -424,21 +453,7 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
       // ——effect guard 报「渲染路径副作用」）+ 时序不确定——改为
       // scheduleAfterRender（渲染完成后确定性聚焦——无 timer 零误报——
       // 语义更正确：面板挂载后聚焦而非下一 tick 碰运气）
-      env.scheduleAfterRender(() => {
-        // **挂载重试（2027-08——v2 内容渲染链异步实证）**：afterRender 触发
-        // 时内容渲染链（state.chain 微任务）可能未执行——panel 未挂载——
-        // ref 回调未跑——微任务重试直至挂载（≤10——不无限）
-        const tryFocus = (n: number): void => {
-          const el = state.panel
-          if (el) {
-            const f = el.querySelector?.('input, button, [tabindex], select, textarea') as HTMLElement | null
-            ;(f ?? el).focus?.()
-          } else if (n < 10 && state.open) {
-            queueMicrotask(() => tryFocus(n + 1))
-          }
-        }
-        tryFocus(0)
-      })
+      focusPanelWhenMounted()
     }
   }
 
@@ -499,6 +514,10 @@ export function openPopup(env: HookEnv, opts: PopupOpenOptions): PopupHandle {
     const container = ensureContainer()
     if (!container) return
     if (opts.trapFocus || opts.lockScroll) engageModalLock()
+    // **非模态自动聚焦（2027-09——ContextMenu 键盘导航实证）**：onKeyDown
+    // 容器绑定型组件需要面板聚焦才能收到键盘——非模态不 engageModalLock
+    // （不锁滚动/不陷阱），但聚焦能力按需开启。
+    else if (opts.autoFocus) focusPanelWhenMounted()
     const registry = createComponentRegistry()
     state.applier = new CommandApplier(container, doc as Document, registry)
     state.segments = new Map() as SegmentMap

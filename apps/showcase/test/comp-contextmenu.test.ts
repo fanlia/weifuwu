@@ -68,3 +68,21 @@ test('FP4 Escape 关闭', async () => {
     await page.waitForFunction(() => !(document.querySelector('#__wf_portal')?.textContent ?? '').includes('编辑'), null, { timeout: 3000 })
   } finally { await page.close() }
 })
+
+test('交互：右键打开自动聚焦 → ArrowDown 环形导航 + Enter 执行关闭（autoFocus 内核回归）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main [class*="context"]')
+    await page.locator('main [class*="context"]').first().click({ button: 'right' })
+    await page.waitForSelector('#__wf_portal .wf-context-menu', { timeout: 3000 })
+    // 内核 autoFocus（popup-manager——2027-09 ContextMenu 实证修复）聚焦菜单容器；
+    // 行为级断言：ArrowDown 高亮移动（聚焦成功的可观测结果）
+    const hlText = () => page.evaluate(() => document.querySelector('#__wf_portal .wf-context-menu-item--hl')?.textContent?.trim())
+    const first = await hlText()
+    await page.keyboard.press('ArrowDown')
+    await page.waitForFunction((f) => document.querySelector('#__wf_portal .wf-context-menu-item--hl')?.textContent?.trim() !== f, first, { timeout: 3000 })
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(() => !document.querySelector('#__wf_portal .wf-context-menu'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})

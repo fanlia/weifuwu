@@ -57,3 +57,17 @@ test('FP3 递归展开：逐层点击 → depth3 键值可见', async () => {
     assert.ok(t.includes('pending') && t.includes('u_7'), '深层键值展开')
   } finally { await page.close() }
 })
+
+test('交互：节点 focus + Enter 折叠切换（内容长度变化）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main [class*="json"] [tabindex="0"]')
+    const btn = page.locator('main [class*="json"] [tabindex="0"]').first()
+    const len = () => page.evaluate(() => document.querySelector('main')?.textContent?.length)
+    const before = await len()
+    await btn.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction((t) => (document.querySelector('main')?.textContent?.length ?? 0) !== t, before, { timeout: 3000 })
+  } finally { await page.close() }
+})

@@ -45,3 +45,18 @@ test('能力：推理折叠展示 + 模拟流式切换', async () => {
     await page.waitForTimeout(300)
   } finally { await page.close() }
 })
+
+test('交互：点击展开 → Enter 键收起（chevron --open 翻转闭环）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-reasoning-toggle')
+    const btn = page.locator('main .wf-reasoning-toggle').first()
+    const openCls = () => page.evaluate(() => document.querySelector('main .wf-reasoning-chevron')?.className.includes('--open'))
+    await btn.click()
+    await page.waitForFunction(() => document.querySelector('main .wf-reasoning-chevron')?.className.includes('--open'), null, { timeout: 3000 })
+    await btn.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(() => !document.querySelector('main .wf-reasoning-chevron')?.className.includes('--open'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})

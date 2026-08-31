@@ -89,6 +89,7 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
       class: 'wf-context-menu',
       role: 'menu',
       'aria-label': ariaLabel,
+      tabindex: -1,
       onKeyDown: menuKeyDown,
     }, menuItems)
 
@@ -99,6 +100,10 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
         content: () => menu,
         closeOnOutside: true, // document mousedown（含右键别处——mousedown 先于 contextmenu 触发）
         closeOnEscape: true,
+        // **键盘导航 focus 管理（2027-09 交互完整性审计修复）**：onKeyDown 绑定在
+        // 菜单容器——不聚焦则 ArrowDown/Enter 收不到（键盘导航死路）。ref 回调在
+        // mini-root 渲染链不触发（实证）——聚焦由内核 autoFocus 承担。
+        autoFocus: true,
         onClose: () => { handle = null; if (show) { show = false; ctx.render() } },
       })
     else if (!show && handle) { handle.close(); handle = null }

@@ -55,3 +55,17 @@ test('能力：虚拟表格（10000 行——表头 + 排序 + 滚动）', async
     assert.ok(!first.startsWith('用户1') && first.length > 0, `窗口移动（首行 ${first}）`)
   } finally { await page.close() }
 })
+
+test('交互：列头 focus + Enter 触发排序（onSort——字典序）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('[tabindex="0"]')
+    const th = page.locator('[tabindex="0"]').first()
+    const rowText = () => page.evaluate(() => document.querySelectorAll('.wf-virtual-table-row')[1]?.textContent?.slice(0, 16))
+    const before = await rowText()
+    await th.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction((t) => document.querySelectorAll('.wf-virtual-table-row')[1]?.textContent?.slice(0, 16) !== t, before, { timeout: 3000 })
+  } finally { await page.close() }
+})

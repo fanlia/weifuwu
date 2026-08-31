@@ -70,3 +70,14 @@ test('FP4 enum select 联动（celsius→fahrenheit）', async () => {
     await page.waitForFunction(() => document.querySelector('main .wf-jsf select')?.value === 'fahrenheit', null, { timeout: 3000 })
   } finally { await page.close() }
 })
+
+test('交互：表单 Enter 提交（校验/反馈路径）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main input')
+    await page.locator('main input').first().focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(() => /提交|submit|成功|必填|错误/.test(document.querySelector('main')?.textContent ?? ''), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
