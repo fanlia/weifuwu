@@ -1,4 +1,7 @@
 # VDOM-CORE-EXCELLENCE-PLAN——vdom 内核全面优化计划（第四阶段·2027-10）
+> **✅ 六波次全收官（2027-10）**：A `2b8ea1ad`（fuzz 扩容 1310 对 + 修复 move Post 规格错位/重建物理残留 2 内核缺陷）· B `9d3f7ef5`（audit:vdom 六红线哨兵）· C `37132aea`（popup 定位契约 8 + AGENTS 清单收敛）· D `fa224db1`（error-counter 去重计数 + render-health errors 轴——自愈不可消音）· E `8ca65cdf`（diff.ts 纯移动拆解——diffV2Node 165→102 行——契约保护修正抽取错误）· F（reducer 回放 4 + 命令流规模基线——收官）
+> 终态防线：契约 417/417 · 场景 123/123 · showcase 320/320 · audit:all 七线 exit 0
+> 已知缺口（登记）：keyed 组件顺移状态丢失（输出锚物理 move 方案——后续波次）
 
 > **定位**：vdom 是 weifuwu/client 的核心引擎——所有组件/应用的质量上限。
 > 本计划把前三阶段（组件验证 → 交互完整性 → client 全面优化）沉淀的方法论

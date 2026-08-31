@@ -132,3 +132,25 @@ test('性能基线：10k 节点 build + diff 时间上限（Observable 化成本
   assert.ok(diffMs < 500, `10k 节点 diff ${diffMs.toFixed(0)}ms < 500ms（增量路径——流化不拖慢）`)
 })
 
+test('命令流规模基线：10k build/diff 命令数上限（防命令流膨胀——F2 采样基线）', async () => {
+  // **keyed 列表（身份跟随——F2 锁增量语义）**：key 平移 = move/setProp
+  // 少量命令；unkeyed 平移 = 位置对照全量更新（20001 合法——另一语义）
+  const items = Array.from({ length: 10000 }, (_, i) => h('li', { key: 'k' + i, 'data-i': i }, String(i)))
+  const oldT = h('ul', {}, items) as VNode
+  const newT = h('ul', {}, items.slice(1).concat(h('li', { key: 'k99999', 'data-i': 99999 }, 'new'))) as VNode
+  const reg = createComponentRegistry()
+  // build：10k li = create+insert+createText+insertText+close ×10k + 容器 + done
+  const buildCmds = await collectObs(diffV2(h('ul', {}, []) as VNode, oldT, emptyCtx, new Map() as SegmentMap, reg))
+  assert.ok(buildCmds.length <= 6 * 10000 + 10,
+    `10k build 命令数 ${buildCmds.length} ≤ 6×10k（每 li ≤6 命令——膨胀即红）`)
+  // diff：keyed 头删尾增——身份跟随（move + 新增 1 项——非全量重建）
+  const diffCmds = await collectObs(diffV2(oldT, newT, emptyCtx, new Map() as SegmentMap, reg))
+  const creates = diffCmds.filter((c) => c.op === 'create').length
+  const removes = diffCmds.filter((c) => c.op === 'remove').length
+  assert.ok(creates <= 6, `create ${creates} ≤ 6（新增仅 1 项——身份复用）`)
+  assert.ok(removes <= 6, `remove ${removes} ≤ 6（删除仅 1 项）`)
+  // 顺移形态：9999 move（每项槽位 remap 1 条——noMove 纯 id 迁移）+ 新增/删除
+  assert.ok(diffCmds.length <= 10000 + 20,
+    `diff 总命令 ${diffCmds.length} ≤ 10k+20（顺移 move 每项 1 条——无 remove+create 重建——creates/removes 已锁）`)
+})
+
