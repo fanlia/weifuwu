@@ -8,6 +8,448 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.89.0] - 2026-08-31
+
+### Added
+
+- SHARED-TRIE 波次 C+D——性能基线 + API 收紧（四波次收官）
+- SHARED-TRIE 波次 B0——pipeline 路由内核（机制公用、实现不一样）
+- ROUTER-CORE 波次 C——错误路径语义（自愈不可消音）
+- KEYED-COMPONENT-MOVE M3——P 契约升级 + 命令数基线（三波次收官）
+- KEYED-COMPONENT-MOVE M2——物理 move 命令生成（fuzz 驱动修复 Post 自映射误报）
+- KEYED-COMPONENT-MOVE M1——段输出根枚举（单一实现源）
+- VDOM-CORE-EXCELLENCE 波次 F——可观测与回放（六波次收官）
+- VDOM-CORE-EXCELLENCE 波次 D——错误路径与恢复语义（自愈不可消音）
+- VDOM-CORE-EXCELLENCE 波次 B——缺陷模式哨兵（六红线机制化）
+- VDOM-CORE-EXCELLENCE 波次 A——对账防线扩容（捕获+修复 2 内核缺陷）
+- CLIENT-EXCELLENCE-PLAN 波次 F——体积与性能基线（六波次收官）
+- CLIENT-EXCELLENCE-PLAN 波次 D——SSR 一致性收敛
+- CLIENT-EXCELLENCE-PLAN 波次 D/E——API 对齐 + 作者契约沉淀
+- CLIENT-EXCELLENCE-PLAN 波次 C——主题渗透
+- CLIENT-EXCELLENCE-PLAN 波次 B——A11y 体系化
+- CLIENT-EXCELLENCE-PLAN 波次 A——防线补全
+- W6 首 token 超时 + 流式窄范围重试——判负撤销（协议码缺口补齐）
+- SERVER-PERF-PLAN 三波次交付——流式正确性/生产热路径/传输面（四探针+HTTP基准实证驱动）
+- W4 调度来源 tag——sched:request 带 navigate/component-rerender/page-render 归因 + W3 时序源审计判负留档
+- 容器核心——HTTP /exec 执行面（常驻 agent 直连）
+- Go agent 挂载集成——镜像零改动（动态挂载替代烧入）
+- Go agent——sandbox-agent 重写（命令模式/常驻模式双形态）
+- S5 统计聚合 + S6 列表搜索——1000 的产出面与管理面
+- S2 调度助手——3 工具面 + 问卷调度部门/助手 agent（产品入口）
+- S1 调度器——Campaign 批量问卷（总量/并发可配置/水位派单/重试）
+- S0 seed 参数化——1000 人设矩阵供给（命名规约/批建）
+- UX 波次 1——拖拽上传（文件拖入消息区即入列）
+- 通用能力内置——value DOM 脱节修复/auth 韧性/工具会话上下文
+- 观测面——泄漏防线 + 性能基线（波次 5）
+- 高激源限帧——useObservable throttleMs 声明式（波次 4）
+- 数据面流化——derived 派生信号 + asyncErrors$ + 原语信号修复（波次 2）
+- 组合算子面补齐——8 算子纯新增（OBSERVABLE-OPTIMIZE 波次 1）
+- 渲染健康诊断器——三轴仪表 dev 门控（RENDER-HEALTH 波次 1）
+- 中间件值源流视图——store/chat/ws/auth/i18n 同源 Observable（波次 7）
+- 场景层切换 v2——116/116 绿（undefined 属性直通/keyed 重建/R1 熔断/popup 聚焦/unmount 清理）
+- showcase 切换 v2 实证修复——200/200 绿（Affix/Tour/Popover/FileTree/SSR 吸收/观测体系）
+- v2 缺口1/3——uiSsrV2（SSR 完整——v2 引擎 + 两遍/预取/__DATA__）
+- v2 缺口8——router 导航完整（链接拦截/popstate/redirect/整树替换）
+- v2 缺口6——popup 渲染 v2 化（弹窗独立实例引擎切换）
+- v2 缺口5——fuzz 全量（1200 静态 + 300 组件输出——双引擎对账）
+- v2 缺口7——事件/ref 字段验证（EventRegistry 协同）
+- v2 缺口4——ref 生命周期验证（重绑/移除/卸载对称）
+- v2 缺口2——transform 6×6（转换表语义单源——流式适配）
+- v2 阶段2D——段级 hooks 面（createUi 接入段——完整性关键缺口）
+- v2 阶段2C——对账器流视角（双引擎 Sim 终态裁决——切换护栏）
+- v2 destroy$——段级卸载信号（单信号全停——生命周期流化）
+- v2 阶段2B——uiServeV2（真实浏览器——切换前提最终验证）
+- v2 阶段2A——集成（v2 命令流→HTML——SSR 链路等价）
+- v2 阶段1d——调度流（render$ batching——同拍 N→1 + 风暴防护）
+- v2 阶段1c——keyed 列表 merge（diffKeyedV2——顺移/插入/删除/交换/循环移位）
+- v2 阶段1b——对照流（diffV2——流段复用——「复用失败」根治）
+- v2 阶段1——命令流 Observable 化（renderV2——表达层——v1 等价验证）
+- 波次4——SSR 预取器（两遍渲染 + 并行预取 + __DATA__ 种子通道）
+- useObservable + useAsyncData 原语——hooks 基础设施单点化（波次2）
+- 自研 Observable 内核——语义规格先行 + 契约测试锁定（波次1）
+- chat 布局——成员与交付物合并到左栏（用户建议——右栏删除）
+- @ 菜单键盘导航——↑↓ 选择 / Enter 确认 / Esc 关闭
+- 统一镜像全能力——argv CLI 语义 + 能力一致性契约（用户决策）
+- sandbox-agent Wave 2——agent liveness 真实化 + 能力声明注入 AI
+- sandbox-agent——容器 PID1 常驻入口（stop 10s→0.24s 根治）
+- UI 测试基建——共享 server + 快测优化（每文件 spawn → 单实例复用）
+- UI 角色测试 Wave 3——权限矩阵跨页固化（9 测试 + 3 安全修复）
+- UI 角色测试 Wave 2——管理页交互固化（14 测试 + 3 真 bug 修复）
+- Wave 4 框架层并行工具——parallelTools 单 step 多 tool_call 并发（O13-O14）
+- Wave 3 可靠性编排——重试降级 + 任务树 + 审计视图（O9/O11/O12）
+- Wave 2 意图路由——embedding 语义匹配收敛触发（O7-O8）
+- Wave 1 智能编排核心——plan_tasks 并行拆解（O1-O6）
+- E1 轮询补偿——WS 长断线 HTTP 兜底 + merge 重渲染 bug 歼灭
+- E2 5xx 计数可见性——metrics 错误细分 + Settings 服务健康行
+- G2 A2 断线补拉场景测试——+ register 限流可调（429 根因歼灭）
+- G3 server.ts 单体瘦身——统计/报表/埋点路由迁出
+- G4 审计时间范围筛选（ROADMAP C3）——后端+UI+真库测试
+- G1 /api/deliverables 契约测试 9 项——+ 抓出根层大文件漏网
+- UI 测试对齐场景层纪律——playwright + uiServe 真实 server
+- 清理 + 统一命名 + 契约锁定——223→144 类(开发阶段减法)
+
+### Fixed
+
+- ROUTER-CORE 波次 A——mount 展平修复 + Trie 对账 fuzz（fuzz 驱动修复 3 轮 Trie 缺陷）
+- SPA 导航滚动管理——pushState 滚顶 + popstate 恢复离开位置
+- 交互完整性收官——基线清零 + SlideCanvas 受控回流缺陷修复
+- 基线消化轮 2——CitationCard 语义缺陷修复 + demo 交互实例补全 + L2 固化 7 条（基线 14→3）
+- openPopup autoFocus 内核选项——ContextMenu 键盘导航死路修复 + 基线消化 14→8
+- 交互完整性计划落地——ImageCropper 拖拽接线 + B 类死代码清零
+- useChat 协议解析完整性 + approve 同一性（AiChat 验证暴露——核心层×2）
+- NDJSON fixture 断开安全（interval 在 controller closed 后 enqueue → 进程死）+ layout-inventory 豁免登记
+- Affix 验证暴露三连根因——style 移除静默 no-op + observe refresh 断链 + 容器坐标系（核心层×2 + 组件层）
+- EMAIL-FIX-PLAN 三波次交付——SMTP header 注入/TLS 会话中断及时失败/resend 超时
+- GRAPHQL-FIX-PLAN 四波次交付——fragment 深度绕过/执行错误 status/错误面统一/schema 缓存
+- AI-FIX-PLAN 五波次交付——并行工具参数聚合/推理断路/done 一致性/abort 全链路/SSE 心跳
+- 目录排序固定 en collation（中文名组件殿末——A→Z 稳定）+ showcase-plan 决策记录
+- QUEUE-SCHEDULER-FIX-PLAN 五波次交付——并发背压/前缀误删/任务丢失/断连重连/启动韧性
+- 组件优化修复两波次——定时器/key 纪律 + aria 回归/XSS 净化
+- MESSAGER-FIX-PLAN 五波次交付——越权写/事务断裂/并发重复/排序盲区/WS 鉴权
+- USER-SYSTEM-FIX-PLAN 三波次交付——refresh 原子消费/role 恢复 + 时序拉平 + JOIN/密码上限/幂等
+- DB-FIX-PLAN 四波次交付——协议服务器致命 bug + 内存引擎语义漂移根治（V1-V11 实证驱动）
+- W1.4 Templates 迁移 useAsyncData——段复用下数据永不刷新缺陷根治（缓存保留+刷新按钮）
+- W2 401 单飞刷新流化——exhaustMap 替代 G13 快照 hack 堵窗口（并发 401×N 刷新恰 1 次）
+- W1 signal 断链修复——ctx.ui.signal 未接线 requestRender（set 后 DOM 不更新）+ 重渲染落地性契约测试（6 测试锁定）
+- 混合 keyed 列表 unkeyed 项位置身份接管——每轮重建自持循环歼灭
+- tooltip 双重偏移——openPopup 定位后 CSS transform 残留
+- 用户视角全页走查——8 缺陷修复（G12/G13/G14 + BUG-1/2/3 + FK + 静默空数据）
+- admin 租户表分页——200 行截断→20 行/页（切换卡顿 1152ms→60ms）
+- 问卷 campaign 调度四修——历史提交污染根治/严格完成判定/配额槽位回收/SQL 参数
+- stats 页 popstate 重读视角 + 重拉视角 state
+- 路由导航修复——无路由链接默认完整导航 + popstate 带 query
+- 列表页诚实标注——状态提交感知 + 进度 clamp
+- 三页面走查修复——answers 归属/hello 时机/视角过滤/时间本地化
+- 组件外部化链运行时缺导出 + Table 行收缩不删行
+- 问卷统计三修——aggregate 字段/广播全量/clamp
+- S7b 实测五修——历史隔离/配额口径/P1-1 豁免/retry 重统计/提交持久化
+- 常驻 agent 跨请求 env 残留——超时头未设置时 unset
+- 问卷页迁移 v2 面——S7 试点断链根治（S7a）
+- S4 批收尾 + 派单清场纪律（campaign 完成即回收沙盒）
+- /admin 页无 key 组件实槽翻转警告——顶层组件项声明 key
+- 技能工具 _toolDepartmentId 未注入——「无部门上下文」根因修复
+- 刷新后 401 refresh 链未接线——跳登录根因修复
+- 聊天页三 bug 修复（输入残留/流式不滚动/工具型回复消失）
+- 弹窗 position 定位三连修——ContextMenu 左上角根因歼灭
+- 洞→组件转换挂载分离——组件输出 null 锚挂槽位父（tour 违例）
+- /admin 卡住——1292 租户全量渲染（2.4s 同步阻塞）
+- 交付物渲染循环根治——数据未变静默（流式慢/闪烁总根源）
+- 交付物首帧零延迟——聚合 API 数据直供 FilesSection
+- FilesSection 入驻左栏后不渲染——mounting 期 rerender 违例根因
+- chat 输入框打字卡顿——每键双全页 rerender 根治
+- /deliverables「打开」= 下载（曾打开 JSON 响应——体验缺陷）
+- 下载直链安全升级——短时绑定 ticket（30s + path 绑定——替换 access token 拼 URL）
+- 工作区下载/打开直链方案——blob 不可靠根治（用户实证二次故障）
+- sandbox 测试优化 + docker stop 10s→2s（生产回收提速 5 倍）
+- auth 中间件并发竞态——currentUser 模块级共享——有效 token 偶发 401
+- mounting 期间重复引用等待而非违例——/deliverables 空态根因链修复
+- AI 体验 Wave 3——AI 回复前缀规范 + 缓存标注用户友好（P2 打磨）
+- AI 体验 Wave 2——KB 检索单实现源 + 向量质量防线 + 随机向量污染修复
+- AI 体验 Wave 1——工具失败可观 + 缓存毒化修复（P0 三项）
+- search-knowledge-base skill 旧列残留——tenant_id→app_id（知识库检索报错根治）
+- ref=组件 id 前缀回退——chat avatar 错位根治（确定性对称补丁）
+- 全局限流默认调大——429 误伤歼灭（100→2000/分钟）
+- layout tokens 层不包 @layer——PostCSS Unexpected }——style.css 500 根因歼灭
+- ws 心跳看门狗——网络硬断静默挂起根因歼灭（A2 补拉前提）
+- 新 UI 测试连抓 2 真实 bug——Register SSR 崩溃 + AgentDetail 错误态误报
+- api client 非 2xx 保留服务端 {error} 体——错误面不瞎
+- read_csv 工作目录解析——appId → departmentId（工具流程优化）
+- 聊天流式缺失——wsClient 从未 connect（真实 bug）
+
+### Docs
+
+- CLIENT-EXCELLENCE-PLAN——client 第三阶段全面优化计划
+- 组件库交互完整性优化计划——死交互实证驱动
+- onOpen 注释对齐实现（无 href a + role=button——批次 3 实证）
+- COMPONENT-VERIFICATION-CHECKLIST——组件全功能验证清单计划
+- W2 完成记录——单飞刷新 + token$ 判负留档
+- W1 完成记录——signal 断链修复 + 走查疑点定审（mockHits=0 = 段复用）
+- VDOM-STREAM-FIX-PLAN——走查实证缺陷修复 × Observable 优势深化（四类判别总纲）
+- VDOM 性能升级计划归档完成——✅ 状态/提交/验收/判负记录
+- survey-guide 按钮漂移修正——派单入口统一为问卷调研 @全员 / launch API
+- 问卷方案 v3 定稿——规模 100/并发 10（1000 与 20 判负）
+- 问卷机器人方案 v2——试点实测校准（45s 真速推翻预估）
+- 问卷机器人场景完整方案终稿——聊天触发产品形态 + 调度器架构
+- Campaign 架构设计专篇——批量问卷运行器三c 补插（首次提交文档内容不完整——修正）
+- Campaign 架构设计——总量/并发可配置的批量问卷运行器（第一个客户）
+- 1000 规模化专篇——sandbox 管理审计问题清单 + A 档修订波次
+- 10 机器人填问卷场景满足计划——双档方案（AI 真填已有 + 协议模拟新增）
+- UX 计划全部完成——波次 2/3/4 判负记录 + 波次 6 验收锚点
+- UX 计划波次 1 完成标记 + 流式光标判负记录
+- UX 优化计划——6 波次（拖拽上传/流式光标/配置分区/模板预填/onboarding/模块化）
+- 波次 7——COMPONENT-ROBUSTNESS 归档（7/7 波次完成标记）
+- COMPONENT-ROBUSTNESS-PLAN——组件测试补全与健壮性增强（7 波次）
+- OPTIMIZE 归档补全——波次 6 表格勾选 + 头部完成标记（与实际交付对齐）
+- OBSERVABLE-OPTIMIZE 收尾——audit 三检查 + 优势兑现总表（波次 6）
+- 计划归档——VDOM-OBSERVABLE-COMPLETE + RENDER-HEALTH-PLAN 移入 design/
+- 渲染健康章节 + 波次 4/5 定论（RENDER-HEALTH-PLAN 完成）
+- Observable 化收尾——audit 三检查 + 流化维度总表（波次 8/9）
+- 波次6验收——组件作者契约章节 + OBSERVABLE-ARCH 完成标记
+- SANDBOX-AGENT-PLAN 定稿——4 波全完成（entrypoint 可控化 + 统一镜像）
+- SANDBOX-TEST-PLAN 定稿——47.6s→23.7s（-50%）
+- UI-ROLE-TEST-PLAN 定稿——4 波全完成（11 bug 修复固化）
+- AI-EXPERIENCE-PLAN 定稿——3 波全完成（Wave 1-3 成果归档）
+- Agent 智能编排升级计划（第二代）——Planner-Worker + 动态路由
+- OPTIMIZE-PLAN-3 完结标注——G1-G5 全交付 / G6 核查降级
+- OPTIMIZE-PLAN-3 更新——G1-G4+G7 完成态标注（G5/G6 剩余）
+- OPTIMIZE-PLAN-3 第三波计划——测试纪律对齐（189/189）+ 剩余缺口
+
+### Tests
+
+- SHARED-TRIE 波次 A——测试归属归位 + 死代码清理（守护位归位）
+- ROUTER-CORE 波次 D——性能基线登记（防回归）
+- ROUTER-CORE 波次 B——meta 检查全分支 + 405/HEAD/all 语义锁定
+- VDOM-CORE-EXCELLENCE 波次 C——hooks 契约补全
+- fake DOM 补齐导航面（scrollTo/reload/history.state）——滚动管理契约环境
+- 交互完整性波次 2+4 落地——L2 哨兵 + A 类文档腐化清零
+- 验证清单批次 13 完成（132/132 收官）——ToolCallCard→Wave 十二组件固化
+- 验证清单批次 12 完成（120/132）——TabBar→ToggleGroup 十组件增量固化
+- 验证清单批次 11 完成（110/132）——SheetGrid→Switch 十组件增量固化
+- 验证清单批次 10 完成（100/132）——Rate→SessionList 十组件增量固化
+- 验证清单批次 9 完成（90/132）——Pagination→RadioGroup 十组件固化
+- 验证清单批次 8 完成（80/132）——MarkdownEditor→PageHeader 十组件固化
+- 验证清单批次 7 完成（70/132）——JSONViewer→Markdown 十组件固化
+- 验证清单批次 6 完成（60/132）——Grid→InputNumber 十组件固化
+- 验证清单批次 5 完成（50/132）——Dropdown→Form 十组件固化
+- 验证清单批次 4 完成（40/132）——ColorPicker→Drawer 十组件固化
+- 验证清单批次 3 完成（30/132）——Carousel→Collapse 十组件固化
+- 验证清单批次 2 完成（20/132）——AuthPage→Card 十组件固化
+- 验证清单批次 1 完成（10/132）——AppShell 4 + ApprovalCard 4 + AspectRatio 3 固化
+- 验证清单执行——Alert 2 + AlertGroup 2 + Anchor 3 固化
+- 验证清单执行——Accordion 7/7 + ActionSheet 7/7 固化（含 roving focus 组件层修复）
+- W1 走查疑点定审——popstate/query/同URL 三形态 handler 重跑 + 段复用工厂不重跑（mockHits=0 根因锁定）
+- 消费端性能防线契约（e2e-perf）——6000 行卸载 <2s 防 O(N²) 回归
+- AI 工具覆盖审计补全（get_current_time/http_get/workspace handler 缺口清零）
+- 波次 6——冒烟全量描述对齐（审计定论——不造代码）
+- 波次 5——边界契约（键盘 a11y + 必填校验拦截）
+- 波次 4——portal 零残留断言抽样（卸载清理语义）
+- 波次 3——弹窗组合矩阵（position/mask×语义坐标断言）
+- 波次 2——8 组件零覆盖缺口清零（审计红转绿）
+- 覆盖审计哨兵——组件×三层矩阵（波次 1）
+- diff 复用防线——七形态零复现定论（RENDER-HEALTH 波次 2）
+- 组件输出组件（嵌套 async）缺陷登记警示测试——生成端父缺失锁定
+
+## [0.89.0] - 2026-08-31
+
+### Added
+
+- SHARED-TRIE 波次 C+D——性能基线 + API 收紧（四波次收官）
+- SHARED-TRIE 波次 B0——pipeline 路由内核（机制公用、实现不一样）
+- ROUTER-CORE 波次 C——错误路径语义（自愈不可消音）
+- KEYED-COMPONENT-MOVE M3——P 契约升级 + 命令数基线（三波次收官）
+- KEYED-COMPONENT-MOVE M2——物理 move 命令生成（fuzz 驱动修复 Post 自映射误报）
+- KEYED-COMPONENT-MOVE M1——段输出根枚举（单一实现源）
+- VDOM-CORE-EXCELLENCE 波次 F——可观测与回放（六波次收官）
+- VDOM-CORE-EXCELLENCE 波次 D——错误路径与恢复语义（自愈不可消音）
+- VDOM-CORE-EXCELLENCE 波次 B——缺陷模式哨兵（六红线机制化）
+- VDOM-CORE-EXCELLENCE 波次 A——对账防线扩容（捕获+修复 2 内核缺陷）
+- CLIENT-EXCELLENCE-PLAN 波次 F——体积与性能基线（六波次收官）
+- CLIENT-EXCELLENCE-PLAN 波次 D——SSR 一致性收敛
+- CLIENT-EXCELLENCE-PLAN 波次 D/E——API 对齐 + 作者契约沉淀
+- CLIENT-EXCELLENCE-PLAN 波次 C——主题渗透
+- CLIENT-EXCELLENCE-PLAN 波次 B——A11y 体系化
+- CLIENT-EXCELLENCE-PLAN 波次 A——防线补全
+- W6 首 token 超时 + 流式窄范围重试——判负撤销（协议码缺口补齐）
+- SERVER-PERF-PLAN 三波次交付——流式正确性/生产热路径/传输面（四探针+HTTP基准实证驱动）
+- W4 调度来源 tag——sched:request 带 navigate/component-rerender/page-render 归因 + W3 时序源审计判负留档
+- 容器核心——HTTP /exec 执行面（常驻 agent 直连）
+- Go agent 挂载集成——镜像零改动（动态挂载替代烧入）
+- Go agent——sandbox-agent 重写（命令模式/常驻模式双形态）
+- S5 统计聚合 + S6 列表搜索——1000 的产出面与管理面
+- S2 调度助手——3 工具面 + 问卷调度部门/助手 agent（产品入口）
+- S1 调度器——Campaign 批量问卷（总量/并发可配置/水位派单/重试）
+- S0 seed 参数化——1000 人设矩阵供给（命名规约/批建）
+- UX 波次 1——拖拽上传（文件拖入消息区即入列）
+- 通用能力内置——value DOM 脱节修复/auth 韧性/工具会话上下文
+- 观测面——泄漏防线 + 性能基线（波次 5）
+- 高激源限帧——useObservable throttleMs 声明式（波次 4）
+- 数据面流化——derived 派生信号 + asyncErrors$ + 原语信号修复（波次 2）
+- 组合算子面补齐——8 算子纯新增（OBSERVABLE-OPTIMIZE 波次 1）
+- 渲染健康诊断器——三轴仪表 dev 门控（RENDER-HEALTH 波次 1）
+- 中间件值源流视图——store/chat/ws/auth/i18n 同源 Observable（波次 7）
+- 场景层切换 v2——116/116 绿（undefined 属性直通/keyed 重建/R1 熔断/popup 聚焦/unmount 清理）
+- showcase 切换 v2 实证修复——200/200 绿（Affix/Tour/Popover/FileTree/SSR 吸收/观测体系）
+- v2 缺口1/3——uiSsrV2（SSR 完整——v2 引擎 + 两遍/预取/__DATA__）
+- v2 缺口8——router 导航完整（链接拦截/popstate/redirect/整树替换）
+- v2 缺口6——popup 渲染 v2 化（弹窗独立实例引擎切换）
+- v2 缺口5——fuzz 全量（1200 静态 + 300 组件输出——双引擎对账）
+- v2 缺口7——事件/ref 字段验证（EventRegistry 协同）
+- v2 缺口4——ref 生命周期验证（重绑/移除/卸载对称）
+- v2 缺口2——transform 6×6（转换表语义单源——流式适配）
+- v2 阶段2D——段级 hooks 面（createUi 接入段——完整性关键缺口）
+- v2 阶段2C——对账器流视角（双引擎 Sim 终态裁决——切换护栏）
+- v2 destroy$——段级卸载信号（单信号全停——生命周期流化）
+- v2 阶段2B——uiServeV2（真实浏览器——切换前提最终验证）
+- v2 阶段2A——集成（v2 命令流→HTML——SSR 链路等价）
+- v2 阶段1d——调度流（render$ batching——同拍 N→1 + 风暴防护）
+- v2 阶段1c——keyed 列表 merge（diffKeyedV2——顺移/插入/删除/交换/循环移位）
+- v2 阶段1b——对照流（diffV2——流段复用——「复用失败」根治）
+- v2 阶段1——命令流 Observable 化（renderV2——表达层——v1 等价验证）
+- 波次4——SSR 预取器（两遍渲染 + 并行预取 + __DATA__ 种子通道）
+- useObservable + useAsyncData 原语——hooks 基础设施单点化（波次2）
+- 自研 Observable 内核——语义规格先行 + 契约测试锁定（波次1）
+- chat 布局——成员与交付物合并到左栏（用户建议——右栏删除）
+- @ 菜单键盘导航——↑↓ 选择 / Enter 确认 / Esc 关闭
+- 统一镜像全能力——argv CLI 语义 + 能力一致性契约（用户决策）
+- sandbox-agent Wave 2——agent liveness 真实化 + 能力声明注入 AI
+- sandbox-agent——容器 PID1 常驻入口（stop 10s→0.24s 根治）
+- UI 测试基建——共享 server + 快测优化（每文件 spawn → 单实例复用）
+- UI 角色测试 Wave 3——权限矩阵跨页固化（9 测试 + 3 安全修复）
+- UI 角色测试 Wave 2——管理页交互固化（14 测试 + 3 真 bug 修复）
+- Wave 4 框架层并行工具——parallelTools 单 step 多 tool_call 并发（O13-O14）
+- Wave 3 可靠性编排——重试降级 + 任务树 + 审计视图（O9/O11/O12）
+- Wave 2 意图路由——embedding 语义匹配收敛触发（O7-O8）
+- Wave 1 智能编排核心——plan_tasks 并行拆解（O1-O6）
+- E1 轮询补偿——WS 长断线 HTTP 兜底 + merge 重渲染 bug 歼灭
+- E2 5xx 计数可见性——metrics 错误细分 + Settings 服务健康行
+- G2 A2 断线补拉场景测试——+ register 限流可调（429 根因歼灭）
+- G3 server.ts 单体瘦身——统计/报表/埋点路由迁出
+- G4 审计时间范围筛选（ROADMAP C3）——后端+UI+真库测试
+- G1 /api/deliverables 契约测试 9 项——+ 抓出根层大文件漏网
+- UI 测试对齐场景层纪律——playwright + uiServe 真实 server
+- 清理 + 统一命名 + 契约锁定——223→144 类(开发阶段减法)
+
+### Fixed
+
+- ROUTER-CORE 波次 A——mount 展平修复 + Trie 对账 fuzz（fuzz 驱动修复 3 轮 Trie 缺陷）
+- SPA 导航滚动管理——pushState 滚顶 + popstate 恢复离开位置
+- 交互完整性收官——基线清零 + SlideCanvas 受控回流缺陷修复
+- 基线消化轮 2——CitationCard 语义缺陷修复 + demo 交互实例补全 + L2 固化 7 条（基线 14→3）
+- openPopup autoFocus 内核选项——ContextMenu 键盘导航死路修复 + 基线消化 14→8
+- 交互完整性计划落地——ImageCropper 拖拽接线 + B 类死代码清零
+- useChat 协议解析完整性 + approve 同一性（AiChat 验证暴露——核心层×2）
+- NDJSON fixture 断开安全（interval 在 controller closed 后 enqueue → 进程死）+ layout-inventory 豁免登记
+- Affix 验证暴露三连根因——style 移除静默 no-op + observe refresh 断链 + 容器坐标系（核心层×2 + 组件层）
+- EMAIL-FIX-PLAN 三波次交付——SMTP header 注入/TLS 会话中断及时失败/resend 超时
+- GRAPHQL-FIX-PLAN 四波次交付——fragment 深度绕过/执行错误 status/错误面统一/schema 缓存
+- AI-FIX-PLAN 五波次交付——并行工具参数聚合/推理断路/done 一致性/abort 全链路/SSE 心跳
+- 目录排序固定 en collation（中文名组件殿末——A→Z 稳定）+ showcase-plan 决策记录
+- QUEUE-SCHEDULER-FIX-PLAN 五波次交付——并发背压/前缀误删/任务丢失/断连重连/启动韧性
+- 组件优化修复两波次——定时器/key 纪律 + aria 回归/XSS 净化
+- MESSAGER-FIX-PLAN 五波次交付——越权写/事务断裂/并发重复/排序盲区/WS 鉴权
+- USER-SYSTEM-FIX-PLAN 三波次交付——refresh 原子消费/role 恢复 + 时序拉平 + JOIN/密码上限/幂等
+- DB-FIX-PLAN 四波次交付——协议服务器致命 bug + 内存引擎语义漂移根治（V1-V11 实证驱动）
+- W1.4 Templates 迁移 useAsyncData——段复用下数据永不刷新缺陷根治（缓存保留+刷新按钮）
+- W2 401 单飞刷新流化——exhaustMap 替代 G13 快照 hack 堵窗口（并发 401×N 刷新恰 1 次）
+- W1 signal 断链修复——ctx.ui.signal 未接线 requestRender（set 后 DOM 不更新）+ 重渲染落地性契约测试（6 测试锁定）
+- 混合 keyed 列表 unkeyed 项位置身份接管——每轮重建自持循环歼灭
+- tooltip 双重偏移——openPopup 定位后 CSS transform 残留
+- 用户视角全页走查——8 缺陷修复（G12/G13/G14 + BUG-1/2/3 + FK + 静默空数据）
+- admin 租户表分页——200 行截断→20 行/页（切换卡顿 1152ms→60ms）
+- 问卷 campaign 调度四修——历史提交污染根治/严格完成判定/配额槽位回收/SQL 参数
+- stats 页 popstate 重读视角 + 重拉视角 state
+- 路由导航修复——无路由链接默认完整导航 + popstate 带 query
+- 列表页诚实标注——状态提交感知 + 进度 clamp
+- 三页面走查修复——answers 归属/hello 时机/视角过滤/时间本地化
+- 组件外部化链运行时缺导出 + Table 行收缩不删行
+- 问卷统计三修——aggregate 字段/广播全量/clamp
+- S7b 实测五修——历史隔离/配额口径/P1-1 豁免/retry 重统计/提交持久化
+- 常驻 agent 跨请求 env 残留——超时头未设置时 unset
+- 问卷页迁移 v2 面——S7 试点断链根治（S7a）
+- S4 批收尾 + 派单清场纪律（campaign 完成即回收沙盒）
+- /admin 页无 key 组件实槽翻转警告——顶层组件项声明 key
+- 技能工具 _toolDepartmentId 未注入——「无部门上下文」根因修复
+- 刷新后 401 refresh 链未接线——跳登录根因修复
+- 聊天页三 bug 修复（输入残留/流式不滚动/工具型回复消失）
+- 弹窗 position 定位三连修——ContextMenu 左上角根因歼灭
+- 洞→组件转换挂载分离——组件输出 null 锚挂槽位父（tour 违例）
+- /admin 卡住——1292 租户全量渲染（2.4s 同步阻塞）
+- 交付物渲染循环根治——数据未变静默（流式慢/闪烁总根源）
+- 交付物首帧零延迟——聚合 API 数据直供 FilesSection
+- FilesSection 入驻左栏后不渲染——mounting 期 rerender 违例根因
+- chat 输入框打字卡顿——每键双全页 rerender 根治
+- /deliverables「打开」= 下载（曾打开 JSON 响应——体验缺陷）
+- 下载直链安全升级——短时绑定 ticket（30s + path 绑定——替换 access token 拼 URL）
+- 工作区下载/打开直链方案——blob 不可靠根治（用户实证二次故障）
+- sandbox 测试优化 + docker stop 10s→2s（生产回收提速 5 倍）
+- auth 中间件并发竞态——currentUser 模块级共享——有效 token 偶发 401
+- mounting 期间重复引用等待而非违例——/deliverables 空态根因链修复
+- AI 体验 Wave 3——AI 回复前缀规范 + 缓存标注用户友好（P2 打磨）
+- AI 体验 Wave 2——KB 检索单实现源 + 向量质量防线 + 随机向量污染修复
+- AI 体验 Wave 1——工具失败可观 + 缓存毒化修复（P0 三项）
+- search-knowledge-base skill 旧列残留——tenant_id→app_id（知识库检索报错根治）
+- ref=组件 id 前缀回退——chat avatar 错位根治（确定性对称补丁）
+- 全局限流默认调大——429 误伤歼灭（100→2000/分钟）
+- layout tokens 层不包 @layer——PostCSS Unexpected }——style.css 500 根因歼灭
+- ws 心跳看门狗——网络硬断静默挂起根因歼灭（A2 补拉前提）
+- 新 UI 测试连抓 2 真实 bug——Register SSR 崩溃 + AgentDetail 错误态误报
+- api client 非 2xx 保留服务端 {error} 体——错误面不瞎
+- read_csv 工作目录解析——appId → departmentId（工具流程优化）
+- 聊天流式缺失——wsClient 从未 connect（真实 bug）
+
+### Docs
+
+- CLIENT-EXCELLENCE-PLAN——client 第三阶段全面优化计划
+- 组件库交互完整性优化计划——死交互实证驱动
+- onOpen 注释对齐实现（无 href a + role=button——批次 3 实证）
+- COMPONENT-VERIFICATION-CHECKLIST——组件全功能验证清单计划
+- W2 完成记录——单飞刷新 + token$ 判负留档
+- W1 完成记录——signal 断链修复 + 走查疑点定审（mockHits=0 = 段复用）
+- VDOM-STREAM-FIX-PLAN——走查实证缺陷修复 × Observable 优势深化（四类判别总纲）
+- VDOM 性能升级计划归档完成——✅ 状态/提交/验收/判负记录
+- survey-guide 按钮漂移修正——派单入口统一为问卷调研 @全员 / launch API
+- 问卷方案 v3 定稿——规模 100/并发 10（1000 与 20 判负）
+- 问卷机器人方案 v2——试点实测校准（45s 真速推翻预估）
+- 问卷机器人场景完整方案终稿——聊天触发产品形态 + 调度器架构
+- Campaign 架构设计专篇——批量问卷运行器三c 补插（首次提交文档内容不完整——修正）
+- Campaign 架构设计——总量/并发可配置的批量问卷运行器（第一个客户）
+- 1000 规模化专篇——sandbox 管理审计问题清单 + A 档修订波次
+- 10 机器人填问卷场景满足计划——双档方案（AI 真填已有 + 协议模拟新增）
+- UX 计划全部完成——波次 2/3/4 判负记录 + 波次 6 验收锚点
+- UX 计划波次 1 完成标记 + 流式光标判负记录
+- UX 优化计划——6 波次（拖拽上传/流式光标/配置分区/模板预填/onboarding/模块化）
+- 波次 7——COMPONENT-ROBUSTNESS 归档（7/7 波次完成标记）
+- COMPONENT-ROBUSTNESS-PLAN——组件测试补全与健壮性增强（7 波次）
+- OPTIMIZE 归档补全——波次 6 表格勾选 + 头部完成标记（与实际交付对齐）
+- OBSERVABLE-OPTIMIZE 收尾——audit 三检查 + 优势兑现总表（波次 6）
+- 计划归档——VDOM-OBSERVABLE-COMPLETE + RENDER-HEALTH-PLAN 移入 design/
+- 渲染健康章节 + 波次 4/5 定论（RENDER-HEALTH-PLAN 完成）
+- Observable 化收尾——audit 三检查 + 流化维度总表（波次 8/9）
+- 波次6验收——组件作者契约章节 + OBSERVABLE-ARCH 完成标记
+- SANDBOX-AGENT-PLAN 定稿——4 波全完成（entrypoint 可控化 + 统一镜像）
+- SANDBOX-TEST-PLAN 定稿——47.6s→23.7s（-50%）
+- UI-ROLE-TEST-PLAN 定稿——4 波全完成（11 bug 修复固化）
+- AI-EXPERIENCE-PLAN 定稿——3 波全完成（Wave 1-3 成果归档）
+- Agent 智能编排升级计划（第二代）——Planner-Worker + 动态路由
+- OPTIMIZE-PLAN-3 完结标注——G1-G5 全交付 / G6 核查降级
+- OPTIMIZE-PLAN-3 更新——G1-G4+G7 完成态标注（G5/G6 剩余）
+- OPTIMIZE-PLAN-3 第三波计划——测试纪律对齐（189/189）+ 剩余缺口
+
+### Tests
+
+- SHARED-TRIE 波次 A——测试归属归位 + 死代码清理（守护位归位）
+- ROUTER-CORE 波次 D——性能基线登记（防回归）
+- ROUTER-CORE 波次 B——meta 检查全分支 + 405/HEAD/all 语义锁定
+- VDOM-CORE-EXCELLENCE 波次 C——hooks 契约补全
+- fake DOM 补齐导航面（scrollTo/reload/history.state）——滚动管理契约环境
+- 交互完整性波次 2+4 落地——L2 哨兵 + A 类文档腐化清零
+- 验证清单批次 13 完成（132/132 收官）——ToolCallCard→Wave 十二组件固化
+- 验证清单批次 12 完成（120/132）——TabBar→ToggleGroup 十组件增量固化
+- 验证清单批次 11 完成（110/132）——SheetGrid→Switch 十组件增量固化
+- 验证清单批次 10 完成（100/132）——Rate→SessionList 十组件增量固化
+- 验证清单批次 9 完成（90/132）——Pagination→RadioGroup 十组件固化
+- 验证清单批次 8 完成（80/132）——MarkdownEditor→PageHeader 十组件固化
+- 验证清单批次 7 完成（70/132）——JSONViewer→Markdown 十组件固化
+- 验证清单批次 6 完成（60/132）——Grid→InputNumber 十组件固化
+- 验证清单批次 5 完成（50/132）——Dropdown→Form 十组件固化
+- 验证清单批次 4 完成（40/132）——ColorPicker→Drawer 十组件固化
+- 验证清单批次 3 完成（30/132）——Carousel→Collapse 十组件固化
+- 验证清单批次 2 完成（20/132）——AuthPage→Card 十组件固化
+- 验证清单批次 1 完成（10/132）——AppShell 4 + ApprovalCard 4 + AspectRatio 3 固化
+- 验证清单执行——Alert 2 + AlertGroup 2 + Anchor 3 固化
+- 验证清单执行——Accordion 7/7 + ActionSheet 7/7 固化（含 roving focus 组件层修复）
+- W1 走查疑点定审——popstate/query/同URL 三形态 handler 重跑 + 段复用工厂不重跑（mockHits=0 根因锁定）
+- 消费端性能防线契约（e2e-perf）——6000 行卸载 <2s 防 O(N²) 回归
+- AI 工具覆盖审计补全（get_current_time/http_get/workspace handler 缺口清零）
+- 波次 6——冒烟全量描述对齐（审计定论——不造代码）
+- 波次 5——边界契约（键盘 a11y + 必填校验拦截）
+- 波次 4——portal 零残留断言抽样（卸载清理语义）
+- 波次 3——弹窗组合矩阵（position/mask×语义坐标断言）
+- 波次 2——8 组件零覆盖缺口清零（审计红转绿）
+- 覆盖审计哨兵——组件×三层矩阵（波次 1）
+- diff 复用防线——七形态零复现定论（RENDER-HEALTH 波次 2）
+- 组件输出组件（嵌套 async）缺陷登记警示测试——生成端父缺失锁定
+
 ## [0.88.0] - 2026-08-27
 
 ### Added
