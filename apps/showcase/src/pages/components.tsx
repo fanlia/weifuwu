@@ -40,7 +40,7 @@ export const ComponentsIndex: Component = (_init: any, ctx: any) => {
         || c.desc.toLowerCase().includes(kw)
         || (c.family ?? '').toLowerCase().includes(kw)
         || (c.family ? (FAMILIES[c.family]?.name ?? '').toLowerCase().includes(kw) : false))
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
     return (
       <div class="wf-container wf-stack" style="--wf-max:980px;--wf-gap:20px;padding:24px 16px">
         <div class="wf-row wf-justify-between">

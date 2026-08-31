@@ -295,3 +295,20 @@ createRouter(routes, root, { history: false })
 | 迁移出错（style-audit 7 处依赖） | P0 同步改测试断言，全量绿才进 P1 |
 | docs/ 迁移引用断裂 | 渐进按域迁移，每删一个文件同步改引用 + 链接完整性断言 |
 | content/ 与源码双份漂移 | 生成器 + 防漂移测试（AST 对比、路径存在、模板齐全） |
+
+---
+
+## 15. 决策记录——components-only 定稿（2027-XX——SHOWCASE-COMPONENTS-ONLY-PLAN）
+
+> 用户目标：**快速找到组件、快速使用组件**——showcase 只 demo weifuwu components。
+
+| 决策 | 内容 |
+|------|------|
+| 组件即首页 | `/` = 组件目录（全量平铺 A→Z `localeCompare(…, 'en', {sensitivity:'base'})`——中文名殿末）+ 即时搜索（名称/描述/家族）；hero 首页删除 |
+| 路由扁平化 | 详情 `/components/:id`；legacy 三段式 `/components/:id/:legacy` 兜底（Trie 同槽位同名 `:id` 纪律——不同名注册即 param conflict）；分类页（单段/双段）消亡 |
+| layout 域移除 | `/layout` 页 + registry/primitives + 域导航项删除——wf-* 原语文档归 layout 包（showcase 不供养） |
+| 分类层取消 | registry 160 条 `category` 字段歼灭；目录无分组——字母序 + 搜索即全部 |
+| 死表歼灭 | patterns/apps/backend/capabilities/guides/needs/cases/community 七表删除（页面已亡只剩 index.json 空转）；index.json 收缩为 `counts.components` + `components` |
+| 死链歼灭 | FamilyTag 改非链接 span（/guides/* 家族页已不存在） |
+| 404 语义 | 未知组件 id（含旧分类链接）→ NotFound 壳；冷启动无种子 → loading 占位（数据到重渲染） |
+| 验证 | 129 comp-*.test.ts 扁平路径（257 处批改 0 残留）212/212 绿；audit-showcase-dev 扁平化（--cat 删 --ids 留）；audit:semantics 红线过 |
