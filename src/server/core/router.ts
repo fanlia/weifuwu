@@ -9,6 +9,7 @@ import {
 import type { GraphQLHandler } from '../graphql.ts'
 import { createGraphqlRouter } from '../graphql.ts'
 import { createTrie, trieRegister, trieMatch, trieFind, splitPath, type TrieNode } from '../../shared/router/trie.ts'
+import { noteHandlerError, clearHandlerError } from './error-counter.ts'
 
 /**
  * WebSocket room hub — manages pub/sub groups for real-time messaging.
@@ -375,14 +376,29 @@ export class Router<T extends object = Context> {
   // ── Private: Request handling ──────────────────────────────
 
   private async handle(req: Request, ctx: any, segments: string[]): Promise<Response> {
-    const match = this.matchTrie(req.method, segments)
+    // **输入防御（C3——2027-10 探针实证）**：param 段 decodeURIComponent
+    // 对非法编码（%zz）抛 URIError——matchTrie 在链 try 外——裸抛到 serve。
+    // 非法编码 URL 是客户端错误 → 400（非 500——语义准确）
+    let match: ReturnType<typeof this.matchTrie>
+    try { match = this.matchTrie(req.method, segments) }
+    catch (e) {
+      if (e instanceof URIError) {
+        return Response.json({ error: 'Bad Request', reason: 'malformed percent-encoding' }, { status: 400 })
+      }
+      throw e
+    }
     if (match) {
       Object.assign(ctx.params, match.params)
       if (match.kind === 'route') {
         // S6：match.mws 为空（常态）时复用 globalMws 引用——免每请求数组分配
         const mws = match.mws.length === 0 ? this.globalMws : [...this.globalMws, ...match.mws]
-        try { return await this.runChain(mws, match.handler, req, ctx) }
-        catch (e) { return this.handleError(e, req, ctx) }
+        try {
+          const res = await this.runChain(mws, match.handler, req, ctx)
+          // **恢复清出（C1）**：路由正常完成——错误状态清出（再错再报）
+          clearHandlerError(`${req.method} ${'/' + segments.join('/')}`)
+          return res
+        }
+        catch (e) { return this.handleError(e, req, ctx, '/' + segments.join('/')) }
       }
       // 405
       if (this.globalMws.length > 0) {
@@ -405,7 +421,7 @@ export class Router<T extends object = Context> {
     return nf()
   }
 
-  private async handleError(e: unknown, req: Request, ctx: any): Promise<Response> {
+  private async handleError(e: unknown, req: Request, ctx: any, path?: string): Promise<Response> {
     const err = e instanceof Error ? e : new Error(String(e))
     // 自定义 onError 优先（可覆盖一切，含 HttpError）
     if (this.errorHandler) return this.errorHandler(err, req, ctx as T)
@@ -416,8 +432,9 @@ export class Router<T extends object = Context> {
         headers: { 'Content-Type': 'application/json' },
       })
     }
-    // Log unexpected errors so developers can debug
-    console.error(`[router] ${req.method} ${new URL(req.url).pathname}:`, err.stack || err.message || err)
+    // **日志去重（C1——error-counter 思想移植）**：同路由错误只报一次
+    // （风暴不刷日志——恢复清出再报）；path 传入避免二次 new URL
+    noteHandlerError(`${req.method} ${path ?? new URL(req.url).pathname}`, e)
     // 错误形态统一（S9）：500 = JSON { error }——与 response.ts serverError() 助手一致
     return Response.json({ error: 'Internal Server Error' }, { status: 500 })
   }
@@ -462,7 +479,14 @@ export class Router<T extends object = Context> {
    * `server.closeAllConnections()` 对已升级的 WS 连接无效（实证：socket 残留、
    * 客户端 close 事件永不触发）——必须经 `wss.clients` 优雅关闭。
    */
+  private _closed = false
+
   async close(): Promise<void> {
+    // **幂等（C2——2027-10 探针实证：重复 close 重复执行 closeables）**：
+    // 优雅关闭是终态操作——第二次调用 no-op（serve 生命周期 StopPhase
+    // 同语义——双调用无副作用）
+    if (this._closed) return
+    this._closed = true
     if (this._wss && this._wss.clients.size > 0) {
       const clients = [...this._wss.clients]
       for (const client of clients) {

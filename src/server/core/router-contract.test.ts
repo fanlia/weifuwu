@@ -306,3 +306,106 @@ describe('B2: 405 / HEAD / all 语义（探针固化）', () => {
     assert.equal(r.status, 405, '405 语义（非 599）')
   })
 })
+// ── C 波次：错误路径语义（自愈不可消音） ────────────────────────
+
+import { errorSnapshot, resetErrorCounter, clearHandlerError } from './error-counter.ts'
+
+describe('C1: handler 错误去重计数（error-counter 移植）', () => {
+  test('同路由错误风暴去重——100 次同错 1 条日志（C1 探针实证修复）', async () => {
+    resetErrorCounter()
+    let errs = 0
+    const orig = console.error
+    console.error = (..._: any[]) => { errs++ }
+    try {
+      const app = new Router()
+      app.get('/boom', () => { throw new Error('storm') })
+      const h = app.handler() as any
+      for (let i = 0; i < 100; i++) await h(new Request('http://x/boom'), { params: {}, query: {} })
+    } finally { console.error = orig }
+    assert.equal(errs, 1, `去重后日志 1 条（实际 ${errs}——修复前 100 条风暴）`)
+    const snap = errorSnapshot()
+    assert.equal(snap.byRoute['GET /boom'], 100, '计数完整（去重不丢计数）')
+  })
+
+  test('恢复清出——错误后正常请求 → 再错再报（错误状态变化可观测）', async () => {
+    resetErrorCounter()
+    let boom = true
+    const app = new Router()
+    app.get('/flap', () => { if (boom) throw new Error('x'); return new Response('ok') })
+    const h = app.handler() as any
+    await h(new Request('http://x/flap'), { params: {}, query: {} })  // 错 1（报）
+    await h(new Request('http://x/flap'), { params: {}, query: {} })  // 错 2（去重）
+    boom = false
+    await h(new Request('http://x/flap'), { params: {}, query: {} })  // 成功（清出）
+    assert.equal(errorSnapshot().byRoute['GET /flap'], undefined, '恢复清出')
+    boom = true
+    let errs = 0
+    const orig = console.error
+    console.error = () => { errs++ }
+    try { await h(new Request('http://x/flap'), { params: {}, query: {} }) } finally { console.error = orig }
+    assert.equal(errs, 1, '再错再报（清出后重新现形）')
+  })
+
+  test('total 累计 + resetErrorCounter 测试复位', async () => {
+    resetErrorCounter()
+    const app = new Router()
+    app.get('/e1', () => { throw new Error('a') })
+    const h = app.handler() as any
+    await h(new Request('http://x/e1'), { params: {}, query: {} })
+    assert.ok(errorSnapshot().total >= 1)
+    resetErrorCounter()
+    assert.equal(errorSnapshot().total, 0)
+  })
+
+  test('clearHandlerError 显式清出 API（单路由粒度）', async () => {
+    resetErrorCounter()
+    const app = new Router()
+    app.get('/c', () => { throw new Error('c') })
+    await (app.handler() as any)(new Request('http://x/c'), { params: {}, query: {} })
+    clearHandlerError('GET /c')
+    assert.equal(errorSnapshot().byRoute['GET /c'], undefined)
+    resetErrorCounter()
+  })
+})
+
+describe('C2: close/生命周期语义', () => {
+  test('closeables 顺序执行 + 单个失败不阻断（探针固化）', async () => {
+    const order: string[] = []
+    const app = new Router()
+    app.onClose({ close: async () => { order.push('c1') } })
+    app.onClose({ close: async () => { order.push('c2'); throw new Error('fail') } })
+    app.onClose({ close: async () => { order.push('c3') } })
+    await app.close()
+    assert.deepEqual(order, ['c1', 'c2', 'c3'])
+  })
+
+  test('重复 close 幂等（C2 修复——终态操作第二次 no-op）', async () => {
+    const order: string[] = []
+    const app = new Router()
+    app.onClose({ close: async () => { order.push('run') } })
+    await app.close()
+    await app.close()
+    assert.deepEqual(order, ['run'], '重复 close 只执行一次（修复前重复执行）')
+  })
+})
+
+describe('C3: 输入防御', () => {
+  test('param 非法编码 %zz → 400（C3 修复——URIError 裸抛实锤）', async () => {
+    const app = new Router()
+    app.get('/u/:id', (_: Request, ctx: any) => new Response('id=' + ctx.params.id))
+    const r = await (app.handler() as any)(new Request('http://x/u/%zz'), { params: {}, query: {} })
+    assert.equal(r.status, 400, '非法编码 = 客户端错误（修复前 URIError 裸抛）')
+    const body = await r.json() as any
+    assert.equal(body.reason, 'malformed percent-encoding')
+  })
+
+  test('正常编码解码 + 多重编码保留（decode 语义锁）', async () => {
+    const app = new Router()
+    app.get('/u/:id', (_: Request, ctx: any) => new Response('id=' + ctx.params.id))
+    const h = app.handler() as any
+    const r1 = await h(new Request('http://x/u/a%2Fb'), { params: {}, query: {} })
+    assert.equal(await r1.text(), 'id=a/b', '%2F 解码为 /')
+    const r2 = await h(new Request('http://x/u/a%252Fb'), { params: {}, query: {} })
+    assert.equal(await r2.text(), 'id=a%2Fb', '多重编码单次解码（%25 → %）')
+  })
+})
