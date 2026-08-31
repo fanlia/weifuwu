@@ -18,6 +18,21 @@
 >   （实际已提取——注释未更新）
 > - **性能无基线**：fallback 逐 depth O(depth²) 上界未锁；shared 层裸 trie
 >   基线（零 HTTP 噪声）未登记
+>
+> **双端重复面盘点（「前后端都收益」评估——2027-10）**：
+> - **URL→segments 解析**：server handler()/client resolve()/client has()
+>   三处 `new URL + splitPath`——且 **URIError 防御只有 server 有**（C3）
+> - **query 注入**：serve.ts:59 与 client resolve 同式
+>   `Object.fromEntries(url.searchParams)`——真实重复
+> - **params fresh 注入**：client「每次渲染替换不残留旧路由键」（契约
+>   锁定）——server 语义等价（ctx 每请求新建）——实现分散
+> - **判负（不抽——仪式抽象）**：①RouterBase 基类（双端语义不同构：
+>   method 表/405/HEAD/mw/notFound/error-counter——参数化无收益）
+>   ②runChain 共享（client 无中间件链消费）③ctx.route 注入（client
+>   独有消费面——AppLayout/AgentDetail/navigate）
+> - **可共享且双端收益**：`shared/router/context.ts`——parseRequestTarget
+>   （URL→segments + URIError 400 信号——双端统一）/freshParams（防残留
+>   克隆）/parseQuery（searchParams 提取）——B1 载体升级
 
 ---
 
@@ -36,11 +51,18 @@
 
 ## 波次 B：前端防御 + 双端一致性（唯一共享模块的双端契约）
 
-### B1 UIRouter.resolve URIError 防御（server C3 对齐）
-- 探针：`/u/%zz` → URIError 裸抛到渲染层（server 已 400——前端缺）
-- 修复：resolve 捕获 URIError → 400 Response（**对齐 server 语义**——
-  非法编码 URL = 客户端错误）
-- 契约：前端非法编码 400 + 正常/多重编码 decode 锁定
+### B1 shared/context.ts 新模块（**双端接入——前后端都收益**）
+- 新建 `src/shared/router/context.ts`（请求目标解析 + ctx 注入纯函数）：
+  - `parseRequestTarget(req)` → `{ ok, segments, pathname, query }` |
+    `{ ok: false, reason: 'malformed-encoding' | 'invalid-url' }`
+    （**URIError 防御双端统一**——server C3 逻辑迁移至此）
+  - `freshParams(match)` → params 克隆（不残留旧路由键——client 契约语义
+    单一实现源）
+  - `parseQuery(url)` → searchParams 提取（serve.ts:59 与 client 同式收敛）
+- **接入点 4 处**：server handler()（URL 解析 + 400 信号——C3 try-catch
+  简化）/ server serve.ts:59（query）/ client resolve()（解析 + params/
+  query 注入 + **URIError → 400 Response——前端防御修复**）/ client has()
+- 契约：前端非法编码 400 + 正常/多重编码 decode 锁定 + server 400 不回归
 
 ### B2 双端对账契约（GET 匹配共同面）
 - **同 Trie 操作序列**（注册集 + 请求集）→ server Router 消费 vs
@@ -62,9 +84,8 @@
   **验证 server 调用方 isWildcard === path.includes('*') 恒真后删**
   （调用点 2 处更新——纯等价收紧；若发现第三态真实消费——判负保留）
 - D2 公共 API 面锁定：client/vdom/index.ts 过时注释更新
-  （「核心提取——待」→ 已提取）+ shared 导出面契约（TrieNode/
-  createTrie/splitPath/trieFind/trieRegister/trieMatch 六 API——
-  导出清单测试锁定）
+  （「核心提取——待」→ 已提取）+ shared 导出面契约（trie.ts 六 API +
+  context.ts 三 API——导出清单测试锁定）
 
 ---
 
