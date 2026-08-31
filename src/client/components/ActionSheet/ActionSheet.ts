@@ -74,6 +74,11 @@ export const ActionSheet: Component<ActionSheetProps> = (_init, ctx: UIContext) 
         if (next === -1) return
         focusKey = items[next].key
         ctx.render()
+        // **roving focus（menu 语义——验证实测修复 2027-XX）**：方向键必须移动
+        // DOM 焦点（仅更新内部 focusKey 不可观察且被原生「Enter=点击焦点项」
+        // 旁路——焦点项与 focusKey 分裂）——渲染后显式聚焦目标项（跳过 disabled）
+        const target = document.querySelector<HTMLElement>(`[data-actionsheet-key="${focusKey}"]`)
+        target?.focus()
         return
       }
       if (e.key === 'Enter' && focusKey) {
@@ -100,6 +105,7 @@ export const ActionSheet: Component<ActionSheetProps> = (_init, ctx: UIContext) 
         key: item.key,
         type: 'button',
         role: 'menuitem',
+        'data-actionsheet-key': item.key,
         class: [
           'wf-actionsheet-item',
           item.danger ? 'wf-actionsheet-item--danger' : '',

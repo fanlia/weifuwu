@@ -107,15 +107,37 @@ const DemoPagination: Component = (_props, ctx) => {
   )
 }
 
-const DemoAccordion: Component = () => () => (
-  <div class="wf-width-full">
-    <Accordion items={[
-      { key: 'a', title: '什么是 weifuwu？', content: <p class="wf-margin-none">weifuwu 是一个全栈框架，一个包包含后端、前端和布局系统。</p> },
-      { key: 'b', title: '如何安装？', content: <p class="wf-margin-none">运行 <code>npm install weifuwu</code> 即可。</p> },
-      { key: 'c', title: '组件库包含什么？', content: <p class="wf-margin-none">28 个 HTML 原语，覆盖 90% 的 SaaS 页面需求。</p> },
-    ]} />
-  </div>
-)
+const DemoAccordion: Component = (_props: any, ctx: any) => {
+  // 受控示例：active 状态 + onChange 回流（点击 → onChange → 父重渲染 → 展开态同步）
+  let controlled: string[] = ['c1']
+  return () => (
+    <div class="wf-stack wf-gap-lg wf-width-full">
+      <div class="wf-stack wf-gap-xs">
+        <div class="wf-font-xs wf-text-secondary">基础（默认互斥——非受控，默认全展开）</div>
+        <Accordion items={[
+          { key: 'a', title: '什么是 weifuwu？', content: <p class="wf-margin-none">weifuwu 是一个全栈框架，一个包包含后端、前端和布局系统。</p> },
+          { key: 'b', title: '如何安装？', content: <p class="wf-margin-none">运行 <code>npm install weifuwu</code> 即可。</p> },
+          { key: 'c', title: '组件库包含什么？', content: <p class="wf-margin-none">28 个 HTML 原语，覆盖 90% 的 SaaS 页面需求。</p> },
+        ]} />
+      </div>
+      <div class="wf-stack wf-gap-xs">
+        <div class="wf-font-xs wf-text-secondary">多开模式（multiple）+ 禁用项</div>
+        <Accordion multiple items={[
+          { key: 'm1', title: '多开 A', content: <p class="wf-margin-none">多开模式下 A、B 可同时展开。</p> },
+          { key: 'm2', title: '多开 B', content: <p class="wf-margin-none">与 A 互不影响。</p> },
+          { key: 'm3', title: '禁用项（不可展开）', content: <p class="wf-margin-none">不可见。</p>, disabled: true },
+        ]} />
+      </div>
+      <div class="wf-stack wf-gap-xs">
+        <div class="wf-font-xs wf-text-secondary">受控（active + onChange 回流——当前展开: <b class="wf-accordion-controlled-keys">{controlled.join(', ') || '无'}</b>）</div>
+        <Accordion items={[
+          { key: 'c1', title: '受控项一', content: <p class="wf-margin-none">展开态由外部 active 决定。</p> },
+          { key: 'c2', title: '受控项二', content: <p class="wf-margin-none">点击 → onChange → 回流显示。</p> },
+        ]} active={controlled} onChange={(keys: string[]) => { controlled = keys; ctx.render() }} />
+      </div>
+    </div>
+  )
+}
 
 const DemoBreadcrumb: Component = () => () => (
   <div class="wf-width-full">

@@ -177,11 +177,13 @@ export const DemoActionSheet: Component = (_props: any, ctx: any) => {
       <ActionSheet
         open={open}
         title="选择操作"
+        cancelText="算了"
         items={[
           { key: 'camera', label: '拍照', icon: 'camera' },
           { key: 'album', label: '从相册选择', icon: 'image' },
           { key: 'share', label: '分享', icon: 'share' },
           { key: 'delete', label: '删除', icon: 'trash', danger: true },
+          { key: 'locked', label: '不可用操作', icon: 'lock', disabled: true },
         ]}
         onSelect={(k: string) => { last = k; ctx.render() }}
         onClose={() => { open = false; ctx.render() }}

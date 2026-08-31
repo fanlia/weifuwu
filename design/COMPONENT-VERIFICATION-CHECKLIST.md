@@ -51,6 +51,7 @@
 
 | 组件 | 层级 | 问题 | 修复 | 回归 |
 |------|------|------|------|------|
+| ActionSheet | 组件层 | 键盘导航半残：ArrowDown/Up 只更新内部 focusKey 不移动 DOM 焦点；Enter 原生 click 旁路 focusKey——与头部注释宣称的 menu 语义不符 | ActionSheet.ts：roving focus——渲染后显式聚焦目标项（data-actionsheet-key 定位，跳过 disabled） | comp-actionsheet.test.ts FP10（ArrowDown 焦点跟随）+ FP6（Enter 选择焦点项）|
 
 ---
 
@@ -58,24 +59,33 @@
 ### Accordion（Accordion）
 
 > 折叠面板，支持多个 items
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **multiple 布尔行为**：true/false 渲染差异（multiple=true 显式断言）
-- [ ] **items 数据面**：`AccordionItem[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **active 数据面**：`string[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——`.wf-accordion` + 面板结构出现
+- [x] **items 数据面**：key/title/content 渲染——传入 → DOM 呈现
+- [x] **非受控默认全展开**：无 active 时内部态初始为全部 keys（向后兼容行为）
+- [x] **互斥展开（multiple=false 默认）**：点新项 → 旧项收起（activeKeys=[key]）；点已展开项 → 收起
+- [x] **multiple 布尔行为**：true = 多开（activeKeys 累积）；false = 互斥
+- [x] **disabled 项**：item.disabled → button disabled + 点击不切换
+- [x] **active 数据面（受控）**：active !== undefined → 完全受控——展开态跟 active 走
+- [x] **onChange 事件**：受控切换 → onChange 收到 next keys（回流：父重渲染 → 展开态同步）
+- [x] **aria-expanded 同步**：summary 按钮随开合 true/false
+- [x] **键盘导航**：summary 聚焦时 ArrowDown/Right → 下项聚焦；ArrowUp/Left → 上项（循环）
+- [N] **空 items → null**：items=[] 渲染 null（无 DOM 面——[N] 读源确认）
 
 ### ActionSheet（ActionSheet）
 
 > 动作面板——移动端底部滑出（命令列表 + 取消按钮，usePopup 会话级模态）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **open 布尔行为**：true/false 渲染差异（open=true 显式断言）
-- [ ] **items 数据面**：`ActionSheetItem[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **cancelText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onSelect 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onClose 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：title 透传到根元素
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
-
+- [x] **渲染基线**：open=false 时组件渲染 null（无面板）；open=true → portal 面板出现
+- [x] **open 布尔行为**：true → 面板 + overlay；false → presence 退场（动画后 DOM 移除）
+- [x] **items 数据面**：key/label/icon（IconName → Icon 组件）渲染
+- [x] **danger 项**：`wf-actionsheet-item--danger` 语义类 + 红色文字
+- [x] **disabled 项**：button disabled + 点击不触发 onSelect
+- [x] **onSelect 事件 + 自动关闭**：点击项 → onSelect(key) → 面板自动关闭（onClose 链）
+- [x] **onClose 事件（三路）**：overlay 点击 / 取消按钮 / Escape → onClose
+- [x] **cancelText 数据面**：默认「取消」；自定义「算了」
+- [x] **title 数据面**：面板标题元素 + aria-label
+- [x] **键盘导航**：ArrowDown/Up 移动焦点（跳过 disabled）+ Enter 选择
+- [x] **menu 语义**：role=menu + menuitem + role=dialog + aria-modal
+- [x] **会话级模态四件套**：presence 退场 + trapFocus + lockScroll + 定位 none（底部滑出）
 ### Affix（Affix）
 
 > 回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）
