@@ -1,7 +1,19 @@
 # weifuwu — 开发者指南
 
 > 面向 weifuwu **框架开发者/贡献者**：架构约束、编码标准、内部机制。
-> 2026-12 重建——以新内置测试框架实测行为为准（测试反向校准——文档与实现对齐）。
+> 以新内置测试框架实测行为为准（测试反向校准——文档与实现对齐）。
+
+**防线快照（2027-10——v0.89.0）**：
+契约 **427** · 场景 **123** · showcase **320** · server **163** · shared **35** ·
+audit:all **七线** exit 0（semantics/interactivity/vdom/theme/api/bundle/showcase）·
+fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）·
+tsc **0 错**。
+
+**内核资产**：
+- **vdom**（`src/client/vdom/`）——命令流引擎（13 命令 NDJSON 自足）+ 三实体状态机 + 双树对账器 + fuzz 生成器 + render-health 四轴仪表
+- **shared/router**（`src/shared/router/`）——**前后端唯一共享模块五层单源**（trie/pipeline/context/chain/ctx-fields——见 §2b'）
+- **server/core**（`src/server/core/`）——Router（自研 Trie）/serve/WS hub + 错误去重计数
+- 计划文档（design/）：VDOM-CORE-EXCELLENCE-PLAN · ROUTER-CORE-EXCELLENCE-PLAN · SHARED-TRIE-EXCELLENCE-PLAN · CLIENT-EXCELLENCE-PLAN（全部收官归档）
 
 ---
 
@@ -553,4 +565,41 @@ onClick={async () => { const r = await ctx.api!.post(...); ...; ctx.render() }}
 - 修复后立即写契约测试（命令流断言——如 keyed 移除 portal → removePortal）
 - 场景测试锁定 DOM 行为（如 Menubar Escape 后 panel 移除）
 - 两层都绿才提交
+
+---
+
+## 4. 质量方法论（五阶段——2027-10 四计划实践结晶正式化）
+
+> 从 CLIENT-EXCELLENCE → VDOM-CORE-EXCELLENCE → ROUTER-CORE-EXCELLENCE →
+> SHARED-TRIE-EXCELLENCE 四计划（21 波次）反复验证的工作循环。
+
+### 4.1 探针实证先于计划
+- 制定计划前先写**一次性探针脚本**（/tmp/*.ts——不复用不提交）读数现状
+- **缺口重定位常见**：登记的缺口探针后可能已解决（keepSegments 实证——
+  「状态丢失」实为「输出重建」）、可能比想象严重（P3 mount 通配丢失）
+- 探针读数是基线锚点（性能防线以探针为锚、2x 容差）
+
+### 4.2 波次推进（每波次独立可验收）
+- 波次内闭环：实现 → 契约 → 回归门 → commit（不跨波次欠账）
+- **回归门先行**：fuzz/契约防线建在重构之前（对账器保护下才动手术）
+- 每波次产出可回退——不等价立即回退安全网路径（判负记录）
+
+### 4.3 fuzz/对账防线（演绎保证——错必被抓）
+- **对账器**：参考世界（build new）vs 模拟世界（build old + diff）终态等价——
+  路由域同构（线性扫描参考模型 vs Trie 匹配）
+- **fuzz 生成器纪律**：多种子（≥5）× 大样本（≥200 对）——**抓到不等价 =
+  人工甄别**（模型 bug 或实现 bug——都修单源）
+- **fuzz 驱动修复实证**：Trie 回溯缺失×2/want 参数丢失/move Post 自映射
+  误报——全部 fuzz 首捕
+
+### 4.4 判负文化（不可用的检查不建）
+- 启发式误报 >30% 判负（A3 props 消费 90%+——E1 矩阵替代）
+- 重构收益不明判负（E3 语义重构——fuzz 无新捕获不动）
+- 类继承式抽象判负（RouterBase——强制 API 同构丢富面——pipeline 钩子化
+  正解）；**判负可被新论证推翻**（机制级共享 ≠ 类继承——两层区分）
+- 判负必须登记：为什么/替代方案/推翻条件
+
+### 4.5 全量回归门（批次末）
+- 契约 + 场景 + showcase + server + shared 五域全绿 + audit:all 七线
+- **任何红 = 不 commit**（沙盒修完再进）
 
