@@ -65,7 +65,7 @@ L3 声明对账面   注释/文档/demo 文案/props vs 实际接线   ← 零�
 
 ## 3. 优化方案（四波次）
 
-### 波次 1：静态对账审计机制化（`scripts/audit-interactivity.mjs`）
+### 波次 1：静态对账审计机制化（`scripts/audit-interactivity.mjs`）——✅ 已落地（2027-09：npm run audit:interactivity——B 类红线 exit 1 / A 类 warn 档 34 条待波次 4）
 
 把本次启发式扫描升级为正式审计（CI 可挂）：
 - **检查 1 死变量**：`let x` 声明后全文引用 = 1 → 报（白名单登记制）
@@ -96,7 +96,7 @@ L3 声明对账面   注释/文档/demo 文案/props vs 实际接线   ← 零�
 
 ### 波次 3：B 类缺口修复（从甄别结论长出——逐个带测试）
 
-1. **ImageCropper 拖拽接线**（首例——用户主路径）：
+1. **ImageCropper 拖拽接线**（首例——用户主路径）——✅ 已落地（2027-09：pointer 三事件 + setPointerCapture + L2 测试 4/4 绿——拖框移动像素变化/角柄等比 828x621 保持 4:3/重置回位）：
    - canvas pointer 事件绑定（pointerdown 判定命中区：框内 = move /
      右下柄 = se → pointermove 更新 box → draw()）
    - 复用既有 `move()/resize()` 死函数（clamp/aspect 逻辑已写好——只差接线）
@@ -106,7 +106,7 @@ L3 声明对账面   注释/文档/demo 文案/props vs 实际接线   ← 零�
      角柄缩放后 `box.w/h` 比例保持
 2. **Editor aiPanel/parseDom**：甄别（git 历史 + demo 触达）——半成品
    补全或删除（不许死代码留壳）
-3. **Command stableRef**：删除或接线（甄别后定）
+3. **Command stableRef**——✅ 已删（no-op ref 残留——Ctrl+K 回归绿）
 4. **StatCard reduced-motion**：接 useReducedMotion（可访问性红线——
    design/micro-interactions.md 若有对应规范则对齐）
 5. 修复纪律：AGENTS §3 归类 + 每修复带 L2 断言测试（回到哨兵矩阵）

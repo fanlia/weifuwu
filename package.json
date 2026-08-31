@@ -51,7 +51,8 @@
     "audit:all": "npm run audit:semantics && npm run audit:showcase",
     "bench:server": "node bench/server-bench.ts",
     "bench:db": "node bench/db-bench.ts",
-    "test:contract-components": "node --env-file=.env --test 'src/client/components/**/*.test.ts'"
+    "test:contract-components": "node --env-file=.env --test 'src/client/components/**/*.test.ts'",
+    "audit:interactivity": "node scripts/audit-interactivity.mjs"
   },
   "dependencies": {
     "esbuild": "^0.28.1",

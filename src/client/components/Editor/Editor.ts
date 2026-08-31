@@ -56,11 +56,13 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   const editorRef = (el: HTMLElement | null) => {
     if (el) {
       editorEl = el
-      doc = parseHtml(el.innerHTML)
+      parseDom()
     }
   }
 
   // ── 模型 ↔ DOM ────────────────────────────────────────
+  // **单一实现源（2027-09 死代码审计修复）**：editorRef 曾内联同逻辑——
+  // parseDom 沦为死函数——收敛到 parseDom 单点（ref 与同步共用）。
   const parseDom = () => {
     if (!editorEl) return
     doc = parseHtml(editorEl.innerHTML)
@@ -909,7 +911,6 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       label: editorText(`ai-${a.id}`, a.label),
     }))
     let aiButtons: VNode | null = null
-    let aiPanel: VNode | null = null
     let historyBtn: VNode | null = null
 
     /** AI diff 视图：原文删除线 + 建议高亮（model/diff.ts——零依赖） */

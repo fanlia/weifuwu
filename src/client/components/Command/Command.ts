@@ -49,7 +49,6 @@ export const Command: Component<CommandProps> = (_init, ctx) => {
     }
   })
 
-  const stableRef = (el: HTMLElement | null) => { void el }
   // 命令式弹窗（唯一形态 openPopup）：mask 全屏遮罩（§5.4 统一——全屏模态）——
   // 受控 open/onOpenChange；Escape/遮罩点击关闭内核内置
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */

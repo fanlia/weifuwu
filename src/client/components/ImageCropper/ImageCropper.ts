@@ -2,8 +2,12 @@
  * ImageCropper — 图片裁剪（canvas 原生 API + 拖拽裁剪框，零依赖）
  *
  * 用法：<ImageCropper src={url} aspect={1} onCrop={dataUrl => ...} />
- * 实现：图片绘制到 canvas → 裁剪框（useDrag 拖动/缩放）→ onCrop 输出 dataURL。
- * 纪律：canvas 浏览器 API 经 ctx.browser（SSR 无害——null 检查）。
+ * 实现：图片绘制到 canvas → 裁剪框（pointer 事件拖动/右下柄等比缩放）→
+ * onCrop 输出 dataURL。
+ * 纪律：canvas 浏览器 API 经 ctx.browser（SSR 无害——null 检查）；
+ * 拖拽重绘直调 draw()（canvas 内部状态——非渲染路径，不走 ctx.render——
+ * 避免 vdom 全量 diff——2027-09 死交互实证修复：dragging/move/resize
+ * 曾为死代码——注释声称 useDrag 但从未接线）。
  */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
@@ -25,6 +29,7 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
   let viewW = 320
   let viewH = 240
   let dragging: 'move' | 'se' | null = null
+  let last = { x: 0, y: 0 } // 上一 pointer 位置（逻辑坐标）
 
   const loadImage = () => {
     const browser = ctx.browser ?? createClientBrowser()
@@ -97,6 +102,36 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
       draw()
     }
 
+    // 拖拽接线（2027-09 死交互修复）：pointerdown 命中判定（框内 = move /
+    // 右下柄 = se）→ setPointerCapture 拖出 canvas 仍持续 → move/resize + draw。
+    // 坐标映射：canvas 有 maxWidth:100% 缩放——逻辑坐标 = (client - rect) × (逻辑/显示)。
+    const pointerPos = (e: PointerEvent) => {
+      const r = canvasEl!.getBoundingClientRect()
+      return { x: (e.clientX - r.left) * (canvasEl!.width / r.width), y: (e.clientY - r.top) * (canvasEl!.height / r.height) }
+    }
+    const onPointerDown = (e: PointerEvent) => {
+      if (!canvasEl) return
+      const p = pointerPos(e)
+      const handleHit = p.x >= box.x + box.w - 8 && p.y >= box.y + box.h - 8
+      const inBox = p.x >= box.x && p.x <= box.x + box.w && p.y >= box.y && p.y <= box.y + box.h
+      if (!handleHit && !inBox) return
+      dragging = handleHit ? 'se' : 'move'
+      last = p
+      canvasEl.setPointerCapture(e.pointerId)
+      canvasEl.style.cursor = handleHit ? 'nwse-resize' : 'move'
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging || !canvasEl) return
+      const p = pointerPos(e)
+      if (dragging === 'move') move(p.x - last.x, p.y - last.y)
+      else resize(p.x - last.x, p.y - last.y)
+      last = p
+    }
+    const onPointerUp = () => {
+      dragging = null
+      if (canvasEl) canvasEl.style.cursor = 'crosshair'
+    }
+
     const wrapRef = (el: HTMLElement | null) => {
       if (el && !canvasEl) {
         canvasEl = el.querySelector('canvas')
@@ -106,7 +141,8 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
 
     return h('div', { class: `wf-imagecropper wf-stack wf-gap-sm${className ? ` ${className}` : ''}` }, [
       h('div', { ref: wrapRef, style: { position: 'relative', display: 'inline-block', cursor: 'crosshair' } }, [
-        h('canvas', { width: 320, height: 240, style: { maxWidth: '100%', borderRadius: 'var(--wf-radius-sm)', display: 'block' } }),
+        h('canvas', { width: 320, height: 240, style: { maxWidth: '100%', borderRadius: 'var(--wf-radius-sm)', display: 'block' },
+          onPointerDown, onPointerMove, onPointerUp }),
       ]),
       h('div', { class: 'wf-row wf-gap-xs' },
         h('button', { type: 'button', class: 'wf-btn wf-btn--sm wf-btn--primary', disabled: !img,

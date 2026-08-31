@@ -116,7 +116,7 @@ export const DemoCodeEditor: Component = (_props, ctx) => {
 export const DemoImageCropper: Component = (_props: any) => (_p: any) => (
   <div class="wf-width-full wf-stack wf-gap-xs">
     <div class="wf-font-xs wf-text-secondary">图片裁剪——canvas 原生 + 裁剪框（示例图用占位数据）</div>
-    <ImageCropper src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMzYwIj48cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgZmlsbD0iI2UyZThmMCIvPjxjaXJjbGUgY3g9IjI0MCIgY3k9IjE4MCIgcj0iMTIwIiBmaWxsPSIjMjU2M2ViIi8+PC9zdmc+" aspect={4/3} onCrop={(dataUrl: string) => console.log('[crop]', dataUrl.slice(0, 30))} />
+    <ImageCropper src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMzYwIj48cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgZmlsbD0iI2UyZThmMCIvPjxjaXJjbGUgY3g9IjI0MCIgY3k9IjE4MCIgcj0iMTIwIiBmaWxsPSIjMjU2M2ViIi8+PC9zdmc+" aspect={4/3} onCrop={(dataUrl: string) => { (window as any).__lastCrop = dataUrl; console.log('[crop]', dataUrl.slice(0, 30)) }} />
   </div>
 )
 
