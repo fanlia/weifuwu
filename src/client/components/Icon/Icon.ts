@@ -138,5 +138,15 @@ export const Icon: Component<IconProps> = (_init, _ctx) =>
       'stroke-linejoin': 'round',
       'aria-hidden': 'true',
       focusable: 'false',
-    }, PATHS[name].map(d => h('path', { d })))
+    }, (PATHS[name] ?? (() => {
+      // **未知 name 防御（2027-10 交互完整性计划 A4）**：原 `PATHS[name].map`
+      // 未知名直接崩 renderFn（组件级 hole 降级——重试自愈循环刷错误日志——
+      // statcard demo 无效图标名实证）。dev warn 一次 + fallback 圆点（生产
+      // 静默不崩——调用方仍可见「图标缺失」视觉信号）。
+      if ((globalThis as any).__WF_DEV__ && (globalThis as any).__iconWarned !== name) {
+        ;(globalThis as any).__iconWarned = name
+        console.warn(`[Icon] 未知图标名「${name}」——渲染占位圆点（PATHS 未登记——检查 name 拼写或登记新图标）`)
+      }
+      return ['M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0']
+    })()).map(d => h('path', { d })))
   }

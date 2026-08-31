@@ -68,7 +68,6 @@ for (const f of findings) {
 }
 const fatalCount = findings.reduce((n, f) => n + f.fatal.length, 0)
 const warnCount = findings.reduce((n, f) => n + f.warn.length, 0)
-console.log(`\nB 类（死代码）: ${fatalCount}  |  A 类（文档腐化）: ${warnCount}`)
 
 // ── 检查 4：交互面测试对账（波次 2——L2 断言哨兵） ─────────────────────
 // 分类判定（源码静态特征——收窄避免误报）× 测试特征（showcase comp-* +
@@ -115,12 +114,35 @@ let baseline = _ex(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')
 const key = (g) => `${g.slug}:${g.tag}`
 const baselineSet = new Set(baseline.map(key))
 const newGaps = interGaps.filter((g) => !baselineSet.has(key(g)))
-console.log(`交互面 L2 对账：分类命中缺口 ${interGaps.length}（基线登记 ${baseline.length} / 新增 ${newGaps.length}）`)
+// 检查 5：受控回流门控审计（M2 模式——CLIENT-EXCELLENCE-PLAN A2）
+// 引用比较受控回流（props.X !== lastX）若无 live 门控（!drag/dirty/editing），
+// 调用方每次 render 传新字面量会重置内部 live 状态（SlideCanvas 拖拽死实证）。
+const rcHits = []
+for (const dir of readdirSync(ROOT)) {
+  if (!statSync(join(ROOT, dir)).isDirectory()) continue
+  const files = readdirSync(join(ROOT, dir)).filter((f) => f.endsWith('.ts') && !f.includes('.test.'))
+  for (const f of files) {
+    const lines = readFileSync(join(ROOT, dir, f), 'utf8').split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/props\.(\w+) !== last(\w+)/)
+      if (!m) continue
+      // 门控判定：同行或前一行含 live 门控关键词（!drag/dirty/editing/pending != null 类）
+      const ctx = (lines[i - 1] ?? '') + lines[i]
+      const gated = /!drag|dirty|editing|!= null|!= null|\bnullable\b/.test(ctx)
+      rcHits.push({ comp: `${dir}/${f}:${i + 1}`, line: lines[i].trim().slice(0, 60), gated })
+    }
+  }
+}
+console.log(`受控回流门控（M2）：命中 ${rcHits.length} 处`)
+for (const h of rcHits) console.log(`  ${h.gated ? '✔' : '✖'}【${h.comp}】${h.line}${h.gated ? '' : ' —— 无 live 门控（props 字面量重置风险）'}`)
+const ungated = rcHits.filter((h) => !h.gated).length
+console.log(`\nB 类（死代码）: ${fatalCount}  |  A 类（文档腐化）: ${warnCount}  |  受控回流未门控: ${ungated}`)
 for (const g of interGaps) console.log(`  ${baselineSet.has(key(g)) ? '📋' : '✖'}【${g.slug}】${g.tag}类——测试无「操作→状态变化」断言`)
 
-if (fatalCount > 0 || newGaps.length > 0) {
+if (fatalCount > 0 || newGaps.length > 0 || ungated > 0) {
   if (fatalCount > 0) console.log('✖ B 类红线：死代码 = 写了一半没接完的交互——修复或删除（audit-exempt 登记豁免）')
   if (newGaps.length > 0) console.log('✖ 交互面新增缺口：先补 L2 测试或登记基线（interactivity-baseline.json——只能缩小）')
+  if (ungated > 0) console.log('✖ 受控回流未门控：调用方传字面量会重置 live 状态（SlideCanvas 拖拽死实证）——加门控或豁免')
   process.exit(1)
 }
 console.log('✔ B 类清零 + 交互面无新增缺口（A 类 warn 档——波次 4 清理后归零）')

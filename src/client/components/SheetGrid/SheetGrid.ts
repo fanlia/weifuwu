@@ -188,8 +188,10 @@ export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
 
   // ── 渲染 ──
   return (props: SheetGridProps) => {
-    if (props.workbook !== lastPropsWb) {
-      // 外部受控同步（内部 commit 后 props 未变——不覆盖）
+    // **受控回流门控（CLIENT-EXCELLENCE-PLAN A2——SlideCanvas 模式防御）**：
+    // 仅当外部显式传入受控 workbook 时才回流（undefined/字面量重置会吞
+    // live 编辑状态——受控纪律：非受控消费不参与回流比较）。
+    if (props.workbook != null && props.workbook !== lastPropsWb) {
       lastPropsWb = props.workbook
       wb = props.workbook
     }

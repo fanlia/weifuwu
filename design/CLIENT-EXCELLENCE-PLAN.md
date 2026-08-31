@@ -43,11 +43,14 @@
 - 已知清单（初步）：SlideCanvas ✅ 已修；InputNumber/Editor（undo 受控）/
   TagsInput/JsonSchemaForm 待扫
 
-### A3 props 声明未消费 warn → 分类清零
+### A3 props 声明未消费——**判负调整（2027-10）**
 
-- 现状 warn 档（波次 4 遗留）——逐条甄别：透传场景（rest 模式）登记
-  audit-exempt；真缺口补实现或删声明（Badge rest 教训）
-- 验收：A 类 warn 归零（全部消费或豁免）
+- 启发式（正则检测 interface 字段 vs 消费形态）实测误报率 90%+
+  （多行解构/透传/rest/间接消费形态漏检——122/134 组件误报——不可用）
+- TS 编译器 API 精确实现成本与收益不匹配
+- **替代**：未消费 props 由 ①E1 接口→demo 覆盖矩阵（demo 不传+实现不读
+  = 功能验证时暴露）②132 组件实测（props 面已全量走过）双保险兜底
+- Badge rest 类缺陷的历史教训已在验证阶段清偿
 
 ### A4 Icon 未知 name 防御（内核组件健壮性）
 
@@ -127,7 +130,6 @@ SSR adopt 竞态历史（文本分裂/hasSsrMark）已修但同类面无哨兵�
 ## 8. 验收判据（红线）
 
 1. audit-interactivity：B 类 0 / A 类 0 / L2 缺口 0 / **A2 门控缺口 0**
-   / **A3 props 未消费 0**
 2. Icon 防御契约：未知 name warn 一次 + 渲染不崩
 3. A11y：B1 矩阵零缺口（或登记）+ B3 四大浮层 Tab 序断言绿
 4. 主题：C1 三分类清单落 design-variables + C2 暗色双跑零黑斑
