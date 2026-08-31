@@ -1,5 +1,15 @@
 # ROUTER-CORE-EXCELLENCE-PLAN——后端内核（Router）全面优化（2027-10）
 
+> **✅ 五波次全收官（2027-10）**：A `b4c5fdb5`（mount 展平双修 + Trie 对账
+> fuzz——fuzz 驱动修复 3 轮 Trie 缺陷：精确匹配不回溯/fallback 同病/want
+> 丢失）· B `ad79f218`（route 级 meta 检查一致性 + HEAD fallback mw 联动）
+> · C `66775c86`（error-counter 移植——错误风暴去重/close 幂等/param 编码
+> 400 语义）· D `92084f5c`（性能基线登记）· E（结构治理——纯移动拆解
+> collect/chain/hub 三模块）
+> 实证收益：2 个静默数据丢失级 bug（mount 通配丢失/Trie 精确回溯缺失）
+> 波次内捕获修复；router.ts 563→429 行 + 零耦合模块 3 个
+> 终态防线：server 163/163 · 契约+场景 123 · showcase 320 全绿
+
 > **定位**：vdom 是前端核心，Router 是后端核心——对齐
 > VDOM-CORE-EXCELLENCE 方法论（探针实证 → 波次推进 → fuzz/对账防线 →
 > 判负文化 → 全量回归门）。

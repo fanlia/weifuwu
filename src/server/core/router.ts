@@ -9,6 +9,9 @@ import {
 import type { GraphQLHandler } from '../graphql.ts'
 import { createGraphqlRouter } from '../graphql.ts'
 import { createTrie, trieRegister, trieMatch, trieFind, splitPath, type TrieNode } from '../../shared/router/trie.ts'
+import { collectAll, collectAllWs, collectRoutes, collectWsRoutes, type RouteValue, type WsValue } from './collect.ts'
+import { runChain } from './chain.ts'
+import { createInMemoryHub } from './hub.ts'
 import { noteHandlerError, clearHandlerError } from './error-counter.ts'
 
 /**
@@ -23,16 +26,7 @@ import { noteHandlerError, clearHandlerError } from './error-counter.ts'
 export type { Hub } from './ws.ts'
 
 // ── Trie 负载（method 表——精确与通配同构——shared Trie 泛型 value） ──
-
-type RouteValue = {
-  handlers: Map<string, Handler>
-  middlewares: Map<string, Middleware[]>
-}
-
-type WsValue = {
-  handler: WebSocketHandler
-  middlewares: Middleware[]
-}
+// RouteValue/WsValue 类型与 collect 纯函数在 collect.ts（E 波次拆解）
 
 const createRouteValue = (): RouteValue => ({
   handlers: new Map(),
@@ -59,7 +53,7 @@ export class Router<T extends object = Context> {
 
   private get hub(): Hub {
     if (!this._hub) this._hub = createInMemoryHub()
-    return this._hub
+    return this._hub as Hub
   }
 
   wsHub(hub: Hub): this { this._hub = hub; return this }
@@ -176,8 +170,8 @@ export class Router<T extends object = Context> {
   routes(): string[] {
     const result: string[] = []
     if (this.globalMws.length > 0) result.push(`MIDDLEWARE  [${this.globalMws.length} global]`)
-    this._collectRoutes(this.root, '', result)
-    this._collectWsRoutes(this.wsRoot, '', result)
+    collectRoutes(this.root, '', result)
+    collectWsRoutes(this.wsRoot, '', result)
     return result
   }
 
@@ -239,12 +233,12 @@ export class Router<T extends object = Context> {
       this._checkMiddlewareMeta(mw, `mount:${prefix}`)
     }
 
-    const routes = this._collectAll(sub.root)
+    const routes = collectAll(sub.root)
     for (const { method, path, handler, middlewares } of routes) {
       this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler])
     }
 
-    const wsRoutes = this._collectAllWs(sub.wsRoot)
+    const wsRoutes = collectAllWs(sub.wsRoot)
     for (const { path, handler, middlewares } of wsRoutes) {
       this.ws(base + path, ...allExtra as any[], ...middlewares, handler)
     }
@@ -252,75 +246,7 @@ export class Router<T extends object = Context> {
 
   // ── Private: Mount collect（新结构——node.value 负载） ──
 
-  private _collectAll(node: TrieNode<RouteValue>, prefix = ''): Array<{
-    method: string; path: string; handler: Handler; middlewares: Middleware[]
-  }> {
-    const out: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
-    // 精确 value（path = prefix 无条件——node.wildcard 只表示该节点存在通配
-    // 子槽，不改变精确注册自身的路径）
-    for (const [method, handler] of node.value?.handlers ?? []) {
-      const rmws = node.value?.middlewares.get(method) || []
-      out.push({ method, path: prefix || '/', handler, middlewares: [...rmws] })
-    }
-    // **通配 value 收集（ROUTER-CORE A1——2027-10 P3 实证修复）**：
-    // `sub.get('/files/*')` 注册在 files 节点的 wildcardValue 槽（`*` 段
-    // 不建子节点）——展平只查 node.value 时静默丢失（mount 后 404）——
-    // 展平 path = prefix + '/*'（trieRegister('*', wildcardValue) 逆变换）
-    const wv = node.wildcardValue
-    if (wv) {
-      for (const [method, handler] of wv.handlers) {
-        const rmws = wv.middlewares.get(method) || []
-        out.push({ method, path: (prefix || '/') + '/*', handler, middlewares: [...rmws] })
-      }
-    }
-    for (const [seg, child] of node.children) {
-      out.push(...this._collectAll(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg)))
-    }
-    return out
-  }
-
-  private _collectAllWs(node: TrieNode<WsValue>, prefix = ''): Array<{
-    path: string; handler: WebSocketHandler; middlewares: Middleware[]
-  }> {
-    const out: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
-    if (node.value?.handler) out.push({ path: prefix || '/', handler: node.value.handler, middlewares: [...node.value.middlewares] })
-    // 通配 value 收集（A1——与 _collectAll 同根因——ws 通配路由 mount 丢失）
-    if (node.wildcardValue?.handler) {
-      out.push({ path: (prefix || '/') + '/*', handler: node.wildcardValue.handler, middlewares: [...node.wildcardValue.middlewares] })
-    }
-    for (const [seg, child] of node.children) {
-      out.push(...this._collectAllWs(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg)))
-    }
-    return out
-  }
-
   // ── Private: Matching ──────────────────────────────────────
-
-  private _collectRoutes(node: TrieNode<RouteValue>, prefix: string, result: string[]): void {
-    for (const [method] of node.value?.handlers ?? []) {
-      const m = method === '*' ? 'ANY' : method
-      const path = (prefix || '/') + (node.wildcard ? '/*' : '')
-      const middlewares = node.value?.middlewares.get(method)
-      const mwCount = middlewares ? ` (+${middlewares.length} mw)` : ''
-      result.push(`${m.padEnd(7)} ${path}${mwCount}`)
-    }
-    for (const [seg, child] of node.children) {
-      const segment = seg === ':' ? `:${child.param}` : seg
-      this._collectRoutes(child, prefix + '/' + segment, result)
-    }
-  }
-
-  private _collectWsRoutes(node: TrieNode<WsValue>, prefix: string, result: string[]): void {
-    if (node.value?.handler) {
-      const path = prefix || '/'
-      const mwCount = node.value.middlewares.length ? ` (+${node.value.middlewares.length} mw)` : ''
-      result.push(`WS       ${path}${mwCount}`)
-    }
-    for (const [seg, child] of node.children) {
-      const segment = seg === ':' ? `:${child.param}` : seg
-      this._collectWsRoutes(child, prefix + '/' + segment, result)
-    }
-  }
 
   private matchTrie(method: string, segments: string[]): {
     kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
@@ -393,7 +319,7 @@ export class Router<T extends object = Context> {
         // S6：match.mws 为空（常态）时复用 globalMws 引用——免每请求数组分配
         const mws = match.mws.length === 0 ? this.globalMws : [...this.globalMws, ...match.mws]
         try {
-          const res = await this.runChain(mws, match.handler, req, ctx)
+          const res = await runChain(mws, match.handler, req, ctx)
           // **恢复清出（C1）**：路由正常完成——错误状态清出（再错再报）
           clearHandlerError(`${req.method} ${'/' + segments.join('/')}`)
           return res
@@ -403,7 +329,7 @@ export class Router<T extends object = Context> {
       // 405
       if (this.globalMws.length > 0) {
         try {
-          return await this.runChain(this.globalMws, () => new Response('Method Not Allowed', {
+          return await runChain(this.globalMws, () => new Response('Method Not Allowed', {
             status: 405,
             headers: { Allow: (match.methods || []).join(', ') },
           }), req, ctx)
@@ -415,7 +341,7 @@ export class Router<T extends object = Context> {
     // 404
     const nf = () => Response.json({ error: 'Not Found', path: '/' + segments.join('/'), method: req.method }, { status: 404 })
     if (this.globalMws.length > 0) {
-      try { return await this.runChain(this.globalMws, nf, req, ctx) }
+      try { return await runChain(this.globalMws, nf, req, ctx) }
       catch (e) { return this.handleError(e, req, ctx) }
     }
     return nf()
@@ -439,26 +365,6 @@ export class Router<T extends object = Context> {
     return Response.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 
-  // ── Private: Middleware chain ───────────────────────────────
-
-  private async runChain(
-    mws: Middleware[], finalHandler: Handler, req: Request, ctx: any,
-  ): Promise<Response> {
-    if (mws.length === 0) return finalHandler(req, ctx)
-    let i = 0
-    const dispatch: Handler = (r, c) => {
-      if (i >= mws.length) return Promise.resolve(finalHandler(r, c))
-      const mw = mws[i++]
-      let called = false
-      const next: Handler = (r2, c2) => {
-        if (called) throw new Error('[router] next() called more than once in middleware')
-        called = true
-        return dispatch(r2, c2)
-      }
-      return Promise.resolve(mw(r, c, next as Parameters<typeof mw>[2]))
-    }
-    return dispatch(req, ctx)
-  }
 
   // ── Private: Meta checking ──────────────────────────────────
 
@@ -519,45 +425,5 @@ export class Router<T extends object = Context> {
       }
     }
     for (const field of meta.injects) this._ctxFields.add(field)
-  }
-}
-
-/**
- * 创建内存 Hub — WebSocket 房间的简单发布/订阅实现。
- * 每个房间是一个字符串 key，WebSocket 通过 `join`/`leave` 管理订阅。
- */
-function createInMemoryHub(): Hub {
-  const rooms = new Map<string, Set<WebSocket>>()
-  const wsRooms = new Map<WebSocket, Set<string>>()
-
-  return {
-    join(key: string, ws: WebSocket) {
-      let members = rooms.get(key)
-      if (!members) { members = new Set(); rooms.set(key, members) }
-      members.add(ws)
-      let keys = wsRooms.get(ws)
-      if (!keys) { keys = new Set(); wsRooms.set(ws, keys) }
-      keys.add(key)
-    },
-    leave(ws: WebSocket) {
-      const keys = wsRooms.get(ws)
-      if (!keys) return
-      for (const key of keys) {
-        const members = rooms.get(key)
-        if (members) { members.delete(ws); if (members.size === 0) rooms.delete(key) }
-      }
-      wsRooms.delete(ws)
-    },
-    send(key: string, message: string) {
-      const members = rooms.get(key)
-      if (!members) return
-      for (const ws of members) {
-        try { ws.send(message) } catch { /* ignore disconnected */ }
-      }
-    },
-    async close() {
-      rooms.clear()
-      wsRooms.clear()
-    },
   }
 }

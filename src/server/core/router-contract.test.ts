@@ -14,6 +14,8 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from '../core/router.ts'
+import { collectAllWs } from '../core/collect.ts'
+import { runChain } from '../core/chain.ts'
 import { createTrie, trieRegister, trieMatch, splitPath } from '../../shared/router/trie.ts'
 
 const ok = (label: string) => () => new Response(label)
@@ -67,8 +69,8 @@ describe('A2: mount 深水区', () => {
     const sub = new Router()
     sub.ws('/chat/*', () => {}) as never
     const app = new Router(); app.mount('/ws', sub)
-    // 展平面验证：_collectAllWs 收集到通配路径
-    const routes = (app as any)._collectAllWs((app as any).wsRoot).map((r: any) => r.path)
+    // 展平面验证：collectAllWs 收集到通配路径（E 拆解后模块函数）
+    const routes = collectAllWs((app as any).wsRoot, '').map((r: any) => r.path)
     assert.ok(routes.includes('/ws/chat/*'), `ws 通配展平（实际 ${JSON.stringify(routes)}）`)
   })
 
@@ -443,9 +445,9 @@ describe('D: 性能基线（ROUTER-CORE——2027-10 探针读数登记）', () 
     const h = app.handler() as any
     const r = await h(new Request('http://x/fast'), { params: {}, query: {} })
     assert.equal(await r.text(), 'ok')
-    // runChain 空 mw 直调（零 dispatch 闭包）——行为面锁
+    // runChain 空 mw 直调（零 dispatch 闭包）——行为面锁（E 拆解后模块函数）
     const handler = ok('direct')
-    const res = await (app as any).runChain([], handler, new Request('http://x'), { params: {}, query: {} })
+    const res = await runChain([], handler, new Request('http://x'), { params: {}, query: {} })
     assert.equal(await res.text(), 'direct')
     // 空全局 mw 的 404 快路径（无 runChain 包装——直返）
     const bare = new Router()
