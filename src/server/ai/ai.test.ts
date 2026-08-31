@@ -214,6 +214,81 @@ test('sse 心跳：heartbeatMs 间隔发注释行 + 事件序列完整（A6—�
   assert.deepEqual(events.map((e) => e.name), ['wf:token', 'wf:done'], '心跳不污染事件序列（前端解析器跳过注释行）')
 })
 
+test('W6 首 token 超时：provider 挂起（无 chunk）→ wf:error timeout + 上游中止（不重试）', async () => {
+  let aborted = false
+  let calls = 0
+  const server = createServer(async (req, res) => {
+    calls++
+    req.on('aborted', () => { aborted = true })
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+    // 故意不发任何 chunk——等待客户端超时中止（旧代码：无限挂起）
+  })
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+  const { port } = server.address() as { port: number }
+  const a = ai({ apiKey: 'k', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm', firstTokenTimeoutMs: 150, streamRetries: 2 })
+  try {
+    const res = a.stream({ messages: [{ role: 'user', content: 'hi' }] })
+    const events = await collectEvents(res)
+    const errors = events.filter((e) => e.name === 'wf:error')
+    assert.equal(errors.length, 1)
+    assert.equal((errors[0].data as { code: string }).code, 'timeout', '协议 timeout 码（无 token 超时——补协议-实现缺口）')
+    assert.equal(calls, 1, '超时不重试（慢请求重复计费风险——诚实裁剪）')
+    await new Promise((r) => setTimeout(r, 100)) // 给服务器时间感知断开
+    assert.equal(aborted, true, '上游 provider 请求应被中止')
+  } finally {
+    server.closeAllConnections()
+    await new Promise((r) => server.close(r))
+  }
+})
+
+test('W6 流式重试：429 → 250ms 后安静重试成功（无重复 token/error 事件）', async () => {
+  let calls = 0
+  const server = createServer(async (_req, res) => {
+    calls++
+    if (calls === 1) {
+      res.writeHead(429, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: { message: 'rate limited' } }))
+      return
+    }
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+    for (const line of FAKE_STREAM_LINES) res.write(line)
+    res.end()
+  })
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+  const { port } = server.address() as { port: number }
+  const a = ai({ apiKey: 'k', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm', streamRetries: 1 })
+  try {
+    const events = await collectEvents(a.stream({ messages: [{ role: 'user', content: 'hi' }] }))
+    assert.equal(calls, 2, '429 重试后第二次请求成功')
+    assert.equal(events.some((e) => e.name === 'wf:error'), false, '重试安静——无 error 事件')
+    assert.equal(events.filter((e) => e.name === 'wf:token').length, 2, 'token 只发一次（无重复）')
+    assert.equal(events[events.length - 1].name, 'wf:done', '正常收尾')
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()))
+  }
+})
+
+test('W6 重试资格：401 auth_failed 不重试（确定失败——立即终态）', async () => {
+  let calls = 0
+  const server = createServer(async (_req, res) => {
+    calls++
+    res.writeHead(401, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: { message: 'bad key' } }))
+  })
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+  const { port } = server.address() as { port: number }
+  const a = ai({ apiKey: 'bad-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm', streamRetries: 3 })
+  try {
+    const events = await collectEvents(a.stream({ messages: [{ role: 'user', content: 'hi' }] }))
+    assert.equal(calls, 1, '401 不重试（重复调无效——计费风险）')
+    const errors = events.filter((e) => e.name === 'wf:error')
+    assert.equal(errors.length, 1)
+    assert.equal((errors[0].data as { code: string }).code, 'auth_failed')
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()))
+  }
+})
+
 test('ai.stream：message_start.id 取 X-Trace-Id（追踪关联）', async () => {
   const fake = await startFakeProvider(() => {})
   const a = ai({ apiKey: 'test-key', baseUrl: fake.url })

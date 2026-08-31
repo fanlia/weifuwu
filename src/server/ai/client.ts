@@ -63,6 +63,18 @@ export interface AiClientOptions {
   defaultModel: string
   /** embedding provider 配置（可选；未配时 embed/embedMany 抛 AiError('unsupported')） */
   embedding?: AiEmbeddingOptions
+  /**
+   * W6 首 token 超时（ms）：provider 挂起（连接后无任何 chunk——含 thinking 模式
+   * 不发 reasoning 的异常停顿）→ 中止上游请求 + wf:error timeout（协议错误码表已定义
+   * 「无 token 超时」——补协议-实现缺口）。0 = 关。默认 60000。
+   */
+  firstTokenTimeoutMs?: number
+  /**
+   * W6 流式重试次数：仅限** emit 任何事件之前**的错误（429/5xx HTTP / fetch 网络异常）
+   * ——安静重试（不重复 token——上游未产出）。流中途/4xx/认证错误不重试。
+   * 默认 0 = 不重试（计费语义由调用方决定——诚实裁剪）。
+   */
+  streamRetries?: number
 }
 
 /** embedding provider 配置——默认参数与 DashScope compatible-mode 对齐（DeepSeek 无 embedding API） */
@@ -227,6 +239,9 @@ function createEmbeddingClient(ebd?: AiEmbeddingOptions) {
 
 export function createAiClient(opts: AiClientOptions): AiClient {
   const embedding = createEmbeddingClient(opts.embedding)
+  // W6：默认首 token 超时 60s（传 0 = 关——?? 不覆盖显式 0）；默认不重试（计费语义调用方定）
+  const firstTokenTimeoutMs = opts.firstTokenTimeoutMs ?? 60_000
+  const streamRetries = opts.streamRetries ?? 0
 
   /** BYOK per-call 覆盖：端点 = params.baseUrl ?? 全局（租户自带模型 Key——G4） */
   function endpointFor(params: ChatParams): string {
@@ -370,64 +385,119 @@ export function createAiClient(opts: AiClientOptions): AiClient {
   /** 单轮 LLM 流式调用 → emit wf: 事件 + onFinish 聚合结果（agent 循环复用） */
   async function streamStep(
     params: ChatParams,
-    stepOpts: { emit: WfEmitter; signal?: AbortSignal; onFinish?: (r: StreamFinishResult) => void; emitUsage?: boolean },
+    stepOpts: {
+      emit: WfEmitter
+      signal?: AbortSignal
+      onFinish?: (r: StreamFinishResult) => void
+      emitUsage?: boolean
+      /** W6 per-call 覆盖重试次数（默认读 opts.streamRetries） */
+      retries?: number
+    },
   ): Promise<void> {
-    const { emit, signal } = stepOpts
-
-    let res: Response
-    try {
-      res = await fetch(endpointFor(params), {
-        method: 'POST',
-        headers: headersFor(params),
-        body: JSON.stringify({ ...params, model: params.model ?? opts.defaultModel, stream: true }),
-        signal,
-      })
-    } catch (err) {
-      if (signal?.aborted) return // 断开/取消：静默收尾
-      emit('wf:error', { code: 'provider_error', message: err instanceof Error ? err.message : String(err) })
-      return
-    }
-
-    if (!res.ok) {
-      const { code, message } = await providerError(res)
-      emit('wf:error', { code, message })
-      return
-    }
-
-    // 逐 chunk：token 增量直发；tool_calls 聚合后发；usage 有即发
-    let content = ''
-    let reasoning = ''
-    const chunks: ChatChunk[] = []
-    let usage: ChatResponse['usage']
-    try {
-      for await (const chunk of parseProviderSse(res.body!)) {
-        if (signal?.aborted) return // 断开：静默收尾
-        const delta = chunk.choices[0]?.delta
-        if (delta?.content) {
-          content += delta.content
-          emit('wf:token', { text: delta.content })
-        }
-        if (delta?.reasoning_content) reasoning += delta.reasoning_content
-        if (delta?.tool_calls) chunks.push(chunk)
-        if (chunk.usage) usage = chunk.usage
+    const { emit, signal, onFinish } = stepOpts
+    const maxRetries = stepOpts.retries ?? streamRetries
+    for (let attempt = 0; ; attempt++) {
+      const outcome = await runStreamAttempt(params, signal, emit, onFinish, stepOpts.emitUsage !== false)
+      if (outcome === 'ok' || outcome === 'terminal') return
+      // 网络/HTTP 错误——未 emit 任何事件——安静重试窗口（W6）
+      if (outcome.retryable && attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 250)) // 简短退避（rate limit 语义）
+        continue
       }
-    } catch (err) {
-      if (signal?.aborted) return // 断开：静默收尾（不报错）
-      emit('wf:error', { code: 'provider_error', message: err instanceof Error ? err.message : String(err) })
+      emit('wf:error', { code: outcome.code, message: outcome.message })
       return
     }
+  }
 
-    const toolCalls = aggregateToolCalls(chunks)
-    for (const tc of toolCalls) {
-      emit('wf:tool_call', {
-        id: tc.id,
-        name: tc.function?.name ?? '',
-        args: safeParseArgs(tc.function?.arguments ?? ''),
-      })
+  /** 单次上游请求——'ok'（已 emit 全部事件）/ 'terminal'（已 emit error 或静默）/
+   *  { code, message, retryable }（**未 emit**——调用方安静重试或报错——W6 重试窗口） */
+  async function runStreamAttempt(
+    params: ChatParams,
+    signal: AbortSignal | undefined,
+    emit: WfEmitter,
+    onFinish: ((r: StreamFinishResult) => void) | undefined,
+    emitUsage: boolean,
+  ): Promise<'ok' | 'terminal' | { code: WfErrorCode; message: string; retryable: boolean }> {
+    // W6 内部控制器：外部取消 + 首 token 超时共用——区分来源（超时报错、外部取消静默）
+    const inner = new AbortController()
+    const onAbort = () => inner.abort()
+    signal?.addEventListener('abort', onAbort, { once: true })
+    let timedOut = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    if (firstTokenTimeoutMs > 0) {
+      timer = setTimeout(() => { timedOut = true; inner.abort() }, firstTokenTimeoutMs)
     }
+    const timeoutError = () => emit('wf:error', {
+      code: 'timeout',
+      message: `提供商首 token 超时（${firstTokenTimeoutMs}ms）`,
+    })
+    try {
+      let res: Response
+      try {
+        res = await fetch(endpointFor(params), {
+          method: 'POST',
+          headers: headersFor(params),
+          body: JSON.stringify({ ...params, model: params.model ?? opts.defaultModel, stream: true }),
+          signal: inner.signal,
+        })
+      } catch (err) {
+        if (timedOut) { timeoutError(); return 'terminal' }
+        if (signal?.aborted) return 'terminal' // 断开/取消：静默收尾
+        // 网络异常：未 emit——可重试（W6——安静窗口）
+        return { code: 'provider_error', message: err instanceof Error ? err.message : String(err), retryable: true }
+      }
 
-    if (usage && stepOpts.emitUsage !== false) emit('wf:usage', usage)
-    stepOpts.onFinish?.({ content, reasoning_content: reasoning || undefined, toolCalls, usage })
+      if (!res.ok) {
+        const { code, message } = await providerError(res)
+        // W6 不 emit：retryable 由调用方 settle（安静重试 vs 报错——避免重试成功前发 error）
+        // 仅限 429/5xx（未 emit 任何事件）；4xx/认证错误 = 确定失败
+        return { code, message, retryable: code === 'rate_limited' || code === 'provider_error' }
+      }
+
+      // 逐 chunk：token 增量直发；tool_calls 聚合后发；usage 有即发
+      let content = ''
+      let reasoning = ''
+      const chunks: ChatChunk[] = []
+      let usage: ChatResponse['usage']
+      try {
+        for await (const chunk of parseProviderSse(res.body!)) {
+          if (timer) { clearTimeout(timer); timer = undefined } // 首 token 到达——计时取消
+          if (inner.signal.aborted) {
+            if (timedOut) { timeoutError(); return 'terminal' }
+            return 'terminal' // 外部取消：静默收尾
+          }
+          const delta = chunk.choices[0]?.delta
+          if (delta?.content) {
+            content += delta.content
+            emit('wf:token', { text: delta.content })
+          }
+          if (delta?.reasoning_content) reasoning += delta.reasoning_content
+          if (delta?.tool_calls) chunks.push(chunk)
+          if (chunk.usage) usage = chunk.usage
+        }
+      } catch (err) {
+        if (timedOut) { timeoutError(); return 'terminal' }
+        if (signal?.aborted) return 'terminal' // 断开：静默收尾（不报错）
+        emit('wf:error', { code: 'provider_error', message: err instanceof Error ? err.message : String(err) })
+        return 'terminal' // 流中途错误——可能已 emit token——不重试
+      }
+
+      const toolCalls = aggregateToolCalls(chunks)
+      for (const tc of toolCalls) {
+        emit('wf:tool_call', {
+          id: tc.id,
+          name: tc.function?.name ?? '',
+          args: safeParseArgs(tc.function?.arguments ?? ''),
+        })
+      }
+
+      if (usage && emitUsage) emit('wf:usage', usage)
+      onFinish?.({ content, reasoning_content: reasoning || undefined, toolCalls, usage })
+      return 'ok'
+    } finally {
+      if (timer) clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort) // A5：不累积监听器
+    }
   }
 
   function sse(run: (emit: WfEmitter) => Promise<void> | void, options?: { signal?: AbortSignal }): Response {

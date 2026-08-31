@@ -350,15 +350,56 @@ const start = () => {
 
 | 项 | 决策 | 理由 |
 | --- | --- | --- |
-| chat()/stream 首 token 超时 | **不做** | 无场景证据（thinking 模式首 token 可 >30s——超时值难定——误杀风险 > 收益）；协议已有 `timeout` 码但无机制——列为后续专项 |
-| provider 重试（429/5xx） | **不做** | 幂等性由调用方决定（chat 可由 worker 重试——重试语义在消息层）；客户端盲目重试双开 token 计费风险 |
+| chat()/stream 首 token 超时 | **W6 已实现（判负撤销）** | 协议错误码表已定义 `timeout`（“无 token 超时”）但实现无对应检测——**协议-实现缺口**（非新抽象）——provider 挂起时全链无限 hang——W6 `firstTokenTimeoutMs`（默认 60s，0=关）+ `wf:error timeout` |
+| provider 重试（429/5xx） | **W6 已实现（判负撤销——窄范围）** | 场景证据：协议码表 `rate_limited`（“前端建议：显示+延迟重试”）——429 语义即稍后重试。**窄范围纪律**：仅限“emit 任何事件之前”（未产出 token——不重复计费内容）+ 仅限 429/5xx/网络错误（401/4xx 确定失败不重试）+ 默认 0（不突改行为——`parallelTools` 同款默认关惯例）+ 250ms 固定退避 |
 | `ai()` 无 apiKey 抛错（embedding-only 部署） | **保留 fail-fast** | 显式错误 > 半可用状态；embedding-only 需求可传任意 chat apiKey 或后续拆独立 `aiEmbed` 模块（判负留档） |
-| 前端 ai-stream.ts 监听器同款泄漏 | **范围外** | 属 src/client/——本计划只覆盖 src/server/ai/；留档建议单独修复 |
+| chat() 非流式整体超时 | **不做（判负）** | 无场景证据（worker 场景调用方可自控 abort——`chat(params, { signal })` 已有）；流式首 token 超时是协议明示缺口——非流式无对应码 |
+| 流中途停顿（token 间无增量）超时 | **不做（判负）** | 只有“无 token 超时”协议码；“token 间停顿”无码——长思考/长工具间隔是合法状态——误杀风险 > 收益 |
+| 前端 ai-stream.ts 监听器同款泄漏 | **范围外** | 属 src/client/——本计划只覆盖 src/server/ai/——留档建议单独修复 |
 | `runToResult` 与 stream content 口径 | **随 W3 对齐** | W3 修复后两口径一致（都 = 跨轮累积） |
 
 ---
 
-## 9. 已知边界（诚实裁剪）
+## 9. W6 专项（2027-09——判负撤销——用户决策推进）——首 token 超时 + 流式窄范围重试
+
+> **判负撤销依据**（仓库惯例：场景证据驱动的增量——非抽象偏好）：
+> ① 协议错误码表已定义 `timeout`（“无 token 超时”）与 `rate_limited`（“显示+延迟重试”）
+> —— W6 不是新抽象而是**补协议-实现缺口**；② 默认值全部保守（超时 60s 默认开——防
+> 无限 hang；重试默认 0——不突改行为）；③ 重试窗口极窄（emit 前 + 仅 429/5xx/网络）。
+
+**新增配置**（AiClientOptions —— index.ts 透传）：
+
+| 键 | 默认 | 语义 |
+| --- | --- | --- |
+| `firstTokenTimeoutMs` | 60000（0 = 关） | 首 token 超时：fetch 到首个有效 chunk——超时中止上游 + `wf:error { code: 'timeout' }`（协议码表）——`??` 语义：显式 0 保留（关） |
+| `streamRetries` | 0 = 不重试 | 可重试错误次数（429/5xx/网络异常——**仅在 emit 任何事件前**——安静重试 250ms 退避——不重复 token） |
+
+**重试资格纪律**：
+- ✅ 重试：429（rate_limited）/ 5xx（provider_error）/ fetch 网络异常——**未 emit 任何事件**（上游未产出）
+- ❌ 不重试：401/403（auth_failed）/ 400（invalid_request）/ 首 token 超时（慢不是错）/ **流中途错误**（可能已 emit token——重复计费风险）
+- error 事件只在**重试耗尽**后发（重试安静——不预发 error）
+
+**实现要点**（client.ts runStreamAttempt——重构）：
+- 内部 AbortController：外部取消 + 首 token 超时共用——区分来源（超时 → 报 error；
+  外部取消 → 静默）——两路都清理监听器（A5 纪律）
+- 计时只到首个 chunk（thinking 模式首 chunk 快——reasoning 增量即算）——token 间
+  停顿不做（判负——见 §8）
+- `streamStep` 返回三态：'ok' / 'terminal'（已 emit——重试安全窗口外）/ 错误对象
+  （未 emit——重试或报错由循环 settle）——错误 emit 不早于重试耗尽
+
+**测试**（W6 增加 3 条——总额 39）：
+
+| # | 测试 | 断言 |
+| --- | --- | --- |
+| T9 | provider 挂起（无 chunk）→ wf:error timeout + 上游中止 + 不重试（calls=1） | 旧代码：无限 hang |
+| T10 | 429 → 250ms 退避后安静重试成功——无 error 事件/无重复 token | 旧代码：无重试 → 唯一请求 429 → error |
+| T11 | 401 不重试（calls=1——确定失败立即终态） | 防重复计费 |
+
+**执行中修正**：初版 runStreamAttempt 在返回 retry 前先 emit 了 wf:error——重试成功后
+客户端仍收到第一个请求的 error（“安静重试”违例——T10 红）——错误 emit 推迟到
+重试耗尽后（retryable 只返回错误对象——由 streamStep 循环 settle）——T10 绿。
+
+## 10. 已知边界（诚实裁剪）
 
 - `waitApproval` 取消路径 resolve `rejected`——agent 循环随即检查 signal 退出——
   恰好一次（settled 防竞态）；不新增「aborted」语义（协议未定义 approval 取消事件）
@@ -367,13 +408,17 @@ const start = () => {
 - A5 监听器泄漏为累积型（无功能错误）——修复方式是结构性的（finally），
   无专门的泄漏量测（内存面不在本计划）
 - T8 为弱断言哨兵（泄漏的强证明需要 listener 面暴露——过度设计）
+- W6 首 token 超时只覆盖「一个 chunk 都没有」——token 间长停顿（长思考/长工具）
+  是合法状态——不做（协议只有「无 token 超时」码——判负见 §8）
+- W6 重试的计费语义：上游可能已处理请求（429 不发生计费——500 可能）——
+  默认 0（不重试）把决策留给调用方——开启即接受风险（文档明示）
 
-## 10. 执行实录
+## 11. 执行实录
 
-> 2027-09——**全量交付完成**（5 波次一次提交——commit 见 git log）。
+> 2027-09——**全量交付完成**。
 
-**交付结果**：src/server/ai/ 测试 29 → **36**（新增 7 条红线测试）——全部绿色；
-`npm run typecheck` 全库通过。
+**交付结果**：src/server/ai/ 测试 29 → **39**（W1-W5 新增 7 条 + W6 新增 3 条）——全部绿色；
+`npm run typecheck` 全库通过；全库 `test:server` 462/462（含 queue/scheduler 交付）。
 
 | 波次 | 交付 | 测试 | 备注 |
 | --- | --- | --- | --- |

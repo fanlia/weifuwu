@@ -66,7 +66,15 @@ export function ai(options?: AiOptions): AiClientModule {
     throw new Error('ai: DEEPSEEK_API_KEY 未设置。请设置环境变量或传入 apiKey')
   }
 
-  const client = createAiClient({ apiKey, baseUrl, defaultModel, embedding: options?.embedding })
+  const client = createAiClient({
+    apiKey,
+    baseUrl,
+    defaultModel,
+    embedding: options?.embedding,
+    // W6：首 token 超时 + 流式可重试错误重试——直接透传（AiOptions extends AiClientOptions）
+    firstTokenTimeoutMs: options?.firstTokenTimeoutMs,
+    streamRetries: options?.streamRetries,
+  })
 
   const mw: Middleware = (req, ctx, next) => {
     ctx.ai = module
