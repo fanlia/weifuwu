@@ -95,7 +95,9 @@ export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx) => {
     const shape: SlideShape = {
       id, kind,
       x: 120, y: 120, w: kind === 'text' ? 320 : 160, h: kind === 'text' ? 48 : 120,
-      props: kind === 'text' ? { text: '双击编辑文本' } : { fill: '#dbeafe' },
+      // 默认填充走主题变量（2027-10 CLIENT-EXCELLENCE-PLAN C1——硬编码 #dbeafe
+// 在 dark 模式刺眼——light 下视觉不变（fallback 仍是原值））
+props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surface-bg, #dbeafe)' },
     }
     // selected 在 commit 前设置（commit 内 ctx.render——渲染时已选中——
     //  删除按钮 disabled 正确解除——渲染时机正确性——真实 bug）

@@ -84,7 +84,7 @@ export const ColorPicker: Component<ColorPickerProps> = (_init, ctx) => {
       'aria-haspopup': 'dialog',
       'aria-expanded': open ? 'true' : 'false',
     }, [
-      h('span', { class: 'wf-color-picker-swatch', style: { background: current || '#fff' } }),
+      h('span', { class: 'wf-color-picker-swatch', style: { background: current || 'var(--wf-color-bg, #fff)' } }),
       h('span', { class: 'wf-color-picker-value' }, current || '颜色'),
     ])
 
