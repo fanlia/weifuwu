@@ -54,7 +54,23 @@
 
 ## 波次 B：前端防御 + 双端一致性（唯一共享模块的双端契约）
 
+### B0' shared/ctx-fields.ts ctx 扩展注册表（观察 2——机制一致能力不同）
+- 用户论证：「前后端都是通过扩展 ctx.xxx 提供新能力，只是扩展的能力
+  不一样」——server `__meta`（depends/injects）+ `_checkMiddlewareMeta`
+  本质是 **ctx 字段注册表机制**（纯逻辑零 HTTP 依赖）
+- `createCtxFieldRegistry()`：register(injects) / check(depends, location)
+  （未注册抛错+引导文案——单源）
+- server：`_ctxFields/_checkMiddlewareMeta` 迁移消费（行为零变化）；
+  client：获得同一机制（UIContext declare module 类型增强的运行时对应
+  ——未来前端中间件声明 injects 同样受检）——**类型/运行时双层对齐**
+
 ### B0 shared/pipeline.ts 路由内核（**机制公用、实现不一样——核心抽象**）
+- **三观察映射（2027-10 用户论证）**：①机制一致 serve 不一样——serve
+  是 Request/Response 编解码边界（server: node http 适配 / client:
+  浏览器导航适配）——**留双端，pipeline 不关心**；②ctx 扩展机制一致
+  （B0' 注册表）；③router.verb 区别——**TValue 泛型 + resolveHandler
+  钩子消化**（server=method 表负载/client=handler 直载——不强行统一
+  负载形状）
 - `RouterPipeline<TValue, TCtx>` 接口：resolveHandler（route 闭包/
   not-allowed 分类）/ onNotFound / onMethodNotAllowed? / onError? /
   enrichCtx?——**双端差异点全部钩子化**
@@ -67,7 +83,8 @@
   换 dispatchRouter——405/Allow/去重收敛 serverPipeline；route 注入/
   前端 404 收敛 clientPipeline
 - 验收：fuzz 8 种子 + server 163 契约 + client 契约全绿（内核换血
-  ——防线已就位）
+  ——防线已就位）+ ctx-fields 注册表契约（depends 未注册/顺序/object
+  形态——server 行为零变化断言）
 
 ### B1 shared/context.ts 新模块（**双端接入——前后端都收益**）
 - 新建 `src/shared/router/context.ts`（请求目标解析 + ctx 注入纯函数）：

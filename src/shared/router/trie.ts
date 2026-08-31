@@ -159,26 +159,17 @@ function exactDfs<T>(
 export function trieMatch<T>(
   root: TrieNode<T>, segments: string[],
 ): { value: T; params: Record<string, string>; wildcard: boolean } | null {
-  const params: Record<string, string> = {}
-  // 根路径 '/'（空 segments）：root 精确优先——回退通配
-  if (segments.length === 0) {
-    if (root.value !== undefined) {
-      if (root.wildcardValue !== undefined) params['*'] = ''
-      return { value: root.value, params, wildcard: false }
-    }
-    return root.wildcardValue !== undefined
-      ? { value: root.wildcardValue, params, wildcard: true }
-      : null
-  }
   // 精确匹配（DFS——静态优先 + param 回溯——A3 fuzz 实证修复）
-  const exact = exactDfs(root, segments, 0, params)
+  // **空段（根路径 '/'）天然处理**：exactDfs(root, [], 0) 终端即 root——
+  // （A2 统一——原手写空段分支与 DFS 逻辑重复——语义漂移面）
+  const exact = exactDfs(root, segments, 0, {})
   if (exact) {
     // 精确命中节点若有通配槽（'/' + '/*' 并存）→ '*': ''（精确优先标记）
     const hasWf = exact.node.wildcardValue !== undefined
     return { value: exact.value, params: hasWf ? { ...exact.params, '*': '' } : exact.params, wildcard: false }
   }
   // 精确未命中 → 通配兜底（SPA catch-all 场景）
-  return wildcardFallback(root, segments, segments.length, params)
+  return wildcardFallback(root, segments, segments.length)
 }
 
 /**
@@ -192,25 +183,13 @@ export function trieMatch<T>(
  * 到达节点有 wildcardValue 即命中。
  */
 function wildcardFallback<T>(
-  root: TrieNode<T>, segments: string[], depth: number, _params: Record<string, string>,
+  root: TrieNode<T>, segments: string[], depth: number,
 ): { value: T; params: Record<string, string>; wildcard: boolean } | null {
   for (let d = 0; d <= depth; d++) {
     const r = exactDfs(root, segments.slice(0, d), 0, {}, 'wildcard')
     if (r) {
       return { value: r.value, params: { ...r.params, '*': segments.slice(d).join('/') }, wildcard: true }
     }
-  }
-  return null
-}
-
-function matchChild<T>(
-  node: TrieNode<T>, segment: string, params: Record<string, string>,
-): TrieNode<T> | null {
-  if (node.children.has(segment)) return node.children.get(segment)!
-  if (node.children.has(':')) {
-    const child = node.children.get(':')!
-    if (child.param) params[child.param] = decodeURIComponent(segment)
-    return child
   }
   return null
 }
