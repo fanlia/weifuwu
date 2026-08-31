@@ -104,6 +104,18 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
    portal-toggle 测试挂起实证）
 5. **style 整体替换**：style 对象 = 组件声明完整样式——applyStyle 先清空
    旧值（键消失不残留）——组件写 style 对象即完整声明（非增量）
+6. **受控组件回流必须门控**（2027-10 CLIENT-EXCELLENCE-PLAN 沉淀）：
+   引用比较回流（`props.value !== last`）必须挂 live 门控（`!drag`/
+   `editing`/`!= null`）——调用方每次 render 传新字面量会重置内部
+   live 状态（SlideCanvas 拖拽死实证）——非受控消费（受控 prop 未传）
+   不参与回流比较——audit:interactivity 检查 5 红线
+7. **拖拽 move/up 必绑 window**：pointermove/pointerup 绑容器会在
+   shape/DOM 重建后事件流断裂（SlideCanvas 实证）——move/up 绑
+   window + down 绑元素 + setPointerCapture（可选）
+8. **可交互 div 三件套**：onClick 的非 button 元素 = role + tabindex
+   + onKeyDown 同时存在（缺一即死键盘路径——JSONViewer role+onKeyDown
+   无 tabindex 实证：程序 focus 掩盖——L2 断言必须走真实 Tab 流）——
+   focus-management.md 三场景范式
 
 #### B 类：机制化（红线/守卫/API 形状/契约测试——作者无需记忆）
 
