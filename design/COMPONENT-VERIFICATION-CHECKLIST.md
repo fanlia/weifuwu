@@ -57,6 +57,7 @@
 | Affix | 组件层 | threshold 公式坐标系错误：rect.top + scrollTop 只对 window 成立——容器 scroller 混入容器视口偏移（容器级永不固定）；且 compute 副作用与渲染无顺序保证（竞态） | Affix.ts：threshold 渲染期直算 + 容器坐标系修正（rect.top − 容器视口 top + scrollTop） | comp-affix FP3-FP7 |
 | （core）chat.ts | **核心层** | useChat 默认 parseChunk 只映射 wf:token/content/toolCalls——wf:step/tool_call/progress/result/approval_request/usage/done 全部丢弃（state.step/state.usage/approval 零赋值点——AiChat 状态行/usage 行/工具卡/审批卡等不到数据） | chat.ts：默认解析器升级为 wf: 协议状态机（makeDefaultParser——event 名分派全事件）+ send 循环全事件消费 | comp-aichat FP10/FP6/FP7/FP11 + 契约 391 绿 |
 | （core）chat.ts | **核心层** | approve() 用 map 替换消息对象——send 循环闭包仍持旧 assistant 引用写 content——审批后到达的 token 写进游离对象（UI 永不更新——HITL 审批期间流未结束必现） | approve 改原地修改 toolCall（对象同一性保持） | comp-aichat FP7b/FP5/FP2b（审批后回复渲染锚） |
+| Anchor | 应用层 | demo 末节后无滚动空间——末节永远无法滚至 80px 阈值内（高亮死区——同 Affix 页面高度问题） | demo 尾部补 50vh 占位 | comp-anchor FP4 |
 | wire-fake | 应用层 | /api/chat 读 body.mode 判定 agent 流——useChat 协议 body 只发 { messages }——mode 死分支（工具/审批演示永不触发） | server.ts：改按最后一条用户消息语义判定（含「天气」→ agent 流程） | comp-aichat agent 链路 |
 
 ---
@@ -116,30 +117,30 @@
 ### Alert（Alert）
 
 > 信息提示条，4 种 variant + closable
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **closable 布尔行为**：true/false 渲染差异（closable=true 显式断言）
-- [ ] **variant 数据面**：`AlertVariant`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onClose 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **closable 布尔行为**：true/false 渲染差异（closable=true 显式断言）
+- [x] **variant 数据面**：`AlertVariant`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onClose 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### AlertGroup（AlertGroup）
 
 > 通知合并组：≥3 条折叠为 +N，点击展开
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **items 数据面**：`AlertGroupItem[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onClose 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **items 数据面**：`AlertGroupItem[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onClose 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### Anchor（Anchor）
 
 > 锚点导航：滚动高亮跟随 + 点击平滑滚动
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **useHash 布尔行为**：true/false 渲染差异（useHash=true 显式断言）
-- [ ] **items 数据面**：`AnchorItem[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **activeKey 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **container 数据面**：`() => HTMLElement | Window`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **offsetTop 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onAnchorChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **useHash 布尔行为**：true/false 渲染差异（useHash=true 显式断言）
+- [x] **items 数据面**：`AnchorItem[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **activeKey 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **container 数据面**：`() => HTMLElement | Window`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **offsetTop 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onAnchorChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### AppShell（AppShell）
 

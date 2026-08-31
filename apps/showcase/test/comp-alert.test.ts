@@ -1,10 +1,7 @@
 /**
- * showcase 组件测试——Alert（/components/alert）
- *
- * 每组件一个测试文件（单独运行）：
- *   node --env-file=.env --test apps/showcase/test/comp-alert.test.ts
- *
- * 契约：4 变体渲染（info/success/warning/error）——closable 关闭。
+ * showcase 组件测试——Alert（/components/Alert）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Alert」组（playwright 实测后固化）
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-alert.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -28,33 +25,36 @@ test.after(async () => {
   server?.stop()
 })
 
-test('渲染零错误（组件页 + 文档）', async () => {
+async function open(page: import('playwright').Page): Promise<void> {
+  const errors = await openShowcase(page, BASE, COMP_PATH)
+  assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
+  await page.waitForSelector('main .wf-alert')
+}
+
+test('FP1 variant 四态渲染：info/success/warning/error 语义类', async () => {
   const page = await browser.newPage()
   try {
-    const errors = await openShowcase(page, BASE, COMP_PATH)
-    assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
-  } finally {
-    await page.close()
-  }
+    await open(page)
+    const variants = await page.evaluate(() => ({
+      info: !!document.querySelector('.wf-alert--info'),
+      success: !!document.querySelector('.wf-alert--success'),
+      warning: !!document.querySelector('.wf-alert--warning'),
+      error: !!document.querySelector('.wf-alert--error'),
+    }))
+    for (const [v, ok] of Object.entries(variants)) assert.ok(ok, `variant ${v} 渲染`)
+  } finally { await page.close() }
 })
 
-test('demo 交互：4 变体渲染 + closable 关闭（info/error 消失——success/warning 保留）', async () => {
+test('FP2 closable + onClose 回流：aria-label + 点击后消息移除', async () => {
   const page = await browser.newPage()
   try {
-    await openShowcase(page, BASE, COMP_PATH)
-    // 4 变体文字
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['提示信息（可关闭）', '操作成功完成', '不可撤销', '发生了一个错误（可关闭）']) {
-      assert.ok(text.includes(t), `变体渲染：${t}`)
-    }
-    // 关闭 info 和 error（closable）
-    await page.locator('main .wf-alert .wf-alert-close, main .wf-surface .wf-alert button').first().click()
-    await page.waitForFunction(() => !(document.body.textContent ?? '').includes('提示信息（可关闭）'), 'info 关闭', { timeout: 3000 })
-    // success/warning 仍保留（非 closable）
-    const after = await page.evaluate(() => document.body.textContent ?? '')
-    assert.ok(after.includes('操作成功完成'), 'success 保留')
-    assert.ok(after.includes('不可撤销'), 'warning 保留')
-  } finally {
-    await page.close()
-  }
+    await open(page)
+    const alerts = page.locator('main .wf-alert')
+    const n0 = await alerts.count()
+    const closeBtn = page.locator('main .wf-alert', { hasText: '可关闭' }).first().locator('.wf-alert-close')
+    assert.equal(await closeBtn.getAttribute('aria-label'), '关闭', 'aria-label')
+    await closeBtn.click()
+    await page.waitForFunction((n) => document.querySelectorAll('main .wf-alert').length === (n as number) - 1, n0, { timeout: 3000 })
+  } finally { await page.close() }
 })
+

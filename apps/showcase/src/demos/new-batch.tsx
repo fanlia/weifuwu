@@ -305,6 +305,8 @@ const DemoAnchor: Component = (_props, ctx) => {
             <div class="wf-font-sm wf-text-secondary">{s.body}</div>
           </div>
         ))}
+        {/* 尾部滚动空间：末节需能滚至视口顶部 80px 阈值内（否则末节高亮死区——验证实测） */}
+        <div style="height:50vh"></div>
       </div>
       <div class="wf-surface wf-surface--flat wf-border wf-radius wf-padding-md" style="width: 140px; position: sticky; top: 16px">
         <Anchor items={sections.map(s => ({ href: `#${s.id}`, title: s.title }))}

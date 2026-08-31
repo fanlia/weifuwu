@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Anchor（/components/anchor）——完整能力
+ * showcase 组件测试——Anchor（/components/Anchor）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Anchor」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-anchor.test.ts
  */
 import { test } from 'node:test'
@@ -27,33 +28,37 @@ test.after(async () => {
 async function open(page: import('playwright').Page): Promise<void> {
   const errors = await openShowcase(page, BASE, COMP_PATH)
   assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
-  await page.waitForTimeout(300)
+  await page.waitForSelector('main .wf-anchor-nav')
 }
 
-test('渲染零错误 + 3 锚点（第一节/第二节/第三节）', async () => {
+test('FP1/FP2 受控初始高亮 + 点击切换 + onAnchorChange 回流', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // 滚动上下文（content/ 移除后文档页变短——滚动断言扩高页面）
-    await page.evaluate(() => { document.body.style.minHeight = '2500px' })
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['第一节', '第二节', '第三节']) assert.ok(text.includes(t), `锚点：${t}`)
+    const links = page.locator('main .wf-anchor-link')
+    assert.equal(await links.count(), 3, '3 锚点项')
+    assert.ok((await page.evaluate(() => document.querySelector('main .wf-anchor-link--active')?.textContent ?? '')).includes('第一节'), '受控初始高亮（activeKey）')
+    await links.nth(1).click()
+    await page.waitForFunction(() => (document.querySelector('main .wf-anchor-link--active')?.textContent ?? '').includes('第二节'), null, { timeout: 4000 })
   } finally { await page.close() }
 })
 
-test('能力：点击锚点 → onAnchorChange（受控 active 更新——高亮）', async () => {
+test('FP3 useHash 默认 false：点击不改 location.hash', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // 滚动上下文（滚动跟随断言需足够页高）
-    await page.evaluate(() => { document.body.style.minHeight = '2500px' })
-    // 初始 active 第一节
-    await page.waitForFunction(() => document.querySelector('main [class*="anchor"] [class*="active"]')?.textContent?.includes('第一节') ?? false, '初始第一节高亮', { timeout: 3000 })
-    // 点「第二节」→ 高亮切换（onAnchorChange）
-    await page.locator('main [class*="anchor"] [class*="item"], main [class*="anchor"] a', { hasText: '第二节' }).first().click()
-    await page.waitForFunction(() => document.querySelector('main [class*="anchor"] [class*="active"]')?.textContent?.includes('第二节') ?? false, '第二节高亮', { timeout: 3000 })
-    // 滚动到第三节 → 跟随高亮（onAnchorChange——滚动驱动）
-    await page.evaluate(() => document.getElementById('anchor-c')?.scrollIntoView())
-    await page.waitForFunction(() => document.querySelector('main [class*="anchor"] [class*="active"]')?.textContent?.includes('第三节') ?? false, '滚动跟随第三节', { timeout: 4000 })
+    await page.locator('main .wf-anchor-link').nth(1).click()
+    await page.waitForTimeout(400)
+    assert.equal(await page.evaluate(() => location.hash), '', 'hash 未被写入')
   } finally { await page.close() }
 })
+
+test('FP4 滚动跟随高亮（offsetTop 阈值）：末节滚入视口 → 高亮跟随', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.evaluate(() => document.getElementById('anchor-c')?.scrollIntoView())
+    await page.waitForFunction(() => (document.querySelector('main .wf-anchor-link--active')?.textContent ?? '').includes('第三节'), null, { timeout: 4000 })
+  } finally { await page.close() }
+})
+
