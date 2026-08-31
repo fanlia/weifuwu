@@ -48,8 +48,20 @@ function encodeWord(s: string): string {
   return `=?UTF-8?B?${Buffer.from(s, 'utf8').toString('base64')}?=`
 }
 
+/** E1：拒绝 CR/LF 的 header 值——header 注入防御（subject 有 encodeWord 保护——
+ *  From/To 裸拼接是洞口——收件人来自用户输入（邀请表单 email 等）——
+ *  CRLF 注入可伪造 Bcc/Reply-To 任意头——拒绝 > 清洗（清洗有语义歧义——G9 纪律） */
+function assertHeaderValue(value: string, name: string): void {
+  if (/[\r\n]/.test(value)) {
+    throw new Error(`smtp: invalid ${name} header value (CR/LF not allowed)`)
+  }
+}
+
 /** 组装 RFC5322 邮件（CRLF 行结束） */
 function buildMessage(msg: SmtpMessage): string {
+  // E1：From/To 是 header 注入面——subject 由 encodeWord 保护——这里显式拒绝
+  assertHeaderValue(msg.from, 'From')
+  for (const to of msg.to) assertHeaderValue(to, 'To')
   const lines: string[] = []
   lines.push(`From: ${msg.from}`)
   lines.push(`To: ${msg.to.join(', ')}`)
@@ -66,6 +78,10 @@ function buildMessage(msg: SmtpMessage): string {
 
 export function sendSmtp(cfg: SmtpConfig, msg: SmtpMessage): Promise<void> {
   return new Promise((resolve, reject) => {
+    // E1：协议命令层前置——MAIL FROM/RCPT TO 命令直接拼接（buildMessage 的 DATA 校验
+    // 太晚——命令注入发生在会话早期——实证：RCPT 命令行注入 Bcc）；入口校验 = 零会话字节
+    assertHeaderValue(msg.from, 'From')
+    for (const to of msg.to) assertHeaderValue(to, 'To')
     const port = cfg.port ?? (cfg.secure ? 465 : 587)
     const timeoutMs = cfg.timeoutMs ?? 30_000
 
@@ -125,6 +141,11 @@ export function sendSmtp(cfg: SmtpConfig, msg: SmtpMessage): Promise<void> {
         tlsSocket.once('secureConnect', () => {
           socket = tlsSocket
           tlsSocket.on('data', onData)
+          // E2：TLS 会话期错误/关闭 → fail（once('error') 在 secureConnect 后已消费——
+          // 旧代码升级后中断挂至总 timeout（默认 30s）——生产形态实证；
+          // fail 幂等——正常完成后的 close no-op（promise 已 settle））
+          tlsSocket.on('error', (e) => fail(e))
+          tlsSocket.on('close', () => fail(new Error('smtp: connection closed during TLS session')))
           resolveUp()
         })
         tlsSocket.once('error', rejectUp)

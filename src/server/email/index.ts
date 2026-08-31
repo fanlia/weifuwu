@@ -50,6 +50,8 @@ export interface EmailOptions {
     baseUrl?: string
   }
   smtp?: SmtpConfig
+  /** E3：resend 适配器 HTTP 超时 ms（SMTP 用 smtp.timeoutMs——默认 30s）。默认 10_000 */
+  timeoutMs?: number
 }
 
 export interface EmailInjected {
@@ -64,27 +66,41 @@ declare module '../types.ts' {
 
 export interface EmailClient extends Middleware<Context, Context & EmailInjected> {}
 
-function resendAdapter(opts: NonNullable<EmailOptions['resend']>, from: string): EmailAdapter {
+function resendAdapter(opts: NonNullable<EmailOptions['resend']>, from: string, timeoutMs: number): EmailAdapter {
   const apiKey = opts.apiKey ?? process.env.RESEND_API_KEY
   if (!apiKey) {
     throw new Error('email: adapter "resend" requires resend.apiKey or RESEND_API_KEY')
   }
   const baseUrl = opts.baseUrl ?? 'https://api.resend.com'
   return async (msg) => {
-    const res = await fetch(`${baseUrl}/emails`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: msg.from ?? from,
-        to: Array.isArray(msg.to) ? msg.to : [msg.to],
-        subject: msg.subject,
-        text: msg.text,
-        html: msg.html,
-      }),
-    })
+    // E3：上游超时（旧代码无 signal——provider 挂起 = 请求无限挂——SMTP 有 timeoutMs 不对称）
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    let res: Response
+    try {
+      res = await fetch(`${baseUrl}/emails`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: msg.from ?? from,
+          to: Array.isArray(msg.to) ? msg.to : [msg.to],
+          subject: msg.subject,
+          text: msg.text,
+          html: msg.html,
+        }),
+        signal: controller.signal,
+      })
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new HttpError(`email: resend timeout after ${timeoutMs}ms`, 502)
+      }
+      throw new HttpError(`email: resend 网络错误: ${err instanceof Error ? err.message : String(err)}`, 502)
+    } finally {
+      clearTimeout(timer)
+    }
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       const detail = (data as { message?: string })?.message
@@ -97,9 +113,15 @@ function resendAdapter(opts: NonNullable<EmailOptions['resend']>, from: string):
 function smtpAdapter(opts: SmtpConfig, from: string): EmailAdapter {
   if (!opts.host) throw new Error('email: adapter "smtp" requires smtp.host')
   return async (msg) => {
+    // E1 前置：smtp 路径的 header 值在 buildMessage 拒绝——这里早点暴露（进会话前）
+    const to = Array.isArray(msg.to) ? msg.to : [msg.to]
+    const fromV = msg.from ?? from
+    if (/[\r\n]/.test(fromV) || to.some((t) => /[\r\n]/.test(t))) {
+      throw new Error('email: invalid header value (CR/LF not allowed)')
+    }
     await sendSmtp(opts, {
-      from: msg.from ?? from,
-      to: Array.isArray(msg.to) ? msg.to : [msg.to],
+      from: fromV,
+      to,
       subject: msg.subject,
       text: msg.text,
       html: msg.html,
@@ -112,12 +134,27 @@ export function email(options: EmailOptions): EmailClient {
   if (!options.from) throw new Error('email: options.from is required')
 
   // 适配器在构造时解析（配置错误尽早暴露——诚实裁剪）
-  const adapter: EmailAdapter =
+  const baseAdapter: EmailAdapter =
     typeof options.adapter === 'function'
       ? options.adapter
       : options.adapter === 'smtp'
         ? smtpAdapter(options.smtp!, options.from)
-        : resendAdapter(options.resend ?? {}, options.from)
+        : resendAdapter(options.resend ?? {}, options.from, options.timeoutMs ?? 10_000)
+
+  // 统一校验层（E1/E5——所有适配器受益）：
+  //   E5: to 必填非空（SMTP 零 RCPT 发信 / resend 空数组——语义错误）
+  //   E1: From/To CRLF 注入前置拒绝（SMTP header 注入——buildMessage 防御的提前暴露）
+  const adapter: EmailAdapter = async (msg) => {
+    const to = Array.isArray(msg.to) ? msg.to : [msg.to]
+    if (!to.length || to.some((t) => !t.trim())) {
+      throw new Error('email: msg.to 必须是非空收件人列表')
+    }
+    if (/[\r\n]/.test(msg.from ?? '') || to.some((t) => /[\r\n]/.test(t))) {
+      throw new Error('email: invalid header value (CR/LF not allowed)')
+    }
+    // 校验用归一化——传给适配器的 msg 保持原形（自定义适配器可观测形状不变）
+    return baseAdapter(msg)
+  }
 
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
     ctx.email = {
