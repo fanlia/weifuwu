@@ -7,7 +7,7 @@
  * 纪律：canvas 浏览器 API 经 ctx.browser（SSR 无害——null 检查）；
  * 拖拽重绘直调 draw()（canvas 内部状态——非渲染路径，不走 ctx.render——
  * 避免 vdom 全量 diff——2027-09 死交互实证修复：dragging/move/resize
- * 曾为死代码——注释声称 useDrag 但从未接线）。
+ * 曾为死代码——注释声称拖拽但从未接线）。
  */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

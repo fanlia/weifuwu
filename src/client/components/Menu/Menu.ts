@@ -3,7 +3,7 @@
  *
  * 导航菜单（侧栏导航）：分组项 + 图标 + 选中态 + 方向键导航 + Enter 激活 + 子菜单 + 折叠。
  * 用于 SaaS 应用侧边导航（替代手写 nav-item 循环）。
- * 裁剪（CS-05，见 design/components-cuts.md）：水平菜单栏（Menubar，独立组件）、子菜单自动互斥。折叠态子菜单浮层已实现（usePopup 基座）。
+ * 裁剪（CS-05，见 design/components-cuts.md）：水平菜单栏（Menubar，独立组件）、子菜单自动互斥。折叠态子菜单浮层已实现（openPopup 内核基座）。
  */
 
 import type { Component } from '../../vdom/index.ts'
@@ -118,7 +118,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
       const open = openSet.has(item.key) && !isCollapsed
       const isActive = item.active ?? (activeKey != null && item.key === activeKey)
 
-      // 折叠态：图标标题 + 点击弹出子菜单浮层（roadmap DO，usePopup 基座）
+      // 折叠态：图标标题 + 点击弹出子菜单浮层（roadmap DO，openPopup 内核基座）
       if (isCollapsed) {
         const popupOpen = collapsedPopupKey === item.key
         const titleEl = h('div', {

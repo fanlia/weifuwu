@@ -55,3 +55,17 @@ test('能力：single 单选语义（互斥）+ multiple 多选累积 + Toggle �
     await page.waitForFunction(() => (document.body.textContent ?? '').includes('状态：已按下'), 'Toggle 回流')
   } finally { await page.close() }
 })
+
+test('交互：ArrowRight 键盘切换激活选项', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main button')
+    const btns = page.locator('main [class*="toggle"] button, main [role="button"]').first()
+    await btns.focus().catch(() => btns.click())
+    await page.keyboard.press('ArrowRight')
+    await page.waitForTimeout(300)
+    const label = await page.evaluate(() => { const b = [...document.querySelectorAll('main [class*="toggle"] button, main [role="button"]')].find((x) => /--a|active|pressed/.test(String(x.className))); return b ? b.textContent.trim() : 'none' })
+    assert.ok(label !== 'none' && !/^A/.test(label), `激活项变为 ${label.slice(0, 8)}`)
+  } finally { await page.close() }
+})

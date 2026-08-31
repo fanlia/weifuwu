@@ -1,7 +1,7 @@
 /**
  * weifuwu/components — Dropdown
  *
- * usePopup 组合器：click 触发 + 受控 open + 外部点击/Escape（document 级，
+ * openPopup 内核：click 触发 + 受控 open + 外部点击/Escape（document 级，
  * 弹层在 portal 中按 Escape 也能关）+ 定位/视口 clamp + portal。
  */
 
@@ -52,7 +52,7 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     if (openNow && !prevOpen) hl = 0
     prevOpen = openNow
 
-    // 菜单键盘导航（render 内定义——依赖最新 items；Escape 由 usePopup 处理）
+    // 菜单键盘导航（render 内定义——依赖最新 items；Escape 由 openPopup 内核 处理）
     const onMenuKeyDown = (e: any) => {
       const k = e.key
       if (k === 'Escape') return

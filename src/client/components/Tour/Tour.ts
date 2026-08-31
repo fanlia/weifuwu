@@ -38,7 +38,7 @@ interface Rect {
 
 /**
  * Tour — 新手引导（步骤式）。
- * 统一 usePopup：mask 遮罩 + portal 出口；position 回调更新目标 rect（scroll 跟随）。
+ * 统一 openPopup 内核：mask 遮罩 + portal 出口；position 回调更新目标 rect（scroll 跟随）。
  *
  * 状态纪律：
  * - 步骤索引闭包 let + render()（手动模式——避免 $ 内置类型问题）

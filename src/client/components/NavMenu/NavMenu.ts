@@ -6,7 +6,7 @@
  *
  *   <NavMenu items={[{ key, label, children: [...] }]} activeKey onSelect />
  *
- * 弹层纪律（）：子菜单/嵌套子菜单全部经 usePopup 组合器
+ * 弹层纪律（）：子菜单/嵌套子菜单全部经 openPopup 内核
  * （createPortal + fixed + 视口夹紧 + Escape + 外部点击）——不 absolute 定位。
  *
  * 裁剪（CS-05，见 design/components-cuts.md）：不做 hover 延迟微调/子菜单动画曲线定制；

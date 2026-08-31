@@ -19,7 +19,7 @@ export interface ContextMenuProps {
 }
 
 /** 右键菜单（对应 shadcn ContextMenu）：桌面右键 / 触屏长按 在光标处弹出，点外部/Escape 关闭，方向键导航。
- * 实现：ctx.ui.usePopup（longpress 触发 + 外部点击/Escape 关闭 + 自由定位光标处 + portal 视口 clamp）——
+ * 实现：openPopup 内核（longpress 触发 + 外部点击/Escape 关闭 + 自由定位光标处 + portal 视口 clamp）——
  * 不再自建 document 监听；onTrigger 记录光标坐标，position getter 供定位。 */
 export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
   // ── mount（只一次）──

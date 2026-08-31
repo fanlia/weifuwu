@@ -2,7 +2,7 @@
  * weifuwu/components — ActionSheet 动作面板（移动端底部滑出）
  *
  * 命令列表 + 取消按钮（iOS 风格）——移动端 App 常用弹层（照片选择/分享/
- * 更多操作）。与 Modal/Drawer 同款会话级模态（usePopup presence 退场状态机 +
+ * 更多操作）。与 Modal/Drawer 同款会话级模态（openPopup presence 退场状态机 +
  * 焦点 trap + 滚动锁）。
  *
  * 纪律：

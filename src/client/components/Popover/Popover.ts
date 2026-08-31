@@ -37,7 +37,7 @@ export const Popover: Component<PopoverProps> = (_init, ctx) => {
   // useOpen：受控/非受控 open 统一（warn 缺回调——受控纪律自动化）
   let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
 
-  // 触发（click 切换 / hover 延迟——原 usePopup wrapProps 逻辑内联）
+  // 触发（click 切换 / hover 延迟——原 openPopup 内核 wrapProps 逻辑内联）
   let hoverTimer: ReturnType<typeof setTimeout> | null = null
   const clearHover = (): void => {
     if (hoverTimer !== null) { clearTimeout(hoverTimer); hoverTimer = null }

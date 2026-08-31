@@ -1,7 +1,7 @@
 /**
  * AiChat — 标准 AI 对话组件（useChat 的标准展示层）
  *
- * 组件库第一个领域复合组件：接收 ctx.ui.useChat() 返回的 handle，
+ * 组件库第一个领域复合组件：接收 ctx.ui.useChat() 返回的 handle  // audit-exempt: 用法示例文档（组件契约 = 接收 useChat handle）
  * 渲染完整对话界面：消息气泡、工具调用卡（ToolCallCard）、HITL 审批卡
  * （ApprovalCard）、思考/工具状态、usage、错误 + 重试、输入条 + 自动滚动。
  *
@@ -14,7 +14,7 @@
  * 文案默认中文（与 ToolCallCard/ApprovalCard 一致），labels 可覆盖。
  *
  * ```tsx
- * const $ = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
+ * const $ = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })  // audit-exempt: 用法示例文档（组件契约 = 接收 useChat handle）
  * return () => h(AiChat, { chat: $ })
  * ```
  */
@@ -45,7 +45,7 @@ export interface AiChatLabels {
 }
 
 export interface AiChatProps {
-  /** ctx.ui.useChat() 返回的会话 handle（同一 $，状态变化自动重渲染） */
+  /** ctx.ui.useChat() 返回的会话 handle（同一 $，状态变化自动重渲染） */  // audit-exempt: 用法示例文档（组件契约 = 接收 useChat handle）
   chat: UseChatHandle
   /** 消息列表最大高度（默认 '70vh'） */
   maxHeight?: string

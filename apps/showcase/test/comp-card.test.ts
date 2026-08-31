@@ -73,3 +73,16 @@ test('FP5 padding 三档几何（sm=8 / md=16 / lg=24）', async () => {
     assert.ok(pads.sm !== pads.lg && pads.sm !== pads.md, JSON.stringify(pads))
   } finally { await page.close() }
 })
+
+test('交互：Enter 键触发可点击卡片（A11y 键盘语义）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main [tabindex], main [role="button"]')
+    const c = page.locator('main [tabindex]:not([tabindex="-1"]), main [role="button"]').first()
+    const before = await page.evaluate(() => document.querySelector('main')?.textContent)
+    await c.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction((t) => (document.querySelector('main')?.textContent ?? '') !== t, before, { timeout: 3000 })
+  } finally { await page.close() }
+})

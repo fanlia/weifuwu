@@ -24,7 +24,7 @@ export interface CommandProps {
   globalShortcut?: string | null
 }
 
-/** 命令面板（对应 shadcn Command）：usePopup mask 全屏遮罩 + 搜索 + 键盘流（↑↓ Enter Escape）+ Cmd+K 全局快捷键 */
+/** 命令面板（对应 shadcn Command）：openPopup mask 全屏遮罩 + 搜索 + 键盘流（↑↓ Enter Escape）+ Cmd+K 全局快捷键 */
 export const Command: Component<CommandProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let query = ''

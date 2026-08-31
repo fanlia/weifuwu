@@ -9,7 +9,7 @@
  * - 选中 + 拖动移动（pointer events）；右下角 handle 缩放
  * - 双击文本 shape → 编辑文本（textarea——blur/Enter 提交 → shape-set）
  * - 工具条：添加文本/矩形、删除、幻灯片增删、撤销
- * - AI：选中 shape → 文本润色（wf: SSE → usePopup 浮层 → 接受 = shape-set commit）
+ * - AI：选中 shape → 文本润色（wf: SSE → openPopup 浮层 → 接受 = shape-set commit）
  * - 事件流：全部操作 → editEmit('office', { docType: 'pptx', op }) + commit
  */
 

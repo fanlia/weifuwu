@@ -37,7 +37,7 @@ export function findLabel(nodes: TreeNode[], key: string): string | undefined {
 
 /**
  * TreeSelect — 树形选择（Tree + 下拉组合）。
- * 弹层经 ctx.ui.usePopup（§5.4 弹窗纪律统一组合器）：portal 到 #__wf_portal +
+ * 弹层经 openPopup 内核（§5.4 弹窗纪律统一组合器）：portal 到 #__wf_portal +
  * fixed 定位/视口夹紧 + 外部点击关闭 + Escape 关闭 + ref 稳定——不再手写
  * usePopupPosition/createPortal/panelRef（此前缺外部点击关闭的真实 bug）。
  * 单选 selectedKeys / 多选 checkable checkedKeys（父子联动）。

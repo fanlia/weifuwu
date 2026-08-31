@@ -114,7 +114,7 @@ export const Slider: Component<SliderProps> = (_init, ctx) => {
     const fillStop = `calc(${THUMB_R}px + (100% - ${THUMB_R * 2}px) * ${pct / 100})`
     const trackBg = `linear-gradient(to right, var(--wf-color-primary) ${fillStop}, var(--wf-color-border) ${fillStop})`
 
-    // ── tooltip 坐标：活动 input rect + 进度百分比 → thumb 中心（usePopup 视口夹紧） ──
+    // ── tooltip 坐标：活动 input rect + 进度百分比 → thumb 中心（openPopup 内核 视口夹紧） ──
     tipPos = null
     if (tipOpen && !disabled) {
       const activeEl = range ? (activeThumb === 'lo' ? loInputEl : activeThumb === 'hi' ? hiInputEl : hiInputEl) : inputEl

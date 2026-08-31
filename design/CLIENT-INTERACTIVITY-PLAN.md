@@ -77,7 +77,7 @@ L3 声明对账面   注释/文档/demo 文案/props vs 实际接线   ← 零�
 - 豁免 = 代码内 `// audit-exempt: 理由` 注释登记——零静默豁免
 - 验收：`npm run audit:interactivity` 进 package.json——A 类清理后 exit 0
 
-### 波次 2：交互面测试哨兵（扩展 `audit-component-coverage.mjs`）
+### 波次 2：交互面测试哨兵（扩展 `audit-component-coverage.mjs`）——✅ 已落地（2027-09：audit-interactivity 检查 4——组件分类静态特征 × comp-*/scenario 双层对账 + interactivity-baseline.json 计数基线（14 条登记——只能缩小）；场景层对账收敛误报（拖拽缺口清零）；本轮固化 6 个 L2 测试：tabbar/togglegroup 箭头导航、card/statcard Enter A11y、notification portal 归属、watermark dataURL 背景层）
 
 组件分类 × 必备断言矩阵（缺口 = exit 1）：
 
@@ -111,7 +111,7 @@ L3 声明对账面   注释/文档/demo 文案/props vs 实际接线   ← 零�
    design/micro-interactions.md 若有对应规范则对齐）
 5. 修复纪律：AGENTS §3 归类 + 每修复带 L2 断言测试（回到哨兵矩阵）
 
-### 波次 4：A 类文档对账 + 归档
+### 波次 4：A 类文档对账 + 归档——✅ 已落地（2027-09：34→0——22 文件 usePopup 注释改 openPopup 内核；审计词表收紧「只对声称调用路径报」（useCallback 等价物/由用户驱动等语义说明排除）；AiChat 用法示例 audit-exempt 登记；StatCard 注释修正——偏好感知实际内建于 useTween；ImageCropper 修复注释措辞去误导）
 
 - 22 组件 usePopup 注释改为 openPopup 命令式内核表述（引用
   design/imperative-popup-plan.md）

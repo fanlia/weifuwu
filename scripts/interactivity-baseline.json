@@ -1,0 +1,58 @@
+[
+  {
+    "slug": "anchor",
+    "tag": "键盘"
+  },
+  {
+    "slug": "citationcard",
+    "tag": "键盘"
+  },
+  {
+    "slug": "chart",
+    "tag": "浮层"
+  },
+  {
+    "slug": "contextmenu",
+    "tag": "拖拽"
+  },
+  {
+    "slug": "diffview",
+    "tag": "键盘"
+  },
+  {
+    "slug": "jsonviewer",
+    "tag": "键盘"
+  },
+  {
+    "slug": "jsonschemaform",
+    "tag": "键盘"
+  },
+  {
+    "slug": "navmenu",
+    "tag": "键盘"
+  },
+  {
+    "slug": "reasoningblock",
+    "tag": "键盘"
+  },
+  {
+    "slug": "sessionlist",
+    "tag": "键盘"
+  },
+  {
+    "slug": "statcard",
+    "tag": "键盘"
+  },
+  {
+    "slug": "timeline",
+    "tag": "键盘"
+  },
+  {
+    "slug": "virtualtable",
+    "tag": "键盘"
+  },
+  {
+    "slug": "slidecanvas",
+    "tag": "拖拽"
+  }
+]

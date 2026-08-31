@@ -44,3 +44,13 @@ test('能力：水印覆盖内容区', async () => {
     assert.ok(wm, '水印层存在')
   } finally { await page.close() }
 })
+
+test('交互：水印层 canvas/dataURL 背景真实渲染', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main div')
+    const ok = await page.evaluate(() => [...document.querySelectorAll('main div')].some((d) => (getComputedStyle(d).backgroundImage || '').includes('data:image')))
+    assert.ok(ok, '背景 data:image 水印层')
+  } finally { await page.close() }
+})

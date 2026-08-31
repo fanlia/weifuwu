@@ -2,7 +2,7 @@
  * weifuwu/components — Popconfirm 气泡确认
  *
  * 三库等价：antd Popconfirm / Element Plus Popconfirm。
- * 复用 usePopup 组合器（Popover 同级基座）——验证弹层体系可组合性：
+ * 复用 openPopup 内核（Popover 同级基座）——验证弹层体系可组合性：
  * 定位/portal/外部点击/Escape/视口夹紧全部继承，组件只写确认语义。
  *
  *   <Popconfirm title="确定删除？" danger onConfirm={...}>

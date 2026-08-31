@@ -43,3 +43,13 @@ test('FP1-3 success 弹出 + 4.5s 自动消失 + warning', async () => {
     await page.waitForFunction(() => (document.body.textContent ?? '').includes('磁盘空间不足'), null, { timeout: 3000 })
   } finally { await page.close() }
 })
+
+test('交互：通知面板 portal 归属（#__wf_portal）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '成功通知' }).first().click()
+    await page.waitForFunction(() => (document.querySelector('#__wf_portal')?.textContent ?? '').includes('部署成功'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})

@@ -83,7 +83,7 @@ export function confirm(message: string, options?: ConfirmOptions): Promise<bool
       resolve(result)
     }
     // 基础 ctx（组件实例的 hooks 由 renderComponent 自动注入——Modal 内部
-    // usePopup/useOpen 正常）——render/onUnmount 仅 serve 语义占位
+    // openPopup 内核/useOpen 正常）——render/onUnmount 仅 serve 语义占位
     const ctx = {
       render: async () => {},
       onUnmount: () => {},

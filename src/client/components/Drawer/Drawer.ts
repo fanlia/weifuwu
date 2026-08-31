@@ -21,7 +21,7 @@ export interface DrawerProps {
 }
 
 export const Drawer: Component<DrawerProps> = (_props, ctx) => {
-  // usePopup 会话级模态（统一弹窗能力）：presence 退场状态机 + 焦点 trap + 滚动锁
+  // openPopup 内核 会话级模态（统一弹窗能力）：presence 退场状态机 + 焦点 trap + 滚动锁
   let latestOpen = false
   // 命令式弹窗（唯一形态 openPopup）：presence 退场状态机 + 焦点 trap + 滚动锁
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */

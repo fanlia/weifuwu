@@ -95,7 +95,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
     // 当前面板路径：从 value 或内部 activePath
     const panelPath: string[] = open ? activePath : []
 
-    // 打开瞬间坐标由 usePopup.portal 内部处理
+    // 打开瞬间坐标由 openPopup 内核.portal 内部处理
     const toggleOpen = () => {
       if (disabled) return
       open = !open
@@ -219,7 +219,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
         })
       : null
 
-    // 面板键盘导航（render 内定义——依赖最新 colData/matched；Escape 由 usePopup 处理）
+    // 面板键盘导航（render 内定义——依赖最新 colData/matched；Escape 由 openPopup 内核 处理）
     const onPanelKeyDown = (e: any) => {
       const k = e.key
       if (k === 'Escape') return

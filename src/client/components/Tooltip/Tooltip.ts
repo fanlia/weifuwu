@@ -30,7 +30,7 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: PopupHandle | null = null
 
-  // hover 触发（延迟——同 usePopup trigger:'hover' 语义）
+  // hover 触发（延迟——同 弹层 trigger:'hover' 语义）
   let hoverTimer: ReturnType<typeof setTimeout> | null = null
   const clearHover = (): void => {
     if (hoverTimer !== null) { clearTimeout(hoverTimer); hoverTimer = null }

@@ -36,7 +36,7 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
   // 每次 render 清空用户输入——严重违规）
   let inputCtrl: ReturnType<UIContext['ui']['useControlledInput']> | null = null
 
-  // usePopup：借用面板定位/视口 clamp + 外部点击关闭（不 spread wrapProps——
+  // openPopup 内核：借用面板定位/视口 clamp + 外部点击关闭（不 spread wrapProps——
   // 打开由输入 '@' 驱动，非 wrap 触发）；Escape 由 textarea 自己的 onKeyDown 处理
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null

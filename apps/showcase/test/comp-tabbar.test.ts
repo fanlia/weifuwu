@@ -59,3 +59,15 @@ test('能力：切换（onChange——点非激活项 → 激活切换）', asyn
     assert.equal(activeIdx, 1, `切换激活（实际索引 ${activeIdx}）`)
   } finally { await page.close() }
 })
+
+test('交互：ArrowRight 键盘导航激活项右移（roving 焦点）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-tab-bar-item')
+    const items = page.locator('main .wf-tab-bar-item')
+    await items.first().click()
+    await page.keyboard.press('ArrowRight')
+    await page.waitForFunction(() => { const its = [...document.querySelectorAll('main .wf-tab-bar-item')]; return String(its[1].className).includes('--active') && !String(its[0].className).includes('--active') }, null, { timeout: 3000 })
+  } finally { await page.close() }
+})

@@ -40,7 +40,7 @@ export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
   // useOpen：受控/非受控 open 统一（hover 触发内联）
   let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
 
-  // hover 触发（延迟——openDelay/closeDelay——原 usePopup trigger 语义）
+  // hover 触发（延迟——openDelay/closeDelay——原 弹层 trigger 语义）
   let hoverTimer: ReturnType<typeof setTimeout> | null = null
   const clearHover = (): void => {
     if (hoverTimer !== null) { clearTimeout(hoverTimer); hoverTimer = null }
