@@ -1,5 +1,6 @@
 /**
- * 组件表——由迁移脚本生成 + 手工治理更新（分类重划 2026-08）。
+ * 组件表——单一事实源（components-only 定稿——SHOWCASE-COMPONENTS-ONLY-PLAN：
+ * 分类/迁移期字段已歼灭——id/name/desc/family/源码导航/gotchas）。
  */
 import type { ComponentEntry } from './types.ts'
 
@@ -7,7 +8,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "videoplayer",
     "name": "VideoPlayer",
-    "category": "core",
     "desc": "视频播放器——原生 video 封装（controls/封面/宽高比/事件——零依赖）",
     "sourceFile": "src/client/components/VideoPlayer/VideoPlayer.ts",
     "cssFile": "src/client/components/VideoPlayer/VideoPlayer.css",
@@ -16,7 +16,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "math",
     "name": "Math",
-    "category": "core",
     "desc": "轻量公式渲染——自研 LaTeX 子集（上下标/分数/根号/希腊字母——零依赖不引 KaTeX）",
     "sourceFile": "src/client/components/Math/Math.ts",
     "cssFile": "src/client/components/Math/Math.css",
@@ -25,7 +24,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "markdowneditor",
     "name": "MarkdownEditor",
-    "category": "editor",
     "desc": "分屏 Markdown 编辑器——textarea + 实时预览（复用 Markdown parser 零漂移）",
     "sourceFile": "src/client/components/MarkdownEditor/MarkdownEditor.ts",
     "cssFile": "src/client/components/MarkdownEditor/MarkdownEditor.css",
@@ -34,7 +32,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "codeeditor",
     "name": "CodeEditor",
-    "category": "editor",
     "desc": "轻量代码编辑器——textarea + 行号 + Tab 缩进（零依赖，不引 Monaco）",
     "sourceFile": "src/client/components/CodeEditor/CodeEditor.ts",
     "cssFile": "src/client/components/CodeEditor/CodeEditor.css",
@@ -43,7 +40,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "imagecropper",
     "name": "ImageCropper",
-    "category": "editor",
     "desc": "图片裁剪——canvas 原生 API + 拖拽裁剪框 + 比例控制（零依赖）",
     "sourceFile": "src/client/components/ImageCropper/ImageCropper.ts",
     "cssFile": "src/client/components/ImageCropper/ImageCropper.css",
@@ -52,7 +48,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "wave",
     "name": "Wave",
-    "category": "core",
     "desc": "点击水波纹动效——包装任意可点击元素（纯 CSS，reduced-motion 自动降级）",
     "sourceFile": "src/client/components/Wave/Wave.ts",
     "cssFile": "src/client/components/Wave/Wave.css",
@@ -61,7 +56,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "sortablelist",
     "name": "SortableList",
-    "category": "viz",
     "desc": "拖拽排序列表——useDragDrop 原语 + keyed 身份（任务/字段/配置排序）",
     "sourceFile": "src/client/components/SortableList/SortableList.ts",
     "cssFile": "src/client/components/SortableList/SortableList.css",
@@ -70,7 +64,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "exportcsv",
     "name": "ExportCSV",
-    "category": "display",
     "desc": "数据导出 CSV——RFC 4180 转义 + BOM（Excel 兼容）零依赖",
     "sourceFile": "src/client/components/ExportCSV/ExportCSV.ts",
     "testFile": "src/client/components/ExportCSV/ExportCSV.test.ts"
@@ -78,10 +71,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "button",
     "name": "Button",
-    "category": "core",
     "desc": "4 variants × 3 sizes + loading + block + disabled",
-    "codeKey": "button",
-    "demo": "DemoButton",
     "sourceFile": "src/client/components/Button/Button.ts",
     "cssFile": "src/client/components/Button/Button.css",
     "testFile": "src/client/components/Button/Button.test.ts"
@@ -89,10 +79,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "input",
     "name": "Input",
-    "category": "input",
     "desc": "text/email/password/number，支持 label/error/hint/required",
-    "codeKey": "input",
-    "demo": "DemoInput",
     "sourceFile": "src/client/components/Input/Input.ts",
     "cssFile": "src/client/components/Input/Input.css",
     "testFile": "src/client/components/Input/Input.test.ts"
@@ -100,10 +87,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "textarea",
     "name": "Textarea",
-    "category": "input",
     "desc": "多行文本，支持 rows/label/error/hint",
-    "codeKey": "textarea",
-    "demo": "DemoTextarea",
     "sourceFile": "src/client/components/Textarea/Textarea.ts",
     "cssFile": "src/client/components/Textarea/Textarea.css",
     "testFile": "src/client/components/Textarea/Textarea.test.ts"
@@ -111,11 +95,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "select",
     "name": "Select",
-    "category": "input",
     "desc": "原生下拉选择器",
     "gotchas": ["受控输入纪律：searchable 输入焦点丢失——useControlledInput 内部态", "事件 prop 判定：on+大写（EVENT_RE）——once/only 等 on 开头属性防误判", "浮层必须 portal（§5.4）——absolute 相对父容器在 overflow 下裁剪"],
-    "codeKey": "select",
-    "demo": "DemoSelect",
     "sourceFile": "src/client/components/Select/Select.ts",
     "cssFile": "src/client/components/Select/Select.css",
     "testFile": "src/client/components/Select/Select.test.ts"
@@ -123,18 +104,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "select-searchable",
     "name": "Select (searchable)",
-    "category": "input",
     "desc": "搜索过滤下拉，输入即搜",
-    "codeKey": "select",
-    "demo": "DemoSearchableSelect"
   },
   {
     "id": "checkbox",
     "name": "Checkbox",
-    "category": "input",
     "desc": "带 label 的复选框，支持 checked/disabled",
-    "codeKey": "checkbox",
-    "demo": "DemoCheckbox",
     "sourceFile": "src/client/components/Checkbox/Checkbox.ts",
     "cssFile": "src/client/components/Checkbox/Checkbox.css",
     "testFile": "src/client/components/Checkbox/Checkbox.test.ts"
@@ -142,10 +117,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "switch",
     "name": "Switch",
-    "category": "input",
     "desc": "开关切换，视觉替代 checkbox",
-    "codeKey": "switch",
-    "demo": "DemoSwitch",
     "sourceFile": "src/client/components/Switch/Switch.ts",
     "cssFile": "src/client/components/Switch/Switch.css",
     "testFile": "src/client/components/Switch/Switch.test.ts"
@@ -153,10 +125,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "radiogroup",
     "name": "RadioGroup",
-    "category": "input",
     "desc": "单选组，支持 inline/options/value",
-    "codeKey": "radio",
-    "demo": "DemoRadio",
     "sourceFile": "src/client/components/RadioGroup/RadioGroup.ts",
     "cssFile": "src/client/components/RadioGroup/RadioGroup.css",
     "testFile": "src/client/components/RadioGroup/RadioGroup.test.ts"
@@ -164,10 +133,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "segmentedcontrol",
     "name": "SegmentedControl",
-    "category": "input",
     "desc": "分段单选（模式切换/筛选/模板），支持 sm/block",
-    "codeKey": "segmented",
-    "demo": "DemoSegmented",
     "sourceFile": "src/client/components/SegmentedControl/SegmentedControl.ts",
     "cssFile": "src/client/components/SegmentedControl/SegmentedControl.css",
     "testFile": "src/client/components/SegmentedControl/SegmentedControl.test.ts"
@@ -175,11 +141,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "slider",
     "name": "Slider",
-    "category": "input",
     "desc": "范围滑块，支持 min/max/step/label",
     "gotchas": ["浏览器表单状态恢复（刷新/后退）覆盖受控 value——autocomplete=off + 内部 0-100 归一化刻度（2000 slider 刷新跳动事故）", "拖拽中气泡位置冻结——usePopup 锚点恒定需 popup.refresh() 跟随 thumb"],
-    "codeKey": "slider",
-    "demo": "DemoSlider",
     "sourceFile": "src/client/components/Slider/Slider.ts",
     "cssFile": "src/client/components/Slider/Slider.css",
     "testFile": "src/client/components/Slider/Slider.test.ts"
@@ -187,11 +150,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "form",
     "name": "Form",
-    "category": "form",
     "desc": "内置验证规则：required/pattern/minLength/自定义",
     "gotchas": ["三层一致（§6.3）：条件渲染 false 是空洞占位——{cond && <Alert/>} 不滤除不塌缩（提交按钮消失事故）", "受控纪律：受控 value 必须配 onChange——缺回调静默不可点"],
-    "codeKey": "form",
-    "demo": "DemoForm",
     "sourceFile": "src/client/components/Form/Form.ts",
     "cssFile": "src/client/components/Form/Form.css",
     "testFile": "src/client/components/Form/Form.test.ts"
@@ -199,18 +159,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "form-v2",
     "name": "Form 提交",
-    "category": "form",
     "desc": "loading 提交 + 校验错误（状态矩阵覆盖）",
-    "codeKey": "formSubmit",
-    "demo": "DemoFormSubmit"
   },
   {
     "id": "field",
     "name": "Field",
-    "category": "form",
     "desc": "label+error+hint 容器",
-    "codeKey": "field",
-    "demo": "DemoField",
     "sourceFile": "src/client/components/Field/Field.ts",
     "cssFile": "src/client/components/Field/Field.css",
     "testFile": "src/client/components/Field/Field.test.ts"
@@ -218,10 +172,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "relationgraph",
     "name": "RelationGraph",
-    "category": "display",
     "desc": "关系图谱——环形/网格布局 + 类型着色 + 选中交互（人物/组织/网络）",
-    "codeKey": "relationGraph",
-    "demo": "DemoRelationGraph",
     "sourceFile": "src/client/components/RelationGraph/RelationGraph.ts",
     "cssFile": "src/client/components/RelationGraph/RelationGraph.css",
     "testFile": "src/client/components/RelationGraph/RelationGraph.test.ts"
@@ -229,10 +180,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "appshell",
     "name": "AppShell",
-    "category": "navigation",
     "desc": "应用壳——品牌 + 分组导航 + 用户区 + 主内容（受控——父层驱动）",
-    "codeKey": "appShell",
-    "demo": "DemoAppShell",
     "sourceFile": "src/client/components/AppShell/AppShell.ts",
     "cssFile": "src/client/components/AppShell/AppShell.css",
     "testFile": "src/client/components/AppShell/AppShell.test.ts"
@@ -240,10 +188,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "filetree",
     "name": "FileTree",
-    "category": "editor",
     "desc": "文件树浏览器——面包屑 + 列表/编辑态 + 上传（受控——数据源无关）",
-    "codeKey": "fileTree",
-    "demo": "DemoFileTree",
     "sourceFile": "src/client/components/FileTree/FileTree.ts",
     "cssFile": "src/client/components/FileTree/FileTree.css",
     "testFile": "src/client/components/FileTree/FileTree.test.ts"
@@ -251,10 +196,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "fileupload",
     "name": "FileUpload",
-    "category": "editor",
     "desc": "文件上传，拖拽区 + 文件列表 + accept/maxSize",
-    "codeKey": "fileUpload",
-    "demo": "DemoFileUpload",
     "sourceFile": "src/client/components/FileUpload/FileUpload.ts",
     "cssFile": "src/client/components/FileUpload/FileUpload.css",
     "testFile": "src/client/components/FileUpload/FileUpload.test.ts"
@@ -262,18 +204,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "fileupload-v2",
     "name": "FileUpload 禁用",
-    "category": "editor",
     "desc": "disabled + accept 限定（状态矩阵覆盖）",
-    "codeKey": "fileUploadDis",
-    "demo": "DemoFileUploadDis"
   },
   {
     "id": "searchinput",
     "name": "SearchInput",
-    "category": "input",
     "desc": "搜索输入框，带清除按钮",
-    "codeKey": "search",
-    "demo": "DemoSearchInput",
     "sourceFile": "src/client/components/SearchInput/SearchInput.ts",
     "cssFile": "src/client/components/SearchInput/SearchInput.css",
     "testFile": "src/client/components/SearchInput/SearchInput.test.ts"
@@ -281,10 +217,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "progressbar",
     "name": "ProgressBar",
-    "category": "feedback",
     "desc": "进度条，支持 label/showValue",
-    "codeKey": "progress",
-    "demo": "DemoProgress",
     "sourceFile": "src/client/components/ProgressBar/ProgressBar.ts",
     "cssFile": "src/client/components/ProgressBar/ProgressBar.css",
     "testFile": "src/client/components/ProgressBar/ProgressBar.test.ts"
@@ -292,10 +225,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "inputnumber",
     "name": "InputNumber",
-    "category": "input",
     "desc": "数字输入：min/max/step + 增减按钮 + precision",
-    "codeKey": "inputNumber",
-    "demo": "DemoInputNumber",
     "sourceFile": "src/client/components/InputNumber/InputNumber.ts",
     "cssFile": "src/client/components/InputNumber/InputNumber.css",
     "testFile": "src/client/components/InputNumber/InputNumber.test.ts"
@@ -303,10 +233,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "passwordinput",
     "name": "PasswordInput",
-    "category": "input",
     "desc": "密码输入：眼睛按钮切换可见性",
-    "codeKey": "passwordInput",
-    "demo": "DemoPasswordInput",
     "sourceFile": "src/client/components/PasswordInput/PasswordInput.ts",
     "cssFile": "src/client/components/PasswordInput/PasswordInput.css",
     "testFile": "src/client/components/PasswordInput/PasswordInput.test.ts"
@@ -314,10 +241,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "tagsinput",
     "name": "TagsInput",
-    "category": "input",
     "desc": "标签输入：回车/逗号添加 + 中文输入法感知",
-    "codeKey": "tagsInput",
-    "demo": "DemoTagsInput",
     "sourceFile": "src/client/components/TagsInput/TagsInput.ts",
     "cssFile": "src/client/components/TagsInput/TagsInput.css",
     "testFile": "src/client/components/TagsInput/TagsInput.test.ts"
@@ -325,19 +249,13 @@ export const components: ComponentEntry[] = [
   {
     "id": "tagsinput-v2",
     "name": "TagsInput 限制/错误",
-    "category": "input",
     "desc": "maxTags 限制 + error 校验态（状态矩阵覆盖）",
-    "codeKey": "tagsInputErr",
-    "demo": "DemoTagsInputErr"
   },
   {
     "id": "table",
     "name": "Table",
-    "category": "display",
     "desc": "可排序 + 自定义 render + 空状态",
     "gotchas": ["固定列必须显式 width（缺省 140 估算 + console.warn——sticky 偏移累计依赖）", "数组空洞：children 里 {cond && <X/>} 是占位——不得误删下一个兄弟（提交按钮消失事故同源）", "行内编辑（editable 列）必须配 onCellEdit（受控纪律）"],
-    "codeKey": "table",
-    "demo": "DemoTable",
     "sourceFile": "src/client/components/Table/Table.ts",
     "cssFile": "src/client/components/Table/Table.css",
     "testFile": "src/client/components/Table/Table.test.ts"
@@ -345,18 +263,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "table-v2",
     "name": "Table 行选择",
-    "category": "display",
     "desc": "rowSelection 勾选列 + 受控 keys（状态矩阵覆盖）",
-    "codeKey": "tableRowSelect",
-    "demo": "DemoTableRowSelect"
   },
   {
     "id": "card",
     "name": "Card",
-    "category": "core",
     "desc": "容器，支持 default/outlined/clickable",
-    "codeKey": "card",
-    "demo": "DemoCardShowcase",
     "sourceFile": "src/client/components/Card/Card.ts",
     "cssFile": "src/client/components/Card/Card.css",
     "testFile": "src/client/components/Card/Card.test.ts"
@@ -364,10 +276,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "badge",
     "name": "Badge",
-    "category": "core",
     "desc": "状态标签 + 圆点，6 种 variant",
-    "codeKey": "badge",
-    "demo": "DemoBadge",
     "sourceFile": "src/client/components/Badge/Badge.ts",
     "cssFile": "src/client/components/Badge/Badge.css",
     "testFile": "src/client/components/Badge/Badge.test.ts"
@@ -375,10 +284,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "tag",
     "name": "Tag",
-    "category": "core",
     "desc": "标签，支持 closable/onClose",
-    "codeKey": "tag",
-    "demo": "DemoTag",
     "sourceFile": "src/client/components/Tag/Tag.ts",
     "cssFile": "src/client/components/Tag/Tag.css",
     "testFile": "src/client/components/Tag/Tag.test.ts"
@@ -386,10 +292,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "avatar",
     "name": "Avatar",
-    "category": "core",
     "desc": "头像（首字母/图片），3 种 size",
-    "codeKey": "avatar",
-    "demo": "DemoAvatar",
     "sourceFile": "src/client/components/Avatar/Avatar.ts",
     "cssFile": "src/client/components/Avatar/Avatar.css",
     "testFile": "src/client/components/Avatar/Avatar.test.ts"
@@ -397,10 +300,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "img",
     "name": "Img",
-    "category": "display",
     "desc": "图片 \\<img\\> 组件：fallback / lazy / preview 点击放大",
-    "codeKey": "image",
-    "demo": "DemoImage",
     "sourceFile": "src/client/components/Img/Img.ts",
     "cssFile": "src/client/components/Img/Img.css",
     "testFile": "src/client/components/Img/Img.test.ts"
@@ -408,10 +308,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "inview",
     "name": "InView",
-    "category": "display",
     "desc": "进入视窗后懒加载内容，支持 IntersectionObserver",
-    "codeKey": "inview",
-    "demo": "DemoInView",
     "sourceFile": "src/client/components/InView/InView.ts",
     "cssFile": "src/client/components/InView/InView.css",
     "testFile": "src/client/components/InView/InView.test.ts"
@@ -419,10 +316,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "timeline",
     "name": "Timeline",
-    "category": "display",
     "desc": "时间线：节点状态色 + 时间 + 内容（执行日志/审批历史）",
-    "codeKey": "timeline",
-    "demo": "DemoTimeline",
     "sourceFile": "src/client/components/Timeline/Timeline.ts",
     "cssFile": "src/client/components/Timeline/Timeline.css",
     "testFile": "src/client/components/Timeline/Timeline.test.ts"
@@ -430,10 +324,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "descriptions",
     "name": "Descriptions",
-    "category": "display",
     "desc": "描述列表：label/value 栅格 + bordered + span（详情页）",
-    "codeKey": "descriptions",
-    "demo": "DemoDescriptions",
     "sourceFile": "src/client/components/Descriptions/Descriptions.ts",
     "cssFile": "src/client/components/Descriptions/Descriptions.css",
     "testFile": "src/client/components/Descriptions/Descriptions.test.ts"
@@ -441,18 +332,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "descriptions-v2",
     "name": "Descriptions 紧凑",
-    "category": "display",
     "desc": "size=small 详情页密度（变体覆盖）",
-    "codeKey": "descriptionsSize",
-    "demo": "DemoDescriptionsSize"
   },
   {
     "id": "avatargroup",
     "name": "AvatarGroup",
-    "category": "core",
     "desc": "头像组：堆叠 + max 溢出 +N",
-    "codeKey": "avatarGroup",
-    "demo": "DemoAvatarGroup",
     "sourceFile": "src/client/components/AvatarGroup/AvatarGroup.ts",
     "cssFile": "src/client/components/AvatarGroup/AvatarGroup.css",
     "testFile": "src/client/components/AvatarGroup/AvatarGroup.test.ts"
@@ -460,10 +345,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "markdown",
     "name": "Markdown",
-    "category": "display",
     "desc": "AI 回复渲染：安全子集 parser + 代码块 + 链接白名单",
-    "codeKey": "markdown",
-    "demo": "DemoMarkdown",
     "sourceFile": "src/client/components/Markdown/Markdown.ts",
     "cssFile": "src/client/components/Markdown/Markdown.css",
     "testFile": "src/client/components/Markdown/Markdown.test.ts"
@@ -471,10 +353,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "codeblock",
     "name": "CodeBlock",
-    "category": "display",
     "desc": "代码块：语言标签 + 复制按钮 + 横向滚动",
-    "codeKey": "codeblock",
-    "demo": "DemoCodeBlock",
     "sourceFile": "src/client/components/CodeBlock/CodeBlock.ts",
     "cssFile": "src/client/components/CodeBlock/CodeBlock.css",
     "testFile": "src/client/components/CodeBlock/CodeBlock.test.ts"
@@ -482,10 +361,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "logviewer",
     "name": "LogViewer",
-    "category": "display",
     "desc": "日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制",
-    "codeKey": "logviewer",
-    "demo": "DemoLogViewer",
     "sourceFile": "src/client/components/LogViewer/LogViewer.ts",
     "cssFile": "src/client/components/LogViewer/LogViewer.css",
     "testFile": "src/client/components/LogViewer/LogViewer.test.ts"
@@ -493,18 +369,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "logviewer-v2",
     "name": "LogViewer 自定义",
-    "category": "display",
     "desc": "自定义日志源 + 行号 + 复制（变体覆盖）",
-    "codeKey": "logviewerCustom",
-    "demo": "DemoLogViewerCustom"
   },
   {
     "id": "jsonviewer",
     "name": "JSONViewer",
-    "category": "display",
     "desc": "结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开",
-    "codeKey": "jsonviewer",
-    "demo": "DemoJSONViewer",
     "sourceFile": "src/client/components/JSONViewer/JSONViewer.ts",
     "cssFile": "src/client/components/JSONViewer/JSONViewer.css",
     "testFile": "src/client/components/JSONViewer/JSONViewer.test.ts"
@@ -512,18 +382,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "jsonviewer-v2",
     "name": "JSONViewer 深展开",
-    "category": "display",
     "desc": "defaultExpandDepth 深度展开嵌套对象（变体覆盖）",
-    "codeKey": "jsonviewerDeep",
-    "demo": "DemoJSONViewerDeep"
   },
   {
     "id": "diffview",
     "name": "DiffView",
-    "category": "display",
     "desc": "代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色",
-    "codeKey": "diffview",
-    "demo": "DemoDiffView",
     "sourceFile": "src/client/components/DiffView/DiffView.ts",
     "cssFile": "src/client/components/DiffView/DiffView.css",
     "testFile": "src/client/components/DiffView/DiffView.test.ts"
@@ -531,18 +395,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "diffview-v2",
     "name": "DiffView 标题",
-    "category": "display",
     "desc": "oldTitle/newTitle 标记版本对比（变体覆盖）",
-    "codeKey": "diffviewBig",
-    "demo": "DemoDiffViewBig"
   },
   {
     "id": "sparkline",
     "name": "Sparkline",
-    "category": "viz",
     "desc": "迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充",
-    "codeKey": "sparkline",
-    "demo": "DemoSparkline",
     "sourceFile": "src/client/components/Sparkline/Sparkline.ts",
     "cssFile": "src/client/components/Sparkline/Sparkline.css",
     "testFile": "src/client/components/Sparkline/Sparkline.test.ts"
@@ -550,10 +408,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "tour",
     "name": "Tour",
-    "category": "overlay",
     "desc": "新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape",
-    "codeKey": "tour",
-    "demo": "DemoTour",
     "sourceFile": "src/client/components/Tour/Tour.ts",
     "cssFile": "src/client/components/Tour/Tour.css",
     "testFile": "src/client/components/Tour/Tour.test.ts"
@@ -561,11 +416,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "kanban",
     "name": "Kanban",
-    "category": "viz",
     "desc": "看板：原生 DnD 拖拽 + 跨列/重排 + 悬停高亮",
     "gotchas": ["enumerated 属性（§6.2）：draggable 空字符串解析为 false——必须显式 setAttribute true/false（拖动变文本选中事故）"],
-    "codeKey": "kanban",
-    "demo": "DemoKanban",
     "sourceFile": "src/client/components/Kanban/Kanban.ts",
     "cssFile": "src/client/components/Kanban/Kanban.css",
     "testFile": "src/client/components/Kanban/Kanban.test.ts"
@@ -573,10 +425,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "pipeline",
     "name": "Pipeline",
-    "category": "ai",
     "desc": "Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测",
-    "codeKey": "pipeline",
-    "demo": "DemoPipeline",
     "sourceFile": "src/client/components/Pipeline/Pipeline.ts",
     "cssFile": "src/client/components/Pipeline/Pipeline.css",
     "testFile": "src/client/components/Pipeline/Pipeline.test.ts"
@@ -584,11 +433,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "treeselect",
     "name": "TreeSelect",
-    "category": "advanced",
     "desc": "树形选择：单选/多选（父子联动）+ 选中 label 回显 + 受控纪律",
     "gotchas": ["弹窗纪律（§5.4）：曾遗漏 portal——absolute 在父容器 overflow/transform 下裁剪/错位——统一 usePopup", "选项量小场景搜索过滤已裁剪（components-cuts.md 永久裁剪）"],
-    "codeKey": "treeselect",
-    "demo": "DemoTreeSelect",
     "sourceFile": "src/client/components/TreeSelect/TreeSelect.ts",
     "cssFile": "src/client/components/TreeSelect/TreeSelect.css",
     "testFile": "src/client/components/TreeSelect/TreeSelect.test.ts"
@@ -596,10 +442,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "layout",
     "name": "Layout",
-    "category": "core",
     "desc": "布局外壳：Sider 折叠 + Header/Content/Footer 骨架（antd Layout / shadcn Sidebar 等价）",
-    "codeKey": "layout",
-    "demo": "DemoLayout",
     "sourceFile": "src/client/components/Layout/Layout.ts",
     "cssFile": "src/client/components/Layout/Layout.css",
     "testFile": "src/client/components/Layout/Layout.test.ts"
@@ -607,7 +450,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "layoutheader",
     "name": "LayoutHeader",
-    "category": "core",
     "desc": "布局顶栏——Layout 家族（Layout/LayoutHeader/LayoutSider/LayoutContent/LayoutFooter）",
     "sourceFile": "src/client/components/Layout/Layout.ts",
     "cssFile": "src/client/components/Layout/Layout.css",
@@ -616,7 +458,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "layoutsider",
     "name": "LayoutSider",
-    "category": "core",
     "desc": "布局侧栏（可折叠 collapsed/collapsible）——Layout 家族",
     "sourceFile": "src/client/components/Layout/Layout.ts",
     "cssFile": "src/client/components/Layout/Layout.css",
@@ -625,7 +466,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "layoutcontent",
     "name": "LayoutContent",
-    "category": "core",
     "desc": "布局内容区——Layout 家族",
     "sourceFile": "src/client/components/Layout/Layout.ts",
     "cssFile": "src/client/components/Layout/Layout.css",
@@ -634,11 +474,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "popconfirm",
     "name": "Popconfirm",
-    "category": "overlay",
     "desc": "气泡确认：危险操作防误触 + 复用 usePopup 基座",
     "gotchas": ["气泡内表单/自定义箭头已裁剪（Popover 基座 + 定位全套复用）"],
-    "codeKey": "popconfirm",
-    "demo": "DemoPopconfirm",
     "sourceFile": "src/client/components/Popconfirm/Popconfirm.ts",
     "cssFile": "src/client/components/Popconfirm/Popconfirm.css",
     "testFile": "src/client/components/Popconfirm/Popconfirm.test.ts"
@@ -646,11 +483,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "autocomplete",
     "name": "AutoComplete",
-    "category": "advanced",
     "desc": "输入联想：自由输入 + 过滤下拉 + 键盘流 + 选中回填",
     "gotchas": ["受控输入纪律（§5.3）：受控 input 焦点丢失事故——输入期间 value 走内部 keyword（useControlledInput），不依赖受控 value 回流", "IME composition：中文输入组合期间受控 value 重置打断——isComposing 门控"],
-    "codeKey": "autocomplete",
-    "demo": "DemoAutoComplete",
     "sourceFile": "src/client/components/AutoComplete/AutoComplete.ts",
     "cssFile": "src/client/components/AutoComplete/AutoComplete.css",
     "testFile": "src/client/components/AutoComplete/AutoComplete.test.ts"
@@ -658,19 +492,13 @@ export const components: ComponentEntry[] = [
   {
     "id": "autocomplete-v2",
     "name": "AutoComplete 禁用态",
-    "category": "input",
     "desc": "disabled 时不可输入（状态矩阵覆盖）",
     "gotchas": ["受控输入纪律：焦点丢失——useControlledInput（与 autocomplete 同源事故）"],
-    "codeKey": "autocompleteDis",
-    "demo": "DemoAutoCompleteDis"
   },
   {
     "id": "link",
     "name": "Link",
-    "category": "core",
     "desc": "文字链接：语义色/下划线/disabled/新窗口",
-    "codeKey": "link",
-    "demo": "DemoLink",
     "sourceFile": "src/client/components/Link/Link.ts",
     "cssFile": "src/client/components/Link/Link.css",
     "testFile": "src/client/components/Link/Link.test.ts"
@@ -678,10 +506,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "floatbutton",
     "name": "FloatButton",
-    "category": "core",
     "desc": "悬浮按钮组：展开状态机 + badge",
-    "codeKey": "floatbutton",
-    "demo": "DemoFloatButton",
     "sourceFile": "src/client/components/FloatButton/FloatButton.ts",
     "cssFile": "src/client/components/FloatButton/FloatButton.css",
     "testFile": "src/client/components/FloatButton/FloatButton.test.ts"
@@ -689,10 +514,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "navmenu",
     "name": "NavMenu",
-    "category": "navigation",
     "desc": "顶部导航：多级 hover 弹出 + 键盘（shadcn NavigationMenu）",
-    "codeKey": "navmenu",
-    "demo": "DemoNavMenu",
     "sourceFile": "src/client/components/NavMenu/NavMenu.ts",
     "cssFile": "src/client/components/NavMenu/NavMenu.css",
     "testFile": "src/client/components/NavMenu/NavMenu.test.ts"
@@ -700,10 +522,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "space",
     "name": "Space",
-    "category": "core",
     "desc": "间距容器：size/direction/wrap + split 分隔符",
-    "codeKey": "space",
-    "demo": "DemoSpace",
     "sourceFile": "src/client/components/Space/Space.ts",
     "cssFile": "src/client/components/Space/Space.css",
     "testFile": "src/client/components/Space/Space.test.ts"
@@ -711,10 +530,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "grid",
     "name": "Grid",
-    "category": "core",
     "desc": "24 栅格 + gutter + flex 容器模式（Row/Col/Flex 等价）",
-    "codeKey": "grid",
-    "demo": "DemoGrid",
     "sourceFile": "src/client/components/Grid/Grid.ts",
     "cssFile": "src/client/components/Grid/Grid.css",
     "testFile": "src/client/components/Grid/Grid.test.ts"
@@ -722,10 +538,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "scrollbar",
     "name": "Scrollbar",
-    "category": "core",
     "desc": "自定义滚动容器：webkit 样式 + hover 显示",
-    "codeKey": "scrollbar",
-    "demo": "DemoScrollbar",
     "sourceFile": "src/client/components/Scrollbar/Scrollbar.ts",
     "cssFile": "src/client/components/Scrollbar/Scrollbar.css",
     "testFile": "src/client/components/Scrollbar/Scrollbar.test.ts"
@@ -733,10 +546,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "alertgroup",
     "name": "AlertGroup",
-    "category": "feedback",
     "desc": "通知合并组：≥3 条折叠为 +N，点击展开",
-    "codeKey": "alertgroup",
-    "demo": "DemoAlertGroup",
     "sourceFile": "src/client/components/AlertGroup/AlertGroup.ts",
     "cssFile": "src/client/components/AlertGroup/AlertGroup.css",
     "testFile": "src/client/components/AlertGroup/AlertGroup.test.ts"
@@ -744,19 +554,13 @@ export const components: ComponentEntry[] = [
   {
     "id": "statcard-countdown",
     "name": "StatCard Countdown",
-    "category": "display",
     "desc": "倒计时模式：剩余 HH:MM:SS + 结束回调",
-    "codeKey": "statCountdown",
-    "demo": "DemoStatCountdown"
   },
   {
     "id": "messagebubble",
     "name": "MessageBubble",
-    "category": "ai",
     "desc": "消息气泡：user/assistant + streaming/error 状态 + actions",
     "family": "ai-chat",
-    "codeKey": "messageBubble",
-    "demo": "DemoMessageBubble",
     "sourceFile": "src/client/components/MessageBubble/MessageBubble.ts",
     "cssFile": "src/client/components/MessageBubble/MessageBubble.css",
     "testFile": "src/client/components/MessageBubble/MessageBubble.test.ts"
@@ -764,10 +568,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "highlight",
     "name": "Highlight",
-    "category": "display",
     "desc": "搜索词高亮：分词渲染 mark，大小写不敏感",
-    "codeKey": "highlight",
-    "demo": "DemoHighlight",
     "sourceFile": "src/client/components/Highlight/Highlight.ts",
     "cssFile": "src/client/components/Highlight/Highlight.css",
     "testFile": "src/client/components/Highlight/Highlight.test.ts"
@@ -775,18 +576,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "highlight-v2",
     "name": "Highlight 多词",
-    "category": "display",
     "desc": "query 数组多词高亮（变体覆盖）",
-    "codeKey": "highlightMulti",
-    "demo": "DemoHighlightMulti"
   },
   {
     "id": "list",
     "name": "List",
-    "category": "display",
     "desc": "通用列表：renderItem + divided + header/footer/empty",
-    "codeKey": "list",
-    "demo": "DemoList",
     "sourceFile": "src/client/components/List/List.ts",
     "cssFile": "src/client/components/List/List.css",
     "testFile": "src/client/components/List/List.test.ts"
@@ -794,10 +589,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "result",
     "name": "Result",
-    "category": "feedback",
     "desc": "结果页：success/error/warning/info + extra 操作区",
-    "codeKey": "result",
-    "demo": "DemoResult",
     "sourceFile": "src/client/components/Result/Result.ts",
     "cssFile": "src/client/components/Result/Result.css",
     "testFile": "src/client/components/Result/Result.test.ts"
@@ -805,20 +597,14 @@ export const components: ComponentEntry[] = [
   {
     "id": "confirm",
     "name": "Confirm",
-    "category": "feedback",
     "desc": "确认对话框，Promise 化 await 调用",
-    "codeKey": "confirm",
-    "demo": "DemoConfirm",
     "sourceFile": "src/client/components/Confirm/Confirm.ts",
     "testFile": "src/client/components/Confirm/Confirm.test.ts"
   },
   {
     "id": "statcard",
     "name": "StatCard",
-    "category": "viz",
     "desc": "KPI 指标卡，支持 trend/icon",
-    "codeKey": "stat",
-    "demo": "DemoStatCard",
     "sourceFile": "src/client/components/StatCard/StatCard.ts",
     "cssFile": "src/client/components/StatCard/StatCard.css",
     "testFile": "src/client/components/StatCard/StatCard.test.ts"
@@ -826,10 +612,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "chart",
     "name": "Chart",
-    "category": "viz",
     "desc": "SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘",
-    "codeKey": "chart",
-    "demo": "DemoChart",
     "sourceFile": "src/client/components/Chart/Chart.ts",
     "cssFile": "src/client/components/Chart/Chart.css",
     "testFile": "src/client/components/Chart/Chart.test.ts"
@@ -837,10 +620,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "editor",
     "name": "Editor",
-    "category": "editor",
     "desc": "富文本编辑器，contentEditable + toolbar，零依赖",
-    "codeKey": "editor",
-    "demo": "DemoEditor",
     "sourceFile": "src/client/components/Editor/Editor.ts",
     "cssFile": "src/client/components/Editor/Editor.css",
     "testFile": "src/client/components/Editor/Editor.test.ts"
@@ -848,10 +628,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "filepreview",
     "name": "FilePreview",
-    "category": "editor",
     "desc": "文件预览（md/html/pdf/office）——基于事件流，可编辑",
     "family": "file-preview",
-    "demo": "DemoFilePreview",
     "sourceFile": "src/client/components/FilePreview/FilePreview.ts",
     "cssFile": "src/client/components/FilePreview/FilePreview.css",
     "testFile": "src/client/components/FilePreview/FilePreview.test.ts"
@@ -859,17 +637,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "filepreview-office",
     "name": "FilePreview Office",
-    "category": "editor",
     "desc": "office 前端导入/导出（零依赖转换——无需后端）",
-    "demo": "DemoFilePreviewOffice"
   },
   {
     "id": "themeswitch",
     "name": "ThemeSwitch",
-    "category": "core",
     "desc": "主题切换：auto/light/dark，localStorage 持久化",
-    "codeKey": "themeSwitch",
-    "demo": "DemoThemeSwitch",
     "sourceFile": "src/client/components/ThemeSwitch/ThemeSwitch.ts",
     "cssFile": "src/client/components/ThemeSwitch/ThemeSwitch.css",
     "testFile": "src/client/components/ThemeSwitch/ThemeSwitch.test.ts"
@@ -877,11 +650,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "datepicker",
     "name": "DatePicker",
-    "category": "advanced",
     "desc": "日期选择器，四种模式：date/datetime/time/range",
     "gotchas": ["受控纪律：受控 value/month 必须配回调——缺回调静默不可点"],
-    "codeKey": "datepicker",
-    "demo": "DemoDatePicker",
     "sourceFile": "src/client/components/DatePicker/DatePicker.ts",
     "cssFile": "src/client/components/DatePicker/DatePicker.css",
     "testFile": "src/client/components/DatePicker/DatePicker.test.ts"
@@ -889,11 +659,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "modal",
     "name": "Modal",
-    "category": "overlay",
     "desc": "自定义宽度 + closable 控制关闭按钮",
     "gotchas": ["退场动画：exit 类必须挂载（animationend 驱动卸载）——reduced-motion 下动画降为 0.01ms 等效瞬时", "会话级模态四件套：presence/trapFocus/lockScroll 由 usePopup 统一提供"],
-    "codeKey": "modal",
-    "demo": "DemoModal",
     "sourceFile": "src/client/components/Modal/Modal.ts",
     "cssFile": "src/client/components/Modal/Modal.css",
     "testFile": "src/client/components/Modal/Modal.test.ts"
@@ -901,11 +668,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "drawer",
     "name": "Drawer",
-    "category": "overlay",
     "desc": "侧边面板，左右滑入 + ESC 关闭",
     "gotchas": ["退场动画：--enter/--exit 类必须成对（audit 强制）——只定义不挂是死代码（CS-01）"],
-    "codeKey": "drawer",
-    "demo": "DemoDrawer",
     "sourceFile": "src/client/components/Drawer/Drawer.ts",
     "cssFile": "src/client/components/Drawer/Drawer.css",
     "testFile": "src/client/components/Drawer/Drawer.test.ts"
@@ -913,11 +677,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "popover",
     "name": "Popover",
-    "category": "overlay",
     "desc": "通用弹出层，click/hover 触发，4 方向",
     "gotchas": ["portal 槽豁免（同 HoverCard）", "富内容自动判定已裁剪——HoverCard 补富内容（components-cuts.md）"],
-    "codeKey": "popover",
-    "demo": "DemoPopover",
     "sourceFile": "src/client/components/Popover/Popover.ts",
     "cssFile": "src/client/components/Popover/Popover.css",
     "testFile": "src/client/components/Popover/Popover.test.ts"
@@ -925,11 +686,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "tooltip",
     "name": "Tooltip",
-    "category": "overlay",
     "desc": "hover 浮动提示，4 方向",
     "gotchas": ["portal 槽豁免（同 HoverCard）——浮层插槽非业务列表"],
-    "codeKey": "tooltip",
-    "demo": "DemoTooltip",
     "sourceFile": "src/client/components/Tooltip/Tooltip.ts",
     "cssFile": "src/client/components/Tooltip/Tooltip.css",
     "testFile": "src/client/components/Tooltip/Tooltip.test.ts"
@@ -937,10 +695,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "toast",
     "name": "Toast",
-    "category": "feedback",
     "desc": "5 种位置 + 自动消失 + 数量限制",
-    "codeKey": "toast",
-    "demo": "DemoToast",
     "sourceFile": "src/client/components/Toast/Toast.ts",
     "cssFile": "src/client/components/Toast/Toast.css",
     "testFile": "src/client/components/Toast/Toast.test.ts"
@@ -948,10 +703,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "alert",
     "name": "Alert",
-    "category": "feedback",
     "desc": "信息提示条，4 种 variant + closable",
-    "codeKey": "alert",
-    "demo": "DemoAlert",
     "sourceFile": "src/client/components/Alert/Alert.ts",
     "cssFile": "src/client/components/Alert/Alert.css",
     "testFile": "src/client/components/Alert/Alert.test.ts"
@@ -959,10 +711,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "loading",
     "name": "Loading",
-    "category": "feedback",
     "desc": "加载状态，支持自定义文字",
-    "codeKey": "loading",
-    "demo": "DemoLoading",
     "sourceFile": "src/client/components/Loading/Loading.ts",
     "cssFile": "src/client/components/Loading/Loading.css",
     "testFile": "src/client/components/Loading/Loading.test.ts"
@@ -970,10 +719,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "skeleton",
     "name": "Skeleton",
-    "category": "display",
     "desc": "text/circle/rect/image/avatar/table 六种变体",
-    "codeKey": "skeleton",
-    "demo": "DemoSkeleton",
     "sourceFile": "src/client/components/Skeleton/Skeleton.ts",
     "cssFile": "src/client/components/Skeleton/Skeleton.css",
     "testFile": "src/client/components/Skeleton/Skeleton.test.ts"
@@ -981,10 +727,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "emptystate",
     "name": "EmptyState",
-    "category": "feedback",
     "desc": "空状态占位，支持 icon/text/hint/action",
-    "codeKey": "empty",
-    "demo": "DemoEmptyState",
     "sourceFile": "src/client/components/EmptyState/EmptyState.ts",
     "cssFile": "src/client/components/EmptyState/EmptyState.css",
     "testFile": "src/client/components/EmptyState/EmptyState.test.ts"
@@ -992,10 +735,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "breadcrumb",
     "name": "Breadcrumb",
-    "category": "navigation",
     "desc": "面包屑导航，支持 aria-current",
-    "codeKey": "breadcrumb",
-    "demo": "DemoBreadcrumb",
     "sourceFile": "src/client/components/Breadcrumb/Breadcrumb.ts",
     "cssFile": "src/client/components/Breadcrumb/Breadcrumb.css",
     "testFile": "src/client/components/Breadcrumb/Breadcrumb.test.ts"
@@ -1003,10 +743,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "menu",
     "name": "Menu",
-    "category": "navigation",
     "desc": "侧栏导航：分组 + 图标 + 选中态 + 方向键",
-    "codeKey": "menu",
-    "demo": "DemoMenu",
     "sourceFile": "src/client/components/Menu/Menu.ts",
     "cssFile": "src/client/components/Menu/Menu.css",
     "testFile": "src/client/components/Menu/Menu.test.ts"
@@ -1014,11 +751,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "tabs",
     "name": "Tabs",
-    "category": "navigation",
     "desc": "标签页切换，支持 active/onChange",
     "gotchas": ["混合数组稳定 key：tabList+addBtn+ink 全 keyed——无 key 项退 unkeyed 位置配对（新增 tab 错位事故）", "closable 必须配 onClose / addable 必须配 onAdd（受控纪律——console.warn）"],
-    "codeKey": "tabs",
-    "demo": "DemoTabs",
     "sourceFile": "src/client/components/Tabs/Tabs.ts",
     "cssFile": "src/client/components/Tabs/Tabs.css",
     "testFile": "src/client/components/Tabs/Tabs.test.ts"
@@ -1026,11 +760,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "dropdown",
     "name": "Dropdown",
-    "category": "overlay",
     "desc": "下拉菜单，支持 danger variant",
     "gotchas": ["受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点", "命令式弹窗：浮层经 ctx.ui.openPopup（唯一形态——toast 心智——内核自管理生命周期）"],
-    "codeKey": "dropdown",
-    "demo": "DemoDropdown",
     "sourceFile": "src/client/components/Dropdown/Dropdown.ts",
     "cssFile": "src/client/components/Dropdown/Dropdown.css",
     "testFile": "src/client/components/Dropdown/Dropdown.test.ts"
@@ -1038,10 +769,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "pagination",
     "name": "Pagination",
-    "category": "navigation",
     "desc": "分页器，自动计算页码范围",
-    "codeKey": "pagination",
-    "demo": "DemoPagination",
     "sourceFile": "src/client/components/Pagination/Pagination.ts",
     "cssFile": "src/client/components/Pagination/Pagination.css",
     "testFile": "src/client/components/Pagination/Pagination.test.ts"
@@ -1049,10 +777,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "steps",
     "name": "Steps",
-    "category": "navigation",
     "desc": "分步指示器，支持 active/current",
-    "codeKey": "steps",
-    "demo": "DemoSteps",
     "sourceFile": "src/client/components/Steps/Steps.ts",
     "cssFile": "src/client/components/Steps/Steps.css",
     "testFile": "src/client/components/Steps/Steps.test.ts"
@@ -1060,10 +785,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "accordion",
     "name": "Accordion",
-    "category": "navigation",
     "desc": "折叠面板，支持多个 items",
-    "codeKey": "accordion",
-    "demo": "DemoAccordion",
     "sourceFile": "src/client/components/Accordion/Accordion.ts",
     "cssFile": "src/client/components/Accordion/Accordion.css",
     "testFile": "src/client/components/Accordion/Accordion.test.ts"
@@ -1071,11 +793,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "aichat",
     "name": "AiChat",
-    "category": "ai",
     "desc": "useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明",
     "family": "ai-chat",
-    "codeKey": "aichat",
-    "demo": "DemoAiChat",
     "sourceFile": "src/client/components/AiChat/AiChat.ts",
     "cssFile": "src/client/components/AiChat/AiChat.css",
     "testFile": "src/client/components/AiChat/AiChat.test.ts"
@@ -1083,11 +802,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "chatinput",
     "name": "ChatInput",
-    "category": "ai",
     "desc": "独立聊天输入条（AiChat 抽取）：单行/多行 + streaming 停止 + IME 安全——不自带聊天逻辑",
     "family": "ai-chat",
-    "codeKey": "chatinput",
-    "demo": "DemoChatInput",
     "sourceFile": "src/client/components/ChatInput/ChatInput.ts",
     "cssFile": "src/client/components/ChatInput/ChatInput.css",
     "testFile": "src/client/components/ChatInput/ChatInput.test.ts"
@@ -1095,21 +811,15 @@ export const components: ComponentEntry[] = [
   {
     "id": "authpage",
     "name": "AuthPage",
-    "category": "ai",
     "desc": "认证页骨架：居中卡片 + logo + 表单插槽 + 错误条 + 提交 loading（登录/注册复用）",
-    "codeKey": "authpage",
-    "demo": "DemoAuthPage",
     "sourceFile": "src/client/components/AuthPage/AuthPage.ts",
     "testFile": "src/client/components/AuthPage/AuthPage.test.ts"
   },
   {
     "id": "toolcallcard",
     "name": "ToolCallCard",
-    "category": "ai",
     "desc": "工具调用卡片：running / ok / error 状态机（call/progress/result 三字段驱动）",
     "family": "ai-chat",
-    "codeKey": "toolcall",
-    "demo": "DemoToolCallCard",
     "sourceFile": "src/client/components/ToolCallCard/ToolCallCard.ts",
     "cssFile": "src/client/components/ToolCallCard/ToolCallCard.css",
     "testFile": "src/client/components/ToolCallCard/ToolCallCard.test.ts"
@@ -1117,10 +827,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "jsonschemaform",
     "name": "JsonSchemaForm",
-    "category": "form",
     "desc": "JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套/数组（AI 工具参数输入面）",
-    "codeKey": "jsonschemaform",
-    "demo": "DemoJsonSchemaForm",
     "sourceFile": "src/client/components/JsonSchemaForm/JsonSchemaForm.ts",
     "cssFile": "src/client/components/JsonSchemaForm/JsonSchemaForm.css",
     "testFile": "src/client/components/JsonSchemaForm/JsonSchemaForm.test.ts"
@@ -1128,11 +835,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "reasoningblock",
     "name": "ReasoningBlock",
-    "category": "ai",
     "desc": "CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲（thinking 模式 reasoning_content）",
     "family": "ai-chat",
-    "codeKey": "reasoningblock",
-    "demo": "DemoReasoningBlock",
     "sourceFile": "src/client/components/ReasoningBlock/ReasoningBlock.ts",
     "cssFile": "src/client/components/ReasoningBlock/ReasoningBlock.css",
     "testFile": "src/client/components/ReasoningBlock/ReasoningBlock.test.ts"
@@ -1140,11 +844,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "citationcard",
     "name": "CitationCard",
-    "category": "ai",
     "desc": "RAG 引用来源：折叠「引用 N 条」+ 条目列表（序号/标题/来源/片段/链接）+ 溢出 +N",
     "family": "ai-chat",
-    "codeKey": "citationcard",
-    "demo": "DemoCitationCard",
     "sourceFile": "src/client/components/CitationCard/CitationCard.ts",
     "cssFile": "src/client/components/CitationCard/CitationCard.css",
     "testFile": "src/client/components/CitationCard/CitationCard.test.ts"
@@ -1152,11 +853,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "sessionlist",
     "name": "SessionList",
-    "category": "ai",
     "desc": "会话管理列表：分组（今天/昨天/更早）+ 搜索 + 选中 + 重命名/删除/新建 + 键盘导航",
     "family": "ai-chat",
-    "codeKey": "sessionlist",
-    "demo": "DemoSessionList",
     "sourceFile": "src/client/components/SessionList/SessionList.ts",
     "cssFile": "src/client/components/SessionList/SessionList.css",
     "testFile": "src/client/components/SessionList/SessionList.test.ts"
@@ -1164,11 +862,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "approvalcard",
     "name": "ApprovalCard",
-    "category": "ai",
     "desc": "HITL 审批卡片：pending 可批/拒 + 修改参数（JsonSchemaForm）· approved/rejected/timeout 终态",
     "family": "ai-chat",
-    "codeKey": "approval",
-    "demo": "DemoApprovalCard",
     "sourceFile": "src/client/components/ApprovalCard/ApprovalCard.ts",
     "cssFile": "src/client/components/ApprovalCard/ApprovalCard.css",
     "testFile": "src/client/components/ApprovalCard/ApprovalCard.test.ts"
@@ -1176,10 +871,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "pageheader",
     "name": "PageHeader",
-    "category": "navigation",
     "desc": "页面标题栏，支持 sub + 右侧操作区 + display 大标题",
-    "codeKey": "pageheader",
-    "demo": "DemoPageHeader",
     "sourceFile": "src/client/components/PageHeader/PageHeader.ts",
     "cssFile": "src/client/components/PageHeader/PageHeader.css",
     "testFile": "src/client/components/PageHeader/PageHeader.test.ts"
@@ -1187,10 +879,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "icon",
     "name": "Icon",
-    "category": "core",
     "desc": "stroke SVG 图标集，currentColor 着色，随字号缩放",
-    "codeKey": "icon",
-    "demo": "DemoIcon",
     "sourceFile": "src/client/components/Icon/Icon.ts",
     "cssFile": "src/client/components/Icon/Icon.css",
     "testFile": "src/client/components/Icon/Icon.test.ts"
@@ -1198,10 +887,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "divider",
     "name": "Divider",
-    "category": "core",
     "desc": "分割线，支持 horizontal/vertical/带文字",
-    "codeKey": "divider",
-    "demo": "DemoDivider",
     "sourceFile": "src/client/components/Divider/Divider.ts",
     "cssFile": "src/client/components/Divider/Divider.css",
     "testFile": "src/client/components/Divider/Divider.test.ts"
@@ -1209,18 +895,13 @@ export const components: ComponentEntry[] = [
   {
     "id": "app",
     "name": "多应用（app 节点）",
-    "category": "ai",
     "desc": "父应用嵌入子应用：注册表 + 独立状态 + app:* 边界事件（appId 可区分——同流全链路）",
-    "demo": "DemoApp"
   },
   {
     "id": "rate",
     "name": "Rate",
-    "category": "input",
     "desc": "评分：键盘方向键 / allowClear / readOnly，新增 star 图标",
     "gotchas": ["小尺寸 button 固定 min/max-height（§5.6）：星 16x36 竖条事故"],
-    "codeKey": "rate",
-    "demo": "DemoRate",
     "sourceFile": "src/client/components/Rate/Rate.ts",
     "cssFile": "src/client/components/Rate/Rate.css",
     "testFile": "src/client/components/Rate/Rate.test.ts"
@@ -1228,10 +909,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "typography",
     "name": "Typography",
-    "category": "core",
     "desc": "Title/Text/Paragraph：语义标签 + 语义色 -text 变体 + mark/code/删除线",
-    "codeKey": "typography",
-    "demo": "DemoTypography",
     "sourceFile": "src/client/components/Typography/Typography.ts",
     "cssFile": "src/client/components/Typography/Typography.css",
     "testFile": "src/client/components/Typography/Typography.test.ts"
@@ -1239,10 +917,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "label",
     "name": "Label",
-    "category": "core",
     "desc": "独立标签（required 星号）+ 宽高比容器（内容填满）",
-    "codeKey": "label",
-    "demo": "DemoLabel",
     "sourceFile": "src/client/components/Label/Label.ts",
     "cssFile": "src/client/components/Label/Label.css",
     "testFile": "src/client/components/Label/Label.test.ts"
@@ -1250,10 +925,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "aspectratio",
     "name": "AspectRatio",
-    "category": "core",
     "desc": "独立标签（required 星号）+ 宽高比容器（内容填满）",
-    "codeKey": "label",
-    "demo": "DemoAspectRatio",
     "sourceFile": "src/client/components/AspectRatio/AspectRatio.ts",
     "cssFile": "src/client/components/AspectRatio/AspectRatio.css",
     "testFile": "src/client/components/AspectRatio/AspectRatio.test.ts"
@@ -1261,10 +933,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "toggle-togglegroup",
     "name": "Toggle / ToggleGroup",
-    "category": "input",
     "desc": "切换按钮：single/multiple 双模式（shadcn 对齐）",
-    "codeKey": "togglegroup",
-    "demo": "DemoToggleGroup",
     "sourceFile": "src/client/components/ToggleGroup/ToggleGroup.ts",
     "cssFile": "src/client/components/ToggleGroup/ToggleGroup.css",
     "testFile": "src/client/components/ToggleGroup/ToggleGroup.test.ts"
@@ -1272,10 +941,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "checkboxgroup",
     "name": "CheckboxGroup",
-    "category": "input",
     "desc": "复选框组：数组受控 + 栅格列数（antd Checkbox.Group）",
-    "codeKey": "checkboxgroup",
-    "demo": "DemoCheckboxGroup",
     "sourceFile": "src/client/components/CheckboxGroup/CheckboxGroup.ts",
     "cssFile": "src/client/components/CheckboxGroup/CheckboxGroup.css",
     "testFile": "src/client/components/CheckboxGroup/CheckboxGroup.test.ts"
@@ -1283,10 +949,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "pininput",
     "name": "PinInput",
-    "category": "input",
     "desc": "验证码输入：自动聚焦/粘贴分派/Backspace 回退（shadcn InputOTP）",
-    "codeKey": "pininput",
-    "demo": "DemoPinInput",
     "sourceFile": "src/client/components/PinInput/PinInput.ts",
     "cssFile": "src/client/components/PinInput/PinInput.css",
     "testFile": "src/client/components/PinInput/PinInput.test.ts"
@@ -1294,18 +957,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "pininput-v2",
     "name": "PinInput 禁用态",
-    "category": "input",
     "desc": "disabled 不可编辑（状态矩阵覆盖）",
-    "codeKey": "pininputDis",
-    "demo": "DemoPinInputDis"
   },
   {
     "id": "copybutton",
     "name": "CopyButton",
-    "category": "core",
     "desc": "复制按钮：clipboard + execCommand 降级 + 成功状态机",
-    "codeKey": "copybtn",
-    "demo": "DemoCopyButton",
     "sourceFile": "src/client/components/CopyButton/CopyButton.ts",
     "cssFile": "src/client/components/CopyButton/CopyButton.css",
     "testFile": "src/client/components/CopyButton/CopyButton.test.ts"
@@ -1313,10 +970,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "colorpicker",
     "name": "ColorPicker",
-    "category": "overlay",
     "desc": "颜色选择：预设色板 + hex 输入（Popover 弹层）",
-    "codeKey": "colorpicker",
-    "demo": "DemoColorPicker",
     "sourceFile": "src/client/components/ColorPicker/ColorPicker.ts",
     "cssFile": "src/client/components/ColorPicker/ColorPicker.css",
     "testFile": "src/client/components/ColorPicker/ColorPicker.test.ts"
@@ -1324,11 +978,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "hovercard",
     "name": "HoverCard",
-    "category": "overlay",
     "desc": "悬停富内容卡：openDelay 延迟 + 任意 VNode（shadcn）",
     "gotchas": ["portal 槽豁免：浮层插槽打开/关闭不触发 A 级动态数组检测（框架管理切换槽）"],
-    "codeKey": "hovercard",
-    "demo": "DemoHoverCard",
     "sourceFile": "src/client/components/HoverCard/HoverCard.ts",
     "cssFile": "src/client/components/HoverCard/HoverCard.css",
     "testFile": "src/client/components/HoverCard/HoverCard.test.ts"
@@ -1336,10 +987,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "notification",
     "name": "Notification",
-    "category": "feedback",
     "desc": "队列式通知：notification.success/error/warning 命令式（antd 对齐）",
-    "codeKey": "notification",
-    "demo": "DemoNotification",
     "sourceFile": "src/client/components/Notification/Notification.ts",
     "cssFile": "src/client/components/Notification/Notification.css",
     "testFile": "src/client/components/Notification/Notification.test.ts"
@@ -1347,10 +995,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "backtop",
     "name": "BackTop",
-    "category": "navigation",
     "desc": "回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）",
-    "codeKey": "backtop",
-    "demo": "DemoBackTop",
     "sourceFile": "src/client/components/BackTop/BackTop.ts",
     "cssFile": "src/client/components/BackTop/BackTop.css",
     "testFile": "src/client/components/BackTop/BackTop.test.ts"
@@ -1358,10 +1003,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "affix",
     "name": "Affix",
-    "category": "navigation",
     "desc": "回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）",
-    "codeKey": "backtop",
-    "demo": "DemoAffix",
     "sourceFile": "src/client/components/Affix/Affix.ts",
     "cssFile": "src/client/components/Affix/Affix.css",
     "testFile": "src/client/components/Affix/Affix.test.ts"
@@ -1369,10 +1011,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "anchor",
     "name": "Anchor",
-    "category": "navigation",
     "desc": "锚点导航：滚动高亮跟随 + 点击平滑滚动",
-    "codeKey": "anchor",
-    "demo": "DemoAnchor",
     "sourceFile": "src/client/components/Anchor/Anchor.ts",
     "cssFile": "src/client/components/Anchor/Anchor.css",
     "testFile": "src/client/components/Anchor/Anchor.test.ts"
@@ -1380,11 +1019,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "contextmenu",
     "name": "ContextMenu",
-    "category": "overlay",
     "desc": "右键菜单：光标定位 + 方向键 + danger 变体（shadcn）",
     "gotchas": ["portal 槽豁免；右键 + 触屏长按双通道"],
-    "codeKey": "contextmenu",
-    "demo": "DemoContextMenu",
     "sourceFile": "src/client/components/ContextMenu/ContextMenu.ts",
     "cssFile": "src/client/components/ContextMenu/ContextMenu.css",
     "testFile": "src/client/components/ContextMenu/ContextMenu.test.ts"
@@ -1392,10 +1028,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "mentions",
     "name": "Mentions",
-    "category": "advanced",
     "desc": "@提及：composition 抑制 + 过滤插入（antd Mentions）",
-    "codeKey": "mentions",
-    "demo": "DemoMentions",
     "sourceFile": "src/client/components/Mentions/Mentions.ts",
     "cssFile": "src/client/components/Mentions/Mentions.css",
     "testFile": "src/client/components/Mentions/Mentions.test.ts"
@@ -1403,19 +1036,13 @@ export const components: ComponentEntry[] = [
   {
     "id": "mentions-v2",
     "name": "Mentions 禁用态",
-    "category": "input",
     "desc": "disabled 时不可输入（状态矩阵覆盖）",
-    "codeKey": "mentionsDis",
-    "demo": "DemoMentionsDis"
   },
   {
     "id": "collapse",
     "name": "Collapse",
-    "category": "navigation",
     "desc": "行内折叠：异步 loading + extra 操作区（区别于 Accordion）",
     "gotchas": ["受控纪律（§5.2）：受控 activeKeys 必须配回调——缺回调静默不可点（console.warn 防护）"],
-    "codeKey": "collapse",
-    "demo": "DemoCollapse",
     "sourceFile": "src/client/components/Collapse/Collapse.ts",
     "cssFile": "src/client/components/Collapse/Collapse.css",
     "testFile": "src/client/components/Collapse/Collapse.test.ts"
@@ -1423,11 +1050,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "tree",
     "name": "Tree",
-    "category": "advanced",
     "desc": "树形：递归模型 + 勾选父子联动 + indeterminate（antd/EP Tree）",
     "gotchas": ["受控纪律：selectedKeys/checkedKeys/expandedKeys 必须配回调（缺回调 console.warn）", "小尺寸 button 固定 min/max-height（§5.6）：checkbox 14x36 竖条事故", "虚拟模式（virtual）键盘导航限于可见窗口（VirtualList 无 scrollTo——裁剪登记）"],
-    "codeKey": "tree",
-    "demo": "DemoToggleTree",
     "sourceFile": "src/client/components/Tree/Tree.ts",
     "cssFile": "src/client/components/Tree/Tree.css",
     "testFile": "src/client/components/Tree/Tree.test.ts"
@@ -1435,19 +1059,13 @@ export const components: ComponentEntry[] = [
   {
     "id": "tree-v2",
     "name": "Tree 勾选",
-    "category": "advanced",
     "desc": "checkable 父子联动 + 受控 checkedKeys（变体覆盖）",
-    "codeKey": "treeCheck",
-    "demo": "DemoToggleTreeCheck"
   },
   {
     "id": "cascader",
     "name": "Cascader",
-    "category": "advanced",
     "desc": "级联选择：多列面板逐级推进（antd/EP Cascader）",
     "gotchas": ["受控纪律：受控 value 必须配回调——缺回调静默不可点", "多选（multiple）已裁剪（低频——单选+搜索已够，见 components-cuts.md）"],
-    "codeKey": "cascader",
-    "demo": "DemoCascader",
     "sourceFile": "src/client/components/Cascader/Cascader.ts",
     "cssFile": "src/client/components/Cascader/Cascader.css",
     "testFile": "src/client/components/Cascader/Cascader.test.ts"
@@ -1455,18 +1073,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "cascader-v2",
     "name": "Cascader 禁用/错误",
-    "category": "advanced",
     "desc": "disabled + error 校验态（状态矩阵覆盖）",
-    "codeKey": "cascaderDis",
-    "demo": "DemoCascaderDis"
   },
   {
     "id": "transfer",
     "name": "Transfer",
-    "category": "advanced",
     "desc": "穿梭框：双列表 + 选中移动（antd/EP Transfer）",
-    "codeKey": "transfer",
-    "demo": "DemoTransfer",
     "sourceFile": "src/client/components/Transfer/Transfer.ts",
     "cssFile": "src/client/components/Transfer/Transfer.css",
     "testFile": "src/client/components/Transfer/Transfer.test.ts"
@@ -1474,10 +1086,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "command",
     "name": "Command",
-    "category": "overlay",
     "desc": "命令面板：⌘K 全局快捷键 + 键盘流（shadcn Command）",
-    "codeKey": "command",
-    "demo": "DemoCommand",
     "sourceFile": "src/client/components/Command/Command.ts",
     "cssFile": "src/client/components/Command/Command.css",
     "testFile": "src/client/components/Command/Command.test.ts"
@@ -1485,10 +1094,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "menubar",
     "name": "Menubar",
-    "category": "navigation",
     "desc": "水平菜单栏：←→ 切换 + ↓ 展开（shadcn Menubar）",
-    "codeKey": "menubar",
-    "demo": "DemoMenubar",
     "sourceFile": "src/client/components/Menubar/Menubar.ts",
     "cssFile": "src/client/components/Menubar/Menubar.css",
     "testFile": "src/client/components/Menubar/Menubar.test.ts"
@@ -1496,11 +1102,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "carousel",
     "name": "Carousel",
-    "category": "virtual",
     "desc": "轮播：箭头/圆点/循环 + 自动播放（三库共识）",
     "gotchas": ["小尺寸 button 固定 min/max-height（§5.6）：圆点 8x45 竖条事故"],
-    "codeKey": "carousel",
-    "demo": "DemoCarousel",
     "sourceFile": "src/client/components/Carousel/Carousel.ts",
     "cssFile": "src/client/components/Carousel/Carousel.css",
     "testFile": "src/client/components/Carousel/Carousel.test.ts"
@@ -1508,10 +1111,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "resizable",
     "name": "Resizable",
-    "category": "virtual",
     "desc": "拖拽分割面板：pointer + 键盘方向键 + clamp（shadcn）",
-    "codeKey": "resizable",
-    "demo": "DemoResizable",
     "sourceFile": "src/client/components/Resizable/Resizable.ts",
     "cssFile": "src/client/components/Resizable/Resizable.css",
     "testFile": "src/client/components/Resizable/Resizable.test.ts"
@@ -1519,11 +1119,8 @@ export const components: ComponentEntry[] = [
   {
     "id": "calendar",
     "name": "Calendar",
-    "category": "advanced",
     "desc": "月历：事件点 + 月切换 + 日期选择（antd/EP Calendar）",
     "gotchas": ["受控纪律：受控 month/value 必须配回调——缺回调静默不可点（console.warn 防护）"],
-    "codeKey": "calendar",
-    "demo": "DemoCalendar",
     "sourceFile": "src/client/components/Calendar/Calendar.ts",
     "cssFile": "src/client/components/Calendar/Calendar.css",
     "testFile": "src/client/components/Calendar/Calendar.test.ts"
@@ -1531,18 +1128,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "calendar-v2",
     "name": "Calendar 事件",
-    "category": "advanced",
     "desc": "事件标记 + 日期选择交互（变体覆盖）",
-    "codeKey": "calendarEvents",
-    "demo": "DemoCalendarEvents"
   },
   {
     "id": "watermark",
     "name": "Watermark",
-    "category": "display",
     "desc": "水印：canvas 平铺绘制 + overlay（antd Watermark）",
-    "codeKey": "watermark",
-    "demo": "DemoWatermark",
     "sourceFile": "src/client/components/Watermark/Watermark.ts",
     "cssFile": "src/client/components/Watermark/Watermark.css",
     "testFile": "src/client/components/Watermark/Watermark.test.ts"
@@ -1550,10 +1141,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "virtuallist",
     "name": "VirtualList",
-    "category": "virtual",
     "desc": "虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM",
-    "codeKey": "virtuallist",
-    "demo": "DemoVirtualList",
     "sourceFile": "src/client/components/VirtualList/VirtualList.ts",
     "cssFile": "src/client/components/VirtualList/VirtualList.css",
     "testFile": "src/client/components/VirtualList/VirtualList.test.ts"
@@ -1561,10 +1149,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "virtualtable",
     "name": "VirtualTable",
-    "category": "virtual",
     "desc": "虚拟表格：10k 行固定表头 + 可见窗口渲染 + 排序",
-    "codeKey": "virtualtable",
-    "demo": "DemoVirtualTable",
     "sourceFile": "src/client/components/VirtualTable/VirtualTable.ts",
     "cssFile": "src/client/components/VirtualTable/VirtualTable.css",
     "testFile": "src/client/components/VirtualTable/VirtualTable.test.ts"
@@ -1572,18 +1157,12 @@ export const components: ComponentEntry[] = [
   {
     "id": "virtualtable-v2",
     "name": "VirtualTable 大数据",
-    "category": "virtual",
     "desc": "10 万行虚拟滚动（只渲染可见窗口——性能展示）",
-    "codeKey": "virtualtableBig",
-    "demo": "DemoVirtualTableBig"
   },
   {
     "id": "infinitescroll",
     "name": "InfiniteScroll",
-    "category": "virtual",
     "desc": "无限滚动：底部哨兵触底加载 + loading/end 态",
-    "codeKey": "infinitescroll",
-    "demo": "DemoInfiniteScroll",
     "sourceFile": "src/client/components/InfiniteScroll/InfiniteScroll.ts",
     "cssFile": "src/client/components/InfiniteScroll/InfiniteScroll.css",
     "testFile": "src/client/components/InfiniteScroll/InfiniteScroll.test.ts"
@@ -1591,25 +1170,18 @@ export const components: ComponentEntry[] = [
   {
     "id": "infinitescroll-v2",
     "name": "InfiniteScroll 失败重试",
-    "category": "virtual",
     "desc": "加载失败提示 + 滚动重试（状态矩阵覆盖）",
-    "codeKey": "infinitescrollRetry",
-    "demo": "DemoInfiniteScrollRetry"
   },
   {
     "id": "qrcode",
     "name": "QRCode",
-    "category": "display",
     "desc": "二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG",
-    "codeKey": "qrcode",
-    "demo": "DemoQRCode",
     "sourceFile": "src/client/components/QRCode/QRCode.ts",
     "testFile": "src/client/components/QRCode/QRCode.test.ts"
   },
   {
     "id": "sheetgrid",
     "name": "SheetGrid",
-    "category": "editor",
     "desc": "weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（design/office-events-plan.md）：文档 = fold(事件流)——SheetGrid 的每个",
     "family": "file-preview",
     "sourceFile": "src/client/components/SheetGrid/SheetGrid.ts",
@@ -1619,7 +1191,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "slidecanvas",
     "name": "SlideCanvas",
-    "category": "editor",
     "desc": "weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（design/office-events-plan.md）：文档 = fold(事件流)——每个编辑 =",
     "family": "file-preview",
     "sourceFile": "src/client/components/SlideCanvas/SlideCanvas.ts",
@@ -1629,7 +1200,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "togglegroup",
     "name": "ToggleGroup",
-    "category": "input",
     "desc": "（无 demo 卡片——组件目录存在）",
     "sourceFile": "src/client/components/ToggleGroup/ToggleGroup.ts",
     "cssFile": "src/client/components/ToggleGroup/ToggleGroup.css",
@@ -1638,7 +1208,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "title",
     "name": "Title",
-    "category": "core",
     "desc": "标题排版（语义标签 + 语义色 -text 变体）——Typography 家族",
     "sourceFile": "src/client/components/Typography/Typography.ts",
     "cssFile": "src/client/components/Typography/Typography.css",
@@ -1647,7 +1216,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "text",
     "name": "Text",
-    "category": "core",
     "desc": "正文排版（语义色 -text 变体 + mark/code/删除线）——Typography 家族",
     "sourceFile": "src/client/components/Typography/Typography.ts",
     "cssFile": "src/client/components/Typography/Typography.css",
@@ -1656,7 +1224,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "paragraph",
     "name": "Paragraph",
-    "category": "core",
     "desc": "段落排版——Typography 家族",
     "sourceFile": "src/client/components/Typography/Typography.ts",
     "cssFile": "src/client/components/Typography/Typography.css",
@@ -1666,7 +1233,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "tabbar",
     "name": "TabBar",
-    "category": "navigation",
     "desc": "底部标签栏——移动端 App 主导航（3-5 tab + icon/badge/受控激活 + safe-area 避让）",
     "sourceFile": "src/client/components/TabBar/TabBar.ts",
     "cssFile": "src/client/components/TabBar/TabBar.css",
@@ -1676,7 +1242,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "actionsheet",
     "name": "ActionSheet",
-    "category": "overlay",
     "desc": "动作面板——移动端底部滑出（命令列表 + 取消按钮，usePopup 会话级模态）",
     "sourceFile": "src/client/components/ActionSheet/ActionSheet.ts",
     "cssFile": "src/client/components/ActionSheet/ActionSheet.css",
@@ -1686,7 +1251,6 @@ export const components: ComponentEntry[] = [
   {
     "id": "prompttemplate",
     "name": "PromptTemplate",
-    "category": "ai",
     "desc": "提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）",
     "gotchas": ["textarea value 必须走 property（attribute 只是 defaultValue——DOM value 恒空/光标失效事故，vdom3 渲染器已修）", "受控输入纪律：value 由父控制 + onChange 通知"],
     "sourceFile": "src/client/components/PromptTemplate/PromptTemplate.ts",
