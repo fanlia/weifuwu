@@ -250,10 +250,22 @@ export class Router<T extends object = Context> {
     method: string; path: string; handler: Handler; middlewares: Middleware[]
   }> {
     const out: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
+    // 精确 value（path = prefix 无条件——node.wildcard 只表示该节点存在通配
+    // 子槽，不改变精确注册自身的路径）
     for (const [method, handler] of node.value?.handlers ?? []) {
       const rmws = node.value?.middlewares.get(method) || []
-      const suffix = node.wildcard ? '/*' : ''
-      out.push({ method, path: (prefix || '/') + suffix, handler, middlewares: [...rmws] })
+      out.push({ method, path: prefix || '/', handler, middlewares: [...rmws] })
+    }
+    // **通配 value 收集（ROUTER-CORE A1——2027-10 P3 实证修复）**：
+    // `sub.get('/files/*')` 注册在 files 节点的 wildcardValue 槽（`*` 段
+    // 不建子节点）——展平只查 node.value 时静默丢失（mount 后 404）——
+    // 展平 path = prefix + '/*'（trieRegister('*', wildcardValue) 逆变换）
+    const wv = node.wildcardValue
+    if (wv) {
+      for (const [method, handler] of wv.handlers) {
+        const rmws = wv.middlewares.get(method) || []
+        out.push({ method, path: (prefix || '/') + '/*', handler, middlewares: [...rmws] })
+      }
     }
     for (const [seg, child] of node.children) {
       out.push(...this._collectAll(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg)))
@@ -266,6 +278,10 @@ export class Router<T extends object = Context> {
   }> {
     const out: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
     if (node.value?.handler) out.push({ path: prefix || '/', handler: node.value.handler, middlewares: [...node.value.middlewares] })
+    // 通配 value 收集（A1——与 _collectAll 同根因——ws 通配路由 mount 丢失）
+    if (node.wildcardValue?.handler) {
+      out.push({ path: (prefix || '/') + '/*', handler: node.wildcardValue.handler, middlewares: [...node.wildcardValue.middlewares] })
+    }
     for (const [seg, child] of node.children) {
       out.push(...this._collectAllWs(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg)))
     }

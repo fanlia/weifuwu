@@ -116,9 +116,44 @@ export function trieRegister<T>(
 }
 
 /**
+ * **精确匹配 DFS（ROUTER-CORE A3 fuzz 实证修复——2027-10）**：静态优先 +
+ * param 回溯——**first hit = 逐段贪心最具体路线**。
+ *
+ * **回溯必要性（fuzz seed=11 req=c/c 实证）**：`/c/c/*`（通配）与
+ * `/:p0/c`（精确）并存时——逐段贪心走静态 'c' 路线到通配 fallback——
+ * param 路线（精确 `/:p0/c`）被静态首段**遮蔽后不回溯**——违反
+ * 「精确 > 通配」语义。DFS：静态分支失败后回溯 param 分支——精确命中
+ * 优先于任何通配。
+ */
+function exactDfs<T>(
+  node: TrieNode<T>, segments: string[], i: number, params: Record<string, string>,
+  want: 'value' | 'wildcard' = 'value',
+): { value: T; params: Record<string, string>; node: TrieNode<T> } | null {
+  if (i === segments.length) {
+    const v = want === 'value' ? node.value : node.wildcardValue
+    return v !== undefined ? { value: v, params: { ...params }, node } : null
+  }
+  const seg = segments[i]
+  // 静态优先（逐段贪心——具体者胜）
+  const st = node.children.get(seg)
+  if (st) {
+    const r = exactDfs(st, segments, i + 1, params, want)
+    if (r) return r
+  }
+  // param 回溯（静态路线失败后——精确语义完整性）
+  const p = node.children.get(':')
+  if (p?.param) {
+    const params2 = { ...params, [p.param]: decodeURIComponent(seg) }
+    const r = exactDfs(p, segments, i + 1, params2, want)
+    if (r) return r
+  }
+  return null
+}
+
+/**
  * 匹配（segments → { value, params, wildcard } | null）：
- * 精确优先（静态 → :param 逐段）——段失败或终端无 value → 通配兜底
- * （从 root 沿路径检查任意前缀深度的通配注册——params['*'] = 剩余段）；
+ * 精确优先（DFS——静态 → :param 回溯——见 exactDfs）——精确未命中 → 通配
+ * 兜底（从 root 沿路径检查任意前缀深度的通配注册——params['*'] = 剩余段）；
  * 精确命中且节点有通配槽（'/' + '/*' 并存）→ params['*'] = ''（精确优先标记）。
  */
 export function trieMatch<T>(
@@ -135,39 +170,35 @@ export function trieMatch<T>(
       ? { value: root.wildcardValue, params, wildcard: true }
       : null
   }
-  // 精确匹配（静态 → :param 逐段）
-  let node = root
-  for (let i = 0; i < segments.length; i++) {
-    const next = matchChild(node, segments[i], params)
-    if (!next) return wildcardFallback(root, segments, i, params)
-    node = next
+  // 精确匹配（DFS——静态优先 + param 回溯——A3 fuzz 实证修复）
+  const exact = exactDfs(root, segments, 0, params)
+  if (exact) {
+    // 精确命中节点若有通配槽（'/' + '/*' 并存）→ '*': ''（精确优先标记）
+    const hasWf = exact.node.wildcardValue !== undefined
+    return { value: exact.value, params: hasWf ? { ...exact.params, '*': '' } : exact.params, wildcard: false }
   }
-  if (node.value !== undefined) {
-    if (node.wildcardValue !== undefined) params['*'] = ''
-    return { value: node.value, params, wildcard: false }
-  }
-  // 终端节点是纯前缀（如 /dashboard 只有 /dashboard/overview 子路由）：
-  // 无 value 时回退通配（SPA catch-all 场景）
+  // 精确未命中 → 通配兜底（SPA catch-all 场景）
   return wildcardFallback(root, segments, segments.length, params)
 }
 
-/** 通配兜底（精确失败后——从 root 沿路径检查任意前缀深度的通配注册） */
+/**
+ * 通配兜底（精确失败后——**逐前缀深度浅优先 + exactDfs 回溯**——A3 fuzz
+ * seed=42 实证修复）：
+ * **旧实现**（matchChild 逐段）与精确匹配同病——静态子节点遮蔽 param 槽
+ * 且不回溯——`/a/:p1/c` 的静态 'a' 遮蔽 `/:p0/a/*` 的 param 前缀路线——
+ * fallback 走错分支后失败返回 null（通配注册静默丢失）。
+ * **新实现**：对每个前缀深度 d（0..len——**浅优先**：`/*` 与 `/a/*` 并存
+ * 时 root 通配胜——探针②实证）——exactDfs（带回溯）匹配前 d 段——
+ * 到达节点有 wildcardValue 即命中。
+ */
 function wildcardFallback<T>(
-  root: TrieNode<T>, segments: string[], depth: number, params: Record<string, string>,
+  root: TrieNode<T>, segments: string[], depth: number, _params: Record<string, string>,
 ): { value: T; params: Record<string, string>; wildcard: boolean } | null {
-  let node = root
-  for (let i = 0; i < depth; i++) {
-    if (node.wildcardValue !== undefined) {
-      params['*'] = segments.slice(i).join('/')
-      return { value: node.wildcardValue, params, wildcard: true }
+  for (let d = 0; d <= depth; d++) {
+    const r = exactDfs(root, segments.slice(0, d), 0, {}, 'wildcard')
+    if (r) {
+      return { value: r.value, params: { ...r.params, '*': segments.slice(d).join('/') }, wildcard: true }
     }
-    const next = matchChild(node, segments[i], params)
-    if (!next) return null
-    node = next
-  }
-  if (node.wildcardValue !== undefined) {
-    params['*'] = segments.slice(depth).join('/')
-    return { value: node.wildcardValue, params, wildcard: true }
   }
   return null
 }
