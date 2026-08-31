@@ -42,7 +42,7 @@
 | 8 | MarkdownEditor → PageHeader（10） | ✅ 完成（零组件缺陷——MarkdownEditor 分屏/模式切换、Mentions @ 触发补全、Menu 折叠 202→56、Kanban 前批、Modal width/mask/Escape、Notification 4.5s 自动消失） |
 | 9 | Pagination → RadioGroup（10） | ✅ 完成（零组件缺陷——Pagination next×3/prev/省略号、PasswordInput 眼睛切换+焦点保持、PinInput 逐格回流 483920、Popconfirm danger 确认/取消+位置几何恢复、Popover hover 触发+bottom 几何恢复——批次 9 发现：本批 10 组件测试文件在重构 P3 已有基线，重写覆盖丢失 2 项浮层几何断言（Popconfirm top/Popover bottom）——已用 assertPopupGeometry 恢复；RadioGroup sr-only 点 label 惯例确认） |
 | 10 | Rate → SessionList（10） | ✅ 完成（零组件缺陷——**增量追加模式**：10 组件全有 P3 基线——保留旧断言+追加 5 缺口测试（Rate allowClear 5→0+半星同步/RelationGraph 节点点击/Result 状态语义/Scrollbar 可滚/SessionList 过滤 4→0→4）；余 5 组件复验绿） |
-| 11 | SheetGrid → Switch（10） | ⬜ 未开始 |
+| 11 | SheetGrid → Switch（10） | ✅ 完成（零组件缺陷——增量追加模式：8 组件复验绿（Slider 7 测基线已全/Switch 翻转/Steps 节点）；追加 1 缺口测试（SortableList 拖拽换位——设计↔开发任务顺序真实变化）） |
 | 12 | TabBar → Toggle（10） | ⬜ 未开始 |
 | 13 | ToolCallCard → VirtualTable（10） | ⬜ 未开始 |
 | 14 | Watermark → Wave（2） | ⬜ 未开始 |
@@ -1238,115 +1238,115 @@
 ### SheetGrid（SheetGrid）
 
 > weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（design/office-events-plan.md）：文档 = fold(事件流)——SheetGrid 的每个
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **readonly 布尔行为**：true/false 渲染差异（readonly=true 显式断言）
-- [ ] **workbook 数据面**：`WorkbookState`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **height 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **readonly 布尔行为**：true/false 渲染差异（readonly=true 显式断言）
+- [x] **workbook 数据面**：`WorkbookState`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **height 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
 
 ### Skeleton（Skeleton）
 
 > text/circle/rect/image/avatar/table 六种变体
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **variant 数据面**：`SkeletonVariant`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **lines 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **cols 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **width 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **height 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **variant 数据面**：`SkeletonVariant`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **lines 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **cols 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **width 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **height 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### SlideCanvas（SlideCanvas）
 
 > weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（design/office-events-plan.md）：文档 = fold(事件流)——每个编辑 =
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **readonly 布尔行为**：true/false 渲染差异（readonly=true 显式断言）
-- [ ] **deck 数据面**：`DeckState`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **height 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **readonly 布尔行为**：true/false 渲染差异（readonly=true 显式断言）
+- [x] **deck 数据面**：`DeckState`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **height 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
 
 ### Slider（Slider）
 
 > 范围滑块，支持 min/max/step/label
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **range 布尔行为**：true/false 渲染差异（range=true 显式断言）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **min 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **max 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **step 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **marks 数据面**：`SliderMark[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChangeEnd 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
-- [ ] **纪律回归**：⚠ 浏览器表单状态恢复（刷新/后退）覆盖受控 value——autocomplete=off + 内部 0-100 归一化刻…
-- [ ] **纪律回归**：⚠ 拖拽中气泡位置冻结——usePopup 锚点恒定需 popup.refresh() 跟随 thumb
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **range 布尔行为**：true/false 渲染差异（range=true 显式断言）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **min 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **max 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **step 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **marks 数据面**：`SliderMark[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChangeEnd 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **纪律回归**：⚠ 浏览器表单状态恢复（刷新/后退）覆盖受控 value——autocomplete=off + 内部 0-100 归一化刻…
+- [x] **纪律回归**：⚠ 拖拽中气泡位置冻结——usePopup 锚点恒定需 popup.refresh() 跟随 thumb
 
 ### SortableList（SortableList）
 
 > 拖拽排序列表——useDragDrop 原语 + keyed 身份（任务/字段/配置排序）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **items 数据面**：`T[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **keyField 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **draggingClass 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onReorder 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **items 数据面**：`T[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **keyField 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **draggingClass 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onReorder 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### Space（Space）
 
 > 间距容器：size/direction/wrap + split 分隔符
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **size 枚举态**：`number | 'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **direction 枚举态**：`'horizontal' | 'vertical'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **align 枚举态**：`'start' | 'center' | 'end' | 'baseline'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **wrap 布尔行为**：true/false 渲染差异（wrap=true 显式断言）
-- [ ] **split 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **size 枚举态**：`number | 'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **direction 枚举态**：`'horizontal' | 'vertical'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **align 枚举态**：`'start' | 'center' | 'end' | 'baseline'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **wrap 布尔行为**：true/false 渲染差异（wrap=true 显式断言）
+- [x] **split 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### Sparkline（Sparkline）
 
 > 迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **fill 布尔行为**：true/false 渲染差异（fill=true 显式断言）
-- [ ] **smooth 布尔行为**：true/false 渲染差异（smooth=true 显式断言）
-- [ ] **data 数据面**：`number[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **width 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **height 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **stroke 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **fill 布尔行为**：true/false 渲染差异（fill=true 显式断言）
+- [x] **smooth 布尔行为**：true/false 渲染差异（smooth=true 显式断言）
+- [x] **data 数据面**：`number[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **width 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **height 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **stroke 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### StatCard（StatCard）
 
 > KPI 指标卡，支持 trend/icon
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **trend 枚举态**：`'up' | 'down'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **animate 布尔行为**：true/false 渲染差异（animate=true 显式断言）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **value 数据面**：`string | number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **trendLabel 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **icon 数据面**：`string | VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **countdown 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onFinish 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **trend 枚举态**：`'up' | 'down'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **animate 布尔行为**：true/false 渲染差异（animate=true 显式断言）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **value 数据面**：`string | number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **trendLabel 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **icon 数据面**：`string | VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **countdown 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onFinish 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### Steps（Steps）
 
 > 分步指示器，支持 active/current
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **items 数据面**：`StepItem[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **active 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **current 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **items 数据面**：`StepItem[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **active 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **current 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### Switch（Switch）
 
 > 开关切换，视觉替代 checkbox
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **checked 布尔行为**：true/false 渲染差异（checked=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **checked 布尔行为**：true/false 渲染差异（checked=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### TabBar（TabBar）
 
