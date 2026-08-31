@@ -10,6 +10,7 @@
  * - 阶段 1b 范围：元素更新/text/hole/组件复用/组件输出变化——**keyed
  *   列表移动语义下一迭代**（登记）
  */
+import { noteRenderError } from '../../dev/error-counter.ts'
 import type { VNode, VNodeChild } from '../vnode.ts'
 import type { Component, RenderFn } from '../vnode.ts'
 import type { Command } from '../command/index.ts'
@@ -332,7 +333,7 @@ function diffComponentV2(
   try {
     newOut = rerenderSegment(seg, newV.props)
   } catch (e) {
-    console.error('[vdom] v2 renderFn 错误:', e)
+    noteRenderError(compId, e)
     return fromArray([])
   }
   const oldOut = seg.lastOutput !== undefined ? outputToChild(seg.lastOutput) : undefined
@@ -669,7 +670,7 @@ function diffComponentAtV2(
   try {
     newOut = rerenderSegment(seg, vn.props)
   } catch (e) {
-    console.error('[vdom] v2 renderFn 错误:', e)
+    noteRenderError(kid, e)
     return fromArray([])
   }
   const oldOut = seg.lastOutput !== undefined ? outputToChild(seg.lastOutput) : undefined

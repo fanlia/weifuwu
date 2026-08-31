@@ -18,6 +18,7 @@
 import type { Command } from '../core/command/index.ts'
 import type { Observable } from '../observable/index.ts'
 import { spyEvent } from '../core/v2/spy.ts'
+import { errorSnapshot } from './error-counter.ts'
 import type { SegmentMap } from '../core/v2/diff.ts'
 
 export interface RenderHealthSnapshot {
@@ -34,6 +35,8 @@ export interface RenderHealthSnapshot {
   total: { renders: number; cmds: number; creates: number; reuses: number }
   /** 阈值告警（空 = 健康） */
   warns: string[]
+  /** renderFn 错误累计（error-counter 单源——D2 四轴） */
+  errors: number
 }
 
 export interface RenderHealth {
@@ -68,6 +71,7 @@ export function createRenderHealth(
   let lastCmds = 0
   let maxCmds = 0
   let lastRenderAt = 0
+  let lastErrorTotal = 0
   let lastMs = 0
   let maxMs = 0
   let windowRenders = 0
@@ -113,6 +117,10 @@ export function createRenderHealth(
     if (lastCmds > MAX_CMDS_WARN) warns.push(`规模超限：单渲染 ${lastCmds} 命令（> ${MAX_CMDS_WARN}）`)
     if (maxMs > MAX_MS_WARN) warns.push(`渲染耗时超限：${maxMs}ms（> ${MAX_MS_WARN}）`)
     if (reRunRate > MAX_RERUN_WARN) warns.push(`复用率不足：重跑率 ${(reRunRate * 100).toFixed(1)}%（> ${MAX_RERUN_WARN * 100}%）`)
+    if (errorSnapshot().total > 0 && errorSnapshot().total !== lastErrorTotal) {
+      warns.push(`renderFn 错误：累计 ${errorSnapshot().total}（组件级 hole 降级——自愈重试中）`)
+      lastErrorTotal = errorSnapshot().total
+    }
     for (const w of warns) console.warn(`[vdom-dev] 渲染健康：${w}`)
     windowRenders = 0
     publish()
@@ -124,6 +132,9 @@ export function createRenderHealth(
       lastCmds, maxCmds,
       reRunRate,
       segments: segments?.size ?? 0,
+      // **errors 轴（VDOM-CORE-EXCELLENCE D2——2027-10）**：renderFn 错误
+      // 累计计数（error-counter 单源——自愈不可消音——错误可观测）
+      errors: errorSnapshot().total,
       total: { renders, cmds: cmdsAll, creates, reuses },
       warns: [...warns],
     }
@@ -141,6 +152,7 @@ export function createRenderHealth(
         lastCmds, maxCmds,
         reRunRate,
         segments: segments?.size ?? 0,
+        errors: errorSnapshot().total,
         total: { renders, cmds: cmdsAll, creates, reuses },
         warns: [...warns],
       }

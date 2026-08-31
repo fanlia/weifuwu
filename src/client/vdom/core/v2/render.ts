@@ -9,6 +9,7 @@
  * - **组件实例流化（渲染流层——流段共享=复用）为阶段 2**（本层先做
  *   表达层——组件挂载复用 v1 renderComponent——内部检查语义零改）
  */
+import { noteRenderError, clearRenderError } from '../../dev/error-counter.ts'
 import type { VNode, VNodeChild } from '../vnode.ts'
 import type { Command } from '../command/index.ts'
 import type { UIContext } from '../../context/UIContext.ts'
@@ -159,9 +160,12 @@ function renderV2Collect(
       try {
         compOut = rerenderSegment(seg, vn.props)
       } catch (e) {
-        console.error(`[vdom] renderFn 错误（${compId}）——组件级 hole 降级（下一拍重试自愈）:`, e)
+        // **错误计数哨兵（VDOM-CORE-EXCELLENCE D2——去重 + 计数单源）**
+        noteRenderError(compId, e)
         compOut = null
       }
+      // **恢复清出（renderFn 成功即恢复——再错再报）**
+      if (compOut !== null) clearRenderError(compId)
       seg.lastOutput = normalizeOutput(compOut)
       // **输出位置（单一实现源——v2OutputPos）**——渲染与 diff 共用同规则
       const pos = v2OutputPos(compOut, compId, parent, index)

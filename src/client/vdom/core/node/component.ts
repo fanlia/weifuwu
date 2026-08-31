@@ -27,6 +27,7 @@ import { removeVNodeTree, outputBase } from '../diff/cleanup.ts'
 import type { Command } from '../command/index.ts'
 import { DEFAULT_ASYNC_TIMEOUT_MS } from '../async-guard.ts'
 import { isHoleKind } from './index.ts'
+import { noteRenderError, clearRenderError } from '../../dev/error-counter.ts'
 import { beginRender, endRender } from '../../dev/effect-guard.ts'
 
 /** 组件输出判别联合（**方案 3——null 结构性消除——编译器穷尽**）：
@@ -214,9 +215,14 @@ export async function renderComponent(
       endRender()
     }
   } catch (e) {
-    console.error(`[vdom] renderFn 超时/错误（${compId}）——组件级 hole 降级（下一拍重试自愈）:`, e)
+    // **错误计数哨兵（VDOM-CORE-EXCELLENCE D2——2027-10）**：去重（同
+    // compId 只报一次——循环重试不刷日志——Icon 类回归案）+ 计数
+    // （render-health errors 轴）
+    noteRenderError(compId, e)
     out = null
   }
+  // **恢复清出（错误计数哨兵——renderFn 成功即恢复——再错再报）**
+  if (out !== null) clearRenderError(compId)
   // 记录输出（**归一化为判别联合——null 结构性消除**）
   rec.lastOutput = normalizeOutput(out)
   // **组件输出挂自身 compId 子空间（C2——投影维度隔离）**：
