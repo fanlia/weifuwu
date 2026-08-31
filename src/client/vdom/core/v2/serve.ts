@@ -115,8 +115,12 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
     build: (vnode) => renderV2(vnode, ctx as unknown as UIContext, registry, segments, () => scheduler.request('component-rerender')),
     diff: (oldTree, vnode) => diffV2(oldTree, vnode, ctx as unknown as UIContext, segments, registry, () => scheduler.request('component-rerender')),
     apply: (cmd) => { applier.apply(cmd) },
-    dispose: (compId) => {
-      if (segments.has(compId)) { disposeSegment(compId, segments); return true }
+    dispose: (compId, beforeEpoch) => {
+      // **纪元守卫（2027-10）**：unmount 目标永远是旧树段（生成期已 dispose
+      // 的除外）——同周期新挂载同 id 段（槽位复用）不作为目标——否则
+      // nav 链残留（accordion→index→actionsheet 组件列表残留实证）
+      const seg = segments.get(compId)
+      if (seg && !seg.disposed && seg.epoch < beforeEpoch) { disposeSegment(compId, segments); return true }
       return false
     },
     active: () => active,

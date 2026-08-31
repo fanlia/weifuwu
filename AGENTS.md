@@ -4,7 +4,7 @@
 > 以新内置测试框架实测行为为准（测试反向校准——文档与实现对齐）。
 
 **防线快照（2027-10——v0.89.0）**：
-契约 **427** · 场景 **123** · showcase **320** · server **163** · shared **35** ·
+契约 **428** · 场景 **123** · showcase **320** · server **163** · shared **35** ·
 audit:all **七线** exit 0（semantics/interactivity/vdom/theme/api/bundle/showcase）·
 fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）·
 tsc **0 错**。
@@ -37,7 +37,7 @@ tsc **0 错**。
 > isTextKind 单源（违规退出码 1）
 
 ```
-npm run test:client    → 契约层（427 测试——node 直跑命令流——零浏览器——~5s）
+npm run test:client    → 契约层（428 测试——node 直跑命令流——零浏览器——~5s）
 npm run test:scenario  → 场景层（123 场景——SSR 服务化 + playwright——真实浏览器——15 文件并发——~17s）
 npm run test:showcase  → showcase 组件测试（320 测试——129 组件全覆盖——每组件一个文件——~2.5min）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
@@ -547,6 +547,7 @@ onClick={async () => { const r = await ctx.api!.post(...); ...; ctx.render() }}
 | | **removalParent 清理 parent 语义（G10——证明审计——sink 特判对齐）**：removeVNodeTree 的 parent 参数 = 渲染时 sink parent——五处错位实证（fuzz 生成器盲区——组件输出项从未带 key）：① 数组分支传槽位父（应传 base=compId）② 组件输出 keyed 组件——transitionComponent/diffSame 顶层传槽位父 ③ 组件输出 Fragment 含 keyed 组件——组件分支递归传 compId（应传槽位父——base 父路径推导）④ emitWithKey 输出收缩缺 oldCompId——unmount/区间清理跳过（实例残留 + 单锚 remove）⑤ emitWithKey 对照分支 keyed 输出组件——diffSame 按槽位 id 查 rec 落空（工厂重跑 + 旧 rec 残留 + id 空间错位）——统一 removalParent（组件/数组→compId；Fragment→槽位父）+ 收缩补 oldCompId + 对照分支 keyed 递归 emitWithKey——G10 五测试锁定 | 组件输出（keyed 子项/收缩/嵌套组件输出） |
 | | **消费端三表索引化（P1——admin 全量 59s 实证——2027-09）**：procRemove 每次全量扫 nodes/events/refs 三表（O(N²)——2.6B startsWith）——childIds/byChild 索引（insert 登记/remove DFS O(k)/remap 迁移）+ removeOne/unmountOne O(1) 单删——admin 全量卸载 59172ms→310ms（190x）——防线 e2e-perf（6000 行卸载 <2s 必挂旧代码） | 全量列表/切换（设计文档 design/VDOM-PERF-PLAN.md） |
 | | **procInsert ref 组件 id 回退索引化（P2）**：ref 指向 compId 时原 nodes 插入序全量扫描（chat avatar 每插 O(N)）→ childIds DFS + 插入序 seq（O(k)——seq 单调=Map 插入序等价） | 组件槽位后插入（chat 流式） |
+| | **段生命周期纪元——cleanup 误杀新段（NAV-SLOT-REUSE——showcase 用户实测 2027-10）**：按序 nav 链（accordion→index→actionsheet）组件列表残留根因——nav1 周期「生成期处置旧段 + 同槽位 id 同段挂新段」→ cleanup 阶段处理生成流的 `unmount root.0.1.0`（目标=旧段）命中同 id **新段**（误杀——index 段消失 DOM 残留）→ nav2 的 disposeComponentWithOutput 查段落空 → 旧输出零清理命令 → 160 卡残留——**修复**：Segment.epoch 创建纪元（createSegment 打上全局纪元——渲染周期开始递推 nextSegmentEpoch）——cleanup 防御性 dispose 只处理 `seg.epoch < 周期纪元`（unmount 目标永远是旧树段——同槽位复用新段不是目标）——**Sim 顺序消费不覆盖此路径**（Sim unmount 在新段挂载前——真实消费端是 apply→cleanup 两阶段）——契约测试 v2-nav-slot-reuse（A→B→C 三段链——onUnmount 恰一次 + 终态零残留）锁定 | 全部路由页（nav 链残留——showcase 实测） |
 | | **renderV2Node 同步收集（P3——React 19 对照）**：v2 全命令流同步完成——每节点 fromArray+concatObs（6000 行=48000 流对象）→ 单数组收集 + 外层单 fromArray（外部 Observable/管线纪律不变）——10k 基线 113→81ms——React 19 同 CSS 对照 mount 0.83x/update 0.96x（基准资产 bench/react-compare/） | 全部渲染路径（流对象分配面） |
 | | **可变输出 id 空间（G11——证明审计——输出形态基线）**：组件输出单元素挂槽位（slotId）；空洞/数组/组件输出挂 compId.0 起——diffComponentOutput 的转换 oldId 曾统一用 outId（新输出 sink 参数——数组/空洞输出时 p=compId、i=0——对旧输出错位）——可变输出（div→数组/收缩/展开）实证：旧 div 保留 + 锚插入 + 实例残留——修复：oldBase 按旧输出形态计算（slotId/compId.0）+ emitWithKey 内联 sink 替换为 diffComponentOutput（消双实现——输出对照单一实现源）+ oldOut 提前取（renderComponent 先更新 lastOutput 再调 sink——回调内求值拿到新输出——G10④ 回归教训）——G11 四形态切换锁定 | 组件状态变化（条件渲染/加载态切换） |
 | | **aria 布尔归一（v2 迁移回归修复——2026-12）**：v1 曾修（ReasoningBlock CDD 实证：aria-expanded: true 落空字符串——读屏失效）但 **v2 迁移时丢失**——applyAttribute 布尔分支 + SSR attrsToHtml 布尔空串双路径同病——修复：`ariaBoolValue` 单源判定（field/attributes.ts）+ 客户端/SSR 双路径接入（aria false 不可移除——状态语义保留）+ CitationCard 布尔直传归一显式字符串——field-attributes.test（鸭舌 fake el 零 DOM）+ html.test SSR 面锁定 | 全部组件 aria 布尔面 + SSR 序列化（读屏可访问性） |

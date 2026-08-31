@@ -50,7 +50,21 @@ export interface Segment {
    *  平行数组 */
   destroy$: import('../../observable/index.ts').Subject<void>
   disposed: boolean
+  /** **创建纪元（2027-10——nav 链残留实修补正）**：createSegment 打上创建
+   *  时全局纪元（渲染周期开始时递推）——cleanup 阶段（unmount 防御性
+   *  dispose）只处理「当前周期之前」创建的段——unmount 命令目标永远是
+   *  旧树段——同槽位 id 复用的新段不是目标（accordion→index→actionsheet
+   *  实证：nav1 生成期的 unmount root.0.1.0 在 cleanup 阶段误杀同周期
+   *  新挂载的 index 段 → 旧输出无物可清 → 组件列表残留） */
+  epoch: number
 }
+
+/** **段生命周期纪元（单轨——diff.ts 模块级）**：渲染周期开始时 ++（cycle.ts
+ *  调用 nextSegmentEpoch）——随后周期内 createSegment 均打上当前纪元。
+ *  cleanup 的防御性 dispose 以纪元为界：`seg.epoch < 周期纪元` 才销毁。 */
+let segmentEpoch = 0
+/** 渲染周期开始（纪元递推——返回新纪元） */
+export function nextSegmentEpoch(): number { return ++segmentEpoch }
 
 export type SegmentMap = Map<string, Segment>
 
@@ -102,7 +116,7 @@ export function createSegment(
   })
   const renderFn = factory(props, instCtx) as RenderFn
   const renderBase = hookSeq.n // 渲染 hook 基准（mount 后计数）
-  return { factory, renderFn, lastOutput: undefined, hookSeq, renderBase, instData, destroy$, disposed: false }
+  return { factory, renderFn, lastOutput: undefined, hookSeq, renderBase, instData, destroy$, disposed: false, epoch: segmentEpoch }
 }
 
 /** **段重渲染（单一实现源）**：hookSeq 重置（v1 renderBase 语义——渲染期

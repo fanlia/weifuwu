@@ -14,6 +14,7 @@ import type { VNode } from '../vnode.ts'
 import type { Command } from '../command/index.ts'
 import { Observable, Subject, tap, toArray } from '../../observable/index.ts'
 import { spyEvent } from './spy.ts'
+import { nextSegmentEpoch } from './diff.ts'
 
 /** 周期三轴度量（渲染健康——流上取数——RENDER-HEALTH-PLAN 接管点） */
 export interface CycleMetrics {
@@ -35,8 +36,10 @@ export interface RenderCycleDeps {
   diff(oldTree: VNode, nextTree: VNode): Observable<Command>
   /** 命令应用（applier.apply——副作用终态） */
   apply(cmd: Command): void
-  /** unmount 命令 → 段销毁（返回是否实际销毁——幂等防御） */
-  dispose(compId: string): boolean
+  /** unmount 命令 → 段销毁（返回是否实际销毁——幂等防御）。
+   *  **beforeEpoch（2027-10——nav 链残留实修补正）**：只处理「该周期之前」
+   *  创建的段——unmount 目标永远是旧树段——同槽位 id 复用的新段不是目标 */
+  dispose(compId: string, beforeEpoch: number): boolean
   /** serve 活性（unmount 后周期零副作用） */
   active(): boolean
 }
@@ -73,16 +76,23 @@ export function createRenderCycle(deps: RenderCycleDeps): RenderCycle {
     }
   }
   // **清理（unmount 命令 → 段销毁——幂等——生成端已统一 dispose 的防御
-  //  性消费端路径）**
-  const cleanupCmds = (cmds: Command[]): void => {
+  //  性消费端路径）**——**纪元守卫（2027-10）**：unmount 目标永远是旧树段
+  //  （生成期已 dispose 的除外）——同周期新挂载的同 id 段（槽位复用——
+  //  nav 链 accordion→index→actionsheet 残留实证：nav1 的 unmount
+  //  root.0.1.0 在 cleanup 阶段误杀当期新挂载的 index 段 → nav2 旧输出
+  //  无清理命令 → 组件列表残留）——纪元 < 当前周期才销毁
+  const cleanupCmds = (cmds: Command[], beforeEpoch: number): void => {
     if (!deps.active()) return
     for (const cmd of cmds) {
-      if (cmd.op === 'unmount' && deps.dispose(cmd.compId)) metrics.unmounts++
+      if (cmd.op === 'unmount' && deps.dispose(cmd.compId, beforeEpoch)) metrics.unmounts++
     }
   }
 
   const apply = (vnode: VNode): Promise<void> => new Promise<void>((resolve, reject) => {
     if (!deps.active()) { resolve(); return }
+    // **周期纪元（2027-10）**：本周期创建的段打上当前纪元——cleanup 以
+    //  纪元为界（不误杀当期新建段）
+    const beforeEpoch = nextSegmentEpoch()
     let stream: Observable<Command>
     if (!booted) {
       booted = true
@@ -105,7 +115,7 @@ export function createRenderCycle(deps: RenderCycleDeps): RenderCycle {
       toArray(),
       tap((cmds) => spyEvent('cmd:render', `${cmds.length}条`)),
       tap(applyCmds),
-      tap(cleanupCmds),
+      tap((cmds) => cleanupCmds(cmds, beforeEpoch)),
       tap((cmds) => { if (deps.active()) currentTree = vnode; void cmds }),
     ).subscribe({
       next: (cmds) => {
