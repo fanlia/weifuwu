@@ -27,9 +27,8 @@ import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 
 import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
 import type { Segment } from '../../client/vdom/core/v2/diff.ts'
 import type { Command } from '../../client/vdom/core/command/index.ts'
-import {
-  mulberry32, verifyEquivalence,
-} from './reconcile.test.ts'
+import { mulberry32 } from './reconcile.test.ts'
+import { verifyEquivalence } from './helpers/verify.ts'
 import { drainStream } from './sim.ts'
 
 // ── D1/D2：工厂 + renderFn（2027-08 断代——工厂/renderFn 全同步） ────

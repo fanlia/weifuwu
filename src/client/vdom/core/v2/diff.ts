@@ -200,12 +200,30 @@ export function outputRootIds(
     if (co.kind === 'hole') return [kid + '.0'] // 锚（compId.0）
     if (co.kind === 'array') return ((co.items ?? []) as unknown[]).map((_, i) => `${kid}.${i}`)
     const v = co.v as VNode | null | undefined
-    if (v === null || v === undefined) return [kid + '.0']
+    if (!v) return [kid + '.0'] // CompOutput.v 空守卫（TS 窄化——VNode 对象恒 truthy 语义等价）
     if (typeof v.type === 'function') return [kid + '.0'] // 嵌套组件输出
     return [pathId(parent, index)] // 单 el/text → 槽位 id
   }
   // CompOutput 三 kind 穷尽（类型保证——normalizeOutput 归一化）
   return [kid + '.0']
+}
+
+/** 任意子节点的物理输出根 id（M2 ref 链——新位置左邻定位）：
+ *  元素/文本 → 槽位 id；keyed 组件 → 输出根[0]（compId.0/槽位） */
+export function outputRootIdOf(
+  c: VNodeChild,
+  parent: string,
+  index: number,
+  segments?: SegmentMap,
+): string {
+  if (isHoleKind(c)) return pathId(parent, index) // 空洞槽位锚（kindOf 单一实现源）
+  if (typeof c === 'string' || typeof c === 'number') return pathId(parent, index)
+  const v = c as VNode
+  if (typeof v.type !== 'function') return pathId(parent, index) // 元素/Fragment 平铺首根（近似——ref 链容忍）
+  const k = keyOf(v)
+  if (k === null) return pathId(parent, index) // 无 key 组件槽位
+  const kid = keyedId(parent, k)
+  return outputRootIds(segments?.get(kid), kid, parent, index)[0]
 }
 
 /**
@@ -596,19 +614,19 @@ export function diffKeyedV2(
   // 违例——旧生成器从不触发此组合故历史绿）。**组件项确实移动**时退冲突
   // 重建（renderV2Node 段复用 + create/insert——位置正确状态保持——已验证
   // 路径）；位置不变的组件项仍走原 diff 对照（段复用 rerender——G11 面）
+  // **keyed 组件顺移全走物理 move（KEYED-COMPONENT-MOVE M2——2027-10
+  // movedComp 撤销——A2「一律退重建」被 M2 分支替代）**：
+  // - 单根 el 输出 → 槽位 remap（noMove: true——元素同路径——P 契约实证）
+  // - compId 子空间输出（数组/锚/嵌套）→ 输出根逐节点物理 move
+  //   （detach+insert——id 自映射——段/状态/DOM 引用零扰动）
+  // - 段未知（首见防御）→ 退重建（正确性兜底——fuzz D5 实证安全网）
+  // 仅当存在段未知的移动组件时退重建（movedComp 收窄为防御性判定）
   const movedComp = newCs.some((newC, i) => {
     const k = keyOf(newC)
     if (k === null || typeof (newC as VNode).type !== 'function') return false
     const oldIdx = oldIdxByKey.get(k)
     if (oldIdx === undefined || oldIdx === i) return false
-    // **keyed 组件移动一律退重建（2027-10 VDOM-CORE-EXCELLENCE A2——
-    // tracker 实证：keyed 组件输出（含单根 el）一律挂 compId 子空间
-    // （root.0.kk%2E2.0）——槽位 id 无实体——顺移 move 的槽位 remap
-    // 无物可迁（Post 违例 + 物理 DOM 不重排双缺陷））。已知缺口登记：
-    // keyed 组件顺移（删头前移类）经重建路径工厂重跑——状态丢失
-    // （reports tooltip 类）——正解「输出锚物理 move + ref 定位」在
-    // B 波次实现——本波次以重建路径保证正确性（终态等价优先）
-    return true
+    return segments?.get(keyedId(parent, k)) === undefined
   })
   let subseq = !movedComp
   {
@@ -672,7 +690,32 @@ export function diffKeyedV2(
   const allLeft = moved.every((m) => m.newIdx < m.oldIdx)
   moved.sort((a, b) => (allLeft ? a.newIdx - b.newIdx : b.newIdx - a.newIdx))
   for (const m of moved) {
-    cmds.push({ op: 'move', id: pathId(parent, m.oldIdx), parent, ref: null, newId: pathId(parent, m.newIdx), noMove: true } as Command)
+    const c = newCs[m.newIdx] as VNode
+    const k = keyOf(c)
+    if (k !== null && typeof c.type === 'function') {
+      // **keyed 组件跨槽位移动（M2 分流）**
+      const kid = keyedId(parent, k)
+      const roots = outputRootIds(segments?.get(kid), kid, parent, m.oldIdx)
+      const isSlotRoot = roots.length === 1 && !roots[0].startsWith(kid + '.')
+      if (isSlotRoot) {
+        // 单根 el 输出——槽位 remap（元素同路径——P 契约实证）
+        cmds.push({ op: 'move', id: roots[0], parent, ref: null, newId: pathId(parent, m.newIdx), noMove: true } as Command)
+      } else {
+        // compId 子空间输出——输出根逐节点**物理 move**（id 自映射——
+        // 段/状态零扰动）——ref 链（首节点 = 新位置左邻输出根——保持
+        // 相对顺序；后续节点 = 前一输出根——数组多节点不逆序堆叠）
+        const prev = m.newIdx > 0 ? (newCs[m.newIdx - 1] as VNode) : null
+        let ref: string | null = prev === null
+          ? null
+          : outputRootIdOf(prev, parent, m.newIdx - 1, segments)
+        for (const rid of roots) {
+          cmds.push({ op: 'move', id: rid, parent, ref, newId: rid, noMove: false } as Command)
+          ref = rid
+        }
+      }
+    } else {
+      cmds.push({ op: 'move', id: pathId(parent, m.oldIdx), parent, ref: null, newId: pathId(parent, m.newIdx), noMove: true } as Command)
+    }
   }
   const parts: Array<Observable<Command>> = []
   let lastRef: string | null = null

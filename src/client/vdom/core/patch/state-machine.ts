@@ -117,8 +117,14 @@ export function transition(tracker: StateTracker, cmd: Command): string[] {
       // 前缀迁移语义对齐——纯元素 move 则 newId 本身是实体——两条件或）
       if (tracker.get(cmd.newId) === undefined && !tracker.hasPrefix(cmd.newId)) violations.push(`move Post 违例：remap 后新 id ${cmd.newId} 不存在`)
       // 反向 Post：旧前缀必须清空（remap 是迁移不是复制）
-      if (tracker.hasPrefix(cmd.id)) violations.push(`move Post 违例：旧前缀 ${cmd.id} 迁移后残留`)
-      if (tracker.get(cmd.id) !== undefined && tracker.get(cmd.newId) !== undefined) violations.push(`move Post 违例：旧 id ${cmd.id} 迁移后残留`)
+      // **自映射豁免（KEYED-COMPONENT-MOVE M2——2027-10 fuzz seed=42 实证）**：
+      // 物理 move（id === newId——keyed 组件 compId 子空间输出根 detach+insert
+      // ——id 空间不动、节点搬家）——旧前缀 = 新前缀 = 自身子树——「残留」
+      // 即自己（合法）——仅非自映射（槽位迁移）才检查清空
+      if (cmd.id !== cmd.newId) {
+        if (tracker.hasPrefix(cmd.id)) violations.push(`move Post 违例：旧前缀 ${cmd.id} 迁移后残留`)
+        if (tracker.get(cmd.id) !== undefined && tracker.get(cmd.newId) !== undefined) violations.push(`move Post 违例：旧 id ${cmd.id} 迁移后残留`)
+      }
       break
     }
     case 'mount':
