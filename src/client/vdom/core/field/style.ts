@@ -35,8 +35,18 @@ export function applyStyleValue(el: HTMLElement, key: string, value: unknown): v
   ;(el.style as any)[key] = String(value)
 }
 
-/** style 应用（对象/字符串——整体替换语义） */
+/** style 应用（对象/字符串——整体替换语义）
+ *
+ * **undefined/null/false → 整体移除（2027-XX——Affix 卡 fixed 实证修复）**：
+ * diff 侧「旧有新无」发 setProp('style', undefined)——此前 undefined 分支
+ * 静默 no-op → 旧 style 残留（Affix 滚回顶 content 仍 position:fixed——
+ * sentinel --active 已移除而 inline style 残留——两种面不一致）。与对象
+ * → 空对象同属整体替换语义（A5——键消失不残留）——整属性消失 = 清空。 */
 export function applyStyle(el: HTMLElement, style: unknown): void {
+  if (style === undefined || style === null || style === false) {
+    el.style.cssText = ''
+    return
+  }
   if (typeof style === 'string') {
     el.setAttribute('style', style)
     return

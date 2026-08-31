@@ -52,6 +52,9 @@
 | 组件 | 层级 | 问题 | 修复 | 回归 |
 |------|------|------|------|------|
 | ActionSheet | 组件层 | 键盘导航半残：ArrowDown/Up 只更新内部 focusKey 不移动 DOM 焦点；Enter 原生 click 旁路 focusKey——与头部注释宣称的 menu 语义不符 | ActionSheet.ts：roving focus——渲染后显式聚焦目标项（data-actionsheet-key 定位，跳过 disabled） | comp-actionsheet.test.ts FP10（ArrowDown 焦点跟随）+ FP6（Enter 选择焦点项）|
+| （core）style 通道 | **核心层** | applyStyle undefined 分支静默 no-op——diff「旧有新无」发 setProp('style', undefined) 后旧 style 残留（Affix 滚回顶 sentinel --active 已移除而 content 仍 position:fixed——两种 DOM 面不一致） | style.ts：undefined/null/false → cssText=''（整体移除——A5 整体替换语义补全）+ FakeStyle 升级代理（style[k]=v 直落） | field-style.test.ts 6 锁 + comp-affix FP6 + 全量回归 |
+| （core）observe | **核心层** | useScrollPosition refresh 只 emit 不重跑 ensure——目标后挂载（首帧 null → afterRender 重试耗尽）后绑定永久丢失（容器滚动零响应） | observe.ts：refresh = ensure + emit（ensure 幂等——重新解析目标 + 读值） | comp-affix FP7 + 全量回归 |
+| Affix | 组件层 | threshold 公式坐标系错误：rect.top + scrollTop 只对 window 成立——容器 scroller 混入容器视口偏移（容器级永不固定）；且 compute 副作用与渲染无顺序保证（竞态） | Affix.ts：threshold 渲染期直算 + 容器坐标系修正（rect.top − 容器视口 top + scrollTop） | comp-affix FP3-FP7 |
 
 ---
 
@@ -88,14 +91,14 @@
 - [x] **会话级模态四件套**：presence 退场 + trapFocus + lockScroll + 定位 none（底部滑出）
 ### Affix（Affix）
 
-> 回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **offsetTop 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **target 数据面**：`() => HTMLElement | Window`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
-
+> 回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）——修正：实际为钉住组件（滚动超阈值固定元素）
+- [x] **渲染基线**：`.wf-affix` + sentinel + content 三层结构
+- [x] **滚动固定行为**：scrollY ≥ 阈值（sentinel 文档位置 - offsetTop）→ content `position:fixed` + sentinel `--active` 类
+- [x] **offsetTop 数据面**：fixed 后 `top = offsetTop`px；运行时变化重算阈值
+- [x] **宽度保持**：fixed 时 content width = 原占位宽度（防抖动）
+- [x] **className 数据面**：根元素类拼接
+- [x] **children 透传**：内容渲染于 content 层
+- [N] **target 自定义滚动容器**：demo 未触达——读源确认 scroller 分支（Window→browser.scrollTop；HTMLElement→scrollTop）
 ### AiChat（AiChat）
 
 > useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明

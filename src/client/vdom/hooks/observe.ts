@@ -148,7 +148,11 @@ function scrollSource$(
       emit() // 注册即读初值
     }
     ensure()
-    const refreshSub = refresh$?.subscribe({ next: () => emit() })
+    // **refresh = ensure + emit（2027-XX——Affix 容器级 target 实证修复）**：
+    // 此前 refresh 只 emit()——目标后挂载（getScroller 首帧 null → 重试耗尽）
+    // 后 refresh 永不重试绑定 → 滚动源永久丢失（容器滚动零响应）。
+    // ensure 幂等（已绑定即跳过）——refresh 语义 = 重新解析目标 + 读值
+    const refreshSub = refresh$?.subscribe({ next: () => { ensure(); emit() } })
     return () => {
       refreshSub?.unsubscribe()
       if (raf !== undefined) win.cancelAnimationFrame(raf)

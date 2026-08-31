@@ -15,13 +15,39 @@
 
 export class FakeStyle {
   private props = new Map<string, string>()
-  cssText = ''
   setProperty(k: string, v: string): void { this.props.set(k, v) }
   removeProperty(k: string): void { this.props.delete(k) }
   getProperty(k: string): string | undefined { return this.props.get(k) }
   /** `el.style[k] = v` 赋值面（applyStyleValue 直落——kebab 键经代理时键名为原文） */
   setItem(k: string, v: string): void { this.props.set(k, v) }
   getItem(k: string): string | undefined { return this.props.get(k) }
+  get cssText(): string {
+    return [...this.props].map(([k, v]) => `${k}: ${v}`).join('; ')
+  }
+  set cssText(v: string) {
+    if (v === '') { this.props.clear(); return }
+    for (const part of v.split(';').filter(Boolean)) {
+      const [k, val] = part.split(':')
+      if (k && val) this.props.set(k.trim(), val.trim())
+    }
+  }
+  constructor() {
+    // **代理（style[k]=v 直落——2027-XX 升级）**：applyStyleValue 的
+    // `(el.style as any)[key] = v` 赋值/读取直进 props（与真实 CSSStyleDeclaration
+    // 同构——cssText 派生自 props——清空/键消失可观测）
+    return new Proxy(this, {
+      get: (t, k) => {
+        if (typeof k !== 'string' || k in t) return (t as any)[k]
+        return t.props.has(k) ? (t.props.get(k) as unknown) : ''
+      },
+      set: (t, k, v) => {
+        if (typeof k !== 'string' || k in t) { (t as any)[k] = v; return true }
+        if (v === '' || v === undefined || v === null) t.props.delete(k)
+        else t.props.set(k, String(v))
+        return true
+      },
+    })
+  }
 }
 
 export class FakeNode {

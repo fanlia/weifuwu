@@ -71,6 +71,28 @@ export const Affix: Component<AffixProps> = (_init, ctx) => {
       if (wrapEl) pos.refresh()
     }
 
+    // **阈值/宽度渲染期直算（2027-XX——竞态根治）**：此前 threshold 由
+    // usePopupPosition.compute 副作用更新、fixed 判定由 scroll.y 流驱动渲染
+    // ——两线无顺序保证：容器级单次滚动时渲染先跑（threshold 仍初始
+    // Infinity → 永不固定）、compute 后更新 → 无后续渲染 → 卡死（实测）。
+    // 渲染期直算 = 单一数据流（滚动量响应式 → 渲染 → 读布局算阈值）——
+    // 布局读取与 offsetTop 分支同一纪律（非滚动帧可接受）
+    if (wrapEl) {
+      const rect = wrapEl.getBoundingClientRect()
+      const scroller = getScroller()
+      if (scroller instanceof Window) {
+        // window：rect.top + scrollY = 文档位置
+        threshold = rect.top + (ctx.browser?.scrollTop() ?? 0) - offsetTop
+      } else {
+        // **容器：rect.top − 容器视口 top + scrollTop = 容器内滚动位置**
+        //（rect.top 已含 window 滚动与容器视口偏移——直接 + scrollTop 会
+        // 混入容器视口偏移——容器级永不固定实证——两滚动作标系不同）
+        const sc = scroller as HTMLElement
+        threshold = rect.top - sc.getBoundingClientRect().top + sc.scrollTop - offsetTop
+      }
+      wrapWidth = rect.width
+    }
+
     const fixed = scroll.y >= threshold
 
     return h('div', { class: ['wf-affix', className].filter(Boolean).join(' '), ...rest }, [

@@ -257,20 +257,37 @@ const DemoBackTop: Component = () => () => (
   </div>
 )
 
-const DemoAffix: Component = () => () => (
-  <div class="wf-stack wf-gap-sm">
-    <div class="wf-font-sm wf-text-secondary">滚动页面：导航条滑出视窗顶部后固定（Affix，offsetTop=0）</div>
-    {/* offsetTop=0：Affix 块滑出视窗顶部后才固定（scrollY >= 块文档位置）——
-        offsetTop>0 则提前吸附（块距顶 offsetTop 时固定，antd 语义） */}
-    <Affix offsetTop={0}>
-      <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-x-md wf-padding-y-sm wf-row wf-gap-md wf-font-sm">
-        <a href="#affix-demo" class="wf-text-primary">锚点一</a>
-        <a href="#affix-demo" class="wf-text-secondary">锚点二</a>
-        <a href="#affix-demo" class="wf-text-secondary">锚点三</a>
+const DemoAffix: Component = (_props: any, _ctx: any) => {
+  // 容器级实例：ref 挂滚动容器（target() 首帧返回 null → useScrollPosition 重试重绑——C-3 纪律）
+  let box: HTMLDivElement | null = null
+  return () => (
+    <div class="wf-stack wf-gap-lg wf-width-full">
+      <div class="wf-stack wf-gap-xs">
+        <div class="wf-font-sm wf-text-secondary">页面级：滚动窗口超过块位置后固定（offsetTop=0）</div>
+        {/* offsetTop=0：Affix 块滑出视窗顶部后才固定（scrollY >= 块文档位置）——
+            offsetTop>0 则提前吸附（块距顶 offsetTop 时固定，antd 语义） */}
+        <Affix offsetTop={0}>
+          <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-x-md wf-padding-y-sm wf-row wf-gap-md wf-font-sm">
+            <a href="#affix-demo" class="wf-text-primary">锚点一</a>
+            <a href="#affix-demo" class="wf-text-secondary">锚点二</a>
+            <a href="#affix-demo" class="wf-text-secondary">锚点三</a>
+          </div>
+        </Affix>
+        {/* 详情页内容不足一屏——撑出滚动空间（否则 Affix 永不触发——验证实测） */}
+        <div style="height:480px" class="wf-center wf-font-xs wf-text-tertiary">↓ 页面滚动空间</div>
       </div>
-    </Affix>
-  </div>
-)
+      <div class="wf-stack wf-gap-xs">
+        <div class="wf-font-sm wf-text-secondary">容器级：target 自定义滚动容器（滚过容器顶即固定）</div>
+        <div ref={(el: any) => { box = el }} class="wf-border wf-radius-md" style="height:260px;overflow:auto;padding:12px">
+          <Affix offsetTop={0} target={() => box as unknown as Window}>
+            <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-x-md wf-padding-y-sm wf-font-sm wf-bg-secondary">容器内固定导航</div>
+          </Affix>
+          <div style="height:520px" class="wf-center wf-font-xs wf-text-tertiary">↓ 容器内滚动空间</div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const DemoAnchor: Component = (_props, ctx) => {
   let active = '#anchor-a'
