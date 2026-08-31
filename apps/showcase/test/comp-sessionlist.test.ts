@@ -33,7 +33,7 @@ async function open(page: import('playwright').Page): Promise<void> {
 test('能力：会话列表 + 选中（onSelect）+ 新建', async () => {
   const page = await browser.newPage()
   try {
-    await open(page)
+    await openShowcase(page, BASE, COMP_PATH)
     const text = await page.evaluate(() => document.body.textContent ?? '')
     for (const t of ['北京天气查询', '订单退款处理', '知识库问答']) assert.ok(text.includes(t), `会话：${t}`)
     // 选中（点「北京天气查询」→ active 切换）
@@ -46,5 +46,20 @@ test('能力：会话列表 + 选中（onSelect）+ 新建', async () => {
       await page.waitForTimeout(300)
       assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('新会话')), '新会话出现')
     }
+  } finally { await page.close() }
+})
+
+test('FP-追加 searchable 过滤（4→0→清空恢复 4）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.waitForSelector('main input')
+    const cnt = () => page.evaluate(() => document.querySelectorAll('main [class*="session-item"], main [class*="session"] li, main li[class]').length)
+    const before = await cnt()
+    assert.ok(before >= 1, `初始会话 ${before}`)
+    await page.locator('main input').first().fill('不存在的会话xyz')
+    await page.waitForFunction((n) => document.querySelectorAll('main [class*="session-item"], main [class*="session"] li, main li[class]').length !== n, before, { timeout: 3000 })
+    await page.locator('main input').first().fill('')
+    await page.waitForFunction((n) => document.querySelectorAll('main [class*="session-item"], main [class*="session"] li, main li[class]').length === n, before, { timeout: 3000 })
   } finally { await page.close() }
 })

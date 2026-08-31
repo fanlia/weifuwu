@@ -32,7 +32,7 @@ async function open(page: import('playwright').Page): Promise<void> {
 test('渲染零错误 + 滚动容器（20 行——可滚动）', async () => {
   const page = await browser.newPage()
   try {
-    await open(page)
+    await openShowcase(page, BASE, COMP_PATH)
     await page.waitForFunction(() => (document.body.textContent ?? '').includes('滚动行 1'), '滚动行渲染', { timeout: 3000 })
     // 容器可滚动（scrollHeight > clientHeight）
     const sc = await page.evaluate(() => {
@@ -54,4 +54,17 @@ test('渲染零错误 + 滚动容器（20 行——可滚动）', async () => {
   } finally {
     await page.close()
   }
+})
+
+test('FP-追加 容器可滚动（scrollHeight > clientHeight）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.waitForSelector('main [class*="scrollbar"]')
+    const ok = await page.evaluate(() => {
+      const w = document.querySelector('main [class*="scrollbar"]')
+      return !!w && w.scrollHeight > w.clientHeight
+    })
+    assert.ok(ok, '内容超容器可滚动')
+  } finally { await page.close() }
 })

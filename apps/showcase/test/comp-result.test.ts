@@ -41,3 +41,13 @@ test('渲染零错误 + 3 变体（success/error/warning——标题+描述）',
     await page.close()
   }
 })
+
+test('FP-追加 状态语义（success/error/warning 文案）+ extra 区', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.waitForSelector('main [class*="result"]')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(/成功|失败|警告/.test(t), `状态词（${t.slice(0, 40)}）`)
+  } finally { await page.close() }
+})

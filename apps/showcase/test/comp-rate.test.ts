@@ -49,3 +49,19 @@ test('demo 交互：点击第 5 星 → 当前 5 星', async () => {
     await page.close()
   }
 })
+
+test('FP-追加 allowClear：再点同星 5→0 + 半星实例同步', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.waitForSelector('main .wf-rate')
+    const star5 = page.locator('main .wf-rate--lg .wf-rate-star').nth(4)
+    await star5.click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent.match(/当前：(\d) 星/) ?? [])[1] === '5', null, { timeout: 3000 })
+    await star5.click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent.match(/当前：(\d) 星/) ?? [])[1] === '0', null, { timeout: 3000 })
+    // 半星实例与第一实例共享 v——同步 0
+    const on = await page.locator('main .wf-rate').nth(2).locator('.wf-rate-star--on').count()
+    assert.equal(on, 0, '半星实例同步清零')
+  } finally { await page.close() }
+})

@@ -88,3 +88,14 @@ test('能力：布局确定性（同数据同渲染——节点坐标稳定）',
     assert.equal(p1, p2, `布局确定性（${p1} vs ${p2}）`)
   } finally { await page.close() }
 })
+
+test('FP-追加 节点点击反馈（onNodeClick/onSelect——文本变化）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main svg')
+    const t0 = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    await page.locator('main svg circle, main svg g').first().click({ force: true })
+    await page.waitForFunction((t) => (document.querySelector('main')?.textContent ?? '') !== t, t0, { timeout: 3000 })
+  } finally { await page.close() }
+})
