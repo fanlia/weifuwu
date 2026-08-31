@@ -97,8 +97,16 @@ export function trieFind<T>(root: TrieNode<T>, path: string): TrieNode<T> | null
  * '/'（空段）→ value 绑 root；'*' 结尾 → wildcardValue（独立槽）；
  * 其余逐段 getOrCreateChild——终点绑 value。返回终点节点（冲突检查）。
  */
+/**
+ * 注册（path → value）——分段插入：
+ * '/'（空段）→ value 绑 root；'*' 结尾 → wildcardValue（独立槽——
+ * **path 自描述**——SHARED-TRIE D1 收紧：原 isWildcardValue 参数与
+ * 内部 path.includes('*') 判定重复（恒真验证：生产调用面 isWildcard =
+ * path.includes('*')——第三态零消费——参数删除））；
+ * 其余逐段 getOrCreateChild——终点绑 value。返回终点节点（冲突检查）。
+ */
 export function trieRegister<T>(
-  root: TrieNode<T>, path: string, value: T, isWildcardValue = false,
+  root: TrieNode<T>, path: string, value: T,
 ): TrieNode<T> {
   const segments = splitPath(path)
   let node = root
@@ -110,8 +118,7 @@ export function trieRegister<T>(
     }
     node = getOrCreateChild(node, segment, () => createTrie<T>())
   }
-  if (isWildcardValue) node.wildcardValue = value
-  else node.value = value
+  node.value = value
   return node
 }
 

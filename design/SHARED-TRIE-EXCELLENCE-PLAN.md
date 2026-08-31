@@ -1,5 +1,16 @@
 # SHARED-TRIE-EXCELLENCE-PLAN——前后端唯一共享模块优化（2027-10）
 
+> **✅ 四波次全收官（2027-10）**：A `d8a091ef`（shared 域首测试守护位
+> 归位 + 死代码清理——matchChild/_params/根路径分支统一——语义修复：
+> 通配命中恒有 '*' 键）· B0 `e25f0a44`（**pipeline 路由内核**——机制
+> 公用实现不一样——dispatchRouter 流程骨架 + 差异钩子 + 双端换血——
+> 前端 400 防御顺带修复）· C（裸 trie 性能基线）· D（isWildcardValue
+> 恒真验证后删 + 导出面锁定）
+> **前后端唯一共享模块五层单源**：trie（匹配）/ pipeline（流程骨架）/
+> context（URL 解析+ctx 注入）/ chain（中间件链）/ ctx-fields（ctx 扩展
+> 注册表）——**serve（编解码边界）留双端**
+> 终态防线：shared 35 · server 163 · 契约 427 · 场景 123 · showcase 320
+
 > **定位**：`src/shared/router/`（trie.ts 216 行）是前后端**唯一共享
 > 模块**——server Router 与 client UIRouter 的共同匹配核心——语义正确性
 > 影响面最大。ROUTER-CORE A3 fuzz 已在此修复 3 轮缺陷（回溯缺失×2/

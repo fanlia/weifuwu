@@ -32,7 +32,9 @@
  *   1. core/vnode + context/UIContext（已完成——纯数据面）
  *   2. core/commands + render（命令流——首帧同步）✓
  *   3. core/router + serve（UIRouter/uiServe——最小闭环）✓
- *   4. shared/router 核心提取（Trie + 中间件链）——待
+ *   4. shared/router 核心提取（Trie + pipeline 内核 + context + chain +
+ *      ctx-fields——2027-10 SHARED-TRIE B0/B1 完成——前后端唯一共享模块
+ *      五层单源）——已完成
  *   5. core/html（commandToHtml——流式 SSR）——待
  *   6. hooks/browser/middlewares 独立实现——待
  */

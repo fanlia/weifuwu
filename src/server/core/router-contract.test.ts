@@ -197,13 +197,13 @@ describe('A3: Trie 匹配对账 fuzz（参考模型终态等价）', () => {
   test('语义锚点：浅通配优先 / param>通配 / 静态首段贪心（探针固化）', () => {
     // ② /* vs /a/* 对 /a/b——浅通配胜
     const t1 = createTrie<{ id: number }>()
-    trieRegister(t1, '/*', { id: 1 }, true)
-    trieRegister(t1, '/a/*', { id: 2 }, true)
+    trieRegister(t1, '/*', { id: 1 })
+    trieRegister(t1, '/a/*', { id: 2 })
     assert.equal(trieMatch(t1, ['a', 'b'])!.value.id, 1, '浅通配优先')
     // ① param 精确 > 通配
     const t2 = createTrie<{ id: number }>()
     trieRegister(t2, '/:p/x', { id: 1 })
-    trieRegister(t2, '/*', { id: 2 }, true)
+    trieRegister(t2, '/*', { id: 2 })
     const m2 = trieMatch(t2, ['v', 'x'])!
     assert.equal(m2.value.id, 1)
     assert.deepEqual(m2.params, { p: 'v' })

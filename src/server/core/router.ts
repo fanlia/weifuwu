@@ -270,7 +270,7 @@ export class Router<T extends object = Context> {
     value.handlers.set(method, handler)
     if (mws.length > 0) value.middlewares.set(method, mws)
 
-    const node = trieRegister(this.root, path, value, isWildcard)
+    const node = trieRegister(this.root, path, value)
     if (isWildcard) this._hasWildcard = true
 
     return this

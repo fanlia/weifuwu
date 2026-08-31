@@ -130,15 +130,15 @@ describe('匹配语义对账 fuzz（8 种子 × 200 对）', () => {
 describe('语义锚点（探针实证固化）', () => {
   test('浅通配优先：/* 与 /a/* 并存对 /a/b——root 通配胜（wildcardFallback depth=0 起）', () => {
     const t = createTrie<{ id: number }>()
-    trieRegister(t, '/*', { id: 1 }, true)
-    trieRegister(t, '/a/*', { id: 2 }, true)
+    trieRegister(t, '/*', { id: 1 })
+    trieRegister(t, '/a/*', { id: 2 })
     assert.equal(trieMatch(t, ['a', 'b'])!.value.id, 1)
   })
 
   test('param 精确 > 通配', () => {
     const t = createTrie<{ id: number }>()
     trieRegister(t, '/:p/x', { id: 1 })
-    trieRegister(t, '/*', { id: 2 }, true)
+    trieRegister(t, '/*', { id: 2 })
     const m = trieMatch(t, ['v', 'x'])!
     assert.equal(m.value.id, 1)
     assert.deepEqual(m.params, { p: 'v' })
@@ -160,7 +160,7 @@ describe('语义锚点（探针实证固化）', () => {
   test('通配独立槽：/files 精确与 /files/* 通配并存互不覆盖', () => {
     const t = createTrie<{ id: number }>()
     trieRegister(t, '/files', { id: 1 })
-    trieRegister(t, '/files/*', { id: 2 }, true)
+    trieRegister(t, '/files/*', { id: 2 })
     const m1 = trieMatch(t, ['files'])!
     assert.equal(m1.value.id, 1, '精确命中')
     assert.deepEqual(m1.params, { '*': '' }, '精确优先标记（节点有通配槽）')
@@ -194,12 +194,41 @@ describe('splitPath 编码', () => {
     trieRegister(t, '/', { id: 1 })
     assert.equal(trieMatch(t, [])!.value.id, 1, "注册 '/' 匹配根")
     const t2 = createTrie<{ id: number }>()
-    trieRegister(t2, '/*', { id: 2 }, true)
+    trieRegister(t2, '/*', { id: 2 })
     const m2 = trieMatch(t2, [])!
     assert.equal(m2.value.id, 2, '根通配兜底')
     assert.equal(m2.wildcard, true, '根通配 wildcard 标志')
     // **A2 语义统一**：空段 exactDfs 化——通配命中恒有 '*' 键（编码唯一性——
     // 修复前根通配 params 无 '*'——与非空通配形态漂移）
     assert.equal(m2.params['*'], '', "通配命中恒有 '*': 剩余段（空=根）")
+  })
+})
+
+// ── 性能基线（裸 trie 零 HTTP 噪声——SHARED-TRIE 波次 C） ───────
+
+describe('性能基线（裸 trie——探针读数 2027-10，2x 容差）', () => {
+  test('10k 注册 < 40ms + 匹配 < 2µs/req + 深通配 fallback < 2µs/req（O(depth²) 上界锁）', () => {
+    const N = 10000
+    const t = createTrie<{ v: number }>()
+    const t0 = performance.now()
+    for (let i = 0; i < N; i++) trieRegister(t, `/res/${i}/:id`, { v: i })
+    const regMs = performance.now() - t0
+    // 注册读数 21-35ms 波动（全量跑 JIT/负载）——上限 50ms 诚实登记
+    assert.ok(regMs < 50, `10k 注册 ${regMs.toFixed(0)}ms < 50ms（分段插入 O(path)——探针 21-35ms）`)
+    // 匹配热身（裸 trie 0.4µs——Router 层 5µs 的下界参照）
+    for (let i = 0; i < 1000; i++) trieMatch(t, ['res', '5000', 'abc'])
+    const ta = performance.now()
+    for (let i = 0; i < N; i++) trieMatch(t, ['res', '5000', 'abc'])
+    const hitUs = (performance.now() - ta) / N * 1000
+    assert.ok(hitUs < 2, `匹配 ${hitUs.toFixed(2)}µs/req < 2µs（O(depth) 逐段 DFS——探针 0.4µs）`)
+    // **fallback O(depth²) 上界锁**：逐 depth exactDfs——深通配最坏形态
+    const t2 = createTrie<{ v: number }>()
+    trieRegister(t2, '/a/b/c/d/e/*', { v: 1 }, true)
+    trieRegister(t2, '/a/b/c/*', { v: 2 }, true)
+    trieRegister(t2, '/a/b/*', { v: 3 }, true)
+    const tm = performance.now()
+    for (let i = 0; i < N; i++) trieMatch(t2, ['a', 'b', 'c', 'd', 'e', 'x'])
+    const wfUs = (performance.now() - tm) / N * 1000
+    assert.ok(wfUs < 2, `深通配 fallback ${wfUs.toFixed(2)}µs/req < 2µs（O(depth²) depth≤6——探针 0.7µs）`)
   })
 })
