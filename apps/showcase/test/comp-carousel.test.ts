@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Carousel（/components/carousel）——完整能力
+ * showcase 组件测试——Carousel（/components/carousel）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Carousel」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-carousel.test.ts
  */
 import { test } from 'node:test'
@@ -30,27 +31,48 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：自动播放（autoplay 2.5s——dot 从 0 切到 1 + track transform）', async () => {
+test('FP1 autoplay：2.9s 窗口内 dot 自动前进', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // 初始 dot 0 active
-    const dot0 = await page.evaluate(() => {
-      const d = document.querySelectorAll('.wf-carousel-dot')
-      return d.length > 0 && d[0].className.includes('active')
-    })
-    assert.ok(dot0, '初始 dot 0 active')
-    // 自动切换（2.5s interval——dot 1 active + track transform 变化）
-    let ok = false
-    for (let i = 0; i < 40; i++) {
-      const r = await page.evaluate(() => {
-        const d = document.querySelectorAll('.wf-carousel-dot')
-        const t = document.querySelector<HTMLElement>('.wf-carousel-track')
-        return { dot1: d.length > 1 && d[1].className.includes('active'), tf: t?.style.transform ?? '' }
-      })
-      if (r.dot1 || r.tf.includes('-100%')) { ok = true; break }
-      await page.waitForTimeout(100)
-    }
-    assert.ok(ok, '自动切换（dot 1 / translateX(-100%)）')
+    await page.waitForSelector('main .wf-carousel')
+    const activeIdx = () => page.evaluate(() => [...document.querySelectorAll('main .wf-carousel-dot')].findIndex((d) => d.className.includes('active')))
+    const i0 = await activeIdx()
+    await page.waitForTimeout(2900)
+    const i1 = await activeIdx()
+    assert.notEqual(i0, i1, `dot ${i0} → ${i1}`)
+  } finally { await page.close() }
+})
+
+test('FP2 arrows 切换 + loop 尾→头（默认 loop=true）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-carousel')
+    const next = page.locator('main .wf-carousel').nth(1).locator('.wf-carousel-arrow--next')
+    await next.click()
+    await next.click()
+    await page.waitForFunction(() => [...[...document.querySelectorAll('main .wf-carousel')][1].querySelectorAll('.wf-carousel-dot')].findIndex((d) => d.className.includes('active')) === 2, null, { timeout: 3000 })
+    await next.click()
+    await page.waitForFunction(() => [...[...document.querySelectorAll('main .wf-carousel')][1].querySelectorAll('.wf-carousel-dot')].findIndex((d) => d.className.includes('active')) === 0, null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP3 showDots：点 dot 跳转对应卡', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-carousel')
+    await page.locator('main .wf-carousel').nth(1).locator('.wf-carousel-dot').nth(1).click()
+    await page.waitForFunction(() => [...[...document.querySelectorAll('main .wf-carousel')][1].querySelectorAll('.wf-carousel-dot')].findIndex((d) => d.className.includes('active')) === 1, null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP4 内容渲染：两实例 6 卡齐全', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('第一张') && t.includes('第六张'), '6 卡文本')
   } finally { await page.close() }
 })

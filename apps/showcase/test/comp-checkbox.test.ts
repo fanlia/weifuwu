@@ -1,8 +1,7 @@
 /**
- * showcase 组件测试——Checkbox（/components/checkbox）
- *
- * 每组件一个测试文件（单独运行）：
- *   node --env-file=.env --test apps/showcase/test/comp-checkbox.test.ts
+ * showcase 组件测试——Checkbox（/components/checkbox）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Checkbox」组（playwright 实测后固化）
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-checkbox.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,33 +25,44 @@ test.after(async () => {
   server?.stop()
 })
 
-test('渲染零错误 + 3 变体（协议/记住/disabled）', async () => {
+async function open(page: import('playwright').Page): Promise<void> {
+  const errors = await openShowcase(page, BASE, COMP_PATH)
+  assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
+  await page.waitForTimeout(300)
+}
+
+test('FP1 初始态：checked property（agree=false / remember=true）', async () => {
   const page = await browser.newPage()
   try {
-    const errors = await openShowcase(page, BASE, COMP_PATH)
-    assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['已阅读并同意协议', '记住登录状态', '不可选 (disabled)']) {
-      assert.ok(text.includes(t), `变体渲染：${t}`)
-    }
-  } finally {
-    await page.close()
-  }
+    await open(page)
+    await page.waitForSelector('main .wf-checkbox')
+    const st = await page.evaluate(() => [...document.querySelectorAll('main .wf-checkbox input')].map((c) => c.checked))
+    assert.deepEqual(st, [false, true, false], `三实例初态 ${st}`)
+  } finally { await page.close() }
 })
 
-test('demo 交互：同意 → true；记住 → false（状态文字）', async () => {
+test('FP2/FP3 点击切换 → onChange 回流 → 再点取消', async () => {
   const page = await browser.newPage()
   try {
-    await openShowcase(page, BASE, COMP_PATH)
-    // 初始：同意 false / 记住 true
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('同意: false, 记住: true'), '初始状态', { timeout: 3000 })
-    // 点「已阅读并同意协议」（label 点击）
-    await page.locator('main .wf-surface label', { hasText: '已阅读并同意协议' }).first().click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('同意: true'), '同意变 true', { timeout: 3000 })
-    // 点「记住登录状态」→ false
-    await page.locator('main .wf-surface label', { hasText: '记住登录状态' }).first().click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('记住: false'), '记住变 false', { timeout: 3000 })
-  } finally {
-    await page.close()
-  }
+    await open(page)
+    await page.waitForSelector('main .wf-checkbox')
+    const box = page.locator('main .wf-checkbox', { hasText: '已阅读并同意协议' }).first()
+    await box.click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('同意: true'), null, { timeout: 3000 })
+    await box.click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('同意: false'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP4 disabled：点击无变化', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-checkbox')
+    const before = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    await page.locator('main .wf-checkbox', { hasText: '不可选' }).first().click({ force: true })
+    await page.waitForTimeout(200)
+    const after = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.equal(before, after, 'disabled 不变')
+  } finally { await page.close() }
 })

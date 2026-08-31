@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——CodeEditor（/components/codeeditor）——完整能力
+ * showcase 组件测试——CodeEditor（/components/codeeditor）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「CodeEditor」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-codeeditor.test.ts
  */
 import { test } from 'node:test'
@@ -30,20 +31,47 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：代码编辑（行号 + 输入 onChange）', async () => {
+test('FP1 gutter 行号 = 代码行数', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // textarea 值（受控 value——不在 textContent）
+    await page.waitForSelector('main .wf-codeeditor')
+    const n = await page.evaluate(() => document.querySelectorAll('main .wf-codeeditor-gutter > div').length)
+    assert.ok(n >= 3, `行号数 ${n}`)
+  } finally { await page.close() }
+})
+
+test('FP2 初值渲染（受控 value）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-codeeditor textarea')
+    const v = await page.locator('main textarea').first().inputValue()
+    assert.ok(v.includes('const greet'), '初值')
+  } finally { await page.close() }
+})
+
+test('FP3 输入编辑：onChange 生效', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-codeeditor textarea')
     const ta = page.locator('main textarea').first()
-    const init = await ta.inputValue()
-    assert.ok(init.includes('const greet'), '初始代码')
-    // 输入 → onChange
+    await ta.press('End')
+    await ta.pressSequentially('// edited')
+    await page.waitForFunction(() => (document.querySelector('main textarea') as HTMLTextAreaElement)?.value.includes('// edited'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP4 Tab 缩进：不移焦（preventDefault + 插入两空格）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-codeeditor textarea')
+    const ta = page.locator('main textarea').first()
     await ta.click()
-    await page.keyboard.press('End')
-    await page.keyboard.type('\n// 新增')
-    await page.waitForTimeout(400)
-    const v = await ta.inputValue()
-    assert.ok(v.includes('// 新增'), `输入生效（实际 ${v.slice(-20)}）`)
+    await ta.press('Tab')
+    const focused = await ta.evaluate((el) => document.activeElement === el)
+    assert.equal(focused, true, '焦点保持（Tab 被拦截）')
   } finally { await page.close() }
 })

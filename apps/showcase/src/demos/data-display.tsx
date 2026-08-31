@@ -420,6 +420,7 @@ const DemoChart: Component = () => () => {
       <div class="wf-fill wf-text-center" style="min-width:300px"><Chart type="line" data={sales} title="月销售额" /></div>
       <div class="wf-fill wf-text-center" style="min-width:300px"><Chart type="bar" data={sales} title="月销售额(柱状)" /></div>
       <div class="wf-fill wf-text-center" style="min-width:300px"><Chart type="pie" data={pieData} /></div>
+      <div class="wf-fill wf-text-center" style="min-width:300px"><Chart type="line" data={sales} area title="带面积填充" /></div>
     </div>
   )
 }

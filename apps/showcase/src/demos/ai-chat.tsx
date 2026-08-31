@@ -109,6 +109,15 @@ const DemoCitationCard: Component = () => () => (
         { id: 'c4', title: '公告 · 新功能', source: 'changelog.md', snippet: 'v0.75 新增审批修改参数能力。' },
       ]}
     />
+    <CitationCard
+      label="自定义头文案"
+      defaultExpanded
+      onOpen={(c: any) => { window.__citeOpen = c.id }}
+      items={[
+        { id: 'o1', title: '展开态条目一', source: 'a.md', snippet: '初始展开（defaultExpanded）。' },
+        { id: 'o2', title: '可点击条目（onOpen）', source: 'b.md', snippet: '提供 onOpen 时不渲染链接。' },
+      ]}
+    />
   </div>
 )
 
@@ -252,6 +261,12 @@ const DemoChatInput: Component = (_props, ctx) => {
           onSend={() => { streaming = true; rerender(); setTimeout(() => { streaming = false; rerender() }, 1500) }}
           onStop={() => { streaming = false; rerender() }}
         />
+      </div>
+      <div class="wf-stack wf-gap-xs">
+        <Text variant="secondary">错误态（重试按钮）</Text>
+        <ChatInput value="" onChange={() => {}} onSend={() => {}} error="网络错误，请重试" onRetry={() => {}} />
+        <Text variant="secondary">禁用态</Text>
+        <ChatInput value="" onChange={() => {}} onSend={() => {}} disabled placeholder="禁用中..." />
       </div>
     </div>
   )

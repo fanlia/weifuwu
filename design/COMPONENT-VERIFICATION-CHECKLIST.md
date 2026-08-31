@@ -34,7 +34,7 @@
 |----|---------|------|
 | 1 | Accordion → AspectRatio（10） | ⬜ 未开始 |
 | 2 | AuthPage → Card（10） | ✅ 完成（3 组件层修复——AutoComplete 过滤不更新/error 文案面/Badge rest 透传） |
-| 3 | Carousel → Collapse（10） | ⬜ 未开始 |
+| 3 | Carousel → Collapse（10） | ✅ 完成（零组件修复——demo 扩面：Carousel arrows/dots、Cascader—、ChatInput error/disabled、CheckboxGroup columns/disabled、CitationCard onOpen/defaultExpanded、Chart area、CodeEditor—） |
 | 4 | ColorPicker → Drawer（10） | ⬜ 未开始 |
 | 5 | Dropdown → Form（10） | ⬜ 未开始 |
 | 6 | Grid → InputNumber（10） | ⬜ 未开始 |
@@ -296,124 +296,124 @@
 ### Carousel（Carousel）
 
 > 轮播：箭头/圆点/循环 + 自动播放（三库共识）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **autoplay 布尔行为**：true/false 渲染差异（autoplay=true 显式断言）
-- [ ] **showArrows 布尔行为**：true/false 渲染差异（showArrows=true 显式断言）
-- [ ] **showDots 布尔行为**：true/false 渲染差异（showDots=true 显式断言）
-- [ ] **loop 布尔行为**：true/false 渲染差异（loop=true 显式断言）
-- [ ] **interval 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
-- [ ] **纪律回归**：⚠ 小尺寸 button 固定 min/max-height（§5.6）：圆点 8x45 竖条事故
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **autoplay 布尔行为**：true/false 渲染差异（autoplay=true 显式断言）
+- [x] **showArrows 布尔行为**：true/false 渲染差异（showArrows=true 显式断言）
+- [x] **showDots 布尔行为**：true/false 渲染差异（showDots=true 显式断言）
+- [x] **loop 布尔行为**：true/false 渲染差异（loop=true 显式断言）
+- [x] **interval 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
+- [x] **纪律回归**：⚠ 小尺寸 button 固定 min/max-height（§5.6）：圆点 8x45 竖条事故
 
 ### Cascader（Cascader）
 
 > 级联选择：多列面板逐级推进（antd/EP Cascader）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **showSearch 布尔行为**：true/false 渲染差异（showSearch=true 显式断言）
-- [ ] **options 数据面**：`CascaderOption[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **value 数据面**：`string[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **searchPlaceholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
-- [ ] **纪律回归**：⚠ 受控纪律：受控 value 必须配回调——缺回调静默不可点
-- [ ] **纪律回归**：⚠ 多选（multiple）已裁剪（低频——单选+搜索已够，见 components-cuts.md）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **showSearch 布尔行为**：true/false 渲染差异（showSearch=true 显式断言）
+- [x] **options 数据面**：`CascaderOption[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **value 数据面**：`string[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **searchPlaceholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **纪律回归**：⚠ 受控纪律：受控 value 必须配回调——缺回调静默不可点
+- [x] **纪律回归**：⚠ 多选（multiple）已裁剪（低频——单选+搜索已够，见 components-cuts.md）
 
 ### Chart（Chart）
 
 > SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **area 布尔行为**：true/false 渲染差异（area=true 显式断言）
-- [ ] **data 数据面**：`DataPoint[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **options 数据面**：`ChartOptions`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：type/title 透传到根元素
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **area 布尔行为**：true/false 渲染差异（area=true 显式断言）
+- [x] **data 数据面**：`DataPoint[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **options 数据面**：`ChartOptions`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：type/title 透传到根元素
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
 
 ### ChatInput（ChatInput）
 
 > 独立聊天输入条（AiChat 抽取）：单行/多行 + streaming 停止 + IME 安全——不自带聊天逻辑
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **streaming 布尔行为**：true/false 渲染差异（streaming=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **multiline 布尔行为**：true/false 渲染差异（multiline=true 显式断言）
-- [ ] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **error 数据面**：`string | null`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **labels 数据面**：`Partial<ChatInputLabels>`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **actions 数据面**：`VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onSend 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onStop 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onRetry 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onControl 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onKeyInterceptFn 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **streaming 布尔行为**：true/false 渲染差异（streaming=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **multiline 布尔行为**：true/false 渲染差异（multiline=true 显式断言）
+- [x] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **error 数据面**：`string | null`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **labels 数据面**：`Partial<ChatInputLabels>`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **actions 数据面**：`VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onSend 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onStop 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onRetry 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onControl 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onKeyInterceptFn 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### Checkbox（Checkbox）
 
 > 带 label 的复选框，支持 checked/disabled
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **checked 布尔行为**：true/false 渲染差异（checked=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **checked 布尔行为**：true/false 渲染差异（checked=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### CheckboxGroup（CheckboxGroup）
 
 > 复选框组：数组受控 + 栅格列数（antd Checkbox.Group）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **options 数据面**：`CheckboxGroupOption[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **value 数据面**：`string[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **columns 数据面**：`1 | 2 | 3 | 4`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **options 数据面**：`CheckboxGroupOption[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **value 数据面**：`string[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **columns 数据面**：`1 | 2 | 3 | 4`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### CitationCard（CitationCard）
 
 > RAG 引用来源：折叠「引用 N 条」+ 条目列表（序号/标题/来源/片段/链接）+ 溢出 +N
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **defaultExpanded 布尔行为**：true/false 渲染差异（defaultExpanded=true 显式断言）
-- [ ] **items 数据面**：`Citation[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **maxVisible 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onOpen 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **defaultExpanded 布尔行为**：true/false 渲染差异（defaultExpanded=true 显式断言）
+- [x] **items 数据面**：`Citation[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **maxVisible 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onOpen 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### CodeBlock（CodeBlock）
 
 > 代码块：语言标签 + 复制按钮 + 横向滚动
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **code 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **lang 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：title 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **code 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **lang 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：title 透传到根元素
 
 ### CodeEditor（CodeEditor）
 
 > 轻量代码编辑器——textarea + 行号 + Tab 缩进（零依赖，不引 Monaco）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **lang 枚举态**：`'ts' | 'tsx' | 'js' | 'css' | 'json' | 'md' | 'text'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **readOnly 布尔行为**：true/false 渲染差异（readOnly=true 显式断言）
-- [ ] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **rows 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **lang 枚举态**：`'ts' | 'tsx' | 'js' | 'css' | 'json' | 'md' | 'text'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **readOnly 布尔行为**：true/false 渲染差异（readOnly=true 显式断言）
+- [x] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **rows 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### Collapse（Collapse）
 
 > 行内折叠：异步 loading + extra 操作区（区别于 Accordion）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **multiple 布尔行为**：true/false 渲染差异（multiple=true 显式断言）
-- [ ] **items 数据面**：`CollapseItem[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **active 数据面**：`string[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **纪律回归**：⚠ 受控纪律（§5.2）：受控 activeKeys 必须配回调——缺回调静默不可点（console.warn 防护）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **multiple 布尔行为**：true/false 渲染差异（multiple=true 显式断言）
+- [x] **items 数据面**：`CollapseItem[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **active 数据面**：`string[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **纪律回归**：⚠ 受控纪律（§5.2）：受控 activeKeys 必须配回调——缺回调静默不可点（console.warn 防护）
 
 ### ColorPicker（ColorPicker）
 

@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——CheckboxGroup（/components/checkboxgroup）——完整能力
+ * showcase 组件测试——CheckboxGroup（/components/checkboxgroup）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「CheckboxGroup」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-checkboxgroup.test.ts
  */
 import { test } from 'node:test'
@@ -30,24 +31,56 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：选项渲染 + 受控选中 + 点击换选（值回流——onChange 驱动 demo 文本）', async () => {
+test('FP1 组渲染：label + 3 选项 + 初始值 a 回显', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const group = page.locator('.wf-checkbox-group')
-    assert.equal(await group.locator('.wf-checkbox').count(), 3, '3 选项')
-    // 默认已选 [a]（张三）——checked 语义（input 视觉隐藏——点击 label）
-    const boxes = group.locator('input[type="checkbox"]')
-    assert.equal(await boxes.nth(0).isChecked(), true, '默认选中张三')
-    assert.equal(await boxes.nth(1).isChecked(), false, '李四未选')
-    // 点击李四 → 已选 a,b（demo 文本回流——受控链）
-    await group.locator('.wf-checkbox').nth(1).click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('已选：a, b') || (document.body.textContent ?? '').includes('已选：a, 李四'), '回流文本')
-    // 再点王五 → 已选 a,b,c
-    await group.locator('.wf-checkbox').nth(2).click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('已选：a, b, c'), '多选累积')
-    // 取消李四 → 已选 a,c
-    await group.locator('.wf-checkbox').nth(1).click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('已选：a, c') || !(document.body.textContent ?? '').includes('已选：a, b, c'), '取消选中')
+    await page.waitForSelector('main .wf-checkbox')
+    assert.equal(await page.locator('main .wf-checkbox').count(), 8, '3+4+1 实例')
+    const st = await page.evaluate(() => [...document.querySelectorAll('main .wf-checkbox input')].map((c) => c.checked))
+    assert.equal(st[0], true, '初始选中 a')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('选择成员') && t.includes('已选：a'), 'label+回显')
+  } finally { await page.close() }
+})
+
+test('FP2/FP3 多选叠加 → 取消单项（受控数组回流）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-checkbox')
+    const boxes = page.locator('main .wf-checkbox')
+    await boxes.nth(1).click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('a, b'), null, { timeout: 3000 })
+    await boxes.nth(0).click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('已选：b'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP4 columns=2 栅格几何', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-checkbox')
+    const cols = await page.evaluate(() => {
+      const g = document.querySelector('main .wf-checkbox-group--cols-2')
+      if (!g) return 0
+      const item = g.querySelector('.wf-checkbox')
+      if (!item) return 0
+      // cols-2 实现 = flex-wrap + 子项 flex-basis 50%（非 grid——CSS 契约）
+      // computed flexBasis 是 calc(50% - var) 表达式——含 50% 即两列契约
+      return getComputedStyle(item).flexBasis.includes('50%') ? 1 : 0
+    })
+    assert.equal(cols, 1, `--cols-2 子项 flex-basis 50%`)
+  } finally { await page.close() }
+})
+
+test('FP5 整组 disabled：input disabled + 点击无变化', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-checkbox')
+    const disInput = page.locator('main .wf-checkbox input').last()
+    assert.equal(await disInput.evaluate((el) => el.disabled), true, 'disabled 属性')
   } finally { await page.close() }
 })

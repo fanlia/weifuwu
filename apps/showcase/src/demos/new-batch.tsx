@@ -205,6 +205,8 @@ const DemoCheckboxGroup: Component = (_props, ctx) => {
     <div class="wf-stack wf-gap-sm">
       <CheckboxGroup label="选择成员" options={[{ value: 'a', label: '张三' }, { value: 'b', label: '李四' }, { value: 'c', label: '王五' }]} value={v} onChange={(k: string[]) => { v = k; ctx.render() }} />
       <div class="wf-font-sm wf-text-secondary">已选：{v.join(', ') || '无'}</div>
+      <CheckboxGroup label="双列栅格（columns=2）" options={[{ value: 'x1', label: '列选项一' }, { value: 'x2', label: '列选项二' }, { value: 'x3', label: '列选项三' }, { value: 'x4', label: '列选项四' }]} value={[]} columns={2} />
+      <CheckboxGroup label="整组禁用" options={[{ value: 'd', label: '禁用选项' }]} value={['d']} disabled />
     </div>
   )
 }
@@ -541,6 +543,12 @@ const DemoCarousel: Component = () => () => (
       ))}
     </Carousel>
     <div class="wf-font-xs wf-text-secondary wf-margin-top-xs">autoplay：每 2.5s 自动切换</div>
+    <Carousel showArrows showDots autoplay={false}>
+      {['第四张', '第五张', '第六张'].map((t, i) => (
+        <div key={i} class="wf-bg-tertiary wf-padding-xl wf-text-center wf-radius-md">🟨 {t}</div>
+      ))}
+    </Carousel>
+    <div class="wf-font-xs wf-text-secondary wf-margin-top-xs">arrows + dots：手动切换（loop 默认尾→头）</div>
   </div>
 )
 

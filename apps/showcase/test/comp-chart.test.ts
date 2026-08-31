@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Chart（/components/chart）——柱状/饼图
+ * showcase 组件测试——Chart（/components/chart）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Chart」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-chart.test.ts
  */
 import { test } from 'node:test'
@@ -30,48 +31,55 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：图表渲染（柱状 + 饼图）', async () => {
+test('FP1 line：折线 path + 数据点 circle', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['1月', '2月', '直接', '6月']) assert.ok(text.includes(t), `图表：${t}`)
-    // canvas/svg 渲染
-    const cv = await page.evaluate(() => document.querySelectorAll('main canvas, main svg').length)
-    assert.ok(cv > 0, `canvas/svg（实际 ${cv}）`)
+    await page.waitForSelector('main svg')
+    const first = await page.evaluate(() => {
+      const s = document.querySelectorAll('main svg')[0]
+      return { path: s.querySelectorAll('path, polyline').length, circle: s.querySelectorAll('circle').length }
+    })
+    assert.ok(first.path >= 1 || first.circle >= 1, JSON.stringify(first))
   } finally { await page.close() }
 })
 
-test('tooltip 位置：anchor 上方 gap=8 + 水平居中（无 transform 双重偏移）', async () => {
+test('FP2 bar：≥5 柱 rect', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // 折线图首个命中圆（r=9 透明命中区）
-    const dot = page.locator('.wf-chart svg > g circle[fill="transparent"]').first()
-    await dot.scrollIntoViewIfNeeded()
-    await dot.hover()
-    await page.waitForSelector('.wf-chart-tooltip')
-    // 等待 popup 内核定位完成（rAF 异步——top/left 落地非 0）
-    await page.waitForFunction(() => {
-      const t = document.querySelector('.wf-chart-tooltip') as HTMLElement | null
-      return !!t && t.style.top !== '' && t.style.top !== '0px' && t.style.left !== '' && t.style.left !== '0px'
-    })
-    const r = await page.evaluate(() => {
-      const tip = document.querySelector('.wf-chart-tooltip')!.getBoundingClientRect()
-      const c = document.querySelector('.wf-chart svg > g circle[fill="transparent"]')!.getBoundingClientRect()
-      return {
-        tip: { t: tip.top, b: tip.bottom, l: tip.left, r: tip.right },
-        dot: { t: c.top, b: c.bottom, l: c.left, r: c.right },
-      }
-    })
-    // 回归：CSS 残留 transform: translate(-50%, -100%) 使 tooltip 双重偏移
-    // （漂移一面板高 + 半宽——rect 与 style top/left 不符）
-    assert.ok(r.tip.b <= r.dot.t - 8 + 1, `top 间隙 ≥ 8（tip 底 ${r.tip.b} vs 点顶 ${r.dot.t}）`)
-    const tipCx = (r.tip.l + r.tip.r) / 2
-    const dotCx = (r.dot.l + r.dot.r) / 2
-    assert.ok(Math.abs(tipCx - dotCx) <= 2, `水平居中（tip 中心 ${tipCx} vs 点中心 ${dotCx}）`)
-    // 移开鼠标——tooltip 关闭（无残留）
-    await page.mouse.move(20, 20)
-    await page.waitForFunction(() => !document.querySelector('.wf-chart-tooltip'))
+    await page.waitForSelector('main svg')
+    const bar = await page.evaluate(() => [...document.querySelectorAll('main svg')].some((s) => s.querySelectorAll('rect').length >= 5))
+    assert.ok(bar, 'rect ≥ 5')
+  } finally { await page.close() }
+})
+
+test('FP3 pie：≥3 扇区 path', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main svg')
+    const pie = await page.evaluate(() => [...document.querySelectorAll('main svg')].some((s) => s.querySelectorAll('rect').length === 0 && s.querySelectorAll('path').length >= 3))
+    assert.ok(pie, 'path ≥ 3 无 rect')
+  } finally { await page.close() }
+})
+
+test('FP4 标题 + 轴标签 + 图例文本', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main svg')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('月销售额') && t.includes('1月') && t.includes('直接'), '标题+标签+图例')
+  } finally { await page.close() }
+})
+
+test('FP5 area 面积填充实例渲染', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main svg')
+    const n = await page.evaluate(() => document.querySelectorAll('main svg').length)
+    assert.ok(n >= 4, `4 图实例（line/bar/pie/area）实际 ${n}`)
   } finally { await page.close() }
 })

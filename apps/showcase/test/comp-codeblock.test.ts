@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——CodeBlock（/components/codeblock）——完整能力
+ * showcase 组件测试——CodeBlock（/components/codeblock）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「CodeBlock」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-codeblock.test.ts
  */
 import { test } from 'node:test'
@@ -30,24 +31,35 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 语言标签/标题 + 复制按钮（点击复制）', async () => {
+test('FP1/FP2 title + lang 标签 + 代码内容渲染', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    assert.ok(text.includes('示例.ts'), '标题')
-    assert.ok(text.includes('import { Markdown }'), '代码内容')
-    // 语言标签（ts）
-    const lang = await page.evaluate(() => !!document.querySelector('main [class*="codeblock"] [class*="lang"], main [class*="code"][class*="lang"]'))
-    assert.ok(lang || text.includes('ts'), '语言标签')
-    // 复制按钮（点击 → 无错误——剪贴板降级）
-    const copyBtn = page.locator('main [class*="codeblock"] [class*="copy"], main [class*="code"] button').first()
-    if (await copyBtn.count() > 0) {
-      await copyBtn.click()
-      await page.waitForTimeout(400)
-      const errs: string[] = []
-      page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()) })
-      assert.deepEqual(errs.filter((e) => !e.includes('Failed to load resource')), [], `复制无错误（实际: ${errs[0] ?? '无'}）`)
-    }
+    await page.waitForSelector('main pre, main [class*="code"]')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('示例.ts') && t.includes('ts'), 'title+lang')
+    assert.ok(t.includes('import { Markdown }'), '代码内容')
+  } finally { await page.close() }
+})
+
+test('FP3 无 lang 实例（plain）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('plain text 无语言标签'), '第二实例')
+  } finally { await page.close() }
+})
+
+test('FP4 复制按钮 → 剪贴板内容 = 代码原文', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-codeblock-copy')
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.locator('main .wf-codeblock-copy').first().click()
+    await page.waitForTimeout(300)
+    const clip = await page.evaluate(() => navigator.clipboard.readText().catch(() => 'READ_FAIL'))
+    assert.ok(String(clip).includes('import'), `剪贴板=${String(clip).slice(0, 30)}`)
   } finally { await page.close() }
 })
