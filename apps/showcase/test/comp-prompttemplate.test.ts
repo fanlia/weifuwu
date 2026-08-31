@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——PromptTemplate（/components/prompttemplate）——完整能力
+ * showcase 组件测试——PromptTemplate（/components/prompttemplate）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「PromptTemplate」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-prompttemplate.test.ts
  */
 import { test } from 'node:test'
@@ -30,11 +31,14 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 提示词模板', async () => {
+test('FP1/FP2 模板+变量 chips 预览填充 + 编辑回流', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    assert.ok(text.length > 50, '模板渲染')
+    await page.waitForSelector('main textarea')
+    const t0 = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t0.includes('{{role}}') && t0.includes('AI 助手'), '模板占位+预览填充')
+    await page.locator('main textarea').first().fill('总结{{topic}}')
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('总结'), null, { timeout: 3000 })
   } finally { await page.close() }
 })

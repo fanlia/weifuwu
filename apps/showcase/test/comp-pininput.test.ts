@@ -1,8 +1,7 @@
 /**
- * showcase 组件测试——PinInput（/components/pininput）
- *
- * 每组件一个测试文件（单独运行）：
- *   node --env-file=.env --test apps/showcase/test/comp-pininput.test.ts
+ * showcase 组件测试——PinInput（/components/pininput）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「PinInput」组（playwright 实测后固化）
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-pininput.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,17 +25,23 @@ test.after(async () => {
   server?.stop()
 })
 
-test('渲染零错误 + 6 位验证码输入', async () => {
+async function open(page: import('playwright').Page): Promise<void> {
+  const errors = await openShowcase(page, BASE, COMP_PATH)
+  assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
+  await page.waitForTimeout(300)
+}
+
+test('FP1/FP2 6 格 + 逐格填入 → onChange 完整值回流', async () => {
   const page = await browser.newPage()
   try {
-    const errors = await openShowcase(page, BASE, COMP_PATH)
-    assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('等待输入'), '初始等待输入', { timeout: 3000 })
-    // 输入 6 位
-    await page.locator('main .wf-surface input').first().click()
-    await page.keyboard.type('123456')
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('验证码：123456'), '验证码输入', { timeout: 3000 })
-  } finally {
-    await page.close()
-  }
+    await open(page)
+    await page.waitForSelector('main input')
+    assert.equal(await page.locator('main input').count(), 6, '6 格')
+    const digits = ['4', '8', '3', '9', '2', '0']
+    for (let i = 0; i < 6; i++) {
+      await page.locator('main input').nth(i).fill(digits[i])
+      await page.waitForTimeout(60)
+    }
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('483920'), null, { timeout: 3000 })
+  } finally { await page.close() }
 })

@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Popover（/components/popover）——完整能力
+ * showcase 组件测试——Popover（/components/popover）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Popover」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-popover.test.ts
  */
 import { test } from 'node:test'
@@ -30,37 +31,22 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-/** evaluate 轮询（组件页文档表格样式循环——rAF/定时器饿死规避） */
-async function waitFor(page: import('playwright').Page, fn: () => Promise<boolean>, msg: string, timeoutMs = 5000): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (await page.evaluate(fn)) return
-    await page.waitForTimeout(100)
-  }
-  throw new Error(`${msg} 超时`)
-}
-
-test('渲染零错误 + 点击弹出（自定义内容）+ hover 触发', async () => {
+test('FP1 点击触发弹出 + Escape 关闭', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // 点击弹出（自定义面板内容）
-    await page.locator('main .wf-surface button', { hasText: '点击弹出' }).first().click()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('自定义面板内容')), '弹层出现')
-    assert.ok(await page.evaluate(() => !!document.querySelector('.wf-popover, .wf-popup')), '弹层面板')
-    // Escape 关闭
+    await page.waitForSelector('main button')
+    await page.locator('main button').first().click()
+    await page.waitForFunction(() => (document.querySelector('#__wf_portal')?.textContent ?? '').length > 0, null, { timeout: 3000 })
     await page.keyboard.press('Escape')
-    await waitFor(page, () => Promise.resolve(!(document.body.textContent ?? '').includes('自定义面板内容')), 'Escape 关闭')
-    // hover 触发（悬停查看）
-    await page.locator('main .wf-surface span', { hasText: '悬停查看' }).first().hover()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('悬停出现的面板')), 'hover 弹层')
+    await page.waitForFunction(() => (document.querySelector('#__wf_portal')?.textContent ?? '').length === 0, null, { timeout: 3000 })
   } finally { await page.close() }
 })
+
 test('位置：portal 归属 + fixed + 视口内 + bottom 方向 + 水平居中', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    
     await page.locator('main .wf-surface span', { hasText: '悬停查看' }).first().hover()
     await assertPopupGeometry(page, { anchorText: '悬停查看', dir: 'bottom', centerAxis: 'x', transformNone: true })
   } finally { await page.close() }

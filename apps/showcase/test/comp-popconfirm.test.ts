@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Popconfirm（/components/popconfirm）——完整能力
+ * showcase 组件测试——Popconfirm（/components/popconfirm）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Popconfirm」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-popconfirm.test.ts
  */
 import { test } from 'node:test'
@@ -30,33 +31,34 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-/** evaluate 轮询（组件页文档表格样式循环——rAF/定时器饿死规避） */
-async function waitFor(page: import('playwright').Page, fn: () => Promise<boolean>, msg: string, timeoutMs = 5000): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (await page.evaluate(fn)) return
-    await page.waitForTimeout(100)
-  }
-  throw new Error(`${msg} 超时`)
-}
-
-test('渲染零错误 + 点击弹出确认 + 确认回调（已删除——toast 或状态）', async () => {
+test('FP1/FP2 danger 气泡 + 确认 → onConfirm toast', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.locator('main .wf-surface button', { hasText: '删除' }).first().click()
-    // portal 弹层出现（role=dialog——aria-label 不算 textContent）
-    await waitFor(page, () => Promise.resolve(!!document.querySelector('#__wf_portal [class*="popconfirm"]')), '确认弹层')
-    // 确认（portal 内确认按钮——onConfirm 回调）
-    await page.locator('#__wf_portal [class*="popconfirm"] button').last().click()
-    await waitFor(page, () => Promise.resolve(!document.querySelector('#__wf_portal [class*="popconfirm"]')), '确认关闭（onConfirm——portal 移除）')
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '删除' }).first().click()
+    await page.waitForFunction(() => (document.querySelector('#__wf_portal')?.textContent ?? '').includes('确定删除这条数据'), null, { timeout: 3000 })
+    await page.locator('#__wf_portal button').filter({ hasText: /确定|删除/ }).last().click()
+    await page.waitForFunction(() => (document.body.textContent ?? '').includes('已删除'), null, { timeout: 3000 })
   } finally { await page.close() }
 })
+
+test('FP3 取消 → onCancel 关闭气泡', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '提交' }).first().click()
+    await page.waitForFunction(() => (document.querySelector('#__wf_portal')?.textContent ?? '').includes('确定提交审核'), null, { timeout: 3000 })
+    await page.locator('#__wf_portal button').filter({ hasText: /取消/ }).first().click()
+    await page.waitForFunction(() => !(document.querySelector('#__wf_portal')?.textContent ?? '').includes('确定提交审核'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
 test('位置：portal 归属 + fixed + 视口内 + 确认气泡 top', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    
     await page.locator('main .wf-surface button', { hasText: '删除' }).first().click()
     await assertPopupGeometry(page, { panelText: '确定', anchorText: '删除', dir: 'top', centerAxis: 'x', transformNone: true })
   } finally { await page.close() }

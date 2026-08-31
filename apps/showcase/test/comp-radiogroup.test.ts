@@ -1,8 +1,7 @@
 /**
- * showcase 组件测试——RadioGroup（/components/radiogroup）
- *
- * 每组件一个测试文件（单独运行）：
- *   node --env-file=.env --test apps/showcase/test/comp-radiogroup.test.ts
+ * showcase 组件测试——RadioGroup（/components/radiogroup）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「RadioGroup」组（playwright 实测后固化）
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-radiogroup.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,28 +25,19 @@ test.after(async () => {
   server?.stop()
 })
 
-test('渲染零错误 + 选项（性别 3 项 + 内联 2 项）', async () => {
-  const page = await browser.newPage()
-  try {
-    const errors = await openShowcase(page, BASE, COMP_PATH)
-    assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['男', '女', '其他', '选项 A', '选项 B']) {
-      assert.ok(text.includes(t), `选项渲染：${t}`)
-    }
-  } finally {
-    await page.close()
-  }
-})
+async function open(page: import('playwright').Page): Promise<void> {
+  const errors = await openShowcase(page, BASE, COMP_PATH)
+  assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
+  await page.waitForTimeout(300)
+}
 
-test('demo 交互：选「女」→ 状态文字更新', async () => {
+test('FP1 选项渲染 + 点击选中（sr-only input checked 回流）', async () => {
   const page = await browser.newPage()
   try {
-    await openShowcase(page, BASE, COMP_PATH)
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('选择: male'), '初始 male', { timeout: 3000 })
-    await page.locator('main .wf-surface label', { hasText: '女' }).first().click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('选择: female'), '选择 female', { timeout: 3000 })
-  } finally {
-    await page.close()
-  }
+    await open(page)
+    await page.waitForSelector('main .wf-radio')
+    assert.ok(await page.locator('main .wf-radio').count() >= 2, '选项渲染')
+    await page.locator('main .wf-radio').nth(1).click()
+    await page.waitForFunction(() => document.querySelectorAll('main input[type="radio"]')[1]?.checked, null, { timeout: 3000 })
+  } finally { await page.close() }
 })

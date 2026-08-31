@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Pagination（/components/pagination）——完整能力
+ * showcase 组件测试——Pagination（/components/pagination）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Pagination」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-pagination.test.ts
  */
 import { test } from 'node:test'
@@ -30,34 +31,27 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 页码（total 200——初始第 3 页）', async () => {
+test('FP1/FP2 页码序列 + active 高亮 + next×3 回流', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('当前页: 3'), '初始第 3 页', { timeout: 3000 })
-    const pages = await page.evaluate(() => document.querySelectorAll('main .wf-pagination button, main [class*="pagination"] button').length)
-    assert.ok(pages >= 5, `页码按钮（实际 ${pages}）`)
+    await page.waitForSelector('main .wf-pagination')
+    const active = await page.evaluate(() => document.querySelector('main .wf-page-btn--active')?.textContent?.trim())
+    assert.equal(active, '3', '初始 page=3')
+    const next = page.locator('main .wf-pagination button[aria-label="下一页"]')
+    for (let i = 0; i < 3; i++) { await next.click(); await page.waitForTimeout(120) }
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('当前页: 6'), null, { timeout: 3000 })
   } finally { await page.close() }
 })
 
-test('能力：翻页（onChange——点页号 5 → 当前页 5）', async () => {
+test('FP3/FP4 prev 回退 + 省略号（25 页窗口）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.locator('main [class*="pagination"] button', { hasText: '4' }).first().click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('当前页: 4'), '第 4 页', { timeout: 3000 })
-  } finally { await page.close() }
-})
-
-test('能力：上一页/下一页', async () => {
-  const page = await browser.newPage()
-  try {
-    await open(page)
-    // 下一页（当前 3 → 4）
-    await page.locator('main [class*="pagination"] button[aria-label*="下一页"], main [class*="pagination"] [class*="next"]').first().click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('当前页: 4'), '下一页', { timeout: 3000 })
-    // 上一页（4 → 3）
-    await page.locator('main [class*="pagination"] button[aria-label*="上一页"], main [class*="pagination"] [class*="prev"]').first().click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('当前页: 3'), '上一页', { timeout: 3000 })
+    await page.waitForSelector('main .wf-pagination')
+    await page.locator('main .wf-pagination button[aria-label="下一页"]').click()
+    await page.locator('main .wf-pagination button[aria-label="上一页"]').click()
+    await page.waitForTimeout(200)
+    assert.ok(await page.locator('main .wf-page-ellipsis').count() >= 1, '省略号')
   } finally { await page.close() }
 })

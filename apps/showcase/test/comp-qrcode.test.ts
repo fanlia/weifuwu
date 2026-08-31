@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——QRCode（/components/qrcode）——完整能力
+ * showcase 组件测试——QRCode（/components/qrcode）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「QRCode」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-qrcode.test.ts
  */
 import { test } from 'node:test'
@@ -30,12 +31,16 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：二维码渲染（canvas/svg + 内容）', async () => {
+test('FP1 SVG 二维码模块渲染', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const canvas = await page.evaluate(() => !!document.querySelector('main canvas'))
-    const svg = await page.evaluate(() => !!document.querySelector('main svg'))
-    assert.ok(canvas || svg, `二维码渲染（canvas=${canvas} svg=${svg}）`)
+    await page.waitForSelector('main svg')
+    const info = await page.evaluate(() => {
+      const svg = document.querySelector('main svg')
+      return { modules: svg.querySelectorAll('rect, path').length, w: Math.round(svg.getBoundingClientRect().width) }
+    })
+    assert.ok(info.modules > 20, `模块数 ${info.modules}`)
+    assert.ok(info.w > 50, `尺寸 ${info.w}`)
   } finally { await page.close() }
 })

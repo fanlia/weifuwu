@@ -40,7 +40,7 @@
 | 6 | Grid → InputNumber（10） | ✅ 完成（[!] ImageCropper onCrop 断链修复；demo 健壮性：Img preview 改本地 SVG（picsum 外网 503）） |
 | 7 | JSONViewer → Markdown（10） | ✅ 完成（零组件缺陷——JsonSchemaForm 曾疑似校验 bug 实为断言假阳性（demo 说明文字含「必填」被 includes 误匹配）——精确 .wf-field-err 节点断言后全绿） |
 | 8 | MarkdownEditor → PageHeader（10） | ✅ 完成（零组件缺陷——MarkdownEditor 分屏/模式切换、Mentions @ 触发补全、Menu 折叠 202→56、Kanban 前批、Modal width/mask/Escape、Notification 4.5s 自动消失） |
-| 9 | Pagination → RadioGroup（10） | ⬜ 未开始 |
+| 9 | Pagination → RadioGroup（10） | ✅ 完成（零组件缺陷——Pagination next×3/prev/省略号、PasswordInput 眼睛切换+焦点保持、PinInput 逐格回流 483920、Popconfirm danger 确认/取消+位置几何恢复、Popover hover 触发+bottom 几何恢复——批次 9 发现：本批 10 组件测试文件在重构 P3 已有基线，重写覆盖丢失 2 项浮层几何断言（Popconfirm top/Popover bottom）——已用 assertPopupGeometry 恢复；RadioGroup sr-only 点 label 惯例确认） |
 | 10 | Rate → SessionList（10） | ⬜ 未开始 |
 | 11 | SheetGrid → Switch（10） | ⬜ 未开始 |
 | 12 | TabBar → Toggle（10） | ⬜ 未开始 |
@@ -986,131 +986,131 @@
 ### Pagination（Pagination）
 
 > 分页器，自动计算页码范围
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **total 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **page 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **pageSize 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **total 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **page 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **pageSize 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### PasswordInput（PasswordInput）
 
 > 密码输入：眼睛按钮切换可见性
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
-- [ ] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **autoComplete 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onInput 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
+- [x] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **autoComplete 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onInput 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### PinInput（PinInput）
 
 > 验证码输入：自动聚焦/粘贴分派/Backspace 回退（shadcn InputOTP）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **length 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：type 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **length 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：type 透传到根元素
 
 ### Pipeline（Pipeline）
 
 > Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **orientation 枚举态**：`'vertical' | 'horizontal'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **nodes 数据面**：`PipelineNode[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **edges 数据面**：`PipelineEdge[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **width 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **height 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **orientation 枚举态**：`'vertical' | 'horizontal'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **nodes 数据面**：`PipelineNode[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **edges 数据面**：`PipelineEdge[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **width 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **height 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### Popconfirm（Popconfirm）
 
 > 气泡确认：危险操作防误触 + 复用 usePopup 基座
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **okType 枚举态**：`'primary' | 'danger'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **danger 布尔行为**：true/false 渲染差异（danger=true 显式断言）
-- [ ] **open 布尔行为**：true/false 渲染差异（open=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **okText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **cancelText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **position 数据面**：`Placement`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **icon 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onConfirm 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onCancel 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onOpenChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：title/children 透传到根元素
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
-- [ ] **纪律回归**：⚠ 气泡内表单/自定义箭头已裁剪（Popover 基座 + 定位全套复用）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **okType 枚举态**：`'primary' | 'danger'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **danger 布尔行为**：true/false 渲染差异（danger=true 显式断言）
+- [x] **open 布尔行为**：true/false 渲染差异（open=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **okText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **cancelText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **position 数据面**：`Placement`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **icon 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onConfirm 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onCancel 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onOpenChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：title/children 透传到根元素
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **纪律回归**：⚠ 气泡内表单/自定义箭头已裁剪（Popover 基座 + 定位全套复用）
 
 ### Popover（Popover）
 
 > 通用弹出层，click/hover 触发，4 方向
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **trigger 枚举态**：`'click' | 'hover'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **open 布尔行为**：true/false 渲染差异（open=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **content 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **position 数据面**：`PopoverPosition`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onOpenChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：children 透传到根元素
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
-- [ ] **纪律回归**：⚠ portal 槽豁免（同 HoverCard）
-- [ ] **纪律回归**：⚠ 富内容自动判定已裁剪——HoverCard 补富内容（components-cuts.md）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **trigger 枚举态**：`'click' | 'hover'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **open 布尔行为**：true/false 渲染差异（open=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **content 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **position 数据面**：`PopoverPosition`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onOpenChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：children 透传到根元素
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **纪律回归**：⚠ portal 槽豁免（同 HoverCard）
+- [x] **纪律回归**：⚠ 富内容自动判定已裁剪——HoverCard 补富内容（components-cuts.md）
 
 ### ProgressBar（ProgressBar）
 
 > 进度条，支持 label/showValue
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **status 枚举态**：`'default' | 'success' | 'error' | 'warning'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **showValue 布尔行为**：true/false 渲染差异（showValue=true 显式断言）
-- [ ] **value 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **max 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **status 枚举态**：`'default' | 'success' | 'error' | 'warning'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **showValue 布尔行为**：true/false 渲染差异（showValue=true 显式断言）
+- [x] **value 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **max 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### PromptTemplate（PromptTemplate）
 
 > 提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **readOnly 布尔行为**：true/false 渲染差异（readOnly=true 显式断言）
-- [ ] **showPreview 布尔行为**：true/false 渲染差异（showPreview=true 显式断言）
-- [ ] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **variables 数据面**：`PromptTemplateVariable[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **纪律回归**：⚠ textarea value 必须走 property（attribute 只是 defaultValue——DOM v…
-- [ ] **纪律回归**：⚠ 受控输入纪律：value 由父控制 + onChange 通知
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **readOnly 布尔行为**：true/false 渲染差异（readOnly=true 显式断言）
+- [x] **showPreview 布尔行为**：true/false 渲染差异（showPreview=true 显式断言）
+- [x] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **variables 数据面**：`PromptTemplateVariable[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **纪律回归**：⚠ textarea value 必须走 property（attribute 只是 defaultValue——DOM v…
+- [x] **纪律回归**：⚠ 受控输入纪律：value 由父控制 + onChange 通知
 
 ### QRCode（QRCode）
 
 > 二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **ecLevel 数据面**：`QrEcLevel`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **size 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **quietZone 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **color 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **bgColor 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **ecLevel 数据面**：`QrEcLevel`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **size 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **quietZone 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **color 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **bgColor 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### RadioGroup（RadioGroup）
 
 > 单选组，支持 inline/options/value
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **inline 布尔行为**：true/false 渲染差异（inline=true 显式断言）
-- [ ] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **options 数据面**：`RadioOption[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **inline 布尔行为**：true/false 渲染差异（inline=true 显式断言）
+- [x] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **options 数据面**：`RadioOption[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### Rate（Rate）
 

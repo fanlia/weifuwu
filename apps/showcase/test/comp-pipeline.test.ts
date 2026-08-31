@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Pipeline（/components/pipeline）——完整能力
+ * showcase 组件测试——Pipeline（/components/pipeline）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Pipeline」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-pipeline.test.ts
  */
 import { test } from 'node:test'
@@ -30,11 +31,13 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 节点/边', async () => {
+test('FP1 DAG 画布：SVG 连线 + 节点渲染', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const nodes = await page.evaluate(() => document.querySelectorAll('main [class*="pipeline"] [class*="node"], main [class*="pipeline"] [class*="step"]').length)
-    assert.ok(nodes >= 2, `节点数（实际 ${nodes}）`)
+    await page.waitForSelector('main svg')
+    assert.ok(await page.evaluate(() => document.querySelectorAll('main svg').length >= 1), 'SVG 连线')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('Agent') || t.includes('工作流'), '节点内容')
   } finally { await page.close() }
 })
