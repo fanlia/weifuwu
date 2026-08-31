@@ -135,7 +135,7 @@ test('FP7/FP8 受控 active + onChange 回流：初始 c1 展开 → 点 c2 → 
     // 点 c2 → onChange([c2]) → 父重渲染回流 → c2 展开 c1 收起（互斥）
     await sum2.click()
     await page.waitForFunction(() => {
-      const keys = document.querySelector('main .wf-accordion-controlled-keys')
+      const keys = document.querySelector('main [data-acc-keys]')
       return keys?.textContent === 'c2'
     }, null, { timeout: 3000 })
     assert.equal(await sum2.getAttribute('aria-expanded'), 'true', '回流后 c2=true')

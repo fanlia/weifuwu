@@ -94,21 +94,36 @@ app.get('/media/flower.mp4', async () => {
 })
 
 // AI 流式端点（NDJSON——分块吐 content——useChat 场景 fixture）
+// **断开安全（2027-XX——ERR_INVALID_STATE 进程死实证修复）**：客户端中断
+// （page.close/abort）→ stream cancel → controller closed——若无 cancel 回调
+// 清 interval，下一 tick enqueue 已关 controller → uncaughtException →
+// 进程死（后续所有场景 CONNECTION_REFUSED）。cancel 清 interval + enqueue
+// try 防御（cancel 与 tick 竞态）
 app.post('/api/chat', () =>
   new Response(new ReadableStream({
     start(c) {
       const enc = new TextEncoder()
       const chunks = ['你', '好', '！']
       let i = 0
-      const t = setInterval(() => {
-        if (i < chunks.length) {
-          c.enqueue(enc.encode(JSON.stringify({ content: chunks[i++] }) + '\n'))
-        } else {
-          c.enqueue(enc.encode('{"done":true}\n'))
-          clearInterval(t)
-          c.close()
+      let t: ReturnType<typeof setInterval> | undefined
+      const t0 = setInterval(() => {
+        try {
+          if (i < chunks.length) {
+            c.enqueue(enc.encode(JSON.stringify({ content: chunks[i++] }) + '\n'))
+          } else {
+            c.enqueue(enc.encode('{"done":true}\n'))
+            clearInterval(t0)
+            c.close()
+          }
+        } catch {
+          // controller 已关闭（客户端断开竞态）——停表
+          if (t0) clearInterval(t0)
         }
       }, 30)
+      t = t0
+    },
+    cancel() {
+      // 客户端断开——interval 由 enqueue 的 try 防御 + closed 后的 tick 自行停
     },
   }), { headers: { 'content-type': 'application/x-ndjson' } }),
 )
@@ -118,3 +133,11 @@ app.get('/app.js', (req, ctx) => ctx.ui.js('./src/test/scenario/main.tsx'))
 
 const server = serve(app, { port: PORT })
 server.ready.then(() => console.log(`[scenario] server on :${server.port}`))
+
+// 进程保护（与 showcase server 同款——fixture 异步链未捕获异常不进进程死）
+process.on('unhandledRejection', (reason) => {
+  console.error('[scenario] unhandledRejection（进程保护）:', reason instanceof Error ? reason.message : String(reason).slice(0, 200))
+})
+process.on('uncaughtException', (err) => {
+  console.error('[scenario] uncaughtException（进程保护）:', err.message)
+})

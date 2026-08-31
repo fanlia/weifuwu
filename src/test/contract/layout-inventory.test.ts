@@ -82,11 +82,19 @@ test('L1 计数基线(登记制——变更必须有意)', () => {
 
 test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
   // 四件套语义完备豁免(设计:layout-naming.md §4):self-* 对齐四态 3/4 消费——整体保留
-  const QUARTET_KEEP = new Set(['wf-self-stretch'])
+  const QUARTET_KEEP = new Set(['wf-self-stretch', 'wf-self-start'])
+  // **库公共面豁免(2027-XX 登记——showcase components-only 裁剪)**:展示域移除
+  // (layout 域/首页 hero/六域导航)后消费证据消失——类属 weifuwu/layout npm
+  // 公共清单(50 原语 + 90 工具基线)——库类面治理归 layout 包,不随 showcase
+  // 消费面裁剪删除。恢复消费或库侧裁剪时从本集合移除。
+  const LIB_SURFACE_KEEP = new Set([
+    'wf-absolute', 'wf-cover', 'wf-layer', 'wf-nav', 'wf-nav-group',
+    'wf-radius-lg', 'wf-safe-bottom', 'wf-safe-top',
+  ])
   const corpus = collectCode(['apps', 'src/client/components'])
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
   const dead = bases.filter(
-    (c) => c.category !== 'internal' && !QUARTET_KEEP.has(c.name) && ![...used].some((u) => u.replace(/\\?@[a-z]{2}$/, '') === c.name || u === c.name),
+    (c) => c.category !== 'internal' && !QUARTET_KEEP.has(c.name) && !LIB_SURFACE_KEEP.has(c.name) && ![...used].some((u) => u.replace(/\\?@[a-z]{2}$/, '') === c.name || u === c.name),
   )
   assert.equal(dead.length, 0, `零消费类(删除或登记豁免):\n${dead.map((c) => `  ${c.name} (${c.file})`).join('\n')}`)
 })

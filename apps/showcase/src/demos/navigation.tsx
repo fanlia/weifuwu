@@ -129,7 +129,7 @@ const DemoAccordion: Component = (_props: any, ctx: any) => {
         ]} />
       </div>
       <div class="wf-stack wf-gap-xs">
-        <div class="wf-font-xs wf-text-secondary">受控（active + onChange 回流——当前展开: <b class="wf-accordion-controlled-keys">{controlled.join(', ') || '无'}</b>）</div>
+        <div class="wf-font-xs wf-text-secondary">受控（active + onChange 回流——当前展开: <b data-acc-keys class="wf-text-primary">{controlled.join(', ') || '无'}</b>）</div>
         <Accordion items={[
           { key: 'c1', title: '受控项一', content: <p class="wf-margin-none">展开态由外部 active 决定。</p> },
           { key: 'c2', title: '受控项二', content: <p class="wf-margin-none">点击 → onChange → 回流显示。</p> },
