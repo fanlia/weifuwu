@@ -1,0 +1,7 @@
+{
+  "date": "2027-10",
+  "app_js_bytes": 933028,
+  "app_js_gzip_bytes": 220268,
+  "tolerance": 1.05,
+  "note": "showcase 主 bundle（132 组件 demo 全量·esbuild 同源编译）——超基线 5% = exit 1（逼按需加载决策——计数基线制只能缩小或持平）——gzip 口径 = node zlib gzipSync（与审计工具一致）"
+}

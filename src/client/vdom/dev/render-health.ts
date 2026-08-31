@@ -84,6 +84,10 @@ export function createRenderHealth(
     if (lastRenderAt > 0) lastMs = performanceNow() - lastRenderAt
     if (lastMs > maxMs) maxMs = lastMs
     lastRenderAt = performanceNow()
+    // **渲染后即时 publish（2027-10 F2 接审计实证）**：短生命周期页面
+    // （SSR 快扫/测试 <2s 退出）读不到 2s tick 快照——每次渲染后快照
+    // 即时刷新（窗口语义不变——refresh 仍 2s 清窗计频）
+    publish()
   } })
 
   // **复用轴（spy 事件聚合——seg:create/seg:reuse）**——全量快照计数
@@ -125,6 +129,7 @@ export function createRenderHealth(
     }
     ;(globalThis as { __wfRenderHealth?: RenderHealthSnapshot }).__wfRenderHealth = snap
   }
+  publish() // 挂载即发初始快照（窗口空零值——审计/诊断器立即可读——否则首 2s 为 undefined）
   timer = setInterval(refresh, WINDOW_MS)
 
   return {

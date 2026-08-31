@@ -59,6 +59,7 @@ import { fileURLToPath } from 'node:url'
 const BASE = process.env.SHOWCASE_URL ?? 'http://localhost:3200'
 const CLICKS = Number(process.env.SCAN_CLICKS ?? 6)
 const SLOW = process.env.SCAN_SLOW === '1' // 每页 200ms 间隔（性能诊断）
+const healthIssuesGlobal = [] // F2 render-health 超限收集（复用轴零告警为基线）
 
 // **目标选择（快速 audit）**：裸 id 列表（`videoplayer math`）或
 // `--ids=a,b` 或 `SCAN_IDS=a,b`——无参 = 全量（components-only：category 过滤已删）
@@ -106,6 +107,15 @@ for (const [pi, c] of comps.entries()) {
       } catch { /* 点击失败忽略 */ }
     }
     await sleep(150)
+    // **F2 render-health 快照（CLIENT-EXCELLENCE-PLAN）**：三轴超限组件登记
+    // （频率>10/s·规模>5000 命令·复用>5%——dev 仪表 __wfRenderHealth）
+    try {
+      // __wfRenderHealth = 快照对象（字段直读：fps/lastCmds/reRunRate/warns）
+      const health = await page.evaluate(() => window.__wfRenderHealth ?? null)
+      if (health && Array.isArray(health.warns) && health.warns.length) {
+        healthIssuesGlobal.push(`${c.id}: ${health.warns.join(' / ')}`)
+      }
+    } catch { /* 仪表未就绪（纯 SSR 页）——跳过 */ }
     stats.clicks += clicks
   } catch (e) {
     status = `fail:${String(e).slice(0, 60)}`
@@ -132,6 +142,7 @@ for (const [pi, c] of comps.entries()) {
 await browser.close()
 console.log('---')
 const totalMs = ((Date.now() - stats.elapsed) / 1000).toFixed(1)
+if (healthIssuesGlobal.length) console.log(`✖ render-health 三轴超限（${healthIssuesGlobal.length}）: ${healthIssuesGlobal.join(' | ')}`)
 if (issues.length) {
   const side = issues.filter((i) => i.errs.some((e) => e.includes('渲染路径副作用'))).map((i) => i.id)
   const other = issues.filter((i) => !i.errs.some((e) => e.includes('渲染路径副作用'))).map((i) => i.id)
