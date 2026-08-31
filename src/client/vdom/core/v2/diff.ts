@@ -532,7 +532,27 @@ export function diffKeyedV2(
   // 2. 相对顺序检测（共有 key 的子序列）
   const keptOld = oldCs.map((c) => keyOf(c)).filter((k): k is string => k !== null && newKeys.has(k))
   const keptNew = newCs.map((c) => keyOf(c)).filter((k): k is string => k !== null && oldIdxByKey.has(k))
-  let subseq = true
+  // **组件占槽顺移排除（2027-10 VDOM-CORE-EXCELLENCE A2 fuzz 扩维实证）**：
+  // keyed 组件多根输出挂 compId 子空间（root.0.kk%2E2.0）——槽位 id 无实体
+  // ——顺移 move 的槽位 remap 无物可迁（DOM 不重排——终态错位 + tracker
+  // 违例——旧生成器从不触发此组合故历史绿）。**组件项确实移动**时退冲突
+  // 重建（renderV2Node 段复用 + create/insert——位置正确状态保持——已验证
+  // 路径）；位置不变的组件项仍走原 diff 对照（段复用 rerender——G11 面）
+  const movedComp = newCs.some((newC, i) => {
+    const k = keyOf(newC)
+    if (k === null || typeof (newC as VNode).type !== 'function') return false
+    const oldIdx = oldIdxByKey.get(k)
+    if (oldIdx === undefined || oldIdx === i) return false
+    // **keyed 组件移动一律退重建（2027-10 VDOM-CORE-EXCELLENCE A2——
+    // tracker 实证：keyed 组件输出（含单根 el）一律挂 compId 子空间
+    // （root.0.kk%2E2.0）——槽位 id 无实体——顺移 move 的槽位 remap
+    // 无物可迁（Post 违例 + 物理 DOM 不重排双缺陷））。已知缺口登记：
+    // keyed 组件顺移（删头前移类）经重建路径工厂重跑——状态丢失
+    // （reports tooltip 类）——正解「输出锚物理 move + ref 定位」在
+    // B 波次实现——本波次以重建路径保证正确性（终态等价优先）
+    return true
+  })
+  let subseq = !movedComp
   {
     let p = 0
     for (const k of keptNew) {
@@ -547,8 +567,18 @@ export function diffKeyedV2(
     oldCs.forEach((c, i) => {
       if (isHoleKind(c) || isTextKind(c)) return
       if (Array.isArray(c)) return
-      // **keyed 项单 remove（v1 对齐——重建路径节点随后 create——非区间**——
-      // 子树由 create 重建；非 keyed 项完整区间）
+      // **keyed 组件项区间移除（2027-10 扩维 fuzz 实证——单锚 remove 槽位
+      // 够不着 compId 子空间物理节点——输出残留/幽灵 id）**：组件输出挂
+      // compId（物理在 parent 下非槽位子树内）——必须完整区间。**状态保持
+      // 判负记录**：keepSegments 方案（物理删 + 段保 + unmount 照发）语义
+      // 不一致（消费端 unmount=段删除契约——mount 断言崩）——冲突重建是
+      // 病态输入路径（环状 remap 必冲突）——正确性（契约一致）> 状态保持
+      // ——工厂重跑可接受；正常路径（movedComp 排除——非移动组件）仍走
+      // diff 对照段复用（G11 面——状态保持语义在正常路径兑现）
+      if (keyOf(c as VNode) !== null && typeof (c as VNode).type === 'function') {
+        cmds.push(...removeTreeV2(c as VNode, parent, i, segments, { keepSegments: true }))
+        return
+      }
       if (keyOf(c as VNode) !== null) { cmds.push({ op: 'remove', id: pathId(parent, i) } as Command); return }
       cmds.push(...removeTreeV2(c as VNode, parent, i, segments))
     })
@@ -658,6 +688,7 @@ function diffComponentAtV2(
  *  完整自足——不依赖消费端时序——消费端 apply 循环的 dispose 是幂等兜底 */
 export function removeTreeV2(
   v: VNodeChild, parent: string, index: number, segments?: SegmentMap,
+  opts?: { keepSegments?: boolean },
 ): Command[] {
   const cmds: Command[] = []
   const id = pathId(parent, index)
@@ -676,14 +707,28 @@ export function removeTreeV2(
     : undefined
   removeVNodeTree(v, id, parent, (cmd) => cmds.push(cmd as Command), regP)
   // **段 dispose 生成期（unmount 全量收集后——lastOutput 查询完）**
-  if (segments) {
+  // **keepSegments（2027-10 VDOM-CORE-EXCELLENCE A2——keyed 组件冲突重建
+  // 正解）**：物理区间照删 + 段保留不 dispose + lastOutput 清空（重建
+  // renderV2Node 复用段——工厂不重跑——rerenderSegment 全量 emit 恢复
+  // 输出物理）——unmount 信号不发（消费端 unmount=dispose 契约一致——
+  // 生命周期信号由 rerender 全量路径隐含承担）——G 系列「重建段复用」
+  // 语义 + 终态等价双兑现（扩维 fuzz + key-inject 双实证）
+  if (segments && !opts?.keepSegments) {
     for (const c of cmds) {
       if (c.op === 'unmount' && segments.has((c as { compId: string }).compId)) {
         disposeSegment((c as { compId: string }).compId, segments)
       }
     }
+  } else if (segments && opts?.keepSegments) {
+    for (const c of cmds) {
+      if (c.op === 'unmount') {
+        const seg = segments.get((c as { compId: string }).compId)
+        if (seg) (seg as { lastOutput?: unknown }).lastOutput = undefined
+      }
+    }
   }
-  return cmds
+  const finalCmds = opts?.keepSegments ? cmds.filter((c) => c.op !== 'unmount') : cmds
+  return finalCmds
 }
 
 /** 列表含 keyed 项检测（v2——keyOf 桥） */

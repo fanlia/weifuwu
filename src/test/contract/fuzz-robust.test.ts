@@ -105,6 +105,47 @@ function makeRandomTree(depth: number, rnd: () => number): VNodeChild {
   return h(Fragment, {}, Array.from({ length: 1 + (compSeq % 2) }, () => makeRandomTree(depth - 1, rnd)))
 }
 
+// ── D5/D6：扩维生成器（VDOM-CORE-EXCELLENCE-PLAN 波次 A2——2027-10）────
+// 三维缺口（历史 fuzz 未覆盖）：
+// ① 特殊字符 key 池（keyedId 转义回归面——'.'/'%' 与前缀关系——G10 教训）
+// ② 锚点/空洞叶子（null/''——编码唯一性——SSR 吸收同源）
+// ③ 可变输出组件（props.mode 驱动 vnode/hole/array 形态切换——G11 随机化：
+//    fuzz 对 old/new 同组件类型不同 props → 段复用 + rerenderSegment →
+//    renderFn 重跑形态切换——手工 G11 案例的随机化面）
+
+const TRICKY_KEYS = ['k1', 'k.2', 'k%3', 'ka.b', 'x', 'k', 'k..', '%']
+
+function makeShapeComp(id: number): () => any {
+  // props.mode: 0=元素 1=空洞(null) 2=数组（多根 keyed）——输出形态三态
+  const f = () => (props: { mode?: number }) => {
+    const m = props.mode ?? 0
+    if (m === 1) return null
+    if (m === 2) return [h('span', { key: 'sa' + id }, 'a' + id), 't' + id, null]
+    return h('div', { class: 'shape-' + id }, 'm' + id)
+  }
+  return f as any
+}
+
+/** 扩维随机树：特殊 key + 锚点叶子 + shape 组件（mode 随机） */
+function makeXTree(depth: number, rnd: () => number): VNodeChild {
+  if (depth <= 0 || rnd() < 0.3) {
+    const r = rnd()
+    if (r < 0.2) return null // 空洞叶子（锚点路径）
+    if (r < 0.3) return '' // 空字符串（编码唯一性——= 空洞）
+    if (r < 0.5) return h(makeShapeComp(compSeq % 5), { key: TRICKY_KEYS[compSeq++ % TRICKY_KEYS.length], mode: compSeq % 3 })
+    return 'leaf' + (compSeq % 3)
+  }
+  const r = rnd()
+  if (r < 0.25) return h('div', {}, Array.from({ length: 1 + (compSeq % 3) }, () => makeXTree(depth - 1, rnd)))
+  if (r < 0.45) return h(makeShapeComp(compSeq % 5), { mode: compSeq % 3 })
+  if (r < 0.65) return h('span', { key: TRICKY_KEYS[compSeq++ % TRICKY_KEYS.length] }, makeXTree(depth - 1, rnd))
+  if (r < 0.85) {
+    // keyed 组件——特殊字符 key（keyedId 转义回归面）
+    return h(makeMixedComp(1, rnd), { key: TRICKY_KEYS[compSeq++ % TRICKY_KEYS.length] })
+  }
+  return h(Fragment, {}, Array.from({ length: 1 + (compSeq % 2) }, () => makeXTree(depth - 1, rnd)))
+}
+
 // ── 测试 ───────────────────────────────────────────────────────────
 
 test('D2：renderFn 同步输出——终态等价（多种子 × 200 对）——2027-08 同步化', async () => {
@@ -168,4 +209,66 @@ test('D4：keyed 组件 × 输出组件混合（深度 3）——终态等价（
     }
   }
   assert.equal(mismatches, 0, `keyed×输出组件混合不等价 ${mismatches}/600\n${sample}`)
+})
+
+
+test('D5：扩维 fuzz——特殊 key × 锚点 × 可变输出（多种子 × 200 对）', async () => {
+  let mismatches = 0
+  let sample = ''
+  let pairs = 0
+  for (const seed of [11, 99, 2026, 31, 3, 7, 42, 55, 777, 2027, 31337, 12345]) {
+    const rnd = mulberry32(seed)
+    compSeq = 0
+    for (let i = 0; i < 200; i++) {
+      const oldT = makeXTree(3, rnd) as VNode
+      const newT = makeXTree(3, rnd) as VNode
+      if (typeof oldT === 'string' || oldT === null || typeof newT === 'string' || newT === null) continue
+      pairs++
+      let diff: string | null = null
+      try { diff = await verifyEquivalence(oldT, newT, createComponentRegistry()) } catch (e) {
+        const reg2 = createComponentRegistry()
+        const segs2 = new Map<string, Segment>()
+        try {
+          const d2 = await drainStream(diffToStreamV2(oldT, newT, {}, reg2, segs2))
+          diff = `异常: ${String(e).slice(0, 120)}\n[d2] ${d2.map((c: any) => `${c.op}:${c.id ?? ''}${c.newId ? '>' + c.newId : ''}`).join(' ')}`
+        } catch (e2) { diff = `异常: ${String(e).slice(0, 120)} / ${String(e2).slice(0, 100)}` }
+      }
+      if (diff) {
+        mismatches++
+        if (!sample) sample = `seed=${seed} i=${i}\nold=${JSON.stringify(oldT)}\nnew=${JSON.stringify(newT)}\n${diff}`
+        if (mismatches >= 1) break
+      }
+    }
+  }
+  assert.equal(mismatches, 0, `扩维 fuzz 不等价 ${mismatches}/${pairs}\n${sample}`)
+})
+
+test('D6：可变输出形态切换专项——同实例 props 驱动（G11 随机化 × 200 对）', async () => {
+  let mismatches = 0
+  let sample = ''
+  let pairs = 0
+  for (const seed of [5, 17, 2026, 666, 8888]) {
+    const rnd = mulberry32(seed)
+    compSeq = 0
+    for (let i = 0; i < 200; i++) {
+      const sid = compSeq % 5
+      const modeOld = compSeq % 3
+      const modeNew = (compSeq + 1 + (compSeq % 2)) % 3 // 必然覆盖形态切换（含 0↔1↔2 全对）
+      compSeq++
+      // 外层容器固定——同实例 shape 组件 props 变化（段复用 + rerenderSegment）
+      const mk = (mode: number) => h('div', {}, [
+        h(makeShapeComp(sid), { key: TRICKY_KEYS[compSeq % TRICKY_KEYS.length], mode }) as VNode,
+        'anchor' + (compSeq % 2), // 兄弟锚（形态切换不误删兄弟——§6.3 面）
+      ]) as VNode
+      const oldT = mk(modeOld)
+      const newT = mk(modeNew)
+      pairs++
+      const diff = await verifyEquivalence(oldT, newT, createComponentRegistry())
+      if (diff) {
+        mismatches++
+        if (!sample) sample = `seed=${seed} i=${i} mode ${modeOld}→${modeNew}\n${diff}`
+      }
+    }
+  }
+  assert.equal(mismatches, 0, `可变输出切换不等价 ${mismatches}/${pairs}\n${sample}`)
 })

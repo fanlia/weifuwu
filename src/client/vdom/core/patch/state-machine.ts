@@ -109,8 +109,16 @@ export function transition(tracker: StateTracker, cmd: Command): string[] {
     case 'move': {
       // 前缀迁移（id 空间跟随——nodes/事件/ref 同规则）
       tracker.remapPrefix(cmd.id, cmd.newId)
-      // Post：remap 后新 id 必须存在（子树重映射完整性）
-      if (tracker.get(cmd.newId) === undefined) violations.push(`move Post 违例：remap 后新 id ${cmd.newId} 不存在`)
+      // Post：remap 后新 id（或其子空间）必须存在（子树重映射完整性）
+      // **子空间豁免（2027-10 VDOM-CORE-EXCELLENCE A2 fuzz 扩维实证）**：
+      // keyed 组件占槽时槽位 id 本身无 tracker 记录（组件挂 compId 子空间
+      // root.0.1.kk%2E2——槽位 root.0.1 非 tracker 实体）——remap 迁移的是
+      // 子空间——Post 检查子空间非空即完整（与真实消费端 remapSubtree
+      // 前缀迁移语义对齐——纯元素 move 则 newId 本身是实体——两条件或）
+      if (tracker.get(cmd.newId) === undefined && !tracker.hasPrefix(cmd.newId)) violations.push(`move Post 违例：remap 后新 id ${cmd.newId} 不存在`)
+      // 反向 Post：旧前缀必须清空（remap 是迁移不是复制）
+      if (tracker.hasPrefix(cmd.id)) violations.push(`move Post 违例：旧前缀 ${cmd.id} 迁移后残留`)
+      if (tracker.get(cmd.id) !== undefined && tracker.get(cmd.newId) !== undefined) violations.push(`move Post 违例：旧 id ${cmd.id} 迁移后残留`)
       break
     }
     case 'mount':
