@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——ContextMenu（/components/overlay/contextmenu）——完整能力
+ * showcase 组件测试——ContextMenu（/components/contextmenu）——完整能力
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-contextmenu.test.ts
  */
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/overlay/contextmenu'
+const COMP_PATH = '/components/contextmenu'
 
 let server: ScenarioServer
 let BASE = ''

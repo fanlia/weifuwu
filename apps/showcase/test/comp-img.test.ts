@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——Img（/components/display/img）——完整能力
+ * showcase 组件测试——Img（/components/img）——完整能力
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-img.test.ts
  */
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/display/img'
+const COMP_PATH = '/components/img'
 
 let server: ScenarioServer
 let BASE = ''

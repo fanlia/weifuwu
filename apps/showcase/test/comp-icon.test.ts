@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——Icon（/components/core/icon）——完整功能
+ * showcase 组件测试——Icon（/components/icon）——完整功能
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-icon.test.ts
  */
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/core/icon'
+const COMP_PATH = '/components/icon'
 
 let server: ScenarioServer
 let BASE = ''

@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——Slider（/components/input/slider）——完整功能覆盖
+ * showcase 组件测试——Slider（/components/slider）——完整功能覆盖
  *
  * demo 区 5 个交互元素（4 slider）逐个全功能：
  * 音量(60)/亮度(30)/价格(800+marks)/价格区间 lo(300)/hi(1500)
@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/input/slider'
+const COMP_PATH = '/components/slider'
 
 let server: ScenarioServer
 let BASE = ''

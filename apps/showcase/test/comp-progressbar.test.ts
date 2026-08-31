@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——ProgressBar（/components/feedback/progressbar）
+ * showcase 组件测试——ProgressBar（/components/progressbar）
  *
  * 每组件一个测试文件（单独运行）：
  *   node --env-file=.env --test apps/showcase/test/comp-progressbar.test.ts
@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/feedback/progressbar'
+const COMP_PATH = '/components/progressbar'
 
 let server: ScenarioServer
 let BASE = ''

@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——Confirm（/components/feedback/confirm）
+ * showcase 组件测试——Confirm（/components/confirm）
  *
  * 每组件一个测试文件（单独运行）：
  *   node --env-file=.env --test apps/showcase/test/comp-confirm.test.ts
@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/feedback/confirm'
+const COMP_PATH = '/components/confirm'
 
 let server: ScenarioServer
 let BASE = ''

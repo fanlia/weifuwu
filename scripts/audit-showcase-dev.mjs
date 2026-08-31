@@ -23,23 +23,18 @@ const CLICKS = Number(process.env.SCAN_CLICKS ?? 6)
 const SLOW = process.env.SCAN_SLOW === '1' // 每页 200ms 间隔（性能诊断）
 
 // **目标选择（快速 audit）**：裸 id 列表（`videoplayer math`）或
-// `--ids=a,b` 或 `SCAN_IDS=a,b`——无参 = 全量
-const argvIds = process.argv.slice(2).filter((a) => !a.startsWith('--'))
-const flagIds = (process.argv.find((a) => a.startsWith('--ids=')) ?? '').slice(6)
-const envIds = process.env.SCAN_IDS ?? ''
-const targetIds = new Set([...argvIds, ...flagIds.split(','), ...envIds.split(',')].filter(Boolean))
-// **分类过滤**：`--cat=input,display`（分批全量扫描）
-const catFlag = (process.argv.find((a) => a.startsWith('--cat=')) ?? '').slice(6)
-const targetCats = new Set(catFlag.split(',').filter(Boolean))
+// `--ids=a,b` 或 `SCAN_IDS=a,b`——无参 = 全量（components-only：category 过滤已删）
 
 const idx = await fetch(`${BASE}/index.json`).then((r) => r.json()).catch(() => {
   console.error(`✖ index.json 不可达——请先启动 showcase server（${BASE}）`)
   process.exit(2)
 })
-const comps = (targetIds.size || targetCats.size)
-  ? idx.components.filter((c) =>
-      (targetIds.size ? [...targetIds].some((t) => c.id === t || c.id.includes(t)) : false) ||
-      (targetCats.size ? targetCats.has(c.category) : false))
+const targetIds = new Set([
+  ...process.argv.slice(2).filter((a) => !a.startsWith('--')),
+  ...((process.argv.find((a) => a.startsWith('--ids=')) ?? '').slice(6) || (process.env.SCAN_IDS ?? '')).split(','),
+].filter(Boolean))
+const comps = targetIds.size
+  ? idx.components.filter((c) => [...targetIds].some((t) => c.id === t || c.id.includes(t)))
   : idx.components
 if (targetIds.size) console.log(`目标 ${comps.length} 个组件（过滤: ${[...targetIds].join(', ')}）`)
 const total = comps.length
@@ -49,7 +44,7 @@ const issues = []
 const stats = { pages: 0, clicks: 0, elapsed: Date.now() }
 
 for (const [pi, c] of comps.entries()) {
-  const path = `/components/${c.category}/${c.id}`
+  const path = `/components/${c.id}`
   const t0 = Date.now()
   const page = await browser.newPage()
   const pageErrs = []

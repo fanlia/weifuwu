@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——Tour（/components/overlay/tour）
+ * showcase 组件测试——Tour（/components/tour）
  *
  * 每组件一个测试文件（一个地址 + 一个组件——单独运行——小步快跑）：
  *   node --env-file=.env --test apps/showcase/test/comp-tour.test.ts
@@ -14,7 +14,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser, type Page } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/overlay/tour'
+const COMP_PATH = '/components/tour'
 
 let server: ScenarioServer
 let BASE = ''

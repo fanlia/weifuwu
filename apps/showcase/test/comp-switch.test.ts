@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——Switch（/components/input/switch）
+ * showcase 组件测试——Switch（/components/switch）
  *
  * 每组件一个测试文件（单独运行）：
  *   node --env-file=.env --test apps/showcase/test/comp-switch.test.ts
@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/input/switch'
+const COMP_PATH = '/components/switch'
 
 let server: ScenarioServer
 let BASE = ''

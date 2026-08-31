@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——DatePicker（/components/advanced/datepicker）——日期选择
+ * showcase 组件测试——DatePicker（/components/datepicker）——日期选择
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-datepicker.test.ts
  */
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/advanced/datepicker'
+const COMP_PATH = '/components/datepicker'
 
 let server: ScenarioServer
 let BASE = ''

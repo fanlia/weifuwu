@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——JsonSchemaForm（/components/form/jsonschemaform）——完整能力
+ * showcase 组件测试——JsonSchemaForm（/components/jsonschemaform）——完整能力
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-jsonschemaform.test.ts
  */
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/form/jsonschemaform'
+const COMP_PATH = '/components/jsonschemaform'
 
 let server: ScenarioServer
 let BASE = ''

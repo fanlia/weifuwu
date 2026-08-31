@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——Avatar（/components/core/avatar）
+ * showcase 组件测试——Avatar（/components/avatar）
  *
  * 每组件一个测试文件（单独运行）：
  *   node --env-file=.env --test apps/showcase/test/comp-avatar.test.ts
@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/core/avatar'
+const COMP_PATH = '/components/avatar'
 
 let server: ScenarioServer
 let BASE = ''

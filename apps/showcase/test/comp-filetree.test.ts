@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/editor/filetree'
+const COMP_PATH = '/components/filetree'
 
 let server: ScenarioServer
 let BASE = ''

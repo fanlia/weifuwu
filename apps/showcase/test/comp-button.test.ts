@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——Button（/components/core/button）
+ * showcase 组件测试——Button（/components/button）
  *
  * 每组件一个测试文件（单独运行）：
  *   node --env-file=.env --test apps/showcase/test/comp-button.test.ts
@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/core/button'
+const COMP_PATH = '/components/button'
 
 let server: ScenarioServer
 let BASE = ''

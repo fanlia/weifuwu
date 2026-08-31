@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——ToolCallCard（/components/ai/toolcallcard）——完整能力
+ * showcase 组件测试——ToolCallCard（/components/toolcallcard）——完整能力
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-toolcallcard.test.ts
  */
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/ai/toolcallcard'
+const COMP_PATH = '/components/toolcallcard'
 
 let server: ScenarioServer
 let BASE = ''

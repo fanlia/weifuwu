@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——AutoComplete（/components/advanced/autocomplete）——输入补全
+ * showcase 组件测试——AutoComplete（/components/autocomplete）——输入补全
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-autocomplete.test.ts
  */
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/advanced/autocomplete'
+const COMP_PATH = '/components/autocomplete'
 
 let server: ScenarioServer
 let BASE = ''

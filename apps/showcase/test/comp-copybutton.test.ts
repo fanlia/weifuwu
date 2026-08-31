@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——CopyButton（/components/core/copybutton）
+ * showcase 组件测试——CopyButton（/components/copybutton）
  *
  * 每组件一个测试文件（一个地址 + 一个组件——单独运行——小步快跑）：
  *   node --env-file=.env --test apps/showcase/test/comp-copybutton.test.ts
@@ -14,7 +14,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/core/copybutton'
+const COMP_PATH = '/components/copybutton'
 
 let server: ScenarioServer
 let BASE = ''

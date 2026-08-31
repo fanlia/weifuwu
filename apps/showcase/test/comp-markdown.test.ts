@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——Markdown（/components/display/markdown）——完整能力
+ * showcase 组件测试——Markdown（/components/markdown）——完整能力
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-markdown.test.ts
  */
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/display/markdown'
+const COMP_PATH = '/components/markdown'
 
 let server: ScenarioServer
 let BASE = ''
