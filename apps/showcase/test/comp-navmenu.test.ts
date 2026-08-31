@@ -42,3 +42,15 @@ test('FP1/FP2 顶栏项 + hover 弹出子菜单（NavigationMenu 语义）', asy
     await page.waitForFunction(() => ((document.querySelector('#__wf_portal')?.textContent ?? '') + (document.querySelector('main')?.textContent ?? '')).includes('指南'), null, { timeout: 3000 })
   } finally { await page.close() }
 })
+
+test('交互：focus + Enter 激活菜单项', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main [class*="navmenu"]')
+    const item = page.locator('main [class*="navmenu"] [class*="item"], main [role="menuitem"]').first()
+    await item.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(() => [...document.querySelectorAll('main [class*="navmenu"] *')].some((x) => /--a|active/.test(String(x.className))), null, { timeout: 3000 })
+  } finally { await page.close() }
+})

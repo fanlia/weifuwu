@@ -96,7 +96,25 @@ L3 声明对账面   注释/文档/demo 文案/props vs 实际接线   ← 零�
 
 ### 波次 3：B 类缺口修复（从甄别结论长出——逐个带测试）——✅ 全落地
 
-**追加修复（基线消化轮——2027-09）**：ContextMenu 键盘导航死路（审计 L2
+**追加修复（基线消化轮 2——2027-09）**：基线 14→3——
+- **CitationCard 语义缺陷修复**（组件层）：linkProps（role/tabindex/
+  onKeyDown）被 spread 到装饰图标 a 上——整条 item 无交互，且 onOpen 时
+  仍渲染链接（与 demo 注释相悖）——修正为 onOpen 时整条 item 可点
+  （citation 惯例）+ 图标装饰化；url 时真链接保留
+- **demo 交互实例补全**：StatCard 加 onClick 卡片（__statClick 回流）、
+  Timeline 条目挂 item 级 onClick（prop 名纠正：组件级传参无效——
+  onClick 在 items 每项）、DiffView 数据扩 6 行 same 段（foldThreshold=2
+  触发折叠按钮真实存在）
+- **L2 固化 +7**：anchor ArrowDown/Up roving、citationcard 整条+Enter、
+  navmenu Enter 激活、timeline 点击+Enter、statcard click+Enter（role=
+  button 原生合成 click——Enter 计数 2）、jsonviewer 折叠、
+  jsonschemaform Enter 提交
+- **教训**：①wf-diffview-fold 是 div[role=button] 非 button 标签——
+  选择器按 ARIA 语义查；②SSR adopt 完成前 click 落空（事件未接管）——
+  测试需等待接管；③server 编辑竞态后 curl 的旧响应勿当真——以 DOM
+  实测为准；④esbuild 输出非 ASCII 转 \uXXXX——grep 中文需在 DOM 层
+- 剩余基线 3 条登记理由：chart（tooltip 点位数据相关）、slidecanvas
+  （无活体 demo——场景层）、diffview（折叠已由 FP3 锁定——重复断言）：ContextMenu 键盘导航死路（审计 L2
 缺口实证——右键打开后 ArrowDown 无效）——**内核层修复**：openPopup 新增
 `autoFocus` 选项（确定性 scheduleAfterRender + 挂载重试聚焦——非模态不锁
 滚动/不陷阱；trapFocus 模态分支共用 focusPanelWhenMounted）。**关键实证**：

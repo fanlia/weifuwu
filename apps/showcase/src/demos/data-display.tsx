@@ -135,6 +135,7 @@ const DemoStatCard: Component = () => () => (
     <StatCard label="收入" value="¥89,000" icon={<Icon name="bar-chart" size={24} className="wf-text-primary" />} trend="up" trendLabel="8%" />
     <StatCard label="退款" value="¥1,200" icon={<Icon name="warning" size={24} className="wf-text-warning" />} trend="down" trendLabel="-3%" />
     <StatCard label="在线用户" value={1234} animate icon={<Icon name="activity" size={24} className="wf-text-success" />} />
+    <StatCard label="可点击卡片" value="点我" onClick={() => { (window as any).__statClick = ((window as any).__statClick ?? 0) + 1 }} icon={<Icon name="zap" size={24} />} />
   </div>
 )
 
@@ -211,8 +212,8 @@ const DemoTimeline: Component = (_props, ctx) => {
   ]
   return (_p: any) => (
     <div class="wf-stack wf-gap-md wf-width-full">
-      <Timeline items={logs} />
-      <div class="wf-font-xs wf-text-secondary">竖向（默认）</div>
+      <Timeline items={logs.map((l: any) => ({ ...l, onClick: () => { (window as any).__tlClick = l.key; ctx.render() } }))} />
+      <div class="wf-font-xs wf-text-secondary">竖向（默认——条目可点击，回流 window.__tlClick）</div>
       <Timeline items={hItems} mode="horizontal" />
       <div class="wf-font-xs wf-text-secondary">横向模式（步骤进度）</div>
       <Button size="sm" variant="ghost" onClick={() => { logs = [...logs.slice(1), { key: String(Date.now()), title: '新事件', time: '现在', status: 'warning' as const, content: '点击追加' }]; ctx.render() }}>追加事件</Button>
@@ -725,7 +726,13 @@ const OLD_CODE = `function handleUser(input) {
   if (age > 18) {
     return \`欢迎 \${name}\`
   }
-  return \`未成年 \${name}\`
+  // 公共辅助（折叠段演示——两侧相同超过阈值）
+  const fmt = (n) => String(n).padStart(2, '0')
+  const log = (msg) => console.log('[handleUser]', msg)
+  const validate = (v) => v != null && v !== ''
+  log('start')
+  validate(data)
+  return \`未成年 \${name} \${fmt(age)}\`
 }`
 
 const NEW_CODE = `function handleUser(input) {
@@ -734,7 +741,13 @@ const NEW_CODE = `function handleUser(input) {
   if (age >= 18) {
     return \`欢迎 \${name}（成年）\`
   }
-  return \`未成年 \${name}\`
+  // 公共辅助（折叠段演示——两侧相同超过阈值）
+  const fmt = (n) => String(n).padStart(2, '0')
+  const log = (msg) => console.log('[handleUser]', msg)
+  const validate = (v) => v != null && v !== ''
+  log('start')
+  validate(data)
+  return \`未成年 \${name} \${fmt(age)}\`
 }`
 
 const DemoLayout: Component = (_props, ctx) => {

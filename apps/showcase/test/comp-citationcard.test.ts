@@ -101,3 +101,18 @@ test('FP6 onOpen：无 href a（role=button）+ 回调上抛 c.id', async () => 
     assert.equal(noHref, true, 'onOpen 模式无 href（role=button 语义）')
   } finally { await page.close() }
 })
+
+test('交互：整条 item 可点 + Enter 触发 onOpen（2027-09 语义修正回归）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main [role="button"]')
+    await page.locator('main [role="button"]').filter({ hasText: '+1 条更多' }).first().click()
+    const item = page.locator('main .wf-citation-item[role="button"]').filter({ hasText: '可点击条目' }).first()
+    await item.click()
+    await page.waitForFunction(() => (window as any).__citeOpen === 'o2', null, { timeout: 3000 })
+    await item.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(() => (window as any).__citeOpen === 'o2', null, { timeout: 3000 })
+  } finally { await page.close() }
+})

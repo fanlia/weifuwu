@@ -40,3 +40,17 @@ test('渲染零错误 + 3 卡片（label/value/trend/icon）', async () => {
     assert.ok(cards >= 3, `卡片数（实际 ${cards}）`)
   } finally { await page.close() }
 })
+
+test('交互：可点击卡片 click + Enter（role=button——demo 回流 __statClick）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-stat--clickable')
+    const card = page.locator('main .wf-stat--clickable').first()
+    await card.click()
+    await page.waitForFunction(() => (window as any).__statClick >= 1, null, { timeout: 3000 })
+    await card.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(() => (window as any).__statClick >= 2, null, { timeout: 3000 })
+  } finally { await page.close() }
+})

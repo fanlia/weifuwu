@@ -54,12 +54,15 @@ export const CitationCard: Component<CitationCardProps, UIContext> = (initProps,
     const overflow = items.length - shown.length
 
     const rows: any[] = shown.map((c, i) => {
-      const linkProps = onOpen
+      // **交互语义修正（2027-09 交互完整性审计）**：原 linkProps（role/tabindex/
+      // onKeyDown）被 spread 到装饰图标 a 上——整条 item 无交互，且 onOpen 时
+      // 仍渲染链接（与 demo 注释「提供 onOpen 时不渲染链接」相悳）。
+      // 修正：onOpen 时整条 item 可点（citation 惯例——Perplexity/ChatGPT 式），
+      // 图标装饰化；url 时真链接新窗口（图标区）。
+      const itemProps: any = onOpen
         ? { role: 'button', tabindex: 0, onClick: () => onOpen(c), onKeyDown: (e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(c) } } }
-        : c.url
-          ? { href: c.url, target: '_blank', rel: 'noopener' }
-          : {}
-      return h('div', { key: c.id, class: 'wf-citation-item' }, [
+        : {}
+      return h('div', { key: c.id, class: 'wf-citation-item', ...itemProps }, [
         h('span', { class: 'wf-citation-idx' }, String(i + 1)),
         h('div', { class: 'wf-citation-content' }, [
           h('div', { class: 'wf-citation-title' }, [
@@ -68,9 +71,11 @@ export const CitationCard: Component<CitationCardProps, UIContext> = (initProps,
           ]),
           h('div', { class: 'wf-citation-snippet' }, c.snippet),
         ]),
-        (onOpen || c.url)
-          ? h('a', { class: 'wf-citation-link', ...linkProps }, h(Icon, { name: 'external-link' }))
-          : null,
+        c.url
+          ? h('a', { class: 'wf-citation-link', href: c.url, target: '_blank', rel: 'noopener' }, h(Icon, { name: 'external-link' }))
+          : onOpen
+            ? h('span', { class: 'wf-citation-link', 'aria-hidden': 'true' }, h(Icon, { name: 'external-link' }))
+            : null,
       ])
     })
 

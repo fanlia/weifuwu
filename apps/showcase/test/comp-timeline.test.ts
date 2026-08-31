@@ -41,3 +41,17 @@ test('渲染零错误 + 3 项（时间线——标题/时间/内容/状态变体
     assert.ok(items >= 3, `时间线项（实际 ${items}）`)
   } finally { await page.close() }
 })
+
+test('交互：条目点击 + Enter 触发 item onClick（demo 回流 __tlClick）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-timeline-item--clickable')
+    const item = page.locator('main .wf-timeline-item--clickable').first()
+    await item.click()
+    await page.waitForFunction(() => (window as any).__tlClick, null, { timeout: 3000 })
+    await item.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(() => (window as any).__tlClick, null, { timeout: 3000 })
+  } finally { await page.close() }
+})

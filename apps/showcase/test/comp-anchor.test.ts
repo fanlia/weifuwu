@@ -62,3 +62,18 @@ test('FP4 滚动跟随高亮（offsetTop 阈值）：末节滚入视口 → 高�
   } finally { await page.close() }
 })
 
+
+test('交互：ArrowDown/Up 在锚点链接间移动焦点（A11y roving）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main a[href^="#"], main [class*="anchor"] a')
+    const links = page.locator('main a[href^="#"], main [class*="anchor"] a')
+    assert.ok((await links.count()) >= 2, '锚点链接 >= 2')
+    await links.first().focus()
+    await page.keyboard.press('ArrowDown')
+    await page.waitForFunction(() => { const ls = [...document.querySelectorAll('main a[href^="#"], main [class*="anchor"] a')]; return ls.indexOf(document.activeElement) === 1 }, null, { timeout: 3000 })
+    await page.keyboard.press('ArrowUp')
+    await page.waitForFunction(() => { const ls = [...document.querySelectorAll('main a[href^="#"], main [class*="anchor"] a')]; return ls.indexOf(document.activeElement) === 0 }, null, { timeout: 3000 })
+  } finally { await page.close() }
+})
