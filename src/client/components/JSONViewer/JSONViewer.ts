@@ -86,6 +86,7 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
             class: 'wf-json-row wf-json-collapse',
             'data-path': path,
             role: 'button',
+            tabindex: 0,
             tabIndex: 0,
             onClick: () => toggle(path, isCollapsed),
             onKeyDown: (e: KeyboardEvent) => {
@@ -114,6 +115,7 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
             h('div', {
               class: 'wf-json-row wf-json-row--header',
               role: 'button',
+            tabindex: 0,
               tabIndex: 0,
               onClick: () => toggle(path, isCollapsed),
               onKeyDown: (e: KeyboardEvent) => {
@@ -143,6 +145,7 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
           h('div', {
               class: 'wf-json-row wf-json-row--header',
               role: 'button',
+            tabindex: 0,
               tabIndex: 0,
               onClick: () => toggle(path, isCollapsed),
               onKeyDown: (e: KeyboardEvent) => {
@@ -186,6 +189,7 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
             class: 'wf-json-row wf-json-collapse',
             'data-path': rootName,
             role: 'button',
+            tabindex: 0,
             tabIndex: 0,
             onClick: () => toggle(rootName, isCollapsed),
             onKeyDown: (e: KeyboardEvent) => {
@@ -200,6 +204,7 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
                 h('div', {
                   class: 'wf-json-row wf-json-row--header',
                   role: 'button',
+            tabindex: 0,
                   tabIndex: 0,
                   onClick: () => toggle(rootName, isCollapsed),
                   onKeyDown: (e: KeyboardEvent) => {
@@ -215,6 +220,7 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
                 h('div', {
                   class: 'wf-json-row wf-json-row--header',
                   role: 'button',
+            tabindex: 0,
                   tabIndex: 0,
                   onClick: () => toggle(rootName, isCollapsed),
                   onKeyDown: (e: KeyboardEvent) => {
