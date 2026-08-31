@@ -175,6 +175,40 @@ function disposeComponentWithOutput(
 }
 
 /**
+ * **段输出根枚举（VDOM-CORE-EXCELLENCE KEYED-MOVE M1——单一实现源）**：
+ * keyed 组件输出的物理节点 id 清单——顺移物理 move 的命令目标。
+ * **形态映射（四形态探针实证——2027-10）**：
+ * - 单 vnode 元素/文本输出 → **槽位 id**（pathId——C2 锚点法——P 契约
+ *   槽位 remap 有效实证）
+ * - 数组输出 → **compId.i 平铺**（root.0.kk1.0/.1——与兄弟槽位隔离）
+ * - null/空洞输出 → **compId.0 锚**（G11 修正——null 锚也挂子空间）
+ * - 嵌套组件输出 → **compId.0**（单 vnode 组件输出——防冲突——HoverCard
+ *   事故实证；嵌套段在 compId.0.0 递归子空间）
+ */
+export function outputRootIds(
+  seg: Segment | undefined,
+  kid: string,
+  parent: string,
+  index: number,
+): string[] {
+  const out = seg?.lastOutput
+  if (out === undefined) return [kid + '.0'] // 段未知（保守——首根兜底）
+  // **CompOutput 判别联合按 kind 分派（F1 探针实证：array 键是 items、
+  // hole 无 v——统一解包 .v 会全落空——kind 分派是正解）**
+  if (typeof out === 'object' && out !== null && 'kind' in out) {
+    const co = out as { kind: string; v?: unknown; items?: unknown[] }
+    if (co.kind === 'hole') return [kid + '.0'] // 锚（compId.0）
+    if (co.kind === 'array') return ((co.items ?? []) as unknown[]).map((_, i) => `${kid}.${i}`)
+    const v = co.v as VNode | null | undefined
+    if (v === null || v === undefined) return [kid + '.0']
+    if (typeof v.type === 'function') return [kid + '.0'] // 嵌套组件输出
+    return [pathId(parent, index)] // 单 el/text → 槽位 id
+  }
+  // CompOutput 三 kind 穷尽（类型保证——normalizeOutput 归一化）
+  return [kid + '.0']
+}
+
+/**
  * children 槽位对照循环（E2 纯移动拆解——fragment/array 与 element 两处
  * 同模式收敛——语义原样：槽位推进 + 越界渲染 + 尾部区间移除）
  * **removeFirst**：fragment 版移除命令先于渲染（unshift 逆序）、element 版
