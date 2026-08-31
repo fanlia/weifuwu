@@ -196,6 +196,11 @@ export class Router<T extends object = Context> {
     const handler = args.pop()
     const mws: Middleware[] = args
 
+    // **route 级 meta 检查（ROUTER-CORE B1——2027-10 探针实证缺口）**：
+    // route 中间件的 depends 语义与 global/mount 一致（未注册 ctx 依赖
+    // 即抛错——静默跳过是违例：机制存在但只覆盖 global/mount）
+    for (const mw of mws) this._checkMiddlewareMeta(mw, `${method} ${path}`)
+
     // 多方法合并（get+post 同路径并存——value 累积 method 表）
     const existing = trieFind(this.root, path)
     const isWildcard = path.includes('*')
@@ -336,9 +341,16 @@ export class Router<T extends object = Context> {
     kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
   } | null {
     let handler = value.handlers.get(method) || value.handlers.get('*')
+    // **HEAD fallback 的 mw 联动（ROUTER-CORE B2——2027-10 探针实证）**：
+    // handler 回退 GET 时 mws 同步回退 GET 表（旧实现 mws 查 HEAD 表为空
+    // ——GET route 中间件静默丢失——鉴权/日志类 mw 对 HEAD 请求失效）
     if (!handler && method === 'HEAD') handler = value.handlers.get('GET')
     if (handler) {
-      return { kind: 'route', handler, mws: value.middlewares.get(method) || value.middlewares.get('*') || [], params }
+      const mws = value.middlewares.get(method)
+        || value.middlewares.get('*')
+        || (method === 'HEAD' ? value.middlewares.get('GET') : undefined)
+        || []
+      return { kind: 'route', handler, mws, params }
     }
     if (value.handlers.size > 0) {
       return {

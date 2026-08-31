@@ -212,3 +212,97 @@ describe('A3: Trie 匹配对账 fuzz（参考模型终态等价）', () => {
     assert.equal(trieMatch(t3, ['a', 'b'])!.value.id, 2, '静态首段优先')
   })
 })
+// ── B 波次：meta 检查 + 405/HEAD/all 语义 ───────────────────────
+
+const mwWith = (meta: { injects: string[]; depends: string[] }) => {
+  const f = async (_: Request, __: any, next: any) => next(_, __)
+  ;(f as any).__meta = meta
+  return f
+}
+
+describe('B1: middleware meta 检查（全分支——探针实证）', () => {
+  test('depends 未注册抛错（含定位 + 注册引导文案）', () => {
+    try {
+      new Router().use(mwWith({ injects: [], depends: ['db'] }))
+      assert.fail('应抛错')
+    } catch (e: any) {
+      assert.match(e.message, /depends on ctx\.db/)
+      assert.match(e.message, /app\.use\(db\(\)\)/)
+    }
+  })
+
+  test('injects 先登记后依赖——通过（注册顺序语义）', () => {
+    assert.doesNotThrow(() => new Router()
+      .use(mwWith({ injects: ['db'], depends: [] }))
+      .use(mwWith({ injects: [], depends: ['db'] })))
+  })
+
+  test('顺序反（depends 在 injects 前）——抛错', () => {
+    assert.throws(() => new Router()
+      .use(mwWith({ injects: [], depends: ['db'] }))
+      .use(mwWith({ injects: ['db'], depends: [] })), /depends on ctx\.db/)
+  })
+
+  test('object middleware 形态（{ middleware() } 工厂）——meta 透传检查', () => {
+    const obj = { middleware() { return async (_: Request, __: any, next: any) => next(_, __) } } as any
+    obj.__meta = { injects: [], depends: ['missing'] }
+    assert.throws(() => new Router().use(obj), /depends on ctx\.missing/)
+  })
+
+  test('route 级中间件 meta 同样检查（B1 修复——机制一致性）', () => {
+    assert.throws(() => new Router().get('/x', mwWith({ injects: [], depends: ['db'] }), ok('ok')),
+      /depends on ctx\.db/, 'route 级 depends 未注册应抛错（修复前静默跳过）')
+    // 通过面：先注册 provider 中间件再注册依赖方
+    assert.doesNotThrow(() => new Router()
+      .use(mwWith({ injects: ['db'], depends: [] }))
+      .get('/x', mwWith({ injects: [], depends: ['db'] }), ok('ok')))
+  })
+})
+
+describe('B2: 405 / HEAD / all 语义（探针固化）', () => {
+  test('405 Allow 头多方法完备（Map 插入序——注册序稳定）', async () => {
+    const app = new Router()
+    app.get('/x', ok('g')); app.post('/x', ok('p')); app.put('/x', ok('pu'))
+    const r = await (app.handler() as any)(new Request('http://x/x', { method: 'DELETE' }), { params: {}, query: {} })
+    assert.equal(r.status, 405)
+    assert.equal(r.headers.get('allow'), 'GET, POST, PUT')
+  })
+
+  test('通配注册错 method → 404（通配不产生 405——现状锁死）', async () => {
+    const app = new Router()
+    app.get('/api/*', ok('wf'))
+    const r = await (app.handler() as any)(new Request('http://x/api/a', { method: 'DELETE' }), { params: {}, query: {} })
+    assert.equal(r.status, 404)
+  })
+
+  test('HEAD → GET fallback 携带 GET 的 route 中间件（B2 修复——mw 联动）', async () => {
+    const log: string[] = []
+    const app = new Router()
+    app.get('/x', async (_: Request, ctx: any, next: any) => { log.push('mw'); return next(_, ctx) }, ok('body'))
+    const r = await (app.handler() as any)(new Request('http://x/x', { method: 'HEAD' }), { params: {}, query: {} })
+    assert.equal(r.status, 200)
+    assert.deepEqual(log, ['mw'], 'GET route mw 对 HEAD 请求生效（修复前静默丢失——鉴权类 mw 失效）')
+  })
+
+  test('all() 匹配任意 method（PATCH 实证）', async () => {
+    const app = new Router()
+    app.all('/any', ok('all'))
+    const r = await (app.handler() as any)(new Request('http://x/any', { method: 'PATCH' }), { params: {}, query: {} })
+    assert.equal(await r.text(), 'all')
+  })
+
+  test("get('*') 单段通配路径（根通配——catch-all）", async () => {
+    const app = new Router()
+    app.get('*', ok('star'))
+    const r = await (app.handler() as any)(new Request('http://x/whatever/deep'), { params: {}, query: {} })
+    assert.equal(await r.text(), 'star')
+  })
+
+  test('405 不经过 onError（onError 管 handler 异常——405 是直接响应）', async () => {
+    const app = new Router()
+    app.get('/x', ok('g'))
+    app.onError(() => new Response('onError', { status: 599 }))
+    const r = await (app.handler() as any)(new Request('http://x/x', { method: 'DELETE' }), { params: {}, query: {} })
+    assert.equal(r.status, 405, '405 语义（非 599）')
+  })
+})
