@@ -189,8 +189,15 @@ const DemoAppShell: Component = (_props: any, ctx: any) => {
     { key: '/settings', label: '设置', icon: h(Icon, { name: 'settings' }), group: '系统' },
   ]
   let toastMsg = ''
+  let shellLoading = false
   const notify = (m: string) => { toastMsg = m; ctx.render(); setTimeout(() => { toastMsg = ''; ctx.render() }, 1200) }
   return () => {
+    if (shellLoading) {
+      return h('div', { class: 'wf-stack wf-gap-sm', style: 'height:480px;border:1px dashed var(--wf-border,#e5e7eb);border-radius:8px;overflow:hidden' }, [
+        h(AppShell, { nav: NAV, path, loading: true }),
+        h('button', { class: 'wf-btn wf-btn--sm', type: 'button', onClick: () => { shellLoading = false; ctx.render() } }, '退出守卫加载态'),
+      ])
+    }
     const page = path === '/'
       ? h('div', { class: 'wf-stack', style: '--wf-gap:12px' }, [
           h(StatCard, { label: '消息', value: 42 }),
@@ -208,6 +215,7 @@ const DemoAppShell: Component = (_props: any, ctx: any) => {
         onLogout: () => notify('退出登录'),
       }, page),
       toastMsg ? h('div', { class: 'wf-font-xs wf-text-primary' }, '动作：' + toastMsg) : null,
+      h('button', { class: 'wf-btn wf-btn--sm', type: 'button', onClick: () => { shellLoading = true; ctx.render() } }, '守卫加载态（loading 骨架）'),
     ])
   }
 }

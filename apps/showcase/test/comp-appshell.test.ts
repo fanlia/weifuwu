@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——AppShell（/components/appshell）——完整能力
+ * showcase 组件测试——AppShell（/components/appshell）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「AppShell」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-appshell.test.ts
  */
 import { test } from 'node:test'
@@ -27,60 +28,57 @@ test.after(async () => {
 async function open(page: import('playwright').Page): Promise<void> {
   const errors = await openShowcase(page, BASE, COMP_PATH)
   assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
-  await page.waitForTimeout(300)
+  await page.waitForSelector('main .wf-app-shell')
 }
 
-test('能力：品牌区 + 导航分组 + 用户区渲染', async () => {
+test('FP1/FP2/FP3 壳结构 + brand + nav 分组', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const shell = page.locator('.wf-app-shell')
-    assert.ok(await shell.count() > 0, 'AppShell 渲染')
-    // 品牌
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('Demo Admin'), '品牌名', { timeout: 4000 })
-    // 用户区
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('admin@demo.com'), '用户邮箱', { timeout: 4000 })
-    // 分组菜单
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('工作台') && (document.body.textContent ?? '').includes('运营报表'), '菜单项', { timeout: 4000 })
-    // 设置/退出按钮（title 属性）
-    assert.equal(await page.locator('button[title="设置"]').count(), 1, '设置按钮')
-    assert.equal(await page.locator('button[title="退出登录"]').count(), 1, '退出按钮')
+    const shell = page.locator('main .wf-app-shell').first()
+    assert.ok(await shell.locator('.wf-sidebar').count(), 'sidebar')
+    assert.ok(await shell.locator('.wf-main').count(), 'main 区')
+    const text = await shell.textContent()
+    assert.ok((text ?? '').includes('Demo Admin') && (text ?? '').includes('App Shell'), 'brand name+subtitle')
+    for (const k of ['工作台', 'Agent', '部门', '管理', '系统']) assert.ok((text ?? '').includes(k), `nav 项/分组：${k}`)
+    assert.ok((text ?? '').includes('张明') && (text ?? '').includes('admin@demo.com'), 'user name+email')
   } finally { await page.close() }
 })
 
-test('能力：菜单导航（点击 → 主内容区切换 + activeKey 跟随）', async () => {
+test('FP4/FP5 path 受控高亮 + onNavigate 回流（主区路由切换）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // 点击 Agent 菜单
-    await page.locator('.wf-menu-item', { hasText: 'Agent' }).click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('当前页面：/agents'), '内容切换', { timeout: 4000 })
-    // activeKey 跟随（菜单激活态）
-    const active = await page.locator('.wf-menu-item--active, .wf-menu-item[aria-selected="true"], .wf-menu-item.wf-nav-item--active').count()
-    assert.ok(active >= 1, `菜单激活态（实际 ${active}）`)
-    // 点击工作台回根
-    await page.locator('.wf-menu-item', { hasText: '工作台' }).first().click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('主内容区——当前路由 /'), '回工作台', { timeout: 4000 })
+    const shell = page.locator('main .wf-app-shell').first()
+    assert.ok((await page.evaluate(() => document.querySelector('main [class*="active"]')?.textContent ?? '')).includes('工作台'), '初始高亮（/ 精确）')
+    await shell.locator('.wf-menu-item', { hasText: 'Agent' }).first().click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('/agents'), null, { timeout: 3000 })
+    assert.ok((await page.evaluate(() => document.querySelector('main [class*="active"]')?.textContent ?? '')).includes('Agent'), '高亮迁移')
   } finally { await page.close() }
 })
 
-test('能力：设置/退出回调触发（动作提示显示）', async () => {
+test('FP6 用户区动作：onSettings/onLogout 回流（toast 窗口内断言）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.locator('button[title="设置"]').click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('动作：打开设置'), '设置回调', { timeout: 4000 })
-    await page.locator('button[title="退出登录"]').click()
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('动作：退出登录'), '退出回调', { timeout: 4000 })
+    const shell = page.locator('main .wf-app-shell').first()
+    await shell.locator('.wf-sidebar-footer button[title="设置"]').first().click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('动作：打开设置'), null, { timeout: 3000 })
+    await shell.locator('.wf-sidebar-footer button[title="退出登录"]').first().click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('动作：退出登录'), null, { timeout: 3000 })
   } finally { await page.close() }
 })
 
-test('能力：主内容区渲染（children 透传 + 无崩溃）', async () => {
+test('FP7 loading 守卫骨架：不渲染菜单/用户 + 退出恢复', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const main = page.locator('main.wf-main')
-    assert.ok(await main.count() > 0, '主内容区')
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('主内容区——当前路由 /'), 'children 渲染', { timeout: 4000 })
+    await page.locator('main button', { hasText: '守卫加载态' }).first().click()
+    await page.waitForTimeout(300)
+    const loadingText = await page.locator('main .wf-app-shell').first().textContent()
+    assert.ok(!(loadingText ?? '').includes('张明'), '用户区隐藏')
+    assert.ok(!(loadingText ?? '').includes('Agent'), '菜单隐藏（骨架占位）')
+    await page.locator('main button', { hasText: '退出守卫加载态' }).first().click()
+    await page.waitForFunction(() => (document.querySelector('main .wf-app-shell')?.textContent ?? '').includes('张明'), null, { timeout: 3000 })
   } finally { await page.close() }
 })

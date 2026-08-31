@@ -82,13 +82,18 @@ export const AppShell: Component<AppShellProps> = (_init, _ctx) => {
             subtitle ? h('small', { class: 'wf-app-shell-brand-sub' }, subtitle) : null,
           ]),
         ]),
-        // 导航（Menu 组件——分组/选中态/方向键）
+        // 导航（Menu 组件——分组/选中态/方向键）——
+        // **loading 骨架化（2027-XX——声明与实现不一致修复）**：props 注释宣称
+        // 「不渲染菜单/用户」但实现只骨架化用户区——菜单照常渲染（半成品）。
+        // 守卫期菜单数据本身依赖登录态——body 一并骨架化
         h('div', { class: 'wf-sidebar-body' }, [
-          h(Menu, {
-            items,
-            activeKey: activeOf(nav, path),
-            onSelect: (k: string) => onNavigate?.(k),
-          }),
+          loading
+            ? h('div', { class: 'wf-app-shell-skel' })
+            : h(Menu, {
+                items,
+                activeKey: activeOf(nav, path),
+                onSelect: (k: string) => onNavigate?.(k),
+              }),
         ]),
         // 用户区（loading = 骨架占位）
         props.footer ?? (

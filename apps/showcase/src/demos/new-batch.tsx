@@ -162,10 +162,24 @@ const DemoLabel: Component = () => () => (
 )
 
 const DemoAspectRatio: Component = () => () => (
-  <div class="wf-surface wf-surface--flat wf-border wf-radius-md">
-    <AspectRatio ratio={16 / 9}>
-      <div class="wf-center wf-text-secondary wf-bg-tertiary">16:9 容器</div>
-    </AspectRatio>
+  <div class="wf-stack wf-gap-md">
+    <div class="wf-surface wf-surface--flat wf-border wf-radius-md">
+      <AspectRatio ratio={16 / 9}>
+        <div class="wf-center wf-text-secondary wf-bg-tertiary">16:9 容器</div>
+      </AspectRatio>
+    </div>
+    <div class="wf-row wf-gap-md">
+      <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-fill" data-ar-square>
+        <AspectRatio ratio={1}>
+          <div class="wf-center wf-text-secondary wf-bg-tertiary">1:1</div>
+        </AspectRatio>
+      </div>
+      <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-fill" data-ar-43>
+        <AspectRatio ratio={4 / 3}>
+          <div class="wf-center wf-text-secondary wf-bg-tertiary">4:3</div>
+        </AspectRatio>
+      </div>
+    </div>
   </div>
 )
 
