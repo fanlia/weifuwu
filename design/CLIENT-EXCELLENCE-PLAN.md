@@ -97,7 +97,13 @@
 重试自愈机制**掩盖根因**（demo 无效图标名循环刷日志——修 zap 后归零）；
 SSR adopt 竞态历史（文本分裂/hasSsrMark）已修但同类面无哨兵。
 
-- **D1 renderFn 错误零容忍**：audit:showcase（160 页 dev 扫描）扩展——
+- **D1 renderFn 错误零容忍——已内建确认（2027-10）**：audit:showcase 收集
+  `[vdom]` console + pageerror + 渲染路径副作用——160 页 218 点击全零基线
+  实测（自愈保留——错误现形即红）
+- **D2 Icon 名对齐哨兵——机制化落地（2027-10）**：audit-showcase-dev 头部
+  静态段——demo/registry/组件源码 h(Icon,{name}) vs IconName 82 个对账——
+  无效名 exit 1（zap 实证防线）
+- **D1 原设计（历史）**：audit:showcase（160 页 dev 扫描）扩展——
   捕获 console 的 `[vdom] renderFn 错误` → 计数基线（当前 0）——
   非 0 = exit 1（自愈机制保留——但错误必须现形）
 - **D2 demo 数据校验哨兵**：Icon 名对齐扫描（本计划起草时已跑——

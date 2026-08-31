@@ -17,6 +17,44 @@
  */
 import { chromium } from 'playwright'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// ═══ D2 demo 数据校验哨兵：Icon 名对齐（CLIENT-EXCELLENCE-PLAN 波次 D）═══
+// demo/registry 里 h(Icon, { name: 'xxx' }) 的 name 必须 ∈ IconName——
+// 无效名原崩 renderFn（hole 降级循环刷日志——zap 实证；现 fallback+warn
+// 但仍属数据缺陷——静默不合法）
+{
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const iconSrc = readFileSync(join(repoRoot, 'src/client/components/Icon/Icon.ts'), 'utf8')
+  const names = new Set([...iconSrc.match(/export type IconName =([\s\S]*?)\n\n/)[1].matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]))
+  const bad = []
+  const scanDirs = ['apps/showcase/src/demos', 'apps/showcase/src', 'src/client/components']
+  for (const d of scanDirs) {
+    const abs = join(repoRoot, d)
+    if (!statSync(abs).isDirectory()) continue
+    for (const entry of readdirSync(abs, { recursive: true })) {
+      const f = join(abs, entry)
+      if (!statSync(f).isFile() || !/\.tsx?$/.test(f) || f.includes('.test.')) continue
+      const lines = readFileSync(f, 'utf8').split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        // h(Icon, { name: 'xxx' }) 或 name: 'xxx' 紧邻 Icon 行
+        if (!/Icon\s*,/.test(lines[i]) && !/h\(Icon/.test(lines[i])) continue
+        const ctx = lines.slice(i, i + 3).join(' ')
+        for (const [, n] of ctx.matchAll(/name:\s*'([a-z0-9-]+)'/g)) {
+          if (!names.has(n)) bad.push(`${entry}:${i + 1} → '${n}'`)
+        }
+      }
+    }
+  }
+  if (bad.length) {
+    console.error(`✖ D2 Icon 名对齐：demo/registry 无效图标名 ${bad.length} 处:`)
+    for (const b of bad) console.error(`  ${b}`)
+    process.exit(1)
+  }
+  console.log(`D2 Icon 名对齐：demo/registry 图标名全部有效（IconName ${names.size} 个）`)
+}
 
 const BASE = process.env.SHOWCASE_URL ?? 'http://localhost:3200'
 const CLICKS = Number(process.env.SCAN_CLICKS ?? 6)
