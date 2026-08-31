@@ -187,10 +187,31 @@ export class FakeDocument extends FakeNode {
 export interface FakeHistoryEntry { url: string }
 
 export class FakeWindow extends FakeNode {
-  location = { pathname: '/', search: '', href: 'http://localhost/' }
-  history = {
-    pushState: (_s: unknown, _t: string, url: string) => { this.setLocation(url) },
-    replaceState: (_s: unknown, _t: string, url: string) => { this.setLocation(url) },
+  location = {
+    pathname: '/', search: '', href: 'http://localhost/',
+    reload: () => { this.reloadCalls++ },
+  }
+  /** reload 调用计数（契约断言——「back 到 SPA 外 → reload」路径） */
+  reloadCalls = 0
+  /** 滚动调用记录（导航滚动管理契约——pushState 滚顶/popstate 恢复） */
+  scrollCalls: Array<{ x: number; y: number }> = []
+  get history() {
+    const self = this
+    return {
+      get state() { return self.historyState },
+      pushState: (st: unknown, _t: string, url: string) => {
+        self.historyState = (st as { scrollY?: number } | null) ?? null
+        self.setLocation(url)
+      },
+      replaceState: (st: unknown, _t: string, url: string) => {
+        self.historyState = (st as { scrollY?: number } | null) ?? self.historyState
+        self.setLocation(url)
+      },
+    }
+  }
+  private historyState: { scrollY?: number } | null = null
+  scrollTo(x: number, y: number): void {
+    this.scrollCalls.push({ x, y })
   }
   performance = { now: () => Date.now() }
   /** rAF 控制：默认停摆模式（测试显式 flush）——真实语义由测试自选 */

@@ -281,8 +281,12 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
     } catch { /* 限频/异常——降级滚顶 */ }
   }
   const restoreScroll = (): void => {
-    const y = (win.history.state as { scrollY?: number } | null)?.scrollY
-    win.scrollTo(0, typeof y === 'number' ? y : 0)
+    // 滚动是增强能力——环境缺 API（契约 fake DOM）也不抛（否则落进
+    // resolvePath 的 catch 分支误触 reload——假阳性整页重载）
+    try {
+      const y = (win.history.state as { scrollY?: number } | null)?.scrollY
+      win.scrollTo(0, typeof y === 'number' ? y : 0)
+    } catch { /* 环境 不支持——跳过 */ }
   }
 
   // **导航（pushState + 统一解析——await 完成）**
