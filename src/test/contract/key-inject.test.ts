@@ -81,13 +81,19 @@ test('key 注入：unmount 消费不误删兄弟 keyed 实例（状态保持）'
   assert.equal(factoryRuns, f1 + 1, '位置不变组件段复用——工厂不重跑（仅新增 c 一个工厂——a/a.b 复用）')
   assert.ok(segs2.get(keyedId('root.0', 'a.b')), '段在段表（实例保留）')
   assert.ok(f1 > f0)
-  // 删头前移（重建路径）——段最终存在（语义一致：unmount+dispose+重建 mount）
+  // **删头前移（M2 物理 move 收口——2027-10 KEYED-COMPONENT-MOVE）**：
+  // A2 时代走重建路径（mount 信号重发——生命周期噪声）；M2 后单根 el
+  // 输出走槽位 remap——段零扰动——工厂不重跑 + 零生命周期信号
   const oldT2 = h('div', {}, [h(Comp, { key: 'a' }), h(Comp, { key: 'a.b' })]) as VNode
   const newT2 = h('div', {}, [h(Comp, { key: 'a.b' })]) as VNode
   const segs3 = segments()
   await drain(renderToStreamV2(oldT2, {}, undefined, segs3))
-  await drain(diffToStreamV2(oldT2, newT2, {}, undefined, segs3))
-  assert.ok(segs3.get(keyedId('root.0', 'a.b')), '删头前移重建后段存在（重建路径语义一致）')
+  const f2 = factoryRuns
+  const d2 = await drain(diffToStreamV2(oldT2, newT2, {}, undefined, segs3))
+  assert.ok(segs3.get(keyedId('root.0', 'a.b')), '删头前移后段存在（实例保留）')
+  assert.equal(factoryRuns, f2, '工厂不重跑（物理 move 段零扰动——A2 缺口收口）')
+  assert.ok(!d2.some((c: any) => c.op === 'mount'), '零 mount 信号（生命周期零噪声——非重建路径）')
+  assert.ok(!d2.some((c: any) => c.op === 'unmount' && String((c as any).compId ?? '').includes('a.b')), 'a.b 无 unmount（实例不卸载）')
 })
 
 test('key 注入：含 "." 与 "/" key 的增删——实例面收敛（消费 unmount 语义）', async () => {

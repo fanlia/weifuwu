@@ -217,7 +217,7 @@ export function outputRootIdOf(
   segments?: SegmentMap,
 ): string {
   if (isHoleKind(c)) return pathId(parent, index) // 空洞槽位锚（kindOf 单一实现源）
-  if (typeof c === 'string' || typeof c === 'number') return pathId(parent, index)
+  if (isTextKind(c)) return pathId(parent, index) // 文本槽位（isTextKind 单一实现源——红线）
   const v = c as VNode
   if (typeof v.type !== 'function') return pathId(parent, index) // 元素/Fragment 平铺首根（近似——ref 链容忍）
   const k = keyOf(v)

@@ -1,5 +1,12 @@
 # KEYED-COMPONENT-MOVE-PLAN——keyed 组件顺移底层机制修复（2027-10）
 
+> **✅ 三波次全收官（2027-10）**：M1 `778e91d0`（outputRootIds 四形态单一实现源）·
+> M2 `34371f33`（物理 move 链 + fuzz 驱动修复 move Post 自映射误报 seed=42）·
+> M3（P 契约升级 + 命令数基线）
+> 终态防线：契约 427/427 · 场景 123/123 · showcase 320/320 · audit:all 七线 exit 0
+> 实证收益：10k 删头前移命令数 O(N)（9999 move——vs A2 重建 ~5N）· 零生命周期
+> 信号噪声 · DOM 引用稳定（物理节点不重建）· fuzz 1310 对全绿
+
 > **定位**：VDOM-CORE-EXCELLENCE A 波次登记缺口（keyed 组件顺移）的
 > 底层机制收口。**探针实证后缺口重定位**：
 > - ~~状态丢失~~：keepSegments（A 波次已修）——工厂增量 0/段保留/闭包

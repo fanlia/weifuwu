@@ -99,3 +99,21 @@ test('M2 物理 move 终态等价（Sim 对账——多种子）', async () => {
     assert.equal(diff, null, `seed=${seed} 顺移等价（${diff ?? ''}）`)
   }
 })
+
+test('M2 命令数基线：10k keyed 组件删头前移 ≤ N+20（物理 move O(N)——重建 ~5N 对账）', async () => {
+  const reg = createComponentRegistry()
+  const segs = new Map()
+  const El = makeElComp('b')
+  const N = 10000
+  const oldT = h('ul', {}, Array.from({ length: N }, (_, i) => h(El, { key: 'k' + i }))) as never
+  const newT = h('ul', {}, Array.from({ length: N }, (_, i) => h(El, { key: 'k' + (i + 1) }))) as never
+  await drainStream(renderToStreamV2(oldT, {}, reg, segs))
+  const d = await drainStream(diffToStreamV2(oldT, newT, {}, reg, segs))
+  // A2 重建路径理论 ~5N（remove+create+insert+close+mount ×9999）——M2 物
+  // 理 move = 9999 move + 新增/删除少量 = O(N)
+  assert.ok(d.length <= N + 20, `10k 删头前移命令数 ${d.length} ≤ ${N + 20}（O(N)——基线登记 2027-10）`)
+  const moves = d.filter((c: any) => c.op === 'move').length
+  assert.ok(moves >= N - 5, `move ${moves} ≥ N-5（顺移主体——非重建）`)
+  const mounts = d.filter((c: any) => c.op === 'mount').length
+  assert.ok(mounts <= 2, `mount ${mounts} ≤ 2（仅新增项——生命周期零噪声）`)
+})
