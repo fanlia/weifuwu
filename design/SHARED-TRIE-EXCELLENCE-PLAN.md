@@ -26,10 +26,13 @@
 >   `Object.fromEntries(url.searchParams)`——真实重复
 > - **params fresh 注入**：client「每次渲染替换不残留旧路由键」（契约
 >   锁定）——server 语义等价（ctx 每请求新建）——实现分散
-> - **判负（不抽——仪式抽象）**：①RouterBase 基类（双端语义不同构：
->   method 表/405/HEAD/mw/notFound/error-counter——参数化无收益）
->   ②runChain 共享（client 无中间件链消费）③ctx.route 注入（client
->   独有消费面——AppLayout/AgentDetail/navigate）
+> - **判负修订（2027-10 用户论证——两层区分）**：①**类继承式抽象
+>   （RouterBase）判负维持**——强制双端 API 同构丢各自富面；②**机制级
+>   共享（pipeline 流程骨架 + 差异钩子）成立**——handler 签名同构 +
+>   流程 6 步中 3 步完全同构、3 步是差异点而非不同流程（parse/match/
+>   params 注入单源化；chain/404/405/error 钩子化）——runChain 移
+>   shared（前端获得 middleware 能力——机制就位）③ctx.route 注入
+>   （client 独有——走 enrichCtx 钩子保留 client 域）
 > - **可共享且双端收益**：`shared/router/context.ts`——parseRequestTarget
 >   （URL→segments + URIError 400 信号——双端统一）/freshParams（防残留
 >   克隆）/parseQuery（searchParams 提取）——B1 载体升级
@@ -50,6 +53,21 @@
   处理空段——**纯等价，fuzz 回归门**）
 
 ## 波次 B：前端防御 + 双端一致性（唯一共享模块的双端契约）
+
+### B0 shared/pipeline.ts 路由内核（**机制公用、实现不一样——核心抽象**）
+- `RouterPipeline<TValue, TCtx>` 接口：resolveHandler（route 闭包/
+  not-allowed 分类）/ onNotFound / onMethodNotAllowed? / onError? /
+  enrichCtx?——**双端差异点全部钩子化**
+- `dispatchRouter(root, pipeline, req, ctx)`：parse → trieMatch →
+  params fresh 注入 → resolveHandler → try run / onError → 404/405 兜底
+  ——**流程骨架单一实现源**（改一处双端生效）
+- `runChain` 自 server/core/chain.ts 移 shared（前端获得 middleware
+  能力——机制就位）
+- **双端类 API 零变化**：Router.handler() / UIRouter.resolve() 内部
+  换 dispatchRouter——405/Allow/去重收敛 serverPipeline；route 注入/
+  前端 404 收敛 clientPipeline
+- 验收：fuzz 8 种子 + server 163 契约 + client 契约全绿（内核换血
+  ——防线已就位）
 
 ### B1 shared/context.ts 新模块（**双端接入——前后端都收益**）
 - 新建 `src/shared/router/context.ts`（请求目标解析 + ctx 注入纯函数）：
