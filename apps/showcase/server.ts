@@ -47,9 +47,14 @@ app.get('/index.json', (req: Request): Response =>
   Response.json(buildIndexJson()))
 
 // ── wire-fake：确定性流式（无 API key 全链路演示 AiChat） ──
+// **语义触发（2027-XX——body.mode 死分支修复）**：useChat 协议 body 只发
+// { messages }（无 mode 字段）——原 wire-fake 读 body.mode 分支永远不命中。
+// 改按最后一条用户消息语义判定：含「天气」→ agent 流程（工具+审批），
+// 更贴近真实模型行为演示
 app.post('/api/chat', async (req: Request): Promise<Response> => {
-  const { messages, mode } = await req.json()
+  const { messages } = await req.json()
   const lastUser = [...(messages ?? [])].reverse().find((m: any) => m.role === 'user')?.content ?? '世界'
+  const mode = lastUser.includes('天气') ? 'agent' : undefined
   const encoder = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {

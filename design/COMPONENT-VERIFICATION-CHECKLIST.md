@@ -55,6 +55,9 @@
 | （core）style 通道 | **核心层** | applyStyle undefined 分支静默 no-op——diff「旧有新无」发 setProp('style', undefined) 后旧 style 残留（Affix 滚回顶 sentinel --active 已移除而 content 仍 position:fixed——两种 DOM 面不一致） | style.ts：undefined/null/false → cssText=''（整体移除——A5 整体替换语义补全）+ FakeStyle 升级代理（style[k]=v 直落） | field-style.test.ts 6 锁 + comp-affix FP6 + 全量回归 |
 | （core）observe | **核心层** | useScrollPosition refresh 只 emit 不重跑 ensure——目标后挂载（首帧 null → afterRender 重试耗尽）后绑定永久丢失（容器滚动零响应） | observe.ts：refresh = ensure + emit（ensure 幂等——重新解析目标 + 读值） | comp-affix FP7 + 全量回归 |
 | Affix | 组件层 | threshold 公式坐标系错误：rect.top + scrollTop 只对 window 成立——容器 scroller 混入容器视口偏移（容器级永不固定）；且 compute 副作用与渲染无顺序保证（竞态） | Affix.ts：threshold 渲染期直算 + 容器坐标系修正（rect.top − 容器视口 top + scrollTop） | comp-affix FP3-FP7 |
+| （core）chat.ts | **核心层** | useChat 默认 parseChunk 只映射 wf:token/content/toolCalls——wf:step/tool_call/progress/result/approval_request/usage/done 全部丢弃（state.step/state.usage/approval 零赋值点——AiChat 状态行/usage 行/工具卡/审批卡等不到数据） | chat.ts：默认解析器升级为 wf: 协议状态机（makeDefaultParser——event 名分派全事件）+ send 循环全事件消费 | comp-aichat FP10/FP6/FP7/FP11 + 契约 391 绿 |
+| （core）chat.ts | **核心层** | approve() 用 map 替换消息对象——send 循环闭包仍持旧 assistant 引用写 content——审批后到达的 token 写进游离对象（UI 永不更新——HITL 审批期间流未结束必现） | approve 改原地修改 toolCall（对象同一性保持） | comp-aichat FP7b/FP5/FP2b（审批后回复渲染锚） |
+| wire-fake | 应用层 | /api/chat 读 body.mode 判定 agent 流——useChat 协议 body 只发 { messages }——mode 死分支（工具/审批演示永不触发） | server.ts：改按最后一条用户消息语义判定（含「天气」→ agent 流程） | comp-aichat agent 链路 |
 
 ---
 
@@ -102,13 +105,13 @@
 ### AiChat（AiChat）
 
 > useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **raiseOnKeyboard 布尔行为**：true/false 渲染差异（raiseOnKeyboard=true 显式断言）
-- [ ] **chat 数据面**：`UseChatHandle`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **maxHeight 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **labels 数据面**：`Partial<AiChatLabels>`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **renderMessage 数据面**：`(msg: UiMessage) => any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **approveSchema 数据面**：`(request: WfApprovalRequest) => JsonSchema | undefined`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [N] **raiseOnKeyboard 布尔行为**：true/false 渲染差异（raiseOnKeyboard=true 显式断言）
+- [x] **chat 数据面**：`UseChatHandle`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **maxHeight 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **labels 数据面**：`Partial<AiChatLabels>`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **renderMessage 数据面**：`(msg: UiMessage) => any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **approveSchema 数据面**：`(request: WfApprovalRequest) => JsonSchema | undefined`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### Alert（Alert）
 

@@ -185,10 +185,32 @@ const DemoAiChat: Component = (_props, ctx) => {
   const chat = ctx.ui.useChat({
     url: '/api/chat',
   })
+  // agent 演示：输入含「天气」→ wire-fake 走工具调用 + 审批流程
+  const agentChat = ctx.ui.useChat({ url: '/api/chat' })
 
   return () => (
-    <div class="wf-stack wf-gap-sm">
-      <AiChat chat={chat} maxHeight="300px" />
+    <div class="wf-stack wf-gap-md">
+      <div class="wf-stack wf-gap-xs">
+        <div class="wf-font-xs wf-text-secondary">基础对话（流式回复——输入任意消息）</div>
+        <AiChat chat={chat} maxHeight="300px" />
+      </div>
+      <div class="wf-stack wf-gap-xs">
+        <div class="wf-font-xs wf-text-secondary">工具与审批（输入「北京天气」触发：工具卡 + 审批卡可修改参数 + 自定义气泡/参数渲染 + labels 覆盖）</div>
+        <AiChat
+          chat={agentChat}
+          maxHeight="360px"
+          labels={{ placeholder: '试试输入：北京天气', send: '发 送' }}
+          renderMessage={(msg: any) => (msg.role === 'assistant' && msg.content
+            ? <span data-ai-rendered class="wf-text-primary">{msg.content}</span>
+            : (msg.content || '…'))}
+          renderToolArgs={(args: Record<string, unknown>) => <code data-ai-args class="wf-font-xs">{JSON.stringify(args)}</code>}
+          approveSchema={(req: any) => ({
+            type: 'object',
+            properties: { city: { type: 'string', title: '城市', default: (req.args as any)?.city ?? '北京' } },
+            required: ['city'],
+          })}
+        />
+      </div>
     </div>
   )
 }

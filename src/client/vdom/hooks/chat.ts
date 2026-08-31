@@ -55,8 +55,33 @@ export interface ChatOptions {
   system?: string
   /** 初始消息 */
   initialMessages?: ChatMessage[]
-  /** 流式分块解析（默认：每行 JSON——{ content }） */
-  parseChunk?: (line: string) => { content?: string; toolCalls?: ChatMessage['toolCalls'] } | null
+  /** 流式分块解析（默认：wf: SSE 协议全家桶 + 裸 JSON 行兼容）。
+   *  第二参 event = 当前 SSE 事件名（wf:token 等——裸行时 undefined）。
+   *  返回形状扩展：content/toolCalls 之外支持 step/usage/approval/
+   *  toolProgress/toolResult/error/done（内置解析器分派消费） */
+  parseChunk?: (line: string, event?: string) => ChatChunk | null
+}
+
+/** 流式分块解析结果（wf: 协议事件 → 会话状态更新的映射面） */
+export interface ChatChunk {
+  content?: string
+  toolCalls?: ChatToolCall[]
+  /** wf:step——思考/工具状态指示 */
+  step?: import('../../../server/ai/types.ts').WfStep | null
+  /** wf:usage——token 用量 */
+  usage?: import('../../../server/ai/types.ts').WfUsage
+  /** wf:approval_request——HITL 审批请求（挂当前 assistant 消息） */
+  approval?: import('../../../server/ai/types.ts').WfApprovalRequest
+  /** wf:tool_progress——工具进度（按 toolCallId 定位更新） */
+  toolProgress?: { toolCallId: string } & Record<string, unknown>
+  /** wf:tool_result——工具结果（按 id 定位更新） */
+  toolResult?: { id: string; ok?: boolean; output?: unknown } & Record<string, unknown>
+  /** wf:error——协议错误 */
+  error?: import('../../../server/ai/types.ts').WfError
+  /** wf:done——流结束（content 仅在消息为空时采纳——防 token 累积重复） */
+  done?: boolean
+  /** 内部标记：content 来自 done 快照（替换语义而非追加） */
+  doneContent?: boolean
 }
 
 /** 会话状态 */
@@ -108,6 +133,76 @@ interface ChatState {
 let _idSeq = 0
 const newId = (): string => `m${Date.now().toString(36)}${(_idSeq++).toString(36)}`
 
+/** 默认流式解析器（wf: SSE 协议状态机——2027-XX 全事件修复）
+ *
+ * **协议漂移（真实 bug 两段）**：① v1 只按裸 JSON 行解析——wf: SSE 的
+ * data: 前缀/event 行全丢——助手气泡恒 '…'；② 本次验证再发现：token 之外
+ * 的 wf:step/wf:tool_call/wf:tool_progress/wf:tool_result/wf:approval_request/
+ * wf:usage/wf:done 全部被丢弃——state.step/state.usage/approval 零赋值点——
+ * AiChat 的状态行/usage 行/工具卡/审批卡（展示层已支持）永远等不到数据
+ * （AiChat agent 链路验证实测）。本状态机按 event 名分派全事件。
+ */
+function makeDefaultParser(): (line: string, event?: string) => ChatChunk | null {
+  let currentEvent = ''
+  return (line: string, event?: string): ChatChunk | null => {
+    const trimmed = line.trim()
+    if (!trimmed) return null
+    if (trimmed.startsWith('event:')) {
+      currentEvent = trimmed.slice(6).trim()
+      return null
+    }
+    const ev = event ?? currentEvent
+    const json = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed
+    if (!json) return null
+    let d: any
+    try {
+      d = JSON.parse(json)
+    } catch {
+      return null
+    }
+    // 裸 JSON 行（无 event——旧/简单服务端兼容）
+    if (!ev) {
+      if (d.toolCalls) return { toolCalls: d.toolCalls as ChatToolCall[] }
+      if (d.text !== undefined) return { content: String(d.text) }
+      return d.content !== undefined ? { content: d.content } : null
+    }
+    // wf: 协议事件分派
+    switch (ev) {
+      case 'wf:message_start':
+        return null
+      case 'wf:token':
+        return { content: d.text !== undefined ? String(d.text) : d.content }
+      case 'wf:step':
+        return { step: d }
+      case 'wf:usage':
+        return { usage: d }
+      case 'wf:tool_call':
+        return {
+          toolCalls: [{
+            id: d.id, name: d.name, args: d.args,
+            status: 'running', call: d,
+          } as ChatToolCall],
+        }
+      case 'wf:tool_progress':
+        return { toolProgress: d }
+      case 'wf:tool_result': {
+        return { toolResult: d }
+      }
+      case 'wf:approval_request':
+        return { approval: d }
+      case 'wf:error':
+        return { error: d }
+      case 'wf:done': {
+        // content 仅在消息为空时采纳（token 已累积全文快照不重复——done 语义 = 流结束）
+        const rest = d.usage ? { usage: d.usage } : {}
+        return { done: true, ...(d.content ? { content: d.content, doneContent: true } : {}), ...rest } as ChatChunk
+      }
+      default:
+        return null
+    }
+  }
+}
+
 /** useChat（工厂调用——会话生命周期——订阅经 useExternal） */
 export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
   const idx = env.nextHookIndex()
@@ -139,26 +234,8 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
   }
 
   /** 流式行解析（默认：{ content } 累积） */
-  const parseChunk: (line: string) => { content?: string; toolCalls?: ChatMessage['toolCalls'] } | null =
-    opts.parseChunk ?? ((line: string) => {
-    // **协议漂移（真实 bug）**：服务端是 wf: SSE（event/data 行——data: {...}——
-    // token 用 { text } 字段）——默认按裸 JSON 行解析——data: 前缀/event 行全丢——
-    // 助手消息永不显示（agent-browser 实测：流式断——气泡 '…'）——同时兼容
-    // 裸 JSON 行（旧/简单服务端）
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('event:')) return null
-    const json = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed
-    if (!json) return null
-    try {
-      const d = JSON.parse(json) as { content?: string; text?: string; toolCalls?: ChatMessage['toolCalls'] }
-      if (d.toolCalls) return d as { toolCalls: ChatMessage['toolCalls'] }
-      // wf:token 的 { text } → content（协议映射）
-      if (d.text !== undefined) return { content: String(d.text) }
-      return d.content !== undefined ? { content: d.content } : null
-    } catch {
-      return null
-    }
-  })
+  const parseChunk: (line: string, event?: string) => ChatChunk | null =
+    opts.parseChunk ?? makeDefaultParser()
 
   const handle: ChatHandle = {
     get state() { return state.messages },
@@ -217,19 +294,51 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
           buf += decoder.decode(value, { stream: true })
           const lines = buf.split('\n')
           buf = lines.pop() ?? ''
+          let currentEvent: string | undefined
           for (const line of lines) {
             if (!line.trim()) continue
-            const chunk = parseChunk(line)
+            // event: 行 → 记录事件名（data 行消费后清）
+            if (line.trim().startsWith('event:')) {
+              currentEvent = line.trim().slice(6).trim()
+              continue
+            }
+            const chunk = parseChunk(line, currentEvent)
+            if (line.trim().startsWith('data:')) currentEvent = undefined
             if (!chunk) continue
+            // **全事件消费（2027-XX——协议解析完整性修复）**
             if (chunk.content) {
-              assistant.content += chunk.content
-              // 高频 notify 控制：每块一次（写者控制频率）
+              // done 快照替换语义（token 已累积时防重复）；流式 token 追加
+              assistant.content = chunk.doneContent
+                ? (assistant.content || chunk.content)
+                : assistant.content + chunk.content
               notify()
             }
-            if (chunk.toolCalls) {
+            if (chunk.toolCalls?.length) {
               assistant.toolCalls = [...(assistant.toolCalls ?? []), ...chunk.toolCalls]
               notify()
             }
+            if (chunk.toolProgress) {
+              const tc = assistant.toolCalls?.find((x) => x.id === chunk.toolProgress!.toolCallId)
+              if (tc) { tc.progress = chunk.toolProgress; notify() }
+            }
+            if (chunk.toolResult) {
+              const tc = assistant.toolCalls?.find((x) => x.id === chunk.toolResult!.id)
+              if (tc) {
+                tc.result = chunk.toolResult.output
+                tc.status = chunk.toolResult.ok === false ? 'error' : 'ok'
+                notify()
+              }
+            }
+            if (chunk.approval) {
+              assistant.approval = chunk.approval
+              const tc = assistant.toolCalls?.find((x) => x.id === chunk.approval!.toolCallId)
+              if (tc) tc.approval = chunk.approval
+              notify()
+            }
+            if (chunk.usage) { state.usage = chunk.usage; notify() }
+            if (chunk.step !== undefined) { state.step = chunk.step; notify() }
+            if (chunk.error) { state.error = chunk.error; assistant.status = 'error'; notify() }
+            if (chunk.done) { state.step = null; notify() }
           }
         }
         assistant.status = undefined
@@ -266,21 +375,22 @@ export function useChat(env: HookEnv, opts: ChatOptions): ChatHandle {
 
     async approve(decision: string, note?: string, modifiedArgs?: Record<string, unknown>): Promise<void> {
       // 决策应用到最后一个未审批工具调用（HITL——decision/note/modifiedArgs）
+      // **同一性纪律（2027-XX——审批后回复丢失实证修复）**：此前 state.messages.map
+      // 替换消息对象——send 循环闭包仍持旧 assistant 引用写 content——审批后
+      // 到达的 token 全写进游离对象（UI 永不更新——HITL 审批期间流未结束必现）。
+      // 改原地修改 toolCall（对象引用保持——流式写入不丢失）
       let applied = false
-      state.messages = state.messages.map((m) => ({
-        ...m,
-        toolCalls: m.toolCalls?.map((tc) => {
-          if (applied || tc.approved) return tc
+      for (const m of state.messages) {
+        for (const tc of m.toolCalls ?? []) {
+          if (tc.approved) continue
+          tc.approved = decision !== 'rejected'
+          if (note) tc.feedback = note
+          if (decision === 'modified' && modifiedArgs) tc.args = modifiedArgs
           applied = true
-          return {
-            ...tc,
-            approved: decision !== 'rejected',
-            feedback: note,
-            // modified 决策：修改后参数挂 args
-            ...(decision === 'modified' && modifiedArgs ? { args: modifiedArgs } : {}),
-          }
-        }),
-      }))
+          break
+        }
+        if (applied) break
+      }
       notify()
     },
   }
