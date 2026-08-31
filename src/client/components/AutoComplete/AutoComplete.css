@@ -49,3 +49,10 @@
 /* disabled（§交互态纪律：可交互组件 disabled 必须可见） */
 .wf-autocomplete--disabled { opacity: 0.6; cursor: not-allowed; }
 .wf-autocomplete--disabled input { cursor: not-allowed; }
+
+/* 错误文案（F2 输入类基线——wf-input-err 同 Input——2027-XX 补齐） */
+.wf-autocomplete .wf-input-err {
+  color: var(--wf-color-error-text);
+  font-size: var(--wf-font-size-xs);
+  margin-top: 4px;
+}

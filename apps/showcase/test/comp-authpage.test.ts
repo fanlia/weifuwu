@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——AuthPage（/components/authpage）——完整能力
+ * showcase 组件测试——AuthPage（/components/authpage）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「AuthPage」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-authpage.test.ts
  */
 import { test } from 'node:test'
@@ -30,11 +31,43 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 认证页骨架', async () => {
+test('FP1/FP2 渲染基线：title/subtitle + children 表单字段', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    assert.ok(text.length > 100, '页面渲染')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('登录') && t.includes('多租户 AI 平台'), 'title/subtitle')
+    assert.ok(t.includes('邮箱') && t.includes('密码'), 'children 字段（邮箱/密码）')
+  } finally { await page.close() }
+})
+
+test('FP3 footer 切换链接：title/submitLabel/footer 联动（登录↔注册）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.locator('main a', { hasText: '立即注册' }).first().click()
+    await page.waitForFunction(() => {
+      const t = document.querySelector('main')?.textContent ?? ''
+      return t.includes('创建账号') && t.includes('注 册') && t.includes('已有账号？')
+    }, null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP4/FP5 onSubmit → loading 禁用 → error 错误条（demo 模拟网络错误）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.locator('main a', { hasText: '立即注册' }).first().click()
+    const btn = page.locator('main button', { hasText: '注 册' }).last()
+    await btn.click()
+    await page.waitForFunction(() => {
+      const btns = [...document.querySelectorAll('main button')].map((b) => ({ t: b.textContent, d: (b as HTMLButtonElement).disabled }))
+      return btns.some((b) => (b.t ?? '').includes('加载中') && b.d)
+    }, null, { timeout: 3000 })
+    // 800ms 后 demo 模拟网络错误 → 错误条
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('网络错误（模拟）'), null, { timeout: 3000 })
+    // 清除错误
+    await page.locator('main button', { hasText: '清除错误' }).first().click()
+    await page.waitForFunction(() => !(document.querySelector('main')?.textContent ?? '').includes('网络错误（模拟）'), null, { timeout: 3000 })
   } finally { await page.close() }
 })

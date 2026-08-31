@@ -1,8 +1,7 @@
 /**
- * showcase 组件测试——Avatar（/components/avatar）
- *
- * 每组件一个测试文件（单独运行）：
- *   node --env-file=.env --test apps/showcase/test/comp-avatar.test.ts
+ * showcase 组件测试——Avatar（/components/avatar）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Avatar」组（playwright 实测后固化）
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-avatar.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,16 +25,32 @@ test.after(async () => {
   server?.stop()
 })
 
-test('渲染零错误 + 内容断言', async () => {
+async function open(page: import('playwright').Page): Promise<void> {
+  const errors = await openShowcase(page, BASE, COMP_PATH)
+  assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
+  await page.waitForTimeout(300)
+}
+
+test('FP1 name 首字 + 按名字哈希背景色（非透明）', async () => {
   const page = await browser.newPage()
   try {
-    const errors = await openShowcase(page, BASE, COMP_PATH)
-    assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['张', '李', '王']) {
-      assert.ok(text.includes(t), `内容渲染：${t}`)
-    }
-  } finally {
-    await page.close()
-  }
+    await open(page)
+    await page.waitForSelector('main .wf-avatar')
+    const avatars = page.locator('main .wf-avatar')
+    assert.equal(await avatars.count(), 4, '4 实例')
+    const names = await page.evaluate(() => [...document.querySelectorAll('main .wf-avatar')].map((a) => a.textContent?.trim()))
+    assert.deepEqual(names.slice(0, 3), ['张', '李', '王'], '首字')
+    const bg = await avatars.first().evaluate((el) => getComputedStyle(el).backgroundColor)
+    assert.notEqual(bg, 'rgba(0, 0, 0, 0)', `哈希色 ${bg}`)
+  } finally { await page.close() }
+})
+
+test('FP2 size 三档：sm/md/lg 几何', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-avatar')
+    const sizes = await page.evaluate(() => [...document.querySelectorAll('main .wf-avatar')].map((a) => Math.round(a.getBoundingClientRect().width)))
+    assert.equal(new Set(sizes).size, 3, `三档宽度不同：${sizes.join(',')}`)
+  } finally { await page.close() }
 })

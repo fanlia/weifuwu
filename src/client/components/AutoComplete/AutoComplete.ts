@@ -135,7 +135,11 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: UIContext
       const v = e.target.value
       inputCtrl?.setKeyword(v) // C3 内部输入态（不依赖受控 value 回流）
       inputCtrl?.setValue(v)
+      // **输入驱动渲染（2027-XX——过滤不更新实证修复）**：open 已开时此前
+      // 不重渲染——dropdown content 停留在首次闭包 vnode（过滤失效——输入
+      // 「支付」仍显示全量 5 条）。open 已开也必须 render（filtered 随输入更新）
       if (!open) setOpen(true)
+      else ctx.render()
       activeIndex = -1
     }
     const onCompositionStart = () => { composing = true }
@@ -206,6 +210,8 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: UIContext
         onCompositionEnd,
         onFocus: () => { if (!open) setOpen(true) },
       }),
+      // 错误文案（F2 输入类基线——2027-XX 补齐：此前只有错误类/aria 无文案面）
+      error ? h('div', { class: 'wf-input-err' }, error) : null,
     ])
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）
     syncDropdown(dropdown)

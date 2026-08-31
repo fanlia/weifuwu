@@ -18,10 +18,11 @@ export interface BadgeProps {
 
 export const Badge: Component<BadgeProps> = (_init, _ctx) =>
   (props) => {
-  const { variant = 'default', dot, children, count, overflowCount = 99, showZero = false } = props
+  const { variant = 'default', dot, children, count, overflowCount = 99, showZero = false, ...rest } = props
 
+  // rest 透传（data-*/aria 自定义属性——测试定位/埋点基线，2027-XX 补齐）
   if (dot) {
-    return h('span', { class: `wf-badge-dot wf-badge-dot--${variant}` })
+    return h('span', { class: `wf-badge-dot wf-badge-dot--${variant}`, ...rest })
   }
 
   // 数值角标（count 模式）
@@ -31,8 +32,9 @@ export const Badge: Component<BadgeProps> = (_init, _ctx) =>
     return h('span', {
       class: `wf-badge wf-badge--count wf-badge--${variant}`,
       'aria-label': `${count > overflowCount ? `超过 ${overflowCount}` : count} 条`,
+      ...rest,
     }, display)
   }
 
-  return h('span', { class: `wf-badge wf-badge--${variant}` }, children ?? '')
+  return h('span', { class: `wf-badge wf-badge--${variant}`, ...rest }, children ?? '')
 }

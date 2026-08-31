@@ -33,7 +33,7 @@
 | 批 | 组件范围 | 状态 |
 |----|---------|------|
 | 1 | Accordion → AspectRatio（10） | ⬜ 未开始 |
-| 2 | AuthPage → Card（10） | ⬜ 未开始 |
+| 2 | AuthPage → Card（10） | ✅ 完成（3 组件层修复——AutoComplete 过滤不更新/error 文案面/Badge rest 透传） |
 | 3 | Carousel → Collapse（10） | ⬜ 未开始 |
 | 4 | ColorPicker → Drawer（10） | ⬜ 未开始 |
 | 5 | Dropdown → Form（10） | ⬜ 未开始 |
@@ -57,6 +57,9 @@
 | Affix | 组件层 | threshold 公式坐标系错误：rect.top + scrollTop 只对 window 成立——容器 scroller 混入容器视口偏移（容器级永不固定）；且 compute 副作用与渲染无顺序保证（竞态） | Affix.ts：threshold 渲染期直算 + 容器坐标系修正（rect.top − 容器视口 top + scrollTop） | comp-affix FP3-FP7 |
 | （core）chat.ts | **核心层** | useChat 默认 parseChunk 只映射 wf:token/content/toolCalls——wf:step/tool_call/progress/result/approval_request/usage/done 全部丢弃（state.step/state.usage/approval 零赋值点——AiChat 状态行/usage 行/工具卡/审批卡等不到数据） | chat.ts：默认解析器升级为 wf: 协议状态机（makeDefaultParser——event 名分派全事件）+ send 循环全事件消费 | comp-aichat FP10/FP6/FP7/FP11 + 契约 391 绿 |
 | （core）chat.ts | **核心层** | approve() 用 map 替换消息对象——send 循环闭包仍持旧 assistant 引用写 content——审批后到达的 token 写进游离对象（UI 永不更新——HITL 审批期间流未结束必现） | approve 改原地修改 toolCall（对象同一性保持） | comp-aichat FP7b/FP5/FP2b（审批后回复渲染锚） |
+| AutoComplete | 组件层 | onInput 在 open 已开时不重渲染——dropdown content 停留首次闭包 vnode，输入「支付」仍显示全量 5 条（过滤失效） | AutoComplete.ts：open 已开也 ctx.render()（输入驱动渲染——filtered 随输入更新） | comp-autocomplete FP1 |
+| AutoComplete | 组件层 | error 只有错误类/aria-invalid 无文案渲染面（F2 输入类基线缺项） | 补 wf-input-err 文案节点（对齐 Input 基线）+ CSS | comp-autocomplete FP4 |
+| Badge | 组件层 | rest（data-*/aria 自定义属性）不透传——测试定位/埋点无入口 | Badge.ts 三渲染点 ...rest 透传 | comp-badge FP2 |
 | AppShell | 组件层 | loading 语义半成品：类型注释宣称「不渲染菜单/用户」但实现只骨架化用户区——菜单照常渲染 | AppShell.ts：loading 时 sidebar-body 一并骨架化（声明兑现） | comp-appshell FP7 |
 | Anchor | 应用层 | demo 末节后无滚动空间——末节永远无法滚至 80px 阈值内（高亮死区——同 Affix 页面高度问题） | demo 尾部补 50vh 占位 | comp-anchor FP4 |
 | wire-fake | 应用层 | /api/chat 读 body.mode 判定 agent 流——useChat 协议 body 只发 { messages }——mode 死分支（工具/审批演示永不触发） | server.ts：改按最后一条用户消息语义判定（含「天气」→ agent 流程） | comp-aichat agent 链路 |
@@ -181,114 +184,114 @@
 ### AuthPage（AuthPage）
 
 > 认证页骨架：居中卡片 + logo + 表单插槽 + 错误条 + 提交 loading（登录/注册复用）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **loading 布尔行为**：true/false 渲染差异（loading=true 显式断言）
-- [ ] **subtitle 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **logo 数据面**：`VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **footer 数据面**：`VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **submitLabel 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **error 数据面**：`string | null`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onSubmit 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：title/children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **loading 布尔行为**：true/false 渲染差异（loading=true 显式断言）
+- [x] **subtitle 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **logo 数据面**：`VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **footer 数据面**：`VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **submitLabel 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **error 数据面**：`string | null`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onSubmit 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：title/children 透传到根元素
 
 ### AutoComplete（AutoComplete）
 
 > 输入联想：自由输入 + 过滤下拉 + 键盘流 + 选中回填
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **open 布尔行为**：true/false 渲染差异（open=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **options 数据面**：`AutoCompleteOption[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **renderOption 数据面**：`(option: AutoCompleteOption) => any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onOpenChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
-- [ ] **纪律回归**：⚠ 受控输入纪律（§5.3）：受控 input 焦点丢失事故——输入期间 value 走内部 keyword（useCont…
-- [ ] **纪律回归**：⚠ IME composition：中文输入组合期间受控 value 重置打断——isComposing 门控
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **open 布尔行为**：true/false 渲染差异（open=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **options 数据面**：`AutoCompleteOption[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **renderOption 数据面**：`(option: AutoCompleteOption) => any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onOpenChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **纪律回归**：⚠ 受控输入纪律（§5.3）：受控 input 焦点丢失事故——输入期间 value 走内部 keyword（useCont…
+- [x] **纪律回归**：⚠ IME composition：中文输入组合期间受控 value 重置打断——isComposing 门控
 
 ### Avatar（Avatar）
 
 > 头像（首字母/图片），3 种 size
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **src 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **color 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **src 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **color 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### AvatarGroup（AvatarGroup）
 
 > 头像组：堆叠 + max 溢出 +N
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **items 数据面**：`AvatarGroupItem[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **max 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **size 数据面**：`AvatarProps['size']`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **items 数据面**：`AvatarGroupItem[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **max 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **size 数据面**：`AvatarProps['size']`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### BackTop（BackTop）
 
 > 回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **smooth 布尔行为**：true/false 渲染差异（smooth=true 显式断言）
-- [ ] **visibilityHeight 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **target 数据面**：`() => HTMLElement | Window`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **smooth 布尔行为**：true/false 渲染差异（smooth=true 显式断言）
+- [x] **visibilityHeight 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **target 数据面**：`() => HTMLElement | Window`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### Badge（Badge）
 
 > 状态标签 + 圆点，6 种 variant
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **dot 布尔行为**：true/false 渲染差异（dot=true 显式断言）
-- [ ] **showZero 布尔行为**：true/false 渲染差异（showZero=true 显式断言）
-- [ ] **variant 数据面**：`BadgeVariant`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **count 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **overflowCount 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **dot 布尔行为**：true/false 渲染差异（dot=true 显式断言）
+- [x] **showZero 布尔行为**：true/false 渲染差异（showZero=true 显式断言）
+- [x] **variant 数据面**：`BadgeVariant`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **count 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **overflowCount 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### Breadcrumb（Breadcrumb）
 
 > 面包屑导航，支持 aria-current
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **items 数据面**：`BreadcrumbItem[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **items 数据面**：`BreadcrumbItem[]`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### Button（Button）
 
 > 4 variants × 3 sizes + loading + block + disabled
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **variant 枚举态**：`'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **block 布尔行为**：true/false 渲染差异（block=true 显式断言）
-- [ ] **loading 布尔行为**：true/false 渲染差异（loading=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：type/title/id/class/children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **variant 枚举态**：`'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **block 布尔行为**：true/false 渲染差异（block=true 显式断言）
+- [x] **loading 布尔行为**：true/false 渲染差异（loading=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：type/title/id/class/children 透传到根元素
 
 ### Calendar（Calendar）
 
 > 月历：事件点 + 月切换 + 日期选择（antd/EP Calendar）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **events 数据面**：`CalendarEvent[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **month 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **year 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **selectedDate 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onSelectDate 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **纪律回归**：⚠ 受控纪律：受控 month/value 必须配回调——缺回调静默不可点（console.warn 防护）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **events 数据面**：`CalendarEvent[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **month 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **year 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **selectedDate 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onSelectDate 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **纪律回归**：⚠ 受控纪律：受控 month/value 必须配回调——缺回调静默不可点（console.warn 防护）
 
 ### Card（Card）
 
 > 容器，支持 default/outlined/clickable
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **variant 枚举态**：`'default' | 'outlined'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **padding 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **outlined 布尔行为**：true/false 渲染差异（outlined=true 显式断言）
-- [ ] **clickable 布尔行为**：true/false 渲染差异（clickable=true 显式断言）
-- [ ] **hover 布尔行为**：true/false 渲染差异（hover=true 显式断言）
-- [ ] **active 布尔行为**：true/false 渲染差异（active=true 显式断言）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：id/children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **variant 枚举态**：`'default' | 'outlined'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **padding 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **outlined 布尔行为**：true/false 渲染差异（outlined=true 显式断言）
+- [x] **clickable 布尔行为**：true/false 渲染差异（clickable=true 显式断言）
+- [x] **hover 布尔行为**：true/false 渲染差异（hover=true 显式断言）
+- [x] **active 布尔行为**：true/false 渲染差异（active=true 显式断言）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：id/children 透传到根元素
 
 ### Carousel（Carousel）
 

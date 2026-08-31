@@ -78,6 +78,11 @@ const DemoCardShowcase: Component = (_props, ctx) => {
       <Card>默认卡片</Card>
       <Card variant="outlined">线框卡片</Card>
       <Card clickable onClick={() => { clicked = true; ctx.render() }}>可点击卡片</Card>
+      <Card hover>hover 抬升卡片</Card>
+      <Card active>选中态卡片</Card>
+      <Card padding="sm">padding-sm</Card>
+      <Card padding="lg">padding-lg</Card>
+      <Card outlined data-card-outlined>线框卡片</Card>
       {clicked && <div class="wf-font-xs wf-width-full wf-text-secondary">卡片被点击了</div>}
     </div>
   )
@@ -96,6 +101,7 @@ const DemoBadge: Component = () => () => (
     <Badge count={5} variant="danger" />
     <Badge count={150} variant="danger" />
     <Badge count={0} showZero />
+    <Badge count={0} data-badge-zero />
   </div>
 )
 
@@ -775,13 +781,33 @@ const DemoAutoComplete: Component = (_p, ctx) => {
       { value: 'storage', label: '对象存储' },
     ]
     return (
-      <AutoComplete
-        options={options}
-        value={query}
-        onChange={(v) => { query = v }}
-        onSelect={(v) => { selected = v }}
-        placeholder="输入关键词联想…"
-      />
+      <div class="wf-stack wf-gap-md">
+        <AutoComplete
+          options={options}
+          value={query}
+          onChange={(v) => { query = v }}
+          onSelect={(v) => { selected = v }}
+          placeholder="输入关键词联想…"
+        />
+        <AutoComplete
+          options={[{ value: 'a', label: '选项 A' }, { value: 'b', label: '选项 B' }]}
+          value="固定值"
+          placeholder="错误态"
+          error="该字段已存在"
+        />
+        <AutoComplete
+          options={[{ value: 'x', label: '禁用联想' }]}
+          value=""
+          placeholder="禁用态"
+          disabled
+        />
+        <AutoComplete
+          options={options.slice(0, 3)}
+          value=""
+          placeholder="自定义选项渲染…"
+          renderOption={(opt: any) => <span data-ac-custom>★ {opt.label}</span>}
+        />
+      </div>
     )
   }
 }

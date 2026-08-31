@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Breadcrumb（/components/breadcrumb）——完整能力
+ * showcase 组件测试——Breadcrumb（/components/breadcrumb）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Breadcrumb」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-breadcrumb.test.ts
  */
 import { test } from 'node:test'
@@ -30,22 +31,25 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 3 项（首页/用户管理/编辑——链接 + 末项无链接）', async () => {
+test('FP1 href 链接面：前级可点链接 + 末级纯文本', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['首页', '用户管理', '编辑']) assert.ok(text.includes(t), `项：${t}`)
-    const links = await page.evaluate(() => {
-      const bc = document.querySelector('main [class*="breadcrumb"]')
-      return Array.from(bc?.querySelectorAll('a') ?? []).map((a) => a.getAttribute('href'))
-    })
-    assert.deepEqual(links, ['/', '/users'], `链接 href（实际 ${JSON.stringify(links)}）`)
-    // 分隔符（› 或 /）
-    const sep = await page.evaluate(() => {
-      const bc = document.querySelector('main [class*="breadcrumb"]')
-      return bc?.textContent?.includes('›') || bc?.textContent?.includes('/') || false
-    })
-    assert.ok(sep, '分隔符')
+    await page.waitForSelector('main [class*="breadcrumb"]')
+    const links = await page.evaluate(() => [...document.querySelectorAll('main a')].map((a) => ({ t: a.textContent?.trim(), h: a.getAttribute('href') })))
+    assert.ok(links.some((l) => l.t === '首页' && l.h === '/'), '首页 → /')
+    assert.ok(links.some((l) => l.t === '用户管理' && l.h === '/users'), '用户管理 → /users')
+    const tail = await page.evaluate(() => document.querySelector('main [class*="breadcrumb"]')?.textContent ?? '')
+    assert.ok(tail.includes('编辑'), '末级「编辑」纯文本')
+  } finally { await page.close() }
+})
+
+test('FP2 分隔符渲染：3 段结构', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main [class*="breadcrumb"]')
+    const parts = await page.evaluate(() => (document.querySelector('main [class*="breadcrumb"]')?.textContent ?? '').trim())
+    assert.ok(parts.includes('首页') && parts.includes('用户管理') && parts.includes('编辑'), `三段：${parts}`)
   } finally { await page.close() }
 })

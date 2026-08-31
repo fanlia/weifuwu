@@ -554,13 +554,18 @@ const DemoResizable: Component = () => () => (
 
 const DemoCalendar: Component = (_props, ctx) => {
   let view = { month: 5, year: 2025 }
+  let selected = '2025-06-10'
   return () => (
-    <Calendar month={view.month} year={view.year} selectedDate="2025-06-10"
-      onMonthChange={(m: number, y: number) => { view = { month: m, year: y }; ctx.render() }}
-      events={[
-        { key: 'e1', date: '2025-06-10', title: '产品评审' },
-        { key: 'e2', date: '2025-06-15', title: '团队周会' },
-      ]} />
+    <div class="wf-stack wf-gap-sm">
+      <Calendar month={view.month} year={view.year} selectedDate={selected}
+        onMonthChange={(m: number, y: number) => { view = { month: m, year: y }; ctx.render() }}
+        onSelectDate={(d: string) => { selected = d; ctx.render() }}
+        events={[
+          { key: 'e1', date: '2025-06-10', title: '产品评审' },
+          { key: 'e2', date: '2025-06-15', title: '团队周会' },
+        ]} />
+      <div class="wf-font-sm wf-text-secondary" data-cal-selected>选中：{selected || '无'}</div>
+    </div>
   )
 }
 

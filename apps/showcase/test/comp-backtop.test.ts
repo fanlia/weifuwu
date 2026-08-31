@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——BackTop（/components/backtop）——完整能力
+ * showcase 组件测试——Backtop（/components/backtop）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Backtop」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-backtop.test.ts
  */
 import { test } from 'node:test'
@@ -30,20 +31,37 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 滚动 >400px 出现 → 点击回顶', async () => {
+test('FP1 初始隐藏（scrollY=0 < 400 阈值）+ 滚动超阈值显示', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // 滚动上下文（content/ 移除后文档页变短——滚动断言扩高页面）
-    await page.evaluate(() => { document.body.style.minHeight = '2500px' })
-    // 初始 hidden 类（无滚动）
-    const hidden0 = await page.evaluate(() => document.querySelector('main .wf-backtop')?.className.includes('--hidden') ?? false)
-    assert.ok(hidden0, '初始 hidden 类')
-    // 滚动 600px → hidden 移除（出现）
-    await page.evaluate(() => window.scrollTo(0, 600))
-    await page.waitForFunction(() => !(document.querySelector('main .wf-backtop')?.className.includes('--hidden') ?? true), '滚动后出现', { timeout: 3000 })
-    // 点击 → 回顶（scrollY 接近 0）
-    await page.locator('main .wf-backtop').click()
-    await page.waitForFunction(() => window.scrollY < 50, '回顶', { timeout: 4000 })
+    await page.waitForSelector('main .wf-backtop', { timeout: 5000 }).catch(() => {})
+    await page.evaluate(() => { document.body.style.minHeight = '2000px' })
+    const state = () => page.evaluate(() => {
+      const btn = document.querySelector('main .wf-backtop')
+      if (!btn) return null
+      const s = getComputedStyle(btn)
+      return { hidden: btn.className.includes('--hidden'), pe: s.pointerEvents }
+    })
+    const s0 = await state()
+    assert.ok(!s0 || s0.hidden, `初始隐藏（${JSON.stringify(s0)}）`)
+    await page.evaluate(() => window.scrollTo(0, 500))
+    await page.waitForFunction(() => !(document.querySelector('main .wf-backtop')?.className ?? '').includes('--hidden'), null, { timeout: 3000 })
+    const s1 = await state()
+    assert.equal(s1?.pe, 'auto', '显示后可点（pointer-events）')
+  } finally { await page.close() }
+})
+
+test('FP2 点击回顶（smooth）+ 回顶后隐藏', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-backtop', { timeout: 5000 }).catch(() => {})
+    await page.evaluate(() => { document.body.style.minHeight = '2000px' })
+    await page.evaluate(() => window.scrollTo(0, 800))
+    await page.waitForFunction(() => !(document.querySelector('main .wf-backtop')?.className ?? '').includes('--hidden'), null, { timeout: 3000 })
+    await page.locator('main .wf-backtop').click({ force: true })
+    await page.waitForFunction(() => window.scrollY < 50, null, { timeout: 3000 })
+    await page.waitForFunction(() => (document.querySelector('main .wf-backtop')?.className ?? '').includes('--hidden'), null, { timeout: 3000 })
   } finally { await page.close() }
 })

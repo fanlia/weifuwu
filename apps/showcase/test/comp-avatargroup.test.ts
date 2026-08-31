@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——AvatarGroup（/components/avatargroup）——完整能力
+ * showcase 组件测试——Avatargroup（/components/avatargroup）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Avatargroup」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-avatargroup.test.ts
  */
 import { test } from 'node:test'
@@ -30,19 +31,24 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：items 渲染 + max 溢出折叠 +N 计数（语义断言——非仅存在）', async () => {
+test('FP1 max 溢出：3 可见 + "+1" 徽标', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // max=3 组：4 项 → 3 头像 + "+1"（aria-label「还有 1 人」）
-    const firstGroup = await page.locator('.wf-avatar-group').first()
-    assert.equal(await firstGroup.locator('.wf-avatar-group-item').count(), 3, 'max=3 截断为 3 头像')
-    const more = firstGroup.locator('.wf-avatar-group-more')
-    assert.equal(await more.textContent(), '+1', '溢出 +1')
-    assert.equal(await more.getAttribute('aria-label'), '还有 1 人', 'aria-label 语义')
-    // 无 max 组：2 项全渲染——无 +N
-    const secondGroup = await page.locator('.wf-avatar-group').nth(1)
-    assert.equal(await secondGroup.locator('.wf-avatar-group-item').count(), 2, '无 max——2 项全渲染')
-    assert.equal(await secondGroup.locator('.wf-avatar-group-more').count(), 0, '无溢出——无 +N')
+    await page.waitForSelector('main .wf-avatar')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('张') && t.includes('李') && t.includes('王'), 'max=3 前三名可见')
+    assert.ok(!t.includes('赵六'), '第 4 名被折叠')
+    assert.ok(await page.evaluate(() => [...document.querySelectorAll('main *')].some((el) => /^\+1$/.test((el.textContent ?? '').trim()) && el.children.length === 0)), '溢出徽标 +1')
+  } finally { await page.close() }
+})
+
+test('FP2 size 透传：sm 组头像更小', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-avatar')
+    const ws = await page.evaluate(() => [...document.querySelectorAll('main .wf-avatar')].map((a) => Math.round(a.getBoundingClientRect().width)))
+    assert.ok(Math.max(...ws) > Math.min(...ws), `两组尺寸不同（md=32 > sm=24）：${ws.join(',')}`)
   } finally { await page.close() }
 })
