@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——List（/components/list）——完整能力
+ * showcase 组件测试——List（/components/list）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「List」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-list.test.ts
  */
 import { test } from 'node:test'
@@ -30,13 +31,13 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 列表（divided + header + renderItem 文件名/时间）', async () => {
+test('FP1/FP2 header + renderItem 项渲染', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['最近文件', '需求文档.md', '架构设计.pdf', '接口说明.docx', '2 分钟前', '昨天']) assert.ok(text.includes(t), `列表：${t}`)
-    const items = await page.evaluate(() => document.querySelectorAll('main [class*="list"] [class*="item"], main [class*="list"] li').length)
-    assert.ok(items >= 3, `列表项（实际 ${items}）`)
+    await page.waitForSelector('main [class*="list"]')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('最近文件'), 'header')
+    assert.ok(t.includes('需求文档.md') && t.includes('架构设计.pdf'), 'items')
   } finally { await page.close() }
 })

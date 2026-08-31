@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Markdown（/components/markdown）——完整能力
+ * showcase 组件测试——Markdown（/components/markdown）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Markdown」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-markdown.test.ts
  */
 import { test } from 'node:test'
@@ -30,19 +31,22 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：GFM 渲染（标题/粗体/删除线/任务列表/表格/代码/链接）', async () => {
+test('FP1-4 Markdown 全要素：标题/删除线/任务列表/表格/代码', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['项目进展', '核心模块', '任务进度', '参数对比', 'Markdown', '删除线', 'weifuwu 官网', 'const greet']) {
-      assert.ok(text.includes(t), `GFM 渲染：${t}`)
-    }
-    // 结构断言（h1/表格/代码块/链接/任务列表）
-    const h1 = await page.evaluate(() => !!document.querySelector('main h1'))
-    const tbl = await page.evaluate(() => !!document.querySelector('main table'))
-    const link = await page.evaluate(() => !!document.querySelector('main a[href="https://weifuwu.dev"]'))
-    const code = await page.evaluate(() => !!document.querySelector('main pre code, main code'))
-    assert.ok(h1 && tbl && link && code, `结构（h1=${h1} 表格=${tbl} 链接=${link} 代码=${code}）`)
+    await page.waitForSelector('main h1')
+    const info = await page.evaluate(() => {
+      const md = document.querySelector('main [class*="markdown"], main .wf-md, main article') ?? document.querySelector('main')
+      return {
+        h1: !!md.querySelector('h1'), h2: md.querySelectorAll('h2').length,
+        del: md.querySelectorAll('del, s').length, task: md.querySelectorAll('input[type="checkbox"]').length,
+        table: !!md.querySelector('table'), code: !!md.querySelector('pre'), strong: md.querySelectorAll('strong, b').length,
+      }
+    })
+    assert.ok(info.h1 && info.h2 >= 1, '标题')
+    assert.ok(info.del >= 1, '删除线')
+    assert.ok(info.task >= 2, `任务列表 ${info.task}`)
+    assert.ok(info.table && info.code && info.strong >= 1, '表格+代码+加粗')
   } finally { await page.close() }
 })

@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——JsonSchemaForm（/components/jsonschemaform）——完整能力
+ * showcase 组件测试——JsonSchemaForm（/components/jsonschemaform）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「JsonSchemaForm」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-jsonschemaform.test.ts
  */
 import { test } from 'node:test'
@@ -30,22 +31,42 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：schema 驱动渲染（必填/单位/开关字段）+ 提交按钮', async () => {
+test('FP1/FP2 schema 驱动渲染：string/integer/boolean/enum 四字段 + 初值', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const main = page.locator('main')
-    // schema 字段渲染（jsf-obj 容器——Field 组合——label 语义）
-    const fields = main.locator('.wf-field')
-    assert.ok((await fields.count()) >= 3, `字段数 ≥3（实际 ${await fields.count()}）`)
-    const text = await main.textContent()
-    assert.ok(text?.includes('城市'), '城市字段')
-    assert.ok(text?.includes('预报天数') && text?.includes('含天气详情') && text?.includes('单位'), '天数/天气/单位字段')
-    // 默认值（value='北京'——input 属性面）
-    assert.equal(await main.locator('input[value="北京"]').count(), 1, 'city 默认值')
-    assert.ok(text?.includes('天数'), '天数字段')
-    assert.ok(text?.includes('天气'), '天气开关字段')
-    // 提交按钮（submitLabel="执行工具"）
-    assert.equal(await main.locator('button', { hasText: '执行工具' }).count(), 1, 'submitLabel 渲染')
+    await page.waitForSelector('main .wf-jsf')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    for (const w of ['query_weather 参数', '城市', '预报天数', '含天气详情', '单位', '执行工具']) assert.ok(t.includes(w), w)
+    assert.equal(await page.locator('main .wf-jsf input:not([role="switch"])').count(), 2, 'string+integer 文本输入')
+    assert.equal(await page.locator('main .wf-jsf select').count(), 1, 'enum select')
+    assert.ok(await page.locator('main .wf-jsf .wf-switch').count() >= 1, 'boolean switch')
+  } finally { await page.close() }
+})
+
+test('FP3 required 校验：空提交拦截（.wf-field-err）→ 键入清除 → 提交通过', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-jsf')
+    await page.locator('main .wf-jsf input').first().fill('')
+    await page.locator('main button', { hasText: '执行工具' }).first().click()
+    await page.waitForFunction(() => document.querySelectorAll('main .wf-field-err').length === 1, null, { timeout: 3000 })
+    await page.locator('main .wf-jsf input').first().fill('上海')
+    await page.waitForFunction(() => document.querySelectorAll('main .wf-field-err').length === 0, null, { timeout: 3000 })
+    await page.locator('main button', { hasText: '执行工具' }).first().click()
+    await page.waitForTimeout(300)
+    assert.equal(await page.evaluate(() => document.querySelectorAll('main .wf-field-err').length), 0, '提交后无错误')
+  } finally { await page.close() }
+})
+
+test('FP4 enum select 联动（celsius→fahrenheit）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-jsf select')
+    const sel = page.locator('main .wf-jsf select').first()
+    await sel.selectOption('fahrenheit')
+    await page.waitForFunction(() => document.querySelector('main .wf-jsf select')?.value === 'fahrenheit', null, { timeout: 3000 })
   } finally { await page.close() }
 })

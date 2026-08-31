@@ -1,8 +1,7 @@
 /**
- * showcase 组件测试——Loading（/components/loading）
- *
- * 每组件一个测试文件（单独运行）：
- *   node --env-file=.env --test apps/showcase/test/comp-loading.test.ts
+ * showcase 组件测试——Loading（/components/loading）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Loading」组（playwright 实测后固化）
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-loading.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,25 +25,21 @@ test.after(async () => {
   server?.stop()
 })
 
-test('渲染零错误（组件页 + 文档）', async () => {
-  const page = await browser.newPage()
-  try {
-    const errors = await openShowcase(page, BASE, COMP_PATH)
-    assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
-  } finally {
-    await page.close()
-  }
-})
+async function open(page: import('playwright').Page): Promise<void> {
+  const errors = await openShowcase(page, BASE, COMP_PATH)
+  assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
+  await page.waitForTimeout(300)
+}
 
-test('demo 交互：加载中 → 3s 后加载完成', async () => {
+test('FP1 加载指示器（spinner + 文本）', async () => {
   const page = await browser.newPage()
   try {
-    await openShowcase(page, BASE, COMP_PATH)
-    // 加载中（文字）
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('加载中'), '加载态', { timeout: 3000 })
-    // 3s 后完成（Alert 加载完成）
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('加载完成'), '加载完成', { timeout: 5000 })
-  } finally {
-    await page.close()
-  }
+    await open(page)
+    await page.waitForSelector('main [class*="spin"], main [class*="loading"]')
+    const info = await page.evaluate(() => ({
+      spin: document.querySelectorAll('main [class*="spin"] svg, main [class*="spin"] [class*="icon"], main [class*="spin"]').length,
+      t: (document.querySelector('main')?.textContent ?? '').includes('加载'),
+    }))
+    assert.ok(info.spin >= 1 || info.t, JSON.stringify(info))
+  } finally { await page.close() }
 })

@@ -38,7 +38,7 @@
 | 4 | ColorPicker → Drawer（10） | ✅ 完成（[!] DiffView 双修复：groupDiffLines 未分段 + 展开判定恒真；demo 扩面：Command globalShortcut、Descriptions bordered/size、DiffView threshold=2；ContextMenu demo alert→回显） |
 | 5 | Dropdown → Form（10） | ✅ 完成（零组件修复——Editor 富文本全链路（bold 双向/undo/源码）；ExportCSV 下载内容校验；FilePreview 远程 md+编辑态；Form 校验三态） |
 | 6 | Grid → InputNumber（10） | ✅ 完成（[!] ImageCropper onCrop 断链修复；demo 健壮性：Img preview 改本地 SVG（picsum 外网 503）） |
-| 7 | JSONViewer → Markdown（10） | ⬜ 未开始 |
+| 7 | JSONViewer → Markdown（10） | ✅ 完成（零组件缺陷——JsonSchemaForm 曾疑似校验 bug 实为断言假阳性（demo 说明文字含「必填」被 includes 误匹配）——精确 .wf-field-err 节点断言后全绿） |
 | 8 | MarkdownEditor → PageHeader（10） | ⬜ 未开始 |
 | 9 | Pagination → RadioGroup（10） | ⬜ 未开始 |
 | 10 | Rate → SessionList（10） | ⬜ 未开始 |
@@ -785,95 +785,95 @@
 ### JSONViewer（JSONViewer）
 
 > 结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **data 数据面**：`unknown`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **defaultExpandDepth 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **maxKeys 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **rootName 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **data 数据面**：`unknown`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **defaultExpandDepth 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **maxKeys 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **rootName 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### JsonSchemaForm（JsonSchemaForm）
 
 > JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套/数组（AI 工具参数输入面）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **schema 数据面**：`JsonSchema`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **submitLabel 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **schema 数据面**：`JsonSchema`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **submitLabel 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### Kanban（Kanban）
 
 > 看板：原生 DnD 拖拽 + 跨列/重排 + 悬停高亮
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **columns 数据面**：`KanbanColumn[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **纪律回归**：⚠ enumerated 属性（§6.2）：draggable 空字符串解析为 false——必须显式 setAttribu…
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **columns 数据面**：`KanbanColumn[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **纪律回归**：⚠ enumerated 属性（§6.2）：draggable 空字符串解析为 false——必须显式 setAttribu…
 
 ### Label（Label）
 
 > 独立标签（required 星号）+ 宽高比容器（内容填满）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
-- [ ] **htmlFor 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
+- [x] **htmlFor 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### Layout（Layout）
 
 > 布局外壳：Sider 折叠 + Header/Content/Footer 骨架（antd Layout / shadcn Sidebar 等价）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：style/children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：style/children 透传到根元素
 
 ### Link（Link）
 
 > 文字链接：语义色/下划线/disabled/新窗口
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **variant 枚举态**：`'default' | 'primary' | 'danger' | 'muted'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **underline 布尔行为**：true/false 渲染差异（underline=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **href 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **target 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **icon 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **variant 枚举态**：`'default' | 'primary' | 'danger' | 'muted'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **underline 布尔行为**：true/false 渲染差异（underline=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **href 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **target 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **icon 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### List（List）
 
 > 通用列表：renderItem + divided + header/footer/empty
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **divided 布尔行为**：true/false 渲染差异（divided=true 显式断言）
-- [ ] **items 数据面**：`T[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **header 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **footer 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **emptyText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **emptyIcon 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **divided 布尔行为**：true/false 渲染差异（divided=true 显式断言）
+- [x] **items 数据面**：`T[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **header 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **footer 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **emptyText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **emptyIcon 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### Loading（Loading）
 
 > 加载状态，支持自定义文字
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **text 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **text 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### LogViewer（LogViewer）
 
 > 日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **follow 布尔行为**：true/false 渲染差异（follow=true 显式断言）
-- [ ] **showCopy 布尔行为**：true/false 渲染差异（showCopy=true 显式断言）
-- [ ] **showLineNumbers 布尔行为**：true/false 渲染差异（showLineNumbers=true 显式断言）
-- [ ] **lines 数据面**：`string[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **height 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **lineHeight 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **overscan 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **maxLines 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **follow 布尔行为**：true/false 渲染差异（follow=true 显式断言）
+- [x] **showCopy 布尔行为**：true/false 渲染差异（showCopy=true 显式断言）
+- [x] **showLineNumbers 布尔行为**：true/false 渲染差异（showLineNumbers=true 显式断言）
+- [x] **lines 数据面**：`string[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **height 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **lineHeight 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **overscan 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **maxLines 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### Markdown（Markdown）
 
 > AI 回复渲染：安全子集 parser + 代码块 + 链接白名单
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **content 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **content 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### MarkdownEditor（MarkdownEditor）
 
