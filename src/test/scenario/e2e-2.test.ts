@@ -38,6 +38,33 @@ test('navigate：同源链接点击 → pushState 导航 → 新场景整树替�
   }
 })
 
+// ── 场景 9b：导航滚动管理（pushState 滚顶 + popstate 恢复——2027-XX 用户实测
+// 「首页列表滚到中部点组件 → 详情页 offset clamp 在中部——感觉不到切换」修复） ──
+test('navigate：滚动管理——pushState 滚顶 + popstate 恢复离开位置', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'navigate')
+    // 场景页造出滚动高度（长占位 + 链接在下方）——滚到中部点链接
+    await page.evaluate(() => {
+      const main = document.querySelector('main') ?? document.body
+      const spacer = document.createElement('div')
+      spacer.style.height = '1500px'
+      main.prepend(spacer)
+    })
+    await page.evaluate(() => window.scrollTo(0, 800))
+    await page.waitForTimeout(150)
+    await page.click('.nav-link')
+    await page.waitForSelector('.reuse-scene')
+    // pushState 导航完成后滚顶（新页面从标题开始——切换感明确）
+    await page.waitForFunction(() => window.scrollY === 0, null, { timeout: 3000 })
+    // 后退 → 恢复离开位置（history.state.scrollY）
+    await page.evaluate(() => history.back())
+    await page.waitForFunction(() => (document.querySelector('.nav-link') !== null) && window.scrollY > 0, null, { timeout: 4000 })
+  } finally {
+    await page.close()
+  }
+})
+
 // ── 场景 10：unmount/dispose（handle.unmount——DOM/portal 完整清理） ────
 test('unmount-dispose：卸载清空 DOM + portal 容器不残留', async () => {
   const page = await browser.newPage()

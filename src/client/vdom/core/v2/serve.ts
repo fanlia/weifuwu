@@ -264,11 +264,34 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   // 页面作者 render（ctx.render——经调度流合并）
   ctx.render = () => { scheduler.request('page-render') }
 
+  /**
+   * 导航滚动管理（2027-XX 用户实测：首页 160 卡列表滚到中部点组件 →
+   * 详情页滚动 offset 被 clamp 在中部——视口落在详情页中下部——视觉上
+   * 「感觉不到切换」——SPA pushState 不触发浏览器滚动恢复——需自管）：
+   * - pushState 前先 replaceState 把「当前条目」的 scrollY 存进 history
+   *   （返回时恢复——浏览器惯例）
+   * - navigate 完成后滚顶（新页面从标题开始——切换感明确）
+   * - popstate 恢复 history.state.scrollY（无 state 滚顶）
+   * - replaceState 可能被浏览器限频拒绝（Safari 100 次/30s）——try 吞掉
+   *   （降级为返回后滚顶——不阻断导航）
+   */
+  const saveScroll = (): void => {
+    try {
+      win.history.replaceState({ ...(win.history.state as object ?? {}), scrollY: win.scrollY }, '')
+    } catch { /* 限频/异常——降级滚顶 */ }
+  }
+  const restoreScroll = (): void => {
+    const y = (win.history.state as { scrollY?: number } | null)?.scrollY
+    win.scrollTo(0, typeof y === 'number' ? y : 0)
+  }
+
   // **导航（pushState + 统一解析——await 完成）**
   const navigate = async (path: string): Promise<void> => {
-    win.history.pushState({}, '', path)
+    saveScroll()
+    win.history.pushState({ scrollY: 0 }, '', path)
     try {
       await resolvePath(path)
+      win.scrollTo(0, 0)
     } catch {
       // 无路由（404）→ 完整导航（SPA router 未注册路径——服务器可能有页面——
       // 实证：stats 页「← 填写页」/「任务列表」链接——半跳转根治）
@@ -292,12 +315,14 @@ export function uiServeV2(router: UIRouter, opts: UiServeOptions): UiServeHandle
   }
   doc.addEventListener('click', onDocClick)
 
-  // **popstate（前进/后退 → 解析当前 URL）**
+  // **popstate（前进/后退 → 解析当前 URL + 恢复滚动位置）**
   const onPopstate = (): void => {
-    void resolvePath(currentUrl()).catch(() => {
-      // 无路由（back/forward 到 SPA 外服务器页面——填写页/列表页）→ reload 完整加载
-      win.location.reload()
-    })
+    void resolvePath(currentUrl())
+      .then(() => restoreScroll())
+      .catch(() => {
+        // 无路由（back/forward 到 SPA 外服务器页面——填写页/列表页）→ reload 完整加载
+        win.location.reload()
+      })
   }
   win.addEventListener('popstate', onPopstate)
 
