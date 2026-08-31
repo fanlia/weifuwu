@@ -54,3 +54,18 @@ test('demo 交互：输入 + 回车添加标签 → 计数更新', async () => {
     await page.close()
   }
 })
+
+test('FP-追加 Backspace 删除末位标签（添加→删空）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openShowcase(page, BASE, COMP_PATH)
+    await page.waitForSelector('main input')
+    const input = page.locator('main input').first()
+    await input.click()
+    await page.keyboard.type('临时标签')
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('临时标签'), null, { timeout: 3000 })
+    await input.press('Backspace')
+    await page.waitForFunction(() => !(document.querySelector('main')?.textContent ?? '').includes('临时标签'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})

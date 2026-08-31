@@ -78,3 +78,13 @@ test('demo 交互：品牌换肤（seed 实时——html style 变量）', async
     await page.close()
   }
 })
+
+test('FP-追加 暗色模式实时生效（data-theme none→dark）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-theme-seg')
+    await page.locator('main .wf-theme-seg', { hasText: '暗色' }).first().click()
+    await page.waitForFunction(() => document.documentElement.getAttribute('data-theme') === 'dark', null, { timeout: 3000 })
+  } finally { await page.close() }
+})
