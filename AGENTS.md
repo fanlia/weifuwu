@@ -25,10 +25,12 @@
 > isTextKind 单源（违规退出码 1）
 
 ```
-npm run test:client    → 契约层（264 测试——node 直跑命令流——零浏览器——~4s）
-npm run test:scenario  → 场景层（116 场景——SSR 服务化 + playwright——真实浏览器——15 文件并发——~17s）
-npm run test:showcase  → showcase 组件测试（200 测试——112 组件 157 全覆盖——每组件一个文件——~2.5min）
+npm run test:client    → 契约层（427 测试——node 直跑命令流——零浏览器——~5s）
+npm run test:scenario  → 场景层（123 场景——SSR 服务化 + playwright——真实浏览器——15 文件并发——~17s）
+npm run test:showcase  → showcase 组件测试（320 测试——129 组件全覆盖——每组件一个文件——~2.5min）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
+# server 域（163 测试）+ shared 域（35 测试——路由内核/共享五层单源）
+# 直跑：node --env-file=.env --test src/server/core/*.test.ts src/shared/router/*.test.ts
 ```
 
 ### 契约层（src/test/contract/——node:test 直跑）
@@ -367,6 +369,35 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 > - **场景层**：e2e-perf（6000 行卸载 <2s + 更新 <1s——旧 O(N²) 必挂）
 > - **React 对照**：同 CSS 负担 mount 0.83x/update 0.96x——判负记录
 >   （removeTree 批命令——无用户感知场景不预造）
+
+## 2b'. 路由内核——前后端唯一共享模块五层单源（SHARED-TRIE-EXCELLENCE——2027-10）
+
+> **`src/shared/router/`**——server Router 与 client UIRouter 的共同内核。
+> **机制公用、实现不一样**：handler 签名 `(req: Request, ctx) => Response`
+> 双端字面同构——流程 6 步（parse→match→ctx 注入→handler→404/405 兜底）
+> 骨架单源——差异点钩子化（verb 表/404 形态/错误语义/ctx 扩展）。
+
+| 层 | 文件 | 职责 |
+|---|---|---|
+| 匹配 | `trie.ts` | 静态/:param/* 回溯匹配（exactDfs——静态优先 + param 回溯——fuzz 8 种子对账防线） |
+| 骨架 | `pipeline.ts` | `dispatchRouter(root, pipeline, req, ctx)`——流程单源；`RouterPipeline<TValue, TCtx>` 差异钩子（resolveHandler/onNotFound/onMethodNotAllowed/onError/onRouteSuccess/enrichCtx） |
+| 解析 | `context.ts` | parseRequestTarget（URL→segments+query——**URIError→400 信号双端统一**）/freshParams/parseQuery |
+| 链 | `chain.ts` | runChain 中间件洋葱（next 重复调用守卫）——前端同样具备 mw 能力 |
+| 注册表 | `ctx-fields.ts` | ctx 扩展声明（injects/depends——依赖未注册抛错——类型/运行时双层对齐） |
+
+- **双端消费**：server `Router.handler()` / client `UIRouter.resolve()` 内部
+  都是 `dispatchRouter(root, pipeline, req, ctx)`——**类 API 零变化**——
+  405/Allow/去重计数/恢复清出收敛 serverPipeline；route 三面注入/前端
+  404 收敛 clientPipeline
+- **serve 留双端**（Request/Response 编解码边界）：server node http 适配 /
+  client 浏览器导航适配——pipeline 不关心
+- **守护测试**：`shared/router/*.test.ts`（35——fuzz 8 种子对账 + 语义锚点
+  + pipeline 骨架 + B2 双端对账 + 导出面清单）——server 侧契约保留双保险
+- **判负记录**：类继承式 RouterBase（强制 API 同构丢富面）——pipeline
+  钩子化是正解形态
+- 计划：`design/SHARED-TRIE-EXCELLENCE-PLAN.md`（四波次收官）·
+  `design/ROUTER-CORE-EXCELLENCE-PLAN.md`（后端内核五波次——mount 展平
+  修复/Trie 回溯 fuzz 3 轮修复/错误去重）
 
 ## 2c. 渲染健康（三轴诊断器——RENDER-HEALTH-PLAN 波次 1）
 
