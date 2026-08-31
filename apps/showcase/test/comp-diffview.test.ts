@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——DiffView（/components/diffview）——完整能力
+ * showcase 组件测试——DiffView（/components/diffview）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「DiffView」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-diffview.test.ts
  */
 import { test } from 'node:test'
@@ -30,17 +31,34 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：新旧代码对比（标题 + 差异行）', async () => {
+test('FP1/FP2 双栏标题 + 增删行三态类', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    assert.ok(text.includes('重构前') && text.includes('重构后'), '标题')
-    // 差异行（+/−/删除行——diff 标记）
-    const marks = await page.evaluate(() => {
-      const els = document.querySelectorAll('main [class*="diff"] [class*="add"], main [class*="diff"] [class*="del"], main [class*="diff"] [class*="remove"], main [class*="diff"] [class*="line"]')
-      return els.length
-    })
-    assert.ok(marks >= 3, `差异行（实际 ${marks}）`)
+    await page.waitForSelector('main .wf-diffview')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('重构前') && t.includes('重构后'), '双标题')
+    const cls = await page.evaluate(() => [...new Set([...document.querySelectorAll('main [class*="diff"] *')].flatMap((e) => [...e.classList]).filter((c) => /add|remove|same/.test(c)))])
+    for (const need of ['add', 'remove', 'same']) assert.ok(cls.some((c) => c.includes(need)), `${need} 行类（${cls.join(',')}）`)
+  } finally { await page.close() }
+})
+
+test('FP3 折叠展开（组件层修复回归）：行数随展开状态变化 + 文案切换', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-diffview-fold')
+    const foldText = await page.locator('main .wf-diffview-fold').first().textContent()
+    assert.ok((foldText ?? '').includes('行未变'), `fold="${(foldText ?? '').trim()}"`)
+    const before = await page.evaluate(() => document.querySelectorAll('main .wf-diffview-row').length)
+    assert.equal(before, 9, `初始 9 行（2 same + 7 change——3 行 same 折叠，threshold=2）`)
+    await page.locator('main .wf-diffview-fold').first().click()
+    await page.waitForFunction((n) => document.querySelectorAll('main .wf-diffview-row').length > n, before, { timeout: 3000 })
+    // 展开态文案 = 收起提示（2027-XX 修复——原「展开中」误导）
+    const openText = await page.evaluate(() => document.querySelector('main .wf-diffview-fold')?.textContent?.trim())
+    assert.equal(openText, '收起未变行', `展开后 fold 文案`)
+    // 再点收起 → 行数回落
+    await page.locator('main .wf-diffview-fold').first().click()
+    await page.waitForFunction((n) => document.querySelectorAll('main .wf-diffview-row').length === n, before, { timeout: 3000 })
   } finally { await page.close() }
 })

@@ -333,15 +333,18 @@ const DemoAnchor: Component = (_props, ctx) => {
   )
 }
 
-const DemoContextMenu: Component = () => () => (
-  <ContextMenu items={[
-    { key: 'edit', label: '编辑', onClick: () => alert('编辑') },
-    { key: 'copy', label: '复制' },
-    { key: 'delete', label: '删除', variant: 'danger', onClick: () => alert('删除') },
-  ]}>
-    <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-lg wf-text-center wf-text-secondary">右键点击此区域</div>
-  </ContextMenu>
-)
+const DemoContextMenu: Component = (_p, ctx) => {
+  let picked = ''
+  return () => (
+    <ContextMenu items={[
+      { key: 'edit', label: '编辑', onClick: () => { picked = '编辑'; ctx.render() } },
+      { key: 'copy', label: '复制' },
+      { key: 'delete', label: '删除', variant: 'danger', onClick: () => { picked = '删除'; ctx.render() } },
+    ]}>
+      <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-lg wf-text-center wf-text-secondary">右键点击此区域{picked ? `（已选：${picked}）` : ''}</div>
+    </ContextMenu>
+  )
+}
 
 const DemoMentions: Component = (_props, ctx) => {
   let v = '输入 @ 提及成员：@ali'
@@ -523,7 +526,7 @@ const DemoCommand: Component = (_props, ctx) => {
   return () => (
     <div class="wf-stack wf-gap-sm">
       <Button variant="secondary" onClick={() => { open = true; ctx.render() }}>打开命令面板（⌘K）</Button>
-      <Command items={items} open={open} onOpenChange={(o: boolean) => { open = o; ctx.render() }} />
+      <Command items={items} open={open} onOpenChange={(o: boolean) => { open = o; ctx.render() }} globalShortcut="mod+k" />
     </div>
   )
 }

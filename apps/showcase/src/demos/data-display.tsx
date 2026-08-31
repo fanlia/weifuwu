@@ -230,6 +230,7 @@ const DemoDescriptions: Component = () => () => (
       { label: '创建时间', value: '2026-08-01 10:00' },
       { label: '技能', value: '2 个已绑定', span: 2 },
     ]} />
+    <Descriptions bordered size="sm" items={[{ label: '边框示例', value: 'bordered + size=sm' }]} />
   </div>
 )
 
@@ -903,7 +904,7 @@ const DemoDiffView: Component = () => () => (
     newCode={NEW_CODE}
     oldTitle="重构前"
     newTitle="重构后"
-    foldThreshold={3}
+    foldThreshold={2}
   />
 )
 

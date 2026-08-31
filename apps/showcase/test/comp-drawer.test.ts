@@ -1,11 +1,12 @@
 /**
- * showcase 组件测试——Drawer（/components/drawer）——完整能力
+ * showcase 组件测试——Drawer（/components/drawer）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Drawer」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-drawer.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/drawer'
 
@@ -30,49 +31,67 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-/** evaluate 轮询（组件页文档表格样式循环——rAF/定时器饿死规避） */
-async function waitFor(page: import('playwright').Page, fn: () => Promise<boolean>, msg: string, timeoutMs = 5000): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (await page.evaluate(fn)) return
-    await page.waitForTimeout(100)
-  }
-  throw new Error(`${msg} 超时`)
-}
-
-test('渲染零错误 + 右侧抽屉（title+footer+内容）', async () => {
+test('FP1 右侧抽屉：panel 360px 贴右 + 标题 + footer', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.locator('main .wf-surface button', { hasText: '右侧抽屉' }).first().click()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('编辑用户')), '抽屉出现')
-    assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('保存')), 'footer 操作')
-    assert.ok(await page.evaluate(() => !!document.querySelector('#__wf_portal input[placeholder="请输入姓名"]')), '表单内容（placeholder 属性）')
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '右侧抽屉' }).first().click()
+    await page.waitForSelector('.wf-drawer-panel', { timeout: 3000 })
+    // 等滑入动画完成（panel right 进入视口内）
+    await page.waitForFunction(() => {
+      const p = [...document.querySelectorAll('.wf-drawer-panel')].find((x) => (x.textContent ?? '').includes('编辑用户'))
+      return p && p.getBoundingClientRect().right <= innerWidth
+    }, null, { timeout: 3000 })
+    const g = await page.evaluate(() => {
+      const panel = [...document.querySelectorAll('.wf-drawer-panel')].find((x) => (x.textContent ?? '').includes('编辑用户'))
+      const r = panel.getBoundingClientRect()
+      return { right: r.right, w: r.width, vw: innerWidth, t: panel.textContent ?? '' }
+    })
+    assert.ok(Math.abs(g.right - g.vw) < 2, `面板贴右（right=${g.right} vw=${g.vw}）`)
+    assert.equal(g.w, 360, `默认宽 360px`)
+    assert.ok(g.t.includes('编辑用户') && g.t.includes('保存'), '标题+footer')
+    assert.ok(await page.locator('.wf-drawer-close').count() >= 1, 'close 按钮')
   } finally { await page.close() }
 })
 
-test('能力：关闭（取消）→ 移除；左侧抽屉打开', async () => {
+test('FP2 mask 遮罩点击关闭', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.locator('main .wf-surface button', { hasText: '右侧抽屉' }).first().click()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('编辑用户')), '抽屉出现')
-    await page.locator('#__wf_portal button', { hasText: '取消' }).first().click()
-    await waitFor(page, () => Promise.resolve(!(document.body.textContent ?? '').includes('编辑用户')), '关闭')
-    // **portal 零残留（卸载清理语义——关闭后 #__wf_portal 无 Drawer 内容）**
-    assert.equal(await page.locator('#__wf_portal [class*="drawer"]').count(), 0, '关闭后 portal 无抽屉内容')
-    // 左侧抽屉
-    await page.locator('main .wf-surface button', { hasText: '左侧抽屉' }).first().click()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('导航菜单')), '左侧抽屉')
-    assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('左侧面板内容')), '左侧内容')
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '右侧抽屉' }).first().click()
+    await page.waitForSelector('.wf-drawer-panel', { timeout: 3000 })
+    await page.mouse.click(20, 300)
+    await page.waitForFunction(() => !document.querySelector('.wf-drawer-panel'), null, { timeout: 3000 })
   } finally { await page.close() }
 })
-test('位置：portal 归属 + fixed + 视口内 + 右侧抽屉', async () => {
+
+test('FP3 footer 取消按钮关闭', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    
-    await page.locator('main .wf-surface button', { hasText: '右侧抽屉' }).first().click()
-    await assertPopupGeometry(page, { panelText: '编辑用户' })
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '右侧抽屉' }).first().click()
+    await page.waitForSelector('.wf-drawer-panel', { timeout: 3000 })
+    await page.locator('.wf-drawer button', { hasText: '取消' }).last().click()
+    await page.waitForFunction(() => !document.querySelector('.wf-drawer-panel'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP4 左侧抽屉：panel 贴左（x=0）+ Escape 关闭', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '左侧抽屉' }).first().click()
+    await page.waitForFunction(() => {
+      const p = [...document.querySelectorAll('.wf-drawer-panel')].find((x) => (x.textContent ?? '').includes('导航菜单'))
+      return p && p.getBoundingClientRect().x >= -1
+    }, null, { timeout: 3000 })
+    const x = await page.evaluate(() => [...document.querySelectorAll('.wf-drawer-panel')].find((x) => (x.textContent ?? '').includes('导航菜单'))?.getBoundingClientRect().x)
+    assert.ok(Math.abs(x) < 2, `贴左 x=${x}`)
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => ![...document.querySelectorAll('.wf-drawer-panel')].some((x) => (x.textContent ?? '').includes('导航菜单')), null, { timeout: 3000 })
   } finally { await page.close() }
 })

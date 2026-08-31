@@ -63,7 +63,6 @@ export function groupDiffLines(
 ): { kind: 'same' | 'change'; sameCount?: number; lines: DiffLine[] }[] {
   const groups: { kind: 'same' | 'change'; sameCount?: number; lines: DiffLine[] }[] = []
   let run: DiffLine[] = []
-  let sameRun = 0
 
   const flush = () => {
     if (run.length === 0) return
@@ -76,13 +75,13 @@ export function groupDiffLines(
   }
 
   for (const line of lines) {
-    if (line.type === 'same') {
-      sameRun++
-      run.push(line)
-    } else {
-      sameRun = 0
-      run.push(line)
-    }
+    const kind = line.type === 'same' ? 'same' : 'change'
+    // 当前 run 的 kind（run[0] 单一判断源）——kind 切换时先 flush 再开新段
+    // **2027-XX 实证修复**：原实现从未分段（全部行进同一 run——末尾 flush 一次）——
+    // 整个 diff 被当成首行 kind 的单组（same:12 覆盖 remove/add——折叠全错）
+    const runKind = run.length === 0 ? null : run[0].type === 'same' ? 'same' : 'change'
+    if (runKind !== null && runKind !== kind) flush()
+    run.push(line)
   }
   flush()
   return groups

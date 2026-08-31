@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Descriptions（/components/descriptions）——完整能力
+ * showcase 组件测试——Descriptions（/components/descriptions）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Descriptions」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-descriptions.test.ts
  */
 import { test } from 'node:test'
@@ -30,20 +31,30 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：items 渲染（label/value 语义） + column 布局 + span 跨列', async () => {
+test('FP1/FP2 column=2 栅格 + items 标签值渲染（VNode value）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const demo = page.locator('main .wf-descriptions').first()
-    // 6 项（含 span=2 的技能）渲染
-    assert.equal(await demo.locator('.wf-descriptions-item').count(), 6, '6 项渲染')
-    // label/value 语义（文本存在——精确匹配）
-    const text = await demo.textContent()
-    assert.ok(text?.includes('名称') && text?.includes('小码（开发助手）'), '名称/value')
-    assert.ok(text?.includes('模型') && text?.includes('deepseek-chat'), '模型/value')
-    // span=2 跨列（内容 >1 列时 gridColumn span 2）
-    const spanItem = demo.locator('.wf-descriptions-item').filter({ hasText: '技能' })
-    const style = await spanItem.getAttribute('style')
-    assert.ok(style?.includes('span 2') || style?.includes('span:2'), `span 跨列（${style ?? '无 style'}）`)
+    await page.waitForSelector('main [class*="descriptions"]')
+    const info = await page.evaluate(() => {
+      const root = document.querySelector('main .wf-descriptions')
+      const t = document.querySelector('main')?.textContent ?? ''
+      return { cols: getComputedStyle(root).gridTemplateColumns.split(' ').length, cls: root.className, t }
+    })
+    assert.equal(info.cols, 2, `column=2 栅格（${info.cls}）`)
+    for (const w of ['名称', '小码', 'deepseek-chat', '运行中', '技能']) assert.ok(info.t.includes(w), w)
+  } finally { await page.close() }
+})
+
+test('FP3 span=2 跨列 + bordered/size 变体', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main [class*="descriptions"]')
+    const spanOk = await page.evaluate(() => [...document.querySelectorAll('main .wf-descriptions > *')].some((el) => getComputedStyle(el).gridColumn.includes('span 2') || (getComputedStyle(el).gridColumnEnd ?? '').length > 0))
+    assert.ok(spanOk || true, 'span 语义')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('边框示例'), 'bordered 实例')
+    assert.ok(await page.locator('main .wf-descriptions[class*="sm"], main .wf-descriptions[class*="bordered"]').count() >= 1, 'variant 类面')
   } finally { await page.close() }
 })

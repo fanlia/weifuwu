@@ -1,11 +1,12 @@
 /**
- * showcase 组件测试——ColorPicker（/components/colorpicker）——完整能力
+ * showcase 组件测试——ColorPicker（/components/colorpicker）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「ColorPicker」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-colorpicker.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/colorpicker'
 
@@ -30,37 +31,51 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-/** evaluate 轮询（组件页文档表格样式循环——rAF/定时器饿死规避） */
-async function waitFor(page: import('playwright').Page, fn: () => Promise<boolean>, msg: string, timeoutMs = 5000): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (await page.evaluate(fn)) return
-    await page.waitForTimeout(100)
-  }
-  throw new Error(`${msg} 超时`)
-}
-
-test('渲染零错误 + 3 变体（默认/尺寸 sm·lg/disabled）+ 当前色显示', async () => {
+test('FP1/FP2 受控回显 + 面板展开 10 色板（portal）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // swatch 渲染（3 个 ColorPicker）
-    const swatches = await page.evaluate(() => document.querySelectorAll('main .wf-color-picker-swatch').length)
-    assert.ok(swatches >= 3, `swatch 数（实际 ${swatches}）`)
-    // disabled 变体（不可点击）
-    assert.ok(await page.evaluate(() => !!document.querySelector('main [class*="color"][class*="disabled"], main [disabled]')), 'disabled 变体')
-    // 当前色文字（默认 #4f6ef7——demo 状态显示）
-    assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('#4f6ef7')), '当前色')
-    // 选色交互（场景层 deep-colorpicker 已覆盖——showcase 验证渲染面）
+    await page.waitForSelector('main .wf-color-picker-trigger')
+    const v0 = await page.evaluate(() => document.querySelector('main .wf-color-picker-value')?.textContent)
+    assert.equal(v0, '#4f6ef7', '受控回显')
+    await page.locator('main .wf-color-picker-trigger').first().click()
+    await page.waitForSelector('#__wf_portal .wf-color-picker-grid', { timeout: 3000 })
+    assert.ok(await page.locator('#__wf_portal .wf-color-picker-swatch').count() >= 10, '预设色板')
   } finally { await page.close() }
 })
-test('位置：portal 归属 + fixed + 视口内 + 色板 bottom', async () => {
+
+test('FP4 showInput：hex 输入 → onChange 回流', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    
-    // 第一个 trigger 是 disabled 变体（pe:none 不可点）——用非 disabled
-    await page.locator('main [class*="color-picker-trigger"]:not([class*="disabled"])').first().click()
-    await assertPopupGeometry(page, { anchorSel: 'main [class*="color-picker-trigger"]:not([class*="disabled"])', dir: 'bottom', transformNone: true })
+    await page.waitForSelector('main .wf-color-picker-trigger')
+    await page.locator('main .wf-color-picker-trigger').first().click()
+    await page.waitForSelector('#__wf_portal .wf-color-picker-input', { timeout: 3000 })
+    await page.locator('#__wf_portal .wf-color-picker-input').fill('#ff0000')
+    await page.locator('#__wf_portal .wf-color-picker-input').press('Enter')
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('当前：#ff0000'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP3 色板点选回流（同面板内）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-color-picker-trigger')
+    await page.locator('main .wf-color-picker-trigger').first().click()
+    await page.waitForSelector('#__wf_portal .wf-color-picker-swatch', { timeout: 3000 })
+    await page.locator('#__wf_portal .wf-color-picker-swatch').nth(2).click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('当前：#ec4899'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP5 size 三档 + disabled', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-color-picker-trigger')
+    const sizes = await page.evaluate(() => [...new Set([...document.querySelectorAll('main .wf-color-picker-trigger')].flatMap((t) => [...t.classList]).filter((c) => c.includes('--sm') || c.includes('--lg')))])
+    assert.equal(sizes.length, 2, `sm+lg 档（默认 md）：${sizes.join(',')}`)
+    assert.ok(await page.evaluate(() => [...document.querySelectorAll('main .wf-color-picker-trigger')].some((t) => t.className.includes('disabled'))), 'disabled')
   } finally { await page.close() }
 })

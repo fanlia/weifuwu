@@ -75,9 +75,12 @@ export const DiffView: Component<DiffViewProps> = (_init, ctx) => {
                 ctx.render()
               }
             },
-          }, foldOpen ? '展开中' : `↕ ${g.sameCount} 行未变`),
+          // 展开态文案：点击收起（2027-XX 实证——原「展开中」文案误导）
+        }, foldOpen ? '收起未变行' : `↕ ${g.sameCount} 行未变`),
         )
-        if (expanded) {
+        // **展开才渲染行（2027-XX 实证修复）**：原 `if (expanded)` 用 Set 对象本身判真——
+        // 恒真与 foldOpen 状态脱钩——点击展开/收起后行数不变（状态切换失效）
+        if (foldOpen) {
           for (const line of g.lines) {
             if (lineCount >= maxLines) break
             lineCount++
