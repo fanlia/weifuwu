@@ -1,4 +1,7 @@
 # CLIENT-EXCELLENCE-PLAN——weifuwu/client 全面优化计划（第三阶段·2027-10）
+> **✅ 六波次全收官（2027-10）**：A `d126819a` · B `fcfe5d31` · C `acf32770` · D `144fbefe` · E `925cd7aa` · F `e67c66de`
+> 防线：audit:interactivity（检查 1-5）/ audit:theme / audit:api / audit:bundle / audit:showcase（D1+D2+F2 三合一）——全部 exit 0 基线
+> A3/E1 判负调整已登记（启发式误报——替代双保险）
 
 > **定位**：基于两个已完成阶段的全部经验，把 client 从「单点正确」推向
 > 「体系卓越」。前序资产：
