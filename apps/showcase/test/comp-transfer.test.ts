@@ -45,3 +45,18 @@ test('能力：穿梭（点成员B → 移入已选）', async () => {
     }
   } finally { await page.close() }
 })
+
+test('FP-追加 两步穿梭：勾选 --sel → 图标按钮移动到右列', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main .wf-transfer-item')
+    await page.locator('main .wf-transfer-item').filter({ hasText: '成员B' }).first().click()
+    await page.waitForFunction(() => { const i = [...document.querySelectorAll('main .wf-transfer-item')].find((x) => x.textContent?.includes('成员B')); return i && String(i.className).includes('--sel') }, null, { timeout: 3000 })
+    const moveBtns = page.locator('main button:has(svg):not(:has(text))')
+    const nb = await moveBtns.count()
+    assert.ok(nb >= 1, '穿梭按钮')
+    await moveBtns.nth(nb > 1 ? 1 : 0).click()
+    await page.waitForFunction(() => { const cols = [...document.querySelectorAll('main .wf-transfer-body')]; return (cols[cols.length - 1]?.textContent ?? '').includes('成员B') }, null, { timeout: 3000 })
+  } finally { await page.close() }
+})
