@@ -39,8 +39,8 @@ export interface Ai {
   sse(run: (emit: WfEmitter) => Promise<void> | void, options?: { signal?: AbortSignal }): Response
   /** 响应一个挂起的 HITL 审批（协议 §4.5，app 的 POST /approve 路由调用） */
   approve(response: WfApprovalResponse): boolean
-  /** 内部：agent 循环挂起等待审批 */
-  waitApproval(req: ApprovalRequest, emit: WfEmitter, timeoutMs?: number): Promise<WfApprovalResponse>
+  /** 内部：agent 循环挂起等待审批（A4：signal 取消也收尾——挂起不阻塞取消） */
+  waitApproval(req: ApprovalRequest, emit: WfEmitter, timeoutMs?: number, signal?: AbortSignal): Promise<WfApprovalResponse>
   /** 单文本嵌入（知识库/语义检索；需 ai({ embedding }) 配置，未配抛 AiError） */
   embed(text: string): Promise<number[]>
   /** 批量文本嵌入（按输入顺序返回） */

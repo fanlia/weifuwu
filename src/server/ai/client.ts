@@ -98,11 +98,12 @@ export interface AiClient {
   ): Promise<void>
   /** 响应一个挂起的 HITL 审批（协议 §4.5，app 的 POST /approve 路由调用） */
   approve(response: WfApprovalResponse): boolean
-  /** 内部：agent 循环挂起等待审批 */
+  /** 内部：agent 循环挂起等待审批（A4：signal 取消也收尾——挂起不阻塞取消） */
   waitApproval(
     req: { id: string; toolCallId: string; name: string; args: Record<string, unknown> },
     emit: WfEmitter,
     timeoutMs?: number,
+    signal?: AbortSignal,
   ): Promise<WfApprovalResponse>
   /** 单文本嵌入（知识库/语义检索；需 ai({ embedding }) 配置，未配抛 AiError） */
   embed(text: string): Promise<number[]>
@@ -247,44 +248,76 @@ export function createAiClient(opts: AiClientOptions): AiClient {
     return true
   }
 
-  /** 内部：agent 循环挂起等待审批（emit approval_request，直到 approve 响应或超时） */
+  /** 内部：agent 循环挂起等待审批（emit approval_request，直到 approve 响应或超时）
+   *  A4 修复（2027-XX）：signal 取消也收尾——旧代码挂起期间客户端断开后白等满
+   *  timeout（默认 5 分钟）——三路（超时/取消/批准）统一 finish——settled 恰好一次
+   *  ——取消/超时也删除条目（用后即焚扩展到取消路径：事后 approve 返回 false）
+   */
   async function waitApproval(
     req: { id: string; toolCallId: string; name: string; args: Record<string, unknown> },
     emit: WfEmitter,
     timeoutMs = DEFAULT_APPROVAL_TIMEOUT,
+    signal?: AbortSignal,
   ): Promise<WfApprovalResponse> {
     const expiresAt = Date.now() + timeoutMs
     emit('wf:approval_request', { ...req, expiresAt })
     return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        if (approvals.has(req.id)) {
-          approvals.delete(req.id)
-          resolve({ id: req.id, decision: 'rejected' }) // 超时 → 按拒绝处理（协议 §4.5）
-        }
-      }, timeoutMs)
-      approvals.set(req.id, (resp) => {
+      let settled = false
+      const finish = (resp: WfApprovalResponse) => {
+        if (settled) return
+        settled = true
         clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
         resolve(resp)
+      }
+      const timer = setTimeout(() => {
+        if (approvals.has(req.id)) approvals.delete(req.id)
+        finish({ id: req.id, decision: 'rejected' }) // 超时 → 按拒绝处理（协议 §4.5）
+      }, timeoutMs)
+      const onAbort = () => {
+        if (approvals.has(req.id)) approvals.delete(req.id)
+        finish({ id: req.id, decision: 'rejected' }) // 取消 → 拒绝（agent 循环随即退出）
+      }
+      signal?.addEventListener('abort', onAbort, { once: true })
+      approvals.set(req.id, (resp) => {
+        if (approvals.has(req.id)) approvals.delete(req.id)
+        finish(resp)
       })
     })
   }
-  /** 聚合 provider 流式 tool_calls：id 只在首 chunk，arguments 分片拼接 */
+  /**
+   * 聚合 provider 流式 tool_calls——**按 index 键控**（A1 修复——2027-XX）：
+   * OpenAI 兼容流式标准形态 = 每 chunk 的 tool_calls 数组只含当前 index 的 delta
+   * （id+name 在首个 chunk，后续 chunk 只带 arguments 分片）——双工具交错分片下，
+   * 「无 id 追加到最后一个」会把 index 0 的参数错拼到 index 1（参数静默丢失——实证）。
+   * 聚合键 = delta.index（协议标准字段；缺失归 0——单调用兼容；无 index 多调用 = 非法输入）。
+   */
   function aggregateToolCalls(chunks: ChatChunk[]): ToolCall[] {
-    const calls: ToolCall[] = []
+    const byIndex = new Map<number, ToolCall>()
+    const order: number[] = []
     for (const chunk of chunks) {
       const delta = chunk.choices[0]?.delta
       if (!delta?.tool_calls) continue
-      for (const tc of delta.tool_calls) {
-        if (tc.id) {
-          calls.push(tc)
-        } else if (calls.length > 0) {
-          // 后续 chunk 无 id → 追加到最后一个（DeepSeek 行为）
-          const last = calls[calls.length - 1]
-          if (tc.function?.arguments) last.function.arguments += tc.function.arguments
+      for (const raw of delta.tool_calls as Array<ToolCall & { index?: number }>) {
+        const idx = raw.index ?? 0
+        let call = byIndex.get(idx)
+        if (!call) {
+          call = {
+            // id 兜底（协议允许后端生成）；id 只在首 chunk（DeepSeek）
+            id: raw.id ?? `tc_${idx}`,
+            type: 'function',
+            function: { name: raw.function?.name ?? '', arguments: '' },
+          }
+          byIndex.set(idx, call)
+          order.push(idx)
         }
+        if (raw.id) call.id = raw.id
+        if (raw.function?.name) call.function.name = raw.function.name
+        // 首 chunk 可能带空 arguments（DeepSeek）——追加语义正确；同 index 分片顺序追加
+        if (raw.function?.arguments) call.function.arguments += raw.function.arguments
       }
     }
-    return calls
+    return order.map((idx) => byIndex.get(idx)!)
   }
 
   async function chat(params: ChatParams, options?: { signal?: AbortSignal }): Promise<ChatResponse> {
@@ -304,19 +337,31 @@ export function createAiClient(opts: AiClientOptions): AiClient {
   function stream(params: ChatParams, options?: { signal?: AbortSignal; traceId?: string }): Response {
     const controller = new AbortController()
     const external = options?.signal
+    const onAbort = () => controller.abort()
     if (external) {
       if (external.aborted) controller.abort()
-      else external.addEventListener('abort', () => controller.abort(), { once: true })
+      else external.addEventListener('abort', onAbort, { once: true })
     }
 
     return sseResponse(
       async (emit) => {
-        emit('wf:message_start', { id: options?.traceId ?? randomUUID() })
-        await streamStep(params, {
-          emit,
-          signal: controller.signal,
-          onFinish: (r) => emit('wf:done', { content: r.content, usage: r.usage }),
-        })
+        try {
+          emit('wf:message_start', { id: options?.traceId ?? randomUUID() })
+          await streamStep(params, {
+            emit,
+            signal: controller.signal,
+            // A2 修复：thinking 模式 reasoning_content 收尾一次性下发（协议 §3.4——
+            // 前端 ReasoningBlock 消费；旧代码只发 { content, usage }——推理断路）
+            onFinish: (r) => emit('wf:done', {
+              content: r.content,
+              usage: r.usage,
+              ...(r.reasoning_content ? { reasoning: r.reasoning_content } : {}),
+            }),
+          })
+        } finally {
+          // A5 修复：长生命周期 signal 不累积监听器（正常完成 + cancel 两个路径都清理）
+          external?.removeEventListener('abort', onAbort)
+        }
       },
       { onAbort: () => controller.abort() },
     )
@@ -388,11 +433,22 @@ export function createAiClient(opts: AiClientOptions): AiClient {
   function sse(run: (emit: WfEmitter) => Promise<void> | void, options?: { signal?: AbortSignal }): Response {
     const controller = new AbortController()
     const external = options?.signal
+    const onAbort = () => controller.abort()
     if (external) {
       if (external.aborted) controller.abort()
-      else external.addEventListener('abort', () => controller.abort(), { once: true })
+      else external.addEventListener('abort', onAbort, { once: true })
     }
-    return sseResponse(run, { onAbort: () => controller.abort() })
+    return sseResponse(
+      async (emit) => {
+        try {
+          await run(emit)
+        } finally {
+          // A5 修复：长生命周期 signal 不累积监听器
+          external?.removeEventListener('abort', onAbort)
+        }
+      },
+      { onAbort: () => controller.abort() },
+    )
   }
 
   return {

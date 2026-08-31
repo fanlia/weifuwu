@@ -10,6 +10,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type Server } from 'node:http'
 import { ai } from '../ai/index.ts'
+import { sseResponse } from '../ai/sse.ts'
 import type { WfStreamEvent } from '../ai/types.ts'
 
 // ── wire-fake：OpenAI 兼容协议的真实 HTTP 服务器 ──────────
@@ -151,6 +152,68 @@ test('ai.stream：SSE 事件序列 message_start → token → usage → done', 
   }
 })
 
+test('ai.stream：thinking 模式 → wf:done 带 reasoning（A2——推理断路修复）', async () => {
+  // provider 发 reasoning_content 分片（DeepSeek thinking）——收尾一次性下发
+  const LINES = [
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"先分析：","content":""},"finish_reason":null}]}\n\n',
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{"reasoning_content":"用户想要答案","content":"你好"},"finish_reason":null}]}\n\n',
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}\n\n',
+    'data: [DONE]\n\n',
+  ]
+  const server = createServer(async (_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+    for (const line of LINES) res.write(line)
+    res.end()
+  })
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+  const { port } = server.address() as { port: number }
+  const a = ai({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm' })
+  try {
+    const res = a.stream({ messages: [{ role: 'user', content: 'hi' }] })
+    const events = await collectEvents(res)
+    const done = events.find((e) => e.name === 'wf:done')!
+    const d = done.data as { content: string; reasoning?: string }
+    assert.equal(d.content, '你好')
+    assert.equal(d.reasoning, '先分析：用户想要答案', 'reasoning 聚合随 done 下发（旧代码无此字段）')
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()))
+  }
+})
+
+test('sse 心跳：heartbeatMs 间隔发注释行 + 事件序列完整（A6——代理保活）', async () => {
+  const res = sseResponse(
+    async (emit) => {
+      emit('wf:token', { text: 'a' })
+      await new Promise((r) => setTimeout(r, 200)) // 长工具执行窗口——零字节输出
+      emit('wf:done', { content: 'a' })
+    },
+    { heartbeatMs: 50 },
+  )
+  assert.equal(res.headers.get('x-accel-buffering'), 'no', 'nginx 缓冲禁用头')
+  const reader = res.body!.getReader()
+  const decoder = new TextDecoder()
+  let raw = ''
+  let eventBuf = ''
+  const events: WfStreamEvent[] = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    const text = decoder.decode(value, { stream: true })
+    raw += text
+    eventBuf += text
+    const blocks = eventBuf.split('\n\n')
+    eventBuf = blocks.pop() ?? ''
+    for (const block of blocks) {
+      const evLine = block.split('\n').find((l) => l.startsWith('event: '))
+      const dataLine = block.split('\n').find((l) => l.startsWith('data: '))
+      if (!evLine || !dataLine) continue
+      events.push({ name: evLine.slice(7), data: JSON.parse(dataLine.slice(6)) } as WfStreamEvent)
+    }
+  }
+  assert.ok(raw.includes(': wf-heartbeat'), '心跳注释行存在（旧代码零字节窗口——代理断流）')
+  assert.deepEqual(events.map((e) => e.name), ['wf:token', 'wf:done'], '心跳不污染事件序列（前端解析器跳过注释行）')
+})
+
 test('ai.stream：message_start.id 取 X-Trace-Id（追踪关联）', async () => {
   const fake = await startFakeProvider(() => {})
   const a = ai({ apiKey: 'test-key', baseUrl: fake.url })
@@ -188,6 +251,48 @@ test('ai.stream：tool_calls 聚合（id 只在首 chunk，arguments 分片拼�
     // tool_call 之后是 done
     const names = events.map((e) => e.name)
     assert.equal(names[names.length - 1], 'wf:done')
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()))
+  }
+})
+
+test('ai.stream：并行 tool_calls 交错分片 → 各 index 参数完整（A1——index 键控聚合）', async () => {
+  // 标准 OpenAI 兼容形态：每 chunk 只含当前 index 的一个 delta（id+name 在首个 chunk，
+  // 后续 chunk 只带 arguments 分片）——双工具交错分片下「无 id 追加到最后一个」
+  // 会把 index 0 的参数错拼到 index 1（旧代码两个 args 均丢失——实证）
+  const LINES = [
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"tool_a","arguments":""}}]},"finish_reason":null}]}\n\n',
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"id":"call_b","type":"function","function":{"name":"tool_b","arguments":""}}]},"finish_reason":null}]}\n\n',
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"x\\":"}}]},"finish_reason":null}]}\n\n',
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":"{\\"y\\":"}}]},"finish_reason":null}]}\n\n',
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"1}"}}]},"finish_reason":null}]}\n\n',
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":"2}"}}]},"finish_reason":null}]}\n\n',
+    'data: {"id":"1","model":"m","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n',
+    'data: [DONE]\n\n',
+  ]
+  const server = createServer(async (_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+    for (const line of LINES) res.write(line)
+    res.end()
+  })
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+  const { port } = server.address() as { port: number }
+  const a = ai({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm' })
+  try {
+    const res = a.stream({
+      messages: [{ role: 'user', content: '查两个' }],
+      tools: [
+        { type: 'function', function: { name: 'tool_a', description: 'a', parameters: {} } },
+        { type: 'function', function: { name: 'tool_b', description: 'b', parameters: {} } },
+      ],
+    })
+    const events = await collectEvents(res)
+    const calls = events.filter((e) => e.name === 'wf:tool_call').map((e) => e.data as { id: string; name: string; args: Record<string, unknown> })
+    assert.equal(calls.length, 2)
+    const a1 = calls.find((c) => c.id === 'call_a')!
+    const b1 = calls.find((c) => c.id === 'call_b')!
+    assert.deepEqual(a1.args, { x: 1 }, 'index 0 参数完整（旧代码丢失——错拼到 index 1）')
+    assert.deepEqual(b1.args, { y: 2 }, 'index 1 参数完整')
   } finally {
     await new Promise<void>((r) => server.close(() => r()))
   }

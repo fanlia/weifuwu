@@ -117,14 +117,22 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
     function: { name: t.name, description: t.description ?? '', parameters: t.parameters ?? {} },
   }))
 
-  /** 统一控制器：外部 signal → 内部 AbortController（stream/run/runToResult 共用） */
-  function createController(external?: AbortSignal): AbortController {
+  /** 统一控制器：外部 signal → 内部 AbortController（stream/run/runToResult 共用）
+   *  A5 修复（2027-XX）：release() 移除外部监听器——长生命周期 signal（worker 复用）
+   *  不累积监听器（旧代码 addEventListener 后永不清理）
+   */
+  function createController(external?: AbortSignal): { signal: AbortSignal; abort: () => void; release: () => void } {
     const controller = new AbortController()
+    const onAbort = () => controller.abort()
     if (external) {
       if (external.aborted) controller.abort()
-      else external.addEventListener('abort', () => controller.abort(), { once: true })
+      else external.addEventListener('abort', onAbort, { once: true })
     }
-    return controller
+    return {
+      signal: controller.signal,
+      abort: () => controller.abort(),
+      release: () => external?.removeEventListener('abort', onAbort),
+    }
   }
 
   /** 事件流模式：wf:* 事件打到自定义 emitter（SSE 只是默认实现，应用层可接 WS/回调/自有协议） */
@@ -132,21 +140,29 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
     messages: ChatMessage[],
     options?: { emit: WfEmitter; signal?: AbortSignal; traceId?: string },
   ): Promise<void> {
-    const controller = createController(options?.signal)
+    const { signal, release } = createController(options?.signal)
     const emit = options?.emit ?? (() => {})
-    emit('wf:message_start', { id: options?.traceId ?? randomUUID() })
-    await loop(messages, emit, controller.signal)
+    try {
+      emit('wf:message_start', { id: options?.traceId ?? randomUUID() })
+      await loop(messages, emit, signal)
+    } finally {
+      release()
+    }
   }
 
   /** 运行 agent → SSE Response（默认通道；路由直接 return） */
   function run(messages: ChatMessage[], options?: AgentRunOptions): Response {
-    const controller = createController(options?.signal)
+    const { signal, abort, release } = createController(options?.signal)
     return sseResponse(
       async (emit) => {
-        emit('wf:message_start', { id: options?.traceId ?? randomUUID() })
-        await loop(messages, emit, controller.signal)
+        try {
+          emit('wf:message_start', { id: options?.traceId ?? randomUUID() })
+          await loop(messages, emit, signal)
+        } finally {
+          release()
+        }
       },
-      { onAbort: () => controller.abort() },
+      { onAbort: () => abort() },
     )
   }
 
@@ -176,14 +192,21 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
         usage = data as WfUsage
       }
     }
-    const controller = createController(options?.signal)
-    await loop(messages, emit, controller.signal)
+    const { signal, release } = createController(options?.signal)
+    try {
+      await loop(messages, emit, signal)
+    } finally {
+      release()
+    }
     return { content, steps, usage }
   }
 
   async function loop(messages: ChatMessage[], emit: WfEmitter, signal?: AbortSignal): Promise<void> {
     const all: ChatMessage[] = [{ role: 'system', content: config.systemPrompt }, ...messages]
     const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+    // A3 修复：跨轮内容累积——done.content 与 token 流一致（协议 §3.4「完整内容」；
+    // 旧代码只含最后一轮——多轮 round 文本丢失——实证；runToResult 同口径）
+    let content = ''
 
     for (let step = 0; step < maxSteps; step++) {
       if (signal?.aborted) return
@@ -198,6 +221,7 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
           emitUsage: false, // agent 只发累积 usage（done 前统一发）
           onFinish: (r) => {
             finish = r
+            if (r.content) content += r.content
             if (r.usage) {
               usage.prompt_tokens += r.usage.prompt_tokens ?? 0
               usage.completion_tokens += r.usage.completion_tokens ?? 0
@@ -211,7 +235,7 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
       // 无工具调用 → 完成
       if (!finish.toolCalls?.length) {
         emit('wf:usage', usage)
-        emit('wf:done', { content: finish.content, usage, reasoning: finish.reasoning_content })
+        emit('wf:done', { content, usage, reasoning: finish.reasoning_content })
         return
       }
 
@@ -244,6 +268,7 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
             { id: randomUUID(), toolCallId: tc.id, name, args },
             emit,
             config.approvalTimeoutMs,
+            signal, // A4：取消也收尾（旧代码挂满 timeout——SSE 取消后白等 5 分钟）
           )
           if (decision.decision === 'rejected') {
             emit('wf:tool_result', { id: tc.id, ok: false, error: { code: 'rejected', message: decision.note ?? '用户拒绝' } })
@@ -296,9 +321,9 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
       // 下一轮循环：LLM 看到 tool results 继续推理
     }
 
-    // maxSteps 耗尽：返回当前内容
+    // maxSteps 耗尽：返回当前内容（A3——旧代码 content:'' 丢一切——实证）
     emit('wf:usage', usage)
-    emit('wf:done', { content: '', usage })
+    emit('wf:done', { content, usage })
   }
 
   return { run, stream, runToResult }

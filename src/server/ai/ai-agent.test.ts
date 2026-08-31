@@ -79,6 +79,25 @@ async function collectEvents(res: Response): Promise<WfStreamEvent[]> {
   return events
 }
 
+/** 从已部分读取的流继续收集剩余事件（A4 测试用——buffer 可能含半块） */
+async function collectStream(reader: ReadableStreamDefaultReader<Uint8Array>, decoder: TextDecoder, buffer: string): Promise<WfStreamEvent[]> {
+  const events: WfStreamEvent[] = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const blocks = buffer.split('\n\n')
+    buffer = blocks.pop() ?? ''
+    for (const block of blocks) {
+      const evLine = block.split('\n').find((l) => l.startsWith('event: '))
+      const dataLine = block.split('\n').find((l) => l.startsWith('data: '))
+      if (!evLine || !dataLine) continue
+      events.push({ name: evLine.slice(7), data: JSON.parse(dataLine.slice(6)) } as WfStreamEvent)
+    }
+  }
+  return events
+}
+
 // ── 测试 ──────────────────────────────────────────────────
 
 test('agent：一轮无工具调用 → step llm + done', async () => {
@@ -147,7 +166,7 @@ test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（
   const fake = await startScriptedProvider([
     [
       chunk({ role: 'assistant', tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: 'slow_tool', arguments: '' } }, { index: 1, id: 'call_2', type: 'function', function: { name: 'fast_tool', arguments: '' } }] }),
-      chunk({ tool_calls: [{ index: 0, function: { arguments: '{}' } }, { index: 1, function: { arguments: '{}' } }] }),
+      chunk({ tool_calls: [{ index: 0, function: { arguments: '{"slow":1}' } }, { index: 1, function: { arguments: '{"fast":2}' } }] }),
       chunk({}, 'tool_calls', { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }),
       'data: [DONE]\n\n',
     ],
@@ -157,6 +176,8 @@ test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（
   // 并发证据（确定性——不依赖计时）：两工具 run 重叠（同时 in-flight）
   let inFlight = 0
   let maxInFlight = 0
+  // A1 回归（T2）：工具必须收到**各自完整**的参数（旧代码同 index 参数错拼——盲区歼灭）
+  const seen: Array<[string, Record<string, unknown>]> = []
   const agent = a.agent({
     systemPrompt: '助手',
     parallelTools: true, // O13：显式开启并行
@@ -164,12 +185,12 @@ test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（
       {
         name: 'slow_tool',
         description: '慢工具',
-        run: async () => { inFlight++; maxInFlight = Math.max(maxInFlight, inFlight); await new Promise((r) => setTimeout(r, 120)); inFlight--; return 'slow-ok' },
+        run: async (args) => { inFlight++; maxInFlight = Math.max(maxInFlight, inFlight); seen.push(['slow_tool', args]); await new Promise((r) => setTimeout(r, 120)); inFlight--; return 'slow-ok' },
       },
       {
         name: 'fast_tool',
         description: '快工具',
-        run: async () => { inFlight++; maxInFlight = Math.max(maxInFlight, inFlight); await new Promise((r) => setTimeout(r, 30)); inFlight--; return 'fast-ok' },
+        run: async (args) => { inFlight++; maxInFlight = Math.max(maxInFlight, inFlight); seen.push(['fast_tool', args]); await new Promise((r) => setTimeout(r, 30)); inFlight--; return 'fast-ok' },
       },
     ],
   })
@@ -178,6 +199,9 @@ test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（
     assert.equal(maxInFlight, 2, '双工具并发执行（同时 in-flight = 2——串行为 1）')
     assert.equal(fake.requestCount(), 2, '两轮 LLM 调用')
     assert.equal(result.content, '两工具结果已合并', '第二轮文本为最终内容')
+    // T2：各工具收到各自完整参数（旧代码 slow_tool 收 {}——参数丢失）
+    assert.deepEqual(seen.find(([n]) => n === 'slow_tool')?.[1], { slow: 1 }, 'slow_tool 参数完整')
+    assert.deepEqual(seen.find(([n]) => n === 'fast_tool')?.[1], { fast: 2 }, 'fast_tool 参数完整')
   } finally {
     await fake.close()
   }
@@ -464,6 +488,118 @@ test('agent：maxSteps 耗尽 → done 返回', async () => {
     assert.ok(done)
     assert.equal(fake.requestCount(), 3, 'maxSteps 次 LLM 调用')
     assert.ok((done.data as { usage?: { total_tokens: number } }).usage, 'done 带累积 usage')
+  } finally {
+    await fake.close()
+  }
+})
+
+test('agent：多轮文本 → done.content 跨轮累积（A3——旧代码只含最后一轮）', async () => {
+  // 首轮带 tool_call 前文本「先分析」+ 尾轮「最终答案」——token 流两段都到前端，
+  // done.content 必须双段累积（协议 §3.4 完整内容；旧代码只发尾轮——实证）
+  const roundWithText = (content: string, name: string): string[] => [
+    chunk({ role: 'assistant', content, tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name, arguments: '' } }] }),
+    chunk({ tool_calls: [{ index: 0, function: { arguments: '{}' } }] }),
+    chunk({}, 'tool_calls', { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }),
+    'data: [DONE]\n\n',
+  ]
+  const fake = await startScriptedProvider([
+    roundWithText('先分析', 'loop_tool'),
+    textRound('最终答案'),
+  ])
+  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const agent = a.agent({
+    systemPrompt: '助手',
+    maxSteps: 5,
+    tools: [{ name: 'loop_tool', description: 't', run: async () => ({ ok: true }) }],
+  })
+  try {
+    const events = await collectEvents(agent.run([{ role: 'user', content: 'x' }]))
+    const done = events.find((e) => e.name === 'wf:done')!
+    assert.equal((done.data as { content: string }).content, '先分析最终答案', 'done.content = 跨轮文本累积')
+  } finally {
+    await fake.close()
+  }
+})
+
+test('agent：maxSteps 耗尽 → done.content 带累积文本（A3——旧代码 content:"" 丢失）', async () => {
+  // 脚本永远返回带文本 + tool_call → 循环到 maxSteps——累积内容不丢
+  const roundWithText = (content: string): string[] => [
+    chunk({ role: 'assistant', content, tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: 'loop_tool', arguments: '' } }] }),
+    chunk({ tool_calls: [{ index: 0, function: { arguments: '{}' } }] }),
+    chunk({}, 'tool_calls', { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }),
+    'data: [DONE]\n\n',
+  ]
+  const fake = await startScriptedProvider([roundWithText('第')])
+  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const agent = a.agent({
+    systemPrompt: '助手',
+    maxSteps: 2,
+    tools: [{ name: 'loop_tool', description: 't', run: async () => ({ ok: true }) }],
+  })
+  try {
+    const events = await collectEvents(agent.run([{ role: 'user', content: 'x' }]))
+    const done = events.find((e) => e.name === 'wf:done')!
+    assert.equal(fake.requestCount(), 2, 'maxSteps 次 LLM 调用')
+    assert.equal((done.data as { content: string }).content, '第第', 'maxSteps 耗尽：累积文本不丢（旧代码 ""）')
+  } finally {
+    await fake.close()
+  }
+})
+
+test('A4：审批挂起中取消 → 快速收尾 + 条目回收（approve 返回 false）', async () => {
+  const fake = await startScriptedProvider([toolRound('needs_approval', '{}')])
+  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const agent = a.agent({
+    systemPrompt: '助手',
+    humanInTheLoop: true,
+    tools: [{ name: 'needs_approval', description: 't', run: async () => ({ ok: true }) }],
+  })
+  try {
+    const controller = new AbortController()
+    const res = agent.run([{ role: 'user', content: 'x' }], { signal: controller.signal })
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let approvalId = ''
+    // 读到 approval_request（挂起点）——按块解析（args 含嵌套 {}——不能用 [^}]* 贪心）
+    while (!approvalId) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      for (const block of buffer.split('\n\n')) {
+        if (!block.startsWith('event: wf:approval_request')) continue
+        const dataLine = block.split('\n').find((l) => l.startsWith('data: '))
+        if (dataLine) approvalId = JSON.parse(dataLine.slice(6)).id
+      }
+    }
+    assert.ok(approvalId, 'approval_request 已发出（挂起中）')
+    // 模拟取消（等价客户端断开 → SSE cancel → onAbort → controller.abort）
+    controller.abort()
+    // 决定性断言：条目已回收——事后 approve 返回 false（旧代码返回 true 且工具被错误执行）
+    assert.equal(a.approve({ id: approvalId, decision: 'approved' }), false, '取消后审批条目已回收（用后即焚）')
+    // 流正常收尾（旧代码挂满默认 5 分钟 approvalTimeoutMs）
+    const rest = await collectStream(reader, decoder, buffer)
+    assert.ok(rest.some((e) => e.name === 'wf:tool_result' && (e.data as { ok: boolean }).ok === false), '取消 → tool_result(rejected) 收尾')
+  } finally {
+    await fake.close()
+  }
+})
+
+test('A5：长生命周期 signal 复用——多次 runToResult 无交叉污染（监听器清理哨兵）', async () => {
+  const fake = await startScriptedProvider([textRound('hi')])
+  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const agent = a.agent({ systemPrompt: 's', tools: [] })
+  try {
+    // 同一外部 signal 连续复用（worker 场景）——每次 run 的监听器清理不残留
+    const controller = new AbortController()
+    for (let i = 0; i < 3; i++) {
+      const result = await agent.runToResult([{ role: 'user', content: 'x' }], { signal: controller.signal })
+      assert.equal(result.content, 'hi', `第 ${i + 1} 次复用正常`)
+    }
+    // 全部完成后 abort——无副作用（无残留监听器触发已完成 run 的重入）
+    controller.abort()
+    await agent.runToResult([{ role: 'user', content: 'x' }], { signal: controller.signal })
+    assert.ok(true)
   } finally {
     await fake.close()
   }
