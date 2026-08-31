@@ -36,7 +36,7 @@ export interface CitationCardProps {
   maxVisible?: number
   /** 初始展开（默认折叠） */
   defaultExpanded?: boolean
-  /** 点击条目回调（提供时不渲染链接，由调用方处理跳转/打开） */
+  /** 点击条目回调（提供时 a 不带 href——role=button + onClick——跳转/打开由调用方处理） */
   onOpen?: (citation: Citation) => void
 }
 
