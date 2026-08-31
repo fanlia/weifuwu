@@ -91,6 +91,26 @@ test('deep-slidecanvas：幻灯片形状渲染（文本）', async () => {
   }
 })
 
+test('deep-slidecanvas：拖拽 shape → onChange 回流（log 变化）', async () => {
+  const page = await browser.newPage()
+  try {
+    await openScenario(page, BASE, 'deep-slidecanvas')
+    await page.waitForSelector('.deep-slidecanvas-scene')
+    // L2：pointer 拖拽 shape（文本形状 s1）→ onChange 触发 → log 非空
+    const target = page.locator('.deep-slidecanvas-scene .wf-slide-shape').first()
+    const box = await target.boundingBox()
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 20, { steps: 6 })
+      await page.mouse.up()
+      await page.waitForFunction(() => (document.querySelector('.deep-slidecanvas-log')?.textContent ?? '').includes('change'), null, { timeout: 4000 })
+    }
+  } finally {
+    await page.close()
+  }
+})
+
 // ── 场景 12-14：ImageCropper/VideoPlayer/AuthPage ──────────────────────
 test('deep-imagecropper：图片加载 → 裁剪框渲染', async () => {
   const page = await browser.newPage()

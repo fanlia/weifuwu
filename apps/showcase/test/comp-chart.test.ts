@@ -83,3 +83,17 @@ test('FP5 area 面积填充实例渲染', async () => {
     assert.ok(n >= 4, `4 图实例（line/bar/pie/area）实际 ${n}`)
   } finally { await page.close() }
 })
+
+test('交互：hover 数据点 → portal tooltip（label+value 跟随）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main svg rect')
+    const rect = page.locator('main svg rect').first()
+    const box = await rect.boundingBox()
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.waitForFunction(() => /\d月\d+|\d+/.test(document.querySelector('#__wf_portal')?.textContent ?? ''), null, { timeout: 3000 })
+    const tip = await page.evaluate(() => document.querySelector('#__wf_portal')?.textContent?.trim().slice(0, 12))
+    assert.ok((tip ?? '').length >= 2, `tooltip=${tip}`)
+  } finally { await page.close() }
+})

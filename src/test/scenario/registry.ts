@@ -1441,11 +1441,14 @@ const DeepSheetGrid = (_i: Record<string, never>, ctx: any) => {
 
 const DeepSlideCanvas = (_i: Record<string, never>, ctx: any) => {
   let log = ''
+  // **受控闭环（2027-09 拖拽断言实证）**：onChange 的 deck 必须存回并回传
+  // （组件引用比较受控——场景每次 render 传新字面量会重置内部 live 状态）。
+  let liveDeck: any = { slides: [{ shapes: [{ id: 's1', kind: 'text', x: 10, y: 10, w: 200, h: 50, props: { text: '标题' } }] }], activeSlide: 0 }
   return () =>
     h('div', { class: 'deep-slidecanvas-scene', style: { height: '250px' } },
       h(CSlideCanvas, {
-        deck: { slides: [{ shapes: [{ id: 's1', kind: 'text', x: 10, y: 10, w: 200, h: 50, props: { text: '标题' } }] }], activeSlide: 0 },
-        onChange: (d: unknown) => { log += 'change;'; ctx.render() },
+        deck: liveDeck,
+        onChange: (d: unknown) => { liveDeck = d; log += 'change;'; ctx.render() },
       }),
       h('span', { class: 'deep-slidecanvas-log' }, log),
     )

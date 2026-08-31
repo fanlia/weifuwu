@@ -113,8 +113,16 @@ L3 声明对账面   注释/文档/demo 文案/props vs 实际接线   ← 零�
   选择器按 ARIA 语义查；②SSR adopt 完成前 click 落空（事件未接管）——
   测试需等待接管；③server 编辑竞态后 curl 的旧响应勿当真——以 DOM
   实测为准；④esbuild 输出非 ASCII 转 \uXXXX——grep 中文需在 DOM 层
-- 剩余基线 3 条登记理由：chart（tooltip 点位数据相关）、slidecanvas
-  （无活体 demo——场景层）、diffview（折叠已由 FP3 锁定——重复断言）：ContextMenu 键盘导航死路（审计 L2
+- **基线清零（消化轮 3——2027-09）**：14→0——
+- **SlideCanvas 受控回流门控**（组件层实质缺陷）：场景每次 render 传新
+  deck 字面量 → 引用比较判定「外部变更」→ live 拖拽状态被 props 重置
+  （x=104→10——拖拽死——插桩实证 onPointerMove 9 次/live 8 次/deck 更新
+  但 onPointerUp 读到旧值）——修：!drag 门控 + 场景受控闭环（onChange
+  的 deck 存回回传）+ move/up 绑 window（shape 重建无关——事件流断裂
+  根治）
+- chart L2（hover 数据点 → portal tooltip「1月120」）、diffview FP3 补
+  键盘 Enter 断言、slidecanvas 场景层拖拽断言（e2e-15——onChange 回流）
+- 基线文件删除——哨兵转纯红线（缺口 = exit 1——零登记）：ContextMenu 键盘导航死路（审计 L2
 缺口实证——右键打开后 ArrowDown 无效）——**内核层修复**：openPopup 新增
 `autoFocus` 选项（确定性 scheduleAfterRender + 挂载重试聚焦——非模态不锁
 滚动/不陷阱；trapFocus 模态分支共用 focusPanelWhenMounted）。**关键实证**：

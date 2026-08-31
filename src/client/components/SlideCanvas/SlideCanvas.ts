@@ -129,6 +129,20 @@ export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx) => {
   }
 
   // ── 拖动（pointer——move/resize） ──
+  // **move/up 绑 window（2027-09 场景层拖拽实证）**：pointerdown 后 selected
+  // 变化触发 ctx.render() → shape DOM 被替换 → 若 move 绑画布容器，重建后
+  // 事件流断裂（move 不再到达——拖拽死）。window 恒在不受重建影响——drag
+  // 状态门控（null 时 no-op）——ctx.ui.hold 卸载清理。SSR 端 ctx.browser
+  // undefined 自动跳过（工厂期不创建浏览器对象）。
+  const windowMove = (e: PointerEvent): void => onPointerMove(e)
+  const windowUp = (): void => onPointerUp()
+  const envWin = ctx.browser
+  envWin?.addEventListener?.('pointermove', windowMove)
+  envWin?.addEventListener?.('pointerup', windowUp)
+  ctx.ui?.hold?.(() => {
+    envWin?.removeEventListener?.('pointermove', windowMove)
+    envWin?.removeEventListener?.('pointerup', windowUp)
+  })
   const onPointerDown = (id: string, mode: 'move' | 'resize', e: PointerEvent): void => {
     if (_init.readonly) return
     e.preventDefault()
@@ -166,7 +180,9 @@ export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx) => {
     drag = null
     const now = shapeOf(id)
     if (!now) return
-    if (now.x === orig.x && now.y === orig.y && now.w === orig.w && now.h === orig.h) return
+    if (now.x === orig.x && now.y === orig.y && now.w === orig.w && now.h === orig.h) {
+      return
+    }
     // 提交一次 move/resize commit（拖拽过程 live 不产生事件——结束原子提交）
     commit('移动/缩放', [
       { type: 'shape-move', slide: activeSlide, shapeId: id, x: now.x, y: now.y },
@@ -244,7 +260,10 @@ export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx) => {
 
   // ── 渲染 ──
   return (props: SlideCanvasProps) => {
-    if (props.deck !== lastPropsDeck) {
+    // **受控回流门控（2027-09 场景层拖拽实证）**：拖拽期间场景 render 会以
+    // 新 deck 字面量触发引用比较命中——内部 live 状态被 props 重置（x=104→10
+    // ——拖拽死）。live 期间挂起回流；commit 后场景受控回传新 deck。
+    if (!drag && props.deck !== lastPropsDeck) {
       lastPropsDeck = props.deck
       deck = props.deck
     }
@@ -377,12 +396,14 @@ export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx) => {
         h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'undo', onClick: () => undoLast(), disabled: readonly || undo.length === 0 }, i18n.undo ?? '撤销'),
       ]),
       // 画布
+      // **拖拽事件绑 window（2027-09 场景层拖拽断言实证）**：原绑画布容器——
+      // pointerdown 后 ctx.render() 重建 shape（selected 类变化）→ 若元素被
+      // 替换，后续 pointermove 的 target 链不稳定（实证 move 事件不再到达
+      // 容器——拖拽死）。改绑 window（工厂期恒挂 + drag 门控 + ctx.ui.hold
+      // 清理——重建无关——标准拖拽做法）。onPointerLeave 移除（容器级不适用）。
       h('div', {
         class: 'wf-slide-canvas-scroll',
         style: { height: props.height },
-        onPointerMove: (e: PointerEvent) => onPointerMove(e),
-        onPointerUp: () => onPointerUp(),
-        onPointerLeave: () => onPointerUp(),
       }, [
         h('div', {
           ref: canvasRefStable,

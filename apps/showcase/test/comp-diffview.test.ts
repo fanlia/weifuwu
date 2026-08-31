@@ -60,5 +60,9 @@ test('FP3 折叠展开（组件层修复回归）：行数随展开状态变化 
     // 再点收起 → 行数回落
     await page.locator('main .wf-diffview-fold').first().click()
     await page.waitForFunction((n) => document.querySelectorAll('main .wf-diffview-row').length === n, before, { timeout: 3000 })
+    // 键盘路径（L2——Enter 与 click 同机制）：focus + Enter 展开
+    await page.locator('main .wf-diffview-fold').first().focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction((n) => document.querySelectorAll('main .wf-diffview-row').length > n, before, { timeout: 3000 })
   } finally { await page.close() }
 })
