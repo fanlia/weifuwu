@@ -82,6 +82,9 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
     ctx2.src = props.src
     ctx2.onError = props.onError
     const { onCrop, className = '' } = props
+    // **最新回调写入 ctx2（2027-XX 实证修复）**：crop() 闭包走 ctx2.onCrop——
+    // 原 onCrop 只解构为局部变量从未写入 ctx2——裁剪按钮点击 onCrop 永不触发（onError 有赋值 onCrop 断链）
+    ctx2.onCrop = onCrop
 
     const move = (dx: number, dy: number) => {
       box.x = Math.max(0, Math.min(viewW - box.w, box.x + dx))

@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——InfiniteScroll（/components/infinitescroll）——完整能力
+ * showcase 组件测试——InfiniteScroll（/components/infinitescroll）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「InfiniteScroll」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-infinitescroll.test.ts
  */
 import { test } from 'node:test'
@@ -30,12 +31,16 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 初始条目（加载交互场景层 deep-infinitescroll 已有）', async () => {
+test('FP1 连续触底 → onLoadMore 持续触发（内容增长）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('条目 1'), '初始条目', { timeout: 4000 })
-    const count = await page.evaluate(() => (document.body.textContent?.match(/条目 \d+/g) ?? []).length)
-    assert.ok(count >= 8, `初始条目（实际 ${count}）`)
+    const t0 = await page.evaluate(() => (document.querySelector('main')?.textContent ?? '').length)
+    for (let i = 0; i < 3; i++) {
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+      await page.waitForTimeout(600)
+    }
+    const t1 = await page.evaluate(() => (document.querySelector('main')?.textContent ?? '').length)
+    assert.ok(t1 > t0, `内容增长 ${t0}→${t1}`)
   } finally { await page.close() }
 })

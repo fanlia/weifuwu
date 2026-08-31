@@ -37,7 +37,7 @@
 | 3 | Carousel → Collapse（10） | ✅ 完成（零组件修复——demo 扩面：Carousel arrows/dots、Cascader—、ChatInput error/disabled、CheckboxGroup columns/disabled、CitationCard onOpen/defaultExpanded、Chart area、CodeEditor—） |
 | 4 | ColorPicker → Drawer（10） | ✅ 完成（[!] DiffView 双修复：groupDiffLines 未分段 + 展开判定恒真；demo 扩面：Command globalShortcut、Descriptions bordered/size、DiffView threshold=2；ContextMenu demo alert→回显） |
 | 5 | Dropdown → Form（10） | ✅ 完成（零组件修复——Editor 富文本全链路（bold 双向/undo/源码）；ExportCSV 下载内容校验；FilePreview 远程 md+编辑态；Form 校验三态） |
-| 6 | Grid → InputNumber（10） | ⬜ 未开始 |
+| 6 | Grid → InputNumber（10） | ✅ 完成（[!] ImageCropper onCrop 断链修复；demo 健壮性：Img preview 改本地 SVG（picsum 外网 503）） |
 | 7 | JSONViewer → Markdown（10） | ⬜ 未开始 |
 | 8 | MarkdownEditor → PageHeader（10） | ⬜ 未开始 |
 | 9 | Pagination → RadioGroup（10） | ⬜ 未开始 |
@@ -57,6 +57,7 @@
 | Affix | 组件层 | threshold 公式坐标系错误：rect.top + scrollTop 只对 window 成立——容器 scroller 混入容器视口偏移（容器级永不固定）；且 compute 副作用与渲染无顺序保证（竞态） | Affix.ts：threshold 渲染期直算 + 容器坐标系修正（rect.top − 容器视口 top + scrollTop） | comp-affix FP3-FP7 |
 | （core）chat.ts | **核心层** | useChat 默认 parseChunk 只映射 wf:token/content/toolCalls——wf:step/tool_call/progress/result/approval_request/usage/done 全部丢弃（state.step/state.usage/approval 零赋值点——AiChat 状态行/usage 行/工具卡/审批卡等不到数据） | chat.ts：默认解析器升级为 wf: 协议状态机（makeDefaultParser——event 名分派全事件）+ send 循环全事件消费 | comp-aichat FP10/FP6/FP7/FP11 + 契约 391 绿 |
 | （core）chat.ts | **核心层** | approve() 用 map 替换消息对象——send 循环闭包仍持旧 assistant 引用写 content——审批后到达的 token 写进游离对象（UI 永不更新——HITL 审批期间流未结束必现） | approve 改原地修改 toolCall（对象同一性保持） | comp-aichat FP7b/FP5/FP2b（审批后回复渲染锚） |
+| ImageCropper | 组件层 | crop() 走 ctx2.onCrop 但 renderFn 只解构局部变量未写入 ctx2——onCrop 永不触发（onError 有赋值 onCrop 断链） | ImageCropper.ts：renderFn 内 ctx2.onCrop = onCrop | comp-imagecropper FP2 |
 | DiffView | 组件层 | groupDiffLines 从未分段（全部行进同一 run、末尾 flush 一次——kind 只看首行）——整个 diff 被当成单组（same:12 覆盖 remove/add——折叠/展开全错） | diff-utils.ts：kind 切换即断段（run[0] 单一判断源） | comp-diffview + 契约 diff-utils.test 4 断言 |
 | DiffView | 组件层 | 展开判定 `if (expanded)` 用 Set 对象判真——恒真与 foldOpen 脱钩（点击展开行数不变）；展开态文案「展开中」误导 | DiffView.ts：if (foldOpen) + 文案改「收起未变行」 | comp-diffview FP3 |
 | AutoComplete | 组件层 | onInput 在 open 已开时不重渲染——dropdown content 停留首次闭包 vnode，输入「支付」仍显示全量 5 条（过滤失效） | AutoComplete.ts：open 已开也 ctx.render()（输入驱动渲染——filtered 随输入更新） | comp-autocomplete FP1 |
@@ -655,131 +656,131 @@
 ### Grid（Grid）
 
 > 24 栅格 + gutter + flex 容器模式（Row/Col/Flex 等价）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **direction 枚举态**：`'row' | 'column'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **align 枚举态**：`'start' | 'center' | 'end' | 'stretch'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **flex 布尔行为**：true/false 渲染差异（flex=true 显式断言）
-- [ ] **gutter 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **gap 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **direction 枚举态**：`'row' | 'column'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **align 枚举态**：`'start' | 'center' | 'end' | 'stretch'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **flex 布尔行为**：true/false 渲染差异（flex=true 显式断言）
+- [x] **gutter 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **gap 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### Highlight（Highlight）
 
 > 搜索词高亮：分词渲染 mark，大小写不敏感
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **text 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **query 数据面**：`string | string[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **text 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **query 数据面**：`string | string[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### HoverCard（HoverCard）
 
 > 悬停富内容卡：openDelay 延迟 + 任意 VNode（shadcn）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **content 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **position 数据面**：`HoverCardPosition`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **openDelay 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **closeDelay 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
-- [ ] **纪律回归**：⚠ portal 槽豁免：浮层插槽打开/关闭不触发 A 级动态数组检测（框架管理切换槽）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **content 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **position 数据面**：`HoverCardPosition`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **openDelay 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **closeDelay 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **纪律回归**：⚠ portal 槽豁免：浮层插槽打开/关闭不触发 A 级动态数组检测（框架管理切换槽）
 
 ### Icon（Icon）
 
 > stroke SVG 图标集，currentColor 着色，随字号缩放
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **name 数据面**：`IconName`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **size 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **name 数据面**：`IconName`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **size 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
 
 ### ImageCropper（ImageCropper）
 
 > 图片裁剪——canvas 原生 API + 拖拽裁剪框 + 比例控制（零依赖）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **src 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **aspect 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onCrop 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onError 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **src 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **aspect 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onCrop 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onError 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### Img（Img）
 
 > 图片 \<img\> 组件：fallback / lazy / preview 点击放大
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **loading 枚举态**：`'lazy' | 'eager'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **preview 布尔行为**：true/false 渲染差异（preview=true 显式断言）
-- [ ] **src 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **alt 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **fallback 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **width 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **height 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **previewScale 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **loading 枚举态**：`'lazy' | 'eager'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **preview 布尔行为**：true/false 渲染差异（preview=true 显式断言）
+- [x] **src 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **alt 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **fallback 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **width 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **height 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **previewScale 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
 
 ### InView（InView）
 
 > 进入视窗后懒加载内容，支持 IntersectionObserver
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **threshold 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **rootMargin 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **placeholder 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **once 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onEnter 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **threshold 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **rootMargin 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **placeholder 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **once 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onEnter 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### InfiniteScroll（InfiniteScroll）
 
 > 无限滚动：底部哨兵触底加载 + loading/end 态
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **hasMore 布尔行为**：true/false 渲染差异（hasMore=true 显式断言）
-- [ ] **loading 布尔行为**：true/false 渲染差异（loading=true 显式断言）
-- [ ] **threshold 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **loadMoreText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **endText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onLoadMore 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **hasMore 布尔行为**：true/false 渲染差异（hasMore=true 显式断言）
+- [x] **loading 布尔行为**：true/false 渲染差异（loading=true 显式断言）
+- [x] **threshold 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **loadMoreText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **endText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onLoadMore 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### Input（Input）
 
 > text/email/password/number，支持 label/error/hint/required
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **variant 枚举态**：`'default' | 'borderless'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **readonly 布尔行为**：true/false 渲染差异（readonly=true 显式断言）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **min 数据面**：`string | number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **max 数据面**：`string | number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **step 数据面**：`string | number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onInput 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：type 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **variant 枚举态**：`'default' | 'borderless'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **readonly 布尔行为**：true/false 渲染差异（readonly=true 显式断言）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **value 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **min 数据面**：`string | number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **max 数据面**：`string | number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **step 数据面**：`string | number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onInput 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：type 透传到根元素
 
 ### InputNumber（InputNumber）
 
 > 数字输入：min/max/step + 增减按钮 + precision
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
-- [ ] **value 数据面**：`number | null`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **min 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **max 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **step 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **precision 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
+- [x] **value 数据面**：`number | null`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **min 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **max 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **step 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **precision 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **name 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **placeholder 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### JSONViewer（JSONViewer）
 

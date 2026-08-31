@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——ImageCropper（/components/imagecropper）——完整能力
+ * showcase 组件测试——ImageCropper（/components/imagecropper）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「ImageCropper」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-imagecropper.test.ts
  */
 import { test } from 'node:test'
@@ -30,19 +31,35 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：图片加载 + 裁剪框（canvas 渲染）', async () => {
+test('FP1/FP2 canvas 绘制 + 裁剪按钮 → onCrop dataURL（ctx2.onCrop 断链修复回归）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // 图片加载（data URI SVG）→ canvas 渲染
-    await page.waitForFunction(() => {
-      const main = document.querySelector('main')
-      return main ? main.querySelectorAll('canvas').length > 0 : false
-    }, 'canvas 渲染', { timeout: 4000 })
-    const canvas = await page.evaluate(() => {
-      const c = document.querySelector('main canvas')
-      return c ? { w: c.width, h: c.height } : null
+    await page.waitForSelector('main canvas', { timeout: 5000 })
+    // 等图片加载（canvas 宽从默认 320 变为视图宽 480）
+    await page.waitForFunction(() => document.querySelector('main canvas')?.width === 480, null, { timeout: 5000 })
+    const cropPromise = page.waitForEvent('console', {
+      predicate: (m) => m.text().includes('[crop]') && m.text().includes('data:image'),
+      timeout: 5000,
     })
-    assert.ok(canvas && canvas.w > 0 && canvas.h > 0, `canvas 尺寸（${canvas?.w}x${canvas?.h}）`)
+    await page.locator('main .wf-imagecropper button', { hasText: '裁剪' }).first().click()
+    await cropPromise
+  } finally { await page.close() }
+})
+
+test('FP3 裁剪框拖拽（useDrag）不报错', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main canvas', { timeout: 5000 })
+    await page.waitForFunction(() => document.querySelector('main canvas')?.width === 480, null, { timeout: 5000 })
+    const pos = await page.evaluate(() => {
+      const r = document.querySelector('main canvas').getBoundingClientRect()
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+    })
+    await page.mouse.move(pos.x, pos.y)
+    await page.mouse.down()
+    await page.mouse.move(pos.x + 30, pos.y + 20, { steps: 4 })
+    await page.mouse.up()
   } finally { await page.close() }
 })

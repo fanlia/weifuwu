@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——InView（/components/inview）——完整能力
+ * showcase 组件测试——InView（/components/inview）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「InView」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-inview.test.ts
  */
 import { test } from 'node:test'
@@ -30,23 +31,11 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：InView 进入视口 → onEnter（懒加载内容 + 事件日志）', async () => {
+test('FP1 滚动进入视口 → onEnter 回调触发', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // onEnter 触发（demo 区域可能在首屏视口内——IO 进入即触发——内容出现）
-    // 若不在首屏：滚动进入（IO 触发）
-    await page.evaluate(() => {
-      const el = Array.from(document.querySelectorAll('main div')).find((x) => x.textContent?.includes('懒加载内容已加载'))
-      el?.scrollIntoView()
-    })
-    // evaluate 轮询（TD 样式循环规避）
-    let ok = false
-    for (let i = 0; i < 40; i++) {
-      if (await page.evaluate(() => (document.body.textContent ?? '').includes('事件: 已加载'))) { ok = true; break }
-      await page.waitForTimeout(100)
-    }
-    assert.ok(ok, 'onEnter 触发（事件: 已加载）')
-    assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('懒加载内容已加载')), '懒加载内容')
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('已加载'), null, { timeout: 3000 })
   } finally { await page.close() }
 })

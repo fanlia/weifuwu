@@ -291,8 +291,8 @@ const DemoImage: Component = () => () => (
     <Img src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
     <Img src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
     <Img src="/broken.jpg" fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='14'%3E加载失败%3C/text%3E%3C/svg%3E" alt="fallback" width={120} height={120} style={{ objectFit: 'cover', borderRadius: '8px' }} />
-    {/* preview：点击放大（缩放滚轮/双击，Escape/遮罩关闭） */}
-    <Img src="https://picsum.photos/600/400?3" alt="preview 点击放大" preview width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover', cursor: 'zoom-in' }} />
+    {/* preview：点击放大（缩放滚轮/双击，Escape/遮罩关闭）——本地 SVG（离线可用——外网图源不可依赖） */}
+    <Img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400'%3E%3Crect width='600' height='400' fill='%232563eb'/%3E%3Ccircle cx='300' cy='200' r='120' fill='%2393c5fd'/%3E%3C/svg%3E" alt="preview 点击放大" preview width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover', cursor: 'zoom-in' }} />
   </div>
 )
 

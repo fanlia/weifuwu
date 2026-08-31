@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Img（/components/img）——完整能力
+ * showcase 组件测试——Img（/components/img）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Img」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-img.test.ts
  */
 import { test } from 'node:test'
@@ -30,24 +31,31 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('渲染零错误 + 多图（尺寸/圆角/fallback/preview）', async () => {
+test('FP1/FP2 图片渲染 + fallback 替换（broken → data SVG）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const imgs = await page.evaluate(() => document.querySelectorAll('main img').length)
-    assert.ok(imgs >= 3, `img 数（实际 ${imgs}）`)
-    // fallback 图（/broken.jpg 加载失败 → fallback data URI——alt 渲染）
-    const fallback = await page.evaluate(() => {
-      const imgs = Array.from(document.querySelectorAll('main img'))
-      return imgs.some((i) => i.getAttribute('alt')?.includes('fallback'))
-    })
-    assert.ok(fallback, 'fallback 变体')
-    // preview（点击放大——cursor zoom-in）
-    const preview = await page.evaluate(() => {
-      const imgs = Array.from(document.querySelectorAll('main img'))
-      const p = imgs.find((i) => i.getAttribute('alt')?.includes('preview'))
-      return p ? getComputedStyle(p).cursor : ''
-    })
-    assert.ok(preview.includes('zoom'), `preview 光标（实际 ${preview}）`)
+    await page.waitForSelector('main img')
+    const imgs = await page.evaluate(() => [...document.querySelectorAll('main img')].map((i) => ({ w: i.getBoundingClientRect().width, src: i.src.slice(0, 20) })))
+    assert.ok(imgs.filter((i) => i.w === 120).length >= 4, `4 实例 120px`)
+    const fallback = await page.evaluate(() => [...document.querySelectorAll('main img')].some((i) => (i.currentSrc || i.src).startsWith('data:image')))
+    assert.equal(fallback, true, 'fallback 替换')
+  } finally { await page.close() }
+})
+
+test('FP3 preview：点击放大（600×400）+ Escape 关闭', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main img[alt*="preview"]')
+    await page.locator('main img[alt*="preview"]').first().click()
+    await page.waitForFunction(() => {
+      const i = document.querySelector('.wf-img-preview-image')
+      return i && i.complete && i.naturalWidth > 0
+    }, null, { timeout: 5000 })
+    const w = await page.evaluate(() => Math.round(document.querySelector('.wf-img-preview-image').getBoundingClientRect().width))
+    assert.equal(w, 600, `放大至原图 ${w}px`)
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => !document.querySelector('.wf-img-preview-image'), null, { timeout: 3000 })
   } finally { await page.close() }
 })

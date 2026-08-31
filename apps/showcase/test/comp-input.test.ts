@@ -1,8 +1,7 @@
 /**
- * showcase 组件测试——Input（/components/input）
- *
- * 每组件一个测试文件（单独运行）：
- *   node --env-file=.env --test apps/showcase/test/comp-input.test.ts
+ * showcase 组件测试——Input（/components/input）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Input」组（playwright 实测后固化）
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-input.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,30 +25,22 @@ test.after(async () => {
   server?.stop()
 })
 
-test('渲染零错误 + 5 变体（文本/邮箱/密码/错误/提示）', async () => {
-  const page = await browser.newPage()
-  try {
-    const errors = await openShowcase(page, BASE, COMP_PATH)
-    assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    for (const t of ['文本', '邮箱', '密码', '请输入有效内容', '只能包含字母和数字']) {
-      assert.ok(text.includes(t), `变体渲染：${t}`)
-    }
-  } finally {
-    await page.close()
-  }
-})
+async function open(page: import('playwright').Page): Promise<void> {
+  const errors = await openShowcase(page, BASE, COMP_PATH)
+  assert.deepEqual(errors.filter((e) => !e.includes('Failed to load resource')), [], `零错误（实际: ${errors[0] ?? '无'}）`)
+  await page.waitForTimeout(300)
+}
 
-test('demo 交互：输入文本 → 受控值回流更新', async () => {
+test('FP1-3 受控回流 + type=password + error/hint 文案', async () => {
   const page = await browser.newPage()
   try {
-    await openShowcase(page, BASE, COMP_PATH)
-    const input = page.locator('main .wf-surface input[type="text"]').first()
-    await input.click()
-    await page.keyboard.type('你好')
-    const v = await input.inputValue()
-    assert.ok(v.includes('你好'), `输入生效（实际 ${v}）`)
-  } finally {
-    await page.close()
-  }
+    await open(page)
+    await page.waitForSelector('main .wf-input')
+    const first = page.locator('main .wf-input').first()
+    await first.fill('修改后')
+    await page.waitForFunction(() => document.querySelector('main .wf-input')?.value === '修改后', null, { timeout: 3000 })
+    assert.ok(await page.locator('main input[type="password"]').count() >= 1, 'password')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('请输入有效内容') && t.includes('只能包含字母和数字'), 'error+hint')
+  } finally { await page.close() }
 })
