@@ -1,5 +1,6 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
 import crypto from 'node:crypto'
+import { parseQuery } from '../../shared/router/context.ts'
 import { HttpError, type Context } from '../types.ts'
 import { Router } from './router.ts'
 
@@ -56,7 +57,7 @@ export function createRequest(
   body: Buffer,
 ): [Request, Record<string, string>] {
   const url = new URL(req.url ?? '/', 'http://localhost')
-  const query = Object.fromEntries(url.searchParams)
+  const query = parseQuery(url)
 
   const headers: Record<string, string> = {}
   for (const [key, value] of Object.entries(req.headers)) {

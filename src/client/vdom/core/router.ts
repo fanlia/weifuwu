@@ -10,6 +10,8 @@
 import type { UIContext } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 import { createTrie, trieRegister, trieMatch, splitPath, type TrieNode } from '../../../shared/router/trie.ts'
+import { dispatchRouter, type RouterPipeline, type RouteMatch } from '../../../shared/router/pipeline.ts'
+import { parseRequestTarget } from '../../../shared/router/context.ts'
 
 /** 页面 handler——返回原生 Response（body = 命令流字节——NDJSON）——
  *  与后端 Handler 签名字面同构：(req, ctx) => Response——req 为**标准
@@ -46,7 +48,15 @@ export class UIRouter {
   /** 路由存在性（onDocClick 决策：无匹配 → 不拦截——默认完整导航——
    *  实证：stats 页「← 填写页」链接被拦截但 navigate 落空——半跳转） */
   has(path: string): boolean {
-    return trieMatch(this.root, splitPath(new URL(path, 'http://x').pathname)) !== null
+    // **非法编码防御（B1）**：onDocClick 的 href 可能含 %zz——URIError
+    // 裸抛会崩导航——视为无匹配（默认完整导航——安全回退）
+    try {
+      const url = new URL(path, 'http://x')
+      for (const seg of url.pathname.split('/').filter(Boolean)) decodeURIComponent(seg)
+      return trieMatch(this.root, splitPath(url.pathname)) !== null
+    } catch {
+      return false
+    }
   }
 
   /** 404 兜底 */
@@ -58,22 +68,34 @@ export class UIRouter {
   /** 解析请求 → 响应（Trie 匹配 + **params/query 注入 ctx**——对齐后端
    *  `ctx = { params, query }`——`Object.fromEntries(searchParams)`——
    *  不修改原始 Request） */
+  private _pipeline?: RouterPipeline<PageHandler, UIContext>
+
+  private get pipeline(): RouterPipeline<PageHandler, UIContext> {
+    return (this._pipeline ??= {
+      // **verb 差异点**（client 单 method——handler 直调闭包）
+      resolveHandler: (m: RouteMatch<PageHandler>, req, ctx) => ({
+        kind: 'route' as const,
+        run: () => m.value(req, ctx),
+      }),
+      // 404 兜底（notFound ?? null body——原语义精确保留）
+      onNotFound: (req, ctx) => {
+        if (!this.notFoundHandler) return new Response(null, { status: 404 })
+        return this.notFoundHandler(req, ctx)
+      },
+      // **ctx 扩展**（机制一致能力不同——client 三面注入：params fresh/
+      // query/route——route 是应用消费面单点：AppLayout 活性/AgentDetail
+      // params/navigate——2026-08 实证面）
+      enrichCtx: (ctx, m, pathname, query) => {
+        ctx.params = m ? { ...m.params } : {} // fresh——不残留旧路由键
+        ctx.query = query
+        ctx.route = { path: pathname, params: ctx.params, query }
+      },
+    })
+  }
+
+  /** 解析请求 → 响应（**shared pipeline 内核**——parse→match→ctx 注入→
+   *  执行→404 兜底骨架单源——非法编码 → 400（B1——对齐 server 语义）） */
   async resolve(req: Request, ctx: UIContext): Promise<Response> {
-    const url = new URL(req.url)
-    const segments = splitPath(url.pathname)
-    const m = trieMatch(this.root, segments)
-    const handler = m?.value ?? this.notFoundHandler
-    if (!handler) return new Response(null, { status: 404 })
-    // params 注入 ctx（每次渲染替换——不残留旧路由键）
-    const params: Record<string, string> = {}
-    if (m) Object.assign(params, m.params)
-    ctx.params = params
-    // query 注入 ctx（对齐后端 Object.fromEntries(searchParams)）
-    ctx.query = Object.fromEntries(url.searchParams)
-    // route 注入（2026-08——应用消费面单点：ctx.route = { path, params, query }——
-    // v3 迁移遗留：页面从 ctx.route 读路由（AppLayout 活性/AgentDetail params/
-    // navigate）——老实现未注入 → path 恒 '/'、params 空、navigate undefined 点击崩）
-    ctx.route = { path: url.pathname, params, query: ctx.query }
-    return handler(req, ctx)
+    return dispatchRouter<PageHandler, UIContext>(this.root, this.pipeline, req, ctx)
   }
 }

@@ -10,7 +10,10 @@ import type { GraphQLHandler } from '../graphql.ts'
 import { createGraphqlRouter } from '../graphql.ts'
 import { createTrie, trieRegister, trieMatch, trieFind, splitPath, type TrieNode } from '../../shared/router/trie.ts'
 import { collectAll, collectAllWs, collectRoutes, collectWsRoutes, type RouteValue, type WsValue } from './collect.ts'
-import { runChain } from './chain.ts'
+import { runChain } from '../../shared/router/chain.ts'
+import { dispatchRouter, type RouterPipeline, type RouteMatch } from '../../shared/router/pipeline.ts'
+import { createCtxFieldRegistry } from '../../shared/router/ctx-fields.ts'
+import { parseQuery } from '../../shared/router/context.ts'
 import { createInMemoryHub } from './hub.ts'
 import { noteHandlerError, clearHandlerError } from './error-counter.ts'
 
@@ -43,8 +46,70 @@ export class Router<T extends object = Context> {
   private _hasWildcard = false
   private _hub?: Hub
   private _wss?: WebSocketServer
-  private _ctxFields = new Set<string>()
+  private _ctxRegistry = createCtxFieldRegistry()
   private _closeables: Closeable[] = []
+  private _pipeline?: RouterPipeline<RouteValue, T>
+
+  /** 路由内核 pipeline（惰性构建——闭包 this 读 globalMws/errorHandler 最新态） */
+  private get pipeline(): RouterPipeline<RouteValue, T> {
+    return (this._pipeline ??= this.buildPipeline())
+  }
+
+  private buildPipeline(): RouterPipeline<RouteValue, T> {
+    return {
+      // **verb 差异点**（method 表负载——HEAD fallback mw 联动 B2 在案）
+      resolveHandler: (m: RouteMatch<RouteValue>, req, ctx) => {
+        const value = m.value as RouteValue
+        const method = req.method
+        // 通配命中：method 表直接查（通配不产生 405——method 落空 → 404）
+        if (m.wildcard) {
+          const handler = value.handlers.get(method) || value.handlers.get('*')
+          if (!handler) return { kind: 'not-found' as const }
+          const mws = value.middlewares.get(method) || value.middlewares.get('*') || []
+          return { kind: 'route' as const, run: () => this.runWithChain(mws, handler, req, ctx) }
+        }
+        let handler = value.handlers.get(method) || value.handlers.get('*')
+        // **HEAD fallback 的 mw 联动（B2）**：handler 回退 GET 时 mws 同步回退
+        if (!handler && method === 'HEAD') handler = value.handlers.get('GET')
+        if (handler) {
+          const rmws = value.middlewares.get(method)
+            || value.middlewares.get('*')
+            || (method === 'HEAD' ? value.middlewares.get('GET') : undefined)
+            || []
+          return { kind: 'route' as const, run: () => this.runWithChain(rmws, handler, req, ctx) }
+        }
+        if (value.handlers.size > 0) {
+          return { kind: 'not-allowed' as const, methods: [...value.handlers.keys()].filter((k) => k !== '*') }
+        }
+        return { kind: 'not-found' as const }
+      },
+      // 404 兜底（JSON 形态 + globalMws 链——原语义精确保留）
+      onNotFound: (req, ctx, path) => {
+        const nf = () => Response.json({ error: 'Not Found', path, method: req.method }, { status: 404 })
+        if (this.globalMws.length > 0) return runChain(this.globalMws as any, nf as any, req, ctx)
+        return nf()
+      },
+      // 405 兜底（globalMws 链 + Allow 头）
+      onMethodNotAllowed: (methods, req, ctx) => {
+        const respond = () => new Response('Method Not Allowed', { status: 405, headers: { Allow: methods.join(', ') } })
+        if (this.globalMws.length > 0) return runChain(this.globalMws as any, respond as any, req, ctx)
+        return respond()
+      },
+      onError: (e, req, ctx, path) => this.handleError(e, req, ctx, path),
+      // 恢复清出（C1——错误状态清出——再错再报）
+      onRouteSuccess: (req, _ctx, path) => clearHandlerError(`${req.method} ${path}`),
+      // params merge 进既有 ctx.params（404/405 原语义精确保留——m null 不注入）
+      enrichCtx: (ctx, m) => {
+        if (m) Object.assign((ctx as any).params, m.params)
+      },
+    }
+  }
+
+  /** 链组装（S6：routeMws 空常态复用 globalMws 引用——免每请求数组分配） */
+  private runWithChain(routeMws: Middleware[], handler: Handler, req: Request, ctx: T): Promise<Response> {
+    const mws = routeMws.length === 0 ? this.globalMws : [...this.globalMws, ...routeMws]
+    return runChain(mws as any, handler as any, req, ctx)
+  }
 
   private get wss(): WebSocketServer {
     if (!this._wss) this._wss = new WebSocketServer({ noServer: true })
@@ -151,10 +216,7 @@ export class Router<T extends object = Context> {
   // ── Handler compilation ────────────────────────────────────
 
   handler(): Handler<T> {
-    return (req, ctx) => {
-      const url = new URL(req.url)
-      return this.handle(req, ctx, splitPath(url.pathname))
-    }
+    return (req, ctx) => dispatchRouter(this.root, this.pipeline, req, ctx)
   }
 
   websocketHandler(): WsUpgradeHandler {
@@ -248,49 +310,6 @@ export class Router<T extends object = Context> {
 
   // ── Private: Matching ──────────────────────────────────────
 
-  private matchTrie(method: string, segments: string[]): {
-    kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
-  } | null {
-    const m = trieMatch(this.root, segments)
-    if (!m) return null
-    const value = m.value
-    // 通配命中：method 表直接查（route 或 null——通配不产生 405）
-    if (m.wildcard) {
-      const handler = value.handlers.get(method) || value.handlers.get('*')
-      return handler
-        ? { kind: 'route', handler, mws: value.middlewares.get(method) || value.middlewares.get('*') || [], params: m.params }
-        : null
-    }
-    return this._resolveMatch(value, method, m.params)
-  }
-
-  private _resolveMatch(value: RouteValue, method: string, params: Record<string, string>): {
-    kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
-  } | null {
-    let handler = value.handlers.get(method) || value.handlers.get('*')
-    // **HEAD fallback 的 mw 联动（ROUTER-CORE B2——2027-10 探针实证）**：
-    // handler 回退 GET 时 mws 同步回退 GET 表（旧实现 mws 查 HEAD 表为空
-    // ——GET route 中间件静默丢失——鉴权/日志类 mw 对 HEAD 请求失效）
-    if (!handler && method === 'HEAD') handler = value.handlers.get('GET')
-    if (handler) {
-      const mws = value.middlewares.get(method)
-        || value.middlewares.get('*')
-        || (method === 'HEAD' ? value.middlewares.get('GET') : undefined)
-        || []
-      return { kind: 'route', handler, mws, params }
-    }
-    if (value.handlers.size > 0) {
-      return {
-        kind: 'not-allowed',
-        handler: () => new Response('', { status: 405 }),
-        mws: [],
-        params,
-        methods: [...value.handlers.keys()].filter((k: string) => k !== '*'),
-      }
-    }
-    return null
-  }
-
   private matchWsTrie(root: TrieNode<WsValue>, segments: string[]): {
     handler: WebSocketHandler; middlewares: Middleware[]; params: Record<string, string>
   } | null {
@@ -300,52 +319,6 @@ export class Router<T extends object = Context> {
   }
 
   // ── Private: Request handling ──────────────────────────────
-
-  private async handle(req: Request, ctx: any, segments: string[]): Promise<Response> {
-    // **输入防御（C3——2027-10 探针实证）**：param 段 decodeURIComponent
-    // 对非法编码（%zz）抛 URIError——matchTrie 在链 try 外——裸抛到 serve。
-    // 非法编码 URL 是客户端错误 → 400（非 500——语义准确）
-    let match: ReturnType<typeof this.matchTrie>
-    try { match = this.matchTrie(req.method, segments) }
-    catch (e) {
-      if (e instanceof URIError) {
-        return Response.json({ error: 'Bad Request', reason: 'malformed percent-encoding' }, { status: 400 })
-      }
-      throw e
-    }
-    if (match) {
-      Object.assign(ctx.params, match.params)
-      if (match.kind === 'route') {
-        // S6：match.mws 为空（常态）时复用 globalMws 引用——免每请求数组分配
-        const mws = match.mws.length === 0 ? this.globalMws : [...this.globalMws, ...match.mws]
-        try {
-          const res = await runChain(mws, match.handler, req, ctx)
-          // **恢复清出（C1）**：路由正常完成——错误状态清出（再错再报）
-          clearHandlerError(`${req.method} ${'/' + segments.join('/')}`)
-          return res
-        }
-        catch (e) { return this.handleError(e, req, ctx, '/' + segments.join('/')) }
-      }
-      // 405
-      if (this.globalMws.length > 0) {
-        try {
-          return await runChain(this.globalMws, () => new Response('Method Not Allowed', {
-            status: 405,
-            headers: { Allow: (match.methods || []).join(', ') },
-          }), req, ctx)
-        } catch (e) { return this.handleError(e, req, ctx) }
-      }
-      return new Response('Method Not Allowed', { status: 405, headers: { Allow: (match.methods || []).join(', ') } })
-    }
-
-    // 404
-    const nf = () => Response.json({ error: 'Not Found', path: '/' + segments.join('/'), method: req.method }, { status: 404 })
-    if (this.globalMws.length > 0) {
-      try { return await runChain(this.globalMws, nf, req, ctx) }
-      catch (e) { return this.handleError(e, req, ctx) }
-    }
-    return nf()
-  }
 
   private async handleError(e: unknown, req: Request, ctx: any, path?: string): Promise<Response> {
     const err = e instanceof Error ? e : new Error(String(e))
@@ -417,13 +390,9 @@ export class Router<T extends object = Context> {
       (typeof mw === 'object' && mw && 'middleware' in mw
         ? (mw as { middleware(): Middleware }).middleware().__meta : undefined)
     if (!meta) return
-    for (const dep of meta.depends) {
-      if (!this._ctxFields.has(dep)) {
-        throw new Error(
-          `[weifuwu] Middleware at "${location}" depends on ctx.${dep} but it hasn't been registered.\n` +
-          `  Register the provider before this middleware: app.use(${dep}())`)
-      }
-    }
-    for (const field of meta.injects) this._ctxFields.add(field)
+    // **ctx-fields 注册表（SHARED-TRIE B0'）**：机制移 shared——双端统一
+    // （client 未来中间件声明 injects 同样受检——类型/运行时双层对齐）
+    this._ctxRegistry.check(meta.depends, location)
+    this._ctxRegistry.register(meta.injects)
   }
 }

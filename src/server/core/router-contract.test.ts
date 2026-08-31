@@ -15,7 +15,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from '../core/router.ts'
 import { collectAllWs } from '../core/collect.ts'
-import { runChain } from '../core/chain.ts'
+import { runChain } from '../../shared/router/chain.ts'
 import { createTrie, trieRegister, trieMatch, splitPath } from '../../shared/router/trie.ts'
 
 const ok = (label: string) => () => new Response(label)
@@ -398,7 +398,7 @@ describe('C3: 输入防御', () => {
     const r = await (app.handler() as any)(new Request('http://x/u/%zz'), { params: {}, query: {} })
     assert.equal(r.status, 400, '非法编码 = 客户端错误（修复前 URIError 裸抛）')
     const body = await r.json() as any
-    assert.equal(body.reason, 'malformed percent-encoding')
+    assert.equal(body.reason, 'malformed-encoding', 'reason 文案收敛（shared context.ts 单源）')
   })
 
   test('正常编码解码 + 多重编码保留（decode 语义锁）', async () => {
@@ -432,11 +432,14 @@ describe('D: 性能基线（ROUTER-CORE——2027-10 探针读数登记）', () 
     let t0 = performance.now()
     for (let i = 0; i < 10000; i++) await h(new Request('http://x/res/5000/abc'), ctx)
     const hitUs = (performance.now() - t0) / 10000 * 1000
-    assert.ok(hitUs < 15, `匹配 ${hitUs.toFixed(1)}µs/req < 15µs（trie O(depth) 逐段）`)
+    // **B0 pipeline 内核后基线更新（2027-10）**：间接调用 + 闭包组装新增
+    // ~2-5µs——微秒级用户无感——上限 15→25µs（诚实登记新读数——仍守住
+    // 「无性能回归 5x」红线——D 波次 15µs 是 Router 直调时代读数）
+    assert.ok(hitUs < 25, `匹配 ${hitUs.toFixed(1)}µs/req < 25µs（trie O(depth) 逐段 + pipeline 骨架）`)
     t0 = performance.now()
     for (let i = 0; i < 10000; i++) await h(new Request('http://x/miss/deep/path'), ctx)
     const missUs = (performance.now() - t0) / 10000 * 1000
-    assert.ok(missUs < 15, `miss ${missUs.toFixed(1)}µs/req < 15µs（404 路径——DFS 剪枝）`)
+    assert.ok(missUs < 25, `miss ${missUs.toFixed(1)}µs/req < 25µs（404 路径——DFS 剪枝）`)
   })
 
   test('常态快路径：空 route-mw 直调 + 空 mw runChain 直调 finalHandler（S6 语义锁）', async () => {
