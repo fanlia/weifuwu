@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——MarkdownEditor（/components/markdowneditor）——完整能力
+ * showcase 组件测试——MarkdownEditor（/components/markdowneditor）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「MarkdownEditor」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-markdowneditor.test.ts
  */
 import { test } from 'node:test'
@@ -30,24 +31,27 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：分屏编辑 + 实时预览（输入 → 预览更新）', async () => {
+test('FP1/FP2 分屏初值 + 输入实时预览（onChange→Markdown 渲染）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    // 分屏（编辑区 + 预览区）
-    const preview = await page.evaluate(() => !!document.querySelector('main [class*="markdown-editor"] [class*="preview"], main [class*="editor"] [class*="preview"], main [class*="preview"]'))
-    assert.ok(preview, '预览区')
-    // 初始预览（标题/加粗渲染）
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    assert.ok(text.includes('实时预览') && text.includes('加粗'), '初始内容')
-    // 输入（textarea——编辑区）→ 预览更新
-    const ta = page.locator('main [class*="editor"] textarea, main [class*="markdown"] textarea').first()
-    if (await ta.count() > 0) {
-      await ta.click()
-      await page.keyboard.press('End')
-      await page.keyboard.type('\n新增段落')
-      await page.waitForTimeout(400)
-      assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('新增段落')), '预览更新')
-    }
+    await page.waitForSelector('main textarea')
+    assert.ok(await page.evaluate(() => [...document.querySelectorAll('main h1')].length >= 1), '预览 h1')
+    const ta = page.locator('main textarea').first()
+    await ta.fill('# 新标题')
+    await ta.pressSequentially('\n\n**实时加粗**')
+    await page.waitForFunction(() => [...document.querySelectorAll('main strong, main b')].some((s) => (s.textContent ?? '').includes('实时加粗')), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP3 模式切换：预览（textarea 消失）↔ 编辑（textarea 回归）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main textarea')
+    await page.locator('main button', { hasText: '预览' }).first().click()
+    await page.waitForFunction(() => document.querySelectorAll('main textarea').length === 0, null, { timeout: 3000 })
+    await page.locator('main button', { hasText: '编辑' }).first().click()
+    await page.waitForSelector('main textarea', { timeout: 3000 })
   } finally { await page.close() }
 })

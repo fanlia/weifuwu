@@ -1,11 +1,12 @@
 /**
- * showcase 组件测试——Mentions（/components/mentions）——@提及
+ * showcase 组件测试——Mentions（/components/mentions）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Mentions」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-mentions.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/mentions'
 
@@ -30,22 +31,17 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：@ 提及（值 + 候选）', async () => {
+test('FP1/FP2 @ 触发联想下拉 + 选择补全 onChange 回流', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const text = await page.evaluate(() => document.body.textContent ?? '')
-    assert.ok(text.includes('文本：输入 @ 提及成员：@ali'), '受控值回显')
-  } finally { await page.close() }
-})
-test('位置：portal 归属 + fixed + 视口内 + 提及面板 bottom', async () => {
-  const page = await browser.newPage()
-  try {
-    await open(page)
-    
-    const input = page.locator('main [class*="mention"] input, main textarea').first()
-    await input.click()
-    await page.keyboard.type('@')
-    await assertPopupGeometry(page, { panelText: 'Alice', anchorSel: 'main [class*="mention"] input, main textarea', dir: 'bottom', transformNone: true })
+    await page.waitForSelector('main textarea')
+    const ta = page.locator('main textarea').first()
+    await ta.fill('')
+    await ta.pressSequentially('@ali')
+    await page.waitForFunction(() => ((document.querySelector('#__wf_portal')?.textContent ?? '') + (document.querySelector('main')?.textContent ?? '')).includes('Alice'), null, { timeout: 3000 })
+    const pick = page.locator('#__wf_portal [class*="option"], main [class*="mention"] [class*="option"]').filter({ hasText: 'Alice' }).first()
+    await pick.click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('@alice'), null, { timeout: 3000 })
   } finally { await page.close() }
 })

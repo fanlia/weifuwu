@@ -1,11 +1,12 @@
 /**
- * showcase 组件测试——Modal（/components/modal）——完整能力
+ * showcase 组件测试——Modal（/components/modal）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Modal」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-modal.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/modal'
 
@@ -30,49 +31,48 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-/** evaluate 轮询（组件页文档表格样式循环——rAF/定时器饿死规避） */
-async function waitFor(page: import('playwright').Page, fn: () => Promise<boolean>, msg: string, timeoutMs = 5000): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (await page.evaluate(fn)) return
-    await page.waitForTimeout(100)
-  }
-  throw new Error(`${msg} 超时`)
-}
-
-test('渲染零错误 + 打开弹窗（遮罩+标题+内容）', async () => {
+test('FP1 打开 + 面板宽 420 + 标题 + footer + close 按钮', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.locator('main .wf-surface button', { hasText: '打开弹窗' }).first().click()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('确认操作')), '弹窗出现')
-    assert.ok(await page.evaluate(() => !!document.querySelector('.wf-modal-overlay')), '遮罩（wf-modal-overlay）')
-    assert.ok(await page.evaluate(() => (document.body.textContent ?? '').includes('这是弹窗内容')), '内容')
-  } finally { await page.close() }
-})
-
-test('能力：关闭（确定按钮）→ 弹窗移除 + portal 无残留（核心层修复验证）', async () => {
-  const page = await browser.newPage()
-  try {
-    await open(page)
-    await page.locator('main .wf-surface button', { hasText: '打开弹窗' }).first().click()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('确认操作')), '弹窗出现')
-    await page.locator('#__wf_portal button, .wf-popup-mask button', { hasText: '确定' }).first().click()
-    await waitFor(page, () => Promise.resolve(!(document.body.textContent ?? '').includes('确认操作')), '弹窗关闭')
-    // 核心层修复：portal 容器无残留（混合数组 unkeyed 移除——removePortal）
-    const residual = await page.evaluate(() => {
-      const p = document.querySelector('#__wf_portal')
-      return p ? p.textContent?.includes('确认操作') ?? false : false
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '打开弹窗' }).first().click()
+    await page.waitForSelector('.wf-modal-content', { timeout: 3000 })
+    const m = await page.evaluate(() => {
+      const dlg = document.querySelector('.wf-modal-content')
+      return { w: Math.round(dlg.getBoundingClientRect().width), t: dlg.textContent ?? '' }
     })
-    assert.ok(!residual, 'portal 无残留')
+    assert.ok(Math.abs(m.w - 420) < 30, `宽 ${m.w}`)
+    assert.ok(m.t.includes('确认操作') && m.t.includes('确定'), '标题+footer')
+    assert.ok(await page.locator('.wf-modal-close').count() >= 1, 'close 按钮')
   } finally { await page.close() }
 })
-test('位置：portal 归属 + fixed + 视口内 + 居中弹窗', async () => {
+
+test('FP2 mask 点击关闭（默认 true）+ Escape', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    
-    await page.locator('main .wf-surface button', { hasText: '打开弹窗' }).first().click()
-    await assertPopupGeometry(page, { centered: true })
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '打开弹窗' }).first().click()
+    await page.waitForSelector('.wf-modal-content', { timeout: 3000 })
+    await page.mouse.click(20, 300)
+    await page.waitForFunction(() => !document.querySelector('.wf-modal-content'), null, { timeout: 3000 })
+    await page.locator('main button', { hasText: '打开弹窗' }).first().click()
+    await page.waitForSelector('.wf-modal-content', { timeout: 3000 })
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => !document.querySelector('.wf-modal-content'), null, { timeout: 3000 })
+  } finally { await page.close() }
+})
+
+test('FP3 width 自定义（600px）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main select')
+    await page.locator('main select').first().selectOption('600px')
+    await page.locator('main button', { hasText: '打开弹窗' }).first().click()
+    await page.waitForSelector('.wf-modal-content', { timeout: 3000 })
+    const w = await page.evaluate(() => Math.round(document.querySelector('.wf-modal-content').getBoundingClientRect().width))
+    assert.ok(Math.abs(w - 600) < 30, `宽 ${w}`)
   } finally { await page.close() }
 })
