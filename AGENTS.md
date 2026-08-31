@@ -394,10 +394,11 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 **防线基准**：契约 render-health.test（6）锁定三轴计数/阈值/零误报——
 reuse-regression.test（7）锁定复用语义（复现即红）。
 
-### 已知边界（诚实裁剪）
+### 已知边界（诚实裁剪——2027-10 VDOM-CORE-EXCELLENCE C1 收敛）
 - **渲染队列 FIFO/redirect**：serve 内部机制——间接覆盖（无专门测试）
-- **useTween/useReducedMotion/useVisualViewport/useDrag（stable.ts）**：未测（headless 无 reduced-motion 偏好——直落分支）
-- **hooks/ai-stream.ts、auth 中间件**：未测（长尾）
+- ~~useTween/useReducedMotion/useVisualViewport/useDrag（stable.ts）~~：**已测**（hooks-robust 契约 20+ 条——直落分支/生命周期/清理全覆盖——原记载过时）
+- ~~hooks/ai-stream.ts~~：**已测**（SSE 事件分发/token 累积契约）；**auth 中间件**：已测（token 存储/Bearer/401 单飞——api 流化）
+- **keyed 组件顺移（删头前移）状态丢失**：VDOM-CORE-EXCELLENCE A 已知缺口——重建路径工厂重跑——正解「输出锚物理 move + ref 定位」待 B 波次后实现（fuzz D5 捕获实证）
 - **测试竞态**：场景层 3 文件并发（每文件独立 server/browser）——文件内串行——node:test --test-concurrency 是文件级（单文件内串行——对单文件无效）
 
 ---
