@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——FileUpload（/components/fileupload）——完整能力
+ * showcase 组件测试——FileUpload（/components/fileupload）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「FileUpload」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-fileupload.test.ts
  */
 import { test } from 'node:test'
@@ -30,20 +31,45 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：文件选择（setInputFiles → onChange 文件列表）+ 上传进度', async () => {
+test('FP1 文件选择：列表回流（多文件）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const input = page.locator('main [class*="file-upload"] input[type="file"], main input[type="file"]').first()
-    assert.ok(await input.count() > 0, '文件 input')
-    await input.setInputFiles({ name: '测试.txt', mimeType: 'text/plain', buffer: Buffer.from('内容') })
-    // 文件列表出现（文件名）
-    await page.waitForFunction(() => (document.body.textContent ?? '').includes('测试.txt'), '文件列表', { timeout: 4000 })
-    // 模拟上传（进度按钮——上传中进度条）
-    await page.locator('main .wf-surface button', { hasText: '模拟上传' }).first().click()
+    await page.waitForSelector('main input[type="file"]', { state: 'attached' })
+    await page.locator('main input[type="file"]').first().setInputFiles([
+      { name: 'test.png', mimeType: 'image/png', buffer: Buffer.from('fakepng') },
+      { name: 'doc.pdf', mimeType: 'application/pdf', buffer: Buffer.from('fakepdf') },
+    ])
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('test.png'), null, { timeout: 3000 })
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('doc.pdf'), '第二文件')
+  } finally { await page.close() }
+})
+
+test('FP2 maxSize 超限拒绝（>5MB → 错误提示）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main input[type="file"]', { state: 'attached' })
+    const bigBuf = Buffer.alloc(6 * 1024 * 1024, 'x')
+    await page.locator('main input[type="file"]').first().setInputFiles([{ name: 'big.bin', mimeType: 'application/octet-stream', buffer: bigBuf }])
+    await page.waitForTimeout(400)
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('最大') || t.includes('超') || !t.includes('big.bin'), '大文件被拒')
+  } finally { await page.close() }
+})
+
+test('FP3 上传进度（父层驱动）：progressbar aria-valuenow 动态变化', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main input[type="file"]', { state: 'attached' })
+    await page.locator('main input[type="file"]').first().setInputFiles([{ name: 'p.png', mimeType: 'image/png', buffer: Buffer.from('x') }])
+    await page.waitForTimeout(300)
+    await page.locator('main button', { hasText: '模拟上传（进度）' }).first().click()
     await page.waitForFunction(() => {
-      const t = document.body.textContent ?? ''
-      return t.includes('%') || t.includes('进度') || t.includes('上传中')
-    }, '上传进度', { timeout: 4000 })
+      const v = document.querySelector('main [role="progressbar"]')?.getAttribute('aria-valuenow')
+      return v && parseInt(v) > 0
+    }, null, { timeout: 3000 })
   } finally { await page.close() }
 })

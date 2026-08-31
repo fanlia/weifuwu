@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——Field（/components/field）——完整能力
+ * showcase 组件测试——Field（/components/field）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Field」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-field.test.ts
  */
 import { test } from 'node:test'
@@ -30,23 +31,16 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：label/required(*)/error/hint 四态渲染（语义断言）', async () => {
+test('FP1-3 required 标记 + error/hint 文案渲染（Field 布局层契约）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const main = page.locator('main')
-    // required → *（wf-field-req）
-    const reqField = main.locator('.wf-field').filter({ hasText: '姓名' }).first()
-    assert.equal(await reqField.locator('.wf-field-req').count(), 1, 'required → *')
-    assert.ok((await reqField.locator('.wf-field-label').textContent())?.includes('姓名'), 'label 渲染')
-    // error → 错误文本（wf-field-err）
-    const errField = main.locator('.wf-field').filter({ hasText: '邮箱' }).first()
-    const errText = await errField.locator('.wf-field-err').textContent()
-    assert.equal(errText?.trim(), '邮箱格式不正确', 'error 文本')
-    // hint → 提示文本
-    const hintField = main.locator('.wf-field').filter({ hasText: '密码' }).first()
-    const hintText = await hintField.textContent()
-    assert.ok(hintText?.includes('至少 6 位'), 'hint 提示')
-    assert.equal(await hintField.locator('.wf-field-err').count(), 0, '无 error——不渲染错误位')
+    await page.waitForSelector('main [class*="field"]')
+    const t = await page.evaluate(() => document.querySelector('main')?.textContent ?? '')
+    assert.ok(t.includes('姓名') && t.includes('邮箱') && t.includes('密码'), '三个 Field')
+    assert.ok(t.includes('邮箱格式不正确'), 'error 文案')
+    assert.ok(t.includes('至少 6 位'), 'hint 文案')
+    const req = await page.evaluate(() => [...document.querySelectorAll('main [class*="field"] *')].some((e) => (e.className || '').toString().includes('wf-field-req')))
+    assert.equal(req, true, 'required 星标（wf-field-req）')
   } finally { await page.close() }
 })

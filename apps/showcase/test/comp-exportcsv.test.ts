@@ -1,5 +1,6 @@
 /**
- * showcase 组件测试——ExportCSV（/components/exportcsv）——完整能力
+ * showcase 组件测试——ExportCSV（/components/exportcsv）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「ExportCSV」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-exportcsv.test.ts
  */
 import { test } from 'node:test'
@@ -30,20 +31,17 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('能力：点击导出 CSV（下载文件——BOM + 数据）', async () => {
+test('FP1 导出下载：文件头（列 label）+ 数据行 + BOM（Excel 兼容）', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    const downloadPromise = page.waitForEvent('download', { timeout: 5000 }).catch(() => null)
-    await page.locator('main .wf-surface button', { hasText: '导出 CSV' }).first().click()
-    const download = await downloadPromise
-    if (download) {
-      const path = await download.path()
-      assert.ok(path, '下载文件')
-      assert.ok(download.suggestedFilename().includes('订单.csv'), `文件名（实际 ${download.suggestedFilename()}）`)
-    } else {
-      // headless 下载可能被拦截——验证按钮存在 + 无错误
-      assert.ok(true, '下载事件未捕获（headless 环境）——按钮交互无错误')
-    }
+    await page.waitForSelector('main button')
+    const dlPromise = page.waitForEvent('download', { timeout: 5000 })
+    await page.locator('main button', { hasText: '导出 CSV' }).first().click()
+    const dl = await dlPromise
+    const fs = await import('node:fs')
+    const content = fs.readFileSync(await dl.path(), 'utf8')
+    assert.ok(content.includes('ID,客户,金额'), `表头 ${JSON.stringify(content.slice(0, 20))}`)
+    assert.ok(content.includes('张伟') && content.includes('1280'), '数据行')
   } finally { await page.close() }
 })

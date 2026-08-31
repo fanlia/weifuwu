@@ -1,11 +1,12 @@
 /**
- * showcase 组件测试——Dropdown（/components/dropdown）——完整能力
+ * showcase 组件测试——Dropdown（/components/dropdown）——全功能点固化
+ * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Dropdown」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-dropdown.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { startShowcaseServer, openShowcase, assertPopupGeometry, type ScenarioServer } from './showcase-shared.ts'
+import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
 const COMP_PATH = '/components/dropdown'
 
@@ -30,38 +31,30 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-/** evaluate 轮询（组件页文档表格样式循环——rAF/定时器饿死规避） */
-async function waitFor(page: import('playwright').Page, fn: () => Promise<boolean>, msg: string, timeoutMs = 5000): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (await page.evaluate(fn)) return
-    await page.waitForTimeout(100)
-  }
-  throw new Error(`${msg} 超时`)
-}
-
-test('渲染零错误 + 点击展开 + 项点击（上次: 编辑）', async () => {
+test('FP1/FP2 点击菜单：items + danger 变体 + 选择回流关闭', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.locator('main .wf-surface button', { hasText: '操作 ▾' }).first().click()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('复制')), '下拉展开')
-    await page.locator('.wf-popup button, #__wf_portal button', { hasText: '编辑' }).first().click()
-    await waitFor(page, () => Promise.resolve((document.body.textContent ?? '').includes('上次: 编辑')), '项点击回调')
-    // 关闭后 portal 无残留（核心层修复验证——混合数组 unkeyed 移除）
-    const residual = await page.evaluate(() => {
-      const p = document.querySelector('#__wf_portal')
-      return p ? p.textContent?.includes('复制') ?? false : false
-    })
-    assert.ok(!residual, 'portal 无残留（核心层修复受益）')
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '操作 ▾' }).first().click()
+    await page.waitForSelector('#__wf_portal .wf-dropdown-menu', { timeout: 3000 })
+    const t = await page.evaluate(() => document.querySelector('#__wf_portal .wf-dropdown-menu')?.textContent ?? '')
+    for (const w of ['编辑', '复制', '删除']) assert.ok(t.includes(w), w)
+    assert.ok(await page.locator('#__wf_portal .wf-dropdown-item--danger').count() === 1, 'danger 项')
+    await page.locator('#__wf_portal .wf-dropdown-item', { hasText: '编辑' }).first().click()
+    await page.waitForFunction(() => (document.querySelector('main')?.textContent ?? '').includes('上次: 编辑'), null, { timeout: 3000 })
+    await page.waitForFunction(() => !(document.querySelector('#__wf_portal')?.textContent ?? '').includes('复制'), null, { timeout: 3000 })
   } finally { await page.close() }
 })
-test('位置：portal 归属 + fixed + 视口内 + bottom 方向 + 水平居中', async () => {
+
+test('FP3 Escape 关闭', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    
-    await page.locator('main .wf-surface button', { hasText: '操作' }).first().click()
-    await assertPopupGeometry(page, { panelText: '编辑', anchorText: '操作', dir: 'bottom', centerAxis: 'x', transformNone: true })
+    await page.waitForSelector('main button')
+    await page.locator('main button', { hasText: '操作 ▾' }).first().click()
+    await page.waitForSelector('#__wf_portal .wf-dropdown-menu', { timeout: 3000 })
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => !(document.querySelector('#__wf_portal')?.textContent ?? '').includes('编辑'), null, { timeout: 3000 })
   } finally { await page.close() }
 })

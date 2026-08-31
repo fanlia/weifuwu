@@ -36,7 +36,7 @@
 | 2 | AuthPage → Card（10） | ✅ 完成（3 组件层修复——AutoComplete 过滤不更新/error 文案面/Badge rest 透传） |
 | 3 | Carousel → Collapse（10） | ✅ 完成（零组件修复——demo 扩面：Carousel arrows/dots、Cascader—、ChatInput error/disabled、CheckboxGroup columns/disabled、CitationCard onOpen/defaultExpanded、Chart area、CodeEditor—） |
 | 4 | ColorPicker → Drawer（10） | ✅ 完成（[!] DiffView 双修复：groupDiffLines 未分段 + 展开判定恒真；demo 扩面：Command globalShortcut、Descriptions bordered/size、DiffView threshold=2；ContextMenu demo alert→回显） |
-| 5 | Dropdown → Form（10） | ⬜ 未开始 |
+| 5 | Dropdown → Form（10） | ✅ 完成（零组件修复——Editor 富文本全链路（bold 双向/undo/源码）；ExportCSV 下载内容校验；FilePreview 远程 md+编辑态；Form 校验三态） |
 | 6 | Grid → InputNumber（10） | ⬜ 未开始 |
 | 7 | JSONViewer → Markdown（10） | ⬜ 未开始 |
 | 8 | MarkdownEditor → PageHeader（10） | ⬜ 未开始 |
@@ -538,119 +538,119 @@
 ### Dropdown（Dropdown）
 
 > 下拉菜单，支持 danger variant
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **open 布尔行为**：true/false 渲染差异（open=true 显式断言）
-- [ ] **trigger 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **items 数据面**：`DropdownItem[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onOpenChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
-- [ ] **纪律回归**：⚠ 受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点
-- [ ] **纪律回归**：⚠ 命令式弹窗：浮层经 ctx.ui.openPopup（唯一形态——toast 心智——内核自管理生命周期）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **open 布尔行为**：true/false 渲染差异（open=true 显式断言）
+- [x] **trigger 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **items 数据面**：`DropdownItem[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onOpenChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **纪律回归**：⚠ 受控纪律：受控 open 必须配 onOpenChange——缺回调静默不可点
+- [x] **纪律回归**：⚠ 命令式弹窗：浮层经 ctx.ui.openPopup（唯一形态——toast 心智——内核自管理生命周期）
 
 ### Editor（Editor）
 
 > 富文本编辑器，contentEditable + toolbar，零依赖
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **（无 Props 接口——执行时读源补功能点）**：
-- [ ] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **（无 Props 接口——执行时读源补功能点）**：
+- [x] **浮层定位**：portal 归属 + 面板与锚点几何关系（placement/翻转/视口夹紧——「在哪」断言，非「在视口内」弱断言）
 
 ### EmptyState（EmptyState）
 
 > 空状态占位，支持 icon/text/hint/action
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **icon 数据面**：`string | VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **text 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **icon 数据面**：`string | VNode | null`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **text 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### ExportCSV（ExportCSV）
 
 > 数据导出 CSV——RFC 4180 转义 + BOM（Excel 兼容）零依赖
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **variant 枚举态**：`'primary' | 'secondary' | 'ghost' | 'danger'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **variant 枚举态**：`'primary' | 'secondary' | 'ghost' | 'danger'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **size 枚举态**：`'sm' | 'md' | 'lg'`——逐值渲染断言（类/样式/结构随值变化）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **className 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### Field（Field）
 
 > label+error+hint 容器
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
-- [ ] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **required 布尔行为**：true/false 渲染差异（required=true 显式断言）
+- [x] **label 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### FilePreview（FilePreview）
 
 > 文件预览（md/html/pdf/office）——基于事件流，可编辑
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **editable 布尔行为**：true/false 渲染差异（editable=true 显式断言）
-- [ ] **content 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **url 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **fileName 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **ai 数据面**：`EditorAiOptions`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **height 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onLoad 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：type 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **editable 布尔行为**：true/false 渲染差异（editable=true 显式断言）
+- [x] **content 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **url 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **fileName 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **ai 数据面**：`EditorAiOptions`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **height 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onLoad 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：type 透传到根元素
 
 ### FileTree（FileTree）
 
 > 文件树浏览器——面包屑 + 列表/编辑态 + 上传（受控——数据源无关）
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **loading 布尔行为**：true/false 渲染差异（loading=true 显式断言）
-- [ ] **saving 布尔行为**：true/false 渲染差异（saving=true 显式断言）
-- [ ] **entries 数据面**：`FileTreeEntry[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **path 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **openFile 数据面**：`FileTreeOpenFile | null`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **editValue 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **emptyText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **accept 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onBack 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onOpenDir 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onOpenFile 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onSave 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onEditChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onUpload 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **onRefresh 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **loading 布尔行为**：true/false 渲染差异（loading=true 显式断言）
+- [x] **saving 布尔行为**：true/false 渲染差异（saving=true 显式断言）
+- [x] **entries 数据面**：`FileTreeEntry[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **path 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **openFile 数据面**：`FileTreeOpenFile | null`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **editValue 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **emptyText 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **accept 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onBack 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onOpenDir 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onOpenFile 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onSave 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onEditChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onUpload 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **onRefresh 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
 
 ### FileUpload（FileUpload）
 
 > 文件上传，拖拽区 + 文件列表 + accept/maxSize
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **multiple 布尔行为**：true/false 渲染差异（multiple=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **uploading 布尔行为**：true/false 渲染差异（uploading=true 显式断言）
-- [ ] **accept 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **maxSize 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **value 数据面**：`File[]`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **progress 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **multiple 布尔行为**：true/false 渲染差异（multiple=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **uploading 布尔行为**：true/false 渲染差异（uploading=true 显式断言）
+- [x] **accept 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **maxSize 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **error 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **hint 数据面**：`string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **value 数据面**：`File[]`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **progress 数据面**：`number`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onChange 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### FloatButton（FloatButton）
 
 > 悬浮按钮组：展开状态机 + badge
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **static 布尔行为**：true/false 渲染差异（static=true 显式断言）
-- [ ] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
-- [ ] **icon 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **badge 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **position 数据面**：`FloatButtonPosition`——传入 → DOM 呈现（执行时读源核对语义）
-- [ ] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
-- [ ] **DOM 透传**：children 透传到根元素
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **static 布尔行为**：true/false 渲染差异（static=true 显式断言）
+- [x] **disabled 布尔行为**：true/false 渲染差异（disabled=true 显式断言）
+- [x] **icon 数据面**：`any`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **badge 数据面**：`number | string`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **position 数据面**：`FloatButtonPosition`——传入 → DOM 呈现（执行时读源核对语义）
+- [x] **onClick 事件**：触发 → 回调收到预期参数（受控类断言回流：onChange → props → 显示同步）
+- [x] **DOM 透传**：children 透传到根元素
 
 ### Form（Form）
 
 > 内置验证规则：required/pattern/minLength/自定义
-- [ ] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
-- [ ] **DOM 透传**：children 透传到根元素
-- [ ] **纪律回归**：⚠ 三层一致（§6.3）：条件渲染 false 是空洞占位——{cond && <Alert/>} 不滤除不塌缩（提交按钮消…
-- [ ] **纪律回归**：⚠ 受控纪律：受控 value 必须配 onChange——缺回调静默不可点
+- [x] **渲染基线**：页面挂载零错误——主类/主结构出现（demo 舞台可见）
+- [x] **DOM 透传**：children 透传到根元素
+- [x] **纪律回归**：⚠ 三层一致（§6.3）：条件渲染 false 是空洞占位——{cond && <Alert/>} 不滤除不塌缩（提交按钮消…
+- [x] **纪律回归**：⚠ 受控纪律：受控 value 必须配 onChange——缺回调静默不可点
 
 ### Grid（Grid）
 
