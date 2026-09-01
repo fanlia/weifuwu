@@ -3,7 +3,23 @@
 > 2027-10 制定。来源：角色走查 + ROLES.md §6 设计观察 4 条 + 探针行号级证据
 > （本计划探针已做——每项带证据锚点）。四条观察的处置分流：
 > 观察一/二 → 波次交付；观察三/四 → 已闭环/判负（§4）。
-> 完成状态：**待执行**（波次 1-4）
+> 完成状态：**全部交付归档**（波次 1 `2016a26e` · 波次 2 `b98e2e3c` ·
+> 波次 3 `0ba5dc4b` · 波次 4 归档本轮）
+
+## 完成状态与波次锚点
+
+| 波次 | 内容 | 锚点 | 防线 |
+| --- | --- | --- | --- |
+| 1 | 幽灵 admin 裁剪（invite 白名单 + 租户级 4 处分支诚实化 + 文案修正） | `2016a26e` | roles.test invite role=admin 403；既有矩阵全绿 = 行为不变 |
+| 2 | 写入口角色遮蔽（roles.ts 感知点 + 5 页禁用态/tooltip） | `b98e2e3c` | role-masking.test 5 例；roles-journey/chat.test 断言演进 |
+| 3 | 403 原因透出（errMsg 接入 3 处）+ 按角色落地引导（viewer 身份卡/member 空态） | `0ba5dc4b` | wave3-ux.test 3 例 |
+| 4 | 验收归档（394 全绿 + ROLES.md §6 清账） | 本轮 | — |
+
+计划外收获（探针/测试教训）：
+- ChatInput 默认单行 input（textarea 仅 multiline）——「textarea」选择器会误配
+  FilesSection 编辑器（伪绿）——测试选择器纪律
+- 跨租户同名 agent：INSERT SELECT 必须 app_id 过滤（seed 静默错位）
+- Chat sendText 错误链：.catch(() => null) 吞错 → Error 保留 + instanceof 收窄
 
 ---
 

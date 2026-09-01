@@ -67,7 +67,7 @@
 | 身份判定 | 邀请（role=viewer）→ join |
 | 能力面 | 看消息/看交付物/**下载交付物**（只读 ≠ 拿不到结果——设计意图）、看报表；**全写操作 403**（发消息/建 Agent/建部门/邀请——`requireWriter`） |
 | 核心旅程 | 部门消息可读 → 交付物可下载（跟进不添乱） |
-| 已知缺口 | 落地零引导 + 403 原因不透出（走查 P0——`roles-journey` viewer 旅程「现状锁定」注释处，改进落地时同步更新断言） |
+| 已知缺口 | 【已处理——波次 2/3】原「落地零引导 + 403 原因不透出」：输入框已前置禁用 + placeholder 引导（波次 2）；工作台身份卡「你是只读成员」（波次 3）；403 原因透出已接入（波次 3） |
 | 测试锚点 | `roles.test` viewer 矩阵 · `roles-journey` viewer 旅程 · `chat/agents/departments/deliverables` 散点 |
 
 ### 2.5 部门层变体（同一人不同部门可不同身份）
@@ -126,15 +126,25 @@
 
 ## 6. 设计观察（含混点与待改进——改动时先读）
 
-1. **app 级 `admin` 是幽灵角色**：代码承认（auth.ts 多处 `role !== 'owner' && role !== 'admin'`），
-   但 invite 白名单只产 member/viewer，DB 分布 **0 个**。建议：诚实裁剪——删分支或补铸造入口（当前倾向裁剪：租户级 owner + 部门级 admin 已覆盖管理场景）。
-2. **「管理」导航组对 member/viewer 全量可见**：API 防线在（403），前端零遮蔽——按钮可点、点了失败。
-   走查 P0 已登记（`roles-journey` viewer 旅程「现状锁定」处为改进落点）。
-3. **owner 占比异常**（DB：owner 2638 vs member 807）：「注册即建租户」模型让每个新用户都是 owner。
-   真实 SaaS 场景 member 应占绝对多数——邀请链路（owner → member/viewer）是规模化关键路径。
-4. **角色样本勘误（走查教训）**：`user@demo.com`（李华）在 `_weifuwu_app_members` 实际是 **owner**——
-   用演示账号测「member 视角」必须走 `seedRoleMember` 造号（API 全链路：邀请 → join → 角色响应双验证），
-   不能凭邮箱猜角色。
+> **2027-10 状态更新**：观察 1/2 已处理（ROLES-OPTIMIZATION-PLAN 波次
+> `2016a26e`/`b98e2e3c`/`0ba5dc4b`）；观察 3/4 判负/已闭环（计划 §3/§4）。
+> 以下原文留档，方括号标现状。
+
+1. **app 级 `admin` 是幽灵角色**【已裁剪——波次 1】：代码承认（auth.ts 多处
+   `role !== 'owner' && role !== 'admin'`），但 invite 白名单只产 member/viewer，DB 分布 **0 个**。
+   【处置】invite role 白名单收紧（admin/owner 邀请均 403）+ 租户级 4 处分支删 admin
+   （行为不变——无实例）+ 部门级 4 处保留并注释防误裁 + 文案修正。
+2. **「管理」导航组对 member/viewer 全量可见**【写入口已遮蔽——波次 2/3；菜单级隐藏判负】：
+   API 防线在（403），前端零遮蔽——按钮可点、点了失败。
+   【处置】五页写入口禁用态 + tooltip 原因（Departments/Agents/Settings/Approvals/Chat）
+   + Workspace 按角色落地引导（viewer 身份卡/member 等待加入）+ 403 原因透出；
+   菜单级隐藏判负（读面导航有价值——见计划 §3）。
+3. **owner 占比异常**（DB：owner 2638 vs member 807）【判负记录】：「注册即建租户」模型让
+   每个新用户都是 owner。真实 SaaS 场景 member 应占绝对多数——邀请链路（owner → member/viewer）
+   是规模化关键路径。【处置】判负（增长模型非 bug——防线已厚）；观察持续。
+4. **角色样本勘误（走查教训）**【已闭环】：`user@demo.com`（李华）在 `_weifuwu_app_members`
+   实际是 **owner**——用演示账号测「member 视角」必须走 `seedRoleMember` 造号
+   （API 全链路：邀请 → join → 角色响应双验证），不能凭邮箱猜角色。
 
 ---
 
@@ -150,6 +160,8 @@
 | `test/ui/chat.test.ts` | viewer 发消息 403（requireWriter 红线） | viewer |
 | `test/ui/departments.test.ts` | member 建部门 403 | member |
 | `test/ui/deliverables.test.ts` | viewer 只读无写入口 + 下载 200 | viewer |
+| `test/ui/role-masking.test.ts` | 写入口遮蔽矩阵（五页 × 三角色禁用态/tooltip + writer 不误伤） | owner/member/viewer |
+| `test/ui/wave3-ux.test.ts` | 403 原因透出（member 审批路径）+ 工作台按角色落地引导（身份卡/等待加入/owner 回归对照） | member/viewer/owner |
 | `test/ui/regression.test.ts` | invite role 修复回归 / viewer 建部按钮禁用 / 非管理员概览 403 | 多角色 |
 | `test/ui/settings.test.ts` | 邀请全链路（owner→member/viewer join 角色生效） | owner |
 
