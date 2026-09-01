@@ -75,7 +75,7 @@ interface ChatState {
   editingId: string; editValue: string; userAgentId: string; sending: boolean
   bodyEl: HTMLElement | null; isUserScrolledUp: boolean
   unsubWs: (() => void) | null
-  approving: string | null; copiedId: string; timeVersion: number
+  approving: string | null; copiedId: string
   hasMore: boolean; loadingMore: boolean; searchQ: string; searching: boolean; searchOpen: boolean
   files: Array<{ name: string; data: string; size: number }>
   replyTo: { id: string; sender: string; content: string } | null
@@ -177,7 +177,7 @@ export const Chat: Component = (_props, ctx) => {
   $.files = []
   $.editingId = ''; $.editValue = ''; $.userAgentId = ''; $.sending = false
   $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
-  $.approving = null; $.copiedId = ''; $.timeVersion = 0
+  $.approving = null; $.copiedId = ''
   $.hasMore = false; $.loadingMore = false; $.searchQ = ''; $.searching = false; $.searchOpen = false
   $.replyTo = null
   $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
@@ -487,7 +487,7 @@ export const Chat: Component = (_props, ctx) => {
   ctx.ws?.send({ type: 'subscribe', room: deptId })
 
   const timer = setInterval(() => {
-    $.timeVersion++
+    // CHAT-UX 波次 3（D3）：timeVersion 死状态删除（无消费方——相对时间已改绝对 HH:mm）
     let changed = false
     const now = Date.now()
     const updated = $.msgs.map((m: ChatMessage) => {
@@ -523,6 +523,22 @@ export const Chat: Component = (_props, ctx) => {
   }
 
   function isOwn(msg: ChatMessage) { return !!( $.userAgentId && msg.sender_id === $.userAgentId) }
+
+  // CHAT-UX 波次 3（D2）：日期分隔线（今天/昨天/M月D日——本地时区日界）
+  function dayKey(iso: string): string {
+    try { const d = new Date(iso); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` } catch { return '' }
+  }
+  function dayLabel(iso: string): string {
+    try {
+      const d = new Date(iso)
+      const now = new Date()
+      const same = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+      const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1)
+      if (same(d, now)) return '今天'
+      if (same(d, yesterday)) return '昨天'
+      return d.getFullYear() === now.getFullYear() ? `${d.getMonth() + 1}月${d.getDate()}日` : `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+    } catch { return '' }
+  }
   function canEdit(msg: ChatMessage) { return isOwn(msg) && Date.now() - new Date(msg.created_at).getTime() < 5 * 60 * 1000 }
 
   async function sendText(content: string) {
@@ -895,8 +911,16 @@ export const Chat: Component = (_props, ctx) => {
               : '三步开始：上传资料到左侧交付物 → 发送消息 @AI 成员 → 交付物里拿成果'} />
         )}
 
-        {$.msgs.map((msg: ChatMessage) => (
-          <MessageItem
+        {/* CHAT-UX 波次 3（D2）：日期分隔线——相邻消息跨日时插入（今天/昨天/M月D日） */}
+        {(() => {
+          let lastDay = ''
+          return $.msgs.flatMap((msg: ChatMessage) => {
+            const day = dayKey(msg.created_at)
+            const showDay = day !== '' && day !== lastDay
+            lastDay = day
+            return [
+              ...(showDay ? [<div key={`day-${msg.id}`} class="wf-center"><span class="wf-pill wf-bg-tertiary wf-text-tertiary wf-padding-x-sm wf-padding-y-xs wf-font-xs">{dayLabel(msg.created_at)}</span></div>] : []),
+              <MessageItem
             key={msg.id}
             msg={msg}
             departmentId={deptId}
@@ -921,8 +945,10 @@ export const Chat: Component = (_props, ctx) => {
             onEditChange={handleEditChange}
             onEditSave={handleEditSave}
             onEditCancel={handleEditCancel}
-          />
-        ))}
+              />,
+            ]
+          })
+        })()}
       </div>
 
       <div class="wf-border-top wf-padding-sm">

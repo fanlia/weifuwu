@@ -47,12 +47,11 @@ export interface MessageItemProps {
   onEditCancel: () => void
 }
 
+// CHAT-UX 波次 3（D3）：绝对时间 HH:mm（相对时间「N 分钟前」需重渲染才更新——
+// 死状态 timeVersion 已删；日期由分隔线表达——时间用稳定 HH:mm）
 function fmtTime(iso: string): string {
   try {
     const d = new Date(iso)
-    const diff = Date.now() - d.getTime()
-    if (diff < 60000) return '刚刚'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
     return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   } catch { return '' }
 }
@@ -102,15 +101,17 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
       <div data-msgid={String(msg.id).slice(0, 8)} data-msgtype={msg.msg_type} class={`wf-row wf-items-start wf-gap-sm${props.own ? ' wf-row-reverse' : ''}`}>
         <Ava name={msg.sender_name ?? '未知'} type={msg.sender_type ?? 'user'} small />
         <div class={`wf-stack wf-gap-xs wf-shrink${props.own ? ' wf-items-end' : ''}`}>
-          <div class={`wf-row wf-gap-xs wf-font-xs wf-text-tertiary${props.own ? ' wf-row-reverse' : ''}`}>
+          <div class={`ap-msg-meta wf-row wf-gap-xs wf-font-xs wf-text-tertiary${props.own ? ' wf-row-reverse' : ''}`}>
             <span>{msg.sender_name ?? '未知'}</span>
             {msg.sender_type === 'ai' && st === 'complete' && (() => { const mk = detectTaskMarker(msg.content); return mk.marker ? <span class="wf-pill wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-text-secondary">{mk.label}</span> : null })()}
             {msg.sender_type === 'ai' && msg.routed_to && st === 'complete' && <span class="wf-pill wf-padding-x-sm wf-padding-y-xs wf-font-xs wf-text-tertiary">任务派给 {msg.routed_to}</span>}
             <span>{fmtTime(msg.created_at)}</span>
             {isActive && <span class="wf-text-primary">{st === 'thinking' ? '思考中...' : '生成中...'}</span>}
             {isError && <span class="wf-text-error">出错了</span>}
+            {/* CHAT-UX 波次 3（D1）：操作行 hover 化（ap-msg-actions——触屏常驻、
+                键盘 focus-within 展开——A8 可交互红线不影响键盘路径） */}
             {!props.editing && !isActive && (
-              <span class="wf-row wf-gap-xs">
+              <span class="ap-msg-actions wf-row wf-gap-xs">
                 <Button size="sm" variant="ghost" onClick={() => props.onReply(msg)}>回复</Button>
                 {props.canEditMsg && (
                   <>
@@ -124,10 +125,10 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
               </span>
             )}
             {st === 'complete' && msg.sender_type === 'ai' && msg.content && (
-              <CopyButton size="sm" variant="ghost" value={msg.content} label="复制" />
+              <span class="ap-msg-actions wf-row wf-gap-xs"><CopyButton size="sm" variant="ghost" value={msg.content} label="复制" /></span>
             )}
             {st === 'complete' && msg.sender_type === 'ai' && !isActive && (
-              <span class="wf-row wf-gap-xs">
+              <span class="ap-msg-actions wf-row wf-gap-xs">
                 <button type="button" class="wf-btn wf-btn--ghost wf-btn--sm" aria-label="赞" title="有帮助"
                   style={msg.feedback === 'like' ? { background: 'var(--wf-color-primary-bg)', opacity: 1 } : { opacity: 0.6 }}
                   onClick={() => props.onFeedback(msg, msg.feedback === 'like' ? null : 'like')}>👍</button>

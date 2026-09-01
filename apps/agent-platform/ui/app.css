@@ -135,3 +135,19 @@
     transition: none;
   }
 }
+
+/* ---- CHAT-UX 波次 3（D1）：消息操作行 hover 化 ----
+ * 桌面 hover 才显示（省视觉密度——每条消息 4-6 个操作按钮常驻是噪音主源）；
+ * 触屏设备无 hover 能力 → @media (hover:hover) 门控保持常驻；
+ * 键盘 Tab 聚焦操作按钮 → :focus-within 展开（A8 可交互红线不影响键盘路径）。
+ * opacity 而非 display——布局稳定（无跳动）+ 可聚焦（display:none 摘除 Tab 序）。 */
+@media (hover: hover) {
+  .ap-msg-actions {
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+  [data-msgid]:hover .ap-msg-actions,
+  .ap-msg-actions:focus-within {
+    opacity: 1;
+  }
+}
