@@ -76,7 +76,7 @@ interface ChatState {
   bodyEl: HTMLElement | null; isUserScrolledUp: boolean
   unsubWs: (() => void) | null
   approving: string | null; copiedId: string; timeVersion: number
-  hasMore: boolean; loadingMore: boolean; searchQ: string; searching: boolean
+  hasMore: boolean; loadingMore: boolean; searchQ: string; searching: boolean; searchOpen: boolean
   files: Array<{ name: string; data: string; size: number }>
   replyTo: { id: string; sender: string; content: string } | null
   membersList: Member[]; atMenu: Member[]; atMenuOpen: boolean; atQuery: string
@@ -176,7 +176,7 @@ export const Chat: Component = (_props, ctx) => {
   $.editingId = ''; $.editValue = ''; $.userAgentId = ''; $.sending = false
   $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
   $.approving = null; $.copiedId = ''; $.timeVersion = 0
-  $.hasMore = false; $.loadingMore = false; $.searchQ = ''; $.searching = false
+  $.hasMore = false; $.loadingMore = false; $.searchQ = ''; $.searching = false; $.searchOpen = false
   $.replyTo = null
   $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
   $.atMenuIndex = -1
@@ -836,9 +836,30 @@ export const Chat: Component = (_props, ctx) => {
         {$.env.label && (
           <Badge variant={$.env.status === 'error' ? 'error' : $.env.status === 'ready' ? 'success' : 'default'}>{$.env.label}</Badge>
         )}
+        <Button size="sm" variant="ghost" title="搜索消息（UX-PLAN-2：搜索归位头部——底部不可发现实证）"
+          onClick={() => {
+            $.searchOpen = !$.searchOpen
+            if ($.searchOpen) ctx.afterRender?.(() => { (document.querySelector('input[placeholder="搜索消息..."]') as HTMLInputElement | null)?.focus() })
+            rerender()
+          }}><Icon name="search" size={14} /></Button>
         <Button size="sm" variant="ghost" onClick={exportChat} title="导出对话为 Markdown"><Icon name="copy" size={14} /> 导出</Button>
         <Button size="sm" variant="ghost" class="wf-hidden wf-flex@sm" onClick={() => ctx.app?.navigate(`/departments/${deptId}`)}>部门详情</Button>
       </div>
+
+        {/* 搜索行（C1 归位头部：头部开关控制——搜索态时保持展开） */}
+        {$.searchOpen && (
+          <div class="wf-row wf-gap-sm wf-padding-x-sm wf-padding-y-xs wf-bg-secondary wf-border-bottom">
+            <div class="wf-fill">
+              <Input placeholder="搜索消息..." value={$.searchQ} onInput={onSearchInput}
+                onKeyDown={(e: KeyboardEvent) => {
+                  if (e.key === 'Enter') { e.preventDefault(); runSearch() }
+                  if (e.key === 'Escape') { setSearchQ(''); $.searchOpen = false; rerender() }
+                }} />
+            </div>
+            <Button size="sm" disabled={$.searching} onClick={runSearch}><Icon name="search" size={14} /> 搜索</Button>
+            <Button size="sm" variant="ghost" title="关闭搜索" onClick={() => { setSearchQ(''); $.searchOpen = false; rerender() }}><Icon name="close" size={14} /></Button>
+          </div>
+        )}
 
       <div class="wf-fill wf-overflow-auto wf-stack wf-gap-md wf-padding-md"
         ref={chatBodyRef}
@@ -943,12 +964,6 @@ export const Chat: Component = (_props, ctx) => {
           </div>
           <Button variant="ghost" onClick={pickFile} title="上传附件（csv/xlsx/pdf/docx/pptx/txt/md/json/log/png/jpg，≤20MB）"><Icon name="paperclip" size={15} /></Button>
           <input ref={fileInputRef} type="file" hidden onChange={(e: Event) => { onFilePick(e as Event) }} />
-        </div>
-        <div class="wf-row wf-gap-sm wf-margin-top-sm">
-          <div class="wf-fill">
-            <Input placeholder="搜索消息..." value={$.searchQ} onInput={onSearchInput} />
-          </div>
-          <Button size="sm" disabled={$.searching} onClick={runSearch}><Icon name="search" size={14} /> 搜索</Button>
         </div>
       </div>
       </div>

@@ -98,7 +98,8 @@ export const Reports: Component = (_props, ctx) => {
                 {d.envLabel && <span class={`wf-font-xs wf-padding-x-sm wf-padding-y-xs wf-radius ${d.envStatus === 'error' ? 'wf-bg-error wf-text-on-brand' : 'wf-bg-tertiary'}`}>{d.envLabel}</span>}
                 <span class="wf-font-xs wf-text-tertiary wf-nums">{d.messages} 消息</span>
                 <span class="wf-font-xs wf-text-tertiary wf-nums">{d.runs} 次运行</span>
-                <span class="wf-font-sm wf-semibold wf-nums">{((d.tokens ?? 0) / 1000).toFixed(1)}k</span>
+                {/* C2（UX-PLAN-2 波次 5）：单位后缀——裸「6.3k」不可扫读（tokens 与消息/运行同列无标注） */}
+                <span class="wf-font-sm wf-semibold wf-nums">{((d.tokens ?? 0) / 1000).toFixed(1)}k tokens</span>
               </div>
             ))}
           </div>
