@@ -99,6 +99,11 @@ test('member/viewer：邀请均 403（Owner only——设置页「仅所有者�
   // 即使路由层漏检，签出的邀请 role 也必须降级——双重防线）
   const memberOwnerInvite = await tryApi(member, '/api/auth/invite', 'POST', { role: 'owner' })
   assert.ok(memberOwnerInvite, 'member 发 role=owner 邀请应 403（提权防线）')
+  // ROLES-OPTIMIZATION 波次 1：邀请角色白名单——role=admin 幽灵角色裁剪
+  // （此前 createInvite 放行任意 role 串——可铸造无入口的 app 级 admin；
+  // 现在路由层显式 403——owner 发出也拒，非法角色不静默降级）
+  const adminInviteForbidden = await tryApi(owner, '/api/auth/invite', 'POST', { role: 'admin' })
+  assert.ok(adminInviteForbidden, 'owner 发 role=admin 邀请应 403（白名单仅 member/viewer）')
   // 报表读面：member/viewer 可见（成本可观测不限于 owner——走查实证）
   const memberStats = await apiAs(BASE, member, '/api/stats').catch(() => null)
   const viewerStats = await apiAs(BASE, viewer, '/api/stats').catch(() => null)

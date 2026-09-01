@@ -101,8 +101,10 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     try {
       const { appRoleOf } = await import('../services/permissions.ts')
       const role = await appRoleOf(ctx)
-      if (role !== 'owner' && role !== 'admin') {
-        return Response.json({ error: '只有租户所有者或部门管理员可以创建部门' }, { status: 403 })
+      // ROLES-OPTIMIZATION 波次 1：app 级 admin 幽灵角色裁剪（invite 只产
+      // member/viewer、DB 零实例）——仅 owner 可建部门；行为不变
+      if (role !== 'owner') {
+        return Response.json({ error: '只有租户所有者可以创建部门' }, { status: 403 })
       }
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
@@ -368,12 +370,13 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   app.delete('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params } = ctx
     // R-权限（2026-08——UI 角色测试抓出：删除无任何鉴权——viewer/member
-    // 都能删任何部门——矩阵红线：删除 = owner/admin）
+    // 都能删任何部门——矩阵红线：删除 = owner；ROLES-OPTIMIZATION 波次 1：
+    // app 级 admin 幽灵角色裁剪——行为不变）
     try {
       const { appRoleOf } = await import('../services/permissions.ts')
       const role = await appRoleOf(ctx)
-      if (role !== 'owner' && role !== 'admin') {
-        return Response.json({ error: '只有租户所有者或部门管理员可以删除部门' }, { status: 403 })
+      if (role !== 'owner') {
+        return Response.json({ error: '只有租户所有者可以删除部门' }, { status: 403 })
       }
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
@@ -444,6 +447,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     const [callerOwner] = await sql`
       SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${auth!.userId}
     `
+    // 部门级 admin（department_members.role——合法——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
     if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
       return Response.json({ error: '只有部门管理员可以管理成员' }, { status: 403 })
     }
@@ -518,6 +522,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     const [callerOwner] = await sql`
       SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${auth!.userId}
     `
+    // 部门级 admin（department_members.role——合法——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
     if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
       return Response.json({ error: '只有部门管理员可以审批产物' }, { status: 403 })
     }

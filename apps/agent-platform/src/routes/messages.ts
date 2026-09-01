@@ -341,9 +341,11 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: '消息不存在' }, { status: 404 })
     }
 
-    // 权限：发送者可撤回（5 分钟）；管理员（owner/admin）可删除任意消息（不限时）
+    // 权限：发送者可撤回（5 分钟）；owner 可删除任意消息（不限时）。
+    // （ROLES-OPTIMIZATION 波次 1：app 级 admin 幽灵角色裁剪——invite 只产
+    // member/viewer、DB 零实例——分支诚实化；行为不变）
     const isOwner = msg.owner_user_id === auth!.userId
-    const isAdmin = auth!.role === 'owner' || auth!.role === 'admin'
+    const isAdmin = auth!.role === 'owner'
     if (!isOwner && !isAdmin) {
       return Response.json({ error: '只能撤回自己的消息' }, { status: 403 })
     }
@@ -419,6 +421,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [callerOwner] = await sql`
       SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${auth!.userId}
     `
+    // 部门级 admin（department_members.role——合法角色 710 实例——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
     if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
       return Response.json({ error: '只有部门管理员可以编辑草稿' }, { status: 403 })
     }
@@ -459,6 +462,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
         AND ua.user_id = ${auth!.userId}
       LIMIT 1
     `
+    // 部门级 admin（department_members.role——合法——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
     if (!approver || approver.role !== 'admin') {
       return Response.json({ error: '只有部门管理员可以审批' }, { status: 403 })
     }

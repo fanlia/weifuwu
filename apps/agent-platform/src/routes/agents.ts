@@ -301,8 +301,9 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
 
   app.delete('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params, auth } = ctx
-    // 删除权限：仅 owner/admin（防 member 越权删 Agent）
-    if (auth!.role !== 'owner' && auth!.role !== 'admin') {
+    // 删除权限：仅 owner（防 member 越权删 Agent）。
+    // （ROLES-OPTIMIZATION 波次 1：app 级 admin 幽灵角色裁剪——行为不变）
+    if (auth!.role !== 'owner') {
       return Response.json({ error: '仅管理员可删除 Agent' }, { status: 403 })
     }
     const result = await sql`

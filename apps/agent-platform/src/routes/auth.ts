@@ -110,6 +110,12 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
 
   app.post('/api/auth/invite', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const body = await req.json() as { email?: string; role?: string }
+    // ROLES-OPTIMIZATION 波次 1：邀请角色白名单——仅 member/viewer（app 级 admin
+    // 幽灵角色裁剪：此前 createInvite 放行任意 role 串——可铸造无入口的 admin；
+    // 现在前置拦截，非法 role 显式 403 而非静默降级）
+    if (body.role && body.role !== 'member' && body.role !== 'viewer') {
+      return Response.json({ error: '邀请角色仅支持 member/viewer' }, { status: 403 })
+    }
     try {
       const inv = await ctx.auth.createInvite(ctx.appId, { email: body.email, role: body.role })
       // 查 slug 拼邀请链接（前端复制分发）
