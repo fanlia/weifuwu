@@ -80,8 +80,19 @@ async function main() {
   // 主池：10 并发 AI 执行（每任务 2+ SQL 连接）+ 常规请求——acquireTimeoutMs 防池满无限排队（卡住）
   // DATABASE_POOL_MAX 覆盖（2026-08——测试峰值连接（15+ spawn server × 50）
   // 击穿 PG max=100——测试环境用小池（UI 测试低并发——8 足够））
+  // idle_timeout/max_lifetime（2027-10——watch 重启连接击穿实证）：postgres.js
+  // 默认 idle_timeout=0——峰值开出的连接永不收缩（实测单实例 idle 49）——
+  // dev --watch 重启叠加期 49+50 > PG max=100 → 启动失败 too many clients；
+  // 空闲 30s 收缩 + 连接最长寿命 30min 换血——碰撞窗口结构性消除
   const poolMax = parseInt(process.env.DATABASE_POOL_MAX ?? '50', 10)
-  const pg = postgres({ max: poolMax, acquireTimeoutMs: 10_000 })
+  const pg = postgres({
+    max: poolMax,
+    acquireTimeoutMs: 10_000,
+    // 空闲收缩（2027-10——watch 重启连接击穿实证）：默认 0 峰值连接永不收缩
+    // （实测单实例 idle 49）——重启叠加期 49+50 > PG max=100 → 启动失败。
+    // 30s 收缩 + dev 单人低并发——碰撞窗口结构性消除（框架 client 已透传 reaper）
+    idle_timeout: parseInt(process.env.DATABASE_POOL_IDLE_TIMEOUT ?? '30000', 10),
+  })
   app.use(pg)
   // 事件日志独立池（2026-08——沙盒事件——shutdown 需关闭——否则每测试
   // spawn 泄漏 3 连接——多测试文件串行 → 池累积 → PG too many clients）
@@ -1591,14 +1602,21 @@ async function main() {
   if (port !== 0) console.log(`[agent-platform] http://localhost:${port}`)
 
   // ── 优雅关闭 ────────────────────────────────────────────
+  // 顺序纪律（2027-10——watch 重启连接击穿实证）：DB 最先关（连接名额是
+  // watch 重启碰撞窗口的直接根源）；每段超时兑底——WS/SSE 在途长连接会让
+  // server.close() 永等（旧顺序：await server.close() 卡住 → pg.close()
+  // 永不执行 → node --watch 超时 SIGKILL → 优雅关闭全跳过 → 连接靠
+  // TCP keepalive（默认 2h）才回收——新实例启动拿不到名额直接失败）
   const shutdown = async (signal: string) => {
     console.log(`\n[agent-platform] 收到 ${signal}，正在优雅关闭...`)
-    // 先停止 HTTP 服务
-    await new Promise<void>((resolve) => server.close().then(resolve))
-    // 关闭数据库连接
-    await pg.close()
-    // 事件池（2026-08——独立池泄漏：每测试 spawn 3 连接不关——池累积耗尽）
-    try { await eventsPg?.close() } catch { /* 尽力 */ }
+    const withTimeout = (p: Promise<unknown>, ms: number) => Promise.race([p.catch(() => {}), new Promise<void>((r) => setTimeout(r, ms))])
+    // 1) DB 先关（立刻释放连接名额）——两池各 3s 兑底
+    await withTimeout(pg.close(), 3_000)
+    try { await withTimeout(eventsPg?.close() ?? Promise.resolve(), 1_000) } catch { /* 尽力 */ }
+    // 2) redis（rate-limit/缓存——退出前释放）
+    try { await withTimeout(redisClient?.redis?.quit?.() ?? Promise.resolve(), 1_000) } catch { /* 尽力 */ }
+    // 3) HTTP 最后关 + 3s 兑底（最坏总耗时 ~8s——node --watch 宽限内完成）
+    await withTimeout(new Promise<void>((resolve) => { server.close().then(() => resolve()) }), 3_000)
     console.log('[agent-platform] 已关闭')
     process.exit(0)
   }

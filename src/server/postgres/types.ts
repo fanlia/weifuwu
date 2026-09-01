@@ -38,6 +38,9 @@ export interface PostgresOptions {
   signal?: AbortSignal
   closeTimeout?: number
   ssl?: boolean | Record<string, unknown>
+  /** 空闲连接回收 ms（超时未使用的连接关闭，池容量收缩；下次需要时自动重建）。
+   *  默认 0 = 禁用（峰值连接常驻——watch 重启叠加期易击穿 pg max_connections）。
+   *  dev/长生命周期进程建议 30_000。 */
   idle_timeout?: number
 }
 

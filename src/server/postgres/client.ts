@@ -45,6 +45,11 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
     poolSize: opts.max ?? opts.poolSize ?? 10,
     acquireTimeoutMs: opts.acquireTimeoutMs,
     statementTimeoutMs: opts.statementTimeoutMs ?? opts.statementTimeout,
+    // 空闲收缩（2027-10——透传修复）：opts.idle_timeout 此前仅声明未消费（类型谎言
+    // ——写进去静默无效——agent-platform watch 重启连接击穿实证）——池本身已实现
+    // reaper（idleTimeoutMs → 空闲超时关闭，容量收缩，acquire 时自动重建），只差
+    // 中间件透传。单位 ms；默认 0 = 不收缩（旧行为不变）
+    idleTimeoutMs: opts.idle_timeout,
     // onQuery 包装：从 ALS 读请求级 traceId 追加到第 4 参数（后端兼容——不传时不注入）
     onQuery: opts.onQuery
       ? (sql, durationMs, rowCount) => {

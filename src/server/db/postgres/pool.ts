@@ -71,6 +71,11 @@ export class PgPool {
         return c
       }),
     )
+    // 建连时刻即空闲计时起点（2027-10）：lastUsed 初始 0 被 reaper 跳过
+    // （lastUsed > 0 门槛）——启动即满配的池在低流量下永不收缩（idle 40 稳
+    // 态实证）——watch 重启叠加击穿的帮凶；置 now 后空闲连接统一可回收
+    const now = Date.now()
+    for (const c of conns) c.lastUsed = now
     this.all = conns
     this.available = [...conns]
     this.readyPromise = Promise.resolve()
