@@ -2,6 +2,7 @@ import type { UIContext, Component } from 'weifuwu/vdom'
 import { Ava, Loading, TypeBadge, StatusDot } from '../components/ui'
 import { Badge, Button, Card, Checkbox, EmptyState, Icon } from 'weifuwu/components'
 import type { Agent, AgentListResponse, Department, Member } from '../lib/types'
+import { isTenantOwner } from '../lib/roles'
 import { FilesSection } from '../components/agent/FilesSection.tsx'
 
 interface DepartmentDetailState {
@@ -114,7 +115,10 @@ export const DepartmentDetail: Component = (_props, ctx) => {
       ctx.api!.get<AgentListResponse>('/api/agents').then(d => {
         const all = d.agents ?? []
         const inIds = new Set($.members.map((m) => m.id))
-        $.allAgents = all.filter((a) => !inIds.has(a.id) && a.type !== 'user')
+        // CHAT-INTERACTION 走查 P1 修复：不再排除人类成员（type='user'）——
+        // 原 picker 只能加 AI，同事（已加入应用的人）从 UI 无法进部门；
+        // 分组渲染（AI 成员 / 同事），添加链路同 agent_id（user agent 也是 agent）
+        $.allAgents = all.filter((a) => !inIds.has(a.id))
         rerender()
       }).catch(() => { ctx.toast!('加载 Agent 列表失败', 'error') })
     }
@@ -164,7 +168,16 @@ export const DepartmentDetail: Component = (_props, ctx) => {
               当前应用 · {$.members.length} 位成员
             </div>
           </div>
-          <Button variant="primary" onClick={() => ctx.app?.navigate(`/chat/${deptId}`)}>进入聊天 →</Button>
+          <div class="wf-row wf-gap-sm">
+            {/* 走查 P1：部门页双入口——添加 AI 成员（成员卡）+ 邀请同事（此——跳设置）。
+                邀请仅 owner（与 Settings 邀请区角色遮蔽一致） */}
+            {isTenantOwner() && (
+              <Button variant="ghost" onClick={() => ctx.app?.navigate('/settings')}>
+                <Icon name="users" size={14} /> 邀请同事
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => ctx.app?.navigate(`/chat/${deptId}`)}>进入聊天 →</Button>
+          </div>
         </div>
       </Card>
 
@@ -175,10 +188,13 @@ export const DepartmentDetail: Component = (_props, ctx) => {
         </div>
         {$.showMemberPicker && (
           <div key="member-picker" class="wf-bg-tertiary wf-padding-md wf-radius wf-margin-bottom-md">
-            <div class="wf-font-sm wf-semibold wf-margin-bottom-sm">选择要添加的 Agent（{$.picked.length} 个）</div>
-            {$.allAgents.length === 0 && <div class="wf-font-sm wf-text-tertiary">没有可添加的 Agent——先创建 AI 机器人 / Webhook / 知识库</div>}
+            <div class="wf-font-sm wf-semibold wf-margin-bottom-sm">选择要添加的成员（{$.picked.length} 个）</div>
+            {$.allAgents.length === 0 && <div class="wf-font-sm wf-text-tertiary">没有可添加的成员——先创建 AI 机器人，或在「设置 → 邀请成员」邀请同事加入应用</div>}
+            {$.allAgents.some((a: Agent) => a.type !== 'user') && (
+              <div class="wf-font-xs wf-text-tertiary wf-margin-y-xs wf-uppercase wf-tracking-wide">AI 成员</div>
+            )}
             <div class="wf-stack wf-gap-none">
-              {$.allAgents.map((a: Agent) => (
+              {$.allAgents.filter((a: Agent) => a.type !== 'user').map((a: Agent) => (
                 <label key={a.id} class="wf-row wf-gap-sm wf-padding-y-sm" style="cursor: pointer">
                   <Checkbox checked={$.picked.includes(a.id)} onChange={() => {
                     $.picked = $.picked.includes(a.id) ? $.picked.filter((x: string) => x !== a.id) : [...$.picked, a.id]
@@ -189,6 +205,21 @@ export const DepartmentDetail: Component = (_props, ctx) => {
                 </label>
               ))}
             </div>
+            {$.allAgents.some((a: Agent) => a.type === 'user') && (
+              <div class="wf-stack wf-gap-none wf-margin-top-sm">
+                <div class="wf-font-xs wf-text-tertiary wf-margin-y-xs wf-uppercase wf-tracking-wide">同事（已加入应用）</div>
+                {$.allAgents.filter((a: Agent) => a.type === 'user').map((a: Agent) => (
+                  <label key={a.id} class="wf-row wf-gap-sm wf-padding-y-sm" style="cursor: pointer">
+                    <Checkbox checked={$.picked.includes(a.id)} onChange={() => {
+                      $.picked = $.picked.includes(a.id) ? $.picked.filter((x: string) => x !== a.id) : [...$.picked, a.id]
+                      rerender()
+                    }} />
+                    <span class="wf-font-base">{a.name}</span>
+                    <TypeBadge type="user" />
+                  </label>
+                ))}
+              </div>
+            )}
             <div class="wf-justify-end wf-gap-sm wf-margin-top-sm">
               <Button size="sm" variant="ghost" onClick={() => { $.showMemberPicker = false; rerender() }}>取消</Button>
               <Button size="sm" variant="primary" disabled={$.managing || $.picked.length === 0} onClick={addMembers}>
