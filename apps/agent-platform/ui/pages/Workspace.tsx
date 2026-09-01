@@ -17,6 +17,8 @@ interface ProjectCard {
   name: string
   is_dm: boolean
   member_count: number
+  /** 人类成员数（UX-PLAN-2 波次 2——0 = 单 AI 待命间） */
+  human_count: number
   last_message: string | null
   last_message_at: string | null
   // 环境状态（/api/sandboxes 映射——用户语言）
@@ -81,6 +83,7 @@ export const Workspace: Component = (_props, ctx) => {
       name: d.name,
       is_dm: !!d.is_dm,
       member_count: d.member_count ?? 0,
+      human_count: d.human_count ?? 0,
       last_message: d.last_message ?? null,
       last_message_at: d.last_message_at ?? null,
       env: { status: sbMap.get(d.id) ?? null, label: ENV_LABEL[sbMap.get(d.id) ?? ''] ?? '' },
@@ -172,16 +175,21 @@ export const Workspace: Component = (_props, ctx) => {
         <>
           <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">我的项目空间（{$.projects.length}）</div>
           <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 300px), 1fr))">
-            {$.projects.map((p) => (
-              <Card key={p.id} clickable hover onClick={() => ctx.app?.navigate(`/chat/${p.id}`)}>
+            {$.projects.map((p) => {
+              // UX-PLAN-2 波次 2：单 AI 待命间（0 人类成员）——点击直达成员管理
+              const standby = p.human_count === 0
+              return (
+              <Card key={p.id} clickable hover onClick={() => ctx.app?.navigate(standby ? `/departments/${p.id}` : `/chat/${p.id}`)}>
                 <div class="wf-row wf-gap-sm wf-items-center">
                   <Ava name={p.is_dm ? '💬' : '👥'} type={p.is_dm ? 'user' : 'knowledge_base'} />
                   <div class="wf-fill wf-truncate wf-font-base wf-semibold">{p.name}</div>
                   {p.is_dm && <span class="wf-font-xs wf-text-tertiary">单聊</span>}
                 </div>
-                <div class="wf-font-sm wf-text-secondary wf-truncate wf-margin-top-sm">{p.last_message || '暂无消息——@AI 成员开始干活'}</div>
+                <div class="wf-font-sm wf-text-secondary wf-truncate wf-margin-top-sm">
+                  {p.last_message || (standby ? 'AI 待命间 · 加入后开聊' : '暂无消息——@AI 成员开始干活')}
+                </div>
                 <div class="wf-row wf-gap-md wf-font-xs wf-text-tertiary wf-margin-top-sm">
-                  <span>{p.member_count} 位成员</span>
+                  <span>{standby ? `${p.member_count} AI` : `${p.member_count} 位成员`}</span>
                   {p.last_message_at && <span>{timeAgo(p.last_message_at)}活跃</span>}
                   <span class="wf-fill" />
                   {p.env.label && (
@@ -192,7 +200,8 @@ export const Workspace: Component = (_props, ctx) => {
                   )}
                 </div>
               </Card>
-            ))}
+              )
+            })}
           </div>
         </>
       )}

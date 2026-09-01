@@ -18,6 +18,8 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     const departments = await sql`
       SELECT d.id, d.app_id, d.name, d.is_dm, d.created_at,
         (SELECT COUNT(*) FROM department_members dm WHERE dm.department_id = d.id)::int as member_count,
+        (SELECT COUNT(*) FROM department_members dm JOIN agents a ON a.id = dm.agent_id
+           WHERE dm.department_id = d.id AND a.type = 'user')::int as human_count,
         (SELECT m.content FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1) as last_message,
         (SELECT m.created_at FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1) as last_message_at
       FROM departments d

@@ -81,6 +81,8 @@ export interface Department {
   description?: string | null
   created_at?: string
   member_count?: number
+  /** 人类成员数（UX-PLAN-2 波次 2——0 = 单 AI 待命间：列表引导加人而非发消息） */
+  human_count?: number
   /** GET /api/departments 附加（会话列表） */
   last_message?: string | null
   last_message_at?: string | null

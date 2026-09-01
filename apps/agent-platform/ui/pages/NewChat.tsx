@@ -57,17 +57,24 @@ export const NewChat: Component = (_props, ctx) => {
 
       {$.depts.length > 0 && (
         <div class="wf-stack wf-gap-sm">
-          {$.depts.map((d: Department) => (
-            <Card key={d.id} clickable hover onClick={() => ctx.app?.navigate(`/chat/${d.id}`)}>
+          {$.depts.map((d: Department) => {
+            // UX-PLAN-2 波次 2：单 AI 待命间（0 人类成员）——点击直达成员管理
+            // （加入后才能开聊——旧路径进聊天发消息没人应是有坑的第一步）
+            const standby = (d.human_count ?? 0) === 0
+            return (
+            <Card key={d.id} clickable hover onClick={() => ctx.app?.navigate(standby ? `/departments/${d.id}` : `/chat/${d.id}`)}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} />
                 <div class="wf-fill wf-stack wf-gap-none wf-shrink">
                   <div class="wf-row wf-gap-sm">
                     <span class="wf-font-base wf-semibold wf-truncate">{d.name}</span>
-                    {(d.member_count ?? 0) > 0 && <span class="wf-font-xs wf-text-tertiary">{d.member_count} 人</span>}
+                    {(d.member_count ?? 0) > 0 && <span class="wf-font-xs wf-text-tertiary">{standby ? `${d.member_count} AI` : `${d.member_count} 人`}</span>}
                   </div>
                   <div class="wf-font-sm wf-text-secondary wf-truncate">
-                    {d.last_message ? plainPreview(d.last_message) : ((d.member_count ?? 0) > 0 ? '暂无消息，发一条试试' : '还没有成员')}
+                    {d.last_message ? plainPreview(d.last_message)
+                      : /* UX-PLAN-2 波次 2：单 AI 待命间——引导加人（对的第一步）而非发消息 */
+                        (d.human_count ?? 0) === 0 ? 'AI 待命间 · 加入后开聊'
+                        : (d.member_count ?? 0) > 0 ? '暂无消息，发一条试试' : '还没有成员'}
                   </div>
                 </div>
                 <div class="wf-stack wf-gap-none wf-items-end wf-shrink">
@@ -76,7 +83,8 @@ export const NewChat: Component = (_props, ctx) => {
                 </div>
               </div>
             </Card>
-          ))}
+            )
+          })}
           <div class="wf-justify-end">
             <Button variant="ghost" onClick={() => ctx.app?.navigate('/departments')}>查看全部部门 →</Button>
           </div>
