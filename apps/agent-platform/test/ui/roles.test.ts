@@ -86,6 +86,26 @@ test('member：可对话/建 Agent——不可建部门/审批（能力边界精
   assert.ok(pend !== undefined, 'member 审批面可访问（但无待审——读宽容）')
 })
 
+test('member/viewer：邀请均 403（Owner only——设置页「仅所有者可用」文案的服务端防线）；报表读面对两角色开放', async () => {
+  // 走查实证（2027-10）：member 曾被怀疑可邀请（探针误用 owner 账号 user@demo.com）
+  // ——红线锁定：仅 owner 能生成邀请链接
+  const member = await seedRoleMember(BASE, owner, 'member')
+  const viewer = await seedRoleMember(BASE, owner, 'viewer')
+  const memberInviteForbidden = await tryApi(member, '/api/auth/invite', 'POST', { role: 'viewer' })
+  const viewerInviteForbidden = await tryApi(viewer, '/api/auth/invite', 'POST', { role: 'member' })
+  assert.ok(memberInviteForbidden, 'member 邀请应 403（Owner only）')
+  assert.ok(viewerInviteForbidden, 'viewer 邀请应 403（Owner only）')
+  // 提权邀请双保险：role=owner 的邀请请求也必须被拒（createInvite 内部白名单——
+  // 即使路由层漏检，签出的邀请 role 也必须降级——双重防线）
+  const memberOwnerInvite = await tryApi(member, '/api/auth/invite', 'POST', { role: 'owner' })
+  assert.ok(memberOwnerInvite, 'member 发 role=owner 邀请应 403（提权防线）')
+  // 报表读面：member/viewer 可见（成本可观测不限于 owner——走查实证）
+  const memberStats = await apiAs(BASE, member, '/api/stats').catch(() => null)
+  const viewerStats = await apiAs(BASE, viewer, '/api/stats').catch(() => null)
+  assert.ok(memberStats !== null, 'member 报表可读（矩阵 ✓）')
+  assert.ok(viewerStats !== null, 'viewer 报表可读（矩阵 ✓）')
+})
+
 // 辅助：API 调用返回「是否 403」
 async function tryApi(auth: TenantAuth, path: string, method: string, body?: unknown): Promise<boolean> {
   try {
