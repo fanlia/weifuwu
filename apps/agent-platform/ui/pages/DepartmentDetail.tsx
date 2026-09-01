@@ -71,7 +71,9 @@ export const DepartmentDetail: Component = (_props, ctx) => {
     $.reviewBusy = ''; loadReview(); rerender()
   }
 
-  // 部门沙盒状态（群聊——单聊无工作目录/沙盒）
+  // 部门沙盒状态（三层模型：单聊也是部门特例——同样有工作目录/沙盒）
+  // UX-PLAN-2 波次 1 实证：loadSandbox 原先只在手动刷新/sbAction 后调用
+  // （后者要求 $.sandbox 非空——死路径）——页面打开永远空态提示即使沙盒已存在
   const loadSandbox = () => {
     void ctx.api!.get<any>(`/api/sandboxes?department_id=${deptId}`).then((d) => {
       $.sandbox = d.sandboxes?.[0] ?? null
@@ -102,6 +104,7 @@ export const DepartmentDetail: Component = (_props, ctx) => {
           $.loading = false
           rerender()
           if (!d.is_dm) { loadReview(); loadExecutions() }
+          loadSandbox()
         }).catch(() => { $.loading = false; rerender() })
     }
     loadDept()
@@ -224,10 +227,11 @@ export const DepartmentDetail: Component = (_props, ctx) => {
           {$.sandbox ? (
             <div class="wf-stack wf-gap-sm">
               <div class="wf-row wf-gap-sm wf-items-center">
-                <StatusDot on={$.sandbox.status === 'running' || $.sandbox.status === 'requested'} />
-                <span class="wf-font-sm wf-medium">
-                  {$.sandbox.status === 'running' ? '运行中' : $.sandbox.status === 'stopped' ? '已停止' : $.sandbox.status === 'requested' ? '待启动（首次工具调用时自动启动）' : $.sandbox.status === 'error' ? '错误' : '已终止'}
-                </span>
+                {/* 单标签纪律（UX-PLAN-2 波次 1）：点色 = 实际状态（requested 灰——
+                    旧 on 含 requested 绿点误导）；文案同源单渲染 */}
+                <StatusDot on={$.sandbox.status === 'running'}
+                  tone={$.sandbox.status === 'error' ? 'error' : $.sandbox.status === 'running' ? 'success' : 'default'}
+                  label={$.sandbox.status === 'running' ? '运行中' : $.sandbox.status === 'stopped' ? '已停止' : $.sandbox.status === 'requested' ? '待启动（首次工具调用时自动启动）' : $.sandbox.status === 'error' ? '错误' : '已终止'} />
                 <span class="wf-font-xs wf-text-tertiary">镜像 {$.sandbox.image} · 内存 {$.sandbox.memory_mb}MB · {$.sandbox.cpus} CPU · 网络 {$.sandbox.network ? '开' : '关'}</span>
               </div>
               {$.sandbox.error && <div class="wf-font-xs wf-text-error">错误：{$.sandbox.error}</div>}

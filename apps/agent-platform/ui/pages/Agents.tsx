@@ -103,7 +103,7 @@ export const Agents: Component = (_props, ctx) => {
                 )}
               </div>
               <div class="wf-split" style={{ marginTop: 'auto', paddingTop: '12px' }}>
-                <StatusDot on={a.is_active !== false} />
+                <StatusDot on={a.is_active !== false} label={a.is_active !== false ? '运行中' : '已停用'} />
                 <div class="wf-row wf-gap-sm">
                   {a.type !== 'user' && (
                     <>

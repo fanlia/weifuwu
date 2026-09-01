@@ -34,8 +34,12 @@ const STATUS_LABEL: Record<string, string> = {
   error: '错误',
 }
 
-function statusTone(s: string): boolean {
-  return s === 'running' || s === 'requested'
+/** 点色语义（UX-PLAN-2 波次 1）：仅 running 绿（健康运行）——requested 待启动是
+ *  非活跃态（灰点——旧实现绿点误导「已在跑」）；error 红；其余灰 */
+function statusTone(s: string): 'success' | 'error' | 'default' {
+  if (s === 'running') return 'success'
+  if (s === 'error') return 'error'
+  return 'default'
 }
 
 export const Sandboxes: Component = (_props, ctx) => {
@@ -127,10 +131,9 @@ export const Sandboxes: Component = (_props, ctx) => {
             <div class="wf-fill wf-stack wf-gap-none">
               <div class="wf-row wf-gap-sm wf-items-center">
                 <span class="wf-font-base wf-semibold">{s.name}</span>
-                <StatusDot on={statusTone(s.status)} />
-                <span class={`wf-font-xs ${s.status === 'error' ? 'wf-text-error' : s.status === 'running' ? 'wf-text-success' : 'wf-text-tertiary'}`}>
-                  {STATUS_LABEL[s.status] ?? s.status}
-                </span>
+                {/* 单标签纪律（UX-PLAN-2 波次 1）：label 经 StatusDot 渲染——
+                    不再另起 span（旧双标签「● 运行中 待启动」实证已歼） */}
+                <StatusDot on={s.status === 'running'} tone={statusTone(s.status)} label={STATUS_LABEL[s.status] ?? s.status} />
                 {s.status === 'error' && s.error && <span class="wf-font-xs wf-text-error wf-truncate">— {s.error}</span>}
               </div>
               <div class="wf-font-xs wf-text-tertiary wf-margin-top-xs">
