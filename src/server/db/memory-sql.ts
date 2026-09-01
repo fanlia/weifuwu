@@ -67,6 +67,11 @@ export class MemorySql {
     if (head === 'BEGIN' || head === 'COMMIT' || head === 'ROLLBACK' || head === 'END') {
       return makeResult([], 0)
     }
+    // sql.array() 标记：展开为字面量集合（内存端 ANY($n::uuid[]) 语义 = 参数值 IN 集合）
+    params = params.map((p) => (p as { __pgArray?: unknown[] } | null)?.__pgArray ?? p)
+    // 内存 parser 不支持数组类型 cast（::uuid[] 的 [）——剥 []（元素类型 cast 保留：
+    // 内存语义 = 参数值直比，类型定型由值本身承载）
+    if (sql.includes('[]')) sql = sql.replace(/::([a-zA-Z_]+)\[\]/g, '::$1')
     try {
       // SQL 字符串 → Parser → Query Language AST → 内存直执行（单条执行路径）
       const ast = parseSqlToAst(sql, params)
@@ -583,5 +588,6 @@ export function createMemorySql(): Sql {
   sql.query = createQueryBuilder(mem as unknown as Sql, (q) => Promise.resolve(mem.executeQuery(q)))
   sql.raw = (strings: TemplateStringsArray, ...values: unknown[]) => rawSqlImpl(strings, values)
   sql.close = () => mem.close()
+  sql.array = (values: unknown[]) => ({ __pgArray: values })
   return sql
 }

@@ -68,7 +68,7 @@ test('403 原因透出：member 点审批 → toast 含服务端原因（不再�
   await page.waitForFunction(() => (document.body.textContent ?? '').includes('波次3透出验证草稿'), undefined, { timeout: 10_000 })
   // member 点批准 → requireDeptManager 403 → toast 透出原因（含「部门管理员」语义）
   await page.evaluate(() => {
-    const btn = [...document.querySelectorAll('button')].find((b) => /批准/.test(b.textContent ?? ''))
+    const btn = [...document.querySelectorAll('button')].find((b) => /^\s*批准\s*$/.test((b.textContent ?? '').trim())) // 精确（排除批量按钮）
     btn?.click()
   })
   await page.waitForFunction(() => {

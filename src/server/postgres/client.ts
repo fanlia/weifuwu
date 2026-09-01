@@ -10,6 +10,7 @@
  */
 
 import { PgPool } from '../db/postgres/pool.ts'
+import { toPgArrayLiteral } from '../db/postgres/connection.ts'
 import type { Row } from '../db/postgres/connection.ts'
 import type { Context, Handler } from '../types.ts'
 import { HttpError } from '../types.ts'
@@ -152,6 +153,7 @@ function makeSql(pool: PgPool): Sql {
     values,
   )
   sql.close = () => pool.close()
+  sql.array = (values: unknown[]) => ({ __pgArray: values })
 
   return sql
 }
@@ -169,6 +171,11 @@ function parseTaggedFromPool(strings: TemplateStringsArray, values: unknown[]): 
         return `$${params.length}`
       })
       sql += renumbered + strings[i + 1]
+    } else if ((values[i] as { __pgArray?: unknown } | undefined)?.__pgArray !== undefined) {
+      // sql.array() 标记：透传标记对象（编码落点在连接层 encodeParams——识别 __pgArray
+      // → PG 数组字面量；调用方 ::uuid[] cast 定型）
+      params.push(values[i])
+      sql += `$${params.length}` + strings[i + 1]
     } else {
       params.push(values[i])
       sql += `$${params.length}` + strings[i + 1]

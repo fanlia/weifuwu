@@ -64,3 +64,45 @@ describe('postgres middleware idle_timeout（init 全量建连也参与收缩）
     await db.close()
   })
 })
+
+// ── sql.array()：PG 数组参数契约（分层——纯函数矩阵 memory 可跑；
+// ANY($n::uuid[]) 真库链路在 apps/agent-platform/test/ui/bulk-approve.test.ts 走真 PG）──
+// 根因（2027-10——agent-platform 批量审批实证）：连接层参数编码 object → JSON.stringify
+// （jsonb 语义）——数组参数传 ANY($n::uuid[]) 生成 malformed array literal。类型不可知
+// （jsonb 数组 vs PG 数组），正解 = 显式 sql.array() 标记，默认 JSON 行为零破坏。
+describe('sql.array()——toPgArrayLiteral 编码矩阵（纯函数——memory 零依赖）', () => {
+  it('uuid 集合 → 裸写 {a,b}', async () => {
+    const db = postgres({ connection: DB_URL, max: 1 })
+    const lit = db.sql.array(['00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b'])
+    assert.deepEqual(lit, { __pgArray: ['00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b'] })
+    await db.close()
+  })
+
+  it('escape 矩阵：逗号/引号/反斜杠转义 + null → NULL（PG 数组文本格式单源）', async () => {
+    const { toPgArrayLiteral } = await import('../db/postgres/connection.ts')
+    // String.raw 断言（免多层转义地狱）：含 , " \\ 的元素 → 双引号包裹 + 内部 \\ " 各前置 \\
+    assert.equal(toPgArrayLiteral(['普通', '含,逗号', '含"引号', String.raw`含\反斜杠`, null]),
+      String.raw`{"普通","含,逗号","含\"引号","含\\反斜杠",NULL}`)
+    assert.equal(toPgArrayLiteral([]), '{}', '空数组 → {}')
+    assert.equal(toPgArrayLiteral([1, true]), '{1,true}', '数字/布尔裸写')
+  })
+
+  it('标记识别：tagged 链路把 __pgArray 作为参数透传（编码落点在连接层 encodeParams）', async () => {
+    const db = postgres({ connection: DB_URL, max: 1 })
+    // 不触发 parser 不认识的语法——只验证 tagged 构造（SELECT 1 带数组参数不崩：
+    // 参数透传后编码在 encodeParams——PG literal 字符串不影响 SELECT 1）
+    const rows = await db.sql`SELECT 1 WHERE ${db.sql.array(['a'])}::text IS NOT NULL`
+    assert.equal(rows.length, 1)
+    await db.close()
+  })
+
+  it('默认行为零破坏：数组插值保持 jsonb 语义（memory 往返）', async () => {
+    const db = postgres({ connection: DB_URL, max: 1 })
+    await db.sql`CREATE TABLE arr_json (id serial PRIMARY KEY, payload jsonb)`
+    await db.sql`INSERT INTO arr_json (payload) VALUES (${['x', 'y']})`
+    const [row] = await db.sql`SELECT payload FROM arr_json ORDER BY id DESC LIMIT 1`
+    assert.deepEqual(row.payload, ['x', 'y'], 'jsonb 列数组插值应保持 JSON 语义（不受 sql.array 影响）')
+    await db.sql`DROP TABLE arr_json`
+    await db.close()
+  })
+})

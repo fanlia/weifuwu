@@ -26,6 +26,52 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     return Response.json({ pending })
   })
 
+  // CHAT-INTERACTION 延伸：批量审批（积压部门 66 条待审实证——逐条 66 次点击）。
+  // 仅批量批准（批量拒绝判负：拒绝清 ai_draft 不可逆——误拒无挽回，留逐条慎重）。
+  // 逐条复用单条语义：app 隔离 + 已审跳过 + 部门 admin 权限（跨部门批量部分成功）
+  app.post('/api/messages/pending-approvals/bulk', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    const { sql, appId, auth } = ctx
+    const body = await req.json() as { ids?: string[] }
+    const ids = [...new Set((body.ids ?? []).map(String))].slice(0, 50)
+    if (ids.length === 0) {
+      return Response.json({ error: 'ids 为必填（≤50 条）' }, { status: 400 })
+    }
+    // 一次查全部目标（app 隔离 + 待审状态）——避免逐条查库
+    const rows = await sql`
+      SELECT m.id, m.department_id
+      FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      WHERE a.app_id = ${appId} AND m.ai_draft IS NOT NULL AND m.ai_approved IS NULL
+        AND m.id = ANY(${sql.array(ids)}::uuid[])
+    `
+    const byId = new Map(rows.map((r: any) => [String(r.id), r]))
+    // 当前用户的部门 admin 集合（一次查——跨部门批量逐条判定）
+    const adminDepts = new Set((await sql`
+      SELECT dm.department_id
+      FROM department_members dm
+      JOIN agents ua ON ua.id = dm.agent_id
+      WHERE ua.user_id = ${auth!.userId} AND ua.app_id = ${appId} AND dm.role = 'admin'
+    `).map((r: any) => String(r.department_id)))
+    // [owner/tenant-admin 租户级放行——单条语义同源（departments.ts L447 三方放行）]
+    const [tenantRole] = await sql`
+      SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${auth!.userId}`
+    const isTenantOwner = tenantRole?.role === 'owner'
+    let approvedCount = 0
+    const skipped: string[] = []
+    const failed: Array<{ id: string; error: string }> = []
+    for (const id of ids) {
+      const msg = byId.get(id)
+      if (!msg) { failed.push({ id, error: '不存在或已审批' }); continue }
+      if (!isTenantOwner && !adminDepts.has(String(msg.department_id))) {
+        failed.push({ id, error: '只有部门管理员可以审批' }); continue
+      }
+      await sql`UPDATE messages SET content = ai_draft, ai_approved = TRUE WHERE id = ${id}`
+      approvedCount++
+    }
+    void skipped
+    return Response.json({ ok: true, approved: approvedCount, failed })
+  })
+
   // ── 获取消息列表 ─────────────────────────────────────────
 
   app.get('/api/departments/:id/messages', async (req: Request, ctx: AppCtx): Promise<Response> => {

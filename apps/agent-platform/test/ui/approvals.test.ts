@@ -63,7 +63,7 @@ test('审批流：种子草稿 → 批准 → pending 消失（消息发布）',
     await openAgentPage(page, BASE, '/approvals')
     await waitForText(page, '审批草稿内容', 10_000)
     // 批准按钮
-    await page.locator('button:has-text("批准")').first().click()
+    await page.locator('button', { hasText: /^\s*批准\s*$/ }).first().click() // 精确匹配（排除「批量批准选中」——批量栏引入后 includes 误命中实证）
     await waitForBodyText(page, /已批准|发布|通过/, 10_000)
     // 后续：pending 不含该草稿（批准后 ai_approved=TRUE——不再待审）
     await page.waitForTimeout(1000)

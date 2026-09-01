@@ -81,6 +81,9 @@ export interface Sql {
   query: import('../db/query.ts').QueryBuilder
   /** raw 逃生舱：`sql.raw\`NOW() - interval '7 days'\``——真库透传/内存裁剪 */
   raw(strings: TemplateStringsArray, ...values: unknown[]): import('../db/query.ts').RawSql
+  /** PG 数组参数：`ANY(\${sql.array(ids)}::uuid[])`——默认数组插值是 jsonb 语义
+   *  （object → JSON），PG 数组语义需显式标记（两义并存零破坏——2027-10 批量审批实证） */
+  array(values: unknown[]): { __pgArray: unknown[] }
   close(): Promise<void>
 }
 

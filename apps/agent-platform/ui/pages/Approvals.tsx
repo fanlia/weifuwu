@@ -1,12 +1,14 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, Ava, EmptyState, Loading, errMsg } from '../components/ui'
-import { Badge, Button, Card, Icon } from 'weifuwu/components'
+import { Badge, Button, Card, Checkbox, Icon } from 'weifuwu/components'
 import { canWrite, writeDenyReason } from '../lib/roles'
 import type { PendingApproval } from '../lib/types'
 
 interface ApprovalsState {
   items: PendingApproval[]; loading: boolean; handling: string
   editingId: string; editDraft: string
+  /** CHAT-INTERACTION 延伸：批量批准选中集（空 = 无批量栏） */
+  picked: string[]; bulkBusy: boolean
 }
 
 /** 审批待办 — 管理员集中处理所有 AI 草稿（HITL 核心入口） */
@@ -14,6 +16,7 @@ export const Approvals: Component = (_props, ctx) => {
   const $ = {} as ApprovalsState
   const rerender = () => ctx.render()
   $.items = []; $.loading = true; $.handling = ''
+  $.picked = []; $.bulkBusy = false
   $.editingId = ''; $.editDraft = ''
 
   function startEdit(m: PendingApproval) {
@@ -46,6 +49,27 @@ export const Approvals: Component = (_props, ctx) => {
     $.handling = ''; rerender()
   }
 
+  // CHAT-INTERACTION 延伸：批量批准（二次确认——批量动作不可逆；结果汇总 toast）
+  async function bulkApprove() {
+    if ($.picked.length === 0) { ctx.toast!('请先勾选草稿', 'warning'); return }
+    const ok = await ctx.confirm!(`确定批量批准选中的 ${$.picked.length} 条草稿？批准后将正式发布`)
+    if (!ok) return
+    $.bulkBusy = true; rerender()
+    try {
+      const r = await ctx.api!.post<{ approved: number; failed: Array<{ id: string; error: string }> }>(
+        '/api/messages/pending-approvals/bulk', { ids: $.picked })
+      const denied = (r.failed ?? []).filter((f) => f.error.includes('管理员')).length
+      const parts = [`已批准 ${r.approved} 条`]
+      if (denied > 0) parts.push(`${denied} 条无权限（需部门管理员）`)
+      if ((r.failed ?? []).length - denied > 0) parts.push(`${r.failed.length - denied} 条失败`)
+      ctx.toast!(parts.join('，'), r.approved > 0 ? 'success' : 'error')
+      // 成功的从列表移除；失败（无权限/已审批等）保留仍可逐条处理
+      const failedIds = new Set((r.failed ?? []).map((f) => f.id))
+      $.items = $.items.filter((m) => !$.picked.includes(m.id) || failedIds.has(m.id))
+    } catch (e) { ctx.toast!(`批量批准失败：${errMsg(e, '请稍后重试')}`, 'error') }
+    $.picked = []; $.bulkBusy = false; rerender()
+  }
+
   function fmtTime(iso: string) {
     try {
       const d = new Date(iso)
@@ -71,6 +95,20 @@ export const Approvals: Component = (_props, ctx) => {
 
       {$.loading && <Loading />}
 
+      {/* CHAT-INTERACTION 延伸：批量批准栏（积压部门 66 条待审实证——逐条 66 次点击；
+          仅批量批准——批量拒绝判负：拒绝清 ai_draft 不可逆） */}
+      {!$.loading && $.items.length > 0 && (
+        <div class="wf-row wf-gap-sm wf-items-center wf-padding-sm wf-radius-md" style="background: var(--wf-color-bg-secondary)">
+          <Checkbox checked={$.picked.length === $.items.length && $.items.length > 0}
+            onChange={() => { $.picked = $.picked.length === $.items.length ? [] : $.items.map((m) => m.id); rerender() }} />
+          <span class="wf-font-xs wf-text-secondary">全选（{$.picked.length}/{$.items.length}）</span>
+          <div class="wf-fill" />
+          <Button size="sm" variant="primary" disabled={$.picked.length === 0 || $.bulkBusy} onClick={bulkApprove}>
+            {$.bulkBusy ? '批量处理中...' : (<><Icon name="check" size={12} /> 批量批准选中（{$.picked.length}）</>)}
+          </Button>
+        </div>
+      )}
+
       {!$.loading && $.items.length === 0 && (
         <EmptyState icon={<Icon name="check-circle" />} text="没有待审批的草稿" hint="开启 HITL 的 AI Agent 回复会先进入待批状态" />
       )}
@@ -83,6 +121,10 @@ export const Approvals: Component = (_props, ctx) => {
                 <Ava name={m.agent_name ?? 'AI'} type={m.agent_type ?? 'ai'} small />
                 <div class="wf-fill wf-stack wf-gap-none wf-shrink">
                   <div class="wf-row wf-gap-sm">
+                    <Checkbox checked={$.picked.includes(m.id)} onChange={() => {
+                      $.picked = $.picked.includes(m.id) ? $.picked.filter((x: string) => x !== m.id) : [...$.picked, m.id]
+                      rerender()
+                    }} />
                     <span class="wf-font-base wf-semibold">{m.agent_name ?? 'AI'}</span>
                     <Badge variant="warning"><Icon name="clock" size={12} /> 待审批</Badge>
                   </div>

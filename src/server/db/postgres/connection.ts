@@ -626,15 +626,37 @@ function xor(a: Uint8Array, b: Uint8Array): Uint8Array {
   return out
 }
 
-/** 参数编码：null 保留，object → JSON 字符串（jsonb），其余 → String */
+/** 参数编码：null 保留，__pgArray 标记 → PG 数组字面量，object → JSON 字符串（jsonb），其余 → String */
 function encodeParams(
   params: (string | number | boolean | object | null)[],
 ): (string | null)[] {
   return params.map((p) => {
     if (p === null || p === undefined) return null
-    if (typeof p === 'object') return JSON.stringify(p)
+    if (typeof p === 'object') {
+      // sql.array() 标记 → PG 数组字面量（ANY($n::uuid[]) 等——类型不可知困境的显式出路：
+      // 数组默认 JSON 是 jsonb 列语义，PG 数组语义需显式标记——两义并存零破坏）
+      if (Array.isArray((p as { __pgArray?: unknown }).__pgArray)) {
+        return toPgArrayLiteral((p as { __pgArray: unknown[] }).__pgArray)
+      }
+      return JSON.stringify(p)
+    }
     return String(p)
   })
+}
+
+/** JS 数组 → PG 数组字面量（{a,b} 格式）：
+ *  - null/undefined 元素 → NULL（无引号）
+ *  - 含 " , { } \\ 的元素双引号包裹 + \\ 转义（PG 数组文本格式）
+ *  - 数字/布尔按 String 编码（int[]/bool[] 由调用方 cast 定型）
+ *  - 空数组 → {}（配合 ::uuid[] cast 即空集语义） */
+export function toPgArrayLiteral(values: unknown[]): string {
+  const items = values.map((v) => {
+    if (v === null || v === undefined) return 'NULL'
+    const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
+    if (/^[A-Za-z0-9_+.-]*$/.test(s)) return s // uuid/数字/简单标识——裸写
+    return '"' + s.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
+  })
+  return `{${items.join(',')}}`
 }
 
 /** 按列类型 OID 将文本值转换为 JS 类型（类型映射层） */

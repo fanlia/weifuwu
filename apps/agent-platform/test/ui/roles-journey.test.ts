@@ -100,14 +100,14 @@ test('owner 旅程：工作台审批 CTA → 审批页 → 批准 → toast「�
   await page.waitForFunction(() => (document.body.textContent ?? '').includes('旅程待审草稿内容'), undefined, { timeout: 10_000 })
   // 四操作齐备（去聊天/编辑草稿/拒绝/批准）
   const actions = await page.evaluate(() => ({
-    approve: [...document.querySelectorAll('button')].some((b) => (b.textContent ?? '').includes('批准')),
+    approve: [...document.querySelectorAll('button')].some((b) => /^\s*批准\s*$/.test((b.textContent ?? '').trim())), // 精确（排除批量按钮）
     reject: [...document.querySelectorAll('button')].some((b) => (b.textContent ?? '').includes('拒绝')),
     edit: [...document.querySelectorAll('button')].some((b) => (b.textContent ?? '').includes('编辑草稿')),
   }))
   assert.ok(actions.approve && actions.reject && actions.edit, `审批操作应齐备（实际：${JSON.stringify(actions)}）`)
-  // 批准 → toast「已批准发布」
-  await page.click('button:has-text("批准")')
-  await page.waitForFunction(() => (document.body.textContent ?? '').includes('已批准发布'), undefined, { timeout: 5000 })
+  // 批准 → toast「已批准发布」（locator hasText 精确匹配行内批准——page.click 的 options 无 hasText 会静默忽略→strict 多匹配吞错 实证）
+  await page.locator('button', { hasText: /^\s*批准\s*$/ }).first().click()
+  await page.waitForFunction(() => (document.body.textContent ?? '').includes('已批准发布'), undefined, { timeout: 8000 })
   assert.ok(fatalErrors(errors).length === 0, `零页面错误: ${errors.join(' | ')}`)
   await page.close()
 })
