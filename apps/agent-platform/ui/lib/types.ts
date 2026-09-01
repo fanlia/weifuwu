@@ -374,6 +374,8 @@ export interface ChatMessage {
   ai_approved?: boolean | null
   reply_content?: string | null
   reply_sender?: string | null
+  /** 被回复消息 id（retryMessage 透传——CHAT-UX 波次 4 E4；仅 loadMessages/POST 回包带） */
+  reply_to?: string | null
   /** R6 质量反馈 */
   feedback?: 'like' | 'dislike' | null
   /** O8 意图路由：AI 回复由语义路由派给的目标 Agent 名 */

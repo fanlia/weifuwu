@@ -174,6 +174,8 @@ export const Chat: Component = (_props, ctx) => {
   }
 
   $.msgs = []; $.deptName = '聊天'; $.memberCount = 0; $.input = ''; $.isAdmin = false
+  // CHAT-UX 波次 4（E2）：恢复草稿（按部门 key——切回会话不丢已输入内容）
+  try { $.input = sessionStorage.getItem(`wf-draft-${deptId}`) ?? '' } catch { /* 隐私模式忽略 */ }
   $.files = []
   $.editingId = ''; $.editValue = ''; $.userAgentId = ''; $.sending = false
   $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
@@ -188,9 +190,18 @@ export const Chat: Component = (_props, ctx) => {
   $.subDepts = []
   $.chatLabels = { placeholder: '输入消息，回车发送；@ 可定向 AI' }
   const chatControl = { current: null as ChatInputControl | null }
+  let draftRestored = false
   // onControl：mount 层稳定回调（ChatInput 回调上抛 handle——props 不可变契约：
   // 旧 control={{ current }} out-param 被 ChatInput 原地写 → vdom3 audit + 剪枝噪音）
-  const onControl = (h: ChatInputControl) => { chatControl.current = h }
+  const onControl = (h: ChatInputControl) => {
+    chatControl.current = h
+    // CHAT-UX 波次 4（E2）：mount 后恢复草稿——ChatInput 首渲染读内部 keyword
+    // （value prop 不回流 DOM——§5.3 受控纪律），编程恢复必须走 setKeyword
+    if (!draftRestored) {
+      draftRestored = true
+      if ($.input) h.setValue($.input)
+    }
+  }
 
   // ChatInput labels（placeholder 随搜索态切换——每次切换新建对象（props 不可变契约：
   // 原地改 labels → vdom3 audit + ChatInput 剪枝后 placeholder 永不更新）；
@@ -220,6 +231,7 @@ export const Chat: Component = (_props, ctx) => {
   // @ 补全（mount 层——只依赖 mount 闭包 $/rerender/chatControl/membersList）
   function onInputChange(v: string) {
     $.input = v
+    saveDraft(v) // CHAT-UX 波次 4（E2）：草稿持久化
     const atMatch = v.match(/@([\u4e00-\u9fa5\w]*)$/)
     const hadAt = $.atMenuOpen
     const menuBefore = $.atMenu
@@ -285,6 +297,7 @@ export const Chat: Component = (_props, ctx) => {
     // ChatInput 渲染读内部 keyword（send 已清——先于 onSend）——父级
     // 重渲染驱动 input DOM 更新——否则输入框停留旧文本（用户实测）
     $.input = ''
+    saveDraft('') // CHAT-UX 波次 4（E2）：发送成功清草稿
     rerender()
     void sendText(text)
   }
@@ -524,6 +537,12 @@ export const Chat: Component = (_props, ctx) => {
 
   function isOwn(msg: ChatMessage) { return !!( $.userAgentId && msg.sender_id === $.userAgentId) }
 
+  // CHAT-UX 波次 4（E2）：草稿 sessionStorage（按部门隔离 key——切会话/刷新不丢）
+  const draftKey = `wf-draft-${deptId}`
+  function saveDraft(v: string) {
+    try { if (v) sessionStorage.setItem(draftKey, v); else sessionStorage.removeItem(draftKey) } catch { /* 隐私模式忽略 */ }
+  }
+
   // CHAT-UX 波次 3（D2）：日期分隔线（今天/昨天/M月D日——本地时区日界）
   function dayKey(iso: string): string {
     try { const d = new Date(iso); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` } catch { return '' }
@@ -579,9 +598,9 @@ export const Chat: Component = (_props, ctx) => {
           })
         }
       } else {
-        $.input = saved; ctx.toast!('发送失败', 'error')
+        $.input = saved; saveDraft(saved); ctx.toast!('发送失败', 'error')
       }
-    } catch { $.input = saved; ctx.toast!('网络错误', 'error') }
+    } catch { $.input = saved; saveDraft(saved); ctx.toast!('网络错误', 'error') }
     finally { $.sending = false; rerender() }
   }
 
@@ -603,7 +622,9 @@ export const Chat: Component = (_props, ctx) => {
     $.msgs = $.msgs.filter((m: ChatMessage) => m.id !== fromMsgId)
     $.sending = true
     ctx.ws?.send({ type: 'subscribe', room: deptId })
-    await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: lastUser.content }).catch(() => {})
+    // CHAT-UX 波次 4（E4）：透传 reply_to（引用上下文不丢）；attachments 不透传——
+    // 历史消息只有 name/size 元数据（无 data base64——重传是垃圾数据——降级注释）
+    await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: lastUser.content, reply_to: lastUser.reply_to ?? null }).catch(() => {})
     $.sending = false
     rerender()
   }
@@ -691,11 +712,9 @@ export const Chat: Component = (_props, ctx) => {
   }
 
   function fmtTime(iso: string) {
+    // CHAT-UX 波次 3（D3）：与 MessageItem.fmtTime 同步改 HH:mm（本副本当前无调用方——保留同语义防漂移）
     try {
       const d = new Date(iso)
-      const diff = Date.now() - d.getTime()
-      if (diff < 60000) return '刚刚'
-      if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
       return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     } catch { return '' }
   }
@@ -885,12 +904,16 @@ export const Chat: Component = (_props, ctx) => {
           </div>
         )}
 
-      <div class="wf-fill wf-overflow-auto wf-stack wf-gap-md wf-padding-md"
+      {/* CHAT-UX 波次 4（E1）：回到底部浮钮容器（position 锚——isUserScrolledUp 翻转才重渲染） */}
+      <div class="wf-fill wf-stack" style="position: relative; min-height: 0">
+      {/* min-height:0——flex 子项默认 min-height:auto 会被内容撑开（溢出滚动失效——波次 4 实测） */}
+      <div class="wf-fill wf-overflow-auto wf-stack wf-gap-md wf-padding-md" style="min-height: 0"
         ref={chatBodyRef}
         onScroll={() => {
           if (!$.bodyEl) return
           const threshold = 80
-          $.isUserScrolledUp = ($.bodyEl.scrollHeight - $.bodyEl.scrollTop - $.bodyEl.clientHeight) > threshold
+          const up = ($.bodyEl.scrollHeight - $.bodyEl.scrollTop - $.bodyEl.clientHeight) > threshold
+          if (up !== $.isUserScrolledUp) { $.isUserScrolledUp = up; rerender() } // 翻转才渲染——非每帧
           // 顶部接近时自动加载更早
           if ($.bodyEl.scrollTop < 40 && $.hasMore && !$.loadingMore) { loadOlder() }
         }}>
@@ -949,6 +972,16 @@ export const Chat: Component = (_props, ctx) => {
             ]
           })
         })()}
+
+        {/* CHAT-UX 波次 4（E1）：回到底部浮钮（上滚 >80px 出现——点击回底后消失） */}
+        {$.isUserScrolledUp && (
+          <button type="button" class="wf-btn wf-btn--sm wf-shadow" aria-label="回到底部"
+            style="position: absolute; bottom: 16px; right: 16px; border-radius: 999px; padding: 8px 14px; background: var(--wf-color-surface, #fff); z-index: 5"
+            onClick={() => scrollToBottom(true)}>
+            ↓ 回到底部
+          </button>
+        )}
+      </div>
       </div>
 
       <div class="wf-border-top wf-padding-sm">
