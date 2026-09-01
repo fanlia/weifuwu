@@ -83,6 +83,8 @@ interface ChatState {
   membersList: Member[]; atMenu: Member[]; atMenuOpen: boolean; atQuery: string
   /** @ 菜单键盘导航高亮（2026-08——↑↓ 选择：0=@all，1..=成员；-1=无） */
   atMenuIndex: number
+  /** CHAT-INTERACTION 波次 1：部门不存在/无权（404）——显式错误态而非静默空态 */
+  deptMissing: boolean
   streamTimer: ReturnType<typeof setInterval> | null
   expandedTool: string | null
   /** P1 项目空间：环境状态（用户语言——聚合 API） */
@@ -182,6 +184,7 @@ export const Chat: Component = (_props, ctx) => {
   $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
   $.approving = null; $.copiedId = ''
   $.hasMore = false; $.loadingMore = false; $.searchQ = ''; $.searching = false; $.searchOpen = false
+  $.deptMissing = false
   $.replyTo = null
   $.membersList = []; $.atMenu = []; $.atMenuOpen = false; $.atQuery = ''
   $.atMenuIndex = -1
@@ -341,9 +344,16 @@ export const Chat: Component = (_props, ctx) => {
   Promise.all([
     loadMessages(),
     // P1：聚合 API（部门+成员+环境状态一次拿）
-    ctx.api!.get<WsWorkspaceResponse>(`/api/departments/${deptId}/workspace`).catch(() => ({}) as WsWorkspaceResponse),
+    // CHAT-INTERACTION 波次 1：404 保留（原 catch(() => ({})) 把部门不存在
+    // 吞成空态——「成员（0）暂无 AI 成员」误导——实测踩中）
+    ctx.api!.get<WsWorkspaceResponse>(`/api/departments/${deptId}/workspace`).catch((e: unknown) => (e instanceof Error ? e : new Error('加载失败'))),
     ctx.api!.get<{ agents: Agent[] }>('/api/agents?type=user').catch(() => ({ agents: [] })),
   ]).then(([, wsRes, agentRes]) => {
+    if (wsRes instanceof Error) {
+      $.deptMissing = true
+      rerender()
+      return
+    }
     const agents = agentRes.agents ?? []
     const user = (ctx.auth?.user ?? null) as { id?: string; role?: string } | null
     const mine = agents.find((a: Agent) => a.user_id === user?.id)
@@ -781,6 +791,18 @@ export const Chat: Component = (_props, ctx) => {
       $.chatLabels = { placeholder: '只读成员无法发言——可查看消息与下载交付物' }
     }
   const isNarrow = bp() === 'mobile'
+
+    // CHAT-INTERACTION 波次 1：404 → 显式错误态（空态文案保留给真空部门）
+    if ($.deptMissing) {
+      return (
+        <div class="wf-fill wf-col wf-items-center wf-justify-center wf-gap-md wf-padding-lg">
+          <EmptyState icon="🔍" text="部门不存在或无权访问"
+            hint="会话可能已被删除，或链接不完整——从会话列表重新进入">
+            <Button variant="primary" onClick={() => ctx.app?.navigate('/chat/new')}>返回会话列表</Button>
+          </EmptyState>
+        </div>
+      )
+    }
 
     return (
     <div class="wf-row wf-height-full wf-gap-none">
