@@ -150,7 +150,7 @@ test('member 旅程：发消息 → AI 干活（wf 注入）→ 产物卡片 →
   await page.close()
 })
 
-test('viewer 旅程：部门消息可读 → 发送被拒（现状锁定）→ 交付物可下载（只读可下载）', async () => {
+test('viewer 旅程：部门消息可读 → 输入框前置禁用（波次 2）→ 交付物可下载（只读可下载）', async () => {
   const viewer = await seedRoleMember(BASE, owner, 'viewer')
   await joinDept(viewer) // 加部门成员——只读可读消息（读面）
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })
@@ -158,15 +158,24 @@ test('viewer 旅程：部门消息可读 → 发送被拒（现状锁定）→ �
   const errors = await openAgentPage(page, BASE, `/chat/${deptId}`)
   // 读面：部门消息可见（member 旅程发的消息在流里）
   await page.waitForFunction(() => (document.body.textContent ?? '').includes('帮我生成 journey.txt'), undefined, { timeout: 10_000 })
-  // 写面现状锁定（走查实证——P0 改进「前置禁用+原因透出」落地时更新本断言）：
-  // 输入框可用 → 发送 → toast「发送失败」（403 只读未透出原因）
-  await sendViaUi(page, 'viewer 尝试发言')
-  await page.waitForFunction(() => [...document.querySelectorAll('[class*=toast]')].some((t) => (t.textContent ?? '').includes('发送失败')), undefined, { timeout: 10_000 })
+  // 写面前置禁用（ROLES-OPTIMIZATION 波次 2 落地——原「可打字→发送失败」形态
+  // 升级为「输入框禁用 + placeholder 引导」——API requireWriter 服务端兵底）。
+  // 注意：ChatInput 默认单行 input（textarea 仅 multiline）——选择器不能只查 textarea
+  const writeFace = await page.evaluate(() => {
+    const input = (document.querySelector('input[placeholder*="输入消息"], input[placeholder*="只读成员"], textarea') ?? null) as HTMLInputElement | null
+    return {
+      tag: input?.tagName ?? 'none',
+      disabled: input?.disabled ?? false,
+      placeholder: input?.getAttribute('placeholder') ?? '',
+    }
+  })
+  assert.equal(writeFace.disabled, true, `viewer 聊天输入框前置禁用（波次 2——tag=${writeFace.tag} ph=${writeFace.placeholder}）`)
+  assert.ok(writeFace.placeholder.includes('只读成员'), `placeholder 引导原因（实际：${writeFace.placeholder}）`)
   const notInStream = await page.evaluate(() => {
     const msgs = [...document.querySelectorAll('[data-msgid]')]
     return !msgs.some((m) => (m.textContent ?? '').includes('viewer 尝试发言'))
   })
-  assert.ok(notInStream, 'viewer 消息不应入库上屏')
+  assert.ok(notInStream, 'viewer 无法通过 UI 发言（禁用态——消息不产生）')
   // 读面价值：交付物可下载（只读 ≠ 不能拿结果——设计意图锁定）
   const dl = await fetch(`${BASE}/api/departments/${deptId}/workspace/file?path=journey.txt&download=1`, {
     headers: { Authorization: `Bearer ${viewer.token}` },

@@ -207,7 +207,17 @@ test('聊天页：viewer 发消息 → 403（requireWriter 红线）', async () 
   await injectAuth(page, viewer)
   await openAgentPage(page, BASE, `/chat/${deptId}`)
   await waitForBodyText(page, /发送/)
-  await page.fill('textarea, input[type="text"]', 'viewer 尝试发消息')
+  // ROLES-OPTIMIZATION 波次 2：viewer 输入框前置禁用——禁用时断言引导文案并跳过 fill
+  // （fill 对 disabled 元素等 actionability 会超时）
+  const inputDisabled = await page.evaluate(() => {
+    const input = document.querySelector('input[placeholder*="输入消息"], input[placeholder*="只读成员"], textarea') as HTMLInputElement | null
+    return { disabled: input?.disabled ?? false, placeholder: input?.getAttribute('placeholder') ?? '' }
+  })
+  if (inputDisabled.disabled) {
+    assert.ok(inputDisabled.placeholder.includes('只读成员'), `禁用输入框应有引导文案（实际：${inputDisabled.placeholder}）`)
+  } else {
+    await page.fill('textarea, input[type="text"]', 'viewer 尝试发消息')
+  }
   const send = page.locator('button:has-text("发送")').first()
   // 发送按钮可能禁用（前端隐藏写入口）——若可用则点击→403 toast
   const disabled = await send.isDisabled().catch(() => false)

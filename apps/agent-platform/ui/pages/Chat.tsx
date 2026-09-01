@@ -15,6 +15,7 @@ interface WsWorkspaceResponse {
 }
 import type { Agent, ChatMessage, Member, Message, MessageListResponse, MessageTool } from '../lib/types'
 import { applyWfEvent } from '../lib/wf-events.ts'
+import { canWrite, writeDenyReason } from '../lib/roles'
 
 /** B1（2026-08）：ai_step → MessageTool[]（刷新后工具条恢复）——
  * 步骤存 msg_type 工具步骤——转换 { tool, ok, result } → { name, status, result } */
@@ -208,7 +209,11 @@ export const Chat: Component = (_props, ctx) => {
   // 非切换渲染引用不变 → 剪枝仍命中不重建）
   const setSearchQ = (q: string) => {
     $.searchQ = q
-    $.chatLabels = { placeholder: q ? '搜索模式：输入新消息退出搜索' : '输入消息，回车发送；@ 可定向 AI' }
+    // viewer 禁用文案不因搜索态切换被覆盖（波次 2——placeholder 门控单点在此 + renderFn）
+    $.chatLabels = {
+      placeholder: !canWrite() ? '只读成员无法发言——可查看消息与下载交付物'
+        : q ? '搜索模式：输入新消息退出搜索' : '输入消息，回车发送；@ 可定向 AI',
+    }
   }
 
   // ── 稳定回调（mount 层定义——render 期传同一引用：MessageItem/ChatInput 的 props
@@ -765,7 +770,13 @@ export const Chat: Component = (_props, ctx) => {
       prevMsgsRef = $.msgs
     }
 
-    const inputDisabled = $.editingId !== ''
+    // ROLES-OPTIMIZATION 波次 2：viewer 输入框前置禁用（走查 P0——此前打完字才
+    // 「发送失败」；禁用 + placeholder 引导——API requireDeptMember/requireWriter 兜底）
+    const viewerBlocked = !canWrite()
+    const inputDisabled = $.editingId !== '' || viewerBlocked
+    if (viewerBlocked && $.chatLabels.placeholder.indexOf('只读成员') !== 0) {
+      $.chatLabels = { placeholder: '只读成员无法发言——可查看消息与下载交付物' }
+    }
   const isNarrow = bp() === 'mobile'
 
     return (

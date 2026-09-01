@@ -1,6 +1,7 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot } from '../components/ui'
 import { Button, Card, Icon, Skeleton } from 'weifuwu/components'
+import { canWrite, writeDenyReason } from '../lib/roles'
 import type { Agent, AgentListResponse } from '../lib/types'
 
 interface AgentsState {
@@ -55,7 +56,9 @@ export const Agents: Component = (_props, ctx) => {
   return (props) => (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库">
-        <Button variant="primary" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</Button>
+        {/* ROLES-OPTIMIZATION 波次 2：viewer 禁用创建（member writer 合法不改） */}
+        <Button variant="primary" disabled={!canWrite()} title={canWrite() ? undefined : writeDenyReason()}
+          onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</Button>
       </PageHeader>
       <div class="wf-row wf-gap-sm wf-items-center">
         <div class="wf-fill" style="max-width: 320px">

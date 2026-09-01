@@ -1,6 +1,7 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Badge, Button, Card, Icon } from 'weifuwu/components'
+import { canWrite, writeDenyReason } from '../lib/roles'
 import type { PendingApproval } from '../lib/types'
 
 interface ApprovalsState {
@@ -58,6 +59,15 @@ export const Approvals: Component = (_props, ctx) => {
   return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 760px">
       <PageHeader title="审批待办" sub="AI 草稿需人工批准后才发布" />
+
+      {/* ROLES-OPTIMIZATION 波次 2：非 writer 页头提示条（审批需 requireDeptManager——
+          member/viewer 进页即知权限边界，而非操作时 403） */}
+      {!canWrite() && (
+        <div class="wf-row wf-gap-sm wf-items-center wf-padding-sm wf-radius-md wf-text-tertiary wf-font-xs"
+          style="background: var(--wf-color-bg-secondary)">
+          <Icon name="lock" size={14} /> {writeDenyReason()}——审批需租户所有者或部门管理员
+        </div>
+      )}
 
       {$.loading && <Loading />}
 

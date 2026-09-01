@@ -1,6 +1,7 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Badge, Button, Card, Icon } from 'weifuwu/components'
+import { isTenantOwner, clientRole, writeDenyReason } from '../lib/roles'
 import type { Department, DepartmentListResponse } from '../lib/types'
 
 interface DepartmentsState {
@@ -43,7 +44,11 @@ export const Departments: Component = (_props, ctx) => {
   return (props) => (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="部门" sub="组织 Agent 与成员进行协作对话">
-        <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
+        {/* ROLES-OPTIMIZATION 波次 2：写入口遮蔽（与 API 403 双保险——前端不点后端必拒）。
+            建部门仅 owner（波次 1 裁剪后）——member/viewer 禁用 + tooltip 引导 */}
+        <Button variant="primary" disabled={!isTenantOwner()}
+          title={isTenantOwner() ? undefined : (clientRole() === 'viewer' ? writeDenyReason() : '只有租户所有者可以创建部门')}
+          onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
       </PageHeader>
       <div class="wf-row wf-gap-sm wf-items-center">
         <div class="wf-fill" style="max-width: 320px">

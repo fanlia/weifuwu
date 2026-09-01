@@ -2,6 +2,7 @@ import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Badge, Button, Card, Field, Icon, Input, PasswordInput, Select, ThemeSwitch } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
+import { isTenantOwner } from '../lib/roles'
 import type { AuditEntry, OpsInfo } from '../lib/types'
 
 interface SettingsState {
@@ -239,6 +240,8 @@ export const Settings: Component = (_props, ctx) => {
       <Card>
         <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-md"><Icon name="users" size={14} /> 邀请成员</div>
         <div class="wf-font-xs wf-text-tertiary wf-margin-bottom-sm">生成邀请链接，同事打开链接注册即可加入你的团队（7 天有效；仅所有者可用）</div>
+        {isTenantOwner() ? (
+          <>
         <div class="wf-margin-bottom-sm">{$.inviteErr && <Alert variant="error">{$.inviteErr}</Alert>}</div>
         <div class="wf-row wf-gap-sm wf-items-center wf-margin-bottom-sm">
           <span class="wf-font-xs wf-text-secondary">成员角色</span>
@@ -262,6 +265,15 @@ export const Settings: Component = (_props, ctx) => {
           </div>
         ) : (
           <Button size="sm" variant="primary" onClick={createInvite}>生成邀请链接</Button>
+        )}
+          </>
+        ) : (
+          // ROLES-OPTIMIZATION 波次 2：非 owner 邀请区遮蔽（API 403 的前端半边——
+          // 走查 P0「可点但失败」消除——禁用卡说明原因）
+          <div class="wf-stack wf-gap-xs wf-padding-sm wf-radius-md wf-text-tertiary wf-font-xs"
+            style="background: var(--wf-color-bg-secondary)">
+            <Icon name="lock" size={14} /> 邀请成员仅租户所有者可用
+          </div>
         )}
       </Card>
 
