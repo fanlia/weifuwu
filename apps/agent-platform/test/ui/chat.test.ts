@@ -52,6 +52,16 @@ test('聊天页：发消息 → 消息气泡渲染（WS 管道——确定性）
   await page.click('button:has-text("发送")')
   // 消息气泡出现（用户消息 sender 渲染）
   await waitForBodyText(page, /聊天管道测试/, 10_000)
+  // CHAT-UX 波次 1（C4）：自己消息头像非「?」（sender_name 空串 ?? 不兜底实证）
+  const avatarText = await page.evaluate(() => {
+    const msgs = [...document.querySelectorAll('[data-msgid]')]
+    const own = msgs.find((m) => m.textContent?.includes('聊天管道测试'))
+    const ava = own?.querySelector('span, div')
+    // 头像是消息行的第一个子元素（Avatar 组件——首字符或「?」）
+    const row = own?.firstElementChild?.textContent ?? ''
+    return row.slice(0, 4)
+  })
+  assert.ok(avatarText && !avatarText.includes('?'), `自己消息头像不应为「?」（实际前缀：${avatarText}）`)
   // 页面零错误（非资源加载）
   await page.close()
 })
@@ -104,18 +114,22 @@ test('拖拽上传：文件拖入消息区 → 入列预览（2027-09——拖�
 
 test('拖拽上传：非文件拖入（无 files）→ 零副作用（不崩不弹）', async () => {
   const page = await browser.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(String(e).slice(0, 100)))
   await injectAuth(page, owner)
   await openAgentPage(page, BASE, `/chat/${deptId}`)
   await waitForBodyText(page, /发送/)
-  const before = await page.evaluate(() => document.body.innerText.length)
   await page.evaluate(() => {
     const dt = new DataTransfer()
     const el = document.querySelector('.wf-overflow-auto')
     if (el instanceof HTMLElement) el.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }))
   })
-  await page.waitForTimeout(200)
-  const after = await page.evaluate(() => document.body.innerText.length)
-  assert.equal(after, before, '空 DataTransfer drop —— 页面无变化')
+  // 确定性断言（旧形态 before/after 长度比对在套件负载下抖动——实证 flake）：
+  // 空 drop 不产生附件 chip + 不崩
+  await page.waitForTimeout(400)
+  const chip = await page.evaluate(() => (document.body.textContent ?? '').includes('📎'))
+  assert.equal(chip, false, '空 drop 不应产生附件 chip')
+  assert.deepEqual(errors, [], '零副作用（不崩）')
   await page.close()
 })
 

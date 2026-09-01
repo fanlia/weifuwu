@@ -23,12 +23,15 @@ export interface ButtonProps {
 export const Button: Component<ButtonProps> = (_init, ctx) =>
   (props) => {
   const { variant = 'primary', size = 'md', block, loading, disabled, type, onClick, children } = props
+  // CHAT-UX-PLAN 波次 1（C3 核心层修复）：合并透传 class（ButtonProps.class 曾声明
+  // 「覆盖默认组合」但实现未消费——调用方响应式类（wf-hidden@lg 等）静默失效实证）
   const cls = [
     'wf-btn',
     `wf-btn--${variant}`,
     `wf-btn--${size}`,
     block && 'wf-btn--block',
     loading && 'wf-btn--loading',
+    props.class,
   ].filter(Boolean).join(' ')
 
   const L = (ctx as any)?.i18n?.components?.Button ?? {}

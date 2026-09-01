@@ -70,7 +70,8 @@ test('wf:done——落定 complete + content + usage（终态）', () => {
   assert.equal(r.msgs[0]?.content, '最终内容')
   assert.equal(r.msgs[0]?.status, 'complete')
   assert.deepEqual(r.msgs[0]?.usage, { total_tokens: 123 })
-  assert.deepEqual(r.working, [{ agentId: 'ai', on: false }], '呼吸灯 off')
+  // CHAT-UX 波次 1 契约变更：无 agentId 时从消息 sender_id 推导关灯（旧回落 'ai'——呼吸灯卡死实证）
+  assert.deepEqual(r.working, [{ agentId: 'bot', on: false }], '呼吸灯 off（sender 推导）')
 })
 
 test('wf:error——内容空则占位「⚠️ AI 回复失败」+ error 态（有内容保留原文）', () => {
@@ -84,4 +85,40 @@ test('wf:error——内容空则占位「⚠️ AI 回复失败」+ error 态（
 test('wf:done 缺 content——保留流式内容（超时/异常时最后一拍不丢）', () => {
   const r = applyWfEvent([msg('m1', { content: '半截', status: 'generating' })], { type: 'wf:done', messageId: 'm1' })
   assert.equal(r.msgs[0]?.content, '半截')
+})
+
+// ── CHAT-UX-PLAN 波次 1（C1 兜底）：事件无 agentId → 从消息 sender_id 推导关灯 ──
+
+test('wf:done 无 agentId——从消息 sender_id 推导关灯（呼吸灯卡死兜底防线）', () => {
+  // 实证：旧服务端 wf:done 裸发（无 agentId）——客户端关灯打在 'ai' 上——
+  // 真实 agent（sender_id='bot'）呼吸灯永不复位
+  const r = applyWfEvent(
+    [msg('m1', { sender_id: 'bot-uuid', content: '流式内容', status: 'generating' })],
+    { type: 'wf:done', messageId: 'm1', content: '完成' },
+  )
+  assert.equal(r.msgs[0]?.status, 'complete')
+  assert.deepEqual(r.working, [{ agentId: 'bot-uuid', on: false }], '关灯必须打到消息 sender_id（非 \"ai\"）')
+})
+
+test('wf:error 无 agentId——同兜底（sender_id 推导）', () => {
+  const r = applyWfEvent(
+    [msg('m1', { sender_id: 'bot-uuid' })],
+    { type: 'wf:error', messageId: 'm1' },
+  )
+  assert.equal(r.msgs[0]?.status, 'error')
+  assert.deepEqual(r.working, [{ agentId: 'bot-uuid', on: false }])
+})
+
+test('wf:done 带 agentId——优先事件值（现有语义不回归）', () => {
+  const r = applyWfEvent(
+    [msg('m1', { sender_id: 'bot-uuid', status: 'generating' })],
+    { type: 'wf:done', messageId: 'm1', agentId: 'event-agent', content: 'x' },
+  )
+  assert.deepEqual(r.working, [{ agentId: 'event-agent', on: false }])
+})
+
+test('wf:done 占位自愈路径——无既有消息也无 agentId——回落 \"ai\"（不崩）', () => {
+  const r = applyWfEvent([], { type: 'wf:done', messageId: 'new-msg', content: '内容' })
+  assert.equal(r.msgs.length, 1, '占位创建')
+  assert.deepEqual(r.working, [{ agentId: 'ai', on: false }])
 })

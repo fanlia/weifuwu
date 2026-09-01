@@ -93,7 +93,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
 
     // 验证发件人 agent（当前用户绑定的 agent）
     let [sender] = await sql`
-      SELECT id FROM agents
+      SELECT id, name FROM agents
       WHERE app_id = ${appId} AND type = 'user' AND user_id = ${auth!.userId}
     `
     if (!sender) {
@@ -151,7 +151,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       ctx.msg.broadcast(String(params.id), {
         type: 'new_message',
         departmentId: params.id,
-        message: { id: message.id, sender_id: message.sender_id, content: message.content, attachments: attachmentMeta },
+        message: { id: message.id, sender_id: message.sender_id, sender_name: (sender as any).name ?? '', content: message.content, attachments: attachmentMeta },
       })
       handleNewMessageStream(ctx, params.id, String(sender.id), content, String(message.id), requestId).catch((err) =>
         console.error('[messages] handleNewMessageStream error:', err),
@@ -169,7 +169,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     ctx.msg.broadcast(String(params.id), {
       type: 'new_message',
       departmentId: params.id,
-      message: { id: message.id, sender_id: message.sender_id, content: message.content },
+      message: { id: message.id, sender_id: message.sender_id, sender_name: (sender as any).name ?? '', content: message.content },
     })
 
     // 异步触发 AI 自动回复（不阻塞 HTTP 响应）
@@ -207,7 +207,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
 
     // 验证发件人 agent
     let [sender] = await sql`
-      SELECT id FROM agents
+      SELECT id, name FROM agents
       WHERE app_id = ${appId} AND type = 'user' AND user_id = ${auth!.userId}
     `
     if (!sender) {
@@ -242,7 +242,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     ctx.msg.broadcast(String(params.id), {
       type: 'new_message',
       departmentId: params.id,
-      message: { id: message.id, sender_id: message.sender_id, content: message.content },
+      message: { id: message.id, sender_id: message.sender_id, sender_name: (sender as any).name ?? '', content: message.content },
     })
 
     const deepseekKey = process.env.DEEPSEEK_API_KEY

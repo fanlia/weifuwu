@@ -268,6 +268,41 @@ describe('Services', () => {
       assert.ok(rows.length >= 1, '应有 AI 流式回复消息')
       assert.equal(rows[0].content, chunks.join(''), 'DB content 应为完整拼接（并发 UPDATE 不得覆盖为中间值）')
     })
+
+    it('CHAT-UX 波次 1（C1）：wf:* 事件全部携带 agentId（呼吸灯复位——关灯必须达真实 agent）', async () => {
+      // 实证：旧代码仅首帧 step llm 带 agentId——done/token/tool 裸发——
+      // 客户端 `ev.agentId ?? 'ai'` 关灯打在 'ai' 上 → 呼吸灯永久「干活中…」
+      const broadcasts: Array<Record<string, any>> = []
+      const ctx = makeMockCtx({
+        sql: await pg.sql as any,
+        msg: { broadcast: (_room: string, ev: Record<string, any>) => { broadcasts.push(ev) } },
+        ai: {
+          ...mockAiClient,
+          agent: (config: any) => ({
+            ...mockAiClient.agent(config),
+            stream: async (_m: any[], opts?: any) => {
+              opts?.emit?.('wf:token', { text: '你好' })
+              opts?.emit?.('wf:usage', { totalTokens: 5 })
+              opts?.emit?.('wf:done', {})
+            },
+          }),
+        },
+      })
+
+      // 唯一问题名（answer-cache = 字符二元组 Jaccard ≥0.7 命中——时间戳数字重叠仍命中，
+      // 实证 flake——用随机汉字串保证二元组不相交）
+      const randQ = Array.from({ length: 10 }, () => String.fromCharCode(0x4e00 + Math.floor(Math.random() * 2000))).join('') + '？'
+      await handleNewMessageStream(ctx, DEPT_ID, USER_AGENT_ID, randQ, '')
+
+      const wfEvents = broadcasts.filter((e) => String(e.type).startsWith('wf:'))
+      assert.ok(wfEvents.length >= 3, `应 broadcast 多个 wf:* 事件（实际 ${wfEvents.length}）`)
+      const missing = wfEvents.filter((e) => !e.agentId)
+      assert.deepEqual(missing, [], `所有 wf:* 事件必须带 agentId，缺失：${JSON.stringify(missing.map((e) => e.type))}`)
+      const done = wfEvents.find((e) => e.type === 'wf:done')
+      assert.equal(done?.agentId, AI_AGENT_ID, 'wf:done 的 agentId 必须是回复 agent 的真实 id')
+      const step = wfEvents.find((e) => e.type === 'wf:step')
+      assert.equal(step?.agentId, AI_AGENT_ID, 'wf:step 同样携带 agentId')
+    })
   })
 
   // ── Webhook Service ─────────────────────────────────────

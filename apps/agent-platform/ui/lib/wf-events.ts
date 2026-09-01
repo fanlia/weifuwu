@@ -116,11 +116,16 @@ export function applyWfEvent(msgs: ChatMessage[], ev: WfEvent): WfApplyResult {
     const r = ensureMsg(msgs, ev)
     let arr = r.arr
     if (r.idx !== -1) {
+      const m = arr[r.idx]
       arr = arr.map((x, i) => (i === r.idx
         ? { ...x, content: ev.content ?? x.content, status: 'complete' as const, usage: (ev.usage as ChatMessage['usage']) ?? x.usage }
         : x))
+      // CHAT-UX 波次 1（C1 兕底）：事件无 agentId 时从消息 sender_id 推导——
+      // 服务端漏带也不卡灯（呼吸灯永久「干活中…」实证的客户端防线）
+      working.push({ agentId: ev.agentId ?? m.sender_id ?? agentId, on: false })
+    } else {
+      working.push({ agentId, on: false })
     }
-    working.push({ agentId, on: false })
     return { msgs: arr, working }
   }
 
@@ -128,11 +133,14 @@ export function applyWfEvent(msgs: ChatMessage[], ev: WfEvent): WfApplyResult {
     const r = ensureMsg(msgs, ev)
     let arr = r.arr
     if (r.idx !== -1) {
+      const m = arr[r.idx]
       arr = arr.map((x, i) => (i === r.idx
         ? { ...x, content: x.content || '⚠️ AI 回复失败', status: 'error' as const }
         : x))
+      working.push({ agentId: ev.agentId ?? m.sender_id ?? agentId, on: false })
+    } else {
+      working.push({ agentId, on: false })
     }
-    working.push({ agentId, on: false })
     return { msgs: arr, working }
   }
 

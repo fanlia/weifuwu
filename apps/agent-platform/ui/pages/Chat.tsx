@@ -239,7 +239,6 @@ export const Chat: Component = (_props, ctx) => {
   // @ 菜单键盘导航（2026-08——↑↓ 选择 / Enter 确认 / Esc 关闭）：
   // 菜单开时拦截 ChatInput 的按键（返回 true = 已处理——Enter 选中而非发送）
   function onChatKeyDown(e: KeyboardEvent): boolean {
-    console.log("[debug-onChatKeyDown] key=", e.key, "| menuOpen=", $.atMenuOpen, "| index=", $.atMenuIndex)
     if (!$.atMenuOpen) return false
     const total = 1 + $.atMenu.length // 1 = @all 项
     if (e.key === 'ArrowDown') {
@@ -410,7 +409,8 @@ export const Chat: Component = (_props, ctx) => {
     switch (event.type) {
       case 'new_message':
         if (!$.msgs.some((m: ChatMessage) => m.id === event.message.id)) {
-          $.msgs.push({ id: event.message.id, sender_id: event.message.sender_id, sender_name: event.message.sender_name ?? '', sender_type: event.message.sender_type ?? 'user', content: event.message.content, msg_type: 'text', created_at: event.message.created_at ?? new Date().toISOString(), status: 'idle', tools: [] as MessageTool[] })
+          // CHAT-UX 波次 1（C4）：sender_name 空串兜底（服务端已补 sender_name——旧事件面兼容）
+          $.msgs.push({ id: event.message.id, sender_id: event.message.sender_id, sender_name: event.message.sender_name || '未知', sender_type: event.message.sender_type ?? 'user', content: event.message.content, msg_type: 'text', created_at: event.message.created_at ?? new Date().toISOString(), status: 'idle', tools: [] as MessageTool[] })
         }
         ; break
       case 'ai_draft':
@@ -547,7 +547,7 @@ export const Chat: Component = (_props, ctx) => {
           $.msgs.push({
             id: data.message.id,
             sender_id: data.message.sender_id ?? '',
-            sender_name: data.message.sender_name ?? '我',
+            sender_name: data.message.sender_name || '我', // CHAT-UX 波次 1（C4）：空串也兜底（?? 不拦 ''——头像「?」实证）
             sender_type: 'user',
             content: data.message.content ?? trimmed,
             msg_type: 'text',

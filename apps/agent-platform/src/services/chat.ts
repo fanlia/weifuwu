@@ -443,6 +443,13 @@ async function runAgentStreamForAgent(
 
   // 消息占位（SSE 路径在内部创建）——msgId 在 try 外声明（B.1 兜底 catch 可访问）
   let msgId = initialMsgId
+  // CHAT-UX 波次 1（C1）：所有 wf:* 事件统一带 agentId/agentName（单点包装——
+  // 旧代码仅首帧 step llm 带 agentId，done/token/tool/error 裸发——客户端
+  // `ev.agentId ?? 'ai'` 关灯打在 'ai' 上 → 呼吸灯永久卡「干活中…」实证）。
+  // 定义在 try 外（B.1 兑底 catch 同样需要发 wf:error——try 内定义 catch 不可见）
+  const emitWf = (ev: { type: StreamEvent['type']; messageId: string } & Record<string, unknown>): void => {
+    emit.emit({ agentId: agent.id, agentName: agent.name, ...ev } as StreamEvent)
+  }
   try {
   if (!msgId) {
     const [replyMsg] = await sql`
@@ -454,14 +461,14 @@ async function runAgentStreamForAgent(
   }
 
   // 1) thinking
-  emit.emit({ type: 'wf:step', messageId: msgId, agentId: agent.id, agentName: agent.name, stepType: 'llm' })
+  emitWf({ type: 'wf:step', messageId: msgId, stepType: 'llm' })
 
   // ── 计划拦截（G1 付费墙：试用到期 / 月配额用尽——租户级，先于 Agent 级配额） ──
   try {
     const { planBlockReason } = await import('./plan.ts')
     const reason = await planBlockReason(sql, ctx.appId)
     if (reason) {
-      emit.emit({ type: 'wf:done', messageId: msgId, content: reason })
+      emitWf({ type: 'wf:done', messageId: msgId, content: reason })
       return
     }
   } catch { /* 计划检查失败不阻断——保守放行 */ }
@@ -476,7 +483,7 @@ async function runAgentStreamForAgent(
       `
       const used = Number((usedRow as any)?.used ?? 0)
       if (used >= quota) {
-        emit.emit({ type: 'wf:done', messageId: msgId, content: `⚠️ 该 Agent 本月 token 配额（${quota.toLocaleString()}）已用尽，暂停自动回复。请在 Agent 详情调整配额或下月恢复。` })
+        emitWf({ type: 'wf:done', messageId: msgId, content: `⚠️ 该 Agent 本月 token 配额（${quota.toLocaleString()}）已用尽，暂停自动回复。请在 Agent 详情调整配额或下月恢复。` })
         return
       }
     }
@@ -517,21 +524,21 @@ async function runAgentStreamForAgent(
         accumulatedContent += text
         // 先同步 emit（保序）：onChunk 是 async，若 await 写库后再 emit，
         // 多个 chunk 并发时 emit 顺序被 UPDATE 异步完成顺序打乱 → 前端 token 乱序/缺失
-        emit.emit({ type: 'wf:token', messageId: msgId, text })
+        emitWf({ type: 'wf:token', messageId: msgId, text })
         // DB 写入串行化（防并发 UPDATE 乱序覆盖为中间值——流式截断根因）
         dbWriteChain = dbWriteChain.then(() =>
           sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
         )
       },
       onToolCall: (toolCall: { name: string; args: string }) => {
-        emit.emit({ type: 'wf:step', messageId: msgId, stepType: 'tool', name: toolCall.name, args: toolCall.args })
+        emitWf({ type: 'wf:step', messageId: msgId, stepType: 'tool', name: toolCall.name, args: toolCall.args })
         toolCallCount++
         streamTools.push({ tool: toolCall.name, args: toolCall.args, at: new Date().toISOString() })
         // P1-3：记录工具参数（write/edit 成功时广播 file_updated）
         try { lastToolArgs.set(String(toolCall.name), JSON.parse(String(toolCall.args ?? '{}'))) } catch { /* 解析失败跳过 */ }
       },
       onToolResult: (result: { name: string; result: string; ok: boolean; error?: string }) => {
-        emit.emit({ type: 'wf:tool_result', messageId: msgId, name: result.name, result: result.result, ok: result.ok, error: result.error })
+        emitWf({ type: 'wf:tool_result', messageId: msgId, name: result.name, result: result.result, ok: result.ok, error: result.error })
         // B1：结果合并进步骤（ok 标记——error 状态可持久化）
         for (let i = streamTools.length - 1; i >= 0; i--) {
           if (streamTools[i].tool === result.name && streamTools[i].result === undefined) {
@@ -591,7 +598,7 @@ async function runAgentStreamForAgent(
     if (!accumulatedContent) {
       await sql`DELETE FROM messages WHERE id = ${msgId} AND content = ''`
     }
-    emit.emit({ type: 'wf:error', messageId: msgId, code: 'provider_error', message: 'AI 回复失败' })
+    emitWf({ type: 'wf:error', messageId: msgId, code: 'provider_error', message: 'AI 回复失败' })
   } else {
     if (finalUsage) {
       // 指标采集（/api/metrics——AI 调用次数/token/延迟）
@@ -624,7 +631,7 @@ async function runAgentStreamForAgent(
         if (verified.length > 0 || missing.length > 0 || stale.length > 0) {
           const mark = buildVerifyMark(verified, missing, stale)
           accumulatedContent = accumulatedContent + mark
-          emit.emit({ type: 'wf:verify', messageId: msgId, verified, missing, stale })
+          emitWf({ type: 'wf:verify', messageId: msgId, verified, missing, stale })
           await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`.catch(() => {})
         }
       }
@@ -660,7 +667,7 @@ function isTaskMessage(content: string): boolean {
         }
       } catch { /* 重试失败不阻断 */ }
     }
-    emit.emit({ type: 'wf:done', messageId: msgId, content: accumulatedContent, usage: finalUsage })
+    emitWf({ type: 'wf:done', messageId: msgId, content: accumulatedContent, usage: finalUsage })
   }
 
   // SSE 路径：关闭响应流
@@ -674,7 +681,7 @@ function isTaskMessage(content: string): boolean {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`[chat] runAgentStreamForAgent ${agent.id} error:`, msg)
     try {
-      if (msgId) emit.emit({ type: 'wf:error', messageId: msgId, code: 'internal_error', message: msg.slice(0, 200) })
+      if (msgId) emitWf({ type: 'wf:error', messageId: msgId, code: 'internal_error', message: msg.slice(0, 200) })
       else console.error(`[chat] msgId 未知——无法发 wf:error：${msg}`)
     } catch { /* 兜底失败不阻断 */ }
   }

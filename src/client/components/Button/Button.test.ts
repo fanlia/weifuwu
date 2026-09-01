@@ -27,6 +27,24 @@ test('aria-label 缺省不落 attr（undefined → attrs 无该键）', async ()
   assert.equal(btn![1].attrs['aria-label'], undefined, '未传 aria-label 不应落 attrs')
 })
 
+test('class 透传合并（CHAT-UX-PLAN 波次 1——C3：声明未消费实证修复）', async () => {
+  const h = await mount(Button, { variant: 'ghost', class: 'wf-hidden wf-flex@lg' })
+  const ct = createTable(h.cmds)
+  const btn = [...ct.entries()].find(([, v]) => v.tag === 'button')
+  assert.ok(btn, '渲染出 button 元素')
+  const cls = String(btn![1].attrs.class)
+  assert.match(cls, /wf-btn--ghost/, '默认组合保留')
+  assert.match(cls, /wf-hidden/, '透传 class 并入')
+  assert.match(cls, /wf-flex\@lg/, '透传 class（含 @ 转义类名）并入')
+  // 不传 class：attrs 无尾部空串/undefined 残留
+  const h2 = await mount(Button, { variant: 'primary' })
+  const ct2 = createTable(h2.cmds)
+  const btn2 = [...ct2.entries()].find(([, v]) => v.tag === 'button')
+  const cls2 = String(btn2![1].attrs.class)
+  assert.ok(!cls2.includes('undefined'), '无 undefined 残留')
+  assert.match(cls2, /wf-btn--primary/, '默认组合完整')
+})
+
 test('基础面：variant/size 类组合 + disabled + loading（aria-busy）', async () => {
   const h = await mount(Button, { variant: 'ghost', size: 'sm', disabled: true, id: 'b1', title: '提示' })
   const ct = createTable(h.cmds)
