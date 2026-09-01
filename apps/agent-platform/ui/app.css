@@ -1,0 +1,121 @@
+/* agent-platform 应用层样式（UX-PLAN-2 波次 3——移动端外壳）
+ *
+ * 框架 layout 治理边界（weifuwu/layout/_app-shell.css 注释明确）：
+ * 「交互式折叠抽屉属应用层职责（需 JS 开关），layout 只提供静态外壳」——
+ * 本文件即该职责的应用层落地。所有类名 ap- 前缀（app 局部——不入框架词根登记制）。
+ *
+ * 断点对齐框架：<768px 移动（wf-app-shell 堆叠降级同款）· 聊天面板 @lg=1024。
+ */
+
+/* ── 移动顶栏（<768px 显示——汉堡 + 品牌 + 设置/退出快捷） ── */
+.ap-topbar {
+  display: none;
+}
+
+/* ── 顶栏包装（桌面零影响：flex 列容器——main 占满） ── */
+.ap-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* 接管 app-shell grid 子项的高度链（chat 等页依赖 wf-main 内部滚动） */
+  height: 100%;
+}
+.ap-body .wf-main {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 767.98px) {
+  /* 顶栏：sticky 常驻（滚动不丢导航入口） */
+  .ap-topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--wf-gap-sm);
+    padding: var(--wf-space-xs) var(--wf-space-sm);
+    background: var(--wf-color-bg-secondary);
+    border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+  .ap-topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--wf-gap-xs);
+    min-width: 0;
+    flex: 1;
+  }
+  .ap-topbar-title {
+    font-weight: var(--wf-font-weight-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 侧栏 → 抽屉：fixed 覆盖（脱离文档流——框架堆叠降级被替换） */
+  .wf-app-shell .wf-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(80vw, 300px);
+    z-index: 50;
+    transform: translateX(-105%);
+    transition: transform var(--wf-transition);
+    box-shadow: none;
+    visibility: hidden;
+  }
+  .wf-app-shell .wf-sidebar.ap-drawer--open {
+    transform: translateX(0);
+    visibility: visible;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+
+  /* 遮罩（抽屉开启时覆盖主区——点击关闭） */
+  .ap-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 45;
+  }
+}
+
+/* ── 聊天页左栏（成员/环境/交付物）移动抽屉（<1024px——@lg 隐藏的对偶入口） ── */
+.ap-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 44;
+}
+@media (max-width: 1023.98px) {
+  .wf-app-shell .ap-panel-drawer {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(85vw, 320px);
+    z-index: 46;
+    display: flex; /* 对抗 wf-hidden（窄屏隐藏）——开启抽屉时强制可见 */
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform var(--wf-transition), visibility var(--wf-transition);
+  }
+  .wf-app-shell .ap-panel-drawer.ap-drawer--open {
+    transform: translateX(0);
+    visibility: visible;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+}
+@media (min-width: 1024px) {
+  .ap-panel-overlay {
+    display: none;
+  }
+}
+
+/* reduced-motion：抽屉动画降级（框架 motion 纪律对齐） */
+@media (prefers-reduced-motion: reduce) {
+  .wf-sidebar, .ap-panel-drawer {
+    transition: none;
+  }
+}

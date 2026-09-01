@@ -125,6 +125,11 @@ export const Chat: Component = (_props, ctx) => {
     input.value = ''
   }
   const deptId = ctx.route?.params?.id ?? ''
+  // ── 移动端左栏抽屉（UX-PLAN-2 波次 3：左栏 <1024px 隐藏后无入口实证——
+  // 头部提供「成员/环境/交付物」抽屉入口——聊天流仍默认）──
+  let panelOpen = false
+  const closePanel = () => { if (panelOpen) { panelOpen = false; rerender() } }
+  ctx.ui.useGlobalKey('Escape', () => closePanel())
   // P2-1：AI 干活状态（aiStatus store 订阅——左栏呼吸灯；useExternal 返回 store 活引用）
   const aiStatusStore = ctx.ui.useExternal(aiStatus)
   const aiStatusOf = (id: string) => (aiStatusStore() as Record<string, string>)[id] ?? 'idle'
@@ -726,7 +731,7 @@ export const Chat: Component = (_props, ctx) => {
     <div class="wf-row wf-height-full wf-gap-none">
       {/* 左栏：成员 + 工作环境 + 交付物（2026-08 合并——用户建议：成员与交付物
           放同一侧——右栏删除——消息区更宽——窄屏隐藏） */}
-      <aside class="wf-col wf-hidden wf-flex@lg wf-bg-secondary wf-border-right wf-padding-sm wf-stack wf-gap-sm" style="width: 300px; min-width: 300px">
+      <aside class={`wf-col ap-panel-drawer${panelOpen ? ' ap-drawer--open' : ''} wf-bg-secondary wf-border-right wf-padding-sm wf-stack wf-gap-sm`} style="width: 300px; min-width: 300px">
         <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">成员（{$.memberCount}）</div>
         {$.membersList.length === 0 && <div class="wf-font-xs wf-text-tertiary">暂无 AI 成员——聊天中 @ 不到人时去「管理 → Agent」添加</div>}
         {$.membersList.map((m: Member) => (
@@ -806,10 +811,18 @@ export const Chat: Component = (_props, ctx) => {
         </div>
       </aside>
 
+      {/* 左栏抽屉遮罩（移动端开启时——点击关闭） */}
+      {panelOpen && <div class="ap-panel-overlay" onClick={closePanel} />}
+
       {/* 中栏：聊天流 */}
       <main class="wf-col wf-fill wf-stack wf-height-full wf-min-width-0">
       <div class="wf-stack wf-height-full">
       <div class="wf-row wf-gap-sm wf-padding-sm wf-bg-secondary wf-border-bottom">
+        <Button size="sm" variant="ghost" title="成员与交付物" aria-label="打开成员与交付物面板"
+          class="wf-flex wf-hidden@lg"
+          onClick={() => { panelOpen = true; rerender() }}>
+          <Icon name="users" size={16} />
+        </Button>
         <a href="/chat/new" class="wf-text-primary"
           onClick={(e: Event) => { e.preventDefault(); ctx.app?.navigate('/chat/new') }}>
           <Icon name="arrow-left" size={16} />

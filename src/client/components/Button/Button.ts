@@ -14,6 +14,8 @@ export interface ButtonProps {
   id?: string
   /** 透传原生 class（覆盖默认 wf-btn 组合） */
   class?: string
+  /** 透传无障碍标签（读屏/测试定位——按钮常仅图标无文本，name 缺失即死读屏路径） */
+  'aria-label'?: string
   onClick?: (e: MouseEvent) => void
   children?: any
 }
@@ -38,6 +40,7 @@ export const Button: Component<ButtonProps> = (_init, ctx) =>
     type: type ?? 'button',
     disabled: disabled || loading || undefined,
     'aria-busy': loading || undefined,
+    'aria-label': props['aria-label'],
     onClick,
   }, loading
     ? [h('span', { class: 'wf-btn-spinner' }), L.loading ?? '加载中...']

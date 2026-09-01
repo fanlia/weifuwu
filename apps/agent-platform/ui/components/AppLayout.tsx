@@ -41,10 +41,24 @@ export function AppLayout(_props: {}, ctx: UIContext) {
   const userName = user?.name ?? '用户'
   const userMail = user?.email ?? ''
   // 管理员导航（G2）：/api/admin/me 判定，仅管理员可见「租户管理」入口
-  let isAdmin = false
-  void ctx.api?.get<{ isAdmin: boolean }>('/api/admin/me')
-    .then((d) => { isAdmin = !!d.isAdmin; ctx.render() })
-    .catch(() => {})
+  // UX-PLAN-2 波次 4：会话级缓存（v 模块级 promise）——旧实现每导航重复请求
+  let isAdmin = adminCache !== null ? adminCache : false
+  if (adminPromise === null) {
+    adminPromise = ctx.api?.get<{ isAdmin: boolean }>('/api/admin/me')
+      .then((d) => { adminCache = !!d.isAdmin; ctx.render() })
+      .catch(() => { adminCache = false })
+      .finally(() => { adminPromise = null }) as Promise<void>
+  }
+
+  // ── 移动端外壳（UX-PLAN-2 波次 3——框架 layout 明确抽屉属应用层职责）──
+  // getter 形态断点（hook getter 纪律——任何位置调用返回最新值）。
+  // 断点语义：当前匹配的最大 min-width 档名——必须两档（mobile:0 基档）——
+  // 单档 {desktop:768} 窄屏不匹配 min-width 时仍返回首项名 'desktop'（语义反转）
+  const bp = ctx.ui.useBreakpoint({ mobile: 0, desktop: 768 })
+  let drawerOpen = false
+  const closeDrawer = () => { if (drawerOpen) { drawerOpen = false; ctx.render() } }
+  // Escape 关闭抽屉（键盘可达性——useGlobalKey 自动卸载退订）
+  ctx.ui.useGlobalKey('Escape', () => closeDrawer())
 
   function logout() {
     ctx.auth?.logout?.()
@@ -55,21 +69,29 @@ export function AppLayout(_props: {}, ctx: UIContext) {
     // 渲染期读取路由（layout 跨子路由复用，mount 捕获的 route 不随导航更新）
     // v3 ctx.route.path = 完整路径（有前导 '/agents'）——去开头斜杠再拼（'/' 保持）
     const route = '/' + (ctx.route?.path ?? '').replace(/^\/+/, '')
+    const isMobile = bp() === 'mobile'
+    const brandName = (window as any).__whiteLabel?.name || 'Agent Platform'
+    const navItems = [...NAV, ...(isAdmin ? ADMIN_NAV : [])]
     return (
     <div class="wf-app-shell">
-      <aside class="wf-sidebar">
+      <aside class={`wf-sidebar${isMobile && drawerOpen ? ' ap-drawer--open' : ''}`}>
         <div class="wf-sidebar-header">
           <Avatar name={(window as any).__whiteLabel?.logo || 'A'} />
-          <div class="wf-stack wf-gap-none">
-            <span class="wf-font-base wf-semibold">{(window as any).__whiteLabel?.name || 'Agent Platform'}</span>
+          <div class="wf-stack wf-gap-none wf-fill">
+            <span class="wf-font-base wf-semibold">{brandName}</span>
             <small class="wf-uppercase wf-tracking-wide">Multi-Tenant AI</small>
           </div>
+          {isMobile && (
+            <Button size="sm" variant="ghost" title="关闭菜单" aria-label="关闭菜单" onClick={closeDrawer}>
+              <Icon name="close" size={16} />
+            </Button>
+          )}
         </div>
 
         <div class="wf-sidebar-body">
-          <Menu items={[...NAV, ...(isAdmin ? ADMIN_NAV : [])].map(n => ({ key: n.path, label: n.label, icon: n.icon, group: n.group ?? '工作台' }))}
-            activeKey={NAV.find(n => n.match(route))?.path ?? ''}
-            onSelect={p => ctx.app?.navigate(p)} />
+          <Menu items={navItems.map(n => ({ key: n.path, label: n.label, icon: n.icon, group: n.group ?? '工作台' }))}
+            activeKey={NAV.concat(isAdmin ? ADMIN_NAV : []).find(n => n.match(route))?.path ?? ''}
+            onSelect={p => { ctx.app?.navigate(p); closeDrawer() }} />
         </div>
 
         <div class="wf-sidebar-footer">
@@ -79,16 +101,39 @@ export function AppLayout(_props: {}, ctx: UIContext) {
               <div class="wf-font-sm wf-semibold wf-truncate">{userName}</div>
               <div class="wf-font-xs wf-text-tertiary wf-truncate">{userMail}</div>
             </div>
-            <Button size="sm" variant="ghost" title="设置" onClick={() => ctx.app?.navigate('/settings')}><Icon name="settings" size={16} /></Button>
+            <Button size="sm" variant="ghost" title="设置" onClick={() => { ctx.app?.navigate('/settings'); closeDrawer() }}><Icon name="settings" size={16} /></Button>
             <Button size="sm" variant="ghost" title="退出登录" onClick={logout}><Icon name="log-out" size={16} /></Button>
           </div>
         </div>
       </aside>
 
-      <main class="wf-main">
-        {__props.children}
-      </main>
+      {/* 遮罩（抽屉开启时——点击关闭） */}
+      {isMobile && drawerOpen && <div class="ap-drawer-overlay" onClick={closeDrawer} />}
+
+      <div class="ap-body">
+        {/* 移动顶栏（<768px——CSS 控制；汉堡开抽屉 + 品牌 + 设置/退出快捷） */}
+        <header class="ap-topbar">
+          <Button size="sm" variant="ghost" title="打开菜单"
+            aria-label="打开菜单"
+            onClick={() => { drawerOpen = !drawerOpen; ctx.render() }}>
+            <Icon name="menu" size={20} />
+          </Button>
+          <div class="ap-topbar-brand">
+            <span class="ap-topbar-title">{brandName}</span>
+          </div>
+          <Button size="sm" variant="ghost" title="设置" onClick={() => ctx.app?.navigate('/settings')}><Icon name="settings" size={16} /></Button>
+        </header>
+
+        <main class="wf-main">
+          {__props.children}
+        </main>
+      </div>
     </div>
     )
   }
 }
+
+// ── isAdmin 会话级缓存（UX-PLAN-2 波次 4 顺手收敛——旧实现每导航重复请求）──
+// 模块级单飞：一次会话拉一次（角色变更需重新登录生效——可接受语义）
+let adminCache: boolean | null = null
+let adminPromise: Promise<void> | null = null

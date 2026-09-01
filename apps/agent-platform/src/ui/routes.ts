@@ -26,6 +26,11 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
     ctx.ui.css('weifuwu/components/style.css')
   )
 
+  // ── 应用层样式（UX-PLAN-2 波次 3：移动端抽屉外壳——框架明确属应用层职责） ──
+  app.get('/static/app.css', async (_req: Request, ctx: Context): Promise<Response> =>
+    ctx.ui.css(resolve(baseDir, 'ui', 'app.css'))
+  )
+
   // ── 客户端 JS bundle ─────────────────────────────────
   if (IS_PRODUCTION) {
     const dist = distDir(baseDir)
@@ -59,6 +64,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><title>vdom3 — Agent Platform</title>
 <link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/app.css">
 <script>window.__WF_V3_AUDIT='1'</script>
 </head>
 <body>
@@ -110,6 +116,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agent Platform</title>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
   <div id="root"><div class="boot-loading"><div class="spinner"></div>加载中...</div></div>
@@ -152,6 +159,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Agent Platform</title>
           <link rel="stylesheet" href="/static/style.css">
+          <link rel="stylesheet" href="/static/app.css">
         </head>
         <body>
           <div id="root"><div class="boot-loading"><div class="spinner"></div>加载中...</div></div>
