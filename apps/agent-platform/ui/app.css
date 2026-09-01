@@ -151,3 +151,12 @@
     opacity: 1;
   }
 }
+
+/* ---- CHAT-INTERACTION 波次 2：HITL 快捷确认 chip ----
+ * AI 确认型提问的可点选项（[[choices:...]] 剥离后）——描边胶囊、主色、
+ * 可换行（3-4 选项窄屏不溢出）——点击即发送该选项文本 */
+.ap-quick-chip {
+  border: 1px solid var(--wf-color-primary) !important;
+  color: var(--wf-color-primary) !important;
+  border-radius: 999px;
+}

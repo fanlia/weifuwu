@@ -13,7 +13,26 @@
 import type { Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
-import { buildRosterText, buildHistoryContent, buildPersonaLayer, buildWorkspaceLayer, type RosterMember } from './persona.ts'
+import { buildRosterText, buildHistoryContent, buildPersonaLayer, buildWorkspaceLayer, QUICK_REPLY_GUIDE, type RosterMember } from './persona.ts'
+
+/** CHAT-INTERACTION 波次 2：HITL 快捷确认选项解析——
+ *  AI 确认型提问在回复末尾输出 [[choices:选项1|选项2|选项3]] 标记（persona 层指引）；
+ *  剥离全部标记（content 保持干净——刷新后 GET 不含标记）+ 提取末次标记的选项
+ *  （上限 4 项、单项裁 20 字符——防御性约束，非信任 AI 输出格式）。
+ *  无标记 → 原文透传（渐进增强——零影响）。模块顶层（可单测 import） */
+export function parseQuickReplies(content: string): { content: string; quickReplies: string[] } {
+  const matches = [...content.matchAll(/\[\[choices:([^\]]*)\]\]/g)]
+  if (matches.length === 0) return { content, quickReplies: [] }
+  const last = matches[matches.length - 1]
+  const quickReplies = last[1]
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((s) => (s.length > 20 ? s.slice(0, 20) : s))
+  const cleaned = content.replace(/\s*\[\[choices:[^\]]*\]\]/g, '').trimEnd()
+  return { content: cleaned, quickReplies }
+}
 import { updateGroupMemory, buildGroupMemoryLayer } from './group-memory.ts'
 import { findCachedAnswer, shouldCacheQuestion, buildCachedReply, isFailureAnswer } from './answer-cache.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
@@ -437,7 +456,7 @@ async function runAgentStreamForAgent(
   const systemPrompt = (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({
     rosterText: buildRosterText(rosterMembers, String(agent.id)),
     selfName: String(agent.name),
-  }) + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (workspaceLayer ? '\n\n' + workspaceLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : '')
+  }) + QUICK_REPLY_GUIDE + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (workspaceLayer ? '\n\n' + workspaceLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : '')
   const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
   const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
 
@@ -667,7 +686,21 @@ function isTaskMessage(content: string): boolean {
         }
       } catch { /* 重试失败不阻断 */ }
     }
-    emitWf({ type: 'wf:done', messageId: msgId, content: accumulatedContent, usage: finalUsage })
+    // CHAT-INTERACTION 波次 2：快捷确认选项剥离 + 持久化（AI 确认型提问 → chip）。
+    // 在 verify 标记追加之后、done 之前——content 存剥离后文本（GET 刷新不含标记）
+    let finalContent = accumulatedContent
+    let quickReplies: string[] = []
+    try {
+      const parsed = parseQuickReplies(accumulatedContent)
+      finalContent = parsed.content
+      quickReplies = parsed.quickReplies
+    } catch { /* 解析失败透传原文 */ }
+    if (quickReplies.length > 0) {
+      try {
+        await sql`UPDATE messages SET content = ${finalContent}, quick_replies = ${JSON.stringify(quickReplies)}::jsonb WHERE id = ${msgId}`
+      } catch { /* 列写入失败不阻断流（done 仍带 quickReplies——前端本次会话可见） */ }
+    }
+    emitWf({ type: 'wf:done', messageId: msgId, content: finalContent, usage: finalUsage, quickReplies })
   }
 
   // SSE 路径：关闭响应流
@@ -886,7 +919,7 @@ async function runAllAgents(
         agentId: agent.id,
         appId: ctx.appId,
         departmentId,
-        systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }) + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (workspaceLayer ? '\n\n' + workspaceLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : ''),
+        systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }) + QUICK_REPLY_GUIDE + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (workspaceLayer ? '\n\n' + workspaceLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : ''),
         model: agent.model,
         tools: typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? []),
         maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,

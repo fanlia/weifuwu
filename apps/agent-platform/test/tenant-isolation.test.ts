@@ -44,6 +44,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/routes/agents.ts', match: 'FROM agent_logs WHERE agent_id = ${params.id}', reason: '间接隔离——上游 GET /api/agents/:id 已校验 a.app_id（171 行）' },
   { file: 'src/routes/agents.ts', match: 'WHERE department_id = ${body.department_id}', reason: '组织层级唯一性检查——department_id 来自同 app 部门校验（上一步 SELECT id FROM departments）' },
   { file: 'src/services/chat.ts', match: 'UPDATE messages SET ai_step', reason: 'B1 工具步骤持久化（2026-08）——按主键 message_id 更新（msgId 来自用户消息 id——上游发送门控已校验部门权限/成员——消息归属不跨租户）' },
+  { file: 'src/services/chat.ts', match: 'UPDATE messages SET content = ${finalContent}, quick_replies', reason: 'CHAT-INTERACTION 波次 2（2027-10）——快捷确认选项持久化，同条 UPDATE 顺带收敛 content——按主键 message_id 更新（msgId 来自本流创建的占位消息——上游发送门控已校验部门权限/成员——消息归属不跨租户）' },
   { file: 'src/routes/agents.ts', match: 'FROM department_members dm JOIN agents a ON a.id = dm.agent_id WHERE dm.department_id = ${body.department_id}', reason: '经理提示词成员名单——department_id 来自同 app 部门校验（间接隔离）' },
   { file: 'src/routes/departments.ts', match: 'UPDATE agents SET system_prompt', reason: '经理提示词回填——按主键 id 更新（mgr.id 来自刚 INSERT 的 RETURNING）' },
   { file: 'src/routes/agents.ts', match: 'INSERT INTO department_members (department_id, agent_id, role)', reason: '组织层级：经理自动入代表部门——department_id 来自同 app 部门校验（间接隔离）' },

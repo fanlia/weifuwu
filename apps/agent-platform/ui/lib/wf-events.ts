@@ -27,6 +27,8 @@ export interface WfEvent {
   error?: string
   content?: string
   usage?: unknown
+  /** CHAT-INTERACTION 波次 2：快捷确认选项（wf:done 载荷扩展——AI [[choices:...]] 剥离后） */
+  quickReplies?: string[]
 }
 
 export interface WfApplyResult {
@@ -118,7 +120,7 @@ export function applyWfEvent(msgs: ChatMessage[], ev: WfEvent): WfApplyResult {
     if (r.idx !== -1) {
       const m = arr[r.idx]
       arr = arr.map((x, i) => (i === r.idx
-        ? { ...x, content: ev.content ?? x.content, status: 'complete' as const, usage: (ev.usage as ChatMessage['usage']) ?? x.usage }
+        ? { ...x, content: ev.content ?? x.content, status: 'complete' as const, usage: (ev.usage as ChatMessage['usage']) ?? x.usage, quick_replies: ev.quickReplies ?? x.quick_replies }
         : x))
       // CHAT-UX 波次 1（C1 兕底）：事件无 agentId 时从消息 sender_id 推导——
       // 服务端漏带也不卡灯（呼吸灯永久「干活中…」实证的客户端防线）

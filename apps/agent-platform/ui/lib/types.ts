@@ -128,6 +128,8 @@ export interface Message {
   /** HITL 草稿 */
   ai_draft?: string | null
   ai_approved?: boolean | null
+  /** CHAT-INTERACTION 波次 2：快捷确认选项（AI [[choices:...]] 剥离后——气泡 chip） */
+  quick_replies?: string[] | null
 }
 
 /** 角色模板 */
@@ -372,6 +374,8 @@ export interface ChatMessage {
   usage?: { total_tokens: number }
   ai_draft?: string | null
   ai_approved?: boolean | null
+  /** CHAT-INTERACTION 波次 2：快捷确认选项（AI [[choices:...]] 剥离后——气泡 chip） */
+  quick_replies?: string[] | null
   reply_content?: string | null
   reply_sender?: string | null
   /** 被回复消息 id（retryMessage 透传——CHAT-UX 波次 4 E4；仅 loadMessages/POST 回包带） */

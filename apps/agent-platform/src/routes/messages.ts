@@ -48,7 +48,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       SELECT
         m.id, m.department_id, m.sender_id, m.content, m.msg_type,
         m.ai_draft, m.ai_approved, m.created_at, m.reply_to, m.attachments,
-        m.routed_to, m.ai_step,
+        m.routed_to, m.ai_step, m.quick_replies,
         a.name as sender_name, a.type as sender_type, a.avatar_url as sender_avatar,
         r.content as reply_content, ra.name as reply_sender
       FROM messages m

@@ -275,6 +275,8 @@ async function main() {
   await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'`)
   await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ`)
   await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS monthly_token_limit INT NOT NULL DEFAULT 0`)
+  // CHAT-INTERACTION 波次 2：HITL 快捷确认选项（AI 确认型提问 [[choices:a|b]] 标记剥离后落列）
+  await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS quick_replies JSONB`)
   // G1 回填：老租户（free 无试用期）补 14 天试用 + 免费配额
   await pg.sql.unsafe(`UPDATE _weifuwu_apps SET trial_ends_at = NOW() + INTERVAL '14 days', monthly_token_limit = 50000 WHERE plan = 'free' AND trial_ends_at IS NULL`)
   // 商业化 G4：租户 BYOK 配置（自带模型 Key/端点）

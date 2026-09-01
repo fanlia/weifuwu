@@ -575,6 +575,20 @@ export const Chat: Component = (_props, ctx) => {
   }
   function canEdit(msg: ChatMessage) { return isOwn(msg) && Date.now() - new Date(msg.created_at).getTime() < 5 * 60 * 1000 }
 
+  // CHAT-INTERACTION 波次 2：快捷确认 chip 仅对「消息流中最后一条消息且为带选项的 AI 消息」渲染——
+  // 用户回复后最后一条变成 user 消息 → chip 自动消失（已答不可重复答——确定性规则，无状态跟踪）
+  function showQuickReplies(msg: ChatMessage): boolean {
+    const last = $.msgs[$.msgs.length - 1]
+    return last?.id === msg.id && msg.sender_type === 'ai' && (msg.quick_replies ?? []).length > 0
+  }
+
+  function handleQuickReply(msg: ChatMessage, text: string) {
+    // 即时反馈：本地清掉该消息选项（chip 消失）——再走 sendText（复用发送链：草稿/附件/@解析全同）
+    $.msgs = $.msgs.map((x) => (x.id === msg.id ? { ...x, quick_replies: null } : x))
+    rerender()
+    void sendText(text)
+  }
+
   async function sendText(content: string) {
     const trimmed = content.trim()
     const hasFiles = $.files.length > 0
@@ -1004,6 +1018,8 @@ export const Chat: Component = (_props, ctx) => {
             onEditChange={handleEditChange}
             onEditSave={handleEditSave}
             onEditCancel={handleEditCancel}
+            showQuickReplies={showQuickReplies(msg)}
+            onQuickReply={handleQuickReply}
               />,
             ]
           })

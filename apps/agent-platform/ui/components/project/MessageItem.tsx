@@ -35,6 +35,9 @@ export interface MessageItemProps {
   onEdit: (msg: ChatMessage) => void
   onDelete: (msg: ChatMessage) => void
   onFeedback: (msg: ChatMessage, v: 'like' | 'dislike' | null) => void
+  /** CHAT-INTERACTION 波次 2：快捷确认 chip（仅最后一条 AI 消息渲染——Chat 侧计算） */
+  showQuickReplies?: boolean
+  onQuickReply?: (msg: ChatMessage, text: string) => void
   onApprove: (id: string) => void
   onReject: (id: string) => void
   onRetry: (id: string) => void
@@ -142,6 +145,18 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
           {msg.reply_content && !props.editing && (
             <div class="wf-border-left wf-padding-left-sm wf-font-xs wf-text-tertiary">
               <span class="wf-text-secondary">↩ {msg.reply_sender ?? '消息'}</span> {String(msg.reply_content ?? '').slice(0, 40)}
+            </div>
+          )}
+
+          {/* CHAT-INTERACTION 波次 2：HITL 快捷确认 chip（AI 确认型提问——点击即发送；
+              仅最后一条 AI 消息渲染——Chat 侧 showQuickReplies 计算，已答/新消息自动消失）。
+              不卡 st：历史消息 status 为 null（GET 无此列）——只在流式进行中（isActive）隐藏 */}
+          {props.showQuickReplies && !props.editing && !isActive && (msg.quick_replies ?? []).length > 0 && (
+            <div class="wf-row wf-gap-xs wf-wrap" role="group" aria-label="快捷回复选项">
+              {(msg.quick_replies ?? []).map((qr: string) => (
+                <Button key={qr} size="sm" variant="ghost" class="ap-quick-chip"
+                  onClick={() => { props.onQuickReply?.(msg, qr) }}>{qr}</Button>
+              ))}
             </div>
           )}
 
