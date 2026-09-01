@@ -38,6 +38,9 @@ interface WsUploadResponse { success: boolean; name: string; size: number; error
 // 数据未变静默失效——自喂循环实证）——**per-dept 隔离**（多部门页面）
 const listSnapshots = new Map<string, string>()
 const listInflights = new Set<string>()
+/** per-dept 最新数据（跨实例存活——新实例工厂即采纳：重进即时显示 +
+ *  inflight 撞车兕底——空目录重进永久「加载中」实证 2027-10） */
+const lastData = new Map<string, { path: string; entries: Array<{ name: string; type: 'dir' | 'file'; size: number; mtime: string }> }>()
 
 /** 工作区文件区（交付物列表 + 上传/刷新/下载/打开）
  *  2027-08 渲染循环根治：数据未变静默（同路径同快照零 rerender）——
@@ -53,6 +56,11 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
   if (hasInitial) {
     wsEntries = _init.initialFiles as typeof wsEntries
     wsLoading = false
+  } else {
+    // 跨实例数据采纳（2027-10）：重进同部门即时显示上次数据（loading 零闪烁）；
+    // 否则新实例 loading=true + same 快照命中 → 永久「加载中」（空目录重进实证）
+    const cached = lastData.get(_init.departmentId)
+    if (cached) { wsEntries = cached.entries; wsPath = cached.path; wsLoading = false }
   }
   // **mounting 期信号（2026-08）**：工厂 await loadWsList 期间——零 rerender
   // （mounting 违例——此前竞态根因）——工厂返回后 renderFn 读最新 state
@@ -85,13 +93,17 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
       const newEntries = d.entries ?? []
       const sig = `${path}|${newEntries.map((e) => e.name + ':' + e.size + ':' + e.mtime).join(',')}`
       const same = listSnapshots.get(departmentId) === sig
-      if (!same) {
-        listSnapshots.set(departmentId, sig)
-        wsEntries = newEntries
-        wsPath = d.path ?? '/'
-        wsLoading = false
-        if (!mounting) rerender() // 数据变化才渲染
-      }
+      listSnapshots.set(departmentId, sig)
+      // 2027-10 修复（空目录重进永久「加载中」实证）：快照命中 ≠ 本实例已初始化——
+      // 模块级 Map 跨实例存活，新实例（导航回进/父级重建）本地态还是 loading。
+      // 数据在手（fetch 已返回）——本地态一律初始化；仅渲染按需（未变且已初始化
+      // → 静默——2027-08 防自喂循环语义保持：同实例刷新 + 数据未变 → 零渲染）
+      const localChanged = wsLoading || wsPath !== (d.path ?? wsPath)
+      wsEntries = newEntries
+      wsPath = d.path ?? wsPath
+      lastData.set(departmentId, { path: wsPath, entries: newEntries })
+      wsLoading = false
+      if ((localChanged || !same) && !mounting) rerender()
     } catch (e) {
       ctx.toast!('加载失败：' + errMsg(e, ''), 'error')
       wsLoading = false
