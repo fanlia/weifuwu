@@ -130,6 +130,8 @@ export const Chat: Component = (_props, ctx) => {
   let panelOpen = false
   const closePanel = () => { if (panelOpen) { panelOpen = false; rerender() } }
   ctx.ui.useGlobalKey('Escape', () => closePanel())
+  // CHAT-UX 波次 2（L2）：窄屏判定（空态指路文案按视口切换——移动端面板默认隐藏）
+  const bp = ctx.ui.useBreakpoint({ mobile: 0, desktop: 768 })
   // P2-1：AI 干活状态（aiStatus store 订阅——左栏呼吸灯；useExternal 返回 store 活引用）
   const aiStatusStore = ctx.ui.useExternal(aiStatus)
   const aiStatusOf = (id: string) => (aiStatusStore() as Record<string, string>)[id] ?? 'idle'
@@ -345,7 +347,10 @@ export const Chat: Component = (_props, ctx) => {
     const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50&before=${oldest?.id ?? ''}`).catch(() => ({ messages: [] }))
     const older = msgRes.messages ?? []
     if (older.length > 0) {
-      $.msgs = [...older.reverse() as ChatMessage[], ...$.msgs]
+      // CHAT-UX 波次 2（L3）：与 loadMessages 同源——parseStoredTools（旧消息工具步骤
+      // 条恢复——否则翻页加载后 AI 消息工具条消失——首屏/翻页不一致实证）
+      const olderParsed = older.reverse().map((m: Message) => ({ ...m, tools: parseStoredTools((m as any).ai_step) })) as ChatMessage[]
+      $.msgs = [...olderParsed, ...$.msgs]
       $.hasMore = older.length >= 50
     } else {
       $.hasMore = false
@@ -726,12 +731,15 @@ export const Chat: Component = (_props, ctx) => {
     }
 
     const inputDisabled = $.editingId !== ''
+  const isNarrow = bp() === 'mobile'
 
     return (
     <div class="wf-row wf-height-full wf-gap-none">
       {/* 左栏：成员 + 工作环境 + 交付物（2026-08 合并——用户建议：成员与交付物
           放同一侧——右栏删除——消息区更宽——窄屏隐藏） */}
-      <aside class={`wf-col ap-panel-drawer${panelOpen ? ' ap-drawer--open' : ''} wf-bg-secondary wf-border-right wf-padding-sm wf-stack wf-gap-sm`} style="width: 300px; min-width: 300px">
+      {/* CHAT-UX 波次 2（L1）：wf-self-stretch——wf-row 默认 align center，aside
+          无高度被垂直居中悬浮（顶差 121px 实测）——拉伸满高贴顶 */}
+      <aside class={`wf-col wf-self-stretch ap-panel-drawer${panelOpen ? ' ap-drawer--open' : ''} wf-bg-secondary wf-border-right wf-padding-sm wf-stack wf-gap-sm`} style="width: 300px; min-width: 300px">
         <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">成员（{$.memberCount}）</div>
         {$.membersList.length === 0 && <div class="wf-font-xs wf-text-tertiary">暂无 AI 成员——聊天中 @ 不到人时去「管理 → Agent」添加</div>}
         {$.membersList.map((m: Member) => (
@@ -880,7 +888,11 @@ export const Chat: Component = (_props, ctx) => {
         </div>
 
         {$.msgs.length === 0 && (
-          <EmptyState icon={<Icon name="message" />} text={$.searchQ ? '没有匹配的消息' : '暂无消息'} hint={$.searchQ ? '换个关键词试试' : '三步开始：上传资料到右侧交付物 → 发送消息 @AI 成员 → 交付物里拿成果'} />
+          <EmptyState icon={<Icon name="message" />} text={$.searchQ ? '没有匹配的消息' : '暂无消息'}
+            hint={$.searchQ ? '换个关键词试试'
+              // CHAT-UX 波次 2（L2）：指路修正——交付物 2026-08 已并入左栏（旧文案「右侧」漂移实证）
+              : isNarrow ? '三步开始：点头部 👥 打开面板上传资料 → 发送消息 @AI 成员 → 面板里拿成果'
+              : '三步开始：上传资料到左侧交付物 → 发送消息 @AI 成员 → 交付物里拿成果'} />
         )}
 
         {$.msgs.map((msg: ChatMessage) => (

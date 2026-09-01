@@ -28,7 +28,11 @@
 @import './_border.css';
 @import './_text.css';
 @import './_spacing.css';
-@import './_hidden.css';
 @import './_block.css';
 @import './_flex.css';
+/* hidden 在 flex 后（CHAT-UX 波次 2 L4）：显隐意图胜布局意图——同 specificity
+ * 下后者胜。旧顺序 hidden→flex 使反向组合 `wf-flex wf-hidden@lg`（移动显/桌面隐）
+ * 桌面被 wf-flex 覆盖不隐藏（agent-platform 面板按钮实证）。两组合现在都成立：
+ * `wf-hidden wf-flex@lg`（窄隐宽显）与 `wf-flex wf-hidden@lg`（宽隐窄显） */
+@import './_hidden.css';
 @import './_popup.css';

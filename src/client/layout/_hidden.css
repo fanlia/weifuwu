@@ -1,8 +1,14 @@
-/* hidden — 隐藏元素（响应式显隐唯一模式：`wf-hidden wf-flex@lg` 窄隐宽显） */
+/* hidden — 隐藏元素。两种响应式组合：
+ *   `wf-hidden wf-flex@lg`（窄隐宽显——基础类无 !important，被 media 内 wf-flex@lg 覆盖）
+ *   `wf-flex wf-hidden@lg`（宽隐窄显——media 变体 !important，胜组件自身 display）
+ * !important 原因（CHAT-UX 波次 2 L4）：@layer 顺序下 utilities 永远输给 components
+ * （@layer tokens,base,layout,utilities,components 顶层声明定死）——.wf-btn 的
+ * display:inline-flex 无条件压过 hidden 变体——面板按钮桌面隐藏失效实证；
+ * 源顺序洗牌无法修复（层叠顺序优先于源顺序）——!important 是唯一出路 */
 .wf-hidden {
   display: none;
 }
-@media (min-width: 1024px) { .wf-hidden\@lg { display: none; } }
+@media (min-width: 1024px) { .wf-hidden\@lg { display: none !important; } }
 
 /* dim — 视觉淡化（运行中/历史态/次要操作） */
 .wf-dim {
