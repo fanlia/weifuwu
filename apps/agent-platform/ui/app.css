@@ -113,6 +113,22 @@
   }
 }
 
+/* ── 审批待办导航徽章（UX-PLAN-2 波次 4——非首页审批可见性） ── */
+.ap-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--wf-color-error);
+  color: var(--wf-color-on-brand);
+  font-size: 11px;
+  font-weight: var(--wf-font-weight-semibold);
+  line-height: 1;
+}
+
 /* reduced-motion：抽屉动画降级（框架 motion 纪律对齐） */
 @media (prefers-reduced-motion: reduce) {
   .wf-sidebar, .ap-panel-drawer {

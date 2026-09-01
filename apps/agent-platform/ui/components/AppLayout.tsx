@@ -60,6 +60,21 @@ export function AppLayout(_props: {}, ctx: UIContext) {
   // Escape 关闭抽屉（键盘可达性——useGlobalKey 自动卸载退订）
   ctx.ui.useGlobalKey('Escape', () => closeDrawer())
 
+  // ── 审批待办徽章（UX-PLAN-2 波次 4：工作台黄条只在首页可见——非首页零感知）──
+  // 时机纪律：挂载 + 导航时拉取（不新增独立轮询定时器——ai_draft ws 广播按房间
+  // ——layout 不入房间——导航拉取是事件驱动的合法收敛点）
+  let pendingCount = 0
+  let fetchedRoute = ''
+  const fetchPending = () => {
+    void ctx.api?.get<{ pending: unknown[] }>('/api/messages/pending-approvals')
+      .then((d) => {
+        const n = d.pending?.length ?? 0
+        if (n !== pendingCount) { pendingCount = n; ctx.render() }
+      })
+      .catch(() => { /* 徽章降级为无数字——不阻断导航 */ })
+  }
+  fetchPending()
+
   function logout() {
     ctx.auth?.logout?.()
     ctx.app?.navigate('/login')
@@ -69,6 +84,12 @@ export function AppLayout(_props: {}, ctx: UIContext) {
     // 渲染期读取路由（layout 跨子路由复用，mount 捕获的 route 不随导航更新）
     // v3 ctx.route.path = 完整路径（有前导 '/agents'）——去开头斜杠再拼（'/' 保持）
     const route = '/' + (ctx.route?.path ?? '').replace(/^\/+/, '')
+    // 审批徽章：路由变化 → afterRender 拉取（渲染纯同步——副作用出渲染路径——
+    // 与认证守卫的 afterRender navigate 同一合法位）
+    if (route !== fetchedRoute) {
+      fetchedRoute = route
+      ctx.afterRender?.(fetchPending)
+    }
     const isMobile = bp() === 'mobile'
     const brandName = (window as any).__whiteLabel?.name || 'Agent Platform'
     const navItems = [...NAV, ...(isAdmin ? ADMIN_NAV : [])]
@@ -89,9 +110,17 @@ export function AppLayout(_props: {}, ctx: UIContext) {
         </div>
 
         <div class="wf-sidebar-body">
-          <Menu items={navItems.map(n => ({ key: n.path, label: n.label, icon: n.icon, group: n.group ?? '工作台' }))}
+          <Menu items={navItems.map(n => ({
+            key: n.path,
+            // 审批徽章（波次 4）：pending>0 且目标项——label 携带数字胶囊
+            label: n.path === '/approvals' && pendingCount > 0
+              ? <span class="wf-row wf-gap-xs wf-items-center">{n.label}<span class="ap-nav-badge">{pendingCount > 99 ? '99+' : pendingCount}</span></span>
+              : n.label,
+            icon: n.icon,
+            group: n.group ?? '工作台',
+          }))}
             activeKey={NAV.concat(isAdmin ? ADMIN_NAV : []).find(n => n.match(route))?.path ?? ''}
-            onSelect={p => { ctx.app?.navigate(p); closeDrawer() }} />
+            onSelect={p => { ctx.app?.navigate(p); closeDrawer(); fetchPending() }} />
         </div>
 
         <div class="wf-sidebar-footer">
