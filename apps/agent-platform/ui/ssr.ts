@@ -71,6 +71,7 @@ export function ssrToDocument(ssrHtml: string, title: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/app.css">
 </head>`
   return ssrHtml
     .replace(/<head>[\s\S]*?<\/head>/, head)

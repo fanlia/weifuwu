@@ -44,6 +44,20 @@ async function newMobilePage(path: string) {
   return { page, errors }
 }
 
+test('登录 SSR 文档挂双样式表（走查实证——login 缺 app.css，登录后 SPA 不换 document，ap-* 全失效）', async () => {
+  // 服务端断言：login/register SSR 文档含 app.css link
+  const res = await fetch(`${BASE}/login`)
+  const html = await res.text()
+  assert.ok(html.includes('/static/style.css'), 'login SSR 应挂框架样式')
+  assert.ok(html.includes('/static/app.css'), 'login SSR 应挂应用样式（SPA 登录后不换 document——缺失则整会话 ap-* 失效）')
+  // 浏览器断言：login → 登录 → SPA 导航后 stylesheet 仍在
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })
+  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' })
+  const sheets = await page.evaluate(() => [...document.styleSheets].map((s) => (s.href ?? '').split('/').pop()))
+  assert.ok(sheets.includes('app.css'), `login 文档应有 app.css sheet（实际：${sheets.join(',')}）`)
+  await page.close()
+})
+
 test('390px：顶栏可见 + 侧栏收起（内容直达——不再滚过整条导航）', async () => {
   const { page, errors } = await newMobilePage('/')
   await page.waitForFunction(() => (document.body.textContent ?? '').includes('上午好') || (document.body.textContent ?? '').includes('工作台'), undefined, { timeout: 10_000 })
