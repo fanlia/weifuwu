@@ -10,6 +10,7 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Button, Card, EmptyState, Icon, Skeleton } from 'weifuwu/components'
 import { Ava } from '../components/ui'
+import { clientRole, isTenantOwner, writeDenyReason } from '../lib/roles'
 import type { AgentListResponse, DepartmentListResponse, PendingApproval } from '../lib/types'
 
 interface ProjectCard {
@@ -97,9 +98,13 @@ export const Workspace: Component = (_props, ctx) => {
   })
 
   return () => {
-    // 角色防线（2026-08——UI-ROLE-TEST view 抓出：viewer 新建按钮未禁用——
-    // 前端写操作防线缺失——login 已存 agent_platform_role）
-    const isViewer = (typeof localStorage !== 'undefined' ? localStorage.getItem('agent_platform_role') : null) === 'viewer'
+    // 角色防线（2026-08——UI-ROLE-TEST view 抓出：viewer 新建按钮未禁用；
+    // ROLES-OPTIMIZATION 波次 1/2/3：建部门 = 仅 owner（裁剪后）——member 同禁；
+    // 感知点收敛 ui/lib/roles.ts；按角色落地引导（走查 P0-1））
+    const role = clientRole()
+    const isViewer = role === 'viewer'
+    const ownerOnly = !isTenantOwner()
+    const denyTitle = isViewer ? writeDenyReason() : '只有租户所有者可以创建项目空间'
     if ($.loading) {
       return (
         <div class="wf-stack wf-gap-lg">
@@ -121,16 +126,32 @@ export const Workspace: Component = (_props, ctx) => {
           <h1 class="wf-font-2xl wf-margin-none">{greeting()}，{((ctx.auth?.user ?? null) as { name?: string } | null)?.name ?? '用户'}</h1>
           <p class="wf-font-base wf-text-secondary wf-margin-none">一个项目空间 = 一个共享工作目录 + 一个 AI 工作环境——放文件、@AI 干活、拿交付物。</p>
         </div>
-        <Button key="cta" variant="primary" disabled={isViewer} onClick={() => ctx.app?.navigate('/departments/new')}><Icon name="plus" size={14} /> 新建项目空间</Button>
+        <Button key="cta" variant="primary" disabled={ownerOnly} title={ownerOnly ? denyTitle : undefined} onClick={() => ctx.app?.navigate('/departments/new')}><Icon name="plus" size={14} /> 新建项目空间</Button>
       </div>
 
-      {/* 空状态引导（无项目空间） */}
-      {$.projects.length === 0 && (
+      {/* 空状态引导（无项目空间——按角色分支：owner 三步引导；member/viewer 等待加入） */}
+      {$.projects.length === 0 && !isViewer && (
         <Card key="empty-guide">
-          <EmptyState icon="🚀" text="还没有项目空间" hint="三步开始：创建项目空间 → 添加 AI 能力 → 上传资料让 AI 干活">
+          <EmptyState icon="🚀" text={ownerOnly ? '等待所有者创建项目空间' : '还没有项目空间'
+            } hint={ownerOnly ? '租户所有者创建项目空间后，你将在这里看到部门入口——当前可先浏览 Agent 与交付物'
+              : '三步开始：创建项目空间 → 添加 AI 能力 → 上传资料让 AI 干活'}>
+            {!ownerOnly && (
+              <div class="wf-row wf-gap-sm">
+                <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>创建项目空间</Button>
+                {!$.hasAgents && <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}>先创建 AI Agent</Button>}
+              </div>
+            )}
+          </EmptyState>
+        </Card>
+      )}
+
+      {/* ROLES-OPTIMIZATION 波次 3：按角色落地引导（走查 P0-1——viewer 零引导落地）*/}
+      {isViewer && (
+        <Card key="viewer-guide">
+          <EmptyState icon="👁" text="你是只读成员"
+            hint="可以查看所有消息与下载交付物；发言、创建与修改需要更高权限——如需写权限请联系租户所有者">
             <div class="wf-row wf-gap-sm">
-              <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>创建项目空间</Button>
-              {!$.hasAgents && <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}>先创建 AI Agent</Button>}
+              <Button variant="ghost" onClick={() => ctx.app?.navigate('/deliverables')}>浏览交付物</Button>
             </div>
           </EmptyState>
         </Card>

@@ -1,5 +1,5 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
+import { PageHeader, Ava, EmptyState, Loading, errMsg } from '../components/ui'
 import { Badge, Button, Card, Icon } from 'weifuwu/components'
 import { canWrite, writeDenyReason } from '../lib/roles'
 import type { PendingApproval } from '../lib/types'
@@ -42,7 +42,7 @@ export const Approvals: Component = (_props, ctx) => {
       await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved })
       ctx.toast!(approved ? '已批准发布' : '已拒绝', approved ? 'success' : 'info')
       $.items = $.items.filter((m) => m.id !== msgId)
-    } catch { ctx.toast!('操作失败', 'error') }
+    } catch (e) { ctx.toast!(`操作失败：${errMsg(e, '请稍后重试')}`, 'error') }
     $.handling = ''; rerender()
   }
 

@@ -1,5 +1,5 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { Ava } from '../components/ui'
+import { Ava, errMsg } from '../components/ui'
 import { Badge, Button, ChatInput, EmptyState, Icon, Input } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 
@@ -580,13 +580,15 @@ export const Chat: Component = (_props, ctx) => {
       // 三端事件流（阶段 2）：requestId 跨端贯通——一次用户操作精确因果——
       // 前端生成 → POST → AI 事件 → （沙盒 exec）——全链路同一 requestId
       const requestId = crypto.randomUUID?.() ?? `r${Date.now().toString(36)}`
+      // ROLES-OPTIMIZATION 波次 3：错误保留（原 .catch(() => null) 吞掉服务端
+      // 403/409 语义——errMsg 透出「只读成员无权执行此操作」等原因）
       const data = await ctx.api!.post<{ message: Message }>(`/api/departments/${deptId}/messages`, {
         content: trimmed,
         reply_to: replyId,
         request_id: requestId,
         attachments: savedFiles.map((f) => ({ name: f.name, data: f.data, size: f.size })),
-      }).catch(() => null)
-      if (data) {
+      }).catch((e: unknown) => (e instanceof Error ? e : new Error('服务无响应')))
+      if (data && !(data instanceof Error)) {
         track('first_message')
         if (data.message && !$.msgs.some((m: ChatMessage) => m.id === data.message.id)) {
           $.msgs.push({
@@ -603,7 +605,8 @@ export const Chat: Component = (_props, ctx) => {
           })
         }
       } else {
-        $.input = saved; saveDraft(saved); ctx.toast!('发送失败', 'error')
+        $.input = saved; saveDraft(saved)
+        ctx.toast!(`发送失败：${errMsg(data as unknown, '服务无响应')}`, 'error')
       }
     } catch { $.input = saved; saveDraft(saved); ctx.toast!('网络错误', 'error') }
     finally { $.sending = false; rerender() }

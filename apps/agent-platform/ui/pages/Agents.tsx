@@ -1,5 +1,5 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot } from '../components/ui'
+import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot, errMsg } from '../components/ui'
 import { Button, Card, Icon, Skeleton } from 'weifuwu/components'
 import { canWrite, writeDenyReason } from '../lib/roles'
 import type { Agent, AgentListResponse } from '../lib/types'
@@ -39,8 +39,9 @@ export const Agents: Component = (_props, ctx) => {
       $.agents = $.agents.filter((a: Agent) => a.id !== id)
       rerender()
       ;ctx.toast!('Agent 已删除', 'success')
-    } catch {
-      ;ctx.toast!('删除失败', 'error')
+    } catch (e) {
+      // ROLES-OPTIMIZATION 波次 3：403 原因透出（如 viewer 删除 →「仅管理员可删除」）
+      ;ctx.toast!(`删除失败：${errMsg(e, '请稍后重试')}`, 'error')
     }
   }
 
