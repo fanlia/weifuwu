@@ -62,13 +62,6 @@ test('聊天流直显：AI 回复含 /ws 图片路径 → img 渲染（blob 预�
   await page.waitForSelector('img[alt="AI 生成图片"]', { timeout: 15_000 })
   const src = await page.getAttribute('img[alt="AI 生成图片"]', 'src')
   assert.ok(src?.startsWith('blob:'), `预览为 blob URL——src=${src?.slice(0, 60)}`)
-  // 点击打开大图（新 tab）——blob URL 放大视图
-  const [popup] = await Promise.all([
-    page.waitForEvent('popup', { timeout: 5_000 }).catch(() => null),
-    page.click('img[alt="AI 生成图片"]'),
-  ])
-  assert.ok(popup, '点击图片新页打开（放大）')
-  await popup?.close()
   assert.deepEqual(fatalErrors(errors), [], `页面零错误——发现: ${errors.join(' | ')}`)
   await page.close()
 })

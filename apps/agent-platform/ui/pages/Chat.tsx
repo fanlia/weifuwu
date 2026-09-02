@@ -329,7 +329,10 @@ export const Chat: Component = (_props, ctx) => {
   async function hydrateImagePreviews(): Promise<void> {
     for (const m of $.msgs) {
       if (m.preview || m.sender_type !== 'ai' || !m.content) continue
-      const paths = extractImagePaths(m.content)
+      // file_card：content = 文件名（无 /ws/ 前缀——图片扩展名直接尝试）
+      const paths = m.msg_type === 'file_card'
+        ? (/^[^\s"'()<>，。]+\.(?:png|jpe?g|webp|gif)$/i.test(m.content) ? [m.content] : [])
+        : extractImagePaths(m.content)
       if (!paths.length) continue
       const { authorizedGet } = await import('../lib/download.ts')
       let url: string | null = null
