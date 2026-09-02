@@ -51,11 +51,11 @@ const FileThumb: Component<{ deptId: string; rel: string; name: string }> = (_in
       else void loadThumb(props.deptId, props.rel).then((u) => { if (u) { url = u; ctx.render() } })
     }
     if (url) {
-      return <Img src={url} alt={props.name} width={48} height={48} preview placeholder
+      return <Img src={url} alt={props.name} width={40} height={40} preview placeholder
         className="wf-radius" style={{ objectFit: 'cover' }} />
     }
     return <div class="wf-thumb-ph" title={props.name}
-      style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: var(--wf-color-bg-tertiary); border-radius: var(--wf-radius); color: var(--wf-color-text-tertiary)">
+      style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--wf-color-bg-tertiary); border-radius: var(--wf-radius); color: var(--wf-color-text-tertiary)">
       <Icon name="image" size={16} />
     </div>
   }
@@ -267,25 +267,35 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
           {wsLoading && <Loading />}
           {!wsLoading && wsEntries.length === 0 && <EmptyState icon="📂" text="空目录" hint="沙盒内 AI 写文件后此处可见" />}
           {wsEntries.map((entry) => (
-            <div key={entry.name} class="wf-row wf-gap-xs wf-padding-y-xs wf-items-center wf-min-width-0">
+            /* 两行卡片式（2026-09——单行硬塞 6 元素截断严重——名称/元数据分层）：
+            * 行1 图标/缩略图 + 名称（title 完整名）；行2 size · 时间 · 下载（弱化） */
+            <div key={entry.name} class="wf-row wf-gap-sm wf-padding-y-xs wf-items-center wf-min-width-0">
               {entry.type === 'file' && isImageName(entry.name) ? (
                 <FileThumb deptId={departmentId} rel={wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`} name={entry.name} />
               ) : (
-                <Icon name={entry.type === 'dir' ? 'folder' : wsIconFor(entry.name)} size={14} />
+                <div class="wf-thumb-ph" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--wf-color-bg-tertiary); border-radius: var(--wf-radius); color: var(--wf-color-text-tertiary)">
+                  <Icon name={entry.type === 'dir' ? 'folder' : wsIconFor(entry.name)} size={16} />
+                </div>
               )}
-              <button type="button" class="wf-row wf-gap-xs wf-fill wf-text-left wf-min-width-0"
-                title={entry.name}
-                onClick={() => openWsFile(entry)}>
-                <span class="wf-font-sm wf-medium wf-truncate">{entry.name}{entry.type === 'dir' ? '/' : ''}</span>
-              </button>
-              <span class="wf-font-xs wf-text-tertiary wf-nums">{entry.type === 'file' && entry.size > 1024 ? (entry.size / 1024).toFixed(1) + 'KB' : entry.size + 'B'}</span>
-              <span class="wf-font-xs wf-text-tertiary wf-nums">{new Date(entry.mtime).toLocaleTimeString()}</span>
-              {entry.type === 'file' && (
-                <button type="button" class="wf-btn wf-btn--ghost wf-btn--sm" title="下载（AI 产物交付）"
-                  onClick={() => { void downloadWsFile(departmentId, wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`, entry.name).then((ok) => { if (!ok) ctx.toast?.('下载失败：文件取不到（请检查登录态/文件状态）', 'error') }) }}>
-                  <Icon name="arrow-down" size={13} />
+              <div class="wf-stack wf-gap-none wf-fill wf-min-width-0">
+                <button type="button" class="wf-row wf-gap-xs wf-fill wf-text-left wf-min-width-0"
+                  title={entry.name}
+                  style={{ border: 'none', cursor: 'pointer', background: 'none', padding: 0, color: 'inherit', justifyContent: 'flex-start', width: '100%' }}
+                  onClick={() => openWsFile(entry)}>
+                  <span class="wf-font-sm wf-medium wf-truncate">{entry.name}{entry.type === 'dir' ? '/' : ''}</span>
                 </button>
-              )}
+                <div class="wf-row wf-gap-sm wf-items-center wf-font-xs wf-text-tertiary">
+                  <span class="wf-nums">{entry.type === 'file' && entry.size > 1024 ? (entry.size / 1024).toFixed(1) + 'KB' : entry.size + 'B'}</span>
+                  <span class="wf-nums">{new Date(entry.mtime).toLocaleTimeString()}</span>
+                  <span class="wf-fill" />
+                  {entry.type === 'file' && (
+                    <button type="button" class="wf-btn wf-btn--ghost wf-btn--sm wf-padding-x-xs" title="下载（AI 产物交付）"
+                      onClick={() => { void downloadWsFile(departmentId, wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`, entry.name).then((ok) => { if (!ok) ctx.toast?.('下载失败：文件取不到（请检查登录态/文件状态）', 'error') }) }}>
+                      <Icon name="arrow-down" size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           ))}
         </>
