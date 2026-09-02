@@ -36,3 +36,8 @@
   pointer-events: none;
   transform: translateY(8px);
 }
+
+/* 容器内浮钮（direction=bottom 聊天流——absolute 相对滚动容器——定位偏移同 fixed） */
+.wf-backtop--inline {
+  position: absolute;
+}

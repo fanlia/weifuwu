@@ -10,71 +10,82 @@ export interface BackTopProps {
   target?: () => HTMLElement | Window
   /** 平滑滚动，默认 true */
   smooth?: boolean
+  /** 方向（默认 'top'——回顶；'bottom'——聊天流回底浮钮） */
+  direction?: 'top' | 'bottom'
+  /** fixed 定位（默认 true——页面级）；容器内浮钮传 false（absolute——祖先需 position:relative） */
+  fixed?: boolean
   'aria-label'?: string
   children?: any
   className?: string
 }
 
-/** 回到顶部（对应 EP Backtop / antd FloatButton.BackTop）：滚动超阈值显示，点击回顶
- * 实现：ctx.ui.useInView（IO 封装）观察文档顶部哨兵——rootMargin 顶部向外扩展
- * visibilityHeight，哨兵离开扩展区（= 滚动超阈值）→ 显示。无 scroll 监听、无警告。 */
+type Scroller = HTMLElement | Window
+
+/** 回到顶部/底部（对应 EP Backtop / antd FloatButton.BackTop）：滚动超阈值显示，点击回位
+ *
+ * 实现：scroll 监听（window/容器统一——阈值翻转才重渲染——无轮询无 IO）。
+ * 历史：IO 哨兵方案（useInView 观察 absolute 哨兵）在「容器滚动 + 组件渲染在
+ * 容器外」组合失效（sentinel 固定于 root 可视区——isIn 恒 true——浮钮永不显示——
+ * agent-browser 实测 2026-09）——chat 首用暴露——统一 scroll 监听。 */
 export const BackTop: Component<BackTopProps> = (_init, ctx) => {
   // ── mount（只一次）──
-  let el: HTMLElement | null = null
-
-  // 用 propsRef 读最新 props（事件回调里 props 是闭包捕获的旧值）
+  let scroller: Scroller | null = null
+  let visible = false
   const propsRef: any = {}
 
-  // 哨兵 absolute top:0（无定位祖先时定位到文档顶部）；rootMargin 顶部向外扩展
-  // visibilityHeight → 滚动超过阈值后哨兵离开扩展区 → isIn=false → 显示按钮
-  const inView = ctx.ui.useInView({
-    root: () => (propsRef.target ? propsRef.target() : null) as Element | null,
-    rootMargin: () => `${propsRef.visibilityHeight ?? 400}px 0px 0px 0px`,
-  })
-
-  const sentinelRef = (node: HTMLElement | null) => {
-    if (node) {
-      el = node
-      inView.observe(node)
-    } else {
-      el = null
-      inView.disconnect()
-    }
+  const handler = () => {
+    const v = propsRef.visibilityHeight ?? 400
+    const next = scroller instanceof Window
+      ? (window.scrollY ?? document.documentElement.scrollTop) > v
+      : ((scroller as HTMLElement).scrollHeight - (scroller as HTMLElement).scrollTop - (scroller as HTMLElement).clientHeight) > v
+    if (next !== visible) { visible = next; ctx.render() }
   }
+
+  const attach = () => {
+    const t = propsRef.target?.() ?? window
+    if (!t) { requestAnimationFrame(attach); return } // target 暂未就绪（ref 时序）——下一帧重试
+    scroller = t as Scroller
+    scroller.addEventListener('scroll', handler, { passive: true })
+    handler() // 初始状态
+  }
+
+  let attached = false
+  ctx.ui.hold(() => {
+    scroller?.removeEventListener('scroll', handler)
+    scroller = null
+  })
 
   return (props) => {
     Object.assign(propsRef, props)
+    // attach 需在首次 render 后：工厂期 propsRef 为空——target 读到 undefined →
+    // 回退 window——容器滚动永不触发（agent-browser 实测 2026-09）
+    if (!attached) { attached = true; attach() }
     const {
-      visibilityHeight = 400, smooth = true, 'aria-label': ariaLabel,
-      children, className,
+      direction = 'top', smooth = true, 'aria-label': ariaLabel, children,
+      className, fixed = true,
     } = props
-    const visible = inView.ready && !inView.isIn
+    const isBottom = direction === 'bottom'
+    const r = () => {
+      if (!scroller) return 0
+      return scroller instanceof Window
+        ? document.documentElement.scrollHeight
+        : (scroller as HTMLElement).scrollHeight
+    }
 
-    return h('div', { class: 'wf-backtop-host' }, [
-      h('div', {
-        class: 'wf-backtop-sentinel',
-        style: { position: 'absolute', top: 0, left: 0, width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' },
-        ref: sentinelRef,
-      }),
-      h('button', {
-        type: 'button',
-        class: [
-          'wf-backtop',
-          visible ? '' : 'wf-backtop--hidden',
-          className,
-        ].filter(Boolean).join(' '),
-        'aria-label': ariaLabel ?? '回到顶部',
-        onClick: () => {
-          const scroller = propsRef.target ? propsRef.target() : window
-          if (smooth && 'scrollTo' in scroller) {
-            ;(scroller as Window).scrollTo({ top: 0, behavior: 'smooth' })
-          } else if ('scrollTo' in scroller) {
-            ;(scroller as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' })
-          } else {
-            scroller.scrollTop = 0
-          }
-        },
-      }, children ?? h(Icon, { name: 'arrow-up', size: 16 })),
-    ])
+    return h('button', {
+      type: 'button',
+      class: [
+        'wf-backtop',
+        fixed ? '' : 'wf-backtop--inline',
+        visible ? '' : 'wf-backtop--hidden',
+        className,
+      ].filter(Boolean).join(' '),
+      'aria-label': ariaLabel ?? (isBottom ? '回到底部' : '回到顶部'),
+      onClick: () => {
+        if (!scroller) return
+        const top = isBottom ? r() : 0
+        ;(scroller as any).scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' })
+      },
+    }, children ?? h(Icon, { name: isBottom ? 'arrow-down' : 'arrow-up', size: 16 }))
   }
 }

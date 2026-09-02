@@ -1,6 +1,6 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Ava, errMsg } from '../components/ui'
-import { Badge, Button, ChatInput, EmptyState, Icon, Input } from 'weifuwu/components'
+import { BackTop, Badge, Button, ChatInput, EmptyState, Icon, Input } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 
 /** 部门工作区聚合响应（/api/departments/:id/workspace——一次拿部门+成员+环境） */
@@ -1068,14 +1068,9 @@ export const Chat: Component = (_props, ctx) => {
           })
         })()}
 
-        {/* CHAT-UX 波次 4（E1）：回到底部浮钮（上滚 >80px 出现——点击回底后消失） */}
-        {$.isUserScrolledUp && (
-          <button type="button" class="wf-btn wf-btn--sm wf-shadow" aria-label="回到底部"
-            style="position: absolute; bottom: 16px; right: 16px; border-radius: 999px; padding: 8px 14px; background: var(--wf-color-surface, #fff); z-index: 5"
-            onClick={() => scrollToBottom(true)}>
-            ↓ 回到底部
-          </button>
-        )}
+        {/* CHAT-UX 波次 4（E1）：回到底部浮钮——改为框架 BackTop（direction=bottom）
+        ——2026-09：手写按钮替换（组件库浮钮：IO 阈值显示/平滑滚动/aria 内置） */}
+        <BackTop direction="bottom" target={() => $.bodyEl} visibilityHeight={80} fixed={false} smooth={false} />
       </div>
       </div>
 
