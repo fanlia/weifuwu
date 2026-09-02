@@ -7,9 +7,9 @@
 
 import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Context } from 'weifuwu'
+import type { Context, QueueWorker } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, ui, userSystem, ai, messager, rateLimit, verifyPassword, email } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, queue, ui, userSystem, ai, messager, rateLimit, verifyPassword, email } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -327,6 +327,15 @@ async function main() {
     console.log('[agent-platform] Redis 已连接（自研客户端）')
   }
 
+  // ── 后台任务队列（weifuwu queue——视频生成异步轮询依赖）─────────
+  let videoQueueModule: ReturnType<typeof queue> | null = null
+  let videoWorker: QueueWorker | null = null
+  if (hasRedis) {
+    videoQueueModule = queue({ redis: redisClient.redis })
+    app.use(videoQueueModule)
+    console.log('[agent-platform] 后台任务队列已启用')
+  }
+
   // ── 用户系统（weifuwu user()——完全替代自研 auth）────────────────
   const users = userSystem({
     sql: pg.sql,
@@ -442,6 +451,21 @@ async function main() {
   })
   registerBuiltinTools(() => currentCtx)
   console.log(`[agent-platform] 已注册 ${BUILTIN_TOOL_DEFS.length} 个内置工具`)
+
+  // ── 视频生成后台 worker（异步轮询队列——Redis 未配置则视频工具不可用）──
+  if (videoQueueModule) {
+    const { createVideoPollWorker, requeuePendingVideoTasks } = await import('./src/tools/video-gen.ts')
+    const bootCtx = { sql: pg.sql } as AppCtx
+    videoWorker = createVideoPollWorker(videoQueueModule.queue, () => currentCtx ?? bootCtx)
+    try {
+      await videoWorker.start()
+      const n = await requeuePendingVideoTasks(pg.sql, videoQueueModule.queue)
+      if (n > 0) console.log(`[agent-platform] 已重排 ${n} 个未完成视频任务`)
+      console.log('[agent-platform] 视频生成后台 worker 已启动')
+    } catch (e: any) {
+      console.error('[agent-platform] 视频后台 worker 启动失败（视频工具不可用）:', e?.message ?? e)
+    }
+  }
 
   // ── 沙盒初始化（S2：探测 + 孤儿清理 + Heartbeat 回收） ──
   const { sandbox } = await import('./src/sandbox/docker.ts')
@@ -1619,6 +1643,7 @@ async function main() {
     await withTimeout(pg.close(), 3_000)
     try { await withTimeout(eventsPg?.close() ?? Promise.resolve(), 1_000) } catch { /* 尽力 */ }
     // 2) redis（rate-limit/缓存——退出前释放）
+    try { await withTimeout(videoWorker?.stop() ?? Promise.resolve(), 1_500) } catch { /* 尽力 */ }
     try { await withTimeout(redisClient?.redis?.quit?.() ?? Promise.resolve(), 1_000) } catch { /* 尽力 */ }
     // 3) HTTP 最后关 + 3s 兑底（最坏总耗时 ~8s——node --watch 宽限内完成）
     await withTimeout(new Promise<void>((resolve) => { server.close().then(() => resolve()) }), 3_000)

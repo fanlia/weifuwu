@@ -124,3 +124,26 @@ aria 布尔归一 · 受控回流门控 · 状态变体类必须定义 · 零全
 - keyed 组件顺移（删头前移）状态丢失：重建路径工厂重跑——正解「输出锚物理
   move + ref 定位」待实现（fuzz D5 捕获实证）
 - 测试竞态：场景层 3 文件并发（每文件独立 server/browser）——文件内串行
+
+## 7. agent-platform 依赖服务（apps/agent-platform/docker-compose.yml）
+
+> 私有化一键部署栈（三个服务——postgres/redis 是运行时依赖，app 是应用本体）。
+> 开发态惯例：**只起 postgres/redis**（`docker compose up -d postgres redis`——不 build app）；
+> 应用本体由宿主 `node --env-file=.env server.ts` 跑（watch 开发见 apps/agent-platform/package.json dev）。
+
+| 服务 | 镜像/构建 | 关键事实 |
+| --- | --- | --- |
+| postgres | postgres:16-alpine | 用户 `agent`/`agent-pass-change-me`（PG_USER/PG_PASSWORD 可覆盖）· 库 `agent_platform`（PG_DB）· volume pg-data · 健康检查 `pg_isready` · **无宿主机端口映射**（仅 compose 网络内——app 经 `postgres:5432` 访问；宿主直接查库用 `docker compose exec postgres psql -U agent agent_platform`） |
+| redis | redis:7-alpine | `--appendonly yes`（AOF 持久化）· volume redis-data · 健康检查 `redis-cli ping` · **无宿主机端口映射**（app 经 `redis:6379`） |
+| app | monorepo 根 build（Dockerfile: apps/agent-platform/Dockerfile） | depends_on 两依赖 healthy · 必配 env `JWT_SECRET`/`DEEPSEEK_API_KEY`（`${VAR:?}`——缺失启动即 fail）· `DASHSCOPE_API_KEY` 空则图片/视频工具不可用 · 端口 `${PORT:-3000}:3000` · volume workspace-data:/data/workspaces · 挂 `/var/run/docker.sock`（沙盒）· 健康检查 `GET /healthz` |
+
+**调试速查**：`docker compose logs -f app`（启动日志）· `curl http://localhost:3000/healthz`（健康）·
+`docker compose config`（展开 env 缺省看最终值——before 排查 `${VAR:?}` 必填报错）。
+
+**测试注记（探针实证 2026-09）**：**仓库根 docker-compose.yml** 才是开发/测试基础设施——
+`weifuwu-postgres-1`（pgvector/pgvector:pg18 · 宿主 5432 · root/123456 · 库 demo + demo_*_test——含 pgvector 扩展）·
+`weifuwu-redis-1`（redis:7-alpine · 宿主 6379）· `weifuwu-smtp-1`（greenmail · 3025）；
+age-platform 契约测试默认 `TEST_DATABASE_URL ?? postgres://root:123456@localhost:5432/demo_{域}_test`
+（视频域：`demo_video_test`）。agent-platform compose 的 postgres（agent 用户、无 pgvector）与
+redis（无宿主端口）**只承载部署运行时，不替代测试基础设施**——app 在其中启动前
+需换 pgvector 镜像（`extension "vector" is not available` 实证）。

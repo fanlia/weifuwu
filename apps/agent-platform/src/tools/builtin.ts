@@ -53,6 +53,38 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'generate_video',
+      description: '根据文字描述生成视频（HappyHorse 文生视频模型——阿里云百炼异步任务）。提交后约 1-5 分钟生成完成，完成后自动保存到部门共享目录（/ws——交付物中心可见）。提交立即返回任务 ID——用 video_generation_status 查询进展。用户要求生成视频/宣传片/动画/动态画面等场景使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: '视频内容详细描述——主体/场景/运动/风格/镜头（越具体效果越好，≤5000 字符）' },
+          resolution: { type: 'string', description: '分辨率：480P/720P/1080P（默认 1080P）' },
+          ratio: { type: 'string', description: '宽高比：16:9（默认）/9:16/1:1/4:3/3:4/4:5/5:4/9:21/21:9' },
+          duration: { type: 'number', description: '视频时长（秒，3-15，默认 5）' },
+          filename: { type: 'string', description: '保存文件名（如 promo.mp4）——留空自动命名' },
+        },
+        required: ['prompt'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'video_generation_status',
+      description: '查询视频生成任务进度（generate_video 返回的 task_id）。生成完成返回已保存到 /ws 的路径；失败返回原因。用户在询问「视频生成好了吗/进度如何」时使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          task_id: { type: 'string', description: 'generate_video 返回的任务 ID' },
+        },
+        required: ['task_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_current_time',
       description: '获取当前日期和时间，当用户询问时间时使用',
       parameters: {
@@ -175,6 +207,32 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
         filename: args.filename != null ? String(args.filename) : undefined,
         departmentId: toolCtx?.departmentId != null ? String(toolCtx.departmentId) : undefined,
       })
+    },
+
+    generate_video: async (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const { createVideoTask } = await import('./video-gen.ts')
+      const out = await createVideoTask(ctx, {
+        prompt: String(args.prompt ?? ''),
+        resolution: args.resolution != null ? String(args.resolution) : undefined,
+        ratio: args.ratio != null ? String(args.ratio) : undefined,
+        duration: args.duration != null ? Number(args.duration) : undefined,
+        watermark: args.watermark != null ? args.watermark === true : undefined,
+        filename: args.filename != null ? String(args.filename) : undefined,
+        departmentId: toolCtx?.departmentId != null ? String(toolCtx.departmentId) : undefined,
+        agentId: toolCtx?.agentId != null ? String(toolCtx.agentId) : undefined,
+      })
+      return `视频生成任务已提交（task_id=${out.taskId}）——生成中约 1-5 分钟——完成后自动保存到部门共享目录。用 video_generation_status 查询进度`
+    },
+
+    video_generation_status: async (args: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const id = String(args.task_id ?? '')
+      if (!id) return 'Error: task_id 必填'
+      const { getVideoTask, describeVideoTask } = await import('./video-gen.ts')
+      const row = await getVideoTask(ctx, id)
+      if (!row) return `Error: 视频任务 ${id} 不存在或无权限访问`
+      return describeVideoTask(row)
     },
 
     get_current_time: async (_args: Record<string, unknown>) => {
