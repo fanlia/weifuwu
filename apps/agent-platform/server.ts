@@ -615,7 +615,7 @@ async function main() {
     const deps: Record<string, any> = { pg: false, redis: false, sandbox: null }
     try { await pg.sql`SELECT 1`; deps.pg = true } catch { /* 探活失败 */ }
     try {
-      if (hasRedis) { await redisClient.redis.ping(); deps.redis = true }
+      if (hasRedis) { await redisClient.redis.command('PING'); deps.redis = true }
       else deps.redis = 'disabled'
     } catch { deps.redis = false }
     try {
