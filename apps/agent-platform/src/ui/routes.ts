@@ -62,9 +62,13 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
     })
   } else {
     // 开发模式：动态编译
-    app.get('/static/app.js', async (req: Request, ctx: Context): Promise<Response> =>
-      ctx.ui.js(resolve(baseDir, 'ui', 'v3-main.tsx')) // vdom3 默认入口（main.tsx 为 vdom2 遗留——vdom2 已删除）
-    )
+    app.get('/static/app.js', async (req: Request, ctx: Context): Promise<Response> => {
+      const res = await ctx.ui.js(resolve(baseDir, 'ui', 'v3-main.tsx')) // vdom3 默认入口（main.tsx 为 vdom2 遗留——vdom2 已删除）
+      // dev 禁缓存（2026-09 假 bug 实证：改代码后浏览器仍用旧 bundle——
+      // 聊天图片预览不显示——强刷才恢复——no-store 结构性消除）
+      res.headers.set('Cache-Control', 'no-store')
+      return res
+    })
   }
 
   // ── vdom3 入口（默认引擎切换验证） ────────────────
