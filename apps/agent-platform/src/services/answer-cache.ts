@@ -51,6 +51,13 @@ export function isFailureAnswer(answer: string): boolean {
   return false
 }
 
+/** 工具产物型答案（含 /ws/ 产物路径）——永不入缓存/复用（每次重新生成——
+ * B3 文件类同源扩展：画图类问题第二次命中旧图、工具不跑——实证信号 2026-09） */
+const ARTIFACT_PATH_RE = /\/ws\/[^\s"'()<>，。]+?\.(?:png|jpe?g|webp|gif|pdf|docx?|xlsx?|csv|txt|md)\b/i
+export function isArtifactAnswer(answer: string): boolean {
+  return ARTIFACT_PATH_RE.test(String(answer ?? ''))
+}
+
 export function shouldCacheQuestion(question: string): boolean {
   const q = String(question ?? '')
   if (PERSONAL_DATA_RE.test(q)) return false

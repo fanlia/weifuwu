@@ -15,6 +15,7 @@ import {
   findCachedAnswer,
   buildCachedReply,
   isFailureAnswer,
+  isArtifactAnswer,
 } from '../src/services/answer-cache.ts'
 
 describe('C5 答案缓存', () => {
@@ -66,6 +67,12 @@ describe('C5 答案缓存', () => {
     assert.strictEqual(shouldCacheQuestion('把 Q3 报告发我'), true, '无文件后缀的泛问题可缓存')
   })
 
+  it('2026-09：工具产物型答案（含 /ws/ 路径）→ isArtifactAnswer 识别——不入缓存不复用（画图第二次命中旧图）', () => {
+    assert.equal(isArtifactAnswer('海报已生成：/ws/cat-poster.png（已存入部门共享目录）'), true)
+    assert.equal(isArtifactAnswer('报告已写好：/ws/report.pdf'), true)
+    assert.equal(isArtifactAnswer('今天天气晴朗，适合出门。'), false)
+    assert.equal(isArtifactAnswer('好的，我帮你分析一下。'), false)
+  })
   it('B2：失败答案识别（isFailureAnswer——AI 失败回复不入缓存毒化）', () => {
     assert.strictEqual(isFailureAnswer('访问 host.docker.internal 失败（网络断连报错）'), true, '含“失败/报错”识别')
     assert.strictEqual(isFailureAnswer('抱歉，这个任务未能完成，请人工处理'), true, '含“未能”识别')

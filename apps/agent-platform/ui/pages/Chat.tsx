@@ -63,7 +63,7 @@ interface ChatInputControl {
 
 /** B-下载（2026-08）：子部门交付物带鉴权下载（<a href> 无 Bearer → 401 实证） */
 async function downloadSubFile(deptId: string, name: string): Promise<void> {
-  const { downloadFileAuthorized } = await import('../lib/download.ts')
+  const { downloadFileAuthorized, authorizedGet } = await import('../lib/download.ts')
   await downloadFileAuthorized(
     `/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(name)}&download=1`,
     name,
@@ -319,6 +319,33 @@ export const Chat: Component = (_props, ctx) => {
     rerender()
   }
 
+  /** 图片直显（2026-09）：AI 消息内容里的 /ws/xxx.png 路径 → 带 token 拉图 →
+   * blob URL 挂 preview（MessageItem 渲染 img——点击新页放大）
+   * ponytail: blob 不 revoke（会话级小泄漏——页面卸载浏览器回收） */
+  const IMG_PATH_RE = /\/ws\/[^\s"'()<>，。]+?\.(?:png|jpe?g|webp|gif)/g
+  function extractImagePaths(content: string): string[] {
+    return [...new Set(String(content ?? '').match(IMG_PATH_RE) ?? [])]
+  }
+  async function hydrateImagePreviews(): Promise<void> {
+    for (const m of $.msgs) {
+      if (m.preview || m.sender_type !== 'ai' || !m.content) continue
+      const paths = extractImagePaths(m.content)
+      if (!paths.length) continue
+      const { authorizedGet } = await import('../lib/download.ts')
+      let url: string | null = null
+      for (const p of paths) {
+        // /ws/ 是容器视角前缀——文件端点需 ws 相对路径（探针实测 2026-09）
+        const rel = p.replace(/^\/ws\//, '')
+        const res = await authorizedGet(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(rel)}`)
+        if (res.ok) { url = URL.createObjectURL(await res.blob()); break }
+      }
+      if (url) {
+        $.msgs = $.msgs.map((x: ChatMessage) => (x.id === m.id ? { ...x, preview: url } : x))
+        ctx.render()
+      }
+    }
+  }
+
   async function loadMessages(merge = false) {
     const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50`).catch(() => ({ messages: [] }))
     const list = (msgRes.messages ?? []).reverse().map((m: Message) => {
@@ -336,6 +363,7 @@ export const Chat: Component = (_props, ctx) => {
       $.msgs = [...byId.values()].sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
     }
     $.hasMore = list.length >= 50
+    void hydrateImagePreviews()
     // 补拉/轮询路径重渲染（merge 改了 $.msgs 但不 rerender——UI 停留在旧帧——
     // A2 纯 HTTP 补拉无 ws 事件兜底——E1 轮询实测消息不上屏根因）
     ctx.render()
@@ -467,6 +495,7 @@ export const Chat: Component = (_props, ctx) => {
       }
       case 'wf:done': {
         applyWf(event)
+        void hydrateImagePreviews()
         ; break
       }
       case 'wf:error': {

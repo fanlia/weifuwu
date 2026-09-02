@@ -34,7 +34,7 @@ export function parseQuickReplies(content: string): { content: string; quickRepl
   return { content: cleaned, quickReplies }
 }
 import { updateGroupMemory, buildGroupMemoryLayer } from './group-memory.ts'
-import { findCachedAnswer, shouldCacheQuestion, buildCachedReply, isFailureAnswer } from './answer-cache.ts'
+import { findCachedAnswer, shouldCacheQuestion, buildCachedReply, isFailureAnswer, isArtifactAnswer } from './answer-cache.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
 
 // ── 流式事件类型 ───────────────────────────────────────
@@ -963,7 +963,9 @@ async function runAllAgents(
       const answer = String(aiReply?.content ?? '').trim()
       // B2（2026-08）：失败/太短答案不入缓存（实证：AI 失败中间态被缓存——
       // 后续同类问题命中失败记录——毒化）——isFailureAnswer 锁定
-      if (answer.length < 10 || isFailureAnswer(answer)) return
+      // 工具产物型（含 /ws/ 路径）不入缓存——每次应重新生成（B3 同源——
+      // 画图类问题第二次命中旧图、工具不跑——2026-09 实证信号）
+      if (answer.length < 10 || isFailureAnswer(answer) || isArtifactAnswer(answer)) return
       await ctx.sql`
         INSERT INTO answer_cache (app_id, question, answer)
         VALUES (${ctx.appId}, ${messageContent.slice(0, 200)}, ${answer.slice(0, 2000)})
@@ -1006,7 +1008,9 @@ export async function handleNewMessageStream(
         SELECT question, answer, hits FROM answer_cache WHERE app_id = ${ctx.appId}
         ORDER BY updated_at DESC LIMIT 200
       `) as unknown as Array<{ question: string; answer: string; hits: number }>
-      const hit = findCachedAnswer(messageContent, cacheRows)
+      const cached = findCachedAnswer(messageContent, cacheRows)
+      // 产物型缓存不清除（历史已写入）——命中即弃（用户期望重新生成——工具不跑错）
+      const hit = cached && !isArtifactAnswer(cached.answer) ? cached : null
       if (hit) {
         await ctx.sql`UPDATE answer_cache SET hits = hits + 1, updated_at = NOW() WHERE app_id = ${ctx.appId} AND question = ${hit.question}`
         const [anyAi] = await ctx.sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'ai' AND is_active = TRUE LIMIT 1`

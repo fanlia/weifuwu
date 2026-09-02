@@ -221,6 +221,12 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
                   <Badge variant="default"><Icon name="zap" size={12} /> {msg.usage.total_tokens} tokens</Badge>
                 </div>
               )}
+              {st === 'complete' && msg.preview && (
+                <img src={msg.preview} alt="AI 生成图片"
+                  class="wf-radius wf-border wf-margin-top-xs"
+                  style="max-width: 320px; max-height: 320px; object-fit: cover; cursor: zoom-in"
+                  onclick={() => { if (msg.preview) window.open(msg.preview, '_blank') }} />
+              )}
               {isError && (
                 <div class="wf-row wf-gap-xs wf-margin-top-xs">
                   <Button size="sm" variant="ghost" onClick={() => props.onRetry(msg.id)}><Icon name="refresh" size={12} /> 重新生成</Button>

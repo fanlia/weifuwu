@@ -138,6 +138,8 @@ export interface Message {
   status?: MessageStatus
   tools?: MessageTool[]
   usage?: { total_tokens: number }
+  /** 图片预览（2026-09——AI 生成图片 blob URL——聊天流内直显——非持久字段） */
+  preview?: string | null
   /** 回复引用（reply_to JOIN messages 预览） */
   reply_to?: string | null
   /** R6 质量反馈：AI 回复点赞/点踩 */
@@ -391,6 +393,8 @@ export interface ChatMessage {
   msg_type?: string
   created_at: string
   status: string
+  /** 图片预览（2026-09——AI 生成图片 blob URL——聊天流内直显——非持久字段） */
+  preview?: string | null
   tools: MessageTool[]
   usage?: { total_tokens: number }
   ai_draft?: string | null
