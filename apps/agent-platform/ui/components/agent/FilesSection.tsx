@@ -4,9 +4,62 @@
  * AI 在沙盒里写文件 / 用户放资料，双向可见。
  */
 import type { Component } from 'weifuwu/vdom'
-import { Button, Card, EmptyState, Icon, Loading } from 'weifuwu/components'
+import { Button, Card, EmptyState, Icon, Img, Loading } from 'weifuwu/components'
 import { errMsg } from '../../components/ui'
 import { onFilesReload, offFilesReload } from '../../lib/project-store.ts'
+
+// ── 类型感知（DELIVERABLES-UX-PLAN W1）──
+const IMG_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif']
+const SHEET_EXTS = ['csv', 'xlsx', 'xls', 'tsv']
+function isImageName(name: string): boolean {
+  return IMG_EXTS.includes(name.split('.').pop()?.toLowerCase() ?? '')
+}
+/** 类型图标名（Icon 白名单面：database/image/file-text——仅返回合法名） */
+function wsIconFor(name: string): 'database' | 'image' | 'file-text' {
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
+  if (SHEET_EXTS.includes(ext)) return 'database'
+  if (IMG_EXTS.includes(ext)) return 'image'
+  return 'file-text'
+}
+
+/** 缩略图 blob 缓存（模块级——列表重复渲染/多实例不重复 fetch） */
+const thumbCache = new Map<string, string>() // `${deptId}:${rel}` → blobUrl
+async function loadThumb(deptId: string, rel: string): Promise<string | null> {
+  const key = `${deptId}:${rel}`
+  const hit = thumbCache.get(key)
+  if (hit) return hit
+  try {
+    const { authorizedGet } = await import('../../lib/download.ts')
+    const res = await authorizedGet(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`)
+    if (!res.ok) return null
+    const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: 'image/*' }))
+    thumbCache.set(key, url)
+    return url
+  } catch { return null }
+}
+
+/** 文件缩略图（图片类——48px——加载前占位——加载后 Img placeholder→图——
+ * 点击缩放预览（Img preview——页面内浮层——与聊天图片同体验） */
+const FileThumb: Component<{ deptId: string; rel: string; name: string }> = (_init, ctx) => {
+  let url: string | null = null
+  let started = false
+  return (props) => {
+    if (!started) {
+      started = true
+      const cached = thumbCache.get(`${props.deptId}:${props.rel}`)
+      if (cached) url = cached
+      else void loadThumb(props.deptId, props.rel).then((u) => { if (u) { url = u; ctx.render() } })
+    }
+    if (url) {
+      return <Img src={url} alt={props.name} width={48} height={48} preview placeholder
+        className="wf-radius" style={{ objectFit: 'cover' }} />
+    }
+    return <div class="wf-thumb-ph" title={props.name}
+      style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: var(--wf-color-bg-tertiary); border-radius: var(--wf-radius); color: var(--wf-color-text-tertiary)">
+      <Icon name="image" size={16} />
+    </div>
+  }
+}
 
 /** B-下载（2026-08）：带鉴权下载——`<a href>` 导航无 Bearer → 401（用户实证）——
  * fetch + token → Blob → 编程式 <a download>（支持二进制）——返回是否成功 */
@@ -214,10 +267,15 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
           {wsLoading && <Loading />}
           {!wsLoading && wsEntries.length === 0 && <EmptyState icon="📂" text="空目录" hint="沙盒内 AI 写文件后此处可见" />}
           {wsEntries.map((entry) => (
-            <div key={entry.name} class="wf-row wf-gap-xs wf-padding-y-xs wf-items-center">
-              <button type="button" class="wf-row wf-gap-xs wf-fill wf-text-left"
+            <div key={entry.name} class="wf-row wf-gap-xs wf-padding-y-xs wf-items-center wf-min-width-0">
+              {entry.type === 'file' && isImageName(entry.name) ? (
+                <FileThumb deptId={departmentId} rel={wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`} name={entry.name} />
+              ) : (
+                <Icon name={entry.type === 'dir' ? 'folder' : wsIconFor(entry.name)} size={14} />
+              )}
+              <button type="button" class="wf-row wf-gap-xs wf-fill wf-text-left wf-min-width-0"
+                title={entry.name}
                 onClick={() => openWsFile(entry)}>
-                <Icon name={entry.type === 'dir' ? 'folder' : 'file-text'} size={14} />
                 <span class="wf-font-sm wf-medium wf-truncate">{entry.name}{entry.type === 'dir' ? '/' : ''}</span>
               </button>
               <span class="wf-font-xs wf-text-tertiary wf-nums">{entry.type === 'file' && entry.size > 1024 ? (entry.size / 1024).toFixed(1) + 'KB' : entry.size + 'B'}</span>
