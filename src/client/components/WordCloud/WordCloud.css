@@ -1,0 +1,29 @@
+/* weifuwu/components — WordCloud */
+
+.wf-wordcloud {
+  position: relative;
+  max-width: 100%;
+}
+
+.wf-wordcloud svg {
+  display: block;
+}
+
+.wf-wordcloud text {
+  cursor: default;
+  transition: opacity var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+/* 空态（words 空/全零权重） */
+.wf-wordcloud-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  padding: var(--wf-space-md);
+  border: 1px dashed var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  color: var(--wf-color-text-tertiary);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+}

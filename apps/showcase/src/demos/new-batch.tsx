@@ -33,7 +33,7 @@ import {
   VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour, Kanban, Pipeline, TreeSelect,
   Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
   Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
-  JsonSchemaForm, ReasoningBlock, CitationCard, SessionList,
+  JsonSchemaForm, ReasoningBlock, CitationCard, SessionList, WordCloud,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
@@ -640,6 +640,20 @@ const DemoQRCode: Component = () => () => (
   </div>
 )
 
+const DemoWordCloud: Component = () => () => (
+  <div class="wf-stack wf-gap-md" style="max-width: 520px">
+    <WordCloud words={[
+      { word: 'weifuwu', weight: 10 },
+      { word: '组件库', weight: 8 },
+      { word: 'vdom', weight: 6 },
+      { word: '命令流', weight: 4 },
+      { word: 'SSR', weight: 2 },
+      { word: '词云', weight: 1 },
+    ]} />
+    <div class="wf-font-xs wf-text-secondary">权重→字号线性映射 · 行式装箱零重叠 · textLength 定宽（SSR 一致）</div>
+  </div>
+)
+
 const DemoInfiniteScroll: Component = (_props, ctx) => {
   let items: string[] = Array.from({ length: 10 }, (_, i) => `条目 ${i + 1}`)
   let loading = false
@@ -964,6 +978,16 @@ if (ok) { /* 执行 */ }`,
 <Chart type="pie" data={data} />
 `,
 
+  wordcloud: `<WordCloud words={[
+  { word: 'weifuwu', weight: 10 },
+  { word: '组件库', weight: 8 },
+  { word: 'vdom', weight: 6 },
+  { word: '命令流', weight: 4 },
+  { word: 'SSR', weight: 2 },
+  { word: '词云', weight: 1 },
+]} />
+`,
+
   editor: `<Editor value={html} onChange={v => html = v}
   placeholder="输入内容..." />
 
@@ -1275,4 +1299,5 @@ export const DEMOS: Record<string, any> = {
   "InfiniteScroll": DemoInfiniteScroll,
   "InfiniteScroll 失败重试": DemoInfiniteScrollRetry,
   "QRCode": DemoQRCode,
+  "WordCloud": DemoWordCloud,
 }

@@ -46,6 +46,15 @@ export const components: ComponentEntry[] = [
     "testFile": "src/client/components/ImageCropper/ImageCropper.test.ts"
   },
   {
+    "id": "wordcloud",
+    "name": "WordCloud",
+    "desc": "词云——权重→字号映射 · 确定性行式装箱 · SVG textLength 定宽（零依赖自绘——SSR 一致零重叠）",
+    "sourceFile": "src/client/components/WordCloud/WordCloud.ts",
+    "cssFile": "src/client/components/WordCloud/WordCloud.css",
+    "testFile": "src/client/components/WordCloud/WordCloud.test.ts",
+    "gotchas": ["textLength 强制词宽=估算宽（0.62×ASCII/1.0×CJK 系数）——lengthAdjust=spacing 只调字距保形——不换行不截断", "height=显示高（默认=实际排版高）——viewBox 恒完整布局坐标系——超限等比缩放零丢弃", "0 权重词过滤不渲染 · 全等权重 → 全 maxFontSize（同权同尺寸 Wordle 语义）"]
+  },
+  {
     "id": "wave",
     "name": "Wave",
     "desc": "点击水波纹动效——包装任意可点击元素（纯 CSS，reduced-motion 自动降级）",

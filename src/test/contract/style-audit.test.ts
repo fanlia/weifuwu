@@ -22,7 +22,7 @@ const S6_WARN_BASELINE = 12
 test('S1-S7 样式审计零错误（防回潮红线）', () => {
   const res = audit()
   assert.equal(res.errors.length, 0, 'S1-S7 违规:\n' + res.errors.join('\n'))
-  assert.equal(res.files, 132, `组件 CSS 文件数（新增组件须登记审计）: ${res.files}`)
+  assert.equal(res.files, 133, `组件 CSS 文件数（新增组件须登记审计）: ${res.files}`)
 })
 
 test('S4 交互态链警告 ≤ 基线（登记制——不新增漏网）', () => {

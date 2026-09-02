@@ -391,3 +391,6 @@ export { VideoPlayer } from './VideoPlayer/VideoPlayer.ts'
 export type { VideoPlayerProps } from './VideoPlayer/VideoPlayer.ts'
 export { Math } from './Math/Math.ts'
 export type { MathProps } from './Math/Math.ts'
+
+export { WordCloud } from './WordCloud/WordCloud.ts'
+export type { WordCloudProps, WordCloudData } from './WordCloud/WordCloud.ts'
