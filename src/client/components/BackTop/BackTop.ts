@@ -6,8 +6,8 @@ import { Icon } from '../Icon/Icon.ts'
 export interface BackTopProps {
   /** 滚动超过此高度显示（px），默认 400 */
   visibilityHeight?: number
-  /** 滚动容器（默认 window） */
-  target?: () => HTMLElement | Window
+  /** 滚动容器（默认 window；未就绪返回 null——attach 等待 render 重试） */
+  target?: () => HTMLElement | Window | null
   /** 平滑滚动，默认 true */
   smooth?: boolean
   /** 方向（默认 'top'——回顶；'bottom'——聊天流回底浮钮） */

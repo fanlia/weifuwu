@@ -138,8 +138,9 @@ export interface Message {
   status?: MessageStatus
   tools?: MessageTool[]
   usage?: { total_tokens: number }
-  /** 图片预览（2026-09——AI 生成图片 blob URL——聊天流内直显——非持久字段） */
-  preview?: string | null
+  /** 图片预览（2026-09——AI 生成图片——占位先行：loading 占位→ready 图/error 占位；
+   * 三态同尺寸（300×300）——布局恒定零追滚零闪烁——非持久字段） */
+  preview?: { state: 'loading' | 'ready' | 'error'; url?: string } | null
   /** 回复引用（reply_to JOIN messages 预览） */
   reply_to?: string | null
   /** R6 质量反馈：AI 回复点赞/点踩 */
@@ -393,8 +394,9 @@ export interface ChatMessage {
   msg_type?: string
   created_at: string
   status: string
-  /** 图片预览（2026-09——AI 生成图片 blob URL——聊天流内直显——非持久字段） */
-  preview?: string | null
+  /** 图片预览（2026-09——AI 生成图片——占位先行：loading 占位→ready 图/error 占位；
+   * 三态同尺寸（300×300）——布局恒定零追滚零闪烁——非持久字段） */
+  preview?: { state: 'loading' | 'ready' | 'error'; url?: string } | null
   tools: MessageTool[]
   usage?: { total_tokens: number }
   ai_draft?: string | null

@@ -20,6 +20,21 @@ async function downloadFileCard(deptId: string, rel: string): Promise<void> {
   )
 }
 
+/** 聊天图片预览（2026-09——三态统一走 Img 组件：
+ * - loading：占位块（300×300——布局恒定——chat hydrate 先行挂载）
+ * - ready：<Img preview>——占位→图（组件内 onLoad 替换）——点击放大预览
+ * - error：占位块失败文案（fetch 失败——解码失败由 Img errorText 兜底）
+ * 注意：普通函数返回 vnode——**不能作为 JSX 组件**（组件契约 = 工厂→renderFn——
+ * 误用 seg.renderFn is not a function 实证）——调用点 {ChatImagePreview(...)} */
+function ChatImagePreview(preview: NonNullable<ChatMessage['preview']>): any {
+  const common = { width: 300, height: 300, className: 'wf-radius wf-border' }
+  if (preview.state === 'ready' && preview.url) {
+    return <Img src={preview.url} alt="AI 生成图片" preview {...common} style={{ objectFit: 'cover' }} />
+  }
+  return <Img {...common} placeholder
+    placeholderText={preview.state === 'error' ? '图片加载失败' : '图片加载中…'} />
+}
+
 export interface MessageItemProps {
   msg: ChatMessage
   departmentId: string
@@ -99,9 +114,7 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
           {/* 图片产物卡片直显（2026-09——与 AI 回复文本同链路：hydrate → blob 预览） */}
           {msg.preview && (
             <div class="wf-margin-top-sm">
-              <Img src={msg.preview} alt="AI 生成图片" preview
-                className="wf-radius wf-border"
-                style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'cover' }} />
+              {ChatImagePreview(msg.preview)}
             </div>
           )}
         </div>
@@ -230,13 +243,10 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
                 </div>
               )}
               {/* 图片预览：API 加载的历史消息无 status 字段——以 preview 存在为准
-              · 框架 Img 组件（preview 属性）——openPopup 遮罩预览：点击缩放/遮罩与
-                Escape 关闭——页面内浮层（不离开聊天流） */}
+              · 三态统一走 Img 组件（placeholder 下沉——占位/失败/预览组件内自理） */}
               {msg.preview && (
                 <div class="wf-margin-top-sm">
-                  <Img src={msg.preview} alt="AI 生成图片" preview
-                    className="wf-radius wf-border"
-                    style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'cover' }} />
+                  {ChatImagePreview(msg.preview)}
                 </div>
               )}
               {isError && (

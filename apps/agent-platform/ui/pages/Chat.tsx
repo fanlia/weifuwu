@@ -326,6 +326,11 @@ export const Chat: Component = (_props, ctx) => {
   function extractImagePaths(content: string): string[] {
     return [...new Set(String(content ?? '').match(IMG_PATH_RE) ?? [])]
   }
+  function setPreview(id: string, p: { state: 'loading' | 'ready' | 'error'; url?: string } | null): void {
+    $.msgs = $.msgs.map((x: ChatMessage) => (x.id === id ? { ...x, preview: p } : x))
+    ctx.render()
+  }
+
   async function hydrateImagePreviews(): Promise<void> {
     for (const m of $.msgs) {
       if (m.preview || m.sender_type !== 'ai' || !m.content) continue
@@ -334,29 +339,27 @@ export const Chat: Component = (_props, ctx) => {
         ? (/^[^\s"'()<>，。]+\.(?:png|jpe?g|webp|gif)$/i.test(m.content) ? [m.content] : [])
         : extractImagePaths(m.content)
       if (!paths.length) continue
+      // **阶段 1——占位先行**：布局立即含 300×300 占位——单次滚底即真底
+      // （图片未就绪不空白等待；ready/error 替换后布局恒定——不追滚）
+      setPreview(m.id, { state: 'loading' })
+      scrollToBottom()
       const { authorizedGet } = await import('../lib/download.ts')
-      let url: string | null = null
+      let done = false
       for (const p of paths) {
         // /ws/ 是容器视角前缀——文件端点需 ws 相对路径（探针实测 2026-09）
         const rel = p.replace(/^\/ws\//, '')
         // &download=1 必需：无 download 时二进制文件（png）返回 {binary:true} JSON
         // （200）——被当图片 → 破图（agent-browser 实证 naturalWidth=0）
         const res = await authorizedGet(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`)
-        if (res.ok) {
-          const ext = (p.match(/\.(\w+)$/)?.[1] ?? 'png').toLowerCase()
-          const mime: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' }
-          url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: mime[ext] ?? 'application/octet-stream' }))
-          break
-        }
+        if (!res.ok) continue
+        const ext = (p.match(/\.(\w+)$/)?.[1] ?? 'png').toLowerCase()
+        const mime: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' }
+        // decode 校验下沉 Img 组件（placeholder 内部态）——业务只给 src
+        setPreview(m.id, { state: 'ready', url: URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: mime[ext] ?? 'application/octet-stream' })) })
+        done = true
+        break
       }
-      if (url) {
-        $.msgs = $.msgs.map((x: ChatMessage) => (x.id === m.id ? { ...x, preview: url } : x))
-        ctx.render()
-        // 内容高度增长（图片 300px）但 msgsLen/totalLen 不变——常规滚动触发不命中——
-        // 显式滚底 + 图片 decode 后（布局撑高）再滚一次（isUserScrolledUp 守卫内）
-        scrollToBottom()
-        setTimeout(() => scrollToBottom(), 400)
-      }
+      if (!done) setPreview(m.id, { state: 'error' })
     }
   }
 

@@ -38,3 +38,14 @@
 .wf-img-preview-image {
   transition: transform var(--wf-dur-base) var(--wf-ease-out);
 }
+
+/* 加载占位块（2026-09——placeholder：未就绪/失败——与 img 同尺寸——布局恒定） */
+.wf-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wf-color-bg-tertiary, #eef1f5);
+  color: var(--wf-color-text-tertiary, #8a93a5);
+  font-size: 12px;
+  border-radius: var(--wf-radius, 6px);
+}
