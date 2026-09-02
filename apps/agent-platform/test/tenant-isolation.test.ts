@@ -49,6 +49,8 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/tools/builtin.ts', match: 'SELECT dm.department_id FROM department_members dm', reason: 'call_agent 委托目标部门解析——ta.id 来自同租户查询（type IN + app_id）' },
   { file: 'src/routes/departments.ts', match: 'SELECT COUNT(*)::int as n FROM department_members', reason: '组织层级子部门成员数——subDeptId 来自同 app 部门校验（间接隔离）' },
   { file: 'src/routes/departments.ts', match: 'INSERT INTO department_members', reason: '间接隔离——上游已校验部门/Agent 归属（app_id）' },
+  { file: 'src/routes/demo.ts', match: 'INSERT INTO department_members', reason: '演示空间——dept.id/agent.id 来自同请求刚创建（INSERT departments/agents 带 app_id 并 RETURNING——同租户）' },
+  { file: 'src/services/survey-setup.ts', match: 'INSERT INTO department_members', reason: '问卷角色池——dept.id/agent.id 来自同请求刚创建（appId 贯穿同请求）' },
   { file: 'src/routes/departments.ts', match: 'FROM department_members dm JOIN agents', reason: '间接隔离——department_id 上游已校验归属' },
   { file: 'src/routes/departments.ts', match: 'FROM messages m JOIN agents a ON a.id = m.sender_id', reason: 'P1 工作区聚合——department_id 上游已校验归属（部门存在性校验后）' },
   { file: 'src/routes/departments.ts', match: 'DELETE FROM department_members WHERE department_id', reason: '间接隔离——上游部门归属校验（G7 权限闸门）' },
