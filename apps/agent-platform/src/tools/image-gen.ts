@@ -5,6 +5,7 @@
  * 响应（实测 2026-09）：output.choices[].message.content[] → [{ image: 预签名 URL }, { text: 回显 }]
  * 落盘：部门工作区（/ws——交付物中心可见——三层模型）
  */
+import { randomUUID } from 'node:crypto'
 import type { AppCtx } from '../middleware/ctx.ts'
 
 export const IMAGE_MODEL = 'z-image-turbo'
@@ -84,7 +85,7 @@ export async function generateImage(
   const [w, h] = size.split('*').map(Number)
 
   // 落盘：部门工作区（三层模型——交付物中心/部门文件区可见）
-  const fname = (opts.filename ?? '').replace(/[^\w.\-\u4e00-\u9fa5]/g, '').slice(0, 80) || `ai-image-${Date.now()}-${Math.floor(Math.random() * 10000)}.png`
+  const fname = (opts.filename ?? '').replace(/[^\w.\-\u4e00-\u9fa5]/g, '').slice(0, 80) || `ai-image-${Date.now()}-${randomUUID().slice(0, 8)}.png`
   if (!opts.departmentId) {
     return `已生成图片（${w}×${h}）——但当前无部门工作区上下文（未保存）——图片 URL：${src}`
   }
