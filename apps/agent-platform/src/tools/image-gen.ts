@@ -84,7 +84,7 @@ export async function generateImage(
   const [w, h] = size.split('*').map(Number)
 
   // 落盘：部门工作区（三层模型——交付物中心/部门文件区可见）
-  const fname = (opts.filename ?? '').replace(/[^\w.\-\u4e00-\u9fa5]/g, '').slice(0, 80) || `ai-image-${Date.now()}.png`
+  const fname = (opts.filename ?? '').replace(/[^\w.\-\u4e00-\u9fa5]/g, '').slice(0, 80) || `ai-image-${Date.now()}-${Math.floor(Math.random() * 10000)}.png`
   if (!opts.departmentId) {
     return `已生成图片（${w}×${h}）——但当前无部门工作区上下文（未保存）——图片 URL：${src}`
   }

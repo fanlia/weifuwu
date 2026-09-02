@@ -64,6 +64,28 @@ test('请求契约：URL/头/体形态（multimodal-generation + input.messages�
   }
 })
 
+test('未指定 filename → 自动命名 ai-image-{ts}-{rand}.png（不覆盖——并发安全）', async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = []
+  mock.method(globalThis, 'fetch', async (url: any, init: any) => {
+    calls.push({ url: String(url), init })
+    if (String(url).includes('oss.example.com')) return new Response(new Uint8Array(PNG_BYTES))
+    return Response.json({ output: { choices: [{ message: { content: [{ image: IMG_URL }] } }] } })
+  })
+  const wsRoot = await mkdtemp(join(tmpdir(), 'img-ws-'))
+  process.env.AGENT_WORKSPACE_ROOT = wsRoot
+  try {
+    const r = await handler({ prompt: '一只蓝鲸' }, { departmentId: 'dept-1' })
+    const m = r.match(/(ai-image-\d+-\d{4}\.png)/)
+    assert.ok(m, `自动命名存在: ${r}`)
+    const saved = await readFile(join(wsRoot, 'dept-1', m![1]))
+    assert.deepEqual(saved, PNG_BYTES)
+  } finally {
+    delete process.env.AGENT_WORKSPACE_ROOT
+    await rm(wsRoot, { recursive: true, force: true })
+    mock.restoreAll()
+  }
+})
+
 test('错误路径：HTTP 400 → 抛错含状态 + 响应无图 → 抛错', async () => {
   mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ code: 'Bad', message: '参数错' }), { status: 400, headers: { 'Content-Type': 'application/json' } }))
   try {
