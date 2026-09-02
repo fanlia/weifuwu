@@ -101,6 +101,23 @@ interface WordCloudProps {
   零缺口（组件 135/零覆盖 0）· style-audit S1-S7 零错误（基线 133）·
   audit:api 0 违例 · build ✓（dist style.css 含 wf-wordcloud ×4）· tsc 0 错。
 
+### W3（2026-09-03）——交互面 + 动态 props（onWordClick/键盘/重排）
+
+- **探针重定位**：① 契约 4 红线——事件**不进 attrs**（断言 attrs.onClick ===
+  undefined——交互真实触发移交 showcase）；② **SVG text 命中区 bug 实证**：
+  `pointer-events: visiblePainted` 默认=字形笔画命中——字母间隙漏到 svg 根——
+  playwright 坐标点击不触发——**修复 `pointer-events: bounding-box`**（SVG2
+  命中整个文本 bbox——一行 CSS）；③ **key: word 稳定**（含索引时排序变化
+  触发 remove+create——weight 交换即重建）；④ 全等权重陷阱：单词 weight=1
+  = 自身 max —— 动态测试误报 font-size 未 diff（测试数据两词化）。
+- **实现**：onWordClick（role=button/tabindex=0/onKeyDown Enter·Space/aria-label）·
+  CSS --clickable（hover/focus-visible opacity）· demo 活体加点击回显（data-testid）。
+- **欠账清偿**：L3 缺口 5 类（wf-cursor-pointer/wf-video-*——上次视频任务
+  未定义类）——wf-pointer 复用 · 删死类/死函数（inlineVideo 无消费）——
+  全契约 428 → 428（L3 归零）。
+- **结果数字**：词云契约 9/9 · showcase 3/3（WC3 坐标点击 + Enter 键盘真实链）·
+  全契约 428/428 · tsc 双端 0 错 · style-audit 3/3。
+
 ## 验收标准
 
 ```

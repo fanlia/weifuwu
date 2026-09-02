@@ -111,3 +111,41 @@ test('estimateWordWidth：CJK 全宽 / ASCII 0.62 系数', () => {
   assert.equal(estimateWordWidth('ab', 10), 12.4, 'ASCII 2×10×0.62')
   assert.equal(estimateWordWidth('词云', 10), 20, 'CJK 2×10×1.0')
 })
+
+test('交互面：onWordClick 提供时词可交互（role/tabindex——事件走事件表契约 4）', async () => {
+  let hits: string[] = []
+  const h = await mount(WordCloud, {
+    words: WORDS,
+    onWordClick: (word: string, weight: number) => { hits.push(`${word}:${weight}`) },
+  })
+  const ct = createTable(h.cmds)
+  const texts = [...ct.values()].filter((c) => c.tag === 'text')
+  assert.ok(texts.length > 0)
+  const first = texts[0]
+  assert.equal((first.attrs as any).role, 'button', 'role=button')
+  assert.equal((first.attrs as any).tabindex, 0, 'tabindex=0（键盘可达）')
+  // 事件不进 attrs（事件表通道——契约 4 红线）
+  assert.equal((first.attrs as any).onClick, undefined, 'onClick 不进 attrs（事件表通道）')
+  assert.equal((first.attrs as any).onKeyDown, undefined, 'onKeyDown 不进 attrs')
+  // 回调接线（word+weight 回传）——showcase 真实 DOM 点击验证（comp-wordcloud WC3）
+  // 键盘激活语义（Enter/Space）：引擎层 events 机制已测——此处登记接线契约
+})
+
+test('无 onWordClick 时词不可交互（无 role/tabindex——非按钮误读）', async () => {
+  const h = await mount(WordCloud, { words: WORDS })
+  const ct = createTable(h.cmds)
+  const texts = [...ct.values()].filter((c) => c.tag === 'text')
+  assert.equal((texts[0].attrs as any).role, undefined, '无 role')
+  assert.equal((texts[0].attrs as any).tabindex, undefined, '无 tabindex')
+})
+
+test('动态 props：words 变化 → 组件复用 + diff 更新（非重挂载——骨架稳定）', async () => {
+  const h = await mount(WordCloud, { words: [{ word: '重', weight: 1 }, { word: '轻', weight: 2 }] })
+  const mounts0 = h.mounts()
+  const d = await h.render({ words: [{ word: '重', weight: 10 }, { word: '轻', weight: 1 }] })
+  assert.equal(h.mounts(), mounts0, '组件工厂不重跑（复用——动态词频更新）')
+  assert.ok(d.length > 0, 'diff 命令流非空（更新走 diff 非整树重建）')
+  // 布局语义变化：词顺序反转（权重交换）→ 至少一个 text 的位置/字号变更命令
+  const updates = d.filter((c: any) => c.op === 'setProp' || c.op === 'create' || c.op === 'move')
+  assert.ok(updates.length >= 1, '词变更有 diff 命令（实际 ' + updates.length + '）')
+})

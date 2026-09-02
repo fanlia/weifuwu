@@ -61,3 +61,26 @@ test('WC2 空态：无词数据页零 errors（其他组件页不受影响）', 
     assert.ok((await page.locator('main svg').count()) >= 1, '词云示例存在')
   } finally { await page.close() }
 })
+
+test('WC3 交互：点击词 → onWordClick 回传（真实 DOM 事件链）', async () => {
+  const page = await browser.newPage()
+  try {
+    await open(page)
+    await page.waitForSelector('main svg text')
+    // SVG text 元素 locator.click 命中怪癖（actionability 对 SVG 泛化）——坐标点击（真实鼠标事件链）
+    const bb = await page.evaluate(() => {
+      const r = document.querySelector('main svg text')!.getBoundingClientRect()
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+    })
+    await page.mouse.click(bb.x, bb.y)
+    await page.waitForTimeout(200)
+    const last = await page.locator('[data-testid="wc-last"]').innerText()
+    assert.match(last, /最近点击：\S+（\d+）/, `点击回传（实际 ${last}）`)
+    // 键盘可达：焦点 + Enter 激活
+    await page.locator('main svg text').first().focus()
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(200)
+    const last2 = await page.locator('[data-testid="wc-last"]').innerText()
+    assert.match(last2, /最近点击：\S+（\d+）/, `键盘激活（实际 ${last2}）`)
+  } finally { await page.close() }
+})

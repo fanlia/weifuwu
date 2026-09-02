@@ -38,6 +38,8 @@ export interface WordCloudProps {
   padding?: number
   /** 色板（默认 token 色阶——逐词取模） */
   colors?: string[]
+  /** 点击词回调（提供后词可交互：hover 高亮 + 键盘 Enter/Space 可达） */
+  onWordClick?: (word: string, weight: number) => void
   className?: string
 }
 
@@ -140,13 +142,18 @@ export const WordCloud: Component<WordCloudProps> = (_init, _ctx) =>
   (props: WordCloudProps) => {
     const {
       words, width = 480, height, maxFontSize = 32, minFontSize = 12,
-      padding = 4, colors = DEFAULT_COLORS, className,
+      padding = 4, colors = DEFAULT_COLORS, onWordClick, className,
     } = props
     const { placed, height: layoutH } = layoutWords(words, { width, maxFontSize, minFontSize, padding })
     if (!placed.length) {
       return h('div', { class: `wf-wordcloud wf-wordcloud-empty ${className ?? ''}`.trim() }, '暂无词云数据')
     }
-    return h('div', { class: `wf-wordcloud ${className ?? ''}`.trim() }, [
+    const interactive = typeof onWordClick === 'function'
+    const fire = (w: PlacedWord) => (_e: Event) => onWordClick?.(w.word, w.weight)
+    const keyAct = (w: PlacedWord) => (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onWordClick?.(w.word, w.weight) }
+    }
+    return h('div', { class: `wf-wordcloud ${interactive ? 'wf-wordcloud--clickable' : ''} ${className ?? ''}`.trim() }, [
       h('svg', {
         width: '100%', height: height ?? layoutH,
         viewBox: `0 0 ${width} ${layoutH}`,
@@ -154,7 +161,7 @@ export const WordCloud: Component<WordCloudProps> = (_init, _ctx) =>
         role: 'img', 'aria-label': '词云',
       }, placed.map((w, i) =>
         h('text', {
-          key: `${w.word}-${i}`,
+          key: w.word,
           x: w.x, y: w.y,
           'text-anchor': 'middle',
           fill: colors[i % colors.length],
@@ -162,6 +169,12 @@ export const WordCloud: Component<WordCloudProps> = (_init, _ctx) =>
           'font-family': 'var(--wf-font-sans)',
           textLength: w.textLength,
           lengthAdjust: 'spacing',
+          ...(interactive ? {
+            role: 'button', tabindex: 0,
+            onClick: fire(w),
+            onKeyDown: keyAct(w),
+            'aria-label': `${w.word}（权重 ${w.weight}）`,
+          } : {}),
         }, w.word))),
     ])
   }

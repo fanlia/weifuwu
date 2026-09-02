@@ -14,6 +14,19 @@
   transition: opacity var(--wf-dur-fast) var(--wf-ease-out);
 }
 
+/* 可交互态（onWordClick 提供时）——hover/键盘焦点高亮 */
+.wf-wordcloud--clickable text {
+  cursor: pointer;
+  /* SVG text 默认 pointer-events: visiblePainted——命中区=字形笔画（字母间隙漏到
+     svg 根——点击不触发实证）——bounding-box = 命中整个文本 bbox（SVG2） */
+  pointer-events: bounding-box;
+}
+
+.wf-wordcloud--clickable text:hover,
+.wf-wordcloud--clickable text:focus-visible {
+  opacity: 0.7;
+}
+
 /* 空态（words 空/全零权重） */
 .wf-wordcloud-empty {
   display: flex;

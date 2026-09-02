@@ -640,19 +640,23 @@ const DemoQRCode: Component = () => () => (
   </div>
 )
 
-const DemoWordCloud: Component = () => () => (
-  <div class="wf-stack wf-gap-md" style="max-width: 520px">
-    <WordCloud words={[
-      { word: 'weifuwu', weight: 10 },
-      { word: '组件库', weight: 8 },
-      { word: 'vdom', weight: 6 },
-      { word: '命令流', weight: 4 },
-      { word: 'SSR', weight: 2 },
-      { word: '词云', weight: 1 },
-    ]} />
-    <div class="wf-font-xs wf-text-secondary">权重→字号线性映射 · 行式装箱零重叠 · textLength 定宽（SSR 一致）</div>
-  </div>
-)
+const DemoWordCloud: Component = (_props, ctx) => {
+  let last: string | null = null
+  return () => (
+    <div class="wf-stack wf-gap-md" style="max-width: 520px">
+      <WordCloud words={[
+        { word: 'weifuwu', weight: 10 },
+        { word: '组件库', weight: 8 },
+        { word: 'vdom', weight: 6 },
+        { word: '命令流', weight: 4 },
+        { word: 'SSR', weight: 2 },
+        { word: '词云', weight: 1 },
+      ]} onWordClick={(word: string, weight: number) => { last = `${word}（${weight}）`; ctx.render() }} />
+      <div class="wf-font-xs wf-text-secondary">权重→字号线性映射 · 行式装箱零重叠 · textLength 定宽（SSR 一致）</div>
+      <div class="wf-font-xs wf-text-primary" data-testid="wc-last">最近点击：{last ?? '无'}</div>
+    </div>
+  )
+}
 
 const DemoInfiniteScroll: Component = (_props, ctx) => {
   let items: string[] = Array.from({ length: 10 }, (_, i) => `条目 ${i + 1}`)

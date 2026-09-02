@@ -43,7 +43,7 @@ function ChatVideoBlock(video: NonNullable<ChatMessage['video']>, name: string, 
     return (
       <div class="wf-stack wf-gap-xs">
         <div
-          class="wf-radius wf-border wf-cursor-pointer"
+          class="wf-radius wf-border wf-pointer"
           style="width: 300px; height: 169px; overflow: hidden; position: relative;"
           onClick={() => {
             void import('../../lib/video-popup.ts').then(({ openVideoPopup }) =>
@@ -51,7 +51,7 @@ function ChatVideoBlock(video: NonNullable<ChatMessage['video']>, name: string, 
           }}
         >
           <video src={video.url} style="width: 100%; height: 100%; object-fit: cover;" muted playsInline preload="metadata" />
-          <div class="wf-video-play-badge" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;">▶</div>
+          <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;">▶</div>
         </div>
         <div class="wf-font-xs wf-text-tertiary">🎬 {name}——点击播放</div>
       </div>

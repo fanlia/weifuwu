@@ -21,13 +21,7 @@ export function openVideoPopup(ctx: { ui: { openPopup: Function } }, url: string
     }, [
       h('div', { class: 'wf-font-sm wf-semibold wf-text-primary wf-truncate' }, title),
       h('div', { class: 'wf-radius wf-border', style: 'width: 100%;' },
-        h(VideoPlayer, { src: url, autoPlay: true, className: 'wf-video-popup-player' })),
+        h(VideoPlayer, { src: url, autoPlay: true })),
     ]),
   })
-}
-
-/** 内嵌播放器（消息气泡内——非弹窗）——同组件：<VideoPlayer> 原生 controls */
-export function inlineVideo(url: string, className = ''): import('weifuwu/vdom').VNode {
-  return h('div', { class: `wf-radius wf-border wf-video-inline ${className}`.trim(), style: 'overflow: hidden; width: 300px;' },
-    h(VideoPlayer, { src: url, aspect: 16 / 9, className: 'wf-video-inline-player' }))
 }
