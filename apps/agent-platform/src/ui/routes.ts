@@ -111,6 +111,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/deliverables',
       '/settings',
       '/admin',
+      '/surveys',
     ]
 
     for (const path of spaPaths) {
@@ -150,6 +151,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/deliverables',
       '/settings',
       '/admin',
+      '/surveys',
     ]
 
     for (const path of spaPaths) {

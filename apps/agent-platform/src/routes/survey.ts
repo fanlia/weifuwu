@@ -4,6 +4,43 @@
 import type { AppCtx } from '../middleware/ctx.ts'
 
 export function registerSurveyRoutes(app: any): void {
+  // W2 开箱：一键角色池 + 活动（替代手工 seed-survey-agents.mjs）
+  app.post('/api/survey/setup', async (req: Request, ctx: AppCtx): Promise<Response> => {
+    try {
+      const body = await req.json()
+      const personas = (body.personas ?? []).slice(0, 10)
+      if (!body.url || personas.length === 0) {
+        return Response.json({ error: 'url 和 personas 为必填' }, { status: 400 })
+      }
+      const { setupSurveyRoster } = await import('../services/survey-setup.ts')
+      const out = await setupSurveyRoster(ctx, {
+        url: String(body.url),
+        personas,
+        total: personas.length,
+        concurrency: Number(body.concurrency ?? 0),
+      })
+      return Response.json({ success: true, ...out }, { status: 201 })
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '创建失败' }, { status: 400 })
+    }
+  })
+
+  app.get('/api/survey/campaigns', async (_req: Request, ctx: AppCtx): Promise<Response> => {
+    try {
+      const { sql, appId } = ctx
+      const rows = await sql`
+        SELECT id, status, total, completed, failed, url, retry, concurrency, created_at
+        FROM survey_campaigns
+        WHERE app_id = ${appId}
+        ORDER BY created_at DESC
+        LIMIT 50
+      `
+      return Response.json({ campaigns: rows ?? [] })
+    } catch (e: any) {
+      return Response.json({ error: e?.message ?? '查询失败' }, { status: 400 })
+    }
+  })
+
   app.post('/api/survey/campaigns', async (req: Request, ctx: AppCtx): Promise<Response> => {
     try {
       const body = await req.json().catch(() => ({}))
