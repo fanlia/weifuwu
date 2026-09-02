@@ -68,6 +68,16 @@ test('聊天流直显：AI 回复含 /ws 图片路径 → img 渲染（blob 预�
     const el = document.querySelector('img[alt="AI 生成图片"]') as HTMLImageElement | null
     return !!el && el.naturalWidth > 0
   }, undefined, { timeout: 10_000 })
+  // 点击放大 → Img 组件 preview（openPopup 遮罩预览——页面内浮层）浮层图片出现
+  await page.click('button[aria-label="放大预览"]')
+  await page.waitForSelector('.wf-img-preview-image', { timeout: 10_000 })
+  await page.waitForFunction(() => {
+    const el = document.querySelector('.wf-img-preview-image') as HTMLImageElement | null
+    return !!el && el.naturalWidth > 0
+  }, undefined, { timeout: 10_000 })
+  // Escape 关闭预览浮层
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('.wf-img-preview-image', { state: 'detached', timeout: 5_000 })
   assert.deepEqual(fatalErrors(errors), [], `页面零错误——发现: ${errors.join(' | ')}`)
   await page.close()
 })

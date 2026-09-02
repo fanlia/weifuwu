@@ -6,7 +6,7 @@
  */
 import type { Component } from 'weifuwu/vdom'
 import { Ava } from '../../components/ui'
-import { Alert, Badge, Button, CopyButton, Icon, Input, Markdown, MessageBubble } from 'weifuwu/components'
+import { Alert, Badge, Button, CopyButton, Icon, Img, Input, Markdown, MessageBubble } from 'weifuwu/components'
 import { inputValue } from '../../lib/types'
 import type { ChatMessage, MessageTool } from '../../lib/types'
 import { detectTaskMarker } from '../../../src/services/task-markers.ts'
@@ -98,10 +98,11 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
           )}
           {/* 图片产物卡片直显（2026-09——与 AI 回复文本同链路：hydrate → blob 预览） */}
           {msg.preview && (
-            <img src={msg.preview} alt="AI 生成图片"
-              class="wf-radius wf-border"
-              style="max-width: 320px; max-height: 320px; object-fit: cover; cursor: zoom-in"
-              onclick={() => { if (msg.preview) window.open(msg.preview, '_blank') }} />
+            <div class="wf-margin-top-sm">
+              <Img src={msg.preview} alt="AI 生成图片" preview
+                className="wf-radius wf-border"
+                style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'cover' }} />
+            </div>
           )}
         </div>
       )
@@ -228,12 +229,15 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
                   <Badge variant="default"><Icon name="zap" size={12} /> {msg.usage.total_tokens} tokens</Badge>
                 </div>
               )}
-              {/* 图片预览：API 加载的历史消息无 status 字段——以 preview 存在为准 */}
+              {/* 图片预览：API 加载的历史消息无 status 字段——以 preview 存在为准
+              · 框架 Img 组件（preview 属性）——openPopup 遮罩预览：点击缩放/遮罩与
+                Escape 关闭——页面内浮层（不离开聊天流） */}
               {msg.preview && (
-                <img src={msg.preview} alt="AI 生成图片"
-                  class="wf-radius wf-border wf-margin-top-xs"
-                  style="max-width: 320px; max-height: 320px; object-fit: cover; cursor: zoom-in"
-                  onclick={() => { if (msg.preview) window.open(msg.preview, '_blank') }} />
+                <div class="wf-margin-top-sm">
+                  <Img src={msg.preview} alt="AI 生成图片" preview
+                    className="wf-radius wf-border"
+                    style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'cover' }} />
+                </div>
               )}
               {isError && (
                 <div class="wf-row wf-gap-xs wf-margin-top-xs">
