@@ -19,6 +19,7 @@ import { registerAuthRoutes } from './src/routes/auth.ts'
 import { registerAgentRoutes } from './src/routes/agents.ts'
 import { registerWorkspaceRoutes } from './src/routes/workspace.ts'
 import { registerDepartmentRoutes } from './src/routes/departments.ts'
+import { registerDemoRoutes } from './src/routes/demo.ts'
 import { registerSandboxRoutes } from './src/routes/sandboxes.ts'
 import { registerAiEventRoutes } from './src/routes/ai-events.ts'
 import { registerMessageRoutes } from './src/routes/messages.ts'
@@ -739,6 +740,8 @@ async function main() {
   await registerWorkspaceRoutes(protectedRoutes)
   // 部门
   registerDepartmentRoutes(protectedRoutes)
+  // 一键演示空间（G-A 冷启动）
+  registerDemoRoutes(protectedRoutes)
   // P1 任务执行总览：部门执行状态聚合（复用 sandbox_events/runningExecs/产物 mtime）
   protectedRoutes.get('/api/departments/:id/executions', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params } = ctx

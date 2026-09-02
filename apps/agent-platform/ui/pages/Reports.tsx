@@ -3,7 +3,7 @@
  * 管理员/运营视角：统计卡 / 趋势 / 成本 / 活跃成员 / 激活漏斗
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
+import { Alert, Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
 import { Ava, PageHeader } from '../components/ui'
 import type { AgentListResponse, CostAgentRow, FunnelData, StatsData } from '../lib/types'
 
@@ -75,6 +75,10 @@ export const Reports: Component = (_props, ctx) => {
     return (
     <div class="wf-stack wf-gap-lg">
       <PageHeader key="reports-header" title="运营报表" sub="AI 团队使用量 · 成本 · 活跃度（管理员视角）">
+        {/* G-B 配额触达（W1——quotaPressure 从前死数据面 → 可见） */}
+        {$.quotaPressure && !$.loading && (
+          <Alert variant="warning">⚠️ 部分项目空间已接近/超过月度 AI 配额——到 <a class="wf-text-warning" style="cursor:pointer" onClick={() => ctx.app?.navigate('/settings')}>设置</a> 调整配额或升级订阅</Alert>
+        )}
         <Button variant="ghost" onClick={() => ctx.app?.navigate('/')}><Icon name="arrow-left" size={14} /> 返回工作台</Button>
       </PageHeader>
 

@@ -9,7 +9,7 @@
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Button, Card, EmptyState, Icon, Skeleton } from 'weifuwu/components'
-import { Ava } from '../components/ui'
+import { Ava, errMsg } from '../components/ui'
 import { clientRole, isTenantOwner, writeDenyReason } from '../lib/roles'
 import type { AgentListResponse, DepartmentListResponse, PendingApproval } from '../lib/types'
 
@@ -28,6 +28,7 @@ interface ProjectCard {
 
 interface WorkspaceState {
   loading: boolean
+  demoCreating: boolean
   projects: ProjectCard[]
   pendingCount: number
   aiCount: number
@@ -66,7 +67,20 @@ function timeAgo(iso: string | null): string {
 export const Workspace: Component = (_props, ctx) => {
   const $ = {} as WorkspaceState
   const rerender = () => ctx.render()
-  $.loading = true; $.projects = []; $.pendingCount = 0; $.aiCount = 0; $.hasAgents = false; $.deliverables = []
+  $.loading = true; $.projects = []; $.pendingCount = 0; $.aiCount = 0; $.hasAgents = false; $.deliverables = []; $.demoCreating = false
+
+  /** G-A 冷启动：一键演示空间（部门+客服 AI+知识库+经理）——创建后直达聊天 */
+  async function demoSpace(): Promise<void> {
+    $.demoCreating = true; rerender()
+    try {
+      const d = await ctx.api!.post<{ department: { id: string } }>('/api/demo/space')
+      ctx.toast!('演示空间已创建——试试 @ 客服小知 或 @ 演示项目经理', 'success')
+      ctx.app?.navigate(`/chat/${d.department.id}`)
+    } catch (e) {
+      ctx.toast!(errMsg(e, '创建演示空间失败'), 'error')
+      $.demoCreating = false; rerender()
+    }
+  }
 
   Promise.all([
     ctx.api!.get<DepartmentListResponse>('/api/departments').catch(() => ({ departments: [] })),
@@ -138,7 +152,11 @@ export const Workspace: Component = (_props, ctx) => {
             {!ownerOnly && (
               <div class="wf-row wf-gap-sm">
                 <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>创建项目空间</Button>
-                {!$.hasAgents && <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}>先创建 AI Agent</Button>}
+                {/* 注册自动建 user agent——hasAgents 恒 true（实测）——按 AI 计数判定 */}
+                {$.aiCount === 0 && <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}>先创建 AI Agent</Button>}
+                {$.aiCount === 0 && (
+                  <Button variant="ghost" disabled={$.demoCreating} onClick={() => void demoSpace()}>🚀 一键演示空间</Button>
+                )}
               </div>
             )}
           </EmptyState>
