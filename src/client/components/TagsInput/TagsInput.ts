@@ -3,7 +3,7 @@
  *
  * 标签输入：回车/逗号添加、Backspace 删除、去重、maxTags 限制。
  * 中文输入法 composition 感知（输入法候选词确认的 Enter 不触发添加）。
- * 裁剪（CS-05，见 design/components-cuts.md）：不做下拉建议（组合 Select searchable）。
+ * 裁剪（CS-05，见 docs/client.md）：不做下拉建议（组合 Select searchable）。
  */
 
 import type { Component } from '../../vdom/index.ts'

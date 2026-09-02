@@ -62,11 +62,11 @@ test('390px：顶栏可见 + 侧栏收起（内容直达——不再滚过整条
   const { page, errors } = await newMobilePage('/')
   await page.waitForFunction(() => (document.body.textContent ?? '').includes('上午好') || (document.body.textContent ?? '').includes('工作台'), undefined, { timeout: 10_000 })
   const state = await page.evaluate(() => {
-    const tb = document.querySelector('.ap-topbar')
+    const tb = document.querySelector('.wf-nav-bar')
     const sidebar = document.querySelector('.wf-sidebar')
     return {
       topbarShown: tb ? getComputedStyle(tb).display !== 'none' : false,
-      hamburger: !!document.querySelector('.ap-topbar button[aria-label="打开菜单"]'),
+      hamburger: !!document.querySelector('.wf-nav-bar button[aria-label="打开菜单"]'),
       sidebarHidden: sidebar ? getComputedStyle(sidebar).visibility === 'hidden' : false,
       sidebarFixed: sidebar ? getComputedStyle(sidebar).position === 'fixed' : false,
     }
@@ -81,7 +81,7 @@ test('390px：顶栏可见 + 侧栏收起（内容直达——不再滚过整条
 
 test('390px：汉堡开抽屉 → 导航自动收起（开→点菜单项→URL 变+抽屉关）', async () => {
   const { page } = await newMobilePage('/')
-  await page.click('.ap-topbar button[aria-label="打开菜单"]')
+  await page.click('.wf-nav-bar button[aria-label="打开菜单"]')
   await page.waitForFunction(() => document.querySelector('.wf-sidebar')?.classList.contains('ap-drawer--open'), undefined, { timeout: 5000 })
   const overlayShown = await page.evaluate(() => !!document.querySelector('.ap-drawer-overlay'))
   assert.ok(overlayShown, '抽屉开启时应有遮罩')
@@ -94,7 +94,7 @@ test('390px：汉堡开抽屉 → 导航自动收起（开→点菜单项→URL 
 
 test('390px：遮罩点击关闭抽屉', async () => {
   const { page } = await newMobilePage('/')
-  await page.click('.ap-topbar button[aria-label="打开菜单"]')
+  await page.click('.wf-nav-bar button[aria-label="打开菜单"]')
   await page.waitForFunction(() => !!document.querySelector('.ap-drawer-overlay'), undefined, { timeout: 5000 })
   await page.click('.ap-drawer-overlay', { position: { x: 370, y: 400 } })
   await page.waitForFunction(() => !document.querySelector('.wf-sidebar')?.classList.contains('ap-drawer--open'), undefined, { timeout: 5000 })
@@ -131,7 +131,7 @@ test('1280px 桌面：顶栏隐藏 + 侧栏常态 + 聊天面板常驻（抽屉�
   const errors = await openAgentPage(page, BASE, '/agents')
   await page.waitForFunction(() => (document.body.textContent ?? '').includes('创建 Agent'), undefined, { timeout: 10_000 })
   const state = await page.evaluate(() => {
-    const tb = document.querySelector('.ap-topbar')
+    const tb = document.querySelector('.wf-nav-bar')
     const sidebar = document.querySelector('.wf-sidebar')
     return {
       topbarHidden: tb ? getComputedStyle(tb).display === 'none' : true,

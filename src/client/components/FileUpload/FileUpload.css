@@ -164,3 +164,12 @@
   border-radius: var(--wf-radius-xs);
   transition: width var(--wf-dur-fast) var(--wf-ease-out);
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-upload-input) {}
+
+/* 拖入悬停高亮（2027-xx——--drag 类无规则真漏：拖拽态无视觉反馈——补 hover 同强度高亮） */
+.wf-upload-zone--drag {
+  border-color: var(--wf-color-primary);
+  background: var(--wf-color-bg);
+  box-shadow: var(--wf-focus-ring);
+}

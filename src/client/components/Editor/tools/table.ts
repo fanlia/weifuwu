@@ -1,7 +1,7 @@
 /**
  * weifuwu/components/Editor/tools — 表格工具
  *
- * 事件流事务层（design/editor-events-plan.md 阶段 1）：表格 = embed 事件——
+ * 事件流事务层（ 阶段 1）：表格 = embed 事件——
  * 本模块只生成 HTML（不再操作 DOM/execCommand）。
  */
 

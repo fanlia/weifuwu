@@ -1,0 +1,9 @@
+/* weifuwu/components — DropZone 全区域拖放区（高亮面经组件内 el.style——零 CSS 态） */
+
+/* 拖入中为容器默认外观（高亮由组件直接 el.style——不依赖 class 态） */
+
+.wf-drop-zone--disabled {
+  cursor: not-allowed;
+}
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-drop-zone) {}

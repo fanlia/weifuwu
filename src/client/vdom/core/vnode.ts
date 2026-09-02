@@ -35,7 +35,7 @@ export type VNodeChild = VNode | string | number | boolean | null | undefined | 
  *  异步边界 = useAsyncData/订阅 hooks——renderFn 无 async） */
 export type RenderFn<P = Record<string, unknown>> = (props: P) => VNode | null | (VNode | null)[]
 
-/** 组件（两阶段——**同步**）——2027-08 断代（OBSERVABLE-ARCH 波次 5）：
+/** 组件（两阶段——**同步**）——2027-08 断代（Observable 架构 波次 5）：
  *  - 工厂 = **同步** mount（一次——初始化状态/订阅——**无 mounting 窗口**——
  *    同步执行不存在「半挂载」可观察状态——mouting 竞态类 bug 结构性消灭）
  *  - renderFn = 每次渲染（ctx.render()/props 变化触发——**纯同步**）

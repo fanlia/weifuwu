@@ -67,3 +67,7 @@
   gap: var(--wf-gap-xs);
   margin-top: var(--wf-space-xs);
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-popconfirm-cancel) {}
+:where(.wf-popconfirm-ok) {}
+:where(.wf-popconfirm-title-text) {}

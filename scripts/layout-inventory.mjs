@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * weifuwu/layout 清单脚本（design/layout-optimize.md L0）——布局层单一事实源。
+ * weifuwu/layout 清单脚本（ L0）——布局层单一事实源。
  *
  * 解析 src/client/layout/*.css → 输出：
  *   ① 类清单（断点变体 @sm/@md/@lg 归并到基类；--modifier 状态变体单列）

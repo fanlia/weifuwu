@@ -4,7 +4,7 @@
  * 独立消息气泡（从 AiChat 气泡层抽取，业务聊天页复用）。
  * 复用 layout 的 wf-bubble 原语：user → --own，assistant → --ai。
  * content 支持文本或任意 VNode（可与 Markdown 组合）。
- * 裁剪（CS-05，见 design/components-cuts.md）：不做打字指示动画（Loading 已有）。
+ * 裁剪（CS-05，见 docs/client.md）：不做打字指示动画（Loading 已有）。
  */
 
 import type { Component } from '../../vdom/index.ts'

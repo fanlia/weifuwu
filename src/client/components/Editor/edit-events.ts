@@ -1,7 +1,7 @@
 /**
  * weifuwu/components/Editor/edit-events — 编辑事件流（第四端）
  *
- * 与 ai/sandbox 事件流同构（design/ai-events-plan.md / sandbox-events-plan.md）：
+ * 与 ai/sandbox 事件流同构（ / sandbox-events-plan.md）：
  * 环形缓冲 + 查询（按动作过滤）+ 订阅 + 全局调试工具。
  *
  * 桥接（跨层一条链）：

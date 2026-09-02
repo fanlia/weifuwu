@@ -1,7 +1,7 @@
 /**
  * weifuwu/components/Editor/model — 文档模型（事件流底座）
  *
- * 核心不变量（design/editor-events-plan.md）：文档状态 = fold(edit 事件流)。
+ * 核心不变量（）：文档状态 = fold(edit 事件流)。
  * 本文档模型是纯 TS 数据结构 + 纯函数（无 DOM、无 UI）——阶段 0 验收：
  * 折叠不变量（fuzz）/ 逆操作 / HTML 往返。
  *

@@ -117,3 +117,5 @@
   position: static;
   box-shadow: var(--wf-shadow-md);
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-float-group--open) {}

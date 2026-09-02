@@ -1,7 +1,7 @@
 /**
  * weifuwu/components/Editor — 富文本编辑器（事件流事务层，阶段 1）
  *
- * 架构（design/editor-events-plan.md）：文档 = fold(edit 事件流)。
+ * 架构（）：文档 = fold(edit 事件流)。
  * - 模型真相：DocState（contentEditable DOM 是渲染）
  * - 语义操作（工具栏/快捷键）→ edit:commit（before 快照 + 事件）→ undo/redo 精确
  * - 用户输入（键盘/IME/粘贴）暂由浏览器直写 DOM → onInput 同步回模型

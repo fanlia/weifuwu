@@ -3,7 +3,7 @@
  *
  * 结果页：status + title + desc + extra（操作按钮区）。
  * 用于注册完成/操作成功/404/403 页。
- * 裁剪（CS-05，见 design/components-cuts.md）：不做内置路由跳转（页面自身处理）。
+ * 裁剪（CS-05，见 docs/client.md）：不做内置路由跳转（页面自身处理）。
  */
 
 import type { Component } from '../../vdom/index.ts'

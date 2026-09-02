@@ -10,7 +10,7 @@
  *   </Grid>
  *   <Grid flex gap={8} direction="row">...</Grid>
  *
- * 裁剪（CS-05，见 design/components-cuts.md）：不做响应式断点 props（useBreakpoint 由用户驱动）；
+ * 裁剪（CS-05，见 docs/client.md）：不做响应式断点 props（useBreakpoint 由用户驱动）；
  * gutter 仅水平（垂直 gutter 低频）。
  */
 

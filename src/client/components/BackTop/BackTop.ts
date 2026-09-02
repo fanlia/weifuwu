@@ -31,12 +31,13 @@ export const BackTop: Component<BackTopProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let scroller: Scroller | null = null
   let visible = false
+  let win: Window | null = null
   const propsRef: any = {}
 
   const handler = () => {
     const v = propsRef.visibilityHeight ?? 400
-    const next = scroller instanceof Window
-      ? (window.scrollY ?? document.documentElement.scrollTop) > v
+    const next = scroller === win
+      ? (win as Window).scrollY > v
       : ((scroller as HTMLElement).scrollHeight - (scroller as HTMLElement).scrollTop - (scroller as HTMLElement).clientHeight) > v
     if (next !== visible) { visible = next; ctx.render() }
   }
@@ -45,7 +46,12 @@ export const BackTop: Component<BackTopProps> = (_init, ctx) => {
     if (scroller) return // 幂等——render 重试机制防重复 listener
     const tFn = propsRef.target
     if (tFn && !tFn()) return // target 声明但未就绪（ref 时序）——每次 render 重试
-    scroller = (tFn ? tFn() : window) as Scroller
+    // **浏览器环境纪律（§5.5）**：经 ctx.browser 注入——零全局 window/document
+    // 直接访问（SSR node 无 window——直接引用 = renderFn 抛错 → hole 降级 →
+    // SSR 吸收失败链——backtop 页实证 2027-xx——本次修复根因）
+    win = ctx.browser?.window ?? null
+    if (!win) return // SSR/测试（无浏览器）——不绑定——render 恒隐（客户端首帧后重试）
+    scroller = (tFn ? tFn() : win) as Scroller
     scroller.addEventListener('scroll', handler, { passive: true })
     handler() // 初始状态
   }
@@ -68,8 +74,8 @@ export const BackTop: Component<BackTopProps> = (_init, ctx) => {
     const isBottom = direction === 'bottom'
     const r = () => {
       if (!scroller) return 0
-      return scroller instanceof Window
-        ? document.documentElement.scrollHeight
+      return scroller === win
+        ? (win as Window).document.documentElement.scrollHeight
         : (scroller as HTMLElement).scrollHeight
     }
 

@@ -55,7 +55,7 @@ export interface JsonSchemaFormProps {
   submitLabel?: string
 }
 
-/** 不支持的 schema 关键字 → 告警 + 降级文本输入（诚实裁剪 CS-05，见 design/components-cuts.md：$ref/组合 schema 不提供） */
+/** 不支持的 schema 关键字 → 告警 + 降级文本输入（诚实裁剪 CS-05，见 docs/client.md：$ref/组合 schema 不提供） */
 function unsupported(prop: string, why: string): void {
   console.warn(`[JsonSchemaForm] 字段 "${prop}" 不支持 ${why}——降级为文本输入`)
 }
@@ -210,7 +210,7 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
     }
   }
 
-  /** 数组项控件（标量 items；对象 items 裁剪——诚实登记 components-cuts.md） */
+  /** 数组项控件（标量 items；对象 items 裁剪——诚实登记 docs/client.md#能力裁剪登记） */
   function renderArrayItem(k: string, s: JsonSchema, path: string[], value: any, errors: Record<string, string>): any {
     if (s.enum?.length) {
       const options = s.enum.map((v) => ({ value: String(v), label: String(v) }))

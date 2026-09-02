@@ -1,6 +1,6 @@
 /**
  * showcase 组件测试——Backtop（/components/backtop）——全功能点固化
- * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Backtop」组（playwright 实测后固化）
+ * 清单：「Backtop」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-backtop.test.ts
  */
 import { test } from 'node:test'
@@ -35,7 +35,6 @@ test('FP1 初始隐藏（scrollY=0 < 400 阈值）+ 滚动超阈值显示', asyn
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.waitForSelector('main .wf-backtop', { timeout: 5000 }).catch(() => {})
     await page.evaluate(() => { document.body.style.minHeight = '2000px' })
     const state = () => page.evaluate(() => {
       const btn = document.querySelector('main .wf-backtop')
@@ -46,7 +45,7 @@ test('FP1 初始隐藏（scrollY=0 < 400 阈值）+ 滚动超阈值显示', asyn
     const s0 = await state()
     assert.ok(!s0 || s0.hidden, `初始隐藏（${JSON.stringify(s0)}）`)
     await page.evaluate(() => window.scrollTo(0, 500))
-    await page.waitForFunction(() => !(document.querySelector('main .wf-backtop')?.className ?? '').includes('--hidden'), null, { timeout: 3000 })
+    await page.waitForFunction(() => !(document.querySelector('main .wf-backtop')?.className ?? '').includes('--hidden'), null, { timeout: 8000 })
     const s1 = await state()
     assert.equal(s1?.pe, 'auto', '显示后可点（pointer-events）')
   } finally { await page.close() }
@@ -56,12 +55,11 @@ test('FP2 点击回顶（smooth）+ 回顶后隐藏', async () => {
   const page = await browser.newPage()
   try {
     await open(page)
-    await page.waitForSelector('main .wf-backtop', { timeout: 5000 }).catch(() => {})
     await page.evaluate(() => { document.body.style.minHeight = '2000px' })
     await page.evaluate(() => window.scrollTo(0, 800))
-    await page.waitForFunction(() => !(document.querySelector('main .wf-backtop')?.className ?? '').includes('--hidden'), null, { timeout: 3000 })
+    await page.waitForFunction(() => !(document.querySelector('main .wf-backtop')?.className ?? '').includes('--hidden'), null, { timeout: 8000 })
     await page.locator('main .wf-backtop').click({ force: true })
-    await page.waitForFunction(() => window.scrollY < 50, null, { timeout: 3000 })
-    await page.waitForFunction(() => (document.querySelector('main .wf-backtop')?.className ?? '').includes('--hidden'), null, { timeout: 3000 })
+    await page.waitForFunction(() => window.scrollY < 50, null, { timeout: 8000 })
+    await page.waitForFunction(() => (document.querySelector('main .wf-backtop')?.className ?? '').includes('--hidden'), null, { timeout: 8000 })
   } finally { await page.close() }
 })

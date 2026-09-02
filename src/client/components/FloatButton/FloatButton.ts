@@ -9,7 +9,7 @@
  *     <FloatButton icon={...} onClick={...} />
  *   </FloatButtonGroup>
  *
- * 裁剪（CS-05，见 design/components-cuts.md）：不做拖拽悬浮（Resizable 可组合）；回顶用 BackTop 语义更清晰。
+ * 裁剪（CS-05，见 docs/client.md）：不做拖拽悬浮（Resizable 可组合）；回顶用 BackTop 语义更清晰。
  */
 
 import type { Component } from '../../vdom/index.ts'

@@ -1,6 +1,6 @@
 /**
  * showcase 组件测试——Affix（/components/affix）——全功能点固化
- * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Affix」组（playwright 实测后固化）
+ * 清单：「Affix」组（playwright 实测后固化）
  * 修复回归：
  * - style 对象→undefined 整体移除（applyStyle 静默 no-op → 卡 fixed——核心层）
  * - useScrollPosition refresh = ensure + emit（目标后挂载绑定丢失——核心层）

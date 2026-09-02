@@ -18,7 +18,8 @@
   box-shadow: var(--wf-shadow-sm);
   transition: opacity var(--wf-dur-base) var(--wf-ease-out),
               transform var(--wf-dur-base) var(--wf-ease-out),
-              background var(--wf-dur-fast) var(--wf-ease-out);
+              background var(--wf-dur-fast) var(--wf-ease-out),
+              visibility var(--wf-dur-base) var(--wf-ease-out);
 }
 
 .wf-backtop:hover {
@@ -33,6 +34,9 @@
 
 .wf-backtop--hidden {
   opacity: 0;
+  /* visibility：不可见按钮不得可 Tab 聚焦（a11y——浮钮语义：隐藏即不可达；
+     加入 transition 使收起时 opacity 先动画完再隐藏——展开立即可见） */
+  visibility: hidden;
   pointer-events: none;
   transform: translateY(8px);
 }

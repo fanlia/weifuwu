@@ -1,7 +1,7 @@
 /**
  * vdom core — commandToHtml（命令事件流 → HTML——流式 SSR 核心）
  *
- * 设计（design/vdom-plan.md §3）：服务端消费同一 handler 的 Response——
+ * 设计（ §3）：服务端消费同一 handler 的 Response——
  * `res.body.pipeThrough(commandToHtml())` → HTTP 流式响应（边构建边吐
  * HTML——React Fizz 同模式）：
  * - create（attrs 序列化面）→ 开标签（属性转义——style 对象 → CSS 文本）

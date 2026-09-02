@@ -434,7 +434,7 @@ export const components: ComponentEntry[] = [
     "id": "treeselect",
     "name": "TreeSelect",
     "desc": "树形选择：单选/多选（父子联动）+ 选中 label 回显 + 受控纪律",
-    "gotchas": ["弹窗纪律（§5.4）：曾遗漏 portal——absolute 在父容器 overflow/transform 下裁剪/错位——统一 usePopup", "选项量小场景搜索过滤已裁剪（components-cuts.md 永久裁剪）"],
+    "gotchas": ["弹窗纪律（§5.4）：曾遗漏 portal——absolute 在父容器 overflow/transform 下裁剪/错位——统一 usePopup", "选项量小场景搜索过滤已裁剪（docs/client.md#能力裁剪登记 永久裁剪）"],
     "sourceFile": "src/client/components/TreeSelect/TreeSelect.ts",
     "cssFile": "src/client/components/TreeSelect/TreeSelect.css",
     "testFile": "src/client/components/TreeSelect/TreeSelect.test.ts"
@@ -678,7 +678,7 @@ export const components: ComponentEntry[] = [
     "id": "popover",
     "name": "Popover",
     "desc": "通用弹出层，click/hover 触发，4 方向",
-    "gotchas": ["portal 槽豁免（同 HoverCard）", "富内容自动判定已裁剪——HoverCard 补富内容（components-cuts.md）"],
+    "gotchas": ["portal 槽豁免（同 HoverCard）", "富内容自动判定已裁剪——HoverCard 补富内容（docs/client.md#能力裁剪登记）"],
     "sourceFile": "src/client/components/Popover/Popover.ts",
     "cssFile": "src/client/components/Popover/Popover.css",
     "testFile": "src/client/components/Popover/Popover.test.ts"
@@ -1065,7 +1065,7 @@ export const components: ComponentEntry[] = [
     "id": "cascader",
     "name": "Cascader",
     "desc": "级联选择：多列面板逐级推进（antd/EP Cascader）",
-    "gotchas": ["受控纪律：受控 value 必须配回调——缺回调静默不可点", "多选（multiple）已裁剪（低频——单选+搜索已够，见 components-cuts.md）"],
+    "gotchas": ["受控纪律：受控 value 必须配回调——缺回调静默不可点", "多选（multiple）已裁剪（低频——单选+搜索已够，见 docs/client.md#能力裁剪登记）"],
     "sourceFile": "src/client/components/Cascader/Cascader.ts",
     "cssFile": "src/client/components/Cascader/Cascader.css",
     "testFile": "src/client/components/Cascader/Cascader.test.ts"
@@ -1182,7 +1182,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "sheetgrid",
     "name": "SheetGrid",
-    "desc": "weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（design/office-events-plan.md）：文档 = fold(事件流)——SheetGrid 的每个",
+    "desc": "weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（）：文档 = fold(事件流)——SheetGrid 的每个",
     "family": "file-preview",
     "sourceFile": "src/client/components/SheetGrid/SheetGrid.ts",
     "cssFile": "src/client/components/SheetGrid/SheetGrid.css",
@@ -1191,7 +1191,7 @@ export const components: ComponentEntry[] = [
   {
     "id": "slidecanvas",
     "name": "SlideCanvas",
-    "desc": "weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（design/office-events-plan.md）：文档 = fold(事件流)——每个编辑 =",
+    "desc": "weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（）：文档 = fold(事件流)——每个编辑 =",
     "family": "file-preview",
     "sourceFile": "src/client/components/SlideCanvas/SlideCanvas.ts",
     "cssFile": "src/client/components/SlideCanvas/SlideCanvas.css",
@@ -1256,5 +1256,23 @@ export const components: ComponentEntry[] = [
     "sourceFile": "src/client/components/PromptTemplate/PromptTemplate.ts",
     "cssFile": "src/client/components/PromptTemplate/PromptTemplate.css",
     "testFile": "src/client/components/PromptTemplate/PromptTemplate.test.ts"
+  }
+,
+  {
+    "id": "navbar",
+    "name": "NavBar",
+    "desc": "移动端顶栏——left 槽（返回/菜单）+ 标题截断 + right 槽（antd-mobile NavBar 对位）",
+    "sourceFile": "src/client/components/NavBar/NavBar.ts",
+    "cssFile": "src/client/components/NavBar/NavBar.css",
+    "testFile": "src/client/components/NavBar/NavBar.test.ts"
+  }
+,
+  {
+    "id": "dropzone",
+    "name": "DropZone",
+    "desc": "全区域拖放区——整容器拖入文件高亮 + onFiles 回调（现代 IM 标配——Chat 手搓证据）",
+    "sourceFile": "src/client/components/DropZone/DropZone.ts",
+    "cssFile": "src/client/components/DropZone/DropZone.css",
+    "testFile": "src/client/components/DropZone/DropZone.test.ts"
   }
 ]

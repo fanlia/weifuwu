@@ -131,3 +131,11 @@
   outline: none;
   box-shadow: var(--wf-focus-ring);
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-input--table-edit) {}
+:where(.wf-table-tbody) {}
+:where(.wf-table-td--editable) {}
+:where(.wf-table-td--editing) {}
+:where(.wf-table-td--selection) {}
+:where(.wf-table-th--selection) {}
+:where(.wf-table-tr--loading) {}

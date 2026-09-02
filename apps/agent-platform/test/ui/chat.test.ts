@@ -106,8 +106,8 @@ test('拖拽上传：文件拖入消息区 → 入列预览（2027-09——拖�
   })
   // 入列断言：文件 chip 出现（📎 拖拽文件.csv——addFiles 链渲染面）
   await waitForBodyText(page, /拖拽文件\.csv/, 5_000)
-  // 高亮清理断言：drop 后 outline 清除
-  const outline = await page.evaluate(() => (document.querySelector('.wf-overflow-auto') as HTMLElement)?.style.outline ?? '')
+  // 高亮清理断言：drop 后框架 DropZone 容器 outline 清除（第十一批迁移——高亮面在 .wf-drop-zone）
+  const outline = await page.evaluate(() => (document.querySelector('.wf-drop-zone') as HTMLElement)?.style.outline ?? '')
   assert.equal(outline, '', 'drop 后拖拽高亮应清除')
   await page.close()
 })

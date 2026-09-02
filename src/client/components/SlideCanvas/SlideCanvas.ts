@@ -1,7 +1,7 @@
 /**
  * weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3）
  *
- * 设计（design/office-events-plan.md）：文档 = fold(事件流)——每个编辑 =
+ * 设计（）：文档 = fold(事件流)——每个编辑 =
  * OfficeOp（shape-add/remove/move/resize/set）→ editEmit('office') → commit。
  *
  * - 画布：960×540 幻灯片区域（缩放适配容器——scale 因子）

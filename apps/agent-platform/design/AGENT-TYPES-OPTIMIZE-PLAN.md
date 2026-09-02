@@ -90,5 +90,5 @@
 ## 4. 参考锚点
 
 - 历史：`docs/archive/AGENT-TYPES-PLAN.md` / `AGENT-TYPES-RESULTS.md`（4 类已完成）
-- 角色矩阵：`design/ROLES.md`（五类员工模型——department = 组织节点实体化）
+- 角色矩阵：（ROLES 文档已归档——五类员工模型见 AGENT-TYPES-OPTIMIZE-PLAN）（五类员工模型——department = 组织节点实体化）
 - 测试基建：`test/ui/shared.ts`（真实 server + playwright）· API 契约 test/*.test.ts

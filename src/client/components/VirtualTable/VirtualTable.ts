@@ -5,7 +5,7 @@
  * 复用 VirtualList 滚动基座（useScrollPosition 像素级 scrollTop + rAF 节流）。
  * 排序：受控 sortKey/sortOrder + onSort（与 Table 同款模式）。
  * 行选择：rowSelection（受控 selectedRowKeys + onChange，复选框列）。
- * 裁剪（CS-05，见 design/components-cuts.md）：列虚拟化（横向）、行编辑、单元格合并、树形表格。
+ * 裁剪（CS-05，见 docs/client.md）：列虚拟化（横向）、行编辑、单元格合并、树形表格。
  */
 
 import type { Component } from '../../vdom/index.ts'

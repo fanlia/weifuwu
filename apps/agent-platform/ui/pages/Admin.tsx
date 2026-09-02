@@ -230,7 +230,7 @@ export const Admin: Component = (_props, ctx) => {
         <div key="loading" class="wf-font-sm wf-text-tertiary wf-padding-y-lg wf-center">加载中...</div>
       ) : (
         <Card key="apps-table">
-          {/* 全量渲染（用户决策 2026-08：不截断——以 vdom 性能升级根治——见 design/VDOM-PERF-PLAN.md） */}
+          {/* 全量渲染（用户决策 2026-08：不截断——以 vdom 性能升级根治——见 ） */}
           {apps.length > 0 && (
             <div class="wf-font-xs wf-text-tertiary wf-margin-bottom-sm">共 {apps.length} 个团队——全量渲染（vdom 性能升级实证基线）</div>
           )}

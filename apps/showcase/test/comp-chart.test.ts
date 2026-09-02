@@ -1,6 +1,6 @@
 /**
  * showcase 组件测试——Chart（/components/chart）——全功能点固化
- * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Chart」组（playwright 实测后固化）
+ * 清单：「Chart」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-chart.test.ts
  */
 import { test } from 'node:test'

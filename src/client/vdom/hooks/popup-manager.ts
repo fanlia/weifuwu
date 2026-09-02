@@ -1,7 +1,7 @@
 /**
  * vdom 命令式弹窗内核（2027-03——一个形态：ctx.popup.open——toast 心智）
  *
- * 设计（design/imperative-popup-plan.md）：
+ * 设计（docs/client.md）：
  * - **唯一形态**：openPopup(opts) → PopupHandle——调用点构建内容——内核
  *   自管理挂载/更新/卸载/销毁（挂载/卸载/销毁在实例内——无框架机制依赖）
  * - **每次 openPopup = 独立实例**（普通闭包状态——非 hook 状态——无共享

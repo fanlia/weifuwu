@@ -3,7 +3,7 @@
  *
  * 日志流查看器（Agent 执行日志 / CI 输出）：ANSI 着色 + 虚拟滚动 + 自动跟随。
  * 复用 VirtualList 滚动基座（useScrollPosition + rAF 节流）。
- * 裁剪（CS-05，见 design/components-cuts.md）：正则高亮、多日志源合并、搜索定位。
+ * 裁剪（CS-05，见 docs/client.md）：正则高亮、多日志源合并、搜索定位。
  */
 
 import type { Component } from '../../vdom/index.ts'

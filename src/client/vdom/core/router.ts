@@ -1,7 +1,7 @@
 /**
  * vdom core — route 阶段（UIRouter——应用唯一入口——公共面）
  *
- * 设计（design/vdom-plan.md §2）：Handler 签名字面同构后端——
+ * 设计（ §2）：Handler 签名字面同构后端——
  * `(req: Request, ctx) => Response`——原生 Request/Response——
  * 路由核心 = shared Trie（src/shared/router/trie.ts——前后端共用）——
  * 静态段优先 → :param → * 通配——params 注入 req。

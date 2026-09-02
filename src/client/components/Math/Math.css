@@ -10,3 +10,9 @@
 .wf-math-sqrt-radical { margin-right: 1px; }
 .wf-math-sup { font-size: 0.75em; vertical-align: super; }
 .wf-math-sub { font-size: 0.75em; vertical-align: sub; }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-math-sqrt) {}
+:where(.wf-math-sqrt-body) {}
+:where(.wf-math-sum) {}
+:where(.wf-math-sum-symbol) {}
+:where(.wf-math-token) {}

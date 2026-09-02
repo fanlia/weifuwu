@@ -36,7 +36,7 @@ import {
   Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
   Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
   JsonSchemaForm, ReasoningBlock, CitationCard, SessionList,
-  TabBar, ActionSheet,
+  TabBar, ActionSheet, NavBar, DropZone,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
@@ -192,6 +192,38 @@ export const DemoActionSheet: Component = (_props: any, ctx: any) => {
   )
 }
 
+/** NavBar：移动端顶栏（antd-mobile NavBar 对位——left 槽 + 标题 + right 槽） */
+export const DemoNavBar: Component = (_props: any, ctx: any) => {
+  let clicks = 0
+  const bump = () => { clicks++; ctx.render() }
+  return () => (
+    <div class="wf-stack wf-gap-sm wf-border wf-radius-md" style="overflow:hidden">
+      <NavBar
+        title="工作台"
+        left={<Button size="sm" variant="ghost" aria-label="返回" onClick={bump}><Icon name="arrow-left" size={20} /></Button>}
+        right={<Button size="sm" variant="ghost" aria-label="设置" onClick={bump}><Icon name="settings" size={16} /></Button>}
+      />
+      <div class="wf-padding-md wf-font-sm wf-text-secondary">
+        点击次数：{clicks}——NavBar 移动端顶栏（sticky 常驻 + safe-area 避让；title 单行截断）
+      </div>
+    </div>
+  )
+}
+
+/** DropZone：全区域拖放区（整容器拖入文件高亮——现代 IM 标配） */
+export const DemoDropZone: Component = (_props: any, ctx: any) => {
+  let files: string[] = []
+  return () => (
+    <div class="wf-stack wf-gap-sm wf-border wf-radius-md" style="min-height:160px">
+      <DropZone className="wf-padding-lg" onFiles={(fs: File[]) => { files = fs.map((f) => f.name); ctx.render() }}>
+        <div class="wf-center wf-font-sm wf-text-secondary" style="min-height:100px">
+          {files.length > 0 ? `已拖入：${files.join(', ')}` : '把文件拖到这里（整区域均可）——高亮后松开即回调'}
+        </div>
+      </DropZone>
+    </div>
+  )
+}
+
 export const DEMOS: Record<string, any> = {
   VideoPlayer: DemoVideoPlayer,
   Math: DemoMath,
@@ -203,4 +235,6 @@ export const DEMOS: Record<string, any> = {
   "Divider": DemoDivider,
   "TabBar": DemoTabBar,
   "ActionSheet": DemoActionSheet,
+  "NavBar": DemoNavBar,
+  "DropZone": DemoDropZone,
 }

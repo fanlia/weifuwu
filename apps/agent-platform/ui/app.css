@@ -7,11 +7,6 @@
  * 断点对齐框架：<768px 移动（wf-app-shell 堆叠降级同款）· 聊天面板 @lg=1024。
  */
 
-/* ── 移动顶栏（<768px 显示——汉堡 + 品牌 + 设置/退出快捷） ── */
-.ap-topbar {
-  display: none;
-}
-
 /* ── 顶栏包装（桌面零影响：flex 列容器——main 占满） ── */
 .ap-body {
   display: flex;
@@ -27,32 +22,6 @@
 }
 
 @media (max-width: 767.98px) {
-  /* 顶栏：sticky 常驻（滚动不丢导航入口） */
-  .ap-topbar {
-    display: flex;
-    align-items: center;
-    gap: var(--wf-gap-sm);
-    padding: var(--wf-space-xs) var(--wf-space-sm);
-    background: var(--wf-color-bg-secondary);
-    border-bottom: var(--wf-border-width) solid var(--wf-color-border);
-    position: sticky;
-    top: 0;
-    z-index: 40;
-  }
-  .ap-topbar-brand {
-    display: flex;
-    align-items: center;
-    gap: var(--wf-gap-xs);
-    min-width: 0;
-    flex: 1;
-  }
-  .ap-topbar-title {
-    font-weight: var(--wf-font-weight-semibold);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   /* 侧栏 → 抽屉：fixed 覆盖（脱离文档流——框架堆叠降级被替换） */
   .wf-app-shell .wf-sidebar {
     position: fixed;

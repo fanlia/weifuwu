@@ -20,7 +20,7 @@ export interface VirtualListProps {
 /**
  * 虚拟列表（对应 EP VirtualTable）：固定高度 items 只渲染可见窗口，
  * spacer 撑总高 + 绝对定位可见项。1000+ 条列表性能关键。
- * 裁剪（CS-05，见 design/components-cuts.md）：动态高度（ResizeObserver 测量）、滚动平滑（sticky 场景）。
+ * 裁剪（CS-05，见 docs/client.md）：动态高度（ResizeObserver 测量）、滚动平滑（sticky 场景）。
  * 滚动跟随：ctx.ui.useScrollPosition（内置全局 scroll 监听 + rAF 节流）——
  * 像素级 scrollTop 响应式，无组件自建 scroll 监听。
  */

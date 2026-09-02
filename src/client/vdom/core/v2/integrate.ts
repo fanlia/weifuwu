@@ -1,7 +1,7 @@
 /**
  * vdom v2 — 集成（v2 引擎 → 消费端链路）
  *
- * VDOM-V2-BLUEPRINT 阶段 2A：
+ * v2 引擎蓝图 阶段 2A：
  * - **命令流同构 → 消费端复用**：renderV2/diffV2 产出 Observable<Command>
  *   ——commandToHtml / CommandApplier 直接消费（命令语义 v1 相同——零改动）
  * - v2ToHtml：v2 渲染 → HTML（SSR 路径——契约层无 DOM 验证）

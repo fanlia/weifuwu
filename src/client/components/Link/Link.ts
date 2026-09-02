@@ -6,7 +6,7 @@
  *
  *   <Link href="/docs" variant="primary" icon="→">文档</Link>
  *
- * 裁剪（CS-05，见 design/components-cuts.md）：不做 hover 弹层预览/图标内置枚举（icon 任意 VNode）。
+ * 裁剪（CS-05，见 docs/client.md）：不做 hover 弹层预览/图标内置枚举（icon 任意 VNode）。
  */
 
 import type { Component } from '../../vdom/index.ts'

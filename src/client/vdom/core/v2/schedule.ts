@@ -1,7 +1,7 @@
 /**
  * vdom v2 — 调度流（render$——buffer + flush——batching）
  *
- * VDOM-V2-BLUEPRINT 阶段 1d：
+ * v2 引擎蓝图 阶段 1d：
  * - render() 请求 = 流 next——**同微任务拍 N 次 → 1 次渲染循环**（React 18
  *   同级优化——渲染频率防线）
  * - 渲染中请求 → 排队（下拍 flush——FIFO 不丢——v1 语义保持）

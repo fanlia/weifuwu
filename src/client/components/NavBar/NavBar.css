@@ -1,0 +1,43 @@
+/* weifuwu/components — NavBar 移动端顶栏（antd-mobile NavBar 对位） */
+
+.wf-nav-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  min-height: 48px;
+  padding: 4px var(--wf-space-sm);
+  background: var(--wf-color-bg-secondary);
+  border-bottom: 1px solid var(--wf-color-border);
+}
+
+/* sticky 常驻：滚动不丢导航入口（ap-topbar 实证）+ 刘海屏避让 */
+.wf-nav-bar--fixed {
+  position: sticky;
+  top: 0;
+  z-index: var(--wf-z-sticky);
+  padding-top: calc(4px + env(safe-area-inset-top, 0px));
+}
+
+.wf-nav-bar-side {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  min-width: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.wf-nav-bar-title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: var(--wf-font-size-base);
+  font-weight: var(--wf-font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wf-nav-bar-title--left {
+  text-align: left;
+}

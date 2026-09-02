@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * weifuwu 样式审计（design/style-professional-plan.md §3——防回潮红线）
+ * weifuwu 样式审计（ §3——防回潮红线）
  *
  * 消费方：src/test/contract/style-audit.test.ts（契约层断言）+ CLI 手动运行。
  * 规则：

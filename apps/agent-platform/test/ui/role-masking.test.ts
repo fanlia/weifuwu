@@ -5,7 +5,7 @@
  * 原因说明（引导而非惩罚）。感知点 = localStorage agent_platform_role
  * （ui/lib/roles.ts——Login/injectAuth 写入）。
  *
- * 遮蔽矩阵（矩阵口径 = design/ROLES.md §5）：
+ * 遮蔽矩阵（矩阵口径 = §5）：
  * - Departments 创建部门：owner 可用；member（需租户所有者）/viewer（只读）禁用
  * - Agents 创建 Agent：owner/member 可用；viewer 禁用（writer 面）
  * - Settings 邀请区：owner 表单；member/viewer 禁用卡「仅租户所有者可用」

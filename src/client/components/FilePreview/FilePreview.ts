@@ -1,7 +1,7 @@
 /**
  * weifuwu/components/FilePreview — 文件预览（office/pdf/md/html/text）
  *
- * 架构（design/file-preview-plan.md）：
+ * 架构（ —— ODES 事件流底座）：
  * - md 预览：复用 `<Markdown>` 组件（安全 token 渲染——表格/任务列表/URL 白名单）
  * - md/text 编辑：复用 `<Editor>`（事件流事务层——撤销/时光机/AI 全继承）——
  *   编辑闭环：md → markdownToHtml → Editor（DocState 模型）→ serializeMarkdown 回写

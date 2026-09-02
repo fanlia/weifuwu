@@ -5,7 +5,7 @@
  * 与 createDevVerifier（生产 dev 检查）共用——消灭双实现漂移（isConnected
  * 类误报的根治——规格只有一份——两边行为恒等）。
  *
- * 规格（design/vdom-state-machine-plan.md §2.1/§3）：
+ * 规格（ §2.1/§3）：
  *   ABSENT → CREATED → INSERTED → ACTIVE（close）→ REMOVED
  *   - create 族：ABSENT → CREATED（同形复用不变）
  *   - insert：CREATED → INSERTED（INSERTED/ACTIVE = 幂等 skip）

@@ -6,7 +6,7 @@
  *
  *   <Scrollbar maxHeight={300}>长内容</Scrollbar>
  *
- * 裁剪（CS-05，见 design/components-cuts.md）：不做虚拟滚动/拖动滚动条 thumb（VirtualList 覆盖虚拟化）。
+ * 裁剪（CS-05，见 docs/client.md）：不做虚拟滚动/拖动滚动条 thumb（VirtualList 覆盖虚拟化）。
  */
 
 import type { Component } from '../../vdom/index.ts'

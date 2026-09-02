@@ -1,7 +1,7 @@
 /**
  * vdom v2 — uiSsrV2（SSR 完整——v2 引擎渲染 + v1 两遍/预取/__DATA__ 机制）
  *
- * VDOM-V2-BLUEPRINT 缺口 1/3：
+ * v2 引擎蓝图 缺口 1/3：
  * - stream = renderV2（v2 引擎——Observable<Command> → ReadableStream 适配）
  * - 两遍渲染（预取遍 + 等待 + 正式遍——v1 机制复用）
  * - prefetch 钩子 + asyncSeed + __DATA__——同 v1 通道

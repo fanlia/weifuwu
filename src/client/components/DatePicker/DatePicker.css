@@ -317,3 +317,5 @@
 /* error（F2 状态矩阵） */
 .wf-datepicker-input--err { border-color: var(--wf-color-error); }
 .wf-datepicker-input--err:focus { box-shadow: 0 0 0 2px var(--wf-color-error-bg), 0 0 0 1px var(--wf-color-error); }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-datepicker-footer-btn) {}

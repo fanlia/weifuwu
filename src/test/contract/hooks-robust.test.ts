@@ -1,5 +1,5 @@
 /**
- * vdom hooks — 健壮性契约（R5——design/vdom-core-robustness-round4.md P4）
+ * vdom hooks — 健壮性契约（R5—— P4）
  *
  * 覆盖（mock 环境直跑——零浏览器——行为/清理/边界断言）：
  * - useTween：duration 边界（0/负值直落不 NaN）/ 目标变化补间 / unmount 取消

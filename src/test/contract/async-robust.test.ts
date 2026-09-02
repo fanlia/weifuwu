@@ -1,5 +1,5 @@
 /**
- * vdom core — 异步时序健壮性契约（R1/R2——design/vdom-core-robustness-round4.md P1）
+ * vdom core — 异步时序健壮性契约（R1/R2—— P1）
  *
  * 覆盖：
  * - R2a：DataPipe fetcher 挂起 → 超时 reject（管道级放弃——不饿死渲染队列）

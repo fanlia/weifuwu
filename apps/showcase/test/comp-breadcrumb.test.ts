@@ -1,6 +1,6 @@
 /**
  * showcase 组件测试——Breadcrumb（/components/breadcrumb）——全功能点固化
- * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「Breadcrumb」组（playwright 实测后固化）
+ * 清单：「Breadcrumb」组（playwright 实测后固化）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-breadcrumb.test.ts
  */
 import { test } from 'node:test'

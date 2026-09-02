@@ -20,7 +20,7 @@ export interface MentionsProps {
 }
 
 /** @提及输入（对应 antd Mentions）：输入 prefix + 关键词弹出候选，点击/Enter 插入。
- * 裁剪（CS-05，见 design/components-cuts.md）：不做多 prefix/自定义高亮渲染/远程搜索（options 静态传入）。 */
+ * 裁剪（CS-05，见 docs/client.md）：不做多 prefix/自定义高亮渲染/远程搜索（options 静态传入）。 */
 export const Mentions: Component<MentionsProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let open = false

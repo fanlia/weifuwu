@@ -3,7 +3,7 @@
  *
  * 支持子集：上下标（x^2, x_1）、分数（\frac{a}{b}）、根号（\sqrt{x}）、
  * 希腊字母（\alpha \beta \pi）、求和（\sum_{i=1}^{n}）
- * 裁剪边界（design/components-cuts.md）：完整 LaTeX 引擎是独立项目——
+ * 裁剪边界（docs/client.md）：完整 LaTeX 引擎是独立项目——
  * 本组件覆盖教学/文档场景 80% 公式；复杂排版（矩阵/多行对齐）不渲染（诚实渲染原文）。
  */
 import type { Component } from '../../vdom/index.ts'

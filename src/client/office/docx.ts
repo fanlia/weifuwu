@@ -2,7 +2,7 @@
  * weifuwu/office/docx — docx ↔ ODES DocState 双向转换（前端/服务端通用——零依赖）
  *
  * 参考算法：office2json（unzip → XML 树 → 路径提取 w:body → w:p → w:r → w:t），
- * 增强提取到 ODES IR（design/office-events-plan.md）：
+ * 增强提取到 ODES IR（）：
  * - 段落属性：pStyle → h1/h2/h3、jc → 对齐（裁剪：样式名映射子集）
  * - 内联格式：rPr b/i/u → marks（区间）
  * - 表格：w:tbl → Editor 表格 embed 快照（HTML 复用现有模型）

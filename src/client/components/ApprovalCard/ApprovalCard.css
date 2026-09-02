@@ -103,3 +103,9 @@
   gap: var(--wf-gap-sm);
   align-items: flex-start;
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-approval-icon) {}
+:where(.wf-approval-modify-btn) {}
+:where(.wf-approval-modify-cancel) {}
+:where(.wf-approval-note) {}
+:where(.wf-approval-title) {}

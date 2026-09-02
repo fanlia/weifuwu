@@ -1,5 +1,5 @@
 /**
- * vdom core — 核心审计契约（R7——design/vdom-core-robustness-round4.md P5）
+ * vdom core — 核心审计契约（R7—— P5）
  *
  * 直跑 scripts/core-audit.mjs（node:test——零浏览器）：
  * - C1：proc* 防御性 return 必须有语义标注（静默吞错 = P2 违例显式化）

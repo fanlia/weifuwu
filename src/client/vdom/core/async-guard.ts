@@ -1,7 +1,7 @@
 /**
  * vdom core — async guard（异步超时防御——R2 挂起/饿死防御——零依赖）
  *
- * 背景（design/vdom-core-robustness-round4.md R2）：DataPipe 缓存 pending
+ * 背景（ R2）：DataPipe 缓存 pending
  * promise 无超时——fetcher 永不 resolve（网络挂起/用户 promise 泄漏）→
  * `await renderFn` 永不完成 → 渲染队列饿死——应用冻结。
  *

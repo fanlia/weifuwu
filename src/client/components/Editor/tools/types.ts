@@ -41,7 +41,7 @@ export interface EditorAiAction {
 }
 
 export interface EditorAiOptions {
-  /** wf: SSE 端点（POST——协议 docs/ai-contract.md） */
+  /** wf: SSE 端点（POST——协议 docs/server.md） */
   url: string
   headers?: Record<string, string>
   /** 自定义动作（缺省 = 内置 5 个：润色/翻译/缩写/扩写/纠错） */

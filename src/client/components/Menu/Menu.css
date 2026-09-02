@@ -180,3 +180,6 @@
   from { opacity: 0; transform: translateY(calc(var(--wf-motion-sm) * -1)); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-menu-label) {}
+:where(.wf-menu-submenu-title--active) {}

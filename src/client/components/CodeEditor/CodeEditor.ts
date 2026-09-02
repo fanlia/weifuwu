@@ -2,7 +2,7 @@
  * CodeEditor — 轻量代码编辑器（textarea + 行号——零依赖自研，不引 Monaco）
  *
  * 定位：配置/模板/脚本类轻编辑（非 IDE 级）——需要完整 IDE 体验的场景
- * 是裁剪边界（Monaco 600KB+ 违背零依赖哲学——design/components-cuts.md 登记）。
+ * 是裁剪边界（Monaco 600KB+ 违背零依赖哲学——docs/client.md 登记）。
  * 受控纪律：value 受控 + 缺 onChange → warn。
  */
 import type { Component } from '../../vdom/index.ts'

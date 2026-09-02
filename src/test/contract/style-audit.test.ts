@@ -1,5 +1,5 @@
 /**
- * 样式审计契约（design/style-professional-plan.md §3——S1-S5 防回潮红线）
+ * 样式审计契约（ §3——S1-S5 防回潮红线）
  *
  * 直跑 scripts/style-audit.mjs（node:test——零浏览器——契约层纪律）。
  * 断言：
@@ -22,7 +22,7 @@ const S6_WARN_BASELINE = 12
 test('S1-S7 样式审计零错误（防回潮红线）', () => {
   const res = audit()
   assert.equal(res.errors.length, 0, 'S1-S7 违规:\n' + res.errors.join('\n'))
-  assert.equal(res.files, 129, `组件 CSS 文件数（新增组件须登记审计）: ${res.files}`)
+  assert.equal(res.files, 132, `组件 CSS 文件数（新增组件须登记审计）: ${res.files}`)
 })
 
 test('S4 交互态链警告 ≤ 基线（登记制——不新增漏网）', () => {

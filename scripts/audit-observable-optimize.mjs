@@ -2,7 +2,7 @@
 /**
  * audit-observable-optimize — VDOM-OBSERVABLE-OPTIMIZE 完成三检查
  *
- * 检查（design/VDOM-OBSERVABLE-OPTIMIZE.md §0 完成定义）：
+ * 检查（ §0 完成定义）：
  * 1. **调度器无隐式时序**：schedule.ts 无 setTimeout(0) 风暴清零 hack——
  *    风暴检测 = 事件间隔判定（<16ms 计数 / ≥16ms 重置——显式时序）
  * 2. **组合算子面在**：combineLatest/merge/debounceTime/throttleTime/

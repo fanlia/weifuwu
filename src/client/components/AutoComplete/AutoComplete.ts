@@ -10,7 +10,7 @@
  *     value={query} onChange={setQuery}
  *   />
  *
- * 裁剪（CS-05，见 design/components-cuts.md）：不做分组/虚拟化候选（Select searchable 覆盖分组场景）；
+ * 裁剪（CS-05，见 docs/client.md）：不做分组/虚拟化候选（Select searchable 覆盖分组场景）；
  * 自定义渲染用 `renderOption` 透传。
  */
 

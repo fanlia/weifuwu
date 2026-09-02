@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * weifuwu core 审计（design/vdom-core-robustness-round4.md P5——R7）
+ * weifuwu core 审计（ P5——R7）
  *
  * 规则（防御性 return 标注 + as any 登记制——防回潮）：
  *   C1  proc* 处理器裸 return 必须有语义标注（防御/审计/幂等/合法/违例/

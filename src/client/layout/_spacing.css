@@ -17,6 +17,7 @@
 .wf-padding-xl { padding: var(--wf-space-xl); }
 
 /* ── padding: 轴 ── */
+.wf-padding-x-xs { padding-left: var(--wf-space-xs); padding-right: var(--wf-space-xs); }
 .wf-padding-x-sm { padding-left: var(--wf-space-sm); padding-right: var(--wf-space-sm); }
 .wf-padding-x-md { padding-left: var(--wf-space-md); padding-right: var(--wf-space-md); }
 
@@ -50,6 +51,9 @@
 .wf-margin-left-xs { margin-left: var(--wf-space-xs); }
 .wf-margin-left-sm { margin-left: var(--wf-space-sm); }
 .wf-margin-x-auto { margin-left: auto; margin-right: auto; }
+
+/* ── margin: y 轴 ── */
+.wf-margin-y-xs { margin-top: var(--wf-space-xs); margin-bottom: var(--wf-space-xs); }
 
 /* ── gap：直接设置 gap 属性（不设 --wf-gap 变量——变量会继承污染子孙：
    壳 root wf-gap-none 曾让 KPI grid 的 gap: var(--wf-gap) = 0 卡无间距） ── */

@@ -1,7 +1,7 @@
 /**
  * vdom hooks — stable（useTween/useDrag/useVisualViewport/useReducedMotion）
  *
- * P1 契约补齐（design/vdom-replace-plan.md §1.1）——组件库消费缺口：
+ * P1 契约补齐（ §1.1）——组件库消费缺口：
  * - useTween（StatCard 数值动画——rAF + ease + reduced-motion 直落）
  * - useDrag（Resizable/ImageCropper——pointerdown 捕获拖拽）
  * - useVisualViewport（键盘弹起/缩放跟踪）

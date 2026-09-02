@@ -1,7 +1,7 @@
 /**
  * weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座）
  *
- * 设计（design/office-events-plan.md）：文档 = fold(事件流)——SheetGrid 的每个
+ * 设计（）：文档 = fold(事件流)——SheetGrid 的每个
  * 编辑操作 = OfficeOp（cell-set/insert-rows/...）→ editEmit('office') → commit
  * （before 快照 + ops——撤销一步）。
  *

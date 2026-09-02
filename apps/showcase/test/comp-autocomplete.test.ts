@@ -1,6 +1,6 @@
 /**
  * showcase 组件测试——AutoComplete（/components/autocomplete）——全功能点固化
- * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「AutoComplete」组（playwright 实测后固化）
+ * 清单：「AutoComplete」组（playwright 实测后固化）
  * 修复回归：onInput open 已开时重渲染（过滤不更新实证）+ error 文案渲染面（F2 基线补齐）
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-autocomplete.test.ts
  */

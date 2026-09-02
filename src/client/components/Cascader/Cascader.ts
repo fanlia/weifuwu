@@ -54,7 +54,7 @@ function flattenLeafPaths(options: CascaderOption[], prefix: string[] = [], pref
 }
 
 /** 级联选择（对应 antd/EP Cascader）：多列面板逐级选择，点击叶子完成 + 可选搜索。
- * 裁剪（CS-05，见 design/components-cuts.md）：hover 展开、任意层级配置、异步加载。 */
+ * 裁剪（CS-05，见 docs/client.md）：hover 展开、任意层级配置、异步加载。 */
 export const Cascader: Component<CascaderProps> = (_init, ctx) => {
   // render-only：内部状态 let + 显式 render（open/面板路径/搜索词）
   let open = false

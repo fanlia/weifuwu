@@ -26,7 +26,7 @@ export interface CalendarProps {
 const MONTH_NAMES = ['1 月', '2 月', '3 月', '4 月', '5 月', '6 月', '7 月', '8 月', '9 月', '10 月', '11 月', '12 月']
 
 /** 月历（对应 antd/EP Calendar）：月视图网格 + 事件点 + 月切换 + 日期选择。
- * 裁剪（CS-05，见 design/components-cuts.md）：周/日视图、拖拽创建事件、事件详情弹层。 */
+ * 裁剪（CS-05，见 docs/client.md）：周/日视图、拖拽创建事件、事件详情弹层。 */
 export const Calendar: Component<CalendarProps> = (_init, ctx) => {
   // render-only：内部状态 let + 显式 render（非受控月份）
   const now = new Date()

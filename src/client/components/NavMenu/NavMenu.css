@@ -111,3 +111,10 @@
   box-shadow: var(--wf-surface-shadow);
   border: var(--wf-border-width) solid var(--wf-color-border-light);
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-navmenu-label) {}
+:where(.wf-navmenu-nested) {}
+:where(.wf-navmenu-sub--nested) {}
+:where(.wf-navmenu-sub--open) {}
+:where(.wf-navmenu-sub-item--open) {}
+:where(.wf-navmenu-sub-label) {}

@@ -70,3 +70,6 @@
   background: var(--wf-color-bg-hover);
   color: var(--wf-color-text);
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-alertgroup-list) {}
+:where(.wf-alertgroup-list--open) {}

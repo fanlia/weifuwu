@@ -2,7 +2,7 @@
  * weifuwu/office/xlsx — xlsx ↔ ODES WorkbookState 双向转换（前端/服务端通用——零依赖）
  *
  * 参考算法：office2json（sheet1.xml → sheetData → row → c{t,v} + sharedStrings），
- * 增强提取到 ODES IR（design/office-events-plan.md）：
+ * 增强提取到 ODES IR（）：
  * - 多 sheet：workbook.xml（sheet 名 + rId）→ rels → 各 sheetN.xml
  * - 单元格引用：c@r（A1——office2json 丢弃——ODES 必须）
  * - 类型：c@t（s=shared/n=number/b=bool/f=formula）→ SheetCell.kind

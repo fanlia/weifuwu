@@ -1,7 +1,7 @@
 /**
  * vdom v2 — render（命令流 Observable 化——表达层原型）
  *
- * VDOM-V2-BLUEPRINT 阶段 1：
+ * v2 引擎蓝图 阶段 1：
  * - renderV2(root, ctx, registry) → Observable<Command>——与 v1 renderToStream
  *   完全同构（同命令/同 id/同序——深度优先）——但**流式表达**
  * - 每段子流可 tap（审计钩子——透明机制 1）——回放/快照随流自然

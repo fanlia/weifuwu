@@ -77,7 +77,8 @@ test('E1 回到底部浮钮：上滚出现 → 点击回底消失（滚动溢出
     const body = [...document.querySelectorAll('.wf-overflow-auto')].find((el) => el.querySelector('[data-msgid]')) as HTMLElement
     return {
       scrollable: body.scrollHeight > body.clientHeight,
-      btnAtBottom: !!document.querySelector('button[aria-label="回到底部"]'),
+      // 可见性语义（2027-xx——BackTop 类态实现：--hidden 仍在 DOM——presence 断言过时）
+      btnAtBottom: !!document.querySelector('button[aria-label="回到底部"]:not(.wf-backtop--hidden)'),
     }
   })
   // 溢出滚动回归（包装层 min-height:auto 曾被内容撑开——scrollHeight==clientHeight）
@@ -89,10 +90,10 @@ test('E1 回到底部浮钮：上滚出现 → 点击回底消失（滚动溢出
     body.scrollTop = 0
     body.dispatchEvent(new Event('scroll', { bubbles: true }))
   })
-  await page.waitForFunction(() => !!document.querySelector('button[aria-label="回到底部"]'), undefined, { timeout: 5000 })
+  await page.waitForFunction(() => !!document.querySelector('button[aria-label="回到底部"]:not(.wf-backtop--hidden)'), undefined, { timeout: 5000 })
   // 点击 → 回底 + 浮钮消失
   await page.click('button[aria-label="回到底部"]')
-  await page.waitForFunction(() => !document.querySelector('button[aria-label="回到底部"]'), undefined, { timeout: 5000 })
+  await page.waitForFunction(() => !document.querySelector('button[aria-label="回到底部"]:not(.wf-backtop--hidden)'), undefined, { timeout: 5000 })
   const nearBottom = await page.evaluate(() => {
     const body = [...document.querySelectorAll('.wf-overflow-auto')].find((el) => el.querySelector('[data-msgid]')) as HTMLElement
     return body.scrollTop > body.scrollHeight - body.clientHeight - 80

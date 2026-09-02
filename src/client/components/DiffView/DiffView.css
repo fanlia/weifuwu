@@ -95,3 +95,5 @@
   font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   text-align: center;
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-diffview-title) {}

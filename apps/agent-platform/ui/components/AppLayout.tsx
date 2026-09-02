@@ -1,6 +1,6 @@
 import type { UIContext } from 'weifuwu/vdom'
 import { h } from 'weifuwu/vdom'
-import { Avatar, Button, Icon, Menu } from 'weifuwu/components'
+import { Avatar, Button, Icon, Menu, NavBar } from 'weifuwu/components'
 import { Loading } from './ui'
 
 interface NavDef {
@@ -141,18 +141,24 @@ export function AppLayout(_props: {}, ctx: UIContext) {
       {isMobile && drawerOpen && <div class="ap-drawer-overlay" onClick={closeDrawer} />}
 
       <div class="ap-body">
-        {/* 移动顶栏（<768px——CSS 控制；汉堡开抽屉 + 品牌 + 设置/退出快捷） */}
-        <header class="ap-topbar">
-          <Button size="sm" variant="ghost" title="打开菜单"
-            aria-label="打开菜单"
-            onClick={() => { drawerOpen = !drawerOpen; ctx.render() }}>
-            <Icon name="menu" size={20} />
-          </Button>
-          <div class="ap-topbar-brand">
-            <span class="ap-topbar-title">{brandName}</span>
-          </div>
-          <Button size="sm" variant="ghost" title="设置" onClick={() => ctx.app?.navigate('/settings')}><Icon name="settings" size={16} /></Button>
-        </header>
+        {/* 移动顶栏（<768px——isMobile 条件渲染；汉堡开抽屉 + 品牌 + 设置）——框架 NavBar 组件（第十一批迁移——手搓 ap-topbar 清零） */}
+        {isMobile && (
+          <NavBar
+            title={brandName}
+            align="left"
+            fixed
+            left={
+              <Button size="sm" variant="ghost" title="打开菜单"
+                aria-label="打开菜单"
+                onClick={() => { drawerOpen = !drawerOpen; ctx.render() }}>
+                <Icon name="menu" size={20} />
+              </Button>
+            }
+            right={
+              <Button size="sm" variant="ghost" title="设置" onClick={() => ctx.app?.navigate('/settings')}><Icon name="settings" size={16} /></Button>
+            }
+          />
+        )}
 
         <main class="wf-main">
           {__props.children}

@@ -44,8 +44,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--wf-color-bg-tertiary, #eef1f5);
-  color: var(--wf-color-text-tertiary, #8a93a5);
-  font-size: 12px;
-  border-radius: var(--wf-radius, 6px);
+  background: var(--wf-color-bg-tertiary);
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-xs);
+  border-radius: var(--wf-radius-md);
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-image-placeholder-text) {}

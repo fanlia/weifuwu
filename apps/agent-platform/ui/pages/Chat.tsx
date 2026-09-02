@@ -1,6 +1,6 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Ava, errMsg } from '../components/ui'
-import { BackTop, Badge, Button, ChatInput, EmptyState, Icon, Input } from 'weifuwu/components'
+import { BackTop, Badge, Button, ChatInput, DropZone, EmptyState, Icon, Input } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 
 /** 部门工作区聚合响应（/api/departments/:id/workspace——一次拿部门+成员+环境） */
@@ -746,41 +746,9 @@ export const Chat: Component = (_props, ctx) => {
     rerender()
   }
 
-  /** 拖拽上传（2027-09——拖文件入消息区即入列——现代 IM 标配）：
-   *  - dragenter/dragover 高亮（直接 DOM outline——零渲染——不扰渲染管线）
-   *  - drop → addFiles（与按钮共享链）——非文件拖入忽略（dataTransfer.files 空）
-   *  - 监听挂载时一次（el 引用防重——卸载时机清理） */
-  let dropBoundEl: HTMLElement | null = null
-  const dragDepth = { n: 0 }
-  const onDragEnter = (e: DragEvent) => { e.preventDefault(); dragDepth.n++; if (dragDepth.n === 1) { (e.currentTarget as HTMLElement).style.outline = '2px dashed var(--wf-color-primary)' } }
-  const onDragOver = (e: DragEvent) => { e.preventDefault() }
-  const onDragLeave = () => { dragDepth.n = Math.max(0, dragDepth.n - 1); if (dragDepth.n === 0 && $.bodyEl) $.bodyEl.style.outline = '' }
-  const onDrop = (e: DragEvent) => {
-    e.preventDefault()
-    dragDepth.n = 0
-    if ($.bodyEl) $.bodyEl.style.outline = ''
-    const files = [...(e.dataTransfer?.files ?? [])]
-    if (files.length > 0) addFiles(files)
-  }
-  const bindDrop = (el: HTMLElement | null) => {
-    if (el === dropBoundEl) return
-    if (dropBoundEl) {
-      dropBoundEl.removeEventListener('dragenter', onDragEnter as any)
-      dropBoundEl.removeEventListener('dragover', onDragOver as any)
-      dropBoundEl.removeEventListener('dragleave', onDragLeave as any)
-      dropBoundEl.removeEventListener('drop', onDrop as any)
-      dropBoundEl = null
-    }
-    if (el) {
-      el.addEventListener('dragenter', onDragEnter as any)
-      el.addEventListener('dragover', onDragOver as any)
-      el.addEventListener('dragleave', onDragLeave as any)
-      el.addEventListener('drop', onDrop as any)
-      dropBoundEl = el
-    }
-  }
+  /** 拖拽上传（第十一批迁移——2027-09 手搓拖放 → 框架 DropZone 组件——
+   *  整消息区拖入即入列——组件内深度计数/高亮/零渲染纪律——消费侧手搓清零） */
   const chatBodyRef = (el: HTMLElement | null) => {
-    bindDrop(el)
     if (el) { $.bodyEl = el; scrollToBottom(true) }
     if (!el && $.bodyEl) {
       $.bodyEl = null
@@ -1002,6 +970,8 @@ export const Chat: Component = (_props, ctx) => {
 
       {/* CHAT-UX 波次 4（E1）：回到底部浮钮容器（position 锚——isUserScrolledUp 翻转才重渲染） */}
       <div class="wf-fill wf-stack" style="position: relative; min-height: 0">
+      {/* 拖放整区（第十一批——DropZone：深度计数/高亮零渲染/addFiles 共享链） */}
+      <DropZone className="wf-fill wf-stack" onFiles={addFiles}>
       {/* min-height:0——flex 子项默认 min-height:auto 会被内容撑开（溢出滚动失效——波次 4 实测） */}
       <div class="wf-fill wf-overflow-auto wf-stack wf-gap-md wf-padding-md" style="min-height: 0"
         ref={chatBodyRef}
@@ -1076,6 +1046,7 @@ export const Chat: Component = (_props, ctx) => {
         ——key=backtop：数组子项身份稳定——无 key 组件项触发 detectMissingKey warn */}
         <BackTop key="backtop" direction="bottom" target={() => $.bodyEl} visibilityHeight={80} fixed={false} smooth={false} />
       </div>
+      </DropZone>
       </div>
 
       <div class="wf-border-top wf-padding-sm">

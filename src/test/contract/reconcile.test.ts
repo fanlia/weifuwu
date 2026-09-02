@@ -1,7 +1,7 @@
 /**
  * 终态等价对账（reconcile）——理论的执行模型
  *
- * 定理 1（终态等价——design/vdom-theory-and-fix-plan.md §2）：
+ * 定理 1（终态等价—— §2）：
  *   ∀ old, new：consume(diff(old,new)) 的终态 ≡ consume(build(new)) 的终态
  * 完整终态 = 三面：S_DOM（结构）+ S_EVT（事件表）+ S_INST（实例注册表）
  *

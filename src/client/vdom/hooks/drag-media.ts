@@ -18,13 +18,15 @@ export interface DragDrop {
   draggableProps: { draggable: true; onDragStart: (e: DragEvent) => void; onDragEnd: (e: DragEvent) => void }
   /** 拖拽源属性别名（ui-dom 兼容——Kanban 用） */
   dragProps: { draggable: true; onDragStart: (e: DragEvent) => void; onDragEnd: (e: DragEvent) => void }
-  /** 放置目标属性 */
-  dropProps: { onDragOver: (e: DragEvent) => void; onDragLeave: (e: DragEvent) => void; onDrop: (e: DragEvent) => void }
+  /** 放置目标属性（onDragEnter + dragover preventDefault + drop 解析） */
+  dropProps: { onDragEnter: (e: DragEvent) => void; onDragOver: (e: DragEvent) => void; onDragLeave: (e: DragEvent) => void; onDrop: (e: DragEvent) => void }
 }
 
 export interface DragDropOptions {
   onDragStart?: (e: DragEvent, data?: unknown) => void
   onDragEnd?: (e: DragEvent) => void
+  /** 拖入（DropZone 深度计数用——dragenter 气泡自子元素——与 dragleave 配对计数防闪烁） */
+  onDragEnter?: (e: DragEvent) => void
   onDragOver?: (e: DragEvent) => void
   onDragLeave?: (e: DragEvent) => void
   onDrop?: (e: DragEvent, data?: unknown) => void
@@ -46,6 +48,7 @@ export function useDragDrop(env: HookEnv, opts: DragDropOptions): DragDrop {
     draggableProps: source,
     dragProps: source,
     dropProps: {
+      onDragEnter: (e: DragEvent) => opts.onDragEnter?.(e),
       onDragOver: (e: DragEvent) => {
         e.preventDefault() // 允许放置
         opts.onDragOver?.(e)

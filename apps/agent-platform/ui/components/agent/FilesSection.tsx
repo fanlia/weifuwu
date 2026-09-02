@@ -54,7 +54,7 @@ const FileThumb: Component<{ deptId: string; rel: string; name: string }> = (_in
       return <Img src={url} alt={props.name} width={40} height={40} preview placeholder
         className="wf-radius" style={{ objectFit: 'cover' }} />
     }
-    return <div class="wf-thumb-ph" title={props.name}
+    return <div class="ap-thumb-ph" title={props.name}
       style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--wf-color-bg-tertiary); border-radius: var(--wf-radius); color: var(--wf-color-text-tertiary)">
       <Icon name="image" size={16} />
     </div>
@@ -273,7 +273,7 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
               {entry.type === 'file' && isImageName(entry.name) ? (
                 <FileThumb deptId={departmentId} rel={wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`} name={entry.name} />
               ) : (
-                <div class="wf-thumb-ph" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--wf-color-bg-tertiary); border-radius: var(--wf-radius); color: var(--wf-color-text-tertiary)">
+                <div class="ap-thumb-ph" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--wf-color-bg-tertiary); border-radius: var(--wf-radius); color: var(--wf-color-text-tertiary)">
                   <Icon name={entry.type === 'dir' ? 'folder' : wsIconFor(entry.name)} size={16} />
                 </div>
               )}

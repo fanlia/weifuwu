@@ -1,7 +1,7 @@
 /**
  * vdom v2 — serve（uiServeV2——v2 引擎驱动真实 DOM——切换前提最终验证）
  *
- * VDOM-V2-BLUEPRINT 阶段 2B：
+ * v2 引擎蓝图 阶段 2B：
  * - **v1 骨架复用**（router.resolve/CommandApplier/渲染队列——服务层不变）
  * - **引擎替换**：ctx.stream = v2（renderV2/diffV2——流段复用 + 调度流）→
  *   命令直接 applier.apply（不走 Response 编码——浏览器端直连）

@@ -1,5 +1,5 @@
 /**
- * weifuwu/layout 清单契约(设计依据:design/layout-cleanup.md §6 + layout-naming.md §7)
+ * weifuwu/layout 清单契约(设计依据: §6 + layout-naming.md §7)
  *
  * 布局层单一事实源防线——锁定清理/命名成果,防回潮:
  *   L1 计数基线(登记制):原语/工具/内部/变体——变更必须有意
@@ -70,8 +70,8 @@ function componentDefined() {
 }
 
 test('L1 计数基线(登记制——变更必须有意)', () => {
-  assert.equal(inv.primitives, 48, '布局原语数(清理后基线)')
-  assert.equal(inv.utilities, 90, '工具类数(清理后基线)')
+  assert.equal(inv.primitives, 49, '布局原语数(清理后基线)')
+  assert.equal(inv.utilities, 92, '工具类数(清理后基线)')
   assert.equal(inv.internals, 2, '内部类数(_popup 框架内部)')
   assert.equal(inv.tokens, 183, '主题 Token 数')
   // 断点变体 ⊆ 登记清单(响应式唯一模式:窄隐宽显)
@@ -101,7 +101,7 @@ test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
 
 test('L3 缺口 = 0(使用未定义类归零)', () => {
   const defined = new Set([...layoutDefined(), ...componentDefined()])
-  const corpus = collectCode(['apps'])
+  const corpus = collectCode(['apps', 'src/client/components'])
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
   const missing = [...used].filter((n) => {
     const base = n.replace(/\\?@[a-z]{2}$/, '')

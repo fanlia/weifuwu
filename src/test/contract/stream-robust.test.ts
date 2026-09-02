@@ -1,5 +1,5 @@
 /**
- * vdom core — 传输层合规（R6——NDJSON 命令流——design/vdom-core-robustness-round4.md P2）
+ * vdom core — 传输层合规（R6——NDJSON 命令流—— P2）
  *
  * 覆盖：
  * - 跨 chunk 半行（任意字节切分——1 字节步进——解析正确——行缓冲语义）

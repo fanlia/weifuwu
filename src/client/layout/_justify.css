@@ -17,3 +17,12 @@
   align-items: var(--wf-align, center);
   gap: var(--wf-gap, var(--wf-gap-md));
 }
+
+.wf-justify-center {
+  display: flex;
+  justify-content: center;
+}
+:where(.wf-justify-center) {
+  align-items: var(--wf-align, center);
+  gap: var(--wf-gap, var(--wf-gap-md));
+}

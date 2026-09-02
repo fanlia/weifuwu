@@ -306,7 +306,7 @@ export const AgentDetail: Component = (_props, ctx) => {
           {$.deptInfo?.name ? (
             <div class="wf-stack wf-gap-sm">
               <div class="wf-row wf-gap-sm wf-items-center">
-                <span class="wf-font-md wf-medium">{$.deptInfo.name}</span>
+                <span class="wf-font-base wf-medium">{$.deptInfo.name}</span>
                 <a class="wf-font-sm wf-text-primary" onClick={() => ctx.app?.navigate(`/departments/${a.department_id}`)}>进入部门 →</a>
               </div>
               <div class="wf-border-top wf-padding-top-sm wf-stack wf-gap-xs">

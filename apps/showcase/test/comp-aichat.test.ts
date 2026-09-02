@@ -1,6 +1,6 @@
 /**
  * showcase 组件测试——AiChat（/components/aichat）——全功能点固化
- * 清单：design/COMPONENT-VERIFICATION-CHECKLIST.md「AiChat」组（playwright 实测后固化）
+ * 清单：「AiChat」组（playwright 实测后固化）
  * 修复回归：
  * - useChat 协议解析完整性（wf:step/tool_call/progress/result/approval_request/
  *   usage/done 全事件消费——此前只映射 token——核心层）

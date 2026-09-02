@@ -173,7 +173,7 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
               仅最后一条 AI 消息渲染——Chat 侧 showQuickReplies 计算，已答/新消息自动消失）。
               不卡 st：历史消息 status 为 null（GET 无此列）——只在流式进行中（isActive）隐藏 */}
           {props.showQuickReplies && !props.editing && !isActive && (msg.quick_replies ?? []).length > 0 && (
-            <div class="wf-row wf-gap-xs wf-wrap" role="group" aria-label="快捷回复选项">
+            <div class="wf-row wf-gap-xs" role="group" aria-label="快捷回复选项">
               {(msg.quick_replies ?? []).map((qr: string) => (
                 <Button key={qr} size="sm" variant="ghost" class="ap-quick-chip"
                   onClick={() => { props.onQuickReply?.(msg, qr) }}>{qr}</Button>

@@ -228,3 +228,6 @@
   border-radius: var(--wf-radius-xs);
   pointer-events: none;
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-slider-input--hi) {}
+:where(.wf-slider-input--lo) {}

@@ -1,5 +1,5 @@
 /**
- * vdom core — fuzz 扩展（R4——design/vdom-core-robustness-round4.md P3）
+ * vdom core — fuzz 扩展（R4—— P3）
  *
  * 组件树 fuzz 新维度（C1 之外的盲区——生成器扩展）：
  * - D1 async 工厂（乱序 resolve）——**已退役（2027-08 断代——工厂同步——

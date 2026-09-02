@@ -84,3 +84,5 @@
   padding: 1px var(--wf-space-sm);
   flex-shrink: 0;
 }
+/* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
+:where(.wf-kanban-col-title) {}

@@ -183,7 +183,7 @@
 - COMPONENT-ROBUSTNESS-PLAN——组件测试补全与健壮性增强（7 波次）
 - OPTIMIZE 归档补全——波次 6 表格勾选 + 头部完成标记（与实际交付对齐）
 - OBSERVABLE-OPTIMIZE 收尾——audit 三检查 + 优势兑现总表（波次 6）
-- 计划归档——VDOM-OBSERVABLE-COMPLETE + RENDER-HEALTH-PLAN 移入 design/
+- 计划归档——VDOM-OBSERVABLE-COMPLETE + RENDER-HEALTH-PLAN 归档到 plan/archive/
 - 渲染健康章节 + 波次 4/5 定论（RENDER-HEALTH-PLAN 完成）
 - Observable 化收尾——audit 三检查 + 流化维度总表（波次 8/9）
 - 波次6验收——组件作者契约章节 + OBSERVABLE-ARCH 完成标记
@@ -404,7 +404,7 @@
 - COMPONENT-ROBUSTNESS-PLAN——组件测试补全与健壮性增强（7 波次）
 - OPTIMIZE 归档补全——波次 6 表格勾选 + 头部完成标记（与实际交付对齐）
 - OBSERVABLE-OPTIMIZE 收尾——audit 三检查 + 优势兑现总表（波次 6）
-- 计划归档——VDOM-OBSERVABLE-COMPLETE + RENDER-HEALTH-PLAN 移入 design/
+- 计划归档——VDOM-OBSERVABLE-COMPLETE + RENDER-HEALTH-PLAN 归档到 plan/archive/
 - 渲染健康章节 + 波次 4/5 定论（RENDER-HEALTH-PLAN 完成）
 - Observable 化收尾——audit 三检查 + 流化维度总表（波次 8/9）
 - 波次6验收——组件作者契约章节 + OBSERVABLE-ARCH 完成标记
@@ -620,7 +620,7 @@
 - 测试环境统一——testBrowser 唯一入口 + jsdom Proxy 全调用追踪
 - 覆盖度量续补——popup/observe/input/chat 行为缺口 + root 转换
 - 覆盖度量工具落地（--test-coverage-include-all）+ gap 补测
-- 覆盖度标准建立——design/vdom-test-standard.md + 不变量 helper
+- 覆盖度标准建立—— + 不变量 helper
 - 映射与转化教学测试——真实例子抓出 3 个引擎 bug + 修复
 - transform 全 cell 执行级覆盖——42/42（缺失 12 cell 补全）
 - 剩余缺口补测——portal 更新/patch 处理器级/done.full 边界

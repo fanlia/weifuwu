@@ -41,14 +41,14 @@ export interface AuthPageProps {
 export const AuthPage: Component<AuthPageProps, { ui: HookEnv }> = (_init) =>
   (props) => {
     return h('div', { class: 'wf-center wf-padding-xl wf-bg-secondary', style: { minHeight: '100vh' } }, [
-      h(Card, {}, [
+      h(Card, { style: { width: '100%', maxWidth: '360px' } }, [
         h('div', { class: 'wf-stack wf-gap-sm wf-text-center wf-margin-bottom-lg' }, [
           props.logo ? h('div', { class: 'wf-center' }, props.logo) : null,
           h('div', { class: 'wf-font-2xl wf-semibold' }, props.title),
           props.subtitle ? h('div', { class: 'wf-font-sm wf-text-secondary' }, props.subtitle) : null,
         ]),
         props.error ? h(Alert, { variant: 'error' }, props.error) : null,
-        h('form', { class: 'wf-auth-form', onSubmit: (e: any) => { e.preventDefault(); props.onSubmit?.() } }, [
+        h('form', { onSubmit: (e: any) => { e.preventDefault(); props.onSubmit?.() } }, [
           h('div', { class: 'wf-stack wf-gap-md' }, [
             props.children,
             h(Button, { type: 'submit', variant: 'primary', loading: props.loading, disabled: props.loading, block: true }, props.submitLabel),

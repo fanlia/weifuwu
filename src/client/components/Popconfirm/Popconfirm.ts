@@ -11,7 +11,7 @@
  *
  * - 受控 open/onOpenChange；非受控点击触发
  * - 确认后自动关闭（onConfirm 后 setOpen(false)）
- * - 裁剪（CS-05，见 design/components-cuts.md）：不做气泡内表单/自定义箭头
+ * - 裁剪（CS-05，见 docs/client.md）：不做气泡内表单/自定义箭头
  */
 
 import type { Component } from '../../vdom/index.ts'

@@ -1,7 +1,7 @@
 /**
  * weifuwu/components/OfficeEditor/model — ODES（office 文档事件流标准）协议层
  *
- * 设计（design/office-events-plan.md）：
+ * 设计（）：
  * - 文档状态 = fold(事件流)（与 Editor/ai/sandbox 四端同构）
  * - docx 的 IR = Editor DocState（op = EditEvent 全量复用——段落流同构）
  * - xlsx = 网格模型（稀疏 cells Map——`A1` 引用语义）

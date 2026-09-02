@@ -3,7 +3,7 @@
  *
  * 锚点导航（长文页）：items 列表 + 滚动高亮跟随 + 点击平滑滚动。
  * 滚动侦听：ctx.ui.useScrollPosition（全局/容器 scroll 监听 + rAF 节流，内置方案）。
- * 裁剪（CS-05，见 design/components-cuts.md）：嵌套滚动容器、滚动容器非视口（container 未提供时仅视口）、自动生成标题锚点。
+ * 裁剪（CS-05，见 docs/client.md）：嵌套滚动容器、滚动容器非视口（container 未提供时仅视口）、自动生成标题锚点。
  */
 
 import type { Component } from '../../vdom/index.ts'
