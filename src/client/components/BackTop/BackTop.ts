@@ -42,14 +42,14 @@ export const BackTop: Component<BackTopProps> = (_init, ctx) => {
   }
 
   const attach = () => {
-    const t = propsRef.target?.() ?? window
-    if (!t) { requestAnimationFrame(attach); return } // target 暂未就绪（ref 时序）——下一帧重试
-    scroller = t as Scroller
+    if (scroller) return // 幂等——render 重试机制防重复 listener
+    const tFn = propsRef.target
+    if (tFn && !tFn()) return // target 声明但未就绪（ref 时序）——每次 render 重试
+    scroller = (tFn ? tFn() : window) as Scroller
     scroller.addEventListener('scroll', handler, { passive: true })
     handler() // 初始状态
   }
 
-  let attached = false
   ctx.ui.hold(() => {
     scroller?.removeEventListener('scroll', handler)
     scroller = null
@@ -57,9 +57,10 @@ export const BackTop: Component<BackTopProps> = (_init, ctx) => {
 
   return (props) => {
     Object.assign(propsRef, props)
-    // attach 需在首次 render 后：工厂期 propsRef 为空——target 读到 undefined →
-    // 回退 window——容器滚动永不触发（agent-browser 实测 2026-09）
-    if (!attached) { attached = true; attach() }
+    // attach 需在 target 就绪后：ref（app 层）在 apply 阶段设置——build 期读取为
+    // undefined → 回退 window——容器滚动永不触发（agent-browser 实测 2026-09）。
+    // 每次 render 重试：bodyEl 就绪后的下一次 render 必命中（无 rAF——不可靠）
+    attach()
     const {
       direction = 'top', smooth = true, 'aria-label': ariaLabel, children,
       className, fixed = true,

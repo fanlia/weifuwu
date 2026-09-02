@@ -1069,8 +1069,9 @@ export const Chat: Component = (_props, ctx) => {
         })()}
 
         {/* CHAT-UX 波次 4（E1）：回到底部浮钮——改为框架 BackTop（direction=bottom）
-        ——2026-09：手写按钮替换（组件库浮钮：IO 阈值显示/平滑滚动/aria 内置） */}
-        <BackTop direction="bottom" target={() => $.bodyEl} visibilityHeight={80} fixed={false} smooth={false} />
+        ——2026-09：手写按钮替换（组件库浮钮：IO 阈值显示/平滑滚动/aria 内置）
+        ——key=backtop：数组子项身份稳定——无 key 组件项触发 detectMissingKey warn */}
+        <BackTop key="backtop" direction="bottom" target={() => $.bodyEl} visibilityHeight={80} fixed={false} smooth={false} />
       </div>
       </div>
 
