@@ -115,24 +115,23 @@ test('J3: 交付物页空态 + 聊天工作区/文件区渲染', async () => {
   await page.close()
 })
 
-// ── J4 多 agent 协作组织（编排任务链） ─────────────────────
-// 现状契约（W0 走查实证）：O12 数据面 /api/stats/runs 存在且正确；**Reports UI 取到
-// $.runs 后未渲染**（G-F 缺口——W3 修复目标）——冒烟锁定数据面 + 页面零错误。
-test('J4: 编排数据面正确（agent_runs 种子）——Reports 页面零错误（渲染缺口=W3 修复目标）', async () => {
+test('J4: 编排数据面正确 + Reports 任务链渲染（W3——G-F 修复后契约）', async () => {
   const dept = await apiAs(BASE, owner, '/api/departments', { method: 'POST', body: JSON.stringify({ name: '编排部' }) })
   const deptId = dept.department.id
   const orch = await apiAs(BASE, owner, '/api/agents', { method: 'POST', body: JSON.stringify({ type: 'ai', name: '编排经理', model: 'deepseek-chat' }) })
   await pg.sql`
     INSERT INTO agent_runs (app_id, department_id, orchestrator_id, kind, plan_json, worker_results, status)
-    VALUES (${owner.app.id}, ${deptId}, ${orch.agent.id}, 'orchestration', ${JSON.stringify([{ agent: 'A' }])}, ${JSON.stringify([])}, 'done')
+    VALUES (${owner.app.id}, ${deptId}, ${orch.agent.id}, 'orchestration', ${JSON.stringify([{ agent: 'A' }])}, ${JSON.stringify([{ agent: '数据分析员', status: 'ok', result: '报告已产出' }])}, 'done')
   `
   const runs = await apiAs(BASE, owner, '/api/stats/runs')
   assert.ok(runs.runs?.length >= 1, '数据面返回种子任务链')
-  assert.equal(runs.runs[0].orchestrator_name, '编排经理')
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
   await injectAuth(page, owner)
   const errors = await openAgentPage(page, BASE, '/reports')
-  await waitForText(page, '本月 AI 节省')
+  await waitForText(page, '编排任务链')
+  await waitForText(page, '编排经理')
+  await waitForText(page, '数据分析员')
+  await waitForText(page, '报告已产出')
   assert.deepEqual(fatalErrors(errors), [], `J4 页面零错误——发现: ${errors.join(' | ')}`)
   await page.close()
 })

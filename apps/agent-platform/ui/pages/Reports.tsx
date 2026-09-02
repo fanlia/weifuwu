@@ -3,7 +3,7 @@
  * 管理员/运营视角：统计卡 / 趋势 / 成本 / 活跃成员 / 激活漏斗
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { Alert, Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
 import { Ava, PageHeader } from '../components/ui'
 import type { AgentListResponse, CostAgentRow, FunnelData, StatsData } from '../lib/types'
 
@@ -201,6 +201,37 @@ export const Reports: Component = (_props, ctx) => {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* O12 编排任务链（BUSINESS-SCENARIO W3——G-F：前死数据面（取了不渲染）→ 可视） */}
+      <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">编排任务链</div>
+      {$.runs.length === 0 ? (
+        <div class="wf-font-sm wf-text-tertiary wf-margin-top-sm">暂无编排任务——经理 agent 派活后在此可见（审计/ROI 面）</div>
+      ) : (
+        <div class="wf-stack wf-gap-xs wf-margin-top-sm">
+          {$.runs.map((r: ReportsState['runs'][number]) => (
+            <Card key={r.id}>
+              <div class="wf-row wf-gap-md wf-items-center">
+                <Badge variant={r.status === 'done' ? 'success' : r.status === 'failed' ? 'error' : r.status === 'partial' ? 'warning' : 'default'}>{r.status}</Badge>
+                <span class="wf-font-sm wf-medium">{r.orchestrator_name ?? '未知编排者'}</span>
+                <span class="wf-font-xs wf-text-tertiary">{r.kind}</span>
+                <span class="wf-fill" />
+                <span class="wf-font-xs wf-text-tertiary">{String(r.created_at ?? '').slice(0, 19)}</span>
+              </div>
+              {Array.isArray(r.worker_results) && r.worker_results.length > 0 && (
+                <div class="wf-stack wf-gap-xs wf-margin-top-sm">
+                  {(r.worker_results as Array<{ agent?: string; status?: string; result?: string; error?: string }>).map((w, i) => (
+                    <div key={i} class="wf-row wf-gap-sm wf-items-start">
+                      <Badge variant={w.status === 'ok' ? 'success' : w.status === 'error' ? 'error' : 'default'}>{w.status ?? '?'}</Badge>
+                      <span class="wf-font-sm wf-medium">{w.agent ?? '?'}</span>
+                      <span class="wf-font-xs wf-text-tertiary wf-fill">{w.error ?? String(w.result ?? '').slice(0, 100)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          ))}
         </div>
       )}
     </div>
