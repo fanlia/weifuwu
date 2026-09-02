@@ -115,6 +115,25 @@ test('J3: 交付物页空态 + 聊天工作区/文件区渲染', async () => {
   await page.close()
 })
 
+// ── J3b W5（G-D）：文本产物内联预览 ───────────────────────
+test('J3b: 交付物 md 产物 → 预览按钮 → 内容内联显示', async () => {
+  const dept = await apiAs(BASE, owner, '/api/departments', { method: 'POST', body: JSON.stringify({ name: '预览车间' }) })
+  const deptId = dept.department.id
+  await apiAs(BASE, owner, `/api/departments/${deptId}/workspace/file`, {
+    method: 'PUT',
+    body: JSON.stringify({ path: '周报.md', content: '# 本周周报\n- 完成发布\n- 下周计划' }),
+  })
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  await injectAuth(page, owner)
+  const errors = await openAgentPage(page, BASE, '/deliverables')
+  await waitForText(page, '周报.md')
+  await page.click('button:has-text("预览")')
+  await waitForText(page, '本周周报')
+  await waitForText(page, '完成发布')
+  assert.deepEqual(fatalErrors(errors), [], `J3b 页面零错误——发现: ${errors.join(' | ')}`)
+  await page.close()
+})
+
 test('J4: 编排数据面正确 + Reports 任务链渲染（W3——G-F 修复后契约）', async () => {
   const dept = await apiAs(BASE, owner, '/api/departments', { method: 'POST', body: JSON.stringify({ name: '编排部' }) })
   const deptId = dept.department.id

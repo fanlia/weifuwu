@@ -38,6 +38,8 @@ export const Deliverables: Component = (_init, ctx) => {
     loading: true,
     error: '',
     query: '',
+    preview: null as { deptId: string; path: string; name: string; content: string; binary: boolean; truncated: boolean } | null,
+    previewLoading: false,
   }
   const rerender = () => ctx.render()
 
@@ -68,6 +70,20 @@ export const Deliverables: Component = (_init, ctx) => {
   }
   void load()
 
+  async function previewFile(f: DeliverableFile): Promise<void> {
+    $.previewLoading = true
+    rerender()
+    try {
+      const d = await ctx.api!.get<{ content: string; binary: boolean; truncated: boolean }>(
+        `/api/departments/${f.deptId}/workspace/file?path=${encodeURIComponent(f.path)}`)
+      $.preview = { deptId: f.deptId, path: f.path, name: f.name, content: d.content ?? '', binary: d.binary ?? false, truncated: d.truncated ?? false }
+    } catch (e) {
+      $.preview = { deptId: f.deptId, path: f.path, name: f.name, content: errMsg(e, '预览失败'), binary: false, truncated: false }
+    }
+    $.previewLoading = false
+    rerender()
+  }
+
   const fmtSize = (n: number) => n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : n > 1024 ? `${(n / 1024).toFixed(1)}KB` : `${n}B`
   const fmtTime = (t: string) => {
     const d = new Date(t)
@@ -95,6 +111,18 @@ export const Deliverables: Component = (_init, ctx) => {
           <Input placeholder="搜索文件名..." value={$.query} onInput={(e: Event) => { $.query = inputValue(e); rerender() }} style="max-width: 280px" />
           <Button size="sm" variant="ghost" onClick={() => void load()}><Icon name="refresh" size={14} /> 刷新</Button>
         </div>
+        {/* G-D 预览（W5——文本类产物内联预览——二进制保持下载并明示） */}
+        {$.preview && (
+          <Card>
+            <div class="wf-row wf-gap-sm wf-items-center wf-margin-bottom-sm">
+              <div class="wf-font-sm wf-semibold wf-fill wf-truncate">📄 {$.preview.name} <span class="wf-font-xs wf-text-tertiary">{$.preview.path}</span></div>
+              <Button size="sm" variant="ghost" onClick={() => { $.preview = null; rerender() }}>关闭</Button>
+            </div>
+            {$.preview.binary
+              ? <div class="wf-font-sm wf-text-secondary">二进制文件（如 xlsx/pdf/图片）——请下载查看</div>
+              : <div class="wf-pre-wrap wf-font-sm wf-text-secondary" style="max-height: 420px; overflow: auto">{$.preview.content}{$.preview.truncated ? '\n…（内容过长已截断——完整内容请下载）' : ''}</div>}
+          </Card>
+        )}
         {$.error && <Badge variant="error">{$.error}</Badge>}
         {shown.length === 0 ? (
           <div class="wf-stack wf-gap-sm wf-padding-xl">
@@ -112,11 +140,17 @@ export const Deliverables: Component = (_init, ctx) => {
                   </a>
                   <span class="wf-font-xs wf-text-tertiary">{fmtSize(f.size)} · {fmtTime(f.mtime)}</span>
                 </div>
-                <button type="button"
-                  class="wf-btn wf-btn--sm wf-btn--secondary" style="text-decoration:none"
-                  onClick={() => { void openDeliverable(f.deptId, f.path) }}>
-                  <Icon name="arrow-down" size={14} /> 下载
-                </button>
+                <div class="wf-row wf-gap-xs">
+                  <button type="button" class="wf-btn wf-btn--sm wf-btn--secondary"
+                    onClick={() => { void previewFile(f) }}>
+                    <Icon name="eye" size={14} /> 预览
+                  </button>
+                  <button type="button"
+                    class="wf-btn wf-btn--sm wf-btn--secondary" style="text-decoration:none"
+                    onClick={() => { void openDeliverable(f.deptId, f.path) }}>
+                    <Icon name="arrow-down" size={14} /> 下载
+                  </button>
+                </div>
               </div>
             ))}
           </div>
