@@ -167,17 +167,10 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
         VALUES (${department.id}, ${mgr.id}, 'manager')
         ON CONFLICT DO NOTHING
       `
-      // 经理提示词（部门成员名单——call_agent 分派用）
+      // 组织层级：经理提示词单源（org-manager.ts）——成员名单实时化（成员增删刷新）
       try {
-        const members = await sql`
-          SELECT a.name FROM department_members dm JOIN agents a ON a.id = dm.agent_id
-          WHERE dm.department_id = ${department.id} AND a.type IN ('ai', 'knowledge_base')
-        `
-        const names = (members ?? []).map((m: any) => m.name).join('、')
-        await sql`
-          UPDATE agents SET system_prompt = ${`你是「${String(body.name)}」的部门经理，代表该部门参与协作。\n\n你的职责：\n1. 作为部门代表回答与其他部门的协作请求\n2. 需要部门成员实际干活时，用 call_agent 工具把任务分派给成员（一次一个成员）\n3. 汇总成员结果后回复——你就是「${String(body.name)}」的对外出口\n\n部门成员：${names || '（暂无 AI 成员——请先给部门添加 AI 能力）'}\n\n任务完成后按以下结构汇报：\n- ✅ 已完成：列出完成的事项\n- ⚠️ 未完成：列出未完成的事项及原因（没有则省略）\n- 📦 产物：生成的文件/结果位置（没有则省略）`}
-          WHERE id = ${mgr.id}
-        `
+        const { refreshManagerPrompt } = await import('../services/org-manager.ts')
+        await refreshManagerPrompt(sql, String(appId), String(department.id))
       } catch { /* 提示词生成失败不阻断 */ }
       manager = { id: mgr.id, name: mgr.name }
     }
@@ -395,6 +388,10 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     if (result.length === 0) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
     }
+    // 组织层级：部门经理是派生资源——部门亡经理亡（孤儿歼灭——department_members 行 FK cascade 自动清）
+    await sql`
+      DELETE FROM agents WHERE type = 'department' AND department_id = ${params.id} AND app_id = ${appId}
+    `
     // 三层模型：部门删除 → 工作目录清理（保留期 SANDBOX_WORKSPACE_RETENTION_DAYS 默认 0=立即删）
     try {
       const { resolveDepartmentWorkspace, getDefaultWorkspaceRoot } = await import('../middleware/workspace.ts')

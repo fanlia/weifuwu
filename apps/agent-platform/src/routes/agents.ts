@@ -160,30 +160,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
         SELECT id FROM agents WHERE department_id = ${body.department_id} AND type = 'department' AND is_active = TRUE
       `
       if (existing) return Response.json({ error: '该部门已有经理（1 部门 1 经理）' }, { status: 409 })
-      // 经理提示词：部门身份 + 成员名单（可经 call_agent 分派）——默认生成，可覆盖
-      const members = await sql`
-        SELECT a.name, a.type, a.description FROM department_members dm
-        JOIN agents a ON a.id = dm.agent_id
-        WHERE dm.department_id = ${body.department_id} AND a.type != 'user'
-      `
-      const memberNames = (members ?? [])
-        .filter((m: any) => m.type === 'ai' || m.type === 'knowledge_base')
-        .map((m: any) => `${m.name}${m.description ? `（${String(m.description).slice(0, 20)}）` : ''}`)
-        .join('、')
-      managerPrompt = body.system_prompt
-        ?? `你是「${String(dept.name)}」的部门经理，代表该部门参与协作。
-
-你的职责：
-1. 作为部门代表回答与其他部门的协作请求
-2. 需要部门成员实际干活时，用 call_agent 工具把任务分派给成员（一次一个成员）
-3. 汇总成员结果后回复——你就是「${String(dept.name)}」的对外出口
-
-部门成员：${memberNames || '（暂无 AI 成员——请先给部门添加 AI 能力）'}
-
-任务完成后按以下结构汇报：
-- ✅ 已完成：列出完成的事项
-- ⚠️ 未完成：列出未完成的事项及原因（没有则省略）
-- 📦 产物：生成的文件/结果位置（没有则省略）`
+      managerPrompt = body.system_prompt ?? null
     }
 
     const [agent] = await sql`
@@ -207,6 +184,20 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       const { writeAudit } = await import('../services/audit.ts')
       await writeAudit(ctx as any, { action: 'agent_create', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? ''), type: String(agent.type ?? '') } })
     } catch { /* 尽力 */ }
+    // 组织层级（与部门自动创建对齐）：经理入代表部门成员（role='manager'）+ 提示词单源回填（未自定义时）
+    if (body.type === 'department' && body.department_id) {
+      await sql`
+        INSERT INTO department_members (department_id, agent_id, role)
+        VALUES (${body.department_id}, ${agent.id}, 'manager')
+        ON CONFLICT DO NOTHING
+      `.catch(() => {})
+      if (!body.system_prompt) {
+        try {
+          const { refreshManagerPrompt } = await import('../services/org-manager.ts')
+          await refreshManagerPrompt(sql, String(appId), String(body.department_id))
+        } catch { /* 刷新失败不阻断 */ }
+      }
+    }
     return Response.json({ agent }, { status: 201 })
   })
 
