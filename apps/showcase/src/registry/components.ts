@@ -52,7 +52,7 @@ export const components: ComponentEntry[] = [
     "sourceFile": "src/client/components/WordCloud/WordCloud.ts",
     "cssFile": "src/client/components/WordCloud/WordCloud.css",
     "testFile": "src/client/components/WordCloud/WordCloud.test.ts",
-    "gotchas": ["textLength 强制词宽=估算宽（0.62×ASCII/1.0×CJK 系数）——lengthAdjust=spacing 只调字距保形——不换行不截断", "height=显示高（默认=实际排版高）——viewBox 恒完整布局坐标系——超限等比缩放零丢弃", "0 权重词过滤不渲染 · 全等权重 → 全 maxFontSize（同权同尺寸 Wordle 语义）"]
+    "gotchas": ["textLength 强制词宽=估算宽（0.62×ASCII/1.0×CJK 系数）——lengthAdjust=spacing 只调字距保形——不换行不截断", "height=显示高（默认=实际排版高）——viewBox 恒完整布局坐标系——超限等比缩放零丢弃", "0 权重词过滤不渲染 · 全等权重 → 全 maxFontSize（同权同尺寸 Wordle 语义）", "可交互必须 pointer-events:bounding-box——SVG text 默认 visiblePainted=字形笔画命中（字母间隙漏到 svg 根——点击不触发实证）", "词 key 用 word 本身（含索引时排序/权重变化即 remove+create 重建）"]
   },
   {
     "id": "wave",
