@@ -72,7 +72,7 @@ async function main() {
     const log = execSync(`git log --oneline ${prevTag}..HEAD --grep="release:" --invert-grep`, { cwd: root }).toString().trim()
     const groups = { feat: [], fix: [], docs: [], test: [], chore: [], other: [] }
     for (const line of log.split('\n')) {
-      const m = line.match(/^\w+ (feat|fix|docs|test|chore)\([^)]*\): (.+)$/)
+      const m = line.match(/^\w+ ((?:feat|fix|docs|test|chore))(?:\([^)]*\))?: (.+)$/)
       if (m) groups[m[1]].push(m[2].trim())
       else if (line) groups.other.push(line.replace(/^\w+\s/, '').trim())
     }
