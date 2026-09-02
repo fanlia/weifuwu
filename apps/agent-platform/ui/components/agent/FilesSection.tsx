@@ -171,8 +171,22 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
       await loadWsList(wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`)
       return
     }
+    const rel = wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`
+    // 视频（2026-09——mp4/WebM/mov——弹窗播放：blob（鉴权 fetch）→ VideoPlayer 内置组件）
+    if (/\.(mp4|webm|mov)$/i.test(entry.name)) {
+      try {
+        const { authorizedGet } = await import('../../lib/download.ts')
+        const res = await authorizedGet(`/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: 'video/mp4' }))
+        const { openVideoPopup } = await import('../../lib/video-popup.ts')
+        openVideoPopup(ctx as any, url, entry.name)
+      } catch (e) {
+        ctx.toast!('视频加载失败：' + errMsg(e, ''), 'error')
+      }
+      return
+    }
     try {
-      const rel = wsPath === '/' ? entry.name : `${wsPath}/${entry.name}`
       const d = await ctx.api!.get<WsFileResponse>(`/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(rel)}`)
       if (d.binary) { ctx.toast!('二进制文件不可预览', 'error'); return }
       wsOpenFile = { path: rel, content: d.content ?? '', binary: !!d.binary, truncated: !!d.truncated, size: d.size }

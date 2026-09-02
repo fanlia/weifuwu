@@ -71,6 +71,24 @@ export const Deliverables: Component = (_init, ctx) => {
   void load()
 
   async function previewFile(f: DeliverableFile): Promise<void> {
+    // 视频（2026-09——mp4/WebM/mov——弹窗播放：blob（鉴权 fetch）→ VideoPlayer）
+    if (/\.(mp4|webm|mov)$/i.test(f.name)) {
+      $.previewLoading = true
+      rerender()
+      try {
+        const { authorizedGet } = await import('../lib/download.ts')
+        const res = await authorizedGet(`/api/departments/${f.deptId}/workspace/file?path=${encodeURIComponent(f.path)}&download=1`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: 'video/mp4' }))
+        const { openVideoPopup } = await import('../lib/video-popup.ts')
+        openVideoPopup(ctx as any, url, f.name)
+      } catch (e) {
+        ctx.toast?.(`视频加载失败：${errMsg(e, '')}`, 'error')
+      }
+      $.previewLoading = false
+      rerender()
+      return
+    }
     $.previewLoading = true
     rerender()
     try {

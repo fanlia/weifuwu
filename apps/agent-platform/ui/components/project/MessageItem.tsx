@@ -35,6 +35,35 @@ function ChatImagePreview(preview: NonNullable<ChatMessage['preview']>): any {
     placeholderText={preview.state === 'error' ? '图片加载失败' : '图片加载中…'} />
 }
 
+/** 聊天视频块（2026-09——同图片三态：内置 VideoPlayer 内嵌播放——点击放大弹窗）
+ * 占位 300×169（16:9——布局恒定）；ready → <VideoPlayer>（点击打开全屏弹窗）
+ * 注意：同样普通函数返回 vnode——调用点 {ChatVideoBlock(...)} */
+function ChatVideoBlock(video: NonNullable<ChatMessage['video']>, name: string, ctx: { ui: { openPopup: Function } }): any {
+  if (video.state === 'ready' && video.url) {
+    return (
+      <div class="wf-stack wf-gap-xs">
+        <div
+          class="wf-radius wf-border wf-cursor-pointer"
+          style="width: 300px; height: 169px; overflow: hidden; position: relative;"
+          onClick={() => {
+            void import('../../lib/video-popup.ts').then(({ openVideoPopup }) =>
+              openVideoPopup(ctx as any, video.url!, name))
+          }}
+        >
+          <video src={video.url} style="width: 100%; height: 100%; object-fit: cover;" muted playsInline preload="metadata" />
+          <div class="wf-video-play-badge" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;">▶</div>
+        </div>
+        <div class="wf-font-xs wf-text-tertiary">🎬 {name}——点击播放</div>
+      </div>
+    )
+  }
+  return (
+    <div class="wf-radius wf-border wf-bg-tertiary" style="width: 300px; height: 169px; display: flex; align-items: center; justify-content: center;">
+      <span class="wf-text-tertiary wf-font-sm">{video.state === 'error' ? '视频加载失败' : '视频加载中…'}</span>
+    </div>
+  )
+}
+
 export interface MessageItemProps {
   msg: ChatMessage
   departmentId: string
@@ -79,7 +108,7 @@ function toolLabel(name: string): string {
   return labels[name] ?? name.replace(/_/g, ' ')
 }
 
-export const MessageItem: Component<MessageItemProps> = (_init) => {
+export const MessageItem: Component<MessageItemProps> = (_init, ctx) => {
   return (props: MessageItemProps) => {
     const { msg } = props
     const st = msg.status
@@ -115,6 +144,12 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
           {msg.preview && (
             <div class="wf-margin-top-sm">
               {ChatImagePreview(msg.preview)}
+            </div>
+          )}
+          {/* 视频产物卡片（2026-09——hydrate video → 内嵌缩略 + 点击弹窗播放） */}
+          {msg.video && (
+            <div class="wf-margin-top-sm">
+              {ChatVideoBlock(msg.video, rel, ctx)}
             </div>
           )}
         </div>
@@ -237,6 +272,12 @@ export const MessageItem: Component<MessageItemProps> = (_init) => {
                   ? <Markdown content={msg.content || ''} />
                   : (msg.content || '')}
               />
+              {/* 视频产物（2026-09——text 消息含 /ws/*.mp4——hydrate video → 内嵌缩略 + 弹窗） */}
+              {msg.video && (
+                <div class="wf-margin-top-sm">
+                  {ChatVideoBlock(msg.video, (msg.content.match(/\/ws\/([^\s"'()<>，。]+)/)?.[1] ?? '视频'), ctx)}
+                </div>
+              )}
               {st === 'complete' && msg.usage && (
                 <div class="wf-text-right wf-margin-top-xs">
                   <Badge variant="default"><Icon name="zap" size={12} /> {msg.usage.total_tokens} tokens</Badge>

@@ -397,6 +397,8 @@ export interface ChatMessage {
   /** 图片预览（2026-09——AI 生成图片——占位先行：loading 占位→ready 图/error 占位；
    * 三态同尺寸（300×300）——布局恒定零追滚零闪烁——非持久字段） */
   preview?: { state: 'loading' | 'ready' | 'error'; url?: string } | null
+  /** 视频预览（2026-09——AI 生成视频（/ws/*.mp4）——同图片三态机制——blob URL） */
+  video?: { state: 'loading' | 'ready' | 'error'; url?: string } | null
   tools: MessageTool[]
   usage?: { total_tokens: number }
   ai_draft?: string | null

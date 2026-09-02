@@ -326,6 +326,39 @@ export const Chat: Component = (_props, ctx) => {
   function extractImagePaths(content: string): string[] {
     return [...new Set(String(content ?? '').match(IMG_PATH_RE) ?? [])]
   }
+  // 视频与图片同链路（2026-09——hydrate 提取 /ws/*.mp4 → blob → 消息内嵌播放）
+  const VIDEO_PATH_RE = /\/ws\/[^\s"'()<>，。]+?\.(?:mp4|webm|mov)/g
+  function extractVideoPaths(content: string): string[] {
+    return [...new Set(String(content ?? '').match(VIDEO_PATH_RE) ?? [])]
+  }
+  function setVideo(id: string, v: { state: 'loading' | 'ready' | 'error'; url?: string } | null): void {
+    $.msgs = $.msgs.map((x: ChatMessage) => (x.id === id ? { ...x, video: v } : x))
+    ctx.render()
+  }
+  async function hydrateVideoPreviews(): Promise<void> {
+    for (const m of $.msgs) {
+      if (m.video || m.sender_type !== 'ai' || !m.content) continue
+      const paths = m.msg_type === 'file_card'
+        ? (/^[^\s"'()<>，。]+\.(?:mp4|webm|mov)$/i.test(m.content) ? [m.content] : [])
+        : extractVideoPaths(m.content)
+      if (!paths.length) continue
+      setVideo(m.id, { state: 'loading' })
+      scrollToBottom()
+      const { authorizedGet } = await import('../lib/download.ts')
+      let done = false
+      for (const p of paths) {
+        const rel = p.replace(/^\/ws\//, '')
+        const res = await authorizedGet(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`)
+        if (!res.ok) continue
+        const ext = (p.match(/\.(\w+)$/)?.[1] ?? 'mp4').toLowerCase()
+        const mime: Record<string, string> = { mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime' }
+        setVideo(m.id, { state: 'ready', url: URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: mime[ext] ?? 'video/mp4' })) })
+        done = true
+        break
+      }
+      if (!done) setVideo(m.id, { state: 'error' })
+    }
+  }
   function setPreview(id: string, p: { state: 'loading' | 'ready' | 'error'; url?: string } | null): void {
     $.msgs = $.msgs.map((x: ChatMessage) => (x.id === id ? { ...x, preview: p } : x))
     ctx.render()
@@ -381,6 +414,7 @@ export const Chat: Component = (_props, ctx) => {
     }
     $.hasMore = list.length >= 50
     void hydrateImagePreviews()
+    void hydrateVideoPreviews()
     // 补拉/轮询路径重渲染（merge 改了 $.msgs 但不 rerender——UI 停留在旧帧——
     // A2 纯 HTTP 补拉无 ws 事件兜底——E1 轮询实测消息不上屏根因）
     ctx.render()
@@ -513,6 +547,7 @@ export const Chat: Component = (_props, ctx) => {
       case 'wf:done': {
         applyWf(event)
         void hydrateImagePreviews()
+        void hydrateVideoPreviews()
         ; break
       }
       case 'wf:error': {
