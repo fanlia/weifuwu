@@ -2,25 +2,29 @@
 
 > 交付包三件套：**部署（Compose 一键）→ 升级（脚本 + 备份）→ 运维（健康/告警/备份）**。
 
-## 1. 部署（docker compose 一键）
+## 1. 部署（依赖栈 = 仓库根 docker-compose.yml）
+
+agent-platform **无独立 compose**——postgres/redis 由仓库根 [docker-compose.yml](../../docker-compose.yml)
+提供；应用本体宿主运行（或 Dockerfile 自建镜像）。
 
 ```bash
-# 1. 准备环境变量（必配 4 项 + 商业化按需）
-cp .env.example .env
-vim .env   # DATABASE_URL/JWT_SECRET/DEEPSEEK_API_KEY 必填；ADMIN_EMAILS/LICENSE_*/OIDC_* 按需
+# 1. 准备环境变量（必配：JWT_SECRET/DEEPSEEK_API_KEY/DASHSCOPE_API_KEY）
+cp .env.example .env && vim .env
 
-# 2. 一键启动（postgres + redis + app 三容器）
-docker compose up -d --build
+# 2. 起依赖（仓库根目录执行——postgres/redis/smtp）
+docker compose up -d postgres redis
 
-# 3. 验证
+# 3. 启动应用（apps/agent-platform）
+npm start        # 或 npm run dev（watch）
+
+# 4. 验证
 curl http://localhost:3000/healthz      # {"status":"ok","deps":{"pg":true,"redis":true,...}}
-docker compose logs -f app              # 看启动日志
 ```
 
-**数据卷**（升级/迁移不丢）：
-- `pg-data`：数据库（唯一真相源）
-- `redis-data`：缓存/广播（可重建）
-- `workspace-data`：AI 工作空间文件
+**数据**（升级/迁移不丢）：
+- postgres：根 compose 卷（唯一真相源——备份/恢复直连 `-h localhost -p 5432 -U root demo`）
+- redis：可重建（缓存/广播）
+- 工作空间：`AGENT_WORKSPACE_ROOT`（默认 `./data/workspaces`）——与 DB 一起备份
 
 ## 2. 升级（脚本 + 备份 + 回滚）
 
@@ -30,8 +34,8 @@ git pull                          # 或更新镜像
 node scripts/upgrade.mjs --backup-dir /data/backups
 ```
 
-脚本流程：`pg_dump` 备份 → `docker compose up -d --build` → 轮询 `/healthz`（120s 超时）→
-成功打印备份路径 / 失败打印回滚指引（`pg_restore` + 旧镜像回退）。
+脚本流程：`pg_dump` 备份 → 重启应用（自动探测：compose 已删→本机 node/pm2 重启）→ 轮询 `/healthz`（120s 超时）→
+成功打印备份路径 / 失败打印回滚指引（`pg_restore` + 旧代码回退）。
 
 ## 3. 运维
 

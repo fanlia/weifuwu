@@ -27,42 +27,43 @@
 
 **私有化部署**：`LICENSE_KEY` + `WHITE_LABEL_*` + `OIDC_*` + Dockerfile——一套配置交付品牌化企业实例。
 
-## 私有化部署（docker compose——一键交付）
+## 依赖服务（docker compose——仓库根 [docker-compose.yml](../docker-compose.yml)）
+
+开发/部署的 postgres + redis 由**仓库根** `docker-compose.yml` 提供（agent-platform 无独立 compose）：
+
+| 服务 | 镜像 | 宿主端口 | 默认连接（与 .env.example 一致） |
+|------|------|---------|------------------------------|
+| postgres | `pgvector/pgvector:pg18`（含 vector 扩展——知识库必需） | 5432 | `postgres://root:123456@localhost:5432/demo` |
+| redis | `redis:7-alpine` | 6379 | `redis://localhost:6379` |
+| smtp（可选） | greenmail 测试邮箱 | 3025 | 本地收发件测试 |
 
 ```bash
-# 1. 环境变量（生产必配：JWT_SECRET/DEEPSEEK_API_KEY/ADMIN_EMAILS）
-cp .env.example .env && vim .env
+# 仓库根目录执行（仅起依赖——app 本机跑）
+docker compose up -d postgres redis
 
-# 2. 一键启动（postgres/redis/app 三服务——全 healthcheck 接线）
-docker compose up -d --build
-
-# 3. 验证
-curl http://localhost:3000/healthz   # { pg: true, redis: ..., sandbox: ... }
-docker compose logs -f app
-
-# 4. 升级
-git pull && docker compose up -d --build
-
-# 5. 备份/恢复（pg_dump + workspaces 卷）
-docker compose exec postgres pg_dump -U agent agent_platform > backup.sql
-scripts/restore.sh backup.sql   # 恢复
+# 应用启动（apps/agent-platform）
+cp .env.example .env && vim .env   # 生产必配：JWT_SECRET/DEEPSEEK_API_KEY/DASHSCOPE_API_KEY
+npm run dev                        # node --watch server.ts → http://localhost:3000
+# 或 npm start（无 watch）
 ```
 
-**沙盒节点**：AI 文件操作需要 Docker 沙盒——compose 的 app 容器通过
-`/var/run/docker.sock`（默认映射）或独立沙盒节点（SANDBOX_HOST_ID）
-——生产建议：沙盒独立主机 + 宿主 Docker socket 仅沙盒节点暴露
-（AI 代码执行边界——护城河①）。
+**备份/恢复**：`pg_dump`/`psql` 直连宿主端口（`-h localhost -p 5432 -U root demo`）→
+`scripts/backup.sh` / `scripts/restore.sh`。工作区在 `AGENT_WORKSPACE_ROOT`（默认 `./data/workspaces`）——
+与 DB 一起备份。
 
-**升级注意**：schema 迁移 `CREATE IF NOT EXISTS`（绝不 DROP——数据
-安全）——升级只增不改。
+**容器化部署**：需要镜像化时用 `Dockerfile` 自建镜像（`docker build -f apps/agent-platform/Dockerfile ..`），
+运行容器时以 `--network host`（或 compose 网络）连根 compose 的 postgres/redis。
 
+**沙盒**：app 本机运行时代理容器引擎直接用宿主 docker（沙盒是独立 `ap-sandbox-*` 容器——
+与 app 容器无关）；生产建议沙盒独立主机（SANDBOX_HOST_ID）。
 ## 启动
 
 ```bash
-# 依赖：本地 postgres（DATABASE_URL）+ 可选 redis（REDIS_URL，多实例广播）
-# AI：DEEPSEEK_API_KEY（对话）/ DASHSCOPE_API_KEY（embedding）
+# 依赖（仓库根执行）：postgres + redis
+cd .. && docker compose up -d postgres redis && cd apps/agent-platform
+
+# 配置 + 启动（AI：DEEPSEEK_API_KEY（对话）/ DASHSCOPE_API_KEY（embedding+图片+视频））
 cp .env.example .env && vim .env
-cd apps/agent-platform
 npm run dev        # node --watch server.ts → http://localhost:3000
 ```
 

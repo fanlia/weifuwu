@@ -83,7 +83,7 @@ async function main() {
     else if (existsSync('/proc/1/cmdline') && execSync('cat /proc/1/cmdline').toString().includes('pm2')) run('pm2 restart agent-platform')
     else {
       console.warn('  ⚠ 未识别部署方式——请手动重启服务后继续')
-      console.warn('    docker compose up -d --build  或  pm2 restart agent-platform  或  node server.ts')
+      console.warn('    docker compose up -d postgres redis（根目录——仅依赖） 或  pm2 restart agent-platform 或  node server.ts')
     }
   } catch (e) {
     console.error('  ✗ 重启失败:', e.message)
