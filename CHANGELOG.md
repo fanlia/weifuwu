@@ -8,6 +8,46 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.90.1] - 2026-09-02
+
+### Added
+
+- WordCloud 100 词圆心同心环布局 + tooltip · showcase 一页一组件收敛（135=组件库）
+- WordCloud 交互面——onWordClick/键盘可达/动态重排 + SVG 命中区修复
+- WordCloud 词云组件——确定性行式装箱 + SVG textLength 定宽（零依赖自绘）
+- 视频播放——消息/文件列表/交付物三面弹窗播放（内置 VideoPlayer + openPopup）
+- 视频生成工具——HappyHorse t2v 异步接入（weifuwu 队列轮询 + 完成通知闭环）
+
+### Fixed
+
+- healthz deps.redis 恒 false——自研 Redis 客户端无 ping 方法面
+- CHANGELOG 生成支持无 scope 的 conventional commit（docs: 主提交曾丢失）
+
+### Chore
+
+- WordCloud 完成收尾——gotchas 补 SVG 命中坑/key 纪律 · 计划归档 git 历史
+- 删除独立 compose——依赖栈收敛到仓库根 docker-compose.yml
+
+## [0.90.1] - 2026-09-02
+
+### Added
+
+- WordCloud 100 词圆心同心环布局 + tooltip · showcase 一页一组件收敛（135=组件库）
+- WordCloud 交互面——onWordClick/键盘可达/动态重排 + SVG 命中区修复
+- WordCloud 词云组件——确定性行式装箱 + SVG textLength 定宽（零依赖自绘）
+- 视频播放——消息/文件列表/交付物三面弹窗播放（内置 VideoPlayer + openPopup）
+- 视频生成工具——HappyHorse t2v 异步接入（weifuwu 队列轮询 + 完成通知闭环）
+
+### Fixed
+
+- healthz deps.redis 恒 false——自研 Redis 客户端无 ping 方法面
+- CHANGELOG 生成支持无 scope 的 conventional commit（docs: 主提交曾丢失）
+
+### Chore
+
+- WordCloud 完成收尾——gotchas 补 SVG 命中坑/key 纪律 · 计划归档 git 历史
+- 删除独立 compose——依赖栈收敛到仓库根 docker-compose.yml
+
 ## [0.90.0] - 2026-09-02
 
 ### Added
