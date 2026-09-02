@@ -5,6 +5,7 @@
 import type { Router, Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { streamAgentPreview } from '../services/agent-runner.ts'
+import { AGENT_TYPE_LIST } from '../../ui/lib/types.ts'
 
 /** 内置工具定义（与 builtin.ts 同步） */
 export const BUILTIN_TOOL_DEFS = [
@@ -60,7 +61,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
         workspace_path, allow_file_tools, allow_command_exec, department_id
       FROM agents
       WHERE app_id = ${appId}
-      ${type && ['ai', 'user', 'webhook', 'knowledge_base'].includes(type) ? sql`AND type = ${type}` : sql``}
+      ${type && AGENT_TYPE_LIST.includes(type as any) ? sql`AND type = ${type}` : sql``}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `
@@ -68,7 +69,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     const [countResult] = await sql`
       SELECT COUNT(*)::int as total FROM agents
       WHERE app_id = ${appId}
-      ${type && ['ai', 'user', 'webhook', 'knowledge_base'].includes(type) ? sql`AND type = ${type}` : sql``}
+      ${type && AGENT_TYPE_LIST.includes(type as any) ? sql`AND type = ${type}` : sql``}
     `
 
     // 为每个 AI Agent 附加最近的 token 用量统计
@@ -139,7 +140,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: 'type 和 name 为必填' }, { status: 400 })
     }
 
-    if (!['ai', 'user', 'webhook', 'knowledge_base', 'department'].includes(body.type)) {
+    if (!AGENT_TYPE_LIST.includes(body.type as any)) {
       return Response.json({ error: 'type 必须是 ai/user/webhook/knowledge_base/department 之一' }, { status: 400 })
     }
     // user 类型仅允许注册/内部流程创建（绑定 user_id）——API 直调创建孤儿 user agent 防护

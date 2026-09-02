@@ -7,6 +7,27 @@
 /** Agent 类型 */
 export type AgentType = 'ai' | 'user' | 'webhook' | 'knowledge_base' | 'department'
 
+/** 类型元数据单源（AGENT-TYPES-OPTIMIZE W4）——label/icon/color/desc/creatable
+ *  新增类型只改此处：UI（TypeBadge/向导卡片/头像）与后端校验/筛选全派生。
+ *  creatable=false = 系统流程创建（如 user 注册自动建）——UI 不提供手动创建。 */
+export const AGENT_TYPES: ReadonlyArray<{
+  value: AgentType
+  label: string
+  icon: string
+  color: string
+  desc: string
+  creatable: boolean
+}> = [
+  { value: 'ai', label: 'AI 机器人', icon: '🤖', color: '#8b5cf6', desc: 'DeepSeek 驱动，支持工具调用与人工审批', creatable: true },
+  { value: 'user', label: '真实用户', icon: '👤', color: '#4f6ef7', desc: '注册自动创建（绑定登录账号）——UI 不提供手动创建（防 user_id=null 孤儿）', creatable: false },
+  { value: 'webhook', label: 'Webhook', icon: '🔗', color: '#f59e0b', desc: '通过 HTTP Webhook 收发消息', creatable: true },
+  { value: 'knowledge_base', label: '知识库', icon: '📚', color: '#22c55e', desc: 'PGVector 文档语义检索', creatable: true },
+  { value: 'department', label: '部门经理', icon: '🏢', color: '#0ea5e9', desc: '代表部门对外协作（可加入上级部门形成组织层级）', creatable: true },
+]
+
+/** 后端校验/筛选全量列表（含 department——G5） */
+export const AGENT_TYPE_LIST: readonly AgentType[] = AGENT_TYPES.map(t => t.value)
+
 export interface TokenUsage {
   total_tokens: number
   total_prompt: number

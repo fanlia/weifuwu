@@ -1,7 +1,10 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Badge, Button, Card, Checkbox, Field, Input, InputNumber, Loading, Select, Slider, Textarea } from 'weifuwu/components'
-import { inputValue } from '../lib/types'
+import { inputValue, AGENT_TYPES as ALL_AGENT_TYPES } from '../lib/types'
+
+const AGENT_TYPES = ALL_AGENT_TYPES.filter(t => t.creatable)
+// user 类型由注册流程自动创建（绑定登录账号）——creatable=false 过滤（防 user_id=null 孤儿）
 import { track } from '../lib/track'
 
 interface RoleTemplate {
@@ -12,14 +15,6 @@ interface RoleTemplate {
   default_workspace_hint: string | null; default_skills: string[]
   usage_count?: number
 }
-
-const AGENT_TYPES = [
-  { value: 'ai', label: '🤖 AI 机器人', desc: 'DeepSeek 驱动，支持工具调用与人工审批' },
-  { value: 'webhook', label: '🔗 Webhook', desc: '通过 HTTP Webhook 收发消息' },
-  { value: 'knowledge_base', label: '📚 知识库', desc: 'PGVector 文档语义检索' },
-  { value: 'department', label: '🏢 部门经理', desc: '代表部门对外协作（可加入上级部门形成组织层级）' },
-  // user 类型由注册流程自动创建（绑定登录账号）——UI 不提供手动创建（防止 user_id=null 孤儿）
-]
 
 const CAT_LABELS: Record<string, string> = {
   engineering: '👨‍💻 工程研发', support: '🎧 客服支持', product: '📋 产品管理',
@@ -223,7 +218,7 @@ export const NewAgent: Component = (_props, ctx) => {
                 {AGENT_TYPES.map(t => (
                   <Card key={t.value} outlined hover active={$.type === t.value}
                     onClick={() => { $.type = t.value; $.error = ''; rerender() }}>
-                    <div class="wf-font-base wf-semibold">{t.label}</div>
+                    <div class="wf-font-base wf-semibold">{t.icon} {t.label}</div>
                     <div class="wf-font-xs wf-text-secondary">{t.desc}</div>
                   </Card>
                 ))}

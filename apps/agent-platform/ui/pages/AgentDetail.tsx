@@ -32,6 +32,7 @@ interface AgentDetailState {
   whTestContent: string; whTestStatus: number | null; whTestElapsed: number | null
   expandedWhLog: string | null; whLogFilter: 'all' | 'success' | 'fail'
   showGuide: boolean; guideTab: 'curl' | 'node'
+  deptInfo: { name: string; members: Array<{ name: string; role: string; type: string }> } | null
 }
 
 export const AgentDetail: Component = (_props, ctx) => {
@@ -104,6 +105,14 @@ export const AgentDetail: Component = (_props, ctx) => {
     $.whTestContent = ''; $.whTestStatus = null; $.whTestElapsed = null
     $.expandedWhLog = null; $.showGuide = false; $.guideTab = 'curl'
 
+    // 组织层级：部门经理详情——代表部门 + 成员名单（只读面板）
+    $.deptInfo = null
+    if (a.type === 'department' && a.department_id) {
+      void ctx.api!.get<any>(`/api/departments/${a.department_id}`)
+        .then((d) => { $.deptInfo = { name: d.department?.name ?? '', members: d.members ?? [] }; rerender() })
+        .catch(() => {}) // 面板显示部门链接即可
+    }
+
       $.loading = false
       rerender()
     }).catch((e) => {
@@ -146,6 +155,9 @@ export const AgentDetail: Component = (_props, ctx) => {
       body.allow_command_exec = $.allowCommandExec
       body.allow_network = $.allowNetwork
       body.kb_id = $.kbId || null
+    }
+    if ($.agent?.type === 'department') {
+      body.model = $.aiModel || null
     }
     if ($.agent?.type === 'webhook') {
       body.webhook_url = $.webhookUrl.trim() || null
@@ -263,7 +275,9 @@ export const AgentDetail: Component = (_props, ctx) => {
           ? [['sec-config', '配置'], ['sec-skills', '技能'], ['sec-knowledge', '知识库'], ['sec-preview', '对话'], ['sec-logs', '日志'], ['sec-versions', '版本']]
           : a.type === 'webhook'
             ? [['sec-config', '配置'], ['sec-webhook', 'Webhook'], ['sec-versions', '版本']]
-            : [['sec-config', '配置'], ['sec-account', '账号'], ['sec-versions', '版本']]
+            : a.type === 'department'
+              ? [['sec-config', '配置'], ['sec-dept', '部门'], ['sec-versions', '版本']]
+              : [['sec-config', '配置'], ['sec-account', '账号'], ['sec-versions', '版本']]
         ).map(([id, label]) => (
           <button key={id} type="button" class="wf-btn wf-btn--sm wf-btn--ghost"
             onClick={() => { const el = ctx.browser?.byId?.(id); if (el) (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>
@@ -284,6 +298,33 @@ export const AgentDetail: Component = (_props, ctx) => {
           )}
         </div>
       </Card>
+
+      {/* 组织层级：部门经理——代表部门 + 成员名单（只读——AGENT-TYPES-OPTIMIZE W3） */}
+      {a.type === 'department' && (
+        <Card key="sec-dept" id="sec-dept">
+          <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-md">🏢 代表部门</div>
+          {$.deptInfo?.name ? (
+            <div class="wf-stack wf-gap-sm">
+              <div class="wf-row wf-gap-sm wf-items-center">
+                <span class="wf-font-md wf-medium">{$.deptInfo.name}</span>
+                <a class="wf-font-sm wf-text-primary" onClick={() => ctx.app?.navigate(`/departments/${a.department_id}`)}>进入部门 →</a>
+              </div>
+              <div class="wf-border-top wf-padding-top-sm wf-stack wf-gap-xs">
+                <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">部门成员（{$.deptInfo.members.length}）</div>
+                {$.deptInfo.members.map((m) => (
+                  <div key={m.name} class="wf-row wf-gap-xs wf-items-center wf-font-sm">
+                    <span>{m.type === 'department' ? '🏢' : m.type === 'knowledge_base' ? '📚' : '🤖'}</span>
+                    <span class="wf-fill wf-truncate">{m.name}</span>
+                    <span class="wf-font-xs wf-text-tertiary">{m.role === 'manager' ? '经理' : m.role === 'admin' ? '管理员' : '成员'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div class="wf-font-sm wf-text-secondary">代表部门加载中（或已删除）——<a class="wf-text-primary" onClick={() => ctx.app?.navigate('/departments')}>部门列表</a></div>
+          )}
+        </Card>
+      )}
 
       <div class="wf-margin-bottom-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
       <div class="wf-margin-bottom-md">{$.ok && <Alert variant="success">{$.ok}</Alert>}</div>
@@ -431,6 +472,14 @@ export const AgentDetail: Component = (_props, ctx) => {
               </div>
               {$.allowFileTools && <div class="wf-font-xs wf-text-tertiary wf-margin-top-xs">🧪 沙盒：ap-sandbox（node:24 + python + agent-browser）· 网络隔离 · 内存 512MB · 1 CPU（命令执行在容器内，路径穿越/资源/网络均受容器边界保护；保存后在部门内生效）</div>}
             </>
+          )}
+
+          {/* 组织层级：部门经理模型（创建时可配——详情保存生效——AGENT-TYPES-OPTIMIZE W3） */}
+          {a.type === 'department' && (
+            <Field label="模型" hint="部门经理使用的模型（保存生效）">
+              <Select value={$.aiModel} onChange={(v) => { $.aiModel = v as string; rerender() }}
+                options={MODELS.map(m => ({ value: m.value, label: m.label }))} />
+            </Field>
           )}
 
           {a.type === 'webhook' && (

@@ -4,6 +4,7 @@
 
 import type { UIContext } from 'weifuwu/vdom'
 import { Avatar, Badge, EmptyState, Loading, PageHeader } from 'weifuwu/components'
+import { AGENT_TYPES } from '../lib/types'
 
 export { PageHeader, EmptyState, Loading }
 export type { PageHeaderProps, EmptyStateProps, LoadingProps } from 'weifuwu/components'
@@ -20,14 +21,9 @@ export function errMsg(e: unknown, fallback: string): string {
   return fallback
 }
 
-/** 类型元数据 */
-export const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
-  ai: { label: 'AI 机器人', icon: '🤖', color: '#8b5cf6' },
-  webhook: { label: 'Webhook', icon: '🔗', color: '#f59e0b' },
-  knowledge_base: { label: '知识库', icon: '📚', color: '#22c55e' },
-  user: { label: '真实用户', icon: '👤', color: '#4f6ef7' },
-  department: { label: '部门经理', icon: '🏢', color: '#0ea5e9' },
-}
+/** 类型元数据（单源：ui/lib/types.ts AGENT_TYPES——AGENT-TYPES-OPTIMIZE W4） */
+export const TYPE_META: Record<string, { label: string; icon: string; color: string }> =
+  Object.fromEntries(AGENT_TYPES.map(t => [t.value, { label: t.label, icon: t.icon, color: t.color }]))
 
 /** 类型徽章 */
 export function TypeBadge(_init: { type: string }, _ctx: UIContext) {
