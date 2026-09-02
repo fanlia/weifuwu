@@ -339,8 +339,15 @@ export const Chat: Component = (_props, ctx) => {
       for (const p of paths) {
         // /ws/ 是容器视角前缀——文件端点需 ws 相对路径（探针实测 2026-09）
         const rel = p.replace(/^\/ws\//, '')
-        const res = await authorizedGet(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(rel)}`)
-        if (res.ok) { url = URL.createObjectURL(await res.blob()); break }
+        // &download=1 必需：无 download 时二进制文件（png）返回 {binary:true} JSON
+        // （200）——被当图片 → 破图（agent-browser 实证 naturalWidth=0）
+        const res = await authorizedGet(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`)
+        if (res.ok) {
+          const ext = (p.match(/\.(\w+)$/)?.[1] ?? 'png').toLowerCase()
+          const mime: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' }
+          url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: mime[ext] ?? 'application/octet-stream' }))
+          break
+        }
       }
       if (url) {
         $.msgs = $.msgs.map((x: ChatMessage) => (x.id === m.id ? { ...x, preview: url } : x))
