@@ -8,6 +8,150 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.90.0] - 2026-09-02
+
+### Added
+
+- 交付物文件卡片体验（DELIVERABLES-UX-PLAN W1/W2）
+- Img 支持占位（placeholder）——加载/失败态组件内自理
+- BackTop 首用实战修复——scroll 监听机制 + direction/fixed 扩展
+- 聊天图片预览改用框架 Img 组件（preview 属性）——排版+点击放大
+- 聊天流 AI 生成图片直显——消息内预览（点击放大）
+- 新内置工具 generate_image——z-image-turbo 文生图（dashscope 多模态接口）
+- 交付物文本内联预览（BUSINESS-SCENARIO W5——G-D）——预览按钮+内容面板（二进制明示下载）；G-E 判负登记（无产物登记机制——runner 改造过大）
+- 编排任务链可视（BUSINESS-SCENARIO W3——G-F 死数据面歼灭）——Reports 渲染 runs 列表（状态/编排者/worker 结果/错误摘要）；J4 冒烟升级为渲染契约
+- 问卷开箱——/surveys 发起面板 + 角色池一键创建（BUSINESS-SCENARIO W2——G-G）
+- 一键演示空间（G-A）+ 配额告警渲染（G-B）——BUSINESS-SCENARIO W1
+- 类型单源 + 部门经理详情视图（AGENT-TYPES-OPTIMIZE W3/W4）
+- 交付面压缩——build --minify（817KB→455KB）+ /static/app.js gzip（135KB——node:zlib 零依赖）
+- 批量批准——审批积压 66 条清账 + 框架 sql.array + 定位器精确化
+- CHAT-INTERACTION 波次 2——HITL 快捷确认按钮（P1：AI 确认型提问可点即答）
+- 波次 3——403 原因透出 + 按角色落地引导（走查 P0-1）
+- 波次 2——写入口角色遮蔽（前端防线与 API 403 双保险·走查 P0-2）
+- 增强包——回到底部浮钮/草稿持久化/重试透传（CHAT-UX 波次 4）
+- 消息密度——操作行hover化/日期分隔线/绝对时间（CHAT-UX 波次 3）
+- 审批待办侧边栏徽章——全局可见性（UX-PLAN-2 波次 4）
+- 移动端外壳——抽屉 + 聊天面板入口（UX-PLAN-2 波次 3）+ Button aria-label 透传（核心层）
+- 会话列表去噪——单 AI 待命间识别（UX-PLAN-2 波次 2）
+
+### Fixed
+
+- 文件卡片两行式布局（截图复盘——单行硬塞 6 元素拥挤）
+- BackTop 容器 attach 空值回退 bug（?? 回退 window 致监听失效）+ chat 浮钮 key
+- 刷新后聊天滚动不在底部——hydrate 预览后显式滚底
+- 聊天图片预览破图——file 端点二进制默认返回 JSON（无 download=1）
+- dev 模式 /static/app.js 禁缓存（no-store）——旧 bundle 假 bug 根治
+- 答案缓存排除工具产物型回复（含 /ws/ 路径）——画图类问题第二次命中旧图、工具不跑
+- generate_image 自动命名改用 crypto.randomUUID 后缀（8 位）——并发不覆盖
+- generate_image 自动命名加随机后缀——同毫秒并发生成不互相覆盖
+- register slug 去重上限 20→200——同域名大量注册（e2e.test 测试租户超 20 即 409 实证）
+- 组织层级——经理提示词单源化（W1）+ 部门删除孤儿歼灭（W2）
+- 走查 P1——部门成员 picker 补人类成员 + 部门页双入口（同事加入不再绕 API）
+- CHAT-INTERACTION 波次 1——无效部门显式错误态（P2 走查踩中）
+- login SSR 文档缺 app.css——登录后整会话 ap-* 样式失效（角色走查实证）
+- pg 池空闲收缩落地 + shutdown 顺序治理——watch 重启连接击穿根治
+- 工作空间文件空目录重进永久「加载中」（用户实证）
+- 布局与一致性——左栏贴顶/翻页工具条/面板按钮响应式（CHAT-UX 波次 2）
+- 聊天正确性四连——呼吸灯卡死/调试log/按钮class/头像?（CHAT-UX 波次 1）
+- 状态诚实化——StatusDot 双标签歼灭 + 部门详情沙盒状态加载（UX-PLAN-2 波次 1）
+- 段生命周期纪元守卫——cleanup 不误杀同槽位复用新段（nav 链残留根治）
+
+### Docs
+
+- 文档体系收敛——5 文件 + plan/ 计划规范 + 组件批次与审计修复
+- DELIVERABLES-UX-PLAN——交付物文件卡片体验优化计划（截图驱动）
+- BUSINESS-SCENARIO-PLAN 执行实录（W0-W6 完成/W7 环境受限登记）+ 租户审计豁免登记（demo/survey-setup 新 SQL）——全量门禁绿
+- BUSINESS-SCENARIO-PLAN——六业务场景体验/能力缺口补齐计划（探针实证 G-A~G-I）
+- AGENT-TYPES-OPTIMIZE-PLAN——执行实录归档（W1-W5 完成/全绿）
+- AGENT-TYPES-OPTIMIZE-PLAN——五类型全景优化计划（探针实证 G1-G5）
+- OPTIMIZE-PLAN-4——优化计划+执行实录归档（W0-W2 完成/W3 判负）
+- CHAT-INTERACTION 波次 3——验收归档（真实 AI 端到端通过）
+- CHAT-INTERACTION-PLAN——聊天交互优化计划（走查 P1/P2）
+- 波次 4——ROLES-OPTIMIZATION-PLAN 验收归档 + ROLES.md §6 清账
+- ROLES-OPTIMIZATION-PLAN——角色体系优化计划（§6 观察落地）
+- ROLES.md——角色模型单一事实源（走查+实证沉淀）
+- CHAT-UX-PLAN 归档——五波次全交付（波次 5 验收收官）
+- CHAT-UX-PLAN——聊天页体验优化计划（产品重心专项）
+- UX-PLAN-2 归档——全部收官（波次 6）
+
+### Tests
+
+- 六业务场景旅程冒烟（W0 白盒基线）——缺口重定位实录（G-C 已解决/G-B G-F 死数据面升级/G-G 加重）
+- 系统管理员（平台级 ADMIN_EMAILS）旅程固化——正向能力零覆盖补齐
+- 角色能力与体验流程固化——三角色旅程 + 矩阵补缺（角色走查沉淀）
+
+## [0.90.0] - 2026-09-02
+
+### Added
+
+- 交付物文件卡片体验（DELIVERABLES-UX-PLAN W1/W2）
+- Img 支持占位（placeholder）——加载/失败态组件内自理
+- BackTop 首用实战修复——scroll 监听机制 + direction/fixed 扩展
+- 聊天图片预览改用框架 Img 组件（preview 属性）——排版+点击放大
+- 聊天流 AI 生成图片直显——消息内预览（点击放大）
+- 新内置工具 generate_image——z-image-turbo 文生图（dashscope 多模态接口）
+- 交付物文本内联预览（BUSINESS-SCENARIO W5——G-D）——预览按钮+内容面板（二进制明示下载）；G-E 判负登记（无产物登记机制——runner 改造过大）
+- 编排任务链可视（BUSINESS-SCENARIO W3——G-F 死数据面歼灭）——Reports 渲染 runs 列表（状态/编排者/worker 结果/错误摘要）；J4 冒烟升级为渲染契约
+- 问卷开箱——/surveys 发起面板 + 角色池一键创建（BUSINESS-SCENARIO W2——G-G）
+- 一键演示空间（G-A）+ 配额告警渲染（G-B）——BUSINESS-SCENARIO W1
+- 类型单源 + 部门经理详情视图（AGENT-TYPES-OPTIMIZE W3/W4）
+- 交付面压缩——build --minify（817KB→455KB）+ /static/app.js gzip（135KB——node:zlib 零依赖）
+- 批量批准——审批积压 66 条清账 + 框架 sql.array + 定位器精确化
+- CHAT-INTERACTION 波次 2——HITL 快捷确认按钮（P1：AI 确认型提问可点即答）
+- 波次 3——403 原因透出 + 按角色落地引导（走查 P0-1）
+- 波次 2——写入口角色遮蔽（前端防线与 API 403 双保险·走查 P0-2）
+- 增强包——回到底部浮钮/草稿持久化/重试透传（CHAT-UX 波次 4）
+- 消息密度——操作行hover化/日期分隔线/绝对时间（CHAT-UX 波次 3）
+- 审批待办侧边栏徽章——全局可见性（UX-PLAN-2 波次 4）
+- 移动端外壳——抽屉 + 聊天面板入口（UX-PLAN-2 波次 3）+ Button aria-label 透传（核心层）
+- 会话列表去噪——单 AI 待命间识别（UX-PLAN-2 波次 2）
+
+### Fixed
+
+- 文件卡片两行式布局（截图复盘——单行硬塞 6 元素拥挤）
+- BackTop 容器 attach 空值回退 bug（?? 回退 window 致监听失效）+ chat 浮钮 key
+- 刷新后聊天滚动不在底部——hydrate 预览后显式滚底
+- 聊天图片预览破图——file 端点二进制默认返回 JSON（无 download=1）
+- dev 模式 /static/app.js 禁缓存（no-store）——旧 bundle 假 bug 根治
+- 答案缓存排除工具产物型回复（含 /ws/ 路径）——画图类问题第二次命中旧图、工具不跑
+- generate_image 自动命名改用 crypto.randomUUID 后缀（8 位）——并发不覆盖
+- generate_image 自动命名加随机后缀——同毫秒并发生成不互相覆盖
+- register slug 去重上限 20→200——同域名大量注册（e2e.test 测试租户超 20 即 409 实证）
+- 组织层级——经理提示词单源化（W1）+ 部门删除孤儿歼灭（W2）
+- 走查 P1——部门成员 picker 补人类成员 + 部门页双入口（同事加入不再绕 API）
+- CHAT-INTERACTION 波次 1——无效部门显式错误态（P2 走查踩中）
+- login SSR 文档缺 app.css——登录后整会话 ap-* 样式失效（角色走查实证）
+- pg 池空闲收缩落地 + shutdown 顺序治理——watch 重启连接击穿根治
+- 工作空间文件空目录重进永久「加载中」（用户实证）
+- 布局与一致性——左栏贴顶/翻页工具条/面板按钮响应式（CHAT-UX 波次 2）
+- 聊天正确性四连——呼吸灯卡死/调试log/按钮class/头像?（CHAT-UX 波次 1）
+- 状态诚实化——StatusDot 双标签歼灭 + 部门详情沙盒状态加载（UX-PLAN-2 波次 1）
+- 段生命周期纪元守卫——cleanup 不误杀同槽位复用新段（nav 链残留根治）
+
+### Docs
+
+- 文档体系收敛——5 文件 + plan/ 计划规范 + 组件批次与审计修复
+- DELIVERABLES-UX-PLAN——交付物文件卡片体验优化计划（截图驱动）
+- BUSINESS-SCENARIO-PLAN 执行实录（W0-W6 完成/W7 环境受限登记）+ 租户审计豁免登记（demo/survey-setup 新 SQL）——全量门禁绿
+- BUSINESS-SCENARIO-PLAN——六业务场景体验/能力缺口补齐计划（探针实证 G-A~G-I）
+- AGENT-TYPES-OPTIMIZE-PLAN——执行实录归档（W1-W5 完成/全绿）
+- AGENT-TYPES-OPTIMIZE-PLAN——五类型全景优化计划（探针实证 G1-G5）
+- OPTIMIZE-PLAN-4——优化计划+执行实录归档（W0-W2 完成/W3 判负）
+- CHAT-INTERACTION 波次 3——验收归档（真实 AI 端到端通过）
+- CHAT-INTERACTION-PLAN——聊天交互优化计划（走查 P1/P2）
+- 波次 4——ROLES-OPTIMIZATION-PLAN 验收归档 + ROLES.md §6 清账
+- ROLES-OPTIMIZATION-PLAN——角色体系优化计划（§6 观察落地）
+- ROLES.md——角色模型单一事实源（走查+实证沉淀）
+- CHAT-UX-PLAN 归档——五波次全交付（波次 5 验收收官）
+- CHAT-UX-PLAN——聊天页体验优化计划（产品重心专项）
+- UX-PLAN-2 归档——全部收官（波次 6）
+
+### Tests
+
+- 六业务场景旅程冒烟（W0 白盒基线）——缺口重定位实录（G-C 已解决/G-B G-F 死数据面升级/G-G 加重）
+- 系统管理员（平台级 ADMIN_EMAILS）旅程固化——正向能力零覆盖补齐
+- 角色能力与体验流程固化——三角色旅程 + 矩阵补缺（角色走查沉淀）
+
 ## [0.89.1] - 2026-08-31
 
 ## [0.89.0] - 2026-08-31
