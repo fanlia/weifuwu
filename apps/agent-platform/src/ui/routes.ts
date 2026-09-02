@@ -4,6 +4,7 @@
 
 import { resolve, join } from 'node:path'
 import { readFileSync, existsSync } from 'node:fs'
+import { gzipSync } from 'node:zlib'
 import { renderSsrPage, ssrToDocument } from '../../ui/ssr.ts'
 import type { Router, Context } from 'weifuwu'
 
@@ -34,8 +35,9 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
   // ── 客户端 JS bundle ─────────────────────────────────
   if (IS_PRODUCTION) {
     const dist = distDir(baseDir)
-    // 生产模式：服务预构建的静态文件
-    app.get('/static/app.js', async (_req: Request, _ctx: Context): Promise<Response> => {
+    // 生产模式：服务预构建的静态文件（gzip——node:zlib 零依赖——一次性压缩缓存）
+    let appJsGz: Blob | null = null
+    app.get('/static/app.js', async (req: Request, _ctx: Context): Promise<Response> => {
       const jsPath = join(dist, 'app.js')
       if (!existsSync(jsPath)) {
         return new Response('/* app.js not built */', {
@@ -43,9 +45,19 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
           headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
         })
       }
-      const js = readFileSync(jsPath, 'utf-8')
-      return new Response(js, {
-        headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
+      const acceptsGzip = (req.headers.get('accept-encoding') ?? '').includes('gzip')
+      if (!acceptsGzip) {
+        return new Response(readFileSync(jsPath), {
+          headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'max-age=3600' },
+        })
+      }
+      if (!appJsGz) appJsGz = new Blob([gzipSync(readFileSync(jsPath))])
+      return new Response(appJsGz, {
+        headers: {
+          'Content-Type': 'application/javascript; charset=utf-8',
+          'Content-Encoding': 'gzip',
+          'Cache-Control': 'max-age=3600',
+        },
       })
     })
   } else {
