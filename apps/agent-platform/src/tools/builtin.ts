@@ -37,6 +37,22 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'generate_image',
+      description: '根据文字描述生成图片（z-image-turbo 文生图模型）。生成后自动保存到部门共享目录（/ws——交付物中心可见）。用户要求画图/配图/海报灵感等场景使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: '图片详细描述——主体/风格/构图/光线/颜色（越具体效果越好）' },
+          size: { type: 'string', description: '尺寸 "宽*高"，默认 "1024*1024"' },
+          filename: { type: 'string', description: '保存文件名（如 logo.png）——留空自动命名' },
+        },
+        required: ['prompt'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_current_time',
       description: '获取当前日期和时间，当用户询问时间时使用',
       parameters: {
@@ -149,6 +165,17 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       return searchKnowledgeBase(ctx as any, query, topK, toolCtx?.agentId != null ? String(toolCtx.agentId) : null)
     },
 
+
+    generate_image: async (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const { generateImage } = await import('./image-gen.ts')
+      return generateImage(ctx, {
+        prompt: String(args.prompt ?? ''),
+        size: args.size != null ? String(args.size) : undefined,
+        filename: args.filename != null ? String(args.filename) : undefined,
+        departmentId: toolCtx?.departmentId != null ? String(toolCtx.departmentId) : undefined,
+      })
+    },
 
     get_current_time: async (_args: Record<string, unknown>) => {
       const now = new Date()
