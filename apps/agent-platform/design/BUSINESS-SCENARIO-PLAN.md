@@ -4,6 +4,24 @@
 > AI 员工 + 沙盒执行 + 人机审批。六个适配业务场景，每条场景一条用户旅程。
 > 方法：探针实证 → 波次闭环（红→绿测试）→ 判负登记（AGENTS §4）。
 
+## ✅ W0 执行实录（白盒基线——走查完成）
+
+**六旅程冒烟 6/6 全绿**（test/ui/scenario-smoke.test.ts——真实 server + playwright + 真实 API——LLM 不测纪律）：
+J1 部门+AI/KB 成员聊天面 · J2 webhook 详情+测试请求 API · J3 交付物/工作区渲染 ·
+J4 编排数据面（种子→/api/stats/runs）· J5 问卷 API 旅程（角色池先行）· J6 compose 契约。
+
+**缺口重定位（走查实证——静态清单修正）**：
+
+| 缺口 | 走查结论 | 处置 |
+|---|---|---|
+| G-B 配额触达 | 升级——`quotaPressure` 在 Reports state 取了**从未渲染**（与 G-F 同型死数据面） | W1 修复 |
+| G-C IM 接线向导 | **已解决**——AgentDetail 已有「对接指南」：curl/Node 示例复制即用+自动带 Secret 签名 | 关闭 |
+| G-F 编排零交互面 | 加重——Reports 取 `/api/stats/runs` 但**从未渲染**（O12 死数据面；数据面正确） | W3 = 渲染 + 详情 |
+| G-G 问卷 | 加重——API-only + **问卷角色需手工 seed**（400 指向 seed-survey-agents.mjs）——无开箱路径 | W2 = UI + 开箱 |
+| G-D/E/G-H/G-I | 走查确认无其他变化 | 按原计划 |
+
+**波次修订**：W4（G-C）取消——已解决；其余 W1/W2/W3/W5/W6/W7 按修订范围推进。
+
 ## 1. 六场景旅程（探针地图）
 
 | # | 场景 | 旅程 | 现状证据 |
