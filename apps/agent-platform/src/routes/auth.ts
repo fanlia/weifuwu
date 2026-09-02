@@ -51,7 +51,8 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
     // 保留显式 appSlug 优先（邀请链接场景）。
     const baseSlug = (body.appSlug ?? body.email.split('@')[1] ?? 'default').trim().toLowerCase()
     let appSlug = baseSlug
-    for (let n = 1; n <= 20; n++) {
+    // 上限 200（2026-09——e2e.test 域测试租户超 20 变体即 409 实证——同域名大量注册场景）
+    for (let n = 1; n <= 200; n++) {
       const rows = await sql`SELECT 1 FROM _weifuwu_apps WHERE slug = ${appSlug}`
       if (!rows.length) break
       appSlug = `${baseSlug}-${n}`
