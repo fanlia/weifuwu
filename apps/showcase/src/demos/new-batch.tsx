@@ -640,19 +640,34 @@ const DemoQRCode: Component = () => () => (
   </div>
 )
 
+/** 词云 demo 词表（100 唯一词——key=word 重复即相撞——词必须唯一） */
+const CLOUD_WORDS: Array<[string, number]> = [
+  ['weifuwu', 100], ['组件', 98], ['命令流', 96], ['vdom', 94], ['diff', 92], ['对账', 90],
+  ['状态机', 88], ['渲染', 86], ['SSR', 85], ['SPA', 84], ['hooks', 82], ['信号', 80],
+  ['闭包', 78], ['上下文', 76], ['路由器', 74], ['trie', 72], ['管道', 70], ['中间件', 68],
+  ['队列', 66], ['流', 64], ['事件', 63], ['订阅', 62], ['发布', 60], ['清理', 58],
+  ['副作用', 56], ['fuzz', 55], ['契约', 54], ['哨兵', 52], ['审计', 50], ['回归', 48],
+  ['边界', 46], ['判负', 44], ['探针', 42], ['波次', 40], ['实录', 38], ['里程碑', 36],
+  ['验收', 34], ['主题', 33], ['暗色', 32], ['布局', 30], ['网格', 28], ['弹性', 26],
+  ['间距', 24], ['排版', 22], ['字体', 20], ['图标', 19], ['按钮', 18], ['输入', 17],
+  ['选择', 16], ['弹窗', 15], ['浮层', 14], ['锚点', 13], ['焦点', 12], ['键盘', 11],
+  ['无障碍', 10], ['语义', 9], ['性能', 8], ['体积', 7], ['压缩', 6], ['缓存', 5],
+  ['并发', 4], ['竞态', 3], ['心跳', 2], ['遥测', 1], ['日志', 1], ['追踪', 1],
+  ['指标', 1], ['告警', 1], ['身份', 1], ['认证', 1], ['授权', 1], ['角色', 1],
+  ['权限', 1], ['多租户', 1], ['沙盒', 1], ['工作区', 1], ['交付物', 1], ['产物', 1],
+  ['数据库', 1], ['向量', 1], ['索引', 1], ['迁移', 1], ['种子', 1], ['docker', 1],
+  ['容器', 1], ['镜像', 1], ['部署', 1], ['流水线', 1], ['版本', 1], ['文档', 1],
+  ['注释', 1], ['示例', 1], ['教程', 1], ['词云', 1], ['工具箱', 1], ['错误', 1],
+  ['回退', 1], ['重试', 1], ['超时', 1], ['健康', 1],
+]
+
 const DemoWordCloud: Component = (_props, ctx) => {
   let last: string | null = null
   return () => (
-    <div class="wf-stack wf-gap-md" style="max-width: 520px">
-      <WordCloud words={[
-        { word: 'weifuwu', weight: 10 },
-        { word: '组件库', weight: 8 },
-        { word: 'vdom', weight: 6 },
-        { word: '命令流', weight: 4 },
-        { word: 'SSR', weight: 2 },
-        { word: '词云', weight: 1 },
-      ]} onWordClick={(word: string, weight: number) => { last = `${word}（${weight}）`; ctx.render() }} />
-      <div class="wf-font-xs wf-text-secondary">权重→字号线性映射 · 行式装箱零重叠 · textLength 定宽（SSR 一致）</div>
+    <div class="wf-stack wf-gap-md" style="max-width: 620px">
+      <WordCloud words={CLOUD_WORDS.map(([word, weight]) => ({ word, weight }))}
+        onWordClick={(word: string, weight: number) => { last = `${word}（${weight}）`; ctx.render() }} />
+      <div class="wf-font-xs wf-text-secondary">权重→字号线性映射 · 圆心发散环排布 · textLength 定宽（SSR 一致）· {CLOUD_WORDS.length} 词</div>
       <div class="wf-font-xs wf-text-primary" data-testid="wc-last">最近点击：{last ?? '无'}</div>
     </div>
   )

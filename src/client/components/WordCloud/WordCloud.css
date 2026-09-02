@@ -27,6 +27,32 @@
   opacity: 0.7;
 }
 
+/* tooltip 内容（Chart 同款命令式弹窗——面板 .wf-popup 仅 max-width 无背景——
+ * 内容自带反色卡片（深底浅字——popup-manager z-index 定位由内核完成）） */
+.wf-wordcloud-tooltip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  background: var(--wf-color-text);
+  color: var(--wf-color-bg);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  border-radius: var(--wf-radius-sm);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.wf-wordcloud-tooltip-word {
+  font-weight: var(--wf-font-weight-semibold);
+}
+
+.wf-wordcloud-tooltip-weight {
+  color: var(--wf-color-bg-secondary);
+  font-size: var(--wf-font-size-xs);
+}
+
 /* 空态（words 空/全零权重） */
 .wf-wordcloud-empty {
   display: flex;

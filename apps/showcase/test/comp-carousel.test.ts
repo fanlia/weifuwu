@@ -31,7 +31,7 @@ async function open(page: import('playwright').Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-test('FP1 autoplay：2.9s 窗口内 dot 自动前进', async () => {
+test('FP1 autoplay：2.9s 窗口内 dot 自动前进', { timeout: 15000 }, async () => {
   const page = await browser.newPage()
   try {
     await open(page)

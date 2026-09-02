@@ -10,7 +10,7 @@ export interface IndexJson {
   counts: { components: number }
   components: {
     id: string; name: string; desc: string
-    family: string | null; variantOf: string | null; tags: string[]
+    family: string | null; variants: { id: string; name: string; desc: string }[]; tags: string[]
     sourceFile: string | null; cssFile: string | null; testFile: string | null
     gotchas: string[]
   }[]

@@ -68,6 +68,8 @@ export const ComponentsIndex: Component = (_init: any, ctx: any) => {
 
 /** 组件详情页——活体 demo（demos 注册表驱动） */
 export const ComponentPage: Component = (initProps: any, ctx: any) => {
+  // 变体展开状态（mount 闭包——一页一组件收敛——v.id → open）
+  const openVar: Record<string, boolean> = {}
   // **2027-08 同步化——数据在 renderFn 内同步读**（fetchIndexCached——
   // SSR prefetch / 客户端种子预热 → 首帧同步命中——SSR≡SPA 一致）——
   // 未命中 EMPTY + notify（数据到 → 重渲染）——无异步启动时序差异
@@ -85,19 +87,9 @@ export const ComponentPage: Component = (initProps: any, ctx: any) => {
     const compTags = comp.tags ?? []
     const compDesc = comp.desc ?? ''
     const compFamily = comp.family ?? null
-    // 变体聚合：变体 id → 渲染主组件页 + 变体 demo 突出（一页一组件心智）
-    let resolved = comp
-    let isVariant = false
-    let variantsOf: { id: string; name: string; desc: string }[] = []
-    if (comp.variantOf) {
-      const parent = idx.components.find((c) => c.id === comp.variantOf)
-      isVariant = true
-      if (parent) {
-        resolved = parent
-        name = parent.name
-      }
-    }
-    variantsOf = idx.components.filter((c) => c.variantOf === resolved.id)
+    // 一页一组件（2026-09 收敛）：变体无独立路由——variants 挂主条目（章节渲染）
+    const resolved = comp
+    const variantsOf = comp.variants ?? []
     // demo 活体：demos 注册表（已迁移分类）——同步引用
     const Demo = (demosAny as any).DEMOS[name]
     const compSource = resolved?.sourceFile ?? ''
@@ -128,7 +120,7 @@ export const ComponentPage: Component = (initProps: any, ctx: any) => {
               <div class="wf-row wf-justify-between wf-padding-x-md wf-padding-y-sm wf-border-bottom">
                 <span class="wf-cluster wf-gap-xs wf-font-xs wf-text-secondary">
                   <span style="width:6px;height:6px;border-radius:50%;background:var(--wf-color-primary);display:inline-block"></span>
-                  活体 demo（可交互）{isVariant ? ' · 当前为变体视图' : ''}
+                  活体 demo（可交互）
                 </span>
               </div>
               <div class="wf-padding-md wf-stack wf-gap-md" style="min-height:220px;background:var(--wf-color-bg)">
@@ -154,15 +146,34 @@ export const ComponentPage: Component = (initProps: any, ctx: any) => {
               ))}
             </div>
           )}
-          {/* 变体聚合：主组件页列出全部使用方式（变体区块） */}
+          {/* 变体章节（一页一组件——2026-09 收敛：变体 demo 并入主页面——
+              手写折叠（自有类 wf-variant-*——无 collapse 字样——不污染既有
+              [class*=collapse] 宽选择器测试——懒渲染：收起不挂 VDemo 实例） */}
           {variantsOf.length > 0 && (
-            <div class="wf-surface wf-surface--flat wf-border wf-radius-md wf-padding-md wf-stack wf-gap-sm">
-              <div class="wf-font-xs wf-text-secondary">本组件的不同使用方式（{variantsOf.length} 个变体）：</div>
-              <div class="wf-cluster wf-gap-xs">
-                {variantsOf.map((v) => (
-                  <a key={v.id} href={`/components/${v.id}`} class="wf-tag wf-tag--primary" style="text-decoration:none">{v.name}</a>
-                ))}
-              </div>
+            <div class="wf-stack wf-gap-sm">
+              <div class="wf-font-xs wf-text-secondary">本组件的不同使用方式（{variantsOf.length} 个变体——点击展开）：</div>
+              {variantsOf.map((v) => (
+                <div key={v.id} class="wf-surface wf-surface--flat wf-border wf-radius-md wf-stack wf-gap-none" style="overflow:hidden">
+                  <button
+                    type="button"
+                    class="wf-variant-toggle"
+                    aria-expanded={String(!!openVar[v.id])}
+                    onClick={() => { openVar[v.id] = !openVar[v.id]; ctx.render() }}
+                  >
+                    <span class="wf-variant-chevron">{openVar[v.id] ? '▾' : '▸'}</span>
+                    <span class="wf-variant-name">{v.name}</span>
+                    <span class="wf-variant-desc">{v.desc}</span>
+                  </button>
+                  {openVar[v.id] && (() => {
+                    const VDemo = (demosAny as any).DEMOS[v.name]
+                    return (
+                      <div class="wf-padding-md" style="min-height:120px;background:var(--wf-color-bg)">
+                        {VDemo ? <VDemo /> : <span class="wf-font-xs wf-text-tertiary">此变体无独立活体 demo</span>}
+                      </div>
+                    )
+                  })()}
+                </div>
+              ))}
             </div>
           )}
         </div>

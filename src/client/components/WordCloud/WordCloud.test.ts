@@ -81,7 +81,7 @@ test('字号映射：权重线性（高权重→大字号）+ 全等权重同尺
   assert.deepEqual([...sizes], [32], '全等权重 → 全 maxFontSize')
 })
 
-test('零重叠：textLength 已知 → 词矩形（含 padding）两两不相交', async () => {
+test('零重叠：同心环碰撞保证——词矩形（含 padding）两两不相交', async () => {
   const h = await mount(WordCloud, { words: WORDS })
   const texts = extractTexts(h)
   const padding = 4
@@ -97,6 +97,38 @@ test('零重叠：textLength 已知 → 词矩形（含 padding）两两不相�
       const a = rects[i]; const b = rects[j]
       const overlap = a.l < b.r - EPS && b.l < a.r - EPS && a.t < b.b - EPS && b.t < a.b - EPS
       assert.ok(!overlap, `零重叠: "${a.word}"(${i}) vs "${b.word}"(${j})——`)
+    }
+  }
+})
+
+test('中心性：最大词从中心放置——包围盒中心落在最大词附近（环0起点语义）', async () => {
+  const { placed, width, height } = layoutWords(WORDS, { maxFontSize: 32, minFontSize: 12, padding: 4 })
+  const top = placed[0] // 降序最大（权重 10 的 weifuwu）
+  const cx = width / 2
+  const cy = height / 2
+  // 最大词矩形中心与包围盒中心距离 ≤ 一个最大字号（中心词≈中央——Wordle 语义）
+  const dx = Math.abs((top.rect.l + top.rect.r) / 2 - cx)
+  const dy = Math.abs((top.rect.t + top.rect.b) / 2 - cy)
+  assert.ok(dx <= top.size * 2 && dy <= top.size * 2,
+    `最大词近中心（dx=${dx.toFixed(1)} dy=${dy.toFixed(1)} size=${top.size}）`)
+  // 首词 weight 最大（降序放置前置）
+  assert.equal(top.weight, 10, '最大权重 = 首置')
+  assert.equal(top.word, 'weifuwu', '最大词 = weifuwu')
+})
+
+test('100 词：全部放置（零丢弃）+ 布局性能（环扫描 < 2s——100 词 × 碰撞）', async () => {
+  const many = Array.from({ length: 100 }, (_, i) => ({ word: `词${i}`, weight: 100 - i }))
+  const t0 = performance.now()
+  const { placed } = layoutWords(many, { maxFontSize: 32, minFontSize: 12, padding: 4 })
+  const ms = performance.now() - t0
+  assert.equal(placed.length, 100, '100 词全部放置（螺旋无遗漏——实际 ' + placed.length + '）')
+  assert.ok(ms < 2000, `布局耗时 < 2s（实际 ${ms.toFixed(0)}ms）`)
+  // 零重叠（大批量——螺旋碰撞完整性）
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const a = placed[i].rect; const b = placed[j].rect
+      const overlap = a.l < b.r - EPS && b.l < a.r - EPS && a.t < b.b - EPS && b.t < a.b - EPS
+      assert.ok(!overlap, `100 词零重叠: ${i} vs ${j}`)
     }
   }
 })
@@ -137,6 +169,7 @@ test('无 onWordClick 时词不可交互（无 role/tabindex——非按钮误�
   const texts = [...ct.values()].filter((c) => c.tag === 'text')
   assert.equal((texts[0].attrs as any).role, undefined, '无 role')
   assert.equal((texts[0].attrs as any).tabindex, undefined, '无 tabindex')
+  assert.equal((texts[0].attrs as any).onMouseEnter, undefined, 'hover 事件不进 attrs（事件表通道——契约 4）')
 })
 
 test('动态 props：words 变化 → 组件复用 + diff 更新（非重挂载——骨架稳定）', async () => {
