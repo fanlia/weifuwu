@@ -352,6 +352,10 @@ export const Chat: Component = (_props, ctx) => {
       if (url) {
         $.msgs = $.msgs.map((x: ChatMessage) => (x.id === m.id ? { ...x, preview: url } : x))
         ctx.render()
+        // 内容高度增长（图片 300px）但 msgsLen/totalLen 不变——常规滚动触发不命中——
+        // 显式滚底 + 图片 decode 后（布局撑高）再滚一次（isUserScrolledUp 守卫内）
+        scrollToBottom()
+        setTimeout(() => scrollToBottom(), 400)
       }
     }
   }
