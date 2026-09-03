@@ -26,6 +26,8 @@ import { Approvals } from './pages/Approvals'
 import { Admin } from './pages/Admin'
 import { Deliverables } from './pages/Deliverables'
 import { Surveys } from './pages/Surveys'
+import { Workflows } from './pages/Workflows'
+import { WorkflowDetail } from './pages/WorkflowDetail'
 
 const page = (Comp: any, props: Record<string, unknown> = {}) =>
   (req: Request, ctx: any) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(Comp, props)))
@@ -50,5 +52,7 @@ router.get('/departments/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayo
 router.get('/approvals', page(Approvals))
 router.get('/admin', page(Admin))
 router.get('/surveys', page(Surveys))
+router.get('/workflows', page(Workflows))
+router.get('/workflows/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(WorkflowDetail, { ...(ctx.params ?? {}) }))))
 
 export { router }

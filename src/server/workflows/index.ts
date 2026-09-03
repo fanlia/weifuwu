@@ -298,7 +298,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
     }
     const json = (data: unknown, status = 200): Response => Response.json(data, { status })
 
-    app.get(`${p}/meta`, async (_req, ctx) => json({ stepSchemas: wf.schema() }))
+    app.get(`${p}/meta`, async (_req, ctx) => json({ schemas: wf.schema() }))
     app.get(`${p}`, async (req, ctx) => {
       const url = new URL(req.url)
       const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))

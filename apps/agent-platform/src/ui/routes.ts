@@ -116,6 +116,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/settings',
       '/admin',
       '/surveys',
+      '/workflows', '/workflows/:id',
     ]
 
     for (const path of spaPaths) {
@@ -156,6 +157,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
       '/settings',
       '/admin',
       '/surveys',
+      '/workflows', '/workflows/:id',
     ]
 
     for (const path of spaPaths) {

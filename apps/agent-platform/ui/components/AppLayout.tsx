@@ -23,6 +23,7 @@ const NAV: NavDef[] = [
   { path: '/departments', icon: h(Icon, { name: 'users' }), label: '部门', group: '管理', match: p => p.startsWith('/departments') },
   { path: '/reports', icon: h(Icon, { name: 'bar-chart' }), label: '运营报表', group: '管理', match: p => p.startsWith('/reports') },
   { path: '/surveys', icon: h(Icon, { name: 'target' }), label: '问卷', group: '管理', match: p => p.startsWith('/surveys') },
+  { path: '/workflows', icon: h(Icon, { name: 'zap' }), label: '工作流', group: '管理', match: p => p.startsWith('/workflows') },
 ]
 
 // 管理员导航（商业化 G2：ADMIN_EMAILS 白名单——/api/admin/me 判定）
