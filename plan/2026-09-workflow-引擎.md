@@ -69,6 +69,11 @@
   - 函数体约束（v1 裁剪已记录）：纯逻辑——禁副作用内置/禁嵌套函数调用/禁引用外层步骤绑定；只读全局 vars；assign 写局部
   - runner：局部 vars 注入参数 · fnDepth 64 守卫 · 函数体步骤 id 前缀 _fn:<name>:
   - toJs 对称 + fuzz 500 对恒等——114 契约 + 636 server 全绿
+- **W8b 完成（远程导入 + export——模块层收口）**：
+  - `import { x } from 'https://…'`：compileWfjs 异步化（opts.remoteFetch 注入）——**提升语义**（ESM：import 先于一切——先抓取物化再编译全流程可见）；白名单仅 `{ functions }` 根（声明式数据）；缺函数/冲突/格式错 → 编译错
+  - **运行期零 IO**：编译期快照物化进 def.functions——执行引擎无感知
+  - `export { f }` / `export default f`：v1 函数导出（库形态 = 远程模块 JSON 同构 { functions }）——导出非函数名编译错
+  - toJs：https from 渲染 + export 渲染——round-trip 深比恒等——118 契约 + 640 server 全绿
 - **W4 完成（2026-09-03）**：exports（package.json `./workflow` 子路径 + build.mjs 独立 bundle——零运行时外部依赖）+ docs/server.md §7 + 回归门。
   - 实测：test:server 568 pass（含 workflow 46）/ audit 七线全绿 / tsc 0 错 / dist 子路径 import 验证通过
   - 探针重定位：无。W1–W4 全部按计划交付；引擎已具备 runWorkflow 全语义

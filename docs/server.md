@@ -130,21 +130,29 @@ wf.validate(def)                   // → { ok, errors[] }（LLM 生成 / 配置
 const r = await wf.execute(def)    // → RunResult；execute(def, { mode: 'dry' }) 副作用打桩
 ```
 
-**语义红线**（`src/server/workflow/*.test.ts` 契约锁定）：
+**语义红线**（`src/server/workflow/*.test.ts` 契约锁定——118 契约）：
 
 | 语义 | 定版 |
 | --- | --- |
-| 表达式 | path + `==`/`!=`/`exists`/`&&`/`||`/`!` + `{{}}` 插值——无 eval/无函数调用/无算术（安全面） |
-| 比较 | JS 宽松 `==`（'200'==200）；`exists` = 值 !== undefined（JSON null 存在） |
-| 布尔语境 | 裸值：undefined/null/''/[]/{} → false；0 → true（数字存在即真） |
-| 短路 | 步骤级 `when` 不通过 → 跳过（skippedSteps）**后续继续**；`if` 不通过 → 截断 status='skipped'（非错误） |
-| edge 去重 | `if config.edge`：条件上升沿 fire；真持续静默（"发一次"）；变假解除武装。at-least-once 窗口最多重复一次（不引锁——诚实裁剪） |
+| 表达式 | JS 语义子集（手写递归下降——无 eval）：`===`/`==`/`!==`/`!=`/比较/算术（严格防呆：`'1'+1` 抛错）/三元/`&&`/`||` 返回操作数/`[*]` 投影/`.length`/std 纯函数调用（需 import） |
+| 布尔语境 | **JS truthy**：0/false/''/null/undefined → false；'0' 与 [] 为 true（JS 一致） |
+| 比较 | 宽松 `==`/`!=` 保持 JS（'200'==200）；严格 `===`/`!==` 亦支持 |
+| 短路 | 步骤级 `when` 不通过 → 跳过（skippedSteps）**后续继续**；`if` 分支条件 false → 跳过分支子链继续 |
+| 去重 | **无原语**（once/edge 已删）——失败不记账、发送重试 at-least-once 由 store 显式记账：`store.get/set` 用户自查（库存监控首例） |
 | dry-run | effects 步骤打桩 `{ok,dry}`；http 真跑（用户要看数据） |
 | 每步输出 | `{ ok, data?, error? }` 落 `steps.<id>`（ctx.steps 与 RunResult.stepResults 同引用） |
-| 内置步骤 | http / template / log / ai（需 ai 适配器）/ email（需 email 适配器）——缺适配器报明确错误，不静默跳过 |
+| 内置步骤 | http / template / log / ai（需 ai 适配器）/ email（需 email 适配器）/ store（需 store/redis 注入）——缺适配器报明确错误，不静默跳过 |
 
-**裁剪**：不做 DAG/分支/循环/子 workflow（结构化可编程为 v2 候选）；
-框架只做执行，REST/UI/多租户/对话生成由消费方接入（agent-platform 第二阶段）。
+**wfjs 是完整语言**（compileWfjs 编译 → WorkflowDef）；`toJs(def)` 渲染回源码——round-trip 恒等（fuzz 500 对）：
+
+- 控制流：`if/else`、`while`、`for…of`、`return`（顶层=终止；函数内=返回值）、`break` 等 JS 对齐形态
+- 函数：`function f(params) { … }` 纯逻辑体 + `await f(args)` 调用（return 落 `steps.<id>.data`）——函数体禁副作用内置/嵌套调用/外层步骤引用（v1 裁剪）
+- 模块：`import { x } from 'wf://std/…'`（内置库）+ `import { x } from 'https://…'`（远程——compileWfjs({ remoteFetch }) 编译期抓取快照物化，运行期零 IO；白名单仅 `{ functions }` 根）+ `export { f }`（函数库形态）
+- 约束：`std` 函数需 import 才可见（ESM 一致）；表达式内仅 std 纯函数（副作用内置仅语句层）；变量全局唯一命名空间（v1）
+
+**执行**：Runner 递归子链（assign/if/while/for/return/call）+ 局部 vars + 循环栈（嵌套恢复）+ maxIters 默认 1000 + 函数递归深度 64。
+
+**裁剪（诚实）**：函数提升 v2（先声明后调用）；块级遮蔽 v2（全局唯一命名空间）；函数体内函数调用 v2；远程模块不支持嵌套导入/环检测（纯数据单层）；DAG/子 workflow 结构化可编程为 v2 候选；框架只做执行，REST/UI/多租户/对话生成由消费方接入（agent-platform 第二阶段）。
 
 ---
 
