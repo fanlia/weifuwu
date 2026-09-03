@@ -9,6 +9,7 @@
  *   - dry-run：副作用步骤打桩 { dry: true }；http 真跑（用户要看数据）
  *   - 每步输出统一 { ok, data?, error? }
  */
+import type { EdgeStore } from './edge.ts'
 
 /** 步骤定义：{ id, type, config?, when? } —— when 为布尔表达式（expression 模块） */
 export interface StepDef {
@@ -89,7 +90,7 @@ export interface StepHandler {
   effects?: boolean
 }
 
-/** 步骤执行环境（适配器注入——ai/email 等外部能力） */
+/** 步骤执行环境（适配器注入——ai/email 等外部能力 + edge 去重存储） */
 export interface StepEnv {
   fetch?: typeof fetch
   ai?: {
@@ -98,6 +99,8 @@ export interface StepEnv {
   email?: {
     send: (msg: { to: string | string[]; subject: string; body: string }) => Promise<{ ok: boolean; id?: string }>
   }
+  /** edge 去重存储（if 步骤 config.edge 需要）——未注入时 edge 配置报明确错误 */
+  edge?: EdgeStore
   log?: (line: string) => void
 }
 

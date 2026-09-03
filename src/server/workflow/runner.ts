@@ -10,6 +10,7 @@
  */
 import type { ExecuteOptions, RunResult, StepDef, StepEnv, StepHandler, StepOutput, WorkflowCtx, WorkflowDef } from './contracts.ts'
 import { compile, toBoolean } from './expression.ts'
+import { evaluateEdge } from './edge.ts'
 
 export interface RunnerRegistry {
   get(type: string): StepHandler | undefined
@@ -51,7 +52,7 @@ export async function runWorkflow(
       if (!pass) { skippedSteps.push(step.id); continue }
     }
 
-    // if 步骤：截断语义（不通过 → 终止，非错误）
+    // if 步骤：截断语义（不通过 → 终止，非错误）；config.edge → 上升沿去重（「发一次」）
     if (step.type === 'if') {
       const whenExpr = String((step.config as Record<string, unknown>)?.when ?? '')
       let fired: boolean
@@ -61,6 +62,28 @@ export async function runWorkflow(
         result.status = 'error'
         result.error = `step '${step.id}': ${(e as Error).message}`
         break
+      }
+      const edgeCfg = (step.config as Record<string, unknown>)?.edge
+      if (edgeCfg) {
+        // edge 去重：上升沿 fire；真持续静默；变假解除武装
+        const store = env.edge
+        if (!store) {
+          result.stepResults[step.id] = { ok: false, error: 'if edge 需要 edge 存储（workflow({ redis } / edgeStore)）' }
+          result.status = 'error'
+          result.error = `step '${step.id}': 未注入 edge 存储`
+          break
+        }
+        const key = String((step.config as Record<string, unknown>)?.key ?? `wf:edge:${def.id ?? def.name ?? 'anon'}:${step.id}`)
+        const { fired: fire, next } = evaluateEdge(await store.get(key), fired)
+        await store.set(key, next)
+        result.stepResults[step.id] = { ok: true, data: { satisfied: fired, fired: fire } }
+        result.executed.push(step.id)
+        if (!fire) {
+          result.status = 'skipped'
+          result.skippedReason = `edge '${step.id}' 已触发（条件持续为真，等待变假重新武装）`
+          break
+        }
+        continue
       }
       result.stepResults[step.id] = { ok: true, data: { satisfied: fired } }
       result.executed.push(step.id)

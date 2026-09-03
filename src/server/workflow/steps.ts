@@ -73,7 +73,59 @@ const logStep: StepHandler = {
   },
 }
 
-const steps: StepHandler[] = [httpStep, templateStep, logStep]
+// ── if 依据（edge 去重语义见 runner 特判）── 无独立步骤模块——截断是流程语义
+
+// ── ai ────────────────────────────────────────────────
+
+const aiStep: StepHandler = {
+  type: 'ai',
+  label: 'AI 生成',
+  fields: [
+    { name: 'prompt', label: '提示词（支持 {{}} 插值）', type: 'string' },
+    { name: 'system', label: '系统指令', type: 'string' },
+  ],
+  required: ['prompt'],
+  /** 外部 LLM 调用有成本——dry 打桩 */
+  effects: true,
+  async run(config, ctx, env) {
+    if (!env.ai?.chat) throw new Error('ai step: 未注入 ai 适配器（workflow({ ai })）')
+    const system = config.system ? interpolate(String(config.system), ctx) : undefined
+    const user = interpolate(String(config.prompt), ctx)
+    const res = await env.ai.chat({
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        { role: 'user' as const, content: user },
+      ],
+    })
+    return { text: res.content }
+  },
+}
+
+// ── email ──────────────────────────────────────────────
+
+const emailStep: StepHandler = {
+  type: 'email',
+  label: '发送邮件',
+  fields: [
+    { name: 'to', label: '收件人', type: 'string' },
+    { name: 'subject', label: '主题（支持 {{}} 插值）', type: 'string' },
+    { name: 'body', label: '正文（支持 {{}} 插值）', type: 'string' },
+  ],
+  required: ['to'],
+  /** 真发送——dry 打桩 */
+  effects: true,
+  async run(config, ctx, env) {
+    if (!env.email?.send) throw new Error('email step: 未注入 email 适配器（workflow({ email })）')
+    const to = interpolate(String(config.to), ctx)
+    const subject = config.subject ? interpolate(String(config.subject), ctx) : 'workflow 通知'
+    const body = config.body ? interpolate(String(config.body), ctx) : ''
+    const res = await env.email.send({ to: to.split(',').map((s) => s.trim()).filter(Boolean), subject, body })
+    if (!res.ok) throw new Error(`email step: 发送失败${res.id ? ` (${res.id})` : ''}`)
+    return { id: res.id }
+  },
+}
+
+const steps: StepHandler[] = [httpStep, templateStep, logStep, aiStep, emailStep]
 
 export function builtinSteps(): StepHandler[] {
   return steps
