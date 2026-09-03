@@ -37,6 +37,8 @@ export type { ExecuteOptions, RunResult, RunStatus, StepDef, StepEnv, StepHandle
 export type { ValidationResult } from './validate.ts'
 export { redisStore } from './store.ts'
 export type { KVStore } from './store.ts'
+export { toJsonSchema, workflowToDag } from './views.ts'
+export type { WorkflowJsonSchema, WorkflowDag, DagNode, DagEdge } from './views.ts'
 export { compile, evaluate, evaluateBoolean, interpolate, parse } from './expression.ts'
 export type { ExprNode, CompiledExpr } from './expression.ts'
 

@@ -150,6 +150,11 @@ const r = await wf.execute(def)    // → RunResult；execute(def, { mode: 'dry'
 - 模块：`import { x } from 'wf://std/…'`（内置库）+ `import { x } from 'https://…'`（远程——compileWfjs({ remoteFetch }) 编译期抓取快照物化，运行期零 IO；白名单仅 `{ functions }` 根）+ `export { f }`（函数库形态）
 - 约束：`std` 函数需 import 才可见（ESM 一致）；表达式内仅 std 纯函数（副作用内置仅语句层）；**作用域对齐 JS**——块级遮蔽（mangle 内部名 x$N——round-trip 稳定）、函数提升、参数同名覆盖全局、不同函数参数互不干扰（v2）
 
+**视图适配**（`workflow/views.ts`——纯数据转换，组件库零耦合——DSL 是枢纽真相，视角即适配）：
+
+- `workflowToDag(def)` → `{nodes, edges}`——Pipeline 组件直接消费（v0：顶层线性链 + 子链折叠进标签 `条件 i（then×2/else×1）`）
+- `toJsonSchema(stepSchemas())` → JsonSchema 对象——JsonSchemaForm 直接消费（按步骤类型组织 properties）
+
 **执行**：Runner 递归子链（assign/if/while/for/return/call）+ 局部 vars + 循环栈（嵌套恢复）+ maxIters 默认 1000 + 函数递归深度 64。
 
 **裁剪（诚实）**：嵌套函数定义（函数体内 function）；函数体内返回 await 调用（return 值是表达式——副作用调用仅语句层）；远程模块不支持嵌套导入/环检测（纯数据单层）；DAG/子 workflow 结构化可编程为 v2 候选；框架只做执行，REST/UI/多租户/对话生成由消费方接入（agent-platform 第二阶段）。
