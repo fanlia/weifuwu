@@ -14,8 +14,22 @@ bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 
 **内核资产**：
 - **vdom**（`src/client/vdom/`）——命令流引擎（13 命令 NDJSON 自足）+ 三实体状态机
   + 双树对账器 + fuzz 生成器 + render-health 四轴仪表
-- **ai**（`src/server/ai/`）——AIInterface 契约 + provider 插槽（openai/MemoryAi——
-  内存确定性替身——对话生成→执行链 e2e 的决策注入面）+ MemoryAiServer 协议替身
+- **外部依赖内存化矩阵**（四类核心依赖——Memory 实现 + Server 协议替身双层——主包全导出）：
+
+  | 依赖 | 真实实现 | Memory 实现（契约直实现） | Server 协议替身 |
+  | --- | --- | --- | --- |
+  | postgres | `postgres()` | `MemorySql`/`createMemorySql()` | `MemoryPostgresServer`（PG v3 **线协议**——TCP——PgPool 零改直连） |
+  | redis | `redis()` | `MemoryRedis` | `MemoryRedisServer`（RESP **线协议**——TCP） |
+  | ai | `OpenAi` | `MemoryAi`（onChat/onEmbed/onImage/onVideo 决策注入） | `MemoryAiServer`（OpenAI+dashscope 兼容 HTTP——`respond` 注入/`requests` 记录） |
+  | email | `email()`（HTTP API） | `MemoryEmail`（onSend 注入 + sent 记录） | `MemoryEmailServer`（Resend 兼容 HTTP——`respond`/`requests`） |
+
+  → 测试铁律：**自建 fake server 禁止**（createServer 归零）——全走 Memory 系 Server
+  （决策注入 onXxx + respond 故障注入 + requests 断言）；Server 正名构造
+  （`new MemoryAiServer()`/函数调用/`createXxx` 别名三入口等价）；db 系 Server 是
+  线协议替身（无 HTTP 面——客户端连 TCP 真协议）
+- **ai**（`src/server/ai/`）——AIInterface 契约 + provider 正门构造（new OpenAi/new
+  MemoryAi——返回模块：中间件 + 全能力直接调用）+ 多模态（image/video 独立
+  配置——同 embedding 平级——多 url 多 key）+ MemoryAiServer 协议替身
 - **shared/router**（`src/shared/router/`）——**前后端唯一共享模块五层单源**
   （trie/pipeline/context/chain/ctx-fields）
 - **workflow**（`src/server/workflow/`）——声明式执行引擎（表达式求值器/edge 去重状态机/步骤注册表/执行器——零运行时外部依赖）
