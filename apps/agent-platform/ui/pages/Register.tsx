@@ -35,7 +35,7 @@ export const Register: Component = (_props, ctx) => {
     try {
       // 单应用模式（定案）：注册 = 加入 _default（平台唯一业务应用——开放注册直入）
       //   邀请面保留（apps/:slug/register + inviteToken——super admin 定向邀请）
-      const url = invite ? `/api/auth/apps/${invite.app}/register` : '/api/auth/apps/_default/register'
+      const url = invite ? `/api/auth/apps/${invite.app}/auth/register` : '/api/auth/apps/_default/auth/register'
       const body = invite
         ? { inviteToken: invite.invite, email: $.email, name: $.name, password: $.password }
         : { email: $.email, name: $.name, password: $.password }

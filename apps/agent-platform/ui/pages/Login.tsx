@@ -10,7 +10,7 @@ interface LoginState {
 
 export const Login: Component = (_props, ctx) => {
   let ssoEnabled = false
-  void fetch('/api/auth/sso/enabled').then(r => r.json()).then((d: any) => { ssoEnabled = !!d.enabled; ctx.render() }).catch(() => {})
+  void fetch('/api/auth/apps/_builtin/auth/sso/enabled').then(r => r.json()).then((d: any) => { ssoEnabled = !!d.enabled; ctx.render() }).catch(() => {})
   const $ = {} as LoginState
   const rerender = () => ctx.render()
   $.email = ''; $.password = ''; $.error = ''; $.loading = false
@@ -29,7 +29,7 @@ export const Login: Component = (_props, ctx) => {
 
     try {
       // 单应用模式（定案）：登录 = 直进 _default（agent-platform 平台唯一业务应用）
-      const appRes = await fetch('/api/auth/apps/_default/login', {
+      const appRes = await fetch('/api/auth/apps/_default/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: $.email, password: $.password }),
@@ -75,7 +75,7 @@ export const Login: Component = (_props, ctx) => {
         <div class="wf-stack wf-gap-sm wf-center">
           <span>还没有账号？<a onClick={() => ctx.app?.navigate('/register')}>立即注册</a></span>
           {ssoEnabled && (
-            <a href="/api/auth/sso/login" class="wf-btn wf-btn--secondary wf-btn--sm wf-width-full wf-center">
+            <a href="/api/auth/apps/_builtin/auth/sso/login" class="wf-btn wf-btn--secondary wf-btn--sm wf-width-full wf-center">
               <Icon name="shield" size={14} /> 企业 SSO 登录
             </a>
           )}

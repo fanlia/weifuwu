@@ -30,3 +30,11 @@
 - 平台测试种子流（registerTenant——个人应用）与产品流（_default）并存——测试隔离租户语义（注释说明——后续可迁移）
 - _default 开放注册为启动 SQL（无 owner 认证面——平台自管）
 - 分离场景（两 server）未实测——凭据面+共享 DB 就绪——通信端点仅 verify（按需扩展）
+
+## V5 路由命名空间统一（slug·_builtin 下 SSO·应用层 API 自决）
+
+- 应用级 auth 面收编：`/api/apps/{slug}/auth/{login|register|invites|members|registration|verify}`
+- SSO 挂 `_builtin`：`/api/apps/_builtin/auth/sso/{enabled|login|callback}`（控制平面能力）
+- 平台级保留：`/api/auth/{register|register-app|login|logout|refresh|me|apps}`（无 app 上下文）
+- 应用层 API 自决（业务路由不收编——appId 由 ctx 注入——部署层定前缀）
+- 平台同步迁移（Login/Register/sso enabled + 测试路径全量）· 契约 75 · server 747 · 平台 449

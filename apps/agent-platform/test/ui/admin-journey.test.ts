@@ -35,7 +35,7 @@ test.before(async () => {
   })
   assert.ok(login.ok, '系统管理员登录应成功（ADMIN_EMAILS 引导的 _builtin 成员）')
   // USERSYSTEM-V2 系统域：管理员进入 _builtin 应用（owner=超级管理员）——固定 slug
-  const appLogin = await fetch(`${BASE}/api/auth/apps/_builtin/login`, {
+  const appLogin = await fetch(`${BASE}/api/auth/apps/_builtin/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: 'admin@demo.com', password: 'admin123' }),
   })

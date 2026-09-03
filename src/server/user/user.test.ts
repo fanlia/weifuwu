@@ -232,7 +232,7 @@ describe('userSystem (memory sql)', () => {
       const ownerReg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
       const appRes = await post('/api/auth/apps', { slug: `lp-${randomUUID()}`, name: 'A', openRegistration: true }, ownerReg.token)
       const { app } = await appRes.json()
-      const r3 = await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: long })
+      const r3 = await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: long })
       assert.equal(r3.status, 400)
     })
 

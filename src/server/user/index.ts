@@ -1036,20 +1036,21 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       return ok({ user: ctx.user, session: ctx.session ?? null })
     })
 
-    // ── SSO（OIDC 授权码——USERSYSTEM-V2：应用面登录全 SSO——未配置=优雅降级） ──
+    // ── SSO（OIDC 授权码——挂 _builtin 名下：控制平面能力——系统级单 IdP） ──
     if (sso) {
-      app.get(`${p}/sso/enabled`, async () => ok({ enabled: true, appSlug: sso.defaultAppSlug ?? null }))
+      const ssoBase = `${p}/apps/_builtin/auth/sso`
+      app.get(`${ssoBase}/enabled`, async () => ok({ enabled: true, appSlug: sso.defaultAppSlug ?? null }))
 
       // 1) 302 跳 IdP authorize（state = 目标应用 slug——回调定向成员归属）
-      app.get(`${p}/sso/login`, async (req) => {
+      app.get(`${ssoBase}/login`, async (req) => {
         const url = new URL(req.url ?? '', 'http://localhost')
         const targetApp = url.searchParams.get('app') ?? sso.defaultAppSlug
         const params = new URLSearchParams({
           response_type: 'code',
           client_id: sso.clientId,
           redirect_uri: sso.redirectBase
-            ? `${sso.redirectBase.replace(/\/$/, '')}${p}/sso/callback`
-            : `${new URL(req.url, 'http://localhost').origin}${p}/sso/callback`,
+            ? `${sso.redirectBase.replace(/\/$/, '')}${ssoBase}/callback`
+            : `${new URL(req.url, 'http://localhost').origin}${ssoBase}/callback`,
           scope: sso.scope ?? 'openid email profile',
           state: targetApp ?? 'sso',
         })
@@ -1057,13 +1058,13 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       })
 
       // 2) 回调：code → token → userinfo → ssoLogin（建号/加成员）→ 回调页
-      app.get(`${p}/sso/callback`, async (req, ctx) => {
+      app.get(`${ssoBase}/callback`, async (req, ctx) => {
         const url = new URL(req.url ?? '', 'http://localhost')
         const code = url.searchParams.get('code')
         if (!code) throw new HttpError('SSO 回调缺少 code', 400)
         const redirectUri = sso.redirectBase
-          ? `${sso.redirectBase.replace(/\/$/, '')}${p}/sso/callback`
-          : `${url.origin}${p}/sso/callback`
+          ? `${sso.redirectBase.replace(/\/$/, '')}${ssoBase}/callback`
+          : `${url.origin}${ssoBase}/callback`
         // code → token（信任 IdP token 端点——完整 JWT 验签留待生产强化——边界登记）
         const tokenRes = await fetch(`${sso.issuer.replace(/\/$/, '')}/token`, {
           method: 'POST',
@@ -1119,8 +1120,9 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         const apps = await ctx.auth!.listMyApps()
         return ok({ apps })
       })
+      // ── 应用级 auth 面（命名空间统一：/api/apps/{slug}/auth/*——slug 作路由标识） ──
       // owner 直接添加成员（已有平台账号）
-      app.post(`${p}/apps/:appSlug/members`, async (req, ctx) => {
+      app.post(`${p}/apps/:appSlug/auth/members`, async (req, ctx) => {
         const body = (await req.json().catch(() => ({}))) as { email?: string; role?: string }
         const appId = await findAppIdBySlug(ctx.params.appSlug)
         if (!appId) throw new HttpError('Application not found', 404)
@@ -1128,7 +1130,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         return created({ ok: true })
       })
       // owner 生成邀请 token
-      app.post(`${p}/apps/:appSlug/invites`, async (req, ctx) => {
+      app.post(`${p}/apps/:appSlug/auth/invites`, async (req, ctx) => {
         const body = (await req.json().catch(() => ({}))) as { email?: string; role?: string }
         const appId = await findAppIdBySlug(ctx.params.appSlug)
         if (!appId) throw new HttpError('Application not found', 404)
@@ -1136,14 +1138,14 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         return created(result)
       })
       // 应用内登录（slug 人类可读）
-      app.post(`${p}/apps/:appSlug/login`, async (req, ctx) => {
+      app.post(`${p}/apps/:appSlug/auth/login`, async (req, ctx) => {
         const body = (await req.json().catch(() => ({}))) as { email?: string; password?: string }
         if (!body.email || !body.password) return badRequest('email and password are required')
         const result = await ctx.auth!.loginApp(ctx.params.appSlug, body.email, body.password)
         return ok(result)
       })
       // 注册开关（owner only——_builtin 恒 false·403）
-      app.patch(`${p}/apps/:appSlug/registration`, async (req, ctx) => {
+      app.patch(`${p}/apps/:appSlug/auth/registration`, async (req, ctx) => {
         const body = (await req.json().catch(() => ({}))) as { open?: boolean }
         if (typeof body.open !== 'boolean') return badRequest('open is required (boolean)')
         const appId = await findAppIdBySlug(ctx.params.appSlug)
@@ -1153,7 +1155,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       })
       // 机器认证（业务应用 ↔ 控制平面沟通面——未来分离的服务间认证）：
       //   X-Wf-App-Id（应用 id）+ X-Wf-App-Key（随机密钥）→ 应用信息
-      app.post(`${p}/system/verify`, async (req) => {
+      app.post(`${p}/apps/:appSlug/auth/verify`, async (req, ctx) => {
         const appId = req.headers.get('x-wf-app-id')
         const appKey = req.headers.get('x-wf-app-key')
         if (!appId || !appKey) return badRequest('X-Wf-App-Id / X-Wf-App-Key required')
@@ -1163,7 +1165,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         return ok({ app: { id: String(a.id), slug: String(a.slug), name: String(a.name) } })
       })
       // 应用内注册（自助/邀请）
-      app.post(`${p}/apps/:appSlug/register`, async (req, ctx) => {
+      app.post(`${p}/apps/:appSlug/auth/register`, async (req, ctx) => {
         const body = (await req.json().catch(() => ({}))) as {
           email?: string; password?: string; name?: string; inviteToken?: string
         }

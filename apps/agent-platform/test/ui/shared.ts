@@ -184,13 +184,13 @@ export async function seedRoleMember(
   const stamp = Date.now()
   const email = `seeded-${role}-${stamp}@e2e.test`
   // owner 生成邀请（指定 role——框架 apps/:slug/invites）
-  const inv = await apiAs(base, owner, `/api/auth/apps/${owner.app.slug}/invites`, {
+  const inv = await apiAs(base, owner, `/api/auth/apps/${owner.app.slug}/auth/invites`, {
     method: 'POST',
     body: JSON.stringify({ email, role }),
   })
   if (!inv?.inviteToken) throw new Error(`邀请生成失败: ${JSON.stringify(inv).slice(0, 120)}`)
   // 被邀人 join（框架 apps/:slug/register——复用或建平台账号 + 加成员）
-  const join = await apiAs(base, { token: '', refreshToken: null, user: null, app: owner.app }, `/api/auth/apps/${owner.app.slug}/register`, {
+  const join = await apiAs(base, { token: '', refreshToken: null, user: null, app: owner.app }, `/api/auth/apps/${owner.app.slug}/auth/register`, {
     method: 'POST',
     body: JSON.stringify({ inviteToken: inv.inviteToken, email, password: 'Test123456', name: `种子${role}` }),
   })

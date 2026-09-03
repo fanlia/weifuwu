@@ -200,7 +200,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const { app } = await tRes.json()
 
       // 自助注册（无邀请）
-      const regRes = await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123', name: '成员甲' })
+      const regRes = await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: 'password123', name: '成员甲' })
       assert.equal(regRes.status, 201)
       const member = await regRes.json()
       const payload = verifyToken(member.token, secret)!
@@ -208,7 +208,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       assert.equal(payload.role, 'member')
 
       // 应用内登录
-      const loginRes = await post(`/api/auth/apps/${app.slug}/login`, { email: member.user.email, password: 'password123' })
+      const loginRes = await post(`/api/auth/apps/${app.slug}/auth/login`, { email: member.user.email, password: 'password123' })
       assert.equal(loginRes.status, 200)
       const login = await loginRes.json()
       assert.equal(verifyToken(login.token, secret)!.appId, app.id)
@@ -218,7 +218,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `open-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
       const outsider = await registerPlatform()
-      const res = await post(`/api/auth/apps/${app.slug}/login`, { email: outsider.user.email, password: 'password123' })
+      const res = await post(`/api/auth/apps/${app.slug}/auth/login`, { email: outsider.user.email, password: 'password123' })
       assert.equal(res.status, 401, '不属于该应用的平台用户登录应用 → 401')
     })
 
@@ -244,7 +244,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('关闭自助注册：无邀请注册 → 403', async () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `inv-${uniq()}`, name: '邀请应用', openRegistration: false }, owner.token)).json()
-      const res = await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123' })
+      const res = await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: 'password123' })
       assert.equal(res.status, 403)
     })
 
@@ -253,7 +253,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const { app } = await (await post('/api/auth/apps', { slug: `inv-${uniq()}`, name: '邀请应用' }, owner.token)).json()
 
       const inviteEmail = uniqEmail()
-      const invRes = await post(`/api/auth/apps/${app.slug}/invites`, { email: inviteEmail, role: 'member' }, owner.token)
+      const invRes = await post(`/api/auth/apps/${app.slug}/auth/invites`, { email: inviteEmail, role: 'member' }, owner.token)
       assert.equal(invRes.status, 201)
       const { inviteToken } = await invRes.json()
       const invPayload = verifyToken(inviteToken, secret)!
@@ -262,7 +262,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       assert.equal(invPayload.email, inviteEmail)
 
       // 受邀者注册
-      const regRes = await post(`/api/auth/apps/${app.slug}/register`, { email: inviteEmail, password: 'password123', inviteToken })
+      const regRes = await post(`/api/auth/apps/${app.slug}/auth/register`, { email: inviteEmail, password: 'password123', inviteToken })
       assert.equal(regRes.status, 201)
       const member = await regRes.json()
       assert.equal(verifyToken(member.token, secret)!.appId, app.id)
@@ -272,10 +272,10 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('邀请 email 不匹配 → 403', async () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `inv-${uniq()}`, name: '邀请应用' }, owner.token)).json()
-      const invRes = await post(`/api/auth/apps/${app.slug}/invites`, { email: `target-${uniq()}@test.local` }, owner.token)
+      const invRes = await post(`/api/auth/apps/${app.slug}/auth/invites`, { email: `target-${uniq()}@test.local` }, owner.token)
       const { inviteToken } = await invRes.json()
 
-      const res = await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123', inviteToken })
+      const res = await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: 'password123', inviteToken })
       assert.equal(res.status, 403, '邀请绑定邮箱与注册邮箱不一致 → 403')
     })
 
@@ -284,10 +284,10 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const { app } = await (await post('/api/auth/apps', { slug: `inv-${uniq()}`, name: '邀请应用' }, owner.token)).json()
       const memberAcc = await registerPlatform()
 
-      const addRes = await post(`/api/auth/apps/${app.slug}/members`, { email: memberAcc.user.email, role: 'member' }, owner.token)
+      const addRes = await post(`/api/auth/apps/${app.slug}/auth/members`, { email: memberAcc.user.email, role: 'member' }, owner.token)
       assert.equal(addRes.status, 201)
 
-      const login = await post(`/api/auth/apps/${app.slug}/login`, { email: memberAcc.user.email, password: 'password123' })
+      const login = await post(`/api/auth/apps/${app.slug}/auth/login`, { email: memberAcc.user.email, password: 'password123' })
       assert.equal(login.status, 200)
       assert.equal(verifyToken((await login.json()).token, secret)!.appId, app.id)
     })
@@ -297,7 +297,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const { app } = await (await post('/api/auth/apps', { slug: `inv-${uniq()}`, name: 'A' }, owner.token)).json()
       const outsider = await registerPlatform()
       const memberAcc = await registerPlatform()
-      const res = await post(`/api/auth/apps/${app.slug}/members`, { email: memberAcc.user.email }, outsider.token)
+      const res = await post(`/api/auth/apps/${app.slug}/auth/members`, { email: memberAcc.user.email }, outsider.token)
       assert.equal(res.status, 403)
     })
   })
@@ -307,7 +307,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('成员（应用/平台 token）→ 通过；非成员 → 403；无 token → 401', async () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `auth-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
-      const memberReg = await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123' })
+      const memberReg = await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: 'password123' })
       const member = await memberReg.json()
       const outsider = await registerPlatform()
 
@@ -345,7 +345,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('loginApp 会话 refresh → 新 token 保留 role（原缺陷丢 role）', async () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `rf-${uniq()}`, name: 'A' }, owner.token)).json()
-      const login = await (await post(`/api/auth/apps/${app.slug}/login`, { email: owner.user.email, password: 'password123' })).json()
+      const login = await (await post(`/api/auth/apps/${app.slug}/auth/login`, { email: owner.user.email, password: 'password123' })).json()
       assert.equal(verifyToken(login.token, secret)!.role, 'owner')
       const rf = await (await post('/api/auth/refresh', { refreshToken: login.refreshToken })).json()
       const payload = verifyToken(rf.token, secret)!
@@ -356,7 +356,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('成员角色变更后 refresh → 新 role 生效（成员表权威——角色变更即时传播）', async () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `rf2-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
-      const member = await (await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123' })).json()
+      const member = await (await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: 'password123' })).json()
       await db.unsafe(
         `UPDATE _weifuwu_app_members SET role = 'admin' WHERE app_id = $1 AND user_id = $2`,
         [app.id, member.user.id],
@@ -368,7 +368,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('成员被移除后 refresh → 降级平台会话（token 无 appId——零残留应用访问）', async () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `rf3-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
-      const member = await (await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123' })).json()
+      const member = await (await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: 'password123' })).json()
       await db.unsafe(
         `DELETE FROM _weifuwu_app_members WHERE app_id = $1 AND user_id = $2`,
         [app.id, member.user.id],
@@ -384,7 +384,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('registerInApp 会话 refresh → role 保留（双路径）', async () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `rf4-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
-      const member = await (await post(`/api/auth/apps/${app.slug}/register`, { email: uniqEmail(), password: 'password123' })).json()
+      const member = await (await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: 'password123' })).json()
       const rf = await (await post('/api/auth/refresh', { refreshToken: member.refreshToken })).json()
       assert.equal(verifyToken(rf.token, secret)!.role, 'member')
     })
@@ -424,8 +424,8 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const { app } = await (await post('/api/auth/apps', { slug: `race-${uniq()}`, name: 'R', openRegistration: true }, owner.token)).json()
       const email = uniqEmail()
       const [r1, r2] = await Promise.all([
-        post(`/api/auth/apps/${app.slug}/register`, { email, password: 'password123' }),
-        post(`/api/auth/apps/${app.slug}/register`, { email, password: 'password123' }),
+        post(`/api/auth/apps/${app.slug}/auth/register`, { email, password: 'password123' }),
+        post(`/api/auth/apps/${app.slug}/auth/register`, { email, password: 'password123' }),
       ])
       assert.equal(r1.status, 201)
       assert.equal(r2.status, 201, '并发同 email 建号幂等（非 409）')
@@ -552,12 +552,12 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     }
 
     it('enabled：未配置 = false（优雅降级）；配置后 = true + appSlug', async () => {
-      const no = await get('/api/auth/sso/enabled')
+      const no = await get('/api/auth/apps/_builtin/auth/sso/enabled')
       assert.equal(no.status, 404, '未配置不挂路由（无 SSO 面——零显式暴露）')
       const h = ssoUsers()
       await h.migrate()
       const p = new Router(); p.use(h); h.routes(p)
-      const res = await p.handler()(new Request('http://localhost/api/auth/sso/enabled'), mkCtx())
+      const res = await p.handler()(new Request('http://localhost/api/auth/apps/_builtin/auth/sso/enabled'), mkCtx())
       assert.equal(res.status, 200)
       assert.deepEqual(await res.json(), { enabled: true, appSlug: null })
     })
@@ -566,7 +566,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const h = ssoUsers({ sso: { issuer: 'http://127.0.0.1:9999', clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost', defaultAppSlug: 'myapp' } })
       await h.migrate()
       const p = new Router(); p.use(h); h.routes(p)
-      const res = await p.handler()(new Request('http://localhost/api/auth/sso/login?app=tenant-x'), mkCtx())
+      const res = await p.handler()(new Request('http://localhost/api/auth/apps/_builtin/auth/sso/login?app=tenant-x'), mkCtx())
       assert.equal(res.status, 302)
       const loc = res.headers.get('location')!
       assert.match(loc, /authorize\?/)
@@ -583,7 +583,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       await h.migrate()
       const p = new Router(); p.use(h); h.routes(p)
       const handler = p.handler()
-      const res = await handler(new Request(`http://localhost/api/auth/sso/callback?code=abc&state=sso`), mkCtx())
+      const res = await handler(new Request(`http://localhost/api/auth/apps/_builtin/auth/sso/callback?code=abc&state=sso`), mkCtx())
       assert.equal(res.status, 200)
       const payload = await res.json()
       assert.ok(payload.token, '签发 session')
@@ -606,7 +606,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const ownerReg = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123', appSlug: 'myapp' })).json()
       const p = new Router(); p.use(h); h.routes(p)
       const handler = p.handler()
-      const res = await handler(new Request(`http://localhost/api/auth/sso/callback?code=abc&state=myapp`), mkCtx())
+      const res = await handler(new Request(`http://localhost/api/auth/apps/_builtin/auth/sso/callback?code=abc&state=myapp`), mkCtx())
       const payload = await res.json()
       const [m] = await db.unsafe(`SELECT role, source FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = $2`, [payload.user.id, ownerReg.app.id])
       assert.ok(m, 'SSO 自动加成员')
@@ -623,7 +623,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       })
       await h.migrate()
       const p = new Router(); p.use(h); h.routes(p)
-      const res = await p.handler()(new Request('http://localhost/api/auth/sso/callback?code=bad'), mkCtx())
+      const res = await p.handler()(new Request('http://localhost/api/auth/apps/_builtin/auth/sso/callback?code=bad'), mkCtx())
       assert.equal(res.status, 401)
       await idp.close()
     })
@@ -635,21 +635,21 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const reg = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
       const res = await post('/api/auth/apps/invites', { email: 'v@x.com', role: 'superadmin' }, reg.token)
       // 路由面：apps/:appSlug/invites（slug = reg.app.slug）—— 用 app 路由格式
-      const res2 = await post(`/api/auth/apps/${reg.app.slug}/invites`, { email: 'v@x.com', role: 'superadmin' }, reg.token)
+      const res2 = await post(`/api/auth/apps/${reg.app.slug}/auth/invites`, { email: 'v@x.com', role: 'superadmin' }, reg.token)
       assert.equal(res2.status, 403, '非法角色拒绝')
     })
 
     it('addMember 非法 role → 403', async () => {
       const reg = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
       const target = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
-      const res = await post(`/api/auth/apps/${reg.app.slug}/members`, { email: target.user.email, role: 'god' }, reg.token)
+      const res = await post(`/api/auth/apps/${reg.app.slug}/auth/members`, { email: target.user.email, role: 'god' }, reg.token)
       assert.equal(res.status, 403)
     })
 
     it('合法 role（member/viewer）放行', async () => {
       const reg = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
       const target = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
-      const res = await post(`/api/auth/apps/${reg.app.slug}/members`, { email: target.user.email, role: 'viewer' }, reg.token)
+      const res = await post(`/api/auth/apps/${reg.app.slug}/auth/members`, { email: target.user.email, role: 'viewer' }, reg.token)
       assert.equal(res.status, 201)
     })
   })
@@ -711,7 +711,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
       const p = new Router(); p.use(h); h.routes(p)
       const handler = p.handler()
-      const res = await handler(new Request('http://localhost/api/auth/apps/_builtin/invites', {
+      const res = await handler(new Request('http://localhost/api/auth/apps/_builtin/auth/invites', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${reg.token}` },
         body: JSON.stringify({ role: 'admin' }),
       }), mkCtx())
@@ -776,7 +776,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       // 邀请 token 直接构造（signToken 面——不依赖响应形状）
       const invToken = signToken({ type: 'app-invite', appId: app.id, role: 'member' }, secret)
       const joinEmail = uniqEmail()
-      const join = await post(`/api/auth/apps/${app.slug}/register`, { email: joinEmail, password: 'password123', name: 'J', inviteToken: invToken })
+      const join = await post(`/api/auth/apps/${app.slug}/auth/register`, { email: joinEmail, password: 'password123', name: 'J', inviteToken: invToken })
       assert.equal(join.status, 201)
       const [u] = await db.unsafe(`SELECT id FROM _weifuwu_users WHERE email = $1`, [joinEmail])
       const [m] = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE app_id = '00000000-0000-4000-8000-0000000000b1' AND user_id = $1`, [u.id])
@@ -788,7 +788,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const app = owner.app
       assert.ok(app.id, 'appId = 应用 id')
       // 机器验证：正确凭据 → 应用信息
-      const okRes = await handler(new Request('http://localhost/api/auth/system/verify', {
+      const okRes = await handler(new Request('http://localhost/api/auth/apps/_builtin/auth/verify', {
         method: 'POST',
         headers: { 'X-Wf-App-Id': app.id, 'X-Wf-App-Key': app.app_key },
       }), mkCtx())
@@ -796,7 +796,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const body = await okRes.json()
       assert.equal(body.app.slug, app.slug)
       // 错误密钥 → 403
-      const badRes = await handler(new Request('http://localhost/api/auth/system/verify', {
+      const badRes = await handler(new Request('http://localhost/api/auth/apps/_builtin/auth/verify', {
         method: 'POST',
         headers: { 'X-Wf-App-Id': app.id, 'X-Wf-App-Key': 'wrong-key' },
       }), mkCtx())
@@ -809,12 +809,12 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('setOpenRegistration：owner only · _builtin 恒 false 403', async () => {
       const owner = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
       const app = owner.app
-      const res = await fetchRoute('PATCH', `/api/auth/apps/${app.slug}/registration`, owner.token, { open: true })
+      const res = await fetchRoute('PATCH', `/api/auth/apps/${app.slug}/auth/registration`, owner.token, { open: true })
       assert.equal(res.status, 200)
       const [row] = await db.unsafe(`SELECT open_registration FROM _weifuwu_apps WHERE id = $1`, [app.id])
       assert.equal(row.open_registration, true)
       // _builtin 恒 false
-      const res2 = await fetchRoute('PATCH', '/api/auth/apps/_builtin/registration', owner.token, { open: true })
+      const res2 = await fetchRoute('PATCH', '/api/auth/apps/_builtin/auth/registration', owner.token, { open: true })
       assert.equal(res2.status, 403)
     })
   })
