@@ -33,10 +33,10 @@ export const Register: Component = (_props, ctx) => {
     $.loading = true; $.error = ''
     rerender()
     try {
-      // 邀请模式：/api/auth/join（加入已有团队）；普通模式：/api/auth/register（建新团队）
-      const url = invite ? '/api/auth/join' : '/api/auth/register'
+      // USERSYSTEM-V2：框架路由——邀请加入（apps/:slug/register）/ 产品级注册（register-app）
+      const url = invite ? `/api/auth/apps/${invite.app}/register` : '/api/auth/register-app'
       const body = invite
-        ? { appSlug: invite.app, inviteToken: invite.invite, email: $.email, name: $.name, password: $.password }
+        ? { inviteToken: invite.invite, email: $.email, name: $.name, password: $.password }
         : { email: $.email, name: $.name, password: $.password }
       const res = await fetch(url, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

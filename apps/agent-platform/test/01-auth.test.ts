@@ -1,8 +1,8 @@
 /**
- * Auth 路由测试 — 基于框架 user()（_weifuwu_users）+ 自定义 register 租户流程
+ * Auth 路由测试 — 框架 user() 全量面（USERSYSTEM-V2）
  *
- * 与 server.ts 同构：userSystem 提供 login/logout/refresh/me，
- * registerAuthRoutes 提供自定义 register（建租户 + 框架注册 + 默认 user Agent）。
+ * 与 server.ts 同构：register-app（产品级注册：账号+默认应用+app token）/
+ * login / logout / refresh / me——自研 registerAuthRoutes 已删（auth.ts 移除）。
  */
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -47,13 +47,8 @@ before(async () => {
   const users = userSystem({ sql: pg.sql, secret: process.env.JWT_SECRET ?? 'test-secret-0123456789' })
   await users.migrate()
   app.use(users)
-  users.routes(app, { prefix: '/api/auth', exclude: ['register'] })
-
-  // 自定义注册路由（租户 + 框架注册 + 默认 Agent）
-  // 锁定小值（默认已调大 20——本测试验证 429 语义——env 显式小值自包含）
-  process.env.REGISTER_LIMIT_MAX = '5'
-  const { registerAuthRoutes } = await import('../src/routes/auth.ts')
-  registerAuthRoutes(app)
+  // USERSYSTEM-V2：全量框架路由（register-app 产品级注册）——自研 auth.ts 已删
+  users.routes(app, { prefix: '/api/auth' })
 
   // 限流 key 清理（跨运行残留 + 跨测试累计）：本文件统一 IP 'auth-test'（/me 同键）
   const rdsPool = (rds as any).redis
@@ -84,21 +79,22 @@ describe('Auth', () => {
   let token = ''
 
   it('POST /api/auth/register — 成功注册', async () => {
-    const res = await req('POST', '/api/auth/register', { email: 'a@b.com', password: 'pass1234', name: 'Alice' })
-    assert.equal(res.status, 200)
+    const res = await req('POST', '/api/auth/register-app', { email: 'a@b.com', password: 'pass1234', name: 'Alice' })
+    assert.ok(res.status === 200 || res.status === 201, `created 语义（实际 ${res.status}）`)
     const data = await res.json()
+    assert.ok([200, 201].includes(res.status), `created 语义（实际 ${res.status}）`)
     assert.ok(data.token)
     assert.equal(data.user.email, 'a@b.com')
     token = data.token
   })
 
   it('POST /api/auth/register — 重复邮箱返回 409', async () => {
-    const res = await req('POST', '/api/auth/register', { email: 'a@b.com', password: 'pass4567', name: 'Alice2' })
+    const res = await req('POST', '/api/auth/register-app', { email: 'a@b.com', password: 'pass4567', name: 'Alice2' })
     assert.equal(res.status, 409)
   })
 
   it('POST /api/auth/register — 缺少必填字段返回 400', async () => {
-    const res = await req('POST', '/api/auth/register', { email: 'only@email.com' })
+    const res = await req('POST', '/api/auth/register-app', { email: 'only@email.com' })
     assert.equal(res.status, 400)
   })
 
@@ -123,7 +119,8 @@ describe('Auth', () => {
     const res = await req('GET', '/api/auth/me', undefined, { Authorization: `Bearer ${token}` })
     assert.equal(res.status, 200)
     const data = await res.json()
-    assert.equal(data.email, 'a@b.com', '框架 /api/auth/me 直接返回 ctx.user（无 {user} 包裹）')
+    assert.equal(data.user.email, 'a@b.com', '框架 /api/auth/me 返回 { user, session }（V2 会话面）')
+    assert.equal(data.session?.role, 'owner', 'register-app token → 会话带 app 角色')
   })
 
   it('GET /api/auth/me — 无 token 返回 401', async () => {
@@ -136,42 +133,16 @@ describe('Auth', () => {
     assert.equal(res.status, 401)
   })
 
-  it('限流（框架 ctx.limit，IP 维度）：同一 IP 5 次注册后 429', async () => {
-    // 清理该 IP 限流计数（ctx.limit key = rl:register:{ip}）
-    // 实际键名带 rl: 前缀（rateLimit 内部前缀）——两候选都清
-    await (rds as any).redis.command('DEL', 'rl:rl:register:test-ip')
-    await (rds as any).redis.command('DEL', 'rl:register:test-ip')
-    const reqWithIp = (body: unknown) =>
-      handle(
-        new Request('http://localhost/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-forwarded-for': 'test-ip' },
-          body: JSON.stringify(body),
-        }),
-        { params: {}, query: {} },
-      )
-    // 5 次放行
-    for (let i = 0; i < 5; i++) {
-      const res = await reqWithIp({ email: `rl${i}@x.com`, password: 'pass1234', name: `R${i}` })
-      assert.ok(res.status !== 429, `第 ${i + 1} 次应放行（实际 ${res.status}）`)
-    }
-    // 第 6 次 429
-    const blocked = await reqWithIp({ email: 'rlx@x.com', password: 'pass1234', name: 'Rx' })
-    assert.equal(blocked.status, 429)
-    // 不同 IP 不受影响（独立维度）
-    const otherIp = await handle(
-      new Request('http://localhost/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': 'other-ip' },
-        body: JSON.stringify({ email: 'other@x.com', password: 'pass1234', name: 'Other' }),
-      }),
-      { params: {}, query: {} },
-    )
-    assert.ok(otherIp.status !== 429, '不同 IP 独立计数')
-    // 清理
-    // 实际键名带 rl: 前缀（rateLimit 内部前缀）——两候选都清
-    await (rds as any).redis.command('DEL', 'rl:rl:register:test-ip')
-    await (rds as any).redis.command('DEL', 'rl:register:test-ip')
-    await (rds as any).redis.command('DEL', 'rl:register:other-ip')
+  it('register-app：同域名多租户 slug 自动后缀（每注册 = 独立应用）', async () => {
+    // 旧自建 auth.ts 的注册限流（ctx.limit('register')）已随 auth.ts 删除——
+    // 防滥用职责移交 server.ts 全局 rateLimit（/api/ 前缀）。本用例锁新语义：
+    // 同域名（acme.com）两次注册不撞 slug 唯一键（自动后缀 -1）。
+    const r1 = await req('POST', '/api/auth/register-app', { email: 't1@acme.com', password: 'pass1234', name: 'T1' })
+    assert.ok([200, 201].includes(r1.status), `首次注册（实际 ${r1.status}）`)
+    const r2 = await req('POST', '/api/auth/register-app', { email: 't2@acme.com', password: 'pass1234', name: 'T2' })
+    assert.ok([200, 201].includes(r2.status), `同域名二次注册（实际 ${r2.status}）`)
+    const d1 = await r1.json()
+    const d2 = await r2.json()
+    assert.notEqual(d1.app.slug, d2.app.slug, 'slug 唯一（自动后缀）')
   })
 })

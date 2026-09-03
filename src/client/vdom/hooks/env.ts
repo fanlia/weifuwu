@@ -25,6 +25,12 @@ import { useChat } from './chat.ts'
 import { useTween, useDrag, useVisualViewport, useReducedMotion, type TweenOptions } from './stable.ts'
 
 /** hooks 环境（per 组件实例——renderComponent 注入） */
+/** me() 会话面（useSession 返回——轻量结构——不依赖 server 类型） */
+export interface UserSession {
+  user: { id: string; email?: string; name?: string | null } | null
+  session: { userId: string; appId: string; role: string } | null
+}
+
 export interface HookEnv {
   /** 组件级渲染触发（store 变化/事件驱动 hooks → 重渲染） */
   requestRender(): void
@@ -70,6 +76,10 @@ export interface Ui {
    *  （switchMap——竞态消灭）· 卸载自动退订 · 重挂载重新取（新鲜）——
    *  get() 返回 null = loading/error 无值 */
   useAsyncData<T>(fetcher: () => Promise<T>, key: string): [() => T | null, () => void]
+  /** **会话面（USERSYSTEM-V2——me() 单源）**：{ user, session:{userId,appId,role} }——
+   *  getter 形态——401/错误降级 null——组件一行读身份/角色/租户
+   *  （替代应用自造角色存储——localStorage 双源根除） */
+  useSession(opts?: { path?: string; token?: () => string | null }): () => UserSession | null
   /** 共享状态订阅（**getter 形态**——`get()` 永远最新——store 变化 →
    *  组件重渲染——unmount 自动退订——订阅幂等（重复调用不重复订阅）） */
   useExternal<T>(store: ExternalStore<T>): () => T
@@ -241,6 +251,17 @@ export function createUi(env: HookEnv): Ui {
         }
       }
       return [get, reload]
+    },
+    useSession(opts?: { path?: string; token?: () => string | null }): () => UserSession | null {
+      const [get] = this.useAsyncData(async () => {
+        const headers: Record<string, string> = {}
+        const t = opts?.token?.()
+        if (t) headers.Authorization = `Bearer ${t}`
+        const res = await fetch(opts?.path ?? '/api/auth/me', { headers })
+        if (!res.ok) throw new Error(`session 获取失败 HTTP ${res.status}`)
+        return (await res.json()) as UserSession
+      }, 'wf:session')
+      return get
     },
     useExternal<T>(store: ExternalStore<T>): () => T {
       // **getter 形态（2026-08）**：订阅登记幂等（按 store 引用——实例级

@@ -182,6 +182,7 @@ test('J6: compose 配置契约——依赖栈三服务 + healthcheck（仓库根
   const yml = readFileSync(join(APP_ROOT, '..', '..', 'docker-compose.yml'), 'utf-8')
   assert.match(yml, /postgres.*:/, 'postgres 服务')
   assert.match(yml, /redis.*:/, 'redis 服务')
-  assert.match(yml, /smtp.*:|greenmail/i, 'smtp 服务（greenmail 测试邮箱）')
+  // 2026-10 邮件内存化：smtp/greenmail 已删——compose 仅 postgres/redis 两个依赖
+  assert.doesNotMatch(yml, /smtp|greenmail/i, 'smtp 已清（Email 模块 Memory 化——compose 不再需要）')
   assert.match(yml, /healthcheck:/, 'healthcheck 接线（每服务健康探针）')
 })

@@ -15,7 +15,6 @@ import { readFileSync } from 'node:fs'
 // ── 中间件 ────────────────────────────────────────────────
 
 // ── 路由 ──────────────────────────────────────────────────
-import { registerAuthRoutes } from './src/routes/auth.ts'
 import { registerAgentRoutes } from './src/routes/agents.ts'
 import { registerWorkspaceRoutes } from './src/routes/workspace.ts'
 import { registerDepartmentRoutes } from './src/routes/departments.ts'
@@ -340,11 +339,67 @@ async function main() {
   }
 
   // ── 用户系统（weifuwu user()——完全替代自研 auth）────────────────
+  // USERSYSTEM-V2：hooks 承接原自研 auth.ts 的业务面（默认 Agent/试用/审计）——
+  // 注册/邀请/SSO 全部框架路由（register-app / apps/:slug/register / sso/*）
+  const ssoOn = !!(process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID && process.env.OIDC_CLIENT_SECRET)
   const users = userSystem({
     sql: pg.sql,
     secret: process.env.JWT_SECRET ?? 'default-secret',
     accessTtlSeconds: 15 * 60,   // 对齐原 15m
     refreshTtlDays: 7,           // 对齐原 7d
+    // 平台红线（ROLES-OPTIMIZATION 波次 1）：邀请角色仅 member/viewer（框架默认放 admin）
+    inviteRoles: ['member', 'viewer'],
+    sso: ssoOn ? {
+      issuer: process.env.OIDC_ISSUER!.replace(/\/$/, ''),
+      clientId: process.env.OIDC_CLIENT_ID!,
+      clientSecret: process.env.OIDC_CLIENT_SECRET!,
+      redirectBase: process.env.OIDC_REDIRECT_URI ? new URL(process.env.OIDC_REDIRECT_URI).origin : undefined,
+      defaultAppSlug: process.env.OIDC_APP_SLUG || undefined,
+      // 回调页：SPA 存 localStorage 后跳首页（原 auth.ts 回调页逻辑原样下沉）
+      renderCallback: (sess) => `<!DOCTYPE html><html><body><script>
+        localStorage.setItem('agent_platform_token', ${JSON.stringify(sess.token)});
+        localStorage.setItem('agent_platform_refresh', ${JSON.stringify(sess.refreshToken)});
+        localStorage.setItem('agent_platform_user', ${JSON.stringify(JSON.stringify(sess.user))});
+        location.href = '/';
+      </script></body></html>`,
+    } : undefined,
+    hooks: {
+      // 注册建默认应用后：建 user Agent + free 试用（原 auth.ts register 业务面下沉）
+      onRegisterApp: async (userId, app) => {
+        const [u] = await pg.sql`SELECT name FROM _weifuwu_users WHERE id = ${userId}`
+        await pg.sql`
+          INSERT INTO agents (app_id, type, name, user_id, is_active)
+          VALUES (${app.id}, 'user', ${u?.name ?? '成员'}, ${userId}, true)
+          ON CONFLICT DO NOTHING
+        `.catch(() => {})
+        try {
+          await pg.sql`
+            UPDATE _weifuwu_apps SET plan = 'free',
+              trial_ends_at = NOW() + interval '14 days', monthly_token_limit = 50000
+            WHERE id = ${app.id}
+          `
+        } catch { /* 旧库无列——migrate 负责 */ }
+      },
+      // 邀请加入：建默认 user Agent（原 auth.ts join 业务面）
+      onJoinApp: async (userId, appId) => {
+        const [u] = await pg.sql`SELECT name FROM _weifuwu_users WHERE id = ${userId}`
+        await pg.sql`
+          INSERT INTO agents (app_id, type, name, user_id, is_active)
+          VALUES (${appId}, 'user', ${u?.name ?? '成员'}, ${userId}, true)
+          ON CONFLICT DO NOTHING
+        `.catch(() => {})
+      },
+      // SSO 登录：加入目标应用时建 Agent
+      onSsoLogin: async (userId, appId) => {
+        if (!appId) return
+        const [u] = await pg.sql`SELECT name FROM _weifuwu_users WHERE id = ${userId}`
+        await pg.sql`
+          INSERT INTO agents (app_id, type, name, user_id, is_active)
+          VALUES (${appId}, 'user', ${u?.name ?? '成员'}, ${userId}, true)
+          ON CONFLICT DO NOTHING
+        `.catch(() => {})
+      },
+    },
   })
   await users.migrate()          // _weifuwu_users / _weifuwu_sessions / _weifuwu_apps / _weifuwu_app_members
   // 迁移遗留：schema.sql 已去外键（agents.user_id 指向框架 _weifuwu_users），但已存在的表结构
@@ -421,7 +476,8 @@ async function main() {
   console.log('[agent-platform] app 模型迁移完成（旧 tenants → _weifuwu_apps + members）')
   app.use(users)
   // 框架认证路由：login/logout/refresh/me（register 自定义：建租户 + 默认 agent）
-  users.routes(app, { prefix: '/api/auth', exclude: ['register'] })
+  // USERSYSTEM-V2：全量框架路由（register-app 产品级注册 / sso / apps/*——自建 auth.ts 已删）
+  users.routes(app, { prefix: '/api/auth' })
 
   // ── 限流（框架 rateLimit：ctx.limit 手动限流，默认按 IP 维度） ──
   // Webhook 入站端点豁免全局限流（外部系统高频调用易撞 100/60s 429）——
@@ -490,7 +546,6 @@ async function main() {
   }
 
   // ── 公开 API（无需登录） ───────────────────────────────
-  registerAuthRoutes(app)
 
   // ── workflow 演示数据（本地 demo 链接——示例 wfjs 直用；?stock=N 控制告警路径） ──
   app.get('/api/demo/stock', async (req: Request): Promise<Response> => {

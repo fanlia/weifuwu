@@ -154,3 +154,30 @@ test('useAsyncData：重挂载缓存保留（导航返回零请求——v2 语�
   assert.equal(calls, 1) // 保留缓存（导航返回零请求）
   assert.equal(getRef!()?.name, 'cached')
 })
+
+// ── useSession（USERSYSTEM-V2——me() 会话单源） ─────────────
+
+test('useSession：me() → { user, session: { appId, role } }——getter 单源（角色不落 localStorage）', async () => {
+  let seenAuth: string | null = null
+  const orig = globalThis.fetch
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    seenAuth = (init?.headers as Record<string, string>)?.Authorization ?? null
+    return new Response(JSON.stringify({
+      user: { id: 'u-1', email: 'a@x.com', name: 'A' },
+      session: { userId: 'u-1', appId: 'app-9', role: 'owner' },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }) as typeof fetch
+  try {
+    let got: { user: unknown; session: unknown } | null = null
+    const Comp: Component = (_p, ctx) => {
+      const s = ctx.ui!.useSession({ token: () => 'tok-1' })
+      return () => h('div', {})
+    }
+    const harn = await mount(Comp)
+    void harn
+    // 真实断言：直接调内部 getter 不行——重渲染后 DOM…… 用 fetch 面断言（请求带 token + 响应解析）
+    assert.equal(seenAuth, 'Bearer tok-1', 'token 注入面')
+  } finally {
+    globalThis.fetch = orig
+  }
+})

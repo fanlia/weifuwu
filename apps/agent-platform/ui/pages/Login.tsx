@@ -57,7 +57,8 @@ export const Login: Component = (_props, ctx) => {
 
       ctx.auth?.login(appData.token, appData.user, appData.refreshToken)
       // 角色存储（2026-08——前端写操作防线——viewer 禁用写按钮）
-      if (appData.role) localStorage.setItem('agent_platform_role', appData.role)
+      // USERSYSTEM-V2：角色单源=token payload（不再写 localStorage——双源根除）
+      void appData.role
       if (appData.refreshToken) setRefreshToken(appData.refreshToken)
       ctx.app?.navigate('/')
     } catch (e) {

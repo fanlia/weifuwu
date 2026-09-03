@@ -128,11 +128,11 @@ export interface TenantAuth {
   app: { id: string; slug: string; name: string; role: string }
 }
 
-/** 注册新租户（唯一邮箱——测试隔离）——register 端点一步签发 app token */
+/** 注册新租户（唯一邮箱——测试隔离）——register-app（USERSYSTEM-V2）一步签发 app token */
 export async function registerTenant(base: string, suffix: string): Promise<TenantAuth> {
   const stamp = Date.now()
   const email = `uitest-${suffix}-${stamp}@e2e.test`
-  const res = await fetch(`${base}/api/auth/register`, {
+  const res = await fetch(`${base}/api/auth/register-app`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -153,9 +153,8 @@ export async function injectAuth(page: Page, auth: TenantAuth): Promise<void> {
     localStorage.setItem('agent_platform_token', payload.token)
     if (payload.refreshToken) localStorage.setItem('agent_platform_refresh', payload.refreshToken)
     if (payload.user) localStorage.setItem('agent_platform_user', JSON.stringify(payload.user))
-    // 角色（2026-08——UI 角色测试：viewer 写操作防线需要 role）
-    if (payload.role) localStorage.setItem('agent_platform_role', payload.role)
-  }, { token: auth.token, refreshToken: auth.refreshToken, user: auth.user, role: auth.app?.role })
+    // USERSYSTEM-V2：角色单源 = token JWT payload（clientRole 解——不再写第二存储）
+  }, { token: auth.token, refreshToken: auth.refreshToken, user: auth.user })
 }
 
 /** 认证 API 调用（数据种子——真实 API 路径——返回解析后 JSON） */
@@ -184,21 +183,22 @@ export async function seedRoleMember(
 ): Promise<TenantAuth> {
   const stamp = Date.now()
   const email = `seeded-${role}-${stamp}@e2e.test`
-  // owner 生成邀请（指定 role）
-  const inv = await apiAs(base, owner, '/api/auth/invite', {
+  // owner 生成邀请（指定 role——框架 apps/:slug/invites）
+  const inv = await apiAs(base, owner, `/api/auth/apps/${owner.app.slug}/invites`, {
     method: 'POST',
     body: JSON.stringify({ email, role }),
   })
-  if (!inv?.token) throw new Error(`邀请生成失败: ${JSON.stringify(inv).slice(0, 120)}`)
-  // 被邀人 join（registerInApp——复用或建平台账号 + 加成员）
-  const join = await apiAs(base, { token: '', refreshToken: null, user: null, app: owner.app }, '/api/auth/join', {
+  if (!inv?.inviteToken) throw new Error(`邀请生成失败: ${JSON.stringify(inv).slice(0, 120)}`)
+  // 被邀人 join（框架 apps/:slug/register——复用或建平台账号 + 加成员）
+  const join = await apiAs(base, { token: '', refreshToken: null, user: null, app: owner.app }, `/api/auth/apps/${owner.app.slug}/register`, {
     method: 'POST',
-    body: JSON.stringify({ appSlug: owner.app.slug, inviteToken: inv.token, email, password: 'Test123456', name: `种子${role}` }),
+    body: JSON.stringify({ inviteToken: inv.inviteToken, email, password: 'Test123456', name: `种子${role}` }),
   })
   if (!join?.token) throw new Error(`join 失败: ${JSON.stringify(join).slice(0, 120)}`)
-  // 断言角色生效（join 响应已验证——修复后返回真实 role）
-  if (join.app?.role !== role) {
-    throw new Error(`角色种子失败: 期望 ${role} 实得 ${join.app?.role}——join 响应角色修复未生效？`)
+  // 角色断言：token JWT payload（USERSYSTEM-V2 单源——join 响应无 app.role）
+  const payload = JSON.parse(atob(join.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+  if (payload.role !== role) {
+    throw new Error(`角色种子失败: 期望 ${role} 实得 ${payload.role}——token payload 角色未生效？`)
   }
   return { token: join.token, refreshToken: join.refreshToken ?? null, user: join.user, app: { ...owner.app, role } }
 }

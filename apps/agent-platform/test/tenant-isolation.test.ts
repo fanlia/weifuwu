@@ -110,6 +110,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'src/routes/skills.ts', match: 'agent_skills', reason: '间接隔离——agent_id/skillId 上游已校验归属（skills 路由 a.app_id）' },
   { file: 'src/services/agent-runner.ts', match: 'agent_skills', reason: '间接隔离——agentId 来自运行上下文（已校验的 agent）' },
   { file: 'src/services/chat.ts', match: 'INSERT INTO messages', reason: '间接隔离——departmentId 来自已校验部门（会话上下文）' },
+  { file: 'src/tools/video-gen.ts', match: 'INSERT INTO messages', reason: '间接隔离——departmentId 来自 video 任务行（任务创建时部门归属已校验；agentId 查询已补 app_id 校验——同应用内代理）' },
   { file: 'src/services/chat.ts', match: 'DELETE FROM messages WHERE id = ${msgId}', reason: '间接隔离——msgId 本流程创建（占位消息清理）' },
   { file: 'src/services/chat.ts', match: 'UPDATE messages SET content = ${accumulatedContent}', reason: '间接隔离——msgId 本流程创建（流式回复落库）' },
   { file: 'src/services/chat.ts', match: 'FROM agent_logs WHERE agent_id = ${agent.id}', reason: '间接隔离——agent 来自已校验查询（部门成员）' },

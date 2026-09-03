@@ -34,18 +34,18 @@ test.after(async () => {
 
 test('BUG-2 回归：同域名两个用户注册都成功（slug 自动去重——不再误报邮箱已注册）', async () => {
   const domain = `walkbug-${Date.now()}.test`
-  const r1 = await fetch(`${BASE}/api/auth/register`, {
+  const r1 = await fetch(`${BASE}/api/auth/register-app`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: `alice-${Date.now()}@${domain}`, password: 'Test12345', name: '甲' }),
   })
-  assert.equal(r1.status, 200, '第一个同域名用户注册成功')
-  const r2 = await fetch(`${BASE}/api/auth/register`, {
+  assert.ok([200, 201].includes(r1.status), `第一个同域名用户注册成功（实际 ${r1.status}）`)
+  const r2 = await fetch(`${BASE}/api/auth/register-app`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: `bob-${Date.now()}@${domain}`, password: 'Test12345', name: '乙' }),
   })
-  assert.equal(r2.status, 200, `第二个同域名用户注册成功（slug 去重后）——旧代码 409 duplicate slug`)
+  assert.ok([200, 201].includes(r2.status), `第二个同域名用户注册成功（slug 去重后）——旧代码 409 duplicate slug（实际 ${r2.status}）`)
 })
 
 test('BUG-2 回归：注册页不传 appSlug 时登录页错误映射不误报（slug 冲突 ≠ 邮箱已注册）', async () => {
@@ -100,7 +100,7 @@ test('stats API 静默空数据防线：无效 appId 上下文 → 显式 401（
   // 平台登录 token（无 appId payload）请求 app 维度统计——旧行为 200 全 0
   // （用户看到「Agent 总数 0」静默错误）——修复后 401 走续期/重登录链
   const stamp = Date.now()
-  const reg = await fetch(`${BASE}/api/auth/register`, {
+  const reg = await fetch(`${BASE}/api/auth/register-app`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: `stat401-${stamp}@e2e.test`, password: 'Test12345', name: 'S' }),

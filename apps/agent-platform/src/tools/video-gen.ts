@@ -199,7 +199,8 @@ async function downloadVideo(src: string): Promise<Buffer> {
 /** 完成通知：messages 落库（agent 身份）+ broadcast new_message（前端 Chat 消费面） */
 async function notifyVideoSucceeded(ctx: AppCtx, job: VideoPollJob): Promise<void> {
   if (!job.agentId || !job.departmentId || !job.filename) return
-  const [agent] = await ctx.sql`SELECT name FROM agents WHERE id = ${job.agentId}`
+  // 租户隔离（tenant-isolation 审计）：agents 查询带 app_id——跨应用 agentId 不可见
+  const [agent] = await ctx.sql`SELECT name FROM agents WHERE id = ${job.agentId} AND app_id = ${job.appId}`
   const agentName = String(agent?.name ?? 'AI')
   const content = `🎬 视频生成完成：/ws/${job.filename}——已保存到部门共享目录（交付物中心可见）`
   const [m] = await ctx.sql`

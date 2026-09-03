@@ -79,6 +79,8 @@ export interface UserSystemOptions {
   /** SSO（OIDC 授权码——系统级单 IdP——未配置 = 密码模式优雅降级）
    *  issuer 派生 authorize/token/userinfo 端点（无 discovery——简单兼容） */
   sso?: SsoOptions
+  /** 邀请角色白名单（createInvite 专用——默认 allowedRoles；平台可收紧 member/viewer） */
+  inviteRoles?: string[]
   /** access token 有效期（秒）。默认 3600（1h）。 */
   accessTtlSeconds?: number
   /** refresh token 有效期（天）。默认 30。 */
@@ -134,6 +136,8 @@ export interface UserHooks {
   onRegisterApp?(userId: string, app: AppInfo): Promise<void> | void
   /** SSO 登录成功建号/加成员后（userId + appId——审计/档案补全） */
   onSsoLogin?(userId: string, appId?: string): Promise<void> | void
+  /** 邀请加入既有应用（registerInApp 成功——userId + appId + role——业务：默认 Agent） */
+  onJoinApp?(userId: string, appId: string, role: string): Promise<void> | void
 }
 
 /** 产品级注册：平台账号 + 默认应用一步完成（owner 成员 + 应用 token 签发） */
@@ -287,6 +291,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   const hooks = options.hooks
   const allowedRoles = options.allowedRoles ?? ['owner', 'admin', 'member', 'viewer']
   const sso = options.sso ?? null
+  const inviteRoles = options.inviteRoles ?? allowedRoles
   /** 幽灵角色拦截（B5.2 教训：createInvite 曾放行任意 role 串——可铸造无入口的 admin） */
   function assertRole(role: string | undefined): void {
     if (role !== undefined && !allowedRoles.includes(role)) {
@@ -659,6 +664,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         const session = await issueSession(user, { appId, role })
         await sql.query.update(MEMBER_TABLE).set({ last_login_at: new Date() }).where({ app_id: appId, user_id: user.id }).run()
         currentUser = user
+        await hooks?.onJoinApp?.(user.id, appId, role)
         return { ...session, user }
       },
 
@@ -732,7 +738,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       },
 
       async createInvite(appId: string, opts: { email?: string; role?: string }) {
-        assertRole(opts.role)
+        // 邀请角色白名单（平台红线：邀请链接流向普通成员——仅 member/viewer）
+        if (opts.role !== undefined && !inviteRoles.includes(opts.role)) {
+          throw new HttpError(`invite role not allowed: ${opts.role}（allowed: ${inviteRoles.join('/')}）`, 403)
+        }
         if (!currentUser) throw new HttpError('Unauthorized', 401)
         const role = await findMemberRole(appId, currentUser.id)
         if (role !== 'owner') throw new HttpError('Owner only', 403)
