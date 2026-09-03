@@ -7,32 +7,11 @@ import type { AppCtx } from '../middleware/ctx.ts'
 import { streamAgentPreview } from '../services/agent-runner.ts'
 import { AGENT_TYPE_LIST } from '../../ui/lib/types.ts'
 
-/** 内置工具定义（与 builtin.ts 同步） */
-export const BUILTIN_TOOL_DEFS = [
-  {
-    type: 'function',
-    function: {
-      name: 'search_knowledge_base',
-      description: '从 Agent 绑定的知识库中检索相关信息。当用户问题涉及文档、产品手册、FAQ 等内容时使用。',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: '搜索关键词或问题描述' },
-          top_k: { type: 'number', description: '返回结果数量，默认 5' },
-        },
-        required: ['query'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_current_time',
-      description: '获取当前日期和时间，当用户询问时间时使用',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-]
+/** 内置工具定义——单源：tools/builtin.ts（防止双份漂移——route 面 = 注册面） */
+export { BUILTIN_TOOL_DEFS } from '../tools/builtin.ts'
+// 静态导入重新导出（ESM 顶层——registerAgentRoutes 内直接可用）
+import { BUILTIN_TOOL_DEFS as _BUILTIN } from '../tools/builtin.ts'
+const BUILTIN_TOOL_DEFS = _BUILTIN
 
 /** 内置工具名称列表 */
 const BUILTIN_TOOL_NAMES = BUILTIN_TOOL_DEFS.map(t => t.function.name)

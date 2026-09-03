@@ -178,6 +178,53 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'create_workflow',
+      description: '用 wfjs 语言创建自动化工作流（声明式步骤序列——HTTP 请求/日志/条件分支/循环）。创建即编译校验——语法错误会返回错误（可修正后重试）。wfjs 与 JS 语法对齐：const 名 = await http({ url: \'https://…\' }) 发请求；const 名 = 表达式（可读响应字段 res.json.x）；if (条件) { await log({ message: \`文本 ${变量} 件\` }) }；for (const 项 of 列表) {}；变量用 let 声明。用户要求「创建工作流/自动化流程/定时监控/自动检查」时使用——创建后可用 run_workflow 执行验证。',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '工作流名称——简短（如 库存告警）' },
+          description: { type: 'string', description: '用途说明（可选——如 每小时检查库存并告警）' },
+          wfjs: {
+            type: 'string',
+            description: 'wfjs 源码——参考模板：\nconst res = await http({ url: \'https://api.example.com/items\' })\nconst count = res.json.items.length\nif (count > 0) { await log({ message: \`缺货 ${count} 件\` }) }',
+          },
+        },
+        required: ['name', 'wfjs'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_workflows',
+      description: '列出当前应用下的工作流（名称/状态/更新时间）。用户问「有哪些工作流/自动化流程」时使用——先列出再按需 run_workflow。',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: { type: 'number', description: '返回条数（默认 20）' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_workflow',
+      description: '执行工作流（同步——返回每步执行结果：executed 顺序 + stepResults 值）。用户说「运行/执行/跑一下」某个工作流时使用；也可在 create_workflow 后立即执行验证。',
+      parameters: {
+        type: 'object',
+        properties: {
+          workflow_id: { type: 'string', description: '工作流 ID（create_workflow 返回或 list_workflows 查询）' },
+          args: { type: 'string', description: '执行参数 JSON 对象字符串（如 {"stock": 3}）——工作流用 vars.参数名 读取；无参数传 {}' },
+        },
+        required: ['workflow_id'],
+      },
+    },
+  },
 ]
 
 /**
@@ -367,7 +414,87 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       await retryCampaign(ctx, id)
       return `已重跑失败角色（campaign ${id.slice(0, 8)}——失败 ${out.campaign.failed} 个已重新排队）——用 survey_campaign_status 跟踪`
     },
+
+    // W-TOOLS（2027-09）：工作流工具面（对话生成/查询/执行——LLM 入口；
+    // 创建即 compileGate——编译错 = 返回错误消息（LLM 自修正重试））
+    create_workflow: async (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const name = String(args.name ?? '').trim()
+      const wfjs = String(args.wfjs ?? '').trim()
+      if (!name || !wfjs) return 'Error: create_workflow 需要 name 和 wfjs 参数'
+      const appId = await resolveAppId(ctx, toolCtx)
+      if (!appId) return 'Error: 无法确定应用上下文（appId）——请在与应用绑定的对话中创建'
+      try {
+        const wfClient = (ctx as any).wf
+        if (!wfClient?.crud) return 'Error: 工作流系统未初始化（wf 未注入——ctx keys: ' + Object.keys(ctx ?? {}).join(',') + '）'
+        const rec = await wfClient.crud.create(appId, {
+          name,
+          description: args.description ? String(args.description).trim() : '',
+          wfjs,
+        })
+        // 渲染视图返回（LLM 立即看到 def 确认——与存储同源）
+        return JSON.stringify({
+          id: rec.id, name: rec.name, status: rec.status,
+          wfjs: wfClient.defToWfjs(rec.def_json),
+        })
+      } catch (e: any) {
+        return `Error: 工作流创建失败——${String(e?.message ?? e).slice(0, 400)}（wfjs 语法错误可修正后重试）`
+      }
+    },
+    list_workflows: async (_args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const appId = await resolveAppId(ctx, toolCtx)
+      if (!appId) return 'Error: 无法确定应用上下文（appId）'
+      try {
+        const wfClient = (ctx as any).wf
+        if (!wfClient?.crud) return 'Error: 工作流系统未初始化'
+        const rows = await wfClient.crud.list(appId, { limit: Math.min(50, Number(_args.limit ?? 20) || 20) })
+        if (rows.length === 0) return '当前应用暂无工作流——可用 create_workflow 创建'
+        return JSON.stringify(rows.map((r) => ({
+          id: r.id, name: r.name, status: r.status,
+          updatedAt: r.updated_at,
+        })))
+      } catch (e: any) {
+        return `Error: ${String(e?.message ?? e).slice(0, 300)}`
+      }
+    },
+    run_workflow: async (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
+      const ctx = getCtx()
+      const wid = String(args.workflow_id ?? '').trim()
+      if (!wid) return 'Error: run_workflow 需要 workflow_id'
+      let runArgs: Record<string, unknown> = {}
+      const rawArgs = String(args.args ?? '').trim()
+      if (rawArgs && rawArgs !== '{}') {
+        try { runArgs = JSON.parse(rawArgs) } catch { return 'Error: args 不是合法 JSON 对象'
+        }
+      }
+      const appId = await resolveAppId(ctx, toolCtx)
+      if (!appId) return 'Error: 无法确定应用上下文（appId）'
+      try {
+        const wfClient = (ctx as any).wf
+        if (!wfClient?.execute) return 'Error: 工作流系统未初始化'
+        const run = await wfClient.execute(appId, wid, runArgs, 'chat')
+        return JSON.stringify({
+          status: run.status, error: run.error,
+          result: typeof run.result_json === 'object' ? run.result_json : run.result_json,
+        }).slice(0, 3000)
+      } catch (e: any) {
+        return `Error: 执行失败——${String(e?.message ?? e).slice(0, 400)}`
+      }
+    },
   })
+}
+
+/** 解析工具调用归属应用：agent 绑定（toolCtx.agentId → agents.app_id）优先；回退会话 auth.appId */
+async function resolveAppId(ctx: any, toolCtx?: Record<string, unknown>): Promise<string> {
+  const agentId = toolCtx?.agentId != null ? String(toolCtx.agentId) : null
+  if (agentId) {
+    try {
+      const [ag] = await ctx.sql`SELECT app_id FROM agents WHERE id = ${agentId}`
+      if (ag?.app_id) return String(ag.app_id)
+    } catch { /* 查不到 agent —— 回退会话 */ }
+  }
+  return String(ctx.auth?.appId ?? ctx.appId ?? '')
 }
 
 /**

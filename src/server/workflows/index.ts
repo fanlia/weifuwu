@@ -71,6 +71,8 @@ export interface WorkflowSystem {
 
 /** ctx.wf 注入面（消费方直接调用——与引擎同源） */
 export interface WorkflowClient {
+  /** CRUD 面（创建/列表/查询——对话工具/服务层/自定义路由共用；与 mw.crud 同源） */
+  crud: WorkflowCrud
   /** 编译门：wfjs/def → validate → { def, wfjs 渲染 }（错抛） */
   compileGate: (input: CompileGateInput) => Promise<{ def: WorkflowDef; wfjs: string }>
   /** 校验已存 DSL（执行前闸门） */
@@ -232,6 +234,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
   }
 
   const wf: WorkflowClient = {
+    crud,
     compileGate,
     validate: (def) => engine.validate(def),
     execute: executeRun,
