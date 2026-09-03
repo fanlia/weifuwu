@@ -36,6 +36,8 @@ export interface WorkflowRecord {
   src_wfjs: string | null
   status: string
   cron: string | null
+  /** 最近一次运行（列表联查——N+1 附加——v0 列表量级小） */
+  last_run?: WorkflowRunRecord | null
   created_at: string
   updated_at: string
 }
@@ -222,7 +224,14 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
         .limit(limit)
         .offset(offset)
         .run()
-      return rows.map((r) => toRecord(r as Record<string, unknown>))
+      const out = rows.map((r) => toRecord(r as Record<string, unknown>))
+      // 最近运行联查（N+1——`ponytail:` v0 列表 limit≤50 量级小；超量改批量子查询）
+      for (const rec of out) {
+        const runRows = await sql.query.from(RUNS).where({ workflow_id: rec.id, app_id: appId })
+          .orderBy('created_at', 'desc').limit(1).run()
+        rec.last_run = runRows[0] ? toRun(runRows[0] as Record<string, unknown>) : null
+      }
+      return out
     },
     async get(appId, id) {
       const rows = await sql.query.from(WORKFLOWS)
