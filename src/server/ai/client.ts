@@ -121,6 +121,8 @@ export interface AiClient {
   embed(text: string): Promise<number[]>
   /** 批量文本嵌入（按输入顺序返回） */
   embedMany(texts: string[]): Promise<number[][]>
+  /** 生命周期（transport 资源释放；无资源 = no-op） */
+  close(): Promise<void>
 }
 
 // ── SSE 解析（provider 线协议）────────────────────────────
@@ -526,6 +528,8 @@ export function createAiClient(opts: AiClientOptions): AiClient {
     // embedding：未配置 provider 时明确抛 AiError（诚实裁剪：不静默降级）
     embed: (text: string) => embedding.embed(text),
     embedMany: (texts: string[]) => embedding.embedMany(texts),
+    // transport 无长生命周期资源（fetch 即用即弃）——no-op（对齐 MemoryAi/契约）
+    close: async () => {},
   }
 }
 

@@ -30,9 +30,10 @@
 import type { Context, Middleware } from '../../server/types.ts'
 import { createAiClient, type AiClient, type AiClientOptions, type AiEmbeddingOptions } from './client.ts'
 import { createAgent, type AgentConfig, type AgentRunner } from './agent.ts'
-import type { Ai } from './contracts.ts'
+import type { AIInterface, ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus } from './contracts.ts'
 
-export type { Ai } from './contracts.ts'
+export type { Ai, AIInterface, ApprovalRequest } from './contracts.ts'
+export type { ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus } from './contracts.ts'
 
 export type { AiEmbeddingOptions } from './client.ts'
 export type { AgentRunResult, AgentStep, AgentTool, AgentConfig, AgentRunner, ToolContext } from './agent.ts'
@@ -40,22 +41,16 @@ export type { AgentRunResult, AgentStep, AgentTool, AgentConfig, AgentRunner, To
 export interface AiOptions extends Partial<AiClientOptions> {}
 
 export interface AiInjected {
-  ai: Ai
+  ai: AIInterface
 }
 
 /** 模块 = 中间件 + 客户端（queue 式混合：app.use(a) + worker 直接 a.chat()）。
- *  实现 Ai 契约（src/ai/contracts.ts 单一来源）；streamStep 为 agent 内部细节（不在契约） */
-export interface AiClientModule extends Middleware<Context, Context & AiInjected>, Ai {
-  /** 内部：单轮 LLM 流式 → emit 事件 + 聚合结果（agent 引擎用——不在契约 Ai） */
+ *  实现 AIInterface 契约（contracts.ts 单一来源）；streamStep 为 agent 内部细节（不在契约） */
+export interface AiClientModule extends Middleware<Context, Context & AiInjected>, AIInterface {
+  /** 内部：单轮 LLM 流式 → emit 事件 + 聚合结果（agent 引擎用——不在契约 AIInterface） */
   streamStep: AiClient['streamStep']
 }
 
-declare module '../../server/types.ts' {
-  interface Context {
-    /** 注入模块本身（含 agent / approve），worker 场景直接 a.chat() */
-    ai?: Ai
-  }
-}
 
 export function ai(options?: AiOptions): AiClientModule {
   const apiKey = options?.apiKey ?? process.env.DEEPSEEK_API_KEY ?? ''
