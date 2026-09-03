@@ -11,64 +11,64 @@ import { toJs } from './tojs.ts'
 import type { WorkflowDef } from './contracts.ts'
 
 describe('tojs: 渲染规则', () => {
-  it('assign → let/赋值（首次声明语义）', () => {
-    const def = compileWfjs(`let n = 0\nn += 2\nn = 3`)
+  it('assign → let/赋值（首次声明语义）', async () => {
+    const def = await compileWfjs(`let n = 0\nn += 2\nn = 3`)
     assert.equal(toJs(def), `let n = 0\nn = (n + 2)\nn = 3`)
   })
-  it('if/else → 分支 + else', () => {
-    const def = compileWfjs(`let n = 5\nif (n > 1) { await log({ message: 'a' }) } else { await log({ message: 'b' }) }`)
+  it('if/else → 分支 + else', async () => {
+    const def = await compileWfjs(`let n = 5\nif (n > 1) { await log({ message: 'a' }) } else { await log({ message: 'b' }) }`)
     const js = toJs(def)
     assert.match(js, /\nif \(\(n > 1\)\) \{/)
     assert.match(js, /\} else \{/)
   })
-  it('import 语句渲染（ESM 逐字往返）', () => {
-    const def = compileWfjs(`import { store } from 'wf://std/store'\nimport { sum as add } from 'wf://std/math'\nlet n = add(1)`)
+  it('import 语句渲染（ESM 逐字往返）', async () => {
+    const def = await compileWfjs(`import { store } from 'wf://std/store'\nimport { sum as add } from 'wf://std/math'\nlet n = add(1)`)
     const js = toJs(def)
     assert.match(js, /^import \{ store \} from 'wf:\/\/std\/store'$/m)
     assert.match(js, /^import \{ sum as add \} from 'wf:\/\/std\/math'$/m)
-    const d2 = compileWfjs(js)
+    const d2 = await compileWfjs(js)
     assert.deepEqual(d2, def)
   })
-  it('store 方法调用往返（get/set → 渲染对称）', () => {
-    const def = compileWfjs(`import { store } from 'wf://std/store'\nconst sent = await store.get('k:1')\nawait store.set('k:1', 'v')`)
+  it('store 方法调用往返（get/set → 渲染对称）', async () => {
+    const def = await compileWfjs(`import { store } from 'wf://std/store'\nconst sent = await store.get('k:1')\nawait store.set('k:1', 'v')`)
     const js = toJs(def)
     assert.match(js, /const sent = await store\.get\('k:1'\)/)
     assert.match(js, /await store\.set\('k:1', 'v'\)/)
-    assert.deepEqual(compileWfjs(js), def)
+    assert.deepEqual(await compileWfjs(js), def)
   })
-  it('while/for → 循环语句 + loop 变量反映射', () => {
-    const def = compileWfjs(`let n = 0\nlet list = input.rows\nwhile (n < 3) { n = n + 1 }\nfor (const it of list) { await log({ message: \`行 \${it.name}\` }) }`)
+  it('while/for → 循环语句 + loop 变量反映射', async () => {
+    const def = await compileWfjs(`let n = 0\nlet list = input.rows\nwhile (n < 3) { n = n + 1 }\nfor (const it of list) { await log({ message: \`行 \${it.name}\` }) }`)
     const js = toJs(def)
     assert.match(js, /\nwhile \(\(n < 3\)\) \{/)
     assert.match(js, /for \(const it0 of list\) \{\n/)
     assert.match(js, /\$\{it0\.name\}/)
     // 循环内引用外层变量
-    const def2 = compileWfjs(`let list = input.rows\nlet n = 5\nfor (const it of list) { const r = await log({ message: n }) }`)
+    const def2 = await compileWfjs(`let list = input.rows\nlet n = 5\nfor (const it of list) { const r = await log({ message: n }) }`)
     const js2 = toJs(def2)
     assert.match(js2, /await log\(\{ message: \`\$\{n\}\` \}\)/)
   })
-  it('return（无值/带值）', () => {
-    assert.equal(toJs(compileWfjs(`return`)), 'return')
-    assert.equal(toJs(compileWfjs(`let n = 1\nreturn n + 1`)), 'let n = 1\nreturn (n + 1)')
+  it('return（无值/带值）', async () => {
+    assert.equal(toJs(await compileWfjs(`return`)), 'return')
+    assert.equal(toJs(await compileWfjs(`let n = 1\nreturn n + 1`)), 'let n = 1\nreturn (n + 1)')
   })
-  it('绑定调用（const 变量名）+ 裸调用（_ 前缀）', () => {
-    const def = compileWfjs(`const res = await http({ url: 'u' })\nawait log({ message: 'x' })`)
+  it('绑定调用（const 变量名）+ 裸调用（_ 前缀）', async () => {
+    const def = await compileWfjs(`const res = await http({ url: 'u' })\nawait log({ message: 'x' })`)
     const js = toJs(def)
     assert.equal(js, `const res = await http({ url: 'u' })\nawait log({ message: 'x' })`)
     // 绑定引用反映射：res.json → steps 路径还原
-    const def2 = compileWfjs(`const res = await http({ url: 'u' })\nif (res.json.n > 1) {}`)
+    const def2 = await compileWfjs(`const res = await http({ url: 'u' })\nif (res.json.n > 1) {}`)
     assert.match(toJs(def2), /\nif \(\(res\.json\.n > 1\)\)/) // 反映射掉 steps.res.data
   })
-  it('模板串 → {{}} → ${} 往返', () => {
-    const def = compileWfjs('let n = 1\nlet m = 2\nconst r = await http({ url: `u?p=${n}&q=${m + 1}` })')
+  it('模板串 → {{}} → ${} 往返', async () => {
+    const def = await compileWfjs('let n = 1\nlet m = 2\nconst r = await http({ url: `u?p=${n}&q=${m + 1}` })')
     const js = toJs(def)
     assert.equal(js, 'let n = 1\nlet m = 2\nconst r = await http({ url: `u?p=${n}&q=${(m + 1)}` })')
   })
 })
 
 describe('tojs: round-trip 对账（fuzz——IR 锚点）', () => {
-  it('函数定义/调用渲染对称（round-trip）', () => {
-    const d1 = compileWfjs(`function pay(amount, rate) {
+  it('函数定义/调用渲染对称（round-trip）', async () => {
+    const d1 = await compileWfjs(`function pay(amount, rate) {
   let fee = amount * rate
   if (fee > 100) { fee = fee - 10 }
   return fee + amount
@@ -79,11 +79,11 @@ const b = await pay(a, 0.2)`)
     assert.match(js, /^function pay\(amount, rate\) \{$/m)
     assert.match(js, /const a = await pay\(100, 0\.1\)/)
     assert.match(js, /const b = await pay\(a, 0\.2\)/)
-    const d2 = compileWfjs(js)
+    const d2 = await compileWfjs(js)
     assert.deepEqual(d2, d1)
   })
 
-  it('库存监控示例：compile → toJs → compile 深比较', () => {
+  it('库存监控示例：compile → toJs → compile 深比较', async () => {
     const src = `import { store } from 'wf://std/store'
 const res = await http({ url: 'https://api.test/stock' })
 const sent = await store.get('stock:sent')
@@ -92,25 +92,25 @@ if (res.json.items.length > 0 && sent !== '1') {
   await email({ to: 'ops@x.com', subject: '预警', body: msg.text })
   await store.set('stock:sent', '1')
 }`
-    const d1 = compileWfjs(src)
-    const d2 = compileWfjs(toJs(d1))
+    const d1 = await compileWfjs(src)
+    const d2 = await compileWfjs(toJs(d1))
     assert.deepEqual(d2, d1)
     // 再验证渲染稳定（幂等）：toJs(toJs 的产物) 同形
     assert.equal(toJs(d2), toJs(d1))
   })
 
-  it('fuzz：随机程序 × 5 种子 × 100 样本 round-trip 恒等', () => {
+  it('fuzz：随机程序 × 5 种子 × 100 样本 round-trip 恒等', async () => {
     for (let seed = 1; seed <= 5; seed++) {
       for (let i = 0; i < 100; i++) {
         const rng = mulberry32(seed * 100000 + i)
         const src = genProgram(rng)
         let d1: WorkflowDef
-        try { d1 = compileWfjs(src) } catch (e) {
+        try { d1 = await compileWfjs(src) } catch (e) {
           // 生成器自身 bug 不算对账失败——但编译必须通过（生成器保证语法）
           assert.fail(`生成程序编译失败（seed=${seed} i=${i}）: ${(e as Error).message}\n${src}`)
         }
         let d2: WorkflowDef
-        try { d2 = compileWfjs(toJs(d1)) } catch (e) {
+        try { d2 = await compileWfjs(toJs(d1)) } catch (e) {
           assert.fail(`round-trip 编译失败（seed=${seed} i=${i}）: ${(e as Error).message}\n源码：\n${src}\n渲染：\n${toJs(d1)}`)
         }
         try {

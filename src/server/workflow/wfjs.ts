@@ -31,7 +31,7 @@
  */
 import { STD_NAMES, STD_MODULES } from './std.ts'
 import { parse as parseExpr, toSrc } from './expression.ts'
-import type { WorkflowDef } from './contracts.ts'
+import type { WorkflowDef, WorkflowFunction } from './contracts.ts'
 
 // ── 词法 ────────────────────────────────────────────────
 
@@ -133,6 +133,7 @@ type WCall = { name: string; args: { key: string | null; value: WValue }[] }
 type WStmt =
   | { k: 'import'; names: { name: string; as?: string }[]; from: string }
   | { k: 'function'; name: string; params: string[]; body: WStmt[] }
+  | { k: 'export'; named: { name: string; as?: string }[]; default?: string }
   | { k: 'var'; name: string; init: WValue | WCall | null; isConst: boolean }
   | { k: 'assign'; target: string; op: '=' | '+=' | '-=' | '*=' | '/=' | '%='; value: string }
   | { k: 'incdec'; target: string; inc: boolean }
@@ -186,9 +187,7 @@ class WfjsParser {
       if (v === 'await') { this.next(); return this.parseStmt() }
       if (v === 'import') return this.parseImport()
       if (v === 'function') return this.parseFunction()
-      if (v === 'export') {
-        this.fail(`wfjs: 'export' 在后续 wave 支持（W8：远程导入/导出）`, (this.peek() as WToken).pos)
-      }
+      if (v === 'export') return this.parseExport()
     }
     if (this.peek().t === 'ident') return this.parseAssignOrCall()
     this.fail(`wfjs: unexpected '${this.peek().t === 'eof' ? '(end)' : String((this.peek() as WToken).v)}'`, (this.peek() as WToken).pos)
@@ -204,6 +203,30 @@ class WfjsParser {
     this.next() // }
     return stmts
   }
+  /** export { a, b as c } / export default f——v1 仅函数导出 */
+  private parseExport(): WStmt {
+    this.next() // export
+    if (this.isKw('default')) {
+      this.next()
+      const name = this.next()
+      if (name.t !== 'ident') this.fail('wfjs: export default 后必须是函数名', name.pos)
+      return { k: 'export', named: [], default: String(name.v) }
+    }
+    this.expect('{')
+    const named: { name: string; as?: string }[] = []
+    while (!this.isPunc('}')) {
+      const name = this.next()
+      if (name.t !== 'ident') this.fail('wfjs: export 成员名必须是标识符', name.pos)
+      let asName = name.v
+      if (this.isKw('as')) { this.next(); const a = this.next(); if (a.t !== 'ident') this.fail('wfjs: as 后必须是标识符', a.pos); asName = a.v }
+      if (asName !== name.v) named.push({ name: name.v, as: asName })
+      else named.push({ name: name.v })
+      if (this.isPunc(',')) { this.next(); continue }
+    }
+    this.next() // }
+    return { k: 'export', named, default: undefined }
+  }
+
   /** function name(a, b) { body }——先声明后调用（函数提升 v2 裁剪） */
   private parseFunction(): WStmt {
     this.next() // function
@@ -524,6 +547,10 @@ interface CompileEnv {
   inFunction: boolean
   /** auto id 前缀（函数体步骤 id 防撞主流程） */
   autoPrefix: string
+  /** 导出标记（v1 函数导出——库形态） */
+  exports: NonNullable<WorkflowDef['exports']>
+  /** 远程导入（编译期 fetch 后物化函数） */
+  remoteImports: { from: string; names: { name: string; as?: string }[] }[]
 }
 
 /** 表达式内调用静态检查：std 导入函数可见（未导入=不存在）；副作用调用语句层专属 */
@@ -633,12 +660,25 @@ function compileArg(kv: { key: string | null; value: WValue }, type: string, env
 }
 
 function childEnv(parent: CompileEnv, steps: NonNullable<WorkflowDef['steps']>): CompileEnv {
-  return { bindings: new Map(parent.bindings), consts: new Set(parent.consts), steps, imports: parent.imports, stdBindings: parent.stdBindings, stdFns: parent.stdFns, allNames: parent.allNames, functions: parent.functions, inFunction: parent.inFunction, autoPrefix: parent.autoPrefix }
+  return { bindings: new Map(parent.bindings), consts: new Set(parent.consts), steps, imports: parent.imports, stdBindings: parent.stdBindings, stdFns: parent.stdFns, allNames: parent.allNames, functions: parent.functions, inFunction: parent.inFunction, autoPrefix: parent.autoPrefix, exports: parent.exports, remoteImports: parent.remoteImports }
 }
 
 function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
   const auto = () => unusedName(env, `${env.autoPrefix}_${stmt.k}`)
   switch (stmt.k) {
+    case 'export': {
+      const all = env.functions
+      const check = (n: string): void => {
+        if (!all.some((f) => f.name === n)) throw new Error(`wfjs: 导出 '${n}' 必须是已定义函数（v1 函数导出——变量导出 v2）`)
+      }
+      stmt.named.forEach((n) => check(n.name))
+      if (stmt.default) check(stmt.default)
+      if (stmt.named.length === 0 && !stmt.default) throw new Error('wfjs: export 必须至少导出一个成员')
+      // 导出收集（同源函数——物化在同一 def.functions——exports 只是标记）
+      env.exports.named.push(...stmt.named)
+      if (stmt.default) env.exports.default = stmt.default
+      return
+    }
     case 'function': {
       if (env.inFunction) throw new Error(`wfjs: 不支持嵌套函数（函数 '${stmt.name}'）`)
       if (BUILTIN_NAMES.has(stmt.name)) throw new Error(`wfjs: 函数名 '${stmt.name}' 与内置冲突`)
@@ -655,25 +695,34 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
         bindings: fnBindings, consts: new Set(), steps: [],
         imports: env.imports, stdBindings: env.stdBindings, stdFns: env.stdFns,
         allNames: env.allNames, functions: env.functions, inFunction: true,
-        autoPrefix: `_fn:${stmt.name}:`,
+        autoPrefix: `_fn:${stmt.name}:`, exports: env.exports, remoteImports: env.remoteImports,
       }
       compileInto(stmt.body, fnEnv, false)
       env.functions.push({ name: stmt.name, params: stmt.params, step: { steps: fnEnv.steps } })
       return
     }
     case 'import': {
-      const mod = STD_MODULES[stmt.from] ?? (stmt.from === 'wf://std/store' ? { store: null as never } : undefined)
-      if (!mod) throw new Error(`wfjs: 模块 '${stmt.from}' 未注册（v1 仅 std 库：${Object.keys(STD_MODULES).join(' / ')} 与 wf://std/store）`)
-      for (const { name, as } of stmt.names) {
-        const bound = as ?? name
-        if (name === 'store' && stmt.from === 'wf://std/store') {
-          env.stdBindings.set(bound, 'store')
-        } else if (mod[name] !== undefined) {
-          env.stdBindings.set(bound, 'fn')
-          env.stdFns.add(bound)
-        } else {
-          throw new Error(`wfjs: 模块 '${stmt.from}' 无导出 '${name}'`)
+      const isStd = stmt.from.startsWith('wf://std/')
+      if (isStd) {
+        const mod = STD_MODULES[stmt.from] ?? (stmt.from === 'wf://std/store' ? { store: null as never } : undefined)
+        if (!mod) throw new Error(`wfjs: std 模块 '${stmt.from}' 未注册（${Object.keys(STD_MODULES).join(' / ')} 与 wf://std/store）`)
+        for (const { name, as } of stmt.names) {
+          const bound = as ?? name
+          if (name === 'store' && stmt.from === 'wf://std/store') {
+            env.stdBindings.set(bound, 'store')
+          } else if (mod[name] !== undefined) {
+            env.stdBindings.set(bound, 'fn')
+            env.stdFns.add(bound)
+          } else {
+            throw new Error(`wfjs: 模块 '${stmt.from}' 无导出 '${name}'`)
+          }
         }
+        env.imports.push({ from: stmt.from, names: stmt.names })
+        return
+      }
+      // 远程导入（https://…）——compileWfjs(opts.fetch) 编译期抓取；物化函数进 def.functions
+      if (!stmt.from.startsWith('https://')) {
+        throw new Error(`wfjs: 模块 '${stmt.from}' 不合法（wf://std/* 或 https://…）`)
       }
       env.imports.push({ from: stmt.from, names: stmt.names })
       return
@@ -836,22 +885,64 @@ function addBuiltinStep(call: WCall, bindId: string | null, env: CompileEnv): vo
   env.steps.push({ id, type: call.name === 'stop' ? 'return' : call.name, config })
 }
 
+/** 编译选项：远程导入抓取器（https:// 模块） */
+export interface CompileWfjsOptions {
+  /** 远程模块 fetch（返回解析后的 JSON——{ functions } 白名单；缺省时远程导入报错） */
+  remoteFetch?: (url: string) => Promise<unknown>
+}
+
+/** 远程模块白名单校验：仅 { functions } 根（声明式数据——无代码执行） */
+function validateRemoteModule(url: string, raw: unknown): { functions: WorkflowFunction[] } {
+  const m = raw as { functions?: unknown }
+  if (!m || typeof m !== 'object' || !Array.isArray(m.functions)) {
+    throw new Error(`wfjs: 远程模块 '${url}' 格式不合法（期望 { functions: [...] }——白名单）`)
+  }
+  for (const [i, f] of m.functions.entries()) {
+    const fn = f as { name?: unknown; params?: unknown; step?: unknown }
+    if (typeof fn.name !== 'string' || !Array.isArray(fn.params) || typeof fn.step !== 'object') {
+      throw new Error(`wfjs: 远程模块 '${url}' functions[${i}] 缺字段（name/params/step）`)
+    }
+  }
+  return { functions: m.functions as WorkflowFunction[] }
+}
+
 /**
- * wfjs 源码 → WorkflowDef（编译错抛错；产物再经 validate 结构校验）
+ * wfjs 源码 → WorkflowDef（编译错抛错；异步——远程导入需 fetch）。
+ * 远程导入：编译期抓取（超时/大小限制由调用方 fetch 实现），函数物化进 def.functions——运行期零 IO。
  */
-export function compileWfjs(src: string): WorkflowDef {
+export async function compileWfjs(src: string, opts?: CompileWfjsOptions): Promise<WorkflowDef> {
   const parser = new WfjsParser(tokenizeWfjs(src), src)
   const stmts = parser.parseProgram()
-  const env: CompileEnv = { bindings: new Map(), consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), allNames: new Set(), functions: [], inFunction: false, autoPrefix: '' }
+  const env: CompileEnv = { bindings: new Map(), consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), allNames: new Set(), functions: [], inFunction: false, autoPrefix: '', exports: { named: [] }, remoteImports: [] }
+  // 远程导入提升（ESM 语义：import 先于一切——先抓取物化，函数对全流程可见）
+  for (const stmt of stmts) {
+    if (stmt.k === 'import' && !stmt.from.startsWith('wf://std/')) env.remoteImports.push({ from: stmt.from, names: stmt.names })
+  }
+  // 远程导入：抓取 → 校验 → 物化函数（名字冲突检查）
+  for (const imp of env.remoteImports) {
+    if (!opts?.remoteFetch) {
+      throw new Error(`wfjs: 远程导入 '${imp.from}' 需要 compileWfjs({ remoteFetch })`)
+    }
+    const raw = await opts.remoteFetch(imp.from)
+    const mod = validateRemoteModule(imp.from, raw)
+    for (const { name, as } of imp.names) {
+      const bound = as ?? name
+      const fn = mod.functions.find((f) => f.name === name)
+      if (!fn) throw new Error(`wfjs: 远程模块 '${imp.from}' 无导出函数 '${name}'`)
+      if (env.functions.some((f) => f.name === bound)) throw new Error(`wfjs: 函数名 '${bound}' 冲突（远程导入）`)
+      env.functions.push({ ...fn, name: bound })
+    }
+  }
   compileInto(stmts, env, false)
   const def: WorkflowDef = { steps: env.steps }
   if (env.imports.length) def.imports = env.imports
   if (env.functions.length) def.functions = env.functions
+  if (env.exports.named.length || env.exports.default) def.exports = env.exports
   return def
 }
 
 /** 测试导出：表达式改写（绑定映射单测） */
 export function _rewriteExprForTest(src: string, bindings: Map<string, Binding>): string {
-  const env: CompileEnv = { bindings, consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), allNames: new Set(), functions: [], inFunction: false, autoPrefix: '' }
+  const env: CompileEnv = { bindings, consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), allNames: new Set(), functions: [], inFunction: false, autoPrefix: '', exports: { named: [] }, remoteImports: [] }
   return rewriteExpr(src, bindings, env, 'test')
 }

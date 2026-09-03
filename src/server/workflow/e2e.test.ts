@@ -22,7 +22,7 @@ function makeWf(extra: { fetch?: typeof fetch } = {}) {
 
 describe('e2e: wfjs 编译产物真执行', () => {
   it('函数：pay 场景（参数/if 分支/return 值/多次调用）', async () => {
-    const def = compileWfjs(`function pay(amount, rate) {
+    const def = await compileWfjs(`function pay(amount, rate) {
   let fee = amount * rate
   if (fee > 100) { fee = fee - 10 }
   return fee + amount
@@ -36,7 +36,7 @@ const b = await pay(a, 0.2)`)
     assert.equal(r.stepResults.b.data, 132)   // 110*0.2=22<100 → 22+110=132
   })
   it('函数：无 return → undefined；纯逻辑不污染调用方 vars', async () => {
-    const def = compileWfjs(`let n = 5
+    const def = await compileWfjs(`let n = 5
 function f(x) { let y = x + 1 }
 const r = await f(n)`)
     const { wf } = makeWf()
@@ -46,7 +46,7 @@ const r = await f(n)`)
     assert.equal(r1.stepResults.n?.data, 5)
   })
   it('变量链：let/+= → assign 真跑（vars 求值）', async () => {
-    const def = compileWfjs(`let n = 0\nn += 2`)
+    const def = await compileWfjs(`let n = 0\nn += 2`)
     const { wf } = makeWf()
     const r = await wf.execute(def)
     assert.equal(r.status, 'success')
@@ -55,7 +55,7 @@ const r = await f(n)`)
   })
 
   it('while 循环：计数到条件（maxIters 兜底内收敛）', async () => {
-    const def = compileWfjs(`let page = 0\nwhile (page < 3) { page = page + 1 }`)
+    const def = await compileWfjs(`let page = 0\nwhile (page < 3) { page = page + 1 }`)
     const { wf } = makeWf()
     const r = await wf.execute(def)
     assert.equal(r.status, 'success')
@@ -66,7 +66,7 @@ const r = await f(n)`)
   })
 
   it('for-of：loop.item 进模板（每轮各自求值）', async () => {
-    const def = compileWfjs("for (const it of input.items) { await log({ message: `行 ${loop.item}` }) }")
+    const def = await compileWfjs("for (const it of input.items) { await log({ message: `行 ${loop.item}` }) }")
     const { wf, events } = makeWf()
     const r = await wf.execute(def, { input: { items: ['a', 'b', 'c'] } })
     assert.equal(r.status, 'success')
@@ -75,7 +75,7 @@ const r = await f(n)`)
   })
 
   it('return 终止：中途 return → success + 后续不执行', async () => {
-    const def = compileWfjs(`await log({ message: '先' })\nreturn\nawait log({ message: '后' })`)
+    const def = await compileWfjs(`await log({ message: '先' })\nreturn\nawait log({ message: '后' })`)
     const { wf, events } = makeWf()
     const r = await wf.execute(def)
     assert.equal(r.status, 'success')
@@ -91,7 +91,7 @@ if (res.json.items.length > 0 && sent !== '1') {
   await email({ to: 'ops@x.com', subject: '预警', body: res.json.items })
   await store.set('stock:alert:sent', '1')
 }`
-    const def = compileWfjs(src)
+    const def = await compileWfjs(src)
     const fetchOk = (async () => new Response(JSON.stringify({ items: [{ id: 1 }, { id: 2 }] }), { status: 200 })) as typeof fetch
     const kv = new Map<string, string>()
     const sent: string[] = []

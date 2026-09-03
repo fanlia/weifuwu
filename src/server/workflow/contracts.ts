@@ -78,10 +78,17 @@ export interface CallConfig {
   args?: string[]
 }
 
-/** std 导入声明（wfjs import 语句的编译产物——toJs 渲染回源；validate 白名单校验） */
+/** import 声明（wfjs import 语句的编译产物——toJs 渲染回源；validate 白名单校验） */
 export interface WorkflowImport {
+  /** wf://std/*（内置库）或 https://…（远程模块——编译期 fetch 快照物化） */
   from: string
   names: { name: string; as?: string }[]
+}
+
+/** export 声明（wfjs export 语句编译产物——v1 仅函数导出；序列化 = 远程库格式 { functions }） */
+export interface WorkflowExport {
+  named: { name: string; as?: string }[]
+  default?: string
 }
 
 /** 工作流定义：触发 + 导入 + 函数 + 步骤链（触发语义由消费方装配——scheduler cron / 手动 / webhook） */
@@ -91,8 +98,10 @@ export interface WorkflowDef {
   name?: string
   /** std 库导入（v1 仅 wf://std/* 命名导入——远程/本地 W8） */
   imports?: WorkflowImport[]
-  /** 本地函数（纯逻辑——wfjs function 定义编译产物） */
+  /** 本地函数（纯逻辑——wfjs function 定义编译产物；远程导入函数编译期物化于此） */
   functions?: WorkflowFunction[]
+  /** 导出声明（v1 函数导出——库形态：远程模块 JSON = { functions }） */
+  exports?: WorkflowExport
   steps: StepDef[]
 }
 

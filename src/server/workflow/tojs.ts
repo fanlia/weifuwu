@@ -48,8 +48,20 @@ export function toJs(def: WorkflowDef): string {
     loopNames: [] as string[],
     inReturn: false,
   }).trimEnd()
-  const parts = [head, fns, body].filter(Boolean)
+  const tail = renderExports(def.exports)
+  const parts = [head, fns, body, tail].filter(Boolean)
   return parts.join('\n\n')
+}
+
+/** export 渲染（ESM 逐字——与 compileWfjs 对称） */
+export function renderExports(exports?: WorkflowDef['exports']): string {
+  if (!exports) return ''
+  const lines: string[] = []
+  if (exports.named.length) {
+    lines.push(`export { ${exports.named.map((n) => n.as && n.as !== n.name ? `${n.name} as ${n.as}` : n.name).join(', ')} }`)
+  }
+  if (exports.default) lines.push(`export default ${exports.default}`)
+  return lines.join('\n')
 }
 
 /** 函数定义渲染（源码视图——与 compileWfjs 对称） */
