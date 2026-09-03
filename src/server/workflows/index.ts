@@ -318,7 +318,8 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
     app.get(`${p}/:id`, async (_req, ctx) => {
       const rec = await crud.get(appIdOr(ctx), ctx.params.id)
       if (!rec) return json({ error: 'workflow 不存在' }, 404)
-      return json({ workflow: { ...rec, dag: wf.dag(rec.def_json) } })
+      // 响应语义化：def（DSL）/ wfjs（源码视图）/ dag（Pipeline 数据）——DB 列名不泄漏
+      return json({ workflow: { ...rec, def: rec.def_json, wfjs: rec.src_wfjs, dag: wf.dag(rec.def_json) } })
     })
     app.put(`${p}/:id`, async (req, ctx) => {
       const body = (await req.json().catch(() => ({}))) as { name?: string; wfjs?: string; def?: unknown }

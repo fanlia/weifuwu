@@ -6,7 +6,7 @@
  * 客户端零转换（架构验证：组件库零改动）。
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { Alert, Badge, Button, Card, CodeEditor, JsonSchemaForm, Loading, Pipeline, Tabs, Textarea } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, CodeEditor, Descriptions, Loading, Pipeline, Tabs, Textarea } from 'weifuwu/components'
 import { errMsg, PageHeader } from '../components/ui'
 
 interface DagNode { id: string; label: string }
@@ -28,10 +28,18 @@ interface RunRow {
   created_at: string
 }
 
+interface StepInstance {
+  id: string
+  type: string
+  config: Record<string, unknown>
+}
+/** 步骤类型 → 中文标签（schemas 提供 title；缺省回退 type） */
+type Labels = Record<string, string>
 interface DetailState {
   loading: boolean; running: boolean
   wf?: WorkflowDetail
   schemas?: unknown
+  labels: Labels
   runs: RunRow[]
   tab: string
   args: string
@@ -39,11 +47,51 @@ interface DetailState {
   lastResult?: unknown
 }
 
+/** def → 顶层步骤实例（IR 形态） */
+function stepsOf(def: unknown): StepInstance[] {
+  return ((def as { steps?: StepInstance[] })?.steps ?? [])
+}
+
+/** 步骤实例 → 展示项（config 字段 → label/value 行；子链递归缩进） */
+function stepView(step: StepInstance, labels: Labels, depth: number): any {
+  const chain = (cfg: Record<string, unknown>): any => {
+    const sub = cfg.step as { steps?: StepInstance[] } | undefined
+    const then = cfg.then as { steps?: StepInstance[] } | undefined
+    const els = cfg.else as { steps?: StepInstance[] } | undefined
+    return [
+      sub?.steps ? <div style={`margin-left: ${(depth + 1) * 16}px`} class="wf-stack wf-gap-sm">{sub.steps.map((x) => stepView(x, labels, depth + 1))}</div> : null,
+      then?.steps ? <div style={`margin-left: ${(depth + 1) * 16}px`} class="wf-stack wf-gap-sm">
+        <div class="wf-font-xs wf-semibold wf-text-secondary">then</div>
+        {then.steps.map((x) => stepView(x, labels, depth + 1))}
+      </div> : null,
+      els?.steps ? <div style={`margin-left: ${(depth + 1) * 16}px`} class="wf-stack wf-gap-sm">
+        <div class="wf-font-xs wf-semibold wf-text-secondary">else</div>
+        {els.steps.map((x) => stepView(x, labels, depth + 1))}
+      </div> : null,
+    ]
+  }
+  const items = Object.entries(step.config).map(([k, v]) => ({
+    label: k,
+    value: typeof v === 'object' ? JSON.stringify(v) : String(v),
+  }))
+  return (
+    <div class="wf-stack wf-gap-sm" style={`margin-left: ${depth * 16}px`}>
+      <div class="wf-row wf-gap-sm wf-items-center">
+        <Badge>{labels[step.type] ?? step.type}</Badge>
+        <span class="wf-font-mono wf-font-xs wf-text-secondary">{step.id}</span>
+      </div>
+      {items.length > 0 && <Descriptions items={items} size="sm" />}
+      {chain(step.config)}
+    </div>
+  )
+}
+
 export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
   const $ = {} as DetailState
   const rerender = () => ctx.render()
   $.loading = true; $.running = false
   $.runs = []; $.tab = 'dag'; $.args = '{}'; $.error = ''
+  $.labels = {}
   const id = props.id ?? ''
 
   async function load(): Promise<void> {
@@ -55,6 +103,10 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
       ])
       $.wf = d.workflow
       $.schemas = m.schemas
+      const props = (m.schemas as { properties?: Record<string, { title?: string }> })?.properties ?? {}
+      const labels: Labels = {}
+      for (const [t, v] of Object.entries(props)) labels[t] = v?.title ?? t
+      $.labels = labels
       $.runs = r.runs ?? []
     } catch (e) { $.error = errMsg(e, '加载失败') }
     $.loading = false
@@ -101,18 +153,13 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
                 </div>
               ) },
               { key: 'form', label: '步骤', content: (
-                <div class="wf-padding-md wf-card-outline wf-rounded-md">
-                  <div class="wf-font-xs wf-text-secondary wf-margin-bottom-sm">步骤类型 schema（JsonSchemaForm 直消费——选择类型查看参数结构）</div>
-                  <JsonSchemaForm
-                    schema={($.schemas as { type: string; title?: string; properties?: Record<string, unknown> }) ?? { type: 'object', properties: {} }}
-                    value={{}}
-                    submitLabel="（只读预览——执行参数在下方输入）"
-                  />
+                <div class="wf-padding-md wf-card-outline wf-rounded-md wf-stack wf-gap-md">
+                  {stepsOf(wf.def).map((st) => stepView(st, $.labels, 0))}
                 </div>
               ) },
               { key: 'code', label: 'wfjs', content: (
                 <div class="wf-padding-md wf-card-outline wf-rounded-md">
-                  <CodeEditor value={wf.wfjs} lang="ts" rows={16} readOnly />
+                  <CodeEditor value={wf.wfjs ?? ''} lang="ts" rows={16} readOnly />
                 </div>
               ) },
             ]}
