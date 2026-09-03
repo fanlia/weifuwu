@@ -10,7 +10,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createMemoryAiServer, type MemoryAiServerHandle } from './memory-server.ts'
 import { createAiClient } from './client.ts'
-import { createDashscopeMultimodal } from './multimodal.ts'
+import { createDashscopeImage, createDashscopeVideo } from './multimodal.ts'
 
 let server: MemoryAiServerHandle
 let base = ''
@@ -63,17 +63,17 @@ test('embedding：embedMany 数组合法（顺序保持）', async () => {
 })
 
 test('图片：dashscope 客户端 → MemoryAiServer → 占位图（URL 形态）', async () => {
-  const mm = createDashscopeMultimodal({ baseUrl: base, apiKey: 'test-key' })
+  const mm = createDashscopeImage({ baseUrl: base, apiKey: 'test-key' })
   const r = await mm.generateImage({ prompt: '一只猫' })
   assert.equal(r.mime, 'image/png') // 占位返回 dataUrl 形态
   assert.ok(r.dataUrl?.startsWith('data:image/png;base64,'))
 })
 
 test('视频：创建任务 → taskId → videoStatus done（全链）', async () => {
-  const mm = createDashscopeMultimodal({ baseUrl: base, apiKey: 'test-key' })
-  const { taskId } = await mm.createVideoTask({ prompt: '夕阳' })
+  const vc = createDashscopeVideo({ baseUrl: base, apiKey: 'test-key' })
+  const { taskId } = await vc.createVideoTask({ prompt: '夕阳' })
   assert.equal(taskId, 'memory-task-夕阳')
-  const st = await mm.videoStatus(taskId)
+  const st = await vc.videoStatus(taskId)
   assert.equal(st.status, 'done')
   assert.ok(st.url?.startsWith('memory://video/'))
 })

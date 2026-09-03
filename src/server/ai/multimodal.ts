@@ -1,43 +1,59 @@
 /**
- * weifuwu AI — DashScope 多模态客户端（自研，零依赖——图片/视频生成 provider 面）
+ * weifuwu AI — 多模态 provider（DashScope 百炼)——拆分为独立工厂：
  *
- * 参考 image-gen.ts / video-gen.ts（agent-platform 工具层）的直调面：
- *   - 图片：{DASHSCOPE_MAAS_API_URL}/api/v1/services/aigc/multimodal-generation/generation
- *   - 视频：X-DashScope-Async 提交 video-synthesis → task_id（24h 有效）→ GET /api/v1/tasks/{id}
+ *   createDashscopeImage(opts?)   → 图片生成（generateImage——独立 baseUrl/apiKey/model）
+ *   createDashscopeVideo(opts?)   → 视频任务（createVideoTask + videoStatus——独立配置）
  *
- * 分工：**只做 provider 语义**（生成/提交/查询）——不落盘、不建任务行、
- * 不轮询（编排属应用层——agent-platform 的 image-gen/video-gen 保留编排）。
- * 配置：显式参数 > env（DASHSCOPE_API_KEY / DASHSCOPE_MAAS_API_URL——无协议前缀补 https）。
+ * 与 embedding 平级（AiClientOptions.image / .video 各自独立——可不同端点/不同 key/
+ * 不同模型——方便后续配置不同供应商）。参数归一在 provider 层单源：
+ *   图片：size 白名单（N*N 形态）；视频：RESOLUTIONS/RATIOS 白名单 + duration 夹紧
+ *   3-15 + watermark 默认 true。
+ *
+ * 配置：显式参数 > env（DASHSCOPE_API_KEY / DASHSCOPE_MAAS_API_URL / DASHSCOPE_IMAGE_MODEL /
+ * DASHSCOPE_VIDEO_MODEL——无协议前缀补 https）。
  */
 import type { ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus } from './contracts.ts'
 
-export const IMAGE_MODEL = 'z-image-turbo'
-export const VIDEO_MODEL = 'happyhorse-1.1-t2v'
-
-/** happyhorse 参数约束（provider 层归一——单一来源——消费方不重复） */
-const VIDEO_RESOLUTIONS = new Set(['480P', '720P', '1080P'])
-const VIDEO_RATIOS = new Set(['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '5:4', '9:21', '21:9'])
-
-export interface MultimodalOptions {
+/** 图片生成 provider 配置（独立于视频——可不同端点/键/模型） */
+export interface ImageGenOptions {
   apiKey?: string
-  /** 形如 dashscope.aliyuncs.com（无协议前缀——补 https——对齐 image-gen/video-gen）；
-  显式 http(s):// 原样保留（测试环境指向内存服务器） */
+  /** 形如 dashscope.aliyuncs.com（无协议前缀——补 https）；显式 http(s):// 原样保留（测试环境） */
   baseUrl?: string
+  /** 默认 DASHSCOPE_IMAGE_MODEL ?? 'z-image-turbo' */
+  model?: string
 }
 
-export interface MultimodalClient {
+/** 视频生成 provider 配置（独立于图片） */
+export interface VideoGenOptions {
+  apiKey?: string
+  /** 形如 dashscope.aliyuncs.com（无协议前缀——补 https）；显式 http(s):// 原样保留（测试环境） */
+  baseUrl?: string
+  /** 默认 DASHSCOPE_VIDEO_MODEL ?? 'happyhorse-1.1-t2v' */
+  model?: string
+}
+
+export const DEFAULT_IMAGE_MODEL = 'z-image-turbo'
+export const DEFAULT_VIDEO_MODEL = 'happyhorse-1.1-t2v'
+
+export interface ImageGenClient {
   generateImage(req: ImageGenRequest, options?: { signal?: AbortSignal }): Promise<ImageGenResult>
+}
+
+export interface VideoGenClient {
   createVideoTask(req: VideoGenRequest, options?: { signal?: AbortSignal }): Promise<{ taskId: string }>
   videoStatus(taskId: string, options?: { signal?: AbortSignal }): Promise<VideoGenStatus>
 }
 
-function keyOf(opts: MultimodalOptions): string {
+const VIDEO_RESOLUTIONS = new Set(['480P', '720P', '1080P'])
+const VIDEO_RATIOS = new Set(['1:1', '16:9', '4:3', '21:9'])
+
+function keyOf(kind: 'image' | 'video', opts: { apiKey?: string }): string {
   const key = opts.apiKey ?? process.env.DASHSCOPE_API_KEY ?? ''
-  if (!key) throw new Error('ai multimodal: DASHSCOPE_API_KEY 未设置（图片/视频生成需要）')
+  if (!key) throw new Error(`ai ${kind}: DASHSCOPE_API_KEY 未设置（${kind} 生成需要）`)
   return key
 }
 
-function baseOf(opts: MultimodalOptions): string {
+function baseOf(opts: { baseUrl?: string }): string {
   const base = opts.baseUrl ?? process.env.DASHSCOPE_MAAS_API_URL ?? 'dashscope.aliyuncs.com'
   // 显式协议原样保留（http 测试环境）；无协议前缀补 https（对齐 image-gen 原始行为）
   return /^https?:\/\//.test(base) ? base : `https://${base.replace(/^https?:\/\//, '')}`
@@ -79,20 +95,22 @@ function toStatus(raw: { task_status?: string; video_url?: string; message?: str
   return { status: 'running' } // RUNNING / unknown 等——编排层继续轮询
 }
 
-export function createDashscopeMultimodal(opts: MultimodalOptions = {}): MultimodalClient {
+/** 图片生成客户端（独立配置——不同端点/键/模型） */
+export function createDashscopeImage(opts: ImageGenOptions = {}): ImageGenClient {
   const base = baseOf(opts)
+  const model = () => opts.model ?? process.env.DASHSCOPE_IMAGE_MODEL ?? DEFAULT_IMAGE_MODEL
 
   return {
     async generateImage(req: ImageGenRequest, options?: { signal?: AbortSignal }): Promise<ImageGenResult> {
-      const key = keyOf(opts)
+      const key = keyOf('image', opts)
       const prompt = String(req.prompt ?? '').trim()
-      if (!prompt) throw new Error('ai multimodal: prompt 为必填')
+      if (!prompt) throw new Error('ai image: prompt 为必填')
       const size = /^\d{2,4}\*\d{2,4}$/.test(req.size ?? '') ? req.size! : '1024*1024'
       const res = await fetch(`${base}/api/v1/services/aigc/multimodal-generation/generation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
         body: JSON.stringify({
-          model: req.model ?? IMAGE_MODEL,
+          model: req.model ?? model(),
           input: { messages: [{ role: 'user', content: [{ text: prompt }] }] },
           parameters: { prompt_extend: false, size },
         }),
@@ -109,11 +127,19 @@ export function createDashscopeMultimodal(opts: MultimodalOptions = {}): Multimo
         ? { dataUrl: src, mime: 'image/png' }
         : { url: src }
     },
+  }
+}
 
+/** 视频任务客户端（独立配置） */
+export function createDashscopeVideo(opts: VideoGenOptions = {}): VideoGenClient {
+  const base = baseOf(opts)
+  const model = () => opts.model ?? process.env.DASHSCOPE_VIDEO_MODEL ?? DEFAULT_VIDEO_MODEL
+
+  return {
     async createVideoTask(req: VideoGenRequest, options?: { signal?: AbortSignal }): Promise<{ taskId: string }> {
-      const key = keyOf(opts)
+      const key = keyOf('video', opts)
       const prompt = String(req.prompt ?? '').trim()
-      if (!prompt) throw new Error('ai multimodal: prompt 为必填')
+      if (!prompt) throw new Error('ai video: prompt 为必填')
       const res = await fetch(`${base}/api/v1/services/aigc/video-generation/video-synthesis`, {
         method: 'POST',
         headers: {
@@ -122,7 +148,7 @@ export function createDashscopeMultimodal(opts: MultimodalOptions = {}): Multimo
           'X-DashScope-Async': 'enable',
         },
         body: JSON.stringify({
-          model: req.model ?? VIDEO_MODEL,
+          model: req.model ?? model(),
           input: { prompt },
           parameters: {
             resolution: VIDEO_RESOLUTIONS.has(req.resolution ?? '') ? req.resolution! : '1080P',
@@ -144,7 +170,7 @@ export function createDashscopeMultimodal(opts: MultimodalOptions = {}): Multimo
     },
 
     async videoStatus(taskId: string, options?: { signal?: AbortSignal }): Promise<VideoGenStatus> {
-      const key = keyOf(opts)
+      const key = keyOf('video', opts)
       const res = await fetch(`${base}/api/v1/tasks/${taskId}`, {
         headers: { Authorization: `Bearer ${key}` },
         signal: options?.signal,

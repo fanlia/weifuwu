@@ -30,7 +30,8 @@ export function OpenAi(options?: OpenAiOptions): AiClientModule {
     baseUrl,
     defaultModel,
     embedding: options?.embedding,
-    multimodal: options?.multimodal,
+    image: options?.image,
+    video: options?.video,
     // W6：首 token 超时 + 流式可重试错误重试——直接透传
     firstTokenTimeoutMs: options?.firstTokenTimeoutMs,
     streamRetries: options?.streamRetries,

@@ -16,7 +16,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { sseResponse, type WfEmitter } from './sse.ts'
-import { createDashscopeMultimodal, type MultimodalOptions } from './multimodal.ts'
+import { createDashscopeImage, createDashscopeVideo, type ImageGenOptions, type VideoGenOptions } from './multimodal.ts'
 import type { ChatMessage, ChatParams, ToolCall, WfApprovalResponse, WfErrorCode } from './types.ts'
 import type { ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus } from './contracts.ts'
 
@@ -65,8 +65,10 @@ export interface AiClientOptions {
   defaultModel: string
   /** embedding provider 配置（可选；未配时 embed/embedMany 抛 AiError('unsupported')） */
   embedding?: AiEmbeddingOptions
-  /** 多模态 provider 配置（可选；默认读 DASHSCOPE_* env——图片/视频生成） */
-  multimodal?: MultimodalOptions
+  /** 图片生成 provider 配置（可选——独立端点/键/模型；默认读 DASHSCOPE_* env） */
+  image?: ImageGenOptions
+  /** 视频生成 provider 配置（可选——独立端点/键/模型；默认读 DASHSCOPE_* env） */
+  video?: VideoGenOptions
   /**
    * W6 首 token 超时（ms）：provider 挂起（连接后无任何 chunk——含 thinking 模式
    * 不发 reasoning 的异常停顿）→ 中止上游请求 + wf:error timeout（协议错误码表已定义
@@ -251,7 +253,8 @@ function createEmbeddingClient(ebd?: AiEmbeddingOptions) {
 
 export function createAiClient(opts: AiClientOptions): AiClient {
   const embedding = createEmbeddingClient(opts.embedding)
-  const multimodal = createDashscopeMultimodal(opts.multimodal)
+  const image = createDashscopeImage(opts.image)
+  const video = createDashscopeVideo(opts.video)
   // W6：默认首 token 超时 60s（传 0 = 关——?? 不覆盖显式 0）；默认不重试（计费语义调用方定）
   const firstTokenTimeoutMs = opts.firstTokenTimeoutMs ?? 60_000
   const streamRetries = opts.streamRetries ?? 0
@@ -540,9 +543,9 @@ export function createAiClient(opts: AiClientOptions): AiClient {
     embed: (text: string) => embedding.embed(text),
     embedMany: (texts: string[]) => embedding.embedMany(texts),
     // 多模态（图片/视频——dashscope——编排由应用层（落盘/任务行/轮询）承担）
-    generateImage: (req, options) => multimodal.generateImage(req, options),
-    createVideoTask: (req, options) => multimodal.createVideoTask(req, options),
-    videoStatus: (taskId, options) => multimodal.videoStatus(taskId, options),
+    generateImage: (req, options) => image.generateImage(req, options),
+    createVideoTask: (req, options) => video.createVideoTask(req, options),
+    videoStatus: (taskId, options) => video.videoStatus(taskId, options),
     // transport 无长生命周期资源（fetch 即用即弃）——no-op（对齐 MemoryAi/契约）
     close: async () => {},
   }

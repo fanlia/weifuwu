@@ -83,6 +83,10 @@ index.ts       模块 re-export（OpenAi/MemoryAi/AiClientModule——选择器�
 - **正门构造**：`new OpenAi(opts)` / `OpenAi(opts)`（env 读 DEEPSEEK_*——无 key 明确
   throw）与 `new MemoryAi(opts)` / `createMemoryAi(opts)`（不读 DEEPSEEK_*——无 key
   可用——测试/离线）——两者都返回 AiClientModule（`app.use` 注入 `ctx.ai`）
+- **多供应商平级配置**：聊天走 `baseUrl/apiKey/defaultModel`；`embedding` / `image` /
+  `video` 各自独立选项（各自 `baseUrl/apiKey/model`——可指向不同端点/不同 key/不同
+  模型——如 chat=deepseek + embedding/image/video=dashscope）。默认模型：图片
+  `z-image-turbo`、视频 `happyhorse-1.1-t2v`（复用现状常量）
 - **多模态**：`ctx.ai.generateImage / createVideoTask / videoStatus`——**只做 provider
   语义**（不落盘/不建任务行/不轮询——编排属应用层）；视频参数归一在 provider
   层（枚举/时长夹紧/watermark）
