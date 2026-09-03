@@ -26,24 +26,8 @@ export { OpenAi, type OpenAiOptions } from './openai.ts'
 export { MemoryAi, createMemoryAi, type MemoryAiOptions } from './memory.ts'
 export type { AiClientModule, AiInjected } from './assemble.ts'
 
-export type AiOptions = OpenAiOptions & {
-  /** provider 选择（默认 openai = OpenAi；memory = MemoryAi——测试/离线） */
-  provider?: 'openai' | 'memory'
-  /** memory provider 选项（onChat 决策注入等） */
-  memory?: MemoryAiOptions
-}
-
 export type { AiEmbeddingOptions } from './client.ts'
 export type { AgentRunResult, AgentStep, AgentTool, AgentConfig, AgentRunner, ToolContext } from './agent.ts'
-
-export function ai(options?: AiOptions): AiClientModule {
-  // provider 选择：显式 > env > 默认 openai（向后兼容——无 key 仍 throw）
-  const provider = options?.provider ?? process.env.AI_PROVIDER ?? 'openai'
-  if (provider === 'memory') {
-    return MemoryAi(options?.memory)
-  }
-  return OpenAi(options)
-}
 
 // ── 协议类型 re-export（类型流：weifuwu 主包即可见）───────
 
