@@ -148,9 +148,14 @@ aria 布尔归一 · 受控回流门控 · 状态变体类必须定义 · 零全
 ## 6. 已知边界（诚实裁剪）
 
 - 渲染队列 FIFO/redirect：serve 内部机制——间接覆盖（无专门测试）
-- keyed 组件顺移（删头前移）状态丢失：重建路径工厂重跑——正解「输出锚物理
-  move + ref 定位」待实现（fuzz D5 捕获实证）
+- 高频输入页每键全页 renderFn 成本：页面 state 每键变化 → 全树重建（memo
+  opt-in 已可跳过段级 diff——页面级 renderFn 为架构性成本——局部 state
+  原语为可能的演进方向）
 - 测试竞态：场景层 3 文件并发（每文件独立 server/browser）——文件内串行
+
+> 2027-09 清理：keyed 组件顺移（删头前移）状态丢失——**已修复**（2027-10
+> M2 物理 move 收口——KEYED-COMPONENT-MOVE——key-inject 契约 3/3 绿——
+> 原「正解待实现」登记（fuzz D5）随修复存档于 git 历史）。
 
 ## 7. agent-platform 依赖服务（仓库根 docker-compose.yml——唯一 compose）
 

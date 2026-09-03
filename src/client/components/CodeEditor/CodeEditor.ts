@@ -20,7 +20,7 @@ export interface CodeEditorProps {
 }
 
 export const CodeEditor: Component<CodeEditorProps> = (_init, ctx) => {
-  return (props) => {
+  const render = (props: CodeEditorProps) => {
     const { value, onChange, lang = 'text', rows = 10, readOnly, placeholder, className = '' } = props
     if (onChange === undefined && !readOnly) {
       console.warn('[weifuwu] CodeEditor: 传入了受控 value 但缺少 onChange 回调——编辑将静默失效')
@@ -66,4 +66,12 @@ export const CodeEditor: Component<CodeEditorProps> = (_init, ctx) => {
         h('div', { class: 'wf-codeeditor-body', style: { position: 'relative', flex: 1, minWidth: 0 } },
           [hl, area])])
   }
+  // **memo（opt-in shouldRender）**：value/lang/rows/readOnly 比较——onChange
+  // 闭包引用豁免（回调变化不触发重渲染——高频输入下编辑器段零扰动）
+  render.shouldRender = (prev, next) =>
+    (prev as CodeEditorProps).value !== (next as CodeEditorProps).value ||
+    (prev as CodeEditorProps).lang !== (next as CodeEditorProps).lang ||
+    (prev as CodeEditorProps).rows !== (next as CodeEditorProps).rows ||
+    (prev as CodeEditorProps).readOnly !== (next as CodeEditorProps).readOnly
+  return render
 }

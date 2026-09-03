@@ -83,6 +83,12 @@ app.router(Router())
 - 状态闭包 mount 作用域 · 稳定回调/ref 定义 mount 层
 - 资源清理 `ctx.ui.hold(fn)` · 浏览器环境经 `ctx.browser`（**零全局 window/document**
   ——SSR 崩溃铁律，BackTop 实证）
+- **memo（opt-in 2027-09）**：高频输入/大输出组件可在工厂返回的 render 函数上挂
+  `render.shouldRender = (prevProps, nextProps) => boolean`——返回 **false = 跳过
+  本拍渲染**（复用上拍输出——DOM 零扰动）。语义：返回 false 表示「不需要重渲染」。
+  回调/类函数属性差异**不触发**（比较器自有豁免权——如 CodeEditor 忽略 onChange
+  闭包引用）。默认不挂 = 行为完全不变。典型：CodeEditor（value/lang/rows/readOnly
+  比较——高频输入页面零 diff 扰动）
 
 ### 5.2 三件套
 

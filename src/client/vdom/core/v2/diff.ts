@@ -36,6 +36,8 @@ import { renderV2Node, fromArray, concatObs, v2OutputPos } from './render.ts'
 export interface Segment {
   factory: Component
   renderFn: RenderFn
+  /** memo 比较基准（上次实际渲染的 props——跳过后不更新） */
+  lastProps?: Record<string, unknown>
   // **CompOutput 判别联合（v1 同——清理/转换路径直接兼容——outputToChild）**
   lastOutput: CompOutput | undefined
   hookSeq: { n: number }
@@ -120,8 +122,24 @@ export function createSegment(
 }
 
 /** **段重渲染（单一实现源）**：hookSeq 重置（v1 renderBase 语义——渲染期
- *  hook 索引跨渲染稳定）→ renderFn 重调（props 最新）——工厂不重跑 */
+ *  hook 索引跨渲染稳定）→ renderFn 重调（props 最新）——工厂不重跑。
+ *
+ * **memo（opt-in——2027-09 vdom 渲染增强）**：renderFn 挂 `shouldRender`
+ * （组件作者提供）——返回 false → 复用上拍输出（输出 same → diff 短路
+ * 零命令——DOM 零扰动）。默认无 shouldRender = 行为完全不变。
+ * 语义：lastProps 记录「上次实际渲染时的 props」——跳过时**不更新**——
+ * 下一拍比较稳定（跨拍同一 props 引用恒跳过）。 */
+interface MemoRenderFn {
+  (props: Record<string, unknown>): VNodeChild
+  shouldRender?: (prevProps: Record<string, unknown>, nextProps: Record<string, unknown>) => boolean
+}
 export function rerenderSegment(seg: Segment, props: Record<string, unknown>): VNodeChild {
+  const sr = (seg.renderFn as MemoRenderFn).shouldRender
+  if (sr && seg.lastProps !== undefined && seg.lastOutput !== undefined && !sr(seg.lastProps, props)) {
+    // 复用上拍输出（引用 same → diffV2NodeAt 短路——零命令）
+    return outputToChild(seg.lastOutput)
+  }
+  seg.lastProps = props
   seg.hookSeq.n = seg.renderBase
   return seg.renderFn(props) as VNodeChild
 }
@@ -447,6 +465,9 @@ function diffV2NodeAt(
   registry: import('../node/component.ts').ComponentRegistry,
   requestRender?: () => void,
 ): Observable<Command> {
+  // **引用短路（memo 复用上拍输出时命中）**：同引用 vnode = 结构必定相同
+  // （vnode 不可变约定）——零遍历零命令
+  if (oldOut === newOut) return fromArray([])
   // 输出形态（vnode/hole/array——判别联合）
   const oa = Array.isArray(oldOut)
   const na = Array.isArray(newOut)
