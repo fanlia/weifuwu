@@ -53,6 +53,7 @@ import type { SqlClient } from '../postgres/types.ts'
 import { hashPassword, verifyPassword } from './password.ts'
 import { signToken, verifyToken, generateRefreshToken, hashRefreshToken } from './token.ts'
 import { ok, created, noContent, badRequest } from '../response.ts'
+import { randomBytes } from 'node:crypto'
 
 export interface SsoOptions {
   /** IdP issuer（https://idp.example.com——authorize/token/userinfo 派生） */
@@ -202,6 +203,8 @@ export interface AuthApi {
   createInvite(appId: string, opts: { email?: string; role?: string }): Promise<{ inviteToken: string }>
   /** owner 直接添加已有平台账号为成员 */
   addMember(appId: string, email: string, role?: string): Promise<void>
+  /** 注册开关（owner only——每个应用可配置开放注册；_builtin 恒 false 不可开） */
+  setOpenRegistration(appId: string, open: boolean): Promise<void>
   /** 我的应用列表（平台登录后选应用） */
   listMyApps(): Promise<AppSummary[]>
   /** 应用级鉴权：未登录 401、非成员 403；返回成员信息 */
@@ -318,6 +321,16 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     return rows.length ? (rows[0] as unknown as User) : null
   }
 
+  /** 应用管理面入册（幂等）：用户成为 _builtin 成员——身份即资格（注册必经 _builtin）
+   *   source: 'register' | 'sso' | 'migrate' */
+  async function ensureBuiltinMember(userId: string, source: 'register' | 'sso' | 'migrate'): Promise<void> {
+    const existing = await sql.query.from(MEMBER_TABLE).select('role').where({ app_id: BUILTIN_APP_ID, user_id: userId }).run()
+    if (existing.length) return
+    await sql.query.insert(MEMBER_TABLE).values({
+      app_id: BUILTIN_APP_ID, user_id: userId, role: 'member', invited_by: null, source,
+    }).onConflict().run()
+  }
+
   async function findMemberRole(appId: string, userId: string): Promise<string | null> {
     const rows = await sql.query.from(MEMBER_TABLE)
       .select('role')
@@ -348,7 +361,9 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       .join(`${APP_TABLE} a`, { 'a.id': { col: 'm.app_id' } })
       .where({ 'm.user_id': userId })
       .run()
-    return rows.map((r) => ({
+    // 保留名（_builtin/_default——系统应用）不进"我的应用"列表——
+    //  管理面/平台面有专属入口（_builtin 登录 / _default 直进），业务列表不外露
+    return rows.filter((r) => !String(r.slug).startsWith('_')).map((r) => ({
       id: String(r.id),
       slug: String(r.slug),
       name: String(r.name),
@@ -498,6 +513,8 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           .run()
         const user = rows[0] as unknown as User
         const session = await issueSession(user)
+        // 应用管理面入册（定案：一切注册必经 _builtin——身份即资格——纯账号 register 同规则）
+        await ensureBuiltinMember(user.id, 'register')
         currentUser = user // 注册后同请求内 createApp/requireApp 可感知当前用户
         return { ...session, user }
       },
@@ -509,6 +526,9 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           password: input.password,
           name: input.name,
         })
+        // 1.5 应用管理面入册（定案：注册必经 _builtin——身份即资格——
+        //     _builtin member=应用管理面成员——后续 createApp 资格校验依赖）
+        await ensureBuiltinMember(reg.user.id, 'register')
         // 2. slug 唯一化（冲突自动后缀——收编平台 200 次查找循环——同域名多租户）
         const baseSlug = (input.appSlug ?? input.email.split('@')[1] ?? 'default').trim().toLowerCase()
         let slug = baseSlug
@@ -589,13 +609,23 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         if (!currentUser) throw new HttpError('Unauthorized', 401)
         if (!input.slug || !input.name) throw new HttpError('slug and name are required', 400)
         const slug = input.slug.trim().toLowerCase()
+        // 保留命名空间（_builtin/_default 系统应用——createApp 拒绝 '_' 前缀）
+        if (slug.startsWith('_')) throw new HttpError('slug 以 _ 开头为系统保留名', 400)
+        // 身份即资格：只有应用管理面（_builtin）成员能创建应用
+        const builtinRole = await findMemberRole(BUILTIN_APP_ID, currentUser.id)
+        if (!builtinRole) {
+          throw new HttpError('仅应用管理面（_builtin）成员可创建应用', 403)
+        }
+        // appKey：随机 64 hex（应用级机器凭据——appId 即应用 id——分离沟通面）
+        const appKey = randomBytes(32).toString('hex')
         const rows = await sql.query.insert(APP_TABLE)
           .values({
             slug, name: input.name,
             owner_user_id: currentUser.id,
             open_registration: input.openRegistration ?? false,
+            app_key: appKey,
           })
-          .returning('id', 'slug', 'name', 'owner_user_id', 'open_registration')
+          .returning('id', 'slug', 'name', 'owner_user_id', 'open_registration', 'app_key')
           .run()
         const appInfo = rows[0] as unknown as AppInfo
         // owner 自动成为成员（role=owner）
@@ -650,6 +680,8 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           if (!user) throw new HttpError('User creation failed', 500)
         }
 
+        // 应用管理面入册（注册必经 _builtin——若尚未入册）
+        await ensureBuiltinMember(user.id, 'register')
         // 加成员（已存在则跳过——幂等）+ 并发 PK 冲突 DO NOTHING（B6）
         const member = await findMemberRole(appId, user.id)
         if (!member) {
@@ -717,6 +749,8 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           user = rows.length ? (rows[0] as unknown as User) : await findUserByEmail(normalized)
           if (!user) throw new HttpError('User creation failed', 500)
         }
+        // 应用管理面入册（SSO 建号同一规则）
+        await ensureBuiltinMember(user.id, 'sso')
         // 带 appId：自动加成员（member）+ 应用会话
         let appId: string | undefined
         if (opts?.appId) {
@@ -756,10 +790,9 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
 
       async addMember(appId: string, email: string, role?: string) {
         assertRole(role)
-        // 系统域（_builtin）只装 owner/admin（超级管理员/系统管理员）——
-        // member/viewer 是业务应用身份——系统域无"普通用户"
-        if (appId === BUILTIN_APP_ID && role !== undefined && role !== 'owner' && role !== 'admin') {
-          throw new HttpError('_builtin 只接受 owner/admin（系统域无普通用户）', 403)
+        // 应用管理面（_builtin）：member 合法（管理面身份）· viewer 禁（无只读概念）
+        if (appId === BUILTIN_APP_ID && role !== undefined && role === 'viewer') {
+          throw new HttpError('_builtin 无只读（viewer 禁——管理面身份）', 403)
         }
         if (!currentUser) throw new HttpError('Unauthorized', 401)
         const callerRole = await findMemberRole(appId, currentUser.id)
@@ -773,6 +806,15 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         await sql.query.insert(MEMBER_TABLE)
           .values({ app_id: appId, user_id: String(target[0].id), role: memberRole, invited_by: currentUser.id })
           .run()
+      },
+
+      async setOpenRegistration(appId: string, open: boolean) {
+        if (!currentUser) throw new HttpError('Unauthorized', 401)
+        // 应用管理面（_builtin）注册开关恒 false（管理面无自助注册——成员走入册流程）
+        if (appId === BUILTIN_APP_ID) throw new HttpError('_builtin 注册开关恒 false', 403)
+        const callerRole = await findMemberRole(appId, currentUser.id)
+        if (callerRole !== 'owner') throw new HttpError('Owner only', 403)
+        await sql.query.update(APP_TABLE).set({ open_registration: open }).where({ id: appId }).run()
       },
 
       async listMyApps() {
@@ -823,6 +865,17 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           app_id: BUILTIN_APP_ID, user_id: String(user.id), role: 'owner', invited_by: null, source: 'seed',
         }).run()
         result.owner = String(user.id)
+        // 定案：首 owner（超级管理员）关联 _default（平台业务应用 owner 成员）——
+        //   开发者直接用 _default 开发（agent-platform 即此实例化）
+        const defId = await findAppIdBySlug('_default')
+        if (defId) {
+          const defMember = await findMemberRole(defId, String(user.id))
+          if (!defMember) {
+            await sql.query.insert(MEMBER_TABLE).values({
+              app_id: defId, user_id: String(user.id), role: 'owner', invited_by: null, source: 'seed',
+            }).run()
+          }
+        }
       } else {
         await sql.query.insert(MEMBER_TABLE).values({
           app_id: BUILTIN_APP_ID, user_id: String(user.id), role: 'admin', invited_by: result.owner, source: 'seed',
@@ -895,9 +948,34 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         open_registration: false,
       }).run()
     }
+    // 应用凭据（分离沟通面——业务应用 ↔ _builtin 机器认证）：
+    //   appId（应用 id）+ appKey（随机 64 hex——createApp 生成/存量回填）
+    await sql.unsafe(`ALTER TABLE ${APP_TABLE} ADD COLUMN IF NOT EXISTS app_key TEXT`)
+    const keyless = await sql.query.from(APP_TABLE).select('id').where({ app_key: null }).run()
+    for (const a of keyless) {
+      await sql.query.update(APP_TABLE).set({ app_key: randomBytes(32).toString('hex') }).where({ id: String(a.id) }).run()
+    }
+    // _default 平台业务应用（系统初始化三件套：_builtin + owner 用户 + _default 关联——
+    //   migrate 先建（owner 空）· seedBuiltinOwners 首 owner 关联——普通应用属性
+    //   （可配置开放注册——与 _builtin 恒 false 不同））
+    const defRows = await sql.query.from(APP_TABLE).select('id').where({ slug: '_default' }).run()
+    if (!defRows.length) {
+      await sql.query.insert(APP_TABLE).values({
+        slug: '_default',
+        name: 'Default',
+        owner_user_id: null,
+        open_registration: false,
+      }).run()
+    }
     // members 元数据（USERSYSTEM-V2：注册来源 + 最后登录——幂等补列）
     await sql.unsafe(`ALTER TABLE ${MEMBER_TABLE} ADD COLUMN IF NOT EXISTS source TEXT`)
     await sql.unsafe(`ALTER TABLE ${MEMBER_TABLE} ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`)
+    // 存量补挂（定案：全员应用管理面入册——旧库 users 无 _builtin 成员行者补——
+    //   query builder 循环——memory/真库双后端一致——迁移期一次性 O(N) 可接受）
+    const leftover = await sql.query.from(USERS_TABLE).select('id').run()
+    for (const u of leftover) {
+      await ensureBuiltinMember(String(u.id), 'migrate')
+    }
   }
 
   // ── 路由 ──
@@ -1063,6 +1141,26 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         if (!body.email || !body.password) return badRequest('email and password are required')
         const result = await ctx.auth!.loginApp(ctx.params.appSlug, body.email, body.password)
         return ok(result)
+      })
+      // 注册开关（owner only——_builtin 恒 false·403）
+      app.patch(`${p}/apps/:appSlug/registration`, async (req, ctx) => {
+        const body = (await req.json().catch(() => ({}))) as { open?: boolean }
+        if (typeof body.open !== 'boolean') return badRequest('open is required (boolean)')
+        const appId = await findAppIdBySlug(ctx.params.appSlug)
+        if (!appId) throw new HttpError('Application not found', 404)
+        await ctx.auth!.setOpenRegistration(appId, body.open)
+        return ok({ open: body.open })
+      })
+      // 机器认证（业务应用 ↔ 控制平面沟通面——未来分离的服务间认证）：
+      //   X-Wf-App-Id（应用 id）+ X-Wf-App-Key（随机密钥）→ 应用信息
+      app.post(`${p}/system/verify`, async (req) => {
+        const appId = req.headers.get('x-wf-app-id')
+        const appKey = req.headers.get('x-wf-app-key')
+        if (!appId || !appKey) return badRequest('X-Wf-App-Id / X-Wf-App-Key required')
+        const rows = await sql.query.from(APP_TABLE).select('id', 'slug', 'name').where({ id: appId, app_key: appKey }).run()
+        if (!rows.length) throw new HttpError('Invalid app credentials', 403)
+        const a = rows[0] as Row
+        return ok({ app: { id: String(a.id), slug: String(a.slug), name: String(a.name) } })
       })
       // 应用内注册（自助/邀请）
       app.post(`${p}/apps/:appSlug/register`, async (req, ctx) => {

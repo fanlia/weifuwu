@@ -28,32 +28,26 @@ export const Login: Component = (_props, ctx) => {
     rerender()
 
     try {
-      // 1. 平台登录（/api/auth/login）——返回 { token, user, apps } 我的应用列表
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: $.email, password: $.password }),
-      })
-      const data = await res.json()
-      if (!res.ok) { const k = authErrorKey(data.error); $.error = k ? (ctx.i18n?.t(k) ?? data.error) : (data.error || '登录失败'); $.loading = false; rerender(); return }
-
-      // 2. 应用内登录（/api/auth/apps/:slug/login）——token 带 appId，业务 API 隔离所需
-      //    单应用直接进；多应用取第一个（应用选择器后续迭代）
-      const apps = data.apps ?? []
-      if (!apps.length) {
-        $.error = ctx.i18n?.t('err.app_not_joined') ?? '该账号尚未加入任何应用'
-        $.loading = false
-        rerender()
-        return
-      }
-      const app = apps[0]
-      const appRes = await fetch(`/api/auth/apps/${app.slug}/login`, {
+      // 单应用模式（定案）：登录 = 直进 _default（agent-platform 平台唯一业务应用）
+      const appRes = await fetch('/api/auth/apps/_default/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: $.email, password: $.password }),
       })
       const appData = await appRes.json()
-      if (!appRes.ok) { $.error = appData.error || '应用登录失败'; $.loading = false; rerender(); return }
+      if (!appRes.ok) {
+        // 非成员（未注册）明确提示——引导注册（成员关系即登录资格）
+        if (appData.error === 'Not a member of this application') {
+          $.error = ctx.i18n?.t('err.not_joined') ?? '账号未加入平台——请先注册'
+        } else {
+          // i18n 错误映射（BUG-1 回归防线——不显示原始英文/key）
+          const k = authErrorKey(appData.error)
+          $.error = k ? (ctx.i18n?.t(k) ?? appData.error) : (appData.error || '登录失败')
+        }
+        $.loading = false
+        rerender()
+        return
+      }
 
       ctx.auth?.login(appData.token, appData.user, appData.refreshToken)
       // 角色存储（2026-08——前端写操作防线——viewer 禁用写按钮）

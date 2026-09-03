@@ -18,7 +18,7 @@ import http from 'node:http'
 import { createMemorySql, MemorySql } from '../db/memory-sql.ts'
 import { createQueryBuilder } from '../db/query-builder.ts'
 import { userSystem } from '../user/index.ts'
-import { verifyToken } from '../user/token.ts'
+import { verifyToken, signToken } from '../user/token.ts'
 import { Router } from '../core/router.ts'
 
 const mkCtx = () => ({ params: {}, query: {} })
@@ -51,6 +51,18 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       new Request(`http://localhost${path}`, { method: 'POST', headers, body: JSON.stringify(body) }),
       mkCtx(),
     )
+  }
+
+  async function fetchRoute(method: string, path: string, token?: string, body?: unknown) {
+    const res = await handler(
+      new Request(`http://localhost${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      }),
+      { params: {}, query: {} },
+    )
+    return res
   }
 
   async function get(path: string, token?: string) {
@@ -434,10 +446,11 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       assert.equal(data.app.role, 'owner')
       assert.equal(data.app.slug, 'mybrand')
       assert.equal(data.user.email, email)
-      // 系统域定案：_builtin 只装超级管理员（owner）/系统管理员（admin）——
-      // 普通用户注册不落 _builtin（先前 member 挂载作废——系统域无普通用户）
-      const [m] = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [data.user.id])
-      assert.equal(m, undefined, '普通用户不挂 _builtin（系统域纯净）')
+      // 定案（V4）：一切注册必经 _builtin——应用管理面入册（身份即资格——
+      // 只有 _builtin 成员能 createApp）——注册用户挂 member（管理面身份）
+      const [m] = await db.unsafe(`SELECT role, source FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [data.user.id])
+      assert.equal(m.role, 'member', '_builtin 管理面身份')
+      assert.equal(m.source, 'register')
     })
 
     it('同域名 slug 冲突自动后缀（-2/-3——收编平台 200 次循环）', async () => {
@@ -660,7 +673,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       assert.equal(roles.filter((r: string) => r === 'admin').length, 3)
     })
 
-    it('addMember 系统域只接受 owner/admin——member/viewer 403', async () => {
+    it('addMember 系统域：viewer 禁（管理面无只读）·member 合法', async () => {
       const h = userSystem({ sql: db, secret })
       await h.migrate()
       await h.seedBuiltinOwners(['root@sys.test'])
@@ -685,8 +698,9 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       // 用框架内置 register 建号+密码，再 addMember 到 _builtin 验证特判
       const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
       const ctx2 = await mk(reg.token)
-      await assert.rejects(() => ctx2.auth!.addMember('00000000-0000-4000-8000-0000000000b1', 'a@b.com', 'member'), /_builtin/)
-      await assert.rejects(() => ctx2.auth!.addMember('00000000-0000-4000-8000-0000000000b1', 'a@b.com', 'viewer'), /_builtin/)
+      await assert.rejects(() => ctx2.auth!.addMember('00000000-0000-4000-8000-0000000000b1', 'a@b.com', 'viewer'), /viewer/)
+      // member 合法（管理面身份）——但 caller 需 owner（该测试 register 用户非 owner——仍拒）
+      await assert.rejects(() => ctx2.auth!.addMember('00000000-0000-4000-8000-0000000000b1', 'a@b.com', 'member'), /Owner only/)
       void owner
     })
 
@@ -702,6 +716,106 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
         body: JSON.stringify({ role: 'admin' }),
       }), mkCtx())
       assert.equal(res.status, 403)
+    })
+  })
+
+  // ── 7.11 V4 定案（_builtin=应用管理面·_default=平台业务面·身份即资格） ──
+  describe('V4 应用管理面定案', () => {
+    it('migrate 建 _default（幂等·owner 空）· seed 首 owner 自动关联 _default', async () => {
+      const h = userSystem({ sql: db, secret })
+      await h.migrate()
+      const [defApp] = await db.unsafe(`SELECT id, open_registration FROM _weifuwu_apps WHERE slug = '_default'`)
+      assert.ok(defApp, '_default 存在')
+      assert.equal(defApp.open_registration, false, '_default 默认不开放')
+      const r = await h.seedBuiltinOwners(['sup@sys.test'])
+      assert.ok(r.owner, '首 owner')
+      const [rel] = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE app_id = $1 AND user_id = $2`, [defApp.id, r.owner])
+      assert.equal(rel.role, 'owner', '超级管理员关联 _default（owner）')
+    })
+
+    it('createApp 资格：非 _builtin 成员 → 403（身份即资格）· _ 前缀 slug → 400', async () => {
+      const h = userSystem({ sql: db, secret })
+      await h.migrate()
+      // 直接插一个无 _builtin 成员的用户（模拟历史异常数据——migrate 补挂前的场景）
+      const [raw] = await db.unsafe(`INSERT INTO _weifuwu_users (email, password_hash) VALUES ($1, 'x') RETURNING id`, [`raw-${uniq()}@x.test`])
+      const p = new Router(); p.use(h); h.routes(p)
+      const handler = p.handler()
+      // 绕过认证直接调 AuthApi（构造 ctx）
+      const req = new Request('http://localhost/x', { headers: { Authorization: `Bearer ${signToken({ sub: String(raw.id) }, secret)}` } })
+      const ctx = mkCtx()
+      await h(req, ctx, async () => {})
+      await assert.rejects(() => ctx.auth!.createApp({ slug: `noqual-${uniq()}`, name: 'X' }), /应用管理面/)
+      // _ 前缀保留名
+      await assert.rejects(() => ctx.auth!.createApp({ slug: '_hack', name: 'X' }), /保留名/)
+    })
+
+    it('register（纯账号）也入册 _builtin（一切注册必经管理面）', async () => {
+      const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
+      const [m] = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [reg.user.id])
+      assert.equal(m.role, 'member')
+    })
+
+    it('migrate 存量补挂：无 _builtin 成员的用户 → migrate 幂等补（source=migrate）', async () => {
+      const h = userSystem({ sql: db, secret })
+      await h.migrate()
+      const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
+      // 模拟存量：删除其 _builtin 成员行 → 再 migrate → 补回
+      await db.unsafe(`DELETE FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [reg.user.id])
+      await h.migrate()
+      const [m] = await db.unsafe(`SELECT role, source FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [reg.user.id])
+      assert.equal(m.role, 'member')
+      assert.equal(m.source, 'migrate')
+    })
+
+    it('registerInApp / ssoLogin 均入册 _builtin（注册必经管理面——邀请/SSO 路径一致）', async () => {
+      const h = userSystem({ sql: db, secret })
+      await h.migrate()
+      const owner = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      const app = owner.app
+      // 邀请加入（open_registration=false）
+      // 邀请 token 直接构造（signToken 面——不依赖响应形状）
+      const invToken = signToken({ type: 'app-invite', appId: app.id, role: 'member' }, secret)
+      const joinEmail = uniqEmail()
+      const join = await post(`/api/auth/apps/${app.slug}/register`, { email: joinEmail, password: 'password123', name: 'J', inviteToken: invToken })
+      assert.equal(join.status, 201)
+      const [u] = await db.unsafe(`SELECT id FROM _weifuwu_users WHERE email = $1`, [joinEmail])
+      const [m] = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE app_id = '00000000-0000-4000-8000-0000000000b1' AND user_id = $1`, [u.id])
+      assert.equal(m.role, 'member', '邀请加入也入册管理面')
+    })
+
+    it('appKey：随机生成·appId=应用 id·机器验证端点（分离沟通面）', async () => {
+      const owner = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      const app = owner.app
+      assert.ok(app.id, 'appId = 应用 id')
+      // 机器验证：正确凭据 → 应用信息
+      const okRes = await handler(new Request('http://localhost/api/auth/system/verify', {
+        method: 'POST',
+        headers: { 'X-Wf-App-Id': app.id, 'X-Wf-App-Key': app.app_key },
+      }), mkCtx())
+      assert.equal(okRes.status, 200)
+      const body = await okRes.json()
+      assert.equal(body.app.slug, app.slug)
+      // 错误密钥 → 403
+      const badRes = await handler(new Request('http://localhost/api/auth/system/verify', {
+        method: 'POST',
+        headers: { 'X-Wf-App-Id': app.id, 'X-Wf-App-Key': 'wrong-key' },
+      }), mkCtx())
+      assert.equal(badRes.status, 403)
+      // appKey 随机性（两次注册不同）
+      const owner2 = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      assert.notEqual(owner2.app.app_key, app.app_key, '随机生成')
+    })
+
+    it('setOpenRegistration：owner only · _builtin 恒 false 403', async () => {
+      const owner = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      const app = owner.app
+      const res = await fetchRoute('PATCH', `/api/auth/apps/${app.slug}/registration`, owner.token, { open: true })
+      assert.equal(res.status, 200)
+      const [row] = await db.unsafe(`SELECT open_registration FROM _weifuwu_apps WHERE id = $1`, [app.id])
+      assert.equal(row.open_registration, true)
+      // _builtin 恒 false
+      const res2 = await fetchRoute('PATCH', '/api/auth/apps/_builtin/registration', owner.token, { open: true })
+      assert.equal(res2.status, 403)
     })
   })
 

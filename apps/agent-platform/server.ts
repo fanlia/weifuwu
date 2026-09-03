@@ -410,6 +410,10 @@ async function main() {
     await users.seedBuiltinOwners(sysEmails)
     console.log(`[agent-platform] 系统域 seed: ${sysEmails.length} 个管理员（_builtin owner/admin——ADMIN_EMAILS 引导）`)
   }
+  // 单应用模式（定案）：agent-platform = _default 应用——开放自助注册（注册即加入平台）——
+  //   _builtin 恒不开放（管理面）· 个人默认应用流（register-app）保留为通用能力（测试种子用）
+  await pg.sql`UPDATE _weifuwu_apps SET open_registration = true WHERE slug = '_default'`
+  console.log('[agent-platform] _default 已开放注册（单应用模式——注册即加入平台）')
   // 迁移遗留：schema.sql 已去外键（agents.user_id 指向框架 _weifuwu_users），但已存在的表结构
   // 仍带旧约束（agents_user_id_fkey → 已删的 users 表）——幂等删除，避免注册建默认 Agent 失败
   await pg.sql`

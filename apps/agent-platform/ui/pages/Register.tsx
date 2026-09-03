@@ -33,8 +33,9 @@ export const Register: Component = (_props, ctx) => {
     $.loading = true; $.error = ''
     rerender()
     try {
-      // USERSYSTEM-V2：框架路由——邀请加入（apps/:slug/register）/ 产品级注册（register-app）
-      const url = invite ? `/api/auth/apps/${invite.app}/register` : '/api/auth/register-app'
+      // 单应用模式（定案）：注册 = 加入 _default（平台唯一业务应用——开放注册直入）
+      //   邀请面保留（apps/:slug/register + inviteToken——super admin 定向邀请）
+      const url = invite ? `/api/auth/apps/${invite.app}/register` : '/api/auth/apps/_default/register'
       const body = invite
         ? { inviteToken: invite.invite, email: $.email, name: $.name, password: $.password }
         : { email: $.email, name: $.name, password: $.password }

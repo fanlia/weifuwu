@@ -6,6 +6,7 @@
  */
 export const APP_MESSAGES: Record<string, string> = {
   'err.invalid_credentials': '邮箱或密码不正确',
+  'err.not_joined': '账号未加入平台——请先注册',
   'err.email_exists': '该邮箱已注册',
   'err.app_slug_taken': '该团队标识已被占用，请稍后重试或使用邀请链接加入',
   'err.not_found': '资源不存在',
