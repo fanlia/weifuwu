@@ -56,6 +56,13 @@
   - 语义迁移：if 截断→**分支**（无 else 跳过子链继续）· edge 静默→跳过子链**继续**（不再截断/status=success）· **skipped 状态删除**（RunStatus='success'|'error'）
   - ctx 扩展：vars 命名空间（assign 真跑）· loop 栈（嵌套恢复）· while/for maxIters 默认 1000 防死循环
   - **e2e 闭环**：compileWfjs → execute 真跑 5 景象（变量链/while 计数/for-of 模板/return 终止/库存监控 edge 发一次）——97 契约 + 619 server 全绿
+- **去重原语裁决（用户拍板：不发 once——store 显式记账，JS 一致）**：
+  - **删除**：edge / if.edge / evaluateEdge 状态机（EdgeStore → KVStore：store.ts get/set + redis 适配）
+  - **wfjs 层**：`import { store } from 'wf://std/store'`（std 命名导入——ESM 逐字）+ `store.get/set` 方法式调用 → store 步骤；**std 函数需 import 才可见**（未导入=不存在——ESM 一致）
+  - store 步骤：key/value 模板语义（{{}} 插值——与 http url 一致）；get 的 data 直接 = 值（绑定解包 `const sent = await store.get(k)` → sent 即值）
+  - 语义锚点：**失败不记账**（then 内发送失败 → 不写 store → 下次重试——at-least-once 不丢信）；「邮件是否发过」= store 值（用户显式查询）
+  - toJs：imports 渲染 + store 对称渲染；wfjs tokenize 补三字符 ops/三元 ?:/：；变量全局唯一命名空间（块级遮蔽 v2 裁剪）
+  - fuzz round-trip 500 对恒等（import/store/三元/作用域感知生成器）——105 契约 + 627 server 全绿
 - **W4 完成（2026-09-03）**：exports（package.json `./workflow` 子路径 + build.mjs 独立 bundle——零运行时外部依赖）+ docs/server.md §7 + 回归门。
   - 实测：test:server 568 pass（含 workflow 46）/ audit 七线全绿 / tsc 0 错 / dist 子路径 import 验证通过
   - 探针重定位：无。W1–W4 全部按计划交付；引擎已具备 runWorkflow 全语义
