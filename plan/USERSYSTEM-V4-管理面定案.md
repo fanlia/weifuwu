@@ -36,5 +36,7 @@
 - 应用级 auth 面收编：`/api/apps/{slug}/auth/{login|register|invites|members|registration|verify}`
 - SSO 挂 `_builtin`：`/api/apps/_builtin/auth/sso/{enabled|login|callback}`（控制平面能力）
 - 平台级保留：`/api/auth/{register|register-app|login|logout|refresh|me|apps}`（无 app 上下文）
-- 应用层 API 自决（业务路由不收编——appId 由 ctx 注入——部署层定前缀）
+- **业务路由应用层自决**（定案）：/api/apps/ 前缀永远属于 _builtin（控制平面专属——
+  业务应用不得占用）——业务 API 前缀完全由应用层决定（agent-platform：/api/departments·/api/agents…
+  ——appId 由 ctx 注入隔离·不依赖路径）
 - 平台同步迁移（Login/Register/sso enabled + 测试路径全量）· 契约 75 · server 747 · 平台 449
