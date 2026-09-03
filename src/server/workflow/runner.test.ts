@@ -182,4 +182,33 @@ describe('validate: 确定性闸门', () => {
     const v2 = wf.validate({ steps: [{ id: 'a', type: 'if', config: { when: 'a +' } }] })
     assert.equal(v2.ok, false)
   })
+  it('变量自足（v2）：vars.* 未声明 / steps.* 未知 → 拒绝', () => {
+    const v1 = wf.validate({ steps: [{ id: 'a', type: 'assign', config: { target: 'x', value: 'vars.nope' } }] })
+    assert.equal(v1.ok, false)
+    assert.match(v1.errors[0].message, /未声明变量引用：vars\.nope/)
+    const v2 = wf.validate({ steps: [{ id: 'a', type: 'assign', config: { target: 'x', value: 'steps.zzz.data' } }] })
+    assert.equal(v2.ok, false)
+    assert.match(v2.errors[0].message, /未知步骤引用：steps\.zzz/)
+    // 合法：子链声明 + 模板插值 + 循环体 loop
+    const ok = wf.validate({ steps: [
+      { id: 'n0', type: 'assign', config: { target: 'n', value: '0' } },
+      { id: 'w', type: 'while', config: { when: '(vars.n < 3)', step: { steps: [
+        { id: 'n1', type: 'assign', config: { target: 'n', value: '(vars.n + 1)' } },
+      ] } } },
+      { id: 't', type: 'template', config: { template: 'n={{vars.n}} loop={{vars.loop.item}}' } },
+    ] })
+    assert.equal(ok.ok, true)
+  })
+  it('函数体内 vars 引用自足（函数参数 + 局部声明）', () => {
+    const ok = wf.validate({ steps: [
+      { id: 'c', type: 'call', config: { name: 'f', args: ['1'] } },
+    ], functions: [{ name: 'f', params: ['a'], step: { steps: [
+      { id: '_fn:f:_r', type: 'return', config: { value: 'vars.a' } },
+    ] } }] })
+    assert.equal(ok.ok, true)
+    const bad = wf.validate({ steps: [{ id: 'a', type: 'log', config: {} }], functions: [{ name: 'f', params: ['a'], step: { steps: [
+      { id: '_fn:f:_r', type: 'return', config: { value: 'vars.missing' } },
+    ] } }] })
+    if (bad.errors.length) assert.match(bad.errors[0].message, /未声明变量引用：vars\.missing/)
+  })
 })
