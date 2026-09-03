@@ -31,6 +31,7 @@ interface Rt {
   steps: WorkflowCtx['steps']
   dry: boolean
   signal?: AbortSignal
+  budgetMs?: number
   /** 函数查找（call 步骤） */
   def: WorkflowDef
   /** 函数递归深度（守卫 64） */
@@ -49,7 +50,11 @@ export async function runWorkflow(
   // ctx.steps 与 result.stepResults 同引用：步骤输出既是回放记录也是模板输入
   const steps: WorkflowCtx['steps'] = {}
   const result: RunResult = { status: 'success', executed: [], skippedSteps: [], stepResults: steps, dry, startedAt, finishedAt: 0 }
-  const rt: Rt = { result, steps, dry, signal: opts.signal, def, fnDepth: 0 }
+  // 预算信号（默认 10min——超时 → aborted → error——防御失控/DoS；外部 signal 可叠加）
+  const budgetMs = opts.budgetMs ?? 600_000
+  const budgetSignal = AbortSignal.timeout(budgetMs)
+  const signal = opts.signal ? AbortSignal.any([opts.signal, budgetSignal]) : budgetSignal
+  const rt: Rt = { result, steps, dry, signal, budgetMs, def, fnDepth: 0 }
   const flow = await execSteps(def.steps, { steps, vars: {}, input: opts.input }, env, registry, rt)
   void flow // 顶层 return/continue 均 success（error 已由 aborted/fail 设置）
   result.finishedAt = Date.now()
@@ -68,7 +73,9 @@ async function execSteps(
   for (const step of steps) {
     if (rt.signal?.aborted) {
       result.status = 'error'
-      result.error = `aborted before step '${step.id}'`
+      result.error = rt.signal.reason?.name === 'TimeoutError'
+        ? `执行超时（预算 ${rt.budgetMs ?? 600_000}ms——可经 budgetMs 调整）`
+        : `aborted before step '${step.id}'`
       return { k: 'return' }
     }
     // 步骤级 when：不通过 → 跳过，继续后续
@@ -191,6 +198,14 @@ async function execSteps(
       result.executed.push(step.id)
     } catch (e) {
       return fail(rt, step, e)
+    }
+    // 预算/中止检查点（步后）：单步长执行（如 sleep 120ms）超预算也捕获——不谎报 success
+    if (rt.signal?.aborted) {
+      result.status = 'error'
+      result.error = rt.signal.reason?.name === 'TimeoutError'
+        ? `执行超时（预算 ${rt.budgetMs ?? 600_000}ms——可经 budgetMs 调整）`
+        : `aborted after step '${step.id}'`
+      return { k: 'return' }
     }
   }
   return { k: 'continue' }

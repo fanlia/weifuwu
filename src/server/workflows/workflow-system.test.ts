@@ -87,4 +87,23 @@ describe('workflowSystem (memory sql)', () => {
     const js = sys.wf.defToWfjs(def)
     assert.match(js, /log/)
   })
+
+  // ── 健壮性（2027-09）：executeRun 中间态——先 running 后终态（history 不悬空错态） ──
+  it('执行完成后 status=success + result 落库（running → success 终态）', async () => {
+    const w = await sys.crud.create('app-x', { name: 'run 中间态', wfjs: 'await log({ message: "hi" })' })
+    const run = await sys.wf.execute('app-x', w.id, {}, 'manual')
+    assert.equal(run.status, 'success')
+    assert.ok(run.finished_at, 'finished_at 已填')
+    const runs = await sys.crud.listRuns('app-x', w.id)
+    assert.equal(runs[0].status, 'success')
+    assert.ok(runs[0].result_json, 'result_json 落库')
+  })
+  it('执行失败 → status=error 终态（不悬空 running）', async () => {
+    const w = await sys.crud.create('app-x', { name: 'run 失败', wfjs: 'const x = await log({ message: "x" })\nconst y = 1 / 0' })
+    const run = await sys.wf.execute('app-x', w.id, {}, 'manual')
+    assert.equal(run.status, 'error')
+    assert.match(run.error ?? '', /non-finite/, `错误信息：${run.error}`)
+    const runs = await sys.crud.listRuns('app-x', w.id)
+    assert.equal(runs[0].status, 'error')
+  })
 })

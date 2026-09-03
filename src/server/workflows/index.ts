@@ -348,16 +348,33 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
   const executeRun = async (appId: string, workflowId: string, args: Record<string, unknown>, trigger = 'manual'): Promise<WorkflowRunRecord> => {
     const rec = await crud.get(appId, workflowId)
     if (!rec) throw new Error('workflow 不存在')
-    const r = await executeDef(rec.def_json, args)
+    // 中间态：先插 running（执行中可见——history 不悬空错态）；完成后 update 终态
+    const startedAt = new Date().toISOString()
     const rows = await sql.query.insert(RUNS)
       .values({
-        app_id: appId, workflow_id: workflowId, trigger, status: r.status,
-        args_json: JSON.stringify(args), result_json: JSON.stringify(r.result),
-        error: r.error, started_at: new Date().toISOString(), finished_at: new Date().toISOString(),
+        app_id: appId, workflow_id: workflowId, trigger, status: 'running',
+        args_json: JSON.stringify(args), result_json: null, error: null,
+        started_at: startedAt, finished_at: null,
       })
       .returning(...RUN_FIELDS.split(', '))
       .run()
-    return toRun(rows[0] as Record<string, unknown>)
+    const runId = String((rows[0] as Record<string, unknown>).id)
+    try {
+      const r = await executeDef(rec.def_json, args)
+      const updates = await sql.query.update(RUNS)
+        .set({ status: r.status, result_json: JSON.stringify(r.result), error: r.error, finished_at: new Date().toISOString() })
+        .where({ id: runId })
+        .returning(...RUN_FIELDS.split(', '))
+        .run()
+      return toRun(updates[0] as Record<string, unknown>)
+    } catch (e) {
+      // 引擎外异常（罕见——执行器内部兜底）——run 记 error 终态（不悬空 running）
+      await sql.query.update(RUNS)
+        .set({ status: 'error' as const, error: (e as Error).message, finished_at: new Date().toISOString() })
+        .where({ id: runId })
+        .run()
+      return toRun({ status: 'error', error: (e as Error).message } as unknown as Record<string, unknown>)
+    }
   }
 
   const wf: WorkflowClient = {

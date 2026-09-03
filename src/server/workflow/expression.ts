@@ -139,6 +139,7 @@ class Parser {
   private i = 0
   private tokens: Token[]
   private src: string
+  private depth = 0
   constructor(tokens: Token[], src: string) {
     this.tokens = tokens
     this.src = src
@@ -160,6 +161,12 @@ class Parser {
   }
   /** 三元（最低优先级）：cond ? then : else */
   private parseTernary(): ExprNode {
+    if (++this.depth > 65) this.fail('expression: nested expression too deep (max 64 层)', this.peek().pos)
+    try {
+      return this.parseTernaryInner()
+    } finally { this.depth-- }
+  }
+  private parseTernaryInner(): ExprNode {
     const cond = this.parseOr()
     const tk = this.peek()
     if (tk.t === 'op' && tk.v === '?') {

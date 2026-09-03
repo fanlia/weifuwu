@@ -298,3 +298,22 @@ describe('expression: fuzz 对账（AST→源码→编译 round-trip，值+错�
     }
   })
 })
+
+// ── 健壮性防线（2027-09）：parse 嵌套深度上限（防栈溢出——畸形表达式清晰报错） ──
+describe('expression: 嵌套深度上限', () => {
+  it('65 层括号嵌套 → 清晰报错（非 RangeError 栈溢出）', () => {
+    const deep = '('.repeat(65) + '1' + ')'.repeat(65)
+    try {
+      parse(deep)
+      assert.fail('应该抛错')
+    } catch (e) {
+      assert.match(String((e as Error).message), /too deep|nested/, `错误信息应含深度提示：${(e as Error).message}`)
+    }
+  })
+  it('64 层边界内正常通过', () => {
+    const ok = '('.repeat(64) + '1' + ')'.repeat(64)
+    const node = parse(ok)
+    // 1 的深层括号 = literal——求值正常
+    assert.equal(evaluate(node, {}), 1)
+  })
+})

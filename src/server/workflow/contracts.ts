@@ -194,6 +194,8 @@ export interface ExecuteOptions {
   /** 手动触发注入的初始数据（ctx.input） */
   input?: unknown
   signal?: AbortSignal
+  /** 执行预算（毫秒——超时中止为 error；默认 10 分钟——防御 DoS/失控流程） */
+  budgetMs?: number
 }
 
 /** 内建链步骤类型（runner 直接解释——不进 registry；validate 特判） */

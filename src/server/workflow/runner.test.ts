@@ -5,6 +5,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { workflow, type WorkflowDef } from './index.ts'
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 function makeWf() {
   return workflow({
     fetch: (async () => new Response(JSON.stringify({ items: [{ price: 100 }], status: 'up' }), {
@@ -211,4 +213,43 @@ describe('validate: 确定性闸门', () => {
     ] } }] })
     if (bad.errors.length) assert.match(bad.errors[0].message, /未声明变量引用：vars\.missing/)
   })
+})
+
+// ── 健壮性防线（2027-09 引擎加固）──
+
+describe('健壮性防线（2027-09 引擎加固）', () => {
+it('执行预算超时 → status=error（超时不失控）', async () => {
+  // 用真正阻塞的步骤（http 慢响应——log 是 fire-and-forget 不阻塞）
+  const wf = workflow({
+    fetch: (async () => { await sleep(120); return new Response('ok') }) as typeof fetch,
+    log: () => {},
+  })
+  const r = await wf.execute(
+    { steps: [{ id: 'slow', type: 'http', config: { url: 'https://slow.test/x' } }] },
+    { budgetMs: 30 },
+  )
+  assert.equal(r.status, 'error', '预算超时 = error')
+  assert.ok((r.error ?? '').includes('预算'), `错误信息含预算：${r.error}`)
+})
+
+it('健壮性：http 响应超过 maxBytes → 步骤失败（清晰错误）', async () => {
+  const big = 'x'.repeat(1024)
+  const wf = workflow({
+    fetch: (async () => new Response(big, { headers: { 'content-length': String(big.length) } })) as typeof fetch,
+    log: () => {},
+  })
+  const r = await wf.execute({ steps: [{ id: 'p', type: 'http', config: { url: 'x', maxBytes: 100 } }] })
+  assert.equal(r.status, 'error')
+  assert.ok((r.error ?? '').includes('超过上限'), `错误信息含上限：${r.error}`)
+})
+
+it('健壮性：http content-length 预检（不读流即拒）', async () => {
+  const wf = workflow({
+    fetch: (async () => new Response('short', { headers: { 'content-length': '999999' } })) as typeof fetch,
+    log: () => {},
+  })
+  const r = await wf.execute({ steps: [{ id: 'p', type: 'http', config: { url: 'x', maxBytes: 100 } }] })
+  assert.equal(r.status, 'error')
+  assert.ok((r.error ?? '').includes('999999'), `错误信息含响应长度：${r.error}`)
+})
 })

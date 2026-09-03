@@ -35,11 +35,41 @@ const httpStep: StepHandler = {
       body,
       signal: AbortSignal.timeout(timeoutMs),
     })
-    const text = await res.text()
+    // 响应大小上限（默认 10MB——防大响应吞内存；读流累计——超限即取消）
+    const maxBytes = typeof config.maxBytes === 'number' && config.maxBytes > 0 ? config.maxBytes : 10 * 1024 * 1024
+    const len = Number(res.headers.get('content-length') ?? 0)
+    if (len > maxBytes) throw new Error(`http step: 响应 ${len} 字节超过上限 ${maxBytes}`)
+    let text: string
+    if (res.body) {
+      const reader = res.body.getReader()
+      const chunks: Uint8Array[] = []
+      let total = 0
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        total += value.length
+        if (total > maxBytes) {
+          await reader.cancel()
+          throw new Error(`http step: 响应超过上限 ${maxBytes} 字节（可经 config.maxBytes 调整）`)
+        }
+        chunks.push(value)
+      }
+      text = new TextDecoder().decode(concatChunks(chunks))
+    } else {
+      text = await res.text()
+    }
     const data: Record<string, unknown> = { status: res.status, text }
     try { data.json = JSON.parse(text) } catch { /* 非 JSON——text 保留，不算失败 */ }
     return data
   },
+}
+
+function concatChunks(chunks: Uint8Array[]): Uint8Array {
+  const total = chunks.reduce((n, c) => n + c.length, 0)
+  const out = new Uint8Array(total)
+  let off = 0
+  for (const c of chunks) { out.set(c, off); off += c.length }
+  return out
 }
 
 function method_(m: unknown): string {
