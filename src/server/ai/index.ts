@@ -29,6 +29,7 @@
 
 import type { Context, Middleware } from '../../server/types.ts'
 import { createAiClient, type AiClient, type AiClientOptions, type AiEmbeddingOptions } from './client.ts'
+import { createMemoryAi, type MemoryAiOptions } from './memory.ts'
 import { createAgent, type AgentConfig, type AgentRunner } from './agent.ts'
 import type { AIInterface, ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus } from './contracts.ts'
 
@@ -38,7 +39,12 @@ export type { ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus }
 export type { AiEmbeddingOptions } from './client.ts'
 export type { AgentRunResult, AgentStep, AgentTool, AgentConfig, AgentRunner, ToolContext } from './agent.ts'
 
-export interface AiOptions extends Partial<AiClientOptions> {}
+export interface AiOptions extends Partial<AiClientOptions> {
+  /** provider 选择（默认 openai——读 DEEPSEEK_* env；memory——确定性内存实现——测试/离线） */
+  provider?: 'openai' | 'memory'
+  /** memory provider 选项（onChat 决策注入等） */
+  memory?: MemoryAiOptions
+}
 
 export interface AiInjected {
   ai: AIInterface
@@ -52,25 +58,8 @@ export interface AiClientModule extends Middleware<Context, Context & AiInjected
 }
 
 
-export function ai(options?: AiOptions): AiClientModule {
-  const apiKey = options?.apiKey ?? process.env.DEEPSEEK_API_KEY ?? ''
-  const baseUrl = options?.baseUrl ?? process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com/v1'
-  const defaultModel = options?.defaultModel ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash'
-
-  if (!apiKey) {
-    throw new Error('ai: DEEPSEEK_API_KEY 未设置。请设置环境变量或传入 apiKey')
-  }
-
-  const client = createAiClient({
-    apiKey,
-    baseUrl,
-    defaultModel,
-    embedding: options?.embedding,
-    // W6：首 token 超时 + 流式可重试错误重试——直接透传（AiOptions extends AiClientOptions）
-    firstTokenTimeoutMs: options?.firstTokenTimeoutMs,
-    streamRetries: options?.streamRetries,
-  })
-
+/** 组装层：provider（AiClient）→ 中间件模块（AiClientModule）——ai() 与 provider 选择共用 */
+function assemble(client: AiClient): AiClientModule {
   const mw: Middleware = (req, ctx, next) => {
     ctx.ai = module
     return next(req, ctx)
@@ -87,10 +76,43 @@ export function ai(options?: AiOptions): AiClientModule {
   module.agent = (config: AgentConfig) => createAgent(client, config)
   module.embed = client.embed
   module.embedMany = client.embedMany
-  module.close = async () => {}
+  module.generateImage = client.generateImage
+  module.createVideoTask = client.createVideoTask
+  module.videoStatus = client.videoStatus
+  module.close = client.close
 
   return module
 }
+
+export function ai(options?: AiOptions): AiClientModule {
+  // provider 选择：显式 > env > 默认 openai（向后兼容——无 key 仍 throw）
+  const provider = options?.provider ?? process.env.AI_PROVIDER ?? 'openai'
+  if (provider === 'memory') {
+    return assemble(createMemoryAi(options?.memory))
+  }
+  const apiKey = options?.apiKey ?? process.env.DEEPSEEK_API_KEY ?? ''
+  const baseUrl = options?.baseUrl ?? process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com/v1'
+  const defaultModel = options?.defaultModel ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash'
+
+  if (!apiKey) {
+    throw new Error('ai: DEEPSEEK_API_KEY 未设置。请设置环境变量或传入 apiKey（或 provider=memory 用内存实现）')
+  }
+
+  const client = createAiClient({
+    apiKey,
+    baseUrl,
+    defaultModel,
+    embedding: options?.embedding,
+    multimodal: options?.multimodal,
+    // W6：首 token 超时 + 流式可重试错误重试——直接透传（AiOptions extends AiClientOptions）
+    firstTokenTimeoutMs: options?.firstTokenTimeoutMs,
+    streamRetries: options?.streamRetries,
+  })
+
+  return assemble(client)
+}
+
+
 
 // ── 协议类型 re-export（类型流：weifuwu 主包即可见）───────
 

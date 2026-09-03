@@ -17,6 +17,7 @@ import { createApprovalHub, DEFAULT_APPROVAL_TIMEOUT, type ApprovalEmitter } fro
 import type { AiClient, StreamFinishResult } from './client.ts'
 import type { ChatMessage, ChatParams, ToolCall, WfApprovalResponse } from './types.ts'
 import type { ChatResponse } from './client.ts'
+import type { ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus } from './contracts.ts'
 
 /** MemoryAi 决策注入选项（= MemorySql 的「解析器」——注入方决定回什么） */
 export interface MemoryAiOptions {
@@ -30,6 +31,11 @@ export interface MemoryAiOptions {
     | { content: string; toolCalls?: ToolCall[]; reasoning_content?: string; usage?: StreamFinishResult['usage'] }
   /** 嵌入注入（返回值需 text 长度 = 输入顺序）；默认 djb2 哈希向量（确定性） */
   onEmbed?: (texts: string[]) => Promise<number[][]> | number[][]
+  /** 图片生成注入（测试断言生成面）；默认 1×1 透明 PNG data URL（确定性占位） */
+  onImage?: (req: ImageGenRequest) => Promise<ImageGenResult> | ImageGenResult
+  /** 视频任务注入（onVideoSubmit: 提交→taskId；onVideoStatus: 查询→状态）——默认立即完成 */
+  onVideoSubmit?: (req: VideoGenRequest) => Promise<{ taskId: string }> | { taskId: string }
+  onVideoStatus?: (taskId: string) => Promise<VideoGenStatus> | VideoGenStatus
   /** 默认模型名（响应回显——对齐真实 provider 行为） */
   defaultModel?: string
   /** 审批超时 ms（默认 5 分钟——对齐 OpenAI transport） */
@@ -51,13 +57,13 @@ function hashVector(text: string, dim = 32): number[] {
 
 /** 内部引擎（对齐 MemorySql class 定位——不可直接构造——工厂包装导出） */
 export class MemoryAi {
+  private readonly opts: MemoryAiOptions
   private approvals: ReturnType<typeof createApprovalHub>
   private readonly model: string
 
-  constructor(
-    private readonly opts: MemoryAiOptions = {},
-  ) {
-    // approvals 依赖 opts（构造体内初始化——字段初始化器在参数属性赋值前执行）
+  constructor(opts: MemoryAiOptions = {}) {
+    // parameter property 在 Node strip-only 不支持——显式字段赋值
+    this.opts = opts
     this.approvals = createApprovalHub(opts.approvalTimeoutMs ?? DEFAULT_APPROVAL_TIMEOUT)
     this.model = opts.defaultModel ?? 'memory-ai'
   }
@@ -166,6 +172,26 @@ export class MemoryAi {
     return texts.map((t) => hashVector(t))
   }
 
+  /** 占位图：1×1 透明 PNG data URL（确定性——测试可断言生成面被调） */
+  private static readonly TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+
+  async generateImage(req: ImageGenRequest, _options?: { signal?: AbortSignal }): Promise<ImageGenResult> {
+    if (this.opts.onImage) return this.opts.onImage(req)
+    return { dataUrl: MemoryAi.TINY_PNG, mime: 'image/png' }
+  }
+
+  async createVideoTask(req: VideoGenRequest, _options?: { signal?: AbortSignal }): Promise<{ taskId: string }> {
+    if (this.opts.onVideoSubmit) return this.opts.onVideoSubmit(req)
+    // 默认：立即完成语义——taskId 确定性（测试可回放 videoStatus）
+    return { taskId: `memory-task-${req.prompt.slice(0, 8) || 'empty'}` }
+  }
+
+  async videoStatus(taskId: string, _options?: { signal?: AbortSignal }): Promise<VideoGenStatus> {
+    if (this.opts.onVideoStatus) return this.opts.onVideoStatus(taskId)
+    // 默认：任务已生成——占位 URL（无真实媒体——编排层不落盘/或按注入断言）
+    return { status: 'done', url: `memory://video/${taskId}` }
+  }
+
   async close(): Promise<void> {
     // 无资源（内存实现）——no-op（对齐 MemorySql.close 定位）
   }
@@ -183,6 +209,9 @@ export function createMemoryAi(options?: MemoryAiOptions): AiClient {
     waitApproval: (req, emit, t, s) => engine.waitApproval(req, emit, t, s),
     embed: (t) => engine.embed(t),
     embedMany: (texts) => engine.embedMany(texts),
+    generateImage: (req, o) => engine.generateImage(req, o),
+    createVideoTask: (req, o) => engine.createVideoTask(req, o),
+    videoStatus: (taskId, o) => engine.videoStatus(taskId, o),
     close: () => engine.close(),
   }
 }

@@ -33,7 +33,11 @@ export { queue } from './queue/index.ts'
 export { scheduler } from './scheduler/index.ts'
 export type { QueueOptions, QueueClient, QueueInjected, QueueWorker, WorkerOptions, AddOptions, Job } from './queue/index.ts'
 export { ai } from './ai/index.ts'
-export type { Ai, ApprovalRequest } from './ai/contracts.ts'
+export type { Ai, AIInterface, ApprovalRequest, ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus } from './ai/contracts.ts'
+export { createMemoryAi, MemoryAi } from './ai/memory.ts'
+export type { MemoryAiOptions } from './ai/memory.ts'
+export { createMemoryAiServer } from './ai/memory-server.ts'
+export type { MemoryAiServerOptions, MemoryAiServerHandle } from './ai/memory-server.ts'
 export type {
   AiOptions,
   AiInjected,

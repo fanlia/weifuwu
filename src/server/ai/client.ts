@@ -16,7 +16,9 @@
 
 import { randomUUID } from 'node:crypto'
 import { sseResponse, type WfEmitter } from './sse.ts'
+import { createDashscopeMultimodal, type MultimodalOptions } from './multimodal.ts'
 import type { ChatMessage, ChatParams, ToolCall, WfApprovalResponse, WfErrorCode } from './types.ts'
+import type { ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus } from './contracts.ts'
 
 // ── 类型 ─────────────────────────────────────────────────
 
@@ -63,6 +65,8 @@ export interface AiClientOptions {
   defaultModel: string
   /** embedding provider 配置（可选；未配时 embed/embedMany 抛 AiError('unsupported')） */
   embedding?: AiEmbeddingOptions
+  /** 多模态 provider 配置（可选；默认读 DASHSCOPE_* env——图片/视频生成） */
+  multimodal?: MultimodalOptions
   /**
    * W6 首 token 超时（ms）：provider 挂起（连接后无任何 chunk——含 thinking 模式
    * 不发 reasoning 的异常停顿）→ 中止上游请求 + wf:error timeout（协议错误码表已定义
@@ -121,6 +125,12 @@ export interface AiClient {
   embed(text: string): Promise<number[]>
   /** 批量文本嵌入（按输入顺序返回） */
   embedMany(texts: string[]): Promise<number[][]>
+  /** 文生图（同步——provider 返回 URL 或 data URL） */
+  generateImage(req: ImageGenRequest, options?: { signal?: AbortSignal }): Promise<ImageGenResult>
+  /** 文生视频（异步提交——taskId 由 videoStatus 查询） */
+  createVideoTask(req: VideoGenRequest, options?: { signal?: AbortSignal }): Promise<{ taskId: string }>
+  /** 视频任务状态（编排层轮询——终态返回 url） */
+  videoStatus(taskId: string, options?: { signal?: AbortSignal }): Promise<VideoGenStatus>
   /** 生命周期（transport 资源释放；无资源 = no-op） */
   close(): Promise<void>
 }
@@ -241,6 +251,7 @@ function createEmbeddingClient(ebd?: AiEmbeddingOptions) {
 
 export function createAiClient(opts: AiClientOptions): AiClient {
   const embedding = createEmbeddingClient(opts.embedding)
+  const multimodal = createDashscopeMultimodal(opts.multimodal)
   // W6：默认首 token 超时 60s（传 0 = 关——?? 不覆盖显式 0）；默认不重试（计费语义调用方定）
   const firstTokenTimeoutMs = opts.firstTokenTimeoutMs ?? 60_000
   const streamRetries = opts.streamRetries ?? 0
@@ -528,6 +539,10 @@ export function createAiClient(opts: AiClientOptions): AiClient {
     // embedding：未配置 provider 时明确抛 AiError（诚实裁剪：不静默降级）
     embed: (text: string) => embedding.embed(text),
     embedMany: (texts: string[]) => embedding.embedMany(texts),
+    // 多模态（图片/视频——dashscope——编排由应用层（落盘/任务行/轮询）承担）
+    generateImage: (req, options) => multimodal.generateImage(req, options),
+    createVideoTask: (req, options) => multimodal.createVideoTask(req, options),
+    videoStatus: (taskId, options) => multimodal.videoStatus(taskId, options),
     // transport 无长生命周期资源（fetch 即用即弃）——no-op（对齐 MemoryAi/契约）
     close: async () => {},
   }
