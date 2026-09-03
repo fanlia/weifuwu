@@ -63,6 +63,12 @@
   - 语义锚点：**失败不记账**（then 内发送失败 → 不写 store → 下次重试——at-least-once 不丢信）；「邮件是否发过」= store 值（用户显式查询）
   - toJs：imports 渲染 + store 对称渲染；wfjs tokenize 补三字符 ops/三元 ?:/：；变量全局唯一命名空间（块级遮蔽 v2 裁剪）
   - fuzz round-trip 500 对恒等（import/store/三元/作用域感知生成器）——105 契约 + 627 server 全绿
+- **W8a 完成（函数）**：wfjs `function name(params) { body }` → def.functions + call 步骤。
+  - 调用形态二分（JS 一致）：`await f(...)` = 语句级调用（函数/内置）；无 await = 表达式（std 纯函数）
+  - return 值：函数内 → steps.<callId>.data（绑定解包）；顶层 return = 终止（不变）
+  - 函数体约束（v1 裁剪已记录）：纯逻辑——禁副作用内置/禁嵌套函数调用/禁引用外层步骤绑定；只读全局 vars；assign 写局部
+  - runner：局部 vars 注入参数 · fnDepth 64 守卫 · 函数体步骤 id 前缀 _fn:<name>:
+  - toJs 对称 + fuzz 500 对恒等——114 契约 + 636 server 全绿
 - **W4 完成（2026-09-03）**：exports（package.json `./workflow` 子路径 + build.mjs 独立 bundle——零运行时外部依赖）+ docs/server.md §7 + 回归门。
   - 实测：test:server 568 pass（含 workflow 46）/ audit 七线全绿 / tsc 0 错 / dist 子路径 import 验证通过
   - 探针重定位：无。W1–W4 全部按计划交付；引擎已具备 runWorkflow 全语义
