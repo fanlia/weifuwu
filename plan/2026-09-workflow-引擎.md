@@ -47,6 +47,15 @@
   - 语法：const/let/赋值/++//= //if(else)/while/for-of/return/内置调用/模板串（await/async 接受忽略）；静态检查：未声明/const 重赋值/重名/循环变量遮蔽/内置名冲突/裸块/链式赋值/
   - 绑定映射：步骤（data 解包 steps.<id>.data）/变量（vars.<name>）/循环（loop.item）
   - 实测：604 server 测试全绿（wfjs 26 + 语义升级后 82 workflow 契约）
+- **W6a 完成（JS 对齐批次——LLM 直觉 100% 准确的硬理由）**：表达式层逐字对齐 JS。
+  - `===`/`!==` 严格比较（与宽松 == 并存）· 三元 ?:（惰性）· **std 纯函数表达式内调用**（STD_FNS 注册表：sum/avg/clamp/count/pick/upper/lower/join/split——fns 参数贯穿 compile/evaluate/interpolate）
+  - 复合赋值 *= /= %= · var 拒绝（提示 let/const）· 系统根（input/steps/vars/loop）路径放行
+  - 副作用防线：内置名+对象参数两层挡住（http/email 表达式内语法层即报错）；checkExprCall 预留本地函数检查
+- **W6b 完成（runner 重构——最大波次）**：递归子链执行器 + IR 类型对齐。
+  - IR：set→**assign**{target,value} · forEach→**for**{items,step} · **stop 删除→return{}**（JS 顶层 return 终止语义——ASI 对齐）· if 分支（then/else 子链）
+  - 语义迁移：if 截断→**分支**（无 else 跳过子链继续）· edge 静默→跳过子链**继续**（不再截断/status=success）· **skipped 状态删除**（RunStatus='success'|'error'）
+  - ctx 扩展：vars 命名空间（assign 真跑）· loop 栈（嵌套恢复）· while/for maxIters 默认 1000 防死循环
+  - **e2e 闭环**：compileWfjs → execute 真跑 5 景象（变量链/while 计数/for-of 模板/return 终止/库存监控 edge 发一次）——97 契约 + 619 server 全绿
 - **W4 完成（2026-09-03）**：exports（package.json `./workflow` 子路径 + build.mjs 独立 bundle——零运行时外部依赖）+ docs/server.md §7 + 回归门。
   - 实测：test:server 568 pass（含 workflow 46）/ audit 七线全绿 / tsc 0 错 / dist 子路径 import 验证通过
   - 探针重定位：无。W1–W4 全部按计划交付；引擎已具备 runWorkflow 全语义
