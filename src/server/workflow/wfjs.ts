@@ -45,7 +45,7 @@ type WToken =
   | { t: 'punc'; v: string; pos: number; end: number }
   | { t: 'eof'; v: string; pos: number; end: number }
 
-const KEYWORDS = new Set(['const', 'let', 'var', 'if', 'else', 'while', 'for', 'of', 'return', 'function', 'import', 'export', 'from', 'as', 'default', 'await', 'async', 'once', 'true', 'false', 'null'])
+const KEYWORDS = new Set(['const', 'let', 'var', 'if', 'else', 'while', 'for', 'of', 'return', 'function', 'import', 'export', 'from', 'as', 'default', 'await', 'async', 'once', 'true', 'false', 'null', 'try', 'catch', 'finally'])
 const PUNCS = new Set(['{', '}', '(', ')', '[', ']', ';', ',', ':', '.'])
 /** 二元运算符（字面量后跟它 = 表达式继续——不是孤立字面量） */
 const BINARY_OPS = new Set(['+', '-', '*', '/', '%', '<', '>', '<=', '>=', '==', '!=', '===', '!==', '&&', '||'])
@@ -141,6 +141,7 @@ type WStmt =
   | { k: 'assign'; target: string; op: '=' | '+=' | '-=' | '*=' | '/=' | '%='; value: string }
   | { k: 'incdec'; target: string; inc: boolean }
   | { k: 'if'; cond: string; then: WStmt[]; else: WStmt[] | null; once: boolean }
+  | { k: 'try'; body: WStmt[]; catchBody: WStmt[] }
   | { k: 'while'; cond: string; body: WStmt[] }
   | { k: 'forof'; varName: string; items: string; body: WStmt[] }
   | { k: 'return'; value: WValue | null }
@@ -183,6 +184,7 @@ class WfjsParser {
       const v = (this.peek() as { v: string }).v
       if (v === 'const' || v === 'let' || v === 'var') return this.parseVar()
       if (v === 'if') return this.parseIf()
+      if (v === 'try') return this.parseTry()
       if (v === 'while') return this.parseWhile()
       if (v === 'for') return this.parseFor()
       if (v === 'return') return this.parseReturn()
@@ -194,6 +196,19 @@ class WfjsParser {
     }
     if (this.peek().t === 'ident') return this.parseAssignOrCall()
     this.fail(`wfjs: unexpected '${this.peek().t === 'eof' ? '(end)' : String((this.peek() as WToken).v)}'`, (this.peek() as WToken).pos)
+  }
+  private parseTry(): WStmt {
+    this.expect('try')
+    this.expect('{')
+    const body = this.parseBlockBody()
+    if (!this.isKw('catch')) this.fail(`wfjs: try 必须配 catch（v0 无 finally）——期望 catch`, (this.peek() as WToken).pos)
+    this.next()
+    if (this.peek().t === 'punc' && this.peek().v === '(') {
+      this.fail('wfjs: catch 绑定变量暂不支持（ES2019 可选绑定语义）——错误从 steps.<tryId>.error 读取', (this.peek() as WToken).pos)
+    }
+    this.expect('{')
+    const catchBody = this.parseBlockBody()
+    return { k: 'try', body, catchBody }
   }
   private parseBlockBody(): WStmt[] {
     const stmts: WStmt[] = []
@@ -823,6 +838,15 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
         if (elseSteps.length) config.else = { steps: elseSteps }
       }
       env.steps.push({ id: auto(), type: 'if', config })
+      return
+    }
+    case 'try': {
+      const body: NonNullable<WorkflowDef['steps']> = []
+      compileInto(stmt.body, childEnv(env, body), inLoop)
+      const catchSteps: NonNullable<WorkflowDef['steps']> = []
+      compileInto(stmt.catchBody, childEnv(env, catchSteps), inLoop)
+      const config: Record<string, unknown> = { step: { steps: body }, catch: { steps: catchSteps } }
+      env.steps.push({ id: auto(), type: 'try', config })
       return
     }
     case 'while': {

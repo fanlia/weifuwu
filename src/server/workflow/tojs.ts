@@ -13,7 +13,7 @@
  *   - 嵌套循环变量名：it / jt / kt / …（字母顺序）——与生成器约定一致
  *   - 模板 {{expr}} → `${expr}`（模板串）；纯文本字段 → 字符串字面量
  */
-import type { StepDef, WorkflowDef, AssignConfig, IfConfig, WhileConfig, ForConfig, ReturnConfig } from './contracts.ts'
+import type { StepDef, WorkflowDef, AssignConfig, IfConfig, WhileConfig, ForConfig, ReturnConfig, TryConfig } from './contracts.ts'
 import type { WorkflowImport } from './contracts.ts'
 import { parse as parseExpr, toSrc } from './expression.ts'
 import { FIELD_KIND } from './wfjs.ts'
@@ -205,6 +205,15 @@ function renderStep(step: StepDef, ctx: RenderCtx): string {
         lines.push(cfg.then?.steps.length ? '} else {' : '} else {')
         lines.push(indent(renderChain(cfg.else.steps, childLoopCtx(ctx))))
       }
+      lines.push('}')
+      return lines.join('\n')
+    }
+    case 'try': {
+      const cfg = step.config as unknown as TryConfig
+      const lines = ['try {']
+      if (cfg.step?.steps.length) lines.push(indent(renderChain(cfg.step.steps, childLoopCtx(ctx))))
+      lines.push('} catch {')
+      if (cfg.catch?.steps.length) lines.push(indent(renderChain(cfg.catch.steps, childLoopCtx(ctx))))
       lines.push('}')
       return lines.join('\n')
     }

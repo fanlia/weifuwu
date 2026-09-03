@@ -67,6 +67,8 @@ function collectDecls(def: WorkflowDef, declaredVars: Set<string>, stepIds: Set<
       if (sub2 && Array.isArray(sub2.steps)) walk(sub2.steps as StepDef[])
       const chain = cfg.step as { steps?: unknown } | undefined
       if (chain && Array.isArray(chain.steps)) walk(chain.steps as StepDef[])
+      const chainC = cfg.catch as { steps?: unknown } | undefined
+      if (chainC && Array.isArray(chainC.steps)) walk(chainC.steps as StepDef[])
     }
   }
   walk(def.steps)
@@ -170,6 +172,17 @@ function validateChain(
             if (!Array.isArray(chain.steps)) errors.push({ path: `${p}.config.${branch}.steps`, message: '必须是步骤数组' })
             else validateChain(chain.steps as StepDef[], `${p}.config.${branch}.steps`, registry, errors, seen, depth + 1)
           }
+        }
+        break
+      }
+      case 'try': {
+        // try/catch：step 链（try 体）+ catch 链（错误接管）——catch 必填（v0——finally 不支持）
+        validateChainField(config, 'step', registry, errors, seen, depth, p, 'steps')
+        const cchain = config.catch as { steps?: unknown } | undefined
+        if (!cchain || !Array.isArray(cchain.steps)) {
+          errors.push({ path: `${p}.config.catch.steps`, message: 'catch 链必须是步骤数组（v0 try 必配 catch）' })
+        } else {
+          validateChain(cchain.steps as StepDef[], `${p}.config.catch.steps`, registry, errors, seen, depth + 1)
         }
         break
       }

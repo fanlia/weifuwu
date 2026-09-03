@@ -11,7 +11,7 @@
  *   - dry 模式：effects 步骤打桩 {ok:true, dry:true}；非 effects 步骤照常执行
  *   - ctx.steps.<id> 为 StepOutput；ctx.vars.<name> 为 assign 变量；ctx.loop 为循环当前项
  */
-import type {
+import type { TryConfig,
   ExecuteOptions, RunResult, StepDef, StepEnv, StepHandler, StepOutput,
   WorkflowCtx, WorkflowDef, IfConfig, WhileConfig, ForConfig, AssignConfig, ReturnConfig, CallConfig,
 } from './contracts.ts'
@@ -99,6 +99,12 @@ async function execSteps(
       case 'if': {
         const cfg = step.config as unknown as IfConfig
         const flow = await execIf(step, cfg, ctx, env, registry, rt)
+        if (flow.k !== 'continue') return flow
+        continue
+      }
+      case 'try': {
+        const cfg = step.config as unknown as TryConfig
+        const flow = await execTry(step, cfg, ctx, env, registry, rt)
         if (flow.k !== 'continue') return flow
         continue
       }
@@ -207,6 +213,28 @@ async function execIf(
   // 分支语义：true → then；false → else——子链执行后继续后续
   const chain = satisfied ? cfg.then : (cfg.else ?? undefined)
   return chain ? execSteps(chain.steps, ctx, env, registry, rt) : { k: 'continue' }
+}
+
+async function execTry(
+  step: StepDef, cfg: TryConfig, ctx: WorkflowCtx, env: StepEnv, registry: RunnerRegistry, rt: Rt,
+): Promise<Flow> {
+  const { result, steps: out } = rt
+  // try 子链执行——失败（fail 置 status=error + Flow return）→ catch 接管控住（流转继续）
+  const preError = result.error
+  const f = await execSteps(cfg.step.steps, ctx, env, registry, rt)
+  if (f.k === 'return' && result.status === 'error' && result.error !== preError) {
+    const err = result.error ?? '未知错误'
+    out[step.id] = { ok: false, error: err } // steps.<tryId>.error 可读（步骤记录惯例：error 顶层）
+    result.status = 'success' // catch 接管——恢复成功态
+    result.error = undefined
+    result.executed.push(step.id)
+    if (cfg.catch?.steps.length) return execSteps(cfg.catch.steps, ctx, env, registry, rt)
+    return { k: 'continue' }
+  }
+  // 成功路径（或函数 return 穿透——不误判）
+  out[step.id] = { ok: true, data: {} }
+  result.executed.push(step.id)
+  return f
 }
 
 async function execWhile(

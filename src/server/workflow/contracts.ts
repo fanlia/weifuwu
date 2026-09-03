@@ -60,6 +60,13 @@ export interface ForConfig {
   maxIters?: number
 }
 
+/** try 步骤：执行 step 子链——失败（步骤抛错）→ catch 子链接管（流程继续——JS try/catch 语义）
+ *  catch 内错误读取：steps.<tryId>.error（catch 绑定变量 v0 不支持——ES2019 可选绑定） */
+export interface TryConfig {
+  step: StepChain
+  catch: StepChain
+}
+
 /** return 步骤：函数内 → 返回（值落 steps.<callId>.data）；顶层 → 终止整流程（success） */
 export interface ReturnConfig {
   value?: string
@@ -190,4 +197,4 @@ export interface ExecuteOptions {
 }
 
 /** 内建链步骤类型（runner 直接解释——不进 registry；validate 特判） */
-export const BUILTIN_TYPES = ['assign', 'if', 'while', 'for', 'return', 'call'] as const
+export const BUILTIN_TYPES = ['assign', 'if', 'try', 'while', 'for', 'return', 'call'] as const
