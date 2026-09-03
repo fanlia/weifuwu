@@ -34,11 +34,26 @@ if (count > 0) { await log({ message: \`缺货 \${count} 件\` }) }`,
   },
   {
     key: 'health-check',
-    name: '接口健康检查（本地演示）',
-    wfjs: (o: string) => `// 健康检查：HTTP 200 + 数据非空 → 告警日志；失败路径也可演示
+    name: '健康检查（失败通知——try/catch 范例）',
+    wfjs: (o: string) => `// 健康检查（try/catch：网络级失败也能通知——监控流程核心形态）
+// 改 URL 为不可达地址可演示 catch 路径；错误经 steps.<tryid>.error 读取
+try {
 const res = await http({ url: '${o}/api/demo/stock?stock=1' })
-if (res.status !== 200) { await log({ message: \`接口异常：\${res.status}\` }) } else if (res.json.items.length === 0) {
-  await log({ message: '接口正常但无数据' })
+if (res.status !== 200) { await log({ message: \`接口异常：\${res.status}\` }) }
+} catch {
+await log({ message: \`健康检查失败：\${steps._try1.error}\` })
+}`,
+  },
+  {
+    key: 'conditional-alert',
+    name: '条件告警（本地演示）',
+    wfjs: (o: string) => `// 条件告警：阈值判断 + 静默/告警两路径（status>=400 可编排——不抛）
+const res = await http({ url: '${o}/api/demo/stock?stock=0' })
+const count = res.json.items.length
+if (count >= 3) {
+await log({ message: \`严重告警：缺货 \${count} 件\` })
+} else if (count > 0) {
+await log({ message: \`提示：缺货 \${count} 件\` })
 }`,
   },
   {
@@ -101,6 +116,17 @@ export const Workflows: Component = (_props, ctx) => {
     }
     $.creating = false
     rerender()
+  }
+
+  async function runRow(id: string): Promise<void> {
+    try {
+      const d = await ctx.api!.post<{ run: { status: string; error: string | null } }>(`/api/workflows/${id}/runs`, { args: {} })
+      const st = d.run?.status
+      ctx.toast!(st === 'success' ? '执行成功' : `执行：${st}${d.run?.error ? `——${d.run.error}` : ''}`, st === 'success' ? 'success' : 'error')
+      await load()
+    } catch (e: any) {
+      ctx.toast!(e?.message ?? '执行失败', 'error')
+    }
   }
 
   async function remove(id: string): Promise<void> {
@@ -167,6 +193,7 @@ export const Workflows: Component = (_props, ctx) => {
                   )}
                   {!r.last_run && <span class="wf-font-xs wf-text-tertiary">未运行</span>}
                   <Badge variant={r.status === 'active' ? 'success' : 'default'}>{r.status}</Badge>
+                  <Button size="sm" variant="ghost" onClick={() => void runRow(r.id)}>执行</Button>
                   <Button size="sm" variant="ghost" onClick={() => void remove(r.id)}>删除</Button>
                 </div>
               ))}
