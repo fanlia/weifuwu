@@ -1,19 +1,38 @@
 /**
- * weifuwu/workflow/runner — 执行器（ctx 数据流 + 短路 + dry-run）
+ * weifuwu/workflow/runner — 执行器（递归子链 + 分支 + 循环 + 终止 + dry-run）
  *
- * 流程（语义红线，契约测试锁定）：
- *   - 步骤级 when 不通过 → 跳过该步（skippedSteps），**后续继续**
- *   - if 步骤（config.when）不通过 → 截断：status='skipped' + skippedReason（非错误）
+ * 语义红线（契约测试锁定——与 JS 心智对齐）：
+ *   - 步骤级 when 不通过 → 跳过该步（skippedSteps），后续继续
+ *   - if 分支：when true → then；false → else（无 else 则跳过子链）——**后续继续**
+ *   - if edge：「发一次」——静默 = 跳过子链继续后续（变假重新武装）
+ *   - while/for：循环执行 step 子链（maxIters 硬上限默认 1000，超限报错）
+ *   - return（无值）→ 终止整流程，status='success'（JS 顶层 return 同义）
  *   - 步骤 run 抛错 → stepResults[id]={ok:false,error} → 终止 status='error'
  *   - dry 模式：effects 步骤打桩 {ok:true, dry:true}；非 effects 步骤照常执行
- *   - ctx.steps.<id> 为 StepOutput，模板引用 {{steps.<id>.data.xxx}}
+ *   - ctx.steps.<id> 为 StepOutput；ctx.vars.<name> 为 assign 变量；ctx.loop 为循环当前项
  */
-import type { ExecuteOptions, RunResult, StepDef, StepEnv, StepHandler, StepOutput, WorkflowCtx, WorkflowDef } from './contracts.ts'
+import type {
+  ExecuteOptions, RunResult, StepDef, StepEnv, StepHandler, StepOutput,
+  WorkflowCtx, WorkflowDef, IfConfig, WhileConfig, ForConfig, AssignConfig, ReturnConfig,
+} from './contracts.ts'
 import { compile, toBoolean } from './expression.ts'
+import { STD_FNS } from './std.ts'
 import { evaluateEdge } from './edge.ts'
 
 export interface RunnerRegistry {
   get(type: string): StepHandler | undefined
+}
+
+/** 子链执行信号：穿透所有嵌套层 */
+type Flow = 'continue' | 'return'
+
+/** 运行期共享状态（递归间传递——同引用不脱节） */
+interface Rt {
+  result: RunResult
+  steps: WorkflowCtx['steps']
+  dry: boolean
+  signal?: AbortSignal
+  defaultEdgeKey: string
 }
 
 export async function runWorkflow(
@@ -25,104 +44,239 @@ export async function runWorkflow(
   const mode = opts.mode ?? 'live'
   const dry = mode === 'dry'
   const startedAt = Date.now()
-  // ctx.steps 与 result.stepResults 同引用：步骤输出既是回放记录也是模板输入——
-  // 一个对象不会脱节（W2 实证：曾写两处导致模板读空）
+  // ctx.steps 与 result.stepResults 同引用：步骤输出既是回放记录也是模板输入
   const steps: WorkflowCtx['steps'] = {}
-  const ctx: WorkflowCtx = { steps, input: opts.input }
   const result: RunResult = { status: 'success', executed: [], skippedSteps: [], stepResults: steps, dry, startedAt, finishedAt: 0 }
-  const skippedSteps = result.skippedSteps // 同引用——重构后曾脱节（W2 实证）
-  let signal = opts.signal
+  const rt: Rt = {
+    result, steps, dry, signal: opts.signal,
+    defaultEdgeKey: `wf:edge:${def.id ?? def.name ?? 'anon'}:`,
+  }
+  const flow = await execSteps(def.steps, { steps, vars: {}, input: opts.input }, env, registry, rt)
+  void flow // 顶层 return/continue 均 success（error 已由 aborted/fail 设置）
+  result.finishedAt = Date.now()
+  return result
+}
 
-  for (const step of def.steps) {
-    if (signal?.aborted) {
+/** 递归执行步骤序列（顶层 + 子链共用）——返回 'return' 表示终止信号（穿透） */
+async function execSteps(
+  steps: StepDef[],
+  ctx: WorkflowCtx,
+  env: StepEnv,
+  registry: RunnerRegistry,
+  rt: Rt,
+): Promise<Flow> {
+  const { result, steps: out } = rt
+  for (const step of steps) {
+    if (rt.signal?.aborted) {
       result.status = 'error'
       result.error = `aborted before step '${step.id}'`
-      break
+      return 'return'
     }
     // 步骤级 when：不通过 → 跳过，继续后续
     if (step.when !== undefined) {
       let pass: boolean
-      try { pass = toBoolean(compile(step.when)(ctx)) }
+      try { pass = toBoolean(evaluateExpr(step.when, ctx, `when of '${step.id}'`)) }
       catch (e) {
-        result.stepResults[step.id] = { ok: false, error: `when 表达式错误：${(e as Error).message}` }
+        out[step.id] = { ok: false, error: `when 表达式错误：${(e as Error).message}` }
         result.status = 'error'
         result.error = `step '${step.id}': ${(e as Error).message}`
-        break
+        return 'return'
       }
-      if (!pass) { skippedSteps.push(step.id); continue }
+      if (!pass) { result.skippedSteps.push(step.id); continue }
     }
 
-    // if 步骤：截断语义（不通过 → 终止，非错误）；config.edge → 上升沿去重（「发一次」）
-    if (step.type === 'if') {
-      const whenExpr = String((step.config as Record<string, unknown>)?.when ?? '')
-      let fired: boolean
-      try { fired = toBoolean(compile(whenExpr)(ctx)) }
-      catch (e) {
-        result.stepResults[step.id] = { ok: false, error: `if 表达式错误：${(e as Error).message}` }
-        result.status = 'error'
-        result.error = `step '${step.id}': ${(e as Error).message}`
-        break
-      }
-      const edgeCfg = (step.config as Record<string, unknown>)?.edge
-      if (edgeCfg) {
-        // edge 去重：上升沿 fire；真持续静默；变假解除武装
-        const store = env.edge
-        if (!store) {
-          result.stepResults[step.id] = { ok: false, error: 'if edge 需要 edge 存储（workflow({ redis } / edgeStore)）' }
-          result.status = 'error'
-          result.error = `step '${step.id}': 未注入 edge 存储`
-          break
-        }
-        const key = String((step.config as Record<string, unknown>)?.key ?? `wf:edge:${def.id ?? def.name ?? 'anon'}:${step.id}`)
-        const { fired: fire, next } = evaluateEdge(await store.get(key), fired)
-        await store.set(key, next)
-        result.stepResults[step.id] = { ok: true, data: { satisfied: fired, fired: fire } }
-        result.executed.push(step.id)
-        if (!fire) {
-          result.status = 'skipped'
-          result.skippedReason = `edge '${step.id}' 已触发（条件持续为真，等待变假重新武装）`
-          break
+    switch (step.type) {
+      case 'assign': {
+        const cfg = step.config as unknown as AssignConfig
+        try {
+          ctx.vars[cfg.target] = evaluateExpr(cfg.value, ctx, `赋值 ${cfg.target}`)
+          out[step.id] = { ok: true, data: ctx.vars[cfg.target] }
+          result.executed.push(step.id)
+        } catch (e) {
+          return fail(rt, step, e)
         }
         continue
       }
-      result.stepResults[step.id] = { ok: true, data: { satisfied: fired } }
-      result.executed.push(step.id)
-      if (!fired) {
-        result.status = 'skipped'
-        result.skippedReason = `if '${step.id}' 不满足：${whenExpr}`
-        break
+      case 'if': {
+        const cfg = step.config as unknown as IfConfig
+        const flow = await execIf(step, cfg, ctx, env, registry, rt)
+        if (flow !== 'continue') return flow
+        continue
       }
-      continue
+      case 'while': {
+        const cfg = step.config as unknown as WhileConfig
+        const flow = await execWhile(step, cfg, ctx, env, registry, rt)
+        if (flow !== 'continue') return flow
+        continue
+      }
+      case 'for': {
+        const cfg = step.config as unknown as ForConfig
+        const flow = await execFor(step, cfg, ctx, env, registry, rt)
+        if (flow !== 'continue') return flow
+        continue
+      }
+      case 'return': {
+        // JS 顶层 return 语义：终止整流程（success）——值只在 W8 函数内有效
+        const cfg = step.config as unknown as ReturnConfig
+        out[step.id] = { ok: true, data: cfg.value !== undefined ? { value: evaluateExpr(cfg.value, ctx, `return`) } : undefined }
+        result.executed.push(step.id)
+        return 'return'
+      }
     }
 
     const handler = registry.get(step.type)
     if (!handler) {
-      result.stepResults[step.id] = { ok: false, error: `未注册步骤类型：'${step.type}'` }
+      out[step.id] = { ok: false, error: `未注册步骤类型：'${step.type}'` }
       result.status = 'error'
       result.error = `step '${step.id}': 未注册类型 '${step.type}'`
-      break
+      return 'return'
     }
     const config = (step.config ?? {}) as Record<string, unknown>
     try {
       let data: unknown
-      if (dry && handler.effects) {
+      if (rt.dry && handler.effects) {
         data = undefined
-        result.stepResults[step.id] = { ok: true, dry: true }
+        out[step.id] = { ok: true, dry: true }
       } else {
         data = await handler.run(config, ctx, env)
-        result.stepResults[step.id] = { ok: true, data }
+        out[step.id] = { ok: true, data }
       }
       result.executed.push(step.id)
     } catch (e) {
-      result.stepResults[step.id] = { ok: false, error: (e as Error).message }
-      result.status = 'error'
-      result.error = `step '${step.id}' (${step.type}): ${(e as Error).message}`
-      break
+      return fail(rt, step, e)
     }
   }
+  return 'continue'
+}
 
-  result.finishedAt = Date.now()
-  return result
+async function execIf(
+  step: StepDef, cfg: IfConfig, ctx: WorkflowCtx, env: StepEnv, registry: RunnerRegistry, rt: Rt,
+): Promise<Flow> {
+  const { result, steps: out } = rt
+  let satisfied: boolean
+  try { satisfied = toBoolean(evaluateExpr(cfg.when, ctx, `if '${step.id}' 条件`)) }
+  catch (e) {
+    out[step.id] = { ok: false, error: `if 表达式错误：${(e as Error).message}` }
+    result.status = 'error'
+    result.error = `step '${step.id}': ${(e as Error).message}`
+    return 'return'
+  }
+  if (cfg.edge) {
+    if (!env.edge) {
+      out[step.id] = { ok: false, error: 'if edge 需要 edge 存储（workflow({ redis } / edgeStore)）' }
+      result.status = 'error'
+      result.error = `step '${step.id}': 未注入 edge 存储`
+      return 'return'
+    }
+    const key = cfg.key ?? `${rt.defaultEdgeKey}${step.id}`
+    const { fired: fire, next } = evaluateEdge(await env.edge.get(key), satisfied)
+    await env.edge.set(key, next)
+    out[step.id] = { ok: true, data: { satisfied, fired: fire } }
+    result.executed.push(step.id)
+    // 静默 = 跳过子链**继续后续**（不再截断——edge 语义 W6b）
+    if (!fire) return 'continue'
+    return cfg.then ? execSteps(cfg.then.steps, ctx, env, registry, rt) : 'continue'
+  }
+  out[step.id] = { ok: true, data: { satisfied } }
+  result.executed.push(step.id)
+  // 分支语义：true → then；false → else——子链执行后继续后续
+  const chain = satisfied ? cfg.then : (cfg.else ?? undefined)
+  return chain ? execSteps(chain.steps, ctx, env, registry, rt) : 'continue'
+}
+
+async function execWhile(
+  step: StepDef, cfg: WhileConfig, ctx: WorkflowCtx, env: StepEnv, registry: RunnerRegistry, rt: Rt,
+): Promise<Flow> {
+  const { result, steps: out } = rt
+  const maxIters = cfg.maxIters ?? 1000
+  for (let i = 0; ; i++) {
+    if (rt.signal?.aborted) {
+      result.status = 'error'
+      result.error = `aborted in while '${step.id}'`
+      return 'return'
+    }
+    let cond: boolean
+    try { cond = toBoolean(evaluateExpr(cfg.when, ctx, `while '${step.id}' 条件`)) }
+    catch (e) {
+      out[step.id] = { ok: false, error: `while 表达式错误：${(e as Error).message}` }
+      result.status = 'error'
+      result.error = `step '${step.id}': ${(e as Error).message}`
+      return 'return'
+    }
+    if (!cond) {
+      out[step.id] = { ok: true, data: { iterations: i } }
+      result.executed.push(step.id)
+      return 'continue'
+    }
+    if (i >= maxIters) {
+      out[step.id] = { ok: false, error: `while 超过 maxIters=${maxIters}（防死循环）` }
+      result.status = 'error'
+      result.error = `step '${step.id}': while 超过 maxIters=${maxIters}`
+      return 'return'
+    }
+    const flow = await execSteps(cfg.step.steps, ctx, env, registry, rt)
+    if (flow !== 'continue') return flow
+  }
+}
+
+async function execFor(
+  step: StepDef, cfg: ForConfig, ctx: WorkflowCtx, env: StepEnv, registry: RunnerRegistry, rt: Rt,
+): Promise<Flow> {
+  const { result, steps: out } = rt
+  let items: unknown
+  try { items = evaluateExpr(cfg.items, ctx, `for '${step.id}' items`) }
+  catch (e) {
+    out[step.id] = { ok: false, error: `for 表达式错误：${(e as Error).message}` }
+    result.status = 'error'
+    result.error = `step '${step.id}': ${(e as Error).message}`
+    return 'return'
+  }
+  if (!Array.isArray(items)) {
+    out[step.id] = { ok: false, error: `for items 必须是数组（得到 ${String(items)}）` }
+    result.status = 'error'
+    result.error = `step '${step.id}': for items 非数组`
+    return 'return'
+  }
+  const maxIters = cfg.maxIters ?? 1000
+  if (items.length > maxIters) {
+    out[step.id] = { ok: false, error: `for 超过 maxIters=${maxIters}（items ${items.length} 项）` }
+    result.status = 'error'
+    result.error = `step '${step.id}': for 超过 maxIters=${maxIters}`
+    return 'return'
+  }
+  // 循环上下文（嵌套：保存外层，退出恢复）
+  const prevLoop = ctx.loop
+  for (let i = 0; i < items.length; i++) {
+    if (rt.signal?.aborted) {
+      result.status = 'error'
+      result.error = `aborted in for '${step.id}'`
+      return 'return'
+    }
+    ctx.loop = { item: items[i], index: i }
+    const flow = await execSteps(cfg.step.steps, ctx, env, registry, rt)
+    if (flow !== 'continue') { ctx.loop = prevLoop; return flow }
+  }
+  ctx.loop = prevLoop
+  out[step.id] = { ok: true, data: { iterations: items.length } }
+  result.executed.push(step.id)
+  return 'continue'
+}
+
+/** 公共错误收口（同引用写步骤输出 + 终止） */
+function fail(rt: Rt, step: StepDef, e: unknown): Flow {
+  rt.steps[step.id] = { ok: false, error: (e as Error).message }
+  rt.result.status = 'error'
+  rt.result.error = `step '${step.id}' (${step.type}): ${(e as Error).message}`
+  return 'return'
+}
+
+/** 表达式求值（std 纯函数环境注入——sum/avg/count…） */
+function evaluateExpr(src: string, ctx: WorkflowCtx, where: string): unknown {
+  try {
+    return compile(src, STD_FNS)(ctx)
+  } catch (e) {
+    throw new Error(`表达式错误（${where}）：${(e as Error).message}`)
+  }
 }
 
 export type { StepDef, StepOutput }

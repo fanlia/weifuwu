@@ -19,8 +19,10 @@ const alertDef: WorkflowDef = {
   steps: [
     // "有数据" = 数组非空（JS 语义：length > 0）
     { id: 'probe', type: 'http', config: { url: 'https://api.test/stock' } },
-    { id: 'gate', type: 'if', config: { when: 'steps.probe.data.json.items.length > 0', edge: true } },
-    { id: 'mail', type: 'email', config: { to: 'ops@x.com', subject: '预警', body: '{{steps.probe.data.json.items}}' } },
+    { id: 'gate', type: 'if', config: {
+      when: 'steps.probe.data.json.items.length > 0', edge: true,
+      then: { steps: [{ id: 'mail', type: 'email', config: { to: 'ops@x.com', subject: '预警', body: '{{steps.probe.data.json.items}}' } }] },
+    } },
   ],
 }
 
@@ -53,7 +55,7 @@ describe('edge: 集成（「发一次预警」全周期）', () => {
     assert.equal(sent.length, 1)
     // 2. 数据持续 → 静默（不重发）
     const r2 = await wf.execute(alertDef)
-    assert.equal(r2.status, 'skipped')
+    assert.equal(r2.status, 'success') // 静默 = 跳过子链继续（不再截断）
     assert.equal(r2.executed.length, 2)
     assert.deepEqual(r2.stepResults.gate.data, { satisfied: true, fired: false })
     assert.equal(sent.length, 1, '持续为真期间不重发')
@@ -64,7 +66,7 @@ describe('edge: 集成（「发一次预警」全周期）', () => {
       email: { send: async (m) => { sent.push(m.to.join(',')) ; return { ok: true, id: 'm2' } } },
     })
     const r3 = await wfEmpty.execute(alertDef)
-    assert.equal(r3.status, 'skipped')
+    assert.equal(r3.status, 'success')
     assert.equal(store.data.get('wf:edge:stock-monitor:gate'), '0')
     // 4. 数据恢复 → 再次上升沿 → 再发
     const r4 = await wf.execute(alertDef)

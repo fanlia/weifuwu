@@ -348,8 +348,12 @@ class WfjsParser {
     return { k: 'forof', varName: name.v, items, body }
   }
   private parseReturn(): WStmt {
-    this.expect('return')
+    const kw = this.next() // return
+    // JS ASI 对齐：return 与下一 token 之间换行 → 无值 return（终止语义）
+    const next = this.peek()
     if (this.isPunc(';') || this.isPunc('}')) return { k: 'return', value: null }
+    const gap = next.t === 'eof' ? '' : this.src.slice(kw.end, next.pos)
+    if (gap.includes('\n')) return { k: 'return', value: null }
     return { k: 'return', value: this.parseValue() }
   }
   private parseAssignOrCall(): WStmt {
@@ -535,7 +539,7 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
         env.bindings.set(name, { kind: 'step', id: name })
       } else {
         const value = stmt.init ? compileValue(stmt.init as WValue, env, `声明 ${name}`, 'expr') : 'null'
-        env.steps.push({ id: name, type: 'set', config: { name, value } })
+        env.steps.push({ id: name, type: 'assign', config: { target: name, value } })
         env.bindings.set(name, { kind: 'var', name })
       }
       if (stmt.isConst) env.consts.add(name)
@@ -546,15 +550,15 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
       if (!env.bindings.has(stmt.target)) throw new Error(`wfjs: 未声明变量 '${stmt.target}'`)
       const rhs = rewriteExpr(stmt.value, env.bindings, `赋值 ${stmt.target}`)
       const value = stmt.op === '=' ? rhs : `(vars.${stmt.target} ${stmt.op[0]} ${rhs})`
-      env.steps.push({ id: auto(), type: 'set', config: { name: stmt.target, value } })
+      env.steps.push({ id: auto(), type: 'assign', config: { target: stmt.target, value } })
       return
     }
     case 'incdec': {
       if (env.consts.has(stmt.target)) throw new Error(`wfjs: 不能给 const '${stmt.target}' 赋值`)
       if (!env.bindings.has(stmt.target)) throw new Error(`wfjs: 未声明变量 '${stmt.target}'`)
       env.steps.push({
-        id: auto(), type: 'set',
-        config: { name: stmt.target, value: `(vars.${stmt.target} ${stmt.inc ? '+' : '-'} 1)` },
+        id: auto(), type: 'assign',
+        config: { target: stmt.target, value: `(vars.${stmt.target} ${stmt.inc ? '+' : '-'} 1)` },
       })
       return
     }
@@ -587,7 +591,7 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
       child.bindings.set(stmt.varName, { kind: 'loop' })
       const body: NonNullable<WorkflowDef['steps']> = []
       compileInto(stmt.body, childEnv(child, body), true)
-      env.steps.push({ id: auto(), type: 'forEach', config: { items, step: { steps: body } } })
+      env.steps.push({ id: auto(), type: 'for', config: { items, step: { steps: body } } })
       return
     }
     case 'return': {
@@ -620,7 +624,8 @@ function addBuiltinStep(call: WCall, bindId: string | null, env: CompileEnv): vo
   for (const arg of call.args) {
     config[arg.key as string] = compileArg(arg, call.name, env)
   }
-  env.steps.push({ id, type: call.name, config })
+  // stop() 是 JS return（无值终止）的对齐——编译为 return 步骤
+  env.steps.push({ id, type: call.name === 'stop' ? 'return' : call.name, config })
 }
 
 /**

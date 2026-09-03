@@ -12,11 +12,11 @@ describe('wfjs: 基础编译', () => {
     const def = compileWfjs(`const res = await http({ url: 'https://api.test/items' })`)
     assert.deepEqual(def.steps, [{ id: 'res', type: 'http', config: { url: 'https://api.test/items' } }])
   })
-  it('const 绑定表达式 → set 变量步骤', () => {
+  it('const 绑定表达式 → assign 变量步骤', () => {
     const def = compileWfjs(`const page = 0\nlet limit = 10`)
     assert.deepEqual(def.steps, [
-      { id: 'page', type: 'set', config: { name: 'page', value: '0' } },
-      { id: 'limit', type: 'set', config: { name: 'limit', value: '10' } },
+      { id: 'page', type: 'assign', config: { target: 'page', value: '0' } },
+      { id: 'limit', type: 'assign', config: { target: 'limit', value: '10' } },
     ])
   })
   it('模板串 → DSL 插值（表达式改写）', () => {
@@ -59,12 +59,12 @@ describe('wfjs: 控制流编译', () => {
     const w = def.steps[1]
     assert.equal(w.type, 'while')
     assert.equal(w.config.when, '(vars.page < 3)')
-    assert.deepEqual(w.config.step.steps[0].config, { name: 'page', value: '(vars.page + 1)' })
+    assert.deepEqual(w.config.step.steps[0].config, { target: 'page', value: '(vars.page + 1)' })
   })
   it('for-of → forEach + loop.item 映射', () => {
     const def = compileWfjs(`const r = await http({ url: 'x' })\nfor (const it of r.json.items) { await log({ message: it.name }) }`)
     const f = def.steps[1]
-    assert.equal(f.type, 'forEach')
+    assert.equal(f.type, 'for')
     assert.equal(f.config.items, 'steps.r.data.json.items')
     const inner = f.config.step.steps[0]
     assert.equal(inner.type, 'log')
@@ -74,25 +74,25 @@ describe('wfjs: 控制流编译', () => {
     const def = compileWfjs(`return 42`)
     assert.deepEqual(def.steps, [{ id: '_return1', type: 'return', config: { value: '42' } }])
   })
-  it('incdec / += / -= 糖 → set', () => {
+  it('incdec / += / -= 糖 → assign', () => {
     const def = compileWfjs(`let n = 0\nn++\nn += 2\nn -= 1`)
-    assert.deepEqual(def.steps[1].config, { name: 'n', value: '(vars.n + 1)' })
-    assert.deepEqual(def.steps[2].config, { name: 'n', value: '(vars.n + 2)' })
-    assert.deepEqual(def.steps[3].config, { name: 'n', value: '(vars.n - 1)' })
+    assert.deepEqual(def.steps[1].config, { target: 'n', value: '(vars.n + 1)' })
+    assert.deepEqual(def.steps[2].config, { target: 'n', value: '(vars.n + 2)' })
+    assert.deepEqual(def.steps[3].config, { target: 'n', value: '(vars.n - 1)' })
   })
   it('复合赋值 *= /= %=（与算术运算符一一对应）', () => {
     const def = compileWfjs(`let n = 10\nn *= 2\nn /= 4\nn %= 3`)
-    assert.deepEqual(def.steps[1].config, { name: 'n', value: '(vars.n * 2)' })
-    assert.deepEqual(def.steps[2].config, { name: 'n', value: '(vars.n / 4)' })
-    assert.deepEqual(def.steps[3].config, { name: 'n', value: '(vars.n % 3)' })
+    assert.deepEqual(def.steps[1].config, { target: 'n', value: '(vars.n * 2)' })
+    assert.deepEqual(def.steps[2].config, { target: 'n', value: '(vars.n / 4)' })
+    assert.deepEqual(def.steps[3].config, { target: 'n', value: '(vars.n % 3)' })
   })
   it('表达式内 std 纯函数调用（sum 白名单校验通过）', () => {
     const def = compileWfjs(`let items = input.list\nlet n = sum(items, 2)`)
-    assert.deepEqual(def.steps[1].config, { name: 'n', value: 'sum(vars.items, 2)' })
+    assert.deepEqual(def.steps[1].config, { target: 'n', value: 'sum(vars.items, 2)' })
   })
   it('系统根路径直接放行（input/steps/vars/loop）', () => {
     const def = compileWfjs(`let n = input.count`)
-    assert.deepEqual(def.steps[0].config, { name: 'n', value: 'input.count' })
+    assert.deepEqual(def.steps[0].config, { target: 'n', value: 'input.count' })
   })
 })
 

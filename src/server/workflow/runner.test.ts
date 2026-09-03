@@ -78,7 +78,7 @@ describe('runner: 短路语义', () => {
     assert.deepEqual(r.executed, ['p', 'gate', 'tail'])
     assert.deepEqual(r.stepResults.gate.data, { satisfied: true })
   })
-  it('if 不通过 → 截断：status=skipped（非错误）+ skippedReason', async () => {
+  it('if 不通过 → 分支语义：else/无 else 跳过子链，后续继续（success）', async () => {
     const def: WorkflowDef = {
       steps: [
         { id: 'p', type: 'http', config: { url: 'x' } },
@@ -87,11 +87,31 @@ describe('runner: 短路语义', () => {
       ],
     }
     const r = await makeWf().execute(def)
-    assert.equal(r.status, 'skipped')
-    assert.match(r.skippedReason ?? '', /gate/)
+    assert.equal(r.status, 'success')
     assert.equal(r.error, undefined)
-    assert.equal(r.stepResults.tail, undefined)
-    assert.deepEqual(r.executed, ['p', 'gate'])
+    // 分支失败 → then 没走 → 后续 tail 继续执行
+    assert.deepEqual(r.executed, ['p', 'gate', 'tail'])
+    assert.deepEqual(r.stepResults.gate.data, { satisfied: false })
+  })
+  it('if then/else 子链：条件真走 then，假走 else——都继续后续', async () => {
+    const def: WorkflowDef = {
+      steps: [
+        { id: 'gate', type: 'if', config: {
+          when: 'input.n > 1', then: { steps: [{ id: 'yes', type: 'log', config: {} }] },
+          else: { steps: [{ id: 'no', type: 'log', config: {} }] },
+        } },
+        { id: 'tail', type: 'log', config: {} },
+      ],
+    }
+    const r = await makeWf().execute(def, { input: { n: 5 } })
+    assert.equal(r.status, 'success')
+    assert.ok(r.stepResults.yes, 'then 分支执行')
+    assert.ok(!r.stepResults.no)
+    assert.ok(r.stepResults.tail, '子链后继续')
+    const r2 = await makeWf().execute(def, { input: { n: 0 } })
+    assert.ok(!r2.stepResults.yes)
+    assert.ok(r2.stepResults.no)
+    assert.ok(r2.stepResults.tail)
   })
 })
 
