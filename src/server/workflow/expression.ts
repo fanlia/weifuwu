@@ -1,27 +1,31 @@
 /**
- * weifuwu/workflow/expression — 布尔表达式 + 插值（纯函数，零依赖）
+ * weifuwu/workflow/expression — JS 表达式子集（纯函数，零依赖）
  *
  * 语言（v1 定版——多一个运算符 = 一次契约测试）：
  *   expr    := or
  *   or      := and ('||' and)*
- *   and     := unary ('&&' unary)*
- *   unary   := '!' unary | atom
- *   atom    := path ('exists' | ('==' | '!=') (path | literal))? | '(' expr ')' | literal
+ *   and     := cmp ('&&' cmp)*
+ *   cmp     := arith (('==' | '!=' | '<' | '<=' | '>' | '>=') arith)?
+ *   arith   := term (('+' | '-') term)*
+ *   term    := unary (('*' | '/' | '%') unary)*
+ *   unary   := ('!' | '-') unary | atom
+ *   atom    := path | literal | '(' expr ')'
  *   literal := 'null' | 'true' | 'false' | number | 'str' | "str"
- *   path    := ident ('.' ident | '[' number ']')*
+ *   path    := ident ('.' ident | '[' number ']' | '[*]')*
  *
- * 语义定版（写死进测试）：
- *   - 比较用 JS 宽松 ==（'200' == 200 成立——API 抓取场景常见；null == undefined 成立）
- *   - exists = 值 !== undefined（JSON null 存在）
- *   - 裸 path/literal 的布尔语境 = 存在且非空（undefined/null/''/[]/{} → false；0 → true）
- *   - 逻辑运算符产出 boolean（不做 JS 短路返回值语义）
- *   - 无 eval / 无函数调用 / 无算术 —— 安全面：表达式在受信配置中执行
+ * 语义定版（**= JS 表达式子集**——逐条 JS，仅两处安全偏差文档化）：
+ *   - 比较用 JS 宽松 ==（'200' == 200 成立）；布尔语境 = JS truthy（[] → true；0 → false）
+ *   - 逻辑运算符返回操作数（JS 语义：a || 'default' 默认值模式）
+ *   - **偏差①（防呆）**：算术严格数字——非 number 操作数抛错（JS 的 '1'+1='11' 是著名坑；拼接走模板字段）
+ *   - **偏差②（防呆）**：非有限结果抛错（JS 除零返回 Infinity/NaN）
+ *   - '.' 段名 'length'：数组/字符串 → 长度；'[*]' 投影：数组 → 逐元素求值 + flat(1)
+ *   - 无 eval / 无函数调用 —— 安全面：表达式在受信配置中执行
  *
  * ```ts
- * import { compile, evaluateBoolean, interpolate } from './expression.ts'
- * const pred = compile('steps.http.json.data.items exists')
- * evaluateBoolean(pred, ctx)  // → boolean
- * interpolate('{{data.items[0].price}} 元', ctx)  // → 字符串
+ * import { compile, toBoolean, interpolate } from './expression.ts'
+ * const pred = compile('vars.count < 10 && res.json.items.length > 0')
+ * toBoolean(pred(ctx))      // → boolean（JS truthy）
+ * interpolate('共 {{items.length}} 个', ctx)  // → 字符串
  * ```
  */
 
@@ -30,8 +34,9 @@
 export type ExprNode =
   | { kind: 'path'; segments: (string | number)[] }
   | { kind: 'literal'; value: unknown }
-  | { kind: 'compare'; left: ExprNode; op: '==' | '!='; right: ExprNode }
-  | { kind: 'exists'; target: ExprNode }
+  | { kind: 'compare'; op: '==' | '!=' | '<' | '<=' | '>' | '>='; left: ExprNode; right: ExprNode }
+  | { kind: 'arith'; op: '+' | '-' | '*' | '/' | '%'; left: ExprNode; right: ExprNode }
+  | { kind: 'neg'; operand: ExprNode }
   | { kind: 'not'; operand: ExprNode }
   | { kind: 'and'; left: ExprNode; right: ExprNode }
   | { kind: 'or'; left: ExprNode; right: ExprNode }
@@ -44,12 +49,15 @@ type Token =
   | { t: 'ident'; v: string; pos: number }
   | { t: 'num'; v: number; pos: number }
   | { t: 'str'; v: string; pos: number }
-  | { t: 'op'; v: '==' | '!=' | '&&' | '||' | '!'; pos: number }
-  | { t: 'punc'; v: '.' | '[' | ']' | '(' | ')'; pos: number }
+  | { t: 'op'; v: string; pos: number }
+  | { t: 'punc'; v: '.' | '[' | ']' | '(' | ')' | ','; pos: number }
   | { t: 'eof'; pos: number }
 
-const IDENT = /[A-Za-z_][A-Za-z0-9_]*/
+const IDENT = /[A-Za-z_$][A-Za-z0-9_$]*/
 const NUM = /[0-9]+(?:\.[0-9]+)?/
+
+const TWO_CHAR_OPS = ['==', '!=', '&&', '||', '<=', '>=']
+const ONE_CHAR_OPS = ['!', '+', '-', '*', '/', '%', '<', '>']
 
 function tokenize(src: string): Token[] {
   const tokens: Token[] = []
@@ -79,14 +87,18 @@ function tokenize(src: string): Token[] {
       continue
     }
     const two = src.slice(i, i + 2)
-    if (two === '==' || two === '!=' || two === '&&' || two === '||') {
-      tokens.push({ t: 'op', v: two as '==' | '!=' | '&&' | '||', pos: i })
+    if (TWO_CHAR_OPS.includes(two)) {
+      tokens.push({ t: 'op', v: two, pos: i })
       i += 2
       continue
     }
-    if (ch === '!') { tokens.push({ t: 'op', v: '!', pos: i }); i++; continue }
-    if (ch === '.' || ch === '[' || ch === ']' || ch === '(' || ch === ')') {
-      tokens.push({ t: 'punc', v: ch as '.' | '[' | ']' | '(' | ')', pos: i })
+    if (ONE_CHAR_OPS.includes(ch)) {
+      tokens.push({ t: 'op', v: ch, pos: i })
+      i++
+      continue
+    }
+    if (ch === '.' || ch === '[' || ch === ']' || ch === '(' || ch === ')' || ch === ',') {
+      tokens.push({ t: 'punc', v: ch as '.' | '[' | ']' | '(' | ')' | ',', pos: i })
       i++
       continue
     }
@@ -95,12 +107,6 @@ function tokenize(src: string): Token[] {
       if (!m) throw new Error(`expression: invalid number at ${i} (in ${JSON.stringify(src)})`)
       tokens.push({ t: 'num', v: Number(m[0]), pos: i })
       i += m[0].length
-      continue
-    }
-    if (ch === '-' && /[0-9]/.test(src[i + 1] ?? '')) {
-      const m = NUM.exec(src.slice(i + 1))
-      tokens.push({ t: 'num', v: -Number(m![0]), pos: i })
-      i += 1 + m![0].length
       continue
     }
     const m = IDENT.exec(src.slice(i))
@@ -137,30 +143,63 @@ class Parser {
   parse(): ExprNode {
     const node = this.parseOr()
     const tk = this.peek()
-    if (tk.t !== 'eof') this.fail(`expression: unexpected '${tk.v}'`, tk.pos)
+    if (tk.t !== 'eof') this.fail(`expression: unexpected '${String(tk.v)}'`, tk.pos)
     return node
   }
   private parseOr(): ExprNode {
     let left = this.parseAnd()
-    while (this.peek().t === 'op' && (this.peek() as any).v === '||') {
+    while (this.isOp('||')) {
       this.next()
       left = { kind: 'or', left, right: this.parseAnd() }
     }
     return left
   }
   private parseAnd(): ExprNode {
-    let left = this.parseUnary()
-    while (this.peek().t === 'op' && (this.peek() as any).v === '&&') {
+    let left = this.parseCmp()
+    while (this.isOp('&&')) {
       this.next()
-      left = { kind: 'and', left, right: this.parseUnary() }
+      left = { kind: 'and', left, right: this.parseCmp() }
     }
     return left
+  }
+  private parseCmp(): ExprNode {
+    const left = this.parseArith()
+    const tk = this.peek()
+    if (tk.t === 'op' && ['==', '!=', '<', '<=', '>', '>='].includes(tk.v)) {
+      this.next()
+      return { kind: 'compare', op: tk.v as '==' | '!=' | '<' | '<=' | '>' | '>=', left, right: this.parseArith() }
+    }
+    return left
+  }
+  private parseArith(): ExprNode {
+    let left = this.parseTerm()
+    while (this.isOp('+') || this.isOp('-')) {
+      const op = (this.next() as any).v as '+' | '-'
+      left = { kind: 'arith', op, left, right: this.parseTerm() }
+    }
+    return left
+  }
+  private parseTerm(): ExprNode {
+    let left = this.parseUnary()
+    while (this.isOp('*') || this.isOp('/') || this.isOp('%')) {
+      const op = (this.next() as any).v as '*' | '/' | '%'
+      left = { kind: 'arith', op, left, right: this.parseUnary() }
+    }
+    return left
+  }
+  private isOp(v: string): boolean {
+    const tk = this.peek()
+    return tk.t === 'op' && tk.v === v
   }
   private parseUnary(): ExprNode {
     const tk = this.peek()
     if (tk.t === 'op' && tk.v === '!') {
       this.next()
       return { kind: 'not', operand: this.parseUnary() }
+    }
+    if (tk.t === 'op' && tk.v === '-') {
+      this.next()
+      return { kind: 'neg', operand: this.parseUnary() }
     }
     return this.parseAtom()
   }
@@ -172,9 +211,13 @@ class Parser {
       this.expectPunc(')')
       return inner
     }
-    if (tk.t === 'num' || tk.t === 'str') {
+    if (tk.t === 'num') {
       this.next()
-      return { kind: 'literal', value: tk.t === 'num' ? tk.v : tk.v }
+      return { kind: 'literal', value: tk.v }
+    }
+    if (tk.t === 'str') {
+      this.next()
+      return { kind: 'literal', value: tk.v }
     }
     if (tk.t === 'ident') {
       const kw = tk.v
@@ -183,27 +226,6 @@ class Parser {
         return { kind: 'literal', value: kw === 'null' ? null : kw === 'true' }
       }
       const path = this.parsePath()
-      const after = this.peek()
-      if (after.t === 'ident' && after.v === 'exists') {
-        this.next()
-        return { kind: 'exists', target: path }
-      }
-      if (after.t === 'op' && (after.v === '==' || after.v === '!=')) {
-        this.next()
-        const rightTk = this.peek()
-        if (rightTk.t === 'ident' && (rightTk.v === 'null' || rightTk.v === 'true' || rightTk.v === 'false')) {
-          this.next()
-          return { kind: 'compare', left: path, op: after.v, right: { kind: 'literal', value: rightTk.v === 'null' ? null : rightTk.v === 'true' } }
-        }
-        if (rightTk.t === 'num' || rightTk.t === 'str') {
-          this.next()
-          return { kind: 'compare', left: path, op: after.v, right: { kind: 'literal', value: rightTk.t === 'num' ? rightTk.v : rightTk.v } }
-        }
-        if (rightTk.t === 'ident') {
-          return { kind: 'compare', left: path, op: after.v, right: this.parsePath() }
-        }
-        this.fail(`expression: expected literal or path after '${after.v}'`, rightTk.pos)
-      }
       return path
     }
     this.fail(`expression: unexpected '${tk.t === 'eof' ? '(end)' : String(tk.v)}'`, tk.pos)
@@ -224,10 +246,15 @@ class Parser {
       }
       if (tk.t === 'punc' && tk.v === '[') {
         this.next()
-        const idx = this.next()
-        if (idx.t !== 'num' || !Number.isInteger(idx.v)) this.fail(`expression: expected integer index in '[]'`, idx.pos)
+        const inner = this.next()
+        if (inner.t === 'op' && inner.v === '*') {
+          this.expectPunc(']')
+          segments.push('*')
+          continue
+        }
+        if (inner.t !== 'num' || !Number.isInteger(inner.v)) this.fail(`expression: expected integer index or '*' in '[]'`, inner.pos)
         this.expectPunc(']')
-        segments.push(idx.v)
+        segments.push(inner.v)
         continue
       }
       break
@@ -244,50 +271,98 @@ export function parse(src: string): ExprNode {
 // ── 求值 ────────────────────────────────────────────────
 
 function getPath(root: unknown, segments: (string | number)[]): unknown {
-  let cur: unknown = root
-  for (const seg of segments) {
-    if (cur === null || cur === undefined) return undefined
-    if (typeof seg === 'number') {
-      cur = Array.isArray(cur) ? cur[seg] : undefined
-    } else if (typeof cur === 'object') {
-      cur = (cur as Record<string, unknown>)[seg]
-    } else {
-      return undefined
+  // '[*]'：投影当前数组 → 逐元素继续剩余段 + flat(1)（嵌套投影展平）
+  function rest(cur: unknown, i: number): unknown {
+    const seg = segments[i]
+    if (seg === undefined) return cur // 路径尽——null 是合法末值（exists 语义：null 存在）
+    if (cur === null || cur === undefined) return undefined // 中途缺失
+    if (seg === '*') {
+      if (!Array.isArray(cur)) return []
+      const out: unknown[] = []
+      for (const el of cur) {
+        const v = rest(el, i + 1)
+        if (Array.isArray(v)) out.push(...v)
+        else if (v !== undefined) out.push(v)
+      }
+      return out
     }
+    let next: unknown
+    if (typeof seg === 'number') {
+      next = Array.isArray(cur) ? cur[seg] : undefined
+    } else if (seg === 'length') {
+      if (Array.isArray(cur)) next = cur.length
+      else if (typeof cur === 'string') next = cur.length
+      else if (typeof cur === 'object') next = (cur as Record<string, unknown>)[seg]
+      else next = undefined
+    } else if (typeof cur === 'object') {
+      next = (cur as Record<string, unknown>)[seg]
+    } else {
+      next = undefined
+    }
+    return rest(next, i + 1)
   }
-  return cur
+  return rest(root, 0)
 }
 
-/** 求值（布尔比较/逻辑 → boolean；裸 path → 原值） */
+/** 算术严格数字：非 number 操作数 → 抛错（不静默字符串拼接）；非有限结果 → 抛错（除零防呆） */
+function arith(op: '+' | '-' | '*' | '/' | '%', l: unknown, r: unknown): number {
+  if (typeof l !== 'number' || typeof r !== 'number') {
+    throw new Error(`expression: arithmetic '${op}' requires numbers (got ${typeName(l)} ${op} ${typeName(r)})`)
+  }
+  let out: number
+  switch (op) {
+    case '+': out = l + r; break
+    case '-': out = l - r; break
+    case '*': out = l * r; break
+    case '/': out = l / r; break
+    case '%': out = l % r; break
+  }
+  if (!Number.isFinite(out)) throw new Error(`expression: arithmetic '${op}' produced non-finite result`)
+  return out
+}
+
+function typeName(v: unknown): string {
+  if (v === null) return 'null'
+  if (Array.isArray(v)) return 'array'
+  return typeof v
+}
+
+/** 求值（比较/算术/逻辑 → number/boolean；裸 path → 原值） */
 export function evaluate(node: ExprNode, ctx: unknown): unknown {
   switch (node.kind) {
     case 'path': return getPath(ctx, node.segments)
     case 'literal': return node.value
+    case 'neg': {
+      const v = evaluate(node.operand, ctx)
+      if (typeof v !== 'number') throw new Error(`expression: unary '-' requires number (got ${typeName(v)})`)
+      return -v
+    }
+    case 'arith': return arith(node.op, evaluate(node.left, ctx), evaluate(node.right, ctx))
     case 'compare': {
       const l = evaluate(node.left, ctx)
       const r = evaluate(node.right, ctx)
-      // 宽松相等（定版语义：'200' == 200；null == undefined——JS ==）
-      // eslint-disable-next-line eqeqeq
-      return node.op === '==' ? (l == r) : !(l == r)
+      switch (node.op) {
+        // 宽松相等（JS 语义）
+        // eslint-disable-next-line eqeqeq
+        case '==': return l == r
+        // eslint-disable-next-line eqeqeq
+        case '!=': return !(l == r)
+        case '<': return (l as any) < (r as any)
+        case '<=': return (l as any) <= (r as any)
+        case '>': return (l as any) > (r as any)
+        case '>=': return (l as any) >= (r as any)
+      }
     }
-    case 'exists': return evaluate(node.target, ctx) !== undefined
-    case 'not': return !evaluateBoolean(node.operand, ctx)
-    case 'and': return evaluateBoolean(node.left, ctx) && evaluateBoolean(node.right, ctx)
-    case 'or': return evaluateBoolean(node.left, ctx) || evaluateBoolean(node.right, ctx)
+    case 'not': return !toBoolean(evaluate(node.operand, ctx))
+    // JS 语义：返回操作数（非 boolean 包装）
+    case 'and': { const l = evaluate(node.left, ctx); return toBoolean(l) ? evaluate(node.right, ctx) : l }
+    case 'or': { const l = evaluate(node.left, ctx); return toBoolean(l) ? l : evaluate(node.right, ctx) }
   }
 }
 
-/** 布尔语境（when 语义定版）：boolean 直接用；否则"存在且非空"
- *  （undefined/null/''/[]/{} → false；0/false → true；其余 → true） */
-/** 布尔语境（when 语义定版）：boolean 直接用；否则"存在且非空"
- *  （undefined/null/''/[]/{} → false；0/false → true；其余 → true） */
+/** 布尔语境 = JS truthy（Boolean()——与 JS 逐条一致） */
 export function toBoolean(v: unknown): boolean {
-  if (typeof v === 'boolean') return v
-  if (v === null || v === undefined) return false
-  if (typeof v === 'string') return v.length > 0
-  if (Array.isArray(v)) return v.length > 0
-  if (typeof v === 'object') return Object.keys(v as object).length > 0
-  return true // number / 其他原始值 = 存在即真（0 是真——"数字存在"语义）
+  return Boolean(v)
 }
 
 export function evaluateBoolean(node: ExprNode, ctx: unknown): boolean {
@@ -336,10 +411,11 @@ export function interpolate(template: string, ctx: unknown): string {
 /** 测试辅助：AST → 源码字符串（fuzz 对账用——与 parse 形成 round-trip） */
 export function toSrc(node: ExprNode): string {
   switch (node.kind) {
-    case 'path': return node.segments.reduce<string>((acc, s) => acc + (typeof s === 'number' ? `[${s}]` : (acc === '' ? s : `.${s}`)), '')
+    case 'path': return node.segments.reduce<string>((acc, s) => acc + (typeof s === 'number' ? `[${s}]` : s === '*' ? '[*]' : (acc === '' ? s : `.${s}`)), '')
     case 'literal': return node.value === null ? 'null' : typeof node.value === 'string' ? `'${node.value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'` : String(node.value)
-    case 'compare': return `${toSrc(node.left)} ${node.op} ${toSrc(node.right)}`
-    case 'exists': return `${toSrc(node.target)} exists`
+    case 'neg': return `-${toSrc(node.operand)}`
+    case 'arith': return `(${toSrc(node.left)} ${node.op} ${toSrc(node.right)})`
+    case 'compare': return `(${toSrc(node.left)} ${node.op} ${toSrc(node.right)})`
     case 'not': return `!${toSrc(node.operand)}`
     case 'and': return `(${toSrc(node.left)} && ${toSrc(node.right)})`
     case 'or': return `(${toSrc(node.left)} || ${toSrc(node.right)})`

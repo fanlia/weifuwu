@@ -56,7 +56,7 @@ describe('runner: 短路语义', () => {
     const def: WorkflowDef = {
       steps: [
         { id: 'p', type: 'http', config: { url: 'x' } },
-        { id: 'opt', type: 'template', config: { template: 'no' }, when: 'steps.p.data.json.missing exists' },
+        { id: 'opt', type: 'template', config: { template: 'no' }, when: 'steps.p.data.json.missing != null' },
         { id: 'tail', type: 'template', config: { template: 'ok' } },
       ],
     }
@@ -69,7 +69,7 @@ describe('runner: 短路语义', () => {
     const def: WorkflowDef = {
       steps: [
         { id: 'p', type: 'http', config: { url: 'x' } },
-        { id: 'gate', type: 'if', config: { when: 'steps.p.data.json.items exists' } },
+        { id: 'gate', type: 'if', config: { when: 'steps.p.data.json.items != null' } },
         { id: 'tail', type: 'log', config: { message: 'through' } },
       ],
     }
@@ -82,7 +82,7 @@ describe('runner: 短路语义', () => {
     const def: WorkflowDef = {
       steps: [
         { id: 'p', type: 'http', config: { url: 'x' } },
-        { id: 'gate', type: 'if', config: { when: 'steps.p.data.json.none exists' } },
+        { id: 'gate', type: 'if', config: { when: 'steps.p.data.json.none != null' } },
         { id: 'tail', type: 'log', config: {} },
       ],
     }

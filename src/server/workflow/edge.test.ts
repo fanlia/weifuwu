@@ -17,9 +17,9 @@ const alertDef: WorkflowDef = {
   id: 'stock-monitor',
   name: '库存监控',
   steps: [
-    // 裸 path 布尔语境 = 存在且非空（"有数据"语义；exists 则空数组也算存在）
+    // "有数据" = 数组非空（JS 语义：length > 0）
     { id: 'probe', type: 'http', config: { url: 'https://api.test/stock' } },
-    { id: 'gate', type: 'if', config: { when: 'steps.probe.data.json.items', edge: true } },
+    { id: 'gate', type: 'if', config: { when: 'steps.probe.data.json.items.length > 0', edge: true } },
     { id: 'mail', type: 'email', config: { to: 'ops@x.com', subject: '预警', body: '{{steps.probe.data.json.items}}' } },
   ],
 }
