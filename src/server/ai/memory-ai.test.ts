@@ -7,13 +7,25 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createMemoryAi } from './memory.ts'
+import { createMemoryAi, MemoryAi } from './memory.ts'
 import { createAgent } from './agent.ts'
 import type { ChatMessage, ToolCall } from './types.ts'
 
 function tc(id: string, name: string, args: string): ToolCall {
   return { id, type: 'function', function: { name, arguments: args } }
 }
+
+test('new MemoryAi 构造 = 模块（同 ai() 形态——app.use 注入 ctx.ai——三种入口等价）', async () => {
+  const m = new MemoryAi()
+  // 模块形态：中间件 + 全能力（非裸 provider）
+  assert.equal(typeof m.chat, 'function')
+  assert.equal(typeof m.agent, 'function')
+  assert.equal(typeof m.generateImage, 'function')
+  const r = await m.chat({ messages: [{ role: 'user', content: '你好' }] })
+  assert.equal(r.choices[0].message.content, 'MemoryAI: 你好')
+  // createMemoryAi 别名等价（同一函数）
+  assert.equal(createMemoryAi, MemoryAi)
+})
 
 test('chat 默认 echo：末条 user 消息回显（不编造 tool_calls）', async () => {
   const ai = createMemoryAi()

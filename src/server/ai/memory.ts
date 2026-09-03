@@ -2,8 +2,9 @@
  * weifuwu AI — MemoryAi：内存版 AI 客户端（实现 AiClient 契约）
  *
  * 参考 MemorySql（src/db/memory-sql.ts）模式：
- *   - class 内部引擎（非 callable）——createMemoryAi() 工厂包装为契约形状
- *   - 实现契约面（AiClient）——与 makeSql(PgPool) 同构——消费端无感替换
+ *   - 内部引擎（MemoryAiEngine——非模块）——MemoryAi 工厂/构造包装为**模块**
+ *     （同 ai() 返回 AiClientModule——可 app.use 注入 ctx.ai）
+ *   - new MemoryAi(opts) / MemoryAi(opts) / createMemoryAi(opts) 三种入口等价
  *   - 确定性：onChat 决策注入 / 默认 echo / 哈希嵌入——零外部依赖零网络
  *   - 诚实裁剪：非真实智能——未注入决策时默认回显末条用户消息（不编造
  *     tool_calls——对齐 MemorySql「不支持的抛 unsupported 绝不静默降级」纪律）
@@ -12,6 +13,7 @@
  * 真实智能质量面由 OpenAI 兼容 provider 承担（文档红线）。
  */
 import { randomUUID } from 'node:crypto'
+import { assemble, type AiClientModule } from './assemble.ts'
 import { sseResponse, type WfEmitter } from './sse.ts'
 import { createApprovalHub, DEFAULT_APPROVAL_TIMEOUT, type ApprovalEmitter } from './approvals.ts'
 import type { AiClient, StreamFinishResult } from './client.ts'
@@ -55,8 +57,8 @@ function hashVector(text: string, dim = 32): number[] {
   return vec.map((v) => v / norm)
 }
 
-/** 内部引擎（对齐 MemorySql class 定位——不可直接构造——工厂包装导出） */
-export class MemoryAi {
+/** 内部引擎（对齐 MemorySql class 定位——模块由 MemoryAi 工厂/构造包装） */
+class MemoryAiEngine {
   private readonly opts: MemoryAiOptions
   private approvals: ReturnType<typeof createApprovalHub>
   private readonly model: string
@@ -177,7 +179,7 @@ export class MemoryAi {
 
   async generateImage(req: ImageGenRequest, _options?: { signal?: AbortSignal }): Promise<ImageGenResult> {
     if (this.opts.onImage) return this.opts.onImage(req)
-    return { dataUrl: MemoryAi.TINY_PNG, mime: 'image/png' }
+    return { dataUrl: MemoryAiEngine.TINY_PNG, mime: 'image/png' }
   }
 
   async createVideoTask(req: VideoGenRequest, _options?: { signal?: AbortSignal }): Promise<{ taskId: string }> {
@@ -197,9 +199,14 @@ export class MemoryAi {
   }
 }
 
-/** 工厂：类不可直接构造——包装为契约形状（与 makeSql(PgPool) / createMemorySql 同构） */
-export function createMemoryAi(options?: MemoryAiOptions): AiClient {
-  const engine = new MemoryAi(options)
+/** 模块构造（new MemoryAi() / MemoryAi() / createMemoryAi() 等价——同 ai() 返回形态：
+ *  AiClientModule——app.use 注入 ctx.ai + 全能力）。参考 MemorySql 的工厂包装 */
+export interface MemoryAi {
+  new (options?: MemoryAiOptions): MemoryAi
+}
+
+/** 引擎方法绑定包装（类方法 this 丢失——闭包绑定实例——同旧 createMemoryAi 包装体） */
+function bindEngine(engine: MemoryAiEngine): AiClient {
   return {
     chat: (params, o) => engine.chat(params, o),
     stream: (params, o) => engine.stream(params, o),
@@ -215,6 +222,13 @@ export function createMemoryAi(options?: MemoryAiOptions): AiClient {
     close: () => engine.close(),
   }
 }
+
+export function MemoryAi(options?: MemoryAiOptions): AiClientModule {
+  return assemble(bindEngine(new MemoryAiEngine(options)))
+}
+
+/** 工厂别名（= MemoryAi——与 createMemorySql 命名对称；主包导出） */
+export const createMemoryAi = MemoryAi
 
 /** 工具参数可能是 JSON 字符串；解析失败给空对象（不抛错——同 OpenAI transport） */
 function safeParseArgs(raw: string): Record<string, unknown> {
