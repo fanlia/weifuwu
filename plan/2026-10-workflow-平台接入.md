@@ -60,7 +60,8 @@ GET    /api/workflows/step-schemas   stepSchemas()（UI 表单视图元数据）
 - **A ✓（框架化重定位）**：存储/CRUD **纳入框架**（用户拍板对齐 messager）——`workflowSystem`（`src/server/workflows/`）——migrate/routes/ctx.wf/crud + 引擎公开面补全（compileWfjs/toJs 导出）——agent-platform 收编 3 行接线——HTTP 全链 7 项实测 + 658 server 全绿（df1e872f / 970962e6）
 - **B ✓（UI）**：pages/Workflows.tsx（列表+新建 wfjs 门）+ WorkflowDetail.tsx（Tabs 三视图：Pipeline DAG / JsonSchemaForm / CodeEditor + 执行 + runs 历史）+ router/NAV/SPA 白名单——playwright 实测：列表→详情 DAG（子链折叠标签）→执行成功
   - 踩坑实证：Tabs API 是 `items[].content`（非 children）；SPA 路径白名单两处（生产/dev）需登记；mount 快照收集（路由须在 mount 前注册）；JSONB 反序列化层
-- **C（剩余）**：路由层契约（HTTP fixture）+ docs §7 更新 + audit 回归
+- **C ✓（收尾）**：路由层契约（Router.handler fixture——匿名 400/创建门/隔离 404/执行 201/runs/404/meta——12 测试）+ docs §7 框架系统面 + audit 七线回归门（135 页全绿）
+  - 踩坑：测试级联失败（assert 中止未恢复 mock 状态——try/finally）；appIdOr 抛 Error 转 500 → HttpError(400)；runs 列表对不存在 workflow 应 404（存在性检查）
 
 ## 裁剪（诚实）
 

@@ -16,7 +16,7 @@
  */
 import type { SqlClient } from '../postgres/types.ts'
 import type { Redis } from '../db/contracts.ts'
-import type { Context, Handler } from '../types.ts'
+import { HttpError, type Context, type Handler } from '../types.ts'
 import type { Router } from '../core/router.ts'
 import { workflow, redisStore } from '../workflow/index.ts'
 import { compileWfjs, toJs, toJsonSchema, workflowToDag } from '../workflow/index.ts'
@@ -293,7 +293,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
     const getAppId = opts?.appId ?? ((ctx: Context) => (ctx.auth as Record<string, unknown> | undefined)?.appId as string | undefined)
     const appIdOr = (ctx: Context): string => {
       const id = getAppId(ctx)
-      if (!id) throw new Error('workflow route 需要 appId（应用上下文）')
+      if (!id) throw new HttpError('workflow route 需要 appId（应用上下文）', 400)
       return id
     }
     const json = (data: unknown, status = 200): Response => Response.json(data, { status })
@@ -343,6 +343,8 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       }
     })
     app.get(`${p}/:id/runs`, async (req, ctx) => {
+      const wf = await crud.get(appIdOr(ctx), ctx.params.id)
+      if (!wf) return json({ error: 'workflow 不存在' }, 404)
       const url = new URL(req.url)
       const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))

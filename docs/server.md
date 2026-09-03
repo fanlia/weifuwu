@@ -110,10 +110,20 @@ server.listen(3000)
 
 ## 7. workflow 执行引擎（含框架系统 workflowSystem）
 
-> **框架系统**（对齐 messager/user 模式）：`workflowSystem({ sql, redis })`——存储/编排层——
-> `app.use(wfs)`（ctx.wf 注入）+ `await wfs.migrate()`（幂等建表 `_weifuwu_workflows`/`_weifuwu_workflow_runs`）+
-> `wfs.routes(app, { prefix, appId })`（内置 CRUD/执行/历史 API——消费方只做 UI）。
-> 引擎（语言/执行/视图适配）= 下方纯能力包 `weifuwu/workflow`（零依赖导出）。
+> **框架系统**（对齐 messager/user 模式）：`workflowSystem({ sql, redis })`——存储/编排层（`src/server/workflows/`）：
+>
+> ```ts
+> const wfs = workflowSystem({ sql: pg.sql, redis: redisClient?.redis })
+> app.use(wfs)                     // 中间件：ctx.wf 注入（compileGate/execute/validate/dag/schema/defToWfjs）
+> await wfs.migrate()              // 幂等建表：_weifuwu_workflows（def_json 真相 + src_wfjs 视图）/ _weifuwu_workflow_runs
+> wfs.routes(app)                  // 可选内置 API（缺省 /api/workflows + ctx.auth.appId——user 会话透传——默认即安全）
+> ```
+>
+> - **路由参数默认化**：prefix 缺省 `/api/workflows`；appId 提取器缺省 `ctx.auth?.appId`（user() 中间件会话透传——非 user 会话才需自定义）
+> - **compileGate**：wfjs → compileWfjs（v0 无 remoteFetch——远程导入编译错=出网安全线）→ validate（变量自足/步骤 id 存在性）→ 通过才入库——LLM 生成/用户编辑共用闸门
+> - **执行**：`workflow({ store: redisStore })` 引擎注册制——run 落库（status/args/result/error/时间戳——长任务由 runs 承载）
+> - **视图适配**：`ctx.wf.dag(def)`（Pipeline 数据——子链折叠标签）/ `ctx.wf.schema()`（JsonSchema——JsonSchemaForm 直消费）
+> - 引擎（语言/执行/视图适配）= 下方纯能力包 `weifuwu/workflow`（零依赖导出——compileWfjs/toJs/toJsonSchema/workflowToDag）
 
 引擎入口
 
