@@ -42,12 +42,24 @@ function toJsExpr(src: string, bind?: (segments: (string | number)[]) => boolean
  */
 export function toJs(def: WorkflowDef): string {
   const head = renderImports(def.imports)
+  const fns = renderFunctions(def.functions)
   const body = renderChain(def.steps, {
     seenVars: new Set<string>(),
     loopNames: [] as string[],
     inReturn: false,
   }).trimEnd()
-  return head ? `${head}\n${body}` : body
+  const parts = [head, fns, body].filter(Boolean)
+  return parts.join('\n\n')
+}
+
+/** 函数定义渲染（源码视图——与 compileWfjs 对称） */
+export function renderFunctions(functions?: WorkflowDef['functions']): string {
+  if (!functions?.length) return ''
+  return functions.map((f) => {
+    const ctx: RenderCtx = { seenVars: new Set<string>(), loopNames: [], inReturn: false }
+    const body = renderChain(f.step.steps, ctx)
+    return `function ${f.name}(${f.params.join(', ')}) {\n${indent(body)}\n}`
+  }).join('\n')
 }
 
 /** import 语句渲染（ESM 逐字——与 compileWfjs 对称） */
@@ -141,6 +153,12 @@ function renderObjectParams(type: string, config: Record<string, unknown>, ctx: 
 
 function renderBuiltin(step: StepDef, ctx: RenderCtx): string {
   const config = (step.config ?? {}) as Record<string, unknown>
+  // call 步骤 → 函数调用（位置参数——表达式）
+  if (step.type === 'call') {
+    const args = (config.args as string[] ?? []).map((a) => rewritePathExpr(a, ctx)).join(', ')
+    const call = `await ${config.name}(${args})`
+    return step.id.startsWith('_') || step.id.includes(':') ? call : `const ${step.id} = ${call}`
+  }
   // store 步骤 → 方法式调用（与 wfjs 源码对称：store.get(key) / store.set(key, value)）
   if (step.type === 'store') {
     const key = renderValue(String(config.key), 'template', ctx)

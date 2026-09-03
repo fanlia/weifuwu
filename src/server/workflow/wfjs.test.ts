@@ -140,8 +140,8 @@ describe('wfjs: 编译期检查（静态面——错误在写的时候暴露）'
   it('位置参数（非对象）→ 编译错', () => {
     assert.throws(() => compileWfjs(`http('url')`), /对象参数/)
   })
-  it('function 关键字 → 提示 W8', () => {
-    assert.throws(() => compileWfjs(`function f() {}`), /W8/)
+  it('export 关键字 → 提示后续 wave', () => {
+    assert.throws(() => compileWfjs(`export { a }`), /后续 wave/)
   })
   it('表达式语法错（含表达式复用 expression.parse 校验）', () => {
     assert.throws(() => compileWfjs(`if (a === 1) {}`))
@@ -166,6 +166,44 @@ describe('wfjs: 表达式改写（绑定映射单测）', () => {
   })
   it('未声明 → 抛错（含插值内）', () => {
     assert.throws(() => _rewriteExprForTest('a.b + c', bind({ a: { kind: 'var', name: 'a' } })), /未声明变量 'c'/)
+  })
+})
+
+describe('wfjs: 函数（定义/调用/纯逻辑约束）', () => {
+  it('function 定义 + 调用 → functions + call 步骤（参数绑定映射）', () => {
+    const def = compileWfjs(`function pay(amount, rate) {
+  let fee = amount * rate
+  return fee + amount
+}
+const a = await pay(100, 0.1)`)
+    assert.equal(def.functions![0].name, 'pay')
+    assert.deepEqual(def.functions![0].params, ['amount', 'rate'])
+    // 函数体：assign 用 vars.amount/vars.rate（参数 → 局部变量）
+    const bodySteps = def.functions![0].step.steps
+    assert.deepEqual(bodySteps[0].config, { target: 'fee', value: '(vars.amount * vars.rate)' })
+    // call 步骤
+    const call = def.steps[0]
+    assert.equal(call.type, 'call')
+    assert.deepEqual(call.config, { name: 'pay', args: ['100', '0.1'] })
+  })
+  it('函数体内禁用副作用内置（纯逻辑 v1 裁剪）', () => {
+    assert.throws(() => compileWfjs(`function f(x) { await log({ message: x }) }`), /函数体内不支持副作用内置/)
+    assert.throws(() => compileWfjs(`function f(x) { const r = await http({ url: 'u' }) }`), /函数体内不支持副作用内置/)
+  })
+  it('未声明先调用 → 编译错（函数提升 v2 裁剪）', () => {
+    assert.throws(() => compileWfjs(`const a = await pay(1)\nfunction pay(x) { return x }`), /未识别调用 'pay'/)
+  })
+  it('函数体内引用外层步骤绑定 → 编译错', () => {
+    assert.throws(() => compileWfjs(`const res = await http({ url: 'u' })\nfunction f() { return res.data }`), /未声明变量 'res'/)
+  })
+  it('参数名与全局变量冲突 → 编译错（全局唯一命名空间）', () => {
+    assert.throws(() => compileWfjs(`let x = 1\nfunction f(x) { return x }`), /参数名 'x' 与已有变量冲突/)
+  })
+  it('return 值 → 函数返回表达式', () => {
+    const def = compileWfjs(`function f(n) { return n + 1 }`)
+    const ret = def.functions![0].step.steps[0]
+    assert.equal(ret.type, 'return')
+    assert.equal(ret.config.value, '(vars.n + 1)')
   })
 })
 

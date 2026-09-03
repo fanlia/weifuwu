@@ -60,9 +60,22 @@ export interface ForConfig {
   maxIters?: number
 }
 
-/** return 步骤：无值 → 终止整流程（success）；有值 → W8 函数返回语义 */
+/** return 步骤：函数内 → 返回（值落 steps.<callId>.data）；顶层 → 终止整流程（success） */
 export interface ReturnConfig {
   value?: string
+}
+
+/** 函数定义：params + 纯逻辑子链（函数体禁副作用内置——裁剪记录 v1） */
+export interface WorkflowFunction {
+  name: string
+  params: string[]
+  step: StepChain
+}
+
+/** call 步骤：执行函数（args 为表达式插值——求值后注入 params；回流 = return 值） */
+export interface CallConfig {
+  name: string
+  args?: string[]
 }
 
 /** std 导入声明（wfjs import 语句的编译产物——toJs 渲染回源；validate 白名单校验） */
@@ -71,13 +84,15 @@ export interface WorkflowImport {
   names: { name: string; as?: string }[]
 }
 
-/** 工作流定义：触发 + 导入 + 步骤链（触发语义由消费方装配——scheduler cron / 手动 / webhook） */
+/** 工作流定义：触发 + 导入 + 函数 + 步骤链（触发语义由消费方装配——scheduler cron / 手动 / webhook） */
 export interface WorkflowDef {
   /** 由消费方赋予（DB id）——引擎自身不要求 */
   id?: string
   name?: string
   /** std 库导入（v1 仅 wf://std/* 命名导入——远程/本地 W8） */
   imports?: WorkflowImport[]
+  /** 本地函数（纯逻辑——wfjs function 定义编译产物） */
+  functions?: WorkflowFunction[]
   steps: StepDef[]
 }
 
@@ -166,4 +181,4 @@ export interface ExecuteOptions {
 }
 
 /** 内建链步骤类型（runner 直接解释——不进 registry；validate 特判） */
-export const BUILTIN_TYPES = ['assign', 'if', 'while', 'for', 'return'] as const
+export const BUILTIN_TYPES = ['assign', 'if', 'while', 'for', 'return', 'call'] as const

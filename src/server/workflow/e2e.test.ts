@@ -21,6 +21,30 @@ function makeWf(extra: { fetch?: typeof fetch } = {}) {
 }
 
 describe('e2e: wfjs 编译产物真执行', () => {
+  it('函数：pay 场景（参数/if 分支/return 值/多次调用）', async () => {
+    const def = compileWfjs(`function pay(amount, rate) {
+  let fee = amount * rate
+  if (fee > 100) { fee = fee - 10 }
+  return fee + amount
+}
+const a = await pay(100, 0.1)
+const b = await pay(a, 0.2)`)
+    const { wf } = makeWf()
+    const r = await wf.execute(def)
+    assert.equal(r.status, 'success')
+    assert.equal(r.stepResults.a.data, 110)   // 100*0.1=10<100 → 110
+    assert.equal(r.stepResults.b.data, 132)   // 110*0.2=22<100 → 22+110=132
+  })
+  it('函数：无 return → undefined；纯逻辑不污染调用方 vars', async () => {
+    const def = compileWfjs(`let n = 5
+function f(x) { let y = x + 1 }
+const r = await f(n)`)
+    const { wf } = makeWf()
+    const r1 = await wf.execute(def)
+    assert.equal(r1.status, 'success')
+    assert.equal(r1.stepResults.r.data, undefined)
+    assert.equal(r1.stepResults.n?.data, 5)
+  })
   it('变量链：let/+= → assign 真跑（vars 求值）', async () => {
     const def = compileWfjs(`let n = 0\nn += 2`)
     const { wf } = makeWf()

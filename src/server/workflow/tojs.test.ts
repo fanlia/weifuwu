@@ -67,6 +67,22 @@ describe('tojs: 渲染规则', () => {
 })
 
 describe('tojs: round-trip 对账（fuzz——IR 锚点）', () => {
+  it('函数定义/调用渲染对称（round-trip）', () => {
+    const d1 = compileWfjs(`function pay(amount, rate) {
+  let fee = amount * rate
+  if (fee > 100) { fee = fee - 10 }
+  return fee + amount
+}
+const a = await pay(100, 0.1)
+const b = await pay(a, 0.2)`)
+    const js = toJs(d1)
+    assert.match(js, /^function pay\(amount, rate\) \{$/m)
+    assert.match(js, /const a = await pay\(100, 0\.1\)/)
+    assert.match(js, /const b = await pay\(a, 0\.2\)/)
+    const d2 = compileWfjs(js)
+    assert.deepEqual(d2, d1)
+  })
+
   it('库存监控示例：compile → toJs → compile 深比较', () => {
     const src = `import { store } from 'wf://std/store'
 const res = await http({ url: 'https://api.test/stock' })
@@ -134,7 +150,8 @@ function genProgram(rng: () => number): string {
     `import { count } from 'wf://std/collections'`,
     `import { store } from 'wf://std/store'`,
   ]
-  return imports.join('\n') + '\n' + genStmts(rng, vars, consts, 3, 0, nextName)
+  const fnLine = genFunction(rng, nextName)
+  return imports.join('\n') + '\n' + (fnLine ? fnLine + '\n' : '') + genStmts(rng, vars, consts, 3, 0, nextName)
 }
 
 function genStmts(rng: () => number, vars: string[], consts: Set<string>, depth: number, loopDepth: number, nextName: () => string): string {
@@ -205,6 +222,15 @@ function genBuiltinArgs(rng: () => number, b: string, vars: string[], depth: num
     case 'email': return `to: 'a@x.com', subject: 's', body: 'b'`
     default: return `message: 'x'`
   }
+}
+
+/** 函数生成（简单：参数 → return 表达式——生成器侧覆盖函数 round-trip） */
+function genFunction(rng: () => number, nextName: () => string): string {
+  if (rng() < 0.6) return ''
+  const fname = `fn${Math.floor(rng() * 100)}`
+  const params = ['p1', 'p2']
+  const expr = `(p1 + p2)`
+  return `function ${fname}(${params.join(', ')}) {\n  return ${expr}\n}`
 }
 
 /** 表达式生成（depth 保障终止；只引用 vars + loop 可见变量） */
