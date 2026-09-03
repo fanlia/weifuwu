@@ -26,16 +26,22 @@ interface WorkflowsState {
   error: string
 }
 
-const DEFAULT_WFJS = `const res = await http({ url: 'https://api.example.com/items' })
+/** 本地 demo 示例（origin 动态——用户访问的端口即 http 步骤目标；?stock=N 控制路径） */
+function demoWfjs(origin: string): string {
+  return `// 本地演示 API：/api/demo/stock?stock=N 生成 N 个缺货商品（N>0 触发告警）
+// 改 URL 的 stock=N 可切换两条路径；创建后可在详情页执行
+const res = await http({ url: '${origin}/api/demo/stock?stock=0' })
 const count = res.json.items.length
 
+// store 步骤需求 redis——未配置时执行会报明确错误（可用 log 路径先体验）
 if (count > 0) { await log({ message: \`缺货 \${count} 件\` }) }`
+}
 
 export const Workflows: Component = (_props, ctx) => {
   const $ = {} as WorkflowsState
   const rerender = () => ctx.render()
   $.loading = true; $.creating = false
-  $.name = ''; $.wfjs = DEFAULT_WFJS
+  $.name = ''; $.wfjs = demoWfjs(globalThis.location?.origin ?? 'http://localhost:3000')
   $.rows = []; $.error = ''
 
   async function load(): Promise<void> {

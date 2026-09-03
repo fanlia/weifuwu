@@ -489,6 +489,18 @@ async function main() {
   // ── 公开 API（无需登录） ───────────────────────────────
   registerAuthRoutes(app)
 
+  // ── workflow 演示数据（本地 demo 链接——示例 wfjs 直用；?stock=N 控制告警路径） ──
+  app.get('/api/demo/stock', async (req: Request): Promise<Response> => {
+    const n = Math.max(0, parseInt(new URL(req.url).searchParams.get('stock') ?? '0', 10) || 0)
+    const items = Array.from({ length: n }, (_, i) => ({
+      sku: `SKU-${100 + i}`, stock: 0, name: `商品 ${100 + i}`,
+    }))
+    return Response.json({
+      updated_at: new Date().toISOString(),
+      items: n === 0 ? [] : items,
+    })
+  })
+
   // 可用技能列表（公开）+ C6 技能市场：?q= 搜索 + 全局评分聚合
   app.get('/api/skills/available', async (req: Request, _ctx: AppCtx): Promise<Response> => {
     const { discoverSkills } = await import('./src/services/skills.ts')

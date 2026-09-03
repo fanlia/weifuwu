@@ -8,6 +8,13 @@ import { compileWfjs, _rewriteExprForTest, type Binding } from './wfjs.ts'
 const bind = (m: Record<string, Binding>): Map<string, Binding> => new Map(Object.entries(m))
 
 describe('wfjs: 基础编译', () => {
+  it('// 行注释（JS 对齐——除法不被误伤）', async () => {
+    const def = await compileWfjs(`// 头注释
+const n = 6 / 2 // 行尾注释
+const m = n + 1`)
+    assert.equal(def.steps[0].config.value, '(6 / 2)')
+    assert.equal(def.steps[1].config.value, '(vars.n + 1)')
+  })
   it('const 绑定内置调用 → http 步骤（data 解包映射）', async () => {
     const def = await compileWfjs(`const res = await http({ url: 'https://api.test/items' })`)
     assert.deepEqual(def.steps, [{ id: 'res', type: 'http', config: { url: 'https://api.test/items' } }])

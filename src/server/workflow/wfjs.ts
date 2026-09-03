@@ -47,6 +47,9 @@ type WToken =
 
 const KEYWORDS = new Set(['const', 'let', 'var', 'if', 'else', 'while', 'for', 'of', 'return', 'function', 'import', 'export', 'from', 'as', 'default', 'await', 'async', 'once', 'true', 'false', 'null'])
 const PUNCS = new Set(['{', '}', '(', ')', '[', ']', ';', ',', ':', '.'])
+/** 二元运算符（字面量后跟它 = 表达式继续——不是孤立字面量） */
+const BINARY_OPS = new Set(['+', '-', '*', '/', '%', '<', '>', '<=', '>=', '==', '!=', '===', '!==', '&&', '||'])
+const isBinaryOp = (v: string): boolean => BINARY_OPS.has(v)
 const TWO_OPS = new Set(['==', '!=', '<=', '>=', '&&', '||', '+=', '-=', '*=', '/=', '%=', '++', '--'])
 const ONE_OPS = new Set(['=', '+', '-', '*', '/', '%', '<', '>', '!', '?'])
 
@@ -57,7 +60,7 @@ function tokenizeWfjs(src: string): WToken[] {
   while (i < n) {
     const ch = src[i]
     if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') { i++; continue }
-    if (ch === '#') { // 行注释
+    if (ch === '#' || (ch === '/' && src[i + 1] === '/')) { // 行注释（# 兼容/python 遗留；// JS 对齐）
       while (i < n && src[i] !== '\n') i++
       continue
     }
@@ -366,10 +369,19 @@ class WfjsParser {
   }
   private parseValue(): WValue {
     const tk = this.peek()
-    if (tk.t === 'template') { this.next(); return { t: 'tpl', parts: parseTemplateParts(tk.raw) } }
-    if (tk.t === 'str') { this.next(); return { t: 'str', v: tk.v } }
-    if (tk.t === 'num') { this.next(); return { t: 'num', v: tk.v } }
+    // 字面量后跟二元运算符 → 整体是表达式（6 / 2、'a' + b、`t` + x）——字面量化只适用于孤立值
+    if (tk.t === 'template' || tk.t === 'str' || tk.t === 'num') {
+      const after = this.tokens[this.i + 1]
+      if (after && after.t === 'op' && isBinaryOp(after.v)) {
+        return { t: 'expr', src: this.scanExpr() }
+      }
+      if (tk.t === 'template') { this.next(); return { t: 'tpl', parts: parseTemplateParts(tk.raw) } }
+      if (tk.t === 'str') { this.next(); return { t: 'str', v: tk.v } }
+      this.next(); return { t: 'num', v: tk.v }
+    }
     if (tk.t === 'kw' && (tk.v === 'true' || tk.v === 'false' || tk.v === 'null')) {
+      const after = this.tokens[this.i + 1]
+      if (after && after.t === 'op' && isBinaryOp(after.v)) return { t: 'expr', src: this.scanExpr() }
       this.next()
       return { t: 'expr', src: tk.v }
     }
