@@ -54,6 +54,7 @@ interface DetailState {
   runs: RunRow[]
   tab: string
   args: string
+  inputFields: string[]
   error: string
   lastResult?: unknown
   viewingRun?: RunDetail | null
@@ -147,7 +148,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
   const $ = {} as DetailState
   const rerender = () => ctx.render()
   $.loading = true; $.running = false
-  $.runs = []; $.tab = 'dag'; $.args = '{}'; $.error = ''
+  $.runs = []; $.tab = 'dag'; $.args = '{}'; $.error = ''; $.inputFields = []
   $.labels = {}; $.viewingRun = null; $.cronDraft = ''
   $.fieldMeta = {}; $.editing = null; $.versions = []
   const id = props.id ?? ''
@@ -161,6 +162,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
       ])
       $.wf = d.workflow
       $.cronDraft = String(d.workflow.cron ?? '')
+      $.inputFields = [...new Set((d.workflow.wfjs ?? '').match(/\binput\.([A-Za-z_$][\w$]*)/g)?.map((x) => x.slice(6)) ?? [])]
       $.schemas = m.schemas
       const props = (m.schemas as { properties?: Record<string, { title?: string; properties?: Record<string, { title?: string; type?: string }> }> })?.properties ?? {}
       const labels: Labels = {}
@@ -352,6 +354,21 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
             </div>
 
             <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">执行参数（JSON）</div>
+            {$.inputFields.length > 0 ? (
+              <div class="wf-row wf-gap-sm wf-items-center">
+                <span class="wf-font-xs wf-text-secondary">可用参数（wfjs 里读 input.xxx）：</span>
+                {$.inputFields.map((f) => (
+                  <span key={f} class="wf-font-xs wf-padding-x-sm wf-padding-y-xs wf-bg-secondary wf-rounded-sm">{f}</span>
+                ))}
+                <Button variant="ghost" size="sm" onClick={() => {
+                  const obj = Object.fromEntries($.inputFields.map((f) => [f, '']))
+                  $.args = JSON.stringify(obj, null, 2)
+                  rerender()
+                }}>按参数生成模板</Button>
+              </div>
+            ) : (
+              <div class="wf-font-xs wf-text-secondary">wfjs 里用 input.xxx 读取——值来自这里的 JSON（同名键）</div>
+            )}
             <Textarea value={$.args} rows={3} onChange={(v) => { $.args = String(v); rerender() }} placeholder='{"sku": "A-100"}' />
             {$.lastResult && (
               <Alert variant={($.lastResult as { status?: string }).status === 'success' ? 'success' : 'error'}>

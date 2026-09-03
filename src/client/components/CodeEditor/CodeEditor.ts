@@ -47,7 +47,7 @@ export const CodeEditor: Component<CodeEditorProps> = (_init, ctx) => {
       'data-lang': lang,
       spellcheck: false,
       wrap: 'off', // 水平滚动——pre 同 whiteSpace: pre 对齐
-      style: { fontFamily: 'var(--wf-font-mono)', fontSize: 12, lineHeight: 1.7, padding: '8px 10px', border: 'none', outline: 'none', resize: 'vertical', flex: 1, minWidth: 0, background: 'transparent', position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'auto', color: 'transparent', caretColor: 'var(--wf-color-text)' },
+      style: { fontFamily: 'var(--wf-font-mono)', fontSize: 12, lineHeight: 1.7, padding: '8px 10px', border: 'none', outline: 'none', resize: 'vertical', display: 'block', width: '100%', background: 'transparent', overflow: 'auto', color: 'transparent', caretColor: 'var(--wf-color-text)' },
       onScroll: (e: any) => { const el = e.target as HTMLElement; (hl as any).scrollTop = el.scrollTop; (hl as any).scrollLeft = el.scrollLeft },
       onInput: (e: any) => { onChange?.((e.target as HTMLTextAreaElement).value) },
       onKeyDown: (e: KeyboardEvent) => {
@@ -60,7 +60,7 @@ export const CodeEditor: Component<CodeEditorProps> = (_init, ctx) => {
         }
       },
     })
-    return h('div', { class: `wf-codeeditor wf-row wf-gap-none${className ? ` ${className}` : ''}`,
+    return h('div', { class: `wf-codeeditor wf-row wf-gap-none wf-items-start${className ? ` ${className}` : ''}`,
       style: { border: '1px solid var(--wf-color-border)', borderRadius: 'var(--wf-radius-sm)', overflow: 'hidden', background: 'var(--wf-color-bg)' } },
       [gutter,
         h('div', { class: 'wf-codeeditor-body', style: { position: 'relative', flex: 1, minWidth: 0 } },

@@ -83,3 +83,8 @@
   border: var(--wf-border-width) solid var(--wf-color-border-light);
   border-bottom-left-radius: var(--wf-radius-sm);
 }
+
+/* 圆角/描边类（card 视觉——消费侧欠账 2027-09 补定义） */
+.wf-rounded-sm { border-radius: var(--wf-radius-sm); }
+.wf-rounded-md { border-radius: var(--wf-radius-md); }
+.wf-card-outline { border: 1px solid var(--wf-color-border); }

@@ -70,8 +70,8 @@ function componentDefined() {
 }
 
 test('L1 计数基线(登记制——变更必须有意)', () => {
-  assert.equal(inv.primitives, 50, '布局原语数(清理后基线)——2027-09 +1：font-mono/rounded-md/card-outline/fill-hover 族（消费侧欠账补定义——L3 缺口修复）')
-  assert.equal(inv.utilities, 93, '工具类数(清理后基线)——2027-09 +1：text-danger/text-warning（同批补定义）')
+  assert.equal(inv.primitives, 50, '布局原语数(清理后基线)——2027-09 +1：fill-hover（消费侧欠账补定义——L3 缺口修复）')
+  assert.equal(inv.utilities, 97, '工具类数(清理后基线)——2027-09 +5：text-danger/text-warning/font-mono/rounded-sm/rounded-md/card-outline（同批补定义——_base 非类文件迁移归属：rounded/card 归 _surface 域）')
   assert.equal(inv.internals, 2, '内部类数(_popup 框架内部)')
   assert.equal(inv.tokens, 183, '主题 Token 数')
   // 断点变体 ⊆ 登记清单(响应式唯一模式:窄隐宽显)

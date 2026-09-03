@@ -30,9 +30,11 @@
 .wf-text-tertiary { color: var(--wf-color-text-tertiary); }
 .wf-text-danger { color: var(--wf-color-error-text); }
 .wf-text-warning { color: var(--wf-color-warning-text); }
+.wf-font-mono { font-family: var(--wf-font-mono); }
 .wf-text-primary { color: var(--wf-color-primary-text); }
 .wf-text-success { color: var(--wf-color-success-text); }
 .wf-text-warning { color: var(--wf-color-warning-text); }
+.wf-font-mono { font-family: var(--wf-font-mono); }
 .wf-text-error { color: var(--wf-color-error-text); }
 
 /* ── 填充上的文字色（实心品牌/警告底——对比度保障） ── */
