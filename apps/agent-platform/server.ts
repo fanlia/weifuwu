@@ -781,6 +781,7 @@ async function main() {
   app.use(workflowSystemInstance)
   await workflowSystemInstance.migrate()
   workflowSystemInstance.routes(protectedRoutes) // 缺省：/api/workflows + ctx.auth.appId（user 会话透传）
+  workflowSystemInstance.scheduler.start() // cron 定时触发（tick 30s 幂等）
   // 工作空间文件浏览器
   await registerWorkspaceRoutes(protectedRoutes)
   // 部门

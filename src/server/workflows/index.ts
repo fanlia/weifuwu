@@ -19,6 +19,7 @@ import type { Redis } from '../db/contracts.ts'
 import { HttpError, type Context, type Handler } from '../types.ts'
 import type { Router } from '../core/router.ts'
 import { workflow, redisStore } from '../workflow/index.ts'
+import { parseCron, minuteKey } from './cron.ts'
 import { compileWfjs, toJs, toJsonSchema, workflowToDag } from '../workflow/index.ts'
 import type { WorkflowDef, ValidationResult } from '../workflow/index.ts'
 
@@ -33,6 +34,7 @@ export interface WorkflowRecord {
   def_json: WorkflowDef
   src_wfjs: string | null
   status: string
+  cron: string | null
   created_at: string
   updated_at: string
 }
@@ -67,6 +69,56 @@ export interface WorkflowSystem {
   migrate: () => Promise<void>
   /** 内置 HTTP 路由（可选挂载）：/prefix/*——缺省 prefix=/api/workflows、appId 取 ctx.auth.appId（user 中间件会话透传） */
   routes: (app: Router<any>, opts?: { prefix?: string; appId?: (ctx: Context) => string | undefined }) => void
+  /** cron 调度器（可选——start 后按 cron 列触发执行——tick 扫描幂等） */
+  scheduler: { start: () => void; stop: () => void }
+}
+
+/** cron 调度器：tick（默认 30s——分钟粒度触发；同分钟同工作流幂等——进程内记忆） */
+export function createScheduler(
+  sql: SqlClient,
+  execute: (appId: string, workflowId: string, args: Record<string, unknown>, trigger: string) => Promise<unknown>,
+  opts: { intervalMs?: number; now?: () => Date } = {},
+): { start: () => void; stop: () => void } {
+  const intervalMs = opts.intervalMs ?? 30_000
+  const now = opts.now ?? (() => new Date())
+  const fired = new Map<string, boolean>() // 幂等键：`${minuteKey}:${workflowId}`
+  let timer: ReturnType<typeof setInterval> | null = null
+  const tick = async (): Promise<void> => {
+    const d = now()
+    const mk = minuteKey(d)
+    try {
+      // 只扫 cron 非空 + active——app 级全部（触发时按 app_id 隔离落库）
+      // 只扫 active——cron 在内存筛（cron 工作流量级小——省 where 表达式兼容面）
+      const rows = await sql.query.from(WORKFLOWS).where({ status: 'active' }).select('id', 'app_id', 'cron').run()
+      for (const row of rows as Array<Record<string, unknown>>) {
+        const expr = String(row.cron ?? '')
+        if (!expr) continue
+        let match: boolean
+        try { match = parseCron(expr)(d) } catch { continue } // 已入库 cron 应已校验——非法跳过（不刷错）
+        if (!match) continue
+        const key = `${mk}:${String(row.id)}`
+        if (fired.has(key)) continue
+        fired.set(key, true)
+        // 超过 1w 条清一次（防长跑内存膨胀——窗口 2 天）
+        if (fired.size > 10_000) fired.clear()
+        await execute(String(row.app_id), String(row.id), {}, 'cron').catch((e) => {
+          console.error(`[workflow-scheduler] cron 触发执行失败 (${String(row.id)}):`, e instanceof Error ? e.message : e)
+        })
+      }
+    } catch (e) {
+      console.error('[workflow-scheduler] tick 扫描失败:', e instanceof Error ? e.message : e)
+    }
+  }
+  return {
+    start: () => {
+      if (timer) return
+      timer = setInterval(() => void tick(), intervalMs)
+      void tick() // 启动立即评估（服务重启刚过分钟点也不漏）
+    },
+    stop: () => {
+      if (timer) { clearInterval(timer); timer = null }
+    },
+  }
 }
 
 /** ctx.wf 注入面（消费方直接调用——与引擎同源） */
@@ -88,10 +140,10 @@ export interface WorkflowClient {
 }
 
 export interface WorkflowCrud {
-  create: (appId: string, input: { name: string; wfjs?: string; def?: unknown; description?: string }) => Promise<WorkflowRecord>
+  create: (appId: string, input: { name: string; wfjs?: string; def?: unknown; description?: string; cron?: string | null }) => Promise<WorkflowRecord>
   list: (appId: string, opts?: { offset?: number; limit?: number }) => Promise<WorkflowRecord[]>
   get: (appId: string, id: string) => Promise<WorkflowRecord | null>
-  update: (appId: string, id: string, input: { name?: string; wfjs?: string; def?: unknown }) => Promise<boolean>
+  update: (appId: string, id: string, input: { name?: string; wfjs?: string; def?: unknown; cron?: string | null }) => Promise<boolean>
   remove: (appId: string, id: string) => Promise<boolean>
   listRuns: (appId: string, workflowId: string, opts?: { offset?: number; limit?: number }) => Promise<WorkflowRunRecord[]>
   getRun: (appId: string, workflowId: string, runId: string) => Promise<WorkflowRunRecord | null>
@@ -138,7 +190,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
   }
 
   // ── 核心 CRUD ──
-  const FIELDS = 'id, app_id, name, description, def_json, src_wfjs, status, created_at, updated_at'
+  const FIELDS = 'id, app_id, name, description, def_json, src_wfjs, status, cron, created_at, updated_at'
   const RUN_FIELDS = 'id, app_id, workflow_id, trigger, status, args_json, result_json, error, started_at, finished_at, created_at'
   /** jsonb 列反序列化（store 字符串 → 对象——DB 层不自动 parse） */
   const parseJson = (v: unknown): unknown => (typeof v === 'string' ? JSON.parse(v) : v)
@@ -153,7 +205,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       const rows = await sql.query.insert(WORKFLOWS)
         .values({
           app_id: appId, name: input.name, description: input.description ?? null,
-          def_json: JSON.stringify(def), src_wfjs: wfjs,
+          def_json: JSON.stringify(def), src_wfjs: wfjs, cron: input.cron ?? null,
         })
         .returning(...FIELDS.split(', '))
         .run()
@@ -184,8 +236,14 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       if (!exists[0]) return false
       let gated: { def: WorkflowDef; wfjs: string } | null = null
       if (input.wfjs !== undefined || input.def !== undefined) gated = await compileGate(input)
+      if (input.cron !== undefined && input.cron !== null && input.cron !== '') {
+        try { parseCron(String(input.cron)) } catch (e: any) {
+          throw new HttpError(`cron 表达式非法：${String(e?.message ?? e)}`, 400)
+        }
+      }
       const sets: Record<string, unknown> = {}
       if (input.name !== undefined) sets.name = input.name
+      if (input.cron !== undefined) sets.cron = input.cron || null
       if (gated) { sets.def_json = JSON.stringify(gated.def); sets.src_wfjs = gated.wfjs }
       sets.updated_at = new Date().toISOString()
       await sql.query.update(WORKFLOWS).set(sets).where({ app_id: appId, id }).run()
@@ -252,6 +310,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
 
   mw.wf = wf
   mw.crud = crud
+  mw.scheduler = createScheduler(sql, executeRun)
   mw.__meta = { injects: ['wf'], depends: [] }
 
   // ── 幂等建表 ──
@@ -265,10 +324,12 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
         def_json JSONB NOT NULL,
         src_wfjs TEXT,
         status TEXT NOT NULL DEFAULT 'active',
+        cron TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `)
+    await sql.unsafe(`ALTER TABLE ${WORKFLOWS} ADD COLUMN IF NOT EXISTS cron TEXT`) // 旧表升级（cron 定时触发）
     await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_wf_workflows_app ON ${WORKFLOWS} (app_id, updated_at DESC)`)
     await sql.unsafe(`
       CREATE TABLE IF NOT EXISTS ${RUNS} (

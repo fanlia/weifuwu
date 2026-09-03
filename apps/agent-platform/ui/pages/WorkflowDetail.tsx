@@ -6,7 +6,7 @@
  * 客户端零转换（架构验证：组件库零改动）。
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { Alert, Badge, Button, Card, CodeEditor, Descriptions, JSONViewer, Loading, Modal, Pipeline, Tabs, Textarea } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, CodeEditor, Descriptions, Input, JSONViewer, Loading, Modal, Pipeline, Tabs, Textarea } from 'weifuwu/components'
 import { errMsg, PageHeader } from '../components/ui'
 
 interface DagNode { id: string; label: string }
@@ -49,6 +49,7 @@ interface DetailState {
   error: string
   lastResult?: unknown
   viewingRun?: RunDetail | null
+  cronDraft: string
 }
 
 /** def → 顶层步骤实例（IR 形态） */
@@ -95,7 +96,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
   const rerender = () => ctx.render()
   $.loading = true; $.running = false
   $.runs = []; $.tab = 'dag'; $.args = '{}'; $.error = ''
-  $.labels = {}; $.viewingRun = null
+  $.labels = {}; $.viewingRun = null; $.cronDraft = ''
   const id = props.id ?? ''
 
   async function load(): Promise<void> {
@@ -106,6 +107,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
         ctx.api!.get<{ runs: RunRow[] }>(`/api/workflows/${id}/runs`),
       ])
       $.wf = d.workflow
+      $.cronDraft = String(d.workflow.cron ?? '')
       $.schemas = m.schemas
       const props = (m.schemas as { properties?: Record<string, { title?: string }> })?.properties ?? {}
       const labels: Labels = {}
@@ -117,6 +119,16 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
     rerender()
   }
   void load()
+
+  async function saveCron(): Promise<void> {
+    try {
+      await ctx.api!.put<{ ok: boolean }>(`/api/workflows/${id}`, { cron: $.cronDraft.trim() || null })
+      ctx.toast!('定时已保存', 'success')
+      await load()
+    } catch (e: any) {
+      ctx.toast!(e?.message ?? '保存失败', 'error')
+    }
+  }
 
   async function viewRun(runId: string): Promise<void> {
     try {
