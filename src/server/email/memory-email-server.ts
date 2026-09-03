@@ -13,7 +13,23 @@ import type { EmailMessage } from './contracts.ts'
 
 export interface MemoryEmailServerOptions extends MemoryEmailOptions {
   port?: number
+  /** 请求级注入（测试对 HTTP 面全控——替代自建 mock）：
+   *  undefined = 走默认 handler（记录 + onSend 注入）
+   *  { status, body } = 故障注入（4xx/5xx）
+   *  { hang } = 挂起（超时测试） */
+  respond?: (req: MemoryEmailRequest) => MemoryEmailRespond | undefined
 }
+
+/** 已接收请求（断言传输细节——路径/认证/体） */
+export interface MemoryEmailRequest {
+  method: string
+  path: string
+  headers: Record<string, string>
+  body: Record<string, unknown>
+}
+
+/** 注入响应描述 */
+export type MemoryEmailRespond = { status: number; body?: unknown } | { hang: true }
 
 export interface MemoryEmailServerHandle {
   port: number
@@ -21,6 +37,10 @@ export interface MemoryEmailServerHandle {
   url: string
   /** 收件箱（GET /emails 同步返回——测试断言用） */
   emails: EmailMessage[]
+  /** 已接收请求记录（断言用——含 respond 注入的请求） */
+  requests: MemoryEmailRequest[]
+  /** 强制断开所有连接（hang 场景清理） */
+  closeAllConnections(): void
   close(): Promise<void>
 }
 
@@ -28,6 +48,7 @@ export async function createMemoryEmailServer(
   options: MemoryEmailServerOptions = {},
 ): Promise<MemoryEmailServerHandle> {
   const emails: EmailMessage[] = []
+  const requests: MemoryEmailRequest[] = []
   const email = MemoryEmail({
     ...options,
     onSend: async (msg) => {
@@ -40,10 +61,29 @@ export async function createMemoryEmailServer(
   const server = http.createServer((req, res) => {
     void (async () => {
       const url = new URL(req.url ?? '/', 'http://localhost')
+      // 请求记录（先于注入——respond 也能断言）
+      const chunks: Buffer[] = []
+      for await (const c of req) chunks.push(c as Buffer)
+      const raw = Buffer.concat(chunks).toString('utf8')
+      const record: MemoryEmailRequest = {
+        method: req.method ?? 'GET',
+        path: url.pathname,
+        headers: Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k, String(v)])),
+        body: raw ? (JSON.parse(raw) as Record<string, unknown>) : {},
+      }
+      requests.push(record)
+
+      // 注入钩子
+      const inj = options.respond?.(record)
+      if (inj) {
+        if ('hang' in inj) return // 故意不响应（超时测试——closeAllConnections 清理）
+        res.writeHead(inj.status, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(inj.body ?? {}))
+        return
+      }
+
       if (req.method === 'POST' && url.pathname === '/emails') {
-        const chunks: Buffer[] = []
-        for await (const c of req) chunks.push(c as Buffer)
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as EmailMessage
+        const body = record.body as unknown as EmailMessage
         const result = await email.send({
           to: body.to,
           subject: body.subject,
@@ -74,6 +114,8 @@ export async function createMemoryEmailServer(
     port,
     url: `http://127.0.0.1:${port}`,
     emails,
+    requests,
+    closeAllConnections: () => server.closeAllConnections(),
     close: () => new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve()))),
   }
 }

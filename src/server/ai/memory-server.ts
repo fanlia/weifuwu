@@ -22,10 +22,37 @@ export interface MemoryAiServerOptions extends MemoryAiOptions {
   port?: number
   /** 自定义后端（默认 createMemoryAi(options)——决策注入透传） */
   ai?: AiClient
+  /** 请求级注入（测试对 HTTP 面全控——替代自建 fake server）：
+   *  undefined = 走默认 handler（onChat/onEmbed 决策）
+   *  { status, body } = 故障注入（401/429/5xx）
+   *  { sse } = 原始 SSE 字节行（tool_calls 分片/坏流/半流）
+   *  { hang } = 挂起（不响应——首 token 超时/abort 测试） */
+  respond?: (req: MemoryAiRequest) => MemoryAiRespond | undefined
 }
+
+/** 已接收请求（断言传输细节——路径/认证/体） */
+export interface MemoryAiRequest {
+  method: string
+  path: string
+  headers: Record<string, string>
+  body: Record<string, unknown>
+}
+
+/** 注入响应描述 */
+export type MemoryAiRespond =
+  | { status: number; body?: unknown }
+  | { sse: string[] }
+  | { hang: true }
+  | { sse: string[]; hang: true }
 
 export interface MemoryAiServerHandle {
   port: number
+  /** 完整 base URL（http://127.0.0.1:{port}——给 baseUrl 指向） */
+  url: string
+  /** 已接收请求记录（断言用——含 respond 注入的请求） */
+  requests: MemoryAiRequest[]
+  /** 强制断开所有连接（hang 场景清理） */
+  closeAllConnections(): void
   close(): Promise<void>
 }
 
@@ -33,11 +60,43 @@ const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' }
 
 export async function createMemoryAiServer(options: MemoryAiServerOptions = {}): Promise<MemoryAiServerHandle> {
   const ai = options.ai ?? createMemoryAi(options)
+  const requests: MemoryAiRequest[] = []
 
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
     const method = req.method ?? 'GET'
-    void handle(ai, method, url, req, res).catch((err) => {
+    void (async () => {
+      // 记录请求（先于注入——respond 也能断言）
+      let raw = ''
+      for await (const chunk of req) raw += chunk
+      const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+      const record: MemoryAiRequest = {
+        method,
+        path: url.pathname,
+        headers: Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k, String(v)])),
+        body,
+      }
+      requests.push(record)
+
+      // 注入钩子（测试对 HTTP 面全控——替代自建 fake）
+      const inj = options.respond?.(record)
+      if (inj) {
+        if ('sse' in inj) {
+          res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+          for (const line of inj.sse) res.write(line)
+          if (!('hang' in inj)) res.end()
+          else return // 写后挂（不 end——断开测试用——客户端 abort 结束）
+        } else if ('hang' in inj) {
+          return // 故意不响应（客户端 abort 结束——测试后 closeAllConnections）
+        } else {
+          res.writeHead(inj.status, JSON_HEADERS)
+          res.end(JSON.stringify(inj.body ?? {}))
+        }
+        return
+      }
+
+      await handle(ai, method, url, req, res, body)
+    })().catch((err) => {
       if (!res.headersSent) {
         res.writeHead(500, JSON_HEADERS)
         res.end(JSON.stringify({ error: { message: String(err?.message ?? err) } }))
@@ -51,6 +110,9 @@ export async function createMemoryAiServer(options: MemoryAiServerOptions = {}):
 
   return {
     port,
+    url: `http://127.0.0.1:${port}`,
+    requests,
+    closeAllConnections: () => server.closeAllConnections(),
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   }
 }
@@ -68,11 +130,12 @@ async function handle(
   url: URL,
   req: http.IncomingMessage,
   res: http.ServerResponse,
+  preBody?: Record<string, unknown>,
 ): Promise<void> {
   const p = url.pathname
   // ── OpenAI 兼容：chat（流/非流） ─────────────────────────
   if (method === 'POST' && p === '/v1/chat/completions') {
-    const body = await readJson(req)
+    const body = preBody ?? (await readJson(req))
     const messages = (body.messages ?? []) as Parameters<typeof ai.chat>[0]['messages']
     const params = { messages, model: String(body.model ?? 'memory-ai') } as unknown as Parameters<typeof ai.chat>[0]
     const r = await ai.chat(params)
@@ -88,7 +151,11 @@ async function handle(
       if (tcs && tcs.length > 0) {
         send({ ...base, choices: [{ index: 0, delta: { tool_calls: tcs }, finish_reason: null }] })
       }
-      send({ ...base, choices: [{ index: 0, delta: {}, finish_reason: r.choices[0]?.finish_reason ?? 'stop' }] })
+      send({
+        ...base,
+        choices: [{ index: 0, delta: {}, finish_reason: r.choices[0]?.finish_reason ?? 'stop' }],
+        ...(r.usage ? { usage: r.usage } : {}),
+      })
       res.write('data: [DONE]\n\n')
       res.end()
       return
@@ -99,7 +166,7 @@ async function handle(
   }
   // ── OpenAI 兼容：embedding ───────────────────────────────
   if (method === 'POST' && p === '/v1/embeddings') {
-    const body = await readJson(req)
+    const body = preBody ?? (await readJson(req))
     const input = Array.isArray(body.input) ? (body.input as string[]) : [String(body.input ?? '')]
     const embeddings = await ai.embedMany(input)
     res.writeHead(200, JSON_HEADERS)
@@ -111,7 +178,7 @@ async function handle(
   }
   // ── dashscope：图片生成 ──────────────────────────────────
   if (method === 'POST' && p === '/api/v1/services/aigc/multimodal-generation/generation') {
-    const body = await readJson(req)
+    const body = preBody ?? (await readJson(req))
     const messages = (body.input?.messages ?? []) as Array<{ content?: Array<{ text?: string }> }>
     const prompt = messages[0]?.content?.[0]?.text ?? ''
     const r = await ai.generateImage({ prompt, size: String(body.parameters?.size ?? '') || undefined })
@@ -124,7 +191,7 @@ async function handle(
   }
   // ── dashscope：视频创建 ──────────────────────────────────
   if (method === 'POST' && p === '/api/v1/services/aigc/video-generation/video-synthesis') {
-    const body = await readJson(req)
+    const body = preBody ?? (await readJson(req))
     const prompt = String(body.input?.prompt ?? '')
     const { taskId } = await ai.createVideoTask({ prompt, duration: Number(body.parameters?.duration ?? 5) })
     res.writeHead(200, JSON_HEADERS)

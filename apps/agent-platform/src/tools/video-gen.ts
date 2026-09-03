@@ -182,7 +182,15 @@ export async function handleVideoPoll(job: VideoPollJob, ctx: AppCtx, q: QueueCl
   await sql`UPDATE video_tasks SET status = 'failed', error = ${st.error ?? null}, updated_at = NOW() WHERE id = ${job.rowId}`
 }
 
+/** 下载视频字节：http(s) 真实 URL / data: base64 / memory://模拟占位（测试替身交付物） */
 async function downloadVideo(src: string): Promise<Buffer> {
+  if (src.startsWith('data:')) {
+    return Buffer.from(src.slice(src.indexOf(',') + 1), 'base64')
+  }
+  if (src.startsWith('memory://')) {
+    // Memory 模拟：确定性占位字节（替身交付物——真实视频不会走此分支）
+    return Buffer.from(`memory-video:${src}`)
+  }
   const res = await fetch(src)
   if (!res.ok) throw new Error(`视频下载失败 HTTP ${res.status}`)
   return Buffer.from(await res.arrayBuffer())

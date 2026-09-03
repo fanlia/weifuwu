@@ -7,36 +7,18 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createServer, type Server } from 'node:http'
 import { OpenAi } from '../ai/index.ts'
 import { createAgent } from '../ai/agent.ts'
+import { createMemoryAiServer, type MemoryAiRequest } from '../ai/memory-server.ts'
 import type { WfStreamEvent } from '../ai/types.ts'
 
-// ── wire-fake：按请求次数分轮返回 ─────────────────────────
+// ── MemoryAiServer 轮次脚本（respond 按请求次数注入 SSE——替代自建 fake） ──
 
-/** 脚本：每轮请求按序返回一组 chunk（OpenAI 兼容 SSE） */
-function startScriptedProvider(script: Array<Array<string>>): Promise<{ url: string; close: () => Promise<void>; requestCount: () => number }> {
-  let count = 0
-  const server: Server = createServer(async (req, res) => {
-    let raw = ''
-    for await (const chunk of req) raw += chunk
-    const body = JSON.parse(raw || '{}')
-    void body
-    res.writeHead(200, { 'Content-Type': 'text/event-stream' })
-    const lines = script[Math.min(count, script.length - 1)]
-    count++
-    for (const line of lines) res.write(line)
-    res.end()
-  })
-  return new Promise((resolve) => {
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address() as { port: number }
-      resolve({
-        url: `http://127.0.0.1:${port}/v1`,
-        close: () => new Promise((r) => server.close(() => r())),
-        requestCount: () => count,
-      })
-    })
+/** 脚本：每轮请求按序返回一组 chunk（OpenAI 兼容 SSE）——闭包计数 */
+function scriptedServer(script: Array<Array<string>>): Promise<Awaited<ReturnType<typeof createMemoryAiServer>>> {
+  let i = 0
+  return createMemoryAiServer({
+    respond: () => ({ sse: script[Math.min(i++, script.length - 1)] }),
   })
 }
 
@@ -101,8 +83,8 @@ async function collectStream(reader: ReadableStreamDefaultReader<Uint8Array>, de
 // ── 测试 ──────────────────────────────────────────────────
 
 test('agent：一轮无工具调用 → step llm + done', async () => {
-  const fake = await startScriptedProvider([textRound('你好')])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const fake = await scriptedServer([textRound('你好')])
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   const agent = a.agent({ systemPrompt: '助手', tools: [] })
   try {
     const events = await collectEvents(agent.run([{ role: 'user', content: 'hi' }]))
@@ -116,11 +98,11 @@ test('agent：一轮无工具调用 → step llm + done', async () => {
 })
 
 test('agent：工具循环 → tool_call → 工具执行 emit progress → tool_result → 第二轮 → done', async () => {
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     toolRound('query_weather', '{"city":"北京"}'),
     textRound('北京晴，25 度'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
 
   const progress: string[] = []
   const agent = a.agent({
@@ -155,7 +137,7 @@ test('agent：工具循环 → tool_call → 工具执行 emit progress → tool
     assert.equal(tr.ok, true)
     assert.equal(tr.output.temp, 25)
     assert.deepEqual(progress, ['北京'])
-    assert.equal(fake.requestCount(), 2, '两轮 LLM 调用')
+    assert.equal(fake.requests.length, 2, '两轮 LLM 调用')
   } finally {
     await fake.close()
   }
@@ -163,7 +145,7 @@ test('agent：工具循环 → tool_call → 工具执行 emit progress → tool
 
 test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（并发证据）', async () => {
   // 双 tool_call 一轮（两个独立工具）+ 第二轮文本
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     [
       chunk({ role: 'assistant', tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: 'slow_tool', arguments: '' } }, { index: 1, id: 'call_2', type: 'function', function: { name: 'fast_tool', arguments: '' } }] }),
       chunk({ tool_calls: [{ index: 0, function: { arguments: '{"slow":1}' } }, { index: 1, function: { arguments: '{"fast":2}' } }] }),
@@ -172,7 +154,7 @@ test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（
     ],
     textRound('两工具结果已合并'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   // 并发证据（确定性——不依赖计时）：两工具 run 重叠（同时 in-flight）
   let inFlight = 0
   let maxInFlight = 0
@@ -197,7 +179,7 @@ test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（
   try {
     const result = await agent.runToResult([{ role: 'user', content: '并行测试' }])
     assert.equal(maxInFlight, 2, '双工具并发执行（同时 in-flight = 2——串行为 1）')
-    assert.equal(fake.requestCount(), 2, '两轮 LLM 调用')
+    assert.equal(fake.requests.length, 2, '两轮 LLM 调用')
     assert.equal(result.content, '两工具结果已合并', '第二轮文本为最终内容')
     // T2：各工具收到各自完整参数（旧代码 slow_tool 收 {}——参数丢失）
     assert.deepEqual(seen.find(([n]) => n === 'slow_tool')?.[1], { slow: 1 }, 'slow_tool 参数完整')
@@ -208,11 +190,11 @@ test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（
 })
 
 test('toolContext 透传：AgentConfig.toolContext → ToolContext.context（会话上下文单一注入面）', async () => {
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     toolRound('ctx_probe', '{}'),
     textRound('ok'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   let seen: Record<string, unknown> | undefined
   const agent = a.agent({
     systemPrompt: '助手',
@@ -238,11 +220,11 @@ test('toolContext 透传：AgentConfig.toolContext → ToolContext.context（会
 })
 
 test('agent：工具不存在 → tool_result ok:false，循环继续', async () => {
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     toolRound('missing_tool', '{}'),
     textRound('抱歉，没有这个工具'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   const agent = a.agent({ systemPrompt: '助手', tools: [] })
   try {
     const events = await collectEvents(agent.run([{ role: 'user', content: 'x' }]))
@@ -256,11 +238,11 @@ test('agent：工具不存在 → tool_result ok:false，循环继续', async ()
 })
 
 test('C2 条件审批：函数返回 false 的工具自动执行（不发 approval_request）', async () => {
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     toolRound('read_file', '{"path":"a.txt"}'),
     textRound('内容正常'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   let executed = false
   const agent = a.agent({
     systemPrompt: '助手',
@@ -289,11 +271,11 @@ test('C2 条件审批：函数返回 false 的工具自动执行（不发 approv
 })
 
 test('C2 条件审批：函数返回 true 的工具走审批（approval_request 发出）', async () => {
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     toolRound('delete_file', '{"path":"a.txt"}'),
     textRound('已删除'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   const agent = a.agent({
     systemPrompt: '助手',
     humanInTheLoop: (call: any) => call.name === 'delete_file',
@@ -321,11 +303,11 @@ test('C2 条件审批：函数返回 true 的工具走审批（approval_request 
 })
 
 test('agent：HITL 审批 approved → 执行工具', async () => {
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     toolRound('send_email', '{"to":"a@x.com"}'),
     textRound('已发送'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   let executed = false
   const agent = a.agent({
     systemPrompt: '助手',
@@ -382,11 +364,11 @@ test('agent：HITL 审批 approved → 执行工具', async () => {
 })
 
 test('agent：HITL 审批 rejected → tool_result ok:false，agent 换方案（不终止）', async () => {
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     toolRound('send_email', '{"to":"all@x.com"}'),
     textRound('好的，不群发。需要发给谁？'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   let executed = false
   const agent = a.agent({
     systemPrompt: '助手',
@@ -440,18 +422,18 @@ test('agent：HITL 审批 rejected → tool_result ok:false，agent 换方案（
     // agent 换方案：第二轮继续（不终止）
     const done = rest.find((e) => e.name === 'wf:done')!
     assert.ok(done, '拒绝后 agent 应继续并完成')
-    assert.equal(fake.requestCount(), 2, '两轮 LLM 调用')
+    assert.equal(fake.requests.length, 2, '两轮 LLM 调用')
   } finally {
     await fake.close()
   }
 })
 
 test('agent：审批超时（approvalTimeoutMs=100）→ 自动按 rejected 处理，工具不执行', async () => {
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     toolRound('send_email', '{}'),
     textRound('未获得批准，跳过。'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   let executed = false
   const agent = a.agent({
     systemPrompt: '助手',
@@ -475,8 +457,8 @@ test('agent：审批超时（approvalTimeoutMs=100）→ 自动按 rejected 处�
 
 test('agent：maxSteps 耗尽 → done 返回', async () => {
   // 脚本永远返回 tool_call（每轮都要求调用工具）→ 循环到 maxSteps
-  const fake = await startScriptedProvider([toolRound('loop_tool', '{}')])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const fake = await scriptedServer([toolRound('loop_tool', '{}')])
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   const agent = a.agent({
     systemPrompt: '助手',
     maxSteps: 3,
@@ -486,7 +468,7 @@ test('agent：maxSteps 耗尽 → done 返回', async () => {
     const events = await collectEvents(agent.run([{ role: 'user', content: 'x' }]))
     const done = events.find((e) => e.name === 'wf:done')!
     assert.ok(done)
-    assert.equal(fake.requestCount(), 3, 'maxSteps 次 LLM 调用')
+    assert.equal(fake.requests.length, 3, 'maxSteps 次 LLM 调用')
     assert.ok((done.data as { usage?: { total_tokens: number } }).usage, 'done 带累积 usage')
   } finally {
     await fake.close()
@@ -502,11 +484,11 @@ test('agent：多轮文本 → done.content 跨轮累积（A3——旧代码只�
     chunk({}, 'tool_calls', { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }),
     'data: [DONE]\n\n',
   ]
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     roundWithText('先分析', 'loop_tool'),
     textRound('最终答案'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   const agent = a.agent({
     systemPrompt: '助手',
     maxSteps: 5,
@@ -529,8 +511,8 @@ test('agent：maxSteps 耗尽 → done.content 带累积文本（A3——旧代�
     chunk({}, 'tool_calls', { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }),
     'data: [DONE]\n\n',
   ]
-  const fake = await startScriptedProvider([roundWithText('第')])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const fake = await scriptedServer([roundWithText('第')])
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   const agent = a.agent({
     systemPrompt: '助手',
     maxSteps: 2,
@@ -539,7 +521,7 @@ test('agent：maxSteps 耗尽 → done.content 带累积文本（A3——旧代�
   try {
     const events = await collectEvents(agent.run([{ role: 'user', content: 'x' }]))
     const done = events.find((e) => e.name === 'wf:done')!
-    assert.equal(fake.requestCount(), 2, 'maxSteps 次 LLM 调用')
+    assert.equal(fake.requests.length, 2, 'maxSteps 次 LLM 调用')
     assert.equal((done.data as { content: string }).content, '第第', 'maxSteps 耗尽：累积文本不丢（旧代码 ""）')
   } finally {
     await fake.close()
@@ -547,8 +529,8 @@ test('agent：maxSteps 耗尽 → done.content 带累积文本（A3——旧代�
 })
 
 test('A4：审批挂起中取消 → 快速收尾 + 条目回收（approve 返回 false）', async () => {
-  const fake = await startScriptedProvider([toolRound('needs_approval', '{}')])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const fake = await scriptedServer([toolRound('needs_approval', '{}')])
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   const agent = a.agent({
     systemPrompt: '助手',
     humanInTheLoop: true,
@@ -586,8 +568,8 @@ test('A4：审批挂起中取消 → 快速收尾 + 条目回收（approve 返�
 })
 
 test('A5：长生命周期 signal 复用——多次 runToResult 无交叉污染（监听器清理哨兵）', async () => {
-  const fake = await startScriptedProvider([textRound('hi')])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const fake = await scriptedServer([textRound('hi')])
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   const agent = a.agent({ systemPrompt: 's', tools: [] })
   try {
     // 同一外部 signal 连续复用（worker 场景）——每次 run 的监听器清理不残留
@@ -606,11 +588,11 @@ test('A5：长生命周期 signal 复用——多次 runToResult 无交叉污染
 })
 
 test('agent 流式 wf:step(tool) 事件携带工具参数（前端工具卡片展示）', async () => {
-  const fake = await startScriptedProvider([
+  const fake = await scriptedServer([
     toolRound('send_email', '{"to":"a@x.com","subject":"你好"}'),
     textRound('已发送'),
   ])
-  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `${fake.url}/v1` })
   try {
     const agent = a.agent({
       systemPrompt: '助手',

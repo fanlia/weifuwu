@@ -7,41 +7,27 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createServer, type Server } from 'node:http'
 import { OpenAi } from '../ai/index.ts'
 import { AiError } from '../ai/client.ts'
+import { createMemoryAiServer } from '../ai/memory-server.ts'
 
-// ── wire-fake：DashScope /embeddings 协议服务器 ─────────────
-let lastBody: { model: string; input: string[] } | null = null
-let server: Server
-let baseUrl: string
+// ── MemoryAiServer（onEmbed 决策注入——真实 /v1/embeddings 协议面） ──
 
-async function startEmbedServer(): Promise<void> {
-  server = createServer(async (req, res) => {
-    let raw = ''
-    for await (const chunk of req) raw += chunk
-    lastBody = JSON.parse(raw || '{}')
-    const n = lastBody!.input.length
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({
-      data: Array.from({ length: n }, (_, i) => ({
-        index: i,
-        embedding: [i + 1, i * 2, 0.5], // 确定性向量
-      })),
-    }))
+/** 确定性嵌入（对齐旧 wire-fake 响应：[i+1, i*2, 0.5]） */
+async function startEmbedServer(): Promise<Awaited<ReturnType<typeof createMemoryAiServer>>> {
+  return createMemoryAiServer({
+    onEmbed: async (texts: string[]) => texts.map((_, i) => [i + 1, i * 2, 0.5]),
   })
-  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
-  baseUrl = `http://127.0.0.1:${(server.address() as any).port}`
 }
 
 test('OpenAi({ embedding }) 的 embed/embedMany 走 DashScope 协议', async () => {
-  await startEmbedServer()
+  const srv = await startEmbedServer()
   try {
     const module = OpenAi({
       apiKey: 'test-key',
       baseUrl: 'http://127.0.0.1:1', // chat 端点不可达（本测试不用）
       defaultModel: 'test-chat-model',
-      embedding: { apiKey: 'emb-key', baseUrl, defaultModel: 'text-embedding-v4' },
+      embedding: { apiKey: 'emb-key', baseUrl: `${srv.url}/v1`, defaultModel: 'text-embedding-v4' },
     })
 
     const single = await module.embed('hello')
@@ -49,30 +35,32 @@ test('OpenAi({ embedding }) 的 embed/embedMany 走 DashScope 协议', async () 
 
     const many = await module.embedMany(['a', 'b'])
     assert.deepEqual(many, [[1, 0, 0.5], [2, 2, 0.5]], '批量按 index 排序')
-    assert.equal(lastBody?.model, 'text-embedding-v4', '请求 model 对齐默认参数')
-    assert.deepEqual(lastBody?.input, ['a', 'b'])
+    assert.equal(srv.requests[1].body.model, 'text-embedding-v4', '请求 model 对齐默认参数')
+    assert.deepEqual(srv.requests[1].body.input, ['a', 'b'])
   } finally {
-    server.close()
+    srv.closeAllConnections()
+    await srv.close()
   }
 })
 
 test('embedding 默认参数与环境变量对齐（DASHSCOPE_*）', async () => {
-  await startEmbedServer()
+  const srv = await startEmbedServer()
   const old = { key: process.env.DASHSCOPE_API_KEY, url: process.env.DASHSCOPE_BASE_URL, model: process.env.DASHSCOPE_EMBEDDING_MODEL }
   try {
     process.env.DASHSCOPE_API_KEY = 'env-key'
-    process.env.DASHSCOPE_BASE_URL = baseUrl
+    process.env.DASHSCOPE_BASE_URL = `${srv.url}/v1`
     process.env.DASHSCOPE_EMBEDDING_MODEL = 'text-embedding-v3'
 
     const module = OpenAi({ apiKey: 'chat-key', baseUrl: 'http://127.0.0.1:1', defaultModel: 'm' })
     const v = await module.embed('x')
     assert.deepEqual(v, [1, 0, 0.5])
-    assert.equal(lastBody?.model, 'text-embedding-v3', '模型从环境变量读取')
+    assert.equal(srv.requests[0].body.model, 'text-embedding-v3', '模型从环境变量读取')
   } finally {
     process.env.DASHSCOPE_API_KEY = old.key
     process.env.DASHSCOPE_BASE_URL = old.url
     process.env.DASHSCOPE_EMBEDDING_MODEL = old.model
-    server.close()
+    srv.closeAllConnections()
+    await srv.close()
   }
 })
 

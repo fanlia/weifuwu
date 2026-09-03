@@ -190,6 +190,22 @@ test('后台轮询：done → 下载视频落盘 /ws/{dept}/{filename} + 行 suc
   }
 })
 
+test('Memory 模拟交付：videoStatus done 返回 memory:// url → 占位字节落盘（替身契约）', async () => {
+  // MemoryAi 模拟形态：url = memory://video/{prompt前8}——fetch 不可用——占位分支
+  const aiStub = mockPoll('done', { taskId: TASK_DONE, videoUrl: 'memory://video/一只猫' })
+  const { q, jobs } = fakeQueue()
+  const rowId = await insertRow(TASK_DONE, 'mem.mp4')
+  try {
+    await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_DONE, prompt: 'p', filename: 'mem.mp4', departmentId: DEPT, agentId: '' }, ctx({ ai: aiStub }), q)
+    const saved = await readFile(join(WS_ROOT, DEPT, 'mem.mp4'))
+    assert.equal(saved.toString(), 'memory-video:memory://video/一只猫', 'memory:// 占位字节落盘')
+    const r = await getVideoTask(ctx(), TASK_DONE)
+    assert.equal(r!.status, 'succeeded')
+  } finally {
+    mock.restoreAll()
+  }
+})
+
 test('后台轮询：failed → 行 failed + error（不续链）', async () => {
   const aiStub = mockPoll('failed', { taskId: TASK_FAIL, error: 'InvalidParameter: The parameter is invalid.' })
   const { q, jobs } = fakeQueue()

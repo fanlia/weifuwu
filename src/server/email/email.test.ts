@@ -22,45 +22,19 @@ async function callEmailMiddleware(mw: any, msg?: EmailMessage) {
 }
 
 describe('email', () => {
-  const servers: Array<{ close: () => Promise<void> }> = []
+  const servers: Array<{ close: () => Promise<void>; closeAllConnections?: () => void }> = []
   after(async () => {
     await Promise.all(servers.map((s) => s.close()))
   })
 
-  describe('API 适配器（mock HTTP 端点）', () => {
-    function mockResendServer(opts?: { status?: number; body?: unknown }) {
-      return new Promise<{ port: number; reqs: Array<{ path: string; auth: string | null; body: any }>; close: () => Promise<void> }>(
-        (resolve) => {
-          const reqs: Array<{ path: string; auth: string | null; body: any }> = []
-          const server = http.createServer(async (req, res) => {
-            let body = ''
-            for await (const c of req) body += c
-            reqs.push({
-              path: req.url ?? '',
-              auth: req.headers.authorization ?? null,
-              body: body ? JSON.parse(body) : null,
-            })
-            res.writeHead(opts?.status ?? 200, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify(opts?.body ?? { id: 'em_mock' }))
-          })
-          server.listen(0, '127.0.0.1', () => {
-            resolve({
-              port: (server.address() as net.AddressInfo).port,
-              reqs,
-              close: () => new Promise<void>((r) => server.close(() => r())),
-            })
-          })
-        },
-      )
-    }
-
+  describe('API 适配器（HTTP 端点——MemoryEmailServer 替身）', () => {
     it('发送：POST /emails + Bearer 认证 + JSON body', async () => {
-      const m = await mockResendServer()
-      servers.push(m)
+      const m = await createMemoryEmailServer()
+      servers.push(m as any)
       const mw = email({
         from: 'no-reply@x.com',
         apiKey: 're_test',
-        baseUrl: `http://127.0.0.1:${m.port}`,
+        baseUrl: m.url,
       })
       const ctxEmail = await callEmailMiddleware(mw)
       const result = await ctxEmail.send({
@@ -68,11 +42,11 @@ describe('email', () => {
         subject: '欢迎',
         html: '<p>hi</p>',
       })
-      assert.equal(result.id, 'em_mock')
-      assert.equal(m.reqs.length, 1)
-      assert.equal(m.reqs[0].path, '/emails')
-      assert.equal(m.reqs[0].auth, 'Bearer re_test')
-      const body = m.reqs[0].body
+      assert.equal(result.accepted, true)
+      assert.equal(m.requests.length, 1)
+      assert.equal(m.requests[0].path, '/emails')
+      assert.equal(m.requests[0].headers['authorization'], 'Bearer re_test')
+      const body = m.requests[0].body
       assert.equal(body.from, 'no-reply@x.com')
       assert.deepEqual(body.to, ['a@x.com', 'b@x.com'])
       assert.equal(body.subject, '欢迎')
@@ -80,25 +54,25 @@ describe('email', () => {
     })
 
     it('msg.from 覆盖全局 from', async () => {
-      const m = await mockResendServer()
-      servers.push(m)
+      const m = await createMemoryEmailServer()
+      servers.push(m as any)
       const mw = email({
         from: 'no-reply@x.com',
         apiKey: 're_test',
-        baseUrl: `http://127.0.0.1:${m.port}`,
+        baseUrl: m.url,
       })
       const ctxEmail = await callEmailMiddleware(mw)
       await ctxEmail.send({ from: 'custom@x.com', to: 'a@x.com', subject: 'S' })
-      assert.equal(m.reqs[0].body.from, 'custom@x.com')
+      assert.equal(m.requests[0].body.from, 'custom@x.com')
     })
 
     it('服务商错误 → HttpError 502', async () => {
-      const m = await mockResendServer({ status: 401, body: { message: 'invalid api key' } })
-      servers.push(m)
+      const m = await createMemoryEmailServer({ respond: () => ({ status: 401, body: { message: 'invalid api key' } }) })
+      servers.push(m as any)
       const mw = email({
         from: 'a@x.com',
         apiKey: 'bad',
-        baseUrl: `http://127.0.0.1:${m.port}`,
+        baseUrl: m.url,
       })
       const ctxEmail = await callEmailMiddleware(mw)
       await assert.rejects(
