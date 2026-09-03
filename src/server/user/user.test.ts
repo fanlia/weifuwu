@@ -137,8 +137,10 @@ describe('userSystem (memory sql)', () => {
       const reg = await (await post('/api/auth/register', { email, password: 'password123' })).json()
       const res = await get('/api/auth/me', reg.token)
       assert.equal(res.status, 200)
-      const user = await res.json()
-      assert.equal(user.email, email)
+      const body = await res.json()
+      // USERSYSTEM-V2：me 返回 { user, session }——纯账号 token → session null
+      assert.equal(body.user.email, email)
+      assert.equal(body.session, null, '平台账号 token 无应用会话')
     })
 
     it('无 token → 401', async () => {
@@ -251,7 +253,7 @@ describe('userSystem (memory sql)', () => {
       const reg = await (await post('/api/auth/register', { email, password: 'password123' })).json()
       const me = await (await get('/api/auth/me', reg.token)).json()
       const ctx = await authCtx(reg.token)
-      await ctx.auth.setPassword(me.id, 'newpassword456')
+      await ctx.auth.setPassword(me.user.id, 'newpassword456')
 
       const oldLogin = await post('/api/auth/login', { email, password: 'password123' })
       assert.equal(oldLogin.status, 401)

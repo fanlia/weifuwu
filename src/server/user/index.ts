@@ -54,11 +54,31 @@ import { hashPassword, verifyPassword } from './password.ts'
 import { signToken, verifyToken, generateRefreshToken, hashRefreshToken } from './token.ts'
 import { ok, created, noContent, badRequest } from '../response.ts'
 
+export interface SsoOptions {
+  /** IdP issuer（https://idp.example.com——authorize/token/userinfo 派生） */
+  issuer: string
+  clientId: string
+  clientSecret: string
+  /** 回调地址（默认 {redirectBase}{prefix}/sso/callback——redirectBase 缺省用 request origin） */
+  redirectBase?: string
+  /** state 默认绑定应用 slug（跳转时 ?app={slug} 可覆盖——回调定向成员归属） */
+  defaultAppSlug?: string
+  scope?: string
+  /** 回调页渲染（默认 JSON——前端自行接 token；平台可注入 localStorage 脚本页） */
+  renderCallback?: (session: { token: string; refreshToken: string; user: User }) => string | Response
+}
 export interface UserSystemOptions {
   /** PostgreSQL SqlClient（postgres() 中间件的 .sql） */
   sql: SqlClient
   /** HMAC 签名密钥（至少 32 字符；默认读 AUTH_SECRET） */
   secret?: string
+/** 生命周期钩子（平台业务注入——默认 Agent/部门/审计等；框架不内置业务） */
+  hooks?: UserHooks
+  /** 角色白名单（createInvite/registerInApp 幽灵角色拦截——默认 owner/admin/member/viewer） */
+  allowedRoles?: string[]
+  /** SSO（OIDC 授权码——系统级单 IdP——未配置 = 密码模式优雅降级）
+   *  issuer 派生 authorize/token/userinfo 端点（无 discovery——简单兼容） */
+  sso?: SsoOptions
   /** access token 有效期（秒）。默认 3600（1h）。 */
   accessTtlSeconds?: number
   /** refresh token 有效期（天）。默认 30。 */
@@ -105,6 +125,35 @@ export interface CreateAppInput {
   openRegistration?: boolean
 }
 
+/** SSO 配置（OIDC 授权码——系统级单 IdP——所有应用共用） */
+
+
+/** 生命周期钩子（平台业务注入——默认 Agent/部门/审计等；框架不内置业务） */
+export interface UserHooks {
+  /** 注册建默认应用后（userId + app 信息——平台 onboarding：默认 Agent/部门） */
+  onRegisterApp?(userId: string, app: AppInfo): Promise<void> | void
+  /** SSO 登录成功建号/加成员后（userId + appId——审计/档案补全） */
+  onSsoLogin?(userId: string, appId?: string): Promise<void> | void
+}
+
+/** 产品级注册：平台账号 + 默认应用一步完成（owner 成员 + 应用 token 签发） */
+export interface RegisterWithAppInput {
+  email: string
+  password: string
+  name?: string
+  /** 应用 slug（默认邮箱域名——冲突自动后缀 -N——上限 200） */
+  appSlug?: string
+  /** 应用显示名（默认 `${name} 的应用`——可空走 name） */
+  appName?: string
+}
+
+export interface RegisterWithAppResult {
+  token: string
+  refreshToken: string
+  user: User
+  app: AppInfo & { role: string }
+}
+
 export interface RegisterInAppInput {
   /** 应用 slug（人类可读路由标识） */
   appSlug: string
@@ -118,6 +167,8 @@ export interface RegisterInAppInput {
 /** ctx.auth 方法面 */
 export interface AuthApi {
   register(input: RegisterInput): Promise<{ token: string; refreshToken: string; user: User }>
+  /** 产品级注册：账号 + 默认应用（owner）+ 应用 token——slug 冲突自动后缀 */
+  registerWithApp(input: RegisterWithAppInput): Promise<RegisterWithAppResult>
   login(
     email: string,
     password: string,
@@ -159,9 +210,17 @@ export interface UserInjected {
   auth: AuthApi
 }
 
+/** 当前会话（token 解出的应用态——{ userId, appId, role }·平台账号 token = null） */
+export interface Session {
+  userId: string
+  appId: string
+  role: string
+}
+
 declare module '../types.ts' {
   interface Context {
     auth?: AuthApi
+    session?: Session | null
   }
 }
 
@@ -181,6 +240,8 @@ export interface UserSystemClient extends Middleware<Context, Context & UserInje
 const USERS_TABLE = '_weifuwu_users'
 const SESSIONS_TABLE = '_weifuwu_sessions'
 const APP_TABLE = '_weifuwu_apps'
+/** _builtin 系统应用固定 id（migrate 幂等唯一——语义可读） */
+const BUILTIN_APP_ID = '00000000-0000-4000-8000-0000000000b1'
 const MEMBER_TABLE = '_weifuwu_app_members'
 
 // B5（2027-XX）：密码长度上下限——下限防弱口令（既有），上限防 MB 级 password
@@ -223,6 +284,15 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     throw new Error('userSystem: secret must be at least 16 characters')
   }
   const secret: string = secretRaw
+  const hooks = options.hooks
+  const allowedRoles = options.allowedRoles ?? ['owner', 'admin', 'member', 'viewer']
+  const sso = options.sso ?? null
+  /** 幽灵角色拦截（B5.2 教训：createInvite 曾放行任意 role 串——可铸造无入口的 admin） */
+  function assertRole(role: string | undefined): void {
+    if (role !== undefined && !allowedRoles.includes(role)) {
+      throw new HttpError(`invalid role: ${role}（allowed: ${allowedRoles.join('/')}）`, 403)
+    }
+  }
   const accessTtlSeconds = options.accessTtlSeconds ?? 3600
   const refreshTtlDays = options.refreshTtlDays ?? 30
   const prefix = options.prefix ?? '/api/auth'
@@ -345,6 +415,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     const sessionPayload: Record<string, unknown> = {}
     let payloadTenantId: unknown
     let payloadAppId: unknown
+    let payloadRole: unknown
     const authHeader = req.headers.get('authorization')
     // 直链鉴权（2026-08——下载/打开导航面——前端无法带 Authorization header）：
     // - ?token=（access token 直链——旧兼容）
@@ -385,12 +456,17 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         sessionPayload.userId = String(payload.sub)
         payloadTenantId = payload.tenantId
         payloadAppId = payload.appId
+        payloadRole = payload.role
       }
     }
 
     ctx.user = reqUser
     // 应用/租户注入：token payload 携带 appId（新）/tenantId（旧兼容）时直接可用
     if (payloadAppId != null) (ctx as any).appId = String(payloadAppId)
+    // USERSYSTEM-V2 会话单源：token 解出的应用态（userId/appId/role——业务一行读身份）
+    ctx.session = payloadAppId != null
+      ? { userId: String(reqUser!.id), appId: String(payloadAppId), role: String(payloadRole ?? '') }
+      : null
     if (payloadTenantId != null) (ctx as any).tenantId = String(payloadTenantId)
     ctx.auth = {
       // ── 会话 payload 字段（来自 token，应用层签发时决定带什么） ──
@@ -413,6 +489,42 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         const session = await issueSession(user)
         currentUser = user // 注册后同请求内 createApp/requireApp 可感知当前用户
         return { ...session, user }
+      },
+
+      async registerWithApp(input: RegisterWithAppInput): Promise<RegisterWithAppResult> {
+        // 1. 平台账号（复用 register 语义——含密码校验/哈希/唯一约束）
+        const reg = await this.register({
+          email: input.email,
+          password: input.password,
+          name: input.name,
+        })
+        // 1.5 _builtin 系统成员（role=member——系统身份单源）
+        await sql.query.insert(MEMBER_TABLE).values({
+          app_id: BUILTIN_APP_ID,
+          user_id: reg.user.id,
+          role: 'member',
+          invited_by: null,
+          source: 'register',
+        }).run()
+        // 2. slug 唯一化（冲突自动后缀——收编平台 200 次查找循环——同域名多租户）
+        const baseSlug = (input.appSlug ?? input.email.split('@')[1] ?? 'default').trim().toLowerCase()
+        let slug = baseSlug
+        for (let n = 1; n <= 200; n++) {
+          const rows = await findAppIdBySlug(slug)
+          if (!rows) break
+          slug = `${baseSlug}-${n}`
+        }
+        // 3. 建应用（owner 成员——createApp 内部自动）
+        const appInfo = await this.createApp({
+          slug,
+          name: input.appName ?? `${input.name ?? '用户'} 的应用`,
+          openRegistration: false,
+        })
+        // 4. 应用 token（role=owner）
+        const session = await issueSession(reg.user, { appId: appInfo.id, role: 'owner' })
+        // hook：平台 onboarding（默认 Agent/部门等）
+        await hooks?.onRegisterApp?.(reg.user.id, appInfo)
+        return { ...session, user: reg.user, app: { ...appInfo, role: 'owner' } }
       },
 
       async login(email: string, password: string) {
@@ -511,7 +623,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
             throw new HttpError('Invalid invite', 403)
           }
           if (inv.email && String(inv.email) !== email) throw new HttpError('Invite email mismatch', 403)
-          if (typeof inv.role === 'string' && inv.role !== 'owner') role = inv.role
+          if (typeof inv.role === 'string' && inv.role !== 'owner') {
+            assertRole(inv.role)
+            role = inv.role
+          }
         }
 
         // 平台账号：按 email 查找或创建（跨应用复用同一身份）
@@ -536,12 +651,13 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         const member = await findMemberRole(appId, user.id)
         if (!member) {
           await sql.query.insert(MEMBER_TABLE)
-            .values({ app_id: appId, user_id: user.id, role, invited_by: currentUser?.id ?? null })
+            .values({ app_id: appId, user_id: user.id, role, invited_by: currentUser?.id ?? null, source: 'invite' })
             .onConflict()
             .run()
         }
 
         const session = await issueSession(user, { appId, role })
+        await sql.query.update(MEMBER_TABLE).set({ last_login_at: new Date() }).where({ app_id: appId, user_id: user.id }).run()
         currentUser = user
         return { ...session, user }
       },
@@ -575,6 +691,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           tenant: row.tenant as string | undefined,
         }
         const session = await issueSession(user, { appId, role })
+        await sql.query.update(MEMBER_TABLE).set({ last_login_at: new Date() }).where({ app_id: appId, user_id: user.id }).run()
         currentUser = user
         // app 附带角色（2026-08——前端写操作防线需要 role——loginApp 此前
         // 无 app/role 字段——viewer 前端不禁用写按钮——「点击才 403」体验缺口）
@@ -602,11 +719,12 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           const member = await findMemberRole(opts.appId, user.id)
           if (!member) {
             await sql.query.insert(MEMBER_TABLE)
-              .values({ app_id: opts.appId, user_id: user.id, role: 'member', invited_by: null })
+              .values({ app_id: opts.appId, user_id: user.id, role: 'member', invited_by: null, source: 'sso' })
               .onConflict()
               .run()
           }
           appId = opts.appId
+          await sql.query.update(MEMBER_TABLE).set({ last_login_at: new Date() }).where({ app_id: opts.appId, user_id: user.id }).run()
         }
         const session = await issueSession(user, appId ? { appId, role: 'member' } : undefined)
         currentUser = user
@@ -614,6 +732,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       },
 
       async createInvite(appId: string, opts: { email?: string; role?: string }) {
+        assertRole(opts.role)
         if (!currentUser) throw new HttpError('Unauthorized', 401)
         const role = await findMemberRole(appId, currentUser.id)
         if (role !== 'owner') throw new HttpError('Owner only', 403)
@@ -627,6 +746,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       },
 
       async addMember(appId: string, email: string, role?: string) {
+        assertRole(role)
         if (!currentUser) throw new HttpError('Unauthorized', 401)
         const callerRole = await findMemberRole(appId, currentUser.id)
         if (callerRole !== 'owner') throw new HttpError('Owner only', 403)
@@ -707,6 +827,24 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         PRIMARY KEY (app_id, user_id)
       )
     `)
+    // _builtin 系统应用：系统应用本身（migrate 幂等建——slug 固定）
+    //   owner 可空（系统应用无自然人 owner——管理面另行授权）
+    await sql.unsafe(`ALTER TABLE ${APP_TABLE} ALTER COLUMN owner_user_id DROP NOT NULL`)
+    // 固定 id（`00000000-0000-4000-8000-0000000000b1` 可读形态）——migrate 幂等唯一
+    // （先查后插——query builder 双后端兼容——memory 不支持 ON CONFLICT）
+    const builtinRows = await sql.query.from(APP_TABLE).select('id').where({ slug: '_builtin' }).run()
+    if (!builtinRows.length) {
+      await sql.query.insert(APP_TABLE).values({
+        id: BUILTIN_APP_ID,
+        slug: '_builtin',
+        name: 'System',
+        owner_user_id: null,
+        open_registration: false,
+      }).run()
+    }
+    // members 元数据（USERSYSTEM-V2：注册来源 + 最后登录——幂等补列）
+    await sql.unsafe(`ALTER TABLE ${MEMBER_TABLE} ADD COLUMN IF NOT EXISTS source TEXT`)
+    await sql.unsafe(`ALTER TABLE ${MEMBER_TABLE} ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`)
   }
 
   // ── 路由 ──
@@ -720,6 +858,13 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     if (!excluded.has('register')) app.post(`${p}/register`, async (req, ctx) => {
       const body = (await req.json().catch(() => ({}))) as RegisterInput
       const result = await ctx.auth!.register(body)
+      return created(result)
+    })
+
+    // 产品级注册（USERSYSTEM-V2）：账号 + _builtin 成员 + 默认应用（owner）+ 应用 token
+    if (!excluded.has('register')) app.post(`${p}/register-app`, async (req, ctx) => {
+      const body = (await req.json().catch(() => ({}))) as RegisterWithAppInput
+      const result = await ctx.auth!.registerWithApp(body)
       return created(result)
     })
 
@@ -756,8 +901,80 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
 
     if (!excluded.has('me')) app.get(`${p}/me`, async (_req, ctx) => {
       if (!ctx.user) throw new HttpError('Unauthorized', 401)
-      return ok(ctx.user)
+      // USERSYSTEM-V2：user + 会话面（应用 token → session；平台账号 → null）——前端角色单源
+      return ok({ user: ctx.user, session: ctx.session ?? null })
     })
+
+    // ── SSO（OIDC 授权码——USERSYSTEM-V2：应用面登录全 SSO——未配置=优雅降级） ──
+    if (sso) {
+      app.get(`${p}/sso/enabled`, async () => ok({ enabled: true, appSlug: sso.defaultAppSlug ?? null }))
+
+      // 1) 302 跳 IdP authorize（state = 目标应用 slug——回调定向成员归属）
+      app.get(`${p}/sso/login`, async (req) => {
+        const url = new URL(req.url ?? '', 'http://localhost')
+        const targetApp = url.searchParams.get('app') ?? sso.defaultAppSlug
+        const params = new URLSearchParams({
+          response_type: 'code',
+          client_id: sso.clientId,
+          redirect_uri: sso.redirectBase
+            ? `${sso.redirectBase.replace(/\/$/, '')}${p}/sso/callback`
+            : `${new URL(req.url, 'http://localhost').origin}${p}/sso/callback`,
+          scope: sso.scope ?? 'openid email profile',
+          state: targetApp ?? 'sso',
+        })
+        return new Response(null, { status: 302, headers: { Location: `${sso.issuer.replace(/\/$/, '')}/authorize?${params}` } })
+      })
+
+      // 2) 回调：code → token → userinfo → ssoLogin（建号/加成员）→ 回调页
+      app.get(`${p}/sso/callback`, async (req, ctx) => {
+        const url = new URL(req.url ?? '', 'http://localhost')
+        const code = url.searchParams.get('code')
+        if (!code) throw new HttpError('SSO 回调缺少 code', 400)
+        const redirectUri = sso.redirectBase
+          ? `${sso.redirectBase.replace(/\/$/, '')}${p}/sso/callback`
+          : `${url.origin}${p}/sso/callback`
+        // code → token（信任 IdP token 端点——完整 JWT 验签留待生产强化——边界登记）
+        const tokenRes = await fetch(`${sso.issuer.replace(/\/$/, '')}/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: redirectUri,
+            client_id: sso.clientId,
+            client_secret: sso.clientSecret,
+          }),
+        })
+        if (!tokenRes.ok) throw new HttpError('SSO token 交换失败', 401)
+        const tokenData = (await tokenRes.json()) as { access_token?: string }
+        // userinfo → email
+        const infoRes = await fetch(`${sso.issuer.replace(/\/$/, '')}/userinfo`, {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        })
+        if (!infoRes.ok) throw new HttpError('SSO 用户信息获取失败', 401)
+        const info = (await infoRes.json()) as { email?: string; name?: string }
+        const email = (info.email ?? '').trim().toLowerCase()
+        if (!email) throw new HttpError('SSO 未返回邮箱（需要 email scope）', 401)
+
+        // state 定向：?app={slug}（或 defaultAppSlug）→ 自动加入目标应用
+        const slug = url.searchParams.get('state')
+        let appId: string | undefined
+        if (slug && slug !== 'sso') {
+          const found = await findAppIdBySlug(slug)
+          if (found) appId = found
+        }
+        const session = await ctx.auth!.ssoLogin(email, { appId, name: info.name })
+        await hooks?.onSsoLogin?.(session.user.id, appId)
+        const payload = { token: session.token, refreshToken: session.refreshToken, user: session.user }
+        if (sso.renderCallback) {
+          const html = sso.renderCallback(payload)
+          return typeof html === 'string'
+            ? new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+            : html
+        }
+        return ok(payload)
+      })
+    }
 
     if (!excluded.has('apps')) {
       // 建应用（owner）

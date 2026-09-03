@@ -14,6 +14,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import http from 'node:http'
 import { createMemorySql, MemorySql } from '../db/memory-sql.ts'
 import { createQueryBuilder } from '../db/query-builder.ts'
 import { userSystem } from '../user/index.ts'
@@ -422,6 +423,224 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     })
   })
 
+  // ── 7.5 USERSYSTEM-V2 产品级注册 ──────────────────────────
+  describe('registerWithApp（产品级注册）', () => {
+    it('账号 + _builtin 成员 + 默认应用（owner）+ 应用 token——一步到位', async () => {
+      const email = uniqEmail()
+      const res = await post('/api/auth/register-app', { email, password: 'password123', name: '小王', appSlug: 'mybrand' })
+      assert.equal(res.status, 201)
+      const data = await res.json()
+      assert.ok(data.token, '应用 token')
+      assert.equal(data.app.role, 'owner')
+      assert.equal(data.app.slug, 'mybrand')
+      assert.equal(data.user.email, email)
+      // _builtin 成员（系统身份）
+      const [m] = await db.unsafe(`SELECT role, source FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [data.user.id])
+      assert.equal(m.role, 'member', '_builtin 系统成员')
+      assert.equal(m.source, 'register', '来源标记')
+    })
+
+    it('同域名 slug 冲突自动后缀（-2/-3——收编平台 200 次循环）', async () => {
+      const email1 = uniqEmail()
+      const email2 = email1.replace('@', '-2@') // 同域名（uniqEmail 域名相同）
+      const r1 = await (await post('/api/auth/register-app', { email: email1, password: 'password123', appSlug: 'acme' })).json()
+      const r2 = await (await post('/api/auth/register-app', { email: email2, password: 'password123', appSlug: 'acme' })).json()
+      assert.equal(r1.app.slug, 'acme')
+      assert.equal(r2.app.slug, 'acme-1', '冲突自动后缀')
+    })
+
+    it('onRegisterApp hook 触发（平台 onboarding 注入点）', async () => {
+      let hooked: { userId: string; appSlug: string } | null = null
+      const h = userSystem({ sql: db, secret, hooks: { onRegisterApp: async (userId, app) => { hooked = { userId, appSlug: app.slug } } } })
+      await h.migrate()
+      const hApp = new Router()
+      hApp.use(h)
+      h.routes(hApp)
+      const hRes = await hApp.handler()(
+        new Request('http://localhost/api/auth/register-app', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: uniqEmail(), password: 'password123' }),
+        }),
+        mkCtx(),
+      )
+      assert.equal(hRes.status, 201)
+      assert.ok(hooked, 'hook 触发')
+      assert.ok(hooked!.userId.length > 0, 'userId 透传')
+      assert.ok(hooked!.appSlug.length > 0, 'app slug 透传')
+    })
+
+    it('V2 me()：应用 token → { user, session: { appId, role } }（前端角色单源）', async () => {
+      const r = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123', appSlug: 'mecheck' })).json()
+      const res = await get('/api/auth/me', r.token)
+      const body = await res.json()
+      assert.equal(body.user.email, r.user.email)
+      assert.ok(body.session, '应用 token 有会话面')
+      assert.equal(body.session.appId, r.app.id, 'appId 单源')
+      assert.equal(body.session.role, 'owner', 'role 单源')
+    })
+
+    it('V2 ctx.session：业务路由读 { userId, appId, role } 三元组（一行身份）', async () => {
+      const r = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      let captured: any = null
+      const probe = new Router()
+      probe.use(users)
+      probe.get('/probe', (req: Request, ctx: any) => {
+        captured = ctx.session
+        return new Response('ok')
+      })
+      const res = await probe.handler()(
+        new Request('http://localhost/probe', { headers: { Authorization: `Bearer ${r.token}` } }),
+        mkCtx(),
+      )
+      assert.equal(res.status, 200)
+      assert.equal(captured.userId, r.user.id)
+      assert.equal(captured.appId, r.app.id)
+      assert.equal(captured.role, 'owner')
+    })
+
+    it('default slug = 邮箱域名（无 appSlug）', async () => {
+      const email = `slugtest-${Date.now()}@acme-domain.com`
+      const r = await (await post('/api/auth/register-app', { email, password: 'password123' })).json()
+      assert.equal(r.app.slug, 'acme-domain.com')
+    })
+  })
+
+  // ── 7.8 SSO（OIDC——mock IdP 实链） ─────────────────────────
+  describe('SSO（OIDC 授权码——框架内建）', () => {
+    async function startIdp(opts?: { email?: string; name?: string; failToken?: boolean }) {
+      const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url ?? '/', 'http://localhost')
+        if (url.pathname === '/token') {
+          if (opts?.failToken) { res.writeHead(401); res.end(); return }
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ access_token: 'idp-token-1' }))
+          return
+        }
+        if (url.pathname === '/userinfo') {
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ email: opts?.email ?? `sso-${randomUUID()}@idp.test`, name: opts?.name ?? 'SSO 用户' }))
+          return
+        }
+        res.writeHead(404); res.end()
+      })
+      await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+      const port = (server.address() as { port: number }).port
+      return { port, close: () => new Promise<void>((r) => server.close(() => r())) }
+    }
+
+    function ssoUsers(extra: Parameters<typeof userSystem>[0] = {}) {
+      const h = userSystem({
+        sql: db, secret,
+        sso: { issuer: 'http://127.0.0.1:9999', clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
+        ...extra,
+      })
+      return h
+    }
+
+    it('enabled：未配置 = false（优雅降级）；配置后 = true + appSlug', async () => {
+      const no = await get('/api/auth/sso/enabled')
+      assert.equal(no.status, 404, '未配置不挂路由（无 SSO 面——零显式暴露）')
+      const h = ssoUsers()
+      await h.migrate()
+      const p = new Router(); p.use(h); h.routes(p)
+      const res = await p.handler()(new Request('http://localhost/api/auth/sso/enabled'), mkCtx())
+      assert.equal(res.status, 200)
+      assert.deepEqual(await res.json(), { enabled: true, appSlug: null })
+    })
+
+    it('login：302 IdP authorize（client_id + state=app slug）', async () => {
+      const h = ssoUsers({ sso: { issuer: 'http://127.0.0.1:9999', clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost', defaultAppSlug: 'myapp' } })
+      await h.migrate()
+      const p = new Router(); p.use(h); h.routes(p)
+      const res = await p.handler()(new Request('http://localhost/api/auth/sso/login?app=tenant-x'), mkCtx())
+      assert.equal(res.status, 302)
+      const loc = res.headers.get('location')!
+      assert.match(loc, /authorize\?/)
+      assert.match(loc, /client_id=cid/)
+      assert.match(loc, /state=tenant-x/, 'state=目标应用（回调定向）')
+    })
+
+    it('callback：code → userinfo → ssoLogin 建号/加成员/签发 token（全链——真实 HTTP）', async () => {
+      const idp = await startIdp({ email: 'sso-user@idp.test', name: 'SSO 用户' })
+      const h = userSystem({
+        sql: db, secret,
+        sso: { issuer: `http://127.0.0.1:${idp.port}`, clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
+      })
+      await h.migrate()
+      const p = new Router(); p.use(h); h.routes(p)
+      const handler = p.handler()
+      const res = await handler(new Request(`http://localhost/api/auth/sso/callback?code=abc&state=sso`), mkCtx())
+      assert.equal(res.status, 200)
+      const payload = await res.json()
+      assert.ok(payload.token, '签发 session')
+      assert.equal(payload.user.email, 'sso-user@idp.test')
+      // token 可用（me 面）
+      const me = await handler(new Request('http://localhost/api/auth/me', { headers: { Authorization: `Bearer ${payload.token}` } }), mkCtx())
+      const meBody = await me.json()
+      assert.equal(meBody.user.email, 'sso-user@idp.test')
+      await idp.close()
+    })
+
+    it('callback state=app slug → 自动加成员（成员表落行）', async () => {
+      const idp = await startIdp({ email: `sso-member-${randomUUID()}@idp.test` })
+      const h = userSystem({
+        sql: db, secret,
+        sso: { issuer: `http://127.0.0.1:${idp.port}`, clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
+      })
+      await h.migrate()
+      // 先建应用（slug=myapp）
+      const ownerReg = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123', appSlug: 'myapp' })).json()
+      const p = new Router(); p.use(h); h.routes(p)
+      const handler = p.handler()
+      const res = await handler(new Request(`http://localhost/api/auth/sso/callback?code=abc&state=myapp`), mkCtx())
+      const payload = await res.json()
+      const [m] = await db.unsafe(`SELECT role, source FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = $2`, [payload.user.id, ownerReg.app.id])
+      assert.ok(m, 'SSO 自动加成员')
+      assert.equal(m.role, 'member')
+      assert.equal(m.source, 'sso', '来源标记 SSO')
+      await idp.close()
+    })
+
+    it('token 交换失败 → 401（明确失败不静默）', async () => {
+      const idp = await startIdp({ failToken: true })
+      const h = userSystem({
+        sql: db, secret,
+        sso: { issuer: `http://127.0.0.1:${idp.port}`, clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
+      })
+      await h.migrate()
+      const p = new Router(); p.use(h); h.routes(p)
+      const res = await p.handler()(new Request('http://localhost/api/auth/sso/callback?code=bad'), mkCtx())
+      assert.equal(res.status, 401)
+      await idp.close()
+    })
+  })
+
+  // ── 7.9 幽灵角色拦截（allowedRoles 白名单） ─────────────
+  describe('allowedRoles 幽灵角色拦截', () => {
+    it('invite 非法 role → 403（B5.2 教训——曾放行任意 role 串铸造 admin）', async () => {
+      const reg = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      const res = await post('/api/auth/apps/invites', { email: 'v@x.com', role: 'superadmin' }, reg.token)
+      // 路由面：apps/:appSlug/invites（slug = reg.app.slug）—— 用 app 路由格式
+      const res2 = await post(`/api/auth/apps/${reg.app.slug}/invites`, { email: 'v@x.com', role: 'superadmin' }, reg.token)
+      assert.equal(res2.status, 403, '非法角色拒绝')
+    })
+
+    it('addMember 非法 role → 403', async () => {
+      const reg = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      const target = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      const res = await post(`/api/auth/apps/${reg.app.slug}/members`, { email: target.user.email, role: 'god' }, reg.token)
+      assert.equal(res.status, 403)
+    })
+
+    it('合法 role（member/viewer）放行', async () => {
+      const reg = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      const target = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
+      const res = await post(`/api/auth/apps/${reg.app.slug}/members`, { email: target.user.email, role: 'viewer' }, reg.token)
+      assert.equal(res.status, 201)
+    })
+  })
+
   // ── 8. 迁移兼容 ─────────────────────────────────────────
   describe('迁移', () => {
     it('migrate 幂等 + 新表存在（apps / app_members）', async () => {
@@ -430,6 +649,23 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const m = await db.unsafe('SELECT * FROM _weifuwu_app_members LIMIT 0')
       assert.ok(Array.isArray(t), '_weifuwu_apps 表存在')
       assert.ok(Array.isArray(m), '_weifuwu_app_members 表存在')
+    })
+
+    it('V2 _builtin 系统应用：migrate 幂等建 + 无 owner（系统应用本体）', async () => {
+      await users.migrate()
+      const rows = await db.unsafe(`SELECT id, slug, owner_user_id FROM _weifuwu_apps WHERE slug = '_builtin'`)
+      assert.equal(rows.length, 1, '_builtin 恰一行')
+      assert.equal(rows[0].owner_user_id, null, '系统应用无自然人 owner')
+      // 幂等：再次 migrate 不重复
+      await users.migrate()
+      const again = await db.unsafe(`SELECT id FROM _weifuwu_apps WHERE slug = '_builtin'`)
+      assert.equal(again.length, 1, 'migrate 幂等——_builtin 唯一')
+    })
+
+    it('V2 members 元数据列：source + last_login_at（migrate 幂等补列）', async () => {
+      await users.migrate()
+      const cols = await db.unsafe('SELECT source, last_login_at FROM _weifuwu_app_members LIMIT 0')
+      assert.ok(Array.isArray(cols), '成员表可读（列存在——source/last_login_at）')
     })
   })
 })
