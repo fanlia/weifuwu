@@ -9,7 +9,7 @@ import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context, QueueWorker } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, queue, ui, userSystem, OpenAi, messager, rateLimit, verifyPassword, email, workflowSystem } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, queue, ui, userSystem, appAuth, OpenAi, messager, rateLimit, verifyPassword, hashPassword, email, workflowSystem } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -414,6 +414,10 @@ async function main() {
   //   _builtin 恒不开放（管理面）· 个人默认应用流（register-app）保留为通用能力（测试种子用）
   await pg.sql`UPDATE _weifuwu_apps SET open_registration = true WHERE slug = '_default'`
   console.log('[agent-platform] _default 已开放注册（单应用模式——注册即加入平台）')
+  // 机器凭据就绪位（分离时：appAuth.builtin = { baseUrl, appId, appKey }）
+  const [defCred] = await pg.sql`SELECT id, app_key FROM _weifuwu_apps WHERE slug = '_default'`
+  if (defCred?.id) console.log('[agent-platform] _default 机器凭据就绪（appId+appKey——分离沟通面）')
+
   // 迁移遗留：schema.sql 已去外键（agents.user_id 指向框架 _weifuwu_users），但已存在的表结构
   // 仍带旧约束（agents_user_id_fkey → 已删的 users 表）——幂等删除，避免注册建默认 Agent 失败
   await pg.sql`
@@ -487,8 +491,10 @@ async function main() {
   `)
   console.log('[agent-platform] app 模型迁移完成（旧 tenants → _weifuwu_apps + members）')
   app.use(users)
-  // 框架认证路由：login/logout/refresh/me（register 自定义：建租户 + 默认 agent）
-  // USERSYSTEM-V2：全量框架路由（register-app 产品级注册 / sso / apps/*——自建 auth.ts 已删）
+  // 分离就绪（定案）：同进程 users.mw 即完整注入（控制平面路由需要 AuthApi 方法面——
+  //   appAuth 为业务 server 分离件——框架导出+契约）：平台业务代码已全面采用
+  //   ctx.session 语义（注册→_default·登录直进·角色 token 单源）——分离时业务进程
+  //   挂 appAuth({ secret, builtin: { baseUrl, appId: _default.id, appKey: _default.app_key } })
   users.routes(app, { prefix: '/api/auth' })
 
   // ── 限流（框架 rateLimit：ctx.limit 手动限流，默认按 IP 维度） ──
@@ -1152,8 +1158,9 @@ async function main() {
       return Response.json({ error: '当前密码错误' }, { status: 403 })
     }
 
-    // 框架 ctx.auth.setPassword（scrypt 哈希 + 更新）
-    await auth!.setPassword(auth!.userId, body.newPassword)
+    // 业务侧（appAuth 薄面）无 AuthApi 方法面——密码更新为通用原语（hashPassword 导出）
+    const newHash = await hashPassword(body.newPassword)
+    await sql`UPDATE _weifuwu_users SET password_hash = ${newHash} WHERE id = ${auth!.userId}`
     return Response.json({ success: true })
   })
 

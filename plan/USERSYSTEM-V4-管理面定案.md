@@ -40,3 +40,14 @@
   业务应用不得占用）——业务 API 前缀完全由应用层决定（agent-platform：/api/departments·/api/agents…
   ——appId 由 ctx 注入隔离·不依赖路径）
 - 平台同步迁移（Login/Register/sso enabled + 测试路径全量）· 契约 75 · server 747 · 平台 449
+
+## V6 appAuth —— 业务侧认证中间件（分离件）
+
+- `appAuth({ secret, builtin?, verifyToken? })`——业务 server 解析 _builtin 签发 token：
+  ctx.session/user/appId/auth（薄）+ ctx.builtin（机器客户端·X-Wf-App-Id/Key 自动带）
+- token payload 增带 email/name（业务侧零查询展示面）
+- 验签零网络（共享 HMAC secret）· verifyToken 在线校验可选（即时性）
+- 同进程诚实边界：Router.use 无路径限定——控制平面路由需完整 AuthApi——
+  平台同进程仍用 users.mw（语义同构：ctx.session 主面已全面采用）——分离时业务进程换 appAuth
+- 契约 6（验签/匿名/平台态/机器客户端/在线校验/跨进程对称——register-app 真 token）·
+  server 753/753 · 平台 449/449 · 契约 433/433 · tsc 0

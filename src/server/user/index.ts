@@ -379,6 +379,9 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     const token = signToken(
       {
         sub: user.id,
+        // 身份包内（appAuth 业务侧零查询展示面——email/name 同 payload）
+        ...(user.email ? { email: user.email } : {}),
+        ...(user.name ? { name: user.name } : {}),
         ...(session?.appId ? { appId: session.appId, role: session.role } : {}),
         ...(!session?.appId && user.tenant ? { tenantId: user.tenant } : {}),
       },
