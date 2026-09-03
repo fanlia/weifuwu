@@ -182,7 +182,7 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'create_workflow',
-      description: '用 wfjs 语言创建自动化工作流（声明式步骤序列——HTTP 请求/日志/条件分支/循环）。创建即编译校验——语法错误会返回错误（可修正后重试）。wfjs 与 JS 语法对齐：const 名 = await http({ url: \'https://…\' }) 发请求；const 名 = 表达式（可读响应字段 res.json.x）；if (条件) { await log({ message: \`文本 ${变量} 件\` }) }；for (const 项 of 列表) {}；变量用 let 声明。用户要求「创建工作流/自动化流程/定时监控/自动检查」时使用——创建后可用 run_workflow 执行验证。',
+      description: '用 wfjs 语言创建自动化工作流（声明式步骤序列——HTTP 请求/日志/条件分支/循环）。创建即编译校验——语法错误会返回错误（可修正后重试）。wfjs 与 JS 语法对齐：const 名 = await http({ url: \'https://…\' }) 发请求；const 名 = 表达式（可读响应字段 res.json.x）；if (条件) { await log({ message: \`文本 ${变量} 件\` }) }；for (const 项 of 列表) {}；变量用 let 声明。用户要求「创建工作流/自动化流程/定时监控/自动检查」时使用——创建后可用 run_workflow 执行验证。注意：本环境提供演示接口 GET /api/demo/stock?stock=N（返回 { items: [...] }——items 是数组——长度即缺货商品数；N=0 无缺货、N>0 有 N 个）——演示/测试工作流请用它，不要用无法访问的示例域名。',
       parameters: {
         type: 'object',
         properties: {
