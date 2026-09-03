@@ -8,10 +8,10 @@
  *   - 分支：if 不通过 → 走 else（无 else 则跳过子链），**后续继续**（非错误非"跳过"）
  *   - 终止：return 步骤（无值）→ 整流程终止，status='success'（JS 顶层 return 同义）
  *   - 短路：步骤级 when 不通过 → 跳过该步（skippedSteps），后续继续
- *   - edge：「发一次」——静默 = 不执行子链且**继续后续**（不再截断）
+ *   - 去重：**无去重原语**——store 步骤显式 KV（用户代码记账/查询，语义全透明）
  *   - dry-run：副作用步骤打桩 { dry: true }；http 真跑（用户要看数据）
  */
-import type { EdgeStore } from './edge.ts'
+import type { KVStore } from './store.ts'
 
 /** 步骤定义：{ id, type, config?, when? } —— when 为布尔表达式（expression 模块） */
 export interface StepDef {
@@ -39,15 +39,11 @@ export interface AssignConfig {
   value: string
 }
 
-/** if 步骤：分支语义（then/else 子链执行后**继续后续**；edge=「发一次」去重） */
+/** if 步骤：分支语义（then/else 子链执行后**继续后续**——去重用 store 显式表达） */
 export interface IfConfig {
   when: string
   then?: StepChain
   else?: StepChain
-  /** edge 去重：上升沿执行 then；静默 = 跳过子链继续后续；变假重新武装 */
-  edge?: boolean
-  /** edge 存储键（默认 wf:edge:<def>:<step.id>） */
-  key?: string
 }
 
 /** while 步骤：条件为真循环执行 step 子链（maxIters 硬上限防死循环，默认 1000） */
@@ -69,11 +65,19 @@ export interface ReturnConfig {
   value?: string
 }
 
-/** 工作流定义：触发 + 步骤链（触发语义由消费方装配——scheduler cron / 手动 / webhook） */
+/** std 导入声明（wfjs import 语句的编译产物——toJs 渲染回源；validate 白名单校验） */
+export interface WorkflowImport {
+  from: string
+  names: { name: string; as?: string }[]
+}
+
+/** 工作流定义：触发 + 导入 + 步骤链（触发语义由消费方装配——scheduler cron / 手动 / webhook） */
 export interface WorkflowDef {
   /** 由消费方赋予（DB id）——引擎自身不要求 */
   id?: string
   name?: string
+  /** std 库导入（v1 仅 wf://std/* 命名导入——远程/本地 W8） */
+  imports?: WorkflowImport[]
   steps: StepDef[]
 }
 
@@ -139,7 +143,7 @@ export interface StepHandler {
   effects?: boolean
 }
 
-/** 步骤执行环境（适配器注入——ai/email 等外部能力 + edge 去重存储） */
+/** 步骤执行环境（适配器注入——ai/email 等外部能力 + KV 存储） */
 export interface StepEnv {
   fetch?: typeof fetch
   ai?: {
@@ -148,8 +152,8 @@ export interface StepEnv {
   email?: {
     send: (msg: { to: string | string[]; subject: string; body: string }) => Promise<{ ok: boolean; id?: string }>
   }
-  /** edge 去重存储（if 步骤 config.edge 需要）——未注入时 edge 配置报明确错误 */
-  edge?: EdgeStore
+  /** KV 存储（store 步骤后端——workflow({ store }) 注入；未注入时 store 步骤报明确错误） */
+  store?: KVStore
   log?: (line: string) => void
 }
 

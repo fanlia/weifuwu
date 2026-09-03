@@ -29,7 +29,7 @@
  * `)
  * ```
  */
-import { STD_NAMES } from './std.ts'
+import { STD_NAMES, STD_MODULES } from './std.ts'
 import { parse as parseExpr, toSrc } from './expression.ts'
 import type { WorkflowDef } from './contracts.ts'
 
@@ -48,7 +48,7 @@ type WToken =
 const KEYWORDS = new Set(['const', 'let', 'var', 'if', 'else', 'while', 'for', 'of', 'return', 'function', 'import', 'export', 'from', 'as', 'default', 'await', 'async', 'once', 'true', 'false', 'null'])
 const PUNCS = new Set(['{', '}', '(', ')', '[', ']', ';', ',', ':', '.'])
 const TWO_OPS = new Set(['==', '!=', '<=', '>=', '&&', '||', '+=', '-=', '*=', '/=', '%=', '++', '--'])
-const ONE_OPS = new Set(['=', '+', '-', '*', '/', '%', '<', '>', '!'])
+const ONE_OPS = new Set(['=', '+', '-', '*', '/', '%', '<', '>', '!', '?'])
 
 function tokenizeWfjs(src: string): WToken[] {
   const tokens: WToken[] = []
@@ -95,6 +95,8 @@ function tokenizeWfjs(src: string): WToken[] {
       i = j + 1
       continue
     }
+    const three = src.slice(i, i + 3)
+    if (three === '===' || three === '!==') { tokens.push({ t: 'op', v: three, pos: i, end: i + 3 }); i += 3; continue }
     const two = src.slice(i, i + 2)
     if (TWO_OPS.has(two)) { tokens.push({ t: 'op', v: two, pos: i, end: i + 2 }); i += 2; continue }
     if (ONE_OPS.has(ch)) { tokens.push({ t: 'op', v: ch, pos: i, end: i + 1 }); i++; continue }
@@ -129,6 +131,7 @@ type WValue =
 type WCall = { name: string; args: { key: string | null; value: WValue }[] }
 
 type WStmt =
+  | { k: 'import'; names: { name: string; as?: string }[]; from: string }
   | { k: 'var'; name: string; init: WValue | WCall | null; isConst: boolean }
   | { k: 'assign'; target: string; op: '=' | '+=' | '-=' | '*=' | '/=' | '%='; value: string }
   | { k: 'incdec'; target: string; inc: boolean }
@@ -180,8 +183,9 @@ class WfjsParser {
       if (v === 'return') return this.parseReturn()
       if (v === 'async') { this.next(); return this.parseStmt() } // 语言全异步——接受并忽略
       if (v === 'await') { this.next(); return this.parseStmt() }
-      if (v === 'function' || v === 'import' || v === 'export') {
-        this.fail(`wfjs: '${v}' 在后续 wave 支持（W8：函数/import/export）`, (this.peek() as WToken).pos)
+      if (v === 'import') return this.parseImport()
+      if (v === 'function' || v === 'export') {
+        this.fail(`wfjs: '${v}' 在后续 wave 支持（W8：函数/export）`, (this.peek() as WToken).pos)
       }
     }
     if (this.peek().t === 'ident') return this.parseAssignOrCall()
@@ -198,6 +202,51 @@ class WfjsParser {
     this.next() // }
     return stmts
   }
+  /** import { a, b as c } from 'wf://std/x' —— v1 仅 std 命名导入 */
+  private parseImport(): WStmt {
+    this.next() // import
+    if (!this.isPunc('{')) this.fail(`wfjs: import 仅支持命名导入（{ ... }）——默认/命名空间导入 W8`, (this.peek() as WToken).pos)
+    this.next() // {
+    const names: { name: string; as?: string }[] = []
+    while (!this.isPunc('}')) {
+      const name = this.next()
+      if (name.t !== 'ident') this.fail(`wfjs: import 成员名必须是标识符`, name.pos)
+      let asName = name.v
+      if (this.isKw('as')) { this.next(); const a = this.next(); if (a.t !== 'ident') this.fail('wfjs: as 后必须是标识符', a.pos); asName = a.v }
+      if (asName !== name.v) names.push({ name: name.v, as: asName })
+      else names.push({ name: name.v })
+      if (this.isPunc(',')) { this.next(); continue }
+    }
+    this.next() // }
+    this.expect('from')
+    const from = this.next()
+    if (from.t !== 'str') this.fail('wfjs: import 来源必须是字符串', from.pos)
+    return { k: 'import', names, from: String(from.v) }
+  }
+
+  /** 方法式调用解析（store.get('k') / store.set('k', v)）——返回 null 表示非方法调用 */
+  private tryParseMethodCall(): WCall | null {
+    const tk = this.peek()
+    const dot = this.tokens[this.i + 1]
+    const method = this.tokens[this.i + 2]
+    const paren = this.tokens[this.i + 3]
+    if (tk.t !== 'ident' || dot?.t !== 'punc' || dot.v !== '.' || method?.t !== 'ident' || paren?.t !== 'punc' || paren.v !== '(') return null
+    const obj = String(tk.v)
+    const name = String(method.v)
+    this.next(); this.next(); this.next() // obj . method
+    this.next() // (
+    const args: { key: string | null; value: WValue }[] = []
+    if (!this.isPunc(')')) {
+      for (;;) {
+        args.push({ key: null, value: this.parseValue() })
+        if (this.isPunc(',')) { this.next(); continue }
+        break
+      }
+    }
+    this.expect(')')
+    return { name: `@${obj}.${name}`, args }
+  }
+
   private parseVar(): WStmt {
     const kw = this.next()
     if (kw.t === 'kw' && kw.v === 'var') this.fail(`wfjs: 'var' 不支持（函数作用域语义易混淆）——请用 let/const`, kw.pos)
@@ -212,6 +261,9 @@ class WfjsParser {
   }
   private parseValueOrCall(): WValue | WCall {
     if (this.peek().t === 'kw' && this.peek().v === 'await') this.next() // 语言全异步——接受
+    // 方法式调用（store.get/store.set——std 导入后可见）
+    const method = this.tryParseMethodCall()
+    if (method) return method
     const tk = this.peek()
     const next = this.tokens[this.i + 1]
     // 内置调用 → ident '('（对象参数——仅限内置副作用函数名）
@@ -352,11 +404,14 @@ class WfjsParser {
     // JS ASI 对齐：return 与下一 token 之间换行 → 无值 return（终止语义）
     const next = this.peek()
     if (this.isPunc(';') || this.isPunc('}')) return { k: 'return', value: null }
-    const gap = next.t === 'eof' ? '' : this.src.slice(kw.end, next.pos)
+    if (next.t === 'eof') return { k: 'return', value: null }
+    const gap = this.src.slice(kw.end, next.pos)
     if (gap.includes('\n')) return { k: 'return', value: null }
     return { k: 'return', value: this.parseValue() }
   }
   private parseAssignOrCall(): WStmt {
+    const method = this.tryParseMethodCall()
+    if (method) return { k: 'call', call: method }
     const name = this.next()
     if (name.t !== 'ident') this.fail(`wfjs: expected identifier`, name.pos)
     const tk = this.peek()
@@ -420,28 +475,35 @@ interface CompileEnv {
   bindings: Map<string, Binding>
   consts: Set<string>
   steps: NonNullable<WorkflowDef['steps']>
+  imports: NonNullable<WorkflowDef['imports']>
+  /** std 导入绑定：名 → 类别（'fn' 纯函数 | 'store' 存储对象） */
+  stdBindings: Map<string, 'fn' | 'store'>
+  /** 表达式内已导入的纯函数名（检查函数可见性——未导入=不存在） */
+  stdFns: Set<string>
+  /** 全局变量名登记（v1 统一命名空间——块级遮蔽裁剪记录 v2）——childEnv 共享引用 */
+  allNames: Set<string>
 }
 
-/** 表达式内调用静态检查：仅 std 纯函数（副作用调用 http/email… 表达式内禁止——语句层专属） */
-function checkExprCall(ast: unknown, where: string): void {
+/** 表达式内调用静态检查：std 导入函数可见（未导入=不存在）；副作用调用语句层专属 */
+function checkExprCall(ast: unknown, env: CompileEnv, where: string): void {
   const n = ast as { kind?: string; name?: string; args?: unknown[]; left?: unknown; right?: unknown; operand?: unknown; cond?: unknown; then?: unknown; else?: unknown } | null
   if (!n || typeof n !== 'object') return
   if (n.kind === 'call') {
     const nm = n.name ?? ''
     if (SIDE_EFFECT_CALLS.has(nm)) throw new Error(`wfjs: 副作用函数 '${nm}()' 不能出现在表达式内（in ${where}）——需语句级调用`)
-    if (!STD_NAMES.includes(nm)) throw new Error(`wfjs: 表达式内未注册函数 '${nm}()'（in ${where}）——仅 std 纯函数或本地函数`)
+    if (!env.stdFns.has(nm)) throw new Error(`wfjs: 表达式内未导入函数 '${nm}()'（in ${where}）——std 函数需 import 后可用`)
   }
   for (const k of ['left', 'right', 'operand', 'cond', 'then', 'else'] as const) {
-    if (n[k] && typeof n[k] === 'object') checkExprCall(n[k], where)
+    if (n[k] && typeof n[k] === 'object') checkExprCall(n[k], env, where)
   }
-  if (n.args) for (const a of n.args) checkExprCall(a, where)
+  if (n.args) for (const a of n.args) checkExprCall(a, env, where)
 }
 
 const SIDE_EFFECT_CALLS = new Set(['http', 'email', 'ai', 'template', 'log'])
 
-function rewriteExpr(src: string, bindings: Map<string, Binding>, where: string): string {
+function rewriteExpr(src: string, bindings: Map<string, Binding>, env: CompileEnv, where: string): string {
   const ast = parseExpr(src) // 语法错误 → 编译错
-  checkExprCall(ast, where)
+  checkExprCall(ast, env, where)
   walkExpr(ast, (path) => {
     const first = path.segments[0]
     if (typeof first !== 'string') return
@@ -482,26 +544,27 @@ function unusedName(env: CompileEnv, base: string): string {
 type FieldKind = 'template' | 'expr'
 
 /** 内置步骤字段类型表（与 steps.ts 实现对齐——W6 运行时同表消费） */
-const FIELD_KIND: Record<string, Record<string, FieldKind>> = {
+export const FIELD_KIND: Record<string, Record<string, FieldKind>> = {
   http: { url: 'template', method: 'template', body: 'template', headers: 'template', timeoutMs: 'template' },
   email: { to: 'template', subject: 'template', body: 'template' },
   ai: { prompt: 'template', system: 'template' },
   template: { template: 'template' },
   log: { message: 'template' },
   stop: {},
+  store: { key: 'expr', value: 'expr' },
 }
 
 function compileValue(v: WValue, env: CompileEnv, where: string, kind: FieldKind): unknown {
   switch (v.t) {
     case 'str': return kind === 'expr' ? `'${v.v.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'` : v.v
     case 'num': return kind === 'expr' ? String(v.v) : String(v.v)
-    case 'expr': return kind === 'template' ? `{{${rewriteExpr(v.src, env.bindings, where)}}}` : rewriteExpr(v.src, env.bindings, where)
+    case 'expr': return kind === 'template' ? `{{${rewriteExpr(v.src, env.bindings, env, where)}}}` : rewriteExpr(v.src, env.bindings, env, where)
     case 'tpl': {
       if (kind === 'expr') throw new Error(`wfjs: 表达式字段不支持模板串（in ${where}）`)
       let out = ''
       for (const p of v.parts) {
         if (typeof p === 'string') out += p
-        else out += `{{${rewriteExpr(p.expr, env.bindings, where)}}}`
+        else out += `{{${rewriteExpr(p.expr, env.bindings, env, where)}}}`
       }
       return out
     }
@@ -515,24 +578,50 @@ function compileValue(v: WValue, env: CompileEnv, where: string, kind: FieldKind
 
 /** 内置调用参数编译（字段类型表驱动） */
 function compileArg(kv: { key: string | null; value: WValue }, type: string, env: CompileEnv): unknown {
-  if (kv.key === null) throw new Error(`wfjs: 内置调用需要对象参数`)
+  if (kv.key === null) {
+    // 位置参数（store.get/set）——template 语义（与 http url 一致：插值）
+    const v = kv.value
+    if (v.t === 'expr') return `{{${rewriteExpr(v.src, env.bindings, env, `store 参数`)}}}`
+    if (v.t === 'str') return v.v
+    if (v.t === 'num') return String(v.v)
+    throw new Error(`wfjs: store 参数必须是表达式或字面量`)
+  }
   const kind = FIELD_KIND[type]?.[kv.key] ?? 'template'
   return compileValue(kv.value, env, `${type}(${kv.key})`, kind)
 }
 
 function childEnv(parent: CompileEnv, steps: NonNullable<WorkflowDef['steps']>): CompileEnv {
-  return { bindings: new Map(parent.bindings), consts: new Set(parent.consts), steps }
+  return { bindings: new Map(parent.bindings), consts: new Set(parent.consts), steps, imports: parent.imports, stdBindings: parent.stdBindings, stdFns: parent.stdFns, allNames: parent.allNames }
 }
 
 function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
   const auto = () => unusedName(env, `_${stmt.k}`)
   switch (stmt.k) {
+    case 'import': {
+      const mod = STD_MODULES[stmt.from] ?? (stmt.from === 'wf://std/store' ? { store: null as never } : undefined)
+      if (!mod) throw new Error(`wfjs: 模块 '${stmt.from}' 未注册（v1 仅 std 库：${Object.keys(STD_MODULES).join(' / ')} 与 wf://std/store）`)
+      for (const { name, as } of stmt.names) {
+        const bound = as ?? name
+        if (name === 'store' && stmt.from === 'wf://std/store') {
+          env.stdBindings.set(bound, 'store')
+        } else if (mod[name] !== undefined) {
+          env.stdBindings.set(bound, 'fn')
+          env.stdFns.add(bound)
+        } else {
+          throw new Error(`wfjs: 模块 '${stmt.from}' 无导出 '${name}'`)
+        }
+      }
+      env.imports.push({ from: stmt.from, names: stmt.names })
+      return
+    }
     case 'var': {
       const { name } = stmt
       if (BUILTIN_NAMES.has(name)) throw new Error(`wfjs: 变量名 '${name}' 与内置函数冲突`)
+      if (env.allNames.has(name)) throw new Error(`wfjs: 变量名 '${name}' 冲突（v1 全局唯一命名空间——块级遮蔽 v2）`)
+      env.allNames.add(name)
       if (env.bindings.has(name)) throw new Error(`wfjs: 重复声明 '${name}'`)
       if (stmt.init && isCall(stmt.init)) {
-        if (!BUILTIN_NAMES.has(stmt.init.name)) {
+        if (!BUILTIN_NAMES.has(stmt.init.name) && !stmt.init.name.startsWith('@')) {
           throw new Error(`wfjs: 未识别调用 '${stmt.init.name}'（内置：${[...BUILTIN_NAMES].join('/')}；函数调用在 W8 wave）`)
         }
         addBuiltinStep(stmt.init, name, env)
@@ -548,7 +637,7 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
     case 'assign': {
       if (env.consts.has(stmt.target)) throw new Error(`wfjs: 不能给 const '${stmt.target}' 赋值`)
       if (!env.bindings.has(stmt.target)) throw new Error(`wfjs: 未声明变量 '${stmt.target}'`)
-      const rhs = rewriteExpr(stmt.value, env.bindings, `赋值 ${stmt.target}`)
+      const rhs = rewriteExpr(stmt.value, env.bindings, env, `赋值 ${stmt.target}`)
       const value = stmt.op === '=' ? rhs : `(vars.${stmt.target} ${stmt.op[0]} ${rhs})`
       env.steps.push({ id: auto(), type: 'assign', config: { target: stmt.target, value } })
       return
@@ -563,7 +652,7 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
       return
     }
     case 'if': {
-      const when = rewriteExpr(stmt.cond, env.bindings, 'if 条件')
+      const when = rewriteExpr(stmt.cond, env.bindings, env, 'if 条件')
       const then: NonNullable<WorkflowDef['steps']> = []
       compileInto(stmt.then, childEnv(env, then), inLoop)
       const config: Record<string, unknown> = { when }
@@ -578,7 +667,7 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
       return
     }
     case 'while': {
-      const when = rewriteExpr(stmt.cond, env.bindings, 'while 条件')
+      const when = rewriteExpr(stmt.cond, env.bindings, env, 'while 条件')
       const body: NonNullable<WorkflowDef['steps']> = []
       compileInto(stmt.body, childEnv(env, body), true)
       env.steps.push({ id: auto(), type: 'while', config: { when, step: { steps: body } } })
@@ -586,7 +675,7 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
     }
     case 'forof': {
       if (env.bindings.has(stmt.varName)) throw new Error(`wfjs: 循环变量 '${stmt.varName}' 与上层声明冲突（暂不支持遮蔽）`)
-      const items = rewriteExpr(stmt.items, env.bindings, 'for-of')
+      const items = rewriteExpr(stmt.items, env.bindings, env, 'for-of')
       const child = childEnv(env, [])
       child.bindings.set(stmt.varName, { kind: 'loop' })
       const body: NonNullable<WorkflowDef['steps']> = []
@@ -616,6 +705,21 @@ function compileInto(stmts: WStmt[], env: CompileEnv, inLoop: boolean): void {
 
 /** 内置调用 → 步骤（绑定名 = 步骤 id；空绑定 → auto id） */
 function addBuiltinStep(call: WCall, bindId: string | null, env: CompileEnv): void {
+  // store 方法调用（@store.get / @store.set——std 导入后可见）
+  if (call.name === '@store.get' || call.name === '@store.set') {
+    const method = call.name.slice(1) // store.get / store.set
+    const op = method.endsWith('.get') ? 'get' : 'set'
+    if (!env.stdBindings.has('store') || env.stdBindings.get('store') !== 'store') {
+      throw new Error(`wfjs: 使用 store 前需导入：import { store } from 'wf://std/store'`)
+    }
+    if (call.args.length !== (op === 'get' ? 1 : 2)) {
+      throw new Error(`wfjs: ${method}() 参数数量错误（${op === 'get' ? 'key' : 'key, value'}），收到 ${call.args.length}`)
+    }
+    const config: Record<string, unknown> = { op, key: compileArg(call.args[0], 'store', env) }
+    if (op === 'set') config.value = compileArg(call.args[1], 'store', env)
+    env.steps.push({ id: bindId ?? unusedName(env, `_store${op}`), type: 'store', config })
+    return
+  }
   if (!BUILTIN_NAMES.has(call.name)) {
     throw new Error(`wfjs: 未识别调用 '${call.name}'（内置：${[...BUILTIN_NAMES].join('/')}；函数调用在 W8 wave）`)
   }
@@ -634,12 +738,15 @@ function addBuiltinStep(call: WCall, bindId: string | null, env: CompileEnv): vo
 export function compileWfjs(src: string): WorkflowDef {
   const parser = new WfjsParser(tokenizeWfjs(src), src)
   const stmts = parser.parseProgram()
-  const env: CompileEnv = { bindings: new Map(), consts: new Set(), steps: [] }
+  const env: CompileEnv = { bindings: new Map(), consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), allNames: new Set() }
   compileInto(stmts, env, false)
-  return { steps: env.steps }
+  const def: WorkflowDef = { steps: env.steps }
+  if (env.imports.length) def.imports = env.imports
+  return def
 }
 
 /** 测试导出：表达式改写（绑定映射单测） */
 export function _rewriteExprForTest(src: string, bindings: Map<string, Binding>): string {
-  return rewriteExpr(src, bindings, 'test')
+  const env: CompileEnv = { bindings, consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), allNames: new Set() }
+  return rewriteExpr(src, bindings, env, 'test')
 }

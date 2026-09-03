@@ -88,8 +88,23 @@ const collections: StdFns = {
   },
 }
 
-/** 平铺纯函数表（表达式内调用解析用） */
+/** std 模块表：wf://std/<name> → 导出成员（函数/对象） */
+export const STD_MODULES: Record<string, StdFns> = {
+  'wf://std/math': math,
+  'wf://std/strings': strings,
+  'wf://std/collections': collections,
+}
+
+/** 平铺纯函数表（表达式内调用解析用——运行时直接可用，无需导入） */
 export const STD_FNS: StdFns = { ...math, ...strings, ...collections }
 
 /** std 纯函数名列表（validate/wfjs 静态检查共用） */
 export const STD_NAMES: string[] = Object.keys(STD_FNS)
+
+/** 从模块源解析导出成员（缺少的成员 → 未定义；store 模块见 STORE_MODULE） */
+export function stdExports(src: string): string[] {
+  return Object.keys(STD_MODULES[src] ?? {})
+}
+
+/** wf://std/store：store 对象（get/set/del 方法——语句层调用） */
+export const STORE_MODULE = { exports: ['store'] }

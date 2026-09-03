@@ -30,13 +30,13 @@ import type { ExecuteOptions, RunResult, StepEnv, StepHandler, WorkflowDef } fro
 import type { Redis } from '../db/contracts.ts'
 import { builtinSteps } from './steps.ts'
 import { runWorkflow } from './runner.ts'
-import { redisEdgeStore, type EdgeStore } from './edge.ts'
+import { redisStore, type KVStore } from './store.ts'
 import { validate, type StepSchema, type ValidationResult } from './validate.ts'
 
 export type { ExecuteOptions, RunResult, RunStatus, StepDef, StepEnv, StepHandler, StepOutput, WorkflowCtx, WorkflowDef } from './contracts.ts'
 export type { ValidationResult } from './validate.ts'
-export { evaluateEdge, redisEdgeStore } from './edge.ts'
-export type { EdgeStore } from './edge.ts'
+export { redisStore } from './store.ts'
+export type { KVStore } from './store.ts'
 export { compile, evaluate, evaluateBoolean, interpolate, parse } from './expression.ts'
 export type { ExprNode, CompiledExpr } from './expression.ts'
 
@@ -47,9 +47,9 @@ export interface WorkflowOptions {
   email?: StepEnv['email']
   fetch?: typeof fetch
   log?: (line: string) => void
-  /** edge 去重存储——传入 redis 客户端（自研 Redis 接口）自动适配；或直接传 EdgeStore */
+  /** KV 存储后端（store 步骤）——传入 redis 客户端（自研 Redis 接口）自动适配；或直接传 KVStore */
   redis?: Redis
-  edgeStore?: EdgeStore
+  store?: KVStore
 }
 
 export interface WorkflowEngine {
@@ -72,7 +72,7 @@ export function workflow(options?: WorkflowOptions): WorkflowEngine {
     ai: options?.ai,
     email: options?.email,
     log: options?.log,
-    edge: options?.edgeStore ?? (options?.redis ? redisEdgeStore(options.redis) : undefined),
+    store: options?.store ?? (options?.redis ? redisStore(options.redis) : undefined),
   }
   const registry = {
     get: (type: string) => handlers.get(type),

@@ -4,7 +4,7 @@
  * 语义红线（契约测试锁定——与 JS 心智对齐）：
  *   - 步骤级 when 不通过 → 跳过该步（skippedSteps），后续继续
  *   - if 分支：when true → then；false → else（无 else 则跳过子链）——**后续继续**
- *   - if edge：「发一次」——静默 = 跳过子链继续后续（变假重新武装）
+ *   - 去重无原语：store 步骤显式 KV（用户代码查询/记账——与原语无关）
  *   - while/for：循环执行 step 子链（maxIters 硬上限默认 1000，超限报错）
  *   - return（无值）→ 终止整流程，status='success'（JS 顶层 return 同义）
  *   - 步骤 run 抛错 → stepResults[id]={ok:false,error} → 终止 status='error'
@@ -17,7 +17,6 @@ import type {
 } from './contracts.ts'
 import { compile, toBoolean } from './expression.ts'
 import { STD_FNS } from './std.ts'
-import { evaluateEdge } from './edge.ts'
 
 export interface RunnerRegistry {
   get(type: string): StepHandler | undefined
@@ -32,7 +31,6 @@ interface Rt {
   steps: WorkflowCtx['steps']
   dry: boolean
   signal?: AbortSignal
-  defaultEdgeKey: string
 }
 
 export async function runWorkflow(
@@ -49,8 +47,7 @@ export async function runWorkflow(
   const result: RunResult = { status: 'success', executed: [], skippedSteps: [], stepResults: steps, dry, startedAt, finishedAt: 0 }
   const rt: Rt = {
     result, steps, dry, signal: opts.signal,
-    defaultEdgeKey: `wf:edge:${def.id ?? def.name ?? 'anon'}:`,
-  }
+    }
   const flow = await execSteps(def.steps, { steps, vars: {}, input: opts.input }, env, registry, rt)
   void flow // 顶层 return/continue 均 success（error 已由 aborted/fail 设置）
   result.finishedAt = Date.now()
@@ -160,22 +157,6 @@ async function execIf(
     result.status = 'error'
     result.error = `step '${step.id}': ${(e as Error).message}`
     return 'return'
-  }
-  if (cfg.edge) {
-    if (!env.edge) {
-      out[step.id] = { ok: false, error: 'if edge 需要 edge 存储（workflow({ redis } / edgeStore)）' }
-      result.status = 'error'
-      result.error = `step '${step.id}': 未注入 edge 存储`
-      return 'return'
-    }
-    const key = cfg.key ?? `${rt.defaultEdgeKey}${step.id}`
-    const { fired: fire, next } = evaluateEdge(await env.edge.get(key), satisfied)
-    await env.edge.set(key, next)
-    out[step.id] = { ok: true, data: { satisfied, fired: fire } }
-    result.executed.push(step.id)
-    // 静默 = 跳过子链**继续后续**（不再截断——edge 语义 W6b）
-    if (!fire) return 'continue'
-    return cfg.then ? execSteps(cfg.then.steps, ctx, env, registry, rt) : 'continue'
   }
   out[step.id] = { ok: true, data: { satisfied } }
   result.executed.push(step.id)

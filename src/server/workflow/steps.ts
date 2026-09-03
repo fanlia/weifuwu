@@ -125,7 +125,36 @@ const emailStep: StepHandler = {
   },
 }
 
-const steps: StepHandler[] = [httpStep, templateStep, logStep, aiStep, emailStep]
+/** store 步骤：KV get/set（去重记账——语义全透明，用户代码显式）。未注入 store → 明确错误 */
+const storeStep: StepHandler = {
+  type: 'store',
+  label: 'KV 存储',
+  fields: [
+    { name: 'op', label: '操作（get/set）', type: 'string' },
+    { name: 'key', label: '键', type: 'string' },
+    { name: 'value', label: '值（set 时）', type: 'string' },
+  ],
+  required: ['op', 'key'],
+  run: async (config, ctx, env: StepEnv) => {
+    const store = env.store
+    if (!store) throw new Error('store 步骤需要存储注入：workflow({ store }) 或 workflow({ redis })')
+    const op = String(config.op)
+    // key/value 是模板（{{}} 插值——与 http url 同语义）
+    const key = interpolate(String(config.key), ctx)
+    if (op === 'get') {
+      // data 直接 = 值（绑定解包：const sent = await store.get(k) → sent 即值）
+      return await store.get(key)
+    }
+    if (op === 'set') {
+      const value = interpolate(String(config.value ?? ''), ctx)
+      await store.set(key, value)
+      return value
+    }
+    throw new Error(`store 未知操作：'${op}'（get/set）`)
+  },
+}
+
+const steps: StepHandler[] = [httpStep, templateStep, logStep, aiStep, emailStep, storeStep]
 
 export function builtinSteps(): StepHandler[] {
   return steps

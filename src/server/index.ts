@@ -79,7 +79,7 @@ export { MemorySql, createMemorySql } from './db/memory-sql.ts'
 export { workflow } from './workflow/index.ts'
 export type { WorkflowEngine, WorkflowOptions } from './workflow/index.ts'
 export type { WorkflowDef, StepDef, StepHandler, StepEnv, RunResult, ExecuteOptions, WorkflowCtx, StepOutput, RunStatus } from './workflow/contracts.ts'
-export type { EdgeStore } from './workflow/edge.ts'
+export type { KVStore } from './workflow/store.ts'
 export { ok, created, noContent, badRequest, unauthorized, forbidden, notFound, conflict, unprocessable, tooManyRequests, serverError, redirect } from './response.ts'
 export { parseBody } from './request.ts'
 

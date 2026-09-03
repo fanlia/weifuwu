@@ -233,7 +233,7 @@ class Parser {
     const tk = this.peek()
     if (tk.t === 'punc' && tk.v === '(') {
       this.next()
-      const inner = this.parseOr()
+      const inner = this.parseTernary() // 括号内全表达式（含三元）
       this.expectPunc(')')
       return inner
     }
