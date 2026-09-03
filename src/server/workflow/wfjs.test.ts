@@ -80,6 +80,20 @@ describe('wfjs: 控制流编译', () => {
     assert.deepEqual(def.steps[2].config, { name: 'n', value: '(vars.n + 2)' })
     assert.deepEqual(def.steps[3].config, { name: 'n', value: '(vars.n - 1)' })
   })
+  it('复合赋值 *= /= %=（与算术运算符一一对应）', () => {
+    const def = compileWfjs(`let n = 10\nn *= 2\nn /= 4\nn %= 3`)
+    assert.deepEqual(def.steps[1].config, { name: 'n', value: '(vars.n * 2)' })
+    assert.deepEqual(def.steps[2].config, { name: 'n', value: '(vars.n / 4)' })
+    assert.deepEqual(def.steps[3].config, { name: 'n', value: '(vars.n % 3)' })
+  })
+  it('表达式内 std 纯函数调用（sum 白名单校验通过）', () => {
+    const def = compileWfjs(`let items = input.list\nlet n = sum(items, 2)`)
+    assert.deepEqual(def.steps[1].config, { name: 'n', value: 'sum(vars.items, 2)' })
+  })
+  it('系统根路径直接放行（input/steps/vars/loop）', () => {
+    const def = compileWfjs(`let n = input.count`)
+    assert.deepEqual(def.steps[0].config, { name: 'n', value: 'input.count' })
+  })
 })
 
 describe('wfjs: 编译期检查（静态面——错误在写的时候暴露）', () => {
@@ -89,6 +103,17 @@ describe('wfjs: 编译期检查（静态面——错误在写的时候暴露）'
   })
   it('给 const 赋值 → 编译错', () => {
     assert.throws(() => compileWfjs(`const n = 1\nn = 2`), /不能给 const 'n' 赋值/)
+  })
+  it('表达式内非 std 调用 → 编译错（仅 std 纯函数）', () => {
+    assert.throws(() => compileWfjs(`let n = foo(1)`), new RegExp("未注册函数 'foo\\("))
+  })
+  it('副作用调用防线：对象参数/内置名两层挡住（进入表达式的必经点）', () => {
+    // 内置名 + 对象参数 → 语句层绑定调用（合法）——不当作表达式
+    const def = compileWfjs(`const r = await http({ url: 'x' })`)
+    assert.equal(def.steps[0].type, 'http')
+  })
+  it('var 声明 → 编译错（提示用 let/const）', () => {
+    assert.throws(() => compileWfjs(`var n = 1`), /'var' 不支持/)
   })
   it('重复声明 → 编译错', () => {
     assert.throws(() => compileWfjs(`const n = 1\nconst n = 2`), /重复声明 'n'/)

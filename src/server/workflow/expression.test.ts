@@ -7,7 +7,8 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { parse, compile, evaluate, evaluateBoolean, interpolate, toBoolean, toSrc, type ExprNode } from './expression.ts'
+import { parse, compile, evaluate, evaluateBoolean, interpolate, toBoolean, toSrc, type ExprNode, type ExprFns } from './expression.ts'
+import { STD_FNS } from './std.ts'
 
 const ctx = {
   data: {
@@ -163,12 +164,16 @@ describe('expression: 布尔语境（when 语义定版）', () => {
 })
 
 describe('expression: 语法错误（安全面）', () => {
-  it('函数调用不支持', () => {
-    assert.throws(() => compile('exists(a)'), /unexpected '\('/)
+  it('未注册函数调用报错（无 fns 环境）', () => {
+    assert.throws(() => compile('foo(1)')({}), /未注册函数 'foo'/)
   })
-  it('=== / !== 不支持', () => {
-    assert.throws(() => compile('a === 1'), /unexpected character '='/)
-    assert.throws(() => compile('a !== 1'), /unexpected character '='/)
+  it('=== / !== 严格比较（JS 语义）', () => {
+    const ctx = { data: { s: '1', n: 1 } }
+    assert.equal(evaluate(parse('data.s === data.n'), ctx), false)   // 严格：类型不符
+    assert.equal(evaluate(parse('data.s !== data.n'), ctx), true)
+    assert.equal(evaluate(parse('data.n === 1'), ctx), true)
+    // 宽松 == 仍可用（JS 两套并存）
+    assert.equal(evaluate(parse('data.s == data.n'), ctx), true)
   })
   it('未闭合括号 / 字符串', () => {
     assert.throws(() => compile('(a && b'), /expected '\)'/)
@@ -177,6 +182,27 @@ describe('expression: 语法错误（安全面）', () => {
   it('数组下标必须整数', () => {
     assert.throws(() => compile('a[1.5]'), /expected integer index/)
     assert.throws(() => compile('a[-1]'), /expected integer index/)
+  })
+})
+
+describe('expression: 三元 + 纯函数调用（JS 对齐）', () => {
+  const ctx = { data: { n: 5, items: [1, 2, 3] } }
+  it('三元 ?: 惰性（只算选中分支）', () => {
+    assert.equal(evaluate(parse('data.n > 3 ? "大" : "小"'), ctx), '大')
+    assert.equal(evaluate(parse('data.n > 7 ? "大" : "小"'), ctx), '小')
+    assert.equal(evaluate(parse('data.n > 0 ? data.n : 0'), ctx), 5)
+  })
+  it('纯函数调用（fns 环境注入）', () => {
+    const fns: ExprFns = { sum: (a) => (a[0] as number[])?.reduce((x: number, y: number) => x + y, 0) ?? 0, upper: (a) => String(a[0]).toUpperCase() }
+    assert.equal(evaluate(parse('sum(data.items)'), ctx, fns), 6)
+    assert.equal(evaluate(parse('upper(\'ab\')'), ctx, fns), 'AB')
+    // 嵌套调用 + 复合表达式
+    assert.equal(evaluate(parse('sum(data.items) + 1'), ctx, fns), 7)
+  })
+  it('std 函数环境（STD_FNS）', () => {
+    assert.equal(evaluate(parse('count(data.items)'), ctx, STD_FNS), 3)
+    assert.equal(evaluate(parse('clamp(data.n, 0, 3)'), ctx, STD_FNS), 3)
+    assert.equal(evaluate(parse('avg(data.items)'), ctx, STD_FNS), 2)
   })
 })
 

@@ -34,12 +34,17 @@
 export type ExprNode =
   | { kind: 'path'; segments: (string | number)[] }
   | { kind: 'literal'; value: unknown }
-  | { kind: 'compare'; op: '==' | '!=' | '<' | '<=' | '>' | '>='; left: ExprNode; right: ExprNode }
+  | { kind: 'compare'; op: '==' | '!=' | '===' | '!==' | '<' | '<=' | '>' | '>='; left: ExprNode; right: ExprNode }
   | { kind: 'arith'; op: '+' | '-' | '*' | '/' | '%'; left: ExprNode; right: ExprNode }
+  | { kind: 'ternary'; cond: ExprNode; then: ExprNode; else: ExprNode }
+  | { kind: 'call'; name: string; args: ExprNode[] }
   | { kind: 'neg'; operand: ExprNode }
   | { kind: 'not'; operand: ExprNode }
   | { kind: 'and'; left: ExprNode; right: ExprNode }
   | { kind: 'or'; left: ExprNode; right: ExprNode }
+
+/** 纯函数环境（表达式内调用——std/用户函数；副作用函数（http/email）禁止） */
+export type ExprFns = Record<string, (args: unknown[]) => unknown>
 
 export type CompiledExpr = (ctx: unknown) => unknown
 
@@ -50,14 +55,15 @@ type Token =
   | { t: 'num'; v: number; pos: number }
   | { t: 'str'; v: string; pos: number }
   | { t: 'op'; v: string; pos: number }
-  | { t: 'punc'; v: '.' | '[' | ']' | '(' | ')' | ','; pos: number }
+  | { t: 'punc'; v: '.' | '[' | ']' | '(' | ')' | ',' | ':'; pos: number }
   | { t: 'eof'; pos: number }
 
 const IDENT = /[A-Za-z_$][A-Za-z0-9_$]*/
 const NUM = /[0-9]+(?:\.[0-9]+)?/
 
+const THREE_CHAR_OPS = ['===', '!==']
 const TWO_CHAR_OPS = ['==', '!=', '&&', '||', '<=', '>=']
-const ONE_CHAR_OPS = ['!', '+', '-', '*', '/', '%', '<', '>']
+const ONE_CHAR_OPS = ['!', '+', '-', '*', '/', '%', '<', '>', '?']
 
 function tokenize(src: string): Token[] {
   const tokens: Token[] = []
@@ -86,6 +92,12 @@ function tokenize(src: string): Token[] {
       i = j + 1
       continue
     }
+    const three = src.slice(i, i + 3)
+    if (THREE_CHAR_OPS.includes(three)) {
+      tokens.push({ t: 'op', v: three, pos: i })
+      i += 3
+      continue
+    }
     const two = src.slice(i, i + 2)
     if (TWO_CHAR_OPS.includes(two)) {
       tokens.push({ t: 'op', v: two, pos: i })
@@ -97,8 +109,8 @@ function tokenize(src: string): Token[] {
       i++
       continue
     }
-    if (ch === '.' || ch === '[' || ch === ']' || ch === '(' || ch === ')' || ch === ',') {
-      tokens.push({ t: 'punc', v: ch as '.' | '[' | ']' | '(' | ')' | ',', pos: i })
+    if (ch === '.' || ch === '[' || ch === ']' || ch === '(' || ch === ')' || ch === ',' || ch === ':') {
+      tokens.push({ t: 'punc', v: ch as '.' | '[' | ']' | '(' | ')' | ',' | ':', pos: i })
       i++
       continue
     }
@@ -141,10 +153,24 @@ class Parser {
     if (tk.t !== 'punc' || tk.v !== v) this.fail(`expression: expected '${v}'`, tk.pos)
   }
   parse(): ExprNode {
-    const node = this.parseOr()
+    const node = this.parseTernary()
     const tk = this.peek()
     if (tk.t !== 'eof') this.fail(`expression: unexpected '${String(tk.v)}'`, tk.pos)
     return node
+  }
+  /** 三元（最低优先级）：cond ? then : else */
+  private parseTernary(): ExprNode {
+    const cond = this.parseOr()
+    const tk = this.peek()
+    if (tk.t === 'op' && tk.v === '?') {
+      this.next()
+      const then = this.parseTernary()
+      const col = this.next()
+      if (col.t !== 'punc' || col.v !== ':') this.fail(`expression: expected ':' in ternary`, col.pos)
+      const else_ = this.parseTernary()
+      return { kind: 'ternary', cond, then, else: else_ }
+    }
+    return cond
   }
   private parseOr(): ExprNode {
     let left = this.parseAnd()
@@ -165,9 +191,9 @@ class Parser {
   private parseCmp(): ExprNode {
     const left = this.parseArith()
     const tk = this.peek()
-    if (tk.t === 'op' && ['==', '!=', '<', '<=', '>', '>='].includes(tk.v)) {
+    if (tk.t === 'op' && ['==', '!=', '===', '!==', '<', '<=', '>', '>='].includes(tk.v)) {
       this.next()
-      return { kind: 'compare', op: tk.v as '==' | '!=' | '<' | '<=' | '>' | '>=', left, right: this.parseArith() }
+      return { kind: 'compare', op: tk.v as '==' | '!=' | '===' | '!==' | '<' | '<=' | '>' | '>=', left, right: this.parseArith() }
     }
     return left
   }
@@ -226,9 +252,28 @@ class Parser {
         return { kind: 'literal', value: kw === 'null' ? null : kw === 'true' }
       }
       const path = this.parsePath()
+      const after = this.peek()
+      // 表达式内函数调用（纯函数——std/用户函数）：ident '(' args ')'
+      if (path.kind === 'path' && after.t === 'punc' && after.v === '(') {
+        this.next()
+        const args: ExprNode[] = []
+        if (!this.isPunc2(')')) {
+          for (;;) {
+            args.push(this.parseTernary())
+            if (this.isPunc2(',')) { this.next(); continue }
+            break
+          }
+        }
+        this.expectPunc(')')
+        return { kind: 'call', name: path.segments[0] as string, args }
+      }
       return path
     }
     this.fail(`expression: unexpected '${tk.t === 'eof' ? '(end)' : String(tk.v)}'`, tk.pos)
+  }
+  private isPunc2(v: string): boolean {
+    const tk = this.peek()
+    return tk.t === 'punc' && tk.v === v
   }
   private parsePath(): ExprNode {
     const segments: (string | number)[] = []
@@ -327,36 +372,46 @@ function typeName(v: unknown): string {
   return typeof v
 }
 
-/** 求值（比较/算术/逻辑 → number/boolean；裸 path → 原值） */
-export function evaluate(node: ExprNode, ctx: unknown): unknown {
+import { STD_NAMES } from './std.ts'
+
+/** 求值（比较/算术/逻辑 → number/boolean；调用 → 纯函数环境；裸 path → 原值） */
+export function evaluate(node: ExprNode, ctx: unknown, fns?: ExprFns): unknown {
   switch (node.kind) {
     case 'path': return getPath(ctx, node.segments)
     case 'literal': return node.value
     case 'neg': {
-      const v = evaluate(node.operand, ctx)
+      const v = evaluate(node.operand, ctx, fns)
       if (typeof v !== 'number') throw new Error(`expression: unary '-' requires number (got ${typeName(v)})`)
       return -v
     }
-    case 'arith': return arith(node.op, evaluate(node.left, ctx), evaluate(node.right, ctx))
+    case 'arith': return arith(node.op, evaluate(node.left, ctx, fns), evaluate(node.right, ctx, fns))
+    case 'ternary': return evaluateBoolean(node.cond, ctx, fns) ? evaluate(node.then, ctx, fns) : evaluate(node.else, ctx, fns)
+    case 'call': {
+      if (!fns?.[node.name]) throw new Error(`expression: 未注册函数 '${node.name}'（std 纯函数：${STD_NAMES.join('/')}）`)
+      return fns[node.name](node.args.map((a) => evaluate(a, ctx, fns)))
+    }
     case 'compare': {
-      const l = evaluate(node.left, ctx)
-      const r = evaluate(node.right, ctx)
+      const l = evaluate(node.left, ctx, fns)
+      const r = evaluate(node.right, ctx, fns)
       switch (node.op) {
         // 宽松相等（JS 语义）
         // eslint-disable-next-line eqeqeq
         case '==': return l == r
         // eslint-disable-next-line eqeqeq
         case '!=': return !(l == r)
+        // 严格相等（JS === 语义——不类型转换）
+        case '===': return l === r
+        case '!==': return l !== r
         case '<': return (l as any) < (r as any)
         case '<=': return (l as any) <= (r as any)
         case '>': return (l as any) > (r as any)
         case '>=': return (l as any) >= (r as any)
       }
     }
-    case 'not': return !toBoolean(evaluate(node.operand, ctx))
+    case 'not': return !toBoolean(evaluate(node.operand, ctx, fns))
     // JS 语义：返回操作数（非 boolean 包装）
-    case 'and': { const l = evaluate(node.left, ctx); return toBoolean(l) ? evaluate(node.right, ctx) : l }
-    case 'or': { const l = evaluate(node.left, ctx); return toBoolean(l) ? l : evaluate(node.right, ctx) }
+    case 'and': { const l = evaluate(node.left, ctx, fns); return toBoolean(l) ? evaluate(node.right, ctx, fns) : l }
+    case 'or': { const l = evaluate(node.left, ctx, fns); return toBoolean(l) ? l : evaluate(node.right, ctx, fns) }
   }
 }
 
@@ -365,15 +420,17 @@ export function toBoolean(v: unknown): boolean {
   return Boolean(v)
 }
 
-export function evaluateBoolean(node: ExprNode, ctx: unknown): boolean {
-  return toBoolean(evaluate(node, ctx))
+export function evaluateBoolean(node: ExprNode, ctx: unknown, fns?: ExprFns): boolean {
+  return toBoolean(evaluate(node, ctx, fns))
 }
 
 /** 编译：parse 一次 → 可复用求值函数 */
-export function compile(src: string): CompiledExpr {
+export function compile(src: string, fns?: ExprFns): CompiledExpr {
   const node = parse(src)
-  return (ctx: unknown) => evaluate(node, ctx)
+  return (ctx: unknown) => evaluate(node, ctx, fns)
 }
+
+
 
 // ── 插值 ────────────────────────────────────────────────
 
@@ -388,7 +445,7 @@ function stringifyValue(v: unknown): string {
  * 字符串插值：`{{expr}}` 逐段求值字符串化（缺失 → ''；对象 → JSON.stringify）
  * `{{` 无闭合 `}}` 或空表达式 → 抛错（配置错误不静默）
  */
-export function interpolate(template: string, ctx: unknown): string {
+export function interpolate(template: string, ctx: unknown, fns?: ExprFns): string {
   if (!template.includes('{{')) return template
   let out = ''
   let i = 0
@@ -402,7 +459,7 @@ export function interpolate(template: string, ctx: unknown): string {
     const src = template.slice(open + 2, close).trim()
     if (!src) throw new Error(`workflow/expression: interpolate: empty expression (in ${JSON.stringify(template)})`)
     out += template.slice(i, open)
-    out += stringifyValue(evaluate(parse(src), ctx))
+    out += stringifyValue(evaluate(parse(src), ctx, fns))
     i = close + 2
   }
   return out
@@ -413,6 +470,8 @@ export function toSrc(node: ExprNode): string {
   switch (node.kind) {
     case 'path': return node.segments.reduce<string>((acc, s) => acc + (typeof s === 'number' ? `[${s}]` : s === '*' ? '[*]' : (acc === '' ? s : `.${s}`)), '')
     case 'literal': return node.value === null ? 'null' : typeof node.value === 'string' ? `'${node.value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'` : String(node.value)
+    case 'ternary': return `(${toSrc(node.cond)} ? ${toSrc(node.then)} : ${toSrc(node.else)})`
+    case 'call': return `${node.name}(${node.args.map((a) => toSrc(a)).join(', ')})`
     case 'neg': return `-${toSrc(node.operand)}`
     case 'arith': return `(${toSrc(node.left)} ${node.op} ${toSrc(node.right)})`
     case 'compare': return `(${toSrc(node.left)} ${node.op} ${toSrc(node.right)})`

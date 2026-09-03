@@ -29,6 +29,7 @@
  * `)
  * ```
  */
+import { STD_NAMES } from './std.ts'
 import { parse as parseExpr, toSrc } from './expression.ts'
 import type { WorkflowDef } from './contracts.ts'
 
@@ -46,7 +47,7 @@ type WToken =
 
 const KEYWORDS = new Set(['const', 'let', 'var', 'if', 'else', 'while', 'for', 'of', 'return', 'function', 'import', 'export', 'from', 'as', 'default', 'await', 'async', 'once', 'true', 'false', 'null'])
 const PUNCS = new Set(['{', '}', '(', ')', '[', ']', ';', ',', ':', '.'])
-const TWO_OPS = new Set(['==', '!=', '<=', '>=', '&&', '||', '+=', '-=', '++', '--'])
+const TWO_OPS = new Set(['==', '!=', '<=', '>=', '&&', '||', '+=', '-=', '*=', '/=', '%=', '++', '--'])
 const ONE_OPS = new Set(['=', '+', '-', '*', '/', '%', '<', '>', '!'])
 
 function tokenizeWfjs(src: string): WToken[] {
@@ -129,7 +130,7 @@ type WCall = { name: string; args: { key: string | null; value: WValue }[] }
 
 type WStmt =
   | { k: 'var'; name: string; init: WValue | WCall | null; isConst: boolean }
-  | { k: 'assign'; target: string; op: '=' | '+=' | '-='; value: string }
+  | { k: 'assign'; target: string; op: '=' | '+=' | '-=' | '*=' | '/=' | '%='; value: string }
   | { k: 'incdec'; target: string; inc: boolean }
   | { k: 'if'; cond: string; then: WStmt[]; else: WStmt[] | null; once: boolean }
   | { k: 'while'; cond: string; body: WStmt[] }
@@ -199,6 +200,7 @@ class WfjsParser {
   }
   private parseVar(): WStmt {
     const kw = this.next()
+    if (kw.t === 'kw' && kw.v === 'var') this.fail(`wfjs: 'var' 不支持（函数作用域语义易混淆）——请用 let/const`, kw.pos)
     const name = this.next()
     if (name.t !== 'ident') this.fail(`wfjs: expected variable name after '${kw.v}'`, name.pos)
     let init: WValue | WCall | null = null
@@ -212,11 +214,18 @@ class WfjsParser {
     if (this.peek().t === 'kw' && this.peek().v === 'await') this.next() // 语言全异步——接受
     const tk = this.peek()
     const next = this.tokens[this.i + 1]
-    // 调用 → ident '('（对象参数）
-    if (tk.t === 'ident' && next?.t === 'punc' && next.v === '(') {
+    // 内置调用 → ident '('（对象参数——仅限内置副作用函数名）
+    if (tk.t === 'ident' && BUILTIN_NAMES.has(String(tk.v)) && next?.t === 'punc' && next.v === '(') {
       const name = String(this.next().v)
       this.next() // (
       return { name, args: this.parseCallArgs() }
+    }
+    // 非内置 ident + '(' + '{' → 疑似对象参数调用（未识别）：明确报错；否则 → 表达式（std 纯函数调用）
+    if (tk.t === 'ident' && next?.t === 'punc' && next.v === '(') {
+      const after = this.tokens[this.i + 2]
+      if (after?.t === 'punc' && after.v === '{') {
+        this.fail(`wfjs: 未识别调用 '${String(tk.v)}'（仅内置或 std 纯函数——函数定义 W8）`, tk.pos)
+      }
     }
     return this.parseValue()
   }
@@ -280,7 +289,7 @@ class WfjsParser {
       if (tk.t === 'eof') break
       if (depth === 0) {
         if (tk.t === 'punc' && (tk.v === ',' || tk.v === ';' || tk.v === ')' || tk.v === '}')) break
-        if (tk.t === 'op' && (tk.v === '=' || tk.v === '+=' || tk.v === '-=')) break
+        if (tk.t === 'op' && (tk.v === '=' || tk.v === '+=' || tk.v === '-=' || tk.v === '*=' || tk.v === '/=' || tk.v === '%=')) break
         // 表达式不跨行：上一 token 末端 → 当前 token 之间的间隙含换行 → 边界
         if (prevEnd >= 0 && this.src.slice(prevEnd, tk.pos).includes('\n')) break
       }
@@ -351,8 +360,8 @@ class WfjsParser {
       this.next()
       return { k: 'call', call: { name: name.v, args: this.parseCallArgs() } }
     }
-    if (tk.t === 'op' && ['=', '+=', '-='].includes(tk.v)) {
-      const op = tk.v as '=' | '+=' | '-='
+    if (tk.t === 'op' && ['=', '+=', '-=', '*=', '/=', '%='].includes(tk.v)) {
+      const op = tk.v as '=' | '+=' | '-=' | '*=' | '/=' | '%='
       this.next()
       return { k: 'assign', target: name.v, op, value: this.scanExpr() }
     }
@@ -409,13 +418,32 @@ interface CompileEnv {
   steps: NonNullable<WorkflowDef['steps']>
 }
 
-/** 表达式改写 + 未声明检查：path 首段 ident 必须可解析（绑定表） */
+/** 表达式内调用静态检查：仅 std 纯函数（副作用调用 http/email… 表达式内禁止——语句层专属） */
+function checkExprCall(ast: unknown, where: string): void {
+  const n = ast as { kind?: string; name?: string; args?: unknown[]; left?: unknown; right?: unknown; operand?: unknown; cond?: unknown; then?: unknown; else?: unknown } | null
+  if (!n || typeof n !== 'object') return
+  if (n.kind === 'call') {
+    const nm = n.name ?? ''
+    if (SIDE_EFFECT_CALLS.has(nm)) throw new Error(`wfjs: 副作用函数 '${nm}()' 不能出现在表达式内（in ${where}）——需语句级调用`)
+    if (!STD_NAMES.includes(nm)) throw new Error(`wfjs: 表达式内未注册函数 '${nm}()'（in ${where}）——仅 std 纯函数或本地函数`)
+  }
+  for (const k of ['left', 'right', 'operand', 'cond', 'then', 'else'] as const) {
+    if (n[k] && typeof n[k] === 'object') checkExprCall(n[k], where)
+  }
+  if (n.args) for (const a of n.args) checkExprCall(a, where)
+}
+
+const SIDE_EFFECT_CALLS = new Set(['http', 'email', 'ai', 'template', 'log'])
+
 function rewriteExpr(src: string, bindings: Map<string, Binding>, where: string): string {
   const ast = parseExpr(src) // 语法错误 → 编译错
+  checkExprCall(ast, where)
   walkExpr(ast, (path) => {
     const first = path.segments[0]
     if (typeof first !== 'string') return
     const b = bindings.get(first)
+    // 系统根（ctx 命名空间）放行：input / steps / vars / loop——用户显式书写
+    if (!b && (first === 'input' || first === 'steps' || first === 'vars' || first === 'loop')) return
     if (!b) throw new Error(`wfjs: 未声明变量 '${first}'（in ${where}: ${src}）`)
     const prefix: (string | number)[] =
       b.kind === 'step' ? ['steps', b.id, 'data']
@@ -430,6 +458,8 @@ function walkExpr(node: unknown, visit: (p: { segments: (string | number)[] }) =
   const n = node as Record<string, unknown> | null
   if (!n || typeof n !== 'object') return
   if (n.kind === 'path') visit(n as never)
+  if (n.kind === 'ternary') { walkExpr(n.cond as never, visit); walkExpr(n.then as never, visit); walkExpr(n.else as never, visit); return }
+  if (n.kind === 'call') { for (const a of (n.args as unknown[])) walkExpr(a, visit); return }
   for (const key of [['left', 'right'], ['operand']]) {
     for (const k of key) {
       if (n[k] && typeof n[k] === 'object') walkExpr(n[k], visit)

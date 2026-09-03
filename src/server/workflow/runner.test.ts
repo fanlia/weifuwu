@@ -156,10 +156,10 @@ describe('validate: 确定性闸门', () => {
     assert.equal(wf.validate({ steps: [{ id: 'a', type: 'if', config: {} }] }).ok, false)
   })
   it('when 表达式语法错误（含 if.config.when）', () => {
-    const v = wf.validate({ steps: [{ id: 'a', type: 'log', when: 'a === 1' }] })
+    const v = wf.validate({ steps: [{ id: 'a', type: 'log', when: 'a ===' }] })
     assert.equal(v.ok, false)
     assert.match(v.errors[0].message, /表达式错误/)
-    const v2 = wf.validate({ steps: [{ id: 'a', type: 'if', config: { when: 'a + 1' } }] })
+    const v2 = wf.validate({ steps: [{ id: 'a', type: 'if', config: { when: 'a +' } }] })
     assert.equal(v2.ok, false)
   })
 })
