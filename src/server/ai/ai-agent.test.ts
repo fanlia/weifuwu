@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type Server } from 'node:http'
-import { ai } from '../ai/index.ts'
+import { OpenAi } from '../ai/index.ts'
 import { createAgent } from '../ai/agent.ts'
 import type { WfStreamEvent } from '../ai/types.ts'
 
@@ -102,7 +102,7 @@ async function collectStream(reader: ReadableStreamDefaultReader<Uint8Array>, de
 
 test('agent：一轮无工具调用 → step llm + done', async () => {
   const fake = await startScriptedProvider([textRound('你好')])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   const agent = a.agent({ systemPrompt: '助手', tools: [] })
   try {
     const events = await collectEvents(agent.run([{ role: 'user', content: 'hi' }]))
@@ -120,7 +120,7 @@ test('agent：工具循环 → tool_call → 工具执行 emit progress → tool
     toolRound('query_weather', '{"city":"北京"}'),
     textRound('北京晴，25 度'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
 
   const progress: string[] = []
   const agent = a.agent({
@@ -172,7 +172,7 @@ test('O13 并行工具：parallelTools 开启——双 tool_call 并发执行（
     ],
     textRound('两工具结果已合并'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   // 并发证据（确定性——不依赖计时）：两工具 run 重叠（同时 in-flight）
   let inFlight = 0
   let maxInFlight = 0
@@ -212,7 +212,7 @@ test('toolContext 透传：AgentConfig.toolContext → ToolContext.context（会
     toolRound('ctx_probe', '{}'),
     textRound('ok'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   let seen: Record<string, unknown> | undefined
   const agent = a.agent({
     systemPrompt: '助手',
@@ -242,7 +242,7 @@ test('agent：工具不存在 → tool_result ok:false，循环继续', async ()
     toolRound('missing_tool', '{}'),
     textRound('抱歉，没有这个工具'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   const agent = a.agent({ systemPrompt: '助手', tools: [] })
   try {
     const events = await collectEvents(agent.run([{ role: 'user', content: 'x' }]))
@@ -260,7 +260,7 @@ test('C2 条件审批：函数返回 false 的工具自动执行（不发 approv
     toolRound('read_file', '{"path":"a.txt"}'),
     textRound('内容正常'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   let executed = false
   const agent = a.agent({
     systemPrompt: '助手',
@@ -293,7 +293,7 @@ test('C2 条件审批：函数返回 true 的工具走审批（approval_request 
     toolRound('delete_file', '{"path":"a.txt"}'),
     textRound('已删除'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   const agent = a.agent({
     systemPrompt: '助手',
     humanInTheLoop: (call: any) => call.name === 'delete_file',
@@ -325,7 +325,7 @@ test('agent：HITL 审批 approved → 执行工具', async () => {
     toolRound('send_email', '{"to":"a@x.com"}'),
     textRound('已发送'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   let executed = false
   const agent = a.agent({
     systemPrompt: '助手',
@@ -386,7 +386,7 @@ test('agent：HITL 审批 rejected → tool_result ok:false，agent 换方案（
     toolRound('send_email', '{"to":"all@x.com"}'),
     textRound('好的，不群发。需要发给谁？'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   let executed = false
   const agent = a.agent({
     systemPrompt: '助手',
@@ -451,7 +451,7 @@ test('agent：审批超时（approvalTimeoutMs=100）→ 自动按 rejected 处�
     toolRound('send_email', '{}'),
     textRound('未获得批准，跳过。'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   let executed = false
   const agent = a.agent({
     systemPrompt: '助手',
@@ -476,7 +476,7 @@ test('agent：审批超时（approvalTimeoutMs=100）→ 自动按 rejected 处�
 test('agent：maxSteps 耗尽 → done 返回', async () => {
   // 脚本永远返回 tool_call（每轮都要求调用工具）→ 循环到 maxSteps
   const fake = await startScriptedProvider([toolRound('loop_tool', '{}')])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   const agent = a.agent({
     systemPrompt: '助手',
     maxSteps: 3,
@@ -506,7 +506,7 @@ test('agent：多轮文本 → done.content 跨轮累积（A3——旧代码只�
     roundWithText('先分析', 'loop_tool'),
     textRound('最终答案'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   const agent = a.agent({
     systemPrompt: '助手',
     maxSteps: 5,
@@ -530,7 +530,7 @@ test('agent：maxSteps 耗尽 → done.content 带累积文本（A3——旧代�
     'data: [DONE]\n\n',
   ]
   const fake = await startScriptedProvider([roundWithText('第')])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   const agent = a.agent({
     systemPrompt: '助手',
     maxSteps: 2,
@@ -548,7 +548,7 @@ test('agent：maxSteps 耗尽 → done.content 带累积文本（A3——旧代�
 
 test('A4：审批挂起中取消 → 快速收尾 + 条目回收（approve 返回 false）', async () => {
   const fake = await startScriptedProvider([toolRound('needs_approval', '{}')])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   const agent = a.agent({
     systemPrompt: '助手',
     humanInTheLoop: true,
@@ -587,7 +587,7 @@ test('A4：审批挂起中取消 → 快速收尾 + 条目回收（approve 返�
 
 test('A5：长生命周期 signal 复用——多次 runToResult 无交叉污染（监听器清理哨兵）', async () => {
   const fake = await startScriptedProvider([textRound('hi')])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   const agent = a.agent({ systemPrompt: 's', tools: [] })
   try {
     // 同一外部 signal 连续复用（worker 场景）——每次 run 的监听器清理不残留
@@ -610,7 +610,7 @@ test('agent 流式 wf:step(tool) 事件携带工具参数（前端工具卡片�
     toolRound('send_email', '{"to":"a@x.com","subject":"你好"}'),
     textRound('已发送'),
   ])
-  const a = ai({ apiKey: 'k', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'k', baseUrl: fake.url })
   try {
     const agent = a.agent({
       systemPrompt: '助手',

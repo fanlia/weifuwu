@@ -8,7 +8,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { ai } from 'weifuwu'
+import { OpenAi } from 'weifuwu'
 import { sseResponse } from '../../../src/server/ai/sse.ts'
 
 describe('AI Core Module', () => {
@@ -30,12 +30,12 @@ describe('AI Core Module', () => {
     })
   })
 
-  // ── ai() 中间件 ───────────────────────────────────────
+  // ── OpenAi 中间件 ───────────────────────────────────────
 
   describe('ai() middleware', () => {
     it('注入 ctx.ai 且包含 chat/stream/agent/embed/embedMany', async () => {
       const ctx: any = { params: {}, query: {} }
-      await ai({ embedding: {} })(new Request('http://localhost/'), ctx, async () => new Response('ok'))
+      await OpenAi({ embedding: {} })(new Request('http://localhost/'), ctx, async () => new Response('ok'))
       assert.ok(ctx.ai, '应注入 ctx.ai')
       for (const key of ['chat', 'stream', 'agent', 'embed', 'embedMany']) {
         assert.equal(typeof ctx.ai[key], 'function', `ctx.ai.${key} 应为函数`)
@@ -44,7 +44,7 @@ describe('AI Core Module', () => {
 
     it('agent runner 提供 run/stream/runToResult', async () => {
       const ctx: any = { params: {}, query: {} }
-      await ai({ embedding: {} })(new Request('http://localhost/'), ctx, async () => new Response('ok'))
+      await OpenAi({ embedding: {} })(new Request('http://localhost/'), ctx, async () => new Response('ok'))
       const runner = ctx.ai.agent({ model: 'mock', systemPrompt: 'x', tools: [], maxSteps: 1 })
       assert.equal(typeof runner.run, 'function')
       assert.equal(typeof runner.stream, 'function')
@@ -53,7 +53,7 @@ describe('AI Core Module', () => {
 
     it('agent 引擎支持工具配置（不崩溃）', async () => {
       const ctx: any = { params: {}, query: {} }
-      await ai({ embedding: {} })(new Request('http://localhost/'), ctx, async () => new Response('ok'))
+      await OpenAi({ embedding: {} })(new Request('http://localhost/'), ctx, async () => new Response('ok'))
       const runner = ctx.ai.agent({
         model: 'mock',
         systemPrompt: '使用工具',

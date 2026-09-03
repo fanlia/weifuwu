@@ -1,5 +1,5 @@
 /**
- * 框架 ai() embedding 能力测试
+ * 框架 OpenAi embedding 能力测试
  *
  * wire-fake：真 HTTP 服务器按 DashScope compatible-mode 协议输出 embeddings 响应
  * （不 mock fetch，CS-04 精神）。
@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type Server } from 'node:http'
-import { ai } from '../ai/index.ts'
+import { OpenAi } from '../ai/index.ts'
 import { AiError } from '../ai/client.ts'
 
 // ── wire-fake：DashScope /embeddings 协议服务器 ─────────────
@@ -34,10 +34,10 @@ async function startEmbedServer(): Promise<void> {
   baseUrl = `http://127.0.0.1:${(server.address() as any).port}`
 }
 
-test('ai({ embedding }) 的 embed/embedMany 走 DashScope 协议', async () => {
+test('OpenAi({ embedding }) 的 embed/embedMany 走 DashScope 协议', async () => {
   await startEmbedServer()
   try {
-    const module = ai({
+    const module = OpenAi({
       apiKey: 'test-key',
       baseUrl: 'http://127.0.0.1:1', // chat 端点不可达（本测试不用）
       defaultModel: 'test-chat-model',
@@ -64,7 +64,7 @@ test('embedding 默认参数与环境变量对齐（DASHSCOPE_*）', async () =>
     process.env.DASHSCOPE_BASE_URL = baseUrl
     process.env.DASHSCOPE_EMBEDDING_MODEL = 'text-embedding-v3'
 
-    const module = ai({ apiKey: 'chat-key', baseUrl: 'http://127.0.0.1:1', defaultModel: 'm' })
+    const module = OpenAi({ apiKey: 'chat-key', baseUrl: 'http://127.0.0.1:1', defaultModel: 'm' })
     const v = await module.embed('x')
     assert.deepEqual(v, [1, 0, 0.5])
     assert.equal(lastBody?.model, 'text-embedding-v3', '模型从环境变量读取')
@@ -80,7 +80,7 @@ test('未配置 embedding 时 embed() 抛 AiError(unsupported)（诚实裁剪：
   const old = process.env.DASHSCOPE_API_KEY
   delete process.env.DASHSCOPE_API_KEY // 隔离：确保无环境变量配置
   try {
-    const module = ai({ apiKey: 'k', baseUrl: 'http://127.0.0.1:1', defaultModel: 'm' })
+    const module = OpenAi({ apiKey: 'k', baseUrl: 'http://127.0.0.1:1', defaultModel: 'm' })
     await assert.rejects(() => module.embed('x'), (e: unknown) => {
       assert.ok(e instanceof AiError)
       assert.equal((e as AiError).code, 'unsupported')

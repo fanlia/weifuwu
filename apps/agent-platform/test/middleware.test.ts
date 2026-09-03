@@ -9,7 +9,7 @@
 import { describe, it, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Context } from 'weifuwu'
-import { ai } from 'weifuwu'
+import { OpenAi } from 'weifuwu'
 
 function mkCtx(extra?: Record<string, unknown>): Context {
   return { params: {}, query: {}, ...extra } as any
@@ -22,18 +22,18 @@ function callMiddleware(mw: any, ctx: Context, req?: Request): Promise<Response>
 
 describe('Middleware', () => {
 
-  // ── ai() 中间件 ─────────────────────────────────────
+  // ── OpenAi 中间件 ─────────────────────────────────────
 
-  describe('ai()', () => {
+  describe('OpenAi()', () => {
     it('注入 ctx.ai', async () => {
       const ctx = mkCtx()
-      await callMiddleware(ai({ embedding: {} }), ctx)
+      await callMiddleware(OpenAi({ embedding: {} }), ctx)
       assert.ok(ctx.ai, '应注入 ctx.ai')
     })
 
     it('ctx.ai 包含 chat、agent、embed、embedMany、embed', async () => {
       const ctx = mkCtx()
-      await callMiddleware(ai({ embedding: {} }), ctx)
+      await callMiddleware(OpenAi({ embedding: {} }), ctx)
       for (const key of ['chat', 'agent', 'embed', 'embedMany']) {
         assert.equal(typeof (ctx as any).ai[key], 'function', `ctx.ai.${key} 应为函数`)
       }
@@ -41,7 +41,7 @@ describe('Middleware', () => {
 
     it('ctx.ai.agent 返回 { run, stream, runToResult }', async () => {
       const ctx = mkCtx()
-      await callMiddleware(ai({ embedding: {} }), ctx)
+      await callMiddleware(OpenAi({ embedding: {} }), ctx)
       // 框架 ai.agent 工厂：返回 agent runner（run 返回 SSE Response，stream/runToResult 是函数）
       const runner = (ctx.ai as any).agent({
         model: 'mock',

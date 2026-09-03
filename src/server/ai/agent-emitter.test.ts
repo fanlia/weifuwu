@@ -7,11 +7,11 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ai } from '../ai/index.ts'
+import { OpenAi } from '../ai/index.ts'
 import type { WfEmitter } from '../ai/sse.ts'
 
 // 用真实 ai() 但 chat 端点指向不可达地址——本测试只验证事件路由，不真调 provider
-const module = ai({ apiKey: 'test', baseUrl: 'http://127.0.0.1:1', defaultModel: 'm' })
+const module = OpenAi({ apiKey: 'test', baseUrl: 'http://127.0.0.1:1', defaultModel: 'm' })
 
 test('AgentRunner.stream：wf:* 事件打到自定义 emitter（非 SSE）', async () => {
   const events: Array<[string, unknown]> = []
