@@ -6,7 +6,7 @@
  * 客户端零转换（架构验证：组件库零改动）。
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { Alert, Badge, Button, Card, CodeEditor, Descriptions, Loading, Pipeline, Tabs, Textarea } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, CodeEditor, Descriptions, JSONViewer, Loading, Modal, Pipeline, Tabs, Textarea } from 'weifuwu/components'
 import { errMsg, PageHeader } from '../components/ui'
 
 interface DagNode { id: string; label: string }
@@ -27,6 +27,9 @@ interface RunRow {
   error: string | null
   created_at: string
 }
+interface RunDetail extends RunRow {
+  result_json: { stepResults?: Record<string, { ok?: boolean; data?: unknown; error?: string }>; executed?: string[] } | null
+}
 
 interface StepInstance {
   id: string
@@ -45,6 +48,7 @@ interface DetailState {
   args: string
   error: string
   lastResult?: unknown
+  viewingRun?: RunDetail | null
 }
 
 /** def → 顶层步骤实例（IR 形态） */
@@ -91,7 +95,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
   const rerender = () => ctx.render()
   $.loading = true; $.running = false
   $.runs = []; $.tab = 'dag'; $.args = '{}'; $.error = ''
-  $.labels = {}
+  $.labels = {}; $.viewingRun = null
   const id = props.id ?? ''
 
   async function load(): Promise<void> {
@@ -113,6 +117,14 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
     rerender()
   }
   void load()
+
+  async function viewRun(runId: string): Promise<void> {
+    try {
+      const r = await ctx.api!.get<{ run: RunDetail }>(`/api/workflows/${id}/runs/${runId}`)
+      $.viewingRun = r.run
+      rerender()
+    } catch (e) { ctx.toast!('加载运行结果失败', 'error') }
+  }
 
   async function run(): Promise<void> {
     let args: Record<string, unknown> = {}
@@ -179,6 +191,39 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
           </div>
         </Card>
 
+        <Modal open={!!$.viewingRun} title="运行结果" onClose={() => { $.viewingRun = null; rerender() }} width="640px">
+          {$.viewingRun && (() => {
+            const run = $.viewingRun
+            const steps = run.result_json?.stepResults ?? {}
+            return (
+              <div class="wf-stack wf-gap-md">
+                <Alert variant={run.status === 'success' ? 'success' : 'error'}>
+                  {run.trigger} · {run.status}
+                  {run.error && <>：{run.error}</>}
+                </Alert>
+                <div class="wf-stack wf-gap-sm">
+                  {(run.result_json?.executed ?? Object.keys(steps)).map((sid) => {
+                    const st = steps[sid]
+                    if (!st) return null
+                    return (
+                      <div key={sid} class="wf-row wf-gap-sm wf-items-start wf-border-bottom wf-padding-y-sm">
+                        <Badge variant={st.ok === false ? 'danger' : 'success'}>{st.ok === false ? '失败' : 'ok'}</Badge>
+                        <div class="wf-fill wf-stack wf-gap-xs">
+                          <div class="wf-font-mono wf-font-xs">{sid}</div>
+                          {st.error && <div class="wf-font-xs wf-text-danger">{st.error}</div>}
+                          {st.data !== undefined && <div class="wf-font-xs wf-text-secondary wf-break-word">{JSON.stringify(st.data)?.slice(0, 200)}</div>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div class="wf-font-xs wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">原始结果（JSON）</div>
+                <JSONViewer data={run.result_json} defaultExpandDepth={2} maxKeys={50} />
+              </div>
+            )
+          })()}
+        </Modal>
+
         <Card key="runs">
           <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-margin-bottom-md">运行历史</div>
           {$.runs.length === 0 ? (
@@ -190,6 +235,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
                   <Badge variant={r.status === 'success' ? 'success' : r.status === 'error' ? 'danger' : 'warning'}>{r.status}</Badge>
                   <span class="wf-font-xs wf-fill wf-text-secondary">{r.trigger} · {String(r.created_at ?? '').slice(0, 19)}</span>
                   {r.error && <span class="wf-font-xs wf-text-danger">{r.error}</span>}
+                  <Button size="sm" variant="ghost" onClick={() => void viewRun(r.id)}>查看</Button>
                 </div>
               ))}
             </div>
