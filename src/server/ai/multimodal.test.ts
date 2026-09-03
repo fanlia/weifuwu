@@ -104,6 +104,30 @@ test('image/video 独立配置：不同 baseUrl/apiKey 各走各的端点（多 
   assert.equal((calls[1].init.headers as Record<string, string>).Authorization, 'Bearer key-vid')
 })
 
+test('env 默认：无显式参数读 DASHSCOPE_MAAS_API_URL + DASHSCOPE_API_KEY', async () => {
+  const prevUrl = process.env.DASHSCOPE_MAAS_API_URL
+  const prevKey = process.env.DASHSCOPE_API_KEY
+  process.env.DASHSCOPE_MAAS_API_URL = 'env.maas.example.com'
+  process.env.DASHSCOPE_API_KEY = 'env-key'
+  try {
+    const calls: Array<{ url: string; init: RequestInit }> = []
+    mock.method(globalThis, 'fetch', async (url: unknown, init: RequestInit) => {
+      calls.push({ url: String(url), init })
+      return Response.json({ output: { choices: [{ message: { content: [{ image: 'https://o/x.png' }] } }] } })
+    })
+    const img3 = createDashscopeImage() // 零显式配置——全走 env
+    await img3.generateImage({ prompt: 'x' })
+    assert.match(calls[0].url, /^https:\/\/env\.maas\.example\.com\//, '默认 baseUrl = DASHSCOPE_MAAS_API_URL')
+    assert.equal((calls[0].init.headers as Record<string, string>).Authorization, 'Bearer env-key', '默认 apiKey = DASHSCOPE_API_KEY')
+    assert.equal(JSON.parse(String(calls[0].init.body)).model, 'z-image-turbo', '默认模型 = 现有常量')
+  } finally {
+    if (prevUrl === undefined) delete process.env.DASHSCOPE_MAAS_API_URL
+    else process.env.DASHSCOPE_MAAS_API_URL = prevUrl
+    if (prevKey === undefined) delete process.env.DASHSCOPE_API_KEY
+    else process.env.DASHSCOPE_API_KEY = prevKey
+  }
+})
+
 test('模型可配：显式 model 覆盖默认（DASHSCOPE_IMAGE_MODEL/VIDEO_MODEL 之外）', async () => {
   const calls: Array<{ init: RequestInit }> = []
   mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
