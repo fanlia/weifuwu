@@ -81,11 +81,15 @@ async function main() {
   // 主池：10 并发 AI 执行（每任务 2+ SQL 连接）+ 常规请求——acquireTimeoutMs 防池满无限排队（卡住）
   // DATABASE_POOL_MAX 覆盖（2026-08——测试峰值连接（15+ spawn server × 50）
   // 击穿 PG max=100——测试环境用小池（UI 测试低并发——8 足够））
+  // 默认 50 → 20（2027-09 实证：池启动即预热全开——双实例/--watch 重启叠加
+  // 瞬间 50+50 > PG max=100 → startup too many clients（用户 dev 无法访问
+  // 根因）——20 起步双实例 40 安全余量 2.5×；峰值（10 并发 AI × 3 连接）
+  // 排队等待（acquireTimeout 10s）不爆连接）
   // idle_timeout/max_lifetime（2027-10——watch 重启连接击穿实证）：postgres.js
   // 默认 idle_timeout=0——峰值开出的连接永不收缩（实测单实例 idle 49）——
   // dev --watch 重启叠加期 49+50 > PG max=100 → 启动失败 too many clients；
   // 空闲 30s 收缩 + 连接最长寿命 30min 换血——碰撞窗口结构性消除
-  const poolMax = parseInt(process.env.DATABASE_POOL_MAX ?? '50', 10)
+  const poolMax = parseInt(process.env.DATABASE_POOL_MAX ?? '20', 10)
   const pg = postgres({
     max: poolMax,
     acquireTimeoutMs: 10_000,
