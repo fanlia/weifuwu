@@ -14,6 +14,8 @@ bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 
 **内核资产**：
 - **vdom**（`src/client/vdom/`）——命令流引擎（13 命令 NDJSON 自足）+ 三实体状态机
   + 双树对账器 + fuzz 生成器 + render-health 四轴仪表
+- **ai**（`src/server/ai/`）——AIInterface 契约 + provider 插槽（openai/MemoryAi——
+  内存确定性替身——对话生成→执行链 e2e 的决策注入面）+ MemoryAiServer 协议替身
 - **shared/router**（`src/shared/router/`）——**前后端唯一共享模块五层单源**
   （trie/pipeline/context/chain/ctx-fields）
 - **workflow**（`src/server/workflow/`）——声明式执行引擎（表达式求值器/edge 去重状态机/步骤注册表/执行器——零运行时外部依赖）

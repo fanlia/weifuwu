@@ -43,7 +43,7 @@ server.listen(3000)
 | `userSystem()` | `ctx.auth`/`ctx.user` | 注册/登录/token/角色/租户 |
 | `rateLimit()` | — | 令牌桶（per-key/per-user） |
 | `email()` | `ctx.email` | resend/smtp 双 adapter |
-| `ai()` | `ctx.ai` | LLM/embedding adapter（OpenAI 兼容） |
+| `ai()` | `ctx.ai` | AI 接口（AIInterface——LLM/embedding/多模态；provider 插槽：`ai({ provider: 'openai' | 'memory' })` + env `AI_PROVIDER`） |
 | `ui()` | `ctx.ui` | SSR + JS/CSS 编译（`html/js/css/ssr`） |
 | `graphql()` | `ctx.gql` | GraphQL 层（Schema/Resolver） |
 | `ws()` | `ctx.ws` | WebSocket hub（订阅/广播） |
@@ -63,9 +63,35 @@ server.listen(3000)
 | `AUTH_SECRET` | userSystem HMAC 密钥（≥16 字符） | `userSystem()` | — |
 | `DEEPSEEK_API_KEY` | LLM provider key | `ai()` | — |
 | `DEEPSEEK_BASE_URL` / `MODEL` | LLM 端点/模型 | `ai()` | `api.deepseek.com/v1` / `deepseek-v4-flash` |
-| `DASHSCOPE_*` | embedding provider | `ai({ embedding })` | `deepseek` 同域 |
+| `DASHSCOPE_*` | embedding + 多模态 provider（图片/视频） | `ai({ embedding })` / `ai()` | `deepseek` 同域 / `dashscope.aliyuncs.com` |
 | `RESEND_API_KEY` / `SMTP_*` | 邮件 adapter | `email()` | `localhost:3025` |
 | `PORT` | 服务端口 | `serve()` | `3000` |
+
+## 3.5 AI 接口（AIInterface——provider 可插拔）
+
+参考 PostgresInterface 分层（契约/工厂/引擎分离——`src/server/ai/`）：
+
+```
+contracts.ts   AIInterface（契约——Ai 兼容别名）+ 多模态请求/响应类型 + Context.ai 声明单源
+client.ts      OpenAI 兼容 transport（chat/stream/agent 引擎依赖面 = AiClient）
+multimodal.ts  DashScope 多模态（图片 z-image-turbo / 视频 happyhorse 异步任务——provider 语义）
+memory.ts      MemoryAi（参考 MemorySql：契约直实现——确定性——onChat/onEmbed/onImage 注入）
+memory-server.ts MemoryAiServer（参考 MemoryPostgresServer——协议替身——测试用）
+index.ts       ai(opts) 工厂：provider 选择（显式 > AI_PROVIDER env > 默认 openai）→ assemble
+```
+
+- **选择**：`ai({ provider: 'memory' })` 或 env `AI_PROVIDER=memory`——memory 分支
+  不读 DEEPSEEK_*（无 key 可用——测试/离线）；默认 openai（无 key 仍明确 throw）
+- **多模态**：`ctx.ai.generateImage / createVideoTask / videoStatus`——**只做 provider
+  语义**（不落盘/不建任务行/不轮询——编排属应用层）；视频参数归一在 provider
+  层（枚举/时长夹紧/watermark）
+- **MemoryAi**：`createMemoryAi({ onChat, onEmbed, onImage, onVideoSubmit, onVideoStatus })`——
+  默认 echo 末条 user 消息 / djb2 确定性向量 / 1×1 占位图 / 视频立即 done——
+  不编造 tool_calls（对齐 MemorySql「不支持的抛 unsupported」纪律）
+- **MemoryAiServer**：`createMemoryAiServer({ port, onChat })`——OpenAI 兼容
+  （/v1/chat/completions 流+非流、/v1/embeddings）+ dashscope 格式（图片/视频）——
+  真实客户端（createAiClient / createDashscopeMultimodal）**零改动直连**——认证直过——
+  测试用（DEEPSEEK_BASE_URL 指向）
 
 ## 4. AI Stream Protocol
 

@@ -43,7 +43,22 @@
 
 ## 执行实录
 
-（边做边记——波次结果/探针重定位）
+- W1-W7（commit 82c3c1e4/8f59d3d4）：AIInterface 正名 + MemoryAi/MemoryAiServer +
+  多模态（DashScope provider）+ 工厂插槽——ai 模块 60/60（+memory 9 +server 6
+  +multimodal 6）· tsc 0
+- W6（commit 8f59d3d4 后）消费迁移：image-gen/video-gen 编排与 provider 分离——
+  参数归一单源（provider 层）—— tools 测试 14/14 迁移后绿
+- 探针重定位（2 项）：
+  ① 视频参数归一原计划编排层——实现在 provider 层更对（任何消费方拿合法值——
+  不改编排重复归一）——测试挪 multimodal.test（6 契约）
+  ② 工具条断言文本——toolLabel 未注册名 = 下划线转空格（create_workflow →
+  "create workflow"）——断言用 label 形态
+- W9（对话生成→执行链 e2e——commit 后）：chat-workflow.test.ts 1 用例——
+  平台 UI 155/155 全绿。调试实录（4 根因）：角色 localStorage /
+  agent 不自动加部门成员（type='ai'——只有 department 经理自动）/
+  tool content 再转义（uuid 模式匹配）+ hasRun 转义层数 / 部门自动建经理
+  agent 并发回复（@ 定向单 agent）
+- 全量基线：155 UI + ai 60 + 平台 build ✓ + tsc 0
 
 ## 验收标准
 
