@@ -53,6 +53,17 @@ await esbuild.build({
   external,
 })
 
+// weifuwu/workflow — 声明式执行引擎（子路径独立 bundle——零运行时外部依赖）
+await mkdir(join(distDir, 'server', 'workflow'), { recursive: true })
+await esbuild.build({
+  entryPoints: [join(srcDir, 'server', 'workflow', 'index.ts')],
+  outfile: join(distDir, 'server', 'workflow', 'index.js'),
+  format: 'esm',
+  platform: 'node',
+  bundle: true,
+  external,
+})
+
 // ── vdom bundle（新一代前端运行时——h/jsx/uiServe/UIRouter 公共面——
 //   P3 包面切换——组件库已迁移到 src/client/vdom——构建为 weifuwu/vdom）──
 await mkdir(join(distDir, 'client', 'vdom'), { recursive: true })

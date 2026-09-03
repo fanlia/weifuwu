@@ -39,4 +39,7 @@
   - 语义定版（测试锁定）：宽松 `==`（'200'==200）、exists=值!==undefined（JSON null 存在）、裸值布尔语境=「存在且非空」（0→true）、逻辑只产 boolean、字符串支持单/双引号+\\/'/n/t 转义，无效转义报错
   - fuzz 对账：AST→toSrc→parse→求值 vs 参考求值器——300 样本×5 种子 1500 对全等价
   - 实测：23 测试 pass / tsc 0 错 / 无外部依赖（node strip-only 拒绝 parameter properties——已改显式字段）
-- 探针重定位：无（设计阶段已定边界）
+- **W4 完成（2026-09-03）**：exports（package.json `./workflow` 子路径 + build.mjs 独立 bundle——零运行时外部依赖）+ docs/server.md §7 + 回归门。
+  - 实测：test:server 568 pass（含 workflow 46）/ audit 七线全绿 / tsc 0 错 / dist 子路径 import 验证通过
+  - 探针重定位：无。W1–W4 全部按计划交付；引擎已具备 runWorkflow 全语义
+- **待第二批（平台接入——独立计划）**：agent-platform workflows/runs 表 + REST + queue/scheduler 接线 + 对话生成三 tool + 预览/确认 UI + 问诊

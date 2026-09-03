@@ -16,6 +16,10 @@
     },
     "./components/style.css": "./dist/client/components/style.css",
     "./dev": "./dist/dev/index.js",
+    "./workflow": {
+      "types": "./dist/server/workflow/index.d.ts",
+      "default": "./dist/server/workflow/index.js"
+    },
     "./vdom": {
       "types": "./dist/client/vdom/index.d.ts",
       "default": "./dist/client/vdom/index.js"

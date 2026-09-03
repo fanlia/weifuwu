@@ -16,6 +16,7 @@ bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 
   + 双树对账器 + fuzz 生成器 + render-health 四轴仪表
 - **shared/router**（`src/shared/router/`）——**前后端唯一共享模块五层单源**
   （trie/pipeline/context/chain/ctx-fields）
+- **workflow**（`src/server/workflow/`）——声明式执行引擎（表达式求值器/edge 去重状态机/步骤注册表/执行器——零运行时外部依赖）
 - **server/core**（`src/server/core/`）——Router（自研 Trie）/serve/WS hub + 错误去重计数
 - 计划规范：`plan/plan.md`——如何写计划（模板/纪律/收尾）——进行中计划
   在 `plan/` 根；完成计划不物理保留（git log 承接）

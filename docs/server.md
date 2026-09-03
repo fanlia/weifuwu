@@ -11,6 +11,7 @@
 - [4. AI Stream Protocol](#4-ai-stream-protocol)
 - [5. 数据层](#5-数据层)
 - [6. 实时与渲染](#6-实时与渲染)
+- [7. workflow 执行引擎](#7-workflow-执行引擎)
 
 ---
 
@@ -104,6 +105,46 @@ server.listen(3000)
   （`src/ssr.ts`——SSR ≡ SPA 首帧纪律）
 - **graphql**：`src/server/middleware/graphql.ts`——Schema-first
 - **WebSocket**：`src/server/core/ws-hub.ts`——连接/房间/广播 + 心跳
+
+---
+
+## 7. workflow 执行引擎
+
+`src/server/workflow/`——声明式执行引擎（WorkflowDef 线性步骤链 → ctx 数据流 → RunResult）。
+入口：`workflow({ ai?, email?, redis?, fetch?, log? })`（模块即客户端，worker 直接调用）——
+不做调度装配（cron/队列由消费方组合 scheduler/queue 实现）。
+
+```ts
+import { workflow } from 'weifuwu'
+const wf = workflow({ ai: a, email: mail, redis: redisClient.redis }) // 适配器可选
+
+const def = {
+  id: 'stock-monitor',
+  steps: [
+    { id: 'probe', type: 'http', config: { url: 'https://api.test/stock' } },
+    { id: 'gate', type: 'if', config: { when: 'steps.probe.data.json.items', edge: true } },
+    { id: 'mail', type: 'email', config: { to: 'ops@x.com', subject: '预警', body: '{{steps.probe.data.json.items}}' } },
+  ],
+}
+wf.validate(def)                   // → { ok, errors[] }（LLM 生成 / 配置共用闸门）
+const r = await wf.execute(def)    // → RunResult；execute(def, { mode: 'dry' }) 副作用打桩
+```
+
+**语义红线**（`src/server/workflow/*.test.ts` 契约锁定）：
+
+| 语义 | 定版 |
+| --- | --- |
+| 表达式 | path + `==`/`!=`/`exists`/`&&`/`||`/`!` + `{{}}` 插值——无 eval/无函数调用/无算术（安全面） |
+| 比较 | JS 宽松 `==`（'200'==200）；`exists` = 值 !== undefined（JSON null 存在） |
+| 布尔语境 | 裸值：undefined/null/''/[]/{} → false；0 → true（数字存在即真） |
+| 短路 | 步骤级 `when` 不通过 → 跳过（skippedSteps）**后续继续**；`if` 不通过 → 截断 status='skipped'（非错误） |
+| edge 去重 | `if config.edge`：条件上升沿 fire；真持续静默（"发一次"）；变假解除武装。at-least-once 窗口最多重复一次（不引锁——诚实裁剪） |
+| dry-run | effects 步骤打桩 `{ok,dry}`；http 真跑（用户要看数据） |
+| 每步输出 | `{ ok, data?, error? }` 落 `steps.<id>`（ctx.steps 与 RunResult.stepResults 同引用） |
+| 内置步骤 | http / template / log / ai（需 ai 适配器）/ email（需 email 适配器）——缺适配器报明确错误，不静默跳过 |
+
+**裁剪**：不做 DAG/分支/循环/子 workflow（结构化可编程为 v2 候选）；
+框架只做执行，REST/UI/多租户/对话生成由消费方接入（agent-platform 第二阶段）。
 
 ---
 
