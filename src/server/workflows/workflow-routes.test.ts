@@ -150,4 +150,32 @@ if (true) { await log({ message: 'i' }) }` })
     const d3 = await (await req('GET', `/api/workflows/${wid}`)).json() as any
     assert.equal(d3.workflow.def.steps.length, 2)
   })
+
+  it('版本历史：创建 v1 → 编辑 v2 → 回滚 → def/wfjs 同步', async () => {
+    const created = await req('POST', '/api/workflows', { name: '版本', wfjs: `const res = await log({ message: 'A' })` })
+    const { workflow } = await created.json() as { workflow: { id: string } }
+    const wid = workflow.id
+    // 创建即 v1
+    const v1 = await (await req('GET', `/api/workflows/${wid}/versions`)).json() as { versions: { id: string; note: string | null }[] }
+    assert.equal(v1.versions.length, 1)
+    assert.equal(v1.versions[0].note, '初始版本')
+    const v1Id = v1.versions[0].id
+    // 编辑 → v2
+    await req('PUT', `/api/workflows/${wid}`, { patch: { path: [0], config: { message: 'B' } } })
+    const v2 = await (await req('GET', `/api/workflows/${wid}/versions`)).json() as { versions: { id: string }[] }
+    assert.equal(v2.versions.length, 2)
+    // 回滚到 v1
+    const rb = await req('POST', `/api/workflows/${wid}/versions/${v1Id}/rollback`)
+    assert.equal(rb.status, 200)
+    const det = await (await req('GET', `/api/workflows/${wid}`)).json() as { workflow: { def: { steps: { config: { message: string } }[] }; wfjs: string } }
+    assert.equal(det.workflow.def.steps[0].config.message, 'A')
+    assert.match(det.workflow.wfjs, /'A'/)
+    // 回滚也记版本（审计链）
+    const v3 = await (await req('GET', `/api/workflows/${wid}/versions`)).json() as { versions: { note: string | null }[] }
+    assert.equal(v3.versions.length, 3)
+    assert.match(String(v3.versions[0].note ?? ''), /回滚/)
+    // 不存在 workflow/版本 → 404
+    assert.equal((await req('GET', '/api/workflows/nope/versions')).status, 404)
+    assert.equal((await req('POST', `/api/workflows/${wid}/versions/nope/rollback`)).status, 404)
+  })
 })

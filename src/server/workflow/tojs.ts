@@ -41,8 +41,10 @@ function toJsExpr(src: string, bind?: (segments: (string | number)[]) => boolean
  * 绑定上下文（渲染子链时传入）：loop 变量名栈（表达式内 loop.item 反映射）
  */
 export function toJs(def: WorkflowDef): string {
-  const head = renderImports(def.imports)
-  const fns = renderFunctions(def.functions)
+  // 最小 def 韧性：imports/functions/exports 可缺省（手工 DSL / 视图层 def 只含 steps——
+  // 契约：toJs 接受「有 steps 即合法」形态——渲染全程容错）
+  const head = renderImports(def.imports ?? [])
+  const fns = renderFunctions(def.functions ?? [])
   const body = renderChain(def.steps, {
     seenVars: new Set<string>(),
     loopNames: [] as string[],
@@ -57,7 +59,7 @@ export function toJs(def: WorkflowDef): string {
 export function renderExports(exports?: WorkflowDef['exports']): string {
   if (!exports) return ''
   const lines: string[] = []
-  if (exports.named.length) {
+  if ((exports.named ?? []).length) {
     lines.push(`export { ${exports.named.map((n) => n.as && n.as !== n.name ? `${n.name} as ${n.as}` : n.name).join(', ')} }`)
   }
   if (exports.default) lines.push(`export default ${exports.default}`)

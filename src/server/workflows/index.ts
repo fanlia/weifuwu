@@ -26,6 +26,7 @@ import type { WorkflowDef, ValidationResult } from '../workflow/index.ts'
 
 const WORKFLOWS = '_weifuwu_workflows'
 const RUNS = '_weifuwu_workflow_runs'
+const VERSIONS = '_weifuwu_workflow_versions'
 
 export interface WorkflowRecord {
   id: string
@@ -146,10 +147,23 @@ export interface WorkflowCrud {
   create: (appId: string, input: { name: string; wfjs?: string; def?: unknown; description?: string; cron?: string | null }) => Promise<WorkflowRecord>
   list: (appId: string, opts?: { offset?: number; limit?: number }) => Promise<WorkflowRecord[]>
   get: (appId: string, id: string) => Promise<WorkflowRecord | null>
-  update: (appId: string, id: string, input: { name?: string; wfjs?: string; def?: unknown; cron?: string | null }) => Promise<boolean>
+  update: (appId: string, id: string, input: { name?: string; wfjs?: string; def?: unknown; cron?: string | null; note?: string }) => Promise<boolean>
   remove: (appId: string, id: string) => Promise<boolean>
   listRuns: (appId: string, workflowId: string, opts?: { offset?: number; limit?: number }) => Promise<WorkflowRunRecord[]>
   getRun: (appId: string, workflowId: string, runId: string) => Promise<WorkflowRunRecord | null>
+  /** def 版本历史（编辑回滚面） */
+  listVersions: (appId: string, workflowId: string, opts?: { offset?: number; limit?: number }) => Promise<WorkflowVersionRecord[]>
+  /** 回滚到版本（workflow def 更新为新版本快照——最新在前） */
+  rollback: (appId: string, workflowId: string, versionId: string) => Promise<boolean>
+}
+
+export interface WorkflowVersionRecord {
+  id: string
+  app_id: string
+  workflow_id: string
+  def_json: WorkflowDef
+  note: string | null
+  created_at: string
 }
 
 export interface WorkflowSystemOptions {
@@ -197,6 +211,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
   const RUN_FIELDS = 'id, app_id, workflow_id, trigger, status, args_json, result_json, error, started_at, finished_at, created_at'
   /** jsonb 列反序列化（store 字符串 → 对象——DB 层不自动 parse） */
   const parseJson = (v: unknown): unknown => (typeof v === 'string' ? JSON.parse(v) : v)
+  const toDef = (raw: unknown): WorkflowDef => (typeof raw === 'string' ? JSON.parse(raw) as WorkflowDef : raw as WorkflowDef)
   const toRecord = (row: Record<string, unknown>): WorkflowRecord => ({ ...(row as unknown as WorkflowRecord), def_json: parseJson(row.def_json) as WorkflowDef })
   const toRun = (row: Record<string, unknown>): WorkflowRunRecord => ({
     ...(row as unknown as WorkflowRunRecord),
@@ -212,7 +227,12 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
         })
         .returning(...FIELDS.split(', '))
         .run()
-      return toRecord(rows[0] as Record<string, unknown>)
+      const rec = toRecord(rows[0] as Record<string, unknown>)
+      // 初始版本快照（编辑历史基座——创建即 v1）
+      await sql.query.insert(VERSIONS)
+        .values({ app_id: appId, workflow_id: rec.id, def_json: JSON.stringify(def), note: '初始版本' })
+        .run()
+      return rec
     },
     async list(appId, opts) {
       const offset = opts?.offset ?? 0
@@ -254,9 +274,48 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       const sets: Record<string, unknown> = {}
       if (input.name !== undefined) sets.name = input.name
       if (input.cron !== undefined) sets.cron = input.cron || null
-      if (gated) { sets.def_json = JSON.stringify(gated.def); sets.src_wfjs = gated.wfjs }
+      if (gated) {
+        sets.def_json = JSON.stringify(gated.def); sets.src_wfjs = gated.wfjs
+        // def 变更 → 版本快照（回滚面）
+        await sql.query.insert(VERSIONS)
+          .values({ app_id: appId, workflow_id: id, def_json: JSON.stringify(gated.def), note: input.note ?? null })
+          .run()
+      }
       sets.updated_at = new Date().toISOString()
       await sql.query.update(WORKFLOWS).set(sets).where({ app_id: appId, id }).run()
+      return true
+    },
+    async listVersions(appId, workflowId, opts) {
+      const offset = opts?.offset ?? 0
+      const limit = Math.min(100, Math.max(1, opts?.limit ?? 30))
+      const rows = await sql.query.from(VERSIONS)
+        .where({ app_id: appId, workflow_id: workflowId })
+        .select(...'id, app_id, workflow_id, def_json, note, created_at'.split(', '))
+        .orderBy('created_at', 'desc')
+        .limit(limit)
+        .offset(offset)
+        .run()
+      return rows.map((r) => {
+        const row = r as Record<string, unknown>
+        return { ...row, def_json: toDef(row.def_json) }
+      }) as WorkflowVersionRecord[]
+    },
+    async rollback(appId, workflowId, versionId) {
+      const rows = await sql.query.from(VERSIONS)
+        .where({ app_id: appId, workflow_id: workflowId, id: versionId })
+        .select(...'id, def_json'.split(', ')).limit(1).run()
+      if (!rows[0]) return false
+      const rec = await crud.get(appId, workflowId)
+      if (!rec) return false
+      const def = toDef((rows[0] as Record<string, unknown>).def_json)
+      await sql.query.update(WORKFLOWS).set({
+        def_json: JSON.stringify(def), src_wfjs: toJs(def),
+        updated_at: new Date().toISOString(),
+      }).where({ app_id: appId, id: workflowId }).run()
+      // 回滚也记版本（审计链完整）
+      await sql.query.insert(VERSIONS)
+        .values({ app_id: appId, workflow_id: workflowId, def_json: JSON.stringify(def), note: `回滚自 ${versionId.slice(0, 8)}` })
+        .run()
       return true
     },
     async remove(appId, id) {
@@ -358,6 +417,18 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
     `)
     await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_wf_runs_app ON ${RUNS} (app_id, created_at DESC)`)
     await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_wf_runs_wf ON ${RUNS} (workflow_id, created_at DESC)`)
+    // def 版本快照（编辑历史/回滚——update 时自动记录——def_json 真相快照——wfjs 派生不存）
+    await sql.unsafe(`
+      CREATE TABLE IF NOT EXISTS ${VERSIONS} (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        app_id UUID NOT NULL,
+        workflow_id UUID NOT NULL REFERENCES ${WORKFLOWS}(id) ON DELETE CASCADE,
+        def_json JSONB NOT NULL,
+        note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `)
+    await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_wf_versions_wf ON ${VERSIONS} (workflow_id, created_at DESC)`)
   }
 
   // ── 内置路由（可选挂载；appId 提取器缺省 ctx.user?.appId） ──
@@ -372,6 +443,15 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
     }
     const json = (data: unknown, status = 200): Response => Response.json(data, { status })
 
+    app.get(`${p}/:id/versions`, async (req, ctx) => {
+      const exists = await crud.get(appIdOr(ctx), ctx.params.id)
+      if (!exists) return json({ error: 'workflow 不存在' }, 404)
+      return json({ versions: await crud.listVersions(appIdOr(ctx), ctx.params.id) })
+    })
+    app.post(`${p}/:id/versions/:vid/rollback`, async (req, ctx) => {
+      const ok = await crud.rollback(appIdOr(ctx), ctx.params.id, ctx.params.vid)
+      return ok ? json({ ok: true }) : json({ error: 'workflow 或版本不存在' }, 404)
+    })
     app.get(`${p}/meta`, async (_req, ctx) => json({ schemas: wf.schema() }))
     app.get(`${p}`, async (req, ctx) => {
       const url = new URL(req.url)

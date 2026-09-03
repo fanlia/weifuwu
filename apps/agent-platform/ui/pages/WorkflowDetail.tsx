@@ -27,6 +27,11 @@ interface RunRow {
   error: string | null
   created_at: string
 }
+interface VersionRow {
+  id: string
+  note: string | null
+  created_at: string
+}
 interface RunDetail extends RunRow {
   result_json: { stepResults?: Record<string, { ok?: boolean; data?: unknown; error?: string }>; executed?: string[] } | null
 }
@@ -52,6 +57,7 @@ interface DetailState {
   lastResult?: unknown
   viewingRun?: RunDetail | null
   cronDraft: string
+  versions: VersionRow[]
 }
 
 /** def → 顶层步骤实例（IR 形态） */
@@ -142,7 +148,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
   $.loading = true; $.running = false
   $.runs = []; $.tab = 'dag'; $.args = '{}'; $.error = ''
   $.labels = {}; $.viewingRun = null; $.cronDraft = ''
-  $.fieldMeta = {}; $.editing = null
+  $.fieldMeta = {}; $.editing = null; $.versions = []
   const id = props.id ?? ''
 
   async function load(): Promise<void> {
@@ -165,6 +171,8 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
       $.labels = labels
       $.fieldMeta = fieldMeta
       $.runs = r.runs ?? []
+      const vs = await ctx.api!.get<{ versions: VersionRow[] }>(`/api/workflows/${id}/versions`)
+      $.versions = vs.versions ?? []
     } catch (e) { $.error = errMsg(e, '加载失败') }
     $.loading = false
     rerender()
@@ -179,6 +187,14 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
     } catch (e: any) {
       ctx.toast!(e?.message ?? '保存失败', 'error')
     }
+  }
+
+  async function rollback(versionId: string): Promise<void> {
+    try {
+      await ctx.api!.post<{ ok: boolean }>(`/api/workflows/${id}/versions/${versionId}/rollback`)
+      ctx.toast!('已回滚（新版本已记录）', 'success')
+      await load()
+    } catch (e: any) { ctx.toast!(e?.message ?? '回滚失败', 'error') }
   }
 
   async function viewRun(runId: string): Promise<void> {
@@ -298,6 +314,18 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
                             } catch (e: any) { ctx.toast!(e?.message ?? '添加失败', 'error') }
                           })()
                         })}
+                    </div>
+                  ))}
+                </div>
+              ) },
+              { key: 'versions', label: '版本', content: (
+                <div class="wf-padding-md wf-card-outline wf-rounded-md wf-stack wf-gap-sm">
+                  <div class="wf-font-xs wf-text-secondary">def 版本快照（编辑/回滚自动记录——恢复任一时点）</div>
+                  {$.versions.length === 0 && <div class="wf-font-sm wf-text-secondary">暂无版本</div>}
+                  {$.versions.map((v) => (
+                    <div key={v.id} class="wf-row wf-gap-md wf-items-center wf-border-bottom wf-padding-y-sm">
+                      <span class="wf-font-xs wf-text-secondary wf-fill">{v.note ?? '（无备注）'} · {String(v.created_at ?? '').slice(0, 19)}</span>
+                      <Button size="sm" variant="ghost" onClick={() => { if (confirm('回滚到该版本？（当前版本会先记录为新版本）')) void rollback(v.id) }}>恢复</Button>
                     </div>
                   ))}
                 </div>
