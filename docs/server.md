@@ -43,7 +43,7 @@ server.listen(3000)
 | `userSystem()` | `ctx.auth`/`ctx.user` | 注册/登录/token/角色/租户 |
 | `rateLimit()` | — | 令牌桶（per-key/per-user） |
 | `email()` | `ctx.email` | resend/smtp 双 adapter |
-| `ai()` | `ctx.ai` | AI 接口（AIInterface——LLM/embedding/多模态；provider 插槽：`ai({ provider: 'openai' | 'memory' })` + env `AI_PROVIDER`） |
+| `OpenAi()` / `MemoryAi()` | `ctx.ai` | AI 接口（AIInterface——LLM/embedding/多模态）；正门构造：`new OpenAi({ apiKey })`（OpenAI 兼容）/ `new MemoryAi({ onChat })`（确定性内存——测试/离线） |
 | `ui()` | `ctx.ui` | SSR + JS/CSS 编译（`html/js/css/ssr`） |
 | `graphql()` | `ctx.gql` | GraphQL 层（Schema/Resolver） |
 | `ws()` | `ctx.ws` | WebSocket hub（订阅/广播） |
@@ -77,11 +77,12 @@ client.ts      OpenAI 兼容 transport（chat/stream/agent 引擎依赖面 = AiC
 multimodal.ts  DashScope 多模态（图片 z-image-turbo / 视频 happyhorse 异步任务——provider 语义）
 memory.ts      MemoryAi（参考 MemorySql：契约直实现——确定性——onChat/onEmbed/onImage 注入）
 memory-server.ts MemoryAiServer（参考 MemoryPostgresServer——协议替身——测试用）
-index.ts       ai(opts) 工厂：provider 选择（显式 > AI_PROVIDER env > 默认 openai）→ assemble
+index.ts       模块 re-export（OpenAi/MemoryAi/AiClientModule——选择器已废——正门构造）
 ```
 
-- **选择**：`ai({ provider: 'memory' })` 或 env `AI_PROVIDER=memory`——memory 分支
-  不读 DEEPSEEK_*（无 key 可用——测试/离线）；默认 openai（无 key 仍明确 throw）
+- **正门构造**：`new OpenAi(opts)` / `OpenAi(opts)`（env 读 DEEPSEEK_*——无 key 明确
+  throw）与 `new MemoryAi(opts)` / `createMemoryAi(opts)`（不读 DEEPSEEK_*——无 key
+  可用——测试/离线）——两者都返回 AiClientModule（`app.use` 注入 `ctx.ai`）
 - **多模态**：`ctx.ai.generateImage / createVideoTask / videoStatus`——**只做 provider
   语义**（不落盘/不建任务行/不轮询——编排属应用层）；视频参数归一在 provider
   层（枚举/时长夹紧/watermark）

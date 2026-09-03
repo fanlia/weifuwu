@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type Server } from 'node:http'
-import { ai } from '../ai/index.ts'
+import { OpenAi } from '../ai/index.ts'
 import { sseResponse } from '../ai/sse.ts'
 import type { WfStreamEvent } from '../ai/types.ts'
 
@@ -122,7 +122,7 @@ async function collectEvents(res: Response): Promise<WfStreamEvent[]> {
 
 test('ai.chat：非流式调用，解析 JSON 响应', async () => {
   const fake = await startFakeProvider(() => {})
-  const a = ai({ apiKey: 'test-key', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'test-key', baseUrl: fake.url })
   try {
     const res = await a.chat({ messages: [{ role: 'user', content: 'hi' }] })
     assert.equal(res.id, 'fake-1')
@@ -135,7 +135,7 @@ test('ai.chat：非流式调用，解析 JSON 响应', async () => {
 
 test('ai.stream：SSE 事件序列 message_start → token → usage → done', async () => {
   const fake = await startFakeProvider(() => {})
-  const a = ai({ apiKey: 'test-key', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'test-key', baseUrl: fake.url })
   try {
     const res = a.stream({ messages: [{ role: 'user', content: 'hi' }] })
     assert.equal(res.headers.get('content-type'), 'text/event-stream')
@@ -167,7 +167,7 @@ test('ai.stream：thinking 模式 → wf:done 带 reasoning（A2——推理断�
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
   const { port } = server.address() as { port: number }
-  const a = ai({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm' })
+  const a = OpenAi({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm' })
   try {
     const res = a.stream({ messages: [{ role: 'user', content: 'hi' }] })
     const events = await collectEvents(res)
@@ -225,7 +225,7 @@ test('W6 首 token 超时：provider 挂起（无 chunk）→ wf:error timeout +
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
   const { port } = server.address() as { port: number }
-  const a = ai({ apiKey: 'k', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm', firstTokenTimeoutMs: 150, streamRetries: 2 })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm', firstTokenTimeoutMs: 150, streamRetries: 2 })
   try {
     const res = a.stream({ messages: [{ role: 'user', content: 'hi' }] })
     const events = await collectEvents(res)
@@ -256,7 +256,7 @@ test('W6 流式重试：429 → 250ms 后安静重试成功（无重复 token/er
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
   const { port } = server.address() as { port: number }
-  const a = ai({ apiKey: 'k', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm', streamRetries: 1 })
+  const a = OpenAi({ apiKey: 'k', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm', streamRetries: 1 })
   try {
     const events = await collectEvents(a.stream({ messages: [{ role: 'user', content: 'hi' }] }))
     assert.equal(calls, 2, '429 重试后第二次请求成功')
@@ -277,7 +277,7 @@ test('W6 重试资格：401 auth_failed 不重试（确定失败——立即终�
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
   const { port } = server.address() as { port: number }
-  const a = ai({ apiKey: 'bad-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm', streamRetries: 3 })
+  const a = OpenAi({ apiKey: 'bad-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm', streamRetries: 3 })
   try {
     const events = await collectEvents(a.stream({ messages: [{ role: 'user', content: 'hi' }] }))
     assert.equal(calls, 1, '401 不重试（重复调无效——计费风险）')
@@ -291,7 +291,7 @@ test('W6 重试资格：401 auth_failed 不重试（确定失败——立即终�
 
 test('ai.stream：message_start.id 取 X-Trace-Id（追踪关联）', async () => {
   const fake = await startFakeProvider(() => {})
-  const a = ai({ apiKey: 'test-key', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'test-key', baseUrl: fake.url })
   try {
     const res = a.stream({ messages: [{ role: 'user', content: 'hi' }] }, { traceId: '9f3a' })
     const events = await collectEvents(res)
@@ -310,7 +310,7 @@ test('ai.stream：tool_calls 聚合（id 只在首 chunk，arguments 分片拼�
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
   const { port } = server.address() as { port: number }
-  const a = ai({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm' })
+  const a = OpenAi({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm' })
   try {
     const res = a.stream({
       messages: [{ role: 'user', content: '查订单' }],
@@ -352,7 +352,7 @@ test('ai.stream：并行 tool_calls 交错分片 → 各 index 参数完整（A1
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
   const { port } = server.address() as { port: number }
-  const a = ai({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm' })
+  const a = OpenAi({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1`, defaultModel: 'm' })
   try {
     const res = a.stream({
       messages: [{ role: 'user', content: '查两个' }],
@@ -375,7 +375,7 @@ test('ai.stream：并行 tool_calls 交错分片 → 各 index 参数完整（A1
 
 test('ai.stream：provider 401 → wf:error auth_failed（错误即值，连接正常结束）', async () => {
   const fake = await startErrorProvider(401, { error: { message: 'invalid api key', code: 'invalid_api_key' } })
-  const a = ai({ apiKey: 'bad-key', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'bad-key', baseUrl: fake.url })
   try {
     const res = a.stream({ messages: [{ role: 'user', content: 'hi' }] })
     const events = await collectEvents(res)
@@ -389,7 +389,7 @@ test('ai.stream：provider 401 → wf:error auth_failed（错误即值，连接�
 
 test('ai.stream：provider 429 → wf:error rate_limited', async () => {
   const fake = await startErrorProvider(429, { error: { message: 'rate limit exceeded' } })
-  const a = ai({ apiKey: 'test-key', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'test-key', baseUrl: fake.url })
   try {
     const res = a.stream({ messages: [{ role: 'user', content: 'hi' }] })
     const events = await collectEvents(res)
@@ -410,7 +410,7 @@ test('ai.stream：客户端断开 → 取消 provider 请求（abort 传播）',
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
   const { port } = server.address() as { port: number }
-  const a = ai({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1` })
+  const a = OpenAi({ apiKey: 'test-key', baseUrl: `http://127.0.0.1:${port}/v1` })
   try {
     const controller = new AbortController()
     const res = a.stream({ messages: [{ role: 'user', content: 'hi' }] }, { signal: controller.signal })
@@ -429,9 +429,9 @@ test('ai.stream：客户端断开 → 取消 provider 请求（abort 传播）',
   }
 })
 
-test('ai() 工厂：middleware 注入 ctx.ai + 独立可用（queue 式混合）', async () => {
+test('OpenAi 构造：middleware 注入 ctx.ai + 独立可用（queue 式混合）', async () => {
   const fake = await startFakeProvider(() => {})
-  const a = ai({ apiKey: 'test-key', baseUrl: fake.url })
+  const a = OpenAi({ apiKey: 'test-key', baseUrl: fake.url })
   try {
     // 中间件注入
     const ctx: any = {}
@@ -453,7 +453,7 @@ test('BYOK：chat per-call apiKey/baseUrl 覆盖全局配置（租户自带模�
   let seen: FakeRequest | null = null
   const global = await startFakeProvider(() => {})
   const byok = await startFakeProvider((req) => { seen = req })
-  const a = ai({ apiKey: 'global-key', baseUrl: global.url })
+  const a = OpenAi({ apiKey: 'global-key', baseUrl: global.url })
   try {
     const res = await a.chat({
       messages: [{ role: 'user', content: 'hi' }],
@@ -476,7 +476,7 @@ test('BYOK：stream per-call 覆盖同样生效', async () => {
   let seen: FakeRequest | null = null
   const global = await startFakeProvider(() => {})
   const byok = await startFakeProvider((req) => { seen = req })
-  const a = ai({ apiKey: 'global-key', baseUrl: global.url })
+  const a = OpenAi({ apiKey: 'global-key', baseUrl: global.url })
   try {
     const res = a.stream({ messages: [{ role: 'user', content: 'hi' }], apiKey: 'tenant-key', baseUrl: byok.url })
     await collectEvents(res)
