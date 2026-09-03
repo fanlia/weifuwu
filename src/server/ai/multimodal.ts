@@ -14,6 +14,10 @@ import type { ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus }
 export const IMAGE_MODEL = 'z-image-turbo'
 export const VIDEO_MODEL = 'happyhorse-1.1-t2v'
 
+/** happyhorse 参数约束（provider 层归一——单一来源——消费方不重复） */
+const VIDEO_RESOLUTIONS = new Set(['480P', '720P', '1080P'])
+const VIDEO_RATIOS = new Set(['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '5:4', '9:21', '21:9'])
+
 export interface MultimodalOptions {
   apiKey?: string
   /** 形如 dashscope.aliyuncs.com（无协议前缀——补 https——对齐 image-gen/video-gen）；
@@ -121,10 +125,10 @@ export function createDashscopeMultimodal(opts: MultimodalOptions = {}): Multimo
           model: req.model ?? VIDEO_MODEL,
           input: { prompt },
           parameters: {
-            resolution: req.resolution ?? '1080P',
-            ratio: req.ratio ?? '16:9',
+            resolution: VIDEO_RESOLUTIONS.has(req.resolution ?? '') ? req.resolution! : '1080P',
+            ratio: VIDEO_RATIOS.has(req.ratio ?? '') ? req.ratio! : '16:9',
             duration: Math.min(15, Math.max(3, Math.round(Number(req.duration ?? 5) || 5))),
-            watermark: false,
+            watermark: req.watermark !== false,
           },
         }),
         signal: options?.signal,

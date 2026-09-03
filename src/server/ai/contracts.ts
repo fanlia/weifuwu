@@ -88,6 +88,8 @@ export interface VideoGenRequest {
   ratio?: string
   /** 分辨率（480P/720P/1080P） */
   resolution?: string
+  /** 水印（默认 true——对齐 agent-platform 原工具行为） */
+  watermark?: boolean
   /** 模型名 */
   model?: string
 }

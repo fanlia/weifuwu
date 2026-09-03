@@ -23,8 +23,7 @@ import { postgres } from 'weifuwu'
 import { registerBuiltinTools, BUILTIN_TOOL_DEFS } from '../src/tools/builtin.ts'
 import { getToolHandler } from '../src/tools/registry.ts'
 import {
-  createVideoTask, handleVideoPoll, VIDEO_MODEL,
-  videoCreateEndpoint, videoTaskEndpoint, getVideoTask, describeVideoTask,
+  createVideoTask, handleVideoPoll, getVideoTask, describeVideoTask,
 } from '../src/tools/video-gen.ts'
 
 const WS_ROOT = await mkdtemp(join(tmpdir(), 'vid-ws-'))
@@ -67,8 +66,17 @@ after(async () => {
   await rm(WS_ROOT, { recursive: true, force: true })
 })
 
+/** provider 面替身（编排测试不触 dashscope 协议——契约见 src/ai/multimodal.test.ts） */
+function fakeAi(overrides: Record<string, unknown> = {}) {
+  return {
+    createVideoTask: async () => ({ taskId: TASK_MAIN }),
+    videoStatus: async (taskId: string) => ({ status: 'running' }),
+    ...overrides,
+  }
+}
+
 function ctx(extra: Record<string, unknown> = {}) {
-  return { sql: pg.sql, appId: APP_ID, ...extra } as any
+  return { sql: pg.sql, appId: APP_ID, ai: fakeAi(), ...extra } as any
 }
 
 /** 伪队列：捕获入队 payload（不消费） */
@@ -77,20 +85,23 @@ function fakeQueue(): { q: any; jobs: any[] } {
   return { q: { add: async (_name: string, data: unknown) => { jobs.push(data) } }, jobs }
 }
 
-function mockCreate(taskId: string, createStatus?: number) {
-  mock.method(globalThis, 'fetch', async () => {
-    if (createStatus && createStatus !== 200) {
-      return new Response(JSON.stringify({ code: 'Bad', message: '参数错' }), { status: createStatus, headers: { 'Content-Type': 'application/json' } })
-    }
-    return Response.json({ output: { task_status: 'PENDING', task_id: taskId }, request_id: 'r1' })
-  })
-}
 
-function mockPoll(status: string, opts: { taskId?: string; videoUrl?: string; code?: string; message?: string } = {}) {
-  mock.method(globalThis, 'fetch', async (url: unknown) => {
-    const u = String(url)
-    if (u.includes('oss.example.com')) return new Response(new Uint8Array(MP4_BYTES))
-    return Response.json({ output: { task_status: status, task_id: opts.taskId ?? TASK_RUNNING, video_url: opts.videoUrl, code: opts.code, message: opts.message } })
+
+/** 轮询面替身：ai.videoStatus 返回契约状态（fetch 仅处理下载 URL） */
+function mockPoll(status: 'running' | 'pending' | 'done' | 'failed', opts: { taskId?: string; videoUrl?: string; error?: string } = {}) {
+  if (status === 'done') {
+    mock.method(globalThis, 'fetch', async (url: unknown) => {
+      const u = String(url)
+      if (u.includes('oss.example.com')) return new Response(new Uint8Array(MP4_BYTES))
+      throw new Error(`非预期请求: ${u}`)
+    })
+  }
+  return fakeAi({
+    videoStatus: async () => status === 'done'
+      ? { status: 'done', url: opts.videoUrl ?? VIDEO_URL }
+      : status === 'failed'
+        ? { status: 'failed', error: opts.error ?? '生成失败' }
+        : { status },
   })
 }
 
@@ -110,29 +121,18 @@ test('def 注册面：BUILTIN_TOOL_DEFS 含 generate_video + video_generation_st
   const st = BUILTIN_TOOL_DEFS.find((d) => d.function.name === 'video_generation_status')
   assert.ok(gen, 'generate_video def 存在')
   assert.ok(st, 'video_generation_status def 存在')
-  assert.equal(VIDEO_MODEL, 'happyhorse-1.1-t2v')
   assert.ok(gen.function.parameters.required.includes('prompt'))
   assert.ok(st.function.parameters.required.includes('task_id'))
 })
 
-test('创建契约：异步头/体形态 + 行落库 + 队列入队', async () => {
-  const calls: Array<{ url: string; init: RequestInit }> = []
-  mock.method(globalThis, 'fetch', async (url: unknown, init: RequestInit) => {
-    calls.push({ url: String(url), init })
-    return Response.json({ output: { task_status: 'PENDING', task_id: TASK_MAIN }, request_id: 'r1' })
-  })
+test('创建编排：ctx.ai.createVideoTask 被调（参数归一）+ 行落库 + 队列入队', async () => {
+  const calls: Array<Record<string, unknown>> = []
   const { q, jobs } = fakeQueue()
+  const aiStub = fakeAi({ createVideoTask: async (req: any) => { calls.push(req); return { taskId: TASK_MAIN } } })
   try {
-    const out = await createVideoTask(ctx({ queue: q }), { prompt: '一只纸箱做的小狗在奔跑', departmentId: DEPT, filename: 'dog.mp4' })
+    const out = await createVideoTask(ctx({ queue: q, ai: aiStub }), { prompt: '一只纸箱做的小狗在奔跑', departmentId: DEPT, filename: 'dog.mp4' })
     assert.equal(out.taskId, TASK_MAIN)
-    assert.equal(calls[0].url, videoCreateEndpoint())
-    const headers = calls[0].init.headers as Record<string, string>
-    assert.match(String(headers.Authorization), /^Bearer /)
-    assert.equal(headers['X-DashScope-Async'], 'enable', '异步头必填（缺失报错：不支持同步调用）')
-    const body = JSON.parse(String(calls[0].init.body))
-    assert.equal(body.model, 'happyhorse-1.1-t2v')
-    assert.equal(body.input.prompt, '一只纸箱做的小狗在奔跑')
-    assert.deepEqual(body.parameters, { resolution: '1080P', ratio: '16:9', duration: 5, watermark: true })
+    assert.deepEqual(calls[0], { prompt: '一只纸箱做的小狗在奔跑', resolution: undefined, ratio: undefined, duration: undefined, watermark: undefined }, '编排透传原始——归一在 provider 层')
     assert.equal(jobs.length, 1)
     assert.equal(jobs[0].taskId, TASK_MAIN)
     assert.equal(jobs[0].filename, 'dog.mp4')
@@ -144,37 +144,27 @@ test('创建契约：异步头/体形态 + 行落库 + 队列入队', async () =
   }
 })
 
-test('参数夹紧 + 自动命名：非法 resolution/duration 归默认/夹紧——文件名 ai-video-{ts}-{uuid8}.mp4', async () => {
-  const calls: Array<{ init: RequestInit }> = []
-  mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
-    calls.push({ init })
-    return Response.json({ output: { task_status: 'PENDING', task_id: TASK_MAIN + '1' } })
-  })
+test('参数透传 + 自动命名：原始值交 provider（归一契约见 multimodal.test）', async () => {
+  const calls: Array<Record<string, unknown>> = []
   const { q, jobs } = fakeQueue()
+  const aiStub = fakeAi({ createVideoTask: async (req: any) => { calls.push(req); return { taskId: TASK_MAIN + '1' } } })
   try {
-    await createVideoTask(ctx({ queue: q }), { prompt: '海浪', resolution: '4K', ratio: '4:3', duration: 99, departmentId: DEPT })
-    const body = JSON.parse(String(calls[0].init.body))
-    assert.equal(body.parameters.resolution, '1080P', '非法分辨率归默认')
-    assert.equal(body.parameters.ratio, '4:3', '合法 ratio 保留')
-    assert.equal(body.parameters.duration, 15, '时长夹紧上限 15')
+    await createVideoTask(ctx({ queue: q, ai: aiStub }), { prompt: '海浪', resolution: '4K', ratio: '4:3', duration: 99, departmentId: DEPT })
+    assert.equal(calls[0].resolution, '4K', '透传原始——归一在 provider')
+    assert.equal(calls[0].ratio, '4:3')
+    assert.equal(calls[0].duration, 99)
     assert.match(jobs[0].filename, /^ai-video-\d+-[0-9a-f]{8}\.mp4$/)
   } finally {
     mock.restoreAll()
   }
 })
 
-test('后台轮询契约：GET {base}/api/v1/tasks/{task_id}——RUNNING → 续链（interval 后 re-add）', async () => {
-  const calls: string[] = []
-  mock.method(globalThis, 'fetch', async (url: unknown) => {
-    calls.push(String(url))
-    return Response.json({ output: { task_status: 'RUNNING', task_id: TASK_RUNNING } })
-  })
+test('后台轮询编排：running → 续链（interval 后 re-add）——行状态同步', async () => {
   const { q, jobs } = fakeQueue()
   const rowId = await insertRow(TASK_RUNNING)
   try {
-    await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_RUNNING, prompt: 'p', filename: 'x.mp4', departmentId: DEPT, agentId: '' }, ctx(), q)
-    assert.equal(calls[0], videoTaskEndpoint(TASK_RUNNING), '轮询端点契约')
-    assert.equal(jobs.length, 1, 'RUNNING → 续链一次')
+    await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_RUNNING, prompt: 'p', filename: 'x.mp4', departmentId: DEPT, agentId: '' }, ctx({ ai: mockPoll('running') }), q)
+    assert.equal(jobs.length, 1, 'running → 续链一次')
     const row = await getVideoTask(ctx(), TASK_RUNNING)
     assert.equal(row!.status, 'running')
   } finally {
@@ -182,12 +172,12 @@ test('后台轮询契约：GET {base}/api/v1/tasks/{task_id}——RUNNING → �
   }
 })
 
-test('后台轮询：SUCCEEDED → 下载视频落盘 /ws/{dept}/{filename} + 行 succeeded + path', async () => {
-  mockPoll('SUCCEEDED', { taskId: TASK_DONE, videoUrl: VIDEO_URL })
+test('后台轮询：done → 下载视频落盘 /ws/{dept}/{filename} + 行 succeeded + path', async () => {
+  const aiStub = mockPoll('done', { taskId: TASK_DONE, videoUrl: VIDEO_URL })
   const { q, jobs } = fakeQueue()
   const rowId = await insertRow(TASK_DONE, 'dog.mp4')
   try {
-    await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_DONE, prompt: 'p', filename: 'dog.mp4', departmentId: DEPT, agentId: '' }, ctx(), q)
+    await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_DONE, prompt: 'p', filename: 'dog.mp4', departmentId: DEPT, agentId: '' }, ctx({ ai: aiStub }), q)
     assert.equal(jobs.length, 0, '终态不续链')
     const saved = await readFile(join(WS_ROOT, DEPT, 'dog.mp4'))
     assert.deepEqual(saved, MP4_BYTES, '视频字节落盘部门工作区')
@@ -200,13 +190,13 @@ test('后台轮询：SUCCEEDED → 下载视频落盘 /ws/{dept}/{filename} + �
   }
 })
 
-test('后台轮询：FAILED → 行 failed + error（不续链）', async () => {
-  mockPoll('FAILED', { taskId: TASK_FAIL, code: 'InvalidParameter', message: 'The parameter is invalid.' })
+test('后台轮询：failed → 行 failed + error（不续链）', async () => {
+  const aiStub = mockPoll('failed', { taskId: TASK_FAIL, error: 'InvalidParameter: The parameter is invalid.' })
   const { q, jobs } = fakeQueue()
   const rowId = await insertRow(TASK_FAIL)
   try {
-    await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_FAIL, prompt: 'p', filename: 'x.mp4', departmentId: DEPT, agentId: '' }, ctx(), q)
-    assert.equal(jobs.length, 0, 'FAILED 终态不续链')
+    await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_FAIL, prompt: 'p', filename: 'x.mp4', departmentId: DEPT, agentId: '' }, ctx({ ai: aiStub }), q)
+    assert.equal(jobs.length, 0, 'failed 终态不续链')
     const r = await getVideoTask(ctx(), TASK_FAIL)
     assert.equal(r!.status, 'failed')
     assert.match(r!.error ?? '', /InvalidParameter/)
@@ -215,14 +205,14 @@ test('后台轮询：FAILED → 行 failed + error（不续链）', async () => 
   }
 })
 
-test('W5 完成通知：SUCCEEDED + agentId → messages 落库（agent 身份）+ broadcast new_message', async () => {
-  mockPoll('SUCCEEDED', { taskId: TASK_DONE + 'n', videoUrl: VIDEO_URL })
+test('W5 完成通知：done + agentId → messages 落库（agent 身份）+ broadcast new_message', async () => {
+  const aiStub = mockPoll('done', { taskId: TASK_DONE + 'n', videoUrl: VIDEO_URL })
   const { q, jobs } = fakeQueue()
   const rowId = await insertRow(TASK_DONE + 'n', 'notify.mp4')
   const broadcasts: any[] = []
   const msg = { broadcast: (ch: string, ev: any) => broadcasts.push({ ch, ev }) }
   try {
-    await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_DONE + 'n', prompt: 'p', filename: 'notify.mp4', departmentId: DEPT, agentId: AGENT_ID }, ctx({ msg }), q)
+    await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_DONE + 'n', prompt: 'p', filename: 'notify.mp4', departmentId: DEPT, agentId: AGENT_ID }, ctx({ msg, ai: aiStub }), q)
     const [m] = await pg.sql`SELECT * FROM messages WHERE department_id = ${DEPT} ORDER BY created_at DESC LIMIT 1`
     assert.ok(m, '通知消息已落库')
     assert.equal(String(m.sender_id), AGENT_ID)
@@ -250,23 +240,16 @@ test('错误路径：无队列/无部门/HTTP 400/响应无 task_id', async () =
   // 无部门上下文
   const { q } = fakeQueue()
   await assert.rejects(() => createVideoTask(ctx({ queue: q }), { prompt: 'x' }), /部门工作区/)
-  // HTTP 400
-  mockCreate(TASK_MAIN, 400)
-  try {
-    await assert.rejects(() => createVideoTask(ctx({ queue: q }), { prompt: 'x', departmentId: DEPT }), /HTTP 400/)
-  } finally { mock.restoreAll() }
-  // 响应无 task_id
-  mock.method(globalThis, 'fetch', async () => Response.json({ output: { task_status: 'PENDING' }, message: 'no task' }))
-  try {
-    await assert.rejects(() => createVideoTask(ctx({ queue: q }), { prompt: 'x', departmentId: DEPT }), /无 task_id/)
-  } finally { mock.restoreAll() }
+  // provider 抛错（HTTP 400/无 task_id——契约见 multimodal.test——编排透传）
+  const aiErr = fakeAi({ createVideoTask: async () => { throw new Error('视频任务创建失败 HTTP 400: bad') } })
+  await assert.rejects(() => createVideoTask(ctx({ queue: q, ai: aiErr }), { prompt: 'x', departmentId: DEPT }), /HTTP 400/)
 })
 
 test('handler 注册面：registry 可调——返回含 task_id + video_generation_status 指引', async () => {
-  registerBuiltinTools(() => ctx({ queue: fakeQueue().q }))
+  const aiStub = fakeAi({ createVideoTask: async () => ({ taskId: TASK_MAIN + 'h' }) })
+  registerBuiltinTools(() => ctx({ queue: fakeQueue().q, ai: aiStub }))
   const handler = getToolHandler('generate_video') as unknown as (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => Promise<string>
   assert.ok(handler, 'generate_video handler 已注册')
-  mock.method(globalThis, 'fetch', async () => Response.json({ output: { task_status: 'PENDING', task_id: TASK_MAIN + 'h' } }))
   try {
     const r = await handler({ prompt: '测试', filename: 'h.mp4' }, { departmentId: DEPT })
     assert.match(r, /task_id=.*h/)

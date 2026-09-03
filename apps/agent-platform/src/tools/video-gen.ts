@@ -20,11 +20,9 @@ import { randomUUID } from 'node:crypto'
 import type { AppCtx } from '../middleware/ctx.ts'
 import type { QueueClient, QueueWorker } from 'weifuwu'
 
-export const VIDEO_MODEL = 'happyhorse-1.1-t2v'
 export const VIDEO_POLL_QUEUE = 'video-task.poll'
 
-const RESOLUTIONS = new Set(['480P', '720P', '1080P'])
-const RATIOS = new Set(['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '5:4', '9:21', '21:9'])
+// 参数归一在 provider 层（multimodal.ts——单源）——编排透传原始值
 const DEFAULT_POLL_MS = 15_000
 
 export interface VideoGenParams {
@@ -64,26 +62,9 @@ export interface VideoTaskRow {
   updated_at: string
 }
 
-function requireKey(): string {
-  const key = process.env.DASHSCOPE_API_KEY
-  if (!key) throw new Error('缺少环境变量 DASHSCOPE_API_KEY')
-  return key
-}
-
-/** 百炼域名（DASHSCOPE_MAAS_API_URL 无协议前缀——补 https——对齐 image-gen） */
-function maasBase(): string {
-  const base = process.env.DASHSCOPE_MAAS_API_URL
-  if (!base) throw new Error('缺少环境变量 DASHSCOPE_MAAS_API_URL（百炼视频生成端点）')
-  return base.replace(/^https?:\/\//, '')
-}
-
-export function videoCreateEndpoint(): string {
-  return `https://${maasBase()}/api/v1/services/aigc/video-generation/video-synthesis`
-}
-
-export function videoTaskEndpoint(taskId: string): string {
-  return `https://${maasBase()}/api/v1/tasks/${taskId}`
-}
+// provider 面（2027-10 AI-REBUILD）：提交/查询走框架 ctx.ai
+// （createVideoTask/videoStatus——multimodal.ts——单源 provider 插槽）；
+// 本文件保留**编排面**：队列可用性检查 → DB 任务行 → 轮询 worker → 下载落盘 /ws。
 
 /** 轮询间隔（测试可经 VIDEO_POLL_INTERVAL_MS 缩短——默认 15s 对齐文档建议） */
 export function pollIntervalMs(): number {
@@ -121,44 +102,28 @@ export async function ensureVideoTasksTable(sql: any): Promise<void> {
 /* ── 步骤①：创建任务（队列可用性前置检查——防白花钱） ────────── */
 
 export async function createVideoTask(ctx: AppCtx, opts: VideoGenParams): Promise<{ taskId: string; rowId: string }> {
-  const key = requireKey()
+  const ai = ctx.ai
+  if (!ai) throw new Error('AI 中间件未注入（ctx.ai）——无法生成视频')
   const q = (ctx as any).queue as QueueClient | undefined
   if (!q) throw new Error('未启用后台任务队列（需要 REDIS_URL）——视频生成为异步任务（1-5 分钟）')
   const prompt = String(opts.prompt ?? '').trim()
   if (!prompt) throw new Error('prompt 为必填——描述你想生成的视频画面')
   if (!opts.departmentId) throw new Error('无部门工作区上下文——无法保存生成视频——请通过部门 Agent 调用')
-  const resolution = RESOLUTIONS.has(opts.resolution ?? '') ? opts.resolution! : '1080P'
-  const ratio = RATIOS.has(opts.ratio ?? '') ? opts.ratio! : '16:9'
-  const duration = Math.min(15, Math.max(3, Math.round(Number(opts.duration ?? 5) || 5)))
-  const watermark = opts.watermark !== false
-
-  const res = await fetch(videoCreateEndpoint(), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-      'X-DashScope-Async': 'enable',
-    },
-    body: JSON.stringify({
-      model: VIDEO_MODEL,
-      input: { prompt },
-      parameters: { resolution, ratio, duration, watermark },
-    }),
+  // provider 面（框架 ctx.ai.createVideoTask——单源；参数归一在 provider 层）
+  const { taskId } = await ai.createVideoTask({
+    prompt,
+    resolution: opts.resolution,
+    ratio: opts.ratio,
+    duration: opts.duration,
+    watermark: opts.watermark,
   })
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(`视频任务创建失败 HTTP ${res.status}: ${body.slice(0, 300)}`)
-  }
-  const data = await res.json() as { output?: { task_id?: string }; code?: string; message?: string }
-  const taskId = data.output?.task_id
-  if (!taskId) throw new Error(`视频任务创建失败：响应无 task_id（${data.message ?? data.code ?? '未知错误'}）`)
 
   const filename = pickFilename(opts.filename)
   await ensureVideoTasksTable(ctx.sql)
   const [row] = await ctx.sql`
     INSERT INTO video_tasks (app_id, department_id, task_id, prompt, status, filename, params)
     VALUES (${ctx.appId}, ${opts.departmentId}, ${taskId}, ${prompt}, 'pending', ${filename},
-      ${JSON.stringify({ resolution, ratio, duration, watermark })})
+      ${JSON.stringify({ resolution: opts.resolution, ratio: opts.ratio, duration: opts.duration, watermark: opts.watermark })})
     RETURNING *
   `
   const job: VideoPollJob = {
@@ -177,42 +142,22 @@ function pickFilename(name: string | undefined): string {
 
 /* ── 步骤②：后台轮询（weifuwu 队列 worker——自续链） ──────────── */
 
-interface TaskPollResp {
-  status: string
-  videoUrl?: string
-  error?: string
-}
 
-async function fetchTaskStatus(taskId: string): Promise<TaskPollResp> {
-  const key = requireKey()
-  const res = await fetch(videoTaskEndpoint(taskId), { headers: { Authorization: `Bearer ${key}` } })
-  if (!res.ok) throw new Error(`视频任务查询失败 HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 300)}`)
-  const data = await res.json() as any
-  const out = data.output ?? {}
-  const err = out.message ? `${String(out.message)}${out.code ? `（${out.code}）` : ''}` : out.code ? String(out.code) : undefined
-  return {
-    status: String(out.task_status ?? ''),
-    videoUrl: out.video_url ? String(out.video_url) : undefined,
-    error: err,
-  }
-}
 
 /** 单次轮询：非终态 → 睡 15s 后续链；SUCCEEDED → 下载落盘 /ws；终态 → 记行 */
 export async function handleVideoPoll(job: VideoPollJob, ctx: AppCtx, q: QueueClient): Promise<void> {
+  const ai = ctx.ai
+  if (!ai) throw new Error('AI 中间件未注入（ctx.ai）——无法查询视频任务')
   const sql = ctx.sql
-  const st = await fetchTaskStatus(job.taskId)
-  if (st.status === 'PENDING' || st.status === 'RUNNING') {
-    await sql`UPDATE video_tasks SET status = ${st.status.toLowerCase()}, updated_at = NOW() WHERE id = ${job.rowId}`
+  const st = await ai.videoStatus(job.taskId)
+  if (st.status === 'pending' || st.status === 'running') {
+    await sql`UPDATE video_tasks SET status = ${st.status}, updated_at = NOW() WHERE id = ${job.rowId}`
     await sleep(pollIntervalMs())
     await q.add(VIDEO_POLL_QUEUE, job, { attempts: 5 })
     return
   }
-  if (st.status === 'SUCCEEDED') {
-    if (!st.videoUrl) {
-      await sql`UPDATE video_tasks SET status = 'failed', error = '任务成功但响应无 video_url', updated_at = NOW() WHERE id = ${job.rowId}`
-      return
-    }
-    const bytes = await downloadVideo(st.videoUrl)
+  if (st.status === 'done') {
+    const bytes = await downloadVideo(st.url)
     const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
     const { writeFile } = await import('node:fs/promises')
     const { join } = await import('node:path')
@@ -233,9 +178,8 @@ export async function handleVideoPoll(job: VideoPollJob, ctx: AppCtx, q: QueueCl
     }
     return
   }
-  // FAILED / CANCELED / UNKNOWN——终态（不再续链）
-  const note = st.status === 'UNKNOWN' ? 'task_id 不存在或超过 24h 查询有效期' : st.status === 'FAILED' ? (st.error ?? '') : ''
-  await sql`UPDATE video_tasks SET status = ${st.status.toLowerCase()}, error = ${note || null}, updated_at = NOW() WHERE id = ${job.rowId}`
+  // failed——终态（不再续链——provider 已含错误原因）
+  await sql`UPDATE video_tasks SET status = 'failed', error = ${st.error ?? null}, updated_at = NOW() WHERE id = ${job.rowId}`
 }
 
 async function downloadVideo(src: string): Promise<Buffer> {
