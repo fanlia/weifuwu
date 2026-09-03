@@ -17,8 +17,8 @@ import {
 after(() => mock.restoreAll())
 
 // image/video 独立实例（各自 baseUrl/apiKey/model——与 embedding 平级）
-const img = createDashscopeImage({ baseUrl: 'llm-test.maas.aliyuncs.com', apiKey: 'sk-test' })
-const vid = createDashscopeVideo({ baseUrl: 'llm-test.maas.aliyuncs.com', apiKey: 'sk-test' })
+const img = createDashscopeImage({ baseUrl: 'https://llm-test.maas.aliyuncs.com', apiKey: 'sk-test' })
+const vid = createDashscopeVideo({ baseUrl: 'https://llm-test.maas.aliyuncs.com', apiKey: 'sk-test' })
 const IMG_URL = 'https://oss.example.com/img.png?Expires=999&Signature=x'
 
 test('图片：URL/头/体形态（multimodal-generation + input.messages）', async () => {
@@ -85,8 +85,8 @@ test('视频状态：PENDING/RUNNING/SUCCEEDED/FAILED → 契约状态映射', a
 })
 
 test('image/video 独立配置：不同 baseUrl/apiKey 各走各的端点（多 url 多 key）', async () => {
-  const imgA = createDashscopeImage({ baseUrl: 'img.example.com', apiKey: 'key-img' })
-  const vidB = createDashscopeVideo({ baseUrl: 'vid.example.com', apiKey: 'key-vid' })
+  const imgA = createDashscopeImage({ baseUrl: 'https://img.example.com', apiKey: 'key-img' })
+  const vidB = createDashscopeVideo({ baseUrl: 'https://vid.example.com', apiKey: 'key-vid' })
   const calls: Array<{ url: string; init: RequestInit }> = []
   mock.method(globalThis, 'fetch', async (url: unknown, init: RequestInit) => {
     calls.push({ url: String(url), init })
@@ -107,7 +107,7 @@ test('image/video 独立配置：不同 baseUrl/apiKey 各走各的端点（多 
 test('env 默认：无显式参数读 DASHSCOPE_MAAS_API_URL + DASHSCOPE_API_KEY', async () => {
   const prevUrl = process.env.DASHSCOPE_MAAS_API_URL
   const prevKey = process.env.DASHSCOPE_API_KEY
-  process.env.DASHSCOPE_MAAS_API_URL = 'env.maas.example.com'
+  process.env.DASHSCOPE_MAAS_API_URL = 'https://env.maas.example.com'
   process.env.DASHSCOPE_API_KEY = 'env-key'
   try {
     const calls: Array<{ url: string; init: RequestInit }> = []

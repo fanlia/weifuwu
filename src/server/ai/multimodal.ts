@@ -10,14 +10,14 @@
  *   3-15 + watermark 默认 true。
  *
  * 配置：显式参数 > env（DASHSCOPE_API_KEY / DASHSCOPE_MAAS_API_URL / DASHSCOPE_IMAGE_MODEL /
- * DASHSCOPE_VIDEO_MODEL——无协议前缀补 https）。
+ * DASHSCOPE_VIDEO_MODEL——URL 均为完整 https 前缀——不做协议补全）。
  */
 import type { ImageGenRequest, ImageGenResult, VideoGenRequest, VideoGenStatus } from './contracts.ts'
 
 /** 图片生成 provider 配置（独立于视频——可不同端点/键/模型） */
 export interface ImageGenOptions {
   apiKey?: string
-  /** 形如 dashscope.aliyuncs.com（无协议前缀——补 https）；显式 http(s):// 原样保留（测试环境） */
+  /** 完整 URL（https 开头——默认 DASHSCOPE_MAAS_API_URL；测试环境可 http） */
   baseUrl?: string
   /** 默认 DASHSCOPE_IMAGE_MODEL ?? 'z-image-turbo' */
   model?: string
@@ -26,7 +26,7 @@ export interface ImageGenOptions {
 /** 视频生成 provider 配置（独立于图片） */
 export interface VideoGenOptions {
   apiKey?: string
-  /** 形如 dashscope.aliyuncs.com（无协议前缀——补 https）；显式 http(s):// 原样保留（测试环境） */
+  /** 完整 URL（https 开头——默认 DASHSCOPE_MAAS_API_URL；测试环境可 http） */
   baseUrl?: string
   /** 默认 DASHSCOPE_VIDEO_MODEL ?? 'happyhorse-1.1-t2v' */
   model?: string
@@ -53,10 +53,9 @@ function keyOf(kind: 'image' | 'video', opts: { apiKey?: string }): string {
   return key
 }
 
+/** 完整 URL（https 开头——env/显式均为完整 URL——不再补协议） */
 function baseOf(opts: { baseUrl?: string }): string {
-  const base = opts.baseUrl ?? process.env.DASHSCOPE_MAAS_API_URL ?? 'dashscope.aliyuncs.com'
-  // 显式协议原样保留（http 测试环境）；无协议前缀补 https（对齐 image-gen 原始行为）
-  return /^https?:\/\//.test(base) ? base : `https://${base.replace(/^https?:\/\//, '')}`
+  return opts.baseUrl ?? process.env.DASHSCOPE_MAAS_API_URL ?? 'https://dashscope.aliyuncs.com'
 }
 
 interface DashscopeImageResp {
