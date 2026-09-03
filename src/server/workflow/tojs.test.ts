@@ -21,6 +21,17 @@ describe('tojs: 渲染规则', () => {
     assert.match(js, /\nif \(\(n > 1\)\) \{/)
     assert.match(js, /\} else \{/)
   })
+  it('块级遮蔽 round-trip（mangle 内部名 x$1 → 渲染 → 恒等）', async () => {
+    const d1 = await compileWfjs(`let x = 1
+if (x > 0) { let x = 2
+const y = x + 1 }
+const z = x`)
+    const js = toJs(d1)
+    assert.match(js, /let x\$1 = 2/)
+    assert.match(js, /let z = x/)
+    const d2 = await compileWfjs(js)
+    assert.deepEqual(d2, d1)
+  })
   it('import 语句渲染（ESM 逐字往返）', async () => {
     const def = await compileWfjs(`import { store } from 'wf://std/store'\nimport { sum as add } from 'wf://std/math'\nlet n = add(1)`)
     const js = toJs(def)

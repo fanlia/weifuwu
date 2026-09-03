@@ -539,8 +539,10 @@ interface CompileEnv {
   stdBindings: Map<string, 'fn' | 'store'>
   /** 表达式内已导入的纯函数名（检查函数可见性——未导入=不存在） */
   stdFns: Set<string>
-  /** 全局变量名登记（v1 统一命名空间——块级遮蔽裁剪记录 v2）——childEnv 共享引用 */
-  allNames: Set<string>
+  /** 作用域链（栈顶=当前层）——声明登记（同层查重/遮蔽判定）；root 层=主流程顶层 */
+  scopes: { names: Set<string> }[]
+  /** 遮蔽计数（mangle 命名确定性：x$1/x$2——round-trip 稳定） */
+  hideCount: number
   /** 本地函数定义（编译收集——调用点按名识别；fnEnv 共享引用） */
   functions: NonNullable<WorkflowDef['functions']>
   /** 函数体编译标志（禁副作用内置） */
@@ -660,7 +662,26 @@ function compileArg(kv: { key: string | null; value: WValue }, type: string, env
 }
 
 function childEnv(parent: CompileEnv, steps: NonNullable<WorkflowDef['steps']>): CompileEnv {
-  return { bindings: new Map(parent.bindings), consts: new Set(parent.consts), steps, imports: parent.imports, stdBindings: parent.stdBindings, stdFns: parent.stdFns, allNames: parent.allNames, functions: parent.functions, inFunction: parent.inFunction, autoPrefix: parent.autoPrefix, exports: parent.exports, remoteImports: parent.remoteImports }
+  return { bindings: new Map(parent.bindings), consts: new Set(parent.consts), steps, imports: parent.imports, stdBindings: parent.stdBindings, stdFns: parent.stdFns, scopes: [...parent.scopes, { names: new Set() }], hideCount: parent.hideCount, functions: parent.functions, inFunction: parent.inFunction, autoPrefix: parent.autoPrefix, exports: parent.exports, remoteImports: parent.remoteImports }
+}
+
+/** 声明名解析：同层查重（错）；外层存在 → 遮蔽（mangle）；无 → 原名。返回内部名并登记。 */
+function declareName(env: CompileEnv, name: string, where: string): string {
+  const top = env.scopes[env.scopes.length - 1]
+  if (top.names.has(name)) throw new Error(`wfjs: 重复声明 '${name}'（${where}）`)
+  const shadowed = env.scopes.slice(0, -1).some((s) => s.names.has(name))
+  let internal = name
+  if (shadowed) {
+    // mangle：内部名唯一（链上内部名集合防撞用户直写 x$1）
+    const used = new Set<string>()
+    for (const b of env.bindings.values()) {
+      if (b.kind === 'var') used.add(b.name)
+      else if (b.kind === 'step') used.add(b.id)
+    }
+    do { env.hideCount++; internal = `${name}$${env.hideCount}` } while (used.has(internal))
+  }
+  top.names.add(name)
+  return internal
 }
 
 function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
@@ -681,24 +702,26 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
     }
     case 'function': {
       if (env.inFunction) throw new Error(`wfjs: 不支持嵌套函数（函数 '${stmt.name}'）`)
-      if (BUILTIN_NAMES.has(stmt.name)) throw new Error(`wfjs: 函数名 '${stmt.name}' 与内置冲突`)
-      if (env.functions.some((f) => f.name === stmt.name)) throw new Error(`wfjs: 重复函数 '${stmt.name}'`)
-      for (const p of stmt.params) {
-        if (env.allNames.has(p)) throw new Error(`wfjs: 参数名 '${p}' 与已有变量冲突（v1 全局唯一命名空间）`)
-        env.allNames.add(p)
-      }
-      // 函数体：纯逻辑（禁用副作用内置）——params + 全局 var 绑定可见；步骤绑定不可见
+      const rec = env.functions.find((f) => f.name === stmt.name)
+      if (!rec) throw new Error(`wfjs: 内部错误：函数 '${stmt.name}' 未预注册`)
+      // 函数体作用域：参数（同名覆盖全局 var——运行期 vars 注入即遮蔽层，IR 名字不变）+ 全局 var 只读；步骤绑定不可见
       const fnBindings = new Map<string, Binding>()
-      for (const p of stmt.params) fnBindings.set(p, { kind: 'var', name: p })
-      for (const [n, b] of env.bindings) if (b.kind === 'var') fnBindings.set(n, b)
+      const fnScopeNames = new Set<string>()
+      const fnScopes = [...env.scopes, { names: fnScopeNames }]
+      for (const p of stmt.params) {
+        if (fnScopeNames.has(p)) throw new Error(`wfjs: 重复参数 '${p}'`)
+        fnScopeNames.add(p)
+        fnBindings.set(p, { kind: 'var', name: p })
+      }
+      for (const [n, b] of env.bindings) if (b.kind === 'var' && !fnScopeNames.has(n)) fnBindings.set(n, b)
       const fnEnv: CompileEnv = {
         bindings: fnBindings, consts: new Set(), steps: [],
         imports: env.imports, stdBindings: env.stdBindings, stdFns: env.stdFns,
-        allNames: env.allNames, functions: env.functions, inFunction: true,
+        scopes: fnScopes, hideCount: env.hideCount, functions: env.functions, inFunction: true,
         autoPrefix: `_fn:${stmt.name}:`, exports: env.exports, remoteImports: env.remoteImports,
       }
       compileInto(stmt.body, fnEnv, false)
-      env.functions.push({ name: stmt.name, params: stmt.params, step: { steps: fnEnv.steps } })
+      rec.step = { steps: fnEnv.steps }
       return
     }
     case 'import': {
@@ -730,47 +753,48 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
     case 'var': {
       const { name } = stmt
       if (BUILTIN_NAMES.has(name)) throw new Error(`wfjs: 变量名 '${name}' 与内置函数冲突`)
-      if (env.allNames.has(name)) throw new Error(`wfjs: 变量名 '${name}' 冲突（v1 全局唯一命名空间——块级遮蔽 v2）`)
-      env.allNames.add(name)
-      if (env.bindings.has(name)) throw new Error(`wfjs: 重复声明 '${name}'`)
+      const internal = declareName(env, name, `声明 ${name}`)
       if (stmt.init && isCall(stmt.init)) {
         const call = stmt.init as WCall
         // 函数调用（位置参数——非内置标识符）
         if (!BUILTIN_NAMES.has(call.name) && !call.name.startsWith('@')) {
           if (env.functions.some((f) => f.name === call.name)) {
-            if (env.inFunction) throw new Error(`wfjs: 函数 '${call.name}' 内不支持函数调用（v1 纯逻辑——组合 v2）`)
-            env.steps.push({ id: name, type: 'call', config: { name: call.name, args: callArgsToExprs(call.args, env) } })
-            env.bindings.set(name, { kind: 'step', id: name })
-            if (stmt.isConst) env.consts.add(name)
+            env.steps.push({ id: internal, type: 'call', config: { name: call.name, args: callArgsToExprs(call.args, env) } })
+            env.bindings.set(name, { kind: 'step', id: internal })
+            if (stmt.isConst) env.consts.add(internal)
             return
           }
           throw new Error(`wfjs: 未识别调用 '${call.name}'（内置：${[...BUILTIN_NAMES].join('/')}；函数需先声明）`)
         }
         if (env.inFunction) throw new Error(`wfjs: 函数体内不支持副作用内置（${call.name}）——函数是纯逻辑（v1 裁剪）`)
-        addBuiltinStep(call, name, env)
-        env.bindings.set(name, { kind: 'step', id: name })
+        addBuiltinStep(call, internal, env)
+        env.bindings.set(name, { kind: 'step', id: internal })
       } else {
         const value = stmt.init ? compileValue(stmt.init as WValue, env, `声明 ${name}`, 'expr') : 'null'
-        env.steps.push({ id: name, type: 'assign', config: { target: name, value } })
-        env.bindings.set(name, { kind: 'var', name })
+        env.steps.push({ id: internal, type: 'assign', config: { target: internal, value } })
+        env.bindings.set(name, { kind: 'var', name: internal })
       }
-      if (stmt.isConst) env.consts.add(name)
+      if (stmt.isConst) env.consts.add(internal)
       return
     }
     case 'assign': {
-      if (env.consts.has(stmt.target)) throw new Error(`wfjs: 不能给 const '${stmt.target}' 赋值`)
-      if (!env.bindings.has(stmt.target)) throw new Error(`wfjs: 未声明变量 '${stmt.target}'`)
+      const b = env.bindings.get(stmt.target)
+      if (!b) throw new Error(`wfjs: 未声明变量 '${stmt.target}'`)
+      const internal = b.kind === 'var' ? b.name : b.kind === 'step' ? b.id : stmt.target
+      if (env.consts.has(internal)) throw new Error(`wfjs: 不能给 const '${stmt.target}' 赋值`)
       const rhs = rewriteExpr(stmt.value, env.bindings, env, `赋值 ${stmt.target}`)
-      const value = stmt.op === '=' ? rhs : `(vars.${stmt.target} ${stmt.op[0]} ${rhs})`
-      env.steps.push({ id: auto(), type: 'assign', config: { target: stmt.target, value } })
+      const value = stmt.op === '=' ? rhs : `(vars.${internal} ${stmt.op[0]} ${rhs})`
+      env.steps.push({ id: auto(), type: 'assign', config: { target: internal, value } })
       return
     }
     case 'incdec': {
-      if (env.consts.has(stmt.target)) throw new Error(`wfjs: 不能给 const '${stmt.target}' 赋值`)
-      if (!env.bindings.has(stmt.target)) throw new Error(`wfjs: 未声明变量 '${stmt.target}'`)
+      const b = env.bindings.get(stmt.target)
+      if (!b) throw new Error(`wfjs: 未声明变量 '${stmt.target}'`)
+      const internal = b.kind === 'var' ? b.name : b.kind === 'step' ? b.id : stmt.target
+      if (env.consts.has(internal)) throw new Error(`wfjs: 不能给 const '${stmt.target}' 赋值`)
       env.steps.push({
         id: auto(), type: 'assign',
-        config: { target: stmt.target, value: `(vars.${stmt.target} ${stmt.inc ? '+' : '-'} 1)` },
+        config: { target: internal, value: `(vars.${internal} ${stmt.inc ? '+' : '-'} 1)` },
       })
       return
     }
@@ -797,10 +821,10 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
       return
     }
     case 'forof': {
-      if (env.bindings.has(stmt.varName)) throw new Error(`wfjs: 循环变量 '${stmt.varName}' 与上层声明冲突（暂不支持遮蔽）`)
       const items = rewriteExpr(stmt.items, env.bindings, env, 'for-of')
       const child = childEnv(env, [])
       child.bindings.set(stmt.varName, { kind: 'loop' })
+      child.scopes[child.scopes.length - 1].names.add(stmt.varName)
       const body: NonNullable<WorkflowDef['steps']> = []
       compileInto(stmt.body, childEnv(child, body), true)
       env.steps.push({ id: auto(), type: 'for', config: { items, step: { steps: body } } })
@@ -817,7 +841,6 @@ function compileStmt(stmt: WStmt, env: CompileEnv, inLoop: boolean): void {
         if (!env.functions.some((f) => f.name === stmt.call.name)) {
           throw new Error(`wfjs: 未识别调用 '${stmt.call.name}'（内置：${[...BUILTIN_NAMES].join('/')}；函数需先声明）`)
         }
-        if (env.inFunction) throw new Error(`wfjs: 函数内不支持函数调用（v1）`)
         env.steps.push({ id: auto(), type: 'call', config: { name: stmt.call.name, args: callArgsToExprs(stmt.call.args, env) } })
         return
       }
@@ -913,7 +936,15 @@ function validateRemoteModule(url: string, raw: unknown): { functions: WorkflowF
 export async function compileWfjs(src: string, opts?: CompileWfjsOptions): Promise<WorkflowDef> {
   const parser = new WfjsParser(tokenizeWfjs(src), src)
   const stmts = parser.parseProgram()
-  const env: CompileEnv = { bindings: new Map(), consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), allNames: new Set(), functions: [], inFunction: false, autoPrefix: '', exports: { named: [] }, remoteImports: [] }
+  const env: CompileEnv = { bindings: new Map(), consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), scopes: [{ names: new Set() }], hideCount: 0, functions: [], inFunction: false, autoPrefix: '', exports: { named: [] }, remoteImports: [] }
+  // 函数提升（JS 一致：声明先于一切——预注册函数名；调用可达后声明函数）
+  for (const stmt of stmts) {
+    if (stmt.k === 'function') {
+      if (BUILTIN_NAMES.has(stmt.name)) throw new Error(`wfjs: 函数名 '${stmt.name}' 与内置冲突`)
+      if (env.functions.some((f) => f.name === stmt.name)) throw new Error(`wfjs: 重复函数 '${stmt.name}'`)
+      env.functions.push({ name: stmt.name, params: stmt.params, step: { steps: [] } })
+    }
+  }
   // 远程导入提升（ESM 语义：import 先于一切——先抓取物化，函数对全流程可见）
   for (const stmt of stmts) {
     if (stmt.k === 'import' && !stmt.from.startsWith('wf://std/')) env.remoteImports.push({ from: stmt.from, names: stmt.names })
@@ -943,6 +974,6 @@ export async function compileWfjs(src: string, opts?: CompileWfjsOptions): Promi
 
 /** 测试导出：表达式改写（绑定映射单测） */
 export function _rewriteExprForTest(src: string, bindings: Map<string, Binding>): string {
-  const env: CompileEnv = { bindings, consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), allNames: new Set(), functions: [], inFunction: false, autoPrefix: '', exports: { named: [] }, remoteImports: [] }
+  const env: CompileEnv = { bindings, consts: new Set(), steps: [], imports: [], stdBindings: new Map(), stdFns: new Set(), scopes: [{ names: new Set() }], hideCount: 0, functions: [], inFunction: false, autoPrefix: '', exports: { named: [] }, remoteImports: [] }
   return rewriteExpr(src, bindings, env, 'test')
 }

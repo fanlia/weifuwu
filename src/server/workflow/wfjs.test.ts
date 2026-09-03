@@ -126,10 +126,23 @@ describe('wfjs: 编译期检查（静态面——错误在写的时候暴露）'
     await assert.rejects(compileWfjs(`import { store } from 'wf://std/store'\nawait store.get('a', 'b')`), /参数数量错误/)
   })
   it('重复声明 → 编译错', async () => {
-    await assert.rejects(compileWfjs(`const n = 1\nconst n = 2`), /变量名 'n' 冲突/)
+    await assert.rejects(compileWfjs(`const n = 1\nconst n = 2`), /重复声明 'n'/)
   })
-  it('循环变量遮蔽 → 编译错', async () => {
-    await assert.rejects(compileWfjs(`const r = await http({ url: 'x' })\nfor (const it of r.json.items) { for (const it of r.json.items) {} }`), /遮蔽/)
+  it('块级遮蔽（v2）：块内声明同名 → mangle 内部名 + 块后原名恢复', async () => {
+    const def = await compileWfjs(`let x = 1\nif (x > 0) { let x = 2\nconst y = x + 1 }\nconst z = x`)
+    // 外层 x → x；块内 x → x$1（遮蔽）；块后 z 引用 x（原名恢复）
+    assert.equal(def.steps[0].config.target, 'x')
+    assert.equal(def.steps[1].config.then.steps[0].config.target, 'x$1')
+    assert.equal(def.steps[2].config.value, 'vars.x')
+  })
+  it('块级遮蔽（v2）：for 循环变量与外层同名 → 允许（JS 一致）', async () => {
+    const def = await compileWfjs(`let it = 'a'\nfor (const it of input.arr) { const r = it }`)
+    assert.equal(def.steps[1].type, 'for')
+    assert.equal(def.steps[1].config.items, 'input.arr')
+  })
+  it('两个函数参数同名 → 各自作用域（v2——不再全局唯一）', async () => {
+    const def = await compileWfjs(`function a(x) { return x }\nfunction b(x) { return x }`)
+    assert.equal(def.functions!.length, 2)
   })
   it('内置名冲突 → 编译错', async () => {
     await assert.rejects(compileWfjs(`const http = 1`), /与内置函数冲突/)
@@ -187,14 +200,33 @@ const a = await pay(100, 0.1)`)
     await assert.rejects(compileWfjs(`function f(x) { await log({ message: x }) }`), /函数体内不支持副作用内置/)
     await assert.rejects(compileWfjs(`function f(x) { const r = await http({ url: 'u' }) }`), /函数体内不支持副作用内置/)
   })
-  it('未声明先调用 → 编译错（函数提升 v2 裁剪）', async () => {
-    await assert.rejects(compileWfjs(`const a = await pay(1)\nfunction pay(x) { return x }`), /未识别调用 'pay'/)
+  it('函数提升：先调用后声明 → 编译通过并真跑（JS 一致）', async () => {
+    const def = await compileWfjs(`const a = await pay(100)\nfunction pay(x) { return x * 2 }`)
+    assert.equal(def.functions![0].name, 'pay')
+    const { workflow } = await import('./index.ts')
+    const r = await workflow({}).execute(def)
+    assert.equal(r.status, 'success')
+    assert.equal(r.stepResults.a.data, 200)
+  })
+  it('函数体内函数调用（组合 v2）', async () => {
+    const def = await compileWfjs(`function dbl(x) { return x * 2 }\nfunction quad(x) { const a = await dbl(x)\nconst b = await dbl(a)\nreturn b }\nconst a = await quad(3)`)
+    const { workflow } = await import('./index.ts')
+    const r = await workflow({}).execute(def)
+    assert.equal(r.stepResults.a.data, 12)
   })
   it('函数体内引用外层步骤绑定 → 编译错', async () => {
     await assert.rejects(compileWfjs(`const res = await http({ url: 'u' })\nfunction f() { return res.data }`), /未声明变量 'res'/)
   })
-  it('参数名与全局变量冲突 → 编译错（全局唯一命名空间）', async () => {
-    await assert.rejects(compileWfjs(`let x = 1\nfunction f(x) { return x }`), /参数名 'x' 与已有变量冲突/)
+  it('参数遮蔽全局变量（v2——JS 一致：参数优先）', async () => {
+    const def = await compileWfjs(`let x = 1\nfunction f(x) { return x }`)
+    // 参数同名覆盖（IR 名不变——运行期 vars 注入遮蔽层；函数体内 x → 参数）
+    const steps = def.functions![0].step.steps
+    assert.equal(steps[0].config.value, 'vars.x')
+    // 执行验证：调用 f(5) → 5（参数值——非全局 1）
+    const { workflow } = await import('./index.ts')
+    const def2 = await compileWfjs(`let x = 1\nfunction f(x) { return x }\nconst r = await f(5)`)
+    const rr = await workflow({}).execute(def2, { args: { x: 1 } })
+    assert.equal(rr.stepResults.r.data, 5)
   })
   it('return 值 → 函数返回表达式', async () => {
     const def = await compileWfjs(`function f(n) { return n + 1 }`)
@@ -247,7 +279,7 @@ describe('wfjs: 远程导入（编译期 fetch 物化——运行期零 IO）', 
   it('函数名冲突（远程导入 vs 本地）→ 编译错', async () => {
     await assert.rejects(
       compileWfjs(`function calc(x) { return x }\nimport { calc } from 'https://x.com/lib.json'`, { remoteFetch: async () => LIB }),
-      /重复函数 'calc'/
+      /冲突（远程导入）/
     )
   })
 })
