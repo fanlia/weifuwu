@@ -85,7 +85,33 @@ type RenderFn<P> = (props: P) => VNode | null | (VNode | null)[]
   `() => T`——任意位置读最新
 - 清理 → `ctx.ui.hold(fn)`；事件回调内 await 合法（渲染无关）；工厂期禁
 
-## 4. 修复归类纪律（排查先归类——根因优先核心层）
+## 4. 复用与修复纪律（先查库再写——排查先归类）
+
+### 4.1 复用纪律（写功能前先查 weifuwu 已有能力——前端/后端 30 秒成本）
+
+> **开发任何新功能前，先查库再写**（前端 30 秒 / 后端 30 秒——成本远低于重复发明与后续对齐）：
+>
+> **前端**：`ls src/client/components/` + [docs/client.md §2 组件清单](docs/client.md#2-组件清单)。
+> **后端**：`ls src/server/` + [docs/server.md](docs/server.md) 服务端地图（工作流引擎/steps 注册表/scheduler/messager/email/queue/ai）——
+> 已有能力即复用：cron 触发复用 scheduler、步骤编辑复用 `views.ts` 纯函数（patch/insert/remove——UI 零逻辑）、
+> 版本快照复用既有 VERSIONS 表 + crud、引擎新增步骤类型前先看 steps.ts 既有（http/template/log/if/ai/email）。
+> 后端行为规范读单测即得（默认参数/边界/异常签名——如 **HttpError(message, status)** 顺序反直觉、select rest 参数展开）。
+>
+> 判别标准：组件通用（>1 消费者）→ 入库；单一消费者 → 平台层；无现成 → 零依赖自研（判负必须登记）。
+>
+> **复用记录**（产品周期实证——先查后写的正反馈）：
+>
+> | 新功能 | 复用/判负决策 |
+> | --- | --- |
+> | CodeEditor 语法高亮 | 复用 CodeBlock/highlight.ts `tokenize`（零新代码） |
+> | 版本回滚 diff 预览 | 复用 DiffView（行级 LCS——old/new 字符串即用；自写 def diff 函数判负） |
+> | 添加步骤 Modal/类型选择 | 复用 Modal + Select 组件（prompt() 弹窗升级） |
+> | 步骤增删/编辑 | 复用 views.ts 纯函数（UI 只发 patch——逻辑单源在 server） |
+> | cron 定时触发 | 复用 scheduler tick；cron 解析器零依赖自研（无现成——判负登记） |
+> | CronPicker（cron UI） | 判负：组件库无通用 cron 控件（enum 语义不符）——平台层暂存，等第二消费者入库 |
+> | 版本快照/回滚 | 复用既有 VERSIONS 表 + crud（wfjs 派生重渲染——不存冗余） |
+
+### 4.2 修复归类纪律（排查先归类——根因优先核心层）
 
 ```
 问题 → 归类：应用层（demo/示例错）？组件层（组件实现）？核心层（引擎）？

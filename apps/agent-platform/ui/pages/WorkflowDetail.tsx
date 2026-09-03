@@ -6,7 +6,7 @@
  * 客户端零转换（架构验证：组件库零改动）。
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { Alert, Badge, Button, Card, CodeEditor, Descriptions, Input, JSONViewer, Loading, Modal, Pipeline, Tabs, Textarea } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, CodeEditor, Descriptions, DiffView, Input, JSONViewer, Loading, Modal, Pipeline, Select, Tabs, Textarea } from 'weifuwu/components'
 import { errMsg, PageHeader } from '../components/ui'
 import { CronPicker } from '../components/CronPicker'
 
@@ -32,6 +32,7 @@ interface VersionRow {
   id: string
   note: string | null
   created_at: string
+  def_json?: Record<string, unknown>
 }
 interface RunDetail extends RunRow {
   result_json: { stepResults?: Record<string, { ok?: boolean; data?: unknown; error?: string }>; executed?: string[] } | null
@@ -51,6 +52,12 @@ interface DetailState {
   labels: Labels
   fieldMeta: Record<string, Record<string, { title?: string; type?: string }>>
   editing: { path: (number | string)[]; type: string; draft: Record<string, string> } | null
+  adding: { anchor: string | null; chain: string[] } | null
+  addingType: string
+  diffing: VersionRow | null
+  wfjsEditing: boolean
+  wfjsDraft: string
+  wfjsDiffOpen: boolean
   runs: RunRow[]
   tab: string
   args: string
@@ -150,7 +157,8 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
   $.loading = true; $.running = false
   $.runs = []; $.tab = 'dag'; $.args = '{}'; $.error = ''; $.inputFields = []
   $.labels = {}; $.viewingRun = null; $.cronDraft = ''
-  $.fieldMeta = {}; $.editing = null; $.versions = []
+  $.fieldMeta = {}; $.editing = null; $.versions = []; $.adding = null; $.addingType = ''; $.diffing = null
+  $.wfjsEditing = false; $.wfjsDraft = ''; $.wfjsDiffOpen = false
   const id = props.id ?? ''
 
   async function load(): Promise<void> {
@@ -162,6 +170,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
       ])
       $.wf = d.workflow
       $.cronDraft = String(d.workflow.cron ?? '')
+      $.wfjsDraft = d.workflow.wfjs ?? ''
       $.inputFields = [...new Set((d.workflow.wfjs ?? '').match(/\binput\.([A-Za-z_$][\w$]*)/g)?.map((x) => x.slice(6)) ?? [])]
       $.schemas = m.schemas
       const props = (m.schemas as { properties?: Record<string, { title?: string; properties?: Record<string, { title?: string; type?: string }> }> })?.properties ?? {}
@@ -186,6 +195,30 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
     try {
       await ctx.api!.put<{ ok: boolean }>(`/api/workflows/${id}`, { cron: $.cronDraft.trim() || null })
       ctx.toast!('定时已保存', 'success')
+      await load()
+    } catch (e: any) {
+      ctx.toast!(e?.message ?? '保存失败', 'error')
+    }
+  }
+
+  async function addStep(): Promise<void> {
+    const adding = $.adding
+    if (!adding || !$.addingType) return
+    const t = $.addingType
+    $.adding = null
+    rerender()
+    try {
+      await ctx.api!.put<any>(`/api/workflows/${id}`, { patch: { op: 'insert', anchor: adding.anchor, chain: adding.chain, step: { type: t, config: {} } } })
+      ctx.toast!('步骤已添加（打开编辑填参数）', 'success')
+      await load()
+    } catch (e: any) { ctx.toast!(e?.message ?? '添加失败', 'error') }
+  }
+
+  async function saveWfjs(): Promise<void> {
+    try {
+      await ctx.api!.put<{ ok: boolean }>(`/api/workflows/${id}`, { wfjs: $.wfjsDraft })
+      ctx.toast!('wfjs 已保存（编译通过）', 'success')
+      $.wfjsEditing = false
       await load()
     } catch (e: any) {
       ctx.toast!(e?.message ?? '保存失败', 'error')
@@ -249,18 +282,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
               { key: 'form', label: '步骤', content: (
                 <div class="wf-padding-md wf-card-outline wf-rounded-md wf-stack wf-gap-md">
                   <div class="wf-row wf-gap-sm">
-                    <Button size="sm" onClick={() => {
-                      const stepTypes = Object.keys($.fieldMeta)
-                      const t = prompt(`添加步骤到流程末尾（类型：${stepTypes.join('/')}）`, 'log')
-                      if (!t || !stepTypes.includes(t)) return
-                      void (async () => {
-                        try {
-                          await ctx.api!.put<any>(`/api/workflows/${id}`, { patch: { op: 'insert', anchor: null, chain: [], step: { type: t, config: {} } } })
-                          ctx.toast!('步骤已添加（打开编辑填参数）', 'success')
-                          await load()
-                        } catch (e: any) { ctx.toast!(e?.message ?? '添加失败', 'error') }
-                      })()
-                    }}>＋ 添加步骤（末尾）</Button>
+                    <Button size="sm" onClick={() => { $.adding = { anchor: null, chain: [] }; $.addingType = ''; rerender() }}>＋ 添加步骤（末尾）</Button>
                   </div>
                   {stepsOf(wf.def).map((st, i) => (
                     <div key={i}>
@@ -305,18 +327,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
                             } catch (e: any) { ctx.toast!(e?.message ?? '删除失败', 'error') }
                           })()
                         },
-                        (anchor, chain) => {
-                          const stepTypes = Object.keys($.fieldMeta)
-                          const t = prompt(`在「${anchor}」的 ${chain.join('.')} 链添加步骤（类型：${stepTypes.join('/')}）`, 'log')
-                          if (!t || !stepTypes.includes(t)) return
-                          void (async () => {
-                            try {
-                              await ctx.api!.put<any>(`/api/workflows/${id}`, { patch: { op: 'insert', anchor, chain, step: { type: t, config: {} } } })
-                              ctx.toast!('步骤已添加（打开编辑填参数）', 'success')
-                              await load()
-                            } catch (e: any) { ctx.toast!(e?.message ?? '添加失败', 'error') }
-                          })()
-                        })}
+                        (anchor, chain) => { $.adding = { anchor, chain }; $.addingType = ''; rerender() })}
                     </div>
                   ))}
                 </div>
@@ -328,14 +339,27 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
                   {$.versions.map((v) => (
                     <div key={v.id} class="wf-row wf-gap-md wf-items-center wf-border-bottom wf-padding-y-sm">
                       <span class="wf-font-xs wf-text-secondary wf-fill">{v.note ?? '（无备注）'} · {String(v.created_at ?? '').slice(0, 19)}</span>
-                      <Button size="sm" variant="ghost" onClick={() => { if (confirm('回滚到该版本？（当前版本会先记录为新版本）')) void rollback(v.id) }}>恢复</Button>
+                      <Button size="sm" variant="ghost" onClick={() => { $.diffing = v; rerender() }}>恢复</Button>
                     </div>
                   ))}
                 </div>
               ) },
               { key: 'code', label: 'wfjs', content: (
-                <div class="wf-padding-md wf-card-outline wf-rounded-md">
-                  <CodeEditor value={wf.wfjs ?? ''} lang="ts" rows={16} readOnly />
+                <div class="wf-padding-md wf-card-outline wf-rounded-md wf-stack wf-gap-md">
+                  <CodeEditor value={$.wfjsEditing ? $.wfjsDraft : (wf.wfjs ?? '')} lang="ts" rows={16} readOnly={!$.wfjsEditing}
+                    onChange={(v) => { $.wfjsDraft = String(v); rerender() }} />
+                  <div class="wf-row wf-gap-sm">
+                    {!$.wfjsEditing ? (
+                      <Button size="sm" onClick={() => { $.wfjsEditing = true; $.wfjsDraft = wf.wfjs ?? ''; rerender() }}>编辑源码</Button>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="secondary" onClick={() => { $.wfjsDiffOpen = true; rerender() }}>预览差异</Button>
+                        <Button size="sm" onClick={() => void saveWfjs()}>保存（编译验证）</Button>
+                        <Button size="sm" variant="ghost" onClick={() => { $.wfjsEditing = false; rerender() }}>取消</Button>
+                      </>
+                    )}
+                    <span class="wf-font-xs wf-text-secondary wf-self-center">保存时编译门验证（语法错拒绝——DSL 真相源同步）</span>
+                  </div>
                 </div>
               ) },
             ]}
@@ -378,6 +402,53 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
             )}
           </div>
         </Card>
+
+        <Modal open={!!$.adding} title={$.adding?.anchor ? `在「${$.adding.anchor}」的 ${$.adding.chain.join('.')} 链添加步骤` : '添加步骤'} onClose={() => { $.adding = null; rerender() }} width="420px">
+          <div class="wf-stack wf-gap-md">
+            <Select
+              value={$.addingType}
+              placeholder="选择步骤类型"
+              options={Object.entries($.fieldMeta).map(([k, v]) => ({ value: k, label: v?.title ?? k }))}
+              onChange={(v) => { $.addingType = String(v); rerender() }}
+            />
+            <div class="wf-row wf-gap-sm wf-justify-end">
+              <Button variant="secondary" size="sm" onClick={() => { $.adding = null; rerender() }}>取消</Button>
+              <Button size="sm" disabled={!$.addingType} onClick={() => void addStep()}>添加</Button>
+            </div>
+            <div class="wf-font-xs wf-text-secondary">添加后可点「编辑」填参数（http url / log 内容等）</div>
+          </div>
+        </Modal>
+
+        <Modal open={$.wfjsDiffOpen} title="wfjs 编辑差异" onClose={() => { $.wfjsDiffOpen = false; rerender() }} width="760px">
+          <div class="wf-stack wf-gap-md">
+            <DiffView oldCode={$.wf?.wfjs ?? ''} newCode={$.wfjsDraft} oldTitle="当前" newTitle="草稿" foldThreshold={4} maxLines={600} />
+            <div class="wf-row wf-gap-sm wf-justify-end">
+              <Button variant="secondary" size="sm" onClick={() => { $.wfjsDiffOpen = false; rerender() }}>返回编辑</Button>
+              <Button size="sm" onClick={() => { $.wfjsDiffOpen = false; rerender(); void saveWfjs() }}>确认保存</Button>
+            </div>
+          </div>
+        </Modal>
+
+        <Modal open={!!$.diffing} title="恢复前预览（def 差异）" onClose={() => { $.diffing = null; rerender() }} width="760px">
+          {$.diffing && (() => {
+            const v = $.diffing
+            const cur = JSON.stringify($.wf?.def ?? {}, null, 2)
+            const ver = JSON.stringify(v.def_json ?? {}, null, 2)
+            const same = cur === ver
+            return (
+              <div class="wf-stack wf-gap-md">
+                <Alert variant={same ? 'success' : 'warning'}>
+                  {same ? '两版 def 一致（无差异——恢复不会改变内容）' : `将 def 回滚到 ${v.note ?? '该版本'}（${String(v.created_at ?? '').slice(0, 19)}）——当前 def 会先记录为新版本`}
+                </Alert>
+                {!same && <DiffView oldCode={cur} newCode={ver} oldTitle="当前" newTitle="该版本" foldThreshold={4} maxLines={600} />}
+                <div class="wf-row wf-gap-sm wf-justify-end">
+                  <Button variant="secondary" size="sm" onClick={() => { $.diffing = null; rerender() }}>取消</Button>
+                  <Button size="sm" onClick={() => { $.diffing = null; rerender(); void rollback(v.id) }}>确认恢复</Button>
+                </div>
+              </div>
+            )
+          })()}
+        </Modal>
 
         <Modal open={!!$.viewingRun} title="运行结果" onClose={() => { $.viewingRun = null; rerender() }} width="640px">
           {$.viewingRun && (() => {
