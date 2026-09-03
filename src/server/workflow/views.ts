@@ -148,3 +148,91 @@ export function patchStepConfig(def: WorkflowDef, path: StepPath, patch: Record<
   cursor.config = { ...(cursor.config ?? {}), ...patch }
   return root
 }
+
+// ── 步骤增删（编辑器另一半——insert/remove 同样 DSL 单实现——id 服务端生成防撞） ──
+
+/** 锚点定位：anchor 步骤 id（def 全树搜索——唯一）+ 可选链 token（then/else/step——nested 及 N 层）
+ *  顶层：anchor=null + [[]] 顶层末尾；子链：anchor=if 步骤 id + ['then'] */
+const findById = (list: Array<Record<string, any>>, id: string): Record<string, any> | null => {
+  for (const s of list) {
+    if (String(s.id) === id) return s
+    const cfg = (s.config ?? {}) as Record<string, any>
+    for (const seg of ['then', 'else', 'step'] as const) {
+      const sub = cfg[seg] as { steps?: Array<Record<string, any>> } | undefined
+      if (sub?.steps) {
+        const hit = findById(sub.steps, id)
+        if (hit) return hit
+      }
+    }
+  }
+  return null
+}
+
+/** 插入：anchor（步骤 id——null=顶层）+ 链 token 列表 → 目标数组末尾追加
+ *  v0 语义："在 X 步骤的 then/else/step 链末尾加一步"——id 锚定无歧义 */
+export function insertStep(
+  def: WorkflowDef,
+  anchor: string | null,
+  chain: ('then' | 'else' | 'step')[],
+  step: { type: string; config: Record<string, unknown> },
+): WorkflowDef {
+  const root = JSON.parse(JSON.stringify(def)) as WorkflowDef
+  let arr: Array<Record<string, any>>
+  if (anchor === null) {
+    if (chain.length > 0) throw new Error('insert: 顶层锚点（anchor=null）不能指定子链——请用步骤 id 锚点')
+    arr = root.steps as Array<Record<string, any>>
+  } else {
+    if (chain.length !== 1) throw new Error('insert: v0 仅支持单段链（then/else/step 之一）——多段嵌套链编辑器暂不支持')
+    const parent = findById(root.steps as Array<Record<string, any>>, anchor)
+    if (!parent) throw new Error(`insert: 锚点步骤 ${anchor} 不存在`)
+    const cfg = (parent.config ?? {}) as Record<string, any>
+    const sub = cfg[chain[0]] as { steps?: Array<Record<string, any>> } | undefined
+    if (!sub?.steps) throw new Error(`insert: 步骤 ${parent.id} 无子链（${chain[0]}）`)
+    arr = sub.steps as Array<Record<string, any>>
+  }
+  // id 生成：_{type}{n} 自增避撞（确定性）
+  const used = new Set<string>()
+  const collect = (list: Array<Record<string, any>>): void => {
+    for (const s of list) {
+      used.add(String(s.id))
+      const cfg = (s.config ?? {}) as Record<string, any>
+      for (const seg of ['then', 'else', 'step'] as const) {
+        const sub = cfg[seg] as { steps?: Array<Record<string, any>> } | undefined
+        if (sub?.steps) collect(sub.steps)
+      }
+    }
+  }
+  collect(root.steps as Array<Record<string, any>>)
+  let id = `_${step.type}${arr.length + 1}`
+  let n = 1
+  while (used.has(id)) id = `_${step.type}${arr.length + 1 + n++}`
+  arr.push({ id, type: step.type, config: { ...step.config } })
+  return root
+}
+
+/** 删除步骤（深路径同 set——级联删除子链）——找不到抛错 */
+export function removeStep(def: WorkflowDef, path: StepPath): WorkflowDef {
+  const root = JSON.parse(JSON.stringify(def)) as WorkflowDef
+  if (path.length === 0) throw new Error('removeStep: 路径不能为空')
+  // 复用 patch 定位思路——定位到父数组 + 索引
+  let arr = root.steps as Array<Record<string, any>>
+  let idx = -1
+  for (let i = 0; i < path.length; i++) {
+    const tk = path[i]
+    if (typeof tk === 'number') {
+      if (!arr[tk]) throw new Error(`removeStep: 步骤索引 ${tk} 越界`)
+      idx = tk
+      const next = path[i + 1]
+      if (typeof next === 'string') {
+        const cfg = (arr[tk].config ?? {}) as Record<string, any>
+        const sub = cfg[next] as { steps?: Array<Record<string, any>> } | undefined
+        if (!sub?.steps) throw new Error(`removeStep: 步骤 ${arr[tk].id} 无子链（${next}）`)
+        arr = sub.steps as Array<Record<string, any>>
+        i++
+      }
+    }
+  }
+  if (idx < 0) throw new Error('removeStep: 定位失败')
+  arr.splice(idx, 1)
+  return root
+}

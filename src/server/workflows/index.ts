@@ -21,7 +21,7 @@ import type { Router } from '../core/router.ts'
 import { workflow, redisStore } from '../workflow/index.ts'
 import { parseCron, minuteKey } from './cron.ts'
 import { compileWfjs, toJs, toJsonSchema, workflowToDag } from '../workflow/index.ts'
-import { patchStepConfig, type StepPath } from '../workflow/views.ts'
+import { patchStepConfig, insertStep, removeStep, type StepPath } from '../workflow/views.ts'
 import type { WorkflowDef, ValidationResult } from '../workflow/index.ts'
 
 const WORKFLOWS = '_weifuwu_workflows'
@@ -387,13 +387,23 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       return json({ workflow: { ...rec, def: rec.def_json, wfjs: rec.src_wfjs, dag: wf.dag(rec.def_json) } })
     })
     app.put(`${p}/:id`, async (req, ctx) => {
-      const body = (await req.json().catch(() => ({}))) as { name?: string; wfjs?: string; def?: unknown; patch?: { path: StepPath; config: Record<string, unknown> } }
+      const body = (await req.json().catch(() => ({}))) as { name?: string; wfjs?: string; def?: unknown; patch?: { op?: 'set' | 'insert' | 'remove'; path: StepPath; anchor?: string | null; chain?: ('then' | 'else' | 'step')[]; config?: Record<string, unknown>; step?: { type: string; config: Record<string, unknown> } } }
       try {
-        // 步骤参数编辑：patch → get → 深路径合并 → validate → update（wfjs 派生视图自动重渲染）——单实现源在 server
+        // 步骤编辑（set 参数 / insert 追加 / remove 删除）：get → 纯函数转换 → validate → update——单实现源在 server
         if (body.patch) {
           const rec = await crud.get(appIdOr(ctx), ctx.params.id)
           if (!rec) return json({ error: 'workflow 不存在' }, 404)
-          const def = patchStepConfig(rec.def_json, body.patch.path, body.patch.config)
+          const p = body.patch
+          let def: WorkflowDef
+          if (p.op === 'insert') {
+            if (!p.step?.type) return json({ error: 'insert 需要 step.type' }, 400)
+            def = insertStep(rec.def_json, p.anchor ?? null, p.chain ?? [], p.step)
+          } else if (p.op === 'remove') {
+            def = removeStep(rec.def_json, p.path)
+          } else {
+            if (!p.config) return json({ error: 'set 需要 config' }, 400)
+            def = patchStepConfig(rec.def_json, p.path, p.config)
+          }
           const v = wf.validate(def)
           if (!v.ok) return json({ error: `patch 校验失败：${v.errors.map((e) => e.message).join('；')}` }, 400)
           await crud.update(appIdOr(ctx), ctx.params.id, { def })

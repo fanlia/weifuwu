@@ -123,4 +123,31 @@ if (true) { await log({ message: '改我' }) }` })
     // 不存在 workflow
     assert.equal((await req('PUT', '/api/workflows/nope', { patch: { path: [0], config: { url: 'x' } } })).status, 404)
   })
+
+  it('insert/remove 步骤（编辑器完整闭环）', async () => {
+    const created = await req('POST', '/api/workflows', { name: '增删', wfjs: `const res = await http({ url: 'http://x/' })
+if (true) { await log({ message: 'i' }) }` })
+    const { workflow } = await created.json() as { workflow: { id: string } }
+    const wid = workflow.id
+    // insert log 到顶层
+    const ins = await req('PUT', `/api/workflows/${wid}`, { patch: { op: 'insert', arrPath: [], step: { type: 'log', config: { message: '新增' } } } })
+    assert.equal(ins.status, 200)
+    const d1 = await (await req('GET', `/api/workflows/${wid}`)).json() as any
+    assert.equal(d1.workflow.def.steps.length, 3)
+    assert.match(d1.workflow.def.steps[2].config.message, /新增/)
+    // insert 到 then 子链
+    const ins2 = await req('PUT', `/api/workflows/${wid}`, { patch: { op: 'insert', anchor: d1.workflow.def.steps[1].id, chain: ['then'], step: { type: 'log', config: { message: '子' } } } })
+    if (ins2.status !== 200) console.log('[ins2 error]', (await ins2.json() as any).error)
+    assert.equal(ins2.status, 200)
+    const d2 = await (await req('GET', `/api/workflows/${wid}`)).json() as any
+    assert.equal(d2.workflow.def.steps[1].config.then.steps.length, 2)
+    // validate 门：insert 空 url 的 http → 拒绝
+    const bad = await req('PUT', `/api/workflows/${wid}`, { patch: { op: 'insert', anchor: null, chain: [], step: { type: 'http', config: { url: '' } } } })
+    assert.equal(bad.status, 400)
+    // remove 顶层步骤
+    const rem = await req('PUT', `/api/workflows/${wid}`, { patch: { op: 'remove', path: [0] } })
+    assert.equal(rem.status, 200)
+    const d3 = await (await req('GET', `/api/workflows/${wid}`)).json() as any
+    assert.equal(d3.workflow.def.steps.length, 2)
+  })
 })

@@ -70,15 +70,20 @@ function stepView(
   editing: DetailState['editing'],
   onEdit: (step: StepInstance, path: StepPathT) => void,
   onDraft: (k: string, v: string) => void,
+  onRemove: (path: StepPathT) => void,
+  onAdd: (anchor: string, chain: ('then' | 'else' | 'step')[]) => void,
 ): any {
   const chain = (cfg: Record<string, unknown>, seg: 'step' | 'then' | 'else'): any => {
     const sub = cfg[seg] as { steps?: StepInstance[] } | undefined
     if (!sub?.steps) return null
     return <div style={`margin-left: ${(depth + 1) * 16}px`} class="wf-stack wf-gap-sm">
-      {seg !== 'step' && <div class="wf-font-xs wf-semibold wf-text-secondary">{seg}</div>}
+      <div class="wf-row wf-gap-sm wf-items-center">
+        {seg !== 'step' && <span class="wf-font-xs wf-semibold wf-text-secondary">{seg}</span>}
+        <Button size="sm" variant="ghost" onClick={() => onAdd(step.id, seg)}>＋ 添加步骤</Button>
+      </div>
       {sub.steps.map((x, i) => (
         <div key={i}>
-          {stepView(x, labels, fieldMeta, depth + 1, [...path, seg, i], editing, onEdit, onDraft)}
+          {stepView(x, labels, fieldMeta, depth + 1, [...path, seg, i], editing, onEdit, onDraft, onRemove, onAdd)}
         </div>
       ))}
     </div>
@@ -97,6 +102,7 @@ function stepView(
         <span class="wf-font-mono wf-font-xs wf-text-secondary">{step.id}</span>
         <span class="wf-fill" />
         <Button size="sm" variant="ghost" onClick={() => onEdit(step, path)}>编辑</Button>
+        <Button size="sm" variant="ghost" onClick={() => onRemove(path)}>删除</Button>
       </div>
       {items.length > 0 && <Descriptions items={items} size="sm" />}
       {isEditing && (
@@ -223,6 +229,20 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
               ) },
               { key: 'form', label: '步骤', content: (
                 <div class="wf-padding-md wf-card-outline wf-rounded-md wf-stack wf-gap-md">
+                  <div class="wf-row wf-gap-sm">
+                    <Button size="sm" onClick={() => {
+                      const stepTypes = Object.keys($.fieldMeta)
+                      const t = prompt(`添加步骤到流程末尾（类型：${stepTypes.join('/')}）`, 'log')
+                      if (!t || !stepTypes.includes(t)) return
+                      void (async () => {
+                        try {
+                          await ctx.api!.put<any>(`/api/workflows/${id}`, { patch: { op: 'insert', anchor: null, chain: [], step: { type: t, config: {} } } })
+                          ctx.toast!('步骤已添加（打开编辑填参数）', 'success')
+                          await load()
+                        } catch (e: any) { ctx.toast!(e?.message ?? '添加失败', 'error') }
+                      })()
+                    }}>＋ 添加步骤（末尾）</Button>
+                  </div>
                   {stepsOf(wf.def).map((st, i) => (
                     <div key={i}>
                       {stepView(st, $.labels, $.fieldMeta, 0, [i], $.editing,
@@ -255,7 +275,29 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
                           $.editing = { path, type: step.type, draft }
                           rerender()
                         },
-                        (k, v) => { if ($.editing) { $.editing.draft[k] = v; rerender() } })}
+                        (k, v) => { if ($.editing) { $.editing.draft[k] = v; rerender() } },
+                        (path) => {
+                          if (!confirm(`删除步骤（${stepsOf(wf.def).find(() => true) ? '' : ''}路径 ${path.join('.')}——子链一并删除）？`)) return
+                          void (async () => {
+                            try {
+                              await ctx.api!.put<any>(`/api/workflows/${id}`, { patch: { op: 'remove', path } })
+                              ctx.toast!('步骤已删除', 'success')
+                              await load()
+                            } catch (e: any) { ctx.toast!(e?.message ?? '删除失败', 'error') }
+                          })()
+                        },
+                        (anchor, chain) => {
+                          const stepTypes = Object.keys($.fieldMeta)
+                          const t = prompt(`在「${anchor}」的 ${chain.join('.')} 链添加步骤（类型：${stepTypes.join('/')}）`, 'log')
+                          if (!t || !stepTypes.includes(t)) return
+                          void (async () => {
+                            try {
+                              await ctx.api!.put<any>(`/api/workflows/${id}`, { patch: { op: 'insert', anchor, chain, step: { type: t, config: {} } } })
+                              ctx.toast!('步骤已添加（打开编辑填参数）', 'success')
+                              await load()
+                            } catch (e: any) { ctx.toast!(e?.message ?? '添加失败', 'error') }
+                          })()
+                        })}
                     </div>
                   ))}
                 </div>
