@@ -39,6 +39,14 @@
   - 语义定版（测试锁定）：宽松 `==`（'200'==200）、exists=值!==undefined（JSON null 存在）、裸值布尔语境=「存在且非空」（0→true）、逻辑只产 boolean、字符串支持单/双引号+\\/'/n/t 转义，无效转义报错
   - fuzz 对账：AST→toSrc→parse→求值 vs 参考求值器——300 样本×5 种子 1500 对全等价
   - 实测：23 测试 pass / tsc 0 错 / 无外部依赖（node strip-only 拒绝 parameter properties——已改显式字段）
+- **W5a 完成（2026-09-03）**：表达式升级为 **JS 语义子集**（用户决策：LLM 对 JS 语义直觉 100% 准确；自造假值表会让 LLM 生成错码）。
+  - 新增：算术（严格数字防 '1'+1='11'）/大小比较/`[*]` 投影（flat 1 展平）/.length/逻辑返回操作数/JS truthy 布尔语境/**裁剪 exists**（`!= null` 等价）
+  - 两处安全偏差（文档化）：严格算术 + 非有限结果报错
+  - fuzz 对账升级：值+错误双对账 400×5
+- **W5b 完成**：compileWfjs 编译器——受限 JS 子集→DSL。
+  - 语法：const/let/赋值/++//= //if(else)/while/for-of/return/内置调用/模板串（await/async 接受忽略）；静态检查：未声明/const 重赋值/重名/循环变量遮蔽/内置名冲突/裸块/链式赋值/
+  - 绑定映射：步骤（data 解包 steps.<id>.data）/变量（vars.<name>）/循环（loop.item）
+  - 实测：604 server 测试全绿（wfjs 26 + 语义升级后 82 workflow 契约）
 - **W4 完成（2026-09-03）**：exports（package.json `./workflow` 子路径 + build.mjs 独立 bundle——零运行时外部依赖）+ docs/server.md §7 + 回归门。
   - 实测：test:server 568 pass（含 workflow 46）/ audit 七线全绿 / tsc 0 错 / dist 子路径 import 验证通过
   - 探针重定位：无。W1–W4 全部按计划交付；引擎已具备 runWorkflow 全语义
