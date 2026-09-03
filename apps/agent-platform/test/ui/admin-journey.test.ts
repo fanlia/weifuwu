@@ -1,13 +1,13 @@
 /**
- * 系统管理员（平台级 ADMIN_EMAILS）旅程测试——角色走查 2027-10 固化
+ * 系统管理员（USERSYSTEM-V2 系统域——_builtin 应用）旅程测试——角色走查 2027-10 固化
  *
  * 与租户角色（owner/member/viewer——roles.test / roles-journey.test）正交：
- * 系统管理员是 SaaS 运营者（env ADMIN_EMAILS 白名单——admin.ts L4「简单安全，
- * 不引入角色表」），能力面 = /api/admin/*：企业开通 / 租户套餐 / 停启租户 /
- * 沙盒容量。此前测试只有负向（4 处「非管理员被拒」）——正向能力零覆盖：
- * 套餐↔付费墙联动（G1 商业化闭环）与停用租户（G2）无防线。
+ * 系统管理员是 SaaS 运营者（_builtin 的 owner=超级管理员/admin=系统管理员——
+ * ADMIN_EMAILS 仅启动 seed 引导任命·常驻鉴权走系统域判定），能力面 = /api/admin/*：
+ * 企业开通 / 租户套餐 / 停启租户 / 沙盒容量。此前测试只有负向（4 处「非管理员
+ * 被拒」）——正向能力零覆盖：套餐↔付费墙联动（G1 商业化闭环）与停用租户（G2）无防线。
  *
- * 管理员账号：admin@demo.com（.env ADMIN_EMAILS 白名单——演示真实形态）。
+ * 管理员账号：admin@demo.com（.env ADMIN_EMAILS 引导——演示真实形态）。
  * 操作对象：registerTenant 造的测试租户（不污染演示数据）。
  */
 import { test } from 'node:test'
@@ -28,14 +28,14 @@ test.before(async () => {
   server = await startAgentServer()
   BASE = server.base
   browser = await chromium.launch()
-  // admin@demo.com / admin123（演示 seed——ADMIN_EMAILS 白名单成员）
+  // admin@demo.com / admin123（演示 seed——ADMIN_EMAILS 引导任命 _builtin 成员）
   const login = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: 'admin@demo.com', password: 'admin123' }),
   })
-  assert.ok(login.ok, '系统管理员登录应成功（ADMIN_EMAILS 白名单）')
-  const { apps } = await login.json() as { apps: Array<{ slug: string }> }
-  const appLogin = await fetch(`${BASE}/api/auth/apps/${apps[0].slug}/login`, {
+  assert.ok(login.ok, '系统管理员登录应成功（ADMIN_EMAILS 引导的 _builtin 成员）')
+  // USERSYSTEM-V2 系统域：管理员进入 _builtin 应用（owner=超级管理员）——固定 slug
+  const appLogin = await fetch(`${BASE}/api/auth/apps/_builtin/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: 'admin@demo.com', password: 'admin123' }),
   })

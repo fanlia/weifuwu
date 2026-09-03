@@ -62,7 +62,7 @@ test('沙盒页：状态列表渲染（操作按钮存在——沙盒环境）',
 })
 
 test('admin 页：非白名单未授权（API 层 401/403——页面可开但核心接口被拒）', async () => {
-  // /api/admin/overview 未授权（非 ADMIN_EMAILS——401 或 403 均未授权）
+  // /api/admin/overview 未授权（非系统域——401 或 403 均未授权）
   let unauthorized = false
   try {
     await apiAs(BASE, owner, '/api/admin/overview')

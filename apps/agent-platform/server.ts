@@ -402,6 +402,14 @@ async function main() {
     },
   })
   await users.migrate()          // _weifuwu_users / _weifuwu_sessions / _weifuwu_apps / _weifuwu_app_members
+  // 系统域初始引导（USERSYSTEM-V2 定案）：ADMIN_EMAILS（逗号分隔）→ _builtin 成员任命——
+  //   首个 = owner（超级管理员·唯一）· 其余 = admin（系统管理员）——幂等 seed——
+  //   此后任命/移除走 _builtin 成员管理（addMember——super admin 自治）
+  const sysEmails = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim()).filter(Boolean)
+  if (sysEmails.length) {
+    await users.seedBuiltinOwners(sysEmails)
+    console.log(`[agent-platform] 系统域 seed: ${sysEmails.length} 个管理员（_builtin owner/admin——ADMIN_EMAILS 引导）`)
+  }
   // 迁移遗留：schema.sql 已去外键（agents.user_id 指向框架 _weifuwu_users），但已存在的表结构
   // 仍带旧约束（agents_user_id_fkey → 已删的 users 表）——幂等删除，避免注册建默认 Agent 失败
   await pg.sql`

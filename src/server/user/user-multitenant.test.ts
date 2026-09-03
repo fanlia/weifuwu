@@ -425,7 +425,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
 
   // ── 7.5 USERSYSTEM-V2 产品级注册 ──────────────────────────
   describe('registerWithApp（产品级注册）', () => {
-    it('账号 + _builtin 成员 + 默认应用（owner）+ 应用 token——一步到位', async () => {
+    it('账号 + 默认应用（owner）+ 应用 token——一步到位（系统域定案：普通用户不落 _builtin）', async () => {
       const email = uniqEmail()
       const res = await post('/api/auth/register-app', { email, password: 'password123', name: '小王', appSlug: 'mybrand' })
       assert.equal(res.status, 201)
@@ -434,10 +434,10 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       assert.equal(data.app.role, 'owner')
       assert.equal(data.app.slug, 'mybrand')
       assert.equal(data.user.email, email)
-      // _builtin 成员（系统身份）
-      const [m] = await db.unsafe(`SELECT role, source FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [data.user.id])
-      assert.equal(m.role, 'member', '_builtin 系统成员')
-      assert.equal(m.source, 'register', '来源标记')
+      // 系统域定案：_builtin 只装超级管理员（owner）/系统管理员（admin）——
+      // 普通用户注册不落 _builtin（先前 member 挂载作废——系统域无普通用户）
+      const [m] = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [data.user.id])
+      assert.equal(m, undefined, '普通用户不挂 _builtin（系统域纯净）')
     })
 
     it('同域名 slug 冲突自动后缀（-2/-3——收编平台 200 次循环）', async () => {
@@ -638,6 +638,70 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const target = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
       const res = await post(`/api/auth/apps/${reg.app.slug}/members`, { email: target.user.email, role: 'viewer' }, reg.token)
       assert.equal(res.status, 201)
+    })
+  })
+
+  // ── 7.10 系统域（_builtin——定案：owner=超级管理员·admin=系统管理员） ─────────
+  describe('系统域（_builtin）', () => {
+    it('seedBuiltinOwners：首个邮箱=owner（超级管理员·唯一）·其余=admin（系统管理员）——幂等', async () => {
+      const h = userSystem({ sql: db, secret })
+      await h.migrate()
+      const r1 = await h.seedBuiltinOwners(['root@sys.test', 'ops1@sys.test', 'ops2@sys.test'])
+      assert.equal(r1.owner !== null, true)
+      assert.equal(r1.admins.length, 2)
+      // 幂等：再跑不重复不覆盖
+      const r2 = await h.seedBuiltinOwners(['root@sys.test', 'ops1@sys.test', 'ops2@sys.test', 'another@sys.test'])
+      assert.equal(r2.owner, r1.owner, 'owner 保持')
+      assert.equal(r2.admins.length, 3, '新增第三个 admin·既有不变')
+      // 成员面
+      const rows = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE app_id = '00000000-0000-4000-8000-0000000000b1' ORDER BY role`)
+      const roles = rows.map((r: any) => r.role)
+      assert.equal(roles.filter((r: string) => r === 'owner').length, 1, 'owner 唯一')
+      assert.equal(roles.filter((r: string) => r === 'admin').length, 3)
+    })
+
+    it('addMember 系统域只接受 owner/admin——member/viewer 403', async () => {
+      const h = userSystem({ sql: db, secret })
+      await h.migrate()
+      await h.seedBuiltinOwners(['root@sys.test'])
+      const p = new Router(); p.use(h); h.routes(p)
+      const handler = p.handler()
+      const login = await handler(new Request('http://localhost/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'root@sys.test', password: 'x' }),
+      }), mkCtx())
+      void login
+      // 通过 AuthApi（构造受控环境）验证特判——直接调方法
+      const h2 = userSystem({ sql: db, secret })
+      await h2.migrate()
+      const mk = async (token: string | null) => {
+        const req = new Request('http://localhost/x', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        const ctx = mkCtx()
+        await h2(req, ctx, async () => {})
+        return ctx
+      }
+      const owner = await h2.seedBuiltinOwners(['owner2@sys.test'])
+      // owner 登录拿 token：register 一个应用 owner？简化——直接用 seed 后 login 不行（无密码）。
+      // 用框架内置 register 建号+密码，再 addMember 到 _builtin 验证特判
+      const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
+      const ctx2 = await mk(reg.token)
+      await assert.rejects(() => ctx2.auth!.addMember('00000000-0000-4000-8000-0000000000b1', 'a@b.com', 'member'), /_builtin/)
+      await assert.rejects(() => ctx2.auth!.addMember('00000000-0000-4000-8000-0000000000b1', 'a@b.com', 'viewer'), /_builtin/)
+      void owner
+    })
+
+    it('createInvite 系统域禁止（任命制——不走邀请流）', async () => {
+      const h = userSystem({ sql: db, secret })
+      await h.migrate()
+      await h.seedBuiltinOwners(['root3@sys.test'])
+      const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
+      const p = new Router(); p.use(h); h.routes(p)
+      const handler = p.handler()
+      const res = await handler(new Request('http://localhost/api/auth/apps/_builtin/invites', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${reg.token}` },
+        body: JSON.stringify({ role: 'admin' }),
+      }), mkCtx())
+      assert.equal(res.status, 403)
     })
   })
 

@@ -19,7 +19,7 @@ export { email } from './email/index.ts'
 export type { EmailOptions, EmailMessage, EmailResult, EmailAdapter, EmailInjected } from './email/index.ts'
 export type { Mailer, EmailInterface } from './email/contracts.ts'
 export { MemoryEmail, createMemoryEmail, MemoryEmailServer, createMemoryEmailServer } from './email/index.ts'
-export { userSystem } from './user/index.ts'
+export { userSystem, BUILTIN_APP_ID } from './user/index.ts'
 export { hashPassword, verifyPassword } from './user/password.ts'
 // Token 工具（2026-08——下载直链 ?token= 验签——应用层复用同一 secret）
 export { signToken, verifyToken, generateRefreshToken } from './user/token.ts'

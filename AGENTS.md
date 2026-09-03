@@ -7,7 +7,7 @@
 > [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md)。
 
 **防线快照（2027-xx）**：
-契约 **433** · 场景 **123** · showcase **328**（134 组件全覆盖）· server **737** ·
+契约 **433** · 场景 **123** · showcase **328**（134 组件全覆盖）· server **740** ·
 shared **25** · 平台 **449** · audit:all **七线** exit 0（semantics/interactivity/vdom/theme/api/
 bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
 

@@ -1,23 +1,21 @@
 /**
  * 管理路由 — 商业化 G2 租户管理后台（平台管理员）
  *
- * 管理员身份：env ADMIN_EMAILS（逗号分隔邮箱白名单）——简单安全，不引入角色表。
+ * 管理员身份（USERSYSTEM-V2 系统域定案）：**系统管理员 = `_builtin` 应用的
+ * owner（超级管理员）/admin（系统管理员）**——ctx.session（token payload）
+ * 判定——不再 env 白名单常驻鉴权。ADMIN_EMAILS 降级为**初始引导**（启动 seed
+ * 任命 _builtin 成员——一次性——此后任命走 addMember）。
  * 能力：租户列表（成员/Agent/用量）/ 停用启用（app.status）。
  */
 
 import type { Router } from 'weifuwu'
-import { HttpError } from 'weifuwu'
+import { HttpError, BUILTIN_APP_ID } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
-/** 管理员白名单（env ADMIN_EMAILS）——空 = 无管理员 */
-function adminEmails(): Set<string> {
-  const raw = process.env.ADMIN_EMAILS ?? ''
-  return new Set(raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean))
-}
-
-export function isAdminEmail(email?: string | null): boolean {
-  if (!email) return false
-  return adminEmails().has(email.trim().toLowerCase())
+/** 系统域判定（token payload：appId=BUILTIN + owner/admin——双端同语义） */
+export function isSystemAdmin(ctx: AppCtx): boolean {
+  const s = (ctx as any).session
+  return !!s && String(s.appId) === BUILTIN_APP_ID && (s.role === 'owner' || s.role === 'admin')
 }
 
 export function registerAdminRoutes(app: Router<AppCtx>): void {
@@ -32,14 +30,9 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
     return Response.json(planStatusOf(row, Number((usedRow as any)?.used ?? 0)))
   })
 
-  // 管理员校验（403 非管理员）——token 无 email 字段，从 userId 查库
-  const adminEmailOf = async (ctx: AppCtx): Promise<string> => {
-    const rows = await ctx.sql`SELECT email FROM _weifuwu_users WHERE id = ${ctx.auth.userId}`
-    return String(rows[0]?.email ?? '')
-  }
+  // 管理员校验（403 非系统管理员）——系统域判定（token payload——零查库）
   const requireAdmin = async (ctx: AppCtx): Promise<void> => {
-    const email = await adminEmailOf(ctx)
-    if (!isAdminEmail(email)) {
+    if (!isSystemAdmin(ctx)) {
       // 2026-08（UI 角色测试）：throw 到 handler 层 = 500——权限错误应 403
       // 显式响应（permissions 模式——路由内 catch 转 Response）
       throw new HttpError('需要管理员权限', 403)
@@ -48,7 +41,7 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
 
   // 当前用户是否管理员（前端导航显示用）
   app.get('/api/admin/me', async (_req: Request, ctx: AppCtx): Promise<Response> => {
-    return Response.json({ isAdmin: isAdminEmail(await adminEmailOf(ctx)) })
+    return Response.json({ isAdmin: isSystemAdmin(ctx) })
   })
 
   // 平台使用概览（G11 使用分析——管理员看整体活跃/成本/转化）

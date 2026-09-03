@@ -231,6 +231,11 @@ declare module '../types.ts' {
 export interface UserSystemClient extends Middleware<Context, Context & UserInjected> {
   /** 幂等建表（users + sessions + apps + app_members） */
   migrate: () => Promise<void>
+  /** **系统域种子（幂等）**：ADMIN_EMAILS 类初始配置 → _builtin 成员任命——
+   *  第一个邮箱 = owner（超级管理员——唯一·已有则保持）；其余 = admin（系统管理员）。
+   *  账号不存在时自动建（password_hash=null——同 SSO 建号语义——登录走企业 IdP/平台流程）。
+   *  仅 migrate 后调用（一次引导——此后任命走 addMember） */
+  seedBuiltinOwners: (emails: string[]) => Promise<{ owner: string | null; admins: string[] }>
   /** 注册 /api/auth/* 路由；exclude 跳过个别路由（应用层自定义） */
   routes: (
     app: Router<any>,
@@ -244,8 +249,9 @@ export interface UserSystemClient extends Middleware<Context, Context & UserInje
 const USERS_TABLE = '_weifuwu_users'
 const SESSIONS_TABLE = '_weifuwu_sessions'
 const APP_TABLE = '_weifuwu_apps'
-/** _builtin 系统应用固定 id（migrate 幂等唯一——语义可读） */
-const BUILTIN_APP_ID = '00000000-0000-4000-8000-0000000000b1'
+/** _builtin 系统应用固定 id（系统域容器：owner=超级管理员·admin=系统管理员——
+ *  普通用户不落此域——registerWithApp 不再自动挂） */
+export const BUILTIN_APP_ID = '00000000-0000-4000-8000-0000000000b1'
 const MEMBER_TABLE = '_weifuwu_app_members'
 
 // B5（2027-XX）：密码长度上下限——下限防弱口令（既有），上限防 MB 级 password
@@ -503,14 +509,6 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           password: input.password,
           name: input.name,
         })
-        // 1.5 _builtin 系统成员（role=member——系统身份单源）
-        await sql.query.insert(MEMBER_TABLE).values({
-          app_id: BUILTIN_APP_ID,
-          user_id: reg.user.id,
-          role: 'member',
-          invited_by: null,
-          source: 'register',
-        }).run()
         // 2. slug 唯一化（冲突自动后缀——收编平台 200 次查找循环——同域名多租户）
         const baseSlug = (input.appSlug ?? input.email.split('@')[1] ?? 'default').trim().toLowerCase()
         let slug = baseSlug
@@ -738,6 +736,8 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       },
 
       async createInvite(appId: string, opts: { email?: string; role?: string }) {
+        // 系统域不开放邀请：超级/系统管理员是任命制（seed/addMember）——邀请链接属业务应用
+        if (appId === BUILTIN_APP_ID) throw new HttpError('_builtin 不走邀请流（任命制）', 403)
         // 邀请角色白名单（平台红线：邀请链接流向普通成员——仅 member/viewer）
         if (opts.role !== undefined && !inviteRoles.includes(opts.role)) {
           throw new HttpError(`invite role not allowed: ${opts.role}（allowed: ${inviteRoles.join('/')}）`, 403)
@@ -756,6 +756,11 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
 
       async addMember(appId: string, email: string, role?: string) {
         assertRole(role)
+        // 系统域（_builtin）只装 owner/admin（超级管理员/系统管理员）——
+        // member/viewer 是业务应用身份——系统域无"普通用户"
+        if (appId === BUILTIN_APP_ID && role !== undefined && role !== 'owner' && role !== 'admin') {
+          throw new HttpError('_builtin 只接受 owner/admin（系统域无普通用户）', 403)
+        }
         if (!currentUser) throw new HttpError('Unauthorized', 401)
         const callerRole = await findMemberRole(appId, currentUser.id)
         if (callerRole !== 'owner') throw new HttpError('Owner only', 403)
@@ -789,6 +794,45 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   mw.__meta = { injects: ['user', 'auth'], depends: [] } // sql 构造注入（options.sql），非 ctx.sql
 
   // ── 幂等建表 ──
+  mw.seedBuiltinOwners = async (emails: string[]) => {
+    const result: { owner: string | null; admins: string[] } = { owner: null, admins: [] }
+    for (const raw of emails) {
+      const email = normalizeEmail(raw)
+      if (!email) continue
+      let user = await findUserByEmail(email)
+      if (!user) {
+        // 账号不存在 → 自动建（无密码——同 SSO 建号语义；登录由 IdP/平台流程承接）
+        const rows = await sql.query.insert(USERS_TABLE)
+          .values({ email, password_hash: null, name: null, role: null, tenant: null })
+          .onConflict('email')
+          .returning('id', 'email', 'name', 'role', 'tenant')
+          .run()
+        user = rows.length ? (rows[0] as unknown as User) : await findUserByEmail(email)
+      }
+      if (!user) continue
+      // 已有成员：保持现状（owner 唯一性——后续邮箱不覆盖）
+      const existing = await sql.query.from(MEMBER_TABLE).select('role').where({ app_id: BUILTIN_APP_ID, user_id: user.id }).run()
+      if (existing.length) {
+        const r = String(existing[0].role ?? '')
+        if (r === 'owner') result.owner = String(user.id)
+        else result.admins.push(String(user.id))
+        continue
+      }
+      if (!result.owner) {
+        await sql.query.insert(MEMBER_TABLE).values({
+          app_id: BUILTIN_APP_ID, user_id: String(user.id), role: 'owner', invited_by: null, source: 'seed',
+        }).run()
+        result.owner = String(user.id)
+      } else {
+        await sql.query.insert(MEMBER_TABLE).values({
+          app_id: BUILTIN_APP_ID, user_id: String(user.id), role: 'admin', invited_by: result.owner, source: 'seed',
+        }).run()
+        result.admins.push(String(user.id))
+      }
+    }
+    return result
+  }
+
   mw.migrate = async () => {
     await sql.unsafe(`
       CREATE TABLE IF NOT EXISTS ${USERS_TABLE} (

@@ -147,18 +147,18 @@ test('admin（部门级）：部门成员管理可用（owner 授权——部门
   assert.ok(canAdd, '部门 admin 可加成员（requireDeptManager 通过——部门级权限）')
 })
 
-test('非管理员隐藏「租户管理」导航（ADMIN_EMAILS 白名单——admin/me 判定）', async () => {
+test('非管理员隐藏「租户管理」导航（系统域判定——非 _builtin 成员不可见）', async () => {
   const page = await browser.newPage()
   await injectAuth(page, owner)
   await openAgentPage(page, BASE, '/')
   await page.waitForTimeout(1500)
   const hasAdmin = await page.evaluate(() => document.body.innerText.includes('租户管理'))
-  assert.ok(!hasAdmin, '非管理员（owner 非 ADMIN_EMAILS）不应显示租户管理入口')
+  assert.ok(!hasAdmin, '非管理员（owner 非 _builtin 成员）不应显示租户管理入口')
   await page.close()
 })
 
 test('admin 页直接访问：非管理员核心 API 未授权（admin/me false——401/403）', async () => {
-  // /api/admin/overview 未授权（非 ADMIN_EMAILS——401 或 403）
+  // /api/admin/overview 未授权（非系统域——401 或 403）
   const unauthorized = await (async () => {
     try { await apiAs(BASE, owner, '/api/admin/overview'); return false }
     catch (e: any) { return /401|403/.test(String(e.message)) }
