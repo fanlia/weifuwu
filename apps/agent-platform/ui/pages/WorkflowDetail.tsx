@@ -8,6 +8,7 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Alert, Badge, Button, Card, CodeEditor, Descriptions, Input, JSONViewer, Loading, Modal, Pipeline, Tabs, Textarea } from 'weifuwu/components'
 import { errMsg, PageHeader } from '../components/ui'
+import { CronPicker } from '../components/CronPicker'
 
 interface DagNode { id: string; label: string }
 interface DagEdge { from: string; to: string }
@@ -341,6 +342,15 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
 
         <Card key="run">
           <div class="wf-stack wf-gap-md">
+            <div class="wf-stack wf-gap-sm">
+              <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">定时（cron）</div>
+              <CronPicker value={$.cronDraft} onChange={(v) => { $.cronDraft = v; rerender() }} />
+              <div class="wf-row wf-gap-sm wf-items-center">
+                <Button variant="secondary" size="sm" onClick={() => void saveCron()}>保存定时</Button>
+                <div class="wf-font-xs wf-text-secondary">格式：分 时 日 月 周（如 `*/5 * * * *` = 每 5 分钟）</div>
+              </div>
+            </div>
+
             <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">执行参数（JSON）</div>
             <Textarea value={$.args} rows={3} onChange={(v) => { $.args = String(v); rerender() }} placeholder='{"sku": "A-100"}' />
             {$.lastResult && (

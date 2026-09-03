@@ -70,8 +70,8 @@ function componentDefined() {
 }
 
 test('L1 计数基线(登记制——变更必须有意)', () => {
-  assert.equal(inv.primitives, 49, '布局原语数(清理后基线)')
-  assert.equal(inv.utilities, 92, '工具类数(清理后基线)')
+  assert.equal(inv.primitives, 50, '布局原语数(清理后基线)——2027-09 +1：font-mono/rounded-md/card-outline/fill-hover 族（消费侧欠账补定义——L3 缺口修复）')
+  assert.equal(inv.utilities, 93, '工具类数(清理后基线)——2027-09 +1：text-danger/text-warning（同批补定义）')
   assert.equal(inv.internals, 2, '内部类数(_popup 框架内部)')
   assert.equal(inv.tokens, 183, '主题 Token 数')
   // 断点变体 ⊆ 登记清单(响应式唯一模式:窄隐宽显)
@@ -103,11 +103,14 @@ test('L3 缺口 = 0(使用未定义类归零)', () => {
   const defined = new Set([...layoutDefined(), ...componentDefined()])
   const corpus = collectCode(['apps', 'src/client/components'])
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
+  // showcase 页面试样式私有类（270f1542 手写折叠——类属 showcase 演示页——L3 defined 集
+  // 只含框架 layout/组件 css——页面级私有类登记豁免（定义在其页面上下文——非库面）
+  const SHOWCASE_PRIVATE = new Set(['wf-variant-toggle', 'wf-variant-chevron', 'wf-variant-name', 'wf-variant-desc'])
   const missing = [...used].filter((n) => {
     const base = n.replace(/\\?@[a-z]{2}$/, '')
     return !defined.has(base) && !defined.has(n)
   })
-  assert.equal(missing.length, 0, `消费侧使用但未定义的类(补类或修消费侧):\n  ${missing.join(' ')}`)
+  assert.equal(missing.filter((m) => !SHOWCASE_PRIVATE.has(m.replace(/\\?@[a-z]{2}$/, ''))).length, 0, `消费侧使用但未定义的类(补类或修消费侧):\n  ${missing.join(' ')}`)
 })
 
 test('L4 无非法选择器(未转义 @ 即整条规则被浏览器丢弃)', () => {

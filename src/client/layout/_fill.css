@@ -4,3 +4,12 @@
   min-width: 0;
   min-height: 0;
 }
+
+/* 链接行 hover 强调（列表/导航行——整行可点视觉反馈） */
+.wf-fill-hover {
+  border-radius: var(--wf-radius-sm);
+  padding: 2px 4px;
+  margin: -2px -4px;
+  transition: background 0.15s ease;
+}
+.wf-fill-hover:hover { background: var(--wf-color-bg-secondary); }

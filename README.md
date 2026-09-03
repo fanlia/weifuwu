@@ -97,7 +97,7 @@ router.get('*', async (req, ctx) => {
 | `weifuwu/vdom` | UIRouter / uiServe / uiSsr | 前端路由唯一入口 + 浏览器 boot + SSR（结构吸收） |
 | `weifuwu/vdom` | 命令流引擎 + hooks 全家 | 渲染周期/事件代理/三状态机 + useAsyncData/usePopup/useControlled/… |
 | `weifuwu/components` | **134 个组件** | Button/Table/Modal/AiChat/… + `toast()`/`confirm()` 命令式中间件 |
-| `weifuwu/layout` | CSS 布局 | 49 个布局原语 + 92 个工具类 + 183 个主题 Token |
+| `weifuwu/layout` | CSS 布局 | 50 个布局原语 + 93 个工具类 + 183 个主题 Token |
 | `weifuwu` | rateLimit / email / userSystem / messager / queue / scheduler / ai / graphql | SaaS 地基中间件（ctx 注入） |
 | `weifuwu/dev` | dev loader | `--import weifuwu/dev` 直接跑 `.ts/.tsx` |
 

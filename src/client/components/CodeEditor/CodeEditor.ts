@@ -7,6 +7,7 @@
  */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
+import { tokenize } from '../CodeBlock/highlight.ts' // 语法高亮复用（共享 tokenizer——CodeBlock 同源）
 
 export interface CodeEditorProps {
   value: string
@@ -27,13 +28,27 @@ export const CodeEditor: Component<CodeEditorProps> = (_init, ctx) => {
     const lineCount = value.split('\n').length
     const gutter = h('div', { class: 'wf-codeeditor-gutter', style: { fontFamily: 'var(--wf-font-mono)', fontSize: 12, lineHeight: 1.7, padding: '8px 0', textAlign: 'right', color: 'var(--wf-color-text-tertiary)', userSelect: 'none', overflow: 'hidden' } },
       Array.from({ length: lineCount }, (_, i) => h('div', { key: i, style: { paddingRight: 8 } }, String(i + 1))))
+    // 语法高亮：tokenizer（CodeBlock 同源）——双层 overlay（text 类/无 lang 保持纯文本）
+    const hlTokens = lang !== 'text' ? tokenize(value, lang) : null
+    const hl = h('pre', {
+      class: 'wf-codeeditor-hl',
+      'aria-hidden': true,
+      style: {
+        position: 'absolute', inset: 0, margin: 0, pointerEvents: 'none',
+        fontFamily: 'var(--wf-font-mono)', fontSize: 12, lineHeight: 1.7,
+        padding: '8px 10px', whiteSpace: 'pre', overflow: 'hidden',
+        color: 'var(--wf-color-text)', background: 'transparent', border: 'none',
+      },
+    }, hlTokens ? hlTokens.map((t, i) => (t.type === 'text' ? t.text : h('span', { key: i, class: `wf-hl-${t.type}` }, t.text))) : value)
     const area = h('textarea', {
       class: 'wf-codeeditor-area',
       value, rows, placeholder, readOnly,
       'data-wf-role': 'code-editor',
       'data-lang': lang,
       spellcheck: false,
-      style: { fontFamily: 'var(--wf-font-mono)', fontSize: 12, lineHeight: 1.7, padding: '8px 10px', border: 'none', outline: 'none', resize: 'vertical', flex: 1, minWidth: 0, background: 'transparent' },
+      wrap: 'off', // 水平滚动——pre 同 whiteSpace: pre 对齐
+      style: { fontFamily: 'var(--wf-font-mono)', fontSize: 12, lineHeight: 1.7, padding: '8px 10px', border: 'none', outline: 'none', resize: 'vertical', flex: 1, minWidth: 0, background: 'transparent', position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'auto', color: 'transparent', caretColor: 'var(--wf-color-text)' },
+      onScroll: (e: any) => { const el = e.target as HTMLElement; (hl as any).scrollTop = el.scrollTop; (hl as any).scrollLeft = el.scrollLeft },
       onInput: (e: any) => { onChange?.((e.target as HTMLTextAreaElement).value) },
       onKeyDown: (e: KeyboardEvent) => {
         // Tab 插入两个空格（编辑器惯例）
@@ -47,6 +62,8 @@ export const CodeEditor: Component<CodeEditorProps> = (_init, ctx) => {
     })
     return h('div', { class: `wf-codeeditor wf-row wf-gap-none${className ? ` ${className}` : ''}`,
       style: { border: '1px solid var(--wf-color-border)', borderRadius: 'var(--wf-radius-sm)', overflow: 'hidden', background: 'var(--wf-color-bg)' } },
-      [gutter, area])
+      [gutter,
+        h('div', { class: 'wf-codeeditor-body', style: { position: 'relative', flex: 1, minWidth: 0 } },
+          [hl, area])])
   }
 }

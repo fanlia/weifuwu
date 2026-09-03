@@ -3,9 +3,15 @@
 }
 .wf-codeeditor-area {
   width: 100%;
-  color: var(--wf-color-text);
+  color: transparent; /* 视觉层由 wf-codeeditor-hl 渲染（选中态仍可见——selection 背景独立） */
+  caret-color: var(--wf-color-text);
 }
+.wf-codeeditor-area::placeholder { color: var(--wf-color-text-tertiary); }
 .wf-codeeditor-gutter {
   border-right: 1px solid var(--wf-color-border);
   background: var(--wf-color-bg-secondary);
+}
+.wf-codeeditor-body {
+  position: relative;
+  min-width: 0;
 }

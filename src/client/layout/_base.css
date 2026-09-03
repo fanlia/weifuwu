@@ -212,6 +212,10 @@ pre, code {
   font-size: var(--wf-font-size-sm);
 }
 
+.wf-font-mono { font-family: var(--wf-font-mono); }
+.wf-rounded-md { border-radius: var(--wf-radius-md); }
+.wf-card-outline { border: 1px solid var(--wf-color-border); }
+
 pre {
   background: var(--wf-color-bg-secondary);
   border: var(--wf-border-width) solid var(--wf-color-border);

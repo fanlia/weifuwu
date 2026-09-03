@@ -28,6 +28,8 @@
 /* ── 文字色（语义唯一名——随 token 用 error；浅底可读 700 级） ── */
 .wf-text-secondary { color: var(--wf-color-text-secondary); }
 .wf-text-tertiary { color: var(--wf-color-text-tertiary); }
+.wf-text-danger { color: var(--wf-color-error-text); }
+.wf-text-warning { color: var(--wf-color-warning-text); }
 .wf-text-primary { color: var(--wf-color-primary-text); }
 .wf-text-success { color: var(--wf-color-success-text); }
 .wf-text-warning { color: var(--wf-color-warning-text); }
