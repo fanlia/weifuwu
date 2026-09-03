@@ -52,6 +52,8 @@ export interface RunResult {
   status: RunStatus
   /** 执行了哪些步骤（顺序）——skipped 步骤不在其中，记录末次截断原因在 error/skippedReason */
   executed: string[]
+  /** when 不通过被跳过的步骤（非错误——后续步骤继续执行） */
+  skippedSteps: string[]
   stepResults: Record<string, StepOutput>
   /** 截断/终止信息：error = 步骤失败；skippedReason = if 短路 */
   error?: string
@@ -64,13 +66,23 @@ export interface RunResult {
 /** 执行模式：live 真执行（副作用真发生）；dry 打桩副作用步骤 */
 export type RunMode = 'live' | 'dry'
 
+/** 步骤字段声明（人话渲染 / UI 表单 / LLM 约束共享） */
+export interface StepField {
+  name: string
+  label: string
+  type?: string
+  placeholder?: string
+}
+
 /** 步骤执行器：注册表类型 → run(config, ctx, env) → output */
 export interface StepHandler {
   /** 步骤类型名（注册 key） */
   type: string
-  /** 中文标签 + 字段 schema（人话渲染 / LLM 生成约束 / 校验共用）——W2 定稿 */
+  /** 中文标签 + 字段 schema（人话渲染 / LLM 生成约束 / 校验共用） */
   label?: string
-  fields?: unknown[]
+  fields?: StepField[]
+  /** 必填字段名（config 必须存在且非空字符串） */
+  required?: string[]
   /** 执行（同步或异步均可；失败抛错 → runner 捕获记 error） */
   run: (config: Record<string, unknown>, ctx: WorkflowCtx, env: StepEnv) => Promise<unknown> | unknown
   /** 副作用面（默认 false）：dry 模式下打桩不执行 */

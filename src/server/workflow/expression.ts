@@ -279,14 +279,19 @@ export function evaluate(node: ExprNode, ctx: unknown): unknown {
 
 /** 布尔语境（when 语义定版）：boolean 直接用；否则"存在且非空"
  *  （undefined/null/''/[]/{} → false；0/false → true；其余 → true） */
-export function evaluateBoolean(node: ExprNode, ctx: unknown): boolean {
-  const v = evaluate(node, ctx)
+/** 布尔语境（when 语义定版）：boolean 直接用；否则"存在且非空"
+ *  （undefined/null/''/[]/{} → false；0/false → true；其余 → true） */
+export function toBoolean(v: unknown): boolean {
   if (typeof v === 'boolean') return v
   if (v === null || v === undefined) return false
   if (typeof v === 'string') return v.length > 0
   if (Array.isArray(v)) return v.length > 0
   if (typeof v === 'object') return Object.keys(v as object).length > 0
   return true // number / 其他原始值 = 存在即真（0 是真——"数字存在"语义）
+}
+
+export function evaluateBoolean(node: ExprNode, ctx: unknown): boolean {
+  return toBoolean(evaluate(node, ctx))
 }
 
 /** 编译：parse 一次 → 可复用求值函数 */
