@@ -7,7 +7,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { parse, compile, evaluate, evaluateBoolean, interpolate, toSrc, type ExprNode } from './expression.ts'
+import { parse, compile, evaluate, evaluateBoolean, interpolate, toBoolean, toSrc, type ExprNode } from './expression.ts'
 
 const ctx = {
   data: {
