@@ -99,8 +99,7 @@ async function main() {
     idle_timeout: parseInt(process.env.DATABASE_POOL_IDLE_TIMEOUT ?? '30000', 10),
   })
   app.use(pg)
-  // 事件日志独立池（2026-08——沙盒事件——shutdown 需关闭——否则每测试
-  // spawn 泄漏 3 连接——多测试文件串行 → 池累积 → PG too many clients）
+  // 事件日志独立池（2026-08——沙盒事件专用）
   let eventsPg: ReturnType<typeof postgres> | null = null
 
   // ── 请求日志（结构化 JSON 行 + 请求 id——可观测性基础；pg 之后——ctx.sql 已注入） ──
@@ -1657,29 +1656,12 @@ async function main() {
   const server = serve(app, { port })
   if (port !== 0) console.log(`[agent-platform] http://localhost:${port}`)
 
-  // ── 优雅关闭 ────────────────────────────────────────────
-  // 顺序纪律（2027-10——watch 重启连接击穿实证）：DB 最先关（连接名额是
-  // watch 重启碰撞窗口的直接根源）；每段超时兑底——WS/SSE 在途长连接会让
-  // server.close() 永等（旧顺序：await server.close() 卡住 → pg.close()
-  // 永不执行 → node --watch 超时 SIGKILL → 优雅关闭全跳过 → 连接靠
-  // TCP keepalive（默认 2h）才回收——新实例启动拿不到名额直接失败）
-  const shutdown = async (signal: string) => {
-    console.log(`\n[agent-platform] 收到 ${signal}，正在优雅关闭...`)
-    const withTimeout = (p: Promise<unknown>, ms: number) => Promise.race([p.catch(() => {}), new Promise<void>((r) => setTimeout(r, ms))])
-    // 1) DB 先关（立刻释放连接名额）——两池各 3s 兑底
-    await withTimeout(pg.close(), 3_000)
-    try { await withTimeout(eventsPg?.close() ?? Promise.resolve(), 1_000) } catch { /* 尽力 */ }
-    // 2) redis（rate-limit/缓存——退出前释放）
-    try { await withTimeout(videoWorker?.stop() ?? Promise.resolve(), 1_500) } catch { /* 尽力 */ }
-    try { await withTimeout(redisClient?.redis?.quit?.() ?? Promise.resolve(), 1_000) } catch { /* 尽力 */ }
-    // 3) HTTP 最后关 + 3s 兑底（最坏总耗时 ~8s——node --watch 宽限内完成）
-    await withTimeout(new Promise<void>((resolve) => { server.close().then(() => resolve()) }), 3_000)
-    console.log('[agent-platform] 已关闭')
-    process.exit(0)
-  }
-
-  process.on('SIGINT', () => shutdown('SIGINT'))
-  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  // ── 信号处理（2027-09 决策：不注册 SIGINT/SIGTERM——默认行为=立即退出） ──
+  // 曾实现优雅关闭（~8s 多段兑底）——实证是双刃剑：8s 半死窗口正是
+  // watch 重启/Ctrl+C 重跑的多实例叠加·连接击穿根源（pg 池满排队→
+  // too many clients→启动卡死无声）。进程立即死 → 内核关 socket →
+  // PG 秒级回收连接（实测 5 进程 5 连接→2 条）——无窗口无泄漏；
+  // 在途事务 PG 断连自动回滚——无数据损坏。
 }
 
 main().catch((err) => {
