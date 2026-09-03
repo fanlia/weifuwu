@@ -43,6 +43,8 @@ interface DetailState {
   wf?: WorkflowDetail
   schemas?: unknown
   labels: Labels
+  fieldMeta: Record<string, Record<string, { title?: string; type?: string }>>
+  editing: { path: (number | string)[]; type: string; draft: Record<string, string> } | null
   runs: RunRow[]
   tab: string
   args: string
@@ -57,36 +59,73 @@ function stepsOf(def: unknown): StepInstance[] {
   return ((def as { steps?: StepInstance[] })?.steps ?? [])
 }
 
-/** 步骤实例 → 展示项（config 字段 → label/value 行；子链递归缩进） */
-function stepView(step: StepInstance, labels: Labels, depth: number): any {
-  const chain = (cfg: Record<string, unknown>): any => {
-    const sub = cfg.step as { steps?: StepInstance[] } | undefined
-    const then = cfg.then as { steps?: StepInstance[] } | undefined
-    const els = cfg.else as { steps?: StepInstance[] } | undefined
-    return [
-      sub?.steps ? <div style={`margin-left: ${(depth + 1) * 16}px`} class="wf-stack wf-gap-sm">{sub.steps.map((x) => stepView(x, labels, depth + 1))}</div> : null,
-      then?.steps ? <div style={`margin-left: ${(depth + 1) * 16}px`} class="wf-stack wf-gap-sm">
-        <div class="wf-font-xs wf-semibold wf-text-secondary">then</div>
-        {then.steps.map((x) => stepView(x, labels, depth + 1))}
-      </div> : null,
-      els?.steps ? <div style={`margin-left: ${(depth + 1) * 16}px`} class="wf-stack wf-gap-sm">
-        <div class="wf-font-xs wf-semibold wf-text-secondary">else</div>
-        {els.steps.map((x) => stepView(x, labels, depth + 1))}
-      </div> : null,
-    ]
+/** 步骤实例 → 展示项（config 字段 → label/value 行；子链递归缩进；path 定位供编辑补丁） */
+type StepPathT = (number | string)[]
+function stepView(
+  step: StepInstance,
+  labels: Labels,
+  fieldMeta: Record<string, Record<string, { title?: string; type?: string }>>,
+  depth: number,
+  path: StepPathT,
+  editing: DetailState['editing'],
+  onEdit: (step: StepInstance, path: StepPathT) => void,
+  onDraft: (k: string, v: string) => void,
+): any {
+  const chain = (cfg: Record<string, unknown>, seg: 'step' | 'then' | 'else'): any => {
+    const sub = cfg[seg] as { steps?: StepInstance[] } | undefined
+    if (!sub?.steps) return null
+    return <div style={`margin-left: ${(depth + 1) * 16}px`} class="wf-stack wf-gap-sm">
+      {seg !== 'step' && <div class="wf-font-xs wf-semibold wf-text-secondary">{seg}</div>}
+      {sub.steps.map((x, i) => (
+        <div key={i}>
+          {stepView(x, labels, fieldMeta, depth + 1, [...path, seg, i], editing, onEdit, onDraft)}
+        </div>
+      ))}
+    </div>
   }
   const items = Object.entries(step.config).map(([k, v]) => ({
     label: k,
     value: typeof v === 'object' ? JSON.stringify(v) : String(v),
   }))
+  const isEditing = editing !== null && editing.path.length === path.length && editing.path.every((t, i) => t === path[i])
+  const meta = fieldMeta[step.type] ?? {}
+  const fields = Object.keys(meta).length > 0 ? Object.entries(meta) : Object.keys(step.config).map((k) => [k, {}] as [string, Record<string, unknown>])
   return (
     <div class="wf-stack wf-gap-sm" style={`margin-left: ${depth * 16}px`}>
       <div class="wf-row wf-gap-sm wf-items-center">
         <Badge>{labels[step.type] ?? step.type}</Badge>
         <span class="wf-font-mono wf-font-xs wf-text-secondary">{step.id}</span>
+        <span class="wf-fill" />
+        <Button size="sm" variant="ghost" onClick={() => onEdit(step, path)}>编辑</Button>
       </div>
       {items.length > 0 && <Descriptions items={items} size="sm" />}
-      {chain(step.config)}
+      {isEditing && (
+        <div class="wf-card-outline wf-rounded-md wf-padding-md wf-stack wf-gap-sm">
+          <div class="wf-font-xs wf-semibold wf-text-secondary">编辑参数（{step.id}）</div>
+          {fields.map(([k, meta2]) => {
+            const cur = step.config[k]
+            const isObj = typeof cur === 'object' && cur !== null
+            const isNum = typeof cur === 'number'
+            const val = editing.draft[k] ?? (isObj ? JSON.stringify(cur) : String(cur ?? ''))
+            const textArea = (meta2 as { type?: string })?.type === 'string' && (k === 'message' || k === 'template' || k === 'system' || k === 'body' || k === 'prompt')
+            return (
+              <div key={k} class="wf-stack wf-gap-xs">
+                <label class="wf-font-xs wf-text-secondary">{String((meta2 as { title?: string })?.title ?? k)}</label>
+                {textArea
+                  ? <Textarea rows={3} value={val} onInput={(v) => onDraft(k, v)} />
+                  : <Input value={val} onInput={(e) => onDraft(k, (e as any).target?.value ?? '')} />}
+              </div>
+            )
+          })}
+          <div class="wf-row wf-gap-sm">
+            <Button size="sm" onClick={() => onEdit(step, path)}>保存</Button>
+            <Button size="sm" variant="ghost" onClick={() => onEdit(step, path)}>取消</Button>
+          </div>
+        </div>
+      )}
+      {chain(step.config, 'step')}
+      {chain(step.config, 'then')}
+      {chain(step.config, 'else')}
     </div>
   )
 }
@@ -97,6 +136,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
   $.loading = true; $.running = false
   $.runs = []; $.tab = 'dag'; $.args = '{}'; $.error = ''
   $.labels = {}; $.viewingRun = null; $.cronDraft = ''
+  $.fieldMeta = {}; $.editing = null
   const id = props.id ?? ''
 
   async function load(): Promise<void> {
@@ -109,10 +149,15 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
       $.wf = d.workflow
       $.cronDraft = String(d.workflow.cron ?? '')
       $.schemas = m.schemas
-      const props = (m.schemas as { properties?: Record<string, { title?: string }> })?.properties ?? {}
+      const props = (m.schemas as { properties?: Record<string, { title?: string; properties?: Record<string, { title?: string; type?: string }> }> })?.properties ?? {}
       const labels: Labels = {}
-      for (const [t, v] of Object.entries(props)) labels[t] = v?.title ?? t
+      const fieldMeta: DetailState['fieldMeta'] = {}
+      for (const [t, v] of Object.entries(props)) {
+        labels[t] = v?.title ?? t
+        fieldMeta[t] = v?.properties ?? {}
+      }
       $.labels = labels
+      $.fieldMeta = fieldMeta
       $.runs = r.runs ?? []
     } catch (e) { $.error = errMsg(e, '加载失败') }
     $.loading = false
@@ -178,7 +223,41 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
               ) },
               { key: 'form', label: '步骤', content: (
                 <div class="wf-padding-md wf-card-outline wf-rounded-md wf-stack wf-gap-md">
-                  {stepsOf(wf.def).map((st) => stepView(st, $.labels, 0))}
+                  {stepsOf(wf.def).map((st, i) => (
+                    <div key={i}>
+                      {stepView(st, $.labels, $.fieldMeta, 0, [i], $.editing,
+                        (step, path) => {
+                          if ($.editing !== null && $.editing.path.length === path.length && $.editing.path.every((t, j) => t === path[j])) {
+                            // 保存：拼接 patch → PUT → 刷新
+                            const parsed: Record<string, unknown> = {}
+                            for (const [k, v] of Object.entries($.editing.draft)) {
+                              const old = (step.config as Record<string, unknown>)[k]
+                              if (typeof old === 'number') parsed[k] = Number(v)
+                              else if (typeof old === 'boolean') parsed[k] = v === 'true'
+                              else if (typeof old === 'object' && old !== null) { try { parsed[k] = JSON.parse(v) } catch { ctx.toast!('JSON 格式错误：' + k, 'error'); return } }
+                              else parsed[k] = v
+                            }
+                            void (async () => {
+                              try {
+                                await ctx.api!.put<any>(`/api/workflows/${id}`, { patch: { path, config: parsed } })
+                                ctx.toast!('参数已保存', 'success')
+                                $.editing = null
+                                await load()
+                              } catch (e: any) { ctx.toast!(e?.message ?? '保存失败', 'error') }
+                            })()
+                            return
+                          }
+                          // 打开编辑态：draft 预填当前值
+                          const draft: Record<string, string> = {}
+                          for (const [k, v] of Object.entries(step.config as Record<string, unknown>)) {
+                            draft[k] = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? '')
+                          }
+                          $.editing = { path, type: step.type, draft }
+                          rerender()
+                        },
+                        (k, v) => { if ($.editing) { $.editing.draft[k] = v; rerender() } })}
+                    </div>
+                  ))}
                 </div>
               ) },
               { key: 'code', label: 'wfjs', content: (

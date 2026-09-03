@@ -110,3 +110,41 @@ export function workflowToDag(def: WorkflowDef, opts?: { labels?: Record<string,
   }
   return { nodes, edges }
 }
+
+// ── 步骤参数编辑补丁（UI 表单 → DSL——纯函数——路径定位 + config 合并——不重建 id/type） ──
+
+export type StepPathToken = number | 'then' | 'else' | 'step'
+export type StepPath = StepPathToken[]
+
+/** 定位并替换 config（深路径：number → steps[i]；'then'/'else'/'step' → config.X.steps 下钻）
+ *  返回新 def（原对象不变——纯函数）；路径越界/类型不符抛错（UI 层良性失败） */
+export function patchStepConfig(def: WorkflowDef, path: StepPath, patch: Record<string, unknown>): WorkflowDef {
+  if (path.length === 0) throw new Error('patchStepConfig: 路径不能为空')
+  const clone = (node: unknown): unknown => (node && typeof node === 'object' ? JSON.parse(JSON.stringify(node)) : node)
+  const root = clone(def) as WorkflowDef
+  // 游标定位（root.steps 链）
+  let arr = root.steps as Array<Record<string, any>>
+  let cursor: Record<string, any> | null = null
+  for (let i = 0; i < path.length; i++) {
+    const tk = path[i]
+    if (typeof tk === 'number') {
+      if (!arr || !arr[tk]) throw new Error(`patchStepConfig: 步骤索引 ${tk} 越界`)
+      cursor = arr[tk]
+      // 若还有下一 token 且是链 token——下钻 config.step / config.then / config.else
+      const next = path[i + 1]
+      if (typeof next === 'string') {
+        const cfg = (cursor.config ?? {}) as Record<string, any>
+        const sub = cfg[next] as { steps?: Array<Record<string, any>> } | undefined
+        if (next === 'step' && !sub?.steps) throw new Error(`patchStepConfig: 步骤 ${arr[tk].id} 无子链（step）`)
+        if ((next === 'then' || next === 'else') && !sub?.steps) throw new Error(`patchStepConfig: 步骤 ${arr[tk].id} 无子链（${next}）`)
+        arr = sub?.steps ?? []
+        i++ // 链 token 已消费
+      } else if (i !== path.length - 1) {
+        throw new Error('patchStepConfig: 链 token（then/else/step）后必须跟索引')
+      }
+    }
+  }
+  if (!cursor) throw new Error('patchStepConfig: 定位失败')
+  cursor.config = { ...(cursor.config ?? {}), ...patch }
+  return root
+}

@@ -99,4 +99,28 @@ describe('workflowSystem routes（HTTP 契约）', () => {
     assert.ok(meta.schemas.properties)
     assert.ok((meta.schemas.properties as Record<string, unknown>).log)
   })
+
+  it('patch（步骤参数编辑）→ 深路径合并 → def 变 + wfjs 重渲染 + 校验门', async () => {
+    const created = await req('POST', '/api/workflows', { name: '编', wfjs: `const res = await http({ url: 'http://x/' })
+if (true) { await log({ message: '改我' }) }` })
+    const { workflow } = await created.json() as { workflow: { id: string } }
+    const wid = workflow.id
+    // 顶层 URL 修改
+    const p1 = await req('PUT', `/api/workflows/${wid}`, { patch: { path: [0], config: { url: 'http://new.example/x' } } })
+    assert.equal(p1.status, 200)
+    const det1 = await (await req('GET', `/api/workflows/${wid}`)).json() as any
+    assert.equal(det1.workflow.def.steps[0].config.url, 'http://new.example/x')
+    assert.match(det1.workflow.wfjs, /http:\/\/new\.example/)
+    // 嵌套 then 子链（if 内 log message）
+    const p2 = await req('PUT', `/api/workflows/${wid}`, { patch: { path: [1, 'then', 0], config: { message: '改过了' } } })
+    assert.equal(p2.status, 200)
+    const det2 = await (await req('GET', `/api/workflows/${wid}`)).json() as any
+    assert.equal(det2.workflow.def.steps[1].config.then.steps[0].config.message, '改过了')
+    // 校验门：把 http url 改成空 → patch 后 validate 拒绝（url 必填）
+    const bad = await req('PUT', `/api/workflows/${wid}`, { patch: { path: [0], config: { url: '' } } })
+    assert.equal(bad.status, 400)
+    assert.match((await bad.json() as { error: string }).error, /校验失败|必填/)
+    // 不存在 workflow
+    assert.equal((await req('PUT', '/api/workflows/nope', { patch: { path: [0], config: { url: 'x' } } })).status, 404)
+  })
 })

@@ -21,6 +21,7 @@ import type { Router } from '../core/router.ts'
 import { workflow, redisStore } from '../workflow/index.ts'
 import { parseCron, minuteKey } from './cron.ts'
 import { compileWfjs, toJs, toJsonSchema, workflowToDag } from '../workflow/index.ts'
+import { patchStepConfig, type StepPath } from '../workflow/views.ts'
 import type { WorkflowDef, ValidationResult } from '../workflow/index.ts'
 
 const WORKFLOWS = '_weifuwu_workflows'
@@ -386,8 +387,18 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       return json({ workflow: { ...rec, def: rec.def_json, wfjs: rec.src_wfjs, dag: wf.dag(rec.def_json) } })
     })
     app.put(`${p}/:id`, async (req, ctx) => {
-      const body = (await req.json().catch(() => ({}))) as { name?: string; wfjs?: string; def?: unknown }
+      const body = (await req.json().catch(() => ({}))) as { name?: string; wfjs?: string; def?: unknown; patch?: { path: StepPath; config: Record<string, unknown> } }
       try {
+        // 步骤参数编辑：patch → get → 深路径合并 → validate → update（wfjs 派生视图自动重渲染）——单实现源在 server
+        if (body.patch) {
+          const rec = await crud.get(appIdOr(ctx), ctx.params.id)
+          if (!rec) return json({ error: 'workflow 不存在' }, 404)
+          const def = patchStepConfig(rec.def_json, body.patch.path, body.patch.config)
+          const v = wf.validate(def)
+          if (!v.ok) return json({ error: `patch 校验失败：${v.errors.map((e) => e.message).join('；')}` }, 400)
+          await crud.update(appIdOr(ctx), ctx.params.id, { def })
+          return json({ ok: true })
+        }
         const ok = await crud.update(appIdOr(ctx), ctx.params.id, body)
         return ok ? json({ ok: true }) : json({ error: 'workflow 不存在' }, 404)
       } catch (e) {
