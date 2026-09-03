@@ -9,7 +9,7 @@ import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context, QueueWorker } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, queue, ui, userSystem, ai, messager, rateLimit, verifyPassword, email } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, queue, ui, userSystem, ai, messager, rateLimit, verifyPassword, email, workflowSystem } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -760,6 +760,18 @@ async function main() {
   // 公司
   // Agent
   registerAgentRoutes(protectedRoutes)
+
+  // ── workflow 系统（框架：引擎存储/编排——routes 必须在 mount 前注册——mount 快照收集） ──
+  const workflowSystemInstance = workflowSystem({
+    sql: pg.sql,
+    redis: redisClient?.redis, // store 步骤后端（Redis 客户端——自动适配 KVStore）
+  })
+  app.use(workflowSystemInstance)
+  await workflowSystemInstance.migrate()
+  workflowSystemInstance.routes(protectedRoutes, {
+    prefix: '/api/workflows',
+    appId: (ctx) => ((ctx as unknown as AppCtx).auth?.appId as string | undefined) ?? undefined,
+  })
   // 工作空间文件浏览器
   await registerWorkspaceRoutes(protectedRoutes)
   // 部门
@@ -1115,6 +1127,7 @@ async function main() {
   // 原框架内 BEGIN/COMMIT unsafe 在池化下断裂——2027-XX 修复）
   const messagerSystem = messager({ sql: pg.sql, transaction: pg.transaction, redis: redisClient?.redis })
   app.use(messagerSystem)
+
 
   // ── 邮件通知（商业化 G5：审批请求通知）——无 SMTP/RESEND 配置时降级 no-op ──
   app.use(email({

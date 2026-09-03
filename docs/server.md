@@ -108,7 +108,14 @@ server.listen(3000)
 
 ---
 
-## 7. workflow 执行引擎
+## 7. workflow 执行引擎（含框架系统 workflowSystem）
+
+> **框架系统**（对齐 messager/user 模式）：`workflowSystem({ sql, redis })`——存储/编排层——
+> `app.use(wfs)`（ctx.wf 注入）+ `await wfs.migrate()`（幂等建表 `_weifuwu_workflows`/`_weifuwu_workflow_runs`）+
+> `wfs.routes(app, { prefix, appId })`（内置 CRUD/执行/历史 API——消费方只做 UI）。
+> 引擎（语言/执行/视图适配）= 下方纯能力包 `weifuwu/workflow`（零依赖导出）。
+
+引擎入口
 
 `src/server/workflow/`——声明式执行引擎（WorkflowDef 线性步骤链 → ctx 数据流 → RunResult）。
 入口：`workflow({ ai?, email?, redis?, fetch?, log? })`（模块即客户端，worker 直接调用）——
