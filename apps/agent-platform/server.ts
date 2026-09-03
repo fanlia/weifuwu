@@ -768,10 +768,7 @@ async function main() {
   })
   app.use(workflowSystemInstance)
   await workflowSystemInstance.migrate()
-  workflowSystemInstance.routes(protectedRoutes, {
-    prefix: '/api/workflows',
-    appId: (ctx) => ((ctx as unknown as AppCtx).auth?.appId as string | undefined) ?? undefined,
-  })
+  workflowSystemInstance.routes(protectedRoutes) // 缺省：/api/workflows + ctx.auth.appId（user 会话透传）
   // 工作空间文件浏览器
   await registerWorkspaceRoutes(protectedRoutes)
   // 部门

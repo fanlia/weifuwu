@@ -65,7 +65,7 @@ export interface WorkflowSystem {
   crud: WorkflowCrud
   /** 幂等建表（_weifuwu_workflows / _weifuwu_workflow_runs） */
   migrate: () => Promise<void>
-  /** 内置 HTTP 路由（可选挂载）：/prefix/* 清单见 registerRoutes */
+  /** 内置 HTTP 路由（可选挂载）：/prefix/*——缺省 prefix=/api/workflows、appId 取 ctx.auth.appId（user 中间件会话透传） */
   routes: (app: Router<any>, opts?: { prefix?: string; appId?: (ctx: Context) => string | undefined }) => void
 }
 
@@ -289,7 +289,8 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
   // ── 内置路由（可选挂载；appId 提取器缺省 ctx.user?.appId） ──
   mw.routes = (app: Router<any>, opts?: { prefix?: string; appId?: (ctx: Context) => string | undefined }) => {
     const p = opts?.prefix ?? options.prefix ?? '/api/workflows'
-    const getAppId = opts?.appId ?? ((ctx: Context) => (ctx.user as Record<string, unknown> | null | undefined)?.appId as string | undefined)
+    // 缺省：框架 user() 会话透传的 ctx.auth.appId（应用上下文）；无 appId 场景 = 无数据（安全拒绝）
+    const getAppId = opts?.appId ?? ((ctx: Context) => (ctx.auth as Record<string, unknown> | undefined)?.appId as string | undefined)
     const appIdOr = (ctx: Context): string => {
       const id = getAppId(ctx)
       if (!id) throw new Error('workflow route 需要 appId（应用上下文）')
