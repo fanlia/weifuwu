@@ -1142,22 +1142,12 @@ async function main() {
   app.use(messagerSystem)
 
 
-  // ── 邮件通知（商业化 G5：审批请求通知）——无 SMTP/RESEND 配置时降级 no-op ──
+  // ── 邮件通知（商业化 G5：审批请求通知）——API 发送（不直连 SMTP）——无 key 时降级 no-op ──
   app.use(email({
     from: process.env.EMAIL_FROM ?? 'no-reply@agent-platform.local',
-    adapter: process.env.SMTP_HOST
-      ? 'smtp'
-      : process.env.RESEND_API_KEY
-        ? 'resend'
-        : (async () => ({ ok: true, id: 'noop' })) as any,  // 未配置：no-op 适配器（不阻断）
-    smtp: process.env.SMTP_HOST ? {
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT ?? 587),
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-      secure: process.env.SMTP_SECURE === 'true',
-    } : undefined,
-    resend: process.env.RESEND_API_KEY ? { apiKey: process.env.RESEND_API_KEY } : undefined,
+    ...(process.env.EMAIL_API_KEY || process.env.RESEND_API_KEY
+      ? { apiKey: process.env.EMAIL_API_KEY ?? process.env.RESEND_API_KEY }
+      : { adapter: (async () => ({ ok: true, id: 'noop' })) as any }),  // 未配置：no-op（不阻断）
   }))
   app.ws('/ws', messagerSystem.client.handler())
 

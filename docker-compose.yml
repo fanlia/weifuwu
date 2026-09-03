@@ -25,17 +25,5 @@ services:
       timeout: 3s
       retries: 5
 
-  smtp:
-    image: greenmail/standalone:latest
-    ports:
-      - '3025:3025'
-    environment:
-      GREENMAIL_OPTS: '-Dgreenmail.setup.test.smtp -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.verbose=false'
-    healthcheck:
-      test: ['CMD-SHELL', 'perl -MIO::Socket::INET -e "IO::Socket::INET->new(PeerAddr=>\"localhost:3025\") or exit 1"']
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
 volumes:
   pgdata:

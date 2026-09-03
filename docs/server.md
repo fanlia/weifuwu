@@ -42,7 +42,7 @@ server.listen(3000)
 | `messager()` | `ctx.msg` | 部门内部消息（面向 agent） |
 | `userSystem()` | `ctx.auth`/`ctx.user` | 注册/登录/token/角色/租户 |
 | `rateLimit()` | — | 令牌桶（per-key/per-user） |
-| `email()` | `ctx.email` | resend/smtp 双 adapter |
+| `email()` / `MemoryEmail()` | `ctx.email` | 邮件接口（HTTP API 发送——Resend 兼容端点——不直连 SMTP）；`new MemoryEmail({ onSend })` 内存确定性（测试/离线） |
 | `OpenAi()` / `MemoryAi()` | `ctx.ai` | AI 接口（AIInterface——LLM/embedding/多模态）；正门构造：`new OpenAi({ apiKey })`（OpenAI 兼容）/ `new MemoryAi({ onChat })`（确定性内存——测试/离线） |
 | `ui()` | `ctx.ui` | SSR + JS/CSS 编译（`html/js/css/ssr`） |
 | `graphql()` | `ctx.gql` | GraphQL 层（Schema/Resolver） |

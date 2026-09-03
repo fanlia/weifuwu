@@ -26,9 +26,24 @@ export interface EmailResult {
 }
 
 /**
- * 邮件客户端（ctx.email）：统一 send 接口，适配器抽象底层服务商。
- * 适配器在中间件构造时解析（配置错误尽早暴露）——resend / smtp / 自定义函数。
+ * 邮件接口（ctx.email）：统一 send 接口——适配器抽象底层服务商。
+ * 适配器在中间件构造时解析（配置错误尽早暴露）——API / 自定义函数。
  */
-export interface Mailer {
+export interface EmailInterface {
   send(msg: EmailMessage): Promise<EmailResult>
+}
+
+/** 兼容别名（= EmailInterface——对齐 Ai/AIInterface 命名） */
+export type Mailer = EmailInterface
+
+/** 统一校验层（所有实现共享——API/MemoryEmail 同一语义）：
+ *  to 必填非空（零收件人发送=语义错误）；From/To CRLF 注入拒绝（header 注入） */
+export function validateMessage(msg: EmailMessage): void {
+  const to = Array.isArray(msg.to) ? msg.to : [msg.to]
+  if (!to.length || to.some((t) => !t.trim())) {
+    throw new Error('email: msg.to 必须是非空收件人列表')
+  }
+  if (/[\r\n]/.test(msg.from ?? '') || to.some((t) => /[\r\n]/.test(t))) {
+    throw new Error('email: invalid header value (CR/LF not allowed)')
+  }
 }
