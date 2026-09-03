@@ -31,6 +31,11 @@ export interface MemoryEmailRequest {
 /** 注入响应描述 */
 export type MemoryEmailRespond = { status: number; body?: unknown } | { hang: true }
 
+/** 正名构造（new MemoryEmailServer() / MemoryEmailServer() / createMemoryEmailServer() 等价） */
+export interface MemoryEmailServer {
+  new (options?: MemoryEmailServerOptions): Promise<MemoryEmailServerHandle>
+}
+
 export interface MemoryEmailServerHandle {
   port: number
   /** 完整 base URL（http://127.0.0.1:{port}——给 EMAIL_API_URL 指向） */
@@ -44,7 +49,10 @@ export interface MemoryEmailServerHandle {
   close(): Promise<void>
 }
 
-export async function createMemoryEmailServer(
+/** 工厂（= MemoryEmailServer 正名——createMemoryEmailServer 兼容别名） */
+export const createMemoryEmailServer = MemoryEmailServer
+
+export async function MemoryEmailServer(
   options: MemoryEmailServerOptions = {},
 ): Promise<MemoryEmailServerHandle> {
   const emails: EmailMessage[] = []

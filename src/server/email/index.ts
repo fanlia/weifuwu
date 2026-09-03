@@ -28,7 +28,7 @@ export type { EmailInterface, Mailer, EmailMessage, EmailResult } from './contra
 export { validateMessage } from './contracts.ts'
 export { createEmailApi, type EmailApiClient, type EmailApiOptions } from './api.ts'
 export { MemoryEmail, createMemoryEmail, type MemoryEmailOptions } from './memory-email.ts'
-export { createMemoryEmailServer, type MemoryEmailServerHandle, type MemoryEmailServerOptions } from './memory-email-server.ts'
+export { MemoryEmailServer, createMemoryEmailServer, type MemoryEmailServerHandle, type MemoryEmailServerOptions } from './memory-email-server.ts'
 
 /** 适配器：输入已标准化的邮件消息，输出结果。 */
 export type EmailAdapter = (msg: EmailMessage) => Promise<EmailResult>

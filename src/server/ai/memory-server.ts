@@ -45,6 +45,11 @@ export type MemoryAiRespond =
   | { hang: true }
   | { sse: string[]; hang: true }
 
+/** 正名构造（new MemoryAiServer() / MemoryAiServer() / createMemoryAiServer() 等价——async 返回 Handle） */
+export interface MemoryAiServer {
+  new (options?: MemoryAiServerOptions): Promise<MemoryAiServerHandle>
+}
+
 export interface MemoryAiServerHandle {
   port: number
   /** 完整 base URL（http://127.0.0.1:{port}——给 baseUrl 指向） */
@@ -58,7 +63,10 @@ export interface MemoryAiServerHandle {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' }
 
-export async function createMemoryAiServer(options: MemoryAiServerOptions = {}): Promise<MemoryAiServerHandle> {
+/** 工厂（= MemoryAiServer 正名——createMemoryAiServer 兼容别名） */
+export const createMemoryAiServer = MemoryAiServer
+
+export async function MemoryAiServer(options: MemoryAiServerOptions = {}): Promise<MemoryAiServerHandle> {
   const ai = options.ai ?? createMemoryAi(options)
   const requests: MemoryAiRequest[] = []
 
