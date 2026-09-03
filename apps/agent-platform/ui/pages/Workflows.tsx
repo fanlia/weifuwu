@@ -131,7 +131,7 @@ export const Workflows: Component = (_props, ctx) => {
 
   async function remove(id: string): Promise<void> {
     try {
-      await ctx.api!.del(`/api/workflows/${id}`)
+      await ctx.api!.delete(`/api/workflows/${id}`)
       await load()
     } catch { ctx.toast!('删除失败', 'error') }
   }
