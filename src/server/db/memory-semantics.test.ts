@@ -202,7 +202,7 @@ describe('MemorySql — 快照/约束/投影（真库对齐）', () => {
   })
 })
 
-describe('MemorySql — E2 函数/raw where（DATE_TRUNC·whereRaw 真值）', () => {
+describe('MemorySql — E2 函数/结构化时间窗（DATE_TRUNC·monthStart/nowAgo 算子——W3a 后零 raw 文本面）', () => {
   it('DATE_TRUNC(month, NOW()) 月份窗口——月初边届两个月样本', async () => {
     const { orm: sql, mem } = createMemoryOrm()
     await mem.unsafe('CREATE TABLE w (id int, created_at text)')
@@ -212,31 +212,20 @@ describe('MemorySql — E2 函数/raw where（DATE_TRUNC·whereRaw 真值）', (
     await mem.unsafe('INSERT INTO w (id, created_at) VALUES ($1, $2)', [1, now.toISOString()])
     await mem.unsafe('INSERT INTO w (id, created_at) VALUES ($1, $2)', [2, new Date(monthStart.getTime() - 1).toISOString()]) // 上月末最后一毫秒——窗口外
     await mem.unsafe('INSERT INTO w (id, created_at) VALUES ($1, $2)', [3, new Date(monthStart.getTime() + 1000).toISOString()]) // 月初 1 秒——窗口内
-    const rows = await sql.query.from('w').whereRaw("created_at >= DATE_TRUNC('month', NOW())").run()
+    const rows = await sql.query.from('w').where({ created_at: { gte: ops.monthStart() } }).run()
     assert.deepEqual(rows.map((r) => r.id), [1, 3], '窗口边界：月初首日 0 点整（含）起——上月末排除')
   })
 
-  it('whereRaw 参数化 + 与结构化 where 合并（quota 形状：$1 + 日期窗口）', async () => {
+  it('结构化 where 合并（quota 形状：app_id + id 等值——AND 语义）', async () => {
     const { orm: sql, mem } = createMemoryOrm()
     await mem.unsafe('CREATE TABLE t2 (id text, app_id text, used int)')
     await mem.unsafe('INSERT INTO t2 (id, app_id, used) VALUES ($1, $2, $3)', ['a', 'app1', 100])
     await mem.unsafe('INSERT INTO t2 (id, app_id, used) VALUES ($1, $2, $3)', ['b', 'app2', 200])
     const [row] = await sql.query.from('t2')
       .sum('used', 'total')
-      .where({ app_id: { eq: 'app1' } })
-      .whereRaw('id = $1', ['a'])
+      .where({ app_id: { eq: 'app1' }, id: { eq: 'a' } })
       .run()
-    assert.equal(row.total, 100, 'raw where 参数化 + 结构化合并（AND 语义）')
-  })
-
-  it('坏 raw where 仍抛 ProtocolError（不静默降级）', async () => {
-    const { orm: sql, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE t3 (id int)')
-    await assert.rejects(
-      () => sql.query.from('t3').whereRaw('bad syntax ((').run(),
-      (e: unknown) => e instanceof ProtocolError,
-      '解析失败必须抛（诚实裁剪）',
-    )
+    assert.equal(row.total, 100, '结构化多条件合并（AND 语义）')
   })
 })
 
@@ -399,15 +388,6 @@ describe('W1 未知列校验（两端一致——不再静默）', () => {
       .join('u', { 'u.no_such': { col: 'a.user_id' } }).run(), /未知列 'u.no_such'/)
   })
 
-  it('whereRaw 不误伤（__raw 键豁免）', async () => {
-    const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE t3 (id text)')
-    await orm.query.insert('t3').values({ id: 'a' }).run()
-    const rows = await orm.query.from('t3 t').where({
-      __raw: { __raw: "t.id = 'a'", params: [] },
-    } as never).select('*').run()
-    assert.equal(rows.length, 1)
-  })
 })
 
 describe('W2 memory 事务快照回滚（失败 → 事务外不可见部分写入）', () => {

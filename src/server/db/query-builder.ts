@@ -16,7 +16,7 @@ import {
   type SelectQuery, type InsertQuery, type UpdateQuery, type DeleteQuery,
   type Query, type WhereExpr, type RawSql,
   type SelectBuilder, type InsertBuilder, type UpdateBuilder, type DeleteBuilder, type QueryBuilder,
-  compileQuery, mergeWhere, addWhereCond,
+  compileQuery, mergeWhere,
 } from './query.ts'
 
 type Executor = (q: Query) => Promise<Row[]>
@@ -46,10 +46,6 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
       where(expr: WhereExpr): SelectBuilder {
         // 多次 where 追加 AND（不覆盖——同列对象级合并；不可合并 and 包装——AND 语义不丢）
         ast.where = ast.where ? mergeWhere(ast.where, expr) : expr
-        return b
-      },
-      whereRaw(sqlText: string, params: unknown[] = []): SelectBuilder {
-        addWhereCond((ast.where ??= {}), '__raw', { __raw: sqlText, params } as unknown as RawSql)
         return b
       },
       in(col: string, query: SelectQuery, not = false): SelectBuilder {
@@ -166,10 +162,6 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
         ast.where = ast.where ? mergeWhere(ast.where, expr) : expr
         return b
       },
-      whereRaw(sqlText: string, params: unknown[] = []): UpdateBuilder {
-        addWhereCond((ast.where ??= {}), '__raw', { __raw: sqlText, params } as unknown as RawSql)
-        return b
-      },
       returning(...cols: (string | '*')[]): UpdateBuilder {
         ast.returning = cols.length === 1 && cols[0] === '*' ? '*' : cols
         return b
@@ -190,10 +182,6 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
     const b: DeleteBuilder = {
       where(expr: WhereExpr): DeleteBuilder {
         ast.where = ast.where ? mergeWhere(ast.where, expr) : expr
-        return b
-      },
-      whereRaw(sqlText: string, params: unknown[] = []): DeleteBuilder {
-        addWhereCond((ast.where ??= {}), '__raw', { __raw: sqlText, params } as unknown as RawSql)
         return b
       },
       returning(...cols: (string | '*')[]): DeleteBuilder {

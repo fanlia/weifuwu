@@ -19,7 +19,7 @@
 import { ProtocolError, ValidationError } from './errors.ts'
 import type { Row, QueryResult } from './contracts.ts'
 
-// ── RAW（逃生舱：任意 SQL 片段，真库透传 / 内存裁剪） ─────
+// ── RAW（逃生舱：任意 SQL 片段——merge/select 列/join on 值面；W3a 后 where 值面禁用） ─────
 
 export interface RawSql {
   __raw: string
@@ -64,8 +64,8 @@ export interface ColOps {
 /** 算子键集（jsonb 深度等值判定：无任一算子键的对象 → 按值深度比较） */
 export const COL_OPS_KEYS = ['col', 'eq', 'gt', 'gte', 'lt', 'lte', 'ne', 'in', 'notIn', 'like', 'ilike', 'isNull', 'between'] as const
 
-/** 列条件值（唯一形态）：算子对象 | 表达式片段 | jsonb 值对象（无算子键——深度等值） */
-export type WhereField = ColOps | RawSql | Record<string, unknown>
+/** 列条件值（唯一形态）：算子对象 | jsonb 值对象（无算子键——深度等值）——raw where 已删（W3a） */
+export type WhereField = ColOps | Record<string, unknown>
 
 
 /**
@@ -193,7 +193,6 @@ export interface SelectBuilder<T = Row> {
   select(...cols: (string | RawSql)[]): this
   join(table: string, on: JoinClause['on'], opts?: { alias?: string; type?: 'inner' | 'left' }): this
   where(expr: WhereExpr): this
-  whereRaw(sql: string, params?: unknown[]): this
   /** IN/EXISTS 子查询 */
   in(col: string, query: SelectQuery, not?: boolean): this
   exists(query: SelectQuery, not?: boolean): this
@@ -228,7 +227,6 @@ export interface InsertBuilder<T = Row> {
 export interface UpdateBuilder<T = Row> {
   set(sets: Row): this
   where(expr: WhereExpr): this
-  whereRaw(sql: string, params?: unknown[]): this
   returning(...cols: (string | '*')[]): this
   run(): Promise<QueryResult<T>>
   /** AST 面：返回纯数据 Query（协议层 = AST——可序列化传输/嵌入执行） */
@@ -237,7 +235,6 @@ export interface UpdateBuilder<T = Row> {
 
 export interface DeleteBuilder<T = Row> {
   where(expr: WhereExpr): this
-  whereRaw(sql: string, params?: unknown[]): this
   returning(...cols: (string | '*')[]): this
   run(): Promise<QueryResult<T>>
   /** AST 面：返回纯数据 Query（协议层 = AST——可序列化传输/嵌入执行） */
@@ -278,10 +275,6 @@ function compileWhere(expr: WhereExpr, params: unknown[]): string {
       parts.push(`(${ands.map((o) => compileWhere(o, params)).join(' AND ')})`)
       continue
     }
-    if (isRaw(field)) {
-      parts.push(interpRaw(field, params))
-      continue
-    }
     if (typeof field === 'object' && field !== null) {
       const ops = field as ColOps
       const hasOp = COL_OPS_KEYS.some((k) => (ops as Record<string, unknown>)[k] !== undefined)
@@ -292,7 +285,6 @@ function compileWhere(expr: WhereExpr, params: unknown[]): string {
       }
       const opParts: [string, string][] = []
       const val = (v: unknown): string => {
-        if (isRaw(v)) return interpRaw(v as RawSql, params)
         if (typeof v === 'object' && v !== null && ('__interval' in v || '__monthStart' in v)) {
           if ('__monthStart' in v) return `DATE_TRUNC('month', NOW())`
           const [n, unit] = (v as { __interval: [number, string] }).__interval
@@ -462,10 +454,9 @@ export function compileQuery(q: Query): Compiled {
  * 同列条件对象级合并（AND 语义）。不可合并返回 null（调用方 and 包装）：
  *   ColOps × ColOps → 不相交操作符键 spread（{gt:15}+{lt:35} 并存）
  *   scalar × ColOps → { eq: scalar, ...ops }（eq 登记——编译/执行双端认识）
- *   数组（IN）/ raw / scalar × scalar / 同键冲突 / null 标量 → null
+ *   数组（IN）/ scalar × scalar / 同键冲突 / null 标量 → null
  */
 export function mergeWhereField(prev: WhereField, next: WhereField): WhereField | null {
-  if (isRaw(prev) || isRaw(next)) return null
   if (typeof prev !== 'object' || prev === null || typeof next !== 'object' || next === null) return null
   const a = prev as ColOps
   const b = next as ColOps

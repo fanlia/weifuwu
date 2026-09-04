@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { createMemoryOrm } from '../db/memory-sql.ts'
 import { createQueryBuilder } from '../db/query-builder.ts'
 import { compileQuery, compileSelect, rawSql } from '../db/query.ts'
-import { and, or } from '../db/ops.ts'
+import { and, or, nowAgo } from '../db/ops.ts'
 import { parseSqlToAst } from '../db/sql-parser.ts'
 import { ProtocolError } from '../db/errors.ts'
 import type { SelectQuery } from '../db/query.ts'
@@ -94,17 +94,6 @@ describe('query language — compile (SQL 生成面)', () => {
     assert.equal(up.sql, 'UPDATE users SET name = $1 WHERE id = $2')
     const del = compileQuery({ kind: 'delete', table: 'users', where: { id: { eq: 1 } } })
     assert.equal(del.sql, 'DELETE FROM users WHERE id = $1')
-  })
-
-  it('raw 逃生编译（参数编号重排）', () => {
-    const q: SelectQuery = {
-      kind: 'select', table: 't',
-      where: { id: { eq: 1 }, createdAt: { __raw: "created_at > NOW() - interval '7 days'", params: [] } },
-    }
-    const { sql, params } = compileSelect(q)
-    assert.match(sql, /id = \$1/)
-    assert.match(sql, /created_at > NOW\(\) - interval '7 days'/)
-    assert.deepEqual(params, [1])
   })
 })
 
@@ -229,18 +218,13 @@ describe('query language — memory 执行面', () => {
     assert.equal(found[0].id, 'c1', '仅共同会话且恰 2 成员')
   })
 
-  it('raw 逃生：E2 升格为解析真值（NOW() - interval 窗口）·坏语法仍抛', async () => {
-    // E2：raw where 文本经 parseWhereToExpr 解析求值（与裸参数 same 语义）——不再裁剪
+  it('结构化时间窗（nowAgo——7 天窗口）坏语法防护不再需要 raw 面', async () => {
+    // W3a：whereRaw 已删——窗口条件全算子（nowAgo——DATE_TRUNC/NOW 表达式算子化）
     await mem.unsafe('INSERT INTO users (email, age, created_at) VALUES ($1, $2, $3)', ['recent', 20, new Date().toISOString()])
     await mem.unsafe('INSERT INTO users (email, age, created_at) VALUES ($1, $2, $3)', ['old', 20, new Date(Date.now() - 10 * 86400 * 1000).toISOString()])
-    const rows = await sql.query.from('users').whereRaw("created_at > NOW() - interval '7 days'").run()
+    const rows = await sql.query.from('users').where({ created_at: { gt: nowAgo(7, 'day') } }).run()
     assert.ok(rows.some((r) => r.email === 'recent'), '7 天窗口内行命中')
     assert.ok(!rows.some((r) => r.email === 'old'), '窗口外行排除')
-    // 坏语法仍 ProtocolError（不静默）
-    await assert.rejects(
-      () => sql.query.from('users').whereRaw('bad syntax ((').run(),
-      ProtocolError,
-    )
   })
 
   it('与标签模板路径语义一致（同表同条件）', async () => {
@@ -320,16 +304,16 @@ describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () 
     assert.equal(rows[0].a, 1)
   })
 
-  it('whereRaw 冲突不再覆盖（双 raw 条件并存——AND）', async () => {
-    // 内存端 raw WHERE 诚实裁剪——用 spy executor 捕获 AST 后断言编译产物
+  it('多次 where 追加不再覆盖（双条件并存——AND 合并）', async () => {
+    // W3a：whereRaw 删除后同语义契约保留——where() 链式 AND 合并（spy 捕获 AST）
     let captured: SelectQuery | null = null
     const qb = createQueryBuilder((q) => {
       captured = q as SelectQuery
       return Promise.resolve([])
     })
     await qb.from('evts')
-      .whereRaw("created_at > '2025-01-01'")
-      .whereRaw('deleted_at IS NULL')
+      .where({ created_at: { gt: '2025-01-01' as never } })
+      .where({ deleted_at: { isNull: true } })
       .run()
     const compiled = compileSelect(captured!)
     assert.match(compiled.sql, /created_at > /)

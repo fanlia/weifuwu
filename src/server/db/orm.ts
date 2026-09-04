@@ -125,7 +125,7 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
     const sh = shape({ table: name, fields: shapeDef })
     const dbCols = cols.map((c) => sh.dbFields[c]?.column ?? c)
     const rowOf = (r: Record<string, unknown>) => (sh as unknown as { fromDb: (x: Record<string, unknown>) => Record<string, unknown> }).fromDb(r)
-    const CHAIN = new Set(['distinct', 'select', 'join', 'where', 'whereRaw', 'in', 'exists', 'groupBy', 'having', 'count', 'sum', 'avg', 'min', 'max', 'orderBy', 'limit', 'offset', 'values', 'rows', 'returning', 'onConflict', 'set'])
+    const CHAIN = new Set(['distinct', 'select', 'join', 'where', 'in', 'exists', 'groupBy', 'having', 'count', 'sum', 'avg', 'min', 'max', 'orderBy', 'limit', 'offset', 'values', 'rows', 'returning', 'onConflict', 'set'])
     // 列名翻译：字段名 → db 列名（'*'/未知列原样——select/returning 显式列收窄）
     const toDbCol = (c: unknown): unknown => {
       if (c === '*') return '*'

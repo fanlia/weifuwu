@@ -241,9 +241,7 @@ export class MemorySql {
       rows = joined
       tableAlias = jAlias
     }
-    // WHERE（raw 键预解析为结构化——E2：whereRaw 文本经 parseWhereToExpr 求值；
-    // 解析失败抛 ProtocolError（诚实不静默——与裸参数面同语义））
-    const whereRawResolved = q.where ? resolveRawWhere(q.where) : undefined
+    // WHERE（结构化表达式直判——whereRaw 已删（W3a）——值面全算子）
     const matchRow = (r: Row): Row => {
       if (!outerCtx) return r
       const merged: Row = {}
@@ -251,7 +249,8 @@ export class MemorySql {
       for (const [k, v] of Object.entries(outerCtx.row)) merged[`${outerCtx.alias}.${k}`] = v
       return merged
     }
-    let filtered = whereRawResolved ? rows.filter((r) => matchWhereExpr(matchRow(r), whereRawResolved, q.alias)) : rows
+    const whereExpr = q.where
+    let filtered = whereExpr ? rows.filter((r) => matchWhereExpr(matchRow(r), whereExpr, q.alias)) : rows
     // 子查询（IN/EXISTS——关联：每外层行执行子 AST，外层列经 outerCtx 引用）
     for (const sub of q.sub ?? []) {
       filtered = filtered.filter((r) => {
@@ -883,21 +882,6 @@ function unqualified(row: Row): Row {
   return out
 }
 
-/** where 预解析：raw 键（whereRaw——{__raw, params}）→ 结构化 WhereExpr（一次性——逐行求值前） */
-function resolveRawWhere(where: WhereExpr): WhereExpr {
-  const out: WhereExpr = {}
-  for (const [k, v] of Object.entries(where)) {
-    if (k === '__raw' && isRaw(v)) {
-      const raw = v as unknown as { __raw: string; params: unknown[] }
-      const parsed = parseWhereToExpr(raw.__raw, raw.params)
-      for (const [pk, pv] of Object.entries(parsed)) out[pk] = pv as never
-    } else {
-      out[k] = v
-    }
-  }
-  return out
-}
-
 function isRaw(v: unknown): v is RawSql {
   return typeof v === 'object' && v !== null && '__raw' in v
 }
@@ -915,14 +899,6 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
     if (col === 'and') {
       const ands = field as WhereExpr[]
       if (!ands.every((o) => matchWhereExpr(row, o, alias))) return false
-      continue
-    }
-    if (isRaw(field)) {
-      // raw WHERE（whereRaw——E2：文本经 parseWhereToExpr 解析为结构化求值——
-      // 解析失败仍抛 ProtocolError（诚实——不静默降级——与裸参数面同语义）
-      const raw = field as unknown as { __raw: string; params: unknown[] }
-      const parsed = parseWhereToExpr(raw.__raw, raw.params)
-      if (!matchWhereExpr(row, parsed, alias)) return false
       continue
     }
     if (typeof field === 'object' && field !== null) {
