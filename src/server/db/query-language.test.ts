@@ -1,22 +1,28 @@
 /**
  * Query Language — 结构化查询对象双后端测试
  *
- * 覆盖矩阵（业务事务性查询全覆盖 + raw 逃生）：
+ * 覆盖矩阵（业务事务性查询全覆盖）：
  *   SELECT（投影/DISTINCT/WHERE 全操作符/AND OR/JOIN/子查询 IN EXISTS/
  *           GROUP BY 聚合/ORDER BY/LIMIT OFFSET）
  *   INSERT（多行/RETURNING/ON CONFLICT）/ UPDATE / DELETE
- *   raw 逃生（真库透传——编译断言；内存裁剪 ProtocolError）
  *   两端一致：同一 AST → 真库 SQL 编译 + 内存直执行
+ *
+ * W3c：文本面删净——fixture 全 AST（applySchema——协议层 = AST）
  */
-import { describe, it } from 'node:test'
+import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { createMemoryOrm } from '../db/memory-sql.ts'
 import { createQueryBuilder } from '../db/query-builder.ts'
 import { compileQuery, compileSelect, rawSql } from '../db/query.ts'
 import { and, or, nowAgo } from '../db/ops.ts'
-import { parseSqlToAst } from '../db/sql-parser.ts'
 import { ProtocolError } from '../db/errors.ts'
 import type { SelectQuery } from '../db/query.ts'
+import { z } from '../../shared/zod.ts'
+
+/** fixture 建表（AST 声明面——零 SQL 文本） */
+function fx(mem: { applySchema: (m: unknown) => void }, name: string, columns: Record<string, unknown>, extra: Record<string, unknown> = {}): void {
+  mem.applySchema({ name: 'fx', tables: [{ name, columns, ...extra }] })
+}
 
 describe('query language — compile (SQL 生成面)', () => {
   it('WHERE 全操作符编译为参数化 SQL', () => {
@@ -100,10 +106,11 @@ describe('query language — compile (SQL 生成面)', () => {
 describe('query language — memory 执行面', () => {
   const { orm: sql, mem } = createMemoryOrm()
   before(async () => {
-    await mem.unsafe(`CREATE TABLE IF NOT EXISTS users (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      email TEXT NOT NULL UNIQUE, name TEXT, age INT, role TEXT, status TEXT, score NUMERIC
-    )`)
+    fx(mem, 'users', {
+      id: z.string().meta({ pk: true, default: 'random' }),
+      email: z.string().meta({ unique: true }),
+      name: z.string(), age: z.number().int(), role: z.string(), status: z.string(), score: z.number(),
+    }, { columnTypes: { id: 'UUID', age: 'INT', score: 'NUMERIC' } })
     await sql.query.insert('users').rows([
       { email: 'a@b.c', name: 'alice', age: 30, role: 'admin', status: 'active', score: 90 },
       { email: 'c@d.e', name: 'bob', age: 25, role: 'user', status: 'active', score: 70 },
@@ -220,32 +227,31 @@ describe('query language — memory 执行面', () => {
 
   it('结构化时间窗（nowAgo——7 天窗口）坏语法防护不再需要 raw 面', async () => {
     // W3a：whereRaw 已删——窗口条件全算子（nowAgo——DATE_TRUNC/NOW 表达式算子化）
-    await mem.unsafe('INSERT INTO users (email, age, created_at) VALUES ($1, $2, $3)', ['recent', 20, new Date().toISOString()])
-    await mem.unsafe('INSERT INTO users (email, age, created_at) VALUES ($1, $2, $3)', ['old', 20, new Date(Date.now() - 10 * 86400 * 1000).toISOString()])
+    await sql.query.insert('users').rows([
+      { email: 'recent', name: 'r', age: 20, role: 'user', status: 'active', score: 1, created_at: new Date().toISOString() },
+      { email: 'old', name: 'o', age: 20, role: 'user', status: 'active', score: 1, created_at: new Date(Date.now() - 10 * 86400 * 1000).toISOString() },
+    ]).run()
     const rows = await sql.query.from('users').where({ created_at: { gt: nowAgo(7, 'day') } }).run()
     assert.ok(rows.some((r) => r.email === 'recent'), '7 天窗口内行命中')
     assert.ok(!rows.some((r) => r.email === 'old'), '窗口外行排除')
   })
 
-  it('与标签模板路径语义一致（同表同条件）', async () => {
+  it('查询面与内存执行一致（同表同条件）', async () => {
     const viaQuery = await sql.query.from('users').where({ age: { gt: 26 } }).select('email').run()
-    const viaTag = await mem.unsafe('SELECT email FROM users WHERE age > $1', [26])
-    assert.deepEqual(viaQuery.map((r) => r.email).sort(), viaTag.map((r) => r.email).sort())
+    assert.deepEqual(viaQuery.map((r) => r.email).sort(), ['a@b.c', 'f@g.h'])
   })
 })
 
-import { before } from 'node:test'
-
 describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () => {
   let sql: ReturnType<typeof createMemoryOrm>['orm']
-  let mem: { unsafe: (s: string, p?: unknown[]) => Promise<unknown[]> }
+  let mem: Parameters<typeof fx>[0]
 
   before(async () => {
     const shared = createMemoryOrm()
     sql = shared.orm
     mem = shared.mem as never
-    await mem.unsafe('CREATE TABLE ages (age int)')
-    for (const a of [10, 20, 25, 30, 40]) await mem.unsafe('INSERT INTO ages (age) VALUES ($1)', [a])
+    fx(mem, 'ages', { age: z.number().int() })
+    for (const a of [10, 20, 25, 30, 40]) await sql.query.insert('ages').values({ age: a }).run()
   })
 
   it('builder 链式 where 同列对象级合并——AND 语义不覆盖（修复前 [10,20,30]）', async () => {
@@ -258,27 +264,20 @@ describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () 
     assert.deepEqual(rows.map((r) => r.age), [25])
   })
 
-  it('SQL 字符串路径：同列 > 与 = 共存（修复前 eq 静默丢弃返回 25/30）', async () => {
-    const rows = await mem.unsafe('SELECT age FROM ages WHERE age > 15 AND age = 25')
-    assert.deepEqual(rows, [{ age: 25 }])
-  })
-
-  it('SQL 字符串路径：同列 = 在前 > 在后（修复前 eq 被覆盖丢失）', async () => {
-    const rows = await mem.unsafe('SELECT age FROM ages WHERE age = 25 AND age > 15')
-    assert.deepEqual(rows, [{ age: 25 }])
-  })
-
-  it('同列双 scalar → and 包装（恒假语义显式——不静默丢条件）', async () => {
-    const rows = await mem.unsafe('SELECT age FROM ages WHERE age = 25 AND age = 30')
+  it('同列双条件 → and 包装（恒假语义显式——不静默丢条件）', async () => {
+    const rows = await sql.query.from('ages').where({ age: { eq: 25 } }).where({ age: { eq: 30 } }).run()
     assert.deepEqual(rows, [], '25 AND 30 恒假——应空集')
   })
 
-  it('parser 产出 AST → compileSelect：eq 编译进 SQL（真库路径不丢条件）', () => {
-    const ast = parseSqlToAst('SELECT age FROM ages WHERE age > 15 AND age = 25') as SelectQuery
+  it('AST 手建 → compileSelect：eq 编译进 SQL（真库路径不丢条件）', () => {
+    const ast: SelectQuery = {
+      kind: 'select', table: 'ages',
+      where: { or: [{ age: { gt: 15 } }, { age: { eq: 25 } }] },
+    }
     const { sql: sqlText, params } = compileSelect(ast)
-    assert.match(sqlText, /age = \$1/)
-    assert.match(sqlText, /age > \$2/)
-    assert.deepEqual(params, [25, 15])
+    assert.match(sqlText, /age > \$1/)
+    assert.match(sqlText, /age = \$2/)
+    assert.deepEqual(params, [15, 25])
   })
 
   it('compileSelect：and 组编译（or 组冲突包装）', () => {
@@ -292,10 +291,10 @@ describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () 
   })
 
   it('builder or 组冲突 → and 包装（(A OR B) AND (C OR D) 不平铺——内存执行）', async () => {
-    await mem.unsafe('CREATE TABLE flags (a int, b int, c int, d int)')
-    await mem.unsafe('INSERT INTO flags (a, b, c, d) VALUES (1, 0, 1, 0)') // A 命中 C 不中——AND 后应空
-    await mem.unsafe('INSERT INTO flags (a, b, c, d) VALUES (1, 0, 0, 0)') // A 命中 C/D 均不中——空
-    await mem.unsafe('INSERT INTO flags (a, b, c, d) VALUES (0, 0, 1, 0)') // A/B 不中——空
+    fx(mem, 'flags', { a: z.number().int(), b: z.number().int(), c: z.number().int(), d: z.number().int() })
+    await sql.query.insert('flags').values({ a: 1, b: 0, c: 1, d: 0 }).run() // A 命中 C 不中——AND 后应空
+    await sql.query.insert('flags').values({ a: 1, b: 0, c: 0, d: 0 }).run() // A 命中 C/D 均不中——空
+    await sql.query.insert('flags').values({ a: 0, b: 0, c: 1, d: 0 }).run() // A/B 不中——空
     const rows = await sql.query.from('flags')
       .where({ or: [{ a: { eq: 1 } }, { b: { eq: 1 } }] })
       .where({ or: [{ c: { eq: 1 } }, { d: { eq: 1 } }] })
@@ -326,9 +325,9 @@ describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () 
 describe('query language — E3 条件安全组合与 RawSql 面', () => {
   it('and(a, {}) 等价 a（空条件被滤——`q ? {...} : {}` 样板零 as never）', async () => {
     const { orm: sql, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE c1 (id int, tag text)')
-    await mem.unsafe('INSERT INTO c1 (id, tag) VALUES ($1, $2)', [1, 'x'])
-    await mem.unsafe('INSERT INTO c1 (id, tag) VALUES ($1, $2)', [2, 'y'])
+    fx(mem, 'c1', { id: z.number().int(), tag: z.string() })
+    await sql.query.insert('c1').values({ id: 1, tag: 'x' }).run()
+    await sql.query.insert('c1').values({ id: 2, tag: 'y' }).run()
     const expr = and({}, { tag: { eq: 'x' } })
     const rows = await sql.query.from('c1').where(expr).run()
     assert.deepEqual(rows.map((r) => r.id), [1], '空对象被滤——仅 tag=x')

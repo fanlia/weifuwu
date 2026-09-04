@@ -11,6 +11,8 @@
  * - LIKE/ILIKE 全锚定（% 前缀/后缀/包含语义区分；_ 单字符）
  * - INSERT affectedRows = 实际插入数（onConflict 跳过行不计）
  * - XGROUP CREATE '$' 起始游标（只投新）
+ *
+ * W3c：文本面删净——fixture 全 AST（applySchema/executeQuery——协议层 = AST）
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -21,6 +23,15 @@ import { compileQuery } from './query.ts'
 import { and } from './ops.ts'
 import { ProtocolError } from './errors.ts'
 import { HttpError } from '../types.ts'
+import { z } from '../../shared/zod.ts'
+
+/** fixture 建表（AST 声明面——零 SQL 文本） */
+function fx(mem: MemorySql, name: string, columns: Record<string, unknown>, extra: { uniques?: string[][]; columnTypes?: Record<string, string> } = {}): void {
+  mem.applySchema({ name: 'fx', tables: [{ name, columns, ...extra }] })
+}
+const ins = (mem: MemorySql, table: string, rows: Record<string, unknown>[]) => mem.executeQuery({ kind: 'insert', table, rows } as never)
+const sel = (mem: MemorySql, table: string, cols: string[] = ['*'], where?: never) => mem.executeQuery({ kind: 'select', table, cols, where } as never)
+const upd = (mem: MemorySql, table: string, sets: Record<string, unknown>, where: never) => mem.executeQuery({ kind: 'update', table, sets, where } as never)
 
 describe('MemoryRedis — set 语义（真库对齐）', () => {
   it('sadd 返回新增数：已存在成员不计（修复前返回 3）', async () => {
@@ -77,33 +88,32 @@ describe('MemoryRedis — set 语义（真库对齐）', () => {
 describe('MemorySql — 快照/约束/投影（真库对齐）', () => {
   it('快照还原复活事务内 DROP 的表（修复前表与数据永久丢失）', async () => {
     const mem = new MemorySql()
-    await mem.unsafe('CREATE TABLE t (id int)')
-    await mem.unsafe('INSERT INTO t (id) VALUES ($1)', [1])
+    fx(mem, 't', { id: z.number().int() })
+    ins(mem, 't', [{ id: 1 }])
     const snap = mem.snapshot()
-    await mem.unsafe('DROP TABLE t')
+    mem.executeQuery({ kind: 'ddl', op: 'dropTable', table: 't' } as never)
     assert.equal(mem.hasTable('t'), false)
     mem.restore(snap)
     // 复活：表存在 + 数据完整
     assert.equal(mem.hasTable('t'), true)
-    assert.deepEqual(await mem.unsafe('SELECT id FROM t'), [{ id: 1 }])
+    assert.deepEqual(sel(mem, 't', ['id']), [{ id: 1 }])
   })
 
   it('快照还原清空事务内新建的表', async () => {
     const mem = new MemorySql()
     const snap = mem.snapshot()
-    await mem.unsafe('CREATE TABLE tmp (id int)')
+    fx(mem, 'tmp', { id: z.number().int() })
     assert.equal(mem.hasTable('tmp'), true)
     mem.restore(snap)
     assert.equal(mem.hasTable('tmp'), false)
   })
 
   it('UPDATE 撞 UNIQUE → 409（修复前静默重复）', async () => {
-    const { orm: sql, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE u (id int, email text UNIQUE)')
-    await mem.unsafe('INSERT INTO u (id, email) VALUES ($1, $2)', [1, 'a@x.c'])
-    await mem.unsafe('INSERT INTO u (id, email) VALUES ($1, $2)', [2, 'b@x.c'])
-    await assert.rejects(
-      () => mem.unsafe('UPDATE u SET email = $1 WHERE id = $2', ['a@x.c', 2]),
+    const { orm, mem } = createMemoryOrm()
+    fx(mem, 'u', { id: z.number().int(), email: z.string().meta({ unique: true }) })
+    ins(mem, 'u', [{ id: 1, email: 'a@x.c' }, { id: 2, email: 'b@x.c' }])
+    assert.throws(
+      () => upd(mem, 'u', { email: 'a@x.c' }, { id: { eq: 2 } }),
       (e: Error) => {
         assert.ok(e instanceof HttpError)
         assert.equal(e.status, 409)
@@ -111,40 +121,38 @@ describe('MemorySql — 快照/约束/投影（真库对齐）', () => {
       },
     )
     // 无冲突更新不受影响
-    await mem.unsafe('UPDATE u SET email = $1 WHERE id = $2', ['c@x.c', 2])
-    assert.deepEqual(await mem.unsafe('SELECT email FROM u WHERE id = 2'), [{ email: 'c@x.c' }])
+    upd(mem, 'u', { email: 'c@x.c' }, { id: { eq: 2 } })
+    assert.deepEqual(sel(mem, 'u', ['email'], { id: { eq: 2 } } as never), [{ email: 'c@x.c' }])
   })
 
   it('UPDATE 唯一约束按更新后状态校验（自身同值更新不误报）', async () => {
-    const { orm: sql, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE u (id int, slot text UNIQUE)')
-    await mem.unsafe("INSERT INTO u (id, slot) VALUES (1, 'a')")
-    await mem.unsafe("INSERT INTO u (id, slot) VALUES (2, 'b')")
+    const { orm, mem } = createMemoryOrm()
+    fx(mem, 'u', { id: z.number().int(), slot: z.string().meta({ unique: true }) })
+    ins(mem, 'u', [{ id: 1, slot: 'a' }, { id: 2, slot: 'b' }])
     // 自身同值更新：排除自身行——不误报冲突
-    await mem.unsafe("UPDATE u SET slot = 'a' WHERE id = 1")
-    assert.deepEqual(await mem.unsafe('SELECT slot FROM u WHERE id = 1'), [{ slot: 'a' }])
+    upd(mem, 'u', { slot: 'a' }, { id: { eq: 1 } })
+    assert.deepEqual(sel(mem, 'u', ['slot'], { id: { eq: 1 } } as never), [{ slot: 'a' }])
     // 更新到他人值：冲突
-    await assert.rejects(() => mem.unsafe("UPDATE u SET slot = 'b' WHERE id = 1"), /duplicate/)
+    assert.throws(() => upd(mem, 'u', { slot: 'b' }, { id: { eq: 1 } }), /duplicate/)
   })
 
   it('LIKE 全锚定：前缀/后缀/单字符语义（修复前退化为 includes）', async () => {
-    const { orm: sql, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE p (name text)')
-    await mem.unsafe('INSERT INTO p (name) VALUES ($1)', ['xbx'])
-    await mem.unsafe('INSERT INTO p (name) VALUES ($1)', ['bx'])
-    assert.deepEqual(await mem.unsafe('SELECT name FROM p WHERE name LIKE $1', ['b%']), [{ name: 'bx' }]) // 前缀
-    assert.deepEqual(await mem.unsafe('SELECT name FROM p WHERE name LIKE $1', ['x%']), [{ name: 'xbx' }])
-    assert.deepEqual(await mem.unsafe('SELECT name FROM p WHERE name LIKE $1', ['%b%']), [{ name: 'xbx' }, { name: 'bx' }])
-    assert.deepEqual(await mem.unsafe('SELECT name FROM p WHERE name LIKE $1', ['_bx']), [{ name: 'xbx' }]) // 单字符
-    assert.deepEqual(await mem.unsafe('SELECT name FROM p WHERE name LIKE $1', ['x']), []) // 全等才匹配
+    const { orm, mem } = createMemoryOrm()
+    fx(mem, 'p', { name: z.string() })
+    ins(mem, 'p', [{ name: 'xbx' }, { name: 'bx' }])
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'b%' } } as never), [{ name: 'bx' }]) // 前缀
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'x%' } } as never), [{ name: 'xbx' }])
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: '%b%' } } as never), [{ name: 'xbx' }, { name: 'bx' }])
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: '_bx' } } as never), [{ name: 'xbx' }]) // 单字符
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'x' } } as never), []) // 全等才匹配
   })
 
   it('ILIKE 大小写不敏感', async () => {
-    const { orm: sql, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE p (name text)')
-    await mem.unsafe('INSERT INTO p (name) VALUES ($1)', ['Hello'])
-    assert.deepEqual(await mem.unsafe('SELECT name FROM p WHERE name ILIKE $1', ['he%']), [{ name: 'Hello' }])
-    assert.deepEqual(await mem.unsafe('SELECT name FROM p WHERE name LIKE $1', ['he%']), [])
+    const { orm, mem } = createMemoryOrm()
+    fx(mem, 'p', { name: z.string() })
+    ins(mem, 'p', [{ name: 'Hello' }])
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { ilike: 'he%' } } as never), [{ name: 'Hello' }])
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'he%' } } as never), [])
   })
 
   it('INSERT affectedRows = 实际插入数（onConflict 跳过行不计）', () => {
@@ -205,22 +213,23 @@ describe('MemorySql — 快照/约束/投影（真库对齐）', () => {
 describe('MemorySql — E2 函数/结构化时间窗（DATE_TRUNC·monthStart/nowAgo 算子——W3a 后零 raw 文本面）', () => {
   it('DATE_TRUNC(month, NOW()) 月份窗口——月初边届两个月样本', async () => {
     const { orm: sql, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE w (id int, created_at text)')
+    fx(mem, 'w', { id: z.number().int(), created_at: z.string() })
     const now = new Date()
     // 月初首日 00:00:00。000 毫秒（UTC）
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-    await mem.unsafe('INSERT INTO w (id, created_at) VALUES ($1, $2)', [1, now.toISOString()])
-    await mem.unsafe('INSERT INTO w (id, created_at) VALUES ($1, $2)', [2, new Date(monthStart.getTime() - 1).toISOString()]) // 上月末最后一毫秒——窗口外
-    await mem.unsafe('INSERT INTO w (id, created_at) VALUES ($1, $2)', [3, new Date(monthStart.getTime() + 1000).toISOString()]) // 月初 1 秒——窗口内
+    ins(mem, 'w', [
+      { id: 1, created_at: now.toISOString() },
+      { id: 2, created_at: new Date(monthStart.getTime() - 1).toISOString() }, // 上月末最后一毫秒——窗口外
+      { id: 3, created_at: new Date(monthStart.getTime() + 1000).toISOString() }, // 月初 1 秒——窗口内
+    ])
     const rows = await sql.query.from('w').where({ created_at: { gte: ops.monthStart() } }).run()
     assert.deepEqual(rows.map((r) => r.id), [1, 3], '窗口边界：月初首日 0 点整（含）起——上月末排除')
   })
 
   it('结构化 where 合并（quota 形状：app_id + id 等值——AND 语义）', async () => {
     const { orm: sql, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE t2 (id text, app_id text, used int)')
-    await mem.unsafe('INSERT INTO t2 (id, app_id, used) VALUES ($1, $2, $3)', ['a', 'app1', 100])
-    await mem.unsafe('INSERT INTO t2 (id, app_id, used) VALUES ($1, $2, $3)', ['b', 'app2', 200])
+    fx(mem, 't2', { id: z.string(), app_id: z.string(), used: z.number().int() })
+    ins(mem, 't2', [{ id: 'a', app_id: 'app1', used: 100 }, { id: 'b', app_id: 'app2', used: 200 }])
     const [row] = await sql.query.from('t2')
       .sum('used', 'total')
       .where({ app_id: { eq: 'app1' }, id: { eq: 'a' } })
@@ -259,7 +268,7 @@ describe('MemoryRedis — stream 消费组（真库对齐）', () => {
 describe('算子收口（E 系列）— merge 表达式 + vectorScore', () => {
   it('mergeAppend/mergeInc/mergeNow：upsert 冲突行表达式更新（真库 compile 语义对齐）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE rs (message_id text UNIQUE, steps jsonb, hits int, status text, updated_at timestamptz)')
+    fx(mem, 'rs', { message_id: z.string().meta({ unique: true }), steps: z.json(), hits: z.number().int(), status: z.string(), updated_at: z.string() }, { columnTypes: { steps: 'JSONB', updated_at: 'TIMESTAMPTZ' } })
     // 首次插入
     await orm.query.insert('rs').values({ message_id: 'm1', steps: [{ tool: 'a' }], hits: 0, status: 'running' }).run()
     // 冲突 upsert：steps 追加 / hits 自增 / status 覆盖 / updated_at now
@@ -279,7 +288,7 @@ describe('算子收口（E 系列）— merge 表达式 + vectorScore', () => {
 
   it('mergeInc/mergeNow：UPDATE 表达式（hits = hits+1 语义）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE ac (app_id text, question text, hits int)')
+    fx(mem, 'ac', { app_id: z.string(), question: z.string(), hits: z.number().int(), updated_at: z.string() }, { columnTypes: { updated_at: 'TIMESTAMPTZ' } })
     await orm.query.insert('ac').values({ app_id: 'a1', question: 'q1', hits: 3 }).run()
     await orm.query.update('ac').set({ hits: ops.mergeInc(1), updated_at: ops.mergeNow() })
       .where({ app_id: { eq: 'a1' }, question: { eq: 'q1' } }).run()
@@ -290,7 +299,7 @@ describe('算子收口（E 系列）— merge 表达式 + vectorScore', () => {
 
   it('vectorScore：相似度投影 + 余弦降序（pgvector <=> 等价面）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE kb (id text, agent_id text, content text, embedding jsonb)')
+    fx(mem, 'kb', { id: z.string(), agent_id: z.string(), content: z.string(), embedding: z.json() }, { columnTypes: { embedding: 'JSONB' } })
     await orm.query.insert('kb').values({ id: 'x', agent_id: 'a1', content: 'near', embedding: [1, 0] })
       .values({ id: 'y', agent_id: 'a1', content: 'far', embedding: [0, 1] })
       .values({ id: 'z', agent_id: 'a2', content: 'other', embedding: [1, 0] }).run()
@@ -310,7 +319,7 @@ describe('算子收口（E 系列）— merge 表达式 + vectorScore', () => {
 describe('raw 取消（2027-xx）— 细算子 now/nowInterval/colRef 的 memory 语义', () => {
   it('ops.now()：SET 时间戳（compile → NOW()；memory → ISO）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE t (id text, updated_at timestamptz)')
+    fx(mem, 't', { id: z.string(), updated_at: z.string() }, { columnTypes: { updated_at: 'TIMESTAMPTZ' } })
     await orm.query.insert('t').values({ id: 'a', updated_at: ops.now() }).run()
     const [r] = await orm.query.from('t').run()
     assert.ok(String((r as any).updated_at).length > 0)
@@ -321,7 +330,7 @@ describe('raw 取消（2027-xx）— 细算子 now/nowInterval/colRef 的 memory
 
   it('ops.nowInterval/nowAgo：NOW() ± INTERVAL（SET 与 WHERE 两用）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE a (id text, app_id text, trial_ends_at timestamptz, created_at timestamptz)')
+    fx(mem, 'a', { id: z.string(), app_id: z.string(), trial_ends_at: z.string(), created_at: z.string() }, { columnTypes: { trial_ends_at: 'TIMESTAMPTZ', created_at: 'TIMESTAMPTZ' } })
     await orm.query.insert('a').values({ id: 'a1', app_id: 'app1', trial_ends_at: ops.nowInterval(14, 'day'), created_at: ops.nowAgo(7, 'day') }).run()
     const now = Date.now()
     const [r] = await orm.query.from('a').run()
@@ -334,7 +343,7 @@ describe('raw 取消（2027-xx）— 细算子 now/nowInterval/colRef 的 memory
 
   it('ops.colRef()：SET col = other_col（messages.content = ai_draft 语义）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE m (id text, content text, ai_draft text)')
+    fx(mem, 'm', { id: z.string(), content: z.string(), ai_draft: z.string() })
     await orm.query.insert('m').values({ id: 'x', content: 'old', ai_draft: 'draft-v2' }).run()
     await orm.query.update('m').set({ content: ops.colRef('ai_draft') }).where({ id: { eq: 'x' } }).run()
     const [r] = await orm.query.from('m').run()
@@ -349,7 +358,7 @@ describe('raw 取消（2027-xx）— 细算子 now/nowInterval/colRef 的 memory
 describe('W1 未知列校验（两端一致——不再静默）', () => {
   it('memory：未知列 where → ProtocolError 带合法列清单', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE t1 (id text, name text)')
+    fx(mem, 't1', { id: z.string(), name: z.string() })
     await orm.query.insert('t1').values({ id: 'a', name: 'x' }).run()
     await assert.rejects(
       () => orm.query.from('t1').where({ no_such: { eq: 1 } }).run(),
@@ -365,7 +374,7 @@ describe('W1 未知列校验（两端一致——不再静默）', () => {
 
   it('memory：未知列 select/orderBy/groupBy → 报错', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE t2 (id text, name text)')
+    fx(mem, 't2', { id: z.string(), name: z.string() })
     await orm.query.insert('t2').values({ id: 'a', name: 'x' }).run()
     await assert.rejects(() => orm.query.from('t2').select('no_such').run(), /未知列 'no_such'/)
     await assert.rejects(() => orm.query.from('t2').orderBy('no_such').run(), /未知列 'no_such'/)
@@ -374,8 +383,8 @@ describe('W1 未知列校验（两端一致——不再静默）', () => {
 
   it('join 列集双侧合法（on 键 + col 值、join 表投影）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE a (id text, user_id text)')
-    await mem.unsafe('CREATE TABLE u (id text, name text)')
+    fx(mem, 'a', { id: z.string(), user_id: z.string() })
+    fx(mem, 'u', { id: z.string(), name: z.string() })
     await orm.query.insert('a').values({ id: 'a1', user_id: 'u1' }).run()
     await orm.query.insert('u').values({ id: 'u1', name: '张' }).run()
     const rows = await orm.query.from('a')
@@ -393,7 +402,7 @@ describe('W1 未知列校验（两端一致——不再静默）', () => {
 describe('W2 memory 事务快照回滚（失败 → 事务外不可见部分写入）', () => {
   it('事务内失败 → 全部回滚（insert/update 都不留）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE tx (id text, val text)')
+    fx(mem, 'tx', { id: z.string(), val: z.string() })
     await orm.query.insert('tx').values({ id: 'pre', val: '1' }).run()
     await assert.rejects(
       () => orm.transaction(async (tx) => {
@@ -410,7 +419,7 @@ describe('W2 memory 事务快照回滚（失败 → 事务外不可见部分写�
 
   it('事务内成功 → 提交可见（快照不误伤）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe('CREATE TABLE tx2 (id text)')
+    fx(mem, 'tx2', { id: z.string() })
     await orm.transaction(async (tx) => {
       await tx.query.insert('tx2').values({ id: 'ok' }).run()
     })
@@ -420,7 +429,7 @@ describe('W2 memory 事务快照回滚（失败 → 事务外不可见部分写�
 
   it('DB 生成列（defaultVals）快照恢复对齐（快照条目含默认值内存）', async () => {
     const { orm, mem } = createMemoryOrm()
-    await mem.unsafe("CREATE TABLE tx3 (id text DEFAULT 'd', val text)")
+    fx(mem, 'tx3', { id: z.string().meta({ default: 'd' }), val: z.string() })
     await assert.rejects(
       () => orm.transaction(async (tx) => {
         await tx.query.insert('tx3').values({ val: 'v' }).run()

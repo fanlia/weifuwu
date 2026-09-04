@@ -7,9 +7,9 @@
  * import { ok, created, badRequest, notFound, redirect } from 'weifuwu'
  *
  * app.get('/users/:id', async (req, ctx) => {
- *   const [user] = await ctx.sql`SELECT * FROM users WHERE id = ${ctx.params.id}`
- *   if (!user) return notFound('用户不存在')
- *   return ok(user)
+ *   const user = await ctx.orm.query.from('users').where({ id: { eq: ctx.params.id } }).run()
+ *   if (!user.length) return notFound('用户不存在')
+ *   return ok(user[0])
  * })
  * ```
  */

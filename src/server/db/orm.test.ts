@@ -26,7 +26,15 @@ import { makeExecutableSchema } from '../make-executable-schema.ts'
 const mem = new MemorySql()
 const orm = createOrm(memoryAdapter(mem))
 
-await mem.unsafe('CREATE TABLE agents (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT, type TEXT, created_at TEXT)')
+/** fixture 建表（AST 声明面——零 SQL 文本——协议层 = AST） */
+function fx(name: string, columns: Record<string, unknown>, extra: Record<string, unknown> = {}): void {
+  mem.applySchema({ name: 'fx', tables: [{ name, columns, ...extra }] })
+}
+
+fx('agents', {
+  id: z.string().meta({ pk: true, default: 'random' }),
+  app_id: z.string(), name: z.string(), type: z.string(), created_at: z.string(),
+}, { columnTypes: { id: 'UUID', app_id: 'UUID' } })
 
 const Agent = orm.table('agents', {
   id: f.pk(z.uuid()).meta({ pk: true, default: 'random' }),
@@ -68,7 +76,7 @@ test('orm：update 部分更新 + delete（必须 where）', async () => {
 // ── memory adapter（AST 直执行——W3b：wire 面消亡后统一内存执行）────────────
 
 test('orm：D1 onConflict（insert().onConflict——DO UPDATE 内存面/编译面同语义）', async () => {
-  await mem.unsafe('CREATE TABLE up (id TEXT UNIQUE, val TEXT)')
+  fx('up', { id: z.string().meta({ unique: true }), val: z.string() })
   const Up = orm.table('up', { id: z.string(), val: z.string() })
   await Up.insert({ id: 'k', val: 'old' }).run()
   const [r] = await Up.insert({ id: 'k', val: 'new' }).onConflict('id', true).returning('*').run()
@@ -78,7 +86,7 @@ test('orm：D1 onConflict（insert().onConflict——DO UPDATE 内存面/编译�
 
 test('orm：D1 复合冲突目标（onConflict([a,b])——compile 面申明·内存/编译同语义）', async () => {
   // 建表走 AST 声明面（compileSchemaDdl→executeDdl：uniques 组提取唯一正门）——
-  // unsafe 文本面的 parser 对表级 UNIQUE (a,b) 是跳读丢弃（面本身 W3 删除）
+  // 表级 UNIQUE (a,b) 组合约束——编译声明式 DDL 面（W3 文本面已消亡——组合约束只此一路）
   const [ddl] = compileSchemaDdl({
     name: 'dm',
     tables: [{ name: 'dm', columns: { dept: z.string(), agent: z.string(), role: z.string() }, uniques: [['dept', 'agent']] }],
@@ -92,7 +100,7 @@ test('orm：D1 复合冲突目标（onConflict([a,b])——compile 面申明·�
 })
 
 test('orm：C3 exists + paginate 多列排序', async () => {
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS ormc3 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), grp TEXT, ord INT)')
+  fx('ormc3', { id: z.string().meta({ pk: true, default: 'random' }), grp: z.string(), ord: z.number().int() }, { columnTypes: { id: 'UUID', ord: 'INT' } })
   const TC3 = orm.table('ormc3', { id: f.pk(z.uuid()), grp: z.string(), ord: f.col(z.number(), 'ord') } as never)
   await TC3.insert([
     { grp: 'a', ord: 1 }, { grp: 'a', ord: 2 }, { grp: 'b', ord: 3 },
@@ -106,7 +114,7 @@ test('orm：C3 exists + paginate 多列排序', async () => {
 })
 
 test('orm：C2 registry（tx.table 免 shapeDef·未注册报错）', async () => {
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS ormc2 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT)')
+  fx('ormc2', { id: z.string().meta({ pk: true, default: 'random' }), name: z.string() }, { columnTypes: { id: 'UUID' } })
   const TC2 = orm.table('ormc2', { id: f.pk(z.uuid()), name: z.string() } as never)
   // 事务内免 shapeDef（共享 registry——校验/归一与工厂级一致）
   await orm.transaction(async (tx) => {
@@ -129,7 +137,7 @@ test('orm：C2 registry（tx.table 免 shapeDef·未注册报错）', async () =
 })
 
 test('orm：C1 returning 面（显式列翻译·update/delete 默认行）', async () => {
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS ormc1 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, email TEXT)')
+  fx('ormc1', { id: z.string().meta({ pk: true, default: 'random' }), app_id: z.string(), email: z.string() }, { columnTypes: { id: 'UUID', app_id: 'UUID' } })
   const TC = orm.table('ormc1', {
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
@@ -159,7 +167,7 @@ test('orm：C1 returning 面（显式列翻译·update/delete 默认行）', asy
 })
 
 test('orm：paginate（count+list 双查·filter/sort/limit/offset）', async () => {
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS agents6 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT)')
+  fx('agents6', { id: z.string().meta({ pk: true, default: 'random' }), app_id: z.string(), name: z.string() }, { columnTypes: { id: 'UUID', app_id: 'UUID' } })
   const T6 = orm.table('agents6', {
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
@@ -179,7 +187,7 @@ test('orm：paginate（count+list 双查·filter/sort/limit/offset）', async ()
 })
 
 test('orm：transaction（memory no-op 标注——fn 同连接执行·提交可见）', async () => {
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS agents8 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT)')
+  fx('agents8', { id: z.string().meta({ pk: true, default: 'random' }), app_id: z.string(), name: z.string() }, { columnTypes: { id: 'UUID', app_id: 'UUID' } })
   const T8 = orm.table('agents8', {
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
@@ -202,7 +210,7 @@ test('orm：transaction（memory no-op 标注——fn 同连接执行·提交可
 })
 
 test('orm：withCtx 租户 scope（自动 where/注入·跨租户隔离）', async () => {
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS agents7 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT)')
+  fx('agents7', { id: z.string().meta({ pk: true, default: 'random' }), app_id: z.string(), name: z.string() }, { columnTypes: { id: 'UUID', app_id: 'UUID' } })
   const T7 = orm.table('agents7', {
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
@@ -224,7 +232,7 @@ test('orm：withCtx 租户 scope（自动 where/注入·跨租户隔离）', asy
 })
 
 test('orm：安全面（update/delete 无 where 拒绝）', async () => {
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS agents5 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT)')
+  fx('agents5', { id: z.string().meta({ pk: true, default: 'random' }), app_id: z.string(), name: z.string() }, { columnTypes: { id: 'UUID', app_id: 'UUID' } })
   const T5 = orm.table('agents5', {
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
@@ -238,7 +246,7 @@ test('orm：安全面（update/delete 无 where 拒绝）', async () => {
 })
 
 test('orm：行归一（列名→字段名——appId 键断言·类型化返回）', async () => {
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS agents4 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT, type TEXT)')
+  fx('agents4', { id: z.string().meta({ pk: true, default: 'random' }), app_id: z.string(), name: z.string(), type: z.string() }, { columnTypes: { id: 'UUID', app_id: 'UUID' } })
   const T4 = orm.table('agents4', {
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
@@ -263,7 +271,7 @@ test('orm：行归一（列名→字段名——appId 键断言·类型化返回
 })
 
 test('orm：批量 insert（数组——校验/列名逐行）', async () => {
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS agents3 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT, type TEXT)')
+  fx('agents3', { id: z.string().meta({ pk: true, default: 'random' }), app_id: z.string(), name: z.string(), type: z.string() }, { columnTypes: { id: 'UUID', app_id: 'UUID' } })
   const T3 = orm.table('agents3', {
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
@@ -295,7 +303,7 @@ test('orm：real shape（列名映射·toDb·变体面）', async () => {
   assert.equal(Agent.c.appId.ref, 'app_id')
   assert.equal(Agent.c.createdAt.ref, 'created_at')
   // insert 自动列名翻译（shape 字段名 → db 列名）
-  await mem.unsafe('CREATE TABLE IF NOT EXISTS agents2 (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT, type TEXT, created_at TEXT)')
+  fx('agents2', { id: z.string().meta({ pk: true, default: 'random' }), app_id: z.string(), name: z.string(), type: z.string(), created_at: z.string() }, { columnTypes: { id: 'UUID', app_id: 'UUID' } })
   const T2 = orm.table('agents2', {
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
@@ -334,8 +342,8 @@ test('orm：E1 compile SQL 含 FILTER (WHERE ...)（参数顺序=出现顺序）
 // ── E1 聚合面（FILTER 计数 + min/max/avg 投影——compile/memory 同语义）──────
 
 async function seedOrme1(ormX: ReturnType<typeof createOrm>, table: string) {
-  await mem.unsafe(`CREATE TABLE IF NOT EXISTS ${table} (id TEXT PRIMARY KEY, grp TEXT, score INT, active BOOLEAN)`)
-  await mem.unsafe(`DELETE FROM ${table}`)
+  mem.executeQuery({ kind: 'ddl', op: 'dropTable', table } as never)
+  fx(table, { id: z.string().meta({ pk: true }), grp: z.string(), score: z.number().int(), active: z.boolean() }, { columnTypes: { score: 'INT' } })
   const T = ormX.table(table, { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() } as never)
   await T.insert([
     { id: 'a1', grp: 'x', score: 30, active: true },
@@ -382,7 +390,7 @@ test('orm：E1 compile SQL 含 FILTER (WHERE ...)（参数顺序=出现顺序）
 
 test('orm：E1 聚合根（max/count FILTER——内存面；wire 面随 W3b 消亡）', async () => {
   const T = orm.table('orme1m', { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() } as never)
-  await mem.unsafe('INSERT INTO orme1m (id, grp, score, active) VALUES ($1, $2, $3, $4)', ['a4', 'x', 60, true])
+  mem.executeQuery({ kind: 'insert', table: 'orme1m', rows: [{ id: 'a4', grp: 'x', score: 60, active: true }] } as never)
   const [r] = await T.select().max('score', 'top').count('*', 'n', { active: { eq: true } }).count('*', 'grp', { grp: { eq: 'x' } }).run()
   assert.equal(r.top, 60, 'max')
   assert.equal(r.n, 3, 'FILTER count（a1/a3/a4 active）')

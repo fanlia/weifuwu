@@ -5,7 +5,7 @@
  * makeExecutableSchema/Router 路由）——"接口与实现分离"的活体教材：
  * 演示用内存实现（零 docker），文档诚实标注"真实部署换 postgres()/redis() 一行代码"。
  */
-import { createMemorySql, MemoryRedis, queue, rateLimit } from '../../../src/server/index.ts'
+import { createMemoryOrm, MemoryRedis, queue, rateLimit } from '../../../src/server/index.ts'
 import type { Router, Context } from '../../../src/server/index.ts'
 
 const json = (data: unknown, status = 200): Response =>
@@ -16,10 +16,9 @@ const json = (data: unknown, status = 200): Response =>
 
 export function installDemoBackend(app: Router, ctx: Context): void {
   // ── 内存引擎（演示——契约层：真实部署换 postgres()/redis()） ──
-  const sql = createMemorySql()
+  const { orm: sqlOrm, mem } = createMemoryOrm()
   const redis = new MemoryRedis()
   const q = queue({ redis })
-  ctx.sql = sql
   ctx.redis = redis as any
   ctx.queue = q.queue
 
@@ -27,15 +26,19 @@ export function installDemoBackend(app: Router, ctx: Context): void {
   app.get('/api/demo/router', (req: Request, c: any): Response =>
     json({ path: req.url?.split('?')[0], method: req.method, params: c.params, note: 'Trie 路由 + :id 参数注入' }))
 
-  // 2. sql — MemorySql 查询（解析 SQL → Query AST → 内存直执行）
+  // 2. sql — MemorySql 查询（AST → 内存直执行——协议层 = AST；生产换 postgres() orm）
   app.get('/api/demo/sql', async (req: Request): Promise<Response> => {
-    await sql.unsafe('CREATE TABLE IF NOT EXISTS demo_items (id serial PRIMARY KEY, name text, done boolean)')
-    const rows = await sql`SELECT * FROM demo_items ORDER BY id LIMIT 5`
-    return json({ engine: 'MemorySql（演示）——生产换 postgres()', sql: 'SELECT * FROM demo_items', rows })
+    mem.executeQuery({ kind: 'ddl', op: 'createTable', table: 'demo_items', ifNotExists: true, columns: [
+      { name: 'id', type: 'SERIAL', pk: true, unique: false, defaultNow: false, defaultUuid: false },
+      { name: 'name', type: 'TEXT', pk: false, unique: false, defaultNow: false, defaultUuid: false },
+      { name: 'done', type: 'BOOLEAN', pk: false, unique: false, defaultNow: false, defaultUuid: false },
+    ] } as never)
+    const rows = await sqlOrm.query.from('demo_items').orderBy('id').limit(5).run()
+    return json({ engine: 'MemorySql（演示）——生产换 postgres()', rows })
   })
   app.post('/api/demo/sql', async (req: Request): Promise<Response> => {
     const { name } = await req.json()
-    const rows = await sql`INSERT INTO demo_items (name, done) VALUES (${String(name ?? '任务')}, false) RETURNING id`
+    const rows = await sqlOrm.query.insert('demo_items').rows([{ name: String(name ?? '任务'), done: false }]).returning('id').run()
     return json({ inserted: rows[0]?.id }, 201)
   })
 

@@ -5,18 +5,20 @@
  * - 算子 → WhereExpr 形态（eq/gt/ilike/and/or/not/inArray/between/isNull——快照）
  * - builder 集成（where(ops)——MemorySql 执行——复用已验证引擎）
  * - 类型收窄（tsd 式：ilike 仅 string 列·eq 值类型绑定·and/or 组合）
- * - fuzz 对账：DSL（ops→WhereExpr）vs 字符串轨（SQL→parser→WhereExpr）——
- *   同一 MemSql 引擎·同数据集·终态行集等价（≥200 对）
+ * - escapeLike round-trip（%/_ 字面量）
+ *
+ * 判负（W3c）：fuzz「DSL vs SQL 字符串轨」对账——字符串轨（parser）消亡——
+ * 第二轨不存在即无从对账——语义由 builder 集成 + escapeLike + 引擎契约承接（删除）
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createMemoryOrm } from './memory-sql.ts'
-import { parseSqlToAst } from './sql-parser.ts'
 import {
   eq, ne, gt, gte, lt, lte, inArray, notInArray, between,
   like, ilike, contains, startsWith, endsWith, isNull, isNotNull,
   and, or, not,
 } from './ops.ts'
+import { z } from '../../shared/zod.ts'
 
 /** 列引用（类型面 phantom——运行时 ref） */
 const C = {
@@ -74,8 +76,10 @@ test('ops：类型收窄（编译期——tsd 风格）', () => {
 
 test('ops：builder 集成（where(ops)——MemorySql 执行）', async () => {
   const { orm: sql, mem } = createMemoryOrm()
-  await mem.unsafe(`CREATE TABLE t (num INT, txt TEXT, st TEXT)`)
-  await mem.unsafe(`INSERT INTO t (num, txt, st) VALUES (1, '张三', 'a'), (2, '李四', 'b'), (3, '王五', 'a')`)
+  mem.applySchema({ name: 'fx', tables: [{ name: 't', columns: { num: z.number().int(), txt: z.string(), st: z.string() }, columnTypes: { num: 'INT' } }] })
+  await sql.query.insert('t').rows([
+    { num: 1, txt: '张三', st: 'a' }, { num: 2, txt: '李四', st: 'b' }, { num: 3, txt: '王五', st: 'a' },
+  ]).run()
   const r1 = await sql.query.from('t').select('*').where(and(eq(C.st, 'a'), gt(C.num, 1)) as any).run()
   assert.deepEqual(r1.map((r: any) => r.num), [3])
   const r2 = await sql.query.from('t').select('*').where(contains(C.txt, '张') as any).run()
@@ -88,88 +92,14 @@ test('ops：builder 集成（where(ops)——MemorySql 执行）', async () => {
   assert.deepEqual(r5.map((r: any) => r.num), [1, 2])
 })
 
-// ── fuzz 对账（DSL vs 字符串轨——终态等价）────────────────
-
-function mulberry32(seed: number): () => number {
-  let a = seed
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-test('ops：fuzz 对账（DSL vs SQL 字符串轨——200 对·≥5 种子）', async () => {
-  for (const seed of [11, 42, 777, 2024, 31415]) {
-    const rnd = mulberry32(seed)
-    const { orm: sql, mem } = createMemoryOrm()
-    await mem.unsafe(`CREATE TABLE t (num INT, txt TEXT, st TEXT)`)
-    // 随机数据集（50 行）
-    const names = ['张', '张三', '李四', '王小明', 'a%b', 'x_y', 'admin', '100%', 'A_B', '李']
-    for (let i = 0; i < 50; i++) {
-      const num = Math.floor(rnd() * 20)
-      const txt = names[Math.floor(rnd() * names.length)]
-      const st = rnd() < 0.3 ? 'a' : rnd() < 0.5 ? 'b' : ['x', null][Math.floor(rnd() * 2)] as string | null
-      await mem.unsafe(`INSERT INTO t (num, txt, st) VALUES ($1, $2, $3)`, [num, txt, st ?? null])
-    }
-    // 生成断言样本（随机 col×op×val——200 对/种子）
-    for (let i = 0; i < 200; i++) {
-      const op = Math.floor(rnd() * 12)
-      const val = Math.floor(rnd() * 20)
-      let dsl: unknown
-      let sqlStr: string
-      if (op === 0) { dsl = eq(C.num, val); sqlStr = `SELECT num FROM t WHERE num = $1`; }
-      else if (op === 1) { dsl = ne(C.num, val); sqlStr = `SELECT num FROM t WHERE num != $1`; }
-      else if (op === 2) { dsl = gt(C.num, val); sqlStr = `SELECT num FROM t WHERE num > $1`; }
-      else if (op === 3) { dsl = gte(C.num, val); sqlStr = `SELECT num FROM t WHERE num >= $1`; }
-      else if (op === 4) { dsl = lt(C.num, val); sqlStr = `SELECT num FROM t WHERE num < $1`; }
-      else if (op === 5) { dsl = lte(C.num, val); sqlStr = `SELECT num FROM t WHERE num <= $1`; }
-      else if (op === 6) {
-        const vals = [val, val + 3]
-        dsl = inArray(C.num, vals); sqlStr = `SELECT num FROM t WHERE num = ANY($1)`; void vals
-      } else if (op === 7) { dsl = between(C.num, val, val + 4); sqlStr = `SELECT num FROM t WHERE num >= $1 AND num <= $2`; }
-      else if (op === 8) { dsl = and(eq(C.num, val), gt(C.num, val - 1)); sqlStr = `SELECT num FROM t WHERE num = $1 AND num > $2`; }
-      else if (op === 9) { dsl = or(eq(C.num, val), eq(C.num, val + 1)); sqlStr = `SELECT num FROM t WHERE num = $1 OR num = $2`; }
-      else if (op === 10) { dsl = eq(C.st, 'a'); sqlStr = `SELECT num FROM t WHERE st = $1`; }
-      else { dsl = and(contains(C.txt, '三'), eq(C.num, val)); sqlStr = `SELECT num FROM t WHERE txt ILIKE $1 AND num = $2`; }
-      const viaDsl = await sql.query.from('t').select('num').where(dsl as any).run()
-      async function viaSql() {
-        if (op === 6) {
-          const r = await mem.unsafe(`SELECT num FROM t WHERE num IN ($1, $2)`, [val, val + 3])
-          return r
-        }
-        if (op === 10) { const r = await mem.unsafe(sqlStr, ['a']); return r }
-        if (op === 11 || op === 8 || op === 9 || op === 7) {
-          const ps = op === 8 ? [val, val - 1] : op === 9 ? [val, val + 1] : op === 7 ? [val, val + 4] : [`%三%`, val]
-          const r = await mem.unsafe(sqlStr, ps)
-          return r
-        }
-        const r = await mem.unsafe(sqlStr, [val])
-        return r
-      }
-      let viaSqlRows: Row[]
-      try {
-        viaSqlRows = await viaSql()
-      } catch (e) {
-        throw new Error(`种子 ${seed} 样例 ${i}（op=${op} val=${val}）sql=${sqlStr}`) // eslint-disable-line
-      }
-      const dslNums = viaDsl.map((r: any) => r.num).sort((a, b) => Number(a) - Number(b))
-      const sqlNums = viaSqlRows.map((r: any) => r.num).sort((a, b) => Number(a) - Number(b))
-      assert.deepEqual(dslNums, sqlNums, `种子 ${seed} 样例 ${i}（op=${op} val=${val}）不等价`)
-    }
-  }
-})
-
-test('ops：fuzz escapeLike（%/_ 字面量——DSL contains vs SQL 转义）', async () => {
+test('ops：escapeLike（%/_ 字面量——DSL contains 与 SQL 转义同语义）', async () => {
   const { orm: sql, mem } = createMemoryOrm()
-  await mem.unsafe(`CREATE TABLE t2 (txt TEXT)`)
-  await mem.unsafe(`INSERT INTO t2 (txt) VALUES ('50%off'), ('50off'), ('a_b'), ('axb')`)
+  mem.applySchema({ name: 'fx2', tables: [{ name: 't2', columns: { txt: z.string() } }] })
+  await sql.query.insert('t2').rows([
+    { txt: '50%off' }, { txt: '50off' }, { txt: 'a_b' }, { txt: 'axb' },
+  ]).run()
   const dsl = await sql.query.from('t2').select('*').where(contains({ ref: 'txt', __out: '' as string }, '0%o') as any).run()
   assert.deepEqual(dsl.map((r: any) => r.txt), ['50%off'])
   const dsl2 = await sql.query.from('t2').select('*').where(contains({ ref: 'txt', __out: '' as string }, '_') as any).run()
   assert.deepEqual(dsl2.map((r: any) => r.txt), ['a_b'])
 })
-
-// 引用规避（编译面已有·防未用导入）
-void parseSqlToAst

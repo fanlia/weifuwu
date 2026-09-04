@@ -39,12 +39,6 @@ export interface PostgresOptions {
 export interface PostgresClient extends Middleware<Context, Context & PostgresInjected>, Closeable {
   /** 声明式 ORM（shape+operator+adapter——表绑定/校验/类型收窄/gql） */
   orm: Orm
-  /** 测试/播种 SQL 面（协议层——tag 模板 + unsafe——业务禁 sql：唯一入口 orm；
-   *  测试 build 表/播种/直查断言用——真库=pool 直通·memory=engine unsafe） */
-  sql: {
-    (strings: TemplateStringsArray, ...values: unknown[]): Promise<import('../db/contracts.ts').Row[]>
-    unsafe(sql: string, params?: unknown[]): Promise<import('../db/contracts.ts').Row[]>
-  }
   /** Creates the migration tracking table (_weifuwu_migrations). Called once at startup. */
   migrate: () => Promise<void>
   /** Record that a module's migration has been applied (idempotent). */

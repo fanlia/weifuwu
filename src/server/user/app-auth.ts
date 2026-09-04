@@ -16,7 +16,7 @@
  * 注：
  *   - token 由 _builtin 签发（HMAC-SHA256·共享 secret）——验签零网络
  *   - 角色变更/停用即时性：TTL 后生效（诚实边界——需即时配 verifyToken 在线校验）
- *   - ctx.user 无查库——业务需要更多面用 ctx.sql 自查（共享 DB 模式）
+ *   - ctx.user 无查库——业务需要更多面用 ctx.orm 自查（共享 DB 模式）
  */
 import type { Middleware, Context, User } from '../types.ts'
 import { verifyToken } from './token.ts'

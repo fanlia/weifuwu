@@ -114,6 +114,34 @@
   - 数字：src/server 全域 **800/800** · db 域 209/209 · tsc 0
   - 判负兑现：wire 金丝雀随文本面消亡（PgPool client 协议契约转真库 gate——推翻
     条件未触发：业务零 PgPool 直连确证）
+- **W3c 完成（parser/文本壳消亡——本批）**：
+  - 删除：sql-parser.ts（967L）/ deadlock-fuzz.test.ts（parser 契约随面消亡——git
+    历史承接）；memory-sql 文本壳（tag/unsafe/splitStatements/deriveAstCache/f1..fn
+    占位——插值路径全归 AST）；`mw.sql`（client.ts 池+内存两路径——types.ts `sql:`
+    字段删）；memory runMigration（文本 DDL）——迁移表 DDL AST 化（createTable
+    _weifuwu_migrations）；platform server.ts legacy 迁移门 `if (!POSTGRES_MEMORY)`
+  - 测试重写（fixture 全切 AST 面——`fx()` = applySchema + zod meta）：memory-semantics
+    30/30 · query-language 31/31（parseSqlToAst import 删·文本路径测删）· orm.test
+    23/23 · ops.test 6/6（fuzz SQL-track 判负删）· compile-fuzz 4/4（对账改静态
+    不变量 + memory exec——isNull+contains 直接断言修正：期望空集非 ['a_b']）·
+    user 74/74（慢执行器/计数适配器剥 `execute: mem.unsafe`——DbAdapter 面无此字段）
+    · messager / schema-ast 1 处转 AST 直执行
+  - **seed.mjs 全量迁移**（dev 工具——59 模板/unsafe 调用点 → orm AST：ins 助手
+    （rows/onConflict(EXCLUDED+merge)/returning）+ delAll（compileDelete 禁空 where
+    ——哨兵 UUID notIn 条件）+ ago(n) 时间戳 + runMigration('seed-schema') 承接
+    schema.sql DDL）——syntax-check 过（无 db 跑——播种面需真库）
+  - **showcase demo-backend 修复**：HEAD 即坏的 import（createMemorySql 已删——
+    TS2724）——改 createMemoryOrm + AST 直执行（/api/demo/sql 端点语义保持）——
+    index.ts 补导 createMemoryOrm（演示/嵌入执行入口）
+  - W3c 遗留裁剪：query.ts unionRows/derived 字段删（parser 产物——零消费者）；
+    memory insert f1..fn 占位路径删、派生表分支删；陈旧 ctx.sql 文档注记改写
+    （response/types/app-auth/client）
+  - 数字：**src/server 全域 796/796** · db 域 205/205 · 平台非 ui 451 绿（14 skip
+    docker）· **平台 ui 155/155**（重建 dist 后）· 契约层 433/433 · tsc（框架+
+    平台）0 · audit-orm 0 · 全库 grep sql 模板/unsafe/parser 零引用
+  - 判负登记：PgPool.tag/frag/begin（postgres.js 兼容驱动 API——wire 层非协议层——
+    零消费者零测试——W4 审计可再议，本波不扩疆）；pool.unsafe/query 保留（迁移
+    DDL/编译 SQL 执行面——驱动原生）
 
 ## 验收标准
 

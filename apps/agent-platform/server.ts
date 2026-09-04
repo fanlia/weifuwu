@@ -243,8 +243,9 @@ async function main() {
 
   // ── 迁移面（orm-pg-onetime-legacy 判负登记）：一次性历史迁移——DO PL/pgSQL 块 +
   //    多语句 DDL 事务面（旧 tenant→app 模型 / 约束清理 / 索引重建）——无法算子化——
-  //    runMigration 执行+记录（迁移面合法——红线针对业务查询） ──
-  await pg.runMigration('agent-platform-legacy', `
+  //    runMigration 执行+记录（迁移面合法——红线针对业务查询）——W3c：memory 无
+  //    parser——仅真库跑（memory 无旧库态——历史迁移面零消费者） ──
+  if (!process.env.POSTGRES_MEMORY) await pg.runMigration('agent-platform-legacy', `
     ALTER TABLE agents DROP CONSTRAINT IF EXISTS agents_user_id_fkey;
     DO $$
     BEGIN

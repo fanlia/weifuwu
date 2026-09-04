@@ -20,6 +20,6 @@ test('W1 等价：AST 面建库 columnTypes 对齐（memory executeDdl 吃 AST �
   const { orm, mem } = createMemoryOrm()
   for (const stmt of compileSchemaDdl(WEIFUWU_USER_SCHEMA as never)) mem.executeQuery(stmt)
   // 表存在（executeDdl 建表完成——柱状断言：agents 表建出）
-  await mem.unsafe('SELECT id FROM _weifuwu_users LIMIT 0')
+  mem.executeQuery({ kind: 'select', table: '_weifuwu_users', cols: ['id'], limit: 0 } as never)
   await orm.query.from('_weifuwu_users').limit(1).run()
 })

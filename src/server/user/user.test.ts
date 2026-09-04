@@ -76,7 +76,7 @@ describe('userSystem (memory sql)', () => {
       assert.equal(data.user.password_hash, undefined, '不返回密码哈希')
 
       // DB 里是哈希且可验证
-      const rows = await db.unsafe('SELECT password_hash FROM _weifuwu_users WHERE email = $1', [email])
+      const rows = await db.orm.query.from('_weifuwu_users').select('password_hash').where({ email: { eq: email } }).run()
       const stored = String(rows[0].password_hash)
       assert.ok(stored.startsWith('scrypt$'))
       assert.ok(!stored.includes('password123'))
@@ -211,10 +211,7 @@ describe('userSystem (memory sql)', () => {
     it('B2 过期 refresh → 401 且二次也 401（消费即吊销——不可重放）', async () => {
       const email = uniqEmail()
       const reg = await (await post('/api/auth/register', { email, password: 'password123' })).json()
-      await db.unsafe(
-        `INSERT INTO _weifuwu_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
-        [hashRefreshToken('expired-refresh-token'), reg.user.id, new Date(Date.now() - 60_000)],
-      )
+await db.orm.query.insert('_weifuwu_sessions').rows([{ token_hash: hashRefreshToken('expired-refresh-token'), user_id: reg.user.id, expires_at: new Date(Date.now() - 60_000).toISOString() }]).run()
       const r1 = await post('/api/auth/refresh', { refreshToken: 'expired-refresh-token' })
       assert.equal(r1.status, 401)
       const r2 = await post('/api/auth/refresh', { refreshToken: 'expired-refresh-token' })
@@ -244,7 +241,7 @@ describe('userSystem (memory sql)', () => {
       assert.equal(res.status, 201)
       const data = await res.json()
       assert.equal(data.user.role, null, '响应面：自赋 role 不入库')
-      const rows = await db.unsafe('SELECT role FROM _weifuwu_users WHERE email = $1', [email])
+      const rows = await db.orm.query.from('_weifuwu_users').select('role').where({ email: { eq: email } }).run()
       assert.equal(rows[0].role, null, 'DB 面：role 恒 null')
     })
   })

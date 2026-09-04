@@ -116,9 +116,9 @@ export class HttpError extends Error {
  *
  * const myMw = createMiddleware({
  *   injects: ['myField'],
- *   depends: ['sql'],
+ *   depends: ['orm'],
  *   setup: async (ctx) => {
- *     const result = await ctx.sql`SELECT ...`
+ *     const result = await ctx.orm.query.from('things').where({ kind: { eq: 'x' } }).run()
  *     return { myField: result }
  *   },
  * })

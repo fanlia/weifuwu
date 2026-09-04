@@ -83,16 +83,6 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
 
   mw.orm = orm
 
-  // 测试/播种 SQL 面（协议层——真库=pool 直通；业务禁 sql：唯一入口 orm）
-  mw.sql = (() => {
-    const tag = (strings: TemplateStringsArray, ...values: unknown[]) => {
-      const sql = strings.reduce((acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''), '')
-      return pool.unsafe(sql, values as never)
-    }
-    ;(tag as unknown as { unsafe: unknown }).unsafe = (sql: string, params?: unknown[]) => pool.unsafe(sql, (params ?? []) as never)
-    return tag as never
-  })()
-
   mw.migrate = async () => {
     await pool.unsafe(`
       CREATE TABLE IF NOT EXISTS "_weifuwu_migrations" (
@@ -139,7 +129,7 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
 
 /** PG 错误码 → HttpError 映射（框架默认，业务无需手写 catch） */
 
-/** 内存模式 PostgresClient（测试——AST 直执行零 wire；DDL/迁移走 engine.unsafe） */
+/** 内存模式 PostgresClient（测试——AST 直执行零 wire；DDL/迁移走 migrateModule AST 面） */
 function createMemoryPostgres(): PostgresClient {
   const mem = new MemorySql()
   const orm = createOrm(memoryAdapter(mem))
@@ -150,14 +140,16 @@ function createMemoryPostgres(): PostgresClient {
   }) as unknown as PostgresClient
   mw.__meta = { injects: ['orm'], depends: [] }
   mw.orm = orm
-  mw.sql = (() => {
-    const tag = (strings: TemplateStringsArray, ...values: unknown[]) => mem.tag(strings, values)
-    ;(tag as unknown as { unsafe: unknown }).unsafe = (sql: string, params: unknown[] = []) => mem.unsafe(sql, params)
-    return tag as never
-  })()
 
   mw.migrate = async () => {
-    await mem.unsafe('CREATE TABLE IF NOT EXISTS "_weifuwu_migrations" (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')
+    // W3c：文本面删净——迁移表 DDL AST 化（协议层 = AST——memory 零 parse）
+    mem.executeQuery({
+      kind: 'ddl', op: 'createTable', table: '_weifuwu_migrations', ifNotExists: true,
+      columns: [
+        { name: 'name', type: 'TEXT', pk: true, unique: false, defaultNow: false, defaultUuid: false, nullable: false },
+        { name: 'applied_at', type: 'TIMESTAMPTZ', pk: false, unique: false, defaultNow: true, defaultUuid: false, nullable: false },
+      ],
+    } as never)
   }
   mw.markMigrated = async (moduleName: string) => {
     applied.add(moduleName)
@@ -165,17 +157,14 @@ function createMemoryPostgres(): PostgresClient {
   mw.isMigrated = async (moduleName: string): Promise<boolean> => {
     if (applied.has(moduleName)) return true
     try {
-      const rows = await mem.unsafe('SELECT name FROM "_weifuwu_migrations" WHERE name = $1', [moduleName])
+      const rows = mem.executeQuery({ kind: 'select', table: '_weifuwu_migrations', cols: ['name'], where: { name: { eq: moduleName } } } as never)
       return rows.length > 0
     } catch {
       return false // 迁移表未建（pg.migrate() 未跑）——视为未迁移（对齐真库测试残余语义）
     }
   }
-  mw.runMigration = async (name: string, sql: string): Promise<void> => {
-    if (await mw.isMigrated(name)) return
-    await mem.unsafe(sql)
-    applied.add(name)
-  }
+  // runMigration（文本 DDL）——memory 面无（W3c parser 消亡）；迁移文本面归真库（DO 块
+  // 判负——迁移面合法）；memory 无旧库态——migrateModule（AST）即全部
   mw.migrateModule = async <M extends SchemaModule>(name: string, mod: M): Promise<void> => {
     // memory：DDL AST 直执行（零 parse——协议层 = AST）
     for (const stmt of compileSchemaDdl(mod)) mem.executeQuery(stmt)

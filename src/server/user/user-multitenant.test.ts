@@ -152,7 +152,6 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
         )
       const slowOrm = createOrm({
         executeQuery: (q) => slowExec(q),
-        execute: (s: string, p?: unknown[]) => (mem as any).unsafe(s, p),
       } as never)
       mem.applySchema(WEIFUWU_USER_SCHEMA)
       const slowUsers = userSystem({ orm: slowOrm, secret })
@@ -359,10 +358,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `rf2-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
       const member = await (await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: 'password123' })).json()
-      await db.unsafe(
-        `UPDATE _weifuwu_app_members SET role = 'admin' WHERE app_id = $1 AND user_id = $2`,
-        [app.id, member.user.id],
-      )
+      await db.orm.query.update('_weifuwu_app_members').set({ role: 'admin' }).where({ app_id: { eq: app.id }, user_id: { eq: member.user.id } }).run()
       const rf = await (await post('/api/auth/refresh', { refreshToken: member.refreshToken })).json()
       assert.equal(verifyToken(rf.token, secret)!.role, 'admin')
     })
@@ -371,10 +367,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const owner = await registerPlatform()
       const { app } = await (await post('/api/auth/apps', { slug: `rf3-${uniq()}`, name: 'A', openRegistration: true }, owner.token)).json()
       const member = await (await post(`/api/auth/apps/${app.slug}/auth/register`, { email: uniqEmail(), password: 'password123' })).json()
-      await db.unsafe(
-        `DELETE FROM _weifuwu_app_members WHERE app_id = $1 AND user_id = $2`,
-        [app.id, member.user.id],
-      )
+      await db.orm.query.delete('_weifuwu_app_members').where({ app_id: { eq: app.id }, user_id: { eq: member.user.id } }).run()
       const rfRes = await post('/api/auth/refresh', { refreshToken: member.refreshToken })
       assert.equal(rfRes.status, 200)
       const rf = await rfRes.json()
@@ -404,7 +397,6 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       }
       const countingOrm = createOrm({
         executeQuery: (q: never) => countingExec(q),
-        execute: (s: string, p?: unknown[]) => (mem as any).unsafe(s, p),
       } as never)
       mem.applySchema(WEIFUWU_USER_SCHEMA)
       const countingUsers = userSystem({ orm: countingOrm, secret })
@@ -452,7 +444,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       assert.equal(data.user.email, email)
       // 定案（V4）：一切注册必经 _builtin——应用管理面入册（身份即资格——
       // 只有 _builtin 成员能 createApp）——注册用户挂 member（管理面身份）
-      const [m] = await db.unsafe(`SELECT role, source FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [data.user.id])
+      const [m] = await db.orm.query.from('_weifuwu_app_members').select('role', 'source').where({ user_id: { eq: data.user.id }, app_id: { eq: '00000000-0000-4000-8000-0000000000b1' } }).run()
       assert.equal(m.role, 'member', '_builtin 管理面身份')
       assert.equal(m.source, 'register')
     })
@@ -613,7 +605,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const handler = p.handler()
       const res = await handler(new Request(`http://localhost/api/auth/apps/_builtin/auth/sso/callback?code=abc&state=myapp`), mkCtx())
       const payload = await res.json()
-      const [m] = await db.unsafe(`SELECT role, source FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = $2`, [payload.user.id, ownerReg.app.id])
+      const [m] = await db.orm.query.from('_weifuwu_app_members').select('role', 'source').where({ user_id: { eq: payload.user.id }, app_id: { eq: ownerReg.app.id } }).run()
       assert.ok(m, 'SSO 自动加成员')
       assert.equal(m.role, 'member')
       assert.equal(m.source, 'sso', '来源标记 SSO')
@@ -672,7 +664,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       assert.equal(r2.owner, r1.owner, 'owner 保持')
       assert.equal(r2.admins.length, 3, '新增第三个 admin·既有不变')
       // 成员面
-      const rows = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE app_id = '00000000-0000-4000-8000-0000000000b1' ORDER BY role`)
+      const rows = await db.orm.query.from('_weifuwu_app_members').select('role').where({ app_id: { eq: '00000000-0000-4000-8000-0000000000b1' } }).orderBy('role').run()
       const roles = rows.map((r: any) => r.role)
       assert.equal(roles.filter((r: string) => r === 'owner').length, 1, 'owner 唯一')
       assert.equal(roles.filter((r: string) => r === 'admin').length, 3)
@@ -729,12 +721,12 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('migrate 建 _default（幂等·owner 空）· seed 首 owner 自动关联 _default', async () => {
       const h = userSystem({ orm: db.orm, secret })
       await h.migrate()
-      const [defApp] = await db.unsafe(`SELECT id, open_registration FROM _weifuwu_apps WHERE slug = '_default'`)
+      const [defApp] = await db.orm.query.from('_weifuwu_apps').select('id', 'open_registration').where({ slug: { eq: '_default' } }).run()
       assert.ok(defApp, '_default 存在')
       assert.equal(defApp.open_registration, false, '_default 默认不开放')
       const r = await h.seedBuiltinOwners(['sup@sys.test'])
       assert.ok(r.owner, '首 owner')
-      const [rel] = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE app_id = $1 AND user_id = $2`, [defApp.id, r.owner])
+      const [rel] = await db.orm.query.from('_weifuwu_app_members').select('role').where({ app_id: { eq: defApp.id }, user_id: { eq: r.owner } }).run()
       assert.equal(rel.role, 'owner', '超级管理员关联 _default（owner）')
     })
 
@@ -742,7 +734,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const h = userSystem({ orm: db.orm, secret })
       await h.migrate()
       // 直接插一个无 _builtin 成员的用户（模拟历史异常数据——migrate 补挂前的场景）
-      const [raw] = await db.unsafe(`INSERT INTO _weifuwu_users (email, password_hash) VALUES ($1, 'x') RETURNING id`, [`raw-${uniq()}@x.test`])
+      const [raw] = await db.orm.query.insert('_weifuwu_users').rows([{ email: `raw-${uniq()}@x.test`, password_hash: 'x' }]).returning('id').run()
       const p = new Router(); p.use(h); h.routes(p)
       const handler = p.handler()
       // 绕过认证直接调 AuthApi（构造 ctx）
@@ -756,7 +748,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
 
     it('register（纯账号）也入册 _builtin（一切注册必经管理面）', async () => {
       const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
-      const [m] = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [reg.user.id])
+      const [m] = await db.orm.query.from('_weifuwu_app_members').select('role').where({ user_id: { eq: reg.user.id }, app_id: { eq: '00000000-0000-4000-8000-0000000000b1' } }).run()
       assert.equal(m.role, 'member')
     })
 
@@ -765,9 +757,9 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       await h.migrate()
       const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
       // 模拟存量：删除其 _builtin 成员行 → 再 migrate → 补回
-      await db.unsafe(`DELETE FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [reg.user.id])
+      await db.orm.query.delete('_weifuwu_app_members').where({ user_id: { eq: reg.user.id }, app_id: { eq: '00000000-0000-4000-8000-0000000000b1' } }).run()
       await h.migrate()
-      const [m] = await db.unsafe(`SELECT role, source FROM _weifuwu_app_members WHERE user_id = $1 AND app_id = '00000000-0000-4000-8000-0000000000b1'`, [reg.user.id])
+      const [m] = await db.orm.query.from('_weifuwu_app_members').select('role', 'source').where({ user_id: { eq: reg.user.id }, app_id: { eq: '00000000-0000-4000-8000-0000000000b1' } }).run()
       assert.equal(m.role, 'member')
       assert.equal(m.source, 'migrate')
     })
@@ -783,8 +775,8 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const joinEmail = uniqEmail()
       const join = await post(`/api/auth/apps/${app.slug}/auth/register`, { email: joinEmail, password: 'password123', name: 'J', inviteToken: invToken })
       assert.equal(join.status, 201)
-      const [u] = await db.unsafe(`SELECT id FROM _weifuwu_users WHERE email = $1`, [joinEmail])
-      const [m] = await db.unsafe(`SELECT role FROM _weifuwu_app_members WHERE app_id = '00000000-0000-4000-8000-0000000000b1' AND user_id = $1`, [u.id])
+      const [u] = await db.orm.query.from('_weifuwu_users').select('id').where({ email: { eq: joinEmail } }).run()
+      const [m] = await db.orm.query.from('_weifuwu_app_members').select('role').where({ app_id: { eq: '00000000-0000-4000-8000-0000000000b1' }, user_id: { eq: u.id } }).run()
       assert.equal(m.role, 'member', '邀请加入也入册管理面')
     })
 
@@ -816,7 +808,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const app = owner.app
       const res = await fetchRoute('PATCH', `/api/auth/apps/${app.slug}/auth/registration`, owner.token, { open: true })
       assert.equal(res.status, 200)
-      const [row] = await db.unsafe(`SELECT open_registration FROM _weifuwu_apps WHERE id = $1`, [app.id])
+      const [row] = await db.orm.query.from('_weifuwu_apps').select('open_registration').where({ id: { eq: app.id } }).run()
       assert.equal(row.open_registration, true)
       // _builtin 恒 false
       const res2 = await fetchRoute('PATCH', '/api/auth/apps/_builtin/auth/registration', owner.token, { open: true })
@@ -828,26 +820,26 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
   describe('迁移', () => {
     it('migrate 幂等 + 新表存在（apps / app_members）', async () => {
       await users.migrate()
-      const t = await db.unsafe('SELECT * FROM _weifuwu_apps LIMIT 0')
-      const m = await db.unsafe('SELECT * FROM _weifuwu_app_members LIMIT 0')
+      const t = await db.orm.query.from('_weifuwu_apps').limit(0).run()
+      const m = await db.orm.query.from('_weifuwu_app_members').limit(0).run()
       assert.ok(Array.isArray(t), '_weifuwu_apps 表存在')
       assert.ok(Array.isArray(m), '_weifuwu_app_members 表存在')
     })
 
     it('V2 _builtin 系统应用：migrate 幂等建 + 无 owner（系统应用本体）', async () => {
       await users.migrate()
-      const rows = await db.unsafe(`SELECT id, slug, owner_user_id FROM _weifuwu_apps WHERE slug = '_builtin'`)
+      const rows = await db.orm.query.from('_weifuwu_apps').select('id', 'slug', 'owner_user_id').where({ slug: { eq: '_builtin' } }).run()
       assert.equal(rows.length, 1, '_builtin 恰一行')
       assert.equal(rows[0].owner_user_id, null, '系统应用无自然人 owner')
       // 幂等：再次 migrate 不重复
       await users.migrate()
-      const again = await db.unsafe(`SELECT id FROM _weifuwu_apps WHERE slug = '_builtin'`)
+      const again = await db.orm.query.from('_weifuwu_apps').select('id').where({ slug: { eq: '_builtin' } }).run()
       assert.equal(again.length, 1, 'migrate 幂等——_builtin 唯一')
     })
 
     it('V2 members 元数据列：source + last_login_at（migrate 幂等补列）', async () => {
       await users.migrate()
-      const cols = await db.unsafe('SELECT source, last_login_at FROM _weifuwu_app_members LIMIT 0')
+      const cols = await db.orm.query.from('_weifuwu_app_members').select('source', 'last_login_at').limit(0).run()
       assert.ok(Array.isArray(cols), '成员表可读（列存在——source/last_login_at）')
     })
   })

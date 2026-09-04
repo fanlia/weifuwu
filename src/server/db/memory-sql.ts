@@ -1,19 +1,14 @@
 /**
- * weifuwu/db — MemorySql：内存版 Postgres（实现契约 Sql 接口）
+ * weifuwu/db — MemorySql：内存版 Postgres 引擎（协议层 = AST——无 SQL 文本面）
  *
- * 用法：createMemorySql() 返回 callable Sql（与 makeSql(PgPool) 同构）——
- * 开发 / 测试 / 单实例部署（无 postgres 依赖），userSystem / messager 参数直接替换。
- * MemorySql class 是内部引擎（非 callable）；工厂包装为标签模板可调用对象。
+ * 用法：createMemoryOrm() → { orm, mem, close }——mem.executeQuery(ast) 直执行
+ * （开发 / 测试 / 单实例部署；userSystem / messager 参数直接替换）。
  *
- * 支持 SQL 子集（参数化 + 字面量）：
- *   SELECT * FROM t [WHERE col op $n [AND ...]] [LIMIT n]
- *   INSERT INTO t (c1, ...) VALUES ($1, ...) [RETURNING *]
- *   UPDATE t SET c1 = $1, ... [WHERE ...]
- *   DELETE FROM t [WHERE ...]
- *   WHERE op: = != <> > < >= <= IN（值 = 参数 $n 或字面量；AND 连接）
+ * 执行面（Query AST——与 compileQuery 同构）：
+ *   select（where/joins/groupBy/having/orderBy/limit/count/aggregate/vectorScore）
+ *   insert（多行/returning/onConflict）· update · delete · ddl（createTable/alterTable）
  *
- * 诚实裁剪（CS-05）：不支持的 SQL（JOIN/ORDER BY/GROUP BY/子查询/DDL 等）
- * 抛 ProtocolError('unsupported')——绝不静默降级或假装执行。
+ * 诚实裁剪（CS-05）：不支持的 AST 形态抛 ProtocolError——绝不静默降级。
  * ⚠️ 仅供开发/测试/单实例——持久化/并发/事务由真实 Postgres 承担（文档红线）。
  */
 import { randomUUID } from 'node:crypto'
@@ -24,7 +19,6 @@ import type { Query, SelectQuery, WhereExpr, RawSql, ColOps } from './query.ts'
 import { createQueryBuilder } from './query-builder.ts'
 import { zodTypeOf } from './schema.ts'
 import type { ZodType } from '../../shared/zod.ts'
-import { parseSqlToAst, parseWhereToExpr } from './sql-parser.ts'
 import { createOrm, memoryAdapter } from './orm.ts'
 
 interface MemoryTable {
@@ -67,49 +61,8 @@ export class MemorySql {
   private tables = new Map<string, MemoryTable>()
   /** CREATE TYPE AS ENUM 注册（幂等——DO 块 EXCEPTION duplicate_object 语义） */
   private enums = new Map<string, string[]>()
-  /** 派生表 AST 缓存（同 innerSql 不重复 parse——执行路径热缓存） */
-  private derivedAstCache = new Map<string, import('./query.ts').Query>()
 
-  /** 标签模板 → 参数化 SQL（values 顺序即 $1..$n） */
-  async tag(strings: TemplateStringsArray, values: unknown[]): Promise<Row[]> {
-    const sql = strings.reduce((acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''), '')
-    return this.unsafe(sql, values)
-  }
-
-  async unsafe(sql: string, params: unknown[] = []): Promise<Row[]> {
-    // 事务原语：内存自动提交（无真实事务边界）——BEGIN/COMMIT/ROLLBACK no-op
-    const head = sql.trim().toUpperCase()
-    if (head === 'BEGIN' || head === 'COMMIT' || head === 'ROLLBACK' || head === 'END') {
-      return makeResult([], 0)
-    }
-    // 多语句拆分：schema.sql 整文件（; 分隔·字符串/DO 块/注释感知）——逐条执行
-    // （真 PG 多语句 = 最后结果——内存同语义；DDL 副作用顺序保留）
-    const stmts = splitStatements(sql)
-    if (stmts.length > 1) {
-      let last: Row[] = makeResult([], 0)
-      for (const stmt of stmts) {
-        if (!stmt.trim()) continue
-        last = await this.unsafe(stmt, params)
-      }
-      return last
-    }
-    // sql.array() 标记：展开为字面量集合（内存端 ANY($n::uuid[]) 语义 = 参数值 IN 集合）
-    params = params.map((p) => (p as { __pgArray?: unknown[] } | null)?.__pgArray ?? p)
-    // 内存 parser 不支持数组类型 cast（::uuid[] 的 [）——剥 []（元素类型 cast 保留：
-    // 内存语义 = 参数值直比，类型定型由值本身承载）
-    if (sql.includes('[]')) sql = sql.replace(/::([a-zA-Z_]+)\[\]/g, '::$1')
-    try {
-      // SQL 字符串 → Parser → Query Language AST → 内存直执行（单条执行路径）
-      const ast = parseSqlToAst(sql, params)
-      return this.executeQuery(ast)
-    } catch (e) {
-      // PG 错误码映射（对齐 makeSql wrapError）——唯一冲突 23505 → 409
-      const code = (e as { code?: string })?.code
-      if (code === '23505') throw new HttpError(`数据库错误: ${(e as Error).message}`, 409)
-      throw e
-    }
-  }
-
+  /** 标签模板 → 参数化 SQL（values 顺序即 $1..$n）——W3c：文本面删净——仅 AST 执行 */
   async close(): Promise<void> {
     // 内存无连接资源——no-op（幂等）
   }
@@ -184,34 +137,6 @@ export class MemorySql {
       const n = q.where ? t.rows.filter((r) => matchWhereExpr(r, q.where!, q.alias)).length : t.rows.length
       const colName = (q.cols?.[0] as string | undefined) ?? 'count'
       return makeResult([{ [colName]: n }], 1)
-    }
-    // 常量投影/UNION（无 FROM——SQL parser 产出）
-    if (q.unionRows && q.table === '') {
-      return makeResult(q.unionRows.map((r) => ({ ...r })), q.unionRows.length)
-    }
-    // 派生表（FROM (SELECT ...) t——parser 递归解析内层；AST 缓存）
-    if (q.derived && q.table === '') {
-      let innerAst = this.derivedAstCache.get(q.derived.innerSql)
-      if (!innerAst) {
-        innerAst = parseSqlToAst(q.derived.innerSql)
-        this.derivedAstCache.set(q.derived.innerSql, innerAst)
-      }
-      const inner = this.executeQuery(innerAst)
-      const alias = q.derived.alias
-      let rows: Row[] = inner.map((r) => {
-        if (!alias) return { ...r }
-        const out: Row = {}
-        for (const [k, v] of Object.entries(r)) out[`${alias}.${k}`] = v
-        return out
-      })
-      if (q.derived.where) {
-        const w = q.derived.where
-        if (/^1\s*=\s*0$/.test(w)) rows = []
-        else if (w.trim()) {
-          try { rows = rows.filter((r) => matchWhereExpr(r, parseWhereToExpr(w, []))) } catch { /* 裁剪 */ }
-        }
-      }
-      return makeResult(rows.map((r) => ({ ...r })), rows.length)
     }
     // JOIN 笛卡尔积 + on 过滤（内存 INNER/LEFT）
     let rows: Row[] = this.table(q.table).rows
@@ -378,16 +303,9 @@ export class MemorySql {
     const t = this.table(q.table)
     const results: Row[] = []
     let inserted = 0
-    // 无列名 INSERT（parser 占位 f1..fn）→ 按表列序映射
-    const fPlaceholder = q.rows.some((r) => Object.keys(r).every((k) => /^f\d+$/.test(k)))
     const mapped = q.rows.map((r) => {
-      if (!fPlaceholder || !t.columns.length) return r
-      const out: Row = {}
-      for (const [k, v] of Object.entries(r)) {
-        const idx = Number(k.slice(1)) - 1
-        out[t.columns[idx] ?? k] = v
-      }
-      return out
+      // AST 面：行对象键 = 列名（无列名占位 f1..fn 是 parser 产物——W3c 已消亡）
+      return { ...r }
     })
     for (const row of mapped) {
       // 插入显式列集（默认注入前捕获——DO UPDATE 只更新显式列，对齐 compile cols）
@@ -737,65 +655,7 @@ export function dateExprValue(v: unknown): unknown {
   return v
 }
 
-function splitStatements(sql: string): string[] {
-  const out: string[] = []
-  let buf = ''
-  let i = 0
-  const n = sql.length
-  let depth = 0
-  while (i < n) {
-    const c = sql[i]
-    const two = sql.slice(i, i + 2)
-    // -- 行注释（——到行尾）
-    if (two === '--') {
-      while (i < n && sql[i] !== '\n') i++
-      continue
-    }
-    // /* 块注释 */
-    if (two === '/*') {
-      i += 2
-      while (i < n && sql.slice(i, i + 2) !== '*/') i++
-      i += 2
-      continue
-    }
-    // ' 字符串（'' 转义）
-    if (c === "'") {
-      buf += c
-      i++
-      while (i < n) {
-        buf += sql[i]
-        if (sql[i] === "'" && sql[i + 1] === "'") { i++; buf += sql[i]; i++; continue }
-        if (sql[i] === "'") { i++; break }
-        i++
-      }
-      continue
-    }
-    // $$ DO 块（到 END $$ 结束——内部 ; 不拆）
-    if (two === '$$') {
-      buf += two
-      i += 2
-      while (i < n && sql.slice(i, i + 2) !== '$$') {
-        if (sql[i] === ';') buf += ';'
-        else buf += sql[i]
-        i++
-      }
-      if (i < n) { buf += '$$'; i += 2 }
-      continue
-    }
-    if (c === '(' || c === '[') depth++
-    if (c === ')' || c === ']') depth--
-    if (c === ';' && depth <= 0) {
-      out.push(buf.trim())
-      buf = ''
-      i++
-      continue
-    }
-    buf += c
-    i++
-  }
-  if (buf.trim()) out.push(buf.trim())
-  return out
-}
+
 
 /** raw 标签模板（值按 $n 顺序参数化） */
 function rawSqlImpl(strings: TemplateStringsArray, values: unknown[]): RawSql {
@@ -995,16 +855,12 @@ function deepEq(a: unknown, b: unknown): boolean {
   return false
 }
 
-/** MemorySql 工厂：类不可 callable——工厂包装为 callable Sql（与 makeSql(PgPool) 同构） */
 /** 内存 ORM（测试装配——orm 面直执行；close 释放） */
-export function createMemoryOrm(engine?: MemorySql): { orm: import('./orm.ts').Orm; mem: MemorySql; unsafe: (s: string, p?: unknown[]) => Promise<Row[]>; close: () => Promise<void> } {
+export function createMemoryOrm(engine?: MemorySql): { orm: import('./orm.ts').Orm; mem: MemorySql; close: () => Promise<void> } {
   const mem = engine ?? new MemorySql()
   return {
     orm: createOrm(memoryAdapter(mem)),
     mem,
-    unsafe: (s: string, p?: unknown[]) => mem.unsafe(s, p),
     close: async () => mem.close(),
   }
 }
-
-/** @deprecated 删除的 Sql 面——测试请改用 createMemoryOrm（.orm.query / .mem.unsafe） */

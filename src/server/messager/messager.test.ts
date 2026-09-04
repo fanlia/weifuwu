@@ -95,8 +95,8 @@ describe('messager core (memory sql)', () => {
     assert.equal(page3[0].content, 'msg-0')
   })
 
-  // 会话列表（last_message/unread_count 聚合）保留真库 unsafe 优化 SQL——
-  // 由 messager-routes 真库测试覆盖（JOIN + 标量子查询 + COALESCE 超出内存子集——诚实裁剪）
+  // 会话列表（last_message/unread_count 聚合）——JOIN + 标量子查询超出内存子集（诚实
+  // 裁剪）——由 messager-routes 真库测试覆盖（AST 面 compile 产物——非文本 SQL）
 
   it('编辑消息（edited_at 写入，内容更新）', async () => {
     const a = uid(), b = uid()
@@ -142,7 +142,6 @@ describe('messager core (memory sql)', () => {
         execs++
         return mem.executeQuery(q)
       },
-      execute: (s: string, p?: unknown[]) => (mem as unknown as { unsafe(s: string, p?: unknown[]): Promise<unknown[]> }).unsafe(s, p),
     } as never
     mem.applySchema(WEIFUWU_MESSAGER_SCHEMA)
     const txOrm = createOrm(countingAdapter)

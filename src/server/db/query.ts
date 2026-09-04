@@ -114,10 +114,6 @@ export interface SelectQuery {
   /** pgvector 相似度排序（列投影：`1 - (col <=> vec) as as` + ORDER BY col <=> vec）——
    *  平台知识检索唯一向量面（业务零 SQL——向量为 pgvector 特化存储） */
   vector?: { col: string; vec: number[]; as: string }
-  /** 内存执行扩展：常量投影/UNION 行（SQL parser 产出——无表查询） */
-  unionRows?: Row[]
-  /** 内存执行扩展：派生表（FROM (SELECT ...) alias——parser 产出） */
-  derived?: { innerSql: string; alias?: string; where?: string }
 }
 
 export interface InsertQuery {
